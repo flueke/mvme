@@ -1,0 +1,353 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>TwoDimWidget</class>
+ <widget class="QWidget" name="TwoDimWidget">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1025</width>
+    <height>698</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>ID #0, Chan #0</string>
+  </property>
+  <layout class="QHBoxLayout" name="horizontalLayout">
+   <item>
+    <widget class="QwtPlot" name="mainPlot"/>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="groupBox">
+     <property name="title">
+      <string>Display Settings</string>
+     </property>
+     <widget class="QLabel" name="label">
+      <property name="geometry">
+       <rect>
+        <x>10</x>
+        <y>140</y>
+        <width>50</width>
+        <height>16</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Channel</string>
+      </property>
+     </widget>
+     <widget class="QSpinBox" name="channelBox">
+      <property name="geometry">
+       <rect>
+        <x>60</x>
+        <y>140</y>
+        <width>43</width>
+        <height>22</height>
+       </rect>
+      </property>
+      <property name="maximum">
+       <number>127</number>
+      </property>
+     </widget>
+     <widget class="QLabel" name="label_2">
+      <property name="geometry">
+       <rect>
+        <x>10</x>
+        <y>120</y>
+        <width>44</width>
+        <height>16</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Module</string>
+      </property>
+     </widget>
+     <widget class="QSpinBox" name="moduleBox">
+      <property name="geometry">
+       <rect>
+        <x>60</x>
+        <y>120</y>
+        <width>43</width>
+        <height>22</height>
+       </rect>
+      </property>
+      <property name="maximum">
+       <number>31</number>
+      </property>
+     </widget>
+     <widget class="QGroupBox" name="groupBox_2">
+      <property name="geometry">
+       <rect>
+        <x>10</x>
+        <y>50</y>
+        <width>103</width>
+        <height>61</height>
+       </rect>
+      </property>
+      <property name="title">
+       <string/>
+      </property>
+      <widget class="QRadioButton" name="dispLin">
+       <property name="geometry">
+        <rect>
+         <x>10</x>
+         <y>10</y>
+         <width>100</width>
+         <height>21</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>lin</string>
+       </property>
+       <property name="checked">
+        <bool>true</bool>
+       </property>
+       <attribute name="buttonGroup">
+        <string notr="true">linLogGroup</string>
+       </attribute>
+      </widget>
+      <widget class="QRadioButton" name="dispLog">
+       <property name="geometry">
+        <rect>
+         <x>10</x>
+         <y>30</y>
+         <width>100</width>
+         <height>21</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>log</string>
+       </property>
+       <attribute name="buttonGroup">
+        <string notr="true">linLogGroup</string>
+       </attribute>
+      </widget>
+     </widget>
+     <widget class="QLabel" name="label_3">
+      <property name="geometry">
+       <rect>
+        <x>20</x>
+        <y>190</y>
+        <width>57</width>
+        <height>14</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Mean:</string>
+      </property>
+     </widget>
+     <widget class="QLabel" name="label_4">
+      <property name="geometry">
+       <rect>
+        <x>20</x>
+        <y>230</y>
+        <width>57</width>
+        <height>14</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Sigma:</string>
+      </property>
+     </widget>
+     <widget class="QLabel" name="meanval">
+      <property name="geometry">
+       <rect>
+        <x>20</x>
+        <y>210</y>
+        <width>57</width>
+        <height>14</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>0</string>
+      </property>
+     </widget>
+     <widget class="QLabel" name="sigmaval">
+      <property name="geometry">
+       <rect>
+        <x>20</x>
+        <y>250</y>
+        <width>57</width>
+        <height>14</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>0</string>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="clearButton">
+      <property name="geometry">
+       <rect>
+        <x>10</x>
+        <y>450</y>
+        <width>95</width>
+        <height>23</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Clear</string>
+      </property>
+     </widget>
+     <widget class="QLabel" name="countval">
+      <property name="geometry">
+       <rect>
+        <x>20</x>
+        <y>290</y>
+        <width>57</width>
+        <height>14</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>0</string>
+      </property>
+     </widget>
+     <widget class="QLabel" name="label_5">
+      <property name="geometry">
+       <rect>
+        <x>20</x>
+        <y>270</y>
+        <width>57</width>
+        <height>14</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Counts:</string>
+      </property>
+     </widget>
+     <widget class="QLabel" name="label_6">
+      <property name="geometry">
+       <rect>
+        <x>20</x>
+        <y>310</y>
+        <width>71</width>
+        <height>16</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Maximum:</string>
+      </property>
+     </widget>
+     <widget class="QLabel" name="maxval">
+      <property name="geometry">
+       <rect>
+        <x>20</x>
+        <y>330</y>
+        <width>57</width>
+        <height>16</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>0</string>
+      </property>
+     </widget>
+     <widget class="QLabel" name="label_7">
+      <property name="geometry">
+       <rect>
+        <x>20</x>
+        <y>350</y>
+        <width>71</width>
+        <height>16</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>at Channel:</string>
+      </property>
+     </widget>
+     <widget class="QLabel" name="maxpos">
+      <property name="geometry">
+       <rect>
+        <x>20</x>
+        <y>370</y>
+        <width>57</width>
+        <height>14</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>0</string>
+      </property>
+     </widget>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>QwtPlot</class>
+   <extends>QFrame</extends>
+   <header>qwt_plot.h</header>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>linLogGroup</sender>
+   <signal>buttonClicked(int)</signal>
+   <receiver>TwoDimWidget</receiver>
+   <slot>displaychanged()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>-1</x>
+     <y>-1</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>512</x>
+     <y>347</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>channelBox</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>TwoDimWidget</receiver>
+   <slot>displaychanged()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1006</x>
+     <y>144</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>512</x>
+     <y>347</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>moduleBox</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>TwoDimWidget</receiver>
+   <slot>displaychanged()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1006</x>
+     <y>145</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>512</x>
+     <y>347</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>clearButton</sender>
+   <signal>clicked()</signal>
+   <receiver>TwoDimWidget</receiver>
+   <slot>clearHist()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>955</x>
+     <y>675</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>1026</x>
+     <y>439</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+ <slots>
+  <slot>displaychanged()</slot>
+  <slot>clearHist()</slot>
+ </slots>
+ <buttongroups>
+  <buttongroup name="linLogGroup"/>
+ </buttongroups>
+</ui>
