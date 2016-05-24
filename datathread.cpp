@@ -80,6 +80,7 @@ void DataThread::stopDataTimer(void)
 
 void DataThread::startReading()
 {
+#ifdef VME_CONTROLLER_CAEN
     // stop acquisition
     myCu->vmeWrite16(0x603A, 0);
     // clear FIFO
@@ -88,12 +89,18 @@ void DataThread::startReading()
     myCu->vmeWrite16(0x603A, 1);
     // readout reset
     myCu->vmeWrite16(0x6034, 1);
+#else
+
+#endif
 }
 
 void DataThread::stopReading()
 {
+#ifdef VME_CONTROLLER_CAEN
     myCu->vmeWrite16(0x603A, 0);
     myCu->vmeWrite16(0x603C, 1);
+#else
+#endif
 }
 
 void DataThread::setRingbuffer(quint32 *buffer)
@@ -139,6 +146,7 @@ void DataThread::initBuffers()
 
 quint32 DataThread::readData()
 {
+#ifdef VME_CONTROLLER_CAEN
     quint16 ret;
     quint8 irql;
     quint16 count = readlen*4;
@@ -166,18 +174,23 @@ quint32 DataThread::readData()
     else
         offset = 0;
     return offset;
+#else
+#endif
 }
 
-void DataThread::setVu(vmUsb *vu)
-{
-    myVu = vu;
-}
-
+#ifdef VME_CONTROLLER_CAEN
 void DataThread::setCu(caenusb *cu)
 {
     myCu = cu;
 }
+#else
+void DataThread::setVu(vmUsb *vu)
+{
+    myVu = vu;
+}
+#endif
 
+#if 0
 quint32 DataThread::readFifoDirect(quint16 base, quint16 len, quint32 *data)
 {
     long longVal;
@@ -188,6 +201,7 @@ quint32 DataThread::readFifoDirect(quint16 base, quint16 len, quint32 *data)
     }
     return i;
 }
+#endif
 
 bool DataThread::checkData()
 {
@@ -258,7 +272,6 @@ void DataThread::analyzeBuffer(quint8 type)
             s.append(s2);
         }
 
-/*
     // next should be mesytec event headers:
     dataBuffer[mBufPointer] = sDataBuffer[rp] + 0x10000 * sDataBuffer[rp+1];
 //	qDebug("header: %08x", dataBuffer[mBufPointer]);

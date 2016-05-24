@@ -11,6 +11,8 @@ greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 TARGET = mvme2
 TEMPLATE = app
 
+QMAKE_CXXFLAGS += -Wno-unused -Wno-format
+
 
 SOURCES += main.cpp\
         mvme.cpp \

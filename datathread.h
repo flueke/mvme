@@ -15,9 +15,15 @@ public:
     ~DataThread();
     void initBuffers();
     quint32 readData();
-    void setVu(vmUsb* vu);
+#ifdef VME_CONTROLLER_CAEN
     void setCu(caenusb *cu);
+#else
+    void setVu(vmUsb* vu);
+#endif
+
+#if 0
     quint32 readFifoDirect(quint16 base, quint16 len, quint32* data);
+#endif
 //    quint32 readBlt32(quint16 base, quint16 len, quint32* data);
     void analyzeBuffer(quint8 type);
 
@@ -41,7 +47,7 @@ protected:
     QTimer* dataTimer;
     mvme* myMvme;
     vmUsb* myVu;
-    caenusb* myCu;
+    //caenusb* myCu;
 
     quint32* dataBuffer;
 

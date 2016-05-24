@@ -44,7 +44,7 @@ public:
     Histogram* getHist();
 
     vmUsb* vu;
-    caenusb* cu;
+    //caenusb* cu;
     mvmeControl *mctrl;
     DataThread *dt;
     DataCruncher *dc;

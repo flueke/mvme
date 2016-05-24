@@ -46,22 +46,22 @@ mvme::mvme(QWidget *parent) :
 
     // check and initialize VME interface
     vu = new vmUsb;
-    //cu = new caenusb();
-
-    //cu->openUsbDevice();
     vu->getUsbDevices();
-    vu->openUsbDevice();
-
-    qDebug("found caen device");
-
-//        return;
-
-
-    // set default values
-    vu->initialize();
+    if (!vu->openUsbDevice()) {
+      qDebug("No VM USB controller found");
+      return;
+    }
 
     // read current configuration
     vu->readAllRegisters();
+
+    //cu = new caenusb();
+    //cu->openUsbDevice();
+    //cu->openUsbDevice();
+
+    // set default values
+    //cu->initialize();
+
 
     drawTimer = new QTimer(this);
     connect(drawTimer, SIGNAL(timeout()), SLOT(drawTimerSlot()));
@@ -248,6 +248,7 @@ bool mvme::createHistograms()
 bool mvme::clearAllHist()
 {
     m_histogram[0]->clearHistogram();
+    return true;
 }
 
 Histogram *mvme::getHist()

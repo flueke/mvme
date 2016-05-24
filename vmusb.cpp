@@ -46,6 +46,11 @@ bool vmUsb::openUsbDevice(void)
     else
         return false;
 */
+    if (numDevices <= 0) {
+      return false;
+    }
+
+
     hUsbDevice = xxusb_device_open(pUsbDevice[0].usbdev);
     if(hUsbDevice != NULL){
         qDebug("success");

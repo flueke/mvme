@@ -722,11 +722,11 @@ void mvmeControl::startStop(bool val)
 {
     int ret;
     if(val){
-        //ret = theApp->vu->usbRegisterWrite(1, 0);
+        ret = theApp->vu->usbRegisterWrite(1, 0);
         qDebug("Stop: 0");
     }
     else{
-        //ret = theApp->vu->usbRegisterWrite(1, 1);
+        ret = theApp->vu->usbRegisterWrite(1, 1);
         qDebug("Start: 1");
     }
     qDebug("wrote %d bytes to register", ret);

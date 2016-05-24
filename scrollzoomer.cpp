@@ -370,7 +370,7 @@ void ScrollZoomer::updateScrollBars()
     {
         ScrollBar *sb = scrollBar( Qt::Vertical );
         sb->setPalette( plot()->palette() );
-        sb->setInverted( !plot()->axisScaleDiv( yAxis ).isIncreasing() );
+        sb->setInverted( plot()->axisScaleDiv( yAxis ).isIncreasing() );
         sb->setBase( zoomBase().top(), zoomBase().bottom() );
         sb->moveSlider( zoomRect().top(), zoomRect().bottom() );
 
