@@ -21,27 +21,26 @@
 
 
 
-mvmeControl::mvmeControl(QWidget *parent) :
+mvmeControl::mvmeControl(mvme *theApp, QWidget *parent) :
     QWidget(parent),
+    theApp(theApp),
     ui(new Ui::mvmeControl)
 {
-    ui->setupUi(this);
-//    theApp = (mvme*)parentWidget();
     theApp = (mvme*)parent;
+    ui->setupUi(this);
     counter = 0;
     dontUpdate = false;
+
+    ui->readMblt->setEnabled(false); // TODO: add mblt support to vmusb, then re-enable
+    ui->bufTerminators->setEnabled(false);
+
+    qDebug("sizeof(long)=%d", sizeof(long));
 }
 
 mvmeControl::~mvmeControl()
 {
     delete ui;
 }
-
-void mvmeControl::setApp(mvme* app)
-{
-    theApp = app;
-}
-
 
 void mvmeControl::setValues()
 {
@@ -52,15 +51,16 @@ void mvmeControl::setValues()
 
 void mvmeControl::getValues()
 {
-   //theApp->vu->readAllRegisters();
-   //refreshDisplay();
+#ifdef VME_CONTROLLER_WIENER
+   theApp->vu->readAllRegisters();
+   refreshDisplay();
+#endif
 
 }
 
 void mvmeControl::changeMode()
 {
-    return;
-
+#ifdef VME_CONTROLLER_WIENER
     if(dontUpdate)
         return;
 
@@ -69,44 +69,49 @@ void mvmeControl::changeMode()
     int mode = 0;
 
     // buffer length
-    mode &= 0xFFFFFFF0;
+    mode &= 0x0000FFF0;
     mode |= ui->bufSize->currentIndex();
 
     // mixed buffers
-    mode &= 0xFFFFFFDF;
+    mode &= 0x0000FFDF;
     if(ui->mixedBuffers->isChecked())
         mode |= 0x20;
 
+    // FIXME: According to the documentation bit 6 should be 'FreeSclrDmp', not something related to buffer terminators.
+#if 0 
     // separator option
-    mode &= 0xFFFFFFBF;
+    mode &= 0x0000FFBF;
     if(ui->bufTerminators->currentIndex() == 1)
         mode |= 0x40;
+#endif
 
     // 32 bit aligned buffers
-    mode &= 0xFFFFFF7F;
+    mode &= 0x0000FF7F;
     if(ui->align32->isChecked())
         mode |= 0x80;
 
     // header option
-    mode &= 0xFFFFF7FF;
+    mode &= 0x0000F7FF;
     if(ui->headerOption->isChecked())
         mode |= 0x100;
 
     // bus request option
-    mode &= 0xFFFF8FFF;
+    mode &= 0x00008FFF;
     mode |= 0x1000 * ui->busRequest->value();
 
-    //int ret = theApp->vu->setMode(mode);
+    int ret = theApp->vu->setMode(mode);
 
     refreshDisplay();
 
-    //qDebug("changed Mode to: %x, should be: %x", ret, mode);
+    qDebug("changed Mode to: %x, should be: %x", ret, mode);
 
+#endif
 }
 
 void mvmeControl::changeNumber()
 {
-/*    if(dontUpdate)
+#if 0
+    if(dontUpdate)
         return;
 
     qDebug("changeNumber()");
@@ -116,7 +121,8 @@ void mvmeControl::changeNumber()
     refreshDisplay();
 
     qDebug("changed Extract Number Mask to: %x, should be: %x", ret, val);
-*/}
+#endif
+}
 
 void mvmeControl::changeBulkTransfer()
 {
@@ -127,7 +133,7 @@ void mvmeControl::changeBulkTransfer()
 
 void mvmeControl::changeLed(int led)
 {
- /*
+#if 0
      if(dontUpdate)
         return;
 
@@ -194,7 +200,7 @@ void mvmeControl::changeLed(int led)
     }
     qDebug("changeLed %d (%x)", led, val);
     theApp->vu->setLedSources(val);
-*/
+#endif
 }
 
 void mvmeControl::changeSource()
@@ -209,11 +215,13 @@ void mvmeControl::changeSource()
  */
 void mvmeControl::refreshDisplay(void)
 {
+#ifdef VME_CONTROLLER_WIENER
     int val, val2;
     QString str;
 
     dontUpdate = true;
-/*
+
+#if 0
     // raw values
     str.sprintf("%x",theApp->vu->getFirmwareId());
     fwId->setText(str);
@@ -275,49 +283,52 @@ void mvmeControl::refreshDisplay(void)
     val2 /= 0x10000000;
     str.sprintf("%x", val2);
     idMonth->setText(str);
+#endif
 
     // Global Mode
     val = theApp->vu->getMode();
 
+    qDebug("refreshDisplay: mode=%x", val);
+
     // Buffer Options
     val2 = val & 0x0F;
-//	bufSize->setSelected(val);
+	ui->bufSize->setCurrentIndex(val2);
     val2 = val & 0x20;
     if(val2)
-        mixedBuffers->setChecked(true);
+        ui->mixedBuffers->setChecked(true);
     else
-        mixedBuffers->setChecked(false);
+        ui->mixedBuffers->setChecked(false);
 
     val2 = val & 0x40;
-//	if(val2)
-//		bufTerminators->setSelected(1);
-//	else
-//		bufTerminators->setSelected(0);
+	if(val2)
+		ui->bufTerminators->setCurrentIndex(1);
+	else
+		ui->bufTerminators->setCurrentIndex(0);
 
     val2 = val & 0x80;
     if(val2)
-        align32->setChecked(true);
+        ui->align32->setChecked(true);
     else
-        align32->setChecked(false);
+        ui->align32->setChecked(false);
 
     val2 = val & 0x100;
     if(val2)
-        headerOption->setChecked(true);
+        ui->headerOption->setChecked(true);
     else
-        headerOption->setChecked(false);
+        ui->headerOption->setChecked(false);
 
     val2 = val & 0x7000;
     val2 /= 0x1000;
-//	busRequest->setSelected(val2);
-*/
+	ui->busRequest->setValue(val2);
     dontUpdate = false;
+#endif
 }
 
 void mvmeControl::readVme()
 {
     bool ok;
     QString str, str2;
-    long ret;
+    long ret = 0;
     quint32 data[256];
     str = ui->readOffset->text();
     long offset = str.toInt(&ok, 0);
@@ -339,7 +350,7 @@ void mvmeControl::readVme()
         ui->bltResult->clear();
         str.sprintf("");
         for(unsigned char c=0;c<ret/4;c++){
-//            qDebug("disp: %08lx", data[c]);
+            qDebug("disp: %08lx", data[c]);
             str2.sprintf("%d: %08lx\n", c, data[c]);
             str.append(str2);
         }
@@ -529,44 +540,82 @@ void mvmeControl::activateStack()
 {
     bool ok;
     QString s, s2;
-    uint counter = 0;
-    long stack[0x1000];
+    const uint stackMaxSize = 0x1000;
+    long stack[stackMaxSize];
     s=ui->stackDisplay->toPlainText();
     QTextStream t(&s, QIODevice::ReadWrite);
-    uint i = 0;
-    while(!t.atEnd()){
-        t >> stack[i++];
-        if(i>0x1000)
-            break;
-    }
-    counter = i-1;
-    if(ui->stackNumber->currentText() == "Memory"){
-        for(i=0;i<counter;i++){
+
+    if(ui->stackNumber->currentText() == "Memory")
+    {
+        uint i=0;
+
+        while (!t.atEnd() && i < stackMaxSize) {
+            long value = 0;
+            t >> value;
+
+            if (t.status() != QTextStream::Ok)
+            {
+                break;
+            }
+
+            stack[i++] = value;
+        }
+
+        uint stackSize = i-1;
+
+        for(i=0;i<stackSize;i++){
             theApp->vu->vmeWrite16(stack[i], stack[i+1]);
             i++;
             qDebug("wrote %lx to %lx", stack[i], stack[i-1]);
         }
-    }
-    else{
-        if(ui->stackNumber->currentText() == "Execute"){
-            for(i=0;i<counter;i++){
-                qDebug("%lx", stack[i]);
+    } else
+    {
+        uint i = 1; // leave room to store the size of the stack
+
+        while (!t.atEnd() && i < stackMaxSize) {
+            long value = 0;
+            t >> value;
+
+            if (t.status() != QTextStream::Ok)
+            {
+                break;
             }
-            //int ret = theApp->vu->stackExecute(stack);
-            //qDebug("ret: %x", ret);
-            //s2.sprintf("%08x", ret);
+
+            stack[i++] = value;
+        }
+
+        uint stackSize = i-1;
+
+        stack[0] = stackSize;
+
+        for(i=1;i<stackSize;i++){
+            qDebug("%lx", stack[i]);
+        }
+
+        if(ui->stackNumber->currentText() == "Execute")
+        {
+            int ret = theApp->vu->stackExecute(stack);
+            qDebug("stackExecute returned %x", ret);
+
+            /*
+            s2.sprintf("%08x", ret);
             s2.append("\n");
-/*            for(int i = 0; i < ret/4  ; i++){
+            */
+
+            for(int i = 0; i < ret/4  ; i++){
                 qDebug("%08lx", stack[i]);
                 s.sprintf("%08lx", stack[i]);
                 s2.append(s);
                 s2.append("\n");
             }
-  */          ui->resultDisplay->setText(s2);
+            ui->resultDisplay->setText(s2);
         }
-        else{
+        else
+        {
+            bool ok;
             int val = ui->stackNumber->currentText().toInt(&ok, 0);
-            //int ret = theApp->vu->stackWrite(val, stack);
+            int ret = theApp->vu->stackWrite(val, stack);
+            qDebug("stackWrite: returned %d", ret);
         }
     }
 }
@@ -608,20 +657,25 @@ void mvmeControl::loadStack()
 
 void mvmeControl::loadData()
 {
-/*    QString s = QFileDialog::getOpenFileName(
-            "/home",
-    "Data files (*.txt)",
-    this,
-    "open file dialog",
-    "Choose a file" );
+#ifdef VME_CONTROLLER_WIENER
+    QString s = QFileDialog::getOpenFileName(
+            this,
+            "Choose a file",
+            QString(),
+            "Data files (*.txt)");
+
+
+
+
+
     QFile f(s);
-    if(!f.open(IO_Raw | IO_ReadWrite))
+    if(!f.open(QIODevice::ReadOnly))
         return;
 
     QTextStream t(&f);
     QString s2;
     s.sprintf("");
-    if(stackNumber->currentText() == "Memory"){
+    if(ui->stackNumber->currentText() == "Memory"){
         while(!t.atEnd()){
             t >> s2;
             s.append(s2);
@@ -638,9 +692,10 @@ void mvmeControl::loadData()
         s.append("\n");
         }
     }
-    dataDisplay->setText(s);
+    ui->stackDisplay->setText(s);
     f.close();
-*/}
+#endif
+}
 
 void mvmeControl::sendData()
 {
@@ -658,24 +713,26 @@ void mvmeControl::parseDataText(QString text)
 
 void mvmeControl::readStack()
 {
+#ifdef VME_CONTROLLER_WIENER
     bool ok;
     long stack[0x1000];
     QString s, s2;
     int val = ui->stackNumber->currentText().toInt(&ok, 0);
-    //int ret = theApp->vu->stackRead(val, &stack[0]);
-    //qDebug("read %d bytes from stack %d", ret, val);
-   /*
+    int ret = theApp->vu->stackRead(val, &stack[0]);
+    qDebug("read %d bytes from stack %d", ret, val);
+
     for(int i = 0; i < ret/2; i++){
         s2.sprintf("0x%lx",stack[i]);
         s.append(s2);
         s.append("\n");
     }
-    */
     ui->resultDisplay->setPlainText(s);
+#endif
 }
 
 void mvmeControl::setIrq()
 {
+#ifdef VME_CONTROLLER_WIENER
     bool ok;
     int stack, irq, id, vector;
 
@@ -684,21 +741,22 @@ void mvmeControl::setIrq()
     id = ui->irqId1->text().toInt(&ok, 0);
     vector = id + 256*irq + 4096*stack;
     qDebug("IRQ Vector: %x", vector);
-    //theApp->vu->setIrq(0, vector);
+    theApp->vu->setIrq(0, vector);
 
     stack = ui->stack2->value();
     irq = ui->irq2->value();
     id = ui->irqId2->text().toInt(&ok, 0);
     vector = id + 256*irq + 4096*stack;
     qDebug("IRQ Vector: %x", vector);
-    //theApp->vu->setIrq(1, vector);
+    theApp->vu->setIrq(1, vector);
 
     stack = ui->stack3->value();
     irq = ui->irq3->value();
     id = ui->irqId3->text().toInt(&ok, 0);
     vector = id + 256*irq + 4096*stack;
     qDebug("IRQ Vector: %x", vector);
-    //theApp->vu->setIrq(2, vector);
+    theApp->vu->setIrq(2, vector);
+#endif
 }
 
 void mvmeControl::readBuffer()
@@ -734,7 +792,9 @@ void mvmeControl::startStop(bool val)
 
 void mvmeControl::setScalerValue()
 {
-/*    bool ok;
+#ifdef VME_CONTROLLER_WIENER
+#if 0
+    bool ok;
     QString str;
     long ret;
 
@@ -742,7 +802,9 @@ void mvmeControl::setScalerValue()
     unsigned int period = str.toInt(&ok, 0);
     ret = theApp->vu->setScalerTiming(0, period, 0);
     qDebug("set scaler settings to %lx", ret);
-*/}
+#endif
+#endif
+}
 
 void mvmeControl::toggleDisplay(bool state)
 {

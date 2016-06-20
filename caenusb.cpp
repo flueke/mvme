@@ -230,6 +230,7 @@ unsigned int caenusb::readBuffer(quint32* data)
  */
 int caenusb::readLongBuffer(int* data)
 {
+  return 0;
 }
 
 /*!

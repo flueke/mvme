@@ -1,3 +1,4 @@
+#include <cassert>
 #include "datathread.h"
 #include "mvme.h"
 #include "math.h"
@@ -90,7 +91,14 @@ void DataThread::startReading()
     // readout reset
     myCu->vmeWrite16(0x6034, 1);
 #else
-
+    // stop acquisition
+    myVu->vmeWrite16(0x603A, 0);
+    // clear FIFO
+    myVu->vmeWrite16(0x603C, 1);
+    // start acquisition
+    myVu->vmeWrite16(0x603A, 1);
+    // readout reset
+    myVu->vmeWrite16(0x6034, 1);
 #endif
 }
 
@@ -100,6 +108,8 @@ void DataThread::stopReading()
     myCu->vmeWrite16(0x603A, 0);
     myCu->vmeWrite16(0x603C, 1);
 #else
+    myVu->vmeWrite16(0x603A, 0);
+    myVu->vmeWrite16(0x603C, 1);
 #endif
 }
 
@@ -112,29 +122,55 @@ void DataThread::setRingbuffer(quint32 *buffer)
 
 void DataThread::setReadoutmode(bool multi, quint16 maxlen, bool mblt)
 {
+#ifdef VME_CONTROLLER_CAEN
     // stop acquisition
-//    myCu->vmeWrite16(0x603A, 0);
+    myCu->vmeWrite16(0x603A, 0);
     // reset FIFO
-//    myCu->vmeWrite16(0x603C, 1);
+    myCu->vmeWrite16(0x603C, 1);
 
     if(multi){
         // multievent register
-//        qDebug("set multi");
-//        myCu->vmeWrite16(0x6036, 1);
-//        myCu->vmeWrite16(0x601A, maxlen);
+        qDebug("set multi");
+        myCu->vmeWrite16(0x6036, 1);
+        myCu->vmeWrite16(0x601A, maxlen);
         m_multiEvent = true;
         readlen = maxlen + 34;
     }
     else{
-//        qDebug("set single");
-//        myCu->vmeWrite16(0x6036, 0);
+        qDebug("set single");
+        myCu->vmeWrite16(0x6036, 0);
         m_multiEvent = false;
     }
     m_mblt = mblt;
     // clear Fifo
-//    myCu->vmeWrite16(0x603C, 1);
+    myCu->vmeWrite16(0x603C, 1);
     // reset readout
-//    myCu->vmeWrite16(0x6034, 1);
+    myCu->vmeWrite16(0x6034, 1);
+#else
+    // stop acquisition
+    myVu->vmeWrite16(0x603A, 0);
+    // reset FIFO
+    myVu->vmeWrite16(0x603C, 1);
+
+    if(multi){
+        // multievent register
+        qDebug("set multi");
+        myVu->vmeWrite16(0x6036, 1);
+        myVu->vmeWrite16(0x601A, maxlen);
+        m_multiEvent = true;
+        readlen = maxlen + 34;
+    }
+    else{
+        qDebug("set single");
+        myVu->vmeWrite16(0x6036, 0);
+        m_multiEvent = false;
+    }
+    m_mblt = mblt;
+    // clear Fifo
+    myVu->vmeWrite16(0x603C, 1);
+    // reset readout
+    myVu->vmeWrite16(0x6034, 1);
+#endif
 }
 
 void DataThread::initBuffers()
@@ -146,11 +182,11 @@ void DataThread::initBuffers()
 
 quint32 DataThread::readData()
 {
+    quint16 offset = 0;
 #ifdef VME_CONTROLLER_CAEN
     quint16 ret;
     quint8 irql;
     quint16 count = readlen*4;
-    quint16 offset = 0;
 
     //check for irq
     irql = myCu->Irq();
@@ -173,9 +209,32 @@ quint32 DataThread::readData()
     }
     else
         offset = 0;
-    return offset;
 #else
+    // read the amount of data in the MXDC FIFO
+    long dataLen = 0;
+    myVu->vmeRead16(0x6030, &dataLen);
+
+    if (dataLen > 255)
+    {
+        assert(false);
+        // FIXME: handle this case by doing multiple block reads of max size 255
+    } else if (dataLen > 0)
+    {
+#if 0
+        if (m_mblt)
+        {
+            offset = myVu->vmeMbltRead32(0x0, dataLen, dataBuffer + offset);
+        } else
 #endif
+        {
+            offset = myVu->vmeBltRead32(0x0, dataLen, dataBuffer + offset);
+        }
+        // reset module readout
+        myVu->vmeWrite16(0x6034, 1);
+    }
+#endif
+
+    return offset;
 }
 
 #ifdef VME_CONTROLLER_CAEN

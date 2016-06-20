@@ -14,13 +14,14 @@ class mvmeControl : public QWidget
 {
     Q_OBJECT
 
+private:
+    mvme * theApp;
+
 public:
-    explicit mvmeControl(QWidget *parent = 0);
+    explicit mvmeControl(mvme *theApp, QWidget *parent = 0);
     ~mvmeControl();
-    void refreshDisplay(void);
     void parseDataText(QString textt);
     void saveData();
-    void setApp(mvme* app);
     Ui::mvmeControl *ui;
 
     void dispAll();
@@ -30,6 +31,7 @@ public:
     void dispRt();
 
 public slots:
+    void refreshDisplay(void);
     virtual void setValues();
     virtual void getValues();
     virtual void changeSource();
@@ -73,8 +75,6 @@ public slots:
     void dispChan(int c);
 
 private:
-
-    mvme * theApp;
     unsigned char  counter;
     bool dontUpdate;
 };

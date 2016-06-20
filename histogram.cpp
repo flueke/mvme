@@ -54,7 +54,7 @@ void Histogram::clearHistogram()
 // calculate counts, maximum, mean and sigma for given channel range
 void Histogram::calcStatistics(quint32 chan, quint32 start, quint32 stop)
 {
-    quint32 swap;
+    quint32 swap = 0;
     if(start > stop){
         stop = swap;
         stop = start;

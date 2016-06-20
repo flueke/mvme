@@ -11,6 +11,7 @@
 #include "mvmedefines.h"
 #include <QTimer>
 #include <QtGui>
+#include <QMessageBox>
 #include "twodimdisp.h"
 #include "diagnostics.h"
 #include "realtimedata.h"
@@ -18,6 +19,7 @@
 
 mvme::mvme(QWidget *parent) :
     QMainWindow(parent),
+    vu(0),
     ui(new Ui::mvme)
 {
 
@@ -39,11 +41,6 @@ mvme::mvme(QWidget *parent) :
     rd = new RealtimeData;
     diag = new Diagnostics;
 
-    mctrl = new mvmeControl;
-    mctrl->setApp(this);
-    mctrl->show();
-
-
     // check and initialize VME interface
     vu = new vmUsb;
     vu->getUsbDevices();
@@ -52,8 +49,12 @@ mvme::mvme(QWidget *parent) :
       return;
     }
 
+    mctrl = new mvmeControl(this);
+    mctrl->show();
+
     // read current configuration
-    vu->readAllRegisters();
+    //vu->readAllRegisters();
+    mctrl->getValues();
 
     //cu = new caenusb();
     //cu->openUsbDevice();

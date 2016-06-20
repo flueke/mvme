@@ -75,6 +75,7 @@ public:
 	short vmeWrite16(long addr, long data);
 	short vmeRead16(long addr, long* data);
     int vmeBltRead32(long addr, int count, quint32* data);
+    int vmeMbltRead32(long addr, int count, quint32* data);
 	void swap32(long* val);
 	void swap16(long* val);
     int stackWrite(int id, long* data);

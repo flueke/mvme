@@ -5,6 +5,8 @@
 #-------------------------------------------------
 
 QT       += core gui
+CONFIG   += debug
+CONFIG   += c++11
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -71,6 +73,8 @@ DEPENDPATH += /usr/include
 
 #INCLUDEPATH += $$PWD/../../../../usr/include
 #DEPENDPATH += $$PWD/../../../../usr/include
+
+DEFINES += VME_CONTROLLER_WIENER
 
 unix:!macx:!symbian: LIBS += -lusb
 

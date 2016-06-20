@@ -722,6 +722,11 @@ void vmUsb::swap16(long* val)
  */
 int vmUsb::stackWrite(int id, long* data)
 {
+	qDebug("StackWrite: id=%d, stackSize=%d", id, data[0]);
+
+    for(int i=0;i<=data[0];i++)
+		qDebug("  %d: %lx", i, data[i]);
+
 	unsigned char addr[8] = {2, 3, 18, 19, 34, 35, 50, 51};
 	int ret = xxusb_stack_write(hUsbDevice, addr[id], data);
 	qDebug("StackWrite %d (addr: %d), %d bytes", id, addr[id], ret);
@@ -749,9 +754,9 @@ int vmUsb::stackRead(int id, long* data)
 int vmUsb:: stackExecute(long* data)
 {
     int ret, i, j;
-	qDebug("StackExecute");
-    for(i=0;i<data[0];i++)
-		qDebug("%lx", data[i]);
+	qDebug("StackExecute: stackSize=%d", data[0]);
+    for(i=0;i<=data[0];i++)
+		qDebug("  %d: %lx", i, data[i]);
 	ret = xxusb_stack_execute(hUsbDevice, data);
 	qDebug("read: %d %lx %lx", ret, data[0], data[1]);
     qDebug("retrieved:");
