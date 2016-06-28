@@ -22,6 +22,9 @@ TwoDimDisp::TwoDimDisp(QWidget *parent) :
     m_currentModule = 0;
     curve = new QwtPlotCurve();
     curve->setStyle(QwtPlotCurve::Steps);
+    //curve->setBaseline(1.0);
+
+
     curve->attach(myWidget->ui->mainPlot);
     myWidget->ui->mainPlot->replot();
 }
@@ -37,9 +40,9 @@ void TwoDimDisp::plot()
     QString str;
     curve->setRawSamples((const double*)m_pMyHist->m_axisBase, (const double*)m_pMyHist->m_data + 8192*m_currentChannel, 8192);
 //    myWidget->ui->mainPlot->setAxisScale( QwtPlot::yLeft, -200.0, 200.0 );
-    myWidget->ui->mainPlot->setAxisAutoScale(QwtPlot::yLeft, true);
+    //myWidget->ui->mainPlot->setAxisAutoScale(QwtPlot::yLeft, false);
 
-//    myWidget->setZoombase();
+    myWidget->setZoombase();
     m_pMyHist->calcStatistics(m_currentChannel, myWidget->m_myZoomer->getLowborder(), myWidget->m_myZoomer->getHiborder());
     myWidget->ui->mainPlot->replot();
     str.sprintf("%2.2f", m_pMyHist->m_mean[m_currentChannel]);

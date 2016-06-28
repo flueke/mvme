@@ -9,7 +9,7 @@ class Histogram : public QObject
 {
     Q_OBJECT
 public:
-    explicit Histogram(QObject *parent = 0, quint32 channels=32, quint32 bits=8192);
+    explicit Histogram(QObject *parent = 0, quint32 channels=32, quint32 resolution=8192);
     ~Histogram();
     void initHistogram(void);
     void clearChan(quint32 chan);
@@ -23,11 +23,14 @@ public:
     double *m_axisBase;
     quint32 m_channels;
     quint32 m_resolution;
-    double m_maxchan[50];
-    double m_maximum[50];
-    double m_mean[50];
-    double m_sigma[50];
-    double m_counts[50];
+
+#define MAX_CHANNEL_COUNT 50
+
+    double m_maxchan[MAX_CHANNEL_COUNT];
+    double m_maximum[MAX_CHANNEL_COUNT];
+    double m_mean[MAX_CHANNEL_COUNT];
+    double m_sigma[MAX_CHANNEL_COUNT];
+    double m_counts[MAX_CHANNEL_COUNT];
 
 signals:
     

@@ -1,9 +1,11 @@
 #include "histogram.h"
 #include "math.h"
+#include <cassert>
 
 Histogram::Histogram(QObject *parent, quint32 channels, quint32 resolution) :
     QObject(parent)
 {
+    assert(channels <= MAX_CHANNEL_COUNT);
     m_data = new double[channels*resolution];
     m_axisBase = new double[resolution];
     m_channels = channels;
@@ -57,12 +59,18 @@ void Histogram::clearHistogram()
 // calculate counts, maximum, mean and sigma for given channel range
 void Histogram::calcStatistics(quint32 chan, quint32 start, quint32 stop)
 {
+    if (chan >= m_channels)
+        return;
+
     quint32 swap = 0;
     if(start > stop){
         stop = swap;
         stop = start;
         start = swap;
     }
+
+    start = qMin(start, m_resolution);
+    stop  = qMin(stop, m_resolution);
 
     double dval = 0;
     m_mean[chan] = 0;

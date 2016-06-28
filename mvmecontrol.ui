@@ -23,7 +23,7 @@
     </rect>
    </property>
    <property name="currentIndex">
-    <number>1</number>
+    <number>0</number>
    </property>
    <widget class="QWidget" name="StackOp">
     <attribute name="title">
@@ -34,7 +34,7 @@
       <rect>
        <x>20</x>
        <y>20</y>
-       <width>101</width>
+       <width>111</width>
        <height>21</height>
       </rect>
      </property>
