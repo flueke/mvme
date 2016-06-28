@@ -18,7 +18,7 @@
 #include "QFile"
 #include "QMessageBox"
 #include "QComboBox"
-
+#include <QDebug>
 
 
 mvmeControl::mvmeControl(mvme *theApp, QWidget *parent) :
@@ -27,14 +27,13 @@ mvmeControl::mvmeControl(mvme *theApp, QWidget *parent) :
     ui(new Ui::mvmeControl)
 {
     theApp = (mvme*)parent;
+    dontUpdate = true;
     ui->setupUi(this);
-    counter = 0;
     dontUpdate = false;
+    counter = 0;
 
-    ui->readMblt->setEnabled(false); // TODO: add mblt support to vmusb, then re-enable
+    //ui->readMblt->setEnabled(false); // TODO: add mblt support to vmusb, then re-enable
     ui->bufTerminators->setEnabled(false);
-
-    qDebug("sizeof(long)=%d", sizeof(long));
 }
 
 mvmeControl::~mvmeControl()
@@ -61,6 +60,10 @@ void mvmeControl::getValues()
 void mvmeControl::changeMode()
 {
 #ifdef VME_CONTROLLER_WIENER
+
+    qDebug() << "changeMod(): dontUpdate =" << dontUpdate << ", sender =" << sender();
+
+
     if(dontUpdate)
         return;
 
@@ -215,6 +218,7 @@ void mvmeControl::changeSource()
  */
 void mvmeControl::refreshDisplay(void)
 {
+    qDebug() << "begin refreshDisplay()";
 #ifdef VME_CONTROLLER_WIENER
     int val, val2;
     QString str;
@@ -285,10 +289,13 @@ void mvmeControl::refreshDisplay(void)
     idMonth->setText(str);
 #endif
 
+    str.sprintf("%x",theApp->vu->getFirmwareId());
+    ui->firmwareLabel->setText(str);
+
     // Global Mode
     val = theApp->vu->getMode();
 
-    qDebug("refreshDisplay: mode=%x", val);
+    qDebug("refreshDisplay: mode=%08x", val);
 
     // Buffer Options
     val2 = val & 0x0F;
@@ -320,8 +327,10 @@ void mvmeControl::refreshDisplay(void)
     val2 = val & 0x7000;
     val2 /= 0x1000;
 	ui->busRequest->setValue(val2);
+
     dontUpdate = false;
 #endif
+    qDebug() << "end refreshDisplay()";
 }
 
 void mvmeControl::readVme()
@@ -329,7 +338,7 @@ void mvmeControl::readVme()
     bool ok;
     QString str, str2;
     long ret = 0;
-    quint32 data[256];
+    quint32 data[4096];
     str = ui->readOffset->text();
     long offset = str.toInt(&ok, 0);
     str = ui->readAddr->text();
@@ -340,12 +349,12 @@ void mvmeControl::readVme()
         str = ui->readBltsize->text();
         size = str.toUInt(&ok, 0);
         if(ui->readBlt->isChecked()){
-            ret = theApp->vu->vmeBltRead32(addr, size*4, data);
-            qDebug("read %ld bytes from bus by BLT", ret);
+            ret = theApp->vu->vmeBltRead32(addr, size, data);
+            qDebug("read %ld bytes/%ld words from bus by BLT", ret, ret/sizeof(uint32_t));
         }
         else{
-            //ret = theApp->vu->vmeMbltRead32(addr, size*4, data);
-            //qDebug("read %ld bytes from bus by MBLT", ret);
+            ret = theApp->vu->vmeMbltRead32(addr, size, data);
+            qDebug("read %ld bytes from bus by MBLT", ret);
         }
         ui->bltResult->clear();
         str.sprintf("");
@@ -358,11 +367,16 @@ void mvmeControl::readVme()
     }
     else{
         if(ui->read16->isChecked())
+        {
             ret = theApp->vu->vmeRead16(addr, (long*)data);
+            str.sprintf("%04lx", data[0]);
+        }
         else
+        {
             ret = theApp->vu->vmeRead32(addr, (long*)data);
+            str.sprintf("%08lx", data[0]);
+        }
 
-        str.sprintf("%lx", data[0]);
         ui->readValue->setText(str);
         qDebug("read %lx from addr %lx, ret val = %ld", data[0], addr, ret);
         if(ui->readLoop->isChecked())
@@ -538,7 +552,6 @@ void mvmeControl::saveStack()
 
 void mvmeControl::activateStack()
 {
-    bool ok;
     QString s, s2;
     const uint stackMaxSize = 0x1000;
     long stack[stackMaxSize];
@@ -547,6 +560,13 @@ void mvmeControl::activateStack()
 
     if(ui->stackNumber->currentText() == "Memory")
     {
+        bool ok;
+
+        long memoryOffset = ui->memoryOffset->text().toInt(&ok, 0);
+        memoryOffset <<= 16;
+
+        qDebug("activateStack: memoryOffset=%lx, ok=%d", memoryOffset, ok);
+
         uint i=0;
 
         while (!t.atEnd() && i < stackMaxSize) {
@@ -564,9 +584,10 @@ void mvmeControl::activateStack()
         uint stackSize = i-1;
 
         for(i=0;i<stackSize;i++){
-            theApp->vu->vmeWrite16(stack[i], stack[i+1]);
+            stack[i] += memoryOffset;
+            int writeResult = theApp->vu->vmeWrite16(stack[i], stack[i+1]);
             i++;
-            qDebug("wrote %lx to %lx", stack[i], stack[i-1]);
+            qDebug("wrote %lx to %lx, write result=%d", stack[i], stack[i-1], writeResult);
         }
     } else
     {
@@ -778,6 +799,7 @@ void mvmeControl::readBuffer()
 
 void mvmeControl::startStop(bool val)
 {
+#ifdef VME_CONTROLLER_WIENER
     int ret;
     if(val){
         ret = theApp->vu->usbRegisterWrite(1, 0);
@@ -788,6 +810,7 @@ void mvmeControl::startStop(bool val)
         qDebug("Start: 1");
     }
     qDebug("wrote %d bytes to register", ret);
+#endif
 }
 
 void mvmeControl::setScalerValue()

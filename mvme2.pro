@@ -33,7 +33,8 @@ SOURCES += main.cpp\
     caenusb.cpp \
     diagnostics.cpp \
     realtimedata.cpp \
-    simulator.cpp
+    simulator.cpp \
+    CVMUSBReadoutList.cpp \
 
 HEADERS  += \
          vmusb.h \
@@ -55,7 +56,8 @@ HEADERS  += \
     caenusb.h \
     diagnostics.h \
     realtimedata.h \
-    simulator.h
+    simulator.h \
+    CVMUSBReadoutList.h \
 
 FORMS    += \
     mvmecontrol.ui \
@@ -75,6 +77,7 @@ DEPENDPATH += /usr/include
 #DEPENDPATH += $$PWD/../../../../usr/include
 
 DEFINES += VME_CONTROLLER_WIENER
+#DEFINES += VME_CONTROLLER_CAEN
 
 unix:!macx:!symbian: LIBS += -lusb
 

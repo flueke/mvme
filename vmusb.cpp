@@ -19,6 +19,8 @@
  ***************************************************************************/
 #include "usb.h"
 #include "vmusb.h"
+#include "CVMUSBReadoutList.h"
+#include "vme.h"
 
 vmUsb::vmUsb()
 {
@@ -63,6 +65,25 @@ bool vmUsb::openUsbDevice(void)
 }
 
 
+struct VMUSB_Firmware
+{
+    VMUSB_Firmware(uint32_t v)
+    {
+        month = (v >> 29) & 0x7;
+        year  = (v >> 24) & 0x1f;
+        device_id = (v >> 20) & 0xf;
+        beta_version = (v >> 16) & 0xf;
+        major_revision = (v >> 8) & 0xff;
+        minor_revision = v & 0xff;
+    }
+
+    uint8_t month;
+    uint8_t year;
+    uint8_t device_id;
+    uint8_t beta_version;
+    uint8_t major_revision;
+    uint8_t minor_revision;
+};
 
 /*!
     \fn vmUsb::getAllRegisters(void)
@@ -73,8 +94,16 @@ void vmUsb::readAllRegisters(void)
 	VME_register_read(hUsbDevice, 0, &val);
 	firmwareId = (int) val;
     qDebug("Id: %x",firmwareId);
+    
+    VMUSB_Firmware firmware(val);
+    qDebug("firmware: month=%d, year=%d, device_id=%d, beta_version=%d, major_revision=%d, minor_revision=%d",
+            firmware.month, firmware.year, firmware.device_id, firmware.beta_version, firmware.major_revision, firmware.minor_revision);
+
+
 	VME_register_read(hUsbDevice, 4, &val);
 	globalMode = (int)val & 0xFFFF;
+    qDebug("globalMode: %x", globalMode);
+
 	VME_register_read(hUsbDevice, 8, &val);
 	daqSettings = (int)val;
 	VME_register_read(hUsbDevice, 12, &val);
@@ -555,7 +584,7 @@ short vmUsb::vmeWrite16(long addr, long data)
 //	swap16(&data);
 	intbuf[0]=7;
 	intbuf[1]=0;
-	intbuf[2]=0x09; 
+	intbuf[2]=VME_AM_A32_PRIV_PROG; 
 	intbuf[3]=0x0; //  0x1; // little endianess -> PC
 	if(bigendian)
 		intbuf[3] |= 0x1;
@@ -580,7 +609,7 @@ short vmUsb::vmeWrite32(long addr, long data)
 //	swap32(&data);
 	intbuf[0]=7;
 	intbuf[1]=0;
-	intbuf[2]=0x09; 
+	intbuf[2]=VME_AM_A32_PRIV_PROG; 
 	intbuf[3]=0; // | 0x1; // little endianess -> PC
 	if(bigendian)
 		intbuf[3] |= 0x1;
@@ -604,7 +633,7 @@ short vmUsb::vmeRead32(long addr, long* data)
 //	qDebug("Read32");
 	intbuf[0]=5;
 	intbuf[1]=0;
-	intbuf[2]= (0x09 + 0x100); 
+	intbuf[2]= (VME_AM_A32_PRIV_PROG + 0x100); 
 	intbuf[3]= 0; // | 0x1; // little endianess -> PC
 	if(bigendian)
 		intbuf[3] |= 0x1;
@@ -629,7 +658,7 @@ short vmUsb::vmeRead16(long addr, long* data)
 //	qDebug("Read16");
 	intbuf[0]=5;
 	intbuf[1]=0;
-	intbuf[2]= (0x09 + 0x100); 
+	intbuf[2]= (VME_AM_A32_PRIV_PROG + 0x100); 
 	intbuf[3] = 0;
 	if(bigendian)
 		intbuf[3]= 1; // | 0x1; // endianess
@@ -648,21 +677,26 @@ short vmUsb::vmeRead16(long addr, long* data)
  */
 int vmUsb::vmeBltRead32(long addr, int count, quint32* data)
 {
+#if 0
 	long intbuf[1000];
 	short ret;
 	int i=0;
-//	qDebug("ReadBlt32");
-	if (count > 255) return -1;
+	qDebug("vmUsb::ReadBlt32: addr=0x%08lx, count=%d", addr, count);
+	if (count >= 255) return -1;
 	intbuf[0]=5;
 	intbuf[1]=0;
-	intbuf[2]=0x0B | 0x100;
+	intbuf[2]=VME_AM_A32_PRIV_BLT | 0x100;
 	intbuf[3]=(count << 8);
 	if(bigendian)
 		intbuf[3] |= 0x1; // little endianess -> PC
 	intbuf[4]=(addr & 0xffff);
 	intbuf[5]=((addr >>16) & 0xffff);
-//    for(int i=0;i<intbuf[0];i++)
-//		qDebug("%lx", intbuf[i]);
+
+	qDebug("vmUsb::ReadBlt32: stack:");
+    for(int i=0;i<intbuf[0];i++)
+		qDebug("  0x%08lx", intbuf[i]);
+
+
 	ret = xxusb_stack_execute(hUsbDevice, intbuf);
 	int j=0;
 	for (i=0;i<(2*count);i=i+2)
@@ -672,8 +706,63 @@ int vmUsb::vmeBltRead32(long addr, int count, quint32* data)
 		j++;
 	}
 	return ret;
+#else
+    CVMUSBReadoutList readoutList;
+
+    readoutList.addBlockRead32(addr, VME_AM_A32_USER_BLT, count);
+
+    size_t bytesRead = 0;
+
+    listExecute(&readoutList, data, count * sizeof(quint32), &bytesRead);
+
+    return bytesRead;
+#endif
 }
 
+int vmUsb::vmeMbltRead32(long addr, int count, quint32 *data)
+{
+#if 0
+	long intbuf[1000];
+	short ret;
+	int i=0;
+	qDebug("vmUsb::ReadMblt32: addr=0x%08lx, count=%d", addr, count);
+	if (count > 256) return -1;
+
+	intbuf[0]=5;
+	intbuf[1]=0;
+	intbuf[2]=VME_AM_A32_USER_MBLT | 0x100;
+	intbuf[3]=(count << 8);
+	if(bigendian)
+		intbuf[3] |= 0x1; // little endianess -> PC
+	intbuf[4]=(addr & 0xffff);
+	intbuf[5]=((addr >>16) & 0xffff);
+
+
+	qDebug("vmUsb::ReadMblt32: stack:");
+    for(int i=0;i<intbuf[0];i++)
+		qDebug("  0x%08lx", intbuf[i]);
+
+	ret = xxusb_stack_execute(hUsbDevice, intbuf);
+	int j=0;
+	for (i=0;i<(2*count);i=i+2)
+	{
+		data[j]=intbuf[i] + (intbuf[i+1] * 0x10000);
+//		swap32(&data[j]);
+		j++;
+	}
+	return ret;
+#else
+    CVMUSBReadoutList readoutList;
+
+    readoutList.addBlockRead32(addr, VME_AM_A32_USER_MBLT, count);
+
+    size_t bytesRead = 0;
+
+    listExecute(&readoutList, data, count * sizeof(quint64), &bytesRead);
+
+    return bytesRead;
+#endif
+}
 
 /*!
     \fn vmUsb::swap32(long val)
@@ -815,8 +904,8 @@ void vmUsb::initialize()
     // User LED sources:
 	// ty: Out FIFO not empty, red: Event Trig., green: ACQ, by: VME DTACK
 	ledSources = 0x04030101;
-	VME_register_write(hUsbDevice, 0x10, ledSources);
-	
+	VME_register_write(hUsbDevice, 0xC, ledSources);
+
 	// scaler parameters:
 	VME_register_write(hUsbDevice, 0x8, 0xFF00);
 	
@@ -855,4 +944,158 @@ void vmUsb::setEndianess(bool big)
 	else
 		qDebug("Little Endian");
 
+}
+
+////////////////////////////////////////////////////////////////////////
+/*
+   Build up a packet by adding a 16 bit word to it;
+   the datum is packed low endianly into the packet.
+
+*/
+void* addToPacket16(void* packet, uint16_t datum)
+{
+    uint8_t* pPacket = static_cast<uint8_t*>(packet);
+
+    *pPacket++ = (datum  & 0xff); // Low byte first...
+    *pPacket++ = (datum >> 8) & 0xff; // then high byte.
+
+    return static_cast<void*>(pPacket);
+}
+
+/////////////////////////////////////////////////////////////////////////
+/*
+  Build up a packet by adding a 32 bit datum to it.
+  The datum is added low-endianly to the packet.
+*/
+void* addToPacket32(void* packet, uint32_t datum)
+{
+    uint8_t* pPacket = static_cast<uint8_t*>(packet);
+
+    *pPacket++    = (datum & 0xff);
+    *pPacket++    = (datum >> 8) & 0xff;
+    *pPacket++    = (datum >> 16) & 0xff;
+    *pPacket++    = (datum >> 24) & 0xff;
+
+    return static_cast<void*>(pPacket);
+}
+
+//  Utility to create a stack from a transfer address word and
+//  a CVMUSBReadoutList and an optional list offset (for non VCG lists).
+//  Parameters:
+//     uint16_t ta               The transfer address word.
+//     CVMUSBReadoutList& list:  The list of operations to create a stack from.
+//     size_t* outSize:          Pointer to be filled in with the final out packet size
+//     off_t   offset:           If VCG bit is clear and VCS is set, the bottom
+//                               16 bits of this are put in as the stack load
+//                               offset. Otherwise, this is ignored and
+//                               the list lize is treated as a 32 bit value.
+//  Returns:
+//     A uint16_t* for the list. The result is dynamically allocated
+//     and must be released via delete []p e.g.
+//
+uint16_t*
+listToOutPacket(uint16_t ta, CVMUSBReadoutList* list,
+                        size_t* outSize, off_t offset)
+{
+    int listLongwords = list->size();
+    int listShorts    = listLongwords*sizeof(uint32_t)/sizeof(uint16_t);
+    int packetShorts    = (listShorts + 3);
+    uint16_t* outPacket = new uint16_t[packetShorts];
+    uint16_t* p         = outPacket;
+    
+    // Fill the outpacket:
+
+    p = static_cast<uint16_t*>(addToPacket16(p, ta)); 
+    //
+    // The next two words depend on which bits are set in the ta
+    //
+    if(ta & TAVcsIMMED) {
+      p = static_cast<uint16_t*>(addToPacket32(p, listShorts+1)); // 32 bit size.
+    }
+    else {
+      p = static_cast<uint16_t*>(addToPacket16(p, listShorts+1)); // 16 bits only.
+      p = static_cast<uint16_t*>(addToPacket16(p, offset));       // list load offset. 
+    }
+
+    std::vector<uint32_t> stack = list->get();
+    for (int i = 0; i < listLongwords; i++) {
+        p = static_cast<uint16_t*>(addToPacket32(p, stack[i]));
+    }
+    *outSize = packetShorts*sizeof(uint16_t);
+    return outPacket;
+}
+
+int vmUsb::listExecute(CVMUSBReadoutList *list, void *readBuffer, size_t readBufferSize, size_t *bytesRead)
+{
+  size_t outSize;
+  uint16_t* outPacket = listToOutPacket(TAVcsWrite | TAVcsIMMED, list, &outSize);
+
+    // Now we can execute the transaction:
+    
+  int status = transaction(outPacket, outSize,
+			   readBuffer, readBufferSize);
+
+  delete []outPacket;
+
+  if(status >= 0) {
+    *bytesRead = status;
+  } 
+  else {
+    *bytesRead = 0;
+  }
+  return (status >= 0) ? 0 : status;
+  
+}
+
+/*
+   Utility function to perform a 'symmetric' transaction.
+   Most operations on the VM-USB are 'symmetric' USB operations.
+   This means that a usb_bulk_write will be done followed by a
+   usb_bulk_read to return the results/status of the operation requested
+   by the write.
+   Parametrers:
+   void*   writePacket   - Pointer to the packet to write.
+   size_t  writeSize     - Number of bytes to write from writePacket.
+   
+   void*   readPacket    - Pointer to storage for the read.
+   size_t  readSize      - Number of bytes to attempt to read.
+
+
+   Returns:
+     > 0 the actual number of bytes read into the readPacket...
+         and all should be considered to have gone well.
+     -1  The write failed with the reason in errno.
+     -2  The read failed with the reason in errno.
+*/
+int
+vmUsb::transaction(void* writePacket, size_t writeSize,
+		    void* readPacket,  size_t readSize, int timeout_ms)
+{
+    qDebug("vmUsb::transaction: writeSize=%u, readSize=%u, timeout_ms=%d",
+            writeSize, readSize, timeout_ms);
+
+
+    int status = usb_bulk_write(hUsbDevice, ENDPOINT_OUT,
+            static_cast<char*>(writePacket), writeSize, 
+            timeout_ms);
+
+    char errorBuffer[256] = {};
+
+    if (status < 0) {
+        char *buf = strerror_r(-status, errorBuffer, sizeof(errorBuffer));
+        qDebug("vmUsb::transaction: usb write failed with code %d: %s", status, buf);
+        errno = -status;
+        return -1;		// Write failed!!
+    }
+
+    status    = usb_bulk_read(hUsbDevice, ENDPOINT_IN,
+            static_cast<char*>(readPacket), readSize, timeout_ms);
+
+    if (status < 0) {
+        char *buf = strerror_r(-status, errorBuffer, sizeof(errorBuffer));
+        qDebug("vmUsb::transaction: usb read failed with code %d: %s", status, buf);
+        errno = -status;
+        return -2;
+    }
+    return status;
 }

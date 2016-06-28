@@ -26,7 +26,7 @@
      <x>0</x>
      <y>0</y>
      <width>1034</width>
-     <height>20</height>
+     <height>24</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -74,7 +74,13 @@
   <widget class="QStatusBar" name="statusBar"/>
   <action name="actionQuit">
    <property name="text">
-    <string>Quit</string>
+    <string>&amp;Quit</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Q</string>
+   </property>
+   <property name="shortcutContext">
+    <enum>Qt::ApplicationShortcut</enum>
    </property>
   </action>
   <action name="actionNew_Display">
@@ -118,7 +124,7 @@
  <connections>
   <connection>
    <sender>actionQuit</sender>
-   <signal>activated()</signal>
+   <signal>triggered()</signal>
    <receiver>mvme</receiver>
    <slot>close()</slot>
    <hints>
@@ -134,7 +140,7 @@
   </connection>
   <connection>
    <sender>actionAbout_mvme</sender>
-   <signal>activated()</signal>
+   <signal>triggered()</signal>
    <receiver>mvme</receiver>
    <slot>displayAbout()</slot>
    <hints>
@@ -150,7 +156,7 @@
   </connection>
   <connection>
    <sender>actionOpen_new</sender>
-   <signal>activated()</signal>
+   <signal>triggered()</signal>
    <receiver>mvme</receiver>
    <slot>createChild()</slot>
    <hints>
@@ -166,7 +172,7 @@
   </connection>
   <connection>
    <sender>actionCascade</sender>
-   <signal>activated()</signal>
+   <signal>triggered()</signal>
    <receiver>mvme</receiver>
    <slot>cascade()</slot>
    <hints>
@@ -182,7 +188,7 @@
   </connection>
   <connection>
    <sender>actionTile</sender>
-   <signal>activated()</signal>
+   <signal>triggered()</signal>
    <receiver>mvme</receiver>
    <slot>tile()</slot>
    <hints>

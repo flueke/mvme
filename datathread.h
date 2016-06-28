@@ -2,6 +2,8 @@
 #define DATATHREAD_H
 
 #include <QThread>
+#include <memory>
+
 class QTimer;
 class mvme;
 class vmUsb;
@@ -46,8 +48,13 @@ protected:
     void run();
     QTimer* dataTimer;
     mvme* myMvme;
+#ifdef VME_CONTROLLER_WIENER
     vmUsb* myVu;
-    //caenusb* myCu;
+    std::unique_ptr<uint16_t> m_readoutPacket;
+    size_t m_readoutPacketSize;
+#elif defined VME_CONTROLLER_CAEN
+    caenusb* myCu;
+#endif
 
     quint32* dataBuffer;
 
@@ -67,7 +74,7 @@ protected:
 
     bool m_multiEvent;
     bool m_mblt;
-    quint16 readlen;
+    quint16 m_readLength;
 };
 
 #endif // DATATHREAD_H

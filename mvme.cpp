@@ -20,8 +20,15 @@
 mvme::mvme(QWidget *parent) :
     QMainWindow(parent),
     vu(0),
+    mctrl(0),
+    dt(0),
+    dc(0),
+    diag(0),
+    rd(0),
     ui(new Ui::mvme)
 {
+
+    qDebug() << "main thread: " << QThread::currentThread();
 
     // TODO: currently not fully implemented
     loadSetup();

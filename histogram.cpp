@@ -1,15 +1,15 @@
 #include "histogram.h"
 #include "math.h"
 
-Histogram::Histogram(QObject *parent, quint32 channels, quint32 bits) :
+Histogram::Histogram(QObject *parent, quint32 channels, quint32 resolution) :
     QObject(parent)
 {
-    m_data = new double[channels*bits];
-    m_axisBase = new double[bits];
+    m_data = new double[channels*resolution];
+    m_axisBase = new double[resolution];
     m_channels = channels;
-    m_resolution = bits;
+    m_resolution = resolution;
 
-    qDebug("Initialized histogram with %d channels, %d resolution", channels, bits);
+    qDebug("Initialized histogram with %d channels, %d resolution", channels, resolution);
 }
 
 Histogram::~Histogram()
@@ -36,6 +36,9 @@ void Histogram::initHistogram(void)
 
 void Histogram::clearChan(quint32 chan)
 {
+    if (chan >= m_channels)
+        return;
+
     for(quint32 i = 0; i < m_resolution; i++)
         m_data[chan * m_resolution + i] = 0;
     m_mean[chan] = 0;

@@ -4,23 +4,29 @@
 #include "mvmedefines.h"
 #include "histogram.h"
 #include "realtimedata.h"
+#include <QDebug>
 
 DataCruncher::DataCruncher(QObject *parent) :
     QThread(parent)
 {
+    setObjectName("DataCruncher");
+
     myMvme = (mvme*)parent;
-    crunchTimer = new QTimer(this);
+    crunchTimer = new QTimer();
     connect(crunchTimer, SIGNAL(timeout()), SLOT(crunchTimerSlot()));
     m_newEvent = false;
     m_rtDiag = true;
 }
 
 void DataCruncher::run(){
+    qDebug() << "DataCruncher thread:" << QThread::currentThread();
     crunchTimer->start(50);
 }
 
 void DataCruncher::crunchTimerSlot()
 {
+    //qDebug() << "DataCruncher: " << QThread::currentThread();
+
     quint32 values, modId, channel, val, i;
 
     // anything to do?
