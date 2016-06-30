@@ -10,6 +10,7 @@ class ChannelSpectroWidget;
 
 class QTimer;
 class QwtPlotSpectrogram;
+class QwtLinearColorMap;
 class ChannelSpectroData;
 class ScrollZoomer;
 
@@ -25,6 +26,9 @@ public:
     void setValue(uint32_t channel, uint32_t value);
     QwtPlotSpectrogram *getPlotItem() const { return m_plotItem; }
     ChannelSpectroData *getSpectroData() const { return m_data; }
+    void clear();
+
+    QwtLinearColorMap *getColorMap() const;
 
 private:
     QwtPlotSpectrogram *m_plotItem;
@@ -45,6 +49,10 @@ class ChannelSpectroWidget: public QWidget
 public:
     explicit ChannelSpectroWidget(ChannelSpectro *channelSpectro, QWidget *parent=0);
     ~ChannelSpectroWidget();
+
+
+public slots:
+    void replot();
 
 private slots:
     void setXAxisChannel(int channel);

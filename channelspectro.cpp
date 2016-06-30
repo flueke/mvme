@@ -3,6 +3,7 @@
 #include "scrollzoomer.h"
 #include <qwt_plot_spectrogram.h>
 #include <qwt_color_map.h>
+#include <qwt_scale_widget.h>
 #include <QDebug>
 #include <QComboBox>
 #include <QTimer>
@@ -71,6 +72,8 @@ public:
         {
             m_data[i] = 0;
         }
+
+        setInterval(Qt::ZAxis, QwtInterval());
     }
 
     virtual double value(double x, double y) const
@@ -81,17 +84,34 @@ public:
 
         if (ix < m_xResolution && iy < m_yResolution)
         {
-            v = m_data[iy * m_yResolution + ix];
+            v = m_data[iy * m_xResolution + ix];
         }
 
         return v > 0 ? v : qQNaN();
+    }
+
+    virtual void initRaster(const QRectF &area, const QSize &raster)
+    {
+        qDebug() << "initRaster() area =" << area << ", raster =" << raster;
     }
 
     void incValue(uint32_t x, uint32_t y)
     {
         if (x < m_xResolution && y < m_yResolution)
         {
-            uint32_t value = ++m_data[y * m_yResolution + x];
+            uint32_t value = ++m_data[y * m_xResolution + x];
+            m_maxValue = qMax(value, m_maxValue);
+            setInterval(Qt::ZAxis, QwtInterval(0, m_maxValue));
+        }
+    }
+
+    void setValue(uint32_t x, uint32_t y, uint32_t value)
+    {
+        if (x < m_xResolution && y < m_yResolution)
+        {
+            /* FIXME(flueke): this produces a wrong max value if the
+             * current max value is overwritten with a smaller value. */
+            m_data[y * m_xResolution + x] = value;
             m_maxValue = qMax(value, m_maxValue);
             setInterval(Qt::ZAxis, QwtInterval(0, m_maxValue));
         }
@@ -115,10 +135,22 @@ ChannelSpectro::ChannelSpectro(uint32_t xResolution, uint32_t yResolution)
     , m_yValue(-1)
 {
     m_plotItem->setData(m_data);
+    m_plotItem->setRenderThreadCount(0); // use system specific ideal thread count
 
-    auto colorMap = new QwtLinearColorMap(Qt::blue, Qt::red);
+    m_plotItem->setColorMap(getColorMap());
+}
+
+QwtLinearColorMap *ChannelSpectro::getColorMap() const
+{
+    auto colorMap = new QwtLinearColorMap(Qt::darkBlue, Qt::darkRed);
+    colorMap->addColorStop(0.2, Qt::blue);
+    colorMap->addColorStop(0.4, Qt::cyan);
+    colorMap->addColorStop(0.6, Qt::yellow);
+    colorMap->addColorStop(0.8, Qt::red);
+
     colorMap->setMode(QwtLinearColorMap::ScaledColors);
-    m_plotItem->setColorMap(colorMap);
+
+    return colorMap;
 }
 
 void ChannelSpectro::setXAxisChannel(int32_t channel)
@@ -159,6 +191,12 @@ void ChannelSpectro::setValue(uint32_t channel, uint32_t value)
     }
 }
 
+void ChannelSpectro::clear()
+{
+    m_data->reset();
+    m_plotItem->itemChanged();
+}
+
 ChannelSpectroWidget::ChannelSpectroWidget(ChannelSpectro *channelSpectro, QWidget *parent)
     : QWidget(parent)
     , ui(new Ui::ChannelSpectroWidget)
@@ -183,17 +221,35 @@ ChannelSpectroWidget::ChannelSpectroWidget(ChannelSpectro *channelSpectro, QWidg
 
     connect(ui->pb_replot, SIGNAL(clicked()), ui->plot, SLOT(replot()));
     connect(ui->pb_addRandom, SIGNAL(clicked()), SLOT(addRandomValues()));
+    connect(ui->pb_clear, &QPushButton::clicked, [=]() {
+            m_channelSpectro->clear();
+            });
 
-    ui->plot->setAxisScale(QwtPlot::xBottom, 0, m_channelSpectro->getSpectroData()->interval(Qt::XAxis).maxValue());
-    ui->plot->setAxisScale(QwtPlot::yLeft, 0, m_channelSpectro->getSpectroData()->interval(Qt::YAxis).maxValue());
-
-    m_zoomer = new ScrollZoomer(ui->plot->canvas());
-    m_zoomer->setZoomBase();
 
     m_channelSpectro->getPlotItem()->attach(ui->plot);
 
-    connect(m_replotTimer, SIGNAL(timeout()), ui->plot, SLOT(replot()));
+    auto rightAxis = ui->plot->axisWidget(QwtPlot::yRight);
+    rightAxis->setTitle("Counts");
+    rightAxis->setColorBarEnabled(true);
+    //rightAxis->setColorMap(QwtInterval(0, 1), m_channelSpectro->getColorMap());
+    //ui->plot->setAxisScale(QwtPlot::yRight, 0, 1);
+    ui->plot->enableAxis(QwtPlot::yRight);
+
+
+    auto spectroData = m_channelSpectro->getSpectroData();
+    auto interval = spectroData->interval(Qt::XAxis);
+    ui->plot->setAxisScale(QwtPlot::xBottom, interval.minValue(), interval.maxValue());
+
+    interval = spectroData->interval(Qt::YAxis);
+    ui->plot->setAxisScale(QwtPlot::yLeft, interval.minValue(), interval.maxValue());
+
+    connect(m_replotTimer, SIGNAL(timeout()), this, SLOT(replot()));
     m_replotTimer->start(2000);
+
+    m_zoomer = new ScrollZoomer(ui->plot->canvas());
+    m_zoomer->setZoomBase();
+    
+    replot();
 }
 
 ChannelSpectroWidget::~ChannelSpectroWidget()
@@ -201,10 +257,34 @@ ChannelSpectroWidget::~ChannelSpectroWidget()
     delete ui;
 }
 
+void ChannelSpectroWidget::replot()
+{
+    auto spectroData = m_channelSpectro->getSpectroData();
+
+    // x
+    auto axis = ui->plot->axisWidget(QwtPlot::xBottom);
+    axis->setTitle(QString("Channel %1").arg(m_channelSpectro->getXAxisChannel()));
+
+    // y
+    axis = ui->plot->axisWidget(QwtPlot::yLeft);
+    axis->setTitle(QString("Channel %1").arg(m_channelSpectro->getYAxisChannel()));
+
+    // z
+    auto interval = spectroData->interval(Qt::ZAxis);
+    axis = ui->plot->axisWidget(QwtPlot::yRight);
+
+    ui->plot->setAxisScale(QwtPlot::yRight, interval.minValue(), interval.maxValue());
+    axis->setColorMap(interval, m_channelSpectro->getColorMap());
+
+    ui->plot->replot();
+}
+
 void ChannelSpectroWidget::addRandomValues()
 {
     auto spectroData = m_channelSpectro->getSpectroData();
-    qDebug() << spectroData->interval(Qt::ZAxis);
+
+    qDebug() << "begin addRandomValues" << spectroData->interval(Qt::ZAxis);
+#if 0
 
     for (int Repeats = 0; Repeats < 10000; ++Repeats)
     {
@@ -214,6 +294,37 @@ void ChannelSpectroWidget::addRandomValues()
     }
     qDebug() << spectroData->interval(Qt::ZAxis);
     ui->plot->replot();
+#endif
+
+#if 1
+    for (uint32_t x=0; x<spectroData->m_xResolution; ++x)
+    {
+        for (uint32_t y=0; y<spectroData->m_yResolution; ++y)
+        {
+            uint32_t value = x;
+            spectroData->setValue(x, y, value);
+        }
+    }
+#endif
+
+
+#if 0
+    for (uint32_t x=0; x<spectroData->m_xResolution; ++x)
+    {
+        for (uint32_t y=0; y<spectroData->m_yResolution; ++y)
+        {
+            const double c = 0.842;
+            const double v1 = x * x + ( y - c ) * ( y + c );
+            const double v2 = x * ( y + c ) + x * ( y + c );
+
+            double value = ( v1 * v1 + v2 * v2 );
+
+            spectroData->setValue(x, y, value);
+        }
+    }
+#endif
+
+    qDebug() << "end addRandomValues" << spectroData->interval(Qt::ZAxis);
 }
 
 void ChannelSpectroWidget::setXAxisChannel(int channel)
