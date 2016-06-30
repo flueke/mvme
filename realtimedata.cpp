@@ -12,7 +12,7 @@ RealtimeData::RealtimeData(QObject *parent) :
 
 RealtimeData::~RealtimeData()
 {
-    delete m_pRD;
+    delete[] m_pRD;
 }
 
 void RealtimeData::clearData()

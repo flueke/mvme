@@ -1,7 +1,8 @@
 #ifndef DATATHREAD_H
 #define DATATHREAD_H
 
-#include <QThread>
+#include <QObject>
+#include <QMutex>
 #include <memory>
 
 class QTimer;
@@ -9,7 +10,7 @@ class mvme;
 class vmUsb;
 class caenusb;
 
-class DataThread : public QThread
+class DataThread : public QObject
 {
     Q_OBJECT
 public:
@@ -37,15 +38,12 @@ signals:
 
 public slots:
     void dataTimerSlot();
-    void startDataTimer(quint16 period);
-    void stopDataTimer(void);
-    void startReading();
+    void startReading(quint16 readTimerPeriod);
     void stopReading();
     void setRingbuffer(quint32* buffer);
     void setReadoutmode(bool multi, quint16 maxlen, bool mblt);
 
 protected:
-    void run();
     QTimer* dataTimer;
     mvme* myMvme;
 #ifdef VME_CONTROLLER_WIENER
@@ -75,6 +73,8 @@ protected:
     bool m_multiEvent;
     bool m_mblt;
     quint16 m_readLength;
+
+    QMutex m_controllerMutex;
 };
 
 #endif // DATATHREAD_H

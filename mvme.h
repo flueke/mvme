@@ -2,8 +2,12 @@
 #define MVME_H
 
 #include <QMainWindow>
+#ifdef VME_CONTROLLER_WIENER
 #include "vmusb.h"
+#endif
+#ifdef VME_CONTROLLER_CAEN
 #include "caenusb.h"
+#endif
 #include <QFile>
 #include <QTextStream>
 #include <QMap>
@@ -13,12 +17,13 @@ class Histogram;
 class DataThread;
 class DataCruncher;
 class QwtPlotCurve;
-class QwtPlotSpectrogram;
 class QTimer;
 class vmedevice;
 class VirtualMod;
 class Diagnostics;
 class RealtimeData;
+class ChannelSpectro;
+class QThread;
 
 
 namespace Ui {
@@ -50,6 +55,7 @@ public:
     DataCruncher *dc;
     Diagnostics* diag;
     RealtimeData* rd;
+    ChannelSpectro *m_channelSpectro;
 
 
     void closeEvent(QCloseEvent *event);
@@ -64,7 +70,6 @@ public slots:
 
 private:
     Ui::mvme *ui;
-    QwtPlotSpectrogram *spect;
     unsigned char displayCounter;
     QString str;
     bool listmode;
@@ -84,6 +89,7 @@ private:
     QMap<int, Histogram *> m_histogram;
     QMap<int, VirtualMod *> m_virtualMod;
 
+    QThread *m_readoutThread;
 };
 
 #endif // MVME_H

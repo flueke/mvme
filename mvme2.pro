@@ -35,6 +35,7 @@ SOURCES += main.cpp\
     realtimedata.cpp \
     simulator.cpp \
     CVMUSBReadoutList.cpp \
+    channelspectro.cpp \
 
 HEADERS  += \
          vmusb.h \
@@ -58,28 +59,22 @@ HEADERS  += \
     realtimedata.h \
     simulator.h \
     CVMUSBReadoutList.h \
+    channelspectro.h \
 
 FORMS    += \
     mvmecontrol.ui \
     mvme.ui \
-    twodimwidget.ui
-
-unix:!macx:!symbian: LIBS += -L/usr/lib/ -lxx_usb
-unix:!macx:!symbian: LIBS += -L/usr/lib/ -lCAENVME
-
+    twodimwidget.ui \
+    channelspectrowidget.ui
 
 INCLUDEPATH += /usr/include
 DEPENDPATH += /usr/include
 
-#unix:!macx:!symbian: LIBS += -L/usr/lib/ -lxx_usb
-
-#INCLUDEPATH += $$PWD/../../../../usr/include
-#DEPENDPATH += $$PWD/../../../../usr/include
+unix:!macx:!symbian: LIBS += -L/usr/lib/ -lxx_usb -lusb
+unix:!macx:!symbian: LIBS += -L/usr/lib/ -lCAENVME
 
 DEFINES += VME_CONTROLLER_WIENER
 #DEFINES += VME_CONTROLLER_CAEN
-
-unix:!macx:!symbian: LIBS += -lusb
 
 unix:!macx:!symbian: LIBS += -L/usr/local/qwt-6.1.2/lib/ -lqwt
 

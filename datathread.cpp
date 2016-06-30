@@ -8,11 +8,12 @@
 #include "CVMUSBReadoutList.h"
 #include "vme.h"
 #include <QDebug>
+#include <QMutexLocker>
 
 #define DATABUFFER_SIZE 100000
 
 DataThread::DataThread(QObject *parent) :
-    QThread(parent)
+    QObject(parent)
 {
     setObjectName("DataThread");
 
@@ -21,12 +22,8 @@ DataThread::DataThread(QObject *parent) :
     m_multiEvent = false;
     m_readLength = 100;
     initBuffers();
-    connect(dataTimer, SIGNAL(timeout()), SLOT(dataTimerSlot()), Qt::QueuedConnection);
-}
+    connect(dataTimer, SIGNAL(timeout()), SLOT(dataTimerSlot()));
 
-void DataThread::run()
-{
-//    dataTimer->start(49);
 }
 
 /* This is the central data readout function. It is called
@@ -36,6 +33,7 @@ void DataThread::run()
 #ifdef VME_CONTROLLER_CAEN
 void DataThread::dataTimerSlot()
 {
+    qDebug() << "DataThread: " << QThread::currentThread();
     quint32 i, j, len, id;
     quint32 ret;
 
@@ -74,6 +72,7 @@ void DataThread::dataTimerSlot()
 #elif defined VME_CONTROLLER_WIENER
 void DataThread::dataTimerSlot()
 {
+    qDebug() << "DataThread: " << QThread::currentThread();
     // read available data from controller
     // todo: implement multiple readout depending on list of devices
     // todo: implement readout routines depending on type of vme device
@@ -82,7 +81,7 @@ void DataThread::dataTimerSlot()
     if(ret <= 0)
         return;
 
-    qDebug() << "DataThread: " << QThread::currentThread();
+    qDebug() << __PRETTY_FUNCTION__ << QThread::currentThread();
 
     quint32 wordsReceived = ret / sizeof(quint32);
 
@@ -130,7 +129,7 @@ void DataThread::dataTimerSlot()
                     m_pRingbuffer[m_writePointer++] = currentWord;
                     bufferState = BufferState_Data;
 
-                    qDebug("found header word 0x%08lx, wordsInEvent=%u", currentWord, wordsInEvent);
+                    //qDebug("found header word 0x%08lx, wordsInEvent=%u", currentWord, wordsInEvent);
                 } else 
                 {
                     qDebug("did not find header word, skipping. got 0x%08lx", currentWord);
@@ -150,7 +149,7 @@ void DataThread::dataTimerSlot()
             {
                 if ((currentWord & 0xC0000000) == 0xC0000000)
                 {
-                    qDebug("found EOE: 0x%08lx", currentWord);
+                    //qDebug("found EOE: 0x%08lx", currentWord);
                 } else
                 {
                     qDebug("expected EOE word, got 0x%08lx, continuing regardless", currentWord);
@@ -175,18 +174,9 @@ DataThread::~DataThread()
     delete dataBuffer;
 }
 
-void DataThread::startDataTimer(quint16 period)
+void DataThread::startReading(quint16 readTimerPeriod)
 {
-    dataTimer->start(period);
-}
-
-void DataThread::stopDataTimer(void)
-{
-    dataTimer->stop();
-}
-
-void DataThread::startReading()
-{
+    QMutexLocker locker(&m_controllerMutex);
 #ifdef VME_CONTROLLER_CAEN
     // stop acquisition
     myCu->vmeWrite16(0x603A, 0);
@@ -206,10 +196,20 @@ void DataThread::startReading()
     // readout reset
     myVu->vmeWrite16(0x6034, 1);
 #endif
+
+    dataTimer->setInterval(readTimerPeriod);
+
+    /* Start the timer in the DataThreads thread context. If start() would be
+     * called directly, the timer events would be generated in the current
+     * thread context (the GUI thread). Thus if the GUI is busy not enough timer events
+     * would be generated, slowing down the readout. */
+    QMetaObject::invokeMethod(dataTimer, "start");
 }
 
 void DataThread::stopReading()
 {
+    dataTimer->stop();
+    QMutexLocker locker(&m_controllerMutex);
 #ifdef VME_CONTROLLER_CAEN
     myCu->vmeWrite16(0x603A, 0);
     myCu->vmeWrite16(0x603C, 1);
@@ -228,6 +228,7 @@ void DataThread::setRingbuffer(quint32 *buffer)
 
 void DataThread::setReadoutmode(bool multi, quint16 maxlen, bool mblt)
 {
+    QMutexLocker locker(&m_controllerMutex);
     m_mblt = mblt;
     m_multiEvent = multi;
 #ifdef VME_CONTROLLER_CAEN
@@ -358,7 +359,9 @@ quint32 DataThread::readData()
     }
 #else
 
-    int timeout_ms = 100;
+    QMutexLocker locker(&m_controllerMutex);
+
+    int timeout_ms = 5000;
 
     int bytesRead = myVu->transaction(m_readoutPacket.get(), m_readoutPacketSize, dataBuffer, DATABUFFER_SIZE, timeout_ms);
 

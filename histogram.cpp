@@ -16,8 +16,8 @@ Histogram::Histogram(QObject *parent, quint32 channels, quint32 resolution) :
 
 Histogram::~Histogram()
 {
-    delete m_data;
-    delete m_axisBase;
+    delete[] m_data;
+    delete[] m_axisBase;
 }
 
 void Histogram::initHistogram(void)

@@ -70,13 +70,13 @@ void ScrollZoomer::rescale()
 {
     QwtScaleWidget *xScale = plot()->axisWidget( xAxis() );
     QwtScaleWidget *yScale = plot()->axisWidget( yAxis() );
-    qDebug("rescale in zoomer");
+    //qDebug("rescale in zoomer");
     if ( zoomRectIndex() <= 0 )
     {
-        qDebug("index <= 0: %d", zoomRectIndex());
+        //qDebug("index <= 0: %d", zoomRectIndex());
         if ( d_inZoom )
         {
-            qDebug("end zoom");
+            //qDebug("end zoom");
             xScale->setMinBorderDist( 0, 0 );
             yScale->setMinBorderDist( 0, 0 );
 
@@ -90,10 +90,10 @@ void ScrollZoomer::rescale()
     }
     else
     {
-        qDebug("index > 0: %d", zoomRectIndex());
+        //qDebug("index > 0: %d", zoomRectIndex());
         if ( !d_inZoom )
         {
-            qDebug("start/increase zoom");
+            //qDebug("start/increase zoom");
             /*
              We set a minimum border distance.
              Otherwise the canvas size changes when scrolling,
@@ -122,8 +122,8 @@ void ScrollZoomer::rescale()
             d_inZoom = true;
         }
     }
-    qDebug("width: %2.2f, height: %2.2f", zoomRect().width(), zoomRect().height());
-    qDebug("left: %2.2f, right: %2.2f",zoomRect().left(), zoomRect().right());
+    //qDebug("width: %2.2f, height: %2.2f", zoomRect().width(), zoomRect().height());
+    //qDebug("left: %2.2f, right: %2.2f",zoomRect().left(), zoomRect().right());
     QwtPlotZoomer::rescale();
     updateScrollBars();
 }

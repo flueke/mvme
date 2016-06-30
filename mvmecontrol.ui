@@ -1303,7 +1303,7 @@ p, li { white-space: pre-wrap; }
         <string>Number extract mask</string>
        </property>
       </widget>
-      <widget class="QWidget" name="">
+      <widget class="QWidget" name="layoutWidget">
        <property name="geometry">
         <rect>
          <x>320</x>
@@ -1810,13 +1810,16 @@ p, li { white-space: pre-wrap; }
        <enum>Qt::LeftToRight</enum>
       </property>
       <property name="text">
-       <string>1</string>
+       <string>0</string>
       </property>
       <property name="cursorPosition">
        <number>1</number>
       </property>
      </widget>
      <widget class="QCheckBox" name="MBLT">
+      <property name="enabled">
+       <bool>false</bool>
+      </property>
       <property name="geometry">
        <rect>
         <x>10</x>
@@ -1920,7 +1923,7 @@ p, li { white-space: pre-wrap; }
        <string>Single Events</string>
       </property>
       <property name="checked">
-       <bool>true</bool>
+       <bool>false</bool>
       </property>
       <attribute name="buttonGroup">
        <string notr="true">readmodeGroup</string>
@@ -1939,7 +1942,7 @@ p, li { white-space: pre-wrap; }
        <string>Multi Events</string>
       </property>
       <property name="checked">
-       <bool>false</bool>
+       <bool>true</bool>
       </property>
       <attribute name="buttonGroup">
        <string notr="true">readmodeGroup</string>
@@ -1955,7 +1958,7 @@ p, li { white-space: pre-wrap; }
        </rect>
       </property>
       <property name="text">
-       <string>34</string>
+       <string>60000</string>
       </property>
      </widget>
      <widget class="QLabel" name="label_17">
@@ -3653,9 +3656,9 @@ p, li { white-space: pre-wrap; }
  </slots>
  <buttongroups>
   <buttongroup name="datatakingGroup"/>
-  <buttongroup name="readmodeGroup"/>
-  <buttongroup name="vmeDaqGroup"/>
-  <buttongroup name="binRangeGroup"/>
   <buttongroup name="readModeGroup"/>
+  <buttongroup name="vmeDaqGroup"/>
+  <buttongroup name="readmodeGroup"/>
+  <buttongroup name="binRangeGroup"/>
  </buttongroups>
 </ui>

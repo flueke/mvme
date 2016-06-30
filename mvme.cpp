@@ -4,7 +4,6 @@
 #include "mvmecontrol.h"
 #include "ui_mvmecontrol.h"
 #include <qwt_plot_curve.h>
-#include <qwt_plot_spectrogram.h>
 #include "histogram.h"
 #include "datacruncher.h"
 #include "datathread.h"
@@ -15,6 +14,7 @@
 #include "twodimdisp.h"
 #include "diagnostics.h"
 #include "realtimedata.h"
+#include "channelspectro.h"
 
 
 mvme::mvme(QWidget *parent) :
@@ -25,10 +25,14 @@ mvme::mvme(QWidget *parent) :
     dc(0),
     diag(0),
     rd(0),
-    ui(new Ui::mvme)
+    m_channelSpectro(new ChannelSpectro),
+    ui(new Ui::mvme),
+    m_readoutThread(new QThread)
 {
 
     qDebug() << "main thread: " << QThread::currentThread();
+
+    m_readoutThread->setObjectName("ReadoutThread");
 
     // TODO: currently not fully implemented
     loadSetup();
@@ -40,6 +44,9 @@ mvme::mvme(QWidget *parent) :
     createHistograms();
     m_histogram[0] = new Histogram(this, 42, 8192);
     m_histogram[0]->initHistogram();
+
+    m_channelSpectro->setXAxisChannel(0);
+    m_channelSpectro->setYAxisChannel(1);
 
     // create and initialize displays
     ui->setupUi(this);
@@ -74,8 +81,6 @@ mvme::mvme(QWidget *parent) :
     drawTimer = new QTimer(this);
     connect(drawTimer, SIGNAL(timeout()), SLOT(drawTimerSlot()));
 
-    spect = new QwtPlotSpectrogram();
-
     initThreads();
 
     plot();
@@ -88,6 +93,10 @@ mvme::mvme(QWidget *parent) :
 
 mvme::~mvme()
 {
+    m_readoutThread->quit();
+    m_readoutThread->wait();
+    delete m_readoutThread;
+
     delete vu;
     delete mctrl;
     delete ui;
@@ -96,6 +105,7 @@ mvme::~mvme()
     delete dt;
     delete dc;
     delete rd;
+    delete m_channelSpectro;
 }
 
 void mvme::plot()
@@ -122,7 +132,10 @@ void mvme::replot()
 */
     foreach(QMdiSubWindow *w, ui->mdiArea->subWindowList()){
         tdd = qobject_cast<TwoDimDisp *>(w);
-        tdd->plot();
+        if (tdd)
+        {
+            tdd->plot();
+        }
     }
 }
 
@@ -145,6 +158,12 @@ void mvme::createChild()
     childDisplay->show();
     childDisplay->setMvme(this);
     childDisplay->setHistogram(m_histogram.value(0));
+
+
+    auto subwin = new QMdiSubWindow(ui->mdiArea);
+    auto channelSpectroWidget = new ChannelSpectroWidget(m_channelSpectro);
+    subwin->setWidget(channelSpectroWidget);
+    subwin->show();
 }
 
 void mvme::cascade()
@@ -159,10 +178,12 @@ void mvme::tile()
 
 void mvme::startDatataking(quint16 period, bool multi, quint16 readLen, bool mblt)
 {
+    qDebug() << __PRETTY_FUNCTION__;
+
     dt->setReadoutmode(multi, readLen, mblt);
-    dt->startDataTimer(period);
+    dt->startReading(period);
+
     drawTimer->start(750);
-    dt->startReading();
     datataking = true;
     // check for listfile
 /*    if(listmode){
@@ -199,10 +220,20 @@ void mvme::startDatataking(quint16 period, bool multi, quint16 readLen, bool mbl
 
 void mvme::stopDatataking()
 {
+    QTime timer;
+    timer.start();
+
     dt->stopReading();
-    dt->stopDataTimer();
     drawTimer->stop();
     datataking = false;
+
+
+
+    qDebug() << __PRETTY_FUNCTION__ << "elapsed:" << timer.elapsed();
+
+
+
+
 /*    daqTimer->stop();
     if(listmode)
         datfile.close();
@@ -215,6 +246,9 @@ void mvme::initThreads()
 {
     dt = new DataThread;
     dt->setVu(vu);
+
+    dt->moveToThread(m_readoutThread);
+
     //dt->setCu(cu);
     dc = new DataCruncher;
     connect(dt, SIGNAL(dataReady()), dc, SLOT(newEvent()));
@@ -227,9 +261,10 @@ void mvme::initThreads()
     dt->setRingbuffer(dc->m_pRingBuffer);
 
     dc->setRtData(rd);
+    dc->setChannelSpectro(m_channelSpectro);
     plot();
 
-    dt->start(QThread::TimeCriticalPriority);
+    m_readoutThread->start(QThread::TimeCriticalPriority);
     dc->start(QThread::NormalPriority);
 }
 

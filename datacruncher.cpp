@@ -4,10 +4,12 @@
 #include "mvmedefines.h"
 #include "histogram.h"
 #include "realtimedata.h"
+#include "channelspectro.h"
 #include <QDebug>
 
-DataCruncher::DataCruncher(QObject *parent) :
-    QThread(parent)
+DataCruncher::DataCruncher(QObject *parent)
+    : QThread(parent)
+    , m_channelSpectro(0)
 {
     setObjectName("DataCruncher");
 
@@ -60,7 +62,14 @@ void DataCruncher::crunchTimerSlot()
 //                qDebug("chan %d, val %d, pos: %d", channel, val, channel*m_resolution + val);
             if((m_pRingBuffer[m_readPointer] & 0xF0000000) == 0x10000000 ||
                     (m_pRingBuffer[m_readPointer] & 0xFF800000) == 0x04000000)
+            {
                 m_pHistogram->m_data[channel*m_resolution + val]++;
+
+                if (m_channelSpectro)
+                {
+                    m_channelSpectro->setValue(channel, val);
+                }
+            }
             if(m_rtDiag){
                 m_pRtD->insertData(channel, (quint16)val);
             }
