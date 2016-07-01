@@ -1,4 +1,8 @@
+#ifdef __MINGW32__
+#include <lusb0_usb.h>
+#else
 #include <usb.h>
+#endif
 
 #ifndef libxxusb_h
 #define libxxusb_h
@@ -113,7 +117,7 @@ short CAMAC_write(usb_dev_handle *hdev, int N, int A, int F, long Data, int *Q, 
 short CAMAC_read(usb_dev_handle *hdev, int N, int A, int F, long *Data, int *Q, int *X);
 short CAMAC_Z(usb_dev_handle *hdev);
 short CAMAC_C(usb_dev_handle *hdev);
-short CAMAC_I(usb_dev_handle *hdev, int inhibit); 
+short CAMAC_I(usb_dev_handle *hdev, int inhibit);
 
 #ifdef __cplusplus
 }

@@ -29,7 +29,7 @@ class CVMUSBReadoutList;
 /**
 represents vm_usb controller
 
-	@author Gregor Montermann <g.montermann@mesytec.com>
+  @author Gregor Montermann <g.montermann@mesytec.com>
 */
 class vmUsb : public QObject
 {
@@ -44,41 +44,41 @@ public:
     void getUsbDevices(void);
     void checkUsbDevices(void);
 
-	int getFirmwareId();
-	int getMode();
-	int getDaqSettings();
-	int getLedSources();
-	int getDeviceSources();
-	int getDggA();
-	int getDggB();
-	int getScalerAdata();
-	int getScalerBdata();
-	int getNumberMask();
-	int getIrq(int vec);
-	int getDggSettings();
-	int getUsbSettings();
-	
-	int setFirmwareId(int val);
-	int setMode(int val);
-	int setDaqSettings(int val);
-	int setLedSources(int val);
-	int setDeviceSources(int val);
-	int setDggA(int val);
-	int setDggB(int val);
-	int setScalerAdata(int val);
-	int setScalerBdata(int val);
-	int setNumberMask(int val);
-	int setIrq(int vec, int val);
-	int setDggSettings(int val);
-	int setUsbSettings(int val);
+  int getFirmwareId();
+  int getMode();
+  int getDaqSettings();
+  int getLedSources();
+  int getDeviceSources();
+  int getDggA();
+  int getDggB();
+  int getScalerAdata();
+  int getScalerBdata();
+  int getNumberMask();
+  int getIrq(int vec);
+  int getDggSettings();
+  int getUsbSettings();
+
+  int setFirmwareId(int val);
+  int setMode(int val);
+  int setDaqSettings(int val);
+  int setLedSources(int val);
+  int setDeviceSources(int val);
+  int setDggA(int val);
+  int setDggB(int val);
+  int setScalerAdata(int val);
+  int setScalerBdata(int val);
+  int setNumberMask(int val);
+  int setIrq(int vec, int val);
+  int setDggSettings(int val);
+  int setUsbSettings(int val);
     short vmeWrite32(long addr, long data);
     short vmeRead32(long addr, long* data);
-	short vmeWrite16(long addr, long data);
-	short vmeRead16(long addr, long* data);
+  short vmeWrite16(long addr, long data);
+  short vmeRead16(long addr, long* data);
     int vmeBltRead32(long addr, int count, quint32* data);
     int vmeMbltRead32(long addr, int count, quint32* data);
-	void swap32(long* val);
-	void swap16(long* val);
+  void swap32(long* val);
+  void swap16(long* val);
     int stackWrite(int id, long* data);
     int stackRead(int id, long* data);
     int stackExecute(long* data);
@@ -87,7 +87,7 @@ public:
     int usbRegisterWrite(int addr, int value);
     void initialize();
     int setScalerTiming(unsigned int frequency, unsigned char period, unsigned char delay);
-	void setEndianess(bool big);
+  void setEndianess(bool big);
 
     /* Executes the given stack (in the form of a readout list) and reads the
      * response into readBuffer. The actual number of bytes read is stored in
@@ -98,28 +98,28 @@ public:
     /* Writes the given writePacket to the VM_USB and reads the response back into readPacket. */
     int transaction(void* writePacket, size_t writeSize,
                 void* readPacket,  size_t readSize, int timeout_ms = 1000);
-	
-	xxusb_device_type pUsbDevice[5];
+
+  xxusb_device_type pUsbDevice[5];
     char numDevices;
     usb_dev_handle* hUsbDevice;
     short ret;
 
 protected:
-	int firmwareId;
-	int globalMode;
-	int daqSettings;
-	int ledSources;
-	int deviceSources;
-	int dggAsettings;
-	int dggBsettings;
-	int scalerAdata;
-	int scalerBdata;
-	int numberMask;
-	int irqV[4];
-	int extDggSettings;
-	int usbBulkSetup;
+  int firmwareId;
+  int globalMode;
+  int daqSettings;
+  int ledSources;
+  int deviceSources;
+  int dggAsettings;
+  int dggBsettings;
+  int scalerAdata;
+  int scalerBdata;
+  int numberMask;
+  int irqV[4];
+  int extDggSettings;
+  int usbBulkSetup;
     long int retval;
-	bool bigendian;
+  bool bigendian;
 
 };
 
@@ -160,7 +160,7 @@ static const unsigned int ISV34(0x2c);          // Interrupt 3/4 dispatch.
 static const unsigned int ISV56(0x30);          // Interrupt 5/6 dispatch.
 static const unsigned int ISV78(0x34);          //  Interrupt 7/8 dispatch.
 static const unsigned int DGGExtended(0x38);    // DGG Additional bits.
-static const unsigned int USBSetup(0x3c);       // USB Bulk transfer setup. 
+static const unsigned int USBSetup(0x3c);       // USB Bulk transfer setup.
 static const unsigned int USBVHIGH1(0x40);       // additional bits of some of the interrupt vectors.
 static const unsigned int USBVHIGH2(0x44);       // additional bits of the other interrupt vectors.
 

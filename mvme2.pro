@@ -62,15 +62,20 @@ FORMS    += \
     twodimwidget.ui \
     channelspectrowidget.ui
 
-INCLUDEPATH += /usr/include
-DEPENDPATH += /usr/include
-
 DEFINES += VME_CONTROLLER_WIENER
 #DEFINES += VME_CONTROLLER_CAEN
 
 contains(DEFINES, "VME_CONTROLLER_WIENER") {
     message("Building with WIENER VM_USB support")
+
     unix:!macx:!symbian: LIBS += -L/usr/lib/ -lusb
+
+    win32 {
+        INCLUDEPATH += "C:\libusb-win32-bin-1.2.6.0\include"
+        LIBS += -L"C:\libusb-win32-bin-1.2.6.0\lib\gcc" -lusb
+    }
+
+
     HEADERS += libxxusb.h \
          vmusb.h \
 
@@ -80,7 +85,9 @@ contains(DEFINES, "VME_CONTROLLER_WIENER") {
 
 contains(DEFINES, "VME_CONTROLLER_CAEN") {
     message("Building with CAEN VM support")
+
     unix:!macx:!symbian: LIBS += -L/usr/lib/ -lCAENVME
+
     HEADERS += CAENVMEtypes.h \
         CAENVMElib.h \
         caenusb.h \
@@ -88,7 +95,12 @@ contains(DEFINES, "VME_CONTROLLER_CAEN") {
     SOURCES += caenusb.cpp \
 }
 
-unix:!macx:!symbian: LIBS += -L/usr/local/qwt-6.1.2/lib/ -lqwt
+unix:!macx:!symbian {
+    LIBS += -L/usr/local/qwt-6.1.2/lib/ -lqwt
+    INCLUDEPATH += /usr/local/qwt-6.1.0-rc3/include /usr/local/qwt-6.1.2/include
+    DEPENDPATH += /usr/local/qwt-6.1.0-rc3/include /usr/local/qwt-6.1.2/include
+}
 
-INCLUDEPATH += /usr/local/qwt-6.1.0-rc3/include /usr/local/qwt-6.1.2/include
-DEPENDPATH += /usr/local/qwt-6.1.0-rc3/include /usr/local/qwt-6.1.2/include
+win32 {
+    include("C:\Qwt-6.1.3\features\qwt.prf")
+}

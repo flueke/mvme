@@ -17,14 +17,13 @@
  *   Free Software Foundation, Inc.,                                       *
  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
-#include "usb.h"
 #include "vmusb.h"
 #include "CVMUSBReadoutList.h"
 #include "vme.h"
 
 vmUsb::vmUsb()
 {
-	bigendian = false;
+  bigendian = false;
 }
 
 
@@ -56,7 +55,7 @@ bool vmUsb::openUsbDevice(void)
     hUsbDevice = xxusb_device_open(pUsbDevice[0].usbdev);
     if(hUsbDevice != NULL){
         qDebug("success");
-		return true;
+    return true;
     }
     else{
         qDebug("fail");
@@ -90,48 +89,48 @@ struct VMUSB_Firmware
  */
 void vmUsb::readAllRegisters(void)
 {
-	long val;
-	VME_register_read(hUsbDevice, 0, &val);
-	firmwareId = (int) val;
+  long val;
+  VME_register_read(hUsbDevice, 0, &val);
+  firmwareId = (int) val;
     qDebug("Id: %x",firmwareId);
-    
+
     VMUSB_Firmware firmware(val);
     qDebug("firmware: month=%d, year=%d, device_id=%d, beta_version=%d, major_revision=%d, minor_revision=%d",
             firmware.month, firmware.year, firmware.device_id, firmware.beta_version, firmware.major_revision, firmware.minor_revision);
 
 
-	VME_register_read(hUsbDevice, 4, &val);
-	globalMode = (int)val & 0xFFFF;
+  VME_register_read(hUsbDevice, 4, &val);
+  globalMode = (int)val & 0xFFFF;
     qDebug("globalMode: %x", globalMode);
 
-	VME_register_read(hUsbDevice, 8, &val);
-	daqSettings = (int)val;
-	VME_register_read(hUsbDevice, 12, &val);
-	ledSources = (int)val;
-	VME_register_read(hUsbDevice, 16, &val);
-	deviceSources = (int)val;
-	VME_register_read(hUsbDevice, 20, &val);
-	dggAsettings = (int)val;
-	VME_register_read(hUsbDevice, 24, &val);
-	dggBsettings = (int)val;
-	VME_register_read(hUsbDevice, 28, &val);
-	scalerAdata = (int)val;
-	VME_register_read(hUsbDevice, 32, &val);
-	scalerBdata = (int)val;
-	VME_register_read(hUsbDevice, 36, &val);
-	numberMask = (int)val;
-	VME_register_read(hUsbDevice, 40, &val);
-	irqV[0] = (int)val;
-	VME_register_read(hUsbDevice, 44, &val);
-	irqV[1] = (int)val;
-	VME_register_read(hUsbDevice, 48, &val);
-	irqV[2] = (int)val;
-	VME_register_read(hUsbDevice, 52, &val);
-	irqV[3] = (int)val;
-	VME_register_read(hUsbDevice, 56, &val);
-	extDggSettings = (int)val;
-	VME_register_read(hUsbDevice, 60, &val);
-	usbBulkSetup = (int)val;
+  VME_register_read(hUsbDevice, 8, &val);
+  daqSettings = (int)val;
+  VME_register_read(hUsbDevice, 12, &val);
+  ledSources = (int)val;
+  VME_register_read(hUsbDevice, 16, &val);
+  deviceSources = (int)val;
+  VME_register_read(hUsbDevice, 20, &val);
+  dggAsettings = (int)val;
+  VME_register_read(hUsbDevice, 24, &val);
+  dggBsettings = (int)val;
+  VME_register_read(hUsbDevice, 28, &val);
+  scalerAdata = (int)val;
+  VME_register_read(hUsbDevice, 32, &val);
+  scalerBdata = (int)val;
+  VME_register_read(hUsbDevice, 36, &val);
+  numberMask = (int)val;
+  VME_register_read(hUsbDevice, 40, &val);
+  irqV[0] = (int)val;
+  VME_register_read(hUsbDevice, 44, &val);
+  irqV[1] = (int)val;
+  VME_register_read(hUsbDevice, 48, &val);
+  irqV[2] = (int)val;
+  VME_register_read(hUsbDevice, 52, &val);
+  irqV[3] = (int)val;
+  VME_register_read(hUsbDevice, 56, &val);
+  extDggSettings = (int)val;
+  VME_register_read(hUsbDevice, 60, &val);
+  usbBulkSetup = (int)val;
 }
 
 
@@ -142,7 +141,7 @@ void vmUsb::readAllRegisters(void)
  */
 void vmUsb::closeUsbDevice(void)
 {
-	xxusb_device_close(hUsbDevice);	
+  xxusb_device_close(hUsbDevice);
 }
 
 
@@ -157,14 +156,14 @@ void vmUsb::checkUsbDevices(void)
     usb_dev_handle *udev;
     struct usb_bus *bus;
     struct usb_device *dev;
-    struct usb_bus *usb_busses;
+    struct usb_bus *usb_busses_;
     char string[256];
     short ret;
     usb_init();
     usb_find_busses();
     usb_find_devices();
-    usb_busses=usb_get_busses();
-    for (bus=usb_busses; bus; bus = bus->next)
+    usb_busses_=usb_get_busses();
+    for (bus=usb_busses_; bus; bus = bus->next)
     {
         qDebug("bus");
         for (dev = bus->devices; dev; dev= dev->next)
@@ -212,16 +211,16 @@ void vmUsb::checkUsbDevices(void)
      usb_dev_handle *udev;
      struct usb_bus *bus;
      struct usb_device *dev;
-     struct usb_bus *usb_busses;
+     struct usb_bus *usb_busses_;
      char string[256];
      short ret;
 
      usb_init();
      usb_find_busses();
      usb_find_devices();
-     usb_busses=usb_get_busses();
+     usb_busses_=usb_get_busses();
 
-    for (bus=usb_busses; bus; bus = bus->next)
+    for (bus=usb_busses_; bus; bus = bus->next)
     {
         for (dev = bus->devices; dev; dev= dev->next)
         {
@@ -266,7 +265,7 @@ void vmUsb::checkUsbDevices(void)
  */
 int vmUsb::getFirmwareId()
 {
-	return firmwareId;
+  return firmwareId;
 }
 
 /*!
@@ -274,94 +273,94 @@ int vmUsb::getFirmwareId()
  */
 int vmUsb::getMode()
 {
-	return globalMode;
+  return globalMode;
 }
 
 /*!
-	\fn vmUsb::getDaqSettings()
+  \fn vmUsb::getDaqSettings()
  */
 int vmUsb::getDaqSettings()
 {
-	return daqSettings;
+  return daqSettings;
 }
 /*!
-	\fn vmUsb::getLedSources()
+  \fn vmUsb::getLedSources()
  */
 int vmUsb::getLedSources()
 {
-	return ledSources;
+  return ledSources;
 }
 
 /*!
-	\fn vmUsb::getDeviceSources()
+  \fn vmUsb::getDeviceSources()
  */
 int vmUsb::getDeviceSources()
 {
-	return deviceSources;
+  return deviceSources;
 }
 
 /*!
-	\fn vmUsb::getDggA()
+  \fn vmUsb::getDggA()
  */
 int vmUsb::getDggA()
 {
-	return dggAsettings;
+  return dggAsettings;
 }
 
 /*!
-	\fn vmUsb::getDggB()
+  \fn vmUsb::getDggB()
  */
 int vmUsb::getDggB()
 {
-	return dggBsettings;
+  return dggBsettings;
 }
 
 /*!
-	\fn vmUsb::getScalerAdata()
+  \fn vmUsb::getScalerAdata()
  */
 int vmUsb::getScalerAdata()
 {
-	return scalerAdata;
+  return scalerAdata;
 }
 
 /*!
-	\fn vmUsb::getScalerBdata()
+  \fn vmUsb::getScalerBdata()
  */
 int vmUsb::getScalerBdata()
 {
-	return scalerBdata;
+  return scalerBdata;
 }
 
 /*!
-	\fn vmUsb::getNumberMask()
+  \fn vmUsb::getNumberMask()
  */
 int vmUsb::getNumberMask()
 {
-	return numberMask;
+  return numberMask;
 }
 
 /*!
-	\fn vmUsb::getIrq()
+  \fn vmUsb::getIrq()
  */
 int vmUsb::getIrq(int vec)
 {
-	return irqV[vec];
+  return irqV[vec];
 }
 
 /*!
-	\fn vmUsb::getDggSettings()
+  \fn vmUsb::getDggSettings()
  */
 int vmUsb::getDggSettings()
 {
-	return extDggSettings;
+  return extDggSettings;
 }
 
 /*!
-	\fn vmUsb::getUsbSettings()
+  \fn vmUsb::getUsbSettings()
  */
 int vmUsb::getUsbSettings()
 {
-	return usbBulkSetup;
+  return usbBulkSetup;
 }
 
 //
@@ -372,11 +371,11 @@ int vmUsb::getUsbSettings()
  */
 int vmUsb::setFirmwareId(int val)
 {
-	if(VME_register_write(hUsbDevice, 0, val) > 0){
-		VME_register_read(hUsbDevice, 0, &retval);
-		firmwareId = (int)retval;
-	}
-	return firmwareId;
+  if(VME_register_write(hUsbDevice, 0, val) > 0){
+    VME_register_read(hUsbDevice, 0, &retval);
+    firmwareId = (int)retval;
+  }
+  return firmwareId;
 }
 
 /*!
@@ -384,190 +383,190 @@ int vmUsb::setFirmwareId(int val)
  */
 int vmUsb::setMode(int val)
 {
-	if(VME_register_write(hUsbDevice, 4, val) > 0){
-		VME_register_read(hUsbDevice, 4, &retval);
-		globalMode = (int)retval & 0xFFFF;
-	}
-	return globalMode;
+  if(VME_register_write(hUsbDevice, 4, val) > 0){
+    VME_register_read(hUsbDevice, 4, &retval);
+    globalMode = (int)retval & 0xFFFF;
+  }
+  return globalMode;
 }
 
 /*!
-	\fn vmUsb::setDaqSettings()
+  \fn vmUsb::setDaqSettings()
  */
 int vmUsb::setDaqSettings(int val)
 {
-	if(VME_register_write(hUsbDevice, 8, val) > 0){
-		VME_register_read(hUsbDevice, 8, &retval);
-		daqSettings = (int)retval;
-	}
-	return daqSettings;
+  if(VME_register_write(hUsbDevice, 8, val) > 0){
+    VME_register_read(hUsbDevice, 8, &retval);
+    daqSettings = (int)retval;
+  }
+  return daqSettings;
 }
 /*!
-	\fn vmUsb::setLedSources()
+  \fn vmUsb::setLedSources()
  */
 int vmUsb::setLedSources(int val)
 {
-	if(VME_register_write(hUsbDevice, 12, val) > 0){
-		VME_register_read(hUsbDevice, 12, &retval);
-		ledSources = (int)retval;
-	}
-	qDebug("set value: %x", ledSources);
-	return ledSources;
+  if(VME_register_write(hUsbDevice, 12, val) > 0){
+    VME_register_read(hUsbDevice, 12, &retval);
+    ledSources = (int)retval;
+  }
+  qDebug("set value: %x", ledSources);
+  return ledSources;
 }
 
 /*!
-	\fn vmUsb::setDeviceSources()
+  \fn vmUsb::setDeviceSources()
  */
 int vmUsb::setDeviceSources(int val)
 {
-	if(VME_register_write(hUsbDevice, 16, val) > 0){
-		VME_register_read(hUsbDevice, 16, &retval);
-		deviceSources = (int)retval;
-	}
-	return deviceSources;
+  if(VME_register_write(hUsbDevice, 16, val) > 0){
+    VME_register_read(hUsbDevice, 16, &retval);
+    deviceSources = (int)retval;
+  }
+  return deviceSources;
 }
 
 /*!
-	\fn vmUsb::setDggA()
+  \fn vmUsb::setDggA()
  */
 int vmUsb::setDggA(int val)
 {
-	if(VME_register_write(hUsbDevice, 20, val) > 0){
-		VME_register_read(hUsbDevice, 20, &retval);
-		dggAsettings = (int)retval;
-	}
-	return dggAsettings;
+  if(VME_register_write(hUsbDevice, 20, val) > 0){
+    VME_register_read(hUsbDevice, 20, &retval);
+    dggAsettings = (int)retval;
+  }
+  return dggAsettings;
 }
 
 /*!
-	\fn vmUsb::setDggB()
+  \fn vmUsb::setDggB()
  */
 int vmUsb::setDggB(int val)
 {
-	if(VME_register_write(hUsbDevice, 24, val) > 0){
-		VME_register_read(hUsbDevice, 24, &retval);
-		dggBsettings = (int)retval;
-	}
-	return dggBsettings;
+  if(VME_register_write(hUsbDevice, 24, val) > 0){
+    VME_register_read(hUsbDevice, 24, &retval);
+    dggBsettings = (int)retval;
+  }
+  return dggBsettings;
 }
 
 /*!
-	\fn vmUsb::setScalerAdata()
+  \fn vmUsb::setScalerAdata()
  */
 int vmUsb::setScalerAdata(int val)
 {
-	if(VME_register_write(hUsbDevice, 28, val) > 0){
-		VME_register_read(hUsbDevice, 28, &retval);
-		scalerAdata = (int)retval;
-	}
-	return scalerAdata;
+  if(VME_register_write(hUsbDevice, 28, val) > 0){
+    VME_register_read(hUsbDevice, 28, &retval);
+    scalerAdata = (int)retval;
+  }
+  return scalerAdata;
 }
 
 /*!
-	\fn vmUsb::setScalerBdata()
+  \fn vmUsb::setScalerBdata()
  */
 int vmUsb::setScalerBdata(int val)
 {
-	if(VME_register_write(hUsbDevice, 32, val) > 0){
-		VME_register_read(hUsbDevice, 32, &retval);
-		scalerBdata = (int)retval;
-	}
-	return scalerBdata;
+  if(VME_register_write(hUsbDevice, 32, val) > 0){
+    VME_register_read(hUsbDevice, 32, &retval);
+    scalerBdata = (int)retval;
+  }
+  return scalerBdata;
 }
 
 /*!
-	\fn vmUsb::setNumberMask()
+  \fn vmUsb::setNumberMask()
  */
 int vmUsb::setNumberMask(int val)
 {
-	if(VME_register_write(hUsbDevice, 36, val) > 0){
-		VME_register_read(hUsbDevice, 36, &retval);
-		numberMask = (int)retval;
-	}
-	return numberMask;
+  if(VME_register_write(hUsbDevice, 36, val) > 0){
+    VME_register_read(hUsbDevice, 36, &retval);
+    numberMask = (int)retval;
+  }
+  return numberMask;
 }
 
 /*!
-	\fn vmUsb::setIrq()
+  \fn vmUsb::setIrq()
  */
 int vmUsb::setIrq(int vec, int val)
 {
-	int pos = 0;
-	int regval = 0;
-	int addr = 0;
-	long int retval;
-	
-	switch(vec){
-		case 0:
-			regval = val;
-			pos = 0;
-			addr = 40; 
-			break;
-		case 1:
-			regval = 0x10000 * val;
-			pos = 0;
-			addr = 40; 
-			break;
-		case 2:
-			regval = val;
-			pos = 1;
-			addr = 44; 
-			break;
-		case 3:
-			regval = 0x10000 * val;
-			pos = 1;
-			addr = 44; 
-			break;
-		case 4:
-			regval = val;
-			pos = 2;
-			addr = 48; 
-			break;
-		case 5:
-			regval = 0x10000 * val;
-			pos = 2;
-			addr = 48; 
-			break;
-		case 6:
-			regval = val;
-			pos = 3;
-			addr = 52; 
-			break;
-		case 7:
-			regval = 0x10000 * val;
-			pos = 3;
-			addr = 52; 
-			break;
-	}
-	if(VME_register_write(hUsbDevice, addr, regval) > 0){
-		VME_register_read(hUsbDevice, addr, &retval);
-		irqV[pos] = (int)retval;
-	}
-	return irqV[pos];
+  int pos = 0;
+  int regval = 0;
+  int addr = 0;
+  long int retval;
+
+  switch(vec){
+    case 0:
+      regval = val;
+      pos = 0;
+      addr = 40;
+      break;
+    case 1:
+      regval = 0x10000 * val;
+      pos = 0;
+      addr = 40;
+      break;
+    case 2:
+      regval = val;
+      pos = 1;
+      addr = 44;
+      break;
+    case 3:
+      regval = 0x10000 * val;
+      pos = 1;
+      addr = 44;
+      break;
+    case 4:
+      regval = val;
+      pos = 2;
+      addr = 48;
+      break;
+    case 5:
+      regval = 0x10000 * val;
+      pos = 2;
+      addr = 48;
+      break;
+    case 6:
+      regval = val;
+      pos = 3;
+      addr = 52;
+      break;
+    case 7:
+      regval = 0x10000 * val;
+      pos = 3;
+      addr = 52;
+      break;
+  }
+  if(VME_register_write(hUsbDevice, addr, regval) > 0){
+    VME_register_read(hUsbDevice, addr, &retval);
+    irqV[pos] = (int)retval;
+  }
+  return irqV[pos];
 }
 
 /*!
-	\fn vmUsb::setDggSettings(int val)
+  \fn vmUsb::setDggSettings(int val)
  */
 int vmUsb::setDggSettings(int val)
 {
-	if(VME_register_write(hUsbDevice, 56, val) > 0){
-		VME_register_read(hUsbDevice, 56, &retval);
-		extDggSettings = (int)retval;
-	}
-	return extDggSettings;
+  if(VME_register_write(hUsbDevice, 56, val) > 0){
+    VME_register_read(hUsbDevice, 56, &retval);
+    extDggSettings = (int)retval;
+  }
+  return extDggSettings;
 }
 
 /*!
-	\fn vmUsb::setUsbSettings(int val)
+  \fn vmUsb::setUsbSettings(int val)
  */
 int vmUsb::setUsbSettings(int val)
 {
-	if(VME_register_write(hUsbDevice, 60, val) > 0){
-		VME_register_read(hUsbDevice, 60, &retval);
-		usbBulkSetup = (int)retval;
-	}
-	return usbBulkSetup;
+  if(VME_register_write(hUsbDevice, 60, val) > 0){
+    VME_register_read(hUsbDevice, 60, &retval);
+    usbBulkSetup = (int)retval;
+  }
+  return usbBulkSetup;
 }
 
 
@@ -577,25 +576,25 @@ int vmUsb::setUsbSettings(int val)
  */
 short vmUsb::vmeWrite16(long addr, long data)
 {
-	long intbuf[1000];
-	short ret;
+  long intbuf[1000];
+  short ret;
 //	qDebug("Write16");
-	data &= 0xFFFF;
+  data &= 0xFFFF;
 //	swap16(&data);
-	intbuf[0]=7;
-	intbuf[1]=0;
-	intbuf[2]=VME_AM_A32_PRIV_PROG; 
-	intbuf[3]=0x0; //  0x1; // little endianess -> PC
-	if(bigendian)
-		intbuf[3] |= 0x1;
-	intbuf[4]=(addr & 0xffff) | 0x0001; // 16 bit Zugriff
-	intbuf[5]=((addr >>16) & 0xffff);
-	intbuf[6]=(data & 0xffff);
-	intbuf[7]=((data >> 16) & 0xffff);
+  intbuf[0]=7;
+  intbuf[1]=0;
+  intbuf[2]=VME_AM_A32_PRIV_PROG;
+  intbuf[3]=0x0; //  0x1; // little endianess -> PC
+  if(bigendian)
+    intbuf[3] |= 0x1;
+  intbuf[4]=(addr & 0xffff) | 0x0001; // 16 bit Zugriff
+  intbuf[5]=((addr >>16) & 0xffff);
+  intbuf[6]=(data & 0xffff);
+  intbuf[7]=((data >> 16) & 0xffff);
 //	for(int i=0;i<8;i++)
 //		qDebug("%x", intbuf[i]);
-	ret = xxusb_stack_execute(hUsbDevice, intbuf);
-	return ret;
+  ret = xxusb_stack_execute(hUsbDevice, intbuf);
+  return ret;
 }
 
 /*!
@@ -603,24 +602,24 @@ short vmUsb::vmeWrite16(long addr, long data)
  */
 short vmUsb::vmeWrite32(long addr, long data)
 {
-	long intbuf[1000];
-	short ret;
+  long intbuf[1000];
+  short ret;
 //    qDebug("Write32 %lx %lx", addr, data);
 //	swap32(&data);
-	intbuf[0]=7;
-	intbuf[1]=0;
-	intbuf[2]=VME_AM_A32_PRIV_PROG; 
-	intbuf[3]=0; // | 0x1; // little endianess -> PC
-	if(bigendian)
-		intbuf[3] |= 0x1;
-	intbuf[4]=(addr & 0xffff); // | 0x0001; // 16 bit Zugriff
-	intbuf[5]=((addr >> 16) & 0xffff);
-	intbuf[6]=(data & 0xffff);
-	intbuf[7]=((data >> 16) & 0xffff);
+  intbuf[0]=7;
+  intbuf[1]=0;
+  intbuf[2]=VME_AM_A32_PRIV_PROG;
+  intbuf[3]=0; // | 0x1; // little endianess -> PC
+  if(bigendian)
+    intbuf[3] |= 0x1;
+  intbuf[4]=(addr & 0xffff); // | 0x0001; // 16 bit Zugriff
+  intbuf[5]=((addr >> 16) & 0xffff);
+  intbuf[6]=(data & 0xffff);
+  intbuf[7]=((data >> 16) & 0xffff);
 //    for(int i=0;i<8;i++)
 //        qDebug("%x", intbuf[i]);
-	ret = xxusb_stack_execute(hUsbDevice, intbuf);
-	return ret;
+  ret = xxusb_stack_execute(hUsbDevice, intbuf);
+  return ret;
 }
 
 /*!
@@ -628,24 +627,24 @@ short vmUsb::vmeWrite32(long addr, long data)
  */
 short vmUsb::vmeRead32(long addr, long* data)
 {
-	long intbuf[1000];
-	short ret;
+  long intbuf[1000];
+  short ret;
 //	qDebug("Read32");
-	intbuf[0]=5;
-	intbuf[1]=0;
-	intbuf[2]= (VME_AM_A32_PRIV_PROG + 0x100); 
-	intbuf[3]= 0; // | 0x1; // little endianess -> PC
-	if(bigendian)
-		intbuf[3] |= 0x1;
-	intbuf[4]=(addr & 0xffff); // | 0x0001; // 16 bit Zugriff
-	intbuf[5]=((addr >> 16) & 0xffff);
+  intbuf[0]=5;
+  intbuf[1]=0;
+  intbuf[2]= (VME_AM_A32_PRIV_PROG + 0x100);
+  intbuf[3]= 0; // | 0x1; // little endianess -> PC
+  if(bigendian)
+    intbuf[3] |= 0x1;
+  intbuf[4]=(addr & 0xffff); // | 0x0001; // 16 bit Zugriff
+  intbuf[5]=((addr >> 16) & 0xffff);
 //	for(int i=0;i<6;i++)
 //		qDebug("%lx", intbuf[i]);
-	ret = xxusb_stack_execute(hUsbDevice, intbuf);
+  ret = xxusb_stack_execute(hUsbDevice, intbuf);
 //	qDebug("read: %d %lx %lx", ret, intbuf[0], intbuf[1]);
-	*data = intbuf[0] + (intbuf[1] * 0x10000); 
+  *data = intbuf[0] + (intbuf[1] * 0x10000);
 //	swap32(data);
-	return ret;
+  return ret;
 }
 
 /*!
@@ -653,23 +652,23 @@ short vmUsb::vmeRead32(long addr, long* data)
  */
 short vmUsb::vmeRead16(long addr, long* data)
 {
-	long intbuf[1000];
-	short ret;
+  long intbuf[1000];
+  short ret;
 //	qDebug("Read16");
-	intbuf[0]=5;
-	intbuf[1]=0;
-	intbuf[2]= (VME_AM_A32_PRIV_PROG + 0x100); 
-	intbuf[3] = 0;
-	if(bigendian)
-		intbuf[3]= 1; // | 0x1; // endianess
-	intbuf[4]=(addr & 0xffff) | 0x0001; // 16 bit Zugriff
-	intbuf[5]=((addr >>16) & 0xffff);
-	ret = xxusb_stack_execute(hUsbDevice, intbuf);
+  intbuf[0]=5;
+  intbuf[1]=0;
+  intbuf[2]= (VME_AM_A32_PRIV_PROG + 0x100);
+  intbuf[3] = 0;
+  if(bigendian)
+    intbuf[3]= 1; // | 0x1; // endianess
+  intbuf[4]=(addr & 0xffff) | 0x0001; // 16 bit Zugriff
+  intbuf[5]=((addr >>16) & 0xffff);
+  ret = xxusb_stack_execute(hUsbDevice, intbuf);
 //	qDebug("read: %lx %lx", intbuf[0], intbuf[1]);
-	*data = intbuf[0] + (intbuf[1] * 0x10000); 
+  *data = intbuf[0] + (intbuf[1] * 0x10000);
 //	swap16(data);
-	*data &= 0xFFFF;
-	return ret;
+  *data &= 0xFFFF;
+  return ret;
 }
 
 /*!
@@ -678,34 +677,34 @@ short vmUsb::vmeRead16(long addr, long* data)
 int vmUsb::vmeBltRead32(long addr, int count, quint32* data)
 {
 #if 0
-	long intbuf[1000];
-	short ret;
-	int i=0;
-	qDebug("vmUsb::ReadBlt32: addr=0x%08lx, count=%d", addr, count);
-	if (count >= 255) return -1;
-	intbuf[0]=5;
-	intbuf[1]=0;
-	intbuf[2]=VME_AM_A32_PRIV_BLT | 0x100;
-	intbuf[3]=(count << 8);
-	if(bigendian)
-		intbuf[3] |= 0x1; // little endianess -> PC
-	intbuf[4]=(addr & 0xffff);
-	intbuf[5]=((addr >>16) & 0xffff);
+  long intbuf[1000];
+  short ret;
+  int i=0;
+  qDebug("vmUsb::ReadBlt32: addr=0x%08lx, count=%d", addr, count);
+  if (count >= 255) return -1;
+  intbuf[0]=5;
+  intbuf[1]=0;
+  intbuf[2]=VME_AM_A32_PRIV_BLT | 0x100;
+  intbuf[3]=(count << 8);
+  if(bigendian)
+    intbuf[3] |= 0x1; // little endianess -> PC
+  intbuf[4]=(addr & 0xffff);
+  intbuf[5]=((addr >>16) & 0xffff);
 
-	qDebug("vmUsb::ReadBlt32: stack:");
+  qDebug("vmUsb::ReadBlt32: stack:");
     for(int i=0;i<intbuf[0];i++)
-		qDebug("  0x%08lx", intbuf[i]);
+    qDebug("  0x%08lx", intbuf[i]);
 
 
-	ret = xxusb_stack_execute(hUsbDevice, intbuf);
-	int j=0;
-	for (i=0;i<(2*count);i=i+2)
-	{
-		data[j]=intbuf[i] + (intbuf[i+1] * 0x10000);
+  ret = xxusb_stack_execute(hUsbDevice, intbuf);
+  int j=0;
+  for (i=0;i<(2*count);i=i+2)
+  {
+    data[j]=intbuf[i] + (intbuf[i+1] * 0x10000);
 //		swap32(&data[j]);
-		j++;
-	}
-	return ret;
+    j++;
+  }
+  return ret;
 #else
     CVMUSBReadoutList readoutList;
 
@@ -722,35 +721,35 @@ int vmUsb::vmeBltRead32(long addr, int count, quint32* data)
 int vmUsb::vmeMbltRead32(long addr, int count, quint32 *data)
 {
 #if 0
-	long intbuf[1000];
-	short ret;
-	int i=0;
-	qDebug("vmUsb::ReadMblt32: addr=0x%08lx, count=%d", addr, count);
-	if (count > 256) return -1;
+  long intbuf[1000];
+  short ret;
+  int i=0;
+  qDebug("vmUsb::ReadMblt32: addr=0x%08lx, count=%d", addr, count);
+  if (count > 256) return -1;
 
-	intbuf[0]=5;
-	intbuf[1]=0;
-	intbuf[2]=VME_AM_A32_USER_MBLT | 0x100;
-	intbuf[3]=(count << 8);
-	if(bigendian)
-		intbuf[3] |= 0x1; // little endianess -> PC
-	intbuf[4]=(addr & 0xffff);
-	intbuf[5]=((addr >>16) & 0xffff);
+  intbuf[0]=5;
+  intbuf[1]=0;
+  intbuf[2]=VME_AM_A32_USER_MBLT | 0x100;
+  intbuf[3]=(count << 8);
+  if(bigendian)
+    intbuf[3] |= 0x1; // little endianess -> PC
+  intbuf[4]=(addr & 0xffff);
+  intbuf[5]=((addr >>16) & 0xffff);
 
 
-	qDebug("vmUsb::ReadMblt32: stack:");
+  qDebug("vmUsb::ReadMblt32: stack:");
     for(int i=0;i<intbuf[0];i++)
-		qDebug("  0x%08lx", intbuf[i]);
+    qDebug("  0x%08lx", intbuf[i]);
 
-	ret = xxusb_stack_execute(hUsbDevice, intbuf);
-	int j=0;
-	for (i=0;i<(2*count);i=i+2)
-	{
-		data[j]=intbuf[i] + (intbuf[i+1] * 0x10000);
+  ret = xxusb_stack_execute(hUsbDevice, intbuf);
+  int j=0;
+  for (i=0;i<(2*count);i=i+2)
+  {
+    data[j]=intbuf[i] + (intbuf[i+1] * 0x10000);
 //		swap32(&data[j]);
-		j++;
-	}
-	return ret;
+    j++;
+  }
+  return ret;
 #else
     CVMUSBReadoutList readoutList;
 
@@ -769,18 +768,18 @@ int vmUsb::vmeMbltRead32(long addr, int count, quint32 *data)
  */
 void vmUsb::swap32(long* val)
 {
-	unsigned char * dat;
-	unsigned char mem;
-	dat = (unsigned char *) val;
-	
+  unsigned char * dat;
+  unsigned char mem;
+  dat = (unsigned char *) val;
+
 //	qDebug("raw: %lx: %x %x %x %x", *val, dat[3], dat[2], dat[1], dat[0]);
 
-	mem = dat[3];
-	dat[3] = dat[0];
-	dat[0] = mem;
-	mem = dat[2];
-	dat[2] = dat[1];
-	dat[1] = mem;
+  mem = dat[3];
+  dat[3] = dat[0];
+  dat[0] = mem;
+  mem = dat[2];
+  dat[2] = dat[1];
+  dat[1] = mem;
 
 //	qDebug("swapped: %lx: %x %x %x %x", *val, dat[3], dat[2], dat[1], dat[0]);
 }
@@ -790,17 +789,17 @@ void vmUsb::swap32(long* val)
  */
 void vmUsb::swap16(long* val)
 {
-	unsigned char * dat;
-	unsigned char mem;
-	dat = (unsigned char *) val;
-	
-	qDebug("raw: %lx: %x %x", *val, dat[1], dat[0]);
+  unsigned char * dat;
+  unsigned char mem;
+  dat = (unsigned char *) val;
 
-	mem = dat[1];
-	dat[1] = dat[0];
-	dat[0] = mem;
-	
-	qDebug("swapped: %lx: %x %x", *val, dat[1], dat[0]);
+  qDebug("raw: %lx: %x %x", *val, dat[1], dat[0]);
+
+  mem = dat[1];
+  dat[1] = dat[0];
+  dat[0] = mem;
+
+  qDebug("swapped: %lx: %x %x", *val, dat[1], dat[0]);
 }
 
 
@@ -811,15 +810,15 @@ void vmUsb::swap16(long* val)
  */
 int vmUsb::stackWrite(int id, long* data)
 {
-	qDebug("StackWrite: id=%d, stackSize=%d", id, data[0]);
+  qDebug("StackWrite: id=%d, stackSize=%d", id, data[0]);
 
     for(int i=0;i<=data[0];i++)
-		qDebug("  %d: %lx", i, data[i]);
+    qDebug("  %d: %lx", i, data[i]);
 
-	unsigned char addr[8] = {2, 3, 18, 19, 34, 35, 50, 51};
-	int ret = xxusb_stack_write(hUsbDevice, addr[id], data);
-	qDebug("StackWrite %d (addr: %d), %d bytes", id, addr[id], ret);
-	return ret;
+  unsigned char addr[8] = {2, 3, 18, 19, 34, 35, 50, 51};
+  int ret = xxusb_stack_write(hUsbDevice, addr[id], data);
+  qDebug("StackWrite %d (addr: %d), %d bytes", id, addr[id], ret);
+  return ret;
 }
 
 
@@ -828,12 +827,12 @@ int vmUsb::stackWrite(int id, long* data)
  */
 int vmUsb::stackRead(int id, long* data)
 {
-	unsigned char addr[8] = {2, 3, 18, 19, 34, 35, 50, 51};
-	qDebug("StackRead %d (addr: %d)", id, addr[id]);
-	
-	int ret = xxusb_stack_read(hUsbDevice, addr[id], data);
-	
-	return ret;
+  unsigned char addr[8] = {2, 3, 18, 19, 34, 35, 50, 51};
+  qDebug("StackRead %d (addr: %d)", id, addr[id]);
+
+  int ret = xxusb_stack_read(hUsbDevice, addr[id], data);
+
+  return ret;
 }
 
 
@@ -843,11 +842,11 @@ int vmUsb::stackRead(int id, long* data)
 int vmUsb:: stackExecute(long* data)
 {
     int ret, i, j;
-	qDebug("StackExecute: stackSize=%d", data[0]);
+  qDebug("StackExecute: stackSize=%d", data[0]);
     for(i=0;i<=data[0];i++)
-		qDebug("  %d: %lx", i, data[i]);
-	ret = xxusb_stack_execute(hUsbDevice, data);
-	qDebug("read: %d %lx %lx", ret, data[0], data[1]);
+    qDebug("  %d: %lx", i, data[i]);
+  ret = xxusb_stack_execute(hUsbDevice, data);
+  qDebug("read: %d %lx %lx", ret, data[0], data[1]);
     qDebug("retrieved:");
     for (i=0, j=0;i<ret/2;i=i+2)
     {
@@ -875,7 +874,7 @@ int vmUsb::readBuffer(unsigned short* data)
  */
 int vmUsb::readLongBuffer(int* data)
 {
-	return xxusb_bulk_read(hUsbDevice, data, 1200, 100);
+  return xxusb_bulk_read(hUsbDevice, data, 1200, 100);
 }
 
 /*!
@@ -883,7 +882,7 @@ int vmUsb::readLongBuffer(int* data)
  */
 int vmUsb::usbRegisterWrite(int addr, int value)
 {
-	return xxusb_register_write(hUsbDevice, addr, value);
+  return xxusb_register_write(hUsbDevice, addr, value);
 }
 
 
@@ -894,23 +893,23 @@ void vmUsb::initialize()
 {
     // set some more or less useful defaults:
     qDebug("initialize");
-	// mode: 
-	// buffer length 128 bytes
-	VME_register_write(hUsbDevice, 0x4, 5);
+  // mode:
+  // buffer length 128 bytes
+  VME_register_write(hUsbDevice, 0x4, 5);
 
-	// IRQ 1 to Stack 2, IRQ map 0
-	VME_register_write(hUsbDevice, 40, 0x2100);
-	
+  // IRQ 1 to Stack 2, IRQ map 0
+  VME_register_write(hUsbDevice, 40, 0x2100);
+
     // User LED sources:
-	// ty: Out FIFO not empty, red: Event Trig., green: ACQ, by: VME DTACK
-	ledSources = 0x04030101;
-	VME_register_write(hUsbDevice, 0xC, ledSources);
+  // ty: Out FIFO not empty, red: Event Trig., green: ACQ, by: VME DTACK
+  ledSources = 0x04030101;
+  VME_register_write(hUsbDevice, 0xC, ledSources);
 
-	// scaler parameters:
-	VME_register_write(hUsbDevice, 0x8, 0xFF00);
-	
-	// switch off acquisition
-	usbRegisterWrite(1, 0);	
+  // scaler parameters:
+  VME_register_write(hUsbDevice, 0x8, 0xFF00);
+
+  // switch off acquisition
+  usbRegisterWrite(1, 0);
 }
 
 
@@ -920,16 +919,16 @@ void vmUsb::initialize()
 int vmUsb::setScalerTiming(unsigned int frequency, unsigned char period, unsigned char delay)
 {
     // redundant function to setDaqSettings - allows separate setting of all three components
-	long val = 0x10000 * frequency + 0x100 * period + delay;
-	
-	if(VME_register_write(hUsbDevice, 8, val) > 0){
-		VME_register_read(hUsbDevice, 8, &retval);
-		daqSettings = (int)retval;
-	}
-	else
-		qDebug("Write failed");
-	qDebug("timing val = %lx, register: %lx", val, retval);
-	return daqSettings;
+  long val = 0x10000 * frequency + 0x100 * period + delay;
+
+  if(VME_register_write(hUsbDevice, 8, val) > 0){
+    VME_register_read(hUsbDevice, 8, &retval);
+    daqSettings = (int)retval;
+  }
+  else
+    qDebug("Write failed");
+  qDebug("timing val = %lx, register: %lx", val, retval);
+  return daqSettings;
 }
 
 
@@ -938,11 +937,11 @@ int vmUsb::setScalerTiming(unsigned int frequency, unsigned char period, unsigne
  */
 void vmUsb::setEndianess(bool big)
 {
-	bigendian = big;
-	if(bigendian)
-		qDebug("Big Endian");
-	else
-		qDebug("Little Endian");
+  bigendian = big;
+  if(bigendian)
+    qDebug("Big Endian");
+  else
+    qDebug("Little Endian");
 
 }
 
@@ -1002,10 +1001,10 @@ listToOutPacket(uint16_t ta, CVMUSBReadoutList* list,
     int packetShorts    = (listShorts + 3);
     uint16_t* outPacket = new uint16_t[packetShorts];
     uint16_t* p         = outPacket;
-    
+
     // Fill the outpacket:
 
-    p = static_cast<uint16_t*>(addToPacket16(p, ta)); 
+    p = static_cast<uint16_t*>(addToPacket16(p, ta));
     //
     // The next two words depend on which bits are set in the ta
     //
@@ -1014,7 +1013,7 @@ listToOutPacket(uint16_t ta, CVMUSBReadoutList* list,
     }
     else {
       p = static_cast<uint16_t*>(addToPacket16(p, listShorts+1)); // 16 bits only.
-      p = static_cast<uint16_t*>(addToPacket16(p, offset));       // list load offset. 
+      p = static_cast<uint16_t*>(addToPacket16(p, offset));       // list load offset.
     }
 
     std::vector<uint32_t> stack = list->get();
@@ -1031,20 +1030,20 @@ int vmUsb::listExecute(CVMUSBReadoutList *list, void *readBuffer, size_t readBuf
   uint16_t* outPacket = listToOutPacket(TAVcsWrite | TAVcsIMMED, list, &outSize);
 
     // Now we can execute the transaction:
-    
+
   int status = transaction(outPacket, outSize,
-			   readBuffer, readBufferSize);
+         readBuffer, readBufferSize);
 
   delete []outPacket;
 
   if(status >= 0) {
     *bytesRead = status;
-  } 
+  }
   else {
     *bytesRead = 0;
   }
   return (status >= 0) ? 0 : status;
-  
+
 }
 
 /*
@@ -1056,7 +1055,7 @@ int vmUsb::listExecute(CVMUSBReadoutList *list, void *readBuffer, size_t readBuf
    Parametrers:
    void*   writePacket   - Pointer to the packet to write.
    size_t  writeSize     - Number of bytes to write from writePacket.
-   
+
    void*   readPacket    - Pointer to storage for the read.
    size_t  readSize      - Number of bytes to attempt to read.
 
@@ -1069,21 +1068,23 @@ int vmUsb::listExecute(CVMUSBReadoutList *list, void *readBuffer, size_t readBuf
 */
 int
 vmUsb::transaction(void* writePacket, size_t writeSize,
-		    void* readPacket,  size_t readSize, int timeout_ms)
+        void* readPacket,  size_t readSize, int timeout_ms)
 {
     qDebug("vmUsb::transaction: writeSize=%u, readSize=%u, timeout_ms=%d",
             writeSize, readSize, timeout_ms);
 
 
     int status = usb_bulk_write(hUsbDevice, ENDPOINT_OUT,
-            static_cast<char*>(writePacket), writeSize, 
+            static_cast<char*>(writePacket), writeSize,
             timeout_ms);
 
     char errorBuffer[256] = {};
 
     if (status < 0) {
+#ifndef __MINGW32__
         char *buf = strerror_r(-status, errorBuffer, sizeof(errorBuffer));
         qDebug("vmUsb::transaction: usb write failed with code %d: %s", status, buf);
+#endif
         errno = -status;
         return -1;		// Write failed!!
     }
@@ -1092,9 +1093,11 @@ vmUsb::transaction(void* writePacket, size_t writeSize,
             static_cast<char*>(readPacket), readSize, timeout_ms);
 
     if (status < 0) {
+#ifndef __MINGW32__
         char *buf = strerror_r(-status, errorBuffer, sizeof(errorBuffer));
         qDebug("vmUsb::transaction: usb read failed with code %d: %s", status, buf);
         errno = -status;
+#endif
         return -2;
     }
     return status;
