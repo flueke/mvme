@@ -14,11 +14,11 @@ TARGET = mvme2
 TEMPLATE = app
 
 QMAKE_CXXFLAGS += -Wno-unused -Wno-format
+QMAKE_CFLAGS += -Wno-unused -Wno-format
 
 
 SOURCES += main.cpp\
         mvme.cpp \
-        vmusb.cpp \
     mvmecontrol.cpp \
     histogram.cpp \
     datathread.cpp \
@@ -30,7 +30,6 @@ SOURCES += main.cpp\
     scrollbar.cpp \
     virtualmod.cpp \
     vmecontroller.cpp \
-    caenusb.cpp \
     diagnostics.cpp \
     realtimedata.cpp \
     simulator.cpp \
@@ -38,7 +37,6 @@ SOURCES += main.cpp\
     channelspectro.cpp \
 
 HEADERS  += \
-         vmusb.h \
     mvmecontrol.h \
     mvme.h \
     histogram.h \
@@ -52,9 +50,6 @@ HEADERS  += \
     scrollzoomer.h \
     virtualmod.h \
     vmecontroller.h \
-    CAENVMEtypes.h \
-    CAENVMElib.h \
-    caenusb.h \
     diagnostics.h \
     realtimedata.h \
     simulator.h \
@@ -70,11 +65,28 @@ FORMS    += \
 INCLUDEPATH += /usr/include
 DEPENDPATH += /usr/include
 
-unix:!macx:!symbian: LIBS += -L/usr/lib/ -lxx_usb -lusb
-unix:!macx:!symbian: LIBS += -L/usr/lib/ -lCAENVME
-
 DEFINES += VME_CONTROLLER_WIENER
 #DEFINES += VME_CONTROLLER_CAEN
+
+contains(DEFINES, "VME_CONTROLLER_WIENER") {
+    message("Building with WIENER VM_USB support")
+    unix:!macx:!symbian: LIBS += -L/usr/lib/ -lusb
+    HEADERS += libxxusb.h \
+         vmusb.h \
+
+    SOURCES += libxxusb.c \
+        vmusb.cpp \
+}
+
+contains(DEFINES, "VME_CONTROLLER_CAEN") {
+    message("Building with CAEN VM support")
+    unix:!macx:!symbian: LIBS += -L/usr/lib/ -lCAENVME
+    HEADERS += CAENVMEtypes.h \
+        CAENVMElib.h \
+        caenusb.h \
+
+    SOURCES += caenusb.cpp \
+}
 
 unix:!macx:!symbian: LIBS += -L/usr/local/qwt-6.1.2/lib/ -lqwt
 

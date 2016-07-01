@@ -90,10 +90,12 @@ public:
         return v > 0 ? v : qQNaN();
     }
 
+#if 0
     virtual void initRaster(const QRectF &area, const QSize &raster)
     {
         qDebug() << "initRaster() area =" << area << ", raster =" << raster;
     }
+#endif
 
     void incValue(uint32_t x, uint32_t y)
     {
