@@ -18,11 +18,12 @@ DataCruncher::DataCruncher(QObject *parent)
     connect(crunchTimer, SIGNAL(timeout()), SLOT(crunchTimerSlot()));
     m_newEvent = false;
     m_rtDiag = true;
+    crunchTimer->start(50);
 }
 
 void DataCruncher::run(){
     qDebug() << "DataCruncher thread:" << QThread::currentThread();
-    crunchTimer->start(50);
+    //crunchTimer->start(50);
 }
 
 void DataCruncher::crunchTimerSlot()
@@ -44,7 +45,9 @@ void DataCruncher::crunchTimerSlot()
         values = m_pRingBuffer[m_readPointer++];
 
         if((values & 0xFF000000) != 0x40000000)
-            qDebug("header error");
+        {
+            //qDebug("header error");
+        }
         modId = (values & 0x00FF0000) >> 16;
 
 //        qDebug("modId: %d", modId);

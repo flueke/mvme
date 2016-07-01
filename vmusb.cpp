@@ -594,6 +594,12 @@ short vmUsb::vmeWrite16(long addr, long data)
 //	for(int i=0;i<8;i++)
 //		qDebug("%x", intbuf[i]);
   ret = xxusb_stack_execute(hUsbDevice, intbuf);
+#if 0
+  for (int i=0; i<ret; ++i)
+  {
+    qDebug("vmeWrite16: %x", ((uchar *)intbuf)[i]);
+  }
+#endif
   return ret;
 }
 
@@ -1070,8 +1076,10 @@ int
 vmUsb::transaction(void* writePacket, size_t writeSize,
         void* readPacket,  size_t readSize, int timeout_ms)
 {
+  /*
     qDebug("vmUsb::transaction: writeSize=%u, readSize=%u, timeout_ms=%d",
             writeSize, readSize, timeout_ms);
+            */
 
 
     int status = usb_bulk_write(hUsbDevice, ENDPOINT_OUT,
@@ -1081,7 +1089,9 @@ vmUsb::transaction(void* writePacket, size_t writeSize,
     char errorBuffer[256] = {};
 
     if (status < 0) {
-#ifndef __MINGW32__
+#ifdef __MINGW32__
+        qDebug("vmUsb::transaction: usb write failed with code %d", status);
+#else
         char *buf = strerror_r(-status, errorBuffer, sizeof(errorBuffer));
         qDebug("vmUsb::transaction: usb write failed with code %d: %s", status, buf);
 #endif
@@ -1093,7 +1103,9 @@ vmUsb::transaction(void* writePacket, size_t writeSize,
             static_cast<char*>(readPacket), readSize, timeout_ms);
 
     if (status < 0) {
-#ifndef __MINGW32__
+#ifdef __MINGW32__
+        qDebug("vmUsb::transaction: usb read failed with code %d", status);
+#else
         char *buf = strerror_r(-status, errorBuffer, sizeof(errorBuffer));
         qDebug("vmUsb::transaction: usb read failed with code %d: %s", status, buf);
         errno = -status;

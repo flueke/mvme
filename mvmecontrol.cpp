@@ -81,7 +81,7 @@ void mvmeControl::changeMode()
         mode |= 0x20;
 
     // FIXME: According to the documentation bit 6 should be 'FreeSclrDmp', not something related to buffer terminators.
-#if 0 
+#if 0
     // separator option
     mode &= 0x0000FFBF;
     if(ui->bufTerminators->currentIndex() == 1)
@@ -299,7 +299,7 @@ void mvmeControl::refreshDisplay(void)
 
     // Buffer Options
     val2 = val & 0x0F;
-	ui->bufSize->setCurrentIndex(val2);
+  ui->bufSize->setCurrentIndex(val2);
     val2 = val & 0x20;
     if(val2)
         ui->mixedBuffers->setChecked(true);
@@ -307,10 +307,10 @@ void mvmeControl::refreshDisplay(void)
         ui->mixedBuffers->setChecked(false);
 
     val2 = val & 0x40;
-	if(val2)
-		ui->bufTerminators->setCurrentIndex(1);
-	else
-		ui->bufTerminators->setCurrentIndex(0);
+  if(val2)
+    ui->bufTerminators->setCurrentIndex(1);
+  else
+    ui->bufTerminators->setCurrentIndex(0);
 
     val2 = val & 0x80;
     if(val2)
@@ -326,7 +326,7 @@ void mvmeControl::refreshDisplay(void)
 
     val2 = val & 0x7000;
     val2 /= 0x1000;
-	ui->busRequest->setValue(val2);
+  ui->busRequest->setValue(val2);
 
     dontUpdate = false;
 #endif
@@ -350,7 +350,8 @@ void mvmeControl::readVme()
         size = str.toUInt(&ok, 0);
         if(ui->readBlt->isChecked()){
             ret = theApp->vu->vmeBltRead32(addr, size, data);
-            qDebug("read %ld bytes/%ld words from bus by BLT", ret, ret/sizeof(uint32_t));
+            qDebug("read %ld bytes/%ld words from bus by BLT (requested %ld words)",
+                   ret, ret/sizeof(uint32_t), size);
         }
         else{
             ret = theApp->vu->vmeMbltRead32(addr, size, data);
