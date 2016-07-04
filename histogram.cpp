@@ -109,11 +109,15 @@ void Histogram::calcStatistics(quint32 chan, quint32 start, quint32 stop)
 }
 
 
-quint32 Histogram::get_val(quint32 x, quint32 y){
-    if(x <= m_resolution && y <= m_channels)
-        return m_data[x+m_channels*y];
-    else
-        return 0;
+quint32 Histogram::get_val(quint32 channelIndex, quint32 valueIndex)
+{
+
+    if(valueIndex < m_resolution && channelIndex < m_channels)
+    {
+        return m_data[channelIndex * m_resolution + valueIndex];
+    }
+
+    return 0;
 }
 
 
@@ -125,4 +129,60 @@ bool Histogram::inc_val(quint32 x, quint32 y)
     }
     else
         return false;
+}
+
+void Histogram::setValue(quint32 channelIndex, quint32 valueIndex, quint32 value)
+{
+    if (channelIndex < m_channels && valueIndex < m_resolution)
+    {
+        m_data[channelIndex * m_resolution + valueIndex] = value;
+    }
+}
+
+QTextStream &writeHistogram(QTextStream &out, Histogram *histo)
+{
+    out << "channels: " << histo->m_channels
+        << " resolution: " << histo->m_resolution
+        << endl;
+
+    for (quint32 valueIndex=0; valueIndex<histo->m_resolution; ++valueIndex)
+    {
+        out << histo->m_axisBase[valueIndex] << " ";
+        for (quint32 channelIndex=0; channelIndex < histo->m_channels; ++channelIndex)
+        {
+            out << histo->m_data[channelIndex * histo->m_resolution + valueIndex] << " ";
+        }
+        out << endl;
+    }
+
+    return out;
+}
+
+QTextStream &readHistogram(QTextStream &in, Histogram **histop)
+{
+    *histop = 0;
+
+    quint32 channels = 0;
+    quint32 resolution = 0;
+    QString buffer;
+
+    in >> buffer >> channels >> buffer >> resolution;
+
+    if (in.status() == QTextStream::Ok && channels && resolution)
+    {
+        *histop = new Histogram(0, channels, resolution);
+        Histogram *histo = *histop;
+        histo->initHistogram();
+
+        for (quint32 valueIndex=0; valueIndex<histo->m_resolution; ++valueIndex)
+        {
+            in >> histo->m_axisBase[valueIndex];
+            for (quint32 channelIndex=0; channelIndex < histo->m_channels; ++channelIndex)
+            {
+                in >> histo->m_data[channelIndex * histo->m_resolution + valueIndex];
+            }
+        }
+    }
+
+    return in;
 }

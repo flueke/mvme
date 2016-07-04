@@ -2,6 +2,7 @@
 #define HISTOGRAM_H
 
 #include <QObject>
+#include <QTextStream>
 
 class QPointF;
 
@@ -16,9 +17,12 @@ public:
     void clearHistogram(void);
     void calcStatistics(quint32 chan, quint32 start=0, quint32 stop=0);
 
-    quint32 get_val(quint32 x, quint32 y);
-    QPointF get_point(quint32 x, quint32 y);
+    quint32 get_val(quint32 channelIndex, quint32 valueIndex);
+    //QPointF get_point(quint32 x, quint32 y);
     bool inc_val(quint32 x, quint32 y);
+
+    void setValue(quint32 channelIndex, quint32 valueIndex, quint32 value);
+
     double *m_data;
     double *m_axisBase;
     quint32 m_channels;
@@ -33,11 +37,14 @@ public:
     double m_counts[MAX_CHANNEL_COUNT];
 
 signals:
-    
+
 public slots:
 
 private:
 
 };
+
+QTextStream &writeHistogram(QTextStream &out, Histogram *histo);
+QTextStream &readHistogram(QTextStream &in, Histogram **histop);
 
 #endif // HISTOGRAM_H
