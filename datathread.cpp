@@ -7,12 +7,10 @@
 #include "datacruncher.h"
 #include "CVMUSBReadoutList.h"
 #include "vme.h"
-#include "util.h"
 #include <QDebug>
 #include <QMutexLocker>
 
 #define DATABUFFER_SIZE 100000
-
 
 DataThread::DataThread(QObject *parent) :
     QObject(parent)
@@ -74,19 +72,16 @@ void DataThread::dataTimerSlot()
 #elif defined VME_CONTROLLER_WIENER
 void DataThread::dataTimerSlot()
 {
-    //qDebug() << "DataThread: " << QThread::currentThread();
-
+    qDebug() << "DataThread: " << QThread::currentThread();
     // read available data from controller
     // todo: implement multiple readout depending on list of devices
     // todo: implement readout routines depending on type of vme device
     quint32 ret = readData();
-
-    //qDebug("received %d bytes, m_readLength=%d", ret, m_readLength);
-
+    qDebug("received %d bytes, m_readLength=%d", ret, m_readLength);
     if(ret <= 0)
         return;
 
-    //qDebug() << __PRETTY_FUNCTION__ << QThread::currentThread();
+    qDebug() << __PRETTY_FUNCTION__ << QThread::currentThread();
 
     quint32 wordsReceived = ret / sizeof(quint32);
 
@@ -116,7 +111,7 @@ void DataThread::dataTimerSlot()
     for(quint32 bufferIndex = 0; bufferIndex < wordsReceived; ++bufferIndex)
     {
         quint32 currentWord = dataBuffer[bufferIndex];
-
+        
         // skip BERR markers inserted by VMUSB
         if (currentWord == 0xFFFFFFFF)
         {
@@ -135,10 +130,9 @@ void DataThread::dataTimerSlot()
                     bufferState = BufferState_Data;
 
                     //qDebug("found header word 0x%08lx, wordsInEvent=%u", currentWord, wordsInEvent);
-                } else
+                } else 
                 {
                     qDebug("did not find header word, skipping. got 0x%08lx", currentWord);
-                    //debugOutputBuffer(dataBuffer, wordsReceived);
                 }
             } break;
 
@@ -197,10 +191,10 @@ void DataThread::startReading(quint16 readTimerPeriod)
     myVu->vmeWrite16(0x603A, 0);
     // clear FIFO
     myVu->vmeWrite16(0x603C, 1);
-    // readout reset
-    myVu->vmeWrite16(0x6034, 1);
     // start acquisition
     myVu->vmeWrite16(0x603A, 1);
+    // readout reset
+    myVu->vmeWrite16(0x6034, 1);
 #endif
 
     dataTimer->setInterval(readTimerPeriod);
@@ -214,9 +208,8 @@ void DataThread::startReading(quint16 readTimerPeriod)
 
 void DataThread::stopReading()
 {
-    QMetaObject::invokeMethod(dataTimer, "stop");
+    dataTimer->stop();
     QMutexLocker locker(&m_controllerMutex);
-
 #ifdef VME_CONTROLLER_CAEN
     myCu->vmeWrite16(0x603A, 0);
     myCu->vmeWrite16(0x603C, 1);
@@ -287,8 +280,7 @@ void DataThread::setReadoutmode(bool multi, quint16 maxlen, bool mblt)
     else{
         qDebug("set single");
         myVu->vmeWrite16(0x6036, 0);
-        am = VME_AM_A32_USER_BLT; // FIXME
-        readoutList.addFifoRead32(0x00000000, am, 250);
+        readoutList.addFifoRead32(0x00000000, am, m_readLength);
         readoutList.addWrite16(0x00000000 | 0x6034, VME_AM_A32_USER_PROG, 1);
     }
 
@@ -339,9 +331,35 @@ quint32 DataThread::readData()
     else
         offset = 0;
 #elif defined VME_CONTROLLER_WIENER
+#if 0
+    // read the amount of data in the MXDC FIFO
+    long dataLen = 0;
+    myVu->vmeRead16(0x6030, &dataLen);
+
+    if (dataLen > 255)
+    {
+        qDebug("readData(): dataLen > 255: %ld", dataLen);
+        // FIXME: handle this case by doing multiple block reads of max size 255
+        dataLen = 255;
+    }
+    
+    if (dataLen > 0)
+    {
+#if 0
+        if (m_mblt)
+        {
+            offset = myVu->vmeMbltRead32(0x0, dataLen, dataBuffer + offset);
+        } else
+#endif
+        {
+            offset = myVu->vmeBltRead32(0x0, dataLen, dataBuffer + offset);
+        }
+        // reset module readout
+        myVu->vmeWrite16(0x6034, 1);
+    }
+#else
 
     QMutexLocker locker(&m_controllerMutex);
-#if 0
 
     int timeout_ms = 5000;
 
@@ -349,49 +367,9 @@ quint32 DataThread::readData()
 
     qDebug("readData: transaction returned %d", bytesRead);
 
-    bytesRead -= bytesRead % 4; // get rid of the status code from the write command
-
     offset = bytesRead > 0 ? bytesRead : 0;
+
 #endif
-
-    if (!m_multiEvent)
-    {
-
-#if 0
-    size_t bytesRead = 0;
-
-    CVMUSBReadoutList readList;
-    readList.addFifoRead32(0x00000000, VME_AM_A32_USER_BLT, 250);
-    myVu->listExecute(&readList, dataBuffer, DATABUFFER_SIZE, &bytesRead);
-    offset = bytesRead;
-    //qDebug("readData: listExecute(readList) got %d bytes", bytesRead);
-
-    uint32_t tempBuffer[1024];
-    CVMUSBReadoutList resetList;
-    resetList.addWrite16(0x00000000 | 0x6034, VME_AM_A32_USER_PROG, 1);
-    myVu->listExecute(&resetList, tempBuffer, 1024, &bytesRead);
-    //qDebug("readData: listExecute(resetList) got %d bytes: %04x", bytesRead, (uint16_t)*tempBuffer);
-#else
-    int bytesRead = myVu->vmeBltRead32(0x00000000, 250, dataBuffer + offset);
-    int wordsRead = bytesRead / sizeof(uint32_t);
-    //debugOutputBuffer(dataBuffer, wordsRead);
-    myVu->vmeWrite16(0x00000000 | 0x6034, 1);
-    offset = bytesRead > 0 ? bytesRead : 0;
-#endif
-    } else
-    {
-      size_t bytesRead = 0;
-      CVMUSBReadoutList readoutList;
-      readoutList.addFifoRead32(0x00000000, m_mblt ? VME_AM_A32_USER_MBLT : VME_AM_A32_USER_BLT, m_readLength);
-      myVu->listExecute(&readoutList, dataBuffer, DATABUFFER_SIZE, &bytesRead);
-      offset = bytesRead;
-
-      uint32_t tempBuffer[1024];
-      readoutList.clear();
-      readoutList.addWrite16(0x00000000 | 0x6034, VME_AM_A32_USER_PROG, 1);
-      myVu->listExecute(&readoutList, tempBuffer, 1024, &bytesRead);
-    }
-
 #endif
 
     return offset;
