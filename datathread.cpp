@@ -72,16 +72,21 @@ void DataThread::dataTimerSlot()
 #elif defined VME_CONTROLLER_WIENER
 void DataThread::dataTimerSlot()
 {
-    qDebug() << "DataThread: " << QThread::currentThread();
+    //qDebug() << "DataThread: " << QThread::currentThread();
+
+
     // read available data from controller
     // todo: implement multiple readout depending on list of devices
     // todo: implement readout routines depending on type of vme device
     quint32 ret = readData();
-    qDebug("received %d bytes, m_readLength=%d", ret, m_readLength);
-    if(ret <= 0)
-        return;
 
-    qDebug() << __PRETTY_FUNCTION__ << QThread::currentThread();
+    //qDebug("received %d bytes, m_readLength=%d", ret, m_readLength);
+
+    if(ret <= 0)
+    {
+        qDebug("dataTimerSlot: no data received, returning");
+        return;
+    }
 
     quint32 wordsReceived = ret / sizeof(quint32);
 
@@ -111,7 +116,7 @@ void DataThread::dataTimerSlot()
     for(quint32 bufferIndex = 0; bufferIndex < wordsReceived; ++bufferIndex)
     {
         quint32 currentWord = dataBuffer[bufferIndex];
-        
+
         // skip BERR markers inserted by VMUSB
         if (currentWord == 0xFFFFFFFF)
         {
@@ -130,7 +135,7 @@ void DataThread::dataTimerSlot()
                     bufferState = BufferState_Data;
 
                     //qDebug("found header word 0x%08lx, wordsInEvent=%u", currentWord, wordsInEvent);
-                } else 
+                } else
                 {
                     qDebug("did not find header word, skipping. got 0x%08lx", currentWord);
                 }
@@ -208,7 +213,7 @@ void DataThread::startReading(quint16 readTimerPeriod)
 
 void DataThread::stopReading()
 {
-    dataTimer->stop();
+    QMetaObject::invokeMethod(dataTimer, "stop");
     QMutexLocker locker(&m_controllerMutex);
 #ifdef VME_CONTROLLER_CAEN
     myCu->vmeWrite16(0x603A, 0);
@@ -264,7 +269,7 @@ void DataThread::setReadoutmode(bool multi, quint16 maxlen, bool mblt)
 
     if(multi){
         // multievent register
-        qDebug("set multi");
+        qDebug("set multi, maxlen=%d", maxlen);
         myVu->vmeWrite16(0x6036, 3);
         myVu->vmeWrite16(0x601A, maxlen); // max transfer data (0 == unlimited)
         m_readLength = maxlen;
@@ -342,7 +347,7 @@ quint32 DataThread::readData()
         // FIXME: handle this case by doing multiple block reads of max size 255
         dataLen = 255;
     }
-    
+
     if (dataLen > 0)
     {
 #if 0
@@ -361,11 +366,16 @@ quint32 DataThread::readData()
 
     QMutexLocker locker(&m_controllerMutex);
 
-    int timeout_ms = 5000;
+    int timeout_ms = 250;
 
     int bytesRead = myVu->transaction(m_readoutPacket.get(), m_readoutPacketSize, dataBuffer, DATABUFFER_SIZE, timeout_ms);
 
-    qDebug("readData: transaction returned %d", bytesRead);
+    //qDebug("readData: transaction returned %d", bytesRead);
+
+    if (bytesRead <= 0)
+    {
+        qDebug("readData: transaction returned %d", bytesRead);
+    }
 
     offset = bytesRead > 0 ? bytesRead : 0;
 

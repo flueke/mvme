@@ -32,8 +32,8 @@ private:
     TwoDimWidget *myWidget;
     QwtPlotCurve *curve;
     Histogram* m_pMyHist;
-    quint16 m_currentModule;
-    quint16 m_currentChannel;
+    quint32 m_currentModule;
+    quint32 m_currentChannel;
     mvme* m_pMyMvme;
 
 signals:

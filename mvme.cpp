@@ -15,6 +15,7 @@
 #include "diagnostics.h"
 #include "realtimedata.h"
 #include "channelspectro.h"
+#include <QFileDialog>
 
 
 mvme::mvme(QWidget *parent) :
@@ -45,12 +46,55 @@ mvme::mvme(QWidget *parent) :
     m_histogram[0] = new Histogram(this, 42, 8192);
     m_histogram[0]->initHistogram();
 
+#if 0
+    {
+        QFile testFile("C:/Users/florian/histotest.txt");
+        testFile.open(QIODevice::WriteOnly);
+        QTextStream stream(&testFile);
+        Histogram testHisto(0, 32, 1024);
+        testHisto.initHistogram();
+        for (quint32 channelIndex = 0; channelIndex < 32; ++channelIndex)
+        {
+            for (quint32 valueIndex = 0; valueIndex < 1024; ++valueIndex)
+            {
+                testHisto.setValue(channelIndex, valueIndex, (channelIndex+1) * (valueIndex+1));
+            }
+        }
+        writeHistogram(stream, &testHisto);
+    }
+
+
+    {
+        QFile testFile("C:/Users/florian/histotest.txt");
+        testFile.open(QIODevice::ReadOnly);
+        QTextStream stream(&testFile);
+
+        Histogram *testHisto = 0;
+        readHistogram(stream, &testHisto);
+
+        Q_ASSERT(testHisto->m_channels == 32);
+        Q_ASSERT(testHisto->m_resolution == 1024);
+
+        for (quint32 channelIndex = 0; channelIndex < 32; ++channelIndex)
+        {
+            for (quint32 valueIndex = 0; valueIndex < 1024; ++valueIndex)
+            {
+                quint32 value = testHisto->get_val(channelIndex, valueIndex);
+                Q_ASSERT(value == ((channelIndex+1) * (valueIndex+1)));
+            }
+        }
+
+    }
+#endif
+
+
     m_channelSpectro->setXAxisChannel(0);
     m_channelSpectro->setYAxisChannel(1);
 
     // create and initialize displays
     ui->setupUi(this);
-    createChild();
+    createNewHistogram();
+    createNewChannelSpectrogram();
 
     rd = new RealtimeData;
     diag = new Diagnostics;
@@ -151,15 +195,18 @@ void mvme::displayAbout()
     QMessageBox::about(this, tr("about mvme"), tr("mvme by G. Montermann, mesytec GmbH & Co. KG"));
 }
 
-void mvme::createChild()
+void mvme::createNewHistogram()
 {
     TwoDimDisp* childDisplay = new TwoDimDisp(ui->mdiArea);
     childDisplay->setAttribute(Qt::WA_DeleteOnClose);
     childDisplay->show();
     childDisplay->setMvme(this);
     childDisplay->setHistogram(m_histogram.value(0));
+    childDisplay->plot();
+}
 
-
+void mvme::createNewChannelSpectrogram()
+{
     auto subwin = new QMdiSubWindow(ui->mdiArea);
     auto channelSpectroWidget = new ChannelSpectroWidget(m_channelSpectro);
     subwin->setWidget(channelSpectroWidget);
@@ -305,4 +352,57 @@ void mvme::closeEvent(QCloseEvent *event){
     settings.setValue("mainWindowGeometry", saveGeometry());
     settings.setValue("mainWindowState", saveState());
     QMainWindow::closeEvent(event);
+}
+
+
+void mvme::on_actionSave_Histogram_triggered()
+{
+    QString fileName = QFileDialog::getSaveFileName(this, "Save Histogram",
+                                                    QString(),
+                                                    "Text Files (*.txt);; All Files (*.*)");
+
+    if (fileName.isEmpty())
+        return;
+
+
+
+    QFile outFile(fileName);
+    if (!outFile.open(QIODevice::WriteOnly))
+        return;
+
+    QTextStream stream(&outFile);
+    writeHistogram(stream, m_histogram[0]);
+}
+
+void mvme::on_actionLoad_Histogram_triggered()
+{
+    QString fileName = QFileDialog::getOpenFileName(this, "Load Histogram",
+                                                   QString(),
+                                                   "Text Files (*.txt);; All Files (*.*)");
+
+    if (fileName.isEmpty())
+        return;
+
+    QFile inFile(fileName);
+    if (!inFile.open(QIODevice::ReadOnly))
+        return;
+
+    QTextStream stream(&inFile);
+    Histogram *histo = 0;
+    readHistogram(stream, &histo);
+
+    if (histo)
+    {
+        foreach(QMdiSubWindow *w, ui->mdiArea->subWindowList()){
+            auto tdd = qobject_cast<TwoDimDisp *>(w);
+            if (tdd)
+            {
+                tdd->close();
+            }
+        }
+
+        dc->setHistogram(histo);
+        m_histogram[0] = histo;
+        createNewHistogram();
+    }
 }

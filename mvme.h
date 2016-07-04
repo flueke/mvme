@@ -33,7 +33,7 @@ class mvme;
 class mvme : public QMainWindow
 {
     Q_OBJECT
-    
+
 public:
     explicit mvme(QWidget *parent = 0);
     ~mvme();
@@ -64,9 +64,14 @@ public slots:
     void replot();
     void drawTimerSlot();
     void displayAbout();
-    void createChild();
+    void createNewHistogram();
+    void createNewChannelSpectrogram();
     void cascade();
     void tile();
+
+private slots:
+    void on_actionSave_Histogram_triggered();
+    void on_actionLoad_Histogram_triggered();
 
 private:
     Ui::mvme *ui;

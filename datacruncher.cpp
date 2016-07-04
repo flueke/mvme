@@ -57,7 +57,12 @@ void DataCruncher::crunchTimerSlot()
 //        qDebug("read %d data entries", values);
 
         // now extract data
-        for(i=1; i< values; i++, m_readPointer++){
+        for(i=1; i< values; i++, m_readPointer++)
+        {
+            if (m_readPointer > RINGBUFMAX)
+            {
+                m_readPointer = 0;
+            }
 //            qDebug("data %d: %lx", i, m_pRingBuffer[m_readPointer]);
             channel = (m_pRingBuffer[m_readPointer] & 0x001F0000) >> 16;
             val = m_pRingBuffer[m_readPointer] & 0x00001FFF;

@@ -4,6 +4,7 @@
 #include <qwt_scale_engine.h>
 #include <qwt_plot_zoomer.h>
 #include <QString>
+#include <QDebug>
 
 #include "qwt_plot_curve.h"
 
@@ -24,13 +25,13 @@ TwoDimDisp::TwoDimDisp(QWidget *parent) :
     curve->setStyle(QwtPlotCurve::Steps);
     //curve->setBaseline(1.0);
 
-
     curve->attach(myWidget->ui->mainPlot);
     myWidget->ui->mainPlot->replot();
 }
 
 TwoDimDisp::~TwoDimDisp()
 {
+    qDebug() << __PRETTY_FUNCTION__;
     myWidget->~TwoDimWidget();
 }
 
@@ -38,7 +39,9 @@ TwoDimDisp::~TwoDimDisp()
 void TwoDimDisp::plot()
 {
     QString str;
-    curve->setRawSamples((const double*)m_pMyHist->m_axisBase, (const double*)m_pMyHist->m_data + 8192*m_currentChannel, 8192);
+    curve->setRawSamples((const double*)m_pMyHist->m_axisBase,
+        (const double*)m_pMyHist->m_data + m_pMyHist->m_resolution*m_currentChannel,
+                         m_pMyHist->m_resolution);
 //    myWidget->ui->mainPlot->setAxisScale( QwtPlot::yLeft, -200.0, 200.0 );
     //myWidget->ui->mainPlot->setAxisAutoScale(QwtPlot::yLeft, false);
 
@@ -71,12 +74,15 @@ void TwoDimDisp::setHistogram(Histogram *h)
 
 void TwoDimDisp::displayChanged()
 {
-    if(myWidget->ui->moduleBox->value() != m_currentModule){
+    if((quint32)myWidget->ui->moduleBox->value() != m_currentModule){
         m_currentModule = myWidget->ui->moduleBox->value();
         m_pMyHist = m_pMyMvme->getHist(m_currentModule);
     }
-    if(myWidget->ui->channelBox->value() != m_currentChannel){
+    if((quint32)myWidget->ui->channelBox->value() != m_currentChannel){
         m_currentChannel = myWidget->ui->channelBox->value();
+        m_currentChannel = qMin(m_currentChannel, m_pMyHist->m_channels - 1);
+        QSignalBlocker sb(myWidget->ui->channelBox);
+        myWidget->ui->channelBox->setValue(m_currentChannel);
     }
 //    qDebug("current mod %d channel %d", m_currentModule, m_currentChannel);
     plot();

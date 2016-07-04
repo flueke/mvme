@@ -26,7 +26,7 @@
      <x>0</x>
      <y>0</y>
      <width>1034</width>
-     <height>24</height>
+     <height>21</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -39,10 +39,10 @@
     <property name="title">
      <string>Display</string>
     </property>
-    <addaction name="actionClose"/>
-    <addaction name="actionOpen_new"/>
+    <addaction name="actionOpenNewHistogram"/>
+    <addaction name="actionSave_Histogram"/>
+    <addaction name="actionLoad_Histogram"/>
     <addaction name="separator"/>
-    <addaction name="actionSave_histogram"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
@@ -93,14 +93,14 @@
     <string>Close</string>
    </property>
   </action>
-  <action name="actionOpen_new">
+  <action name="actionOpenNewHistogram">
    <property name="text">
-    <string>Open new</string>
+    <string>New histogram window</string>
    </property>
   </action>
-  <action name="actionSave_histogram">
+  <action name="actionSave_Histogram">
    <property name="text">
-    <string>Save histogram</string>
+    <string>Save Histogram</string>
    </property>
   </action>
   <action name="actionAbout_mvme">
@@ -116,6 +116,16 @@
   <action name="actionCascade">
    <property name="text">
     <string>Cascade</string>
+   </property>
+  </action>
+  <action name="actionOpenNewChannelSpectrogram">
+   <property name="text">
+    <string>Open new channel spectrogram</string>
+   </property>
+  </action>
+  <action name="actionLoad_Histogram">
+   <property name="text">
+    <string>Load Histogram</string>
    </property>
   </action>
  </widget>
@@ -155,10 +165,10 @@
    </hints>
   </connection>
   <connection>
-   <sender>actionOpen_new</sender>
+   <sender>actionOpenNewHistogram</sender>
    <signal>triggered()</signal>
    <receiver>mvme</receiver>
-   <slot>createChild()</slot>
+   <slot>createNewHistogram()</slot>
    <hints>
     <hint type="sourcelabel">
      <x>-1</x>
@@ -205,8 +215,9 @@
  </connections>
  <slots>
   <slot>displayAbout()</slot>
-  <slot>createChild()</slot>
+  <slot>createNewHistogram()</slot>
   <slot>tile()</slot>
   <slot>cascade()</slot>
+  <slot>createNewChannelSpectrogram()</slot>
  </slots>
 </ui>
