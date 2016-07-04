@@ -132,7 +132,6 @@ mvme::mvme(QWidget *parent) :
     QSettings settings("mesytec", "mvme");
     restoreGeometry(settings.value("mainWindowGeometry").toByteArray());
     restoreState(settings.value("mainWindowState").toByteArray());
-
 }
 
 mvme::~mvme()
@@ -357,8 +356,15 @@ void mvme::closeEvent(QCloseEvent *event){
 
 void mvme::on_actionSave_Histogram_triggered()
 {
+    auto tdw = qobject_cast<TwoDimWidget *>(ui->mdiArea->currentSubWindow()->widget());
+
+    if (!tdw)
+        return;
+
+    quint32 channelIndex = tdw->getSelectedChannelIndex();
+
     QString fileName = QFileDialog::getSaveFileName(this, "Save Histogram",
-                                                    QString(),
+                                                    QString::asprintf("histogram_channel%02u.txt", channelIndex),
                                                     "Text Files (*.txt);; All Files (*.*)");
 
     if (fileName.isEmpty())
@@ -371,7 +377,7 @@ void mvme::on_actionSave_Histogram_triggered()
         return;
 
     QTextStream stream(&outFile);
-    writeHistogram(stream, m_histogram[0]);
+    writeHistogram(stream, m_histogram[0], channelIndex);
 }
 
 void mvme::on_actionLoad_Histogram_triggered()
@@ -388,21 +394,43 @@ void mvme::on_actionLoad_Histogram_triggered()
         return;
 
     QTextStream stream(&inFile);
-    Histogram *histo = 0;
-    readHistogram(stream, &histo);
 
-    if (histo)
+    quint32 channelIndex = 0;
+
+    readHistogram(stream, m_histogram[0], &channelIndex);
+
+    auto tdw = qobject_cast<TwoDimWidget *>(ui->mdiArea->currentSubWindow()->widget());
+
+    if (tdw)
     {
-        foreach(QMdiSubWindow *w, ui->mdiArea->subWindowList()){
-            auto tdd = qobject_cast<TwoDimDisp *>(w);
-            if (tdd)
-            {
-                tdd->close();
-            }
-        }
-
-        dc->setHistogram(histo);
-        m_histogram[0] = histo;
-        createNewHistogram();
+        tdw->setSelectedChannelIndex(channelIndex);
     }
+
+    foreach(QMdiSubWindow *w, ui->mdiArea->subWindowList())
+    {
+        auto tdd = qobject_cast<TwoDimDisp *>(w);
+        if (tdd)
+        {
+            tdd->plot();
+        }
+    }
+}
+
+void mvme::on_actionExport_Histogram_triggered()
+{
+    auto tdw = qobject_cast<TwoDimWidget *>(ui->mdiArea->currentSubWindow()->widget());
+
+    if (!tdw)
+        return;
+
+    tdw->exportPlot();
+}
+
+void mvme::on_mdiArea_subWindowActivated(QMdiSubWindow *subwin)
+{
+    auto tdw = qobject_cast<TwoDimWidget *>(ui->mdiArea->currentSubWindow()->widget());
+
+    ui->actionExport_Histogram->setVisible(tdw);
+    ui->actionLoad_Histogram->setVisible(tdw);
+    ui->actionSave_Histogram->setVisible(tdw);
 }

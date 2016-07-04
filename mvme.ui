@@ -42,6 +42,7 @@
     <addaction name="actionOpenNewHistogram"/>
     <addaction name="actionSave_Histogram"/>
     <addaction name="actionLoad_Histogram"/>
+    <addaction name="actionExport_Histogram"/>
     <addaction name="separator"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
@@ -70,6 +71,9 @@
    <attribute name="toolBarBreak">
     <bool>false</bool>
    </attribute>
+   <addaction name="actionOpenNewHistogram"/>
+   <addaction name="actionLoad_Histogram"/>
+   <addaction name="actionSave_Histogram"/>
   </widget>
   <widget class="QStatusBar" name="statusBar"/>
   <action name="actionQuit">
@@ -126,6 +130,11 @@
   <action name="actionLoad_Histogram">
    <property name="text">
     <string>Load Histogram</string>
+   </property>
+  </action>
+  <action name="actionExport_Histogram">
+   <property name="text">
+    <string>Export Histogram</string>
    </property>
   </action>
  </widget>

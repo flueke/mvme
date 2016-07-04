@@ -7,6 +7,8 @@
 #include <QDebug>
 
 #include "qwt_plot_curve.h"
+#include <qwt_plot_textlabel.h>
+#include <qwt_text.h>
 
 #include "twodimwidget.h"
 #include "ui_twodimwidget.h"
@@ -26,6 +28,15 @@ TwoDimDisp::TwoDimDisp(QWidget *parent) :
     //curve->setBaseline(1.0);
 
     curve->attach(myWidget->ui->mainPlot);
+
+
+    m_statsText = new QwtText("Hallo");
+    m_statsText->setRenderFlags(Qt::AlignLeft | Qt::AlignTop);
+
+    m_statsTextItem = new QwtPlotTextLabel;
+    m_statsTextItem->setText(*m_statsText);
+    m_statsTextItem->attach(myWidget->ui->mainPlot);
+
     myWidget->ui->mainPlot->replot();
 }
 
@@ -46,20 +57,35 @@ void TwoDimDisp::plot()
     //myWidget->ui->mainPlot->setAxisAutoScale(QwtPlot::yLeft, false);
 
     myWidget->setZoombase();
+
     m_pMyHist->calcStatistics(m_currentChannel, myWidget->m_myZoomer->getLowborder(), myWidget->m_myZoomer->getHiborder());
+
     myWidget->ui->mainPlot->replot();
     str.sprintf("%2.2f", m_pMyHist->m_mean[m_currentChannel]);
     myWidget->ui->meanval->setText(str);
+
     str.sprintf("%2.2f", m_pMyHist->m_sigma[m_currentChannel]);
     myWidget->ui->sigmaval->setText(str);
-    str.sprintf("%2.2f", m_pMyHist->m_counts[m_currentChannel]);
-    myWidget->ui->countval->setText(str);
+
     str.sprintf("%d", (quint32)m_pMyHist->m_counts[m_currentChannel]);
     myWidget->ui->countval->setText(str);
+
     str.sprintf("%d", (quint32) m_pMyHist->m_maximum[m_currentChannel]);
     myWidget->ui->maxval->setText(str);
+
     str.sprintf("%d", (quint32) m_pMyHist->m_maxchan[m_currentChannel]);
     myWidget->ui->maxpos->setText(str);
+
+    m_statsText->setText(
+                QString::asprintf("\nMean: %2.2f\nSigma: %2.2f\nCounts: %u\n Maximum: %u\n at Channel %u",
+                                           m_pMyHist->m_mean[m_currentChannel],
+                                           m_pMyHist->m_sigma[m_currentChannel],
+                                           (quint32)m_pMyHist->m_counts[m_currentChannel],
+                                           (quint32)m_pMyHist->m_maximum[m_currentChannel],
+                                           (quint32)m_pMyHist->m_maxchan[m_currentChannel]
+                                           ));
+    m_statsTextItem->setText(*m_statsText);
+    //myWidget->ui->mainPlot->replot();
 }
 
 void TwoDimDisp::setMvme(mvme *m)

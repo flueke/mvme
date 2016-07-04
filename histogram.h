@@ -17,11 +17,11 @@ public:
     void clearHistogram(void);
     void calcStatistics(quint32 chan, quint32 start=0, quint32 stop=0);
 
-    quint32 get_val(quint32 channelIndex, quint32 valueIndex);
-    //QPointF get_point(quint32 x, quint32 y);
-    bool inc_val(quint32 x, quint32 y);
+    double getValue(quint32 channelIndex, quint32 valueIndex);
+    bool incValue(quint32 channelIndex, quint32 valueIndex);
 
-    void setValue(quint32 channelIndex, quint32 valueIndex, quint32 value);
+    void setValue(quint32 channelIndex, quint32 valueIndex, double value);
+    void setAxisBaseValue(quint32 valueIndex, double value);
 
     double *m_data;
     double *m_axisBase;
@@ -44,7 +44,10 @@ private:
 
 };
 
-QTextStream &writeHistogram(QTextStream &out, Histogram *histo);
-QTextStream &readHistogram(QTextStream &in, Histogram **histop);
+QTextStream &writeHistogramCollection(QTextStream &out, Histogram *histo);
+QTextStream &readHistogramCollectionInto(QTextStream &in, Histogram *histo);
+
+QTextStream &writeHistogram(QTextStream &out, Histogram *histo, quint32 channelIndex);
+QTextStream &readHistogram(QTextStream &in, Histogram *histo, quint32 *channelIndexOut = nullptr);
 
 #endif // HISTOGRAM_H

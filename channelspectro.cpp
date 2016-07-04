@@ -210,7 +210,7 @@ ChannelSpectroWidget::ChannelSpectroWidget(ChannelSpectro *channelSpectro, QWidg
     ui->comboXAxisModule->addItem(QString::number(0), 0);
     ui->comboYAxisModule->addItem(QString::number(0), 0);
 
-    for (int channelIndex=0; channelIndex<16; ++channelIndex) {
+    for (int channelIndex=0; channelIndex<32; ++channelIndex) {
         ui->comboXAxisChannel->addItem(QString::number(channelIndex), channelIndex);
         ui->comboYAxisChannel->addItem(QString::number(channelIndex), channelIndex);
     }
@@ -250,7 +250,7 @@ ChannelSpectroWidget::ChannelSpectroWidget(ChannelSpectro *channelSpectro, QWidg
 
     m_zoomer = new ScrollZoomer(ui->plot->canvas());
     m_zoomer->setZoomBase();
-    
+
     replot();
 }
 

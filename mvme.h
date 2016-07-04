@@ -24,6 +24,7 @@ class Diagnostics;
 class RealtimeData;
 class ChannelSpectro;
 class QThread;
+class QMdiSubWindow;
 
 
 namespace Ui {
@@ -72,6 +73,8 @@ public slots:
 private slots:
     void on_actionSave_Histogram_triggered();
     void on_actionLoad_Histogram_triggered();
+    void on_actionExport_Histogram_triggered();
+    void on_mdiArea_subWindowActivated(QMdiSubWindow *);
 
 private:
     Ui::mvme *ui;

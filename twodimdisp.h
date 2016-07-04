@@ -10,6 +10,8 @@
 class QwtPlotCurve;
 class Histogram;
 class mvme;
+class QwtPlotTextLabel;
+class QwtText;
 
 namespace Ui{
     class TwoDimDisp;
@@ -35,6 +37,9 @@ private:
     quint32 m_currentModule;
     quint32 m_currentChannel;
     mvme* m_pMyMvme;
+
+    QwtPlotTextLabel *m_statsTextItem;
+    QwtText *m_statsText;
 
 signals:
     void modChanged(qint16 mod);
