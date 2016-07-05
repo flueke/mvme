@@ -6,6 +6,7 @@
 #include <qwt_plot_renderer.h>
 #include <qwt_scale_widget.h>
 #include "scrollzoomer.h"
+#include <QDebug>
 
 TwoDimWidget::TwoDimWidget(QWidget *parent) :
     QWidget(parent),
@@ -22,6 +23,10 @@ TwoDimWidget::TwoDimWidget(QWidget *parent) :
     m_myZoomer = new ScrollZoomer(this->ui->mainPlot->canvas());
     //m_myZoomer = new ScrollZoomer(0);
     m_myZoomer->setZoomBase();
+    qDebug() << "zoomBase =" << m_myZoomer->zoomBase();
+
+    connect(m_myZoomer, SIGNAL(zoomed(QRectF)),
+            this, SLOT(zoomerZoomed(QRectF)));
 
     QwtLogScaleEngine* logSe = new QwtLogScaleEngine;
     logSe->setAttribute(QwtScaleEngine::Inverted, false);
@@ -41,10 +46,11 @@ TwoDimWidget::~TwoDimWidget()
 void TwoDimWidget::displaychanged()
 {
     qDebug("display changed");
-    m_pMyDisp->displayChanged();
 
     ui->mainPlot->axisWidget(QwtPlot::xBottom)->setTitle(
                 QString("Channel %1").arg(getSelectedChannelIndex()));
+
+    m_pMyDisp->displayChanged();
 }
 
 void TwoDimWidget::clearHist()
@@ -57,6 +63,19 @@ void TwoDimWidget::clearHist()
 void TwoDimWidget::setZoombase()
 {
     m_myZoomer->setZoomBase();
+    qDebug() << "zoomBase =" << m_myZoomer->zoomBase();
+}
+
+void TwoDimWidget::zoomerZoomed(QRectF zoomRect)
+{
+    if (m_myZoomer->zoomRectIndex() == 0)
+    {
+        ui->mainPlot->setAxisAutoScale(QwtPlot::yLeft);
+        ui->mainPlot->setAxisScale( QwtPlot::xBottom, 0, 8192);
+        ui->mainPlot->replot();
+        m_myZoomer->setZoomBase();
+    }
+    m_pMyDisp->updateStatistics();
 }
 
 quint32 TwoDimWidget::getSelectedChannelIndex() const

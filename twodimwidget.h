@@ -29,6 +29,8 @@ public slots:
     void displaychanged(void);
     void clearHist(void);
 
+private slots:
+    void zoomerZoomed(QRectF);
 
 };
 

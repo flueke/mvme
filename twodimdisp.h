@@ -29,6 +29,7 @@ public:
     void setHistogram(Histogram* h);
     void displayChanged(void);
     void clearDisp(void);
+    void updateStatistics();
 
 private:
     TwoDimWidget *myWidget;

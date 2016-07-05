@@ -30,7 +30,7 @@ TwoDimDisp::TwoDimDisp(QWidget *parent) :
     curve->attach(myWidget->ui->mainPlot);
 
 
-    m_statsText = new QwtText("Hallo");
+    m_statsText = new QwtText();
     m_statsText->setRenderFlags(Qt::AlignLeft | Qt::AlignTop);
 
     m_statsTextItem = new QwtPlotTextLabel;
@@ -49,18 +49,26 @@ TwoDimDisp::~TwoDimDisp()
 
 void TwoDimDisp::plot()
 {
-    QString str;
+    //qDebug() << __PRETTY_FUNCTION__;
+
     curve->setRawSamples((const double*)m_pMyHist->m_axisBase,
         (const double*)m_pMyHist->m_data + m_pMyHist->m_resolution*m_currentChannel,
                          m_pMyHist->m_resolution);
 //    myWidget->ui->mainPlot->setAxisScale( QwtPlot::yLeft, -200.0, 200.0 );
     //myWidget->ui->mainPlot->setAxisAutoScale(QwtPlot::yLeft, false);
 
-    myWidget->setZoombase();
+    //myWidget->setZoombase();
+    updateStatistics();
+}
 
+void TwoDimDisp::updateStatistics()
+{
     m_pMyHist->calcStatistics(m_currentChannel, myWidget->m_myZoomer->getLowborder(), myWidget->m_myZoomer->getHiborder());
 
-    myWidget->ui->mainPlot->replot();
+
+    //myWidget->ui->mainPlot->replot();
+
+    QString str;
     str.sprintf("%2.2f", m_pMyHist->m_mean[m_currentChannel]);
     myWidget->ui->meanval->setText(str);
 
@@ -85,6 +93,7 @@ void TwoDimDisp::plot()
                                            (quint32)m_pMyHist->m_maxchan[m_currentChannel]
                                            ));
     m_statsTextItem->setText(*m_statsText);
+    curve->plot()->replot();
 }
 
 void TwoDimDisp::setMvme(mvme *m)
