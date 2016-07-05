@@ -53,6 +53,7 @@ public:
 
 public slots:
     void replot();
+    void exportPlot();
 
 private slots:
     void setXAxisChannel(int channel);

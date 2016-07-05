@@ -420,10 +420,20 @@ void mvme::on_actionExport_Histogram_triggered()
 {
     auto tdw = qobject_cast<TwoDimWidget *>(ui->mdiArea->currentSubWindow()->widget());
 
-    if (!tdw)
-        return;
+    if (tdw)
+    {
+        tdw->exportPlot();
+    }
+}
 
-    tdw->exportPlot();
+void mvme::on_actionExport_Spectrogram_triggered()
+{
+    auto spectroWidget = qobject_cast<ChannelSpectroWidget *>(ui->mdiArea->currentSubWindow()->widget());
+
+    if (spectroWidget)
+    {
+        spectroWidget->exportPlot();
+    }
 }
 
 void mvme::on_mdiArea_subWindowActivated(QMdiSubWindow *subwin)
@@ -433,4 +443,8 @@ void mvme::on_mdiArea_subWindowActivated(QMdiSubWindow *subwin)
     ui->actionExport_Histogram->setVisible(tdw);
     ui->actionLoad_Histogram->setVisible(tdw);
     ui->actionSave_Histogram->setVisible(tdw);
+
+    auto spectroWidget = qobject_cast<ChannelSpectroWidget *>(ui->mdiArea->currentSubWindow()->widget());
+
+    ui->actionExport_Spectrogram->setVisible(spectroWidget);
 }

@@ -4,34 +4,10 @@
 #include <qwt_plot_spectrogram.h>
 #include <qwt_color_map.h>
 #include <qwt_scale_widget.h>
+#include <qwt_plot_renderer.h>
 #include <QDebug>
 #include <QComboBox>
 #include <QTimer>
-
-#if 0
-    for (int Index = 0; Index < 1000000; ++Index)
-    {
-        uint32_t x = random_between(0, xResolution-1);
-        uint32_t y = random_between(0, yResolution-1);
-        m_data->incValue(x, y);
-    }
-#endif
-
-#if 0
-    for (uint32_t i=0; i<g_xResolution; ++i)
-    {
-        for (int j=0; j<10000; ++j)
-        {
-            m_data->incValue(i, i+1);
-            m_data->incValue(i, i);
-            m_data->incValue(i, i-1);
-
-            m_data->incValue(i+1, i);
-            //m_data->incValue(i, i);
-            m_data->incValue(i-1, i);
-        }
-    }
-#endif
 
 static double lerp(double a, double t, double b)
 {
@@ -279,6 +255,15 @@ void ChannelSpectroWidget::replot()
     axis->setColorMap(interval, m_channelSpectro->getColorMap());
 
     ui->plot->replot();
+}
+
+void ChannelSpectroWidget::exportPlot()
+{
+    QString fileName = QString::asprintf("channel%02u-channel%02u.pdf",
+                                         m_channelSpectro->getXAxisChannel(),
+                                         m_channelSpectro->getYAxisChannel());
+    QwtPlotRenderer renderer;
+    renderer.exportTo(ui->plot, fileName);
 }
 
 void ChannelSpectroWidget::addRandomValues()

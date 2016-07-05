@@ -74,6 +74,7 @@ private slots:
     void on_actionSave_Histogram_triggered();
     void on_actionLoad_Histogram_triggered();
     void on_actionExport_Histogram_triggered();
+    void on_actionExport_Spectrogram_triggered();
     void on_mdiArea_subWindowActivated(QMdiSubWindow *);
 
 private:
