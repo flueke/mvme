@@ -1651,6 +1651,9 @@ p, li { white-space: pre-wrap; }
      </property>
     </widget>
     <widget class="QGroupBox" name="groupBox_7">
+     <property name="enabled">
+      <bool>false</bool>
+     </property>
      <property name="geometry">
       <rect>
        <x>10</x>
@@ -1690,6 +1693,9 @@ p, li { white-space: pre-wrap; }
      </widget>
     </widget>
     <widget class="QGroupBox" name="groupBox_8">
+     <property name="enabled">
+      <bool>false</bool>
+     </property>
      <property name="geometry">
       <rect>
        <x>200</x>

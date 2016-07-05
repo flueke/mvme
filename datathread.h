@@ -46,6 +46,9 @@ public slots:
     void setReadoutmode(bool multi, quint16 maxlen, bool mblt);
 
 protected:
+    void debugWriteTextListFile(int bytesRead);
+
+
     QTimer* dataTimer;
     mvme* myMvme;
 #ifdef VME_CONTROLLER_WIENER
@@ -79,6 +82,7 @@ protected:
     QMutex m_controllerMutex;
     QTextStream m_debugTextListStream;
     QFile m_debugTextListFile;
+    size_t m_debugTransferCount;
 };
 
 #endif // DATATHREAD_H
