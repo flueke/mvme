@@ -9,6 +9,8 @@
 #include "vme.h"
 #include <QDebug>
 #include <QMutexLocker>
+#include <QTime>
+#include "util.h"
 
 #define DATABUFFER_SIZE 100000
 
@@ -137,13 +139,24 @@ void DataThread::dataTimerSlot()
                     //qDebug("found header word 0x%08lx, wordsInEvent=%u", currentWord, wordsInEvent);
                 } else
                 {
-                    qDebug("did not find header word, skipping. got 0x%08lx", currentWord);
+                    qDebug("did not find header word, skipping buffer. got 0x%08lx", currentWord);
+                    debugOutputBuffer(dataBuffer, wordsReceived);
+                    return;
                 }
             } break;
 
             case BufferState_Data:
             {
+                bool data_found_flag = ((currentWord & 0xF0000000) == 0x10000000) // MDPP
+                                       || ((currentWord & 0xFF800000)==0x04000000); // MxDC
+
+                if (!data_found_flag)
+                {
+                    qDebug("warning: data_found_flag not set");
+                }
+
                 m_pRingbuffer[m_writePointer++] = currentWord;
+
                 if (--wordsInEvent == 1)
                 {
                     bufferState = BufferState_EOE;
@@ -204,6 +217,10 @@ void DataThread::startReading(quint16 readTimerPeriod)
 
     dataTimer->setInterval(readTimerPeriod);
 
+    m_debugTextListFile.setFileName("C:/Temp/mvme-debug-text-list.txt");
+    m_debugTextListFile.open(QIODevice::WriteOnly);
+    m_debugTextListStream.setDevice(&m_debugTextListFile);
+
     /* Start the timer in the DataThreads thread context. If start() would be
      * called directly, the timer events would be generated in the current
      * thread context (the GUI thread). Thus if the GUI is busy not enough timer events
@@ -214,7 +231,12 @@ void DataThread::startReading(quint16 readTimerPeriod)
 void DataThread::stopReading()
 {
     QMetaObject::invokeMethod(dataTimer, "stop");
+
+    QTime time;
+    time.start();
     QMutexLocker locker(&m_controllerMutex);
+    qDebug("stopReading: mutex lock took %d ms", time.elapsed());
+
 #ifdef VME_CONTROLLER_CAEN
     myCu->vmeWrite16(0x603A, 0);
     myCu->vmeWrite16(0x603C, 1);
@@ -222,6 +244,8 @@ void DataThread::stopReading()
     myVu->vmeWrite16(0x603A, 0);
     myVu->vmeWrite16(0x603C, 1);
 #endif
+
+    m_debugTextListFile.close();
 }
 
 void DataThread::setRingbuffer(quint32 *buffer)
@@ -270,9 +294,9 @@ void DataThread::setReadoutmode(bool multi, quint16 maxlen, bool mblt)
     if(multi){
         // multievent register
         qDebug("set multi, maxlen=%d", maxlen);
-        myVu->vmeWrite16(0x6036, 3);
+        myVu->vmeWrite16(0x6036, 1);
         myVu->vmeWrite16(0x601A, maxlen); // max transfer data (0 == unlimited)
-        m_readLength = maxlen;
+        m_readLength = maxlen > 0 ? maxlen : 65535;
 
         /* Read the mxdc fifo using a block transfer. This should result in a BERR
          * once all data in the FIFO has been read.  */
@@ -375,6 +399,27 @@ quint32 DataThread::readData()
     if (bytesRead <= 0)
     {
         qDebug("readData: transaction returned %d", bytesRead);
+    } else if (m_debugTextListFile.isOpen())
+    {
+        int wordsRead = bytesRead / sizeof(quint32);
+        int bytesLeft = bytesRead % sizeof(quint32);
+
+        m_debugTextListStream << "bytes: " << bytesRead
+                              << " words: " << wordsRead
+                              << " bytes left: " << bytesLeft
+                              << endl;
+
+        int wordIndex = 0;
+        for (; wordIndex < wordsRead; ++wordIndex)
+        {
+            m_debugTextListStream << hex << dataBuffer[wordIndex] << dec << endl;
+        }
+
+        for (int byteIndex = 0; byteIndex < bytesLeft; ++byteIndex)
+        {
+            quint32 byteValue = (quint32)(*((quint8 *)(dataBuffer + wordIndex) + byteIndex));
+            m_debugTextListStream << hex << byteValue << dec << endl;
+        }
     }
 
     offset = bytesRead > 0 ? bytesRead : 0;

@@ -4,6 +4,8 @@
 #include <QObject>
 #include <QMutex>
 #include <memory>
+#include <QTextStream>
+#include <QFile>
 
 class QTimer;
 class mvme;
@@ -75,6 +77,8 @@ protected:
     quint16 m_readLength;
 
     QMutex m_controllerMutex;
+    QTextStream m_debugTextListStream;
+    QFile m_debugTextListFile;
 };
 
 #endif // DATATHREAD_H
