@@ -77,7 +77,7 @@ void TwoDimDisp::plot()
     myWidget->ui->maxpos->setText(str);
 
     m_statsText->setText(
-                QString::asprintf("\nMean: %2.2f\nSigma: %2.2f\nCounts: %u\n Maximum: %u\n at Channel %u",
+                QString::asprintf("\nMean: %2.2f\nSigma: %2.2f\nCounts: %u\nMaximum: %u\nat Channel: %u",
                                            m_pMyHist->m_mean[m_currentChannel],
                                            m_pMyHist->m_sigma[m_currentChannel],
                                            (quint32)m_pMyHist->m_counts[m_currentChannel],
@@ -85,7 +85,6 @@ void TwoDimDisp::plot()
                                            (quint32)m_pMyHist->m_maxchan[m_currentChannel]
                                            ));
     m_statsTextItem->setText(*m_statsText);
-    //myWidget->ui->mainPlot->replot();
 }
 
 void TwoDimDisp::setMvme(mvme *m)
