@@ -278,7 +278,7 @@ short  xxusb_register_write(usb_dev_handle *hDev, short RegAddr, long RegData)
   }
   else
     lDataLen=6;
-  timeout=10;
+  timeout=100;
   ret=xxusb_bulk_write(hDev, buf, lDataLen, timeout);
   return ret;
 }
@@ -453,7 +453,7 @@ int timeout;
   int lDataLen;
 
   buf[2]=(char)(RegAddr & 15);
-  timeout=10;
+  timeout=100;
   lDataLen=4;
   ret=xxusb_bulk_write(hDev, buf, lDataLen, timeout);
   if (ret < 0)
