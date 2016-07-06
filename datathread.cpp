@@ -12,7 +12,9 @@
 #include <QTime>
 #include "util.h"
 
+
 #define DATABUFFER_SIZE 100000
+#define ENABLE_DEBUG_TEXT_LISTFILE 0
 
 DataThread::DataThread(QObject *parent) :
     QObject(parent)
@@ -85,9 +87,9 @@ void DataThread::dataTimerSlot()
 
     //qDebug("received %d bytes, m_readLength=%d", ret, m_readLength);
 
-    if(ret <= 0)
+    if(ret == 0)
     {
-        qDebug("dataTimerSlot: no data received, returning");
+        //qDebug("dataTimerSlot: no data received, returning");
         return;
     }
 
@@ -132,17 +134,17 @@ void DataThread::dataTimerSlot()
             {
                 if ((currentWord & 0xC0000000) == 0x40000000)
                 {
-                    wordsInEvent = currentWord & 0x00000FFF;
+
+                    wordsInEvent = currentWord & 0x000003FF;
                     m_pRingbuffer[m_writePointer++] = currentWord;
                     bufferState = BufferState_Data;
 
                     //qDebug("found header word 0x%08lx, wordsInEvent=%u", currentWord, wordsInEvent);
                 } else
                 {
-                    //qDebug("transfer=%u: did not find header word, skipping to next word. got 0x%08lx",
-                    //       m_debugTransferCount, currentWord);
-                    //debugOutputBuffer(dataBuffer, wordsReceived);
-                    //return;
+                    qDebug("transfer=%u: did not find header word, skipping to next word. got 0x%08lx",
+                           m_debugTransferCount, currentWord);
+                    debugOutputBuffer(dataBuffer, wordsReceived);
                 }
             } break;
 
@@ -153,14 +155,13 @@ void DataThread::dataTimerSlot()
 
                 if (!data_found_flag)
                 {
-                    qDebug("warning: data_found_flag not set");
+                    qDebug("warning: data_found_flag not set: 0x%08lx",
+                           currentWord);
                 }
 
                 m_pRingbuffer[m_writePointer++] = currentWord;
 
-                --wordsInEvent;
-
-                if (wordsInEvent == 1)
+                if (--wordsInEvent == 1)
                 {
                     bufferState = BufferState_EOE;
                 }
@@ -168,19 +169,20 @@ void DataThread::dataTimerSlot()
 
             case BufferState_EOE:
             {
+                /* Note: MADC sometimes seems to not output EOE words (and possibly others). */
                 if ((currentWord & 0xC0000000) == 0xC0000000)
                 {
                     //qDebug("found EOE: 0x%08lx", currentWord);
+                    m_pRingbuffer[m_writePointer++] = currentWord;
                 } else
                 {
-                    //qDebug("transfer=%u, expected EOE word, got 0x%08lx, continuing regardless (previous word=0x%08lx, next word=0x%08lx)",
-                    //       m_debugTransferCount,
-                    //       currentWord, dataBuffer[bufferIndex-1], dataBuffer[bufferIndex+1]);
+                    qDebug("transfer=%u, expected EOE word, got 0x%08lx, continuing regardless (previous word=0x%08lx, next word=0x%08lx)",
+                           m_debugTransferCount,
+                           currentWord, dataBuffer[bufferIndex-1], dataBuffer[bufferIndex+1]);
 
-                    --bufferIndex; // try the word again as a header word (hack as it is still being copied below!)
+                    --bufferIndex; // try the word again as a header word
                 }
 
-                m_pRingbuffer[m_writePointer++] = currentWord;
                 bufferState = BufferState_Header;
                 emit dataReady();
             } break;
@@ -234,7 +236,9 @@ void DataThread::startReading(quint16 readTimerPeriod)
     dataTimer->setInterval(readTimerPeriod);
 
     m_debugTextListFile.setFileName("C:/Temp/mvme-debug-text-list.txt");
-    //m_debugTextListFile.open(QIODevice::WriteOnly);
+#if ENABLE_DEBUG_TEXT_LISTFILE
+    m_debugTextListFile.open(QIODevice::WriteOnly);
+#endif
     m_debugTextListStream.setDevice(&m_debugTextListFile);
     m_debugTransferCount = 0;
 

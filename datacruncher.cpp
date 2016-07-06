@@ -18,7 +18,7 @@ DataCruncher::DataCruncher(QObject *parent)
     connect(crunchTimer, SIGNAL(timeout()), SLOT(crunchTimerSlot()));
     m_newEvent = false;
     m_rtDiag = true;
-    crunchTimer->start(50);
+    crunchTimer->start(1);
 }
 
 void DataCruncher::run(){
@@ -38,7 +38,7 @@ void DataCruncher::crunchTimerSlot()
 
     m_newEvent = false;
 
-//    qDebug("events waiting: %d", m_bufferCounter);
+    //qDebug("events waiting: %d", m_bufferCounter);
 
     while(m_bufferCounter){
 //        qDebug("header: %lx", m_pRingBuffer[m_readPointer]);
@@ -46,14 +46,15 @@ void DataCruncher::crunchTimerSlot()
 
         if((values & 0xFF000000) != 0x40000000)
         {
-            //qDebug("header error");
+            qDebug("header error");
         }
         modId = (values & 0x00FF0000) >> 16;
 
 //        qDebug("modId: %d", modId);
 
         // extract no. of following data words
-        values &= 0x00000FFF;
+        values &= 0x000003FF;
+
 //        qDebug("read %d data entries", values);
 
         // now extract data
@@ -66,8 +67,10 @@ void DataCruncher::crunchTimerSlot()
 //            qDebug("data %d: %lx", i, m_pRingBuffer[m_readPointer]);
             channel = (m_pRingBuffer[m_readPointer] & 0x001F0000) >> 16;
             val = m_pRingBuffer[m_readPointer] & 0x00001FFF;
+
 //            if(channel == 0)
 //                qDebug("chan %d, val %d, pos: %d", channel, val, channel*m_resolution + val);
+
             if((m_pRingBuffer[m_readPointer] & 0xF0000000) == 0x10000000 ||
                     (m_pRingBuffer[m_readPointer] & 0xFF800000) == 0x04000000)
             {
@@ -78,16 +81,24 @@ void DataCruncher::crunchTimerSlot()
                     m_channelSpectro->setValue(channel, val);
                 }
             }
+
             if(m_rtDiag){
                 m_pRtD->insertData(channel, (quint16)val);
             }
         }
         // read buffer terminator:
-        values = m_pRingBuffer[m_readPointer++];
-//        qDebug("buffer terminator: %x", values);
+        values = m_pRingBuffer[m_readPointer];
+
+        if ((values & 0xC0000000) == 0xC0000000)
+        {
+            ++m_readPointer;
+            //qDebug("buffer terminator: %x", values);
+        }
 
         m_bufferCounter--;
+
         emit bufferStatus((int)m_bufferCounter/10);
+
         if(m_readPointer > RINGBUFMAX)
             m_readPointer = 0;
 //        qDebug("readPointer: %d", m_readPointer);
