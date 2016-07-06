@@ -60,18 +60,22 @@ void TwoDimWidget::displaychanged()
     if (ui->dispLin->isChecked() &&
             !dynamic_cast<QwtLinearScaleEngine *>(ui->mainPlot->axisScaleEngine(QwtPlot::yLeft)))
     {
-        ui->mainPlot->setAxisScaleEngine(QwtPlot::yLeft, new QwtLinearScaleEngine);
         m_pMyDisp->curve->setBaseline(0.0);
+        ui->mainPlot->setAxisScaleEngine(QwtPlot::yLeft, new QwtLinearScaleEngine);
+        ui->mainPlot->setAxisAutoScale(QwtPlot::yLeft, true);
     }
     else if (ui->dispLog->isChecked() &&
              !dynamic_cast<QwtLogScaleEngine *>(ui->mainPlot->axisScaleEngine(QwtPlot::yLeft)))
     {
         // TODO(flueke): this does not work properly
-        ui->mainPlot->setAxisScaleEngine(QwtPlot::yLeft, new QwtLogScaleEngine);
-        ui->mainPlot->setAxisAutoScale(QwtPlot::yLeft, true);
-        ui->mainPlot->setAxisMaxMajor(QwtPlot::yLeft, 10);
-        ui->mainPlot->setAxisMaxMinor(QwtPlot::yLeft, 10);
+
         m_pMyDisp->curve->setBaseline(0.1);
+        ui->mainPlot->setAxisScaleEngine(QwtPlot::yLeft, new QwtLogScaleEngine);
+        ui->mainPlot->axisScaleEngine(QwtPlot::yLeft)->setAttribute(QwtScaleEngine::Floating);
+        //ui->mainPlot->setAxisScale(QwtPlot::yLeft, 0.1, 6000.0);
+
+        //ui->mainPlot->setAxisMaxMajor(QwtPlot::yLeft, 10);
+        //ui->mainPlot->setAxisMaxMinor(QwtPlot::yLeft, 10);
     }
 
     m_pMyDisp->displayChanged();
