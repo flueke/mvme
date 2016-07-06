@@ -87,7 +87,7 @@ public:
     {
         if (x < m_xResolution && y < m_yResolution)
         {
-            /* FIXME(flueke): this produces a wrong max value if the
+            /* XXX(flueke): this produces a wrong max value if the
              * current max value is overwritten with a smaller value. */
             m_data[y * m_xResolution + x] = value;
             m_maxValue = qMax(value, m_maxValue);
@@ -103,7 +103,6 @@ private:
     uint32_t m_maxValue;
 };
 
-// TODO(flueke): allow changing resolutions _after_ construction time
 ChannelSpectro::ChannelSpectro(uint32_t xResolution, uint32_t yResolution)
     : m_plotItem(new QwtPlotSpectrogram)
     , m_data(new ChannelSpectroData(xResolution, yResolution))

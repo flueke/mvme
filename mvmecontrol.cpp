@@ -647,7 +647,7 @@ void mvmeControl::loadStack()
    QString s = QFileDialog::getOpenFileName(this,
                                             "Choose a file",
                                             "/home",
-                                            "Stack files (*.stk)"
+                                            "Stack files (*.stk *.txt)"
      );
     QFile f(s);
     if(!f.open(QIODevice::ReadWrite))

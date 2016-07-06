@@ -26,7 +26,7 @@ mvme::mvme(QWidget *parent) :
     dc(0),
     diag(0),
     rd(0),
-    m_channelSpectro(new ChannelSpectro),
+    m_channelSpectro(new ChannelSpectro(1024, 1024)),
     ui(new Ui::mvme),
     m_readoutThread(new QThread)
 {
