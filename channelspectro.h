@@ -59,7 +59,7 @@ private slots:
     void setXAxisChannel(int channel);
     void setYAxisChannel(int channel);
 
-    void addRandomValues();
+    void addTestData();
 
 private:
     Ui::ChannelSpectroWidget *ui;

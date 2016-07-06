@@ -5,19 +5,11 @@
 #include <qwt_color_map.h>
 #include <qwt_scale_widget.h>
 #include <qwt_plot_renderer.h>
+#include <qwt_plot_panner.h>
+#include <qwt_plot_magnifier.h>
 #include <QDebug>
 #include <QComboBox>
 #include <QTimer>
-
-static double lerp(double a, double t, double b)
-{
-    return (1-t)*a + t*b;
-}
-
-static uint32_t random_between(uint32_t min, uint32_t max)
-{
-    return qrand() % (max-min+1) + min;
-}
 
 class ChannelSpectroData: public QwtRasterData
 {
@@ -197,7 +189,7 @@ ChannelSpectroWidget::ChannelSpectroWidget(ChannelSpectro *channelSpectro, QWidg
     connect(ui->comboYAxisChannel, SIGNAL(currentIndexChanged(int)), this, SLOT(setYAxisChannel(int)));
 
     connect(ui->pb_replot, SIGNAL(clicked()), ui->plot, SLOT(replot()));
-    connect(ui->pb_addRandom, SIGNAL(clicked()), SLOT(addRandomValues()));
+    connect(ui->pb_addTestData, SIGNAL(clicked()), SLOT(addTestData()));
     connect(ui->pb_clear, &QPushButton::clicked, [=]() {
             m_channelSpectro->clear();
             });
@@ -225,6 +217,12 @@ ChannelSpectroWidget::ChannelSpectroWidget(ChannelSpectro *channelSpectro, QWidg
 
     m_zoomer = new ScrollZoomer(ui->plot->canvas());
     m_zoomer->setZoomBase();
+
+    auto plotPanner = new QwtPlotPanner(ui->plot->canvas());
+    plotPanner->setMouseButton(Qt::MiddleButton);
+
+    auto plotMagnifier = new QwtPlotMagnifier(ui->plot->canvas());
+    plotMagnifier->setMouseButton(Qt::NoButton);
 
     replot();
 }
@@ -265,24 +263,12 @@ void ChannelSpectroWidget::exportPlot()
     renderer.exportTo(ui->plot, fileName);
 }
 
-void ChannelSpectroWidget::addRandomValues()
+void ChannelSpectroWidget::addTestData()
 {
     auto spectroData = m_channelSpectro->getSpectroData();
 
     qDebug() << "begin addRandomValues" << spectroData->interval(Qt::ZAxis);
-#if 0
 
-    for (int Repeats = 0; Repeats < 10000; ++Repeats)
-    {
-        uint32_t x = random_between(0, spectroData->m_xResolution-1);
-        uint32_t y = random_between(0, spectroData->m_yResolution-1);
-        spectroData->incValue(x, y);
-    }
-    qDebug() << spectroData->interval(Qt::ZAxis);
-    ui->plot->replot();
-#endif
-
-#if 1
     for (uint32_t x=0; x<spectroData->m_xResolution; ++x)
     {
         for (uint32_t y=0; y<spectroData->m_yResolution; ++y)
@@ -291,24 +277,6 @@ void ChannelSpectroWidget::addRandomValues()
             spectroData->setValue(x, y, value);
         }
     }
-#endif
-
-
-#if 0
-    for (uint32_t x=0; x<spectroData->m_xResolution; ++x)
-    {
-        for (uint32_t y=0; y<spectroData->m_yResolution; ++y)
-        {
-            const double c = 0.842;
-            const double v1 = x * x + ( y - c ) * ( y + c );
-            const double v2 = x * ( y + c ) + x * ( y + c );
-
-            double value = ( v1 * v1 + v2 * v2 );
-
-            spectroData->setValue(x, y, value);
-        }
-    }
-#endif
 
     qDebug() << "end addRandomValues" << spectroData->interval(Qt::ZAxis);
 }

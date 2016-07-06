@@ -31,9 +31,11 @@ public:
     void clearDisp(void);
     void updateStatistics();
 
+    QwtPlotCurve *curve;
+
 private:
     TwoDimWidget *myWidget;
-    QwtPlotCurve *curve;
+
     Histogram* m_pMyHist;
     quint32 m_currentModule;
     quint32 m_currentChannel;

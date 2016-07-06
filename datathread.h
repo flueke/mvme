@@ -44,6 +44,10 @@ public slots:
     void stopReading();
     void setRingbuffer(quint32* buffer);
     void setReadoutmode(bool multi, quint16 maxlen, bool mblt);
+    void setReadoutBaseAddress(quint32 baseAddress)
+    {
+        m_baseAddress = baseAddress;
+    }
 
 protected:
     void debugWriteTextListFile(int bytesRead);
@@ -65,6 +69,8 @@ protected:
     quint32 m_writePointer;
 
     quint32 bufferCounter;
+
+    quint32 m_baseAddress;
 
 
     quint32 rp;

@@ -16,8 +16,9 @@
 #define DATABUFFER_SIZE 100000
 #define ENABLE_DEBUG_TEXT_LISTFILE 0
 
-DataThread::DataThread(QObject *parent) :
-    QObject(parent)
+DataThread::DataThread(QObject *parent)
+    : QObject(parent)
+    , m_baseAddress(0x0)
 {
     setObjectName("DataThread");
 
@@ -144,7 +145,7 @@ void DataThread::dataTimerSlot()
                 {
                     qDebug("transfer=%u: did not find header word, skipping to next word. got 0x%08lx",
                            m_debugTransferCount, currentWord);
-                    debugOutputBuffer(dataBuffer, wordsReceived);
+                    //debugOutputBuffer(dataBuffer, wordsReceived);
                 }
             } break;
 
@@ -173,7 +174,6 @@ void DataThread::dataTimerSlot()
                 if ((currentWord & 0xC0000000) == 0xC0000000)
                 {
                     //qDebug("found EOE: 0x%08lx", currentWord);
-                    m_pRingbuffer[m_writePointer++] = currentWord;
                 } else
                 {
                     qDebug("transfer=%u, expected EOE word, got 0x%08lx, continuing regardless (previous word=0x%08lx, next word=0x%08lx)",
@@ -183,6 +183,7 @@ void DataThread::dataTimerSlot()
                     --bufferIndex; // try the word again as a header word
                 }
 
+                m_pRingbuffer[m_writePointer++] = currentWord;
                 bufferState = BufferState_Header;
                 emit dataReady();
             } break;
@@ -224,13 +225,13 @@ void DataThread::startReading(quint16 readTimerPeriod)
     myCu->vmeWrite16(0x6034, 1);
 #else
     // stop acquisition
-    myVu->vmeWrite16(0x603A, 0);
+    myVu->vmeWrite16(m_baseAddress | 0x603A, 0);
     // clear FIFO
-    myVu->vmeWrite16(0x603C, 1);
+    myVu->vmeWrite16(m_baseAddress | 0x603C, 1);
     // start acquisition
-    myVu->vmeWrite16(0x603A, 1);
+    myVu->vmeWrite16(m_baseAddress | 0x603A, 1);
     // readout reset
-    myVu->vmeWrite16(0x6034, 1);
+    myVu->vmeWrite16(m_baseAddress | 0x6034, 1);
 #endif
 
     dataTimer->setInterval(readTimerPeriod);
@@ -262,8 +263,8 @@ void DataThread::stopReading()
     myCu->vmeWrite16(0x603A, 0);
     myCu->vmeWrite16(0x603C, 1);
 #else
-    myVu->vmeWrite16(0x603A, 0);
-    myVu->vmeWrite16(0x603C, 1);
+    myVu->vmeWrite16(m_baseAddress | 0x603A, 0);
+    myVu->vmeWrite16(m_baseAddress | 0x603C, 1);
 #endif
 
     m_debugTextListFile.close();
@@ -306,23 +307,23 @@ void DataThread::setReadoutmode(bool multi, quint16 maxlen, bool mblt)
 #elif defined VME_CONTROLLER_WIENER
 
     // stop acquisition
-    myVu->vmeWrite16(0x603A, 0);
+    myVu->vmeWrite16(m_baseAddress | 0x603A, 0);
     // reset FIFO
-    myVu->vmeWrite16(0x603C, 1);
+    myVu->vmeWrite16(m_baseAddress | 0x603C, 1);
 
     int blt_am = mblt ? VME_AM_A32_USER_MBLT : VME_AM_A32_USER_BLT;
 
     if (multi)
     {
         qDebug("set multi, maxlen=%d", maxlen);
-        myVu->vmeWrite16(0x6036, 1);        // multi event mode register
-        myVu->vmeWrite16(0x601A, maxlen);   // max transfer data (0 == unlimited)
+        myVu->vmeWrite16(m_baseAddress | 0x6036, 1);        // multi event mode register
+        myVu->vmeWrite16(m_baseAddress | 0x601A, maxlen);   // max transfer data (0 == unlimited)
         m_readLength = maxlen > 0 ? maxlen : 65535;
     }
     else
     {
         qDebug("set single");
-        myVu->vmeWrite16(0x6036, 0);
+        myVu->vmeWrite16(m_baseAddress | 0x6036, 0);
     }
 
     CVMUSBReadoutList readoutList;
@@ -358,9 +359,9 @@ void DataThread::setReadoutmode(bool multi, quint16 maxlen, bool mblt)
 #endif
 
     // clear Fifo
-    myVu->vmeWrite16(0x603C, 1);
+    myVu->vmeWrite16(m_baseAddress | 0x603C, 1);
     // reset readout
-    myVu->vmeWrite16(0x6034, 1);
+    myVu->vmeWrite16(m_baseAddress | 0x6034, 1);
 #endif
 }
 
@@ -408,20 +409,20 @@ quint32 DataThread::readData()
 #if 1
     // read the amount of data in the MXDC FIFO
     long dataLen = 0;
-    myVu->vmeRead16(0x6030, &dataLen);
+    myVu->vmeRead16(m_baseAddress | 0x6030, &dataLen);
 
     if (dataLen > 0)
     {
 
         if (m_mblt)
         {
-            offset = myVu->vmeMbltRead32(0x0, dataLen, dataBuffer);
+            offset = myVu->vmeMbltRead32(m_baseAddress, dataLen, dataBuffer);
         } else
         {
-            offset = myVu->vmeBltRead32(0x0, dataLen, dataBuffer);
+            offset = myVu->vmeBltRead32(m_baseAddress, dataLen, dataBuffer);
         }
         // reset module readout
-        myVu->vmeWrite16(0x6034, 1);
+        myVu->vmeWrite16(m_baseAddress | 0x6034, 1);
     }
 
     debugWriteTextListFile(offset);

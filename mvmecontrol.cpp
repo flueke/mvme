@@ -864,6 +864,15 @@ void mvmeControl::dataTaking(bool val)
         multi = ui->multiButton->isChecked();
         theApp->rd->clearData();
         theApp->rd->setFilter(ui->diagLowChannel2->value(), ui->diagHiChannel2->value());
+
+        bool ok;
+        quint32 baseAddress = ui->readoutBaseAddress->text().toUInt(&ok, 0);
+
+        if (ok)
+        {
+            theApp->dt->setReadoutBaseAddress(baseAddress << 16);
+        }
+
         theApp->startDatataking(uperiod, multi, words, ui->MBLT->isChecked());
     }
 }

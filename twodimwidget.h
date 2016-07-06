@@ -5,6 +5,7 @@
 
 class TwoDimDisp;
 class ScrollZoomer;
+class QwtPlotPanner;
 
 namespace Ui {
 class TwoDimWidget;
@@ -20,6 +21,7 @@ public:
     Ui::TwoDimWidget *ui;
     void setZoombase();
     ScrollZoomer* m_myZoomer;
+    QwtPlotPanner *m_plotPanner;
     TwoDimDisp* m_pMyDisp;
     quint32 getSelectedChannelIndex() const;
     void setSelectedChannelIndex(quint32 channelIndex);
@@ -31,7 +33,6 @@ public slots:
 
 private slots:
     void zoomerZoomed(QRectF);
-
 };
 
 #endif // TWODIMWIDGET_H

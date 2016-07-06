@@ -5,6 +5,9 @@
 #include <qwt_scale_engine.h>
 #include <qwt_plot_renderer.h>
 #include <qwt_scale_widget.h>
+#include <qwt_plot_panner.h>
+#include <qwt_plot_magnifier.h>
+#include <qwt_plot_curve.h>
 #include "scrollzoomer.h"
 #include <QDebug>
 
@@ -13,33 +16,33 @@ TwoDimWidget::TwoDimWidget(QWidget *parent) :
     ui(new Ui::TwoDimWidget)
 {
     ui->setupUi(this);
+
     m_pMyDisp = (TwoDimDisp*) parent;
-//    ui->mainPlot->setAxisAutoScale(QwtPlot::xBottom, true);
+
+    // TODO: make this depend on the histograms resolution
     ui->mainPlot->setAxisScale( QwtPlot::xBottom, 0, 8192);
 
     ui->mainPlot->axisWidget(QwtPlot::yLeft)->setTitle("Counts");
     ui->mainPlot->axisWidget(QwtPlot::xBottom)->setTitle("Channel 0");
 
     m_myZoomer = new ScrollZoomer(this->ui->mainPlot->canvas());
-
     // assign the unused rRight axis to only zoom in x
     m_myZoomer->setAxis(QwtPlot::xBottom, QwtPlot::yRight);
     m_myZoomer->setVScrollBarMode(Qt::ScrollBarAlwaysOff);
     m_myZoomer->setZoomBase();
 
-    qDebug() << "zoomBase =" << m_myZoomer->zoomBase();
-
     connect(m_myZoomer, SIGNAL(zoomed(QRectF)),
             this, SLOT(zoomerZoomed(QRectF)));
 
-    QwtLogScaleEngine* logSe = new QwtLogScaleEngine;
-    logSe->setAttribute(QwtScaleEngine::Inverted, false);
+    qDebug() << "zoomBase =" << m_myZoomer->zoomBase();
 
-    QwtLinearScaleEngine* linSe = new QwtLinearScaleEngine;
+    m_plotPanner = new QwtPlotPanner(ui->mainPlot->canvas());
+    m_plotPanner->setAxisEnabled(QwtPlot::yLeft, false);
+    m_plotPanner->setMouseButton(Qt::MiddleButton);
 
-    //ui->mainPlot->setAxisScaleEngine(QwtPlot::yLeft, logSe);
-    //ui->mainPlot->setAxisScale(QwtPlot::yLeft, 1.0, 1e9);
-
+    auto plotMagnifier = new QwtPlotMagnifier(ui->mainPlot->canvas());
+    plotMagnifier->setAxisEnabled(QwtPlot::yLeft, false);
+    plotMagnifier->setMouseButton(Qt::NoButton);
 }
 
 TwoDimWidget::~TwoDimWidget()
@@ -53,6 +56,23 @@ void TwoDimWidget::displaychanged()
 
     ui->mainPlot->axisWidget(QwtPlot::xBottom)->setTitle(
                 QString("Channel %1").arg(getSelectedChannelIndex()));
+
+    if (ui->dispLin->isChecked() &&
+            !dynamic_cast<QwtLinearScaleEngine *>(ui->mainPlot->axisScaleEngine(QwtPlot::yLeft)))
+    {
+        ui->mainPlot->setAxisScaleEngine(QwtPlot::yLeft, new QwtLinearScaleEngine);
+        m_pMyDisp->curve->setBaseline(0.0);
+    }
+    else if (ui->dispLog->isChecked() &&
+             !dynamic_cast<QwtLogScaleEngine *>(ui->mainPlot->axisScaleEngine(QwtPlot::yLeft)))
+    {
+        // TODO(flueke): this does not work properly
+        ui->mainPlot->setAxisScaleEngine(QwtPlot::yLeft, new QwtLogScaleEngine);
+        ui->mainPlot->setAxisAutoScale(QwtPlot::yLeft, true);
+        ui->mainPlot->setAxisMaxMajor(QwtPlot::yLeft, 10);
+        ui->mainPlot->setAxisMaxMinor(QwtPlot::yLeft, 10);
+        m_pMyDisp->curve->setBaseline(0.1);
+    }
 
     m_pMyDisp->displayChanged();
 }
