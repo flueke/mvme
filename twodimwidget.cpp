@@ -21,8 +21,12 @@ TwoDimWidget::TwoDimWidget(QWidget *parent) :
     ui->mainPlot->axisWidget(QwtPlot::xBottom)->setTitle("Channel 0");
 
     m_myZoomer = new ScrollZoomer(this->ui->mainPlot->canvas());
-    //m_myZoomer = new ScrollZoomer(0);
+
+    // assign the unused rRight axis to only zoom in x
+    m_myZoomer->setAxis(QwtPlot::xBottom, QwtPlot::yRight);
+    m_myZoomer->setVScrollBarMode(Qt::ScrollBarAlwaysOff);
     m_myZoomer->setZoomBase();
+
     qDebug() << "zoomBase =" << m_myZoomer->zoomBase();
 
     connect(m_myZoomer, SIGNAL(zoomed(QRectF)),

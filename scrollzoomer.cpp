@@ -45,7 +45,7 @@ ScrollZoomer::ScrollZoomer( QWidget *canvas ):
     d_vScrollData = new ScrollData;
 
     setRubberBandPen( QColor( Qt::green ) );
-    setTrackerPen( QColor( Qt::white ) );
+    setTrackerPen( QColor( Qt::black ) );
     setTrackerMode( QwtPicker::ActiveOnly );
     setRubberBand( QwtPicker::RectRubberBand );
 
@@ -113,7 +113,7 @@ void ScrollZoomer::rescale()
             QwtPlotLayout *layout = plot()->plotLayout();
             for ( int axis = 0; axis < QwtPlot::axisCnt; axis++ )
             {
-                d_alignCanvasToScales[axis] = 
+                d_alignCanvasToScales[axis] =
                     layout->alignCanvasToScale( axis );
             }
 
