@@ -358,8 +358,9 @@ void mvme::on_actionSave_Histogram_triggered()
 
     quint32 channelIndex = tdw->getSelectedChannelIndex();
 
-    QString fileName = QFileDialog::getSaveFileName(this, "Save Histogram",
-                                                    QString::asprintf("histogram_channel%02u.txt", channelIndex),
+    QString buffer;
+    buffer.sprintf("histogram_channel%02u.txt", channelIndex);
+    QString fileName = QFileDialog::getSaveFileName(this, "Save Histogram", buffer,
                                                     "Text Files (*.txt);; All Files (*.*)");
 
     if (fileName.isEmpty())

@@ -256,9 +256,11 @@ void ChannelSpectroWidget::replot()
 
 void ChannelSpectroWidget::exportPlot()
 {
-    QString fileName = QString::asprintf("channel%02u-channel%02u.pdf",
-                                         m_channelSpectro->getXAxisChannel(),
-                                         m_channelSpectro->getYAxisChannel());
+    QString fileName;
+    fileName.sprintf("channel%02u-channel%02u.pdf",
+            m_channelSpectro->getXAxisChannel(),
+            m_channelSpectro->getYAxisChannel());
+
     QwtPlotRenderer renderer;
     renderer.exportTo(ui->plot, fileName);
 }

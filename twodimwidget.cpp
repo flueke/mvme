@@ -136,7 +136,8 @@ void TwoDimWidget::setSelectedChannelIndex(quint32 channelIndex)
 
 void TwoDimWidget::exportPlot()
 {
-    QString fileName = QString::asprintf("histogram_channel%02u.pdf", getSelectedChannelIndex());
+    QString fileName;
+    fileName.sprintf("histogram_channel%02u.pdf", getSelectedChannelIndex());
 
     QwtPlotRenderer renderer;
     renderer.exportTo(ui->mainPlot, fileName);
@@ -172,14 +173,16 @@ void TwoDimWidget::updateStatistics()
     str.sprintf("%d", (quint32) m_pMyHist->m_maxchan[m_currentChannel]);
     ui->maxpos->setText(str);
 
-    m_statsText->setText(
-                QString::asprintf("\nMean: %2.2f\nSigma: %2.2f\nCounts: %u\nMaximum: %u\nat Channel: %u",
-                                           m_pMyHist->m_mean[m_currentChannel],
-                                           m_pMyHist->m_sigma[m_currentChannel],
-                                           (quint32)m_pMyHist->m_counts[m_currentChannel],
-                                           (quint32)m_pMyHist->m_maximum[m_currentChannel],
-                                           (quint32)m_pMyHist->m_maxchan[m_currentChannel]
-                                           ));
+    QString buffer;
+    buffer.sprintf("\nMean: %2.2f\nSigma: %2.2f\nCounts: %u\nMaximum: %u\nat Channel: %u",
+                               m_pMyHist->m_mean[m_currentChannel],
+                               m_pMyHist->m_sigma[m_currentChannel],
+                               (quint32)m_pMyHist->m_counts[m_currentChannel],
+                               (quint32)m_pMyHist->m_maximum[m_currentChannel],
+                               (quint32)m_pMyHist->m_maxchan[m_currentChannel]
+                               );
+
+    m_statsText->setText(buffer);
     m_statsTextItem->setText(*m_statsText);
 }
 

@@ -78,9 +78,10 @@ void DataCruncher::crunchTimerSlot()
 
                 if (m_channelSpectro)
                 {
-                    // FIXME: scaling hack. this needs to know the channels resolution
-                    // to dynamically downscale
-                    m_channelSpectro->setValue(channel, val * (1024.0/8192.0));
+                    quint32 scaledValue = (quint32)(val * (1024.0/8192.0));
+
+                    //qDebug("channelSpectro: channel=%u, value=%u -> %u", channel, val, scaledValue);
+                    m_channelSpectro->setValue(channel, scaledValue);
                 }
             }
 
