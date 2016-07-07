@@ -11,11 +11,12 @@
 #include <QTimer>
 #include <QtGui>
 #include <QMessageBox>
-#include "twodimdisp.h"
+#include "twodimwidget.h"
 #include "diagnostics.h"
 #include "realtimedata.h"
 #include "channelspectro.h"
 #include <QFileDialog>
+#include <QMdiSubWindow>
 
 
 mvme::mvme(QWidget *parent) :
@@ -165,19 +166,12 @@ void mvme::plot()
 
 void mvme::replot()
 {
-    TwoDimDisp* tdd;
-    /*
-    quint8 chan, mod;
-    chan = ui->channelBox->value();
-    mod = ui->modBox->value();
-    curve->setRawSamples((const double*)hist->m_axisBase, (const double*)&hist->m_data[32*mod+8192*chan], 8192);
-    ui->mainPlot->replot();
-*/
-    foreach(QMdiSubWindow *w, ui->mdiArea->subWindowList()){
-        tdd = qobject_cast<TwoDimDisp *>(w);
-        if (tdd)
+    foreach(QMdiSubWindow *w, ui->mdiArea->subWindowList())
+    {
+        auto tdw = qobject_cast<TwoDimWidget *>(w->widget());
+        if (tdw)
         {
-            tdd->plot();
+            tdw->plot();
         }
     }
 }
@@ -196,12 +190,13 @@ void mvme::displayAbout()
 
 void mvme::createNewHistogram()
 {
-    TwoDimDisp* childDisplay = new TwoDimDisp(ui->mdiArea);
-    childDisplay->setAttribute(Qt::WA_DeleteOnClose);
-    childDisplay->show();
-    childDisplay->setMvme(this);
-    childDisplay->setHistogram(m_histogram.value(0));
-    childDisplay->plot();
+    auto tdw = new TwoDimWidget(this);
+    tdw->setHistogram(m_histogram.value(0));
+    tdw->plot();
+
+    auto subwin = new QMdiSubWindow(ui->mdiArea);
+    subwin->setWidget(tdw);
+    subwin->show();
 }
 
 void mvme::createNewChannelSpectrogram()
@@ -408,10 +403,10 @@ void mvme::on_actionLoad_Histogram_triggered()
 
     foreach(QMdiSubWindow *w, ui->mdiArea->subWindowList())
     {
-        auto tdd = qobject_cast<TwoDimDisp *>(w);
-        if (tdd)
+        auto tdw = qobject_cast<TwoDimWidget *>(w->widget());
+        if (tdw)
         {
-            tdd->plot();
+            tdw->plot();
         }
     }
 }
