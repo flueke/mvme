@@ -718,7 +718,12 @@ int vmUsb::vmeBltRead32(long addr, int count, quint32* data)
 
     size_t bytesRead = 0;
 
-    listExecute(&readoutList, data, count * sizeof(quint32), &bytesRead);
+    int status = listExecute(&readoutList, data, count * sizeof(quint32), &bytesRead);
+
+    /*
+    if (status < 0)
+        return status;
+    */
 
     return bytesRead;
 #endif

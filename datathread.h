@@ -19,7 +19,7 @@ public:
     explicit DataThread(QObject *parent = 0);
     ~DataThread();
     void initBuffers();
-    quint32 readData();
+    int readData();
 #ifdef VME_CONTROLLER_CAEN
     void setCu(caenusb *cu);
 #else

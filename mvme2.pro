@@ -24,7 +24,6 @@ SOURCES += main.cpp\
     datacruncher.cpp \
     vmedevice.cpp \
     twodimwidget.cpp \
-    twodimdisp.cpp \
     scrollzoomer.cpp \
     scrollbar.cpp \
     virtualmod.cpp \
@@ -44,7 +43,6 @@ HEADERS  += \
     mvmedefines.h \
     vmedevice.h \
     twodimwidget.h \
-    twodimdisp.h \
     scrollbar.h \
     scrollzoomer.h \
     virtualmod.h \

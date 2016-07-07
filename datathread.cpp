@@ -14,7 +14,12 @@
 
 
 #define DATABUFFER_SIZE 100000
+
+#ifdef QT_NO_DEBUG
 #define ENABLE_DEBUG_TEXT_LISTFILE 0
+#else
+#define ENABLE_DEBUG_TEXT_LISTFILE 1
+#endif
 
 DataThread::DataThread(QObject *parent)
     : QObject(parent)
@@ -83,10 +88,16 @@ void DataThread::dataTimerSlot()
     // read available data from controller
     // todo: implement multiple readout depending on list of devices
     // todo: implement readout routines depending on type of vme device
-    quint32 ret = readData();
+    int ret = readData();
     ++m_debugTransferCount;
 
     //qDebug("received %d bytes, m_readLength=%d", ret, m_readLength);
+
+    if (ret < 0)
+    {
+        qDebug("dataTimerSlot: readData returned error code %d", ret);
+        return;
+    }
 
     if(ret == 0)
     {
@@ -144,7 +155,7 @@ void DataThread::dataTimerSlot()
                 } else
                 {
                     qDebug("transfer=%u: did not find header word, skipping to next word. got 0x%08lx",
-                           m_debugTransferCount, currentWord);
+                           m_debugTransferCount-1, currentWord);
                     //debugOutputBuffer(dataBuffer, wordsReceived);
                 }
             } break;
@@ -177,8 +188,8 @@ void DataThread::dataTimerSlot()
                 } else
                 {
                     qDebug("transfer=%u, expected EOE word, got 0x%08lx, continuing regardless (previous word=0x%08lx, next word=0x%08lx)",
-                           m_debugTransferCount,
-                           currentWord, dataBuffer[bufferIndex-1], dataBuffer[bufferIndex+1]);
+                           m_debugTransferCount-1,
+                           dataBuffer[bufferIndex], dataBuffer[bufferIndex-1], dataBuffer[bufferIndex+1]);
 
                     --bufferIndex; // try the word again as a header word
                 }
@@ -197,10 +208,8 @@ void DataThread::dataTimerSlot()
 
     if (bufferState != BufferState_Header)
     {
-        /*
         qDebug("transfer=%u, warning: bufferState != BufferState_Header after loop",
-               m_debugTransferCount);
-        */
+               m_debugTransferCount-1);
     }
 }
 #endif
@@ -372,9 +381,9 @@ void DataThread::initBuffers()
 }
 
 
-quint32 DataThread::readData()
+int DataThread::readData()
 {
-    quint16 offset = 0;
+    int offset = 0;
 #ifdef VME_CONTROLLER_CAEN
     quint16 ret;
     quint8 irql;
@@ -409,11 +418,11 @@ quint32 DataThread::readData()
 #if 1
     // read the amount of data in the MXDC FIFO
     long dataLen = 0;
-    myVu->vmeRead16(m_baseAddress | 0x6030, &dataLen);
 
-    if (dataLen > 0)
+    short status = myVu->vmeRead16(m_baseAddress | 0x6030, &dataLen);
+
+    if (status > 0 && dataLen > 0)
     {
-
         if (m_mblt)
         {
             offset = myVu->vmeMbltRead32(m_baseAddress, dataLen, dataBuffer);
@@ -421,11 +430,16 @@ quint32 DataThread::readData()
         {
             offset = myVu->vmeBltRead32(m_baseAddress, dataLen, dataBuffer);
         }
+        debugWriteTextListFile(offset);
         // reset module readout
         myVu->vmeWrite16(m_baseAddress | 0x6034, 1);
     }
+    else
+    {
+        debugWriteTextListFile(0);
+    }
 
-    debugWriteTextListFile(offset);
+    return offset;
 
 #else
     int timeout_ms = 250;
@@ -443,16 +457,23 @@ quint32 DataThread::readData()
     }
 
     offset = bytesRead > 0 ? bytesRead : 0;
-
-#endif
-#endif
-
     return offset;
+#endif
+#endif
+
 }
 
 void DataThread::debugWriteTextListFile(int bytesRead)
 {
-    if (bytesRead > 0 && m_debugTextListFile.isOpen())
+    if (!m_debugTextListFile.isOpen())
+        return;
+
+    if (bytesRead <= 0)
+    {
+        m_debugTextListStream << "transfer #" << m_debugTransferCount
+                              << ", status=" << bytesRead
+                              << endl;
+    } else
     {
         int wordsRead = bytesRead / sizeof(quint32);
         int bytesLeft = bytesRead % sizeof(quint32);
