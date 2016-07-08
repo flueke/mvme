@@ -4,6 +4,7 @@
 #include "datathread.h"
 #include "diagnostics.h"
 #include "realtimedata.h"
+#include "CVMUSBReadoutList.h"
 
 #include "QLabel"
 #include "QString"
@@ -328,6 +329,22 @@ void mvmeControl::refreshDisplay(void)
     val2 /= 0x1000;
   ui->busRequest->setValue(val2);
 
+  QString irqText;
+
+  for (int i=0; i<4; ++i)
+  {
+      int irqRegister = theApp->vu->getIrq(i);
+      QString buffer;
+
+      buffer.sprintf("Vector %d = 0x%04x\n", 2*i, irqRegister & 0xFFFF);
+      irqText.append(buffer);
+
+      buffer.sprintf("Vector %d = 0x%04x\n", 2*i+1, irqRegister >> 16);
+      irqText.append(buffer);
+  }
+
+  ui->irqVectorsLabel->setText(irqText);
+
     dontUpdate = false;
 #endif
     qDebug() << "end refreshDisplay()";
@@ -554,7 +571,7 @@ void mvmeControl::saveStack()
 void mvmeControl::activateStack()
 {
     QString s, s2;
-    const uint stackMaxSize = 0x1000;
+    const uint stackMaxSize = 0x10000;
     long stack[stackMaxSize];
     s=ui->stackDisplay->toPlainText();
     QTextStream t(&s, QIODevice::ReadWrite);
@@ -592,6 +609,7 @@ void mvmeControl::activateStack()
         }
     } else
     {
+#if 1
         uint i = 1; // leave room to store the size of the stack
 
         while (!t.atEnd() && i < stackMaxSize) {
@@ -617,7 +635,7 @@ void mvmeControl::activateStack()
         if(ui->stackNumber->currentText() == "Execute")
         {
             int ret = theApp->vu->stackExecute(stack);
-            qDebug("stackExecute returned %x", ret);
+            qDebug("stackExecute returned %d", ret);
 
             /*
             s2.sprintf("%08x", ret);
@@ -640,6 +658,44 @@ void mvmeControl::activateStack()
             qDebug("stackWrite: returned %d", ret);
         }
     }
+#else
+    std::vector<uint32_t> stackData;
+    while (!t.atEnd())
+    {
+        uint32_t value = 0;
+        t >> value;
+
+        if (t.status() != QTextStream::Ok)
+            break;
+        stackData.push_back(value);
+    }
+
+    CVMUSBReadoutList stackList(stackData);
+
+    if (ui->stackNumber->currentText() == "Execute")
+    {
+        uint32_t readBuffer[1024];
+        size_t bytesRead = 0;
+        int result = theApp->vu->listExecute(&stackList, readBuffer, 1024*4, &bytesRead);
+        qDebug("stackExecute: result=%d, bytesRead=%lu", result, bytesRead);
+
+        for (size_t i=0; i<bytesRead/4; ++i)
+        {
+            s.sprintf("%08lx", stack[i]);
+            s2.append(s);
+            s2.append("\n");
+        }
+        ui->resultDisplay->setText(s2);
+    }
+    else
+    {
+        bool ok;
+        int val = ui->stackNumber->currentText().toInt(&ok, 0);
+        int ret = theApp->vu->listLoad(&stackList, val, 0x0);
+        qDebug("stackWrite: returned %d", ret);
+    }
+}
+#endif
 }
 
 void mvmeControl::loadStack()
@@ -744,7 +800,7 @@ void mvmeControl::readStack()
     qDebug("read %d bytes from stack %d", ret, val);
 
     for(int i = 0; i < ret/2; i++){
-        s2.sprintf("0x%lx",stack[i]);
+        s2.sprintf("0x%08lx",stack[i]);
         s.append(s2);
         s.append("\n");
     }
@@ -778,6 +834,8 @@ void mvmeControl::setIrq()
     vector = id + 256*irq + 4096*stack;
     qDebug("IRQ Vector: %x", vector);
     theApp->vu->setIrq(2, vector);
+
+    refreshDisplay();
 #endif
 }
 
@@ -804,13 +862,20 @@ void mvmeControl::startStop(bool val)
     int ret;
     if(val){
         ret = theApp->vu->usbRegisterWrite(1, 0);
+        qDebug("wrote %d bytes to register", ret);
         qDebug("Stop: 0");
+        do {
+            qDebug("performing usb read to clear remaning data");
+            char buffer[27 * 1024];
+            ret = usb_bulk_read(theApp->vu->hUsbDevice, XXUSB_ENDPOINT_IN, buffer, 27 * 1024, 500);
+            qDebug("bulk read returned %d", ret);
+        } while (ret > 0);
     }
     else{
         ret = theApp->vu->usbRegisterWrite(1, 1);
+        qDebug("wrote %d bytes to register", ret);
         qDebug("Start: 1");
     }
-    qDebug("wrote %d bytes to register", ret);
 #endif
 }
 
@@ -873,7 +938,9 @@ void mvmeControl::dataTaking(bool val)
             theApp->dt->setReadoutBaseAddress(baseAddress << 16);
         }
 
-        theApp->startDatataking(uperiod, multi, words, ui->MBLT->isChecked());
+        theApp->startDatataking(uperiod, multi, words,
+                                ui->MBLT->isChecked(),
+                                ui->cb_useDaqMode->isChecked());
     }
 }
 
@@ -1094,4 +1161,12 @@ void mvmeControl::dispChan(int c)
     QString str;
     str.sprintf("%d", theApp->diag->getChannel(theApp->getHist(), ui->diagChan->value(), ui->diagBin->value()));
     ui->diagCounts->setText(str);
+}
+
+void mvmeControl::on_pb_clearRegisters_clicked()
+{
+    // FIXME: this will completely overwrite the action register!
+    int result = theApp->vu->usbRegisterWrite(1, 0x04);
+    qDebug("clearRegisters: result=%d", result);
+    getValues();
 }

@@ -55,7 +55,7 @@ bool vmUsb::openUsbDevice(void)
     hUsbDevice = xxusb_device_open(pUsbDevice[0].usbdev);
     if(hUsbDevice != NULL){
         qDebug("success");
-    return true;
+        return true;
     }
     else{
         qDebug("fail");
@@ -823,7 +823,7 @@ int vmUsb::stackWrite(int id, long* data)
 {
   qDebug("StackWrite: id=%d, stackSize=%d", id, data[0]);
 
-    for(int i=0;i<=data[0];i++)
+  for(int i=0;i<=data[0];i++)
     qDebug("  %d: %lx", i, data[i]);
 
   unsigned char addr[8] = {2, 3, 18, 19, 34, 35, 50, 51};
@@ -853,16 +853,20 @@ int vmUsb::stackRead(int id, long* data)
 int vmUsb:: stackExecute(long* data)
 {
     int ret, i, j;
-  qDebug("StackExecute: stackSize=%d", data[0]);
+    qDebug("StackExecute: stackSize=%d", data[0]);
+
     for(i=0;i<=data[0];i++)
-    qDebug("  %d: %lx", i, data[i]);
-  ret = xxusb_stack_execute(hUsbDevice, data);
-  qDebug("read: %d %lx %lx", ret, data[0], data[1]);
+        qDebug("  %d: %08lx", i, data[i]);
+
+    ret = xxusb_stack_execute(hUsbDevice, data);
+
+    qDebug("read: %d %lx %lx", ret, data[0], data[1]);
+
     qDebug("retrieved:");
     for (i=0, j=0;i<ret/2;i=i+2)
     {
         data[j]=data[i] + (data[i+1] * 0x10000);
-//		swap32(&data[j]);
+        //		swap32(&data[j]);
         qDebug("%d: %lx", j, data[j]);
         j++;
     }
@@ -1055,6 +1059,41 @@ int vmUsb::listExecute(CVMUSBReadoutList *list, void *readBuffer, size_t readBuf
   }
   return (status >= 0) ? 0 : status;
 
+}
+
+int vmUsb::listLoad(CVMUSBReadoutList *list, uint8_t stackID, size_t stackMemoryOffset, int timeout_ms)
+{
+    // Need to construct the TA field, straightforward except for the list number
+    // which is splattered all over creation.
+
+    uint16_t ta = TAVcsSel | TAVcsWrite;
+    if (stackID & 1)  ta |= TAVcsID0;
+    if (stackID & 2)  ta |= TAVcsID1; // Probably the simplest way for this
+    if (stackID & 4)  ta |= TAVcsID2; // few bits.
+
+    size_t   packetSize;
+    uint16_t *outPacket = listToOutPacket(ta, list, &packetSize, stackMemoryOffset);
+
+    int status = usb_bulk_write(hUsbDevice, ENDPOINT_OUT,
+                                reinterpret_cast<char *>(outPacket),
+                                packetSize, timeout_ms);
+
+    delete []outPacket;
+
+    if (status < 0)
+    {
+#ifdef __MINGW32__
+        qDebug("vmUsb::listLoad: usb write failed with code %d", status);
+#else
+        char errorBuffer[256] = {};
+        char *buf = strerror_r(-status, errorBuffer, sizeof(errorBuffer));
+        qDebug("vmUsb::listLoad: usb write failed with code %d: %s", status, buf);
+#endif
+        errno = -status;
+        return -1;
+    }
+
+    return 0;
 }
 
 /*

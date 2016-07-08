@@ -33,6 +33,7 @@ SOURCES += main.cpp\
     simulator.cpp \
     CVMUSBReadoutList.cpp \
     channelspectro.cpp \
+    libxxusb.cc
 
 HEADERS  += \
     mvmecontrol.h \
@@ -77,7 +78,7 @@ contains(DEFINES, "VME_CONTROLLER_WIENER") {
     HEADERS += libxxusb.h \
          vmusb.h \
 
-    SOURCES += libxxusb.c \
+    SOURCES += \
         vmusb.cpp \
 }
 

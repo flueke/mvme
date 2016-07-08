@@ -108,6 +108,8 @@ mvme::mvme(QWidget *parent) :
       return;
     }
 
+    vu->usbRegisterWrite(1, 0);
+
     mctrl = new mvmeControl(this);
     mctrl->show();
 
@@ -217,11 +219,11 @@ void mvme::tile()
     qDebug("implement tile");
 }
 
-void mvme::startDatataking(quint16 period, bool multi, quint16 readLen, bool mblt)
+void mvme::startDatataking(quint16 period, bool multi, quint16 readLen, bool mblt, bool daqMode)
 {
     qDebug() << __PRETTY_FUNCTION__;
 
-    dt->setReadoutmode(multi, readLen, mblt);
+    dt->setReadoutmode(multi, readLen, mblt, daqMode);
     dt->startReading(period);
 
     drawTimer->start(750);

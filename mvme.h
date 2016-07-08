@@ -39,7 +39,7 @@ public:
     explicit mvme(QWidget *parent = 0);
     ~mvme();
     void plot();
-    void startDatataking(quint16 period, bool multi, quint16 readLen, bool mblt);
+    void startDatataking(quint16 period, bool multi, quint16 readLen, bool mblt, bool daqMode);
     void stopDatataking();
     void initThreads();
     Histogram * getHist(quint16 mod);

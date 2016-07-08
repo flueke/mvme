@@ -94,6 +94,9 @@ public:
      * bytesRead. */
     int listExecute(CVMUSBReadoutList *list, void *readBuffer, size_t readBufferSize, size_t *bytesRead);
 
+    /* Loads the given stack to stackID using the given memory offset. */
+    int listLoad(CVMUSBReadoutList *list, uint8_t stackID, size_t stackMemoryOffset, int timeout_ms = 1000);
+
 
     /* Writes the given writePacket to the VM_USB and reads the response back into readPacket. */
     int transaction(void* writePacket, size_t writeSize,
@@ -120,7 +123,6 @@ protected:
   int usbBulkSetup;
     long int retval;
   bool bigendian;
-
 };
 
 // Constants:

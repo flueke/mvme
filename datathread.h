@@ -43,7 +43,7 @@ public slots:
     void startReading(quint16 readTimerPeriod);
     void stopReading();
     void setRingbuffer(quint32* buffer);
-    void setReadoutmode(bool multi, quint16 maxlen, bool mblt);
+    void setReadoutmode(bool multi, quint16 maxlen, bool mblt, bool daqMode);
     void setReadoutBaseAddress(quint32 baseAddress)
     {
         m_baseAddress = baseAddress;
@@ -83,6 +83,7 @@ protected:
 
     bool m_multiEvent;
     bool m_mblt;
+    bool m_daqMode;
     quint16 m_readLength;
 
     QMutex m_controllerMutex;

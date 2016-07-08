@@ -74,6 +74,8 @@ public slots:
     virtual void clearSlot();
     void dispChan(int c);
 
+    void on_pb_clearRegisters_clicked();
+
 private:
     unsigned char  counter;
     bool dontUpdate;

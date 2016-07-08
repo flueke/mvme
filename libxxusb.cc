@@ -49,6 +49,7 @@
 #include <malloc.h>
 #include "libxxusb.h"
 #include <time.h>
+#include <QDebug>
 
 /*
 ******** xxusb_longstack_execute ************************
@@ -371,7 +372,22 @@ short  xxusb_stack_execute(usb_dev_handle *hDev, long *intbuf)
     timeout=100;
   else
     timeout=2000;
+
+  /*
+  qDebug("xxusb_stack_execute(): stack:");
+
+  for (int bufferIndex=0; bufferIndex<bufsize/4; ++bufferIndex)
+  {
+      qDebug("  0x%08lx", ((quint32 *)buf)[bufferIndex]);
+  }
+  */
+
+
   ret=usb_bulk_write(hDev, XXUSB_ENDPOINT_OUT, buf, bufsize, timeout);
+
+
+  //qDebug("xxusb_stack_execute(): write returned %d", ret);
+
   if (ret>0)
   {
     lDataLen=26700;
@@ -379,7 +395,11 @@ short  xxusb_stack_execute(usb_dev_handle *hDev, long *intbuf)
       timeout=100;
     else
       timeout=6000;
+
     ret=usb_bulk_read(hDev, XXUSB_ENDPOINT_IN, buf, lDataLen, timeout);
+
+    //qDebug("xxusb_stack_execute(): read returned %d", ret);
+
     if (ret>0)
       for (i=0; i < ret; i=i+2)
         intbuf[ii++]=(UCHAR)(buf[i]) +(UCHAR)( buf[i+1])*256;
@@ -595,10 +615,30 @@ usb_dev_handle*  xxusb_device_open(struct usb_device *dev)
     short ret;
     usb_dev_handle *udev;
     udev = usb_open(dev);
+
+    if (!udev) return NULL;
+
     ret = usb_set_configuration(udev,1);
+
+    if (ret < 0)
+    {
+        qDebug("usb_set_configuration failed");
+        usb_close(udev);
+        return NULL;
+    }
+
     ret = usb_claim_interface(udev,0);
-// RESET USB (added 10/16/06 Andreas Ruben)
-  ret=xxusb_register_write(udev, 10, 0x04);
+
+    if (ret < 0)
+    {
+        qDebug("usb_claim_interface failed");
+        usb_close(udev);
+        return NULL;
+    }
+
+    // RESET USB (added 10/16/06 Andreas Ruben)
+    ret = xxusb_register_write(udev, 10, 0x04);
+
     return udev;
 }
 

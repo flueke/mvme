@@ -19,6 +19,7 @@
 #define ENABLE_DEBUG_TEXT_LISTFILE 0
 #else
 #define ENABLE_DEBUG_TEXT_LISTFILE 1
+#include <QStandardPaths>
 #endif
 
 DataThread::DataThread(QObject *parent)
@@ -223,16 +224,7 @@ DataThread::~DataThread()
 void DataThread::startReading(quint16 readTimerPeriod)
 {
     QMutexLocker locker(&m_controllerMutex);
-#ifdef VME_CONTROLLER_CAEN
-    // stop acquisition
-    myCu->vmeWrite16(0x603A, 0);
-    // clear FIFO
-    myCu->vmeWrite16(0x603C, 1);
-    // start acquisition
-    myCu->vmeWrite16(0x603A, 1);
-    // readout reset
-    myCu->vmeWrite16(0x6034, 1);
-#else
+
     // stop acquisition
     myVu->vmeWrite16(m_baseAddress | 0x603A, 0);
     // clear FIFO
@@ -241,15 +233,21 @@ void DataThread::startReading(quint16 readTimerPeriod)
     myVu->vmeWrite16(m_baseAddress | 0x603A, 1);
     // readout reset
     myVu->vmeWrite16(m_baseAddress | 0x6034, 1);
-#endif
 
+    if (m_daqMode)
+    {
+        myVu->usbRegisterWrite(1, 1);
+    }
     dataTimer->setInterval(readTimerPeriod);
 
-    m_debugTextListFile.setFileName("C:/Temp/mvme-debug-text-list.txt");
 #if ENABLE_DEBUG_TEXT_LISTFILE
+    QString fileName = QString("%1/mvme-debug-text-list.txt")
+            .arg(QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0));
+
+    m_debugTextListFile.setFileName(fileName);
     m_debugTextListFile.open(QIODevice::WriteOnly);
-#endif
     m_debugTextListStream.setDevice(&m_debugTextListFile);
+#endif
     m_debugTransferCount = 0;
 
     /* Start the timer in the DataThreads thread context. If start() would be
@@ -272,11 +270,31 @@ void DataThread::stopReading()
     myCu->vmeWrite16(0x603A, 0);
     myCu->vmeWrite16(0x603C, 1);
 #else
-    myVu->vmeWrite16(m_baseAddress | 0x603A, 0);
-    myVu->vmeWrite16(m_baseAddress | 0x603C, 1);
+    if (m_daqMode)
+    {
+        int result = myVu->usbRegisterWrite(1, 0);
+        qDebug("disable daq mode result: %d", result);
+
+        do {
+            qDebug("performing usb read to clear remaning data");
+            char buffer[27 * 1024];
+            result = usb_bulk_read(myVu->hUsbDevice, XXUSB_ENDPOINT_IN, buffer, 27 * 1024, 500);
+            qDebug("bulk read returned %d", result);
+        } while (result > 0);
+    } else
+    {
+        myVu->vmeWrite16(m_baseAddress | 0x603A, 0);
+        myVu->vmeWrite16(m_baseAddress | 0x603C, 1);
+    }
 #endif
 
-    m_debugTextListFile.close();
+#if ENABLE_DEBUG_TEXT_LISTFILE
+    if (m_debugTextListFile.isOpen())
+    {
+        m_debugTextListFile.close();
+        qDebug() << "debug list file written to" << m_debugTextListFile.fileName();
+    }
+#endif
 }
 
 void DataThread::setRingbuffer(quint32 *buffer)
@@ -286,11 +304,17 @@ void DataThread::setRingbuffer(quint32 *buffer)
     qDebug("ringbuffer initialized");
 }
 
-void DataThread::setReadoutmode(bool multi, quint16 maxlen, bool mblt)
+void DataThread::setReadoutmode(bool multi, quint16 maxlen, bool mblt, bool daqMode)
 {
     QMutexLocker locker(&m_controllerMutex);
+
     m_mblt = mblt;
     m_multiEvent = multi;
+    m_daqMode = daqMode;
+
+    if (daqMode)
+        return;
+
 #ifdef VME_CONTROLLER_CAEN
     // stop acquisition
     myCu->vmeWrite16(0x603A, 0);
@@ -325,9 +349,10 @@ void DataThread::setReadoutmode(bool multi, quint16 maxlen, bool mblt)
     if (multi)
     {
         qDebug("set multi, maxlen=%d", maxlen);
-        myVu->vmeWrite16(m_baseAddress | 0x6036, 1);        // multi event mode register
+        myVu->vmeWrite16(m_baseAddress | 0x6036, 3);        // multi event mode register
         myVu->vmeWrite16(m_baseAddress | 0x601A, maxlen);   // max transfer data (0 == unlimited)
-        m_readLength = maxlen > 0 ? maxlen : 65535;
+        //m_readLength = maxlen > 0 ? maxlen : 65535;
+        m_readLength = 65535;
     }
     else
     {
@@ -416,27 +441,33 @@ int DataThread::readData()
     QMutexLocker locker(&m_controllerMutex);
 
 #if 1
-    // read the amount of data in the MXDC FIFO
-    long dataLen = 0;
-
-    short status = myVu->vmeRead16(m_baseAddress | 0x6030, &dataLen);
-
-    if (status > 0 && dataLen > 0)
+    if (!m_daqMode)
     {
-        if (m_mblt)
+        // read the amount of data in the MXDC FIFO
+        long dataLen = 0;
+        short status = myVu->vmeRead16(m_baseAddress | 0x6030, &dataLen);
+
+        if (status > 0 && dataLen > 0)
         {
-            offset = myVu->vmeMbltRead32(m_baseAddress, dataLen, dataBuffer);
-        } else
-        {
-            offset = myVu->vmeBltRead32(m_baseAddress, dataLen, dataBuffer);
+            if (m_mblt)
+            {
+                offset = myVu->vmeMbltRead32(m_baseAddress, dataLen, dataBuffer);
+            } else
+            {
+                offset = myVu->vmeBltRead32(m_baseAddress, dataLen, dataBuffer);
+            }
+            debugWriteTextListFile(offset);
+            // reset module readout
+            myVu->vmeWrite16(m_baseAddress | 0x6034, 1);
         }
-        debugWriteTextListFile(offset);
-        // reset module readout
-        myVu->vmeWrite16(m_baseAddress | 0x6034, 1);
-    }
-    else
+        else
+        {
+            debugWriteTextListFile(0);
+        }
+    } else
     {
-        debugWriteTextListFile(0);
+        offset = xxusb_bulk_read(myVu->hUsbDevice, dataBuffer, 27 * 1024, 1000);
+        debugWriteTextListFile(offset);
     }
 
     return offset;
