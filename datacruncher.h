@@ -17,15 +17,12 @@ public:
     ~DataCruncher();
     void setHistogram(Histogram *hist);
     void rtDiag(bool on);
-    quint32* m_pRingBuffer;
-    quint32 m_readPointer;
-    quint16 m_bufferCounter;
-    bool m_newEvent;
     void setRtData(RealtimeData *rt);
     void setChannelSpectro(ChannelSpectro *channelSpectro)
     { m_channelSpectro = channelSpectro; }
+    quint32 *getRingBuffer() const { return m_pRingBuffer; }
 
-protected:
+private:
     void run();
     QTimer* crunchTimer;
     mvme* myMvme;
@@ -35,6 +32,10 @@ protected:
     quint32 m_channels;
     bool m_rtDiag;
     ChannelSpectro *m_channelSpectro;
+    bool m_newEvent;
+    quint32* m_pRingBuffer;
+    quint32 m_readPointer;
+    quint16 m_bufferCounter;
 
 signals:
     void bufferStatus(int);

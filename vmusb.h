@@ -36,100 +36,107 @@ represents vm_usb controller
 */
 class vmUsb : public QObject
 {
+    Q_OBJECT
+    signals:
+        void daqModeEntered();
+        void daqModeLeft();
+        void daqModeChanged(bool);
 
-public:
-    vmUsb();
+    public:
+        vmUsb();
 
-    ~vmUsb();
-    void readAllRegisters(void);
-    bool openUsbDevice(void);
-    void closeUsbDevice(void);
-    void getUsbDevices(void);
-    void checkUsbDevices(void);
+        ~vmUsb();
+        void readAllRegisters(void);
+        bool openUsbDevice(void);
+        void closeUsbDevice(void);
+        void getUsbDevices(void);
+        void checkUsbDevices(void);
 
-  int getFirmwareId();
-  int getMode();
-  int getDaqSettings();
-  int getLedSources();
-  int getDeviceSources();
-  int getDggA();
-  int getDggB();
-  int getScalerAdata();
-  int getScalerBdata();
-  int getNumberMask();
-  uint16_t getIrq(int vec);
-  int getDggSettings();
-  int getUsbSettings();
+        bool isInDaqMode() const { return m_daqMode; }
+        int getFirmwareId();
+        int getMode();
+        int getDaqSettings();
+        int getLedSources();
+        int getDeviceSources();
+        int getDggA();
+        int getDggB();
+        int getScalerAdata();
+        int getScalerBdata();
+        int getNumberMask();
+        uint16_t getIrq(int vec);
+        int getDggSettings();
+        int getUsbSettings();
 
-  int setFirmwareId(int val);
-  int setMode(int val);
-  int setDaqSettings(int val);
-  int setLedSources(int val);
-  int setDeviceSources(int val);
-  int setDggA(int val);
-  int setDggB(int val);
-  int setScalerAdata(int val);
-  int setScalerBdata(int val);
-  int setNumberMask(int val);
-  int setIrq(int vec, uint16_t val);
-  int setDggSettings(int val);
-  int setUsbSettings(int val);
-    short vmeWrite32(long addr, long data);
-    short vmeRead32(long addr, long* data);
-  short vmeWrite16(long addr, long data);
-  short vmeRead16(long addr, long* data);
-    int vmeBltRead32(long addr, int count, quint32* data);
-    int vmeMbltRead32(long addr, int count, quint32* data);
-  void swap32(long* val);
-  void swap16(long* val);
-    int stackWrite(int id, long* data);
-    int stackRead(int id, long* data);
-    int stackExecute(long* data);
-    int readBuffer(unsigned short* data);
-    int readLongBuffer(int* data);
-    int usbRegisterWrite(int addr, int value);
-    void initialize();
-    int setScalerTiming(unsigned int frequency, unsigned char period, unsigned char delay);
-  void setEndianess(bool big);
+        int setFirmwareId(int val);
+        int setMode(int val);
+        int setDaqSettings(int val);
+        int setLedSources(int val);
+        int setDeviceSources(int val);
+        int setDggA(int val);
+        int setDggB(int val);
+        int setScalerAdata(int val);
+        int setScalerBdata(int val);
+        int setNumberMask(int val);
+        int setIrq(int vec, uint16_t val);
+        int setDggSettings(int val);
+        int setUsbSettings(int val);
+        short vmeWrite32(long addr, long data);
+        short vmeRead32(long addr, long* data);
+        short vmeWrite16(long addr, long data);
+        short vmeRead16(long addr, long* data);
+        int vmeBltRead32(long addr, int count, quint32* data);
+        int vmeMbltRead32(long addr, int count, quint32* data);
+        void swap32(long* val);
+        void swap16(long* val);
+        int stackWrite(int id, long* data);
+        int stackRead(int id, long* data);
+        int stackExecute(long* data);
+        int readBuffer(unsigned short* data);
+        int readLongBuffer(int* data);
+        int usbRegisterWrite(int addr, int value);
+        void initialize();
+        int setScalerTiming(unsigned int frequency, unsigned char period, unsigned char delay);
+        void setEndianess(bool big);
 
-    /* Executes the given stack (in the form of a readout list) and reads the
-     * response into readBuffer. The actual number of bytes read is stored in
-     * bytesRead. */
-    int listExecute(CVMUSBReadoutList *list, void *readBuffer, size_t readBufferSize, size_t *bytesRead);
+        /* Executes the given stack (in the form of a readout list) and reads the
+         * response into readBuffer. The actual number of bytes read is stored in
+         * bytesRead. */
+        int listExecute(CVMUSBReadoutList *list, void *readBuffer, size_t readBufferSize, size_t *bytesRead);
 
-    /* Loads the given stack to stackID using the given memory offset. */
-    int listLoad(CVMUSBReadoutList *list, uint8_t stackID, size_t stackMemoryOffset, int timeout_ms = 1000);
+        /* Loads the given stack to stackID using the given memory offset. */
+        int listLoad(CVMUSBReadoutList *list, uint8_t stackID, size_t stackMemoryOffset, int timeout_ms = 1000);
 
-    int stackWrite(u8 stackNumber, u32 loadOffset, const QVector<u32> &stackData);
-    QPair<QVector<u32>, u32> stackRead(u8 stackNumber);
-    QVector<u32> stackExecute(const QVector<u32> &stackData, size_t resultMaxWords=1024);
+        int stackWrite(u8 stackNumber, u32 loadOffset, const QVector<u32> &stackData);
+        QPair<QVector<u32>, u32> stackRead(u8 stackNumber);
+        QVector<u32> stackExecute(const QVector<u32> &stackData, size_t resultMaxWords=1024);
 
 
-    /* Writes the given writePacket to the VM_USB and reads the response back into readPacket. */
-    int transaction(void* writePacket, size_t writeSize,
+        /* Writes the given writePacket to the VM_USB and reads the response back into readPacket. */
+        int transaction(void* writePacket, size_t writeSize,
                 void* readPacket,  size_t readSize, int timeout_ms = 1000);
 
-    xxusb_device_type pUsbDevice[5];
-    char numDevices;
-    usb_dev_handle* hUsbDevice;
-    short ret;
+        xxusb_device_type pUsbDevice[5];
+        char numDevices;
+        usb_dev_handle* hUsbDevice;
+        short ret;
 
-protected:
-  int firmwareId;
-  int globalMode;
-  int daqSettings;
-  int ledSources;
-  int deviceSources;
-  int dggAsettings;
-  int dggBsettings;
-  int scalerAdata;
-  int scalerBdata;
-  int numberMask;
-  int irqV[4];
-  int extDggSettings;
-  int usbBulkSetup;
-    long int retval;
-  bool bigendian;
+    protected:
+        int firmwareId;
+        int globalMode;
+        int daqSettings;
+        int ledSources;
+        int deviceSources;
+        int dggAsettings;
+        int dggBsettings;
+        int scalerAdata;
+        int scalerBdata;
+        int numberMask;
+        int irqV[4];
+        int extDggSettings;
+        int usbBulkSetup;
+        long int retval;
+        bool bigendian;
+        bool m_daqMode = false;
 };
 
 // Constants:

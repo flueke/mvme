@@ -27,16 +27,32 @@ mvmeControl::mvmeControl(mvme *theApp, QWidget *parent) :
     theApp(theApp),
     ui(new Ui::mvmeControl)
 {
-    theApp = (mvme*)parent;
     dontUpdate = true;
     ui->setupUi(this);
+
+    ui->memoryInput->setText(ui->memoryInput_2->toPlainText());
+
     dontUpdate = false;
     counter = 0;
+
+    connect(theApp->vu, SIGNAL(daqModeChanged(bool)),
+            this, SLOT(vmusbDaqModeChanged(bool)));
 }
 
 mvmeControl::~mvmeControl()
 {
     delete ui;
+}
+
+void mvmeControl::vmusbDaqModeChanged(bool daqModeOn)
+{
+    ui->pb_readMemory_2->setEnabled(!daqModeOn);
+    ui->cb_useDaqMode->setEnabled(!daqModeOn);
+    ui->gb_fileIO->setEnabled(!daqModeOn);
+    ui->vm_usb->setEnabled(!daqModeOn);
+    ui->Init->setEnabled(!daqModeOn);
+    ui->Diagnostics->setEnabled(!daqModeOn);
+    ui->Debug->setEnabled(!daqModeOn);
 }
 
 void mvmeControl::getValues()
@@ -832,40 +848,38 @@ void mvmeControl::toggleDisplay(bool state)
     }
 */}
 
-void mvmeControl::dataTaking(bool val)
+void mvmeControl::dataTaking(bool stop)
 {
     bool ok, multi = false;
     QString str;
     unsigned int uperiod, words = 0;
 
-    if(val){
-        qDebug("Stop Data");
+    if(stop)
+    {
+        qDebug("Stop Datataking");
         theApp->stopDatataking();
         ui->cleardata->setEnabled(true);
     }
-    else{
-        qDebug("Start Data");
-        // collect mode information
-        str = ui->period->text();
-        uperiod = str.toInt(&ok, 0);
-        str = ui->readLength->text();
-        words = str.toInt(&ok, 0);
+    else
+    {
+        qDebug("Start Datataking");
         ui->cleardata->setEnabled(false);
-        multi = ui->multiButton->isChecked();
+
         theApp->rd->clearData();
         theApp->rd->setFilter(ui->diagLowChannel2->value(), ui->diagHiChannel2->value());
 
-        bool ok;
-        quint32 baseAddress = ui->readoutBaseAddress->text().toUInt(&ok, 0);
 
-        if (ok)
-        {
-            theApp->dt->setReadoutBaseAddress(baseAddress << 16);
-        }
+        /* XXX, FIXME, TODO:
+         * Set irqs using the values currently entered into the vm_usb irq tab,
+         * perform a stack write as if the corresponding button was clicked and
+         * transfer the init list data shown on the DataOp tab to the device.
+         * With suitable default values in the textedits this results in a
+         * working "one click" setup. */
+        setIrq();
+        on_pb_stackLoad_clicked();
+        on_pb_writeMemory_2_clicked();
 
-        theApp->startDatataking(uperiod, multi, words,
-                                ui->MBLT->isChecked(),
-                                ui->cb_useDaqMode->isChecked());
+        theApp->startDatataking(0, false, 0, false, ui->cb_useDaqMode->isChecked());
     }
 }
 
@@ -1261,6 +1275,8 @@ void mvmeControl::on_pb_stackFileSave_clicked()
     stream << ui->stackInput->toPlainText();
 }
 
+// =========================================
+
 void mvmeControl::on_pb_readMemory_clicked()
 {
     bool ok;
@@ -1319,7 +1335,7 @@ void mvmeControl::on_pb_writeMemory_clicked()
 
 void mvmeControl::on_pb_loadMemoryFile_clicked()
 {
-    QString fileName = QFileDialog::getOpenFileName(this, "Choose a file", QString(), "Memory Files (*.mem *.stk);;All Files (*)");
+    QString fileName = QFileDialog::getOpenFileName(this, "Choose a file", QString(), "Init Lists (*.init *.stk);;All Files (*)");
 
     QFile file(fileName);
     if (!file.open(QIODevice::ReadOnly))
@@ -1331,10 +1347,10 @@ void mvmeControl::on_pb_loadMemoryFile_clicked()
 
 void mvmeControl::on_pb_saveMemoryFile_clicked()
 {
-    QString fileName = QFileDialog::getSaveFileName(this, "Choose a file", QString(), "Memory Files (*.mem)");
+    QString fileName = QFileDialog::getSaveFileName(this, "Choose a file", QString(), "Init Lists (*.init)");
 
-    if (!fileName.endsWith(".mem"))
-        fileName += ".mem";
+    if (!fileName.endsWith(".init"))
+        fileName += ".init";
 
     QFile file(fileName);
     if (!file.open(QIODevice::WriteOnly))
@@ -1343,4 +1359,107 @@ void mvmeControl::on_pb_saveMemoryFile_clicked()
     QTextStream stream(&file);
 
     stream << ui->memoryInput->toPlainText();
+}
+
+// =========================================
+
+void mvmeControl::on_pb_readMemory_2_clicked()
+{
+    bool ok;
+    u32 memoryOffset = ui->memoryOffset_2->text().toInt(&ok, 0);
+    memoryOffset <<= 16;
+
+    QString str = ui->memoryInput_2->toPlainText();
+    QTextStream stream(&str);
+    auto memoryData = parseStackFile(stream);
+    QString buffer;
+
+    for (int i=0; i<memoryData.size() / 2; ++i)
+    {
+        u32 address = memoryOffset | memoryData[2*i];
+        long value = 0;
+        int result = theApp->vu->vmeRead16(address, &value);
+
+        qDebug("read 0x%08x -> 0x%04x, result=%d", address, value, result);
+
+        if (result > 0)
+        {
+            buffer.append(QString().sprintf("0x%04x 0x%04x\n", address & 0xFFFF, value));
+        }
+    }
+
+    ui->memoryOutput_2->setText(buffer);
+}
+
+void mvmeControl::on_pb_writeMemory_2_clicked()
+{
+    /* XXX, FIXME, TODO: horrible hack to make the "write" button work in daq mode. */
+
+
+    bool wasInDaqMode = false;
+
+    if (theApp->vu->isInDaqMode())
+    {
+        wasInDaqMode = true;
+        dataTaking(true);
+    }
+
+
+    bool ok;
+    u32 memoryOffset = ui->memoryOffset_2->text().toInt(&ok, 0);
+    memoryOffset <<= 16;
+    QString str = ui->memoryInput_2->toPlainText();
+    QTextStream stream(&str);
+    auto memoryData = parseStackFile(stream);
+    QString buffer;
+
+    for (int i=0; i<memoryData.size() / 2; ++i)
+    {
+        u32 address = memoryOffset | memoryData[2*i];
+        u16 value   = memoryData[2*i+1];
+        int result  = theApp->vu->vmeWrite16(address, value);
+
+        qDebug("write  0x%08x -> 0x%04x, result=%d", address, value, result);
+
+        if (result < 0)
+        {
+            buffer.append(QString().sprintf("Error setting 0x%08x to 0x%04x: %d\n",
+                        address, value, result));
+        }
+    }
+
+    ui->memoryOutput_2->setText(QString(buffer));
+
+    if (wasInDaqMode)
+    {
+        dataTaking(false);
+    }
+}
+
+void mvmeControl::on_pb_loadMemoryFile_2_clicked()
+{
+    QString fileName = QFileDialog::getOpenFileName(this, "Choose a file", QString(), "Init Lists (*.init *.stk);;All Files (*)");
+
+    QFile file(fileName);
+    if (!file.open(QIODevice::ReadOnly))
+        return;
+
+    QTextStream stream(&file);
+    ui->memoryInput_2->setText(stream.readAll());
+}
+
+void mvmeControl::on_pb_saveMemoryFile_2_clicked()
+{
+    QString fileName = QFileDialog::getSaveFileName(this, "Choose a file", QString(), "Init Lists (*.init)");
+
+    if (!fileName.endsWith(".init"))
+        fileName += ".init";
+
+    QFile file(fileName);
+    if (!file.open(QIODevice::WriteOnly))
+        return;
+
+    QTextStream stream(&file);
+
+    stream << ui->memoryInput_2->toPlainText();
 }

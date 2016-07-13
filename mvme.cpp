@@ -217,7 +217,7 @@ void mvme::initThreads()
     dc->setHistogram(m_histogram.value(0));
     dc->initRingbuffer(RINGBUFSIZE);
 
-    dt->setRingbuffer(dc->m_pRingBuffer);
+    dt->setRingbuffer(dc->getRingBuffer());
 
     dc->setRtData(rd);
     dc->setChannelSpectro(m_channelSpectro);

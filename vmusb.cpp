@@ -911,9 +911,23 @@ int vmUsb::readLongBuffer(int* data)
  */
 int vmUsb::usbRegisterWrite(int addr, int value)
 {
-  return xxusb_register_write(hUsbDevice, addr, value);
-}
 
+  int ret = xxusb_register_write(hUsbDevice, addr, value);
+
+  if (ret > 0 && addr == 1)
+  {
+      m_daqMode = (value & 0x1);
+
+      if (m_daqMode)
+          emit daqModeEntered();
+      else
+          emit daqModeLeft();
+
+      emit daqModeChanged(m_daqMode);
+  }
+
+  return ret;
+}
 
 /*!
     \fn vmUsb::initialize()

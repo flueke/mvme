@@ -102,7 +102,7 @@ void DataThread::dataTimerSlot()
 
     ++m_debugTransferCount;
 
-    qDebug("received %d bytes, m_readLength=%d", ret, m_readLength);
+    //qDebug("received %d bytes, m_readLength=%d", ret, m_readLength);
 
     if (ret < 0)
     {
@@ -112,7 +112,7 @@ void DataThread::dataTimerSlot()
 
     if(ret == 0)
     {
-        qDebug("dataTimerSlot: no data received, returning");
+        //qDebug("dataTimerSlot: no data received, returning");
         return;
     }
 
@@ -138,7 +138,14 @@ void DataThread::dataTimerSlot()
         {
             quint32 currentWord = dataBuffer[bufferIndex];
             m_pRingbuffer[m_writePointer++] = currentWord;
+
+            if (m_writePointer > RINGBUFMAX)
+            {
+                m_writePointer = 0;
+            }
         }
+
+        emit dataReady();
 
 #else
         enum BufferState
@@ -325,22 +332,9 @@ void DataThread::startReading(quint16 readTimerPeriod)
 
     dataTimer->setInterval(readTimerPeriod);
 
-    if (!m_inputFile)
+    if (!m_inputFile && m_daqMode)
     {
-
-        // stop acquisition
-        myVu->vmeWrite16(m_baseAddress | 0x603A, 0);
-        // clear FIFO
-        myVu->vmeWrite16(m_baseAddress | 0x603C, 1);
-        // start acquisition
-        myVu->vmeWrite16(m_baseAddress | 0x603A, 1);
-        // readout reset
-        myVu->vmeWrite16(m_baseAddress | 0x6034, 1);
-
-        if (m_daqMode)
-        {
-            myVu->usbRegisterWrite(1, 1);
-        }
+        myVu->usbRegisterWrite(1, 1);
     }
 
 #if ENABLE_DEBUG_TEXT_LISTFILE
@@ -375,11 +369,6 @@ void DataThread::stopReading()
 
     if (!m_inputFile)
     {
-
-#ifdef VME_CONTROLLER_CAEN
-        myCu->vmeWrite16(0x603A, 0);
-        myCu->vmeWrite16(0x603C, 1);
-#else
         if (m_daqMode)
         {
             int result = myVu->usbRegisterWrite(1, 0);
@@ -390,16 +379,11 @@ void DataThread::stopReading()
                 // check for 'last buffer' bit should be done
                 qDebug("performing usb read to clear remaning data");
                 char buffer[27 * 1024];
-                result = usb_bulk_read(myVu->hUsbDevice, XXUSB_ENDPOINT_IN, buffer, 27 * 1024, 500);
+                result = usb_bulk_read(myVu->hUsbDevice, XXUSB_ENDPOINT_IN, buffer, 27 * 1024, 100);
                 qDebug("bulk read returned %d", result);
             } while (result > 0);
-        } else
-        {
-            myVu->vmeWrite16(m_baseAddress | 0x603A, 0);
-            myVu->vmeWrite16(m_baseAddress | 0x603C, 1);
         }
     }
-#endif
 
     if (m_inputFile)
     {
@@ -450,49 +434,17 @@ void DataThread::setReadoutmode(bool multi, quint16 maxlen, bool mblt, bool daqM
     if (daqMode)
         return;
 
-#ifdef VME_CONTROLLER_CAEN
-    // stop acquisition
-    myCu->vmeWrite16(0x603A, 0);
-    // reset FIFO
-    myCu->vmeWrite16(0x603C, 1);
-
-    if(multi){
-        // multievent register
-        qDebug("set multi");
-        myCu->vmeWrite16(0x6036, 1);
-        myCu->vmeWrite16(0x601A, maxlen);
-        m_readLength = maxlen + 34;
-    }
-    else{
-        qDebug("set single");
-        myCu->vmeWrite16(0x6036, 0);
-    }
-    // clear Fifo
-    myCu->vmeWrite16(0x603C, 1);
-    // reset readout
-    myCu->vmeWrite16(0x6034, 1);
-
-#elif defined VME_CONTROLLER_WIENER
-
-    // stop acquisition
-    myVu->vmeWrite16(m_baseAddress | 0x603A, 0);
-    // reset FIFO
-    myVu->vmeWrite16(m_baseAddress | 0x603C, 1);
+#if defined VME_CONTROLLER_WIENER
 
     int blt_am = mblt ? VME_AM_A32_USER_MBLT : VME_AM_A32_USER_BLT;
 
     if (multi)
     {
-        qDebug("set multi, maxlen=%d", maxlen);
-        myVu->vmeWrite16(m_baseAddress | 0x6036, 3);        // multi event mode register
-        myVu->vmeWrite16(m_baseAddress | 0x601A, maxlen);   // max transfer data (0 == unlimited)
-        //m_readLength = maxlen > 0 ? maxlen : 65535;
         m_readLength = 65535;
     }
     else
     {
-        qDebug("set single");
-        myVu->vmeWrite16(m_baseAddress | 0x6036, 0);
+        m_readLength = 100;
     }
 
     CVMUSBReadoutList readoutList;
@@ -526,11 +478,6 @@ void DataThread::setReadoutmode(bool multi, quint16 maxlen, bool mblt, bool daqM
     m_readoutPacket.reset(listToOutPacket(TAVcsWrite | TAVcsIMMED, &readoutList, &m_readoutPacketSize));
     qDebug("readoutPacketSize=%d", m_readoutPacketSize);
 #endif
-
-    // clear Fifo
-    myVu->vmeWrite16(m_baseAddress | 0x603C, 1);
-    // reset readout
-    myVu->vmeWrite16(m_baseAddress | 0x6034, 1);
 #endif
 }
 

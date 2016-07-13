@@ -78,6 +78,8 @@ public slots:
     void dispChan(int c);
 
 private slots:
+    void vmusbDaqModeChanged(bool);
+
     void on_pb_clearRegisters_clicked();
     void on_usbBulkBuffers_valueChanged(int);
     void on_usbBulkTimeout_valueChanged(int);
@@ -94,6 +96,11 @@ private slots:
     void on_pb_writeMemory_clicked();
     void on_pb_loadMemoryFile_clicked();
     void on_pb_saveMemoryFile_clicked();
+
+    void on_pb_readMemory_2_clicked();
+    void on_pb_writeMemory_2_clicked();
+    void on_pb_loadMemoryFile_2_clicked();
+    void on_pb_saveMemoryFile_2_clicked();
 
 private:
     unsigned char  counter;
