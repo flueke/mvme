@@ -47,48 +47,6 @@ mvme::mvme(QWidget *parent) :
     m_histogram[0] = new Histogram(this, 42, 8192);
     m_histogram[0]->initHistogram();
 
-#if 0
-    {
-        QFile testFile("C:/Users/florian/histotest.txt");
-        testFile.open(QIODevice::WriteOnly);
-        QTextStream stream(&testFile);
-        Histogram testHisto(0, 32, 1024);
-        testHisto.initHistogram();
-        for (quint32 channelIndex = 0; channelIndex < 32; ++channelIndex)
-        {
-            for (quint32 valueIndex = 0; valueIndex < 1024; ++valueIndex)
-            {
-                testHisto.setValue(channelIndex, valueIndex, (channelIndex+1) * (valueIndex+1));
-            }
-        }
-        writeHistogram(stream, &testHisto);
-    }
-
-
-    {
-        QFile testFile("C:/Users/florian/histotest.txt");
-        testFile.open(QIODevice::ReadOnly);
-        QTextStream stream(&testFile);
-
-        Histogram *testHisto = 0;
-        readHistogram(stream, &testHisto);
-
-        Q_ASSERT(testHisto->m_channels == 32);
-        Q_ASSERT(testHisto->m_resolution == 1024);
-
-        for (quint32 channelIndex = 0; channelIndex < 32; ++channelIndex)
-        {
-            for (quint32 valueIndex = 0; valueIndex < 1024; ++valueIndex)
-            {
-                quint32 value = testHisto->get_val(channelIndex, valueIndex);
-                Q_ASSERT(value == ((channelIndex+1) * (valueIndex+1)));
-            }
-        }
-
-    }
-#endif
-
-
     m_channelSpectro->setXAxisChannel(0);
     m_channelSpectro->setYAxisChannel(1);
 
@@ -108,13 +66,13 @@ mvme::mvme(QWidget *parent) :
       return;
     }
 
+    // clear the action register (makes sure daq mode is disabled)
     vu->usbRegisterWrite(1, 0);
 
     mctrl = new mvmeControl(this);
     mctrl->show();
 
     // read current configuration
-    //vu->readAllRegisters();
     mctrl->getValues();
 
     //cu = new caenusb();
@@ -130,9 +88,7 @@ mvme::mvme(QWidget *parent) :
 
     initThreads();
 
-    plot();
-
-    QSettings settings("mesytec", "mvme");
+    QSettings settings;
     restoreGeometry(settings.value("mainWindowGeometry").toByteArray());
     restoreState(settings.value("mainWindowState").toByteArray());
 }
@@ -152,18 +108,6 @@ mvme::~mvme()
     delete dc;
     delete rd;
     delete m_channelSpectro;
-}
-
-void mvme::plot()
-{
-    /*
-    curve->setRawSamples((const double*)hist->m_axisBase, (const double*)hist->m_data, 8192);
-    curve->setStyle(QwtPlotCurve::Steps);
-    curve->attach(ui->mainPlot);
-    ui->mainPlot->setAxisScale( QwtPlot::xBottom, 0, 8192);
-//    ui->mainPlot->setAxisScale( QwtPlot::yLeft, -200.0, 200.0 );
-    ui->mainPlot->replot();
-*/
 }
 
 void mvme::replot()
@@ -221,44 +165,29 @@ void mvme::tile()
 
 void mvme::startDatataking(quint16 period, bool multi, quint16 readLen, bool mblt, bool daqMode)
 {
-    qDebug() << __PRETTY_FUNCTION__;
+    QString outputFileName = mctrl->getOutputFileName();
+
+    if (!outputFileName.isNull())
+    {
+        QFile *outputFile = new QFile(outputFileName);
+        outputFile->open(QIODevice::WriteOnly);
+        dt->setOutputFile(outputFile);
+    }
+
+    QString inputFileName = mctrl->getInputFileName();
+
+    if (!inputFileName.isNull())
+    {
+        QFile *inputFile = new QFile(inputFileName);
+        inputFile->open(QIODevice::ReadOnly);
+        dt->setInputFile(inputFile);
+    }
 
     dt->setReadoutmode(multi, readLen, mblt, daqMode);
     dt->startReading(period);
 
     drawTimer->start(750);
     datataking = true;
-    // check for listfile
-/*    if(listmode){
-        datfile.setName(listfilename);
-    // listfile already existing? Warning!
-        if(QFile::exists(datfile.name())){
-            int answer = QMessageBox::warning(
-                    this, "Listfile Exists -- Overwrite File",
-            QString("Overwrite existing listfile?"),
-            "&Yes", "&No", QString::null, 1, 1 );
-            if(answer){
-                qDebug("abbruch");
-                return;
-            }
-
-        }
-        datfile.open(IO_WriteOnly);
-        dataStream.setDevice(&datfile);
-    }
-    debugfile.setName(debugfilename);
-    if(!debugfile.open(IO_ReadWrite))
-        qDebug("error opening debugfile");
-    debugStream.setDevice(&debugfile);
-    datataking = true;
-
-    eventsToRead = 0;
-    evWordsToRead = 0;
-    mEvWordsToRead = 0;
-    bufferCounter = 0;
-    daqTimer->start(period);
-    startDisplaying();
-*/
 }
 
 void mvme::stopDatataking()
@@ -269,20 +198,7 @@ void mvme::stopDatataking()
     dt->stopReading();
     drawTimer->stop();
     datataking = false;
-
-
-
     qDebug() << __PRETTY_FUNCTION__ << "elapsed:" << timer.elapsed();
-
-
-
-
-/*    daqTimer->stop();
-    if(listmode)
-        datfile.close();
-    debugfile.close();
-    stopDisplaying();
-*/
 }
 
 void mvme::initThreads()
@@ -305,7 +221,6 @@ void mvme::initThreads()
 
     dc->setRtData(rd);
     dc->setChannelSpectro(m_channelSpectro);
-    plot();
 
     m_readoutThread->start(QThread::TimeCriticalPriority);
     dc->start(QThread::NormalPriority);
@@ -344,7 +259,7 @@ Histogram *mvme::getHist()
 
 void mvme::closeEvent(QCloseEvent *event){
     qDebug("close Event");
-    QSettings settings("mesytec", "mvme");
+    QSettings settings;
     settings.setValue("mainWindowGeometry", saveGeometry());
     settings.setValue("mainWindowState", saveState());
     QMainWindow::closeEvent(event);

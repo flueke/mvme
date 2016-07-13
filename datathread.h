@@ -19,7 +19,10 @@ public:
     explicit DataThread(QObject *parent = 0);
     ~DataThread();
     void initBuffers();
+
     int readData();
+    int readDataFromListFile();
+
 #ifdef VME_CONTROLLER_CAEN
     void setCu(caenusb *cu);
 #else
@@ -48,6 +51,9 @@ public slots:
     {
         m_baseAddress = baseAddress;
     }
+
+    void setOutputFile(QFile *file) { m_outputFile = file; }
+    void setInputFile(QFile *file) { m_inputFile = file; }
 
 protected:
     void debugWriteTextListFile(int bytesRead);
@@ -89,7 +95,11 @@ protected:
     QMutex m_controllerMutex;
     QTextStream m_debugTextListStream;
     QFile m_debugTextListFile;
+    QFile m_debugBinListFile;
     size_t m_debugTransferCount;
+
+    QFile *m_outputFile;
+    QFile *m_inputFile;
 };
 
 #endif // DATATHREAD_H

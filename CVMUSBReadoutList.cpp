@@ -92,6 +92,11 @@ CVMUSBReadoutList::CVMUSBReadoutList(vector<uint32_t>& list) :
   m_list(list)
 {}
 
+CVMUSBReadoutList::CVMUSBReadoutList(const QVector<uint32_t> &list)
+    : m_list(list.toStdVector())
+{
+}
+
 /*!
    Copy construction requires a copy construction of the list data.
    without this, the bit by bit copy would be very bad.

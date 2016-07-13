@@ -25,9 +25,9 @@
    <property name="currentIndex">
     <number>1</number>
    </property>
-   <widget class="QWidget" name="StackOp">
+   <widget class="QWidget" name="Memory">
     <attribute name="title">
-     <string>StackOp</string>
+     <string>Memory</string>
     </attribute>
     <widget class="QCheckBox" name="bigEndian">
      <property name="geometry">
@@ -761,19 +761,6 @@
       </property>
      </widget>
     </widget>
-    <widget class="QPushButton" name="checkButton">
-     <property name="geometry">
-      <rect>
-       <x>660</x>
-       <y>630</y>
-       <width>95</width>
-       <height>23</height>
-      </rect>
-     </property>
-     <property name="text">
-      <string>check</string>
-     </property>
-    </widget>
     <widget class="QGroupBox" name="groupBox">
      <property name="geometry">
       <rect>
@@ -791,75 +778,11 @@
       </font>
      </property>
      <property name="title">
-      <string>Stack/Memory</string>
+      <string>Memory</string>
      </property>
      <layout class="QGridLayout" name="gridLayout_5">
       <item row="0" column="0" colspan="2">
        <layout class="QHBoxLayout" name="horizontalLayout_6">
-        <item>
-         <widget class="QLabel" name="label_7">
-          <property name="text">
-           <string>Stack</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QComboBox" name="stackNumber">
-          <property name="currentIndex">
-           <number>1</number>
-          </property>
-          <item>
-           <property name="text">
-            <string>Execute</string>
-           </property>
-          </item>
-          <item>
-           <property name="text">
-            <string>Memory</string>
-           </property>
-          </item>
-          <item>
-           <property name="text">
-            <string>0</string>
-           </property>
-          </item>
-          <item>
-           <property name="text">
-            <string>1</string>
-           </property>
-          </item>
-          <item>
-           <property name="text">
-            <string>2</string>
-           </property>
-          </item>
-          <item>
-           <property name="text">
-            <string>3</string>
-           </property>
-          </item>
-          <item>
-           <property name="text">
-            <string>4</string>
-           </property>
-          </item>
-          <item>
-           <property name="text">
-            <string>5</string>
-           </property>
-          </item>
-          <item>
-           <property name="text">
-            <string>6</string>
-           </property>
-          </item>
-          <item>
-           <property name="text">
-            <string>7</string>
-           </property>
-          </item>
-         </widget>
-        </item>
         <item>
          <widget class="QLabel" name="label_41">
           <property name="text">
@@ -900,7 +823,7 @@
             <number>4</number>
            </property>
            <item row="0" column="0">
-            <widget class="QTextEdit" name="stackDisplay">
+            <widget class="QTextEdit" name="memoryInput">
              <property name="html">
               <string>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
 &lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
@@ -943,7 +866,7 @@ p, li { white-space: pre-wrap; }
             <number>4</number>
            </property>
            <item row="0" column="0">
-            <widget class="QTextEdit" name="resultDisplay"/>
+            <widget class="QTextEdit" name="memoryOutput"/>
            </item>
           </layout>
          </widget>
@@ -953,14 +876,14 @@ p, li { white-space: pre-wrap; }
       <item row="2" column="0">
        <layout class="QHBoxLayout" name="horizontalLayout_7">
         <item>
-         <widget class="QPushButton" name="activate">
+         <widget class="QPushButton" name="pb_writeMemory">
           <property name="text">
-           <string>activate</string>
+           <string>write</string>
           </property>
          </widget>
         </item>
         <item>
-         <widget class="QPushButton" name="read">
+         <widget class="QPushButton" name="pb_readMemory">
           <property name="text">
            <string>read</string>
           </property>
@@ -988,14 +911,14 @@ p, li { white-space: pre-wrap; }
         </property>
         <layout class="QGridLayout" name="gridLayout_4">
          <item row="0" column="0">
-          <widget class="QPushButton" name="saveStackFile">
+          <widget class="QPushButton" name="pb_saveMemoryFile">
            <property name="text">
             <string>save</string>
            </property>
           </widget>
          </item>
          <item row="0" column="1">
-          <widget class="QPushButton" name="loadStackFile">
+          <widget class="QPushButton" name="pb_loadMemoryFile">
            <property name="text">
             <string>load</string>
            </property>
@@ -1021,7 +944,6 @@ p, li { white-space: pre-wrap; }
     </widget>
     <zorder>writeBox</zorder>
     <zorder>groupBox_2</zorder>
-    <zorder>checkButton</zorder>
     <zorder>bigEndian</zorder>
     <zorder>groupBox</zorder>
    </widget>
@@ -1034,12 +956,12 @@ p, li { white-space: pre-wrap; }
       <rect>
        <x>10</x>
        <y>10</y>
-       <width>561</width>
-       <height>371</height>
+       <width>611</width>
+       <height>471</height>
       </rect>
      </property>
      <property name="currentIndex">
-      <number>4</number>
+      <number>5</number>
      </property>
      <widget class="QWidget" name="tab">
       <attribute name="title">
@@ -1147,6 +1069,9 @@ p, li { white-space: pre-wrap; }
         </property>
        </widget>
        <widget class="QCheckBox" name="align32">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
         <property name="geometry">
          <rect>
           <x>140</x>
@@ -1171,42 +1096,6 @@ p, li { white-space: pre-wrap; }
         <property name="text">
          <string>Header option</string>
         </property>
-       </widget>
-       <widget class="QLabel" name="label_9">
-        <property name="geometry">
-         <rect>
-          <x>10</x>
-          <y>50</y>
-          <width>71</width>
-          <height>16</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>Terminators</string>
-        </property>
-       </widget>
-       <widget class="QComboBox" name="bufTerminators">
-        <property name="geometry">
-         <rect>
-          <x>84</x>
-          <y>50</y>
-          <width>41</width>
-          <height>23</height>
-         </rect>
-        </property>
-        <property name="currentIndex">
-         <number>0</number>
-        </property>
-        <item>
-         <property name="text">
-          <string>1</string>
-         </property>
-        </item>
-        <item>
-         <property name="text">
-          <string>2</string>
-         </property>
-        </item>
        </widget>
       </widget>
       <widget class="QLabel" name="label_10">
@@ -1233,19 +1122,6 @@ p, li { white-space: pre-wrap; }
        </property>
        <property name="maximum">
         <number>4</number>
-       </property>
-      </widget>
-      <widget class="QLabel" name="label_11">
-       <property name="geometry">
-        <rect>
-         <x>20</x>
-         <y>140</y>
-         <width>141</width>
-         <height>16</height>
-        </rect>
-       </property>
-       <property name="text">
-        <string>Number extract mask</string>
        </property>
       </widget>
       <widget class="QWidget" name="layoutWidget">
@@ -1288,6 +1164,81 @@ p, li { white-space: pre-wrap; }
        </property>
        <property name="text">
         <string>Clear internal registers</string>
+       </property>
+      </widget>
+      <widget class="QGroupBox" name="groupBox_18">
+       <property name="geometry">
+        <rect>
+         <x>10</x>
+         <y>140</y>
+         <width>201</width>
+         <height>98</height>
+        </rect>
+       </property>
+       <property name="title">
+        <string>USB Bulk Transfer Setup</string>
+       </property>
+       <layout class="QFormLayout" name="formLayout">
+        <item row="0" column="0">
+         <widget class="QLabel" name="label_9">
+          <property name="text">
+           <string>Number of Buffers</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="1">
+         <widget class="QSpinBox" name="usbBulkBuffers">
+          <property name="maximum">
+           <number>255</number>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="0">
+         <widget class="QLabel" name="label_11">
+          <property name="text">
+           <string>Packet end timeout</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="1">
+         <widget class="QSpinBox" name="usbBulkTimeout">
+          <property name="minimum">
+           <number>0</number>
+          </property>
+          <property name="maximum">
+           <number>15</number>
+          </property>
+          <property name="value">
+           <number>0</number>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QPushButton" name="pb_usbReset">
+       <property name="geometry">
+        <rect>
+         <x>320</x>
+         <y>100</y>
+         <width>153</width>
+         <height>28</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Send USB reset</string>
+       </property>
+      </widget>
+      <widget class="QPushButton" name="pb_errorRecovery">
+       <property name="geometry">
+        <rect>
+         <x>320</x>
+         <y>140</y>
+         <width>153</width>
+         <height>28</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Error recovery</string>
        </property>
       </widget>
      </widget>
@@ -1385,7 +1336,7 @@ p, li { white-space: pre-wrap; }
         </rect>
        </property>
        <property name="minimum">
-        <number>1</number>
+        <number>0</number>
        </property>
        <property name="maximum">
         <number>7</number>
@@ -1469,7 +1420,7 @@ p, li { white-space: pre-wrap; }
         </rect>
        </property>
        <property name="minimum">
-        <number>1</number>
+        <number>0</number>
        </property>
        <property name="maximum">
         <number>7</number>
@@ -1530,7 +1481,7 @@ p, li { white-space: pre-wrap; }
         </rect>
        </property>
        <property name="minimum">
-        <number>1</number>
+        <number>0</number>
        </property>
        <property name="maximum">
         <number>7</number>
@@ -1566,12 +1517,219 @@ p, li { white-space: pre-wrap; }
        </property>
       </widget>
      </widget>
+     <widget class="QWidget" name="tab_6">
+      <attribute name="title">
+       <string>Stacks</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="verticalLayout_3" stretch="0,1,0">
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_8">
+         <item>
+          <widget class="QLabel" name="label_44">
+           <property name="text">
+            <string>Stack ID:</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QComboBox" name="stackNumber">
+           <property name="currentIndex">
+            <number>0</number>
+           </property>
+           <item>
+            <property name="text">
+             <string>0</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>1</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>2</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>3</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>4</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>5</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>6</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>7</string>
+            </property>
+           </item>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="label_46">
+           <property name="text">
+            <string>Load offset:</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QSpinBox" name="stackLoadOffset">
+           <property name="prefix">
+            <string>0x</string>
+           </property>
+           <property name="maximum">
+            <number>1024</number>
+           </property>
+           <property name="displayIntegerBase">
+            <number>16</number>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pb_stackLoad">
+           <property name="text">
+            <string>Write</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pb_stackRead">
+           <property name="text">
+            <string>Read</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pb_stackExecute">
+           <property name="text">
+            <string>Execute</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacer_4">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <widget class="QSplitter" name="splitter">
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+         <widget class="QWidget" name="">
+          <layout class="QVBoxLayout" name="verticalLayout">
+           <item>
+            <widget class="QLabel" name="label_7">
+             <property name="text">
+              <string>Input</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignCenter</set>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QTextEdit" name="stackInput">
+             <property name="html">
+              <string>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Cantarell'; font-size:10pt; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;0x40000d0b&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;0x00000010&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;0x00000000&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;0x00000009&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;0x00006035&lt;/p&gt;
+&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;0x00000001&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+             <property name="acceptRichText">
+              <bool>false</bool>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+         <widget class="QWidget" name="">
+          <layout class="QVBoxLayout" name="verticalLayout_2">
+           <item>
+            <widget class="QLabel" name="label_45">
+             <property name="text">
+              <string>Output</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignCenter</set>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QTextEdit" name="stackOutput"/>
+           </item>
+          </layout>
+         </widget>
+        </widget>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_9">
+         <item>
+          <widget class="QPushButton" name="pb_stackFileLoad">
+           <property name="text">
+            <string>Load from file</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="pb_stackFileSave">
+           <property name="text">
+            <string>Save to file</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacer_3">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+        </layout>
+       </item>
+      </layout>
+     </widget>
     </widget>
     <widget class="QPushButton" name="pb_refreshValues">
      <property name="geometry">
       <rect>
        <x>10</x>
-       <y>390</y>
+       <y>490</y>
        <width>106</width>
        <height>28</height>
       </rect>
@@ -1580,6 +1738,9 @@ p, li { white-space: pre-wrap; }
       <string>Refresh Values</string>
      </property>
     </widget>
+    <zorder>tabWidget_2</zorder>
+    <zorder>pb_refreshValues</zorder>
+    <zorder>pushButton</zorder>
    </widget>
    <widget class="QWidget" name="DataOp">
     <attribute name="title">
@@ -1777,9 +1938,6 @@ p, li { white-space: pre-wrap; }
       </item>
       <item row="1" column="0">
        <widget class="QCheckBox" name="MBLT">
-        <property name="enabled">
-         <bool>false</bool>
-        </property>
         <property name="text">
          <string>MBLT</string>
         </property>
@@ -1966,6 +2124,55 @@ p, li { white-space: pre-wrap; }
      <property name="text">
       <string>Clear Data</string>
      </property>
+    </widget>
+    <widget class="QGroupBox" name="groupBox_19">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>370</y>
+       <width>322</width>
+       <height>102</height>
+      </rect>
+     </property>
+     <property name="title">
+      <string>File IO</string>
+     </property>
+     <layout class="QGridLayout" name="gridLayout_6">
+      <item row="0" column="0">
+       <widget class="QCheckBox" name="cb_outputFileEnabled">
+        <property name="text">
+         <string>Output</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QLineEdit" name="le_outputFile"/>
+      </item>
+      <item row="0" column="2">
+       <widget class="QPushButton" name="pb_selectOutputFile">
+        <property name="text">
+         <string>Select</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QCheckBox" name="cb_inputFileEnabled">
+        <property name="text">
+         <string>Input</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QLineEdit" name="le_inputFile"/>
+      </item>
+      <item row="1" column="2">
+       <widget class="QPushButton" name="pb_selectInputFile">
+        <property name="text">
+         <string>Select</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
     </widget>
    </widget>
    <widget class="QWidget" name="RegisterValues">
@@ -3266,70 +3473,6 @@ p, li { white-space: pre-wrap; }
    </hints>
   </connection>
   <connection>
-   <sender>activate</sender>
-   <signal>clicked()</signal>
-   <receiver>mvmeControl</receiver>
-   <slot>activateStack()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>696</x>
-     <y>525</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>995</x>
-     <y>711</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>read</sender>
-   <signal>clicked()</signal>
-   <receiver>mvmeControl</receiver>
-   <slot>readStack()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>775</x>
-     <y>523</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>1009</x>
-     <y>655</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>saveStackFile</sender>
-   <signal>clicked()</signal>
-   <receiver>mvmeControl</receiver>
-   <slot>saveStack()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>679</x>
-     <y>590</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>732</x>
-     <y>723</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>loadStackFile</sender>
-   <signal>clicked()</signal>
-   <receiver>mvmeControl</receiver>
-   <slot>loadStack()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>752</x>
-     <y>590</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>992</x>
-     <y>676</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
    <sender>readBufferNow</sender>
    <signal>clicked()</signal>
    <receiver>mvmeControl</receiver>
@@ -3410,22 +3553,6 @@ p, li { white-space: pre-wrap; }
    </hints>
   </connection>
   <connection>
-   <sender>align32</sender>
-   <signal>stateChanged(int)</signal>
-   <receiver>mvmeControl</receiver>
-   <slot>changeMode()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>212</x>
-     <y>114</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>102</x>
-     <y>718</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
    <sender>headerOption</sender>
    <signal>stateChanged(int)</signal>
    <receiver>mvmeControl</receiver>
@@ -3438,22 +3565,6 @@ p, li { white-space: pre-wrap; }
     <hint type="destinationlabel">
      <x>687</x>
      <y>679</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>bufTerminators</sender>
-   <signal>currentIndexChanged(int)</signal>
-   <receiver>mvmeControl</receiver>
-   <slot>changeMode()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>158</x>
-     <y>126</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>637</x>
-     <y>702</y>
     </hint>
    </hints>
   </connection>
@@ -3486,22 +3597,6 @@ p, li { white-space: pre-wrap; }
     <hint type="destinationlabel">
      <x>340</x>
      <y>711</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>checkButton</sender>
-   <signal>clicked()</signal>
-   <receiver>mvmeControl</receiver>
-   <slot>checkSlot()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>730</x>
-     <y>658</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>900</x>
-     <y>733</y>
     </hint>
    </hints>
   </connection>
@@ -3598,6 +3693,22 @@ p, li { white-space: pre-wrap; }
     <hint type="destinationlabel">
      <x>523</x>
      <y>374</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>align32</sender>
+   <signal>stateChanged(int)</signal>
+   <receiver>mvmeControl</receiver>
+   <slot>changeMode()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>212</x>
+     <y>114</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>102</x>
+     <y>718</y>
     </hint>
    </hints>
   </connection>

@@ -545,40 +545,40 @@ void  xxusb_init()
 */
 short  xxusb_devices_find(xxusb_device_type *xxdev)
 {
-  short DevFound = 0;
-  usb_dev_handle *udev;
-  struct usb_bus *bus;
-  struct usb_device *dev;
-struct usb_bus *usb_busses_;
-  char string[256];
-  short ret;
-   usb_init();
-   usb_find_busses();
-   usb_busses_=usb_get_busses();
-  usb_find_devices();
-   for (bus=usb_busses_; bus; bus = bus->next)
-   {
-       for (dev = bus->devices; dev; dev= dev->next)
-       {
-       if (dev->descriptor.idVendor==XXUSB_WIENER_VENDOR_ID)
-       {
-           udev = usb_open(dev);
-         if (udev)
-               {
-       ret = usb_get_string_simple(udev, dev->descriptor.iSerialNumber, string, sizeof(string));
-       if (ret >0 )
-         {
-           xxdev[DevFound].usbdev=dev;
-           strcpy(xxdev[DevFound].SerialString, string);
-           DevFound++;
-         }
-             usb_close(udev);
+    short DevFound = 0;
+    usb_dev_handle *udev;
+    struct usb_bus *bus;
+    struct usb_device *dev;
+    struct usb_bus *usb_busses_;
+    char string[256];
+    short ret;
+    usb_init();
+    usb_find_busses();
+    usb_busses_=usb_get_busses();
+    usb_find_devices();
+    for (bus=usb_busses_; bus; bus = bus->next)
+    {
+        for (dev = bus->devices; dev; dev= dev->next)
+        {
+            if (dev->descriptor.idVendor==XXUSB_WIENER_VENDOR_ID)
+            {
+                udev = usb_open(dev);
+                if (udev)
+                {
+                    ret = usb_get_string_simple(udev, dev->descriptor.iSerialNumber, string, sizeof(string));
+                    if (ret >0 )
+                    {
+                        xxdev[DevFound].usbdev=dev;
+                        strcpy(xxdev[DevFound].SerialString, string);
+                        DevFound++;
+                    }
+                    usb_close(udev);
+                }
+                else return -1;
+            }
+        }
     }
-       else return -1;
-     }
-       }
-    }
-  return DevFound;
+    return DevFound;
 }
 
 /*
@@ -637,7 +637,7 @@ usb_dev_handle*  xxusb_device_open(struct usb_device *dev)
     }
 
     // RESET USB (added 10/16/06 Andreas Ruben)
-    ret = xxusb_register_write(udev, 10, 0x04);
+    //ret = xxusb_register_write(udev, 10, 0x04);
 
     return udev;
 }

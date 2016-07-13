@@ -94,10 +94,11 @@ void vmUsb::readAllRegisters(void)
   firmwareId = (int) val;
     qDebug("Id: %x",firmwareId);
 
+/*
     VMUSB_Firmware firmware(val);
     qDebug("firmware: month=%d, year=%d, device_id=%d, beta_version=%d, major_revision=%d, minor_revision=%d",
             firmware.month, firmware.year, firmware.device_id, firmware.beta_version, firmware.major_revision, firmware.minor_revision);
-
+*/
 
   VME_register_read(hUsbDevice, 4, &val);
   globalMode = (int)val & 0xFFFF;
@@ -340,14 +341,6 @@ int vmUsb::getNumberMask()
 }
 
 /*!
-  \fn vmUsb::getIrq()
- */
-int vmUsb::getIrq(int vec)
-{
-  return irqV[vec];
-}
-
-/*!
   \fn vmUsb::getDggSettings()
  */
 int vmUsb::getDggSettings()
@@ -486,63 +479,84 @@ int vmUsb::setNumberMask(int val)
   return numberMask;
 }
 
+static int irq_vector_register_address(int vec)
+{
+    switch (vec)
+    {
+    case 0:
+    case 1:
+        return ISV12;
+    case 2:
+    case 3:
+        return ISV34;
+    case 4:
+    case 5:
+        return ISV56;
+    case 6:
+    case 7:
+        return ISV78;
+    default:
+        return -1;
+    }
+}
+
 /*!
   \fn vmUsb::setIrq()
+  Set the zero-based irq service vector vec to the given value val.
  */
-int vmUsb::setIrq(int vec, int val)
+int vmUsb::setIrq(int vec, uint16_t val)
 {
-  int pos = 0;
-  int regval = 0;
-  int addr = 0;
-  long int retval;
+    int regAddress = irq_vector_register_address(vec);
+    long regValue = 0;
 
-  switch(vec){
-    case 0:
-      regval = val;
-      pos = 0;
-      addr = 40;
-      break;
-    case 1:
-      regval = 0x10000 * val;
-      pos = 0;
-      addr = 40;
-      break;
-    case 2:
-      regval = val;
-      pos = 1;
-      addr = 44;
-      break;
-    case 3:
-      regval = 0x10000 * val;
-      pos = 1;
-      addr = 44;
-      break;
-    case 4:
-      regval = val;
-      pos = 2;
-      addr = 48;
-      break;
-    case 5:
-      regval = 0x10000 * val;
-      pos = 2;
-      addr = 48;
-      break;
-    case 6:
-      regval = val;
-      pos = 3;
-      addr = 52;
-      break;
-    case 7:
-      regval = 0x10000 * val;
-      pos = 3;
-      addr = 52;
-      break;
-  }
-  if(VME_register_write(hUsbDevice, addr, regval) > 0){
-    VME_register_read(hUsbDevice, addr, &retval);
-    irqV[pos] = (int)retval;
-  }
-  return irqV[pos];
+    if (regAddress >= 0 && VME_register_read(hUsbDevice, regAddress, &regValue))
+    {
+        val = val & 0xFFFF;
+
+        if (vec % 2 == 0)
+        {
+            regValue &= 0xFFFF0000;
+            regValue |= val;
+        }
+        else
+        {
+            regValue &= 0x0000FFFF;
+            regValue |= (val << 16);
+        }
+
+        if (VME_register_write(hUsbDevice, regAddress, regValue) &&
+                VME_register_read(hUsbDevice, regAddress, &regValue))
+        {
+            int regIndex = vec / 2;
+            irqV[regIndex] = regValue;
+            return regValue;
+        }
+    }
+
+    return -1;
+}
+
+/**
+  Return the 16-bit interrupt service vector value for the given zero-based vector number. */
+uint16_t vmUsb::getIrq(int vec)
+{
+    int regIndex = vec / 2;
+
+    if (regIndex >= 0 && regIndex < 4)
+    {
+        int regValue = irqV[regIndex];
+
+        if (vec % 2 == 0)
+        {
+            return (regValue & 0xFFFF);
+        }
+        else
+        {
+            return (regValue >> 16) & 0xFFFF;
+        }
+    }
+
+    return 0;
 }
 
 /*!
@@ -1046,8 +1060,7 @@ int vmUsb::listExecute(CVMUSBReadoutList *list, void *readBuffer, size_t readBuf
 
     // Now we can execute the transaction:
 
-  int status = transaction(outPacket, outSize,
-         readBuffer, readBufferSize);
+  int status = transaction(outPacket, outSize, readBuffer, readBufferSize);
 
   delete []outPacket;
 
@@ -1157,4 +1170,70 @@ vmUsb::transaction(void* writePacket, size_t writeSize,
         return -2;
     }
     return status;
+}
+
+int
+vmUsb::stackWrite(u8 stackNumber, u32 loadOffset, const QVector<u32> &stackData)
+{
+    CVMUSBReadoutList stackList(stackData);
+    return listLoad(&stackList, stackNumber, loadOffset);
+}
+
+QPair<QVector<u32>, u32>
+vmUsb::stackRead(u8 stackID)
+{
+    auto ret = qMakePair(QVector<u32>(), 0);
+
+    u16 ta = TAVcsSel;
+    if (stackID & 1)  ta |= TAVcsID0;
+    if (stackID & 2)  ta |= TAVcsID1; // Probably the simplest way for this
+    if (stackID & 4)  ta |= TAVcsID2; // few bits.
+
+    int status = usb_bulk_write(hUsbDevice, ENDPOINT_OUT, reinterpret_cast<char *>(&ta), sizeof(ta), 100);
+
+    if (status <= 0)
+    {
+        qDebug("stackRead: usb_bulk_write failed");
+        return ret;
+    }
+
+    u16 inBuffer[2048] = {};
+
+    int bytesRead = usb_bulk_read(hUsbDevice, ENDPOINT_IN, reinterpret_cast<char *>(&inBuffer), sizeof(inBuffer), 100);
+
+    if (bytesRead <= 0)
+    {
+        qDebug("stackRead: usb_bulk_read failed");
+        return ret;
+    }
+
+    qDebug("stackRead begin");
+    for (size_t i=0; i<bytesRead/sizeof(u16); ++i)
+    {
+        qDebug("  %04x", inBuffer[i]);
+    }
+    qDebug("stackRead end");
+
+    ret.second = inBuffer[1];
+
+    u32 *bufp = reinterpret_cast<u32 *>(inBuffer + 2);
+    u32 *endp = reinterpret_cast<u32 *>(inBuffer + bytesRead/sizeof(u16));
+
+    while (bufp < endp)
+    {
+        ret.first.append(*bufp++);
+    }
+
+    return ret;
+}
+
+QVector<u32>
+vmUsb::stackExecute(const QVector<u32> &stackData, size_t resultMaxWords)
+{
+    QVector<u32> ret(resultMaxWords);
+    CVMUSBReadoutList stackList(stackData);
+    size_t bytesRead = 0;
+    int status = listExecute(&stackList, ret.data(), ret.size() * sizeof(u32), &bytesRead);
+    ret.resize(bytesRead / sizeof(u32));
+    return ret;
 }

@@ -17,14 +17,18 @@
 
 #ifdef QT_NO_DEBUG
 #define ENABLE_DEBUG_TEXT_LISTFILE 0
+#define ENABLE_DEBUG_BIN_LISTFILE 0
 #else
 #define ENABLE_DEBUG_TEXT_LISTFILE 1
+#define ENABLE_DEBUG_BIN_LISTFILE 1
 #include <QStandardPaths>
 #endif
 
 DataThread::DataThread(QObject *parent)
     : QObject(parent)
     , m_baseAddress(0x0)
+    , m_outputFile(0)
+    , m_inputFile(0)
 {
     setObjectName("DataThread");
 
@@ -52,6 +56,7 @@ void DataThread::dataTimerSlot()
     // todo: implement multiple readout depending on list of devices
     // todo: implement readout routines depending on type of vme device
     ret = readData();
+
     qDebug("received %d words: %d", ret, m_readLength);
     if(ret <= 0)
         return;
@@ -83,6 +88,7 @@ void DataThread::dataTimerSlot()
 #elif defined VME_CONTROLLER_WIENER
 void DataThread::dataTimerSlot()
 {
+
     //qDebug() << "DataThread: " << QThread::currentThread();
 
 
@@ -90,9 +96,13 @@ void DataThread::dataTimerSlot()
     // todo: implement multiple readout depending on list of devices
     // todo: implement readout routines depending on type of vme device
     int ret = readData();
+
+    if (ret <= 0 && m_inputFile && m_inputFile->atEnd())
+        return;
+
     ++m_debugTransferCount;
 
-    //qDebug("received %d bytes, m_readLength=%d", ret, m_readLength);
+    qDebug("received %d bytes, m_readLength=%d", ret, m_readLength);
 
     if (ret < 0)
     {
@@ -102,7 +112,7 @@ void DataThread::dataTimerSlot()
 
     if(ret == 0)
     {
-        //qDebug("dataTimerSlot: no data received, returning");
+        qDebug("dataTimerSlot: no data received, returning");
         return;
     }
 
@@ -121,28 +131,38 @@ void DataThread::dataTimerSlot()
     if(!checkData())
         return;
 
-    enum BufferState
+    if (!m_daqMode)
     {
-        BufferState_Header,
-        BufferState_Data,
-        BufferState_EOE
-    };
-
-    BufferState bufferState = BufferState_Header;
-    quint32 wordsInEvent = 0;
-
-    for(quint32 bufferIndex = 0; bufferIndex < wordsReceived; ++bufferIndex)
-    {
-        quint32 currentWord = dataBuffer[bufferIndex];
-
-        // skip BERR markers inserted by VMUSB and fillwords
-        if (currentWord == 0xFFFFFFFF || currentWord == 0x00000000)
+#if 1
+        for(quint32 bufferIndex = 0; bufferIndex < wordsReceived; ++bufferIndex)
         {
-            continue;
+            quint32 currentWord = dataBuffer[bufferIndex];
+            m_pRingbuffer[m_writePointer++] = currentWord;
         }
 
-        switch (bufferState)
+#else
+        enum BufferState
         {
+            BufferState_Header,
+            BufferState_Data,
+            BufferState_EOE
+        };
+
+        BufferState bufferState = BufferState_Header;
+        quint32 wordsInEvent = 0;
+
+        for(quint32 bufferIndex = 0; bufferIndex < wordsReceived; ++bufferIndex)
+        {
+            quint32 currentWord = dataBuffer[bufferIndex];
+
+            // skip BERR markers inserted by VMUSB and fillwords
+            if (currentWord == 0xFFFFFFFF || currentWord == 0x00000000)
+            {
+                continue;
+            }
+
+            switch (bufferState)
+            {
             case BufferState_Header:
             {
                 if ((currentWord & 0xC0000000) == 0x40000000)
@@ -164,7 +184,7 @@ void DataThread::dataTimerSlot()
             case BufferState_Data:
             {
                 bool data_found_flag = ((currentWord & 0xF0000000) == 0x10000000) // MDPP
-                                       || ((currentWord & 0xFF800000) == 0x04000000); // MxDC
+                        || ((currentWord & 0xFF800000) == 0x04000000); // MxDC
 
                 if (!data_found_flag)
                 {
@@ -199,18 +219,96 @@ void DataThread::dataTimerSlot()
                 bufferState = BufferState_Header;
                 emit dataReady();
             } break;
+            }
+
+            if (m_writePointer > RINGBUFMAX)
+            {
+                m_writePointer = 0;
+            }
         }
 
-        if (m_writePointer > RINGBUFMAX)
+        if (bufferState != BufferState_Header)
         {
-            m_writePointer = 0;
+            qDebug("transfer=%u, warning: bufferState != BufferState_Header after loop",
+                   m_debugTransferCount-1);
         }
+#endif
     }
-
-    if (bufferState != BufferState_Header)
+    else
     {
-        qDebug("transfer=%u, warning: bufferState != BufferState_Header after loop",
-               m_debugTransferCount-1);
+        // daq mode
+        try
+        {
+            //qDebug("transfer=%u: read %d bytes, %d shorts, %d longs",
+            //        m_debugTransferCount-1, ret, ret/sizeof(u16), ret/sizeof(u32));
+
+            int globalMode = myVu->getMode();
+
+            VMUSB_Buffer buffer(reinterpret_cast<u8 *>(dataBuffer), ret, globalMode);
+
+            u32 header1 = buffer.extractWord();
+
+            bool lastBuffer = (header1 >> 15) & 1;
+            bool scalerBuffer = (header1 >> 14) & 1;
+            bool continuousMode = (header1 >> 13) & 1;
+            bool multiBuffer = (header1 >> 12) & 1;
+            u16 numberOfEvents = header1 & 0xFFF;
+
+            //qDebug("header1: lastBuffer=%d, scalerBuffer=%d, continuousMode=%d, multiBuffer=%d, numberOfEvents=%u",
+            //        lastBuffer, scalerBuffer, continuousMode, multiBuffer, numberOfEvents);
+
+            if (buffer.headerOpt())
+            {
+                u32 header2 = buffer.extractWord();
+                u16 numberOfWords = header2 & 0xFFF;
+                //qDebug("header2: numberOfWords=%u", numberOfWords);
+            }
+
+            for (u32 eventIndex=0; eventIndex < numberOfEvents; ++eventIndex)
+            {
+                u32 eventHeader = buffer.extractWord();
+
+                u8 stackId = (eventHeader >> 13) & 7;
+                bool partialEvent = (eventHeader >> 12) & 0x1;
+                u16 eventLength = eventHeader & 0xFFF;
+
+                u32 dataWordsInEvent = (eventLength / sizeof(u16));
+                u32 bytesAfterData  = eventLength % sizeof(u16);
+
+                //qDebug("eventHeader=%08x, stackId=%u, partialEvent=%d, eventLength=%u, dataWordsInEvent=%u, bytesAfterData=%u",
+                //        eventHeader, stackId, partialEvent, eventLength, dataWordsInEvent, bytesAfterData);
+
+                for (u32 i=0; i<dataWordsInEvent; ++i)
+                {
+                    u32 data = buffer.extractU32();
+                    //qDebug("  data word %d: %08x", i, data);
+
+                    if (!scalerBuffer)
+                    {
+                        m_pRingbuffer[m_writePointer++] = data;
+                        if (m_writePointer > RINGBUFMAX)
+                        {
+                            m_writePointer = 0;
+                        }
+                    }
+                }
+
+                if (!scalerBuffer)
+                {
+                    emit dataReady();
+                }
+            }
+
+            u32 bufferTerminator1 = buffer.extractWord();
+            u32 bufferTerminator2 = buffer.extractWord();
+
+            //qDebug("bufferTerminator1=%08x, bufferTerminator2=%08x, bytesLeft=%u",
+            //        bufferTerminator1, bufferTerminator2, buffer.endp - buffer.buffp);
+
+        } catch (const end_of_buffer &)
+        {
+            qDebug("error: end of buffer reached unexpectedly!");
+        }
     }
 }
 #endif
@@ -225,29 +323,37 @@ void DataThread::startReading(quint16 readTimerPeriod)
 {
     QMutexLocker locker(&m_controllerMutex);
 
-    // stop acquisition
-    myVu->vmeWrite16(m_baseAddress | 0x603A, 0);
-    // clear FIFO
-    myVu->vmeWrite16(m_baseAddress | 0x603C, 1);
-    // start acquisition
-    myVu->vmeWrite16(m_baseAddress | 0x603A, 1);
-    // readout reset
-    myVu->vmeWrite16(m_baseAddress | 0x6034, 1);
-
-    if (m_daqMode)
-    {
-        myVu->usbRegisterWrite(1, 1);
-    }
     dataTimer->setInterval(readTimerPeriod);
 
-#if ENABLE_DEBUG_TEXT_LISTFILE
-    QString fileName = QString("%1/mvme-debug-text-list.txt")
-            .arg(QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0));
+    if (!m_inputFile)
+    {
 
-    m_debugTextListFile.setFileName(fileName);
-    m_debugTextListFile.open(QIODevice::WriteOnly);
-    m_debugTextListStream.setDevice(&m_debugTextListFile);
+        // stop acquisition
+        myVu->vmeWrite16(m_baseAddress | 0x603A, 0);
+        // clear FIFO
+        myVu->vmeWrite16(m_baseAddress | 0x603C, 1);
+        // start acquisition
+        myVu->vmeWrite16(m_baseAddress | 0x603A, 1);
+        // readout reset
+        myVu->vmeWrite16(m_baseAddress | 0x6034, 1);
+
+        if (m_daqMode)
+        {
+            myVu->usbRegisterWrite(1, 1);
+        }
+    }
+
+#if ENABLE_DEBUG_TEXT_LISTFILE
+    {
+        QString fileName = QString("%1/mvme-debug-text-list.txt")
+                .arg(QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0));
+
+        m_debugTextListFile.setFileName(fileName);
+        m_debugTextListFile.open(QIODevice::WriteOnly);
+        m_debugTextListStream.setDevice(&m_debugTextListFile);
+    }
 #endif
+
     m_debugTransferCount = 0;
 
     /* Start the timer in the DataThreads thread context. If start() would be
@@ -265,34 +371,63 @@ void DataThread::stopReading()
     time.start();
     QMutexLocker locker(&m_controllerMutex);
     qDebug("stopReading: mutex lock took %d ms", time.elapsed());
+    qDebug("stopReading: transfer count = %u", m_debugTransferCount);
+
+    if (!m_inputFile)
+    {
 
 #ifdef VME_CONTROLLER_CAEN
-    myCu->vmeWrite16(0x603A, 0);
-    myCu->vmeWrite16(0x603C, 1);
+        myCu->vmeWrite16(0x603A, 0);
+        myCu->vmeWrite16(0x603C, 1);
 #else
-    if (m_daqMode)
-    {
-        int result = myVu->usbRegisterWrite(1, 0);
-        qDebug("disable daq mode result: %d", result);
+        if (m_daqMode)
+        {
+            int result = myVu->usbRegisterWrite(1, 0);
+            qDebug("disable daq mode result: %d", result);
 
-        do {
-            qDebug("performing usb read to clear remaning data");
-            char buffer[27 * 1024];
-            result = usb_bulk_read(myVu->hUsbDevice, XXUSB_ENDPOINT_IN, buffer, 27 * 1024, 500);
-            qDebug("bulk read returned %d", result);
-        } while (result > 0);
-    } else
-    {
-        myVu->vmeWrite16(m_baseAddress | 0x603A, 0);
-        myVu->vmeWrite16(m_baseAddress | 0x603C, 1);
+            do {
+                // FIXME: this data is valid and needs to be processed. also a
+                // check for 'last buffer' bit should be done
+                qDebug("performing usb read to clear remaning data");
+                char buffer[27 * 1024];
+                result = usb_bulk_read(myVu->hUsbDevice, XXUSB_ENDPOINT_IN, buffer, 27 * 1024, 500);
+                qDebug("bulk read returned %d", result);
+            } while (result > 0);
+        } else
+        {
+            myVu->vmeWrite16(m_baseAddress | 0x603A, 0);
+            myVu->vmeWrite16(m_baseAddress | 0x603C, 1);
+        }
     }
 #endif
+
+    if (m_inputFile)
+    {
+        m_inputFile->close();
+        delete m_inputFile;
+        m_inputFile = nullptr;
+    }
+
+    if (m_outputFile)
+    {
+        m_outputFile->close();
+        delete m_outputFile;
+        m_outputFile = nullptr;
+    }
 
 #if ENABLE_DEBUG_TEXT_LISTFILE
     if (m_debugTextListFile.isOpen())
     {
         m_debugTextListFile.close();
-        qDebug() << "debug list file written to" << m_debugTextListFile.fileName();
+        qDebug() << "debug text list file written to" << m_debugTextListFile.fileName();
+    }
+#endif
+
+#if ENABLE_DEBUG_BIN_LISTFILE
+    if (m_debugBinListFile.isOpen())
+    {
+        m_debugBinListFile.close();
+        qDebug() << "debug bin list file written to" << m_debugBinListFile.fileName();
     }
 #endif
 }
@@ -441,7 +576,25 @@ int DataThread::readData()
     QMutexLocker locker(&m_controllerMutex);
 
 #if 1
-    if (!m_daqMode)
+    bool inputAtEnd = false;
+
+    if (m_inputFile)
+    {
+        inputAtEnd = m_inputFile->atEnd();
+
+        uint32_t transferSize = 0;
+        if (m_inputFile->read(reinterpret_cast<char *>(&transferSize), sizeof(transferSize)) == sizeof(transferSize))
+        {
+            if (transferSize > 0)
+            {
+                if (m_inputFile->read(reinterpret_cast<char *>(dataBuffer), transferSize) == transferSize)
+                {
+                    offset = transferSize;
+                }
+            }
+        }
+    }
+    else if (!m_daqMode)
     {
         // read the amount of data in the MXDC FIFO
         long dataLen = 0;
@@ -456,19 +609,26 @@ int DataThread::readData()
             {
                 offset = myVu->vmeBltRead32(m_baseAddress, dataLen, dataBuffer);
             }
-            debugWriteTextListFile(offset);
             // reset module readout
             myVu->vmeWrite16(m_baseAddress | 0x6034, 1);
         }
-        else
-        {
-            debugWriteTextListFile(0);
-        }
-    } else
-    {
-        offset = xxusb_bulk_read(myVu->hUsbDevice, dataBuffer, 27 * 1024, 1000);
-        debugWriteTextListFile(offset);
     }
+    else
+    {
+        offset = xxusb_bulk_read(myVu->hUsbDevice, dataBuffer, 27 * 1024, 5000);
+    }
+
+    if (m_outputFile && offset > 0)
+    {
+        uint32_t transferSize = offset;
+        if (m_outputFile->write(reinterpret_cast<char *>(&transferSize), sizeof(transferSize)) == sizeof(transferSize))
+        {
+            m_outputFile->write(reinterpret_cast<char *>(dataBuffer), transferSize);
+        }
+    }
+
+    if (!inputAtEnd)
+        debugWriteTextListFile(offset);
 
     return offset;
 

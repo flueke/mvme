@@ -38,7 +38,6 @@ class mvme : public QMainWindow
 public:
     explicit mvme(QWidget *parent = 0);
     ~mvme();
-    void plot();
     void startDatataking(quint16 period, bool multi, quint16 readLen, bool mblt, bool daqMode);
     void stopDatataking();
     void initThreads();
@@ -79,24 +78,13 @@ private slots:
 
 private:
     Ui::mvme *ui;
-    unsigned char displayCounter;
-    QString str;
-    bool listmode;
-    QString listfilename;
-    QFile datfile;
-    QString debugfilename;
-    QFile debugfile;
     bool datataking;
-    bool blockContinue;
-    QDataStream dataStream;
-    QTextStream debugStream;
-    QString s;
-    bool partialEvent;
     QTimer* drawTimer;
+
     // list of possibly connected VME devices
-    QMap<int, vmedevice *> m_vmeDev;
+    //QMap<int, vmedevice *> m_vmeDev;
     QMap<int, Histogram *> m_histogram;
-    QMap<int, VirtualMod *> m_virtualMod;
+    //QMap<int, VirtualMod *> m_virtualMod;
 
     QThread *m_readoutThread;
 };

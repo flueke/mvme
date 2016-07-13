@@ -20,8 +20,11 @@
 #ifndef VMUSB_H
 #define VMUSB_H
 
-#include <qobject.h>
 #include <libxxusb.h>
+#include <util.h>
+#include <QObject>
+#include <QPair>
+#include <QVector>
 
 class CVMUSBReadoutList;
 
@@ -54,7 +57,7 @@ public:
   int getScalerAdata();
   int getScalerBdata();
   int getNumberMask();
-  int getIrq(int vec);
+  uint16_t getIrq(int vec);
   int getDggSettings();
   int getUsbSettings();
 
@@ -68,7 +71,7 @@ public:
   int setScalerAdata(int val);
   int setScalerBdata(int val);
   int setNumberMask(int val);
-  int setIrq(int vec, int val);
+  int setIrq(int vec, uint16_t val);
   int setDggSettings(int val);
   int setUsbSettings(int val);
     short vmeWrite32(long addr, long data);
@@ -97,12 +100,16 @@ public:
     /* Loads the given stack to stackID using the given memory offset. */
     int listLoad(CVMUSBReadoutList *list, uint8_t stackID, size_t stackMemoryOffset, int timeout_ms = 1000);
 
+    int stackWrite(u8 stackNumber, u32 loadOffset, const QVector<u32> &stackData);
+    QPair<QVector<u32>, u32> stackRead(u8 stackNumber);
+    QVector<u32> stackExecute(const QVector<u32> &stackData, size_t resultMaxWords=1024);
+
 
     /* Writes the given writePacket to the VM_USB and reads the response back into readPacket. */
     int transaction(void* writePacket, size_t writeSize,
                 void* readPacket,  size_t readSize, int timeout_ms = 1000);
 
-  xxusb_device_type pUsbDevice[5];
+    xxusb_device_type pUsbDevice[5];
     char numDevices;
     usb_dev_handle* hUsbDevice;
     short ret;
@@ -178,8 +185,85 @@ static const uint16_t TAVcsID2(0x20);
 static const uint16_t TAVcsID12MASK(0x30); // Mask for top 2 id bits
 static const uint16_t TAVcsID12SHIFT(4);
 
+namespace TransferSetupRegister
+{
+static const uint32_t multiBufferCountMask   = 0xff;
+static const uint32_t multiBufferCountShift  = 0;
+
+static const uint32_t timeoutMask            = 0xf00;
+static const uint32_t timeoutShift           = 8;
+};
+
 uint16_t*
 listToOutPacket(uint16_t ta, CVMUSBReadoutList* list,
                         size_t* outSize, off_t offset = 0);
+
+class end_of_buffer: public std::exception {};
+
+struct VMUSB_Buffer
+{
+    VMUSB_Buffer(u8 *data, u32 bytesReceived, u16 globalMode)
+        : data(data)
+        , buffp(data)
+        , endp(data + bytesReceived)
+        , size(bytesReceived)
+        , globalMode(globalMode)
+    {}
+
+    u8 *data;
+    u8 *buffp;
+    u8 *endp;
+    u32 size;
+    u16 globalMode;
+
+    inline bool align32() const { return (globalMode >> 7) & 1; }
+    inline bool headerOpt() const { return (globalMode >> 8) & 1; }
+
+    u8 extractU8()
+    {
+        if (buffp + sizeof(u8) > endp)
+            throw end_of_buffer();
+
+        u8 ret = *buffp;
+        buffp += sizeof(u8);
+        return ret;
+    }
+
+    u16 extractU16()
+    {
+        if (buffp + sizeof(u16) > endp)
+            throw end_of_buffer();
+
+        u32 ret = *reinterpret_cast<u16 *>(buffp);
+        buffp += sizeof(u16);
+        return ret;
+    }
+
+    u32 extractU32()
+    {
+        if (buffp + sizeof(u32) > endp)
+            throw end_of_buffer();
+
+        u32 ret = *reinterpret_cast<u32 *>(buffp);
+        buffp += sizeof(u32);
+        return ret;
+    }
+
+    u32 extractWord()
+    {
+        return align32() ? extractU32() : extractU16();
+    }
+
+    u32 wordsLeft() const
+    {
+        u32 bytesLeft = endp - buffp;
+        if (align32())
+        {
+            return bytesLeft / sizeof(u32);
+        }
+
+        return bytesLeft / sizeof(u16);
+    }
+};
 
 #endif

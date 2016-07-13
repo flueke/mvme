@@ -32,22 +32,12 @@ mvmeControl::mvmeControl(mvme *theApp, QWidget *parent) :
     ui->setupUi(this);
     dontUpdate = false;
     counter = 0;
-
-    //ui->readMblt->setEnabled(false); // TODO: add mblt support to vmusb, then re-enable
-    ui->bufTerminators->setEnabled(false);
 }
 
 mvmeControl::~mvmeControl()
 {
     delete ui;
 }
-
-void mvmeControl::setValues()
-{
-    if(dontUpdate)
-        return;
-}
-
 
 void mvmeControl::getValues()
 {
@@ -62,7 +52,7 @@ void mvmeControl::changeMode()
 {
 #ifdef VME_CONTROLLER_WIENER
 
-    qDebug() << "changeMod(): dontUpdate =" << dontUpdate << ", sender =" << sender();
+    qDebug() << "changeMode(): dontUpdate =" << dontUpdate << ", sender =" << sender();
 
 
     if(dontUpdate)
@@ -80,14 +70,6 @@ void mvmeControl::changeMode()
     mode &= 0x0000FFDF;
     if(ui->mixedBuffers->isChecked())
         mode |= 0x20;
-
-    // FIXME: According to the documentation bit 6 should be 'FreeSclrDmp', not something related to buffer terminators.
-#if 0
-    // separator option
-    mode &= 0x0000FFBF;
-    if(ui->bufTerminators->currentIndex() == 1)
-        mode |= 0x40;
-#endif
 
     // 32 bit aligned buffers
     mode &= 0x0000FF7F;
@@ -226,70 +208,6 @@ void mvmeControl::refreshDisplay(void)
 
     dontUpdate = true;
 
-#if 0
-    // raw values
-    str.sprintf("%x",theApp->vu->getFirmwareId());
-    fwId->setText(str);
-    str.sprintf("%x",theApp->vu->getMode());
-    globMod->setText(str);
-    str.sprintf("%x",theApp->vu->getDaqSettings());
-    daqSet->setText(str);
-    str.sprintf("%x",theApp->vu->getLedSources());
-    ledSource->setText(str);
-    str.sprintf("%x",theApp->vu->getDeviceSources());
-    devSource->setText(str);
-    str.sprintf("%x",theApp->vu->getDggA());
-    dggA->setText(str);
-    str.sprintf("%x",theApp->vu->getDggB());
-    dggB->setText(str);
-    str.sprintf("%x",theApp->vu->getScalerAdata());
-    scalerAdata->setText(str);
-    str.sprintf("%x",theApp->vu->getScalerBdata());
-    scalerBdata->setText(str);
-    str.sprintf("%x",theApp->vu->getNumberMask());
-    numMask->setText(str);
-    str.sprintf("%x",theApp->vu->getIrq(0));
-    irq12->setText(str);
-    str.sprintf("%x",theApp->vu->getIrq(1));
-    irq34->setText(str);
-    str.sprintf("%x",theApp->vu->getIrq(2));
-    irq56->setText(str);
-    str.sprintf("%x",theApp->vu->getIrq(3));
-    irq78->setText(str);
-    str.sprintf("%x",theApp->vu->getDggSettings());
-    extDgg->setText(str);
-    str.sprintf("%x",theApp->vu->getUsbSettings());
-    usbBulk->setText(str);
-
-    // firmware ID
-    val = theApp->vu->getFirmwareId();
-    str.sprintf("%x",val);
-    idRaw->setText(str);
-
-    str.sprintf("%x", val & 0xFF);
-    idMin->setText(str);
-
-    val2 = val & 0xFF00;
-    val2 /= 0x100;
-    str.sprintf("%x", val2);
-    idMaj->setText(str);
-
-    val2 = val & 0xFF0000;
-    val2 /= 0x10000;
-    str.sprintf("%x", val2);
-    idBeta->setText(str);
-
-    val2 = val & 0xF000000;
-    val2 /= 0x1000000;
-    str.sprintf("%x", val2);
-    idYear->setText(str);
-
-    val2 = val & 0xF0000000;
-    val2 /= 0x10000000;
-    str.sprintf("%x", val2);
-    idMonth->setText(str);
-#endif
-
     str.sprintf("%x",theApp->vu->getFirmwareId());
     ui->firmwareLabel->setText(str);
 
@@ -300,18 +218,12 @@ void mvmeControl::refreshDisplay(void)
 
     // Buffer Options
     val2 = val & 0x0F;
-  ui->bufSize->setCurrentIndex(val2);
+    ui->bufSize->setCurrentIndex(val2);
     val2 = val & 0x20;
     if(val2)
         ui->mixedBuffers->setChecked(true);
     else
         ui->mixedBuffers->setChecked(false);
-
-    val2 = val & 0x40;
-  if(val2)
-    ui->bufTerminators->setCurrentIndex(1);
-  else
-    ui->bufTerminators->setCurrentIndex(0);
 
     val2 = val & 0x80;
     if(val2)
@@ -327,27 +239,34 @@ void mvmeControl::refreshDisplay(void)
 
     val2 = val & 0x7000;
     val2 /= 0x1000;
-  ui->busRequest->setValue(val2);
+    ui->busRequest->setValue(val2);
 
   QString irqText;
 
-  for (int i=0; i<4; ++i)
+  for (int i=0; i<8; ++i)
   {
-      int irqRegister = theApp->vu->getIrq(i);
+      uint16_t irqValue = theApp->vu->getIrq(i);
       QString buffer;
 
-      buffer.sprintf("Vector %d = 0x%04x\n", 2*i, irqRegister & 0xFFFF);
-      irqText.append(buffer);
-
-      buffer.sprintf("Vector %d = 0x%04x\n", 2*i+1, irqRegister >> 16);
+      buffer.sprintf("Vector %d = 0x%04x\n", i, irqValue);
       irqText.append(buffer);
   }
 
   ui->irqVectorsLabel->setText(irqText);
 
-    dontUpdate = false;
+  u32 usbSetup = static_cast<u32>(theApp->vu->getUsbSettings());
+  u32 numberOfBuffers = (usbSetup & TransferSetupRegister::multiBufferCountMask);
+  u32 timeout = (usbSetup & TransferSetupRegister::timeoutMask) >> TransferSetupRegister::timeoutShift;
+
+  qDebug("usb bulk setup: %08x, buffers=%u, timeout=%u",
+          usbSetup, numberOfBuffers, timeout);
+
+  ui->usbBulkBuffers->setValue(numberOfBuffers);
+  ui->usbBulkTimeout->setValue(timeout);
+
+  dontUpdate = false;
 #endif
-    qDebug() << "end refreshDisplay()";
+  qDebug() << "end refreshDisplay()";
 }
 
 void mvmeControl::readVme()
@@ -553,6 +472,7 @@ void mvmeControl::writeLoopSlot3()
 
 void mvmeControl::saveStack()
 {
+#if 0
    QString s = QFileDialog::getSaveFileName(this,
                                             "Choose a file",
                                             "/home",
@@ -566,10 +486,12 @@ void mvmeControl::saveStack()
     t << ui->stackDisplay->toPlainText();
     f.flush();
     f.close();
+#endif
 }
 
 void mvmeControl::activateStack()
 {
+#if 0
     QString s, s2;
     const uint stackMaxSize = 0x10000;
     long stack[stackMaxSize];
@@ -696,10 +618,12 @@ void mvmeControl::activateStack()
     }
 }
 #endif
+#endif
 }
 
 void mvmeControl::loadStack()
 {
+#if 0
    QString s = QFileDialog::getOpenFileName(this,
                                             "Choose a file",
                                             "/home",
@@ -731,11 +655,12 @@ void mvmeControl::loadStack()
     }
     ui->stackDisplay->setText(s);
     f.close();
+#endif
 }
 
 void mvmeControl::loadData()
 {
-#ifdef VME_CONTROLLER_WIENER
+#if 0
     QString s = QFileDialog::getOpenFileName(
             this,
             "Choose a file",
@@ -791,7 +716,7 @@ void mvmeControl::parseDataText(QString text)
 
 void mvmeControl::readStack()
 {
-#ifdef VME_CONTROLLER_WIENER
+#if 0
     bool ok;
     long stack[0x1000];
     QString s, s2;
@@ -1025,11 +950,6 @@ void mvmeControl::saveData()
     f.close();
 */}
 
-void mvmeControl::checkSlot()
-{
-    theApp->dt->readData();
-}
-
 void mvmeControl::calcSlot()
 {
     QString str;
@@ -1169,4 +1089,258 @@ void mvmeControl::on_pb_clearRegisters_clicked()
     int result = theApp->vu->usbRegisterWrite(1, 0x04);
     qDebug("clearRegisters: result=%d", result);
     getValues();
+}
+
+void mvmeControl::on_usbBulkBuffers_valueChanged(int value)
+{
+    if (dontUpdate) return;
+
+    int usbSetup = theApp->vu->getUsbSettings();
+    value &= TransferSetupRegister::multiBufferCountMask;
+    usbSetup &= ~TransferSetupRegister::multiBufferCountMask;
+    usbSetup |= value;
+
+    theApp->vu->setUsbSettings(usbSetup);
+    refreshDisplay();
+}
+
+void mvmeControl::on_usbBulkTimeout_valueChanged(int value)
+{
+    if (dontUpdate) return;
+
+    int usbSetup = theApp->vu->getUsbSettings();
+    value = (value << TransferSetupRegister::timeoutShift) & TransferSetupRegister::timeoutMask;
+    usbSetup &= ~TransferSetupRegister::timeoutMask;
+    usbSetup |= value;
+
+    theApp->vu->setUsbSettings(usbSetup);
+    refreshDisplay();
+}
+
+void mvmeControl::on_pb_selectOutputFile_clicked()
+{
+    QString fileName = QFileDialog::getSaveFileName(this, "Choose a file", QString(), "Mesytec Data Files (*.mdat);;All Files (*)");
+
+    if (!fileName.endsWith(".mdat"))
+        fileName += ".mdat";
+
+    ui->le_outputFile->setText(fileName);
+    ui->cb_outputFileEnabled->setChecked(!fileName.isNull());
+}
+
+void mvmeControl::on_pb_selectInputFile_clicked()
+{
+    QString fileName = QFileDialog::getOpenFileName(this, "Choose a file", QString(), "Mesytec Data Files (*.mdat)");
+    ui->le_inputFile->setText(fileName);
+    ui->cb_inputFileEnabled->setChecked(!fileName.isNull());
+}
+
+QString mvmeControl::getOutputFileName() const
+{
+    if (ui->cb_outputFileEnabled->isChecked())
+        return ui->le_outputFile->text();
+    return QString();
+}
+
+QString mvmeControl::getInputFileName() const
+{
+    if (ui->cb_inputFileEnabled->isChecked())
+        return ui->le_inputFile->text();
+    return QString();
+}
+
+void mvmeControl::on_pb_stackLoad_clicked()
+{
+    QString str = ui->stackInput->toPlainText();
+    QTextStream stream(&str);
+    auto stackData = parseStackFile(stream);
+
+    if (stackData.size())
+    {
+        u8  stackNumber = ui->stackNumber->currentIndex();
+        u32 loadOffset = ui->stackLoadOffset->value();
+        theApp->vu->stackWrite(stackNumber, loadOffset, stackData);
+    }
+}
+
+void mvmeControl::on_pb_stackRead_clicked()
+{
+    u8  stackNumber = ui->stackNumber->currentIndex();
+    auto result = theApp->vu->stackRead(stackNumber);
+
+    QString buffer;
+
+    if (result.first.size())
+    {
+
+        buffer.append(QString().sprintf("# load offset=0x%04x\n", result.second));
+
+        for (auto value: result.first)
+        {
+            buffer.append(QString().sprintf("0x%08x\n", value));
+        }
+    }
+    ui->stackOutput->setText(buffer);
+}
+
+void mvmeControl::on_pb_stackExecute_clicked()
+{
+    QString str = ui->stackInput->toPlainText();
+    QTextStream stream(&str);
+    auto stackData = parseStackFile(stream);
+
+    if (stackData.size())
+    {
+        const size_t readBufferSize = 27 * 1024;
+        char readBuffer[readBufferSize];
+        size_t bytesRead;
+
+        CVMUSBReadoutList stackList(stackData);
+        theApp->vu->listExecute(&stackList, readBuffer, readBufferSize, &bytesRead);
+
+        size_t longWords = bytesRead / sizeof(u32);
+        size_t bytesRemaining = bytesRead % sizeof(u32);
+        size_t shortsRemaining = bytesRemaining / sizeof(u16);
+        QString buffer;
+
+        for (size_t i=0; i<longWords; ++i)
+        {
+            u32 value = (reinterpret_cast<u32 *>(readBuffer))[i];
+            buffer.append(QString().sprintf("0x%08x\n", value));
+        }
+
+        for (size_t i=0; i<shortsRemaining; ++i)
+        {
+            size_t offset = longWords * sizeof(u32) + i;
+            u16 value = *reinterpret_cast<u16 *>(readBuffer + offset);
+            buffer.append(QString().sprintf("0x%04x\n", value));
+        }
+
+#if 0
+        u32 *bufp = reinterpret_cast<u16 *>(readBuffer);
+        u32 *endp = reinterpret_cast<u16 *>(readBuffer + bytesRead);
+
+        QString buffer, temp;
+
+        for (; bufp < endp; ++bufp)
+        {
+            temp.sprintf("0x%08x\n", *bufp);
+            buffer.append(temp);
+        }
+#endif
+
+        ui->stackOutput->setText(buffer);
+    }
+}
+
+void mvmeControl::on_pb_stackFileLoad_clicked()
+{
+    QString fileName = QFileDialog::getOpenFileName(this, "Choose a file", QString(), "Stack Files (*.stk);;All Files (*)");
+
+    QFile file(fileName);
+    if (!file.open(QIODevice::ReadOnly))
+        return;
+
+    QTextStream stream(&file);
+    ui->stackInput->setText(stream.readAll());
+}
+
+void mvmeControl::on_pb_stackFileSave_clicked()
+{
+    QString fileName = QFileDialog::getSaveFileName(this, "Choose a file", QString(), "Stack Files (*.stk)");
+
+    if (!fileName.endsWith(".stk"))
+        fileName += ".stk";
+
+    QFile file(fileName);
+    if (!file.open(QIODevice::WriteOnly))
+        return;
+
+    QTextStream stream(&file);
+
+    stream << ui->stackInput->toPlainText();
+}
+
+void mvmeControl::on_pb_readMemory_clicked()
+{
+    bool ok;
+    u32 memoryOffset = ui->memoryOffset->text().toInt(&ok, 0);
+    memoryOffset <<= 16;
+
+    QString str = ui->memoryInput->toPlainText();
+    QTextStream stream(&str);
+    auto memoryData = parseStackFile(stream);
+    QString buffer;
+
+    for (int i=0; i<memoryData.size() / 2; ++i)
+    {
+        u32 address = memoryOffset | memoryData[2*i];
+        long value = 0;
+        int result = theApp->vu->vmeRead16(address, &value);
+
+        qDebug("read 0x%08x -> 0x%04x, result=%d", address, value, result);
+
+        if (result > 0)
+        {
+            buffer.append(QString().sprintf("0x%04x 0x%04x\n", address & 0xFFFF, value));
+        }
+    }
+
+    ui->memoryOutput->setText(buffer);
+}
+
+void mvmeControl::on_pb_writeMemory_clicked()
+{
+    bool ok;
+    u32 memoryOffset = ui->memoryOffset->text().toInt(&ok, 0);
+    memoryOffset <<= 16;
+    QString str = ui->memoryInput->toPlainText();
+    QTextStream stream(&str);
+    auto memoryData = parseStackFile(stream);
+    QString buffer;
+
+    for (int i=0; i<memoryData.size() / 2; ++i)
+    {
+        u32 address = memoryOffset | memoryData[2*i];
+        u16 value   = memoryData[2*i+1];
+        int result  = theApp->vu->vmeWrite16(address, value);
+
+        qDebug("write  0x%08x -> 0x%04x, result=%d", address, value, result);
+
+        if (result < 0)
+        {
+            buffer.append(QString().sprintf("Error setting 0x%08x to 0x%04x: %d\n",
+                        address, value, result));
+        }
+    }
+
+    ui->memoryOutput->setText(QString(buffer));
+}
+
+void mvmeControl::on_pb_loadMemoryFile_clicked()
+{
+    QString fileName = QFileDialog::getOpenFileName(this, "Choose a file", QString(), "Memory Files (*.mem *.stk);;All Files (*)");
+
+    QFile file(fileName);
+    if (!file.open(QIODevice::ReadOnly))
+        return;
+
+    QTextStream stream(&file);
+    ui->memoryInput->setText(stream.readAll());
+}
+
+void mvmeControl::on_pb_saveMemoryFile_clicked()
+{
+    QString fileName = QFileDialog::getSaveFileName(this, "Choose a file", QString(), "Memory Files (*.mem)");
+
+    if (!fileName.endsWith(".mem"))
+        fileName += ".mem";
+
+    QFile file(fileName);
+    if (!file.open(QIODevice::WriteOnly))
+        return;
+
+    QTextStream stream(&file);
+
+    stream << ui->memoryInput->toPlainText();
 }

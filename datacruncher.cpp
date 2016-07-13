@@ -44,10 +44,11 @@ void DataCruncher::crunchTimerSlot()
 //        qDebug("header: %lx", m_pRingBuffer[m_readPointer]);
         values = m_pRingBuffer[m_readPointer++];
 
-        if((values & 0xFF000000) != 0x40000000)
+        if((values & 0xC0000000) != 0x40000000)
         {
-            qDebug("header error");
+            qDebug("header error: %08x", values);
         }
+
         modId = (values & 0x00FF0000) >> 16;
 
 //        qDebug("modId: %d", modId);

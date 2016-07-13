@@ -30,9 +30,11 @@ public:
     void dispResultlist();
     void dispRt();
 
+    QString getOutputFileName() const;
+    QString getInputFileName() const;
+
 public slots:
     void refreshDisplay(void);
-    virtual void setValues();
     virtual void getValues();
     virtual void changeSource();
     virtual void changeLed(int led);
@@ -52,11 +54,13 @@ public slots:
     virtual void readVme3();
     virtual void writeVme3();
     virtual void sendData();
+
     virtual void activateStack();
     virtual void loadData();
     virtual void loadStack();
     virtual void saveStack();
     virtual void readStack();
+
     virtual void setIrq();
     virtual void readBuffer();
     virtual void startStop(bool val);
@@ -69,12 +73,27 @@ public slots:
     virtual void listSlot();
     virtual void replayListfile();
     virtual void writeData();
-    virtual void checkSlot();
     virtual void calcSlot();
     virtual void clearSlot();
     void dispChan(int c);
 
+private slots:
     void on_pb_clearRegisters_clicked();
+    void on_usbBulkBuffers_valueChanged(int);
+    void on_usbBulkTimeout_valueChanged(int);
+    void on_pb_selectOutputFile_clicked();
+    void on_pb_selectInputFile_clicked();
+
+    void on_pb_stackLoad_clicked();
+    void on_pb_stackRead_clicked();
+    void on_pb_stackExecute_clicked();
+    void on_pb_stackFileLoad_clicked();
+    void on_pb_stackFileSave_clicked();
+
+    void on_pb_readMemory_clicked();
+    void on_pb_writeMemory_clicked();
+    void on_pb_loadMemoryFile_clicked();
+    void on_pb_saveMemoryFile_clicked();
 
 private:
     unsigned char  counter;
