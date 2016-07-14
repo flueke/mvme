@@ -30,7 +30,6 @@ public:
     void plot();
     void setMvme(mvme* m);
     void setHistogram(Histogram* h);
-    void displayChanged(void);
     void clearDisp(void);
     void updateStatistics();
 

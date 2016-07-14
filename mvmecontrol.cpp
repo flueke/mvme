@@ -20,7 +20,10 @@
 #include "QMessageBox"
 #include "QComboBox"
 #include <QDebug>
+#include <QCoreApplication>
 
+static const char *defaultStackFile = "default-stack.stk";
+static const char *defaultInitListFile  = "default-initlist.init";
 
 mvmeControl::mvmeControl(mvme *theApp, QWidget *parent) :
     QWidget(parent),
@@ -28,15 +31,37 @@ mvmeControl::mvmeControl(mvme *theApp, QWidget *parent) :
     ui(new Ui::mvmeControl)
 {
     dontUpdate = true;
+
     ui->setupUi(this);
+
+    connect(theApp->vu, SIGNAL(daqModeChanged(bool)),
+            this, SLOT(vmusbDaqModeChanged(bool)));
+
+    QString pathToBinary = QFileInfo(QCoreApplication::applicationFilePath()).dir().path();
+
+    {
+        QString filename = QFileInfo(pathToBinary, defaultStackFile).filePath();
+        QFile inFile(filename);
+        if (inFile.open(QIODevice::ReadOnly))
+        {
+            QTextStream stream(&inFile);
+            ui->stackInput->setText(stream.readAll());
+        }
+    }
+
+    {
+        QString filename = QFileInfo(pathToBinary, defaultInitListFile).filePath();
+        QFile inFile(filename);
+        if (inFile.open(QIODevice::ReadOnly))
+        {
+            QTextStream stream(&inFile);
+            ui->memoryInput_2->setText(stream.readAll());
+        }
+    }
 
     ui->memoryInput->setText(ui->memoryInput_2->toPlainText());
 
     dontUpdate = false;
-    counter = 0;
-
-    connect(theApp->vu, SIGNAL(daqModeChanged(bool)),
-            this, SLOT(vmusbDaqModeChanged(bool)));
 }
 
 mvmeControl::~mvmeControl()

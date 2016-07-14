@@ -12,8 +12,3 @@ Otherwise the control panel won't appear and no datataking is possible.
 Right now mvme2 is limited to one VME DAQ module at base address 0x0000.
 Modules using other addresses can be written to and read from but datataking
 is currently hard-coded to work with address 0x0000.
-
-The get started setup your VME device using the "StackOp" tab. Under
-"Stack/Memory" click on "activate" to write the device registers. Once the
-device is setup go to the "DataOp" tab and use the buttons in the "Datataking"
-group to start/stop the data acquisition.

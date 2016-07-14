@@ -103,7 +103,6 @@ private slots:
     void on_pb_saveMemoryFile_2_clicked();
 
 private:
-    unsigned char  counter;
     bool dontUpdate;
 };
 
