@@ -97,6 +97,22 @@ void TwoDimWidget::displaychanged()
         //ui->mainPlot->setAxisMaxMinor(QwtPlot::yLeft, 10);
     }
 
+    if((quint32)ui->moduleBox->value() != m_currentModule)
+    {
+        m_currentModule = ui->moduleBox->value();
+        m_pMyHist = m_pMyMvme->getHist(m_currentModule);
+    }
+
+    if((quint32)ui->channelBox->value() != m_currentChannel)
+    {
+        m_currentChannel = ui->channelBox->value();
+        m_currentChannel = qMin(m_currentChannel, m_pMyHist->m_channels - 1);
+        //QSignalBlocker sb(ui->channelBox);
+	ui->channelBox->blockSignals(true);
+        ui->channelBox->setValue(m_currentChannel);
+	ui->channelBox->blockSignals(false);
+    }
+
     plot();
 }
 
@@ -195,27 +211,6 @@ void TwoDimWidget::setMvme(mvme *m)
 void TwoDimWidget::setHistogram(Histogram *h)
 {
     m_pMyHist = h;
-}
-
-void TwoDimWidget::displayChanged()
-{
-    if((quint32)ui->moduleBox->value() != m_currentModule)
-    {
-        m_currentModule = ui->moduleBox->value();
-        m_pMyHist = m_pMyMvme->getHist(m_currentModule);
-    }
-
-    if((quint32)ui->channelBox->value() != m_currentChannel)
-    {
-        m_currentChannel = ui->channelBox->value();
-        m_currentChannel = qMin(m_currentChannel, m_pMyHist->m_channels - 1);
-        //QSignalBlocker sb(ui->channelBox);
-	ui->channelBox->blockSignals(true);
-        ui->channelBox->setValue(m_currentChannel);
-	ui->channelBox->blockSignals(false);
-    }
-
-    plot();
 }
 
 void TwoDimWidget::clearDisp()
