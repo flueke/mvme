@@ -97,9 +97,14 @@ contains(DEFINES, "VME_CONTROLLER_CAEN") {
 
 unix:!macx:!symbian {
     CONFIG += qwt
+
+    LIBS += -L/usr/local/qwt-6.1.3/lib/ -lqwt
+    INCLUDEPATH += /usr/local/qwt-6.1.3/include
+    DEPENDPATH  += /usr/local/qwt-6.1.3/include
+
     LIBS += -L/usr/local/qwt-6.1.2/lib/ -lqwt
-    INCLUDEPATH += /usr/local/qwt-6.1.0-rc3/include /usr/local/qwt-6.1.2/include
-    DEPENDPATH += /usr/local/qwt-6.1.0-rc3/include /usr/local/qwt-6.1.2/include
+    INCLUDEPATH += /usr/local/qwt-6.1.2/include
+    DEPENDPATH  += /usr/local/qwt-6.1.2/include
 }
 
 unix: {

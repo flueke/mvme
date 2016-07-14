@@ -10,6 +10,7 @@
 #include <QDebug>
 #include <QComboBox>
 #include <QTimer>
+#include <QtCore> // for qQNaN with Qt 5.2
 
 class ChannelSpectroData: public QwtRasterData
 {

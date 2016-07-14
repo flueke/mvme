@@ -9,6 +9,7 @@
 #include <qwt_plot_curve.h>
 #include <qwt_plot_textlabel.h>
 #include <qwt_text.h>
+//#include <QSignalBlocker> // Qt-5.2 does not have this yet
 #include "scrollzoomer.h"
 #include <QDebug>
 #include "histogram.h"
@@ -208,8 +209,10 @@ void TwoDimWidget::displayChanged()
     {
         m_currentChannel = ui->channelBox->value();
         m_currentChannel = qMin(m_currentChannel, m_pMyHist->m_channels - 1);
-        QSignalBlocker sb(ui->channelBox);
+        //QSignalBlocker sb(ui->channelBox);
+	ui->channelBox->blockSignals(true);
         ui->channelBox->setValue(m_currentChannel);
+	ui->channelBox->blockSignals(false);
     }
 
     plot();
