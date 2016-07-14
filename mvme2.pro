@@ -107,7 +107,7 @@ unix:!macx:!symbian {
     DEPENDPATH  += /usr/local/qwt-6.1.2/include
 }
 
-unix: {
+unix {
     # suppress the default RPATH
     QMAKE_LFLAGS_RPATH=
     QMAKE_LFLAGS += "-Wl,-rpath,\'\$$ORIGIN\'"
