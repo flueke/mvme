@@ -34,6 +34,9 @@ for lib in `ldd "$PATH_TO_BINARY" | cut -d'>' -f2 | awk '{print $1}'` ; do
    fi  
 done
 
+echo "---> copy additional qt libraries"
+cp -v /usr/lib/x86_64-linux-gnu/libQt5DBus.so.5 "$TARGET_FOLDER"
+
 echo "---> copy qt plugins"
 cp -vr /usr/lib/x86_64-linux-gnu/qt5/plugins/platforms "$TARGET_FOLDER"
 cp -vr /usr/lib/x86_64-linux-gnu/qt5/plugins/imageformats "$TARGET_FOLDER"
