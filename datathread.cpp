@@ -137,11 +137,15 @@ void DataThread::dataTimerSlot()
         for(quint32 bufferIndex = 0; bufferIndex < wordsReceived; ++bufferIndex)
         {
             quint32 currentWord = dataBuffer[bufferIndex];
-            m_pRingbuffer[m_writePointer++] = currentWord;
 
-            if (m_writePointer > RINGBUFMAX)
+            if (currentWord != 0xFFFFFFFF && currentWord != 0x00000000)
             {
-                m_writePointer = 0;
+                m_pRingbuffer[m_writePointer++] = currentWord;
+
+                if (m_writePointer > RINGBUFMAX)
+                {
+                    m_writePointer = 0;
+                }
             }
         }
 
@@ -290,7 +294,7 @@ void DataThread::dataTimerSlot()
                     u32 data = buffer.extractU32();
                     //qDebug("  data word %d: %08x", i, data);
 
-                    if (!scalerBuffer)
+                    if (!scalerBuffer && data != 0xFFFFFFFF && data != 0x00000000)
                     {
                         m_pRingbuffer[m_writePointer++] = data;
                         if (m_writePointer > RINGBUFMAX)
