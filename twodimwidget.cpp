@@ -9,7 +9,6 @@
 #include <qwt_plot_curve.h>
 #include <qwt_plot_textlabel.h>
 #include <qwt_text.h>
-//#include <QSignalBlocker> // Qt-5.2 does not have this yet
 #include "scrollzoomer.h"
 #include <QDebug>
 #include "histogram.h"
@@ -75,11 +74,11 @@ TwoDimWidget::TwoDimWidget(mvme *context, Histogram *histo, QWidget *parent)
     auto plotPanner = new QwtPlotPanner(ui->mainPlot->canvas());
     plotPanner->setAxisEnabled(QwtPlot::yLeft, false);
     plotPanner->setMouseButton(Qt::MiddleButton);
-#endif
 
     auto plotMagnifier = new QwtPlotMagnifier(ui->mainPlot->canvas());
     plotMagnifier->setAxisEnabled(QwtPlot::yLeft, false);
     plotMagnifier->setMouseButton(Qt::NoButton);
+#endif
 
     m_statsText = new QwtText();
     m_statsText->setRenderFlags(Qt::AlignLeft | Qt::AlignTop);
@@ -129,12 +128,10 @@ void TwoDimWidget::displaychanged()
     {
         ui->mainPlot->setAxisScaleEngine(QwtPlot::yLeft, new QwtLinearScaleEngine);
         ui->mainPlot->setAxisAutoScale(QwtPlot::yLeft, true);
-        //ui->mainPlot->setAxisScale(QwtPlot::yLeft, 1.0, m_pMyHist->m_maximum[m_currentChannel]);
     }
     else if (ui->dispLog->isChecked() &&
              !dynamic_cast<QwtLogScaleEngine *>(ui->mainPlot->axisScaleEngine(QwtPlot::yLeft)))
     {
-        // TODO(flueke): this does not work properly
         auto scaleEngine = new QwtLogScaleEngine;
         scaleEngine->setTransformation(new MinBoundLogTransform);
         ui->mainPlot->setAxisScaleEngine(QwtPlot::yLeft, scaleEngine);
@@ -151,7 +148,6 @@ void TwoDimWidget::displaychanged()
     {
         m_currentChannel = ui->channelBox->value();
         m_currentChannel = qMin(m_currentChannel, m_pMyHist->m_channels - 1);
-        //QSignalBlocker sb(ui->channelBox);
         ui->channelBox->blockSignals(true);
         ui->channelBox->setValue(m_currentChannel);
         ui->channelBox->blockSignals(false);
@@ -214,12 +210,20 @@ void TwoDimWidget::exportPlot()
 
 void TwoDimWidget::plot()
 {
-    m_curve->setRawSamples((const double*)m_pMyHist->m_axisBase,
-        (const double*)m_pMyHist->m_data + m_pMyHist->m_resolution*m_currentChannel,
-                         m_pMyHist->m_resolution);
+    m_curve->setRawSamples(
+            (const double*)m_pMyHist->m_axisBase,
+            (const double*)m_pMyHist->m_data + m_pMyHist->m_resolution*m_currentChannel,
+            m_pMyHist->m_resolution);
 
     updateStatistics();
-    m_curve->plot()->replot();
+
+    // update the log scale axis using the new channels max value
+    if (dynamic_cast<QwtLogScaleEngine *>(ui->mainPlot->axisScaleEngine(QwtPlot::yLeft)))
+    {
+        ui->mainPlot->setAxisScale(QwtPlot::yLeft, 1.0, m_pMyHist->m_maximum[m_currentChannel]);
+    }
+
+    ui->mainPlot->replot();
 }
 
 void TwoDimWidget::updateStatistics()
