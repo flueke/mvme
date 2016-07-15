@@ -54,7 +54,8 @@ HEADERS  += \
     simulator.h \
     CVMUSBReadoutList.h \
     channelspectro.h \
-    util.h
+    util.h \
+    vme.h
 
 FORMS    += \
     mvmecontrol.ui \

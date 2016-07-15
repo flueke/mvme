@@ -81,8 +81,12 @@ private slots:
     void vmusbDaqModeChanged(bool);
 
     void on_pb_clearRegisters_clicked();
+    void on_pb_usbReset_clicked();
+    void on_pb_errorRecovery_clicked();
     void on_usbBulkBuffers_valueChanged(int);
     void on_usbBulkTimeout_valueChanged(int);
+
+
     void on_pb_selectOutputFile_clicked();
     void on_pb_selectInputFile_clicked();
 

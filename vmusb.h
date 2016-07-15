@@ -115,6 +115,8 @@ class vmUsb : public QObject
         int transaction(void* writePacket, size_t writeSize,
                 void* readPacket,  size_t readSize, int timeout_ms = 1000);
 
+        int bulk_read(void *outBuffer, size_t outBufferSize, int timeout_ms = 100);
+
         xxusb_device_type pUsbDevice[5];
         char numDevices;
         usb_dev_handle* hUsbDevice;

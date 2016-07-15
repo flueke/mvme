@@ -257,6 +257,8 @@ void mvmeControl::refreshDisplay(void)
 
     qDebug("refreshDisplay: mode=%08x", val);
 
+    if (val < 0) return;
+
     // Buffer Options
     val2 = val & 0x0F;
     ui->bufSize->setCurrentIndex(val2);
@@ -1487,4 +1489,21 @@ void mvmeControl::on_pb_saveMemoryFile_2_clicked()
     QTextStream stream(&file);
 
     stream << ui->memoryInput_2->toPlainText();
+}
+
+void mvmeControl::on_pb_usbReset_clicked()
+{
+    int status = theApp->vu->usbRegisterWrite(10, 0x04);
+    qDebug("registerWrite returned %d", status);
+}
+
+void mvmeControl::on_pb_errorRecovery_clicked()
+{
+    int bytesRead = 0;
+    do
+    {
+        char buffer[27 * 1024];
+        bytesRead = theApp->vu->bulk_read(buffer, sizeof(buffer));
+        qDebug("bulk read returned %d", bytesRead);
+    } while (bytesRead > 0);
 }
