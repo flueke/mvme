@@ -136,8 +136,7 @@ void mvme::displayAbout()
 
 void mvme::createNewHistogram()
 {
-    auto tdw = new TwoDimWidget(this);
-    tdw->setHistogram(m_histogram.value(0));
+    auto tdw = new TwoDimWidget(this, m_histogram.value(0));
     tdw->plot();
 
     auto subwin = new QMdiSubWindow(ui->mdiArea);

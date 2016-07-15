@@ -15,11 +15,38 @@
 #include "histogram.h"
 #include "mvme.h"
 
-TwoDimWidget::TwoDimWidget(mvme *context, QWidget *parent)
+class MinBoundLogTransform: public QwtLogTransform
+{
+    public:
+        virtual double bounded(double value) const
+        {
+            double result = qBound(0.1, value, QwtLogTransform::LogMax);
+            return result;
+        }
+
+        virtual double transform(double value) const
+        {
+            double result = QwtLogTransform::transform(bounded(value));
+            return result;
+        }
+
+        virtual double invTransform(double value) const
+        {
+            double result = QwtLogTransform::invTransform(value);
+            return result;
+        }
+
+        virtual QwtTransform *copy() const
+        {
+            return new MinBoundLogTransform;
+        }
+};
+
+TwoDimWidget::TwoDimWidget(mvme *context, Histogram *histo, QWidget *parent)
     : QWidget(parent)
     , ui(new Ui::TwoDimWidget)
     , m_curve(new QwtPlotCurve)
-    , m_pMyHist(0)
+    , m_pMyHist(histo)
     , m_currentModule(0)
     , m_currentChannel(0)
     , m_pMyMvme(context)
@@ -29,8 +56,7 @@ TwoDimWidget::TwoDimWidget(mvme *context, QWidget *parent)
     m_curve->setStyle(QwtPlotCurve::Steps);
     m_curve->attach(ui->mainPlot);
 
-    // TODO: make this depend on the histograms resolution
-    ui->mainPlot->setAxisScale( QwtPlot::xBottom, 0, 8192);
+    ui->mainPlot->setAxisScale( QwtPlot::xBottom, 0, m_pMyHist->m_resolution);
 
     ui->mainPlot->axisWidget(QwtPlot::yLeft)->setTitle("Counts");
     ui->mainPlot->axisWidget(QwtPlot::xBottom)->setTitle("Channel 0");
@@ -41,14 +67,15 @@ TwoDimWidget::TwoDimWidget(mvme *context, QWidget *parent)
     m_plotZoomer->setVScrollBarMode(Qt::ScrollBarAlwaysOff);
     m_plotZoomer->setZoomBase();
 
-    connect(m_plotZoomer, SIGNAL(zoomed(QRectF)),
-            this, SLOT(zoomerZoomed(QRectF)));
+    connect(m_plotZoomer, SIGNAL(zoomed(QRectF)),this, SLOT(zoomerZoomed(QRectF)));
 
     qDebug() << "zoomBase =" << m_plotZoomer->zoomBase();
 
+#if 0
     auto plotPanner = new QwtPlotPanner(ui->mainPlot->canvas());
     plotPanner->setAxisEnabled(QwtPlot::yLeft, false);
     plotPanner->setMouseButton(Qt::MiddleButton);
+#endif
 
     auto plotMagnifier = new QwtPlotMagnifier(ui->mainPlot->canvas());
     plotMagnifier->setAxisEnabled(QwtPlot::yLeft, false);
@@ -60,6 +87,27 @@ TwoDimWidget::TwoDimWidget(mvme *context, QWidget *parent)
     m_statsTextItem = new QwtPlotTextLabel;
     m_statsTextItem->setText(*m_statsText);
     m_statsTextItem->attach(ui->mainPlot);
+
+
+#if 0
+    u32 resolution = m_pMyHist->m_resolution;
+    qsrand(42);
+
+    for (u32 xIndex=0; xIndex < resolution; ++xIndex)
+    {
+        double yValue = 0;
+        if (xIndex == 0 || xIndex == resolution-1)
+        {
+            yValue = 1;
+        }
+        else
+        {
+            yValue = xIndex % 16;
+        }
+
+        m_pMyHist->setValue(0, xIndex, yValue);
+    }
+#endif
 
     ui->mainPlot->replot();
 }
@@ -79,22 +127,18 @@ void TwoDimWidget::displaychanged()
     if (ui->dispLin->isChecked() &&
             !dynamic_cast<QwtLinearScaleEngine *>(ui->mainPlot->axisScaleEngine(QwtPlot::yLeft)))
     {
-        m_curve->setBaseline(0.0);
         ui->mainPlot->setAxisScaleEngine(QwtPlot::yLeft, new QwtLinearScaleEngine);
         ui->mainPlot->setAxisAutoScale(QwtPlot::yLeft, true);
+        //ui->mainPlot->setAxisScale(QwtPlot::yLeft, 1.0, m_pMyHist->m_maximum[m_currentChannel]);
     }
     else if (ui->dispLog->isChecked() &&
              !dynamic_cast<QwtLogScaleEngine *>(ui->mainPlot->axisScaleEngine(QwtPlot::yLeft)))
     {
         // TODO(flueke): this does not work properly
-
-        m_curve->setBaseline(0.1);
-        ui->mainPlot->setAxisScaleEngine(QwtPlot::yLeft, new QwtLogScaleEngine);
-        ui->mainPlot->axisScaleEngine(QwtPlot::yLeft)->setAttribute(QwtScaleEngine::Floating);
-        //ui->mainPlot->setAxisScale(QwtPlot::yLeft, 0.1, 6000.0);
-
-        //ui->mainPlot->setAxisMaxMajor(QwtPlot::yLeft, 10);
-        //ui->mainPlot->setAxisMaxMinor(QwtPlot::yLeft, 10);
+        auto scaleEngine = new QwtLogScaleEngine;
+        scaleEngine->setTransformation(new MinBoundLogTransform);
+        ui->mainPlot->setAxisScaleEngine(QwtPlot::yLeft, scaleEngine);
+        ui->mainPlot->setAxisScale(QwtPlot::yLeft, 1.0, m_pMyHist->m_maximum[m_currentChannel]);
     }
 
     if((quint32)ui->moduleBox->value() != m_currentModule)
@@ -108,9 +152,9 @@ void TwoDimWidget::displaychanged()
         m_currentChannel = ui->channelBox->value();
         m_currentChannel = qMin(m_currentChannel, m_pMyHist->m_channels - 1);
         //QSignalBlocker sb(ui->channelBox);
-	ui->channelBox->blockSignals(true);
+        ui->channelBox->blockSignals(true);
         ui->channelBox->setValue(m_currentChannel);
-	ui->channelBox->blockSignals(false);
+        ui->channelBox->blockSignals(false);
     }
 
     plot();
@@ -131,14 +175,22 @@ void TwoDimWidget::setZoombase()
 
 void TwoDimWidget::zoomerZoomed(QRectF zoomRect)
 {
+    updateStatistics();
     if (m_plotZoomer->zoomRectIndex() == 0)
     {
-        ui->mainPlot->setAxisAutoScale(QwtPlot::yLeft);
-        ui->mainPlot->setAxisScale( QwtPlot::xBottom, 0, 8192);
+        if (dynamic_cast<QwtLogScaleEngine *>(ui->mainPlot->axisScaleEngine(QwtPlot::yLeft)))
+        {
+            ui->mainPlot->setAxisScale(QwtPlot::yLeft, 1.0, m_pMyHist->m_maximum[m_currentChannel]);
+        }
+        else
+        {
+            ui->mainPlot->setAxisAutoScale(QwtPlot::yLeft, true);
+        }
+
+        ui->mainPlot->setAxisScale( QwtPlot::xBottom, 0, m_pMyHist->m_resolution);
         ui->mainPlot->replot();
         m_plotZoomer->setZoomBase();
     }
-    updateStatistics();
 }
 
 quint32 TwoDimWidget::getSelectedChannelIndex() const
@@ -172,7 +224,9 @@ void TwoDimWidget::plot()
 
 void TwoDimWidget::updateStatistics()
 {
-    m_pMyHist->calcStatistics(m_currentChannel, m_plotZoomer->getLowborder(), m_plotZoomer->getHiborder());
+    m_pMyHist->calcStatistics(m_currentChannel,
+                              m_plotZoomer->getLowborder(),
+                              m_plotZoomer->getHiborder());
 
     QString str;
     str.sprintf("%2.2f", m_pMyHist->m_mean[m_currentChannel]);

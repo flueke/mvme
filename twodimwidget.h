@@ -19,7 +19,7 @@ class TwoDimWidget : public QWidget
     Q_OBJECT
 
 public:
-    explicit TwoDimWidget(mvme *context, QWidget *parent = 0);
+    explicit TwoDimWidget(mvme *context, Histogram *histo, QWidget *parent = 0);
     ~TwoDimWidget();
 
     void setZoombase();
