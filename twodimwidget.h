@@ -42,8 +42,14 @@ signals:
 
 private slots:
     void zoomerZoomed(QRectF);
+    void mouseCursorMovedToPlotCoord(QPointF);
 
 private:
+    void updateYAxisScale();
+    bool yAxisIsLog();
+    bool yAxisIsLin();
+
+
     Ui::TwoDimWidget *ui;
 
     QwtPlotCurve *m_curve;

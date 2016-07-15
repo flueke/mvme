@@ -52,14 +52,19 @@ TwoDimWidget::TwoDimWidget(mvme *context, Histogram *histo, QWidget *parent)
 {
     ui->setupUi(this);
 
-    m_curve->setStyle(QwtPlotCurve::Steps);
     m_curve->attach(ui->mainPlot);
+
+    m_curve->setStyle(QwtPlotCurve::Steps);
+
+    //m_curve->setStyle(QwtPlotCurve::Dots);
+    //m_curve->setPen(Qt::red, 10.0);
 
     ui->mainPlot->setAxisScale( QwtPlot::xBottom, 0, m_pMyHist->m_resolution);
 
     ui->mainPlot->axisWidget(QwtPlot::yLeft)->setTitle("Counts");
     ui->mainPlot->axisWidget(QwtPlot::xBottom)->setTitle("Channel 0");
 
+    ui->mainPlot->canvas()->setMouseTracking(true);
     m_plotZoomer = new ScrollZoomer(this->ui->mainPlot->canvas());
     // assign the unused rRight axis to only zoom in x
     m_plotZoomer->setAxis(QwtPlot::xBottom, QwtPlot::yRight);
@@ -67,6 +72,7 @@ TwoDimWidget::TwoDimWidget(mvme *context, Histogram *histo, QWidget *parent)
     m_plotZoomer->setZoomBase();
 
     connect(m_plotZoomer, SIGNAL(zoomed(QRectF)),this, SLOT(zoomerZoomed(QRectF)));
+    connect(m_plotZoomer, SIGNAL(mouseCursorMovedTo(QPointF)), this, SLOT(mouseCursorMovedToPlotCoord(QPointF)));
 
     qDebug() << "zoomBase =" << m_plotZoomer->zoomBase();
 
@@ -74,11 +80,11 @@ TwoDimWidget::TwoDimWidget(mvme *context, Histogram *histo, QWidget *parent)
     auto plotPanner = new QwtPlotPanner(ui->mainPlot->canvas());
     plotPanner->setAxisEnabled(QwtPlot::yLeft, false);
     plotPanner->setMouseButton(Qt::MiddleButton);
+#endif
 
     auto plotMagnifier = new QwtPlotMagnifier(ui->mainPlot->canvas());
     plotMagnifier->setAxisEnabled(QwtPlot::yLeft, false);
     plotMagnifier->setMouseButton(Qt::NoButton);
-#endif
 
     m_statsText = new QwtText();
     m_statsText->setRenderFlags(Qt::AlignLeft | Qt::AlignTop);
@@ -123,19 +129,16 @@ void TwoDimWidget::displaychanged()
     ui->mainPlot->axisWidget(QwtPlot::xBottom)->setTitle(
                 QString("Channel %1").arg(getSelectedChannelIndex()));
 
-    if (ui->dispLin->isChecked() &&
-            !dynamic_cast<QwtLinearScaleEngine *>(ui->mainPlot->axisScaleEngine(QwtPlot::yLeft)))
+    if (ui->dispLin->isChecked() && !yAxisIsLin())
     {
         ui->mainPlot->setAxisScaleEngine(QwtPlot::yLeft, new QwtLinearScaleEngine);
         ui->mainPlot->setAxisAutoScale(QwtPlot::yLeft, true);
     }
-    else if (ui->dispLog->isChecked() &&
-             !dynamic_cast<QwtLogScaleEngine *>(ui->mainPlot->axisScaleEngine(QwtPlot::yLeft)))
+    else if (ui->dispLog->isChecked() && !yAxisIsLog())
     {
         auto scaleEngine = new QwtLogScaleEngine;
         scaleEngine->setTransformation(new MinBoundLogTransform);
         ui->mainPlot->setAxisScaleEngine(QwtPlot::yLeft, scaleEngine);
-        ui->mainPlot->setAxisScale(QwtPlot::yLeft, 1.0, m_pMyHist->m_maximum[m_currentChannel]);
     }
 
     if((quint32)ui->moduleBox->value() != m_currentModule)
@@ -172,11 +175,12 @@ void TwoDimWidget::setZoombase()
 void TwoDimWidget::zoomerZoomed(QRectF zoomRect)
 {
     updateStatistics();
+
     if (m_plotZoomer->zoomRectIndex() == 0)
     {
-        if (dynamic_cast<QwtLogScaleEngine *>(ui->mainPlot->axisScaleEngine(QwtPlot::yLeft)))
+        if (yAxisIsLog())
         {
-            ui->mainPlot->setAxisScale(QwtPlot::yLeft, 1.0, m_pMyHist->m_maximum[m_currentChannel]);
+            updateYAxisScale();
         }
         else
         {
@@ -216,14 +220,32 @@ void TwoDimWidget::plot()
             m_pMyHist->m_resolution);
 
     updateStatistics();
-
-    // update the log scale axis using the new channels max value
-    if (dynamic_cast<QwtLogScaleEngine *>(ui->mainPlot->axisScaleEngine(QwtPlot::yLeft)))
-    {
-        ui->mainPlot->setAxisScale(QwtPlot::yLeft, 1.0, m_pMyHist->m_maximum[m_currentChannel]);
-    }
+    updateYAxisScale();
 
     ui->mainPlot->replot();
+}
+
+void TwoDimWidget::updateYAxisScale()
+{
+    // update the log scale axis using the new channels max value
+    if (yAxisIsLog())
+    {
+        double maxValue = 1.2 * m_pMyHist->m_maximum[m_currentChannel];
+        if (maxValue <= 1.0)
+            maxValue = 10.0;
+
+        ui->mainPlot->setAxisScale(QwtPlot::yLeft, 1.0, maxValue);
+    }
+}
+
+bool TwoDimWidget::yAxisIsLog()
+{
+    return dynamic_cast<QwtLogScaleEngine *>(ui->mainPlot->axisScaleEngine(QwtPlot::yLeft));
+}
+
+bool TwoDimWidget::yAxisIsLin()
+{
+    return dynamic_cast<QwtLinearScaleEngine *>(ui->mainPlot->axisScaleEngine(QwtPlot::yLeft));
 }
 
 void TwoDimWidget::updateStatistics()
@@ -274,4 +296,17 @@ void TwoDimWidget::setHistogram(Histogram *h)
 void TwoDimWidget::clearDisp()
 {
     m_pMyHist->clearChan(m_currentChannel);
+}
+
+void TwoDimWidget::mouseCursorMovedToPlotCoord(QPointF point)
+{
+    auto xValue = static_cast<u32>(point.x());
+    
+    if (xValue < m_pMyHist->m_resolution)
+    {
+        QString str;
+        str.sprintf("Channel %u\nCounts %u", xValue,
+                static_cast<u32>(m_pMyHist->getValue(m_currentChannel, xValue)));
+        ui->label_mouseOnChannel->setText(str);
+    }
 }

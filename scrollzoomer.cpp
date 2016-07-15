@@ -510,3 +510,11 @@ int ScrollZoomer::oppositeAxis( int axis ) const
     return axis;
 }
 
+#include <QDebug>
+
+void ScrollZoomer::widgetMouseMoveEvent(QMouseEvent *event)
+{
+    auto point = invTransform(event->pos());
+    emit mouseCursorMovedTo(point);
+    QwtPlotZoomer::widgetMouseMoveEvent(event);
+}

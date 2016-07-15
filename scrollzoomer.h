@@ -11,6 +11,11 @@ class ScrollBar;
 class ScrollZoomer: public QwtPlotZoomer
 {
     Q_OBJECT
+
+
+signals:
+    void mouseCursorMovedTo(QPointF);
+
 public:
     enum ScrollBarPosition
     {
@@ -50,6 +55,8 @@ protected:
     virtual ScrollBar *scrollBar( Qt::Orientation );
     virtual void updateScrollBars();
     virtual void layoutScrollBars( const QRect & );
+
+    virtual void widgetMouseMoveEvent(QMouseEvent *event);
 
 private Q_SLOTS:
     void scrollBarMoved( Qt::Orientation o, double min, double max );

@@ -190,6 +190,13 @@
         </property>
        </spacer>
       </item>
+      <item>
+       <widget class="QLabel" name="label_mouseOnChannel">
+        <property name="text">
+         <string>Channel 0</string>
+        </property>
+       </widget>
+      </item>
      </layout>
     </widget>
    </item>
