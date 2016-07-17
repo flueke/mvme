@@ -53,8 +53,8 @@ TwoDimWidget::TwoDimWidget(mvme *context, Histogram *histo, QWidget *parent)
     ui->setupUi(this);
 
     m_curve->attach(ui->mainPlot);
-
     m_curve->setStyle(QwtPlotCurve::Steps);
+    m_curve->setCurveAttribute(QwtPlotCurve::Inverted);
 
     //m_curve->setStyle(QwtPlotCurve::Dots);
     //m_curve->setPen(Qt::red, 10.0);
