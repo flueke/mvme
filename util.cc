@@ -1,5 +1,6 @@
 #include <util.h>
 #include <QtDebug>
+#include <QTextStream>
 
 void debugOutputBuffer(u32 *dataBuffer, u32 bufferCount)
 {
