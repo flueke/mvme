@@ -265,8 +265,11 @@ void DataThread::dataTimerSlot()
             bool multiBuffer = (header1 >> 12) & 1;
             u16 numberOfEvents = header1 & 0xFFF;
 
-            //qDebug("header1: lastBuffer=%d, scalerBuffer=%d, continuousMode=%d, multiBuffer=%d, numberOfEvents=%u",
-            //        lastBuffer, scalerBuffer, continuousMode, multiBuffer, numberOfEvents);
+            if (lastBuffer || scalerBuffer || continuousMode || multiBuffer)
+            {
+                qDebug("header1: lastBuffer=%d, scalerBuffer=%d, continuousMode=%d, multiBuffer=%d, numberOfEvents=%u",
+                        lastBuffer, scalerBuffer, continuousMode, multiBuffer, numberOfEvents);
+            }
 
             if (buffer.headerOpt())
             {
@@ -286,8 +289,11 @@ void DataThread::dataTimerSlot()
                 u32 dataWordsInEvent = (eventLength / sizeof(u16));
                 u32 bytesAfterData  = eventLength % sizeof(u16);
 
-                //qDebug("eventHeader=%08x, stackId=%u, partialEvent=%d, eventLength=%u, dataWordsInEvent=%u, bytesAfterData=%u",
-                //        eventHeader, stackId, partialEvent, eventLength, dataWordsInEvent, bytesAfterData);
+                if (partialEvent || bytesAfterData)
+                {
+                    qDebug("eventHeader=%08x, stackId=%u, partialEvent=%d, eventLength=%u, dataWordsInEvent=%u, bytesAfterData=%u",
+                            eventHeader, stackId, partialEvent, eventLength, dataWordsInEvent, bytesAfterData);
+                }
 
                 for (u32 i=0; i<dataWordsInEvent; ++i)
                 {
