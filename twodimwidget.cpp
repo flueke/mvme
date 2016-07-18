@@ -56,9 +56,6 @@ TwoDimWidget::TwoDimWidget(mvme *context, Histogram *histo, QWidget *parent)
     m_curve->setStyle(QwtPlotCurve::Steps);
     m_curve->setCurveAttribute(QwtPlotCurve::Inverted);
 
-    //m_curve->setStyle(QwtPlotCurve::Dots);
-    //m_curve->setPen(Qt::red, 10.0);
-
     ui->mainPlot->setAxisScale( QwtPlot::xBottom, 0, m_pMyHist->m_resolution);
 
     ui->mainPlot->axisWidget(QwtPlot::yLeft)->setTitle("Counts");
@@ -174,8 +171,6 @@ void TwoDimWidget::setZoombase()
 
 void TwoDimWidget::zoomerZoomed(QRectF zoomRect)
 {
-    updateStatistics();
-
     if (m_plotZoomer->zoomRectIndex() == 0)
     {
         if (yAxisIsLog())
@@ -250,9 +245,11 @@ bool TwoDimWidget::yAxisIsLin()
 
 void TwoDimWidget::updateStatistics()
 {
-    m_pMyHist->calcStatistics(m_currentChannel,
-                              m_plotZoomer->getLowborder(),
-                              m_plotZoomer->getHiborder());
+    auto lowerBound = qFloor(ui->mainPlot->axisScaleDiv(QwtPlot::xBottom).lowerBound());
+    auto upperBound = qCeil(ui->mainPlot->axisScaleDiv(QwtPlot::xBottom).upperBound());
+    //qDebug() << __PRETTY_FUNCTION__ << lowerBound << upperBound;
+
+    m_pMyHist->calcStatistics(m_currentChannel, lowerBound, upperBound);
 
     QString str;
     str.sprintf("%2.2f", m_pMyHist->m_mean[m_currentChannel]);

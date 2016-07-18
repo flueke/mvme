@@ -1,0 +1,8 @@
+# transfer up to 65472 words using BLT
+0x40000d0b
+0x000003ff
+0x12340000
+# write to register 0x6034 (readout reset)
+0x00000009
+0x12346035
+0x00000001
