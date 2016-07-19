@@ -22,6 +22,8 @@
 #include <iostream>
 #include <QVector>
 
+class VMECommandList;
+
 /*!
    The best way to use the VM-USB involves building lists of VME
    operations, called \em stacks.  These stacks can either be submitted
@@ -54,6 +56,7 @@ public:
   CVMUSBReadoutList();
   CVMUSBReadoutList(std::vector<uint32_t>& list);
   CVMUSBReadoutList(const QVector<uint32_t> &list);
+  CVMUSBReadoutList(const VMECommandList &commands);
   CVMUSBReadoutList(const CVMUSBReadoutList& rhs);
 
   virtual ~CVMUSBReadoutList();
@@ -125,7 +128,6 @@ public:
   //
   virtual void addBlockRead32(uint32_t baseAddress, uint8_t amod, size_t transfers);
   virtual void addFifoRead32(uint32_t  baseAddress, uint8_t amod, size_t transfers);
-  virtual void addFifoRead16(uint32_t baseAddress, uint8_t amod, size_t transfers);
   virtual void addBlockWrite32(uint32_t baseAddresss, uint8_t amod, void* data, 
 		       size_t transfers);
 //  void addBlockRead32(int base, int amod, int transfers) { // SWIG
@@ -229,9 +231,7 @@ public:
 
 private:
   uint32_t dataStrobes(uint32_t address);
-  void     addBlockRead(uint32_t base, size_t transfers,
-			uint32_t startingMode,
-			size_t   width = sizeof(uint32_t));
+  void     addBlockRead(uint32_t base, size_t transfers, uint32_t startingMode);
   void     lastTransferIsNumberData(uint32_t mask);
 
  public:

@@ -47,20 +47,20 @@ bool vmUsb::openUsbDevice(void)
     else
         return false;
 */
-    if (numDevices <= 0) {
-      return false;
+    if (numDevices <= 0)
+    {
+        getUsbDevices();
+    }
+
+    if (numDevices <= 0)
+    {
+        throw std::runtime_error("No VM_USB devices found");
     }
 
 
     hUsbDevice = xxusb_device_open(pUsbDevice[0].usbdev);
-    if(hUsbDevice != NULL){
-        qDebug("success");
-        return true;
-    }
-    else{
-        qDebug("fail");
-        return false;
-    }
+
+    return hUsbDevice;
 }
 
 
@@ -191,61 +191,6 @@ void vmUsb::closeUsbDevice(void)
 
 
 /*!
-    \fn vmUsb::checkUsbDevices(void)
- */
-void vmUsb::checkUsbDevices(void)
-{
-//	numDevices = xxusb_devices_find(pUsbDevice);
-    short DevFound = 0;
-    xxusb_device_type *xxdev;
-    usb_dev_handle *udev;
-    struct usb_bus *bus;
-    struct usb_device *dev;
-    struct usb_bus *usb_busses_;
-    char string[256];
-    short ret;
-    usb_init();
-    usb_find_busses();
-    usb_find_devices();
-    usb_busses_=usb_get_busses();
-    for (bus=usb_busses_; bus; bus = bus->next)
-    {
-        qDebug("bus");
-        for (dev = bus->devices; dev; dev= dev->next)
-         {
-             qDebug("device: %x", dev->descriptor.idVendor);
-             if(1)
-//             if (dev->descriptor.idVendor==XXUSB_WIENER_VENDOR_ID)
-//             if (dev->descriptor.idVendor==0x058f)
-             {
-                 udev = usb_open(dev);
-                 if (udev)
-                 {
-                    for(uint n = 0; n < 16; n++){
-//                        qDebug("device %x successfully opened: %d", dev->descriptor.idVendor,dev->descriptor.iSerialNumber);
-//                        ret = usb_get_string_simple(udev, dev->descriptor.iSerialNumber, string, sizeof(string));
-                        strcpy(string, "");
-                        ret = usb_get_string_simple(udev, n, string, sizeof(string));
-                        qDebug("device %x (%d) %d: %d %s", dev->descriptor.idVendor, dev->descriptor.iSerialNumber, n, ret, string);
-                        if (ret > 0)
-                        {
- //                            xxdev[DevFound].usbdev=dev;
-  //                         strcpy(xxdev[DevFound].SerialString, string);
-//                             qDebug("device string: %s ",string);
-                             DevFound++;
-                        }
-                    }
-                    usb_close(udev);
-                }
-                else
-                     qDebug("device %x not opened", dev->descriptor.idVendor);
-            }
-        }
-    }
-   qDebug("devices found: %d",DevFound);
-}
-
-/*!
     \fn vmUsb::getUsbDevices(void)
  */
 
@@ -269,12 +214,13 @@ void vmUsb::checkUsbDevices(void)
     {
         for (dev = bus->devices; dev; dev= dev->next)
         {
-            qDebug("descriptor: %d %d",dev->descriptor.idVendor, XXUSB_WIENER_VENDOR_ID);
+            //qDebug("descriptor: %d %d",dev->descriptor.idVendor, XXUSB_WIENER_VENDOR_ID);
+
             if (dev->descriptor.idVendor==XXUSB_WIENER_VENDOR_ID)
             {
                 qDebug("found wiener device");
                 udev = usb_open(dev);
-                qDebug("result of open: %d", udev);
+                //qDebug("result of open: %d", udev);
                 if (udev)
                 {
                     qDebug("opened wiener device");
@@ -551,6 +497,10 @@ static int irq_vector_register_address(int vec)
 int vmUsb::setIrq(int vec, uint16_t val)
 {
     int regAddress = irq_vector_register_address(vec);
+
+    if (regAddress < 0)
+        throw std::runtime_error("setIrq: invalid vector number given");
+
     long regValue = 0;
 
     if (regAddress >= 0 && VME_register_read(hUsbDevice, regAddress, &regValue))
@@ -628,11 +578,15 @@ int vmUsb::setUsbSettings(int val)
 }
 
 
+short vmUsb::vmeWrite16(long addr, long data)
+{
+    return vmeWrite16(addr, data, VME_AM_A32_USER_PROG);
+}
 
 /*!
     \fn vmUsb::vmeWrite16(short am, long addr, long data)
  */
-short vmUsb::vmeWrite16(long addr, long data)
+short vmUsb::vmeWrite16(long addr, long data, uint8_t amod)
 {
   long intbuf[1000];
   short ret;
@@ -641,7 +595,7 @@ short vmUsb::vmeWrite16(long addr, long data)
 //	swap16(&data);
   intbuf[0]=7;
   intbuf[1]=0;
-  intbuf[2]=VME_AM_A32_USER_PROG;
+  intbuf[2]=amod;
   intbuf[3]=0x0; //  0x1; // little endianess -> PC
   if(bigendian)
     intbuf[3] |= 0x1;
@@ -664,7 +618,13 @@ short vmUsb::vmeWrite16(long addr, long data)
 /*!
     \fn vmUsb::vmeWrite32(short am, long addr, long data)
  */
+
 short vmUsb::vmeWrite32(long addr, long data)
+{
+    return vmeWrite32(addr, data, VME_AM_A32_USER_PROG);
+}
+
+short vmUsb::vmeWrite32(long addr, long data, uint8_t amod)
 {
   long intbuf[1000];
   short ret;
@@ -672,7 +632,7 @@ short vmUsb::vmeWrite32(long addr, long data)
 //	swap32(&data);
   intbuf[0]=7;
   intbuf[1]=0;
-  intbuf[2]=VME_AM_A32_USER_PROG;
+  intbuf[2]=amod;
   intbuf[3]=0; // | 0x1; // little endianess -> PC
   if(bigendian)
     intbuf[3] |= 0x1;
@@ -1304,4 +1264,48 @@ vmUsb::stackExecute(const QVector<u32> &stackData, size_t resultMaxWords)
     int status = listExecute(&stackList, ret.data(), ret.size() * sizeof(u32), &bytesRead);
     ret.resize(bytesRead / sizeof(u32));
     return ret;
+}
+
+size_t vmUsb::executeCommands(VMECommandList *commands, void *readBuffer,
+        size_t readBufferSize)
+{
+    CVMUSBReadoutList vmusbList(*commands);
+    size_t bytesRead = 0;
+
+    int result = listExecute(&vmusbList, readBuffer, readBufferSize, &bytesRead);
+
+    if (result < 0)
+        throw VMUSB_UsbError(result);
+
+    return bytesRead;
+}
+
+void vmUsb::write32(uint32_t address, uint8_t amod, uint32_t value)
+{
+    vmeWrite32(address, value, amod);
+}
+
+void vmUsb::write16(uint32_t address, uint8_t amod, uint16_t value)
+{
+    vmeWrite16(address, value, amod);
+}
+
+uint32_t vmUsb::read32(uint32_t address, uint8_t amod)
+{
+    throw "Not implemented";
+}
+
+uint16_t vmUsb::read16(uint32_t address, uint8_t amod)
+{
+    throw "Not implemented";
+}
+
+void vmUsb::enterDaqMode()
+{
+    usbRegisterWrite(1, 1);
+}
+
+void vmUsb::leaveDaqMode()
+{
+    usbRegisterWrite(1, 0);
 }

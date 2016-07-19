@@ -14,8 +14,11 @@
 	     East Lansing, MI 48824-1321
 */
 
+/* TODO(flueke): make a simpler version of the block reads and let the vmusb
+ * handle the special cases internally!!! */
+
 #include "CVMUSBReadoutList.h"
-//#include "CVMUSB.h"		//  I think this is ok.
+#include "vmecommandlist.h"
 #include <iostream>
 using namespace std;
 
@@ -95,6 +98,68 @@ CVMUSBReadoutList::CVMUSBReadoutList(vector<uint32_t>& list) :
 CVMUSBReadoutList::CVMUSBReadoutList(const QVector<uint32_t> &list)
     : m_list(list.toStdVector())
 {
+}
+
+CVMUSBReadoutList::CVMUSBReadoutList(const VMECommandList &commands)
+{
+    for (auto cmd: commands.commands)
+    {
+        switch (cmd.type)
+        {
+            case VMECommand::Write32:
+                {
+                    addWrite32(cmd.address, cmd.amod, cmd.value);
+                } break;
+            case VMECommand::Write16:
+                {
+                    addWrite16(cmd.address, cmd.amod, cmd.value);
+                } break;
+            case VMECommand::Read32:
+                {
+                    addRead32(cmd.address, cmd.amod);
+                } break;
+            case VMECommand::Read16:
+                {
+                    addRead16(cmd.address, cmd.amod);
+                } break;
+            case VMECommand::BlockRead32:
+                {
+                    addBlockRead32(cmd.address, cmd.amod, cmd.transfers);
+                } break;
+            case VMECommand::FifoRead32:
+                {
+                    addFifoRead32(cmd.address, cmd.amod, cmd.transfers);
+                } break;
+            case VMECommand::BlockCountRead16:
+                {
+                    addBlockCountRead16(cmd.address, cmd.blockCountMask, cmd.amod);
+                } break;
+            case VMECommand::BlockCountRead32:
+                {
+                    addBlockCountRead32(cmd.address, cmd.blockCountMask, cmd.amod);
+                } break;
+            case VMECommand::MaskedCountBlockRead32:
+                {
+                    addMaskedCountBlockRead32(cmd.address, cmd.amod);
+                } break;
+            case VMECommand::MaskedCountFifoRead32:
+                {
+                    addMaskedCountFifoRead32(cmd.address, cmd.amod);
+                } break;
+            case VMECommand::Delay:
+                {
+                    addDelay(cmd.delay200nsClocks);
+                } break;
+            case VMECommand::Marker:
+                {
+                    addMarker(cmd.value);
+                } break;
+            default:
+                {
+                    Q_ASSERT(!"Unhandled command type");
+                } break;
+        };
+    }
 }
 
 /*!
@@ -463,15 +528,7 @@ CVMUSBReadoutList::addFifoRead32(uint32_t address, uint8_t amod, size_t transfer
 	                                ((amod << modeAMShift) & modeAMMask) |
 	                                modeNW));
 }
-// 16 bit version:
 
-void
-CVMUSBReadoutList::addFifoRead16(uint32_t address, uint8_t amod, size_t transfers)
-{
-  addBlockRead(address,  transfers, static_cast<uint32_t>(modeNA | 
-	                                ((amod << modeAMShift) & modeAMMask) |
-							  modeNW), sizeof(uint16_t));
-}
 ///////////////////////////////////////////////////////////////////////////////////
 //
 // Private utility functions:
@@ -492,19 +549,48 @@ CVMUSBReadoutList::dataStrobes(uint32_t address)
   }
   return (dstrobes << modeDSShift);
 }
+
 // Add an block transfer.  This is common code for both addBlockRead32
-// and addFifoRead32.. The idea is that we get a starting mode word to work
+// and addFifoRead32. The idea is that we get a starting mode word to work
 // with, within that mode we will fill in things like the BLT field, and the
 // MB bit as needed.
 //
+// Note(flueke): This uses the "universal" form of block transfers with the MB
+// bit _not_ being set in the command header word. The VM_USB should handle
+// partial and unaligned transfers internally now.
 void
-CVMUSBReadoutList::addBlockRead(uint32_t base, size_t transfers, 
-				uint32_t startingMode,
-				size_t   width)
+CVMUSBReadoutList::addBlockRead(uint32_t base, size_t transfers, uint32_t startingMode)
 {
+    uint8_t amod = (startingMode >> modeAMShift) & modeAMMask;
 
-  bool notlong = width != sizeof(uint32_t); // need to set addrNotLong in addres
+    bool isMblt = (amod == a32UserBlock64 || amod == a32PrivBlock64);
+    uint8_t transferBits = transfers;
 
+    if (isMblt)
+    {
+        if (transfers == 256)
+        {
+            transferBits = 0; // for mblt transferBits=0 results in 256 transfers
+        }
+        else if (transfers > 256)
+        {
+            transferBits = 0xff;
+        }
+    }
+    else if (transfers > 254) // blt
+    {
+        transferBits = 0xff;
+    }
+
+    uint32_t mode = startingMode | (transferBits << modeBLTShift);
+    m_list.push_back(mode);
+    if (transferBits == 0xff)
+    {
+        m_list.push_back(static_cast<uint32_t>(transfers));
+    }
+    m_list.push_back(base);
+
+#if 0
   // There are several nasty edge cases cases to deal with.
   // If the base address is not block aligned, a partial transfer
   // of size min(remaining_blocksize, transfers) must first be dnoe.
@@ -556,7 +642,7 @@ CVMUSBReadoutList::addBlockRead(uint32_t base, size_t transfers,
     m_list.push_back(mode);
     m_list.push_back(base  | (notlong ? addrNotLong : 0));
   }
-
+#endif
 }
 
 /*!

@@ -637,7 +637,7 @@ usb_dev_handle*  xxusb_device_open(struct usb_device *dev)
     }
 
     // RESET USB (added 10/16/06 Andreas Ruben)
-    //ret = xxusb_register_write(udev, 10, 0x04);
+    ret = xxusb_register_write(udev, 10, 0x04);
 
     return udev;
 }

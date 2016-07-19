@@ -26,6 +26,8 @@
 #include <QPair>
 #include <QVector>
 
+#include "vmecontroller.h"
+
 class CVMUSBReadoutList;
 
 
@@ -34,7 +36,7 @@ represents vm_usb controller
 
   @author Gregor Montermann <g.montermann@mesytec.com>
 */
-class vmUsb : public QObject
+class vmUsb : public QObject, public VMEController
 {
     Q_OBJECT
     signals:
@@ -50,7 +52,9 @@ class vmUsb : public QObject
         bool openUsbDevice(void);
         void closeUsbDevice(void);
         void getUsbDevices(void);
-        void checkUsbDevices(void);
+
+        void enterDaqMode();
+        void leaveDaqMode();
 
         bool isInDaqMode() const { return m_daqMode; }
         int getFirmwareId();
@@ -81,8 +85,10 @@ class vmUsb : public QObject
         int setDggSettings(int val);
         int setUsbSettings(int val);
         short vmeWrite32(long addr, long data);
+        short vmeWrite32(long addr, long data, uint8_t amod);
         short vmeRead32(long addr, long* data);
         short vmeWrite16(long addr, long data);
+        short vmeWrite16(long addr, long data, uint8_t amod);
         short vmeRead16(long addr, long* data);
         int vmeBltRead32(long addr, int count, quint32* data);
         int vmeMbltRead32(long addr, int count, quint32* data);
@@ -107,20 +113,35 @@ class vmUsb : public QObject
         int listLoad(CVMUSBReadoutList *list, uint8_t stackID, size_t stackMemoryOffset, int timeout_ms = 1000);
 
         int stackWrite(u8 stackNumber, u32 loadOffset, const QVector<u32> &stackData);
+        // returns the stack words and the stack load offset
         QPair<QVector<u32>, u32> stackRead(u8 stackNumber);
         QVector<u32> stackExecute(const QVector<u32> &stackData, size_t resultMaxWords=1024);
+
+        /* Executes the commands in commandList and reads the response into readBuffer.
+         * Returns the number of bytes read. Throws on error. */
+        virtual size_t executeCommands(VMECommandList *commands, void *readBuffer,
+                size_t readBufferSize);
 
 
         /* Writes the given writePacket to the VM_USB and reads the response back into readPacket. */
         int transaction(void* writePacket, size_t writeSize,
                 void* readPacket,  size_t readSize, int timeout_ms = 1000);
 
-        int bulk_read(void *outBuffer, size_t outBufferSize, int timeout_ms = 100);
+        int bulk_read(void *outBuffer, size_t outBufferSize, int timeout_ms = 1000);
 
         xxusb_device_type pUsbDevice[5];
-        char numDevices;
+        char numDevices = 0;
         usb_dev_handle* hUsbDevice;
         short ret;
+
+        //
+        // VMEController interface
+        //
+        virtual void write32(uint32_t address, uint8_t amod, uint32_t value);
+        virtual void write16(uint32_t address, uint8_t amod, uint16_t value);
+
+        virtual uint32_t read32(uint32_t address, uint8_t amod);
+        virtual uint16_t read16(uint32_t address, uint8_t amod);
 
     protected:
         int firmwareId;
@@ -203,6 +224,12 @@ static const uint32_t timeoutMask            = 0xf00;
 static const uint32_t timeoutShift           = 8;
 };
 
+namespace ISVWord // half of a ISV register
+{
+static const uint32_t stackIDShift  = 12;
+static const uint32_t irqLevelShift = 8;
+};
+
 uint16_t*
 listToOutPacket(uint16_t ta, CVMUSBReadoutList* list,
                         size_t* outSize, off_t offset = 0);
@@ -273,6 +300,17 @@ struct VMUSB_Buffer
 
         return bytesLeft / sizeof(u16);
     }
+};
+
+class VMUSB_UsbError: public std::runtime_error
+{
+    public:
+        VMUSB_UsbError(int usb_result)
+            : std::runtime_error("VMUSB USB Error")
+            , usb_result(usb_result)
+    {}
+
+    int usb_result;
 };
 
 #endif

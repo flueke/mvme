@@ -2,67 +2,27 @@
 #define UUID_2e093e44_6f56_4619_8368_5b337f808db3
 
 #include "util.h"
+#include "vmecontroller.h"
+#include "vmecommandlist.h"
 #include <QMap>
 #include <QVector>
+#include <QString>
+#include <QThread>
+#include <QDebug>
 
-struct VMECommand
+struct MVMEContext
 {
-    enum Type
-    {
-        NotSet,
-        Write32,
-        Write16,
-        Read32,
-        Read16,
-        BlockRead32,
-        FifoRead32,
-        BlockCountRead16,
-        BlockCountRead32,
-        MaskedCountBlockRead32,
-        MaskedCountFifoRead32,
-        Delay,
-        Marker,
-    };
-
-    uint32_t address;
-    uint32_t value;
-    uint8_t  amod;
-    size_t transfers;
 };
 
-class VMECommandList
+enum class VMEModuleTypes
 {
-    public:
-        void addWrite32(uint32_t address, uint8_t amod, uint32_t value);
-        void addWrite16(uint32_t address, uint8_t amod, uint16_t value);
-
-        void addRead32(uint32_t address, uint8_t amod);
-        void addRead16(uint32_t address, uint8_t amod);
-
-        void addBlockRead32(uint32_t baseAddress, uint8_t amod, size_t transfers);
-        void addFifoRead32(uint32_t  baseAddress, uint8_t amod, size_t transfers);
-
-        void addBlockCountRead16(uint32_t address, uint32_t mask, uint8_t amod);
-        void addBlockCountRead32(uint32_t address, uint32_t mask, uint8_t amod);
-
-        void addMaskedCountBlockRead32(uint32_t address, uint8_t amod);
-        void addMaskedCountFifoRead32(uint32_t address, uint8_t amod);
-
-        void addDelay(uint8_t _200nsClocks);
-        void addMarker(uint16_t value);
-
-        QVector<VMECommand> commands;
-};
-
-class VMEController
-{
-    public:
-        virtual ~VMEController();
-        virtual void write32(uint32_t address, uint8_t amod, uint32_t value) = 0;
-        virtual void write16(uint32_t address, uint8_t amod, uint16_t value) = 0;
-
-        virtual uint32_t read32(uint32_t address, uint8_t amod) = 0;
-        virtual uint16_t read16(uint32_t address, uint8_t amod) = 0;
+    Unknown = 0,
+    MADC = 1,
+    MQDC = 2,
+    MTDC = 3,
+    MDPP16 = 4,
+    MDPP32 = 5,
+    MDI2 = 6
 };
 
 class VMEModule
@@ -72,8 +32,8 @@ class VMEModule
         virtual void resetModule(VMEController *controller) = 0;
         virtual void addInitCommands(VMECommandList *cmdList) = 0;
         virtual void addReadoutCommands(VMECommandList *cmdList) = 0;
-        virtual void addStartDAQCommands(VMECommandList *cmdList) = 0;
-        virtual void addStopDAQCommands(VMECommandList *cmdList) = 0;
+        virtual void addStartDaqCommands(VMECommandList *cmdList) = 0;
+        virtual void addStopDaqCommands(VMECommandList *cmdList) = 0;
 };
 
 class HardwareModule: public VMEModule
@@ -93,13 +53,59 @@ class MesytecModule: public HardwareModule
         static const uint8_t bltAMod = 0x0b;
         static const uint8_t mbltAMod = 0x08;
 
-        MesytecModule(u32 baseAddress = 0, uint8_t moduleID = 0xff);
+        MesytecModule(uint32_t baseAddress = 0, uint8_t moduleID = 0xff)
+            : HardwareModule(baseAddress)
+        {
+            registerData[0x6004] = moduleID;
+        }
 
-        virtual void resetModule(VMEController *controller) {}
-        virtual void addInitCommands(VMECommandList *cmdList) {}
-        virtual void addReadoutCommands(VMECommandList *cmdList) {}
-        virtual void addStartDAQCommands(VMECommandList *cmdList) {}
-        virtual void addStopDAQCommands(VMECommandList *cmdList) {}
+        virtual void resetModule(VMEController *controller)
+        {
+            writeRegister(controller, 0x6008, 1);
+            QThread::sleep(1);
+        }
+
+        virtual void addInitCommands(VMECommandList *cmdList)
+        {
+            for (uint16_t address: registerData.keys())
+            {
+                cmdList->addWrite16(baseAddress + address, registerAMod, registerData[address]);
+            }
+        }
+
+        virtual void addReadoutCommands(VMECommandList *cmdList)
+        {
+            // TODO, FIXME: number of transfers?!
+            cmdList->addFifoRead32(baseAddress, bltAMod, 128);
+            cmdList->addWrite16(baseAddress + 0x6034, registerAMod, 1); // readout reset
+        }
+
+        virtual void addStartDaqCommands(VMECommandList *cmdList)
+        {
+            cmdList->addWrite16(baseAddress + 0x603c, registerAMod, 1); // FIFO reset
+            cmdList->addWrite16(baseAddress + 0x6034, registerAMod, 1); // readout reset
+            cmdList->addWrite16(baseAddress + 0x603a, registerAMod, 1); // start acq
+        }
+
+        virtual void addStopDaqCommands(VMECommandList *cmdList)
+        {
+            cmdList->addWrite16(baseAddress + 0x603a, registerAMod, 0); // stop acq
+        }
+
+        void writeRegister(VMEController *controller, uint16_t address, uint16_t value)
+        {
+            controller->write16(baseAddress + address, registerAMod, value);
+        }
+
+        void setIrqLevel(uint8_t irqLevel)
+        {
+            registerData[0x6010] = irqLevel;
+        }
+
+        void setIrqVector(uint8_t irqVector)
+        {
+            registerData[0x6012] = irqVector;
+        }
 
         QMap<uint16_t, uint16_t> registerData;
 };
@@ -113,20 +119,23 @@ class MesytecChain: public VMEModule
         uint8_t mcst_address;
 };
 
-class Stack: public VMEModule
-{
-    public:
-        QVector<VMEModule *> members;
-};
-
 class MDPP16: public MesytecModule
 {
+    public:
+        MDPP16(uint32_t baseAddress = 0, uint8_t moduleID = 0xff)
+            : MesytecModule(baseAddress, moduleID)
+        {}
 };
 
 class MADC32: public MesytecModule
 {
+    public:
+        MADC32(uint32_t baseAddress = 0, uint8_t moduleID = 0xff)
+            : MesytecModule(baseAddress, moduleID)
+        {}
 };
 
+#if 0
 class MQDC32: public MesytecModule
 {
 };
@@ -134,11 +143,12 @@ class MQDC32: public MesytecModule
 class MTDC32: public MesytecModule
 {
 };
+#endif
 
+#if 0
 void foo()
 {
 
-#if 1
     auto mdpp16 = new MDPP16(0x0);
     mdpp16->setRegister(0x6030, 1);
     mdpp16->loadInitList("mdpp16.init");
@@ -186,7 +196,7 @@ void foo()
         controller->daqRead();
     }
     controller->stopDaq();
-#endif
-}
 
+}
+#endif
 #endif

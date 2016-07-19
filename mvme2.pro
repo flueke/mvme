@@ -34,7 +34,9 @@ SOURCES += main.cpp\
     CVMUSBReadoutList.cpp \
     channelspectro.cpp \
     libxxusb.cc \
-    util.cc
+    util.cc \
+    vmemodule.cc \
+    vmusb_stack.cc \
 
 HEADERS  += \
     mvmecontrol.h \
@@ -55,7 +57,9 @@ HEADERS  += \
     CVMUSBReadoutList.h \
     channelspectro.h \
     util.h \
-    vme.h
+    vme.h \
+    vmemodule.h \
+    vmusb_stack.h \
 
 FORMS    += \
     mvmecontrol.ui \

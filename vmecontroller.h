@@ -1,18 +1,22 @@
 #ifndef VMECONTROLLER_H
 #define VMECONTROLLER_H
 
-#include <QObject>
+#include <cstdint>
+#include <cstddef>
 
-class VmeController : public QObject
+class VMECommandList;
+
+class VMEController
 {
-    Q_OBJECT
-public:
-    explicit VmeController(QObject *parent = 0);
-    
-signals:
-    
-public slots:
-    
+    public:
+        virtual ~VMEController() {}
+        virtual void write32(uint32_t address, uint8_t amod, uint32_t value) = 0;
+        virtual void write16(uint32_t address, uint8_t amod, uint16_t value) = 0;
+
+        virtual uint32_t read32(uint32_t address, uint8_t amod) = 0;
+        virtual uint16_t read16(uint32_t address, uint8_t amod) = 0;
+
+        virtual size_t executeCommands(VMECommandList *commands, void *readBuffer, size_t readBufferSize) = 0;
 };
 
 #endif // VMECONTROLLER_H
