@@ -67,7 +67,7 @@ mvme::mvme(QWidget *parent) :
     }
 
     // clear the action register (makes sure daq mode is disabled)
-    vu->usbRegisterWrite(1, 0);
+    vu->writeActionRegister(0);
 
     mctrl = new mvmeControl(this);
     mctrl->show();

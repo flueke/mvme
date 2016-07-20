@@ -344,7 +344,7 @@ void DataThread::startReading(quint16 readTimerPeriod)
 
     if (!m_inputFile && m_daqMode)
     {
-        myVu->usbRegisterWrite(1, 1);
+        myVu->writeActionRegister(1);
     }
 
 #if ENABLE_DEBUG_TEXT_LISTFILE
@@ -381,9 +381,9 @@ void DataThread::stopReading()
     {
         if (m_daqMode)
         {
-            int result = myVu->usbRegisterWrite(1, 0);
-            qDebug("disable daq mode result: %d", result);
+            myVu->writeActionRegister(0);
 
+            int result;
             do {
                 // FIXME: this data is valid and needs to be processed. also a
                 // check for 'last buffer' bit should be done

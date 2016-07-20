@@ -99,7 +99,9 @@ class vmUsb : public QObject, public VMEController
         int stackExecute(long* data);
         int readBuffer(unsigned short* data);
         int readLongBuffer(int* data);
-        int usbRegisterWrite(int addr, int value);
+
+        void writeActionRegister(uint16_t value);
+
         void initialize();
         int setScalerTiming(unsigned int frequency, unsigned char period, unsigned char delay);
         void setEndianess(bool big);
@@ -160,6 +162,11 @@ class vmUsb : public QObject, public VMEController
         long int retval;
         bool bigendian;
         bool m_daqMode = false;
+
+        // timeout used for all operations except daq mode bulk transfers
+        // TODO: use these everywhere
+        size_t defaultTimeout_ms = 100;
+        size_t bulkTimeout_ms = 100;
 };
 
 // Constants:
@@ -307,6 +314,11 @@ class VMUSB_UsbError: public std::runtime_error
     public:
         VMUSB_UsbError(int usb_result)
             : std::runtime_error("VMUSB USB Error")
+            , usb_result(usb_result)
+    {}
+
+        VMUSB_UsbError(int usb_result, const char *message)
+            : std::runtime_error(message)
             , usb_result(usb_result)
     {}
 

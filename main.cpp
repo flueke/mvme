@@ -1,3 +1,33 @@
+/* TODOs and NOTES:
+ *
+ * To make this work asap:
+ * make a context object holding
+ * - vme controller
+ * - modules
+ * - chains
+ * - stacks
+ *
+ * create guis to be able to
+ * - add new modules and configure them
+ * - create new stacks and add modules/chains to them
+ * - create new chains and add modules to them
+ * - module reset
+ * - module init
+ * - module start daq
+ * - module stop daq
+ * - module readout code
+ * - remove modules, stacks, chains!
+ *
+ * daq gui:
+ * - start / stop daq
+ * - init only
+ * - run for n cycles then stop
+ *
+ * raw data explorer
+ * - parse controller headers and display info
+ * - show module info
+ * - display data as longwords
+ */
 #include <QApplication>
 #include "mvme.h"
 #include "util.h"
@@ -6,6 +36,7 @@
 
 #include "vmemodule.h"
 #include "vmusb_stack.h"
+
 
 void bulk_read(vmUsb *vmusb)
 {
@@ -27,11 +58,12 @@ int main(int argc, char *argv[])
     qDebug() << "librariesPaths = " << QLibraryInfo::location(QLibraryInfo::LibrariesPath);
     qDebug() << "pluginsPaths = " << QLibraryInfo::location(QLibraryInfo::PluginsPath);
 
-#if 0
+#if 1
     mvme w;
     w.show();
-#endif
 
+    return a.exec();
+#else
     auto mdpp16 = new MDPP16(0x00000000, 0x01);
     mdpp16->setIrqLevel(1);
     mdpp16->setIrqVector(0);
@@ -106,10 +138,11 @@ int main(int argc, char *argv[])
 
     qDebug() << "stopDaq";
     vmusb->leaveDaqMode();
+    qDebug() << "drain vmusb";
     bulk_read(vmusb);
 
     vmusb->executeCommands(&stopDaqCommands, readBuffer, sizeof(readBuffer));
 
     return 0;
-    //return a.exec();
+#endif
 }

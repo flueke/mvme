@@ -28,19 +28,29 @@ enum class VMEModuleTypes
 class VMEModule
 {
     public:
+        VMEModule(const QString &name = QString())
+            : m_name(name)
+        { }
         virtual ~VMEModule() {}
         virtual void resetModule(VMEController *controller) = 0;
         virtual void addInitCommands(VMECommandList *cmdList) = 0;
         virtual void addReadoutCommands(VMECommandList *cmdList) = 0;
         virtual void addStartDaqCommands(VMECommandList *cmdList) = 0;
         virtual void addStopDaqCommands(VMECommandList *cmdList) = 0;
+
+        QString getName() const { return m_name; }
+        QString setName(const QString &name) { m_name = name; }
+
+    private:
+        QString m_name;
 };
 
 class HardwareModule: public VMEModule
 {
     public:
-        HardwareModule(uint32_t baseAddress = 0)
-            : baseAddress(baseAddress)
+        HardwareModule(uint32_t baseAddress = 0, const QString &name = QString())
+            : VMEModule(name)
+            , baseAddress(baseAddress)
         {}
 
         uint32_t baseAddress = 0;
@@ -53,8 +63,8 @@ class MesytecModule: public HardwareModule
         static const uint8_t bltAMod = 0x0b;
         static const uint8_t mbltAMod = 0x08;
 
-        MesytecModule(uint32_t baseAddress = 0, uint8_t moduleID = 0xff)
-            : HardwareModule(baseAddress)
+        MesytecModule(uint32_t baseAddress = 0, uint8_t moduleID = 0xff, const QString &name = QString())
+            : HardwareModule(baseAddress, name)
         {
             registerData[0x6004] = moduleID;
         }
@@ -75,7 +85,7 @@ class MesytecModule: public HardwareModule
 
         virtual void addReadoutCommands(VMECommandList *cmdList)
         {
-            // TODO, FIXME: number of transfers?!
+            // TODO, FIXME: number of transfers?! depends on multi event mode
             cmdList->addFifoRead32(baseAddress, bltAMod, 128);
             cmdList->addWrite16(baseAddress + 0x6034, registerAMod, 1); // readout reset
         }
@@ -95,6 +105,11 @@ class MesytecModule: public HardwareModule
         void writeRegister(VMEController *controller, uint16_t address, uint16_t value)
         {
             controller->write16(baseAddress + address, registerAMod, value);
+        }
+
+        void readRegister(VMEController *controller, uint16_t address)
+        {
+            controller->read16(baseAddress + address, registerAMod)
         }
 
         void setIrqLevel(uint8_t irqLevel)

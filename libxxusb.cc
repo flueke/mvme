@@ -265,23 +265,24 @@ short  xxusb_register_write(usb_dev_handle *hDev, short RegAddr, long RegData)
     int lDataLen;
     int timeout;
     if ((RegAddr==0) || (RegAddr==12) || (RegAddr==15))
-  return 0;
+        return 0;
     buf[2]=(char)(RegAddr & 15);
     buf[4]=(char)(RegData & 255);
 
     RegD = RegData >> 8;
     buf[5]=(char)(RegD & 255);
-  RegD = RegD >>8;
-  if (RegAddr==8)
-  {
-    buf[6]=(char)(RegD & 255);
-    lDataLen=8;
-  }
-  else
-    lDataLen=6;
-  timeout=100;
-  ret=xxusb_bulk_write(hDev, buf, lDataLen, timeout);
-  return ret;
+    RegD = RegD >>8;
+    if (RegAddr==8)
+    {
+        buf[6]=(char)(RegD & 255);
+        lDataLen=8;
+    }
+    else
+        lDataLen=6;
+    timeout=100;
+
+    ret=xxusb_bulk_write(hDev, buf, lDataLen, timeout);
+    return ret;
 }
 
 /*
@@ -466,33 +467,35 @@ short  xxusb_stack_read(usb_dev_handle *hDev, short StackAddr, long *intbuf)
 */
 short  xxusb_register_read(usb_dev_handle *hDev, short RegAddr, long *RegData)
 {
-//long RegD;
-int timeout;
-  char buf[4]={1,0,0,0};
-  int ret;
-  int lDataLen;
+    //long RegD;
+    int timeout;
+    char buf[]={1,0,0,0,0,0,0,0};
+    int ret;
+    int lDataLen;
 
-  buf[2]=(char)(RegAddr & 15);
-  timeout=100;
-  lDataLen=4;
-  ret=xxusb_bulk_write(hDev, buf, lDataLen, timeout);
-  if (ret < 0)
-    return (short)ret;
-  else
-  {
-      lDataLen=8;
-      timeout=100;
-      ret=xxusb_bulk_read(hDev, buf, lDataLen, timeout);
-      if (ret<0)
+    buf[2]=(char)(RegAddr & 15);
+    timeout=100;
+    lDataLen=4;
+    ret=xxusb_bulk_write(hDev, buf, lDataLen, timeout);
+    if (ret < 0)
         return (short)ret;
-      else
+    else
+    {
+        lDataLen=8;
+        timeout=100;
+        ret=xxusb_bulk_read(hDev, buf, lDataLen, timeout);
+        if (ret<0)
+            return (short)ret;
+        else
         {
-    *RegData=(UCHAR)(buf[0])+256*(UCHAR)(buf[1]);
-    if (ret==4)
-     *RegData=*RegData+0x10000*(UCHAR)(buf[2]);
-    return (short)ret;
+            *RegData=(UCHAR)(buf[0])+256*(UCHAR)(buf[1]);
+            if (ret==4)
+                *RegData=*RegData+0x10000*(UCHAR)(buf[2]);
+            return (short)ret;
+        }
     }
-  }
+
+    return 0;
 }
 
 

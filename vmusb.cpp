@@ -20,6 +20,41 @@
 #include "vmusb.h"
 #include "CVMUSBReadoutList.h"
 #include "vme.h"
+#include <QDebug>
+
+////////////////////////////////////////////////////////////////////////
+/*
+   Build up a packet by adding a 16 bit word to it;
+   the datum is packed low endianly into the packet.
+
+*/
+static void* addToPacket16(void* packet, uint16_t datum)
+{
+    uint8_t* pPacket = static_cast<uint8_t*>(packet);
+
+    *pPacket++ = (datum  & 0xff); // Low byte first...
+    *pPacket++ = (datum >> 8) & 0xff; // then high byte.
+
+    return static_cast<void*>(pPacket);
+}
+
+/////////////////////////////////////////////////////////////////////////
+/*
+  Build up a packet by adding a 32 bit datum to it.
+  The datum is added low-endianly to the packet.
+*/
+static void* addToPacket32(void* packet, uint32_t datum)
+{
+    uint8_t* pPacket = static_cast<uint8_t*>(packet);
+
+    *pPacket++    = (datum & 0xff);
+    *pPacket++    = (datum >> 8) & 0xff;
+    *pPacket++    = (datum >> 16) & 0xff;
+    *pPacket++    = (datum >> 24) & 0xff;
+
+    return static_cast<void*>(pPacket);
+}
+
 
 vmUsb::vmUsb()
 {
@@ -912,27 +947,37 @@ int vmUsb::readLongBuffer(int* data)
   return xxusb_bulk_read(hUsbDevice, data, 1200, 100);
 }
 
-/*!
-    \fn vmUsb::usbRegisterWrite(int addr, int value)
- */
-int vmUsb::usbRegisterWrite(int addr, int value)
+void vmUsb::writeActionRegister(uint16_t value)
 {
+    char outPacket[100];
 
-  int ret = xxusb_register_write(hUsbDevice, addr, value);
+    // Build up the output packet:
 
-  if (ret > 0 && addr == 1)
-  {
-      m_daqMode = (value & 0x1);
+    char* pOut = outPacket;
 
-      if (m_daqMode)
-          emit daqModeEntered();
-      else
-          emit daqModeLeft();
+    pOut = static_cast<char*>(addToPacket16(pOut, 5)); // Select Register block for transfer.
+    pOut = static_cast<char*>(addToPacket16(pOut, 10)); // Select action register wthin block.
+    pOut = static_cast<char*>(addToPacket16(pOut, value));
 
-      emit daqModeChanged(m_daqMode);
-  }
+    // This operation is write only.
 
-  return ret;
+    int outSize = pOut - outPacket;
+    int status = usb_bulk_write(hUsbDevice, ENDPOINT_OUT, outPacket, outSize, defaultTimeout_ms);
+
+    if (status < 0)
+        throw VMUSB_UsbError(status, "Error writing action register");
+
+    if (status != outSize)
+        throw std::runtime_error("usb_bulk_write wrote different size than expected");
+
+    m_daqMode = (value & 0x1);
+
+    if (m_daqMode)
+        emit daqModeEntered();
+    else
+        emit daqModeLeft();
+
+    emit daqModeChanged(m_daqMode);
 }
 
 /*!
@@ -958,7 +1003,7 @@ void vmUsb::initialize()
   VME_register_write(hUsbDevice, 0x8, 0xFF00);
 
   // switch off acquisition
-  usbRegisterWrite(1, 0);
+  writeActionRegister(0);
 }
 
 
@@ -992,39 +1037,6 @@ void vmUsb::setEndianess(bool big)
   else
     qDebug("Little Endian");
 
-}
-
-////////////////////////////////////////////////////////////////////////
-/*
-   Build up a packet by adding a 16 bit word to it;
-   the datum is packed low endianly into the packet.
-
-*/
-void* addToPacket16(void* packet, uint16_t datum)
-{
-    uint8_t* pPacket = static_cast<uint8_t*>(packet);
-
-    *pPacket++ = (datum  & 0xff); // Low byte first...
-    *pPacket++ = (datum >> 8) & 0xff; // then high byte.
-
-    return static_cast<void*>(pPacket);
-}
-
-/////////////////////////////////////////////////////////////////////////
-/*
-  Build up a packet by adding a 32 bit datum to it.
-  The datum is added low-endianly to the packet.
-*/
-void* addToPacket32(void* packet, uint32_t datum)
-{
-    uint8_t* pPacket = static_cast<uint8_t*>(packet);
-
-    *pPacket++    = (datum & 0xff);
-    *pPacket++    = (datum >> 8) & 0xff;
-    *pPacket++    = (datum >> 16) & 0xff;
-    *pPacket++    = (datum >> 24) & 0xff;
-
-    return static_cast<void*>(pPacket);
 }
 
 //  Utility to create a stack from a transfer address word and
@@ -1274,38 +1286,49 @@ size_t vmUsb::executeCommands(VMECommandList *commands, void *readBuffer,
 
     int result = listExecute(&vmusbList, readBuffer, readBufferSize, &bytesRead);
 
+    // TODO: move this into listExecute
     if (result < 0)
-        throw VMUSB_UsbError(result);
+        throw VMUSB_UsbError(result, "execute Commands");
 
     return bytesRead;
 }
 
 void vmUsb::write32(uint32_t address, uint8_t amod, uint32_t value)
 {
-    vmeWrite32(address, value, amod);
+    vmeWrite32(address, value, amod); // TODO: error reporting via exception in the lower layers
 }
 
 void vmUsb::write16(uint32_t address, uint8_t amod, uint16_t value)
 {
-    vmeWrite16(address, value, amod);
+    vmeWrite16(address, value, amod); // TODO: error reporting via exception in the lower layers
 }
 
 uint32_t vmUsb::read32(uint32_t address, uint8_t amod)
 {
-    throw "Not implemented";
+    size_t bytesRead = 0;
+    uint32_t result = 0;
+    CVMUSBReadoutList readoutList;
+    readoutList.addRead32(adress, amod);
+    listExecute(&readoutList, &result, sizeof(result), &bytesRead);
+    return result;
 }
 
 uint16_t vmUsb::read16(uint32_t address, uint8_t amod)
 {
-    throw "Not implemented";
+    size_t bytesRead = 0;
+    uint16_t result = 0;
+    CVMUSBReadoutList readoutList;
+    readoutList.addRead16(adress, amod);
+    listExecute(&readoutList, &result, sizeof(result), &bytesRead);
+    return result;
 }
 
 void vmUsb::enterDaqMode()
 {
-    usbRegisterWrite(1, 1);
+    writeActionRegister(1);
 }
 
 void vmUsb::leaveDaqMode()
 {
-    usbRegisterWrite(1, 0);
+    writeActionRegister(0);
 }

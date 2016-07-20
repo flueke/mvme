@@ -38,7 +38,7 @@ void VMUSB_Stack::enableStack(vmUsb *controller)
                     | (irqLevel << ISVWord::irqLevelShift)
                     | irqVector;
 
-                int vectorNumber = stackID - 2;
+                int vectorNumber = stackID;
 
                 Q_ASSERT(0 <= vectorNumber && vectorNumber < 8);
 

@@ -827,11 +827,10 @@ void mvmeControl::readBuffer()
 void mvmeControl::startStop(bool val)
 {
 #ifdef VME_CONTROLLER_WIENER
-    int ret;
     if(val){
-        ret = theApp->vu->usbRegisterWrite(1, 0);
-        qDebug("wrote %d bytes to register", ret);
+        theApp->vu->writeActionRegister(0);
         qDebug("Stop: 0");
+        int ret;
         do {
             qDebug("performing usb read to clear remaning data");
             char buffer[27 * 1024];
@@ -840,8 +839,7 @@ void mvmeControl::startStop(bool val)
         } while (ret > 0);
     }
     else{
-        ret = theApp->vu->usbRegisterWrite(1, 1);
-        qDebug("wrote %d bytes to register", ret);
+        theApp->vu->writeActionRegister(1);
         qDebug("Start: 1");
     }
 #endif
@@ -1126,9 +1124,7 @@ void mvmeControl::dispChan(int c)
 
 void mvmeControl::on_pb_clearRegisters_clicked()
 {
-    // FIXME: this will completely overwrite the action register!
-    int result = theApp->vu->usbRegisterWrite(1, 0x04);
-    qDebug("clearRegisters: result=%d", result);
+    theApp->vu->writeActionRegister(4);
     getValues();
 }
 
@@ -1493,8 +1489,7 @@ void mvmeControl::on_pb_saveMemoryFile_2_clicked()
 
 void mvmeControl::on_pb_usbReset_clicked()
 {
-    int status = theApp->vu->usbRegisterWrite(10, 0x04);
-    qDebug("registerWrite returned %d", status);
+    theApp->vu->writeActionRegister(4);
 }
 
 void mvmeControl::on_pb_errorRecovery_clicked()
