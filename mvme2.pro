@@ -35,8 +35,11 @@ SOURCES += main.cpp\
     channelspectro.cpp \
     libxxusb.cc \
     util.cc \
-    vmemodule.cc \
+    vme_module.cc \
     vmusb_stack.cc \
+    mvme_mainwindow.cc \
+    mvme_context.cc \
+
 
 HEADERS  += \
     mvmecontrol.h \
@@ -58,14 +61,18 @@ HEADERS  += \
     channelspectro.h \
     util.h \
     vme.h \
-    vmemodule.h \
+    vme_module.h \
     vmusb_stack.h \
+    mvme_mainwindow.h \
+    mvme_context.h \
+
 
 FORMS    += \
     mvmecontrol.ui \
     mvme.ui \
     twodimwidget.ui \
-    channelspectrowidget.ui
+    channelspectrowidget.ui \
+    mvme_mainwindow.ui
 
 DEFINES += VME_CONTROLLER_WIENER
 #DEFINES += VME_CONTROLLER_CAEN

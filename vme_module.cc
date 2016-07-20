@@ -1,4 +1,4 @@
-#include "vmemodule.h"
+#include "vme_module.h"
 #include <QTextStream>
 
 QString VMECommand::toString() const

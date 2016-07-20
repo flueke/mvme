@@ -2,9 +2,9 @@
 #include "vmusb.h"
 #include "CVMUSBReadoutList.h"
 
-size_t VMUSB_Stack::loadOffset = 0;
+size_t VMUSBStack::loadOffset = 0;
 
-void VMUSB_Stack::loadStack(vmUsb *controller)
+void VMUSBStack::loadStack(VMUSB *controller)
 {
     VMECommandList readoutCommands;
     addReadoutCommands(&readoutCommands);
@@ -18,7 +18,7 @@ void VMUSB_Stack::loadStack(vmUsb *controller)
     }
 }
 
-void VMUSB_Stack::enableStack(vmUsb *controller)
+void VMUSBStack::enableStack(VMUSB *controller)
 {
     auto stackID = getStackID();
 

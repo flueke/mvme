@@ -9,7 +9,7 @@
 
 class QTimer;
 class mvme;
-class vmUsb;
+class VMUSB;
 class caenusb;
 
 class DataThread : public QObject
@@ -26,7 +26,7 @@ public:
 #ifdef VME_CONTROLLER_CAEN
     void setCu(caenusb *cu);
 #else
-    void setVu(vmUsb* vu);
+    void setVu(VMUSB* vu);
 #endif
 
 #if 0
@@ -62,7 +62,7 @@ protected:
     QTimer* dataTimer;
     mvme* myMvme;
 #ifdef VME_CONTROLLER_WIENER
-    vmUsb* myVu;
+    VMUSB* myVu;
     std::unique_ptr<uint16_t> m_readoutPacket;
     size_t m_readoutPacketSize;
 #elif defined VME_CONTROLLER_CAEN

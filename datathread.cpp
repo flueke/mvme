@@ -652,7 +652,7 @@ void DataThread::setCu(caenusb *cu)
     myCu = cu;
 }
 #else
-void DataThread::setVu(vmUsb *vu)
+void DataThread::setVu(VMUSB *vu)
 {
     myVu = vu;
 }

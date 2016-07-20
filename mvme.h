@@ -48,7 +48,7 @@ public:
     bool clearAllHist();
     Histogram* getHist();
 
-    vmUsb* vu;
+    VMUSB* vu;
     //caenusb* cu;
     mvmeControl *mctrl;
     DataThread *dt;

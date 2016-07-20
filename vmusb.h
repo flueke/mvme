@@ -36,7 +36,7 @@ represents vm_usb controller
 
   @author Gregor Montermann <g.montermann@mesytec.com>
 */
-class vmUsb : public QObject, public VMEController
+class VMUSB : public QObject, public VMEController
 {
     Q_OBJECT
     signals:
@@ -45,9 +45,9 @@ class vmUsb : public QObject, public VMEController
         void daqModeChanged(bool);
 
     public:
-        vmUsb();
+        VMUSB();
 
-        ~vmUsb();
+        ~VMUSB();
         void readAllRegisters(void);
         bool openUsbDevice(void);
         void closeUsbDevice(void);

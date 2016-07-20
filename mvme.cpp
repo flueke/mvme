@@ -59,7 +59,7 @@ mvme::mvme(QWidget *parent) :
     diag = new Diagnostics;
 
     // check and initialize VME interface
-    vu = new vmUsb;
+    vu = new VMUSB;
     vu->getUsbDevices();
     if (!vu->openUsbDevice()) {
       qDebug("No VM USB controller found");

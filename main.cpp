@@ -28,17 +28,18 @@
  * - show module info
  * - display data as longwords
  */
-#include <QApplication>
 #include "mvme.h"
 #include "util.h"
+#include "vme_module.h"
+#include "vmusb_stack.h"
+#include "mvme_mainwindow.h"
+
+#include <QApplication>
 #include <QDebug>
 #include <QLibraryInfo>
 
-#include "vmemodule.h"
-#include "vmusb_stack.h"
 
-
-void bulk_read(vmUsb *vmusb)
+void bulk_read(VMUSB *vmusb)
 {
     char readBuffer[64 * 1024];
     int status = vmusb->bulk_read(readBuffer, sizeof(readBuffer));
@@ -59,7 +60,8 @@ int main(int argc, char *argv[])
     qDebug() << "pluginsPaths = " << QLibraryInfo::location(QLibraryInfo::PluginsPath);
 
 #if 1
-    mvme w;
+    //mvme w;
+    MVMEMainWindow w;
     w.show();
 
     return a.exec();

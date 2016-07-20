@@ -1,12 +1,12 @@
 #ifndef UUID_d783c880_21d1_4644_a26c_a70d9daa299e
 #define UUID_d783c880_21d1_4644_a26c_a70d9daa299e
 
-#include "vmemodule.h"
+#include "vme_module.h"
 #include <stdexcept>
 
-class vmUsb;
+class VMUSB;
 
-class VMUSB_Stack: public VMEModule
+class VMUSBStack: public VMEModule
 {
     public:
         enum TriggerType
@@ -48,8 +48,8 @@ class VMUSB_Stack: public VMEModule
             return 0;
         }
 
-        void loadStack(vmUsb *controller);
-        void enableStack(vmUsb *controller);
+        void loadStack(VMUSB *controller);
+        void enableStack(VMUSB *controller);
 
         void addModule(VMEModule *module)
         {
