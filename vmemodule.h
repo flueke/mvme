@@ -39,7 +39,7 @@ class VMEModule
         virtual void addStopDaqCommands(VMECommandList *cmdList) = 0;
 
         QString getName() const { return m_name; }
-        QString setName(const QString &name) { m_name = name; }
+        void setName(const QString &name) { m_name = name; }
 
     private:
         QString m_name;
@@ -109,7 +109,7 @@ class MesytecModule: public HardwareModule
 
         void readRegister(VMEController *controller, uint16_t address)
         {
-            controller->read16(baseAddress + address, registerAMod)
+            controller->read16(baseAddress + address, registerAMod);
         }
 
         void setIrqLevel(uint8_t irqLevel)

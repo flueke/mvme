@@ -1308,7 +1308,7 @@ uint32_t vmUsb::read32(uint32_t address, uint8_t amod)
     size_t bytesRead = 0;
     uint32_t result = 0;
     CVMUSBReadoutList readoutList;
-    readoutList.addRead32(adress, amod);
+    readoutList.addRead32(address, amod);
     listExecute(&readoutList, &result, sizeof(result), &bytesRead);
     return result;
 }
@@ -1318,7 +1318,7 @@ uint16_t vmUsb::read16(uint32_t address, uint8_t amod)
     size_t bytesRead = 0;
     uint16_t result = 0;
     CVMUSBReadoutList readoutList;
-    readoutList.addRead16(adress, amod);
+    readoutList.addRead16(address, amod);
     listExecute(&readoutList, &result, sizeof(result), &bytesRead);
     return result;
 }
