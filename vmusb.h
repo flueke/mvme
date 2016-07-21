@@ -46,10 +46,13 @@ class VMUSB : public QObject, public VMEController
 
     public:
         VMUSB();
-
         ~VMUSB();
+
+        bool isOpen() const { return hUsbDevice; }
+        QString getSerialNumber() const;
+
         void readAllRegisters(void);
-        bool openUsbDevice(void);
+        bool openFirstUsbDevice(void);
         void closeUsbDevice(void);
         void getUsbDevices(void);
 
@@ -102,7 +105,6 @@ class VMUSB : public QObject, public VMEController
 
         void writeActionRegister(uint16_t value);
 
-        void initialize();
         int setScalerTiming(unsigned int frequency, unsigned char period, unsigned char delay);
         void setEndianess(bool big);
 
@@ -133,8 +135,8 @@ class VMUSB : public QObject, public VMEController
 
         xxusb_device_type pUsbDevice[5];
         char numDevices = 0;
-        usb_dev_handle* hUsbDevice;
-        short ret;
+        usb_dev_handle* hUsbDevice = nullptr;
+        short ret; // TODO: is this used?
 
         //
         // VMEController interface
@@ -160,8 +162,9 @@ class VMUSB : public QObject, public VMEController
         int extDggSettings;
         int usbBulkSetup;
         long int retval;
-        bool bigendian;
+        bool bigendian = false;
         bool m_daqMode = false;
+        QString m_currentSerialNumber;
 
         // timeout used for all operations except daq mode bulk transfers
         // TODO: use these everywhere
@@ -309,17 +312,23 @@ struct VMUSB_Buffer
     }
 };
 
-class VMUSB_UsbError: public std::runtime_error
+struct VMUSB_DeviceNotOpen: public std::runtime_error
 {
-    public:
-        VMUSB_UsbError(int usb_result)
-            : std::runtime_error("VMUSB USB Error")
-            , usb_result(usb_result)
+    VMUSB_DeviceNotOpen()
+        : std::runtime_error("VMUSB device is not open")
+    {}
+};
+
+struct VMUSB_UsbError: public std::runtime_error
+{
+    VMUSB_UsbError(int usb_result)
+        : std::runtime_error("VMUSB USB Error")
+          , usb_result(usb_result)
     {}
 
-        VMUSB_UsbError(int usb_result, const char *message)
-            : std::runtime_error(message)
-            , usb_result(usb_result)
+    VMUSB_UsbError(int usb_result, const char *message)
+        : std::runtime_error(message)
+          , usb_result(usb_result)
     {}
 
     int usb_result;

@@ -58,7 +58,6 @@ static void* addToPacket32(void* packet, uint32_t datum)
 
 VMUSB::VMUSB()
 {
-  bigendian = false;
 }
 
 
@@ -66,38 +65,42 @@ VMUSB::~VMUSB()
 {
 }
 
-/*!
-    \fn vmUsb::openUsbDevice(void)
- */
-bool VMUSB::openUsbDevice(void)
+bool VMUSB::openFirstUsbDevice(void)
 {
-/*
-    hUsbDevice = usb_open(pUsbDevice[0].usbdev);
-    ret = usb_set_configuration(hUsbDevice,1);
-    ret = usb_claim_interface(hUsbDevice,0);
-// RESET USB (added 10/16/06 Andreas Ruben)
-    ret=xxusb_register_write(hUsbDevice, 10, 0x04);
-    if(hUsbDevice)
-        return true;
-    else
-        return false;
-*/
-    if (numDevices <= 0)
+    if (isOpen())
     {
-        getUsbDevices();
+        closeUsbDevice();
     }
+
+    getUsbDevices();
 
     if (numDevices <= 0)
     {
-        throw std::runtime_error("No VM_USB devices found");
+        return false;
     }
 
 
     hUsbDevice = xxusb_device_open(pUsbDevice[0].usbdev);
 
+    if (hUsbDevice)
+    {
+        m_currentSerialNumber = pUsbDevice[0].SerialString;
+        // clear the action register (makes sure daq mode is disabled)
+        writeActionRegister(0);
+    }
+
     return hUsbDevice;
 }
 
+void VMUSB::closeUsbDevice(void)
+{
+    if (hUsbDevice)
+    {
+        xxusb_device_close(hUsbDevice);
+        hUsbDevice = nullptr;
+        m_currentSerialNumber = QString();
+    }
+}
 
 struct VMUSB_Firmware
 {
@@ -217,15 +220,6 @@ void VMUSB::readAllRegisters(void)
 
 
 /*!
-    \fn vmUsb::closeUsbDevice(void)
- */
-void VMUSB::closeUsbDevice(void)
-{
-  xxusb_device_close(hUsbDevice);
-}
-
-
-/*!
     \fn vmUsb::getUsbDevices(void)
  */
 
@@ -251,7 +245,8 @@ void VMUSB::closeUsbDevice(void)
         {
             //qDebug("descriptor: %d %d",dev->descriptor.idVendor, XXUSB_WIENER_VENDOR_ID);
 
-            if (dev->descriptor.idVendor==XXUSB_WIENER_VENDOR_ID)
+            if (dev->descriptor.idVendor==XXUSB_WIENER_VENDOR_ID
+                    && dev->descriptor.idProduct == XXUSB_VMUSB_PRODUCT_ID)
             {
                 qDebug("found wiener device");
                 udev = usb_open(dev);
@@ -259,7 +254,13 @@ void VMUSB::closeUsbDevice(void)
                 if (udev)
                 {
                     qDebug("opened wiener device");
-                    ret = usb_get_string_simple(udev, dev->descriptor.iSerialNumber, string, sizeof(string));
+
+                    if (usb_get_string_simple(udev, dev->descriptor.iSerialNumber, pUsbDevice[DevFound].SerialString,
+                            sizeof(pUsbDevice[DevFound].SerialString)) < 0)
+                    {
+                        pUsbDevice[DevFound].SerialString[0] = '\0';
+                    }
+
                     pUsbDevice[DevFound].usbdev=dev;
                     //    strcpy(xxdev[DevFound].SerialString, string);
                     DevFound++;
@@ -270,17 +271,6 @@ void VMUSB::closeUsbDevice(void)
      }
     numDevices = DevFound;
 }
-
-
-/*!
-    \fn vmUsb::getUsbDevices(void)
- */
-/*
- *void vmUsb::getUsbDevices(void)
-{
-    numDevices = xxusb_devices_find(pUsbDevice);
-}
-*/
 
 //
 // "get" functions for register field
@@ -979,33 +969,6 @@ void VMUSB::writeActionRegister(uint16_t value)
 
     emit daqModeChanged(m_daqMode);
 }
-
-/*!
-    \fn vmUsb::initialize()
- */
-void VMUSB::initialize()
-{
-    // set some more or less useful defaults:
-    qDebug("initialize");
-  // mode:
-  // buffer length 128 bytes
-  VME_register_write(hUsbDevice, 0x4, 5);
-
-  // IRQ 1 to Stack 2, IRQ map 0
-  VME_register_write(hUsbDevice, 40, 0x2100);
-
-    // User LED sources:
-  // ty: Out FIFO not empty, red: Event Trig., green: ACQ, by: VME DTACK
-  ledSources = 0x04030101;
-  VME_register_write(hUsbDevice, 0xC, ledSources);
-
-  // scaler parameters:
-  VME_register_write(hUsbDevice, 0x8, 0xFF00);
-
-  // switch off acquisition
-  writeActionRegister(0);
-}
-
 
 /*!
     \fn vmUsb::setScalerTiming(unsigned int frequency, unsigned char period, unsigned char delay)

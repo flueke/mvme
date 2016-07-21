@@ -32,7 +32,6 @@
 #include "util.h"
 #include "vme_module.h"
 #include "vmusb_stack.h"
-#include "mvme_mainwindow.h"
 
 #include <QApplication>
 #include <QDebug>
@@ -60,8 +59,7 @@ int main(int argc, char *argv[])
     qDebug() << "pluginsPaths = " << QLibraryInfo::location(QLibraryInfo::PluginsPath);
 
 #if 1
-    //mvme w;
-    MVMEMainWindow w;
+    mvme w;
     w.show();
 
     return a.exec();

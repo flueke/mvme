@@ -37,7 +37,6 @@ SOURCES += main.cpp\
     util.cc \
     vme_module.cc \
     vmusb_stack.cc \
-    mvme_mainwindow.cc \
     mvme_context.cc \
 
 
@@ -63,7 +62,6 @@ HEADERS  += \
     vme.h \
     vme_module.h \
     vmusb_stack.h \
-    mvme_mainwindow.h \
     mvme_context.h \
 
 
@@ -72,7 +70,6 @@ FORMS    += \
     mvme.ui \
     twodimwidget.ui \
     channelspectrowidget.ui \
-    mvme_mainwindow.ui
 
 DEFINES += VME_CONTROLLER_WIENER
 #DEFINES += VME_CONTROLLER_CAEN

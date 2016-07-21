@@ -615,24 +615,23 @@ short  xxusb_device_close(usb_dev_handle *hDev)
 */
 usb_dev_handle*  xxusb_device_open(struct usb_device *dev)
 {
-    short ret;
     usb_dev_handle *udev;
     udev = usb_open(dev);
 
     if (!udev) return NULL;
 
-    ret = usb_set_configuration(udev,1);
+    int res = usb_set_configuration(udev,1);
 
-    if (ret < 0)
+    if (res < 0)
     {
         qDebug("usb_set_configuration failed");
         usb_close(udev);
         return NULL;
     }
 
-    ret = usb_claim_interface(udev,0);
+    res = usb_claim_interface(udev,0);
 
-    if (ret < 0)
+    if (res < 0)
     {
         qDebug("usb_claim_interface failed");
         usb_close(udev);
@@ -640,7 +639,7 @@ usb_dev_handle*  xxusb_device_open(struct usb_device *dev)
     }
 
     // RESET USB (added 10/16/06 Andreas Ruben)
-    ret = xxusb_register_write(udev, 10, 0x04);
+    res = xxusb_register_write(udev, 10, 0x04);
 
     return udev;
 }

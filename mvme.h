@@ -12,19 +12,21 @@
 #include <QTextStream>
 #include <QMap>
 
-class mvmeControl;
-class Histogram;
-class DataThread;
-class DataCruncher;
-class QwtPlotCurve;
-class QTimer;
-class vmedevice;
-class VirtualMod;
-class Diagnostics;
-class RealtimeData;
 class ChannelSpectro;
-class QThread;
+class DataCruncher;
+class DataThread;
+class Diagnostics;
+class Histogram;
+class MVMEContext;
+class mvmeControl;
+class RealtimeData;
+class VirtualMod;
+class vmedevice;
+
 class QMdiSubWindow;
+class QThread;
+class QTimer;
+class QwtPlotCurve;
 
 
 namespace Ui {
@@ -87,6 +89,7 @@ private:
     //QMap<int, VirtualMod *> m_virtualMod;
 
     QThread *m_readoutThread;
+    MVMEContext *m_context;
 };
 
 #endif // MVME_H

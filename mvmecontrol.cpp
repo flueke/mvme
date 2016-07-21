@@ -83,8 +83,11 @@ void mvmeControl::vmusbDaqModeChanged(bool daqModeOn)
 void mvmeControl::getValues()
 {
 #ifdef VME_CONTROLLER_WIENER
-   theApp->vu->readAllRegisters();
-   refreshDisplay();
+    if (theApp->vu->isOpen())
+    {
+       theApp->vu->readAllRegisters();
+       refreshDisplay();
+    }
 #endif
 
 }

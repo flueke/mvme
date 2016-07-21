@@ -21,6 +21,17 @@ enum class VMEModuleType
     MDI2 = 6
 };
 
+static const QMap<VMEModuleType, QString> VMEModuleTypeNames =
+{
+    { VMEModuleType::Unknown,   "Unknown" },
+    { VMEModuleType::MADC32,    "MADC32" },
+    { VMEModuleType::MQDC32,    "MQDC32" },
+    { VMEModuleType::MTDC32,    "MTDC32" },
+    { VMEModuleType::MDPP16,    "MDPP16" },
+    { VMEModuleType::MDPP32,    "MDPP32" },
+    { VMEModuleType::MDI2,      "MDI2" }
+};
+
 class VMEModule
 {
     public:

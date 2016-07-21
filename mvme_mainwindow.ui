@@ -51,9 +51,7 @@
    <attribute name="toolBarBreak">
     <bool>false</bool>
    </attribute>
-   <addaction name="actionAdd_VME_Module"/>
-   <addaction name="actionAdd_Mesytec_Chain"/>
-   <addaction name="actionAdd_VMUSB_Stack"/>
+   <addaction name="separator"/>
   </widget>
   <action name="actionAdd_VME_Module">
    <property name="text">
