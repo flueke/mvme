@@ -43,6 +43,8 @@ class VMUSB : public QObject, public VMEController
         void daqModeEntered();
         void daqModeLeft();
         void daqModeChanged(bool);
+        void controllerOpened();
+        void controllerClosed();
 
     public:
         VMUSB();

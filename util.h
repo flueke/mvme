@@ -3,6 +3,8 @@
 
 #include <cstdint>
 #include <QVector>
+#include <QList>
+#include <QPair>
 class QTextStream;
 
 typedef uint8_t u8;
@@ -18,5 +20,10 @@ typedef int64_t s64;
 void debugOutputBuffer(u32 *dataBuffer, u32 bufferCount);
 
 QVector<u32> parseStackFile(QTextStream &input);
+
+typedef QPair<u32, u32> RegisterSetting; // (addr, value)
+typedef QList<RegisterSetting> InitList;
+
+InitList parseInitList(QTextStream &input);
 
 #endif // UTIL_H

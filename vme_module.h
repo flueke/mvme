@@ -12,24 +12,27 @@
 
 enum class VMEModuleType
 {
-    Unknown = 0,
-    MADC32 = 1,
-    MQDC32 = 2,
-    MTDC32 = 3,
-    MDPP16 = 4,
-    MDPP32 = 5,
-    MDI2 = 6
+    Invalid = 0,
+    MADC32  = 1,
+    MQDC32  = 2,
+    MTDC32  = 3,
+    MDPP16  = 4,
+    MDPP32  = 5,
+    MDI2    = 6,
+
+    // VMUSB_Scaler
+    Generic = 1000
 };
 
 static const QMap<VMEModuleType, QString> VMEModuleTypeNames =
 {
-    { VMEModuleType::Unknown,   "Unknown" },
     { VMEModuleType::MADC32,    "MADC32" },
     { VMEModuleType::MQDC32,    "MQDC32" },
     { VMEModuleType::MTDC32,    "MTDC32" },
     { VMEModuleType::MDPP16,    "MDPP16" },
     { VMEModuleType::MDPP32,    "MDPP32" },
-    { VMEModuleType::MDI2,      "MDI2" }
+    { VMEModuleType::MDI2,      "MDI2" },
+    { VMEModuleType::Generic,   "Generic" },
 };
 
 class VMEModule
@@ -61,7 +64,7 @@ class HardwareModule: public VMEModule
         {}
 
         uint32_t baseAddress = 0;
-        VMEModuleType type = VMEModuleType::Unknown;
+        VMEModuleType type = VMEModuleType::Generic;
 };
 
 enum class RegisterWidth
@@ -88,10 +91,10 @@ class GenericModule: public HardwareModule
         virtual void addStopDaqCommands(VMECommandList *cmdList)
         { Q_ASSERT(!"Not implemented"); }
 
-        uint8_t registerAMod = 0x09;
-        uint8_t bltAMod = 0x0b;
-        uint8_t mbltAmod = 0x08;
-        RegisterWidth registerWidth = RegisterWidth::Width16;
+        //uint8_t registerAMod = 0x09;
+        //uint8_t bltAMod = 0x0b;
+        //uint8_t mbltAmod = 0x08;
+        //RegisterWidth registerWidth = RegisterWidth::Width16;
 };
 
 class MesytecModule: public HardwareModule
@@ -114,9 +117,14 @@ class MesytecModule: public HardwareModule
 
         virtual void addInitCommands(VMECommandList *cmdList)
         {
-            for (uint16_t address: registerData.keys())
+            QTextStream input(&initListString);
+            InitList initList(parseInitList(input));
+
+            for (auto registerSetting: initList)
             {
-                cmdList->addWrite16(baseAddress + address, registerAMod, registerData[address]);
+                u32 address = registerSetting.first;
+                u32 value = registerSetting.second;
+                cmdList->addWrite16(baseAddress + address, registerAMod, value);
             }
         }
 
@@ -149,19 +157,10 @@ class MesytecModule: public HardwareModule
             controller->read16(baseAddress + address, registerAMod);
         }
 
-        void setIrqLevel(uint8_t irqLevel)
-        {
-            registerData[0x6010] = irqLevel;
-        }
-
-        void setIrqVector(uint8_t irqVector)
-        {
-            registerData[0x6012] = irqVector;
-        }
-
-        QMap<uint16_t, uint16_t> registerData;
+        QString initListString;
 };
 
+#if 0
 class MesytecChain: public VMEModule
 {
     public:
@@ -170,6 +169,7 @@ class MesytecChain: public VMEModule
         uint8_t cblt_address;
         uint8_t mcst_address;
 };
+#endif
 
 class MADC32: public MesytecModule
 {

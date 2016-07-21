@@ -13,11 +13,10 @@ void debugOutputBuffer(u32 *dataBuffer, u32 bufferCount)
 QVector<u32> parseStackFile(QTextStream &input)
 {
     QVector<u32> ret;
-    char c;
-    u32 value;
 
     while (!input.atEnd())
     {
+        u32 value;
         input >> value;
 
         if (input.status() == QTextStream::Ok)
@@ -27,11 +26,28 @@ QVector<u32> parseStackFile(QTextStream &input)
         else
         {
             input.resetStatus();
+            char c;
             do
             {
                 input >> c;
             } while (!input.atEnd() && c != '\n' && c != '\r');
         }
+    }
+
+    return ret;
+}
+
+InitList parseInitList(QTextStream &input)
+{
+    auto vec = parseStackFile(input);
+
+    InitList ret;
+
+    for (int i=0; i<vec.size()/2; ++i)
+    {
+        u32 addr  = vec[2*i];
+        u32 value = vec[2*i+1];
+        ret.push_back(qMakePair(addr, value));
     }
 
     return ret;

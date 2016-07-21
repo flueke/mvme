@@ -44,9 +44,6 @@ public:
     void stopDatataking();
     void initThreads();
     Histogram * getHist(quint16 mod);
-    bool loadSetup();
-    bool findController();
-    bool createHistograms();
     bool clearAllHist();
     Histogram* getHist();
 

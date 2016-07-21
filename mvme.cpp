@@ -14,13 +14,8 @@
 #include "datathread.h"
 #include "mvmedefines.h"
 
-#include <QComboBox>
-#include <QDialog>
-#include <QDialogButtonBox>
 #include <QDockWidget>
 #include <QFileDialog>
-#include <QFormLayout>
-#include <QLineEdit>
 #include <QMdiSubWindow>
 #include <QMessageBox>
 #include <QtGui>
@@ -28,43 +23,6 @@
 #include <QToolBar>
 
 #include <qwt_plot_curve.h>
-
-struct AddVMEModuleDialog: public QDialog
-{
-    AddVMEModuleDialog(MVMEContext *context, QWidget *parent = 0)
-        : QDialog(parent)
-    {
-        QStringList moduleTypes = {
-            "Unknown",
-            "MADC",
-            "MQDC",
-            "MTDC",
-            "MDPP16",
-            "MDPP32",
-            "MDI12"
-        };
-
-        typeCombo = new QComboBox;
-        typeCombo->addItems(moduleTypes);
-
-        nameEdit = new QLineEdit;
-        addressEdit = new QLineEdit;
-
-        auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
-        connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
-        connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
-
-        auto layout = new QFormLayout(this);
-        layout->addRow("Type", typeCombo);
-        layout->addRow("Name", nameEdit);
-        layout->addRow("Address", addressEdit); 
-        layout->addRow(bb);
-    }
-
-    QComboBox *typeCombo;
-    QLineEdit *nameEdit;
-    QLineEdit *addressEdit;
-};
 
 mvme::mvme(QWidget *parent) :
     QMainWindow(parent),
@@ -84,14 +42,6 @@ mvme::mvme(QWidget *parent) :
 
     m_readoutThread->setObjectName("ReadoutThread");
 
-    // TODO: currently not fully implemented
-    loadSetup();
-
-    // TODO: not fully implemented yet
-    findController();
-
-    // TODO: not fully implemented yet
-    createHistograms();
     m_histogram[0] = new Histogram(this, 42, 8192);
     m_histogram[0]->initHistogram();
 
@@ -101,6 +51,8 @@ mvme::mvme(QWidget *parent) :
     // create and initialize displays
     ui->setupUi(this);
     auto contextWidget = new MVMEContextWidget(m_context);
+    //connect(contextWidget, &MVMEContextWidget::addDAQEventConfig, this, &MVME, addDAQEventConfig);
+    //connect(contextWidget, &MVMEContextWidget::addVMEModule, this, &MVME, addDAQEventConfig);
     auto contextDock = new QDockWidget("Configuration");
     contextDock->setObjectName("MVMEContextDock");
     contextDock->setWidget(contextWidget);
@@ -114,6 +66,7 @@ mvme::mvme(QWidget *parent) :
 
     // check and initialize VME interface
     vu = new VMUSB;
+    m_context->setController(vu);
     vu->getUsbDevices();
     vu->openFirstUsbDevice();
 
@@ -268,22 +221,8 @@ void mvme::initThreads()
 
 Histogram *mvme::getHist(quint16 mod)
 {
+    Q_ASSERT(mod == 0);
     return m_histogram.value(0);
-}
-
-bool mvme::loadSetup()
-{
-    return true;
-}
-
-bool mvme::findController()
-{
-    return true;
-}
-
-bool mvme::createHistograms()
-{
-    return true;
 }
 
 bool mvme::clearAllHist()
