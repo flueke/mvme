@@ -1,7 +1,7 @@
 #ifndef UTIL_H
 #define UTIL_H
 
-#include <cstdint>
+#include <stdexcept>
 #include <QVector>
 #include <QList>
 #include <QPair>
@@ -25,5 +25,86 @@ typedef QPair<u32, u32> RegisterSetting; // (addr, value)
 typedef QList<RegisterSetting> InitList;
 
 InitList parseInitList(QTextStream &input);
+
+class end_of_buffer: public std::exception {};
+
+struct BufferIterator
+{
+    enum Alignment { Align16, Align32 };
+
+    BufferIterator(u8 *data, size_t size, Alignment alignment)
+        : data(data)
+        , buffp(data)
+        , endp(data + size)
+        , size(size)
+        , alignment(alignment)
+    {}
+
+    u8 *data;
+    u8 *buffp;
+    u8 *endp;
+    size_t size;
+    Alignment alignment;
+
+    inline bool align32() const { return alignment == Align32; }
+
+    inline u8 extractU8()
+    {
+        if (buffp + sizeof(u8) > endp)
+            throw end_of_buffer();
+
+        u8 ret = *buffp;
+        buffp += sizeof(u8);
+        return ret;
+    }
+
+    inline u16 extractU16()
+    {
+        if (buffp + sizeof(u16) > endp)
+            throw end_of_buffer();
+
+        u32 ret = *reinterpret_cast<u16 *>(buffp);
+        buffp += sizeof(u16);
+        return ret;
+    }
+
+    inline u32 extractU32()
+    {
+        if (buffp + sizeof(u32) > endp)
+            throw end_of_buffer();
+
+        u32 ret = *reinterpret_cast<u32 *>(buffp);
+        buffp += sizeof(u32);
+        return ret;
+    }
+
+    inline u16 extractWord()
+    {
+        return align32() ? extractU32() : extractU16();
+    }
+
+    inline u32 extractLongword()
+    {
+        return extractU32();
+    }
+
+    inline u32 wordsLeft() const
+    {
+        u32 bytesLeft = endp - buffp;
+        if (align32())
+        {
+            return bytesLeft / sizeof(u32);
+        }
+
+        return bytesLeft / sizeof(u16);
+    }
+
+    inline u32 longwordsLeft() const
+    {
+        u32 bytesLeft = endp - buffp;
+        return bytesLeft / sizeof(u32);
+    }
+};
+
 
 #endif // UTIL_H

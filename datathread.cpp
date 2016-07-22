@@ -255,7 +255,7 @@ void DataThread::dataTimerSlot()
 
             int globalMode = myVu->getMode();
 
-            VMUSB_Buffer buffer(reinterpret_cast<u8 *>(dataBuffer), ret, globalMode);
+            BufferIterator buffer(reinterpret_cast<u8 *>(dataBuffer), static_cast<size_t>(ret), BufferIterator::Align16); // XXX: fixed align 32
 
             u32 header1 = buffer.extractWord();
 
@@ -271,7 +271,7 @@ void DataThread::dataTimerSlot()
                         lastBuffer, scalerBuffer, continuousMode, multiBuffer, numberOfEvents);
             }
 
-            if (buffer.headerOpt())
+            if ((globalMode >> 8) & 1) // headeropt
             {
                 u32 header2 = buffer.extractWord();
                 u16 numberOfWords = header2 & 0xFFF;

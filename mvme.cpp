@@ -72,7 +72,7 @@ mvme::mvme(QWidget *parent) :
     vu->openFirstUsbDevice();
 
     mctrl = new mvmeControl(this);
-    //mctrl->show();
+    mctrl->show();
 
     // read current configuration
     mctrl->getValues();
@@ -87,45 +87,74 @@ mvme::mvme(QWidget *parent) :
     restoreState(settings.value("mainWindowState").toByteArray());
 
 
-    auto module0 = new MDPP16(0x0, "mdpp16_0");
-    module0->initListString = QString(
-"0x6010 1        # irq level\n"
-"0x6012 0        # irq vector\n"
-"0x6018 1        # FIFO threshold\n"
-"0x601A 1        # max transfer data for multi event mode 3\n"
-"0x6036 0        # multi event\n"
-""
-"0x6050 0x3FF8 \n"
-"0x6054 0x10\n"
-"0x6058 0x100\n"
-"0x6100 0x8\n"
-"0x611A 500\n"
-"0x6110 4\n"
-"0x6124 200\n"
-"0x6070 3\n"
-"0x6072 1000\n"
-""
-"0x603A 1        # start acquisition\n"
-"0x603C 1        # FIFO reset\n"
-"0x6034 1        # readout reset\n"
-);
+    //
+    // event 0
+    //
+    {
+        auto module00 = new MDPP16(0x0, "mdpp16_0");
+        module00->initListString = QString(
+                "0x6010 1        # irq level\n"
+                "0x6012 0        # irq vector\n"
+                "0x6018 1        # FIFO threshold\n"
+                "0x601A 1        # max transfer data for multi event mode 3\n"
+                "0x6036 0        # multi event\n"
+                ""
+                "0x6050 0x3FF8 \n"
+                "0x6054 0x10\n"
+                "0x6058 0x100\n"
+                "0x6100 0x8\n"
+                "0x611A 500\n"
+                "0x6110 4\n"
+                "0x6124 200\n"
+                "0x6070 3\n"
+                "0x6072 1000\n"
+                ""
+                "0x603A 1        # start acquisition\n"
+                "0x603C 1        # FIFO reset\n"
+                "0x6034 1        # readout reset\n"
+                );
 
-    auto module1 = new MADC32(0x43210000, "madc32_0");
-    module1->initListString = QString(
-"0x6018 1        # FIFO threshold\n"
-"0x601A 1        # max transfer data for multi event mode 3\n"
-"0x6036 0        # multi event\n"
-"0x6070 7\n"
-);
+        auto module01 = new MADC32(0x43210000, "madc32_0");
+        module01->initListString = QString(
+                "0x6070 7\n"
+                );
 
-    auto event0 = new DAQEventConfig;
-    event0->name = "event0";
-    event0->triggerCondition = TriggerCondition::Interrupt;
-    event0->irqLevel = 1;
-    event0->modules.push_back(module0);
-    event0->modules.push_back(module1);
+        auto event0 = new DAQEventConfig;
+        event0->name = "event0";
+        event0->triggerCondition = TriggerCondition::Interrupt;
+        event0->irqLevel = 1;
+        event0->modules.push_back(module00);
+        event0->modules.push_back(module01);
 
-    m_context->addEventConfig(event0);
+        m_context->addEventConfig(event0);
+    }
+
+    //
+    // event 1
+    //
+    {
+        auto module10 = new MQDC32(0x00010000, "mqdc32_0");
+        module10->initListString = QString(
+                "0x6070 1\n"
+                );
+
+        auto module11 = new MTDC32(0x00020000, "mtdc32_0");
+        module11->initListString = QString(
+                "0x6010 2        # irq level\n"
+                "0x6012 0xf      # irq vector\n"
+                "0x6070 3\n"
+                );
+
+        auto event1 = new DAQEventConfig;
+        event1->name = "event1";
+        event1->triggerCondition = TriggerCondition::Interrupt;
+        event1->irqLevel = 2;
+        event1->irqVector = 0xf;
+        event1->modules.push_back(module10);
+        event1->modules.push_back(module11);
+
+        m_context->addEventConfig(event1);
+    }
 }
 
 mvme::~mvme()

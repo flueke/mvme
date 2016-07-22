@@ -33,6 +33,7 @@ void ReadoutWorker::start(quint32 cycles)
         auto initCommands = VMECommandList();
         auto startCommands = VMECommandList();
         m_stopCommands = VMECommandList();
+        int stackID = 2;
 
         for (auto event: m_context->getEventConfigs())
         {
@@ -40,6 +41,7 @@ void ReadoutWorker::start(quint32 cycles)
             m_vmusbStack.triggerCondition = event->triggerCondition;
             m_vmusbStack.irqLevel = event->irqLevel;
             m_vmusbStack.irqVector = event->irqVector;
+            m_vmusbStack.setStackID(stackID++);
 
             for (auto module: event->modules)
             {
@@ -55,8 +57,24 @@ void ReadoutWorker::start(quint32 cycles)
         }
 
         char buffer[100];
-        qDebug() << "init" << vmusb->executeCommands(&initCommands, buffer, sizeof(buffer));
-        qDebug() << "start" << vmusb->executeCommands(&startCommands, buffer, sizeof(buffer));
+
+        {
+            QString tmp;
+            QTextStream strm(&tmp);
+            initCommands.dump(strm);
+            qDebug() << "init" << endl << tmp << endl;
+        }
+
+        vmusb->executeCommands(&initCommands, buffer, sizeof(buffer));
+
+        {
+            QString tmp;
+            QTextStream strm(&tmp);
+            startCommands.dump(strm);
+            qDebug() << "start" << endl << tmp << endl;
+        }
+
+        vmusb->executeCommands(&startCommands, buffer, sizeof(buffer));
 
         readoutLoop();
     }

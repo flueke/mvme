@@ -2,6 +2,8 @@
 #include "vmusb.h"
 #include "CVMUSBReadoutList.h"
 
+#include <QTextStream>
+
 size_t VMUSBStack::loadOffset = 0;
 
 void VMUSBStack::loadStack(VMUSB *controller)
@@ -9,6 +11,11 @@ void VMUSBStack::loadStack(VMUSB *controller)
     VMECommandList readoutCommands;
     addReadoutCommands(&readoutCommands);
     CVMUSBReadoutList vmusbList(readoutCommands);
+
+    QString tmp;
+    QTextStream strm(&tmp);
+    readoutCommands.dump(strm);
+    qDebug() << this << "loadStack: id=" << getStackID() << ", loadOffset =" << loadOffset << endl << tmp << endl;
 
     if (vmusbList.size())
     {
@@ -41,6 +48,9 @@ void VMUSBStack::enableStack(VMUSB *controller)
                 int vectorNumber = stackID;
 
                 Q_ASSERT(0 <= vectorNumber && vectorNumber < 8);
+
+                qDebug() << this << "enableStack: id=" << getStackID() << ", irqLevel=" << irqLevel << ", irqVector=" << irqVector
+                    << ", vectorNumber(register)=" << vectorNumber;
 
                 controller->setIrq(vectorNumber, isvValue);
             } break;

@@ -82,7 +82,7 @@ MVMEContext::MVMEContext(QObject *parent)
     , m_readoutThread(new QThread(this))
     , m_readoutWorker(new ReadoutWorker(this))
     , m_dataProcessorThread(new QThread(this))
-    , m_dataProcessor(new DataProcessor)
+    , m_dataProcessor(new DataProcessor(this))
 {
 
     for (size_t i=0; i<dataBufferCount; ++i)

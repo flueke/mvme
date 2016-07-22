@@ -2,7 +2,14 @@
 #define UUID_6195aef5_54ab_4666_9d1a_3a7620ed54ea
 
 #include <QObject>
-#include "databuffer.h"
+
+/* TODO: make this an interface for concrete processor, one for each controller
+ * type. Right now this is a concrete implementation for VMUSB. */
+
+class MVMEContext;
+class DataBuffer;
+
+class DataProcessorPrivate;
 
 class DataProcessor: public QObject
 {
@@ -11,10 +18,13 @@ class DataProcessor: public QObject
         void bufferProcessed(DataBuffer *buffer);
 
     public:
-        DataProcessor(QObject *parent = 0);
+        DataProcessor(MVMEContext *context, QObject *parent = 0);
 
     public slots:
         void processBuffer(DataBuffer *buffer);
+
+    private:
+        DataProcessorPrivate *m_d;
 };
 
 #endif

@@ -68,6 +68,7 @@ HEADERS  += \
     readout_worker.h \
     databuffer.h \
     dataprocessor.h \
+    vmusb_constants.h \
 
 
 FORMS    += \
