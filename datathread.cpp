@@ -255,7 +255,7 @@ void DataThread::dataTimerSlot()
 
             int globalMode = myVu->getMode();
 
-            BufferIterator buffer(reinterpret_cast<u8 *>(dataBuffer), static_cast<size_t>(ret), BufferIterator::Align16); // XXX: fixed align 32
+            BufferIterator buffer(reinterpret_cast<u8 *>(dataBuffer), static_cast<size_t>(ret), BufferIterator::Align16); // XXX: fixed align 16
 
             u32 header1 = buffer.extractWord();
 

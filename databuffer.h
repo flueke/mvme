@@ -2,11 +2,12 @@
 #define UUID_5cab16b7_7baf_453f_a7b3_e878cfdd7bd0
 
 #include <QQueue>
+#include "util.h"
 
 struct DataBuffer
 {
     DataBuffer(size_t size)
-        : data(new char[size])
+        : data(new u8[size])
         , size(size)
         , used(0)
     {}
@@ -16,10 +17,10 @@ struct DataBuffer
         delete[] data;
     }
 
-    uint16_t *asU16() { return reinterpret_cast<uint16_t *>(data); }
-    uint32_t *asU32() { return reinterpret_cast<uint32_t *>(data); }
+    u16 *asU16() { return reinterpret_cast<u16 *>(data); }
+    u32 *asU32() { return reinterpret_cast<u32 *>(data); }
 
-    char *data;
+    u8 *data;
     size_t size;
     size_t used;
 };

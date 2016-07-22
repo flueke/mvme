@@ -3,7 +3,7 @@
 
 namespace VMUSBConstants
 {
-namespace Event
+namespace Buffer
 {
 // Header word 1
 static const int LastBufferMask     = (1 << 15);
@@ -27,6 +27,7 @@ static const int BufferTerminator   = 0xffff;
 
 namespace GlobalMode
 {
+static const int Align32Mask        = (1 << 7);
 static const int HeaderOptMask      = (1 << 8);
 }
 }
