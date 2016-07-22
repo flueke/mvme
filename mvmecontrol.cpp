@@ -1501,7 +1501,7 @@ void mvmeControl::on_pb_errorRecovery_clicked()
     do
     {
         char buffer[27 * 1024];
-        bytesRead = theApp->vu->bulk_read(buffer, sizeof(buffer));
+        bytesRead = theApp->vu->bulkRead(buffer, sizeof(buffer));
         qDebug("bulk read returned %d", bytesRead);
     } while (bytesRead > 0);
 }

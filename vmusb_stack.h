@@ -2,6 +2,7 @@
 #define UUID_d783c880_21d1_4644_a26c_a70d9daa299e
 
 #include "vme_module.h"
+#include "globals.h"
 #include <stdexcept>
 
 class VMUSB;
@@ -9,23 +10,6 @@ class VMUSB;
 class VMUSBStack: public VMEModule
 {
     public:
-        enum TriggerType
-        {
-            NIM1,
-            Scaler,
-            Interrupt
-        };
-
-        void setTriggerType(TriggerType trigger)
-        {
-            m_trigger = trigger;
-        }
-
-        TriggerType getTriggerType() const
-        {
-            return m_trigger;
-        }
-
         void setStackID(uint8_t stackID)
         {
             if (stackID > 7)
@@ -36,13 +20,13 @@ class VMUSBStack: public VMEModule
 
         uint8_t getStackID() const
         {
-            switch (m_trigger)
+            switch (triggerCondition)
             {
-                case NIM1:
+                case TriggerCondition::NIM1:
                     return 0;
-                case Scaler:
+                case TriggerCondition::Scaler:
                     return 1;
-                case Interrupt:
+                case TriggerCondition::Interrupt:
                     return m_stackID;
             }
             return 0;
@@ -96,12 +80,19 @@ class VMUSBStack: public VMEModule
             }
         }
 
+        /* Reset the global load offset. Use between runs. */
+        void resetLoadOffset()
+        {
+            loadOffset = 0;
+        }
+
+        static size_t loadOffset;
+
+        TriggerCondition triggerCondition;
         uint8_t irqLevel = 0;
         uint8_t irqVector = 0;
-        static size_t loadOffset;
         
     private:
-        TriggerType m_trigger = NIM1;
         uint8_t m_stackID = 0;
         QVector<VMEModule *> m_members;
 };

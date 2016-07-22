@@ -1,15 +1,29 @@
 #ifndef VMECONTROLLER_H
 #define VMECONTROLLER_H
 
-#include <cstdint>
-#include <cstddef>
+#include <QObject>
 
 class VMECommandList;
 
-class VMEController
+enum class VMEControllerType
 {
+    VM_USB,
+    CAEN,
+    SIS
+};
+
+class VMEController: public QObject
+{
+    Q_OBJECT
+    signals:
+        void controllerOpened();
+        void controllerClosed();
+
     public:
+        VMEController(QObject *parent = 0);
         virtual ~VMEController() {}
+        virtual VMEControllerType getType() const = 0;
+
         virtual void write32(uint32_t address, uint8_t amod, uint32_t value) = 0;
         virtual void write16(uint32_t address, uint8_t amod, uint16_t value) = 0;
 

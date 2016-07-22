@@ -36,15 +36,13 @@ represents vm_usb controller
 
   @author Gregor Montermann <g.montermann@mesytec.com>
 */
-class VMUSB : public QObject, public VMEController
+class VMUSB: public VMEController
 {
     Q_OBJECT
     signals:
         void daqModeEntered();
         void daqModeLeft();
         void daqModeChanged(bool);
-        void controllerOpened();
-        void controllerClosed();
 
     public:
         VMUSB();
@@ -126,14 +124,14 @@ class VMUSB : public QObject, public VMEController
         /* Executes the commands in commandList and reads the response into readBuffer.
          * Returns the number of bytes read. Throws on error. */
         virtual size_t executeCommands(VMECommandList *commands, void *readBuffer,
-                size_t readBufferSize);
+                size_t readBufferSize) override;
 
 
         /* Writes the given writePacket to the VM_USB and reads the response back into readPacket. */
         int transaction(void* writePacket, size_t writeSize,
                 void* readPacket,  size_t readSize, int timeout_ms = 1000);
 
-        int bulk_read(void *outBuffer, size_t outBufferSize, int timeout_ms = 1000);
+        int bulkRead(void *outBuffer, size_t outBufferSize, int timeout_ms = 1000);
 
         xxusb_device_type pUsbDevice[5];
         char numDevices = 0;
@@ -143,6 +141,9 @@ class VMUSB : public QObject, public VMEController
         //
         // VMEController interface
         //
+
+        virtual VMEControllerType getType() const { return VMEControllerType::VM_USB; }
+
         virtual void write32(uint32_t address, uint8_t amod, uint32_t value);
         virtual void write16(uint32_t address, uint8_t amod, uint16_t value);
 

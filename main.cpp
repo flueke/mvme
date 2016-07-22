@@ -32,21 +32,23 @@
 #include "util.h"
 #include "vme_module.h"
 #include "vmusb_stack.h"
+#include "mvme_context.h"
 
 #include <QApplication>
 #include <QDebug>
 #include <QLibraryInfo>
 
 
-void bulk_read(VMUSB *vmusb)
+void bulkRead(VMUSB *vmusb)
 {
     char readBuffer[64 * 1024];
-    int status = vmusb->bulk_read(readBuffer, sizeof(readBuffer));
-    qDebug("bulk_read: %d", status);
+    int status = vmusb->bulkRead(readBuffer, sizeof(readBuffer));
+    qDebug("bulkRead: %d", status);
 }
 
 int main(int argc, char *argv[])
 {
+    qRegisterMetaType<DAQState>("DAQState");
     QApplication a(argc, argv);
 
     QCoreApplication::setOrganizationDomain("www.mesytec.com");
@@ -133,13 +135,13 @@ int main(int argc, char *argv[])
 
     for (size_t transfers = 0; transfers < transferLimit; ++transfers)
     {
-        bulk_read(vmusb);
+        bulkRead(vmusb);
     }
 
     qDebug() << "stopDaq";
     vmusb->leaveDaqMode();
     qDebug() << "drain vmusb";
-    bulk_read(vmusb);
+    bulkRead(vmusb);
 
     vmusb->executeCommands(&stopDaqCommands, readBuffer, sizeof(readBuffer));
 

@@ -40,7 +40,7 @@ mvme::mvme(QWidget *parent) :
 
     qDebug() << "main thread: " << QThread::currentThread();
 
-    m_readoutThread->setObjectName("ReadoutThread");
+    m_readoutThread->setObjectName("ReadoutThread Old");
 
     m_histogram[0] = new Histogram(this, 42, 8192);
     m_histogram[0]->initHistogram();
@@ -55,6 +55,7 @@ mvme::mvme(QWidget *parent) :
     //connect(contextWidget, &MVMEContextWidget::addVMEModule, this, &MVME, addDAQEventConfig);
     auto contextDock = new QDockWidget("Configuration");
     contextDock->setObjectName("MVMEContextDock");
+    contextDock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
     contextDock->setWidget(contextWidget);
     addDockWidget(Qt::LeftDockWidgetArea, contextDock);
 
@@ -71,7 +72,7 @@ mvme::mvme(QWidget *parent) :
     vu->openFirstUsbDevice();
 
     mctrl = new mvmeControl(this);
-    mctrl->show();
+    //mctrl->show();
 
     // read current configuration
     mctrl->getValues();
@@ -84,6 +85,47 @@ mvme::mvme(QWidget *parent) :
     QSettings settings;
     restoreGeometry(settings.value("mainWindowGeometry").toByteArray());
     restoreState(settings.value("mainWindowState").toByteArray());
+
+
+    auto module0 = new MDPP16(0x0, "mdpp16_0");
+    module0->initListString = QString(
+"0x6010 1        # irq level\n"
+"0x6012 0        # irq vector\n"
+"0x6018 1        # FIFO threshold\n"
+"0x601A 1        # max transfer data for multi event mode 3\n"
+"0x6036 0        # multi event\n"
+""
+"0x6050 0x3FF8 \n"
+"0x6054 0x10\n"
+"0x6058 0x100\n"
+"0x6100 0x8\n"
+"0x611A 500\n"
+"0x6110 4\n"
+"0x6124 200\n"
+"0x6070 3\n"
+"0x6072 1000\n"
+""
+"0x603A 1        # start acquisition\n"
+"0x603C 1        # FIFO reset\n"
+"0x6034 1        # readout reset\n"
+);
+
+    auto module1 = new MADC32(0x43210000, "madc32_0");
+    module1->initListString = QString(
+"0x6018 1        # FIFO threshold\n"
+"0x601A 1        # max transfer data for multi event mode 3\n"
+"0x6036 0        # multi event\n"
+"0x6070 7\n"
+);
+
+    auto event0 = new DAQEventConfig;
+    event0->name = "event0";
+    event0->triggerCondition = TriggerCondition::Interrupt;
+    event0->irqLevel = 1;
+    event0->modules.push_back(module0);
+    event0->modules.push_back(module1);
+
+    m_context->addEventConfig(event0);
 }
 
 mvme::~mvme()

@@ -1168,7 +1168,7 @@ VMUSB::transaction(void* writePacket, size_t writeSize,
     return status;
 }
 
-int VMUSB::bulk_read(void *outBuffer, size_t outBufferSize, int timeout_ms)
+int VMUSB::bulkRead(void *outBuffer, size_t outBufferSize, int timeout_ms)
 {
     int status = usb_bulk_read(hUsbDevice, ENDPOINT_IN,
                                static_cast<char *>(outBuffer), outBufferSize, timeout_ms);

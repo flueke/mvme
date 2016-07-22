@@ -38,6 +38,8 @@ SOURCES += main.cpp\
     vme_module.cc \
     vmusb_stack.cc \
     mvme_context.cc \
+    readout_worker.cc \
+    dataprocessor.cc \
 
 
 HEADERS  += \
@@ -63,6 +65,9 @@ HEADERS  += \
     vme_module.h \
     vmusb_stack.h \
     mvme_context.h \
+    readout_worker.h \
+    databuffer.h \
+    dataprocessor.h \
 
 
 FORMS    += \

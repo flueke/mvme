@@ -1,6 +1,8 @@
 #include "mvme_context.h"
 #include "vme_module.h"
 #include "vmusb.h"
+#include "readout_worker.h"
+#include "dataprocessor.h"
 
 #include <QComboBox>
 #include <QDialog>
@@ -15,6 +17,10 @@
 #include <QTimer>
 #include <QTreeWidget>
 #include <QVBoxLayout>
+#include <QGridLayout>
+#include <QGroupBox>
+#include <QPushButton>
+#include <QThread>
 
 struct AddVMEModuleDialog: public QDialog
 {
@@ -23,6 +29,7 @@ struct AddVMEModuleDialog: public QDialog
         , context(context)
         , parentConfig(parentConfig)
     {
+        // TODO: get module types and names from static map
         QStringList moduleTypes = {
             "Unknown",
             "MADC",
@@ -52,7 +59,7 @@ struct AddVMEModuleDialog: public QDialog
 
     virtual void accept()
     {
-        // TODO: call a factory for the correct type here
+        // TODO: create the correct module here
         auto module = new GenericModule(0, "test");
         context->addModule(parentConfig, module);
         QDialog::accept();
@@ -65,15 +72,57 @@ struct AddVMEModuleDialog: public QDialog
     DAQEventConfig *parentConfig;
 };
 
+//
+// ===========
+//
+
 MVMEContext::MVMEContext(QObject *parent)
     : QObject(parent)
     , m_ctrlOpenTimer(new QTimer(this))
+    , m_readoutThread(new QThread(this))
+    , m_readoutWorker(new ReadoutWorker(this))
+    , m_dataProcessorThread(new QThread(this))
+    , m_dataProcessor(new DataProcessor)
 {
+
+    for (size_t i=0; i<dataBufferCount; ++i)
+    {
+        m_freeBuffers.push_back(new DataBuffer(dataBufferSize));
+    }
+
+
     connect(m_ctrlOpenTimer, &QTimer::timeout,
             this, &MVMEContext::tryOpenController);
 
     m_ctrlOpenTimer->setInterval(100);
     m_ctrlOpenTimer->start();
+
+    m_readoutWorker->moveToThread(m_readoutThread);
+    m_readoutThread->setObjectName("ReadoutThread");
+    m_readoutThread->start();
+
+    m_dataProcessor->moveToThread(m_dataProcessorThread);
+    m_dataProcessorThread->setObjectName("DataProcessorThread");
+    m_dataProcessorThread->start();
+
+    connect(m_readoutWorker, &ReadoutWorker::bufferRead, m_dataProcessor, &DataProcessor::processBuffer);
+    connect(m_dataProcessor, &DataProcessor::bufferProcessed, m_readoutWorker, &ReadoutWorker::addFreeBuffer);
+}
+
+MVMEContext::~MVMEContext()
+{
+    QMetaObject::invokeMethod(m_readoutWorker, "stop", Qt::QueuedConnection);
+    while (m_readoutWorker->getState() != DAQState::Idle)
+    {
+        QThread::msleep(50);
+    }
+    m_readoutThread->quit();
+    m_readoutThread->wait();
+    m_dataProcessorThread->quit();
+    m_dataProcessorThread->wait();
+    delete m_readoutWorker;
+    delete m_dataProcessor;
+    qDeleteAll(m_eventConfigs);
 }
 
 void MVMEContext::addModule(DAQEventConfig *eventConfig, VMEModule *module)
@@ -86,6 +135,11 @@ void MVMEContext::addEventConfig(DAQEventConfig *eventConfig)
 {
     m_eventConfigs.push_back(eventConfig);
     emit eventConfigAdded(eventConfig);
+
+    for (auto module: eventConfig->modules)
+    {
+        emit moduleAdded(eventConfig, module);
+    }
 }
 
 DAQEventConfig *MVMEContext::addNewEventConfig()
@@ -126,7 +180,8 @@ struct MVMEContextWidgetPrivate
     MVMEContextWidget *m_q;
     MVMEContext *context;
 
-    QWidget *controller_widget;
+    QPushButton *pb_startDAQ, *pb_startOneCycle, *pb_stopDAQ;
+    QLabel *label_daqState;
     QTreeWidget *tw_contextTree;
 };
 
@@ -134,11 +189,33 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
     : QWidget(parent)
     , m_d(new MVMEContextWidgetPrivate(this, context))
 {
-    m_d->controller_widget = new QWidget;
+    auto daqWidget = new QGroupBox("DAQ");
     {
-        auto widget = m_d->controller_widget;
-        auto layout = new QVBoxLayout(widget);
-        layout->addWidget(new QLabel("implement me!"));
+        m_d->pb_startDAQ = new QPushButton("Start");
+        m_d->pb_startOneCycle = new QPushButton("1 Cycle");
+        m_d->pb_stopDAQ = new QPushButton("Stop");
+        m_d->pb_stopDAQ->setEnabled(false);
+        m_d->label_daqState = new QLabel("Idle");
+
+        auto readoutWorker = m_d->context->getReadoutWorker();
+
+        connect(m_d->pb_startDAQ, &QPushButton::clicked, readoutWorker, &ReadoutWorker::start);
+        connect(m_d->pb_startOneCycle, &QPushButton::clicked, [=] {
+                QMetaObject::invokeMethod(readoutWorker, "start", Qt::QueuedConnection, Q_ARG(quint32, 1));
+                });
+        connect(m_d->pb_stopDAQ, &QPushButton::clicked, readoutWorker, &ReadoutWorker::stop);
+        connect(readoutWorker, &ReadoutWorker::stateChanged, this, &MVMEContextWidget::daqStateChanged);
+
+        auto layout = new QGridLayout(daqWidget);
+        layout->setContentsMargins(2, 2, 2, 2);
+        layout->addWidget(m_d->pb_startDAQ, 0, 0);
+        layout->addWidget(m_d->pb_startOneCycle, 0, 1);
+        layout->addWidget(m_d->pb_stopDAQ, 0, 2);
+
+        auto stateLayout = new QFormLayout;
+        stateLayout->addRow("State:", m_d->label_daqState);
+
+        layout->addLayout(stateLayout, 1, 0, 1, 3);
     }
 
     m_d->tw_contextTree = new QTreeWidget;
@@ -148,7 +225,7 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
     connect(m_d->tw_contextTree, &QTreeWidget::itemClicked, this, &MVMEContextWidget::treeItemClicked);
 
     auto splitter = new QSplitter(Qt::Vertical);
-    splitter->addWidget(m_d->controller_widget);
+    splitter->addWidget(daqWidget);
 
     auto w = new QWidget;
     auto wl = new QVBoxLayout(w);
@@ -159,6 +236,7 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
     splitter->addWidget(w);
 
     auto layout = new QVBoxLayout(this);
+    layout->setContentsMargins(0, 0, 0, 0);
     layout->addWidget(splitter);
 
     connect(context, &MVMEContext::moduleAdded, this, &MVMEContextWidget::onModuleAdded);
@@ -225,6 +303,8 @@ void MVMEContextWidget::treeContextMenu(const QPoint &pos)
 
     auto action = menu.exec(m_d->tw_contextTree->mapToGlobal(pos));
 
+    if (!action) return;
+
     if (action == actionAddEventConfig)
     {
         m_d->context->addNewEventConfig();
@@ -240,4 +320,31 @@ void MVMEContextWidget::treeContextMenu(const QPoint &pos)
 void MVMEContextWidget::treeItemClicked(QTreeWidgetItem *item, int column)
 {
     qDebug() << __PRETTY_FUNCTION__ << item << column;
+}
+
+void MVMEContextWidget::daqStateChanged(DAQState state)
+{
+    auto label = m_d->label_daqState;
+
+    switch (state)
+    {
+        case DAQState::Idle:
+            label->setText("Idle");
+            break;
+
+        case DAQState::Starting:
+            label->setText("Starting");
+            break;
+
+        case DAQState::Running:
+            label->setText("Running");
+            break;
+        case DAQState::Stopping:
+            label->setText("Stopping");
+            break;
+    }
+
+    m_d->pb_startDAQ->setEnabled(state == DAQState::Idle);
+    m_d->pb_startOneCycle->setEnabled(state == DAQState::Idle);
+    m_d->pb_stopDAQ->setEnabled(state != DAQState::Idle);
 }

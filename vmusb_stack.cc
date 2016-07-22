@@ -22,17 +22,17 @@ void VMUSBStack::enableStack(VMUSB *controller)
 {
     auto stackID = getStackID();
 
-    switch (getTriggerType())
+    switch (triggerCondition)
     {
-        case NIM1:
+        case TriggerCondition::NIM1:
             {
                 Q_ASSERT(!"Not implemented");
             } break;
-        case Scaler:
+        case TriggerCondition::Scaler:
             {
                 Q_ASSERT(!"Not implemented");
             } break;
-        case Interrupt:
+        case TriggerCondition::Interrupt:
             {
                 uint16_t isvValue = (stackID << ISVWord::stackIDShift)
                     | (irqLevel << ISVWord::irqLevelShift)
