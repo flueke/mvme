@@ -1,7 +1,7 @@
 #include "mvme_context.h"
 #include "vme_module.h"
 #include "vmusb.h"
-#include "readout_worker.h"
+#include "vmusb_readout_worker.h"
 #include "dataprocessor.h"
 
 #include <QComboBox>
@@ -80,7 +80,7 @@ MVMEContext::MVMEContext(QObject *parent)
     : QObject(parent)
     , m_ctrlOpenTimer(new QTimer(this))
     , m_readoutThread(new QThread(this))
-    , m_readoutWorker(new ReadoutWorker(this))
+    , m_readoutWorker(new VMUSBReadoutWorker(this))
     , m_dataProcessorThread(new QThread(this))
     , m_dataProcessor(new DataProcessor(this))
 {
@@ -101,12 +101,14 @@ MVMEContext::MVMEContext(QObject *parent)
     m_readoutThread->setObjectName("ReadoutThread");
     m_readoutThread->start();
 
+    // XXX
     m_dataProcessor->moveToThread(m_dataProcessorThread);
+    //m_dataProcessor->moveToThread(m_readoutThread);
     m_dataProcessorThread->setObjectName("DataProcessorThread");
     m_dataProcessorThread->start();
 
-    connect(m_readoutWorker, &ReadoutWorker::bufferRead, m_dataProcessor, &DataProcessor::processBuffer);
-    connect(m_dataProcessor, &DataProcessor::bufferProcessed, m_readoutWorker, &ReadoutWorker::addFreeBuffer);
+    connect(m_readoutWorker, &VMUSBReadoutWorker::eventReady, m_dataProcessor, &DataProcessor::processBuffer);
+    connect(m_dataProcessor, &DataProcessor::bufferProcessed, m_readoutWorker, &VMUSBReadoutWorker::addFreeBuffer);
 }
 
 MVMEContext::~MVMEContext()
@@ -199,12 +201,12 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
 
         auto readoutWorker = m_d->context->getReadoutWorker();
 
-        connect(m_d->pb_startDAQ, &QPushButton::clicked, readoutWorker, &ReadoutWorker::start);
+        connect(m_d->pb_startDAQ, &QPushButton::clicked, readoutWorker, &VMUSBReadoutWorker::start);
         connect(m_d->pb_startOneCycle, &QPushButton::clicked, [=] {
                 QMetaObject::invokeMethod(readoutWorker, "start", Qt::QueuedConnection, Q_ARG(quint32, 1));
                 });
-        connect(m_d->pb_stopDAQ, &QPushButton::clicked, readoutWorker, &ReadoutWorker::stop);
-        connect(readoutWorker, &ReadoutWorker::stateChanged, this, &MVMEContextWidget::daqStateChanged);
+        connect(m_d->pb_stopDAQ, &QPushButton::clicked, readoutWorker, &VMUSBReadoutWorker::stop);
+        connect(readoutWorker, &VMUSBReadoutWorker::stateChanged, this, &MVMEContextWidget::daqStateChanged);
 
         auto layout = new QGridLayout(daqWidget);
         layout->setContentsMargins(2, 2, 2, 2);

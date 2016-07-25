@@ -3,6 +3,9 @@
 
 namespace VMUSBConstants
 {
+
+static const size_t BufferMaxSize = 27 * 1024; 
+
 namespace Buffer
 {
 // Header word 1

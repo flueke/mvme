@@ -50,9 +50,12 @@ class VMEModule
 
         QString getName() const { return m_name; }
         void setName(const QString &name) { m_name = name; }
+        void addMarker(uint32_t marker) { m_markers.push_back(marker); }
+        QVector<uint32_t> getMarkers() const { return m_markers; }
 
     protected:
         QString m_name;
+        QVector<uint32_t> m_markers;
 };
 
 class HardwareModule: public VMEModule
@@ -132,6 +135,10 @@ class MesytecModule: public HardwareModule
         {
             // TODO, FIXME: number of transfers?! depends on multi event mode
             cmdList->addFifoRead32(baseAddress, bltAMod, 128);
+            for (u32 marker: m_markers)
+            {
+                cmdList->addMarker(marker);
+            }
             cmdList->addWrite16(baseAddress + 0x6034, registerAMod, 1); // readout reset
         }
 

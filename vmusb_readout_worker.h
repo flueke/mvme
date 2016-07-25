@@ -5,16 +5,17 @@
 #include "vmusb_stack.h"
 #include <QObject>
 
-class ReadoutWorker: public QObject
+class VMUSBReadoutWorker: public QObject
 {
     Q_OBJECT
     signals:
         void stateChanged(DAQState);
         void error(const QString &);
-        void bufferRead(DataBuffer *buffer);
+        void eventReady(DataBuffer *buffer);
 
     public:
-        ReadoutWorker(MVMEContext *context, QObject *parent = 0);
+        VMUSBReadoutWorker(MVMEContext *context, QObject *parent = 0);
+        ~VMUSBReadoutWorker();
 
         DAQState getState() const { return m_state; }
 
@@ -27,6 +28,7 @@ class ReadoutWorker: public QObject
         void readoutLoop();
         void setState(DAQState state);
         void setError(const QString &);
+        void processBuffer(DataBuffer *buffer);
         DataBuffer *getFreeBuffer();
 
         MVMEContext *m_context;
@@ -34,6 +36,7 @@ class ReadoutWorker: public QObject
         quint32 m_cyclesToRun = 0;
         VMUSBStack m_vmusbStack;
         VMECommandList m_stopCommands;
+        DataBuffer *m_readBuffer;
 };
 
 #endif

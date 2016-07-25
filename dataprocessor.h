@@ -3,9 +3,6 @@
 
 #include <QObject>
 
-/* TODO: make this an interface for concrete processor, one for each controller
- * type. Right now this is a concrete implementation for VMUSB. */
-
 class MVMEContext;
 class DataBuffer;
 
@@ -16,6 +13,7 @@ class DataProcessor: public QObject
     Q_OBJECT
     signals:
         void bufferProcessed(DataBuffer *buffer);
+        void eventFormatted(const QString &);
 
     public:
         DataProcessor(MVMEContext *context, QObject *parent = 0);

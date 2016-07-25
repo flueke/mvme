@@ -955,11 +955,8 @@ void VMUSB::writeActionRegister(uint16_t value)
     int outSize = pOut - outPacket;
     int status = usb_bulk_write(hUsbDevice, ENDPOINT_OUT, outPacket, outSize, defaultTimeout_ms);
 
-    if (status < 0)
-        throw VMUSB_UsbError(status, "Error writing action register");
-
     if (status != outSize)
-        throw std::runtime_error("usb_bulk_write wrote different size than expected");
+        throw VMUSB_UsbError(status, "Error writing action register");
 
     m_daqMode = (value & 0x1);
 
@@ -1289,10 +1286,12 @@ uint16_t VMUSB::read16(uint32_t address, uint8_t amod)
 
 void VMUSB::enterDaqMode()
 {
+    qDebug() << __PRETTY_FUNCTION__;
     writeActionRegister(1);
 }
 
 void VMUSB::leaveDaqMode()
 {
+    qDebug() << __PRETTY_FUNCTION__;
     writeActionRegister(0);
 }

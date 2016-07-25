@@ -152,6 +152,7 @@ CVMUSBReadoutList::CVMUSBReadoutList(const VMECommandList &commands)
                 } break;
             case VMECommand::Marker:
                 {
+                    addMarker(cmd.value >> 16);
                     addMarker(cmd.value);
                 } break;
             default:

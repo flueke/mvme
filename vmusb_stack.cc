@@ -33,10 +33,12 @@ void VMUSBStack::enableStack(VMUSB *controller)
     {
         case TriggerCondition::NIM1:
             {
+                // TODO: set VMUSB readout trigger delay
                 Q_ASSERT(!"Not implemented");
             } break;
         case TriggerCondition::Scaler:
             {
+                // TODO: set VMUSB scaler perdiod
                 Q_ASSERT(!"Not implemented");
             } break;
         case TriggerCondition::Interrupt:
@@ -45,7 +47,7 @@ void VMUSBStack::enableStack(VMUSB *controller)
                     | (irqLevel << ISVWord::irqLevelShift)
                     | irqVector;
 
-                int vectorNumber = stackID;
+                int vectorNumber = stackID - 2;
 
                 Q_ASSERT(0 <= vectorNumber && vectorNumber < 8);
 

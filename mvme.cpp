@@ -13,6 +13,7 @@
 #include "datacruncher.h"
 #include "datathread.h"
 #include "mvmedefines.h"
+#include "dataprocessor.h"
 
 #include <QDockWidget>
 #include <QFileDialog>
@@ -21,6 +22,7 @@
 #include <QtGui>
 #include <QTimer>
 #include <QToolBar>
+#include <QTextEdit>
 
 #include <qwt_plot_curve.h>
 
@@ -113,11 +115,13 @@ mvme::mvme(QWidget *parent) :
                 "0x603C 1        # FIFO reset\n"
                 "0x6034 1        # readout reset\n"
                 );
+        module00->addMarker(0x87654321);
 
         auto module01 = new MADC32(0x43210000, "madc32_0");
         module01->initListString = QString(
                 "0x6070 7\n"
                 );
+        module01->addMarker(0x87654321);
 
         auto event0 = new DAQEventConfig;
         event0->name = "event0";
@@ -137,6 +141,7 @@ mvme::mvme(QWidget *parent) :
         module10->initListString = QString(
                 "0x6070 1\n"
                 );
+        module10->addMarker(0x87654321);
 
         auto module11 = new MTDC32(0x00020000, "mtdc32_0");
         module11->initListString = QString(
@@ -144,6 +149,7 @@ mvme::mvme(QWidget *parent) :
                 "0x6012 0xf      # irq vector\n"
                 "0x6070 3\n"
                 );
+        module11->addMarker(0x87654321);
 
         auto event1 = new DAQEventConfig;
         event1->name = "event1";
@@ -155,6 +161,15 @@ mvme::mvme(QWidget *parent) :
 
         m_context->addEventConfig(event1);
     }
+
+    auto textView = new QTextEdit;
+    textView->setReadOnly(true);
+    connect(m_context->m_dataProcessor, &DataProcessor::eventFormatted,
+            textView, &QTextEdit::setPlainText);
+
+    auto subwin = new QMdiSubWindow(ui->mdiArea);
+    subwin->setWidget(textView);
+    subwin->show();
 }
 
 mvme::~mvme()

@@ -12,7 +12,7 @@
 class VMEController;
 class MesytecChain;
 class VMUSBStack;
-class ReadoutWorker;
+class VMUSBReadoutWorker;
 class DataProcessor;
 
 class QTimer;
@@ -68,13 +68,19 @@ struct DAQEventConfig
     TriggerCondition triggerCondition;
     uint8_t irqLevel = 0;
     uint8_t irqVector = 0;
+    uint8_t stackID; // currently set by the readout worker
     QList<VMEModule *> modules;
+};
+
+struct DAQConfig
+{
+    QList<DAQEventConfig *> eventConfigs;
 };
 
 
 class MVMEContext: public QObject
 {
-    static const size_t dataBufferCount = 40;
+    static const size_t dataBufferCount = 20;
     static const size_t dataBufferSize  = 30 * 1024;
 
     Q_OBJECT
@@ -91,9 +97,11 @@ class MVMEContext: public QObject
         DAQEventConfig *addNewEventConfig();
         void setController(VMEController *controller);
         VMEController *getController() const { return m_controller; }
-        ReadoutWorker *getReadoutWorker() const { return m_readoutWorker; }
+        VMUSBReadoutWorker *getReadoutWorker() const { return m_readoutWorker; }
         QList<DAQEventConfig *> getEventConfigs() const { return m_eventConfigs; }
         DataBufferQueue *getFreeBuffers() { return &m_freeBuffers; }
+
+        friend class mvme;
 
     private slots:
         void tryOpenController();
@@ -105,7 +113,7 @@ class MVMEContext: public QObject
         QList<DAQEventConfig *> m_eventConfigs;
         QThread *m_readoutThread;
 
-        ReadoutWorker *m_readoutWorker;
+        VMUSBReadoutWorker *m_readoutWorker;
         DataBufferQueue m_freeBuffers;
 
         QThread *m_dataProcessorThread;

@@ -136,7 +136,7 @@ class VMECommandList
             cmd.delay200nsClocks = delay200nsClocks;
             commands.push_back(cmd);
         }
-        void addMarker(uint16_t marker)
+        void addMarker(uint32_t marker)
         {
             VMECommand cmd;
             cmd.type = VMECommand::Marker;

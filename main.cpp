@@ -1,32 +1,7 @@
 /* TODOs and NOTES:
  *
- * To make this work asap:
- * make a context object holding
- * - vme controller
- * - modules
- * - chains
- * - stacks
- *
- * create guis to be able to
- * - add new modules and configure them
- * - create new stacks and add modules/chains to them
- * - create new chains and add modules to them
- * - module reset
- * - module init
- * - module start daq
- * - module stop daq
- * - module readout code
- * - remove modules, stacks, chains!
- *
- * daq gui:
- * - start / stop daq
- * - init only
- * - run for n cycles then stop
- *
- * raw data explorer
- * - parse controller headers and display info
- * - show module info
- * - display data as longwords
+ * - Buffer passing between threads via queued signals/slots seems way too
+ *   slow.  Try a mutex + waitcondition solution instead.
  */
 #include "mvme.h"
 #include "util.h"

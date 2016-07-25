@@ -78,9 +78,19 @@ struct BufferIterator
         return ret;
     }
 
-    inline u16 extractWord()
+    inline u32 extractWord()
     {
         return align32() ? extractU32() : extractU16();
+    }
+
+    inline u8 extractByte()
+    {
+        return extractU8();
+    }
+
+    inline u16 extractShortword()
+    {
+        return extractU16();
     }
 
     inline u32 extractLongword()
@@ -88,21 +98,47 @@ struct BufferIterator
         return extractU32();
     }
 
+    inline u16 peekU16() const
+    {
+        if (buffp + sizeof(u16) > endp)
+            throw end_of_buffer();
+
+        u32 ret = *reinterpret_cast<u16 *>(buffp);
+        return ret;
+    }
+
+    inline u32 peekU32() const
+    {
+        if (buffp + sizeof(u32) > endp)
+            throw end_of_buffer();
+
+        u32 ret = *reinterpret_cast<u32 *>(buffp);
+        return ret;
+    }
+
+    inline u32 peekWord() const
+    {
+        return align32() ? peekU32() : peekU16();
+    }
+
+    inline u32 bytesLeft() const
+    {
+        return endp - buffp;
+    }
+
     inline u32 wordsLeft() const
     {
-        u32 bytesLeft = endp - buffp;
-        if (align32())
-        {
-            return bytesLeft / sizeof(u32);
-        }
+        return bytesLeft() / (align32() ? sizeof(u32) : sizeof(u16));
+    }
 
-        return bytesLeft / sizeof(u16);
+    inline u32 shortwordsLeft() const
+    {
+        return bytesLeft() / sizeof(u16);
     }
 
     inline u32 longwordsLeft() const
     {
-        u32 bytesLeft = endp - buffp;
-        return bytesLeft / sizeof(u32);
+        return bytesLeft() / sizeof(u32);
     }
 };
 

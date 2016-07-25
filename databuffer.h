@@ -6,10 +6,11 @@
 
 struct DataBuffer
 {
-    DataBuffer(size_t size)
+    DataBuffer(size_t size, int type=0)
         : data(new u8[size])
         , size(size)
         , used(0)
+        , type(type)
     {}
 
     ~DataBuffer()
@@ -23,6 +24,7 @@ struct DataBuffer
     u8 *data;
     size_t size;
     size_t used;
+    int type = 0;
 };
 
 typedef QQueue<DataBuffer *> DataBufferQueue;
