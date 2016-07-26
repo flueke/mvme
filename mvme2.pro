@@ -39,6 +39,7 @@ SOURCES += main.cpp\
     vmusb_stack.cc \
     mvme_context.cc \
     vmusb_readout_worker.cc \
+    vmusb_buffer_processor.cc \
     dataprocessor.cc \
 
 
@@ -69,6 +70,7 @@ HEADERS  += \
     databuffer.h \
     dataprocessor.h \
     vmusb_constants.h \
+    vmusb_buffer_processor.h \
 
 
 FORMS    += \

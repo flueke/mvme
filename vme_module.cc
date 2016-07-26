@@ -90,7 +90,7 @@ QString VMECommand::toString() const
         case Marker:
             {
                 return QString("Marker 0x%1")
-                    .arg(value, 4, 16, Zero);
+                    .arg(value, 8, 16, Zero);
             } break;
     }
 

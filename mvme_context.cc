@@ -2,7 +2,7 @@
 #include "vme_module.h"
 #include "vmusb.h"
 #include "vmusb_readout_worker.h"
-#include "dataprocessor.h"
+#include "vmusb_buffer_processor.h"
 
 #include <QComboBox>
 #include <QDialog>
@@ -81,8 +81,7 @@ MVMEContext::MVMEContext(QObject *parent)
     , m_ctrlOpenTimer(new QTimer(this))
     , m_readoutThread(new QThread(this))
     , m_readoutWorker(new VMUSBReadoutWorker(this))
-    , m_dataProcessorThread(new QThread(this))
-    , m_dataProcessor(new DataProcessor(this))
+    , m_bufferProcessor(new VMUSBBufferProcessor(this))
 {
 
     for (size_t i=0; i<dataBufferCount; ++i)
@@ -90,25 +89,20 @@ MVMEContext::MVMEContext(QObject *parent)
         m_freeBuffers.push_back(new DataBuffer(dataBufferSize));
     }
 
-
-    connect(m_ctrlOpenTimer, &QTimer::timeout,
-            this, &MVMEContext::tryOpenController);
+    connect(m_ctrlOpenTimer, &QTimer::timeout, this, &MVMEContext::tryOpenController);
 
     m_ctrlOpenTimer->setInterval(100);
     m_ctrlOpenTimer->start();
 
     m_readoutWorker->moveToThread(m_readoutThread);
+    m_bufferProcessor->moveToThread(m_readoutThread);
+    m_readoutWorker->setBufferProcessor(m_bufferProcessor);
+
     m_readoutThread->setObjectName("ReadoutThread");
     m_readoutThread->start();
 
-    // XXX
-    m_dataProcessor->moveToThread(m_dataProcessorThread);
-    //m_dataProcessor->moveToThread(m_readoutThread);
-    m_dataProcessorThread->setObjectName("DataProcessorThread");
-    m_dataProcessorThread->start();
 
-    connect(m_readoutWorker, &VMUSBReadoutWorker::eventReady, m_dataProcessor, &DataProcessor::processBuffer);
-    connect(m_dataProcessor, &DataProcessor::bufferProcessed, m_readoutWorker, &VMUSBReadoutWorker::addFreeBuffer);
+    connect(m_readoutWorker, &VMUSBReadoutWorker::stateChanged, this, &MVMEContext::daqStateChanged);
 }
 
 MVMEContext::~MVMEContext()
@@ -120,10 +114,8 @@ MVMEContext::~MVMEContext()
     }
     m_readoutThread->quit();
     m_readoutThread->wait();
-    m_dataProcessorThread->quit();
-    m_dataProcessorThread->wait();
     delete m_readoutWorker;
-    delete m_dataProcessor;
+    delete m_bufferProcessor;
     qDeleteAll(m_eventConfigs);
 }
 
@@ -168,6 +160,11 @@ void MVMEContext::tryOpenController()
     }
 }
 
+DAQState MVMEContext::getDAQState() const
+{
+    return m_readoutWorker->getState();
+}
+
 //
 // ===============================
 //
@@ -203,10 +200,10 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
 
         connect(m_d->pb_startDAQ, &QPushButton::clicked, readoutWorker, &VMUSBReadoutWorker::start);
         connect(m_d->pb_startOneCycle, &QPushButton::clicked, [=] {
-                QMetaObject::invokeMethod(readoutWorker, "start", Qt::QueuedConnection, Q_ARG(quint32, 1));
+                QMetaObject::invokeMethod(readoutWorker, "start", Qt::QueuedConnection, Q_ARG(quint32, 1)); // XXX
                 });
         connect(m_d->pb_stopDAQ, &QPushButton::clicked, readoutWorker, &VMUSBReadoutWorker::stop);
-        connect(readoutWorker, &VMUSBReadoutWorker::stateChanged, this, &MVMEContextWidget::daqStateChanged);
+        connect(readoutWorker, &VMUSBReadoutWorker::stateChanged, this, &MVMEContextWidget::onDAQStateChanged);
 
         auto layout = new QGridLayout(daqWidget);
         layout->setContentsMargins(2, 2, 2, 2);
@@ -324,7 +321,7 @@ void MVMEContextWidget::treeItemClicked(QTreeWidgetItem *item, int column)
     qDebug() << __PRETTY_FUNCTION__ << item << column;
 }
 
-void MVMEContextWidget::daqStateChanged(DAQState state)
+void MVMEContextWidget::onDAQStateChanged(DAQState state)
 {
     auto label = m_d->label_daqState;
 

@@ -13,7 +13,7 @@ class VMEController;
 class MesytecChain;
 class VMUSBStack;
 class VMUSBReadoutWorker;
-class DataProcessor;
+class VMUSBBufferProcessor;
 
 class QTimer;
 class QThread;
@@ -88,6 +88,7 @@ class MVMEContext: public QObject
         void vmeControllerSet(VMEController *controller);
         void eventConfigAdded(DAQEventConfig *eventConfig);
         void moduleAdded(DAQEventConfig *eventConfig, VMEModule *module);
+        void daqStateChanged(const DAQState &state);
 
     public:
         MVMEContext(QObject *parent = 0);
@@ -98,8 +99,10 @@ class MVMEContext: public QObject
         void setController(VMEController *controller);
         VMEController *getController() const { return m_controller; }
         VMUSBReadoutWorker *getReadoutWorker() const { return m_readoutWorker; }
+        VMUSBBufferProcessor *getBufferProcessor() const { return m_bufferProcessor; }
         QList<DAQEventConfig *> getEventConfigs() const { return m_eventConfigs; }
         DataBufferQueue *getFreeBuffers() { return &m_freeBuffers; }
+        DAQState getDAQState() const;
 
         friend class mvme;
 
@@ -114,10 +117,9 @@ class MVMEContext: public QObject
         QThread *m_readoutThread;
 
         VMUSBReadoutWorker *m_readoutWorker;
+        VMUSBBufferProcessor *m_bufferProcessor;
         DataBufferQueue m_freeBuffers;
-
-        QThread *m_dataProcessorThread;
-        DataProcessor *m_dataProcessor;
+        DataBufferQueue m_eventBuffers;
 };
 
 struct MVMEContextWidgetPrivate;
@@ -138,7 +140,7 @@ class MVMEContextWidget: public QWidget
         void onModuleAdded(DAQEventConfig *eventConfig, VMEModule *module);
         void treeContextMenu(const QPoint &pos);
         void treeItemClicked(QTreeWidgetItem *item, int column);
-        void daqStateChanged(DAQState state);
+        void onDAQStateChanged(DAQState state);
 
     private:
         MVMEContextWidgetPrivate *m_d;
