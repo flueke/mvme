@@ -7,6 +7,7 @@
 class DataBuffer;
 class MVMEContext;
 class DAQEventConfig;
+class BufferIterator;
 
 class VMUSBBufferProcessor: public QObject
 {
@@ -21,8 +22,8 @@ class VMUSBBufferProcessor: public QObject
         void addFreeBuffer(DataBuffer *buffer);
 
     private:
-        void resetRunState();
         DataBuffer *getFreeBuffer();
+        bool processEvent(BufferIterator &iter);
 
         MVMEContext *m_context = 0;
         DataBuffer *m_currentBuffer = 0;

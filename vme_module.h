@@ -20,7 +20,7 @@ enum class VMEModuleType
     MDPP32  = 5,
     MDI2    = 6,
 
-    Generic = 48;
+    Generic = 48,
 };
 
 static const QMap<VMEModuleType, QString> VMEModuleTypeNames =
@@ -52,6 +52,7 @@ class VMEModule
 
         QString getName() const { return m_name; }
         void setName(const QString &name) { m_name = name; }
+        VMEModuleType type = VMEModuleType::Generic;
 
     protected:
         QString m_name;
@@ -66,7 +67,6 @@ class HardwareModule: public VMEModule
         {}
 
         uint32_t baseAddress = 0;
-        VMEModuleType type = VMEModuleType::Generic;
 };
 
 enum class RegisterWidth

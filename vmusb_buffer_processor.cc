@@ -225,21 +225,17 @@ bool VMUSBBufferProcessor::processEvent(BufferIterator &iter)
         u32 *moduleHeader = (u32 *)outp++;
         *moduleHeader = (u32)module->type;
 
-        try
-        {
-            u32 data = iter.extractU32();
-
-    }
-
-    // split the VMUSB event into event data from one module separated by BERR and EndOfModuleMarker
-    while (eventLength)
-    {
-        u32 data = iter.extractU32();
-        if (data == BerrMarker && iter.peekU32() == EndOfModuleMarker)
+        // extract and copy data until we used up the whole event length
+        // or until BerrMarker and EndOfModuleMarker have been found
+        try {
+            u32 data = 0; // XXX
+            if (data == BerrMarker && iter.peekU32() == EndOfModuleMarker)
+            {
+            }
+        } catch (const end_of_buffer &)
         {
         }
     }
-
 
 #if 0
     u16 *bufp = eventBuffer->asU16();
