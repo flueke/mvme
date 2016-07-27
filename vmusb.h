@@ -231,18 +231,28 @@ static const uint16_t TAVcsID12SHIFT(4);
 
 namespace TransferSetupRegister
 {
-static const uint32_t multiBufferCountMask   = 0xff;
-static const uint32_t multiBufferCountShift  = 0;
+    static const uint32_t multiBufferCountMask   = 0xff;
+    static const uint32_t multiBufferCountShift  = 0;
 
-static const uint32_t timeoutMask            = 0xf00;
-static const uint32_t timeoutShift           = 8;
-};
+    static const uint32_t timeoutMask            = 0xf00;
+    static const uint32_t timeoutShift           = 8;
+}
 
 namespace ISVWord // half of a ISV register
 {
-static const uint32_t stackIDShift  = 12;
-static const uint32_t irqLevelShift = 8;
-};
+    static const uint32_t stackIDShift  = 12;
+    static const uint32_t irqLevelShift = 8;
+}
+
+namespace DaqSettingsRegister
+{
+    static const uint32_t ScalerReadoutFrequencyShift = 16;
+    static const uint32_t ScalerReadoutFrequencyMask  = 0xffff0000;
+    static const uint32_t ScalerReadoutPerdiodShift   = 8;
+    static const uint32_t ScalerReadoutPerdiodMask    = 0x0000ff00;
+    static const uint32_t ReadoutTriggerDelayShift    = 0;
+    static const uint32_t ReadoutTriggerDelayMask     = 0x000000ff;
+}
 
 uint16_t*
 listToOutPacket(uint16_t ta, CVMUSBReadoutList* list,

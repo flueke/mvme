@@ -1,7 +1,7 @@
 #ifndef UUID_09e438bb_1fac_49bb_b2d5_5c514a191e48
 #define UUID_09e438bb_1fac_49bb_b2d5_5c514a191e48
 
-namespace VMUSBConstants
+namespace vmusb_constants
 {
 
 static const size_t BufferMaxSize = 27 * 1024; 

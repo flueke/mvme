@@ -14,6 +14,7 @@
 #include "histogram.h"
 #include "mvme.h"
 
+// Bounds values to 0.1 to make QwtLogScaleEngine happy
 class MinBoundLogTransform: public QwtLogTransform
 {
     public:
@@ -209,6 +210,7 @@ void TwoDimWidget::exportPlot()
 
 void TwoDimWidget::plot()
 {
+    qDebug () << __PRETTY_FUNCTION__;
     m_curve->setRawSamples(
             (const double*)m_pMyHist->m_axisBase,
             (const double*)m_pMyHist->m_data + m_pMyHist->m_resolution*m_currentChannel,
@@ -222,15 +224,15 @@ void TwoDimWidget::plot()
 
 void TwoDimWidget::updateYAxisScale()
 {
-    // update the log scale axis using the new channels max value
-    if (yAxisIsLog())
-    {
-        double maxValue = 1.2 * m_pMyHist->m_maximum[m_currentChannel];
-        if (maxValue <= 1.0)
-            maxValue = 10.0;
+    // update the y axis using the currently visible max value
+    double maxValue = 1.2 * m_pMyHist->m_maximum[m_currentChannel];
 
-        ui->mainPlot->setAxisScale(QwtPlot::yLeft, 1.0, maxValue);
-    }
+    if (maxValue <= 1.0)
+        maxValue = 10.0;
+
+    double base = yAxisIsLog() ? 1.0 : 0.0l;
+
+    ui->mainPlot->setAxisScale(QwtPlot::yLeft, base, maxValue);
 }
 
 bool TwoDimWidget::yAxisIsLog()

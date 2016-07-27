@@ -1,10 +1,12 @@
 #include "vmusb_buffer_processor.h"
 #include "mvme_context.h"
 #include "vmusb.h"
+#include "mvme_event.h"
 #include <memory>
 #include <QCoreApplication>
 
-using namespace VMUSBConstants;
+using namespace vmusb_constants;
+using namespace mvme_event;
 
 #if 0
 void format_vmusb_eventbuffer(DataBuffer *buffer, QTextStream &out)
@@ -123,8 +125,8 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
 
         if (true || lastBuffer || scalerBuffer || continuousMode || multiBuffer)
         {
-            qDebug("header1: 0x%08x, lastBuffer=%d, scalerBuffer=%d, continuousMode=%d, multiBuffer=%d, numberOfEvents=%u",
-                    header1, lastBuffer, scalerBuffer, continuousMode, multiBuffer, numberOfEvents);
+            qDebug("buffer_size=%u, header1: 0x%08x, lastBuffer=%d, scalerBuffer=%d, continuousMode=%d, multiBuffer=%d, numberOfEvents=%u",
+                   readBuffer->used, header1, lastBuffer, scalerBuffer, continuousMode, multiBuffer, numberOfEvents);
         }
 
         if (vmusb->getMode() & GlobalMode::HeaderOptMask)
@@ -144,9 +146,9 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
             while (iter.shortwordsLeft())
             {
                 u16 bufferTerminator = iter.extractU16();
-                if (bufferTerminator != 0xffff)
+                if (bufferTerminator != Buffer::BufferTerminator)
                 {
-                    qDebug("processBuffer() warning: buffer terminator != 0xffff");
+                    qDebug("processBuffer() warning: unexpected buffer terminator 0x%04x", bufferTerminator);
                 }
             }
         }
@@ -172,7 +174,6 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
 
         return true;
     }
-    // TODO: handle these errors somehow (terminating readout?)
     catch (const end_of_buffer &)
     {
         qDebug("Error: end of readBuffer reached unexpectedly!");
@@ -181,6 +182,15 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
     return false;
 }
 
+/* Process one VMUSB event, transforming it into a MVME event.
+ * MVME Event structure:
+ * Event Header
+ *   Module header
+ *     Raw module contents
+ *   Module header
+ *     Raw module contents
+ * ...
+ */
 bool VMUSBBufferProcessor::processEvent(BufferIterator &iter)
 {
     std::unique_ptr<DataBuffer> outputBuffer;
@@ -207,6 +217,8 @@ bool VMUSBBufferProcessor::processEvent(BufferIterator &iter)
         return false;
     }
 
+    BufferIterator eventIter(iter.buffp, eventLength * sizeof(u16), BufferIterator::Align16);
+
     outputBuffer.reset(getFreeBuffer());
     outputBuffer->used = 0;
 
@@ -216,26 +228,54 @@ bool VMUSBBufferProcessor::processEvent(BufferIterator &iter)
     u32 *mvmeEventHeader = (u32 *)outp++;
 
     size_t eventSize = 0;
-    *mvmeEventHeader = m_context->getEventConfigs().indexOf(eventConfig); // store the event config index in the module header
+
+    /* Store the event type, which is just the index into the event config
+     * array in the header. */
+    *mvmeEventHeader = m_context->getEventConfigs().indexOf(eventConfig) & EventTypeMask;
 
     for (int moduleIndex=0; moduleIndex<eventConfig->modules.size(); ++moduleIndex)
     {
+        size_t subEventSize = 0; // in 32 bit words
         auto module = eventConfig->modules[moduleIndex];
 
-        u32 *moduleHeader = (u32 *)outp++;
-        *moduleHeader = (u32)module->type;
+        u32 *moduleHeader = outp++;
+        *moduleHeader = ((u32)module->type) & ModuleTypeMask;
 
         // extract and copy data until we used up the whole event length
         // or until BerrMarker and EndOfModuleMarker have been found
-        try {
-            u32 data = 0; // XXX
-            if (data == BerrMarker && iter.peekU32() == EndOfModuleMarker)
-            {
-            }
-        } catch (const end_of_buffer &)
+        while (eventIter.longwordsLeft() >= 2)
         {
+            u32 data = eventIter.extractU32();
+            if (data == BerrMarker && eventIter.peekU32() == EndOfModuleMarker)
+            {
+                eventIter.extractU32(); // skip past EndOfModuleMarker
+                *moduleHeader |= subEventSize << SubEventSizeShift;
+                eventSize += subEventSize + 1; // +1 for the moduleHeader
+                break;
+            }
+            else
+            {
+                *outp++ = data;
+                ++subEventSize;
+            }
         }
     }
+
+    iter.buffp = eventIter.buffp; // advance the buffer iterator
+
+    if (eventIter.bytesLeft())
+    {
+        qDebug("===== Warning: %u bytes left in eventIter", eventIter.bytesLeft());
+    }
+
+    *mvmeEventHeader |= eventSize << EventSizeShift;
+    outputBuffer->used = (u8 *)outp - outputBuffer->data;
+
+    QTextStream out(stdout);
+    dump_event_buffer(out, outputBuffer.get());
+    addFreeBuffer(outputBuffer.release());
+
+    return true;
 
 #if 0
     u16 *bufp = eventBuffer->asU16();

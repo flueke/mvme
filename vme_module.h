@@ -83,20 +83,24 @@ class GenericModule: public HardwareModule
         {}
 
         virtual void resetModule(VMEController *controller)
-        { Q_ASSERT(!"Not implemented"); }
-        virtual void addInitCommands(VMECommandList *cmdList)
-        { Q_ASSERT(!"Not implemented"); }
-        virtual void addReadoutCommands(VMECommandList *cmdList)
-        { Q_ASSERT(!"Not implemented"); }
-        virtual void addStartDaqCommands(VMECommandList *cmdList)
-        { Q_ASSERT(!"Not implemented"); }
-        virtual void addStopDaqCommands(VMECommandList *cmdList)
-        { Q_ASSERT(!"Not implemented"); }
+        {}
 
-        //uint8_t registerAMod = 0x09;
-        //uint8_t bltAMod = 0x0b;
-        //uint8_t mbltAmod = 0x08;
-        //RegisterWidth registerWidth = RegisterWidth::Width16;
+        virtual void addInitCommands(VMECommandList *cmdList)
+        { cmdList->append(initCommands); }
+
+        virtual void addReadoutCommands(VMECommandList *cmdList)
+        { cmdList->append(readoutCommands); }
+
+        virtual void addStartDaqCommands(VMECommandList *cmdList)
+        { cmdList->append(startCommands); }
+
+        virtual void addStopDaqCommands(VMECommandList *cmdList)
+        { cmdList->append(stopCommands); }
+
+        VMECommandList initCommands;
+        VMECommandList readoutCommands;
+        VMECommandList startCommands;
+        VMECommandList stopCommands;
 };
 
 class MesytecModule: public HardwareModule
@@ -133,7 +137,7 @@ class MesytecModule: public HardwareModule
         virtual void addReadoutCommands(VMECommandList *cmdList)
         {
             // TODO, FIXME: number of transfers?! depends on multi event mode
-            cmdList->addFifoRead32(baseAddress, bltAMod, 128);
+            cmdList->addFifoRead32(baseAddress, bltAMod, 254);
             cmdList->addMarker(EndOfModuleMarker);
             cmdList->addWrite16(baseAddress + 0x6034, registerAMod, 1); // readout reset
         }

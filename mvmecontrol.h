@@ -85,6 +85,9 @@ private slots:
     void on_pb_errorRecovery_clicked();
     void on_usbBulkBuffers_valueChanged(int);
     void on_usbBulkTimeout_valueChanged(int);
+    void on_spin_triggerDelay_valueChanged(int);
+    void on_spin_readoutFrequency_valueChanged(int);
+    void on_spin_readoutPeriod_valueChanged(int);
 
 
     void on_pb_selectOutputFile_clicked();

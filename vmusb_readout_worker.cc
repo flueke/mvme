@@ -5,7 +5,7 @@
 #include <QThread>
 #include <memory>
 
-using namespace VMUSBConstants;
+using namespace vmusb_constants;
 
 static void processQtEvents(QEventLoop::ProcessEventsFlags flags = QEventLoop::AllEvents)
 {
@@ -15,7 +15,7 @@ static void processQtEvents(QEventLoop::ProcessEventsFlags flags = QEventLoop::A
 VMUSBReadoutWorker::VMUSBReadoutWorker(MVMEContext *context, QObject *parent)
     : QObject(parent)
     , m_context(context)
-    , m_readBuffer(new DataBuffer(VMUSBConstants::BufferMaxSize))
+    , m_readBuffer(new DataBuffer(vmusb_constants::BufferMaxSize))
 {
 }
 
@@ -30,9 +30,6 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         return;
 
     qDebug() << __PRETTY_FUNCTION__ << "cycles =" << cycles;
-
-    m_eventCountPerStack.clear();
-    m_nTotalEvents = 0;
 
     m_cyclesToRun = cycles;
     setState(DAQState::Starting);
@@ -65,6 +62,8 @@ void VMUSBReadoutWorker::start(quint32 cycles)
             m_vmusbStack.triggerCondition = event->triggerCondition;
             m_vmusbStack.irqLevel = event->irqLevel;
             m_vmusbStack.irqVector = event->irqVector;
+            m_vmusbStack.scalerReadoutPeriod = event->scalerReadoutPeriod;
+            m_vmusbStack.scalerReadoutFrequency = event->scalerReadoutFrequency;
 
             if (event->triggerCondition == TriggerCondition::Interrupt)
             {
@@ -118,9 +117,6 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         vmusb->executeCommands(&startCommands, buffer, sizeof(buffer));
 
         readoutLoop();
-
-        qDebug() << "total vmusb events this run:" << m_nTotalEvents;
-        qDebug() << "eventcount per stack:" << m_eventCountPerStack;
     }
     catch (const char *message)
     {
@@ -144,6 +140,7 @@ void VMUSBReadoutWorker::stop()
 void VMUSBReadoutWorker::readoutLoop()
 {
     setState(DAQState::Running);
+    m_bufferProcessor->resetRunState();
 
     auto vmusb = dynamic_cast<VMUSB *>(m_context->getController());
     vmusb->enterDaqMode();

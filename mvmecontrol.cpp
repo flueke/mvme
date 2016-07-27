@@ -310,6 +310,18 @@ void mvmeControl::refreshDisplay(void)
   ui->usbBulkBuffers->setValue(numberOfBuffers);
   ui->usbBulkTimeout->setValue(timeout);
 
+  u32 daqSettings = theApp->vu->getDaqSettings();
+  u32 triggerDelay = (daqSettings & DaqSettingsRegister::ReadoutTriggerDelayMask) >> DaqSettingsRegister::ReadoutTriggerDelayShift;
+  u32 readoutFrequency = (daqSettings & DaqSettingsRegister::ScalerReadoutFrequencyMask) >> DaqSettingsRegister::ScalerReadoutFrequencyShift;
+  u32 readoutPeriod = (daqSettings & DaqSettingsRegister::ScalerReadoutPerdiodMask) >> DaqSettingsRegister::ScalerReadoutPerdiodShift;
+
+  qDebug("daqSettings: %08x, triggerDelay=%u, readoutFrequency=%u, readoutPeriod=%u",
+         daqSettings, triggerDelay, readoutFrequency, readoutPeriod);
+
+  ui->spin_triggerDelay->setValue(triggerDelay);
+  ui->spin_readoutFrequency->setValue(readoutFrequency);
+  ui->spin_readoutPeriod->setValue(readoutPeriod);
+
   dontUpdate = false;
 #endif
   qDebug() << "end refreshDisplay()";
@@ -1155,6 +1167,30 @@ void mvmeControl::on_usbBulkTimeout_valueChanged(int value)
 
     theApp->vu->setUsbSettings(usbSetup);
     refreshDisplay();
+}
+
+void mvmeControl::on_spin_triggerDelay_valueChanged(int value)
+{
+    u32 regValue = theApp->vu->getDaqSettings();
+    regValue &= ~DaqSettingsRegister::ReadoutTriggerDelayMask;
+    regValue |= (value << DaqSettingsRegister::ReadoutTriggerDelayShift) & DaqSettingsRegister::ReadoutTriggerDelayMask;
+    theApp->vu->setDaqSettings(regValue);
+}
+
+void mvmeControl::on_spin_readoutFrequency_valueChanged(int value)
+{
+    u32 regValue = theApp->vu->getDaqSettings();
+    regValue &= ~DaqSettingsRegister::ScalerReadoutFrequencyMask;
+    regValue |= (value << DaqSettingsRegister::ScalerReadoutFrequencyShift) & DaqSettingsRegister::ScalerReadoutFrequencyMask;
+    theApp->vu->setDaqSettings(regValue);
+}
+
+void mvmeControl::on_spin_readoutPeriod_valueChanged(int value)
+{
+    u32 regValue = theApp->vu->getDaqSettings();
+    regValue &= ~DaqSettingsRegister::ScalerReadoutPerdiodMask;
+    regValue |= (value << DaqSettingsRegister::ScalerReadoutPerdiodShift) & DaqSettingsRegister::ScalerReadoutPerdiodMask;
+    theApp->vu->setDaqSettings(regValue);
 }
 
 void mvmeControl::on_pb_selectOutputFile_clicked()

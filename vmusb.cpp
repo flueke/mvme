@@ -20,6 +20,7 @@
 #include "vmusb.h"
 #include "CVMUSBReadoutList.h"
 #include "vme.h"
+#include "vmecommandlist.h"
 #include <QDebug>
 
 ////////////////////////////////////////////////////////////////////////
@@ -1242,6 +1243,9 @@ VMUSB::stackExecute(const QVector<u32> &stackData, size_t resultMaxWords)
 size_t VMUSB::executeCommands(VMECommandList *commands, void *readBuffer,
         size_t readBufferSize)
 {
+    if (commands->size() == 0)
+        return 0;
+
     CVMUSBReadoutList vmusbList(*commands);
     size_t bytesRead = 0;
 

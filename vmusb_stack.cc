@@ -33,13 +33,17 @@ void VMUSBStack::enableStack(VMUSB *controller)
     {
         case TriggerCondition::NIM1:
             {
-                // TODO: set VMUSB readout trigger delay
-                Q_ASSERT(!"Not implemented");
             } break;
         case TriggerCondition::Scaler:
             {
-                // TODO: set VMUSB scaler perdiod
-                Q_ASSERT(!"Not implemented");
+                uint32_t daqSettings = controller->getDaqSettings();
+                daqSettings &= ~DaqSettingsRegister::ScalerReadoutFrequencyMask;
+                daqSettings |= scalerReadoutFrequency << DaqSettingsRegister::ScalerReadoutFrequencyShift;
+
+                daqSettings &= ~DaqSettingsRegister::ScalerReadoutPerdiodMask;
+                daqSettings |= scalerReadoutPeriod << DaqSettingsRegister::ScalerReadoutPerdiodShift;
+
+                controller->setDaqSettings(daqSettings);
             } break;
         case TriggerCondition::Interrupt:
             {

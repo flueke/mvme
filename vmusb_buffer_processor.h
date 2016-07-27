@@ -12,6 +12,9 @@ class BufferIterator;
 class VMUSBBufferProcessor: public QObject
 {
     Q_OBJECT
+    signals:
+        void mvmeEventReady(DataBuffer *);
+
     public:
         VMUSBBufferProcessor(MVMEContext *context, QObject *parent = 0);
 
@@ -19,7 +22,7 @@ class VMUSBBufferProcessor: public QObject
 
     public slots:
         void resetRunState(); // call this when a new DAQ run starts
-        void addFreeBuffer(DataBuffer *buffer);
+        void addFreeBuffer(DataBuffer *buffer); // put processed buffers back into the queue
 
     private:
         DataBuffer *getFreeBuffer();

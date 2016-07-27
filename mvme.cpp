@@ -13,7 +13,6 @@
 #include "datacruncher.h"
 #include "datathread.h"
 #include "mvmedefines.h"
-#include "dataprocessor.h"
 
 #include <QDockWidget>
 #include <QFileDialog>
@@ -157,6 +156,28 @@ mvme::mvme(QWidget *parent) :
         event1->modules.push_back(module11);
 
         m_context->addEventConfig(event1);
+    }
+
+    //
+    // event2
+    //
+    {
+        auto module20 = new GenericModule(0, "testmod");
+        module20->startCommands.addWrite16(0x00006090, 0x09, 1);
+        u32 base = 0x00020000;
+        module20->readoutCommands.addRead16(base + 0x6092);
+        module20->readoutCommands.addRead16(base + 0x6094);
+        module20->readoutCommands.addMarker(BerrMarker);
+        module20->readoutCommands.addMarker(EndOfModuleMarker);
+
+        auto event2 = new DAQEventConfig;
+        event2->name = "periodic";
+        event2->triggerCondition = TriggerCondition::Scaler;
+        event2->scalerReadoutFrequency = 1000; // every x events
+        event2->scalerReadoutPeriod = 1; // or every n*0.5 seconds
+        event2->modules.push_back(module20);
+
+        m_context->addEventConfig(event2);
     }
 
     //auto textView = new QTextEdit;

@@ -64,11 +64,17 @@ struct DAQEventConfig
     {
         qDeleteAll(modules);
     }
+
     QString name;
     TriggerCondition triggerCondition;
+    uint8_t stackID; // currently set by the readout worker
     uint8_t irqLevel = 0;
     uint8_t irqVector = 0;
-    uint8_t stackID; // currently set by the readout worker
+    // Maximum time between scaler stack executions in units of 0.5s
+    uint8_t scalerReadoutPeriod = 0;
+    // Maximum number of events between scaler stack executions
+    uint16_t scalerReadoutFrequency = 0;
+
     QList<VMEModule *> modules;
 };
 

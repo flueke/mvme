@@ -57,7 +57,7 @@ class VMECommandList
             commands.push_back(cmd);
         }
 
-        void addRead32(uint32_t address, uint8_t amod)
+        void addRead32(uint32_t address, uint8_t amod = 0x09)
         {
             VMECommand cmd;
             cmd.type = VMECommand::Read32;
@@ -65,7 +65,7 @@ class VMECommandList
             cmd.amod    = amod;
             commands.push_back(cmd);
         }
-        void addRead16(uint32_t address, uint8_t amod)
+        void addRead16(uint32_t address, uint8_t amod = 0x09)
         {
             VMECommand cmd;
             cmd.type = VMECommand::Read16;
@@ -143,6 +143,13 @@ class VMECommandList
             cmd.value   = marker;
             commands.push_back(cmd);
         }
+
+        void append(const VMECommandList &other)
+        {
+            commands += other.commands;
+        }
+
+        size_t size() const { return (size_t) commands.size(); }
 
         QVector<VMECommand> commands;
 
