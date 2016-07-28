@@ -1,13 +1,14 @@
 #ifndef UUID_d783c880_21d1_4644_a26c_a70d9daa299e
 #define UUID_d783c880_21d1_4644_a26c_a70d9daa299e
 
-#include "vme_module.h"
 #include "globals.h"
+#include "mvme_config.h"
+#include "vmecommandlist.h"
 #include <stdexcept>
 
 class VMUSB;
 
-class VMUSBStack: public VMEModule
+class VMUSBStack
 {
     public:
         void setStackID(uint8_t stackID)
@@ -35,49 +36,21 @@ class VMUSBStack: public VMEModule
         void loadStack(VMUSB *controller);
         void enableStack(VMUSB *controller);
 
-        void addModule(VMEModule *module)
+        void addModule(ModuleConfig *module)
         {
-            m_members.append(module);
+            m_modules.append(module);
         }
 
-        virtual void resetModule(VMEController *controller)
+        VMECommandList getReadoutCommands() const
         {
-            for (auto module: m_members)
+            VMECommandList ret;
+            for (auto module: m_modules)
             {
-                module->resetModule(controller);
+                ret.append(VMECommandList::fromInitList(
+                        parseInitList(module->initReadout),
+                        module->baseAddress));
             }
-        }
-
-        virtual void addInitCommands(VMECommandList *cmdList)
-        {
-            for (auto module: m_members)
-            {
-                module->addInitCommands(cmdList);
-            }
-        }
-
-        virtual void addReadoutCommands(VMECommandList *cmdList)
-        {
-            for (auto module: m_members)
-            {
-                module->addReadoutCommands(cmdList);
-            }
-        }
-
-        virtual void addStartDaqCommands(VMECommandList *cmdList)
-        {
-            for (auto module: m_members)
-            {
-                module->addStartDaqCommands(cmdList);
-            }
-        }
-
-        virtual void addStopDaqCommands(VMECommandList *cmdList)
-        {
-            for (auto module: m_members)
-            {
-                module->addStopDaqCommands(cmdList);
-            }
+            return ret;
         }
 
         /* Reset the global load offset. Use between runs. */
@@ -97,8 +70,8 @@ class VMUSBStack: public VMEModule
         uint16_t scalerReadoutFrequency = 0;
         
     private:
-        uint8_t m_stackID = 0;
-        QVector<VMEModule *> m_members;
+        uint8_t m_stackID = 2;
+        QVector<ModuleConfig *> m_modules;
 };
 
 

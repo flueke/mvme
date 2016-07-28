@@ -276,23 +276,6 @@ bool VMUSBBufferProcessor::processEvent(BufferIterator &iter)
     addFreeBuffer(outputBuffer.release());
 
     return true;
-
-#if 0
-    u16 *bufp = eventBuffer->asU16();
-
-    *bufp++ = eventHeader;
-
-    for (u32 i=0; i<eventLength; ++i)
-    {
-        u16 data = iter.extractU16();
-        *bufp++ = data;
-    }
-
-    eventBuffer->used = (eventLength+1) * sizeof(u16);
-    //qDebug("eventBuffer ready, usedSize=%u, bytes left in readBuffer=%u", eventBuffer->used, iter.bytesLeft());
-    //emit eventReady(eventBuffer.release());
-    addFreeBuffer(eventBuffer.release());
-#endif
 }
 
 void VMUSBBufferProcessor::addFreeBuffer(DataBuffer *buffer)

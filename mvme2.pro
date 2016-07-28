@@ -40,6 +40,7 @@ SOURCES += main.cpp\
     mvme_context.cc \
     vmusb_readout_worker.cc \
     vmusb_buffer_processor.cc \
+    mvme_context_widget.cc \
 
 
 HEADERS  += \
@@ -69,6 +70,7 @@ HEADERS  += \
     databuffer.h \
     vmusb_constants.h \
     vmusb_buffer_processor.h \
+    mvme_context_widget.h \
 
 
 FORMS    += \

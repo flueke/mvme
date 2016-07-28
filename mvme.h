@@ -22,6 +22,8 @@ class mvmeControl;
 class RealtimeData;
 class VirtualMod;
 class vmedevice;
+class DAQEventConfig;
+class VMEModule;
 
 class QMdiSubWindow;
 class QThread;
@@ -74,6 +76,8 @@ private slots:
     void on_actionExport_Histogram_triggered();
     void on_actionExport_Spectrogram_triggered();
     void on_mdiArea_subWindowActivated(QMdiSubWindow *);
+    void handleEventConfigClicked(DAQEventConfig *config);
+    void handleModuleClicked(VMEModule *module);
 
 private:
     Ui::mvme *ui;

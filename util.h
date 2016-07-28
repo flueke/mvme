@@ -25,6 +25,7 @@ typedef QPair<u32, u32> RegisterSetting; // (addr, value)
 typedef QList<RegisterSetting> InitList;
 
 InitList parseInitList(QTextStream &input);
+InitList parseInitList(const QString &input);
 
 class end_of_buffer: public std::exception {};
 

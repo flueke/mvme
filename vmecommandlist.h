@@ -1,6 +1,7 @@
 #ifndef UUID_0ba96895_944a_4a3b_9601_c7cae6a84867
 #define UUID_0ba96895_944a_4a3b_9601_c7cae6a84867
 
+#include "util.h"
 #include <QVector>
 class QTextStream;
 
@@ -150,6 +151,16 @@ class VMECommandList
         }
 
         size_t size() const { return (size_t) commands.size(); }
+
+        static VMECommandList fromInitList(const InitList &initList, uint32_t baseAddress, uint8_t amod = 0x09)
+        {
+            VMECommandList ret;
+            for (auto p: initList)
+            {
+                ret.addWrite16(baseAddress + p.first, amod, p.second);
+            }
+            return ret;
+        }
 
         QVector<VMECommand> commands;
 

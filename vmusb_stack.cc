@@ -3,13 +3,13 @@
 #include "CVMUSBReadoutList.h"
 
 #include <QTextStream>
+#include <QDebug>
 
 size_t VMUSBStack::loadOffset = 0;
 
 void VMUSBStack::loadStack(VMUSB *controller)
 {
-    VMECommandList readoutCommands;
-    addReadoutCommands(&readoutCommands);
+    VMECommandList readoutCommands(getReadoutCommands());
     CVMUSBReadoutList vmusbList(readoutCommands);
 
     QString tmp;

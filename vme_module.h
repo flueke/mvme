@@ -4,35 +4,12 @@
 #include "util.h"
 #include "vmecontroller.h"
 #include "vmecommandlist.h"
+#include "globals.h"
 #include <QMap>
 #include <QVector>
 #include <QString>
 #include <QThread>
 #include <QDebug>
-
-enum class VMEModuleType
-{
-    Invalid = 0,
-    MADC32  = 1,
-    MQDC32  = 2,
-    MTDC32  = 3,
-    MDPP16  = 4,
-    MDPP32  = 5,
-    MDI2    = 6,
-
-    Generic = 48,
-};
-
-static const QMap<VMEModuleType, QString> VMEModuleTypeNames =
-{
-    { VMEModuleType::MADC32,    "MADC32" },
-    { VMEModuleType::MQDC32,    "MQDC32" },
-    { VMEModuleType::MTDC32,    "MTDC32" },
-    { VMEModuleType::MDPP16,    "MDPP16" },
-    { VMEModuleType::MDPP32,    "MDPP32" },
-    { VMEModuleType::MDI2,      "MDI2" },
-    { VMEModuleType::Generic,   "Generic" },
-};
 
 static const u32 EndOfModuleMarker = 0x87654321;
 static const u32 BerrMarker = 0xffffffff;

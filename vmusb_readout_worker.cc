@@ -48,8 +48,7 @@ void VMUSBReadoutWorker::start(quint32 cycles)
             vmusb->setIrq(i, 0);
         }
 
-        auto initCommands = VMECommandList();
-        auto startCommands = VMECommandList();
+        VMECommandList resetCommands, initCommands, startCommands;
         m_stopCommands = VMECommandList();
 
         int stackID = 2; // start at ID=2 as 0=NIM, 1=scaler
@@ -79,12 +78,14 @@ void VMUSBReadoutWorker::start(quint32 cycles)
 
             for (auto module: event->modules)
             {
-                qDebug() << "reset module" << module->getName();
+                qDebug() << "reset module" << module->name;
 
-                module->resetModule(vmusb);
-                module->addInitCommands(&initCommands);
-                module->addStartDaqCommands(&startCommands);
-                module->addStopDaqCommands(&m_stopCommands);
+                resetCommands.append(VMECommandList::fromInitList(parseInitList(module->initReset), module->baseAddress));
+                initCommands.append(VMECommandList::fromInitList(parseInitList(module->initParameters), module->baseAddress));
+                initCommands.append(VMECommandList::fromInitList(parseInitList(module->initReadout), module->baseAddress));
+                startCommands.append(VMECommandList::fromInitList(parseInitList(module->initStartDaq), module->baseAddress));
+                m_stopCommands.append(VMECommandList::fromInitList(parseInitList(module->initStopDaq), module->baseAddress));
+
                 m_vmusbStack.addModule(module);
             }
 
@@ -101,6 +102,10 @@ void VMUSBReadoutWorker::start(quint32 cycles)
             initCommands.dump(strm);
             qDebug() << "init" << endl << tmp << endl;
         }
+
+        qDebug() << "running reset commands";
+        vmusb->executeCommands(&resetCommands, buffer, sizeof(buffer));
+        QThread::sleep(1);
 
         // TODO: run init commands one by one to make sure the device has enough time to do its work
         qDebug() << "running init commands";

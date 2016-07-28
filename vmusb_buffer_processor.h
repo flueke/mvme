@@ -6,7 +6,7 @@
 
 class DataBuffer;
 class MVMEContext;
-class DAQEventConfig;
+class EventConfig;
 class BufferIterator;
 
 class VMUSBBufferProcessor: public QObject
@@ -30,7 +30,7 @@ class VMUSBBufferProcessor: public QObject
 
         MVMEContext *m_context = 0;
         DataBuffer *m_currentBuffer = 0;
-        QMap<int, DAQEventConfig *> m_eventConfigByStackID;
+        QMap<int, EventConfig *> m_eventConfigByStackID;
 };
 
 #endif

@@ -13,6 +13,7 @@
 #include "datacruncher.h"
 #include "datathread.h"
 #include "mvmedefines.h"
+#include "mvme_context_widget.h"
 
 #include <QDockWidget>
 #include <QFileDialog>
@@ -89,6 +90,7 @@ mvme::mvme(QWidget *parent) :
     restoreState(settings.value("mainWindowState").toByteArray());
 
 
+#if 0
     //
     // event 0
     //
@@ -179,6 +181,7 @@ mvme::mvme(QWidget *parent) :
 
         m_context->addEventConfig(event2);
     }
+#endif
 
     //auto textView = new QTextEdit;
     //textView->setReadOnly(true);
@@ -460,4 +463,12 @@ void mvme::on_mdiArea_subWindowActivated(QMdiSubWindow *subwin)
     auto spectroWidget = qobject_cast<ChannelSpectroWidget *>(widget);
 
     ui->actionExport_Spectrogram->setVisible(spectroWidget);
+}
+
+void mvme::handleEventConfigClicked(DAQEventConfig *config)
+{
+}
+
+void mvme::handleModuleClicked(VMEModule *module)
+{
 }

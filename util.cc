@@ -52,3 +52,9 @@ InitList parseInitList(QTextStream &input)
 
     return ret;
 }
+
+InitList parseInitList(const QString &input)
+{
+    QTextStream strm(const_cast<QString *>(&input), QIODevice::ReadOnly);
+    return parseInitList(strm);
+}
