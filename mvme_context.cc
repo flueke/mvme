@@ -10,6 +10,7 @@
 
 MVMEContext::MVMEContext(QObject *parent)
     : QObject(parent)
+    , m_config(new DAQConfig)
     , m_ctrlOpenTimer(new QTimer(this))
     , m_readoutThread(new QThread(this))
     , m_readoutWorker(new VMUSBReadoutWorker(this))
@@ -48,6 +49,7 @@ MVMEContext::~MVMEContext()
     m_readoutThread->wait();
     delete m_readoutWorker;
     delete m_bufferProcessor;
+    delete m_config;
 }
 
 void MVMEContext::addModule(EventConfig *eventConfig, ModuleConfig *module)
@@ -58,7 +60,7 @@ void MVMEContext::addModule(EventConfig *eventConfig, ModuleConfig *module)
 
 void MVMEContext::addEventConfig(EventConfig *eventConfig)
 {
-    m_config.eventConfigs.push_back(eventConfig);
+    m_config->eventConfigs.push_back(eventConfig);
     emit eventConfigAdded(eventConfig);
 
     for (auto module: eventConfig->modules)

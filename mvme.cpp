@@ -14,6 +14,7 @@
 #include "datathread.h"
 #include "mvmedefines.h"
 #include "mvme_context_widget.h"
+#include "ui_moduleconfig_widget.h"
 
 #include <QDockWidget>
 #include <QFileDialog>
@@ -26,6 +27,94 @@
 #include <QFont>
 
 #include <qwt_plot_curve.h>
+
+EventConfigWidget::EventConfigWidget(EventConfig *config, QWidget *parent)
+    : QWidget(parent)
+    , m_config(config)
+{
+}
+
+QString *getConfigStringByListIndex(int index, ModuleConfig *config)
+{
+    QString *ret = 0;
+
+    switch (index)
+    {
+        case 0:
+            ret = &config->initParameters;
+            break;
+        case 1:
+            ret = &config->initReadout;
+            break;
+        case 2:
+            ret = &config->readoutStack;
+            break;
+        case 3:
+            ret = &config->initStartDaq;
+            break;
+        case 4:
+            ret = &config->initStopDaq;
+            break;
+        case 5:
+            ret = &config->initReset;
+            break;
+    }
+
+    return ret;
+}
+
+ModuleConfigWidget::ModuleConfigWidget(ModuleConfig *config, QWidget *parent)
+    : QWidget(parent)
+    , ui(new Ui::ModuleConfigWidget)
+    , m_config(config)
+{
+    ui->setupUi(this);
+    ui->combo_listType->addItem("Module Init");
+    ui->combo_listType->addItem("Readout Settings");
+    ui->combo_listType->addItem("Readout Stack");
+    ui->combo_listType->addItem("Start DAQ");
+    ui->combo_listType->addItem("Stop DAQ");
+    ui->combo_listType->addItem("Module Reset");
+
+    connect(ui->combo_listType, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
+            this, &ModuleConfigWidget::handleListTypeChanged);
+
+    ui->label_type->setText(VMEModuleTypeNames[config->type]);
+    ui->le_name->setText(config->name);
+    ui->le_address->setText(QString().sprintf("0x%08x", config->baseAddress));
+    ui->le_mcstAddress->setText(QString().sprintf("0x%02x", config->mcstAddress >> 24));
+    ui->editor->setPlainText(*getConfigStringByListIndex(0, m_config));
+    ui->editor->document()->setModified(false);
+}
+
+void ModuleConfigWidget::handleListTypeChanged(int index)
+{
+    if (m_currentListTypeIndex >= 0 && ui->editor->document()->isModified())
+    {
+        QString *dest = getConfigStringByListIndex(m_currentListTypeIndex, m_config);
+        if (dest)
+        {
+            *dest = ui->editor->toPlainText();
+        }
+    }
+
+    m_currentListTypeIndex = index;
+
+    ui->editor->clear();
+    ui->editor->document()->clearUndoRedoStacks();
+    QString *contents = getConfigStringByListIndex(index, m_config);
+    if (contents)
+    {
+        ui->editor->setPlainText(*contents);
+    }
+    ui->editor->document()->setModified(false);
+}
+
+void ModuleConfigWidget::closeEvent(QCloseEvent *event)
+{
+    qDebug() << __PRETTY_FUNCTION__;
+    QWidget::closeEvent(event);
+}
 
 mvme::mvme(QWidget *parent) :
     QMainWindow(parent),
@@ -54,8 +143,15 @@ mvme::mvme(QWidget *parent) :
     // create and initialize displays
     ui->setupUi(this);
     auto contextWidget = new MVMEContextWidget(m_context);
-    //connect(contextWidget, &MVMEContextWidget::addDAQEventConfig, this, &MVME, addDAQEventConfig);
-    //connect(contextWidget, &MVMEContextWidget::addVMEModule, this, &MVME, addDAQEventConfig);
+    m_contextWidget = contextWidget;
+    connect(contextWidget, &MVMEContextWidget::eventClicked, this, &mvme::handleEventConfigClicked);
+    connect(contextWidget, &MVMEContextWidget::moduleClicked, this, &mvme::handleModuleConfigClicked);
+    connect(contextWidget, &MVMEContextWidget::moduleDoubleClicked, this, &mvme::handleModuleConfigDoubleClicked);
+
+    connect(contextWidget, &MVMEContextWidget::deleteEvent, this, &mvme::handleDeleteEventConfig);
+    connect(contextWidget, &MVMEContextWidget::deleteModule, this, &mvme::handleDeleteModuleConfig);
+
+
     auto contextDock = new QDockWidget("Configuration");
     contextDock->setObjectName("MVMEContextDock");
     contextDock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
@@ -451,6 +547,83 @@ void mvme::on_actionExport_Spectrogram_triggered()
     }
 }
 
+void mvme::on_actionLoadConfig_triggered()
+{
+    QString fileName = QFileDialog::getOpenFileName(this, "Load MVME Config",
+                                                   QString(),
+                                                    "MVME Config Files (*.mvmecfg);; All Files (*.*)");
+    if (fileName.isEmpty())
+        return;
+
+    QFile inFile(fileName);
+    if (!inFile.open(QIODevice::ReadOnly))
+    {
+        QMessageBox::critical(0, "Error", QString("Error reading from %1").arg(fileName));
+        return;
+    }
+
+    for (auto win: ui->mdiArea->subWindowList())
+    {
+        if(qobject_cast<EventConfigWidget *>(win->widget()) ||
+           qobject_cast<ModuleConfigWidget *>(win->widget()))
+        {
+            win->close();
+        }
+    }
+
+    auto data = inFile.readAll();
+    QJsonDocument doc(QJsonDocument::fromJson(data));
+    m_context->getConfig()->read(doc.object());
+    m_context->m_configFilename = fileName;
+
+    m_contextWidget->reloadConfig();
+}
+
+void mvme::on_actionSaveConfig_triggered()
+{
+    if (m_context->m_configFilename.isEmpty())
+    {
+        on_actionSaveConfigAs_triggered();
+        return;
+    }
+
+    QFile outFile(m_context->m_configFilename);
+    if (!outFile.open(QIODevice::WriteOnly))
+    {
+        QMessageBox::critical(0, "Error", QString("Error writing to %1").arg(m_context->m_configFilename));
+    }
+
+    QJsonObject configObject;
+    m_context->getConfig()->write(configObject);
+
+    QJsonDocument doc(configObject);
+    outFile.write(doc.toJson());
+}
+
+void mvme::on_actionSaveConfigAs_triggered()
+{
+    QString fileName = QFileDialog::getSaveFileName(this, "Save Config As", QString(),
+                                                    "MVME Config Files (*.mvmecfg);; All Files (*.*)");
+
+    if (fileName.isEmpty())
+        return;
+
+    QFile outFile(fileName);
+    if (!outFile.open(QIODevice::WriteOnly))
+    {
+        QMessageBox::critical(0, "Error", QString("Error writing to %1").arg(fileName));
+        return;
+    }
+
+    QJsonObject configObject;
+    m_context->getConfig()->write(configObject);
+
+    QJsonDocument doc(configObject);
+    outFile.write(doc.toJson());
+
+    m_context->m_configFilename = fileName;
+}
+
 void mvme::on_mdiArea_subWindowActivated(QMdiSubWindow *subwin)
 {
     auto widget = subwin ? subwin->widget() : nullptr;
@@ -465,10 +638,59 @@ void mvme::on_mdiArea_subWindowActivated(QMdiSubWindow *subwin)
     ui->actionExport_Spectrogram->setVisible(spectroWidget);
 }
 
-void mvme::handleEventConfigClicked(DAQEventConfig *config)
+void mvme::handleEventConfigClicked(EventConfig *config)
 {
 }
 
-void mvme::handleModuleClicked(VMEModule *module)
+void mvme::handleModuleConfigClicked(ModuleConfig *config)
+{
+    QMdiSubWindow *subwin = 0;
+    for (auto win: ui->mdiArea->subWindowList())
+    {
+        auto widget = qobject_cast<ModuleConfigWidget *>(win->widget());
+        if (widget && widget->getConfig() == config)
+        {
+            subwin = win;
+            break;
+        }
+    }
+
+    if (subwin)
+    {
+        subwin->show();
+        if (subwin->isMinimized())
+            subwin->showNormal();
+        subwin->raise();
+    }
+    ui->mdiArea->setActiveSubWindow(subwin);
+}
+
+void mvme::handleModuleConfigDoubleClicked(ModuleConfig *config)
+{
+    QMdiSubWindow *subwin = 0;
+    for (auto win: ui->mdiArea->subWindowList())
+    {
+        auto widget = qobject_cast<ModuleConfigWidget *>(win->widget());
+        if (widget && widget->getConfig() == config)
+        {
+            subwin = win;
+            return;
+        }
+    }
+
+    auto widget = new ModuleConfigWidget(config);
+    subwin = new QMdiSubWindow(ui->mdiArea);
+    subwin->setAttribute(Qt::WA_DeleteOnClose);
+    subwin->setWidget(widget);
+
+    subwin->show();
+    ui->mdiArea->setActiveSubWindow(subwin);
+}
+
+void mvme::handleDeleteEventConfig(EventConfig *event)
+{
+}
+
+void mvme::handleDeleteModuleConfig(ModuleConfig *module)
 {
 }

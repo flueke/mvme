@@ -188,6 +188,7 @@ public:
 //    addMarker((uint16_t) value);
 //  }
 
+  QString toString() const;
 
   // Debugging:
 

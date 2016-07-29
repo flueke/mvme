@@ -113,8 +113,8 @@ class MesytecModule: public HardwareModule
 
         virtual void addReadoutCommands(VMECommandList *cmdList)
         {
-            // TODO, FIXME: number of transfers?! depends on multi event mode
-            cmdList->addFifoRead32(baseAddress, bltAMod, 254);
+            // FIXME: number of transfers?! depends on multi event mode
+            cmdList->addFifoRead32(baseAddress, 254, bltAMod);
             cmdList->addMarker(EndOfModuleMarker);
             cmdList->addWrite16(baseAddress + 0x6034, registerAMod, 1); // readout reset
         }

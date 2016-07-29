@@ -1,6 +1,7 @@
 #include <util.h>
 #include <QtDebug>
 #include <QTextStream>
+#include <QFile>
 
 void debugOutputBuffer(u32 *dataBuffer, u32 bufferCount)
 {
@@ -57,4 +58,17 @@ InitList parseInitList(const QString &input)
 {
     QTextStream strm(const_cast<QString *>(&input), QIODevice::ReadOnly);
     return parseInitList(strm);
+}
+
+QString readStringFile(const QString &filename)
+{
+    QString ret;
+    QFile infile(filename);
+    if (infile.open(QIODevice::ReadOnly))
+    {
+        QTextStream instream(&infile);
+        ret = instream.readAll();
+    }
+
+    return ret;
 }

@@ -20,6 +20,9 @@
 #include "CVMUSBReadoutList.h"
 #include "vmecommandlist.h"
 #include <iostream>
+#include <QString>
+#include <QTextStream>
+
 using namespace std;
 
 // Class level statics:
@@ -781,6 +784,19 @@ CVMUSBReadoutList::lastTransferIsNumberData(uint32_t mask)
   @param str  - An ostream& reference to which the
                 data are dumped.
 */
+
+QString CVMUSBReadoutList::toString() const
+{
+    QString ret;
+    QTextStream out(&ret);
+    out << hex;
+    for (uint32_t value: m_list)
+    {
+        out << "0x" << qSetFieldWidth(8) << qSetPadChar('0') << value << qSetFieldWidth(0) << endl;
+    }
+    return ret;
+}
+
 void
 CVMUSBReadoutList::dump(ostream& str)
 {

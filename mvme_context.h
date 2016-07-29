@@ -40,7 +40,7 @@ class MVMEContext: public QObject
         int getTotalModuleCount() const
         {
             int ret = 0;
-            for (auto eventConfig: m_config.eventConfigs)
+            for (auto eventConfig: m_config->eventConfigs)
                 ret += eventConfig->modules.size();
             return ret;
         }
@@ -48,7 +48,8 @@ class MVMEContext: public QObject
         VMEController *getController() const { return m_controller; }
         VMUSBReadoutWorker *getReadoutWorker() const { return m_readoutWorker; }
         VMUSBBufferProcessor *getBufferProcessor() const { return m_bufferProcessor; }
-        QList<EventConfig *> getEventConfigs() const { return m_config.eventConfigs; }
+        DAQConfig *getConfig() { return m_config; }
+        QList<EventConfig *> getEventConfigs() const { return m_config->eventConfigs; }
         DataBufferQueue *getFreeBuffers() { return &m_freeBuffers; }
         DAQState getDAQState() const;
 
@@ -58,16 +59,17 @@ class MVMEContext: public QObject
         void tryOpenController();
 
     private:
+        DAQConfig *m_config;
         VMEController *m_controller = nullptr;
         QTimer *m_ctrlOpenTimer;
         QFuture<void> m_ctrlOpenFuture;
-        DAQConfig m_config;
         QThread *m_readoutThread;
 
         VMUSBReadoutWorker *m_readoutWorker;
         VMUSBBufferProcessor *m_bufferProcessor;
         DataBufferQueue m_freeBuffers;
         DataBufferQueue m_eventBuffers;
+        QString m_configFilename;
 };
 
 #endif

@@ -2,6 +2,7 @@
 #define UUID_0ba96895_944a_4a3b_9601_c7cae6a84867
 
 #include "util.h"
+#include "vme.h"
 #include <QVector>
 class QTextStream;
 
@@ -58,7 +59,7 @@ class VMECommandList
             commands.push_back(cmd);
         }
 
-        void addRead32(uint32_t address, uint8_t amod = 0x09)
+        void addRead32(uint32_t address, uint8_t amod = VME_AM_A32_USER_DATA)
         {
             VMECommand cmd;
             cmd.type = VMECommand::Read32;
@@ -66,7 +67,7 @@ class VMECommandList
             cmd.amod    = amod;
             commands.push_back(cmd);
         }
-        void addRead16(uint32_t address, uint8_t amod = 0x09)
+        void addRead16(uint32_t address, uint8_t amod = VME_AM_A32_USER_DATA)
         {
             VMECommand cmd;
             cmd.type = VMECommand::Read16;
@@ -75,7 +76,7 @@ class VMECommandList
             commands.push_back(cmd);
         }
 
-        void addBlockRead32(uint32_t baseAddress, uint8_t amod, size_t transfers)
+        void addBlockRead32(uint32_t baseAddress, size_t transfers, uint8_t amod = VME_AM_A32_USER_BLT)
         {
             VMECommand cmd;
             cmd.type = VMECommand::BlockRead32;
@@ -84,7 +85,8 @@ class VMECommandList
             cmd.transfers = transfers;
             commands.push_back(cmd);
         }
-        void addFifoRead32(uint32_t  baseAddress, uint8_t amod, size_t transfers)
+
+        void addFifoRead32(uint32_t  baseAddress, size_t transfers, uint8_t amod = VME_AM_A32_USER_BLT)
         {
             VMECommand cmd;
             cmd.type = VMECommand::FifoRead32;
@@ -94,7 +96,11 @@ class VMECommandList
             commands.push_back(cmd);
         }
 
-        void addBlockCountRead16(uint32_t address, uint16_t mask, uint8_t amod)
+        /* Read the number of transfers for a variable length block transfer from a 16 bit register.
+         * address is the address from which to read the block count.
+         * mask is the block count extraction mask
+         */
+        void addBlockCountRead16(uint32_t address, uint32_t mask, uint8_t amod = VME_AM_A32_USER_DATA)
         {
             VMECommand cmd;
             cmd.type = VMECommand::BlockCountRead16;
@@ -103,7 +109,12 @@ class VMECommandList
             cmd.blockCountMask = mask;
             commands.push_back(cmd);
         }
-        void addBlockCountRead32(uint32_t address, uint32_t mask, uint8_t amod)
+
+        /* Read the number of transfers for a variable length block transfer from a 32 bit register.
+         * address is the address from which to read the block count.
+         * mask is the block count extraction mask
+         */
+        void addBlockCountRead32(uint32_t address, uint32_t mask, uint8_t amod = VME_AM_A32_USER_DATA)
         {
             VMECommand cmd;
             cmd.type = VMECommand::BlockRead32;
@@ -113,7 +124,10 @@ class VMECommandList
             commands.push_back(cmd);
         }
 
-        void addMaskedCountBlockRead32(uint32_t address, uint8_t amod)
+        /* Variable length block transfer. The previous command should be either
+         * addBlockCountRead16() or addBlockCountRead32().
+         */
+        void addMaskedCountBlockRead32(uint32_t address, uint8_t amod = VME_AM_A32_USER_BLT)
         {
             VMECommand cmd;
             cmd.type = VMECommand::MaskedCountBlockRead32;
@@ -121,7 +135,10 @@ class VMECommandList
             cmd.amod    = amod;
             commands.push_back(cmd);
         }
-        void addMaskedCountFifoRead32(uint32_t address, uint8_t amod)
+        /* Variable length fifo block transfer. The previous command should be either
+         * addBlockCountRead16() or addBlockCountRead32().
+         */
+        void addMaskedCountFifoRead32(uint32_t address, uint8_t amod = VME_AM_A32_USER_BLT)
         {
             VMECommand cmd;
             cmd.type = VMECommand::MaskedCountFifoRead32;
@@ -166,6 +183,7 @@ class VMECommandList
 
         QTextStream &dump(QTextStream &out);
 };
+
 
 
 #endif

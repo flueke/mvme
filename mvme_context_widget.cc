@@ -131,6 +131,26 @@ struct AddModuleDialog: public QDialog
         module->type = static_cast<VMEModuleType>(typeCombo->currentData().toInt());
         module->name = nameEdit->text();
         module->baseAddress = addressEdit->text().toUInt(&ok, 16);
+
+        if (isMesytecModule(module->type))
+        {
+            // load template files
+            module->initReset       = readStringFile("templates/mesytec_reset.init");
+            module->initReadout     = readStringFile("templates/mesytec_init_readout.init");
+            module->initStartDaq    = readStringFile("templates/mesytec_startdaq.init");
+            module->initStopDaq     = readStringFile("templates/mesytec_stopdaq.init");
+            QString shortname = VMEModuleShortNames[module->type];
+            module->initParameters  = readStringFile(QString("templates/%1_parameters.init").arg(shortname));
+
+            // generate readout stack
+            //VMECommandList readoutCmds;
+            //readoutCmds.addFifoRead32(module->baseAddress, 254);
+            //readoutCmds.addMarker(EndOfModuleMarker);
+            //readoutCmds.addWrite16(baseAddress + 0x6034, 1);
+            //CVMUSBReadoutList readoutList(readoutCmds);
+            //module->readoutStack = 
+        }
+
         context->addModule(parentConfig, module);
         QDialog::accept();
     }
@@ -191,10 +211,12 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
     }
 
     m_d->tw_contextTree = new QTreeWidget;
+    m_d->tw_contextTree->setExpandsOnDoubleClick(false);
     m_d->tw_contextTree->header()->close();
     m_d->tw_contextTree->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_d->tw_contextTree, &QWidget::customContextMenuRequested, this, &MVMEContextWidget::treeContextMenu);
     connect(m_d->tw_contextTree, &QTreeWidget::itemClicked, this, &MVMEContextWidget::treeItemClicked);
+    connect(m_d->tw_contextTree, &QTreeWidget::itemDoubleClicked, this, &MVMEContextWidget::treeItemDoubleClicked);
 
     auto splitter = new QSplitter(Qt::Vertical);
     splitter->addWidget(daqWidget);
@@ -215,6 +237,21 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
     connect(context, &MVMEContext::eventConfigAdded, this, &MVMEContextWidget::onEventConfigAdded);
 
     qDebug() << __PRETTY_FUNCTION__ << m_d->tw_contextTree->topLevelItemCount();
+}
+
+void MVMEContextWidget::reloadConfig()
+{
+    m_d->tw_contextTree->clear();
+    auto config = m_d->context->getConfig();
+
+    for (auto event: config->eventConfigs)
+    {
+        onEventConfigAdded(event);
+        for (auto module: event->modules)
+        {
+            onModuleAdded(event, module);
+        }
+    }
 }
 
 enum TreeItemType
@@ -310,11 +347,29 @@ void MVMEContextWidget::treeItemClicked(QTreeWidgetItem *item, int column)
     switch (type)
     {
         case TIT_DAQEventConfig:
-            emit eventConfigClicked(getPointerFromItem<EventConfig>(item));
+            emit eventClicked(getPointerFromItem<EventConfig>(item));
             break;
 
         case TIT_VMEModule:
             emit moduleClicked(getPointerFromItem<ModuleConfig>(item));
+            break;
+    };
+}
+
+void MVMEContextWidget::treeItemDoubleClicked(QTreeWidgetItem *item, int column)
+{
+    qDebug() << __PRETTY_FUNCTION__ << item << column;
+
+    TreeItemType type = static_cast<TreeItemType>(item->type());
+
+    switch (type)
+    {
+        case TIT_DAQEventConfig:
+            emit eventDoubleClicked(getPointerFromItem<EventConfig>(item));
+            break;
+
+        case TIT_VMEModule:
+            emit moduleDoubleClicked(getPointerFromItem<ModuleConfig>(item));
             break;
     };
 }

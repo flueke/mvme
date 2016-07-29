@@ -64,4 +64,21 @@ static const QMap<VMEModuleType, QString> VMEModuleShortNames =
     { VMEModuleType::Generic,   "generic" },
 };
 
+inline bool isMesytecModule(VMEModuleType type)
+{
+    switch (type)
+    {
+        case VMEModuleType::MADC32:
+        case VMEModuleType::MQDC32:
+        case VMEModuleType::MTDC32:
+        case VMEModuleType::MDPP16:
+        case VMEModuleType::MDPP32:
+        case VMEModuleType::MDI2:
+            return true;
+        default:
+            break;
+    }
+    return false;
+}
+
 #endif

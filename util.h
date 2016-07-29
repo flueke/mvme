@@ -155,5 +155,6 @@ struct BufferIterator
     inline bool atEnd() const { return buffp == endp; }
 };
 
+QString readStringFile(const QString &filename);
 
 #endif // UTIL_H

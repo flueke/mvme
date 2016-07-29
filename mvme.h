@@ -22,8 +22,9 @@ class mvmeControl;
 class RealtimeData;
 class VirtualMod;
 class vmedevice;
-class DAQEventConfig;
-class VMEModule;
+class EventConfig;
+class ModuleConfig;
+class MVMEContextWidget;
 
 class QMdiSubWindow;
 class QThread;
@@ -33,6 +34,7 @@ class QwtPlotCurve;
 
 namespace Ui {
 class mvme;
+class ModuleConfigWidget;
 }
 
 class mvme : public QMainWindow
@@ -75,9 +77,19 @@ private slots:
     void on_actionLoad_Histogram_triggered();
     void on_actionExport_Histogram_triggered();
     void on_actionExport_Spectrogram_triggered();
+    void on_actionLoadConfig_triggered();
+    void on_actionSaveConfig_triggered();
+    void on_actionSaveConfigAs_triggered();
+
     void on_mdiArea_subWindowActivated(QMdiSubWindow *);
-    void handleEventConfigClicked(DAQEventConfig *config);
-    void handleModuleClicked(VMEModule *module);
+
+
+    void handleEventConfigClicked(EventConfig *event);
+    void handleModuleConfigClicked(ModuleConfig *module);
+    void handleModuleConfigDoubleClicked(ModuleConfig *module);
+
+    void handleDeleteEventConfig(EventConfig *event);
+    void handleDeleteModuleConfig(ModuleConfig *module);
 
 private:
     Ui::mvme *ui;
@@ -91,6 +103,34 @@ private:
 
     QThread *m_readoutThread;
     MVMEContext *m_context;
+    MVMEContextWidget *m_contextWidget = 0;
+};
+
+class EventConfigWidget: public QWidget
+{
+    Q_OBJECT
+    public:
+        EventConfigWidget(EventConfig *config, QWidget *parent = 0);
+        
+    private:
+        EventConfig *m_config;
+};
+
+class ModuleConfigWidget: public QWidget
+{
+    Q_OBJECT
+    public:
+        ModuleConfigWidget(ModuleConfig *config, QWidget *parent = 0);
+        ModuleConfig *getConfig() const { return m_config; }
+
+    protected:
+        virtual void closeEvent(QCloseEvent *event);
+
+    private:
+        void handleListTypeChanged(int);
+        Ui::ModuleConfigWidget *ui;
+        ModuleConfig *m_config;
+        int m_currentListTypeIndex = 0;
 };
 
 #endif // MVME_H

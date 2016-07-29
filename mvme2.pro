@@ -41,6 +41,7 @@ SOURCES += main.cpp\
     vmusb_readout_worker.cc \
     vmusb_buffer_processor.cc \
     mvme_context_widget.cc \
+    mvme_config.cc \
 
 
 HEADERS  += \
@@ -71,6 +72,7 @@ HEADERS  += \
     vmusb_constants.h \
     vmusb_buffer_processor.h \
     mvme_context_widget.h \
+    mvme_config.h \
 
 
 FORMS    += \
@@ -78,6 +80,7 @@ FORMS    += \
     mvme.ui \
     twodimwidget.ui \
     channelspectrowidget.ui \
+    moduleconfig_widget.ui
 
 DEFINES += VME_CONTROLLER_WIENER
 #DEFINES += VME_CONTROLLER_CAEN

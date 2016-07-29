@@ -11,17 +11,26 @@ class MVMEContextWidget: public QWidget
 {
     Q_OBJECT
     signals:
-        void eventConfigClicked(EventConfig *config);
+        void eventClicked(EventConfig *config);
         void moduleClicked(ModuleConfig *config);
+
+        void eventDoubleClicked(EventConfig *config);
+        void moduleDoubleClicked(ModuleConfig *config);
+
+        void deleteEvent(EventConfig *config);
+        void deleteModule(ModuleConfig *module);
 
     public:
         MVMEContextWidget(MVMEContext *context, QWidget *parent = 0);
+
+        void reloadConfig();
 
     private slots:
         void onEventConfigAdded(EventConfig *eventConfig);
         void onModuleAdded(EventConfig *eventConfig, ModuleConfig *module);
         void treeContextMenu(const QPoint &pos);
         void treeItemClicked(QTreeWidgetItem *item, int column);
+        void treeItemDoubleClicked(QTreeWidgetItem *item, int column);
         void onDAQStateChanged(DAQState state);
 
     private:

@@ -3,6 +3,8 @@
 
 #include "globals.h"
 
+class QJsonObject;
+
 struct ModuleConfig
 {
     VMEModuleType type = VMEModuleType::Invalid;
@@ -11,7 +13,7 @@ struct ModuleConfig
     uint32_t mcstAddress = 0;
     bool useMcst = false;
 
-    // unprocessed vme init lists
+    // These strings must contain content that's convertible to an InitList
     QString initReset;          // module reset
     QString initParameters;     // module physics parameters
     QString initReadout;        // module readout settings (irq, threshold, event mode)
@@ -21,7 +23,10 @@ struct ModuleConfig
     // vmusb readout stack as a string. Only stored if it is modified by the
     // user, otherwise generated on the fly.
     // TODO: For other controllers the vmusb stack format obviously won't work.
-    QString readoutStack;       
+    QString readoutStack;
+
+    void read(const QJsonObject &json);
+    void write(QJsonObject &json) const;
 };
 
 struct EventConfig
@@ -40,6 +45,9 @@ struct EventConfig
      * processor to map from stack ids to event configs. */
     uint8_t stackID;
 
+    void read(const QJsonObject &json);
+    void write(QJsonObject &json) const;
+
     ~EventConfig()
     {
         qDeleteAll(modules);
@@ -49,6 +57,9 @@ struct EventConfig
 struct DAQConfig
 {
     QList<EventConfig *> eventConfigs;
+
+    void read(const QJsonObject &json);
+    void write(QJsonObject &json) const;
 
     ~DAQConfig()
     {
