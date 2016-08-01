@@ -121,9 +121,15 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         qDebug() << "running start commands";
         vmusb->executeCommands(&startCommands, buffer, sizeof(buffer));
 
+        m_bufferProcessor->beginRun();
         readoutLoop();
+        m_bufferProcessor->endRun();
     }
     catch (const char *message)
+    {
+        setError(message);
+    }
+    catch (const QString &message)
     {
         setError(message);
     }
@@ -145,7 +151,6 @@ void VMUSBReadoutWorker::stop()
 void VMUSBReadoutWorker::readoutLoop()
 {
     setState(DAQState::Running);
-    m_bufferProcessor->resetRunState();
 
     auto vmusb = dynamic_cast<VMUSB *>(m_context->getController());
     vmusb->enterDaqMode();

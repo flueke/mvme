@@ -80,6 +80,8 @@ void DAQConfig::read(const QJsonObject &json)
     qDeleteAll(eventConfigs);
     eventConfigs.clear();
 
+    listFileOutputDirectory = json["listFileOutputDirectory"].toString();
+
     QJsonArray eventArray = json["events"].toArray();
 
     for (int eventIndex=0; eventIndex<eventArray.size(); ++eventIndex)
@@ -93,6 +95,8 @@ void DAQConfig::read(const QJsonObject &json)
 
 void DAQConfig::write(QJsonObject &json) const
 {
+    json["listFileOutputDirectory"] = listFileOutputDirectory;
+
     QJsonArray eventArray;
     for (auto event: eventConfigs)
     {

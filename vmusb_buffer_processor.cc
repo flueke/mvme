@@ -4,6 +4,7 @@
 #include "mvme_event.h"
 #include <memory>
 #include <QCoreApplication>
+#include <QDateTime>
 
 using namespace vmusb_constants;
 using namespace mvme_event;
@@ -95,6 +96,44 @@ VMUSBBufferProcessor::VMUSBBufferProcessor(MVMEContext *context, QObject *parent
     : QObject(parent)
     , m_context(context)
 {}
+
+void VMUSBBufferProcessor::beginRun()
+{
+    resetRunState();
+
+    QString outPath = m_context->getConfig()->listFileOutputDirectory;
+
+    if (m_listFileOutputEnabled && outPath.size())
+    {
+        auto now = QDateTime::currentDateTime();
+        QString outFilename = outPath + '/' + now.toString(Qt::ISODate) + ".mvmelst";
+        m_listFileOut.setFileName(outFilename);
+
+        if (m_listFileOut.exists())
+        {
+            throw QString("Error: listFile %1 exists");
+        }
+        if (!m_listFileOut.open(QIODevice::WriteOnly))
+        {
+            throw QString("Error opening listFile %1 for writing: %2")
+                .arg(m_listFileOut.fileName())
+                .arg(m_listFileOut.errorString())
+                ;
+        }
+
+        qDebug() << "writing listfile" << m_listFileOut.fileName();
+
+        /* TODO: Write out a "begin run" event containing the complete run configuration. */
+    }
+}
+
+void VMUSBBufferProcessor::endRun()
+{
+    if (m_listFileOut.isOpen())
+    {
+        m_listFileOut.close();
+    }
+}
 
 void VMUSBBufferProcessor::resetRunState()
 {
@@ -271,8 +310,15 @@ bool VMUSBBufferProcessor::processEvent(BufferIterator &iter)
     *mvmeEventHeader |= eventSize << EventSizeShift;
     outputBuffer->used = (u8 *)outp - outputBuffer->data;
 
-    QTextStream out(stdout);
-    dump_event_buffer(out, outputBuffer.get());
+    //QTextStream out(stdout);
+    //dump_event_buffer(out, outputBuffer.get());
+
+    if (m_listFileOut.isOpen())
+    {
+        m_listFileOut.write((const char *)outputBuffer->data, outputBuffer->used);
+    }
+
+
     addFreeBuffer(outputBuffer.release());
 
     return true;

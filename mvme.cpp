@@ -34,47 +34,53 @@ EventConfigWidget::EventConfigWidget(EventConfig *config, QWidget *parent)
 {
 }
 
-QString *getConfigStringByListIndex(int index, ModuleConfig *config)
+enum class ModuleListType
 {
-    QString *ret = 0;
+    Parameters,
+    Readout,
+    StartDAQ,
+    StopDAQ,
+    Reset,
+    ReadoutStack
+};
 
-    switch (index)
+QString *getConfigString(ModuleListType type, ModuleConfig *config)
+{
+    switch (type)
     {
-        case 0:
-            ret = &config->initParameters;
-            break;
-        case 1:
-            ret = &config->initReadout;
-            break;
-        case 2:
-            ret = &config->readoutStack;
-            break;
-        case 3:
-            ret = &config->initStartDaq;
-            break;
-        case 4:
-            ret = &config->initStopDaq;
-            break;
-        case 5:
-            ret = &config->initReset;
-            break;
+        case ModuleListType::Parameters:
+            return &config->initParameters;
+        case ModuleListType::Readout:
+            return &config->initReadout;
+        case ModuleListType::StartDAQ:
+            return &config->initStartDaq;
+        case ModuleListType::StopDAQ:
+            return &config->initStopDaq;
+        case ModuleListType::Reset:
+            return &config->initReset;
+        case ModuleListType::ReadoutStack:
+            return &config->readoutStack;
     }
 
-    return ret;
+    return nullptr;
 }
 
-ModuleConfigWidget::ModuleConfigWidget(ModuleConfig *config, QWidget *parent)
+ModuleConfigWidget::ModuleConfigWidget(MVMEContext *context, ModuleConfig *config, QWidget *parent)
     : QWidget(parent)
     , ui(new Ui::ModuleConfigWidget)
+    , m_context(context)
     , m_config(config)
 {
     ui->setupUi(this);
-    ui->combo_listType->addItem("Module Init");
-    ui->combo_listType->addItem("Readout Settings");
-    ui->combo_listType->addItem("Readout Stack");
-    ui->combo_listType->addItem("Start DAQ");
-    ui->combo_listType->addItem("Stop DAQ");
-    ui->combo_listType->addItem("Module Reset");
+    setWindowTitle(QString("Module Config for %1").arg(m_config->name));
+
+
+    ui->combo_listType->addItem("Module Init", QVariant::fromValue(static_cast<int>(ModuleListType::Parameters)));
+    ui->combo_listType->addItem("Readout Settings", QVariant::fromValue(static_cast<int>(ModuleListType::Readout)));
+    ui->combo_listType->addItem("Readout Stack (VM_USB)", QVariant::fromValue(static_cast<int>(ModuleListType::ReadoutStack)));
+    ui->combo_listType->addItem("Start DAQ", QVariant::fromValue(static_cast<int>(ModuleListType::StartDAQ)));
+    ui->combo_listType->addItem("Stop DAQ", QVariant::fromValue(static_cast<int>(ModuleListType::StopDAQ)));
+    ui->combo_listType->addItem("Module Reset", QVariant::fromValue(static_cast<int>(ModuleListType::Reset)));
 
     connect(ui->combo_listType, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
             this, &ModuleConfigWidget::handleListTypeChanged);
@@ -83,31 +89,67 @@ ModuleConfigWidget::ModuleConfigWidget(ModuleConfig *config, QWidget *parent)
     ui->le_name->setText(config->name);
     ui->le_address->setText(QString().sprintf("0x%08x", config->baseAddress));
     ui->le_mcstAddress->setText(QString().sprintf("0x%02x", config->mcstAddress >> 24));
-    ui->editor->setPlainText(*getConfigStringByListIndex(0, m_config));
+    ui->editor->setPlainText(*getConfigString(ModuleListType::Parameters, config));
     ui->editor->document()->setModified(false);
+
+    connect(ui->editor->document(), &QTextDocument::contentsChanged,
+            this, &ModuleConfigWidget::editorContentsChanged);
+
+    actLoadFile = new QAction("from file", this);
+    actLoadTemplate = new QAction("from template", this);
+
+    auto menu = new QMenu(ui->pb_load);
+    menu->addAction(actLoadFile);
+    menu->addAction(actLoadTemplate);
+    ui->pb_load->setMenu(menu);
+
+    connect(actLoadFile, &QAction::triggered, this, &ModuleConfigWidget::loadFromFile);
+    connect(actLoadTemplate, &QAction::triggered, this, &ModuleConfigWidget::loadFromTemplate);
+    connect(ui->pb_save, &QPushButton::clicked, this, &ModuleConfigWidget::saveToFile);
+    connect(ui->pb_exec, &QPushButton::clicked, this, &ModuleConfigWidget::execList);
+
+    ui->splitter->setSizes({1, 0});
 }
 
 void ModuleConfigWidget::handleListTypeChanged(int index)
 {
-    if (m_currentListTypeIndex >= 0 && ui->editor->document()->isModified())
+    if (m_lastListTypeIndex >= 0 && ui->editor->document()->isModified())
     {
-        QString *dest = getConfigStringByListIndex(m_currentListTypeIndex, m_config);
+        auto type = static_cast<ModuleListType>(ui->combo_listType->itemData(m_lastListTypeIndex).toInt());
+
+        QString *dest = getConfigString(type, m_config);
         if (dest)
         {
             *dest = ui->editor->toPlainText();
         }
     }
 
-    m_currentListTypeIndex = index;
+    m_lastListTypeIndex = index;
 
+    m_ignoreEditorContentsChange = true;
     ui->editor->clear();
     ui->editor->document()->clearUndoRedoStacks();
-    QString *contents = getConfigStringByListIndex(index, m_config);
+    auto type = static_cast<ModuleListType>(ui->combo_listType->itemData(index).toInt());
+    QString *contents = getConfigString(type, m_config);
     if (contents)
     {
         ui->editor->setPlainText(*contents);
     }
     ui->editor->document()->setModified(false);
+    m_ignoreEditorContentsChange = false;
+}
+
+void ModuleConfigWidget::editorContentsChanged()
+{
+    if (m_ignoreEditorContentsChange)
+        return;
+
+    auto type = static_cast<ModuleListType>(ui->combo_listType->itemData(m_lastListTypeIndex).toInt());
+    QString *dest = getConfigString(type, m_config);
+    if (dest)
+    {
+        *dest = ui->editor->toPlainText();
+    }
 }
 
 void ModuleConfigWidget::closeEvent(QCloseEvent *event)
@@ -115,6 +157,60 @@ void ModuleConfigWidget::closeEvent(QCloseEvent *event)
     qDebug() << __PRETTY_FUNCTION__;
     QWidget::closeEvent(event);
 }
+
+void ModuleConfigWidget::loadFromFile()
+{
+}
+
+void ModuleConfigWidget::loadFromTemplate()
+{
+}
+
+void ModuleConfigWidget::saveToFile()
+{
+}
+
+void ModuleConfigWidget::execList()
+{
+    auto controller = m_context->getController();
+
+    if (controller && controller->isOpen())
+    {
+        auto type = static_cast<ModuleListType>(ui->combo_listType->currentData().toInt());
+        QString listContents = ui->editor->toPlainText();
+
+        switch (type)
+        {
+            case ModuleListType::Parameters:
+            case ModuleListType::Readout:
+            case ModuleListType::StartDAQ:
+            case ModuleListType::StopDAQ:
+            case ModuleListType::Reset:
+                {
+                    u8 ignored[100];
+                    auto cmdList = VMECommandList::fromInitList(parseInitList(listContents), m_config->baseAddress);
+                    controller->executeCommands(&cmdList, ignored, sizeof(ignored));
+                } break;
+            case ModuleListType::ReadoutStack:
+                {
+                    auto vmusb = dynamic_cast<VMUSB *>(controller);
+                    if (vmusb)
+                    {
+                        QVector<u32> result = vmusb->stackExecute(parseStackFile(listContents), 8192);
+                        QString buf;
+                        QTextStream stream(&buf);
+                        for (u32 value: result)
+                        {
+                            stream << "0x" << hex << qSetFieldWidth(8) << qSetPadChar('0') << value << qSetFieldWidth(0) << endl;
+                        }
+                        ui->output->setPlainText(buf);
+                        ui->splitter->setSizes({1, 1});
+                    }
+                } break;
+        }
+    }
+}
+
 
 mvme::mvme(QWidget *parent) :
     QMainWindow(parent),
@@ -152,7 +248,7 @@ mvme::mvme(QWidget *parent) :
     connect(contextWidget, &MVMEContextWidget::deleteModule, this, &mvme::handleDeleteModuleConfig);
 
 
-    auto contextDock = new QDockWidget("Configuration");
+    auto contextDock = new QDockWidget();
     contextDock->setObjectName("MVMEContextDock");
     contextDock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
     contextDock->setWidget(contextWidget);
@@ -170,8 +266,17 @@ mvme::mvme(QWidget *parent) :
     vu->getUsbDevices();
     vu->openFirstUsbDevice();
 
+
     mctrl = new mvmeControl(this);
     mctrl->show();
+#if 0
+    {
+        auto subwin = new QMdiSubWindow(ui->mdiArea);
+        subwin->setWidget(mctrl);
+        subwin->resize(mctrl->size());
+        subwin->show();
+    }
+#endif
 
     // read current configuration
     mctrl->getValues();
@@ -184,6 +289,20 @@ mvme::mvme(QWidget *parent) :
     QSettings settings;
     restoreGeometry(settings.value("mainWindowGeometry").toByteArray());
     restoreState(settings.value("mainWindowState").toByteArray());
+
+    if (settings.contains("Files/LastConfigFile"))
+    {
+        auto fileName = settings.value("Files/LastConfigFile").toString();
+        QFile inFile(fileName);
+        if (inFile.open(QIODevice::ReadOnly))
+        {
+            auto data = inFile.readAll();
+            QJsonDocument doc(QJsonDocument::fromJson(data));
+            m_context->getConfig()->read(doc.object());
+            m_context->m_configFilename = fileName;
+            m_contextWidget->reloadConfig();
+        }
+    }
 
 
 #if 0
@@ -576,6 +695,9 @@ void mvme::on_actionLoadConfig_triggered()
     m_context->getConfig()->read(doc.object());
     m_context->m_configFilename = fileName;
 
+    QSettings settings;
+    settings.setValue("Files/LastConfigFile", fileName);
+
     m_contextWidget->reloadConfig();
 }
 
@@ -678,7 +800,7 @@ void mvme::handleModuleConfigDoubleClicked(ModuleConfig *config)
         }
     }
 
-    auto widget = new ModuleConfigWidget(config);
+    auto widget = new ModuleConfigWidget(m_context, config);
     subwin = new QMdiSubWindow(ui->mdiArea);
     subwin->setAttribute(Qt::WA_DeleteOnClose);
     subwin->setWidget(widget);

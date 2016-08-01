@@ -120,7 +120,7 @@ class ModuleConfigWidget: public QWidget
 {
     Q_OBJECT
     public:
-        ModuleConfigWidget(ModuleConfig *config, QWidget *parent = 0);
+        ModuleConfigWidget(MVMEContext *context, ModuleConfig *config, QWidget *parent = 0);
         ModuleConfig *getConfig() const { return m_config; }
 
     protected:
@@ -128,9 +128,18 @@ class ModuleConfigWidget: public QWidget
 
     private:
         void handleListTypeChanged(int);
+        void editorContentsChanged();
+        void loadFromFile();
+        void loadFromTemplate();
+        void saveToFile();
+        void execList();
+
         Ui::ModuleConfigWidget *ui;
+        QAction *actLoadTemplate, *actLoadFile;
+        MVMEContext *m_context;
         ModuleConfig *m_config;
-        int m_currentListTypeIndex = 0;
+        int m_lastListTypeIndex = 0;
+        bool m_ignoreEditorContentsChange = false;
 };
 
 #endif // MVME_H

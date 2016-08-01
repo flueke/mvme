@@ -31,6 +31,8 @@ class VMEController: public QObject
         virtual uint16_t read16(uint32_t address, uint8_t amod) = 0;
 
         virtual size_t executeCommands(VMECommandList *commands, void *readBuffer, size_t readBufferSize) = 0;
+
+        virtual bool isOpen() const = 0;
 };
 
 #endif // VMECONTROLLER_H

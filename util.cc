@@ -38,6 +38,12 @@ QVector<u32> parseStackFile(QTextStream &input)
     return ret;
 }
 
+QVector<u32> parseStackFile(const QString &input)
+{
+    QTextStream strm(const_cast<QString *>(&input), QIODevice::ReadOnly);
+    return parseStackFile(strm);
+}
+
 InitList parseInitList(QTextStream &input)
 {
     auto vec = parseStackFile(input);

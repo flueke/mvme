@@ -41,16 +41,33 @@ class VMUSBStack
             m_modules.append(module);
         }
 
+#if 0
+        // XXX: this used to call module->addReadoutCommands()
+        // With the new template scheme this does not work anymore as now the
+        // stack contents for each module is just a QVector<u32>
         VMECommandList getReadoutCommands() const
         {
             VMECommandList ret;
             for (auto module: m_modules)
             {
+                auto stack = parseStackFile(module->readoutStack);
+
                 ret.append(VMECommandList::fromInitList(
-                        parseInitList(module->initReadout),
+                        parseStackFile(module->readoutStack),
                         module->baseAddress));
             }
             return ret;
+        }
+#endif
+        QVector<u32> getContents() const
+        {
+            QVector<u32> result;
+            for (auto module: m_modules)
+            {
+                result += parseStackFile(module->readoutStack);
+            }
+
+            return result;
         }
 
         /* Reset the global load offset. Use between runs. */

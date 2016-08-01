@@ -20,6 +20,7 @@ typedef int64_t s64;
 void debugOutputBuffer(u32 *dataBuffer, u32 bufferCount);
 
 QVector<u32> parseStackFile(QTextStream &input);
+QVector<u32> parseStackFile(const QString &input);
 
 typedef QPair<u32, u32> RegisterSetting; // (addr, value)
 typedef QList<RegisterSetting> InitList;

@@ -20,8 +20,7 @@ struct ModuleConfig
     QString initStartDaq;       // reset FIFO, counters, start acq
     QString initStopDaq;        // stop acq, clear FIFO
 
-    // vmusb readout stack as a string. Only stored if it is modified by the
-    // user, otherwise generated on the fly.
+    // vmusb readout stack as a string.
     // TODO: For other controllers the vmusb stack format obviously won't work.
     QString readoutStack;
 
@@ -56,6 +55,7 @@ struct EventConfig
 
 struct DAQConfig
 {
+    QString listFileOutputDirectory;
     QList<EventConfig *> eventConfigs;
 
     void read(const QJsonObject &json);

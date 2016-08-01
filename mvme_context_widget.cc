@@ -1,6 +1,7 @@
 #include "mvme_context_widget.h"
 #include "vmusb_readout_worker.h"
 #include "vmusb_buffer_processor.h"
+#include "CVMUSBReadoutList.h"
 
 #include <QComboBox>
 #include <QDialog>
@@ -143,12 +144,12 @@ struct AddModuleDialog: public QDialog
             module->initParameters  = readStringFile(QString("templates/%1_parameters.init").arg(shortname));
 
             // generate readout stack
-            //VMECommandList readoutCmds;
-            //readoutCmds.addFifoRead32(module->baseAddress, 254);
-            //readoutCmds.addMarker(EndOfModuleMarker);
-            //readoutCmds.addWrite16(baseAddress + 0x6034, 1);
-            //CVMUSBReadoutList readoutList(readoutCmds);
-            //module->readoutStack = 
+            VMECommandList readoutCmds;
+            readoutCmds.addFifoRead32(module->baseAddress, 254);
+            readoutCmds.addMarker(EndOfModuleMarker);
+            readoutCmds.addWrite16(module->baseAddress + 0x6034, 1);
+            CVMUSBReadoutList readoutList(readoutCmds);
+            module->readoutStack = readoutList.toString();
         }
 
         context->addModule(parentConfig, module);
@@ -181,7 +182,7 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
     : QWidget(parent)
     , m_d(new MVMEContextWidgetPrivate(this, context))
 {
-    auto daqWidget = new QGroupBox("DAQ");
+    auto gb_daqControl = new QGroupBox("DAQ Control");
     {
         m_d->pb_startDAQ = new QPushButton("Start");
         m_d->pb_startOneCycle = new QPushButton("1 Cycle");
@@ -193,12 +194,12 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
 
         connect(m_d->pb_startDAQ, &QPushButton::clicked, readoutWorker, &VMUSBReadoutWorker::start);
         connect(m_d->pb_startOneCycle, &QPushButton::clicked, [=] {
-                QMetaObject::invokeMethod(readoutWorker, "start", Qt::QueuedConnection, Q_ARG(quint32, 1)); // XXX
-                });
+            QMetaObject::invokeMethod(readoutWorker, "start", Qt::QueuedConnection, Q_ARG(quint32, 1));
+        });
         connect(m_d->pb_stopDAQ, &QPushButton::clicked, readoutWorker, &VMUSBReadoutWorker::stop);
         connect(readoutWorker, &VMUSBReadoutWorker::stateChanged, this, &MVMEContextWidget::onDAQStateChanged);
 
-        auto layout = new QGridLayout(daqWidget);
+        auto layout = new QGridLayout(gb_daqControl);
         layout->setContentsMargins(2, 2, 2, 2);
         layout->addWidget(m_d->pb_startDAQ, 0, 0);
         layout->addWidget(m_d->pb_startOneCycle, 0, 1);
@@ -219,7 +220,9 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
     connect(m_d->tw_contextTree, &QTreeWidget::itemDoubleClicked, this, &MVMEContextWidget::treeItemDoubleClicked);
 
     auto splitter = new QSplitter(Qt::Vertical);
-    splitter->addWidget(daqWidget);
+    splitter->addWidget(gb_daqControl);
+
+    auto gb_daqConfiguration = new QGroupBox("DAQ Configuration");
 
     auto w = new QWidget;
     auto wl = new QVBoxLayout(w);
@@ -265,7 +268,31 @@ void MVMEContextWidget::onEventConfigAdded(EventConfig *eventConfig)
     qDebug() << __PRETTY_FUNCTION__ << eventConfig << m_d->tw_contextTree->topLevelItemCount();
 
     auto item = new QTreeWidgetItem(TIT_DAQEventConfig);
-    item->setText(0, eventConfig->name);
+
+    QString text;
+    switch (eventConfig->triggerCondition)
+    {
+        case TriggerCondition::Interrupt:
+            {
+                text = QString("%1 (IRQ, lvl=%2, vec=%3)")
+                    .arg(eventConfig->name)
+                    .arg(eventConfig->irqLevel)
+                    .arg(eventConfig->irqVector);
+            } break;
+        case TriggerCondition::NIM1:
+            {
+                text = QString("%1 (NIM)")
+                    .arg(eventConfig->name);
+            } break;
+        case TriggerCondition::Scaler:
+            {
+                text = QString("%1 (Periodic)")
+                    .arg(eventConfig->name);
+            } break;
+    }
+
+
+    item->setText(0, text);
     item->setData(0, Qt::UserRole, QVariant::fromValue(static_cast<void *>(eventConfig)));
 
     m_d->tw_contextTree->addTopLevelItem(item);

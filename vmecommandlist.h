@@ -39,7 +39,7 @@ struct VMECommand
 class VMECommandList
 {
     public:
-        void addWrite32(uint32_t address, uint8_t amod, uint32_t value)
+        void addWrite32(uint32_t address, uint32_t value, uint8_t amod = VME_AM_A32_USER_DATA)
         {
             VMECommand cmd;
             cmd.type = VMECommand::Write32;
@@ -49,7 +49,7 @@ class VMECommandList
             commands.push_back(cmd);
         }
 
-        void addWrite16(uint32_t address, uint8_t amod, uint16_t value)
+        void addWrite16(uint32_t address, uint16_t value, uint8_t amod = VME_AM_A32_USER_DATA)
         {
             VMECommand cmd;
             cmd.type = VMECommand::Write16;
@@ -169,12 +169,12 @@ class VMECommandList
 
         size_t size() const { return (size_t) commands.size(); }
 
-        static VMECommandList fromInitList(const InitList &initList, uint32_t baseAddress, uint8_t amod = 0x09)
+        static VMECommandList fromInitList(const InitList &initList, uint32_t baseAddress, uint8_t amod = VME_AM_A32_USER_DATA)
         {
             VMECommandList ret;
             for (auto p: initList)
             {
-                ret.addWrite16(baseAddress + p.first, amod, p.second);
+                ret.addWrite16(baseAddress + p.first, p.second, amod);
             }
             return ret;
         }

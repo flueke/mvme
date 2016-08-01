@@ -7,21 +7,22 @@
 
 size_t VMUSBStack::loadOffset = 0;
 
-void VMUSBStack::loadStack(VMUSB *controller)
+void VMUSBStack::loadStack(VMUSB *vmusb)
 {
-    VMECommandList readoutCommands(getReadoutCommands());
-    CVMUSBReadoutList vmusbList(readoutCommands);
+    auto contents = getContents();
 
-    QString tmp;
-    QTextStream strm(&tmp);
-    readoutCommands.dump(strm);
-    qDebug() << this << "loadStack: id=" << getStackID() << ", loadOffset =" << loadOffset << endl << tmp << endl;
-
-    if (vmusbList.size())
+    qDebug("VMUSBStack::loadStack(): id=%u, loadOffset=%u, length=%u", getStackID(), loadOffset, contents.size());
+    for (u32 line: contents)
     {
-        controller->listLoad(&vmusbList, getStackID(), loadOffset);
-        // Stack size in words + 4 for the stack header (from nscldaqs CStack)
-        loadOffset += vmusbList.size() * 2 + 4;
+        qDebug("  0x%08x", line);
+    }
+    qDebug("----- End of stack -----");
+
+    if (contents.size())
+    {
+        vmusb->stackWrite(getStackID(), loadOffset, contents);
+        // Stack size in 16-bit words + 4 for the stack header (from nscldaqs CStack)
+        loadOffset += contents.size() * 2 + 4;
     }
 }
 

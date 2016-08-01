@@ -14,6 +14,7 @@
 static const u32 EndOfModuleMarker = 0x87654321;
 static const u32 BerrMarker = 0xffffffff;
 
+#if 0
 class VMEModule
 {
     public:
@@ -215,5 +216,6 @@ class MDI2: public MesytecModule
             type = VMEModuleType::MDI2;
         }
 };
+#endif
 
 #endif

@@ -49,7 +49,7 @@ class VMUSB: public VMEController
         VMUSB();
         ~VMUSB();
 
-        bool isOpen() const { return hUsbDevice; }
+        virtual bool isOpen() const { return hUsbDevice; }
         QString getSerialNumber() const;
 
         void readAllRegisters(void);
