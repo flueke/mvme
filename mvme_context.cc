@@ -52,6 +52,13 @@ MVMEContext::~MVMEContext()
     delete m_config;
 }
 
+void MVMEContext::setConfig(DAQConfig *config)
+{
+    delete m_config;
+    m_config = config;
+    emit configChanged();
+}
+
 void MVMEContext::addModule(EventConfig *eventConfig, ModuleConfig *module)
 {
     eventConfig->modules.push_back(module);

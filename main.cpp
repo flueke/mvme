@@ -19,14 +19,6 @@
 #include <QDebug>
 #include <QLibraryInfo>
 
-
-void bulkRead(VMUSB *vmusb)
-{
-    char readBuffer[64 * 1024];
-    int status = vmusb->bulkRead(readBuffer, sizeof(readBuffer));
-    qDebug("bulkRead: %d", status);
-}
-
 int main(int argc, char *argv[])
 {
     qRegisterMetaType<DAQState>("DAQState");

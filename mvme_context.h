@@ -28,6 +28,7 @@ class MVMEContext: public QObject
         void eventConfigAdded(EventConfig *eventConfig);
         void moduleAdded(EventConfig *eventConfig, ModuleConfig *module);
         void daqStateChanged(const DAQState &state);
+        void configChanged();
 
     public:
         MVMEContext(QObject *parent = 0);
@@ -49,6 +50,7 @@ class MVMEContext: public QObject
         VMUSBReadoutWorker *getReadoutWorker() const { return m_readoutWorker; }
         VMUSBBufferProcessor *getBufferProcessor() const { return m_bufferProcessor; }
         DAQConfig *getConfig() { return m_config; }
+        void setConfig(DAQConfig *config);
         QList<EventConfig *> getEventConfigs() const { return m_config->eventConfigs; }
         DataBufferQueue *getFreeBuffers() { return &m_freeBuffers; }
         DAQState getDAQState() const;

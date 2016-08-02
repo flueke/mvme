@@ -146,11 +146,16 @@ struct BufferIterator
     inline u16 *asU16() { return reinterpret_cast<u16 *>(buffp); }
     inline u32 *asU32() { return reinterpret_cast<u32 *>(buffp); }
 
-    inline void skip(size_t width, size_t count)
+    inline void skip(size_t bytes)
     {
-        buffp += width * count;
+        buffp += bytes;
         if (buffp > endp)
             buffp = endp;
+    }
+
+    inline void skip(size_t width, size_t count)
+    {
+        skip(width * count);
     }
     
     inline bool atEnd() const { return buffp == endp; }

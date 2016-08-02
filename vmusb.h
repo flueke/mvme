@@ -70,7 +70,7 @@ class VMUSB: public VMEController
         int getDggB();
         int getScalerAdata();
         int getScalerBdata();
-        int getNumberMask();
+        u32 getEventsPerBuffer();
         uint16_t getIrq(int vec);
         int getDggSettings();
         int getUsbSettings();
@@ -84,10 +84,11 @@ class VMUSB: public VMEController
         int setDggB(int val);
         int setScalerAdata(int val);
         int setScalerBdata(int val);
-        int setNumberMask(int val);
+        u32 setEventsPerBuffer(u32 val);
         int setIrq(int vec, uint16_t val);
         int setDggSettings(int val);
         int setUsbSettings(int val);
+        u32 readRegister(u32 address);
         short vmeWrite32(long addr, long data);
         short vmeWrite32(long addr, long data, uint8_t amod);
         short vmeRead32(long addr, long* data);
@@ -161,7 +162,7 @@ class VMUSB: public VMEController
         int dggBsettings;
         int scalerAdata;
         int scalerBdata;
-        int numberMask;
+        u32 eventsPerBuffer;
         int irqV[4];
         int extDggSettings;
         int usbBulkSetup;

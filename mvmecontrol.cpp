@@ -62,6 +62,10 @@ mvmeControl::mvmeControl(mvme *theApp, QWidget *parent) :
     ui->memoryInput->setText(ui->memoryInput_2->toPlainText());
 
     dontUpdate = false;
+
+    connect(ui->pb_readRegister, &QPushButton::clicked, this, &mvmeControl::readRegister);
+    connect(ui->spin_RegDec, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), ui->spin_RegHex, &QSpinBox::setValue);
+    connect(ui->spin_RegHex, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged), ui->spin_RegDec, &QSpinBox::setValue);
 }
 
 mvmeControl::~mvmeControl()
@@ -1135,6 +1139,15 @@ void mvmeControl::dispChan(int c)
     QString str;
     str.sprintf("%d", theApp->diag->getChannel(theApp->getHist(), ui->diagChan->value(), ui->diagBin->value()));
     ui->diagCounts->setText(str);
+}
+
+void mvmeControl::readRegister()
+{
+    u32 address = static_cast<u32>(ui->spin_RegDec->value());
+    u32 value = theApp->vu->readRegister(address);
+    QString buffer;
+    buffer.sprintf("0x%08x", value);
+    ui->le_readRegisterResult->setText(buffer);
 }
 
 void mvmeControl::on_pb_clearRegisters_clicked()

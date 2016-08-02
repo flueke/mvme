@@ -73,7 +73,8 @@ HEADERS  += \
     vmusb_buffer_processor.h \
     mvme_context_widget.h \
     mvme_config.h \
-    vmecommandlist.h
+    vmecommandlist.h \
+    mvme_listfile.h
 
 
 FORMS    += \

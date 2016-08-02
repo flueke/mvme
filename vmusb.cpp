@@ -138,7 +138,7 @@ void VMUSB::readAllRegisters(void)
   dggBsettings = 0;
   scalerAdata = 0;
   scalerBdata = 0;
-  numberMask = 0;
+  eventsPerBuffer = 0;
   irqV[0] = 0;
   irqV[1] = 0;
   irqV[2] = 0;
@@ -191,7 +191,7 @@ void VMUSB::readAllRegisters(void)
 
   status = VME_register_read(hUsbDevice, 36, &val);
   if (status > 0)
-    numberMask = (int)val;
+    eventsPerBuffer = (u32)val;
 
   status = VME_register_read(hUsbDevice, 40, &val);
   if (status > 0)
@@ -352,9 +352,9 @@ int VMUSB::getScalerBdata()
 /*!
   \fn vmUsb::getNumberMask()
  */
-int VMUSB::getNumberMask()
+u32 VMUSB::getEventsPerBuffer()
 {
-  return numberMask;
+  return eventsPerBuffer;
 }
 
 /*!
@@ -484,16 +484,13 @@ int VMUSB::setScalerBdata(int val)
   return scalerBdata;
 }
 
-/*!
-  \fn vmUsb::setNumberMask()
- */
-int VMUSB::setNumberMask(int val)
+u32 VMUSB::setEventsPerBuffer(u32 val)
 {
   if(VME_register_write(hUsbDevice, 36, val) > 0){
     VME_register_read(hUsbDevice, 36, &retval);
-    numberMask = (int)retval;
+    eventsPerBuffer = (u32)retval;
   }
-  return numberMask;
+  return eventsPerBuffer;
 }
 
 static int irq_vector_register_address(int vec)
@@ -640,6 +637,13 @@ short VMUSB::vmeWrite16(long addr, long data, uint8_t amod)
   }
 #endif
   return ret;
+}
+
+u32 VMUSB::readRegister(u32 address)
+{
+    long data = 0;
+    VME_register_read(hUsbDevice, address, &data);
+    return static_cast<u32>(data);
 }
 
 /*!

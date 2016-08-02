@@ -238,6 +238,7 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
 
     connect(context, &MVMEContext::moduleAdded, this, &MVMEContextWidget::onModuleAdded);
     connect(context, &MVMEContext::eventConfigAdded, this, &MVMEContextWidget::onEventConfigAdded);
+    connect(context, &MVMEContext::configChanged, this, &MVMEContextWidget::reloadConfig);
 
     qDebug() << __PRETTY_FUNCTION__ << m_d->tw_contextTree->topLevelItemCount();
 }

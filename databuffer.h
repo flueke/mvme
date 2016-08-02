@@ -1,8 +1,9 @@
 #ifndef UUID_5cab16b7_7baf_453f_a7b3_e878cfdd7bd0
 #define UUID_5cab16b7_7baf_453f_a7b3_e878cfdd7bd0
 
-#include <QQueue>
 #include "util.h"
+#include <QQueue>
+#include <cstring>
 
 struct DataBuffer
 {
@@ -16,6 +17,18 @@ struct DataBuffer
     ~DataBuffer()
     {
         delete[] data;
+    }
+
+    void resize(size_t newSize)
+    {
+        if (newSize <= size)
+            return;
+
+        u8 *newData = new u8[newSize];
+        memcpy(newData, data, used);
+        delete[] data;
+        data = newData;
+        size = newSize;
     }
 
     u16 *asU16() { return reinterpret_cast<u16 *>(data); }

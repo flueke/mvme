@@ -1,4 +1,5 @@
 #include "mvme_config.h"
+#include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
 
@@ -105,4 +106,12 @@ void DAQConfig::write(QJsonObject &json) const
         eventArray.append(eventObject);
     }
     json["events"] = eventArray;
+}
+
+QByteArray DAQConfig::toJson() const
+{
+    QJsonObject configObject;
+    write(configObject);
+    QJsonDocument doc(configObject);
+    return doc.toJson();
 }

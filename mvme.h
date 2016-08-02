@@ -77,6 +77,7 @@ private slots:
     void on_actionLoad_Histogram_triggered();
     void on_actionExport_Histogram_triggered();
     void on_actionExport_Spectrogram_triggered();
+    void on_actionNewConfig_triggered();
     void on_actionLoadConfig_triggered();
     void on_actionSaveConfig_triggered();
     void on_actionSaveConfigAs_triggered();

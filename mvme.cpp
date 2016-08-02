@@ -666,6 +666,28 @@ void mvme::on_actionExport_Spectrogram_triggered()
     }
 }
 
+void mvme::on_actionNewConfig_triggered()
+{
+    if (m_context->getConfig()->isModified)
+    {
+        auto msgBox = new QMessageBox(QMessageBox::Question, "Configuration modified",
+                                      "The current configuration has modifications. Do you want to save it?",
+                                      QMessageBox::Save | QMessageBox::Cancel | QMessageBox::Discard);
+        int result = msgBox->exec();
+
+        if (result == QMessageBox::Save)
+        {
+            on_actionSaveConfig_triggered();
+        }
+        else if (result == QMessageBox::Cancel)
+        {
+            return;
+        }
+    }
+
+    m_context->setConfig(new DAQConfig);
+}
+
 void mvme::on_actionLoadConfig_triggered()
 {
     QString fileName = QFileDialog::getOpenFileName(this, "Load MVME Config",
@@ -715,11 +737,7 @@ void mvme::on_actionSaveConfig_triggered()
         QMessageBox::critical(0, "Error", QString("Error writing to %1").arg(m_context->m_configFilename));
     }
 
-    QJsonObject configObject;
-    m_context->getConfig()->write(configObject);
-
-    QJsonDocument doc(configObject);
-    outFile.write(doc.toJson());
+    outFile.write(m_context->getConfig()->toJson());
 }
 
 void mvme::on_actionSaveConfigAs_triggered()
@@ -737,11 +755,7 @@ void mvme::on_actionSaveConfigAs_triggered()
         return;
     }
 
-    QJsonObject configObject;
-    m_context->getConfig()->write(configObject);
-
-    QJsonDocument doc(configObject);
-    outFile.write(doc.toJson());
+    outFile.write(m_context->getConfig()->toJson());
 
     m_context->m_configFilename = fileName;
 }

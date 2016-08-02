@@ -76,6 +76,7 @@ public slots:
     virtual void calcSlot();
     virtual void clearSlot();
     void dispChan(int c);
+    void readRegister();
 
 private slots:
     void vmusbDaqModeChanged(bool);

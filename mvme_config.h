@@ -57,9 +57,12 @@ struct DAQConfig
 {
     QString listFileOutputDirectory;
     QList<EventConfig *> eventConfigs;
+    bool isModified = false;
 
     void read(const QJsonObject &json);
     void write(QJsonObject &json) const;
+
+    QByteArray toJson() const;
 
     ~DAQConfig()
     {
