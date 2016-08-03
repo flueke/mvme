@@ -92,6 +92,13 @@ QString VMECommand::toString() const
                 return QString("Marker 0x%1")
                     .arg(value, 8, 16, Zero);
             } break;
+#if 0
+        case Comment:
+            {
+                return QString ("# %1")
+                    .arg(text);
+            } break;
+#endif
     }
 
     Q_ASSERT(false);

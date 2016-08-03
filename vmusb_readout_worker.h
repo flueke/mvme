@@ -23,6 +23,8 @@ class VMUSBReadoutWorker: public QObject
         void setBufferProcessor(VMUSBBufferProcessor *processor) { m_bufferProcessor = processor; }
         VMUSBBufferProcessor *getBufferProcessor() const { return m_bufferProcessor; }
 
+        QString getStartupDebugString() const { return m_startupDebugString; }
+
     public slots:
         void start(quint32 cycles = 0);
         void stop();
@@ -41,6 +43,7 @@ class VMUSBReadoutWorker: public QObject
         QMap<u8, u32> m_eventCountPerStack;
         size_t m_nTotalEvents;
         VMUSBBufferProcessor *m_bufferProcessor = 0;
+        QString m_startupDebugString;
 };
 
 #endif

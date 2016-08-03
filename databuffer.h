@@ -19,7 +19,7 @@ struct DataBuffer
         delete[] data;
     }
 
-    void resize(size_t newSize)
+    void reserve(size_t newSize)
     {
         if (newSize <= size)
             return;

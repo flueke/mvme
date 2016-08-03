@@ -23,6 +23,7 @@ struct VMECommand
         MaskedCountFifoRead32,
         Delay,
         Marker,
+        //Comment,
     };
 
     Type type = NotSet;
@@ -32,6 +33,7 @@ struct VMECommand
     size_t transfers = 0;
     uint32_t blockCountMask = 0;
     uint8_t delay200nsClocks = 0;
+    QString text;
 
     QString toString() const;
 };
@@ -161,6 +163,16 @@ class VMECommandList
             cmd.value   = marker;
             commands.push_back(cmd);
         }
+
+#if 0
+        void addComment(const QString &text)
+        {
+            VMECommand cmd;
+            cmd.type = VMECommand::Comment;
+            cmd.text = text;
+            commands.push_back(cmd);
+        }
+#endif
 
         void append(const VMECommandList &other)
         {

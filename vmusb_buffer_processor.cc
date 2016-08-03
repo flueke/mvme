@@ -136,7 +136,7 @@ void VMUSBBufferProcessor::beginRun()
 
         if (buffer)
         {
-            buffer->resize(configBytes.size() + sizeof(u32));
+            buffer->reserve(configBytes.size() + sizeof(u32));
             u32 size = configBytes.size() / sizeof(u32);
 
             u32 *sectionHeader = (u32 *)buffer->data;

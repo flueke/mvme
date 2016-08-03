@@ -29,8 +29,6 @@ void VMUSBReadoutWorker::start(quint32 cycles)
     if (m_state != DAQState::Idle)
         return;
 
-    qDebug() << __PRETTY_FUNCTION__ << "cycles =" << cycles;
-
     m_cyclesToRun = cycles;
     setState(DAQState::Starting);
 
@@ -42,7 +40,13 @@ void VMUSBReadoutWorker::start(quint32 cycles)
 
         m_vmusbStack.resetLoadOffset(); // reset the static load offset
 
-        qDebug() << "resetting vmusb ISVs";
+        m_startupDebugString.clear();
+        QTextStream debugStream(&m_startupDebugString);
+
+        debugStream << "  VMUSB readout starting" << endl
+                    << "==========================" << endl << endl;
+
+        debugStream << "Resetting VMUSB ISV registers" << endl;
         for (int i=0; i<8; ++i)
         {
             vmusb->setIrq(i, 0);
@@ -78,8 +82,6 @@ void VMUSBReadoutWorker::start(quint32 cycles)
 
             for (auto module: event->modules)
             {
-                qDebug() << "reset module" << module->name;
-
                 resetCommands.append(VMECommandList::fromInitList(parseInitList(module->initReset), module->baseAddress));
                 initCommands.append(VMECommandList::fromInitList(parseInitList(module->initParameters), module->baseAddress));
                 initCommands.append(VMECommandList::fromInitList(parseInitList(module->initReadout), module->baseAddress));
@@ -94,8 +96,6 @@ void VMUSBReadoutWorker::start(quint32 cycles)
             m_vmusbStack.enableStack(vmusb);
         }
 
-        char buffer[100];
-
         {
             QString tmp;
             QTextStream strm(&tmp);
@@ -103,6 +103,7 @@ void VMUSBReadoutWorker::start(quint32 cycles)
             qDebug() << "init" << endl << tmp << endl;
         }
 
+        char buffer[100];
         qDebug() << "running reset commands";
         vmusb->executeCommands(&resetCommands, buffer, sizeof(buffer));
         QThread::sleep(1);

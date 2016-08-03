@@ -206,7 +206,7 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
         connect(readoutWorker, &VMUSBReadoutWorker::stateChanged, this, &MVMEContextWidget::onDAQStateChanged);
 
         auto layout = new QGridLayout(gb_daqControl);
-        layout->setContentsMargins(2, 2, 2, 2);
+        layout->setContentsMargins(2, 4, 2, 2);
         layout->addWidget(m_d->pb_startDAQ, 0, 0);
         layout->addWidget(m_d->pb_startOneCycle, 0, 1);
         layout->addWidget(m_d->pb_stopDAQ, 0, 2);
@@ -234,7 +234,7 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
     {
         auto gb_daqConfiguration = new QGroupBox("DAQ Configuration");
         auto layout = new QVBoxLayout(gb_daqConfiguration);
-        layout->setContentsMargins(2, 2, 2, 2);
+        layout->setContentsMargins(2, 4, 2, 2);
         layout->setSpacing(2);
         //layout->addWidget(new QLabel("Events"));
         layout->addWidget(m_d->tw_contextTree);
@@ -254,7 +254,7 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
         m_d->histoList = new QListWidget;
         m_d->histoList->setSortingEnabled(true);
 
-        layout->setContentsMargins(2, 2, 2, 2);
+        layout->setContentsMargins(2, 4, 2, 2);
         layout->setSpacing(2);
         layout->addWidget(m_d->histoList);
         splitter->addWidget(gb_histograms);
