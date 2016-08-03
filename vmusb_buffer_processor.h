@@ -14,7 +14,7 @@ class VMUSBBufferProcessor: public QObject
 {
     Q_OBJECT
     signals:
-        void mvmeEventReady(DataBuffer *);
+        void mvmeEventBufferReady(DataBuffer *);
 
     public:
         VMUSBBufferProcessor(MVMEContext *context, QObject *parent = 0);

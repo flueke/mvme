@@ -59,6 +59,8 @@ struct DAQConfig
     QList<EventConfig *> eventConfigs;
     bool isModified = false;
 
+    ModuleConfig *getModuleConfig(int eventIndex, int moduleIndex);
+
     void read(const QJsonObject &json);
     void write(QJsonObject &json) const;
 

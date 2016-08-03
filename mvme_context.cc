@@ -3,6 +3,7 @@
 #include "vmusb.h"
 #include "vmusb_readout_worker.h"
 #include "vmusb_buffer_processor.h"
+#include "mvme_event_processor.h"
 
 #include <QtConcurrent>
 #include <QTimer>
@@ -15,6 +16,8 @@ MVMEContext::MVMEContext(QObject *parent)
     , m_readoutThread(new QThread(this))
     , m_readoutWorker(new VMUSBReadoutWorker(this))
     , m_bufferProcessor(new VMUSBBufferProcessor(this))
+    , m_eventProcessorThread(new QThread(this))
+    , m_eventProcessor(new MVMEEventProcessor(this))
 {
 
     for (size_t i=0; i<dataBufferCount; ++i)
@@ -27,15 +30,24 @@ MVMEContext::MVMEContext(QObject *parent)
     m_ctrlOpenTimer->setInterval(100);
     m_ctrlOpenTimer->start();
 
+    m_readoutThread->setObjectName("ReadoutThread");
     m_readoutWorker->moveToThread(m_readoutThread);
     m_bufferProcessor->moveToThread(m_readoutThread);
     m_readoutWorker->setBufferProcessor(m_bufferProcessor);
 
-    m_readoutThread->setObjectName("ReadoutThread");
     m_readoutThread->start();
 
-
     connect(m_readoutWorker, &VMUSBReadoutWorker::stateChanged, this, &MVMEContext::daqStateChanged);
+
+    m_eventProcessorThread->setObjectName("EventProcessorThread");
+    m_eventProcessor->moveToThread(m_eventProcessorThread);
+    m_eventProcessorThread->start();
+
+    connect(m_bufferProcessor, &VMUSBBufferProcessor::mvmeEventBufferReady,
+            m_eventProcessor, &MVMEEventProcessor::processEventBuffer);
+
+    connect(m_eventProcessor, &MVMEEventProcessor::bufferProcessed,
+            m_bufferProcessor, &VMUSBBufferProcessor::addFreeBuffer);
 }
 
 MVMEContext::~MVMEContext()

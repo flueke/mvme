@@ -42,6 +42,8 @@ SOURCES += main.cpp\
     vmusb_buffer_processor.cc \
     mvme_context_widget.cc \
     mvme_config.cc \
+    mvme_listfile.cc \
+    mvme_event_processor.cc \
 
 
 HEADERS  += \
@@ -74,7 +76,8 @@ HEADERS  += \
     mvme_context_widget.h \
     mvme_config.h \
     vmecommandlist.h \
-    mvme_listfile.h
+    mvme_listfile.h \
+    mvme_event_processor.h \
 
 
 FORMS    += \

@@ -5,6 +5,7 @@
 #include <QVector>
 #include <QList>
 #include <QPair>
+#include <QVariant>
 class QTextStream;
 
 typedef uint8_t u8;
@@ -34,7 +35,7 @@ struct BufferIterator
 {
     enum Alignment { Align16, Align32 };
 
-    BufferIterator(u8 *data, size_t size, Alignment alignment)
+    BufferIterator(u8 *data, size_t size, Alignment alignment = Align32)
         : data(data)
         , buffp(data)
         , endp(data + size)
@@ -162,5 +163,18 @@ struct BufferIterator
 };
 
 QString readStringFile(const QString &filename);
+
+template<typename T>
+T *Var2Ptr(const QVariant &variant)
+{
+    return static_cast<T *>(variant.value<void *>());
+}
+
+template<typename T>
+QVariant Ptr2Var(T *ptr)
+{
+    return QVariant::fromValue(static_cast<void *>(ptr));
+}
+
 
 #endif // UTIL_H

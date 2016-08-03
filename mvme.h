@@ -92,6 +92,9 @@ private slots:
     void handleDeleteEventConfig(EventConfig *event);
     void handleDeleteModuleConfig(ModuleConfig *module);
 
+    void handleHistogramClicked(ModuleConfig *config, Histogram *histo);
+    void handleHistogramDoubleClicked(ModuleConfig *config, Histogram *histo);
+
 private:
     Ui::mvme *ui;
     bool datataking;

@@ -44,14 +44,13 @@ struct DataWord
     bool pileup();
     int bus(); // for mdi-2
 
-
-    ModuleData module;
-    u32 *data; // pointer the to actual data word
+    ModuleData module; // to get type() and other module info
+    u32 *data = 0; // pointer the to actual data word
 };
 
 struct ModuleData
 {
-    ModuleData(EventData event, u32 *subEventHeader);
+    ModuleData(u32 *subEventHeader, u32 ptrSizeInWords);
 
     bool isValid();
     VMEModuleType type();
@@ -70,11 +69,12 @@ struct ModuleData
     bool hasEOE();
     u32 eoeValue();
 
-    EventData event;
-    u32 *subEventHeader; // points to the MVME subevent header
+    u32 *subEventHeader = 0; // points to the MVME subevent header
+    u32 ptrSizeInWords = 0;
 };
 
 
+// XXX: The event can contain any kind of modules, not just mesytec modules...
 struct EventData
 {
     EventData(u32 *eventHeader);
@@ -87,7 +87,7 @@ struct EventData
     int moduleCount();
     ModuleData module(int index);
 
-    u32 *eventHeader; // points to the MVME Event header
+    u32 *eventHeader = 0; // points to the MVME Event header
 };
 
 #endif

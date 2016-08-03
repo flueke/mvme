@@ -13,6 +13,8 @@
 class VMEController;
 class VMUSBReadoutWorker;
 class VMUSBBufferProcessor;
+class MVMEEventProcessor;
+class Histogram;
 
 class QTimer;
 class QThread;
@@ -29,6 +31,7 @@ class MVMEContext: public QObject
         void moduleAdded(EventConfig *eventConfig, ModuleConfig *module);
         void daqStateChanged(const DAQState &state);
         void configChanged();
+        void histogramAdded(ModuleConfig *module, Histogram *histo);
 
     public:
         MVMEContext(QObject *parent = 0);
@@ -55,6 +58,16 @@ class MVMEContext: public QObject
         DataBufferQueue *getFreeBuffers() { return &m_freeBuffers; }
         DAQState getDAQState() const;
 
+        QMap<ModuleConfig *, Histogram *> getHistograms() { return m_histograms; }
+        bool addHistogram(ModuleConfig *module, Histogram *histo)
+        {
+            if (m_histograms.contains(module))
+                return false;
+            m_histograms[module] = histo;
+            emit histogramAdded(module, histo);
+            return true;
+        }
+
         friend class mvme;
 
     private slots:
@@ -69,9 +82,13 @@ class MVMEContext: public QObject
 
         VMUSBReadoutWorker *m_readoutWorker;
         VMUSBBufferProcessor *m_bufferProcessor;
+
+        QThread *m_eventProcessorThread;
+        MVMEEventProcessor *m_eventProcessor;
+
         DataBufferQueue m_freeBuffers;
-        DataBufferQueue m_eventBuffers;
         QString m_configFilename;
+        QMap<ModuleConfig *, Histogram *> m_histograms;
 };
 
 #endif

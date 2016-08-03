@@ -216,7 +216,7 @@
    <sender>linLogGroup</sender>
    <signal>buttonClicked(int)</signal>
    <receiver>TwoDimWidget</receiver>
-   <slot>displaychanged()</slot>
+   <slot>displayChanged()</slot>
    <hints>
     <hint type="sourcelabel">
      <x>-1</x>
@@ -232,7 +232,7 @@
    <sender>channelBox</sender>
    <signal>valueChanged(int)</signal>
    <receiver>TwoDimWidget</receiver>
-   <slot>displaychanged()</slot>
+   <slot>displayChanged()</slot>
    <hints>
     <hint type="sourcelabel">
      <x>1006</x>
@@ -248,7 +248,7 @@
    <sender>moduleBox</sender>
    <signal>valueChanged(int)</signal>
    <receiver>TwoDimWidget</receiver>
-   <slot>displaychanged()</slot>
+   <slot>displayChanged()</slot>
    <hints>
     <hint type="sourcelabel">
      <x>1006</x>
@@ -278,7 +278,7 @@
   </connection>
  </connections>
  <slots>
-  <slot>displaychanged()</slot>
+  <slot>displayChanged()</slot>
   <slot>clearHist()</slot>
  </slots>
  <buttongroups>

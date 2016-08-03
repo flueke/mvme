@@ -10,7 +10,7 @@ Histogram::Histogram(QObject *parent, quint32 channels, quint32 resolution) :
     m_axisBase = new double[resolution];
     m_channels = channels;
     m_resolution = resolution;
-
+    initHistogram();
     qDebug("Initialized histogram with %d channels, %d resolution", channels, resolution);
 }
 
@@ -121,14 +121,15 @@ double Histogram::getValue(quint32 channelIndex, quint32 valueIndex)
 }
 
 
-bool Histogram::incValue(quint32 x, quint32 y)
+bool Histogram::incValue(quint32 channelIndex, quint32 valueIndex)
 {
-    if(y < m_resolution){
-        m_data[x*m_resolution + y]++;
+    if (channelIndex < m_channels && valueIndex < m_resolution)
+    {
+        m_data[channelIndex * m_resolution + valueIndex]++;
         return true;
     }
-    else
-        return false;
+
+    return false;
 }
 
 void Histogram::setValue(quint32 channelIndex, quint32 valueIndex, double value)

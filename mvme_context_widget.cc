@@ -2,6 +2,7 @@
 #include "vmusb_readout_worker.h"
 #include "vmusb_buffer_processor.h"
 #include "CVMUSBReadoutList.h"
+#include "histogram.h"
 
 #include <QComboBox>
 #include <QDialog>
@@ -18,6 +19,7 @@
 #include <QGroupBox>
 #include <QPushButton>
 #include <QSpinBox>
+#include <QListWidget>
 
 struct AddEventConfigDialog: public QDialog
 {
@@ -176,12 +178,16 @@ struct MVMEContextWidgetPrivate
     QPushButton *pb_startDAQ, *pb_startOneCycle, *pb_stopDAQ;
     QLabel *label_daqState;
     QTreeWidget *tw_contextTree;
+    QListWidget *histoList;
 };
 
 MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
     : QWidget(parent)
     , m_d(new MVMEContextWidgetPrivate(this, context))
 {
+    /*
+     * DAQ control
+     */
     auto gb_daqControl = new QGroupBox("DAQ Control");
     {
         m_d->pb_startDAQ = new QPushButton("Start");
@@ -222,25 +228,48 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
     auto splitter = new QSplitter(Qt::Vertical);
     splitter->addWidget(gb_daqControl);
 
-    auto gb_daqConfiguration = new QGroupBox("DAQ Configuration");
+    /*
+     * DAQ config
+     */
+    {
+        auto gb_daqConfiguration = new QGroupBox("DAQ Configuration");
+        auto layout = new QVBoxLayout(gb_daqConfiguration);
+        layout->setContentsMargins(2, 2, 2, 2);
+        layout->setSpacing(2);
+        //layout->addWidget(new QLabel("Events"));
+        layout->addWidget(m_d->tw_contextTree);
+        splitter->addWidget(gb_daqConfiguration);
 
-    auto w = new QWidget;
-    auto wl = new QVBoxLayout(w);
-    wl->setContentsMargins(0, 0, 0, 0);
-    wl->setSpacing(0);
-    wl->addWidget(new QLabel("Events"));
-    wl->addWidget(m_d->tw_contextTree);
-    splitter->addWidget(w);
+        connect(context, &MVMEContext::moduleAdded, this, &MVMEContextWidget::onModuleAdded);
+        connect(context, &MVMEContext::eventConfigAdded, this, &MVMEContextWidget::onEventConfigAdded);
+        connect(context, &MVMEContext::configChanged, this, &MVMEContextWidget::reloadConfig);
+    }
 
+    /*
+     * histograms
+     */
+    {
+        auto gb_histograms = new QGroupBox("Histograms");
+        auto layout = new QVBoxLayout(gb_histograms);
+        m_d->histoList = new QListWidget;
+        m_d->histoList->setSortingEnabled(true);
+
+        layout->setContentsMargins(2, 2, 2, 2);
+        layout->setSpacing(2);
+        layout->addWidget(m_d->histoList);
+        splitter->addWidget(gb_histograms);
+
+        connect(m_d->histoList, &QListWidget::itemClicked, this, &MVMEContextWidget::histoListItemClicked);
+        connect(m_d->histoList, &QListWidget::itemDoubleClicked, this, &MVMEContextWidget::histoListItemDoubleClicked);
+        connect(context, &MVMEContext::histogramAdded, this, &MVMEContextWidget::onContextHistoAdded);
+    }
+
+    /*
+     * widget layout
+     */
     auto layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->addWidget(splitter);
-
-    connect(context, &MVMEContext::moduleAdded, this, &MVMEContextWidget::onModuleAdded);
-    connect(context, &MVMEContext::eventConfigAdded, this, &MVMEContextWidget::onEventConfigAdded);
-    connect(context, &MVMEContext::configChanged, this, &MVMEContextWidget::reloadConfig);
-
-    qDebug() << __PRETTY_FUNCTION__ << m_d->tw_contextTree->topLevelItemCount();
 }
 
 void MVMEContextWidget::reloadConfig()
@@ -427,4 +456,26 @@ void MVMEContextWidget::onDAQStateChanged(DAQState state)
     m_d->pb_startDAQ->setEnabled(state == DAQState::Idle);
     m_d->pb_startOneCycle->setEnabled(state == DAQState::Idle);
     m_d->pb_stopDAQ->setEnabled(state != DAQState::Idle);
+}
+
+void MVMEContextWidget::histoListItemClicked(QListWidgetItem *item)
+{
+    auto config = Var2Ptr<ModuleConfig>(item->data(Qt::UserRole));
+    auto histo = Var2Ptr<Histogram>(item->data(Qt::UserRole+1));
+    emit histogramClicked(config, histo);
+}
+
+void MVMEContextWidget::histoListItemDoubleClicked(QListWidgetItem *item)
+{
+    auto config = Var2Ptr<ModuleConfig>(item->data(Qt::UserRole));
+    auto histo = Var2Ptr<Histogram>(item->data(Qt::UserRole+1));
+    emit histogramDoubleClicked(config, histo);
+}
+
+void MVMEContextWidget::onContextHistoAdded(ModuleConfig *cfg, Histogram *histo)
+{
+    auto item = new QListWidgetItem(cfg->name);
+    item->setData(Qt::UserRole, Ptr2Var(cfg));
+    item->setData(Qt::UserRole+1, Ptr2Var(histo));
+    m_d->histoList->addItem(item);
 }

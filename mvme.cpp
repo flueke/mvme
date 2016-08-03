@@ -25,6 +25,7 @@
 #include <QToolBar>
 #include <QTextEdit>
 #include <QFont>
+#include <QList>
 
 #include <qwt_plot_curve.h>
 
@@ -211,7 +212,41 @@ void ModuleConfigWidget::execList()
     }
 }
 
+template<typename T>
+QList<T *> getSubwindowWidgetsByType(QMdiArea *mdiArea)
+{
+    QList<T *> ret;
 
+    for (auto subwin: mdiArea->subWindowList())
+    {
+        auto w = qobject_cast<T *>(subwin->widget());
+        if (w)
+        {
+            ret.append(w);
+        }
+    }
+
+    return ret;
+}
+
+static const int DrawTimerInterval = 1000;
+
+template<typename T>
+QList<QMdiSubWindow *> getSubwindowsByWidgetType(QMdiArea *mdiArea)
+{
+    QList<QMdiSubWindow *> ret;
+
+    for (auto subwin: mdiArea->subWindowList())
+    {
+        auto w = qobject_cast<T *>(subwin->widget());
+        if (w)
+        {
+            ret.append(subwin);
+        }
+    }
+
+    return ret;
+}
 mvme::mvme(QWidget *parent) :
     QMainWindow(parent),
     vu(0),
@@ -247,6 +282,8 @@ mvme::mvme(QWidget *parent) :
     connect(contextWidget, &MVMEContextWidget::deleteEvent, this, &mvme::handleDeleteEventConfig);
     connect(contextWidget, &MVMEContextWidget::deleteModule, this, &mvme::handleDeleteModuleConfig);
 
+    connect(contextWidget, &MVMEContextWidget::histogramClicked, this, &mvme::handleHistogramClicked);
+    connect(contextWidget, &MVMEContextWidget::histogramDoubleClicked, this, &mvme::handleHistogramDoubleClicked);
 
     auto contextDock = new QDockWidget();
     contextDock->setObjectName("MVMEContextDock");
@@ -254,8 +291,8 @@ mvme::mvme(QWidget *parent) :
     contextDock->setWidget(contextWidget);
     addDockWidget(Qt::LeftDockWidgetArea, contextDock);
 
-    createNewHistogram();
-    createNewChannelSpectrogram();
+    //createNewHistogram();
+    //createNewChannelSpectrogram();
 
     rd = new RealtimeData;
     diag = new Diagnostics;
@@ -283,6 +320,7 @@ mvme::mvme(QWidget *parent) :
 
     drawTimer = new QTimer(this);
     connect(drawTimer, SIGNAL(timeout()), SLOT(drawTimerSlot()));
+    drawTimer->start(DrawTimerInterval);
 
     initThreads();
 
@@ -303,7 +341,6 @@ mvme::mvme(QWidget *parent) :
             m_contextWidget->reloadConfig();
         }
     }
-
 
 #if 0
     //
@@ -460,7 +497,7 @@ void mvme::displayAbout()
 
 void mvme::createNewHistogram()
 {
-    auto tdw = new TwoDimWidget(this, m_histogram.value(0));
+    auto tdw = new TwoDimWidget(m_context, m_histogram.value(0));
     tdw->plot();
 
     auto subwin = new QMdiSubWindow(ui->mdiArea);
@@ -509,7 +546,6 @@ void mvme::startDatataking(quint16 period, bool multi, quint16 readLen, bool mbl
     dt->setReadoutmode(multi, readLen, mblt, daqMode);
     dt->startReading(period);
 
-    drawTimer->start(750);
     datataking = true;
 }
 
@@ -803,23 +839,21 @@ void mvme::handleModuleConfigClicked(ModuleConfig *config)
 
 void mvme::handleModuleConfigDoubleClicked(ModuleConfig *config)
 {
-    QMdiSubWindow *subwin = 0;
     for (auto win: ui->mdiArea->subWindowList())
     {
         auto widget = qobject_cast<ModuleConfigWidget *>(win->widget());
         if (widget && widget->getConfig() == config)
         {
-            subwin = win;
             return;
         }
     }
 
     auto widget = new ModuleConfigWidget(m_context, config);
-    subwin = new QMdiSubWindow(ui->mdiArea);
+    auto subwin = new QMdiSubWindow;
     subwin->setAttribute(Qt::WA_DeleteOnClose);
     subwin->setWidget(widget);
-
     subwin->show();
+    ui->mdiArea->addSubWindow(subwin);
     ui->mdiArea->setActiveSubWindow(subwin);
 }
 
@@ -829,4 +863,47 @@ void mvme::handleDeleteEventConfig(EventConfig *event)
 
 void mvme::handleDeleteModuleConfig(ModuleConfig *module)
 {
+}
+
+void mvme::handleHistogramClicked(ModuleConfig *config, Histogram *histo)
+{
+    QMdiSubWindow *subwin = 0;
+    for (auto win: ui->mdiArea->subWindowList())
+    {
+        auto widget = qobject_cast<TwoDimWidget *>(win->widget());
+        if (widget && widget->getHistogram() == histo)
+        {
+            subwin = win;
+            break;
+        }
+    }
+
+    if (subwin)
+    {
+        subwin->show();
+        if (subwin->isMinimized())
+            subwin->showNormal();
+        subwin->raise();
+    }
+    ui->mdiArea->setActiveSubWindow(subwin);
+}
+
+void mvme::handleHistogramDoubleClicked(ModuleConfig *config, Histogram *histo)
+{
+    for (auto win: ui->mdiArea->subWindowList())
+    {
+        auto widget = qobject_cast<TwoDimWidget *>(win->widget());
+        if (widget && widget->getHistogram() == histo)
+        {
+            return;
+        }
+    }
+
+    auto widget = new TwoDimWidget(m_context, histo);
+    auto subwin = new QMdiSubWindow;
+    subwin->setAttribute(Qt::WA_DeleteOnClose);
+    subwin->setWidget(widget);
+    subwin->show();
+    ui->mdiArea->addSubWindow(subwin);
+    ui->mdiArea->setActiveSubWindow(subwin);
 }

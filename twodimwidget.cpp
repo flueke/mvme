@@ -13,6 +13,7 @@
 #include <QDebug>
 #include "histogram.h"
 #include "mvme.h"
+#include "mvme_context.h"
 
 // Bounds values to 0.1 to make QwtLogScaleEngine happy
 class MinBoundLogTransform: public QwtLogTransform
@@ -42,20 +43,22 @@ class MinBoundLogTransform: public QwtLogTransform
         }
 };
 
-TwoDimWidget::TwoDimWidget(mvme *context, Histogram *histo, QWidget *parent)
+TwoDimWidget::TwoDimWidget(MVMEContext *context, Histogram *histo, QWidget *parent)
     : QWidget(parent)
     , ui(new Ui::TwoDimWidget)
+    , m_context(context)
     , m_curve(new QwtPlotCurve)
     , m_pMyHist(histo)
     , m_currentModule(0)
     , m_currentChannel(0)
-    , m_pMyMvme(context)
 {
     ui->setupUi(this);
 
     m_curve->attach(ui->mainPlot);
     m_curve->setStyle(QwtPlotCurve::Steps);
     m_curve->setCurveAttribute(QwtPlotCurve::Inverted);
+
+    ui->moduleBox->setEnabled(false);
 
     ui->mainPlot->setAxisScale( QwtPlot::xBottom, 0, m_pMyHist->m_resolution);
 
@@ -112,7 +115,7 @@ TwoDimWidget::TwoDimWidget(mvme *context, Histogram *histo, QWidget *parent)
     }
 #endif
 
-    ui->mainPlot->replot();
+    displayChanged();
 }
 
 TwoDimWidget::~TwoDimWidget()
@@ -120,9 +123,8 @@ TwoDimWidget::~TwoDimWidget()
     delete ui;
 }
 
-void TwoDimWidget::displaychanged()
+void TwoDimWidget::displayChanged()
 {
-    qDebug("display changed");
 
     ui->mainPlot->axisWidget(QwtPlot::xBottom)->setTitle(
                 QString("Channel %1").arg(getSelectedChannelIndex()));
@@ -139,11 +141,13 @@ void TwoDimWidget::displaychanged()
         ui->mainPlot->setAxisScaleEngine(QwtPlot::yLeft, scaleEngine);
     }
 
+#if 0
     if((quint32)ui->moduleBox->value() != m_currentModule)
     {
         m_currentModule = ui->moduleBox->value();
         m_pMyHist = m_pMyMvme->getHist(m_currentModule);
     }
+#endif
 
     if((quint32)ui->channelBox->value() != m_currentChannel)
     {
@@ -153,6 +157,15 @@ void TwoDimWidget::displaychanged()
         ui->channelBox->setValue(m_currentChannel);
         ui->channelBox->blockSignals(false);
     }
+
+    auto histos = m_context->getHistograms();
+    auto moduleConfig = histos.key(m_pMyHist);
+    QString moduleName = moduleConfig ? moduleConfig->name : "<unk>";
+
+    setWindowTitle(QString("Histogram: module=%1, channel=%2")
+                   .arg(moduleName)
+                   .arg(m_currentChannel)
+                  );
 
     plot();
 }
@@ -210,7 +223,6 @@ void TwoDimWidget::exportPlot()
 
 void TwoDimWidget::plot()
 {
-    qDebug () << __PRETTY_FUNCTION__;
     m_curve->setRawSamples(
             (const double*)m_pMyHist->m_axisBase,
             (const double*)m_pMyHist->m_data + m_pMyHist->m_resolution*m_currentChannel,
@@ -280,11 +292,6 @@ void TwoDimWidget::updateStatistics()
 
     m_statsText->setText(buffer);
     m_statsTextItem->setText(*m_statsText);
-}
-
-void TwoDimWidget::setMvme(mvme *m)
-{
-    m_pMyMvme = m;
 }
 
 void TwoDimWidget::setHistogram(Histogram *h)

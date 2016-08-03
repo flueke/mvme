@@ -6,9 +6,9 @@
 class ScrollZoomer;
 class QwtPlotTextLabel;
 class QwtText;
-class mvme;
 class Histogram;
 class QwtPlotCurve;
+class MVMEContext;
 
 namespace Ui {
 class TwoDimWidget;
@@ -19,7 +19,7 @@ class TwoDimWidget : public QWidget
     Q_OBJECT
 
 public:
-    explicit TwoDimWidget(mvme *context, Histogram *histo, QWidget *parent = 0);
+    explicit TwoDimWidget(MVMEContext *context, Histogram *histo, QWidget *parent = 0);
     ~TwoDimWidget();
 
     void setZoombase();
@@ -28,13 +28,13 @@ public:
     void exportPlot();
 
     void plot();
-    void setMvme(mvme* m);
     void setHistogram(Histogram* h);
+    Histogram *getHistogram() const { return m_pMyHist; }
     void clearDisp(void);
     void updateStatistics();
 
 public slots:
-    void displaychanged(void);
+    void displayChanged(void);
     void clearHist(void);
 
 signals:
@@ -52,13 +52,13 @@ private:
 
     Ui::TwoDimWidget *ui;
 
+    MVMEContext *m_context;
     QwtPlotCurve *m_curve;
     ScrollZoomer *m_plotZoomer;
 
     Histogram* m_pMyHist;
     quint32 m_currentModule;
     quint32 m_currentChannel;
-    mvme* m_pMyMvme;
 
     QwtPlotTextLabel *m_statsTextItem;
     QwtText *m_statsText;

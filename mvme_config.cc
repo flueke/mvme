@@ -115,3 +115,16 @@ QByteArray DAQConfig::toJson() const
     QJsonDocument doc(configObject);
     return doc.toJson();
 }
+
+ModuleConfig *DAQConfig::getModuleConfig(int eventIndex, int moduleIndex)
+{
+    ModuleConfig *result = 0;
+    auto eventConfig = eventConfigs.value(eventIndex);
+
+    if (eventConfig)
+    {
+        result = eventConfig->modules.value(moduleIndex);
+    }
+
+    return result;
+}

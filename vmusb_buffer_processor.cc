@@ -152,7 +152,7 @@ void VMUSBBufferProcessor::beginRun()
 
             QTextStream out(stdout);
             dump_event_buffer(out, buffer);
-            emit mvmeEventReady(buffer);
+            emit mvmeEventBufferReady(buffer);
         }
     }
 }
@@ -362,16 +362,16 @@ bool VMUSBBufferProcessor::processEvent(BufferIterator &iter)
     *mvmeEventHeader |= (eventSize << SectionSizeShift) & SectionSizeMask;
     outputBuffer->used = (u8 *)outp - outputBuffer->data;
 
-    QTextStream out(stdout);
-    dump_event_buffer(out, outputBuffer.get());
-
     if (m_listFileOut.isOpen())
     {
         m_listFileOut.write((const char *)outputBuffer->data, outputBuffer->used);
     }
 
 
-    addFreeBuffer(outputBuffer.release());
+    QTextStream out(stdout);
+    dump_event_buffer(out, outputBuffer.get());
+    emit mvmeEventBufferReady(outputBuffer.release());
+    //addFreeBuffer(outputBuffer.release());
 
     return true;
 }
@@ -379,7 +379,7 @@ bool VMUSBBufferProcessor::processEvent(BufferIterator &iter)
 void VMUSBBufferProcessor::addFreeBuffer(DataBuffer *buffer)
 {
     m_context->getFreeBuffers()->enqueue(buffer);
-    //qDebug() << __PRETTY_FUNCTION__ << m_context->getFreeBuffers()->size();
+    qDebug() << __PRETTY_FUNCTION__ << m_context->getFreeBuffers()->size() << buffer;
 }
 
 DataBuffer* VMUSBBufferProcessor::getFreeBuffer()
