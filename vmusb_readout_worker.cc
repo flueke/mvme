@@ -32,6 +32,9 @@ void VMUSBReadoutWorker::start(quint32 cycles)
     m_cyclesToRun = cycles;
     setState(DAQState::Starting);
 
+    m_startupDebugString.clear();
+    QTextStream loggingStream(&m_startupDebugString);
+
     try
     {
         auto vmusb = dynamic_cast<VMUSB *>(m_context->getController());
@@ -40,13 +43,10 @@ void VMUSBReadoutWorker::start(quint32 cycles)
 
         m_vmusbStack.resetLoadOffset(); // reset the static load offset
 
-        m_startupDebugString.clear();
-        QTextStream debugStream(&m_startupDebugString);
-
-        debugStream << "  VMUSB readout starting" << endl
+        loggingStream << "  VMUSB readout starting" << endl
                     << "==========================" << endl << endl;
 
-        debugStream << "Resetting VMUSB ISV registers" << endl;
+        loggingStream << "Resetting VMUSB ISV registers" << endl;
         for (int i=0; i<8; ++i)
         {
             vmusb->setIrq(i, 0);
@@ -91,7 +91,18 @@ void VMUSBReadoutWorker::start(quint32 cycles)
                 m_vmusbStack.addModule(module);
             }
 
-            qDebug() << "loading and enabling stack for" << event->name;
+            loggingStream << "Loading readout stack for event " << event->name
+                << ", stack id = " << m_vmusbStack.getStackID()
+                << ", load offset = " << VMUSBStack::loadOffset
+                << endl;
+
+            for (u32 line: m_vmusbStack.getContents())
+            {
+                QString buf;
+                loggingStream << buf.sprintf("  0x%08x", line) << endl;
+            }
+            loggingStream << endl;
+
             m_vmusbStack.loadStack(vmusb);
             m_vmusbStack.enableStack(vmusb);
         }
@@ -104,39 +115,41 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         }
 
         char buffer[100];
-        qDebug() << "running reset commands";
+
+        loggingStream << "Running reset commands" << endl;
+        resetCommands.dump(loggingStream) << endl;
         vmusb->executeCommands(&resetCommands, buffer, sizeof(buffer));
         QThread::sleep(1);
 
         // TODO: run init commands one by one to make sure the device has enough time to do its work
-        qDebug() << "running init commands";
+        loggingStream << "Running module init commands" << endl;
+        initCommands.dump(loggingStream) << endl;
         vmusb->executeCommands(&initCommands, buffer, sizeof(buffer));
 
-        {
-            QString tmp;
-            QTextStream strm(&tmp);
-            startCommands.dump(strm);
-            qDebug() << "start" << endl << tmp << endl;
-        }
-
-        qDebug() << "running start commands";
+        loggingStream << "Running module start commands" << endl;
+        startCommands.dump(loggingStream) << endl;
         vmusb->executeCommands(&startCommands, buffer, sizeof(buffer));
 
         m_bufferProcessor->beginRun();
+        loggingStream << "Entering readout loop" << endl;
         readoutLoop();
+        loggingStream << "Leaving readout loop" << endl;
         m_bufferProcessor->endRun();
     }
     catch (const char *message)
     {
         setError(message);
+        loggingStream << "Error: " << message << endl;
     }
     catch (const QString &message)
     {
         setError(message);
+        loggingStream << "Error: " << message << endl;
     }
     catch (const std::runtime_error &e)
     {
         setError(e.what());
+        loggingStream << "Error: " << e.what() << endl;
     }
 }
 
@@ -179,6 +192,7 @@ void VMUSBReadoutWorker::readoutLoop()
         {
             // TODO: error out after a number of successive read errors
             qDebug() << "warning: bulk read returned" << bytesRead;
+            emit logMessage(QString("Error: vmusb bulk read returned %1").arg(bytesRead));
         }
 
         qDebug() << "cyclesToRun =" << m_cyclesToRun << ", bytesRead =" << bytesRead;

@@ -21,8 +21,9 @@ class MVMEContextWidget: public QWidget
         void deleteEvent(EventConfig *config);
         void deleteModule(ModuleConfig *module);
 
-        void histogramClicked(ModuleConfig *config, Histogram *histo);
-        void histogramDoubleClicked(ModuleConfig *config, Histogram *histo);
+        void histogramClicked(const QString &name, Histogram *histo);
+        void histogramDoubleClicked(const QString &name, Histogram *histo);
+        void showHistogram(Histogram *histo);
 
     public:
         MVMEContextWidget(MVMEContext *context, QWidget *parent = 0);
@@ -38,7 +39,8 @@ class MVMEContextWidget: public QWidget
         void onDAQStateChanged(DAQState state);
         void histoListItemClicked(QListWidgetItem *item);
         void histoListItemDoubleClicked(QListWidgetItem *item);
-        void onContextHistoAdded(ModuleConfig *cfg, Histogram *histo);
+        void histoListContextMenu(const QPoint &pos);
+        void onContextHistoAdded(const QString &name, Histogram *histo);
 
     private:
         MVMEContextWidgetPrivate *m_d;

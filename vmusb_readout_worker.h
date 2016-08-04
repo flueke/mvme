@@ -14,6 +14,7 @@ class VMUSBReadoutWorker: public QObject
         void stateChanged(DAQState);
         void error(const QString &);
         void eventReady(DataBuffer *buffer);
+        void logMessage(const QString &);
 
     public:
         VMUSBReadoutWorker(MVMEContext *context, QObject *parent = 0);

@@ -30,6 +30,7 @@ class QMdiSubWindow;
 class QThread;
 class QTimer;
 class QwtPlotCurve;
+class QTextBrowser;
 
 
 namespace Ui {
@@ -72,6 +73,8 @@ public slots:
     void cascade();
     void tile();
 
+    void openHistogramView(Histogram *histo);
+
 private slots:
     void on_actionSave_Histogram_triggered();
     void on_actionLoad_Histogram_triggered();
@@ -81,9 +84,9 @@ private slots:
     void on_actionLoadConfig_triggered();
     void on_actionSaveConfig_triggered();
     void on_actionSaveConfigAs_triggered();
+    void on_actionShowLogWindow_triggered();
 
     void on_mdiArea_subWindowActivated(QMdiSubWindow *);
-
 
     void handleEventConfigClicked(EventConfig *event);
     void handleModuleConfigClicked(ModuleConfig *module);
@@ -92,8 +95,8 @@ private slots:
     void handleDeleteEventConfig(EventConfig *event);
     void handleDeleteModuleConfig(ModuleConfig *module);
 
-    void handleHistogramClicked(ModuleConfig *config, Histogram *histo);
-    void handleHistogramDoubleClicked(ModuleConfig *config, Histogram *histo);
+    void handleHistogramClicked(const QString &name, Histogram *histo);
+    void handleHistogramDoubleClicked(const QString &name, Histogram *histo);
 
 private:
     Ui::mvme *ui;
@@ -105,9 +108,10 @@ private:
     QMap<int, Histogram *> m_histogram;
     //QMap<int, VirtualMod *> m_virtualMod;
 
-    QThread *m_readoutThread;
     MVMEContext *m_context;
     MVMEContextWidget *m_contextWidget = 0;
+    QTextBrowser *m_logView;
+    QMdiSubWindow *m_logViewSubwin;
 };
 
 class EventConfigWidget: public QWidget
@@ -131,8 +135,11 @@ class ModuleConfigWidget: public QWidget
         virtual void closeEvent(QCloseEvent *event);
 
     private:
-        void handleListTypeChanged(int);
+        void handleListTypeIndexChanged(int);
         void editorContentsChanged();
+        void onNameEditFinished();
+        void onAddressEditFinished();
+
         void loadFromFile();
         void loadFromTemplate();
         void saveToFile();

@@ -4,6 +4,7 @@
 #include "globals.h"
 
 class QJsonObject;
+class EventConfig;
 
 struct ModuleConfig
 {
@@ -23,6 +24,10 @@ struct ModuleConfig
     // vmusb readout stack as a string.
     // TODO: For other controllers the vmusb stack format obviously won't work.
     QString readoutStack;
+
+    EventConfig *event = 0;
+
+    QString getFullName() const;
 
     void read(const QJsonObject &json);
     void write(QJsonObject &json) const;

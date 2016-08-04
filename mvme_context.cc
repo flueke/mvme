@@ -9,7 +9,7 @@
 #include <QTimer>
 #include <QThread>
 
-MVMEContext::MVMEContext(QObject *parent)
+MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
     : QObject(parent)
     , m_config(new DAQConfig)
     , m_ctrlOpenTimer(new QTimer(this))
@@ -18,6 +18,7 @@ MVMEContext::MVMEContext(QObject *parent)
     , m_bufferProcessor(new VMUSBBufferProcessor(this))
     , m_eventProcessorThread(new QThread(this))
     , m_eventProcessor(new MVMEEventProcessor(this))
+    , m_mainwin(mainwin)
 {
 
     for (size_t i=0; i<dataBufferCount; ++i)
@@ -73,6 +74,7 @@ void MVMEContext::setConfig(DAQConfig *config)
 
 void MVMEContext::addModule(EventConfig *eventConfig, ModuleConfig *module)
 {
+    module->event = eventConfig;
     eventConfig->modules.push_back(module);
     emit moduleAdded(eventConfig, module);
 }
@@ -85,6 +87,34 @@ void MVMEContext::addEventConfig(EventConfig *eventConfig)
     for (auto module: eventConfig->modules)
     {
         emit moduleAdded(eventConfig, module);
+    }
+}
+
+void MVMEContext::removeEvent(EventConfig *event)
+{
+    if (m_config->eventConfigs.removeOne(event))
+    {
+        for (auto module: event->modules)
+        {
+            emit moduleAboutToBeRemoved(module);
+        }
+        emit eventConfigAboutToBeRemoved(event);
+        delete event;
+        notifyConfigModified();
+    }
+}
+
+void MVMEContext::removeModule(ModuleConfig *module)
+{
+    for (EventConfig *event: m_config->eventConfigs)
+    {
+        if (event->modules.removeOne(module))
+        {
+            emit moduleAboutToBeRemoved(module);
+            delete module;
+            notifyConfigModified();
+            break;
+        }
     }
 }
 

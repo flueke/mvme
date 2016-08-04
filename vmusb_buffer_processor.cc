@@ -183,6 +183,19 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
 
     BufferIterator iter(readBuffer->data, readBuffer->used, BufferIterator::Align16);
 
+    std::unique_ptr<DataBuffer> outputBuffer;
+    outputBuffer.reset(getFreeBuffer());
+    if (!outputBuffer)
+    {
+        qDebug("VMUSBBufferProcessor: outputBuffer is null");
+        return false;
+    }
+
+    // XXX: Just use double the space for now. This way all additional data will fit.
+    outputBuffer->reserve(readBuffer->used * 2);
+    outputBuffer->used = 0;
+
+
 #if 1
     try
     {
@@ -210,7 +223,7 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
 
         for (u16 eventIndex=0; eventIndex < numberOfEvents; ++eventIndex)
         {
-            processEvent(iter);
+            processEvent(iter, outputBuffer.get());
         }
 
         if (iter.shortwordsLeft() >= 2)
@@ -247,6 +260,15 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
             qDebug("processBuffer(): buffer successfully processed!");
         }
 
+        if (m_listFileOut.isOpen())
+        {
+            m_listFileOut.write((const char *)outputBuffer->data, outputBuffer->used);
+        }
+
+        QTextStream out(stdout);
+        dump_event_buffer(out, outputBuffer.get());
+        emit mvmeEventBufferReady(outputBuffer.release());
+
         return true;
 #if 1
     }
@@ -255,6 +277,8 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
         qDebug("Error: end of readBuffer reached unexpectedly!");
     }
 #endif
+
+    addFreeBuffer(outputBuffer.release());
 
     return false;
 }
@@ -268,10 +292,8 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
  *     Raw module contents
  * ...
  */
-bool VMUSBBufferProcessor::processEvent(BufferIterator &iter)
+bool VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputBuffer)
 {
-    std::unique_ptr<DataBuffer> outputBuffer;
-
     u16 eventHeader = iter.extractU16();
 
     u8 stackID          = (eventHeader >> Buffer::StackIDShift) & Buffer::StackIDMask;
@@ -294,21 +316,11 @@ bool VMUSBBufferProcessor::processEvent(BufferIterator &iter)
         return false;
     }
 
-    outputBuffer.reset(getFreeBuffer());
-
-    if (!outputBuffer)
-    {
-        qDebug("VMUSBBufferProcessor:: outputBuffer is null");
-        iter.skip(sizeof(u16), eventLength); 
-        return false;
-    }
-    outputBuffer->used = 0;
-
     BufferIterator eventIter(iter.buffp, eventLength * sizeof(u16), BufferIterator::Align16);
 
     auto eventConfig = m_eventConfigByStackID[stackID];
     int moduleIndex = 0;
-    u32 *outp = (u32 *)outputBuffer->data;
+    u32 *outp = (u32 *)(outputBuffer->data + outputBuffer->used);
     u32 *mvmeEventHeader = (u32 *)outp++;
 
     size_t eventSize = 0;
@@ -361,17 +373,6 @@ bool VMUSBBufferProcessor::processEvent(BufferIterator &iter)
 
     *mvmeEventHeader |= (eventSize << SectionSizeShift) & SectionSizeMask;
     outputBuffer->used = (u8 *)outp - outputBuffer->data;
-
-    if (m_listFileOut.isOpen())
-    {
-        m_listFileOut.write((const char *)outputBuffer->data, outputBuffer->used);
-    }
-
-
-    QTextStream out(stdout);
-    dump_event_buffer(out, outputBuffer.get());
-    emit mvmeEventBufferReady(outputBuffer.release());
-    //addFreeBuffer(outputBuffer.release());
 
     return true;
 }

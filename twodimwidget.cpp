@@ -159,11 +159,10 @@ void TwoDimWidget::displayChanged()
     }
 
     auto histos = m_context->getHistograms();
-    auto moduleConfig = histos.key(m_pMyHist);
-    QString moduleName = moduleConfig ? moduleConfig->name : "<unk>";
+    auto name = histos.key(m_pMyHist);
 
-    setWindowTitle(QString("Histogram: module=%1, channel=%2")
-                   .arg(moduleName)
+    setWindowTitle(QString("Histogram %1, channel=%2")
+                   .arg(name)
                    .arg(m_currentChannel)
                   );
 

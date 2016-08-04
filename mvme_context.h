@@ -9,12 +9,13 @@
 #include "vme_module.h"
 #include "databuffer.h"
 #include "mvme_config.h"
+#include "histogram.h"
 
 class VMEController;
 class VMUSBReadoutWorker;
 class VMUSBBufferProcessor;
 class MVMEEventProcessor;
-class Histogram;
+class mvme;
 
 class QTimer;
 class QThread;
@@ -26,21 +27,33 @@ class MVMEContext: public QObject
 
     Q_OBJECT
     signals:
-        void vmeControllerSet(VMEController *controller);
-        void eventConfigAdded(EventConfig *eventConfig);
-        void moduleAdded(EventConfig *eventConfig, ModuleConfig *module);
         void daqStateChanged(const DAQState &state);
+
+        void vmeControllerSet(VMEController *controller);
+
+        void eventConfigAdded(EventConfig *eventConfig);
+        void eventConfigAboutToBeRemoved(EventConfig *eventConfig);
+
+        void moduleAdded(EventConfig *eventConfig, ModuleConfig *module);
+        void moduleAboutToBeRemoved(ModuleConfig *module);
+
         void configChanged();
-        void histogramAdded(ModuleConfig *module, Histogram *histo);
+        void configModified();
+
+        void histogramAdded(const QString &name, Histogram *histo);
+        void histogramAboutToBeRemoved(const QString &name, Histogram *histo);
 
     public:
-        MVMEContext(QObject *parent = 0);
+        MVMEContext(mvme *mainwin, QObject *parent = 0);
         ~MVMEContext();
 
-        void addModule(EventConfig *eventConfig, ModuleConfig *module);
         void addEventConfig(EventConfig *eventConfig);
+        void removeEvent(EventConfig *event);
+        void addModule(EventConfig *eventConfig, ModuleConfig *module);
+        void removeModule(ModuleConfig *module);
         void setController(VMEController *controller);
 
+        // TODO: add something like getUniqueModuleName(prefix);
         int getTotalModuleCount() const
         {
             int ret = 0;
@@ -58,14 +71,37 @@ class MVMEContext: public QObject
         DataBufferQueue *getFreeBuffers() { return &m_freeBuffers; }
         DAQState getDAQState() const;
 
-        QMap<ModuleConfig *, Histogram *> getHistograms() { return m_histograms; }
-        bool addHistogram(ModuleConfig *module, Histogram *histo)
+        QMap<QString, Histogram *> getHistograms() { return m_histograms; }
+        Histogram *getHistogram(const QString &name) { return m_histograms.value(name);; }
+
+        bool addHistogram(const QString &name, Histogram *histo)
         {
-            if (m_histograms.contains(module))
+            if (m_histograms.contains(name))
                 return false;
-            m_histograms[module] = histo;
-            emit histogramAdded(module, histo);
+            m_histograms[name] = histo;
+            emit histogramAdded(name, histo);
             return true;
+        }
+
+        bool removeHistogram(const QString &name)
+        {
+            auto histo = m_histograms.take(name);
+
+            if (histo)
+            {
+                emit histogramAboutToBeRemoved(name, histo);
+                delete histo;
+                return true;
+            }
+
+            return false;
+        }
+
+        void notifyConfigModified()
+        {
+            m_config->isModified = true;
+            emit configModified();
+            emit configChanged();
         }
 
         friend class mvme;
@@ -88,7 +124,8 @@ class MVMEContext: public QObject
 
         DataBufferQueue m_freeBuffers;
         QString m_configFilename;
-        QMap<ModuleConfig *, Histogram *> m_histograms;
+        QMap<QString, Histogram *> m_histograms;
+        mvme *m_mainwin;
 };
 
 #endif

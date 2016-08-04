@@ -59,6 +59,8 @@
     <property name="title">
      <string>Window</string>
     </property>
+    <addaction name="actionShowLogWindow"/>
+    <addaction name="separator"/>
     <addaction name="actionTile"/>
     <addaction name="actionCascade"/>
    </widget>
@@ -165,6 +167,11 @@
   <action name="actionNewConfig">
    <property name="text">
     <string>New Config</string>
+   </property>
+  </action>
+  <action name="actionShowLogWindow">
+   <property name="text">
+    <string>Show Log</string>
    </property>
   </action>
  </widget>

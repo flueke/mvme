@@ -13,7 +13,7 @@ void dump_event_buffer(QTextStream &out, const DataBuffer *eventBuffer)
         int sectionType   = (sectionHeader & SectionTypeMask) >> SectionTypeShift;
         u32 sectionSize   = (sectionHeader & SectionSizeMask) >> SectionSizeShift;
 
-        out << "eventBuffer: used=" << eventBuffer->used
+        out << "eventBuffer: " << eventBuffer << ", used=" << eventBuffer->used
             << ", size=" << eventBuffer->size
             << endl;
         out << buf.sprintf("sectionHeader=0x%08x, sectionType=%d, sectionSize=%u\n",
@@ -30,7 +30,7 @@ void dump_event_buffer(QTextStream &out, const DataBuffer *eventBuffer)
             case SectionType_Event:
                 {
                     u32 eventType = (sectionHeader & EventTypeMask) >> EventTypeShift;
-                    out << buf.sprintf("eventHeader=0x%08x, eventType=%d, eventSize=%u\n",
+                    out << buf.sprintf("Event section: eventHeader=0x%08x, eventType=%d, eventSize=%u\n",
                                        sectionHeader, eventType, sectionSize);
 
                     u32 wordsLeft = sectionSize;
@@ -49,7 +49,7 @@ void dump_event_buffer(QTextStream &out, const DataBuffer *eventBuffer)
                         for (u32 i=0; i<subEventSize; ++i)
                         {
                             u32 subEventData = iter.extractU32();
-                            out << buf.sprintf("    %u = 0x%08x\n", i, subEventData);
+                            //out << buf.sprintf("    %u = 0x%08x\n", i, subEventData);
                         }
                         wordsLeft -= subEventSize;
                     }

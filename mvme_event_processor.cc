@@ -63,18 +63,18 @@ void MVMEEventProcessor::processSubEvent(BufferIterator &iter, int eventType, in
 
 void MVMEEventProcessor::processMesytecEvent(BufferIterator &iter, ModuleConfig *cfg)
 {
-    //ModuleData moduleData(iter->asU32(), iter->longwordsLeft());
+    // TODO: implement ModuleData moduleData(iter->asU32(), iter->longwordsLeft());
 
     u32 subEventHeader = iter.extractU32();
     u32 subEventSize = (subEventHeader & SubEventSizeMask) >> SubEventSizeShift;
 
-    if (!m_context->getHistograms().contains(cfg))
-    {
-        auto histo = new Histogram(0, 33, 8192);
-        m_context->addHistogram(cfg, histo);
-    }
+    auto histo = m_context->getHistogram(cfg->getFullName());
 
-    auto histo = m_context->getHistograms().value(cfg);
+    if (!histo)
+    {
+        histo = new Histogram(0, 33, 8192); // TODO: size dynamically
+        m_context->addHistogram(cfg->getFullName(), histo);
+    }
 
     for (u32 i=0; i<subEventSize; ++i)
     {
@@ -86,11 +86,14 @@ void MVMEEventProcessor::processMesytecEvent(BufferIterator &iter, ModuleConfig 
 
         bool data_found_flag = ((currentWord & 0xF0000000) == 0x10000000) // MDPP
                 || ((currentWord & 0xFF800000) == 0x04000000); // MxDC
+
         if (data_found_flag)
         {
             u16 channel = (currentWord & 0x003F0000) >> 16;
             u32 value   = (currentWord & 0x00001FFF); // FIXME: data width depends on module type and configuration
             histo->incValue(channel, value);
+
+            // TODO: fill 2d histo (spectrogram) if one is configured
         }
     }
 }

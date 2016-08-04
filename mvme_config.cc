@@ -3,6 +3,17 @@
 #include <QJsonObject>
 #include <QJsonArray>
 
+QString ModuleConfig::getFullName() const
+{
+    if (event)
+    {
+        return QString("%1.%2")
+            .arg(event->name)
+            .arg(name);
+    }
+
+    return name;
+}
 
 void ModuleConfig::read(const QJsonObject &json)
 {
@@ -51,6 +62,7 @@ void EventConfig::read(const QJsonObject &json)
         QJsonObject moduleObject = moduleArray[i].toObject();
         ModuleConfig *moduleConfig = new ModuleConfig;
         moduleConfig->read(moduleObject);
+        moduleConfig->event = this;
         modules.append(moduleConfig);
     }
 }

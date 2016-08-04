@@ -15,6 +15,7 @@
 #include "mvmedefines.h"
 #include "mvme_context_widget.h"
 #include "ui_moduleconfig_widget.h"
+#include "vmusb_readout_worker.h"
 
 #include <QDockWidget>
 #include <QFileDialog>
@@ -26,6 +27,7 @@
 #include <QTextEdit>
 #include <QFont>
 #include <QList>
+#include <QTextBrowser>
 
 #include <qwt_plot_curve.h>
 
@@ -75,6 +77,16 @@ ModuleConfigWidget::ModuleConfigWidget(MVMEContext *context, ModuleConfig *confi
     ui->setupUi(this);
     setWindowTitle(QString("Module Config for %1").arg(m_config->name));
 
+    connect(context, &MVMEContext::moduleAboutToBeRemoved, [=](ModuleConfig *module) {
+        if (module == config)
+        {
+            auto pw = parentWidget();
+            if (pw)
+                pw->close();
+        }
+    });
+
+
 
     ui->combo_listType->addItem("Module Init", QVariant::fromValue(static_cast<int>(ModuleListType::Parameters)));
     ui->combo_listType->addItem("Readout Settings", QVariant::fromValue(static_cast<int>(ModuleListType::Readout)));
@@ -84,12 +96,17 @@ ModuleConfigWidget::ModuleConfigWidget(MVMEContext *context, ModuleConfig *confi
     ui->combo_listType->addItem("Module Reset", QVariant::fromValue(static_cast<int>(ModuleListType::Reset)));
 
     connect(ui->combo_listType, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
-            this, &ModuleConfigWidget::handleListTypeChanged);
+            this, &ModuleConfigWidget::handleListTypeIndexChanged);
 
     ui->label_type->setText(VMEModuleTypeNames[config->type]);
+
     ui->le_name->setText(config->name);
+    connect(ui->le_name, &QLineEdit::editingFinished, this, &ModuleConfigWidget::onNameEditFinished);
+
+    ui->le_address->setInputMask("\\0\\xHHHH\\0\\0\\0\\0");
     ui->le_address->setText(QString().sprintf("0x%08x", config->baseAddress));
-    ui->le_mcstAddress->setText(QString().sprintf("0x%02x", config->mcstAddress >> 24));
+    connect(ui->le_address, &QLineEdit::editingFinished, this, &ModuleConfigWidget::onAddressEditFinished);
+
     ui->editor->setPlainText(*getConfigString(ModuleListType::Parameters, config));
     ui->editor->document()->setModified(false);
 
@@ -112,7 +129,7 @@ ModuleConfigWidget::ModuleConfigWidget(MVMEContext *context, ModuleConfig *confi
     ui->splitter->setSizes({1, 0});
 }
 
-void ModuleConfigWidget::handleListTypeChanged(int index)
+void ModuleConfigWidget::handleListTypeIndexChanged(int index)
 {
     if (m_lastListTypeIndex >= 0 && ui->editor->document()->isModified())
     {
@@ -138,6 +155,16 @@ void ModuleConfigWidget::handleListTypeChanged(int index)
     }
     ui->editor->document()->setModified(false);
     m_ignoreEditorContentsChange = false;
+
+    switch (type)
+    {
+        case ModuleListType::ReadoutStack:
+            ui->pb_exec->setText("Exec");
+            break;
+        default:
+            ui->pb_exec->setText("Run");
+            break;
+    }
 }
 
 void ModuleConfigWidget::editorContentsChanged()
@@ -153,9 +180,38 @@ void ModuleConfigWidget::editorContentsChanged()
     }
 }
 
+void ModuleConfigWidget::onNameEditFinished()
+{
+    QString name = ui->le_name->text();
+    if (ui->le_name->hasAcceptableInput() && name.size())
+    {
+        m_config->name = name;
+        m_context->notifyConfigModified();
+    }
+    else
+    {
+        ui->le_name->setText(m_config->name);
+    }
+}
+
+void ModuleConfigWidget::onAddressEditFinished()
+{
+    if (ui->le_address->hasAcceptableInput())
+    {
+        bool ok;
+        m_config->baseAddress = ui->le_address->text().toUInt(&ok, 16);
+        m_context->notifyConfigModified();
+    }
+    else
+    {
+        auto text = QString().sprintf("0x%08x", m_config->baseAddress);
+        ui->le_address->setText(text);
+    }
+}
+
 void ModuleConfigWidget::closeEvent(QCloseEvent *event)
 {
-    qDebug() << __PRETTY_FUNCTION__;
+    //qDebug() << __PRETTY_FUNCTION__;
     QWidget::closeEvent(event);
 }
 
@@ -165,6 +221,9 @@ void ModuleConfigWidget::loadFromFile()
 
 void ModuleConfigWidget::loadFromTemplate()
 {
+    QString templatePath = QCoreApplication::applicationDirPath() + "/templates";
+    QString fileName = QFileDialog::getOpenFileName(this, "Load init file", templatePath,
+                                                    "MVME Config Files (*.mvmecfg);; All Files (*.*)");
 }
 
 void ModuleConfigWidget::saveToFile()
@@ -197,12 +256,19 @@ void ModuleConfigWidget::execList()
                     auto vmusb = dynamic_cast<VMUSB *>(controller);
                     if (vmusb)
                     {
-                        QVector<u32> result = vmusb->stackExecute(parseStackFile(listContents), 8192);
+                        QVector<u32> result = vmusb->stackExecute(parseStackFile(listContents), 1<<16);
                         QString buf;
                         QTextStream stream(&buf);
-                        for (u32 value: result)
+                        for (int idx=0; idx<result.size(); ++idx)
                         {
-                            stream << "0x" << hex << qSetFieldWidth(8) << qSetPadChar('0') << value << qSetFieldWidth(0) << endl;
+                            u32 value = result[idx];
+
+                            stream
+                                << qSetFieldWidth(4) << qSetPadChar(' ') << dec << idx
+                                << qSetFieldWidth(0) << ": 0x"
+                                << hex << qSetFieldWidth(8) << qSetPadChar('0') << value
+                                << qSetFieldWidth(0) 
+                                << endl;
                         }
                         ui->output->setPlainText(buf);
                         ui->splitter->setSizes({1, 1});
@@ -256,14 +322,12 @@ mvme::mvme(QWidget *parent) :
     diag(0),
     rd(0),
     m_channelSpectro(new ChannelSpectro(1024, 1024)),
-    ui(new Ui::mvme),
-    m_readoutThread(new QThread)
-    , m_context(new MVMEContext)
+    ui(new Ui::mvme)
+    , m_context(new MVMEContext(this))
+    , m_logView(new QTextBrowser)
 {
 
     qDebug() << "main thread: " << QThread::currentThread();
-
-    m_readoutThread->setObjectName("ReadoutThread Old");
 
     m_histogram[0] = new Histogram(this, 42, 8192);
     m_histogram[0]->initHistogram();
@@ -284,6 +348,7 @@ mvme::mvme(QWidget *parent) :
 
     connect(contextWidget, &MVMEContextWidget::histogramClicked, this, &mvme::handleHistogramClicked);
     connect(contextWidget, &MVMEContextWidget::histogramDoubleClicked, this, &mvme::handleHistogramDoubleClicked);
+    connect(contextWidget, &MVMEContextWidget::showHistogram, this, &mvme::openHistogramView);
 
     auto contextDock = new QDockWidget();
     contextDock->setObjectName("MVMEContextDock");
@@ -322,7 +387,7 @@ mvme::mvme(QWidget *parent) :
     connect(drawTimer, SIGNAL(timeout()), SLOT(drawTimerSlot()));
     drawTimer->start(DrawTimerInterval);
 
-    initThreads();
+    //initThreads();
 
     QSettings settings;
     restoreGeometry(settings.value("mainWindowGeometry").toByteArray());
@@ -342,123 +407,30 @@ mvme::mvme(QWidget *parent) :
         }
     }
 
-#if 0
-    //
-    // event 0
-    //
-    {
-        auto module00 = new MDPP16(0x0, "mdpp16_0");
-        module00->initListString = QString(
-                "0x6010 1        # irq level\n"
-                "0x6012 0        # irq vector\n"
-                "0x6018 1        # FIFO threshold\n"
-                "0x601A 1        # max transfer data for multi event mode 3\n"
-                "0x6036 0        # multi event\n"
-                ""
-                "0x6050 0x3FF8 \n"
-                "0x6054 0x10\n"
-                "0x6058 0x100\n"
-                "0x6100 0x8\n"
-                "0x611A 500\n"
-                "0x6110 4\n"
-                "0x6124 200\n"
-                "0x6070 3\n"
-                "0x6072 1000\n"
-                ""
-                "0x603A 1        # start acquisition\n"
-                "0x603C 1        # FIFO reset\n"
-                "0x6034 1        # readout reset\n"
-                );
+    m_logView->setWindowTitle("Log View");
+    m_logView->setFont(QFont("MonoSpace"));
+    m_logView->document()->setMaximumBlockCount(10 * 1024 * 1024);
+    m_logViewSubwin = new QMdiSubWindow;
+    m_logViewSubwin->setWidget(m_logView);
+    m_logViewSubwin->setAttribute(Qt::WA_DeleteOnClose, false);
+    ui->mdiArea->addSubWindow(m_logViewSubwin);
 
-        auto module01 = new MADC32(0x43210000, "madc32_0");
-        module01->initListString = QString(
-                "0x6070 7\n"
-                );
-
-        auto event0 = new DAQEventConfig;
-        event0->name = "event0";
-        event0->triggerCondition = TriggerCondition::Interrupt;
-        event0->irqLevel = 1;
-        event0->modules.push_back(module00);
-        event0->modules.push_back(module01);
-
-        //m_context->addEventConfig(event0);
-    }
-
-    //
-    // event 1
-    //
-    {
-        auto module10 = new MQDC32(0x00010000, "mqdc32_0");
-        module10->initListString = QString(
-                "0x6070 1\n"
-                );
-
-        auto module11 = new MTDC32(0x00020000, "mtdc32_0");
-        module11->initListString = QString(
-                "0x6010 2        # irq level\n"
-                "0x6012 0xf      # irq vector\n"
-                "0x6070 3\n"
-                );
-
-        auto event1 = new DAQEventConfig;
-        event1->name = "event1";
-        event1->triggerCondition = TriggerCondition::Interrupt;
-        event1->irqLevel = 2;
-        event1->irqVector = 0xf;
-        event1->modules.push_back(module10);
-        event1->modules.push_back(module11);
-
-        m_context->addEventConfig(event1);
-    }
-
-    //
-    // event2
-    //
-    {
-        auto module20 = new GenericModule(0, "testmod");
-        module20->startCommands.addWrite16(0x00006090, 0x09, 1);
-        u32 base = 0x00020000;
-        module20->readoutCommands.addRead16(base + 0x6092);
-        module20->readoutCommands.addRead16(base + 0x6094);
-        module20->readoutCommands.addMarker(BerrMarker);
-        module20->readoutCommands.addMarker(EndOfModuleMarker);
-
-        auto event2 = new DAQEventConfig;
-        event2->name = "periodic";
-        event2->triggerCondition = TriggerCondition::Scaler;
-        event2->scalerReadoutFrequency = 1000; // every x events
-        event2->scalerReadoutPeriod = 1; // or every n*0.5 seconds
-        event2->modules.push_back(module20);
-
-        m_context->addEventConfig(event2);
-    }
-#endif
-
-    //auto textView = new QTextEdit;
-    //textView->setReadOnly(true);
-    //textView->setFont(QFont("MonoSpace"));
-    //textView->document()->setMaximumBlockCount(10 * 1024 * 1024);
     //connect(m_context->m_dataProcessor, &DataProcessor::eventFormatted,
     //        textView, &QTextEdit::append);
-    //connect(m_context, &MVMEContext::daqStateChanged, [=](DAQState state) {
-    //    if (state == DAQState::Starting)
-    //    {
-    //        textView->clear();
-    //    }
-    //});
-    //
-    //auto subwin = new QMdiSubWindow(ui->mdiArea);
-    //subwin->setWidget(textView);
-    //subwin->show();
+    connect(m_context, &MVMEContext::daqStateChanged, [=](DAQState state) {
+        if (state == DAQState::Starting)
+        {
+            m_logView->clear();
+        }
+        else if (state == DAQState::Running)
+        {
+            m_logView->setText(m_context->getReadoutWorker()->getStartupDebugString());
+        }
+    });
 }
 
 mvme::~mvme()
 {
-    m_readoutThread->quit();
-    m_readoutThread->wait();
-    delete m_readoutThread;
-
     delete vu;
     delete mctrl;
     delete ui;
@@ -562,6 +534,7 @@ void mvme::stopDatataking()
 
 void mvme::initThreads()
 {
+#if 0
     dt = new DataThread;
     dt->setVu(vu);
 
@@ -583,6 +556,7 @@ void mvme::initThreads()
 
     m_readoutThread->start(QThread::TimeCriticalPriority);
     dc->start(QThread::NormalPriority);
+#endif
 }
 
 Histogram *mvme::getHist(quint16 mod)
@@ -796,6 +770,14 @@ void mvme::on_actionSaveConfigAs_triggered()
     m_context->m_configFilename = fileName;
 }
 
+void mvme::on_actionShowLogWindow_triggered()
+{
+    m_logViewSubwin->widget()->show();
+    m_logViewSubwin->show();
+    m_logViewSubwin->showNormal();
+    m_logViewSubwin->raise();
+}
+
 void mvme::on_mdiArea_subWindowActivated(QMdiSubWindow *subwin)
 {
     auto widget = subwin ? subwin->widget() : nullptr;
@@ -865,7 +847,7 @@ void mvme::handleDeleteModuleConfig(ModuleConfig *module)
 {
 }
 
-void mvme::handleHistogramClicked(ModuleConfig *config, Histogram *histo)
+void mvme::handleHistogramClicked(const QString &name, Histogram *histo)
 {
     QMdiSubWindow *subwin = 0;
     for (auto win: ui->mdiArea->subWindowList())
@@ -888,7 +870,7 @@ void mvme::handleHistogramClicked(ModuleConfig *config, Histogram *histo)
     ui->mdiArea->setActiveSubWindow(subwin);
 }
 
-void mvme::handleHistogramDoubleClicked(ModuleConfig *config, Histogram *histo)
+void mvme::handleHistogramDoubleClicked(const QString &name, Histogram *histo)
 {
     for (auto win: ui->mdiArea->subWindowList())
     {
@@ -899,11 +881,21 @@ void mvme::handleHistogramDoubleClicked(ModuleConfig *config, Histogram *histo)
         }
     }
 
-    auto widget = new TwoDimWidget(m_context, histo);
-    auto subwin = new QMdiSubWindow;
-    subwin->setAttribute(Qt::WA_DeleteOnClose);
-    subwin->setWidget(widget);
-    subwin->show();
-    ui->mdiArea->addSubWindow(subwin);
-    ui->mdiArea->setActiveSubWindow(subwin);
+    openHistogramView(histo);
+}
+
+void mvme::openHistogramView(Histogram *histo)
+{
+    if (histo)
+    {
+        auto widget = new TwoDimWidget(m_context, histo);
+        auto subwin = new QMdiSubWindow(ui->mdiArea);
+        subwin->setWidget(widget);
+        subwin->setAttribute(Qt::WA_DeleteOnClose);
+        ui->mdiArea->addSubWindow(subwin);
+        subwin->show();
+        ui->mdiArea->setActiveSubWindow(subwin);
+
+        qDebug() << ui->mdiArea->subWindowList();
+    }
 }

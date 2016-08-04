@@ -30,7 +30,7 @@ class VMUSBBufferProcessor: public QObject
 
     private:
         DataBuffer *getFreeBuffer();
-        bool processEvent(BufferIterator &iter);
+        bool processEvent(BufferIterator &iter, DataBuffer *outputBuffer);
 
         MVMEContext *m_context = 0;
         DataBuffer *m_currentBuffer = 0;

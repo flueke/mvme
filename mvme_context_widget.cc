@@ -106,11 +106,11 @@ struct AddModuleDialog: public QDialog
         }
 
         nameEdit = new QLineEdit;
-        nameEdit->setText(QString("mod%1").arg(context->getTotalModuleCount()));
+        nameEdit->setText(QString("module%1").arg(context->getTotalModuleCount()));
 
         addressEdit = new QLineEdit;
-        addressEdit->setInputMask("\\0\\xHHHHHHHH");
-        addressEdit->setText("0x00000000");
+        addressEdit->setInputMask("\\0\\xHHHH");
+        addressEdit->setText("0x0000");
 
         auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
         connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
@@ -119,7 +119,7 @@ struct AddModuleDialog: public QDialog
         auto layout = new QFormLayout(this);
         layout->addRow("Type", typeCombo);
         layout->addRow("Name", nameEdit);
-        layout->addRow("Address", addressEdit);
+        layout->addRow("Address (High Bits)", addressEdit);
         layout->addRow(bb);
 
         connect(addressEdit, &QLineEdit::textChanged, [=](const QString &) {
@@ -133,7 +133,7 @@ struct AddModuleDialog: public QDialog
         auto module = new ModuleConfig;
         module->type = static_cast<VMEModuleType>(typeCombo->currentData().toInt());
         module->name = nameEdit->text();
-        module->baseAddress = addressEdit->text().toUInt(&ok, 16);
+        module->baseAddress = addressEdit->text().toUInt(&ok, 16) << 16;
 
         if (isMesytecModule(module->type))
         {
@@ -147,7 +147,7 @@ struct AddModuleDialog: public QDialog
 
             // generate readout stack
             VMECommandList readoutCmds;
-            readoutCmds.addFifoRead32(module->baseAddress, 254);
+            readoutCmds.addFifoRead32(module->baseAddress, 0xffff);
             readoutCmds.addMarker(EndOfModuleMarker);
             readoutCmds.addWrite16(module->baseAddress + 0x6034, 1);
             CVMUSBReadoutList readoutList(readoutCmds);
@@ -185,6 +185,10 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
     : QWidget(parent)
     , m_d(new MVMEContextWidgetPrivate(this, context))
 {
+
+    connect(context, &MVMEContext::configModified, this, &MVMEContextWidget::reloadConfig);
+
+
     /*
      * DAQ control
      */
@@ -262,6 +266,8 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
         connect(m_d->histoList, &QListWidget::itemClicked, this, &MVMEContextWidget::histoListItemClicked);
         connect(m_d->histoList, &QListWidget::itemDoubleClicked, this, &MVMEContextWidget::histoListItemDoubleClicked);
         connect(context, &MVMEContext::histogramAdded, this, &MVMEContextWidget::onContextHistoAdded);
+        m_d->histoList->setContextMenuPolicy(Qt::CustomContextMenu);
+        connect(m_d->histoList, &QListWidget::customContextMenuRequested, this, &MVMEContextWidget::histoListContextMenu);
     }
 
     /*
@@ -295,8 +301,6 @@ enum TreeItemType
 
 void MVMEContextWidget::onEventConfigAdded(EventConfig *eventConfig)
 {
-    qDebug() << __PRETTY_FUNCTION__ << eventConfig << m_d->tw_contextTree->topLevelItemCount();
-
     auto item = new QTreeWidgetItem(TIT_DAQEventConfig);
 
     QString text;
@@ -330,7 +334,6 @@ void MVMEContextWidget::onEventConfigAdded(EventConfig *eventConfig)
 
 void MVMEContextWidget::onModuleAdded(EventConfig *eventConfig, ModuleConfig *module)
 {
-    qDebug() << __PRETTY_FUNCTION__ << eventConfig << module <<  m_d->tw_contextTree->topLevelItemCount();
     QTreeWidgetItem *parentItem = 0;
 
     for(int i=0; i<m_d->tw_contextTree->topLevelItemCount(); ++i)
@@ -369,36 +372,53 @@ void MVMEContextWidget::treeContextMenu(const QPoint &pos)
 
     QMenu menu;
 
-    QAction *actionAddEventConfig = new QAction("Add Event", &menu);
-    QAction *actionAddVMEModule = new QAction("Add Module", &menu);
+    QAction *actionAddEvent = new QAction("Add Event", &menu);
+    QAction *actionAddModule = new QAction("Add Module", &menu);
+    QAction *actionDelEvent = new QAction("Remove Event", &menu);
+    QAction *actionDelModule = new QAction("Remove Module", &menu);
 
     if (!item)
     {
-        menu.addAction(actionAddEventConfig);
+        menu.addAction(actionAddEvent);
     }
     else if (item->type() == TIT_DAQEventConfig)
     {
-        menu.addAction(actionAddVMEModule);
+        menu.addAction(actionAddModule);
+        menu.addSeparator();
+        menu.addAction(actionDelEvent);
+    }
+    else if (item->type() == TIT_VMEModule)
+    {
+        menu.addAction(actionDelModule);
     }
 
     auto action = menu.exec(m_d->tw_contextTree->mapToGlobal(pos));
 
-    if (action == actionAddEventConfig)
+    if (action == actionAddEvent)
     {
         AddEventConfigDialog dialog(m_d->context);
         dialog.exec();
     }
-    else if (action == actionAddVMEModule)
+    else if (action == actionAddModule)
     {
         auto parent = getPointerFromItem<EventConfig>(item);
         AddModuleDialog dialog(m_d->context, parent);
         dialog.exec();
     }
+    else if (action == actionDelEvent)
+    {
+        auto event = getPointerFromItem<EventConfig>(item);
+        m_d->context->removeEvent(event);
+    }
+    else if (action == actionDelModule)
+    {
+        auto module = getPointerFromItem<ModuleConfig>(item);
+        m_d->context->removeModule(module);
+    }
 }
 
 void MVMEContextWidget::treeItemClicked(QTreeWidgetItem *item, int column)
 {
-    qDebug() << __PRETTY_FUNCTION__ << item << column;
     TreeItemType type = static_cast<TreeItemType>(item->type());
 
     switch (type)
@@ -415,8 +435,6 @@ void MVMEContextWidget::treeItemClicked(QTreeWidgetItem *item, int column)
 
 void MVMEContextWidget::treeItemDoubleClicked(QTreeWidgetItem *item, int column)
 {
-    qDebug() << __PRETTY_FUNCTION__ << item << column;
-
     TreeItemType type = static_cast<TreeItemType>(item->type());
 
     switch (type)
@@ -460,22 +478,50 @@ void MVMEContextWidget::onDAQStateChanged(DAQState state)
 
 void MVMEContextWidget::histoListItemClicked(QListWidgetItem *item)
 {
-    auto config = Var2Ptr<ModuleConfig>(item->data(Qt::UserRole));
+    auto name = item->data(Qt::UserRole).toString();
     auto histo = Var2Ptr<Histogram>(item->data(Qt::UserRole+1));
-    emit histogramClicked(config, histo);
+    emit histogramClicked(name, histo);
 }
 
 void MVMEContextWidget::histoListItemDoubleClicked(QListWidgetItem *item)
 {
-    auto config = Var2Ptr<ModuleConfig>(item->data(Qt::UserRole));
+    auto name = item->data(Qt::UserRole).toString();
     auto histo = Var2Ptr<Histogram>(item->data(Qt::UserRole+1));
-    emit histogramDoubleClicked(config, histo);
+    emit histogramDoubleClicked(name, histo);
 }
 
-void MVMEContextWidget::onContextHistoAdded(ModuleConfig *cfg, Histogram *histo)
+void MVMEContextWidget::histoListContextMenu(const QPoint &pos)
 {
-    auto item = new QListWidgetItem(cfg->name);
-    item->setData(Qt::UserRole, Ptr2Var(cfg));
+    auto item = m_d->histoList->itemAt(pos);
+    if (!item) return;
+    QMenu menu;
+    QAction *openAction = menu.addAction("Open");
+    QAction *clearAction = menu.addAction("Clear");
+    QAction *delAction = menu.addAction("Remove");
+
+    auto action = menu.exec(m_d->histoList->mapToGlobal(pos));
+
+    auto name = item->data(Qt::UserRole).toString();
+    auto histo = Var2Ptr<Histogram>(item->data(Qt::UserRole+1));
+
+    if (action == openAction)
+    {
+        emit showHistogram(histo);
+    }
+    else if (action == clearAction)
+    {
+        histo->clearHistogram();
+    }
+    else if (action == delAction)
+    {
+        m_d->context->removeHistogram(name);
+    }
+}
+
+void MVMEContextWidget::onContextHistoAdded(const QString &name, Histogram *histo)
+{
+    auto item = new QListWidgetItem(name);
+    item->setData(Qt::UserRole, name);
     item->setData(Qt::UserRole+1, Ptr2Var(histo));
     m_d->histoList->addItem(item);
 }
