@@ -16,6 +16,7 @@
 #include "mvme_context_widget.h"
 #include "ui_moduleconfig_widget.h"
 #include "vmusb_readout_worker.h"
+#include "config_widgets.h"
 
 #include <QDockWidget>
 #include <QFileDialog>
@@ -30,253 +31,6 @@
 #include <QTextBrowser>
 
 #include <qwt_plot_curve.h>
-
-EventConfigWidget::EventConfigWidget(EventConfig *config, QWidget *parent)
-    : QWidget(parent)
-    , m_config(config)
-{
-}
-
-enum class ModuleListType
-{
-    Parameters,
-    Readout,
-    StartDAQ,
-    StopDAQ,
-    Reset,
-    ReadoutStack
-};
-
-QString *getConfigString(ModuleListType type, ModuleConfig *config)
-{
-    switch (type)
-    {
-        case ModuleListType::Parameters:
-            return &config->initParameters;
-        case ModuleListType::Readout:
-            return &config->initReadout;
-        case ModuleListType::StartDAQ:
-            return &config->initStartDaq;
-        case ModuleListType::StopDAQ:
-            return &config->initStopDaq;
-        case ModuleListType::Reset:
-            return &config->initReset;
-        case ModuleListType::ReadoutStack:
-            return &config->readoutStack;
-    }
-
-    return nullptr;
-}
-
-ModuleConfigWidget::ModuleConfigWidget(MVMEContext *context, ModuleConfig *config, QWidget *parent)
-    : QWidget(parent)
-    , ui(new Ui::ModuleConfigWidget)
-    , m_context(context)
-    , m_config(config)
-{
-    ui->setupUi(this);
-    setWindowTitle(QString("Module Config for %1").arg(m_config->name));
-
-    connect(context, &MVMEContext::moduleAboutToBeRemoved, [=](ModuleConfig *module) {
-        if (module == config)
-        {
-            auto pw = parentWidget();
-            if (pw)
-                pw->close();
-        }
-    });
-
-
-
-    ui->combo_listType->addItem("Module Init", QVariant::fromValue(static_cast<int>(ModuleListType::Parameters)));
-    ui->combo_listType->addItem("Readout Settings", QVariant::fromValue(static_cast<int>(ModuleListType::Readout)));
-    ui->combo_listType->addItem("Readout Stack (VM_USB)", QVariant::fromValue(static_cast<int>(ModuleListType::ReadoutStack)));
-    ui->combo_listType->addItem("Start DAQ", QVariant::fromValue(static_cast<int>(ModuleListType::StartDAQ)));
-    ui->combo_listType->addItem("Stop DAQ", QVariant::fromValue(static_cast<int>(ModuleListType::StopDAQ)));
-    ui->combo_listType->addItem("Module Reset", QVariant::fromValue(static_cast<int>(ModuleListType::Reset)));
-
-    connect(ui->combo_listType, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
-            this, &ModuleConfigWidget::handleListTypeIndexChanged);
-
-    ui->label_type->setText(VMEModuleTypeNames[config->type]);
-
-    ui->le_name->setText(config->name);
-    connect(ui->le_name, &QLineEdit::editingFinished, this, &ModuleConfigWidget::onNameEditFinished);
-
-    ui->le_address->setInputMask("\\0\\xHHHH\\0\\0\\0\\0");
-    ui->le_address->setText(QString().sprintf("0x%08x", config->baseAddress));
-    connect(ui->le_address, &QLineEdit::editingFinished, this, &ModuleConfigWidget::onAddressEditFinished);
-
-    ui->editor->setPlainText(*getConfigString(ModuleListType::Parameters, config));
-    ui->editor->document()->setModified(false);
-
-    connect(ui->editor->document(), &QTextDocument::contentsChanged,
-            this, &ModuleConfigWidget::editorContentsChanged);
-
-    actLoadFile = new QAction("from file", this);
-    actLoadTemplate = new QAction("from template", this);
-
-    auto menu = new QMenu(ui->pb_load);
-    menu->addAction(actLoadFile);
-    menu->addAction(actLoadTemplate);
-    ui->pb_load->setMenu(menu);
-
-    connect(actLoadFile, &QAction::triggered, this, &ModuleConfigWidget::loadFromFile);
-    connect(actLoadTemplate, &QAction::triggered, this, &ModuleConfigWidget::loadFromTemplate);
-    connect(ui->pb_save, &QPushButton::clicked, this, &ModuleConfigWidget::saveToFile);
-    connect(ui->pb_exec, &QPushButton::clicked, this, &ModuleConfigWidget::execList);
-
-    ui->splitter->setSizes({1, 0});
-}
-
-void ModuleConfigWidget::handleListTypeIndexChanged(int index)
-{
-    if (m_lastListTypeIndex >= 0 && ui->editor->document()->isModified())
-    {
-        auto type = static_cast<ModuleListType>(ui->combo_listType->itemData(m_lastListTypeIndex).toInt());
-
-        QString *dest = getConfigString(type, m_config);
-        if (dest)
-        {
-            *dest = ui->editor->toPlainText();
-        }
-    }
-
-    m_lastListTypeIndex = index;
-
-    m_ignoreEditorContentsChange = true;
-    ui->editor->clear();
-    ui->editor->document()->clearUndoRedoStacks();
-    auto type = static_cast<ModuleListType>(ui->combo_listType->itemData(index).toInt());
-    QString *contents = getConfigString(type, m_config);
-    if (contents)
-    {
-        ui->editor->setPlainText(*contents);
-    }
-    ui->editor->document()->setModified(false);
-    m_ignoreEditorContentsChange = false;
-
-    switch (type)
-    {
-        case ModuleListType::ReadoutStack:
-            ui->pb_exec->setText("Exec");
-            break;
-        default:
-            ui->pb_exec->setText("Run");
-            break;
-    }
-}
-
-void ModuleConfigWidget::editorContentsChanged()
-{
-    if (m_ignoreEditorContentsChange)
-        return;
-
-    auto type = static_cast<ModuleListType>(ui->combo_listType->itemData(m_lastListTypeIndex).toInt());
-    QString *dest = getConfigString(type, m_config);
-    if (dest)
-    {
-        *dest = ui->editor->toPlainText();
-    }
-}
-
-void ModuleConfigWidget::onNameEditFinished()
-{
-    QString name = ui->le_name->text();
-    if (ui->le_name->hasAcceptableInput() && name.size())
-    {
-        m_config->name = name;
-        m_context->notifyConfigModified();
-    }
-    else
-    {
-        ui->le_name->setText(m_config->name);
-    }
-}
-
-void ModuleConfigWidget::onAddressEditFinished()
-{
-    if (ui->le_address->hasAcceptableInput())
-    {
-        bool ok;
-        m_config->baseAddress = ui->le_address->text().toUInt(&ok, 16);
-        m_context->notifyConfigModified();
-    }
-    else
-    {
-        auto text = QString().sprintf("0x%08x", m_config->baseAddress);
-        ui->le_address->setText(text);
-    }
-}
-
-void ModuleConfigWidget::closeEvent(QCloseEvent *event)
-{
-    //qDebug() << __PRETTY_FUNCTION__;
-    QWidget::closeEvent(event);
-}
-
-void ModuleConfigWidget::loadFromFile()
-{
-}
-
-void ModuleConfigWidget::loadFromTemplate()
-{
-    QString templatePath = QCoreApplication::applicationDirPath() + "/templates";
-    QString fileName = QFileDialog::getOpenFileName(this, "Load init file", templatePath,
-                                                    "MVME Config Files (*.mvmecfg);; All Files (*.*)");
-}
-
-void ModuleConfigWidget::saveToFile()
-{
-}
-
-void ModuleConfigWidget::execList()
-{
-    auto controller = m_context->getController();
-
-    if (controller && controller->isOpen())
-    {
-        auto type = static_cast<ModuleListType>(ui->combo_listType->currentData().toInt());
-        QString listContents = ui->editor->toPlainText();
-
-        switch (type)
-        {
-            case ModuleListType::Parameters:
-            case ModuleListType::Readout:
-            case ModuleListType::StartDAQ:
-            case ModuleListType::StopDAQ:
-            case ModuleListType::Reset:
-                {
-                    u8 ignored[100];
-                    auto cmdList = VMECommandList::fromInitList(parseInitList(listContents), m_config->baseAddress);
-                    controller->executeCommands(&cmdList, ignored, sizeof(ignored));
-                } break;
-            case ModuleListType::ReadoutStack:
-                {
-                    auto vmusb = dynamic_cast<VMUSB *>(controller);
-                    if (vmusb)
-                    {
-                        QVector<u32> result = vmusb->stackExecute(parseStackFile(listContents), 1<<16);
-                        QString buf;
-                        QTextStream stream(&buf);
-                        for (int idx=0; idx<result.size(); ++idx)
-                        {
-                            u32 value = result[idx];
-
-                            stream
-                                << qSetFieldWidth(4) << qSetPadChar(' ') << dec << idx
-                                << qSetFieldWidth(0) << ": 0x"
-                                << hex << qSetFieldWidth(8) << qSetPadChar('0') << value
-                                << qSetFieldWidth(0) 
-                                << endl;
-                        }
-                        ui->output->setPlainText(buf);
-                        ui->splitter->setSizes({1, 1});
-                    }
-                } break;
-        }
-    }
-}
 
 template<typename T>
 QList<T *> getSubwindowWidgetsByType(QMdiArea *mdiArea)
@@ -334,6 +88,19 @@ mvme::mvme(QWidget *parent) :
 
     m_channelSpectro->setXAxisChannel(0);
     m_channelSpectro->setYAxisChannel(1);
+
+    connect(m_context, &MVMEContext::configFileNameChanged, this, [=](const QString &filePath) {
+        QString fileName =  QFileInfo(filePath).fileName();
+        if (fileName.size())
+        {
+            setWindowTitle(QString("%1 - mvme2").arg(fileName));
+        }
+        else
+        {
+            setWindowTitle(QString("mvme2"));
+        }
+    });
+
 
     // create and initialize displays
     ui->setupUi(this);
@@ -393,20 +160,6 @@ mvme::mvme(QWidget *parent) :
     restoreGeometry(settings.value("mainWindowGeometry").toByteArray());
     restoreState(settings.value("mainWindowState").toByteArray());
 
-    if (settings.contains("Files/LastConfigFile"))
-    {
-        auto fileName = settings.value("Files/LastConfigFile").toString();
-        QFile inFile(fileName);
-        if (inFile.open(QIODevice::ReadOnly))
-        {
-            auto data = inFile.readAll();
-            QJsonDocument doc(QJsonDocument::fromJson(data));
-            m_context->getConfig()->read(doc.object());
-            m_context->m_configFilename = fileName;
-            m_contextWidget->reloadConfig();
-        }
-    }
-
     m_logView->setWindowTitle("Log View");
     m_logView->setFont(QFont("MonoSpace"));
     m_logView->document()->setMaximumBlockCount(10 * 1024 * 1024);
@@ -417,7 +170,7 @@ mvme::mvme(QWidget *parent) :
 
     //connect(m_context->m_dataProcessor, &DataProcessor::eventFormatted,
     //        textView, &QTextEdit::append);
-    connect(m_context, &MVMEContext::daqStateChanged, [=](DAQState state) {
+    connect(m_context, &MVMEContext::daqStateChanged, this, [=](DAQState state) {
         if (state == DAQState::Starting)
         {
             m_logView->clear();
@@ -427,10 +180,20 @@ mvme::mvme(QWidget *parent) :
             m_logView->setText(m_context->getReadoutWorker()->getStartupDebugString());
         }
     });
+
+
+    if (settings.contains("Files/LastConfigFile"))
+    {
+        auto fileName = settings.value("Files/LastConfigFile").toString();
+        loadConfig(fileName);
+    }
 }
 
 mvme::~mvme()
 {
+    QSettings settings;
+    settings.setValue("Files/LastConfigFile", m_context->getConfigFileName());
+
     delete vu;
     delete mctrl;
     delete ui;
@@ -441,6 +204,37 @@ mvme::~mvme()
     delete rd;
     delete m_channelSpectro;
     delete m_context;
+}
+
+void mvme::loadConfig(const QString &fileName)
+{
+    QFile inFile(fileName);
+    if (!inFile.open(QIODevice::ReadOnly))
+    {
+        QMessageBox::critical(0, "Error", QString("Error reading from %1").arg(fileName));
+        return;
+    }
+
+    for (auto win: ui->mdiArea->subWindowList())
+    {
+        if(qobject_cast<EventConfigWidget *>(win->widget()) ||
+           qobject_cast<ModuleConfigWidget *>(win->widget()))
+        {
+            win->close();
+        }
+    }
+
+    auto data = inFile.readAll();
+    QJsonDocument doc(QJsonDocument::fromJson(data));
+    auto config = new DAQConfig;
+    config->read(doc.object());
+    m_context->setConfig(config);
+    m_context->setConfigFileName(fileName);
+
+    QSettings settings;
+    settings.setValue("Files/LastConfigFile", fileName);
+
+    m_contextWidget->reloadConfig();
 }
 
 void mvme::replot()
@@ -485,16 +279,7 @@ void mvme::createNewChannelSpectrogram()
     subwin->show();
 }
 
-void mvme::cascade()
-{
-    qDebug("implement cascade");
-}
-
-void mvme::tile()
-{
-    qDebug("implement tile");
-}
-
+#if 1
 void mvme::startDatataking(quint16 period, bool multi, quint16 readLen, bool mblt, bool daqMode)
 {
     QString outputFileName = mctrl->getOutputFileName();
@@ -558,6 +343,7 @@ void mvme::initThreads()
     dc->start(QThread::NormalPriority);
 #endif
 }
+#endif
 
 Histogram *mvme::getHist(quint16 mod)
 {
@@ -678,7 +464,7 @@ void mvme::on_actionExport_Spectrogram_triggered()
 
 void mvme::on_actionNewConfig_triggered()
 {
-    if (m_context->getConfig()->isModified)
+    if (m_context->getConfig()->isModified())
     {
         auto msgBox = new QMessageBox(QMessageBox::Question, "Configuration modified",
                                       "The current configuration has modifications. Do you want to save it?",
@@ -696,6 +482,7 @@ void mvme::on_actionNewConfig_triggered()
     }
 
     m_context->setConfig(new DAQConfig);
+    m_context->setConfigFileName(QString());
 }
 
 void mvme::on_actionLoadConfig_triggered()
@@ -706,68 +493,69 @@ void mvme::on_actionLoadConfig_triggered()
     if (fileName.isEmpty())
         return;
 
-    QFile inFile(fileName);
-    if (!inFile.open(QIODevice::ReadOnly))
-    {
-        QMessageBox::critical(0, "Error", QString("Error reading from %1").arg(fileName));
-        return;
-    }
-
-    for (auto win: ui->mdiArea->subWindowList())
-    {
-        if(qobject_cast<EventConfigWidget *>(win->widget()) ||
-           qobject_cast<ModuleConfigWidget *>(win->widget()))
-        {
-            win->close();
-        }
-    }
-
-    auto data = inFile.readAll();
-    QJsonDocument doc(QJsonDocument::fromJson(data));
-    m_context->getConfig()->read(doc.object());
-    m_context->m_configFilename = fileName;
-
-    QSettings settings;
-    settings.setValue("Files/LastConfigFile", fileName);
-
-    m_contextWidget->reloadConfig();
+    loadConfig(fileName);
 }
 
 void mvme::on_actionSaveConfig_triggered()
 {
-    if (m_context->m_configFilename.isEmpty())
+    if (m_context->getConfigFileName().isEmpty())
     {
         on_actionSaveConfigAs_triggered();
         return;
     }
 
-    QFile outFile(m_context->m_configFilename);
-    if (!outFile.open(QIODevice::WriteOnly))
-    {
-        QMessageBox::critical(0, "Error", QString("Error writing to %1").arg(m_context->m_configFilename));
-    }
-
-    outFile.write(m_context->getConfig()->toJson());
-}
-
-void mvme::on_actionSaveConfigAs_triggered()
-{
-    QString fileName = QFileDialog::getSaveFileName(this, "Save Config As", QString(),
-                                                    "MVME Config Files (*.mvmecfg);; All Files (*.*)");
-
-    if (fileName.isEmpty())
-        return;
-
+    QString fileName = m_context->getConfigFileName();
     QFile outFile(fileName);
     if (!outFile.open(QIODevice::WriteOnly))
+    {
+        QMessageBox::critical(0, "Error", QString("Error writing to %1").arg(fileName));
+    }
+
+    if (outFile.write(m_context->getConfig()->toJson()) < 0)
     {
         QMessageBox::critical(0, "Error", QString("Error writing to %1").arg(fileName));
         return;
     }
 
-    outFile.write(m_context->getConfig()->toJson());
+    m_context->getConfig()->setModified(false);
+}
 
-    m_context->m_configFilename = fileName;
+void mvme::on_actionSaveConfigAs_triggered()
+{
+    QString path = QFileInfo(QSettings().value("Files/LastConfigFile").toString()).absolutePath();
+
+    if (path.isEmpty())
+    {
+        path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
+    }
+
+    QString fileName = QFileDialog::getSaveFileName(this, "Save Config As", path,
+                                                    "MVME Config Files (*.mvmecfg);; All Files (*.*)");
+
+    if (fileName.isEmpty())
+        return;
+
+    QFileInfo fi(fileName);
+    if (fi.completeSuffix().isEmpty())
+    {
+        fileName += ".mvmecfg";
+    }
+
+    QFile outFile(fileName);
+    if (!outFile.open(QIODevice::WriteOnly))
+    {
+        QMessageBox::critical(0, "Error", QString("Error opening %1 for writing").arg(fileName));
+        return;
+    }
+
+    if (outFile.write(m_context->getConfig()->toJson()) < 0)
+    {
+        QMessageBox::critical(0, "Error", QString("Error writing to %1").arg(fileName));
+        return;
+    }
+
+    m_context->setConfigFileName(fileName);
+    m_context->getConfig()->setModified(false);
 }
 
 void mvme::on_actionShowLogWindow_triggered()
@@ -895,7 +683,5 @@ void mvme::openHistogramView(Histogram *histo)
         ui->mdiArea->addSubWindow(subwin);
         subwin->show();
         ui->mdiArea->setActiveSubWindow(subwin);
-
-        qDebug() << ui->mdiArea->subWindowList();
     }
 }

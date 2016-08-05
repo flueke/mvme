@@ -32,7 +32,7 @@ class MVMEContextWidget: public QWidget
 
     private slots:
         void onEventConfigAdded(EventConfig *eventConfig);
-        void onModuleAdded(EventConfig *eventConfig, ModuleConfig *module);
+        void onModuleConfigAdded(EventConfig *eventConfig, ModuleConfig *module);
         void treeContextMenu(const QPoint &pos);
         void treeItemClicked(QTreeWidgetItem *item, int column);
         void treeItemDoubleClicked(QTreeWidgetItem *item, int column);
@@ -41,6 +41,7 @@ class MVMEContextWidget: public QWidget
         void histoListItemDoubleClicked(QListWidgetItem *item);
         void histoListContextMenu(const QPoint &pos);
         void onContextHistoAdded(const QString &name, Histogram *histo);
+        void onConfigChanged();
 
     private:
         MVMEContextWidgetPrivate *m_d;

@@ -59,7 +59,7 @@ void VMUSBReadoutWorker::start(quint32 cycles)
 
         for (auto event: m_context->getEventConfigs())
         {
-            qDebug() << "daq event" << event->name;
+            qDebug() << "daq event" << event->getName();
 
             m_vmusbStack = VMUSBStack();
             m_vmusbStack.triggerCondition = event->triggerCondition;
@@ -91,7 +91,7 @@ void VMUSBReadoutWorker::start(quint32 cycles)
                 m_vmusbStack.addModule(module);
             }
 
-            loggingStream << "Loading readout stack for event " << event->name
+            loggingStream << "Loading readout stack for event " << event->getName()
                 << ", stack id = " << m_vmusbStack.getStackID()
                 << ", load offset = " << VMUSBStack::loadOffset
                 << endl;

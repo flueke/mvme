@@ -3,22 +3,25 @@
 #include <QJsonObject>
 #include <QJsonArray>
 
+//
+// ModuleConfig
+//
 QString ModuleConfig::getFullName() const
 {
     if (event)
     {
         return QString("%1.%2")
-            .arg(event->name)
-            .arg(name);
+            .arg(event->getName())
+            .arg(m_name);
     }
 
-    return name;
+    return m_name;
 }
 
 void ModuleConfig::read(const QJsonObject &json)
 {
     type = VMEModuleShortNames.key(json["type"].toString(), VMEModuleType::Invalid);
-    name = json["name"].toString();
+    m_name = json["name"].toString();
     baseAddress = json["baseAddress"].toInt();
     mcstAddress = json["mcstAddress"].toInt();
     initReset = json["initReset"].toString();
@@ -32,7 +35,7 @@ void ModuleConfig::read(const QJsonObject &json)
 void ModuleConfig::write(QJsonObject &json) const
 {
     json["type"] = VMEModuleShortNames.value(type, "invalid");
-    json["name"] = name;
+    json["name"] = m_name;
     json["baseAddress"] = static_cast<qint64>(baseAddress);
     json["mcstAddress"] = static_cast<qint64>(mcstAddress);
     json["initReset"] = initReset;
@@ -44,12 +47,15 @@ void ModuleConfig::write(QJsonObject &json) const
 }
 
 
+//
+// EventConfig
+//
 void EventConfig::read(const QJsonObject &json)
 {
     qDeleteAll(modules);
     modules.clear();
 
-    name = json["name"].toString();
+    m_name = json["name"].toString();
     triggerCondition = static_cast<TriggerCondition>(json["triggerCondition"].toInt());
     irqLevel = json["irqLevel"].toInt();
     irqVector = json["irqVector"].toInt();
@@ -69,7 +75,7 @@ void EventConfig::read(const QJsonObject &json)
 
 void EventConfig::write(QJsonObject &json) const
 {
-    json["name"] = name;
+    json["name"] = m_name;
     json["triggerCondition"] = static_cast<int>(triggerCondition);
     json["irqLevel"] = irqLevel;
     json["irqVector"] = irqVector;
@@ -88,10 +94,22 @@ void EventConfig::write(QJsonObject &json) const
 }
 
 
+//
+// DAQConfig
+//
+void DAQConfig::setModified(bool b)
+{
+    if (m_isModified != b)
+    {
+        m_isModified = b;
+        emit modifiedChanged(b);
+    }
+}
+
 void DAQConfig::read(const QJsonObject &json)
 {
-    qDeleteAll(eventConfigs);
-    eventConfigs.clear();
+    qDeleteAll(m_eventConfigs);
+    m_eventConfigs.clear();
 
     listFileOutputDirectory = json["listFileOutputDirectory"].toString();
 
@@ -102,7 +120,7 @@ void DAQConfig::read(const QJsonObject &json)
         QJsonObject eventObject = eventArray[eventIndex].toObject();
         EventConfig *eventConfig = new EventConfig;
         eventConfig->read(eventObject);
-        eventConfigs.append(eventConfig);
+        m_eventConfigs.append(eventConfig);
     }
 }
 
@@ -111,7 +129,7 @@ void DAQConfig::write(QJsonObject &json) const
     json["listFileOutputDirectory"] = listFileOutputDirectory;
 
     QJsonArray eventArray;
-    for (auto event: eventConfigs)
+    for (auto event: m_eventConfigs)
     {
         QJsonObject eventObject;
         event->write(eventObject);
@@ -131,7 +149,7 @@ QByteArray DAQConfig::toJson() const
 ModuleConfig *DAQConfig::getModuleConfig(int eventIndex, int moduleIndex)
 {
     ModuleConfig *result = 0;
-    auto eventConfig = eventConfigs.value(eventIndex);
+    auto eventConfig = m_eventConfigs.value(eventIndex);
 
     if (eventConfig)
     {

@@ -37,8 +37,8 @@ class MVMEContext: public QObject
         void moduleAdded(EventConfig *eventConfig, ModuleConfig *module);
         void moduleAboutToBeRemoved(ModuleConfig *module);
 
-        void configChanged();
-        void configModified();
+        void configChanged(DAQConfig *config);
+        void configFileNameChanged(const QString &fileName);
 
         void histogramAdded(const QString &name, Histogram *histo);
         void histogramAboutToBeRemoved(const QString &name, Histogram *histo);
@@ -57,7 +57,7 @@ class MVMEContext: public QObject
         int getTotalModuleCount() const
         {
             int ret = 0;
-            for (auto eventConfig: m_config->eventConfigs)
+            for (auto eventConfig: m_config->getEventConfigs())
                 ret += eventConfig->modules.size();
             return ret;
         }
@@ -67,7 +67,7 @@ class MVMEContext: public QObject
         VMUSBBufferProcessor *getBufferProcessor() const { return m_bufferProcessor; }
         DAQConfig *getConfig() { return m_config; }
         void setConfig(DAQConfig *config);
-        QList<EventConfig *> getEventConfigs() const { return m_config->eventConfigs; }
+        QList<EventConfig *> getEventConfigs() const { return m_config->getEventConfigs(); }
         DataBufferQueue *getFreeBuffers() { return &m_freeBuffers; }
         DAQState getDAQState() const;
 
@@ -97,11 +97,15 @@ class MVMEContext: public QObject
             return false;
         }
 
-        void notifyConfigModified()
+        void setConfigFileName(const QString &name)
         {
-            m_config->isModified = true;
-            emit configModified();
-            emit configChanged();
+            m_configFileName = name;
+            emit configFileNameChanged(name);
+        }
+
+        QString getConfigFileName() const
+        {
+            return m_configFileName;
         }
 
         friend class mvme;
@@ -123,7 +127,7 @@ class MVMEContext: public QObject
         MVMEEventProcessor *m_eventProcessor;
 
         DataBufferQueue m_freeBuffers;
-        QString m_configFilename;
+        QString m_configFileName;
         QMap<QString, Histogram *> m_histograms;
         mvme *m_mainwin;
 };

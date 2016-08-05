@@ -94,6 +94,15 @@ TwoDimWidget::TwoDimWidget(MVMEContext *context, Histogram *histo, QWidget *pare
     m_statsTextItem->setText(*m_statsText);
     m_statsTextItem->attach(ui->mainPlot);
 
+    connect(context, &MVMEContext::histogramAboutToBeRemoved, this, [=](const QString &, Histogram *h) {
+        if (h == histo)
+        {
+            auto pw = parentWidget();
+            if (pw)
+                pw->close();
+            close();
+        }
+    });
 
 #if 0
     u32 resolution = m_pMyHist->m_resolution;

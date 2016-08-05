@@ -44,7 +44,6 @@ signals:
 public slots:
     
 private:
-    mvme* p_myMvme;
     double mean[50];
     double sigma[50];
     quint32 meanchannel[50];

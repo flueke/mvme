@@ -69,7 +69,7 @@ void MVMEContext::setConfig(DAQConfig *config)
 {
     delete m_config;
     m_config = config;
-    emit configChanged();
+    emit configChanged(config);
 }
 
 void MVMEContext::addModule(EventConfig *eventConfig, ModuleConfig *module)
@@ -81,7 +81,7 @@ void MVMEContext::addModule(EventConfig *eventConfig, ModuleConfig *module)
 
 void MVMEContext::addEventConfig(EventConfig *eventConfig)
 {
-    m_config->eventConfigs.push_back(eventConfig);
+    m_config->addEventConfig(eventConfig);
     emit eventConfigAdded(eventConfig);
 
     for (auto module: eventConfig->modules)
@@ -92,7 +92,7 @@ void MVMEContext::addEventConfig(EventConfig *eventConfig)
 
 void MVMEContext::removeEvent(EventConfig *event)
 {
-    if (m_config->eventConfigs.removeOne(event))
+    if (m_config->removeEventConfig(event))
     {
         for (auto module: event->modules)
         {
@@ -100,19 +100,19 @@ void MVMEContext::removeEvent(EventConfig *event)
         }
         emit eventConfigAboutToBeRemoved(event);
         delete event;
-        notifyConfigModified();
+        m_config->setModified();
     }
 }
 
 void MVMEContext::removeModule(ModuleConfig *module)
 {
-    for (EventConfig *event: m_config->eventConfigs)
+    for (EventConfig *event: m_config->getEventConfigs())
     {
         if (event->modules.removeOne(module))
         {
             emit moduleAboutToBeRemoved(module);
             delete module;
-            notifyConfigModified();
+            m_config->setModified();
             break;
         }
     }

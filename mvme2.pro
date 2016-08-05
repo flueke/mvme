@@ -44,6 +44,7 @@ SOURCES += main.cpp\
     mvme_config.cc \
     mvme_listfile.cc \
     mvme_event_processor.cc \
+    config_widgets.cpp \
 
 
 HEADERS  += \
@@ -78,6 +79,7 @@ HEADERS  += \
     vmecommandlist.h \
     mvme_listfile.h \
     mvme_event_processor.h \
+    config_widgets.h \
 
 
 FORMS    += \

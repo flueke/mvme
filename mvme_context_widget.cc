@@ -77,7 +77,7 @@ struct AddEventConfigDialog: public QDialog
     virtual void accept()
     {
         auto event = new EventConfig;
-        event->name = nameEdit->text();
+        event->setName(nameEdit->text());
         event->triggerCondition = static_cast<TriggerCondition>(triggerCombo->currentData().toInt());
         event->irqLevel = irqLevelSpin->value();
         event->irqVector = irqVectorSpin->value();
@@ -132,7 +132,7 @@ struct AddModuleDialog: public QDialog
         bool ok;
         auto module = new ModuleConfig;
         module->type = static_cast<VMEModuleType>(typeCombo->currentData().toInt());
-        module->name = nameEdit->text();
+        module->setName(nameEdit->text());
         module->baseAddress = addressEdit->text().toUInt(&ok, 16) << 16;
 
         if (isMesytecModule(module->type))
@@ -185,10 +185,6 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
     : QWidget(parent)
     , m_d(new MVMEContextWidgetPrivate(this, context))
 {
-
-    connect(context, &MVMEContext::configModified, this, &MVMEContextWidget::reloadConfig);
-
-
     /*
      * DAQ control
      */
@@ -244,9 +240,9 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
         layout->addWidget(m_d->tw_contextTree);
         splitter->addWidget(gb_daqConfiguration);
 
-        connect(context, &MVMEContext::moduleAdded, this, &MVMEContextWidget::onModuleAdded);
+        connect(context, &MVMEContext::moduleAdded, this, &MVMEContextWidget::onModuleConfigAdded);
         connect(context, &MVMEContext::eventConfigAdded, this, &MVMEContextWidget::onEventConfigAdded);
-        connect(context, &MVMEContext::configChanged, this, &MVMEContextWidget::reloadConfig);
+        connect(context, &MVMEContext::configChanged, this, &MVMEContextWidget::onConfigChanged);
     }
 
     /*
@@ -278,30 +274,60 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
     layout->addWidget(splitter);
 }
 
+void MVMEContextWidget::onConfigChanged()
+{
+    auto config = m_d->context->getConfig();
+    connect(config, &DAQConfig::modifiedChanged, this, &MVMEContextWidget::reloadConfig);
+    reloadConfig();
+}
+
 void MVMEContextWidget::reloadConfig()
 {
     m_d->tw_contextTree->clear();
+
     auto config = m_d->context->getConfig();
 
-    for (auto event: config->eventConfigs)
+    for (auto event: config->getEventConfigs())
     {
         onEventConfigAdded(event);
         for (auto module: event->modules)
         {
-            onModuleAdded(event, module);
+            onModuleConfigAdded(event, module);
         }
     }
 }
 
 enum TreeItemType
 {
-    TIT_DAQEventConfig,
+    TIT_EventConfig,
     TIT_VMEModule
 };
 
+template<typename Pred>
+QTreeWidgetItem *findItem(QTreeWidgetItem *root, Pred predicate)
+{
+    if (predicate(root))
+        return root;
+
+    for (int childIndex=0; childIndex<root->childCount(); ++childIndex)
+    {
+        auto child = root->child(childIndex);
+        if (auto ret = findItem(child, predicate))
+            return ret;
+    }
+
+    return 0;
+}
+
+template<typename Pred>
+QTreeWidgetItem *findItem(QTreeWidget *widget, Pred predicate)
+{
+    return findItem(widget->invisibleRootItem(), predicate);
+}
+
 void MVMEContextWidget::onEventConfigAdded(EventConfig *eventConfig)
 {
-    auto item = new QTreeWidgetItem(TIT_DAQEventConfig);
+    auto item = new QTreeWidgetItem(TIT_EventConfig);
 
     QString text;
     switch (eventConfig->triggerCondition)
@@ -309,19 +335,19 @@ void MVMEContextWidget::onEventConfigAdded(EventConfig *eventConfig)
         case TriggerCondition::Interrupt:
             {
                 text = QString("%1 (IRQ, lvl=%2, vec=%3)")
-                    .arg(eventConfig->name)
+                    .arg(eventConfig->getName())
                     .arg(eventConfig->irqLevel)
                     .arg(eventConfig->irqVector);
             } break;
         case TriggerCondition::NIM1:
             {
                 text = QString("%1 (NIM)")
-                    .arg(eventConfig->name);
+                    .arg(eventConfig->getName());
             } break;
         case TriggerCondition::Scaler:
             {
                 text = QString("%1 (Periodic)")
-                    .arg(eventConfig->name);
+                    .arg(eventConfig->getName());
             } break;
     }
 
@@ -330,9 +356,21 @@ void MVMEContextWidget::onEventConfigAdded(EventConfig *eventConfig)
     item->setData(0, Qt::UserRole, QVariant::fromValue(static_cast<void *>(eventConfig)));
 
     m_d->tw_contextTree->addTopLevelItem(item);
+
+    connect(eventConfig, &EventConfig::nameChanged, eventConfig, [=](const QString &name) {
+        item->setText(0, name);
+    });
 }
 
-void MVMEContextWidget::onModuleAdded(EventConfig *eventConfig, ModuleConfig *module)
+template<typename T>
+static
+T *getPointerFromItem(QTreeWidgetItem *item, int column = 0, int role = Qt::UserRole)
+{
+    auto voidstar = item->data(column, role).value<void *>();
+    return static_cast<T *>(voidstar);
+}
+
+void MVMEContextWidget::onModuleConfigAdded(EventConfig *eventConfig, ModuleConfig *module)
 {
     QTreeWidgetItem *parentItem = 0;
 
@@ -351,19 +389,22 @@ void MVMEContextWidget::onModuleAdded(EventConfig *eventConfig, ModuleConfig *mo
         return;
 
     auto item = new QTreeWidgetItem(TIT_VMEModule);
-    item->setText(0, module->name);
+    item->setText(0, module->getName());
     item->setData(0, Qt::UserRole, QVariant::fromValue(static_cast<void *>(module)));
 
     parentItem->addChild(item);
     m_d->tw_contextTree->expandItem(parentItem);
-}
 
-template<typename T>
-static
-T *getPointerFromItem(QTreeWidgetItem *item, int column = 0, int role = Qt::UserRole)
-{
-    auto voidstar = item->data(column, role).value<void *>();
-    return static_cast<T *>(voidstar);
+
+    connect(module, &ModuleConfig::nameChanged, this, [=](const QString &name) {
+
+        auto item = findItem(m_d->tw_contextTree, [=](QTreeWidgetItem *node) {
+            return (getPointerFromItem<ModuleConfig>(node) == module);
+        });
+
+        if (item)
+            item->setText(0, name);
+    });
 }
 
 void MVMEContextWidget::treeContextMenu(const QPoint &pos)
@@ -381,7 +422,7 @@ void MVMEContextWidget::treeContextMenu(const QPoint &pos)
     {
         menu.addAction(actionAddEvent);
     }
-    else if (item->type() == TIT_DAQEventConfig)
+    else if (item->type() == TIT_EventConfig)
     {
         menu.addAction(actionAddModule);
         menu.addSeparator();
@@ -423,7 +464,7 @@ void MVMEContextWidget::treeItemClicked(QTreeWidgetItem *item, int column)
 
     switch (type)
     {
-        case TIT_DAQEventConfig:
+        case TIT_EventConfig:
             emit eventClicked(getPointerFromItem<EventConfig>(item));
             break;
 
@@ -439,7 +480,7 @@ void MVMEContextWidget::treeItemDoubleClicked(QTreeWidgetItem *item, int column)
 
     switch (type)
     {
-        case TIT_DAQEventConfig:
+        case TIT_EventConfig:
             emit eventDoubleClicked(getPointerFromItem<EventConfig>(item));
             break;
 

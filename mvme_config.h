@@ -2,40 +2,87 @@
 #define UUID_364b82ee_241c_4c09_acbf_f7e36698fb74
 
 #include "globals.h"
+#include <QObject>
 
 class QJsonObject;
 class EventConfig;
 
-struct ModuleConfig
+class ModuleConfig: public QObject
 {
-    VMEModuleType type = VMEModuleType::Invalid;
-    QString name;
-    uint32_t baseAddress = 0;
-    uint32_t mcstAddress = 0;
-    bool useMcst = false;
+    Q_OBJECT
+    signals:
+        void nameChanged(const QString &name);
 
-    // These strings must contain content that's convertible to an InitList
-    QString initReset;          // module reset
-    QString initParameters;     // module physics parameters
-    QString initReadout;        // module readout settings (irq, threshold, event mode)
-    QString initStartDaq;       // reset FIFO, counters, start acq
-    QString initStopDaq;        // stop acq, clear FIFO
+    public:
+        ModuleConfig(QObject *parent = 0)
+            : QObject(parent)
+        {}
 
-    // vmusb readout stack as a string.
-    // TODO: For other controllers the vmusb stack format obviously won't work.
-    QString readoutStack;
+        void setName(const QString &name)
+        {
+            if (m_name != name)
+            {
+                m_name = name;
+                emit nameChanged(m_name);
+            }
+        }
 
-    EventConfig *event = 0;
+        QString getName() const { return m_name; }
 
-    QString getFullName() const;
 
-    void read(const QJsonObject &json);
-    void write(QJsonObject &json) const;
+        QString getFullName() const;
+
+        void read(const QJsonObject &json);
+        void write(QJsonObject &json) const;
+
+        VMEModuleType type = VMEModuleType::Invalid;
+        uint32_t baseAddress = 0;
+        uint32_t mcstAddress = 0;
+        bool useMcst = false;
+
+        // These strings must contain content that's convertible to an InitList
+        QString initReset;          // module reset
+        QString initParameters;     // module physics parameters
+        QString initReadout;        // module readout settings (irq, threshold, event mode)
+        QString initStartDaq;       // reset FIFO, counters, start acq
+        QString initStopDaq;        // stop acq, clear FIFO
+
+        // vmusb readout stack as a string.
+        // TODO: For other controllers the vmusb stack format obviously won't work.
+        QString readoutStack;
+
+        EventConfig *event = 0;
+    private:
+        QString m_name;
 };
 
-struct EventConfig
+class EventConfig: public QObject
 {
-    QString name;
+    Q_OBJECT
+    signals:
+        void nameChanged(const QString &name);
+
+    public:
+        EventConfig(QObject *parent = 0)
+            : QObject(parent)
+        {}
+
+        ~EventConfig() { qDeleteAll(modules); }
+
+        void setName(const QString &name)
+        {
+            if (m_name != name)
+            {
+                m_name = name;
+                emit nameChanged(m_name);
+            }
+        }
+
+        QString getName() const { return m_name; }
+
+        void read(const QJsonObject &json);
+        void write(QJsonObject &json) const;
+
     TriggerCondition triggerCondition;
     uint8_t irqLevel = 0;
     uint8_t irqVector = 0;
@@ -49,32 +96,40 @@ struct EventConfig
      * processor to map from stack ids to event configs. */
     uint8_t stackID;
 
-    void read(const QJsonObject &json);
-    void write(QJsonObject &json) const;
-
-    ~EventConfig()
-    {
-        qDeleteAll(modules);
-    }
+    private:
+        QString m_name;
 };
 
-struct DAQConfig
+class DAQConfig: public QObject
 {
-    QString listFileOutputDirectory;
-    QList<EventConfig *> eventConfigs;
-    bool isModified = false;
+    Q_OBJECT
+    signals:
+        void modifiedChanged(bool);
 
-    ModuleConfig *getModuleConfig(int eventIndex, int moduleIndex);
+    public:
+        DAQConfig(QObject *parent = 0)
+            : QObject(parent)
+        {}
 
-    void read(const QJsonObject &json);
-    void write(QJsonObject &json) const;
+        ~DAQConfig() { qDeleteAll(m_eventConfigs); }
 
-    QByteArray toJson() const;
+        void setModified(bool b=true);
+        bool isModified() const { return m_isModified; }
 
-    ~DAQConfig()
-    {
-        qDeleteAll(eventConfigs);
-    }
+        void addEventConfig(EventConfig *config) { m_eventConfigs.push_back(config); }
+        bool removeEventConfig(EventConfig *config) { return m_eventConfigs.removeOne(config); }
+        QList<EventConfig *> getEventConfigs() const { return m_eventConfigs; }
+        ModuleConfig *getModuleConfig(int eventIndex, int moduleIndex);
+
+        void read(const QJsonObject &json);
+        void write(QJsonObject &json) const;
+        QByteArray toJson() const;
+
+        QString listFileOutputDirectory;
+
+    private:
+        bool m_isModified = false;
+        QList<EventConfig *> m_eventConfigs;
 };
 
 #endif

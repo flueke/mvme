@@ -5,8 +5,6 @@
 Diagnostics::Diagnostics(QObject *parent) :
     QObject(parent)
 {
-    p_myMvme = (mvme*)parent;
-
 }
 
 void Diagnostics::clear()

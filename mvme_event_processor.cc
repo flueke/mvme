@@ -63,7 +63,7 @@ void MVMEEventProcessor::processSubEvent(BufferIterator &iter, int eventType, in
 
 void MVMEEventProcessor::processMesytecEvent(BufferIterator &iter, ModuleConfig *cfg)
 {
-    // TODO: implement ModuleData moduleData(iter->asU32(), iter->longwordsLeft());
+    // TODO: implement something like ModuleData moduleData(iter->asU32(), iter->longwordsLeft());
 
     u32 subEventHeader = iter.extractU32();
     u32 subEventSize = (subEventHeader & SubEventSizeMask) >> SubEventSizeShift;

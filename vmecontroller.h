@@ -7,7 +7,7 @@ class VMECommandList;
 
 enum class VMEControllerType
 {
-    VM_USB,
+    VMUSB,
     CAEN,
     SIS
 };

@@ -2,12 +2,14 @@
  *
  * - Buffer passing between threads via queued signals/slots seems way too
  *   slow. Try a mutex + waitcondition solution instead.
- * - VME Module definitions should work with "init" lists all the way instead
- *   of just for the initialization part. The init part should be split into
- *   "physics parameter init" and "module daq init".
- *   All those init lists need to be stored in files and loaded with the daq
- *   config.
- * - Look for a text editor widget with syntax highlighting
+ *   Note: using a buffer for multiple MVME events makes this fast enough...
+ *
+ * - Look for a text editor widget with syntax highlighting -> qt has this builtin
+ *
+ * - Replay mode: load reply file, disable modifications to settings, replay
+ *   data possibly multiple times
+ * - DAQStats needed! Log buffers with errors!
+ * - Enable creating and filling of 2d histos
  */
 #include "mvme.h"
 #include "util.h"

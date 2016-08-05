@@ -45,9 +45,11 @@ class mvme : public QMainWindow
 public:
     explicit mvme(QWidget *parent = 0);
     ~mvme();
+#if 1
     void startDatataking(quint16 period, bool multi, quint16 readLen, bool mblt, bool daqMode);
     void stopDatataking();
     void initThreads();
+#endif
     Histogram * getHist(quint16 mod);
     bool clearAllHist();
     Histogram* getHist();
@@ -70,8 +72,6 @@ public slots:
     void displayAbout();
     void createNewHistogram();
     void createNewChannelSpectrogram();
-    void cascade();
-    void tile();
 
     void openHistogramView(Histogram *histo);
 
@@ -80,10 +80,13 @@ private slots:
     void on_actionLoad_Histogram_triggered();
     void on_actionExport_Histogram_triggered();
     void on_actionExport_Spectrogram_triggered();
+
     void on_actionNewConfig_triggered();
     void on_actionLoadConfig_triggered();
     void on_actionSaveConfig_triggered();
     void on_actionSaveConfigAs_triggered();
+    void loadConfig(const QString &fileName);
+
     void on_actionShowLogWindow_triggered();
 
     void on_mdiArea_subWindowActivated(QMdiSubWindow *);
@@ -112,45 +115,6 @@ private:
     MVMEContextWidget *m_contextWidget = 0;
     QTextBrowser *m_logView;
     QMdiSubWindow *m_logViewSubwin;
-};
-
-class EventConfigWidget: public QWidget
-{
-    Q_OBJECT
-    public:
-        EventConfigWidget(EventConfig *config, QWidget *parent = 0);
-        
-    private:
-        EventConfig *m_config;
-};
-
-class ModuleConfigWidget: public QWidget
-{
-    Q_OBJECT
-    public:
-        ModuleConfigWidget(MVMEContext *context, ModuleConfig *config, QWidget *parent = 0);
-        ModuleConfig *getConfig() const { return m_config; }
-
-    protected:
-        virtual void closeEvent(QCloseEvent *event);
-
-    private:
-        void handleListTypeIndexChanged(int);
-        void editorContentsChanged();
-        void onNameEditFinished();
-        void onAddressEditFinished();
-
-        void loadFromFile();
-        void loadFromTemplate();
-        void saveToFile();
-        void execList();
-
-        Ui::ModuleConfigWidget *ui;
-        QAction *actLoadTemplate, *actLoadFile;
-        MVMEContext *m_context;
-        ModuleConfig *m_config;
-        int m_lastListTypeIndex = 0;
-        bool m_ignoreEditorContentsChange = false;
 };
 
 #endif // MVME_H

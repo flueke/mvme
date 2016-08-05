@@ -144,7 +144,7 @@ class VMUSB: public VMEController
         // VMEController interface
         //
 
-        virtual VMEControllerType getType() const { return VMEControllerType::VM_USB; }
+        virtual VMEControllerType getType() const { return VMEControllerType::VMUSB; }
 
         virtual void write32(uint32_t address, uint8_t amod, uint32_t value);
         virtual void write16(uint32_t address, uint8_t amod, uint16_t value);

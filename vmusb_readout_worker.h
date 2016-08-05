@@ -7,6 +7,14 @@
 
 class VMUSBBufferProcessor;
 
+struct DAQStats
+{
+    QDateTime startTime;
+    u64 bytesRead;
+    u64 buffersRead;
+    u64 buffersWithErrors;
+};
+
 class VMUSBReadoutWorker: public QObject
 {
     Q_OBJECT
