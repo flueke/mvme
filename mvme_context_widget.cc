@@ -20,6 +20,9 @@
 #include <QPushButton>
 #include <QSpinBox>
 #include <QListWidget>
+#include <QTimer>
+#include <QCheckBox>
+#include <QFileDialog>
 
 struct AddEventConfigDialog: public QDialog
 {
@@ -176,9 +179,15 @@ struct MVMEContextWidgetPrivate
     MVMEContext *context;
 
     QPushButton *pb_startDAQ, *pb_startOneCycle, *pb_stopDAQ;
-    QLabel *label_daqState;
-    QTreeWidget *tw_contextTree;
+    QLabel *label_daqState, *label_daqDuration, *label_buffersReadAndDropped,
+           *label_freeBuffers, *label_readSize, *label_mbPerSecond;
+    QLineEdit *le_outputDirectory;
+    QCheckBox *cb_outputEnabled;
+    QTreeWidget *contextTree;
+    QMap<QObject *, QTreeWidgetItem *> treeWidgetMap; // maps config objects to tree items
+
     QListWidget *histoList;
+    QTimer *m_updateStatsTimer;
 };
 
 MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
@@ -195,15 +204,28 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
         m_d->pb_stopDAQ = new QPushButton("Stop");
         m_d->pb_stopDAQ->setEnabled(false);
         m_d->label_daqState = new QLabel("Idle");
+        m_d->label_daqDuration = new QLabel();
+        m_d->label_buffersReadAndDropped = new QLabel("0 / 0");
+        m_d->label_freeBuffers = new QLabel;
+        m_d->label_readSize = new QLabel;
+        m_d->label_mbPerSecond = new QLabel;
 
         auto readoutWorker = m_d->context->getReadoutWorker();
 
-        connect(m_d->pb_startDAQ, &QPushButton::clicked, readoutWorker, &VMUSBReadoutWorker::start);
-        connect(m_d->pb_startOneCycle, &QPushButton::clicked, [=] {
+        connect(m_d->pb_startDAQ, &QPushButton::clicked, this, [=]{
+            auto readoutWorker = m_d->context->getReadoutWorker();
+            QMetaObject::invokeMethod(readoutWorker, "start", Qt::QueuedConnection);
+        });
+
+        connect(m_d->pb_startOneCycle, &QPushButton::clicked, this, [=] {
+            auto readoutWorker = m_d->context->getReadoutWorker();
             QMetaObject::invokeMethod(readoutWorker, "start", Qt::QueuedConnection, Q_ARG(quint32, 1));
         });
-        connect(m_d->pb_stopDAQ, &QPushButton::clicked, readoutWorker, &VMUSBReadoutWorker::stop);
-        connect(readoutWorker, &VMUSBReadoutWorker::stateChanged, this, &MVMEContextWidget::onDAQStateChanged);
+
+        connect(m_d->pb_stopDAQ, &QPushButton::clicked, this, [=] {
+            auto readoutWorker = m_d->context->getReadoutWorker();
+            QMetaObject::invokeMethod(readoutWorker, "stop", Qt::QueuedConnection);
+        });
 
         auto layout = new QGridLayout(gb_daqControl);
         layout->setContentsMargins(2, 4, 2, 2);
@@ -212,18 +234,44 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
         layout->addWidget(m_d->pb_stopDAQ, 0, 2);
 
         auto stateLayout = new QFormLayout;
+        stateLayout->setContentsMargins(2, 4, 2, 2);
+        stateLayout->setSpacing(2);
         stateLayout->addRow("State:", m_d->label_daqState);
+        stateLayout->addRow("Running:", m_d->label_daqDuration);
+        stateLayout->addRow("Buffers read / dropped:", m_d->label_buffersReadAndDropped);
+        stateLayout->addRow("Buffers/s / MB/s:", m_d->label_mbPerSecond);
+        stateLayout->addRow("Free buffers:", m_d->label_freeBuffers);
+        stateLayout->addRow("Buffer read size:", m_d->label_readSize);
 
         layout->addLayout(stateLayout, 1, 0, 1, 3);
     }
 
-    m_d->tw_contextTree = new QTreeWidget;
-    m_d->tw_contextTree->setExpandsOnDoubleClick(false);
-    m_d->tw_contextTree->header()->close();
-    m_d->tw_contextTree->setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(m_d->tw_contextTree, &QWidget::customContextMenuRequested, this, &MVMEContextWidget::treeContextMenu);
-    connect(m_d->tw_contextTree, &QTreeWidget::itemClicked, this, &MVMEContextWidget::treeItemClicked);
-    connect(m_d->tw_contextTree, &QTreeWidget::itemDoubleClicked, this, &MVMEContextWidget::treeItemDoubleClicked);
+    m_d->contextTree = new QTreeWidget;
+    m_d->contextTree->setExpandsOnDoubleClick(false);
+    m_d->contextTree->setColumnCount(2);
+    auto headerItem = m_d->contextTree->headerItem();
+
+    headerItem->setText(0, "Object");
+    headerItem->setText(1, "Counts");
+
+    m_d->contextTree->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_d->contextTree, &QWidget::customContextMenuRequested, this, &MVMEContextWidget::treeContextMenu);
+    connect(m_d->contextTree, &QTreeWidget::itemClicked, this, &MVMEContextWidget::treeItemClicked);
+    connect(m_d->contextTree, &QTreeWidget::itemDoubleClicked, this, &MVMEContextWidget::treeItemDoubleClicked);
+
+    connect(context, &MVMEContext::moduleAdded, this, &MVMEContextWidget::onModuleConfigAdded);
+    connect(context, &MVMEContext::eventConfigAdded, this, &MVMEContextWidget::onEventConfigAdded);
+    connect(context, &MVMEContext::configChanged, this, &MVMEContextWidget::onConfigChanged);
+    connect(context, &MVMEContext::daqStateChanged, this, &MVMEContextWidget::onDAQStateChanged);
+
+    connect(context, &MVMEContext::moduleAboutToBeRemoved, this, [=](ModuleConfig *config) {
+        delete m_d->treeWidgetMap.take(config);
+    });
+
+    connect(context, &MVMEContext::eventConfigAboutToBeRemoved, this, [=](EventConfig *config) {
+        delete m_d->treeWidgetMap.take(config);
+    });
+
 
     auto splitter = new QSplitter(Qt::Vertical);
     splitter->addWidget(gb_daqControl);
@@ -236,13 +284,48 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
         auto layout = new QVBoxLayout(gb_daqConfiguration);
         layout->setContentsMargins(2, 4, 2, 2);
         layout->setSpacing(2);
-        //layout->addWidget(new QLabel("Events"));
-        layout->addWidget(m_d->tw_contextTree);
-        splitter->addWidget(gb_daqConfiguration);
 
-        connect(context, &MVMEContext::moduleAdded, this, &MVMEContextWidget::onModuleConfigAdded);
-        connect(context, &MVMEContext::eventConfigAdded, this, &MVMEContextWidget::onEventConfigAdded);
-        connect(context, &MVMEContext::configChanged, this, &MVMEContextWidget::onConfigChanged);
+        m_d->le_outputDirectory = new QLineEdit();
+        m_d->cb_outputEnabled = new QCheckBox("Output enabled");
+        auto pb_outputDirectory = new QPushButton("Select");
+
+        connect(m_d->le_outputDirectory, &QLineEdit::textEdited, this, [=](const QString &newText){
+            context->getConfig()->listFileOutputDirectory = newText;
+            context->getConfig()->setModified(true);
+        });
+
+        connect(pb_outputDirectory, &QPushButton::clicked, this, [=] {
+            auto dirName = QFileDialog::getExistingDirectory(this, "Select output directory",
+                                                             context->getConfig()->listFileOutputDirectory);
+            if (!dirName.isEmpty())
+            {
+                m_d->le_outputDirectory->setText(dirName);
+                context->getConfig()->listFileOutputDirectory = dirName;
+                context->getConfig()->setModified(true);
+            }
+        });
+
+
+
+        auto hbox = new QHBoxLayout;
+        hbox->addWidget(m_d->cb_outputEnabled);
+        hbox->addWidget(pb_outputDirectory);
+
+        connect(m_d->cb_outputEnabled, &QCheckBox::stateChanged, this, [=](int state) {
+            bool enabled = (state != Qt::Unchecked);
+            context->getConfig()->listFileOutputEnabled = enabled;
+            context->getConfig()->setModified(true);
+        });
+
+        auto gb_output  = new QGroupBox("Output");
+        auto listFileLayout = new QFormLayout(gb_output);
+        listFileLayout->addRow(m_d->le_outputDirectory);
+        listFileLayout->addRow(hbox);
+
+        layout->addWidget(gb_output);
+
+        layout->addWidget(m_d->contextTree);
+        splitter->addWidget(gb_daqConfiguration);
     }
 
     /*
@@ -272,20 +355,34 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
     auto layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->addWidget(splitter);
+
+    m_d->m_updateStatsTimer = new QTimer(this);
+    m_d->m_updateStatsTimer->setInterval(250);
+    m_d->m_updateStatsTimer->start();
+    connect(m_d->m_updateStatsTimer, &QTimer::timeout, this, &MVMEContextWidget::updateStats);
 }
 
 void MVMEContextWidget::onConfigChanged()
 {
-    auto config = m_d->context->getConfig();
-    connect(config, &DAQConfig::modifiedChanged, this, &MVMEContextWidget::reloadConfig);
     reloadConfig();
 }
 
 void MVMEContextWidget::reloadConfig()
 {
-    m_d->tw_contextTree->clear();
-
     auto config = m_d->context->getConfig();
+
+    {
+        QSignalBlocker b(m_d->le_outputDirectory);
+        m_d->le_outputDirectory->setText(config->listFileOutputDirectory);
+    }
+    {
+        QSignalBlocker b(m_d->cb_outputEnabled);
+        m_d->cb_outputEnabled->setChecked(config->listFileOutputEnabled);
+    }
+
+    m_d->contextTree->clear();
+    m_d->treeWidgetMap.clear();
+
 
     for (auto event: config->getEventConfigs())
     {
@@ -295,6 +392,8 @@ void MVMEContextWidget::reloadConfig()
             onModuleConfigAdded(event, module);
         }
     }
+
+    m_d->contextTree->resizeColumnToContents(0);
 }
 
 enum TreeItemType
@@ -354,8 +453,10 @@ void MVMEContextWidget::onEventConfigAdded(EventConfig *eventConfig)
 
     item->setText(0, text);
     item->setData(0, Qt::UserRole, QVariant::fromValue(static_cast<void *>(eventConfig)));
+    item->setText(1, QSL("0"));
 
-    m_d->tw_contextTree->addTopLevelItem(item);
+    m_d->treeWidgetMap[eventConfig] = item;
+    m_d->contextTree->addTopLevelItem(item);
 
     connect(eventConfig, &EventConfig::nameChanged, eventConfig, [=](const QString &name) {
         item->setText(0, name);
@@ -372,44 +473,34 @@ T *getPointerFromItem(QTreeWidgetItem *item, int column = 0, int role = Qt::User
 
 void MVMEContextWidget::onModuleConfigAdded(EventConfig *eventConfig, ModuleConfig *module)
 {
-    QTreeWidgetItem *parentItem = 0;
-
-    for(int i=0; i<m_d->tw_contextTree->topLevelItemCount(); ++i)
-    {
-        auto item = m_d->tw_contextTree->topLevelItem(i);
-        auto ptr = item->data(0, Qt::UserRole).value<void *>();
-        if (ptr == eventConfig)
-        {
-            parentItem = item;
-            break;
-        }
-    }
+    auto parentItem = m_d->treeWidgetMap.value(eventConfig);
 
     if (!parentItem)
+    {
+        qDebug() << "Error: no tree item for" << eventConfig << "found";
         return;
+    }
 
     auto item = new QTreeWidgetItem(TIT_VMEModule);
     item->setText(0, module->getName());
     item->setData(0, Qt::UserRole, QVariant::fromValue(static_cast<void *>(module)));
 
     parentItem->addChild(item);
-    m_d->tw_contextTree->expandItem(parentItem);
+    m_d->contextTree->expandItem(parentItem);
+    m_d->treeWidgetMap[module] = item;
 
-
-    connect(module, &ModuleConfig::nameChanged, this, [=](const QString &name) {
-
-        auto item = findItem(m_d->tw_contextTree, [=](QTreeWidgetItem *node) {
-            return (getPointerFromItem<ModuleConfig>(node) == module);
-        });
-
+    connect(module, &ModuleConfig::nameChanged, module, [=](const QString &name) {
+        auto item = m_d->treeWidgetMap.value(module);
         if (item)
+        {
             item->setText(0, name);
+        }
     });
 }
 
 void MVMEContextWidget::treeContextMenu(const QPoint &pos)
 {
-    auto item = m_d->tw_contextTree->itemAt(pos);
+    auto item = m_d->contextTree->itemAt(pos);
 
     QMenu menu;
 
@@ -433,7 +524,7 @@ void MVMEContextWidget::treeContextMenu(const QPoint &pos)
         menu.addAction(actionDelModule);
     }
 
-    auto action = menu.exec(m_d->tw_contextTree->mapToGlobal(pos));
+    auto action = menu.exec(m_d->contextTree->mapToGlobal(pos));
 
     if (action == actionAddEvent)
     {
@@ -565,4 +656,61 @@ void MVMEContextWidget::onContextHistoAdded(const QString &name, Histogram *hist
     item->setData(Qt::UserRole, name);
     item->setData(Qt::UserRole+1, Ptr2Var(histo));
     m_d->histoList->addItem(item);
+}
+
+QString makeDurationString(qint64 durationSeconds)
+{
+    int seconds = durationSeconds % 60;
+    durationSeconds /= 60;
+    int minutes = durationSeconds % 60;
+    durationSeconds /= 60;
+    int hours = durationSeconds;
+    QString durationString;
+    durationString.sprintf("%02d:%02d:%02d", hours, minutes, seconds);
+    return durationString;
+}
+
+void MVMEContextWidget::updateStats()
+{
+    auto stats = m_d->context->getDAQStats();
+
+    auto startTime = stats.startTime;
+    auto endTime   = m_d->context->getDAQState() == DAQState::Idle ? stats.endTime : QDateTime::currentDateTime();
+    auto duration  = startTime.secsTo(endTime);
+    auto durationString = makeDurationString(duration);
+    double mbPerSecond = 0;
+    double buffersPerSecond = 0;
+    if (duration > 0)
+    {
+        mbPerSecond = ((double)stats.totalBytesRead / (1024.0*1024.0)) / (double)duration;
+        buffersPerSecond = (double)stats.totalBuffersRead / (double)duration;
+    }
+    m_d->label_daqDuration->setText(durationString);
+
+    m_d->label_buffersReadAndDropped->setText(QString("%1 / %2")
+                                              .arg(QString::number(stats.totalBuffersRead))
+                                              .arg(QString::number(stats.droppedBuffers)));
+
+    m_d->label_freeBuffers->setText(QString::number(stats.freeBuffers));
+    m_d->label_readSize->setText(QString::number(stats.readSize));
+    m_d->label_mbPerSecond->setText(QString("%1 / %2")
+                                    .arg(buffersPerSecond, 6, 'f', 2)
+                                    .arg(mbPerSecond, 6, 'f', 2)
+                                    );
+
+    for (auto it=m_d->treeWidgetMap.begin(); it!=m_d->treeWidgetMap.end(); ++it)
+    {
+        it.value()->setText(1, QSL(""));
+    }
+
+    auto eventCounts = stats.eventCounts;
+
+    for (auto it=eventCounts.begin(); it!=eventCounts.end(); ++it)
+    {
+        auto treeItem = m_d->treeWidgetMap.value(it.key());
+        if (treeItem)
+        {
+            treeItem->setText(1, QString::number(it.value()));
+        }
+    }
 }

@@ -1,6 +1,7 @@
 #ifndef UUID_6fd8e7d2_5ff5_4908_8b28_fbe474a74ebd
 #define UUID_6fd8e7d2_5ff5_4908_8b28_fbe474a74ebd
 
+#include "util.h"
 #include <QMetaType>
 #include <QMap>
 #include <QString>
@@ -80,5 +81,8 @@ inline bool isMesytecModule(VMEModuleType type)
     }
     return false;
 }
+
+static const u32 EndOfModuleMarker = 0x87654321;
+static const u32 BerrMarker = 0xffffffff;
 
 #endif

@@ -4,6 +4,7 @@
 #include "util.h"
 #include "vme.h"
 #include <QVector>
+
 class QTextStream;
 
 struct VMECommand
@@ -23,7 +24,6 @@ struct VMECommand
         MaskedCountFifoRead32,
         Delay,
         Marker,
-        //Comment,
     };
 
     Type type = NotSet;
@@ -164,16 +164,6 @@ class VMECommandList
             commands.push_back(cmd);
         }
 
-#if 0
-        void addComment(const QString &text)
-        {
-            VMECommand cmd;
-            cmd.type = VMECommand::Comment;
-            cmd.text = text;
-            commands.push_back(cmd);
-        }
-#endif
-
         void append(const VMECommandList &other)
         {
             commands += other.commands;
@@ -181,10 +171,10 @@ class VMECommandList
 
         size_t size() const { return (size_t) commands.size(); }
 
-        static VMECommandList fromInitList(const InitList &initList, uint32_t baseAddress, uint8_t amod = VME_AM_A32_USER_DATA)
+        static VMECommandList fromInitList(const RegisterList &registerList, uint32_t baseAddress, uint8_t amod = VME_AM_A32_USER_DATA)
         {
             VMECommandList ret;
-            for (auto p: initList)
+            for (auto p: registerList)
             {
                 ret.addWrite16(baseAddress + p.first, p.second, amod);
             }
@@ -193,7 +183,8 @@ class VMECommandList
 
         QVector<VMECommand> commands;
 
-        QTextStream &dump(QTextStream &out);
+        QTextStream &dump(QTextStream &out) const;
+        QString toString() const;
 };
 
 

@@ -255,6 +255,12 @@ namespace DaqSettingsRegister
     static const uint32_t ReadoutTriggerDelayMask     = 0x000000ff;
 }
 
+namespace GlobalModeRegister
+{
+    static const uint32_t MixedBufferShift = 5;
+    static const uint32_t MixedBufferMask  = 0x00000020;
+}
+
 uint16_t*
 listToOutPacket(uint16_t ta, CVMUSBReadoutList* list,
                         size_t* outSize, off_t offset = 0);

@@ -4,7 +4,6 @@
 #include "mvmecontrol.h"
 #include "ui_mvmecontrol.h" // FIXME
 #include "mvme_context.h"
-#include "vme_module.h"
 #include "twodimwidget.h"
 #include "diagnostics.h"
 #include "realtimedata.h"
@@ -89,19 +88,10 @@ mvme::mvme(QWidget *parent) :
     m_channelSpectro->setXAxisChannel(0);
     m_channelSpectro->setYAxisChannel(1);
 
-    connect(m_context, &MVMEContext::configFileNameChanged, this, [=](const QString &filePath) {
-        QString fileName =  QFileInfo(filePath).fileName();
-        if (fileName.size())
-        {
-            setWindowTitle(QString("%1 - mvme2").arg(fileName));
-        }
-        else
-        {
-            setWindowTitle(QString("mvme2"));
-        }
-    });
-
-
+    connect(m_context, &MVMEContext::configFileNameChanged, this, &mvme::updateWindowTitle);
+    connect(m_context, &MVMEContext::configChanged, this, &mvme::onConfigChanged);
+            
+            
     // create and initialize displays
     ui->setupUi(this);
     auto contextWidget = new MVMEContextWidget(m_context);
@@ -161,8 +151,14 @@ mvme::mvme(QWidget *parent) :
     restoreState(settings.value("mainWindowState").toByteArray());
 
     m_logView->setWindowTitle("Log View");
-    m_logView->setFont(QFont("MonoSpace"));
+    QFont font("MonoSpace");
+    font.setStyleHint(QFont::Monospace);
+    m_logView->setFont(font);
+    m_logView->setTabChangesFocus(true);
     m_logView->document()->setMaximumBlockCount(10 * 1024 * 1024);
+    m_logView->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_logView, &QWidget::customContextMenuRequested, this, &mvme::handleLogViewContextMenu);
+
     m_logViewSubwin = new QMdiSubWindow;
     m_logViewSubwin->setWidget(m_logView);
     m_logViewSubwin->setAttribute(Qt::WA_DeleteOnClose, false);
@@ -170,22 +166,27 @@ mvme::mvme(QWidget *parent) :
 
     //connect(m_context->m_dataProcessor, &DataProcessor::eventFormatted,
     //        textView, &QTextEdit::append);
+    connect(m_context, &MVMEContext::logMessage, this, &mvme::appendToLog);
     connect(m_context, &MVMEContext::daqStateChanged, this, [=](DAQState state) {
         if (state == DAQState::Starting)
         {
-            m_logView->clear();
+            appendToLog("DAQ starting");
         }
-        else if (state == DAQState::Running)
+        if (state == DAQState::Idle)
         {
-            m_logView->setText(m_context->getReadoutWorker()->getStartupDebugString());
+            appendToLog("DAQ stopped");
         }
     });
 
 
-    if (settings.contains("Files/LastConfigFile"))
+    auto configFileName = settings.value("Files/LastConfigFile").toString();
+
+    if (!configFileName.isEmpty())
     {
-        auto fileName = settings.value("Files/LastConfigFile").toString();
-        loadConfig(fileName);
+        if (!loadConfig(configFileName))
+        {
+            settings.remove("Files/LastConfigFile");
+        }
     }
 }
 
@@ -206,13 +207,25 @@ mvme::~mvme()
     delete m_context;
 }
 
-void mvme::loadConfig(const QString &fileName)
+//void mvme::closeConfig()
+//{
+//    for (auto win: ui->mdiArea->subWindowList())
+//    {
+//        if(qobject_cast<EventConfigWidget *>(win->widget()) ||
+//           qobject_cast<ModuleConfigWidget *>(win->widget()))
+//        {
+//            win->close();
+//        }
+//    }
+//}
+
+bool mvme::loadConfig(const QString &fileName)
 {
     QFile inFile(fileName);
     if (!inFile.open(QIODevice::ReadOnly))
     {
         QMessageBox::critical(0, "Error", QString("Error reading from %1").arg(fileName));
-        return;
+        return false;
     }
 
     for (auto win: ui->mdiArea->subWindowList())
@@ -235,6 +248,8 @@ void mvme::loadConfig(const QString &fileName)
     settings.setValue("Files/LastConfigFile", fileName);
 
     m_contextWidget->reloadConfig();
+
+    return true;
 }
 
 void mvme::replot()
@@ -487,8 +502,15 @@ void mvme::on_actionNewConfig_triggered()
 
 void mvme::on_actionLoadConfig_triggered()
 {
+    QString path = QFileInfo(QSettings().value("Files/LastConfigFile").toString()).absolutePath();
+
+    if (path.isEmpty())
+    {
+        path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
+    }
+
     QString fileName = QFileDialog::getOpenFileName(this, "Load MVME Config",
-                                                   QString(),
+                                                    path,
                                                     "MVME Config Files (*.mvmecfg);; All Files (*.*)");
     if (fileName.isEmpty())
         return;
@@ -556,6 +578,24 @@ void mvme::on_actionSaveConfigAs_triggered()
 
     m_context->setConfigFileName(fileName);
     m_context->getConfig()->setModified(false);
+}
+
+void mvme::on_actionOpen_Listfile_triggered()
+{
+#if 0
+    QString path = QFileInfo(QSettings().value("Files/LastListFile").toString()).absolutePath();
+
+    if (path.isEmpty())
+    {
+        path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
+    }
+
+    QString fileName = QFileDialog::getOpenFileName(this, "Load Listfile",
+                                                    path,
+                                                    "MVME Listfiles (*.mvmelst);; All Files (*.*)");
+    if (fileName.isEmpty())
+        return;
+#endif
 }
 
 void mvme::on_actionShowLogWindow_triggered()
@@ -684,4 +724,49 @@ void mvme::openHistogramView(Histogram *histo)
         subwin->show();
         ui->mdiArea->setActiveSubWindow(subwin);
     }
+}
+
+void mvme::appendToLog(const QString &s)
+{
+  auto str(QString("%1: %2")
+      .arg(QDateTime::currentDateTime().toString("HH:mm:ss"))
+      .arg(s));
+
+  m_logView->append(str);
+}
+
+void mvme::handleLogViewContextMenu(const QPoint &pos)
+{
+  auto menu = std::unique_ptr<QMenu>(m_logView->createStandardContextMenu(pos));
+  auto action = menu->addAction("Clear");
+  connect(action, &QAction::triggered, m_logView, &QTextBrowser::clear);
+  menu->exec(m_logView->mapToGlobal(pos));
+}
+
+void mvme::updateWindowTitle()
+{
+    QString filePath = m_context->getConfigFileName();
+    QString fileName =  QFileInfo(filePath).fileName();
+    QString title;
+    if (!fileName.isEmpty())
+    {
+        title = (QString("%1 - mvme2").arg(fileName));
+    }
+    else
+    {
+        title = (QString("mvme2"));
+    }
+
+    if (m_context->getConfig()->isModified())
+    {
+        title += " *";
+    }
+
+    setWindowTitle(title);
+}
+
+void mvme::onConfigChanged(DAQConfig *config)
+{
+    connect(config, &DAQConfig::modifiedChanged, this, &mvme::updateWindowTitle);
+    updateWindowTitle();
 }

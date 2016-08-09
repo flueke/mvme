@@ -126,6 +126,7 @@ class DAQConfig: public QObject
         QByteArray toJson() const;
 
         QString listFileOutputDirectory;
+        bool listFileOutputEnabled = true;
 
     private:
         bool m_isModified = false;

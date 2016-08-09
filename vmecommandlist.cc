@@ -1,4 +1,5 @@
-#include "vme_module.h"
+#include "vmecommandlist.h"
+
 #include <QTextStream>
 
 QString VMECommand::toString() const
@@ -92,20 +93,13 @@ QString VMECommand::toString() const
                 return QString("Marker 0x%1")
                     .arg(value, 8, 16, Zero);
             } break;
-#if 0
-        case Comment:
-            {
-                return QString ("# %1")
-                    .arg(text);
-            } break;
-#endif
     }
 
     Q_ASSERT(false);
     return QString();
 }
 
-QTextStream &VMECommandList::dump(QTextStream &out)
+QTextStream &VMECommandList::dump(QTextStream &out) const
 {
     for (auto command: commands)
     {
@@ -113,4 +107,12 @@ QTextStream &VMECommandList::dump(QTextStream &out)
     }
 
     return out;
+}
+
+QString VMECommandList::toString() const
+{
+    QString result;
+    QTextStream out(&result);
+    dump(out);
+    return result;
 }

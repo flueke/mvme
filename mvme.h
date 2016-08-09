@@ -25,6 +25,7 @@ class vmedevice;
 class EventConfig;
 class ModuleConfig;
 class MVMEContextWidget;
+class DAQConfig;
 
 class QMdiSubWindow;
 class QThread;
@@ -85,7 +86,8 @@ private slots:
     void on_actionLoadConfig_triggered();
     void on_actionSaveConfig_triggered();
     void on_actionSaveConfigAs_triggered();
-    void loadConfig(const QString &fileName);
+    bool loadConfig(const QString &fileName);
+    void on_actionOpen_Listfile_triggered();
 
     void on_actionShowLogWindow_triggered();
 
@@ -100,6 +102,11 @@ private slots:
 
     void handleHistogramClicked(const QString &name, Histogram *histo);
     void handleHistogramDoubleClicked(const QString &name, Histogram *histo);
+
+    void appendToLog(const QString &);
+    void handleLogViewContextMenu(const QPoint &pos);
+    void updateWindowTitle();
+    void onConfigChanged(DAQConfig *config);
 
 private:
     Ui::mvme *ui;

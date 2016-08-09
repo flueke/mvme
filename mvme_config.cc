@@ -112,6 +112,7 @@ void DAQConfig::read(const QJsonObject &json)
     m_eventConfigs.clear();
 
     listFileOutputDirectory = json["listFileOutputDirectory"].toString();
+    listFileOutputEnabled = json["listFileOutputEnabled"].toBool();
 
     QJsonArray eventArray = json["events"].toArray();
 
@@ -127,6 +128,7 @@ void DAQConfig::read(const QJsonObject &json)
 void DAQConfig::write(QJsonObject &json) const
 {
     json["listFileOutputDirectory"] = listFileOutputDirectory;
+    json["listFileOutputEnabled"] = listFileOutputEnabled;
 
     QJsonArray eventArray;
     for (auto event: m_eventConfigs)

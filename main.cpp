@@ -13,7 +13,6 @@
  */
 #include "mvme.h"
 #include "util.h"
-#include "vme_module.h"
 #include "vmusb_stack.h"
 #include "mvme_context.h"
 

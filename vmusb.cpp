@@ -963,14 +963,17 @@ void VMUSB::writeActionRegister(uint16_t value)
     if (status != outSize)
         throw VMUSB_UsbError(status, "Error writing action register");
 
-    m_daqMode = (value & 0x1);
+    bool daqMode = (value & 0x1);
 
-    if (m_daqMode)
-        emit daqModeEntered();
-    else
-        emit daqModeLeft();
-
-    emit daqModeChanged(m_daqMode);
+    if (m_daqMode != daqMode)
+    {
+        m_daqMode = daqMode;
+        if (daqMode)
+            emit daqModeEntered();
+        else
+            emit daqModeLeft();
+        emit daqModeChanged(daqMode);
+    }
 }
 
 /*!

@@ -44,26 +44,26 @@ QVector<u32> parseStackFile(const QString &input)
     return parseStackFile(strm);
 }
 
-InitList parseInitList(QTextStream &input)
+RegisterList parseRegisterList(QTextStream &input, u32 baseAddress)
 {
     auto vec = parseStackFile(input);
 
-    InitList ret;
+    RegisterList ret;
 
     for (int i=0; i<vec.size()/2; ++i)
     {
         u32 addr  = vec[2*i];
         u32 value = vec[2*i+1];
-        ret.push_back(qMakePair(addr, value));
+        ret.push_back(qMakePair(addr + baseAddress, value));
     }
 
     return ret;
 }
 
-InitList parseInitList(const QString &input)
+RegisterList parseRegisterList(const QString &input, u32 baseAddress)
 {
     QTextStream strm(const_cast<QString *>(&input), QIODevice::ReadOnly);
-    return parseInitList(strm);
+    return parseRegisterList(strm, baseAddress);
 }
 
 QString readStringFile(const QString &filename)

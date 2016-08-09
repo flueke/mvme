@@ -25,8 +25,9 @@
  *
  * t =  3 bit section type
  * e =  4 bit event type for event sections
- * s = 16 bit size in units of 32 bit words (fillwords added to data if needed)
+ * s = 16 bit size in units of 32 bit words (fillwords added to data if needed) -> 256k section max size
 
+ * Sections with SectionType_Event contain subevent headers:
 
  *  ------- Subevent Header --------
  *  33222222222211111111110000000000
@@ -44,9 +45,10 @@ namespace listfile
 {
     enum SectionType
     {
-        // The config section contains the mvmecfg as a json string padded with
-        // zeros to the next 32 bit boundary. TODO: how to handle configs that
-        // are larger than the max section size?
+        /* The config section contains the mvmecfg as a json string padded with
+         * zeros to the next 32 bit boundary. If the config data size exceeds
+         * the maximum section size multiple config sections will be written at
+         * the start of the file. */
         SectionType_Config = 0,
         SectionType_Event  = 1,
         SectionType_End    = 2,
@@ -54,6 +56,8 @@ namespace listfile
         SectionType_Max    = 7
     };
 
+    static const int SectionMaxWords  = 0xffff;
+    static const int SectionMaxSize   = SectionMaxWords * sizeof(u32);
     
     static const int SectionTypeMask  = 0xe0000000; // 3 bit section type
     static const int SectionTypeShift = 29;

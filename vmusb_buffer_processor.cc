@@ -5,6 +5,7 @@
 #include <memory>
 #include <QCoreApplication>
 #include <QDateTime>
+#include <QtMath>
 
 using namespace vmusb_constants;
 using namespace listfile;
@@ -95,6 +96,7 @@ static void processQtEvents(QEventLoop::ProcessEventsFlags flags = QEventLoop::A
 VMUSBBufferProcessor::VMUSBBufferProcessor(MVMEContext *context, QObject *parent)
     : QObject(parent)
     , m_context(context)
+    , m_localEventBuffer(27 * 1024 * 2)
 {}
 
 void VMUSBBufferProcessor::beginRun()
@@ -109,6 +111,8 @@ void VMUSBBufferProcessor::beginRun()
         QString outFilename = outPath + '/' + now.toString(Qt::ISODate) + ".mvmelst";
         m_listFileOut.setFileName(outFilename);
 
+        emit logMessage(QString("Writing to listfile %1").arg(outFilename));
+
         if (m_listFileOut.exists())
         {
             throw QString("Error: listFile %1 exists");
@@ -120,50 +124,80 @@ void VMUSBBufferProcessor::beginRun()
                 .arg(m_listFileOut.errorString())
                 ;
         }
+    }
 
-        qDebug() << "writing listfile" << m_listFileOut.fileName();
+    auto configData = m_context->getConfig()->toJson();
 
-        /* Write out a "config" section containing the complete run configuration. */
+    while (configData.size() % sizeof(u32))
+    {
+        configData.append('\0');
+    }
 
-        auto configBytes = m_context->getConfig()->toJson();
+    int configSize = configData.size();
+    int configWords = configSize / sizeof(u32);
+    int configSections = qCeil((float)configSize / (float)SectionMaxSize);
 
-        while (configBytes.size() % sizeof(u32))
-        {
-            configBytes.append('\0');
-        }
+    DataBuffer *buffer = getFreeBuffer();
 
-        DataBuffer *buffer = getFreeBuffer();
+    if (!buffer)
+    {
+        buffer = &m_localEventBuffer;
+    }
 
-        if (buffer)
-        {
-            buffer->reserve(configBytes.size() + sizeof(u32));
-            u32 size = configBytes.size() / sizeof(u32);
+    buffer->reserve(configSections * SectionMaxSize + // space for all config sections
+                    configSections * sizeof(u32)); // space for headers
+    buffer->used = 0;
 
-            u32 *sectionHeader = (u32 *)buffer->data;
-            *sectionHeader = (SectionType_Config << SectionTypeShift) & SectionTypeMask;
-            *sectionHeader |= (size << SectionSizeShift) & SectionSizeMask;
-            memcpy(buffer->data + sizeof(u32), configBytes.constData(), configBytes.size());
-            buffer->used = configBytes.size() + sizeof(u32);
+    u8 *bufferP = buffer->data;
+    const char *configP = configData.constData();
 
-            if (m_listFileOut.isOpen())
-            {
-                m_listFileOut.write((const char *)buffer->data, buffer->used);
-            }
+    while (configSections--)
+    {
+        u32 *sectionHeader = (u32 *)bufferP;
+        bufferP += sizeof(u32);
+        *sectionHeader = (SectionType_Config << SectionTypeShift) & SectionTypeMask;
+        int sectionBytes = qMin(configSize, SectionMaxSize);
+        int sectionWords = sectionBytes / sizeof(u32);
+        *sectionHeader |= (sectionWords << SectionSizeShift) & SectionSizeMask;
 
-            QTextStream out(stdout);
-            dump_event_buffer(out, buffer);
-            emit mvmeEventBufferReady(buffer);
-        }
+        memcpy(bufferP, configP, sectionBytes);
+        bufferP += sectionBytes;
+        configP += sectionBytes;
+        configSize -= sectionBytes;
+    }
+
+    buffer->used = bufferP - buffer->data;
+
+
+    if (m_listFileOut.isOpen())
+    {
+        m_listFileOut.write((const char *)buffer->data, buffer->used);
+    }
+
+    QTextStream out(stdout);
+    dump_event_buffer(out, buffer);
+
+    if (buffer != &m_localEventBuffer)
+    {
+        emit mvmeEventBufferReady(buffer);
+    }
+    else
+    {
+        //getStats()->droppedBuffers++;
     }
 }
 
 void VMUSBBufferProcessor::endRun()
 {
-    // TODO: maybe write a "end run" event?
     if (m_listFileOut.isOpen())
     {
+        u32 header = (SectionType_End << SectionTypeShift) & SectionTypeMask;
+        m_listFileOut.write((const char *)&header, sizeof(header));
         m_listFileOut.close();
     }
+
+    auto queue = m_context->getFreeBuffers();
+    getStats()->freeBuffers = queue->size();
 }
 
 void VMUSBBufferProcessor::resetRunState()
@@ -183,18 +217,16 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
 
     BufferIterator iter(readBuffer->data, readBuffer->used, BufferIterator::Align16);
 
-    std::unique_ptr<DataBuffer> outputBuffer;
-    outputBuffer.reset(getFreeBuffer());
+    DataBuffer *outputBuffer = getFreeBuffer();
+
     if (!outputBuffer)
     {
-        qDebug("VMUSBBufferProcessor: outputBuffer is null");
-        return false;
+        outputBuffer = &m_localEventBuffer;
     }
 
-    // XXX: Just use double the space for now. This way all additional data will fit.
+    // XXX: Just use double the size of the read buffer for now. This way all additional data will fit.
     outputBuffer->reserve(readBuffer->used * 2);
     outputBuffer->used = 0;
-
 
 #if 1
     try
@@ -208,7 +240,7 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
         bool multiBuffer    = header1 & Buffer::MultiBufferMask;
         u16 numberOfEvents  = header1 & Buffer::NumberOfEventsMask;
 
-        if (true || lastBuffer || scalerBuffer || continuousMode || multiBuffer)
+        if (lastBuffer || scalerBuffer || continuousMode || multiBuffer)
         {
             qDebug("buffer_size=%u, header1: 0x%08x, lastBuffer=%d, scalerBuffer=%d, continuousMode=%d, multiBuffer=%d, numberOfEvents=%u",
                    readBuffer->used, header1, lastBuffer, scalerBuffer, continuousMode, multiBuffer, numberOfEvents);
@@ -223,7 +255,7 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
 
         for (u16 eventIndex=0; eventIndex < numberOfEvents; ++eventIndex)
         {
-            processEvent(iter, outputBuffer.get());
+            processEvent(iter, outputBuffer);
         }
 
         if (iter.shortwordsLeft() >= 2)
@@ -257,7 +289,7 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
         }
         else
         {
-            qDebug("processBuffer(): buffer successfully processed!");
+            //qDebug("processBuffer(): buffer successfully processed!");
         }
 
         if (m_listFileOut.isOpen())
@@ -265,9 +297,17 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
             m_listFileOut.write((const char *)outputBuffer->data, outputBuffer->used);
         }
 
-        QTextStream out(stdout);
-        dump_event_buffer(out, outputBuffer.get());
-        emit mvmeEventBufferReady(outputBuffer.release());
+        //QTextStream out(stdout);
+        //dump_event_buffer(out, outputBuffer);
+
+        if (outputBuffer != &m_localEventBuffer)
+        {
+            emit mvmeEventBufferReady(outputBuffer);
+        }
+        else
+        {
+            getStats()->droppedBuffers++;
+        }
 
         return true;
 #if 1
@@ -278,7 +318,10 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
     }
 #endif
 
-    addFreeBuffer(outputBuffer.release());
+    if (outputBuffer != &m_localEventBuffer)
+    {
+        addFreeBuffer(outputBuffer);
+    }
 
     return false;
 }
@@ -305,20 +348,21 @@ bool VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *output
         qDebug("eventHeader=0x%08x, stackID=%u, partialEvent=%d, eventLength=%u",
                eventHeader, stackID, partialEvent, eventLength);
         qDebug() << "===== Error: partial event support not implemented! ======";
-        iter.skip(sizeof(u16), eventLength); 
+        iter.skip(sizeof(u16), eventLength);
         return false;
     }
 
     if (!m_eventConfigByStackID.contains(stackID))
     {
         qDebug("===== Error: no event config for stackID=%u! ======", stackID);
-        iter.skip(sizeof(u16), eventLength); 
+        iter.skip(sizeof(u16), eventLength);
         return false;
     }
 
     BufferIterator eventIter(iter.buffp, eventLength * sizeof(u16), BufferIterator::Align16);
 
     auto eventConfig = m_eventConfigByStackID[stackID];
+    getStats()->eventCounts[eventConfig]++;
     int moduleIndex = 0;
     u32 *outp = (u32 *)(outputBuffer->data + outputBuffer->used);
     u32 *mvmeEventHeader = (u32 *)outp++;
@@ -379,20 +423,33 @@ bool VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *output
 
 void VMUSBBufferProcessor::addFreeBuffer(DataBuffer *buffer)
 {
-    m_context->getFreeBuffers()->enqueue(buffer);
+    auto queue = m_context->getFreeBuffers();
+    queue->enqueue(buffer);
+    getStats()->freeBuffers = queue->size();
     qDebug() << __PRETTY_FUNCTION__ << m_context->getFreeBuffers()->size() << buffer;
 }
 
 DataBuffer* VMUSBBufferProcessor::getFreeBuffer()
 {
     auto queue = m_context->getFreeBuffers();
+    getStats()->freeBuffers = queue->size();
 
-    while (!queue->size() &&
-            (m_context->getDAQState() == DAQState::Running ||
-             m_context->getDAQState() == DAQState::Stopping))
+    // Process pending events, then check if buffers are available
+
+    if (!queue->size())
     {
-        // Avoid fast spinning by blocking if no events are pending
-        processQtEvents(QEventLoop::WaitForMoreEvents);
+        processQtEvents(/*QEventLoop::WaitForMoreEvents*/);
     }
-    return queue->dequeue();
+
+    if (queue->size())
+    {
+        return queue->dequeue();
+    }
+
+    return 0;
+}
+
+DAQStats *VMUSBBufferProcessor::getStats()
+{
+    return &m_context->getDAQStats();
 }

@@ -1,5 +1,4 @@
 #include "mvme_context.h"
-#include "vme_module.h"
 #include "vmusb.h"
 #include "vmusb_readout_worker.h"
 #include "vmusb_buffer_processor.h"
@@ -39,6 +38,8 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
     m_readoutThread->start();
 
     connect(m_readoutWorker, &VMUSBReadoutWorker::stateChanged, this, &MVMEContext::daqStateChanged);
+    connect(m_readoutWorker, &VMUSBReadoutWorker::logMessage, this, &MVMEContext::logMessage);
+    connect(m_bufferProcessor, &VMUSBBufferProcessor::logMessage, this, &MVMEContext::logMessage);
 
     m_eventProcessorThread->setObjectName("EventProcessorThread");
     m_eventProcessor->moveToThread(m_eventProcessorThread);

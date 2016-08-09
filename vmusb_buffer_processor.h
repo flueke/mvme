@@ -1,6 +1,8 @@
 #ifndef UUID_289d9e07_4304_4a19_9cf1_bfd5d1d41e44
 #define UUID_289d9e07_4304_4a19_9cf1_bfd5d1d41e44
 
+#include "databuffer.h"
+
 #include <QObject>
 #include <QMap>
 #include <QFile>
@@ -9,12 +11,14 @@ class DataBuffer;
 class MVMEContext;
 class EventConfig;
 class BufferIterator;
+class DAQStats;
 
 class VMUSBBufferProcessor: public QObject
 {
     Q_OBJECT
     signals:
         void mvmeEventBufferReady(DataBuffer *);
+        void logMessage(const QString &);
 
     public:
         VMUSBBufferProcessor(MVMEContext *context, QObject *parent = 0);
@@ -31,12 +35,14 @@ class VMUSBBufferProcessor: public QObject
     private:
         DataBuffer *getFreeBuffer();
         bool processEvent(BufferIterator &iter, DataBuffer *outputBuffer);
+        DAQStats *getStats();
 
         MVMEContext *m_context = 0;
         DataBuffer *m_currentBuffer = 0;
         QMap<int, EventConfig *> m_eventConfigByStackID;
         QFile m_listFileOut;
         bool m_listFileOutputEnabled = true;
+        DataBuffer m_localEventBuffer;
 };
 
 #endif

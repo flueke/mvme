@@ -16,70 +16,70 @@ QMAKE_CXXFLAGS += -Wno-unused -Wno-format
 QMAKE_CFLAGS += -Wno-unused -Wno-format
 
 
-SOURCES += main.cpp\
-        mvme.cpp \
-    mvmecontrol.cpp \
-    histogram.cpp \
-    datathread.cpp \
-    datacruncher.cpp \
-    vmedevice.cpp \
-    twodimwidget.cpp \
-    scrollzoomer.cpp \
-    scrollbar.cpp \
-    virtualmod.cpp \
-    vmecontroller.cpp \
-    diagnostics.cpp \
-    realtimedata.cpp \
-    simulator.cpp \
-    CVMUSBReadoutList.cpp \
+SOURCES += \
     channelspectro.cpp \
-    libxxusb.cc \
-    util.cc \
-    vme_module.cc \
-    vmusb_stack.cc \
-    mvme_context.cc \
-    vmusb_readout_worker.cc \
-    vmusb_buffer_processor.cc \
-    mvme_context_widget.cc \
-    mvme_config.cc \
-    mvme_listfile.cc \
-    mvme_event_processor.cc \
     config_widgets.cpp \
+    CVMUSBReadoutList.cpp \
+    datacruncher.cpp \
+    datathread.cpp \
+    diagnostics.cpp \
+    histogram.cpp \
+    libxxusb.cc \
+    main.cpp \
+    mvme_config.cc \
+    mvme_context.cc \
+    mvme_context_widget.cc \
+    mvmecontrol.cpp \
+    mvme.cpp \
+    mvme_event_processor.cc \
+    mvme_listfile.cc \
+    realtimedata.cpp \
+    scrollbar.cpp \
+    scrollzoomer.cpp \
+    simulator.cpp \
+    twodimwidget.cpp \
+    util.cc \
+    virtualmod.cpp \
+    vmecommandlist.cc \
+    vmecontroller.cpp \
+    vmedevice.cpp \
+    vmusb_buffer_processor.cc \
+    vmusb_readout_worker.cc \
+    vmusb_stack.cc \
 
 
 HEADERS  += \
-    mvmecontrol.h \
-    mvme.h \
-    histogram.h \
-    datathread.h \
+    channelspectro.h \
+    config_widgets.h \
+    CVMUSBReadoutList.h \
+    databuffer.h \
     datacruncher.h \
+    datathread.h \
+    diagnostics.h \
+    histogram.h \
+    mvme_config.h \
+    mvme_context.h \
+    mvme_context_widget.h \
+    mvmecontrol.h \
     mvmedefines.h \
-    vmedevice.h \
-    twodimwidget.h \
+    mvme_event_processor.h \
+    mvme.h \
+    mvme_listfile.h \
+    realtimedata.h \
     scrollbar.h \
     scrollzoomer.h \
-    virtualmod.h \
-    vmecontroller.h \
-    diagnostics.h \
-    realtimedata.h \
     simulator.h \
-    CVMUSBReadoutList.h \
-    channelspectro.h \
+    twodimwidget.h \
     util.h \
-    vme.h \
-    vme_module.h \
-    vmusb_stack.h \
-    mvme_context.h \
-    vmusb_readout_worker.h \
-    databuffer.h \
-    vmusb_constants.h \
-    vmusb_buffer_processor.h \
-    mvme_context_widget.h \
-    mvme_config.h \
+    virtualmod.h \
     vmecommandlist.h \
-    mvme_listfile.h \
-    mvme_event_processor.h \
-    config_widgets.h \
+    vmecontroller.h \
+    vmedevice.h \
+    vme.h \
+    vmusb_buffer_processor.h \
+    vmusb_constants.h \
+    vmusb_readout_worker.h \
+    vmusb_stack.h \
 
 
 FORMS    += \

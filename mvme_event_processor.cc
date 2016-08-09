@@ -72,6 +72,7 @@ void MVMEEventProcessor::processMesytecEvent(BufferIterator &iter, ModuleConfig 
 
     if (!histo)
     {
+        // TODO: create before starting the readout
         histo = new Histogram(0, 33, 8192); // TODO: size dynamically
         m_context->addHistogram(cfg->getFullName(), histo);
     }

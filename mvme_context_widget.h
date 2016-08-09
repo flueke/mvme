@@ -42,6 +42,7 @@ class MVMEContextWidget: public QWidget
         void histoListContextMenu(const QPoint &pos);
         void onContextHistoAdded(const QString &name, Histogram *histo);
         void onConfigChanged();
+        void updateStats();
 
     private:
         MVMEContextWidgetPrivate *m_d;

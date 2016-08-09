@@ -1,15 +1,15 @@
 #ifndef UUID_9196420f_dd04_4572_8e4b_952039634913
 #define UUID_9196420f_dd04_4572_8e4b_952039634913
 
-#include <QList>
-#include <QWidget>
-#include <QFuture>
 #include "globals.h"
 #include "vmecommandlist.h"
-#include "vme_module.h"
 #include "databuffer.h"
 #include "mvme_config.h"
 #include "histogram.h"
+#include <QList>
+#include <QWidget>
+#include <QFuture>
+#include <QDateTime>
 
 class VMEController;
 class VMUSBReadoutWorker;
@@ -20,10 +20,23 @@ class mvme;
 class QTimer;
 class QThread;
 
+struct DAQStats
+{
+    QDateTime startTime;
+    QDateTime endTime;
+    u64 totalBytesRead = 0;
+    u64 totalBuffersRead = 0;
+    u64 buffersWithErrors = 0;
+    u64 droppedBuffers = 0;
+    int freeBuffers = 0;
+    int readSize = 0;
+    QMap<QObject *, u64> eventCounts; // maps EventConfig/ModuleConfig to event count
+};
+
 class MVMEContext: public QObject
 {
     static const size_t dataBufferCount = 20;
-    static const size_t dataBufferSize  = 30 * 1024;
+    static const size_t dataBufferSize  = 27 * 1024 * 2; // double the size of a vmusb read buffer
 
     Q_OBJECT
     signals:
@@ -42,6 +55,8 @@ class MVMEContext: public QObject
 
         void histogramAdded(const QString &name, Histogram *histo);
         void histogramAboutToBeRemoved(const QString &name, Histogram *histo);
+
+        void logMessage(const QString &);
 
     public:
         MVMEContext(mvme *mainwin, QObject *parent = 0);
@@ -70,6 +85,8 @@ class MVMEContext: public QObject
         QList<EventConfig *> getEventConfigs() const { return m_config->getEventConfigs(); }
         DataBufferQueue *getFreeBuffers() { return &m_freeBuffers; }
         DAQState getDAQState() const;
+        const DAQStats &getDAQStats() const { return m_daqStats; }
+        DAQStats &getDAQStats() { return m_daqStats; }
 
         QMap<QString, Histogram *> getHistograms() { return m_histograms; }
         Histogram *getHistogram(const QString &name) { return m_histograms.value(name);; }
@@ -130,6 +147,7 @@ class MVMEContext: public QObject
         QString m_configFileName;
         QMap<QString, Histogram *> m_histograms;
         mvme *m_mainwin;
+        DAQStats m_daqStats;
 };
 
 #endif

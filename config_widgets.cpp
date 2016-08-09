@@ -304,7 +304,7 @@ void ModuleConfigWidget::execList()
             case ModuleListType::Reset:
                 {
                     u8 ignored[100];
-                    auto cmdList = VMECommandList::fromInitList(parseInitList(listContents), m_config->baseAddress);
+                    auto cmdList = VMECommandList::fromInitList(parseRegisterList(listContents), m_config->baseAddress);
                     controller->executeCommands(&cmdList, ignored, sizeof(ignored));
                 } break;
             case ModuleListType::ReadoutStack:

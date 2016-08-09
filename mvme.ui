@@ -37,6 +37,8 @@
     <addaction name="actionLoadConfig"/>
     <addaction name="actionSaveConfig"/>
     <addaction name="actionSaveConfigAs"/>
+    <addaction name="separator"/>
+    <addaction name="actionOpen_Listfile"/>
     <addaction name="actionQuit"/>
    </widget>
    <widget class="QMenu" name="menuDisplay">
@@ -172,6 +174,11 @@
   <action name="actionShowLogWindow">
    <property name="text">
     <string>Show Log</string>
+   </property>
+  </action>
+  <action name="actionOpen_Listfile">
+   <property name="text">
+    <string>Open Listfile</string>
    </property>
   </action>
  </widget>

@@ -3,9 +3,11 @@
 
 #include <stdexcept>
 #include <QVector>
-#include <QList>
 #include <QPair>
 #include <QVariant>
+
+#define QSL(str) QStringLiteral(str)
+
 class QTextStream;
 
 typedef uint8_t u8;
@@ -24,10 +26,10 @@ QVector<u32> parseStackFile(QTextStream &input);
 QVector<u32> parseStackFile(const QString &input);
 
 typedef QPair<u32, u32> RegisterSetting; // (addr, value)
-typedef QList<RegisterSetting> InitList;
+typedef QVector<RegisterSetting> RegisterList;
 
-InitList parseInitList(QTextStream &input);
-InitList parseInitList(const QString &input);
+RegisterList parseRegisterList(QTextStream &input, u32 baseAddress = 0);
+RegisterList parseRegisterList(const QString &input, u32 baseAddress = 0);
 
 class end_of_buffer: public std::exception {};
 
