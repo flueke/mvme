@@ -84,10 +84,13 @@ private slots:
 
     void on_actionNewConfig_triggered();
     void on_actionLoadConfig_triggered();
-    void on_actionSaveConfig_triggered();
-    void on_actionSaveConfigAs_triggered();
+    bool on_actionSaveConfig_triggered();
+    bool on_actionSaveConfigAs_triggered();
+
     bool loadConfig(const QString &fileName);
+
     void on_actionOpen_Listfile_triggered();
+    //void on_actionClose_Listfile_triggered();
 
     void on_actionShowLogWindow_triggered();
 

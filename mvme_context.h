@@ -16,6 +16,8 @@ class VMUSBReadoutWorker;
 class VMUSBBufferProcessor;
 class MVMEEventProcessor;
 class mvme;
+class ListFile;
+class ListFileWorker;
 
 class QTimer;
 class QThread;
@@ -33,11 +35,17 @@ struct DAQStats
     QMap<QObject *, u64> eventCounts; // maps EventConfig/ModuleConfig to event count
 };
 
+enum class GlobalMode
+{
+    NotSet,
+    DAQ,
+    ListFile
+};
+
+Q_DECLARE_METATYPE(GlobalMode);
+
 class MVMEContext: public QObject
 {
-    static const size_t dataBufferCount = 20;
-    static const size_t dataBufferSize  = 27 * 1024 * 2; // double the size of a vmusb read buffer
-
     Q_OBJECT
     signals:
         void daqStateChanged(const DAQState &state);
@@ -58,6 +66,8 @@ class MVMEContext: public QObject
 
         void logMessage(const QString &);
 
+        void modeChanged(GlobalMode mode);
+
     public:
         MVMEContext(mvme *mainwin, QObject *parent = 0);
         ~MVMEContext();
@@ -68,7 +78,7 @@ class MVMEContext: public QObject
         void removeModule(ModuleConfig *module);
         void setController(VMEController *controller);
 
-        // TODO: add something like getUniqueModuleName(prefix);
+        // TODO: add something like getUniqueModuleName(prefix) to generate module names
         int getTotalModuleCount() const
         {
             int ret = 0;
@@ -87,6 +97,9 @@ class MVMEContext: public QObject
         DAQState getDAQState() const;
         const DAQStats &getDAQStats() const { return m_daqStats; }
         DAQStats &getDAQStats() { return m_daqStats; }
+        void setListFile(ListFile *listFile);
+        void setMode(GlobalMode mode);
+        GlobalMode getMode() const;
 
         QMap<QString, Histogram *> getHistograms() { return m_histograms; }
         Histogram *getHistogram(const QString &name) { return m_histograms.value(name);; }
@@ -127,6 +140,9 @@ class MVMEContext: public QObject
 
         friend class mvme;
 
+    public slots:
+        void startReplay();
+
     private slots:
         void tryOpenController();
 
@@ -140,7 +156,7 @@ class MVMEContext: public QObject
         VMUSBReadoutWorker *m_readoutWorker;
         VMUSBBufferProcessor *m_bufferProcessor;
 
-        QThread *m_eventProcessorThread;
+        QThread *m_eventThread;
         MVMEEventProcessor *m_eventProcessor;
 
         DataBufferQueue m_freeBuffers;
@@ -148,6 +164,9 @@ class MVMEContext: public QObject
         QMap<QString, Histogram *> m_histograms;
         mvme *m_mainwin;
         DAQStats m_daqStats;
+        ListFile *m_listFile;
+        GlobalMode m_mode;
+        ListFileWorker *m_listFileWorker;
 };
 
 #endif

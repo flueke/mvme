@@ -3,10 +3,14 @@
 #include "vmusb_readout_worker.h"
 #include "vmusb_buffer_processor.h"
 #include "mvme_event_processor.h"
+#include "mvme_listfile.h"
 
 #include <QtConcurrent>
 #include <QTimer>
 #include <QThread>
+
+static const size_t dataBufferCount = 20;
+static const size_t dataBufferSize  = 27 * 1024 * 2; // double the size of a vmusb read buffer
 
 MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
     : QObject(parent)
@@ -15,9 +19,11 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
     , m_readoutThread(new QThread(this))
     , m_readoutWorker(new VMUSBReadoutWorker(this))
     , m_bufferProcessor(new VMUSBBufferProcessor(this))
-    , m_eventProcessorThread(new QThread(this))
+    , m_eventThread(new QThread(this))
     , m_eventProcessor(new MVMEEventProcessor(this))
     , m_mainwin(mainwin)
+    , m_mode(GlobalMode::NotSet)
+    , m_listFileWorker(new ListFileWorker)
 {
 
     for (size_t i=0; i<dataBufferCount; ++i)
@@ -34,22 +40,20 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
     m_readoutWorker->moveToThread(m_readoutThread);
     m_bufferProcessor->moveToThread(m_readoutThread);
     m_readoutWorker->setBufferProcessor(m_bufferProcessor);
+    m_listFileWorker->moveToThread(m_readoutThread);
 
     m_readoutThread->start();
 
     connect(m_readoutWorker, &VMUSBReadoutWorker::stateChanged, this, &MVMEContext::daqStateChanged);
     connect(m_readoutWorker, &VMUSBReadoutWorker::logMessage, this, &MVMEContext::logMessage);
     connect(m_bufferProcessor, &VMUSBBufferProcessor::logMessage, this, &MVMEContext::logMessage);
+    connect(m_listFileWorker, &ListFileWorker::logMessage, this, &MVMEContext::logMessage);
 
-    m_eventProcessorThread->setObjectName("EventProcessorThread");
-    m_eventProcessor->moveToThread(m_eventProcessorThread);
-    m_eventProcessorThread->start();
+    m_eventThread->setObjectName("EventThread");
+    m_eventProcessor->moveToThread(m_eventThread);
+    m_eventThread->start();
 
-    connect(m_bufferProcessor, &VMUSBBufferProcessor::mvmeEventBufferReady,
-            m_eventProcessor, &MVMEEventProcessor::processEventBuffer);
-
-    connect(m_eventProcessor, &MVMEEventProcessor::bufferProcessed,
-            m_bufferProcessor, &VMUSBBufferProcessor::addFreeBuffer);
+    setMode(GlobalMode::DAQ);
 }
 
 MVMEContext::~MVMEContext()
@@ -61,8 +65,12 @@ MVMEContext::~MVMEContext()
     }
     m_readoutThread->quit();
     m_readoutThread->wait();
+    m_eventThread->quit();
+    m_eventThread->wait();
     delete m_readoutWorker;
     delete m_bufferProcessor;
+    delete m_eventProcessor;
+    delete m_listFileWorker;
     delete m_config;
 }
 
@@ -138,4 +146,81 @@ void MVMEContext::tryOpenController()
 DAQState MVMEContext::getDAQState() const
 {
     return m_readoutWorker->getState();
+}
+
+void MVMEContext::setListFile(ListFile *listFile)
+{
+    setConfig(listFile->getConfig());
+    setConfigFileName(QString());
+    setMode(GlobalMode::ListFile);
+    m_listFile = listFile;
+    m_listFileWorker->setListFile(listFile);
+}
+
+void MVMEContext::setMode(GlobalMode mode)
+{
+    if (mode != m_mode)
+    {
+        switch (m_mode)
+        {
+            case GlobalMode::DAQ:
+                {
+                    disconnect(m_bufferProcessor, &VMUSBBufferProcessor::mvmeEventBufferReady,
+                               m_eventProcessor, &MVMEEventProcessor::processEventBuffer);
+
+                    disconnect(m_eventProcessor, &MVMEEventProcessor::bufferProcessed,
+                               m_bufferProcessor, &VMUSBBufferProcessor::addFreeBuffer);
+                } break;
+            case GlobalMode::ListFile:
+                {
+                    disconnect(m_listFileWorker, &ListFileWorker::mvmeEventBufferReady,
+                               m_eventProcessor, &MVMEEventProcessor::processEventBuffer);
+
+                    disconnect(m_eventProcessor, &MVMEEventProcessor::bufferProcessed,
+                               m_listFileWorker, &ListFileWorker::readNextBuffer);
+                } break;
+            case GlobalMode::NotSet:
+                break;
+        }
+
+        switch (mode)
+        {
+            case GlobalMode::DAQ:
+                {
+                    connect(m_bufferProcessor, &VMUSBBufferProcessor::mvmeEventBufferReady,
+                            m_eventProcessor, &MVMEEventProcessor::processEventBuffer);
+
+                    connect(m_eventProcessor, &MVMEEventProcessor::bufferProcessed,
+                            m_bufferProcessor, &VMUSBBufferProcessor::addFreeBuffer);
+                } break;
+            case GlobalMode::ListFile:
+                {
+                    connect(m_listFileWorker, &ListFileWorker::mvmeEventBufferReady,
+                            m_eventProcessor, &MVMEEventProcessor::processEventBuffer);
+
+                    connect(m_eventProcessor, &MVMEEventProcessor::bufferProcessed,
+                            m_listFileWorker, &ListFileWorker::readNextBuffer);
+                } break;
+            case GlobalMode::NotSet:
+                break;
+        }
+
+
+        m_mode = mode;
+        emit modeChanged(m_mode);
+    }
+}
+
+GlobalMode MVMEContext::getMode() const
+{
+    return m_mode;
+}
+
+void MVMEContext::startReplay()
+{
+    if (m_mode != GlobalMode::ListFile || !m_listFile)
+        return;
+
+    m_listFile->seek(0);
+    QMetaObject::invokeMethod(m_listFileWorker, "readNextBuffer", Qt::QueuedConnection);
 }

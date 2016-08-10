@@ -23,6 +23,7 @@
 int main(int argc, char *argv[])
 {
     qRegisterMetaType<DAQState>("DAQState");
+    qRegisterMetaType<DAQState>("GlobalMode");
     QApplication a(argc, argv);
 
     QCoreApplication::setOrganizationDomain("www.mesytec.com");

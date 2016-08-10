@@ -16,6 +16,7 @@
 #include "ui_moduleconfig_widget.h"
 #include "vmusb_readout_worker.h"
 #include "config_widgets.h"
+#include "mvme_listfile.h"
 
 #include <QDockWidget>
 #include <QFileDialog>
@@ -28,6 +29,7 @@
 #include <QFont>
 #include <QList>
 #include <QTextBrowser>
+#include <QScrollBar>
 
 #include <qwt_plot_curve.h>
 
@@ -207,17 +209,20 @@ mvme::~mvme()
     delete m_context;
 }
 
-//void mvme::closeConfig()
-//{
-//    for (auto win: ui->mdiArea->subWindowList())
-//    {
-//        if(qobject_cast<EventConfigWidget *>(win->widget()) ||
-//           qobject_cast<ModuleConfigWidget *>(win->widget()))
-//        {
-//            win->close();
-//        }
-//    }
-//}
+#if 0
+void mvme::closeConfig()
+{
+
+    for (auto win: ui->mdiArea->subWindowList())
+    {
+        if(qobject_cast<EventConfigWidget *>(win->widget()) ||
+           qobject_cast<ModuleConfigWidget *>(win->widget()))
+        {
+            win->close();
+        }
+    }
+}
+#endif
 
 bool mvme::loadConfig(const QString &fileName)
 {
@@ -228,26 +233,28 @@ bool mvme::loadConfig(const QString &fileName)
         return false;
     }
 
-    for (auto win: ui->mdiArea->subWindowList())
+    auto data = inFile.readAll();
+
+    QJsonParseError parseError;
+    QJsonDocument doc(QJsonDocument::fromJson(data, &parseError));
+
+    if (parseError.error != QJsonParseError::NoError)
     {
-        if(qobject_cast<EventConfigWidget *>(win->widget()) ||
-           qobject_cast<ModuleConfigWidget *>(win->widget()))
-        {
-            win->close();
-        }
+        QMessageBox::critical(0, "Error", QString("Error reading from %1: %2")
+                              .arg(fileName)
+                              .arg(parseError.errorString())
+                             );
+        return false;
     }
 
-    auto data = inFile.readAll();
-    QJsonDocument doc(QJsonDocument::fromJson(data));
     auto config = new DAQConfig;
     config->read(doc.object());
     m_context->setConfig(config);
     m_context->setConfigFileName(fileName);
+    m_context->setMode(GlobalMode::DAQ);
 
     QSettings settings;
     settings.setValue("Files/LastConfigFile", fileName);
-
-    m_contextWidget->reloadConfig();
 
     return true;
 }
@@ -481,14 +488,17 @@ void mvme::on_actionNewConfig_triggered()
 {
     if (m_context->getConfig()->isModified())
     {
-        auto msgBox = new QMessageBox(QMessageBox::Question, "Configuration modified",
-                                      "The current configuration has modifications. Do you want to save it?",
-                                      QMessageBox::Save | QMessageBox::Cancel | QMessageBox::Discard);
-        int result = msgBox->exec();
+        QMessageBox msgBox(QMessageBox::Question, "Save configuration?",
+                           "The current configuration has modifications. Do you want to save it?",
+                           QMessageBox::Save | QMessageBox::Cancel | QMessageBox::Discard);
+        int result = msgBox.exec();
 
         if (result == QMessageBox::Save)
         {
-            on_actionSaveConfig_triggered();
+            if (!on_actionSaveConfig_triggered())
+            {
+                return;
+            }
         }
         else if (result == QMessageBox::Cancel)
         {
@@ -502,6 +512,26 @@ void mvme::on_actionNewConfig_triggered()
 
 void mvme::on_actionLoadConfig_triggered()
 {
+    if (m_context->getConfig()->isModified())
+    {
+        QMessageBox msgBox(QMessageBox::Question, "Save configuration?",
+                           "The current configuration has modifications. Do you want to save it?",
+                           QMessageBox::Save | QMessageBox::Cancel | QMessageBox::Discard);
+        int result = msgBox.exec();
+
+        if (result == QMessageBox::Save)
+        {
+            if (!on_actionSaveConfig_triggered())
+            {
+                return;
+            }
+        }
+        else if (result == QMessageBox::Cancel)
+        {
+            return;
+        }
+    }
+
     QString path = QFileInfo(QSettings().value("Files/LastConfigFile").toString()).absolutePath();
 
     if (path.isEmpty())
@@ -518,12 +548,11 @@ void mvme::on_actionLoadConfig_triggered()
     loadConfig(fileName);
 }
 
-void mvme::on_actionSaveConfig_triggered()
+bool mvme::on_actionSaveConfig_triggered()
 {
     if (m_context->getConfigFileName().isEmpty())
     {
-        on_actionSaveConfigAs_triggered();
-        return;
+        return on_actionSaveConfigAs_triggered();
     }
 
     QString fileName = m_context->getConfigFileName();
@@ -531,18 +560,20 @@ void mvme::on_actionSaveConfig_triggered()
     if (!outFile.open(QIODevice::WriteOnly))
     {
         QMessageBox::critical(0, "Error", QString("Error writing to %1").arg(fileName));
+        return false;
     }
 
     if (outFile.write(m_context->getConfig()->toJson()) < 0)
     {
         QMessageBox::critical(0, "Error", QString("Error writing to %1").arg(fileName));
-        return;
+        return false;
     }
 
     m_context->getConfig()->setModified(false);
+    return true;
 }
 
-void mvme::on_actionSaveConfigAs_triggered()
+bool mvme::on_actionSaveConfigAs_triggered()
 {
     QString path = QFileInfo(QSettings().value("Files/LastConfigFile").toString()).absolutePath();
 
@@ -555,7 +586,7 @@ void mvme::on_actionSaveConfigAs_triggered()
                                                     "MVME Config Files (*.mvmecfg);; All Files (*.*)");
 
     if (fileName.isEmpty())
-        return;
+        return false;
 
     QFileInfo fi(fileName);
     if (fi.completeSuffix().isEmpty())
@@ -567,23 +598,46 @@ void mvme::on_actionSaveConfigAs_triggered()
     if (!outFile.open(QIODevice::WriteOnly))
     {
         QMessageBox::critical(0, "Error", QString("Error opening %1 for writing").arg(fileName));
-        return;
+        return false;
     }
 
     if (outFile.write(m_context->getConfig()->toJson()) < 0)
     {
         QMessageBox::critical(0, "Error", QString("Error writing to %1").arg(fileName));
-        return;
+        return false;
     }
 
     m_context->setConfigFileName(fileName);
     m_context->getConfig()->setModified(false);
+    QSettings().setValue("Files/LastConfigFile", fileName);
+    return true;
 }
 
 void mvme::on_actionOpen_Listfile_triggered()
 {
-#if 0
-    QString path = QFileInfo(QSettings().value("Files/LastListFile").toString()).absolutePath();
+    if (m_context->getConfig()->isModified())
+    {
+        QMessageBox msgBox(QMessageBox::Question, "Save configuration?",
+                           "The current configuration has modifications. Do you want to save it?",
+                           QMessageBox::Save | QMessageBox::Cancel | QMessageBox::Discard);
+        int result = msgBox.exec();
+
+        if (result == QMessageBox::Save)
+        {
+            if (!on_actionSaveConfig_triggered())
+            {
+                return;
+            }
+        }
+        else if (result == QMessageBox::Cancel)
+        {
+            return;
+        }
+    }
+
+
+    QSettings settings;
+    QString path = QFileInfo(settings.value("Files/LastListFile").toString()).absolutePath();
 
     if (path.isEmpty())
     {
@@ -595,7 +649,25 @@ void mvme::on_actionOpen_Listfile_triggered()
                                                     "MVME Listfiles (*.mvmelst);; All Files (*.*)");
     if (fileName.isEmpty())
         return;
-#endif
+
+    ListFile *listFile = new ListFile(fileName);
+
+    if (!listFile->open())
+    {
+        QMessageBox::critical(0, "Error", QString("Error opening %1 for reading").arg(fileName));
+        return;
+    }
+
+    DAQConfig *config = listFile->getConfig();
+
+    if (!config)
+    {
+        QMessageBox::critical(0, "Error", QString("Listfile does not contain a valid DAQ configuration"));
+        return;
+    }
+
+    settings.setValue("Files/LastListFile", fileName);
+    m_context->setListFile(listFile);
 }
 
 void mvme::on_actionShowLogWindow_triggered()
@@ -733,6 +805,8 @@ void mvme::appendToLog(const QString &s)
       .arg(s));
 
   m_logView->append(str);
+  auto bar = m_logView->verticalScrollBar();
+  bar->setValue(bar->maximum());
 }
 
 void mvme::handleLogViewContextMenu(const QPoint &pos)
@@ -767,6 +841,16 @@ void mvme::updateWindowTitle()
 
 void mvme::onConfigChanged(DAQConfig *config)
 {
+    for (auto win: ui->mdiArea->subWindowList())
+    {
+        if(qobject_cast<EventConfigWidget *>(win->widget()) ||
+           qobject_cast<ModuleConfigWidget *>(win->widget()))
+        {
+            win->close();
+        }
+    }
+
     connect(config, &DAQConfig::modifiedChanged, this, &mvme::updateWindowTitle);
     updateWindowTitle();
+    m_contextWidget->reloadConfig();
 }

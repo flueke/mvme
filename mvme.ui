@@ -39,6 +39,8 @@
     <addaction name="actionSaveConfigAs"/>
     <addaction name="separator"/>
     <addaction name="actionOpen_Listfile"/>
+    <addaction name="actionClose_Listfile"/>
+    <addaction name="separator"/>
     <addaction name="actionQuit"/>
    </widget>
    <widget class="QMenu" name="menuDisplay">
@@ -179,6 +181,16 @@
   <action name="actionOpen_Listfile">
    <property name="text">
     <string>Open Listfile</string>
+   </property>
+  </action>
+  <action name="actionClose_Config">
+   <property name="text">
+    <string>Close Config</string>
+   </property>
+  </action>
+  <action name="actionClose_Listfile">
+   <property name="text">
+    <string>Close Listfile</string>
    </property>
   </action>
  </widget>

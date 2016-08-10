@@ -37,9 +37,12 @@
  * +--------------------------------+
 */
 
-#include <QTextStream>
 #include "databuffer.h"
 #include "util.h"
+
+#include <QTextStream>
+#include <QFile>
+#include <QJsonDocument>
 
 namespace listfile
 {
@@ -75,5 +78,44 @@ namespace listfile
 }
 
 void dump_event_buffer(QTextStream &out, const DataBuffer *eventBuffer);
+
+class DAQConfig;
+
+class ListFile
+{
+    public:
+        ListFile(const QString &fileName);
+        bool open();
+        DAQConfig *getConfig();
+        bool seek(qint64 pos);
+        bool readNextSection(DataBuffer *buffer);
+        s32 readSectionsIntoBuffer(DataBuffer *buffer);
+
+    private:
+        QFile m_file;
+        QJsonDocument m_configJson;
+};
+
+class ListFileWorker: public QObject
+{
+    Q_OBJECT
+    signals:
+        void mvmeEventBufferReady(DataBuffer *);
+        void logMessage(const QString &);
+
+    public:
+        ListFileWorker(QObject *parent = 0);
+        ~ListFileWorker();
+        void setListFile(ListFile *listFile);
+
+    public slots:
+        void readNextBuffer();
+        //void start();
+        //void addFreeBuffer(DataBuffer *buffer);
+
+    private:
+        DataBuffer *m_buffer;
+        ListFile *m_listFile = 0;
+};
 
 #endif

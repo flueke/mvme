@@ -178,7 +178,7 @@ struct MVMEContextWidgetPrivate
     MVMEContextWidget *m_q;
     MVMEContext *context;
 
-    QPushButton *pb_startDAQ, *pb_startOneCycle, *pb_stopDAQ;
+    QPushButton *pb_startDAQ, *pb_startOneCycle, *pb_stopDAQ, *pb_replay;
     QLabel *label_daqState, *label_daqDuration, *label_buffersReadAndDropped,
            *label_freeBuffers, *label_readSize, *label_mbPerSecond;
     QLineEdit *le_outputDirectory;
@@ -203,6 +203,7 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
         m_d->pb_startOneCycle = new QPushButton("1 Cycle");
         m_d->pb_stopDAQ = new QPushButton("Stop");
         m_d->pb_stopDAQ->setEnabled(false);
+        m_d->pb_replay = new QPushButton("Replay");
         m_d->label_daqState = new QLabel("Idle");
         m_d->label_daqDuration = new QLabel();
         m_d->label_buffersReadAndDropped = new QLabel("0 / 0");
@@ -227,11 +228,14 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
             QMetaObject::invokeMethod(readoutWorker, "stop", Qt::QueuedConnection);
         });
 
+        connect(m_d->pb_replay, &QPushButton::clicked, context, &MVMEContext::startReplay);
+
         auto layout = new QGridLayout(gb_daqControl);
         layout->setContentsMargins(2, 4, 2, 2);
         layout->addWidget(m_d->pb_startDAQ, 0, 0);
         layout->addWidget(m_d->pb_startOneCycle, 0, 1);
         layout->addWidget(m_d->pb_stopDAQ, 0, 2);
+        layout->addWidget(m_d->pb_replay, 0, 3);
 
         auto stateLayout = new QFormLayout;
         stateLayout->setContentsMargins(2, 4, 2, 2);
@@ -286,7 +290,7 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
         layout->setSpacing(2);
 
         m_d->le_outputDirectory = new QLineEdit();
-        m_d->cb_outputEnabled = new QCheckBox("Output enabled");
+        m_d->cb_outputEnabled = new QCheckBox("Write listfile");
         auto pb_outputDirectory = new QPushButton("Select");
 
         connect(m_d->le_outputDirectory, &QLineEdit::textEdited, this, [=](const QString &newText){
@@ -317,7 +321,7 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
             context->getConfig()->setModified(true);
         });
 
-        auto gb_output  = new QGroupBox("Output");
+        auto gb_output  = new QGroupBox("Listfile Output");
         auto listFileLayout = new QFormLayout(gb_output);
         listFileLayout->addRow(m_d->le_outputDirectory);
         listFileLayout->addRow(hbox);
