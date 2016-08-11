@@ -247,9 +247,12 @@ bool mvme::loadConfig(const QString &fileName)
         return false;
     }
 
-    auto config = new DAQConfig;
-    config->read(doc.object());
-    m_context->setConfig(config);
+    for (auto name: m_context->getHistograms().keys())
+    {
+        m_context->removeHistogram(name);
+    }
+
+    m_context->read(doc.object());
     m_context->setConfigFileName(fileName);
     m_context->setMode(GlobalMode::DAQ);
 
@@ -508,6 +511,12 @@ void mvme::on_actionNewConfig_triggered()
 
     m_context->setConfig(new DAQConfig);
     m_context->setConfigFileName(QString());
+    QSettings().remove("Files/LastConfigFile");
+
+    for (auto name: m_context->getHistograms().keys())
+    {
+        m_context->removeHistogram(name);
+    }
 }
 
 void mvme::on_actionLoadConfig_triggered()
@@ -563,7 +572,11 @@ bool mvme::on_actionSaveConfig_triggered()
         return false;
     }
 
-    if (outFile.write(m_context->getConfig()->toJson()) < 0)
+    QJsonObject configObject;
+    m_context->write(configObject);
+    QJsonDocument doc(configObject);
+
+    if (outFile.write(doc.toJson()) < 0)
     {
         QMessageBox::critical(0, "Error", QString("Error writing to %1").arg(fileName));
         return false;
@@ -601,7 +614,11 @@ bool mvme::on_actionSaveConfigAs_triggered()
         return false;
     }
 
-    if (outFile.write(m_context->getConfig()->toJson()) < 0)
+    QJsonObject configObject;
+    m_context->write(configObject);
+    QJsonDocument doc(configObject);
+
+    if (outFile.write(doc.toJson()) < 0)
     {
         QMessageBox::critical(0, "Error", QString("Error writing to %1").arg(fileName));
         return false;
@@ -658,7 +675,7 @@ void mvme::on_actionOpen_Listfile_triggered()
         return;
     }
 
-    DAQConfig *config = listFile->getConfig();
+    DAQConfig *config = listFile->getDAQConfig();
 
     if (!config)
     {

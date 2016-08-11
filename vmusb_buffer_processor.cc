@@ -265,19 +265,22 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
                 u16 bufferTerminator = iter.extractU16();
                 if (bufferTerminator != Buffer::BufferTerminator)
                 {
-                    qDebug("processBuffer() warning: unexpected buffer terminator 0x%04x", bufferTerminator);
+                    emit logMessage(QString("VMUSB Warning: unexpected buffer terminator 0x%1")
+                                    .arg(bufferTerminator, 4, 10, QLatin1Char('0')));
                 }
             }
         }
         else
         {
-            qDebug("processBuffer() warning: no terminator words found!");
+            emit logMessage(QSL("VMUSB Warning: no terminator words found"));
         }
 
         if (iter.bytesLeft() != 0)
         {
-            qDebug("processBuffer() warning: %u bytes left in buffer!", iter.bytesLeft());
+            emit logMessage(QString("VMUSB Warning: %1 bytes left in buffer")
+                            .arg(iter.bytesLeft()));
 
+            qDebug("processBuffer() warning: %u bytes left in buffer!", iter.bytesLeft());
             for (size_t i=0; i<iter.longwordsLeft(); ++i)
                 qDebug("  0x%08x", iter.extractU32());
 
@@ -287,14 +290,17 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
             for (size_t i=0; i<iter.bytesLeft(); ++i)
                 qDebug("  0x%02x", iter.extractU8());
         }
-        else
-        {
-            //qDebug("processBuffer(): buffer successfully processed!");
-        }
 
         if (m_listFileOut.isOpen())
         {
-            m_listFileOut.write((const char *)outputBuffer->data, outputBuffer->used);
+            qint64 result = m_listFileOut.write((const char *)outputBuffer->data, outputBuffer->used);
+
+            if (result != (qint64)outputBuffer->used)
+            {
+                emit logMessage(QString("Error writing to listfile '%1': %2")
+                                .arg(m_listFileOut.fileName())
+                                .arg(m_listFileOut.errorString()));
+            }
         }
 
         //QTextStream out(stdout);
@@ -315,6 +321,7 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
     catch (const end_of_buffer &)
     {
         qDebug("Error: end of readBuffer reached unexpectedly!");
+        logMessage(QSL("VMUSB Error: end of readBuffer reached unexpectedly!"));
     }
 #endif
 
@@ -426,7 +433,6 @@ void VMUSBBufferProcessor::addFreeBuffer(DataBuffer *buffer)
     auto queue = m_context->getFreeBuffers();
     queue->enqueue(buffer);
     getStats()->freeBuffers = queue->size();
-    qDebug() << __PRETTY_FUNCTION__ << m_context->getFreeBuffers()->size() << buffer;
 }
 
 DataBuffer* VMUSBBufferProcessor::getFreeBuffer()

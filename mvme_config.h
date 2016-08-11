@@ -28,9 +28,9 @@ class ModuleConfig: public QObject
         }
 
         QString getName() const { return m_name; }
-
-
-        QString getFullName() const;
+        QString getFullPath() const;
+        int getNumberOfChannels() const;
+        int getADCResolution() const;
 
         void read(const QJsonObject &json);
         void write(QJsonObject &json) const;

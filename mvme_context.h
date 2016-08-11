@@ -18,6 +18,7 @@ class MVMEEventProcessor;
 class mvme;
 class ListFile;
 class ListFileWorker;
+class QJsonObject;
 
 class QTimer;
 class QThread;
@@ -26,12 +27,13 @@ struct DAQStats
 {
     QDateTime startTime;
     QDateTime endTime;
-    u64 totalBytesRead = 0;
-    u64 totalBuffersRead = 0;
+    u64 bytesRead = 0;
+    u64 buffersRead = 0;
     u64 buffersWithErrors = 0;
     u64 droppedBuffers = 0;
     int freeBuffers = 0;
     int readSize = 0;
+    u64 listFileBytesWritten = 0;
     QMap<QObject *, u64> eventCounts; // maps EventConfig/ModuleConfig to event count
 };
 
@@ -102,7 +104,12 @@ class MVMEContext: public QObject
         GlobalMode getMode() const;
 
         QMap<QString, Histogram *> getHistograms() { return m_histograms; }
-        Histogram *getHistogram(const QString &name) { return m_histograms.value(name);; }
+        QList<Histogram *> getHistogramList() const { return m_histograms.values(); }
+
+        Histogram *getHistogram(const QString &name)
+        {
+            return m_histograms.value(name);
+        }
 
         bool addHistogram(const QString &name, Histogram *histo)
         {
@@ -137,6 +144,9 @@ class MVMEContext: public QObject
         {
             return m_configFileName;
         }
+
+        void write(QJsonObject &json) const;
+        void read(const QJsonObject &json);
 
         friend class mvme;
 

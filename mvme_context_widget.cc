@@ -187,6 +187,7 @@ struct MVMEContextWidgetPrivate
     QMap<QObject *, QTreeWidgetItem *> treeWidgetMap; // maps config objects to tree items
 
     QListWidget *histoList;
+    QMap<QString, QListWidgetItem *> histoNameMap;
     QTimer *m_updateStatsTimer;
 };
 
@@ -274,6 +275,10 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
 
     connect(context, &MVMEContext::eventConfigAboutToBeRemoved, this, [=](EventConfig *config) {
         delete m_d->treeWidgetMap.take(config);
+    });
+
+    connect(context, &MVMEContext::histogramAboutToBeRemoved, this, [=](const QString &name, Histogram *hist) {
+        delete m_d->histoNameMap.take(name);
     });
 
 
@@ -465,6 +470,7 @@ void MVMEContextWidget::onEventConfigAdded(EventConfig *eventConfig)
     connect(eventConfig, &EventConfig::nameChanged, eventConfig, [=](const QString &name) {
         item->setText(0, name);
     });
+    m_d->contextTree->resizeColumnToContents(0);
 }
 
 template<typename T>
@@ -630,15 +636,22 @@ void MVMEContextWidget::histoListContextMenu(const QPoint &pos)
 {
     auto item = m_d->histoList->itemAt(pos);
     if (!item) return;
+
+    auto histo = Var2Ptr<Histogram>(item->data(Qt::UserRole+1));
+
     QMenu menu;
     QAction *openAction = menu.addAction("Open");
     QAction *clearAction = menu.addAction("Clear");
     QAction *delAction = menu.addAction("Remove");
 
+    if (histo->property("Histogram.autoCreated").toBool())
+    {
+        delAction->setEnabled(false);
+    }
+
     auto action = menu.exec(m_d->histoList->mapToGlobal(pos));
 
     auto name = item->data(Qt::UserRole).toString();
-    auto histo = Var2Ptr<Histogram>(item->data(Qt::UserRole+1));
 
     if (action == openAction)
     {
@@ -660,6 +673,7 @@ void MVMEContextWidget::onContextHistoAdded(const QString &name, Histogram *hist
     item->setData(Qt::UserRole, name);
     item->setData(Qt::UserRole+1, Ptr2Var(histo));
     m_d->histoList->addItem(item);
+    m_d->histoNameMap[name] = item;
 }
 
 QString makeDurationString(qint64 durationSeconds)
@@ -686,13 +700,13 @@ void MVMEContextWidget::updateStats()
     double buffersPerSecond = 0;
     if (duration > 0)
     {
-        mbPerSecond = ((double)stats.totalBytesRead / (1024.0*1024.0)) / (double)duration;
-        buffersPerSecond = (double)stats.totalBuffersRead / (double)duration;
+        mbPerSecond = ((double)stats.bytesRead / (1024.0*1024.0)) / (double)duration;
+        buffersPerSecond = (double)stats.buffersRead / (double)duration;
     }
     m_d->label_daqDuration->setText(durationString);
 
     m_d->label_buffersReadAndDropped->setText(QString("%1 / %2")
-                                              .arg(QString::number(stats.totalBuffersRead))
+                                              .arg(QString::number(stats.buffersRead))
                                               .arg(QString::number(stats.droppedBuffers)));
 
     m_d->label_freeBuffers->setText(QString::number(stats.freeBuffers));

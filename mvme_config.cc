@@ -6,7 +6,7 @@
 //
 // ModuleConfig
 //
-QString ModuleConfig::getFullName() const
+QString ModuleConfig::getFullPath() const
 {
     if (event)
     {
@@ -16,6 +16,44 @@ QString ModuleConfig::getFullName() const
     }
 
     return m_name;
+}
+
+int ModuleConfig::getNumberOfChannels() const
+{
+    switch (type)
+    {
+        case VMEModuleType::MADC32:
+        case VMEModuleType::MQDC32:
+        case VMEModuleType::MTDC32:
+        case VMEModuleType::MDPP16:
+        case VMEModuleType::MDPP32:
+            return 32;
+
+        case VMEModuleType::MDI2:
+        case VMEModuleType::Invalid:
+        case VMEModuleType::Generic:
+            return -1;
+    }
+    return -1;
+}
+
+int ModuleConfig::getADCResolution() const
+{
+    switch (type)
+    {
+        case VMEModuleType::MADC32:
+        case VMEModuleType::MQDC32:
+        case VMEModuleType::MTDC32:
+        case VMEModuleType::MDPP16:
+        case VMEModuleType::MDPP32:
+            return 8192;
+
+        case VMEModuleType::MDI2:
+        case VMEModuleType::Invalid:
+        case VMEModuleType::Generic:
+            return -1;
+    }
+    return -1;
 }
 
 void ModuleConfig::read(const QJsonObject &json)
@@ -140,6 +178,7 @@ void DAQConfig::write(QJsonObject &json) const
     json["events"] = eventArray;
 }
 
+#if 1
 QByteArray DAQConfig::toJson() const
 {
     QJsonObject configObject;
@@ -147,6 +186,7 @@ QByteArray DAQConfig::toJson() const
     QJsonDocument doc(configObject);
     return doc.toJson();
 }
+#endif
 
 ModuleConfig *DAQConfig::getModuleConfig(int eventIndex, int moduleIndex)
 {

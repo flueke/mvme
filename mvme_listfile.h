@@ -86,7 +86,7 @@ class ListFile
     public:
         ListFile(const QString &fileName);
         bool open();
-        DAQConfig *getConfig();
+        DAQConfig *getDAQConfig();
         bool seek(qint64 pos);
         bool readNextSection(DataBuffer *buffer);
         s32 readSectionsIntoBuffer(DataBuffer *buffer);

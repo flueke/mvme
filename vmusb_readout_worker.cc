@@ -7,6 +7,8 @@
 
 using namespace vmusb_constants;
 
+static const int maxConsecutiveReadErrors = 5;
+
 static void processQtEvents(QEventLoop::ProcessEventsFlags flags = QEventLoop::AllEvents)
 {
     QCoreApplication::processEvents(flags);
@@ -194,6 +196,7 @@ void VMUSBReadoutWorker::readoutLoop()
     vmusb->enterDaqMode();
 
     int timeout_ms = 2000; // TODO: make this dynamic and dependent on the Bulk Transfer Setup Register timeout
+    int consecutiveReadErrors = 0;
 
     DAQStats &stats(m_context->getDAQStats());
 
@@ -208,9 +211,10 @@ void VMUSBReadoutWorker::readoutLoop()
         if (bytesRead > 0)
         {
             m_readBuffer->used = bytesRead;
-            stats.totalBytesRead += bytesRead;
-            stats.totalBuffersRead++;
+            stats.bytesRead += bytesRead;
+            stats.buffersRead++;
             stats.readSize = bytesRead;
+            consecutiveReadErrors = 0;
             if (m_bufferProcessor)
             {
                 m_bufferProcessor->processBuffer(m_readBuffer);
@@ -218,12 +222,16 @@ void VMUSBReadoutWorker::readoutLoop()
         }
         else
         {
-            // TODO: error out after a number of successive read errors
-            qDebug() << "warning: bulk read returned" << bytesRead;
-            emit logMessage(QString("Error: vmusb bulk read returned %1").arg(bytesRead));
+            if (++consecutiveReadErrors > maxConsecutiveReadErrors)
+            {
+                emit logMessage(QString("Error: %1 consecutive reads failed. Stopping DAQ.").arg(consecutiveReadErrors));
+                break;
+            }
+            else
+            {
+                emit logMessage(QString("Error from vmusb bulk read: %1.").arg(bytesRead));
+            }
         }
-
-        //qDebug() << "cyclesToRun =" << m_cyclesToRun << ", bytesRead =" << bytesRead;
 
         if (m_cyclesToRun > 0)
         {
@@ -252,17 +260,13 @@ void VMUSBReadoutWorker::readoutLoop()
         if (bytesRead > 0)
         {
             m_readBuffer->used = bytesRead;
-            stats.totalBytesRead += bytesRead;
-            stats.totalBuffersRead++;
+            stats.bytesRead += bytesRead;
+            stats.buffersRead++;
             stats.readSize = bytesRead;
             if (m_bufferProcessor)
             {
                 m_bufferProcessor->processBuffer(m_readBuffer);
             }
-        }
-        else
-        {
-            qDebug() << "bulkRead returned" << bytesRead;
         }
         processQtEvents();
     } while (bytesRead > 0);

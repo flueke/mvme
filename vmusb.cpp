@@ -73,24 +73,32 @@ bool VMUSB::openFirstUsbDevice(void)
         return false;
     }
 
-    getUsbDevices();
-
-    if (numDevices <= 0)
+    try
     {
+
+        getUsbDevices();
+
+        if (numDevices <= 0)
+        {
+            return false;
+        }
+
+        hUsbDevice = xxusb_device_open(pUsbDevice[0].usbdev);
+
+        if (hUsbDevice)
+        {
+            m_currentSerialNumber = pUsbDevice[0].SerialString;
+            // clear the action register (makes sure daq mode is disabled)
+            writeActionRegister(0);
+            emit controllerOpened();
+        }
+
+        return hUsbDevice;
+    } catch (const VMUSB_UsbError &e)
+    {
+        qDebug() << e.toString();
         return false;
     }
-
-    hUsbDevice = xxusb_device_open(pUsbDevice[0].usbdev);
-
-    if (hUsbDevice)
-    {
-        m_currentSerialNumber = pUsbDevice[0].SerialString;
-        // clear the action register (makes sure daq mode is disabled)
-        writeActionRegister(0);
-        emit controllerOpened();
-    }
-
-    return hUsbDevice;
 }
 
 void VMUSB::closeUsbDevice(void)

@@ -81,7 +81,7 @@ bool ListFile::open()
     return m_file.open(QIODevice::ReadOnly);
 }
 
-DAQConfig *ListFile::getConfig()
+DAQConfig *ListFile::getDAQConfig()
 {
     DAQConfig *result = nullptr;
 

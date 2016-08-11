@@ -285,6 +285,13 @@ struct VMUSB_UsbError: public std::runtime_error
           , usb_result(usb_result)
     {}
 
+    QString toString() const
+    {
+        return QString("%1, error code = %2")
+            .arg(what())
+            .arg(usb_result);
+    }
+
     int usb_result;
 };
 
