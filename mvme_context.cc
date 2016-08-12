@@ -227,6 +227,12 @@ GlobalMode MVMEContext::getMode() const
     return m_mode;
 }
 
+void MVMEContext::addHist2D(ChannelSpectro *hist2d)
+{
+    m_2dHistograms.append(hist2d);
+    emit hist2DAdded(hist2d);
+}
+
 void MVMEContext::startReplay()
 {
     if (m_mode != GlobalMode::ListFile || !m_listFile)
@@ -240,6 +246,7 @@ void MVMEContext::write(QJsonObject &json) const
 {
     QJsonObject daqConfigObject;
     m_config->write(daqConfigObject);
+    json["DAQConfig"] = daqConfigObject;
 
     QJsonArray histArray;
 
@@ -247,7 +254,6 @@ void MVMEContext::write(QJsonObject &json) const
     {
         auto histo = m_histograms[name];
         QJsonObject histObject;
-        histObject["type"] = "HistCollection";
         histObject["name"] = name;
         histObject["channels"] = (int)histo->m_channels;
         histObject["resolution"] = (int)histo->m_resolution;
@@ -263,8 +269,22 @@ void MVMEContext::write(QJsonObject &json) const
         histArray.append(histObject);
     }
 
-    json["DAQConfig"] = daqConfigObject;
     json["Histograms"] = histArray;
+
+    QJsonArray hist2DArray;
+
+    for (auto hist2d: m_2dHistograms)
+    {
+        QJsonObject json;
+        json["name"] = hist2d->objectName();
+        json["xAxisResolution"] = (qint64)hist2d->xAxisResolution();
+        json["yAxisResolution"] = (qint64)hist2d->yAxisResolution();
+        json["xAxisSource"] = QJsonValue::fromVariant(hist2d->property("Hist2D.xAxisSource"));
+        json["yAxisSource"] = QJsonValue::fromVariant(hist2d->property("Hist2D.yAxisSource"));
+        hist2DArray.append(json);
+    }
+
+    json["2DHistograms"] = hist2DArray;
 }
 
 void MVMEContext::read(const QJsonObject &json)
@@ -279,26 +299,43 @@ void MVMEContext::read(const QJsonObject &json)
     for (int i=0; i<histograms.size(); ++i)
     {
         QJsonObject histodef = histograms[i].toObject();
-        QString type = histodef["type"].toString();
         QString name = histodef["name"].toString();
 
-        if (type == "HistCollection")
+        int channels   = histodef["channels"].toInt();
+        int resolution = histodef["resolution"].toInt();
+
+        if (!name.isEmpty() && channels > 0 && resolution > 0)
         {
-            int channels   = histodef["channels"].toInt();
-            int resolution = histodef["resolution"].toInt();
+            auto histo = new Histogram(this, channels, resolution);
+            auto properties = histodef["properties"].toObject().toVariantMap();
 
-            if (!name.isEmpty() && channels > 0 && resolution > 0)
+            for (auto propName: properties.keys())
             {
-                auto histo = new Histogram(this, channels, resolution);
-                auto properties = histodef["properties"].toObject().toVariantMap();
-
-                for (auto propName: properties.keys())
-                {
-                    auto value = properties[propName];
-                    histo->setProperty(propName.toLocal8Bit().constData(), value);
-                }
-                addHistogram(name, histo);
+                auto value = properties[propName];
+                histo->setProperty(propName.toLocal8Bit().constData(), value);
             }
+            addHistogram(name, histo);
+        }
+    }
+
+    QJsonArray hist2DArray = json["2DHistograms"].toArray();
+
+    for (int i=0; i<hist2DArray.size(); ++i)
+    {
+        QJsonObject histodef = hist2DArray[i].toObject();
+        QString name = histodef["name"].toString();
+        int xResolution = histodef["xAxisResolution"].toInt();
+        int yResolution = histodef["yAxisResolution"].toInt();
+        QString xAxisSource = histodef["xAxisSource"].toString();
+        QString yAxisSource = histodef["yAxisSource"].toString();
+
+        if (!name.isEmpty() && xResolution > 0 && yResolution > 0)
+        {
+            auto hist2d = new ChannelSpectro(xResolution, yResolution, this);
+            hist2d->setObjectName(name);
+            hist2d->setProperty("Hist2D.xAxisSource", xAxisSource);
+            hist2d->setProperty("Hist2D.yAxisSource", yAxisSource);
+            addHist2D(hist2d);
         }
     }
 }

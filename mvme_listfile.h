@@ -118,4 +118,169 @@ class ListFileWorker: public QObject
         ListFile *m_listFile = 0;
 };
 
+namespace listfile
+{
+    struct ModuleValue
+    {
+        ModuleValue()
+            : valid(false)
+        {}
+
+        ModuleValue(u32 dataWord)
+            : dataWord(dataWord)
+            , valid(true)
+        {}
+
+        bool isValid() const { return valid; }
+
+        u32 getAddress()
+        {
+            int address = (dataWord & 0x003F0000) >> 16;
+            return address;
+        }
+
+        u32 getValue()
+        {
+            u32 value = (dataWord & 0x00001FFF); // FIXME: data width depends on module type and configuration
+            return value;
+        }
+
+
+        u32 dataWord = 0;
+        bool valid = false;
+    };
+
+    struct SubEvent
+    {
+        SubEvent()
+        {}
+
+        SubEvent(u32 *subEventHeader, u32 *onePastEndOfBuffer)
+            : subEventHeader(subEventHeader)
+        {
+            if (subEventHeader + size() + 2 < onePastEndOfBuffer)
+                onePastEnd = subEventHeader + size() + 2;
+            else
+                onePastEnd = subEventHeader;
+        }
+
+        SubEvent(u32 *subEventHeader, size_t wordsInBuffer)
+            : SubEvent(subEventHeader, subEventHeader + wordsInBuffer + 1) // FIXME: last buffer missing
+        {}
+
+        int size()
+        {
+            u32 sectionSize = (*subEventHeader & SubEventSizeMask) >> SubEventSizeShift;
+            return sectionSize;
+        }
+
+        ModuleValue getValueByIndex(int index)
+        {
+            // add 2 to skip the subEventHeader and the modules header word
+            // XXX: mesytec specific
+            if (isValid() && (subEventHeader + index + 2 < onePastEnd))
+                return ModuleValue(*(subEventHeader + index + 2));
+
+            return ModuleValue();
+        }
+
+        // XXX: mesytec specific
+        ModuleValue getValueByAddress(int address)
+        {
+            if (isValid())
+            {
+                u32 *currentWord = subEventHeader + 2; // skip to first data word
+                const u32 *onePastLastWord = onePastEnd - 1; // skip the EOE word
+
+                for (; currentWord < onePastLastWord; ++currentWord)
+                {
+                    bool isDataWord = ((*currentWord & 0xF0000000) == 0x10000000) // MDPP
+                        || ((*currentWord & 0xFF800000) == 0x04000000); // MxDC
+
+                    if (isDataWord)
+                    {
+                        int currentAddress = (*currentWord & 0x003F0000) >> 16;
+                        if (currentAddress == address)
+                            return ModuleValue(*currentWord);
+                    }
+                }
+            }
+
+            return ModuleValue();
+        }
+
+        ModuleValue operator[](int address)
+        {
+            return getValueByAddress(address);
+        }
+
+        bool isValid()
+        {
+            return subEventHeader < onePastEnd;
+        }
+
+        u32 *subEventHeader = 0;
+        u32 *onePastEnd = 0;
+    };
+
+    struct Section
+    {
+        Section()
+        {}
+
+        Section(u32 *sectionHeader, u32 *onePastEndOfBuffer)
+            : sectionHeader(sectionHeader)
+        {
+            if (sectionHeader + size() + 2 < onePastEndOfBuffer)
+                onePastEnd = sectionHeader + size() + 2;
+            else
+                onePastEnd = sectionHeader;
+        }
+
+        Section(u32 *sectionHeader, size_t wordsInBuffer)
+            : Section(sectionHeader, sectionHeader + wordsInBuffer + 1)
+        {}
+
+        int size()
+        {
+            u32 sectionSize = (*sectionHeader & SectionSizeMask) >> SectionSizeShift;
+            return sectionSize;
+        }
+
+        int type()
+        {
+            int sectionType = (*sectionHeader & SectionTypeMask) >> SectionTypeShift;
+            return sectionType;
+        }
+
+        bool isValid()
+        {
+            return sectionHeader < onePastEnd;
+        }
+
+        // get SubEvent by index
+        SubEvent operator[](int index)
+        {
+            if (!isValid() || type() != SectionType_Event)
+                return SubEvent();
+
+            int currentIndex = 0;
+            u32 *subEventHeader = sectionHeader + 1;
+
+            while (currentIndex < index)
+            {
+                u32 subEventSize = (*subEventHeader & SubEventSizeMask) >> SubEventSizeShift;
+                subEventHeader += subEventSize + 1;
+                if (subEventHeader >= onePastEnd)
+                    return SubEvent();
+            }
+            return SubEvent(subEventHeader, onePastEnd);
+        }
+
+        u32 *sectionHeader = 0;
+        u32 *onePastEnd = 0;
+    };
+    
+}
+
 #endif

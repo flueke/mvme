@@ -3,6 +3,7 @@
 #include "vmusb_buffer_processor.h"
 #include "CVMUSBReadoutList.h"
 #include "histogram.h"
+#include "hist2ddialog.h"
 
 #include <QComboBox>
 #include <QDialog>
@@ -268,6 +269,7 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
     connect(context, &MVMEContext::eventConfigAdded, this, &MVMEContextWidget::onEventConfigAdded);
     connect(context, &MVMEContext::configChanged, this, &MVMEContextWidget::onConfigChanged);
     connect(context, &MVMEContext::daqStateChanged, this, &MVMEContextWidget::onDAQStateChanged);
+    connect(context, &MVMEContext::hist2DAdded, this, &MVMEContextWidget::onHist2DAdded);
 
     connect(context, &MVMEContext::moduleAboutToBeRemoved, this, [=](ModuleConfig *config) {
         delete m_d->treeWidgetMap.take(config);
@@ -621,15 +623,37 @@ void MVMEContextWidget::onDAQStateChanged(DAQState state)
 void MVMEContextWidget::histoListItemClicked(QListWidgetItem *item)
 {
     auto name = item->data(Qt::UserRole).toString();
-    auto histo = Var2Ptr<Histogram>(item->data(Qt::UserRole+1));
-    emit histogramClicked(name, histo);
+    auto object = Var2Ptr<QObject>(item->data(Qt::UserRole+1));
+
+    auto histo = qobject_cast<Histogram *>(object);
+    auto hist2d = qobject_cast<ChannelSpectro *>(object);
+
+    if (histo)
+    {
+        emit histogramClicked(name, histo);
+    }
+    else if (hist2d)
+    {
+        emit hist2DClicked(hist2d);
+    }
 }
 
 void MVMEContextWidget::histoListItemDoubleClicked(QListWidgetItem *item)
 {
     auto name = item->data(Qt::UserRole).toString();
-    auto histo = Var2Ptr<Histogram>(item->data(Qt::UserRole+1));
-    emit histogramDoubleClicked(name, histo);
+    auto object = Var2Ptr<QObject>(item->data(Qt::UserRole+1));
+
+    auto histo = qobject_cast<Histogram *>(object);
+    auto hist2d = qobject_cast<ChannelSpectro *>(object);
+
+    if (histo)
+    {
+        emit histogramDoubleClicked(name, histo);
+    }
+    else if (hist2d)
+    {
+        emit hist2DDoubleClicked(hist2d);
+    }
 }
 
 void MVMEContextWidget::histoListContextMenu(const QPoint &pos)
@@ -643,6 +667,7 @@ void MVMEContextWidget::histoListContextMenu(const QPoint &pos)
     QAction *openAction = menu.addAction("Open");
     QAction *clearAction = menu.addAction("Clear");
     QAction *delAction = menu.addAction("Remove");
+    QAction *addHist2D = menu.addAction("Add 2D Histogram");
 
     if (histo->property("Histogram.autoCreated").toBool())
     {
@@ -665,6 +690,17 @@ void MVMEContextWidget::histoListContextMenu(const QPoint &pos)
     {
         m_d->context->removeHistogram(name);
     }
+    else if (action == addHist2D)
+    {
+        Hist2DDialog dialog;
+        int result = dialog.exec();
+
+        if (result == QDialog::Accepted)
+        {
+            auto hist2d = dialog.getHist2D();
+            m_d->context->addHist2D(hist2d);
+        }
+    }
 }
 
 void MVMEContextWidget::onContextHistoAdded(const QString &name, Histogram *histo)
@@ -674,6 +710,14 @@ void MVMEContextWidget::onContextHistoAdded(const QString &name, Histogram *hist
     item->setData(Qt::UserRole+1, Ptr2Var(histo));
     m_d->histoList->addItem(item);
     m_d->histoNameMap[name] = item;
+}
+
+void MVMEContextWidget::onHist2DAdded(ChannelSpectro *hist2d)
+{
+    auto item = new QListWidgetItem(hist2d->objectName());
+    item->setData(Qt::UserRole+1, Ptr2Var(hist2d));
+    m_d->histoList->addItem(item);
+    m_d->histoNameMap[hist2d->objectName()] = item;
 }
 
 QString makeDurationString(qint64 durationSeconds)

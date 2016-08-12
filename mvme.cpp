@@ -109,6 +109,9 @@ mvme::mvme(QWidget *parent) :
     connect(contextWidget, &MVMEContextWidget::histogramDoubleClicked, this, &mvme::handleHistogramDoubleClicked);
     connect(contextWidget, &MVMEContextWidget::showHistogram, this, &mvme::openHistogramView);
 
+    connect(contextWidget, &MVMEContextWidget::hist2DClicked, this, &mvme::handleHist2DClicked);
+    connect(contextWidget, &MVMEContextWidget::hist2DDoubleClicked, this, &mvme::handleHist2DDoubleClicked);
+
     auto contextDock = new QDockWidget();
     contextDock->setObjectName("MVMEContextDock");
     contextDock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
@@ -240,9 +243,10 @@ bool mvme::loadConfig(const QString &fileName)
 
     if (parseError.error != QJsonParseError::NoError)
     {
-        QMessageBox::critical(0, "Error", QString("Error reading from %1: %2")
+        QMessageBox::critical(0, "Error", QString("Error reading from %1: %2 at offset %3")
                               .arg(fileName)
                               .arg(parseError.errorString())
+                              .arg(parseError.offset)
                              );
         return false;
     }
@@ -806,6 +810,57 @@ void mvme::openHistogramView(Histogram *histo)
     if (histo)
     {
         auto widget = new TwoDimWidget(m_context, histo);
+        auto subwin = new QMdiSubWindow(ui->mdiArea);
+        subwin->setWidget(widget);
+        subwin->setAttribute(Qt::WA_DeleteOnClose);
+        ui->mdiArea->addSubWindow(subwin);
+        subwin->show();
+        ui->mdiArea->setActiveSubWindow(subwin);
+    }
+}
+
+void mvme::handleHist2DClicked(ChannelSpectro *hist2d)
+{
+    QMdiSubWindow *subwin = 0;
+    for (auto win: ui->mdiArea->subWindowList())
+    {
+        auto widget = qobject_cast<ChannelSpectroWidget *>(win->widget());
+        if (widget && widget->getHist2D() == hist2d)
+        {
+            subwin = win;
+            break;
+        }
+    }
+
+    if (subwin)
+    {
+        subwin->show();
+        if (subwin->isMinimized())
+            subwin->showNormal();
+        subwin->raise();
+    }
+    ui->mdiArea->setActiveSubWindow(subwin);
+}
+
+void mvme::handleHist2DDoubleClicked(ChannelSpectro *hist2d)
+{
+    for (auto win: ui->mdiArea->subWindowList())
+    {
+        auto widget = qobject_cast<ChannelSpectroWidget *>(win->widget());
+        if (widget && widget->getHist2D() == hist2d)
+        {
+            return;
+        }
+    }
+
+    open2DHistView(hist2d);
+}
+
+void mvme::open2DHistView(ChannelSpectro *hist2d)
+{
+    if (hist2d)
+    {
+        auto widget = new ChannelSpectroWidget(hist2d);
         auto subwin = new QMdiSubWindow(ui->mdiArea);
         subwin->setWidget(widget);
         subwin->setAttribute(Qt::WA_DeleteOnClose);

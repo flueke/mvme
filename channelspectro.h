@@ -14,19 +14,24 @@ class QwtLinearColorMap;
 class ChannelSpectroData;
 class ScrollZoomer;
 
-class ChannelSpectro
+class ChannelSpectro: public QObject
 {
+    Q_OBJECT
 public:
-    ChannelSpectro(uint32_t xResolution = 8192, uint32_t yResolution = 8192);
+    ChannelSpectro(uint32_t xResolution = 8192, uint32_t yResolution = 8192, QObject *parent = 0);
     void setXAxisChannel(int32_t channel);
     void setYAxisChannel(int32_t channel);
 
     int32_t getXAxisChannel() const { return m_xAxisChannel; }
     int32_t getYAxisChannel() const { return m_yAxisChannel; }
-    void setValue(uint32_t channel, uint32_t value);
     QwtPlotSpectrogram *getPlotItem() const { return m_plotItem; }
     ChannelSpectroData *getSpectroData() const { return m_data; }
     void clear();
+
+    uint32_t xAxisResolution() const;
+    uint32_t yAxisResolution() const;
+
+    void fill(uint32_t x, uint32_t y);
 
     QwtLinearColorMap *getColorMap() const;
 
@@ -50,6 +55,7 @@ public:
     explicit ChannelSpectroWidget(ChannelSpectro *channelSpectro, QWidget *parent=0);
     ~ChannelSpectroWidget();
 
+    ChannelSpectro *getHist2D() const { return m_channelSpectro; }
 
 public slots:
     void replot();

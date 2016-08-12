@@ -2,6 +2,7 @@
 #define UUID_d7f2fe8a_95dc_414c_b630_191563e5fb16
 
 #include "mvme_context.h"
+#include "channelspectro.h"
 #include <QWidget>
 
 struct MVMEContextWidgetPrivate;
@@ -23,6 +24,9 @@ class MVMEContextWidget: public QWidget
 
         void histogramClicked(const QString &name, Histogram *histo);
         void histogramDoubleClicked(const QString &name, Histogram *histo);
+
+        void hist2DClicked(ChannelSpectro *hist2d);
+        void hist2DDoubleClicked(ChannelSpectro *hist2d);
         void showHistogram(Histogram *histo);
 
     public:
@@ -41,6 +45,7 @@ class MVMEContextWidget: public QWidget
         void histoListItemDoubleClicked(QListWidgetItem *item);
         void histoListContextMenu(const QPoint &pos);
         void onContextHistoAdded(const QString &name, Histogram *histo);
+        void onHist2DAdded(ChannelSpectro *hist2d);
         void onConfigChanged();
         void updateStats();
 

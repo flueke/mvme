@@ -10,8 +10,110 @@ MVMEEventProcessor::MVMEEventProcessor(MVMEContext *context)
 {
 }
 
+#if 1
+// Process an event buffer containing one or more events. Each event contains a
+// subevent for each module contributing data for this event.
 void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
 {
+    qDebug() << __PRETTY_FUNCTION__;
+    BufferIterator iter(buffer->data, buffer->used, BufferIterator::Align32);
+
+    while (iter.longwordsLeft())
+    {
+        u32 sectionHeader = iter.peekU32();
+        int sectionType = (sectionHeader & SectionTypeMask) >> SectionTypeShift;
+        u32 sectionSize = (sectionHeader & SectionSizeMask) >> SectionSizeShift;
+
+        if (sectionType != SectionType_Event)
+        {
+            iter.skip(sectionSize * sizeof(u32) + sizeof(u32));
+            continue;
+        }
+
+        int eventID = (sectionHeader & EventTypeMask) >> EventTypeShift;
+        auto eventConfig = m_context->getConfig()->getEventConfig(eventID);
+
+        if (!eventConfig)
+        {
+            qDebug() << "no event config found for event id =" << eventID << ", skipping event section";
+            iter.skip(sectionSize * sizeof(u32) + sizeof(u32));
+            continue;
+        }
+
+        auto longWordsLeft = iter.longwordsLeft();
+
+        Section section(iter.asU32(), iter.longwordsLeft());
+        qDebug("iter=0x%08x, sectionHeader=0x%08x, section.isValid=%d",
+               iter.buffp, sectionHeader, section.isValid());
+
+        if (!section.isValid())
+        {
+            int x = 5;
+            Section section2(iter.asU32(), iter.longwordsLeft());
+        }
+
+        // for each HistogramCollection that's interested in one of the modules in this event:
+        //   get the module subevent from the event
+        //   for each channelNumber in the HistogramCollection:
+        //     extract the value for the channelNumber from the module subevent
+        //     increment the histograms bin for the (channelnumber, value)
+        for (auto histCollection: m_context->getHistogramList())
+        {
+            QString sourceModulePath = histCollection->property("Histogram.sourceModule").toString();
+            QString configName = sourceModulePath.section('.', 0, 0);
+            QString moduleName = sourceModulePath.section('.', 1, 1);
+
+            if (configName == eventConfig->getName())
+            {
+                int moduleIndex = eventConfig->getModuleIndexByModuleName(moduleName);
+
+                if (moduleIndex >= 0)
+                {
+                    for (u32 channelAddress=0;
+                         channelAddress < histCollection->m_channels;
+                         ++channelAddress)
+                    {
+                        ModuleValue modValue = section[moduleIndex][channelAddress];
+
+#if 0
+                            qDebug() << histCollection
+                                << "configName" << configName
+                                << "moduleName" << moduleName
+                                << "moduleIndex" << moduleIndex
+                                << "channelAddress" << channelAddress
+                                << "modValue.isValid()" << modValue.isValid()
+                                << "modValue.getAddress()" << modValue.getAddress()
+                                << "modValue.getValue()" << modValue.getValue()
+                                ;
+#endif
+
+                        if (modValue.isValid())
+                        {
+                            histCollection->incValue(channelAddress, modValue.getValue());
+                        }
+                    }
+                }
+            }
+        }
+
+        iter.skip(sectionSize * sizeof(u32) + sizeof(u32));
+
+        // for each Hist2D that's interested in any of the modules in this event:
+        //   get (module, channel address) from hist2d.xaxissource
+        //   get (module, channel address) from hist2d.yaxissource
+        //   get value for xaxis from the event
+        //   get value for yaxis from the event
+        //   if both values are valid:
+        //      hist2d->fill(xValue, yValue)
+    }
+
+    emit bufferProcessed(buffer);
+}
+#else
+// Process an event buffer containing one or more events.
+void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
+{
+
     BufferIterator iter(buffer->data, buffer->used, BufferIterator::Align32);
 
     while (iter.longwordsLeft())
@@ -41,6 +143,7 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
 
     emit bufferProcessed(buffer);
 }
+#endif
 
 void MVMEEventProcessor::processSubEvent(BufferIterator &iter, int eventType, int subEventIndex)
 {
@@ -104,7 +207,7 @@ void MVMEEventProcessor::processMesytecEvent(BufferIterator &iter, ModuleConfig 
             QString channelPath = makeChannelPath(cfg->getPath() + '.' + QString::number(address));
 
 // testfoo
-            QVector<Hist1D> hists = m_context->get1DHistogramsBySource(channelPath); 
+            QVector<Hist1D> hists = m_context->get1DHistogramsBySource(channelPath);
             for (auto hist: hists)
             {
                 hist->fill(value);

@@ -96,8 +96,9 @@ private:
     uint32_t m_maxValue;
 };
 
-ChannelSpectro::ChannelSpectro(uint32_t xResolution, uint32_t yResolution)
-    : m_plotItem(new QwtPlotSpectrogram)
+ChannelSpectro::ChannelSpectro(uint32_t xResolution, uint32_t yResolution, QObject *parent)
+    : QObject(parent)
+    , m_plotItem(new QwtPlotSpectrogram)
     , m_data(new ChannelSpectroData(xResolution, yResolution))
     , m_xAxisChannel(-1)
     , m_yAxisChannel(-1)
@@ -108,6 +109,16 @@ ChannelSpectro::ChannelSpectro(uint32_t xResolution, uint32_t yResolution)
     m_plotItem->setRenderThreadCount(0); // use system specific ideal thread count
 
     m_plotItem->setColorMap(getColorMap());
+}
+
+uint32_t ChannelSpectro::xAxisResolution() const
+{
+    return m_data->m_xResolution;
+}
+
+uint32_t ChannelSpectro::yAxisResolution() const
+{
+    return m_data->m_yResolution;
 }
 
 QwtLinearColorMap *ChannelSpectro::getColorMap() const
@@ -123,6 +134,12 @@ QwtLinearColorMap *ChannelSpectro::getColorMap() const
     return colorMap;
 }
 
+void ChannelSpectro::fill(uint32_t x, uint32_t y)
+{
+    m_data->incValue(x, y);
+    m_plotItem->itemChanged();
+}
+
 void ChannelSpectro::setXAxisChannel(int32_t channel)
 {
     m_xAxisChannel = channel;
@@ -135,30 +152,6 @@ void ChannelSpectro::setYAxisChannel(int32_t channel)
     m_yAxisChannel = channel;
     m_data->reset();
     m_plotItem->itemChanged();
-}
-
-void ChannelSpectro::setValue(uint32_t channel, uint32_t value)
-{
-    if (m_xAxisChannel >= 0 && (int32_t)channel == m_xAxisChannel)
-    {
-        //qDebug() << __PRETTY_FUNCTION__ << "x" <<  channel << value;
-        m_xValue = value;
-    }
-
-    if (m_yAxisChannel >= 0 && (int32_t)channel == m_yAxisChannel)
-    {
-        //qDebug() << __PRETTY_FUNCTION__ << "y" <<  channel << value;
-        m_yValue = value;
-    }
-
-    if (m_xValue >= 0 && m_yValue >= 0)
-    {
-        //qDebug() << __PRETTY_FUNCTION__ << "x && y" << m_xValue << m_yValue;
-        m_data->incValue(m_xValue, m_yValue);
-        m_xValue = -1;
-        m_yValue = -1;
-        m_plotItem->itemChanged();
-    }
 }
 
 void ChannelSpectro::clear()

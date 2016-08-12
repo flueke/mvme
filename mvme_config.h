@@ -83,6 +83,18 @@ class EventConfig: public QObject
         void read(const QJsonObject &json);
         void write(QJsonObject &json) const;
 
+        int getModuleIndexByModuleName(const QString &name) const
+        {
+            for (int i=0; i<modules.size(); ++i)
+            {
+                if (modules[i]->getName() == name)
+                {
+                    return i;
+                }
+            }
+            return -1;
+        }
+
     TriggerCondition triggerCondition;
     uint8_t irqLevel = 0;
     uint8_t irqVector = 0;
@@ -135,7 +147,9 @@ class DAQConfig: public QObject
         void addEventConfig(EventConfig *config) { m_eventConfigs.push_back(config); }
         bool removeEventConfig(EventConfig *config) { return m_eventConfigs.removeOne(config); }
         QList<EventConfig *> getEventConfigs() const { return m_eventConfigs; }
-        ModuleConfig *getModuleConfig(int eventIndex, int moduleIndex);
+        EventConfig *getEventConfig(int eventID) { return m_eventConfigs.value(eventID); }
+
+        ModuleConfig *getModuleConfig(int eventID, int moduleIndex);
 
         void read(const QJsonObject &json);
         void write(QJsonObject &json) const;

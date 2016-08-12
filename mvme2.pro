@@ -46,6 +46,7 @@ SOURCES += \
     vmusb_buffer_processor.cc \
     vmusb_readout_worker.cc \
     vmusb_stack.cc \
+    hist2ddialog.cc
 
 
 HEADERS  += \
@@ -80,6 +81,7 @@ HEADERS  += \
     vmusb_constants.h \
     vmusb_readout_worker.h \
     vmusb_stack.h \
+    hist2ddialog.h
 
 
 FORMS    += \
@@ -87,7 +89,8 @@ FORMS    += \
     mvme.ui \
     twodimwidget.ui \
     channelspectrowidget.ui \
-    moduleconfig_widget.ui
+    moduleconfig_widget.ui \
+    hist2ddialog.ui
 
 DEFINES += VME_CONTROLLER_WIENER
 #DEFINES += VME_CONTROLLER_CAEN

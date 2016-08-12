@@ -83,7 +83,7 @@ void DataCruncher::crunchTimerSlot()
                     quint32 scaledValue = (quint32)(val * (1024.0/8192.0));
 
                     //qDebug("channelSpectro: channel=%u, value=%u -> %u", channel, val, scaledValue);
-                    m_channelSpectro->setValue(channel, scaledValue);
+                    //m_channelSpectro->setValue(channel, scaledValue);
                 }
             }
 

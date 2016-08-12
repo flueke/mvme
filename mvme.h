@@ -75,6 +75,7 @@ public slots:
     void createNewChannelSpectrogram();
 
     void openHistogramView(Histogram *histo);
+    void open2DHistView(ChannelSpectro *hist2d);
 
 private slots:
     void on_actionSave_Histogram_triggered();
@@ -105,6 +106,9 @@ private slots:
 
     void handleHistogramClicked(const QString &name, Histogram *histo);
     void handleHistogramDoubleClicked(const QString &name, Histogram *histo);
+
+    void handleHist2DClicked(ChannelSpectro *hist2d);
+    void handleHist2DDoubleClicked(ChannelSpectro *hist2d);
 
     void appendToLog(const QString &);
     void handleLogViewContextMenu(const QPoint &pos);

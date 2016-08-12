@@ -6,6 +6,7 @@
 #include "databuffer.h"
 #include "mvme_config.h"
 #include "histogram.h"
+#include "channelspectro.h"
 #include <QList>
 #include <QWidget>
 #include <QFuture>
@@ -66,6 +67,8 @@ class MVMEContext: public QObject
         void histogramAdded(const QString &name, Histogram *histo);
         void histogramAboutToBeRemoved(const QString &name, Histogram *histo);
 
+        void hist2DAdded(ChannelSpectro *hist2d);
+
         void logMessage(const QString &);
 
         void modeChanged(GlobalMode mode);
@@ -118,6 +121,12 @@ class MVMEContext: public QObject
             m_histograms[name] = histo;
             emit histogramAdded(name, histo);
             return true;
+        }
+        void addHist2D(ChannelSpectro *hist2d);
+
+        QVector<ChannelSpectro *> get2DHistograms() const
+        {
+            return m_2dHistograms;
         }
 
         bool removeHistogram(const QString &name)
@@ -172,6 +181,7 @@ class MVMEContext: public QObject
         DataBufferQueue m_freeBuffers;
         QString m_configFileName;
         QMap<QString, Histogram *> m_histograms;
+        QVector<ChannelSpectro *> m_2dHistograms;
         mvme *m_mainwin;
         DAQStats m_daqStats;
         ListFile *m_listFile;
