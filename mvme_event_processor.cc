@@ -10,7 +10,7 @@ MVMEEventProcessor::MVMEEventProcessor(MVMEContext *context)
 {
 }
 
-#if 1
+#if 0
 // Process an event buffer containing one or more events. Each event contains a
 // subevent for each module contributing data for this event.
 void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
@@ -43,12 +43,13 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
         auto longWordsLeft = iter.longwordsLeft();
 
         Section section(iter.asU32(), iter.longwordsLeft());
-        qDebug("iter=0x%08x, sectionHeader=0x%08x, section.isValid=%d",
-               iter.buffp, sectionHeader, section.isValid());
 
         if (!section.isValid())
         {
+            qDebug("iter=0x%08x, sectionHeader=0x%08x, section.isValid=%d",
+                   iter.buffp, sectionHeader, section.isValid());
             int x = 5;
+            qDebug() << iter.asU32() + iter.longwordsLeft() + 1;
             Section section2(iter.asU32(), iter.longwordsLeft());
         }
 
@@ -74,6 +75,11 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
                          ++channelAddress)
                     {
                         ModuleValue modValue = section[moduleIndex][channelAddress];
+
+                        if (!modValue.isValid())
+                        {
+                            qDebug() << "invalid mod value for " << configName << moduleName << moduleIndex;
+                        }
 
 #if 0
                             qDebug() << histCollection
@@ -131,13 +137,104 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
         int eventType = (sectionHeader & EventTypeMask) >> EventTypeShift;
         u32 wordsLeftInSection = sectionSize;
         int subEventIndex = 0;
+
+        // subeventindex, address -> value
+        QHash<int, QHash<int, u32>> eventValues;
+
         while (wordsLeftInSection)
         {
             u8 *oldBufferP = iter.buffp;
-            processSubEvent(iter, eventType, subEventIndex);
+
+            {
+
+                u32 subEventHeader = iter.extractU32();
+                u32 subEventSize = (subEventHeader & SubEventSizeMask) >> SubEventSizeShift;
+                auto moduleType  = static_cast<VMEModuleType>((subEventHeader & ModuleTypeMask) >> ModuleTypeShift);
+                ModuleConfig *cfg = m_context->getConfig()->getModuleConfig(eventType, subEventIndex);
+
+                if (isMesytecModule(moduleType) && cfg)
+                {
+
+
+                    Histogram *histo = 0;
+
+                    for (auto h: m_context->getHistogramList())
+                    {
+                        if (h->property("Histogram.sourceModule").toString() == cfg->getFullPath())
+                        {
+                            histo = h;
+                            break;
+                        }
+                    }
+
+                    for (u32 i=0; i<subEventSize; ++i)
+                    {
+                        u32 currentWord = iter.extractU32();
+
+                        if (currentWord == 0xFFFFFFFF || currentWord == 0x00000000)
+                            continue;
+
+                        //bool header_found_flag = (currentWord & 0xC0000000) == 0x40000000;
+
+
+                        bool data_found_flag = ((currentWord & 0xF0000000) == 0x10000000) // MDPP
+                            || ((currentWord & 0xFF800000) == 0x04000000); // MxDC
+
+                        if (data_found_flag)
+                        {
+                            u16 address = (currentWord & 0x003F0000) >> 16;
+                            u32 value   = (currentWord & 0x00001FFF); // FIXME: data width depends on module type and configuration
+                            if (histo)
+                            {
+                                histo->incValue(address, value);
+                            }
+
+                            eventValues[subEventIndex][address] = value;
+                        }
+                    }
+                }
+                else
+                {
+                    iter.skip(subEventSize * sizeof(u32));
+                }
+            }
+
             u8 *newBufferP = iter.buffp;
             wordsLeftInSection -= (newBufferP - oldBufferP) / sizeof(u32);
             ++subEventIndex;
+        }
+
+        //
+        // fill 2D Histograms
+        //
+        auto hist2ds = m_context->get2DHistograms();
+        for (auto hist2d: hist2ds)
+        {
+            bool ok1, ok2, ok3;
+            QString sourcePath = hist2d->property("Hist2D.xAxisSource").toString();
+            int eventIndex   = sourcePath.section('.', 0, 0).toInt(&ok1);
+            int moduleIndex  = sourcePath.section('.', 1, 1).toInt(&ok2);
+            int addressValue = sourcePath.section('.', 2, 2).toInt(&ok3);
+
+            if (eventIndex != eventType || !(ok1 && ok2 && ok3))
+                continue;
+
+            u32 xValue = eventValues[moduleIndex][addressValue];
+
+            sourcePath = hist2d->property("Hist2D.yAxisSource").toString();
+            eventIndex   = sourcePath.section('.', 0, 0).toInt(&ok1);
+            moduleIndex  = sourcePath.section('.', 1, 1).toInt(&ok2);
+            addressValue = sourcePath.section('.', 2, 2).toInt(&ok3);
+
+            if (eventIndex != eventType || !(ok1 && ok2 && ok3))
+                continue;
+
+            u32 yValue = eventValues[moduleIndex][addressValue];
+
+            qDebug() << hist2d << hist2d->xAxisResolution() << hist2d->yAxisResolution() << xValue << yValue;
+
+            // FIXME: can't just shift here: need to know resolution
+            hist2d->fill(xValue >> 2, yValue >> 2);
         }
     }
 
@@ -145,103 +242,3 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
 }
 #endif
 
-void MVMEEventProcessor::processSubEvent(BufferIterator &iter, int eventType, int subEventIndex)
-{
-    u32 subEventHeader = iter.peekU32();
-
-    auto moduleType  = static_cast<VMEModuleType>((subEventHeader & ModuleTypeMask) >> ModuleTypeShift);
-    u32 subEventSize = (subEventHeader & SubEventSizeMask) >> SubEventSizeShift;
-    ModuleConfig *cfg = m_context->getConfig()->getModuleConfig(eventType, subEventIndex);
-
-    if (isMesytecModule(moduleType) && cfg)
-    {
-        processMesytecEvent(iter, cfg);
-    }
-    else
-    {
-        qDebug() << "skipping subevent" << (int)moduleType << cfg;
-        iter.skip(subEventSize * sizeof(u32) + sizeof(u32));
-    }
-}
-
-void MVMEEventProcessor::processMesytecEvent(BufferIterator &iter, ModuleConfig *cfg)
-{
-    // TODO: implement something like ModuleData moduleData(iter->asU32(), iter->longwordsLeft());
-
-    u32 subEventHeader = iter.extractU32();
-    u32 subEventSize = (subEventHeader & SubEventSizeMask) >> SubEventSizeShift;
-
-    //auto histo = m_context->getHistogram(cfg->getFullPath());
-    Histogram *histo = 0;
-
-    for (auto h: m_context->getHistogramList())
-    {
-        if (h->property("Histogram.sourceModule").toString() == cfg->getFullPath())
-        {
-            histo = h;
-            break;
-        }
-    }
-
-    for (u32 i=0; i<subEventSize; ++i)
-    {
-        u32 currentWord = iter.extractU32();
-
-        if (currentWord == 0xFFFFFFFF || currentWord == 0x00000000)
-            continue;
-
-
-        bool data_found_flag = ((currentWord & 0xF0000000) == 0x10000000) // MDPP
-                || ((currentWord & 0xFF800000) == 0x04000000); // MxDC
-
-        if (data_found_flag)
-        {
-            u16 address = (currentWord & 0x003F0000) >> 16;
-            u32 value   = (currentWord & 0x00001FFF); // FIXME: data width depends on module type and configuration
-            if (histo)
-            {
-                histo->incValue(address, value);
-            }
-
-#if 0
-            QString channelPath = makeChannelPath(cfg->getPath() + '.' + QString::number(address));
-
-// testfoo
-            QVector<Hist1D> hists = m_context->get1DHistogramsBySource(channelPath);
-            for (auto hist: hists)
-            {
-                hist->fill(value);
-            }
-
-            QVector<QPair<Hist2D, Hist2D::Axis>> hists2d = m_context->get2DHistogramsBySource(channelPath);
-            for (auto pair: hists2d)
-            {
-                Hist2D *hist2d = pair.first;
-                Hist2D::Axis axis = pair.second;
-                hist2d->fill(axis, value);
-            }
-
-            // TODO: fill 2d histo (spectrogram) if one is configured
-#endif
-        }
-    }
-}
-#if 0
-void foo()
-{
-    typedef QHash<ModuleConfig *, QVector<Histo1D *> ModuleHisto1DHash;
-    // XXX: typedef QHash<ModuleConfig *, QVector<Histo2D *> ModuleHisto2DHash;
-
-    // fill this hash at the beginning of a run/replay
-    ModuleHisto1DHash moduleHisto1DHash;
-
-    if (data_found_flag)
-    {
-        u16 address = (currentWord & 0x003F0000) >> 16;
-        u32 value   = (currentWord & 0x00001FFF); // FIXME: data width depends on module type and configuration
-        histo->incValue(address, value);
-
-        moduleHisto1DHash[cfg][address]->incValue(value);
-    }
-}
-#endif

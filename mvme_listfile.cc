@@ -81,10 +81,8 @@ bool ListFile::open()
     return m_file.open(QIODevice::ReadOnly);
 }
 
-DAQConfig *ListFile::getDAQConfig()
+QJsonObject ListFile::getDAQConfig()
 {
-    DAQConfig *result = nullptr;
-
     if (m_configJson.isEmpty())
     {
         qint64 savedPos = m_file.pos();
@@ -125,12 +123,10 @@ DAQConfig *ListFile::getDAQConfig()
     if (!m_configJson.isEmpty())
     {
         qDebug() << "listfile config json:" << m_configJson.toJson();
-        result = new DAQConfig;
-        result->read(m_configJson.object());
-        result->listFileMode = true;
+        return m_configJson.object();
     }
 
-    return result;
+    return QJsonObject();
 }
 
 bool ListFile::seek(qint64 pos)

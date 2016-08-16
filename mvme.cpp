@@ -679,9 +679,9 @@ void mvme::on_actionOpen_Listfile_triggered()
         return;
     }
 
-    DAQConfig *config = listFile->getDAQConfig();
+    auto json = listFile->getDAQConfig();
 
-    if (!config)
+    if (json.isEmpty())
     {
         QMessageBox::critical(0, "Error", QString("Listfile does not contain a valid DAQ configuration"));
         return;

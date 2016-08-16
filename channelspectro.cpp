@@ -102,8 +102,6 @@ ChannelSpectro::ChannelSpectro(uint32_t xResolution, uint32_t yResolution, QObje
     , m_data(new ChannelSpectroData(xResolution, yResolution))
     , m_xAxisChannel(-1)
     , m_yAxisChannel(-1)
-    , m_xValue(-1)
-    , m_yValue(-1)
 {
     m_plotItem->setData(m_data);
     m_plotItem->setRenderThreadCount(0); // use system specific ideal thread count

@@ -200,3 +200,13 @@ ModuleConfig *DAQConfig::getModuleConfig(int eventIndex, int moduleIndex)
 
     return result;
 }
+
+EventConfig *DAQConfig::getEventConfig(const QString &name) const
+{
+    for (auto cfg: m_eventConfigs)
+    {
+        if (cfg->getName() == name)
+            return cfg;
+    }
+    return nullptr;
+}

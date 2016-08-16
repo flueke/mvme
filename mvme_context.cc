@@ -161,7 +161,7 @@ DAQState MVMEContext::getDAQState() const
 
 void MVMEContext::setListFile(ListFile *listFile)
 {
-    setConfig(listFile->getDAQConfig());
+    read(listFile->getDAQConfig());
     setConfigFileName(QString());
     setMode(GlobalMode::ListFile);
     m_listFile = listFile;

@@ -6,6 +6,7 @@
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QtMath>
+#include <QJsonObject>
 
 using namespace vmusb_constants;
 using namespace listfile;
@@ -126,7 +127,11 @@ void VMUSBBufferProcessor::beginRun()
         }
     }
 
-    auto configData = m_context->getConfig()->toJson();
+    QJsonObject configObject;
+    m_context->write(configObject);
+    QJsonDocument doc(configObject);
+
+    auto configData = doc.toJson();
 
     while (configData.size() % sizeof(u32))
     {

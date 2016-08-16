@@ -21,9 +21,6 @@ class MVMEEventProcessor: public QObject
         void processEventBuffer(DataBuffer *buffer);
 
     private:
-        void processSubEvent(BufferIterator &iter, int eventType, int subEventIndex);
-        void processMesytecEvent(BufferIterator &iter, ModuleConfig *cfg);
-
         MVMEContext *m_context;
 };
 

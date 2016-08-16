@@ -148,6 +148,7 @@ class DAQConfig: public QObject
         bool removeEventConfig(EventConfig *config) { return m_eventConfigs.removeOne(config); }
         QList<EventConfig *> getEventConfigs() const { return m_eventConfigs; }
         EventConfig *getEventConfig(int eventID) { return m_eventConfigs.value(eventID); }
+        EventConfig *getEventConfig(const QString &name) const;
 
         ModuleConfig *getModuleConfig(int eventID, int moduleIndex);
 

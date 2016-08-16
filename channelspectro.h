@@ -18,7 +18,7 @@ class ChannelSpectro: public QObject
 {
     Q_OBJECT
 public:
-    ChannelSpectro(uint32_t xResolution = 8192, uint32_t yResolution = 8192, QObject *parent = 0);
+    ChannelSpectro(uint32_t xResolution = 1024, uint32_t yResolution = 1024, QObject *parent = 0);
     void setXAxisChannel(int32_t channel);
     void setYAxisChannel(int32_t channel);
 
@@ -41,9 +41,6 @@ private:
 
     int32_t m_xAxisChannel;
     int32_t m_yAxisChannel;
-
-    int64_t m_xValue;
-    int64_t m_yValue;
 };
 
 

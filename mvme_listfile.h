@@ -26,6 +26,8 @@
  * t =  3 bit section type
  * e =  4 bit event type for event sections
  * s = 16 bit size in units of 32 bit words (fillwords added to data if needed) -> 256k section max size
+ *
+ * Section size is the number of following 32 bit words not including the header word itself.
 
  * Sections with SectionType_Event contain subevent headers:
 
@@ -43,6 +45,7 @@
 #include <QTextStream>
 #include <QFile>
 #include <QJsonDocument>
+#include <QDebug>
 
 namespace listfile
 {
@@ -61,7 +64,7 @@ namespace listfile
 
     static const int SectionMaxWords  = 0xffff;
     static const int SectionMaxSize   = SectionMaxWords * sizeof(u32);
-    
+
     static const int SectionTypeMask  = 0xe0000000; // 3 bit section type
     static const int SectionTypeShift = 29;
     static const int SectionSizeMask  = 0xffff;    // 16 bit section size in 32 bit words
@@ -86,7 +89,7 @@ class ListFile
     public:
         ListFile(const QString &fileName);
         bool open();
-        DAQConfig *getDAQConfig();
+        QJsonObject getDAQConfig();
         bool seek(qint64 pos);
         bool readNextSection(DataBuffer *buffer);
         s32 readSectionsIntoBuffer(DataBuffer *buffer);
@@ -120,6 +123,10 @@ class ListFileWorker: public QObject
 
 namespace listfile
 {
+    // This is currently broken: on replay events are lost.
+    // invalid mod value for  "event0" "mqdc" 1
+    // listfile::SubEvent listfile::Section::operator[](int) index= 1 , subEventHeader >= onePastEnd
+#if 0
     struct ModuleValue
     {
         ModuleValue()
@@ -164,8 +171,8 @@ namespace listfile
                 onePastEnd = subEventHeader;
         }
 
-        SubEvent(u32 *subEventHeader, size_t wordsInBuffer)
-            : SubEvent(subEventHeader, subEventHeader + wordsInBuffer + 1) // FIXME: last buffer missing
+        SubEvent(u32 *subEventHeader_, size_t wordsInBuffer)
+            : SubEvent(subEventHeader_, subEventHeader_ + wordsInBuffer + 1) // FIXME: last buffer missing
         {}
 
         int size()
@@ -228,17 +235,20 @@ namespace listfile
         Section()
         {}
 
-        Section(u32 *sectionHeader, u32 *onePastEndOfBuffer)
-            : sectionHeader(sectionHeader)
+        Section(u32 *sectionHeader_, u32 *onePastEndOfBuffer)
+            : sectionHeader(sectionHeader_)
         {
-            if (sectionHeader + size() + 2 < onePastEndOfBuffer)
-                onePastEnd = sectionHeader + size() + 2;
+            int sz = size();
+            u32 *end = sectionHeader + sz + 2;
+
+            if(end < onePastEndOfBuffer)
+                onePastEnd = end;
             else
                 onePastEnd = sectionHeader;
         }
 
-        Section(u32 *sectionHeader, size_t wordsInBuffer)
-            : Section(sectionHeader, sectionHeader + wordsInBuffer + 1)
+        Section(u32 *sectionHeader_, size_t wordsInBuffer)
+            : Section(sectionHeader_, sectionHeader_ + wordsInBuffer + 1)
         {}
 
         int size()
@@ -262,7 +272,10 @@ namespace listfile
         SubEvent operator[](int index)
         {
             if (!isValid() || type() != SectionType_Event)
+            {
+                qDebug() << __PRETTY_FUNCTION__ << "not valid or not event";
                 return SubEvent();
+            }
 
             int currentIndex = 0;
             u32 *subEventHeader = sectionHeader + 1;
@@ -272,7 +285,10 @@ namespace listfile
                 u32 subEventSize = (*subEventHeader & SubEventSizeMask) >> SubEventSizeShift;
                 subEventHeader += subEventSize + 1;
                 if (subEventHeader >= onePastEnd)
+                {
+                    qDebug() << __PRETTY_FUNCTION__ << "index=" << index << ", subEventHeader >= onePastEnd";
                     return SubEvent();
+                }
             }
             return SubEvent(subEventHeader, onePastEnd);
         }
@@ -280,7 +296,7 @@ namespace listfile
         u32 *sectionHeader = 0;
         u32 *onePastEnd = 0;
     };
-    
+#endif
 }
 
 #endif
