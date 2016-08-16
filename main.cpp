@@ -32,6 +32,7 @@ int main(int argc, char *argv[])
 
     mvme w;
     w.show();
+    w.restoreSettings();
 
     return a.exec();
 }

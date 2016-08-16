@@ -283,6 +283,10 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
         delete m_d->histoNameMap.take(name);
     });
 
+    connect(context, &MVMEContext::hist2DAboutToBeRemoved, this, [=](Hist2D *hist2d) {
+        delete m_d->histoNameMap.take(hist2d->objectName());
+    });
+
 
     auto splitter = new QSplitter(Qt::Vertical);
     splitter->addWidget(gb_daqControl);
@@ -626,7 +630,7 @@ void MVMEContextWidget::histoListItemClicked(QListWidgetItem *item)
     auto object = Var2Ptr<QObject>(item->data(Qt::UserRole+1));
 
     auto histo = qobject_cast<Histogram *>(object);
-    auto hist2d = qobject_cast<ChannelSpectro *>(object);
+    auto hist2d = qobject_cast<Hist2D *>(object);
 
     if (histo)
     {
@@ -644,7 +648,7 @@ void MVMEContextWidget::histoListItemDoubleClicked(QListWidgetItem *item)
     auto object = Var2Ptr<QObject>(item->data(Qt::UserRole+1));
 
     auto histo = qobject_cast<Histogram *>(object);
-    auto hist2d = qobject_cast<ChannelSpectro *>(object);
+    auto hist2d = qobject_cast<Hist2D *>(object);
 
     if (histo)
     {
@@ -659,36 +663,60 @@ void MVMEContextWidget::histoListItemDoubleClicked(QListWidgetItem *item)
 void MVMEContextWidget::histoListContextMenu(const QPoint &pos)
 {
     auto item = m_d->histoList->itemAt(pos);
-    if (!item) return;
 
-    auto histo = Var2Ptr<Histogram>(item->data(Qt::UserRole+1));
+    auto object = item ? Var2Ptr<QObject>(item->data(Qt::UserRole+1)) : nullptr;
+    auto histo = qobject_cast<Histogram *>(object);
+    auto hist2d = qobject_cast<Hist2D *>(object);
 
     QMenu menu;
-    QAction *openAction = menu.addAction("Open");
-    QAction *clearAction = menu.addAction("Clear");
-    QAction *delAction = menu.addAction("Remove");
-    QAction *addHist2D = menu.addAction("Add 2D Histogram");
+    QAction *openAction = new QAction("Open", &menu);
+    QAction *clearAction = new QAction("Clear", &menu);
+    QAction *delAction = new QAction("Remove", &menu);
+    QAction *addHist2D = new QAction("Add 2D Histogram", &menu);
 
-    if (histo->property("Histogram.autoCreated").toBool())
+    if (item)
+    {
+        menu.addAction(openAction);
+        menu.addAction(clearAction);
+        menu.addAction(delAction);
+    }
+
+    menu.addAction(addHist2D);
+
+    if (histo && histo->property("Histogram.autoCreated").toBool())
     {
         delAction->setEnabled(false);
     }
 
     auto action = menu.exec(m_d->histoList->mapToGlobal(pos));
 
-    auto name = item->data(Qt::UserRole).toString();
 
     if (action == openAction)
     {
-        emit showHistogram(histo);
+        if (histo)
+            emit showHistogram(histo);
+        if (hist2d)
+            emit showHist2D(hist2d);
     }
     else if (action == clearAction)
     {
-        histo->clearHistogram();
+        if (histo)
+            histo->clearHistogram();
+        if (hist2d)
+            hist2d->clear();
     }
     else if (action == delAction)
     {
-        m_d->context->removeHistogram(name);
+        if (histo)
+        {
+            auto name = item->data(Qt::UserRole).toString();
+            m_d->context->removeHistogram(name);
+        }
+
+        if (hist2d)
+        {
+            m_d->context->removeHist2D(hist2d);
+        }
     }
     else if (action == addHist2D)
     {
@@ -712,7 +740,7 @@ void MVMEContextWidget::onContextHistoAdded(const QString &name, Histogram *hist
     m_d->histoNameMap[name] = item;
 }
 
-void MVMEContextWidget::onHist2DAdded(ChannelSpectro *hist2d)
+void MVMEContextWidget::onHist2DAdded(Hist2D *hist2d)
 {
     auto item = new QListWidgetItem(hist2d->objectName());
     item->setData(Qt::UserRole+1, Ptr2Var(hist2d));

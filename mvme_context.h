@@ -6,7 +6,7 @@
 #include "databuffer.h"
 #include "mvme_config.h"
 #include "histogram.h"
-#include "channelspectro.h"
+#include "hist2d.h"
 #include <QList>
 #include <QWidget>
 #include <QFuture>
@@ -67,7 +67,8 @@ class MVMEContext: public QObject
         void histogramAdded(const QString &name, Histogram *histo);
         void histogramAboutToBeRemoved(const QString &name, Histogram *histo);
 
-        void hist2DAdded(ChannelSpectro *hist2d);
+        void hist2DAdded(Hist2D *hist2d);
+        void hist2DAboutToBeRemoved(Hist2D *hist2d);
 
         void logMessage(const QString &);
 
@@ -122,9 +123,9 @@ class MVMEContext: public QObject
             emit histogramAdded(name, histo);
             return true;
         }
-        void addHist2D(ChannelSpectro *hist2d);
+        void addHist2D(Hist2D *hist2d);
 
-        QVector<ChannelSpectro *> get2DHistograms() const
+        QVector<Hist2D *> get2DHistograms() const
         {
             return m_2dHistograms;
         }
@@ -140,6 +141,19 @@ class MVMEContext: public QObject
                 return true;
             }
 
+            return false;
+        }
+
+        bool removeHist2D(Hist2D *hist2d)
+        {
+            int index = m_2dHistograms.indexOf(hist2d);
+            if (index >= 0)
+            {
+                emit hist2DAboutToBeRemoved(hist2d);
+                m_2dHistograms.remove(index);
+                delete hist2d;
+                return true;
+            }
             return false;
         }
 
@@ -181,7 +195,7 @@ class MVMEContext: public QObject
         DataBufferQueue m_freeBuffers;
         QString m_configFileName;
         QMap<QString, Histogram *> m_histograms;
-        QVector<ChannelSpectro *> m_2dHistograms;
+        QVector<Hist2D *> m_2dHistograms;
         mvme *m_mainwin;
         DAQStats m_daqStats;
         ListFile *m_listFile;

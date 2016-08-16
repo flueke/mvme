@@ -12,7 +12,7 @@
 #include <QTextStream>
 #include <QMap>
 
-class ChannelSpectro;
+class Hist2D;
 class DataCruncher;
 class DataThread;
 class Diagnostics;
@@ -62,10 +62,11 @@ public:
     DataCruncher *dc;
     Diagnostics* diag;
     RealtimeData* rd;
-    ChannelSpectro *m_channelSpectro;
+    Hist2D *m_channelSpectro;
 
 
     void closeEvent(QCloseEvent *event);
+    void restoreSettings();
 
 public slots:
     void replot();
@@ -75,7 +76,7 @@ public slots:
     void createNewChannelSpectrogram();
 
     void openHistogramView(Histogram *histo);
-    void open2DHistView(ChannelSpectro *hist2d);
+    void openHist2DView(Hist2D *hist2d);
 
 private slots:
     void on_actionSave_Histogram_triggered();
@@ -107,11 +108,10 @@ private slots:
     void handleHistogramClicked(const QString &name, Histogram *histo);
     void handleHistogramDoubleClicked(const QString &name, Histogram *histo);
 
-    void handleHist2DClicked(ChannelSpectro *hist2d);
-    void handleHist2DDoubleClicked(ChannelSpectro *hist2d);
+    void handleHist2DClicked(Hist2D *hist2d);
+    void handleHist2DDoubleClicked(Hist2D *hist2d);
 
     void appendToLog(const QString &);
-    void handleLogViewContextMenu(const QPoint &pos);
     void updateWindowTitle();
     void onConfigChanged(DAQConfig *config);
 

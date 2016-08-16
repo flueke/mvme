@@ -5,27 +5,26 @@
 
 namespace Ui
 {
-class ChannelSpectroWidget;
+class Hist2DWidget;
 }
 
 class QTimer;
 class QwtPlotSpectrogram;
 class QwtLinearColorMap;
-class ChannelSpectroData;
+class Hist2DData;
 class ScrollZoomer;
 
-class ChannelSpectro: public QObject
+class Hist2D: public QObject
 {
     Q_OBJECT
 public:
-    ChannelSpectro(uint32_t xResolution = 1024, uint32_t yResolution = 1024, QObject *parent = 0);
+    Hist2D(uint32_t xResolution = 1024, uint32_t yResolution = 1024, QObject *parent = 0);
     void setXAxisChannel(int32_t channel);
     void setYAxisChannel(int32_t channel);
 
     int32_t getXAxisChannel() const { return m_xAxisChannel; }
     int32_t getYAxisChannel() const { return m_yAxisChannel; }
-    QwtPlotSpectrogram *getPlotItem() const { return m_plotItem; }
-    ChannelSpectroData *getSpectroData() const { return m_data; }
+    Hist2DData *getData() const { return m_data; }
     void clear();
 
     uint32_t xAxisResolution() const;
@@ -36,23 +35,21 @@ public:
     QwtLinearColorMap *getColorMap() const;
 
 private:
-    QwtPlotSpectrogram *m_plotItem;
-    ChannelSpectroData *m_data;
-
+    Hist2DData *m_data;
     int32_t m_xAxisChannel;
     int32_t m_yAxisChannel;
 };
 
 
-class ChannelSpectroWidget: public QWidget
+class Hist2DWidget: public QWidget
 {
     Q_OBJECT
 
 public:
-    explicit ChannelSpectroWidget(ChannelSpectro *channelSpectro, QWidget *parent=0);
-    ~ChannelSpectroWidget();
+    explicit Hist2DWidget(Hist2D *channelSpectro, QWidget *parent=0);
+    ~Hist2DWidget();
 
-    ChannelSpectro *getHist2D() const { return m_channelSpectro; }
+    Hist2D *getHist2D() const { return m_hist2d; }
 
 public slots:
     void replot();
@@ -65,8 +62,9 @@ private slots:
     void addTestData();
 
 private:
-    Ui::ChannelSpectroWidget *ui;
-    ChannelSpectro *m_channelSpectro;
+    Ui::Hist2DWidget *ui;
+    Hist2D *m_hist2d;
+    QwtPlotSpectrogram *m_plotItem;
     ScrollZoomer *m_zoomer;
     QTimer *m_replotTimer;
 };

@@ -17,7 +17,6 @@ QMAKE_CFLAGS += -Wno-unused -Wno-format
 
 
 SOURCES += \
-    channelspectro.cpp \
     config_widgets.cpp \
     CVMUSBReadoutList.cpp \
     datacruncher.cpp \
@@ -46,11 +45,11 @@ SOURCES += \
     vmusb_buffer_processor.cc \
     vmusb_readout_worker.cc \
     vmusb_stack.cc \
-    hist2ddialog.cc
+    hist2ddialog.cc \
+    hist2d.cpp \
 
 
 HEADERS  += \
-    channelspectro.h \
     config_widgets.h \
     CVMUSBReadoutList.h \
     databuffer.h \
@@ -81,16 +80,18 @@ HEADERS  += \
     vmusb_constants.h \
     vmusb_readout_worker.h \
     vmusb_stack.h \
-    hist2ddialog.h
+    hist2ddialog.h \
+    hist2d.h \
 
 
 FORMS    += \
     mvmecontrol.ui \
     mvme.ui \
     twodimwidget.ui \
-    channelspectrowidget.ui \
     moduleconfig_widget.ui \
-    hist2ddialog.ui
+    hist2ddialog.ui \
+    hist2dwidget.ui \
+
 
 DEFINES += VME_CONTROLLER_WIENER
 #DEFINES += VME_CONTROLLER_CAEN

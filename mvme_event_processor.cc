@@ -231,7 +231,8 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
 
             u32 yValue = eventValues[moduleIndex][addressValue];
 
-            qDebug() << hist2d << hist2d->xAxisResolution() << hist2d->yAxisResolution() << xValue << yValue;
+            qDebug() << hist2d << hist2d->xAxisResolution() << hist2d->yAxisResolution() << xValue << yValue
+                << eventIndex << moduleIndex << addressValue;
 
             // FIXME: can't just shift here: need to know resolution
             hist2d->fill(xValue >> 2, yValue >> 2);

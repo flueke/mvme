@@ -37,18 +37,73 @@ int ModuleConfig::getNumberOfChannels() const
     return -1;
 }
 
+namespace MADC
+{
+    static const int adc_resolution = 0x6042;
+    static const int adc_override = 0x6046;
+    static const std::array<int, 5> adc_resolutions = {
+        1 << 11, // 2k
+        1 << 12, // 4k
+        1 << 12, // 4k hires
+        1 << 13, // 8k
+        1 << 13  // 8k hires
+    };
+}
+
+namespace MDPP
+{
+    static const int adc_resolution = 0x6046;
+    static const std::array<int, 5> adc_resolutions = {
+        1 << 15,
+        1 << 14,
+        1 << 13,
+        1 << 12,
+        1 << 11 
+    };
+}
+
 int ModuleConfig::getADCResolution() const
 {
+    RegisterList allRegisters;
+    allRegisters += parseRegisterList(initReset);
+    allRegisters += parseRegisterList(initParameters);
+    allRegisters += parseRegisterList(initReadout);
+    allRegisters += parseRegisterList(initStartDaq);
+
+    QHash<u32, u32> registerHash;
+    for (auto p: allRegisters)
+    {
+        registerHash[p.first] = p.second;
+    }
+
+
     switch (type)
     {
         case VMEModuleType::MADC32:
-        case VMEModuleType::MQDC32:
-        case VMEModuleType::MTDC32:
+            {
+                int index = registerHash.value(MADC::adc_resolution, 2);
+                index = registerHash.value(MADC::adc_override, index);
+                int res = MADC::adc_resolutions.at(index);
+                return res;
+            }
+
         case VMEModuleType::MDPP16:
         case VMEModuleType::MDPP32:
-            return 8192;
+            {
+                int index = registerHash.value(MDPP::adc_resolution, 4);
+                int res = MDPP::adc_resolutions.at(index);
+                return res;
+            }
+        case VMEModuleType::MQDC32:
+            return 4096;
+
+        case VMEModuleType::MTDC32:
+            // Note: does not have an ADC resolution. Produces 16-bit wide timestamps
+            return 1 << 16;
 
         case VMEModuleType::MDI2:
+            return 4096;
+
         case VMEModuleType::Invalid:
         case VMEModuleType::Generic:
             return -1;

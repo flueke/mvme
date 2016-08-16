@@ -1,7 +1,7 @@
 #ifndef HIST2DDIALOG_H
 #define HIST2DDIALOG_H
 
-#include "channelspectro.h"
+#include "hist2d.h"
 #include <QDialog>
 
 namespace Ui {
@@ -16,7 +16,7 @@ public:
     explicit Hist2DDialog(QWidget *parent = 0);
     ~Hist2DDialog();
 
-    ChannelSpectro *getHist2D();
+    Hist2D *getHist2D();
 
 private:
     Ui::Hist2DDialog *ui;

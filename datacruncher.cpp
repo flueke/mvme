@@ -4,7 +4,6 @@
 #include "mvmedefines.h"
 #include "histogram.h"
 #include "realtimedata.h"
-#include "channelspectro.h"
 #include <QDebug>
 
 DataCruncher::DataCruncher(QObject *parent)

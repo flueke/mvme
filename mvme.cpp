@@ -7,7 +7,7 @@
 #include "twodimwidget.h"
 #include "diagnostics.h"
 #include "realtimedata.h"
-#include "channelspectro.h"
+#include "hist2d.h"
 #include "histogram.h"
 #include "datacruncher.h"
 #include "datathread.h"
@@ -76,7 +76,7 @@ mvme::mvme(QWidget *parent) :
     dc(0),
     diag(0),
     rd(0),
-    m_channelSpectro(new ChannelSpectro(1024, 1024)),
+    m_channelSpectro(new Hist2D(1024, 1024)),
     ui(new Ui::mvme)
     , m_context(new MVMEContext(this))
     , m_logView(new QTextBrowser)
@@ -92,8 +92,8 @@ mvme::mvme(QWidget *parent) :
 
     connect(m_context, &MVMEContext::configFileNameChanged, this, &mvme::updateWindowTitle);
     connect(m_context, &MVMEContext::configChanged, this, &mvme::onConfigChanged);
-            
-            
+
+
     // create and initialize displays
     ui->setupUi(this);
     auto contextWidget = new MVMEContextWidget(m_context);
@@ -108,9 +108,22 @@ mvme::mvme(QWidget *parent) :
     connect(contextWidget, &MVMEContextWidget::histogramClicked, this, &mvme::handleHistogramClicked);
     connect(contextWidget, &MVMEContextWidget::histogramDoubleClicked, this, &mvme::handleHistogramDoubleClicked);
     connect(contextWidget, &MVMEContextWidget::showHistogram, this, &mvme::openHistogramView);
+    connect(contextWidget, &MVMEContextWidget::showHist2D, this, &mvme::openHist2DView);
 
     connect(contextWidget, &MVMEContextWidget::hist2DClicked, this, &mvme::handleHist2DClicked);
     connect(contextWidget, &MVMEContextWidget::hist2DDoubleClicked, this, &mvme::handleHist2DDoubleClicked);
+
+    connect(m_context, &MVMEContext::hist2DAboutToBeRemoved, this, [=](Hist2D *hist2d) {
+        for (auto subwin: ui->mdiArea->subWindowList())
+        {
+            auto w = qobject_cast<Hist2DWidget *>(subwin->widget());
+            if (w && w->getHist2D() == hist2d)
+            {
+                subwin->close();
+                break;
+            }
+        }
+    });
 
     auto contextDock = new QDockWidget();
     contextDock->setObjectName("MVMEContextDock");
@@ -118,8 +131,35 @@ mvme::mvme(QWidget *parent) :
     contextDock->setWidget(contextWidget);
     addDockWidget(Qt::LeftDockWidgetArea, contextDock);
 
-    //createNewHistogram();
-    //createNewChannelSpectrogram();
+    m_logView->setWindowTitle("Log View");
+    QFont font("MonoSpace");
+    font.setStyleHint(QFont::Monospace);
+    m_logView->setFont(font);
+    m_logView->setTabChangesFocus(true);
+    m_logView->document()->setMaximumBlockCount(10 * 1024 * 1024);
+    m_logView->setContextMenuPolicy(Qt::CustomContextMenu);
+    //m_logView->setStyleSheet("background-color: rgb(245, 245, 245);");
+    connect(m_logView, &QWidget::customContextMenuRequested, this, [=](const QPoint &pos) {
+        auto menu = m_logView->createStandardContextMenu(pos);
+        auto action = menu->addAction("Clear");
+        connect(action, &QAction::triggered, m_logView, &QTextBrowser::clear);
+        menu->exec(m_logView->mapToGlobal(pos));
+        menu->deleteLater();
+    });
+
+#if 1
+    m_logViewSubwin = new QMdiSubWindow;
+    m_logViewSubwin->setObjectName("LogViewWindow");
+    m_logViewSubwin->setWidget(m_logView);
+    m_logViewSubwin->setAttribute(Qt::WA_DeleteOnClose, false);
+    ui->mdiArea->addSubWindow(m_logViewSubwin);
+#else
+    auto logDock = new QDockWidget();
+    logDock->setObjectName("MVMEContextDock");
+    logDock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
+    logDock->setWidget(m_logView);
+    addDockWidget(Qt::BottomDockWidgetArea, logDock);
+#endif
 
     rd = new RealtimeData;
     diag = new Diagnostics;
@@ -151,24 +191,6 @@ mvme::mvme(QWidget *parent) :
 
     //initThreads();
 
-    QSettings settings;
-    restoreGeometry(settings.value("mainWindowGeometry").toByteArray());
-    restoreState(settings.value("mainWindowState").toByteArray());
-
-    m_logView->setWindowTitle("Log View");
-    QFont font("MonoSpace");
-    font.setStyleHint(QFont::Monospace);
-    m_logView->setFont(font);
-    m_logView->setTabChangesFocus(true);
-    m_logView->document()->setMaximumBlockCount(10 * 1024 * 1024);
-    m_logView->setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(m_logView, &QWidget::customContextMenuRequested, this, &mvme::handleLogViewContextMenu);
-
-    m_logViewSubwin = new QMdiSubWindow;
-    m_logViewSubwin->setWidget(m_logView);
-    m_logViewSubwin->setAttribute(Qt::WA_DeleteOnClose, false);
-    ui->mdiArea->addSubWindow(m_logViewSubwin);
-
     //connect(m_context->m_dataProcessor, &DataProcessor::eventFormatted,
     //        textView, &QTextEdit::append);
     connect(m_context, &MVMEContext::logMessage, this, &mvme::appendToLog);
@@ -183,6 +205,7 @@ mvme::mvme(QWidget *parent) :
         }
     });
 
+    QSettings settings;
 
     auto configFileName = settings.value("Files/LastConfigFile").toString();
 
@@ -303,7 +326,7 @@ void mvme::createNewHistogram()
 void mvme::createNewChannelSpectrogram()
 {
     auto subwin = new QMdiSubWindow(ui->mdiArea);
-    auto channelSpectroWidget = new ChannelSpectroWidget(m_channelSpectro);
+    auto channelSpectroWidget = new Hist2DWidget(m_channelSpectro);
     subwin->setWidget(channelSpectroWidget);
     subwin->show();
 }
@@ -396,9 +419,54 @@ void mvme::closeEvent(QCloseEvent *event){
     QSettings settings;
     settings.setValue("mainWindowGeometry", saveGeometry());
     settings.setValue("mainWindowState", saveState());
+
+    auto windowList = ui->mdiArea->subWindowList();
+
+    settings.beginGroup("MdiSubWindows");
+
+    for (auto subwin: windowList)
+    {
+        auto name = subwin->objectName();
+        if (!name.isEmpty())
+        {
+            settings.setValue(name + "_size", subwin->size());
+            settings.setValue(name + "_pos", subwin->pos());
+        }
+    }
+
+    settings.endGroup();
+
     QMainWindow::closeEvent(event);
 }
 
+void mvme::restoreSettings()
+{
+    qDebug("restoreSettings");
+    QSettings settings;
+    restoreGeometry(settings.value("mainWindowGeometry").toByteArray());
+    restoreState(settings.value("mainWindowState").toByteArray());
+
+    auto windowList = ui->mdiArea->subWindowList();
+    settings.beginGroup("MdiSubWindows");
+
+    for (auto subwin: windowList)
+    {
+        auto name = subwin->objectName();
+
+        auto size = settings.value(name + "_size").toSize();
+        size = size.expandedTo(subwin->sizeHint());
+        subwin->resize(size);
+
+        QString pstr = name + "_pos";
+
+        if (settings.contains(pstr))
+        {
+            subwin->move(settings.value(pstr).toPoint());
+        }
+    }
+
+    settings.endGroup();
+}
 
 void mvme::on_actionSave_Histogram_triggered()
 {
@@ -483,7 +551,7 @@ void mvme::on_actionExport_Spectrogram_triggered()
 {
     auto subwin = ui->mdiArea->currentSubWindow();
     auto widget = subwin ? subwin->widget() : nullptr;
-    auto spectroWidget = qobject_cast<ChannelSpectroWidget *>(widget);
+    auto spectroWidget = qobject_cast<Hist2DWidget *>(widget);
 
     if (spectroWidget)
     {
@@ -708,7 +776,7 @@ void mvme::on_mdiArea_subWindowActivated(QMdiSubWindow *subwin)
     ui->actionLoad_Histogram->setVisible(tdw);
     ui->actionSave_Histogram->setVisible(tdw);
 
-    auto spectroWidget = qobject_cast<ChannelSpectroWidget *>(widget);
+    auto spectroWidget = qobject_cast<Hist2DWidget *>(widget);
 
     ui->actionExport_Spectrogram->setVisible(spectroWidget);
 }
@@ -819,12 +887,12 @@ void mvme::openHistogramView(Histogram *histo)
     }
 }
 
-void mvme::handleHist2DClicked(ChannelSpectro *hist2d)
+void mvme::handleHist2DClicked(Hist2D *hist2d)
 {
     QMdiSubWindow *subwin = 0;
     for (auto win: ui->mdiArea->subWindowList())
     {
-        auto widget = qobject_cast<ChannelSpectroWidget *>(win->widget());
+        auto widget = qobject_cast<Hist2DWidget *>(win->widget());
         if (widget && widget->getHist2D() == hist2d)
         {
             subwin = win;
@@ -842,25 +910,25 @@ void mvme::handleHist2DClicked(ChannelSpectro *hist2d)
     ui->mdiArea->setActiveSubWindow(subwin);
 }
 
-void mvme::handleHist2DDoubleClicked(ChannelSpectro *hist2d)
+void mvme::handleHist2DDoubleClicked(Hist2D *hist2d)
 {
     for (auto win: ui->mdiArea->subWindowList())
     {
-        auto widget = qobject_cast<ChannelSpectroWidget *>(win->widget());
+        auto widget = qobject_cast<Hist2DWidget *>(win->widget());
         if (widget && widget->getHist2D() == hist2d)
         {
             return;
         }
     }
 
-    open2DHistView(hist2d);
+    openHist2DView(hist2d);
 }
 
-void mvme::open2DHistView(ChannelSpectro *hist2d)
+void mvme::openHist2DView(Hist2D *hist2d)
 {
     if (hist2d)
     {
-        auto widget = new ChannelSpectroWidget(hist2d);
+        auto widget = new Hist2DWidget(hist2d);
         auto subwin = new QMdiSubWindow(ui->mdiArea);
         subwin->setWidget(widget);
         subwin->setAttribute(Qt::WA_DeleteOnClose);
@@ -879,14 +947,6 @@ void mvme::appendToLog(const QString &s)
   m_logView->append(str);
   auto bar = m_logView->verticalScrollBar();
   bar->setValue(bar->maximum());
-}
-
-void mvme::handleLogViewContextMenu(const QPoint &pos)
-{
-  auto menu = std::unique_ptr<QMenu>(m_logView->createStandardContextMenu(pos));
-  auto action = menu->addAction("Clear");
-  connect(action, &QAction::triggered, m_logView, &QTextBrowser::clear);
-  menu->exec(m_logView->mapToGlobal(pos));
 }
 
 void mvme::updateWindowTitle()

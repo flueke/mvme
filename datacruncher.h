@@ -6,7 +6,7 @@ class QTimer;
 class mvme;
 class Histogram;
 class RealtimeData;
-class ChannelSpectro;
+class Hist2D;
 
 
 class DataCruncher : public QThread
@@ -18,7 +18,7 @@ public:
     void setHistogram(Histogram *hist);
     void rtDiag(bool on);
     void setRtData(RealtimeData *rt);
-    void setChannelSpectro(ChannelSpectro *channelSpectro)
+    void setChannelSpectro(Hist2D *channelSpectro)
     { m_channelSpectro = channelSpectro; }
     quint32 *getRingBuffer() const { return m_pRingBuffer; }
 
@@ -31,7 +31,7 @@ private:
     quint32 m_resolution;
     quint32 m_channels;
     bool m_rtDiag;
-    ChannelSpectro *m_channelSpectro;
+    Hist2D *m_channelSpectro;
     bool m_newEvent;
     quint32* m_pRingBuffer;
     quint32 m_readPointer;

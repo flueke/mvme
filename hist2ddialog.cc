@@ -13,9 +13,9 @@ Hist2DDialog::~Hist2DDialog()
     delete ui;
 }
 
-ChannelSpectro *Hist2DDialog::getHist2D()
+Hist2D *Hist2DDialog::getHist2D()
 {
-    auto ret = new ChannelSpectro(ui->spin_xResolution->value(),
+    auto ret = new Hist2D(ui->spin_xResolution->value(),
                                   ui->spin_yResolution->value());
     ret->setObjectName(ui->le_name->text());
     ret->setProperty("Hist2D.xAxisSource", ui->le_xSource->text());

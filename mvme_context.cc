@@ -227,7 +227,7 @@ GlobalMode MVMEContext::getMode() const
     return m_mode;
 }
 
-void MVMEContext::addHist2D(ChannelSpectro *hist2d)
+void MVMEContext::addHist2D(Hist2D *hist2d)
 {
     m_2dHistograms.append(hist2d);
     emit hist2DAdded(hist2d);
@@ -331,7 +331,7 @@ void MVMEContext::read(const QJsonObject &json)
 
         if (!name.isEmpty() && xResolution > 0 && yResolution > 0)
         {
-            auto hist2d = new ChannelSpectro(xResolution, yResolution, this);
+            auto hist2d = new Hist2D(xResolution, yResolution, this);
             hist2d->setObjectName(name);
             hist2d->setProperty("Hist2D.xAxisSource", xAxisSource);
             hist2d->setProperty("Hist2D.yAxisSource", yAxisSource);

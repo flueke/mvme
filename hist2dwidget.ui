@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>ChannelSpectroWidget</class>
- <widget class="QWidget" name="ChannelSpectroWidget">
+ <class>Hist2DWidget</class>
+ <widget class="QWidget" name="Hist2DWidget">
   <property name="geometry">
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>871</width>
-    <height>470</height>
+    <width>621</width>
+    <height>454</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -39,7 +39,7 @@
       </sizepolicy>
      </property>
      <property name="title">
-      <string>GroupBox</string>
+      <string/>
      </property>
      <layout class="QGridLayout" name="gridLayout_2">
       <item row="2" column="0" colspan="2">
