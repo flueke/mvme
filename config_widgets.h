@@ -1,17 +1,19 @@
 #ifndef __CONFIG_WIDGETS_H__
 #define __CONFIG_WIDGETS_H__
 
-#include <QWidget>
+#include <QDialog>
+#include <QMap>
 
 class EventConfig;
 class ModuleConfig;
 class QCloseEvent;
 class QAction;
 class MVMEContext;
+class QAbstractButton;
 
 namespace Ui
 {
-    class ModuleConfigWidget;
+    class ModuleConfigDialog;
 }
 
 class EventConfigWidget: public QWidget
@@ -24,17 +26,25 @@ class EventConfigWidget: public QWidget
         EventConfig *m_config;
 };
 
-class ModuleConfigWidget: public QWidget
+class ModuleConfigDialog: public QDialog
 {
     Q_OBJECT
     public:
-        ModuleConfigWidget(MVMEContext *context, ModuleConfig *config, QWidget *parent = 0);
+        ModuleConfigDialog(MVMEContext *context, ModuleConfig *config, QWidget *parent = 0);
+        ~ModuleConfigDialog();
         ModuleConfig *getConfig() const { return m_config; }
 
     protected:
         virtual void closeEvent(QCloseEvent *event);
 
+    private slots:
+        void on_buttonBox_clicked(QAbstractButton *button);
+
     private:
+        void loadFromConfig();
+        void saveToConfig();
+
+
         void handleListTypeIndexChanged(int);
         void editorContentsChanged();
         void onNameEditFinished();
@@ -45,12 +55,13 @@ class ModuleConfigWidget: public QWidget
         void saveToFile();
         void execList();
 
-        Ui::ModuleConfigWidget *ui;
+        Ui::ModuleConfigDialog *ui;
         QAction *actLoadTemplate, *actLoadFile;
         MVMEContext *m_context;
         ModuleConfig *m_config;
         int m_lastListTypeIndex = 0;
         bool m_ignoreEditorContentsChange = false;
+        QMap<int, QString> m_configStrings;
 };
 
 #endif /* __CONFIG_WIDGETS_H__ */

@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>226</width>
-    <height>222</height>
+    <width>339</width>
+    <height>218</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -72,7 +72,17 @@
     </widget>
    </item>
    <item row="3" column="1">
-    <widget class="QLineEdit" name="le_xSource"/>
+    <layout class="QHBoxLayout" name="horizontalLayout">
+     <item>
+      <widget class="QComboBox" name="eventX"/>
+     </item>
+     <item>
+      <widget class="QComboBox" name="moduleX"/>
+     </item>
+     <item>
+      <widget class="QComboBox" name="channelX"/>
+     </item>
+    </layout>
    </item>
    <item row="4" column="0">
     <widget class="QLabel" name="label_5">
@@ -82,7 +92,17 @@
     </widget>
    </item>
    <item row="4" column="1">
-    <widget class="QLineEdit" name="le_ySource"/>
+    <layout class="QHBoxLayout" name="horizontalLayout_2">
+     <item>
+      <widget class="QComboBox" name="eventY"/>
+     </item>
+     <item>
+      <widget class="QComboBox" name="moduleY"/>
+     </item>
+     <item>
+      <widget class="QComboBox" name="channelY"/>
+     </item>
+    </layout>
    </item>
    <item row="5" column="0" colspan="2">
     <widget class="QDialogButtonBox" name="buttonBox">

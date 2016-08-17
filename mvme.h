@@ -129,6 +129,7 @@ private:
     MVMEContextWidget *m_contextWidget = 0;
     QTextBrowser *m_logView;
     QMdiSubWindow *m_logViewSubwin;
+    QMap<ModuleConfig *, QWidget *> m_configDialogs;
 };
 
 #endif // MVME_H

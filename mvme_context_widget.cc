@@ -733,7 +733,7 @@ void MVMEContextWidget::histoListContextMenu(const QPoint &pos)
     }
     else if (action == addHist2D)
     {
-        Hist2DDialog dialog;
+        Hist2DDialog dialog(m_d->context);
         int result = dialog.exec();
 
         if (result == QDialog::Accepted)

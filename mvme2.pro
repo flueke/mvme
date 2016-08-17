@@ -88,9 +88,9 @@ FORMS    += \
     mvmecontrol.ui \
     mvme.ui \
     twodimwidget.ui \
-    moduleconfig_widget.ui \
     hist2ddialog.ui \
     hist2dwidget.ui \
+    module_config_dialog.ui
 
 
 DEFINES += VME_CONTROLLER_WIENER

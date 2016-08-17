@@ -1,5 +1,5 @@
 #include "config_widgets.h"
-#include "ui_moduleconfig_widget.h"
+#include "ui_module_config_dialog.h"
 #include "mvme_config.h"
 #include "mvme_context.h"
 #include "vmusb.h"
@@ -24,7 +24,8 @@ enum class ModuleListType
     StartDAQ,
     StopDAQ,
     Reset,
-    ReadoutStack
+    ReadoutStack,
+    TypeCount
 };
 
 QString *getConfigString(ModuleListType type, ModuleConfig *config)
@@ -43,19 +44,20 @@ QString *getConfigString(ModuleListType type, ModuleConfig *config)
             return &config->initReset;
         case ModuleListType::ReadoutStack:
             return &config->readoutStack;
+        case ModuleListType::TypeCount:
+            break;
     }
 
     return nullptr;
 }
 
-ModuleConfigWidget::ModuleConfigWidget(MVMEContext *context, ModuleConfig *config, QWidget *parent)
-    : QWidget(parent)
-    , ui(new Ui::ModuleConfigWidget)
+ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *config, QWidget *parent)
+    : QDialog(parent)
+    , ui(new Ui::ModuleConfigDialog)
     , m_context(context)
     , m_config(config)
 {
     ui->setupUi(this);
-    setWindowTitle(QString("Module Config for %1").arg(m_config->getName()));
 
     connect(context, &MVMEContext::moduleAboutToBeRemoved, this, [=](ModuleConfig *module) {
         if (module == config)
@@ -75,22 +77,15 @@ ModuleConfigWidget::ModuleConfigWidget(MVMEContext *context, ModuleConfig *confi
     ui->combo_listType->addItem("Module Reset", QVariant::fromValue(static_cast<int>(ModuleListType::Reset)));
 
     connect(ui->combo_listType, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
-            this, &ModuleConfigWidget::handleListTypeIndexChanged);
-
-    ui->label_type->setText(VMEModuleTypeNames[config->type]);
-
-    ui->le_name->setText(config->getName());
-    connect(ui->le_name, &QLineEdit::editingFinished, this, &ModuleConfigWidget::onNameEditFinished);
+            this, &ModuleConfigDialog::handleListTypeIndexChanged);
 
     ui->le_address->setInputMask("\\0\\xHHHH\\0\\0\\0\\0");
-    ui->le_address->setText(QString().sprintf("0x%08x", config->baseAddress));
-    connect(ui->le_address, &QLineEdit::editingFinished, this, &ModuleConfigWidget::onAddressEditFinished);
 
-    ui->editor->setPlainText(*getConfigString(ModuleListType::Parameters, config));
-    ui->editor->document()->setModified(false);
+    loadFromConfig();
+
 
     connect(ui->editor->document(), &QTextDocument::contentsChanged,
-            this, &ModuleConfigWidget::editorContentsChanged);
+            this, &ModuleConfigDialog::editorContentsChanged);
 
     actLoadFile = new QAction("from file", this);
     actLoadTemplate = new QAction("from template", this);
@@ -100,10 +95,10 @@ ModuleConfigWidget::ModuleConfigWidget(MVMEContext *context, ModuleConfig *confi
     menu->addAction(actLoadTemplate);
     ui->pb_load->setMenu(menu);
 
-    connect(actLoadFile, &QAction::triggered, this, &ModuleConfigWidget::loadFromFile);
-    connect(actLoadTemplate, &QAction::triggered, this, &ModuleConfigWidget::loadFromTemplate);
-    connect(ui->pb_save, &QPushButton::clicked, this, &ModuleConfigWidget::saveToFile);
-    connect(ui->pb_exec, &QPushButton::clicked, this, &ModuleConfigWidget::execList);
+    connect(actLoadFile, &QAction::triggered, this, &ModuleConfigDialog::loadFromFile);
+    connect(actLoadTemplate, &QAction::triggered, this, &ModuleConfigDialog::loadFromTemplate);
+    connect(ui->pb_save, &QPushButton::clicked, this, &ModuleConfigDialog::saveToFile);
+    connect(ui->pb_exec, &QPushButton::clicked, this, &ModuleConfigDialog::execList);
 
     ui->splitter->setSizes({1, 0});
 
@@ -120,92 +115,54 @@ ModuleConfigWidget::ModuleConfigWidget(MVMEContext *context, ModuleConfig *confi
     ui->pb_exec->setEnabled(controller->isOpen());
 }
 
-void ModuleConfigWidget::handleListTypeIndexChanged(int index)
+ModuleConfigDialog::~ModuleConfigDialog()
+{
+    qDebug() << __PRETTY_FUNCTION__;
+}
+
+void ModuleConfigDialog::handleListTypeIndexChanged(int index)
 {
     if (m_lastListTypeIndex >= 0 && ui->editor->document()->isModified())
     {
-        auto type = static_cast<ModuleListType>(ui->combo_listType->itemData(m_lastListTypeIndex).toInt());
-
-        QString *dest = getConfigString(type, m_config);
-        if (dest)
-        {
-            *dest = ui->editor->toPlainText();
-        }
+        auto lastType = ui->combo_listType->itemData(m_lastListTypeIndex).toInt();
+        m_configStrings[lastType] = ui->editor->toPlainText();
     }
 
     m_lastListTypeIndex = index;
 
+
+
+    auto currentType = ui->combo_listType->currentData().toInt();
     m_ignoreEditorContentsChange = true;
-    ui->editor->clear();
-    ui->editor->document()->clearUndoRedoStacks();
-    auto type = static_cast<ModuleListType>(ui->combo_listType->itemData(index).toInt());
-    QString *contents = getConfigString(type, m_config);
-    if (contents)
-    {
-        ui->editor->setPlainText(*contents);
-    }
+    ui->editor->setPlainText(m_configStrings.value(currentType));
     ui->editor->document()->setModified(false);
+    ui->editor->document()->clearUndoRedoStacks();
     m_ignoreEditorContentsChange = false;
 
-    switch (type)
+    switch (static_cast<ModuleListType>(currentType))
     {
         case ModuleListType::ReadoutStack:
             ui->pb_exec->setText("Exec");
+            ui->splitter->setSizes({1, 1});
             break;
         default:
             ui->pb_exec->setText("Run");
+            ui->splitter->setSizes({1, 0});
             break;
     }
 }
 
-void ModuleConfigWidget::editorContentsChanged()
+void ModuleConfigDialog::editorContentsChanged()
 {
-    if (m_ignoreEditorContentsChange)
-        return;
-
-    auto type = static_cast<ModuleListType>(ui->combo_listType->itemData(m_lastListTypeIndex).toInt());
-    QString *dest = getConfigString(type, m_config);
-    if (dest)
-    {
-        *dest = ui->editor->toPlainText();
-    }
 }
 
-void ModuleConfigWidget::onNameEditFinished()
+void ModuleConfigDialog::closeEvent(QCloseEvent *event)
 {
-    QString name = ui->le_name->text();
-    if (ui->le_name->hasAcceptableInput() && name.size())
-    {
-        m_config->setName(name);
-        m_context->getConfig()->setModified();
-    }
-    else
-    {
-        ui->le_name->setText(m_config->getName());
-    }
-}
-
-void ModuleConfigWidget::onAddressEditFinished()
-{
-    if (ui->le_address->hasAcceptableInput())
-    {
-        bool ok;
-        m_config->baseAddress = ui->le_address->text().toUInt(&ok, 16);
-        m_context->getConfig()->setModified();
-    }
-    else
-    {
-        auto text = QString().sprintf("0x%08x", m_config->baseAddress);
-        ui->le_address->setText(text);
-    }
-}
-
-void ModuleConfigWidget::closeEvent(QCloseEvent *event)
-{
+    reject();
     QWidget::closeEvent(event);
 }
 
-void ModuleConfigWidget::loadFromFile()
+void ModuleConfigDialog::loadFromFile()
 {
     QString path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
     QSettings settings;
@@ -229,7 +186,7 @@ void ModuleConfigWidget::loadFromFile()
     }
 }
 
-void ModuleConfigWidget::loadFromTemplate()
+void ModuleConfigDialog::loadFromTemplate()
 {
     QString templatePath = QCoreApplication::applicationDirPath() + "/templates";
     QString fileName = QFileDialog::getOpenFileName(this, "Load init template", templatePath,
@@ -246,7 +203,7 @@ void ModuleConfigWidget::loadFromTemplate()
     }
 }
 
-void ModuleConfigWidget::saveToFile()
+void ModuleConfigDialog::saveToFile()
 {
     QString path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
     QSettings settings;
@@ -286,7 +243,7 @@ void ModuleConfigWidget::saveToFile()
     settings.setValue("Files/LastInitListDirectory", fi.absolutePath());
 }
 
-void ModuleConfigWidget::execList()
+void ModuleConfigDialog::execList()
 {
     auto controller = m_context->getController();
 
@@ -330,6 +287,77 @@ void ModuleConfigWidget::execList()
                         ui->splitter->setSizes({1, 1});
                     }
                 } break;
+            case ModuleListType::TypeCount:
+                break;
         }
+    }
+}
+
+void ModuleConfigDialog::on_buttonBox_clicked(QAbstractButton *button)
+{
+    auto buttonRole = ui->buttonBox->buttonRole(button);
+
+    switch (buttonRole)
+    {
+        case QDialogButtonBox::ApplyRole:
+            {
+                saveToConfig();
+            } break;
+
+        case QDialogButtonBox::ResetRole:
+            {
+                loadFromConfig();
+            } break;
+
+        case QDialogButtonBox::RejectRole:
+            {
+                reject();
+            } break;
+
+        default:
+            Q_ASSERT(false);
+            break;
+    }
+}
+
+void ModuleConfigDialog::loadFromConfig()
+{
+    auto config = m_config;
+
+    setWindowTitle(QString("Module Config %1").arg(config->getName()));
+    ui->label_type->setText(VMEModuleTypeNames.value(config->type, QSL("Unknown")));
+    ui->le_name->setText(config->getName());
+    ui->le_address->setText(QString().sprintf("0x%08x", config->baseAddress));
+
+    m_configStrings.clear();
+
+    for (int i=0; i < static_cast<int>(ModuleListType::TypeCount); ++i)
+    {
+        m_configStrings[i] = *getConfigString(static_cast<ModuleListType>(i), config);
+    }
+
+    auto currentType = ui->combo_listType->currentData().toInt();
+    m_ignoreEditorContentsChange = true;
+    ui->editor->setPlainText(m_configStrings.value(currentType));
+    ui->editor->document()->setModified(false);
+    ui->editor->document()->clearUndoRedoStacks();
+    m_ignoreEditorContentsChange = false;
+}
+
+void ModuleConfigDialog::saveToConfig()
+{
+    auto config = m_config;
+
+    config->setName(ui->le_name->text());
+
+    bool ok;
+    m_config->baseAddress = ui->le_address->text().toUInt(&ok, 16);
+
+    auto currentType = ui->combo_listType->currentData().toInt();
+    m_configStrings[currentType] = ui->editor->toPlainText();
+
+    for (int i=0; i < static_cast<int>(ModuleListType::TypeCount); ++i)
+    {
+        *getConfigString(static_cast<ModuleListType>(i), config) = m_configStrings[i];
     }
 }

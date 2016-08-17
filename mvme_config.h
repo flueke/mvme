@@ -18,6 +18,8 @@ class ModuleConfig: public QObject
             : QObject(parent)
         {}
 
+        void setModified();
+
         void setName(const QString &name)
         {
             if (m_name != name)
@@ -68,6 +70,8 @@ class EventConfig: public QObject
         {}
 
         ~EventConfig() { qDeleteAll(modules); }
+
+        void setModified();
 
         void setName(const QString &name)
         {

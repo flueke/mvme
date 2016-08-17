@@ -113,6 +113,15 @@ int ModuleConfig::getADCResolution() const
     return -1;
 }
 
+void ModuleConfig::setModified()
+{
+    auto eventConfig = qobject_cast<EventConfig *>(parent());
+    if (eventConfig)
+    {
+        eventConfig->setModified();
+    }
+}
+
 void ModuleConfig::read(const QJsonObject &json)
 {
     type = VMEModuleShortNames.key(json["type"].toString(), VMEModuleType::Invalid);
@@ -145,6 +154,16 @@ void ModuleConfig::write(QJsonObject &json) const
 //
 // EventConfig
 //
+
+void EventConfig::setModified()
+{
+    auto daqConfig = qobject_cast<DAQConfig *>(parent());
+    if (daqConfig)
+    {
+        daqConfig->setModified(true);
+    }
+}
+
 void EventConfig::read(const QJsonObject &json)
 {
     qDeleteAll(modules);
