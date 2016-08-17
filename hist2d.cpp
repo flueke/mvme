@@ -12,107 +12,21 @@
 #include <QTimer>
 #include <QtCore> // for qQNaN with Qt 5.2
 
-class Hist2DData: public QwtRasterData
-{
-public:
-
-    Hist2DData(uint32_t xResolution, uint32_t yResolution)
-        : m_xResolution(xResolution)
-        , m_yResolution(yResolution)
-        , m_data(new uint32_t[xResolution * yResolution])
-        , m_maxValue(0)
-    {
-        setInterval(Qt::XAxis, QwtInterval(0, xResolution-1));
-        setInterval(Qt::YAxis, QwtInterval(0, yResolution-1));
-
-        reset();
-    }
-
-    ~Hist2DData()
-    {
-        qDebug() << __PRETTY_FUNCTION__ ;
-        delete[] m_data;
-    }
-
-    void reset()
-    {
-        m_maxValue = 0;
-
-        for (size_t i=0; i < m_xResolution * m_yResolution; ++i)
-        {
-            m_data[i] = 0;
-        }
-
-        setInterval(Qt::ZAxis, QwtInterval());
-    }
-
-    virtual double value(double x, double y) const
-    {
-        uint32_t ix = (uint32_t)x;
-        uint32_t iy = (uint32_t)y;
-        uint32_t v  = 0;
-
-        if (ix < m_xResolution && iy < m_yResolution)
-        {
-            v = m_data[iy * m_xResolution + ix];
-        }
-
-        return v > 0 ? v : qQNaN();
-    }
-
-#if 0
-    virtual void initRaster(const QRectF &area, const QSize &raster)
-    {
-        qDebug() << "initRaster() area =" << area << ", raster =" << raster;
-    }
-#endif
-
-    void incValue(uint32_t x, uint32_t y)
-    {
-        if (x < m_xResolution && y < m_yResolution)
-        {
-            uint32_t value = ++m_data[y * m_xResolution + x];
-            m_maxValue = qMax(value, m_maxValue);
-            setInterval(Qt::ZAxis, QwtInterval(0, m_maxValue));
-        }
-    }
-
-    void setValue(uint32_t x, uint32_t y, uint32_t value)
-    {
-        if (x < m_xResolution && y < m_yResolution)
-        {
-            /* XXX(flueke): this produces a wrong max value if the
-             * current max value is overwritten with a smaller value. */
-            m_data[y * m_xResolution + x] = value;
-            m_maxValue = qMax(value, m_maxValue);
-            setInterval(Qt::ZAxis, QwtInterval(0, m_maxValue));
-        }
-    }
-
-    uint32_t m_xResolution;
-    uint32_t m_yResolution;
-
-private:
-    uint32_t *m_data;
-    uint32_t m_maxValue;
-};
+//
+// Hist2D
+//
 
 Hist2D::Hist2D(uint32_t xResolution, uint32_t yResolution, QObject *parent)
     : QObject(parent)
-    , m_data(new Hist2DData(xResolution, yResolution))
+    , m_xResolution(xResolution)
+    , m_yResolution(yResolution)
+    , m_data(new uint32_t[xResolution * yResolution])
+    , m_maxValue(0)
     , m_xAxisChannel(-1)
     , m_yAxisChannel(-1)
 {
-}
-
-uint32_t Hist2D::xAxisResolution() const
-{
-    return m_data->m_xResolution;
-}
-
-uint32_t Hist2D::yAxisResolution() const
-{
-    return m_data->m_yResolution;
+    setInterval(Qt::XAxis, QwtInterval(0, xResolution - 1));
+    setInterval(Qt::YAxis, QwtInterval(0, yResolution - 1));
 }
 
 QwtLinearColorMap *Hist2D::getColorMap() const
@@ -128,26 +42,69 @@ QwtLinearColorMap *Hist2D::getColorMap() const
     return colorMap;
 }
 
-void Hist2D::fill(uint32_t x, uint32_t y)
-{
-    m_data->incValue(x, y);
-}
-
 void Hist2D::setXAxisChannel(int32_t channel)
 {
     m_xAxisChannel = channel;
-    m_data->reset();
+    clear();
 }
 
 void Hist2D::setYAxisChannel(int32_t channel)
 {
     m_yAxisChannel = channel;
-    m_data->reset();
+    clear();
 }
 
 void Hist2D::clear()
 {
-    m_data->reset();
+    m_maxValue = 0;
+
+    for (size_t i=0; i < m_xResolution * m_yResolution; ++i)
+    {
+        m_data[i] = 0;
+    }
+
+    setInterval(Qt::ZAxis, QwtInterval());
+}
+
+void Hist2D::fill(uint32_t x, uint32_t y, uint32_t weight)
+{
+    if (x < m_xResolution && y < m_yResolution)
+    {
+        uint32_t value = m_data[y * m_xResolution + x] += weight;
+        m_maxValue = qMax(value, m_maxValue);
+        setInterval(Qt::ZAxis, QwtInterval(0, m_maxValue));
+    }
+}
+
+double Hist2D::value(double x, double y) const
+{
+    uint32_t ix = (uint32_t)x;
+    uint32_t iy = (uint32_t)y;
+    uint32_t v  = 0;
+
+    if (ix < m_xResolution && iy < m_yResolution)
+    {
+        v = m_data[iy * m_xResolution + ix];
+    }
+
+    return v > 0 ? v : qQNaN();
+}
+
+void Hist2D::setInterval(Qt::Axis axis, const QwtInterval &interval)
+{
+    m_intervals[axis] = interval;
+    for (auto rasterData: m_rasterDataInstances)
+    {
+        rasterData->setInterval(axis, interval);
+    }
+}
+
+//
+// Hist2DRasterData
+//
+Hist2DRasterData *Hist2D::makeRasterData()
+{
+    return new Hist2DRasterData(this);
 }
 
 Hist2DWidget::Hist2DWidget(Hist2D *hist2d, QWidget *parent)
@@ -180,7 +137,7 @@ Hist2DWidget::Hist2DWidget(Hist2D *hist2d, QWidget *parent)
             });
 
 
-    m_plotItem->setData(m_hist2d->getData());
+    m_plotItem->setData(m_hist2d->makeRasterData());
     m_plotItem->setRenderThreadCount(0); // use system specific ideal thread count
     m_plotItem->setColorMap(m_hist2d->getColorMap());
     m_plotItem->attach(ui->plot);
@@ -193,7 +150,7 @@ Hist2DWidget::Hist2DWidget(Hist2D *hist2d, QWidget *parent)
     ui->plot->enableAxis(QwtPlot::yRight);
 
 
-    auto histData = m_hist2d->getData();
+    auto histData = m_hist2d->makeRasterData();
     auto interval = histData->interval(Qt::XAxis);
     ui->plot->setAxisScale(QwtPlot::xBottom, interval.minValue(), interval.maxValue());
 
@@ -217,16 +174,13 @@ Hist2DWidget::Hist2DWidget(Hist2D *hist2d, QWidget *parent)
 
 Hist2DWidget::~Hist2DWidget()
 {
-    qDebug() << __PRETTY_FUNCTION__;
-    m_plotItem->setData(nullptr);
-    m_plotItem->detach();
     delete m_plotItem;
     delete ui;
 }
 
 void Hist2DWidget::replot()
 {
-    auto histData = m_hist2d->getData();
+    auto histData = m_hist2d->makeRasterData();
 
     // x
     auto axis = ui->plot->axisWidget(QwtPlot::xBottom);
@@ -259,20 +213,18 @@ void Hist2DWidget::exportPlot()
 
 void Hist2DWidget::addTestData()
 {
-    auto histData = m_hist2d->getData();
+    qDebug() << "begin addTestData" << m_hist2d->interval(Qt::ZAxis);
 
-    qDebug() << "begin addRandomValues" << histData->interval(Qt::ZAxis);
-
-    for (uint32_t x=0; x<histData->m_xResolution; ++x)
+    for (uint32_t x=0; x<m_hist2d->xAxisResolution(); ++x)
     {
-        for (uint32_t y=0; y<histData->m_yResolution; ++y)
+        for (uint32_t y=0; y<m_hist2d->yAxisResolution(); ++y)
         {
-            uint32_t value = x;
-            histData->setValue(x, y, value);
+            uint32_t weight = x;
+            m_hist2d->fill(x, y, weight);
         }
     }
 
-    qDebug() << "end addRandomValues" << histData->interval(Qt::ZAxis);
+    qDebug() << "end addTestData" << m_hist2d->interval(Qt::ZAxis);
 }
 
 void Hist2DWidget::setXAxisChannel(int channel)

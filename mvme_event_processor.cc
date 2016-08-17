@@ -174,11 +174,10 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
                         if (currentWord == 0xFFFFFFFF || currentWord == 0x00000000)
                             continue;
 
-                        //bool header_found_flag = (currentWord & 0xC0000000) == 0x40000000;
-
-
+                        bool header_found_flag = (currentWord & 0xC0000000) == 0x40000000;
                         bool data_found_flag = ((currentWord & 0xF0000000) == 0x10000000) // MDPP
                             || ((currentWord & 0xFF800000) == 0x04000000); // MxDC
+                        bool eoe_found_flag = (currentWord & 0xC0000000) == 0xC0000000;
 
                         if (data_found_flag)
                         {
@@ -231,10 +230,10 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
 
             u32 yValue = eventValues[moduleIndex][addressValue];
 
-            qDebug() << hist2d << hist2d->xAxisResolution() << hist2d->yAxisResolution() << xValue << yValue
-                << eventIndex << moduleIndex << addressValue;
+            //qDebug() << hist2d << hist2d->xAxisResolution() << hist2d->yAxisResolution() << xValue << yValue
+            //    << eventIndex << moduleIndex << addressValue;
 
-            // FIXME: can't just shift here: need to know resolution
+            // FIXME: can't just shift here: need to know the values resolution
             hist2d->fill(xValue >> 2, yValue >> 2);
         }
     }
