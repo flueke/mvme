@@ -22,6 +22,7 @@
 #include "vme.h"
 #include "vmecommandlist.h"
 #include <QDebug>
+#include <QMutexLocker>
 
 ////////////////////////////////////////////////////////////////////////
 /*
@@ -58,47 +59,51 @@ static void* addToPacket32(void* packet, uint32_t datum)
 
 
 VMUSB::VMUSB()
+    : m_state(ControllerState::Closed)
+    , m_lock(QMutex::Recursive)
 {
 }
 
 
 VMUSB::~VMUSB()
 {
+    closeUsbDevice();
 }
 
 bool VMUSB::openFirstUsbDevice(void)
 {
+    QMutexLocker locker(&m_lock);
     if (isOpen())
     {
         return false;
     }
 
-    try
+    getUsbDevices();
+
+    if (numDevices <= 0)
     {
-
-        getUsbDevices();
-
-        if (numDevices <= 0)
-        {
-            return false;
-        }
-
-        hUsbDevice = xxusb_device_open(pUsbDevice[0].usbdev);
-
-        if (hUsbDevice)
-        {
-            m_currentSerialNumber = pUsbDevice[0].SerialString;
-            // clear the action register (makes sure daq mode is disabled)
-            writeActionRegister(0);
-            emit controllerOpened();
-        }
-
-        return hUsbDevice;
-    } catch (const VMUSB_UsbError &e)
-    {
-        qDebug() << e.toString();
         return false;
     }
+
+    hUsbDevice = xxusb_device_open(pUsbDevice[0].usbdev);
+
+    if (hUsbDevice)
+    {
+        m_currentSerialNumber = pUsbDevice[0].SerialString;
+        // clear the action register (makes sure daq mode is disabled)
+        if (writeActionRegister(0))
+        {
+            m_state = ControllerState::Opened;
+            emit controllerOpened();
+            emit controllerStateChanged(m_state);
+        }
+        else
+        {
+            closeUsbDevice();
+        }
+    }
+
+    return hUsbDevice;
 }
 
 void VMUSB::closeUsbDevice(void)
@@ -108,7 +113,9 @@ void VMUSB::closeUsbDevice(void)
         xxusb_device_close(hUsbDevice);
         hUsbDevice = nullptr;
         m_currentSerialNumber = QString();
+        m_state = ControllerState::Closed;
         emit controllerClosed();
+        emit controllerStateChanged(m_state);
     }
 }
 
@@ -132,9 +139,48 @@ struct VMUSB_Firmware
     uint8_t minor_revision;
 };
 
-/*!
-    \fn vmUsb::getAllRegisters(void)
- */
+bool VMUSB::readRegister(u32 address, u32 *outValue)
+{
+    if (isOpen())
+    {
+        QMutexLocker locker(&m_lock);
+        long a = address;
+        long o = 0;
+        int status = VME_register_read(hUsbDevice, a, &o);
+
+        if (status >= 0)
+        {
+            *outValue = o;
+            return true;
+        }
+        else
+        {
+            lastUsbError = status;
+        }
+    }
+
+    return false;
+}
+
+bool VMUSB::writeRegister(u32 address, u32 value)
+{
+    if (isOpen())
+    {
+        QMutexLocker locker(&m_lock);
+        long a = address;
+        long v = value;
+        int status = VME_register_write(hUsbDevice, a, v);
+
+        if (status < 0)
+        {
+            lastUsbError = status;
+            return false;
+        }
+    }
+
+    return true;
+}
+
 void VMUSB::readAllRegisters(void)
 {
   firmwareId = 0;
@@ -154,75 +200,77 @@ void VMUSB::readAllRegisters(void)
   extDggSettings = 0;
   usbBulkSetup = 0;
 
-  long val = 0;
+  u32 val = 0;
   int status = 0;
 
-  status = VME_register_read(hUsbDevice, 0, &val);
-  if (status > 0)
+  QMutexLocker locker(&m_lock);
+
+  status = readRegister(0, &val);
+  if (status)
     firmwareId = (int) val;
   qDebug("Id: %x",firmwareId);
 
 
-  status = VME_register_read(hUsbDevice, 4, &val);
-  if (status > 0)
+  status = readRegister(4, &val);
+  if (status)
     globalMode = (int)val & 0xFFFF;
 
   qDebug("globalMode: %x", globalMode);
 
-  status = VME_register_read(hUsbDevice, 8, &val);
-  if (status > 0)
+  status = readRegister(8, &val);
+  if (status)
     daqSettings = (int)val;
 
-  status = VME_register_read(hUsbDevice, 12, &val);
-  if (status > 0)
+  status = readRegister(12, &val);
+  if (status)
     ledSources = (int)val;
 
-  status = VME_register_read(hUsbDevice, 16, &val);
-  if (status > 0)
+  status = readRegister(16, &val);
+  if (status)
     deviceSources = (int)val;
 
-  status = VME_register_read(hUsbDevice, 20, &val);
-  if (status > 0)
+  status = readRegister(20, &val);
+  if (status)
     dggAsettings = (int)val;
 
-  status = VME_register_read(hUsbDevice, 24, &val);
-  if (status > 0)
+  status = readRegister(24, &val);
+  if (status)
     dggBsettings = (int)val;
 
-  status = VME_register_read(hUsbDevice, 28, &val);
-  if (status > 0)
+  status = readRegister(28, &val);
+  if (status)
     scalerAdata = (int)val;
 
-  status = VME_register_read(hUsbDevice, 32, &val);
-  if (status > 0)
+  status = readRegister(32, &val);
+  if (status)
     scalerBdata = (int)val;
 
-  status = VME_register_read(hUsbDevice, 36, &val);
-  if (status > 0)
+  status = readRegister(36, &val);
+  if (status)
     eventsPerBuffer = (u32)val;
 
-  status = VME_register_read(hUsbDevice, 40, &val);
-  if (status > 0)
+  status = readRegister(40, &val);
+  if (status)
     irqV[0] = (int)val;
 
-  status = VME_register_read(hUsbDevice, 44, &val);
-  if (status > 0)
+  status = readRegister(44, &val);
+  if (status)
     irqV[1] = (int)val;
 
-  status = VME_register_read(hUsbDevice, 48, &val);
-  if (status > 0)
+  status = readRegister(48, &val);
+  if (status)
     irqV[2] = (int)val;
 
-  status = VME_register_read(hUsbDevice, 52, &val);
-  if (status > 0)
+  status = readRegister(52, &val);
+  if (status)
     irqV[3] = (int)val;
 
-  status = VME_register_read(hUsbDevice, 56, &val);
-  if (status > 0)
+  status = readRegister(56, &val);
+  if (status)
     extDggSettings = (int)val;
 
-  status = VME_register_read(hUsbDevice, 60, &val);
-  if (status > 0)
+  status = readRegister(60, &val);
+  if (status)
     usbBulkSetup = (int)val;
 }
 
@@ -235,6 +283,7 @@ void VMUSB::readAllRegisters(void)
 
  void VMUSB::getUsbDevices(void)
  {
+     QMutexLocker locker(&m_lock);
 
      short DevFound = 0;
      usb_dev_handle *udev;
@@ -389,8 +438,9 @@ int VMUSB::getUsbSettings()
  */
 int VMUSB::setFirmwareId(int val)
 {
-  if(VME_register_write(hUsbDevice, 0, val) > 0){
-    VME_register_read(hUsbDevice, 0, &retval);
+    u32 retval;
+  if(writeRegister(0, val)){
+    readRegister(0, &retval);
     firmwareId = (int)retval;
   }
   return firmwareId;
@@ -401,8 +451,9 @@ int VMUSB::setFirmwareId(int val)
  */
 int VMUSB::setMode(int val)
 {
-  if(VME_register_write(hUsbDevice, 4, val) > 0){
-    VME_register_read(hUsbDevice, 4, &retval);
+    u32 retval;
+  if(writeRegister(4, val)){
+    readRegister(4, &retval);
     globalMode = (int)retval & 0xFFFF;
   }
   return globalMode;
@@ -413,8 +464,9 @@ int VMUSB::setMode(int val)
  */
 int VMUSB::setDaqSettings(int val)
 {
-  if(VME_register_write(hUsbDevice, 8, val) > 0){
-    VME_register_read(hUsbDevice, 8, &retval);
+    u32 retval;
+  if(writeRegister(8, val)){
+    readRegister(8, &retval);
     daqSettings = (int)retval;
   }
   return daqSettings;
@@ -424,8 +476,9 @@ int VMUSB::setDaqSettings(int val)
  */
 int VMUSB::setLedSources(int val)
 {
-  if(VME_register_write(hUsbDevice, 12, val) > 0){
-    VME_register_read(hUsbDevice, 12, &retval);
+    u32 retval;
+  if(writeRegister(12, val)){
+    readRegister(12, &retval);
     ledSources = (int)retval;
   }
   qDebug("set value: %x", ledSources);
@@ -437,8 +490,9 @@ int VMUSB::setLedSources(int val)
  */
 int VMUSB::setDeviceSources(int val)
 {
-  if(VME_register_write(hUsbDevice, 16, val) > 0){
-    VME_register_read(hUsbDevice, 16, &retval);
+    u32 retval;
+  if(writeRegister(16, val)){
+    readRegister(16, &retval);
     deviceSources = (int)retval;
   }
   return deviceSources;
@@ -449,8 +503,9 @@ int VMUSB::setDeviceSources(int val)
  */
 int VMUSB::setDggA(int val)
 {
-  if(VME_register_write(hUsbDevice, 20, val) > 0){
-    VME_register_read(hUsbDevice, 20, &retval);
+    u32 retval;
+  if(writeRegister(20, val)){
+    readRegister(20, &retval);
     dggAsettings = (int)retval;
   }
   return dggAsettings;
@@ -461,8 +516,9 @@ int VMUSB::setDggA(int val)
  */
 int VMUSB::setDggB(int val)
 {
-  if(VME_register_write(hUsbDevice, 24, val) > 0){
-    VME_register_read(hUsbDevice, 24, &retval);
+    u32 retval;
+  if(writeRegister(24, val)){
+    readRegister(24, &retval);
     dggBsettings = (int)retval;
   }
   return dggBsettings;
@@ -473,8 +529,9 @@ int VMUSB::setDggB(int val)
  */
 int VMUSB::setScalerAdata(int val)
 {
-  if(VME_register_write(hUsbDevice, 28, val) > 0){
-    VME_register_read(hUsbDevice, 28, &retval);
+    u32 retval;
+  if(writeRegister(28, val)){
+    readRegister(28, &retval);
     scalerAdata = (int)retval;
   }
   return scalerAdata;
@@ -485,8 +542,9 @@ int VMUSB::setScalerAdata(int val)
  */
 int VMUSB::setScalerBdata(int val)
 {
-  if(VME_register_write(hUsbDevice, 32, val) > 0){
-    VME_register_read(hUsbDevice, 32, &retval);
+    u32 retval;
+  if(writeRegister(32, val)){
+    readRegister(32, &retval);
     scalerBdata = (int)retval;
   }
   return scalerBdata;
@@ -494,8 +552,9 @@ int VMUSB::setScalerBdata(int val)
 
 u32 VMUSB::setEventsPerBuffer(u32 val)
 {
-  if(VME_register_write(hUsbDevice, 36, val) > 0){
-    VME_register_read(hUsbDevice, 36, &retval);
+    u32 retval;
+  if(writeRegister(36, val)){
+    readRegister(36, &retval);
     eventsPerBuffer = (u32)retval;
   }
   return eventsPerBuffer;
@@ -533,9 +592,9 @@ int VMUSB::setIrq(int vec, uint16_t val)
     if (regAddress < 0)
         throw std::runtime_error("setIrq: invalid vector number given");
 
-    long regValue = 0;
+    u32 regValue = 0;
 
-    if (regAddress >= 0 && VME_register_read(hUsbDevice, regAddress, &regValue))
+    if (regAddress >= 0 && readRegister(regAddress, &regValue))
     {
         val = val & 0xFFFF;
 
@@ -550,8 +609,8 @@ int VMUSB::setIrq(int vec, uint16_t val)
             regValue |= (val << 16);
         }
 
-        if (VME_register_write(hUsbDevice, regAddress, regValue) &&
-                VME_register_read(hUsbDevice, regAddress, &regValue))
+        if (writeRegister(regAddress, regValue) &&
+                readRegister(regAddress, &regValue))
         {
             int regIndex = vec / 2;
             irqV[regIndex] = regValue;
@@ -590,8 +649,9 @@ uint16_t VMUSB::getIrq(int vec)
  */
 int VMUSB::setDggSettings(int val)
 {
-  if(VME_register_write(hUsbDevice, 56, val) > 0){
-    VME_register_read(hUsbDevice, 56, &retval);
+    u32 retval;
+  if(writeRegister(56, val) > 0){
+    readRegister(56, &retval);
     extDggSettings = (int)retval;
   }
   return extDggSettings;
@@ -602,8 +662,9 @@ int VMUSB::setDggSettings(int val)
  */
 int VMUSB::setUsbSettings(int val)
 {
-  if(VME_register_write(hUsbDevice, 60, val) > 0){
-    VME_register_read(hUsbDevice, 60, &retval);
+    u32 retval;
+  if(writeRegister(60, val) > 0){
+    readRegister(60, &retval);
     usbBulkSetup = (int)retval;
   }
   return usbBulkSetup;
@@ -637,6 +698,7 @@ short VMUSB::vmeWrite16(long addr, long data, uint8_t amod)
   intbuf[7]=((data >> 16) & 0xffff);
 //	for(int i=0;i<8;i++)
 //		qDebug("%x", intbuf[i]);
+  QMutexLocker locker(&m_lock);
   ret = xxusb_stack_execute(hUsbDevice, intbuf);
 #if 0
   for (int i=0; i<ret; ++i)
@@ -645,13 +707,6 @@ short VMUSB::vmeWrite16(long addr, long data, uint8_t amod)
   }
 #endif
   return ret;
-}
-
-u32 VMUSB::readRegister(u32 address)
-{
-    long data = 0;
-    VME_register_read(hUsbDevice, address, &data);
-    return static_cast<u32>(data);
 }
 
 /*!
@@ -681,6 +736,7 @@ short VMUSB::vmeWrite32(long addr, long data, uint8_t amod)
   intbuf[7]=((data >> 16) & 0xffff);
 //    for(int i=0;i<8;i++)
 //        qDebug("%x", intbuf[i]);
+  QMutexLocker locker(&m_lock);
   ret = xxusb_stack_execute(hUsbDevice, intbuf);
   return ret;
 }
@@ -703,6 +759,7 @@ short VMUSB::vmeRead32(long addr, long* data)
   intbuf[5]=((addr >> 16) & 0xffff);
 //	for(int i=0;i<6;i++)
 //		qDebug("%lx", intbuf[i]);
+  QMutexLocker locker(&m_lock);
   ret = xxusb_stack_execute(hUsbDevice, intbuf);
 //	qDebug("read: %d %lx %lx", ret, intbuf[0], intbuf[1]);
   *data = intbuf[0] + (intbuf[1] * 0x10000);
@@ -726,6 +783,7 @@ short VMUSB::vmeRead16(long addr, long* data)
     intbuf[3]= 1; // | 0x1; // endianess
   intbuf[4]=(addr & 0xffff) | 0x0001; // 16 bit Zugriff
   intbuf[5]=((addr >>16) & 0xffff);
+  QMutexLocker locker(&m_lock);
   ret = xxusb_stack_execute(hUsbDevice, intbuf);
 //	qDebug("read: %lx %lx", intbuf[0], intbuf[1]);
   *data = intbuf[0] + (intbuf[1] * 0x10000);
@@ -886,6 +944,7 @@ int VMUSB::stackWrite(int id, long* data)
     qDebug("  %d: %lx", i, data[i]);
 
   unsigned char addr[8] = {2, 3, 18, 19, 34, 35, 50, 51};
+  QMutexLocker locker(&m_lock);
   int ret = xxusb_stack_write(hUsbDevice, addr[id], data);
   qDebug("StackWrite %d (addr: %d), %d bytes", id, addr[id], ret);
   return ret;
@@ -900,6 +959,7 @@ int VMUSB::stackRead(int id, long* data)
   unsigned char addr[8] = {2, 3, 18, 19, 34, 35, 50, 51};
   qDebug("StackRead %d (addr: %d)", id, addr[id]);
 
+  QMutexLocker locker(&m_lock);
   int ret = xxusb_stack_read(hUsbDevice, addr[id], data);
 
   return ret;
@@ -917,6 +977,7 @@ int VMUSB:: stackExecute(long* data)
     for(i=0;i<=data[0];i++)
         qDebug("  %d: %08lx", i, data[i]);
 
+    QMutexLocker locker(&m_lock);
     ret = xxusb_stack_execute(hUsbDevice, data);
 
     qDebug("read: %d %lx %lx", ret, data[0], data[1]);
@@ -941,6 +1002,7 @@ int VMUSB::readBuffer(unsigned short* data)
 {
     qDebug("vmUsb::readBuffer()");
 //	return xxusb_bulk_read(hUsbDevice, data, 10000, 100);
+    QMutexLocker locker(&m_lock);
     return xxusb_usbfifo_read(hUsbDevice, (int*)data, 10000, 100);}
 
 /*!
@@ -951,8 +1013,11 @@ int VMUSB::readLongBuffer(int* data)
   return xxusb_bulk_read(hUsbDevice, data, 1200, 100);
 }
 
-void VMUSB::writeActionRegister(uint16_t value)
+bool VMUSB::writeActionRegister(uint16_t value)
 {
+    if (!isOpen())
+        return false;
+
     char outPacket[100];
 
     // Build up the output packet:
@@ -965,11 +1030,15 @@ void VMUSB::writeActionRegister(uint16_t value)
 
     // This operation is write only.
 
+    QMutexLocker locker(&m_lock);
     int outSize = pOut - outPacket;
     int status = usb_bulk_write(hUsbDevice, ENDPOINT_OUT, outPacket, outSize, defaultTimeout_ms);
 
     if (status != outSize)
-        throw VMUSB_UsbError(status, "Error writing action register");
+    {
+        lastUsbError = status;
+        return false;
+    }
 
     bool daqMode = (value & 0x1);
 
@@ -982,6 +1051,8 @@ void VMUSB::writeActionRegister(uint16_t value)
             emit daqModeLeft();
         emit daqModeChanged(daqMode);
     }
+
+    return true;
 }
 
 /*!
@@ -990,10 +1061,11 @@ void VMUSB::writeActionRegister(uint16_t value)
 int VMUSB::setScalerTiming(unsigned int frequency, unsigned char period, unsigned char delay)
 {
     // redundant function to setDaqSettings - allows separate setting of all three components
-  long val = 0x10000 * frequency + 0x100 * period + delay;
+  u32 val = 0x10000 * frequency + 0x100 * period + delay;
+    u32 retval;
 
-  if(VME_register_write(hUsbDevice, 8, val) > 0){
-    VME_register_read(hUsbDevice, 8, &retval);
+  if(writeRegister(8, val) > 0){
+    readRegister(8, &retval);
     daqSettings = (int)retval;
   }
   else
@@ -1079,8 +1151,7 @@ int VMUSB::listExecute(CVMUSBReadoutList *list, void *readBuffer, size_t readBuf
   else {
     *bytesRead = 0;
   }
-  return (status >= 0) ? 0 : status;
-
+  return status;
 }
 
 int VMUSB::listLoad(CVMUSBReadoutList *list, uint8_t stackID, size_t stackMemoryOffset, int timeout_ms)
@@ -1096,6 +1167,7 @@ int VMUSB::listLoad(CVMUSBReadoutList *list, uint8_t stackID, size_t stackMemory
     size_t   packetSize;
     uint16_t *outPacket = listToOutPacket(ta, list, &packetSize, stackMemoryOffset);
 
+    QMutexLocker locker(&m_lock);
     int status = usb_bulk_write(hUsbDevice, ENDPOINT_OUT,
                                 reinterpret_cast<char *>(outPacket),
                                 packetSize, timeout_ms);
@@ -1148,6 +1220,7 @@ VMUSB::transaction(void* writePacket, size_t writeSize,
             */
 
 
+    QMutexLocker locker(&m_lock);
     int status = usb_bulk_write(hUsbDevice, ENDPOINT_OUT,
             static_cast<char*>(writePacket), writeSize,
             timeout_ms);
@@ -1165,7 +1238,7 @@ VMUSB::transaction(void* writePacket, size_t writeSize,
         return -1;		// Write failed!!
     }
 
-    status    = usb_bulk_read(hUsbDevice, ENDPOINT_IN,
+    status = usb_bulk_read(hUsbDevice, ENDPOINT_IN,
             static_cast<char*>(readPacket), readSize, timeout_ms);
 
     if (status < 0) {
@@ -1183,6 +1256,7 @@ VMUSB::transaction(void* writePacket, size_t writeSize,
 
 int VMUSB::bulkRead(void *outBuffer, size_t outBufferSize, int timeout_ms)
 {
+    QMutexLocker locker(&m_lock);
     int status = usb_bulk_read(hUsbDevice, ENDPOINT_IN,
                                static_cast<char *>(outBuffer), outBufferSize, timeout_ms);
 
@@ -1206,6 +1280,7 @@ VMUSB::stackRead(u8 stackID)
     if (stackID & 2)  ta |= TAVcsID1; // Probably the simplest way for this
     if (stackID & 4)  ta |= TAVcsID2; // few bits.
 
+    QMutexLocker locker(&m_lock);
     int status = usb_bulk_write(hUsbDevice, ENDPOINT_OUT, reinterpret_cast<char *>(&ta), sizeof(ta), 100);
 
     if (status <= 0)
@@ -1255,22 +1330,21 @@ VMUSB::stackExecute(const QVector<u32> &stackData, size_t resultMaxWords)
     return ret;
 }
 
-size_t VMUSB::executeCommands(VMECommandList *commands, void *readBuffer,
+ssize_t VMUSB::executeCommands(VMECommandList *commands, void *readBuffer,
         size_t readBufferSize)
 {
     if (commands->size() == 0)
         return 0;
 
     CVMUSBReadoutList vmusbList(*commands);
-    size_t bytesRead = 0;
 
+    size_t bytesRead = 0;
     int result = listExecute(&vmusbList, readBuffer, readBufferSize, &bytesRead);
 
-    // TODO: move this into listExecute
-    if (result < 0)
-        throw VMUSB_UsbError(result, "execute Commands");
+    if (result >= 0)
+        return bytesRead;
 
-    return bytesRead;
+    return result;
 }
 
 void VMUSB::write32(uint32_t address, uint8_t amod, uint32_t value)
@@ -1303,14 +1377,24 @@ uint16_t VMUSB::read16(uint32_t address, uint8_t amod)
     return result;
 }
 
-void VMUSB::enterDaqMode()
+bool VMUSB::enterDaqMode()
 {
     qDebug() << __PRETTY_FUNCTION__;
-    writeActionRegister(1);
+    return writeActionRegister(1);
 }
 
-void VMUSB::leaveDaqMode()
+bool VMUSB::leaveDaqMode()
 {
     qDebug() << __PRETTY_FUNCTION__;
-    writeActionRegister(0);
+    return writeActionRegister(0);
+}
+
+bool VMUSB::openFirstDevice()
+{
+    return openFirstUsbDevice();
+}
+
+void VMUSB::close()
+{
+    closeUsbDevice();
 }

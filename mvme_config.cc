@@ -48,6 +48,7 @@ namespace MADC
         1 << 13, // 8k
         1 << 13  // 8k hires
     };
+    static const int adc_resolution_default = 2;
 }
 
 namespace MDPP
@@ -60,6 +61,7 @@ namespace MDPP
         1 << 12,
         1 << 11 
     };
+    static const int adc_resolution_default = 4;
 }
 
 int ModuleConfig::getADCResolution() const
@@ -81,16 +83,16 @@ int ModuleConfig::getADCResolution() const
     {
         case VMEModuleType::MADC32:
             {
-                int index = registerHash.value(MADC::adc_resolution, 2);
-                index = registerHash.value(MADC::adc_override, index);
-                int res = MADC::adc_resolutions.at(index);
+                int regValue = registerHash.value(MADC::adc_resolution, MADC::adc_resolution_default);
+                regValue = registerHash.value(MADC::adc_override, regValue);
+                int res = MADC::adc_resolutions.at(regValue);
                 return res;
             }
 
         case VMEModuleType::MDPP16:
         case VMEModuleType::MDPP32:
             {
-                int index = registerHash.value(MDPP::adc_resolution, 4);
+                int index = registerHash.value(MDPP::adc_resolution, MDPP::adc_resolution_default);
                 int res = MDPP::adc_resolutions.at(index);
                 return res;
             }

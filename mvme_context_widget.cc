@@ -4,6 +4,7 @@
 #include "CVMUSBReadoutList.h"
 #include "histogram.h"
 #include "hist2ddialog.h"
+#include "vmecontroller.h"
 
 #include <QComboBox>
 #include <QDialog>
@@ -181,7 +182,7 @@ struct MVMEContextWidgetPrivate
 
     QPushButton *pb_startDAQ, *pb_startOneCycle, *pb_stopDAQ, *pb_replay;
     QLabel *label_daqState, *label_daqDuration, *label_buffersReadAndDropped,
-           *label_freeBuffers, *label_readSize, *label_mbPerSecond;
+           *label_freeBuffers, *label_readSize, *label_mbPerSecond, *label_controllerState;
     QLineEdit *le_outputDirectory;
     QCheckBox *cb_outputEnabled;
     QTreeWidget *contextTree;
@@ -206,6 +207,8 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
         m_d->pb_stopDAQ = new QPushButton("Stop");
         m_d->pb_stopDAQ->setEnabled(false);
         m_d->pb_replay = new QPushButton("Replay");
+
+        m_d->label_controllerState = new QLabel("Disconnected");
         m_d->label_daqState = new QLabel("Idle");
         m_d->label_daqDuration = new QLabel();
         m_d->label_buffersReadAndDropped = new QLabel("0 / 0");
@@ -242,6 +245,7 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
         auto stateLayout = new QFormLayout;
         stateLayout->setContentsMargins(2, 4, 2, 2);
         stateLayout->setSpacing(2);
+        stateLayout->addRow("Controller:", m_d->label_controllerState);
         stateLayout->addRow("State:", m_d->label_daqState);
         stateLayout->addRow("Running:", m_d->label_daqDuration);
         stateLayout->addRow("Buffers read / dropped:", m_d->label_buffersReadAndDropped);
@@ -287,6 +291,15 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
         delete m_d->histoNameMap.take(hist2d->objectName());
     });
 
+    auto onControllerStateChanged = [=](ControllerState state) {
+        m_d->label_controllerState->setText(state == ControllerState::Closed
+                                            ? QSL("Disconnected")
+                                            : QSL("Connected"));
+    };
+
+    auto controller = context->getController();
+    connect(controller, &VMEController::controllerStateChanged, this, onControllerStateChanged);
+    onControllerStateChanged(controller->getState());
 
     auto splitter = new QSplitter(Qt::Vertical);
     splitter->addWidget(gb_daqControl);

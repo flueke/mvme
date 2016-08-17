@@ -93,6 +93,14 @@ mvme::mvme(QWidget *parent) :
     connect(m_context, &MVMEContext::configFileNameChanged, this, &mvme::updateWindowTitle);
     connect(m_context, &MVMEContext::configChanged, this, &mvme::onConfigChanged);
 
+    rd = new RealtimeData;
+    diag = new Diagnostics;
+
+    // check and initialize VME interface
+    vu = new VMUSB;
+    m_context->setController(vu);
+    vu->getUsbDevices();
+    vu->openFirstUsbDevice();
 
     // create and initialize displays
     ui->setupUi(this);
@@ -160,15 +168,6 @@ mvme::mvme(QWidget *parent) :
     logDock->setWidget(m_logView);
     addDockWidget(Qt::BottomDockWidgetArea, logDock);
 #endif
-
-    rd = new RealtimeData;
-    diag = new Diagnostics;
-
-    // check and initialize VME interface
-    vu = new VMUSB;
-    m_context->setController(vu);
-    vu->getUsbDevices();
-    vu->openFirstUsbDevice();
 
 
     mctrl = new mvmeControl(this);

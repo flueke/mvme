@@ -1144,10 +1144,17 @@ void mvmeControl::dispChan(int c)
 void mvmeControl::readRegister()
 {
     u32 address = static_cast<u32>(ui->spin_RegDec->value());
-    u32 value = theApp->vu->readRegister(address);
-    QString buffer;
-    buffer.sprintf("0x%08x", value);
-    ui->le_readRegisterResult->setText(buffer);
+    u32 value = 0;
+    if (theApp->vu->readRegister(address, &value))
+    {
+        QString buffer;
+        buffer.sprintf("0x%08x", value);
+        ui->le_readRegisterResult->setText(buffer);
+    }
+    else
+    {
+        ui->le_readRegisterResult->setText(QSL("Error reading register"));
+    }
 }
 
 void mvmeControl::on_pb_clearRegisters_clicked()

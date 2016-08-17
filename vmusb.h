@@ -25,11 +25,21 @@
 #include <QObject>
 #include <QPair>
 #include <QVector>
+#include <QMutex>
 
 #include "vmecontroller.h"
 #include "vmusb_constants.h"
 
 class CVMUSBReadoutList;
+
+/*
+ * Opening/closing and error handling:
+ * - Close: leave daq mode if active, close and release the device
+ * - Errors: timeout, no_device, other errors
+ *   on timeout: close
+ *   no_device: close
+ *   other errors:
+ */
 
 
 /**
@@ -52,15 +62,18 @@ class VMUSB: public VMEController
         virtual bool isOpen() const { return hUsbDevice; }
         QString getSerialNumber() const;
 
-        void readAllRegisters(void);
         bool openFirstUsbDevice(void);
         void closeUsbDevice(void);
         void getUsbDevices(void);
 
-        void enterDaqMode();
-        void leaveDaqMode();
-
+        bool enterDaqMode();
+        bool leaveDaqMode();
         bool isInDaqMode() const { return m_daqMode; }
+
+        bool readRegister(u32 address, u32 *outValue);
+        bool writeRegister(u32 address, u32 value);
+        void readAllRegisters(void);
+
         int getFirmwareId();
         int getMode();
         int getDaqSettings();
@@ -88,7 +101,6 @@ class VMUSB: public VMEController
         int setIrq(int vec, uint16_t val);
         int setDggSettings(int val);
         int setUsbSettings(int val);
-        u32 readRegister(u32 address);
         short vmeWrite32(long addr, long data);
         short vmeWrite32(long addr, long data, uint8_t amod);
         short vmeRead32(long addr, long* data);
@@ -105,7 +117,7 @@ class VMUSB: public VMEController
         int readBuffer(unsigned short* data);
         int readLongBuffer(int* data);
 
-        void writeActionRegister(uint16_t value);
+        bool writeActionRegister(uint16_t value);
 
         int setScalerTiming(unsigned int frequency, unsigned char period, unsigned char delay);
         void setEndianess(bool big);
@@ -123,10 +135,8 @@ class VMUSB: public VMEController
         QPair<QVector<u32>, u32> stackRead(u8 stackNumber);
         QVector<u32> stackExecute(const QVector<u32> &stackData, size_t resultMaxWords=1024);
 
-        /* Executes the commands in commandList and reads the response into readBuffer.
-         * Returns the number of bytes read. Throws on error. */
-        virtual size_t executeCommands(VMECommandList *commands, void *readBuffer,
-                size_t readBufferSize) override;
+        /* Executes the commands in commandList and reads the response into readBuffer. */
+        virtual ssize_t executeCommands(VMECommandList *commands, void *readBuffer, size_t readBufferSize) override;
 
 
         /* Writes the given writePacket to the VM_USB and reads the response back into readPacket. */
@@ -136,9 +146,8 @@ class VMUSB: public VMEController
         int bulkRead(void *outBuffer, size_t outBufferSize, int timeout_ms = 1000);
 
         xxusb_device_type pUsbDevice[5];
-        char numDevices = 0;
+        int numDevices = 0;
         usb_dev_handle* hUsbDevice = nullptr;
-        short ret; // TODO: is this used?
 
         //
         // VMEController interface
@@ -151,6 +160,10 @@ class VMUSB: public VMEController
 
         virtual uint32_t read32(uint32_t address, uint8_t amod);
         virtual uint16_t read16(uint32_t address, uint8_t amod);
+
+        virtual bool openFirstDevice();
+        virtual void close();
+        virtual ControllerState getState() const { return m_state; }
 
     protected:
         int firmwareId;
@@ -166,7 +179,6 @@ class VMUSB: public VMEController
         int irqV[4];
         int extDggSettings;
         int usbBulkSetup;
-        long int retval;
         bool bigendian = false;
         bool m_daqMode = false;
         QString m_currentSerialNumber;
@@ -175,27 +187,15 @@ class VMUSB: public VMEController
         // TODO: use these everywhere
         size_t defaultTimeout_ms = 100;
         size_t bulkTimeout_ms = 100;
+        int lastUsbError = 0;
+        ControllerState m_state;
+        QMutex m_lock;
 };
-
-// Constants:
-
-// Identifying marks for the VM-usb:
-
-static const short USB_WIENER_VENDOR_ID(0x16dc);
-static const short USB_VMUSB_PRODUCT_ID(0xb);
 
 // Bulk transfer endpoints
 
 static const int ENDPOINT_OUT(2);
 static const int ENDPOINT_IN(0x86);
-
-// Timeouts:
-
-static const int DEFAULT_TIMEOUT(2000);	// ms.
-
-// Retries for flushing the fifo/stopping data taking:
-
-static const int DRAIN_RETRIES(5);    // Retries.
 
 // The register offsets:
 
@@ -265,34 +265,5 @@ uint16_t*
 listToOutPacket(uint16_t ta, CVMUSBReadoutList* list,
                         size_t* outSize, off_t offset = 0);
 
-
-struct VMUSB_DeviceNotOpen: public std::runtime_error
-{
-    VMUSB_DeviceNotOpen()
-        : std::runtime_error("VMUSB device is not open")
-    {}
-};
-
-struct VMUSB_UsbError: public std::runtime_error
-{
-    VMUSB_UsbError(int usb_result)
-        : std::runtime_error("VMUSB USB Error")
-          , usb_result(usb_result)
-    {}
-
-    VMUSB_UsbError(int usb_result, const char *message)
-        : std::runtime_error(message)
-          , usb_result(usb_result)
-    {}
-
-    QString toString() const
-    {
-        return QString("%1, error code = %2")
-            .arg(what())
-            .arg(usb_result);
-    }
-
-    int usb_result;
-};
 
 #endif

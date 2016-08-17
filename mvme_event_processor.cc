@@ -138,7 +138,7 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
         u32 wordsLeftInSection = sectionSize;
         int subEventIndex = 0;
 
-        // subeventindex, address -> value
+        // subeventindex -> address -> value
         QHash<int, QHash<int, u32>> eventValues;
 
         while (wordsLeftInSection)

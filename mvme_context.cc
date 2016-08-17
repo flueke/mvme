@@ -146,11 +146,9 @@ void MVMEContext::setController(VMEController *controller)
 
 void MVMEContext::tryOpenController()
 {
-    auto *vmusb = dynamic_cast<VMUSB *>(m_controller);
-
-    if (vmusb && !vmusb->isOpen() && !m_ctrlOpenFuture.isRunning())
+    if (m_controller && !m_controller->isOpen() && !m_ctrlOpenFuture.isRunning())
     {
-        m_ctrlOpenFuture = QtConcurrent::run(vmusb, &VMUSB::openFirstUsbDevice);
+        m_ctrlOpenFuture = QtConcurrent::run(m_controller, &VMEController::openFirstDevice);
     }
 }
 
