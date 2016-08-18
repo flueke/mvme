@@ -10,6 +10,7 @@
 #include "vmusb_readout_worker.h"
 #include "config_widgets.h"
 #include "mvme_listfile.h"
+#include "mvmecontrol.h"
 
 #include <QDockWidget>
 #include <QFileDialog>
@@ -689,7 +690,7 @@ void mvme::handleModuleConfigDoubleClicked(ModuleConfig *config)
     ui->mdiArea->addSubWindow(subwin);
     ui->mdiArea->setActiveSubWindow(subwin);
 #endif
-    
+
     if (m_configDialogs.contains(config))
     {
         m_configDialogs[config]->show();
@@ -868,4 +869,24 @@ void mvme::onConfigChanged(DAQConfig *config)
     connect(config, &DAQConfig::modifiedChanged, this, &mvme::updateWindowTitle);
     updateWindowTitle();
     m_contextWidget->reloadConfig();
+}
+
+void mvme::on_actionShow_MVME_Control_triggered()
+{
+    auto subwins = getSubwindowsByWidgetType<mvmeControl>(ui->mdiArea);
+    if (!subwins.isEmpty())
+    {
+        auto subwin = subwins.at(0);
+        subwin->showNormal();
+        subwin->raise();
+    }
+    else
+    {
+        auto mvme_control = new mvmeControl(this);
+        auto subwin = new QMdiSubWindow;
+        subwin->setObjectName("MVMEControlSubWindow");
+        subwin->setWidget(mvme_control);
+        subwin->setAttribute(Qt::WA_DeleteOnClose, true);
+        ui->mdiArea->addSubWindow(subwin);
+    }
 }

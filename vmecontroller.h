@@ -42,11 +42,11 @@ class VMEController: public QObject
 
         virtual VMEControllerType getType() const = 0;
 
-        virtual void write32(u32 address, u8 amod, u32 value) = 0;
-        virtual void write16(u32 address, u8 amod, u16 value) = 0;
+        virtual int write32(u32 address, u32 value, u8 amod) = 0;
+        virtual int write16(u32 address, u16 value, u8 amod) = 0;
 
-        virtual u32 read32(u32 address, u8 amod) = 0;
-        virtual u16 read16(u32 address, u8 amod) = 0;
+        virtual int read32(u32 address, u32 *value, u8 amod) = 0;
+        virtual int read16(u32 address, u16 *value, u8 amod) = 0;
 
         virtual ssize_t executeCommands(VMECommandList *commands, void *readBuffer, size_t readBufferSize) = 0;
 
@@ -54,7 +54,7 @@ class VMEController: public QObject
         virtual bool openFirstDevice() = 0;
         virtual void close() = 0;
 
-        virtual void applyRegisterList(const RegisterList &registerList,
+        virtual int applyRegisterList(const RegisterList &registerList,
                                  u32 baseAddress = 0,
                                  int writeDelayMS = 10,
                                  RegisterWidth width = RegisterWidth::W16,

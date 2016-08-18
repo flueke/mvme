@@ -78,3 +78,21 @@ QString readStringFile(const QString &filename)
 
     return ret;
 }
+
+QString toString(const RegisterList &registerList)
+{
+    QString result;
+    QTextStream stream(&result);
+    stream << qSetPadChar('0') << hex;
+
+    for (auto pair: registerList)
+    {
+        stream << "0x"
+               << qSetFieldWidth(8) << pair.first << qSetFieldWidth(0)
+               << " -> 0x"
+               << qSetFieldWidth(4) << pair.second << qSetFieldWidth(0)
+               << endl;
+
+    }
+    return result;
+}

@@ -5,12 +5,14 @@ VMEController::VMEController(QObject *parent)
     : QObject(parent)
 {}
 
-void VMEController::applyRegisterList(const RegisterList &regList,
+int VMEController::applyRegisterList(const RegisterList &regList,
                                       u32 baseAddress,
                                       int writeDelayMS,
                                       RegisterWidth width,
                                       u8 amod)
 {
+    int result = 0;
+
     for (auto regVal: regList)
     {
         u32 address = regVal.first + baseAddress;
@@ -18,12 +20,16 @@ void VMEController::applyRegisterList(const RegisterList &regList,
         switch (width)
         {
             case RegisterWidth::W16:
-                write16(address, amod, value);
+                result = write16(address, value, amod);
                 break;
             case RegisterWidth::W32:
-                write32(address, amod, value);
+                result = write32(address, value, amod);
                 break;
         }
+        if (result < 0)
+            break;
         QThread::msleep(writeDelayMS);
     }
+
+    return result;
 }

@@ -33,8 +33,8 @@ class VMUSBStack
             return 0;
         }
 
-        void loadStack(VMUSB *controller);
-        void enableStack(VMUSB *controller);
+        int loadStack(VMUSB *controller);
+        int enableStack(VMUSB *controller);
 
         void addModule(ModuleConfig *module)
         {
@@ -85,7 +85,7 @@ class VMUSBStack
         uint8_t scalerReadoutPeriod = 0;
         // Maximum number of events between scaler stack executions
         uint16_t scalerReadoutFrequency = 0;
-        
+
     private:
         uint8_t m_stackID = 2;
         QVector<ModuleConfig *> m_modules;

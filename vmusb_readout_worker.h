@@ -23,6 +23,7 @@ class VMUSBReadoutWorker: public QObject
         DAQState getState() const { return m_state; }
         void setBufferProcessor(VMUSBBufferProcessor *processor) { m_bufferProcessor = processor; }
         VMUSBBufferProcessor *getBufferProcessor() const { return m_bufferProcessor; }
+        QString getLastErrorMessage() const { return m_errorMessage; }
 
     public slots:
         void start(quint32 cycles = 0);
@@ -32,6 +33,7 @@ class VMUSBReadoutWorker: public QObject
         void readoutLoop();
         void setState(DAQState state);
         void setError(const QString &);
+        void clearError() { m_errorMessage.clear(); }
 
         MVMEContext *m_context;
         DAQState m_state = DAQState::Idle;
@@ -42,6 +44,7 @@ class VMUSBReadoutWorker: public QObject
         QMap<u8, u32> m_eventCountPerStack;
         size_t m_nTotalEvents;
         VMUSBBufferProcessor *m_bufferProcessor = 0;
+        QString m_errorMessage;
 };
 
 #endif

@@ -263,7 +263,14 @@ void ModuleConfigDialog::execList()
                 {
                     u8 ignored[100];
                     auto cmdList = VMECommandList::fromInitList(parseRegisterList(listContents), m_config->baseAddress);
-                    controller->executeCommands(&cmdList, ignored, sizeof(ignored));
+                    ssize_t result = controller->executeCommands(&cmdList, ignored, sizeof(ignored));
+                    if (result < 0)
+                    {
+                        QMessageBox::warning(this,
+                                             "Error running commands",
+                                             QString("Error running commands (code=%1")
+                                             .arg(result));
+                    }
                 } break;
             case ModuleListType::ReadoutStack:
                 {
@@ -281,7 +288,7 @@ void ModuleConfigDialog::execList()
                                 << qSetFieldWidth(4) << qSetPadChar(' ') << dec << idx
                                 << qSetFieldWidth(0) << ": 0x"
                                 << hex << qSetFieldWidth(8) << qSetPadChar('0') << value
-                                << qSetFieldWidth(0) 
+                                << qSetFieldWidth(0)
                                 << endl;
                         }
                         ui->output->setPlainText(buf);

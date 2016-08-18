@@ -41,6 +41,9 @@ public:
     void closeEvent(QCloseEvent *event);
     void restoreSettings();
 
+
+    MVMEContext *getContext() { return m_context; }
+
 public slots:
     void replot();
     void drawTimerSlot();
@@ -86,9 +89,9 @@ private slots:
     void updateWindowTitle();
     void onConfigChanged(DAQConfig *config);
 
-    MVMEContext *getContext() { return m_context; }
+    void on_actionShow_MVME_Control_triggered();
 
-private:
+    private:
     Ui::mvme *ui;
     QTimer* drawTimer;
 

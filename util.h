@@ -31,6 +31,8 @@ typedef QVector<RegisterSetting> RegisterList;
 RegisterList parseRegisterList(QTextStream &input, u32 baseAddress = 0);
 RegisterList parseRegisterList(const QString &input, u32 baseAddress = 0);
 
+QString toString(const RegisterList &registerList);
+
 class end_of_buffer: public std::exception {};
 
 struct BufferIterator
@@ -160,7 +162,7 @@ struct BufferIterator
     {
         skip(width * count);
     }
-    
+
     inline bool atEnd() const { return buffp == endp; }
 };
 

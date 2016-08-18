@@ -20,15 +20,15 @@
 #ifndef VMUSB_H
 #define VMUSB_H
 
-#include <libxxusb.h>
-#include <util.h>
+#include "libxxusb.h"
+#include "util.h"
+#include "vmecontroller.h"
+#include "vmusb_constants.h"
+
 #include <QObject>
 #include <QPair>
 #include <QVector>
 #include <QMutex>
-
-#include "vmecontroller.h"
-#include "vmusb_constants.h"
 
 class CVMUSBReadoutList;
 
@@ -155,11 +155,11 @@ class VMUSB: public VMEController
 
         virtual VMEControllerType getType() const { return VMEControllerType::VMUSB; }
 
-        virtual void write32(uint32_t address, uint8_t amod, uint32_t value);
-        virtual void write16(uint32_t address, uint8_t amod, uint16_t value);
+        virtual int write32(u32 address, u32 value, u8 amod) override;
+        virtual int write16(u32 address, u16 value, u8 amod) override;
 
-        virtual uint32_t read32(uint32_t address, uint8_t amod);
-        virtual uint16_t read16(uint32_t address, uint8_t amod);
+        virtual int read32(u32 address, u32 *value, u8 amod) override;
+        virtual int read16(u32 address, u16 *value, u8 amod) override;
 
         virtual bool openFirstDevice();
         virtual void close();

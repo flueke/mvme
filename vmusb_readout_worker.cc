@@ -31,6 +31,8 @@ void VMUSBReadoutWorker::start(quint32 cycles)
     if (m_state != DAQState::Idle)
         return;
 
+    clearError();
+
     auto vmusb = dynamic_cast<VMUSB *>(m_context->getController());
     if (!vmusb)
     {
@@ -48,17 +50,22 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         m_vmusbStack.resetLoadOffset(); // reset the static load offset
 
         emit logMessage(QSL("VMUSB readout starting"));
+        int result;
 
         for (int i=0; i<8; ++i)
         {
-            vmusb->setIrq(i, 0);
+            result = vmusb->setIrq(i, 0);
+            if (result < 0)
+                throw QString("Resetting IRQ vectors failed");
         }
         int globalMode = vmusb->getMode();
         globalMode |= (1 << GlobalModeRegister::MixedBufferShift);
         vmusb->setMode(globalMode);
+        if (result < 0)
+            throw QString("Resetting IRQ vectors failed");
 
         // TODO: use register lists instead of command list here
-        VMECommandList resetCommands, initCommands, startCommands;
+        VMECommandList resetCommands, startCommands;
         RegisterList initParametersAndReadout;
         m_stopCommands = VMECommandList();
 
@@ -90,8 +97,6 @@ void VMUSBReadoutWorker::start(quint32 cycles)
             for (auto module: event->modules)
             {
                 resetCommands.append(VMECommandList::fromInitList(parseRegisterList(module->initReset), module->baseAddress));
-                initCommands.append(VMECommandList::fromInitList(parseRegisterList(module->initParameters), module->baseAddress));
-                initCommands.append(VMECommandList::fromInitList(parseRegisterList(module->initReadout), module->baseAddress));
 
                 initParametersAndReadout += parseRegisterList(module->initParameters, module->baseAddress);
                 initParametersAndReadout += parseRegisterList(module->initReadout, module->baseAddress);
@@ -119,25 +124,50 @@ void VMUSBReadoutWorker::start(quint32 cycles)
                 }
             }
 
-            m_vmusbStack.loadStack(vmusb);
-            m_vmusbStack.enableStack(vmusb);
+            result = m_vmusbStack.loadStack(vmusb);
+            if (result < 0)
+                throw QString("Error loading readout stack");
+
+            result = m_vmusbStack.enableStack(vmusb);
+            if (result < 0)
+                throw QString("Error enabling readout stack");
         }
 
         char buffer[100];
 
-        emit logMessage(QSL("Running reset commands"));
-        emit logMessage(resetCommands.toString());
-        vmusb->executeCommands(&resetCommands, buffer, sizeof(buffer));
-        QThread::sleep(1);
+        {
+            emit logMessage(QSL("Running reset commands"));
+            emit logMessage(resetCommands.toString());
+            ssize_t result = vmusb->executeCommands(&resetCommands, buffer, sizeof(buffer));
+            if (result < 0)
+            {
+                throw QString("Running reset commands failed (code=%1)")
+                        .arg(result);
+            }
+            QThread::sleep(1);
+        }
 
-        emit logMessage(QSL("Running module init commands"));
-        emit logMessage(initCommands.toString());
-        // TODO: log initParametersAndReadout instead of initCommands!
-        vmusb->applyRegisterList(initParametersAndReadout, 0, 10);
+        {
+            emit logMessage(QSL("Running module init commands"));
+            emit logMessage(toString(initParametersAndReadout));
+            result = vmusb->applyRegisterList(initParametersAndReadout, 0, 10);
+            if (result < 0)
+            {
+                throw QString("Running module init commands failed (code=%1)")
+                        .arg(result);
+            }
+        }
 
-        emit logMessage(QSL("Running module start commands"));
-        emit logMessage(startCommands.toString());
-        vmusb->executeCommands(&startCommands, buffer, sizeof(buffer));
+        {
+            emit logMessage(QSL("Running module start commands"));
+            emit logMessage(startCommands.toString());
+            ssize_t result = vmusb->executeCommands(&startCommands, buffer, sizeof(buffer));
+            if (result < 0)
+            {
+                throw QString("Running module start commands failed (code=%1)")
+                        .arg(result);
+            }
+        }
 
         m_bufferProcessor->beginRun();
         emit logMessage(QSL("Entering readout loop"));
@@ -150,32 +180,28 @@ void VMUSBReadoutWorker::start(quint32 cycles)
     catch (const char *message)
     {
         emit logMessage(QString("Error: %1").arg(message));
-        try {
-            if (vmusb->isInDaqMode())
-                vmusb->leaveDaqMode();
-        } catch (...)
-        {}
         setError(message);
     }
     catch (const QString &message)
     {
         emit logMessage(QString("Error: %1").arg(message));
-        try {
-            if (vmusb->isInDaqMode())
-                vmusb->leaveDaqMode();
-        } catch (...)
-        {}
         setError(message);
     }
     catch (const std::runtime_error &e)
     {
         emit logMessage(QString("Error: %1").arg(e.what()));
-        try {
+        setError(e.what());
+    }
+
+    if (!getLastErrorMessage().isEmpty())
+    {
+        try
+        {
             if (vmusb->isInDaqMode())
                 vmusb->leaveDaqMode();
-        } catch (...)
+        }
+        catch (...)
         {}
-        setError(e.what());
     }
 }
 
@@ -222,13 +248,14 @@ void VMUSBReadoutWorker::readoutLoop()
         }
         else
         {
-            if (++consecutiveReadErrors > maxConsecutiveReadErrors)
+            if (consecutiveReadErrors >= maxConsecutiveReadErrors)
             {
                 emit logMessage(QString("Error: %1 consecutive reads failed. Stopping DAQ.").arg(consecutiveReadErrors));
                 break;
             }
             else
             {
+                ++consecutiveReadErrors;
                 emit logMessage(QString("Error from vmusb bulk read: %1.").arg(bytesRead));
             }
         }

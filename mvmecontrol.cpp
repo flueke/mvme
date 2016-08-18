@@ -5,20 +5,22 @@
 #include "diagnostics.h"
 #include "realtimedata.h"
 #include "CVMUSBReadoutList.h"
+#include "vmusb.h"
+#include "mvme_context.h"
 
-#include "QLabel"
-#include "QString"
-#include "QCheckBox"
-#include "QLineEdit"
-#include "QSpinBox"
-#include "QPushButton"
-#include "QTimer"
-#include "QTextEdit"
-#include "QTextStream"
-#include "QFileDialog"
-#include "QFile"
-#include "QMessageBox"
-#include "QComboBox"
+#include <QLabel>
+#include <QString>
+#include <QCheckBox>
+#include <QLineEdit>
+#include <QSpinBox>
+#include <QPushButton>
+#include <QTimer>
+#include <QTextEdit>
+#include <QTextStream>
+#include <QFileDialog>
+#include <QFile>
+#include <QMessageBox>
+#include <QComboBox>
 #include <QDebug>
 #include <QCoreApplication>
 
@@ -28,9 +30,9 @@ static const char *defaultInitListFile  = "default-initlist.init";
 mvmeControl::mvmeControl(mvme *theApp, QWidget *parent) :
     QWidget(parent),
     theApp(theApp),
-    m_vmusb(theApp->vu),
     ui(new Ui::mvmeControl)
 {
+    m_vmusb = qobject_cast<VMUSB *>(theApp->getContext()->getController());
     dontUpdate = true;
 
     ui->setupUi(this);
@@ -1152,10 +1154,12 @@ void mvmeControl::dispRt()
 
 void mvmeControl::dispChan(int c)
 {
+#if 0
     qDebug("dispchan");
     QString str;
     str.sprintf("%d", theApp->diag->getChannel(theApp->getHist(), ui->diagChan->value(), ui->diagBin->value()));
     ui->diagCounts->setText(str);
+#endif
 }
 
 void mvmeControl::readRegister()

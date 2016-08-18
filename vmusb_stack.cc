@@ -7,33 +7,43 @@
 
 size_t VMUSBStack::loadOffset = 0;
 
-void VMUSBStack::loadStack(VMUSB *vmusb)
+int VMUSBStack::loadStack(VMUSB *vmusb)
 {
     auto contents = getContents();
 
-    qDebug("VMUSBStack::loadStack(): id=%u, loadOffset=%u, length=%u", getStackID(), loadOffset, contents.size());
+    qDebug("VMUSBStack::loadStack(): id=%u, loadOffset=%u, length=%u",
+           getStackID(), loadOffset, contents.size());
+
     for (u32 line: contents)
     {
         qDebug("  0x%08x", line);
     }
     qDebug("----- End of stack -----");
 
+    int result = 0;
+
     if (contents.size())
     {
-        vmusb->stackWrite(getStackID(), loadOffset, contents);
-        // Stack size in 16-bit words + 4 for the stack header (from nscldaqs CStack)
-        loadOffset += contents.size() * 2 + 4;
+        result = vmusb->stackWrite(getStackID(), loadOffset, contents);
+        if (result > 0)
+        {
+            // Stack size in 16-bit words + 4 for the stack header (from nscldaqs CStack)
+            loadOffset += contents.size() * 2 + 4;
+        }
     }
+    return result;
 }
 
-void VMUSBStack::enableStack(VMUSB *controller)
+int VMUSBStack::enableStack(VMUSB *controller)
 {
     auto stackID = getStackID();
+    int result = 0;
 
     switch (triggerCondition)
     {
         case TriggerCondition::NIM1:
             {
+                // TODO: set trigger readout delay
             } break;
         case TriggerCondition::Scaler:
             {
@@ -44,7 +54,7 @@ void VMUSBStack::enableStack(VMUSB *controller)
                 daqSettings &= ~DaqSettingsRegister::ScalerReadoutPerdiodMask;
                 daqSettings |= scalerReadoutPeriod << DaqSettingsRegister::ScalerReadoutPerdiodShift;
 
-                controller->setDaqSettings(daqSettings);
+                result = controller->setDaqSettings(daqSettings);
             } break;
         case TriggerCondition::Interrupt:
             {
@@ -59,7 +69,9 @@ void VMUSBStack::enableStack(VMUSB *controller)
                 qDebug() << this << "enableStack: id=" << getStackID() << ", irqLevel=" << irqLevel << ", irqVector=" << irqVector
                     << ", vectorNumber(register)=" << vectorNumber;
 
-                controller->setIrq(vectorNumber, isvValue);
+                result = controller->setIrq(vectorNumber, isvValue);
             } break;
     };
+
+    return result;
 }

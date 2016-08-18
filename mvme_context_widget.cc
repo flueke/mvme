@@ -25,6 +25,7 @@
 #include <QTimer>
 #include <QCheckBox>
 #include <QFileDialog>
+#include <QCoreApplication>
 
 struct AddEventConfigDialog: public QDialog
 {
@@ -140,15 +141,23 @@ struct AddModuleDialog: public QDialog
         module->setName(nameEdit->text());
         module->baseAddress = addressEdit->text().toUInt(&ok, 16) << 16;
 
+        qDebug() << "currentPath" << QDir::currentPath();
+        qDebug() << "applicationDirPath" << QCoreApplication::applicationDirPath();
+
+        QString templatePath = QCoreApplication::applicationDirPath() + "/templates";
+
+        qDebug() << "Looking for templates in " << templatePath;
+
         if (isMesytecModule(module->type))
         {
             // load template files
-            module->initReset       = readStringFile("templates/mesytec_reset.init");
-            module->initReadout     = readStringFile("templates/mesytec_init_readout.init");
-            module->initStartDaq    = readStringFile("templates/mesytec_startdaq.init");
-            module->initStopDaq     = readStringFile("templates/mesytec_stopdaq.init");
+            module->initReset       = readStringFile(templatePath + "/mesytec_reset.init");
+            module->initReadout     = readStringFile(templatePath + "/mesytec_init_readout.init");
+            module->initStartDaq    = readStringFile(templatePath + "/mesytec_startdaq.init");
+            module->initStopDaq     = readStringFile(templatePath + "/mesytec_stopdaq.init");
             QString shortname = VMEModuleShortNames[module->type];
-            module->initParameters  = readStringFile(QString("templates/%1_parameters.init").arg(shortname));
+            module->initParameters  = readStringFile(QString(templatePath + "/%1_parameters.init")
+                                                     .arg(shortname));
 
             // generate readout stack
             VMECommandList readoutCmds;

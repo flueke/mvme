@@ -40,6 +40,7 @@ SOURCES += \
     vmusb_stack.cc \
     hist2ddialog.cc \
     hist2d.cpp \
+    mvmecontrol.cpp \
 
 
 HEADERS  += \
@@ -68,6 +69,8 @@ HEADERS  += \
     vmusb_stack.h \
     hist2ddialog.h \
     hist2d.h \
+    mvmecontrol.h \
+    globals.h \
 
 
 FORMS    += \
@@ -75,7 +78,8 @@ FORMS    += \
     twodimwidget.ui \
     hist2ddialog.ui \
     hist2dwidget.ui \
-    module_config_dialog.ui
+    module_config_dialog.ui \
+    mvmecontrol.ui
 
 
 DEFINES += VME_CONTROLLER_WIENER
@@ -132,3 +136,9 @@ unix {
 win32 {
     include("C:\Qwt-6.1.3\features\qwt.prf")
 }
+
+copytemplates.commands = $(COPY_DIR) $$shell_path($$PWD/templates) $$shell_path($$OUT_PWD)
+first.depends = $(first) copytemplates
+export(first.depends)
+export(copytemplates.commands)
+QMAKE_EXTRA_TARGETS += first copytemplates

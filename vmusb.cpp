@@ -1219,7 +1219,7 @@ int VMUSB::listLoad(CVMUSBReadoutList *list, uint8_t stackID, size_t stackMemory
         qDebug("vmUsb::listLoad: usb write failed with code %d: %s", status, buf);
 #endif
         errno = -status;
-        return -1;
+        return status;
     }
 
     return 0;
@@ -1396,34 +1396,34 @@ ssize_t VMUSB::executeCommands(VMECommandList *commands, void *readBuffer,
     return result;
 }
 
-void VMUSB::write32(uint32_t address, uint8_t amod, uint32_t value)
+int VMUSB::write32(u32 address, u32 value, u8 amod)
 {
-    vmeWrite32(address, value, amod); // TODO: error reporting via exception in the lower layers
+    return vmeWrite32(address, value, amod);
 }
 
-void VMUSB::write16(uint32_t address, uint8_t amod, uint16_t value)
+int VMUSB::write16(u32 address, u16 value, u8 amod)
 {
-    vmeWrite16(address, value, amod); // TODO: error reporting via exception in the lower layers
+    return vmeWrite16(address, value, amod);
 }
 
-uint32_t VMUSB::read32(uint32_t address, uint8_t amod)
+int VMUSB::read32(u32 address, u32 *value, u8 amod)
 {
     size_t bytesRead = 0;
-    uint32_t result = 0;
     CVMUSBReadoutList readoutList;
     readoutList.addRead32(address, amod);
-    listExecute(&readoutList, &result, sizeof(result), &bytesRead);
+    int result = listExecute(&readoutList, value, sizeof(*value), &bytesRead);
     return result;
+
 }
 
-uint16_t VMUSB::read16(uint32_t address, uint8_t amod)
+int VMUSB::read16(u32 address, u16 *value, u8 amod)
 {
     size_t bytesRead = 0;
-    uint16_t result = 0;
     CVMUSBReadoutList readoutList;
     readoutList.addRead16(address, amod);
-    listExecute(&readoutList, &result, sizeof(result), &bytesRead);
+    int result = listExecute(&readoutList, value, sizeof(*value), &bytesRead);
     return result;
+
 }
 
 bool VMUSB::enterDaqMode()
