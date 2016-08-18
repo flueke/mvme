@@ -5,6 +5,7 @@
 
 
 class mvme;
+class VMUSB;
 
 namespace Ui {
 class mvmeControl;
@@ -16,6 +17,7 @@ class mvmeControl : public QWidget
 
 private:
     mvme * theApp;
+    VMUSB *m_vmusb;
 
 public:
     explicit mvmeControl(mvme *theApp, QWidget *parent = 0);

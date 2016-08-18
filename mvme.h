@@ -2,14 +2,6 @@
 #define MVME_H
 
 #include <QMainWindow>
-#ifdef VME_CONTROLLER_WIENER
-#include "vmusb.h"
-#endif
-#ifdef VME_CONTROLLER_CAEN
-#include "caenusb.h"
-#endif
-#include <QFile>
-#include <QTextStream>
 #include <QMap>
 
 class Hist2D;
@@ -18,7 +10,6 @@ class DataThread;
 class Diagnostics;
 class Histogram;
 class MVMEContext;
-class mvmeControl;
 class RealtimeData;
 class VirtualMod;
 class vmedevice;
@@ -46,24 +37,6 @@ class mvme : public QMainWindow
 public:
     explicit mvme(QWidget *parent = 0);
     ~mvme();
-#if 1
-    void startDatataking(quint16 period, bool multi, quint16 readLen, bool mblt, bool daqMode);
-    void stopDatataking();
-    void initThreads();
-#endif
-    Histogram * getHist(quint16 mod);
-    bool clearAllHist();
-    Histogram* getHist();
-
-    VMUSB* vu;
-    //caenusb* cu;
-    mvmeControl *mctrl;
-    DataThread *dt;
-    DataCruncher *dc;
-    Diagnostics* diag;
-    RealtimeData* rd;
-    Hist2D *m_channelSpectro;
-
 
     void closeEvent(QCloseEvent *event);
     void restoreSettings();
@@ -72,8 +45,6 @@ public slots:
     void replot();
     void drawTimerSlot();
     void displayAbout();
-    void createNewHistogram();
-    void createNewChannelSpectrogram();
 
     void openHistogramView(Histogram *histo);
     void openHist2DView(Hist2D *hist2d);
@@ -115,15 +86,13 @@ private slots:
     void updateWindowTitle();
     void onConfigChanged(DAQConfig *config);
 
+    MVMEContext *getContext() { return m_context; }
+
 private:
     Ui::mvme *ui;
-    bool datataking;
     QTimer* drawTimer;
 
     // list of possibly connected VME devices
-    //QMap<int, vmedevice *> m_vmeDev;
-    QMap<int, Histogram *> m_histogram;
-    //QMap<int, VirtualMod *> m_virtualMod;
 
     MVMEContext *m_context;
     MVMEContextWidget *m_contextWidget = 0;

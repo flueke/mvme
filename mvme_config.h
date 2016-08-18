@@ -155,6 +155,7 @@ class DAQConfig: public QObject
         EventConfig *getEventConfig(const QString &name) const;
 
         ModuleConfig *getModuleConfig(int eventID, int moduleIndex);
+        QVector<ModuleConfig *> getAllModuleConfigs() const;
 
         void read(const QJsonObject &json);
         void write(QJsonObject &json) const;

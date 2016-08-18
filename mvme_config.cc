@@ -286,3 +286,18 @@ EventConfig *DAQConfig::getEventConfig(const QString &name) const
     }
     return nullptr;
 }
+
+QVector<ModuleConfig *> DAQConfig::getAllModuleConfigs() const
+{
+    QVector<ModuleConfig *> result;
+
+    for (auto eventConfig: m_eventConfigs)
+    {
+        for (auto moduleConfig: eventConfig->modules)
+        {
+            result.push_back(moduleConfig);
+        }
+    }
+
+    return result;
+}

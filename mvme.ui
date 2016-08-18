@@ -47,7 +47,6 @@
     <property name="title">
      <string>Display</string>
     </property>
-    <addaction name="actionOpenNewHistogram"/>
     <addaction name="actionSave_Histogram"/>
     <addaction name="actionLoad_Histogram"/>
     <addaction name="separator"/>
@@ -80,7 +79,6 @@
    <attribute name="toolBarBreak">
     <bool>false</bool>
    </attribute>
-   <addaction name="actionOpenNewHistogram"/>
    <addaction name="actionLoad_Histogram"/>
    <addaction name="actionSave_Histogram"/>
    <addaction name="actionExport_Histogram"/>
@@ -108,11 +106,6 @@
     <string>Close</string>
    </property>
   </action>
-  <action name="actionOpenNewHistogram">
-   <property name="text">
-    <string>New histogram window</string>
-   </property>
-  </action>
   <action name="actionSave_Histogram">
    <property name="text">
     <string>Save Histogram</string>
@@ -131,11 +124,6 @@
   <action name="actionCascade">
    <property name="text">
     <string>Cascade</string>
-   </property>
-  </action>
-  <action name="actionOpenNewChannelSpectrogram">
-   <property name="text">
-    <string>Open new channel spectrogram</string>
    </property>
   </action>
   <action name="actionLoad_Histogram">
@@ -218,22 +206,6 @@
    <signal>triggered()</signal>
    <receiver>mvme</receiver>
    <slot>displayAbout()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>-1</x>
-     <y>-1</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>516</x>
-     <y>353</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>actionOpenNewHistogram</sender>
-   <signal>triggered()</signal>
-   <receiver>mvme</receiver>
-   <slot>createNewHistogram()</slot>
    <hints>
     <hint type="sourcelabel">
      <x>-1</x>

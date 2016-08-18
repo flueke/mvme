@@ -9,6 +9,18 @@ Hist2DDialog::Hist2DDialog(MVMEContext *context, QWidget *parent)
     , m_context(context)
 {
     ui->setupUi(this);
+    int powMin =  9;
+    int powMax = 13;
+
+    for (int i=powMin; i<=powMax; ++i)
+    {
+        int value = 1 << i;
+        ui->comboXResolution->addItem(QString::number(value), value);
+        ui->comboYResolution->addItem(QString::number(value), value);
+    }
+
+    ui->comboXResolution->setCurrentIndex(1);
+    ui->comboYResolution->setCurrentIndex(1);
 
     auto eventConfigs = m_context->getConfig()->getEventConfigs();
     QStringList eventNames;
@@ -20,6 +32,12 @@ Hist2DDialog::Hist2DDialog(MVMEContext *context, QWidget *parent)
 
     ui->eventX->addItems(eventNames);
     ui->eventY->addItems(eventNames);
+
+    onEventXChanged(0);
+    onEventYChanged(0);
+    onModuleXChanged(0);
+    onModuleYChanged(0);
+    ui->channelY->setCurrentIndex(1);
 
     // event
     connect(ui->eventX, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
@@ -50,11 +68,35 @@ Hist2DDialog::~Hist2DDialog()
 
 Hist2D *Hist2DDialog::getHist2D()
 {
-    auto ret = new Hist2D(ui->spin_xResolution->value(),
-                                  ui->spin_yResolution->value());
+    int xRes = ui->comboXResolution->currentData().toInt();
+    int yRes = ui->comboYResolution->currentData().toInt();
+
+    QString xSource = QString("%1.%2.%3")
+        .arg(ui->eventX->currentIndex())
+        .arg(ui->moduleX->currentIndex())
+        .arg(ui->channelX->currentIndex())
+        ;
+
+    QString ySource = QString("%1.%2.%3")
+        .arg(ui->eventY->currentIndex())
+        .arg(ui->moduleY->currentIndex())
+        .arg(ui->channelY->currentIndex())
+        ;
+
+    QString name = ui->le_name->text();
+
+    qDebug() << "Hist2D: xRes =" << xRes
+        << ", yRes =" << yRes
+        << ", xSource =" << xSource
+        << ", ySource =" << ySource
+        << ", name =" << name
+        ;
+
+    auto ret = new Hist2D(xRes, yRes);
     ret->setObjectName(ui->le_name->text());
-    //ret->setProperty("Hist2D.xAxisSource", ui->le_xSource->text());
-    //ret->setProperty("Hist2D.yAxisSource", ui->le_ySource->text());
+
+    ret->setProperty("Hist2D.xAxisSource", xSource);
+    ret->setProperty("Hist2D.yAxisSource", ySource);
 
     return ret;
 }

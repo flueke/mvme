@@ -1,16 +1,10 @@
 #include "mvme.h"
 #include "ui_mvme.h"
 #include "vmusb.h"
-#include "mvmecontrol.h"
-#include "ui_mvmecontrol.h" // FIXME
 #include "mvme_context.h"
 #include "twodimwidget.h"
-#include "diagnostics.h"
-#include "realtimedata.h"
 #include "hist2d.h"
 #include "histogram.h"
-#include "datacruncher.h"
-#include "datathread.h"
 #include "mvmedefines.h"
 #include "mvme_context_widget.h"
 #include "vmusb_readout_worker.h"
@@ -69,37 +63,18 @@ QList<QMdiSubWindow *> getSubwindowsByWidgetType(QMdiArea *mdiArea)
 }
 mvme::mvme(QWidget *parent) :
     QMainWindow(parent),
-    vu(0),
-    mctrl(0),
-    dt(0),
-    dc(0),
-    diag(0),
-    rd(0),
-    m_channelSpectro(new Hist2D(1024, 1024)),
     ui(new Ui::mvme)
     , m_context(new MVMEContext(this))
     , m_logView(new QTextBrowser)
 {
-
     qDebug() << "main thread: " << QThread::currentThread();
-
-    m_histogram[0] = new Histogram(this, 42, 8192);
-    m_histogram[0]->initHistogram();
-
-    m_channelSpectro->setXAxisChannel(0);
-    m_channelSpectro->setYAxisChannel(1);
 
     connect(m_context, &MVMEContext::configFileNameChanged, this, &mvme::updateWindowTitle);
     connect(m_context, &MVMEContext::configChanged, this, &mvme::onConfigChanged);
 
-    rd = new RealtimeData;
-    diag = new Diagnostics;
-
     // check and initialize VME interface
-    vu = new VMUSB;
-    m_context->setController(vu);
-    vu->getUsbDevices();
-    vu->openFirstUsbDevice();
+    VMEController *controller = new VMUSB;
+    m_context->setController(controller);
 
     // create and initialize displays
     ui->setupUi(this);
@@ -169,28 +144,10 @@ mvme::mvme(QWidget *parent) :
 #endif
 
 
-    mctrl = new mvmeControl(this);
-    mctrl->show();
-#if 0
-    {
-        auto subwin = new QMdiSubWindow(ui->mdiArea);
-        subwin->setWidget(mctrl);
-        subwin->resize(mctrl->size());
-        subwin->show();
-    }
-#endif
-
-    // read current configuration
-    mctrl->getValues();
-
     drawTimer = new QTimer(this);
     connect(drawTimer, SIGNAL(timeout()), SLOT(drawTimerSlot()));
     drawTimer->start(DrawTimerInterval);
 
-    //initThreads();
-
-    //connect(m_context->m_dataProcessor, &DataProcessor::eventFormatted,
-    //        textView, &QTextEdit::append);
     connect(m_context, &MVMEContext::logMessage, this, &mvme::appendToLog);
     connect(m_context, &MVMEContext::daqStateChanged, this, [=](DAQState state) {
         if (state == DAQState::Starting)
@@ -221,15 +178,7 @@ mvme::~mvme()
     QSettings settings;
     settings.setValue("Files/LastConfigFile", m_context->getConfigFileName());
 
-    delete vu;
-    delete mctrl;
     delete ui;
-//    delete hist;
-    delete m_histogram.value(0);
-    delete dt;
-    delete dc;
-    delete rd;
-    delete m_channelSpectro;
     delete m_context;
 }
 
@@ -302,114 +251,11 @@ void mvme::replot()
 void mvme::drawTimerSlot()
 {
     replot();
-    rd->calcData();
-    mctrl->dispRt();
 }
 
 void mvme::displayAbout()
 {
     QMessageBox::about(this, tr("about mvme"), tr("mvme by G. Montermann, mesytec GmbH & Co. KG"));
-}
-
-void mvme::createNewHistogram()
-{
-    auto tdw = new TwoDimWidget(m_context, m_histogram.value(0));
-    tdw->plot();
-
-    auto subwin = new QMdiSubWindow(ui->mdiArea);
-    subwin->setWidget(tdw);
-    subwin->show();
-}
-
-void mvme::createNewChannelSpectrogram()
-{
-    auto subwin = new QMdiSubWindow(ui->mdiArea);
-    auto channelSpectroWidget = new Hist2DWidget(m_channelSpectro);
-    subwin->setWidget(channelSpectroWidget);
-    subwin->show();
-}
-
-#if 1
-void mvme::startDatataking(quint16 period, bool multi, quint16 readLen, bool mblt, bool daqMode)
-{
-    QString outputFileName = mctrl->getOutputFileName();
-
-    if (!outputFileName.isNull())
-    {
-        QFile *outputFile = new QFile(outputFileName);
-        outputFile->open(QIODevice::WriteOnly);
-        dt->setOutputFile(outputFile);
-    }
-
-    QString inputFileName = mctrl->getInputFileName();
-
-    if (!inputFileName.isNull())
-    {
-        QFile *inputFile = new QFile(inputFileName);
-        inputFile->open(QIODevice::ReadOnly);
-        dt->setInputFile(inputFile);
-    }
-
-    dt->setReadoutmode(multi, readLen, mblt, daqMode);
-    dt->startReading(period);
-
-    datataking = true;
-}
-
-void mvme::stopDatataking()
-{
-    QTime timer;
-    timer.start();
-
-    dt->stopReading();
-    drawTimer->stop();
-    datataking = false;
-    qDebug() << __PRETTY_FUNCTION__ << "elapsed:" << timer.elapsed();
-}
-
-void mvme::initThreads()
-{
-#if 0
-    dt = new DataThread;
-    dt->setVu(vu);
-
-    dt->moveToThread(m_readoutThread);
-
-    //dt->setCu(cu);
-    dc = new DataCruncher;
-    connect(dt, SIGNAL(dataReady()), dc, SLOT(newEvent()));
-    connect(dt, SIGNAL(bufferStatus(int)), mctrl->ui->bufferProgress, SLOT(setValue(int)));
-    connect(dc, SIGNAL(bufferStatus(int)), mctrl->ui->bufferProgress, SLOT(setValue(int)));
-
-    dc->setHistogram(m_histogram.value(0));
-    dc->initRingbuffer(RINGBUFSIZE);
-
-    dt->setRingbuffer(dc->getRingBuffer());
-
-    dc->setRtData(rd);
-    dc->setChannelSpectro(m_channelSpectro);
-
-    m_readoutThread->start(QThread::TimeCriticalPriority);
-    dc->start(QThread::NormalPriority);
-#endif
-}
-#endif
-
-Histogram *mvme::getHist(quint16 mod)
-{
-    Q_ASSERT(mod == 0);
-    return m_histogram.value(0);
-}
-
-bool mvme::clearAllHist()
-{
-    m_histogram[0]->clearHistogram();
-    return true;
-}
-
-Histogram *mvme::getHist()
-{
-    return m_histogram[0];
 }
 
 void mvme::closeEvent(QCloseEvent *event){
@@ -468,6 +314,9 @@ void mvme::restoreSettings()
 
 void mvme::on_actionSave_Histogram_triggered()
 {
+    Q_ASSERT(!"Not implemented");
+
+#if 0
     auto subwin = ui->mdiArea->currentSubWindow();
     auto widget = subwin ? subwin->widget() : nullptr;
     auto tdw = qobject_cast<TwoDimWidget *>(widget);
@@ -492,11 +341,15 @@ void mvme::on_actionSave_Histogram_triggered()
         return;
 
     QTextStream stream(&outFile);
-    writeHistogram(stream, m_histogram[0], channelIndex);
+    writeHistogram(stream, tdw->getHistogram(), channelIndex);
+#endif
 }
 
 void mvme::on_actionLoad_Histogram_triggered()
 {
+    Q_ASSERT(!"Not implemented");
+
+#if 0
     QString fileName = QFileDialog::getOpenFileName(this, "Load Histogram",
                                                    QString(),
                                                    "Text Files (*.txt);; All Files (*.*)");
@@ -531,6 +384,7 @@ void mvme::on_actionLoad_Histogram_triggered()
             tdw->plot();
         }
     }
+#endif
 }
 
 void mvme::on_actionExport_Histogram_triggered()

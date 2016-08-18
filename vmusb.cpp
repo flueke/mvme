@@ -699,6 +699,10 @@ short VMUSB::vmeWrite16(long addr, long data, uint8_t amod)
 //	for(int i=0;i<8;i++)
 //		qDebug("%x", intbuf[i]);
   QMutexLocker locker(&m_lock);
+  if (!isOpen())
+  {
+      return -3;
+  }
   ret = xxusb_stack_execute(hUsbDevice, intbuf);
 #if 0
   for (int i=0; i<ret; ++i)
@@ -737,6 +741,10 @@ short VMUSB::vmeWrite32(long addr, long data, uint8_t amod)
 //    for(int i=0;i<8;i++)
 //        qDebug("%x", intbuf[i]);
   QMutexLocker locker(&m_lock);
+  if (!isOpen())
+  {
+      return -3;
+  }
   ret = xxusb_stack_execute(hUsbDevice, intbuf);
   return ret;
 }
@@ -760,6 +768,10 @@ short VMUSB::vmeRead32(long addr, long* data)
 //	for(int i=0;i<6;i++)
 //		qDebug("%lx", intbuf[i]);
   QMutexLocker locker(&m_lock);
+  if (!isOpen())
+  {
+      return -3;
+  }
   ret = xxusb_stack_execute(hUsbDevice, intbuf);
 //	qDebug("read: %d %lx %lx", ret, intbuf[0], intbuf[1]);
   *data = intbuf[0] + (intbuf[1] * 0x10000);
@@ -784,6 +796,10 @@ short VMUSB::vmeRead16(long addr, long* data)
   intbuf[4]=(addr & 0xffff) | 0x0001; // 16 bit Zugriff
   intbuf[5]=((addr >>16) & 0xffff);
   QMutexLocker locker(&m_lock);
+  if (!isOpen())
+  {
+      return -3;
+  }
   ret = xxusb_stack_execute(hUsbDevice, intbuf);
 //	qDebug("read: %lx %lx", intbuf[0], intbuf[1]);
   *data = intbuf[0] + (intbuf[1] * 0x10000);
@@ -835,10 +851,8 @@ int VMUSB::vmeBltRead32(long addr, int count, quint32* data)
 
     int status = listExecute(&readoutList, data, count * sizeof(quint32), &bytesRead);
 
-    /*
     if (status < 0)
         return status;
-    */
 
     return bytesRead;
 #endif
@@ -885,7 +899,10 @@ int VMUSB::vmeMbltRead32(long addr, int count, quint32 *data)
 
     size_t bytesRead = 0;
 
-    listExecute(&readoutList, data, count * sizeof(quint64), &bytesRead);
+    int status = listExecute(&readoutList, data, count * sizeof(quint64), &bytesRead);
+
+    if (status < 0)
+        return status;
 
     return bytesRead;
 #endif
@@ -945,6 +962,10 @@ int VMUSB::stackWrite(int id, long* data)
 
   unsigned char addr[8] = {2, 3, 18, 19, 34, 35, 50, 51};
   QMutexLocker locker(&m_lock);
+  if (!isOpen())
+  {
+      return -3;
+  }
   int ret = xxusb_stack_write(hUsbDevice, addr[id], data);
   qDebug("StackWrite %d (addr: %d), %d bytes", id, addr[id], ret);
   return ret;
@@ -960,6 +981,10 @@ int VMUSB::stackRead(int id, long* data)
   qDebug("StackRead %d (addr: %d)", id, addr[id]);
 
   QMutexLocker locker(&m_lock);
+  if (!isOpen())
+  {
+      return -3;
+  }
   int ret = xxusb_stack_read(hUsbDevice, addr[id], data);
 
   return ret;
@@ -978,6 +1003,10 @@ int VMUSB:: stackExecute(long* data)
         qDebug("  %d: %08lx", i, data[i]);
 
     QMutexLocker locker(&m_lock);
+    if (!isOpen())
+    {
+        return -3;
+    }
     ret = xxusb_stack_execute(hUsbDevice, data);
 
     qDebug("read: %d %lx %lx", ret, data[0], data[1]);
@@ -1003,6 +1032,8 @@ int VMUSB::readBuffer(unsigned short* data)
     qDebug("vmUsb::readBuffer()");
 //	return xxusb_bulk_read(hUsbDevice, data, 10000, 100);
     QMutexLocker locker(&m_lock);
+    if (!isOpen())
+        return -3;
     return xxusb_usbfifo_read(hUsbDevice, (int*)data, 10000, 100);}
 
 /*!
@@ -1010,6 +1041,8 @@ int VMUSB::readBuffer(unsigned short* data)
  */
 int VMUSB::readLongBuffer(int* data)
 {
+    if (!isOpen())
+        return -3;
   return xxusb_bulk_read(hUsbDevice, data, 1200, 100);
 }
 
@@ -1168,6 +1201,8 @@ int VMUSB::listLoad(CVMUSBReadoutList *list, uint8_t stackID, size_t stackMemory
     uint16_t *outPacket = listToOutPacket(ta, list, &packetSize, stackMemoryOffset);
 
     QMutexLocker locker(&m_lock);
+    if (!isOpen())
+        return -3;
     int status = usb_bulk_write(hUsbDevice, ENDPOINT_OUT,
                                 reinterpret_cast<char *>(outPacket),
                                 packetSize, timeout_ms);
@@ -1220,7 +1255,12 @@ VMUSB::transaction(void* writePacket, size_t writeSize,
             */
 
 
+
     QMutexLocker locker(&m_lock);
+    if (!isOpen())
+    {
+        return -3;
+    }
     int status = usb_bulk_write(hUsbDevice, ENDPOINT_OUT,
             static_cast<char*>(writePacket), writeSize,
             timeout_ms);
@@ -1257,6 +1297,11 @@ VMUSB::transaction(void* writePacket, size_t writeSize,
 int VMUSB::bulkRead(void *outBuffer, size_t outBufferSize, int timeout_ms)
 {
     QMutexLocker locker(&m_lock);
+    if (!isOpen())
+    {
+        return -3;
+    }
+
     int status = usb_bulk_read(hUsbDevice, ENDPOINT_IN,
                                static_cast<char *>(outBuffer), outBufferSize, timeout_ms);
 
@@ -1281,6 +1326,10 @@ VMUSB::stackRead(u8 stackID)
     if (stackID & 4)  ta |= TAVcsID2; // few bits.
 
     QMutexLocker locker(&m_lock);
+
+    if (!isOpen())
+        return ret;
+
     int status = usb_bulk_write(hUsbDevice, ENDPOINT_OUT, reinterpret_cast<char *>(&ta), sizeof(ta), 100);
 
     if (status <= 0)

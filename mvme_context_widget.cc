@@ -694,7 +694,10 @@ void MVMEContextWidget::histoListContextMenu(const QPoint &pos)
         menu.addAction(delAction);
     }
 
-    menu.addAction(addHist2D);
+    if (m_d->context->getConfig()->getAllModuleConfigs().size())
+    {
+        menu.addAction(addHist2D);
+    }
 
     if (histo && histo->property("Histogram.autoCreated").toBool())
     {

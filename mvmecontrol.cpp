@@ -28,13 +28,14 @@ static const char *defaultInitListFile  = "default-initlist.init";
 mvmeControl::mvmeControl(mvme *theApp, QWidget *parent) :
     QWidget(parent),
     theApp(theApp),
+    m_vmusb(theApp->vu),
     ui(new Ui::mvmeControl)
 {
     dontUpdate = true;
 
     ui->setupUi(this);
 
-    connect(theApp->vu, SIGNAL(daqModeChanged(bool)),
+    connect(m_vmusb, SIGNAL(daqModeChanged(bool)),
             this, SLOT(vmusbDaqModeChanged(bool)));
 
     QString pathToBinary = QFileInfo(QCoreApplication::applicationFilePath()).dir().path();
@@ -87,9 +88,9 @@ void mvmeControl::vmusbDaqModeChanged(bool daqModeOn)
 void mvmeControl::getValues()
 {
 #ifdef VME_CONTROLLER_WIENER
-    if (theApp->vu->isOpen())
+    if (m_vmusb->isOpen())
     {
-       theApp->vu->readAllRegisters();
+       m_vmusb->readAllRegisters();
        refreshDisplay();
     }
 #endif
@@ -102,6 +103,8 @@ void mvmeControl::changeMode()
 
     qDebug() << "changeMode(): dontUpdate =" << dontUpdate << ", sender =" << sender();
 
+    if (!m_vmusb->isOpen())
+        return;
 
     if(dontUpdate)
         return;
@@ -133,7 +136,7 @@ void mvmeControl::changeMode()
     mode &= 0x00008FFF;
     mode |= 0x1000 * ui->busRequest->value();
 
-    int ret = theApp->vu->setMode(mode);
+    int ret = m_vmusb->setMode(mode);
 
     refreshDisplay();
 
@@ -151,7 +154,7 @@ void mvmeControl::changeNumber()
     qDebug("changeNumber()");
 
     int val = (int)numExtractMask->value();
-    int ret = theApp->vu->setNumberMask(val);
+    int ret = m_vmusb->setNumberMask(val);
     refreshDisplay();
 
     qDebug("changed Extract Number Mask to: %x, should be: %x", ret, val);
@@ -171,7 +174,7 @@ void mvmeControl::changeLed(int led)
      if(dontUpdate)
         return;
 
-    int val = theApp->vu->getLedSources();
+    int val = m_vmusb->getLedSources();
     if(led < 8){
         val &= 0xFFFFFF00;
         val |= led;
@@ -233,7 +236,7 @@ void mvmeControl::changeLed(int led)
             val |= 0x10000000;
     }
     qDebug("changeLed %d (%x)", led, val);
-    theApp->vu->setLedSources(val);
+    m_vmusb->setLedSources(val);
 #endif
 }
 
@@ -256,11 +259,11 @@ void mvmeControl::refreshDisplay(void)
 
     dontUpdate = true;
 
-    str.sprintf("%x",theApp->vu->getFirmwareId());
+    str.sprintf("%x",m_vmusb->getFirmwareId());
     ui->firmwareLabel->setText(str);
 
     // Global Mode
-    val = theApp->vu->getMode();
+    val = m_vmusb->getMode();
 
     qDebug("refreshDisplay: mode=%08x", val);
 
@@ -295,7 +298,7 @@ void mvmeControl::refreshDisplay(void)
 
   for (int i=0; i<8; ++i)
   {
-      uint16_t irqValue = theApp->vu->getIrq(i);
+      uint16_t irqValue = m_vmusb->getIrq(i);
       QString buffer;
 
       buffer.sprintf("Vector %d = 0x%04x\n", i, irqValue);
@@ -304,7 +307,7 @@ void mvmeControl::refreshDisplay(void)
 
   ui->irqVectorsLabel->setText(irqText);
 
-  u32 usbSetup = static_cast<u32>(theApp->vu->getUsbSettings());
+  u32 usbSetup = static_cast<u32>(m_vmusb->getUsbSettings());
   u32 numberOfBuffers = (usbSetup & TransferSetupRegister::multiBufferCountMask);
   u32 timeout = (usbSetup & TransferSetupRegister::timeoutMask) >> TransferSetupRegister::timeoutShift;
 
@@ -314,7 +317,7 @@ void mvmeControl::refreshDisplay(void)
   ui->usbBulkBuffers->setValue(numberOfBuffers);
   ui->usbBulkTimeout->setValue(timeout);
 
-  u32 daqSettings = theApp->vu->getDaqSettings();
+  u32 daqSettings = m_vmusb->getDaqSettings();
   u32 triggerDelay = (daqSettings & DaqSettingsRegister::ReadoutTriggerDelayMask) >> DaqSettingsRegister::ReadoutTriggerDelayShift;
   u32 readoutFrequency = (daqSettings & DaqSettingsRegister::ScalerReadoutFrequencyMask) >> DaqSettingsRegister::ScalerReadoutFrequencyShift;
   u32 readoutPeriod = (daqSettings & DaqSettingsRegister::ScalerReadoutPerdiodMask) >> DaqSettingsRegister::ScalerReadoutPerdiodShift;
@@ -347,12 +350,12 @@ void mvmeControl::readVme()
         str = ui->readBltsize->text();
         size = str.toUInt(&ok, 0);
         if(ui->readBlt->isChecked()){
-            ret = theApp->vu->vmeBltRead32(addr, size, data);
+            ret = m_vmusb->vmeBltRead32(addr, size, data);
             qDebug("read %ld bytes/%ld words from bus by BLT (requested %ld words)",
                    ret, ret/sizeof(uint32_t), size);
         }
         else{
-            ret = theApp->vu->vmeMbltRead32(addr, size, data);
+            ret = m_vmusb->vmeMbltRead32(addr, size, data);
             qDebug("read %ld bytes from bus by MBLT", ret);
         }
         ui->bltResult->clear();
@@ -367,12 +370,12 @@ void mvmeControl::readVme()
     else{
         if(ui->read16->isChecked())
         {
-            ret = theApp->vu->vmeRead16(addr, (long*)data);
+            ret = m_vmusb->vmeRead16(addr, (long*)data);
             str.sprintf("%04lx", data[0]);
         }
         else
         {
-            ret = theApp->vu->vmeRead32(addr, (long*)data);
+            ret = m_vmusb->vmeRead32(addr, (long*)data);
             str.sprintf("%08lx", data[0]);
         }
 
@@ -395,9 +398,9 @@ void mvmeControl::readVme2()
     long addr = str.toInt(&ok, 0) + (0x10000 * offset);
 
     if(ui->read16_2->isChecked())
-        ret = theApp->vu->vmeRead16(addr, data);
+        ret = m_vmusb->vmeRead16(addr, data);
     else
-        ret = theApp->vu->vmeRead32(addr, data);
+        ret = m_vmusb->vmeRead32(addr, data);
 
     str.sprintf("%lx", data[0]);
     ui->readValue_2->setText(str);
@@ -418,9 +421,9 @@ void mvmeControl::readVme3()
     long addr = str.toInt(&ok, 0) + (0x10000 * offset);
 
     if(ui->read16_3->isChecked())
-            ret = theApp->vu->vmeRead16(addr, data);
+            ret = m_vmusb->vmeRead16(addr, data);
         else
-            ret = theApp->vu->vmeRead32(addr, data);
+            ret = m_vmusb->vmeRead32(addr, data);
 
     str.sprintf("%lx", data[0]);
     ui->readValue_3->setText(str);
@@ -441,9 +444,9 @@ void mvmeControl::writeVme()
     str =ui-> writeValue->text();
     long val = str.toUInt(&ok, 0);
     if(ui->write16->isChecked())
-        ret = theApp->vu->vmeWrite16(addr, val);
+        ret = m_vmusb->vmeWrite16(addr, val);
     else
-        ret = theApp->vu->vmeWrite32(addr, val);
+        ret = m_vmusb->vmeWrite32(addr, val);
     qDebug("wrote %lx to addr %lx, ret val = %ld", val, addr, ret);
     if(ui->writeLoop->isChecked())
         QTimer::singleShot( 100, this, SLOT(writeVme()) );
@@ -461,9 +464,9 @@ void mvmeControl::writeVme2()
     str =ui-> writeValue_2->text();
     long val = str.toUInt(&ok, 0);
     if(ui->write16_2->isChecked())
-        ret = theApp->vu->vmeWrite16(addr, val);
+        ret = m_vmusb->vmeWrite16(addr, val);
     else
-        ret = theApp->vu->vmeWrite32(addr, val);
+        ret = m_vmusb->vmeWrite32(addr, val);
     qDebug("wrote %lx to addr %lx, ret val = %ld", val, addr, ret);
     if(ui->writeLoop_2->isChecked())
         QTimer::singleShot( 100, this, SLOT(writeVme2()) );
@@ -481,9 +484,9 @@ void mvmeControl::writeVme3()
     str =ui-> writeValue_3->text();
     long val = str.toUInt(&ok, 0);
     if(ui->write16_3->isChecked())
-        ret = theApp->vu->vmeWrite16(addr, val);
+        ret = m_vmusb->vmeWrite16(addr, val);
     else
-        ret = theApp->vu->vmeWrite32(addr, val);
+        ret = m_vmusb->vmeWrite32(addr, val);
     qDebug("wrote %lx to addr %lx, ret val = %ld", val, addr, ret);
     if(ui->writeLoop_3->isChecked())
         QTimer::singleShot( 100, this, SLOT(writeVme3()) );
@@ -587,7 +590,7 @@ void mvmeControl::activateStack()
 
         for(i=0;i<stackSize;i++){
             stack[i] += memoryOffset;
-            int writeResult = theApp->vu->vmeWrite16(stack[i], stack[i+1]);
+            int writeResult = m_vmusb->vmeWrite16(stack[i], stack[i+1]);
             i++;
             qDebug("wrote %lx to %lx, write result=%d", stack[i], stack[i-1], writeResult);
         }
@@ -618,7 +621,7 @@ void mvmeControl::activateStack()
 
         if(ui->stackNumber->currentText() == "Execute")
         {
-            int ret = theApp->vu->stackExecute(stack);
+            int ret = m_vmusb->stackExecute(stack);
             qDebug("stackExecute returned %d", ret);
 
             /*
@@ -638,7 +641,7 @@ void mvmeControl::activateStack()
         {
             bool ok;
             int val = ui->stackNumber->currentText().toInt(&ok, 0);
-            int ret = theApp->vu->stackWrite(val, stack);
+            int ret = m_vmusb->stackWrite(val, stack);
             qDebug("stackWrite: returned %d", ret);
         }
     }
@@ -660,7 +663,7 @@ void mvmeControl::activateStack()
     {
         uint32_t readBuffer[1024];
         size_t bytesRead = 0;
-        int result = theApp->vu->listExecute(&stackList, readBuffer, 1024*4, &bytesRead);
+        int result = m_vmusb->listExecute(&stackList, readBuffer, 1024*4, &bytesRead);
         qDebug("stackExecute: result=%d, bytesRead=%lu", result, bytesRead);
 
         for (size_t i=0; i<bytesRead/4; ++i)
@@ -675,7 +678,7 @@ void mvmeControl::activateStack()
     {
         bool ok;
         int val = ui->stackNumber->currentText().toInt(&ok, 0);
-        int ret = theApp->vu->listLoad(&stackList, val, 0x0);
+        int ret = m_vmusb->listLoad(&stackList, val, 0x0);
         qDebug("stackWrite: returned %d", ret);
     }
 }
@@ -783,7 +786,7 @@ void mvmeControl::readStack()
     long stack[0x1000];
     QString s, s2;
     int val = ui->stackNumber->currentText().toInt(&ok, 0);
-    int ret = theApp->vu->stackRead(val, &stack[0]);
+    int ret = m_vmusb->stackRead(val, &stack[0]);
     qDebug("read %d bytes from stack %d", ret, val);
 
     for(int i = 0; i < ret/2; i++){
@@ -806,21 +809,21 @@ void mvmeControl::setIrq()
     id = ui->irqId1->text().toInt(&ok, 0);
     vector = id + 256*irq + 4096*stack;
     qDebug("IRQ Vector: %x", vector);
-    theApp->vu->setIrq(0, vector);
+    m_vmusb->setIrq(0, vector);
 
     stack = ui->stack2->value();
     irq = ui->irq2->value();
     id = ui->irqId2->text().toInt(&ok, 0);
     vector = id + 256*irq + 4096*stack;
     qDebug("IRQ Vector: %x", vector);
-    theApp->vu->setIrq(1, vector);
+    m_vmusb->setIrq(1, vector);
 
     stack = ui->stack3->value();
     irq = ui->irq3->value();
     id = ui->irqId3->text().toInt(&ok, 0);
     vector = id + 256*irq + 4096*stack;
     qDebug("IRQ Vector: %x", vector);
-    theApp->vu->setIrq(2, vector);
+    m_vmusb->setIrq(2, vector);
 
     refreshDisplay();
 #endif
@@ -831,7 +834,7 @@ void mvmeControl::readBuffer()
     QString s, s2;
     int data[1000];
     int ret;
-    ret = theApp->vu->readLongBuffer(data);
+    ret = m_vmusb->readLongBuffer(data);
     for(int i = 0; i < ret; i++){
 
         s2.sprintf("%08x",data[i]);
@@ -847,18 +850,18 @@ void mvmeControl::startStop(bool val)
 {
 #ifdef VME_CONTROLLER_WIENER
     if(val){
-        theApp->vu->writeActionRegister(0);
+        m_vmusb->writeActionRegister(0);
         qDebug("Stop: 0");
         int ret;
         do {
             qDebug("performing usb read to clear remaning data");
             char buffer[27 * 1024];
-            ret = usb_bulk_read(theApp->vu->hUsbDevice, XXUSB_ENDPOINT_IN, buffer, 27 * 1024, 500);
+            ret = usb_bulk_read(m_vmusb->hUsbDevice, XXUSB_ENDPOINT_IN, buffer, 27 * 1024, 500);
             qDebug("bulk read returned %d", ret);
         } while (ret > 0);
     }
     else{
-        theApp->vu->writeActionRegister(1);
+        m_vmusb->writeActionRegister(1);
         qDebug("Start: 1");
     }
 #endif
@@ -874,7 +877,7 @@ void mvmeControl::setScalerValue()
 
     str = ui->scalerPeriod->text();
     unsigned int period = str.toInt(&ok, 0);
-    ret = theApp->vu->setScalerTiming(0, period, 0);
+    ret = m_vmusb->setScalerTiming(0, period, 0);
     qDebug("set scaler settings to %lx", ret);
 #endif
 #endif
@@ -894,6 +897,7 @@ void mvmeControl::toggleDisplay(bool state)
 
 void mvmeControl::dataTaking(bool stop)
 {
+#if 0
     bool ok, multi = false;
     QString str;
     unsigned int uperiod, words = 0;
@@ -925,6 +929,7 @@ void mvmeControl::dataTaking(bool stop)
 
         theApp->startDatataking(0, false, 0, false, ui->cb_useDaqMode->isChecked());
     }
+#endif
 }
 
 void mvmeControl::clearData()
@@ -972,9 +977,9 @@ void mvmeControl::changeEndianess()
 {
     qDebug("change endianess");
     if(ui->bigEndian->isChecked())
-        theApp->vu->setEndianess(true);
+        m_vmusb->setEndianess(true);
     else
-        theApp->vu->setEndianess(false);
+        m_vmusb->setEndianess(false);
 }
 
 void mvmeControl::replayListfile()
@@ -1010,6 +1015,7 @@ void mvmeControl::saveData()
 
 void mvmeControl::calcSlot()
 {
+#if 0
     QString str;
     quint16 lobin = 0, hibin = 8192;
     // evaluate bin filter
@@ -1029,11 +1035,14 @@ void mvmeControl::calcSlot()
     theApp->diag->calcAll(theApp->getHist(), ui->diagLowChannel2->value(), ui->diagHiChannel2->value(),
                           ui->diagLowChannel->value(), ui->diagHiChannel->value(), lobin, hibin);
     dispAll();
+#endif
 }
 
 void mvmeControl::clearSlot()
 {
+#if 0
     theApp->clearAllHist();
+#endif
 }
 
 void mvmeControl::dispAll()
@@ -1045,6 +1054,7 @@ void mvmeControl::dispAll()
 
 void mvmeControl::dispDiag1()
 {
+#if 0
     QString str;
     // upper range
     str.sprintf("%2.2f", theApp->diag->getMean(MAX));
@@ -1073,10 +1083,12 @@ void mvmeControl::dispDiag1()
     ui->sigmodd->setText(str);
     str.sprintf("%2.2f", theApp->diag->getSigma(EVEN));
     ui->sigmeven->setText(str);
+#endif
 }
 
 void mvmeControl::dispDiag2()
 {
+#if 0
     QString str;
     // lower range
     str.sprintf("%2.2f", theApp->diag->getMean(MAXFILT));
@@ -1105,10 +1117,12 @@ void mvmeControl::dispDiag2()
     ui->sigmodd_filt->setText(str);
     str.sprintf("%2.2f", theApp->diag->getSigma(EVENFILT));
     ui->sigmeven_filt->setText(str);
+#endif
 }
 
 void mvmeControl::dispResultlist()
 {
+#if 0
     QString text, str;
     quint16 i;
 
@@ -1118,10 +1132,12 @@ void mvmeControl::dispResultlist()
         text.append(str);
     }
     ui->diagResult->setPlainText(text);
+#endif
 }
 
 void mvmeControl::dispRt()
 {
+#if 0
     QString str;
     str.sprintf("%2.2f", theApp->rd->getRdMean(0));
     ui->rtMeanEven->setText(str);
@@ -1131,6 +1147,7 @@ void mvmeControl::dispRt()
     ui->rtSigmEven->setText(str);
     str.sprintf("%2.2f", theApp->rd->getRdSigma(1));
     ui->rtSigmOdd->setText(str);
+#endif
 }
 
 void mvmeControl::dispChan(int c)
@@ -1145,7 +1162,7 @@ void mvmeControl::readRegister()
 {
     u32 address = static_cast<u32>(ui->spin_RegDec->value());
     u32 value = 0;
-    if (theApp->vu->readRegister(address, &value))
+    if (m_vmusb->readRegister(address, &value))
     {
         QString buffer;
         buffer.sprintf("0x%08x", value);
@@ -1159,7 +1176,7 @@ void mvmeControl::readRegister()
 
 void mvmeControl::on_pb_clearRegisters_clicked()
 {
-    theApp->vu->writeActionRegister(4);
+    m_vmusb->writeActionRegister(4);
     getValues();
 }
 
@@ -1167,12 +1184,12 @@ void mvmeControl::on_usbBulkBuffers_valueChanged(int value)
 {
     if (dontUpdate) return;
 
-    int usbSetup = theApp->vu->getUsbSettings();
+    int usbSetup = m_vmusb->getUsbSettings();
     value &= TransferSetupRegister::multiBufferCountMask;
     usbSetup &= ~TransferSetupRegister::multiBufferCountMask;
     usbSetup |= value;
 
-    theApp->vu->setUsbSettings(usbSetup);
+    m_vmusb->setUsbSettings(usbSetup);
     refreshDisplay();
 }
 
@@ -1180,37 +1197,37 @@ void mvmeControl::on_usbBulkTimeout_valueChanged(int value)
 {
     if (dontUpdate) return;
 
-    int usbSetup = theApp->vu->getUsbSettings();
+    int usbSetup = m_vmusb->getUsbSettings();
     value = (value << TransferSetupRegister::timeoutShift) & TransferSetupRegister::timeoutMask;
     usbSetup &= ~TransferSetupRegister::timeoutMask;
     usbSetup |= value;
 
-    theApp->vu->setUsbSettings(usbSetup);
+    m_vmusb->setUsbSettings(usbSetup);
     refreshDisplay();
 }
 
 void mvmeControl::on_spin_triggerDelay_valueChanged(int value)
 {
-    u32 regValue = theApp->vu->getDaqSettings();
+    u32 regValue = m_vmusb->getDaqSettings();
     regValue &= ~DaqSettingsRegister::ReadoutTriggerDelayMask;
     regValue |= (value << DaqSettingsRegister::ReadoutTriggerDelayShift) & DaqSettingsRegister::ReadoutTriggerDelayMask;
-    theApp->vu->setDaqSettings(regValue);
+    m_vmusb->setDaqSettings(regValue);
 }
 
 void mvmeControl::on_spin_readoutFrequency_valueChanged(int value)
 {
-    u32 regValue = theApp->vu->getDaqSettings();
+    u32 regValue = m_vmusb->getDaqSettings();
     regValue &= ~DaqSettingsRegister::ScalerReadoutFrequencyMask;
     regValue |= (value << DaqSettingsRegister::ScalerReadoutFrequencyShift) & DaqSettingsRegister::ScalerReadoutFrequencyMask;
-    theApp->vu->setDaqSettings(regValue);
+    m_vmusb->setDaqSettings(regValue);
 }
 
 void mvmeControl::on_spin_readoutPeriod_valueChanged(int value)
 {
-    u32 regValue = theApp->vu->getDaqSettings();
+    u32 regValue = m_vmusb->getDaqSettings();
     regValue &= ~DaqSettingsRegister::ScalerReadoutPerdiodMask;
     regValue |= (value << DaqSettingsRegister::ScalerReadoutPerdiodShift) & DaqSettingsRegister::ScalerReadoutPerdiodMask;
-    theApp->vu->setDaqSettings(regValue);
+    m_vmusb->setDaqSettings(regValue);
 }
 
 void mvmeControl::on_pb_selectOutputFile_clicked()
@@ -1255,14 +1272,14 @@ void mvmeControl::on_pb_stackLoad_clicked()
     {
         u8  stackNumber = ui->stackNumber->currentIndex();
         u32 loadOffset = ui->stackLoadOffset->value();
-        theApp->vu->stackWrite(stackNumber, loadOffset, stackData);
+        m_vmusb->stackWrite(stackNumber, loadOffset, stackData);
     }
 }
 
 void mvmeControl::on_pb_stackRead_clicked()
 {
     u8  stackNumber = ui->stackNumber->currentIndex();
-    auto result = theApp->vu->stackRead(stackNumber);
+    auto result = m_vmusb->stackRead(stackNumber);
 
     QString buffer;
 
@@ -1292,7 +1309,7 @@ void mvmeControl::on_pb_stackExecute_clicked()
         size_t bytesRead;
 
         CVMUSBReadoutList stackList(stackData);
-        theApp->vu->listExecute(&stackList, readBuffer, readBufferSize, &bytesRead);
+        m_vmusb->listExecute(&stackList, readBuffer, readBufferSize, &bytesRead);
 
         size_t longWords = bytesRead / sizeof(u32);
         size_t bytesRemaining = bytesRead % sizeof(u32);
@@ -1374,7 +1391,7 @@ void mvmeControl::on_pb_readMemory_clicked()
     {
         u32 address = memoryOffset | memoryData[2*i];
         long value = 0;
-        int result = theApp->vu->vmeRead16(address, &value);
+        int result = m_vmusb->vmeRead16(address, &value);
 
         qDebug("read 0x%08x -> 0x%04x, result=%d", address, value, result);
 
@@ -1401,7 +1418,7 @@ void mvmeControl::on_pb_writeMemory_clicked()
     {
         u32 address = memoryOffset | memoryData[2*i];
         u16 value   = memoryData[2*i+1];
-        int result  = theApp->vu->vmeWrite16(address, value);
+        int result  = m_vmusb->vmeWrite16(address, value);
 
         qDebug("write  0x%08x -> 0x%04x, result=%d", address, value, result);
 
@@ -1460,7 +1477,7 @@ void mvmeControl::on_pb_readMemory_2_clicked()
     {
         u32 address = memoryOffset | memoryData[2*i];
         long value = 0;
-        int result = theApp->vu->vmeRead16(address, &value);
+        int result = m_vmusb->vmeRead16(address, &value);
 
         qDebug("read 0x%08x -> 0x%04x, result=%d", address, value, result);
 
@@ -1480,7 +1497,7 @@ void mvmeControl::on_pb_writeMemory_2_clicked()
 
     bool wasInDaqMode = false;
 
-    if (theApp->vu->isInDaqMode())
+    if (m_vmusb->isInDaqMode())
     {
         wasInDaqMode = true;
         dataTaking(true);
@@ -1499,7 +1516,7 @@ void mvmeControl::on_pb_writeMemory_2_clicked()
     {
         u32 address = memoryOffset | memoryData[2*i];
         u16 value   = memoryData[2*i+1];
-        int result  = theApp->vu->vmeWrite16(address, value);
+        int result  = m_vmusb->vmeWrite16(address, value);
 
         qDebug("write  0x%08x -> 0x%04x, result=%d", address, value, result);
 
@@ -1548,7 +1565,7 @@ void mvmeControl::on_pb_saveMemoryFile_2_clicked()
 
 void mvmeControl::on_pb_usbReset_clicked()
 {
-    theApp->vu->writeActionRegister(4);
+    m_vmusb->writeActionRegister(4);
 }
 
 void mvmeControl::on_pb_errorRecovery_clicked()
@@ -1557,7 +1574,7 @@ void mvmeControl::on_pb_errorRecovery_clicked()
     do
     {
         char buffer[27 * 1024];
-        bytesRead = theApp->vu->bulkRead(buffer, sizeof(buffer));
+        bytesRead = m_vmusb->bulkRead(buffer, sizeof(buffer));
         qDebug("bulk read returned %d", bytesRead);
     } while (bytesRead > 0);
 }

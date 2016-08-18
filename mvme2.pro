@@ -19,26 +19,19 @@ QMAKE_CFLAGS += -Wno-unused -Wno-format
 SOURCES += \
     config_widgets.cpp \
     CVMUSBReadoutList.cpp \
-    datacruncher.cpp \
-    datathread.cpp \
-    diagnostics.cpp \
     histogram.cpp \
     libxxusb.cc \
     main.cpp \
     mvme_config.cc \
     mvme_context.cc \
     mvme_context_widget.cc \
-    mvmecontrol.cpp \
     mvme.cpp \
     mvme_event_processor.cc \
     mvme_listfile.cc \
-    realtimedata.cpp \
     scrollbar.cpp \
     scrollzoomer.cpp \
-    simulator.cpp \
     twodimwidget.cpp \
     util.cc \
-    virtualmod.cpp \
     vmecommandlist.cc \
     vmecontroller.cpp \
     vmedevice.cpp \
@@ -53,25 +46,18 @@ HEADERS  += \
     config_widgets.h \
     CVMUSBReadoutList.h \
     databuffer.h \
-    datacruncher.h \
-    datathread.h \
-    diagnostics.h \
     histogram.h \
     mvme_config.h \
     mvme_context.h \
     mvme_context_widget.h \
-    mvmecontrol.h \
     mvmedefines.h \
     mvme_event_processor.h \
     mvme.h \
     mvme_listfile.h \
-    realtimedata.h \
     scrollbar.h \
     scrollzoomer.h \
-    simulator.h \
     twodimwidget.h \
     util.h \
-    virtualmod.h \
     vmecommandlist.h \
     vmecontroller.h \
     vmedevice.h \
@@ -85,7 +71,6 @@ HEADERS  += \
 
 
 FORMS    += \
-    mvmecontrol.ui \
     mvme.ui \
     twodimwidget.ui \
     hist2ddialog.ui \

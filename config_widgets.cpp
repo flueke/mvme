@@ -62,9 +62,6 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *confi
     connect(context, &MVMEContext::moduleAboutToBeRemoved, this, [=](ModuleConfig *module) {
         if (module == config)
         {
-            auto pw = parentWidget();
-            if (pw)
-                pw->close();
             close();
         }
     });
@@ -143,10 +140,14 @@ void ModuleConfigDialog::handleListTypeIndexChanged(int index)
     {
         case ModuleListType::ReadoutStack:
             ui->pb_exec->setText("Exec");
+            ui->pb_load->setEnabled(false);
+            ui->pb_save->setEnabled(false);
             ui->splitter->setSizes({1, 1});
             break;
         default:
             ui->pb_exec->setText("Run");
+            ui->pb_load->setEnabled(true);
+            ui->pb_save->setEnabled(true);
             ui->splitter->setSizes({1, 0});
             break;
     }
@@ -302,6 +303,7 @@ void ModuleConfigDialog::on_buttonBox_clicked(QAbstractButton *button)
         case QDialogButtonBox::ApplyRole:
             {
                 saveToConfig();
+                setWindowTitle(QString("Module Config %1").arg(m_config->getName()));
             } break;
 
         case QDialogButtonBox::ResetRole:
