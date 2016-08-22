@@ -280,22 +280,26 @@ void TwoDimWidget::updateStatistics()
     str.sprintf("%2.2f", m_pMyHist->m_sigma[m_currentChannel]);
     ui->sigmaval->setText(str);
 
-    str.sprintf("%d", (quint32)m_pMyHist->m_counts[m_currentChannel]);
+    str.sprintf("%u", (quint32)m_pMyHist->m_counts[m_currentChannel]);
     ui->countval->setText(str);
 
-    str.sprintf("%d", (quint32) m_pMyHist->m_maximum[m_currentChannel]);
+    str.sprintf("%u", (quint32) m_pMyHist->m_maximum[m_currentChannel]);
     ui->maxval->setText(str);
 
-    str.sprintf("%d", (quint32) m_pMyHist->m_maxchan[m_currentChannel]);
+    str.sprintf("%u", (quint32) m_pMyHist->m_maxchan[m_currentChannel]);
     ui->maxpos->setText(str);
 
+    str.sprintf("%u", (quint32) m_pMyHist->m_overflow[m_currentChannel]);
+    ui->overflow->setText(str);
+
     QString buffer;
-    buffer.sprintf("\nMean: %2.2f\nSigma: %2.2f\nCounts: %u\nMaximum: %u\nat Channel: %u",
+    buffer.sprintf("\nMean: %2.2f\nSigma: %2.2f\nCounts: %u\nMaximum: %u\nat Channel: %u\nOverflow: %u",
                                m_pMyHist->m_mean[m_currentChannel],
                                m_pMyHist->m_sigma[m_currentChannel],
                                (quint32)m_pMyHist->m_counts[m_currentChannel],
                                (quint32)m_pMyHist->m_maximum[m_currentChannel],
-                               (quint32)m_pMyHist->m_maxchan[m_currentChannel]
+                               (quint32)m_pMyHist->m_maxchan[m_currentChannel],
+                               (quint32)m_pMyHist->m_overflow[m_currentChannel]
                                );
 
     m_statsText->setText(buffer);

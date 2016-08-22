@@ -1,6 +1,7 @@
 #include "histogram.h"
 #include "math.h"
 #include <cassert>
+#include <QDebug>
 
 Histogram::Histogram(QObject *parent, quint32 channels, quint32 resolution) :
     QObject(parent)
@@ -33,6 +34,7 @@ void Histogram::initHistogram(void)
         m_counts[i] = 0;
         m_maxchan[i] = 0;
         m_maximum[i] = 0;
+        m_overflow[i] = 0;
     }
 }
 
@@ -48,6 +50,7 @@ void Histogram::clearChan(quint32 chan)
     m_counts[chan] = 0;
     m_maxchan[chan] = 0;
     m_maximum[chan] = 0;
+    m_overflow[chan] = 0;
 }
 
 void Histogram::clearHistogram()
@@ -123,12 +126,23 @@ double Histogram::getValue(quint32 channelIndex, quint32 valueIndex)
 
 bool Histogram::incValue(quint32 channelIndex, quint32 valueIndex)
 {
-    if (channelIndex < m_channels && valueIndex < m_resolution)
-    {
-        m_data[channelIndex * m_resolution + valueIndex]++;
-        return true;
-    }
+    //qDebug() << "channelIndex =" << channelIndex << ", value =" << valueIndex
+    //    << "m_channels =" << m_channels
+    //    << "m_resolution =" << m_resolution;
 
+    if (channelIndex < m_channels)
+    {
+        if (valueIndex >= m_resolution)
+        {
+            ++m_overflow[channelIndex];
+            return false;
+        }
+        else
+        {
+            ++m_data[channelIndex * m_resolution + valueIndex];
+            return true;
+        }
+    }
     return false;
 }
 

@@ -35,6 +35,7 @@ public:
     double m_mean[MAX_CHANNEL_COUNT];
     double m_sigma[MAX_CHANNEL_COUNT];
     double m_counts[MAX_CHANNEL_COUNT];
+    double m_overflow[MAX_CHANNEL_COUNT];
 
 signals:
 

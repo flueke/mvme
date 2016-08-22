@@ -23,7 +23,7 @@
     </rect>
    </property>
    <property name="currentIndex">
-    <number>0</number>
+    <number>3</number>
    </property>
    <widget class="QWidget" name="vm_usb">
     <attribute name="title">
@@ -3484,8 +3484,8 @@ p, li { white-space: pre-wrap; }
    <slot>readLoopSlot()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>314</x>
-     <y>376</y>
+     <x>302</x>
+     <y>384</y>
     </hint>
     <hint type="destinationlabel">
      <x>460</x>
@@ -3500,8 +3500,8 @@ p, li { white-space: pre-wrap; }
    <slot>writeVme()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>323</x>
-     <y>160</y>
+     <x>325</x>
+     <y>192</y>
     </hint>
     <hint type="destinationlabel">
      <x>298</x>
@@ -3516,8 +3516,8 @@ p, li { white-space: pre-wrap; }
    <slot>readVme()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>324</x>
-     <y>404</y>
+     <x>312</x>
+     <y>412</y>
     </hint>
     <hint type="destinationlabel">
      <x>178</x>
@@ -3660,8 +3660,8 @@ p, li { white-space: pre-wrap; }
    <slot>dataTaking(bool)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>384</x>
-     <y>384</y>
+     <x>84</x>
+     <y>638</y>
     </hint>
     <hint type="destinationlabel">
      <x>483</x>
@@ -3676,8 +3676,8 @@ p, li { white-space: pre-wrap; }
    <slot>changeMode()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>128</x>
-     <y>96</y>
+     <x>132</x>
+     <y>136</y>
     </hint>
     <hint type="destinationlabel">
      <x>88</x>
@@ -3692,8 +3692,8 @@ p, li { white-space: pre-wrap; }
    <slot>changeMode()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>214</x>
-     <y>94</y>
+     <x>218</x>
+     <y>134</y>
     </hint>
     <hint type="destinationlabel">
      <x>153</x>
@@ -3708,8 +3708,8 @@ p, li { white-space: pre-wrap; }
    <slot>changeMode()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>219</x>
-     <y>134</y>
+     <x>223</x>
+     <y>174</y>
     </hint>
     <hint type="destinationlabel">
      <x>687</x>
@@ -3725,7 +3725,7 @@ p, li { white-space: pre-wrap; }
    <hints>
     <hint type="sourcelabel">
      <x>174</x>
-     <y>175</y>
+     <y>215</y>
     </hint>
     <hint type="destinationlabel">
      <x>745</x>
@@ -3740,8 +3740,8 @@ p, li { white-space: pre-wrap; }
    <slot>setIrq()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>497</x>
-     <y>146</y>
+     <x>318</x>
+     <y>210</y>
     </hint>
     <hint type="destinationlabel">
      <x>340</x>
@@ -3804,8 +3804,8 @@ p, li { white-space: pre-wrap; }
    <slot>clearSlot()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>626</x>
-     <y>434</y>
+     <x>386</x>
+     <y>702</y>
     </hint>
     <hint type="destinationlabel">
      <x>654</x>
@@ -3836,8 +3836,8 @@ p, li { white-space: pre-wrap; }
    <slot>getValues()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>74</x>
-     <y>445</y>
+     <x>76</x>
+     <y>532</y>
     </hint>
     <hint type="destinationlabel">
      <x>523</x>
@@ -3852,8 +3852,8 @@ p, li { white-space: pre-wrap; }
    <slot>changeMode()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>212</x>
-     <y>114</y>
+     <x>216</x>
+     <y>154</y>
     </hint>
     <hint type="destinationlabel">
      <x>102</x>

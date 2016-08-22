@@ -55,11 +55,11 @@ namespace MDPP
 {
     static const int adc_resolution = 0x6046;
     static const std::array<int, 5> adc_resolutions = {
+        1 << 16,
         1 << 15,
         1 << 14,
         1 << 13,
-        1 << 12,
-        1 << 11 
+        1 << 12 
     };
     static const int adc_resolution_default = 4;
 }

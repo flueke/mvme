@@ -181,6 +181,7 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
                         {
                             u16 address = (currentWord & 0x003F0000) >> 16;
                             u32 value   = (currentWord & 0x00001FFF); // FIXME: data width depends on module type and configuration
+
                             if (histo)
                             {
                                 histo->incValue(address, value);
