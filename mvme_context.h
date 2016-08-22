@@ -150,6 +150,23 @@ class MVMEContext: public QObject
             return false;
         }
 
+        void removeHistograms()
+        {
+            for (auto name: m_histograms.keys())
+            {
+                removeHistogram(name);
+            }
+        }
+
+        void remove2DHistograms()
+        {
+            auto hists = get2DHistograms();
+            for (auto hist: hists)
+            {
+                removeHist2D(hist);
+            }
+        }
+
         void setConfigFileName(const QString &name)
         {
             m_configFileName = name;

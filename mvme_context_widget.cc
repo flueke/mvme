@@ -126,11 +126,9 @@ struct AddModuleDialog: public QDialog
         connect(typeCombo, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
                 this, onTypeComboIndexChanged);
 
-        //nameEdit->setText(QString("module%1").arg(context->getTotalModuleCount()));
-
         addressEdit = new QLineEdit;
-        addressEdit->setInputMask("\\0\\xHHHH");
-        addressEdit->setText("0x0000");
+        addressEdit->setInputMask("\\0\\xHHHH\\0\\0\\0\\0");
+        addressEdit->setText("0x00000000");
 
         auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
         connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
@@ -139,7 +137,7 @@ struct AddModuleDialog: public QDialog
         auto layout = new QFormLayout(this);
         layout->addRow("Type", typeCombo);
         layout->addRow("Name", nameEdit);
-        layout->addRow("Address (High Bits)", addressEdit);
+        layout->addRow("Address", addressEdit);
         layout->addRow(bb);
 
         connect(addressEdit, &QLineEdit::textChanged, [=](const QString &) {
@@ -154,7 +152,7 @@ struct AddModuleDialog: public QDialog
         module->setId(QUuid::createUuid());
         module->type = static_cast<VMEModuleType>(typeCombo->currentData().toInt());
         module->setName(nameEdit->text());
-        module->baseAddress = addressEdit->text().toUInt(&ok, 16) << 16;
+        module->baseAddress = addressEdit->text().toUInt(&ok, 16);
 
         qDebug() << "currentPath" << QDir::currentPath();
         qDebug() << "applicationDirPath" << QCoreApplication::applicationDirPath();
@@ -173,14 +171,7 @@ struct AddModuleDialog: public QDialog
             QString shortname = VMEModuleShortNames[module->type];
             module->initParameters  = readStringFile(QString(templatePath + "/%1_parameters.init")
                                                      .arg(shortname));
-
-            // generate readout stack
-            VMECommandList readoutCmds;
-            readoutCmds.addFifoRead32(module->baseAddress, 0xffff);
-            readoutCmds.addMarker(EndOfModuleMarker);
-            readoutCmds.addWrite16(module->baseAddress + 0x6034, 1);
-            CVMUSBReadoutList readoutList(readoutCmds);
-            module->readoutStack = readoutList.toString();
+            module->generateReadoutStack();
         }
 
         context->addModule(parentConfig, module);

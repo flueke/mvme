@@ -93,7 +93,7 @@ void MVMEContext::addModule(EventConfig *eventConfig, ModuleConfig *module)
     if (channels > 0 && resolution > 0)
     {
         auto hist = new Histogram(this, channels, resolution);
-        hist->setProperty("Histogram.sourceModule", module->getFullPath());
+        hist->setProperty("Histogram.sourceModule", module->getId());
         hist->setProperty("Histogram.autoCreated", true);
         addHistogram(module->getFullPath(), hist);
     }
@@ -310,6 +310,9 @@ void MVMEContext::write(QJsonObject &json) const
 
 void MVMEContext::read(const QJsonObject &json)
 {
+    removeHistograms();
+    remove2DHistograms();
+
     auto config = new DAQConfig;
     config->read(json["DAQConfig"].toObject());
     setConfig(config);

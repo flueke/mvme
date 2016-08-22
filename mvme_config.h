@@ -54,6 +54,8 @@ class ModuleConfig: public QObject
         // TODO: For other controllers the vmusb stack format obviously won't work.
         QString readoutStack;
 
+        void generateReadoutStack();
+
         EventConfig *event = 0;
 
         void setId(const QUuid &uuid)

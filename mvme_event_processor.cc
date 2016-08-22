@@ -158,7 +158,8 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
 
                     for (auto h: m_context->getHistogramList())
                     {
-                        if (h->property("Histogram.sourceModule").toString() == cfg->getFullPath())
+                        auto sourceId = QUuid(h->property("Histogram.sourceModule").toString());
+                        if (sourceId == cfg->getId())
                         {
                             histo = h;
                             break;

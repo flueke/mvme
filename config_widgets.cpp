@@ -316,6 +316,7 @@ void ModuleConfigDialog::on_buttonBox_clicked(QAbstractButton *button)
         case QDialogButtonBox::ApplyRole:
             {
                 saveToConfig();
+                loadFromConfig();
                 setWindowTitle(QString("Module Config %1").arg(m_config->getName()));
             } break;
 
@@ -375,4 +376,5 @@ void ModuleConfigDialog::saveToConfig()
     {
         *getConfigString(static_cast<ModuleListType>(i), config) = m_configStrings[i];
     }
+    m_config->generateReadoutStack();
 }

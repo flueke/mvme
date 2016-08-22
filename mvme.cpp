@@ -222,11 +222,6 @@ bool mvme::loadConfig(const QString &fileName)
         return false;
     }
 
-    for (auto name: m_context->getHistograms().keys())
-    {
-        m_context->removeHistogram(name);
-    }
-
     m_context->read(doc.object());
     m_context->setConfigFileName(fileName);
     m_context->setMode(GlobalMode::DAQ);

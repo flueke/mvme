@@ -84,5 +84,6 @@ inline bool isMesytecModule(VMEModuleType type)
 
 static const u32 EndOfModuleMarker = 0x87654321;
 static const u32 BerrMarker = 0xffffffff;
+static const size_t FifoReadTransferSize = 0xffff;
 
 #endif

@@ -1,4 +1,6 @@
 #include "mvme_config.h"
+#include "vmecommandlist.h"
+#include "CVMUSBReadoutList.h"
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
@@ -25,11 +27,13 @@ int ModuleConfig::getNumberOfChannels() const
         case VMEModuleType::MADC32:
         case VMEModuleType::MQDC32:
         case VMEModuleType::MTDC32:
-        case VMEModuleType::MDPP16:
-        case VMEModuleType::MDPP32:
+        case VMEModuleType::MDI2:
             return 32;
 
-        case VMEModuleType::MDI2:
+        case VMEModuleType::MDPP16:
+        case VMEModuleType::MDPP32:
+            return 34;
+
         case VMEModuleType::Invalid:
         case VMEModuleType::Generic:
             return -1;
@@ -154,6 +158,17 @@ void ModuleConfig::write(QJsonObject &json) const
     json["readoutStack"] = readoutStack;
 }
 
+
+void ModuleConfig::generateReadoutStack()
+{
+    VMECommandList readoutCmds;
+    readoutCmds.addFifoRead32(baseAddress, FifoReadTransferSize);
+    readoutCmds.addMarker(EndOfModuleMarker);
+    readoutCmds.addWrite16(baseAddress + 0x6034, 1);
+    CVMUSBReadoutList readoutList(readoutCmds);
+    readoutStack = readoutList.toString();
+    setModified();
+}
 
 //
 // EventConfig

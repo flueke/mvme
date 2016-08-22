@@ -221,8 +221,12 @@ void TwoDimWidget::setSelectedChannelIndex(quint32 channelIndex)
 
 void TwoDimWidget::exportPlot()
 {
-    QString fileName;
-    fileName.sprintf("histogram_channel%02u.pdf", getSelectedChannelIndex());
+    auto histos = m_context->getHistograms();
+    auto name = histos.key(m_hist);
+
+    QString fileName = QString("%1.c%2.pdf")
+                       .arg(name)
+                       .arg((int)getSelectedChannelIndex(), 2, 10, QChar('0'));
 
     QwtPlotRenderer renderer;
     renderer.exportTo(ui->mainPlot, fileName);
