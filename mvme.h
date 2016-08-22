@@ -70,8 +70,6 @@ private slots:
 
     void on_actionShowLogWindow_triggered();
 
-    void on_mdiArea_subWindowActivated(QMdiSubWindow *);
-
     void handleEventConfigClicked(EventConfig *event);
     void handleModuleConfigClicked(ModuleConfig *module);
     void handleModuleConfigDoubleClicked(ModuleConfig *module);

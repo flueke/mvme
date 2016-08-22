@@ -104,9 +104,10 @@ void VMUSBBufferProcessor::beginRun()
 {
     resetRunState();
 
-    QString outPath = m_context->getConfig()->listFileOutputDirectory;
+    QString outPath = m_context->getConfig()->getListFileOutputDirectory();
+    bool listFileOutputEnabled = m_context->getConfig()->isListFileOutputEnabled();
 
-    if (m_listFileOutputEnabled && outPath.size())
+    if (listFileOutputEnabled && outPath.size())
     {
         auto now = QDateTime::currentDateTime();
         QString outFilename = outPath + '/' + now.toString(Qt::ISODate) + ".mvmelst";

@@ -143,12 +143,14 @@ void ModuleConfigDialog::handleListTypeIndexChanged(int index)
             ui->pb_load->setEnabled(false);
             ui->pb_save->setEnabled(false);
             ui->splitter->setSizes({1, 1});
+            ui->editor->setReadOnly(true);
             break;
         default:
             ui->pb_exec->setText("Run");
             ui->pb_load->setEnabled(true);
             ui->pb_save->setEnabled(true);
             ui->splitter->setSizes({1, 0});
+            ui->editor->setReadOnly(false);
             break;
     }
 }

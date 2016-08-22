@@ -3,6 +3,7 @@
 
 #include "globals.h"
 #include <QObject>
+#include <QUuid>
 
 class QJsonObject;
 class EventConfig;
@@ -54,7 +55,19 @@ class ModuleConfig: public QObject
         QString readoutStack;
 
         EventConfig *event = 0;
+
+        void setId(const QUuid &uuid)
+        {
+            m_id = uuid;
+        }
+
+        QUuid getId() const
+        {
+            return m_id;
+        }
+
     private:
+        QUuid m_id;
         QString m_name;
 };
 
@@ -87,18 +100,6 @@ class EventConfig: public QObject
         void read(const QJsonObject &json);
         void write(QJsonObject &json) const;
 
-        int getModuleIndexByModuleName(const QString &name) const
-        {
-            for (int i=0; i<modules.size(); ++i)
-            {
-                if (modules[i]->getName() == name)
-                {
-                    return i;
-                }
-            }
-            return -1;
-        }
-
     TriggerCondition triggerCondition;
     uint8_t irqLevel = 0;
     uint8_t irqVector = 0;
@@ -112,7 +113,18 @@ class EventConfig: public QObject
      * processor to map from stack ids to event configs. */
     uint8_t stackID;
 
+    void setId(const QUuid &uuid)
+    {
+        m_id = uuid;
+    }
+
+    QUuid getId() const
+    {
+        return m_id;
+    }
+
     private:
+        QUuid m_id;
         QString m_name;
 };
 
@@ -157,17 +169,44 @@ class DAQConfig: public QObject
         ModuleConfig *getModuleConfig(int eventID, int moduleIndex);
         QVector<ModuleConfig *> getAllModuleConfigs() const;
 
+        void setListFileOutputDirectory(const QString &dir)
+        {
+            if (dir != m_listFileOutputDirectory)
+            {
+                m_listFileOutputDirectory = dir;
+                m_listFileOutputEnabled = !dir.isEmpty();
+                setModified();
+            }
+        }
+
+        QString getListFileOutputDirectory() const
+        {
+            return m_listFileOutputDirectory;
+        }
+
+        bool isListFileOutputEnabled() const
+        {
+            return m_listFileOutputEnabled;
+        }
+
+        void setListFileOutputEnabled(bool enabled)
+        {
+            if (m_listFileOutputEnabled != enabled)
+            {
+                m_listFileOutputEnabled = enabled;
+                setModified();
+            }
+        }
+
         void read(const QJsonObject &json);
         void write(QJsonObject &json) const;
         QByteArray toJson() const;
 
-        QString listFileOutputDirectory;
-        bool listFileOutputEnabled = true;
-        bool listFileMode = false;
-
     private:
         bool m_isModified = false;
         QList<EventConfig *> m_eventConfigs;
+        QString m_listFileOutputDirectory;
+        bool m_listFileOutputEnabled = false;
 };
 
 #endif

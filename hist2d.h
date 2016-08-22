@@ -42,16 +42,6 @@ public:
         return m_intervals[axis];
     }
 
-    void attachRasterData(Hist2DRasterData *rasterData)
-    {
-        m_rasterDataInstances.insert(rasterData);
-    }
-
-    void detachRasterData(Hist2DRasterData *rasterData)
-    {
-        m_rasterDataInstances.remove(rasterData);
-    }
-
 private:
     void setInterval(Qt::Axis axis, const QwtInterval &interval);
 
@@ -62,7 +52,6 @@ private:
     int32_t m_xAxisChannel;
     int32_t m_yAxisChannel;
     QwtInterval m_intervals[3];
-    QSet<Hist2DRasterData *> m_rasterDataInstances;
 };
 
 class Hist2DRasterData: public QwtRasterData
@@ -72,22 +61,26 @@ public:
     Hist2DRasterData(Hist2D *hist2d)
         : m_hist2d(hist2d)
     {
-        hist2d->attachRasterData(this);
-        for (int axis=0; axis<3; ++axis)
-        {
-            setInterval(static_cast<Qt::Axis>(axis), hist2d->interval(static_cast<Qt::Axis>(axis)));
-        }
+        updateIntervals();
     }
 
     ~Hist2DRasterData()
     {
-        m_hist2d->detachRasterData(this);
     }
 
     virtual double value(double x, double y) const
     {
         return m_hist2d->value(x, y);
     }
+
+    void updateIntervals()
+    {
+        for (int axis=0; axis<3; ++axis)
+        {
+            setInterval(static_cast<Qt::Axis>(axis), m_hist2d->interval(static_cast<Qt::Axis>(axis)));
+        }
+    }
+
 private:
     Hist2D *m_hist2d;
 };

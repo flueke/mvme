@@ -84,14 +84,7 @@ class MVMEContext: public QObject
         void removeModule(ModuleConfig *module);
         void setController(VMEController *controller);
 
-        // TODO: add something like getUniqueModuleName(prefix) to generate module names
-        int getTotalModuleCount() const
-        {
-            int ret = 0;
-            for (auto eventConfig: m_config->getEventConfigs())
-                ret += eventConfig->modules.size();
-            return ret;
-        }
+        QString getUniqueModuleName(const QString &prefix) const;
 
         VMEController *getController() const { return m_controller; }
         VMUSBReadoutWorker *getReadoutWorker() const { return m_readoutWorker; }
@@ -151,7 +144,7 @@ class MVMEContext: public QObject
             {
                 emit hist2DAboutToBeRemoved(hist2d);
                 m_2dHistograms.remove(index);
-                delete hist2d;
+                hist2d->deleteLater();
                 return true;
             }
             return false;

@@ -48,7 +48,7 @@ TwoDimWidget::TwoDimWidget(MVMEContext *context, Histogram *histo, QWidget *pare
     , ui(new Ui::TwoDimWidget)
     , m_context(context)
     , m_curve(new QwtPlotCurve)
-    , m_pMyHist(histo)
+    , m_hist(histo)
     , m_currentModule(0)
     , m_currentChannel(0)
 {
@@ -60,7 +60,7 @@ TwoDimWidget::TwoDimWidget(MVMEContext *context, Histogram *histo, QWidget *pare
 
     ui->moduleBox->setEnabled(false);
 
-    ui->mainPlot->setAxisScale( QwtPlot::xBottom, 0, m_pMyHist->m_resolution);
+    ui->mainPlot->setAxisScale( QwtPlot::xBottom, 0, m_hist->m_resolution);
 
     ui->mainPlot->axisWidget(QwtPlot::yLeft)->setTitle("Counts");
     ui->mainPlot->axisWidget(QwtPlot::xBottom)->setTitle("Channel 0");
@@ -161,14 +161,14 @@ void TwoDimWidget::displayChanged()
     if((quint32)ui->channelBox->value() != m_currentChannel)
     {
         m_currentChannel = ui->channelBox->value();
-        m_currentChannel = qMin(m_currentChannel, m_pMyHist->m_channels - 1);
+        m_currentChannel = qMin(m_currentChannel, m_hist->m_channels - 1);
         ui->channelBox->blockSignals(true);
         ui->channelBox->setValue(m_currentChannel);
         ui->channelBox->blockSignals(false);
     }
 
     auto histos = m_context->getHistograms();
-    auto name = histos.key(m_pMyHist);
+    auto name = histos.key(m_hist);
 
     setWindowTitle(QString("Histogram %1, channel=%2")
                    .arg(name)
@@ -204,7 +204,7 @@ void TwoDimWidget::zoomerZoomed(QRectF zoomRect)
             ui->mainPlot->setAxisAutoScale(QwtPlot::yLeft, true);
         }
 
-        ui->mainPlot->setAxisScale( QwtPlot::xBottom, 0, m_pMyHist->m_resolution);
+        ui->mainPlot->setAxisScale( QwtPlot::xBottom, 0, m_hist->m_resolution);
         ui->mainPlot->replot();
         m_plotZoomer->setZoomBase();
     }
@@ -232,9 +232,9 @@ void TwoDimWidget::exportPlot()
 void TwoDimWidget::plot()
 {
     m_curve->setRawSamples(
-            (const double*)m_pMyHist->m_axisBase,
-            (const double*)m_pMyHist->m_data + m_pMyHist->m_resolution*m_currentChannel,
-            m_pMyHist->m_resolution);
+            (const double*)m_hist->m_axisBase,
+            (const double*)m_hist->m_data + m_hist->m_resolution*m_currentChannel,
+            m_hist->m_resolution);
 
     updateStatistics();
     updateYAxisScale();
@@ -245,7 +245,7 @@ void TwoDimWidget::plot()
 void TwoDimWidget::updateYAxisScale()
 {
     // update the y axis using the currently visible max value
-    double maxValue = 1.2 * m_pMyHist->m_maximum[m_currentChannel];
+    double maxValue = 1.2 * m_hist->m_maximum[m_currentChannel];
 
     if (maxValue <= 1.0)
         maxValue = 10.0;
@@ -271,35 +271,35 @@ void TwoDimWidget::updateStatistics()
     auto upperBound = qCeil(ui->mainPlot->axisScaleDiv(QwtPlot::xBottom).upperBound());
     //qDebug() << __PRETTY_FUNCTION__ << lowerBound << upperBound;
 
-    m_pMyHist->calcStatistics(m_currentChannel, lowerBound, upperBound);
+    m_hist->calcStatistics(m_currentChannel, lowerBound, upperBound);
 
     QString str;
-    str.sprintf("%2.2f", m_pMyHist->m_mean[m_currentChannel]);
+    str.sprintf("%2.2f", m_hist->m_mean[m_currentChannel]);
     ui->meanval->setText(str);
 
-    str.sprintf("%2.2f", m_pMyHist->m_sigma[m_currentChannel]);
+    str.sprintf("%2.2f", m_hist->m_sigma[m_currentChannel]);
     ui->sigmaval->setText(str);
 
-    str.sprintf("%u", (quint32)m_pMyHist->m_counts[m_currentChannel]);
+    str.sprintf("%u", (quint32)m_hist->m_counts[m_currentChannel]);
     ui->countval->setText(str);
 
-    str.sprintf("%u", (quint32) m_pMyHist->m_maximum[m_currentChannel]);
+    str.sprintf("%u", (quint32) m_hist->m_maximum[m_currentChannel]);
     ui->maxval->setText(str);
 
-    str.sprintf("%u", (quint32) m_pMyHist->m_maxchan[m_currentChannel]);
+    str.sprintf("%u", (quint32) m_hist->m_maxchan[m_currentChannel]);
     ui->maxpos->setText(str);
 
-    str.sprintf("%u", (quint32) m_pMyHist->m_overflow[m_currentChannel]);
+    str.sprintf("%u", (quint32) m_hist->m_overflow[m_currentChannel]);
     ui->overflow->setText(str);
 
     QString buffer;
     buffer.sprintf("\nMean: %2.2f\nSigma: %2.2f\nCounts: %u\nMaximum: %u\nat Channel: %u\nOverflow: %u",
-                               m_pMyHist->m_mean[m_currentChannel],
-                               m_pMyHist->m_sigma[m_currentChannel],
-                               (quint32)m_pMyHist->m_counts[m_currentChannel],
-                               (quint32)m_pMyHist->m_maximum[m_currentChannel],
-                               (quint32)m_pMyHist->m_maxchan[m_currentChannel],
-                               (quint32)m_pMyHist->m_overflow[m_currentChannel]
+                               m_hist->m_mean[m_currentChannel],
+                               m_hist->m_sigma[m_currentChannel],
+                               (quint32)m_hist->m_counts[m_currentChannel],
+                               (quint32)m_hist->m_maximum[m_currentChannel],
+                               (quint32)m_hist->m_maxchan[m_currentChannel],
+                               (quint32)m_hist->m_overflow[m_currentChannel]
                                );
 
     m_statsText->setText(buffer);
@@ -308,23 +308,23 @@ void TwoDimWidget::updateStatistics()
 
 void TwoDimWidget::setHistogram(Histogram *h)
 {
-    m_pMyHist = h;
+    m_hist = h;
 }
 
 void TwoDimWidget::clearDisp()
 {
-    m_pMyHist->clearChan(m_currentChannel);
+    m_hist->clearChan(m_currentChannel);
 }
 
 void TwoDimWidget::mouseCursorMovedToPlotCoord(QPointF point)
 {
     auto xValue = static_cast<u32>(point.x());
-    
-    if (xValue < m_pMyHist->m_resolution)
+
+    if (xValue < m_hist->m_resolution)
     {
         QString str;
         str.sprintf("Channel %u\nCounts %u", xValue,
-                static_cast<u32>(m_pMyHist->getValue(m_currentChannel, xValue)));
+                static_cast<u32>(m_hist->getValue(m_currentChannel, xValue)));
         ui->label_mouseOnChannel->setText(str);
     }
 }

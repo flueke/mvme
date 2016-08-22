@@ -144,6 +144,29 @@ void MVMEContext::setController(VMEController *controller)
     emit vmeControllerSet(controller);
 }
 
+QString MVMEContext::getUniqueModuleName(const QString &prefix) const
+{
+    auto moduleConfigs = m_config->getAllModuleConfigs();
+    QSet<QString> moduleNames;
+
+    for (auto cfg: moduleConfigs)
+    {
+        if (cfg->getName().startsWith(prefix))
+        {
+            moduleNames.insert(cfg->getName());
+        }
+    }
+
+    QString result;
+    u32 index = 0;
+    do
+    {
+        result = QString("%1_%2").arg(prefix).arg(index);
+        ++index;
+    } while (moduleNames.contains(result));
+    return result;
+}
+
 void MVMEContext::tryOpenController()
 {
     if (m_controller && !m_controller->isOpen() && !m_ctrlOpenFuture.isRunning())

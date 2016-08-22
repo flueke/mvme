@@ -293,6 +293,7 @@ void VMUSB::readAllRegisters(void)
      char string[256];
      short ret;
 
+     //usb_set_debug(4);
      usb_init();
      usb_find_busses();
      usb_find_devices();

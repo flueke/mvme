@@ -93,10 +93,6 @@ double Hist2D::value(double x, double y) const
 void Hist2D::setInterval(Qt::Axis axis, const QwtInterval &interval)
 {
     m_intervals[axis] = interval;
-    for (auto rasterData: m_rasterDataInstances)
-    {
-        rasterData->setInterval(axis, interval);
-    }
 }
 
 //
@@ -137,7 +133,8 @@ Hist2DWidget::Hist2DWidget(Hist2D *hist2d, QWidget *parent)
             });
 
 
-    m_plotItem->setData(m_hist2d->makeRasterData());
+    auto histData = m_hist2d->makeRasterData();
+    m_plotItem->setData(histData);
     m_plotItem->setRenderThreadCount(0); // use system specific ideal thread count
     m_plotItem->setColorMap(m_hist2d->getColorMap());
     m_plotItem->attach(ui->plot);
@@ -145,12 +142,8 @@ Hist2DWidget::Hist2DWidget(Hist2D *hist2d, QWidget *parent)
     auto rightAxis = ui->plot->axisWidget(QwtPlot::yRight);
     rightAxis->setTitle("Counts");
     rightAxis->setColorBarEnabled(true);
-    //rightAxis->setColorMap(QwtInterval(0, 1), m_hist2d->getColorMap());
-    //ui->plot->setAxisScale(QwtPlot::yRight, 0, 1);
     ui->plot->enableAxis(QwtPlot::yRight);
 
-
-    auto histData = m_hist2d->makeRasterData();
     auto interval = histData->interval(Qt::XAxis);
     ui->plot->setAxisScale(QwtPlot::xBottom, interval.minValue(), interval.maxValue());
 
@@ -180,8 +173,6 @@ Hist2DWidget::~Hist2DWidget()
 
 void Hist2DWidget::replot()
 {
-    auto histData = m_hist2d->makeRasterData();
-
     // x
     auto axis = ui->plot->axisWidget(QwtPlot::xBottom);
     axis->setTitle(QString("Channel %1").arg(m_hist2d->getXAxisChannel()));
@@ -191,10 +182,11 @@ void Hist2DWidget::replot()
     axis->setTitle(QString("Channel %1").arg(m_hist2d->getYAxisChannel()));
 
     // z
+    auto histData = reinterpret_cast<Hist2DRasterData *>(m_plotItem->data());
+    histData->updateIntervals();
     auto interval = histData->interval(Qt::ZAxis);
-    axis = ui->plot->axisWidget(QwtPlot::yRight);
-
     ui->plot->setAxisScale(QwtPlot::yRight, interval.minValue(), interval.maxValue());
+    axis = ui->plot->axisWidget(QwtPlot::yRight);
     axis->setColorMap(interval, m_hist2d->getColorMap());
 
     ui->plot->replot();

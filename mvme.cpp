@@ -102,8 +102,8 @@ mvme::mvme(QWidget *parent) :
             auto w = qobject_cast<Hist2DWidget *>(subwin->widget());
             if (w && w->getHist2D() == hist2d)
             {
+                qDebug() << subwin;
                 subwin->close();
-                break;
             }
         }
     });
@@ -349,7 +349,6 @@ void mvme::on_actionSave_Histogram_triggered()
 void mvme::on_actionLoad_Histogram_triggered()
 {
     Q_ASSERT(!"Not implemented");
-
 #if 0
     QString fileName = QFileDialog::getOpenFileName(this, "Load Histogram",
                                                    QString(),
@@ -360,7 +359,10 @@ void mvme::on_actionLoad_Histogram_triggered()
 
     QFile inFile(fileName);
     if (!inFile.open(QIODevice::ReadOnly))
+    {
+        QMessageBox::critical(0, "Error", QString("Error opening %1 for reading").arg(fileName));
         return;
+    }
 
     QTextStream stream(&inFile);
 
@@ -618,20 +620,6 @@ void mvme::on_actionShowLogWindow_triggered()
     m_logViewSubwin->show();
     m_logViewSubwin->showNormal();
     m_logViewSubwin->raise();
-}
-
-void mvme::on_mdiArea_subWindowActivated(QMdiSubWindow *subwin)
-{
-    auto widget = subwin ? subwin->widget() : nullptr;
-    auto tdw = qobject_cast<TwoDimWidget *>(widget);
-
-    ui->actionExport_Histogram->setVisible(tdw);
-    ui->actionLoad_Histogram->setVisible(tdw);
-    ui->actionSave_Histogram->setVisible(tdw);
-
-    auto spectroWidget = qobject_cast<Hist2DWidget *>(widget);
-
-    ui->actionExport_Spectrogram->setVisible(spectroWidget);
 }
 
 void mvme::handleEventConfigClicked(EventConfig *config)

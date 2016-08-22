@@ -59,7 +59,7 @@ namespace MDPP
         1 << 15,
         1 << 14,
         1 << 13,
-        1 << 12 
+        1 << 12
     };
     static const int adc_resolution_default = 4;
 }
@@ -125,6 +125,9 @@ void ModuleConfig::setModified()
 void ModuleConfig::read(const QJsonObject &json)
 {
     type = VMEModuleShortNames.key(json["type"].toString(), VMEModuleType::Invalid);
+    m_id = QUuid(json["id"].toString());
+    if (m_id.isNull())
+        m_id = QUuid::createUuid();
     m_name = json["name"].toString();
     baseAddress = json["baseAddress"].toInt();
     mcstAddress = json["mcstAddress"].toInt();
@@ -139,6 +142,7 @@ void ModuleConfig::read(const QJsonObject &json)
 void ModuleConfig::write(QJsonObject &json) const
 {
     json["type"] = VMEModuleShortNames.value(type, "invalid");
+    json["id"] = m_id.toString();
     json["name"] = m_name;
     json["baseAddress"] = static_cast<qint64>(baseAddress);
     json["mcstAddress"] = static_cast<qint64>(mcstAddress);
@@ -169,6 +173,10 @@ void EventConfig::read(const QJsonObject &json)
     qDeleteAll(modules);
     modules.clear();
 
+    m_id = QUuid(json["id"].toString());
+    if (m_id.isNull())
+        m_id = QUuid::createUuid();
+
     m_name = json["name"].toString();
     triggerCondition = static_cast<TriggerCondition>(json["triggerCondition"].toInt());
     irqLevel = json["irqLevel"].toInt();
@@ -190,6 +198,7 @@ void EventConfig::read(const QJsonObject &json)
 void EventConfig::write(QJsonObject &json) const
 {
     json["name"] = m_name;
+    json["id"] = m_id.toString();
     json["triggerCondition"] = static_cast<int>(triggerCondition);
     json["irqLevel"] = irqLevel;
     json["irqVector"] = irqVector;
@@ -225,8 +234,8 @@ void DAQConfig::read(const QJsonObject &json)
     qDeleteAll(m_eventConfigs);
     m_eventConfigs.clear();
 
-    listFileOutputDirectory = json["listFileOutputDirectory"].toString();
-    listFileOutputEnabled = json["listFileOutputEnabled"].toBool();
+    m_listFileOutputDirectory = json["listFileOutputDirectory"].toString();
+    m_listFileOutputEnabled = json["listFileOutputEnabled"].toBool();
 
     QJsonArray eventArray = json["events"].toArray();
 
@@ -241,8 +250,8 @@ void DAQConfig::read(const QJsonObject &json)
 
 void DAQConfig::write(QJsonObject &json) const
 {
-    json["listFileOutputDirectory"] = listFileOutputDirectory;
-    json["listFileOutputEnabled"] = listFileOutputEnabled;
+    json["listFileOutputDirectory"] = m_listFileOutputDirectory;
+    json["listFileOutputEnabled"] = m_listFileOutputEnabled;
 
     QJsonArray eventArray;
     for (auto event: m_eventConfigs)

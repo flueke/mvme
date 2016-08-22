@@ -29,7 +29,7 @@ public:
 
     void plot();
     void setHistogram(Histogram* h);
-    Histogram *getHistogram() const { return m_pMyHist; }
+    Histogram *getHistogram() const { return m_hist; }
     void clearDisp(void);
     void updateStatistics();
 
@@ -56,7 +56,7 @@ private:
     QwtPlotCurve *m_curve;
     ScrollZoomer *m_plotZoomer;
 
-    Histogram* m_pMyHist;
+    Histogram* m_hist;
     quint32 m_currentModule;
     quint32 m_currentChannel;
 

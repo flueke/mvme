@@ -83,6 +83,7 @@ struct AddEventConfigDialog: public QDialog
     virtual void accept()
     {
         auto event = new EventConfig;
+        event->setId(QUuid::createUuid());
         event->setName(nameEdit->text());
         event->triggerCondition = static_cast<TriggerCondition>(triggerCombo->currentData().toInt());
         event->irqLevel = irqLevelSpin->value();
@@ -112,7 +113,20 @@ struct AddModuleDialog: public QDialog
         }
 
         nameEdit = new QLineEdit;
-        nameEdit->setText(QString("module%1").arg(context->getTotalModuleCount()));
+
+        auto onTypeComboIndexChanged = [=](int index)
+        {
+            auto currentType = static_cast<VMEModuleType>(typeCombo->currentData().toInt());
+            QString name = context->getUniqueModuleName(VMEModuleShortNames[currentType]);
+            nameEdit->setText(name);
+        };
+
+        onTypeComboIndexChanged(0);
+
+        connect(typeCombo, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
+                this, onTypeComboIndexChanged);
+
+        //nameEdit->setText(QString("module%1").arg(context->getTotalModuleCount()));
 
         addressEdit = new QLineEdit;
         addressEdit->setInputMask("\\0\\xHHHH");
@@ -137,6 +151,7 @@ struct AddModuleDialog: public QDialog
     {
         bool ok;
         auto module = new ModuleConfig;
+        module->setId(QUuid::createUuid());
         module->type = static_cast<VMEModuleType>(typeCombo->currentData().toInt());
         module->setName(nameEdit->text());
         module->baseAddress = addressEdit->text().toUInt(&ok, 16) << 16;
@@ -327,18 +342,16 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
         auto pb_outputDirectory = new QPushButton("Select");
 
         connect(m_d->le_outputDirectory, &QLineEdit::textEdited, this, [=](const QString &newText){
-            context->getConfig()->listFileOutputDirectory = newText;
-            context->getConfig()->setModified(true);
+            context->getConfig()->setListFileOutputDirectory(newText);
         });
 
         connect(pb_outputDirectory, &QPushButton::clicked, this, [=] {
             auto dirName = QFileDialog::getExistingDirectory(this, "Select output directory",
-                                                             context->getConfig()->listFileOutputDirectory);
+                                                             context->getConfig()->getListFileOutputDirectory());
             if (!dirName.isEmpty())
             {
                 m_d->le_outputDirectory->setText(dirName);
-                context->getConfig()->listFileOutputDirectory = dirName;
-                context->getConfig()->setModified(true);
+                context->getConfig()->setListFileOutputDirectory(dirName);
             }
         });
 
@@ -350,8 +363,7 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
 
         connect(m_d->cb_outputEnabled, &QCheckBox::stateChanged, this, [=](int state) {
             bool enabled = (state != Qt::Unchecked);
-            context->getConfig()->listFileOutputEnabled = enabled;
-            context->getConfig()->setModified(true);
+            context->getConfig()->setListFileOutputEnabled(enabled);
         });
 
         auto gb_output  = new QGroupBox("Listfile Output");
@@ -410,11 +422,11 @@ void MVMEContextWidget::reloadConfig()
 
     {
         QSignalBlocker b(m_d->le_outputDirectory);
-        m_d->le_outputDirectory->setText(config->listFileOutputDirectory);
+        m_d->le_outputDirectory->setText(config->getListFileOutputDirectory());
     }
     {
         QSignalBlocker b(m_d->cb_outputEnabled);
-        m_d->cb_outputEnabled->setChecked(config->listFileOutputEnabled);
+        m_d->cb_outputEnabled->setChecked(config->isListFileOutputEnabled());
     }
 
     m_d->contextTree->clear();

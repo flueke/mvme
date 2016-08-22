@@ -30,7 +30,6 @@ class VMUSBBufferProcessor: public QObject
         void endRun();
         void resetRunState(); // call this when a new DAQ run starts
         void addFreeBuffer(DataBuffer *buffer); // put processed buffers back into the queue
-        void setListFileOutputEnabled(bool b) { m_listFileOutputEnabled = b; }
 
     private:
         DataBuffer *getFreeBuffer();
@@ -41,7 +40,6 @@ class VMUSBBufferProcessor: public QObject
         DataBuffer *m_currentBuffer = 0;
         QMap<int, EventConfig *> m_eventConfigByStackID;
         QFile m_listFileOut;
-        bool m_listFileOutputEnabled = true;
         DataBuffer m_localEventBuffer;
 };
 
