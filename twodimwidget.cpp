@@ -58,8 +58,6 @@ TwoDimWidget::TwoDimWidget(MVMEContext *context, Histogram *histo, QWidget *pare
     m_curve->setStyle(QwtPlotCurve::Steps);
     m_curve->setCurveAttribute(QwtPlotCurve::Inverted);
 
-    ui->moduleBox->setEnabled(false);
-
     ui->mainPlot->setAxisScale( QwtPlot::xBottom, 0, m_hist->m_resolution);
 
     ui->mainPlot->axisWidget(QwtPlot::yLeft)->setTitle("Counts");
@@ -74,6 +72,7 @@ TwoDimWidget::TwoDimWidget(MVMEContext *context, Histogram *histo, QWidget *pare
 
     connect(m_plotZoomer, SIGNAL(zoomed(QRectF)),this, SLOT(zoomerZoomed(QRectF)));
     connect(m_plotZoomer, SIGNAL(mouseCursorMovedTo(QPointF)), this, SLOT(mouseCursorMovedToPlotCoord(QPointF)));
+    connect(ui->pb_export, &QPushButton::clicked, this, &TwoDimWidget::exportPlot);
 
     qDebug() << "zoomBase =" << m_plotZoomer->zoomBase();
 
