@@ -1254,8 +1254,6 @@ VMUSB::transaction(void* writePacket, size_t writeSize,
             writeSize, readSize, timeout_ms);
             */
 
-
-
     QMutexLocker locker(&m_lock);
     if (!isOpen())
     {
@@ -1290,6 +1288,11 @@ VMUSB::transaction(void* writePacket, size_t writeSize,
         errno = -status;
 #endif
         return -2;
+    }
+
+    if (status >= 0)
+    {
+        qDebug("transaction ok");
     }
     return status;
 }

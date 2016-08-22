@@ -263,6 +263,10 @@ void ModuleConfigDialog::execList()
                 {
                     u8 ignored[100];
                     auto cmdList = VMECommandList::fromInitList(parseRegisterList(listContents), m_config->baseAddress);
+
+                    qDebug() << "command list:";
+                    qDebug() << cmdList.toString();
+
                     ssize_t result = controller->executeCommands(&cmdList, ignored, sizeof(ignored));
                     if (result < 0)
                     {

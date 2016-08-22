@@ -831,6 +831,9 @@ void mvme::appendToLog(const QString &s)
   m_logView->append(str);
   auto bar = m_logView->verticalScrollBar();
   bar->setValue(bar->maximum());
+  auto debug(qDebug());
+  debug.noquote();
+  debug << str;
 }
 
 void mvme::updateWindowTitle()
