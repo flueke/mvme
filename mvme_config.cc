@@ -45,12 +45,12 @@ namespace MADC
 {
     static const int adc_resolution = 0x6042;
     static const int adc_override = 0x6046;
-    static const std::array<int, 5> adc_resolutions = {
-        1 << 11, // 2k
-        1 << 12, // 4k
-        1 << 12, // 4k hires
-        1 << 13, // 8k
-        1 << 13  // 8k hires
+    static const std::array<int, 5> adc_bits = {
+        11, // 2k
+        12, // 4k
+        12, // 4k hires
+        13, // 8k
+        13  // 8k hires
     };
     static const int adc_resolution_default = 2;
 }
@@ -58,17 +58,17 @@ namespace MADC
 namespace MDPP
 {
     static const int adc_resolution = 0x6046;
-    static const std::array<int, 5> adc_resolutions = {
-        1 << 16,
-        1 << 15,
-        1 << 14,
-        1 << 13,
-        1 << 12
+    static const std::array<int, 5> adc_bits = {
+        16,
+        15,
+        14,
+        13,
+        12
     };
     static const int adc_resolution_default = 4;
 }
 
-int ModuleConfig::getADCResolution() const
+int ModuleConfig::getDataBits() const
 {
     RegisterList allRegisters;
     allRegisters += parseRegisterList(initReset);
@@ -89,32 +89,55 @@ int ModuleConfig::getADCResolution() const
             {
                 int regValue = registerHash.value(MADC::adc_resolution, MADC::adc_resolution_default);
                 regValue = registerHash.value(MADC::adc_override, regValue);
-                int res = MADC::adc_resolutions.at(regValue);
-                return res;
+                int bits = MADC::adc_bits.at(regValue);
+                return bits;
             }
 
         case VMEModuleType::MDPP16:
         case VMEModuleType::MDPP32:
             {
                 int index = registerHash.value(MDPP::adc_resolution, MDPP::adc_resolution_default);
-                int res = MDPP::adc_resolutions.at(index);
-                return res;
+                int bits = MDPP::adc_bits.at(index);
+                return bits;
             }
         case VMEModuleType::MQDC32:
-            return 4096;
+            return 12;
 
         case VMEModuleType::MTDC32:
             // Note: does not have an ADC resolution. Produces 16-bit wide timestamps
-            return 1 << 16;
+            return 16;
 
         case VMEModuleType::MDI2:
-            return 4096;
+            return 12;
 
         case VMEModuleType::Invalid:
         case VMEModuleType::Generic:
-            return -1;
+            break;
     }
     return -1;
+}
+
+u32 ModuleConfig::getDataExtractMask()
+{
+    switch (type)
+    {
+        case VMEModuleType::MADC32:
+            return (1 << 13) - 1;
+
+        case VMEModuleType::MDPP16:
+        case VMEModuleType::MDPP32:
+        case VMEModuleType::MTDC32:
+            return (1 << 16) - 1;
+
+        case VMEModuleType::MDI2:
+        case VMEModuleType::MQDC32:
+            return (1 << 12) - 1;
+
+        case VMEModuleType::Invalid:
+        case VMEModuleType::Generic:
+            break;
+    }
+    return 0;
 }
 
 void ModuleConfig::setModified()

@@ -116,6 +116,16 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
     emit bufferProcessed(buffer);
 }
 #else
+
+
+struct stats
+{
+    u64 totalBuffers = 0;
+    u64 eventBuffers = 0;
+    QHash<ModuleConfig *, u64> eventsByModule;
+
+};
+
 // Process an event buffer containing one or more events.
 void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
 {
@@ -156,6 +166,7 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
                 {
                     HistogramCollection *histo = 0;
 
+                    // TODO: build a module UUID -> Histo hash on DAQ start
                     for (auto h: m_context->getHistogramList())
                     {
                         auto sourceId = QUuid(h->property("Histogram.sourceModule").toString());
@@ -165,6 +176,13 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
                             break;
                         }
                     }
+
+                    const u32 dataExtractMask = cfg->getDataExtractMask();
+                    const int dataBits = cfg->getDataBits();
+                    const int histoBits = 13; // TODO: get from histo
+                    int histoShift = dataBits - histoBits;
+                    if (histoShift < 0)
+                        histoShift = 0;
 
                     for (u32 i=0; i<subEventSize; ++i)
                     {
@@ -180,12 +198,12 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
 
                         if (data_found_flag)
                         {
-                            u16 address = (currentWord & 0x003F0000) >> 16;
-                            u32 value   = (currentWord & 0x00001FFF); // FIXME: data width depends on module type and configuration
+                            u16 address = (currentWord & 0x003F0000) >> 16; // 6 bit address
+                            u32 value   = (currentWord & dataExtractMask);
 
                             if (histo)
                             {
-                                histo->incValue(address, value);
+                                histo->incValue(address, value >> histoShift);
                             }
 
                             eventValues[subEventIndex][address] = value;

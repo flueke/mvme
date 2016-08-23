@@ -86,19 +86,6 @@ void MVMEContext::addModule(EventConfig *eventConfig, ModuleConfig *module)
     module->event = eventConfig;
     eventConfig->modules.push_back(module);
     emit moduleAdded(eventConfig, module);
-
-    int channels = module->getNumberOfChannels();
-    int resolution = module->getADCResolution();
-
-#if 0
-    if (channels > 0 && resolution > 0)
-    {
-        auto hist = new Histogram(this, channels, resolution);
-        hist->setProperty("Histogram.sourceModule", module->getId());
-        hist->setProperty("Histogram.autoCreated", true);
-        addHistogram(module->getFullPath(), hist);
-    }
-#endif
 }
 
 void MVMEContext::addEventConfig(EventConfig *eventConfig)

@@ -33,7 +33,8 @@ class ModuleConfig: public QObject
         QString getName() const { return m_name; }
         QString getFullPath() const;
         int getNumberOfChannels() const;
-        int getADCResolution() const;
+        int getDataBits() const;
+        u32 getDataExtractMask();
 
         void read(const QJsonObject &json);
         void write(QJsonObject &json) const;
@@ -67,7 +68,6 @@ class ModuleConfig: public QObject
         {
             return m_id;
         }
-
     private:
         QUuid m_id;
         QString m_name;
