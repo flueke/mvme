@@ -51,6 +51,13 @@
          </widget>
         </item>
         <item>
+         <widget class="QPushButton" name="pb_initModule">
+          <property name="text">
+           <string>Init Module</string>
+          </property>
+         </widget>
+        </item>
+        <item>
          <widget class="QPushButton" name="pb_load">
           <property name="text">
            <string>Import</string>

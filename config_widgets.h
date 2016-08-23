@@ -46,7 +46,6 @@ class ModuleConfigDialog: public QDialog
 
 
         void handleListTypeIndexChanged(int);
-        void editorContentsChanged();
         void onNameEditFinished();
         void onAddressEditFinished();
 
@@ -54,13 +53,13 @@ class ModuleConfigDialog: public QDialog
         void loadFromTemplate();
         void saveToFile();
         void execList();
+        void initModule();
 
         Ui::ModuleConfigDialog *ui;
         QAction *actLoadTemplate, *actLoadFile;
         MVMEContext *m_context;
         ModuleConfig *m_config;
         int m_lastListTypeIndex = 0;
-        bool m_ignoreEditorContentsChange = false;
         QMap<int, QString> m_configStrings;
 };
 

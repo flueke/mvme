@@ -10,6 +10,7 @@
 #include <QFile>
 #include <QFileDialog>
 #include <QMessageBox>
+#include <QThread>
 
 EventConfigWidget::EventConfigWidget(EventConfig *config, QWidget *parent)
     : QWidget(parent)
@@ -80,10 +81,6 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *confi
 
     loadFromConfig();
 
-
-    connect(ui->editor->document(), &QTextDocument::contentsChanged,
-            this, &ModuleConfigDialog::editorContentsChanged);
-
     actLoadFile = new QAction("from file", this);
     actLoadTemplate = new QAction("from template", this);
 
@@ -96,20 +93,22 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *confi
     connect(actLoadTemplate, &QAction::triggered, this, &ModuleConfigDialog::loadFromTemplate);
     connect(ui->pb_save, &QPushButton::clicked, this, &ModuleConfigDialog::saveToFile);
     connect(ui->pb_exec, &QPushButton::clicked, this, &ModuleConfigDialog::execList);
+    connect(ui->pb_initModule, &QPushButton::clicked, this, &ModuleConfigDialog::initModule);
 
     ui->splitter->setSizes({1, 0});
 
     auto controller = m_context->getController();
 
-    connect(controller, &VMEController::controllerOpened, this, [=] {
-        ui->pb_exec->setEnabled(true);
-    });
+    auto onControllerOpenChanged = [=] {
+        bool open = controller->isOpen();
+        ui->pb_exec->setEnabled(open);
+        ui->pb_initModule->setEnabled(open);
+    };
 
-    connect(controller, &VMEController::controllerClosed, this, [=] {
-        ui->pb_exec->setEnabled(false);
-    });
-
-    ui->pb_exec->setEnabled(controller->isOpen());
+    connect(controller, &VMEController::controllerOpened, this, onControllerOpenChanged);
+    connect(controller, &VMEController::controllerClosed, this, onControllerOpenChanged);
+    onControllerOpenChanged();
+    handleListTypeIndexChanged(0);
 }
 
 ModuleConfigDialog::~ModuleConfigDialog()
@@ -119,7 +118,7 @@ ModuleConfigDialog::~ModuleConfigDialog()
 
 void ModuleConfigDialog::handleListTypeIndexChanged(int index)
 {
-    if (m_lastListTypeIndex >= 0 && ui->editor->document()->isModified())
+    if (ui->editor->document()->isModified())
     {
         auto lastType = ui->combo_listType->itemData(m_lastListTypeIndex).toInt();
         m_configStrings[lastType] = ui->editor->toPlainText();
@@ -127,36 +126,31 @@ void ModuleConfigDialog::handleListTypeIndexChanged(int index)
 
     m_lastListTypeIndex = index;
 
-
-
     auto currentType = ui->combo_listType->currentData().toInt();
-    m_ignoreEditorContentsChange = true;
     ui->editor->setPlainText(m_configStrings.value(currentType));
     ui->editor->document()->setModified(false);
     ui->editor->document()->clearUndoRedoStacks();
-    m_ignoreEditorContentsChange = false;
 
     switch (static_cast<ModuleListType>(currentType))
     {
         case ModuleListType::ReadoutStack:
             ui->pb_exec->setText("Exec");
-            ui->pb_load->setEnabled(false);
-            ui->pb_save->setEnabled(false);
+            ui->pb_initModule->setVisible(true);
+            ui->pb_load->setVisible(false);
+            ui->pb_save->setVisible(false);
             ui->splitter->setSizes({1, 1});
             ui->editor->setReadOnly(true);
             break;
+
         default:
             ui->pb_exec->setText("Run");
-            ui->pb_load->setEnabled(true);
-            ui->pb_save->setEnabled(true);
+            ui->pb_initModule->setVisible(false);
+            ui->pb_load->setVisible(true);
+            ui->pb_save->setVisible(true);
             ui->splitter->setSizes({1, 0});
             ui->editor->setReadOnly(false);
             break;
     }
-}
-
-void ModuleConfigDialog::editorContentsChanged()
-{
 }
 
 void ModuleConfigDialog::closeEvent(QCloseEvent *event)
@@ -307,6 +301,19 @@ void ModuleConfigDialog::execList()
     }
 }
 
+void ModuleConfigDialog::initModule()
+{
+    RegisterList regs = parseRegisterList(m_configStrings[(int)ModuleListType::Reset]);
+    auto controller = m_context->getController();
+    controller->applyRegisterList(regs, m_config->baseAddress);
+    QThread::msleep(500);
+
+    regs = parseRegisterList(m_configStrings[(int)ModuleListType::Parameters]);
+    regs += parseRegisterList(m_configStrings[(int)ModuleListType::Readout]);
+    regs += parseRegisterList(m_configStrings[(int)ModuleListType::StartDAQ]);
+    controller->applyRegisterList(regs, m_config->baseAddress);
+}
+
 void ModuleConfigDialog::on_buttonBox_clicked(QAbstractButton *button)
 {
     auto buttonRole = ui->buttonBox->buttonRole(button);
@@ -353,11 +360,9 @@ void ModuleConfigDialog::loadFromConfig()
     }
 
     auto currentType = ui->combo_listType->currentData().toInt();
-    m_ignoreEditorContentsChange = true;
     ui->editor->setPlainText(m_configStrings.value(currentType));
     ui->editor->document()->setModified(false);
     ui->editor->document()->clearUndoRedoStacks();
-    m_ignoreEditorContentsChange = false;
 }
 
 void ModuleConfigDialog::saveToConfig()
