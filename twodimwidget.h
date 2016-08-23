@@ -6,7 +6,7 @@
 class ScrollZoomer;
 class QwtPlotTextLabel;
 class QwtText;
-class Histogram;
+class HistogramCollection;
 class QwtPlotCurve;
 class MVMEContext;
 
@@ -19,7 +19,7 @@ class TwoDimWidget : public QWidget
     Q_OBJECT
 
 public:
-    explicit TwoDimWidget(MVMEContext *context, Histogram *histo, QWidget *parent = 0);
+    explicit TwoDimWidget(MVMEContext *context, HistogramCollection *histo, QWidget *parent = 0);
     ~TwoDimWidget();
 
     void setZoombase();
@@ -28,8 +28,8 @@ public:
     void exportPlot();
 
     void plot();
-    void setHistogram(Histogram* h);
-    Histogram *getHistogram() const { return m_hist; }
+    void setHistogram(HistogramCollection* h);
+    HistogramCollection *getHistogram() const { return m_hist; }
     void clearDisp(void);
     void updateStatistics();
 
@@ -56,7 +56,7 @@ private:
     QwtPlotCurve *m_curve;
     ScrollZoomer *m_plotZoomer;
 
-    Histogram* m_hist;
+    HistogramCollection* m_hist;
     quint32 m_currentModule;
     quint32 m_currentChannel;
 

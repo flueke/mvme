@@ -43,7 +43,7 @@ class MinBoundLogTransform: public QwtLogTransform
         }
 };
 
-TwoDimWidget::TwoDimWidget(MVMEContext *context, Histogram *histo, QWidget *parent)
+TwoDimWidget::TwoDimWidget(MVMEContext *context, HistogramCollection *histo, QWidget *parent)
     : QWidget(parent)
     , ui(new Ui::TwoDimWidget)
     , m_context(context)
@@ -93,7 +93,7 @@ TwoDimWidget::TwoDimWidget(MVMEContext *context, Histogram *histo, QWidget *pare
     m_statsTextItem->setText(*m_statsText);
     m_statsTextItem->attach(ui->mainPlot);
 
-    connect(context, &MVMEContext::histogramAboutToBeRemoved, this, [=](const QString &, Histogram *h) {
+    connect(context, &MVMEContext::histogramAboutToBeRemoved, this, [=](const QString &, HistogramCollection *h) {
         if (h == histo)
         {
             auto pw = parentWidget();
@@ -148,14 +148,6 @@ void TwoDimWidget::displayChanged()
         scaleEngine->setTransformation(new MinBoundLogTransform);
         ui->mainPlot->setAxisScaleEngine(QwtPlot::yLeft, scaleEngine);
     }
-
-#if 0
-    if((quint32)ui->moduleBox->value() != m_currentModule)
-    {
-        m_currentModule = ui->moduleBox->value();
-        m_pMyHist = m_pMyMvme->getHist(m_currentModule);
-    }
-#endif
 
     if((quint32)ui->channelBox->value() != m_currentChannel)
     {
@@ -309,7 +301,7 @@ void TwoDimWidget::updateStatistics()
     m_statsTextItem->setText(*m_statsText);
 }
 
-void TwoDimWidget::setHistogram(Histogram *h)
+void TwoDimWidget::setHistogram(HistogramCollection *h)
 {
     m_hist = h;
 }

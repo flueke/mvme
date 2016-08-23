@@ -703,7 +703,7 @@ void mvme::handleDeleteModuleConfig(ModuleConfig *module)
 {
 }
 
-void mvme::handleHistogramClicked(const QString &name, Histogram *histo)
+void mvme::handleHistogramClicked(const QString &name, HistogramCollection *histo)
 {
     QMdiSubWindow *subwin = 0;
     for (auto win: ui->mdiArea->subWindowList())
@@ -726,7 +726,7 @@ void mvme::handleHistogramClicked(const QString &name, Histogram *histo)
     ui->mdiArea->setActiveSubWindow(subwin);
 }
 
-void mvme::handleHistogramDoubleClicked(const QString &name, Histogram *histo)
+void mvme::handleHistogramDoubleClicked(const QString &name, HistogramCollection *histo)
 {
     for (auto win: ui->mdiArea->subWindowList())
     {
@@ -740,7 +740,7 @@ void mvme::handleHistogramDoubleClicked(const QString &name, Histogram *histo)
     openHistogramView(histo);
 }
 
-void mvme::openHistogramView(Histogram *histo)
+void mvme::openHistogramView(HistogramCollection *histo)
 {
     if (histo)
     {

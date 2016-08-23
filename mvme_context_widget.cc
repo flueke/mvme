@@ -231,22 +231,20 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
         m_d->label_readSize = new QLabel;
         m_d->label_mbPerSecond = new QLabel;
 
-        auto readoutWorker = m_d->context->getReadoutWorker();
-
-        connect(m_d->pb_startDAQ, &QPushButton::clicked, this, [=]{
-            auto readoutWorker = m_d->context->getReadoutWorker();
-            QMetaObject::invokeMethod(readoutWorker, "start", Qt::QueuedConnection);
-        });
+        connect(m_d->pb_startDAQ, &QPushButton::clicked, m_d->context, &MVMEContext::startDAQ);
 
         connect(m_d->pb_startOneCycle, &QPushButton::clicked, this, [=] {
-            auto readoutWorker = m_d->context->getReadoutWorker();
-            QMetaObject::invokeMethod(readoutWorker, "start", Qt::QueuedConnection, Q_ARG(quint32, 1));
+            m_d->context->startDAQ(1);
         });
 
+        connect(m_d->pb_stopDAQ, &QPushButton::clicked, m_d->context, &MVMEContext::stopDAQ);
+
+#if 0
         connect(m_d->pb_stopDAQ, &QPushButton::clicked, this, [=] {
             auto readoutWorker = m_d->context->getReadoutWorker();
             QMetaObject::invokeMethod(readoutWorker, "stop", Qt::QueuedConnection);
         });
+#endif
 
         connect(m_d->pb_replay, &QPushButton::clicked, context, &MVMEContext::startReplay);
 
@@ -298,7 +296,7 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
         delete m_d->treeWidgetMap.take(config);
     });
 
-    connect(context, &MVMEContext::histogramAboutToBeRemoved, this, [=](const QString &name, Histogram *hist) {
+    connect(context, &MVMEContext::histogramAboutToBeRemoved, this, [=](const QString &name, HistogramCollection *hist) {
         delete m_d->histoNameMap.take(name);
     });
 
@@ -654,7 +652,7 @@ void MVMEContextWidget::histoListItemClicked(QListWidgetItem *item)
     auto name = item->data(Qt::UserRole).toString();
     auto object = Var2Ptr<QObject>(item->data(Qt::UserRole+1));
 
-    auto histo = qobject_cast<Histogram *>(object);
+    auto histo = qobject_cast<HistogramCollection *>(object);
     auto hist2d = qobject_cast<Hist2D *>(object);
 
     if (histo)
@@ -672,7 +670,7 @@ void MVMEContextWidget::histoListItemDoubleClicked(QListWidgetItem *item)
     auto name = item->data(Qt::UserRole).toString();
     auto object = Var2Ptr<QObject>(item->data(Qt::UserRole+1));
 
-    auto histo = qobject_cast<Histogram *>(object);
+    auto histo = qobject_cast<HistogramCollection *>(object);
     auto hist2d = qobject_cast<Hist2D *>(object);
 
     if (histo)
@@ -690,7 +688,7 @@ void MVMEContextWidget::histoListContextMenu(const QPoint &pos)
     auto item = m_d->histoList->itemAt(pos);
 
     auto object = item ? Var2Ptr<QObject>(item->data(Qt::UserRole+1)) : nullptr;
-    auto histo = qobject_cast<Histogram *>(object);
+    auto histo = qobject_cast<HistogramCollection *>(object);
     auto hist2d = qobject_cast<Hist2D *>(object);
 
     QMenu menu;
@@ -711,10 +709,12 @@ void MVMEContextWidget::histoListContextMenu(const QPoint &pos)
         menu.addAction(addHist2D);
     }
 
+    /*
     if (histo && histo->property("Histogram.autoCreated").toBool())
     {
         delAction->setEnabled(false);
     }
+    */
 
     auto action = menu.exec(m_d->histoList->mapToGlobal(pos));
 
@@ -759,7 +759,7 @@ void MVMEContextWidget::histoListContextMenu(const QPoint &pos)
     }
 }
 
-void MVMEContextWidget::onContextHistoAdded(const QString &name, Histogram *histo)
+void MVMEContextWidget::onContextHistoAdded(const QString &name, HistogramCollection *histo)
 {
     auto item = new QListWidgetItem(name);
     item->setData(Qt::UserRole, name);

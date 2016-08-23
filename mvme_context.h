@@ -64,8 +64,8 @@ class MVMEContext: public QObject
         void configChanged(DAQConfig *config);
         void configFileNameChanged(const QString &fileName);
 
-        void histogramAdded(const QString &name, Histogram *histo);
-        void histogramAboutToBeRemoved(const QString &name, Histogram *histo);
+        void histogramAdded(const QString &name, HistogramCollection *histo);
+        void histogramAboutToBeRemoved(const QString &name, HistogramCollection *histo);
 
         void hist2DAdded(Hist2D *hist2d);
         void hist2DAboutToBeRemoved(Hist2D *hist2d);
@@ -100,15 +100,15 @@ class MVMEContext: public QObject
         void setMode(GlobalMode mode);
         GlobalMode getMode() const;
 
-        QMap<QString, Histogram *> getHistograms() { return m_histograms; }
-        QList<Histogram *> getHistogramList() const { return m_histograms.values(); }
+        QMap<QString, HistogramCollection *> getHistograms() { return m_histograms; }
+        QList<HistogramCollection *> getHistogramList() const { return m_histograms.values(); }
 
-        Histogram *getHistogram(const QString &name)
+        HistogramCollection *getHistogram(const QString &name)
         {
             return m_histograms.value(name);
         }
 
-        bool addHistogram(const QString &name, Histogram *histo)
+        bool addHistogram(const QString &name, HistogramCollection *histo)
         {
             if (m_histograms.contains(name))
                 return false;
@@ -185,6 +185,8 @@ class MVMEContext: public QObject
 
     public slots:
         void startReplay();
+        void startDAQ(quint32 nCycles=0);
+        void stopDAQ();
 
     private slots:
         void tryOpenController();
@@ -204,7 +206,7 @@ class MVMEContext: public QObject
 
         DataBufferQueue m_freeBuffers;
         QString m_configFileName;
-        QMap<QString, Histogram *> m_histograms;
+        QMap<QString, HistogramCollection *> m_histograms;
         QVector<Hist2D *> m_2dHistograms;
         mvme *m_mainwin;
         DAQStats m_daqStats;

@@ -6,12 +6,15 @@
 
 class QPointF;
 
-class Histogram : public QObject
+class HistogramCollection : public QObject
 {
     Q_OBJECT
 public:
-    explicit Histogram(QObject *parent = 0, quint32 channels=32, quint32 resolution=8192);
-    ~Histogram();
+    explicit HistogramCollection(QObject *parent = 0, quint32 channels=32, quint32 resolution=8192);
+    ~HistogramCollection();
+
+    void resize(quint32 channels, quint32 resolution);
+
     void initHistogram(void);
     void clearChan(quint32 chan);
     void clearHistogram(void);
@@ -20,11 +23,10 @@ public:
     double getValue(quint32 channelIndex, quint32 valueIndex);
     bool incValue(quint32 channelIndex, quint32 valueIndex);
 
-    void setValue(quint32 channelIndex, quint32 valueIndex, double value);
-    void setAxisBaseValue(quint32 valueIndex, double value);
+    quint64 getMaxTotalCount() const;
 
-    double *m_data;
-    double *m_axisBase;
+    double *m_data = 0;
+    double *m_axisBase = 0;
     quint32 m_channels;
     quint32 m_resolution;
 
@@ -36,6 +38,7 @@ public:
     double m_sigma[MAX_CHANNEL_COUNT];
     double m_counts[MAX_CHANNEL_COUNT];
     double m_overflow[MAX_CHANNEL_COUNT];
+    quint64 m_totalCounts[MAX_CHANNEL_COUNT];
 
 signals:
 
@@ -45,10 +48,10 @@ private:
 
 };
 
-QTextStream &writeHistogramCollection(QTextStream &out, Histogram *histo);
-QTextStream &readHistogramCollectionInto(QTextStream &in, Histogram *histo);
+//QTextStream &writeHistogramCollection(QTextStream &out, HistogramCollection *histo);
+//QTextStream &readHistogramCollectionInto(QTextStream &in, HistogramCollection *histo);
 
-QTextStream &writeHistogram(QTextStream &out, Histogram *histo, quint32 channelIndex);
-QTextStream &readHistogram(QTextStream &in, Histogram *histo, quint32 *channelIndexOut = nullptr);
+QTextStream &writeHistogram(QTextStream &out, HistogramCollection *histo, quint32 channelIndex);
+//QTextStream &readHistogram(QTextStream &in, HistogramCollection *histo, quint32 *channelIndexOut = nullptr);
 
 #endif // HISTOGRAM_H

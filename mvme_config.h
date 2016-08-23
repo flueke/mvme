@@ -130,22 +130,6 @@ class EventConfig: public QObject
         QString m_name;
 };
 
-struct Hist1DConfig
-{
-    QString name;
-    QString source; // e.g "ev0.mod0.c0"
-    int resolution;
-};
-
-struct Hist2DConfig
-{
-    QString name;
-    QString sourceX; // "ev0.mod0.c1"
-    QString sourceY; // "ev0.mod1.c31"
-    int resX;
-    int resY;
-};
-
 class DAQConfig: public QObject
 {
     Q_OBJECT

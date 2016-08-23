@@ -154,7 +154,7 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
 
                 if (isMesytecModule(moduleType) && cfg)
                 {
-                    Histogram *histo = 0;
+                    HistogramCollection *histo = 0;
 
                     for (auto h: m_context->getHistogramList())
                     {

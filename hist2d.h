@@ -64,10 +64,6 @@ public:
         updateIntervals();
     }
 
-    ~Hist2DRasterData()
-    {
-    }
-
     virtual double value(double x, double y) const
     {
         return m_hist2d->value(x, y);

@@ -8,7 +8,7 @@ class Hist2D;
 class DataCruncher;
 class DataThread;
 class Diagnostics;
-class Histogram;
+class HistogramCollection;
 class MVMEContext;
 class RealtimeData;
 class VirtualMod;
@@ -49,7 +49,7 @@ public slots:
     void drawTimerSlot();
     void displayAbout();
 
-    void openHistogramView(Histogram *histo);
+    void openHistogramView(HistogramCollection *histo);
     void openHist2DView(Hist2D *hist2d);
 
 private slots:
@@ -77,8 +77,8 @@ private slots:
     void handleDeleteEventConfig(EventConfig *event);
     void handleDeleteModuleConfig(ModuleConfig *module);
 
-    void handleHistogramClicked(const QString &name, Histogram *histo);
-    void handleHistogramDoubleClicked(const QString &name, Histogram *histo);
+    void handleHistogramClicked(const QString &name, HistogramCollection *histo);
+    void handleHistogramDoubleClicked(const QString &name, HistogramCollection *histo);
 
     void handleHist2DClicked(Hist2D *hist2d);
     void handleHist2DDoubleClicked(Hist2D *hist2d);

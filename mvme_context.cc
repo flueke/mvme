@@ -90,6 +90,7 @@ void MVMEContext::addModule(EventConfig *eventConfig, ModuleConfig *module)
     int channels = module->getNumberOfChannels();
     int resolution = module->getADCResolution();
 
+#if 0
     if (channels > 0 && resolution > 0)
     {
         auto hist = new Histogram(this, channels, resolution);
@@ -97,6 +98,7 @@ void MVMEContext::addModule(EventConfig *eventConfig, ModuleConfig *module)
         hist->setProperty("Histogram.autoCreated", true);
         addHistogram(module->getFullPath(), hist);
     }
+#endif
 }
 
 void MVMEContext::addEventConfig(EventConfig *eventConfig)
@@ -157,13 +159,12 @@ QString MVMEContext::getUniqueModuleName(const QString &prefix) const
         }
     }
 
-    QString result;
-    u32 index = 0;
-    do
+    QString result = prefix;
+    u32 suffix = 0;
+    while (moduleNames.contains(result))
     {
-        result = QString("%1_%2").arg(prefix).arg(index);
-        ++index;
-    } while (moduleNames.contains(result));
+        result = QString("%1_%2").arg(prefix).arg(suffix++);
+    }
     return result;
 }
 
@@ -263,6 +264,46 @@ void MVMEContext::startReplay()
     QMetaObject::invokeMethod(m_listFileWorker, "readNextBuffer", Qt::QueuedConnection);
 }
 
+static const int RawHistogramResolution = 8192;
+
+void MVMEContext::startDAQ(quint32 nCycles)
+{
+    auto histograms = m_histograms.values();
+    for (ModuleConfig *module: m_config->getAllModuleConfigs())
+    {
+        auto findResult = std::find_if(histograms.begin(), histograms.end(),
+                                       [module](HistogramCollection *hist) {
+            auto id = hist->property("Histogram.sourceModule").toUuid();
+            return module->getId() == id;
+        });
+
+        HistogramCollection *hist;
+
+        int nChannels = module->getNumberOfChannels();
+        int resolution = RawHistogramResolution;
+
+        if (findResult == histograms.end())
+        {
+            hist = new HistogramCollection(this, nChannels, resolution);
+            hist->setProperty("Histogram.sourceModule", module->getId());
+            addHistogram(module->getFullPath(), hist);
+        }
+        else
+        {
+            (*findResult)->resize(nChannels, resolution);
+        }
+    }
+
+    QMetaObject::invokeMethod(m_readoutWorker, "start",
+                              Qt::QueuedConnection, Q_ARG(quint32, nCycles));
+}
+
+void MVMEContext::stopDAQ()
+{
+    QMetaObject::invokeMethod(m_readoutWorker, "stop",
+                              Qt::QueuedConnection);
+}
+
 void MVMEContext::write(QJsonObject &json) const
 {
     QJsonObject daqConfigObject;
@@ -330,7 +371,7 @@ void MVMEContext::read(const QJsonObject &json)
 
         if (!name.isEmpty() && channels > 0 && resolution > 0)
         {
-            auto histo = new Histogram(this, channels, resolution);
+            auto histo = new HistogramCollection(this, channels, resolution);
             auto properties = histodef["properties"].toObject().toVariantMap();
 
             for (auto propName: properties.keys())

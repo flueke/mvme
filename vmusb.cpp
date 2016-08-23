@@ -108,6 +108,7 @@ bool VMUSB::openFirstUsbDevice(void)
 
 void VMUSB::closeUsbDevice(void)
 {
+    QMutexLocker locker (&m_lock);
     if (hUsbDevice)
     {
         xxusb_device_close(hUsbDevice);

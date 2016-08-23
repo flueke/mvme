@@ -21,7 +21,7 @@
 #define ODDFILT 46
 #define EVENFILT 47
 
-class Histogram;
+class HistogramCollection;
 
 class Diagnostics : public QObject
 {
@@ -29,7 +29,7 @@ class Diagnostics : public QObject
 public:
     explicit Diagnostics(QObject *parent = 0);
     void clear(void);
-    void calcAll(Histogram *p_myHist, quint16 lo, quint16 hi, quint16 lo2, quint16 hi2, quint16 binLo, quint16 binHi);
+    void calcAll(HistogramCollection *p_myHist, quint16 lo, quint16 hi, quint16 lo2, quint16 hi2, quint16 binLo, quint16 binHi);
     double getMean(quint16 chan);
     double getSigma(quint16 chan);
     quint32 getMeanchannel(quint16 chan);
@@ -37,7 +37,7 @@ public:
     quint32 getMax(quint16 chan);
     quint32 getMaxchan(quint16 chan);
     quint32 getCounts(quint16 chan);
-    quint32 getChannel(Histogram *p_myHist, quint16 chan, quint32 bin);
+    quint32 getChannel(HistogramCollection *p_myHist, quint16 chan, quint32 bin);
 
 signals:
     

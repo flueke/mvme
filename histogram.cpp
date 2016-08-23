@@ -3,25 +3,31 @@
 #include <cassert>
 #include <QDebug>
 
-Histogram::Histogram(QObject *parent, quint32 channels, quint32 resolution) :
-    QObject(parent)
+HistogramCollection::HistogramCollection(QObject *parent, quint32 channels, quint32 resolution)
+    : QObject(parent)
 {
-    assert(channels <= MAX_CHANNEL_COUNT);
-    m_data = new double[channels*resolution];
-    m_axisBase = new double[resolution];
-    m_channels = channels;
-    m_resolution = resolution;
+    resize(channels, resolution);
     initHistogram();
     qDebug("Initialized histogram with %d channels, %d resolution", channels, resolution);
 }
 
-Histogram::~Histogram()
+HistogramCollection::~HistogramCollection()
 {
-    delete[] m_data;
-    delete[] m_axisBase;
+    free(m_data);
+    free(m_axisBase);
 }
 
-void Histogram::initHistogram(void)
+void HistogramCollection::resize(quint32 channels, quint32 resolution)
+{
+    assert(channels <= MAX_CHANNEL_COUNT);
+    m_data = static_cast<double *>(realloc(m_data, channels * resolution * sizeof(double)));
+    m_axisBase = static_cast<double *>(realloc(m_axisBase, resolution * sizeof(double)));
+    m_channels = channels;
+    m_resolution = resolution;
+    initHistogram();
+}
+
+void HistogramCollection::initHistogram(void)
 {
     qDebug("initializing %d x %d", m_channels, m_resolution);
     for(quint32 i = 0; i < m_channels; i++){
@@ -35,10 +41,11 @@ void Histogram::initHistogram(void)
         m_maxchan[i] = 0;
         m_maximum[i] = 0;
         m_overflow[i] = 0;
+        m_totalCounts[i] = 0;
     }
 }
 
-void Histogram::clearChan(quint32 chan)
+void HistogramCollection::clearChan(quint32 chan)
 {
     if (chan >= m_channels)
         return;
@@ -51,16 +58,17 @@ void Histogram::clearChan(quint32 chan)
     m_maxchan[chan] = 0;
     m_maximum[chan] = 0;
     m_overflow[chan] = 0;
+    m_totalCounts[chan] = 0;
 }
 
-void Histogram::clearHistogram()
+void HistogramCollection::clearHistogram()
 {
     for(quint32 i = 0; i < m_channels; i++)
         clearChan(i);
 }
 
 // calculate counts, maximum, mean and sigma for given channel range
-void Histogram::calcStatistics(quint32 chan, quint32 start, quint32 stop)
+void HistogramCollection::calcStatistics(quint32 chan, quint32 start, quint32 stop)
 {
     if (chan >= m_channels)
         return;
@@ -112,7 +120,7 @@ void Histogram::calcStatistics(quint32 chan, quint32 start, quint32 stop)
 }
 
 
-double Histogram::getValue(quint32 channelIndex, quint32 valueIndex)
+double HistogramCollection::getValue(quint32 channelIndex, quint32 valueIndex)
 {
 
     if(valueIndex < m_resolution && channelIndex < m_channels)
@@ -124,7 +132,7 @@ double Histogram::getValue(quint32 channelIndex, quint32 valueIndex)
 }
 
 
-bool Histogram::incValue(quint32 channelIndex, quint32 valueIndex)
+bool HistogramCollection::incValue(quint32 channelIndex, quint32 valueIndex)
 {
     //qDebug() << "channelIndex =" << channelIndex << ", value =" << valueIndex
     //    << "m_channels =" << m_channels
@@ -142,27 +150,26 @@ bool Histogram::incValue(quint32 channelIndex, quint32 valueIndex)
             ++m_data[channelIndex * m_resolution + valueIndex];
             return true;
         }
+        ++m_totalCounts[channelIndex];
     }
     return false;
 }
 
-void Histogram::setValue(quint32 channelIndex, quint32 valueIndex, double value)
+quint64 HistogramCollection::getMaxTotalCount() const
 {
-    if (channelIndex < m_channels && valueIndex < m_resolution)
+    quint64 ret = 0;
+
+    for (quint32 chan=0; chan<m_channels; ++chan)
     {
-        m_data[channelIndex * m_resolution + valueIndex] = value;
+        ret = std::max(ret, m_totalCounts[chan]);
     }
+
+    return ret;
 }
 
-void Histogram::setAxisBaseValue(quint32 valueIndex, double axisBaseValue)
-{
-    if (valueIndex < m_resolution)
-    {
-        m_axisBase[valueIndex] = axisBaseValue;
-    }
-}
 
-QTextStream &writeHistogramCollection(QTextStream &out, Histogram *histo)
+#if 0
+QTextStream &writeHistogramCollection(QTextStream &out, HistogramCollection *histo)
 {
     out << "channels: " << histo->m_channels
         << " resolution: " << histo->m_resolution
@@ -181,7 +188,7 @@ QTextStream &writeHistogramCollection(QTextStream &out, Histogram *histo)
     return out;
 }
 
-QTextStream &readHistogramCollectionInto(QTextStream &in, Histogram *histo)
+QTextStream &readHistogramCollectionInto(QTextStream &in, HistogramCollection *histo)
 {
     quint32 channels = 0;
     quint32 resolution = 0;
@@ -191,7 +198,7 @@ QTextStream &readHistogramCollectionInto(QTextStream &in, Histogram *histo)
 
     if (in.status() == QTextStream::Ok && channels && resolution)
     {
-        histo->clearHistogram();
+        histo->resize(channels, resolution);
         for (quint32 valueIndex=0; valueIndex<resolution; ++valueIndex)
         {
             double axisBaseValue;
@@ -209,8 +216,9 @@ QTextStream &readHistogramCollectionInto(QTextStream &in, Histogram *histo)
 
     return in;
 }
+#endif
 
-QTextStream &writeHistogram(QTextStream &out, Histogram *histo, quint32 channelIndex)
+QTextStream &writeHistogram(QTextStream &out, HistogramCollection *histo, quint32 channelIndex)
 {
     if (channelIndex < histo->m_channels)
     {
@@ -226,7 +234,8 @@ QTextStream &writeHistogram(QTextStream &out, Histogram *histo, quint32 channelI
     return out;
 }
 
-QTextStream &readHistogram(QTextStream &in, Histogram *histo, quint32 *channelIndexOut)
+#if 0
+QTextStream &readHistogram(QTextStream &in, HistogramCollection *histo, quint32 *channelIndexOut)
 {
     quint32 channelIndex;
     QString buffer;
@@ -253,3 +262,4 @@ QTextStream &readHistogram(QTextStream &in, Histogram *histo, quint32 *channelIn
 
     return in;
 }
+#endif
