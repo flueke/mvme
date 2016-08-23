@@ -9,6 +9,12 @@
 #include <qwt_plot_curve.h>
 #include <qwt_plot_textlabel.h>
 #include <qwt_text.h>
+#include <QSettings>
+#include <QStandardPaths>
+#include <QFileInfo>
+#include <QFile>
+#include <QFileDialog>
+#include <QMessageBox>
 #include "scrollzoomer.h"
 #include <QDebug>
 #include "histogram.h"
@@ -73,6 +79,53 @@ TwoDimWidget::TwoDimWidget(MVMEContext *context, HistogramCollection *histo, QWi
     connect(m_plotZoomer, SIGNAL(zoomed(QRectF)),this, SLOT(zoomerZoomed(QRectF)));
     connect(m_plotZoomer, SIGNAL(mouseCursorMovedTo(QPointF)), this, SLOT(mouseCursorMovedToPlotCoord(QPointF)));
     connect(ui->pb_export, &QPushButton::clicked, this, &TwoDimWidget::exportPlot);
+
+    connect(ui->pb_save, &QPushButton::clicked, this, [&]() {
+
+        QString path = QSettings().value("Files/LastHistogramExportDirectory").toString();
+
+        if (path.isEmpty())
+        {
+            path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
+        }
+
+        auto histos = m_context->getHistograms();
+        auto name = histos.key(m_hist);
+
+        QString fileName = QString("%1/%2.c%3.txt")
+            .arg(path)
+            .arg(name)
+            .arg((int)getSelectedChannelIndex(), 2, 10, QChar('0'));
+
+        qDebug() << fileName;
+
+        fileName = QFileDialog::getSaveFileName(this, "Save Histogram", fileName, "Text Files (*.txt);; All Files (*.*)");
+
+        if (fileName.isEmpty())
+            return;
+
+        QFileInfo fi(fileName);
+        if (fi.completeSuffix().isEmpty())
+        {
+            fileName += ".txt";
+        }
+
+        QFile outFile(fileName);
+        if (!outFile.open(QIODevice::WriteOnly))
+        {
+            QMessageBox::critical(0, "Error", QString("Error opening %1 for writing").arg(fileName));
+            return;
+        }
+
+        QTextStream out(&outFile);
+        writeHistogram(out, m_hist, getSelectedChannelIndex());
+
+        if (out.status() == QTextStream::Ok)
+        {
+            fi.setFile(fileName);
+            QSettings().setValue("Files/LastHistogramExportDirectory", fi.absolutePath());
+        }
+    });
 
     qDebug() << "zoomBase =" << m_plotZoomer->zoomBase();
 
