@@ -145,6 +145,8 @@ class VMUSB: public VMEController
 
         int bulkRead(void *outBuffer, size_t outBufferSize, int timeout_ms = 1000);
 
+        bool tryErrorRecovery();
+
         xxusb_device_type pUsbDevice[5];
         int numDevices = 0;
         usb_dev_handle* hUsbDevice = nullptr;
@@ -191,6 +193,8 @@ class VMUSB: public VMEController
         ControllerState m_state;
         QMutex m_lock;
 };
+
+static const int VMUSBBufferSize = 27 * 1024;
 
 // Bulk transfer endpoints
 

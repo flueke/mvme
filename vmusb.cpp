@@ -91,7 +91,7 @@ bool VMUSB::openFirstUsbDevice(void)
     {
         m_currentSerialNumber = pUsbDevice[0].SerialString;
         // clear the action register (makes sure daq mode is disabled)
-        if (writeActionRegister(0))
+        if (tryErrorRecovery())
         {
             m_state = ControllerState::Opened;
             emit controllerOpened();
@@ -1292,10 +1292,6 @@ VMUSB::transaction(void* writePacket, size_t writeSize,
         return -2;
     }
 
-    if (status >= 0)
-    {
-        qDebug("transaction ok");
-    }
     return status;
 }
 
@@ -1451,4 +1447,24 @@ bool VMUSB::openFirstDevice()
 void VMUSB::close()
 {
     closeUsbDevice();
+}
+
+bool VMUSB::tryErrorRecovery()
+{
+    QMutexLocker locker(&m_lock);
+
+    if (!hUsbDevice)
+    {
+        return false;
+    }
+
+    int bytesRead = 0;
+    do
+    {
+        char buffer[VMUSBBufferSize];
+        bytesRead = usb_bulk_read(hUsbDevice, ENDPOINT_IN, buffer, sizeof(buffer), 250);
+        qDebug("bulk read returned %d", bytesRead);
+    } while (bytesRead > 0);
+
+    return leaveDaqMode();
 }
