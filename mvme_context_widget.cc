@@ -83,24 +83,41 @@ struct AddModuleDialog: public QDialog
         module->setName(nameEdit->text());
         module->baseAddress = addressEdit->text().toUInt(&ok, 16);
 
-        qDebug() << "currentPath" << QDir::currentPath();
-        qDebug() << "applicationDirPath" << QCoreApplication::applicationDirPath();
+        QStringList templatePaths;
+        templatePaths << QDir::currentPath() + "/templates";
+        templatePaths << QCoreApplication::applicationDirPath() + "/templates";
 
-        QString templatePath = QCoreApplication::applicationDirPath() + "/templates";
+        QString templatePath;
 
-        qDebug() << "Looking for templates in " << templatePath;
-
-        if (isMesytecModule(module->type))
+        for (auto testPath: templatePaths)
         {
-            // load template files
-            module->initReset       = readStringFile(templatePath + "/mesytec_reset.init");
-            module->initReadout     = readStringFile(templatePath + "/mesytec_init_readout.init");
-            module->initStartDaq    = readStringFile(templatePath + "/mesytec_startdaq.init");
-            module->initStopDaq     = readStringFile(templatePath + "/mesytec_stopdaq.init");
-            QString shortname = VMEModuleShortNames[module->type];
-            module->initParameters  = readStringFile(QString(templatePath + "/%1_parameters.init")
-                                                     .arg(shortname));
-            module->generateReadoutStack();
+            if (QFileInfo(testPath).exists())
+            {
+                templatePath = testPath;
+                break;
+            }
+        }
+
+        if (templatePath.isEmpty())
+        {
+            context->logMessage("No module template directory found!");
+        }
+        else
+        {
+            context->logMessage("Using module templates from " + templatePath);
+
+            if (isMesytecModule(module->type))
+            {
+                // load template files
+                module->initReset       = readStringFile(templatePath + "/mesytec_reset.init");
+                module->initReadout     = readStringFile(templatePath + "/mesytec_init_readout.init");
+                module->initStartDaq    = readStringFile(templatePath + "/mesytec_startdaq.init");
+                module->initStopDaq     = readStringFile(templatePath + "/mesytec_stopdaq.init");
+                QString shortname = VMEModuleShortNames[module->type];
+                module->initParameters  = readStringFile(QString(templatePath + "/%1_parameters.init")
+                                                         .arg(shortname));
+                module->generateReadoutStack();
+            }
         }
 
         context->addModule(parentConfig, module);
@@ -126,7 +143,8 @@ struct MVMEContextWidgetPrivate
 
     QPushButton *pb_startDAQ, *pb_startOneCycle, *pb_stopDAQ, *pb_replay;
     QLabel *label_daqState, *label_daqDuration, *label_buffersReadAndDropped,
-           *label_freeBuffers, *label_readSize, *label_mbPerSecond, *label_controllerState, *label_writtenToListFile;
+           *label_freeBuffers, *label_readSize, *label_mbPerSecond, *label_controllerState,
+           *label_writtenToListFile, *label_vmusbAvgEventsPerBuffer;
     QLineEdit *le_outputDirectory;
     QCheckBox *cb_outputEnabled;
     QTreeWidget *contextTree;
@@ -160,6 +178,7 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
         m_d->label_readSize = new QLabel;
         m_d->label_mbPerSecond = new QLabel;
         m_d->label_writtenToListFile = new QLabel;
+        m_d->label_vmusbAvgEventsPerBuffer = new QLabel;
 
         connect(m_d->pb_startDAQ, &QPushButton::clicked, m_d->context, &MVMEContext::startDAQ);
 
@@ -195,6 +214,7 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
         stateLayout->addRow("Buffers read / dropped / errors:", m_d->label_buffersReadAndDropped);
         stateLayout->addRow("Buffers/s / MB/s:", m_d->label_mbPerSecond);
         stateLayout->addRow("Last readbuffer size:", m_d->label_readSize);
+        stateLayout->addRow("vmusb avg. events per buffer:", m_d->label_vmusbAvgEventsPerBuffer);
         stateLayout->addRow("ListFile size:", m_d->label_writtenToListFile);
 
         layout->addLayout(stateLayout, 1, 0, 1, 3);
@@ -763,6 +783,8 @@ void MVMEContextWidget::updateStats()
     m_d->label_writtenToListFile->setText(QString("%1 MB")
                                           .arg((double)stats.listFileBytesWritten / (1024.0*1024.0), 6, 'f', 2)
                                          );
+
+    m_d->label_vmusbAvgEventsPerBuffer->setText(QString::number(stats.vmusbAvgEventsPerBuffer));
 
     for (auto it=m_d->treeWidgetMap.begin(); it!=m_d->treeWidgetMap.end(); ++it)
     {

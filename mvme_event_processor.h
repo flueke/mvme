@@ -8,6 +8,7 @@ class DataBuffer;
 class MVMEContext;
 class BufferIterator;
 class ModuleConfig;
+class HistogramCollection;
 
 struct EventProcessorCounters
 {
@@ -43,6 +44,7 @@ class MVMEEventProcessor: public QObject
     private:
         MVMEContext *m_context;
         EventProcessorCounters m_counters;
+        QHash<ModuleConfig *, HistogramCollection *> m_mod2hist;
 };
 
 #endif

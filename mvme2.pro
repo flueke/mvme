@@ -41,6 +41,7 @@ SOURCES += \
     hist2ddialog.cc \
     hist2d.cpp \
     mvmecontrol.cpp \
+    context_widget2.cpp
 
 
 HEADERS  += \
@@ -71,6 +72,7 @@ HEADERS  += \
     hist2d.h \
     mvmecontrol.h \
     globals.h \
+    context_widget2.h
 
 
 FORMS    += \
@@ -80,7 +82,8 @@ FORMS    += \
     hist2dwidget.ui \
     module_config_dialog.ui \
     mvmecontrol.ui \
-    event_config_dialog.ui
+    event_config_dialog.ui \
+    context_widget2.ui
 
 
 DEFINES += VME_CONTROLLER_WIENER

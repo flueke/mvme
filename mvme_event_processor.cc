@@ -121,6 +121,20 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
 void MVMEEventProcessor::newRun()
 {
     m_counters = EventProcessorCounters{};
+
+    m_mod2hist.clear();
+
+    for (auto mod: m_context->getConfig()->getAllModuleConfigs())
+    {
+        for (auto hist: m_context->getHistogramList())
+        {
+            auto sourceId = QUuid(hist->property("Histogram.sourceModule").toString());
+            if (sourceId == mod->getId())
+            {
+                m_mod2hist[mod] = hist;
+            }
+        }
+    }
 }
 
 // Process an event buffer containing one or more events.
@@ -150,6 +164,9 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
         int subEventIndex = 0;
 
         // subeventindex -> address -> value
+        // FIXME: does not work if the section contains multiple events for the
+        // same module as values will get overwritten (max_transfer_data > 1).
+        // But in that case events do not match up anyways. Not sure what to do...
         QHash<int, QHash<int, u32>> eventValues;
 
         while (wordsLeftInSection)
@@ -170,18 +187,7 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
 
                 if (isMesytecModule(moduleType) && cfg)
                 {
-                    HistogramCollection *histo = 0;
-
-                    // TODO: build a module UUID -> Histo hash on DAQ start
-                    for (auto h: m_context->getHistogramList())
-                    {
-                        auto sourceId = QUuid(h->property("Histogram.sourceModule").toString());
-                        if (sourceId == cfg->getId())
-                        {
-                            histo = h;
-                            break;
-                        }
-                    }
+                    HistogramCollection *histo = m_mod2hist.value(cfg);
 
                     const u32 dataExtractMask = cfg->getDataExtractMask();
                     const int dataBits = cfg->getDataBits();
@@ -216,6 +222,11 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
                             if (histo)
                             {
                                 histo->incValue(address, value >> histoShift);
+                            }
+
+                            if (eventValues[subEventIndex].contains(address))
+                            {
+                                qDebug() << "eventvalues overwrite!";
                             }
 
                             eventValues[subEventIndex][address] = value;

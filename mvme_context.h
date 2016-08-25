@@ -30,6 +30,7 @@ struct DAQStats
     QDateTime endTime;
     u64 bytesRead = 0;
     u64 buffersRead = 0;
+    u32 vmusbAvgEventsPerBuffer;
     u64 buffersWithErrors = 0;
     u64 droppedBuffers = 0;
     int freeBuffers = 0;
@@ -70,7 +71,7 @@ class MVMEContext: public QObject
         void hist2DAdded(Hist2D *hist2d);
         void hist2DAboutToBeRemoved(Hist2D *hist2d);
 
-        void logMessage(const QString &);
+        void sigLogMessage(const QString &);
 
         void modeChanged(GlobalMode mode);
 
@@ -180,6 +181,8 @@ class MVMEContext: public QObject
 
         void write(QJsonObject &json) const;
         void read(const QJsonObject &json);
+
+        void logMessage(const QString &msg);
 
         friend class mvme;
 

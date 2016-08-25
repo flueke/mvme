@@ -229,6 +229,7 @@ void VMUSBBufferProcessor::resetRunState()
 
 bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
 {
+    auto stats = getStats();
     auto vmusb = dynamic_cast<VMUSB *>(m_context->getController());
 
     BufferIterator iter(readBuffer->data, readBuffer->used, BufferIterator::Align16);
@@ -255,6 +256,9 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
         bool continuousMode = header1 & Buffer::ContinuationMask;
         bool multiBuffer    = header1 & Buffer::MultiBufferMask;
         u16 numberOfEvents  = header1 & Buffer::NumberOfEventsMask;
+
+        const double alpha = 0.1;
+        stats->vmusbAvgEventsPerBuffer = (alpha * numberOfEvents) + (1.0 - alpha) * stats->vmusbAvgEventsPerBuffer;
 
         if (lastBuffer || scalerBuffer || continuousMode || multiBuffer)
         {

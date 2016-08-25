@@ -51,15 +51,15 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
     m_readoutThread->start();
 
     connect(m_readoutWorker, &VMUSBReadoutWorker::stateChanged, this, &MVMEContext::onDAQStateChanged);
-    connect(m_readoutWorker, &VMUSBReadoutWorker::logMessage, this, &MVMEContext::logMessage);
+    connect(m_readoutWorker, &VMUSBReadoutWorker::logMessage, this, &MVMEContext::sigLogMessage);
     connect(m_readoutWorker, &VMUSBReadoutWorker::logMessages, this, [this](const QStringList &messages) {
         for (auto msg: messages)
         {
-            emit logMessage(msg);
+            emit sigLogMessage(msg);
         }
     });
-    connect(m_bufferProcessor, &VMUSBBufferProcessor::logMessage, this, &MVMEContext::logMessage);
-    connect(m_listFileWorker, &ListFileWorker::logMessage, this, &MVMEContext::logMessage);
+    connect(m_bufferProcessor, &VMUSBBufferProcessor::logMessage, this, &MVMEContext::sigLogMessage);
+    connect(m_listFileWorker, &ListFileWorker::logMessage, this, &MVMEContext::sigLogMessage);
     connect(m_listFileWorker, &ListFileWorker::endOfFileReached, this, &MVMEContext::logEventProcessorCounters);
 
     m_eventThread->setObjectName("EventProcessorThread");
@@ -203,7 +203,7 @@ void MVMEContext::logEventProcessorCounters()
         stream << "  data/headers: " << ((float)modCounters.dataWords / (float)modCounters.headerWords) << endl;
     }
 
-    emit logMessage(buffer);
+    emit sigLogMessage(buffer);
 }
 
 void MVMEContext::onDAQStateChanged(DAQState state)
@@ -474,4 +474,9 @@ void MVMEContext::read(const QJsonObject &json)
             addHist2D(hist2d);
         }
     }
+}
+
+void MVMEContext::logMessage(const QString &msg)
+{
+    emit sigLogMessage(msg);
 }

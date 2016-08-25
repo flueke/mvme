@@ -150,7 +150,7 @@ mvme::mvme(QWidget *parent) :
     connect(drawTimer, SIGNAL(timeout()), SLOT(drawTimerSlot()));
     drawTimer->start(DrawTimerInterval);
 
-    connect(m_context, &MVMEContext::logMessage, this, &mvme::appendToLog);
+    connect(m_context, &MVMEContext::sigLogMessage, this, &mvme::appendToLog);
     connect(m_context, &MVMEContext::daqStateChanged, this, [=](DAQState state) {
         if (state == DAQState::Starting)
         {

@@ -3,4 +3,4 @@
 0x6012  0           # irq vector
 0x6018  1           # FIFO threshold (number of 32bit words in the FIFO)
 0x6036  3           # multi event mode
-0x601A  255         # max transfer data for multi event mode 3
+0x601A  1         # max transfer data for multi event mode 3
