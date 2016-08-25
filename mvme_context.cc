@@ -353,8 +353,7 @@ void MVMEContext::startReplay()
 
     prepareStart();
 
-    m_listFile->seek(0);
-    QMetaObject::invokeMethod(m_listFileWorker, "readNextBuffer", Qt::QueuedConnection);
+    QMetaObject::invokeMethod(m_listFileWorker, "startFromBeginning", Qt::QueuedConnection);
 }
 
 void MVMEContext::startDAQ(quint32 nCycles)

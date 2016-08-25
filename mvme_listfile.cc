@@ -220,6 +220,12 @@ void ListFileWorker::setListFile(ListFile *listFile)
     m_listFile = listFile;
 }
 
+void ListFileWorker::startFromBeginning()
+{
+    m_listFile->seek(0);
+    readNextBuffer();
+}
+
 void ListFileWorker::readNextBuffer()
 {
     if (!m_listFile) return;

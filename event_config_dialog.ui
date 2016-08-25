@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>263</width>
-    <height>203</height>
+    <height>174</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -71,28 +71,10 @@
    <item row="1" column="0">
     <widget class="QStackedWidget" name="stackedWidget">
      <property name="currentIndex">
-      <number>1</number>
+      <number>0</number>
      </property>
      <widget class="QWidget" name="pageNIM">
-      <layout class="QFormLayout" name="formLayout_3">
-       <item row="0" column="0">
-        <widget class="QLabel" name="label_3">
-         <property name="text">
-          <string>Readout Delay</string>
-         </property>
-        </widget>
-       </item>
-       <item row="0" column="1">
-        <widget class="QSpinBox" name="spin_readoutDelay">
-         <property name="suffix">
-          <string> µs</string>
-         </property>
-         <property name="maximum">
-          <number>255</number>
-         </property>
-        </widget>
-       </item>
-      </layout>
+      <layout class="QFormLayout" name="formLayout_3"/>
      </widget>
      <widget class="QWidget" name="pagePeriodic">
       <layout class="QFormLayout" name="formLayout_4">
@@ -171,23 +153,6 @@
          </property>
         </widget>
        </item>
-       <item row="2" column="0">
-        <widget class="QLabel" name="label_8">
-         <property name="text">
-          <string>Readout Delay</string>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="1">
-        <widget class="QSpinBox" name="spin_readoutDelay_2">
-         <property name="suffix">
-          <string> µs</string>
-         </property>
-         <property name="maximum">
-          <number>255</number>
-         </property>
-        </widget>
-       </item>
       </layout>
      </widget>
     </widget>
@@ -241,38 +206,6 @@
     <hint type="destinationlabel">
      <x>120</x>
      <y>101</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>spin_readoutDelay</sender>
-   <signal>valueChanged(int)</signal>
-   <receiver>spin_readoutDelay_2</receiver>
-   <slot>setValue(int)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>180</x>
-     <y>87</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>180</x>
-     <y>145</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>spin_readoutDelay_2</sender>
-   <signal>valueChanged(int)</signal>
-   <receiver>spin_readoutDelay</receiver>
-   <slot>setValue(int)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>180</x>
-     <y>145</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>180</x>
-     <y>87</y>
     </hint>
    </hints>
   </connection>

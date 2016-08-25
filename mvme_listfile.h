@@ -113,9 +113,8 @@ class ListFileWorker: public QObject
         void setListFile(ListFile *listFile);
 
     public slots:
+        void startFromBeginning();
         void readNextBuffer();
-        //void start();
-        //void addFreeBuffer(DataBuffer *buffer);
 
     private:
         DataBuffer *m_buffer;
