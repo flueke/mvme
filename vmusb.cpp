@@ -1221,10 +1221,9 @@ int VMUSB::listLoad(CVMUSBReadoutList *list, uint8_t stackID, size_t stackMemory
         qDebug("vmUsb::listLoad: usb write failed with code %d: %s", status, buf);
 #endif
         errno = -status;
-        return status;
     }
 
-    return 0;
+    return status;
 }
 
 /*

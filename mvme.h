@@ -38,7 +38,7 @@ public:
     explicit mvme(QWidget *parent = 0);
     ~mvme();
 
-    void closeEvent(QCloseEvent *event);
+    virtual void closeEvent(QCloseEvent *event);
     void restoreSettings();
 
 
@@ -53,11 +53,6 @@ public slots:
     void openHist2DView(Hist2D *hist2d);
 
 private slots:
-    void on_actionSave_Histogram_triggered();
-    void on_actionLoad_Histogram_triggered();
-    void on_actionExport_Histogram_triggered();
-    void on_actionExport_Spectrogram_triggered();
-
     void on_actionNewConfig_triggered();
     void on_actionLoadConfig_triggered();
     bool on_actionSaveConfig_triggered();
@@ -66,11 +61,11 @@ private slots:
     bool loadConfig(const QString &fileName);
 
     void on_actionOpen_Listfile_triggered();
-    //void on_actionClose_Listfile_triggered();
 
     void on_actionShowLogWindow_triggered();
 
     void handleEventConfigClicked(EventConfig *event);
+    void handleEventConfigDoubleClicked(EventConfig *event);
     void handleModuleConfigClicked(ModuleConfig *module);
     void handleModuleConfigDoubleClicked(ModuleConfig *module);
 
@@ -99,7 +94,7 @@ private slots:
     MVMEContextWidget *m_contextWidget = 0;
     QTextBrowser *m_logView;
     QMdiSubWindow *m_logViewSubwin;
-    QMap<ModuleConfig *, QWidget *> m_configDialogs;
+    QMap<QObject *, QWidget *> m_configDialogs;
 };
 
 #endif // MVME_H

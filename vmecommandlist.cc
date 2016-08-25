@@ -116,3 +116,13 @@ QString VMECommandList::toString() const
     dump(out);
     return result;
 }
+
+QStringList VMECommandList::toStringList() const
+{
+    QStringList ret;
+    for (auto command: commands)
+    {
+        ret << command.toString();
+    }
+    return ret;
+}

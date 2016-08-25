@@ -185,6 +185,7 @@ class VMECommandList
 
         QTextStream &dump(QTextStream &out) const;
         QString toString() const;
+        QStringList toStringList() const;
 };
 
 

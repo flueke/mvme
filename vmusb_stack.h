@@ -25,7 +25,7 @@ class VMUSBStack
             {
                 case TriggerCondition::NIM1:
                     return 0;
-                case TriggerCondition::Scaler:
+                case TriggerCondition::Periodic:
                     return 1;
                 case TriggerCondition::Interrupt:
                     return m_stackID;
@@ -41,24 +41,6 @@ class VMUSBStack
             m_modules.append(module);
         }
 
-#if 0
-        // XXX: this used to call module->addReadoutCommands()
-        // With the new template scheme this does not work anymore as now the
-        // stack contents for each module is just a QVector<u32>
-        VMECommandList getReadoutCommands() const
-        {
-            VMECommandList ret;
-            for (auto module: m_modules)
-            {
-                auto stack = parseStackFile(module->readoutStack);
-
-                ret.append(VMECommandList::fromInitList(
-                        parseStackFile(module->readoutStack),
-                        module->baseAddress));
-            }
-            return ret;
-        }
-#endif
         QVector<u32> getContents() const
         {
             QVector<u32> result;
@@ -85,6 +67,7 @@ class VMUSBStack
         uint8_t scalerReadoutPeriod = 0;
         // Maximum number of events between scaler stack executions
         uint16_t scalerReadoutFrequency = 0;
+        uint8_t readoutTriggerDelay = 0;
 
     private:
         uint8_t m_stackID = 2;

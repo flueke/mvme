@@ -190,11 +190,17 @@ class MVMEContext: public QObject
 
     private slots:
         void tryOpenController();
+        void logEventProcessorCounters();
+        void onDAQStateChanged(DAQState state);
 
     private:
+        void prepareStart();
+
+
         DAQConfig *m_config;
         VMEController *m_controller = nullptr;
         QTimer *m_ctrlOpenTimer;
+        QTimer *m_logTimer;
         QFuture<void> m_ctrlOpenFuture;
         QThread *m_readoutThread;
 

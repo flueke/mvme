@@ -23,7 +23,7 @@
     </rect>
    </property>
    <property name="currentIndex">
-    <number>3</number>
+    <number>0</number>
    </property>
    <widget class="QWidget" name="vm_usb">
     <attribute name="title">
@@ -3894,8 +3894,8 @@ p, li { white-space: pre-wrap; }
   <slot>getValues()</slot>
  </slots>
  <buttongroups>
-  <buttongroup name="readModeGroup"/>
-  <buttongroup name="datatakingGroup"/>
   <buttongroup name="binRangeGroup"/>
+  <buttongroup name="datatakingGroup"/>
+  <buttongroup name="readModeGroup"/>
  </buttongroups>
 </ui>

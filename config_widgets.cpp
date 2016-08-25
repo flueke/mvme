@@ -1,5 +1,6 @@
 #include "config_widgets.h"
 #include "ui_module_config_dialog.h"
+#include "ui_event_config_dialog.h"
 #include "mvme_config.h"
 #include "mvme_context.h"
 #include "vmusb.h"
@@ -12,10 +13,62 @@
 #include <QMessageBox>
 #include <QThread>
 
-EventConfigWidget::EventConfigWidget(EventConfig *config, QWidget *parent)
-    : QWidget(parent)
+EventConfigDialog::EventConfigDialog(MVMEContext *context, EventConfig *config, QWidget *parent)
+    : QDialog(parent)
+    , ui(new Ui::EventConfigDialog)
+    , m_context(context)
     , m_config(config)
 {
+    ui->setupUi(this);
+    loadFromConfig();
+
+    connect(context, &MVMEContext::eventConfigAboutToBeRemoved, this, [=](EventConfig *eventConfig) {
+        if (eventConfig == config)
+        {
+            close();
+        }
+    });
+}
+
+void EventConfigDialog::loadFromConfig()
+{
+    auto config = m_config;
+
+    ui->le_name->setText(config->getName());
+    ui->combo_triggerCondition->setCurrentIndex(
+        static_cast<int>(config->triggerCondition));
+
+    ui->spin_readoutDelay->setValue(config->readoutTriggerDelay);
+    ui->spin_readoutDelay_2->setValue(config->readoutTriggerDelay);
+
+    // FIXME: move these to some global VMUSB setup dialog
+    ui->spin_readoutDelay->setVisible(false);
+    ui->spin_readoutDelay_2->setVisible(false);
+
+    ui->spin_period->setValue(config->scalerReadoutPeriod * 0.5);
+    ui->spin_frequency->setValue(config->scalerReadoutFrequency);
+    ui->spin_irqLevel->setValue(config->irqLevel);
+    ui->spin_irqVector->setValue(config->irqVector);
+}
+
+void EventConfigDialog::saveToConfig()
+{
+    auto config = m_config;
+
+    config->setName(ui->le_name->text());
+    config->triggerCondition = static_cast<TriggerCondition>(ui->combo_triggerCondition->currentIndex());
+    config->readoutTriggerDelay = static_cast<uint8_t>(ui->spin_readoutDelay->value());
+    config->scalerReadoutPeriod = static_cast<uint8_t>(ui->spin_period->value() * 2);
+    config->scalerReadoutFrequency = static_cast<uint16_t>(ui->spin_frequency->value());
+    config->irqLevel = static_cast<uint8_t>(ui->spin_irqLevel->value());
+    config->irqVector = static_cast<uint8_t>(ui->spin_irqVector->value());
+    config->setModified();
+}
+
+void EventConfigDialog::accept()
+{
+    saveToConfig();
+    QDialog::accept();
 }
 
 enum class ModuleListType

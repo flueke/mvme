@@ -118,17 +118,16 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
 #else
 
 
-struct stats
+void MVMEEventProcessor::newRun()
 {
-    u64 totalBuffers = 0;
-    u64 eventBuffers = 0;
-    QHash<ModuleConfig *, u64> eventsByModule;
-
-};
+    m_counters = EventProcessorCounters{};
+}
 
 // Process an event buffer containing one or more events.
 void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
 {
+    ++m_counters.buffers;
+
 
     BufferIterator iter(buffer->data, buffer->used, BufferIterator::Align32);
 
@@ -143,6 +142,8 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
             iter.skip(sectionSize * sizeof(u32));
             continue;
         }
+
+        ++m_counters.events;
 
         int eventType = (sectionHeader & EventTypeMask) >> EventTypeShift;
         u32 wordsLeftInSection = sectionSize;
@@ -162,6 +163,11 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
                 auto moduleType  = static_cast<VMEModuleType>((subEventHeader & ModuleTypeMask) >> ModuleTypeShift);
                 ModuleConfig *cfg = m_context->getConfig()->getModuleConfig(eventType, subEventIndex);
 
+                if (cfg)
+                {
+                    ++m_counters.moduleCounters[cfg].events;
+                }
+
                 if (isMesytecModule(moduleType) && cfg)
                 {
                     HistogramCollection *histo = 0;
@@ -179,8 +185,7 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
 
                     const u32 dataExtractMask = cfg->getDataExtractMask();
                     const int dataBits = cfg->getDataBits();
-                    const int histoBits = 13; // TODO: get from histo
-                    int histoShift = dataBits - histoBits;
+                    int histoShift = dataBits - RawHistogramBits;
                     if (histoShift < 0)
                         histoShift = 0;
 
@@ -196,8 +201,15 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
                             || ((currentWord & 0xFF800000) == 0x04000000); // MxDC
                         bool eoe_found_flag = (currentWord & 0xC0000000) == 0xC0000000;
 
+                        if (header_found_flag)
+                        {
+                            ++m_counters.moduleCounters[cfg].headerWords;
+                        }
+
                         if (data_found_flag)
                         {
+                            ++m_counters.moduleCounters[cfg].dataWords;
+
                             u16 address = (currentWord & 0x003F0000) >> 16; // 6 bit address
                             u32 value   = (currentWord & dataExtractMask);
 
@@ -207,6 +219,11 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
                             }
 
                             eventValues[subEventIndex][address] = value;
+                        }
+
+                        if (eoe_found_flag)
+                        {
+                            ++m_counters.moduleCounters[cfg].eoeWords;
                         }
                     }
                 }

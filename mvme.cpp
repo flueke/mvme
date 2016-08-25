@@ -82,6 +82,7 @@ mvme::mvme(QWidget *parent) :
     auto contextWidget = new MVMEContextWidget(m_context);
     m_contextWidget = contextWidget;
     connect(contextWidget, &MVMEContextWidget::eventClicked, this, &mvme::handleEventConfigClicked);
+    connect(contextWidget, &MVMEContextWidget::eventDoubleClicked, this, &mvme::handleEventConfigDoubleClicked);
     connect(contextWidget, &MVMEContextWidget::moduleClicked, this, &mvme::handleModuleConfigClicked);
     connect(contextWidget, &MVMEContextWidget::moduleDoubleClicked, this, &mvme::handleModuleConfigDoubleClicked);
 
@@ -255,7 +256,38 @@ void mvme::displayAbout()
 }
 
 void mvme::closeEvent(QCloseEvent *event){
-    qDebug("close Event");
+    if (m_context->getDAQState() != DAQState::Idle)
+    {
+        QMessageBox msgBox(QMessageBox::Warning, QSL("DAQ is running"),
+                           QSL("Data acquisition is currently active. Ignoring request to exit."),
+                           QMessageBox::Ok);
+        msgBox.exec();
+        event->ignore();
+        return;
+    }
+
+    if (m_context->getConfig()->isModified())
+    {
+        QMessageBox msgBox(QMessageBox::Question, "Save configuration?",
+                           "The current configuration has modifications. Do you want to save it?",
+                           QMessageBox::Save | QMessageBox::Cancel | QMessageBox::Discard);
+        int result = msgBox.exec();
+
+        if (result == QMessageBox::Save)
+        {
+            if (!on_actionSaveConfig_triggered())
+            {
+                event->ignore();
+                return;
+            }
+        }
+        else if (result == QMessageBox::Cancel)
+        {
+            event->ignore();
+            return;
+        }
+    }
+
     QSettings settings;
     settings.setValue("mainWindowGeometry", saveGeometry());
     settings.setValue("mainWindowState", saveState());
@@ -308,107 +340,6 @@ void mvme::restoreSettings()
     settings.endGroup();
 }
 
-void mvme::on_actionSave_Histogram_triggered()
-{
-    Q_ASSERT(!"Not implemented");
-
-#if 0
-    auto subwin = ui->mdiArea->currentSubWindow();
-    auto widget = subwin ? subwin->widget() : nullptr;
-    auto tdw = qobject_cast<TwoDimWidget *>(widget);
-
-    if (!tdw)
-        return;
-
-    quint32 channelIndex = tdw->getSelectedChannelIndex();
-
-    QString buffer;
-    buffer.sprintf("histogram_channel%02u.txt", channelIndex);
-    QString fileName = QFileDialog::getSaveFileName(this, "Save Histogram", buffer,
-                                                    "Text Files (*.txt);; All Files (*.*)");
-
-    if (fileName.isEmpty())
-        return;
-
-
-
-    QFile outFile(fileName);
-    if (!outFile.open(QIODevice::WriteOnly))
-        return;
-
-    QTextStream stream(&outFile);
-    writeHistogram(stream, tdw->getHistogram(), channelIndex);
-#endif
-}
-
-void mvme::on_actionLoad_Histogram_triggered()
-{
-    Q_ASSERT(!"Not implemented");
-#if 0
-    QString fileName = QFileDialog::getOpenFileName(this, "Load Histogram",
-                                                   QString(),
-                                                   "Text Files (*.txt);; All Files (*.*)");
-
-    if (fileName.isEmpty())
-        return;
-
-    QFile inFile(fileName);
-    if (!inFile.open(QIODevice::ReadOnly))
-    {
-        QMessageBox::critical(0, "Error", QString("Error opening %1 for reading").arg(fileName));
-        return;
-    }
-
-    QTextStream stream(&inFile);
-
-    quint32 channelIndex = 0;
-
-    readHistogram(stream, m_histogram[0], &channelIndex);
-
-    auto subwin = ui->mdiArea->currentSubWindow();
-    auto widget = subwin ? subwin->widget() : nullptr;
-    auto tdw = qobject_cast<TwoDimWidget *>(widget);
-
-    if (tdw)
-    {
-        tdw->setSelectedChannelIndex(channelIndex);
-    }
-
-    foreach(QMdiSubWindow *w, ui->mdiArea->subWindowList())
-    {
-        auto tdw = qobject_cast<TwoDimWidget *>(w->widget());
-        if (tdw)
-        {
-            tdw->plot();
-        }
-    }
-#endif
-}
-
-void mvme::on_actionExport_Histogram_triggered()
-{
-    auto subwin = ui->mdiArea->currentSubWindow();
-    auto widget = subwin ? subwin->widget() : nullptr;
-    auto tdw = qobject_cast<TwoDimWidget *>(widget);
-
-    if (tdw)
-    {
-        tdw->exportPlot();
-    }
-}
-
-void mvme::on_actionExport_Spectrogram_triggered()
-{
-    auto subwin = ui->mdiArea->currentSubWindow();
-    auto widget = subwin ? subwin->widget() : nullptr;
-    auto spectroWidget = qobject_cast<Hist2DWidget *>(widget);
-
-    if (spectroWidget)
-    {
-        spectroWidget->exportPlot();
-    }
-}
-
 void mvme::on_actionNewConfig_triggered()
 {
     if (m_context->getConfig()->isModified())
@@ -433,7 +364,7 @@ void mvme::on_actionNewConfig_triggered()
 
     m_context->setConfig(new DAQConfig);
     m_context->setConfigFileName(QString());
-    QSettings().remove("Files/LastConfigFile");
+    //QSettings().remove("Files/LastConfigFile");
 
     for (auto name: m_context->getHistograms().keys())
     {
@@ -619,31 +550,42 @@ void mvme::on_actionShowLogWindow_triggered()
 
 void mvme::handleEventConfigClicked(EventConfig *config)
 {
+    qDebug() << config << config->getId();
+    if (m_configDialogs.contains(config))
+    {
+        m_configDialogs[config]->show();
+        m_configDialogs[config]->showNormal();
+        m_configDialogs[config]->activateWindow();
+        m_configDialogs[config]->raise();
+    }
+}
+
+void mvme::handleEventConfigDoubleClicked(EventConfig *config)
+{
+    if (m_configDialogs.contains(config))
+    {
+        m_configDialogs[config]->show();
+        m_configDialogs[config]->showNormal();
+        m_configDialogs[config]->activateWindow();
+        m_configDialogs[config]->raise();
+    }
+    else
+    {
+
+        auto dialog = new EventConfigDialog(m_context, config, this);
+        dialog->setAttribute(Qt::WA_DeleteOnClose);
+        m_configDialogs[config] = dialog;
+        connect(dialog, &QDialog::finished, this, [=](int r) {
+            m_configDialogs.remove(dialog->getConfig());
+        });
+
+        dialog->show();
+    }
 }
 
 void mvme::handleModuleConfigClicked(ModuleConfig *config)
 {
-#if 0
-    QMdiSubWindow *subwin = 0;
-    for (auto win: ui->mdiArea->subWindowList())
-    {
-        auto widget = qobject_cast<ModuleConfigDialog *>(win->widget());
-        if (widget && widget->getConfig() == config)
-        {
-            subwin = win;
-            break;
-        }
-    }
-
-    if (subwin)
-    {
-        subwin->show();
-        if (subwin->isMinimized())
-            subwin->showNormal();
-        subwin->raise();
-    }
-    ui->mdiArea->setActiveSubWindow(subwin);
-#endif
+    qDebug() << config << config->getId();
     if (m_configDialogs.contains(config))
     {
         m_configDialogs[config]->show();
@@ -655,25 +597,6 @@ void mvme::handleModuleConfigClicked(ModuleConfig *config)
 
 void mvme::handleModuleConfigDoubleClicked(ModuleConfig *config)
 {
-#if 0
-    for (auto win: ui->mdiArea->subWindowList())
-    {
-        auto widget = qobject_cast<ModuleConfigDialog *>(win->widget());
-        if (widget && widget->getConfig() == config)
-        {
-            return;
-        }
-    }
-
-    auto widget = new ModuleConfigDialog(m_context, config);
-    auto subwin = new QMdiSubWindow;
-    subwin->setAttribute(Qt::WA_DeleteOnClose);
-    subwin->setWidget(widget);
-    subwin->show();
-    ui->mdiArea->addSubWindow(subwin);
-    ui->mdiArea->setActiveSubWindow(subwin);
-#endif
-
     if (m_configDialogs.contains(config))
     {
         m_configDialogs[config]->show();
@@ -705,6 +628,9 @@ void mvme::handleDeleteModuleConfig(ModuleConfig *module)
 
 void mvme::handleHistogramClicked(const QString &name, HistogramCollection *histo)
 {
+    qDebug() << histo << histo->property("Histogram.sourceModule").toUuid();
+
+
     QMdiSubWindow *subwin = 0;
     for (auto win: ui->mdiArea->subWindowList())
     {
@@ -845,7 +771,7 @@ void mvme::onConfigChanged(DAQConfig *config)
 {
     for (auto win: ui->mdiArea->subWindowList())
     {
-        if(qobject_cast<EventConfigWidget *>(win->widget()) ||
+        if(qobject_cast<EventConfigDialog *>(win->widget()) ||
            qobject_cast<ModuleConfigDialog *>(win->widget()))
         {
             win->close();

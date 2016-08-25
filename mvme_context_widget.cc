@@ -5,6 +5,7 @@
 #include "histogram.h"
 #include "hist2ddialog.h"
 #include "vmecontroller.h"
+#include "config_widgets.h"
 
 #include <QComboBox>
 #include <QDialog>
@@ -26,77 +27,6 @@
 #include <QCheckBox>
 #include <QFileDialog>
 #include <QCoreApplication>
-
-struct AddEventConfigDialog: public QDialog
-{
-    AddEventConfigDialog(MVMEContext *context, QWidget *parent = 0)
-        : QDialog(parent)
-        , context(context)
-    {
-        setWindowTitle("Add event");
-
-        nameEdit = new QLineEdit;
-        nameEdit->setText(QString("event%1").arg(context->getEventConfigs().size()));
-
-        triggerCombo = new QComboBox;
-        for (auto type: TriggerConditionNames.keys())
-        {
-            triggerCombo->addItem(TriggerConditionNames[type], QVariant::fromValue(static_cast<int>(type)));
-        }
-
-        irqLevelSpin = new QSpinBox;
-        irqLevelSpin->setMinimum(1);
-        irqLevelSpin->setMaximum(7);
-
-        irqVectorSpin = new QSpinBox;
-        irqVectorSpin->setMinimum(0);
-        irqVectorSpin->setMaximum(255);
-
-
-        auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
-        connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
-        connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
-
-        auto layout = new QFormLayout(this);
-
-        layout->addRow("Event Name", nameEdit);
-        layout->addRow("Trigger Condition", triggerCombo);
-        layout->addRow("IRQ Level", irqLevelSpin);
-        layout->addRow("IRQ Vector", irqVectorSpin);
-        layout->addRow(bb);
-
-        connect(nameEdit, &QLineEdit::textChanged, [=](const QString &text) {
-            bb->button(QDialogButtonBox::Ok)->setEnabled(text.size());
-        });
-
-        connect(triggerCombo, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
-                this, [=](int index) {
-
-            auto type = static_cast<TriggerCondition>(triggerCombo->currentData().toInt());
-            irqLevelSpin->setEnabled(type == TriggerCondition::Interrupt);
-            irqVectorSpin->setEnabled(type == TriggerCondition::Interrupt);
-        });
-        irqLevelSpin->setEnabled(false);
-        irqVectorSpin->setEnabled(false);
-    }
-
-    virtual void accept()
-    {
-        auto event = new EventConfig;
-        event->setId(QUuid::createUuid());
-        event->setName(nameEdit->text());
-        event->triggerCondition = static_cast<TriggerCondition>(triggerCombo->currentData().toInt());
-        event->irqLevel = irqLevelSpin->value();
-        event->irqVector = irqVectorSpin->value();
-        context->addEventConfig(event);
-        QDialog::accept();
-    }
-
-    MVMEContext *context;
-    QLineEdit *nameEdit;
-    QComboBox *triggerCombo;
-    QSpinBox *irqLevelSpin, *irqVectorSpin;
-};
 
 struct AddModuleDialog: public QDialog
 {
@@ -149,7 +79,6 @@ struct AddModuleDialog: public QDialog
     {
         bool ok;
         auto module = new ModuleConfig;
-        module->setId(QUuid::createUuid());
         module->type = static_cast<VMEModuleType>(typeCombo->currentData().toInt());
         module->setName(nameEdit->text());
         module->baseAddress = addressEdit->text().toUInt(&ok, 16);
@@ -197,7 +126,7 @@ struct MVMEContextWidgetPrivate
 
     QPushButton *pb_startDAQ, *pb_startOneCycle, *pb_stopDAQ, *pb_replay;
     QLabel *label_daqState, *label_daqDuration, *label_buffersReadAndDropped,
-           *label_freeBuffers, *label_readSize, *label_mbPerSecond, *label_controllerState;
+           *label_freeBuffers, *label_readSize, *label_mbPerSecond, *label_controllerState, *label_writtenToListFile;
     QLineEdit *le_outputDirectory;
     QCheckBox *cb_outputEnabled;
     QTreeWidget *contextTree;
@@ -230,6 +159,7 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
         m_d->label_freeBuffers = new QLabel;
         m_d->label_readSize = new QLabel;
         m_d->label_mbPerSecond = new QLabel;
+        m_d->label_writtenToListFile = new QLabel;
 
         connect(m_d->pb_startDAQ, &QPushButton::clicked, m_d->context, &MVMEContext::startDAQ);
 
@@ -260,11 +190,12 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
         stateLayout->setSpacing(2);
         stateLayout->addRow("Controller:", m_d->label_controllerState);
         stateLayout->addRow("State:", m_d->label_daqState);
-        stateLayout->addRow("Running:", m_d->label_daqDuration);
-        stateLayout->addRow("Buffers read / dropped:", m_d->label_buffersReadAndDropped);
+        stateLayout->addRow("Running time:", m_d->label_daqDuration);
+        stateLayout->addRow("Free event buffers:", m_d->label_freeBuffers);
+        stateLayout->addRow("Buffers read / dropped / errors:", m_d->label_buffersReadAndDropped);
         stateLayout->addRow("Buffers/s / MB/s:", m_d->label_mbPerSecond);
-        stateLayout->addRow("Free buffers:", m_d->label_freeBuffers);
-        stateLayout->addRow("Buffer read size:", m_d->label_readSize);
+        stateLayout->addRow("Last readbuffer size:", m_d->label_readSize);
+        stateLayout->addRow("ListFile size:", m_d->label_writtenToListFile);
 
         layout->addLayout(stateLayout, 1, 0, 1, 3);
     }
@@ -465,40 +396,46 @@ QTreeWidgetItem *findItem(QTreeWidget *widget, Pred predicate)
 void MVMEContextWidget::onEventConfigAdded(EventConfig *eventConfig)
 {
     auto item = new QTreeWidgetItem(TIT_EventConfig);
-
-    QString text;
-    switch (eventConfig->triggerCondition)
-    {
-        case TriggerCondition::Interrupt:
-            {
-                text = QString("%1 (IRQ, lvl=%2, vec=%3)")
-                    .arg(eventConfig->getName())
-                    .arg(eventConfig->irqLevel)
-                    .arg(eventConfig->irqVector);
-            } break;
-        case TriggerCondition::NIM1:
-            {
-                text = QString("%1 (NIM)")
-                    .arg(eventConfig->getName());
-            } break;
-        case TriggerCondition::Scaler:
-            {
-                text = QString("%1 (Periodic)")
-                    .arg(eventConfig->getName());
-            } break;
-    }
-
-
-    item->setText(0, text);
-    item->setData(0, Qt::UserRole, QVariant::fromValue(static_cast<void *>(eventConfig)));
-    item->setText(1, QSL("0"));
-
     m_d->treeWidgetMap[eventConfig] = item;
+
+    auto updateTreeItem = [eventConfig, this]()
+    {
+        QString text;
+        switch (eventConfig->triggerCondition)
+        {
+            case TriggerCondition::Interrupt:
+                {
+                    text = QString("%1 (IRQ, lvl=%2, vec=%3)")
+                        .arg(eventConfig->getName())
+                        .arg(eventConfig->irqLevel)
+                        .arg(eventConfig->irqVector);
+                } break;
+            case TriggerCondition::NIM1:
+                {
+                    text = QString("%1 (NIM)")
+                        .arg(eventConfig->getName());
+                } break;
+            case TriggerCondition::Periodic:
+                {
+                    text = QString("%1 (Periodic)")
+                        .arg(eventConfig->getName());
+                } break;
+        }
+
+
+        auto item = m_d->treeWidgetMap[eventConfig];
+        if (item)
+        {
+            item->setText(0, text);
+            item->setData(0, Qt::UserRole, QVariant::fromValue(static_cast<void *>(eventConfig)));
+        }
+    };
+
+    updateTreeItem();
     m_d->contextTree->addTopLevelItem(item);
 
-    connect(eventConfig, &EventConfig::nameChanged, eventConfig, [=](const QString &name) {
-        item->setText(0, name);
-    });
+    connect(eventConfig, &EventConfig::modified, eventConfig, updateTreeItem);
+
     m_d->contextTree->resizeColumnToContents(0);
 }
 
@@ -567,8 +504,18 @@ void MVMEContextWidget::treeContextMenu(const QPoint &pos)
 
     if (action == actionAddEvent)
     {
-        AddEventConfigDialog dialog(m_d->context);
-        dialog.exec();
+        auto config = new EventConfig;
+        config->setName(QString("event%1").arg(m_d->context->getEventConfigs().size()));
+        EventConfigDialog dialog(m_d->context, config);
+        int result = dialog.exec();
+        if (result == QDialog::Accepted)
+        {
+            m_d->context->addEventConfig(config);
+        }
+        else
+        {
+            delete config;
+        }
     }
     else if (action == actionAddModule)
     {
@@ -709,12 +656,8 @@ void MVMEContextWidget::histoListContextMenu(const QPoint &pos)
         menu.addAction(addHist2D);
     }
 
-    /*
-    if (histo && histo->property("Histogram.autoCreated").toBool())
-    {
-        delAction->setEnabled(false);
-    }
-    */
+    if (menu.isEmpty())
+        return;
 
     auto action = menu.exec(m_d->histoList->mapToGlobal(pos));
 
@@ -805,9 +748,11 @@ void MVMEContextWidget::updateStats()
     }
     m_d->label_daqDuration->setText(durationString);
 
-    m_d->label_buffersReadAndDropped->setText(QString("%1 / %2")
-                                              .arg(QString::number(stats.buffersRead))
-                                              .arg(QString::number(stats.droppedBuffers)));
+    m_d->label_buffersReadAndDropped->setText(QString("%1 / %2 / %3")
+                                              .arg(stats.buffersRead)
+                                              .arg(stats.droppedBuffers)
+                                              .arg(stats.buffersWithErrors)
+                                              );
 
     m_d->label_freeBuffers->setText(QString::number(stats.freeBuffers));
     m_d->label_readSize->setText(QString::number(stats.readSize));
@@ -815,6 +760,9 @@ void MVMEContextWidget::updateStats()
                                     .arg(buffersPerSecond, 6, 'f', 2)
                                     .arg(mbPerSecond, 6, 'f', 2)
                                     );
+    m_d->label_writtenToListFile->setText(QString("%1 MB")
+                                          .arg((double)stats.listFileBytesWritten / (1024.0*1024.0), 6, 'f', 2)
+                                         );
 
     for (auto it=m_d->treeWidgetMap.begin(); it!=m_d->treeWidgetMap.end(); ++it)
     {

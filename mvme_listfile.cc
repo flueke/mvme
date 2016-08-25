@@ -118,6 +118,11 @@ QJsonObject ListFile::getDAQConfig()
 
         QJsonParseError parseError; // TODO: make parse error message available to the user
         m_configJson = QJsonDocument::fromJson(configData, &parseError);
+        
+        if (parseError.error != QJsonParseError::NoError)
+        {
+            qDebug() << "Parse error: " << parseError.errorString();
+        }
     }
 
     if (!m_configJson.isEmpty())
@@ -228,5 +233,9 @@ void ListFileWorker::readNextBuffer()
     if (sectionsRead > 0)
     {
         emit mvmeEventBufferReady(m_buffer);
+    }
+    else
+    {
+        emit endOfFileReached();
     }
 }

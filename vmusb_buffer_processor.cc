@@ -136,7 +136,7 @@ void VMUSBBufferProcessor::beginRun()
 
     while (configData.size() % sizeof(u32))
     {
-        configData.append('\0');
+        configData.append(' ');
     }
 
     int configSize = configData.size();
@@ -177,7 +177,13 @@ void VMUSBBufferProcessor::beginRun()
 
     if (m_listFileOut.isOpen())
     {
-        m_listFileOut.write((const char *)buffer->data, buffer->used);
+        if (m_listFileOut.write((const char *)buffer->data, buffer->used) != (qint64)buffer->used)
+        {
+            throw QString("Error writing to %1: %2")
+                .arg(m_listFileOut.fileName())
+                .arg(m_listFileOut.errorString());
+        }
+        getStats()->listFileBytesWritten += buffer->used;
     }
 
     QTextStream out(stdout);
@@ -187,10 +193,6 @@ void VMUSBBufferProcessor::beginRun()
     {
         emit mvmeEventBufferReady(buffer);
     }
-    else
-    {
-        //getStats()->droppedBuffers++;
-    }
 }
 
 void VMUSBBufferProcessor::endRun()
@@ -198,7 +200,15 @@ void VMUSBBufferProcessor::endRun()
     if (m_listFileOut.isOpen())
     {
         u32 header = (SectionType_End << SectionTypeShift) & SectionTypeMask;
-        m_listFileOut.write((const char *)&header, sizeof(header));
+
+        if (m_listFileOut.write((const char *)&header, sizeof(header)) != sizeof(header))
+        {
+            throw QString("Error writing to %1: %2")
+                .arg(m_listFileOut.fileName())
+                .arg(m_listFileOut.errorString());
+        }
+        getStats()->listFileBytesWritten += sizeof(header);
+
         m_listFileOut.close();
     }
 
@@ -256,7 +266,7 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
         {
             u32 header2 = iter.extractWord();
             u16 numberOfWords = header2 & Buffer::NumberOfWordsMask;
-            qDebug("header2: numberOfWords=%u, bytes in readBuffer=%u", numberOfWords, readBuffer->used);
+            //qDebug("header2: numberOfWords=%u, bytes in readBuffer=%u", numberOfWords, readBuffer->used);
         }
 
         for (u16 eventIndex=0; eventIndex < numberOfEvents; ++eventIndex)
@@ -271,8 +281,8 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
                 u16 bufferTerminator = iter.extractU16();
                 if (bufferTerminator != Buffer::BufferTerminator)
                 {
-                    emit logMessage(QString("VMUSB Warning: unexpected buffer terminator 0x%1")
-                                    .arg(bufferTerminator, 4, 10, QLatin1Char('0')));
+                    emit logMessage(QString("VMUSB Error: unexpected buffer terminator 0x%1")
+                                    .arg(bufferTerminator, 4, 16, QLatin1Char('0')));
                 }
             }
         }
@@ -287,13 +297,13 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
                             .arg(iter.bytesLeft()));
 
             qDebug("processBuffer() warning: %u bytes left in buffer!", iter.bytesLeft());
-            for (size_t i=0; i<iter.longwordsLeft(); ++i)
+            while (iter.longwordsLeft())
                 qDebug("  0x%08x", iter.extractU32());
 
-            for (size_t i=0; i<iter.wordsLeft(); ++i)
+            while (iter.wordsLeft())
                 qDebug("  0x%04x", iter.extractU16());
 
-            for (size_t i=0; i<iter.bytesLeft(); ++i)
+            while (iter.bytesLeft())
                 qDebug("  0x%02x", iter.extractU8());
         }
 
@@ -303,10 +313,11 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
 
             if (result != (qint64)outputBuffer->used)
             {
-                emit logMessage(QString("Error writing to listfile '%1': %2")
-                                .arg(m_listFileOut.fileName())
-                                .arg(m_listFileOut.errorString()));
+                throw QString("Error writing to listfile '%1': %2")
+                    .arg(m_listFileOut.fileName())
+                    .arg(m_listFileOut.errorString());
             }
+            getStats()->listFileBytesWritten += outputBuffer->used;
         }
 
         //QTextStream out(stdout);
@@ -326,8 +337,8 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
     }
     catch (const end_of_buffer &)
     {
-        qDebug("Error: end of readBuffer reached unexpectedly!");
         logMessage(QSL("VMUSB Error: end of readBuffer reached unexpectedly!"));
+        getStats()->buffersWithErrors++;
     }
 #endif
 
@@ -356,23 +367,30 @@ bool VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *output
     bool partialEvent   = eventHeader & Buffer::ContinuationMask; // TODO: handle this!
     u32 eventLength     = eventHeader & Buffer::EventLengthMask; // in 16-bit words
 
+    //qDebug("eventHeader=0x%08x, stackID=%u, partialEvent=%d, eventLength=%u short words",
+    //           eventHeader, stackID, partialEvent, eventLength);
+
     if (partialEvent)
     {
-        qDebug("eventHeader=0x%08x, stackID=%u, partialEvent=%d, eventLength=%u",
+        qDebug("eventHeader=0x%08x, stackID=%u, partialEvent=%d, eventLength=%u shorts",
                eventHeader, stackID, partialEvent, eventLength);
         qDebug() << "===== Error: partial event support not implemented! ======";
+        emit logMessage(QSL("VMUSB Error: got a partial event"));
         iter.skip(sizeof(u16), eventLength);
         return false;
     }
 
     if (!m_eventConfigByStackID.contains(stackID))
     {
-        qDebug("===== Error: no event config for stackID=%u! ======", stackID);
+        //qDebug("===== Error: no event config for stackID=%u! ======", stackID);
+        emit logMessage(QString(QSL("VMUSB: No event config for stackID=%1, skipping event")).arg(stackID));
         iter.skip(sizeof(u16), eventLength);
         return false;
     }
 
     BufferIterator eventIter(iter.buffp, eventLength * sizeof(u16), BufferIterator::Align16);
+
+    //qDebug() << "eventIter size =" << eventIter.bytesLeft() << " bytes";
 
     auto eventConfig = m_eventConfigByStackID[stackID];
     getStats()->eventCounts[eventConfig]++;
@@ -426,6 +444,15 @@ bool VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *output
     if (eventIter.bytesLeft())
     {
         qDebug("===== Warning: %u bytes left in eventIter", eventIter.bytesLeft());
+
+        while (eventIter.longwordsLeft())
+            qDebug("  0x%08x", eventIter.extractU32());
+
+        while (eventIter.wordsLeft())
+            qDebug("  0x%04x", eventIter.extractU16());
+
+        while (eventIter.bytesLeft())
+            qDebug("  0x%02x", eventIter.extractU8());
     }
 
     *mvmeEventHeader |= (eventSize << SectionSizeShift) & SectionSizeMask;

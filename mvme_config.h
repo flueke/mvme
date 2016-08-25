@@ -13,10 +13,12 @@ class ModuleConfig: public QObject
     Q_OBJECT
     signals:
         void nameChanged(const QString &name);
+        void modified();
 
     public:
         ModuleConfig(QObject *parent = 0)
             : QObject(parent)
+            , m_id(QUuid::createUuid())
         {}
 
         void setModified();
@@ -59,11 +61,6 @@ class ModuleConfig: public QObject
 
         EventConfig *event = 0;
 
-        void setId(const QUuid &uuid)
-        {
-            m_id = uuid;
-        }
-
         QUuid getId() const
         {
             return m_id;
@@ -78,10 +75,12 @@ class EventConfig: public QObject
     Q_OBJECT
     signals:
         void nameChanged(const QString &name);
+        void modified();
 
     public:
         EventConfig(QObject *parent = 0)
             : QObject(parent)
+            , m_id(QUuid::createUuid())
         {}
 
         ~EventConfig() { qDeleteAll(modules); }
@@ -102,23 +101,21 @@ class EventConfig: public QObject
         void read(const QJsonObject &json);
         void write(QJsonObject &json) const;
 
-    TriggerCondition triggerCondition;
+    TriggerCondition triggerCondition = TriggerCondition::NIM1;
     uint8_t irqLevel = 0;
     uint8_t irqVector = 0;
     // Maximum time between scaler stack executions in units of 0.5s
     uint8_t scalerReadoutPeriod = 0;
     // Maximum number of events between scaler stack executions
     uint16_t scalerReadoutFrequency = 0;
+    // Readout trigger delay (global for NIM and IRQ triggers) in microseconds
+    uint8_t readoutTriggerDelay = 0;
+
     QList<ModuleConfig *> modules;
 
     /* Set by the readout worker and then used by the buffer
      * processor to map from stack ids to event configs. */
     uint8_t stackID;
-
-    void setId(const QUuid &uuid)
-    {
-        m_id = uuid;
-    }
 
     QUuid getId() const
     {

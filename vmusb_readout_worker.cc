@@ -44,6 +44,7 @@ void VMUSBReadoutWorker::start(quint32 cycles)
     setState(DAQState::Starting);
     DAQStats &stats(m_context->getDAQStats());
     stats = DAQStats();
+    bool error = false;
 
     try
     {
@@ -58,11 +59,12 @@ void VMUSBReadoutWorker::start(quint32 cycles)
             if (result < 0)
                 throw QString("Resetting IRQ vectors failed");
         }
+
+        vmusb->setDaqSettings(0);
+
         int globalMode = vmusb->getMode();
         globalMode |= (1 << GlobalModeRegister::MixedBufferShift);
         vmusb->setMode(globalMode);
-        if (result < 0)
-            throw QString("Resetting IRQ vectors failed");
 
         // TODO: use register lists instead of command list here
         VMECommandList resetCommands, startCommands;
@@ -81,6 +83,7 @@ void VMUSBReadoutWorker::start(quint32 cycles)
             m_vmusbStack.irqVector = event->irqVector;
             m_vmusbStack.scalerReadoutPeriod = event->scalerReadoutPeriod;
             m_vmusbStack.scalerReadoutFrequency = event->scalerReadoutFrequency;
+            m_vmusbStack.readoutTriggerDelay = event->readoutTriggerDelay;
 
             if (event->triggerCondition == TriggerCondition::Interrupt)
             {
@@ -93,6 +96,8 @@ void VMUSBReadoutWorker::start(quint32 cycles)
                 // for NIM1 and scaler triggers the stack knows the stack number
                 event->stackID = m_vmusbStack.getStackID();
             }
+
+            qDebug() << "event " << event->getName() << " -> stackID =" << event->stackID;
 
             for (auto module: event->modules)
             {
@@ -110,10 +115,12 @@ void VMUSBReadoutWorker::start(quint32 cycles)
             }
 
             logMessage(QString("Loading readout stack for event \"%1\""
-                               ", stack id = %2, load offset = %3")
+                               ", stack id = %2, size= %4, load offset = %3")
                        .arg(event->getName())
                        .arg(m_vmusbStack.getStackID())
-                       .arg(VMUSBStack::loadOffset));
+                       .arg(VMUSBStack::loadOffset)
+                       .arg(m_vmusbStack.getContents().size())
+                       );
 
             {
                 QString tmp;
@@ -137,7 +144,7 @@ void VMUSBReadoutWorker::start(quint32 cycles)
 
         {
             emit logMessage(QSL("Running reset commands"));
-            emit logMessage(resetCommands.toString());
+            emit logMessages(resetCommands.toStringList());
             ssize_t result = vmusb->executeCommands(&resetCommands, buffer, sizeof(buffer));
             if (result < 0)
             {
@@ -148,8 +155,8 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         }
 
         {
-            emit logMessage(QSL("Running module init commands"));
-            emit logMessage(toString(initParametersAndReadout));
+            emit logMessage(QSL("Module init:"));
+            emit logMessages(toStringList(initParametersAndReadout));
             result = vmusb->applyRegisterList(initParametersAndReadout, 0, 10);
             if (result < 0)
             {
@@ -160,7 +167,7 @@ void VMUSBReadoutWorker::start(quint32 cycles)
 
         {
             emit logMessage(QSL("Running module start commands"));
-            emit logMessage(startCommands.toString());
+            emit logMessages(startCommands.toStringList());
             ssize_t result = vmusb->executeCommands(&startCommands, buffer, sizeof(buffer));
             if (result < 0)
             {
@@ -181,19 +188,22 @@ void VMUSBReadoutWorker::start(quint32 cycles)
     {
         emit logMessage(QString("Error: %1").arg(message));
         setError(message);
+        error = true;
     }
     catch (const QString &message)
     {
         emit logMessage(QString("Error: %1").arg(message));
         setError(message);
+        error = true;
     }
     catch (const std::runtime_error &e)
     {
         emit logMessage(QString("Error: %1").arg(e.what()));
         setError(e.what());
+        error = true;
     }
 
-    if (!getLastErrorMessage().isEmpty())
+    if (error)
     {
         try
         {
@@ -219,7 +229,10 @@ void VMUSBReadoutWorker::readoutLoop()
     setState(DAQState::Running);
 
     auto vmusb = dynamic_cast<VMUSB *>(m_context->getController());
-    vmusb->enterDaqMode();
+    if (!vmusb->enterDaqMode())
+    {
+        throw QString("Error entering VMUSB DAQ mode");
+    }
 
     int timeout_ms = 2000; // TODO: make this dynamic and dependent on the Bulk Transfer Setup Register timeout
     int consecutiveReadErrors = 0;

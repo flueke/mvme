@@ -105,6 +105,7 @@ class ListFileWorker: public QObject
     signals:
         void mvmeEventBufferReady(DataBuffer *);
         void logMessage(const QString &);
+        void endOfFileReached();
 
     public:
         ListFileWorker(QObject *parent = 0);

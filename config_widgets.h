@@ -13,16 +13,26 @@ class QAbstractButton;
 
 namespace Ui
 {
+    class EventConfigDialog;
     class ModuleConfigDialog;
 }
 
-class EventConfigWidget: public QWidget
+class EventConfigDialog: public QDialog
 {
     Q_OBJECT
     public:
-        EventConfigWidget(EventConfig *config, QWidget *parent = 0);
+        EventConfigDialog(MVMEContext *context, EventConfig *config, QWidget *parent = 0);
+
+        EventConfig *getConfig() const { return m_config; }
+
+        virtual void accept();
         
     private:
+        void loadFromConfig();
+        void saveToConfig();
+
+        Ui::EventConfigDialog *ui;
+        MVMEContext *m_context;
         EventConfig *m_config;
 };
 

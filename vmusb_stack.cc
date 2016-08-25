@@ -20,12 +20,12 @@ int VMUSBStack::loadStack(VMUSB *vmusb)
     }
     qDebug("----- End of stack -----");
 
-    int result = 0;
+    int result = -1;
 
     if (contents.size())
     {
         result = vmusb->stackWrite(getStackID(), loadOffset, contents);
-        if (result > 0)
+        if (result >= 0)
         {
             // Stack size in 16-bit words + 4 for the stack header (from nscldaqs CStack)
             loadOffset += contents.size() * 2 + 4;
@@ -43,9 +43,13 @@ int VMUSBStack::enableStack(VMUSB *controller)
     {
         case TriggerCondition::NIM1:
             {
-                // TODO: set trigger readout delay
+                uint32_t daqSettings = controller->getDaqSettings();
+                daqSettings &= ~DaqSettingsRegister::ReadoutTriggerDelayMask;
+                daqSettings |= readoutTriggerDelay << DaqSettingsRegister::ReadoutTriggerDelayShift;
+                result = controller->setDaqSettings(daqSettings);
             } break;
-        case TriggerCondition::Scaler:
+
+        case TriggerCondition::Periodic:
             {
                 uint32_t daqSettings = controller->getDaqSettings();
                 daqSettings &= ~DaqSettingsRegister::ScalerReadoutFrequencyMask;
@@ -56,6 +60,7 @@ int VMUSBStack::enableStack(VMUSB *controller)
 
                 result = controller->setDaqSettings(daqSettings);
             } break;
+
         case TriggerCondition::Interrupt:
             {
                 uint16_t isvValue = (stackID << ISVWord::stackIDShift)
@@ -70,6 +75,11 @@ int VMUSBStack::enableStack(VMUSB *controller)
                     << ", vectorNumber(register)=" << vectorNumber;
 
                 result = controller->setIrq(vectorNumber, isvValue);
+
+                uint32_t daqSettings = controller->getDaqSettings();
+                daqSettings &= ~DaqSettingsRegister::ReadoutTriggerDelayMask;
+                daqSettings |= readoutTriggerDelay << DaqSettingsRegister::ReadoutTriggerDelayShift;
+                result = controller->setDaqSettings(daqSettings);
             } break;
     };
 

@@ -7,8 +7,6 @@ HistogramCollection::HistogramCollection(QObject *parent, quint32 channels, quin
     : QObject(parent)
 {
     resize(channels, resolution);
-    initHistogram();
-    qDebug("Initialized histogram with %d channels, %d resolution", channels, resolution);
 }
 
 HistogramCollection::~HistogramCollection()
@@ -25,11 +23,12 @@ void HistogramCollection::resize(quint32 channels, quint32 resolution)
     m_channels = channels;
     m_resolution = resolution;
     initHistogram();
+    qDebug("Initialized histogram with %d channels, %d resolution", channels, resolution);
 }
 
 void HistogramCollection::initHistogram(void)
 {
-    qDebug("initializing %d x %d", m_channels, m_resolution);
+    //qDebug("initializing %d x %d", m_channels, m_resolution);
     for(quint32 i = 0; i < m_channels; i++){
         for(quint32 j = 0; j< m_resolution; j++){
             m_data[i*m_resolution+j] = 0;

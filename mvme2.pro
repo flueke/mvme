@@ -79,7 +79,8 @@ FORMS    += \
     hist2ddialog.ui \
     hist2dwidget.ui \
     module_config_dialog.ui \
-    mvmecontrol.ui
+    mvmecontrol.ui \
+    event_config_dialog.ui
 
 
 DEFINES += VME_CONTROLLER_WIENER

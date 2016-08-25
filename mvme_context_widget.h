@@ -14,20 +14,19 @@ class MVMEContextWidget: public QWidget
     Q_OBJECT
     signals:
         void eventClicked(EventConfig *config);
-        void moduleClicked(ModuleConfig *config);
-
         void eventDoubleClicked(EventConfig *config);
-        void moduleDoubleClicked(ModuleConfig *config);
-
         void deleteEvent(EventConfig *config);
+
+        void moduleClicked(ModuleConfig *config);
+        void moduleDoubleClicked(ModuleConfig *config);
         void deleteModule(ModuleConfig *module);
 
         void histogramClicked(const QString &name, HistogramCollection *histo);
         void histogramDoubleClicked(const QString &name, HistogramCollection *histo);
+        void showHistogram(HistogramCollection *histo);
 
         void hist2DClicked(Hist2D *hist2d);
         void hist2DDoubleClicked(Hist2D *hist2d);
-        void showHistogram(HistogramCollection *histo);
         void showHist2D(Hist2D *hist2d);
 
     public:

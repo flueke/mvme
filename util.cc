@@ -79,6 +79,13 @@ QString readStringFile(const QString &filename)
     return ret;
 }
 
+static QString registerSettingToString(const RegisterSetting &rs)
+{
+    return QString("0x%1 -> 0x%2")
+        .arg(rs.first, 8, 16, QLatin1Char('0'))
+        .arg(rs.second, 4, 16, QLatin1Char('0'));
+}
+
 QString toString(const RegisterList &registerList)
 {
     QString result;
@@ -95,4 +102,14 @@ QString toString(const RegisterList &registerList)
 
     }
     return result;
+}
+
+QStringList toStringList(const RegisterList &registerList)
+{
+    QStringList ret;
+    for (auto rs: registerList)
+    {
+        ret << registerSettingToString(rs);
+    }
+    return ret;
 }

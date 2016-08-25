@@ -11,11 +11,14 @@
 
 static const size_t dataBufferCount = 20;
 static const size_t dataBufferSize  = 27 * 1024 * 2; // double the size of a vmusb read buffer
+static const int TryOpenControllerInterval_ms = 250;
+static const int PeriodicLoggingInterval_ms = 5000;
 
 MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
     : QObject(parent)
     , m_config(new DAQConfig)
     , m_ctrlOpenTimer(new QTimer(this))
+    , m_logTimer(new QTimer(this))
     , m_readoutThread(new QThread(this))
     , m_readoutWorker(new VMUSBReadoutWorker(this))
     , m_bufferProcessor(new VMUSBBufferProcessor(this))
@@ -32,9 +35,12 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
     }
 
     connect(m_ctrlOpenTimer, &QTimer::timeout, this, &MVMEContext::tryOpenController);
-
-    m_ctrlOpenTimer->setInterval(100);
+    m_ctrlOpenTimer->setInterval(TryOpenControllerInterval_ms);
     m_ctrlOpenTimer->start();
+
+    connect(m_logTimer, &QTimer::timeout, this, &MVMEContext::logEventProcessorCounters);
+    m_logTimer->setInterval(PeriodicLoggingInterval_ms);
+
 
     m_readoutThread->setObjectName("ReadoutThread");
     m_readoutWorker->moveToThread(m_readoutThread);
@@ -44,12 +50,19 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
 
     m_readoutThread->start();
 
-    connect(m_readoutWorker, &VMUSBReadoutWorker::stateChanged, this, &MVMEContext::daqStateChanged);
+    connect(m_readoutWorker, &VMUSBReadoutWorker::stateChanged, this, &MVMEContext::onDAQStateChanged);
     connect(m_readoutWorker, &VMUSBReadoutWorker::logMessage, this, &MVMEContext::logMessage);
+    connect(m_readoutWorker, &VMUSBReadoutWorker::logMessages, this, [this](const QStringList &messages) {
+        for (auto msg: messages)
+        {
+            emit logMessage(msg);
+        }
+    });
     connect(m_bufferProcessor, &VMUSBBufferProcessor::logMessage, this, &MVMEContext::logMessage);
     connect(m_listFileWorker, &ListFileWorker::logMessage, this, &MVMEContext::logMessage);
+    connect(m_listFileWorker, &ListFileWorker::endOfFileReached, this, &MVMEContext::logEventProcessorCounters);
 
-    m_eventThread->setObjectName("EventThread");
+    m_eventThread->setObjectName("EventProcessorThread");
     m_eventProcessor->moveToThread(m_eventThread);
     m_eventThread->start();
 
@@ -163,6 +176,62 @@ void MVMEContext::tryOpenController()
     }
 }
 
+void MVMEContext::logEventProcessorCounters()
+{
+    auto counters = m_eventProcessor->getCounters();
+
+    QString buffer;
+    QTextStream stream(&buffer);
+
+    stream << endl;
+    stream << "Buffers:         " << counters.buffers << endl;
+    stream << "Event Sections:  " << counters.events << endl;
+
+    for (auto it = counters.moduleCounters.begin();
+         it != counters.moduleCounters.end();
+         ++it)
+    {
+        auto mod = it.key();
+        auto modCounters = it.value();
+
+        stream << mod->getName() << endl;
+        stream << "  Events:  " << modCounters.events << endl;
+        stream << "  Headers: " << modCounters.headerWords << endl;
+        stream << "  Data:    " << modCounters.dataWords << endl;
+        stream << "  EOE:     " << modCounters.eoeWords << endl;
+        //stream << "  avg event size: " << ((float)modCounters.dataWords / (float)modCounters.events) << endl;
+        stream << "  data/headers: " << ((float)modCounters.dataWords / (float)modCounters.headerWords) << endl;
+    }
+
+    emit logMessage(buffer);
+}
+
+void MVMEContext::onDAQStateChanged(DAQState state)
+{
+    emit daqStateChanged(state);
+
+    switch (state)
+    {
+        case DAQState::Idle:
+            {
+                logEventProcessorCounters();
+            } break;
+
+        case DAQState::Starting:
+            {
+                //m_logTimer->start();
+            } break;
+
+        case DAQState::Running:
+            break;
+
+        case DAQState::Stopping:
+            {
+                //m_logTimer.stop();
+            } break;
+    }
+}
+
 DAQState MVMEContext::getDAQState() const
 {
     return m_readoutWorker->getState();
@@ -242,18 +311,7 @@ void MVMEContext::addHist2D(Hist2D *hist2d)
     emit hist2DAdded(hist2d);
 }
 
-void MVMEContext::startReplay()
-{
-    if (m_mode != GlobalMode::ListFile || !m_listFile)
-        return;
-
-    m_listFile->seek(0);
-    QMetaObject::invokeMethod(m_listFileWorker, "readNextBuffer", Qt::QueuedConnection);
-}
-
-static const int RawHistogramResolution = 8192;
-
-void MVMEContext::startDAQ(quint32 nCycles)
+void MVMEContext::prepareStart()
 {
     auto histograms = m_histograms.values();
     for (ModuleConfig *module: m_config->getAllModuleConfigs())
@@ -269,24 +327,51 @@ void MVMEContext::startDAQ(quint32 nCycles)
         int nChannels = module->getNumberOfChannels();
         int resolution = RawHistogramResolution;
 
-        if (findResult == histograms.end())
+        if (nChannels > 0 && resolution > 0)
         {
-            hist = new HistogramCollection(this, nChannels, resolution);
-            hist->setProperty("Histogram.sourceModule", module->getId());
-            addHistogram(module->getFullPath(), hist);
-        }
-        else
-        {
-            (*findResult)->resize(nChannels, resolution);
+
+            if (findResult == histograms.end())
+            {
+                hist = new HistogramCollection(this, nChannels, resolution);
+                hist->setProperty("Histogram.sourceModule", module->getId());
+                addHistogram(module->getFullPath(), hist);
+            }
+            else
+            {
+                (*findResult)->resize(nChannels, resolution);
+            }
         }
     }
 
+    m_eventProcessor->newRun();
+}
+
+void MVMEContext::startReplay()
+{
+    if (m_mode != GlobalMode::ListFile || !m_listFile)
+        return;
+
+    prepareStart();
+
+    m_listFile->seek(0);
+    QMetaObject::invokeMethod(m_listFileWorker, "readNextBuffer", Qt::QueuedConnection);
+}
+
+void MVMEContext::startDAQ(quint32 nCycles)
+{
+    if (m_mode != GlobalMode::DAQ)
+        return;
+
+    prepareStart();
     QMetaObject::invokeMethod(m_readoutWorker, "start",
                               Qt::QueuedConnection, Q_ARG(quint32, nCycles));
 }
 
 void MVMEContext::stopDAQ()
 {
+    if (m_mode != GlobalMode::DAQ)
+        return;
+
     QMetaObject::invokeMethod(m_readoutWorker, "stop",
                               Qt::QueuedConnection);
 }

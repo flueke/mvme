@@ -140,13 +140,17 @@ u32 ModuleConfig::getDataExtractMask()
     return 0;
 }
 
+#include <QDebug>
+
 void ModuleConfig::setModified()
 {
+    qDebug() << parent();
     auto eventConfig = qobject_cast<EventConfig *>(parent());
     if (eventConfig)
     {
         eventConfig->setModified();
     }
+    emit modified();
 }
 
 void ModuleConfig::read(const QJsonObject &json)
@@ -184,13 +188,16 @@ void ModuleConfig::write(QJsonObject &json) const
 
 void ModuleConfig::generateReadoutStack()
 {
-    VMECommandList readoutCmds;
-    readoutCmds.addFifoRead32(baseAddress, FifoReadTransferSize);
-    readoutCmds.addMarker(EndOfModuleMarker);
-    readoutCmds.addWrite16(baseAddress + 0x6034, 1);
-    CVMUSBReadoutList readoutList(readoutCmds);
-    readoutStack = readoutList.toString();
-    setModified();
+    if (isMesytecModule(type))
+    {
+        VMECommandList readoutCmds;
+        readoutCmds.addFifoRead32(baseAddress, FifoReadTransferSize);
+        readoutCmds.addMarker(EndOfModuleMarker);
+        readoutCmds.addWrite16(baseAddress + 0x6034, 1);
+        CVMUSBReadoutList readoutList(readoutCmds);
+        readoutStack = readoutList.toString();
+        setModified();
+    }
 }
 
 //
@@ -204,6 +211,7 @@ void EventConfig::setModified()
     {
         daqConfig->setModified(true);
     }
+    emit modified();
 }
 
 void EventConfig::read(const QJsonObject &json)
@@ -226,7 +234,7 @@ void EventConfig::read(const QJsonObject &json)
     for (int i=0; i<moduleArray.size(); ++i)
     {
         QJsonObject moduleObject = moduleArray[i].toObject();
-        ModuleConfig *moduleConfig = new ModuleConfig;
+        ModuleConfig *moduleConfig = new ModuleConfig(this);
         moduleConfig->read(moduleObject);
         moduleConfig->event = this;
         modules.append(moduleConfig);
@@ -280,7 +288,7 @@ void DAQConfig::read(const QJsonObject &json)
     for (int eventIndex=0; eventIndex<eventArray.size(); ++eventIndex)
     {
         QJsonObject eventObject = eventArray[eventIndex].toObject();
-        EventConfig *eventConfig = new EventConfig;
+        EventConfig *eventConfig = new EventConfig(this);
         eventConfig->read(eventObject);
         m_eventConfigs.append(eventConfig);
     }
