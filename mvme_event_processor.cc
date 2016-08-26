@@ -290,7 +290,6 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
             //qDebug() << hist2d << hist2d->xAxisResolution() << hist2d->yAxisResolution() << xValue << yValue
             //    << eventIndex << moduleIndex << addressValue;
 
-            // FIXME: can't just shift here: need to know the values resolution
             // Need to get the values resolution from the module config and
             // calculate the shift using the histograms resolution
 
@@ -303,8 +302,9 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
                 shiftX = dataBits - histoBits;
                 if (shiftX < 0)
                     shiftX = 0;
-                qDebug() << hist2d << "X histoBits, dataBits, shift"
-                         << histoBits << dataBits << shiftX;
+
+                //qDebug() << hist2d << "X histoBits, dataBits, shift"
+                //         << histoBits << dataBits << shiftX;
             }
 
             {
@@ -313,8 +313,9 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
                 shiftY = dataBits - histoBits;
                 if (shiftY < 0)
                     shiftY = 0;
-                qDebug() << hist2d << "Y histoBits, dataBits, shift"
-                         << histoBits << dataBits << shiftY;
+
+                //qDebug() << hist2d << "Y histoBits, dataBits, shift"
+                //         << histoBits << dataBits << shiftY;
             }
 
             hist2d->fill(xValue >> shiftX, yValue >> shiftY);

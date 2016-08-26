@@ -62,7 +62,7 @@ void Hist2D::fill(uint32_t x, uint32_t y, uint32_t weight)
     if (x < getXResolution() && y < getYResolution())
     {
         m_data[y * getXResolution() + x] += weight;
-        uint32_t value = m_data[y * getYResolution() + x];
+        uint32_t value = m_data[y * getXResolution() + x];
 
         if (value >= m_maxValue)
         {
@@ -211,7 +211,10 @@ void Hist2DWidget::replot()
         axis->setTitle(yTitle);
     }
 
-    setWindowTitle(QString("%1 | %2").arg(xTitle).arg(yTitle));
+    setWindowTitle(QString("%1 - %2 | %3")
+                   .arg(m_hist2d->objectName())
+                   .arg(xTitle)
+                   .arg(yTitle));
 
     // z
     auto histData = reinterpret_cast<Hist2DRasterData *>(m_plotItem->data());
