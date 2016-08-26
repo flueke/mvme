@@ -270,7 +270,10 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
             if (!moduleX)
                 continue;
 
-            u32 xValue = eventValues[moduleIndex][addressValue];
+            bool xFound = eventValues[moduleIndex].contains(addressValue);
+            u32 xValue = 0;
+            if (xFound)
+                xValue = eventValues[moduleIndex][addressValue];
 
             sourcePath = hist2d->property("Hist2D.yAxisSource").toString();
             eventIndex   = sourcePath.section('.', 0, 0).toInt(&ok1);
@@ -285,7 +288,13 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
             if (!moduleY)
                 continue;
 
-            u32 yValue = eventValues[moduleIndex][addressValue];
+            bool yFound = eventValues[moduleIndex].contains(addressValue);
+            u32 yValue = 0;
+            if (yFound)
+                u32 yValue = eventValues[moduleIndex][addressValue];
+
+            if (!(xFound && yFound))
+                continue;
 
             //qDebug() << hist2d << hist2d->xAxisResolution() << hist2d->yAxisResolution() << xValue << yValue
             //    << eventIndex << moduleIndex << addressValue;
@@ -317,6 +326,8 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
                 //qDebug() << hist2d << "Y histoBits, dataBits, shift"
                 //         << histoBits << dataBits << shiftY;
             }
+
+            //qDebug("x-module=%s: databits=%d, histobits=%d", );
 
             hist2d->fill(xValue >> shiftX, yValue >> shiftY);
         }
