@@ -255,6 +255,7 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
         auto hist2ds = m_context->get2DHistograms();
         for (auto hist2d: hist2ds)
         {
+            // TODO: store this differently (maybe Pair<ModuleId, Address>)
             bool ok1, ok2, ok3;
             QString sourcePath = hist2d->property("Hist2D.xAxisSource").toString();
             int eventIndex   = sourcePath.section('.', 0, 0).toInt(&ok1);
@@ -262,6 +263,11 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
             int addressValue = sourcePath.section('.', 2, 2).toInt(&ok3);
 
             if (eventIndex != eventType || !(ok1 && ok2 && ok3))
+                continue;
+
+            auto moduleX = m_context->getConfig()->getModuleConfig(eventIndex, moduleIndex);
+
+            if (!moduleX)
                 continue;
 
             u32 xValue = eventValues[moduleIndex][addressValue];
@@ -274,13 +280,44 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
             if (eventIndex != eventType || !(ok1 && ok2 && ok3))
                 continue;
 
+            auto moduleY = m_context->getConfig()->getModuleConfig(eventIndex, moduleIndex);
+
+            if (!moduleY)
+                continue;
+
             u32 yValue = eventValues[moduleIndex][addressValue];
 
             //qDebug() << hist2d << hist2d->xAxisResolution() << hist2d->yAxisResolution() << xValue << yValue
             //    << eventIndex << moduleIndex << addressValue;
 
             // FIXME: can't just shift here: need to know the values resolution
-            hist2d->fill(xValue >> 2, yValue >> 2);
+            // Need to get the values resolution from the module config and
+            // calculate the shift using the histograms resolution
+
+            int shiftX = 0;
+            int shiftY = 0;
+
+            {
+                int dataBits = moduleX->getDataBits();
+                int histoBits = hist2d->getXBits();
+                shiftX = dataBits - histoBits;
+                if (shiftX < 0)
+                    shiftX = 0;
+                qDebug() << hist2d << "X histoBits, dataBits, shift"
+                         << histoBits << dataBits << shiftX;
+            }
+
+            {
+                int dataBits = moduleY->getDataBits();
+                int histoBits = hist2d->getYBits();
+                shiftY = dataBits - histoBits;
+                if (shiftY < 0)
+                    shiftY = 0;
+                qDebug() << hist2d << "Y histoBits, dataBits, shift"
+                         << histoBits << dataBits << shiftY;
+            }
+
+            hist2d->fill(xValue >> shiftX, yValue >> shiftY);
         }
     }
 

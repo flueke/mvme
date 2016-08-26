@@ -1,6 +1,7 @@
 #include "hist2ddialog.h"
 #include "ui_hist2ddialog.h"
-#include "mvme_context.h"
+
+#include <QPushButton>
 #include <QSignalBlocker>
 
 Hist2DDialog::Hist2DDialog(MVMEContext *context, QWidget *parent)
@@ -9,14 +10,26 @@ Hist2DDialog::Hist2DDialog(MVMEContext *context, QWidget *parent)
     , m_context(context)
 {
     ui->setupUi(this);
-    int powMin =  9;
-    int powMax = 13;
 
-    for (int i=powMin; i<=powMax; ++i)
+    auto validator = new NameValidator(context, this);
+
+    ui->le_name->setValidator(validator);
+
+    connect(ui->le_name, &QLineEdit::textChanged, this, [this](const QString &) {
+        ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(
+                    ui->le_name->hasAcceptableInput());
+    });
+
+    ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(false);
+
+    static const int bitsMin =  9;
+    static const int bitsMax = 13;
+
+    for (int bits=bitsMin; bits<=bitsMax; ++bits)
     {
-        int value = 1 << i;
-        ui->comboXResolution->addItem(QString::number(value), value);
-        ui->comboYResolution->addItem(QString::number(value), value);
+        int value = 1 << bits;
+        ui->comboXResolution->addItem(QString::number(value), bits);
+        ui->comboYResolution->addItem(QString::number(value), bits);
     }
 
     ui->comboXResolution->setCurrentIndex(1);
@@ -68,8 +81,8 @@ Hist2DDialog::~Hist2DDialog()
 
 Hist2D *Hist2DDialog::getHist2D()
 {
-    int xRes = ui->comboXResolution->currentData().toInt();
-    int yRes = ui->comboYResolution->currentData().toInt();
+    int xBits = ui->comboXResolution->currentData().toInt();
+    int yBits = ui->comboYResolution->currentData().toInt();
 
     QString xSource = QString("%1.%2.%3")
         .arg(ui->eventX->currentIndex())
@@ -85,14 +98,14 @@ Hist2D *Hist2DDialog::getHist2D()
 
     QString name = ui->le_name->text();
 
-    qDebug() << "Hist2D: xRes =" << xRes
-        << ", yRes =" << yRes
+    qDebug() << "Hist2D: xBits =" << xBits
+        << ", yBits =" << yBits
         << ", xSource =" << xSource
         << ", ySource =" << ySource
         << ", name =" << name
         ;
 
-    auto ret = new Hist2D(xRes, yRes);
+    auto ret = new Hist2D(xBits, yBits);
     ret->setObjectName(ui->le_name->text());
 
     ret->setProperty("Hist2D.xAxisSource", xSource);

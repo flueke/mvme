@@ -721,7 +721,7 @@ void mvme::openHist2DView(Hist2D *hist2d)
 {
     if (hist2d)
     {
-        auto widget = new Hist2DWidget(hist2d);
+        auto widget = new Hist2DWidget(m_context, hist2d);
         auto subwin = new QMdiSubWindow(ui->mdiArea);
         subwin->setWidget(widget);
         subwin->setAttribute(Qt::WA_DeleteOnClose);

@@ -2,7 +2,9 @@
 #define HIST2DDIALOG_H
 
 #include "hist2d.h"
+#include "mvme_context.h"
 #include <QDialog>
+#include <QValidator>
 
 class MVMEContext;
 
@@ -31,6 +33,37 @@ private:
 
     Ui::Hist2DDialog *ui;
     MVMEContext *m_context;
+};
+
+class NameValidator: public QValidator
+{
+    Q_OBJECT
+    public:
+        NameValidator(MVMEContext *context, QObject *parent = 0)
+            : QValidator(parent)
+            , m_context(context)
+        {}
+
+        virtual State validate(QString &name, int &pos) const
+        {
+            if (name.isEmpty())
+            {
+                return QValidator::Intermediate;
+            }
+
+            auto hist2ds = m_context->get2DHistograms();
+            for (auto hist2d: hist2ds)
+            {
+                if (hist2d->objectName() == name)
+                {
+                    return QValidator::Intermediate;
+                }
+            }
+            return QValidator::Acceptable;
+        }
+
+    private:
+        MVMEContext *m_context;
 };
 
 #endif // HIST2DDIALOG_H

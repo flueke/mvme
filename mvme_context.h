@@ -30,7 +30,7 @@ struct DAQStats
     QDateTime endTime;
     u64 bytesRead = 0;
     u64 buffersRead = 0;
-    u32 vmusbAvgEventsPerBuffer;
+    u32 vmusbAvgEventsPerBuffer = 0;
     u64 buffersWithErrors = 0;
     u64 droppedBuffers = 0;
     int freeBuffers = 0;

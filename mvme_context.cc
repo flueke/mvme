@@ -410,8 +410,8 @@ void MVMEContext::write(QJsonObject &json) const
     {
         QJsonObject json;
         json["name"] = hist2d->objectName();
-        json["xAxisResolution"] = (qint64)hist2d->xAxisResolution();
-        json["yAxisResolution"] = (qint64)hist2d->yAxisResolution();
+        json["xAxisBits"] = (qint64)hist2d->getXBits();
+        json["yAxisBits"] = (qint64)hist2d->getYBits();
         json["xAxisSource"] = QJsonValue::fromVariant(hist2d->property("Hist2D.xAxisSource"));
         json["yAxisSource"] = QJsonValue::fromVariant(hist2d->property("Hist2D.yAxisSource"));
         hist2DArray.append(json);
@@ -460,14 +460,14 @@ void MVMEContext::read(const QJsonObject &json)
     {
         QJsonObject histodef = hist2DArray[i].toObject();
         QString name = histodef["name"].toString();
-        int xResolution = histodef["xAxisResolution"].toInt();
-        int yResolution = histodef["yAxisResolution"].toInt();
+        int xBits = histodef["xAxisBits"].toInt();
+        int yBits = histodef["yAxisBits"].toInt();
         QString xAxisSource = histodef["xAxisSource"].toString();
         QString yAxisSource = histodef["yAxisSource"].toString();
 
-        if (!name.isEmpty() && xResolution > 0 && yResolution > 0)
+        if (!name.isEmpty() && xBits > 0 && yBits > 0)
         {
-            auto hist2d = new Hist2D(xResolution, yResolution, this);
+            auto hist2d = new Hist2D(xBits, yBits, this);
             hist2d->setObjectName(name);
             hist2d->setProperty("Hist2D.xAxisSource", xAxisSource);
             hist2d->setProperty("Hist2D.yAxisSource", yAxisSource);

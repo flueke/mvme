@@ -16,7 +16,7 @@ class ContextWidget2 : public QWidget
         ~ContextWidget2();
 
     private:
-        Ui::context_widget2 *ui;
+        Ui::ContextWidget2 *ui;
 };
 
 #endif // CONTEXT_WIDGET2_H

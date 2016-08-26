@@ -1,9 +1,9 @@
 #ifndef UUID_bf5f9bfd_f2f3_4736_bf7e_f2a96176abe9
 #define UUID_bf5f9bfd_f2f3_4736_bf7e_f2a96176abe9
 
+#include <QMutex>
 #include <QWidget>
 #include <qwt_raster_data.h>
-//#include <qwt_interval.h>
 
 namespace Ui
 {
@@ -15,20 +15,19 @@ class QwtPlotSpectrogram;
 class QwtLinearColorMap;
 class Hist2DRasterData;
 class ScrollZoomer;
+class MVMEContext;
 
 class Hist2D: public QObject
 {
     Q_OBJECT
 public:
-    Hist2D(uint32_t xResolution, uint32_t yResolution, QObject *parent = 0);
-    void setXAxisChannel(int32_t channel);
-    void setYAxisChannel(int32_t channel);
+    Hist2D(uint32_t xBits, uint32_t yBits, QObject *parent = 0);
 
-    int32_t getXAxisChannel() const { return m_xAxisChannel; }
-    int32_t getYAxisChannel() const { return m_yAxisChannel; }
+    uint32_t getXResolution() const { return 1 << m_xBits; }
+    uint32_t getYResolution() const { return 1 << m_yBits; }
 
-    uint32_t xAxisResolution() const { return m_xResolution; }
-    uint32_t yAxisResolution() const { return m_yResolution; }
+    uint32_t getXBits() const { return m_xBits; }
+    uint32_t getYBits() const { return m_yBits; }
 
     double value(double x, double y) const;
     void fill(uint32_t x, uint32_t y, uint32_t weight=1);
@@ -42,16 +41,24 @@ public:
         return m_intervals[axis];
     }
 
+    uint32_t getMaxValue() const { return m_maxValue; }
+    uint32_t getMaxX() const { return m_maxX; }
+    uint32_t getMaxY() const { return m_maxY; }
+    uint32_t getNumberOfEntries() const { return m_numberOfEntries; }
+
+
 private:
     void setInterval(Qt::Axis axis, const QwtInterval &interval);
 
-    uint32_t m_xResolution;
-    uint32_t m_yResolution;
-    uint32_t *m_data;
-    uint32_t m_maxValue;
-    int32_t m_xAxisChannel;
-    int32_t m_yAxisChannel;
+    uint32_t m_xBits;
+    uint32_t m_yBits;
+    uint32_t *m_data = 0;
+    uint32_t m_maxValue = 0;
+    uint32_t m_maxX = 0;
+    uint32_t m_maxY = 0;
+    uint32_t m_numberOfEntries = 0;
     QwtInterval m_intervals[3];
+    mutable QMutex m_lock;
 };
 
 class Hist2DRasterData: public QwtRasterData
@@ -86,7 +93,7 @@ class Hist2DWidget: public QWidget
     Q_OBJECT
 
 public:
-    explicit Hist2DWidget(Hist2D *hist2d, QWidget *parent=0);
+    explicit Hist2DWidget(MVMEContext *context, Hist2D *hist2d, QWidget *parent=0);
     ~Hist2DWidget();
 
     Hist2D *getHist2D() const { return m_hist2d; }
@@ -96,13 +103,11 @@ public slots:
     void exportPlot();
 
 private slots:
-    void setXAxisChannel(int channel);
-    void setYAxisChannel(int channel);
-
     void addTestData();
 
 private:
     Ui::Hist2DWidget *ui;
+    MVMEContext *m_context;
     Hist2D *m_hist2d;
     QwtPlotSpectrogram *m_plotItem;
     ScrollZoomer *m_zoomer;

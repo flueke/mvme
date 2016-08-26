@@ -6,15 +6,12 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>621</width>
-    <height>454</height>
+    <width>542</width>
+    <height>380</height>
    </rect>
   </property>
-  <property name="windowTitle">
-   <string>Chan #0, Chan #1</string>
-  </property>
-  <layout class="QHBoxLayout" name="horizontalLayout">
-   <item>
+  <layout class="QGridLayout" name="gridLayout">
+   <item row="0" column="0">
     <widget class="QwtPlot" name="plot">
      <property name="sizePolicy">
       <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
@@ -30,106 +27,123 @@
      </property>
     </widget>
    </item>
-   <item>
-    <widget class="QGroupBox" name="groupBox">
-     <property name="sizePolicy">
-      <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
-       <horstretch>0</horstretch>
-       <verstretch>0</verstretch>
-      </sizepolicy>
-     </property>
-     <property name="title">
-      <string/>
-     </property>
-     <layout class="QGridLayout" name="gridLayout_2">
-      <item row="2" column="0" colspan="2">
-       <layout class="QGridLayout" name="gridLayout">
-        <item row="0" column="1">
-         <widget class="QLabel" name="label_2">
+   <item row="0" column="1">
+    <layout class="QVBoxLayout" name="verticalLayout">
+     <item>
+      <widget class="QGroupBox" name="groupBox">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="title">
+        <string/>
+       </property>
+       <layout class="QGridLayout" name="gridLayout_2">
+        <item row="0" column="0">
+         <widget class="QPushButton" name="pb_export">
           <property name="text">
-           <string>Module</string>
+           <string>Export</string>
           </property>
          </widget>
         </item>
-        <item row="0" column="2">
-         <widget class="QLabel" name="label_3">
+        <item row="2" column="0">
+         <widget class="QPushButton" name="pb_clear">
           <property name="text">
-           <string>Channel</string>
+           <string>Clear</string>
           </property>
          </widget>
         </item>
         <item row="1" column="0">
+         <widget class="QPushButton" name="pb_edit">
+          <property name="text">
+           <string>Edit Sources</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item>
+      <widget class="QGroupBox" name="groupBox_2">
+       <property name="title">
+        <string/>
+       </property>
+       <layout class="QFormLayout" name="formLayout">
+        <item row="0" column="0">
          <widget class="QLabel" name="label">
           <property name="text">
-           <string>X-Axis</string>
+           <string>Entries:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="1">
+         <widget class="QLabel" name="label_numberOfEntries">
+          <property name="text">
+           <string>0</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="0">
+         <widget class="QLabel" name="label_2">
+          <property name="text">
+           <string>Max Value:</string>
           </property>
          </widget>
         </item>
         <item row="1" column="1">
-         <widget class="QComboBox" name="comboXAxisModule">
-          <property name="enabled">
-           <bool>false</bool>
+         <widget class="QLabel" name="label_maxValue">
+          <property name="text">
+           <string>0</string>
           </property>
          </widget>
         </item>
-        <item row="1" column="2">
-         <widget class="QComboBox" name="comboXAxisChannel"/>
-        </item>
         <item row="2" column="0">
+         <widget class="QLabel" name="label_3">
+          <property name="text">
+           <string>Max X: </string>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="0">
          <widget class="QLabel" name="label_4">
           <property name="text">
-           <string>Y-Axis</string>
+           <string>Max Y:</string>
           </property>
          </widget>
         </item>
         <item row="2" column="1">
-         <widget class="QComboBox" name="comboYAxisModule">
-          <property name="enabled">
-           <bool>false</bool>
+         <widget class="QLabel" name="label_maxX">
+          <property name="text">
+           <string>0</string>
           </property>
          </widget>
         </item>
-        <item row="2" column="2">
-         <widget class="QComboBox" name="comboYAxisChannel"/>
+        <item row="3" column="1">
+         <widget class="QLabel" name="label_maxY">
+          <property name="text">
+           <string>0</string>
+          </property>
+         </widget>
         </item>
        </layout>
-      </item>
-      <item row="0" column="0">
-       <widget class="QPushButton" name="pb_replot">
-        <property name="text">
-         <string>Replot</string>
-        </property>
-       </widget>
-      </item>
-      <item row="3" column="1">
-       <spacer name="verticalSpacer">
-        <property name="orientation">
-         <enum>Qt::Vertical</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>20</width>
-          <height>255</height>
-         </size>
-        </property>
-       </spacer>
-      </item>
-      <item row="1" column="0" colspan="2">
-       <widget class="QPushButton" name="pb_addTestData">
-        <property name="text">
-         <string>Add Test Data</string>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="1">
-       <widget class="QPushButton" name="pb_clear">
-        <property name="text">
-         <string>Clear</string>
-        </property>
-       </widget>
-      </item>
-     </layout>
-    </widget>
+      </widget>
+     </item>
+     <item>
+      <spacer name="verticalSpacer">
+       <property name="orientation">
+        <enum>Qt::Vertical</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>20</width>
+         <height>40</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+    </layout>
    </item>
   </layout>
  </widget>
