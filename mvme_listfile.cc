@@ -184,7 +184,7 @@ s32 ListFile::readSectionsIntoBuffer(DataBuffer *buffer)
         if (m_file.read((char *)&sectionHeader, sizeof(u32)) != sizeof(u32))
             return -1;
 
-        m_file.seek(savedPos);
+        m_file.seek(savedPos); // TODO: only seek in case there's not enough space left in the output buffer
 
         u32 sectionWords = (sectionHeader & SectionSizeMask) >> SectionSizeShift;
 

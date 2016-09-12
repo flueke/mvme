@@ -195,6 +195,7 @@ class MVMEContext: public QObject
         void tryOpenController();
         void logEventProcessorCounters();
         void onDAQStateChanged(DAQState state);
+        void onReplayDone();
 
     private:
         void prepareStart();
@@ -219,9 +220,10 @@ class MVMEContext: public QObject
         QVector<Hist2D *> m_2dHistograms;
         mvme *m_mainwin;
         DAQStats m_daqStats;
-        ListFile *m_listFile;
+        ListFile *m_listFile = nullptr;
         GlobalMode m_mode;
         ListFileWorker *m_listFileWorker;
+        QTime m_replayTime;
 };
 
 #endif

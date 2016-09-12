@@ -65,9 +65,13 @@ class ModuleConfig: public QObject
         {
             return m_id;
         }
+
+        void updateRegisterCache();
     private:
+
         QUuid m_id;
         QString m_name;
+        QHash<u32, u32> m_registerCache;
 };
 
 class EventConfig: public QObject

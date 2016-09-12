@@ -113,3 +113,15 @@ QStringList toStringList(const RegisterList &registerList)
     }
     return ret;
 }
+
+QString makeDurationString(qint64 durationSeconds)
+{
+    int seconds = durationSeconds % 60;
+    durationSeconds /= 60;
+    int minutes = durationSeconds % 60;
+    durationSeconds /= 60;
+    int hours = durationSeconds;
+    QString durationString;
+    durationString.sprintf("%02d:%02d:%02d", hours, minutes, seconds);
+    return durationString;
+}

@@ -68,27 +68,31 @@ namespace MDPP
     static const int adc_resolution_default = 4;
 }
 
-int ModuleConfig::getDataBits() const
+void ModuleConfig::updateRegisterCache()
 {
     RegisterList allRegisters;
     allRegisters += parseRegisterList(initReset);
     allRegisters += parseRegisterList(initParameters);
     allRegisters += parseRegisterList(initReadout);
     allRegisters += parseRegisterList(initStartDaq);
+    allRegisters += parseRegisterList(initStopDaq);
 
-    QHash<u32, u32> registerHash;
+    m_registerCache.clear();
+
     for (auto p: allRegisters)
     {
-        registerHash[p.first] = p.second;
+        m_registerCache[p.first] = p.second;
     }
+}
 
-
+int ModuleConfig::getDataBits() const
+{
     switch (type)
     {
         case VMEModuleType::MADC32:
             {
-                int regValue = registerHash.value(MADC::adc_resolution, MADC::adc_resolution_default);
-                regValue = registerHash.value(MADC::adc_override, regValue);
+                int regValue = m_registerCache.value(MADC::adc_resolution, MADC::adc_resolution_default);
+                regValue = m_registerCache.value(MADC::adc_override, regValue);
                 int bits = MADC::adc_bits.at(regValue);
                 return bits;
             }
@@ -96,7 +100,7 @@ int ModuleConfig::getDataBits() const
         case VMEModuleType::MDPP16:
         case VMEModuleType::MDPP32:
             {
-                int index = registerHash.value(MDPP::adc_resolution, MDPP::adc_resolution_default);
+                int index = m_registerCache.value(MDPP::adc_resolution, MDPP::adc_resolution_default);
                 int bits = MDPP::adc_bits.at(index);
                 return bits;
             }
@@ -144,12 +148,15 @@ u32 ModuleConfig::getDataExtractMask()
 
 void ModuleConfig::setModified()
 {
-    qDebug() << parent();
+    updateRegisterCache();
+
     auto eventConfig = qobject_cast<EventConfig *>(parent());
+
     if (eventConfig)
     {
         eventConfig->setModified();
     }
+
     emit modified();
 }
 

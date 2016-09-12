@@ -167,7 +167,16 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
         // FIXME: does not work if the section contains multiple events for the
         // same module as values will get overwritten (max_transfer_data > 1).
         // But in that case events do not match up anyways. Not sure what to do...
-        QHash<int, QHash<int, u32>> eventValues;
+        //QHash<int, QHash<int, u32>> eventValues;
+#define SUBEVENT_MAX 10
+#define ADDRESS_MAX 40
+        s64 eventValues[SUBEVENT_MAX][ADDRESS_MAX];
+
+        //qDebug() << "sizeof eventvalues =" << sizeof(eventValues);
+
+        for (size_t i=0; i<SUBEVENT_MAX; ++i)
+            for (size_t j=0; j<ADDRESS_MAX; ++j)
+                eventValues[i][j] = -1;
 
         while (wordsLeftInSection)
         {
@@ -224,12 +233,21 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
                                 histo->incValue(address, value >> histoShift);
                             }
 
-                            if (eventValues[subEventIndex].contains(address))
+                            if (subEventIndex < SUBEVENT_MAX && address < ADDRESS_MAX)
                             {
-                                qDebug() << "eventvalues overwrite!";
-                            }
+                                //if (eventValues[subEventIndex][address] >= 0)
+                                //{
+                                //    qDebug() << "eventvalues overwrite!";
+                                //}
 
-                            eventValues[subEventIndex][address] = value;
+                                eventValues[subEventIndex][address] = value;
+                            }
+                            else
+                            {
+                                emit logMessage(QString("subEventIndex %1 or address %2 out of range")
+                                                .arg(subEventIndex)
+                                                .arg(address));
+                            }
                         }
 
                         if (eoe_found_flag)
@@ -240,6 +258,9 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
                 }
                 else
                 {
+                    // TODO: log the reason for skipping the subevent
+                    emit logMessage(QString("Skipping subevent of size %1")
+                                    .arg(subEventSize));
                     iter.skip(subEventSize * sizeof(u32));
                 }
             }
@@ -270,10 +291,11 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
             if (!moduleX)
                 continue;
 
-            bool xFound = eventValues[moduleIndex].contains(addressValue);
-            u32 xValue = 0;
-            if (xFound)
-                xValue = eventValues[moduleIndex][addressValue];
+            bool xFound = (moduleIndex < SUBEVENT_MAX
+                           && addressValue < ADDRESS_MAX
+                           && eventValues[moduleIndex][addressValue] >= 0);
+
+            u32 xValue = xFound ? static_cast<u32>(eventValues[moduleIndex][addressValue]) : 0;
 
             sourcePath = hist2d->property("Hist2D.yAxisSource").toString();
             eventIndex   = sourcePath.section('.', 0, 0).toInt(&ok1);
@@ -288,10 +310,11 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
             if (!moduleY)
                 continue;
 
-            bool yFound = eventValues[moduleIndex].contains(addressValue);
-            u32 yValue = 0;
-            if (yFound)
-                u32 yValue = eventValues[moduleIndex][addressValue];
+            bool yFound = (moduleIndex < SUBEVENT_MAX
+                           && addressValue < ADDRESS_MAX
+                           && eventValues[moduleIndex][addressValue] >= 0);
+
+            u32 yValue = yFound ? static_cast<u32>(eventValues[moduleIndex][addressValue]) : 0;
 
             if (!(xFound && yFound))
                 continue;

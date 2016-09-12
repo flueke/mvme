@@ -181,5 +181,6 @@ QVariant Ptr2Var(T *ptr)
     return QVariant::fromValue(static_cast<void *>(ptr));
 }
 
+QString makeDurationString(qint64 durationSeconds);
 
 #endif // UTIL_H

@@ -60,11 +60,12 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
     });
     connect(m_bufferProcessor, &VMUSBBufferProcessor::logMessage, this, &MVMEContext::sigLogMessage);
     connect(m_listFileWorker, &ListFileWorker::logMessage, this, &MVMEContext::sigLogMessage);
-    connect(m_listFileWorker, &ListFileWorker::endOfFileReached, this, &MVMEContext::logEventProcessorCounters);
+    connect(m_listFileWorker, &ListFileWorker::endOfFileReached, this, &MVMEContext::onReplayDone);
 
     m_eventThread->setObjectName("EventProcessorThread");
     m_eventProcessor->moveToThread(m_eventThread);
     m_eventThread->start();
+    connect(m_eventProcessor, &MVMEEventProcessor::logMessage, this, &MVMEContext::sigLogMessage);
 
     setMode(GlobalMode::DAQ);
 }
@@ -84,6 +85,7 @@ MVMEContext::~MVMEContext()
     delete m_bufferProcessor;
     delete m_eventProcessor;
     delete m_listFileWorker;
+    delete m_listFile;
     delete m_config;
 }
 
@@ -232,6 +234,27 @@ void MVMEContext::onDAQStateChanged(DAQState state)
     }
 }
 
+void MVMEContext::onReplayDone()
+{
+    logEventProcessorCounters();
+    double secondsElapsed = m_replayTime.elapsed() / 1000.0;
+    qint64 replayBytes = m_listFile->getFile().size();
+    double replayMB = (double)replayBytes / (1024.0 * 1024.0);
+    double mbPerSecond = 0.0;
+    if (secondsElapsed > 0)
+    {
+        mbPerSecond = replayMB / secondsElapsed;
+    }
+
+    QString str = QString("Replay finished: Read %1 MB in %2 s, %3 MB/s\n")
+        .arg(replayMB)
+        .arg(secondsElapsed)
+        .arg(mbPerSecond)
+        ;
+
+    emit sigLogMessage(str);
+}
+
 DAQState MVMEContext::getDAQState() const
 {
     return m_readoutWorker->getState();
@@ -242,6 +265,7 @@ void MVMEContext::setListFile(ListFile *listFile)
     read(listFile->getDAQConfig());
     setConfigFileName(QString());
     setMode(GlobalMode::ListFile);
+    delete m_listFile;
     m_listFile = listFile;
     m_listFileWorker->setListFile(listFile);
 }
@@ -316,6 +340,8 @@ void MVMEContext::prepareStart()
     auto histograms = m_histograms.values();
     for (ModuleConfig *module: m_config->getAllModuleConfigs())
     {
+        module->updateRegisterCache();
+
         auto findResult = std::find_if(histograms.begin(), histograms.end(),
                                        [module](HistogramCollection *hist) {
             auto id = hist->property("Histogram.sourceModule").toUuid();
@@ -354,6 +380,7 @@ void MVMEContext::startReplay()
     prepareStart();
 
     QMetaObject::invokeMethod(m_listFileWorker, "startFromBeginning", Qt::QueuedConnection);
+    m_replayTime.restart();
 }
 
 void MVMEContext::startDAQ(quint32 nCycles)

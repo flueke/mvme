@@ -93,6 +93,7 @@ class ListFile
         bool seek(qint64 pos);
         bool readNextSection(DataBuffer *buffer);
         s32 readSectionsIntoBuffer(DataBuffer *buffer);
+        const QFile &getFile() const { return m_file; }
 
     private:
         QFile m_file;
@@ -111,6 +112,7 @@ class ListFileWorker: public QObject
         ListFileWorker(QObject *parent = 0);
         ~ListFileWorker();
         void setListFile(ListFile *listFile);
+        ListFile *getListFile() const { return m_listFile; }
 
     public slots:
         void startFromBeginning();

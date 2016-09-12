@@ -525,6 +525,7 @@ void mvme::on_actionOpen_Listfile_triggered()
     if (!listFile->open())
     {
         QMessageBox::critical(0, "Error", QString("Error opening %1 for reading").arg(fileName));
+        delete listFile;
         return;
     }
 
@@ -533,6 +534,7 @@ void mvme::on_actionOpen_Listfile_triggered()
     if (json.isEmpty())
     {
         QMessageBox::critical(0, "Error", QString("Listfile does not contain a valid DAQ configuration"));
+        delete listFile;
         return;
     }
 

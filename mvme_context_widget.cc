@@ -739,18 +739,6 @@ void MVMEContextWidget::onHist2DAdded(Hist2D *hist2d)
     m_d->histoNameMap[hist2d->objectName()] = item;
 }
 
-QString makeDurationString(qint64 durationSeconds)
-{
-    int seconds = durationSeconds % 60;
-    durationSeconds /= 60;
-    int minutes = durationSeconds % 60;
-    durationSeconds /= 60;
-    int hours = durationSeconds;
-    QString durationString;
-    durationString.sprintf("%02d:%02d:%02d", hours, minutes, seconds);
-    return durationString;
-}
-
 void MVMEContextWidget::updateStats()
 {
     auto stats = m_d->context->getDAQStats();

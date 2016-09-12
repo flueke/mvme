@@ -31,6 +31,7 @@ class MVMEEventProcessor: public QObject
     Q_OBJECT
     signals:
         void bufferProcessed(DataBuffer *buffer);
+        void logMessage(const QString &);
 
     public:
         MVMEEventProcessor(MVMEContext *context);
