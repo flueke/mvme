@@ -61,6 +61,9 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
     connect(m_bufferProcessor, &VMUSBBufferProcessor::logMessage, this, &MVMEContext::sigLogMessage);
     connect(m_listFileWorker, &ListFileWorker::logMessage, this, &MVMEContext::sigLogMessage);
     connect(m_listFileWorker, &ListFileWorker::endOfFileReached, this, &MVMEContext::onReplayDone);
+    connect(m_listFileWorker, &ListFileWorker::progressChanged, this, [this](qint64 cur, qint64 total) {
+        qDebug() << cur << total;
+    });
 
     m_eventThread->setObjectName("EventProcessorThread");
     m_eventProcessor->moveToThread(m_eventThread);

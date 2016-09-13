@@ -292,23 +292,31 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
         }
         else
         {
-            emit logMessage(QSL("VMUSB Warning: no terminator words found"));
+            emit logMessage(QSL("VMUSB Error: no terminator words found"));
         }
 
         if (iter.bytesLeft() != 0)
         {
-            emit logMessage(QString("VMUSB Warning: %1 bytes left in buffer")
+            emit logMessage(QString("VMUSB Error: %1 bytes left in buffer")
                             .arg(iter.bytesLeft()));
 
-            qDebug("processBuffer() warning: %u bytes left in buffer!", iter.bytesLeft());
             while (iter.longwordsLeft())
-                qDebug("  0x%08x", iter.extractU32());
+            {
+                emit logMessage(QString(QSL("  0x%1"))
+                                .arg(iter.extractU32(), 8, 16, QLatin1Char('0')));
+            }
 
             while (iter.wordsLeft())
-                qDebug("  0x%04x", iter.extractU16());
+            {
+                emit logMessage(QString(QSL("  0x%1"))
+                                .arg(iter.extractU16(), 4, 16, QLatin1Char('0')));
+            }
 
             while (iter.bytesLeft())
-                qDebug("  0x%02x", iter.extractU8());
+            {
+                emit logMessage(QString(QSL("  0x%1"))
+                                .arg(iter.extractU8(), 2, 16, QLatin1Char('0')));
+            }
         }
 
         if (m_listFileOut.isOpen())
@@ -341,7 +349,7 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
     }
     catch (const end_of_buffer &)
     {
-        logMessage(QSL("VMUSB Error: end of readBuffer reached unexpectedly!"));
+        emit logMessage(QSL("VMUSB Error: end of readBuffer reached unexpectedly!"));
         getStats()->buffersWithErrors++;
     }
 #endif
@@ -357,10 +365,14 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
 /* Process one VMUSB event, transforming it into a MVME event.
  * MVME Event structure:
  * Event Header
- *   Module header
+ *   SubeventHeader (== Module header)
  *     Raw module contents
- *   Module header
+ *     EndOfModuleMarker
+ *   SubeventHeader (== Module header)
  *     Raw module contents
+ *     EndOfModuleMarker
+ * EndOfModuleMarker
+ * Event Header
  * ...
  */
 bool VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputBuffer)
@@ -430,7 +442,9 @@ bool VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *output
             u32 data = eventIter.extractU32();
             if (data == BerrMarker && eventIter.peekU32() == EndOfModuleMarker)
             {
-                eventIter.extractU32(); // skip past EndOfModuleMarker
+                *outp++ = eventIter.extractU32(); // copy the EndOfModuleMarker
+                ++subEventSize;
+
                 *moduleHeader |= (subEventSize << SubEventSizeShift) & SubEventSizeMask;
                 eventSize += subEventSize + 1; // +1 for the moduleHeader
                 break;
@@ -447,17 +461,32 @@ bool VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *output
 
     if (eventIter.bytesLeft())
     {
-        qDebug("===== Warning: %u bytes left in eventIter", eventIter.bytesLeft());
+        emit logMessage(QString(QSL("VMUSB Error: %1 bytes left in event"))
+                        .arg(eventIter.bytesLeft()));
+
 
         while (eventIter.longwordsLeft())
-            qDebug("  0x%08x", eventIter.extractU32());
+        {
+            emit logMessage(QString(QSL("  0x%1"))
+                            .arg(eventIter.extractU32(), 8, 16, QLatin1Char('0')));
+        }
 
         while (eventIter.wordsLeft())
-            qDebug("  0x%04x", eventIter.extractU16());
+        {
+            emit logMessage(QString(QSL("  0x%1"))
+                            .arg(eventIter.extractU16(), 4, 16, QLatin1Char('0')));
+        }
 
         while (eventIter.bytesLeft())
-            qDebug("  0x%02x", eventIter.extractU8());
+        {
+            emit logMessage(QString(QSL("  0x%1"))
+                            .arg(eventIter.extractU8(), 2, 16, QLatin1Char('0')));
+        }
     }
+
+    // Add an EndOfModuleMarker at the end of the event
+    *outp++ = EndOfModuleMarker;
+    ++eventSize;
 
     *mvmeEventHeader |= (eventSize << SectionSizeShift) & SectionSizeMask;
     outputBuffer->used = (u8 *)outp - outputBuffer->data;

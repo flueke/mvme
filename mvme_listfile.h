@@ -3,7 +3,7 @@
 
 /*
  * ===== MVME Listfile format =====
- *
+  
  * Section Header:
  *  Type
  *  Size
@@ -24,12 +24,12 @@
  * +--------------------------------+
  *
  * t =  3 bit section type
- * e =  4 bit event type for event sections
+ * e =  4 bit event type (== event number/index) for event sections
  * s = 16 bit size in units of 32 bit words (fillwords added to data if needed) -> 256k section max size
  *
  * Section size is the number of following 32 bit words not including the header word itself.
 
- * Sections with SectionType_Event contain subevent headers:
+ * Sections with SectionType_Event contain subevents with the following header:
 
  *  ------- Subevent Header --------
  *  33222222222211111111110000000000
@@ -37,6 +37,12 @@
  * +--------------------------------+
  * |              mmmmmm  ssssssssss|
  * +--------------------------------+
+ *
+ * m =  6 bit module type (VMEModuleType enum from globals.h)
+ * s = 10 bit size in units of 32 bit words
+ *
+ * The last word of each event section is the EndOfModuleMarker (globals.h)
+ *
 */
 
 #include "databuffer.h"
@@ -94,6 +100,7 @@ class ListFile
         bool readNextSection(DataBuffer *buffer);
         s32 readSectionsIntoBuffer(DataBuffer *buffer);
         const QFile &getFile() const { return m_file; }
+        qint64 size() const { return m_file.size(); }
 
     private:
         QFile m_file;
@@ -107,6 +114,7 @@ class ListFileWorker: public QObject
         void mvmeEventBufferReady(DataBuffer *);
         void logMessage(const QString &);
         void endOfFileReached();
+        void progressChanged(qint64, qint64);
 
     public:
         ListFileWorker(QObject *parent = 0);
@@ -121,6 +129,8 @@ class ListFileWorker: public QObject
     private:
         DataBuffer *m_buffer;
         ListFile *m_listFile = 0;
+        qint64 m_bytesRead = 0;
+        qint64 m_totalBytes = 0;
 };
 
 namespace listfile

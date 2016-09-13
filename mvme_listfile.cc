@@ -223,6 +223,9 @@ void ListFileWorker::setListFile(ListFile *listFile)
 void ListFileWorker::startFromBeginning()
 {
     m_listFile->seek(0);
+    m_bytesRead = 0;
+    m_totalBytes = m_listFile->size();
+    emit progressChanged(m_bytesRead, m_totalBytes);
     readNextBuffer();
 }
 
@@ -234,10 +237,12 @@ void ListFileWorker::readNextBuffer()
 
     s32 sectionsRead = m_listFile->readSectionsIntoBuffer(m_buffer);
 
-    qDebug() << __PRETTY_FUNCTION__ << sectionsRead << m_buffer->used;
+    //qDebug() << __PRETTY_FUNCTION__ << sectionsRead << m_buffer->used;
 
     if (sectionsRead > 0)
     {
+        m_bytesRead += m_buffer->used;
+        emit progressChanged(m_bytesRead, m_totalBytes);
         emit mvmeEventBufferReady(m_buffer);
     }
     else
