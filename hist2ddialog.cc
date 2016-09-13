@@ -4,23 +4,30 @@
 #include <QPushButton>
 #include <QSignalBlocker>
 
-Hist2DDialog::Hist2DDialog(MVMEContext *context, QWidget *parent)
+Hist2DDialog::Hist2DDialog(MVMEContext *context, Hist2D *histo, QWidget *parent)
     : QDialog(parent)
     , ui(new Ui::Hist2DDialog)
     , m_context(context)
+    , m_histo(histo)
 {
     ui->setupUi(this);
 
-    auto validator = new NameValidator(context, this);
+    auto validator = new NameValidator(context, histo, this);
 
     ui->le_name->setValidator(validator);
+
+    if (m_histo)
+    {
+        ui->le_name->setText(m_histo->objectName());
+    }
 
     connect(ui->le_name, &QLineEdit::textChanged, this, [this](const QString &) {
         ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(
                     ui->le_name->hasAcceptableInput());
     });
 
-    ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(false);
+    ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(
+        ui->le_name->hasAcceptableInput());
 
     static const int bitsMin =  9;
     static const int bitsMax = 13;
@@ -32,8 +39,18 @@ Hist2DDialog::Hist2DDialog(MVMEContext *context, QWidget *parent)
         ui->comboYResolution->addItem(QString::number(value), bits);
     }
 
-    ui->comboXResolution->setCurrentIndex(1);
-    ui->comboYResolution->setCurrentIndex(1);
+    if (m_histo)
+    {
+        ui->comboXResolution->setCurrentIndex(m_histo->getXBits() - bitsMin);
+        ui->comboYResolution->setCurrentIndex(m_histo->getYBits() - bitsMin);
+        ui->comboXResolution->setEnabled(false);
+        ui->comboYResolution->setEnabled(false);
+    }
+    else
+    {
+        ui->comboXResolution->setCurrentIndex(1);
+        ui->comboYResolution->setCurrentIndex(1);
+    }
 
     auto eventConfigs = m_context->getConfig()->getEventConfigs();
     QStringList eventNames;
@@ -46,11 +63,12 @@ Hist2DDialog::Hist2DDialog(MVMEContext *context, QWidget *parent)
     ui->eventX->addItems(eventNames);
     ui->eventY->addItems(eventNames);
 
-    onEventXChanged(0);
-    onEventYChanged(0);
-    onModuleXChanged(0);
-    onModuleYChanged(0);
-    ui->channelY->setCurrentIndex(1);
+    onEventXChanged(m_histo ? m_histo->getXEventIndex() : 0);
+    onEventYChanged(m_histo ? m_histo->getYEventIndex() : 0);
+    onModuleXChanged(m_histo ? m_histo->getXModuleIndex() : 0);
+    onModuleYChanged(m_histo ? m_histo->getYModuleIndex() : 0);
+    ui->channelX->setCurrentIndex(m_histo ? m_histo->getXAddressValue() : 0);
+    ui->channelY->setCurrentIndex(m_histo ? m_histo->getYAddressValue() : 1);
 
     // event
     connect(ui->eventX, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
@@ -105,13 +123,16 @@ Hist2D *Hist2DDialog::getHist2D()
         << ", name =" << name
         ;
 
-    auto ret = new Hist2D(xBits, yBits);
-    ret->setObjectName(ui->le_name->text());
+    if (!m_histo)
+    {
+        m_histo = new Hist2D(xBits, yBits);
+    }
 
-    ret->setProperty("Hist2D.xAxisSource", xSource);
-    ret->setProperty("Hist2D.yAxisSource", ySource);
+    m_histo->setObjectName(ui->le_name->text());
+    m_histo->setProperty("Hist2D.xAxisSource", xSource);
+    m_histo->setProperty("Hist2D.yAxisSource", ySource);
 
-    return ret;
+    return m_histo;
 }
 
 void Hist2DDialog::onEventXChanged(int index)
@@ -129,10 +150,12 @@ void Hist2DDialog::onEventXChanged(int index)
         ui->moduleX->addItems(names);
     }
 
+    ui->eventX->setCurrentIndex(index);
     ui->eventY->setCurrentIndex(index);
 }
 void Hist2DDialog::onModuleXChanged(int index)
 {
+    ui->moduleX->setCurrentIndex(index);
     ui->channelX->clear();
 
     auto moduleConfig = m_context->getConfig()->getModuleConfig(ui->eventX->currentIndex(), index);
@@ -167,9 +190,11 @@ void Hist2DDialog::onEventYChanged(int index)
     }
 
     ui->eventX->setCurrentIndex(index);
+    ui->eventY->setCurrentIndex(index);
 }
 void Hist2DDialog::onModuleYChanged(int index)
 {
+    ui->moduleY->setCurrentIndex(index);
     ui->channelY->clear();
 
     auto moduleConfig = m_context->getConfig()->getModuleConfig(ui->eventY->currentIndex(), index);

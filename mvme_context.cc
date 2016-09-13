@@ -332,6 +332,12 @@ GlobalMode MVMEContext::getMode() const
     return m_mode;
 }
 
+void MVMEContext::addHistogramCollection(HistogramCollection *histo)
+{
+    m_histogramCollections.append(histo);
+    emit histogramCollectionAdded(histo);
+}
+
 void MVMEContext::addHist2D(Hist2D *hist2d)
 {
     m_2dHistograms.append(hist2d);
@@ -340,7 +346,7 @@ void MVMEContext::addHist2D(Hist2D *hist2d)
 
 void MVMEContext::prepareStart()
 {
-    auto histograms = m_histograms.values();
+    auto histograms = m_histogramCollections;
     for (ModuleConfig *module: m_config->getAllModuleConfigs())
     {
         module->updateRegisterCache();
@@ -363,7 +369,8 @@ void MVMEContext::prepareStart()
             {
                 hist = new HistogramCollection(this, nChannels, resolution);
                 hist->setProperty("Histogram.sourceModule", module->getId());
-                addHistogram(module->getFullPath(), hist);
+                hist->setObjectName(module->getFullPath());
+                addHistogramCollection(hist);
             }
             else
             {
@@ -413,13 +420,12 @@ void MVMEContext::write(QJsonObject &json) const
 
     QJsonArray histArray;
 
-    for (auto name: m_histograms.keys())
+    for (auto histo: m_histogramCollections)
     {
-        auto histo = m_histograms[name];
-        QJsonObject histObject;
-        histObject["name"] = name;
-        histObject["channels"] = (int)histo->m_channels;
-        histObject["resolution"] = (int)histo->m_resolution;
+        QJsonObject json;
+        json["name"] = histo->objectName();
+        json["channels"] = (int)histo->m_channels;
+        json["resolution"] = (int)histo->m_resolution;
 
         QJsonObject propObject;
         for (auto name: histo->dynamicPropertyNames())
@@ -427,9 +433,9 @@ void MVMEContext::write(QJsonObject &json) const
            propObject[QString::fromLocal8Bit(name)] = QJsonValue::fromVariant(histo->property(name.constData()));
         }
 
-        histObject["properties"] = propObject;
+        json["properties"] = propObject;
 
-        histArray.append(histObject);
+        histArray.append(json);
     }
 
     json["Histograms"] = histArray;
@@ -452,7 +458,7 @@ void MVMEContext::write(QJsonObject &json) const
 
 void MVMEContext::read(const QJsonObject &json)
 {
-    removeHistograms();
+    removeHistogramCollections();
     remove2DHistograms();
 
     auto config = new DAQConfig;
@@ -473,6 +479,7 @@ void MVMEContext::read(const QJsonObject &json)
         if (!name.isEmpty() && channels > 0 && resolution > 0)
         {
             auto histo = new HistogramCollection(this, channels, resolution);
+            histo->setObjectName(name);
             auto properties = histodef["properties"].toObject().toVariantMap();
 
             for (auto propName: properties.keys())
@@ -480,7 +487,7 @@ void MVMEContext::read(const QJsonObject &json)
                 auto value = properties[propName];
                 histo->setProperty(propName.toLocal8Bit().constData(), value);
             }
-            addHistogram(name, histo);
+            addHistogramCollection(histo);
         }
     }
 

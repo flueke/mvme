@@ -22,7 +22,6 @@
 #include <QGroupBox>
 #include <QPushButton>
 #include <QSpinBox>
-#include <QListWidget>
 #include <QTimer>
 #include <QCheckBox>
 #include <QFileDialog>
@@ -147,11 +146,17 @@ struct MVMEContextWidgetPrivate
            *label_writtenToListFile, *label_vmusbAvgEventsPerBuffer;
     QLineEdit *le_outputDirectory;
     QCheckBox *cb_outputEnabled;
-    QTreeWidget *contextTree;
-    QMap<QObject *, QTreeWidgetItem *> treeWidgetMap; // maps config objects to tree items
 
-    QListWidget *histoList;
-    QMap<QString, QListWidgetItem *> histoNameMap;
+    // events and modules
+    QTreeWidget *contextTree;
+    QMap<QObject *, QTreeWidgetItem *> treeWidgetMap;   // maps config objects to tree items
+
+    // histograms
+    QTreeWidget *histoTree;
+    QMap<QObject *, QTreeWidgetItem *> histoTreeMap;    // maps histograms (1d and 2d) to tree items
+    QTreeWidgetItem *histCollectionParentItem,
+                    *hist2dParentItem;
+
     QTimer *m_updateStatsTimer;
 };
 
@@ -187,13 +192,6 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
         });
 
         connect(m_d->pb_stopDAQ, &QPushButton::clicked, m_d->context, &MVMEContext::stopDAQ);
-
-#if 0
-        connect(m_d->pb_stopDAQ, &QPushButton::clicked, this, [=] {
-            auto readoutWorker = m_d->context->getReadoutWorker();
-            QMetaObject::invokeMethod(readoutWorker, "stop", Qt::QueuedConnection);
-        });
-#endif
 
         connect(m_d->pb_replay, &QPushButton::clicked, context, &MVMEContext::startReplay);
 
@@ -247,12 +245,12 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
         delete m_d->treeWidgetMap.take(config);
     });
 
-    connect(context, &MVMEContext::histogramAboutToBeRemoved, this, [=](const QString &name, HistogramCollection *hist) {
-        delete m_d->histoNameMap.take(name);
+    connect(context, &MVMEContext::histogramCollectionAboutToBeRemoved, this, [=](HistogramCollection *hist) {
+        delete m_d->histoTreeMap.take(hist);
     });
 
     connect(context, &MVMEContext::hist2DAboutToBeRemoved, this, [=](Hist2D *hist2d) {
-        delete m_d->histoNameMap.take(hist2d->objectName());
+        delete m_d->histoTreeMap.take(hist2d);
     });
 
     auto onControllerStateChanged = [=](ControllerState state) {
@@ -323,19 +321,35 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
     {
         auto gb_histograms = new QGroupBox("Histograms");
         auto layout = new QVBoxLayout(gb_histograms);
-        m_d->histoList = new QListWidget;
-        m_d->histoList->setSortingEnabled(true);
+        m_d->histoTree = new QTreeWidget;
+        m_d->histoTree->setExpandsOnDoubleClick(false);
+        m_d->histoTree->setSortingEnabled(true);
+        m_d->histoTree->setColumnCount(1);
+        auto headerItem = m_d->histoTree->headerItem();
+        headerItem->setText(0, "Histogram Name");
 
         layout->setContentsMargins(2, 4, 2, 2);
         layout->setSpacing(2);
-        layout->addWidget(m_d->histoList);
+        layout->addWidget(m_d->histoTree);
         splitter->addWidget(gb_histograms);
 
-        connect(m_d->histoList, &QListWidget::itemClicked, this, &MVMEContextWidget::histoListItemClicked);
-        connect(m_d->histoList, &QListWidget::itemDoubleClicked, this, &MVMEContextWidget::histoListItemDoubleClicked);
-        connect(context, &MVMEContext::histogramAdded, this, &MVMEContextWidget::onContextHistoAdded);
-        m_d->histoList->setContextMenuPolicy(Qt::CustomContextMenu);
-        connect(m_d->histoList, &QListWidget::customContextMenuRequested, this, &MVMEContextWidget::histoListContextMenu);
+        m_d->histCollectionParentItem = new QTreeWidgetItem;
+        m_d->histCollectionParentItem->setText(0, "1D");
+        m_d->histoTree->addTopLevelItem(m_d->histCollectionParentItem);
+        m_d->histCollectionParentItem->setExpanded(true);
+
+        m_d->hist2dParentItem = new QTreeWidgetItem;
+        m_d->hist2dParentItem->setText(0, "2D");
+        m_d->histoTree->addTopLevelItem(m_d->hist2dParentItem);
+        m_d->hist2dParentItem->setExpanded(true);
+
+        m_d->histoTree->sortByColumn(0, Qt::AscendingOrder);
+
+        m_d->histoTree->setContextMenuPolicy(Qt::CustomContextMenu);
+        connect(m_d->histoTree, &QTreeWidget::itemClicked, this, &MVMEContextWidget::histoItemClicked);
+        connect(m_d->histoTree, &QTreeWidget::itemDoubleClicked, this, &MVMEContextWidget::histoItemDoubleClicked);
+        connect(m_d->histoTree, &QTreeWidget::customContextMenuRequested, this, &MVMEContextWidget::histoTreeContextMenu);
+        connect(context, &MVMEContext::histogramCollectionAdded, this, &MVMEContextWidget::onHistogramCollectionAdded);
     }
 
     /*
@@ -614,17 +628,16 @@ void MVMEContextWidget::onDAQStateChanged(DAQState state)
     m_d->pb_stopDAQ->setEnabled(state != DAQState::Idle);
 }
 
-void MVMEContextWidget::histoListItemClicked(QListWidgetItem *item)
+void MVMEContextWidget::histoItemClicked(QTreeWidgetItem *item)
 {
-    auto name = item->data(Qt::UserRole).toString();
-    auto object = Var2Ptr<QObject>(item->data(Qt::UserRole+1));
+    auto object = Var2Ptr<QObject>(item->data(0, Qt::UserRole));
 
     auto histo = qobject_cast<HistogramCollection *>(object);
     auto hist2d = qobject_cast<Hist2D *>(object);
 
     if (histo)
     {
-        emit histogramClicked(name, histo);
+        emit histogramCollectionClicked(histo);
     }
     else if (hist2d)
     {
@@ -632,17 +645,16 @@ void MVMEContextWidget::histoListItemClicked(QListWidgetItem *item)
     }
 }
 
-void MVMEContextWidget::histoListItemDoubleClicked(QListWidgetItem *item)
+void MVMEContextWidget::histoItemDoubleClicked(QTreeWidgetItem *item)
 {
-    auto name = item->data(Qt::UserRole).toString();
-    auto object = Var2Ptr<QObject>(item->data(Qt::UserRole+1));
+    auto object = Var2Ptr<QObject>(item->data(0, Qt::UserRole));
 
     auto histo = qobject_cast<HistogramCollection *>(object);
     auto hist2d = qobject_cast<Hist2D *>(object);
 
     if (histo)
     {
-        emit histogramDoubleClicked(name, histo);
+        emit histogramCollectionDoubleClicked(histo);
     }
     else if (hist2d)
     {
@@ -650,11 +662,11 @@ void MVMEContextWidget::histoListItemDoubleClicked(QListWidgetItem *item)
     }
 }
 
-void MVMEContextWidget::histoListContextMenu(const QPoint &pos)
+void MVMEContextWidget::histoTreeContextMenu(const QPoint &pos)
 {
-    auto item = m_d->histoList->itemAt(pos);
+    auto item = m_d->histoTree->itemAt(pos);
 
-    auto object = item ? Var2Ptr<QObject>(item->data(Qt::UserRole+1)) : nullptr;
+    auto object = item ? Var2Ptr<QObject>(item->data(0, Qt::UserRole)) : nullptr;
     auto histo = qobject_cast<HistogramCollection *>(object);
     auto hist2d = qobject_cast<Hist2D *>(object);
 
@@ -679,13 +691,13 @@ void MVMEContextWidget::histoListContextMenu(const QPoint &pos)
     if (menu.isEmpty())
         return;
 
-    auto action = menu.exec(m_d->histoList->mapToGlobal(pos));
+    auto action = menu.exec(m_d->histoTree->mapToGlobal(pos));
 
 
     if (action == openAction)
     {
         if (histo)
-            emit showHistogram(histo);
+            emit showHistogramCollection(histo);
         if (hist2d)
             emit showHist2D(hist2d);
     }
@@ -700,8 +712,7 @@ void MVMEContextWidget::histoListContextMenu(const QPoint &pos)
     {
         if (histo)
         {
-            auto name = item->data(Qt::UserRole).toString();
-            m_d->context->removeHistogram(name);
+            m_d->context->removeHistogramCollection(histo);
         }
 
         if (hist2d)
@@ -722,21 +733,44 @@ void MVMEContextWidget::histoListContextMenu(const QPoint &pos)
     }
 }
 
-void MVMEContextWidget::onContextHistoAdded(const QString &name, HistogramCollection *histo)
+void MVMEContextWidget::onHistogramCollectionAdded(HistogramCollection *histo)
 {
-    auto item = new QListWidgetItem(name);
-    item->setData(Qt::UserRole, name);
-    item->setData(Qt::UserRole+1, Ptr2Var(histo));
-    m_d->histoList->addItem(item);
-    m_d->histoNameMap[name] = item;
+    auto item = new QTreeWidgetItem(m_d->histCollectionParentItem);
+    m_d->histoTreeMap[histo] = item;
+
+    auto updateTreeItem = [histo, this]()
+    {
+        auto item = m_d->histoTreeMap[histo];
+        if (item)
+        {
+            item->setText(0, histo->objectName());
+        }
+    };
+
+    updateTreeItem();
+    item->setData(0, Qt::UserRole, Ptr2Var(histo));
+
+    connect(histo, &QObject::objectNameChanged, histo, updateTreeItem);
 }
 
 void MVMEContextWidget::onHist2DAdded(Hist2D *hist2d)
 {
-    auto item = new QListWidgetItem(hist2d->objectName());
-    item->setData(Qt::UserRole+1, Ptr2Var(hist2d));
-    m_d->histoList->addItem(item);
-    m_d->histoNameMap[hist2d->objectName()] = item;
+    auto item = new QTreeWidgetItem(m_d->hist2dParentItem);
+    m_d->histoTreeMap[hist2d] = item;
+
+    auto updateTreeItem = [hist2d, this]()
+    {
+        auto item = m_d->histoTreeMap[hist2d];
+        if (item)
+        {
+            item->setText(0, hist2d->objectName());
+        }
+    };
+
+    updateTreeItem();
+    item->setData(0, Qt::UserRole, Ptr2Var(hist2d));
+
+    connect(hist2d, &QObject::objectNameChanged, hist2d, updateTreeItem);
 }
 
 void MVMEContextWidget::updateStats()

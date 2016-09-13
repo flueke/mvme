@@ -65,8 +65,8 @@ class MVMEContext: public QObject
         void configChanged(DAQConfig *config);
         void configFileNameChanged(const QString &fileName);
 
-        void histogramAdded(const QString &name, HistogramCollection *histo);
-        void histogramAboutToBeRemoved(const QString &name, HistogramCollection *histo);
+        void histogramCollectionAdded(HistogramCollection *histo);
+        void histogramCollectionAboutToBeRemoved(HistogramCollection *histo);
 
         void hist2DAdded(Hist2D *hist2d);
         void hist2DAboutToBeRemoved(Hist2D *hist2d);
@@ -101,22 +101,9 @@ class MVMEContext: public QObject
         void setMode(GlobalMode mode);
         GlobalMode getMode() const;
 
-        QMap<QString, HistogramCollection *> getHistograms() { return m_histograms; }
-        QList<HistogramCollection *> getHistogramList() const { return m_histograms.values(); }
+        QVector<HistogramCollection *> getHistogramCollections() const { return m_histogramCollections; }
 
-        HistogramCollection *getHistogram(const QString &name)
-        {
-            return m_histograms.value(name);
-        }
-
-        bool addHistogram(const QString &name, HistogramCollection *histo)
-        {
-            if (m_histograms.contains(name))
-                return false;
-            m_histograms[name] = histo;
-            emit histogramAdded(name, histo);
-            return true;
-        }
+        void addHistogramCollection(HistogramCollection *histo);
         void addHist2D(Hist2D *hist2d);
 
         QVector<Hist2D *> get2DHistograms() const
@@ -124,17 +111,16 @@ class MVMEContext: public QObject
             return m_2dHistograms;
         }
 
-        bool removeHistogram(const QString &name)
+        bool removeHistogramCollection(HistogramCollection *histo)
         {
-            auto histo = m_histograms.take(name);
-
-            if (histo)
+            int index = m_histogramCollections.indexOf(histo);
+            if (index >= 0)
             {
-                emit histogramAboutToBeRemoved(name, histo);
-                delete histo;
+                emit histogramCollectionAboutToBeRemoved(histo);
+                m_histogramCollections.remove(index);
+                histo->deleteLater();
                 return true;
             }
-
             return false;
         }
 
@@ -151,11 +137,12 @@ class MVMEContext: public QObject
             return false;
         }
 
-        void removeHistograms()
+        void removeHistogramCollections()
         {
-            for (auto name: m_histograms.keys())
+            auto hists = getHistogramCollections();
+            for (auto hist: hists)
             {
-                removeHistogram(name);
+                removeHistogramCollection(hist);
             }
         }
 
@@ -216,7 +203,7 @@ class MVMEContext: public QObject
 
         DataBufferQueue m_freeBuffers;
         QString m_configFileName;
-        QMap<QString, HistogramCollection *> m_histograms;
+        QVector<HistogramCollection *> m_histogramCollections;
         QVector<Hist2D *> m_2dHistograms;
         mvme *m_mainwin;
         DAQStats m_daqStats;

@@ -89,13 +89,13 @@ mvme::mvme(QWidget *parent) :
     connect(contextWidget, &MVMEContextWidget::deleteEvent, this, &mvme::handleDeleteEventConfig);
     connect(contextWidget, &MVMEContextWidget::deleteModule, this, &mvme::handleDeleteModuleConfig);
 
-    connect(contextWidget, &MVMEContextWidget::histogramClicked, this, &mvme::handleHistogramClicked);
-    connect(contextWidget, &MVMEContextWidget::histogramDoubleClicked, this, &mvme::handleHistogramDoubleClicked);
-    connect(contextWidget, &MVMEContextWidget::showHistogram, this, &mvme::openHistogramView);
-    connect(contextWidget, &MVMEContextWidget::showHist2D, this, &mvme::openHist2DView);
+    connect(contextWidget, &MVMEContextWidget::histogramCollectionClicked, this, &mvme::handleHistogramCollectionClicked);
+    connect(contextWidget, &MVMEContextWidget::histogramCollectionDoubleClicked, this, &mvme::handleHistogramCollectionDoubleClicked);
+    connect(contextWidget, &MVMEContextWidget::showHistogramCollection, this, &mvme::openHistogramView);
 
     connect(contextWidget, &MVMEContextWidget::hist2DClicked, this, &mvme::handleHist2DClicked);
     connect(contextWidget, &MVMEContextWidget::hist2DDoubleClicked, this, &mvme::handleHist2DDoubleClicked);
+    connect(contextWidget, &MVMEContextWidget::showHist2D, this, &mvme::openHist2DView);
 
     connect(m_context, &MVMEContext::hist2DAboutToBeRemoved, this, [=](Hist2D *hist2d) {
         for (auto subwin: ui->mdiArea->subWindowList())
@@ -364,12 +364,9 @@ void mvme::on_actionNewConfig_triggered()
 
     m_context->setConfig(new DAQConfig);
     m_context->setConfigFileName(QString());
-    //QSettings().remove("Files/LastConfigFile");
 
-    for (auto name: m_context->getHistograms().keys())
-    {
-        m_context->removeHistogram(name);
-    }
+    m_context->removeHistogramCollections();
+    m_context->remove2DHistograms();
 }
 
 void mvme::on_actionLoadConfig_triggered()
@@ -628,7 +625,7 @@ void mvme::handleDeleteModuleConfig(ModuleConfig *module)
 {
 }
 
-void mvme::handleHistogramClicked(const QString &name, HistogramCollection *histo)
+void mvme::handleHistogramCollectionClicked(HistogramCollection *histo)
 {
     qDebug() << histo << histo->property("Histogram.sourceModule").toUuid();
 
@@ -654,7 +651,7 @@ void mvme::handleHistogramClicked(const QString &name, HistogramCollection *hist
     ui->mdiArea->setActiveSubWindow(subwin);
 }
 
-void mvme::handleHistogramDoubleClicked(const QString &name, HistogramCollection *histo)
+void mvme::handleHistogramCollectionDoubleClicked(HistogramCollection *histo)
 {
     for (auto win: ui->mdiArea->subWindowList())
     {

@@ -126,7 +126,7 @@ void MVMEEventProcessor::newRun()
 
     for (auto mod: m_context->getConfig()->getAllModuleConfigs())
     {
-        for (auto hist: m_context->getHistogramList())
+        for (auto hist: m_context->getHistogramCollections())
         {
             auto sourceId = QUuid(hist->property("Histogram.sourceModule").toString());
             if (sourceId == mod->getId())

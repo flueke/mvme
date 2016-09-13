@@ -1,7 +1,8 @@
 #include "hist2d.h"
-#include "ui_hist2dwidget.h"
-#include "scrollzoomer.h"
+#include "hist2ddialog.h"
 #include "mvme_context.h"
+#include "scrollzoomer.h"
+#include "ui_hist2dwidget.h"
 #include <qwt_plot_spectrogram.h>
 #include <qwt_color_map.h>
 #include <qwt_scale_widget.h>
@@ -12,7 +13,6 @@
 #include <QComboBox>
 #include <QTimer>
 #include <QtCore> // for qQNaN with Qt 5.2
-#include <QMutexLocker>
 
 //
 // Hist2D
@@ -76,6 +76,54 @@ void Hist2D::fill(uint32_t x, uint32_t y, uint32_t weight)
     }
 }
 
+int Hist2D::getXEventIndex() const
+{
+    bool ok;
+    QString sourcePath = property("Hist2D.xAxisSource").toString();
+    int result = sourcePath.section('.', 0, 0).toInt(&ok);
+    return ok ? result : -1;
+}
+
+int Hist2D::getXModuleIndex() const
+{
+    bool ok;
+    QString sourcePath = property("Hist2D.xAxisSource").toString();
+    int result = sourcePath.section('.', 1, 1).toInt(&ok);
+    return ok ? result : -1;
+}
+
+int Hist2D::getXAddressValue() const
+{
+    bool ok;
+    QString sourcePath = property("Hist2D.xAxisSource").toString();
+    int result = sourcePath.section('.', 2, 2).toInt(&ok);
+    return ok ? result : -1;
+}
+
+int Hist2D::getYEventIndex() const
+{
+    bool ok;
+    QString sourcePath = property("Hist2D.yAxisSource").toString();
+    int result = sourcePath.section('.', 0, 0).toInt(&ok);
+    return ok ? result : -1;
+}
+
+int Hist2D::getYModuleIndex() const
+{
+    bool ok;
+    QString sourcePath = property("Hist2D.yAxisSource").toString();
+    int result = sourcePath.section('.', 1, 1).toInt(&ok);
+    return ok ? result : -1;
+}
+
+int Hist2D::getYAddressValue() const
+{
+    bool ok;
+    QString sourcePath = property("Hist2D.yAxisSource").toString();
+    int result = sourcePath.section('.', 2, 2).toInt(&ok);
+    return ok ? result : -1;
+}
+
 double Hist2D::value(double x, double y) const
 {
     uint32_t ix = (uint32_t)x;
@@ -120,6 +168,15 @@ Hist2DWidget::Hist2DWidget(MVMEContext *context, Hist2D *hist2d, QWidget *parent
     connect(ui->pb_clear, &QPushButton::clicked, this, [this] {
         m_hist2d->clear();
         replot();
+    });
+
+    connect(ui->pb_edit, &QPushButton::clicked, this, [this] {
+        Hist2DDialog dialog(m_context, m_hist2d, this);
+        int result = dialog.exec();
+        if (result == QDialog::Accepted)
+        {
+            dialog.getHist2D(); // this updates the histogram
+        }
     });
 
 

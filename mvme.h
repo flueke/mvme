@@ -72,8 +72,8 @@ private slots:
     void handleDeleteEventConfig(EventConfig *event);
     void handleDeleteModuleConfig(ModuleConfig *module);
 
-    void handleHistogramClicked(const QString &name, HistogramCollection *histo);
-    void handleHistogramDoubleClicked(const QString &name, HistogramCollection *histo);
+    void handleHistogramCollectionClicked(HistogramCollection *histo);
+    void handleHistogramCollectionDoubleClicked(HistogramCollection *histo);
 
     void handleHist2DClicked(Hist2D *hist2d);
     void handleHist2DDoubleClicked(Hist2D *hist2d);

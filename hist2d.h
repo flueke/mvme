@@ -1,7 +1,6 @@
 #ifndef UUID_bf5f9bfd_f2f3_4736_bf7e_f2a96176abe9
 #define UUID_bf5f9bfd_f2f3_4736_bf7e_f2a96176abe9
 
-#include <QMutex>
 #include <QWidget>
 #include <qwt_raster_data.h>
 
@@ -46,6 +45,14 @@ public:
     uint32_t getMaxY() const { return m_maxY; }
     uint32_t getNumberOfEntries() const { return m_numberOfEntries; }
 
+    int getXEventIndex() const;
+    int getXModuleIndex() const;
+    int getXAddressValue() const;
+
+    int getYEventIndex() const;
+    int getYModuleIndex() const;
+    int getYAddressValue() const;
+
 
 private:
     void setInterval(Qt::Axis axis, const QwtInterval &interval);
@@ -58,7 +65,6 @@ private:
     uint32_t m_maxY = 0;
     uint32_t m_numberOfEntries = 0;
     QwtInterval m_intervals[3];
-    mutable QMutex m_lock;
 };
 
 class Hist2DRasterData: public QwtRasterData

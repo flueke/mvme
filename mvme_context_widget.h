@@ -7,7 +7,6 @@
 
 struct MVMEContextWidgetPrivate;
 class QTreeWidgetItem;
-class QListWidgetItem;
 
 class MVMEContextWidget: public QWidget
 {
@@ -21,9 +20,9 @@ class MVMEContextWidget: public QWidget
         void moduleDoubleClicked(ModuleConfig *config);
         void deleteModule(ModuleConfig *module);
 
-        void histogramClicked(const QString &name, HistogramCollection *histo);
-        void histogramDoubleClicked(const QString &name, HistogramCollection *histo);
-        void showHistogram(HistogramCollection *histo);
+        void histogramCollectionClicked(HistogramCollection *histo);
+        void histogramCollectionDoubleClicked(HistogramCollection *histo);
+        void showHistogramCollection(HistogramCollection *histo);
 
         void hist2DClicked(Hist2D *hist2d);
         void hist2DDoubleClicked(Hist2D *hist2d);
@@ -41,11 +40,14 @@ class MVMEContextWidget: public QWidget
         void treeItemClicked(QTreeWidgetItem *item, int column);
         void treeItemDoubleClicked(QTreeWidgetItem *item, int column);
         void onDAQStateChanged(DAQState state);
-        void histoListItemClicked(QListWidgetItem *item);
-        void histoListItemDoubleClicked(QListWidgetItem *item);
-        void histoListContextMenu(const QPoint &pos);
-        void onContextHistoAdded(const QString &name, HistogramCollection *histo);
+
+        // histograms
+        void histoItemClicked(QTreeWidgetItem *item);
+        void histoItemDoubleClicked(QTreeWidgetItem *item);
+        void histoTreeContextMenu(const QPoint &pos);
+        void onHistogramCollectionAdded(HistogramCollection *histo);
         void onHist2DAdded(Hist2D *hist2d);
+
         void onConfigChanged();
         void updateStats();
 

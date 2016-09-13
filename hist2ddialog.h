@@ -17,7 +17,7 @@ class Hist2DDialog : public QDialog
     Q_OBJECT
 
 public:
-    explicit Hist2DDialog(MVMEContext *context, QWidget *parent = 0);
+    explicit Hist2DDialog(MVMEContext *context, Hist2D *histo = 0, QWidget *parent = 0);
     ~Hist2DDialog();
 
     Hist2D *getHist2D();
@@ -33,15 +33,17 @@ private:
 
     Ui::Hist2DDialog *ui;
     MVMEContext *m_context;
+    Hist2D *m_histo;
 };
 
 class NameValidator: public QValidator
 {
     Q_OBJECT
     public:
-        NameValidator(MVMEContext *context, QObject *parent = 0)
+        NameValidator(MVMEContext *context, Hist2D *histo = 0, QObject *parent = 0)
             : QValidator(parent)
             , m_context(context)
+            , m_histo(histo)
         {}
 
         virtual State validate(QString &name, int &pos) const
@@ -54,7 +56,7 @@ class NameValidator: public QValidator
             auto hist2ds = m_context->get2DHistograms();
             for (auto hist2d: hist2ds)
             {
-                if (hist2d->objectName() == name)
+                if (hist2d->objectName() == name && hist2d != m_histo)
                 {
                     return QValidator::Intermediate;
                 }
@@ -64,6 +66,7 @@ class NameValidator: public QValidator
 
     private:
         MVMEContext *m_context;
+        Hist2D *m_histo;
 };
 
 #endif // HIST2DDIALOG_H

@@ -89,8 +89,7 @@ TwoDimWidget::TwoDimWidget(MVMEContext *context, HistogramCollection *histo, QWi
             path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
         }
 
-        auto histos = m_context->getHistograms();
-        auto name = histos.key(m_hist);
+        auto name = m_hist->objectName();
 
         QString fileName = QString("%1/%2.c%3.txt")
             .arg(path)
@@ -146,7 +145,7 @@ TwoDimWidget::TwoDimWidget(MVMEContext *context, HistogramCollection *histo, QWi
     m_statsTextItem->setText(*m_statsText);
     m_statsTextItem->attach(ui->mainPlot);
 
-    connect(context, &MVMEContext::histogramAboutToBeRemoved, this, [=](const QString &, HistogramCollection *h) {
+    connect(context, &MVMEContext::histogramCollectionAboutToBeRemoved, this, [=](HistogramCollection *h) {
         if (h == histo)
         {
             auto pw = parentWidget();
@@ -211,8 +210,7 @@ void TwoDimWidget::displayChanged()
         ui->channelBox->blockSignals(false);
     }
 
-    auto histos = m_context->getHistograms();
-    auto name = histos.key(m_hist);
+    auto name = m_hist->objectName();
 
     setWindowTitle(QString("Histogram %1, channel=%2")
                    .arg(name)
@@ -266,8 +264,7 @@ void TwoDimWidget::setSelectedChannelIndex(quint32 channelIndex)
 
 void TwoDimWidget::exportPlot()
 {
-    auto histos = m_context->getHistograms();
-    auto name = histos.key(m_hist);
+    auto name = m_hist->objectName();
 
     QString fileName = QString("%1.c%2.pdf")
                        .arg(name)
