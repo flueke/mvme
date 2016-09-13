@@ -175,6 +175,7 @@ void ModuleConfig::read(const QJsonObject &json)
     initStartDaq = json["initStartDaq"].toString();
     initStopDaq = json["initStopDaq"].toString();
     readoutStack = json["readoutStack"].toString();
+    updateRegisterCache();
 }
 
 void ModuleConfig::write(QJsonObject &json) const
