@@ -127,6 +127,14 @@ Hist2D *Hist2DDialog::getHist2D()
     {
         m_histo = new Hist2D(xBits, yBits);
     }
+    else
+    {
+        if (m_histo->property("Hist2D.xAxisSource").toString() != xSource
+            || m_histo->property("Hist2D.yAxisSource").toString() != ySource)
+        {
+            m_histo->clear();
+        }
+    }
 
     m_histo->setObjectName(ui->le_name->text());
     m_histo->setProperty("Hist2D.xAxisSource", xSource);
