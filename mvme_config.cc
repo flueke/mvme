@@ -200,7 +200,7 @@ void ModuleConfig::generateReadoutStack()
     {
         VMECommandList readoutCmds;
         readoutCmds.addFifoRead32(baseAddress, FifoReadTransferSize);
-        readoutCmds.addMarker(EndOfModuleMarker);
+        readoutCmds.addMarker(EndMarker);
         readoutCmds.addWrite16(baseAddress + 0x6034, 1);
         CVMUSBReadoutList readoutList(readoutCmds);
         readoutStack = readoutList.toString();

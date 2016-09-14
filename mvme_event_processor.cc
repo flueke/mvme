@@ -259,7 +259,7 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
                         }
 
                         u32 nextWord = iter.peekU32();
-                        if (nextWord == EndOfModuleMarker)
+                        if (nextWord == EndMarker)
                         {
                             iter.extractU32();
                         }
@@ -298,7 +298,7 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
             }
 
             u32 nextWord = iter.peekU32();
-            if (nextWord == EndOfModuleMarker)
+            if (nextWord == EndMarker)
             {
                 iter.extractU32();
             }

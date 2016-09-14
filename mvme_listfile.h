@@ -41,7 +41,7 @@
  * m =  6 bit module type (VMEModuleType enum from globals.h)
  * s = 10 bit size in units of 32 bit words
  *
- * The last word of each event section is the EndOfModuleMarker (globals.h)
+ * The last word of each event section is the EndMarker (globals.h)
  *
 */
 
@@ -58,7 +58,7 @@ namespace listfile
     enum SectionType
     {
         /* The config section contains the mvmecfg as a json string padded with
-         * zeros to the next 32 bit boundary. If the config data size exceeds
+         * spaces to the next 32 bit boundary. If the config data size exceeds
          * the maximum section size multiple config sections will be written at
          * the start of the file. */
         SectionType_Config = 0,

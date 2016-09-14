@@ -367,11 +367,11 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
  * Event Header
  *   SubeventHeader (== Module header)
  *     Raw module contents
- *     EndOfModuleMarker
+ *     EndMarker
  *   SubeventHeader (== Module header)
  *     Raw module contents
- *     EndOfModuleMarker
- * EndOfModuleMarker
+ *     EndMarker
+ * EndMarker
  * Event Header
  * ...
  */
@@ -432,17 +432,17 @@ bool VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *output
         *moduleHeader = (((u32)module->type) << ModuleTypeShift) & ModuleTypeMask;
 
         // extract and copy data until we used up the whole event length
-        // or until BerrMarker and EndOfModuleMarker have been found
+        // or until BerrMarker and EndMarker have been found
         while (eventIter.longwordsLeft() >= 2)
         {
             /* TODO: this assumes 32 bit data from the module and BerrMarker
-             * followed by EndOfModuleMarker. Support modules/readout stacks
+             * followed by EndMarker. Support modules/readout stacks
              * yielding 16 bit data and don't require a BerrMarker.
              * Note: just pad 16-bit data with zeroes. */
             u32 data = eventIter.extractU32();
-            if (data == BerrMarker && eventIter.peekU32() == EndOfModuleMarker)
+            if (data == BerrMarker && eventIter.peekU32() == EndMarker)
             {
-                *outp++ = eventIter.extractU32(); // copy the EndOfModuleMarker
+                *outp++ = eventIter.extractU32(); // copy the EndMarker
                 ++subEventSize;
 
                 *moduleHeader |= (subEventSize << SubEventSizeShift) & SubEventSizeMask;
@@ -484,8 +484,8 @@ bool VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *output
         }
     }
 
-    // Add an EndOfModuleMarker at the end of the event
-    *outp++ = EndOfModuleMarker;
+    // Add an EndMarker at the end of the event
+    *outp++ = EndMarker;
     ++eventSize;
 
     *mvmeEventHeader |= (eventSize << SectionSizeShift) & SectionSizeMask;
