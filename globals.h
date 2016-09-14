@@ -33,6 +33,8 @@ enum class VMEModuleType
     MDPP32  = 5,
     MDI2    = 6,
 
+    //RegisterRead = 40, // TODO: add support for this
+
     Generic = 48,
 };
 
