@@ -28,7 +28,6 @@ public:
     void exportPlot();
 
     void plot();
-    void setHistogram(HistogramCollection* h);
     HistogramCollection *getHistogram() const { return m_hist; }
     void clearDisp(void);
     void updateStatistics();

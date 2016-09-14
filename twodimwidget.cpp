@@ -70,6 +70,8 @@ TwoDimWidget::TwoDimWidget(MVMEContext *context, HistogramCollection *histo, QWi
     ui->mainPlot->axisWidget(QwtPlot::xBottom)->setTitle("Channel 0");
 
     ui->mainPlot->canvas()->setMouseTracking(true);
+
+    ui->channelBox->setMaximum(m_hist->m_channels-1);
     m_plotZoomer = new ScrollZoomer(this->ui->mainPlot->canvas());
     // assign the unused rRight axis to only zoom in x
     m_plotZoomer->setAxis(QwtPlot::xBottom, QwtPlot::yRight);
@@ -349,11 +351,6 @@ void TwoDimWidget::updateStatistics()
 
     m_statsText->setText(buffer);
     m_statsTextItem->setText(*m_statsText);
-}
-
-void TwoDimWidget::setHistogram(HistogramCollection *h)
-{
-    m_hist = h;
 }
 
 void TwoDimWidget::clearDisp()
