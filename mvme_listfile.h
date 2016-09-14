@@ -101,6 +101,7 @@ class ListFile
         s32 readSectionsIntoBuffer(DataBuffer *buffer);
         const QFile &getFile() const { return m_file; }
         qint64 size() const { return m_file.size(); }
+        QString getFileName() const { return m_file.fileName(); }
 
     private:
         QFile m_file;

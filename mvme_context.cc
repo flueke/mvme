@@ -266,11 +266,11 @@ DAQState MVMEContext::getDAQState() const
 void MVMEContext::setListFile(ListFile *listFile)
 {
     read(listFile->getDAQConfig());
-    setConfigFileName(QString());
-    setMode(GlobalMode::ListFile);
     delete m_listFile;
     m_listFile = listFile;
     m_listFileWorker->setListFile(listFile);
+    setConfigFileName(QString());
+    setMode(GlobalMode::ListFile);
 }
 
 void MVMEContext::setMode(GlobalMode mode)
@@ -374,9 +374,15 @@ void MVMEContext::prepareStart()
             }
             else
             {
+                // resize() also clears the histogram
                 (*findResult)->resize(nChannels, resolution);
             }
         }
+    }
+
+    for (auto hist2d: m_2dHistograms)
+    {
+        hist2d->clear();
     }
 
     m_eventProcessor->newRun();

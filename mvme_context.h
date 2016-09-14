@@ -98,6 +98,7 @@ class MVMEContext: public QObject
         const DAQStats &getDAQStats() const { return m_daqStats; }
         DAQStats &getDAQStats() { return m_daqStats; }
         void setListFile(ListFile *listFile);
+        ListFile *getListFile() const { return m_listFile; }
         void setMode(GlobalMode mode);
         GlobalMode getMode() const;
 
