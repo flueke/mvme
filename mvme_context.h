@@ -31,10 +31,10 @@ struct DAQStats
     u64 bytesRead = 0;
     u64 buffersRead = 0;
     u32 vmusbAvgEventsPerBuffer = 0;
+    u32 avgReadSize = 0;
     u64 buffersWithErrors = 0;
     u64 droppedBuffers = 0;
     int freeBuffers = 0;
-    int readSize = 0;
     u64 listFileBytesWritten = 0;
     QMap<QObject *, u64> eventCounts; // maps EventConfig/ModuleConfig to event count
 };

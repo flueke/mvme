@@ -252,7 +252,8 @@ void VMUSBReadoutWorker::readoutLoop()
             m_readBuffer->used = bytesRead;
             stats.bytesRead += bytesRead;
             stats.buffersRead++;
-            stats.readSize = bytesRead;
+            const double alpha = 0.1;
+            stats.avgReadSize = (alpha * bytesRead) + (1.0 - alpha) * stats.avgReadSize;
             consecutiveReadErrors = 0;
             if (m_bufferProcessor)
             {
@@ -302,7 +303,8 @@ void VMUSBReadoutWorker::readoutLoop()
             m_readBuffer->used = bytesRead;
             stats.bytesRead += bytesRead;
             stats.buffersRead++;
-            stats.readSize = bytesRead;
+            const double alpha = 0.1;
+            stats.avgReadSize = (alpha * bytesRead) + (1.0 - alpha) * stats.avgReadSize;
             if (m_bufferProcessor)
             {
                 m_bufferProcessor->processBuffer(m_readBuffer);

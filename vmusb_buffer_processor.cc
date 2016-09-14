@@ -273,9 +273,42 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
             //qDebug("header2: numberOfWords=%u, bytes in readBuffer=%u", numberOfWords, readBuffer->used);
         }
 
+        bool skipBuffer = false;
+
         for (u16 eventIndex=0; eventIndex < numberOfEvents; ++eventIndex)
         {
-            processEvent(iter, outputBuffer);
+            try 
+            {
+                if (!processEvent(iter, outputBuffer))
+                {
+                    emit logMessage(QString(QSL("VMUSB Error: processEvent() returned false, skipping buffer, eventIndex=%1, numberOfEvents=%2, header=0x%3"))
+                                    .arg(eventIndex)
+                                    .arg(numberOfEvents)
+                                    .arg(header1, 8, 16, QLatin1Char('0'))
+                                   );
+                    skipBuffer = true;
+                    break;
+                }
+            }
+            catch (const end_of_buffer &)
+            {
+                emit logMessage(QString("VMUSB Error: end_of_buffer from processEvent(): eventIndex=%1, numberOfEvents=%2, header=0x%3")
+                                .arg(eventIndex)
+                                .arg(numberOfEvents)
+                                .arg(header1, 8, 16, QLatin1Char('0'))
+                               );
+                throw;
+            }
+        }
+
+        if (skipBuffer)
+        {
+            if (outputBuffer != &m_localEventBuffer)
+            {
+                addFreeBuffer(outputBuffer);
+            }
+
+            return false;
         }
 
         if (iter.shortwordsLeft() >= 2)
@@ -377,6 +410,12 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
  */
 bool VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputBuffer)
 {
+    if (iter.shortwordsLeft() < 1)
+    {
+        emit logMessage(QString(QSL("VMUSB Error: processEvent(): end of buffer when extracting event header")));
+        return false;
+    }
+
     u16 eventHeader = iter.extractU16();
 
     u8 stackID          = (eventHeader >> Buffer::StackIDShift) & Buffer::StackIDMask;

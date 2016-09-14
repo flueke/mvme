@@ -147,8 +147,22 @@ class DAQConfig: public QObject
         void setModified(bool b=true);
         bool isModified() const { return m_isModified; }
 
-        void addEventConfig(EventConfig *config) { m_eventConfigs.push_back(config); }
-        bool removeEventConfig(EventConfig *config) { return m_eventConfigs.removeOne(config); }
+        void addEventConfig(EventConfig *config)
+        {
+            m_eventConfigs.push_back(config); setModified();
+        }
+
+        bool removeEventConfig(EventConfig *config)
+        {
+            bool ret = m_eventConfigs.removeOne(config);
+            if (ret)
+            {
+                setModified();
+            }
+
+            return ret;
+        }
+
         QList<EventConfig *> getEventConfigs() const { return m_eventConfigs; }
         EventConfig *getEventConfig(int eventID) { return m_eventConfigs.value(eventID); }
         EventConfig *getEventConfig(const QString &name) const;

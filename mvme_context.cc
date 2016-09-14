@@ -103,6 +103,7 @@ void MVMEContext::addModule(EventConfig *eventConfig, ModuleConfig *module)
 {
     module->event = eventConfig;
     eventConfig->modules.push_back(module);
+    eventConfig->setModified();
     emit moduleAdded(eventConfig, module);
 }
 
@@ -139,7 +140,7 @@ void MVMEContext::removeModule(ModuleConfig *module)
         {
             emit moduleAboutToBeRemoved(module);
             delete module;
-            m_config->setModified();
+            event->setModified();
             break;
         }
     }

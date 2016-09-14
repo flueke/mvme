@@ -211,7 +211,7 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
         stateLayout->addRow("Free event buffers:", m_d->label_freeBuffers);
         stateLayout->addRow("Buffers read / dropped / errors:", m_d->label_buffersReadAndDropped);
         stateLayout->addRow("Buffers/s / MB/s:", m_d->label_mbPerSecond);
-        stateLayout->addRow("Last readbuffer size:", m_d->label_readSize);
+        stateLayout->addRow("Avg. read size:", m_d->label_readSize);
         stateLayout->addRow("vmusb avg. events per buffer:", m_d->label_vmusbAvgEventsPerBuffer);
         stateLayout->addRow("ListFile size:", m_d->label_writtenToListFile);
 
@@ -797,7 +797,7 @@ void MVMEContextWidget::updateStats()
                                               );
 
     m_d->label_freeBuffers->setText(QString::number(stats.freeBuffers));
-    m_d->label_readSize->setText(QString::number(stats.readSize));
+    m_d->label_readSize->setText(QString::number(stats.avgReadSize));
     m_d->label_mbPerSecond->setText(QString("%1 / %2")
                                     .arg(buffersPerSecond, 6, 'f', 2)
                                     .arg(mbPerSecond, 6, 'f', 2)

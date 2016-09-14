@@ -17,6 +17,8 @@ The following sections of type "Event" contain the actual event data.
 
 The last section of a listfile is an empty section of type "End".
 
+All header words and module data words are 32-bit aligned in little endian byte
+order.  16-bit module data is zero-padded to fill a 32-bit word.
 
 Listfile Structure:
 
