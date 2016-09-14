@@ -109,20 +109,22 @@ mvme::mvme(QWidget *parent) :
         }
     });
 
+    connect(m_context, &MVMEContext::modeChanged, this, &mvme::updateWindowTitle);
+
     auto contextDock = new QDockWidget();
     contextDock->setObjectName("MVMEContextDock");
     contextDock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
     contextDock->setWidget(contextWidget);
     addDockWidget(Qt::LeftDockWidgetArea, contextDock);
 
-    m_logView->setWindowTitle("Log View");
+    m_logView->setWindowTitle("Log Window");
     QFont font("MonoSpace");
     font.setStyleHint(QFont::Monospace);
     m_logView->setFont(font);
     m_logView->setTabChangesFocus(true);
     m_logView->document()->setMaximumBlockCount(10 * 1024 * 1024);
     m_logView->setContextMenuPolicy(Qt::CustomContextMenu);
-    //m_logView->setStyleSheet("background-color: rgb(245, 245, 245);");
+    //m_logView->setStyleSheet("background-color: rgb(225, 225, 225);");
     connect(m_logView, &QWidget::customContextMenuRequested, this, [=](const QPoint &pos) {
         auto menu = m_logView->createStandardContextMenu(pos);
         auto action = menu->addAction("Clear");
@@ -746,19 +748,48 @@ void mvme::appendToLog(const QString &s)
 
 void mvme::updateWindowTitle()
 {
-    QString filePath = m_context->getConfigFileName();
-    QString fileName =  QFileInfo(filePath).fileName();
     QString title;
+    QString modeString;
+    QString fileName;
+
+    switch (m_context->getMode())
+    {
+        case GlobalMode::DAQ:
+            {
+                QString filePath = m_context->getConfigFileName();
+                fileName =  QFileInfo(filePath).fileName();
+                modeString = "DAQ mode";
+            } break;
+        case GlobalMode::ListFile:
+            {
+                auto listFile = m_context->getListFile();
+                if (listFile)
+                {
+                    QString filePath = m_context->getListFile()->getFileName();
+                    fileName =  QFileInfo(filePath).fileName();
+                }
+                modeString = "ListFile mode";
+            } break;
+        case GlobalMode::NotSet:
+            modeString = "Unknown mode";
+            break;
+    }
+
     if (!fileName.isEmpty())
     {
-        title = (QString("%1 - mvme2").arg(fileName));
+        title = QString("%1 [%2] - mvme2")
+                 .arg(fileName)
+                 .arg(modeString)
+                 ;
     }
     else
     {
-        title = (QString("mvme2"));
+        title = QString("[%2] - mvme2")
+            .arg(modeString)
+            ;
     }
 
-    if (m_context->getConfig()->isModified())
+    if (m_context->getMode() == GlobalMode::DAQ && m_context->getConfig()->isModified())
     {
         title += " *";
     }
