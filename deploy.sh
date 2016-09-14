@@ -1,4 +1,6 @@
 #!/bin/bash
+# Example usage:
+# sh ../mvme2/deploy.sh ./mvme2 ../mvme2 ~/Qt/5.7/gcc_64 ./deploy
 
 set -e
 
@@ -45,7 +47,11 @@ for lib in `ldd "$PATH_TO_BINARY" | cut -d'>' -f2 | awk '{print $1}'` ; do
 done
 
 echo "---> copy additional qt libraries"
-cp -v "$QT_INSTALL_PREFIX/lib/libQt5DBus.so.5" "$TARGET_FOLDER"
+libs="libQt5DBus.so.5 libQt5XcbQpa.so.5"
+
+for lib in $libs; do
+    cp -v "$QT_INSTALL_PREFIX/lib/$lib" "$TARGET_FOLDER"
+done
 
 echo "---> copy qt plugins"
 cp -vr "$QT_INSTALL_PREFIX/plugins/platforms" "$TARGET_FOLDER"
