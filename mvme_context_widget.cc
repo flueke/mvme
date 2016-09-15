@@ -82,6 +82,7 @@ struct AddModuleDialog: public QDialog
         module->setName(nameEdit->text());
         module->baseAddress = addressEdit->text().toUInt(&ok, 16);
 
+        // TODO: This is duplicated in ModuleConfigDialog::loadFromTemplate(). Compress this!
         QStringList templatePaths;
         templatePaths << QDir::currentPath() + "/templates";
         templatePaths << QCoreApplication::applicationDirPath() + "/templates";
@@ -99,7 +100,7 @@ struct AddModuleDialog: public QDialog
 
         if (templatePath.isEmpty())
         {
-            context->logMessage("No module template directory found!");
+            context->logMessage(QSL("No module template directory found."));
         }
         else
         {
@@ -346,10 +347,18 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
         m_d->histoTree->sortByColumn(0, Qt::AscendingOrder);
 
         m_d->histoTree->setContextMenuPolicy(Qt::CustomContextMenu);
-        connect(m_d->histoTree, &QTreeWidget::itemClicked, this, &MVMEContextWidget::histoItemClicked);
-        connect(m_d->histoTree, &QTreeWidget::itemDoubleClicked, this, &MVMEContextWidget::histoItemDoubleClicked);
-        connect(m_d->histoTree, &QTreeWidget::customContextMenuRequested, this, &MVMEContextWidget::histoTreeContextMenu);
-        connect(context, &MVMEContext::histogramCollectionAdded, this, &MVMEContextWidget::onHistogramCollectionAdded);
+
+        connect(m_d->histoTree, &QTreeWidget::itemClicked,
+                this, &MVMEContextWidget::histoItemClicked);
+
+        connect(m_d->histoTree, &QTreeWidget::itemDoubleClicked,
+                this, &MVMEContextWidget::histoItemDoubleClicked);
+
+        connect(m_d->histoTree, &QTreeWidget::customContextMenuRequested,
+                this, &MVMEContextWidget::histoTreeContextMenu);
+
+        connect(context, &MVMEContext::histogramCollectionAdded,
+                this, &MVMEContextWidget::onHistogramCollectionAdded);
     }
 
     /*
@@ -671,20 +680,29 @@ void MVMEContextWidget::histoTreeContextMenu(const QPoint &pos)
     auto hist2d = qobject_cast<Hist2D *>(object);
 
     QMenu menu;
-    QAction *openAction = new QAction("Open", &menu);
-    QAction *clearAction = new QAction("Clear", &menu);
-    QAction *delAction = new QAction("Remove", &menu);
+    QAction *openAction = new QAction("Open New Histogram Window", &menu);
+    QAction *clearAction = new QAction("Clear Histogram", &menu);
+    QAction *delAction = new QAction("Remove Histogram", &menu);
     QAction *addHist2D = new QAction("Add 2D Histogram", &menu);
 
-    if (item)
+    if (item && (histo || hist2d))
     {
         menu.addAction(openAction);
         menu.addAction(clearAction);
-        menu.addAction(delAction);
+        if (hist2d)
+        {
+            menu.addSeparator();
+            menu.addAction(delAction);
+        }
     }
 
-    if (m_d->context->getConfig()->getAllModuleConfigs().size())
+    if (m_d->context->getConfig()->getAllModuleConfigs().size()
+            && item == m_d->hist2dParentItem)
     {
+        if (menu.actions().size())
+        {
+            menu.addSeparator();
+        }
         menu.addAction(addHist2D);
     }
 
