@@ -12,6 +12,8 @@
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QThread>
+#include <QStandardItemModel>
+#include <QCloseEvent>
 
 EventConfigDialog::EventConfigDialog(MVMEContext *context, EventConfig *config, QWidget *parent)
     : QDialog(parent)
@@ -112,17 +114,55 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *confi
         }
     });
 
+    auto model = qobject_cast<QStandardItemModel *>(ui->combo_listType->model());
+
+    // Module initialization
+    {
+        ui->combo_listType->addItem("----- Initialization -----");
+        auto item = model->item(ui->combo_listType->count() - 1);
+        item->setFlags(item->flags() & ~(Qt::ItemIsSelectable | Qt::ItemIsEnabled));
+    }
+
+    ui->combo_listType->addItem("Module Reset", QVariant::fromValue(static_cast<int>(ModuleListType::Reset)));
     ui->combo_listType->addItem("Module Init", QVariant::fromValue(static_cast<int>(ModuleListType::Parameters)));
     ui->combo_listType->addItem("Readout Settings", QVariant::fromValue(static_cast<int>(ModuleListType::Readout)));
-    ui->combo_listType->addItem("Readout Stack (VM_USB)", QVariant::fromValue(static_cast<int>(ModuleListType::ReadoutStack)));
+
+    // Readout loop
+    {
+        ui->combo_listType->addItem("----- Readout -----");
+        auto item = model->item(ui->combo_listType->count() - 1);
+        item->setFlags(item->flags() & ~(Qt::ItemIsSelectable | Qt::ItemIsEnabled));
+    }
     ui->combo_listType->addItem("Start DAQ", QVariant::fromValue(static_cast<int>(ModuleListType::StartDAQ)));
+    ui->combo_listType->addItem("Readout Stack (VM_USB)", QVariant::fromValue(static_cast<int>(ModuleListType::ReadoutStack)));
     ui->combo_listType->addItem("Stop DAQ", QVariant::fromValue(static_cast<int>(ModuleListType::StopDAQ)));
-    ui->combo_listType->addItem("Module Reset", QVariant::fromValue(static_cast<int>(ModuleListType::Reset)));
+
+    ui->combo_listType->setCurrentIndex(2);
 
     connect(ui->combo_listType, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
             this, &ModuleConfigDialog::handleListTypeIndexChanged);
 
+    connect(ui->le_name, &QLineEdit::textChanged, this, [this](const QString &) {
+            if (ui->le_name->hasAcceptableInput())
+            {
+                setModified(true);
+            }
+    });
+
+    // VME base address
     ui->le_address->setInputMask("\\0\\xHHHH\\0\\0\\0\\0");
+
+    connect(ui->le_address, &QLineEdit::textChanged, this, [this](const QString &) {
+            if (ui->le_address->hasAcceptableInput())
+            {
+                setModified(true);
+            }
+    });
+
+    // register list / stack editor
+    connect(ui->editor, &QTextEdit::textChanged, this, [this] {
+            setModified(true);
+    });
 
     loadFromConfig();
 
@@ -148,6 +188,16 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *confi
         bool open = controller->isOpen();
         ui->pb_exec->setEnabled(open);
         ui->pb_initModule->setEnabled(open);
+        if (open)
+        {
+            ui->pb_exec->setToolTip(QSL(""));
+            ui->pb_initModule->setToolTip(QSL(""));
+        }
+        else
+        {
+            ui->pb_exec->setToolTip(QSL("Controller not connected"));
+            ui->pb_initModule->setToolTip(QSL("Controller not connected"));
+        }
     };
 
     connect(controller, &VMEController::controllerOpened, this, onControllerOpenChanged);
@@ -167,12 +217,16 @@ void ModuleConfigDialog::handleListTypeIndexChanged(int index)
     {
         auto lastType = ui->combo_listType->itemData(m_lastListTypeIndex).toInt();
         m_configStrings[lastType] = ui->editor->toPlainText();
+        setModified(true);
     }
 
     m_lastListTypeIndex = index;
 
     auto currentType = ui->combo_listType->currentData().toInt();
-    ui->editor->setPlainText(m_configStrings.value(currentType));
+    {
+        QSignalBlocker b(ui->editor);
+        ui->editor->setPlainText(m_configStrings.value(currentType));
+    }
     ui->editor->document()->setModified(false);
     ui->editor->document()->clearUndoRedoStacks();
 
@@ -200,8 +254,32 @@ void ModuleConfigDialog::handleListTypeIndexChanged(int index)
 
 void ModuleConfigDialog::closeEvent(QCloseEvent *event)
 {
-    reject();
-    QWidget::closeEvent(event);
+    if (m_hasModifications)
+    {
+        auto response = QMessageBox::question(this, QSL("Apply changes"),
+                QSL("The module configuration was modified. Do you want to apply the changes?"),
+                QMessageBox::Apply | QMessageBox::Discard | QMessageBox::Cancel);
+        if (response == QMessageBox::Apply)
+        {
+            saveToConfig();
+            event->accept();
+            accept();
+        }
+        else if (response == QMessageBox::Discard)
+        {
+            event->accept();
+            reject();
+        }
+        else
+        {
+            event->ignore();
+        }
+    }
+    else
+    {
+        event->accept();
+        accept();
+    }
 }
 
 void ModuleConfigDialog::loadFromFile()
@@ -230,7 +308,29 @@ void ModuleConfigDialog::loadFromFile()
 
 void ModuleConfigDialog::loadFromTemplate()
 {
-    QString templatePath = QCoreApplication::applicationDirPath() + "/templates";
+    // TODO: This is duplicated in AddModuleDialog::accept(). Compress this!
+    QStringList templatePaths;
+    templatePaths << QDir::currentPath() + "/templates";
+    templatePaths << QCoreApplication::applicationDirPath() + "/templates";
+
+    QString templatePath;
+
+    for (auto testPath: templatePaths)
+    {
+        if (QFileInfo(testPath).exists())
+        {
+            templatePath = testPath;
+            break;
+        }
+    }
+
+
+    if (templatePath.isEmpty())
+    {
+        QMessageBox::warning(this, QSL("Error"), QSL("No module template directory found."));
+        return;
+    }
+
     QString fileName = QFileDialog::getOpenFileName(this, "Load init template", templatePath,
                                                     "Init Lists (*.init);; All Files (*)");
 
@@ -303,7 +403,8 @@ void ModuleConfigDialog::execList()
             case ModuleListType::Reset:
                 {
                     u8 ignored[100];
-                    auto cmdList = VMECommandList::fromInitList(parseRegisterList(listContents), m_config->baseAddress);
+                    auto cmdList = VMECommandList::fromInitList(parseRegisterList(listContents),
+                            m_config->baseAddress);
 
                     qDebug() << "command list:";
                     qDebug() << cmdList.toString();
@@ -359,6 +460,13 @@ void ModuleConfigDialog::initModule()
     controller->applyRegisterList(regs, m_config->baseAddress);
 }
 
+void ModuleConfigDialog::setModified(bool modified)
+{
+    m_hasModifications = modified;
+    ui->buttonBox->button(QDialogButtonBox::Reset)->setEnabled(modified);
+    ui->buttonBox->button(QDialogButtonBox::Apply)->setEnabled(modified);
+}
+
 void ModuleConfigDialog::on_buttonBox_clicked(QAbstractButton *button)
 {
     auto buttonRole = ui->buttonBox->buttonRole(button);
@@ -379,7 +487,25 @@ void ModuleConfigDialog::on_buttonBox_clicked(QAbstractButton *button)
 
         case QDialogButtonBox::RejectRole:
             {
-                reject();
+                if (m_hasModifications)
+                {
+                    auto response = QMessageBox::question(this, QSL("Apply changes"),
+                            QSL("The module configuration was modified. Do you want to apply the changes?"),
+                            QMessageBox::Apply | QMessageBox::Discard | QMessageBox::Cancel);
+                    if (response == QMessageBox::Apply)
+                    {
+                        saveToConfig();
+                        accept();
+                    }
+                    else if (response == QMessageBox::Discard)
+                    {
+                        reject();
+                    }
+                }
+                else
+                {
+                    reject();
+                }
             } break;
 
         default:
@@ -408,6 +534,7 @@ void ModuleConfigDialog::loadFromConfig()
     ui->editor->setPlainText(m_configStrings.value(currentType));
     ui->editor->document()->setModified(false);
     ui->editor->document()->clearUndoRedoStacks();
+    setModified(false);
 }
 
 void ModuleConfigDialog::saveToConfig()
@@ -427,4 +554,5 @@ void ModuleConfigDialog::saveToConfig()
         *getConfigString(static_cast<ModuleListType>(i), config) = m_configStrings[i];
     }
     m_config->generateReadoutStack();
+    setModified(false);
 }

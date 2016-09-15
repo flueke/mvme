@@ -64,6 +64,7 @@ class ModuleConfigDialog: public QDialog
         void saveToFile();
         void execList();
         void initModule();
+        void setModified(bool modified);
 
         Ui::ModuleConfigDialog *ui;
         QAction *actLoadTemplate, *actLoadFile;
@@ -71,6 +72,7 @@ class ModuleConfigDialog: public QDialog
         ModuleConfig *m_config;
         int m_lastListTypeIndex = 0;
         QMap<int, QString> m_configStrings;
+        bool m_hasModifications = false;
 };
 
 #endif /* __CONFIG_WIDGETS_H__ */
