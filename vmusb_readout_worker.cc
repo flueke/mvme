@@ -43,7 +43,6 @@ void VMUSBReadoutWorker::start(quint32 cycles)
     m_cyclesToRun = cycles;
     setState(DAQState::Starting);
     DAQStats &stats(m_context->getDAQStats());
-    stats = DAQStats();
     bool error = false;
 
     try

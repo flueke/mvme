@@ -26,7 +26,7 @@
      <x>0</x>
      <y>0</y>
      <width>1034</width>
-     <height>19</height>
+     <height>21</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -42,12 +42,6 @@
     <addaction name="actionClose_Listfile"/>
     <addaction name="separator"/>
     <addaction name="actionQuit"/>
-   </widget>
-   <widget class="QMenu" name="menuDisplay">
-    <property name="title">
-     <string>Display</string>
-    </property>
-    <addaction name="separator"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
@@ -67,7 +61,6 @@
     <addaction name="actionCascade"/>
    </widget>
    <addaction name="menuFile"/>
-   <addaction name="menuDisplay"/>
    <addaction name="menuWindow"/>
    <addaction name="menuHelp"/>
   </widget>

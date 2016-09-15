@@ -10,7 +10,6 @@
 #include <QList>
 #include <QWidget>
 #include <QFuture>
-#include <QDateTime>
 
 class VMEController;
 class VMUSBReadoutWorker;
@@ -24,35 +23,12 @@ class QJsonObject;
 class QTimer;
 class QThread;
 
-struct DAQStats
-{
-    QDateTime startTime;
-    QDateTime endTime;
-    u64 bytesRead = 0;
-    u64 buffersRead = 0;
-    u32 vmusbAvgEventsPerBuffer = 0;
-    u32 avgReadSize = 0;
-    u64 buffersWithErrors = 0;
-    u64 droppedBuffers = 0;
-    int freeBuffers = 0;
-    u64 listFileBytesWritten = 0;
-    QMap<QObject *, u64> eventCounts; // maps EventConfig/ModuleConfig to event count
-};
-
-enum class GlobalMode
-{
-    NotSet,
-    DAQ,
-    ListFile
-};
-
-Q_DECLARE_METATYPE(GlobalMode);
-
 class MVMEContext: public QObject
 {
     Q_OBJECT
     signals:
         void daqStateChanged(const DAQState &state);
+        void modeChanged(GlobalMode mode);
 
         void vmeControllerSet(VMEController *controller);
 
@@ -72,8 +48,6 @@ class MVMEContext: public QObject
         void hist2DAboutToBeRemoved(Hist2D *hist2d);
 
         void sigLogMessage(const QString &);
-
-        void modeChanged(GlobalMode mode);
 
     public:
         MVMEContext(mvme *mainwin, QObject *parent = 0);
@@ -181,7 +155,7 @@ class MVMEContext: public QObject
 
     private slots:
         void tryOpenController();
-        void logEventProcessorCounters();
+        void logModuleCounters();
         void onDAQStateChanged(DAQState state);
         void onReplayDone();
 
@@ -210,6 +184,7 @@ class MVMEContext: public QObject
         DAQStats m_daqStats;
         ListFile *m_listFile = nullptr;
         GlobalMode m_mode;
+        DAQState m_state;
         ListFileWorker *m_listFileWorker;
         QTime m_replayTime;
 };

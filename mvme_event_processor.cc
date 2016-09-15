@@ -120,8 +120,6 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
 
 void MVMEEventProcessor::newRun()
 {
-    m_counters = EventProcessorCounters{};
-
     m_mod2hist.clear();
 
     for (auto mod: m_context->getConfig()->getAllModuleConfigs())
@@ -142,8 +140,8 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
 {
     try
     {
-        ++m_counters.buffers;
-
+        auto &stats = m_context->getDAQStats();
+        //++stats.buffersProcessed;
 
         BufferIterator iter(buffer->data, buffer->used, BufferIterator::Align32);
 
@@ -159,11 +157,18 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
                 continue;
             }
 
-            ++m_counters.events;
+            //++stats.eventsProcessed;
 
             int eventType = (sectionHeader & EventTypeMask) >> EventTypeShift;
             u32 wordsLeftInSection = sectionSize;
             int subEventIndex = 0;
+
+            auto eventConfig = m_context->getConfig()->getEventConfig(eventType);
+
+            if (eventConfig)
+            {
+                ++stats.eventCounters[eventConfig].events;
+            }
 
             // subeventindex -> address -> value
             // FIXME: does not work if the section contains multiple events for the
@@ -193,7 +198,7 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
 
                     if (cfg)
                     {
-                        ++m_counters.moduleCounters[cfg].events;
+                        ++stats.eventCounters[cfg].events;
                     }
 
                     if (isMesytecModule(moduleType) && cfg)
@@ -220,12 +225,12 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
 
                             if (header_found_flag)
                             {
-                                ++m_counters.moduleCounters[cfg].headerWords;
+                                ++stats.eventCounters[cfg].headerWords;
                             }
 
                             if (data_found_flag)
                             {
-                                ++m_counters.moduleCounters[cfg].dataWords;
+                                ++stats.eventCounters[cfg].dataWords;
 
                                 u16 address = (currentWord & 0x003F0000) >> 16; // 6 bit address
                                 u32 value   = (currentWord & dataExtractMask);
@@ -254,7 +259,7 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
 
                             if (eoe_found_flag)
                             {
-                                ++m_counters.moduleCounters[cfg].eoeWords;
+                                ++stats.eventCounters[cfg].eoeWords;
                             }
                         }
 

@@ -21,7 +21,6 @@ class VMUSBReadoutWorker: public QObject
         VMUSBReadoutWorker(MVMEContext *context, QObject *parent = 0);
         ~VMUSBReadoutWorker();
 
-        DAQState getState() const { return m_state; }
         void setBufferProcessor(VMUSBBufferProcessor *processor) { m_bufferProcessor = processor; }
         VMUSBBufferProcessor *getBufferProcessor() const { return m_bufferProcessor; }
         QString getLastErrorMessage() const { return m_errorMessage; }

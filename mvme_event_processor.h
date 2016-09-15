@@ -10,22 +10,6 @@ class BufferIterator;
 class ModuleConfig;
 class HistogramCollection;
 
-struct EventProcessorCounters
-{
-    u64 buffers = 0; // number of buffers seen
-    u64 events = 0;  // number of event sections seen
-
-    struct ModuleCounters
-    {
-        u64 events = 0;
-        u64 headerWords = 0;
-        u64 dataWords = 0;
-        u64 eoeWords = 0;
-    };
-
-    QHash<ModuleConfig *, ModuleCounters> moduleCounters;
-};
-
 class MVMEEventProcessor: public QObject
 {
     Q_OBJECT
@@ -36,15 +20,12 @@ class MVMEEventProcessor: public QObject
     public:
         MVMEEventProcessor(MVMEContext *context);
 
-        EventProcessorCounters getCounters() const { return m_counters; }
-
     public slots:
         void newRun();
         void processEventBuffer(DataBuffer *buffer);
 
     private:
         MVMEContext *m_context;
-        EventProcessorCounters m_counters;
         QHash<ModuleConfig *, HistogramCollection *> m_mod2hist;
 };
 

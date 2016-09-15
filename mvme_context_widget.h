@@ -39,7 +39,9 @@ class MVMEContextWidget: public QWidget
         void treeContextMenu(const QPoint &pos);
         void treeItemClicked(QTreeWidgetItem *item, int column);
         void treeItemDoubleClicked(QTreeWidgetItem *item, int column);
+        void onGlobalModeChanged(GlobalMode mode);
         void onDAQStateChanged(DAQState state);
+        void handleGlobalStateChange();
 
         // histograms
         void histoItemClicked(QTreeWidgetItem *item);

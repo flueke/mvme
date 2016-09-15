@@ -448,7 +448,6 @@ bool VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *output
     //qDebug() << "eventIter size =" << eventIter.bytesLeft() << " bytes";
 
     auto eventConfig = m_eventConfigByStackID[stackID];
-    getStats()->eventCounts[eventConfig]++;
     int moduleIndex = 0;
     u32 *outp = (u32 *)(outputBuffer->data + outputBuffer->used);
     u32 *mvmeEventHeader = (u32 *)outp++;

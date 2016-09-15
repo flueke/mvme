@@ -170,9 +170,6 @@ bool ListFile::readNextSection(DataBuffer *buffer)
 
 s32 ListFile::readSectionsIntoBuffer(DataBuffer *buffer)
 {
-    // FIXME: sloooooow! Maybe completely fill the buffer, then search until
-    // the last complete event is found and set buffer used to that offset.
-
     s32 sectionsRead = 0;
 
     while (!m_file.atEnd() && buffer->free() >= sizeof(u32))
@@ -184,14 +181,20 @@ s32 ListFile::readSectionsIntoBuffer(DataBuffer *buffer)
         if (m_file.read((char *)&sectionHeader, sizeof(u32)) != sizeof(u32))
             return -1;
 
-        m_file.seek(savedPos); // TODO: only seek in case there's not enough space left in the output buffer
-
         u32 sectionWords = (sectionHeader & SectionSizeMask) >> SectionSizeShift;
 
-        qint64 bytesToRead = sectionWords * sizeof(u32) + sizeof(u32);
+        qint64 bytesToRead = sectionWords * sizeof(u32);
 
-        if ((qint64)buffer->free() < bytesToRead)
+        // add one u32 for the sectionHeader
+        if ((qint64)buffer->free() < bytesToRead + sizeof(u32))
+        {
+            // seek back to the sectionHeader
+            m_file.seek(savedPos);
             break;
+        }
+
+        *(buffer->asU32()) = sectionHeader;
+        buffer->used += sizeof(sectionHeader);
 
         if (m_file.read((char *)(buffer->data + buffer->used), bytesToRead) != bytesToRead)
             return -1;
@@ -204,8 +207,9 @@ s32 ListFile::readSectionsIntoBuffer(DataBuffer *buffer)
 
 static const size_t ListFileBufferSize = 1 * 1024 * 1024;
 
-ListFileWorker::ListFileWorker(QObject *parent)
+ListFileWorker::ListFileWorker(DAQStats &stats, QObject *parent)
     : QObject(parent)
+    , m_stats(stats)
     , m_buffer(new DataBuffer(ListFileBufferSize))
 {
 }
@@ -225,6 +229,11 @@ void ListFileWorker::startFromBeginning()
     m_listFile->seek(0);
     m_bytesRead = 0;
     m_totalBytes = m_listFile->size();
+    m_stats.listFileTotalBytes = m_listFile->size();
+
+    m_stats.startTime = QDateTime::currentDateTime();
+
+    emit stateChanged(DAQState::Running);
     emit progressChanged(m_bytesRead, m_totalBytes);
     readNextBuffer();
 }
@@ -244,9 +253,14 @@ void ListFileWorker::readNextBuffer()
         m_bytesRead += m_buffer->used;
         emit progressChanged(m_bytesRead, m_totalBytes);
         emit mvmeEventBufferReady(m_buffer);
+
+        ++m_stats.buffersRead;
+        m_stats.bytesRead += m_buffer->used;
     }
     else
     {
+        m_stats.endTime = QDateTime::currentDateTime();
+        emit stateChanged(DAQState::Idle);
         emit endOfFileReached();
     }
 }

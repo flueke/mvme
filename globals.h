@@ -5,6 +5,7 @@
 #include <QMetaType>
 #include <QMap>
 #include <QString>
+#include <QDateTime>
 
 enum class TriggerCondition
 {
@@ -94,5 +95,49 @@ static const size_t FifoReadTransferSize = 1000;
 static const int RawHistogramBits = 13;
 static const int RawHistogramResolution = 1 << RawHistogramBits;
 
+struct DAQStats
+{
+    QDateTime startTime;
+    QDateTime endTime;
+
+    u64 bytesRead = 0;
+    u64 buffersRead = 0;
+    u64 eventsRead = 0;
+
+    u32 vmusbAvgEventsPerBuffer = 0;
+
+    u32 avgEventsPerBuffer = 0;
+    u32 avgReadSize = 0;
+
+    u64 buffersWithErrors = 0;
+    u64 droppedBuffers = 0;
+    int freeBuffers = 0;
+
+    u64 listFileBytesWritten = 0;
+    u64 listFileTotalBytes = 0;
+
+    //u64 buffersProcessed = 0;
+    //u64 eventsProcessed = 0;
+
+    struct EventCounters
+    {
+        u64 events = 0;
+        u64 headerWords = 0;
+        u64 dataWords = 0;
+        u64 eoeWords = 0;
+    };
+
+    // maps EventConfig/ModuleConfig to EventCounters
+    QHash<QObject *, EventCounters> eventCounters;
+};
+
+enum class GlobalMode
+{
+    NotSet,
+    DAQ,
+    ListFile
+};
+
+Q_DECLARE_METATYPE(GlobalMode);
 
 #endif

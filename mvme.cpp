@@ -175,6 +175,8 @@ mvme::mvme(QWidget *parent) :
             settings.remove("Files/LastConfigFile");
         }
     }
+
+    updateWindowTitle();
 }
 
 mvme::~mvme()
@@ -366,6 +368,7 @@ void mvme::on_actionNewConfig_triggered()
 
     m_context->setConfig(new DAQConfig);
     m_context->setConfigFileName(QString());
+    m_context->setMode(GlobalMode::DAQ);
 
     m_context->removeHistogramCollections();
     m_context->remove2DHistograms();

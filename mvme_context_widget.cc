@@ -144,7 +144,8 @@ struct MVMEContextWidgetPrivate
     QPushButton *pb_startDAQ, *pb_startOneCycle, *pb_stopDAQ, *pb_replay;
     QLabel *label_daqState, *label_daqDuration, *label_buffersReadAndDropped,
            *label_freeBuffers, *label_readSize, *label_mbPerSecond, *label_controllerState,
-           *label_writtenToListFile, *label_vmusbAvgEventsPerBuffer;
+           *label_bytesRead,
+           *label_listFileSize, *label_vmusbAvgEventsPerBuffer;
     QLineEdit *le_outputDirectory;
     QCheckBox *cb_outputEnabled;
 
@@ -183,7 +184,8 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
         m_d->label_freeBuffers = new QLabel;
         m_d->label_readSize = new QLabel;
         m_d->label_mbPerSecond = new QLabel;
-        m_d->label_writtenToListFile = new QLabel;
+        m_d->label_bytesRead = new QLabel;
+        m_d->label_listFileSize = new QLabel;
         m_d->label_vmusbAvgEventsPerBuffer = new QLabel;
 
         connect(m_d->pb_startDAQ, &QPushButton::clicked, m_d->context, &MVMEContext::startDAQ);
@@ -214,7 +216,8 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
         stateLayout->addRow("Buffers/s / MB/s:", m_d->label_mbPerSecond);
         stateLayout->addRow("Avg. read size:", m_d->label_readSize);
         stateLayout->addRow("vmusb avg. events per buffer:", m_d->label_vmusbAvgEventsPerBuffer);
-        stateLayout->addRow("ListFile size:", m_d->label_writtenToListFile);
+        stateLayout->addRow("Bytes read:", m_d->label_bytesRead);
+        stateLayout->addRow("ListFile size:", m_d->label_listFileSize);
 
         layout->addLayout(stateLayout, 1, 0, 1, 3);
     }
@@ -235,6 +238,7 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
     connect(context, &MVMEContext::moduleAdded, this, &MVMEContextWidget::onModuleConfigAdded);
     connect(context, &MVMEContext::eventConfigAdded, this, &MVMEContextWidget::onEventConfigAdded);
     connect(context, &MVMEContext::configChanged, this, &MVMEContextWidget::onConfigChanged);
+    connect(context, &MVMEContext::modeChanged, this, &MVMEContextWidget::onGlobalModeChanged);
     connect(context, &MVMEContext::daqStateChanged, this, &MVMEContextWidget::onDAQStateChanged);
     connect(context, &MVMEContext::hist2DAdded, this, &MVMEContextWidget::onHist2DAdded);
 
@@ -372,6 +376,8 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
     m_d->m_updateStatsTimer->setInterval(250);
     m_d->m_updateStatsTimer->start();
     connect(m_d->m_updateStatsTimer, &QTimer::timeout, this, &MVMEContextWidget::updateStats);
+
+    handleGlobalStateChange();
 }
 
 void MVMEContextWidget::onConfigChanged()
@@ -610,11 +616,26 @@ void MVMEContextWidget::treeItemDoubleClicked(QTreeWidgetItem *item, int column)
     };
 }
 
-void MVMEContextWidget::onDAQStateChanged(DAQState state)
+void MVMEContextWidget::onGlobalModeChanged(GlobalMode)
 {
+    handleGlobalStateChange();
+}
+
+void MVMEContextWidget::onDAQStateChanged(DAQState)
+{
+    handleGlobalStateChange();
+}
+
+void MVMEContextWidget::handleGlobalStateChange()
+{
+    auto globalMode = m_d->context->getMode();
+    auto daqState = m_d->context->getDAQState();
+
+    qDebug() << __PRETTY_FUNCTION__ << (int)globalMode << (int)daqState;
+
     auto label = m_d->label_daqState;
 
-    switch (state)
+    switch (daqState)
     {
         case DAQState::Idle:
             label->setText("Idle");
@@ -627,14 +648,16 @@ void MVMEContextWidget::onDAQStateChanged(DAQState state)
         case DAQState::Running:
             label->setText("Running");
             break;
+
         case DAQState::Stopping:
             label->setText("Stopping");
             break;
     }
 
-    m_d->pb_startDAQ->setEnabled(state == DAQState::Idle);
-    m_d->pb_startOneCycle->setEnabled(state == DAQState::Idle);
-    m_d->pb_stopDAQ->setEnabled(state != DAQState::Idle);
+    m_d->pb_startDAQ->setEnabled(daqState == DAQState::Idle && globalMode == GlobalMode::DAQ);
+    m_d->pb_startOneCycle->setEnabled(daqState == DAQState::Idle && globalMode == GlobalMode::DAQ);
+    m_d->pb_stopDAQ->setEnabled(daqState != DAQState::Idle);
+    m_d->pb_replay->setEnabled(daqState == DAQState::Idle && globalMode == GlobalMode::ListFile);
 }
 
 void MVMEContextWidget::histoItemClicked(QTreeWidgetItem *item)
@@ -799,6 +822,10 @@ void MVMEContextWidget::updateStats()
     auto endTime   = m_d->context->getDAQState() == DAQState::Idle ? stats.endTime : QDateTime::currentDateTime();
     auto duration  = startTime.secsTo(endTime);
     auto durationString = makeDurationString(duration);
+
+    qDebug() << startTime << endTime << duration << durationString << (int)m_d->context->getDAQState();
+
+
     double mbPerSecond = 0;
     double buffersPerSecond = 0;
     if (duration > 0)
@@ -820,9 +847,31 @@ void MVMEContextWidget::updateStats()
                                     .arg(buffersPerSecond, 6, 'f', 2)
                                     .arg(mbPerSecond, 6, 'f', 2)
                                     );
-    m_d->label_writtenToListFile->setText(QString("%1 MB")
-                                          .arg((double)stats.listFileBytesWritten / (1024.0*1024.0), 6, 'f', 2)
-                                         );
+
+    m_d->label_bytesRead->setText(
+            QString("%1 MB")
+            .arg((double)stats.bytesRead / (1024.0*1024.0), 6, 'f', 2)
+            );
+
+    switch (m_d->context->getMode())
+    {
+        case GlobalMode::DAQ:
+            {
+                m_d->label_listFileSize->setText(
+                        QString("%1 MB")
+                        .arg((double)stats.listFileBytesWritten / (1024.0*1024.0), 6, 'f', 2)
+                        );
+            } break;
+        case GlobalMode::ListFile:
+            {
+                m_d->label_listFileSize->setText(
+                        QString("%1 MB")
+                        .arg((double)stats.listFileTotalBytes / (1024.0*1024.0), 6, 'f', 2)
+                        );
+            } break;
+        case GlobalMode::NotSet:
+            break;
+    }
 
     m_d->label_vmusbAvgEventsPerBuffer->setText(QString::number(stats.vmusbAvgEventsPerBuffer));
 
@@ -831,14 +880,14 @@ void MVMEContextWidget::updateStats()
         it.value()->setText(1, QSL(""));
     }
 
-    auto eventCounts = stats.eventCounts;
+    const auto &eventCounters = stats.eventCounters;
 
-    for (auto it=eventCounts.begin(); it!=eventCounts.end(); ++it)
+    for (auto it=eventCounters.begin(); it!=eventCounters.end(); ++it)
     {
         auto treeItem = m_d->treeWidgetMap.value(it.key());
         if (treeItem)
         {
-            treeItem->setText(1, QString::number(it.value()));
+            treeItem->setText(1, QString::number(it.value().events));
         }
     }
 }

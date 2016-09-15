@@ -26,7 +26,8 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
     , m_eventProcessor(new MVMEEventProcessor(this))
     , m_mainwin(mainwin)
     , m_mode(GlobalMode::NotSet)
-    , m_listFileWorker(new ListFileWorker)
+    , m_state(DAQState::Idle)
+    , m_listFileWorker(new ListFileWorker(m_daqStats))
 {
 
     for (size_t i=0; i<dataBufferCount; ++i)
@@ -38,7 +39,7 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
     m_ctrlOpenTimer->setInterval(TryOpenControllerInterval_ms);
     m_ctrlOpenTimer->start();
 
-    connect(m_logTimer, &QTimer::timeout, this, &MVMEContext::logEventProcessorCounters);
+    connect(m_logTimer, &QTimer::timeout, this, &MVMEContext::logModuleCounters);
     m_logTimer->setInterval(PeriodicLoggingInterval_ms);
 
 
@@ -59,6 +60,7 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
         }
     });
     connect(m_bufferProcessor, &VMUSBBufferProcessor::logMessage, this, &MVMEContext::sigLogMessage);
+    connect(m_listFileWorker, &ListFileWorker::stateChanged, this, &MVMEContext::onDAQStateChanged);
     connect(m_listFileWorker, &ListFileWorker::logMessage, this, &MVMEContext::sigLogMessage);
     connect(m_listFileWorker, &ListFileWorker::endOfFileReached, this, &MVMEContext::onReplayDone);
     connect(m_listFileWorker, &ListFileWorker::progressChanged, this, [this](qint64 cur, qint64 total) {
@@ -76,7 +78,8 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
 MVMEContext::~MVMEContext()
 {
     QMetaObject::invokeMethod(m_readoutWorker, "stop", Qt::QueuedConnection);
-    while (m_readoutWorker->getState() != DAQState::Idle)
+    //while (m_readoutWorker->getState() != DAQState::Idle)
+    while (getDAQState() != DAQState::Idle)
     {
         QThread::msleep(50);
     }
@@ -182,45 +185,52 @@ void MVMEContext::tryOpenController()
     }
 }
 
-void MVMEContext::logEventProcessorCounters()
+void MVMEContext::logModuleCounters()
 {
-    auto counters = m_eventProcessor->getCounters();
+#if 1
 
     QString buffer;
     QTextStream stream(&buffer);
 
     stream << endl;
-    stream << "Buffers:         " << counters.buffers << endl;
-    stream << "Event Sections:  " << counters.events << endl;
+    stream << "Buffers: " << m_daqStats.buffersRead << endl;
+    stream << "Events:  " << m_daqStats.eventsRead << endl;
 
-    for (auto it = counters.moduleCounters.begin();
-         it != counters.moduleCounters.end();
+    const auto &counters = m_daqStats.eventCounters;
+
+    for (auto it = counters.begin();
+         it != counters.end();
          ++it)
     {
-        auto mod = it.key();
-        auto modCounters = it.value();
+        auto mod = qobject_cast<ModuleConfig *>(it.key());
+        auto counters = it.value();
 
-        stream << mod->getName() << endl;
-        stream << "  Events:  " << modCounters.events << endl;
-        stream << "  Headers: " << modCounters.headerWords << endl;
-        stream << "  Data:    " << modCounters.dataWords << endl;
-        stream << "  EOE:     " << modCounters.eoeWords << endl;
-        //stream << "  avg event size: " << ((float)modCounters.dataWords / (float)modCounters.events) << endl;
-        stream << "  data/headers: " << ((float)modCounters.dataWords / (float)modCounters.headerWords) << endl;
+        if (mod)
+        {
+            stream << mod->getName() << endl;
+            stream << "  Events:  " << counters.events << endl;
+            stream << "  Headers: " << counters.headerWords << endl;
+            stream << "  Data:    " << counters.dataWords << endl;
+            stream << "  EOE:     " << counters.eoeWords << endl;
+            stream << "  avg event size: " << ((float)counters.dataWords / (float)counters.events) << endl;
+            stream << "  data/headers: " << ((float)counters.dataWords / (float)counters.headerWords) << endl;
+        }
     }
 
     emit sigLogMessage(buffer);
+#endif
 }
 
 void MVMEContext::onDAQStateChanged(DAQState state)
 {
+    m_state = state;
     emit daqStateChanged(state);
 
     switch (state)
     {
         case DAQState::Idle:
             {
-                logEventProcessorCounters();
+                logModuleCounters();
             } break;
 
         case DAQState::Starting:
@@ -240,7 +250,7 @@ void MVMEContext::onDAQStateChanged(DAQState state)
 
 void MVMEContext::onReplayDone()
 {
-    logEventProcessorCounters();
+    //logModuleCounters();
     double secondsElapsed = m_replayTime.elapsed() / 1000.0;
     qint64 replayBytes = m_listFile->getFile().size();
     double replayMB = (double)replayBytes / (1024.0 * 1024.0);
@@ -261,7 +271,7 @@ void MVMEContext::onReplayDone()
 
 DAQState MVMEContext::getDAQState() const
 {
-    return m_readoutWorker->getState();
+    return m_state;
 }
 
 void MVMEContext::setListFile(ListFile *listFile)
@@ -387,11 +397,13 @@ void MVMEContext::prepareStart()
     }
 
     m_eventProcessor->newRun();
+
+    m_daqStats = DAQStats();
 }
 
 void MVMEContext::startReplay()
 {
-    if (m_mode != GlobalMode::ListFile || !m_listFile)
+    if (m_mode != GlobalMode::ListFile || !m_listFile || m_state != DAQState::Idle)
         return;
 
     prepareStart();

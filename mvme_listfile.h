@@ -45,6 +45,7 @@
  *
 */
 
+#include "globals.h"
 #include "databuffer.h"
 #include "util.h"
 
@@ -112,13 +113,14 @@ class ListFileWorker: public QObject
 {
     Q_OBJECT
     signals:
+        void stateChanged(DAQState);
         void mvmeEventBufferReady(DataBuffer *);
         void logMessage(const QString &);
         void endOfFileReached();
         void progressChanged(qint64, qint64);
 
     public:
-        ListFileWorker(QObject *parent = 0);
+        ListFileWorker(DAQStats &stats, QObject *parent = 0);
         ~ListFileWorker();
         void setListFile(ListFile *listFile);
         ListFile *getListFile() const { return m_listFile; }
@@ -128,6 +130,7 @@ class ListFileWorker: public QObject
         void readNextBuffer();
 
     private:
+        DAQStats &m_stats;
         DataBuffer *m_buffer;
         ListFile *m_listFile = 0;
         qint64 m_bytesRead = 0;
