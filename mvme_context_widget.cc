@@ -823,9 +823,6 @@ void MVMEContextWidget::updateStats()
     auto duration  = startTime.secsTo(endTime);
     auto durationString = makeDurationString(duration);
 
-    qDebug() << startTime << endTime << duration << durationString << (int)m_d->context->getDAQState();
-
-
     double mbPerSecond = 0;
     double buffersPerSecond = 0;
     if (duration > 0)
