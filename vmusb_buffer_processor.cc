@@ -301,91 +301,82 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
             }
         }
 
-        if (skipBuffer)
+        if (!skipBuffer)
         {
-            if (outputBuffer != &m_localEventBuffer)
+            if (iter.shortwordsLeft() >= 2)
             {
-                addFreeBuffer(outputBuffer);
-            }
-
-            return false;
-        }
-
-        if (iter.shortwordsLeft() >= 2)
-        {
-            for (int i=0; i<2; ++i)
-            {
-                u16 bufferTerminator = iter.extractU16();
-                if (bufferTerminator != Buffer::BufferTerminator)
+                for (int i=0; i<2; ++i)
                 {
-                    emit logMessage(QString("VMUSB Error: unexpected buffer terminator 0x%1")
-                                    .arg(bufferTerminator, 4, 16, QLatin1Char('0')));
+                    u16 bufferTerminator = iter.extractU16();
+                    if (bufferTerminator != Buffer::BufferTerminator)
+                    {
+                        emit logMessage(QString("VMUSB Error: unexpected buffer terminator 0x%1")
+                                        .arg(bufferTerminator, 4, 16, QLatin1Char('0')));
+                    }
                 }
             }
-        }
-        else
-        {
-            emit logMessage(QSL("VMUSB Error: no terminator words found"));
-        }
-
-        if (iter.bytesLeft() != 0)
-        {
-            emit logMessage(QString("VMUSB Error: %1 bytes left in buffer")
-                            .arg(iter.bytesLeft()));
-
-            while (iter.longwordsLeft())
+            else
             {
-                emit logMessage(QString(QSL("  0x%1"))
-                                .arg(iter.extractU32(), 8, 16, QLatin1Char('0')));
+                emit logMessage(QSL("VMUSB Error: no terminator words found"));
             }
 
-            while (iter.wordsLeft())
+            if (iter.bytesLeft() != 0)
             {
-                emit logMessage(QString(QSL("  0x%1"))
-                                .arg(iter.extractU16(), 4, 16, QLatin1Char('0')));
+                emit logMessage(QString("VMUSB Error: %1 bytes left in buffer")
+                                .arg(iter.bytesLeft()));
+
+                while (iter.longwordsLeft())
+                {
+                    emit logMessage(QString(QSL("  0x%1"))
+                                    .arg(iter.extractU32(), 8, 16, QLatin1Char('0')));
+                }
+
+                while (iter.wordsLeft())
+                {
+                    emit logMessage(QString(QSL("  0x%1"))
+                                    .arg(iter.extractU16(), 4, 16, QLatin1Char('0')));
+                }
+
+                while (iter.bytesLeft())
+                {
+                    emit logMessage(QString(QSL("  0x%1"))
+                                    .arg(iter.extractU8(), 2, 16, QLatin1Char('0')));
+                }
             }
 
-            while (iter.bytesLeft())
+            if (m_listFileOut.isOpen())
             {
-                emit logMessage(QString(QSL("  0x%1"))
-                                .arg(iter.extractU8(), 2, 16, QLatin1Char('0')));
+                qint64 result = m_listFileOut.write((const char *)outputBuffer->data, outputBuffer->used);
+
+                if (result != (qint64)outputBuffer->used)
+                {
+                    throw QString("Error writing to listfile '%1': %2")
+                        .arg(m_listFileOut.fileName())
+                        .arg(m_listFileOut.errorString());
+                }
+                getStats()->listFileBytesWritten += outputBuffer->used;
             }
-        }
 
-        if (m_listFileOut.isOpen())
-        {
-            qint64 result = m_listFileOut.write((const char *)outputBuffer->data, outputBuffer->used);
+            //QTextStream out(stdout);
+            //dump_event_buffer(out, outputBuffer);
 
-            if (result != (qint64)outputBuffer->used)
+            if (outputBuffer != &m_localEventBuffer)
             {
-                throw QString("Error writing to listfile '%1': %2")
-                    .arg(m_listFileOut.fileName())
-                    .arg(m_listFileOut.errorString());
+                emit mvmeEventBufferReady(outputBuffer);
             }
-            getStats()->listFileBytesWritten += outputBuffer->used;
-        }
+            else
+            {
+                getStats()->droppedBuffers++;
+            }
 
-        //QTextStream out(stdout);
-        //dump_event_buffer(out, outputBuffer);
-
-        if (outputBuffer != &m_localEventBuffer)
-        {
-            emit mvmeEventBufferReady(outputBuffer);
+            return true;
         }
-        else
-        {
-            getStats()->droppedBuffers++;
-        }
-
-        return true;
-#if 1
     }
     catch (const end_of_buffer &)
     {
         emit logMessage(QSL("VMUSB Error: end of readBuffer reached unexpectedly!"));
         getStats()->buffersWithErrors++;
     }
-#endif
 
     if (outputBuffer != &m_localEventBuffer)
     {
