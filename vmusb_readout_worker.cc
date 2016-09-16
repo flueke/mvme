@@ -61,6 +61,15 @@ void VMUSBReadoutWorker::start(quint32 cycles)
 
         vmusb->setDaqSettings(0);
 
+        // USB Bulk Transfer Setup Register
+        // TODO: this does not seem to have any effect...
+        {
+            // This sets the buffer end watchdog timeout to 1 second + timeoutValue seconds
+            const int timeoutValue = 1;
+            int value = timeoutValue << TransferSetupRegister::timeoutShift;
+            vmusb->setUsbSettings(value);
+        }
+
         int globalMode = vmusb->getMode();
         globalMode |= (1 << GlobalModeRegister::MixedBufferShift);
         vmusb->setMode(globalMode);
@@ -187,19 +196,16 @@ void VMUSBReadoutWorker::start(quint32 cycles)
     }
     catch (const char *message)
     {
-        emit logMessage(QString("Error: %1").arg(message));
         setError(message);
         error = true;
     }
     catch (const QString &message)
     {
-        emit logMessage(QString("Error: %1").arg(message));
         setError(message);
         error = true;
     }
     catch (const std::runtime_error &e)
     {
-        emit logMessage(QString("Error: %1").arg(e.what()));
         setError(e.what());
         error = true;
     }
@@ -251,7 +257,6 @@ void VMUSBReadoutWorker::readoutLoop()
         if (bytesRead > 0)
         {
             m_readBuffer->used = bytesRead;
-
             stats.addBuffersRead(1);
             stats.addBytesRead(bytesRead);
 
@@ -265,15 +270,17 @@ void VMUSBReadoutWorker::readoutLoop()
         }
         else
         {
+#if 0
             if (consecutiveReadErrors >= maxConsecutiveReadErrors)
             {
-                emit logMessage(QString("Error: %1 consecutive reads failed. Stopping DAQ.").arg(consecutiveReadErrors));
+                emit logMessage(QString("VMUSB Error: %1 consecutive reads failed. Stopping DAQ.").arg(consecutiveReadErrors));
                 break;
             }
             else
+#endif
             {
                 ++consecutiveReadErrors;
-                emit logMessage(QString("Error from vmusb bulk read: %1.").arg(bytesRead));
+                emit logMessage(QString("VMUSB Error from vmusb bulk read: %1.").arg(bytesRead));
             }
         }
 
@@ -290,7 +297,7 @@ void VMUSBReadoutWorker::readoutLoop()
 
     processQtEvents();
 
-    qDebug() << __PRETTY_FUNCTION__ << "left readoutLoop";
+    qDebug() << __PRETTY_FUNCTION__ << "left readoutLoop, reading remaining data";
     vmusb->leaveDaqMode();
 
     int bytesRead = 0;
@@ -333,7 +340,7 @@ void VMUSBReadoutWorker::setState(DAQState state)
 
 void VMUSBReadoutWorker::setError(const QString &message)
 {
-    emit error(message);
+    emit logMessage(QString("VMUSB Error: %1").arg(message));
     setState(DAQState::Idle);
 }
 
