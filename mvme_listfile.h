@@ -116,7 +116,7 @@ class ListFileWorker: public QObject
         void stateChanged(DAQState);
         void mvmeEventBufferReady(DataBuffer *);
         void logMessage(const QString &);
-        void endOfFileReached();
+        void replayStopped();
         void progressChanged(qint64, qint64);
 
     public:
@@ -128,6 +128,7 @@ class ListFileWorker: public QObject
     public slots:
         void startFromBeginning();
         void readNextBuffer();
+        void stopReplay();
 
     private:
         DAQStats &m_stats;
@@ -135,6 +136,7 @@ class ListFileWorker: public QObject
         ListFile *m_listFile = 0;
         qint64 m_bytesRead = 0;
         qint64 m_totalBytes = 0;
+        bool m_stopped = false;
 };
 
 namespace listfile

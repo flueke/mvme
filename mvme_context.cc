@@ -62,10 +62,10 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
     connect(m_bufferProcessor, &VMUSBBufferProcessor::logMessage, this, &MVMEContext::sigLogMessage);
     connect(m_listFileWorker, &ListFileWorker::stateChanged, this, &MVMEContext::onDAQStateChanged);
     connect(m_listFileWorker, &ListFileWorker::logMessage, this, &MVMEContext::sigLogMessage);
-    connect(m_listFileWorker, &ListFileWorker::endOfFileReached, this, &MVMEContext::onReplayDone);
-    connect(m_listFileWorker, &ListFileWorker::progressChanged, this, [this](qint64 cur, qint64 total) {
-        qDebug() << cur << total;
-    });
+    connect(m_listFileWorker, &ListFileWorker::replayStopped, this, &MVMEContext::onReplayDone);
+    //connect(m_listFileWorker, &ListFileWorker::progressChanged, this, [this](qint64 cur, qint64 total) {
+    //    qDebug() << cur << total;
+    //});
 
     m_eventThread->setObjectName("EventProcessorThread");
     m_eventProcessor->moveToThread(m_eventThread);
@@ -250,9 +250,8 @@ void MVMEContext::onDAQStateChanged(DAQState state)
 
 void MVMEContext::onReplayDone()
 {
-    //logModuleCounters();
     double secondsElapsed = m_replayTime.elapsed() / 1000.0;
-    qint64 replayBytes = m_listFile->getFile().size();
+    u64 replayBytes = m_daqStats.totalBytesRead; 
     double replayMB = (double)replayBytes / (1024.0 * 1024.0);
     double mbPerSecond = 0.0;
     if (secondsElapsed > 0)
@@ -424,11 +423,16 @@ void MVMEContext::startDAQ(quint32 nCycles)
 
 void MVMEContext::stopDAQ()
 {
-    if (m_mode != GlobalMode::DAQ)
-        return;
-
-    QMetaObject::invokeMethod(m_readoutWorker, "stop",
-                              Qt::QueuedConnection);
+    if (m_mode == GlobalMode::DAQ)
+    {
+        QMetaObject::invokeMethod(m_readoutWorker, "stop",
+                                  Qt::QueuedConnection);
+    }
+    else if (m_mode == GlobalMode::ListFile)
+    {
+        QMetaObject::invokeMethod(m_listFileWorker, "stopReplay",
+                                  Qt::QueuedConnection);
+    }
 }
 
 void MVMEContext::write(QJsonObject &json) const
