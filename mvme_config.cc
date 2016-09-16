@@ -28,7 +28,7 @@ int ModuleConfig::getNumberOfChannels() const
         case VMEModuleType::MQDC32:
         case VMEModuleType::MTDC32:
         case VMEModuleType::MDI2:
-            return 32;
+            return 34; // TODO: verify
 
         case VMEModuleType::MDPP16:
         case VMEModuleType::MDPP32:
