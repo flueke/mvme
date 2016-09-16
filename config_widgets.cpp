@@ -30,6 +30,17 @@ EventConfigDialog::EventConfigDialog(MVMEContext *context, EventConfig *config, 
             close();
         }
     });
+
+    auto handleContextStateChange = [this] {
+        auto daqState = m_context->getDAQState();
+        auto globalMode = m_context->getMode();
+        setReadOnly(daqState != DAQState::Idle || globalMode == GlobalMode::ListFile);
+    };
+
+    connect(context, &MVMEContext::daqStateChanged, this, handleContextStateChange);
+    connect(context, &MVMEContext::modeChanged, this, handleContextStateChange);
+
+    handleContextStateChange();
 }
 
 void EventConfigDialog::loadFromConfig()
@@ -63,6 +74,14 @@ void EventConfigDialog::accept()
 {
     saveToConfig();
     QDialog::accept();
+}
+
+void EventConfigDialog::setReadOnly(bool readOnly)
+{
+    ui->le_name->setEnabled(!readOnly);
+    ui->combo_triggerCondition->setEnabled(!readOnly);
+    ui->stackedWidget->setEnabled(!readOnly);
+    ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(!readOnly);
 }
 
 enum class ModuleListType
@@ -113,6 +132,15 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *confi
             close();
         }
     });
+
+    auto handleContextStateChange = [this] {
+        auto daqState = m_context->getDAQState();
+        auto globalMode = m_context->getMode();
+        setReadOnly(daqState != DAQState::Idle || globalMode == GlobalMode::ListFile);
+    };
+
+    connect(context, &MVMEContext::daqStateChanged, this, handleContextStateChange);
+    connect(context, &MVMEContext::modeChanged, this, handleContextStateChange);
 
     auto model = qobject_cast<QStandardItemModel *>(ui->combo_listType->model());
 
@@ -186,8 +214,8 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *confi
 
     auto onControllerOpenChanged = [=] {
         bool open = controller->isOpen();
-        ui->pb_exec->setEnabled(open);
-        ui->pb_initModule->setEnabled(open);
+        ui->pb_exec->setEnabled(open && !m_readOnly);
+        ui->pb_initModule->setEnabled(open && !m_readOnly);
         if (open)
         {
             ui->pb_exec->setToolTip(QSL(""));
@@ -204,6 +232,7 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *confi
     connect(controller, &VMEController::controllerClosed, this, onControllerOpenChanged);
     onControllerOpenChanged();
     handleListTypeIndexChanged(0);
+    handleContextStateChange();
 }
 
 ModuleConfigDialog::~ModuleConfigDialog()
@@ -247,7 +276,7 @@ void ModuleConfigDialog::handleListTypeIndexChanged(int index)
             ui->pb_load->setVisible(true);
             ui->pb_save->setVisible(true);
             ui->splitter->setSizes({1, 0});
-            ui->editor->setReadOnly(false);
+            ui->editor->setReadOnly(m_readOnly);
             break;
     }
 }
@@ -464,7 +493,7 @@ void ModuleConfigDialog::setModified(bool modified)
 {
     m_hasModifications = modified;
     ui->buttonBox->button(QDialogButtonBox::Reset)->setEnabled(modified);
-    ui->buttonBox->button(QDialogButtonBox::Apply)->setEnabled(modified);
+    ui->buttonBox->button(QDialogButtonBox::Apply)->setEnabled(modified && !m_readOnly);
 }
 
 void ModuleConfigDialog::on_buttonBox_clicked(QAbstractButton *button)
@@ -555,4 +584,28 @@ void ModuleConfigDialog::saveToConfig()
     }
     m_config->generateReadoutStack();
     setModified(false);
+}
+
+void ModuleConfigDialog::setReadOnly(bool readOnly)
+{
+    m_readOnly = readOnly;
+    ui->le_name->setEnabled(!readOnly);
+    ui->le_address->setEnabled(!readOnly);
+    ui->pb_exec->setEnabled(!readOnly);
+    ui->pb_initModule->setEnabled(!readOnly);
+    ui->pb_load->setEnabled(!readOnly);
+    ui->buttonBox->button(QDialogButtonBox::Apply)->setEnabled(m_hasModifications && !readOnly);
+
+    auto currentType = ui->combo_listType->currentData().toInt();
+
+    switch (static_cast<ModuleListType>(currentType))
+    {
+        case ModuleListType::ReadoutStack:
+            ui->editor->setReadOnly(true);
+            break;
+
+        default:
+            ui->editor->setReadOnly(readOnly);
+            break;
+    }
 }

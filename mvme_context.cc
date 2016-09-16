@@ -193,8 +193,8 @@ void MVMEContext::logModuleCounters()
     QTextStream stream(&buffer);
 
     stream << endl;
-    stream << "Buffers: " << m_daqStats.buffersRead << endl;
-    stream << "Events:  " << m_daqStats.eventsRead << endl;
+    stream << "Buffers: " << m_daqStats.totalBuffersRead << endl;
+    stream << "Events:  " << m_daqStats.totalEventsRead << endl;
 
     const auto &counters = m_daqStats.eventCounters;
 

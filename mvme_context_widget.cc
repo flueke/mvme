@@ -823,17 +823,13 @@ void MVMEContextWidget::updateStats()
     auto duration  = startTime.secsTo(endTime);
     auto durationString = makeDurationString(duration);
 
-    double mbPerSecond = 0;
-    double buffersPerSecond = 0;
-    if (duration > 0)
-    {
-        mbPerSecond = ((double)stats.bytesRead / (1024.0*1024.0)) / (double)duration;
-        buffersPerSecond = (double)stats.buffersRead / (double)duration;
-    }
+    double mbPerSecond = stats.bytesPerSecond / (1024.0 * 1024.0);
+    double buffersPerSecond = stats.buffersPerSecond;
+
     m_d->label_daqDuration->setText(durationString);
 
     m_d->label_buffersReadAndDropped->setText(QString("%1 / %2 / %3")
-                                              .arg(stats.buffersRead)
+                                              .arg(stats.totalBuffersRead)
                                               .arg(stats.droppedBuffers)
                                               .arg(stats.buffersWithErrors)
                                               );
@@ -847,7 +843,7 @@ void MVMEContextWidget::updateStats()
 
     m_d->label_bytesRead->setText(
             QString("%1 MB")
-            .arg((double)stats.bytesRead / (1024.0*1024.0), 6, 'f', 2)
+            .arg((double)stats.totalBytesRead / (1024.0*1024.0), 6, 'f', 2)
             );
 
     switch (m_d->context->getMode())

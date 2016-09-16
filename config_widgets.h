@@ -30,6 +30,7 @@ class EventConfigDialog: public QDialog
     private:
         void loadFromConfig();
         void saveToConfig();
+        void setReadOnly(bool readOnly);
 
         Ui::EventConfigDialog *ui;
         MVMEContext *m_context;
@@ -53,7 +54,7 @@ class ModuleConfigDialog: public QDialog
     private:
         void loadFromConfig();
         void saveToConfig();
-
+        void setReadOnly(bool readOnly);
 
         void handleListTypeIndexChanged(int);
         void onNameEditFinished();
@@ -73,6 +74,7 @@ class ModuleConfigDialog: public QDialog
         int m_lastListTypeIndex = 0;
         QMap<int, QString> m_configStrings;
         bool m_hasModifications = false;
+        bool m_readOnly = false;
 };
 
 #endif /* __CONFIG_WIDGETS_H__ */

@@ -97,12 +97,70 @@ static const int RawHistogramResolution = 1 << RawHistogramBits;
 
 struct DAQStats
 {
+    void start()
+    {
+        startTime = QDateTime::currentDateTime();
+        intervalUpdateTime.restart();
+    }
+
+    void stop()
+    {
+        endTime = QDateTime::currentDateTime();
+    }
+
+    void addBytesRead(u64 count)
+    {
+        totalBytesRead += count;
+        intervalBytesRead += count;
+        maybeUpdateIntervalCounters();
+    }
+
+    void addBuffersRead(u64 count)
+    {
+        totalBuffersRead += count;
+        intervalBuffersRead += count;
+        maybeUpdateIntervalCounters();
+    }
+
+    void addEventsRead(u64 count)
+    {
+        totalEventsRead += count;
+        intervalEventsRead += count;
+        maybeUpdateIntervalCounters();
+    }
+
+    void maybeUpdateIntervalCounters()
+    {
+        int msecs = intervalUpdateTime.elapsed();
+        if (msecs >= 1000)
+        {
+            double seconds = msecs / 1000.0;
+            bytesPerSecond = intervalBytesRead / seconds;
+            buffersPerSecond = intervalBuffersRead / seconds;
+            eventsPerSecond = intervalEventsRead / seconds;
+            intervalBytesRead = 0;
+            intervalBuffersRead = 0;
+            intervalEventsRead = 0;
+            intervalUpdateTime.restart();
+        }
+    }
+
     QDateTime startTime;
     QDateTime endTime;
 
-    u64 bytesRead = 0;
-    u64 buffersRead = 0;
-    u64 eventsRead = 0;
+    u64 totalBytesRead = 0;
+    u64 totalBuffersRead = 0;
+    u64 totalEventsRead = 0;
+
+    QTime intervalUpdateTime;
+    u64 intervalBytesRead = 0;
+    u64 intervalBuffersRead = 0;
+    u64 intervalEventsRead = 0;
+
+    double bytesPerSecond = 0.0;
+    double buffersPerSecond = 0.0;
+    double eventsPerSecond = 0.0;
+
 
     u32 vmusbAvgEventsPerBuffer = 0;
 

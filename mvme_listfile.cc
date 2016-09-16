@@ -118,7 +118,7 @@ QJsonObject ListFile::getDAQConfig()
 
         QJsonParseError parseError; // TODO: make parse error message available to the user
         m_configJson = QJsonDocument::fromJson(configData, &parseError);
-        
+
         if (parseError.error != QJsonParseError::NoError)
         {
             qDebug() << "Parse error: " << parseError.errorString();
@@ -186,7 +186,7 @@ s32 ListFile::readSectionsIntoBuffer(DataBuffer *buffer)
         qint64 bytesToRead = sectionWords * sizeof(u32);
 
         // add one u32 for the sectionHeader
-        if ((qint64)buffer->free() < bytesToRead + sizeof(u32))
+        if ((qint64)buffer->free() < bytesToRead + (qint64)sizeof(u32))
         {
             // seek back to the sectionHeader
             m_file.seek(savedPos);
@@ -231,7 +231,7 @@ void ListFileWorker::startFromBeginning()
     m_totalBytes = m_listFile->size();
     m_stats.listFileTotalBytes = m_listFile->size();
 
-    m_stats.startTime = QDateTime::currentDateTime();
+    m_stats.start();
 
     emit stateChanged(DAQState::Running);
     emit progressChanged(m_bytesRead, m_totalBytes);
@@ -254,12 +254,12 @@ void ListFileWorker::readNextBuffer()
         emit progressChanged(m_bytesRead, m_totalBytes);
         emit mvmeEventBufferReady(m_buffer);
 
-        ++m_stats.buffersRead;
-        m_stats.bytesRead += m_buffer->used;
+        m_stats.addBuffersRead(1);
+        m_stats.addBytesRead(m_buffer->used);
     }
     else
     {
-        m_stats.endTime = QDateTime::currentDateTime();
+        m_stats.stop();
         emit stateChanged(DAQState::Idle);
         emit endOfFileReached();
     }

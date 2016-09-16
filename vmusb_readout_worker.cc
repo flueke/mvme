@@ -177,9 +177,11 @@ void VMUSBReadoutWorker::start(quint32 cycles)
 
         m_bufferProcessor->beginRun();
         emit logMessage(QSL("Entering readout loop"));
-        stats.startTime = QDateTime::currentDateTime();
+        stats.start();
+
         readoutLoop();
-        stats.endTime = QDateTime::currentDateTime();
+
+        stats.stop();
         emit logMessage(QSL("Leaving readout loop"));
         m_bufferProcessor->endRun();
     }
@@ -249,8 +251,10 @@ void VMUSBReadoutWorker::readoutLoop()
         if (bytesRead > 0)
         {
             m_readBuffer->used = bytesRead;
-            stats.bytesRead += bytesRead;
-            stats.buffersRead++;
+
+            stats.addBuffersRead(1);
+            stats.addBytesRead(bytesRead);
+
             const double alpha = 0.1;
             stats.avgReadSize = (alpha * bytesRead) + (1.0 - alpha) * stats.avgReadSize;
             consecutiveReadErrors = 0;
@@ -300,8 +304,9 @@ void VMUSBReadoutWorker::readoutLoop()
         if (bytesRead > 0)
         {
             m_readBuffer->used = bytesRead;
-            stats.bytesRead += bytesRead;
-            stats.buffersRead++;
+            stats.addBuffersRead(1);
+            stats.addBytesRead(bytesRead);
+            
             const double alpha = 0.1;
             stats.avgReadSize = (alpha * bytesRead) + (1.0 - alpha) * stats.avgReadSize;
             if (m_bufferProcessor)
