@@ -10,7 +10,7 @@
 #include <QThread>
 
 static const size_t dataBufferCount = 20;
-static const size_t dataBufferSize  = 27 * 1024 * 2; // double the size of a vmusb read buffer
+static const size_t dataBufferSize = vmusb_constants::BufferMaxSize * 2; // double the size of a vmusb read buffer
 static const int TryOpenControllerInterval_ms = 250;
 static const int PeriodicLoggingInterval_ms = 5000;
 
