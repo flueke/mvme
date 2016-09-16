@@ -150,6 +150,8 @@ struct DAQStats
 
     u64 totalBytesRead = 0;
     u64 totalBuffersRead = 0;
+    u64 buffersWithErrors = 0;
+    u64 droppedBuffers = 0;
     u64 totalEventsRead = 0;
 
     QTime intervalUpdateTime;
@@ -167,8 +169,6 @@ struct DAQStats
     u32 avgEventsPerBuffer = 0;
     u32 avgReadSize = 0;
 
-    u64 buffersWithErrors = 0;
-    u64 droppedBuffers = 0;
     int freeBuffers = 0;
 
     u64 listFileBytesWritten = 0;

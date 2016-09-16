@@ -144,8 +144,8 @@ struct MVMEContextWidgetPrivate
     QPushButton *pb_startDAQ, *pb_startOneCycle, *pb_stopDAQ, *pb_replay;
     QLabel *label_daqState, *label_daqDuration, *label_buffersReadAndDropped,
            *label_freeBuffers, *label_readSize, *label_mbPerSecond, *label_controllerState,
-           *label_bytesRead,
-           *label_listFileSize, *label_vmusbAvgEventsPerBuffer;
+           *label_bytesRead, *label_listFileSize, *label_vmusbAvgEventsPerBuffer,
+           *label_events;
     QLineEdit *le_outputDirectory;
     QCheckBox *cb_outputEnabled;
 
@@ -187,6 +187,7 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
         m_d->label_bytesRead = new QLabel;
         m_d->label_listFileSize = new QLabel;
         m_d->label_vmusbAvgEventsPerBuffer = new QLabel;
+        m_d->label_events = new QLabel;
 
         connect(m_d->pb_startDAQ, &QPushButton::clicked, m_d->context, &MVMEContext::startDAQ);
 
@@ -214,6 +215,7 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
         stateLayout->addRow("Free event buffers:", m_d->label_freeBuffers);
         stateLayout->addRow("Buffers read / dropped / errors:", m_d->label_buffersReadAndDropped);
         stateLayout->addRow("Buffers/s / MB/s:", m_d->label_mbPerSecond);
+        stateLayout->addRow("Events:", m_d->label_events);
         stateLayout->addRow("Avg. read size:", m_d->label_readSize);
         stateLayout->addRow("vmusb avg. events per buffer:", m_d->label_vmusbAvgEventsPerBuffer);
         stateLayout->addRow("Bytes read:", m_d->label_bytesRead);
@@ -853,6 +855,11 @@ void MVMEContextWidget::updateStats()
             QString("%1 MB")
             .arg((double)stats.totalBytesRead / (1024.0*1024.0), 6, 'f', 2)
             );
+
+    m_d->label_events->setText(
+        QString("%1 Events/s")
+        .arg(stats.eventsPerSecond, 6, 'f', 2)
+        );
 
     switch (m_d->context->getMode())
     {

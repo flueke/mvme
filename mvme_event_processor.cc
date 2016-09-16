@@ -157,7 +157,7 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
                 continue;
             }
 
-            //++stats.eventsProcessed;
+            stats.addEventsRead(1);
 
             int eventType = (sectionHeader & EventTypeMask) >> EventTypeShift;
             u32 wordsLeftInSection = sectionSize;
