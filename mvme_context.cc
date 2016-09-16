@@ -194,7 +194,7 @@ void MVMEContext::logModuleCounters()
 
     stream << endl;
     stream << "Buffers: " << m_daqStats.totalBuffersRead << endl;
-    stream << "Events:  " << m_daqStats.totalEventsRead << endl;
+    //stream << "Events:  " << m_daqStats.totalEventsRead << endl;
 
     const auto &counters = m_daqStats.eventCounters;
 

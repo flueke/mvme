@@ -525,6 +525,14 @@ void MVMEContextWidget::onModuleConfigAdded(EventConfig *eventConfig, ModuleConf
 
 void MVMEContextWidget::treeContextMenu(const QPoint &pos)
 {
+    if (m_d->context->getMode() == GlobalMode::ListFile
+        || m_d->context->getDAQState() != DAQState::Idle)
+    {
+        return;
+    }
+
+
+
     auto item = m_d->contextTree->itemAt(pos);
 
     QMenu menu;
