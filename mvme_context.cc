@@ -108,6 +108,22 @@ void MVMEContext::addModule(EventConfig *eventConfig, ModuleConfig *module)
     eventConfig->modules.push_back(module);
     eventConfig->setModified();
     emit moduleAdded(eventConfig, module);
+
+    if (!getHistogramCollection(module))
+    {
+        module->updateRegisterCache();
+
+        int nChannels = module->getNumberOfChannels();
+        int resolution = RawHistogramResolution;
+
+        if (nChannels > 0 && resolution > 0)
+        {
+            auto hist = new HistogramCollection(this, nChannels, resolution);
+            hist->setProperty("Histogram.sourceModule", module->getId());
+            hist->setObjectName(module->getFullPath());
+            addHistogramCollection(hist);
+        }
+    }
 }
 
 void MVMEContext::addEventConfig(EventConfig *eventConfig)
@@ -125,9 +141,11 @@ void MVMEContext::removeEvent(EventConfig *event)
 {
     if (m_config->removeEventConfig(event))
     {
-        for (auto module: event->modules)
+        auto modules = event->modules;
+
+        for (auto module: modules)
         {
-            emit moduleAboutToBeRemoved(module);
+            removeModule(module);
         }
         emit eventConfigAboutToBeRemoved(event);
         delete event;
@@ -142,6 +160,14 @@ void MVMEContext::removeModule(ModuleConfig *module)
         if (event->modules.removeOne(module))
         {
             emit moduleAboutToBeRemoved(module);
+
+            auto histo = getHistogramCollection(module);
+
+            if (histo)
+            {
+                removeHistogramCollection(histo);
+            }
+
             delete module;
             event->setModified();
             break;
@@ -346,6 +372,25 @@ void MVMEContext::addHistogramCollection(HistogramCollection *histo)
 {
     m_histogramCollections.append(histo);
     emit histogramCollectionAdded(histo);
+}
+
+HistogramCollection *MVMEContext::getHistogramCollection(ModuleConfig *module) const
+{
+    auto predicate = [module](HistogramCollection *hist) {
+        auto id = hist->property("Histogram.sourceModule").toUuid();
+        return module->getId() == id;
+    };
+
+    auto findResult = std::find_if(m_histogramCollections.begin(),
+                                   m_histogramCollections.end(),
+                                   predicate);
+
+    if (findResult != m_histogramCollections.end())
+    {
+        return *findResult;
+    }
+
+    return nullptr;
 }
 
 void MVMEContext::addHist2D(Hist2D *hist2d)

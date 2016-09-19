@@ -76,9 +76,11 @@ class MVMEContext: public QObject
         void setMode(GlobalMode mode);
         GlobalMode getMode() const;
 
-        QVector<HistogramCollection *> getHistogramCollections() const { return m_histogramCollections; }
 
         void addHistogramCollection(HistogramCollection *histo);
+        QVector<HistogramCollection *> getHistogramCollections() const { return m_histogramCollections; }
+        HistogramCollection *getHistogramCollection(ModuleConfig *module) const;
+
         void addHist2D(Hist2D *hist2d);
 
         QVector<Hist2D *> get2DHistograms() const
