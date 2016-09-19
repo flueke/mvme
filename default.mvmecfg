@@ -1,0 +1,94 @@
+{
+    "2DHistograms": [
+        {
+            "name": "test1",
+            "xAxisBits": 10,
+            "xAxisSource": "0.0.0",
+            "yAxisBits": 10,
+            "yAxisSource": "0.1.0"
+        },
+        {
+            "name": "test1reversed",
+            "xAxisBits": 10,
+            "xAxisSource": "0.1.0",
+            "yAxisBits": 10,
+            "yAxisSource": "0.0.14"
+        },
+        {
+            "name": "asym",
+            "xAxisBits": 9,
+            "xAxisSource": "0.0.0",
+            "yAxisBits": 13,
+            "yAxisSource": "0.1.31"
+        },
+        {
+            "name": "new",
+            "xAxisBits": 10,
+            "xAxisSource": "0.0.0",
+            "yAxisBits": 10,
+            "yAxisSource": "0.0.1"
+        }
+    ],
+    "DAQConfig": {
+        "events": [
+            {
+                "id": "{d05e0fdb-3b4b-4c7e-9c2d-ec2e1e40b86d}",
+                "irqLevel": 1,
+                "irqVector": 0,
+                "modules": [
+                    {
+                        "baseAddress": 0,
+                        "id": "{a56285ec-019c-4e6e-bb9a-a12afcd8f648}",
+                        "initParameters": "# Parameters for MDPP-16\n0x6050 0x3FF8\n0x6054 0x10\n0x6058 0x100\n0x6100 0x8\n0x611A 500\n0x6110 4\n0x6124 200\n0x6070 3\n0x6072 1000\n",
+                        "initReadout": "# Readout related settings\n0x6010  1           # irq level\n0x6012  0           # irq vector\n0x6018  1           # FIFO threshold (number of 32bit words in the FIFO)\n0x6036  3           # multi event mode\n0x601A  1         # max transfer data for multi event mode 3\n",
+                        "initReset": "# Resets the module. Note: wait >= 200ms after writing this register.\n0x6008 1\n",
+                        "initStartDaq": "# Start acquisition sequence\n0x603a      0   # stop acq\n0x6090      3   # reset CTRA and CTRB\n0x603c      1   # FIFO reset\n0x603a      1   # start acq\n0x6034      1   # readout reset\n",
+                        "initStopDaq": "0x603a  0   # stop acquisition \n",
+                        "mcstAddress": 0,
+                        "name": "mdpp16",
+                        "readoutStack": "0xff00050b\n0x000003e8\n0x00000000\n0x00002000\n0x00004321\n0x00002000\n0x00008765\n0x00000009\n0x00006035\n0x00000001\n",
+                        "type": "mdpp16"
+                    },
+                    {
+                        "baseAddress": 65536,
+                        "id": "{6603953f-cbc4-4ef6-8768-55c4dcde98d2}",
+                        "initParameters": "# Parameters for MQDC-32\n0x6070 5\n",
+                        "initReadout": "# Readout related settings\n0x6010  0           # irq level\n0x6012  0           # irq vector\n0x6018  1           # FIFO threshold (number of 32bit words in the FIFO)\n0x6036  3           # multi event mode\n0x601A  1         # max transfer data for multi event mode 3\n",
+                        "initReset": "# Resets the module. Note: wait >= 200ms after writing this register.\n0x6008 1\n",
+                        "initStartDaq": "# Start acquisition sequence\n0x603a      0   # stop acq\n0x6090      3   # reset CTRA and CTRB\n0x603c      1   # FIFO reset\n0x603a      1   # start acq\n0x6034      1   # readout reset\n",
+                        "initStopDaq": "0x603a  0   # stop acquisition \n",
+                        "mcstAddress": 0,
+                        "name": "mqdc32",
+                        "readoutStack": "0xff00050b\n0x000003e8\n0x00010000\n0x00002000\n0x00004321\n0x00002000\n0x00008765\n0x00000009\n0x00016035\n0x00000001\n",
+                        "type": "mqdc32"
+                    }
+                ],
+                "name": "event0",
+                "scalerReadoutFrequency": 0,
+                "scalerReadoutPeriod": 0,
+                "triggerCondition": 2
+            }
+        ],
+        "listFileOutputDirectory": "/home/florian/src/build-mvme2-Desktop_Qt_5_7_0_GCC_64bit-Debug",
+        "listFileOutputEnabled": true
+    },
+    "Histograms": [
+        {
+            "channels": 34,
+            "name": "event0.mdpp16",
+            "properties": {
+                "Histogram.sourceModule": "{a56285ec-019c-4e6e-bb9a-a12afcd8f648}"
+            },
+            "resolution": 8192
+        },
+        {
+            "channels": 32,
+            "name": "event0.mqdc32",
+            "properties": {
+                "Histogram.sourceModule": "{6603953f-cbc4-4ef6-8768-55c4dcde98d2}"
+            },
+            "resolution": 8192
+        }
+    ]
+}
+
