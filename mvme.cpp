@@ -156,13 +156,26 @@ mvme::mvme(QWidget *parent) :
 
     QSettings settings;
 
-    auto configFileName = settings.value("Files/LastConfigFile").toString();
-
-    if (!configFileName.isEmpty())
+    if (settings.contains("Files/LastConfigFile"))
     {
+        auto configFileName = settings.value("Files/LastConfigFile").toString();
+        qDebug() << "LastConfigFile" << configFileName;
         if (!loadConfig(configFileName))
         {
             settings.remove("Files/LastConfigFile");
+        }
+    }
+    else
+    {
+        // try to load a default config file
+        auto configFileName = QCoreApplication::applicationDirPath() + QSL("/default.mvmecfg");
+        QFileInfo fi(configFileName);
+
+        qDebug() << "default config" << configFileName;
+
+        if (fi.exists() && fi.isReadable())
+        {
+            loadConfig(configFileName);
         }
     }
 
@@ -172,7 +185,10 @@ mvme::mvme(QWidget *parent) :
 mvme::~mvme()
 {
     QSettings settings;
-    settings.setValue("Files/LastConfigFile", m_context->getConfigFileName());
+    if (!m_context->getConfigFileName().isEmpty())
+    {
+        settings.setValue("Files/LastConfigFile", m_context->getConfigFileName());
+    }
 
     delete ui;
     delete m_context;
@@ -195,6 +211,13 @@ void mvme::closeConfig()
 
 bool mvme::loadConfig(const QString &fileName)
 {
+    qDebug() << __PRETTY_FUNCTION__ << fileName;
+
+    if (fileName.isEmpty())
+    {
+        return false;
+    }
+
     QFile inFile(fileName);
     if (!inFile.open(QIODevice::ReadOnly))
     {
