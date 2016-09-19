@@ -631,7 +631,6 @@ void mvme::handleModuleConfigDoubleClicked(ModuleConfig *config)
             m_configDialogs.remove(dialog->getConfig());
         });
 
-        dialog->setModal(true);
         dialog->show();
     }
 }
