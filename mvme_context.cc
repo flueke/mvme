@@ -406,7 +406,7 @@ void MVMEContext::startReplay()
         return;
 
     prepareStart();
-
+    emit sigLogMessage(QSL("Replay starting"));
     QMetaObject::invokeMethod(m_listFileWorker, "startFromBeginning", Qt::QueuedConnection);
     m_replayTime.restart();
 }
@@ -417,6 +417,7 @@ void MVMEContext::startDAQ(quint32 nCycles)
         return;
 
     prepareStart();
+    emit sigLogMessage(QSL("DAQ starting"));
     QMetaObject::invokeMethod(m_readoutWorker, "start",
                               Qt::QueuedConnection, Q_ARG(quint32, nCycles));
 }
@@ -425,11 +426,13 @@ void MVMEContext::stopDAQ()
 {
     if (m_mode == GlobalMode::DAQ)
     {
+        emit sigLogMessage(QSL("DAQ stopping"));
         QMetaObject::invokeMethod(m_readoutWorker, "stop",
                                   Qt::QueuedConnection);
     }
     else if (m_mode == GlobalMode::ListFile)
     {
+        emit sigLogMessage(QSL("Replay stopping"));
         QMetaObject::invokeMethod(m_listFileWorker, "stopReplay",
                                   Qt::QueuedConnection);
     }
