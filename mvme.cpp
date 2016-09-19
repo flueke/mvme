@@ -153,16 +153,6 @@ mvme::mvme(QWidget *parent) :
     drawTimer->start(DrawTimerInterval);
 
     connect(m_context, &MVMEContext::sigLogMessage, this, &mvme::appendToLog);
-    connect(m_context, &MVMEContext::daqStateChanged, this, [=](DAQState state) {
-        if (state == DAQState::Starting)
-        {
-            appendToLog("DAQ starting");
-        }
-        if (state == DAQState::Idle)
-        {
-            appendToLog("DAQ stopped");
-        }
-    });
 
     QSettings settings;
 
