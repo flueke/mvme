@@ -1,0 +1,53 @@
+* write
+    write a16 d16 0x1234 0xabcd
+    write a32 d16 0x12345678 0xabcd
+    write a32 d32 0x12345678 0xabcdabcd
+    write a16 d32 0x1234 0xabcdabcd
+
+* read
+    read a32 d16 0x12345678
+    read a16 0x1234
+
+* wait
+    # Wait for at least the specified time given in ms
+    wait 1
+    wait 5000
+    wait 1s
+    wait 500ms
+
+* marker
+    marker 0x1234 # add a 16 bit marker word
+    marker 0x12345678  # add a 32 bit marker word
+
+* blt/mblt (read only)
+    blt a24 0x123456 200 # blockread amod address repetitions
+    bltfifo a32 0x12345678 20 # fiforead amod address repetitions
+
+    mblt a24 0x123456 200 # blockread amod address repetitions
+    mbltfifo a32 0x12345678 20 # fiforead amod address repetitions
+
+(* defaults)
+    write, a32, d16: 0x12345678 0xabcd
+
+* Current simple format:
+    0x1234 0xabcdabcd # comments to end of line
+    # additional base address can be given to parseRegisterList and is added to each parsed address
+
+
+vme_script = comment* | command*
+comment = '#' .* \n
+command = command_type args [comment]
+
+
+<command> <args>
+
+"write" [<adress_mode>] [<access_mode>] <address> <value>
+"read" [<adress_mode>] [<access_mode>] <address>
+"wait" <waittime>
+"marker" <marker>
+<blt_type> [<address_mode>] <address> <repetitions>
+
+address = "0x" <hex_value> | <unsigned_dec_value>
+value = "0x" <hex_value> | <unsigned_dec_value>
+address_mode = "a16" | "a24" | "a32"
+accesss_mode = "d16" | "d32"

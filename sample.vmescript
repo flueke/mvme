@@ -1,0 +1,2 @@
+# Sample VME script file
+#write a32 d16 0x12345678 0xbeef
