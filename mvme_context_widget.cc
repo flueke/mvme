@@ -56,7 +56,7 @@ struct AddModuleDialog: public QDialog
                 this, onTypeComboIndexChanged);
 
         addressEdit = new QLineEdit;
-        addressEdit->setInputMask("\\0\\xHHHH\\0\\0\\0\\0");
+        addressEdit->setInputMask("\\0\\xHHHHHHHH");
         addressEdit->setText("0x00000000");
 
         auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);

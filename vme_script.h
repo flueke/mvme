@@ -2,6 +2,7 @@
 #define __VME_SCRIPT_H__
 
 #include <vector>
+#include <cstdint>
 
 #if 0
 class QFile;
@@ -12,7 +13,7 @@ class QString;
 namespace vme_script
 {
 
-struct VMEScriptCommand
+struct Command
 {
     enum Type
     {
@@ -20,24 +21,46 @@ struct VMEScriptCommand
 
         Read,
         Write,
-
         BLT,
         BLTFifo,
-
         MBLT,
         MBLTFifo,
-
         Wait,
-
         Marker,
     };
 
+    enum AddressMode
+    {
+        A16,
+        A24,
+        A32
+    };
+
+    enum DataWidth
+    {
+        D16,
+        D32
+    };
+
+    Command(Type t = Invalid)
+        : type(t)
+    {}
+
+    Command &setAddressMode(AddressMode mode)
+    { addressMode = mode; return *this; }
+
     Type type = Invalid;
+    AddressMode addressMode = A32;
+    DataWidth dataWidth = D16;
+    uint32_t address;
+    uint32_t value;
+    uint32_t tranfers;
+    uint32_t delay;
 };
 
 struct VMEScript
 {
-    std::vector<VMEScriptCommand> commands;
+    std::vector<Command> commands;
 };
 
 struct ParseError

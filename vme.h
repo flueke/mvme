@@ -38,4 +38,7 @@
 #define VME_AM_A32_PRIV_MBLT  0x0c
 #define VME_AM_A32_USER_MBLT  0x08
 
+#define VME_AM_A16_PRIV 0x2d
+#define VME_AM_A16_USER 0x29
+
 #endif

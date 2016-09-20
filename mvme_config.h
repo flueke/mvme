@@ -37,6 +37,7 @@ class ModuleConfig: public QObject
         int getNumberOfChannels() const;
         int getDataBits() const;
         u32 getDataExtractMask();
+        u8 getRegisterAddressModifier() const;
 
         void read(const QJsonObject &json);
         void write(QJsonObject &json) const;

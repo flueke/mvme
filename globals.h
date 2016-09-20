@@ -34,9 +34,8 @@ enum class VMEModuleType
     MDPP32  = 5,
     MDI2    = 6,
 
-    //RegisterRead = 40, // TODO: add support for this
-
-    Generic = 48,
+    // RegisterRead = 20, // TODO: add support for this. maybe?
+    VHS4030p = 21,
 };
 
 static const QMap<TriggerCondition, QString> TriggerConditionNames =
@@ -54,7 +53,8 @@ static const QMap<VMEModuleType, QString> VMEModuleTypeNames =
     { VMEModuleType::MDPP16,    "MDPP-16" },
     { VMEModuleType::MDPP32,    "MDPP-32" },
     { VMEModuleType::MDI2,      "MDI-2" },
-    { VMEModuleType::Generic,   "Generic" },
+    //{ VMEModuleType::Generic,   "Generic" },
+    { VMEModuleType::VHS4030p,  "iseg VHS4030p" },
 };
 
 static const QMap<VMEModuleType, QString> VMEModuleShortNames =
@@ -65,7 +65,8 @@ static const QMap<VMEModuleType, QString> VMEModuleShortNames =
     { VMEModuleType::MDPP16,    "mdpp16" },
     { VMEModuleType::MDPP32,    "mdpp32" },
     { VMEModuleType::MDI2,      "mdi2" },
-    { VMEModuleType::Generic,   "generic" },
+    //{ VMEModuleType::Generic,   "generic" },
+    { VMEModuleType::VHS4030p,  "vhs4030p" },
 };
 
 inline bool isMesytecModule(VMEModuleType type)

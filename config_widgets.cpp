@@ -1,6 +1,7 @@
 #include "config_widgets.h"
 #include "ui_module_config_dialog.h"
 #include "ui_event_config_dialog.h"
+#include "ui_vhs4030p.h"
 #include "mvme_config.h"
 #include "mvme_context.h"
 #include "vmusb.h"
@@ -178,7 +179,7 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *confi
     });
 
     // VME base address
-    ui->le_address->setInputMask("\\0\\xHHHH\\0\\0\\0\\0");
+    ui->le_address->setInputMask("\\0\\xHHHHHHHH");
 
     connect(ui->le_address, &QLineEdit::textChanged, this, [this](const QString &) {
             if (ui->le_address->hasAcceptableInput())
@@ -432,8 +433,12 @@ void ModuleConfigDialog::execList()
             case ModuleListType::Reset:
                 {
                     u8 ignored[100];
-                    auto cmdList = VMECommandList::fromInitList(parseRegisterList(listContents),
-                            m_config->baseAddress);
+
+                    auto cmdList = VMECommandList::fromInitList(
+                        parseRegisterList(listContents),
+                        m_config->baseAddress,
+                        m_config->getRegisterAddressModifier()
+                        );
 
                     qDebug() << "command list:";
                     qDebug() << cmdList.toString();
@@ -447,6 +452,7 @@ void ModuleConfigDialog::execList()
                                              .arg(result));
                     }
                 } break;
+
             case ModuleListType::ReadoutStack:
                 {
                     auto vmusb = dynamic_cast<VMUSB *>(controller);
@@ -608,4 +614,44 @@ void ModuleConfigDialog::setReadOnly(bool readOnly)
             ui->editor->setReadOnly(readOnly);
             break;
     }
+}
+
+QWidget *makeModuleConfigWidget(MVMEContext *context, ModuleConfig *config, QWidget *parent)
+{
+    if (config->type == VMEModuleType::VHS4030p)
+    {
+        return new VHS4030pWidget(context, config, parent);
+    }
+
+    return new ModuleConfigDialog(context, config, parent);
+}
+
+VHS4030pWidget::VHS4030pWidget(MVMEContext *context, ModuleConfig *config, QWidget *parent)
+    : QDialog(parent)
+    , ui(new Ui::VHS4030pWidget)
+    , m_context(context)
+    , m_config(config)
+{
+    ui->setupUi(this);
+
+    connect(ui->pb_write, &QPushButton::clicked, this, [this] {
+        bool ok;
+        u32 offset = ui->le_offset->text().toUInt(&ok, 16);
+        u32 value  = ui->le_value->text().toUInt(&ok, 16);
+        auto ctrl = m_context->getController();
+
+        ctrl->write16(m_config->baseAddress + offset, value, m_config->getRegisterAddressModifier());
+    });
+
+    connect(ui->pb_read, &QPushButton::clicked, this, [this] {
+        bool ok;
+        u32 offset = ui->le_offset->text().toUInt(&ok, 16);
+        auto ctrl = m_context->getController();
+        u16 value = 0;
+
+        ctrl->read16(m_config->baseAddress + offset, &value, m_config->getRegisterAddressModifier());
+
+        ui->le_value->setText(QString("0x%1")
+                              .arg(static_cast<u32>(value), 4, 16, QLatin1Char('0')));
+    });
 }

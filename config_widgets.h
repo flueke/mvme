@@ -15,6 +15,7 @@ namespace Ui
 {
     class EventConfigDialog;
     class ModuleConfigDialog;
+    class VHS4030pWidget;
 }
 
 class EventConfigDialog: public QDialog
@@ -75,6 +76,20 @@ class ModuleConfigDialog: public QDialog
         QMap<int, QString> m_configStrings;
         bool m_hasModifications = false;
         bool m_readOnly = false;
+};
+
+QWidget *makeModuleConfigWidget(MVMEContext *context, ModuleConfig *config, QWidget *parent = 0);
+
+class VHS4030pWidget: public QDialog
+{
+    Q_OBJECT
+    public:
+        VHS4030pWidget(MVMEContext *context, ModuleConfig *config, QWidget *parent = 0);
+
+    private:
+        Ui::VHS4030pWidget *ui;
+        MVMEContext *m_context;
+        ModuleConfig *m_config;
 };
 
 #endif /* __CONFIG_WIDGETS_H__ */

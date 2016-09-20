@@ -1,2 +1,2 @@
-# Sample VME script file
-#write a32 d16 0x12345678 0xbeef
+write 0x1234 0xbeef
+read 0x5678

@@ -83,7 +83,8 @@ FORMS    += \
     module_config_dialog.ui \
     mvmecontrol.ui \
     event_config_dialog.ui \
-    context_widget2.ui
+    context_widget2.ui \
+    vhs4030p.ui
 
 
 DEFINES += VME_CONTROLLER_WIENER
@@ -137,7 +138,9 @@ win32 {
 }
 
 copytemplates.commands = $(COPY_DIR) $$shell_path($$PWD/templates) $$shell_path($$OUT_PWD)
-first.depends = $(first) copytemplates
+copyfiles.commands = $(COPY) $$shell_path($$PWD/default.mvmecfg) $$shell_path($$OUT_PWD)
+first.depends = $(first) copytemplates copyfiles
 export(first.depends)
 export(copytemplates.commands)
-QMAKE_EXTRA_TARGETS += first copytemplates
+export(copyfiles.commands)
+QMAKE_EXTRA_TARGETS += first copytemplates copyfiles

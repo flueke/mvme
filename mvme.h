@@ -66,6 +66,7 @@ private slots:
 
     void handleEventConfigClicked(EventConfig *event);
     void handleEventConfigDoubleClicked(EventConfig *event);
+
     void handleModuleConfigClicked(ModuleConfig *module);
     void handleModuleConfigDoubleClicked(ModuleConfig *module);
 

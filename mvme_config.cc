@@ -34,8 +34,10 @@ int ModuleConfig::getNumberOfChannels() const
         case VMEModuleType::MDPP32:
             return 34;
 
+        case VMEModuleType::VHS4030p:
+            return 4;
+
         case VMEModuleType::Invalid:
-        case VMEModuleType::Generic:
             return -1;
     }
     return -1;
@@ -115,7 +117,7 @@ int ModuleConfig::getDataBits() const
             return 12;
 
         case VMEModuleType::Invalid:
-        case VMEModuleType::Generic:
+        case VMEModuleType::VHS4030p:
             break;
     }
     return -1;
@@ -138,10 +140,20 @@ u32 ModuleConfig::getDataExtractMask()
             return (1 << 12) - 1;
 
         case VMEModuleType::Invalid:
-        case VMEModuleType::Generic:
+        case VMEModuleType::VHS4030p:
             break;
     }
     return 0;
+}
+
+u8 ModuleConfig::getRegisterAddressModifier() const
+{
+    if (type == VMEModuleType::VHS4030p)
+    {
+        return VME_AM_A16_USER;
+    }
+
+    return VME_AM_A32_USER_DATA;
 }
 
 #include <QDebug>
@@ -205,6 +217,15 @@ void ModuleConfig::generateReadoutStack()
         CVMUSBReadoutList readoutList(readoutCmds);
         readoutStack = readoutList.toString();
         setModified();
+    }
+
+    if (type == VMEModuleType::VHS4030p)
+    {
+        // TODO: read channel voltages and currents here
+        //VMECommandList cmds;
+
+        //cmds.addRead16(baseAddress + 0x
+
     }
 }
 

@@ -41,8 +41,8 @@ command = command_type args [comment]
 
 <command> <args>
 
-"write" [<adress_mode>] [<access_mode>] <address> <value>
-"read" [<adress_mode>] [<access_mode>] <address>
+"write" [<adress_mode>] [<data_width>] <address> <value>
+"read" [<adress_mode>] [<data_width>] <address>
 "wait" <waittime>
 "marker" <marker>
 <blt_type> [<address_mode>] <address> <repetitions>

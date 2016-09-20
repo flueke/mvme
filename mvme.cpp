@@ -83,6 +83,7 @@ mvme::mvme(QWidget *parent) :
     m_contextWidget = contextWidget;
     connect(contextWidget, &MVMEContextWidget::eventClicked, this, &mvme::handleEventConfigClicked);
     connect(contextWidget, &MVMEContextWidget::eventDoubleClicked, this, &mvme::handleEventConfigDoubleClicked);
+
     connect(contextWidget, &MVMEContextWidget::moduleClicked, this, &mvme::handleModuleConfigClicked);
     connect(contextWidget, &MVMEContextWidget::moduleDoubleClicked, this, &mvme::handleModuleConfigDoubleClicked);
 
@@ -623,15 +624,18 @@ void mvme::handleModuleConfigDoubleClicked(ModuleConfig *config)
     }
     else
     {
+        auto widget = makeModuleConfigWidget(m_context, config, this);
+        auto dialog = qobject_cast<ModuleConfigDialog *>(widget);
+        if (dialog)
+        {
+            dialog->setAttribute(Qt::WA_DeleteOnClose);
+            m_configDialogs[config] = dialog;
+            connect(dialog, &QDialog::finished, this, [=](int r) {
+                m_configDialogs.remove(dialog->getConfig());
+            });
+        }
 
-        auto dialog = new ModuleConfigDialog(m_context, config, this);
-        dialog->setAttribute(Qt::WA_DeleteOnClose);
-        m_configDialogs[config] = dialog;
-        connect(dialog, &QDialog::finished, this, [=](int r) {
-            m_configDialogs.remove(dialog->getConfig());
-        });
-
-        dialog->show();
+        widget->show();
     }
 }
 
