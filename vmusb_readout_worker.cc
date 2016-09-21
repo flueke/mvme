@@ -62,7 +62,7 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         vmusb->setDaqSettings(0);
 
         // USB Bulk Transfer Setup Register
-        // TODO: this does not seem to have any effect...
+        // TODO: USB Bulk transfer: does not seem to have any effect...
         {
             // This sets the buffer end watchdog timeout to 1 second + timeoutValue seconds
             const int timeoutValue = 1;
@@ -278,9 +278,13 @@ void VMUSBReadoutWorker::readoutLoop()
             }
             else
 #endif
+
+
             {
                 ++consecutiveReadErrors;
-                emit logMessage(QString("VMUSB Error from vmusb bulk read: %1.").arg(bytesRead));
+                emit logMessage(QString("VMUSB Warning: no data from bulk read (error=\"%1\", code=%2)")
+                                .arg(strerror(-bytesRead))
+                                .arg(bytesRead));
             }
         }
 
