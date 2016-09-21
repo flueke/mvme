@@ -176,7 +176,10 @@ class VMECommandList
             VMECommandList ret;
             for (auto p: registerList)
             {
-                ret.addWrite16(baseAddress + p.first, p.second, amod);
+                if (static_cast<QMetaType::Type>(p.second.type()) != QMetaType::Float)
+                {
+                    ret.addWrite16(baseAddress + p.first, p.second.toUInt(), amod);
+                }
             }
             return ret;
         }

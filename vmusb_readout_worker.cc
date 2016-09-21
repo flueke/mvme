@@ -74,7 +74,6 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         globalMode |= (1 << GlobalModeRegister::MixedBufferShift);
         vmusb->setMode(globalMode);
 
-        // TODO: use register lists instead of command list here
         VMECommandList resetCommands, startCommands;
         RegisterList initParametersAndReadout;
         m_stopCommands = VMECommandList();

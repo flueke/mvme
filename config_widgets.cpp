@@ -126,6 +126,7 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *confi
     , m_config(config)
 {
     ui->setupUi(this);
+    ui->gb_extra->setVisible(false);
 
     connect(context, &MVMEContext::moduleAboutToBeRemoved, this, [=](ModuleConfig *module) {
         if (module == config)
@@ -238,7 +239,6 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *confi
 
 ModuleConfigDialog::~ModuleConfigDialog()
 {
-    qDebug() << __PRETTY_FUNCTION__;
 }
 
 void ModuleConfigDialog::handleListTypeIndexChanged(int index)
@@ -589,6 +589,7 @@ void ModuleConfigDialog::saveToConfig()
         *getConfigString(static_cast<ModuleListType>(i), config) = m_configStrings[i];
     }
     m_config->generateReadoutStack();
+    m_config->setModified();
     setModified(false);
 }
 
@@ -618,10 +619,10 @@ void ModuleConfigDialog::setReadOnly(bool readOnly)
 
 QWidget *makeModuleConfigWidget(MVMEContext *context, ModuleConfig *config, QWidget *parent)
 {
-    if (config->type == VMEModuleType::VHS4030p)
-    {
-        return new VHS4030pWidget(context, config, parent);
-    }
+    //if (config->type == VMEModuleType::VHS4030p)
+    //{
+    //    return new VHS4030pWidget(context, config, parent);
+    //}
 
     return new ModuleConfigDialog(context, config, parent);
 }

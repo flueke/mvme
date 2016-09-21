@@ -35,7 +35,7 @@ int ModuleConfig::getNumberOfChannels() const
             return 34;
 
         case VMEModuleType::VHS4030p:
-            return 4;
+            return -1;
 
         case VMEModuleType::Invalid:
             return -1;
@@ -93,8 +93,8 @@ int ModuleConfig::getDataBits() const
     {
         case VMEModuleType::MADC32:
             {
-                int regValue = m_registerCache.value(MADC::adc_resolution, MADC::adc_resolution_default);
-                regValue = m_registerCache.value(MADC::adc_override, regValue);
+                int regValue = m_registerCache.value(MADC::adc_resolution, MADC::adc_resolution_default).toInt();
+                regValue = m_registerCache.value(MADC::adc_override, regValue).toInt();
                 int bits = MADC::adc_bits.at(regValue);
                 return bits;
             }
@@ -102,7 +102,7 @@ int ModuleConfig::getDataBits() const
         case VMEModuleType::MDPP16:
         case VMEModuleType::MDPP32:
             {
-                int index = m_registerCache.value(MDPP::adc_resolution, MDPP::adc_resolution_default);
+                int index = m_registerCache.value(MDPP::adc_resolution, MDPP::adc_resolution_default).toInt();
                 int bits = MDPP::adc_bits.at(index);
                 return bits;
             }
@@ -155,8 +155,6 @@ u8 ModuleConfig::getRegisterAddressModifier() const
 
     return VME_AM_A32_USER_DATA;
 }
-
-#include <QDebug>
 
 void ModuleConfig::setModified()
 {
@@ -338,7 +336,6 @@ void DAQConfig::write(QJsonObject &json) const
     json["events"] = eventArray;
 }
 
-#if 1
 QByteArray DAQConfig::toJson() const
 {
     QJsonObject configObject;
@@ -346,7 +343,6 @@ QByteArray DAQConfig::toJson() const
     QJsonDocument doc(configObject);
     return doc.toJson();
 }
-#endif
 
 ModuleConfig *DAQConfig::getModuleConfig(int eventIndex, int moduleIndex)
 {

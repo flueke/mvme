@@ -46,18 +46,54 @@ QVector<u32> parseStackFile(const QString &input)
 
 RegisterList parseRegisterList(QTextStream &input, u32 baseAddress)
 {
-    auto vec = parseStackFile(input);
+    RegisterList result;
 
-    RegisterList ret;
-
-    for (int i=0; i<vec.size()/2; ++i)
+    while (true)
     {
-        u32 addr  = vec[2*i];
-        u32 value = vec[2*i+1];
-        ret.push_back(qMakePair(addr + baseAddress, value));
+        QString line = input.readLine().simplified();
+
+        if (line.isNull())
+            break;
+
+        if (line.startsWith('#'))
+            continue;
+
+        auto parts = line.splitRef(' ', QString::SkipEmptyParts);
+
+        if (parts.size() < 2)
+            continue;
+
+        bool ok;
+
+        u32 address = parts[0].toULong(&ok, 0);
+
+        if (!ok)
+            continue;
+
+        QVariant value;
+
+        u32 intValue = parts[1].toULong(&ok, 0);
+
+        if (ok)
+        {
+            value = QVariant(intValue);
+        }
+        else
+        {
+            float floatValue = parts[1].toFloat(&ok);
+            if (ok)
+            {
+                value = QVariant(floatValue);
+            }
+        }
+
+        if (value.isValid())
+        {
+            result.push_back(qMakePair(address + baseAddress, value));
+        }
     }
 
-    return ret;
+    return result;
 }
 
 RegisterList parseRegisterList(const QString &input, u32 baseAddress)
@@ -81,9 +117,16 @@ QString readStringFile(const QString &filename)
 
 static QString registerSettingToString(const RegisterSetting &rs)
 {
+    if (isFloat(rs.second))
+    {
+        return QString("0x%1 -> %2")
+            .arg(rs.first, 8, 16, QLatin1Char('0'))
+            .arg(rs.second.toFloat());
+    }
+
     return QString("0x%1 -> 0x%2")
         .arg(rs.first, 8, 16, QLatin1Char('0'))
-        .arg(rs.second, 4, 16, QLatin1Char('0'));
+        .arg(rs.second.toUInt(), 4, 16, QLatin1Char('0'));
 }
 
 QString toString(const RegisterList &registerList)
@@ -94,12 +137,7 @@ QString toString(const RegisterList &registerList)
 
     for (auto pair: registerList)
     {
-        stream << "0x"
-               << qSetFieldWidth(8) << pair.first << qSetFieldWidth(0)
-               << " -> 0x"
-               << qSetFieldWidth(4) << pair.second << qSetFieldWidth(0)
-               << endl;
-
+        stream << registerSettingToString(pair) << endl;
     }
     return result;
 }

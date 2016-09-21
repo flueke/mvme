@@ -19,7 +19,8 @@ enum class DAQState
     Idle,
     Starting,
     Running,
-    Stopping
+    Stopping,
+    // Paused
 };
 
 Q_DECLARE_METATYPE(DAQState);

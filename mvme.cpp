@@ -603,7 +603,6 @@ void mvme::handleEventConfigDoubleClicked(EventConfig *config)
 
 void mvme::handleModuleConfigClicked(ModuleConfig *config)
 {
-    qDebug() << config << config->getId();
     if (m_configDialogs.contains(config))
     {
         m_configDialogs[config]->show();
@@ -625,11 +624,11 @@ void mvme::handleModuleConfigDoubleClicked(ModuleConfig *config)
     else
     {
         auto widget = makeModuleConfigWidget(m_context, config, this);
+        m_configDialogs[config] = widget;
         auto dialog = qobject_cast<ModuleConfigDialog *>(widget);
         if (dialog)
         {
             dialog->setAttribute(Qt::WA_DeleteOnClose);
-            m_configDialogs[config] = dialog;
             connect(dialog, &QDialog::finished, this, [=](int r) {
                 m_configDialogs.remove(dialog->getConfig());
             });

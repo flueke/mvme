@@ -25,11 +25,16 @@ void debugOutputBuffer(u32 *dataBuffer, u32 bufferCount);
 QVector<u32> parseStackFile(QTextStream &input);
 QVector<u32> parseStackFile(const QString &input);
 
-typedef QPair<u32, u32> RegisterSetting; // (addr, value)
+typedef QPair<u32, QVariant> RegisterSetting; // (addr, value)
 typedef QVector<RegisterSetting> RegisterList;
 
 RegisterList parseRegisterList(QTextStream &input, u32 baseAddress = 0);
 RegisterList parseRegisterList(const QString &input, u32 baseAddress = 0);
+
+inline bool isFloat(const QVariant &var)
+{
+    return (static_cast<QMetaType::Type>(var.type()) == QMetaType::Float);
+}
 
 QString toString(const RegisterList &registerList);
 QStringList toStringList(const RegisterList &registerList);

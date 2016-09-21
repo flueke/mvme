@@ -72,7 +72,7 @@ class ModuleConfig: public QObject
 
         QUuid m_id;
         QString m_name;
-        QHash<u32, u32> m_registerCache;
+        QHash<u32, QVariant> m_registerCache;
 };
 
 class EventConfig: public QObject
