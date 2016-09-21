@@ -113,11 +113,15 @@ struct AddModuleDialog: public QDialog
                 module->initReadout     = readStringFile(templatePath + "/mesytec_init_readout.init");
                 module->initStartDaq    = readStringFile(templatePath + "/mesytec_startdaq.init");
                 module->initStopDaq     = readStringFile(templatePath + "/mesytec_stopdaq.init");
-                QString shortname = VMEModuleShortNames[module->type];
-                module->initParameters  = readStringFile(QString(templatePath + "/%1_parameters.init")
-                                                         .arg(shortname));
-                module->generateReadoutStack();
             }
+
+            QString shortname = VMEModuleShortNames[module->type];
+            QString paramsFilename = QString("%1/%2_parameters.init")
+                .arg(templatePath)
+                .arg(shortname);
+            context->logMessage(QString("Using %1").arg(paramsFilename));
+            module->initParameters  = readStringFile(paramsFilename);
+            module->generateReadoutStack();
         }
 
         context->addModule(parentConfig, module);

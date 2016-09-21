@@ -1,0 +1,16 @@
+0x0002 0x0040 # ModuleControl: doClear
+0x0004 0xffff # ModuleEventStatus: write all bits to reset
+0x0006 0x0000 # ModuleEventMask: clear
+0x0008 0xffff # ModuleEventChannelStatus: write all bits to reset
+0x000A 0x0000 # ModuleEventChannelMask: clear
+0x0014 20.0   # VoltageRampSpeed in % of nominal voltage of the channel (max 20%)
+
+# Channel Offsets:
+# Channel 0: 0x0060
+# Channel 1: 0x0090
+# Channel 2: 0x00C0
+# Channel 3: 0x00F0
+0x0064 0xffff # Ch0 ChannelEventStatus: write all bits to reset
+0x0066 0x0000 # Ch0 ChannelEventMask: clear
+0x0062 0x0008 # Ch0 ChannelControl: setON
+0x0068 10.0   # Ch0 VoltageSet
