@@ -156,6 +156,11 @@ u8 ModuleConfig::getRegisterAddressModifier() const
     return VME_AM_A32_USER_DATA;
 }
 
+RegisterWidth ModuleConfig::getRegisterWidth() const
+{
+    return RegisterWidth::W16;
+}
+
 void ModuleConfig::setModified()
 {
     updateRegisterCache();

@@ -38,6 +38,7 @@ class ModuleConfig: public QObject
         int getDataBits() const;
         u32 getDataExtractMask();
         u8 getRegisterAddressModifier() const;
+        RegisterWidth getRegisterWidth() const;
 
         void read(const QJsonObject &json);
         void write(QJsonObject &json) const;

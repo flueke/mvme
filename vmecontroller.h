@@ -1,8 +1,8 @@
 #ifndef VMECONTROLLER_H
 #define VMECONTROLLER_H
 
-#include "util.h"
 #include "vme.h"
+#include "globals.h"
 #include <QObject>
 
 class VMECommandList;
@@ -12,12 +12,6 @@ enum class VMEControllerType
     VMUSB,
     CAEN,
     SIS
-};
-
-enum class RegisterWidth
-{
-    W16,
-    W32
 };
 
 enum class ControllerState

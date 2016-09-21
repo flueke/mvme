@@ -14,7 +14,7 @@ class VMUSBReadoutWorker: public QObject
         void stateChanged(DAQState);
         void eventReady(DataBuffer *buffer);
         void logMessage(const QString &);
-        void logMessages(const QStringList &);
+        void logMessages(const QStringList &, const QString &prefix = QString()); // messages, prefix
 
     public:
         VMUSBReadoutWorker(MVMEContext *context, QObject *parent = 0);
@@ -38,7 +38,6 @@ class VMUSBReadoutWorker: public QObject
         DAQState m_state = DAQState::Idle;
         quint32 m_cyclesToRun = 0;
         VMUSBStack m_vmusbStack;
-        VMECommandList m_stopCommands;
         DataBuffer *m_readBuffer = 0;
         QMap<u8, u32> m_eventCountPerStack;
         size_t m_nTotalEvents;

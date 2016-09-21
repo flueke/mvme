@@ -26,15 +26,16 @@ int VMEController::applyRegisterList(const RegisterList &regList,
             {
                 case RegisterWidth::W16:
                     {
-                        // write the low bytes to the lower address
-                        u16 regVal = (value & 0xFFFF);
+                        u16 regVal = 0;
+                        // write low address
+                        regVal = (value >> 16) & 0xFFFF;
                         result = write16(address, regVal, amod);
 
                         if (result <= 0)
                             break;
 
-                        // high bytes to address + 16 bits
-                        regVal = (value >> 16) & 0xFFFF;
+                        // write high address
+                        regVal = (value & 0xFFFF);
                         result = write16(address + sizeof(u16), regVal, amod);
                     } break;
 

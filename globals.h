@@ -200,4 +200,10 @@ enum class GlobalMode
 
 Q_DECLARE_METATYPE(GlobalMode);
 
+enum class RegisterWidth
+{
+    W16,
+    W32
+};
+
 #endif

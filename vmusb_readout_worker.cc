@@ -74,11 +74,7 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         globalMode |= (1 << GlobalModeRegister::MixedBufferShift);
         vmusb->setMode(globalMode);
 
-        VMECommandList resetCommands, startCommands;
-        RegisterList initParametersAndReadout;
-        m_stopCommands = VMECommandList();
-
-        int stackID = 2; // start at ID=2 as 0=NIM, 1=scaler
+        int nextStackID = 2; // start at ID=2 as NIM=0 and scaler=1 (fixed)
 
         for (auto event: m_context->getEventConfigs())
         {
@@ -94,9 +90,9 @@ void VMUSBReadoutWorker::start(quint32 cycles)
 
             if (event->triggerCondition == TriggerCondition::Interrupt)
             {
-                event->stackID = stackID; // record the stack id in the event structure
-                m_vmusbStack.setStackID(stackID);
-                ++stackID;
+                event->stackID = nextStackID; // record the stack id in the event structure
+                m_vmusbStack.setStackID(nextStackID);
+                ++nextStackID;
             }
             else
             {
@@ -108,90 +104,145 @@ void VMUSBReadoutWorker::start(quint32 cycles)
 
             for (auto module: event->modules)
             {
-                resetCommands.append(VMECommandList::fromInitList(parseRegisterList(module->initReset), module->baseAddress));
-
-                initParametersAndReadout += parseRegisterList(module->initParameters, module->baseAddress);
-                initParametersAndReadout += parseRegisterList(module->initReadout, module->baseAddress);
-
-                qDebug() << initParametersAndReadout;
-
-                startCommands.append(VMECommandList::fromInitList(parseRegisterList(module->initStartDaq), module->baseAddress));
-                m_stopCommands.append(VMECommandList::fromInitList(parseRegisterList(module->initStopDaq), module->baseAddress));
-
                 m_vmusbStack.addModule(module);
             }
 
-            logMessage(QString("Loading readout stack for event \"%1\""
-                               ", stack id = %2, size= %4, load offset = %3")
-                       .arg(event->getName())
-                       .arg(m_vmusbStack.getStackID())
-                       .arg(VMUSBStack::loadOffset)
-                       .arg(m_vmusbStack.getContents().size())
-                       );
-
+            if (m_vmusbStack.getContents().size())
             {
-                QString tmp;
-                for (u32 line: m_vmusbStack.getContents())
+
+                emit logMessage(QString("Loading readout stack for event \"%1\""
+                                   ", stack id = %2, size= %4, load offset = %3")
+                           .arg(event->getName())
+                           .arg(m_vmusbStack.getStackID())
+                           .arg(VMUSBStack::loadOffset)
+                           .arg(m_vmusbStack.getContents().size())
+                           );
+
                 {
-                    tmp.sprintf("  0x%08x", line);
-                    emit logMessage(tmp);
+                    QString tmp;
+                    for (u32 line: m_vmusbStack.getContents())
+                    {
+                        tmp.sprintf("  0x%08x", line);
+                        emit logMessage(tmp);
+                    }
+                }
+
+                result = m_vmusbStack.loadStack(vmusb);
+                if (result < 0)
+                    throw QString("Error loading readout stack");
+
+                result = m_vmusbStack.enableStack(vmusb);
+                if (result < 0)
+                    throw QString("Error enabling readout stack");
+            }
+            else
+            {
+                emit logMessage(QString("Empty readout stack for event \"%1\".")
+                                .arg(event->getName())
+                               );
+            }
+        }
+
+        static const int writeDelay_ms = 10;
+
+        emit logMessage(QSL("Module Reset"));
+        for (auto event: m_context->getEventConfigs())
+        {
+            for (auto module: event->modules)
+            {
+                emit logMessage(QString("  Event %1, Module %2").arg(event->getName()).arg(module->getName()));
+                auto regs = parseRegisterList(module->initReset, module->baseAddress);
+                emit logMessages(toStringList(regs), QSL("    "));
+                auto result = vmusb->applyRegisterList(regs, 0, writeDelay_ms,
+                                                       module->getRegisterWidth(), module->getRegisterAddressModifier());
+
+                if (result < 0)
+                {
+                    throw QString("Module Reset failed for %1.%2 (code=%3)")
+                        .arg(event->getName())
+                        .arg(module->getName())
+                        .arg(result);
                 }
             }
-
-            result = m_vmusbStack.loadStack(vmusb);
-            if (result < 0)
-                throw QString("Error loading readout stack");
-
-            result = m_vmusbStack.enableStack(vmusb);
-            if (result < 0)
-                throw QString("Error enabling readout stack");
         }
 
-        char buffer[100];
+        // Pause a bit after reset
+        static const int postResetPause_ms = 500;
+        QThread::msleep(postResetPause_ms);
 
+        emit logMessage(QSL("Module Init"));
+        for (auto event: m_context->getEventConfigs())
         {
-            emit logMessage(QSL("Running reset commands"));
-            emit logMessages(resetCommands.toStringList());
-            ssize_t result = vmusb->executeCommands(&resetCommands, buffer, sizeof(buffer));
-            if (result < 0)
+            for (auto module: event->modules)
             {
-                throw QString("Running reset commands failed (code=%1)")
-                        .arg(result);
-            }
-            QThread::sleep(1);
-        }
+                emit logMessage(QString("  Event %1, Module %2").arg(event->getName()).arg(module->getName()));
+                auto regs = parseRegisterList(module->initParameters, module->baseAddress);
+                regs += parseRegisterList(module->initReadout, module->baseAddress);
+                emit logMessages(toStringList(regs), QSL("    "));
+                auto result = vmusb->applyRegisterList(regs, 0, writeDelay_ms,
+                                                       module->getRegisterWidth(), module->getRegisterAddressModifier());
 
-        {
-            emit logMessage(QSL("Module init:"));
-            emit logMessages(toStringList(initParametersAndReadout));
-            result = vmusb->applyRegisterList(initParametersAndReadout, 0, 10);
-            if (result < 0)
-            {
-                throw QString("Running module init commands failed (code=%1)")
+                if (result < 0)
+                {
+                    throw QString("Module Init failed for %1.%2 (code=%3)")
+                        .arg(event->getName())
+                        .arg(module->getName())
                         .arg(result);
+                }
             }
         }
 
+        emit logMessage(QSL("Module Start DAQ"));
+        for (auto event: m_context->getEventConfigs())
         {
-            emit logMessage(QSL("Running module start commands"));
-            emit logMessages(startCommands.toStringList());
-            ssize_t result = vmusb->executeCommands(&startCommands, buffer, sizeof(buffer));
-            if (result < 0)
+            for (auto module: event->modules)
             {
-                throw QString("Running module start commands failed (code=%1)")
+                emit logMessage(QString("  Event %1, Module %2").arg(event->getName()).arg(module->getName()));
+                auto regs = parseRegisterList(module->initStartDaq, module->baseAddress);
+                emit logMessages(toStringList(regs), QSL("    "));
+                auto result = vmusb->applyRegisterList(regs, 0, writeDelay_ms,
+                                                       module->getRegisterWidth(), module->getRegisterAddressModifier());
+
+                if (result < 0)
+                {
+                    throw QString("Module Start DAQ failed for %1.%2 (code=%3)")
+                        .arg(event->getName())
+                        .arg(module->getName())
                         .arg(result);
+                }
             }
         }
 
         m_bufferProcessor->beginRun();
-        emit logMessage(QSL("Entering readout loop"));
+        emit logMessage(QSL("Entering readout loop\n"));
         stats.start();
 
         readoutLoop();
 
         stats.stop();
-        emit logMessage(QSL("Leaving readout loop"));
+        emit logMessage(QSL("\nLeaving readout loop"));
         m_bufferProcessor->endRun();
+
+        emit logMessage(QSL("Module Stop DAQ"));
+        for (auto event: m_context->getEventConfigs())
+        {
+            for (auto module: event->modules)
+            {
+                emit logMessage(QString("  Event %1, Module %2").arg(event->getName()).arg(module->getName()));
+                auto regs = parseRegisterList(module->initStopDaq, module->baseAddress);
+                emit logMessages(toStringList(regs), QSL("    "));
+                auto result = vmusb->applyRegisterList(regs, 0, writeDelay_ms,
+                                                       module->getRegisterWidth(), module->getRegisterAddressModifier());
+
+                if (result < 0)
+                {
+                    throw QString("Module Stop DAQ failed for %1.%2 (code=%3)")
+                        .arg(event->getName())
+                        .arg(module->getName())
+                        .arg(result);
+                }
+            }
+        }
     }
     catch (const char *message)
     {
@@ -208,6 +259,9 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         setError(e.what());
         error = true;
     }
+
+
+    setState(DAQState::Idle);
 
     if (error)
     {
@@ -326,13 +380,6 @@ void VMUSBReadoutWorker::readoutLoop()
         }
         processQtEvents();
     } while (bytesRead > 0);
-
-    qDebug() << "running stop commands";
-    char buffer[100];
-    vmusb->executeCommands(&m_stopCommands, buffer, sizeof(buffer));
-
-    qDebug() << "DAQ state = idle";
-    setState(DAQState::Idle);
 }
 
 void VMUSBReadoutWorker::setState(DAQState state)

@@ -53,10 +53,11 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
 
     connect(m_readoutWorker, &VMUSBReadoutWorker::stateChanged, this, &MVMEContext::onDAQStateChanged);
     connect(m_readoutWorker, &VMUSBReadoutWorker::logMessage, this, &MVMEContext::sigLogMessage);
-    connect(m_readoutWorker, &VMUSBReadoutWorker::logMessages, this, [this](const QStringList &messages) {
+    connect(m_readoutWorker, &VMUSBReadoutWorker::logMessages,
+            this, [this](const QStringList &messages, const QString &prefix) {
         for (auto msg: messages)
         {
-            emit sigLogMessage(msg);
+            emit sigLogMessage(prefix + msg);
         }
     });
     connect(m_bufferProcessor, &VMUSBBufferProcessor::logMessage, this, &MVMEContext::sigLogMessage);

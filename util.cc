@@ -119,7 +119,7 @@ static QString registerSettingToString(const RegisterSetting &rs)
 {
     if (isFloat(rs.second))
     {
-        return QString("0x%1 -> %2")
+        return QString("0x%1 -> %2 (float)")
             .arg(rs.first, 8, 16, QLatin1Char('0'))
             .arg(rs.second.toFloat());
     }

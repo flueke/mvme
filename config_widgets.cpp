@@ -235,6 +235,19 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *confi
     onControllerOpenChanged();
     handleListTypeIndexChanged(0);
     handleContextStateChange();
+
+    if (config->type == VMEModuleType::VHS4030p)
+    {
+        auto button = new QPushButton("VHS4030p Helper");
+        ui->gb_extra->setVisible(true);
+        auto layout = new QVBoxLayout(ui->gb_extra);
+        layout->addWidget(button);
+
+        connect(button, &QPushButton::clicked, this, [this] {
+            auto w = new VHS4030pWidget(m_context, m_config, this);
+            w->show();
+        });
+    }
 }
 
 ModuleConfigDialog::~ModuleConfigDialog()
@@ -432,18 +445,14 @@ void ModuleConfigDialog::execList()
             case ModuleListType::StopDAQ:
             case ModuleListType::Reset:
                 {
-                    u8 ignored[100];
 
-                    auto cmdList = VMECommandList::fromInitList(
-                        parseRegisterList(listContents),
-                        m_config->baseAddress,
-                        m_config->getRegisterAddressModifier()
-                        );
+                    auto regs = parseRegisterList(listContents, m_config->baseAddress);
 
-                    qDebug() << "command list:";
-                    qDebug() << cmdList.toString();
+                    static const int writeDelay_ms = 10;
+                    auto result = controller->applyRegisterList(regs, 0, writeDelay_ms,
+                                                           m_config->getRegisterWidth(),
+                                                           m_config->getRegisterAddressModifier());
 
-                    ssize_t result = controller->executeCommands(&cmdList, ignored, sizeof(ignored));
                     if (result < 0)
                     {
                         QMessageBox::warning(this,
@@ -649,8 +658,11 @@ VHS4030pWidget::VHS4030pWidget(MVMEContext *context, ModuleConfig *config, QWidg
         u32 offset = ui->le_offset->text().toUInt(&ok, 16);
         auto ctrl = m_context->getController();
         u16 value = 0;
+        u32 address = m_config->baseAddress + offset;
 
-        ctrl->read16(m_config->baseAddress + offset, &value, m_config->getRegisterAddressModifier());
+        int result = ctrl->read16(address, &value, m_config->getRegisterAddressModifier());
+
+        qDebug("read16: addr=%08x, value=%04x, result=%d", address, value, result);
 
         ui->le_value->setText(QString("0x%1")
                               .arg(static_cast<u32>(value), 4, 16, QLatin1Char('0')));
