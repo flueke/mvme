@@ -452,6 +452,7 @@ bool mvme::on_actionSaveConfig_triggered()
     }
 
     m_context->getConfig()->setModified(false);
+    updateWindowTitle();
     return true;
 }
 
@@ -496,6 +497,7 @@ bool mvme::on_actionSaveConfigAs_triggered()
     m_context->setConfigFileName(fileName);
     m_context->getConfig()->setModified(false);
     QSettings().setValue("Files/LastConfigFile", fileName);
+    updateWindowTitle();
     return true;
 }
 
