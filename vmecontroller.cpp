@@ -20,7 +20,18 @@ int VMEController::applyRegisterList(const RegisterList &regList,
         if (isFloat(regVal.second))
         {
             float floatValue = regVal.second.toFloat();
-            u32 value = *reinterpret_cast<u32 *>(&floatValue);
+
+            /* Using a union to reinterpret the float as an int as the
+             * straight-forward way results in a warning:
+             * u32 value = *reinterpret_cast<u32 *>(&floatValue);
+             * // warning: dereferencing type-punned pointer will break strict-aliasing rules
+             */
+            union {
+                float    floatValue;
+                uint32_t intValue;
+            } u = { floatValue };
+
+            u32 value = u.intValue;
 
             switch (width)
             {
