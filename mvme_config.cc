@@ -67,7 +67,7 @@ namespace MDPP
         13,
         12
     };
-    static const int adc_resolution_default = 4;
+    static const int adc_resolution_default = 0;
 }
 
 void ModuleConfig::updateRegisterCache()
