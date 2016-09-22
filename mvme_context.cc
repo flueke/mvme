@@ -53,13 +53,7 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
 
     connect(m_readoutWorker, &VMUSBReadoutWorker::stateChanged, this, &MVMEContext::onDAQStateChanged);
     connect(m_readoutWorker, &VMUSBReadoutWorker::logMessage, this, &MVMEContext::sigLogMessage);
-    connect(m_readoutWorker, &VMUSBReadoutWorker::logMessages,
-            this, [this](const QStringList &messages, const QString &prefix) {
-        for (auto msg: messages)
-        {
-            emit sigLogMessage(prefix + msg);
-        }
-    });
+    connect(m_readoutWorker, &VMUSBReadoutWorker::logMessages, this, &MVMEContext::logMessages);
     connect(m_bufferProcessor, &VMUSBBufferProcessor::logMessage, this, &MVMEContext::sigLogMessage);
     connect(m_listFileWorker, &ListFileWorker::stateChanged, this, &MVMEContext::onDAQStateChanged);
     connect(m_listFileWorker, &ListFileWorker::logMessage, this, &MVMEContext::sigLogMessage);
@@ -588,4 +582,12 @@ void MVMEContext::read(const QJsonObject &json)
 void MVMEContext::logMessage(const QString &msg)
 {
     emit sigLogMessage(msg);
+}
+
+void MVMEContext::logMessages(const QStringList &messages, const QString &prefix)
+{
+    for (auto msg: messages)
+    {
+        emit sigLogMessage(prefix + msg);
+    }
 }

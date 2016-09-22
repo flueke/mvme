@@ -147,6 +147,7 @@ class MVMEContext: public QObject
         void read(const QJsonObject &json);
 
         void logMessage(const QString &msg);
+        void logMessages(const QStringList &mgs, const QString &prefix = QString());
 
         friend class mvme;
 
