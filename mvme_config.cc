@@ -211,25 +211,37 @@ void ModuleConfig::write(QJsonObject &json) const
 
 void ModuleConfig::generateReadoutStack()
 {
+    VMECommandList readoutCmds;
+
     if (isMesytecModule(type))
     {
-        VMECommandList readoutCmds;
         readoutCmds.addFifoRead32(baseAddress, FifoReadTransferSize);
         readoutCmds.addMarker(EndMarker);
         readoutCmds.addWrite16(baseAddress + 0x6034, 1);
-        CVMUSBReadoutList readoutList(readoutCmds);
-        readoutStack = readoutList.toString();
-        setModified();
+    }
+    else
+    {
+        // Test to make a module without any readout work.
+        // FIXME: This did result in errors in MVMEEventProcessor::processEventBuffer.
+        //readoutCmds.addMarker(EndMarker);
     }
 
+    CVMUSBReadoutList readoutList(readoutCmds);
+    readoutStack = readoutList.toString();
+    setModified();
+
+#if 0
     if (type == VMEModuleType::VHS4030p)
     {
         // TODO: read channel voltages and currents here
         //VMECommandList cmds;
 
-        //cmds.addRead16(baseAddress + 0x
+        // read channel 0 voltage
+        readoutCmds.addRead16(baseAddress + 0x0060 + 16, getRegisterAddressModifier());
+        readoutCmds.addRead16(baseAddress + 0x0060 + 16 + 2, getRegisterAddressModifier());
 
     }
+#endif
 }
 
 //
