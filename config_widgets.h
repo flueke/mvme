@@ -46,6 +46,9 @@ class ModuleConfigWidget: public QWidget
         ~ModuleConfigWidget();
         ModuleConfig *getConfig() const { return m_config; }
 
+        // close the widget discarding any changes
+        void forceClose();
+
     protected:
         virtual void closeEvent(QCloseEvent *event);
 
@@ -76,6 +79,7 @@ class ModuleConfigWidget: public QWidget
         QMap<int, QString> m_configStrings;
         bool m_hasModifications = false;
         bool m_readOnly = false;
+        bool m_forceClose = false;
 };
 
 QWidget *makeModuleConfigWidget(MVMEContext *context, ModuleConfig *config, QWidget *parent = 0);

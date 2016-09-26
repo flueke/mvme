@@ -132,7 +132,7 @@ ModuleConfigWidget::ModuleConfigWidget(MVMEContext *context, ModuleConfig *confi
     connect(context, &MVMEContext::moduleAboutToBeRemoved, this, [=](ModuleConfig *module) {
         if (module == config)
         {
-            close();
+            forceClose();
         }
     });
 
@@ -297,9 +297,19 @@ void ModuleConfigWidget::handleListTypeIndexChanged(int index)
     }
 }
 
+void ModuleConfigWidget::forceClose()
+{
+    m_forceClose = true;
+    close();
+}
+
 void ModuleConfigWidget::closeEvent(QCloseEvent *event)
 {
-    if (m_hasModifications)
+    if (m_forceClose)
+    {
+        event->accept();
+    }
+    else if (m_hasModifications)
     {
         auto response = QMessageBox::question(this, QSL("Apply changes"),
                 QSL("The module configuration was modified. Do you want to apply the changes?"),
