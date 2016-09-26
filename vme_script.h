@@ -27,6 +27,12 @@ struct Command
         MBLTFifo,
         Wait,
         Marker,
+
+        BLTCount,
+        BLTFifofCount,
+
+        MBLTCount,
+        MBLTFifofCount,
     };
 
     enum AddressMode
