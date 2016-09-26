@@ -1,5 +1,5 @@
 #include "config_widgets.h"
-#include "ui_module_config_dialog.h"
+#include "ui_module_config_widget.h"
 #include "ui_event_config_dialog.h"
 #include "ui_vhs4030p.h"
 #include "mvme_config.h"
@@ -15,6 +15,7 @@
 #include <QThread>
 #include <QStandardItemModel>
 #include <QCloseEvent>
+#include <QScrollBar>
 
 EventConfigDialog::EventConfigDialog(MVMEContext *context, EventConfig *config, QWidget *parent)
     : QDialog(parent)
@@ -119,9 +120,9 @@ QString *getConfigString(ModuleListType type, ModuleConfig *config)
     return nullptr;
 }
 
-ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *config, QWidget *parent)
-    : QDialog(parent)
-    , ui(new Ui::ModuleConfigDialog)
+ModuleConfigWidget::ModuleConfigWidget(MVMEContext *context, ModuleConfig *config, QWidget *parent)
+    : QWidget(parent)
+    , ui(new Ui::ModuleConfigWidget)
     , m_context(context)
     , m_config(config)
 {
@@ -170,7 +171,7 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *confi
     ui->combo_listType->setCurrentIndex(2);
 
     connect(ui->combo_listType, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
-            this, &ModuleConfigDialog::handleListTypeIndexChanged);
+            this, &ModuleConfigWidget::handleListTypeIndexChanged);
 
     connect(ui->le_name, &QLineEdit::textChanged, this, [this](const QString &) {
             if (ui->le_name->hasAcceptableInput())
@@ -204,11 +205,11 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *confi
     menu->addAction(actLoadTemplate);
     ui->pb_load->setMenu(menu);
 
-    connect(actLoadFile, &QAction::triggered, this, &ModuleConfigDialog::loadFromFile);
-    connect(actLoadTemplate, &QAction::triggered, this, &ModuleConfigDialog::loadFromTemplate);
-    connect(ui->pb_save, &QPushButton::clicked, this, &ModuleConfigDialog::saveToFile);
-    connect(ui->pb_exec, &QPushButton::clicked, this, &ModuleConfigDialog::execList);
-    connect(ui->pb_initModule, &QPushButton::clicked, this, &ModuleConfigDialog::initModule);
+    connect(actLoadFile, &QAction::triggered, this, &ModuleConfigWidget::loadFromFile);
+    connect(actLoadTemplate, &QAction::triggered, this, &ModuleConfigWidget::loadFromTemplate);
+    connect(ui->pb_save, &QPushButton::clicked, this, &ModuleConfigWidget::saveToFile);
+    connect(ui->pb_exec, &QPushButton::clicked, this, &ModuleConfigWidget::execList);
+    connect(ui->pb_initModule, &QPushButton::clicked, this, &ModuleConfigWidget::initModule);
 
     ui->splitter->setSizes({1, 0});
 
@@ -250,11 +251,12 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *confi
     }
 }
 
-ModuleConfigDialog::~ModuleConfigDialog()
+ModuleConfigWidget::~ModuleConfigWidget()
 {
+    qDebug() << __PRETTY_FUNCTION__;
 }
 
-void ModuleConfigDialog::handleListTypeIndexChanged(int index)
+void ModuleConfigWidget::handleListTypeIndexChanged(int index)
 {
     if (ui->editor->document()->isModified())
     {
@@ -295,23 +297,22 @@ void ModuleConfigDialog::handleListTypeIndexChanged(int index)
     }
 }
 
-void ModuleConfigDialog::closeEvent(QCloseEvent *event)
+void ModuleConfigWidget::closeEvent(QCloseEvent *event)
 {
     if (m_hasModifications)
     {
         auto response = QMessageBox::question(this, QSL("Apply changes"),
                 QSL("The module configuration was modified. Do you want to apply the changes?"),
                 QMessageBox::Apply | QMessageBox::Discard | QMessageBox::Cancel);
+
         if (response == QMessageBox::Apply)
         {
             saveToConfig();
             event->accept();
-            accept();
         }
         else if (response == QMessageBox::Discard)
         {
             event->accept();
-            reject();
         }
         else
         {
@@ -321,11 +322,10 @@ void ModuleConfigDialog::closeEvent(QCloseEvent *event)
     else
     {
         event->accept();
-        accept();
     }
 }
 
-void ModuleConfigDialog::loadFromFile()
+void ModuleConfigWidget::loadFromFile()
 {
     QString path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
     QSettings settings;
@@ -349,7 +349,7 @@ void ModuleConfigDialog::loadFromFile()
     }
 }
 
-void ModuleConfigDialog::loadFromTemplate()
+void ModuleConfigWidget::loadFromTemplate()
 {
     // TODO: This is duplicated in AddModuleDialog::accept(). Compress this!
     QStringList templatePaths;
@@ -388,7 +388,7 @@ void ModuleConfigDialog::loadFromTemplate()
     }
 }
 
-void ModuleConfigDialog::saveToFile()
+void ModuleConfigWidget::saveToFile()
 {
     QString path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
     QSettings settings;
@@ -428,7 +428,7 @@ void ModuleConfigDialog::saveToFile()
     settings.setValue("Files/LastInitListDirectory", fi.absolutePath());
 }
 
-void ModuleConfigDialog::execList()
+void ModuleConfigWidget::execList()
 {
     auto controller = m_context->getController();
 
@@ -447,6 +447,8 @@ void ModuleConfigDialog::execList()
                 {
 
                     auto regs = parseRegisterList(listContents, m_config->baseAddress);
+
+                    //emit logMessage(QString("%1.%2").arg(m_config->
 
                     static const int writeDelay_ms = 10;
                     auto result = controller->applyRegisterList(regs, 0, writeDelay_ms,
@@ -491,7 +493,7 @@ void ModuleConfigDialog::execList()
     }
 }
 
-void ModuleConfigDialog::initModule()
+void ModuleConfigWidget::initModule()
 {
     RegisterList regs = parseRegisterList(m_configStrings[(int)ModuleListType::Reset]);
     auto controller = m_context->getController();
@@ -504,14 +506,14 @@ void ModuleConfigDialog::initModule()
     controller->applyRegisterList(regs, m_config->baseAddress);
 }
 
-void ModuleConfigDialog::setModified(bool modified)
+void ModuleConfigWidget::setModified(bool modified)
 {
     m_hasModifications = modified;
     ui->buttonBox->button(QDialogButtonBox::Reset)->setEnabled(modified);
     ui->buttonBox->button(QDialogButtonBox::Apply)->setEnabled(modified && !m_readOnly);
 }
 
-void ModuleConfigDialog::on_buttonBox_clicked(QAbstractButton *button)
+void ModuleConfigWidget::on_buttonBox_clicked(QAbstractButton *button)
 {
     auto buttonRole = ui->buttonBox->buttonRole(button);
 
@@ -531,25 +533,7 @@ void ModuleConfigDialog::on_buttonBox_clicked(QAbstractButton *button)
 
         case QDialogButtonBox::RejectRole:
             {
-                if (m_hasModifications)
-                {
-                    auto response = QMessageBox::question(this, QSL("Apply changes"),
-                            QSL("The module configuration was modified. Do you want to apply the changes?"),
-                            QMessageBox::Apply | QMessageBox::Discard | QMessageBox::Cancel);
-                    if (response == QMessageBox::Apply)
-                    {
-                        saveToConfig();
-                        accept();
-                    }
-                    else if (response == QMessageBox::Discard)
-                    {
-                        reject();
-                    }
-                }
-                else
-                {
-                    reject();
-                }
+                close();
             } break;
 
         default:
@@ -558,7 +542,7 @@ void ModuleConfigDialog::on_buttonBox_clicked(QAbstractButton *button)
     }
 }
 
-void ModuleConfigDialog::loadFromConfig()
+void ModuleConfigWidget::loadFromConfig()
 {
     auto config = m_config;
 
@@ -575,13 +559,17 @@ void ModuleConfigDialog::loadFromConfig()
     }
 
     auto currentType = ui->combo_listType->currentData().toInt();
+
+    int scrollValue = ui->editor->verticalScrollBar()->value();
     ui->editor->setPlainText(m_configStrings.value(currentType));
+    ui->editor->verticalScrollBar()->setValue(scrollValue);
+
     ui->editor->document()->setModified(false);
     ui->editor->document()->clearUndoRedoStacks();
     setModified(false);
 }
 
-void ModuleConfigDialog::saveToConfig()
+void ModuleConfigWidget::saveToConfig()
 {
     auto config = m_config;
 
@@ -602,7 +590,7 @@ void ModuleConfigDialog::saveToConfig()
     setModified(false);
 }
 
-void ModuleConfigDialog::setReadOnly(bool readOnly)
+void ModuleConfigWidget::setReadOnly(bool readOnly)
 {
     m_readOnly = readOnly;
     ui->le_name->setEnabled(!readOnly);
@@ -633,7 +621,7 @@ QWidget *makeModuleConfigWidget(MVMEContext *context, ModuleConfig *config, QWid
     //    return new VHS4030pWidget(context, config, parent);
     //}
 
-    return new ModuleConfigDialog(context, config, parent);
+    return new ModuleConfigWidget(context, config, parent);
 }
 
 VHS4030pWidget::VHS4030pWidget(MVMEContext *context, ModuleConfig *config, QWidget *parent)

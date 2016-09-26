@@ -95,7 +95,7 @@ private slots:
     MVMEContextWidget *m_contextWidget = 0;
     QTextBrowser *m_logView;
     QMdiSubWindow *m_logViewSubwin;
-    QMap<QObject *, QWidget *> m_configDialogs;
+    QMap<QObject *, QMdiSubWindow *> m_configWindows;
 };
 
 #endif // MVME_H

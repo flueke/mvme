@@ -14,7 +14,7 @@ class QAbstractButton;
 namespace Ui
 {
     class EventConfigDialog;
-    class ModuleConfigDialog;
+    class ModuleConfigWidget;
     class VHS4030pWidget;
 }
 
@@ -38,12 +38,12 @@ class EventConfigDialog: public QDialog
         EventConfig *m_config;
 };
 
-class ModuleConfigDialog: public QDialog
+class ModuleConfigWidget: public QWidget
 {
     Q_OBJECT
     public:
-        ModuleConfigDialog(MVMEContext *context, ModuleConfig *config, QWidget *parent = 0);
-        ~ModuleConfigDialog();
+        ModuleConfigWidget(MVMEContext *context, ModuleConfig *config, QWidget *parent = 0);
+        ~ModuleConfigWidget();
         ModuleConfig *getConfig() const { return m_config; }
 
     protected:
@@ -68,7 +68,7 @@ class ModuleConfigDialog: public QDialog
         void initModule();
         void setModified(bool modified);
 
-        Ui::ModuleConfigDialog *ui;
+        Ui::ModuleConfigWidget *ui;
         QAction *actLoadTemplate, *actLoadFile;
         MVMEContext *m_context;
         ModuleConfig *m_config;

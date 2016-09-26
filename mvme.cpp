@@ -571,72 +571,72 @@ void mvme::on_actionShowLogWindow_triggered()
 void mvme::handleEventConfigClicked(EventConfig *config)
 {
     qDebug() << config << config->getId();
-    if (m_configDialogs.contains(config))
+    if (m_configWindows.contains(config))
     {
-        m_configDialogs[config]->show();
-        m_configDialogs[config]->showNormal();
-        m_configDialogs[config]->activateWindow();
-        m_configDialogs[config]->raise();
+        m_configWindows[config]->show();
+        m_configWindows[config]->showNormal();
+        m_configWindows[config]->activateWindow();
+        m_configWindows[config]->raise();
     }
 }
 
 void mvme::handleEventConfigDoubleClicked(EventConfig *config)
 {
-    if (m_configDialogs.contains(config))
+    if (m_configWindows.contains(config))
     {
-        m_configDialogs[config]->show();
-        m_configDialogs[config]->showNormal();
-        m_configDialogs[config]->activateWindow();
-        m_configDialogs[config]->raise();
+        m_configWindows[config]->show();
+        m_configWindows[config]->showNormal();
+        m_configWindows[config]->activateWindow();
+        m_configWindows[config]->raise();
     }
     else
     {
-
-        auto dialog = new EventConfigDialog(m_context, config, this);
-        dialog->setAttribute(Qt::WA_DeleteOnClose);
-        m_configDialogs[config] = dialog;
-        connect(dialog, &QDialog::finished, this, [=](int r) {
-            m_configDialogs.remove(dialog->getConfig());
+        auto subwin = new QMdiSubWindow(ui->mdiArea);
+        subwin->setAttribute(Qt::WA_DeleteOnClose);
+        subwin->setWidget(new EventConfigDialog(m_context, config));
+        m_configWindows[config] = subwin;
+        connect(subwin->widget(), &QObject::destroyed, this, [this, config] {
+            m_configWindows.remove(config);
         });
-
-        dialog->show();
+        subwin->show();
     }
 }
 
 void mvme::handleModuleConfigClicked(ModuleConfig *config)
 {
-    if (m_configDialogs.contains(config))
+    if (m_configWindows.contains(config))
     {
-        m_configDialogs[config]->show();
-        m_configDialogs[config]->showNormal();
-        m_configDialogs[config]->activateWindow();
-        m_configDialogs[config]->raise();
+        m_configWindows[config]->show();
+        m_configWindows[config]->showNormal();
+        m_configWindows[config]->activateWindow();
+        m_configWindows[config]->raise();
+        ui->mdiArea->setActiveSubWindow(m_configWindows[config]);
     }
 }
 
 void mvme::handleModuleConfigDoubleClicked(ModuleConfig *config)
 {
-    if (m_configDialogs.contains(config))
+    if (m_configWindows.contains(config))
     {
-        m_configDialogs[config]->show();
-        m_configDialogs[config]->showNormal();
-        m_configDialogs[config]->activateWindow();
-        m_configDialogs[config]->raise();
+        m_configWindows[config]->show();
+        m_configWindows[config]->showNormal();
+        m_configWindows[config]->activateWindow();
+        m_configWindows[config]->raise();
     }
     else
     {
-        auto widget = makeModuleConfigWidget(m_context, config, this);
-        m_configDialogs[config] = widget;
-        auto dialog = qobject_cast<ModuleConfigDialog *>(widget);
-        if (dialog)
-        {
-            dialog->setAttribute(Qt::WA_DeleteOnClose);
-            connect(dialog, &QDialog::finished, this, [=](int r) {
-                m_configDialogs.remove(dialog->getConfig());
-            });
-        }
+        auto subwin = new QMdiSubWindow(ui->mdiArea);
+        subwin->setAttribute(Qt::WA_DeleteOnClose);
+        subwin->setWidget(makeModuleConfigWidget(m_context, config));
+        subwin->widget()->setAttribute(Qt::WA_DeleteOnClose);
+        m_configWindows[config] = subwin;
 
-        widget->show();
+        connect(subwin->widget(), &QObject::destroyed, this, [this, config] {
+            m_configWindows[config]->close();
+            m_configWindows.remove(config);
+        });
+
+        subwin->show();
     }
 }
 
@@ -823,7 +823,7 @@ void mvme::onConfigChanged(DAQConfig *config)
     for (auto win: ui->mdiArea->subWindowList())
     {
         if(qobject_cast<EventConfigDialog *>(win->widget()) ||
-           qobject_cast<ModuleConfigDialog *>(win->widget()))
+           qobject_cast<ModuleConfigWidget *>(win->widget()))
         {
             win->close();
         }
@@ -850,6 +850,7 @@ void mvme::on_actionShow_MVME_Control_triggered()
         subwin->setObjectName("MVMEControlSubWindow");
         subwin->setWidget(mvme_control);
         subwin->setAttribute(Qt::WA_DeleteOnClose, true);
+        subwin->resize(800, 600);
         ui->mdiArea->addSubWindow(subwin);
     }
 }
