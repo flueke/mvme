@@ -134,7 +134,7 @@ void MVMEContext::addEventConfig(EventConfig *eventConfig)
 
 void MVMEContext::removeEvent(EventConfig *event)
 {
-    if (m_config->removeEventConfig(event))
+    if (m_config->contains(event))
     {
         auto modules = event->modules;
 
@@ -142,9 +142,11 @@ void MVMEContext::removeEvent(EventConfig *event)
         {
             removeModule(module);
         }
+
         emit eventConfigAboutToBeRemoved(event);
-        delete event;
+        m_config->removeEventConfig(event);
         m_config->setModified();
+        delete event;
     }
 }
 

@@ -165,6 +165,11 @@ class DAQConfig: public QObject
             return ret;
         }
 
+        bool contains(EventConfig *config)
+        {
+            return m_eventConfigs.indexOf(config) >= 0;
+        }
+
         QList<EventConfig *> getEventConfigs() const { return m_eventConfigs; }
         EventConfig *getEventConfig(int eventID) { return m_eventConfigs.value(eventID); }
         EventConfig *getEventConfig(const QString &name) const;
