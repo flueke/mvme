@@ -17,74 +17,74 @@ QMAKE_CFLAGS += -Wno-unused -Wno-format
 
 
 SOURCES += \
-    config_widgets.cpp \
-    CVMUSBReadoutList.cpp \
-    histogram.cpp \
-    libxxusb.cc \
-    main.cpp \
-    mvme_config.cc \
-    mvme_context.cc \
-    mvme_context_widget.cc \
-    mvme.cpp \
-    mvme_event_processor.cc \
-    mvme_listfile.cc \
-    scrollbar.cpp \
-    scrollzoomer.cpp \
-    twodimwidget.cpp \
-    util.cc \
-    vmecommandlist.cc \
-    vmecontroller.cpp \
-    vmedevice.cpp \
-    vmusb_buffer_processor.cc \
-    vmusb_readout_worker.cc \
-    vmusb_stack.cc \
-    hist2ddialog.cc \
-    hist2d.cpp \
-    mvmecontrol.cpp \
-    context_widget2.cpp
+    src/config_widgets.cpp \
+    src/CVMUSBReadoutList.cpp \
+    src/histogram.cpp \
+    src/libxxusb.cc \
+    src/main.cpp \
+    src/mvme_config.cc \
+    src/mvme_context.cc \
+    src/mvme_context_widget.cc \
+    src/mvme.cpp \
+    src/mvme_event_processor.cc \
+    src/mvme_listfile.cc \
+    src/scrollbar.cpp \
+    src/scrollzoomer.cpp \
+    src/twodimwidget.cpp \
+    src/util.cc \
+    src/vmecommandlist.cc \
+    src/vmecontroller.cpp \
+    src/vmedevice.cpp \
+    src/vmusb_buffer_processor.cc \
+    src/vmusb_readout_worker.cc \
+    src/vmusb_stack.cc \
+    src/hist2ddialog.cc \
+    src/hist2d.cpp \
+    src/mvmecontrol.cpp \
+    src/context_widget2.cpp
 
 
 HEADERS  += \
-    config_widgets.h \
-    CVMUSBReadoutList.h \
-    databuffer.h \
-    histogram.h \
-    mvme_config.h \
-    mvme_context.h \
-    mvme_context_widget.h \
-    mvmedefines.h \
-    mvme_event_processor.h \
-    mvme.h \
-    mvme_listfile.h \
-    scrollbar.h \
-    scrollzoomer.h \
-    twodimwidget.h \
-    util.h \
-    vmecommandlist.h \
-    vmecontroller.h \
-    vmedevice.h \
-    vme.h \
-    vmusb_buffer_processor.h \
-    vmusb_constants.h \
-    vmusb_readout_worker.h \
-    vmusb_stack.h \
-    hist2ddialog.h \
-    hist2d.h \
-    mvmecontrol.h \
-    globals.h \
-    context_widget2.h
+    src/config_widgets.h \
+    src/CVMUSBReadoutList.h \
+    src/databuffer.h \
+    src/histogram.h \
+    src/mvme_config.h \
+    src/mvme_context.h \
+    src/mvme_context_widget.h \
+    src/mvmedefines.h \
+    src/mvme_event_processor.h \
+    src/mvme.h \
+    src/mvme_listfile.h \
+    src/scrollbar.h \
+    src/scrollzoomer.h \
+    src/twodimwidget.h \
+    src/util.h \
+    src/vmecommandlist.h \
+    src/vmecontroller.h \
+    src/vmedevice.h \
+    src/vme.h \
+    src/vmusb_buffer_processor.h \
+    src/vmusb_constants.h \
+    src/vmusb_readout_worker.h \
+    src/vmusb_stack.h \
+    src/hist2ddialog.h \
+    src/hist2d.h \
+    src/mvmecontrol.h \
+    src/globals.h \
+    src/context_widget2.h
 
 
 FORMS    += \
-    mvme.ui \
-    twodimwidget.ui \
-    hist2ddialog.ui \
-    hist2dwidget.ui \
-    mvmecontrol.ui \
-    event_config_dialog.ui \
-    context_widget2.ui \
-    vhs4030p.ui \
-    module_config_widget.ui
+    src/mvme.ui \
+    src/twodimwidget.ui \
+    src/hist2ddialog.ui \
+    src/hist2dwidget.ui \
+    src/mvmecontrol.ui \
+    src/event_config_dialog.ui \
+    src/context_widget2.ui \
+    src/vhs4030p.ui \
+    src/module_config_widget.ui
 
 
 DEFINES += VME_CONTROLLER_WIENER
@@ -101,11 +101,12 @@ contains(DEFINES, "VME_CONTROLLER_WIENER") {
     }
 
 
-    HEADERS += libxxusb.h \
-         vmusb.h \
+    HEADERS += \
+        src/libxxusb.h \
+        src/vmusb.h \
 
     SOURCES += \
-        vmusb.cpp \
+        src/vmusb.cpp \
 }
 
 contains(DEFINES, "VME_CONTROLLER_CAEN") {
@@ -113,11 +114,13 @@ contains(DEFINES, "VME_CONTROLLER_CAEN") {
 
     unix:!macx:!symbian: LIBS += -L/usr/lib/ -lCAENVME
 
-    HEADERS += CAENVMEtypes.h \
-        CAENVMElib.h \
-        caenusb.h \
+    HEADERS += \
+        src/CAENVMEtypes.h \
+        src/CAENVMElib.h \
+        src/caenusb.h \
 
-    SOURCES += caenusb.cpp \
+    SOURCES += \
+        src/caenusb.cpp \
 }
 
 unix:!macx:!symbian {
