@@ -1,4 +1,4 @@
-#include "vme_script.h"
+#include "vme_script_qi.h"
 
 #define BOOST_SPIRIT_DEBUG
 
@@ -10,6 +10,7 @@
 #include <boost/fusion/include/adapt_struct.hpp>
 #include <boost/fusion/include/io.hpp>
 
+#if 1
 BOOST_FUSION_ADAPT_STRUCT(
     vme_script::VMEScript,
     (std::vector<vme_script::Command>, commands)
@@ -21,6 +22,7 @@ BOOST_FUSION_ADAPT_STRUCT(
     (vme_script::Command::AddressMode, addressMode)
     (vme_script::Command::DataWidth, dataWidth)
 )
+#endif
 
 namespace vme_script
 {
@@ -40,25 +42,23 @@ namespace vme_script
         VMEScriptGrammar()
             : VMEScriptGrammar::base_type(start, "VMEScript")
         {
-            start = *(command | comment);
+            start = *(command | qi::omit[comment]);
             comment = qi::char_('#') > *(qi::char_ - qi::eol) > *qi::eol;
             command = write_command | read_command;
 
             write_command
-                = ascii::string("write")
+                = ascii::string("write")[_val = Command::Write]
                 > (-address_mode | qi::attr(Command::A32))
                 > (-data_width | qi::attr(Command::D16))
                 > number
                 > number
-                [_val = Command(Command::Write)]
                 ;
 
             read_command
-                = ascii::string("read")
-                > -address_mode
-                > -data_width
+                = ascii::string("read")[_val = Command::Read]
+                > (-address_mode | qi::attr(Command::A32))
+                > (-data_width | qi::attr(Command::D16))
                 > number
-                [_val = Command()]
                 ;
 
             address_mode

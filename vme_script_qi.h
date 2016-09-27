@@ -1,5 +1,5 @@
-#ifndef __VME_SCRIPT_H__
-#define __VME_SCRIPT_H__
+#ifndef __VME_SCRIPT_QI_H__
+#define __VME_SCRIPT_QI_H__
 
 #include <vector>
 #include <cstdint>
@@ -86,4 +86,4 @@ VMEScript parse(Iterator first, Iterator last);
 
 int main(int argc, char *argv[]);
 
-#endif /* __VME_SCRIPT_H__ */
+#endif /* __VME_SCRIPT_QI_H__ */

@@ -4,8 +4,7 @@
 #include <QRegularExpression>
 #include <QTextEdit>
 #include <QApplication>
-
-#define QSL QStringLiteral
+//#include <QFile>
 
 namespace vme_script
 {
@@ -95,7 +94,7 @@ Command parseWrite(const QStringList &args, int lineNumber)
 
 Command parseWait(const QStringList &args, int lineNumber)
 {
-    auto usage = QSL("wait <waitspec>");
+    auto usage = QSL("wait <delay>");
 
     if (args.size() != 2)
         throw ParseError(QString("Invalid number of arguments. Usage: %1").arg(usage), lineNumber);
@@ -109,7 +108,7 @@ Command parseWait(const QStringList &args, int lineNumber)
     auto match = re.match(args[1]);
 
     if (!match.hasMatch())
-        throw "Invalid waitspec";
+        throw "Invalid delay";
 
     bool ok;
     result.delay_ms = match.captured(1).toUInt(&ok);
@@ -121,7 +120,7 @@ Command parseWait(const QStringList &args, int lineNumber)
     else if (unitString == QSL("ns"))
         result.delay_ms /= 1000;
     else if (!unitString.isEmpty() && unitString != QSL("ms"))
-        throw "Invalid waitspec";
+        throw "Invalid delay";
 
     return result;
 }
@@ -275,40 +274,97 @@ VMEScript parse(QTextStream &input)
     return result;
 }
 
+QString to_string(CommandType commandType)
+{
+    return commandTypeToString.value(commandType, QSL("unknown"));
+}
+
+QString to_string(AddressMode addressMode)
+{
+    return addressModeToString.value(addressMode, QSL("unknown"));
+}
+
+QString to_string(DataWidth dataWidth)
+{
+    return dataWidthToString.value(dataWidth, QSL("unknown"));
+}
+
 QString to_string(const Command &cmd)
 {
+    QString buffer;
+    QString cmdStr = to_string(cmd.type);
     switch (cmd.type)
     {
         case CommandType::Invalid:
-            return "Invalid";
+            return cmdStr;
+
         case CommandType::Read:
-            return "read";
+            {
+                buffer = QString(QSL("%1 %2 %3 %4"))
+                    .arg(cmdStr)
+                    .arg(to_string(cmd.addressMode))
+                    .arg(to_string(cmd.dataWidth))
+                    .arg(format_hex(cmd.address));
+            } break;
+
         case CommandType::Write:
-            return "write";
+            {
+                buffer = QString(QSL("%1 %2 %3 %4"))
+                    .arg(cmdStr)
+                    .arg(to_string(cmd.addressMode))
+                    .arg(to_string(cmd.dataWidth))
+                    .arg(format_hex(cmd.address))
+                    .arg(format_hex(cmd.value));
+            } break;
+
         case CommandType::Wait:
-            return "wait";
+            {
+                buffer = QString("wait %1ms")
+                    .arg(cmd.delay_ms);
+            } break;
+
         case CommandType::Marker:
-            return "marker";
+            {
+                buffer = QString("marker %1")
+                    .arg(cmd.value, 8, 16, QChar('0'));
+            } break;
 
         case CommandType::BLT:
-            return "blt";
         case CommandType::BLTFifo:
-            return "bltfifo";
         case CommandType::MBLT:
-            return "mblt";
         case CommandType::MBLTFifo:
-            return "mbltfifo";
+            {
+                buffer = QString(QSL("%1 %2 %3 %4"))
+                    .arg(cmdStr)
+                    .arg(to_string(cmd.addressMode))
+                    .arg(format_hex(cmd.address))
+                    .arg(cmd.transfers);
+            } break;
 
         case CommandType::BLTCount:
-            return "bltcount";
         case CommandType::BLTFifoCount:
-            return "bltfifocount";
         case CommandType::MBLTCount:
-            return "mbltcount";
         case CommandType::MBLTFifoCount:
-            return "mbltfifocount";
+            {
+                buffer = QString(QSL("%1 %2 %3 %4 %5 %6 %7"))
+                    .arg(cmdStr)
+                    .arg(to_string(cmd.addressMode))
+                    .arg(to_string(cmd.dataWidth))
+                    .arg(format_hex(cmd.address))
+                    .arg(format_hex(cmd.countMask))
+                    .arg(to_string(cmd.blockCountAddressMode))
+                    .arg(format_hex(cmd.blockCountAddress));
+            } break;
     }
-    return "Invalid";
+    return buffer;
+}
+
+QString format_hex(uint32_t value)
+{
+    if (value > 0xffff)
+        return QString("0x%1").arg(value, 8, 16, QChar('0'));
+
+    return QString("0x%1").arg(value, 4, 16, QChar('0'));
 }
 
 void SyntaxHighlighter::highlightBlock(const QString &text)
@@ -320,12 +376,10 @@ void SyntaxHighlighter::highlightBlock(const QString &text)
 
     QRegularExpressionMatch match;
     int index = text.indexOf(reComment, 0, &match);
-
-    while (index >= 0)
+    if (index >= 0)
     {
         int length = match.capturedLength();
         setFormat(index, length, commentFormat);
-        index = text.indexOf(reComment, index + length, &match);
     }
 }
 
@@ -334,24 +388,34 @@ void SyntaxHighlighter::highlightBlock(const QString &text)
 int main(int argc, char *argv[])
 {
     using namespace vme_script;
-    QTextStream in(stdin);
-    QTextStream out(stdout);
-    try
-    {
-        auto script = parse(in);
-
-        for (auto command: script.commands)
-        {
-            out << to_string(command) << endl;
-        }
-    } catch (const ParseError &e)
-    {
-        out << "Line " << e.lineNumber << ": " << e.message << endl;
-    }
 
     QApplication app(argc, argv);
     QTextEdit textEdit;
+    textEdit.setAcceptRichText(false);
     auto highLighter = new SyntaxHighlighter(&textEdit);
     textEdit.show();
+    QFile inFile("test.vmescript");
+
+    if (inFile.open(QIODevice::ReadOnly))
+    {
+        QTextStream in(&inFile);
+        textEdit.setPlainText(in.readAll());
+    }
+
+    QObject::connect(&textEdit, &QTextEdit::textChanged, &textEdit, [&textEdit] {
+        QTextStream out(stdout);
+        QString text = textEdit.toPlainText();
+        try
+        {
+            auto script = parse(text);
+            for (auto command: script.commands)
+            {
+                out << to_string(command) << endl;
+            }
+        } catch (const ParseError &e)
+        {
+            out << "Line " << e.lineNumber << ": " << e.message << endl;
+        }
+    });
     return app.exec();
 }
