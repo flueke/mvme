@@ -18,13 +18,17 @@ QMAKE_CFLAGS += -Wno-unused -Wno-format
 
 SOURCES += \
     src/config_widgets.cpp \
+    src/context_widget2.cpp \
     src/CVMUSBReadoutList.cpp \
+    src/hist2d.cpp \
+    src/hist2ddialog.cc \
     src/histogram.cpp \
     src/libxxusb.cc \
     src/main.cpp \
     src/mvme_config.cc \
     src/mvme_context.cc \
     src/mvme_context_widget.cc \
+    src/mvmecontrol.cpp \
     src/mvme.cpp \
     src/mvme_event_processor.cc \
     src/mvme_listfile.cc \
@@ -35,23 +39,25 @@ SOURCES += \
     src/vmecommandlist.cc \
     src/vmecontroller.cpp \
     src/vmedevice.cpp \
+    src/vme_script.cc \
     src/vmusb_buffer_processor.cc \
     src/vmusb_readout_worker.cc \
     src/vmusb_stack.cc \
-    src/hist2ddialog.cc \
-    src/hist2d.cpp \
-    src/mvmecontrol.cpp \
-    src/context_widget2.cpp
 
 
 HEADERS  += \
     src/config_widgets.h \
+    src/context_widget2.h \
     src/CVMUSBReadoutList.h \
     src/databuffer.h \
+    src/globals.h \
+    src/hist2ddialog.h \
+    src/hist2d.h \
     src/histogram.h \
     src/mvme_config.h \
     src/mvme_context.h \
     src/mvme_context_widget.h \
+    src/mvmecontrol.h \
     src/mvmedefines.h \
     src/mvme_event_processor.h \
     src/mvme.h \
@@ -64,27 +70,23 @@ HEADERS  += \
     src/vmecontroller.h \
     src/vmedevice.h \
     src/vme.h \
+    src/vme_script.h \
     src/vmusb_buffer_processor.h \
     src/vmusb_constants.h \
     src/vmusb_readout_worker.h \
     src/vmusb_stack.h \
-    src/hist2ddialog.h \
-    src/hist2d.h \
-    src/mvmecontrol.h \
-    src/globals.h \
-    src/context_widget2.h
 
 
 FORMS    += \
-    src/mvme.ui \
-    src/twodimwidget.ui \
+    src/context_widget2.ui \
+    src/event_config_dialog.ui \
     src/hist2ddialog.ui \
     src/hist2dwidget.ui \
+    src/module_config_widget.ui \
     src/mvmecontrol.ui \
-    src/event_config_dialog.ui \
-    src/context_widget2.ui \
+    src/mvme.ui \
+    src/twodimwidget.ui \
     src/vhs4030p.ui \
-    src/module_config_widget.ui
 
 
 DEFINES += VME_CONTROLLER_WIENER

@@ -1,4 +1,4 @@
-#include "vme_script_qt.h"
+#include "vme_script.h"
 #include <QFile>
 #include <QTextStream>
 #include <QRegularExpression>
@@ -385,6 +385,7 @@ void SyntaxHighlighter::highlightBlock(const QString &text)
 
 }
 
+#if 0
 int main(int argc, char *argv[])
 {
     using namespace vme_script;
@@ -419,3 +420,4 @@ int main(int argc, char *argv[])
     });
     return app.exec();
 }
+#endif
