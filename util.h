@@ -5,6 +5,7 @@
 #include <QVector>
 #include <QPair>
 #include <QVariant>
+#include <QWidget>
 
 #define QSL(str) QStringLiteral(str)
 
@@ -187,5 +188,18 @@ QVariant Ptr2Var(T *ptr)
 }
 
 QString makeDurationString(qint64 durationSeconds);
+
+class MVMEWidget: public QWidget
+{
+    Q_OBJECT
+    signals:
+        void aboutToClose();
+
+    public:
+        MVMEWidget(QWidget *parent = 0);
+
+    protected:
+        void closeEvent(QCloseEvent *event) override;
+};
 
 #endif // UTIL_H

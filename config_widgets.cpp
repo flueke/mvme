@@ -121,7 +121,7 @@ QString *getConfigString(ModuleListType type, ModuleConfig *config)
 }
 
 ModuleConfigWidget::ModuleConfigWidget(MVMEContext *context, ModuleConfig *config, QWidget *parent)
-    : QWidget(parent)
+    : MVMEWidget(parent)
     , ui(new Ui::ModuleConfigWidget)
     , m_context(context)
     , m_config(config)
@@ -129,8 +129,8 @@ ModuleConfigWidget::ModuleConfigWidget(MVMEContext *context, ModuleConfig *confi
     ui->setupUi(this);
     ui->gb_extra->setVisible(false);
 
-    connect(context, &MVMEContext::moduleAboutToBeRemoved, this, [=](ModuleConfig *module) {
-        if (module == config)
+    connect(context, &MVMEContext::moduleAboutToBeRemoved, this, [this](ModuleConfig *module) {
+        if (module == m_config)
         {
             forceClose();
         }
@@ -253,7 +253,7 @@ ModuleConfigWidget::ModuleConfigWidget(MVMEContext *context, ModuleConfig *confi
 
 ModuleConfigWidget::~ModuleConfigWidget()
 {
-    qDebug() << __PRETTY_FUNCTION__;
+    delete ui;
 }
 
 void ModuleConfigWidget::handleListTypeIndexChanged(int index)
@@ -332,6 +332,11 @@ void ModuleConfigWidget::closeEvent(QCloseEvent *event)
     else
     {
         event->accept();
+    }
+
+    if (event->isAccepted())
+    {
+        emit aboutToClose();
     }
 }
 
@@ -624,7 +629,7 @@ void ModuleConfigWidget::setReadOnly(bool readOnly)
     }
 }
 
-QWidget *makeModuleConfigWidget(MVMEContext *context, ModuleConfig *config, QWidget *parent)
+MVMEWidget *makeModuleConfigWidget(MVMEContext *context, ModuleConfig *config, QWidget *parent)
 {
     //if (config->type == VMEModuleType::VHS4030p)
     //{

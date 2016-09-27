@@ -1,11 +1,3 @@
-/* TODOs and NOTES:
- *
- * - Create 1d histograms before datataking time
- * - Save 1d and 2d histograms definitions in the config and externally in a histogram
- *   config (this is needed for listfile mode)
- * - Replay mode: disable modifications to settings
- * - Look for a text editor widget with syntax highlighting -> qt has this builtin
- */
 #include "mvme.h"
 #include "util.h"
 #include "vmusb_stack.h"

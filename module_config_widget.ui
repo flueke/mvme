@@ -81,7 +81,6 @@
        <property name="title">
         <string>Extra</string>
        </property>
-       <layout class="QGridLayout" name="gridLayout_3"/>
       </widget>
      </item>
      <item>

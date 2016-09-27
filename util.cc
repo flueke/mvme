@@ -2,6 +2,7 @@
 #include <QtDebug>
 #include <QTextStream>
 #include <QFile>
+#include <QCloseEvent>
 
 void debugOutputBuffer(u32 *dataBuffer, u32 bufferCount)
 {
@@ -162,4 +163,14 @@ QString makeDurationString(qint64 durationSeconds)
     QString durationString;
     durationString.sprintf("%02d:%02d:%02d", hours, minutes, seconds);
     return durationString;
+}
+
+MVMEWidget::MVMEWidget(QWidget *parent)
+    : QWidget(parent)
+{}
+
+void MVMEWidget::closeEvent(QCloseEvent *event)
+{
+    event->accept();
+    emit aboutToClose();
 }

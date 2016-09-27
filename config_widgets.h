@@ -1,6 +1,7 @@
 #ifndef __CONFIG_WIDGETS_H__
 #define __CONFIG_WIDGETS_H__
 
+#include "util.h"
 #include <QDialog>
 #include <QMap>
 
@@ -38,7 +39,7 @@ class EventConfigDialog: public QDialog
         EventConfig *m_config;
 };
 
-class ModuleConfigWidget: public QWidget
+class ModuleConfigWidget: public MVMEWidget
 {
     Q_OBJECT
     public:
@@ -82,7 +83,7 @@ class ModuleConfigWidget: public QWidget
         bool m_forceClose = false;
 };
 
-QWidget *makeModuleConfigWidget(MVMEContext *context, ModuleConfig *config, QWidget *parent = 0);
+MVMEWidget *makeModuleConfigWidget(MVMEContext *context, ModuleConfig *config, QWidget *parent = 0);
 
 class VHS4030pWidget: public QDialog
 {

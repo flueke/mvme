@@ -595,9 +595,11 @@ void mvme::handleEventConfigDoubleClicked(EventConfig *config)
         subwin->setAttribute(Qt::WA_DeleteOnClose);
         subwin->setWidget(new EventConfigDialog(m_context, config));
         m_configWindows[config] = subwin;
+
         connect(subwin->widget(), &QObject::destroyed, this, [this, config] {
             m_configWindows.remove(config);
         });
+
         subwin->show();
     }
 }
@@ -627,11 +629,15 @@ void mvme::handleModuleConfigDoubleClicked(ModuleConfig *config)
     {
         auto subwin = new QMdiSubWindow(ui->mdiArea);
         subwin->setAttribute(Qt::WA_DeleteOnClose);
-        subwin->setWidget(makeModuleConfigWidget(m_context, config));
-        subwin->widget()->setAttribute(Qt::WA_DeleteOnClose);
+
+        auto widget = makeModuleConfigWidget(m_context, config);
+        widget->setAttribute(Qt::WA_DeleteOnClose);
+
+        subwin->setWidget(widget);
+
         m_configWindows[config] = subwin;
 
-        connect(subwin->widget(), &QObject::destroyed, this, [this, config] {
+        connect(widget, &MVMEWidget::aboutToClose, this, [this, config] {
             m_configWindows[config]->close();
             m_configWindows.remove(config);
         });

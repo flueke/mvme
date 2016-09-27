@@ -283,10 +283,12 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
                     {
                         if (!isMesytecModule(moduleType))
                         {
+#if 0
                             emit logMessage(QString("Skipping subevent of size %1 (module type=%2, not a mesytec module)")
                                             .arg(subEventSize)
                                             .arg(static_cast<int>(moduleType))
                                            );
+#endif
                         }
                         else if (!cfg)
                         {
@@ -302,7 +304,9 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
                 ++subEventIndex;
             }
 
+
             u32 nextWord = iter.peekU32();
+
             if (nextWord == EndMarker)
             {
                 iter.extractU32();

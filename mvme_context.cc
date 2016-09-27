@@ -73,7 +73,6 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
 MVMEContext::~MVMEContext()
 {
     QMetaObject::invokeMethod(m_readoutWorker, "stop", Qt::QueuedConnection);
-    //while (m_readoutWorker->getState() != DAQState::Idle)
     while (getDAQState() != DAQState::Idle)
     {
         QThread::msleep(50);

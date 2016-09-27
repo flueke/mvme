@@ -80,11 +80,11 @@ FORMS    += \
     twodimwidget.ui \
     hist2ddialog.ui \
     hist2dwidget.ui \
-    module_config_dialog.ui \
     mvmecontrol.ui \
     event_config_dialog.ui \
     context_widget2.ui \
-    vhs4030p.ui
+    vhs4030p.ui \
+    module_config_widget.ui
 
 
 DEFINES += VME_CONTROLLER_WIENER
