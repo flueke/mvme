@@ -24,6 +24,12 @@
 
 class VMECommandList;
 
+namespace vme_script
+{
+    class VMEScript;
+    class Command;
+}
+
 /*!
    The best way to use the VM-USB involves building lists of VME
    operations, called \em stacks.  These stacks can either be submitted
@@ -57,6 +63,7 @@ public:
   CVMUSBReadoutList(std::vector<uint32_t>& list);
   CVMUSBReadoutList(const QVector<uint32_t> &list);
   CVMUSBReadoutList(const VMECommandList &commands);
+  CVMUSBReadoutList(const vme_script::VMEScript &script);
   CVMUSBReadoutList(const CVMUSBReadoutList& rhs);
 
   virtual ~CVMUSBReadoutList();
@@ -75,6 +82,8 @@ public:
 
   // Append readout list
   virtual void append(const CVMUSBReadoutList& list);
+
+  void addScriptCommand(const vme_script::Command &cmd);
 
   // Register operations 
   

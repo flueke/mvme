@@ -14,11 +14,9 @@
 	     East Lansing, MI 48824-1321
 */
 
-/* TODO(flueke): make a simpler version of the block reads and let the vmusb
- * handle the special cases internally!!! */
-
 #include "CVMUSBReadoutList.h"
 #include "vmecommandlist.h"
+#include "vme_script.h"
 #include <iostream>
 #include <QString>
 #include <QTextStream>
@@ -80,6 +78,9 @@ static const int modeBLTShift(24);
 // word transfers:
 
 static const int addrNotLong(1);
+
+
+static const int delayNSperClock(200);
 
 /////////////////////////////////////////////////////////////////
 //  Constructors and canonicals.
@@ -166,6 +167,14 @@ CVMUSBReadoutList::CVMUSBReadoutList(const VMECommandList &commands)
     }
 }
 
+CVMUSBReadoutList::CVMUSBReadoutList(const vme_script::VMEScript &script)
+{
+    for (auto cmd: script.commands)
+    {
+        addScriptCommand(cmd);
+    }
+}
+
 /*!
    Copy construction requires a copy construction of the list data.
    without this, the bit by bit copy would be very bad.
@@ -238,6 +247,159 @@ void CVMUSBReadoutList::append(const CVMUSBReadoutList& list)
 {
   const std::vector<uint32_t>& other = list.get();
   m_list.insert(m_list.end(), other.begin(), other.end());
+}
+
+uint8_t amod_from_AddressMode(vme_script::AddressMode mode, bool blt=false, bool mblt=false)
+{
+    using namespace vme_script;
+
+    switch (mode)
+    {
+        case AddressMode::A16:
+            return CVMUSBReadoutList::a16User;
+        case AddressMode::A24:
+            if (blt)
+                return CVMUSBReadoutList::a24UserBlock;
+            return CVMUSBReadoutList::a24UserData;
+        case AddressMode::A32:
+            if (blt)
+                return CVMUSBReadoutList::a32UserBlock;
+            if (mblt)
+                CVMUSBReadoutList::a32UserBlock64;
+            return CVMUSBReadoutList::a32UserData;
+    }
+    return 0;
+}
+
+void CVMUSBReadoutList::addScriptCommand(const vme_script::Command &cmd)
+{
+    using namespace vme_script;
+
+    switch (cmd.type)
+    {
+        case CommandType::Invalid:
+            break;
+
+        case CommandType::Read:
+            {
+                switch (cmd.dataWidth)
+                {
+                    case DataWidth::D16:
+                        addRead16(cmd.address, amod_from_AddressMode(cmd.addressMode));
+                        break;
+                    case DataWidth::D32:
+                        addRead32(cmd.address, amod_from_AddressMode(cmd.addressMode));
+                        break;
+                }
+            } break;
+
+        case CommandType::Write:
+        case CommandType::WriteAbs:
+            {
+                switch (cmd.dataWidth)
+                {
+                    case DataWidth::D16:
+                        addWrite16(cmd.address, amod_from_AddressMode(cmd.addressMode), cmd.value);
+                        break;
+                    case DataWidth::D32:
+                        addWrite32(cmd.address, amod_from_AddressMode(cmd.addressMode), cmd.value);
+                        break;
+                }
+            } break;
+
+        case CommandType::Wait:
+            {
+                u32 ns = cmd.delay_ms * 1000;
+                u32 clocks = ns / delayNSperClock;
+                addDelay(clocks);
+            } break;
+
+        case CommandType::Marker:
+            {
+                addMarker(cmd.value);
+                addMarker(cmd.value >> 16);
+            } break;
+
+        case CommandType::BLT:
+            addBlockRead32(cmd.address, amod_from_AddressMode(cmd.addressMode, true), cmd.transfers);
+            break;
+
+        case CommandType::BLTFifo:
+            addFifoRead32(cmd.address, amod_from_AddressMode(cmd.addressMode, true), cmd.transfers);
+            break;
+
+        case CommandType::MBLT:
+            addBlockRead32(cmd.address, amod_from_AddressMode(cmd.addressMode, false, true), cmd.transfers);
+            break;
+
+        case CommandType::MBLTFifo:
+            addFifoRead32(cmd.address, amod_from_AddressMode(cmd.addressMode, false, true), cmd.transfers);
+            break;
+
+        case CommandType::BLTCount:
+            {
+                switch (cmd.dataWidth)
+                {
+                    case DataWidth::D16:
+                        addBlockCountRead16(cmd.address, cmd.countMask, amod_from_AddressMode(cmd.addressMode));
+                        break;
+                    case DataWidth::D32:
+                        addBlockCountRead32(cmd.address, cmd.countMask, amod_from_AddressMode(cmd.addressMode));
+                        break;
+                }
+
+                addMaskedCountBlockRead32(cmd.blockAddress, amod_from_AddressMode(cmd.blockAddressMode, true, false));
+
+            } break;
+
+        case CommandType::BLTFifoCount:
+            {
+                switch (cmd.dataWidth)
+                {
+                    case DataWidth::D16:
+                        addBlockCountRead16(cmd.address, cmd.countMask, amod_from_AddressMode(cmd.addressMode));
+                        break;
+                    case DataWidth::D32:
+                        addBlockCountRead32(cmd.address, cmd.countMask, amod_from_AddressMode(cmd.addressMode));
+                        break;
+                }
+
+                addMaskedCountFifoRead32(cmd.blockAddress, amod_from_AddressMode(cmd.blockAddressMode, true, false));
+
+            } break;
+
+        case CommandType::MBLTCount:
+            {
+                switch (cmd.dataWidth)
+                {
+                    case DataWidth::D16:
+                        addBlockCountRead16(cmd.address, cmd.countMask, amod_from_AddressMode(cmd.addressMode));
+                        break;
+                    case DataWidth::D32:
+                        addBlockCountRead32(cmd.address, cmd.countMask, amod_from_AddressMode(cmd.addressMode));
+                        break;
+                }
+
+                addMaskedCountBlockRead32(cmd.blockAddress, amod_from_AddressMode(cmd.blockAddressMode, false, true));
+
+            } break;
+
+        case CommandType::MBLTFifoCount:
+            {
+                switch (cmd.dataWidth)
+                {
+                    case DataWidth::D16:
+                        addBlockCountRead16(cmd.address, cmd.countMask, amod_from_AddressMode(cmd.addressMode));
+                        break;
+                    case DataWidth::D32:
+                        addBlockCountRead32(cmd.address, cmd.countMask, amod_from_AddressMode(cmd.addressMode));
+                        break;
+                }
+
+                addMaskedCountFifoRead32(cmd.blockAddress, amod_from_AddressMode(cmd.blockAddressMode, false, true));
+
+            } break;
+    }
 }
 
 /////////////////////////////////////////////////////////////////////
