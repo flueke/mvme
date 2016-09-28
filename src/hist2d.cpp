@@ -234,7 +234,7 @@ void Hist2DWidget::replot()
         if (module)
         {
             xTitle = QString("%1.%2")
-                     .arg(module->getFullPath())
+                     .arg(module->getObjectPath())
                      .arg(addressValue);
         }
         else
@@ -257,7 +257,7 @@ void Hist2DWidget::replot()
         if (module)
         {
             yTitle = QString("%1.%2")
-                     .arg(module->getFullPath())
+                     .arg(module->getObjectPath())
                      .arg(addressValue);
         }
         else

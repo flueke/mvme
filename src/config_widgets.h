@@ -85,6 +85,7 @@ class ModuleConfigWidget: public MVMEWidget
 
 MVMEWidget *makeModuleConfigWidget(MVMEContext *context, ModuleConfig *config, QWidget *parent = 0);
 
+#if 0
 class VHS4030pWidget: public QDialog
 {
     Q_OBJECT
@@ -96,5 +97,6 @@ class VHS4030pWidget: public QDialog
         MVMEContext *m_context;
         ModuleConfig *m_config;
 };
+#endif
 
 #endif /* __CONFIG_WIDGETS_H__ */

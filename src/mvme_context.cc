@@ -98,7 +98,7 @@ void MVMEContext::setConfig(DAQConfig *config)
 
 void MVMEContext::addModule(EventConfig *eventConfig, ModuleConfig *module)
 {
-    module->event = eventConfig;
+    module->setParent(eventConfig);
     eventConfig->modules.push_back(module);
     eventConfig->setModified();
     emit moduleAdded(eventConfig, module);
@@ -114,7 +114,7 @@ void MVMEContext::addModule(EventConfig *eventConfig, ModuleConfig *module)
         {
             auto hist = new HistogramCollection(this, nChannels, resolution);
             hist->setProperty("Histogram.sourceModule", module->getId());
-            hist->setObjectName(module->getFullPath());
+            hist->setObjectName(module->getObjectPath());
             addHistogramCollection(hist);
         }
     }
@@ -184,9 +184,9 @@ QString MVMEContext::getUniqueModuleName(const QString &prefix) const
 
     for (auto cfg: moduleConfigs)
     {
-        if (cfg->getName().startsWith(prefix))
+        if (cfg->objectName().startsWith(prefix))
         {
-            moduleNames.insert(cfg->getName());
+            moduleNames.insert(cfg->objectName());
         }
     }
 
@@ -229,7 +229,7 @@ void MVMEContext::logModuleCounters()
 
         if (mod)
         {
-            stream << mod->getName() << endl;
+            stream << mod->objectName() << endl;
             stream << "  Events:  " << counters.events << endl;
             stream << "  Headers: " << counters.headerWords << endl;
             stream << "  Data:    " << counters.dataWords << endl;
@@ -420,7 +420,7 @@ void MVMEContext::prepareStart()
             {
                 hist = new HistogramCollection(this, nChannels, resolution);
                 hist->setProperty("Histogram.sourceModule", module->getId());
-                hist->setObjectName(module->getFullPath());
+                hist->setObjectName(module->getObjectPath());
                 addHistogramCollection(hist);
             }
             else

@@ -79,7 +79,7 @@ struct AddModuleDialog: public QDialog
         bool ok;
         auto module = new ModuleConfig;
         module->type = static_cast<VMEModuleType>(typeCombo->currentData().toInt());
-        module->setName(nameEdit->text());
+        module->setObjectName(nameEdit->text());
         module->baseAddress = addressEdit->text().toUInt(&ok, 16);
 
         // TODO: This is duplicated in ModuleConfigDialog::loadFromTemplate(). Compress this!
@@ -109,10 +109,13 @@ struct AddModuleDialog: public QDialog
             if (isMesytecModule(module->type))
             {
                 // load template files
+                Q_ASSERT(!"not implemented");
+#if 0
                 module->initReset       = readStringFile(templatePath + "/mesytec_reset.init");
                 module->initReadout     = readStringFile(templatePath + "/mesytec_init_readout.init");
                 module->initStartDaq    = readStringFile(templatePath + "/mesytec_startdaq.init");
                 module->initStopDaq     = readStringFile(templatePath + "/mesytec_stopdaq.init");
+#endif
             }
 
             QString shortname = VMEModuleShortNames[module->type];
@@ -120,8 +123,11 @@ struct AddModuleDialog: public QDialog
                 .arg(templatePath)
                 .arg(shortname);
             context->logMessage(QString("Using %1").arg(paramsFilename));
+            Q_ASSERT(!"not implemented");
+#if 0
             module->initParameters  = readStringFile(paramsFilename);
             module->generateReadoutStack();
+#endif
         }
 
         context->addModule(parentConfig, module);
@@ -513,14 +519,14 @@ void MVMEContextWidget::onModuleConfigAdded(EventConfig *eventConfig, ModuleConf
     }
 
     auto item = new QTreeWidgetItem(TIT_VMEModule);
-    item->setText(0, module->getName());
+    item->setText(0, module->objectName());
     item->setData(0, Qt::UserRole, QVariant::fromValue(static_cast<void *>(module)));
 
     parentItem->addChild(item);
     m_d->contextTree->expandItem(parentItem);
     m_d->treeWidgetMap[module] = item;
 
-    connect(module, &ModuleConfig::nameChanged, module, [=](const QString &name) {
+    connect(module, &ModuleConfig::objectNameChanged, module, [=](const QString &name) {
         auto item = m_d->treeWidgetMap.value(module);
         if (item)
         {

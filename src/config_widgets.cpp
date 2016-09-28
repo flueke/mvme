@@ -100,6 +100,7 @@ enum class ModuleListType
 
 QString *getConfigString(ModuleListType type, ModuleConfig *config)
 {
+#if 0
     switch (type)
     {
         case ModuleListType::Parameters:
@@ -117,8 +118,10 @@ QString *getConfigString(ModuleListType type, ModuleConfig *config)
         case ModuleListType::TypeCount:
             break;
     }
+#endif
 
     return nullptr;
+    Q_ASSERT(!"not implemented");
 }
 
 ModuleConfigWidget::ModuleConfigWidget(MVMEContext *context, ModuleConfig *config, QWidget *parent)
@@ -238,6 +241,7 @@ ModuleConfigWidget::ModuleConfigWidget(MVMEContext *context, ModuleConfig *confi
     handleListTypeIndexChanged(0);
     handleContextStateChange();
 
+#if 0
     if (config->type == VMEModuleType::VHS4030p)
     {
         auto button = new QPushButton("VHS4030p Helper");
@@ -250,6 +254,7 @@ ModuleConfigWidget::ModuleConfigWidget(MVMEContext *context, ModuleConfig *confi
             w->show();
         });
     }
+#endif
 }
 
 ModuleConfigWidget::~ModuleConfigWidget()
@@ -468,6 +473,9 @@ void ModuleConfigWidget::execList()
         auto type = static_cast<ModuleListType>(ui->combo_listType->currentData().toInt());
         QString listContents = ui->editor->toPlainText();
 
+        Q_ASSERT(!"not implemented");
+
+#if 0
         switch (type)
         {
             case ModuleListType::Parameters:
@@ -520,6 +528,7 @@ void ModuleConfigWidget::execList()
             case ModuleListType::TypeCount:
                 break;
         }
+#endif
     }
 }
 
@@ -553,7 +562,7 @@ void ModuleConfigWidget::on_buttonBox_clicked(QAbstractButton *button)
             {
                 saveToConfig();
                 loadFromConfig();
-                setWindowTitle(QString("Module Config %1").arg(m_config->getName()));
+                setWindowTitle(QString("Module Config %1").arg(m_config->objectName()));
             } break;
 
         case QDialogButtonBox::ResetRole:
@@ -576,9 +585,9 @@ void ModuleConfigWidget::loadFromConfig()
 {
     auto config = m_config;
 
-    setWindowTitle(QString("Module Config %1").arg(config->getName()));
+    setWindowTitle(QString("Module Config %1").arg(config->objectName()));
     ui->label_type->setText(VMEModuleTypeNames.value(config->type, QSL("Unknown")));
-    ui->le_name->setText(config->getName());
+    ui->le_name->setText(config->objectName());
     ui->le_address->setText(QString().sprintf("0x%08x", config->baseAddress));
 
     m_configStrings.clear();
@@ -603,7 +612,7 @@ void ModuleConfigWidget::saveToConfig()
 {
     auto config = m_config;
 
-    config->setName(ui->le_name->text());
+    config->setObjectName(ui->le_name->text());
 
     bool ok;
     m_config->baseAddress = ui->le_address->text().toUInt(&ok, 16);
@@ -615,8 +624,7 @@ void ModuleConfigWidget::saveToConfig()
     {
         *getConfigString(static_cast<ModuleListType>(i), config) = m_configStrings[i];
     }
-    m_config->generateReadoutStack();
-    m_config->setModified();
+    m_config->setModified(true);
     setModified(false);
 }
 
@@ -654,6 +662,7 @@ MVMEWidget *makeModuleConfigWidget(MVMEContext *context, ModuleConfig *config, Q
     return new ModuleConfigWidget(context, config, parent);
 }
 
+#if 0
 VHS4030pWidget::VHS4030pWidget(MVMEContext *context, ModuleConfig *config, QWidget *parent)
     : QDialog(parent)
     , ui(new Ui::VHS4030pWidget)
@@ -686,3 +695,4 @@ VHS4030pWidget::VHS4030pWidget(MVMEContext *context, ModuleConfig *config, QWidg
                               .arg(static_cast<u32>(value), 4, 16, QLatin1Char('0')));
     });
 }
+#endif

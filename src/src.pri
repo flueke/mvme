@@ -1,60 +1,102 @@
 SOURCES += \
-    src/config_widgets.cpp \
-    src/context_widget2.cpp \
-    src/CVMUSBReadoutList.cpp \
-    src/hist2d.cpp \
-    src/hist2ddialog.cc \
-    src/histogram.cpp \
-    src/libxxusb.cc \
-    src/main.cpp \
-    src/mvme_config.cc \
-    src/mvme_context.cc \
-    src/mvme_context_widget.cc \
-    src/mvmecontrol.cpp \
-    src/mvme.cpp \
-    src/mvme_event_processor.cc \
-    src/mvme_listfile.cc \
-    src/scrollbar.cpp \
-    src/scrollzoomer.cpp \
-    src/twodimwidget.cpp \
-    src/util.cc \
-    src/vmecommandlist.cc \
-    src/vmecontroller.cpp \
-    src/vmedevice.cpp \
-    src/vme_script.cc \
-    src/vmusb_buffer_processor.cc \
-    src/vmusb_readout_worker.cc \
-    src/vmusb_stack.cc \
+    config_widgets.cpp \
+    context_widget2.cpp \
+    CVMUSBReadoutList.cpp \
+    hist2d.cpp \
+    hist2ddialog.cc \
+    histogram.cpp \
+    libxxusb.cc \
+    mvme_config.cc \
+    mvme_context.cc \
+    mvme_context_widget.cc \
+    mvmecontrol.cpp \
+    mvme.cpp \
+    mvme_event_processor.cc \
+    mvme_listfile.cc \
+    scrollbar.cpp \
+    scrollzoomer.cpp \
+    twodimwidget.cpp \
+    util.cc \
+    vmecommandlist.cc \
+    vmecontroller.cpp \
+    vmedevice.cpp \
+    vme_script.cc \
+    vmusb_buffer_processor.cc \
+    vmusb_readout_worker.cc \
+    vmusb_stack.cc \
 
 
-HEADERS  += \
-    src/config_widgets.h \
-    src/context_widget2.h \
-    src/CVMUSBReadoutList.h \
-    src/databuffer.h \
-    src/globals.h \
-    src/hist2ddialog.h \
-    src/hist2d.h \
-    src/histogram.h \
-    src/mvme_config.h \
-    src/mvme_context.h \
-    src/mvme_context_widget.h \
-    src/mvmecontrol.h \
-    src/mvmedefines.h \
-    src/mvme_event_processor.h \
-    src/mvme.h \
-    src/mvme_listfile.h \
-    src/scrollbar.h \
-    src/scrollzoomer.h \
-    src/twodimwidget.h \
-    src/util.h \
-    src/vmecommandlist.h \
-    src/vmecontroller.h \
-    src/vmedevice.h \
-    src/vme.h \
-    src/vme_script.h \
-    src/vmusb_buffer_processor.h \
-    src/vmusb_constants.h \
-    src/vmusb_readout_worker.h \
-    src/vmusb_stack.h \
+HEADERS += \
+    config_widgets.h \
+    context_widget2.h \
+    CVMUSBReadoutList.h \
+    databuffer.h \
+    globals.h \
+    hist2ddialog.h \
+    hist2d.h \
+    histogram.h \
+    mvme_config.h \
+    mvme_context.h \
+    mvme_context_widget.h \
+    mvmecontrol.h \
+    mvmedefines.h \
+    mvme_event_processor.h \
+    mvme.h \
+    mvme_listfile.h \
+    scrollbar.h \
+    scrollzoomer.h \
+    twodimwidget.h \
+    util.h \
+    vmecommandlist.h \
+    vmecontroller.h \
+    vmedevice.h \
+    vme.h \
+    vme_script.h \
+    vmusb_buffer_processor.h \
+    vmusb_constants.h \
+    vmusb_readout_worker.h \
+    vmusb_stack.h \
 
+FORMS += \
+    context_widget2.ui \
+    event_config_dialog.ui \
+    hist2ddialog.ui \
+    hist2dwidget.ui \
+    module_config_widget.ui \
+    mvmecontrol.ui \
+    mvme.ui \
+    twodimwidget.ui \
+    vhs4030p.ui \
+
+contains(DEFINES, "VME_CONTROLLER_WIENER") {
+    message("Building with WIENER VM_USB support")
+
+    unix:!macx:!symbian: LIBS += -L/usr/lib/ -lusb
+
+    win32 {
+        INCLUDEPATH += "C:\libusb-win32-bin-1.2.6.0\include"
+        LIBS += -L"C:\libusb-win32-bin-1.2.6.0\lib\gcc" -lusb
+    }
+
+
+    HEADERS += \
+        libxxusb.h \
+        vmusb.h \
+
+    SOURCES += \
+        vmusb.cpp \
+}
+
+contains(DEFINES, "VME_CONTROLLER_CAEN") {
+    message("Building with CAEN VM support")
+
+    unix:!macx:!symbian: LIBS += -L/usr/lib/ -lCAENVME
+
+    HEADERS += \
+        CAENVMEtypes.h \
+        CAENVMElib.h \
+        caenusb.h \
+
+    SOURCES += \
+        caenusb.cpp \
+}

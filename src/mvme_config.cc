@@ -6,18 +6,123 @@
 #include <QJsonArray>
 
 //
+// ConfigObject
+//
+ConfigObject::ConfigObject(QObject *parent)
+    : QObject(parent)
+    , m_id(QUuid::createUuid())
+{
+    connect(this, &QObject::objectNameChanged, this, [this] {
+        setModified(true);
+    });
+
+    connect(this, &ConfigObject::enabledChanged, this, [this] {
+        setModified(true);
+    });
+}
+
+void ConfigObject::setModified(bool b)
+{
+    if (m_modified != b)
+    {
+        m_modified = b;
+        emit modifiedChanged(b);
+
+        if (b)
+        {
+            auto parentConfig = qobject_cast<ConfigObject *>(parent());
+
+            if (parentConfig)
+                parentConfig->setModified(true);
+        }
+    }
+}
+
+void ConfigObject::setEnabled(bool b)
+{
+    if (m_enabled != b)
+    {
+        m_enabled = b;
+        emit enabledChanged(b);
+    }
+}
+
+QString ConfigObject::getObjectPath() const
+{
+    QString result;
+    auto parentConfig = qobject_cast<ConfigObject *>(parent());
+
+    if (parentConfig)
+        result = parentConfig->getObjectPath() + QChar('.');
+
+    result += objectName();
+    return result;
+}
+
+void ConfigObject::read(const QJsonObject &json)
+{
+    m_id = QUuid(json["id"].toString());
+    if (m_id.isNull())
+        m_id = QUuid::createUuid();
+
+    setObjectName(json["name"].toString());
+
+    read_impl(json);
+}
+
+void ConfigObject::write(QJsonObject &json) const
+{
+    json["id"]   = m_id.toString();
+    json["name"] = objectName();
+
+    write_impl(json);
+}
+
+//
+// VMEScriptConfig
+//
+void VMEScriptConfig::setScriptContents(const QString &str)
+{
+    if (m_script != str)
+    {
+        m_script = str;
+        setModified(true);
+    }
+}
+
+//
 // ModuleConfig
 //
-QString ModuleConfig::getFullPath() const
+void ModuleConfig::updateRegisterCache()
 {
-    if (event)
-    {
-        return QString("%1.%2")
-            .arg(event->getName())
-            .arg(m_name);
-    }
+    m_registerCache.clear();
 
-    return m_name;
+    QString scriptString;
+
+    auto scriptConfig = vmeScripts.value("parameters", nullptr);
+    if (scriptConfig)
+        scriptString += scriptConfig->getScriptContents();
+
+    scriptConfig = vmeScripts.value("readout", nullptr);
+    if (scriptConfig)
+        scriptString += scriptConfig->getScriptContents();
+
+    if (!scriptString.isEmpty())
+    {
+        try
+        {
+            auto script = vme_script::parse(scriptString);
+
+            for (auto cmd: script.commands)
+            {
+                if (cmd.type == vme_script::CommandType::Write)
+                {
+                    m_registerCache[cmd.address] = cmd.value;
+                }
+            }
+        } catch (const vme_script::ParseError &)
+        {}
+    }
 }
 
 int ModuleConfig::getNumberOfChannels() const
@@ -70,31 +175,14 @@ namespace MDPP
     static const int adc_resolution_default = 0;
 }
 
-void ModuleConfig::updateRegisterCache()
-{
-    RegisterList allRegisters;
-    allRegisters += parseRegisterList(initReset);
-    allRegisters += parseRegisterList(initParameters);
-    allRegisters += parseRegisterList(initReadout);
-    allRegisters += parseRegisterList(initStartDaq);
-    allRegisters += parseRegisterList(initStopDaq);
-
-    m_registerCache.clear();
-
-    for (auto p: allRegisters)
-    {
-        m_registerCache[p.first] = p.second;
-    }
-}
-
 int ModuleConfig::getDataBits() const
 {
     switch (type)
     {
         case VMEModuleType::MADC32:
             {
-                int regValue = m_registerCache.value(MADC::adc_resolution, MADC::adc_resolution_default).toInt();
-                regValue = m_registerCache.value(MADC::adc_override, regValue).toInt();
+                u32 regValue = m_registerCache.value(MADC::adc_resolution, MADC::adc_resolution_default);
+                regValue = m_registerCache.value(MADC::adc_override, regValue);
                 int bits = MADC::adc_bits.at(regValue);
                 return bits;
             }
@@ -102,7 +190,7 @@ int ModuleConfig::getDataBits() const
         case VMEModuleType::MDPP16:
         case VMEModuleType::MDPP32:
             {
-                int index = m_registerCache.value(MDPP::adc_resolution, MDPP::adc_resolution_default).toInt();
+                u32 index = m_registerCache.value(MDPP::adc_resolution, MDPP::adc_resolution_default);
                 int bits = MDPP::adc_bits.at(index);
                 return bits;
             }
@@ -146,69 +234,21 @@ u32 ModuleConfig::getDataExtractMask()
     return 0;
 }
 
-u8 ModuleConfig::getRegisterAddressModifier() const
-{
-    if (type == VMEModuleType::VHS4030p)
-    {
-        return VME_AM_A16_USER;
-    }
-
-    return VME_AM_A32_USER_DATA;
-}
-
-RegisterWidth ModuleConfig::getRegisterWidth() const
-{
-    return RegisterWidth::W16;
-}
-
-void ModuleConfig::setModified()
-{
-    updateRegisterCache();
-
-    auto eventConfig = qobject_cast<EventConfig *>(parent());
-
-    if (eventConfig)
-    {
-        eventConfig->setModified();
-    }
-
-    emit modified();
-}
-
-void ModuleConfig::read(const QJsonObject &json)
+void ModuleConfig::read_impl(const QJsonObject &json)
 {
     type = VMEModuleShortNames.key(json["type"].toString(), VMEModuleType::Invalid);
-    m_id = QUuid(json["id"].toString());
-    if (m_id.isNull())
-        m_id = QUuid::createUuid();
-    m_name = json["name"].toString();
     baseAddress = json["baseAddress"].toInt();
-    mcstAddress = json["mcstAddress"].toInt();
-    initReset = json["initReset"].toString();
-    initParameters = json["initParameters"].toString();
-    initReadout = json["initReadout"].toString();
-    initStartDaq = json["initStartDaq"].toString();
-    initStopDaq = json["initStopDaq"].toString();
-    readoutStack = json["readoutStack"].toString();
     updateRegisterCache();
 }
 
-void ModuleConfig::write(QJsonObject &json) const
+void ModuleConfig::write_impl(QJsonObject &json) const
 {
     json["type"] = VMEModuleShortNames.value(type, "invalid");
-    json["id"] = m_id.toString();
-    json["name"] = m_name;
     json["baseAddress"] = static_cast<qint64>(baseAddress);
-    json["mcstAddress"] = static_cast<qint64>(mcstAddress);
-    json["initReset"] = initReset;
-    json["initParameters"] = initParameters;
-    json["initReadout"] = initReadout;
-    json["initStartDaq"] = initStartDaq;
-    json["initStopDaq"] = initStopDaq;
-    json["readoutStack"] = readoutStack;
 }
 
 
+#if 0
 void ModuleConfig::generateReadoutStack()
 {
     VMECommandList readoutCmds;
@@ -243,6 +283,7 @@ void ModuleConfig::generateReadoutStack()
     }
 #endif
 }
+#endif
 
 //
 // EventConfig
@@ -280,7 +321,6 @@ void EventConfig::read(const QJsonObject &json)
         QJsonObject moduleObject = moduleArray[i].toObject();
         ModuleConfig *moduleConfig = new ModuleConfig(this);
         moduleConfig->read(moduleObject);
-        moduleConfig->event = this;
         modules.append(moduleConfig);
     }
 }

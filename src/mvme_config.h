@@ -2,78 +2,87 @@
 #define UUID_364b82ee_241c_4c09_acbf_f7e36698fb74
 
 #include "globals.h"
+#include "vme_script.h"
 #include <QObject>
 #include <QUuid>
 
 class QJsonObject;
 class EventConfig;
 
-class ModuleConfig: public QObject
+class ConfigObject: public QObject
 {
     Q_OBJECT
     signals:
-        void nameChanged(const QString &name);
-        void modified();
+        void modifiedChanged(bool);
+        void enabledChanged(bool);
 
     public:
-        ModuleConfig(QObject *parent = 0)
-            : QObject(parent)
-            , m_id(QUuid::createUuid())
-        {}
+        ConfigObject(QObject *parent = 0);
 
-        void setModified();
+        QUuid getId() const { return m_id; }
 
-        void setName(const QString &name)
-        {
-            if (m_name != name)
-            {
-                m_name = name;
-                emit nameChanged(m_name);
-            }
-        }
+        virtual void setModified(bool b);
+        bool isModified() const { return m_modified; }
 
-        QString getName() const { return m_name; }
-        QString getFullPath() const;
-        int getNumberOfChannels() const;
-        int getDataBits() const;
-        u32 getDataExtractMask();
-        u8 getRegisterAddressModifier() const;
-        RegisterWidth getRegisterWidth() const;
+        void setEnabled(bool b);
+        bool isEnabled() const { return m_enabled; }
+
+        QString getObjectPath() const;
 
         void read(const QJsonObject &json);
         void write(QJsonObject &json) const;
 
-        VMEModuleType type = VMEModuleType::Invalid;
-        uint32_t baseAddress = 0;
-        uint32_t mcstAddress = 0;
-        bool useMcst = false;
-
-        // These strings must contain content that's convertible to an InitList
-        QString initReset;          // module reset
-        QString initParameters;     // module physics parameters
-        QString initReadout;        // module readout settings (irq, threshold, event mode)
-        QString initStartDaq;       // reset FIFO, counters, start acq
-        QString initStopDaq;        // stop acq, clear FIFO
-
-        // vmusb readout stack as a string.
-        // TODO: For other controllers the vmusb stack format obviously won't work.
-        QString readoutStack;
-
-        void generateReadoutStack();
-
-        EventConfig *event = 0;
-
-        QUuid getId() const
-        {
-            return m_id;
-        }
-
-        void updateRegisterCache();
-    private:
+    protected:
+        virtual void read_impl(const QJsonObject &json) = 0;
+        virtual void write_impl(QJsonObject &json) const = 0;
 
         QUuid m_id;
-        QString m_name;
-        QHash<u32, QVariant> m_registerCache;
+        bool m_modified = false;
+        bool m_enabled = true;
+};
+
+class VMEScriptConfig: public ConfigObject
+{
+    Q_OBJECT
+    public:
+        using ConfigObject::ConfigObject;
+
+        QString getScriptContents() const
+        { return m_script; }
+
+        void setScriptContents(const QString &);
+
+        vme_script::VMEScript getScript() const
+        { return vme_script::parse(m_script); }
+
+    private:
+        QString m_script;
+};
+
+class ModuleConfig: public ConfigObject
+{
+    Q_OBJECT
+    public:
+        using ConfigObject::ConfigObject;
+
+        int getNumberOfChannels() const;
+        int getDataBits() const;
+        u32 getDataExtractMask();
+
+        void updateRegisterCache();
+
+        VMEModuleType type = VMEModuleType::Invalid;
+        uint32_t baseAddress = 0;
+
+        /** Known keys: "parameters", "readout" */
+        QMap<QString, VMEScriptConfig *> vmeScripts;
+
+    protected:
+        virtual void read_impl(const QJsonObject &json) override;
+        virtual void write_impl(QJsonObject &json) const override;
+
+    private:
+        QHash<u32, u32> m_registerCache;
 };
 
 class EventConfig: public QObject
@@ -218,3 +227,40 @@ class DAQConfig: public QObject
 };
 
 #endif
+
+/*
+ 
+DAQConfig
+    - Lists of named vme scripts for the following hooks:
+      "init", "shutdown", "manual"
+      Each script should have an `enabled' flag
+    - List of EventConfig
+    - Additional parameters
+
+EventConfig
+    - TriggerCondition
+    - List of ModuleConfigs
+    - vme scripts for the following hooks:
+      "daqstart", "daqstop"
+    - Named vme scripts for the following hooks:
+      "init", "shutdown", "manual"
+
+ModuleConfig
+    - baseAddress
+    - moduleType
+    - vme scripts for the following hooks:
+      "parameters", "readout-settings"
+
+
+Event
+    - vme scripts
+
+        class VMEScriptConfig:
+        {
+            QPair<QString, QString>;
+        };
+
+        * Known keys:
+         * vme_init, vme_shutdown
+        QMap<QString, QList<VMEScriptConfig *>> vmeScripts;
+*/

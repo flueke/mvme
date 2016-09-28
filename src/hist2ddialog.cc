@@ -152,7 +152,7 @@ void Hist2DDialog::onEventXChanged(int index)
         QStringList names;
         for (auto moduleConfig: eventConfig->modules)
         {
-            names << moduleConfig->getName();
+            names << moduleConfig->objectName();
         }
 
         ui->moduleX->addItems(names);
@@ -191,7 +191,7 @@ void Hist2DDialog::onEventYChanged(int index)
         QStringList names;
         for (auto moduleConfig: eventConfig->modules)
         {
-            names << moduleConfig->getName();
+            names << moduleConfig->objectName();
         }
 
         ui->moduleY->addItems(names);

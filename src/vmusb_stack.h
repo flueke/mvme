@@ -46,7 +46,8 @@ class VMUSBStack
             QVector<u32> result;
             for (auto module: m_modules)
             {
-                result += parseStackFile(module->readoutStack);
+                //result += parseStackFile(module->readoutStack);
+                Q_ASSERT(!"not implemented");
             }
 
             return result;

@@ -28,6 +28,8 @@ VMUSBReadoutWorker::~VMUSBReadoutWorker()
 
 void VMUSBReadoutWorker::start(quint32 cycles)
 {
+    Q_ASSERT(!"not implemented");
+#if 0
     if (m_state != DAQState::Idle)
         return;
 
@@ -150,7 +152,7 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         {
             for (auto module: event->modules)
             {
-                emit logMessage(QString("  Event %1, Module %2").arg(event->getName()).arg(module->getName()));
+                emit logMessage(QString("  Event %1, Module %2").arg(event->getName()).arg(module->objectName()));
                 auto regs = parseRegisterList(module->initReset, module->baseAddress);
                 emit logMessages(toStringList(regs), QSL("    "));
                 auto result = vmusb->applyRegisterList(regs, 0, writeDelay_ms,
@@ -273,6 +275,7 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         catch (...)
         {}
     }
+#endif
 }
 
 void VMUSBReadoutWorker::stop()
