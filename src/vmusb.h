@@ -163,6 +163,8 @@ class VMUSB: public VMEController
         virtual int read32(u32 address, u32 *value, u8 amod) override;
         virtual int read16(u32 address, u16 *value, u8 amod) override;
 
+        virtual int bltRead(u32 address, u32 transfers, QVector<u32> *dest, u8 amod, bool fifo) override;
+
         virtual bool openFirstDevice();
         virtual void close();
         virtual ControllerState getState() const { return m_state; }

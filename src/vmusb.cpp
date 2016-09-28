@@ -1426,6 +1426,31 @@ int VMUSB::read16(u32 address, u16 *value, u8 amod)
 
 }
 
+int VMUSB::bltRead(u32 address, u32 transfers, QVector<u32> *dest, u8 amod, bool fifo)
+{
+    CVMUSBReadoutList readoutList;
+
+    if (fifo)
+        readoutList.addFifoRead32(address, amod, transfers);
+    else
+        readoutList.addBlockRead32(address, amod, transfers);
+
+    bool isMblt = (amod == CVMUSBReadoutList::a32UserBlock64
+                   || amod == CVMUSBReadoutList::a32PrivBlock64);
+
+    dest->resize(isMblt ? transfers * 2 : transfers);
+
+    size_t bytesRead = 0;
+    int result = listExecute(&readoutList, dest->data(), dest->size() * sizeof(u32), &bytesRead);
+
+    if (result >= 0)
+    {
+        dest->resize(bytesRead / sizeof(u32));
+    }
+
+    return result;
+}
+
 bool VMUSB::enterDaqMode()
 {
     qDebug() << __PRETTY_FUNCTION__;
