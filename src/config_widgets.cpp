@@ -5,6 +5,7 @@
 #include "mvme_config.h"
 #include "mvme_context.h"
 #include "vmusb.h"
+#include "vme_script.h"
 
 #include <QMenu>
 #include <QStandardPaths>
@@ -295,6 +296,21 @@ void ModuleConfigWidget::handleListTypeIndexChanged(int index)
             ui->editor->setReadOnly(m_readOnly);
             break;
     }
+
+    if (static_cast<ModuleListType>(currentType) != ModuleListType::ReadoutStack)
+    {
+        try
+        {
+            auto script = vme_script::parse(ui->editor->toPlainText());
+            for (auto cmd: script.commands)
+            {
+                qDebug() << to_string(cmd);
+            }
+        } catch (const vme_script::ParseError &e)
+        {
+            qDebug() << e.message << e.lineNumber;
+        }
+    }
 }
 
 void ModuleConfigWidget::forceClose()
@@ -460,7 +476,6 @@ void ModuleConfigWidget::execList()
             case ModuleListType::StopDAQ:
             case ModuleListType::Reset:
                 {
-
                     auto regs = parseRegisterList(listContents, m_config->baseAddress);
 
                     //emit logMessage(QString("%1.%2").arg(m_config->
