@@ -4,7 +4,6 @@
 #include <QRegularExpression>
 #include <QTextEdit>
 #include <QApplication>
-//#include <QFile>
 
 namespace vme_script
 {
@@ -76,14 +75,14 @@ Command parseRead(const QStringList &args, int lineNumber)
 
 Command parseWrite(const QStringList &args, int lineNumber)
 {
-    auto usage = QSL("write <address_mode> <data_width> <address> <value>");
+    auto usage = QString("%1 <address_mode> <data_width> <address> <value>").arg(args[0]);
 
     if (args.size() != 5)
         throw ParseError(QString("Invalid number of arguments. Usage: %1").arg(usage), lineNumber);
 
     Command result;
 
-    result.type = CommandType::Write;
+    result.type = commandType_from_string(args[0]);
     result.addressMode = parseAddressMode(args[1]);
     result.dataWidth = parseDataWidth(args[2]);
     result.address = parseAddress(args[3]);
@@ -139,19 +138,6 @@ Command parseMarker(const QStringList &args, int lineNumber)
     return result;
 }
 
-static const QMap<QString, CommandType> blockTransferTypes =
-{
-    { QSL("blt"),       CommandType::BLT },
-    { QSL("bltfifo"),   CommandType::BLTFifo },
-    { QSL("mblt"),      CommandType::MBLT },
-    { QSL("mbltfifo"),  CommandType::MBLTFifo },
-
-    { QSL("bltcount"),       CommandType::BLTCount },
-    { QSL("bltfifocount"),   CommandType::BLTFifoCount},
-    { QSL("mbltcount"),      CommandType::MBLTCount },
-    { QSL("mbltfifocount"),  CommandType::MBLTFifoCount },
-};
-
 Command parseBlockTransfer(const QStringList &args, int lineNumber)
 {
     auto usage = QString("%1 <address_mode> <address> <transfer_count>").arg(args[0]);
@@ -160,7 +146,7 @@ Command parseBlockTransfer(const QStringList &args, int lineNumber)
         throw ParseError(QString("Invalid number of arguments. Usage: %1").arg(usage), lineNumber);
 
     Command result;
-    result.type = blockTransferTypes[args[0]];
+    result.type = commandType_from_string(args[0]);
     result.addressMode = parseAddressMode(args[1]);
     result.address = parseAddress(args[2]);
     result.transfers = parseValue(args[3]);
@@ -178,13 +164,13 @@ Command parseBlockTransferCountRead(const QStringList &args, int lineNumber)
         throw ParseError(QString("Invalid number of arguments. Usage: %1").arg(usage), lineNumber);
 
     Command result;
-    result.type = blockTransferTypes[args[0]];
+    result.type = commandType_from_string(args[0]);
     result.addressMode = parseAddressMode(args[1]);
     result.dataWidth = parseDataWidth(args[2]);
     result.address = parseAddress(args[3]);
     result.countMask = parseValue(args[4]);
-    result.blockCountAddressMode = parseAddressMode(args[5]);
-    result.blockCountAddress = parseAddress(args[6]);
+    result.blockAddressMode = parseAddressMode(args[5]);
+    result.blockAddress = parseAddress(args[6]);
 
     return result;
 }
@@ -193,29 +179,61 @@ typedef Command (*CommandParser)(const QStringList &args, int lineNumber);
 
 static const QMap<QString, CommandParser> commandParsers =
 {
-    { QSL("read"), parseRead },
-    { QSL("write"), parseWrite },
-    { QSL("wait"), parseWait },
-    { QSL("marker"), parseMarker },
+    { QSL("read"),          parseRead },
+    { QSL("write"),         parseWrite },
+    { QSL("writeabs"),      parseWrite },
+    { QSL("wait"),          parseWait },
+    { QSL("marker"),        parseMarker },
 
-    { QSL("blt"), parseBlockTransfer },
-    { QSL("bltfifo"), parseBlockTransfer },
-    { QSL("mblt"), parseBlockTransfer },
-    { QSL("mbltfifo"), parseBlockTransfer },
+    { QSL("blt"),           parseBlockTransfer },
+    { QSL("bltfifo"),       parseBlockTransfer },
+    { QSL("mblt"),          parseBlockTransfer },
+    { QSL("mbltfifo"),      parseBlockTransfer },
 
-    { QSL("bltcount"), parseBlockTransferCountRead },
-    { QSL("bltfifocount"), parseBlockTransferCountRead },
-    { QSL("mbltcount"), parseBlockTransferCountRead },
+    { QSL("bltcount"),      parseBlockTransferCountRead },
+    { QSL("bltfifocount"),  parseBlockTransferCountRead },
+    { QSL("mbltcount"),     parseBlockTransferCountRead },
     { QSL("mbltfifocount"), parseBlockTransferCountRead },
 };
 
-Command parse_line(const QString &line, int lineNumber)
+Command parse_line(QString line, int lineNumber)
 {
     Command result;
+
+    int startOfComment = line.indexOf('#');
+
+    if (startOfComment >= 0)
+        line.resize(startOfComment);
+
+    line = line.trimmed();
+
+    if (line.isEmpty())
+        return result;
+
     auto parts = line.split(QRegularExpression("\\s+"), QString::SkipEmptyParts);
 
     if (parts.isEmpty())
-        throw ParseError(QSL("Empty command"));
+        throw ParseError(QSL("Empty command"), lineNumber);
+
+    if (parts.size() == 2)
+    {
+        /* Try to parse two unsigned values which is the short form of a write
+         * command. */
+        bool ok1, ok2;
+        uint32_t v1 = parts[0].toUInt(&ok1, 0);
+        uint32_t v2 = parts[1].toUInt(&ok2, 0);
+
+        if (ok1 && ok2)
+        {
+            result.type = CommandType::Write;
+            result.addressMode = AddressMode::A32;
+            result.dataWidth = DataWidth::D16;
+            result.address = v1;
+            result.value = v2;
+
+            return result;
+        }
+    }
 
     auto fn = commandParsers.value(parts[0].toLower(), nullptr);
     
@@ -251,33 +269,76 @@ VMEScript parse(QTextStream &input)
 
     while (true)
     {
-        auto line = input.readLine().simplified();
+        auto line = input.readLine();
         ++lineNumber;
 
         if (line.isNull())
             break;
 
-        if (line.startsWith('#'))
-            continue;
+        auto cmd = parse_line(line, lineNumber);
 
-        int startOfComment = line.indexOf('#');
-
-        if (startOfComment > 0)
-            line.resize(startOfComment);
-
-        if (line.isEmpty())
-            continue;
-
-        result.commands.push_back(parse_line(line, lineNumber));
+        if (cmd.type != CommandType::Invalid)
+        {
+            result.commands.push_back(parse_line(line, lineNumber));
+        }
     }
 
     return result;
 }
 
+static const QMap<CommandType, QString> commandTypeToString =
+{
+    { CommandType::Read,            QSL("read") },
+    { CommandType::Write,           QSL("write") },
+    { CommandType::WriteAbs,        QSL("writeabs") },
+    { CommandType::Wait,            QSL("wait") },
+    { CommandType::Marker,          QSL("marker") },
+    { CommandType::BLT,             QSL("blt") },
+    { CommandType::BLTFifo,         QSL("bltfifo") },
+    { CommandType::MBLT,            QSL("mblt") },
+    { CommandType::MBLTFifo,        QSL("mbltfifo") },
+    { CommandType::BLTCount,        QSL("bltcount") },
+    { CommandType::BLTFifoCount,    QSL("bltfifocount") },
+    { CommandType::MBLTCount,       QSL("mbltcount") },
+    { CommandType::MBLTFifoCount,   QSL("mbltfifocount") },
+};
+
 QString to_string(CommandType commandType)
 {
     return commandTypeToString.value(commandType, QSL("unknown"));
 }
+
+CommandType commandType_from_string(const QString &str)
+{
+    static bool reverseMapInitialized = false;
+    static QMap<QString, CommandType> stringToCommandType;
+
+    if (!reverseMapInitialized)
+    {
+        for (auto it = commandTypeToString.begin();
+             it != commandTypeToString.end();
+             ++it)
+        {
+            stringToCommandType[it.value()] = it.key();
+        }
+        reverseMapInitialized = true;
+    }
+
+    return stringToCommandType.value(str.toLower(), CommandType::Invalid);
+}
+
+static const QMap<AddressMode, QString> addressModeToString =
+{
+    { AddressMode::A16,         QSL("a16") },
+    { AddressMode::A24,         QSL("a24") },
+    { AddressMode::A32,         QSL("a32") },
+};
+
+static const QMap<DataWidth, QString> dataWidthToString =
+{
+    { DataWidth::D16,           QSL("d16") },
+    { DataWidth::D32,           QSL("d32") },
+};
 
 QString to_string(AddressMode addressMode)
 {
@@ -308,8 +369,9 @@ QString to_string(const Command &cmd)
             } break;
 
         case CommandType::Write:
+        case CommandType::WriteAbs:
             {
-                buffer = QString(QSL("%1 %2 %3 %4"))
+                buffer = QString(QSL("%1 %2 %3 %4 %5"))
                     .arg(cmdStr)
                     .arg(to_string(cmd.addressMode))
                     .arg(to_string(cmd.dataWidth))
@@ -352,8 +414,8 @@ QString to_string(const Command &cmd)
                     .arg(to_string(cmd.dataWidth))
                     .arg(format_hex(cmd.address))
                     .arg(format_hex(cmd.countMask))
-                    .arg(to_string(cmd.blockCountAddressMode))
-                    .arg(format_hex(cmd.blockCountAddress));
+                    .arg(to_string(cmd.blockAddressMode))
+                    .arg(format_hex(cmd.blockAddress));
             } break;
     }
     return buffer;
@@ -365,6 +427,38 @@ QString format_hex(uint32_t value)
         return QString("0x%1").arg(value, 8, 16, QChar('0'));
 
     return QString("0x%1").arg(value, 4, 16, QChar('0'));
+}
+
+Command add_base_address(Command cmd, uint32_t baseAddress)
+{
+    switch (cmd.type)
+    {
+        case CommandType::Invalid:
+        case CommandType::Wait:
+        case CommandType::Marker:
+        case CommandType::WriteAbs:
+            break;
+
+        case CommandType::Read:
+        case CommandType::Write:
+        case CommandType::BLT:
+        case CommandType::BLTFifo:
+        case CommandType::MBLT:
+        case CommandType::MBLTFifo:
+
+            cmd.address += baseAddress;
+            break;
+
+        case CommandType::BLTCount:
+        case CommandType::BLTFifoCount:
+        case CommandType::MBLTCount:
+        case CommandType::MBLTFifoCount:
+
+            cmd.address += baseAddress;
+            cmd.blockAddress += baseAddress;
+            break;
+    }
+    return cmd;
 }
 
 void SyntaxHighlighter::highlightBlock(const QString &text)
