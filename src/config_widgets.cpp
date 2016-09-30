@@ -50,7 +50,7 @@ void EventConfigDialog::loadFromConfig()
 {
     auto config = m_config;
 
-    ui->le_name->setText(config->getName());
+    ui->le_name->setText(config->objectName());
     ui->combo_triggerCondition->setCurrentIndex(
         static_cast<int>(config->triggerCondition));
 
@@ -64,13 +64,13 @@ void EventConfigDialog::saveToConfig()
 {
     auto config = m_config;
 
-    config->setName(ui->le_name->text());
+    config->setObjectName(ui->le_name->text());
     config->triggerCondition = static_cast<TriggerCondition>(ui->combo_triggerCondition->currentIndex());
     config->scalerReadoutPeriod = static_cast<uint8_t>(ui->spin_period->value() * 2);
     config->scalerReadoutFrequency = static_cast<uint16_t>(ui->spin_frequency->value());
     config->irqLevel = static_cast<uint8_t>(ui->spin_irqLevel->value());
     config->irqVector = static_cast<uint8_t>(ui->spin_irqVector->value());
-    config->setModified();
+    config->setModified(true);
 }
 
 void EventConfigDialog::accept()

@@ -1,72 +1,77 @@
+INCLUDEPATH += $$PWD .
+DEPENDPATH += $$PWD .
+
+
 SOURCES += \
-    config_widgets.cpp \
-    context_widget2.cpp \
-    CVMUSBReadoutList.cpp \
-    hist2d.cpp \
-    hist2ddialog.cc \
-    histogram.cpp \
-    libxxusb.cc \
-    mvme_config.cc \
-    mvme_context.cc \
-    mvme_context_widget.cc \
-    mvmecontrol.cpp \
-    mvme.cpp \
-    mvme_event_processor.cc \
-    mvme_listfile.cc \
-    scrollbar.cpp \
-    scrollzoomer.cpp \
-    twodimwidget.cpp \
-    util.cc \
-    vmecommandlist.cc \
-    vmecontroller.cpp \
-    vmedevice.cpp \
-    vme_script.cc \
-    vmusb_buffer_processor.cc \
-    vmusb_readout_worker.cc \
-    vmusb_stack.cc \
+    $$PWD/config_widgets.cpp \
+    $$PWD/context_widget2.cpp \
+    $$PWD/CVMUSBReadoutList.cpp \
+    $$PWD/hist2d.cpp \
+    $$PWD/hist2ddialog.cc \
+    $$PWD/histogram.cpp \
+    $$PWD/mvme_config.cc \
+    $$PWD/mvme_context.cc \
+    $$PWD/mvme_context_widget.cc \
+    $$PWD/mvmecontrol.cpp \
+    $$PWD/mvme.cpp \
+    $$PWD/mvme_event_processor.cc \
+    $$PWD/mvme_listfile.cc \
+    $$PWD/scrollbar.cpp \
+    $$PWD/scrollzoomer.cpp \
+    $$PWD/twodimwidget.cpp \
+    $$PWD/util.cc \
+    $$PWD/vmecommandlist.cc \
+    $$PWD/vmecontroller.cpp \
+    $$PWD/vmedevice.cpp \
+    $$PWD/vme_script.cc \
+    $$PWD/vmusb_buffer_processor.cc \
+    $$PWD/vmusb_readout_worker.cc \
+    $$PWD/vmusb_stack.cc \
+    $$PWD/daqconfig_tree.cc \
 
 
 HEADERS += \
-    config_widgets.h \
-    context_widget2.h \
-    CVMUSBReadoutList.h \
-    databuffer.h \
-    globals.h \
-    hist2ddialog.h \
-    hist2d.h \
-    histogram.h \
-    mvme_config.h \
-    mvme_context.h \
-    mvme_context_widget.h \
-    mvmecontrol.h \
-    mvmedefines.h \
-    mvme_event_processor.h \
-    mvme.h \
-    mvme_listfile.h \
-    scrollbar.h \
-    scrollzoomer.h \
-    twodimwidget.h \
-    util.h \
-    vmecommandlist.h \
-    vmecontroller.h \
-    vmedevice.h \
-    vme.h \
-    vme_script.h \
-    vmusb_buffer_processor.h \
-    vmusb_constants.h \
-    vmusb_readout_worker.h \
-    vmusb_stack.h \
+    $$PWD/config_widgets.h \
+    $$PWD/context_widget2.h \
+    $$PWD/CVMUSBReadoutList.h \
+    $$PWD/databuffer.h \
+    $$PWD/globals.h \
+    $$PWD/hist2ddialog.h \
+    $$PWD/hist2d.h \
+    $$PWD/histogram.h \
+    $$PWD/mvme_config.h \
+    $$PWD/mvme_context.h \
+    $$PWD/mvme_context_widget.h \
+    $$PWD/mvmecontrol.h \
+    $$PWD/mvmedefines.h \
+    $$PWD/mvme_event_processor.h \
+    $$PWD/mvme.h \
+    $$PWD/mvme_listfile.h \
+    $$PWD/scrollbar.h \
+    $$PWD/scrollzoomer.h \
+    $$PWD/twodimwidget.h \
+    $$PWD/util.h \
+    $$PWD/vmecommandlist.h \
+    $$PWD/vmecontroller.h \
+    $$PWD/vmedevice.h \
+    $$PWD/vme.h \
+    $$PWD/vme_script.h \
+    $$PWD/vmusb_buffer_processor.h \
+    $$PWD/vmusb_constants.h \
+    $$PWD/vmusb_readout_worker.h \
+    $$PWD/vmusb_stack.h \
+    $$PWD/daqconfig_tree.h \
 
 FORMS += \
-    context_widget2.ui \
-    event_config_dialog.ui \
-    hist2ddialog.ui \
-    hist2dwidget.ui \
-    module_config_widget.ui \
-    mvmecontrol.ui \
-    mvme.ui \
-    twodimwidget.ui \
-    vhs4030p.ui \
+    $$PWD/context_widget2.ui \
+    $$PWD/event_config_dialog.ui \
+    $$PWD/hist2ddialog.ui \
+    $$PWD/hist2dwidget.ui \
+    $$PWD/module_config_widget.ui \
+    $$PWD/mvmecontrol.ui \
+    $$PWD/mvme.ui \
+    $$PWD/twodimwidget.ui \
+    $$PWD/vhs4030p.ui \
 
 contains(DEFINES, "VME_CONTROLLER_WIENER") {
     message("Building with WIENER VM_USB support")
@@ -80,11 +85,12 @@ contains(DEFINES, "VME_CONTROLLER_WIENER") {
 
 
     HEADERS += \
-        libxxusb.h \
-        vmusb.h \
+        $$PWD/libxxusb.h \
+        $$PWD/vmusb.h \
 
     SOURCES += \
-        vmusb.cpp \
+        $$PWD/vmusb.cpp \
+        $$PWD/libxxusb.cc \
 }
 
 contains(DEFINES, "VME_CONTROLLER_CAEN") {

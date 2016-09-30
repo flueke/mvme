@@ -50,6 +50,10 @@ void ConfigObject::setEnabled(bool b)
 QString ConfigObject::getObjectPath() const
 {
     QString result;
+
+    if (objectName().isEmpty())
+        return result;
+
     auto parentConfig = qobject_cast<ConfigObject *>(parent());
 
     if (parentConfig)
@@ -66,14 +70,18 @@ void ConfigObject::read(const QJsonObject &json)
         m_id = QUuid::createUuid();
 
     setObjectName(json["name"].toString());
+    setEnabled(json["enabled"].toBool(true));
 
     read_impl(json);
+
+    setModified(false);
 }
 
 void ConfigObject::write(QJsonObject &json) const
 {
     json["id"]   = m_id.toString();
     json["name"] = objectName();
+    json["enabled"] = m_enabled;
 
     write_impl(json);
 }
@@ -90,6 +98,16 @@ void VMEScriptConfig::setScriptContents(const QString &str)
     }
 }
 
+void VMEScriptConfig::read_impl(const QJsonObject &json)
+{
+    m_script = json["vme_script"].toString();
+}
+
+void VMEScriptConfig::write_impl(QJsonObject &json) const
+{
+    json["vme_script"] = m_script;
+}
+
 //
 // ModuleConfig
 //
@@ -103,7 +121,7 @@ void ModuleConfig::updateRegisterCache()
     if (scriptConfig)
         scriptString += scriptConfig->getScriptContents();
 
-    scriptConfig = vmeScripts.value("readout", nullptr);
+    scriptConfig = vmeScripts.value("readout_settings", nullptr);
     if (scriptConfig)
         scriptString += scriptConfig->getScriptContents();
 
@@ -238,6 +256,18 @@ void ModuleConfig::read_impl(const QJsonObject &json)
 {
     type = VMEModuleShortNames.key(json["type"].toString(), VMEModuleType::Invalid);
     baseAddress = json["baseAddress"].toInt();
+
+    QJsonObject scriptsObject = json["vme_scripts"].toObject();
+
+    for (auto it = scriptsObject.begin();
+         it != scriptsObject.end();
+         ++it)
+    {
+        VMEScriptConfig *cfg(new VMEScriptConfig(this));
+        cfg->read(it.value().toObject());
+        vmeScripts[it.key()] = cfg;
+    }
+
     updateRegisterCache();
 }
 
@@ -245,6 +275,22 @@ void ModuleConfig::write_impl(QJsonObject &json) const
 {
     json["type"] = VMEModuleShortNames.value(type, "invalid");
     json["baseAddress"] = static_cast<qint64>(baseAddress);
+
+    QJsonObject scriptsObject;
+
+    for (auto it = vmeScripts.begin();
+         it != vmeScripts.end();
+         ++it)
+    {
+        QJsonObject scriptJson;
+        if (it.value())
+        {
+            it.value()->write(scriptJson);
+            scriptsObject[it.key()] = scriptJson;
+        }
+    }
+
+    json["vme_scripts"] = scriptsObject;
 }
 
 
@@ -289,26 +335,13 @@ void ModuleConfig::generateReadoutStack()
 // EventConfig
 //
 
-void EventConfig::setModified()
-{
-    auto daqConfig = qobject_cast<DAQConfig *>(parent());
-    if (daqConfig)
-    {
-        daqConfig->setModified(true);
-    }
-    emit modified();
-}
-
-void EventConfig::read(const QJsonObject &json)
+void EventConfig::read_impl(const QJsonObject &json)
 {
     qDeleteAll(modules);
     modules.clear();
+    qDeleteAll(vmeScripts.values());
+    vmeScripts.clear();
 
-    m_id = QUuid(json["id"].toString());
-    if (m_id.isNull())
-        m_id = QUuid::createUuid();
-
-    m_name = json["name"].toString();
     triggerCondition = static_cast<TriggerCondition>(json["triggerCondition"].toInt());
     irqLevel = json["irqLevel"].toInt();
     irqVector = json["irqVector"].toInt();
@@ -323,12 +356,21 @@ void EventConfig::read(const QJsonObject &json)
         moduleConfig->read(moduleObject);
         modules.append(moduleConfig);
     }
+
+    QJsonObject scriptsObject = json["vme_scripts"].toObject();
+
+    for (auto it = scriptsObject.begin();
+         it != scriptsObject.end();
+         ++it)
+    {
+        VMEScriptConfig *cfg(new VMEScriptConfig(this));
+        cfg->read(it.value().toObject());
+        vmeScripts[it.key()] = cfg;
+    }
 }
 
-void EventConfig::write(QJsonObject &json) const
+void EventConfig::write_impl(QJsonObject &json) const
 {
-    json["name"] = m_name;
-    json["id"] = m_id.toString();
     json["triggerCondition"] = static_cast<int>(triggerCondition);
     json["irqLevel"] = irqLevel;
     json["irqVector"] = irqVector;
@@ -344,25 +386,32 @@ void EventConfig::write(QJsonObject &json) const
         moduleArray.append(moduleObject);
     }
     json["modules"] = moduleArray;
+
+    QJsonObject scriptsObject;
+
+    for (auto it = vmeScripts.begin();
+         it != vmeScripts.end();
+         ++it)
+    {
+        QJsonObject scriptJson;
+        if (it.value())
+        {
+            it.value()->write(scriptJson);
+            scriptsObject[it.key()] = scriptJson;
+        }
+    }
+
+    json["vme_scripts"] = scriptsObject;
 }
 
 
 //
 // DAQConfig
 //
-void DAQConfig::setModified(bool b)
+void DAQConfig::read_impl(const QJsonObject &json)
 {
-    if (m_isModified != b)
-    {
-        m_isModified = b;
-        emit modifiedChanged(b);
-    }
-}
-
-void DAQConfig::read(const QJsonObject &json)
-{
-    qDeleteAll(m_eventConfigs);
-    m_eventConfigs.clear();
+    qDeleteAll(eventConfigs);
+    eventConfigs.clear();
 
     m_listFileOutputDirectory = json["listFileOutputDirectory"].toString();
     m_listFileOutputEnabled = json["listFileOutputEnabled"].toBool();
@@ -374,25 +423,70 @@ void DAQConfig::read(const QJsonObject &json)
         QJsonObject eventObject = eventArray[eventIndex].toObject();
         EventConfig *eventConfig = new EventConfig(this);
         eventConfig->read(eventObject);
-        m_eventConfigs.append(eventConfig);
+        eventConfigs.append(eventConfig);
+    }
+
+    QJsonObject scriptsObject = json["vme_script_lists"].toObject();
+
+    for (auto it = scriptsObject.begin();
+         it != scriptsObject.end();
+         ++it)
+    {
+        auto &list(vmeScriptLists[it.key()]);
+
+        QJsonArray scriptsArray = it.value().toArray();
+
+        for (auto arrayIter = scriptsArray.begin();
+             arrayIter != scriptsArray.end();
+             ++arrayIter)
+        {
+            VMEScriptConfig *cfg(new VMEScriptConfig(this));
+            cfg->read((*it).toObject());
+            list.push_back(cfg);
+        }
     }
 }
 
-void DAQConfig::write(QJsonObject &json) const
+void DAQConfig::write_impl(QJsonObject &json) const
 {
     json["listFileOutputDirectory"] = m_listFileOutputDirectory;
     json["listFileOutputEnabled"] = m_listFileOutputEnabled;
 
     QJsonArray eventArray;
-    for (auto event: m_eventConfigs)
+    for (auto event: eventConfigs)
     {
         QJsonObject eventObject;
         event->write(eventObject);
         eventArray.append(eventObject);
     }
     json["events"] = eventArray;
+
+    QJsonObject scriptsObject;
+
+    for (auto mapIter = vmeScriptLists.begin();
+         mapIter != vmeScriptLists.end();
+         ++mapIter)
+    {
+        const auto list(mapIter.value());
+
+        QJsonArray scriptsArray;
+
+        for (auto listIter = list.begin();
+             listIter != list.end();
+             ++listIter)
+        {
+            QJsonObject scriptsObject;
+            (*listIter)->write(scriptsObject);
+            scriptsArray.append(scriptsObject);
+        }
+
+        scriptsObject[mapIter.key()] = scriptsArray;
+    }
+
+    json["vme_script_lists"] = scriptsObject;
 }
 
+#if 0
 QByteArray DAQConfig::toJson() const
 {
     QJsonObject configObject;
@@ -400,11 +494,12 @@ QByteArray DAQConfig::toJson() const
     QJsonDocument doc(configObject);
     return doc.toJson();
 }
+#endif
 
 ModuleConfig *DAQConfig::getModuleConfig(int eventIndex, int moduleIndex)
 {
     ModuleConfig *result = 0;
-    auto eventConfig = m_eventConfigs.value(eventIndex);
+    auto eventConfig = eventConfigs.value(eventIndex);
 
     if (eventConfig)
     {
@@ -416,9 +511,9 @@ ModuleConfig *DAQConfig::getModuleConfig(int eventIndex, int moduleIndex)
 
 EventConfig *DAQConfig::getEventConfig(const QString &name) const
 {
-    for (auto cfg: m_eventConfigs)
+    for (auto cfg: eventConfigs)
     {
-        if (cfg->getName() == name)
+        if (cfg->objectName() == name)
             return cfg;
     }
     return nullptr;
@@ -428,7 +523,7 @@ QVector<ModuleConfig *> DAQConfig::getAllModuleConfigs() const
 {
     QVector<ModuleConfig *> result;
 
-    for (auto eventConfig: m_eventConfigs)
+    for (auto eventConfig: eventConfigs)
     {
         for (auto moduleConfig: eventConfig->modules)
         {

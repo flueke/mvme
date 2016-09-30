@@ -17,6 +17,7 @@ class EventConfig;
 class ModuleConfig;
 class MVMEContextWidget;
 class DAQConfig;
+class DAQConfigTreeWidget;
 
 class QMdiSubWindow;
 class QThread;
@@ -96,6 +97,7 @@ private slots:
     QTextBrowser *m_logView;
     QMdiSubWindow *m_logViewSubwin;
     QMap<QObject *, QMdiSubWindow *> m_configWindows;
+    DAQConfigTreeWidget *m_daqConfigTreeWidget;
 };
 
 #endif // MVME_H

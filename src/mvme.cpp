@@ -11,6 +11,7 @@
 #include "config_widgets.h"
 #include "mvme_listfile.h"
 #include "mvmecontrol.h"
+#include "daqconfig_tree.h"
 
 #include <QDockWidget>
 #include <QFileDialog>
@@ -118,6 +119,25 @@ mvme::mvme(QWidget *parent) :
     contextDock->setWidget(contextWidget);
     addDockWidget(Qt::LeftDockWidgetArea, contextDock);
 
+
+    //
+    // DAQConfigTreeWidget
+    //
+    m_daqConfigTreeWidget = new DAQConfigTreeWidget;
+
+    {
+        auto dock = new QDockWidget(QSL("VME Configuration"), this);
+        dock->setObjectName("DAQConfigTreeWidgetDock");
+        dock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
+        dock->setWidget(m_daqConfigTreeWidget);
+        addDockWidget(Qt::LeftDockWidgetArea, dock);
+
+        connect(m_context, &MVMEContext::configChanged, m_daqConfigTreeWidget, &DAQConfigTreeWidget::setConfig);
+    }
+
+    //
+    // Log Window
+    //
     m_logView->setWindowTitle("Log Window");
     QFont font("MonoSpace");
     font.setStyleHint(QFont::Monospace);

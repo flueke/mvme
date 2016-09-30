@@ -1,0 +1,11 @@
+<!DOCTYPE RCC><RCC version="1.0">
+<qresource>
+    <!-- icons -->
+    <file alias="vme_script.png">resources/text-x-generic.png</file>
+    <file alias="config_category.png">resources/package-x-generic.png</file>
+    <file alias="vme_module.png">resources/audio-card.png</file>
+</qresource>
+</RCC>
+<!-- vim:ft=xml
+     -->
+

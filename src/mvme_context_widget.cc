@@ -109,7 +109,7 @@ struct AddModuleDialog: public QDialog
             if (isMesytecModule(module->type))
             {
                 // load template files
-                Q_ASSERT(!"not implemented");
+                //Q_ASSERT(!"not implemented"); TODO: implement this
 #if 0
                 module->initReset       = readStringFile(templatePath + "/mesytec_reset.init");
                 module->initReadout     = readStringFile(templatePath + "/mesytec_init_readout.init");
@@ -123,7 +123,7 @@ struct AddModuleDialog: public QDialog
                 .arg(templatePath)
                 .arg(shortname);
             context->logMessage(QString("Using %1").arg(paramsFilename));
-            Q_ASSERT(!"not implemented");
+            //Q_ASSERT(!"not implemented");
 #if 0
             module->initParameters  = readStringFile(paramsFilename);
             module->generateReadoutStack();
@@ -467,19 +467,19 @@ void MVMEContextWidget::onEventConfigAdded(EventConfig *eventConfig)
             case TriggerCondition::Interrupt:
                 {
                     text = QString("%1 (IRQ, lvl=%2, vec=%3)")
-                        .arg(eventConfig->getName())
+                        .arg(eventConfig->objectName())
                         .arg(eventConfig->irqLevel)
                         .arg(eventConfig->irqVector);
                 } break;
             case TriggerCondition::NIM1:
                 {
                     text = QString("%1 (NIM)")
-                        .arg(eventConfig->getName());
+                        .arg(eventConfig->objectName());
                 } break;
             case TriggerCondition::Periodic:
                 {
                     text = QString("%1 (Periodic)")
-                        .arg(eventConfig->getName());
+                        .arg(eventConfig->objectName());
                 } break;
         }
 
@@ -495,7 +495,7 @@ void MVMEContextWidget::onEventConfigAdded(EventConfig *eventConfig)
     updateTreeItem();
     m_d->contextTree->addTopLevelItem(item);
 
-    connect(eventConfig, &EventConfig::modified, eventConfig, updateTreeItem);
+    connect(eventConfig, &ConfigObject::modifiedChanged, eventConfig, updateTreeItem);
 
     m_d->contextTree->resizeColumnToContents(0);
 }
@@ -574,7 +574,7 @@ void MVMEContextWidget::treeContextMenu(const QPoint &pos)
     if (action == actionAddEvent)
     {
         auto config = new EventConfig;
-        config->setName(QString("event%1").arg(m_d->context->getEventConfigs().size()));
+        config->setObjectName(QString("event%1").arg(m_d->context->getEventConfigs().size()));
         EventConfigDialog dialog(m_d->context, config);
         int result = dialog.exec();
         if (result == QDialog::Accepted)

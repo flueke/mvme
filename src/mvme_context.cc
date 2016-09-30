@@ -99,8 +99,7 @@ void MVMEContext::setConfig(DAQConfig *config)
 void MVMEContext::addModule(EventConfig *eventConfig, ModuleConfig *module)
 {
     module->setParent(eventConfig);
-    eventConfig->modules.push_back(module);
-    eventConfig->setModified();
+    eventConfig->addModuleConfig(module);
     emit moduleAdded(eventConfig, module);
 
     if (!getHistogramCollection(module))
@@ -153,7 +152,7 @@ void MVMEContext::removeModule(ModuleConfig *module)
 {
     for (EventConfig *event: m_config->getEventConfigs())
     {
-        if (event->modules.removeOne(module))
+        if (event->removeModuleConfig(module))
         {
             emit moduleAboutToBeRemoved(module);
 
@@ -165,7 +164,6 @@ void MVMEContext::removeModule(ModuleConfig *module)
             }
 
             delete module;
-            event->setModified();
             break;
         }
     }

@@ -57,7 +57,7 @@ Hist2DDialog::Hist2DDialog(MVMEContext *context, Hist2D *histo, QWidget *parent)
 
     for (auto eventConfig: eventConfigs)
     {
-        eventNames << eventConfig->getName();
+        eventNames << eventConfig->objectName();
     }
 
     ui->eventX->addItems(eventNames);
