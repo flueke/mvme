@@ -99,4 +99,21 @@ class VHS4030pWidget: public QDialog
 };
 #endif
 
+class QComboBox;
+class QLineEdit;
+
+class AddModuleDialog: public QDialog
+{
+    public:
+        AddModuleDialog(MVMEContext *context, EventConfig *parentConfig, QWidget *parent = 0);
+        virtual void accept();
+
+    private:
+        QComboBox *typeCombo;
+        QLineEdit *nameEdit;
+        QLineEdit *addressEdit;
+        MVMEContext *context;
+        EventConfig *parentConfig;
+};
+
 #endif /* __CONFIG_WIDGETS_H__ */

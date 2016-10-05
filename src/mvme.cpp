@@ -123,7 +123,7 @@ mvme::mvme(QWidget *parent) :
     //
     // DAQConfigTreeWidget
     //
-    m_daqConfigTreeWidget = new DAQConfigTreeWidget;
+    m_daqConfigTreeWidget = new DAQConfigTreeWidget(m_context);
 
     {
         auto dock = new QDockWidget(QSL("VME Configuration"), this);

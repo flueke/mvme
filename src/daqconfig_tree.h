@@ -12,21 +12,23 @@ class DAQConfig;
 class EventConfig;
 class ModuleConfig;
 class VMEScriptConfig;
+class MVMEContext;
+
+class EventNode;
 
 class DAQConfigTreeWidget: public QWidget
 {
     Q_OBJECT
     public:
-        DAQConfigTreeWidget(QWidget *parent = 0);
+        DAQConfigTreeWidget(MVMEContext *context, QWidget *parent = 0);
 
         void setConfig(DAQConfig *cfg);
         DAQConfig *getConfig() const;
 
     private:
-        void addScriptNodes(TreeNode *parent, QList<VMEScriptConfig *> scripts, bool canDisable = false);
-        void addEventNodes(TreeNode *parent, QList<EventConfig *> events);
+        TreeNode *addScriptNode(TreeNode *parent, VMEScriptConfig *script, bool canDisable = false);
         TreeNode *addEventNode(TreeNode *parent, EventConfig *event);
-        TreeNode *addModuleNode(TreeNode *parent, ModuleConfig *module);
+        TreeNode *addModuleNodes(EventNode *parent, ModuleConfig *module);
 
         void onItemClicked(QTreeWidgetItem *item, int column);
         void onItemDoubleClicked(QTreeWidgetItem *item, int column);
@@ -40,10 +42,25 @@ class DAQConfigTreeWidget: public QWidget
         void onModuleAdded(ModuleConfig *config);
         void onModuleAboutToBeRemoved(ModuleConfig *config);
 
+        void onScriptAdded(VMEScriptConfig *script, const QString &category);
+        void onScriptAboutToBeRemoved(VMEScriptConfig *script);
+
+        // context menu action implementations
+        void addEvent();
+        void removeEvent();
+        void addModule();
+        void removeModule();
+        void addGlobalScript();
+        void removeGlobalScript();
+        void runScripts();
+
+        MVMEContext *m_context = nullptr;
         DAQConfig *m_config = nullptr;
         QTreeWidget *m_tree;
+        // Maps config objects to tree nodes
         QMap<QObject *, TreeNode *> m_treeMap;
-        TreeNode *m_nodeEvents, *m_nodeManual, *m_nodeStart, *m_nodeEnd,
+
+        TreeNode *m_nodeEvents, *m_nodeManual, *m_nodeStart, *m_nodeStop,
                  *m_nodeScripts;
 };
 

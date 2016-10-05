@@ -36,6 +36,7 @@ int main(int argc, char *argv[])
     //
     // test
     //
+#if 0
     DAQConfig *config = new DAQConfig;
 
     {
@@ -184,7 +185,7 @@ int main(int argc, char *argv[])
         config->eventConfigs.push_back(event);
     }
 
-    DAQConfigTreeWidget configTreeWidget;
+    DAQConfigTreeWidget configTreeWidget(w.getContext());
     configTreeWidget.setConfig(config);
     configTreeWidget.resize(800, 600);
     configTreeWidget.show();
@@ -200,6 +201,9 @@ int main(int argc, char *argv[])
     dbg << doc.toJson();
 
     delete config;
+#endif
+
+    int ret = a.exec();
 
     return ret;
 }

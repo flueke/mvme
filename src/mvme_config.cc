@@ -4,6 +4,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <QDebug>
 
 //
 // ConfigObject
@@ -42,6 +43,7 @@ void ConfigObject::setEnabled(bool b)
 {
     if (m_enabled != b)
     {
+        qDebug() << __PRETTY_FUNCTION__ << b;
         m_enabled = b;
         emit enabledChanged(b);
     }
@@ -111,6 +113,14 @@ void VMEScriptConfig::write_impl(QJsonObject &json) const
 //
 // ModuleConfig
 //
+ModuleConfig::ModuleConfig(QObject *parent)
+    : ConfigObject(parent)
+{
+    vmeScripts["parameters"] = new VMEScriptConfig(this);
+    vmeScripts["readout_settings"] = new VMEScriptConfig(this);
+    vmeScripts["readout"] = new VMEScriptConfig(this);
+}
+
 void ModuleConfig::updateRegisterCache()
 {
     m_registerCache.clear();
@@ -335,6 +345,15 @@ void ModuleConfig::generateReadoutStack()
 // EventConfig
 //
 
+EventConfig::EventConfig(QObject *parent)
+    : ConfigObject(parent)
+{
+    vmeScripts["daq_start"] = new VMEScriptConfig(this);
+    vmeScripts["daq_stop"] = new VMEScriptConfig(this);
+    vmeScripts["readout_start"] = new VMEScriptConfig(this);
+    vmeScripts["readout_end"] = new VMEScriptConfig(this);
+}
+
 void EventConfig::read_impl(const QJsonObject &json)
 {
     qDeleteAll(modules);
@@ -441,7 +460,7 @@ void DAQConfig::read_impl(const QJsonObject &json)
              ++arrayIter)
         {
             VMEScriptConfig *cfg(new VMEScriptConfig(this));
-            cfg->read((*it).toObject());
+            cfg->read((*arrayIter).toObject());
             list.push_back(cfg);
         }
     }

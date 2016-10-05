@@ -67,7 +67,7 @@ class ModuleConfig: public ConfigObject
 {
     Q_OBJECT
     public:
-        using ConfigObject::ConfigObject;
+        ModuleConfig(QObject *parent = 0);
 
         int getNumberOfChannels() const;
         int getDataBits() const;
@@ -98,12 +98,11 @@ class EventConfig: public ConfigObject
     void moduleAboutToBeRemoved(ModuleConfig *module);
 
     public:
-        using ConfigObject::ConfigObject;
-
-        ~EventConfig() { qDeleteAll(modules); }
+        EventConfig(QObject *parent = nullptr);
 
         void addModuleConfig(ModuleConfig *config)
         {
+            config->setParent(this);
             modules.push_back(config);
             emit moduleAdded(config);
             setModified();
@@ -131,7 +130,7 @@ class EventConfig: public ConfigObject
 
         QList<ModuleConfig *> modules;
         /** Known keys for an event:
-         * "daq_start", "daq_end", "readout_start", "readout_end"
+         * "daq_start", "daq_stop", "readout_start", "readout_end"
          */
         QMap<QString, VMEScriptConfig *> vmeScripts;
 
@@ -152,16 +151,15 @@ class DAQConfig: public ConfigObject
         void eventAdded(EventConfig *config);
         void eventAboutToBeRemoved(EventConfig *config);
 
-        void vmeScriptAdded(const QString &category, VMEScriptConfig *config);
-        void vmeScriptAboutToBeRemoved(VMEScriptConfig &config);
+        void globalScriptAdded(VMEScriptConfig *config, const QString &category);
+        void globalScriptAboutToBeRemoved(VMEScriptConfig *config);
 
     public:
         using ConfigObject::ConfigObject;
 
-        ~DAQConfig() { qDeleteAll(eventConfigs); }
-
         void addEventConfig(EventConfig *config)
         {
+            config->setParent(this);
             eventConfigs.push_back(config);
             emit eventAdded(config);
             setModified();
@@ -182,6 +180,29 @@ class DAQConfig: public ConfigObject
         bool contains(EventConfig *config)
         {
             return eventConfigs.indexOf(config) >= 0;
+        }
+
+        void addGlobalScript(VMEScriptConfig *config, const QString &category)
+        {
+            config->setParent(this);
+            vmeScriptLists[category].push_back(config);
+            emit globalScriptAdded(config, category);
+            setModified();
+        }
+
+        bool removeGlobalScript(VMEScriptConfig *config)
+        {
+            for (auto category: vmeScriptLists.keys())
+            {
+                if (vmeScriptLists[category].removeOne(config))
+                {
+                    emit globalScriptAboutToBeRemoved(config);
+                    setModified();
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         QList<EventConfig *> getEventConfigs() const { return eventConfigs; }
@@ -221,7 +242,7 @@ class DAQConfig: public ConfigObject
         }
 
         /** Known keys for a DAQConfig:
-         * "daq_start", "daq_end", "manual"
+         * "daq_start", "daq_stop", "manual"
          */
         QMap<QString, QList<VMEScriptConfig *>> vmeScriptLists;
         QList<EventConfig *> eventConfigs;
