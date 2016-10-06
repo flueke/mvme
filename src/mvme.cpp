@@ -471,7 +471,14 @@ bool mvme::on_actionSaveConfig_triggered()
         return false;
     }
 
-    m_context->getConfig()->setModified(false);
+    auto config = m_context->getConfig();
+    config->setModified(false);
+    auto configObjects = config->findChildren<ConfigObject *>();
+    for (auto obj: configObjects)
+    {
+        obj->setModified(false);
+    }
+
     updateWindowTitle();
     return true;
 }

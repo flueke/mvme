@@ -6,6 +6,7 @@
 #include <QHBoxLayout>
 #include <QDebug>
 #include <QMenu>
+#include <QStyledItemDelegate>
 
 enum NodeType
 {
@@ -19,7 +20,6 @@ enum DataRole
 {
     DataRole_Pointer = Qt::UserRole,
     DataRole_ScriptCategory,
-    DataRole_CanDisableChildScripts
 };
 
 class TreeNode: public QTreeWidgetItem
@@ -50,6 +50,17 @@ class ModuleNode: public TreeNode
         TreeNode *readoutNode = nullptr;
 };
 
+// Solution to only allow editing of certain columns while still using the QTreeWidget.
+// Source: http://stackoverflow.com/a/4657065
+class NoEditDelegate: public QStyledItemDelegate
+{
+    public:
+        NoEditDelegate(QObject* parent=0): QStyledItemDelegate(parent) {}
+        virtual QWidget* createEditor(QWidget *parent, const QStyleOptionViewItem &option, const QModelIndex &index) const {
+            return 0;
+        }
+};
+
 DAQConfigTreeWidget::DAQConfigTreeWidget(MVMEContext *context, QWidget *parent)
     : QWidget(parent)
     , m_context(context)
@@ -64,6 +75,8 @@ DAQConfigTreeWidget::DAQConfigTreeWidget(MVMEContext *context, QWidget *parent)
     m_tree->setExpandsOnDoubleClick(false);
     m_tree->setContextMenuPolicy(Qt::CustomContextMenu);
     m_tree->setIndentation(10);
+    m_tree->setItemDelegateForColumn(1, new NoEditDelegate(this));
+    m_tree->setEditTriggers(QAbstractItemView::EditKeyPressed);
 
     auto headerItem = m_tree->headerItem();
     headerItem->setText(0, QSL("Object"));
@@ -75,15 +88,12 @@ DAQConfigTreeWidget::DAQConfigTreeWidget(MVMEContext *context, QWidget *parent)
 
     m_nodeStart->setText(0, QSL("DAQ Start"));
     m_nodeStart->setData(0, DataRole_ScriptCategory, "daq_start");
-    m_nodeStart->setData(0, DataRole_CanDisableChildScripts, true);
 
     m_nodeStop->setText(0, QSL("DAQ Stop"));
     m_nodeStop->setData(0, DataRole_ScriptCategory, "daq_stop");
-    m_nodeStop->setData(0, DataRole_CanDisableChildScripts, true);
 
     m_nodeManual->setText(0,  QSL("Manual"));
     m_nodeManual->setData(0,  DataRole_ScriptCategory, "manual");
-    m_nodeManual->setData(0,  DataRole_CanDisableChildScripts, false);
 
     m_tree->addTopLevelItem(m_nodeEvents);
     m_tree->addTopLevelItem(m_nodeScripts);
@@ -111,13 +121,11 @@ DAQConfigTreeWidget::DAQConfigTreeWidget(MVMEContext *context, QWidget *parent)
 
 void DAQConfigTreeWidget::setConfig(DAQConfig *cfg)
 {
-    qDebug() << __PRETTY_FUNCTION__ << "deleting" << m_treeMap.size() << "nodes";
-    for (auto it=m_treeMap.begin(); it!=m_treeMap.end(); ++it)
-    {
-        qDebug() << "\t" << &(it.key()) << it.value();
-    }
+    qDeleteAll(m_nodeManual->takeChildren());
+    qDeleteAll(m_nodeStart->takeChildren());
+    qDeleteAll(m_nodeStop->takeChildren());
+    qDeleteAll(m_nodeEvents->takeChildren());
 
-    qDeleteAll(m_treeMap.values());
     m_treeMap.clear();
 
     m_config = cfg;
@@ -159,6 +167,7 @@ TreeNode *DAQConfigTreeWidget::addScriptNode(TreeNode *parent, VMEScriptConfig* 
     node->setData(0, DataRole_Pointer, Ptr2Var(script));
     node->setText(0, script->objectName());
     node->setIcon(0, QIcon(":/vme_script.png"));
+    node->setFlags(node->flags() | Qt::ItemIsEditable);
     if (canDisable)
     {
         node->setCheckState(0, script->isEnabled() ? Qt::Checked : Qt::Unchecked);
@@ -175,6 +184,7 @@ TreeNode *DAQConfigTreeWidget::addEventNode(TreeNode *parent, EventConfig *event
     eventNode->setData(0, DataRole_Pointer, Ptr2Var(event));
     eventNode->setText(0, event->objectName());
     eventNode->setCheckState(0, Qt::Checked);
+    eventNode->setFlags(eventNode->flags() | Qt::ItemIsEditable);
     m_treeMap[event] = eventNode;
     parent->addChild(eventNode);
 
@@ -243,6 +253,7 @@ TreeNode *DAQConfigTreeWidget::addModuleNodes(EventNode *parent, ModuleConfig *m
     moduleNode->setText(0, module->objectName());
     moduleNode->setCheckState(0, Qt::Checked);
     moduleNode->setIcon(0, QIcon(":/vme_module.png"));
+    moduleNode->setFlags(moduleNode->flags() | Qt::ItemIsEditable);
     m_treeMap[module] = moduleNode;
     parent->modulesNode->addChild(moduleNode);
 
@@ -269,29 +280,25 @@ TreeNode *DAQConfigTreeWidget::addModuleNodes(EventNode *parent, ModuleConfig *m
 
 void DAQConfigTreeWidget::onItemClicked(QTreeWidgetItem *item, int column)
 {
-    qDebug() << "clicked" << item << Var2Ptr<QObject>(item->data(0, DataRole_Pointer)) << column;
+    //qDebug() << "clicked" << item << Var2Ptr<QObject>(item->data(0, DataRole_Pointer)) << column;
 }
 
 void DAQConfigTreeWidget::onItemDoubleClicked(QTreeWidgetItem *item, int column)
 {
-    qDebug() << "doubleClicked" << item << Var2Ptr<QObject>(item->data(0, DataRole_Pointer)) << column;
+    //qDebug() << "doubleClicked" << item << Var2Ptr<QObject>(item->data(0, DataRole_Pointer)) << column;
 }
 
 void DAQConfigTreeWidget::onItemChanged(QTreeWidgetItem *item, int column)
 {
-    qDebug() << "changed" << item << Var2Ptr<QObject>(item->data(0, DataRole_Pointer)) << column;
+    auto obj = Var2Ptr<ConfigObject>(item->data(0, DataRole_Pointer));
 
-    switch (item->type())
+    if (obj)
     {
-        case NodeType_GlobalScript:
-            {
-                auto obj = Var2Ptr<ConfigObject>(item->data(0, DataRole_Pointer));
-                if (item->flags() & Qt::ItemIsUserCheckable)
-                {
-                    obj->setEnabled(item->checkState(0) != Qt::Unchecked);
-                    obj->setObjectName(item->text(0));
-                }
-            } break;
+        if (item->flags() & Qt::ItemIsUserCheckable)
+            obj->setEnabled(item->checkState(0) != Qt::Unchecked);
+
+        obj->setObjectName(item->text(0));
+        m_tree->resizeColumnToContents(0);
     }
 }
 
@@ -303,8 +310,6 @@ void DAQConfigTreeWidget::onItemExpanded(QTreeWidgetItem *item)
 void DAQConfigTreeWidget::treeContextMenu(const QPoint &pos)
 {
     auto node = m_tree->itemAt(pos);
-
-    qDebug() << "context menu for" << node;
 
     QMenu menu;
 
@@ -319,6 +324,7 @@ void DAQConfigTreeWidget::treeContextMenu(const QPoint &pos)
     if (node->type() == NodeType_Event)
     {
         menu.addAction(QSL("Add Module"), this, &DAQConfigTreeWidget::addModule);
+        menu.addAction(QSL("Rename Event"), this, &DAQConfigTreeWidget::editName);
         menu.addSeparator();
         menu.addAction(QSL("Remove Event"), this, &DAQConfigTreeWidget::removeEvent);
     }
@@ -330,6 +336,8 @@ void DAQConfigTreeWidget::treeContextMenu(const QPoint &pos)
 
     if (node->type() == NodeType_Module)
     {
+        menu.addAction(QSL("Rename Module"), this, &DAQConfigTreeWidget::editName);
+        menu.addSeparator();
         menu.addAction(QSL("Remove Module"), this, &DAQConfigTreeWidget::removeModule);
     }
 
@@ -349,6 +357,7 @@ void DAQConfigTreeWidget::treeContextMenu(const QPoint &pos)
     if (parent == m_nodeStart || parent == m_nodeStop || parent == m_nodeManual)
     {
         menu.addAction(QSL("Run Script"), this, &DAQConfigTreeWidget::runScripts);
+        menu.addAction(QSL("Rename Script"), this, &DAQConfigTreeWidget::editName);
         menu.addSeparator();
         menu.addAction(QSL("Remove Script"), this, &DAQConfigTreeWidget::removeGlobalScript);
     }
@@ -381,6 +390,12 @@ void DAQConfigTreeWidget::onModuleAdded(ModuleConfig *config)
 {
     auto eventNode = static_cast<EventNode *>(m_treeMap[config->parent()]);
     addModuleNodes(eventNode, config);
+
+    connect(config, &ModuleConfig::objectNameChanged, this, [this, config](const QString &name) {
+        auto moduleNode = static_cast<ModuleNode *>(m_treeMap[config]);
+        if (moduleNode)
+            moduleNode->readoutNode->setText(0, name);
+    });
 }
 
 void DAQConfigTreeWidget::onModuleAboutToBeRemoved(ModuleConfig *config)
@@ -408,6 +423,7 @@ void DAQConfigTreeWidget::onScriptAdded(VMEScriptConfig *script, const QString &
     if (parentNode)
     {
         addScriptNode(parentNode, script, canDisable);
+        m_tree->resizeColumnToContents(0);
     }
 }
 
@@ -429,6 +445,9 @@ void DAQConfigTreeWidget::addEvent()
     if (result == QDialog::Accepted)
     {
         m_config->addEventConfig(config);
+        auto node = m_treeMap.value(config, nullptr);
+        if (node)
+            node->setExpanded(true);
     }
     else
     {
@@ -460,8 +479,14 @@ void DAQConfigTreeWidget::addModule()
     if (node)
     {
         auto event = Var2Ptr<EventConfig>(node->data(0, DataRole_Pointer));
+        bool doExpand = (event->modules.size() == 0);
         AddModuleDialog dialog(m_context, event);
-        dialog.exec();
+        int result = dialog.exec();
+
+        if (result == QDialog::Accepted && doExpand)
+        {
+            static_cast<EventNode *>(node)->modulesNode->setExpanded(true);
+        }
     }
 }
 
@@ -491,9 +516,18 @@ void DAQConfigTreeWidget::addGlobalScript()
     auto node = m_tree->currentItem();
     auto category = node->data(0, DataRole_ScriptCategory).toString();
     auto script = new VMEScriptConfig;
-    script->setObjectName("vme script");
-    qDebug() << __PRETTY_FUNCTION__ << script << category;
+
+    script->setObjectName("new vme script");
+    bool doExpand = (node->childCount() == 0);
     m_config->addGlobalScript(script, category);
+    if (doExpand)
+        node->setExpanded(true);
+
+    auto scriptNode = m_treeMap.value(script, nullptr);
+    if (scriptNode)
+    {
+        m_tree->editItem(scriptNode, 0);
+    }
 }
 
 void DAQConfigTreeWidget::removeGlobalScript()
@@ -508,4 +542,9 @@ void DAQConfigTreeWidget::runScripts()
     auto node = m_tree->currentItem();
 
     qDebug() << __PRETTY_FUNCTION__ << node;
+}
+
+void DAQConfigTreeWidget::editName()
+{
+    m_tree->editItem(m_tree->currentItem(), 0);
 }

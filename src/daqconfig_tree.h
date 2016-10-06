@@ -53,6 +53,7 @@ class DAQConfigTreeWidget: public QWidget
         void addGlobalScript();
         void removeGlobalScript();
         void runScripts();
+        void editName();
 
         MVMEContext *m_context = nullptr;
         DAQConfig *m_config = nullptr;

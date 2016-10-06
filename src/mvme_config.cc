@@ -34,7 +34,9 @@ void ConfigObject::setModified(bool b)
             auto parentConfig = qobject_cast<ConfigObject *>(parent());
 
             if (parentConfig)
+            {
                 parentConfig->setModified(true);
+            }
         }
     }
 }
@@ -51,17 +53,23 @@ void ConfigObject::setEnabled(bool b)
 
 QString ConfigObject::getObjectPath() const
 {
-    QString result;
-
     if (objectName().isEmpty())
-        return result;
+        return QString();
 
     auto parentConfig = qobject_cast<ConfigObject *>(parent());
 
-    if (parentConfig)
-        result = parentConfig->getObjectPath() + QChar('.');
+    if (!parentConfig)
+        return objectName();
+
+    auto result = parentConfig->getObjectPath();
+
+    if (!result.isEmpty())
+        result += QChar('.');
 
     result += objectName();
+
+    qDebug() << __PRETTY_FUNCTION__ << this << result;
+
     return result;
 }
 
@@ -504,16 +512,6 @@ void DAQConfig::write_impl(QJsonObject &json) const
 
     json["vme_script_lists"] = scriptsObject;
 }
-
-#if 0
-QByteArray DAQConfig::toJson() const
-{
-    QJsonObject configObject;
-    write(configObject);
-    QJsonDocument doc(configObject);
-    return doc.toJson();
-}
-#endif
 
 ModuleConfig *DAQConfig::getModuleConfig(int eventIndex, int moduleIndex)
 {
