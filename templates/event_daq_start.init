@@ -1,0 +1,6 @@
+# Start acquisition sequence using the default multicast address 0xbb
+writeabs a32 d16 0xbb00603a      0   # stop acq
+writeabs a32 d16 0xbb006090      3   # reset CTRA and CTRB
+writeabs a32 d16 0xbb00603c      1   # FIFO reset
+writeabs a32 d16 0xbb00603a      1   # start acq
+writeabs a32 d16 0xbb006034      1   # readout reset
