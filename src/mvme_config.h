@@ -7,13 +7,13 @@
 #include <QUuid>
 
 class QJsonObject;
-class EventConfig;
 
 class ConfigObject: public QObject
 {
     Q_OBJECT
     signals:
         void modifiedChanged(bool);
+        void modified(bool);
         void enabledChanged(bool);
 
     public:

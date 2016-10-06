@@ -24,6 +24,7 @@ ConfigObject::ConfigObject(QObject *parent)
 
 void ConfigObject::setModified(bool b)
 {
+    emit modified(b);
     if (m_modified != b)
     {
         m_modified = b;
@@ -125,8 +126,13 @@ ModuleConfig::ModuleConfig(QObject *parent)
     : ConfigObject(parent)
 {
     vmeScripts["parameters"] = new VMEScriptConfig(this);
+    vmeScripts["parameters"]->setObjectName("Module Init");
+
     vmeScripts["readout_settings"] = new VMEScriptConfig(this);
+    vmeScripts["readout_settings"]->setObjectName("VME Interface Settings");
+
     vmeScripts["readout"] = new VMEScriptConfig(this);
+    vmeScripts["readout"]->setObjectName("Readout");
 }
 
 void ModuleConfig::updateRegisterCache()

@@ -1,8 +1,10 @@
 #include "util.h"
+#include <QCloseEvent>
+#include <QCoreApplication>
+#include <QDir>
+#include <QFile>
 #include <QtDebug>
 #include <QTextStream>
-#include <QFile>
-#include <QCloseEvent>
 
 void debugOutputBuffer(u32 *dataBuffer, u32 bufferCount)
 {
@@ -173,4 +175,51 @@ void MVMEWidget::closeEvent(QCloseEvent *event)
 {
     event->accept();
     emit aboutToClose();
+}
+
+QString TemplateLoader::getTemplatePath()
+{
+    if (m_templatePath.isEmpty())
+    {
+        QStringList templatePaths;
+        templatePaths << QDir::currentPath() + "/templates";
+        templatePaths << QCoreApplication::applicationDirPath() + "/templates";
+
+        for (auto testPath: templatePaths)
+        {
+            if (QFileInfo(testPath).exists())
+            {
+                m_templatePath = testPath;
+                emit logMessage(QString("Found template path \"%1\"").arg(m_templatePath));
+                break;
+            }
+        }
+
+        if (m_templatePath.isEmpty())
+        {
+            emit logMessage(QSL("No template path found. Tried ") + templatePaths.join(", "));
+        }
+    }
+    return m_templatePath;
+}
+
+QString TemplateLoader::readTemplate(const QString &name)
+{
+    auto templatePath = getTemplatePath();
+    if (templatePath.isEmpty())
+        return QString();
+
+    auto filePath = templatePath + '/' + name;
+
+    QFileInfo fi(filePath);
+
+    if (!fi.exists() || !fi.isReadable())
+    {
+        emit logMessage(QString("Could not read template file %1").arg(name));
+        return QString();
+    }
+
+    emit logMessage(QString("Reading template file %1").arg(name));
+
+    return readStringFile(filePath);
 }

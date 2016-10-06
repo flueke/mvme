@@ -745,11 +745,12 @@ AddModuleDialog::AddModuleDialog(MVMEContext *context, EventConfig *parentConfig
 void AddModuleDialog::accept()
 {
     bool ok;
-    auto module = new ModuleConfig;
+    module = new ModuleConfig;
     module->type = static_cast<VMEModuleType>(typeCombo->currentData().toInt());
     module->setObjectName(nameEdit->text());
     module->baseAddress = addressEdit->text().toUInt(&ok, 16);
 
+#if 0
     // TODO: This is duplicated in ModuleConfigDialog::loadFromTemplate(). Compress this!
     QStringList templatePaths;
     templatePaths << QDir::currentPath() + "/templates";
@@ -799,5 +800,6 @@ void AddModuleDialog::accept()
     }
 
     context->addModule(parentConfig, module);
+#endif
     QDialog::accept();
 }

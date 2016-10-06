@@ -113,7 +113,7 @@ mvme::mvme(QWidget *parent) :
 
     connect(m_context, &MVMEContext::modeChanged, this, &mvme::updateWindowTitle);
 
-    auto contextDock = new QDockWidget();
+    auto contextDock = new QDockWidget("Old Dock");
     contextDock->setObjectName("MVMEContextDock");
     contextDock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
     contextDock->setWidget(contextWidget);

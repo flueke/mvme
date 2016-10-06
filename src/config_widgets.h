@@ -108,6 +108,8 @@ class AddModuleDialog: public QDialog
         AddModuleDialog(MVMEContext *context, EventConfig *parentConfig, QWidget *parent = 0);
         virtual void accept();
 
+        ModuleConfig *module = nullptr;
+
     private:
         QComboBox *typeCombo;
         QLineEdit *nameEdit;

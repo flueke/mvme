@@ -28,6 +28,7 @@ SOURCES += \
     $$PWD/vmusb_readout_worker.cc \
     $$PWD/vmusb_stack.cc \
     $$PWD/daqconfig_tree.cc \
+    $$PWD/vme_script_editor.cc \
 
 
 HEADERS += \
@@ -61,6 +62,8 @@ HEADERS += \
     $$PWD/vmusb_readout_worker.h \
     $$PWD/vmusb_stack.h \
     $$PWD/daqconfig_tree.h \
+    $$PWD/vme_script_editor.h \
+
 
 FORMS += \
     $$PWD/context_widget2.ui \

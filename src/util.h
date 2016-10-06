@@ -202,4 +202,18 @@ class MVMEWidget: public QWidget
         void closeEvent(QCloseEvent *event) override;
 };
 
+class TemplateLoader: public QObject
+{
+    Q_OBJECT
+    signals:
+        void logMessage(const QString &msg);
+
+    public:
+        QString getTemplatePath();
+        QString readTemplate(const QString &name);
+
+    private:
+        QString m_templatePath;
+};
+
 #endif // UTIL_H

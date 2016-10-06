@@ -13,7 +13,7 @@ enum NodeType
     NodeType_Event = QTreeWidgetItem::UserType,
     NodeType_Module,
     NodeType_EventModulesInit,
-    NodeType_GlobalScript
+    //NodeType_GlobalScript
 };
 
 enum DataRole
@@ -163,7 +163,8 @@ TreeNode *makeNode(T *data, int type = QTreeWidgetItem::Type)
 
 TreeNode *DAQConfigTreeWidget::addScriptNode(TreeNode *parent, VMEScriptConfig* script, bool canDisable)
 {
-    auto node = new TreeNode(NodeType_GlobalScript);
+    //auto node = new TreeNode(NodeType_GlobalScript);
+    auto node = new TreeNode;
     node->setData(0, DataRole_Pointer, Ptr2Var(script));
     node->setText(0, script->objectName());
     node->setIcon(0, QIcon(":/vme_script.png"));
@@ -234,15 +235,6 @@ TreeNode *DAQConfigTreeWidget::addEventNode(TreeNode *parent, EventConfig *event
         daqStartStopNode->addChild(node);
     }
 
-    for (auto module: event->modules)
-    {
-        auto moduleNode = m_treeMap.value(module, nullptr);
-        if (!moduleNode)
-        {
-            addModuleNodes(eventNode, module);
-        }
-    }
-
     return eventNode;
 }
 
@@ -286,6 +278,23 @@ void DAQConfigTreeWidget::onItemClicked(QTreeWidgetItem *item, int column)
 void DAQConfigTreeWidget::onItemDoubleClicked(QTreeWidgetItem *item, int column)
 {
     //qDebug() << "doubleClicked" << item << Var2Ptr<QObject>(item->data(0, DataRole_Pointer)) << column;
+
+    auto configObject = Var2Ptr<ConfigObject>(item->data(0, DataRole_Pointer));
+    auto scriptConfig = qobject_cast<VMEScriptConfig *>(configObject);
+    auto eventConfig = qobject_cast<EventConfig *>(configObject);
+    auto moduleConfig = qobject_cast<ModuleConfig *>(configObject);
+
+    if (scriptConfig)
+        emit scriptDoubleClicked(scriptConfig);
+
+    if (moduleConfig)
+        emit moduleDoubleClicked(moduleConfig);
+
+    if (eventConfig)
+    {
+        EventConfigDialog dialog(m_context, eventConfig);
+        dialog.exec();
+    }
 }
 
 void DAQConfigTreeWidget::onItemChanged(QTreeWidgetItem *item, int column)
@@ -368,12 +377,51 @@ void DAQConfigTreeWidget::treeContextMenu(const QPoint &pos)
     }
 }
 
-void DAQConfigTreeWidget::onEventAdded(EventConfig *config)
+void DAQConfigTreeWidget::onEventAdded(EventConfig *eventConfig)
 {
-    addEventNode(m_nodeEvents, config);
+    addEventNode(m_nodeEvents, eventConfig);
 
-    connect(config, &EventConfig::moduleAdded, this, &DAQConfigTreeWidget::onModuleAdded);
-    connect(config, &EventConfig::moduleAboutToBeRemoved, this, &DAQConfigTreeWidget::onModuleAboutToBeRemoved);
+    for (auto module: eventConfig->modules)
+        onModuleAdded(module);
+
+    connect(eventConfig, &EventConfig::moduleAdded, this, &DAQConfigTreeWidget::onModuleAdded);
+    connect(eventConfig, &EventConfig::moduleAboutToBeRemoved, this, &DAQConfigTreeWidget::onModuleAboutToBeRemoved);
+
+    auto updateEventNode = [eventConfig, this](bool isModified) {
+        auto node = static_cast<EventNode *>(m_treeMap.value(eventConfig, nullptr));
+
+        if (!isModified || !node)
+            return;
+
+        node->setText(0, eventConfig->objectName());
+        node->setCheckState(0, eventConfig->isEnabled() ? Qt::Checked : Qt::Unchecked);
+
+        QString infoText;
+
+        switch (eventConfig->triggerCondition)
+        {
+            case TriggerCondition::Interrupt:
+                {
+                    infoText = QString("IRQ, lvl=%2, vec=%3")
+                        .arg(eventConfig->irqLevel)
+                        .arg(eventConfig->irqVector);
+                } break;
+            case TriggerCondition::NIM1:
+                {
+                    infoText = QSL("NIM");
+                } break;
+            case TriggerCondition::Periodic:
+                {
+                    infoText = QSL("Periodic");
+                } break;
+        }
+
+        node->setText(1, infoText);
+    };
+
+    updateEventNode(true);
+
+    connect(eventConfig, &EventConfig::modified, this, updateEventNode);
 }
 
 void DAQConfigTreeWidget::onEventAboutToBeRemoved(EventConfig *config)
@@ -444,6 +492,14 @@ void DAQConfigTreeWidget::addEvent()
 
     if (result == QDialog::Accepted)
     {
+        TemplateLoader loader;
+        connect(&loader, &TemplateLoader::logMessage, m_context, &MVMEContext::logMessage);
+
+        config->vmeScripts["daq_start"]->setScriptContents(loader.readTemplate(QSL("event_daq_start.init")));
+        config->vmeScripts["daq_stop"]->setScriptContents(loader.readTemplate(QSL("event_daq_stop.init")));
+        config->vmeScripts["readout_start"]->setScriptContents(loader.readTemplate(QSL("readout_cycle_start.init")));
+        config->vmeScripts["readout_end"]->setScriptContents(loader.readTemplate(QSL("readout_cycle_end.init")));
+
         m_config->addEventConfig(config);
         auto node = m_treeMap.value(config, nullptr);
         if (node)
@@ -483,9 +539,21 @@ void DAQConfigTreeWidget::addModule()
         AddModuleDialog dialog(m_context, event);
         int result = dialog.exec();
 
-        if (result == QDialog::Accepted && doExpand)
+        if (result == QDialog::Accepted)
         {
-            static_cast<EventNode *>(node)->modulesNode->setExpanded(true);
+            TemplateLoader loader;
+            connect(&loader, &TemplateLoader::logMessage, m_context, &MVMEContext::logMessage);
+            
+            auto config = dialog.module;
+            config->vmeScripts["parameters"]->setScriptContents(loader.readTemplate(
+                    QString("%1_parameters.init").arg(VMEModuleShortNames.value(config->type, "unknown"))));
+            config->vmeScripts["readout_settings"]->setScriptContents(loader.readTemplate(QSL("mesytec_readout_settings.init")));
+            config->vmeScripts["readout"]->setScriptContents(loader.readTemplate(QSL("mesytec_readout.init")));
+
+            m_context->addModule(event, config);
+
+            if (doExpand)
+                static_cast<EventNode *>(node)->modulesNode->setExpanded(true);
         }
     }
 }

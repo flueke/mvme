@@ -19,6 +19,13 @@ class EventNode;
 class DAQConfigTreeWidget: public QWidget
 {
     Q_OBJECT
+    signals:
+        void moduleClicked(ModuleConfig *config);
+        void moduleDoubleClicked(ModuleConfig *config);
+
+        void scriptClicked(VMEScriptConfig *config);
+        void scriptDoubleClicked(VMEScriptConfig *config);
+
     public:
         DAQConfigTreeWidget(MVMEContext *context, QWidget *parent = 0);
 
