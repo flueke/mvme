@@ -1,2 +1,0 @@
-# Resets the module. Note: wait >= 200ms after writing this register.
-0x6008 1
