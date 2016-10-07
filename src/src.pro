@@ -34,5 +34,4 @@ unix {
 
 FORMS += \
     vme_script_editor.ui \
-    module_config_dialog.ui
 

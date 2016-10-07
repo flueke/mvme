@@ -4,7 +4,6 @@ DEPENDPATH += $$PWD .
 
 SOURCES += \
     $$PWD/config_widgets.cpp \
-    $$PWD/context_widget2.cpp \
     $$PWD/CVMUSBReadoutList.cpp \
     $$PWD/hist2d.cpp \
     $$PWD/hist2ddialog.cc \
@@ -22,7 +21,6 @@ SOURCES += \
     $$PWD/util.cc \
     $$PWD/vmecommandlist.cc \
     $$PWD/vmecontroller.cpp \
-    $$PWD/vmedevice.cpp \
     $$PWD/vme_script.cc \
     $$PWD/vmusb_buffer_processor.cc \
     $$PWD/vmusb_readout_worker.cc \
@@ -33,7 +31,6 @@ SOURCES += \
 
 HEADERS += \
     $$PWD/config_widgets.h \
-    $$PWD/context_widget2.h \
     $$PWD/CVMUSBReadoutList.h \
     $$PWD/databuffer.h \
     $$PWD/globals.h \
@@ -54,7 +51,6 @@ HEADERS += \
     $$PWD/util.h \
     $$PWD/vmecommandlist.h \
     $$PWD/vmecontroller.h \
-    $$PWD/vmedevice.h \
     $$PWD/vme.h \
     $$PWD/vme_script.h \
     $$PWD/vmusb_buffer_processor.h \
@@ -66,15 +62,12 @@ HEADERS += \
 
 
 FORMS += \
-    $$PWD/context_widget2.ui \
     $$PWD/event_config_dialog.ui \
     $$PWD/hist2ddialog.ui \
     $$PWD/hist2dwidget.ui \
-    $$PWD/module_config_widget.ui \
     $$PWD/mvmecontrol.ui \
     $$PWD/mvme.ui \
     $$PWD/twodimwidget.ui \
-    $$PWD/vhs4030p.ui \
 
 contains(DEFINES, "VME_CONTROLLER_WIENER") {
     message("Building with WIENER VM_USB support")

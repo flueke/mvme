@@ -1,7 +1,6 @@
 #include "mvmecontrol.h"
 #include "ui_mvmecontrol.h"
 #include "mvme.h"
-#include "datathread.h"
 #include "diagnostics.h"
 #include "realtimedata.h"
 #include "CVMUSBReadoutList.h"

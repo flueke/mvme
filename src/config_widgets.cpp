@@ -1,10 +1,7 @@
 #include "config_widgets.h"
-#include "ui_module_config_widget.h"
 #include "ui_event_config_dialog.h"
-#include "ui_vhs4030p.h"
 #include "mvme_config.h"
 #include "mvme_context.h"
-#include "vmusb.h"
 #include "vme_script.h"
 
 #include <QMenu>
@@ -17,6 +14,7 @@
 #include <QStandardItemModel>
 #include <QCloseEvent>
 #include <QScrollBar>
+#include <QPushButton>
 
 //
 // EventConfigDialog
@@ -57,7 +55,7 @@ void EventConfigDialog::loadFromConfig()
     ui->combo_triggerCondition->setCurrentIndex(
         static_cast<int>(config->triggerCondition));
 
-    ui->spin_period->setValue(config->scalerReadoutPeriod * 0.5); // TODO:
+    ui->spin_period->setValue(config->scalerReadoutPeriod * 0.5); // TODO: why 0.5? unit for the readout period?
     ui->spin_frequency->setValue(config->scalerReadoutFrequency);
     ui->spin_irqLevel->setValue(config->irqLevel);
     ui->spin_irqVector->setValue(config->irqVector);

@@ -3,20 +3,14 @@
 
 #include "util.h"
 #include <QDialog>
-#include <QMap>
 
 class EventConfig;
 class ModuleConfig;
-class QCloseEvent;
-class QAction;
 class MVMEContext;
-class QAbstractButton;
 
 namespace Ui
 {
     class EventConfigDialog;
-    class ModuleConfigWidget;
-    class VHS4030pWidget;
 }
 
 class EventConfigDialog: public QDialog

@@ -5,7 +5,6 @@
 #include <QMap>
 
 class Hist2D;
-class DataCruncher;
 class DataThread;
 class Diagnostics;
 class HistogramCollection;
