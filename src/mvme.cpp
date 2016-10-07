@@ -127,8 +127,11 @@ mvme::mvme(QWidget *parent) :
 
         connect(m_context, &MVMEContext::configChanged, m_daqConfigTreeWidget, &DAQConfigTreeWidget::setConfig);
 
+        connect(m_daqConfigTreeWidget, &DAQConfigTreeWidget::configObjectClicked,
+                this, &mvme::onConfigObjectClicked);
+
         connect(m_daqConfigTreeWidget, &DAQConfigTreeWidget::configObjectDoubleClicked,
-                this, &mvme::handleConfigObjectDoubleClicked);
+                this, &mvme::onConfigObjectDoubleClicked);
     }
 
     //
@@ -591,7 +594,19 @@ void mvme::on_actionShowLogWindow_triggered()
     m_logViewSubwin->raise();
 }
 
-void mvme::handleConfigObjectDoubleClicked(ConfigObject *config)
+void mvme::onConfigObjectClicked(ConfigObject *config)
+{
+    if (m_configWindows.contains(config))
+    {
+        m_configWindows[config]->show();
+        m_configWindows[config]->showNormal();
+        m_configWindows[config]->activateWindow();
+        m_configWindows[config]->raise();
+        ui->mdiArea->setActiveSubWindow(m_configWindows[config]);
+    }
+}
+
+void mvme::onConfigObjectDoubleClicked(ConfigObject *config)
 {
     if (m_configWindows.contains(config))
     {

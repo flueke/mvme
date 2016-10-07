@@ -66,7 +66,8 @@ private slots:
 
     void on_actionShowLogWindow_triggered();
 
-    void handleConfigObjectDoubleClicked(ConfigObject *obj);
+    void onConfigObjectClicked(ConfigObject *obj);
+    void onConfigObjectDoubleClicked(ConfigObject *obj);
 
     void handleHistogramCollectionClicked(HistogramCollection *histo);
     void handleHistogramCollectionDoubleClicked(HistogramCollection *histo);

@@ -65,6 +65,9 @@ void VMEScriptEditor::updateWindowTitle()
     }
     else if (daqConfig)
     {
+        title = QString("Global Script %2")
+            .arg(m_script->objectName())
+            ;
     }
     else
     {

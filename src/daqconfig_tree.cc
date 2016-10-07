@@ -272,6 +272,8 @@ void DAQConfigTreeWidget::onItemClicked(QTreeWidgetItem *item, int column)
 {
     auto configObject = Var2Ptr<ConfigObject>(item->data(0, DataRole_Pointer));
 
+    qDebug() << "clicked" << item << configObject;
+
     if (configObject)
     {
         emit configObjectClicked(configObject);
