@@ -399,6 +399,8 @@ void mvme::on_actionNewConfig_triggered()
         }
     }
 
+    // TODO: run a dialog to set-up config basics: controller type, working directory, etc...
+
     m_context->setConfig(new DAQConfig);
     m_context->setConfigFileName(QString());
     m_context->setMode(GlobalMode::DAQ);

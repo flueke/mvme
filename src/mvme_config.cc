@@ -98,6 +98,39 @@ void ConfigObject::write(QJsonObject &json) const
 }
 
 //
+// VariantMapConfig
+//
+void VariantMapConfig::set(const QString &key, const QVariant &value)
+{
+    if (!m_map.contains(key) || m_map[key] != value)
+    {
+        m_map[key] = value;
+        setModified();
+    }
+}
+
+QVariant VariantMapConfig::get(const QString &key)
+{
+    return m_map.value(key);
+}
+
+void VariantMapConfig::remove(const QString &key)
+{
+    if (m_map.remove(key) > 0)
+        setModified();
+}
+
+void VariantMapConfig::read_impl(const QJsonObject &json)
+{
+    m_map = json["variantMap"].toObject().toVariantMap();
+}
+
+void VariantMapConfig::write_impl(QJsonObject &json) const
+{
+    json["variantMap"] = QJsonObject::fromVariantMap(m_map);
+}
+
+//
 // VMEScriptConfig
 //
 void VMEScriptConfig::setScriptContents(const QString &str)

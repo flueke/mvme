@@ -91,11 +91,17 @@ MVMEContext::~MVMEContext()
 
 void MVMEContext::setConfig(DAQConfig *config)
 {
+    // TODO: create new vmecontroller and the corresponding readout worker if
+    // the controller type changed.
+
     delete m_config;
+
     m_config = config;
+
     emit configChanged(config);
 }
 
+#if 0
 void MVMEContext::addModule(EventConfig *eventConfig, ModuleConfig *module)
 {
     module->setParent(eventConfig);
@@ -118,7 +124,6 @@ void MVMEContext::addModule(EventConfig *eventConfig, ModuleConfig *module)
         }
     }
 }
-
 void MVMEContext::addEventConfig(EventConfig *eventConfig)
 {
     m_config->addEventConfig(eventConfig);
@@ -168,6 +173,7 @@ void MVMEContext::removeModule(ModuleConfig *module)
         }
     }
 }
+#endif
 
 void MVMEContext::setController(VMEController *controller)
 {

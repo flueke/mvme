@@ -20,7 +20,7 @@ enum class DAQState
     Starting,
     Running,
     Stopping,
-    // Paused
+    //Paused
 };
 
 Q_DECLARE_METATYPE(DAQState);

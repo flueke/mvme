@@ -35,9 +35,6 @@ class MVMEContext: public QObject
         void eventConfigAdded(EventConfig *eventConfig);
         void eventConfigAboutToBeRemoved(EventConfig *eventConfig);
 
-        void moduleAdded(EventConfig *eventConfig, ModuleConfig *module);
-        void moduleAboutToBeRemoved(ModuleConfig *module);
-
         void configChanged(DAQConfig *config);
         void configFileNameChanged(const QString &fileName);
 
@@ -53,10 +50,6 @@ class MVMEContext: public QObject
         MVMEContext(mvme *mainwin, QObject *parent = 0);
         ~MVMEContext();
 
-        void addEventConfig(EventConfig *eventConfig);
-        void removeEvent(EventConfig *event);
-        void addModule(EventConfig *eventConfig, ModuleConfig *module);
-        void removeModule(ModuleConfig *module);
         void setController(VMEController *controller);
 
         QString getUniqueModuleName(const QString &prefix) const;

@@ -133,16 +133,16 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
     connect(m_d->contextTree, &QTreeWidget::itemClicked, this, &MVMEContextWidget::treeItemClicked);
     connect(m_d->contextTree, &QTreeWidget::itemDoubleClicked, this, &MVMEContextWidget::treeItemDoubleClicked);
 
-    connect(context, &MVMEContext::moduleAdded, this, &MVMEContextWidget::onModuleConfigAdded);
+    //connect(context, &MVMEContext::moduleAdded, this, &MVMEContextWidget::onModuleConfigAdded);
     connect(context, &MVMEContext::eventConfigAdded, this, &MVMEContextWidget::onEventConfigAdded);
     connect(context, &MVMEContext::configChanged, this, &MVMEContextWidget::onConfigChanged);
     connect(context, &MVMEContext::modeChanged, this, &MVMEContextWidget::onGlobalModeChanged);
     connect(context, &MVMEContext::daqStateChanged, this, &MVMEContextWidget::onDAQStateChanged);
     connect(context, &MVMEContext::hist2DAdded, this, &MVMEContextWidget::onHist2DAdded);
 
-    connect(context, &MVMEContext::moduleAboutToBeRemoved, this, [=](ModuleConfig *config) {
-        delete m_d->treeWidgetMap.take(config);
-    });
+    //connect(context, &MVMEContext::moduleAboutToBeRemoved, this, [=](ModuleConfig *config) {
+    //    delete m_d->treeWidgetMap.take(config);
+    //});
 
     connect(context, &MVMEContext::eventConfigAboutToBeRemoved, this, [=](EventConfig *config) {
         delete m_d->treeWidgetMap.take(config);
@@ -465,7 +465,7 @@ void MVMEContextWidget::treeContextMenu(const QPoint &pos)
         int result = dialog.exec();
         if (result == QDialog::Accepted)
         {
-            m_d->context->addEventConfig(config);
+            //m_d->context->addEventConfig(config);
         }
         else
         {
@@ -481,12 +481,12 @@ void MVMEContextWidget::treeContextMenu(const QPoint &pos)
     else if (action == actionDelEvent)
     {
         auto event = getPointerFromItem<EventConfig>(item);
-        m_d->context->removeEvent(event);
+        //m_d->context->removeEvent(event);
     }
     else if (action == actionDelModule)
     {
         auto module = getPointerFromItem<ModuleConfig>(item);
-        m_d->context->removeModule(module);
+        //m_d->context->removeModule(module);
     }
 }
 

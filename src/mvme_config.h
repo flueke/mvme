@@ -41,6 +41,25 @@ class ConfigObject: public QObject
         bool m_enabled = true;
 };
 
+class VariantMapConfig: public ConfigObject
+{
+    Q_OBJECT
+    public:
+        using ConfigObject::ConfigObject;
+
+        void set(const QString &key, const QVariant &value);
+        QVariant get(const QString &key);
+        void remove(const QString &key);
+        QVariantMap getMap() const { return m_map; }
+
+    protected:
+        virtual void read_impl(const QJsonObject &json) override;
+        virtual void write_impl(QJsonObject &json) const override;
+
+    private:
+        QVariantMap m_map;
+};
+
 class VMEScriptConfig: public ConfigObject
 {
     Q_OBJECT

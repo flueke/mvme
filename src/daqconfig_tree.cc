@@ -578,7 +578,7 @@ void DAQConfigTreeWidget::addModule()
             module->vmeScripts["readout_settings"]->setScriptContents(loader.readTemplate(QSL("mesytec_readout_settings.init")));
             module->vmeScripts["readout"]->setScriptContents(loader.readTemplate(QSL("mesytec_readout.init")));
 
-            m_context->addModule(event, module);
+            event->addModuleConfig(module);
 
             if (doExpand)
                 static_cast<EventNode *>(node)->modulesNode->setExpanded(true);
