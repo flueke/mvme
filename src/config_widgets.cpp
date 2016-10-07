@@ -18,6 +18,9 @@
 #include <QCloseEvent>
 #include <QScrollBar>
 
+//
+// EventConfigDialog
+//
 EventConfigDialog::EventConfigDialog(MVMEContext *context, EventConfig *config, QWidget *parent)
     : QDialog(parent)
     , ui(new Ui::EventConfigDialog)
@@ -54,7 +57,7 @@ void EventConfigDialog::loadFromConfig()
     ui->combo_triggerCondition->setCurrentIndex(
         static_cast<int>(config->triggerCondition));
 
-    ui->spin_period->setValue(config->scalerReadoutPeriod * 0.5);
+    ui->spin_period->setValue(config->scalerReadoutPeriod * 0.5); // TODO:
     ui->spin_frequency->setValue(config->scalerReadoutFrequency);
     ui->spin_irqLevel->setValue(config->irqLevel);
     ui->spin_irqVector->setValue(config->irqVector);
@@ -87,43 +90,75 @@ void EventConfigDialog::setReadOnly(bool readOnly)
     ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(!readOnly);
 }
 
-enum class ModuleListType
+//
+// ModuleConfigDialog
+//
+ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *module, bool isNewModule, QWidget *parent)
+    : QDialog(parent)
+    , m_context(context)
+    , m_module(module)
 {
-    Parameters,
-    Readout,
-    StartDAQ,
-    StopDAQ,
-    Reset,
-    ReadoutStack,
-    TypeCount
-};
+    typeCombo = new QComboBox;
 
-QString *getConfigString(ModuleListType type, ModuleConfig *config)
-{
-#if 0
-    switch (type)
+    int typeComboIndex = 0;
+
+    for (auto type: VMEModuleTypeNames.keys())
     {
-        case ModuleListType::Parameters:
-            return &config->initParameters;
-        case ModuleListType::Readout:
-            return &config->initReadout;
-        case ModuleListType::StartDAQ:
-            return &config->initStartDaq;
-        case ModuleListType::StopDAQ:
-            return &config->initStopDaq;
-        case ModuleListType::Reset:
-            return &config->initReset;
-        case ModuleListType::ReadoutStack:
-            return &config->readoutStack;
-        case ModuleListType::TypeCount:
-            break;
+        typeCombo->addItem(VMEModuleTypeNames[type], QVariant::fromValue(static_cast<int>(type)));
+        if (type == module->type)
+            typeComboIndex = typeCombo->count() - 1;
     }
-#endif
 
-    return nullptr;
-    Q_ASSERT(!"not implemented");
+    nameEdit = new QLineEdit;
+
+    auto onTypeComboIndexChanged = [=](int index)
+    {
+        auto currentType = static_cast<VMEModuleType>(typeCombo->currentData().toInt());
+        QString name = context->getUniqueModuleName(VMEModuleShortNames[currentType]);
+        nameEdit->setText(name);
+    };
+
+    onTypeComboIndexChanged(typeComboIndex);
+
+    if (!module->objectName().isEmpty())
+    {
+        nameEdit->setText(module->objectName());
+    }
+
+    connect(typeCombo, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
+            this, onTypeComboIndexChanged);
+
+    typeCombo->setEnabled(isNewModule);
+
+    addressEdit = new QLineEdit;
+    addressEdit->setInputMask("\\0\\xHHHHHHHH");
+    addressEdit->setText(QString("0x%1").arg(module->getBaseAddress(), 8, 16, QChar('0')));
+
+    auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+    connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
+    connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
+
+    auto layout = new QFormLayout(this);
+    layout->addRow("Type", typeCombo);
+    layout->addRow("Name", nameEdit);
+    layout->addRow("Address", addressEdit);
+    layout->addRow(bb);
+
+    connect(addressEdit, &QLineEdit::textChanged, [=](const QString &) {
+        bb->button(QDialogButtonBox::Ok)->setEnabled(addressEdit->hasAcceptableInput());
+    });
 }
 
+void ModuleConfigDialog::accept()
+{
+    bool ok;
+    m_module->type = static_cast<VMEModuleType>(typeCombo->currentData().toInt());
+    m_module->setObjectName(nameEdit->text());
+    m_module->setBaseAddress(addressEdit->text().toUInt(&ok, 16));
+    QDialog::accept();
+}
+
+#if 0
 ModuleConfigWidget::ModuleConfigWidget(MVMEContext *context, ModuleConfig *config, QWidget *parent)
     : MVMEWidget(parent)
     , ui(new Ui::ModuleConfigWidget)
@@ -387,7 +422,7 @@ void ModuleConfigWidget::loadFromFile()
 
 void ModuleConfigWidget::loadFromTemplate()
 {
-    // TODO: This is duplicated in AddModuleDialog::accept(). Compress this!
+    // TODO: This is duplicated in ModuleConfigDialog::accept(). Compress this!
     QStringList templatePaths;
     templatePaths << QDir::currentPath() + "/templates";
     templatePaths << QCoreApplication::applicationDirPath() + "/templates";
@@ -696,110 +731,5 @@ VHS4030pWidget::VHS4030pWidget(MVMEContext *context, ModuleConfig *config, QWidg
     });
 }
 #endif
-
-AddModuleDialog::AddModuleDialog(MVMEContext *context, EventConfig *parentConfig, QWidget *parent)
-    : QDialog(parent)
-    , context(context)
-    , parentConfig(parentConfig)
-{
-    typeCombo = new QComboBox;
-
-    for (auto type: VMEModuleTypeNames.keys())
-    {
-        typeCombo->addItem(VMEModuleTypeNames[type], QVariant::fromValue(static_cast<int>(type)));
-    }
-
-    nameEdit = new QLineEdit;
-
-    auto onTypeComboIndexChanged = [=](int index)
-    {
-        auto currentType = static_cast<VMEModuleType>(typeCombo->currentData().toInt());
-        QString name = context->getUniqueModuleName(VMEModuleShortNames[currentType]);
-        nameEdit->setText(name);
-    };
-
-    onTypeComboIndexChanged(0);
-
-    connect(typeCombo, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
-            this, onTypeComboIndexChanged);
-
-    addressEdit = new QLineEdit;
-    addressEdit->setInputMask("\\0\\xHHHHHHHH");
-    addressEdit->setText("0x00000000");
-
-    auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
-    connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
-    connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
-
-    auto layout = new QFormLayout(this);
-    layout->addRow("Type", typeCombo);
-    layout->addRow("Name", nameEdit);
-    layout->addRow("Address", addressEdit);
-    layout->addRow(bb);
-
-    connect(addressEdit, &QLineEdit::textChanged, [=](const QString &) {
-        bb->button(QDialogButtonBox::Ok)->setEnabled(addressEdit->hasAcceptableInput());
-    });
-}
-
-void AddModuleDialog::accept()
-{
-    bool ok;
-    module = new ModuleConfig;
-    module->type = static_cast<VMEModuleType>(typeCombo->currentData().toInt());
-    module->setObjectName(nameEdit->text());
-    module->baseAddress = addressEdit->text().toUInt(&ok, 16);
-
-#if 0
-    // TODO: This is duplicated in ModuleConfigDialog::loadFromTemplate(). Compress this!
-    QStringList templatePaths;
-    templatePaths << QDir::currentPath() + "/templates";
-    templatePaths << QCoreApplication::applicationDirPath() + "/templates";
-
-    QString templatePath;
-
-    for (auto testPath: templatePaths)
-    {
-        if (QFileInfo(testPath).exists())
-        {
-            templatePath = testPath;
-            break;
-        }
-    }
-
-    if (templatePath.isEmpty())
-    {
-        context->logMessage(QSL("No module template directory found."));
-    }
-    else
-    {
-        context->logMessage("Using module templates from " + templatePath);
-
-        if (isMesytecModule(module->type))
-        {
-            // load template files
-            //Q_ASSERT(!"not implemented"); TODO: implement this
-#if 0
-            module->initReset       = readStringFile(templatePath + "/mesytec_reset.init");
-            module->initReadout     = readStringFile(templatePath + "/mesytec_init_readout.init");
-            module->initStartDaq    = readStringFile(templatePath + "/mesytec_startdaq.init");
-            module->initStopDaq     = readStringFile(templatePath + "/mesytec_stopdaq.init");
 #endif
-        }
 
-        QString shortname = VMEModuleShortNames[module->type];
-        QString paramsFilename = QString("%1/%2_parameters.init")
-            .arg(templatePath)
-            .arg(shortname);
-        context->logMessage(QString("Using %1").arg(paramsFilename));
-        //Q_ASSERT(!"not implemented");
-#if 0
-        module->initParameters  = readStringFile(paramsFilename);
-        module->generateReadoutStack();
-#endif
-    }
-
-    context->addModule(parentConfig, module);
-#endif
-    QDialog::accept();
-}

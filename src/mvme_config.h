@@ -69,6 +69,17 @@ class ModuleConfig: public ConfigObject
     public:
         ModuleConfig(QObject *parent = 0);
 
+        uint32_t getBaseAddress() const { return m_baseAddress; }
+
+        void setBaseAddress(uint32_t address)
+        {
+            if (address != m_baseAddress)
+            {
+                m_baseAddress = address;
+                setModified();
+            }
+        }
+
         int getNumberOfChannels() const;
         int getDataBits() const;
         u32 getDataExtractMask();
@@ -76,7 +87,6 @@ class ModuleConfig: public ConfigObject
         void updateRegisterCache();
 
         VMEModuleType type = VMEModuleType::Invalid;
-        uint32_t baseAddress = 0;
 
         /** Known keys for a module:
          * "parameters", "readout_settings", "readout" */
@@ -87,6 +97,7 @@ class ModuleConfig: public ConfigObject
         virtual void write_impl(QJsonObject &json) const override;
 
     private:
+        uint32_t m_baseAddress = 0;
         QHash<u32, u32> m_registerCache;
 };
 

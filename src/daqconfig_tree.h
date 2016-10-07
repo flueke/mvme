@@ -8,6 +8,7 @@ class QTreeWidget;
 class QTreeWidgetItem;
 class TreeNode;
 
+class ConfigObject;
 class DAQConfig;
 class EventConfig;
 class ModuleConfig;
@@ -20,11 +21,8 @@ class DAQConfigTreeWidget: public QWidget
 {
     Q_OBJECT
     signals:
-        void moduleClicked(ModuleConfig *config);
-        void moduleDoubleClicked(ModuleConfig *config);
-
-        void scriptClicked(VMEScriptConfig *config);
-        void scriptDoubleClicked(VMEScriptConfig *config);
+        void configObjectClicked(ConfigObject *object);
+        void configObjectDoubleClicked(ConfigObject *object);
 
     public:
         DAQConfigTreeWidget(MVMEContext *context, QWidget *parent = 0);

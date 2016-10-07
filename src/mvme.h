@@ -18,6 +18,8 @@ class ModuleConfig;
 class MVMEContextWidget;
 class DAQConfig;
 class DAQConfigTreeWidget;
+class VMEScriptConfig;
+class ConfigObject;
 
 class QMdiSubWindow;
 class QThread;
@@ -28,7 +30,6 @@ class QTextBrowser;
 
 namespace Ui {
 class mvme;
-class ModuleConfigWidget;
 }
 
 class mvme : public QMainWindow
@@ -65,14 +66,7 @@ private slots:
 
     void on_actionShowLogWindow_triggered();
 
-    void handleEventConfigClicked(EventConfig *event);
-    void handleEventConfigDoubleClicked(EventConfig *event);
-
-    void handleModuleConfigClicked(ModuleConfig *module);
-    void handleModuleConfigDoubleClicked(ModuleConfig *module);
-
-    void handleDeleteEventConfig(EventConfig *event);
-    void handleDeleteModuleConfig(ModuleConfig *module);
+    void handleConfigObjectDoubleClicked(ConfigObject *obj);
 
     void handleHistogramCollectionClicked(HistogramCollection *histo);
     void handleHistogramCollectionDoubleClicked(HistogramCollection *histo);

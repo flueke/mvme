@@ -13,7 +13,6 @@ enum NodeType
     NodeType_Event = QTreeWidgetItem::UserType,
     NodeType_Module,
     NodeType_EventModulesInit,
-    //NodeType_GlobalScript
 };
 
 enum DataRole
@@ -163,7 +162,6 @@ TreeNode *makeNode(T *data, int type = QTreeWidgetItem::Type)
 
 TreeNode *DAQConfigTreeWidget::addScriptNode(TreeNode *parent, VMEScriptConfig* script, bool canDisable)
 {
-    //auto node = new TreeNode(NodeType_GlobalScript);
     auto node = new TreeNode;
     node->setData(0, DataRole_Pointer, Ptr2Var(script));
     node->setText(0, script->objectName());
@@ -272,23 +270,31 @@ TreeNode *DAQConfigTreeWidget::addModuleNodes(EventNode *parent, ModuleConfig *m
 
 void DAQConfigTreeWidget::onItemClicked(QTreeWidgetItem *item, int column)
 {
-    //qDebug() << "clicked" << item << Var2Ptr<QObject>(item->data(0, DataRole_Pointer)) << column;
+    auto configObject = Var2Ptr<ConfigObject>(item->data(0, DataRole_Pointer));
+
+    if (configObject)
+    {
+        emit configObjectClicked(configObject);
+    }
 }
 
 void DAQConfigTreeWidget::onItemDoubleClicked(QTreeWidgetItem *item, int column)
 {
-    //qDebug() << "doubleClicked" << item << Var2Ptr<QObject>(item->data(0, DataRole_Pointer)) << column;
-
     auto configObject = Var2Ptr<ConfigObject>(item->data(0, DataRole_Pointer));
     auto scriptConfig = qobject_cast<VMEScriptConfig *>(configObject);
     auto eventConfig = qobject_cast<EventConfig *>(configObject);
     auto moduleConfig = qobject_cast<ModuleConfig *>(configObject);
 
     if (scriptConfig)
-        emit scriptDoubleClicked(scriptConfig);
+    {
+        emit configObjectDoubleClicked(scriptConfig);
+    }
 
     if (moduleConfig)
-        emit moduleDoubleClicked(moduleConfig);
+    {
+        ModuleConfigDialog dialog(m_context, moduleConfig);
+        dialog.exec();
+    }
 
     if (eventConfig)
     {
@@ -306,7 +312,11 @@ void DAQConfigTreeWidget::onItemChanged(QTreeWidgetItem *item, int column)
         if (item->flags() & Qt::ItemIsUserCheckable)
             obj->setEnabled(item->checkState(0) != Qt::Unchecked);
 
-        obj->setObjectName(item->text(0));
+        if (item->flags() & Qt::ItemIsEditable)
+        {
+            obj->setObjectName(item->text(0));
+        }
+
         m_tree->resizeColumnToContents(0);
     }
 }
@@ -434,23 +444,38 @@ void DAQConfigTreeWidget::onEventAboutToBeRemoved(EventConfig *config)
     delete m_treeMap.take(config);
 }
 
-void DAQConfigTreeWidget::onModuleAdded(ModuleConfig *config)
+void DAQConfigTreeWidget::onModuleAdded(ModuleConfig *module)
 {
-    auto eventNode = static_cast<EventNode *>(m_treeMap[config->parent()]);
-    addModuleNodes(eventNode, config);
+    auto eventNode = static_cast<EventNode *>(m_treeMap[module->parent()]);
+    addModuleNodes(eventNode, module);
 
-    connect(config, &ModuleConfig::objectNameChanged, this, [this, config](const QString &name) {
-        auto moduleNode = static_cast<ModuleNode *>(m_treeMap[config]);
-        if (moduleNode)
-            moduleNode->readoutNode->setText(0, name);
-    });
+    auto updateModuleNodes = [module, this](bool isModified) {
+        auto node = static_cast<ModuleNode *>(m_treeMap.value(module, nullptr));
+
+        if (!isModified || !node)
+            return;
+
+        node->setText(0, module->objectName());
+        node->readoutNode->setText(0, module->objectName());
+        node->setCheckState(0, module->isEnabled() ? Qt::Checked : Qt::Unchecked);
+
+        QString infoText = QString("Type=%1, Address=0x%2")
+            .arg(VMEModuleTypeNames.value(module->type, QSL("unknown")))
+            .arg(module->getBaseAddress(), 8, 16, QChar('0'));
+
+        node->setText(1, infoText);
+    };
+
+    updateModuleNodes(true);
+
+    connect(module, &ModuleConfig::modified, this, updateModuleNodes);
 }
 
-void DAQConfigTreeWidget::onModuleAboutToBeRemoved(ModuleConfig *config)
+void DAQConfigTreeWidget::onModuleAboutToBeRemoved(ModuleConfig *module)
 {
-    auto moduleNode = static_cast<ModuleNode *>(m_treeMap[config]);
+    auto moduleNode = static_cast<ModuleNode *>(m_treeMap[module]);
     delete moduleNode->readoutNode;
-    delete m_treeMap.take(config);
+    delete m_treeMap.take(module);
 }
 
 void DAQConfigTreeWidget::onScriptAdded(VMEScriptConfig *script, const QString &category)
@@ -536,7 +561,9 @@ void DAQConfigTreeWidget::addModule()
     {
         auto event = Var2Ptr<EventConfig>(node->data(0, DataRole_Pointer));
         bool doExpand = (event->modules.size() == 0);
-        AddModuleDialog dialog(m_context, event);
+
+        auto module = new ModuleConfig;
+        ModuleConfigDialog dialog(m_context, module, true);
         int result = dialog.exec();
 
         if (result == QDialog::Accepted)
@@ -544,16 +571,19 @@ void DAQConfigTreeWidget::addModule()
             TemplateLoader loader;
             connect(&loader, &TemplateLoader::logMessage, m_context, &MVMEContext::logMessage);
             
-            auto config = dialog.module;
-            config->vmeScripts["parameters"]->setScriptContents(loader.readTemplate(
-                    QString("%1_parameters.init").arg(VMEModuleShortNames.value(config->type, "unknown"))));
-            config->vmeScripts["readout_settings"]->setScriptContents(loader.readTemplate(QSL("mesytec_readout_settings.init")));
-            config->vmeScripts["readout"]->setScriptContents(loader.readTemplate(QSL("mesytec_readout.init")));
+            module->vmeScripts["parameters"]->setScriptContents(loader.readTemplate(
+                    QString("%1_parameters.init").arg(VMEModuleShortNames.value(module->type, "unknown"))));
+            module->vmeScripts["readout_settings"]->setScriptContents(loader.readTemplate(QSL("mesytec_readout_settings.init")));
+            module->vmeScripts["readout"]->setScriptContents(loader.readTemplate(QSL("mesytec_readout.init")));
 
-            m_context->addModule(event, config);
+            m_context->addModule(event, module);
 
             if (doExpand)
                 static_cast<EventNode *>(node)->modulesNode->setExpanded(true);
+        }
+        else
+        {
+            delete module;
         }
     }
 }

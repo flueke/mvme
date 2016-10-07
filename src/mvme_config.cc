@@ -126,13 +126,13 @@ ModuleConfig::ModuleConfig(QObject *parent)
     : ConfigObject(parent)
 {
     vmeScripts["parameters"] = new VMEScriptConfig(this);
-    vmeScripts["parameters"]->setObjectName("Module Init");
+    vmeScripts["parameters"]->setObjectName(QSL("Module Init"));
 
     vmeScripts["readout_settings"] = new VMEScriptConfig(this);
-    vmeScripts["readout_settings"]->setObjectName("VME Interface Settings");
+    vmeScripts["readout_settings"]->setObjectName(QSL("VME Interface Settings"));
 
     vmeScripts["readout"] = new VMEScriptConfig(this);
-    vmeScripts["readout"]->setObjectName("Readout");
+    vmeScripts["readout"]->setObjectName(QSL("Readout"));
 }
 
 void ModuleConfig::updateRegisterCache()
@@ -279,7 +279,7 @@ u32 ModuleConfig::getDataExtractMask()
 void ModuleConfig::read_impl(const QJsonObject &json)
 {
     type = VMEModuleShortNames.key(json["type"].toString(), VMEModuleType::Invalid);
-    baseAddress = json["baseAddress"].toInt();
+    m_baseAddress = json["baseAddress"].toInt();
 
     QJsonObject scriptsObject = json["vme_scripts"].toObject();
 
@@ -298,7 +298,7 @@ void ModuleConfig::read_impl(const QJsonObject &json)
 void ModuleConfig::write_impl(QJsonObject &json) const
 {
     json["type"] = VMEModuleShortNames.value(type, "invalid");
-    json["baseAddress"] = static_cast<qint64>(baseAddress);
+    json["baseAddress"] = static_cast<qint64>(m_baseAddress);
 
     QJsonObject scriptsObject;
 
@@ -362,18 +362,23 @@ void ModuleConfig::generateReadoutStack()
 EventConfig::EventConfig(QObject *parent)
     : ConfigObject(parent)
 {
-    vmeScripts["daq_start"] = new VMEScriptConfig(this);
-    vmeScripts["daq_stop"] = new VMEScriptConfig(this);
-    vmeScripts["readout_start"] = new VMEScriptConfig(this);
-    vmeScripts["readout_end"] = new VMEScriptConfig(this);
+    vmeScripts[QSL("daq_start")] = new VMEScriptConfig(this);
+    vmeScripts[QSL("daq_start")]->setObjectName(QSL("DAQ Start"));
+
+    vmeScripts[QSL("daq_stop")] = new VMEScriptConfig(this);
+    vmeScripts[QSL("daq_stop")]->setObjectName(QSL("DAQ Stop"));
+
+    vmeScripts[QSL("readout_start")] = new VMEScriptConfig(this);
+    vmeScripts[QSL("readout_start")]->setObjectName(QSL("Cycle Start"));
+
+    vmeScripts[QSL("readout_end")] = new VMEScriptConfig(this);
+    vmeScripts[QSL("readout_end")]->setObjectName(QSL("Cycle End"));
 }
 
 void EventConfig::read_impl(const QJsonObject &json)
 {
     qDeleteAll(modules);
     modules.clear();
-    qDeleteAll(vmeScripts.values());
-    vmeScripts.clear();
 
     triggerCondition = static_cast<TriggerCondition>(json["triggerCondition"].toInt());
     irqLevel = json["irqLevel"].toInt();
@@ -390,15 +395,22 @@ void EventConfig::read_impl(const QJsonObject &json)
         modules.append(moduleConfig);
     }
 
+
+    for (auto scriptConfig: vmeScripts.values())
+    {
+        scriptConfig->setScriptContents(QString());
+    }
+
     QJsonObject scriptsObject = json["vme_scripts"].toObject();
 
     for (auto it = scriptsObject.begin();
          it != scriptsObject.end();
          ++it)
     {
-        VMEScriptConfig *cfg(new VMEScriptConfig(this));
-        cfg->read(it.value().toObject());
-        vmeScripts[it.key()] = cfg;
+        if (vmeScripts.contains(it.key()))
+        {
+            vmeScripts[it.key()]->read(it.value().toObject());
+        }
     }
 }
 

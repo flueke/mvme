@@ -12,6 +12,7 @@
 #include "mvme_listfile.h"
 #include "mvmecontrol.h"
 #include "daqconfig_tree.h"
+#include "vme_script_editor.h"
 
 #include <QDockWidget>
 #include <QFileDialog>
@@ -82,19 +83,11 @@ mvme::mvme(QWidget *parent) :
     ui->setupUi(this);
     auto contextWidget = new MVMEContextWidget(m_context);
     m_contextWidget = contextWidget;
-    connect(contextWidget, &MVMEContextWidget::eventClicked, this, &mvme::handleEventConfigClicked);
-    connect(contextWidget, &MVMEContextWidget::eventDoubleClicked, this, &mvme::handleEventConfigDoubleClicked);
 
-    connect(contextWidget, &MVMEContextWidget::moduleClicked, this, &mvme::handleModuleConfigClicked);
-    connect(contextWidget, &MVMEContextWidget::moduleDoubleClicked, this, &mvme::handleModuleConfigDoubleClicked);
-
-    connect(contextWidget, &MVMEContextWidget::deleteEvent, this, &mvme::handleDeleteEventConfig);
-    connect(contextWidget, &MVMEContextWidget::deleteModule, this, &mvme::handleDeleteModuleConfig);
 
     connect(contextWidget, &MVMEContextWidget::histogramCollectionClicked, this, &mvme::handleHistogramCollectionClicked);
     connect(contextWidget, &MVMEContextWidget::histogramCollectionDoubleClicked, this, &mvme::handleHistogramCollectionDoubleClicked);
     connect(contextWidget, &MVMEContextWidget::showHistogramCollection, this, &mvme::openHistogramView);
-
     connect(contextWidget, &MVMEContextWidget::hist2DClicked, this, &mvme::handleHist2DClicked);
     connect(contextWidget, &MVMEContextWidget::hist2DDoubleClicked, this, &mvme::handleHist2DDoubleClicked);
     connect(contextWidget, &MVMEContextWidget::showHist2D, this, &mvme::openHist2DView);
@@ -133,6 +126,9 @@ mvme::mvme(QWidget *parent) :
         addDockWidget(Qt::LeftDockWidgetArea, dock);
 
         connect(m_context, &MVMEContext::configChanged, m_daqConfigTreeWidget, &DAQConfigTreeWidget::setConfig);
+
+        connect(m_daqConfigTreeWidget, &DAQConfigTreeWidget::configObjectDoubleClicked,
+                this, &mvme::handleConfigObjectDoubleClicked);
     }
 
     //
@@ -595,43 +591,7 @@ void mvme::on_actionShowLogWindow_triggered()
     m_logViewSubwin->raise();
 }
 
-void mvme::handleEventConfigClicked(EventConfig *config)
-{
-    qDebug() << config << config->getId();
-    if (m_configWindows.contains(config))
-    {
-        m_configWindows[config]->show();
-        m_configWindows[config]->showNormal();
-        m_configWindows[config]->activateWindow();
-        m_configWindows[config]->raise();
-    }
-}
-
-void mvme::handleEventConfigDoubleClicked(EventConfig *config)
-{
-    if (m_configWindows.contains(config))
-    {
-        m_configWindows[config]->show();
-        m_configWindows[config]->showNormal();
-        m_configWindows[config]->activateWindow();
-        m_configWindows[config]->raise();
-    }
-    else
-    {
-        auto subwin = new QMdiSubWindow(ui->mdiArea);
-        subwin->setAttribute(Qt::WA_DeleteOnClose);
-        subwin->setWidget(new EventConfigDialog(m_context, config));
-        m_configWindows[config] = subwin;
-
-        connect(subwin->widget(), &QObject::destroyed, this, [this, config] {
-            m_configWindows.remove(config);
-        });
-
-        subwin->show();
-    }
-}
-
-void mvme::handleModuleConfigClicked(ModuleConfig *config)
+void mvme::handleConfigObjectDoubleClicked(ConfigObject *config)
 {
     if (m_configWindows.contains(config))
     {
@@ -641,44 +601,36 @@ void mvme::handleModuleConfigClicked(ModuleConfig *config)
         m_configWindows[config]->raise();
         ui->mdiArea->setActiveSubWindow(m_configWindows[config]);
     }
-}
-
-void mvme::handleModuleConfigDoubleClicked(ModuleConfig *config)
-{
-    if (m_configWindows.contains(config))
-    {
-        m_configWindows[config]->show();
-        m_configWindows[config]->showNormal();
-        m_configWindows[config]->activateWindow();
-        m_configWindows[config]->raise();
-    }
     else
     {
-        auto subwin = new QMdiSubWindow(ui->mdiArea);
-        subwin->setAttribute(Qt::WA_DeleteOnClose);
+        auto scriptConfig = qobject_cast<VMEScriptConfig *>(config);
+        auto eventConfig = qobject_cast<EventConfig *>(config);
+        auto moduleConfig = qobject_cast<ModuleConfig *>(config);
 
-        auto widget = makeModuleConfigWidget(m_context, config);
-        widget->setAttribute(Qt::WA_DeleteOnClose);
+        MVMEWidget *widget = nullptr;
 
-        subwin->setWidget(widget);
+        if (scriptConfig)
+        {
+            widget = new VMEScriptEditor(m_context, scriptConfig);
+        }
 
-        m_configWindows[config] = subwin;
+        if (widget)
+        {
+            widget->setAttribute(Qt::WA_DeleteOnClose);
+            auto subwin = new QMdiSubWindow(ui->mdiArea);
+            subwin->setAttribute(Qt::WA_DeleteOnClose);
+            subwin->setWidget(widget);
 
-        connect(widget, &MVMEWidget::aboutToClose, this, [this, config] {
-            m_configWindows[config]->close();
-            m_configWindows.remove(config);
-        });
+            m_configWindows[config] = subwin;
 
-        subwin->show();
+            connect(widget, &MVMEWidget::aboutToClose, this, [this, config] {
+                m_configWindows[config]->close();
+                m_configWindows.remove(config);
+            });
+
+            subwin->show();
+        }
     }
-}
-
-void mvme::handleDeleteEventConfig(EventConfig *event)
-{
-}
-
-void mvme::handleDeleteModuleConfig(ModuleConfig *module)
-{
 }
 
 void mvme::handleHistogramCollectionClicked(HistogramCollection *histo)
@@ -853,15 +805,6 @@ void mvme::updateWindowTitle()
 
 void mvme::onConfigChanged(DAQConfig *config)
 {
-    for (auto win: ui->mdiArea->subWindowList())
-    {
-        if(qobject_cast<EventConfigDialog *>(win->widget()) ||
-           qobject_cast<ModuleConfigWidget *>(win->widget()))
-        {
-            win->close();
-        }
-    }
-
     connect(config, &DAQConfig::modifiedChanged, this, &mvme::updateWindowTitle);
     updateWindowTitle();
     m_contextWidget->reloadConfig();

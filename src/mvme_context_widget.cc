@@ -474,9 +474,9 @@ void MVMEContextWidget::treeContextMenu(const QPoint &pos)
     }
     else if (action == actionAddModule)
     {
-        auto parent = getPointerFromItem<EventConfig>(item);
-        AddModuleDialog dialog(m_d->context, parent);
-        dialog.exec();
+        //auto parent = getPointerFromItem<EventConfig>(item);
+        //AddModuleDialog dialog(m_d->context, parent);
+        //dialog.exec();
     }
     else if (action == actionDelEvent)
     {
