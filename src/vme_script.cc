@@ -1,10 +1,13 @@
 #include "vme_script.h"
 #include "util.h"
+#include "vme_controller.h"
+
 #include <QFile>
 #include <QTextStream>
 #include <QRegularExpression>
 #include <QTextEdit>
 #include <QApplication>
+#include <QThread>
 
 namespace vme_script
 {
@@ -251,19 +254,19 @@ Command parse_line(QString line, int lineNumber)
     }
 }
 
-VMEScript parse(QFile *input)
+VMEScript parse(QFile *input, uint32_t baseAddress)
 {
     QTextStream stream(input);
-    return parse(stream);
+    return parse(stream, baseAddress);
 }
 
-VMEScript parse(const QString &input)
+VMEScript parse(const QString &input, uint32_t baseAddress)
 {
     QTextStream stream(const_cast<QString *>(&input), QIODevice::ReadOnly);
-    return parse(stream);
+    return parse(stream, baseAddress);
 }
 
-VMEScript parse(QTextStream &input)
+VMEScript parse(QTextStream &input, uint32_t baseAddress)
 {
     VMEScript result;
     int lineNumber = 0;
@@ -280,7 +283,8 @@ VMEScript parse(QTextStream &input)
 
         if (cmd.type != CommandType::Invalid)
         {
-            result.commands.push_back(parse_line(line, lineNumber));
+            cmd = add_base_address(cmd, baseAddress);
+            result.push_back(cmd);
         }
     }
 
@@ -462,6 +466,28 @@ Command add_base_address(Command cmd, uint32_t baseAddress)
     return cmd;
 }
 
+uint8_t amod_from_AddressMode(AddressMode mode, bool blt, bool mblt)
+{
+    using namespace vme_script;
+
+    switch (mode)
+    {
+        case AddressMode::A16:
+            return vme_address_modes::a16User;
+        case AddressMode::A24:
+            if (blt)
+                return vme_address_modes::a24UserBlock;
+            return vme_address_modes::a24UserData;
+        case AddressMode::A32:
+            if (blt)
+                return vme_address_modes::a32UserBlock;
+            if (mblt)
+                vme_address_modes::a32UserBlock64;
+            return vme_address_modes::a32UserData;
+    }
+    return 0;
+}
+
 void SyntaxHighlighter::highlightBlock(const QString &text)
 {
     static const QRegularExpression reComment("#.*$");
@@ -475,6 +501,210 @@ void SyntaxHighlighter::highlightBlock(const QString &text)
     {
         int length = match.capturedLength();
         setFormat(index, length, commentFormat);
+    }
+}
+
+void run_script(VMEController *controller, const VMEScript &script, LoggerFun logger)
+{
+    for (auto cmd: script)
+    {
+        run_command(controller, cmd, logger);
+    }
+}
+
+void run_command(VMEController *controller, const Command &cmd, LoggerFun logger)
+{
+    if (logger)
+        logger(to_string(cmd));
+
+    switch (cmd.type)
+    {
+        case CommandType::Invalid:
+            break;
+
+        case CommandType::Read:
+            {
+                switch (cmd.dataWidth)
+                {
+                    case DataWidth::D16:
+                        {
+                            uint16_t value = 0;
+                            controller->read16(cmd.address, &value, amod_from_AddressMode(cmd.addressMode));
+                        } break;
+                    case DataWidth::D32:
+                        {
+                            uint32_t value = 0;
+                            controller->read32(cmd.address, &value, amod_from_AddressMode(cmd.addressMode));
+                        } break;
+                }
+            } break;
+
+        case CommandType::Write:
+        case CommandType::WriteAbs:
+            {
+                switch (cmd.dataWidth)
+                {
+                    case DataWidth::D16:
+                        controller->write16(cmd.address, cmd.value, amod_from_AddressMode(cmd.addressMode));
+                        break;
+                    case DataWidth::D32:
+                        controller->write32(cmd.address, cmd.value, amod_from_AddressMode(cmd.addressMode));
+                        break;
+                }
+            } break;
+
+        case CommandType::Wait:
+            {
+                QThread::msleep(cmd.delay_ms);
+            } break;
+
+        case CommandType::Marker:
+            {
+            } break;
+
+        case CommandType::BLT:
+            {
+                QVector<u32> dest;
+                controller->bltRead(cmd.address, cmd.transfers, &dest, amod_from_AddressMode(cmd.addressMode, true), false);
+            } break;
+
+        case CommandType::BLTFifo:
+            {
+                QVector<u32> dest;
+                controller->bltRead(cmd.address, cmd.transfers, &dest, amod_from_AddressMode(cmd.addressMode, true), true);
+            } break;
+
+        case CommandType::MBLT:
+            {
+                QVector<u32> dest;
+                controller->bltRead(cmd.address, cmd.transfers, &dest, amod_from_AddressMode(cmd.addressMode, false, true), false);
+            } break;
+
+        case CommandType::MBLTFifo:
+            {
+                QVector<u32> dest;
+                controller->bltRead(cmd.address, cmd.transfers, &dest, amod_from_AddressMode(cmd.addressMode, false, true), true);
+            } break;
+
+#if 1
+        case CommandType::BLTCount:
+        case CommandType::BLTFifoCount:
+        case CommandType::MBLTCount:
+        case CommandType::MBLTFifoCount:
+            {
+                if (logger)
+                    logger(QSL("Not implemented yet!"));
+            } break;
+
+#else
+        case CommandType::BLTCount:
+            {
+                u32 transfers = 0;
+                switch (cmd.dataWidth)
+                {
+                    case DataWidth::D16:
+                        {
+                            uint16_t value = 0;
+                            controller->read16(cmd.address, &value, amod_from_AddressMode(cmd.addressMode));
+                            transfers = value;
+                        } break;
+                    case DataWidth::D32:
+                        {
+                            uint32_t value = 0;
+                            controller->read32(cmd.address, &value, amod_from_AddressMode(cmd.addressMode));
+                            transfers = value;
+                        } break;
+                }
+
+                transfers &= cmd.countMask;
+                transfers >>= trailing_zeroes(cmd.countMask);
+
+                QVector<u32> dest;
+                controller->bltRead(cmd.blockAddress, transfers, &dest, amod_from_AddressMode(cmd.blockAddressMode, true), false);
+
+            } break;
+
+        case CommandType::BLTFifoCount:
+            {
+                u32 transfers = 0;
+                switch (cmd.dataWidth)
+                {
+                    case DataWidth::D16:
+                        {
+                            uint16_t value = 0;
+                            controller->read16(cmd.address, &value, amod_from_AddressMode(cmd.addressMode));
+                            transfers = value;
+                        } break;
+                    case DataWidth::D32:
+                        {
+                            uint32_t value = 0;
+                            controller->read32(cmd.address, &value, amod_from_AddressMode(cmd.addressMode));
+                            transfers = value;
+                        } break;
+                }
+
+                transfers &= cmd.countMask;
+                transfers >>= trailing_zeroes(cmd.countMask);
+
+                QVector<u32> dest;
+                controller->bltRead(cmd.blockAddress, transfers, &dest, amod_from_AddressMode(cmd.blockAddressMode, true), true);
+
+            } break;
+
+        case CommandType::MBLTCount:
+            {
+                u32 transfers = 0;
+                switch (cmd.dataWidth)
+                {
+                    case DataWidth::D16:
+                        {
+                            uint16_t value = 0;
+                            controller->read16(cmd.address, &value, amod_from_AddressMode(cmd.addressMode));
+                            transfers = value;
+                        } break;
+                    case DataWidth::D32:
+                        {
+                            uint32_t value = 0;
+                            controller->read32(cmd.address, &value, amod_from_AddressMode(cmd.addressMode));
+                            transfers = value;
+                        } break;
+                }
+
+                transfers &= cmd.countMask;
+                transfers >>= trailing_zeroes(cmd.countMask);
+
+                QVector<u32> dest;
+                controller->bltRead(cmd.blockAddress, transfers, &dest, amod_from_AddressMode(cmd.blockAddressMode, false, true), false);
+
+            } break;
+
+        case CommandType::MBLTFifoCount:
+            {
+                u32 transfers = 0;
+                switch (cmd.dataWidth)
+                {
+                    case DataWidth::D16:
+                        {
+                            uint16_t value = 0;
+                            controller->read16(cmd.address, &value, amod_from_AddressMode(cmd.addressMode));
+                            transfers = value;
+                        } break;
+                    case DataWidth::D32:
+                        {
+                            uint32_t value = 0;
+                            controller->read32(cmd.address, &value, amod_from_AddressMode(cmd.addressMode));
+                            transfers = value;
+                        } break;
+                }
+
+                transfers &= cmd.countMask;
+                transfers >>= trailing_zeroes(cmd.countMask);
+
+                QVector<u32> dest;
+                controller->bltRead(cmd.blockAddress, transfers, &dest, amod_from_AddressMode(cmd.blockAddressMode, false, true), true);
+
+            } break;
+#endif
     }
 }
 

@@ -35,22 +35,8 @@ class VMUSBStack
         int loadStack(VMUSB *controller);
         int enableStack(VMUSB *controller);
 
-        void addModule(ModuleConfig *module)
-        {
-            m_modules.append(module);
-        }
-
-        QVector<u32> getContents() const
-        {
-            QVector<u32> result;
-            for (auto module: m_modules)
-            {
-                //result += parseStackFile(module->readoutStack);
-                Q_ASSERT(!"not implemented");
-            }
-
-            return result;
-        }
+        void setContents(const QVector<u32> contents) { m_contents = contents; }
+        QVector<u32> getContents() const { return m_contents; }
 
         /* Reset the global load offset. Use between runs. */
         void resetLoadOffset()
@@ -67,11 +53,10 @@ class VMUSBStack
         uint8_t scalerReadoutPeriod = 0;
         // Maximum number of events between scaler stack executions
         uint16_t scalerReadoutFrequency = 0;
-        uint8_t readoutTriggerDelay = 0;
 
     private:
         uint8_t m_stackID = 2;
-        QVector<ModuleConfig *> m_modules;
+        QVector<u32> m_contents;
 };
 
 

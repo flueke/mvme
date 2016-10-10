@@ -71,8 +71,7 @@ class VMEScriptConfig: public ConfigObject
 
         void setScriptContents(const QString &);
 
-        vme_script::VMEScript getScript() const
-        { return vme_script::parse(m_script); }
+        vme_script::VMEScript getScript(u32 baseAddress = 0) const;
 
     protected:
         virtual void read_impl(const QJsonObject &json) override;

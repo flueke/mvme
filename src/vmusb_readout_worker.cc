@@ -1,11 +1,14 @@
 #include "vmusb_readout_worker.h"
 #include "vmusb_buffer_processor.h"
 #include "vmusb.h"
+#include "CVMUSBReadoutList.h"
 #include <QCoreApplication>
 #include <QThread>
 #include <memory>
+#include <functional>
 
 using namespace vmusb_constants;
+using namespace vme_script;
 
 static const int maxConsecutiveReadErrors = 5;
 
@@ -28,8 +31,7 @@ VMUSBReadoutWorker::~VMUSBReadoutWorker()
 
 void VMUSBReadoutWorker::start(quint32 cycles)
 {
-    Q_ASSERT(!"not implemented");
-#if 0
+#if 1
     if (m_state != DAQState::Idle)
         return;
 
@@ -46,6 +48,7 @@ void VMUSBReadoutWorker::start(quint32 cycles)
     setState(DAQState::Starting);
     DAQStats &stats(m_context->getDAQStats());
     bool error = false;
+    auto daqConfig = m_context->getDAQConfig();
 
     try
     {
@@ -63,24 +66,15 @@ void VMUSBReadoutWorker::start(quint32 cycles)
 
         vmusb->setDaqSettings(0);
 
-        // USB Bulk Transfer Setup Register
-        // TODO: USB Bulk transfer: does not seem to have any effect...
-        {
-            // This sets the buffer end watchdog timeout to 1 second + timeoutValue seconds
-            const int timeoutValue = 1;
-            int value = timeoutValue << TransferSetupRegister::timeoutShift;
-            vmusb->setUsbSettings(value);
-        }
-
         int globalMode = vmusb->getMode();
         globalMode |= (1 << GlobalModeRegister::MixedBufferShift);
         vmusb->setMode(globalMode);
 
         int nextStackID = 2; // start at ID=2 as NIM=0 and scaler=1 (fixed)
 
-        for (auto event: m_context->getEventConfigs())
+        for (auto event: daqConfig->eventConfigs)
         {
-            qDebug() << "daq event" << event->getName();
+            qDebug() << "daq event" << event->objectName();
 
             m_vmusbStack = VMUSBStack();
             m_vmusbStack.triggerCondition = event->triggerCondition;
@@ -88,7 +82,6 @@ void VMUSBReadoutWorker::start(quint32 cycles)
             m_vmusbStack.irqVector = event->irqVector;
             m_vmusbStack.scalerReadoutPeriod = event->scalerReadoutPeriod;
             m_vmusbStack.scalerReadoutFrequency = event->scalerReadoutFrequency;
-            m_vmusbStack.readoutTriggerDelay = event->readoutTriggerDelay;
 
             if (event->triggerCondition == TriggerCondition::Interrupt)
             {
@@ -102,19 +95,32 @@ void VMUSBReadoutWorker::start(quint32 cycles)
                 event->stackID = m_vmusbStack.getStackID();
             }
 
-            qDebug() << "event " << event->getName() << " -> stackID =" << event->stackID;
+            qDebug() << "event " << event->objectName() << " -> stackID =" << event->stackID;
+
+            VMEScript readoutScript;
+
+            readoutScript += event->vmeScripts["readout_start"]->getScript();
 
             for (auto module: event->modules)
             {
-                m_vmusbStack.addModule(module);
+                readoutScript += module->vmeScripts["readout"]->getScript(module->getBaseAddress());
+                Command marker;
+                marker.type = CommandType::Marker;
+                marker.value = EndMarker;
+                readoutScript += marker;
             }
+
+            readoutScript += event->vmeScripts["readout_end"]->getScript();
+
+            CVMUSBReadoutList readoutList(readoutScript);
+            m_vmusbStack.setContents(QVector<u32>::fromStdVector(readoutList.get()));
 
             if (m_vmusbStack.getContents().size())
             {
 
                 emit logMessage(QString("Loading readout stack for event \"%1\""
                                    ", stack id = %2, size= %4, load offset = %3")
-                           .arg(event->getName())
+                           .arg(event->objectName())
                            .arg(m_vmusbStack.getStackID())
                            .arg(VMUSBStack::loadOffset)
                            .arg(m_vmusbStack.getContents().size())
@@ -140,79 +146,36 @@ void VMUSBReadoutWorker::start(quint32 cycles)
             else
             {
                 emit logMessage(QString("Empty readout stack for event \"%1\".")
-                                .arg(event->getName())
+                                .arg(event->objectName())
                                );
             }
         }
 
-        static const int writeDelay_ms = 10;
+        using namespace std::placeholders;
 
-        emit logMessage(QSL("Module Reset"));
-        for (auto event: m_context->getEventConfigs())
+        vme_script::LoggerFun logger = std::bind(&VMUSBReadoutWorker::logMessage, this, _1);
+
+        emit logMessage(QSL("Global DAQ Start:"));
+        for (auto script: daqConfig->vmeScriptLists["daq_start"])
         {
-            for (auto module: event->modules)
-            {
-                emit logMessage(QString("  Event %1, Module %2").arg(event->getName()).arg(module->objectName()));
-                auto regs = parseRegisterList(module->initReset, module->baseAddress);
-                emit logMessages(toStringList(regs), QSL("    "));
-                auto result = vmusb->applyRegisterList(regs, 0, writeDelay_ms,
-                                                       module->getRegisterWidth(), module->getRegisterAddressModifier());
-
-                if (result < 0)
-                {
-                    throw QString("Module Reset failed for %1.%2 (code=%3)")
-                        .arg(event->getName())
-                        .arg(module->getName())
-                        .arg(result);
-                }
-            }
+            emit logMessage(QString("  %1").arg(script->objectName()));
+            run_script(vmusb, script->getScript(), logger);
         }
-
-        // Pause a bit after reset
-        static const int postResetPause_ms = 500;
-        QThread::msleep(postResetPause_ms);
 
         emit logMessage(QSL("Module Init"));
-        for (auto event: m_context->getEventConfigs())
+        for (auto event: daqConfig->eventConfigs)
         {
             for (auto module: event->modules)
             {
-                emit logMessage(QString("  Event %1, Module %2").arg(event->getName()).arg(module->getName()));
-                auto regs = parseRegisterList(module->initParameters, module->baseAddress);
-                regs += parseRegisterList(module->initReadout, module->baseAddress);
-                emit logMessages(toStringList(regs), QSL("    "));
-                auto result = vmusb->applyRegisterList(regs, 0, writeDelay_ms,
-                                                       module->getRegisterWidth(), module->getRegisterAddressModifier());
-
-                if (result < 0)
-                {
-                    throw QString("Module Init failed for %1.%2 (code=%3)")
-                        .arg(event->getName())
-                        .arg(module->getName())
-                        .arg(result);
-                }
+                run_script(vmusb, module->vmeScripts["parameters"]->getScript(module->getBaseAddress()), logger);
+                run_script(vmusb, module->vmeScripts["readout_settings"]->getScript(module->getBaseAddress()), logger);
             }
         }
 
-        emit logMessage(QSL("Module Start DAQ"));
-        for (auto event: m_context->getEventConfigs())
+        emit logMessage(QSL("Event DAQ Start"));
+        for (auto event: daqConfig->eventConfigs)
         {
-            for (auto module: event->modules)
-            {
-                emit logMessage(QString("  Event %1, Module %2").arg(event->getName()).arg(module->getName()));
-                auto regs = parseRegisterList(module->initStartDaq, module->baseAddress);
-                emit logMessages(toStringList(regs), QSL("    "));
-                auto result = vmusb->applyRegisterList(regs, 0, writeDelay_ms,
-                                                       module->getRegisterWidth(), module->getRegisterAddressModifier());
-
-                if (result < 0)
-                {
-                    throw QString("Module Start DAQ failed for %1.%2 (code=%3)")
-                        .arg(event->getName())
-                        .arg(module->getName())
-                        .arg(result);
-                }
-            }
+            run_script(vmusb, event->vmeScripts["daq_start"]->getScript(), logger);
         }
 
         m_bufferProcessor->beginRun();
@@ -225,25 +188,17 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         emit logMessage(QSL("\nLeaving readout loop"));
         m_bufferProcessor->endRun();
 
-        emit logMessage(QSL("Module Stop DAQ"));
-        for (auto event: m_context->getEventConfigs())
+        emit logMessage(QSL("Event DAQ Stop"));
+        for (auto event: daqConfig->eventConfigs)
         {
-            for (auto module: event->modules)
-            {
-                emit logMessage(QString("  Event %1, Module %2").arg(event->getName()).arg(module->getName()));
-                auto regs = parseRegisterList(module->initStopDaq, module->baseAddress);
-                emit logMessages(toStringList(regs), QSL("    "));
-                auto result = vmusb->applyRegisterList(regs, 0, writeDelay_ms,
-                                                       module->getRegisterWidth(), module->getRegisterAddressModifier());
+            run_script(vmusb, event->vmeScripts["daq_stop"]->getScript(), logger);
+        }
 
-                if (result < 0)
-                {
-                    throw QString("Module Stop DAQ failed for %1.%2 (code=%3)")
-                        .arg(event->getName())
-                        .arg(module->getName())
-                        .arg(result);
-                }
-            }
+        emit logMessage(QSL("Global DAQ Stop:"));
+        for (auto script: daqConfig->vmeScriptLists["daq_stop"])
+        {
+            emit logMessage(QString("  %1").arg(script->objectName()));
+            run_script(vmusb, script->getScript(), logger);
         }
     }
     catch (const char *message)

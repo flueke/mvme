@@ -41,4 +41,31 @@
 #define VME_AM_A16_PRIV 0x2d
 #define VME_AM_A16_USER 0x29
 
+#include <cstdint>
+
+namespace vme_address_modes
+{
+    static const uint8_t a32UserData = 0x09;
+    static const uint8_t a32UserProgram = 0xa;
+    static const uint8_t a32UserBlock = 0x0b;
+
+    static const uint8_t a24PrivData(0x3d);
+    static const uint8_t a24PrivProgram = 0x3e;
+    static const uint8_t a24PrivBlock = 0x3f;
+
+    static const uint8_t a16Priv(0x2d);
+    static const uint8_t a16User = 0x29;
+
+    static const uint8_t a32PrivData = 0x0d;
+    static const uint8_t a32PrivProgram = 0x0e;
+    static const uint8_t a32PrivBlock = 0x0f;
+
+    static const uint8_t a24UserData = 0x39;
+    static const uint8_t a24UserProgram = 0x3a;
+    static const uint8_t a24UserBlock = 0x3b;
+
+    static const uint8_t a32UserBlock64 = 0x08;
+    static const uint8_t a32PrivBlock64 = 0x0c;
+}
+
 #endif

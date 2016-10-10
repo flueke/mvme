@@ -106,7 +106,7 @@ CVMUSBReadoutList::CVMUSBReadoutList(const QVector<uint32_t> &list)
 
 CVMUSBReadoutList::CVMUSBReadoutList(const vme_script::VMEScript &script)
 {
-    for (auto cmd: script.commands)
+    for (auto cmd: script)
     {
         addScriptCommand(cmd);
     }
@@ -184,28 +184,6 @@ void CVMUSBReadoutList::append(const CVMUSBReadoutList& list)
 {
   const std::vector<uint32_t>& other = list.get();
   m_list.insert(m_list.end(), other.begin(), other.end());
-}
-
-uint8_t amod_from_AddressMode(vme_script::AddressMode mode, bool blt=false, bool mblt=false)
-{
-    using namespace vme_script;
-
-    switch (mode)
-    {
-        case AddressMode::A16:
-            return CVMUSBReadoutList::a16User;
-        case AddressMode::A24:
-            if (blt)
-                return CVMUSBReadoutList::a24UserBlock;
-            return CVMUSBReadoutList::a24UserData;
-        case AddressMode::A32:
-            if (blt)
-                return CVMUSBReadoutList::a32UserBlock;
-            if (mblt)
-                CVMUSBReadoutList::a32UserBlock64;
-            return CVMUSBReadoutList::a32UserData;
-    }
-    return 0;
 }
 
 void CVMUSBReadoutList::addScriptCommand(const vme_script::Command &cmd)

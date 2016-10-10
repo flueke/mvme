@@ -43,10 +43,12 @@ int VMUSBStack::enableStack(VMUSB *controller)
     {
         case TriggerCondition::NIM1:
             {
+#if 0
                 uint32_t daqSettings = controller->getDaqSettings();
                 daqSettings &= ~DaqSettingsRegister::ReadoutTriggerDelayMask;
                 daqSettings |= readoutTriggerDelay << DaqSettingsRegister::ReadoutTriggerDelayShift;
                 result = controller->setDaqSettings(daqSettings);
+#endif
             } break;
 
         case TriggerCondition::Periodic:
@@ -76,10 +78,12 @@ int VMUSBStack::enableStack(VMUSB *controller)
 
                 result = controller->setIrq(vectorNumber, isvValue);
 
+#if 0
                 uint32_t daqSettings = controller->getDaqSettings();
                 daqSettings &= ~DaqSettingsRegister::ReadoutTriggerDelayMask;
                 daqSettings |= readoutTriggerDelay << DaqSettingsRegister::ReadoutTriggerDelayShift;
                 result = controller->setDaqSettings(daqSettings);
+#endif
             } break;
     };
 

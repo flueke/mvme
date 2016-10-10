@@ -8,6 +8,8 @@
 #include <QMenu>
 #include <QStyledItemDelegate>
 
+using namespace std::placeholders;
+
 enum NodeType
 {
     NodeType_Event = QTreeWidgetItem::UserType,
@@ -650,8 +652,22 @@ void DAQConfigTreeWidget::removeGlobalScript()
 void DAQConfigTreeWidget::runScripts()
 {
     auto node = m_tree->currentItem();
+    auto obj = Var2Ptr<ConfigObject>(node->data(0, DataRole_Pointer));
 
-    qDebug() << __PRETTY_FUNCTION__ << node;
+    qDebug() << __PRETTY_FUNCTION__ << node << obj;
+
+    if (!obj)
+        return;
+
+    auto scriptConfig = qobject_cast<VMEScriptConfig *>(obj);
+    auto moduleConfig = qobject_cast<ModuleConfig *>(obj->parent());
+
+    if (scriptConfig)
+    {
+        run_script(m_context->getController(),
+                   scriptConfig->getScript(moduleConfig ? moduleConfig->getBaseAddress() : 0),
+                   std::bind(&MVMEContext::logMessage, m_context, _1));
+    }
 }
 
 void DAQConfigTreeWidget::editName()

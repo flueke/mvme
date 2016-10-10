@@ -57,6 +57,7 @@ class MVMEContext: public QObject
         VMUSBReadoutWorker *getReadoutWorker() const { return m_readoutWorker; }
         VMUSBBufferProcessor *getBufferProcessor() const { return m_bufferProcessor; }
         DAQConfig *getConfig() { return m_config; }
+        DAQConfig *getDAQConfig() { return m_config; }
         void setConfig(DAQConfig *config);
         QList<EventConfig *> getEventConfigs() const { return m_config->getEventConfigs(); }
         DataBufferQueue *getFreeBuffers() { return &m_freeBuffers; }

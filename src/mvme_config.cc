@@ -141,6 +141,12 @@ void VMEScriptConfig::setScriptContents(const QString &str)
     }
 }
 
+vme_script::VMEScript VMEScriptConfig::getScript(u32 baseAddress) const
+{
+    auto script = vme_script::parse(m_script, baseAddress);
+    return script;
+}
+
 void VMEScriptConfig::read_impl(const QJsonObject &json)
 {
     m_script = json["vme_script"].toString();
@@ -187,7 +193,7 @@ void ModuleConfig::updateRegisterCache()
         {
             auto script = vme_script::parse(scriptString);
 
-            for (auto cmd: script.commands)
+            for (auto cmd: script)
             {
                 if (cmd.type == vme_script::CommandType::Write)
                 {

@@ -21,12 +21,7 @@
 #include <cstdint>
 #include <iostream>
 #include <QVector>
-
-namespace vme_script
-{
-    class VMEScript;
-    class Command;
-}
+#include "vme_script.h"
 
 /*!
    The best way to use the VM-USB involves building lists of VME
