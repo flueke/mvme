@@ -87,10 +87,6 @@ VMEScript parse(QFile *input);
 VMEScript parse(const QString &input);
 VMEScript parse(QTextStream &input);
 
-#ifndef QSL
-#define QSL QStringLiteral
-#endif
-
 class SyntaxHighlighter: public QSyntaxHighlighter
 {
     using QSyntaxHighlighter::QSyntaxHighlighter;

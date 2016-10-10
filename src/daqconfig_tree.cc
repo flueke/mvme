@@ -13,6 +13,8 @@ enum NodeType
     NodeType_Event = QTreeWidgetItem::UserType,
     NodeType_Module,
     NodeType_EventModulesInit,
+    NodeType_EventReadoutLoop,
+    NodeType_EventStartStop,
 };
 
 enum DataRole
@@ -193,7 +195,7 @@ TreeNode *DAQConfigTreeWidget::addEventNode(TreeNode *parent, EventConfig *event
     modulesNode->setIcon(0, QIcon(":/config_category.png"));
     eventNode->addChild(modulesNode);
 
-    eventNode->readoutLoopNode = new TreeNode;
+    eventNode->readoutLoopNode = new TreeNode(NodeType_EventReadoutLoop);
     auto readoutLoopNode = eventNode->readoutLoopNode;
     readoutLoopNode->setText(0, QSL("Readout Loop"));
     readoutLoopNode->setIcon(0, QIcon(":/config_category.png"));
@@ -213,7 +215,7 @@ TreeNode *DAQConfigTreeWidget::addEventNode(TreeNode *parent, EventConfig *event
         readoutLoopNode->addChild(node);
     }
 
-    eventNode->daqStartStopNode = new TreeNode;
+    eventNode->daqStartStopNode = new TreeNode(NodeType_EventStartStop);
     auto daqStartStopNode = eventNode->daqStartStopNode;
     daqStartStopNode->setText(0, QSL("Multicast DAQ Start/Stop"));
     daqStartStopNode->setIcon(0, QIcon(":/config_category.png"));
@@ -331,8 +333,18 @@ void DAQConfigTreeWidget::onItemExpanded(QTreeWidgetItem *item)
 void DAQConfigTreeWidget::treeContextMenu(const QPoint &pos)
 {
     auto node = m_tree->itemAt(pos);
+    auto parent = node->parent();
+    auto obj = Var2Ptr<ConfigObject>(node->data(0, DataRole_Pointer));
 
     QMenu menu;
+
+    //
+    // Script nodes
+    //
+    if (qobject_cast<VMEScriptConfig *>(obj))
+    {
+        menu.addAction(QSL("Run Script"), this, &DAQConfigTreeWidget::runScripts);
+    }
 
     //
     // Events
@@ -357,6 +369,7 @@ void DAQConfigTreeWidget::treeContextMenu(const QPoint &pos)
 
     if (node->type() == NodeType_Module)
     {
+        menu.addAction(QSL("Init Module"), this, &DAQConfigTreeWidget::initModule);
         menu.addAction(QSL("Rename Module"), this, &DAQConfigTreeWidget::editName);
         menu.addSeparator();
         menu.addAction(QSL("Remove Module"), this, &DAQConfigTreeWidget::removeModule);
@@ -373,11 +386,8 @@ void DAQConfigTreeWidget::treeContextMenu(const QPoint &pos)
             menu.addAction(QSL("Run scripts"), this, &DAQConfigTreeWidget::runScripts);
     }
 
-    auto parent = node->parent();
-
     if (parent == m_nodeStart || parent == m_nodeStop || parent == m_nodeManual)
     {
-        menu.addAction(QSL("Run Script"), this, &DAQConfigTreeWidget::runScripts);
         menu.addAction(QSL("Rename Script"), this, &DAQConfigTreeWidget::editName);
         menu.addSeparator();
         menu.addAction(QSL("Remove Script"), this, &DAQConfigTreeWidget::removeGlobalScript);
@@ -647,4 +657,12 @@ void DAQConfigTreeWidget::runScripts()
 void DAQConfigTreeWidget::editName()
 {
     m_tree->editItem(m_tree->currentItem(), 0);
+}
+
+void DAQConfigTreeWidget::initModule()
+{
+    auto node = m_tree->currentItem();
+    auto module = Var2Ptr<ModuleConfig>(node->data(0, DataRole_Pointer));
+
+    qDebug() << __PRETTY_FUNCTION__ << node << module;
 }

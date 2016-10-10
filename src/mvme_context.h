@@ -2,7 +2,6 @@
 #define UUID_9196420f_dd04_4572_8e4b_952039634913
 
 #include "globals.h"
-#include "vmecommandlist.h"
 #include "databuffer.h"
 #include "mvme_config.h"
 #include "histogram.h"
@@ -155,8 +154,15 @@ class MVMEContext: public QObject
         void onDAQStateChanged(DAQState state);
         void onReplayDone();
 
+        // config related
+        void onEventAdded(EventConfig *event);
+        void onEventAboutToBeRemoved(EventConfig *config);
+        void onModuleAdded(ModuleConfig *module);
+        void onModuleAboutToBeRemoved(ModuleConfig *config);
+
     private:
         void prepareStart();
+        void updateHistogramCollectionDefinition(ModuleConfig *module);
 
 
         DAQConfig *m_config;

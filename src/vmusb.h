@@ -135,9 +135,6 @@ class VMUSB: public VMEController
         QPair<QVector<u32>, u32> stackRead(u8 stackNumber);
         QVector<u32> stackExecute(const QVector<u32> &stackData, size_t resultMaxWords=1024);
 
-        /* Executes the commands in commandList and reads the response into readBuffer. */
-        virtual ssize_t executeCommands(VMECommandList *commands, void *readBuffer, size_t readBufferSize) override;
-
 
         /* Writes the given writePacket to the VM_USB and reads the response back into readPacket. */
         int transaction(void* writePacket, size_t writeSize,

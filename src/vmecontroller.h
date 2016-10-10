@@ -5,8 +5,6 @@
 #include "globals.h"
 #include <QObject>
 
-class VMECommandList;
-
 enum class VMEControllerType
 {
     VMUSB,
@@ -43,8 +41,6 @@ class VMEController: public QObject
         virtual int read16(u32 address, u16 *value, u8 amod) = 0;
 
         virtual int bltRead(u32 address, u32 transfers, QVector<u32> *dest, u8 amod, bool fifo) = 0;
-
-        virtual ssize_t executeCommands(VMECommandList *commands, void *readBuffer, size_t readBufferSize) = 0;
 
         virtual bool isOpen() const = 0;
         virtual bool openFirstDevice() = 0;

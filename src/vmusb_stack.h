@@ -3,7 +3,6 @@
 
 #include "globals.h"
 #include "mvme_config.h"
-#include "vmecommandlist.h"
 #include <stdexcept>
 
 class VMUSB;

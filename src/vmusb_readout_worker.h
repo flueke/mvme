@@ -12,7 +12,6 @@ class VMUSBReadoutWorker: public QObject
     Q_OBJECT
     signals:
         void stateChanged(DAQState);
-        void eventReady(DataBuffer *buffer);
         void logMessage(const QString &);
         void logMessages(const QStringList &, const QString &prefix = QString()); // messages, prefix
 

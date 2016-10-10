@@ -22,8 +22,6 @@
 #include <iostream>
 #include <QVector>
 
-class VMECommandList;
-
 namespace vme_script
 {
     class VMEScript;
@@ -62,7 +60,6 @@ public:
   CVMUSBReadoutList();
   CVMUSBReadoutList(std::vector<uint32_t>& list);
   CVMUSBReadoutList(const QVector<uint32_t> &list);
-  CVMUSBReadoutList(const VMECommandList &commands);
   CVMUSBReadoutList(const vme_script::VMEScript &script);
   CVMUSBReadoutList(const CVMUSBReadoutList& rhs);
 

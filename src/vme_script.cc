@@ -1,4 +1,5 @@
 #include "vme_script.h"
+#include "util.h"
 #include <QFile>
 #include <QTextStream>
 #include <QRegularExpression>

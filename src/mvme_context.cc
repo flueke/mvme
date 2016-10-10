@@ -98,82 +98,14 @@ void MVMEContext::setConfig(DAQConfig *config)
 
     m_config = config;
 
+    for (auto event: config->eventConfigs)
+        onEventAdded(event);
+
+    connect(m_config, &DAQConfig::eventAdded, this, &MVMEContext::onEventAdded);
+    connect(m_config, &DAQConfig::eventAboutToBeRemoved, this, &MVMEContext::onEventAboutToBeRemoved);
+
     emit configChanged(config);
 }
-
-#if 0
-void MVMEContext::addModule(EventConfig *eventConfig, ModuleConfig *module)
-{
-    module->setParent(eventConfig);
-    eventConfig->addModuleConfig(module);
-    emit moduleAdded(eventConfig, module);
-
-    if (!getHistogramCollection(module))
-    {
-        module->updateRegisterCache();
-
-        int nChannels = module->getNumberOfChannels();
-        int resolution = RawHistogramResolution;
-
-        if (nChannels > 0 && resolution > 0)
-        {
-            auto hist = new HistogramCollection(this, nChannels, resolution);
-            hist->setProperty("Histogram.sourceModule", module->getId());
-            hist->setObjectName(module->getObjectPath());
-            addHistogramCollection(hist);
-        }
-    }
-}
-void MVMEContext::addEventConfig(EventConfig *eventConfig)
-{
-    m_config->addEventConfig(eventConfig);
-    emit eventConfigAdded(eventConfig);
-
-    for (auto module: eventConfig->modules)
-    {
-        emit moduleAdded(eventConfig, module);
-    }
-}
-
-void MVMEContext::removeEvent(EventConfig *event)
-{
-    if (m_config->contains(event))
-    {
-        auto modules = event->modules;
-
-        for (auto module: modules)
-        {
-            removeModule(module);
-        }
-
-        emit eventConfigAboutToBeRemoved(event);
-        m_config->removeEventConfig(event);
-        m_config->setModified();
-        delete event;
-    }
-}
-
-void MVMEContext::removeModule(ModuleConfig *module)
-{
-    for (EventConfig *event: m_config->getEventConfigs())
-    {
-        if (event->removeModuleConfig(module))
-        {
-            emit moduleAboutToBeRemoved(module);
-
-            auto histo = getHistogramCollection(module);
-
-            if (histo)
-            {
-                removeHistogramCollection(histo);
-            }
-
-            delete module;
-            break;
-        }
-    }
-}
-#endif
 
 void MVMEContext::setController(VMEController *controller)
 {
@@ -404,35 +336,7 @@ void MVMEContext::prepareStart()
     auto histograms = m_histogramCollections;
     for (ModuleConfig *module: m_config->getAllModuleConfigs())
     {
-        module->updateRegisterCache();
-
-        auto findResult = std::find_if(histograms.begin(), histograms.end(),
-                                       [module](HistogramCollection *hist) {
-            auto id = hist->property("Histogram.sourceModule").toUuid();
-            return module->getId() == id;
-        });
-
-        HistogramCollection *hist;
-
-        int nChannels = module->getNumberOfChannels();
-        int resolution = RawHistogramResolution;
-
-        if (nChannels > 0 && resolution > 0)
-        {
-
-            if (findResult == histograms.end())
-            {
-                hist = new HistogramCollection(this, nChannels, resolution);
-                hist->setProperty("Histogram.sourceModule", module->getId());
-                hist->setObjectName(module->getObjectPath());
-                addHistogramCollection(hist);
-            }
-            else
-            {
-                // resize() also clears the histogram
-                (*findResult)->resize(nChannels, resolution);
-            }
-        }
+        updateHistogramCollectionDefinition(module);
     }
 
     for (auto hist2d: m_2dHistograms)
@@ -594,5 +498,60 @@ void MVMEContext::logMessages(const QStringList &messages, const QString &prefix
     for (auto msg: messages)
     {
         emit sigLogMessage(prefix + msg);
+    }
+}
+
+void MVMEContext::onEventAdded(EventConfig *event)
+{
+    for (auto module: event->modules)
+        onModuleAdded(module);
+
+    connect(event, &EventConfig::moduleAdded, this, &MVMEContext::onModuleAdded);
+    connect(event, &EventConfig::moduleAboutToBeRemoved, this, &MVMEContext::onModuleAboutToBeRemoved);
+}
+
+void MVMEContext::onEventAboutToBeRemoved(EventConfig *config)
+{
+}
+
+void MVMEContext::onModuleAdded(ModuleConfig *module)
+{
+    qDebug() << __PRETTY_FUNCTION__ << module;
+    updateHistogramCollectionDefinition(module);
+}
+
+void MVMEContext::onModuleAboutToBeRemoved(ModuleConfig *module)
+{
+    auto histo = getHistogramCollection(module);
+
+    if (histo)
+    {
+        removeHistogramCollection(histo);
+    }
+
+}
+
+void MVMEContext::updateHistogramCollectionDefinition(ModuleConfig *module)
+{
+    qDebug() << __PRETTY_FUNCTION__ << module;
+    module->updateRegisterCache();
+    int nChannels = module->getNumberOfChannels();
+    int resolution = RawHistogramResolution;
+
+    if (nChannels > 0 && resolution > 0)
+    {
+        auto histo = getHistogramCollection(module);
+
+        if (!histo)
+        {
+            histo = new HistogramCollection(this, nChannels, resolution);
+            histo->setProperty("Histogram.sourceModule", module->getId());
+            histo->setObjectName(module->getObjectPath());
+            addHistogramCollection(histo);
+        }
+        else
+        {
+            histo->resize(nChannels, resolution);
+        }
     }
 }

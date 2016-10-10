@@ -1,5 +1,4 @@
 #include "mvme_config.h"
-#include "vmecommandlist.h"
 #include "CVMUSBReadoutList.h"
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -349,44 +348,6 @@ void ModuleConfig::write_impl(QJsonObject &json) const
 
     json["vme_scripts"] = scriptsObject;
 }
-
-
-#if 0
-void ModuleConfig::generateReadoutStack()
-{
-    VMECommandList readoutCmds;
-
-    if (isMesytecModule(type))
-    {
-        readoutCmds.addFifoRead32(baseAddress, FifoReadTransferSize);
-        readoutCmds.addMarker(EndMarker);
-        readoutCmds.addWrite16(baseAddress + 0x6034, 1);
-    }
-    else
-    {
-        // Test to make a module without any readout work.
-        // FIXME: This did result in errors in MVMEEventProcessor::processEventBuffer.
-        //readoutCmds.addMarker(EndMarker);
-    }
-
-    CVMUSBReadoutList readoutList(readoutCmds);
-    readoutStack = readoutList.toString();
-    setModified();
-
-#if 0
-    if (type == VMEModuleType::VHS4030p)
-    {
-        // TODO: read channel voltages and currents here
-        //VMECommandList cmds;
-
-        // read channel 0 voltage
-        readoutCmds.addRead16(baseAddress + 0x0060 + 16, getRegisterAddressModifier());
-        readoutCmds.addRead16(baseAddress + 0x0060 + 16 + 2, getRegisterAddressModifier());
-
-    }
-#endif
-}
-#endif
 
 //
 // EventConfig

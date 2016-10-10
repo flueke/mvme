@@ -15,8 +15,8 @@
 */
 
 #include "CVMUSBReadoutList.h"
-#include "vmecommandlist.h"
 #include "vme_script.h"
+#include "util.h"
 #include <iostream>
 #include <QString>
 #include <QTextStream>
@@ -102,69 +102,6 @@ CVMUSBReadoutList::CVMUSBReadoutList(vector<uint32_t>& list) :
 CVMUSBReadoutList::CVMUSBReadoutList(const QVector<uint32_t> &list)
     : m_list(list.toStdVector())
 {
-}
-
-CVMUSBReadoutList::CVMUSBReadoutList(const VMECommandList &commands)
-{
-    for (auto cmd: commands.commands)
-    {
-        switch (cmd.type)
-        {
-            case VMECommand::Write32:
-                {
-                    addWrite32(cmd.address, cmd.amod, cmd.value);
-                } break;
-            case VMECommand::Write16:
-                {
-                    addWrite16(cmd.address, cmd.amod, cmd.value);
-                } break;
-            case VMECommand::Read32:
-                {
-                    addRead32(cmd.address, cmd.amod);
-                } break;
-            case VMECommand::Read16:
-                {
-                    addRead16(cmd.address, cmd.amod);
-                } break;
-            case VMECommand::BlockRead32:
-                {
-                    addBlockRead32(cmd.address, cmd.amod, cmd.transfers);
-                } break;
-            case VMECommand::FifoRead32:
-                {
-                    addFifoRead32(cmd.address, cmd.amod, cmd.transfers);
-                } break;
-            case VMECommand::BlockCountRead16:
-                {
-                    addBlockCountRead16(cmd.address, cmd.blockCountMask, cmd.amod);
-                } break;
-            case VMECommand::BlockCountRead32:
-                {
-                    addBlockCountRead32(cmd.address, cmd.blockCountMask, cmd.amod);
-                } break;
-            case VMECommand::MaskedCountBlockRead32:
-                {
-                    addMaskedCountBlockRead32(cmd.address, cmd.amod);
-                } break;
-            case VMECommand::MaskedCountFifoRead32:
-                {
-                    addMaskedCountFifoRead32(cmd.address, cmd.amod);
-                } break;
-            case VMECommand::Delay:
-                {
-                    addDelay(cmd.delay200nsClocks);
-                } break;
-            case VMECommand::Marker:
-                {
-                    addMarker(cmd.value);
-                    addMarker(cmd.value >> 16);
-                } break;
-            default:
-                {
-                    Q_ASSERT(!"Unhandled command type");
-                } break;
-        };
-    }
 }
 
 CVMUSBReadoutList::CVMUSBReadoutList(const vme_script::VMEScript &script)
