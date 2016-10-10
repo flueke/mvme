@@ -4,7 +4,7 @@
 #include "CVMUSBReadoutList.h"
 #include "histogram.h"
 #include "hist2ddialog.h"
-#include "vmecontroller.h"
+#include "vme_controller.h"
 #include "config_widgets.h"
 
 #include <QComboBox>

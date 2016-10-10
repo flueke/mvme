@@ -1,4 +1,4 @@
-#include "vmecontroller.h"
+#include "vme_controller.h"
 #include <QThread>
 
 VMEController::VMEController(QObject *parent)

@@ -19,7 +19,7 @@ SOURCES += \
     $$PWD/scrollzoomer.cpp \
     $$PWD/twodimwidget.cpp \
     $$PWD/util.cc \
-    $$PWD/vmecontroller.cpp \
+    $$PWD/vme_controller.cpp \
     $$PWD/vme_script.cc \
     $$PWD/vmusb_buffer_processor.cc \
     $$PWD/vmusb_readout_worker.cc \
@@ -48,7 +48,7 @@ HEADERS += \
     $$PWD/scrollzoomer.h \
     $$PWD/twodimwidget.h \
     $$PWD/util.h \
-    $$PWD/vmecontroller.h \
+    $$PWD/vme_controller.h \
     $$PWD/vme.h \
     $$PWD/vme_script.h \
     $$PWD/vmusb_buffer_processor.h \

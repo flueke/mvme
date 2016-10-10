@@ -22,7 +22,7 @@
 
 #include "libxxusb.h"
 #include "util.h"
-#include "vmecontroller.h"
+#include "vme_controller.h"
 #include "vmusb_constants.h"
 
 #include <QObject>

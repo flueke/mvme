@@ -2,7 +2,7 @@
 #include "util.h"
 #include "vmusb_stack.h"
 #include "mvme_context.h"
-#include "vmecontroller.h"
+#include "vme_controller.h"
 #include "daqconfig_tree.h"
 #include "mvme_config.h"
 
