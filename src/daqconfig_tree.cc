@@ -426,17 +426,17 @@ void DAQConfigTreeWidget::onEventAdded(EventConfig *eventConfig)
         {
             case TriggerCondition::Interrupt:
                 {
-                    infoText = QString("IRQ, lvl=%2, vec=%3")
+                    infoText = QString("Trigger=IRQ, lvl=%2, vec=%3")
                         .arg(eventConfig->irqLevel)
                         .arg(eventConfig->irqVector);
                 } break;
             case TriggerCondition::NIM1:
                 {
-                    infoText = QSL("NIM");
+                    infoText = QSL("Trigger=NIM");
                 } break;
             case TriggerCondition::Periodic:
                 {
-                    infoText = QSL("Periodic");
+                    infoText = QSL("Trigger=Periodic");
                 } break;
         }
 

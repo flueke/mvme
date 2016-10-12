@@ -5,7 +5,9 @@
 
 class MVMEContext;
 class VMEScriptConfig;
+
 class QTextEdit;
+class QToolBar;
 
 class VMEScriptEditor: public MVMEWidget
 {
@@ -14,13 +16,21 @@ class VMEScriptEditor: public MVMEWidget
         VMEScriptEditor(MVMEContext *context, VMEScriptConfig *script, QWidget *parent = 0);
 
     private:
+        void updateWindowTitle();
+
+        void onEditorTextChanged();
         void onScriptModified(bool isModified);
 
-        void updateWindowTitle();
+        void runScript();
+        void saveAndClose();
+        void saveToConfig();
+        void loadFromConfig();
 
 
         MVMEContext *m_context;
         VMEScriptConfig *m_script;
+
+        QToolBar *m_toolbar;
         QTextEdit *m_editor;
 };
 
