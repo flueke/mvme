@@ -242,7 +242,7 @@ Command parse_line(QString line, int lineNumber)
     auto fn = commandParsers.value(parts[0].toLower(), nullptr);
     
     if (!fn)
-        throw ParseError(QString(QSL("No such command \"%1\"")).arg(parts[0]));
+        throw ParseError(QString(QSL("No such command \"%1\"")).arg(parts[0]), lineNumber);
 
     try
     {

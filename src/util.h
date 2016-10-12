@@ -189,6 +189,7 @@ QVariant Ptr2Var(T *ptr)
 
 QString makeDurationString(qint64 durationSeconds);
 
+/** Emits aboutToClose() before returning from closeEvent() */
 class MVMEWidget: public QWidget
 {
     Q_OBJECT

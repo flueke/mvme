@@ -1,9 +1,16 @@
 <!DOCTYPE RCC><RCC version="1.0">
 <qresource>
     <!-- icons -->
-    <file alias="vme_script.png">resources/text-x-generic.png</file>
-    <file alias="config_category.png">resources/package-x-generic.png</file>
+    <file alias="vme_script.png">resources/text-x-katefilelist.png</file>
+    <file alias="config_category.png">resources/folder-orange.png</file>
     <file alias="vme_module.png">resources/audio-card.png</file>
+    <file alias="dialog-close.png">resources/dialog-close.png</file>
+    <file alias="dialog-ok-apply.png">resources/dialog-ok-apply.png</file>
+    <file alias="document-open.png">resources/document-open.png</file>
+    <file alias="document-revert.png">resources/document-revert.png</file>
+    <file alias="document-save.png">resources/document-save.png</file>
+    <file alias="document-save-as.png">resources/document-save-as.png</file>
+    <file alias="script-run.png">resources/media-playback-start.png</file>
 </qresource>
 </RCC>
 <!-- vim:ft=xml

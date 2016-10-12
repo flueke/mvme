@@ -664,9 +664,17 @@ void DAQConfigTreeWidget::runScripts()
 
     if (scriptConfig)
     {
-        run_script(m_context->getController(),
-                   scriptConfig->getScript(moduleConfig ? moduleConfig->getBaseAddress() : 0),
-                   std::bind(&MVMEContext::logMessage, m_context, _1));
+        auto logger = std::bind(&MVMEContext::logMessage, m_context, _1);
+        try
+        {
+            run_script(m_context->getController(),
+                       scriptConfig->getScript(moduleConfig ? moduleConfig->getBaseAddress() : 0),
+                       logger);
+        }
+        catch (const vme_script::ParseError &e)
+        {
+            logger(QSL("Parse error: ") + e.what());
+        }
     }
 }
 

@@ -8,6 +8,7 @@ class VMEScriptConfig;
 
 class QTextEdit;
 class QToolBar;
+class QCloseEvent;
 
 class VMEScriptEditor: public MVMEWidget
 {
@@ -22,13 +23,17 @@ class VMEScriptEditor: public MVMEWidget
         void onScriptModified(bool isModified);
 
         void runScript();
-        void saveAndClose();
-        void saveToConfig();
-        void loadFromConfig();
+        void loadFromFile();
+        void loadFromTemplate();
+        void saveToFile();
+        void apply();
+        void revert();
+
+        virtual void closeEvent(QCloseEvent *event);
 
 
         MVMEContext *m_context;
-        VMEScriptConfig *m_script;
+        VMEScriptConfig *m_scriptConfig;
 
         QToolBar *m_toolbar;
         QTextEdit *m_editor;

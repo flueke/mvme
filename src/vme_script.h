@@ -79,6 +79,13 @@ struct ParseError
         , lineNumber(lineNumber)
     {}
 
+    QString what() const
+    {
+        if (lineNumber >= 0)
+            return QString("%1 on line %2").arg(message).arg(lineNumber);
+        return message;
+    }
+
     QString message;
     int lineNumber;
 };

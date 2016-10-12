@@ -638,9 +638,12 @@ void mvme::onConfigObjectDoubleClicked(ConfigObject *config)
             subwin->setAttribute(Qt::WA_DeleteOnClose);
             subwin->setWidget(widget);
 
+            qDebug() << "adding window" << subwin << "for config" << config;
+
             m_configWindows[config] = subwin;
 
             connect(widget, &MVMEWidget::aboutToClose, this, [this, config] {
+                qDebug() << "removing window" << m_configWindows.value(config) << "for config" << config;
                 m_configWindows[config]->close();
                 m_configWindows.remove(config);
             });
