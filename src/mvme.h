@@ -17,6 +17,7 @@ class ModuleConfig;
 class MVMEContextWidget;
 class DAQConfig;
 class DAQConfigTreeWidget;
+class HistogramTreeWidget;
 class VMEScriptConfig;
 class ConfigObject;
 
@@ -93,6 +94,7 @@ private slots:
     QMdiSubWindow *m_logViewSubwin;
     QMap<QObject *, QMdiSubWindow *> m_configWindows;
     DAQConfigTreeWidget *m_daqConfigTreeWidget;
+    HistogramTreeWidget *m_histogramTreeWidget;
 };
 
 #endif // MVME_H

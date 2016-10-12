@@ -14,6 +14,7 @@
 #include "daqconfig_tree.h"
 #include "vme_script_editor.h"
 #include "vme_debug_widget.h"
+#include "histogram_tree.h"
 
 #include <QDockWidget>
 #include <QFileDialog>
@@ -133,6 +134,29 @@ mvme::mvme(QWidget *parent) :
 
         connect(m_daqConfigTreeWidget, &DAQConfigTreeWidget::configObjectDoubleClicked,
                 this, &mvme::onConfigObjectDoubleClicked);
+    }
+
+    //
+    // HistogramTreeWidget
+    //
+    m_histogramTreeWidget = new HistogramTreeWidget(m_context);
+
+    {
+        auto dock = new QDockWidget(QSL("Histograms"), this);
+        dock->setObjectName("HistogramTreeWidgetDock");
+        dock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
+        dock->setWidget(m_histogramTreeWidget);
+        addDockWidget(Qt::LeftDockWidgetArea, dock);
+
+#if 0
+        connect(m_context, &MVMEContext::configChanged, m_daqConfigTreeWidget, &DAQConfigTreeWidget::setConfig);
+
+        connect(m_daqConfigTreeWidget, &DAQConfigTreeWidget::configObjectClicked,
+                this, &mvme::onConfigObjectClicked);
+
+        connect(m_daqConfigTreeWidget, &DAQConfigTreeWidget::configObjectDoubleClicked,
+                this, &mvme::onConfigObjectDoubleClicked);
+#endif
     }
 
     //
