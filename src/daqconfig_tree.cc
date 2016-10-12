@@ -534,10 +534,10 @@ void DAQConfigTreeWidget::addEvent()
         TemplateLoader loader;
         connect(&loader, &TemplateLoader::logMessage, m_context, &MVMEContext::logMessage);
 
-        config->vmeScripts["daq_start"]->setScriptContents(loader.readTemplate(QSL("event_daq_start.init")));
-        config->vmeScripts["daq_stop"]->setScriptContents(loader.readTemplate(QSL("event_daq_stop.init")));
-        config->vmeScripts["readout_start"]->setScriptContents(loader.readTemplate(QSL("readout_cycle_start.init")));
-        config->vmeScripts["readout_end"]->setScriptContents(loader.readTemplate(QSL("readout_cycle_end.init")));
+        config->vmeScripts["daq_start"]->setScriptContents(loader.readTemplate(QSL("event_daq_start.vme")));
+        config->vmeScripts["daq_stop"]->setScriptContents(loader.readTemplate(QSL("event_daq_stop.vme")));
+        config->vmeScripts["readout_start"]->setScriptContents(loader.readTemplate(QSL("readout_cycle_start.vme")));
+        config->vmeScripts["readout_end"]->setScriptContents(loader.readTemplate(QSL("readout_cycle_end.vme")));
 
         m_config->addEventConfig(config);
         auto node = m_treeMap.value(config, nullptr);
@@ -586,9 +586,9 @@ void DAQConfigTreeWidget::addModule()
             connect(&loader, &TemplateLoader::logMessage, m_context, &MVMEContext::logMessage);
             
             module->vmeScripts["parameters"]->setScriptContents(loader.readTemplate(
-                    QString("%1_parameters.init").arg(VMEModuleShortNames.value(module->type, "unknown"))));
-            module->vmeScripts["readout_settings"]->setScriptContents(loader.readTemplate(QSL("mesytec_readout_settings.init")));
-            module->vmeScripts["readout"]->setScriptContents(loader.readTemplate(QSL("mesytec_readout.init")));
+                    QString("%1_parameters.vme").arg(VMEModuleShortNames.value(module->type, "unknown"))));
+            module->vmeScripts["readout_settings"]->setScriptContents(loader.readTemplate(QSL("mesytec_readout_settings.vme")));
+            module->vmeScripts["readout"]->setScriptContents(loader.readTemplate(QSL("mesytec_readout.vme")));
 
             event->addModuleConfig(module);
 
