@@ -504,18 +504,31 @@ void SyntaxHighlighter::highlightBlock(const QString &text)
     }
 }
 
-void run_script(VMEController *controller, const VMEScript &script, LoggerFun logger)
+ResultList run_script(VMEController *controller, const VMEScript &script, LoggerFun logger)
 {
+    ResultList result;
+
     for (auto cmd: script)
     {
-        run_command(controller, cmd, logger);
+        if (cmd.type != CommandType::Invalid)
+        {
+            result.push_back(run_command(controller, cmd, logger));
+        }
     }
+
+    return result;
 }
 
-void run_command(VMEController *controller, const Command &cmd, LoggerFun logger)
+Result run_command(VMEController *controller, const Command &cmd, LoggerFun logger)
 {
+    /*
     if (logger)
         logger(to_string(cmd));
+    */
+
+    Result result;
+
+    result.command = cmd;
 
     switch (cmd.type)
     {
@@ -529,12 +542,14 @@ void run_command(VMEController *controller, const Command &cmd, LoggerFun logger
                     case DataWidth::D16:
                         {
                             uint16_t value = 0;
-                            controller->read16(cmd.address, &value, amod_from_AddressMode(cmd.addressMode));
+                            result.code = controller->read16(cmd.address, &value, amod_from_AddressMode(cmd.addressMode));
+                            result.value = value;
                         } break;
                     case DataWidth::D32:
                         {
                             uint32_t value = 0;
-                            controller->read32(cmd.address, &value, amod_from_AddressMode(cmd.addressMode));
+                            result.code = controller->read32(cmd.address, &value, amod_from_AddressMode(cmd.addressMode));
+                            result.value = value;
                         } break;
                 }
             } break;
@@ -545,10 +560,10 @@ void run_command(VMEController *controller, const Command &cmd, LoggerFun logger
                 switch (cmd.dataWidth)
                 {
                     case DataWidth::D16:
-                        controller->write16(cmd.address, cmd.value, amod_from_AddressMode(cmd.addressMode));
+                        result.code = controller->write16(cmd.address, cmd.value, amod_from_AddressMode(cmd.addressMode));
                         break;
                     case DataWidth::D32:
-                        controller->write32(cmd.address, cmd.value, amod_from_AddressMode(cmd.addressMode));
+                        result.code = controller->write32(cmd.address, cmd.value, amod_from_AddressMode(cmd.addressMode));
                         break;
                 }
             } break;
@@ -564,26 +579,26 @@ void run_command(VMEController *controller, const Command &cmd, LoggerFun logger
 
         case CommandType::BLT:
             {
-                QVector<u32> dest;
-                controller->bltRead(cmd.address, cmd.transfers, &dest, amod_from_AddressMode(cmd.addressMode, true), false);
+                result.code = controller->bltRead(cmd.address, cmd.transfers, &result.valueVector,
+                                                  amod_from_AddressMode(cmd.addressMode, true), false);
             } break;
 
         case CommandType::BLTFifo:
             {
-                QVector<u32> dest;
-                controller->bltRead(cmd.address, cmd.transfers, &dest, amod_from_AddressMode(cmd.addressMode, true), true);
+                result.code = controller->bltRead(cmd.address, cmd.transfers, &result.valueVector,
+                                                  amod_from_AddressMode(cmd.addressMode, true), true);
             } break;
 
         case CommandType::MBLT:
             {
-                QVector<u32> dest;
-                controller->bltRead(cmd.address, cmd.transfers, &dest, amod_from_AddressMode(cmd.addressMode, false, true), false);
+                result.code = controller->bltRead(cmd.address, cmd.transfers, &result.valueVector,
+                                                  amod_from_AddressMode(cmd.addressMode, false, true), false);
             } break;
 
         case CommandType::MBLTFifo:
             {
-                QVector<u32> dest;
-                controller->bltRead(cmd.address, cmd.transfers, &dest, amod_from_AddressMode(cmd.addressMode, false, true), true);
+                result.code = controller->bltRead(cmd.address, cmd.transfers, &result.valueVector,
+                                                  amod_from_AddressMode(cmd.addressMode, false, true), true);
             } break;
 
 #if 1
@@ -706,43 +721,66 @@ void run_command(VMEController *controller, const Command &cmd, LoggerFun logger
             } break;
 #endif
     }
+
+    return result;
 }
 
-}
-
-#if 0
-int main(int argc, char *argv[])
+QString format_result(const Result &result)
 {
-    using namespace vme_script;
-
-    QApplication app(argc, argv);
-    QTextEdit textEdit;
-    textEdit.setAcceptRichText(false);
-    auto highLighter = new SyntaxHighlighter(&textEdit);
-    textEdit.show();
-    QFile inFile("test.vmescript");
-
-    if (inFile.open(QIODevice::ReadOnly))
+    if (result.code < 0)
     {
-        QTextStream in(&inFile);
-        textEdit.setPlainText(in.readAll());
+        QString ret = QString("Error from \"%1\": %2")
+            .arg(to_string(result.command))
+            .arg(result.code);
+
+        if (!result.info.isEmpty())
+            ret += '(' + result.info + ')';
+
+        return ret;
     }
 
-    QObject::connect(&textEdit, &QTextEdit::textChanged, &textEdit, [&textEdit] {
-        QTextStream out(stdout);
-        QString text = textEdit.toPlainText();
-        try
-        {
-            auto script = parse(text);
-            for (auto command: script.commands)
+    QString ret(to_string(result.command));
+
+    switch (result.command.type)
+    {
+        case CommandType::Invalid:
+        case CommandType::Wait:
+        case CommandType::Marker:
+            break;
+
+        case CommandType::Read:
+            ret += QString(" -> 0x%1")
+                .arg(result.value, 8, 16, QChar('0'));
+            break;
+
+
+        case CommandType::Write:
+        case CommandType::WriteAbs:
+            ret += QString(" -> %1")
+                .arg(result.code);
+            break;
+
+        case CommandType::BLT:
+        case CommandType::BLTFifo:
+        case CommandType::MBLT:
+        case CommandType::MBLTFifo:
+        case CommandType::BLTCount:
+        case CommandType::BLTFifoCount:
+        case CommandType::MBLTCount:
+        case CommandType::MBLTFifoCount:
             {
-                out << to_string(command) << endl;
-            }
-        } catch (const ParseError &e)
-        {
-            out << "Line " << e.lineNumber << ": " << e.message << endl;
-        }
-    });
-    return app.exec();
+                ret += "\n";
+                for (int i=0; i<result.valueVector.size(); ++i)
+                {
+                    ret += QString(QSL("%1: 0x%2\n"))
+                        .arg(i, 2, 10, QChar(' '))
+                        .arg(result.valueVector[i], 8, 16, QChar('0'));
+                }
+            } break;
+    }
+
+    return ret;
 }
-#endif
+
+
+}

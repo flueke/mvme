@@ -26,7 +26,7 @@
      <x>0</x>
      <y>0</y>
      <width>1034</width>
-     <height>21</height>
+     <height>19</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -54,6 +54,7 @@
     <property name="title">
      <string>Window</string>
     </property>
+    <addaction name="actionVME_Debug"/>
     <addaction name="actionShow_MVME_Control"/>
     <addaction name="actionShowLogWindow"/>
     <addaction name="separator"/>
@@ -144,6 +145,11 @@
   <action name="actionShow_MVME_Control">
    <property name="text">
     <string>Show MVME Control</string>
+   </property>
+  </action>
+  <action name="actionVME_Debug">
+   <property name="text">
+    <string>VME Debug</string>
    </property>
   </action>
  </widget>

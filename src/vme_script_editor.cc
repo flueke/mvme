@@ -44,8 +44,6 @@ VMEScriptEditor::VMEScriptEditor(MVMEContext *context, VMEScriptConfig *script, 
     layout->addWidget(m_toolbar);
     layout->addWidget(m_editor);
 
-    setMinimumWidth(350);
-
     connect(script, &VMEScriptConfig::modified, this, &VMEScriptEditor::onScriptModified);
 
     auto parentConfig = qobject_cast<ConfigObject *>(m_scriptConfig->parent());
@@ -57,6 +55,8 @@ VMEScriptEditor::VMEScriptEditor(MVMEContext *context, VMEScriptConfig *script, 
     updateWindowTitle();
 
     connect(m_editor->document(), &QTextDocument::contentsChanged, this, &VMEScriptEditor::onEditorTextChanged);
+
+    m_toolbar->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
 
     m_toolbar->addAction(QIcon(":/script-run.png"), QSL("Run"), this,  &VMEScriptEditor::runScript);
     m_toolbar->addAction(QIcon(":/dialog-ok-apply.png"), QSL("Apply"), this, &VMEScriptEditor::apply);
@@ -83,33 +83,7 @@ VMEScriptEditor::VMEScriptEditor(MVMEContext *context, VMEScriptConfig *script, 
 
 void VMEScriptEditor::updateWindowTitle()
 {
-    auto module     = qobject_cast<ModuleConfig *>(m_scriptConfig->parent());
-    auto event      = qobject_cast<EventConfig *>(m_scriptConfig->parent());
-    auto daqConfig  = qobject_cast<DAQConfig *>(m_scriptConfig->parent());
-    QString title;
-
-    if (module)
-    {
-        title = QString("%1 for %2")
-            .arg(m_scriptConfig->objectName())
-            .arg(module->objectName());
-    }
-    else if (event)
-    {
-        title = QString("%1 for %2")
-            .arg(m_scriptConfig->objectName())
-            .arg(event->objectName());
-    }
-    else if (daqConfig)
-    {
-        title = QString("Global Script %2")
-            .arg(m_scriptConfig->objectName())
-            ;
-    }
-    else
-    {
-        title = QString("VMEScript %1").arg(m_scriptConfig->objectName());
-    }
+    auto title = get_title(m_scriptConfig);
 
     if (m_editor->document()->isModified())
         title += QSL(" *");
@@ -141,7 +115,10 @@ void VMEScriptEditor::runScript()
         auto moduleConfig = qobject_cast<ModuleConfig *>(m_scriptConfig->parent());
         auto script = vme_script::parse(m_editor->toPlainText(),
                                         moduleConfig ? moduleConfig->getBaseAddress() : 0);
-        vme_script::run_script(m_context->getController(), script, logger);
+        auto results = vme_script::run_script(m_context->getController(), script, logger);
+
+        for (auto result: results)
+            logger(format_result(result));
     }
     catch (const vme_script::ParseError &e)
     {
@@ -158,8 +135,8 @@ void VMEScriptEditor::loadFromFile()
         path = settings.value("Files/LastVMEScriptDirectory").toString();
     }
 
-    QString fileName = QFileDialog::getOpenFileName(this, "Load vme script file", path,
-                                                    "VME scripts (*.vme);; All Files (*)");
+    QString fileName = QFileDialog::getOpenFileName(this, QSL("Load vme script file"), path,
+                                                    QSL("VME scripts (*.vme);; All Files (*)"));
     if (!fileName.isEmpty())
     {
         QFile file(fileName);
@@ -181,8 +158,8 @@ void VMEScriptEditor::loadFromTemplate()
 
     if (!path.isEmpty())
     {
-        QString fileName = QFileDialog::getOpenFileName(this, "Load vme script file", path,
-                                                        "VME scripts (*.vme);; All Files (*)");
+        QString fileName = QFileDialog::getOpenFileName(this, QSL("Load vme script file"), path,
+                                                        QSL("VME scripts (*.vme);; All Files (*)"));
         if (!fileName.isEmpty())
         {
             QFile file(fileName);
@@ -204,8 +181,8 @@ void VMEScriptEditor::saveToFile()
         path = settings.value("Files/LastVMEScriptDirectory").toString();
     }
 
-    QString fileName = QFileDialog::getSaveFileName(this, "Load vme template", path,
-                                                    "VME scripts (*.vme);; All Files (*)");
+    QString fileName = QFileDialog::getSaveFileName(this, QSL("Save vme script file"), path,
+                                                    QSL("VME scripts (*.vme);; All Files (*)"));
 
     if (fileName.isEmpty())
         return;

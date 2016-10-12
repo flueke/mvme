@@ -14,6 +14,7 @@ class VMEController;
 
 namespace vme_script
 {
+
 enum class CommandType
 {
     Invalid,
@@ -104,10 +105,22 @@ class SyntaxHighlighter: public QSyntaxHighlighter
 
 uint8_t amod_from_AddressMode(AddressMode mode, bool blt=false, bool mblt=false);
 
+struct Result
+{
+    int code = 0;
+    QString info;
+    uint32_t value;
+    QVector<uint32_t> valueVector;
+    Command command;
+};
+
+typedef QVector<Result> ResultList;
 typedef std::function<void (const QString &)> LoggerFun;
 
-void run_script(VMEController *controller, const VMEScript &script, LoggerFun logger = LoggerFun());
-void run_command(VMEController *controller, const Command &cmd, LoggerFun logger = LoggerFun());
+ResultList run_script(VMEController *controller, const VMEScript &script, LoggerFun logger = LoggerFun());
+Result run_command(VMEController *controller, const Command &cmd, LoggerFun logger = LoggerFun());
+
+QString format_result(const Result &result);
 
 }
 

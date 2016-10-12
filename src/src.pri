@@ -26,6 +26,7 @@ SOURCES += \
     $$PWD/vmusb_stack.cc \
     $$PWD/daqconfig_tree.cc \
     $$PWD/vme_script_editor.cc \
+    $$PWD/vme_debug_widget.cc \
 
 
 HEADERS += \
@@ -57,6 +58,7 @@ HEADERS += \
     $$PWD/vmusb_stack.h \
     $$PWD/daqconfig_tree.h \
     $$PWD/vme_script_editor.h \
+    $$PWD/vme_debug_widget.h \
 
 
 FORMS += \
@@ -66,6 +68,8 @@ FORMS += \
     $$PWD/mvmecontrol.ui \
     $$PWD/mvme.ui \
     $$PWD/twodimwidget.ui \
+    $$PWD/vme_debug_widget.ui \
+
 
 contains(DEFINES, "VME_CONTROLLER_WIENER") {
     message("Building with WIENER VM_USB support")

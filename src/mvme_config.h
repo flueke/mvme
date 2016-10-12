@@ -285,4 +285,6 @@ class DAQConfig: public ConfigObject
         bool m_listFileOutputEnabled = false;
 };
 
+QString get_title(const VMEScriptConfig *config);
+
 #endif

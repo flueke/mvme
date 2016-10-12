@@ -32,6 +32,3 @@ unix {
     QMAKE_LFLAGS += "-Wl,-rpath,\'\$$ORIGIN\'"
 }
 
-FORMS += \
-    vme_script_editor.ui \
-

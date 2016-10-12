@@ -568,3 +568,37 @@ QVector<ModuleConfig *> DAQConfig::getAllModuleConfigs() const
 
     return result;
 }
+
+QString get_title(const VMEScriptConfig *config)
+{
+    auto module     = qobject_cast<ModuleConfig *>(config->parent());
+    auto event      = qobject_cast<EventConfig *>(config->parent());
+    auto daqConfig  = qobject_cast<DAQConfig *>(config->parent());
+
+    QString title;
+
+    if (module)
+    {
+        title = QString("%1 for %2")
+            .arg(config->objectName())
+            .arg(module->objectName());
+    }
+    else if (event)
+    {
+        title = QString("%1 for %2")
+            .arg(config->objectName())
+            .arg(event->objectName());
+    }
+    else if (daqConfig)
+    {
+        title = QString("Global Script %2")
+            .arg(config->objectName());
+    }
+    else
+    {
+        title = QString("VMEScript %1")
+            .arg(config->objectName());
+    }
+
+    return title;
+}

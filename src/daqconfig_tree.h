@@ -61,6 +61,8 @@ class DAQConfigTreeWidget: public QWidget
         void editName();
         void initModule();
 
+        void runScriptConfigs(const QVector<VMEScriptConfig *> &configs);
+
         MVMEContext *m_context = nullptr;
         DAQConfig *m_config = nullptr;
         QTreeWidget *m_tree;

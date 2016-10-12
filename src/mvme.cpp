@@ -13,6 +13,7 @@
 #include "mvmecontrol.h"
 #include "daqconfig_tree.h"
 #include "vme_script_editor.h"
+#include "vme_debug_widget.h"
 
 #include <QDockWidget>
 #include <QFileDialog>
@@ -586,6 +587,17 @@ void mvme::on_actionOpen_Listfile_triggered()
 
     settings.setValue("Files/LastListFile", fileName);
     m_context->setListFile(listFile);
+}
+
+void mvme::on_actionVME_Debug_triggered()
+{
+    auto widget = new VMEDebugWidget(m_context);
+    auto subwin = new QMdiSubWindow(ui->mdiArea);
+    subwin->setWidget(widget);
+    subwin->setAttribute(Qt::WA_DeleteOnClose);
+    ui->mdiArea->addSubWindow(subwin);
+    subwin->show();
+    ui->mdiArea->setActiveSubWindow(subwin);
 }
 
 void mvme::on_actionShowLogWindow_triggered()

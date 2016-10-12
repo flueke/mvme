@@ -382,10 +382,11 @@ void DAQConfigTreeWidget::treeContextMenu(const QPoint &pos)
     //
     if (node == m_nodeStart || node == m_nodeStop || node == m_nodeManual)
     {
-        menu.addAction(QSL("Add script"), this, &DAQConfigTreeWidget::addGlobalScript);
-
         if (node->childCount() > 0)
             menu.addAction(QSL("Run scripts"), this, &DAQConfigTreeWidget::runScripts);
+
+        menu.addAction(QSL("Add script"), this, &DAQConfigTreeWidget::addGlobalScript);
+
     }
 
     if (parent == m_nodeStart || parent == m_nodeStop || parent == m_nodeManual)
@@ -652,30 +653,27 @@ void DAQConfigTreeWidget::removeGlobalScript()
 void DAQConfigTreeWidget::runScripts()
 {
     auto node = m_tree->currentItem();
-    auto obj = Var2Ptr<ConfigObject>(node->data(0, DataRole_Pointer));
+    auto obj  = Var2Ptr<ConfigObject>(node->data(0, DataRole_Pointer));
 
-    qDebug() << __PRETTY_FUNCTION__ << node << obj;
-
-    if (!obj)
-        return;
+    QVector<VMEScriptConfig *> scriptConfigs;
 
     auto scriptConfig = qobject_cast<VMEScriptConfig *>(obj);
-    auto moduleConfig = qobject_cast<ModuleConfig *>(obj->parent());
 
     if (scriptConfig)
     {
-        auto logger = std::bind(&MVMEContext::logMessage, m_context, _1);
-        try
+        scriptConfigs.push_back(scriptConfig);
+    }
+    else
+    {
+        for (int i=0; i<node->childCount(); ++i)
         {
-            run_script(m_context->getController(),
-                       scriptConfig->getScript(moduleConfig ? moduleConfig->getBaseAddress() : 0),
-                       logger);
-        }
-        catch (const vme_script::ParseError &e)
-        {
-            logger(QSL("Parse error: ") + e.what());
+            obj = Var2Ptr<ConfigObject>(node->child(i)->data(0, DataRole_Pointer));
+            scriptConfig = qobject_cast<VMEScriptConfig *>(obj);
+            scriptConfigs.push_back(scriptConfig);
         }
     }
+
+    runScriptConfigs(scriptConfigs);
 }
 
 void DAQConfigTreeWidget::editName()
@@ -688,5 +686,35 @@ void DAQConfigTreeWidget::initModule()
     auto node = m_tree->currentItem();
     auto module = Var2Ptr<ModuleConfig>(node->data(0, DataRole_Pointer));
 
-    qDebug() << __PRETTY_FUNCTION__ << node << module;
+    QVector<VMEScriptConfig *> scriptConfigs;
+    scriptConfigs.push_back(module->vmeScripts["parameters"]);
+    scriptConfigs.push_back(module->vmeScripts["readout_settings"]);
+
+    runScriptConfigs(scriptConfigs);
+}
+
+void DAQConfigTreeWidget::runScriptConfigs(const QVector<VMEScriptConfig *> &scriptConfigs)
+{
+    auto logger = std::bind(&MVMEContext::logMessage, m_context, _1);
+
+    for (auto scriptConfig: scriptConfigs)
+    {
+        auto moduleConfig = qobject_cast<ModuleConfig *>(scriptConfig->parent());
+
+        logger(get_title(scriptConfig));
+
+        try
+        {
+            auto results = run_script(m_context->getController(),
+                                      scriptConfig->getScript(moduleConfig ? moduleConfig->getBaseAddress() : 0),
+                                      logger);
+
+            for (auto result: results)
+                logger(format_result(result));
+        }
+        catch (const vme_script::ParseError &e)
+        {
+            logger(QSL("Parse error: ") + e.what());
+        }
+    }
 }
