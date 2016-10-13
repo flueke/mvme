@@ -124,7 +124,7 @@ void MVMEEventProcessor::newRun()
 
     for (auto mod: m_context->getConfig()->getAllModuleConfigs())
     {
-        for (auto hist: m_context->getHistogramCollections())
+        for (auto hist: m_context->getObjects<HistogramCollection *>())
         {
             auto sourceId = QUuid(hist->property("Histogram.sourceModule").toString());
             if (sourceId == mod->getId())
@@ -324,8 +324,7 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
             //
             // fill 2D Histograms
             //
-            auto hist2ds = m_context->get2DHistograms();
-            for (auto hist2d: hist2ds)
+            for (auto hist2d: m_context->getObjects<Hist2D *>())
             {
                 // TODO: store this differently (maybe Pair<ModuleId, Address>)
                 bool ok1, ok2, ok3;

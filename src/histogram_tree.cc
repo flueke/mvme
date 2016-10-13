@@ -1,5 +1,9 @@
 #include "histogram_tree.h"
+#include "histogram.h"
+#include "hist2d.h"
+#include "mvme_context.h"
 #include "mvme_config.h"
+
 
 #include <QTreeWidget>
 #include <QHBoxLayout>
@@ -57,6 +61,9 @@ HistogramTreeWidget::HistogramTreeWidget(MVMEContext *context, QWidget *parent)
     m_tree->addTopLevelItem(m_node1D);
     m_tree->addTopLevelItem(m_node2D);
 
+    m_node1D->setExpanded(true);
+    m_node2D->setExpanded(true);
+
     auto layout = new QHBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->addWidget(m_tree);
@@ -66,6 +73,46 @@ HistogramTreeWidget::HistogramTreeWidget(MVMEContext *context, QWidget *parent)
     connect(m_tree, &QTreeWidget::itemChanged, this, &HistogramTreeWidget::onItemChanged);
     connect(m_tree, &QTreeWidget::itemExpanded, this, &HistogramTreeWidget::onItemExpanded);
     connect(m_tree, &QWidget::customContextMenuRequested, this, &HistogramTreeWidget::treeContextMenu);
+
+    connect(m_context, &MVMEContext::objectAdded, this, &HistogramTreeWidget::onObjectAdded);
+    connect(m_context, &MVMEContext::objectAboutToBeRemoved, this, &HistogramTreeWidget::onObjectAboutToBeRemoved);
+}
+
+template<typename T>
+TreeNode *makeNode(T *data, int type = QTreeWidgetItem::Type)
+{
+    auto ret = new TreeNode(type);
+    ret->setData(0, DataRole_Pointer, Ptr2Var(data));
+    return ret;
+}
+
+void HistogramTreeWidget::onObjectAdded(QObject *object)
+{
+    TreeNode *node = nullptr;
+    TreeNode *parent = nullptr;
+
+    if(qobject_cast<HistogramCollection *>(object))
+    {
+        node = makeNode(object, NodeType_HistoCollection);
+        parent = m_node1D;
+    }
+    else if(qobject_cast<Hist2D *>(object))
+    {
+        node = makeNode(object, NodeType_HistoCollection);
+        parent = m_node2D;
+    }
+
+    if (node && parent)
+    {
+        node->setText(0, object->objectName());
+        m_treeMap[object] = node;
+        parent->addChild(node);
+    }
+}
+
+void HistogramTreeWidget::onObjectAboutToBeRemoved(QObject *object)
+{
+    delete m_treeMap.take(object);
 }
 
 void HistogramTreeWidget::onItemClicked(QTreeWidgetItem *item, int column)
@@ -97,11 +144,55 @@ void HistogramTreeWidget::treeContextMenu(const QPoint &pos)
 {
     auto node = m_tree->itemAt(pos);
     auto parent = node->parent();
+    auto obj = Var2Ptr<QObject>(node->data(0, DataRole_Pointer));
 
     QMenu menu;
+
+    if (node->type() == NodeType_HistoCollection
+        || node->type() == NodeType_Histo2D)
+    {
+        menu.addAction(QSL("Open in new window"), this, [obj, this]() { emit openInNewWindow(obj); });
+        menu.addAction(QSL("Clear"), this, &HistogramTreeWidget::clearHistogram);
+
+        if (node->type() == NodeType_Histo2D)
+            menu.addAction(QSL("Remove Histogram"), this, &HistogramTreeWidget::removeHistogram);
+    }
+
+    if (node == m_node2D && m_context->getConfig()->getAllModuleConfigs().size())
+    {
+        menu.addAction(QSL("Add 2D Histogram"), this, &HistogramTreeWidget::add2DHistogram);
+    }
 
     if (!menu.isEmpty())
     {
         menu.exec(m_tree->mapToGlobal(pos));
     }
+}
+
+void HistogramTreeWidget::clearHistogram()
+{
+    auto node = m_tree->currentItem();
+    {
+        auto histo = Var2Ptr<HistogramCollection>(node->data(0, DataRole_Pointer));
+        if (histo)
+            histo->clearHistogram();
+    }
+
+    {
+        auto histo = Var2Ptr<Hist2D>(node->data(0, DataRole_Pointer));
+        if (histo)
+            histo->clear();
+    }
+}
+
+// XXX: leftoff
+
+void HistogramTreeWidget::removeHistogram()
+{
+    auto node = m_tree->currentItem();
+}
+
+void HistogramTreeWidget::add2DHistogram()
+{
+    auto node = m_tree->currentItem();
 }

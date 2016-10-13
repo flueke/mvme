@@ -25,7 +25,7 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
     , m_eventThread(new QThread(this))
     , m_eventProcessor(new MVMEEventProcessor(this))
     , m_mainwin(mainwin)
-    , m_mode(GlobalMode::NotSet)
+    , m_mode(GlobalMode::DAQ)
     , m_state(DAQState::Idle)
     , m_listFileWorker(new ListFileWorker(m_daqStats))
 {
@@ -197,6 +197,7 @@ void MVMEContext::onDAQStateChanged(DAQState state)
             } break;
 
         case DAQState::Running:
+        case DAQState::Paused:
             break;
 
         case DAQState::Stopping:
@@ -263,8 +264,6 @@ void MVMEContext::setMode(GlobalMode mode)
                     disconnect(m_eventProcessor, &MVMEEventProcessor::bufferProcessed,
                                m_listFileWorker, &ListFileWorker::readNextBuffer);
                 } break;
-            case GlobalMode::NotSet:
-                break;
         }
 
         switch (mode)
@@ -285,8 +284,6 @@ void MVMEContext::setMode(GlobalMode mode)
                     connect(m_eventProcessor, &MVMEEventProcessor::bufferProcessed,
                             m_listFileWorker, &ListFileWorker::readNextBuffer);
                 } break;
-            case GlobalMode::NotSet:
-                break;
         }
 
 
@@ -300,6 +297,7 @@ GlobalMode MVMEContext::getMode() const
     return m_mode;
 }
 
+#if 0
 void MVMEContext::addHistogramCollection(HistogramCollection *histo)
 {
     m_histogramCollections.append(histo);
@@ -330,16 +328,39 @@ void MVMEContext::addHist2D(Hist2D *hist2d)
     m_2dHistograms.append(hist2d);
     emit hist2DAdded(hist2d);
 }
+#endif
+
+void MVMEContext::addObject(QObject *object)
+{
+    qDebug() << __PRETTY_FUNCTION__ << object;
+    m_objects.insert(object);
+    emit objectAdded(object);
+}
+
+void MVMEContext::removeObject(QObject *object)
+{
+    if (m_objects.contains(object))
+    {
+        qDebug() << __PRETTY_FUNCTION__ << object;
+        emit objectAboutToBeRemoved(object);
+        m_objects.remove(object);
+        object->deleteLater();
+    }
+}
+
+bool MVMEContext::containsObject(QObject *object)
+{
+    return m_objects.contains(object);
+}
 
 void MVMEContext::prepareStart()
 {
-    auto histograms = m_histogramCollections;
     for (ModuleConfig *module: m_config->getAllModuleConfigs())
     {
         updateHistogramCollectionDefinition(module);
     }
 
-    for (auto hist2d: m_2dHistograms)
+    for (auto hist2d: getObjects<Hist2D *>())
     {
         hist2d->clear();
     }
@@ -395,7 +416,7 @@ void MVMEContext::write(QJsonObject &json) const
 
     QJsonArray histArray;
 
-    for (auto histo: m_histogramCollections)
+    for (auto histo: getObjects<HistogramCollection *>())
     {
         QJsonObject json;
         json["name"] = histo->objectName();
@@ -417,7 +438,7 @@ void MVMEContext::write(QJsonObject &json) const
 
     QJsonArray hist2DArray;
 
-    for (auto hist2d: m_2dHistograms)
+    for (auto hist2d: getObjects<Hist2D *>())
     {
         QJsonObject json;
         json["name"] = hist2d->objectName();
@@ -433,8 +454,11 @@ void MVMEContext::write(QJsonObject &json) const
 
 void MVMEContext::read(const QJsonObject &json)
 {
-    removeHistogramCollections();
-    remove2DHistograms();
+    for (auto obj: getObjects<HistogramCollection *>())
+        removeObject(obj);
+
+    for (auto obj: getObjects<Hist2D *>())
+        removeObject(obj);
 
     auto config = new DAQConfig;
     config->read(json["DAQConfig"].toObject());
@@ -462,7 +486,7 @@ void MVMEContext::read(const QJsonObject &json)
                 auto value = properties[propName];
                 histo->setProperty(propName.toLocal8Bit().constData(), value);
             }
-            addHistogramCollection(histo);
+            addObject(histo);
         }
     }
 
@@ -483,7 +507,7 @@ void MVMEContext::read(const QJsonObject &json)
             hist2d->setObjectName(name);
             hist2d->setProperty("Hist2D.xAxisSource", xAxisSource);
             hist2d->setProperty("Hist2D.yAxisSource", yAxisSource);
-            addHist2D(hist2d);
+            addObject(hist2d);
         }
     }
 }
@@ -522,13 +546,15 @@ void MVMEContext::onModuleAdded(ModuleConfig *module)
 
 void MVMEContext::onModuleAboutToBeRemoved(ModuleConfig *module)
 {
-    auto histo = getHistogramCollection(module);
+    auto predicate = [module](HistogramCollection *hist) {
+        auto id = hist->property("Histogram.sourceModule").toUuid();
+        return module->getId() == id;
+    };
 
-    if (histo)
-    {
-        removeHistogramCollection(histo);
-    }
+    auto histos = filterObjects<HistogramCollection *>(predicate);
 
+    for (auto histo: histos)
+        removeObject(histo);
 }
 
 void MVMEContext::updateHistogramCollectionDefinition(ModuleConfig *module)
@@ -538,16 +564,21 @@ void MVMEContext::updateHistogramCollectionDefinition(ModuleConfig *module)
     int nChannels = module->getNumberOfChannels();
     int resolution = RawHistogramResolution;
 
+
     if (nChannels > 0 && resolution > 0)
     {
-        auto histo = getHistogramCollection(module);
+        auto predicate = [module](HistogramCollection *hist) {
+            auto id = hist->property("Histogram.sourceModule").toUuid();
+            return module->getId() == id;
+        };
+        auto histo = filterObjects<HistogramCollection *>(predicate).value(0, nullptr);
 
         if (!histo)
         {
             histo = new HistogramCollection(this, nChannels, resolution);
             histo->setProperty("Histogram.sourceModule", module->getId());
             histo->setObjectName(module->getObjectPath());
-            addHistogramCollection(histo);
+            addObject(histo);
         }
         else
         {

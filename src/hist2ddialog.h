@@ -53,7 +53,7 @@ class NameValidator: public QValidator
                 return QValidator::Intermediate;
             }
 
-            auto hist2ds = m_context->get2DHistograms();
+            auto hist2ds = m_context->getObjects<Hist2D *>();
             for (auto hist2d: hist2ds)
             {
                 if (hist2d->objectName() == name && hist2d != m_histo)

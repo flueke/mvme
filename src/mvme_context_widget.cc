@@ -138,7 +138,7 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
     connect(context, &MVMEContext::configChanged, this, &MVMEContextWidget::onConfigChanged);
     connect(context, &MVMEContext::modeChanged, this, &MVMEContextWidget::onGlobalModeChanged);
     connect(context, &MVMEContext::daqStateChanged, this, &MVMEContextWidget::onDAQStateChanged);
-    connect(context, &MVMEContext::hist2DAdded, this, &MVMEContextWidget::onHist2DAdded);
+    //connect(context, &MVMEContext::hist2DAdded, this, &MVMEContextWidget::onHist2DAdded);
 
     //connect(context, &MVMEContext::moduleAboutToBeRemoved, this, [=](ModuleConfig *config) {
     //    delete m_d->treeWidgetMap.take(config);
@@ -148,13 +148,13 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
         delete m_d->treeWidgetMap.take(config);
     });
 
-    connect(context, &MVMEContext::histogramCollectionAboutToBeRemoved, this, [=](HistogramCollection *hist) {
-        delete m_d->histoTreeMap.take(hist);
-    });
+    //connect(context, &MVMEContext::histogramCollectionAboutToBeRemoved, this, [=](HistogramCollection *hist) {
+    //    delete m_d->histoTreeMap.take(hist);
+    //});
 
-    connect(context, &MVMEContext::hist2DAboutToBeRemoved, this, [=](Hist2D *hist2d) {
-        delete m_d->histoTreeMap.take(hist2d);
-    });
+    //connect(context, &MVMEContext::hist2DAboutToBeRemoved, this, [=](Hist2D *hist2d) {
+    //    delete m_d->histoTreeMap.take(hist2d);
+    //});
 
     auto onControllerStateChanged = [=](ControllerState state) {
         m_d->label_controllerState->setText(state == ControllerState::Closed
@@ -259,8 +259,8 @@ MVMEContextWidget::MVMEContextWidget(MVMEContext *context, QWidget *parent)
         connect(m_d->histoTree, &QTreeWidget::customContextMenuRequested,
                 this, &MVMEContextWidget::histoTreeContextMenu);
 
-        connect(context, &MVMEContext::histogramCollectionAdded,
-                this, &MVMEContextWidget::onHistogramCollectionAdded);
+        //connect(context, &MVMEContext::histogramCollectionAdded,
+        //        this, &MVMEContextWidget::onHistogramCollectionAdded);
     }
 
     /*
@@ -558,6 +558,10 @@ void MVMEContextWidget::handleGlobalStateChange()
         case DAQState::Stopping:
             label->setText("Stopping");
             break;
+
+        case DAQState::Paused:
+            label->setText("Paused");
+            break;
     }
 
     m_d->pb_startDAQ->setEnabled(daqState == DAQState::Idle && globalMode == GlobalMode::DAQ);
@@ -657,15 +661,15 @@ void MVMEContextWidget::histoTreeContextMenu(const QPoint &pos)
     }
     else if (action == delAction)
     {
-        if (histo)
-        {
-            m_d->context->removeHistogramCollection(histo);
-        }
+        //if (histo)
+        //{
+        //    m_d->context->removeHistogramCollection(histo);
+        //}
 
-        if (hist2d)
-        {
-            m_d->context->removeHist2D(hist2d);
-        }
+        //if (hist2d)
+        //{
+        //    m_d->context->removeHist2D(hist2d);
+        //}
     }
     else if (action == addHist2D)
     {
@@ -674,8 +678,8 @@ void MVMEContextWidget::histoTreeContextMenu(const QPoint &pos)
 
         if (result == QDialog::Accepted)
         {
-            auto hist2d = dialog.getHist2D();
-            m_d->context->addHist2D(hist2d);
+            //auto hist2d = dialog.getHist2D();
+            //m_d->context->addHist2D(hist2d);
         }
     }
 }
@@ -773,8 +777,6 @@ void MVMEContextWidget::updateStats()
                         .arg((double)stats.listFileTotalBytes / (1024.0*1024.0), 6, 'f', 2)
                         );
             } break;
-        case GlobalMode::NotSet:
-            break;
     }
 
     m_d->label_vmusbAvgEventsPerBuffer->setText(QString::number(stats.vmusbAvgEventsPerBuffer));

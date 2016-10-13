@@ -15,16 +15,24 @@ class HistogramTreeWidget: public QWidget
     signals:
         void objectClicked(QObject *object);
         void objectDoubleClicked(QObject *object);
+        void openInNewWindow(QObject *object);
 
     public:
         HistogramTreeWidget(MVMEContext *context, QWidget *parent = 0);
 
     private:
+        void onObjectAdded(QObject *object);
+        void onObjectAboutToBeRemoved(QObject *object);
+
         void onItemClicked(QTreeWidgetItem *item, int column);
         void onItemDoubleClicked(QTreeWidgetItem *item, int column);
         void onItemChanged(QTreeWidgetItem *item, int column);
         void onItemExpanded(QTreeWidgetItem *item);
         void treeContextMenu(const QPoint &pos);
+
+        void clearHistogram();
+        void removeHistogram();
+        void add2DHistogram();
 
         MVMEContext *m_context = nullptr;
         QTreeWidget *m_tree;

@@ -147,7 +147,7 @@ TwoDimWidget::TwoDimWidget(MVMEContext *context, HistogramCollection *histo, QWi
     m_statsTextItem->setText(*m_statsText);
     m_statsTextItem->attach(ui->mainPlot);
 
-    connect(context, &MVMEContext::histogramCollectionAboutToBeRemoved, this, [=](HistogramCollection *h) {
+    connect(context, &MVMEContext::objectAboutToBeRemoved, this, [=](QObject *h) {
         if (h == histo)
         {
             auto pw = parentWidget();

@@ -86,24 +86,24 @@ mvme::mvme(QWidget *parent) :
     m_contextWidget = contextWidget;
 
 
-    connect(contextWidget, &MVMEContextWidget::histogramCollectionClicked, this, &mvme::handleHistogramCollectionClicked);
-    connect(contextWidget, &MVMEContextWidget::histogramCollectionDoubleClicked, this, &mvme::handleHistogramCollectionDoubleClicked);
-    connect(contextWidget, &MVMEContextWidget::showHistogramCollection, this, &mvme::openHistogramView);
-    connect(contextWidget, &MVMEContextWidget::hist2DClicked, this, &mvme::handleHist2DClicked);
-    connect(contextWidget, &MVMEContextWidget::hist2DDoubleClicked, this, &mvme::handleHist2DDoubleClicked);
-    connect(contextWidget, &MVMEContextWidget::showHist2D, this, &mvme::openHist2DView);
+    //connect(contextWidget, &MVMEContextWidget::histogramCollectionClicked, this, &mvme::handleHistogramCollectionClicked);
+    //connect(contextWidget, &MVMEContextWidget::histogramCollectionDoubleClicked, this, &mvme::handleHistogramCollectionDoubleClicked);
+    //connect(contextWidget, &MVMEContextWidget::showHistogramCollection, this, &mvme::openHistogramView);
+    //connect(contextWidget, &MVMEContextWidget::hist2DClicked, this, &mvme::handleHist2DClicked);
+    //connect(contextWidget, &MVMEContextWidget::hist2DDoubleClicked, this, &mvme::handleHist2DDoubleClicked);
+    //connect(contextWidget, &MVMEContextWidget::showHist2D, this, &mvme::openHist2DView);
 
-    connect(m_context, &MVMEContext::hist2DAboutToBeRemoved, this, [=](Hist2D *hist2d) {
-        for (auto subwin: ui->mdiArea->subWindowList())
-        {
-            auto w = qobject_cast<Hist2DWidget *>(subwin->widget());
-            if (w && w->getHist2D() == hist2d)
-            {
-                qDebug() << subwin;
-                subwin->close();
-            }
-        }
-    });
+    //connect(m_context, &MVMEContext::hist2DAboutToBeRemoved, this, [=](Hist2D *hist2d) {
+    //    for (auto subwin: ui->mdiArea->subWindowList())
+    //    {
+    //        auto w = qobject_cast<Hist2DWidget *>(subwin->widget());
+    //        if (w && w->getHist2D() == hist2d)
+    //        {
+    //            qDebug() << subwin;
+    //            subwin->close();
+    //        }
+    //    }
+    //});
 
     connect(m_context, &MVMEContext::modeChanged, this, &mvme::updateWindowTitle);
 
@@ -129,10 +129,10 @@ mvme::mvme(QWidget *parent) :
         connect(m_context, &MVMEContext::configChanged, m_daqConfigTreeWidget, &DAQConfigTreeWidget::setConfig);
 
         connect(m_daqConfigTreeWidget, &DAQConfigTreeWidget::configObjectClicked,
-                this, &mvme::onConfigObjectClicked);
+                this, &mvme::onObjectClicked);
 
         connect(m_daqConfigTreeWidget, &DAQConfigTreeWidget::configObjectDoubleClicked,
-                this, &mvme::onConfigObjectDoubleClicked);
+                this, &mvme::onObjectDoubleClicked);
     }
 
     //
@@ -147,15 +147,11 @@ mvme::mvme(QWidget *parent) :
         dock->setWidget(m_histogramTreeWidget);
         addDockWidget(Qt::LeftDockWidgetArea, dock);
 
-#if 0
-        connect(m_context, &MVMEContext::configChanged, m_daqConfigTreeWidget, &DAQConfigTreeWidget::setConfig);
+        connect(m_histogramTreeWidget, &HistogramTreeWidget::objectClicked,
+                this, &mvme::onObjectClicked);
 
-        connect(m_daqConfigTreeWidget, &DAQConfigTreeWidget::configObjectClicked,
-                this, &mvme::onConfigObjectClicked);
-
-        connect(m_daqConfigTreeWidget, &DAQConfigTreeWidget::configObjectDoubleClicked,
-                this, &mvme::onConfigObjectDoubleClicked);
-#endif
+        connect(m_histogramTreeWidget, &HistogramTreeWidget::objectDoubleClicked,
+                this, &mvme::onObjectDoubleClicked);
     }
 
     //
@@ -429,8 +425,11 @@ void mvme::on_actionNewConfig_triggered()
     m_context->setConfigFileName(QString());
     m_context->setMode(GlobalMode::DAQ);
 
-    m_context->removeHistogramCollections();
-    m_context->remove2DHistograms();
+    for (auto obj: m_context->getObjects<HistogramCollection *>())
+        m_context->removeObject(obj);
+
+    for (auto obj: m_context->getObjects<Hist2D *>())
+        m_context->removeObject(obj);
 }
 
 void mvme::on_actionLoadConfig_triggered()
@@ -631,33 +630,33 @@ void mvme::on_actionShowLogWindow_triggered()
     m_logViewSubwin->raise();
 }
 
-void mvme::onConfigObjectClicked(ConfigObject *config)
+void mvme::onObjectClicked(QObject *object)
 {
-    if (m_configWindows.contains(config))
+    if (m_objectWindows.contains(object))
     {
-        m_configWindows[config]->show();
-        m_configWindows[config]->showNormal();
-        m_configWindows[config]->activateWindow();
-        m_configWindows[config]->raise();
-        ui->mdiArea->setActiveSubWindow(m_configWindows[config]);
+        m_objectWindows[object]->show();
+        m_objectWindows[object]->showNormal();
+        m_objectWindows[object]->activateWindow();
+        m_objectWindows[object]->raise();
+        ui->mdiArea->setActiveSubWindow(m_objectWindows[object]);
     }
 }
 
-void mvme::onConfigObjectDoubleClicked(ConfigObject *config)
+void mvme::onObjectDoubleClicked(QObject *object)
 {
-    if (m_configWindows.contains(config))
+    if (m_objectWindows.contains(object))
     {
-        m_configWindows[config]->show();
-        m_configWindows[config]->showNormal();
-        m_configWindows[config]->activateWindow();
-        m_configWindows[config]->raise();
-        ui->mdiArea->setActiveSubWindow(m_configWindows[config]);
+        m_objectWindows[object]->show();
+        m_objectWindows[object]->showNormal();
+        m_objectWindows[object]->activateWindow();
+        m_objectWindows[object]->raise();
+        ui->mdiArea->setActiveSubWindow(m_objectWindows[object]);
     }
     else
     {
-        auto scriptConfig = qobject_cast<VMEScriptConfig *>(config);
-        auto eventConfig = qobject_cast<EventConfig *>(config);
-        auto moduleConfig = qobject_cast<ModuleConfig *>(config);
+        auto scriptConfig = qobject_cast<VMEScriptConfig *>(object);
+        auto eventConfig = qobject_cast<EventConfig *>(object);
+        auto moduleConfig = qobject_cast<ModuleConfig *>(object);
 
         MVMEWidget *widget = nullptr;
 
@@ -673,14 +672,14 @@ void mvme::onConfigObjectDoubleClicked(ConfigObject *config)
             subwin->setAttribute(Qt::WA_DeleteOnClose);
             subwin->setWidget(widget);
 
-            qDebug() << "adding window" << subwin << "for config" << config;
+            qDebug() << "adding window" << subwin << "for object" << object;
 
-            m_configWindows[config] = subwin;
+            m_objectWindows[object] = subwin;
 
-            connect(widget, &MVMEWidget::aboutToClose, this, [this, config] {
-                qDebug() << "removing window" << m_configWindows.value(config) << "for config" << config;
-                m_configWindows[config]->close();
-                m_configWindows.remove(config);
+            connect(widget, &MVMEWidget::aboutToClose, this, [this, object] {
+                qDebug() << "removing window" << m_objectWindows.value(object) << "for object" << object;
+                m_objectWindows[object]->close();
+                m_objectWindows.remove(object);
             });
 
             subwin->show();
@@ -688,6 +687,7 @@ void mvme::onConfigObjectDoubleClicked(ConfigObject *config)
     }
 }
 
+#if 0
 void mvme::handleHistogramCollectionClicked(HistogramCollection *histo)
 {
     qDebug() << histo << histo->property("Histogram.sourceModule").toUuid();
@@ -792,6 +792,7 @@ void mvme::openHist2DView(Hist2D *hist2d)
         ui->mdiArea->setActiveSubWindow(subwin);
     }
 }
+#endif
 
 void mvme::appendToLog(const QString &s)
 {
@@ -831,9 +832,6 @@ void mvme::updateWindowTitle()
                 }
                 modeString = "ListFile mode";
             } break;
-        case GlobalMode::NotSet:
-            modeString = "Unknown mode";
-            break;
     }
 
     if (!fileName.isEmpty())

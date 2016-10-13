@@ -9,6 +9,7 @@
 #include <QList>
 #include <QWidget>
 #include <QFuture>
+#include <QSet>
 
 class VMEController;
 class VMUSBReadoutWorker;
@@ -37,11 +38,8 @@ class MVMEContext: public QObject
         void configChanged(DAQConfig *config);
         void configFileNameChanged(const QString &fileName);
 
-        void histogramCollectionAdded(HistogramCollection *histo);
-        void histogramCollectionAboutToBeRemoved(HistogramCollection *histo);
-
-        void hist2DAdded(Hist2D *hist2d);
-        void hist2DAboutToBeRemoved(Hist2D *hist2d);
+        void objectAdded(QObject *object);
+        void objectAboutToBeRemoved(QObject *object);
 
         void sigLogMessage(const QString &);
 
@@ -69,7 +67,37 @@ class MVMEContext: public QObject
         void setMode(GlobalMode mode);
         GlobalMode getMode() const;
 
+        void addObject(QObject *object);
+        void removeObject(QObject *object);
+        bool containsObject(QObject *object);
 
+        template<typename T>
+        QVector<T> getObjects() const
+        {
+            QVector<T> ret;
+            for (auto obj: m_objects)
+            {
+                auto casted = qobject_cast<T>(obj);
+                if (casted)
+                    ret.push_back(casted);
+            }
+            return ret;
+        }
+
+        template<typename T, typename Predicate>
+        QVector<T> filterObjects(Predicate p) const
+        {
+            QVector<T> ret;
+            for (auto obj: m_objects)
+            {
+                auto casted = qobject_cast<T>(obj);
+                if (casted && p(casted))
+                    ret.push_back(casted);
+            }
+            return ret;
+        }
+
+#if 0
         void addHistogramCollection(HistogramCollection *histo);
         QVector<HistogramCollection *> getHistogramCollections() const { return m_histogramCollections; }
         HistogramCollection *getHistogramCollection(ModuleConfig *module) const;
@@ -124,6 +152,7 @@ class MVMEContext: public QObject
                 removeHist2D(hist);
             }
         }
+#endif
 
         void setConfigFileName(const QString &name)
         {
@@ -181,8 +210,7 @@ class MVMEContext: public QObject
 
         DataBufferQueue m_freeBuffers;
         QString m_configFileName;
-        QVector<HistogramCollection *> m_histogramCollections;
-        QVector<Hist2D *> m_2dHistograms;
+        QSet<QObject *> m_objects;
         mvme *m_mainwin;
         DAQStats m_daqStats;
         ListFile *m_listFile = nullptr;

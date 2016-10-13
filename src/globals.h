@@ -20,7 +20,13 @@ enum class DAQState
     Starting,
     Running,
     Stopping,
-    //Paused
+    Paused
+};
+
+enum class GlobalMode
+{
+    DAQ,
+    ListFile
 };
 
 Q_DECLARE_METATYPE(DAQState);
@@ -191,12 +197,6 @@ struct DAQStats
     QHash<QObject *, EventCounters> eventCounters;
 };
 
-enum class GlobalMode
-{
-    NotSet,
-    DAQ,
-    ListFile
-};
 
 Q_DECLARE_METATYPE(GlobalMode);
 
