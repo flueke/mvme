@@ -10,7 +10,6 @@
 #include "vmusb_readout_worker.h"
 #include "config_widgets.h"
 #include "mvme_listfile.h"
-#include "mvmecontrol.h"
 #include "daqconfig_tree.h"
 #include "vme_script_editor.h"
 #include "vme_debug_widget.h"
@@ -864,25 +863,4 @@ void mvme::onConfigChanged(DAQConfig *config)
     connect(config, &DAQConfig::modifiedChanged, this, &mvme::updateWindowTitle);
     updateWindowTitle();
     m_contextWidget->reloadConfig();
-}
-
-void mvme::on_actionShow_MVME_Control_triggered()
-{
-    auto subwins = getSubwindowsByWidgetType<mvmeControl>(ui->mdiArea);
-    if (!subwins.isEmpty())
-    {
-        auto subwin = subwins.at(0);
-        subwin->showNormal();
-        subwin->raise();
-    }
-    else
-    {
-        auto mvme_control = new mvmeControl(this);
-        auto subwin = new QMdiSubWindow;
-        subwin->setObjectName("MVMEControlSubWindow");
-        subwin->setWidget(mvme_control);
-        subwin->setAttribute(Qt::WA_DeleteOnClose, true);
-        subwin->resize(800, 600);
-        ui->mdiArea->addSubWindow(subwin);
-    }
 }

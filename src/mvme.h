@@ -65,7 +65,6 @@ private slots:
     void on_actionOpen_Listfile_triggered();
 
     void on_actionVME_Debug_triggered();
-    void on_actionShow_MVME_Control_triggered();
     void on_actionShowLogWindow_triggered();
 
     void onConfigObjectClicked(ConfigObject *obj);

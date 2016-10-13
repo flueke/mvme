@@ -337,6 +337,7 @@ void mvmeControl::refreshDisplay(void)
 
 void mvmeControl::readVme()
 {
+#if 0
     bool ok;
     QString str, str2;
     long ret = 0;
@@ -385,10 +386,12 @@ void mvmeControl::readVme()
         if(ui->readLoop->isChecked())
             QTimer::singleShot( 100, this, SLOT(readVme()) );
     }
+#endif
 }
 
 void mvmeControl::readVme2()
 {
+#if 0
     bool ok;
     QString str, str2;
     long ret;
@@ -408,10 +411,12 @@ void mvmeControl::readVme2()
     qDebug("read %lx from addr %lx, ret val = %ld", data[0], addr, ret);
     if(ui->readLoop_2->isChecked())
         QTimer::singleShot( 100, this, SLOT(readVme2()) );
+#endif
 }
 
 void mvmeControl::readVme3()
 {
+#if 0
     bool ok;
     QString str, str2;
     long ret;
@@ -431,6 +436,7 @@ void mvmeControl::readVme3()
      qDebug("read %lx from addr %lx, ret val = %ld", data[0], addr, ret);
     if(ui->readLoop_3->isChecked())
         QTimer::singleShot( 100, this, SLOT(readVme3()) );
+#endif
 }
 
 void mvmeControl::writeVme()
@@ -1301,6 +1307,7 @@ void mvmeControl::on_pb_stackRead_clicked()
 
 void mvmeControl::on_pb_stackExecute_clicked()
 {
+#if 0
     QString str = ui->stackInput->toPlainText();
     QTextStream stream(&str);
     auto stackData = parseStackFile(stream);
@@ -1332,7 +1339,6 @@ void mvmeControl::on_pb_stackExecute_clicked()
             buffer.append(QString().sprintf("0x%04x\n", value));
         }
 
-#if 0
         u32 *bufp = reinterpret_cast<u16 *>(readBuffer);
         u32 *endp = reinterpret_cast<u16 *>(readBuffer + bytesRead);
 
@@ -1343,10 +1349,10 @@ void mvmeControl::on_pb_stackExecute_clicked()
             temp.sprintf("0x%08x\n", *bufp);
             buffer.append(temp);
         }
-#endif
 
         ui->stackOutput->setText(buffer);
     }
+#endif
 }
 
 void mvmeControl::on_pb_stackFileLoad_clicked()

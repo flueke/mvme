@@ -11,7 +11,6 @@ SOURCES += \
     $$PWD/mvme_config.cc \
     $$PWD/mvme_context.cc \
     $$PWD/mvme_context_widget.cc \
-    $$PWD/mvmecontrol.cpp \
     $$PWD/mvme.cpp \
     $$PWD/mvme_event_processor.cc \
     $$PWD/mvme_listfile.cc \
@@ -41,7 +40,6 @@ HEADERS += \
     $$PWD/mvme_config.h \
     $$PWD/mvme_context.h \
     $$PWD/mvme_context_widget.h \
-    $$PWD/mvmecontrol.h \
     $$PWD/mvmedefines.h \
     $$PWD/mvme_event_processor.h \
     $$PWD/mvme.h \
@@ -67,7 +65,6 @@ FORMS += \
     $$PWD/event_config_dialog.ui \
     $$PWD/hist2ddialog.ui \
     $$PWD/hist2dwidget.ui \
-    $$PWD/mvmecontrol.ui \
     $$PWD/mvme.ui \
     $$PWD/twodimwidget.ui \
     $$PWD/vme_debug_widget.ui \

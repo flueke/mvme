@@ -1,6 +1,8 @@
 #ifndef __VME_SCRIPT_QT_H__
 #define __VME_SCRIPT_QT_H__
 
+#include "vme_controller.h"
+
 #include <cstdint>
 #include <QVector>
 #include <QSyntaxHighlighter>
@@ -47,6 +49,13 @@ enum class DataWidth
     D16 = 1,
     D32
 };
+
+//enum class TransferType
+//{
+//    Single,
+//    BLT,
+//    MBLT
+//};
 
 struct Command
 {
@@ -104,11 +113,11 @@ class SyntaxHighlighter: public QSyntaxHighlighter
 };
 
 uint8_t amod_from_AddressMode(AddressMode mode, bool blt=false, bool mblt=false);
+//uint8_t amod_from_AddressMode(AddressMode mode, TransferType transferType = TransferType::Single);
 
 struct Result
 {
-    int code = 0;
-    QString info;
+    VMEError error;
     uint32_t value;
     QVector<uint32_t> valueVector;
     Command command;
@@ -123,8 +132,6 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
 QString format_result(const Result &result);
 
 }
-
-//int main(int argc, char *argv[]);
 
 #endif /* __VME_SCRIPT_QT_H__ */
 

@@ -55,7 +55,6 @@
      <string>Window</string>
     </property>
     <addaction name="actionVME_Debug"/>
-    <addaction name="actionShow_MVME_Control"/>
     <addaction name="actionShowLogWindow"/>
     <addaction name="separator"/>
     <addaction name="actionTile"/>
@@ -140,11 +139,6 @@
   <action name="actionClose_Listfile">
    <property name="text">
     <string>Close Listfile</string>
-   </property>
-  </action>
-  <action name="actionShow_MVME_Control">
-   <property name="text">
-    <string>Show MVME Control</string>
    </property>
   </action>
   <action name="actionVME_Debug">

@@ -139,11 +139,11 @@ void VMEDebugWidget::on_readRead1_clicked()
             ?  vme_address_modes::a32UserBlock
             : vme_address_modes::a32UserBlock64;
 
-        int result_code = m_context->getController()->bltRead(address, transfers, &result, amod, true);
+        VMEError vmeError = m_context->getController()->blockRead(address, transfers, &result, amod, true);
 
-        m_context->logMessage(QString("VME Debug: block read 0x%1, return_code=%2")
+        m_context->logMessage(QString("VME Debug: block read 0x%1, vmeError=%2")
                               .arg(address, 8, 16, QChar('0'))
-                              .arg(result_code)
+                              .arg(vmeError.toString())
                              );
 
         QString buffer;
@@ -196,24 +196,24 @@ void VMEDebugWidget::on_readRead3_clicked()
 
 void VMEDebugWidget::doWrite(u32 address, u32 value)
 {
-    int result = m_context->getController()->write16(address, value, vme_address_modes::a32UserData);
+    auto vmeError = m_context->getController()->write16(address, value, vme_address_modes::a32UserData);
 
-    m_context->logMessage(QString("VME Debug: write 0x%1 -> 0x%2, return_code=%3")
+    m_context->logMessage(QString("VME Debug: write 0x%1 -> 0x%2, vmeError=%3")
                           .arg(address, 8, 16, QChar('0'))
                           .arg(value, 4, 16, QChar('0'))
-                          .arg(result)
+                          .arg(vmeError.toString())
                          );
 }
 
 u16 VMEDebugWidget::doRead(u32 address)
 {
     u16 value = 0;
-    int result = m_context->getController()->read16(address, &value, vme_address_modes::a32UserData);
+    auto vmeError = m_context->getController()->read16(address, &value, vme_address_modes::a32UserData);
 
-    m_context->logMessage(QString("VME Debug: read 0x%1 -> 0x%2, return_code=%3")
+    m_context->logMessage(QString("VME Debug: read 0x%1 -> 0x%2, vmeError=%3")
                           .arg(address, 8, 16, QChar('0'))
                           .arg(value, 4, 16, QChar('0'))
-                          .arg(result)
+                          .arg(vmeError.toString())
                          );
 
     return value;

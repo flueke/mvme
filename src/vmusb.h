@@ -59,11 +59,9 @@ class VMUSB: public VMEController
         VMUSB();
         ~VMUSB();
 
-        virtual bool isOpen() const { return hUsbDevice; }
+        virtual bool isOpen() const override { return hUsbDevice; }
         QString getSerialNumber() const;
 
-        bool openFirstUsbDevice(void);
-        void closeUsbDevice(void);
         void getUsbDevices(void);
 
         bool enterDaqMode();
@@ -101,6 +99,7 @@ class VMUSB: public VMEController
         int setIrq(int vec, uint16_t val);
         int setDggSettings(int val);
         int setUsbSettings(int val);
+#if 0
         short vmeWrite32(long addr, long data);
         short vmeWrite32(long addr, long data, uint8_t amod);
         short vmeRead32(long addr, long* data);
@@ -111,21 +110,11 @@ class VMUSB: public VMEController
         int vmeMbltRead32(long addr, int count, quint32* data);
         void swap32(long* val);
         void swap16(long* val);
-        int stackWrite(int id, long* data);
-        int stackRead(int id, long* data);
-        int stackExecute(long* data);
-        int readBuffer(unsigned short* data);
-        int readLongBuffer(int* data);
+#endif
 
         bool writeActionRegister(uint16_t value);
 
         int setScalerTiming(unsigned int frequency, unsigned char period, unsigned char delay);
-        void setEndianess(bool big);
-
-        /* Executes the given stack (in the form of a readout list) and reads the
-         * response into readBuffer. The actual number of bytes read is stored in
-         * bytesRead. */
-        int listExecute(CVMUSBReadoutList *list, void *readBuffer, size_t readBufferSize, size_t *bytesRead);
 
         /* Loads the given stack to stackID using the given memory offset. */
         int listLoad(CVMUSBReadoutList *list, uint8_t stackID, size_t stackMemoryOffset, int timeout_ms = 1000);
@@ -133,12 +122,8 @@ class VMUSB: public VMEController
         int stackWrite(u8 stackNumber, u32 loadOffset, const QVector<u32> &stackData);
         // returns the stack words and the stack load offset
         QPair<QVector<u32>, u32> stackRead(u8 stackNumber);
-        QVector<u32> stackExecute(const QVector<u32> &stackData, size_t resultMaxWords=1024);
+        VMEError stackExecute(const QVector<u32> &stackData, size_t resultMaxWords, QVector<u32> *dest);
 
-
-        /* Writes the given writePacket to the VM_USB and reads the response back into readPacket. */
-        int transaction(void* writePacket, size_t writeSize,
-                void* readPacket,  size_t readSize, int timeout_ms = 1000);
 
         int bulkRead(void *outBuffer, size_t outBufferSize, int timeout_ms = 1000);
 
@@ -154,19 +139,28 @@ class VMUSB: public VMEController
 
         virtual VMEControllerType getType() const { return VMEControllerType::VMUSB; }
 
-        virtual int write32(u32 address, u32 value, u8 amod) override;
-        virtual int write16(u32 address, u16 value, u8 amod) override;
+        virtual VMEError write32(u32 address, u32 value, u8 amod) override;
+        virtual VMEError write16(u32 address, u16 value, u8 amod) override;
 
-        virtual int read32(u32 address, u32 *value, u8 amod) override;
-        virtual int read16(u32 address, u16 *value, u8 amod) override;
+        virtual VMEError read32(u32 address, u32 *value, u8 amod) override;
+        virtual VMEError read16(u32 address, u16 *value, u8 amod) override;
 
-        virtual int bltRead(u32 address, u32 transfers, QVector<u32> *dest, u8 amod, bool fifo) override;
+        virtual VMEError blockRead(u32 address, u32 transfers, QVector<u32> *dest, u8 amod, bool fifo) override;
 
-        virtual bool openFirstDevice();
-        virtual void close();
+        virtual VMEError openFirstDevice() override;
+        virtual VMEError close() override;
         virtual ControllerState getState() const { return m_state; }
 
     protected:
+        /* Executes the given stack (in the form of a readout list) and reads the
+         * response into readBuffer. The actual number of bytes read is stored in
+         * bytesRead. */
+        VMEError listExecute(CVMUSBReadoutList *list, void *readBuffer, size_t readBufferSize, size_t *bytesRead);
+
+        /* Writes the given writePacket to the VM_USB and reads the response back into readPacket. */
+        VMEError transaction(void* writePacket, size_t writeSize,
+                void* readPacket,  size_t readSize, size_t *bytesRead, int timeout_ms = 1000);
+
         int firmwareId;
         int globalMode;
         int daqSettings;
@@ -180,7 +174,7 @@ class VMUSB: public VMEController
         int irqV[4];
         int extDggSettings;
         int usbBulkSetup;
-        bool bigendian = false;
+        bool bigendian = false; // TODO: remove this
         bool m_daqMode = false;
         QString m_currentSerialNumber;
 

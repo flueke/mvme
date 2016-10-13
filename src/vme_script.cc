@@ -542,13 +542,13 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
                     case DataWidth::D16:
                         {
                             uint16_t value = 0;
-                            result.code = controller->read16(cmd.address, &value, amod_from_AddressMode(cmd.addressMode));
+                            result.error = controller->read16(cmd.address, &value, amod_from_AddressMode(cmd.addressMode));
                             result.value = value;
                         } break;
                     case DataWidth::D32:
                         {
                             uint32_t value = 0;
-                            result.code = controller->read32(cmd.address, &value, amod_from_AddressMode(cmd.addressMode));
+                            result.error = controller->read32(cmd.address, &value, amod_from_AddressMode(cmd.addressMode));
                             result.value = value;
                         } break;
                 }
@@ -560,10 +560,10 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
                 switch (cmd.dataWidth)
                 {
                     case DataWidth::D16:
-                        result.code = controller->write16(cmd.address, cmd.value, amod_from_AddressMode(cmd.addressMode));
+                        result.error = controller->write16(cmd.address, cmd.value, amod_from_AddressMode(cmd.addressMode));
                         break;
                     case DataWidth::D32:
-                        result.code = controller->write32(cmd.address, cmd.value, amod_from_AddressMode(cmd.addressMode));
+                        result.error = controller->write32(cmd.address, cmd.value, amod_from_AddressMode(cmd.addressMode));
                         break;
                 }
             } break;
@@ -579,25 +579,25 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
 
         case CommandType::BLT:
             {
-                result.code = controller->bltRead(cmd.address, cmd.transfers, &result.valueVector,
+                result.error = controller->blockRead(cmd.address, cmd.transfers, &result.valueVector,
                                                   amod_from_AddressMode(cmd.addressMode, true), false);
             } break;
 
         case CommandType::BLTFifo:
             {
-                result.code = controller->bltRead(cmd.address, cmd.transfers, &result.valueVector,
+                result.error = controller->blockRead(cmd.address, cmd.transfers, &result.valueVector,
                                                   amod_from_AddressMode(cmd.addressMode, true), true);
             } break;
 
         case CommandType::MBLT:
             {
-                result.code = controller->bltRead(cmd.address, cmd.transfers, &result.valueVector,
+                result.error = controller->blockRead(cmd.address, cmd.transfers, &result.valueVector,
                                                   amod_from_AddressMode(cmd.addressMode, false, true), false);
             } break;
 
         case CommandType::MBLTFifo:
             {
-                result.code = controller->bltRead(cmd.address, cmd.transfers, &result.valueVector,
+                result.error = controller->blockRead(cmd.address, cmd.transfers, &result.valueVector,
                                                   amod_from_AddressMode(cmd.addressMode, false, true), true);
             } break;
 
@@ -635,7 +635,7 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
                 transfers >>= trailing_zeroes(cmd.countMask);
 
                 QVector<u32> dest;
-                controller->bltRead(cmd.blockAddress, transfers, &dest, amod_from_AddressMode(cmd.blockAddressMode, true), false);
+                controller->blockRead(cmd.blockAddress, transfers, &dest, amod_from_AddressMode(cmd.blockAddressMode, true), false);
 
             } break;
 
@@ -662,7 +662,7 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
                 transfers >>= trailing_zeroes(cmd.countMask);
 
                 QVector<u32> dest;
-                controller->bltRead(cmd.blockAddress, transfers, &dest, amod_from_AddressMode(cmd.blockAddressMode, true), true);
+                controller->blockRead(cmd.blockAddress, transfers, &dest, amod_from_AddressMode(cmd.blockAddressMode, true), true);
 
             } break;
 
@@ -689,7 +689,7 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
                 transfers >>= trailing_zeroes(cmd.countMask);
 
                 QVector<u32> dest;
-                controller->bltRead(cmd.blockAddress, transfers, &dest, amod_from_AddressMode(cmd.blockAddressMode, false, true), false);
+                controller->blockRead(cmd.blockAddress, transfers, &dest, amod_from_AddressMode(cmd.blockAddressMode, false, true), false);
 
             } break;
 
@@ -716,7 +716,7 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
                 transfers >>= trailing_zeroes(cmd.countMask);
 
                 QVector<u32> dest;
-                controller->bltRead(cmd.blockAddress, transfers, &dest, amod_from_AddressMode(cmd.blockAddressMode, false, true), true);
+                controller->blockRead(cmd.blockAddress, transfers, &dest, amod_from_AddressMode(cmd.blockAddressMode, false, true), true);
 
             } break;
 #endif
@@ -727,14 +727,11 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
 
 QString format_result(const Result &result)
 {
-    if (result.code < 0)
+    if (result.error.isError())
     {
         QString ret = QString("Error from \"%1\": %2")
             .arg(to_string(result.command))
-            .arg(result.code);
-
-        if (!result.info.isEmpty())
-            ret += '(' + result.info + ')';
+            .arg(result.error.toString());
 
         return ret;
     }
@@ -746,18 +743,13 @@ QString format_result(const Result &result)
         case CommandType::Invalid:
         case CommandType::Wait:
         case CommandType::Marker:
+        case CommandType::Write:
+        case CommandType::WriteAbs:
             break;
 
         case CommandType::Read:
             ret += QString(" -> 0x%1")
                 .arg(result.value, 8, 16, QChar('0'));
-            break;
-
-
-        case CommandType::Write:
-        case CommandType::WriteAbs:
-            ret += QString(" -> %1")
-                .arg(result.code);
             break;
 
         case CommandType::BLT:
@@ -781,6 +773,5 @@ QString format_result(const Result &result)
 
     return ret;
 }
-
 
 }
