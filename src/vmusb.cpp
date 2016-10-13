@@ -69,26 +69,6 @@ VMUSB::~VMUSB()
     close();
 }
 
-struct VMUSB_Firmware
-{
-    VMUSB_Firmware(uint32_t v)
-    {
-        month = (v >> 29) & 0x7;
-        year  = (v >> 24) & 0x1f;
-        device_id = (v >> 20) & 0xf;
-        beta_version = (v >> 16) & 0xf;
-        major_revision = (v >> 8) & 0xff;
-        minor_revision = v & 0xff;
-    }
-
-    uint8_t month;
-    uint8_t year;
-    uint8_t device_id;
-    uint8_t beta_version;
-    uint8_t major_revision;
-    uint8_t minor_revision;
-};
-
 bool VMUSB::readRegister(u32 address, u32 *outValue)
 {
     if (isOpen())
@@ -1062,6 +1042,16 @@ int VMUSB::listLoad(CVMUSBReadoutList *list, uint8_t stackID, size_t stackMemory
     return status;
 }
 
+QString errnoString(int errnum)
+{
+#ifdef __MINGW32__
+    return QString(strerror(errnum));
+#else
+    char buffer[256] = {};
+    return QString(strerror_r(errnum, buffer, sizeof(buffer)));
+#endif
+}
+
 /*
    Utility function to perform a 'symmetric' transaction.
    Most operations on the VM-USB are 'symmetric' USB operations.
@@ -1095,13 +1085,13 @@ VMUSB::transaction(void* writePacket, size_t writeSize,
             timeout_ms);
 
     if (status < 0)
-        return VMEError(VMEError::WriteError, status, QString(usb_strerror()));
+        return VMEError(VMEError::WriteError, status, errnoString(-status));
 
     status = usb_bulk_read(hUsbDevice, ENDPOINT_IN,
             static_cast<char*>(readPacket), readSize, timeout_ms);
 
     if (status < 0)
-        return VMEError(VMEError::ReadError, status, QString(usb_strerror()));
+        return VMEError(VMEError::ReadError, status, errnoString(-status));
 
     *bytesRead = status;
 
@@ -1263,9 +1253,7 @@ VMEError VMUSB::blockRead(u32 address, u32 transfers, QVector<u32> *dest, u8 amo
 
     size_t bytesRead = 0;
     auto result = listExecute(&readoutList, dest->data(), dest->size() * sizeof(u32), &bytesRead);
-
-    if (!result.isError())
-        dest->resize(bytesRead / sizeof(u32));
+    dest->resize(bytesRead / sizeof(u32));
 
     return result;
 }
