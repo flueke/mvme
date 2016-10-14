@@ -504,19 +504,23 @@ void SyntaxHighlighter::highlightBlock(const QString &text)
     }
 }
 
-ResultList run_script(VMEController *controller, const VMEScript &script, LoggerFun logger)
+ResultList run_script(VMEController *controller, const VMEScript &script, LoggerFun logger, bool logEachResult)
 {
-    ResultList result;
+    ResultList results;
 
     for (auto cmd: script)
     {
         if (cmd.type != CommandType::Invalid)
         {
-            result.push_back(run_command(controller, cmd, logger));
+            auto result = run_command(controller, cmd, logger);
+            results.push_back(result);
+
+            if (logEachResult)
+                logger(format_result(result));
         }
     }
 
-    return result;
+    return results;
 }
 
 Result run_command(VMEController *controller, const Command &cmd, LoggerFun logger)

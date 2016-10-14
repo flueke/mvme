@@ -87,7 +87,7 @@ namespace listfile
     static const int SubEventSizeShift = 0;
 }
 
-void dump_event_buffer(QTextStream &out, const DataBuffer *eventBuffer);
+void dump_event_buffer(QTextStream &out, const DataBuffer *eventBuffer, bool dumpData=false);
 
 class DAQConfig;
 

@@ -107,6 +107,8 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *modul
             typeComboIndex = typeCombo->count() - 1;
     }
 
+    typeCombo->setCurrentIndex(typeComboIndex);
+
     nameEdit = new QLineEdit;
 
     auto onTypeComboIndexChanged = [=](int index)

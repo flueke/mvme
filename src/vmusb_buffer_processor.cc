@@ -187,7 +187,7 @@ void VMUSBBufferProcessor::beginRun()
     }
 
     QTextStream out(stdout);
-    dump_event_buffer(out, buffer);
+    dump_event_buffer(out, buffer, false);
 
     if (buffer != &m_localEventBuffer)
     {
@@ -245,10 +245,8 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
     outputBuffer->reserve(readBuffer->used * 2);
     outputBuffer->used = 0;
 
-#if 1
     try
     {
-#endif
         u32 header1 = iter.extractWord();
 
         bool lastBuffer     = header1 & Buffer::LastBufferMask;
@@ -357,8 +355,8 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
                 getStats()->listFileBytesWritten += outputBuffer->used;
             }
 
-            //QTextStream out(stdout);
-            //dump_event_buffer(out, outputBuffer);
+            QTextStream out(stdout);
+            dump_event_buffer(out, outputBuffer, false);
 
             if (outputBuffer != &m_localEventBuffer)
             {

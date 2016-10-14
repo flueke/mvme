@@ -126,7 +126,7 @@ struct Result
 typedef QVector<Result> ResultList;
 typedef std::function<void (const QString &)> LoggerFun;
 
-ResultList run_script(VMEController *controller, const VMEScript &script, LoggerFun logger = LoggerFun());
+ResultList run_script(VMEController *controller, const VMEScript &script, LoggerFun logger = LoggerFun(), bool logEachResult=false);
 Result run_command(VMEController *controller, const Command &cmd, LoggerFun logger = LoggerFun());
 
 QString format_result(const Result &result);

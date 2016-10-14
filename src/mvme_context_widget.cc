@@ -777,6 +777,9 @@ void MVMEContextWidget::updateStats()
                         .arg((double)stats.listFileTotalBytes / (1024.0*1024.0), 6, 'f', 2)
                         );
             } break;
+
+        case GlobalMode::NotSet:
+            break;
     }
 
     m_d->label_vmusbAvgEventsPerBuffer->setText(QString::number(stats.vmusbAvgEventsPerBuffer));

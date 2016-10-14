@@ -1,4 +1,5 @@
 #include "mvme_context.h"
+#include "mvme.h"
 #include "vmusb.h"
 #include "vmusb_readout_worker.h"
 #include "vmusb_buffer_processor.h"
@@ -25,7 +26,7 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
     , m_eventThread(new QThread(this))
     , m_eventProcessor(new MVMEEventProcessor(this))
     , m_mainwin(mainwin)
-    , m_mode(GlobalMode::DAQ)
+    , m_mode(GlobalMode::NotSet)
     , m_state(DAQState::Idle)
     , m_listFileWorker(new ListFileWorker(m_daqStats))
 {
@@ -152,9 +153,14 @@ void MVMEContext::logModuleCounters()
 
     stream << endl;
     stream << "Buffers: " << m_daqStats.totalBuffersRead << endl;
-    //stream << "Events:  " << m_daqStats.totalEventsRead << endl;
+    stream << "Events:  " << m_daqStats.totalEventsRead << endl;
+    stream << "MVME format buffers seen: " << m_daqStats.mvmeBuffersSeen
+        << ", errors: " << m_daqStats.mvmeBuffersWithErrors
+        << endl;
 
     const auto &counters = m_daqStats.eventCounters;
+
+    //stream << "Got " << m_daqStats.eventCounters.size() << " event counters" << endl;
 
     for (auto it = counters.begin();
          it != counters.end();
@@ -264,6 +270,9 @@ void MVMEContext::setMode(GlobalMode mode)
                     disconnect(m_eventProcessor, &MVMEEventProcessor::bufferProcessed,
                                m_listFileWorker, &ListFileWorker::readNextBuffer);
                 } break;
+
+            case GlobalMode::NotSet:
+                break;
         }
 
         switch (mode)
@@ -284,6 +293,9 @@ void MVMEContext::setMode(GlobalMode mode)
                     connect(m_eventProcessor, &MVMEEventProcessor::bufferProcessed,
                             m_listFileWorker, &ListFileWorker::readNextBuffer);
                 } break;
+
+            case GlobalMode::NotSet:
+                break;
         }
 
 
@@ -344,6 +356,7 @@ void MVMEContext::startReplay()
 
     prepareStart();
     emit sigLogMessage(QSL("Replay starting"));
+    m_mainwin->clearLog();
     QMetaObject::invokeMethod(m_listFileWorker, "startFromBeginning", Qt::QueuedConnection);
     m_replayTime.restart();
 }
@@ -355,6 +368,7 @@ void MVMEContext::startDAQ(quint32 nCycles)
 
     prepareStart();
     emit sigLogMessage(QSL("DAQ starting"));
+    m_mainwin->clearLog();
     QMetaObject::invokeMethod(m_readoutWorker, "start",
                               Qt::QueuedConnection, Q_ARG(quint32, nCycles));
 }
@@ -427,11 +441,6 @@ void MVMEContext::read(const QJsonObject &json)
     for (auto obj: getObjects<Hist2D *>())
         removeObject(obj);
 
-    auto config = new DAQConfig;
-    config->read(json["DAQConfig"].toObject());
-    setConfig(config);
-    setMode(GlobalMode::DAQ);
-
     QJsonArray histograms = json["Histograms"].toArray();
 
     for (int i=0; i<histograms.size(); ++i)
@@ -477,6 +486,11 @@ void MVMEContext::read(const QJsonObject &json)
             addObject(hist2d);
         }
     }
+
+    auto config = new DAQConfig;
+    config->read(json["DAQConfig"].toObject());
+    setConfig(config);
+    setMode(GlobalMode::DAQ);
 }
 
 void MVMEContext::logMessage(const QString &msg)

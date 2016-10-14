@@ -143,7 +143,7 @@ mvme::mvme(QWidget *parent) :
     //
     // Log Window
     //
-    m_logView->setWindowTitle("Log Window");
+    m_logView->setWindowTitle("Log View");
     QFont font("MonoSpace");
     font.setStyleHint(QFont::Monospace);
     m_logView->setFont(font);
@@ -159,15 +159,15 @@ mvme::mvme(QWidget *parent) :
         menu->deleteLater();
     });
 
-#if 1
+#if 0
     m_logViewSubwin = new QMdiSubWindow;
     m_logViewSubwin->setObjectName("LogViewWindow");
     m_logViewSubwin->setWidget(m_logView);
     m_logViewSubwin->setAttribute(Qt::WA_DeleteOnClose, false);
     ui->mdiArea->addSubWindow(m_logViewSubwin);
 #else
-    auto logDock = new QDockWidget();
-    logDock->setObjectName("MVMEContextDock");
+    auto logDock = new QDockWidget(QSL("Log View"));
+    logDock->setObjectName("LogViewDock");
     logDock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
     logDock->setWidget(m_logView);
     addDockWidget(Qt::BottomDockWidgetArea, logDock);
@@ -708,7 +708,7 @@ void mvme::updateWindowTitle()
             {
                 QString filePath = m_context->getConfigFileName();
                 fileName =  QFileInfo(filePath).fileName();
-                modeString = "DAQ mode";
+                modeString = QSL("DAQ mode");
             } break;
         case GlobalMode::ListFile:
             {
@@ -718,8 +718,11 @@ void mvme::updateWindowTitle()
                     QString filePath = m_context->getListFile()->getFileName();
                     fileName =  QFileInfo(filePath).fileName();
                 }
-                modeString = "ListFile mode";
+                modeString = QSL("ListFile mode");
             } break;
+
+        case GlobalMode::NotSet:
+            break;
     }
 
     if (!fileName.isEmpty())
@@ -749,4 +752,9 @@ void mvme::onConfigChanged(DAQConfig *config)
     connect(config, &DAQConfig::modifiedChanged, this, &mvme::updateWindowTitle);
     updateWindowTitle();
     m_contextWidget->reloadConfig();
+}
+
+void mvme::clearLog()
+{
+    m_logView->clear();
 }

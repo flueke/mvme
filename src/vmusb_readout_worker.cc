@@ -10,8 +10,6 @@
 using namespace vmusb_constants;
 using namespace vme_script;
 
-static const int maxConsecutiveReadErrors = 5;
-
 static void processQtEvents(QEventLoop::ProcessEventsFlags flags = QEventLoop::AllEvents)
 {
     QCoreApplication::processEvents(flags);
@@ -31,7 +29,6 @@ VMUSBReadoutWorker::~VMUSBReadoutWorker()
 
 void VMUSBReadoutWorker::start(quint32 cycles)
 {
-#if 1
     if (m_state != DAQState::Idle)
         return;
 
@@ -117,7 +114,6 @@ void VMUSBReadoutWorker::start(quint32 cycles)
 
             if (m_vmusbStack.getContents().size())
             {
-
                 emit logMessage(QString("Loading readout stack for event \"%1\""
                                    ", stack id = %2, size= %4, load offset = %3")
                            .arg(event->objectName())
@@ -155,50 +151,59 @@ void VMUSBReadoutWorker::start(quint32 cycles)
 
         vme_script::LoggerFun logger = std::bind(&VMUSBReadoutWorker::logMessage, this, _1);
 
-        emit logMessage(QSL("Global DAQ Start:"));
+        emit logMessage(QSL("Global DAQ Start scripts:"));
         for (auto script: daqConfig->vmeScriptLists["daq_start"])
         {
             emit logMessage(QString("  %1").arg(script->objectName()));
-            run_script(vmusb, script->getScript(), logger);
+            run_script(vmusb, script->getScript(), logger, true);
         }
 
-        emit logMessage(QSL("Module Init"));
+        emit logMessage(QSL("Module Init:"));
         for (auto event: daqConfig->eventConfigs)
         {
             for (auto module: event->modules)
             {
-                run_script(vmusb, module->vmeScripts["parameters"]->getScript(module->getBaseAddress()), logger);
-                run_script(vmusb, module->vmeScripts["readout_settings"]->getScript(module->getBaseAddress()), logger);
+                emit logMessage(QString("  %1.%2")
+                                .arg(event->objectName())
+                                .arg(module->objectName())
+                                );
+
+                run_script(vmusb, module->vmeScripts["parameters"]->getScript(module->getBaseAddress()), logger, true);
+                run_script(vmusb, module->vmeScripts["readout_settings"]->getScript(module->getBaseAddress()), logger, true);
             }
         }
 
-        emit logMessage(QSL("Event DAQ Start"));
+        emit logMessage(QSL("Events DAQ Start"));
         for (auto event: daqConfig->eventConfigs)
         {
-            run_script(vmusb, event->vmeScripts["daq_start"]->getScript(), logger);
+            emit logMessage(QString("  %1").arg(event->objectName()));
+            run_script(vmusb, event->vmeScripts["daq_start"]->getScript(), logger, true);
         }
 
         m_bufferProcessor->beginRun();
-        emit logMessage(QSL("Entering readout loop\n"));
+        emit logMessage(QSL("Entering readout loop"));
+        emit logMessage(QSL(""));
         stats.start();
 
         readoutLoop();
 
         stats.stop();
-        emit logMessage(QSL("\nLeaving readout loop"));
+        emit logMessage(QSL(""));
+        emit logMessage(QSL("Leaving readout loop"));
         m_bufferProcessor->endRun();
 
-        emit logMessage(QSL("Event DAQ Stop"));
+        emit logMessage(QSL("Events DAQ Stop"));
         for (auto event: daqConfig->eventConfigs)
         {
-            run_script(vmusb, event->vmeScripts["daq_stop"]->getScript(), logger);
+            emit logMessage(QString("  %1").arg(event->objectName()));
+            run_script(vmusb, event->vmeScripts["daq_stop"]->getScript(), logger, true);
         }
 
-        emit logMessage(QSL("Global DAQ Stop:"));
+        emit logMessage(QSL("Global DAQ Stop scripts:"));
         for (auto script: daqConfig->vmeScriptLists["daq_stop"])
         {
             emit logMessage(QString("  %1").arg(script->objectName()));
-            run_script(vmusb, script->getScript(), logger);
+            run_script(vmusb, script->getScript(), logger, true);
         }
     }
     catch (const char *message)
@@ -216,6 +221,11 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         setError(e.what());
         error = true;
     }
+    catch (const vme_script::ParseError &)
+    {
+        setError(QSL("VME Script parse error"));
+        error = true;
+    }
 
 
     setState(DAQState::Idle);
@@ -230,7 +240,6 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         catch (...)
         {}
     }
-#endif
 }
 
 void VMUSBReadoutWorker::stop()
@@ -240,6 +249,14 @@ void VMUSBReadoutWorker::stop()
 
     setState(DAQState::Stopping);
     processQtEvents();
+}
+
+void VMUSBReadoutWorker::pause()
+{
+}
+
+void VMUSBReadoutWorker::resume()
+{
 }
 
 void VMUSBReadoutWorker::readoutLoop()
@@ -253,7 +270,6 @@ void VMUSBReadoutWorker::readoutLoop()
     }
 
     int timeout_ms = 2000; // TODO: make this dynamic and dependent on the Bulk Transfer Setup Register timeout
-    int consecutiveReadErrors = 0;
 
     DAQStats &stats(m_context->getDAQStats());
 
@@ -273,7 +289,6 @@ void VMUSBReadoutWorker::readoutLoop()
 
             const double alpha = 0.1;
             stats.avgReadSize = (alpha * bytesRead) + (1.0 - alpha) * stats.avgReadSize;
-            consecutiveReadErrors = 0;
             if (m_bufferProcessor)
             {
                 m_bufferProcessor->processBuffer(m_readBuffer);
@@ -281,22 +296,10 @@ void VMUSBReadoutWorker::readoutLoop()
         }
         else
         {
-#if 0
-            if (consecutiveReadErrors >= maxConsecutiveReadErrors)
-            {
-                emit logMessage(QString("VMUSB Error: %1 consecutive reads failed. Stopping DAQ.").arg(consecutiveReadErrors));
-                break;
-            }
-            else
-#endif
 
-
-            {
-                ++consecutiveReadErrors;
-                emit logMessage(QString("VMUSB Warning: no data from bulk read (error=\"%1\", code=%2)")
-                                .arg(strerror(-bytesRead))
-                                .arg(bytesRead));
-            }
+            emit logMessage(QString("VMUSB Warning: no data from bulk read (error=\"%1\", code=%2)")
+                            .arg(strerror(-bytesRead))
+                            .arg(bytesRead));
         }
 
         if (m_cyclesToRun > 0)

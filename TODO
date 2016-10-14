@@ -1,6 +1,57 @@
+==== Do these first! =====
+* DAQ pause implementation
+  * look at QFutureInterface (might be able to set QFuture results myself)
+
+
+==== Do these later! =====
 * fix Hist2D source definitions
 * HistogramCollection improvements: subsections for amplitude, time, trigger time, etc
-* data filter implementation
+* TwoDimWidget: use QwtPlotHistogram instead of QwtPlotCurve
+* add histogram filters
+* add histogram fitting
+* add log scale to 2d histograms (?)
 * vmusb & mvme buffer debugging
 * workspace concept
-* DAQ pause implementation
+    - workspace directory
+    - subdirectory for listfiles
+    - subdirectory for vme-scripts
+    - daqconfig.json
+    - analysis.json
+* make use of the "enabled" flag for vme scripts, modules, events, etc
+* run vme scripts in a separate thread when invoked from the gui
+* ReadoutWorker split into generic and controller specific parts:
+    Generic part is responsible for:
+        - running vme init scripts
+        - creating and opening the output listfile
+
+    Controller specific parts:
+        - init
+        - readout
+        - shutdown
+        - pause
+        - resume
+
+* module data filter specifications:
+  P=pileup, O=overflow, U=underflow (add these as special histogram channels?)
+  Histograms: array[A][D]++
+
+  - MDPP (initialized to 16-bit output)
+    * 16 amplitude values
+      0001 XXXX PO00 AAAA DDDD DDDD DDDD DDDD
+
+    * 16 time values
+      0001 XXXX XX01 AAAA DDDD DDDD DDDD DDDD
+
+    * 2 trigger time values
+      0001 XXXX XX10 000A DDDD DDDD DDDD DDDD
+
+    - MADC (initialized to 13-bit output, independent of resolution)
+    * 32 amplitude values
+      00XX X1XX 000A AAAA 0O0D DDDD DDDD DDDD
+
+  Histogram properties:
+    - name
+    - size in bits
+    - value/ channel
+    - unit (Text: "ps") // Histogram may show at 64k: "24 ps/chan" or at 8k res: "192 ps/chan"
+    - zero point        (chan 2048 is zero, left negative, right positive)

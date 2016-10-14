@@ -26,6 +26,8 @@ class VMUSBReadoutWorker: public QObject
     public slots:
         void start(quint32 cycles = 0);
         void stop();
+        void pause();
+        void resume();
 
     private:
         void readoutLoop();

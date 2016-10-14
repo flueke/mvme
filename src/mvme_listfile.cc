@@ -6,7 +6,7 @@
 
 using namespace listfile;
 
-void dump_event_buffer(QTextStream &out, const DataBuffer *eventBuffer)
+void dump_event_buffer(QTextStream &out, const DataBuffer *eventBuffer, bool dumpData)
 {
     QString buf;
     BufferIterator iter(eventBuffer->data, eventBuffer->used, BufferIterator::Align32);
@@ -39,7 +39,7 @@ void dump_event_buffer(QTextStream &out, const DataBuffer *eventBuffer)
 
                     u32 wordsLeft = sectionSize;
 
-                    while (wordsLeft)
+                    while (wordsLeft > 1)
                     {
                         u32 subEventHeader = iter.extractU32();
                         --wordsLeft;
@@ -53,10 +53,14 @@ void dump_event_buffer(QTextStream &out, const DataBuffer *eventBuffer)
                         for (u32 i=0; i<subEventSize; ++i)
                         {
                             u32 subEventData = iter.extractU32();
-                            //out << buf.sprintf("    %u = 0x%08x\n", i, subEventData);
+                            if (dumpData)
+                                out << buf.sprintf("    %u = 0x%08x\n", i, subEventData);
                         }
                         wordsLeft -= subEventSize;
                     }
+
+                    u32 eventEndMarker = iter.extractU32();
+                    out << buf.sprintf("   eventEndMarker=0x%08x\n", eventEndMarker);
                 } break;
 
             default:

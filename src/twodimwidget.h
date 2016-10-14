@@ -36,9 +36,6 @@ public slots:
     void displayChanged(void);
     void clearHist(void);
 
-signals:
-    void modChanged(qint16 mod);
-
 private slots:
     void zoomerZoomed(QRectF);
     void mouseCursorMovedToPlotCoord(QPointF);
@@ -55,7 +52,6 @@ private:
     ScrollZoomer *m_plotZoomer;
 
     HistogramCollection* m_hist;
-    quint32 m_currentModule;
     quint32 m_currentChannel;
 
     QwtPlotTextLabel *m_statsTextItem;

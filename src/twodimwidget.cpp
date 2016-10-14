@@ -53,7 +53,6 @@ TwoDimWidget::TwoDimWidget(HistogramCollection *histo, QWidget *parent)
     , ui(new Ui::TwoDimWidget)
     , m_curve(new QwtPlotCurve)
     , m_hist(histo)
-    , m_currentModule(0)
     , m_currentChannel(0)
 {
     ui->setupUi(this);

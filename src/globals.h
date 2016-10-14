@@ -25,6 +25,7 @@ enum class DAQState
 
 enum class GlobalMode
 {
+    NotSet,
     DAQ,
     ListFile
 };
@@ -184,6 +185,8 @@ struct DAQStats
 
     //u64 buffersProcessed = 0;
     //u64 eventsProcessed = 0;
+    u64 mvmeBuffersSeen = 0;
+    u64 mvmeBuffersWithErrors = 0;
 
     struct EventCounters
     {

@@ -10,114 +10,6 @@ MVMEEventProcessor::MVMEEventProcessor(MVMEContext *context)
 {
 }
 
-#if 0
-// Process an event buffer containing one or more events. Each event contains a
-// subevent for each module contributing data for this event.
-void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
-{
-    qDebug() << __PRETTY_FUNCTION__;
-    BufferIterator iter(buffer->data, buffer->used, BufferIterator::Align32);
-
-    while (iter.longwordsLeft())
-    {
-        u32 sectionHeader = iter.peekU32();
-        int sectionType = (sectionHeader & SectionTypeMask) >> SectionTypeShift;
-        u32 sectionSize = (sectionHeader & SectionSizeMask) >> SectionSizeShift;
-
-        if (sectionType != SectionType_Event)
-        {
-            iter.skip(sectionSize * sizeof(u32) + sizeof(u32));
-            continue;
-        }
-
-        int eventID = (sectionHeader & EventTypeMask) >> EventTypeShift;
-        auto eventConfig = m_context->getConfig()->getEventConfig(eventID);
-
-        if (!eventConfig)
-        {
-            qDebug() << "no event config found for event id =" << eventID << ", skipping event section";
-            iter.skip(sectionSize * sizeof(u32) + sizeof(u32));
-            continue;
-        }
-
-        auto longWordsLeft = iter.longwordsLeft();
-
-        Section section(iter.asU32(), iter.longwordsLeft());
-
-        if (!section.isValid())
-        {
-            qDebug("iter=0x%08x, sectionHeader=0x%08x, section.isValid=%d",
-                   iter.buffp, sectionHeader, section.isValid());
-            int x = 5;
-            qDebug() << iter.asU32() + iter.longwordsLeft() + 1;
-            Section section2(iter.asU32(), iter.longwordsLeft());
-        }
-
-        // for each HistogramCollection that's interested in one of the modules in this event:
-        //   get the module subevent from the event
-        //   for each channelNumber in the HistogramCollection:
-        //     extract the value for the channelNumber from the module subevent
-        //     increment the histograms bin for the (channelnumber, value)
-        for (auto histCollection: m_context->getHistogramList())
-        {
-            QString sourceModulePath = histCollection->property("Histogram.sourceModule").toString();
-            QString configName = sourceModulePath.section('.', 0, 0);
-            QString moduleName = sourceModulePath.section('.', 1, 1);
-
-            if (configName == eventConfig->getName())
-            {
-                int moduleIndex = eventConfig->getModuleIndexByModuleName(moduleName);
-
-                if (moduleIndex >= 0)
-                {
-                    for (u32 channelAddress=0;
-                         channelAddress < histCollection->m_channels;
-                         ++channelAddress)
-                    {
-                        ModuleValue modValue = section[moduleIndex][channelAddress];
-
-                        if (!modValue.isValid())
-                        {
-                            qDebug() << "invalid mod value for " << configName << moduleName << moduleIndex;
-                        }
-
-#if 0
-                            qDebug() << histCollection
-                                << "configName" << configName
-                                << "moduleName" << moduleName
-                                << "moduleIndex" << moduleIndex
-                                << "channelAddress" << channelAddress
-                                << "modValue.isValid()" << modValue.isValid()
-                                << "modValue.getAddress()" << modValue.getAddress()
-                                << "modValue.getValue()" << modValue.getValue()
-                                ;
-#endif
-
-                        if (modValue.isValid())
-                        {
-                            histCollection->incValue(channelAddress, modValue.getValue());
-                        }
-                    }
-                }
-            }
-        }
-
-        iter.skip(sectionSize * sizeof(u32) + sizeof(u32));
-
-        // for each Hist2D that's interested in any of the modules in this event:
-        //   get (module, channel address) from hist2d.xaxissource
-        //   get (module, channel address) from hist2d.yaxissource
-        //   get value for xaxis from the event
-        //   get value for yaxis from the event
-        //   if both values are valid:
-        //      hist2d->fill(xValue, yValue)
-    }
-
-    emit bufferProcessed(buffer);
-}
-#else
-
-
 void MVMEEventProcessor::newRun()
 {
     m_mod2hist.clear();
@@ -138,10 +30,12 @@ void MVMEEventProcessor::newRun()
 // Process an event buffer containing one or more events.
 void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
 {
+    auto &stats = m_context->getDAQStats();
+
     try
     {
-        auto &stats = m_context->getDAQStats();
-        //++stats.buffersProcessed;
+        qDebug() << __PRETTY_FUNCTION__ << buffer;
+        ++stats.mvmeBuffersSeen;
 
         BufferIterator iter(buffer->data, buffer->used, BufferIterator::Align32);
 
@@ -408,10 +302,9 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
     } catch (const end_of_buffer &)
     {
         emit logMessage(QString("Error: unexpectedly reached end of buffer"));
+        ++stats.mvmeBuffersWithErrors;
     }
 
 
     emit bufferProcessed(buffer);
 }
-#endif
-

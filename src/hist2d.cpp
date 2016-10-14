@@ -164,7 +164,6 @@ Hist2DWidget::Hist2DWidget(MVMEContext *context, Hist2D *hist2d, QWidget *parent
 
     connect(ui->pb_export, &QPushButton::clicked, this, &Hist2DWidget::exportPlot);
 
-    //connect(ui->pb_clear, &QPushButton::clicked, m_hist2d, &Hist2D::clear);
     connect(ui->pb_clear, &QPushButton::clicked, this, [this] {
         m_hist2d->clear();
         replot();
