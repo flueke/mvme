@@ -97,63 +97,6 @@ class MVMEContext: public QObject
             return ret;
         }
 
-#if 0
-        void addHistogramCollection(HistogramCollection *histo);
-        QVector<HistogramCollection *> getHistogramCollections() const { return m_histogramCollections; }
-        HistogramCollection *getHistogramCollection(ModuleConfig *module) const;
-
-        void addHist2D(Hist2D *hist2d);
-
-        QVector<Hist2D *> get2DHistograms() const
-        {
-            return m_2dHistograms;
-        }
-
-        bool removeHistogramCollection(HistogramCollection *histo)
-        {
-            int index = m_histogramCollections.indexOf(histo);
-            if (index >= 0)
-            {
-                emit histogramCollectionAboutToBeRemoved(histo);
-                m_histogramCollections.remove(index);
-                histo->deleteLater();
-                return true;
-            }
-            return false;
-        }
-
-        bool removeHist2D(Hist2D *hist2d)
-        {
-            int index = m_2dHistograms.indexOf(hist2d);
-            if (index >= 0)
-            {
-                emit hist2DAboutToBeRemoved(hist2d);
-                m_2dHistograms.remove(index);
-                hist2d->deleteLater();
-                return true;
-            }
-            return false;
-        }
-
-        void removeHistogramCollections()
-        {
-            auto hists = getHistogramCollections();
-            for (auto hist: hists)
-            {
-                removeHistogramCollection(hist);
-            }
-        }
-
-        void remove2DHistograms()
-        {
-            auto hists = get2DHistograms();
-            for (auto hist: hists)
-            {
-                removeHist2D(hist);
-            }
-        }
-#endif
-
         void setConfigFileName(const QString &name)
         {
             m_configFileName = name;

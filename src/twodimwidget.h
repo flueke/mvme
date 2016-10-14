@@ -1,7 +1,7 @@
 #ifndef TWODIMWIDGET_H
 #define TWODIMWIDGET_H
 
-#include <QWidget>
+#include "util.h"
 
 class ScrollZoomer;
 class QwtPlotTextLabel;
@@ -14,12 +14,12 @@ namespace Ui {
 class TwoDimWidget;
 }
 
-class TwoDimWidget : public QWidget
+class TwoDimWidget : public MVMEWidget
 {
     Q_OBJECT
 
 public:
-    explicit TwoDimWidget(MVMEContext *context, HistogramCollection *histo, QWidget *parent = 0);
+    explicit TwoDimWidget(HistogramCollection *histo, QWidget *parent = 0);
     ~TwoDimWidget();
 
     void setZoombase();
@@ -51,7 +51,6 @@ private:
 
     Ui::TwoDimWidget *ui;
 
-    MVMEContext *m_context;
     QwtPlotCurve *m_curve;
     ScrollZoomer *m_plotZoomer;
 

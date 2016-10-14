@@ -45,7 +45,6 @@ void ConfigObject::setEnabled(bool b)
 {
     if (m_enabled != b)
     {
-        qDebug() << __PRETTY_FUNCTION__ << b;
         m_enabled = b;
         emit enabledChanged(b);
     }
@@ -67,8 +66,6 @@ QString ConfigObject::getObjectPath() const
         result += QChar('.');
 
     result += objectName();
-
-    qDebug() << __PRETTY_FUNCTION__ << this << result;
 
     return result;
 }

@@ -152,7 +152,7 @@ Hist2DRasterData *Hist2D::makeRasterData()
 }
 
 Hist2DWidget::Hist2DWidget(MVMEContext *context, Hist2D *hist2d, QWidget *parent)
-    : QWidget(parent)
+    : MVMEWidget(parent)
     , ui(new Ui::Hist2DWidget)
     , m_context(context)
     , m_hist2d(hist2d)

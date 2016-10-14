@@ -19,7 +19,6 @@
 #include <QDebug>
 #include "histogram.h"
 #include "mvme.h"
-#include "mvme_context.h"
 
 // Bounds values to 0.1 to make QwtLogScaleEngine happy
 class MinBoundLogTransform: public QwtLogTransform
@@ -49,10 +48,9 @@ class MinBoundLogTransform: public QwtLogTransform
         }
 };
 
-TwoDimWidget::TwoDimWidget(MVMEContext *context, HistogramCollection *histo, QWidget *parent)
-    : QWidget(parent)
+TwoDimWidget::TwoDimWidget(HistogramCollection *histo, QWidget *parent)
+    : MVMEWidget(parent)
     , ui(new Ui::TwoDimWidget)
-    , m_context(context)
     , m_curve(new QwtPlotCurve)
     , m_hist(histo)
     , m_currentModule(0)
@@ -146,16 +144,6 @@ TwoDimWidget::TwoDimWidget(MVMEContext *context, HistogramCollection *histo, QWi
     m_statsTextItem = new QwtPlotTextLabel;
     m_statsTextItem->setText(*m_statsText);
     m_statsTextItem->attach(ui->mainPlot);
-
-    connect(context, &MVMEContext::objectAboutToBeRemoved, this, [=](QObject *h) {
-        if (h == histo)
-        {
-            auto pw = parentWidget();
-            if (pw)
-                pw->close();
-            close();
-        }
-    });
 
 #if 0
     u32 resolution = m_pMyHist->m_resolution;

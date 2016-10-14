@@ -1,7 +1,7 @@
 #ifndef UUID_bf5f9bfd_f2f3_4736_bf7e_f2a96176abe9
 #define UUID_bf5f9bfd_f2f3_4736_bf7e_f2a96176abe9
 
-#include <QWidget>
+#include "util.h"
 #include <qwt_raster_data.h>
 
 namespace Ui
@@ -94,7 +94,7 @@ private:
     Hist2D *m_hist2d;
 };
 
-class Hist2DWidget: public QWidget
+class Hist2DWidget: public MVMEWidget
 {
     Q_OBJECT
 

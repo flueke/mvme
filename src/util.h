@@ -182,6 +182,12 @@ T *Var2Ptr(const QVariant &variant)
 }
 
 template<typename T>
+T *Var2QObject(const QVariant &variant)
+{
+    return qobject_cast<T *>(Var2Ptr<QObject>(variant));
+}
+
+template<typename T>
 QVariant Ptr2Var(T *ptr)
 {
     return QVariant::fromValue(static_cast<void *>(ptr));

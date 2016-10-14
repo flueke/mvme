@@ -1,6 +1,7 @@
 #include "histogram_tree.h"
 #include "histogram.h"
 #include "hist2d.h"
+#include "hist2ddialog.h"
 #include "mvme_context.h"
 #include "mvme_config.h"
 
@@ -107,6 +108,7 @@ void HistogramTreeWidget::onObjectAdded(QObject *object)
         node->setText(0, object->objectName());
         m_treeMap[object] = node;
         parent->addChild(node);
+        m_tree->resizeColumnToContents(0);
     }
 }
 
@@ -154,8 +156,8 @@ void HistogramTreeWidget::treeContextMenu(const QPoint &pos)
         menu.addAction(QSL("Open in new window"), this, [obj, this]() { emit openInNewWindow(obj); });
         menu.addAction(QSL("Clear"), this, &HistogramTreeWidget::clearHistogram);
 
-        if (node->type() == NodeType_Histo2D)
-            menu.addAction(QSL("Remove Histogram"), this, &HistogramTreeWidget::removeHistogram);
+        menu.addSeparator();
+        menu.addAction(QSL("Remove Histogram"), this, &HistogramTreeWidget::removeHistogram);
     }
 
     if (node == m_node2D && m_context->getConfig()->getAllModuleConfigs().size())
@@ -172,27 +174,38 @@ void HistogramTreeWidget::treeContextMenu(const QPoint &pos)
 void HistogramTreeWidget::clearHistogram()
 {
     auto node = m_tree->currentItem();
+    auto var  = node->data(0, DataRole_Pointer);
     {
-        auto histo = Var2Ptr<HistogramCollection>(node->data(0, DataRole_Pointer));
+        auto histo = Var2QObject<HistogramCollection>(var);
         if (histo)
             histo->clearHistogram();
     }
 
     {
-        auto histo = Var2Ptr<Hist2D>(node->data(0, DataRole_Pointer));
+        auto histo = Var2QObject<Hist2D>(var);
         if (histo)
             histo->clear();
     }
 }
 
-// XXX: leftoff
-
 void HistogramTreeWidget::removeHistogram()
 {
     auto node = m_tree->currentItem();
+    auto var  = node->data(0, DataRole_Pointer);
+    auto obj  = Var2Ptr<QObject>(var);
+
+    if (obj)
+        m_context->removeObject(obj);
 }
 
 void HistogramTreeWidget::add2DHistogram()
 {
-    auto node = m_tree->currentItem();
+    Hist2DDialog dialog(m_context);
+    int result = dialog.exec();
+
+    if (result == QDialog::Accepted)
+    {
+        auto hist2d = dialog.getHist2D();
+        m_context->addObject(hist2d);
+    }
 }

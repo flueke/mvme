@@ -297,39 +297,6 @@ GlobalMode MVMEContext::getMode() const
     return m_mode;
 }
 
-#if 0
-void MVMEContext::addHistogramCollection(HistogramCollection *histo)
-{
-    m_histogramCollections.append(histo);
-    emit histogramCollectionAdded(histo);
-}
-
-HistogramCollection *MVMEContext::getHistogramCollection(ModuleConfig *module) const
-{
-    auto predicate = [module](HistogramCollection *hist) {
-        auto id = hist->property("Histogram.sourceModule").toUuid();
-        return module->getId() == id;
-    };
-
-    auto findResult = std::find_if(m_histogramCollections.begin(),
-                                   m_histogramCollections.end(),
-                                   predicate);
-
-    if (findResult != m_histogramCollections.end())
-    {
-        return *findResult;
-    }
-
-    return nullptr;
-}
-
-void MVMEContext::addHist2D(Hist2D *hist2d)
-{
-    m_2dHistograms.append(hist2d);
-    emit hist2DAdded(hist2d);
-}
-#endif
-
 void MVMEContext::addObject(QObject *object)
 {
     qDebug() << __PRETTY_FUNCTION__ << object;

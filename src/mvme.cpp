@@ -1,4 +1,5 @@
 #include "mvme.h"
+
 #include "ui_mvme.h"
 #include "vmusb.h"
 #include "mvme_context.h"
@@ -75,6 +76,7 @@ mvme::mvme(QWidget *parent) :
 
     connect(m_context, &MVMEContext::configFileNameChanged, this, &mvme::updateWindowTitle);
     connect(m_context, &MVMEContext::configChanged, this, &mvme::onConfigChanged);
+    connect(m_context, &MVMEContext::objectAboutToBeRemoved, this, &mvme::onObjectAboutToBeRemoved);
 
     // check and initialize VME interface
     VMEController *controller = new VMUSB;
@@ -85,25 +87,6 @@ mvme::mvme(QWidget *parent) :
     auto contextWidget = new MVMEContextWidget(m_context);
     m_contextWidget = contextWidget;
 
-
-    //connect(contextWidget, &MVMEContextWidget::histogramCollectionClicked, this, &mvme::handleHistogramCollectionClicked);
-    //connect(contextWidget, &MVMEContextWidget::histogramCollectionDoubleClicked, this, &mvme::handleHistogramCollectionDoubleClicked);
-    //connect(contextWidget, &MVMEContextWidget::showHistogramCollection, this, &mvme::openHistogramView);
-    //connect(contextWidget, &MVMEContextWidget::hist2DClicked, this, &mvme::handleHist2DClicked);
-    //connect(contextWidget, &MVMEContextWidget::hist2DDoubleClicked, this, &mvme::handleHist2DDoubleClicked);
-    //connect(contextWidget, &MVMEContextWidget::showHist2D, this, &mvme::openHist2DView);
-
-    //connect(m_context, &MVMEContext::hist2DAboutToBeRemoved, this, [=](Hist2D *hist2d) {
-    //    for (auto subwin: ui->mdiArea->subWindowList())
-    //    {
-    //        auto w = qobject_cast<Hist2DWidget *>(subwin->widget());
-    //        if (w && w->getHist2D() == hist2d)
-    //        {
-    //            qDebug() << subwin;
-    //            subwin->close();
-    //        }
-    //    }
-    //});
 
     connect(m_context, &MVMEContext::modeChanged, this, &mvme::updateWindowTitle);
 
@@ -152,6 +135,9 @@ mvme::mvme(QWidget *parent) :
 
         connect(m_histogramTreeWidget, &HistogramTreeWidget::objectDoubleClicked,
                 this, &mvme::onObjectDoubleClicked);
+
+        connect(m_histogramTreeWidget, &HistogramTreeWidget::openInNewWindow,
+                this, &mvme::openInNewWindow);
     }
 
     //
@@ -233,21 +219,6 @@ mvme::~mvme()
     delete ui;
     delete m_context;
 }
-
-#if 0
-void mvme::closeConfig()
-{
-
-    for (auto win: ui->mdiArea->subWindowList())
-    {
-        if(qobject_cast<EventConfigWidget *>(win->widget()) ||
-           qobject_cast<ModuleConfigDialog *>(win->widget()))
-        {
-            win->close();
-        }
-    }
-}
-#endif
 
 bool mvme::loadConfig(const QString &fileName)
 {
@@ -630,169 +601,86 @@ void mvme::on_actionShowLogWindow_triggered()
     m_logViewSubwin->raise();
 }
 
+void mvme::openInNewWindow(QObject *object)
+{
+    auto scriptConfig       = qobject_cast<VMEScriptConfig *>(object);
+    auto histoCollection    = qobject_cast<HistogramCollection *>(object); 
+    auto histo2d            = qobject_cast<Hist2D *>(object); 
+
+    MVMEWidget *widget = nullptr;
+
+    if (scriptConfig)
+    {
+        widget = new VMEScriptEditor(m_context, scriptConfig);
+    }
+    else if (histoCollection)
+    {
+        widget = new TwoDimWidget(histoCollection);
+    }
+    else if (histo2d)
+    {
+        widget = new Hist2DWidget(m_context, histo2d);
+    }
+
+    if (widget)
+    {
+        widget->setAttribute(Qt::WA_DeleteOnClose);
+        auto subwin = new QMdiSubWindow(ui->mdiArea);
+        subwin->setAttribute(Qt::WA_DeleteOnClose);
+        subwin->setWidget(widget);
+        subwin->show();
+
+        qDebug() << "adding window" << subwin << "for object" << object;
+
+        m_objectWindows[object].push_back(subwin);
+
+        connect(widget, &MVMEWidget::aboutToClose, this, [this, object, subwin] {
+            qDebug() << "removing window" << subwin << "for object" << object;
+            m_objectWindows[object].removeOne(subwin);
+            subwin->close();
+        });
+    }
+}
+
 void mvme::onObjectClicked(QObject *object)
 {
-    if (m_objectWindows.contains(object))
+    auto &lst = m_objectWindows[object];
+
+    if (!lst.isEmpty())
     {
-        m_objectWindows[object]->show();
-        m_objectWindows[object]->showNormal();
-        m_objectWindows[object]->activateWindow();
-        m_objectWindows[object]->raise();
-        ui->mdiArea->setActiveSubWindow(m_objectWindows[object]);
+        auto window = lst.last();
+        if (window)
+        {
+            window->show();
+            window->showNormal();
+            window->activateWindow();
+            window->raise();
+            ui->mdiArea->setActiveSubWindow(window);
+        }
     }
 }
 
 void mvme::onObjectDoubleClicked(QObject *object)
 {
-    if (m_objectWindows.contains(object))
+    if (!m_objectWindows[object].isEmpty())
     {
-        m_objectWindows[object]->show();
-        m_objectWindows[object]->showNormal();
-        m_objectWindows[object]->activateWindow();
-        m_objectWindows[object]->raise();
-        ui->mdiArea->setActiveSubWindow(m_objectWindows[object]);
+        onObjectClicked(object);
     }
     else
     {
-        auto scriptConfig = qobject_cast<VMEScriptConfig *>(object);
-        auto eventConfig = qobject_cast<EventConfig *>(object);
-        auto moduleConfig = qobject_cast<ModuleConfig *>(object);
-
-        MVMEWidget *widget = nullptr;
-
-        if (scriptConfig)
-        {
-            widget = new VMEScriptEditor(m_context, scriptConfig);
-        }
-
-        if (widget)
-        {
-            widget->setAttribute(Qt::WA_DeleteOnClose);
-            auto subwin = new QMdiSubWindow(ui->mdiArea);
-            subwin->setAttribute(Qt::WA_DeleteOnClose);
-            subwin->setWidget(widget);
-
-            qDebug() << "adding window" << subwin << "for object" << object;
-
-            m_objectWindows[object] = subwin;
-
-            connect(widget, &MVMEWidget::aboutToClose, this, [this, object] {
-                qDebug() << "removing window" << m_objectWindows.value(object) << "for object" << object;
-                m_objectWindows[object]->close();
-                m_objectWindows.remove(object);
-            });
-
-            subwin->show();
-        }
+        openInNewWindow(object);
     }
 }
 
-#if 0
-void mvme::handleHistogramCollectionClicked(HistogramCollection *histo)
+void mvme::onObjectAboutToBeRemoved(QObject *object)
 {
-    qDebug() << histo << histo->property("Histogram.sourceModule").toUuid();
+    auto &windowList = m_objectWindows[object];
 
+    for (auto subwin: windowList)
+        subwin->close();
 
-    QMdiSubWindow *subwin = 0;
-    for (auto win: ui->mdiArea->subWindowList())
-    {
-        auto widget = qobject_cast<TwoDimWidget *>(win->widget());
-        if (widget && widget->getHistogram() == histo)
-        {
-            subwin = win;
-            break;
-        }
-    }
-
-    if (subwin)
-    {
-        subwin->show();
-        if (subwin->isMinimized())
-            subwin->showNormal();
-        subwin->raise();
-    }
-    ui->mdiArea->setActiveSubWindow(subwin);
+    m_objectWindows.remove(object);
 }
-
-void mvme::handleHistogramCollectionDoubleClicked(HistogramCollection *histo)
-{
-    for (auto win: ui->mdiArea->subWindowList())
-    {
-        auto widget = qobject_cast<TwoDimWidget *>(win->widget());
-        if (widget && widget->getHistogram() == histo)
-        {
-            return;
-        }
-    }
-
-    openHistogramView(histo);
-}
-
-void mvme::openHistogramView(HistogramCollection *histo)
-{
-    if (histo)
-    {
-        auto widget = new TwoDimWidget(m_context, histo);
-        auto subwin = new QMdiSubWindow(ui->mdiArea);
-        subwin->setWidget(widget);
-        subwin->setAttribute(Qt::WA_DeleteOnClose);
-        ui->mdiArea->addSubWindow(subwin);
-        subwin->show();
-        ui->mdiArea->setActiveSubWindow(subwin);
-    }
-}
-
-void mvme::handleHist2DClicked(Hist2D *hist2d)
-{
-    QMdiSubWindow *subwin = 0;
-    for (auto win: ui->mdiArea->subWindowList())
-    {
-        auto widget = qobject_cast<Hist2DWidget *>(win->widget());
-        if (widget && widget->getHist2D() == hist2d)
-        {
-            subwin = win;
-            break;
-        }
-    }
-
-    if (subwin)
-    {
-        subwin->show();
-        if (subwin->isMinimized())
-            subwin->showNormal();
-        subwin->raise();
-    }
-    ui->mdiArea->setActiveSubWindow(subwin);
-}
-
-void mvme::handleHist2DDoubleClicked(Hist2D *hist2d)
-{
-    for (auto win: ui->mdiArea->subWindowList())
-    {
-        auto widget = qobject_cast<Hist2DWidget *>(win->widget());
-        if (widget && widget->getHist2D() == hist2d)
-        {
-            return;
-        }
-    }
-
-    openHist2DView(hist2d);
-}
-
-void mvme::openHist2DView(Hist2D *hist2d)
-{
-    if (hist2d)
-    {
-        auto widget = new Hist2DWidget(m_context, hist2d);
-        auto subwin = new QMdiSubWindow(ui->mdiArea);
-        subwin->setWidget(widget);
-        subwin->setAttribute(Qt::WA_DeleteOnClose);
-        ui->mdiArea->addSubWindow(subwin);
-        subwin->show();
-        ui->mdiArea->setActiveSubWindow(subwin);
-    }
-}
-#endif
 
 void mvme::appendToLog(const QString &s)
 {

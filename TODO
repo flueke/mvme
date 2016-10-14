@@ -1,0 +1,6 @@
+* fix Hist2D source definitions
+* HistogramCollection improvements: subsections for amplitude, time, trigger time, etc
+* data filter implementation
+* vmusb & mvme buffer debugging
+* workspace concept
+* DAQ pause implementation
