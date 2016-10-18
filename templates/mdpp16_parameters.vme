@@ -1,9 +1,5 @@
 ## Parameters for MDPP-16
 
-# Reset the module
-0x6008 1
-wait 250ms
-
 ## set window of interest, multiples of 1.56ns
 0x6050 0x3FF8	  #Window start: -8 = -12.5ns  before trigger
 0x6054 0x10	#Window width: 16 = 25ns
