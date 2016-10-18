@@ -107,7 +107,7 @@ class ModuleConfig: public ConfigObject
         VMEModuleType type = VMEModuleType::Invalid;
 
         /** Known keys for a module:
-         * "parameters", "readout_settings", "readout" */
+         * "parameters", "readout_settings", "readout", "reset" */
         QMap<QString, VMEScriptConfig *> vmeScripts;
 
     protected:

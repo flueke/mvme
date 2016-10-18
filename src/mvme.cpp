@@ -15,6 +15,7 @@
 #include "vme_script_editor.h"
 #include "vme_debug_widget.h"
 #include "histogram_tree.h"
+#include "daqcontrol_widget.h"
 
 #include <QDockWidget>
 #include <QFileDialog>
@@ -66,6 +67,7 @@ QList<QMdiSubWindow *> getSubwindowsByWidgetType(QMdiArea *mdiArea)
 
     return ret;
 }
+
 mvme::mvme(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::mvme)
@@ -84,17 +86,31 @@ mvme::mvme(QWidget *parent) :
 
     // create and initialize displays
     ui->setupUi(this);
-    auto contextWidget = new MVMEContextWidget(m_context);
-    m_contextWidget = contextWidget;
 
+    //
+    // Old Dock (ContextWidget)
+    //
+    {
+        auto contextWidget = new MVMEContextWidget(m_context);
+        m_contextWidget = contextWidget;
+        connect(m_context, &MVMEContext::modeChanged, this, &mvme::updateWindowTitle);
+        auto contextDock = new QDockWidget("Old Dock");
+        contextDock->setObjectName("MVMEContextDock");
+        contextDock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
+        contextDock->setWidget(contextWidget);
+        addDockWidget(Qt::LeftDockWidgetArea, contextDock);
+    }
 
-    connect(m_context, &MVMEContext::modeChanged, this, &mvme::updateWindowTitle);
-
-    auto contextDock = new QDockWidget("Old Dock");
-    contextDock->setObjectName("MVMEContextDock");
-    contextDock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
-    contextDock->setWidget(contextWidget);
-    addDockWidget(Qt::LeftDockWidgetArea, contextDock);
+    //
+    // DAQControlWidget
+    //
+    {
+        auto dock = new QDockWidget(QSL("DAQ Control"), this);
+        dock->setObjectName("DAQControlDock");
+        dock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
+        dock->setWidget(new DAQControlWidget(m_context));
+        addDockWidget(Qt::LeftDockWidgetArea, dock);
+    }
 
 
     //
@@ -159,20 +175,11 @@ mvme::mvme(QWidget *parent) :
         menu->deleteLater();
     });
 
-#if 0
-    m_logViewSubwin = new QMdiSubWindow;
-    m_logViewSubwin->setObjectName("LogViewWindow");
-    m_logViewSubwin->setWidget(m_logView);
-    m_logViewSubwin->setAttribute(Qt::WA_DeleteOnClose, false);
-    ui->mdiArea->addSubWindow(m_logViewSubwin);
-#else
     auto logDock = new QDockWidget(QSL("Log View"));
     logDock->setObjectName("LogViewDock");
     logDock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
     logDock->setWidget(m_logView);
     addDockWidget(Qt::BottomDockWidgetArea, logDock);
-#endif
-
 
     drawTimer = new QTimer(this);
     connect(drawTimer, SIGNAL(timeout()), SLOT(drawTimerSlot()));
@@ -625,10 +632,13 @@ void mvme::openInNewWindow(QObject *object)
     if (widget)
     {
         widget->setAttribute(Qt::WA_DeleteOnClose);
-        auto subwin = new QMdiSubWindow(ui->mdiArea);
+        auto subwin = new QMdiSubWindow;
         subwin->setAttribute(Qt::WA_DeleteOnClose);
         subwin->setWidget(widget);
         subwin->show();
+
+        ui->mdiArea->addSubWindow(subwin);
+        ui->mdiArea->setActiveSubWindow(subwin);
 
         qDebug() << "adding window" << subwin << "for object" << object;
 

@@ -131,7 +131,7 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
 
 QString format_result(const Result &result);
 
-}
+} // namespace vme_script
 
 #endif /* __VME_SCRIPT_QT_H__ */
 

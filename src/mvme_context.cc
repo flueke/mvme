@@ -111,6 +111,8 @@ void MVMEContext::setConfig(DAQConfig *config)
 void MVMEContext::setController(VMEController *controller)
 {
     m_controller = controller;
+    connect(m_controller, &VMEController::controllerStateChanged,
+            this, &MVMEContext::controllerStateChanged);
     emit vmeControllerSet(controller);
 }
 
@@ -389,6 +391,16 @@ void MVMEContext::stopDAQ()
     }
 }
 
+void MVMEContext::pauseDAQ()
+{
+    QMetaObject::invokeMethod(m_readoutWorker, "pause", Qt::QueuedConnection);
+}
+
+void MVMEContext::resumeDAQ()
+{
+    QMetaObject::invokeMethod(m_readoutWorker, "resume", Qt::QueuedConnection);
+}
+
 void MVMEContext::write(QJsonObject &json) const
 {
     QJsonObject daqConfigObject;
@@ -566,4 +578,19 @@ void MVMEContext::updateHistogramCollectionDefinition(ModuleConfig *module)
             histo->resize(nChannels, resolution);
         }
     }
+}
+
+QFuture<vme_script::ResultList>
+MVMEContext::runScript(const vme_script::VMEScript &script, vme_script::LoggerFun logger, bool logEachResult)
+{
+#if 0
+    auto daqState = getDAQState();
+
+    if (daqState != DAQState::Idle && daqState != DAQState::Paused)
+    {
+        m_readoutWorker->
+    }
+#endif
+
+    return QFuture<vme_script::ResultList>();
 }

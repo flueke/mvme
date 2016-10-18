@@ -304,8 +304,8 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
                 getStats()->listFileBytesWritten = m_listFileWriter->bytesWritten();
             }
 
-            QTextStream out(stdout);
-            dump_mvme_buffer(out, outputBuffer, false);
+            //QTextStream out(stdout);
+            //dump_mvme_buffer(out, outputBuffer, false);
 
             if (outputBuffer != &m_localEventBuffer)
             {

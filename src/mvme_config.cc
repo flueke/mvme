@@ -168,6 +168,9 @@ ModuleConfig::ModuleConfig(QObject *parent)
 
     vmeScripts["readout"] = new VMEScriptConfig(this);
     vmeScripts["readout"]->setObjectName(QSL("Readout"));
+
+    vmeScripts["reset"] = new VMEScriptConfig(this);
+    vmeScripts["reset"]->setObjectName(QSL("Module Reset"));
 }
 
 void ModuleConfig::updateRegisterCache()

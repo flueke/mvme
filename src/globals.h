@@ -53,6 +53,15 @@ static const QMap<TriggerCondition, QString> TriggerConditionNames =
     { TriggerCondition::Interrupt,  "Interrupt" },
 };
 
+static const QMap<DAQState, QString> DAQStateStrings =
+{
+    { DAQState::Idle,       QSL("Idle") },
+    { DAQState::Starting,   QSL("Starting") },
+    { DAQState::Running,    QSL("Running") },
+    { DAQState::Stopping,   QSL("Stopping") },
+    { DAQState::Paused,     QSL("Paused") },
+};
+
 static const QMap<VMEModuleType, QString> VMEModuleTypeNames =
 {
     { VMEModuleType::MADC32,    "MADC-32" },

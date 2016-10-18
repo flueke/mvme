@@ -34,9 +34,11 @@ class VMUSBReadoutWorker: public QObject
         void setState(DAQState state);
         void setError(const QString &);
         void clearError() { m_errorMessage.clear(); }
+        int readBuffer(int timeout_ms);
 
         MVMEContext *m_context;
         DAQState m_state = DAQState::Idle;
+        DAQState m_desiredState = DAQState::Idle;
         quint32 m_cyclesToRun = 0;
         VMUSBStack m_vmusbStack;
         DataBuffer *m_readBuffer = 0;
@@ -44,6 +46,7 @@ class VMUSBReadoutWorker: public QObject
         size_t m_nTotalEvents;
         VMUSBBufferProcessor *m_bufferProcessor = 0;
         QString m_errorMessage;
+        VMUSB *m_vmusb = nullptr;
 };
 
 #endif

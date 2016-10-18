@@ -115,10 +115,14 @@ void VMEScriptEditor::runScript()
         auto moduleConfig = qobject_cast<ModuleConfig *>(m_scriptConfig->parent());
         auto script = vme_script::parse(m_editor->toPlainText(),
                                         moduleConfig ? moduleConfig->getBaseAddress() : 0);
-        auto results = vme_script::run_script(m_context->getController(), script, logger);
 
-        for (auto result: results)
-            logger(format_result(result));
+        // TODO: implement me!
+        //auto resultFuture = m_context->runScript(script, logger);
+        //auto result = resultFuture.result();
+        ////QFutureWatcher<vme_script::ResultList> watcher(resultFuture);
+
+        //for (auto result: results)
+        //    logger(format_result(result));
     }
     catch (const vme_script::ParseError &e)
     {

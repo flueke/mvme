@@ -6,12 +6,12 @@
 #include "mvme_config.h"
 #include "histogram.h"
 #include "hist2d.h"
+#include "vme_controller.h"
 #include <QList>
 #include <QWidget>
 #include <QFuture>
 #include <QSet>
 
-class VMEController;
 class VMUSBReadoutWorker;
 class VMUSBBufferProcessor;
 class MVMEEventProcessor;
@@ -29,6 +29,7 @@ class MVMEContext: public QObject
     signals:
         void daqStateChanged(const DAQState &state);
         void modeChanged(GlobalMode mode);
+        void controllerStateChanged(ControllerState state);
 
         void vmeControllerSet(VMEController *controller);
 
@@ -116,10 +117,17 @@ class MVMEContext: public QObject
 
         friend class mvme;
 
+        QFuture<vme_script::ResultList>
+            runScript(const vme_script::VMEScript &script,
+                      vme_script::LoggerFun logger = vme_script::LoggerFun(),
+                      bool logEachResult = false);
+
     public slots:
         void startReplay();
         void startDAQ(quint32 nCycles=0);
         void stopDAQ();
+        void pauseDAQ();
+        void resumeDAQ();
 
     private slots:
         void tryOpenController();

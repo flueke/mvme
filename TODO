@@ -2,10 +2,19 @@
 * DAQ pause implementation
   * look at QFutureInterface (might be able to set QFuture results myself)
 
+* When pulling the usb cable while daq is active the application hangs because
+  error messages are logged constantly and without pause.
 
 ==== Do these later! =====
+* add "Init Module" to VMEScriptEditor toolbar for module related scripts
+    XXX: how should this work? take the possibly edited script from this editor
+    and the other (init or interface settings) script from the config and run both?
+    what if the other script is open in another editor window? it's not clear
+    to the user what commands will actually be executed...
+
 * fix Hist2D source definitions
 * HistogramCollection improvements: subsections for amplitude, time, trigger time, etc
+    => see data filter specification below
 * TwoDimWidget: use QwtPlotHistogram instead of QwtPlotCurve
 * add histogram filters
 * add histogram fitting

@@ -41,6 +41,8 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         return;
     }
 
+    m_vmusb = vmusb;
+
     m_cyclesToRun = cycles;
     setState(DAQState::Starting);
     DAQStats &stats(m_context->getDAQStats());
@@ -168,6 +170,19 @@ void VMUSBReadoutWorker::start(quint32 cycles)
                                 .arg(module->objectName())
                                 );
 
+                QVector<VMEScriptConfig *> scripts = {
+                    module->vmeScripts["reset"],
+                    module->vmeScripts["parameters"],
+                    module->vmeScripts["readout_settings"]
+                };
+
+                for (auto scriptConfig: scripts)
+                {
+                    emit logMessage(QSL("    %1").arg(scriptConfig->objectName()));
+                    run_script(vmusb, scriptConfig->getScript(module->getBaseAddress()), logger, true);
+                }
+
+                run_script(vmusb, module->vmeScripts["reset"]->getScript(module->getBaseAddress()), logger, true);
                 run_script(vmusb, module->vmeScripts["parameters"]->getScript(module->getBaseAddress()), logger, true);
                 run_script(vmusb, module->vmeScripts["readout_settings"]->getScript(module->getBaseAddress()), logger, true);
             }
@@ -227,9 +242,6 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         error = true;
     }
 
-
-    setState(DAQState::Idle);
-
     if (error)
     {
         try
@@ -240,118 +252,132 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         catch (...)
         {}
     }
+
+    setState(DAQState::Idle);
 }
 
 void VMUSBReadoutWorker::stop()
 {
-    if (m_state != DAQState::Running)
+    if (!(m_state == DAQState::Running || m_state == DAQState::Paused))
         return;
 
-    setState(DAQState::Stopping);
-    processQtEvents();
+    m_desiredState = DAQState::Stopping;
 }
 
 void VMUSBReadoutWorker::pause()
 {
+    if (m_state == DAQState::Running)
+        m_desiredState = DAQState::Paused;
 }
 
 void VMUSBReadoutWorker::resume()
 {
+    if (m_state == DAQState::Paused)
+        m_desiredState = DAQState::Running;
 }
+
+static const int leaveDaqReadTimeout = 100;
+static const int daqReadTimeout = 2000;
 
 void VMUSBReadoutWorker::readoutLoop()
 {
-    setState(DAQState::Running);
+    auto vmusb = m_vmusb;
 
-    auto vmusb = dynamic_cast<VMUSB *>(m_context->getController());
     if (!vmusb->enterDaqMode())
     {
         throw QString("Error entering VMUSB DAQ mode");
     }
 
-    int timeout_ms = 2000; // TODO: make this dynamic and dependent on the Bulk Transfer Setup Register timeout
+    setState(DAQState::Running);
 
     DAQStats &stats(m_context->getDAQStats());
 
-    while (m_state == DAQState::Running)
+    while (true)
     {
         processQtEvents();
 
-        m_readBuffer->used = 0;
-
-        int bytesRead = vmusb->bulkRead(m_readBuffer->data, m_readBuffer->size, timeout_ms);
-
-        if (bytesRead > 0)
+        // pause
+        if (m_state == DAQState::Running && m_desiredState == DAQState::Paused)
         {
-            m_readBuffer->used = bytesRead;
-            stats.addBuffersRead(1);
-            stats.addBytesRead(bytesRead);
-
-            const double alpha = 0.1;
-            stats.avgReadSize = (alpha * bytesRead) + (1.0 - alpha) * stats.avgReadSize;
-            if (m_bufferProcessor)
-            {
-                m_bufferProcessor->processBuffer(m_readBuffer);
-            }
+            vmusb->leaveDaqMode();
+            while (readBuffer(leaveDaqReadTimeout) > 0);
+            setState(DAQState::Paused);
         }
-        else
+        // resume
+        else if (m_state == DAQState::Paused && m_desiredState == DAQState::Running)
         {
-
-            emit logMessage(QString("VMUSB Warning: no data from bulk read (error=\"%1\", code=%2)")
-                            .arg(strerror(-bytesRead))
-                            .arg(bytesRead));
+            vmusb->enterDaqMode();
+            setState(DAQState::Running);
         }
-
-        if (m_cyclesToRun > 0)
+        else if (m_desiredState == DAQState::Stopping)
         {
-            if (m_cyclesToRun == 1)
+            break;
+        }
+        else if (m_state == DAQState::Running)
+        {
+            int bytesRead = readBuffer(daqReadTimeout);
+            if (bytesRead <= 0)
             {
-                qDebug() << "cycles to run reached";
-                break;
+                emit logMessage(QString("VMUSB Warning: no data from bulk read (error=\"%1\", code=%2)")
+                                .arg(strerror(-bytesRead))
+                                .arg(bytesRead));
             }
-            --m_cyclesToRun;
+
+            if (m_cyclesToRun > 0)
+            {
+                if (m_cyclesToRun == 1)
+                {
+                    qDebug() << "cycles to run reached";
+                    break;
+                }
+                --m_cyclesToRun;
+            }
         }
     }
 
+    setState(DAQState::Stopping);
     processQtEvents();
 
     qDebug() << __PRETTY_FUNCTION__ << "left readoutLoop, reading remaining data";
     vmusb->leaveDaqMode();
-
-    int bytesRead = 0;
-
-    do
-    {
-        m_readBuffer->used = 0;
-
-        bytesRead = vmusb->bulkRead(m_readBuffer->data, m_readBuffer->size, timeout_ms);
-
-        if (bytesRead > 0)
-        {
-            m_readBuffer->used = bytesRead;
-            stats.addBuffersRead(1);
-            stats.addBytesRead(bytesRead);
-            
-            const double alpha = 0.1;
-            stats.avgReadSize = (alpha * bytesRead) + (1.0 - alpha) * stats.avgReadSize;
-            if (m_bufferProcessor)
-            {
-                m_bufferProcessor->processBuffer(m_readBuffer);
-            }
-        }
-        processQtEvents();
-    } while (bytesRead > 0);
+    while (readBuffer(leaveDaqReadTimeout) > 0);
 }
 
 void VMUSBReadoutWorker::setState(DAQState state)
 {
+    qDebug() << __PRETTY_FUNCTION__ << DAQStateStrings[m_state] << "->" << DAQStateStrings[state];
     m_state = state;
+    m_desiredState = state;
     emit stateChanged(state);
 }
 
+// TODO: rename to logError() as it does not do anything else right now
 void VMUSBReadoutWorker::setError(const QString &message)
 {
     emit logMessage(QString("VMUSB Error: %1").arg(message));
-    setState(DAQState::Idle);
+    //setState(DAQState::Idle);
 }
 
+
+int VMUSBReadoutWorker::readBuffer(int timeout_ms)
+{
+    m_readBuffer->used = 0;
+
+    int bytesRead = m_vmusb->bulkRead(m_readBuffer->data, m_readBuffer->size, timeout_ms);
+
+    if (bytesRead > 0)
+    {
+        m_readBuffer->used = bytesRead;
+        DAQStats &stats(m_context->getDAQStats());
+        stats.addBuffersRead(1);
+        stats.addBytesRead(bytesRead);
+
+        const double alpha = 0.1;
+        stats.avgReadSize = (alpha * bytesRead) + (1.0 - alpha) * stats.avgReadSize;
+
+        if (m_bufferProcessor)
+            m_bufferProcessor->processBuffer(m_readBuffer);
+    }
+
+    return bytesRead;
+}

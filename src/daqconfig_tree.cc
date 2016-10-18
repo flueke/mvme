@@ -251,23 +251,36 @@ TreeNode *DAQConfigTreeWidget::addModuleNodes(EventNode *parent, ModuleConfig *m
     m_treeMap[module] = moduleNode;
     parent->modulesNode->addChild(moduleNode);
 
-    auto parametersNode = makeNode(module->vmeScripts["parameters"]);
-    parametersNode->setText(0, QSL("Module Init"));
-    parametersNode->setIcon(0, QIcon(":/vme_script.png"));
-    moduleNode->addChild(parametersNode);
+    {
+        auto parametersNode = makeNode(module->vmeScripts["parameters"]);
+        parametersNode->setText(0, QSL("Module Init"));
+        parametersNode->setIcon(0, QIcon(":/vme_script.png"));
+        moduleNode->addChild(parametersNode);
+    }
 
-    auto readoutSettingsNode = makeNode(module->vmeScripts["readout_settings"]);
-    readoutSettingsNode->setText(0, QSL("VME Interface Settings"));
-    readoutSettingsNode->setIcon(0, QIcon(":/vme_script.png"));
-    moduleNode->addChild(readoutSettingsNode);
+    {
+        auto readoutSettingsNode = makeNode(module->vmeScripts["readout_settings"]);
+        readoutSettingsNode->setText(0, QSL("VME Interface Settings"));
+        readoutSettingsNode->setIcon(0, QIcon(":/vme_script.png"));
+        moduleNode->addChild(readoutSettingsNode);
+    }
 
-    auto readoutNode = makeNode(module->vmeScripts["readout"]);
-    moduleNode->readoutNode = readoutNode;
-    readoutNode->setText(0, module->objectName());
-    readoutNode->setIcon(0, QIcon(":/vme_module.png"));
+    {
+        auto resetNode = makeNode(module->vmeScripts["reset"]);
+        resetNode->setText(0, QSL("Module Reset"));
+        resetNode->setIcon(0, QIcon(":/vme_script.png"));
+        moduleNode->addChild(resetNode);
+    }
 
-    auto readoutLoopNode = parent->readoutLoopNode;
-    readoutLoopNode->insertChild(readoutLoopNode->childCount() - 1, readoutNode);
+    {
+        auto readoutNode = makeNode(module->vmeScripts["readout"]);
+        moduleNode->readoutNode = readoutNode;
+        readoutNode->setText(0, module->objectName());
+        readoutNode->setIcon(0, QIcon(":/vme_module.png"));
+
+        auto readoutLoopNode = parent->readoutLoopNode;
+        readoutLoopNode->insertChild(readoutLoopNode->childCount() - 1, readoutNode);
+    }
 
     return moduleNode;
 }
@@ -559,7 +572,7 @@ void DAQConfigTreeWidget::removeEvent()
     {
         auto event = Var2Ptr<EventConfig>(node->data(0, DataRole_Pointer));
         m_config->removeEventConfig(event);
-        delete event;
+        event->deleteLater();
     }
 }
 
@@ -590,6 +603,7 @@ void DAQConfigTreeWidget::addModule()
                     QString("%1_parameters.vme").arg(VMEModuleShortNames.value(module->type, "unknown"))));
             module->vmeScripts["readout_settings"]->setScriptContents(loader.readTemplate(QSL("mesytec_readout_settings.vme")));
             module->vmeScripts["readout"]->setScriptContents(loader.readTemplate(QSL("mesytec_readout.vme")));
+            module->vmeScripts["reset"]->setScriptContents(loader.readTemplate(QSL("mesytec_reset.vme")));
 
             event->addModuleConfig(module);
 
@@ -619,7 +633,7 @@ void DAQConfigTreeWidget::removeModule()
         if (event)
         {
             event->removeModuleConfig(module);
-            delete module;
+            module->deleteLater();
         }
     }
 }
