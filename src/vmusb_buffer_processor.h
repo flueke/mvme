@@ -12,6 +12,7 @@ class MVMEContext;
 class EventConfig;
 class BufferIterator;
 class DAQStats;
+class ListFileWriter;
 
 class VMUSBBufferProcessor: public QObject
 {
@@ -36,11 +37,12 @@ class VMUSBBufferProcessor: public QObject
         bool processEvent(BufferIterator &iter, DataBuffer *outputBuffer);
         DAQStats *getStats();
 
-        MVMEContext *m_context = 0;
-        DataBuffer *m_currentBuffer = 0;
+        MVMEContext *m_context = nullptr;
+        DataBuffer *m_currentBuffer = nullptr;
         QMap<int, EventConfig *> m_eventConfigByStackID;
         QFile m_listFileOut;
         DataBuffer m_localEventBuffer;
+        ListFileWriter *m_listFileWriter = nullptr;
 };
 
 #endif

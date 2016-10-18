@@ -17,7 +17,7 @@ class VMUSBBufferProcessor;
 class MVMEEventProcessor;
 class mvme;
 class ListFile;
-class ListFileWorker;
+class ListFileReader;
 class QJsonObject;
 
 class QTimer;
@@ -159,7 +159,7 @@ class MVMEContext: public QObject
         ListFile *m_listFile = nullptr;
         GlobalMode m_mode;
         DAQState m_state;
-        ListFileWorker *m_listFileWorker;
+        ListFileReader *m_listFileWorker;
         QTime m_replayTime;
 };
 

@@ -28,7 +28,7 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
     , m_mainwin(mainwin)
     , m_mode(GlobalMode::NotSet)
     , m_state(DAQState::Idle)
-    , m_listFileWorker(new ListFileWorker(m_daqStats))
+    , m_listFileWorker(new ListFileReader(m_daqStats))
 {
 
     for (size_t i=0; i<dataBufferCount; ++i)
@@ -56,9 +56,9 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
     connect(m_readoutWorker, &VMUSBReadoutWorker::logMessage, this, &MVMEContext::sigLogMessage);
     connect(m_readoutWorker, &VMUSBReadoutWorker::logMessages, this, &MVMEContext::logMessages);
     connect(m_bufferProcessor, &VMUSBBufferProcessor::logMessage, this, &MVMEContext::sigLogMessage);
-    connect(m_listFileWorker, &ListFileWorker::stateChanged, this, &MVMEContext::onDAQStateChanged);
-    connect(m_listFileWorker, &ListFileWorker::logMessage, this, &MVMEContext::sigLogMessage);
-    connect(m_listFileWorker, &ListFileWorker::replayStopped, this, &MVMEContext::onReplayDone);
+    connect(m_listFileWorker, &ListFileReader::stateChanged, this, &MVMEContext::onDAQStateChanged);
+    connect(m_listFileWorker, &ListFileReader::logMessage, this, &MVMEContext::sigLogMessage);
+    connect(m_listFileWorker, &ListFileReader::replayStopped, this, &MVMEContext::onReplayDone);
     //connect(m_listFileWorker, &ListFileWorker::progressChanged, this, [this](qint64 cur, qint64 total) {
     //    qDebug() << cur << total;
     //});
@@ -216,7 +216,7 @@ void MVMEContext::onDAQStateChanged(DAQState state)
 void MVMEContext::onReplayDone()
 {
     double secondsElapsed = m_replayTime.elapsed() / 1000.0;
-    u64 replayBytes = m_daqStats.totalBytesRead; 
+    u64 replayBytes = m_daqStats.totalBytesRead;
     double replayMB = (double)replayBytes / (1024.0 * 1024.0);
     double mbPerSecond = 0.0;
     if (secondsElapsed > 0)
@@ -264,11 +264,11 @@ void MVMEContext::setMode(GlobalMode mode)
                 } break;
             case GlobalMode::ListFile:
                 {
-                    disconnect(m_listFileWorker, &ListFileWorker::mvmeEventBufferReady,
+                    disconnect(m_listFileWorker, &ListFileReader::mvmeEventBufferReady,
                                m_eventProcessor, &MVMEEventProcessor::processEventBuffer);
 
                     disconnect(m_eventProcessor, &MVMEEventProcessor::bufferProcessed,
-                               m_listFileWorker, &ListFileWorker::readNextBuffer);
+                               m_listFileWorker, &ListFileReader::readNextBuffer);
                 } break;
 
             case GlobalMode::NotSet:
@@ -287,11 +287,11 @@ void MVMEContext::setMode(GlobalMode mode)
                 } break;
             case GlobalMode::ListFile:
                 {
-                    connect(m_listFileWorker, &ListFileWorker::mvmeEventBufferReady,
+                    connect(m_listFileWorker, &ListFileReader::mvmeEventBufferReady,
                             m_eventProcessor, &MVMEEventProcessor::processEventBuffer);
 
                     connect(m_eventProcessor, &MVMEEventProcessor::bufferProcessed,
-                            m_listFileWorker, &ListFileWorker::readNextBuffer);
+                            m_listFileWorker, &ListFileReader::readNextBuffer);
                 } break;
 
             case GlobalMode::NotSet:

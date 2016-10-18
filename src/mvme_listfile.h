@@ -3,7 +3,7 @@
 
 /*
  * ===== MVME Listfile format =====
-  
+
  * Section Header:
  *  Type
  *  Size
@@ -83,11 +83,13 @@ namespace listfile
     static const int ModuleTypeMask  = 0x3f000; // 6 bit module type
     static const int ModuleTypeShift = 12;
 
+    static const int SubEventMaxWords  = 0x3ff;
+    static const int SubEventMaxSize   = SubEventMaxWords * sizeof(u32);
     static const int SubEventSizeMask  = 0x3ff; // 10 bit subevent size in 32 bit words
     static const int SubEventSizeShift = 0;
 }
 
-void dump_event_buffer(QTextStream &out, const DataBuffer *eventBuffer, bool dumpData=false);
+void dump_mvme_buffer(QTextStream &out, const DataBuffer *eventBuffer, bool dumpData=false);
 
 class DAQConfig;
 
@@ -109,7 +111,7 @@ class ListFile
         QJsonDocument m_configJson;
 };
 
-class ListFileWorker: public QObject
+class ListFileReader: public QObject
 {
     Q_OBJECT
     signals:
@@ -120,8 +122,8 @@ class ListFileWorker: public QObject
         void progressChanged(qint64, qint64);
 
     public:
-        ListFileWorker(DAQStats &stats, QObject *parent = 0);
-        ~ListFileWorker();
+        ListFileReader(DAQStats &stats, QObject *parent = 0);
+        ~ListFileReader();
         void setListFile(ListFile *listFile);
         ListFile *getListFile() const { return m_listFile; }
 
@@ -137,6 +139,26 @@ class ListFileWorker: public QObject
         qint64 m_bytesRead = 0;
         qint64 m_totalBytes = 0;
         bool m_stopped = false;
+};
+
+class ListFileWriter: public QObject
+{
+    Q_OBJECT
+    public:
+        explicit ListFileWriter(QObject *parent = 0);
+        ListFileWriter(QIODevice *outputDevice, QObject *parent = 0);
+
+        void setOutputDevice(QIODevice *device);
+        QIODevice *outputDevice() const { return m_out; }
+        u64 bytesWritten() const { return m_bytesWritten; }
+
+        bool writeConfig(QByteArray contents);
+        bool writeBuffer(const char *buffer, size_t size);
+        bool writeEndSection();
+
+    private:
+        QIODevice *m_out = nullptr;
+        u64 m_bytesWritten = 0;
 };
 
 namespace listfile

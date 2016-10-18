@@ -98,6 +98,7 @@ VMUSBBufferProcessor::VMUSBBufferProcessor(MVMEContext *context, QObject *parent
     : QObject(parent)
     , m_context(context)
     , m_localEventBuffer(27 * 1024 * 2)
+    , m_listFileWriter(new ListFileWriter(this))
 {}
 
 void VMUSBBufferProcessor::beginRun()
@@ -119,6 +120,7 @@ void VMUSBBufferProcessor::beginRun()
         {
             throw QString("Error: listFile %1 exists");
         }
+
         if (!m_listFileOut.open(QIODevice::WriteOnly))
         {
             throw QString("Error opening listFile %1 for writing: %2")
@@ -126,72 +128,21 @@ void VMUSBBufferProcessor::beginRun()
                 .arg(m_listFileOut.errorString())
                 ;
         }
-    }
 
-    QJsonObject configObject;
-    m_context->write(configObject);
-    QJsonDocument doc(configObject);
+        m_listFileWriter->setOutputDevice(&m_listFileOut);
 
-    auto configData = doc.toJson();
+        QJsonObject configObject;
+        m_context->write(configObject);
+        QJsonDocument doc(configObject);
 
-    while (configData.size() % sizeof(u32))
-    {
-        configData.append(' ');
-    }
-
-    int configSize = configData.size();
-    int configWords = configSize / sizeof(u32);
-    int configSections = qCeil((float)configSize / (float)SectionMaxSize);
-
-    DataBuffer *buffer = getFreeBuffer();
-
-    if (!buffer)
-    {
-        buffer = &m_localEventBuffer;
-    }
-
-    buffer->reserve(configSections * SectionMaxSize + // space for all config sections
-                    configSections * sizeof(u32)); // space for headers
-    buffer->used = 0;
-
-    u8 *bufferP = buffer->data;
-    const char *configP = configData.constData();
-
-    while (configSections--)
-    {
-        u32 *sectionHeader = (u32 *)bufferP;
-        bufferP += sizeof(u32);
-        *sectionHeader = (SectionType_Config << SectionTypeShift) & SectionTypeMask;
-        int sectionBytes = qMin(configSize, SectionMaxSize);
-        int sectionWords = sectionBytes / sizeof(u32);
-        *sectionHeader |= (sectionWords << SectionSizeShift) & SectionSizeMask;
-
-        memcpy(bufferP, configP, sectionBytes);
-        bufferP += sectionBytes;
-        configP += sectionBytes;
-        configSize -= sectionBytes;
-    }
-
-    buffer->used = bufferP - buffer->data;
-
-
-    if (m_listFileOut.isOpen())
-    {
-        if (m_listFileOut.write((const char *)buffer->data, buffer->used) != (qint64)buffer->used)
+        if (!m_listFileWriter->writeConfig(doc.toJson()))
         {
             throw QString("Error writing to %1: %2")
                 .arg(m_listFileOut.fileName())
                 .arg(m_listFileOut.errorString());
         }
-        getStats()->listFileBytesWritten += buffer->used;
-    }
 
-    QTextStream out(stdout);
-    dump_event_buffer(out, buffer, false);
-
-    if (buffer != &m_localEventBuffer)
-    {
-        emit mvmeEventBufferReady(buffer);
+        getStats()->listFileBytesWritten = m_listFileWriter->bytesWritten();
     }
 }
 
@@ -199,15 +150,14 @@ void VMUSBBufferProcessor::endRun()
 {
     if (m_listFileOut.isOpen())
     {
-        u32 header = (SectionType_End << SectionTypeShift) & SectionTypeMask;
-
-        if (m_listFileOut.write((const char *)&header, sizeof(header)) != sizeof(header))
+        if (!m_listFileWriter->writeEndSection())
         {
             throw QString("Error writing to %1: %2")
                 .arg(m_listFileOut.fileName())
                 .arg(m_listFileOut.errorString());
         }
-        getStats()->listFileBytesWritten += sizeof(header);
+
+        getStats()->listFileBytesWritten = m_listFileWriter->bytesWritten();
 
         m_listFileOut.close();
     }
@@ -344,19 +294,18 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
 
             if (m_listFileOut.isOpen())
             {
-                qint64 result = m_listFileOut.write((const char *)outputBuffer->data, outputBuffer->used);
-
-                if (result != (qint64)outputBuffer->used)
+                if (!m_listFileWriter->writeBuffer(reinterpret_cast<const char *>(outputBuffer->data),
+                                                   outputBuffer->used))
                 {
                     throw QString("Error writing to listfile '%1': %2")
                         .arg(m_listFileOut.fileName())
                         .arg(m_listFileOut.errorString());
                 }
-                getStats()->listFileBytesWritten += outputBuffer->used;
+                getStats()->listFileBytesWritten = m_listFileWriter->bytesWritten();
             }
 
             QTextStream out(stdout);
-            dump_event_buffer(out, outputBuffer, false);
+            dump_mvme_buffer(out, outputBuffer, false);
 
             if (outputBuffer != &m_localEventBuffer)
             {

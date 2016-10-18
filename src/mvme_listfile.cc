@@ -1,12 +1,14 @@
 #include "mvme_listfile.h"
 #include "globals.h"
 #include "mvme_config.h"
-#include <QJsonObject>
+
 #include <QDebug>
+#include <QJsonObject>
+#include <QtMath>
 
 using namespace listfile;
 
-void dump_event_buffer(QTextStream &out, const DataBuffer *eventBuffer, bool dumpData)
+void dump_mvme_buffer(QTextStream &out, const DataBuffer *eventBuffer, bool dumpData)
 {
     QString buf;
     BufferIterator iter(eventBuffer->data, eventBuffer->used, BufferIterator::Align32);
@@ -211,24 +213,24 @@ s32 ListFile::readSectionsIntoBuffer(DataBuffer *buffer)
 
 static const size_t ListFileBufferSize = 1 * 1024 * 1024;
 
-ListFileWorker::ListFileWorker(DAQStats &stats, QObject *parent)
+ListFileReader::ListFileReader(DAQStats &stats, QObject *parent)
     : QObject(parent)
     , m_stats(stats)
     , m_buffer(new DataBuffer(ListFileBufferSize))
 {
 }
 
-ListFileWorker::~ListFileWorker()
+ListFileReader::~ListFileReader()
 {
     delete m_buffer;
 }
 
-void ListFileWorker::setListFile(ListFile *listFile)
+void ListFileReader::setListFile(ListFile *listFile)
 {
     m_listFile = listFile;
 }
 
-void ListFileWorker::startFromBeginning()
+void ListFileReader::startFromBeginning()
 {
     m_stopped = false;
     m_listFile->seek(0);
@@ -243,7 +245,7 @@ void ListFileWorker::startFromBeginning()
     readNextBuffer();
 }
 
-void ListFileWorker::readNextBuffer()
+void ListFileReader::readNextBuffer()
 {
     if (!m_listFile) return;
 
@@ -267,8 +269,90 @@ void ListFileWorker::readNextBuffer()
     }
 }
 
-void ListFileWorker::stopReplay()
+void ListFileReader::stopReplay()
 {
     qDebug() << __PRETTY_FUNCTION__;
     m_stopped = true;
+}
+
+//
+// ListFileWriter
+//
+ListFileWriter::ListFileWriter(QObject *parent)
+    : QObject(parent)
+    , m_out(nullptr)
+{ }
+
+ListFileWriter::ListFileWriter(QIODevice *outputDevice, QObject *parent)
+    : QObject(parent)
+    , m_out(outputDevice)
+{ }
+
+void ListFileWriter::setOutputDevice(QIODevice *device)
+{
+    m_out = device;
+}
+
+bool ListFileWriter::writeConfig(QByteArray contents)
+{
+    while (contents.size() % sizeof(u32))
+    {
+        contents.append(' ');
+    }
+
+    int configSize = contents.size();
+    int configWords = configSize / sizeof(u32);
+    int configSections = qCeil((float)configSize / (float)SectionMaxSize);
+
+    DataBuffer localBuffer(configSections * SectionMaxSize + // space for all config sections
+                           configSections * sizeof(u32)); // space for headers
+
+    DataBuffer *buffer = &localBuffer;
+
+    u8 *bufferP = buffer->data;
+    const char *configP = contents.constData();
+
+    while (configSections--)
+    {
+        u32 *sectionHeader = (u32 *)bufferP;
+        bufferP += sizeof(u32);
+        *sectionHeader = (SectionType_Config << SectionTypeShift) & SectionTypeMask;
+        int sectionBytes = qMin(configSize, SectionMaxSize);
+        int sectionWords = sectionBytes / sizeof(u32);
+        *sectionHeader |= (sectionWords << SectionSizeShift) & SectionSizeMask;
+
+        memcpy(bufferP, configP, sectionBytes);
+        bufferP += sectionBytes;
+        configP += sectionBytes;
+        configSize -= sectionBytes;
+    }
+
+    buffer->used = bufferP - buffer->data;
+
+    if (m_out->write((const char *)buffer->data, buffer->used) != (qint64)buffer->used)
+        return false;
+
+    m_bytesWritten += buffer->used;
+
+    QTextStream out(stdout);
+    dump_mvme_buffer(out, buffer, false);
+
+    return true;
+}
+
+bool ListFileWriter::writeBuffer(const char *buffer, size_t size)
+{
+    return (m_out->write(buffer, size) == static_cast<qint64>(size));
+}
+
+bool ListFileWriter::writeEndSection()
+{
+    u32 header = (SectionType_End << SectionTypeShift) & SectionTypeMask;
+
+    if (m_out->write((const char *)&header, sizeof(header)) != sizeof(header))
+        return false;
+
+    m_bytesWritten += sizeof(header);
+
+    return true;
 }
