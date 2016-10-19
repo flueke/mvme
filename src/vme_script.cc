@@ -482,7 +482,7 @@ uint8_t amod_from_AddressMode(AddressMode mode, bool blt, bool mblt)
             if (blt)
                 return vme_address_modes::a32UserBlock;
             if (mblt)
-                vme_address_modes::a32UserBlock64;
+                return vme_address_modes::a32UserBlock64;
             return vme_address_modes::a32UserData;
     }
     return 0;
