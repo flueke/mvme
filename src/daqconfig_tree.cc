@@ -173,7 +173,7 @@ TreeNode *DAQConfigTreeWidget::addScriptNode(TreeNode *parent, VMEScriptConfig* 
     node->setFlags(node->flags() | Qt::ItemIsEditable);
     if (canDisable)
     {
-        node->setCheckState(0, script->isEnabled() ? Qt::Checked : Qt::Unchecked);
+        //node->setCheckState(0, script->isEnabled() ? Qt::Checked : Qt::Unchecked);
     }
     m_treeMap[script] = node;
     parent->addChild(node);
@@ -186,7 +186,7 @@ TreeNode *DAQConfigTreeWidget::addEventNode(TreeNode *parent, EventConfig *event
     auto eventNode = new EventNode;
     eventNode->setData(0, DataRole_Pointer, Ptr2Var(event));
     eventNode->setText(0, event->objectName());
-    eventNode->setCheckState(0, Qt::Checked);
+    //eventNode->setCheckState(0, Qt::Checked);
     eventNode->setFlags(eventNode->flags() | Qt::ItemIsEditable);
     m_treeMap[event] = eventNode;
     parent->addChild(eventNode);
@@ -245,7 +245,7 @@ TreeNode *DAQConfigTreeWidget::addModuleNodes(EventNode *parent, ModuleConfig *m
     auto moduleNode = new ModuleNode;
     moduleNode->setData(0, DataRole_Pointer, Ptr2Var(module));
     moduleNode->setText(0, module->objectName());
-    moduleNode->setCheckState(0, Qt::Checked);
+    //moduleNode->setCheckState(0, Qt::Checked);
     moduleNode->setIcon(0, QIcon(":/vme_module.png"));
     moduleNode->setFlags(moduleNode->flags() | Qt::ItemIsEditable);
     m_treeMap[module] = moduleNode;
@@ -328,8 +328,8 @@ void DAQConfigTreeWidget::onItemChanged(QTreeWidgetItem *item, int column)
 
     if (obj)
     {
-        if (item->flags() & Qt::ItemIsUserCheckable)
-            obj->setEnabled(item->checkState(0) != Qt::Unchecked);
+        //if (item->flags() & Qt::ItemIsUserCheckable)
+        //    obj->setEnabled(item->checkState(0) != Qt::Unchecked);
 
         if (item->flags() & Qt::ItemIsEditable)
         {
@@ -432,7 +432,7 @@ void DAQConfigTreeWidget::onEventAdded(EventConfig *eventConfig)
             return;
 
         node->setText(0, eventConfig->objectName());
-        node->setCheckState(0, eventConfig->isEnabled() ? Qt::Checked : Qt::Unchecked);
+        //node->setCheckState(0, eventConfig->isEnabled() ? Qt::Checked : Qt::Unchecked);
 
         QString infoText;
 
@@ -485,7 +485,7 @@ void DAQConfigTreeWidget::onModuleAdded(ModuleConfig *module)
 
         node->setText(0, module->objectName());
         node->readoutNode->setText(0, module->objectName());
-        node->setCheckState(0, module->isEnabled() ? Qt::Checked : Qt::Unchecked);
+        //node->setCheckState(0, module->isEnabled() ? Qt::Checked : Qt::Unchecked);
 
         QString infoText = QString("Type=%1, Address=0x%2")
             .arg(VMEModuleTypeNames.value(module->type, QSL("unknown")))

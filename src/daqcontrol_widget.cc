@@ -2,11 +2,14 @@
 #include "mvme_context.h"
 #include "util.h"
 
-#include <QPushButton>
-#include <QHBoxLayout>
-#include <QVBoxLayout>
+#include <QCheckBox>
 #include <QFormLayout>
+#include <QGroupBox>
+#include <QHBoxLayout>
 #include <QLabel>
+#include <QPushButton>
+#include <QVBoxLayout>
+#include <QFileDialog>
 
 DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
     : QWidget(parent)
@@ -45,6 +48,7 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
     label_controller = new QLabel;
     label_daqState = new QLabel;
     pb_reconnect = new QPushButton(QSL("Reconnect"));
+
     auto controllerLayout = new QHBoxLayout;
     controllerLayout->setContentsMargins(0, 0, 0, 0);
     controllerLayout->setSpacing(2);
@@ -59,16 +63,47 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
         // m_context will call tryOpenController() eventually
     });
 
+
     auto labelLayout = new QFormLayout;
     labelLayout->setContentsMargins(2, 2, 2, 2);
     labelLayout->addRow(QSL("VME Controller:"), controllerLayout);
     labelLayout->addRow(QSL("DAQ State:"), label_daqState);
 
+    // Listfile
+    auto gbListFile = new QGroupBox(QSL("Listfile Output"));
+    auto listFileLayout = new QFormLayout(gbListFile);
+
+#if 1
+        label_listFileDir = new QLabel;
+        cb_writeListFile = new QCheckBox("Write listfile");
+
+        auto pb_outputDirectory = new QPushButton("Select");
+
+        connect(pb_outputDirectory, &QPushButton::clicked, this, [this] {
+            auto dirName = QFileDialog::getExistingDirectory(this, "Select output directory",
+                                                             m_context->getConfig()->getListFileOutputDirectory());
+            if (!dirName.isEmpty())
+            {
+                label_listFileDir->setText(dirName);
+                m_context->getConfig()->setListFileOutputDirectory(dirName);
+            }
+        });
+
+        auto hbox = new QHBoxLayout;
+        hbox->addWidget(cb_writeListFile);
+        hbox->addWidget(pb_outputDirectory);
+
+        listFileLayout->addRow(hbox);
+        listFileLayout->addRow(label_listFileDir);
+#endif
+
     // Widget layout
     auto layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(2);
     layout->addLayout(buttonBox);
     layout->addLayout(labelLayout);
+    layout->addWidget(gbListFile);
 
     connect(m_context, &MVMEContext::daqStateChanged, this, &DAQControlWidget::updateWidget);
     connect(m_context, &MVMEContext::modeChanged, this, &DAQControlWidget::updateWidget);

@@ -627,9 +627,8 @@ void mvme::openInNewWindow(QObject *object)
         auto subwin = new QMdiSubWindow;
         subwin->setAttribute(Qt::WA_DeleteOnClose);
         subwin->setWidget(widget);
-        subwin->show();
-
         ui->mdiArea->addSubWindow(subwin);
+        subwin->show();
         ui->mdiArea->setActiveSubWindow(subwin);
 
         qDebug() << "adding window" << subwin << "for object" << object;
