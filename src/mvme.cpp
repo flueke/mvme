@@ -600,14 +600,6 @@ void mvme::on_actionVME_Debug_triggered()
     ui->mdiArea->setActiveSubWindow(subwin);
 }
 
-void mvme::on_actionShowLogWindow_triggered()
-{
-    m_logViewSubwin->widget()->show();
-    m_logViewSubwin->show();
-    m_logViewSubwin->showNormal();
-    m_logViewSubwin->raise();
-}
-
 void mvme::openInNewWindow(QObject *object)
 {
     auto scriptConfig       = qobject_cast<VMEScriptConfig *>(object);

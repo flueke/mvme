@@ -13,6 +13,7 @@ static const int tabStop = 4;
 static const QString scriptFileSetting = QSL("Files/LastDebugScriptDirectory");
 
 using namespace std::placeholders;
+using namespace vme_script;
 
 VMEDebugWidget::VMEDebugWidget(MVMEContext *context, QWidget *parent)
     : QWidget(parent)
@@ -131,29 +132,37 @@ void VMEDebugWidget::on_readRead1_clicked()
         ui->readResult1->setText(QString("0x%1")
                                  .arg(value, 4, 16, QChar('0'))
                                 );
-    } else
+    }
+    else
     {
-        QVector<u32> result;
-        u32 transfers = static_cast<u32>(ui->blockReadCount->value());
-        u8 amod = ui->readModeBLT->isChecked()
-            ?  vme_address_modes::a32UserBlock
-            : vme_address_modes::a32UserBlock64;
+        Command cmd;
+        cmd.type = ui->readModeBLT->isChecked() ? CommandType::BLT : CommandType::MBLT;
+        cmd.addressMode = AddressMode::A32;
+        cmd.address = address;
+        cmd.transfers = static_cast<u32>(ui->blockReadCount->value());
 
-        VMEError vmeError = m_context->getController()->blockRead(address, transfers, &result, amod, true);
+        VMEScript script = { cmd };
 
-        m_context->logMessage(QString("VME Debug: block read 0x%1, vmeError=%2")
-                              .arg(address, 8, 16, QChar('0'))
-                              .arg(vmeError.toString())
-                             );
+        auto results = m_context->runScript(script);
 
-        QString buffer;
-        for (int i=0; i<result.size(); ++i)
+        if (!results.isEmpty())
         {
-            buffer += QString(QSL("%1: 0x%2\n"))
-                .arg(i, 2, 10, QChar(' '))
-                .arg(result[i], 8, 16, QChar('0'));
+            auto result = results[0];
+
+            m_context->logMessage(QString("VME Debug: block read 0x%1, vmeError=%2")
+                                  .arg(address, 8, 16, QChar('0'))
+                                  .arg(result.error.toString())
+                                 );
+
+            QString buffer;
+            for (int i=0; i<result.valueVector.size(); ++i)
+            {
+                buffer += QString(QSL("%1: 0x%2\n"))
+                    .arg(i, 2, 10, QChar(' '))
+                    .arg(result.valueVector[i], 8, 16, QChar('0'));
+            }
+            ui->bltResult->setText(buffer);
         }
-        ui->bltResult->setText(buffer);
     }
 
     if (ui->readLoop1->isChecked())
@@ -196,27 +205,54 @@ void VMEDebugWidget::on_readRead3_clicked()
 
 void VMEDebugWidget::doWrite(u32 address, u32 value)
 {
-    auto vmeError = m_context->getController()->write16(address, value, vme_address_modes::a32UserData);
+    Command cmd;
+    cmd.type = CommandType::Write;
+    cmd.addressMode = AddressMode::A32;
+    cmd.dataWidth = DataWidth::D16;
+    cmd.address = address;
+    cmd.value = value;
 
-    m_context->logMessage(QString("VME Debug: write 0x%1 -> 0x%2, vmeError=%3")
-                          .arg(address, 8, 16, QChar('0'))
-                          .arg(value, 4, 16, QChar('0'))
-                          .arg(vmeError.toString())
-                         );
+    VMEScript script = { cmd };
+
+    auto results = m_context->runScript(script);
+
+    if (!results.isEmpty())
+    {
+        auto result = results[0];
+
+        m_context->logMessage(QString("VME Debug: write 0x%1 -> 0x%2, vmeError=%3")
+                              .arg(address, 8, 16, QChar('0'))
+                              .arg(value, 4, 16, QChar('0'))
+                              .arg(result.error.toString())
+                             );
+    }
 }
 
 u16 VMEDebugWidget::doRead(u32 address)
 {
-    u16 value = 0;
-    auto vmeError = m_context->getController()->read16(address, &value, vme_address_modes::a32UserData);
+    Command cmd;
+    cmd.type = CommandType::Read;
+    cmd.addressMode = AddressMode::A32;
+    cmd.dataWidth = DataWidth::D16;
+    cmd.address = address;
 
-    m_context->logMessage(QString("VME Debug: read 0x%1 -> 0x%2, vmeError=%3")
-                          .arg(address, 8, 16, QChar('0'))
-                          .arg(value, 4, 16, QChar('0'))
-                          .arg(vmeError.toString())
-                         );
+    VMEScript script = { cmd };
 
-    return value;
+    auto results = m_context->runScript(script);
+
+    if (!results.isEmpty())
+    {
+        auto result = results[0];
+
+        m_context->logMessage(QString("VME Debug: read 0x%1 -> 0x%2, vmeError=%3")
+                              .arg(address, 8, 16, QChar('0'))
+                              .arg(result.value, 4, 16, QChar('0'))
+                              .arg(result.error.toString())
+                             );
+        return result.value;
+    }
+
+    return 0;
 }
 
 void VMEDebugWidget::on_runScript_clicked()
@@ -231,7 +267,7 @@ void VMEDebugWidget::on_runScript_clicked()
         baseAddress <<= 16;
 
         auto script = vme_script::parse(ui->scriptInput->toPlainText(), baseAddress);
-        auto resultList = vme_script::run_script(m_context->getController(), script, logger);
+        auto resultList = m_context->runScript(script, logger);
 
         for (auto result: resultList)
         {

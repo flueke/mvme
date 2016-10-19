@@ -55,7 +55,6 @@
      <string>Window</string>
     </property>
     <addaction name="actionVME_Debug"/>
-    <addaction name="actionShowLogWindow"/>
     <addaction name="separator"/>
     <addaction name="actionTile"/>
     <addaction name="actionCascade"/>

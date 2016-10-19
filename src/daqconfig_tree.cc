@@ -709,26 +709,26 @@ void DAQConfigTreeWidget::initModule()
 
 void DAQConfigTreeWidget::runScriptConfigs(const QVector<VMEScriptConfig *> &scriptConfigs)
 {
-    auto logger = std::bind(&MVMEContext::logMessage, m_context, _1);
-
     for (auto scriptConfig: scriptConfigs)
     {
         auto moduleConfig = qobject_cast<ModuleConfig *>(scriptConfig->parent());
 
-        logger(QSL("Running script ") + get_title(scriptConfig));
+        m_context->logMessage(QSL("Running script ") + get_title(scriptConfig));
 
         try
         {
-            auto results = run_script(m_context->getController(),
-                                      scriptConfig->getScript(moduleConfig ? moduleConfig->getBaseAddress() : 0),
-                                      logger);
+            auto logger = [this](const QString &str) { m_context->logMessage(QSL("  ") + str); };
+
+            auto results = m_context->runScript(
+                scriptConfig->getScript(moduleConfig ? moduleConfig->getBaseAddress() : 0),
+                logger);
 
             for (auto result: results)
                 logger(format_result(result));
         }
         catch (const vme_script::ParseError &e)
         {
-            logger(QSL("Parse error: ") + e.what());
+            m_context->logMessage(QSL("Parse error: ") + e.what());
         }
     }
 }

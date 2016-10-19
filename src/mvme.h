@@ -65,7 +65,6 @@ private slots:
     void on_actionOpen_Listfile_triggered();
 
     void on_actionVME_Debug_triggered();
-    void on_actionShowLogWindow_triggered();
 
     void onObjectClicked(QObject *obj);
     void onObjectDoubleClicked(QObject *obj);
@@ -86,7 +85,6 @@ private slots:
     MVMEContext *m_context;
     MVMEContextWidget *m_contextWidget = 0;
     QTextBrowser *m_logView;
-    QMdiSubWindow *m_logViewSubwin;
     QMap<QObject *, QList<QMdiSubWindow *>> m_objectWindows;
     DAQConfigTreeWidget *m_daqConfigTreeWidget;
     HistogramTreeWidget *m_histogramTreeWidget;
