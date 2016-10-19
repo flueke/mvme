@@ -715,7 +715,7 @@ void DAQConfigTreeWidget::runScriptConfigs(const QVector<VMEScriptConfig *> &scr
     {
         auto moduleConfig = qobject_cast<ModuleConfig *>(scriptConfig->parent());
 
-        logger(get_title(scriptConfig));
+        logger(QSL("Running script ") + get_title(scriptConfig));
 
         try
         {

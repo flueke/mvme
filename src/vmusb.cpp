@@ -1297,6 +1297,7 @@ VMEError VMUSB::openFirstDevice()
         }
         else
         {
+            qDebug() << "vmusb error recovery failed";
             close();
             return VMEError(VMEError::CommError);
         }

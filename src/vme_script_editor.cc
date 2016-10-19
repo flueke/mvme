@@ -109,24 +109,23 @@ void VMEScriptEditor::onEditorTextChanged()
 
 void VMEScriptEditor::runScript()
 {
-    auto logger = std::bind(&MVMEContext::logMessage, m_context, _1);
     try
     {
         auto moduleConfig = qobject_cast<ModuleConfig *>(m_scriptConfig->parent());
         auto script = vme_script::parse(m_editor->toPlainText(),
                                         moduleConfig ? moduleConfig->getBaseAddress() : 0);
 
-        // TODO: implement me!
-        //auto resultFuture = m_context->runScript(script, logger);
-        //auto result = resultFuture.result();
-        ////QFutureWatcher<vme_script::ResultList> watcher(resultFuture);
+        m_context->logMessage(QString("Running script %1:").arg(m_scriptConfig->objectName()));
 
-        //for (auto result: results)
-        //    logger(format_result(result));
+        auto logger = [this](const QString &str) { m_context->logMessage(QSL("  ") + str); };
+        auto results = m_context->runScript(script, logger);
+
+        for (auto result: results)
+            logger(format_result(result));
     }
     catch (const vme_script::ParseError &e)
     {
-        logger(QSL("Parse error: ") + e.what());
+        m_context->logMessage(QSL("Parse error: ") + e.what());
     }
 }
 

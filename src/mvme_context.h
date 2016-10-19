@@ -117,7 +117,8 @@ class MVMEContext: public QObject
 
         friend class mvme;
 
-        QFuture<vme_script::ResultList>
+        //QFuture<vme_script::ResultList>
+        vme_script::ResultList
             runScript(const vme_script::VMEScript &script,
                       vme_script::LoggerFun logger = vme_script::LoggerFun(),
                       bool logEachResult = false);

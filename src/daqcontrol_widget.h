@@ -18,7 +18,7 @@ class DAQControlWidget: public QWidget
         void updateWidget();
 
         MVMEContext *m_context;
-        QPushButton *pb_start, *pb_stop, *pb_oneCycle;
+        QPushButton *pb_start, *pb_stop, *pb_oneCycle, *pb_reconnect;
         QLabel *label_controller, *label_daqState;
 };
 

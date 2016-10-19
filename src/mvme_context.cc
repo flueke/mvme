@@ -580,17 +580,38 @@ void MVMEContext::updateHistogramCollectionDefinition(ModuleConfig *module)
     }
 }
 
-QFuture<vme_script::ResultList>
-MVMEContext::runScript(const vme_script::VMEScript &script, vme_script::LoggerFun logger, bool logEachResult)
+static void processQtEvents(QEventLoop::ProcessEventsFlags flags = QEventLoop::AllEvents)
 {
-#if 0
-    auto daqState = getDAQState();
+    QCoreApplication::processEvents(flags);
+}
 
-    if (daqState != DAQState::Idle && daqState != DAQState::Paused)
+//QFuture<vme_script::ResultList>
+/* FIXME: this is a bad hack
+ * ExcludeUserInputEvents is used to "freeze" the GUI in case the transition to
+ * Paused state takes some time. This prevents the user from clicking "run"
+ * multiple times (or invoking run via different gui elements)
+ * What if the transition to Paused never happens? We're stuck here...
+ */
+vme_script::ResultList
+MVMEContext::runScript(const vme_script::VMEScript &script,
+                       vme_script::LoggerFun logger,
+                       bool logEachResult)
+{
+    auto may_run_script = [this]()
     {
-        m_readoutWorker->
-    }
-#endif
+        auto daqState = this->getDAQState();
+        return (daqState == DAQState::Idle || daqState == DAQState::Paused);
+    };
 
-    return QFuture<vme_script::ResultList>();
+    pauseDAQ();
+    while (!may_run_script())
+    {
+        processQtEvents(QEventLoop::ExcludeUserInputEvents | QEventLoop::WaitForMoreEvents);
+    }
+
+    auto result = vme_script::run_script(m_controller, script, logger, logEachResult);
+
+    resumeDAQ();
+
+    return result;
 }

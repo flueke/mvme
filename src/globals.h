@@ -105,11 +105,6 @@ inline bool isMesytecModule(VMEModuleType type)
 
 static const u32 EndMarker = 0x87654321;
 static const u32 BerrMarker = 0xffffffff;
-/* Used for readout stack generation for mesytec modules. This is the number of
- * 32 bit words to transfer. Note that if the number of 16-bit words transfered
- * exceeds the VMUSBs 2k event assembly buffer it will generate event headers
- * with the Buffer::ContinuationMask bit set (Section 3.4.2 of the manual). */
-static const size_t FifoReadTransferSize = 1000;
 static const int RawHistogramBits = 13;
 static const int RawHistogramResolution = 1 << RawHistogramBits;
 

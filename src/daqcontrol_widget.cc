@@ -35,17 +35,33 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
 
     auto buttonBox = new QHBoxLayout;
     buttonBox->setContentsMargins(2, 2, 2, 2);
+    buttonBox->setSpacing(2);
     buttonBox->addWidget(pb_start);
     buttonBox->addWidget(pb_stop);
     buttonBox->addWidget(pb_oneCycle);
+    buttonBox->addStretch(1);
 
-    // State labels
+    // VME controller and DAQ state
     label_controller = new QLabel;
     label_daqState = new QLabel;
+    pb_reconnect = new QPushButton(QSL("Reconnect"));
+    auto controllerLayout = new QHBoxLayout;
+    controllerLayout->setContentsMargins(0, 0, 0, 0);
+    controllerLayout->setSpacing(2);
+    controllerLayout->addWidget(label_controller);
+    controllerLayout->addWidget(pb_reconnect);
+    controllerLayout->addStretch(1);
+
+    connect(pb_reconnect, &QPushButton::clicked, this, [this] {
+        auto ctrl = m_context->getController();
+        if (ctrl)
+            ctrl->close();
+        // m_context will call tryOpenController() eventually
+    });
 
     auto labelLayout = new QFormLayout;
     labelLayout->setContentsMargins(2, 2, 2, 2);
-    labelLayout->addRow(QSL("VME Controller:"), label_controller);
+    labelLayout->addRow(QSL("VME Controller:"), controllerLayout);
     labelLayout->addRow(QSL("DAQ State:"), label_daqState);
 
     // Widget layout
@@ -83,4 +99,6 @@ void DAQControlWidget::updateWidget()
     label_controller->setText(controllerState == ControllerState::Closed
                               ? QSL("Disconnected")
                               : QSL("Connected"));
+
+    pb_reconnect->setEnabled(globalMode == GlobalMode::DAQ && daqState == DAQState::Idle);
 }
