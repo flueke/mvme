@@ -7,7 +7,6 @@
 #include "hist2d.h"
 #include "histogram.h"
 #include "mvmedefines.h"
-#include "mvme_context_widget.h"
 #include "vmusb_readout_worker.h"
 #include "config_widgets.h"
 #include "mvme_listfile.h"
@@ -87,20 +86,6 @@ mvme::mvme(QWidget *parent) :
 
     // create and initialize displays
     ui->setupUi(this);
-
-    //
-    // Old Dock (ContextWidget)
-    //
-    {
-        auto contextWidget = new MVMEContextWidget(m_context);
-        m_contextWidget = contextWidget;
-        connect(m_context, &MVMEContext::modeChanged, this, &mvme::updateWindowTitle);
-        auto contextDock = new QDockWidget("Old Dock");
-        contextDock->setObjectName("MVMEContextDock");
-        contextDock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
-        contextDock->setWidget(contextWidget);
-        addDockWidget(Qt::LeftDockWidgetArea, contextDock);
-    }
 
     //
     // DAQControlWidget
@@ -763,7 +748,6 @@ void mvme::onConfigChanged(DAQConfig *config)
 {
     connect(config, &DAQConfig::modifiedChanged, this, &mvme::updateWindowTitle);
     updateWindowTitle();
-    m_contextWidget->reloadConfig();
 }
 
 void mvme::clearLog()

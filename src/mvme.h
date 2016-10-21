@@ -83,7 +83,6 @@ private slots:
     // list of possibly connected VME devices
 
     MVMEContext *m_context;
-    MVMEContextWidget *m_contextWidget = 0;
     QTextBrowser *m_logView;
     QMap<QObject *, QList<QMdiSubWindow *>> m_objectWindows;
     DAQConfigTreeWidget *m_daqConfigTreeWidget;
