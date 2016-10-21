@@ -123,6 +123,8 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
     layout->addLayout(labelLayout);
     layout->addWidget(gbListFile);
 
+    setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Minimum);
+
     connect(m_context, &MVMEContext::daqStateChanged, this, &DAQControlWidget::updateWidget);
     connect(m_context, &MVMEContext::modeChanged, this, &DAQControlWidget::updateWidget);
     connect(m_context, &MVMEContext::controllerStateChanged, this, &DAQControlWidget::updateWidget);

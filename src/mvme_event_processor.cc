@@ -34,7 +34,7 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
 
     try
     {
-        qDebug() << __PRETTY_FUNCTION__ << buffer;
+        //qDebug() << __PRETTY_FUNCTION__ << buffer;
         ++stats.mvmeBuffersSeen;
 
         BufferIterator iter(buffer->data, buffer->used, BufferIterator::Align32);

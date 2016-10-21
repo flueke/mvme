@@ -27,6 +27,7 @@ Hist2D::Hist2D(uint32_t xBits, uint32_t yBits, QObject *parent)
     m_data = new uint32_t[getXResolution() * getYResolution()];
     setInterval(Qt::XAxis, QwtInterval(0, getXResolution() - 1));
     setInterval(Qt::YAxis, QwtInterval(0, getYResolution() - 1));
+    clear();
 }
 
 QwtLinearColorMap *Hist2D::getColorMap() const

@@ -37,6 +37,23 @@ DAQStatsWidget::DAQStatsWidget(MVMEContext *context, QWidget *parent)
     m_d->label_bytesRead = new QLabel;
     m_d->label_listFileSize = new QLabel;
 
+    QList<QWidget *> labels = {
+        m_d->label_daqDuration,
+        m_d->label_freeBuffers,
+        m_d->label_buffersReadAndDropped,
+        m_d->label_mbPerSecond,
+        m_d->label_events,
+        m_d->label_readSize,
+        m_d->label_vmusbAvgEventsPerBuffer,
+        m_d->label_bytesRead,
+        m_d->label_listFileSize,
+    };
+
+    for (auto label: labels)
+    {
+        label->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Minimum);
+    }
+
     auto formLayout = new QFormLayout(this);
 
     formLayout->addRow("Running time:", m_d->label_daqDuration);
@@ -48,6 +65,10 @@ DAQStatsWidget::DAQStatsWidget(MVMEContext *context, QWidget *parent)
     formLayout->addRow("vmusb avg. events per buffer:", m_d->label_vmusbAvgEventsPerBuffer);
     formLayout->addRow("Bytes read:", m_d->label_bytesRead);
     formLayout->addRow("ListFile size:", m_d->label_listFileSize);
+
+    //formLayout->setFieldGrowthPolicy(QFormLayout::FieldsStayAtSizeHint);
+    //formLayout->setSizeConstraint(QLayout::SetFixedSize);
+    setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Minimum);
 
     updateWidget();
 

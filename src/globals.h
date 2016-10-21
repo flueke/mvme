@@ -105,7 +105,7 @@ inline bool isMesytecModule(VMEModuleType type)
 
 static const u32 EndMarker = 0x87654321;
 static const u32 BerrMarker = 0xffffffff;
-static const int RawHistogramBits = 13;
+static const int RawHistogramBits = 16;
 static const int RawHistogramResolution = 1 << RawHistogramBits;
 
 struct DAQStats

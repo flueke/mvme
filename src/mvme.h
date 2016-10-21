@@ -54,6 +54,9 @@ public slots:
 
     void openInNewWindow(QObject *object);
 
+protected:
+    void resizeEvent(QResizeEvent *event) override;
+
 private slots:
     void on_actionNewConfig_triggered();
     void on_actionLoadConfig_triggered();
@@ -76,7 +79,7 @@ private slots:
     void onConfigChanged(DAQConfig *config);
 
 
-    private:
+private:
     Ui::mvme *ui;
     QTimer* drawTimer;
 
@@ -87,6 +90,12 @@ private slots:
     QMap<QObject *, QList<QMdiSubWindow *>> m_objectWindows;
     DAQConfigTreeWidget *m_daqConfigTreeWidget;
     HistogramTreeWidget *m_histogramTreeWidget;
+
+    QDockWidget *dock_daqControl,
+                *dock_daqStats,
+                *dock_configTree,
+                *dock_histoTree,
+                *dock_logView;
 };
 
 #endif // MVME_H

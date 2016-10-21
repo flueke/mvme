@@ -1,12 +1,15 @@
 ==== Do these first! =====
 
 ==== Do these later! =====
-* FIX the pause, run script, resume implementation. it's buggy and hacky!
-  - run script: Maybe implement a command queue in the context and return
-                QFuture<VMEResultList> objects to clients.
-  - pause and resume: also return a QFuture or something to be able to wait for
-                      the state change
-  -> look at QFutureInterface
+* threading and vme commands
+  * run vme scripts in a separate thread when invoked from the gui
+  * FIX the pause, run script, resume implementation. it's buggy and hacky!
+    - run script: Maybe implement a command queue in the context and return
+                  QFuture<VMEResultList> objects to clients.
+    - pause and resume: also return a QFuture or something to be able to wait for
+                        the state change
+    -> look at QFutureInterface
+
 * fix Hist2D source definitions
 * HistogramCollection improvements: subsections for amplitude, time, trigger time, etc
     => see data filter specification below
@@ -22,7 +25,6 @@
     - daqconfig.json
     - analysis.json
 * make use of the "enabled" flag for vme scripts, modules, events, etc
-* run vme scripts in a separate thread when invoked from the gui
 * ReadoutWorker split into generic and controller specific parts:
     Generic part is responsible for:
         - running vme init scripts
@@ -53,9 +55,20 @@
     * 32 amplitude values
       00XX X1XX 000A AAAA 0O0D DDDD DDDD DDDD
 
+  P, O, U are just there for convenience and should be set to 0/1/X by the user
+  -> "amplitudes with overflow", "amplitudes without overflow", "amplitudes with and without overflow"
+     are possible
+
   Histogram properties:
     - name
     - size in bits
     - value/ channel
     - unit (Text: "ps") // Histogram may show at 64k: "24 ps/chan" or at 8k res: "192 ps/chan"
     - zero point        (chan 2048 is zero, left negative, right positive)
+
+* save and restore the position and size of windows
+* save and restore the zoom and pan of histograms
+* save and restore open histograms
+
+==== Maybe do these ====
+* Move from MDI to multiple top-level windows (allows making use of multiple monitors)

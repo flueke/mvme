@@ -87,15 +87,17 @@ mvme::mvme(QWidget *parent) :
     // create and initialize displays
     ui->setupUi(this);
 
+
     //
     // DAQControlWidget
     //
     {
         auto dock = new QDockWidget(QSL("DAQ Control"), this);
+        dock_daqControl = dock;
         dock->setObjectName(QSL("DAQControlDock"));
         dock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
         dock->setWidget(new DAQControlWidget(m_context));
-        addDockWidget(Qt::LeftDockWidgetArea, dock);
+        //addDockWidget(Qt::LeftDockWidgetArea, dock);
     }
 
     //
@@ -103,10 +105,12 @@ mvme::mvme(QWidget *parent) :
     //
     {
         auto dock = new QDockWidget(QSL("DAQ Stats"), this);
+        dock_daqStats = dock;
         dock->setObjectName(QSL("DAQStatsDock"));
         dock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
-        dock->setWidget(new DAQStatsWidget(m_context));
-        addDockWidget(Qt::BottomDockWidgetArea, dock);
+        auto widget = new DAQStatsWidget(m_context);
+        dock->setWidget(widget);
+        //addDockWidget(Qt::BottomDockWidgetArea, dock);
     }
 
     //
@@ -116,10 +120,11 @@ mvme::mvme(QWidget *parent) :
 
     {
         auto dock = new QDockWidget(QSL("VME Configuration"), this);
+        dock_configTree = dock;
         dock->setObjectName("DAQConfigTreeWidgetDock");
         dock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
         dock->setWidget(m_daqConfigTreeWidget);
-        addDockWidget(Qt::LeftDockWidgetArea, dock);
+        //addDockWidget(Qt::LeftDockWidgetArea, dock);
 
         connect(m_context, &MVMEContext::configChanged, m_daqConfigTreeWidget, &DAQConfigTreeWidget::setConfig);
 
@@ -137,10 +142,11 @@ mvme::mvme(QWidget *parent) :
 
     {
         auto dock = new QDockWidget(QSL("Histograms"), this);
+        dock_histoTree = dock;
         dock->setObjectName("HistogramTreeWidgetDock");
         dock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
         dock->setWidget(m_histogramTreeWidget);
-        addDockWidget(Qt::LeftDockWidgetArea, dock);
+        //addDockWidget(Qt::LeftDockWidgetArea, dock);
 
         connect(m_histogramTreeWidget, &HistogramTreeWidget::objectClicked,
                 this, &mvme::onObjectClicked);
@@ -155,28 +161,46 @@ mvme::mvme(QWidget *parent) :
     //
     // Log Window
     //
-    m_logView->setWindowTitle("Log View");
-    QFont font("MonoSpace");
-    font.setStyleHint(QFont::Monospace);
-    m_logView->setFont(font);
-    m_logView->setTabChangesFocus(true);
-    m_logView->document()->setMaximumBlockCount(10 * 1024 * 1024);
-    m_logView->setContextMenuPolicy(Qt::CustomContextMenu);
-    //m_logView->setStyleSheet("background-color: rgb(225, 225, 225);");
-    connect(m_logView, &QWidget::customContextMenuRequested, this, [=](const QPoint &pos) {
-        auto menu = m_logView->createStandardContextMenu(pos);
-        auto action = menu->addAction("Clear");
-        connect(action, &QAction::triggered, m_logView, &QTextBrowser::clear);
-        menu->exec(m_logView->mapToGlobal(pos));
-        menu->deleteLater();
-    });
+    {
+        m_logView->setWindowTitle("Log View");
+        QFont font("MonoSpace");
+        font.setStyleHint(QFont::Monospace);
+        m_logView->setFont(font);
+        m_logView->setTabChangesFocus(true);
+        m_logView->document()->setMaximumBlockCount(10 * 1024 * 1024);
+        m_logView->setContextMenuPolicy(Qt::CustomContextMenu);
+        //m_logView->setStyleSheet("background-color: rgb(225, 225, 225);");
+        connect(m_logView, &QWidget::customContextMenuRequested, this, [=](const QPoint &pos) {
+            auto menu = m_logView->createStandardContextMenu(pos);
+            auto action = menu->addAction("Clear");
+            connect(action, &QAction::triggered, m_logView, &QTextBrowser::clear);
+            menu->exec(m_logView->mapToGlobal(pos));
+            menu->deleteLater();
+        });
 
-    auto logDock = new QDockWidget(QSL("Log View"));
-    logDock->setObjectName("LogViewDock");
-    logDock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
-    logDock->setWidget(m_logView);
-    addDockWidget(Qt::BottomDockWidgetArea, logDock);
+        auto logDock = new QDockWidget(QSL("Log View"));
+        dock_logView = logDock;
+        logDock->setObjectName("LogViewDock");
+        logDock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
+        logDock->setWidget(m_logView);
+        //addDockWidget(Qt::BottomDockWidgetArea, logDock);
+    }
 
+    addDockWidget(Qt::LeftDockWidgetArea, dock_daqControl);
+    addDockWidget(Qt::LeftDockWidgetArea, dock_configTree);
+    tabifyDockWidget(dock_configTree, dock_histoTree);
+
+    addDockWidget(Qt::BottomDockWidgetArea, dock_daqStats);
+    addDockWidget(Qt::BottomDockWidgetArea, dock_logView);
+
+    resizeDocks({dock_daqControl, dock_configTree}, {1, 2}, Qt::Vertical);
+    resizeDocks({dock_daqStats, dock_logView}, {1, 2}, Qt::Horizontal);
+
+    dock_configTree->raise();
+
+    //
+    //
+    //
     drawTimer = new QTimer(this);
     connect(drawTimer, SIGNAL(timeout()), SLOT(drawTimerSlot()));
     drawTimer->start(DrawTimerInterval);
@@ -344,6 +368,7 @@ void mvme::closeEvent(QCloseEvent *event){
 
 void mvme::restoreSettings()
 {
+#if 1
     qDebug("restoreSettings");
     QSettings settings;
     restoreGeometry(settings.value("mainWindowGeometry").toByteArray());
@@ -369,6 +394,7 @@ void mvme::restoreSettings()
     }
 
     settings.endGroup();
+#endif
 }
 
 void mvme::on_actionNewConfig_triggered()
@@ -753,4 +779,11 @@ void mvme::onConfigChanged(DAQConfig *config)
 void mvme::clearLog()
 {
     m_logView->clear();
+}
+
+void mvme::resizeEvent(QResizeEvent *event)
+{
+    resizeDocks({dock_daqControl, dock_configTree}, {1, 10}, Qt::Vertical);
+    resizeDocks({dock_daqStats, dock_logView}, {1, 10}, Qt::Horizontal);
+    QMainWindow::resizeEvent(event);
 }

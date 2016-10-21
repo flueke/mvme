@@ -207,5 +207,6 @@ void HistogramTreeWidget::add2DHistogram()
     {
         auto hist2d = dialog.getHist2D();
         m_context->addObject(hist2d);
+        emit openInNewWindow(hist2d);
     }
 }
