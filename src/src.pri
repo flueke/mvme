@@ -28,6 +28,7 @@ SOURCES += \
     $$PWD/vme_debug_widget.cc \
     $$PWD/histogram_tree.cc \
     $$PWD/daqcontrol_widget.cc \
+    $$PWD/daqstats_widget.cc \
 
 
 HEADERS += \
@@ -61,6 +62,7 @@ HEADERS += \
     $$PWD/vme_debug_widget.h \
     $$PWD/histogram_tree.h \
     $$PWD/daqcontrol_widget.h \
+    $$PWD/daqstats_widget.h \
 
 
 FORMS += \

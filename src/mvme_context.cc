@@ -116,6 +116,14 @@ void MVMEContext::setController(VMEController *controller)
     emit vmeControllerSet(controller);
 }
 
+ControllerState MVMEContext::getControllerState() const
+{
+    auto result = ControllerState::Unknown;
+    if (m_controller)
+        result = m_controller->getState();
+    return result;
+}
+
 QString MVMEContext::getUniqueModuleName(const QString &prefix) const
 {
     auto moduleConfigs = m_config->getAllModuleConfigs();

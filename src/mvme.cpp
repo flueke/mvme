@@ -16,6 +16,7 @@
 #include "vme_debug_widget.h"
 #include "histogram_tree.h"
 #include "daqcontrol_widget.h"
+#include "daqstats_widget.h"
 
 #include <QDockWidget>
 #include <QFileDialog>
@@ -106,12 +107,22 @@ mvme::mvme(QWidget *parent) :
     //
     {
         auto dock = new QDockWidget(QSL("DAQ Control"), this);
-        dock->setObjectName("DAQControlDock");
+        dock->setObjectName(QSL("DAQControlDock"));
         dock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
         dock->setWidget(new DAQControlWidget(m_context));
         addDockWidget(Qt::LeftDockWidgetArea, dock);
     }
 
+    //
+    // DAQStatsWidget
+    //
+    {
+        auto dock = new QDockWidget(QSL("DAQ Stats"), this);
+        dock->setObjectName(QSL("DAQStatsDock"));
+        dock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
+        dock->setWidget(new DAQStatsWidget(m_context));
+        addDockWidget(Qt::BottomDockWidgetArea, dock);
+    }
 
     //
     // DAQConfigTreeWidget

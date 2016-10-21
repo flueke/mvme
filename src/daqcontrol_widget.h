@@ -6,6 +6,7 @@
 class QPushButton;
 class QLabel;
 class QCheckBox;
+class QGroupBox;
 
 class MVMEContext;
 
@@ -22,6 +23,7 @@ class DAQControlWidget: public QWidget
         QPushButton *pb_start, *pb_stop, *pb_oneCycle, *pb_reconnect;
         QLabel *label_controller, *label_daqState, *label_listFileDir;
         QCheckBox *cb_writeListFile;
+        QGroupBox *gbListFile;
 };
 
 #endif /* __DAQCONTROL_WIDGET_H__ */

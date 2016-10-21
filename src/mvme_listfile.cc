@@ -342,7 +342,13 @@ bool ListFileWriter::writeConfig(QByteArray contents)
 
 bool ListFileWriter::writeBuffer(const char *buffer, size_t size)
 {
-    return (m_out->write(buffer, size) == static_cast<qint64>(size));
+    qint64 written = m_out->write(buffer, size);
+    if (written == static_cast<qint64>(size))
+    {
+        m_bytesWritten += static_cast<u64>(written);
+        return true;
+    }
+    return false;
 }
 
 bool ListFileWriter::writeEndSection()

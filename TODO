@@ -1,17 +1,12 @@
 ==== Do these first! =====
-* DAQ pause implementation
-  * look at QFutureInterface (might be able to set QFuture results myself)
-
-* When pulling the usb cable while daq is active the application hangs because
-  error messages are logged constantly and without pause.
 
 ==== Do these later! =====
-* add "Init Module" to VMEScriptEditor toolbar for module related scripts
-    XXX: how should this work? take the possibly edited script from this editor
-    and the other (init or interface settings) script from the config and run both?
-    what if the other script is open in another editor window? it's not clear
-    to the user what commands will actually be executed...
-
+* FIX the pause, run script, resume implementation. it's buggy and hacky!
+  - run script: Maybe implement a command queue in the context and return
+                QFuture<VMEResultList> objects to clients.
+  - pause and resume: also return a QFuture or something to be able to wait for
+                      the state change
+  -> look at QFutureInterface
 * fix Hist2D source definitions
 * HistogramCollection improvements: subsections for amplitude, time, trigger time, etc
     => see data filter specification below

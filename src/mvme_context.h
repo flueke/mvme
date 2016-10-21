@@ -53,6 +53,7 @@ class MVMEContext: public QObject
         QString getUniqueModuleName(const QString &prefix) const;
 
         VMEController *getController() const { return m_controller; }
+        ControllerState getControllerState() const;
         VMUSBReadoutWorker *getReadoutWorker() const { return m_readoutWorker; }
         VMUSBBufferProcessor *getBufferProcessor() const { return m_bufferProcessor; }
         DAQConfig *getConfig() { return m_config; }

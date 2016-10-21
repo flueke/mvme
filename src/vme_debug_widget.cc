@@ -11,6 +11,7 @@
 
 static const int tabStop = 4;
 static const QString scriptFileSetting = QSL("Files/LastDebugScriptDirectory");
+static const int loopInterval = 1000;
 
 using namespace std::placeholders;
 using namespace vme_script;
@@ -30,6 +31,15 @@ VMEDebugWidget::VMEDebugWidget(MVMEContext *context, QWidget *parent)
         QFontMetrics metrics(ui->scriptInput->font());
         ui->scriptInput->setTabStopWidth(metrics.width(spaces));
     }
+
+    auto onControllerStateChanged = [this] (ControllerState state)
+    {
+        setEnabled(state == ControllerState::Opened);
+    };
+
+    connect(m_context, &MVMEContext::controllerStateChanged, this, onControllerStateChanged);
+
+    onControllerStateChanged(m_context->getControllerState());
 }
 
 VMEDebugWidget::~VMEDebugWidget()
@@ -39,18 +49,36 @@ VMEDebugWidget::~VMEDebugWidget()
 
 void VMEDebugWidget::on_writeLoop1_toggled(bool checked)
 {
+    ui->writeLoop2->setEnabled(!checked);
+    ui->writeLoop3->setEnabled(!checked);
+    ui->readLoop1->setEnabled(!checked);
+    ui->readLoop2->setEnabled(!checked);
+    ui->readLoop3->setEnabled(!checked);
+
     if (checked)
         on_writeWrite1_clicked();
 }
 
 void VMEDebugWidget::on_writeLoop2_toggled(bool checked)
 {
+    ui->writeLoop1->setEnabled(!checked);
+    ui->writeLoop3->setEnabled(!checked);
+    ui->readLoop1->setEnabled(!checked);
+    ui->readLoop2->setEnabled(!checked);
+    ui->readLoop3->setEnabled(!checked);
+
     if (checked)
         on_writeWrite2_clicked();
 }
 
 void VMEDebugWidget::on_writeLoop3_toggled(bool checked)
 {
+    ui->writeLoop1->setEnabled(!checked);
+    ui->writeLoop2->setEnabled(!checked);
+    ui->readLoop1->setEnabled(!checked);
+    ui->readLoop2->setEnabled(!checked);
+    ui->readLoop3->setEnabled(!checked);
+
     if (checked)
         on_writeWrite3_clicked();
 }
@@ -66,7 +94,7 @@ void VMEDebugWidget::on_writeWrite1_clicked()
     doWrite(address, value);
 
     if (ui->writeLoop1->isChecked())
-        QTimer::singleShot(100, this, &VMEDebugWidget::on_writeWrite1_clicked);
+        QTimer::singleShot(loopInterval, this, &VMEDebugWidget::on_writeWrite1_clicked);
 }
 
 void VMEDebugWidget::on_writeWrite2_clicked()
@@ -80,7 +108,7 @@ void VMEDebugWidget::on_writeWrite2_clicked()
     doWrite(address, value);
 
     if (ui->writeLoop2->isChecked())
-        QTimer::singleShot(100, this, &VMEDebugWidget::on_writeWrite2_clicked);
+        QTimer::singleShot(loopInterval, this, &VMEDebugWidget::on_writeWrite2_clicked);
 }
 
 void VMEDebugWidget::on_writeWrite3_clicked()
@@ -94,23 +122,41 @@ void VMEDebugWidget::on_writeWrite3_clicked()
     doWrite(address, value);
 
     if (ui->writeLoop3->isChecked())
-        QTimer::singleShot(100, this, &VMEDebugWidget::on_writeWrite3_clicked);
+        QTimer::singleShot(loopInterval, this, &VMEDebugWidget::on_writeWrite3_clicked);
 }
 
 void VMEDebugWidget::on_readLoop1_toggled(bool checked)
 {
+    ui->writeLoop1->setEnabled(!checked);
+    ui->writeLoop2->setEnabled(!checked);
+    ui->writeLoop3->setEnabled(!checked);
+    ui->readLoop2->setEnabled(!checked);
+    ui->readLoop3->setEnabled(!checked);
+
     if (checked)
         on_readRead1_clicked();
 }
 
 void VMEDebugWidget::on_readLoop2_toggled(bool checked)
 {
+    ui->writeLoop1->setEnabled(!checked);
+    ui->writeLoop2->setEnabled(!checked);
+    ui->writeLoop3->setEnabled(!checked);
+    ui->readLoop1->setEnabled(!checked);
+    ui->readLoop3->setEnabled(!checked);
+
     if (checked)
         on_readRead2_clicked();
 }
 
 void VMEDebugWidget::on_readLoop3_toggled(bool checked)
 {
+    ui->writeLoop1->setEnabled(!checked);
+    ui->writeLoop2->setEnabled(!checked);
+    ui->writeLoop3->setEnabled(!checked);
+    ui->readLoop1->setEnabled(!checked);
+    ui->readLoop2->setEnabled(!checked);
+
     if (checked)
         on_readRead3_clicked();
 }
@@ -166,7 +212,7 @@ void VMEDebugWidget::on_readRead1_clicked()
     }
 
     if (ui->readLoop1->isChecked())
-        QTimer::singleShot(100, this, &VMEDebugWidget::on_readRead1_clicked);
+        QTimer::singleShot(loopInterval, this, &VMEDebugWidget::on_readRead1_clicked);
 }
 
 void VMEDebugWidget::on_readRead2_clicked()
@@ -183,7 +229,7 @@ void VMEDebugWidget::on_readRead2_clicked()
                             );
 
     if (ui->readLoop2->isChecked())
-        QTimer::singleShot(100, this, &VMEDebugWidget::on_readRead2_clicked);
+        QTimer::singleShot(loopInterval, this, &VMEDebugWidget::on_readRead2_clicked);
 }
 
 void VMEDebugWidget::on_readRead3_clicked()
@@ -200,7 +246,7 @@ void VMEDebugWidget::on_readRead3_clicked()
                             );
 
     if (ui->readLoop3->isChecked())
-        QTimer::singleShot(100, this, &VMEDebugWidget::on_readRead3_clicked);
+        QTimer::singleShot(loopInterval, this, &VMEDebugWidget::on_readRead3_clicked);
 }
 
 void VMEDebugWidget::doWrite(u32 address, u32 value)
