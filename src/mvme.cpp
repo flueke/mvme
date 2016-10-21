@@ -188,6 +188,7 @@ mvme::mvme(QWidget *parent) :
 
     addDockWidget(Qt::LeftDockWidgetArea, dock_daqControl);
     addDockWidget(Qt::LeftDockWidgetArea, dock_configTree);
+    addDockWidget(Qt::LeftDockWidgetArea, dock_histoTree);
     tabifyDockWidget(dock_configTree, dock_histoTree);
 
     addDockWidget(Qt::BottomDockWidgetArea, dock_daqStats);
