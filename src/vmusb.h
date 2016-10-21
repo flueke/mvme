@@ -20,7 +20,6 @@
 #ifndef VMUSB_H
 #define VMUSB_H
 
-#include "libxxusb.h"
 #include "util.h"
 #include "vme_controller.h"
 #include "vmusb_constants.h"
@@ -31,6 +30,14 @@
 #include <QMutex>
 
 class CVMUSBReadoutList;
+struct usb_dev_handle;
+struct usb_device;
+
+struct vmusb_device_info
+{
+    usb_device *usbdev = nullptr;
+    char serial[7] = {};
+};
 
 /*
  * Opening/closing and error handling:
@@ -60,17 +67,16 @@ class VMUSB: public VMEController
         ~VMUSB();
 
         virtual bool isOpen() const override { return hUsbDevice; }
-        QString getSerialNumber() const;
-
-        void getUsbDevices(void);
+        QString getSerialString() const { return m_currentSerialNumber; }
 
         bool enterDaqMode();
         bool leaveDaqMode();
         bool isInDaqMode() const { return m_daqMode; }
 
-        bool readRegister(u32 address, u32 *outValue);
-        bool writeRegister(u32 address, u32 value);
-        void readAllRegisters(void);
+        VMEError readRegister(u32 address, u32 *outValue);
+        VMEError writeRegister(u32 address, u32 value);
+
+        //void readAllRegisters(void);
 
         int getFirmwareId();
         int getMode();
@@ -129,10 +135,6 @@ class VMUSB: public VMEController
 
         bool tryErrorRecovery();
 
-        xxusb_device_type pUsbDevice[5];
-        int numDevices = 0;
-        usb_dev_handle* hUsbDevice = nullptr;
-
         //
         // VMEController interface
         //
@@ -151,7 +153,7 @@ class VMUSB: public VMEController
         virtual VMEError close() override;
         virtual ControllerState getState() const { return m_state; }
 
-    protected:
+    private:
         /* Executes the given stack (in the form of a readout list) and reads the
          * response into readBuffer. The actual number of bytes read is stored in
          * bytesRead. */
@@ -160,6 +162,11 @@ class VMUSB: public VMEController
         /* Writes the given writePacket to the VM_USB and reads the response back into readPacket. */
         VMEError transaction(void* writePacket, size_t writeSize,
                 void* readPacket,  size_t readSize, size_t *bytesRead, int timeout_ms = 1000);
+
+        void getUsbDevices(void);
+
+        QVector<vmusb_device_info> deviceInfos;
+        usb_dev_handle* hUsbDevice = nullptr;
 
         int firmwareId;
         int globalMode;
@@ -174,15 +181,12 @@ class VMUSB: public VMEController
         int irqV[4];
         int extDggSettings;
         int usbBulkSetup;
-        bool bigendian = false; // TODO: remove this
         bool m_daqMode = false;
         QString m_currentSerialNumber;
 
         // timeout used for all operations except daq mode bulk transfers
         // TODO: use these everywhere
         size_t defaultTimeout_ms = 100;
-        size_t bulkTimeout_ms = 100;
-        int lastUsbError = 0;
         ControllerState m_state;
         QMutex m_lock;
 };
