@@ -10,4 +10,13 @@ class TestMVMEConfig: public QObject
         void test_write_json();
 };
 
+class TestDataFilter: public QObject
+{
+    Q_OBJECT
+    private slots:
+        void test_match_mask_and_value();
+        void test_match_with_variables();
+        void test_extract_data_();
+};
+
 #endif /* __TESTS_H__ */

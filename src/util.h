@@ -6,20 +6,11 @@
 #include <QPair>
 #include <QVariant>
 #include <QWidget>
+#include "typedefs.h"
 
 #define QSL(str) QStringLiteral(str)
 
 class QTextStream;
-
-typedef uint8_t u8;
-typedef uint16_t u16;
-typedef uint32_t u32;
-typedef uint64_t u64;
-
-typedef int8_t s8;
-typedef int16_t s16;
-typedef int32_t s32;
-typedef int64_t s64;
 
 void debugOutputBuffer(u32 *dataBuffer, u32 bufferCount);
 
@@ -223,7 +214,7 @@ class TemplateLoader: public QObject
         QString m_templatePath;
 };
 
-// http://stackoverflow.com/a/757266
+// Source: http://stackoverflow.com/a/757266
 inline int trailing_zeroes(uint32_t v)
 {
     int r;           // result goes here
@@ -234,6 +225,16 @@ inline int trailing_zeroes(uint32_t v)
     };
     r = MultiplyDeBruijnBitPosition[((uint32_t)((v & -v) * 0x077CB531U)) >> 27];
     return r;
+}
+
+// Source: http://stackoverflow.com/a/109025 (SWAR)
+inline u32 number_of_set_bits(u32 i)
+{
+     // Java: use >>> instead of >>
+     // C or C++: use uint32_t
+     i = i - ((i >> 1) & 0x55555555);
+     i = (i & 0x33333333) + ((i >> 2) & 0x33333333);
+     return (((i + (i >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24;
 }
 
 #endif // UTIL_H

@@ -16,6 +16,7 @@ HEADERS += \
 SOURCES += \
     testmain.cpp \
     test_mvme_config.cpp \
+    test_data_filter.cc \
 
 
 unix:!macx:!symbian {

@@ -29,6 +29,7 @@ SOURCES += \
     $$PWD/histogram_tree.cc \
     $$PWD/daqcontrol_widget.cc \
     $$PWD/daqstats_widget.cc \
+    $$PWD/data_filter.cc \
 
 
 HEADERS += \
@@ -63,6 +64,7 @@ HEADERS += \
     $$PWD/histogram_tree.h \
     $$PWD/daqcontrol_widget.h \
     $$PWD/daqstats_widget.h \
+    $$PWD/data_filter.h \
 
 
 FORMS += \

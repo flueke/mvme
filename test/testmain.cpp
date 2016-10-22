@@ -9,7 +9,8 @@ int main(int argc, char *argv[])
 
   {
     std::list<std::shared_ptr<QObject>> tests = {
-      std::make_shared<TestMVMEConfig>()
+      std::make_shared<TestMVMEConfig>(),
+      std::make_shared<TestDataFilter>(),
       //std::make_shared<TestFlash>(),
     };
 
