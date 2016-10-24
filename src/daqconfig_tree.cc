@@ -7,6 +7,8 @@
 #include <QDebug>
 #include <QMenu>
 #include <QStyledItemDelegate>
+#include <QPushButton>
+#include <QSettings>
 
 using namespace std::placeholders;
 
@@ -14,6 +16,7 @@ enum NodeType
 {
     NodeType_Event = QTreeWidgetItem::UserType,
     NodeType_Module,
+    NodeType_ModuleReset,
     NodeType_EventModulesInit,
     NodeType_EventReadoutLoop,
     NodeType_EventStartStop,
@@ -64,6 +67,27 @@ class NoEditDelegate: public QStyledItemDelegate
         }
 };
 
+template<typename Pred>
+QList<QTreeWidgetItem *> findItems(QTreeWidgetItem *root, Pred predicate)
+{
+    QList<QTreeWidgetItem *> result;
+    findItems(root, predicate, &result);
+    return result;
+}
+
+template<typename Pred>
+void findItems(QTreeWidgetItem *root, Pred predicate, QList<QTreeWidgetItem *> *dest)
+{
+    if (predicate(root))
+        dest->push_back(root);
+
+    for (int childIndex=0; childIndex<root->childCount(); ++childIndex)
+    {
+        auto child = root->child(childIndex);
+        findItems(child, predicate, dest);
+    }
+}
+
 DAQConfigTreeWidget::DAQConfigTreeWidget(MVMEContext *context, QWidget *parent)
     : QWidget(parent)
     , m_context(context)
@@ -84,7 +108,6 @@ DAQConfigTreeWidget::DAQConfigTreeWidget(MVMEContext *context, QWidget *parent)
     auto headerItem = m_tree->headerItem();
     headerItem->setText(0, QSL("Object"));
     headerItem->setText(1, QSL("Info"));
-
 
     m_nodeEvents->setText(0,        QSL("Events"));
     m_nodeScripts->setText(0,       QSL("Global Scripts"));
@@ -111,8 +134,29 @@ DAQConfigTreeWidget::DAQConfigTreeWidget(MVMEContext *context, QWidget *parent)
 
     m_tree->resizeColumnToContents(0);
 
-    auto layout = new QHBoxLayout(this);
+    {
+        auto menu = new QMenu;
+        action_showAdvanced = menu->addAction(QSL("Show advanced objects"));
+        action_showAdvanced->setCheckable(true);
+        connect(action_showAdvanced, &QAction::changed, this, &DAQConfigTreeWidget::onActionShowAdvancedChanged);
+
+        pb_treeSettings = new QPushButton(QIcon(":/tree-settings.png"), QSL(""));
+        pb_treeSettings->setMenu(menu);
+
+        QSettings settings;
+        action_showAdvanced->setChecked(settings.value("DAQTree/ShowAdvanced", false).toBool());
+        onActionShowAdvancedChanged();
+    }
+
+    auto buttonLayout = new QHBoxLayout;
+    buttonLayout->setContentsMargins(0, 0, 0, 0);
+    buttonLayout->setSpacing(2);
+    buttonLayout->addWidget(pb_treeSettings);
+    buttonLayout->addStretch(1);
+
+    auto layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
+    layout->addLayout(buttonLayout);
     layout->addWidget(m_tree);
 
     connect(m_tree, &QTreeWidget::itemClicked, this, &DAQConfigTreeWidget::onItemClicked);
@@ -266,7 +310,7 @@ TreeNode *DAQConfigTreeWidget::addModuleNodes(EventNode *parent, ModuleConfig *m
     }
 
     {
-        auto resetNode = makeNode(module->vmeScripts["reset"]);
+        auto resetNode = makeNode(module->vmeScripts["reset"], NodeType_ModuleReset);
         resetNode->setText(0, QSL("Module Reset"));
         resetNode->setIcon(0, QIcon(":/vme_script.png"));
         moduleNode->addChild(resetNode);
@@ -460,6 +504,7 @@ void DAQConfigTreeWidget::onEventAdded(EventConfig *eventConfig)
     updateEventNode(true);
 
     connect(eventConfig, &EventConfig::modified, this, updateEventNode);
+    onActionShowAdvancedChanged();
 }
 
 void DAQConfigTreeWidget::onEventAboutToBeRemoved(EventConfig *config)
@@ -497,6 +542,7 @@ void DAQConfigTreeWidget::onModuleAdded(ModuleConfig *module)
     updateModuleNodes(true);
 
     connect(module, &ModuleConfig::modified, this, updateModuleNodes);
+    onActionShowAdvancedChanged();
 }
 
 void DAQConfigTreeWidget::onModuleAboutToBeRemoved(ModuleConfig *module)
@@ -732,3 +778,23 @@ void DAQConfigTreeWidget::runScriptConfigs(const QVector<VMEScriptConfig *> &scr
         }
     }
 }
+
+
+void DAQConfigTreeWidget::onActionShowAdvancedChanged()
+{
+    auto nodes = findItems(m_nodeEvents, [](QTreeWidgetItem *node) {
+        return node->type() == NodeType_EventReadoutLoop
+            || node->type() == NodeType_EventStartStop
+            || node->type() == NodeType_ModuleReset;
+    });
+
+    nodes.push_back(m_nodeScripts);
+
+    bool showAdvanced = action_showAdvanced->isChecked();
+
+    for (auto node: nodes)
+        node->setHidden(!showAdvanced);
+
+    QSettings settings;
+    settings.setValue("DAQTree/ShowAdvanced", showAdvanced);
+};

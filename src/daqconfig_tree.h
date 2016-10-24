@@ -6,8 +6,9 @@
 
 class QTreeWidget;
 class QTreeWidgetItem;
-class TreeNode;
+class QPushButton;
 
+class TreeNode;
 class ConfigObject;
 class DAQConfig;
 class EventConfig;
@@ -60,6 +61,7 @@ class DAQConfigTreeWidget: public QWidget
         void runScripts();
         void editName();
         void initModule();
+        void onActionShowAdvancedChanged();
 
         void runScriptConfigs(const QVector<VMEScriptConfig *> &configs);
 
@@ -71,6 +73,9 @@ class DAQConfigTreeWidget: public QWidget
 
         TreeNode *m_nodeEvents, *m_nodeManual, *m_nodeStart, *m_nodeStop,
                  *m_nodeScripts;
+
+        QPushButton *pb_treeSettings;
+        QAction *action_showAdvanced;
 };
 
 #endif /* __DAQCONFIG_TREE_H__ */
