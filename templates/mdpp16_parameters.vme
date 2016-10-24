@@ -13,7 +13,7 @@
 	#0 ? 24   ps = 25 ns / 1024
 
 #Amplitude resolution
-0x6044 0	#for mvme2  fixed = 0 (16 bits) at the moment. Do not change
+0x6046 0	#for mvme2  fixed = 0 (16 bits) at the moment. Do not change
 
 ## Trigger source
 0x6058 0x100	# Trigger {whole bank,single channel, chan_address[4:0], trig1, trig0}
