@@ -12,7 +12,7 @@
 
 static const size_t dataBufferCount = 20;
 static const size_t dataBufferSize = vmusb_constants::BufferMaxSize * 2; // double the size of a vmusb read buffer
-static const int TryOpenControllerInterval_ms = 250;
+static const int TryOpenControllerInterval_ms = 1000;
 static const int PeriodicLoggingInterval_ms = 5000;
 
 MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
@@ -39,6 +39,15 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
     connect(m_ctrlOpenTimer, &QTimer::timeout, this, &MVMEContext::tryOpenController);
     m_ctrlOpenTimer->setInterval(TryOpenControllerInterval_ms);
     m_ctrlOpenTimer->start();
+
+    connect(&m_ctrlOpenWatcher, &QFutureWatcher<VMEError>::finished, this, [this] {
+        auto result = m_ctrlOpenWatcher.result();
+        if (!result.isError())
+        {
+            logMessage(QString("Opened VME controller %1")
+                       .arg(m_controller->getIdentifyingString()));
+        }
+    });
 
     connect(m_logTimer, &QTimer::timeout, this, &MVMEContext::logModuleCounters);
     m_logTimer->setInterval(PeriodicLoggingInterval_ms);
@@ -69,6 +78,7 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
     connect(m_eventProcessor, &MVMEEventProcessor::logMessage, this, &MVMEContext::sigLogMessage);
 
     setMode(GlobalMode::DAQ);
+    tryOpenController();
 }
 
 MVMEContext::~MVMEContext()
@@ -151,6 +161,7 @@ void MVMEContext::tryOpenController()
     if (m_controller && !m_controller->isOpen() && !m_ctrlOpenFuture.isRunning())
     {
         m_ctrlOpenFuture = QtConcurrent::run(m_controller, &VMEController::openFirstDevice);
+        m_ctrlOpenWatcher.setFuture(m_ctrlOpenFuture);
     }
 }
 

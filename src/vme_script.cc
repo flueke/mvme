@@ -747,8 +747,11 @@ QString format_result(const Result &result)
         case CommandType::Invalid:
         case CommandType::Wait:
         case CommandType::Marker:
+            break;
+
         case CommandType::Write:
         case CommandType::WriteAbs:
+            ret += QSL(", write ok");
             break;
 
         case CommandType::Read:

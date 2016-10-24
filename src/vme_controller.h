@@ -121,6 +121,8 @@ class VMEController: public QObject
         virtual VMEError close() = 0;
 
         virtual ControllerState getState() const = 0;
+
+        virtual QString getIdentifyingString() const = 0;
 };
 
 #endif // VMECONTROLLER_H

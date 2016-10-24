@@ -67,14 +67,18 @@ class VMUSB: public VMEController
         ~VMUSB();
 
         virtual bool isOpen() const override { return hUsbDevice; }
-        QString getSerialString() const { return m_currentSerialNumber; }
+        virtual QString getIdentifyingString() const override;
 
-        bool enterDaqMode();
-        bool leaveDaqMode();
+        VMEError enterDaqMode();
+        VMEError leaveDaqMode();
         bool isInDaqMode() const { return m_daqMode; }
 
         VMEError readRegister(u32 address, u32 *outValue);
         VMEError writeRegister(u32 address, u32 value);
+
+        /* Write to the special action register. This is the only write
+         * operation that works in autonomous daq mode. */
+        VMEError writeActionRegister(uint16_t value);
 
         //void readAllRegisters(void);
 
@@ -118,8 +122,6 @@ class VMUSB: public VMEController
         void swap16(long* val);
 #endif
 
-        bool writeActionRegister(uint16_t value);
-
         int setScalerTiming(unsigned int frequency, unsigned char period, unsigned char delay);
 
         /* Loads the given stack to stackID using the given memory offset. */
@@ -133,7 +135,7 @@ class VMUSB: public VMEController
 
         int bulkRead(void *outBuffer, size_t outBufferSize, int timeout_ms = 1000);
 
-        bool tryErrorRecovery();
+        VMEError tryErrorRecovery();
 
         //
         // VMEController interface

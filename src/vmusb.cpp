@@ -127,6 +127,15 @@ VMUSB::~VMUSB()
     close();
 }
 
+QString VMUSB::getIdentifyingString() const
+{
+    if (isOpen())
+    {
+        return QSL("VMUSB ") + m_currentSerialNumber;
+    }
+    return {};
+}
+
 VMEError VMUSB::readRegister(u32 address, u32 *value)
 {
     size_t bytesRead = 0;
@@ -270,12 +279,12 @@ void VMUSB::readAllRegisters(void)
             if (dev->descriptor.idVendor==XXUSB_WIENER_VENDOR_ID
                 && dev->descriptor.idProduct == XXUSB_VMUSB_PRODUCT_ID)
             {
-                qDebug("found wiener device");
+                qDebug("device scan: found wiener device");
                 usb_dev_handle *udev = usb_open(dev);
                 //qDebug("result of open: %d", udev);
                 if (udev)
                 {
-                    qDebug("opened wiener device");
+                    qDebug("device scan: opened wiener device");
 
                     vmusb_device_info info;
                     info.usbdev = dev;
@@ -642,15 +651,12 @@ int VMUSB::setUsbSettings(int val)
   return usbBulkSetup;
 }
 
-bool VMUSB::writeActionRegister(uint16_t value)
+VMEError VMUSB::writeActionRegister(uint16_t value)
 {
     if (!isOpen())
-        return false;
+        return VMEError(VMEError::NotOpen);
 
     char outPacket[100];
-
-    // Build up the output packet:
-
     char* pOut = outPacket;
 
     pOut = static_cast<char*>(addToPacket16(pOut, 5)); // Select Register block for transfer.
@@ -665,7 +671,7 @@ bool VMUSB::writeActionRegister(uint16_t value)
 
     if (status != outSize)
     {
-        return false;
+        return VMEError(VMEError::WriteError, status, errnoString(-status));
     }
 
     bool daqMode = (value & 0x1);
@@ -674,13 +680,19 @@ bool VMUSB::writeActionRegister(uint16_t value)
     {
         m_daqMode = daqMode;
         if (daqMode)
+        {
+            qDebug() << "vmusb: entered daq mode";
             emit daqModeEntered();
+        }
         else
+        {
+            qDebug() << "vmusb: left daq mode";
             emit daqModeLeft();
+        }
         emit daqModeChanged(daqMode);
     }
 
-    return true;
+    return VMEError();
 }
 
 /*!
@@ -998,13 +1010,13 @@ VMEError VMUSB::blockRead(u32 address, u32 transfers, QVector<u32> *dest, u8 amo
     return result;
 }
 
-bool VMUSB::enterDaqMode()
+VMEError VMUSB::enterDaqMode()
 {
     qDebug() << __PRETTY_FUNCTION__;
     return writeActionRegister(1);
 }
 
-bool VMUSB::leaveDaqMode()
+VMEError VMUSB::leaveDaqMode()
 {
     qDebug() << __PRETTY_FUNCTION__;
     return writeActionRegister(0);
@@ -1033,19 +1045,20 @@ VMEError VMUSB::openFirstDevice()
         writeActionRegister(0x04); // reset usb
 
         // clear the action register (makes sure daq mode is disabled)
-        if (tryErrorRecovery())
+        auto error = tryErrorRecovery();
+        if (!error.isError())
         {
             m_state = ControllerState::Opened;
             emit controllerOpened();
             emit controllerStateChanged(m_state);
-            return VMEError();
         }
         else
         {
-            qDebug() << "vmusb error recovery failed";
+            qDebug() << "vmusb error recovery failed:" << error.toString();
             close();
-            return VMEError(VMEError::CommError);
         }
+
+        return error;
     }
 
     return VMEError(VMEError::CommError, errnoString(errno));
@@ -1066,14 +1079,12 @@ VMEError VMUSB::close()
     return {};
 }
 
-bool VMUSB::tryErrorRecovery()
+VMEError VMUSB::tryErrorRecovery()
 {
-    QMutexLocker locker(&m_lock);
+    if (!isOpen())
+        return VMEError(VMEError::NotOpen);
 
-    if (!hUsbDevice)
-    {
-        return false;
-    }
+    QMutexLocker locker(&m_lock);
 
     int bytesRead = 0;
     do

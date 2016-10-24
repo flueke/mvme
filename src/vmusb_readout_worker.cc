@@ -309,10 +309,11 @@ static const int daqReadTimeout = 2000;
 void VMUSBReadoutWorker::readoutLoop()
 {
     auto vmusb = m_vmusb;
+    auto error = vmusb->enterDaqMode();
 
-    if (!vmusb->enterDaqMode())
+    if (error.isError())
     {
-        throw QString("Error entering VMUSB DAQ mode");
+        throw QString("Error entering VMUSB DAQ mode: %1").arg(error.toString());
     }
 
     setState(DAQState::Running);

@@ -195,10 +195,19 @@ void VMEDebugWidget::on_readRead1_clicked()
         {
             auto result = results[0];
 
-            m_context->logMessage(QString("VME Debug: block read 0x%1, vmeError=%2")
-                                  .arg(address, 8, 16, QChar('0'))
-                                  .arg(result.error.toString())
-                                 );
+            if (result.error.isError())
+            {
+                m_context->logMessage(QString("VME Debug: block read 0x%1, vmeError=%2")
+                                      .arg(address, 8, 16, QChar('0'))
+                                      .arg(result.error.toString())
+                                     );
+            }
+            else
+            {
+                m_context->logMessage(QString("VME Debug: block read 0x%1, read %2 32-bit words")
+                                      .arg(address, 8, 16, QChar('0'))
+                                      .arg(result.valueVector.size()));
+            }
 
             QString buffer;
             for (int i=0; i<result.valueVector.size(); ++i)
@@ -266,11 +275,21 @@ void VMEDebugWidget::doWrite(u32 address, u32 value)
     {
         auto result = results[0];
 
-        m_context->logMessage(QString("VME Debug: write 0x%1 -> 0x%2, vmeError=%3")
-                              .arg(address, 8, 16, QChar('0'))
-                              .arg(value, 4, 16, QChar('0'))
-                              .arg(result.error.toString())
-                             );
+        if (result.error.isError())
+        {
+            m_context->logMessage(QString("VME Debug: write 0x%1 -> 0x%2, vmeError=%3")
+                                  .arg(address, 8, 16, QChar('0'))
+                                  .arg(value, 4, 16, QChar('0'))
+                                  .arg(result.error.toString())
+                                 );
+        }
+        else
+        {
+            m_context->logMessage(QString("VME Debug: write 0x%1 -> 0x%2, write ok")
+                                  .arg(address, 8, 16, QChar('0'))
+                                  .arg(value, 4, 16, QChar('0'))
+                                 );
+        }
     }
 }
 
@@ -290,11 +309,20 @@ u16 VMEDebugWidget::doRead(u32 address)
     {
         auto result = results[0];
 
-        m_context->logMessage(QString("VME Debug: read 0x%1 -> 0x%2, vmeError=%3")
-                              .arg(address, 8, 16, QChar('0'))
-                              .arg(result.value, 4, 16, QChar('0'))
-                              .arg(result.error.toString())
-                             );
+        if (result.error.isError())
+        {
+            m_context->logMessage(QString("VME Debug: read 0x%1, vmeError=%2")
+                                  .arg(address, 8, 16, QChar('0'))
+                                  .arg(result.error.toString())
+                                 );
+        }
+        else
+        {
+            m_context->logMessage(QString("VME Debug: read 0x%1 -> 0x%2")
+                                  .arg(address, 8, 16, QChar('0'))
+                                  .arg(result.value, 4, 16, QChar('0'))
+                                 );
+        }
         return result.value;
     }
 

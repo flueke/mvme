@@ -10,6 +10,7 @@
 #include <QList>
 #include <QWidget>
 #include <QFuture>
+#include <QFutureWatcher>
 #include <QSet>
 
 class VMUSBReadoutWorker;
@@ -152,7 +153,8 @@ class MVMEContext: public QObject
         VMEController *m_controller = nullptr;
         QTimer *m_ctrlOpenTimer;
         QTimer *m_logTimer;
-        QFuture<void> m_ctrlOpenFuture;
+        QFuture<VMEError> m_ctrlOpenFuture;
+        QFutureWatcher<VMEError> m_ctrlOpenWatcher;
         QThread *m_readoutThread;
 
         VMUSBReadoutWorker *m_readoutWorker;
