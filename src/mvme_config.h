@@ -3,6 +3,7 @@
 
 #include "globals.h"
 #include "vme_script.h"
+#include "data_filter.h"
 #include <QObject>
 #include <QUuid>
 
@@ -80,6 +81,8 @@ class VMEScriptConfig: public ConfigObject
     private:
         QString m_script;
 };
+
+QString get_title(const VMEScriptConfig *config);
 
 class ModuleConfig: public ConfigObject
 {
@@ -239,7 +242,7 @@ class DAQConfig: public ConfigObject
         EventConfig *getEventConfig(const QString &name) const;
 
         ModuleConfig *getModuleConfig(int eventID, int moduleIndex);
-        QVector<ModuleConfig *> getAllModuleConfigs() const;
+        QList<ModuleConfig *> getAllModuleConfigs() const;
 
         void setListFileOutputDirectory(const QString &dir)
         {
@@ -285,6 +288,61 @@ class DAQConfig: public ConfigObject
         bool m_listFileOutputEnabled = false;
 };
 
-QString get_title(const VMEScriptConfig *config);
+class DataFilterConfig: public ConfigObject
+{
+    Q_OBJECT
+    public:
+        using ConfigObject::ConfigObject;
+        DataFilterConfig(const DataFilter &filter);
+
+        DataFilter getFilter() const { return m_filter; }
+        void setFilter(const DataFilter &filter);
+
+    protected:
+        virtual void read_impl(const QJsonObject &json) override;
+        virtual void write_impl(QJsonObject &json) const override;
+
+    private:
+        DataFilter m_filter;
+};
+
+class Hist1dConfig: public ConfigObject
+{
+    Q_OBJECT
+    public:
+        using ConfigObject::ConfigObject;
+
+    protected:
+        virtual void read_impl(const QJsonObject &json) override;
+        virtual void write_impl(QJsonObject &json) const override;
+};
+
+class Hist2dConfig: public ConfigObject
+{
+    Q_OBJECT
+    public:
+        using ConfigObject::ConfigObject;
+
+    protected:
+        virtual void read_impl(const QJsonObject &json) override;
+        virtual void write_impl(QJsonObject &json) const override;
+};
+
+class AnalysisConfig: public ConfigObject
+{
+    Q_OBJECT
+    public:
+        using ConfigObject::ConfigObject;
+
+        QList<DataFilterConfig *> getFilters(const ModuleConfig *module) const;
+        QList<Hist1dConfig *> get1DHistograms() const;
+        QList<Hist2dConfig *> get2DHistograms() const;
+
+    protected:
+        virtual void read_impl(const QJsonObject &json) override;
+        virtual void write_impl(QJsonObject &json) const override;
+
+    private:
+};
 
 #endif

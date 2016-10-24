@@ -1,12 +1,12 @@
 #ifndef UTIL_H
 #define UTIL_H
 
+#include "typedefs.h"
 #include <stdexcept>
 #include <QVector>
 #include <QPair>
 #include <QVariant>
 #include <QWidget>
-#include "typedefs.h"
 
 #define QSL(str) QStringLiteral(str)
 

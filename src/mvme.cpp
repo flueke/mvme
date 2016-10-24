@@ -76,8 +76,8 @@ mvme::mvme(QWidget *parent) :
 {
     qDebug() << "main thread: " << QThread::currentThread();
 
-    connect(m_context, &MVMEContext::configFileNameChanged, this, &mvme::updateWindowTitle);
-    connect(m_context, &MVMEContext::configChanged, this, &mvme::onConfigChanged);
+    connect(m_context, &MVMEContext::daqConfigFileNameChanged, this, &mvme::updateWindowTitle);
+    connect(m_context, &MVMEContext::daqConfigChanged, this, &mvme::onConfigChanged);
     connect(m_context, &MVMEContext::objectAboutToBeRemoved, this, &mvme::onObjectAboutToBeRemoved);
 
     // check and initialize VME interface
@@ -126,7 +126,7 @@ mvme::mvme(QWidget *parent) :
         dock->setWidget(m_daqConfigTreeWidget);
         //addDockWidget(Qt::LeftDockWidgetArea, dock);
 
-        connect(m_context, &MVMEContext::configChanged, m_daqConfigTreeWidget, &DAQConfigTreeWidget::setConfig);
+        connect(m_context, &MVMEContext::daqConfigChanged, m_daqConfigTreeWidget, &DAQConfigTreeWidget::setConfig);
 
         connect(m_daqConfigTreeWidget, &DAQConfigTreeWidget::configObjectClicked,
                 this, &mvme::onObjectClicked);
@@ -422,7 +422,7 @@ void mvme::on_actionNewConfig_triggered()
 
     // TODO: run a dialog to set-up config basics: controller type, working directory, etc...
 
-    m_context->setConfig(new DAQConfig);
+    m_context->setDAQConfig(new DAQConfig);
     m_context->setConfigFileName(QString());
     m_context->setMode(GlobalMode::DAQ);
 

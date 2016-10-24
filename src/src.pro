@@ -4,7 +4,7 @@ CONFIG   += c++11
 TARGET = ../mvme2
 TEMPLATE = app
 
-QMAKE_CXXFLAGS += -Wno-unused-variable -Wno-unused-parameter -Wno-format
+QMAKE_CXXFLAGS += -Wno-unused-variable -Wno-unused-parameter -Wno-unused-function -Wno-format
 QMAKE_CFLAGS += -Wno-unused -Wno-format
 DEFINES += VME_CONTROLLER_WIENER
 #DEFINES += VME_CONTROLLER_CAEN

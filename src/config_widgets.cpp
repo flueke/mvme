@@ -28,13 +28,6 @@ EventConfigDialog::EventConfigDialog(MVMEContext *context, EventConfig *config, 
     ui->setupUi(this);
     loadFromConfig();
 
-    connect(context, &MVMEContext::eventConfigAboutToBeRemoved, this, [=](EventConfig *eventConfig) {
-        if (eventConfig == config)
-        {
-            close();
-        }
-    });
-
     auto handleContextStateChange = [this] {
         auto daqState = m_context->getDAQState();
         auto globalMode = m_context->getMode();

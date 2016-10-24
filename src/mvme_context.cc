@@ -17,7 +17,8 @@ static const int PeriodicLoggingInterval_ms = 5000;
 
 MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
     : QObject(parent)
-    , m_config(new DAQConfig)
+    , m_daqConfig(new DAQConfig(this))
+    , m_analysisConfig(new AnalysisConfig(this))
     , m_ctrlOpenTimer(new QTimer(this))
     , m_logTimer(new QTimer(this))
     , m_readoutThread(new QThread(this))
@@ -97,25 +98,25 @@ MVMEContext::~MVMEContext()
     delete m_eventProcessor;
     delete m_listFileWorker;
     delete m_listFile;
-    delete m_config;
+    qDeleteAll(m_freeBuffers);
 }
 
-void MVMEContext::setConfig(DAQConfig *config)
+void MVMEContext::setDAQConfig(DAQConfig *config)
 {
     // TODO: create new vmecontroller and the corresponding readout worker if
     // the controller type changed.
 
-    delete m_config;
+    delete m_daqConfig;
 
-    m_config = config;
+    m_daqConfig = config;
 
     for (auto event: config->eventConfigs)
         onEventAdded(event);
 
-    connect(m_config, &DAQConfig::eventAdded, this, &MVMEContext::onEventAdded);
-    connect(m_config, &DAQConfig::eventAboutToBeRemoved, this, &MVMEContext::onEventAboutToBeRemoved);
+    connect(m_daqConfig, &DAQConfig::eventAdded, this, &MVMEContext::onEventAdded);
+    connect(m_daqConfig, &DAQConfig::eventAboutToBeRemoved, this, &MVMEContext::onEventAboutToBeRemoved);
 
-    emit configChanged(config);
+    emit daqConfigChanged(config);
 }
 
 void MVMEContext::setController(VMEController *controller)
@@ -136,7 +137,7 @@ ControllerState MVMEContext::getControllerState() const
 
 QString MVMEContext::getUniqueModuleName(const QString &prefix) const
 {
-    auto moduleConfigs = m_config->getAllModuleConfigs();
+    auto moduleConfigs = m_daqConfig->getAllModuleConfigs();
     QSet<QString> moduleNames;
 
     for (auto cfg: moduleConfigs)
@@ -355,7 +356,7 @@ bool MVMEContext::containsObject(QObject *object)
 
 void MVMEContext::prepareStart()
 {
-    for (ModuleConfig *module: m_config->getAllModuleConfigs())
+    for (ModuleConfig *module: m_daqConfig->getAllModuleConfigs())
     {
         updateHistogramCollectionDefinition(module);
     }
@@ -423,7 +424,7 @@ void MVMEContext::resumeDAQ()
 void MVMEContext::write(QJsonObject &json) const
 {
     QJsonObject daqConfigObject;
-    m_config->write(daqConfigObject);
+    m_daqConfig->write(daqConfigObject);
     json["DAQConfig"] = daqConfigObject;
 
     QJsonArray histArray;
@@ -520,7 +521,7 @@ void MVMEContext::read(const QJsonObject &json)
 
     auto config = new DAQConfig;
     config->read(json["DAQConfig"].toObject());
-    setConfig(config);
+    setDAQConfig(config);
     setMode(GlobalMode::DAQ);
 }
 

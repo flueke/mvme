@@ -34,11 +34,8 @@ class MVMEContext: public QObject
 
         void vmeControllerSet(VMEController *controller);
 
-        void eventConfigAdded(EventConfig *eventConfig);
-        void eventConfigAboutToBeRemoved(EventConfig *eventConfig);
-
-        void configChanged(DAQConfig *config);
-        void configFileNameChanged(const QString &fileName);
+        void daqConfigChanged(DAQConfig *config);
+        void daqConfigFileNameChanged(const QString &fileName);
 
         void objectAdded(QObject *object);
         void objectAboutToBeRemoved(QObject *object);
@@ -57,10 +54,10 @@ class MVMEContext: public QObject
         ControllerState getControllerState() const;
         VMUSBReadoutWorker *getReadoutWorker() const { return m_readoutWorker; }
         VMUSBBufferProcessor *getBufferProcessor() const { return m_bufferProcessor; }
-        DAQConfig *getConfig() { return m_config; }
-        DAQConfig *getDAQConfig() { return m_config; }
-        void setConfig(DAQConfig *config);
-        QList<EventConfig *> getEventConfigs() const { return m_config->getEventConfigs(); }
+        DAQConfig *getConfig() { return m_daqConfig; }
+        DAQConfig *getDAQConfig() { return m_daqConfig; }
+        void setDAQConfig(DAQConfig *config);
+        QList<EventConfig *> getEventConfigs() const { return m_daqConfig->getEventConfigs(); }
         DataBufferQueue *getFreeBuffers() { return &m_freeBuffers; }
         DAQState getDAQState() const;
         const DAQStats &getDAQStats() const { return m_daqStats; }
@@ -103,7 +100,7 @@ class MVMEContext: public QObject
         void setConfigFileName(const QString &name)
         {
             m_configFileName = name;
-            emit configFileNameChanged(name);
+            emit daqConfigFileNameChanged(name);
         }
 
         QString getConfigFileName() const
@@ -149,7 +146,8 @@ class MVMEContext: public QObject
         void updateHistogramCollectionDefinition(ModuleConfig *module);
 
 
-        DAQConfig *m_config;
+        DAQConfig *m_daqConfig;
+        AnalysisConfig *m_analysisConfig;
         VMEController *m_controller = nullptr;
         QTimer *m_ctrlOpenTimer;
         QTimer *m_logTimer;

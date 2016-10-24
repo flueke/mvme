@@ -5,12 +5,12 @@ DEPENDPATH += $$PWD .
 SOURCES += \
     $$PWD/config_widgets.cpp \
     $$PWD/CVMUSBReadoutList.cpp \
+    $$PWD/hist1d.cc \
     $$PWD/hist2d.cpp \
     $$PWD/hist2ddialog.cc \
     $$PWD/histogram.cpp \
     $$PWD/mvme_config.cc \
     $$PWD/mvme_context.cc \
-    $$PWD/mvme_context_widget.cc \
     $$PWD/mvme.cpp \
     $$PWD/mvme_event_processor.cc \
     $$PWD/mvme_listfile.cc \
@@ -37,12 +37,12 @@ HEADERS += \
     $$PWD/CVMUSBReadoutList.h \
     $$PWD/databuffer.h \
     $$PWD/globals.h \
+    $$PWD/hist1d.h \
     $$PWD/hist2ddialog.h \
     $$PWD/hist2d.h \
     $$PWD/histogram.h \
     $$PWD/mvme_config.h \
     $$PWD/mvme_context.h \
-    $$PWD/mvme_context_widget.h \
     $$PWD/mvmedefines.h \
     $$PWD/mvme_event_processor.h \
     $$PWD/mvme.h \

@@ -5,6 +5,27 @@
 #include <QJsonArray>
 #include <QDebug>
 
+static QJsonObject storeDynamicProperties(const QObject *object)
+{
+    QJsonObject json;
+
+    for (auto name: object->dynamicPropertyNames())
+       json[QString::fromLocal8Bit(name)] = QJsonValue::fromVariant(object->property(name.constData()));
+
+    return json;
+}
+
+static void loadDynamicProperties(const QJsonObject &json, QObject *dest)
+{
+    auto properties = json.toVariantMap();
+
+    for (auto propName: properties.keys())
+    {
+        const auto &value = properties[propName];
+        dest->setProperty(propName.toLocal8Bit().constData(), value);
+    }
+}
+
 //
 // ConfigObject
 //
@@ -153,6 +174,41 @@ void VMEScriptConfig::write_impl(QJsonObject &json) const
 {
     json["vme_script"] = m_script;
 }
+
+QString get_title(const VMEScriptConfig *config)
+{
+    auto module     = qobject_cast<ModuleConfig *>(config->parent());
+    auto event      = qobject_cast<EventConfig *>(config->parent());
+    auto daqConfig  = qobject_cast<DAQConfig *>(config->parent());
+
+    QString title;
+
+    if (module)
+    {
+        title = QString("%1 for %2")
+            .arg(config->objectName())
+            .arg(module->objectName());
+    }
+    else if (event)
+    {
+        title = QString("%1 for %2")
+            .arg(config->objectName())
+            .arg(event->objectName());
+    }
+    else if (daqConfig)
+    {
+        title = QString("Global Script %2")
+            .arg(config->objectName());
+    }
+    else
+    {
+        title = QString("VMEScript %1")
+            .arg(config->objectName());
+    }
+
+    return title;
+}
+
 
 //
 // ModuleConfig
@@ -554,9 +610,9 @@ EventConfig *DAQConfig::getEventConfig(const QString &name) const
     return nullptr;
 }
 
-QVector<ModuleConfig *> DAQConfig::getAllModuleConfigs() const
+QList<ModuleConfig *> DAQConfig::getAllModuleConfigs() const
 {
-    QVector<ModuleConfig *> result;
+    QList<ModuleConfig *> result;
 
     for (auto eventConfig: eventConfigs)
     {
@@ -569,36 +625,56 @@ QVector<ModuleConfig *> DAQConfig::getAllModuleConfigs() const
     return result;
 }
 
-QString get_title(const VMEScriptConfig *config)
+//
+// DataFilterConfig
+//
+void DataFilterConfig::setFilter(const DataFilter &filter)
 {
-    auto module     = qobject_cast<ModuleConfig *>(config->parent());
-    auto event      = qobject_cast<EventConfig *>(config->parent());
-    auto daqConfig  = qobject_cast<DAQConfig *>(config->parent());
+    if (m_filter != filter)
+    {
+        m_filter = filter;
+        setModified();
+    }
+}
 
-    QString title;
+void DataFilterConfig::read_impl(const QJsonObject &json)
+{
+    m_filter = DataFilter(json["filter"].toString().toLocal8Bit());
+    auto variables = json["variables"].toString().toLocal8Bit();
 
-    if (module)
-    {
-        title = QString("%1 for %2")
-            .arg(config->objectName())
-            .arg(module->objectName());
-    }
-    else if (event)
-    {
-        title = QString("%1 for %2")
-            .arg(config->objectName())
-            .arg(event->objectName());
-    }
-    else if (daqConfig)
-    {
-        title = QString("Global Script %2")
-            .arg(config->objectName());
-    }
-    else
-    {
-        title = QString("VMEScript %1")
-            .arg(config->objectName());
-    }
+    for (int i=0; i<variables.size(); ++i)
+        m_filter.setVariable(static_cast<char>(i), variables[i]);
 
-    return title;
+    loadDynamicProperties(json["properties"].toObject(), this);
+}
+
+void DataFilterConfig::write_impl(QJsonObject &json) const
+{
+    json["filter"] = QString::fromLocal8Bit(m_filter.getFilter());
+    json["variables"] = QString::fromLocal8Bit(m_filter.getVariables());
+    json["properties"] = storeDynamicProperties(this);
+}
+
+void Hist1dConfig::read_impl(const QJsonObject &json)
+{
+}
+
+void Hist1dConfig::write_impl(QJsonObject &json) const
+{
+}
+
+void Hist2dConfig::read_impl(const QJsonObject &json)
+{
+}
+
+void Hist2dConfig::write_impl(QJsonObject &json) const
+{
+}
+
+void AnalysisConfig::read_impl(const QJsonObject &json)
+{
+}
+
+void AnalysisConfig::write_impl(QJsonObject &json) const
+{
 }
