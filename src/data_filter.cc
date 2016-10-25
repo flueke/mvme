@@ -40,25 +40,6 @@ void DataFilter::setVariable(char var, char value)
     compile();
 }
 
-#if 0
-QHash<char, char> DataFilter::getVariables() const
-{
-    QHash<char, char> ret;
-
-    for (int i=0; i<m_variables.size(); ++i)
-    {
-        char var = m_variables[i];
-
-        if (var == '0'  || var == 0)
-            ret[static_cast<char>(i)] = '0';
-        else if (var == '1' || var == 1)
-            ret[static_cast<char>(i)] = '1';
-    }
-
-    return ret;
-}
-#endif
-
 u32 DataFilter::getExtractMask(char marker) const
 {
     u32 result = 0;
@@ -105,4 +86,10 @@ bool DataFilter::operator==(const DataFilter &other) const
 {
     return (m_filter == other.m_filter
             && m_variables == other.m_variables);
+}
+
+QString DataFilter::toString() const
+{
+    return QString("DataFilter(f=%1)")
+        .arg(QString::fromLocal8Bit(getFilter()));
 }

@@ -1,36 +1,69 @@
 #include "mvme_event_processor.h"
 #include "mvme_context.h"
 #include "mvme_listfile.h"
-#include "histogram.h"
+#include "hist1d.h"
 
 using namespace listfile;
 
-MVMEEventProcessor::MVMEEventProcessor(MVMEContext *context)
-    : m_context(context)
+struct MVMEEventProcessorPrivate
 {
+    MVMEContext *context;
+    QList<QList<AnalysisConfig::DataFilterConfigList>> filterConfigs;
+    QHash<DataFilterConfig *, QHash<int, Hist1D *>> histogramsByFilterConfig;
+    QHash<DataFilterConfig *, QHash<int, s64>> valuesByFilterConfig;
+    QHash<Hist2DConfig *, Hist2D *> hist2dByConfig;
+    QHash<QUuid, DataFilterConfig *> filterConfigsById;
+};
+
+MVMEEventProcessor::MVMEEventProcessor(MVMEContext *context)
+    : m_d(new MVMEEventProcessorPrivate)
+{
+    m_d->context = context;
+}
+
+MVMEEventProcessor::~MVMEEventProcessor()
+{
+    delete m_d;
 }
 
 void MVMEEventProcessor::newRun()
 {
-    m_mod2hist.clear();
+    m_d->filterConfigs.clear();
+    m_d->histogramsByFilterConfig.clear();
+    m_d->valuesByFilterConfig.clear();
+    m_d->hist2dByConfig.clear();
+    m_d->filterConfigsById.clear();
 
-    for (auto mod: m_context->getConfig()->getAllModuleConfigs())
+    auto analysisConfig = m_d->context->getAnalysisConfig();
+
+    m_d->filterConfigs = analysisConfig->getFilters();
+
+    for (auto hist1d: m_d->context->getObjects<Hist1D *>())
     {
-        for (auto hist: m_context->getObjects<HistogramCollection *>())
-        {
-            auto sourceId = QUuid(hist->property("Histogram.sourceModule").toString());
-            if (sourceId == mod->getId())
-            {
-                m_mod2hist[mod] = hist;
-            }
-        }
+        auto id = hist1d->property("DataFilterId").toUuid();
+        auto address = hist1d->property("DataFilterAddress").toUInt();
+        auto filterConfig = analysisConfig->findChildById<DataFilterConfig *>(id);
+        if (filterConfig)
+            m_d->histogramsByFilterConfig[filterConfig][address] = hist1d;
+    }
+
+    for (auto hist2dConfig: analysisConfig->get2DHistograms())
+    {
+        auto hist2d = qobject_cast<Hist2D *>(m_d->context->getMappedObject(hist2dConfig, QSL("ConfigToObject")));
+        if (hist2d)
+            m_d->hist2dByConfig[hist2dConfig] = hist2d;
+    }
+
+    for (auto filterConfig: analysisConfig->findChildren<DataFilterConfig *>())
+    {
+        m_d->filterConfigsById[filterConfig->getId()] = filterConfig;
     }
 }
 
 // Process an event buffer containing one or more events.
-void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
+void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
 {
-    auto &stats = m_context->getDAQStats();
+    auto &stats = m_d->context->getDAQStats();
 
     try
     {
@@ -53,42 +86,138 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
 
             stats.addEventsRead(1);
 
-            int eventType = (sectionHeader & EventTypeMask) >> EventTypeShift;
+            int eventIndex = (sectionHeader & EventTypeMask) >> EventTypeShift;
             u32 wordsLeftInSection = sectionSize;
-            int subEventIndex = 0;
 
-            auto eventConfig = m_context->getConfig()->getEventConfig(eventType);
-
+            auto eventConfig = m_d->context->getConfig()->getEventConfig(eventIndex);
             if (eventConfig)
-            {
                 ++stats.eventCounters[eventConfig].events;
-            }
 
-            // subeventindex -> address -> value
-            // FIXME: does not work if the section contains multiple events for the
-            // same module as values will get overwritten (max_transfer_data > 1).
-            // But in that case events do not match up anyways. Not sure what to do...
-            //QHash<int, QHash<int, u32>> eventValues;
-#define SUBEVENT_MAX 16
-#define ADDRESS_MAX 40
-            s64 eventValues[SUBEVENT_MAX][ADDRESS_MAX];
+            for (const auto &filterList: m_d->filterConfigs.value(eventIndex))
+                for (auto filterConfig: filterList)
+                    m_d->valuesByFilterConfig[filterConfig].clear();
 
-            //qDebug() << "sizeof eventvalues =" << sizeof(eventValues);
-
-            for (size_t i=0; i<SUBEVENT_MAX; ++i)
-                for (size_t j=0; j<ADDRESS_MAX; ++j)
-                    eventValues[i][j] = -1;
+            int moduleIndex = 0;
 
             while (wordsLeftInSection > 1)
             {
                 u8 *oldBufferP = iter.buffp;
+                u32 subEventHeader = iter.extractU32();
+                u32 subEventSize = (subEventHeader & SubEventSizeMask) >> SubEventSizeShift;
+                auto moduleType  = static_cast<VMEModuleType>((subEventHeader & ModuleTypeMask) >> ModuleTypeShift);
 
+                const auto filterConfigs = m_d->filterConfigs.value(eventIndex).value(moduleIndex);
+
+                for (u32 i=0; i<subEventSize-1; ++i)
+                {
+                    u32 currentWord = iter.extractU32();
+
+                    for (auto filterConfig: filterConfigs)
+                    {
+                        if (filterConfig->getFilter().matches(currentWord))
+                        {
+                            u32 address = filterConfig->getFilter().extractData(currentWord, 'A');
+                            u32 data    = filterConfig->getFilter().extractData(currentWord, 'D');
+                            auto histo  = m_d->histogramsByFilterConfig[filterConfig].value(address);
+                            if (histo)
+                                histo->inc(data);
+                            m_d->valuesByFilterConfig[filterConfig][address] = data;
+                        }
+                    }
+                }
+
+                u32 nextWord = iter.peekU32();
+                if (nextWord == EndMarker)
+                {
+                    iter.extractU32();
+                }
+                else
+                {
+                    emit logMessage(QString("Error: did not find marker at end of subevent section "
+                                            "(eventIndex=%1, moduleIndex=%2)")
+                                    .arg(eventIndex)
+                                    .arg(moduleIndex)
+                                   );
+                    emit bufferProcessed(buffer);
+                    return;
+                }
+
+                u8 *newBufferP = iter.buffp;
+                wordsLeftInSection -= (newBufferP - oldBufferP) / sizeof(u32);
+                ++moduleIndex;
+            }
+
+            u32 nextWord = iter.peekU32();
+
+            if (nextWord == EndMarker)
+            {
+                iter.extractU32();
+            }
+            else
+            {
+                emit logMessage(QString("Error: did not find marker at end of event section "
+                                        "(eventIndex=%1)")
+                                .arg(eventIndex)
+                               );
+                emit bufferProcessed(buffer);
+                return;
+            }
+
+            //
+            // fill 2D Histograms
+            //
+            for (auto hist2dConfig: m_d->hist2dByConfig.keys())
+            {
+                auto hist2d    = m_d->hist2dByConfig[hist2dConfig];
+                auto xFilterId = hist2dConfig->getXFilterId();
+                auto xFilter   = m_d->filterConfigsById.value(xFilterId, nullptr);
+                auto xAddress  = hist2dConfig->getXFilterAddress();
+                auto yFilterId = hist2dConfig->getYFilterId();
+                auto yFilter   = m_d->filterConfigsById.value(yFilterId, nullptr);
+                auto yAddress  = hist2dConfig->getYFilterAddress();
+
+                s64 xValue = m_d->valuesByFilterConfig[xFilter].value(xAddress, -1);
+                s64 yValue = m_d->valuesByFilterConfig[yFilter].value(yAddress, -1);
+
+
+                if (hist2d && xValue >= 0 && yValue >= 0)
+                {
+                    int shiftX = 0;
+                    int shiftY = 0;
+
+                    {
+                        int dataBits  = xFilter->getFilter().getExtractBits('D');
+                        int histoBits = hist2d->getXBits();
+                        shiftX = std::min(dataBits - histoBits, 0);
+                    }
+
+                    {
+                        int dataBits  = yFilter->getFilter().getExtractBits('D');
+                        int histoBits = hist2d->getYBits();
+                        shiftY = std::min(dataBits - histoBits, 0);
+                    }
+
+                    hist2d->fill(xValue >> shiftX, yValue >> shiftY);
+                }
+            }
+        }
+    } catch (const end_of_buffer &)
+    {
+        emit logMessage(QString("Error: unexpectedly reached end of buffer"));
+        ++stats.mvmeBuffersWithErrors;
+    }
+
+
+    emit bufferProcessed(buffer);
+}
+
+#if 0
                 {
 
-                    u32 subEventHeader = iter.extractU32();
-                    u32 subEventSize = (subEventHeader & SubEventSizeMask) >> SubEventSizeShift;
-                    auto moduleType  = static_cast<VMEModuleType>((subEventHeader & ModuleTypeMask) >> ModuleTypeShift);
-                    ModuleConfig *cfg = m_context->getConfig()->getModuleConfig(eventType, subEventIndex);
+
+
+
+                    ModuleConfig *cfg = m_d->context->getConfig()->getModuleConfig(eventIndex, subEventIndex);
 
                     if (cfg)
                     {
@@ -166,7 +295,7 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
                         {
                             emit logMessage(QString("Error: did not find marker at end of subevent section "
                                                     "(eventIndex=%1, subEventIndex=%2)")
-                                            .arg(eventType)
+                                            .arg(eventIndex)
                                             .arg(subEventIndex)
                                            );
                             emit bufferProcessed(buffer);
@@ -192,119 +321,4 @@ void MVMEEventProcessor::processEventBuffer(DataBuffer *buffer)
                         iter.skip(subEventSize * sizeof(u32));
                     }
                 }
-
-                u8 *newBufferP = iter.buffp;
-                wordsLeftInSection -= (newBufferP - oldBufferP) / sizeof(u32);
-                ++subEventIndex;
-            }
-
-
-            u32 nextWord = iter.peekU32();
-
-            if (nextWord == EndMarker)
-            {
-                iter.extractU32();
-            }
-            else
-            {
-                emit logMessage(QString("Error: did not find marker at end of event section "
-                                        "(eventIndex=%1)")
-                                .arg(eventType)
-                               );
-                emit bufferProcessed(buffer);
-                return;
-            }
-
-            //
-            // fill 2D Histograms
-            //
-            for (auto hist2d: m_context->getObjects<Hist2D *>())
-            {
-                // TODO: store this differently (maybe Pair<ModuleId, Address>)
-                bool ok1, ok2, ok3;
-                QString sourcePath = hist2d->property("Hist2D.xAxisSource").toString();
-                int eventIndex   = sourcePath.section('.', 0, 0).toInt(&ok1);
-                int moduleIndex  = sourcePath.section('.', 1, 1).toInt(&ok2);
-                int addressValue = sourcePath.section('.', 2, 2).toInt(&ok3);
-
-                if (eventIndex != eventType || !(ok1 && ok2 && ok3))
-                    continue;
-
-                auto moduleX = m_context->getConfig()->getModuleConfig(eventIndex, moduleIndex);
-
-                if (!moduleX)
-                    continue;
-
-                bool xFound = (moduleIndex < SUBEVENT_MAX
-                               && addressValue < ADDRESS_MAX
-                               && eventValues[moduleIndex][addressValue] >= 0);
-
-                u32 xValue = xFound ? static_cast<u32>(eventValues[moduleIndex][addressValue]) : 0;
-
-                sourcePath = hist2d->property("Hist2D.yAxisSource").toString();
-                eventIndex   = sourcePath.section('.', 0, 0).toInt(&ok1);
-                moduleIndex  = sourcePath.section('.', 1, 1).toInt(&ok2);
-                addressValue = sourcePath.section('.', 2, 2).toInt(&ok3);
-
-                if (eventIndex != eventType || !(ok1 && ok2 && ok3))
-                    continue;
-
-                auto moduleY = m_context->getConfig()->getModuleConfig(eventIndex, moduleIndex);
-
-                if (!moduleY)
-                    continue;
-
-                bool yFound = (moduleIndex < SUBEVENT_MAX
-                               && addressValue < ADDRESS_MAX
-                               && eventValues[moduleIndex][addressValue] >= 0);
-
-                u32 yValue = yFound ? static_cast<u32>(eventValues[moduleIndex][addressValue]) : 0;
-
-                if (!(xFound && yFound))
-                    continue;
-
-                //qDebug() << hist2d << hist2d->xAxisResolution() << hist2d->yAxisResolution() << xValue << yValue
-                //    << eventIndex << moduleIndex << addressValue;
-
-                // Need to get the values resolution from the module config and
-                // calculate the shift using the histograms resolution
-
-                int shiftX = 0;
-                int shiftY = 0;
-
-                {
-                    int dataBits = moduleX->getDataBits();
-                    int histoBits = hist2d->getXBits();
-                    shiftX = dataBits - histoBits;
-                    if (shiftX < 0)
-                        shiftX = 0;
-
-                    //qDebug() << hist2d << "X histoBits, dataBits, shift"
-                    //         << histoBits << dataBits << shiftX;
-                }
-
-                {
-                    int dataBits = moduleY->getDataBits();
-                    int histoBits = hist2d->getYBits();
-                    shiftY = dataBits - histoBits;
-                    if (shiftY < 0)
-                        shiftY = 0;
-
-                    //qDebug() << hist2d << "Y histoBits, dataBits, shift"
-                    //         << histoBits << dataBits << shiftY;
-                }
-
-                //qDebug("x-module=%s: databits=%d, histobits=%d", );
-
-                hist2d->fill(xValue >> shiftX, yValue >> shiftY);
-            }
-        }
-    } catch (const end_of_buffer &)
-    {
-        emit logMessage(QString("Error: unexpectedly reached end of buffer"));
-        ++stats.mvmeBuffersWithErrors;
-    }
-
-
-    emit bufferProcessed(buffer);
-}
+#endif

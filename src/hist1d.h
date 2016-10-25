@@ -7,6 +7,7 @@
 
 class Hist1D: public QObject
 {
+    Q_OBJECT
     public:
         Hist1D(u32 bits, QObject *parent = 0);
 

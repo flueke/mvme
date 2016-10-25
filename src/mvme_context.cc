@@ -107,8 +107,8 @@ void MVMEContext::setDAQConfig(DAQConfig *config)
     // the controller type changed.
 
     delete m_daqConfig;
-
     m_daqConfig = config;
+    config->setParent(this);
 
     for (auto event: config->eventConfigs)
         onEventAdded(event);
@@ -262,7 +262,11 @@ DAQState MVMEContext::getDAQState() const
 
 void MVMEContext::setListFile(ListFile *listFile)
 {
-    read(listFile->getDAQConfig());
+    auto configJson = listFile->getDAQConfig();
+    auto daqConfig = new DAQConfig;
+    daqConfig->read(configJson);
+    setDAQConfig(daqConfig);
+
     delete m_listFile;
     m_listFile = listFile;
     m_listFileWorker->setListFile(listFile);
@@ -279,7 +283,7 @@ void MVMEContext::setMode(GlobalMode mode)
             case GlobalMode::DAQ:
                 {
                     disconnect(m_bufferProcessor, &VMUSBBufferProcessor::mvmeEventBufferReady,
-                               m_eventProcessor, &MVMEEventProcessor::processEventBuffer);
+                               m_eventProcessor, &MVMEEventProcessor::processDataBuffer);
 
                     disconnect(m_eventProcessor, &MVMEEventProcessor::bufferProcessed,
                                m_bufferProcessor, &VMUSBBufferProcessor::addFreeBuffer);
@@ -287,7 +291,7 @@ void MVMEContext::setMode(GlobalMode mode)
             case GlobalMode::ListFile:
                 {
                     disconnect(m_listFileWorker, &ListFileReader::mvmeEventBufferReady,
-                               m_eventProcessor, &MVMEEventProcessor::processEventBuffer);
+                               m_eventProcessor, &MVMEEventProcessor::processDataBuffer);
 
                     disconnect(m_eventProcessor, &MVMEEventProcessor::bufferProcessed,
                                m_listFileWorker, &ListFileReader::readNextBuffer);
@@ -302,7 +306,7 @@ void MVMEContext::setMode(GlobalMode mode)
             case GlobalMode::DAQ:
                 {
                     connect(m_bufferProcessor, &VMUSBBufferProcessor::mvmeEventBufferReady,
-                            m_eventProcessor, &MVMEEventProcessor::processEventBuffer);
+                            m_eventProcessor, &MVMEEventProcessor::processDataBuffer);
 
                     connect(m_eventProcessor, &MVMEEventProcessor::bufferProcessed,
                             m_bufferProcessor, &VMUSBBufferProcessor::addFreeBuffer);
@@ -310,7 +314,7 @@ void MVMEContext::setMode(GlobalMode mode)
             case GlobalMode::ListFile:
                 {
                     connect(m_listFileWorker, &ListFileReader::mvmeEventBufferReady,
-                            m_eventProcessor, &MVMEEventProcessor::processEventBuffer);
+                            m_eventProcessor, &MVMEEventProcessor::processDataBuffer);
 
                     connect(m_eventProcessor, &MVMEEventProcessor::bufferProcessed,
                             m_listFileWorker, &ListFileReader::readNextBuffer);
@@ -352,6 +356,26 @@ void MVMEContext::removeObject(QObject *object)
 bool MVMEContext::containsObject(QObject *object)
 {
     return m_objects.contains(object);
+}
+
+void MVMEContext::addObjectMapping(QObject *key, QObject *value, const QString &category)
+{
+    m_objectMappings[category][key] = value;
+    emit objectMappingAdded(key, value, category);
+}
+
+void MVMEContext::removeObjectMapping(QObject *key, const QString &category)
+{
+    if (m_objectMappings[category].contains(key))
+    {
+        QObject *value = m_objectMappings[category].take(key);
+        emit objectMappingRemoved(key, value, category);
+    }
+}
+
+QObject *MVMEContext::getMappedObject(QObject *key, const QString &category) const
+{
+    return m_objectMappings[category].value(key, nullptr);
 }
 
 void MVMEContext::prepareStart()
@@ -421,6 +445,7 @@ void MVMEContext::resumeDAQ()
     QMetaObject::invokeMethod(m_readoutWorker, "resume", Qt::QueuedConnection);
 }
 
+#if 0
 void MVMEContext::write(QJsonObject &json) const
 {
     QJsonObject daqConfigObject;
@@ -524,6 +549,7 @@ void MVMEContext::read(const QJsonObject &json)
     setDAQConfig(config);
     setMode(GlobalMode::DAQ);
 }
+#endif
 
 void MVMEContext::logMessage(const QString &msg)
 {

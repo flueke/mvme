@@ -15,6 +15,7 @@ class QwtLinearColorMap;
 class Hist2DRasterData;
 class ScrollZoomer;
 class MVMEContext;
+class Hist2DConfig;
 
 class Hist2D: public QObject
 {
@@ -44,15 +45,6 @@ public:
     uint32_t getMaxX() const { return m_maxX; }
     uint32_t getMaxY() const { return m_maxY; }
     uint32_t getNumberOfEntries() const { return m_numberOfEntries; }
-
-    int getXEventIndex() const;
-    int getXModuleIndex() const;
-    int getXAddressValue() const;
-
-    int getYEventIndex() const;
-    int getYModuleIndex() const;
-    int getYAddressValue() const;
-
 
 private:
     void setInterval(Qt::Axis axis, const QwtInterval &interval);

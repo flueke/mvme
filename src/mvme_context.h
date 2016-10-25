@@ -40,6 +40,9 @@ class MVMEContext: public QObject
         void objectAdded(QObject *object);
         void objectAboutToBeRemoved(QObject *object);
 
+        void objectMappingAdded(QObject *key, QObject *value, const QString &category);
+        void objectMappingRemoved(QObject *key, QObject *value, const QString &category);
+
         void sigLogMessage(const QString &);
 
     public:
@@ -67,6 +70,9 @@ class MVMEContext: public QObject
         void setMode(GlobalMode mode);
         GlobalMode getMode() const;
 
+        //
+        // Object registry
+        //
         void addObject(QObject *object);
         void removeObject(QObject *object);
         bool containsObject(QObject *object);
@@ -97,6 +103,13 @@ class MVMEContext: public QObject
             return ret;
         }
 
+        //
+        // Object mappings
+        //
+        void addObjectMapping(QObject *key, QObject *value, const QString &category = QString());
+        void removeObjectMapping(QObject *key, const QString &category = QString());
+        QObject *getMappedObject(QObject *key, const QString &category = QString()) const;
+
         void setConfigFileName(const QString &name)
         {
             m_configFileName = name;
@@ -108,8 +121,10 @@ class MVMEContext: public QObject
             return m_configFileName;
         }
 
-        void write(QJsonObject &json) const;
-        void read(const QJsonObject &json);
+        AnalysisConfig *getAnalysisConfig() const { return m_analysisConfig; }
+
+        //void write(QJsonObject &json) const;
+        //void read(const QJsonObject &json);
 
         void logMessage(const QString &msg);
         void logMessages(const QStringList &mgs, const QString &prefix = QString());
@@ -164,6 +179,7 @@ class MVMEContext: public QObject
         DataBufferQueue m_freeBuffers;
         QString m_configFileName;
         QSet<QObject *> m_objects;
+        QMap<QString, QMap<QObject *, QObject *>> m_objectMappings;
         mvme *m_mainwin;
         DAQStats m_daqStats;
         ListFile *m_listFile = nullptr;

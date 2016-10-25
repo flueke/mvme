@@ -131,9 +131,11 @@ void VMUSBBufferProcessor::beginRun()
 
         m_listFileWriter->setOutputDevice(&m_listFileOut);
 
-        QJsonObject configObject;
-        m_context->write(configObject);
-        QJsonDocument doc(configObject);
+        QJsonObject daqConfigJson;
+        m_context->getDAQConfig()->write(daqConfigJson);
+        QJsonObject configJson;
+        configJson["DAQConfig"] = daqConfigJson;
+        QJsonDocument doc(configJson);
 
         if (!m_listFileWriter->writeConfig(doc.toJson()))
         {

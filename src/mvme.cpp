@@ -279,7 +279,10 @@ bool mvme::loadConfig(const QString &fileName)
         return false;
     }
 
-    m_context->read(doc.object());
+    auto daqConfig = new DAQConfig;
+    daqConfig->read(doc.object()["DAQConfig"].toObject());
+
+    m_context->setDAQConfig(daqConfig);
     m_context->setConfigFileName(fileName);
     m_context->setMode(GlobalMode::DAQ);
 
@@ -486,8 +489,10 @@ bool mvme::on_actionSaveConfig_triggered()
         return false;
     }
 
+    QJsonObject daqConfigJson;
+    m_context->getDAQConfig()->write(daqConfigJson);
     QJsonObject configObject;
-    m_context->write(configObject);
+    configObject["DAQConfig"] = daqConfigJson;
     QJsonDocument doc(configObject);
 
     if (outFile.write(doc.toJson()) < 0)
@@ -536,8 +541,10 @@ bool mvme::on_actionSaveConfigAs_triggered()
         return false;
     }
 
+    QJsonObject daqConfigJson;
+    m_context->getDAQConfig()->write(daqConfigJson);
     QJsonObject configObject;
-    m_context->write(configObject);
+    configObject["DAQConfig"] = daqConfigJson;
     QJsonDocument doc(configObject);
 
     if (outFile.write(doc.toJson()) < 0)

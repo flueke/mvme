@@ -1,14 +1,12 @@
 #ifndef UUID_2aee2ea6_9760_46db_8d90_4dad1e4d019f
 #define UUID_2aee2ea6_9760_46db_8d90_4dad1e4d019f
 
-#include "util.h"
 #include <QObject>
 
 class DataBuffer;
 class MVMEContext;
-class BufferIterator;
-class ModuleConfig;
-class HistogramCollection;
+
+class MVMEEventProcessorPrivate;
 
 class MVMEEventProcessor: public QObject
 {
@@ -19,14 +17,14 @@ class MVMEEventProcessor: public QObject
 
     public:
         MVMEEventProcessor(MVMEContext *context);
+        ~MVMEEventProcessor();
 
     public slots:
         void newRun();
-        void processEventBuffer(DataBuffer *buffer);
+        void processDataBuffer(DataBuffer *buffer);
 
     private:
-        MVMEContext *m_context;
-        QHash<ModuleConfig *, HistogramCollection *> m_mod2hist;
+        MVMEEventProcessorPrivate *m_d;
 };
 
 #endif

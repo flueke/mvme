@@ -39,21 +39,20 @@
 class DataFilter
 {
     public:
-        DataFilter(const QByteArray &filter);
+        DataFilter(const QByteArray &filter = QByteArray());
 
         QByteArray getFilter() const { return m_filter; }
 
         inline u32 getMatchMask() const { return m_matchMask; }
         inline u32 getMatchValue() const { return m_matchValue; }
 
-        inline bool matches(u32 value)
+        inline bool matches(u32 value) const
         {
             return ((value & getMatchMask()) == getMatchValue());
         }
 
         void setVariable(char var, char value);
         inline char getVariable(char var) const { return m_variables[var]; }
-        //QHash<char, char> getVariables() const;
         QByteArray getVariables() const { return m_variables; }
 
         u32 getExtractMask(char marker) const;
@@ -63,6 +62,8 @@ class DataFilter
 
         bool operator==(const DataFilter &other) const;
         inline bool operator!=(const DataFilter &other) { return !(*this == other); }
+
+        QString toString() const;
 
     private:
         void compile();

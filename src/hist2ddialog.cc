@@ -4,6 +4,8 @@
 #include <QPushButton>
 #include <QSignalBlocker>
 
+/* TODO: This dialog needs to display a tree of available data filters to choose from for each axis. */
+
 Hist2DDialog::Hist2DDialog(MVMEContext *context, Hist2D *histo, QWidget *parent)
     : QDialog(parent)
     , ui(new Ui::Hist2DDialog)
@@ -63,12 +65,12 @@ Hist2DDialog::Hist2DDialog(MVMEContext *context, Hist2D *histo, QWidget *parent)
     ui->eventX->addItems(eventNames);
     ui->eventY->addItems(eventNames);
 
-    onEventXChanged(m_histo ? m_histo->getXEventIndex() : 0);
-    onEventYChanged(m_histo ? m_histo->getYEventIndex() : 0);
-    onModuleXChanged(m_histo ? m_histo->getXModuleIndex() : 0);
-    onModuleYChanged(m_histo ? m_histo->getYModuleIndex() : 0);
-    ui->channelX->setCurrentIndex(m_histo ? m_histo->getXAddressValue() : 0);
-    ui->channelY->setCurrentIndex(m_histo ? m_histo->getYAddressValue() : 1);
+    //onEventXChanged(m_histo ? m_histo->getXEventIndex() : 0);
+    //onEventYChanged(m_histo ? m_histo->getYEventIndex() : 0);
+    //onModuleXChanged(m_histo ? m_histo->getXModuleIndex() : 0);
+    //onModuleYChanged(m_histo ? m_histo->getYModuleIndex() : 0);
+    //ui->channelX->setCurrentIndex(m_histo ? m_histo->getXAddressValue() : 0);
+    //ui->channelY->setCurrentIndex(m_histo ? m_histo->getYAddressValue() : 1);
 
     // event
     connect(ui->eventX, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),

@@ -29,7 +29,7 @@ static void loadDynamicProperties(const QJsonObject &json, QObject *dest)
 //
 // ConfigObject
 //
-ConfigObject::ConfigObject(QObject *parent)
+ConfigObject::ConfigObject(QObject *parent, bool watchDynamicProperties)
     : QObject(parent)
     , m_id(QUuid::createUuid())
 {
@@ -40,6 +40,9 @@ ConfigObject::ConfigObject(QObject *parent)
     connect(this, &ConfigObject::enabledChanged, this, [this] {
         setModified(true);
     });
+
+    if (watchDynamicProperties)
+        installEventFilter(this);
 }
 
 void ConfigObject::setModified(bool b)
@@ -112,6 +115,13 @@ void ConfigObject::write(QJsonObject &json) const
     json["enabled"] = m_enabled;
 
     write_impl(json);
+}
+
+bool ConfigObject::eventFilter(QObject *obj, QEvent *event)
+{
+    if (event->type() == QEvent::DynamicPropertyChange)
+        setModified();
+    return QObject::eventFilter(obj, event);
 }
 
 //
@@ -655,26 +665,85 @@ void DataFilterConfig::write_impl(QJsonObject &json) const
     json["properties"] = storeDynamicProperties(this);
 }
 
-void Hist1dConfig::read_impl(const QJsonObject &json)
+//
+// Hist1DConfig
+//
+void Hist1DConfig::read_impl(const QJsonObject &json)
 {
+    m_filterId = QUuid(json["filterId"].toString());
+    m_filterAddress = json["filterAddress"].toInt();
 }
 
-void Hist1dConfig::write_impl(QJsonObject &json) const
+void Hist1DConfig::write_impl(QJsonObject &json) const
 {
+    json["filterId"] = m_filterId.toString();
+    json["filterAddress"] = static_cast<qint64>(m_filterAddress);
 }
 
-void Hist2dConfig::read_impl(const QJsonObject &json)
+//
+// Hist2DConfig
+//
+void Hist2DConfig::read_impl(const QJsonObject &json)
 {
+    m_xFilterId = QUuid(json["xFilterId"].toString());
+    m_yFilterId = QUuid(json["yFilterId"].toString());
+    m_xAddress = json["xAddress"].toInt();
+    m_yAddress = json["yAddress"].toInt();
 }
 
-void Hist2dConfig::write_impl(QJsonObject &json) const
+void Hist2DConfig::write_impl(QJsonObject &json) const
 {
+    json["xFilterId"] = m_xFilterId.toString();
+    json["yFilterId"] = m_yFilterId.toString();
+    json["xAddress"] = static_cast<qint64>(m_xAddress);
+    json["yAddress"] = static_cast<qint64>(m_yAddress);
+}
+
+//
+// AnalysisConfig
+//
+QList<DataFilterConfig *> AnalysisConfig::getFilters(int eventIndex, int moduleIndex) const
+{
+    return m_filters.value(eventIndex).value(moduleIndex);
 }
 
 void AnalysisConfig::read_impl(const QJsonObject &json)
 {
+    m_filters.clear();
+    QJsonArray filtersArray = json["filters"].toArray();
+
+    for (auto it=filtersArray.begin();
+         it != filtersArray.end();
+         ++it)
+    {
+        auto filterJson = it->toObject();
+        auto cfg = new DataFilterConfig(this);
+        cfg->read(filterJson);
+    }
 }
 
 void AnalysisConfig::write_impl(QJsonObject &json) const
 {
+    QJsonArray filterJson;
+
+    for (int eventIndex = 0;
+         eventIndex < m_filters.size();
+         ++eventIndex)
+    {
+        for (int moduleIndex = 0;
+             moduleIndex < m_filters[eventIndex].size();
+             ++moduleIndex)
+        {
+            for (const auto &filterConfig: m_filters[eventIndex][moduleIndex])
+            {
+                QJsonObject filterObject;
+                filterConfig->write(filterObject);
+                filterObject["eventIndex"] = eventIndex;
+                filterObject["moduleIndex"] = moduleIndex;
+                filterJson.append(filterObject);
+            }
+        }
+    }
+
+    json["filters"] = filterJson;
 }

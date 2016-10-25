@@ -18,7 +18,7 @@ class ConfigObject: public QObject
         void enabledChanged(bool);
 
     public:
-        ConfigObject(QObject *parent = 0);
+        ConfigObject(QObject *parent = 0, bool watchDynamicProperties = true);
 
         QUuid getId() const { return m_id; }
 
@@ -32,6 +32,39 @@ class ConfigObject: public QObject
 
         void read(const QJsonObject &json);
         void write(QJsonObject &json) const;
+
+#if 1
+        ConfigObject *findChildById(const QUuid &id, bool recurse=true) const
+        {
+            return findChildById<ConfigObject *>(id, recurse);
+        }
+
+        template<typename T> T findChildById(const QUuid &id, bool recurse=true) const
+        {
+            for (auto child: children())
+            {
+                auto configObject = qobject_cast<ConfigObject *>(child);
+
+                if (configObject)
+                {
+                    if (configObject->getId() == id)
+                        return qobject_cast<T>(configObject);
+                }
+
+                if (recurse)
+                {
+                    auto obj = configObject->findChildById<T>(id, recurse);
+
+                    if (obj)
+                        return obj;
+                }
+            }
+
+            return {};
+        }
+#endif
+
+        bool eventFilter(QObject *obj, QEvent *event) override;
 
     protected:
         virtual void read_impl(const QJsonObject &json) = 0;
@@ -238,7 +271,7 @@ class DAQConfig: public ConfigObject
         }
 
         QList<EventConfig *> getEventConfigs() const { return eventConfigs; }
-        EventConfig *getEventConfig(int eventID) { return eventConfigs.value(eventID); }
+        EventConfig *getEventConfig(int eventIndex) { return eventConfigs.value(eventIndex); }
         EventConfig *getEventConfig(const QString &name) const;
 
         ModuleConfig *getModuleConfig(int eventID, int moduleIndex);
@@ -293,9 +326,8 @@ class DataFilterConfig: public ConfigObject
     Q_OBJECT
     public:
         using ConfigObject::ConfigObject;
-        DataFilterConfig(const DataFilter &filter);
 
-        DataFilter getFilter() const { return m_filter; }
+        const DataFilter &getFilter() const { return m_filter; }
         void setFilter(const DataFilter &filter);
 
     protected:
@@ -306,26 +338,44 @@ class DataFilterConfig: public ConfigObject
         DataFilter m_filter;
 };
 
-class Hist1dConfig: public ConfigObject
+class Hist1DConfig: public ConfigObject
 {
     Q_OBJECT
     public:
         using ConfigObject::ConfigObject;
 
+        QUuid getFilterId() const { return m_filterId; }
+        u32 getFilterAddress() const { return m_filterAddress; }
+
     protected:
         virtual void read_impl(const QJsonObject &json) override;
         virtual void write_impl(QJsonObject &json) const override;
+
+    private:
+        QUuid m_filterId;
+        u32 m_filterAddress;
 };
 
-class Hist2dConfig: public ConfigObject
+class Hist2DConfig: public ConfigObject
 {
     Q_OBJECT
     public:
         using ConfigObject::ConfigObject;
 
+        QUuid getXFilterId() const { return m_xFilterId; }
+        QUuid getYFilterId() const { return m_yFilterId; }
+        u32 getXFilterAddress() const { return m_xAddress; }
+        u32 getYFilterAddress() const { return m_yAddress; }
+
     protected:
         virtual void read_impl(const QJsonObject &json) override;
         virtual void write_impl(QJsonObject &json) const override;
+
+    private:
+        QUuid m_xFilterId,
+              m_yFilterId;
+        u32 m_xAddress = 0,
+            m_yAddress = 0;
 };
 
 class AnalysisConfig: public ConfigObject
@@ -334,15 +384,22 @@ class AnalysisConfig: public ConfigObject
     public:
         using ConfigObject::ConfigObject;
 
-        QList<DataFilterConfig *> getFilters(const ModuleConfig *module) const;
-        QList<Hist1dConfig *> get1DHistograms() const;
-        QList<Hist2dConfig *> get2DHistograms() const;
+        using DataFilterConfigList = QList<DataFilterConfig *>;
+
+        DataFilterConfigList getFilters(int eventIndex, int moduleIndex) const;
+        QList<QList<DataFilterConfigList>> getFilters() { return m_filters; }
+
+        QList<Hist1DConfig *> get1DHistograms() const { return m_1dHistograms; }
+        QList<Hist2DConfig *> get2DHistograms() const { return m_2dHistograms; }
 
     protected:
         virtual void read_impl(const QJsonObject &json) override;
         virtual void write_impl(QJsonObject &json) const override;
 
     private:
+        QList<QList<DataFilterConfigList>> m_filters;
+        QList<Hist1DConfig *> m_1dHistograms;
+        QList<Hist2DConfig *> m_2dHistograms;
 };
 
 #endif

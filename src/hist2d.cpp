@@ -77,54 +77,6 @@ void Hist2D::fill(uint32_t x, uint32_t y, uint32_t weight)
     }
 }
 
-int Hist2D::getXEventIndex() const
-{
-    bool ok;
-    QString sourcePath = property("Hist2D.xAxisSource").toString();
-    int result = sourcePath.section('.', 0, 0).toInt(&ok);
-    return ok ? result : -1;
-}
-
-int Hist2D::getXModuleIndex() const
-{
-    bool ok;
-    QString sourcePath = property("Hist2D.xAxisSource").toString();
-    int result = sourcePath.section('.', 1, 1).toInt(&ok);
-    return ok ? result : -1;
-}
-
-int Hist2D::getXAddressValue() const
-{
-    bool ok;
-    QString sourcePath = property("Hist2D.xAxisSource").toString();
-    int result = sourcePath.section('.', 2, 2).toInt(&ok);
-    return ok ? result : -1;
-}
-
-int Hist2D::getYEventIndex() const
-{
-    bool ok;
-    QString sourcePath = property("Hist2D.yAxisSource").toString();
-    int result = sourcePath.section('.', 0, 0).toInt(&ok);
-    return ok ? result : -1;
-}
-
-int Hist2D::getYModuleIndex() const
-{
-    bool ok;
-    QString sourcePath = property("Hist2D.yAxisSource").toString();
-    int result = sourcePath.section('.', 1, 1).toInt(&ok);
-    return ok ? result : -1;
-}
-
-int Hist2D::getYAddressValue() const
-{
-    bool ok;
-    QString sourcePath = property("Hist2D.yAxisSource").toString();
-    int result = sourcePath.section('.', 2, 2).toInt(&ok);
-    return ok ? result : -1;
-}
-
 double Hist2D::value(double x, double y) const
 {
     uint32_t ix = (uint32_t)x;
