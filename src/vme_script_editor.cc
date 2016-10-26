@@ -83,7 +83,7 @@ VMEScriptEditor::VMEScriptEditor(MVMEContext *context, VMEScriptConfig *script, 
 
 void VMEScriptEditor::updateWindowTitle()
 {
-    auto title = get_title(m_scriptConfig);
+    auto title = m_scriptConfig->getVerboseTitle();
 
     if (m_editor->document()->isModified())
         title += QSL(" *");

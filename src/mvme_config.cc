@@ -30,6 +30,13 @@ static void loadDynamicProperties(const QJsonObject &json, QObject *dest)
 // ConfigObject
 //
 ConfigObject::ConfigObject(QObject *parent, bool watchDynamicProperties)
+    : ConfigObject(parent)
+{
+    if (watchDynamicProperties)
+        setWatchDynamicProperties(true);
+}
+
+ConfigObject::ConfigObject(QObject *parent)
     : QObject(parent)
     , m_id(QUuid::createUuid())
 {
@@ -40,9 +47,6 @@ ConfigObject::ConfigObject(QObject *parent, bool watchDynamicProperties)
     connect(this, &ConfigObject::enabledChanged, this, [this] {
         setModified(true);
     });
-
-    if (watchDynamicProperties)
-        installEventFilter(this);
 }
 
 void ConfigObject::setModified(bool b)
@@ -55,12 +59,8 @@ void ConfigObject::setModified(bool b)
 
         if (b)
         {
-            auto parentConfig = qobject_cast<ConfigObject *>(parent());
-
-            if (parentConfig)
-            {
+            if (auto parentConfig = qobject_cast<ConfigObject *>(parent()))
                 parentConfig->setModified(true);
-            }
         }
     }
 }
@@ -119,42 +119,23 @@ void ConfigObject::write(QJsonObject &json) const
 
 bool ConfigObject::eventFilter(QObject *obj, QEvent *event)
 {
-    if (event->type() == QEvent::DynamicPropertyChange)
+    if (obj == this && event->type() == QEvent::DynamicPropertyChange)
         setModified();
     return QObject::eventFilter(obj, event);
 }
 
-//
-// VariantMapConfig
-//
-void VariantMapConfig::set(const QString &key, const QVariant &value)
+void ConfigObject::setWatchDynamicProperties(bool doWatch)
 {
-    if (!m_map.contains(key) || m_map[key] != value)
+    if (doWatch && !m_eventFilterInstalled)
     {
-        m_map[key] = value;
-        setModified();
+        installEventFilter(this);
+        m_eventFilterInstalled = true;
     }
-}
-
-QVariant VariantMapConfig::get(const QString &key)
-{
-    return m_map.value(key);
-}
-
-void VariantMapConfig::remove(const QString &key)
-{
-    if (m_map.remove(key) > 0)
-        setModified();
-}
-
-void VariantMapConfig::read_impl(const QJsonObject &json)
-{
-    m_map = json["variantMap"].toObject().toVariantMap();
-}
-
-void VariantMapConfig::write_impl(QJsonObject &json) const
-{
-    json["variantMap"] = QJsonObject::fromVariantMap(m_map);
+    else if (!doWatch && m_eventFilterInstalled)
+    {
+        removeEventFilter(this);
+        m_eventFilterInstalled = false;
+    }
 }
 
 //
@@ -185,40 +166,39 @@ void VMEScriptConfig::write_impl(QJsonObject &json) const
     json["vme_script"] = m_script;
 }
 
-QString get_title(const VMEScriptConfig *config)
+QString VMEScriptConfig::getVerboseTitle() const
 {
-    auto module     = qobject_cast<ModuleConfig *>(config->parent());
-    auto event      = qobject_cast<EventConfig *>(config->parent());
-    auto daqConfig  = qobject_cast<DAQConfig *>(config->parent());
+    auto module     = qobject_cast<ModuleConfig *>(parent());
+    auto event      = qobject_cast<EventConfig *>(parent());
+    auto daqConfig  = qobject_cast<DAQConfig *>(parent());
 
     QString title;
 
     if (module)
     {
         title = QString("%1 for %2")
-            .arg(config->objectName())
+            .arg(objectName())
             .arg(module->objectName());
     }
     else if (event)
     {
         title = QString("%1 for %2")
-            .arg(config->objectName())
+            .arg(objectName())
             .arg(event->objectName());
     }
     else if (daqConfig)
     {
         title = QString("Global Script %2")
-            .arg(config->objectName());
+            .arg(objectName());
     }
     else
     {
         title = QString("VMEScript %1")
-            .arg(config->objectName());
+            .arg(objectName());
     }
 
     return title;
 }
-
 
 //
 // ModuleConfig
@@ -239,147 +219,6 @@ ModuleConfig::ModuleConfig(QObject *parent)
     vmeScripts["reset"]->setObjectName(QSL("Module Reset"));
 }
 
-void ModuleConfig::updateRegisterCache()
-{
-    m_registerCache.clear();
-
-    QString scriptString;
-
-    auto scriptConfig = vmeScripts.value("parameters", nullptr);
-    if (scriptConfig)
-        scriptString += scriptConfig->getScriptContents();
-
-    scriptConfig = vmeScripts.value("readout_settings", nullptr);
-    if (scriptConfig)
-        scriptString += scriptConfig->getScriptContents();
-
-    if (!scriptString.isEmpty())
-    {
-        try
-        {
-            auto script = vme_script::parse(scriptString);
-
-            for (auto cmd: script)
-            {
-                if (cmd.type == vme_script::CommandType::Write)
-                {
-                    m_registerCache[cmd.address] = cmd.value;
-                }
-            }
-        } catch (const vme_script::ParseError &)
-        {}
-    }
-}
-
-int ModuleConfig::getNumberOfChannels() const
-{
-    switch (type)
-    {
-        case VMEModuleType::MADC32:
-        case VMEModuleType::MQDC32:
-        case VMEModuleType::MTDC32:
-        case VMEModuleType::MDI2:
-            return 34; // TODO: verify
-
-        case VMEModuleType::MDPP16:
-        case VMEModuleType::MDPP32:
-            return 34;
-
-        case VMEModuleType::VHS4030p:
-            return -1;
-
-        case VMEModuleType::Invalid:
-            return -1;
-    }
-    return -1;
-}
-
-namespace MADC
-{
-    static const int adc_resolution = 0x6042;
-    static const int adc_override = 0x6046;
-    static const std::array<int, 5> adc_bits = {
-        11, // 2k
-        12, // 4k
-        12, // 4k hires
-        13, // 8k
-        13  // 8k hires
-    };
-    static const int adc_resolution_default = 2;
-}
-
-namespace MDPP
-{
-    static const int adc_resolution = 0x6046;
-    static const std::array<int, 5> adc_bits = {
-        16,
-        15,
-        14,
-        13,
-        12
-    };
-    static const int adc_resolution_default = 0;
-}
-
-int ModuleConfig::getDataBits() const
-{
-    switch (type)
-    {
-        case VMEModuleType::MADC32:
-            {
-                u32 regValue = m_registerCache.value(MADC::adc_resolution, MADC::adc_resolution_default);
-                regValue = m_registerCache.value(MADC::adc_override, regValue);
-                int bits = MADC::adc_bits.at(regValue);
-                return bits;
-            }
-
-        case VMEModuleType::MDPP16:
-        case VMEModuleType::MDPP32:
-            {
-                u32 index = m_registerCache.value(MDPP::adc_resolution, MDPP::adc_resolution_default);
-                int bits = MDPP::adc_bits.at(index);
-                return bits;
-            }
-        case VMEModuleType::MQDC32:
-            return 12;
-
-        case VMEModuleType::MTDC32:
-            // Note: does not have an ADC resolution. Produces 16-bit wide timestamps
-            return 16;
-
-        case VMEModuleType::MDI2:
-            return 12;
-
-        case VMEModuleType::Invalid:
-        case VMEModuleType::VHS4030p:
-            break;
-    }
-    return -1;
-}
-
-u32 ModuleConfig::getDataExtractMask()
-{
-    switch (type)
-    {
-        case VMEModuleType::MADC32:
-            return (1 << 13) - 1;
-
-        case VMEModuleType::MDPP16:
-        case VMEModuleType::MDPP32:
-        case VMEModuleType::MTDC32:
-            return (1 << 16) - 1;
-
-        case VMEModuleType::MDI2:
-        case VMEModuleType::MQDC32:
-            return (1 << 12) - 1;
-
-        case VMEModuleType::Invalid:
-        case VMEModuleType::VHS4030p:
-            break;
-    }
-    return 0;
-}
-
 void ModuleConfig::read_impl(const QJsonObject &json)
 {
     type = VMEModuleShortNames.key(json["type"].toString(), VMEModuleType::Invalid);
@@ -395,8 +234,6 @@ void ModuleConfig::read_impl(const QJsonObject &json)
         cfg->read(it.value().toObject());
         vmeScripts[it.key()] = cfg;
     }
-
-    updateRegisterCache();
 }
 
 void ModuleConfig::write_impl(QJsonObject &json) const
@@ -635,6 +472,21 @@ QList<ModuleConfig *> DAQConfig::getAllModuleConfigs() const
     return result;
 }
 
+QPair<int, int> DAQConfig::getEventAndModuleIndices(ModuleConfig *cfg) const
+{
+    for (int eventIndex = 0;
+         eventIndex < eventConfigs.size();
+         ++eventIndex)
+    {
+        auto moduleConfigs = eventConfigs[eventIndex]->getModuleConfigs();
+        int moduleIndex = moduleConfigs.indexOf(cfg);
+        if (moduleIndex >= 0)
+            return qMakePair(eventIndex, moduleIndex);
+    }
+
+    return qMakePair(-1, -1);
+}
+
 //
 // DataFilterConfig
 //
@@ -670,12 +522,14 @@ void DataFilterConfig::write_impl(QJsonObject &json) const
 //
 void Hist1DConfig::read_impl(const QJsonObject &json)
 {
+    m_bits = json["bits"].toInt();
     m_filterId = QUuid(json["filterId"].toString());
     m_filterAddress = json["filterAddress"].toInt();
 }
 
 void Hist1DConfig::write_impl(QJsonObject &json) const
 {
+    json["bits"] = static_cast<qint64>(m_bits);
     json["filterId"] = m_filterId.toString();
     json["filterAddress"] = static_cast<qint64>(m_filterAddress);
 }
@@ -685,6 +539,8 @@ void Hist1DConfig::write_impl(QJsonObject &json) const
 //
 void Hist2DConfig::read_impl(const QJsonObject &json)
 {
+    m_xBits = json["xBits"].toInt();
+    m_yBits = json["yBits"].toInt();
     m_xFilterId = QUuid(json["xFilterId"].toString());
     m_yFilterId = QUuid(json["yFilterId"].toString());
     m_xAddress = json["xAddress"].toInt();
@@ -693,6 +549,8 @@ void Hist2DConfig::read_impl(const QJsonObject &json)
 
 void Hist2DConfig::write_impl(QJsonObject &json) const
 {
+    json["xBits"] = static_cast<qint64>(m_xBits);
+    json["yBits"] = static_cast<qint64>(m_yBits);
     json["xFilterId"] = m_xFilterId.toString();
     json["yFilterId"] = m_yFilterId.toString();
     json["xAddress"] = static_cast<qint64>(m_xAddress);
@@ -705,6 +563,60 @@ void Hist2DConfig::write_impl(QJsonObject &json) const
 QList<DataFilterConfig *> AnalysisConfig::getFilters(int eventIndex, int moduleIndex) const
 {
     return m_filters.value(eventIndex).value(moduleIndex);
+}
+
+void AnalysisConfig::setFilters(int eventIndex, int moduleIndex, const DataFilterConfigList &filters)
+{
+    removeFilters(eventIndex, moduleIndex);
+    m_filters[eventIndex][moduleIndex] = filters;
+
+    for (auto filter: filters)
+    {
+        filter->setParent(this);
+        emit objectAdded(filter);
+    }
+}
+
+void AnalysisConfig::removeFilters(int eventIndex, int moduleIndex)
+{
+    auto filters = m_filters[eventIndex].take(moduleIndex);
+
+    for (auto filter: filters)
+    {
+        emit objectAboutToBeRemoved(filter);
+        filter->deleteLater();
+    }
+}
+
+QPair<int, int> AnalysisConfig::getEventAndModuleIndices(DataFilterConfig *cfg) const
+{
+    for (int eventIndex = 0;
+         eventIndex < m_filters.size();
+         ++eventIndex)
+    {
+        for (int moduleIndex = 0;
+             moduleIndex < m_filters[eventIndex].size();
+             ++moduleIndex)
+        {
+            if (m_filters[eventIndex][moduleIndex].contains(cfg))
+                return qMakePair(eventIndex, moduleIndex);
+        }
+    }
+    return qMakePair(-1, -1);
+}
+
+void AnalysisConfig::addHist1DConfig(Hist1DConfig *config)
+{
+    m_1dHistograms.push_back(config);
+    config->setParent(this);
+    emit objectAdded(config);
+}
+
+void AnalysisConfig::addHist2DConfig(Hist2DConfig *config)
+{
+    m_2dHistograms.push_back(config);
+    config->setParent(this);
+    emit objectAdded(config);
 }
 
 void AnalysisConfig::read_impl(const QJsonObject &json)
@@ -747,3 +659,38 @@ void AnalysisConfig::write_impl(QJsonObject &json) const
 
     json["filters"] = filterJson;
 }
+
+#if 0
+//
+// VariantMapConfig
+//
+void VariantMapConfig::set(const QString &key, const QVariant &value)
+{
+    if (!m_map.contains(key) || m_map[key] != value)
+    {
+        m_map[key] = value;
+        setModified();
+    }
+}
+
+QVariant VariantMapConfig::get(const QString &key)
+{
+    return m_map.value(key);
+}
+
+void VariantMapConfig::remove(const QString &key)
+{
+    if (m_map.remove(key) > 0)
+        setModified();
+}
+
+void VariantMapConfig::read_impl(const QJsonObject &json)
+{
+    m_map = json["variantMap"].toObject().toVariantMap();
+}
+
+void VariantMapConfig::write_impl(QJsonObject &json) const
+{
+    json["variantMap"] = QJsonObject::fromVariantMap(m_map);
+}
+#endif

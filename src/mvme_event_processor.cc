@@ -2,13 +2,16 @@
 #include "mvme_context.h"
 #include "mvme_listfile.h"
 #include "hist1d.h"
+#include "hist2d.h"
 
 using namespace listfile;
+
+using DataFilterConfigList = AnalysisConfig::DataFilterConfigList;
 
 struct MVMEEventProcessorPrivate
 {
     MVMEContext *context;
-    QList<QList<AnalysisConfig::DataFilterConfigList>> filterConfigs;
+    QMap<int, QMap<int, DataFilterConfigList>> filterConfigs;
     QHash<DataFilterConfig *, QHash<int, Hist1D *>> histogramsByFilterConfig;
     QHash<DataFilterConfig *, QHash<int, s64>> valuesByFilterConfig;
     QHash<Hist2DConfig *, Hist2D *> hist2dByConfig;
@@ -38,20 +41,26 @@ void MVMEEventProcessor::newRun()
 
     m_d->filterConfigs = analysisConfig->getFilters();
 
-    for (auto hist1d: m_d->context->getObjects<Hist1D *>())
+    for (auto histo: m_d->context->getObjects<Hist1D *>())
     {
-        auto id = hist1d->property("DataFilterId").toUuid();
-        auto address = hist1d->property("DataFilterAddress").toUInt();
-        auto filterConfig = analysisConfig->findChildById<DataFilterConfig *>(id);
-        if (filterConfig)
-            m_d->histogramsByFilterConfig[filterConfig][address] = hist1d;
+        if (auto histoConfig = analysisConfig->findChildById<Hist1DConfig *>(
+            histo->property("configId").toUuid()))
+        {
+            if (auto filterConfig = analysisConfig->findChildById<DataFilterConfig *>(
+                    histoConfig->getFilterId()))
+            {
+                m_d->histogramsByFilterConfig[filterConfig][histoConfig->getFilterAddress()] = histo;
+            }
+        }
     }
 
-    for (auto hist2dConfig: analysisConfig->get2DHistograms())
+    for (auto histo: m_d->context->getObjects<Hist2D *>())
     {
-        auto hist2d = qobject_cast<Hist2D *>(m_d->context->getMappedObject(hist2dConfig, QSL("ConfigToObject")));
-        if (hist2d)
-            m_d->hist2dByConfig[hist2dConfig] = hist2d;
+        if (auto histoConfig = analysisConfig->findChildById<Hist2DConfig *>(
+            histo->property("configId").toUuid()))
+        {
+            m_d->hist2dByConfig[histoConfig] = histo;
+        }
     }
 
     for (auto filterConfig: analysisConfig->findChildren<DataFilterConfig *>())
@@ -93,9 +102,16 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
             if (eventConfig)
                 ++stats.eventCounters[eventConfig].events;
 
-            for (const auto &filterList: m_d->filterConfigs.value(eventIndex))
-                for (auto filterConfig: filterList)
-                    m_d->valuesByFilterConfig[filterConfig].clear();
+            {
+                // FIXME: slow!
+                const auto &filterMap = m_d->filterConfigs.value(eventIndex);
+
+                for (auto it=filterMap.begin(); it!=filterMap.end(); ++it)
+                {
+                    for (const auto filterConfig: it.value())
+                        m_d->valuesByFilterConfig[filterConfig].clear();
+                }
+            }
 
             int moduleIndex = 0;
 
@@ -166,7 +182,7 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
             //
             // fill 2D Histograms
             //
-            for (auto hist2dConfig: m_d->hist2dByConfig.keys())
+            for (const auto hist2dConfig: m_d->hist2dByConfig.keys())
             {
                 auto hist2d    = m_d->hist2dByConfig[hist2dConfig];
                 auto xFilterId = hist2dConfig->getXFilterId();
@@ -176,28 +192,31 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                 auto yFilter   = m_d->filterConfigsById.value(yFilterId, nullptr);
                 auto yAddress  = hist2dConfig->getYFilterAddress();
 
-                s64 xValue = m_d->valuesByFilterConfig[xFilter].value(xAddress, -1);
-                s64 yValue = m_d->valuesByFilterConfig[yFilter].value(yAddress, -1);
-
-
-                if (hist2d && xValue >= 0 && yValue >= 0)
+                if (xFilter && yFilter)
                 {
-                    int shiftX = 0;
-                    int shiftY = 0;
+                    s64 xValue = m_d->valuesByFilterConfig[xFilter].value(xAddress, -1);
+                    s64 yValue = m_d->valuesByFilterConfig[yFilter].value(yAddress, -1);
 
+
+                    if (hist2d && xValue >= 0 && yValue >= 0)
                     {
-                        int dataBits  = xFilter->getFilter().getExtractBits('D');
-                        int histoBits = hist2d->getXBits();
-                        shiftX = std::min(dataBits - histoBits, 0);
-                    }
+                        int shiftX = 0;
+                        int shiftY = 0;
 
-                    {
-                        int dataBits  = yFilter->getFilter().getExtractBits('D');
-                        int histoBits = hist2d->getYBits();
-                        shiftY = std::min(dataBits - histoBits, 0);
-                    }
+                        {
+                            int dataBits  = xFilter->getFilter().getExtractBits('D');
+                            int histoBits = hist2d->getXBits();
+                            shiftX = std::min(dataBits - histoBits, 0);
+                        }
 
-                    hist2d->fill(xValue >> shiftX, yValue >> shiftY);
+                        {
+                            int dataBits  = yFilter->getFilter().getExtractBits('D');
+                            int histoBits = hist2d->getYBits();
+                            shiftY = std::min(dataBits - histoBits, 0);
+                        }
+
+                        hist2d->fill(xValue >> shiftX, yValue >> shiftY);
+                    }
                 }
             }
         }

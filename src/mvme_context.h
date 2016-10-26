@@ -5,7 +5,6 @@
 #include "databuffer.h"
 #include "mvme_config.h"
 #include "histogram.h"
-#include "hist2d.h"
 #include "vme_controller.h"
 #include <QList>
 #include <QWidget>
@@ -36,6 +35,8 @@ class MVMEContext: public QObject
 
         void daqConfigChanged(DAQConfig *config);
         void daqConfigFileNameChanged(const QString &fileName);
+
+        void analysisConfigChanged(AnalysisConfig *config);
 
         void objectAdded(QObject *object);
         void objectAboutToBeRemoved(QObject *object);
@@ -74,7 +75,7 @@ class MVMEContext: public QObject
         // Object registry
         //
         void addObject(QObject *object);
-        void removeObject(QObject *object);
+        void removeObject(QObject *object, bool doDeleteLater = true);
         bool containsObject(QObject *object);
 
         template<typename T>
@@ -106,9 +107,11 @@ class MVMEContext: public QObject
         //
         // Object mappings
         //
+#if 0
         void addObjectMapping(QObject *key, QObject *value, const QString &category = QString());
         void removeObjectMapping(QObject *key, const QString &category = QString());
         QObject *getMappedObject(QObject *key, const QString &category = QString()) const;
+#endif
 
         void setConfigFileName(const QString &name)
         {
@@ -122,6 +125,7 @@ class MVMEContext: public QObject
         }
 
         AnalysisConfig *getAnalysisConfig() const { return m_analysisConfig; }
+        void setAnalysisConfig(AnalysisConfig *config);
 
         //void write(QJsonObject &json) const;
         //void read(const QJsonObject &json);
@@ -158,11 +162,10 @@ class MVMEContext: public QObject
 
     private:
         void prepareStart();
-        void updateHistogramCollectionDefinition(ModuleConfig *module);
 
 
-        DAQConfig *m_daqConfig;
-        AnalysisConfig *m_analysisConfig;
+        DAQConfig *m_daqConfig = nullptr;
+        AnalysisConfig *m_analysisConfig = nullptr;
         VMEController *m_controller = nullptr;
         QTimer *m_ctrlOpenTimer;
         QTimer *m_logTimer;

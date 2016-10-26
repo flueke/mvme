@@ -165,6 +165,7 @@ void Hist2DDialog::onEventXChanged(int index)
 }
 void Hist2DDialog::onModuleXChanged(int index)
 {
+#if 0
     ui->moduleX->setCurrentIndex(index);
     ui->channelX->clear();
 
@@ -179,6 +180,7 @@ void Hist2DDialog::onModuleXChanged(int index)
             ui->channelX->addItem(QString::number(c));
         }
     }
+#endif
 }
 void Hist2DDialog::onChannelXChanged(int index)
 {
@@ -204,6 +206,7 @@ void Hist2DDialog::onEventYChanged(int index)
 }
 void Hist2DDialog::onModuleYChanged(int index)
 {
+#if 0
     ui->moduleY->setCurrentIndex(index);
     ui->channelY->clear();
 
@@ -218,6 +221,7 @@ void Hist2DDialog::onModuleYChanged(int index)
             ui->channelY->addItem(QString::number(c));
         }
     }
+#endif
 }
 void Hist2DDialog::onChannelYChanged(int index)
 {

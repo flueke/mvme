@@ -2,13 +2,14 @@
 #include "mvme_config.h"
 #include "mvme_context.h"
 #include "config_widgets.h"
-#include <QTreeWidget>
-#include <QHBoxLayout>
+#include "treewidget_utils.h"
+
 #include <QDebug>
+#include <QHBoxLayout>
 #include <QMenu>
-#include <QStyledItemDelegate>
 #include <QPushButton>
 #include <QSettings>
+#include <QTreeWidget>
 
 using namespace std::placeholders;
 
@@ -55,38 +56,6 @@ class ModuleNode: public TreeNode
 
         TreeNode *readoutNode = nullptr;
 };
-
-// Solution to only allow editing of certain columns while still using the QTreeWidget.
-// Source: http://stackoverflow.com/a/4657065
-class NoEditDelegate: public QStyledItemDelegate
-{
-    public:
-        NoEditDelegate(QObject* parent=0): QStyledItemDelegate(parent) {}
-        virtual QWidget* createEditor(QWidget *parent, const QStyleOptionViewItem &option, const QModelIndex &index) const {
-            return 0;
-        }
-};
-
-template<typename Pred>
-QList<QTreeWidgetItem *> findItems(QTreeWidgetItem *root, Pred predicate)
-{
-    QList<QTreeWidgetItem *> result;
-    findItems(root, predicate, &result);
-    return result;
-}
-
-template<typename Pred>
-void findItems(QTreeWidgetItem *root, Pred predicate, QList<QTreeWidgetItem *> *dest)
-{
-    if (predicate(root))
-        dest->push_back(root);
-
-    for (int childIndex=0; childIndex<root->childCount(); ++childIndex)
-    {
-        auto child = root->child(childIndex);
-        findItems(child, predicate, dest);
-    }
-}
 
 DAQConfigTreeWidget::DAQConfigTreeWidget(MVMEContext *context, QWidget *parent)
     : QWidget(parent)
@@ -172,7 +141,6 @@ void DAQConfigTreeWidget::setConfig(DAQConfig *cfg)
     qDeleteAll(m_nodeStart->takeChildren());
     qDeleteAll(m_nodeStop->takeChildren());
     qDeleteAll(m_nodeEvents->takeChildren());
-
     m_treeMap.clear();
 
     m_config = cfg;
@@ -759,7 +727,7 @@ void DAQConfigTreeWidget::runScriptConfigs(const QVector<VMEScriptConfig *> &scr
     {
         auto moduleConfig = qobject_cast<ModuleConfig *>(scriptConfig->parent());
 
-        m_context->logMessage(QSL("Running script ") + get_title(scriptConfig));
+        m_context->logMessage(QSL("Running script ") + scriptConfig->getVerboseTitle());
 
         try
         {

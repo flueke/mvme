@@ -5,6 +5,8 @@
 #include "vmusb_buffer_processor.h"
 #include "mvme_event_processor.h"
 #include "mvme_listfile.h"
+#include "hist1d.h"
+#include "hist2d.h"
 
 #include <QtConcurrent>
 #include <QTimer>
@@ -17,8 +19,6 @@ static const int PeriodicLoggingInterval_ms = 5000;
 
 MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
     : QObject(parent)
-    , m_daqConfig(new DAQConfig(this))
-    , m_analysisConfig(new AnalysisConfig(this))
     , m_ctrlOpenTimer(new QTimer(this))
     , m_logTimer(new QTimer(this))
     , m_readoutThread(new QThread(this))
@@ -79,6 +79,10 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
     connect(m_eventProcessor, &MVMEEventProcessor::logMessage, this, &MVMEContext::sigLogMessage);
 
     setMode(GlobalMode::DAQ);
+
+    setDAQConfig(new DAQConfig(this));
+    setAnalysisConfig(new AnalysisConfig(this));
+
     tryOpenController();
 }
 
@@ -106,7 +110,8 @@ void MVMEContext::setDAQConfig(DAQConfig *config)
     // TODO: create new vmecontroller and the corresponding readout worker if
     // the controller type changed.
 
-    delete m_daqConfig;
+    if (m_daqConfig)
+        m_daqConfig->deleteLater();
     m_daqConfig = config;
     config->setParent(this);
 
@@ -117,6 +122,21 @@ void MVMEContext::setDAQConfig(DAQConfig *config)
     connect(m_daqConfig, &DAQConfig::eventAboutToBeRemoved, this, &MVMEContext::onEventAboutToBeRemoved);
 
     emit daqConfigChanged(config);
+}
+
+void MVMEContext::setAnalysisConfig(AnalysisConfig *config)
+{
+    if (m_analysisConfig)
+        m_analysisConfig->deleteLater();
+    m_analysisConfig = config;
+    config->setParent(this);
+
+    connect(m_analysisConfig, &AnalysisConfig::objectAdded, this, &MVMEContext::addObject);
+    connect(m_analysisConfig, &AnalysisConfig::objectAboutToBeRemoved, this, [this](QObject *object) {
+        removeObject(object, false);
+    });
+
+    emit analysisConfigChanged(config);
 }
 
 void MVMEContext::setController(VMEController *controller)
@@ -342,14 +362,15 @@ void MVMEContext::addObject(QObject *object)
     emit objectAdded(object);
 }
 
-void MVMEContext::removeObject(QObject *object)
+void MVMEContext::removeObject(QObject *object, bool doDeleteLater)
 {
     if (m_objects.contains(object))
     {
         qDebug() << __PRETTY_FUNCTION__ << object;
         emit objectAboutToBeRemoved(object);
         m_objects.remove(object);
-        object->deleteLater();
+        if (doDeleteLater)
+            object->deleteLater();
     }
 }
 
@@ -358,6 +379,7 @@ bool MVMEContext::containsObject(QObject *object)
     return m_objects.contains(object);
 }
 
+#if 0
 void MVMEContext::addObjectMapping(QObject *key, QObject *value, const QString &category)
 {
     m_objectMappings[category][key] = value;
@@ -377,18 +399,15 @@ QObject *MVMEContext::getMappedObject(QObject *key, const QString &category) con
 {
     return m_objectMappings[category].value(key, nullptr);
 }
+#endif
 
 void MVMEContext::prepareStart()
 {
-    for (ModuleConfig *module: m_daqConfig->getAllModuleConfigs())
-    {
-        updateHistogramCollectionDefinition(module);
-    }
+    for (auto histo: getObjects<Hist1D *>())
+        histo->clear();
 
-    for (auto hist2d: getObjects<Hist2D *>())
-    {
-        hist2d->clear();
-    }
+    for (auto histo: getObjects<Hist2D *>())
+        histo->clear();
 
     m_eventProcessor->newRun();
 
@@ -580,7 +599,6 @@ void MVMEContext::onEventAboutToBeRemoved(EventConfig *config)
 void MVMEContext::onModuleAdded(ModuleConfig *module)
 {
     qDebug() << __PRETTY_FUNCTION__ << module;
-    updateHistogramCollectionDefinition(module);
 }
 
 void MVMEContext::onModuleAboutToBeRemoved(ModuleConfig *module)
@@ -594,36 +612,6 @@ void MVMEContext::onModuleAboutToBeRemoved(ModuleConfig *module)
 
     for (auto histo: histos)
         removeObject(histo);
-}
-
-void MVMEContext::updateHistogramCollectionDefinition(ModuleConfig *module)
-{
-    qDebug() << __PRETTY_FUNCTION__ << module;
-    module->updateRegisterCache();
-    int nChannels = module->getNumberOfChannels();
-    int resolution = RawHistogramResolution;
-
-
-    if (nChannels > 0 && resolution > 0)
-    {
-        auto predicate = [module](HistogramCollection *hist) {
-            auto id = hist->property("Histogram.sourceModule").toUuid();
-            return module->getId() == id;
-        };
-        auto histo = filterObjects<HistogramCollection *>(predicate).value(0, nullptr);
-
-        if (!histo)
-        {
-            histo = new HistogramCollection(this, nChannels, resolution);
-            histo->setProperty("Histogram.sourceModule", module->getId());
-            histo->setObjectName(module->getObjectPath());
-            addObject(histo);
-        }
-        else
-        {
-            histo->resize(nChannels, resolution);
-        }
-    }
 }
 
 static void processQtEvents(QEventLoop::ProcessEventsFlags flags = QEventLoop::AllEvents)

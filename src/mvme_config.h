@@ -18,7 +18,7 @@ class ConfigObject: public QObject
         void enabledChanged(bool);
 
     public:
-        ConfigObject(QObject *parent = 0, bool watchDynamicProperties = true);
+        ConfigObject(QObject *parent = 0);
 
         QUuid getId() const { return m_id; }
 
@@ -33,7 +33,6 @@ class ConfigObject: public QObject
         void read(const QJsonObject &json);
         void write(QJsonObject &json) const;
 
-#if 1
         ConfigObject *findChildById(const QUuid &id, bool recurse=true) const
         {
             return findChildById<ConfigObject *>(id, recurse);
@@ -62,36 +61,39 @@ class ConfigObject: public QObject
 
             return {};
         }
+
+#if 0
+        template<typename T, typename Predicate>
+        T findChildByPredicate(Predicate p, bool recurse=true) const
+        {
+            for (auto child: children())
+            {
+                auto casted = qobject_cast<T>(child);
+
+                if (casted && p(casted))
+                    return casted;
+
+                if (recurse)
+                {
+                    auto obj = qobject_cast<ConfigObject *>(child);
+
+                    //if (obj)
+        }
 #endif
 
-        bool eventFilter(QObject *obj, QEvent *event) override;
-
     protected:
+        ConfigObject(QObject *parent, bool watchDynamicProperties);
+        bool eventFilter(QObject *obj, QEvent *event) override;
+        void setWatchDynamicProperties(bool doWatch);
+
         virtual void read_impl(const QJsonObject &json) = 0;
         virtual void write_impl(QJsonObject &json) const = 0;
+
 
         QUuid m_id;
         bool m_modified = false;
         bool m_enabled = true;
-};
-
-class VariantMapConfig: public ConfigObject
-{
-    Q_OBJECT
-    public:
-        using ConfigObject::ConfigObject;
-
-        void set(const QString &key, const QVariant &value);
-        QVariant get(const QString &key);
-        void remove(const QString &key);
-        QVariantMap getMap() const { return m_map; }
-
-    protected:
-        virtual void read_impl(const QJsonObject &json) override;
-        virtual void write_impl(QJsonObject &json) const override;
-
-    private:
-        QVariantMap m_map;
+        bool m_eventFilterInstalled = false;
 };
 
 class VMEScriptConfig: public ConfigObject
@@ -107,6 +109,8 @@ class VMEScriptConfig: public ConfigObject
 
         vme_script::VMEScript getScript(u32 baseAddress = 0) const;
 
+        QString getVerboseTitle() const;
+
     protected:
         virtual void read_impl(const QJsonObject &json) override;
         virtual void write_impl(QJsonObject &json) const override;
@@ -114,8 +118,6 @@ class VMEScriptConfig: public ConfigObject
     private:
         QString m_script;
 };
-
-QString get_title(const VMEScriptConfig *config);
 
 class ModuleConfig: public ConfigObject
 {
@@ -134,16 +136,12 @@ class ModuleConfig: public ConfigObject
             }
         }
 
-        int getNumberOfChannels() const;
-        int getDataBits() const;
-        u32 getDataExtractMask();
-
-        void updateRegisterCache();
-
+        // TODO: make private
         VMEModuleType type = VMEModuleType::Invalid;
 
         /** Known keys for a module:
          * "parameters", "readout_settings", "readout", "reset" */
+        // TODO: make private
         QMap<QString, VMEScriptConfig *> vmeScripts;
 
     protected:
@@ -184,6 +182,8 @@ class EventConfig: public ConfigObject
 
             return ret;
         }
+
+        QList<ModuleConfig *> getModuleConfigs() const { return modules; }
 
         TriggerCondition triggerCondition = TriggerCondition::NIM1;
         uint8_t irqLevel = 0;
@@ -274,8 +274,10 @@ class DAQConfig: public ConfigObject
         EventConfig *getEventConfig(int eventIndex) { return eventConfigs.value(eventIndex); }
         EventConfig *getEventConfig(const QString &name) const;
 
-        ModuleConfig *getModuleConfig(int eventID, int moduleIndex);
+        ModuleConfig *getModuleConfig(int eventIndex, int moduleIndex);
         QList<ModuleConfig *> getAllModuleConfigs() const;
+
+        QPair<int, int> getEventAndModuleIndices(ModuleConfig *cfg) const;
 
         void setListFileOutputDirectory(const QString &dir)
         {
@@ -325,7 +327,14 @@ class DataFilterConfig: public ConfigObject
 {
     Q_OBJECT
     public:
-        using ConfigObject::ConfigObject;
+        DataFilterConfig(QObject *parent = 0)
+            : ConfigObject(parent, true)
+        { }
+
+        DataFilterConfig(const DataFilter &filter, QObject *parent = 0)
+            : ConfigObject(parent, true)
+            , m_filter(filter)
+        {}
 
         const DataFilter &getFilter() const { return m_filter; }
         void setFilter(const DataFilter &filter);
@@ -344,16 +353,44 @@ class Hist1DConfig: public ConfigObject
     public:
         using ConfigObject::ConfigObject;
 
+        u32 getBits() const { return m_bits; }
+        void setBits(u32 bits)
+        {
+            if (m_bits != bits)
+            {
+                m_bits = bits;
+                setModified();
+            }
+        }
+
         QUuid getFilterId() const { return m_filterId; }
+        void setFilterId(const QUuid &id)
+        {
+            if (id != m_filterId)
+            {
+                m_filterId = id;
+                setModified();
+            }
+        }
+
         u32 getFilterAddress() const { return m_filterAddress; }
+        void setFilterAddress(u32 address)
+        {
+            if (m_filterAddress != address)
+            {
+                m_filterAddress = address;
+                setModified();
+            }
+        }
 
     protected:
         virtual void read_impl(const QJsonObject &json) override;
         virtual void write_impl(QJsonObject &json) const override;
 
     private:
+        u32 m_bits = 0;
         QUuid m_filterId;
-        u32 m_filterAddress;
+        u32 m_filterAddress = 0;
 };
 
 class Hist2DConfig: public ConfigObject
@@ -372,8 +409,12 @@ class Hist2DConfig: public ConfigObject
         virtual void write_impl(QJsonObject &json) const override;
 
     private:
+        u32 m_xBits = 0,
+            m_yBits = 0;
+
         QUuid m_xFilterId,
               m_yFilterId;
+
         u32 m_xAddress = 0,
             m_yAddress = 0;
 };
@@ -381,25 +422,57 @@ class Hist2DConfig: public ConfigObject
 class AnalysisConfig: public ConfigObject
 {
     Q_OBJECT
+    signals:
+        void objectAdded(ConfigObject *object);
+        void objectAboutToBeRemoved(ConfigObject *object);
+
     public:
         using ConfigObject::ConfigObject;
 
         using DataFilterConfigList = QList<DataFilterConfig *>;
 
         DataFilterConfigList getFilters(int eventIndex, int moduleIndex) const;
-        QList<QList<DataFilterConfigList>> getFilters() { return m_filters; }
+        QMap<int, QMap<int, DataFilterConfigList>> getFilters() const { return m_filters; }
+        void setFilters(int eventIndex, int moduleIndex, const DataFilterConfigList &filters);
+        void removeFilters(int eventIndex, int moduleIndex);
 
-        QList<Hist1DConfig *> get1DHistograms() const { return m_1dHistograms; }
-        QList<Hist2DConfig *> get2DHistograms() const { return m_2dHistograms; }
+        QPair<int, int> getEventAndModuleIndices(DataFilterConfig *cfg) const;
+
+        void addHist1DConfig(Hist1DConfig *config);
+        void addHist2DConfig(Hist2DConfig *config);
+
+        QList<Hist1DConfig *> get1DHistogramConfigs() const { return m_1dHistograms; }
+        QList<Hist2DConfig *> get2DHistogramConfigs() const { return m_2dHistograms; }
 
     protected:
         virtual void read_impl(const QJsonObject &json) override;
         virtual void write_impl(QJsonObject &json) const override;
 
     private:
-        QList<QList<DataFilterConfigList>> m_filters;
+        QMap<int, QMap<int, DataFilterConfigList>> m_filters;
         QList<Hist1DConfig *> m_1dHistograms;
         QList<Hist2DConfig *> m_2dHistograms;
 };
+
+#if 0
+class VariantMapConfig: public ConfigObject
+{
+    Q_OBJECT
+    public:
+        using ConfigObject::ConfigObject;
+
+        void set(const QString &key, const QVariant &value);
+        QVariant get(const QString &key);
+        void remove(const QString &key);
+        QVariantMap getMap() const { return m_map; }
+
+    protected:
+        virtual void read_impl(const QJsonObject &json) override;
+        virtual void write_impl(QJsonObject &json) const override;
+
+    private:
+        QVariantMap m_map;
+};
+#endif
 
 #endif
