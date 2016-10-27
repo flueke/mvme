@@ -136,7 +136,7 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                             u32 data    = filterConfig->getFilter().extractData(currentWord, 'D');
                             auto histo  = m_d->histogramsByFilterConfig[filterConfig].value(address);
                             if (histo)
-                                histo->inc(data);
+                                histo->fill(data);
                             m_d->valuesByFilterConfig[filterConfig][address] = data;
                         }
                     }

@@ -29,8 +29,6 @@ class HistogramTreeWidget: public QWidget
         void onObjectAdded(QObject *object);
         void onObjectAboutToBeRemoved(QObject *object);
         void onAnyConfigChanged();
-        void onModuleAdded(ModuleConfig *config);
-        void onModuleAboutToBeRemoved(ModuleConfig *config);
 
         void onItemClicked(QTreeWidgetItem *item, int column);
         void onItemDoubleClicked(QTreeWidgetItem *item, int column);
@@ -42,6 +40,7 @@ class HistogramTreeWidget: public QWidget
         void removeHistogram();
         void add2DHistogram();
         void generateDefaultFilters();
+        void updateHistogramCountDisplay();
 
         MVMEContext *m_context = nullptr;
         DAQConfig *m_daqConfig = nullptr;

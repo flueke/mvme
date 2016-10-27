@@ -393,6 +393,8 @@ void DAQConfig::read_impl(const QJsonObject &json)
             list.push_back(cfg);
         }
     }
+
+    qDebug() << __PRETTY_FUNCTION__ << "read" << eventConfigs.size() << "event configs";
 }
 
 void DAQConfig::write_impl(QJsonObject &json) const

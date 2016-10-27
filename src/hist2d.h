@@ -15,13 +15,13 @@ class QwtLinearColorMap;
 class Hist2DRasterData;
 class ScrollZoomer;
 class MVMEContext;
-class Hist2DConfig;
 
 class Hist2D: public QObject
 {
     Q_OBJECT
 public:
     Hist2D(uint32_t xBits, uint32_t yBits, QObject *parent = 0);
+    ~Hist2D();
 
     uint32_t getXResolution() const { return 1 << m_xBits; }
     uint32_t getYResolution() const { return 1 << m_yBits; }

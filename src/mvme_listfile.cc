@@ -134,6 +134,12 @@ QJsonObject ListFile::getDAQConfig()
     if (!m_configJson.isEmpty())
     {
         qDebug() << "listfile config json:" << m_configJson.toJson();
+        auto result = m_configJson.object();
+        // Note: This check is for compatibilty with older listfiles.
+        if (result.contains(QSL("DAQConfig")))
+        {
+            return result.value("DAQConfig").toObject();
+        }
         return m_configJson.object();
     }
 

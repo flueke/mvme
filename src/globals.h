@@ -86,6 +86,38 @@ static const QMap<VMEModuleType, QString> VMEModuleShortNames =
     { VMEModuleType::VHS4030p,  "vhs4030p" },
 };
 
+struct DataFilterDefinition
+{
+    const char *filter;
+    const char *name;
+};
+
+static const QMap<VMEModuleType, QList<DataFilterDefinition>> defaultDataFilters =
+{
+    { VMEModuleType::MDPP16, {
+                                 { "0001XXXXPO00AAAADDDDDDDDDDDDDDDD", "Amplitude" },
+                                 { "0001XXXXXX01AAAADDDDDDDDDDDDDDDD", "Time" },
+                                 { "0001XXXXXX10000ADDDDDDDDDDDDDDDD", "Trigger time" },
+                             }
+    },
+
+    { VMEModuleType::MADC32, {
+                                 { "00XXX1XX000AAAAA0O0DDDDDDDDDDDDD", "Amplitude" },
+                             }
+    },
+
+    { VMEModuleType::MQDC32, {
+                                 { "00XXX1XX000AAAAA0O00DDDDDDDDDDDD", "Amplitude" },
+                             }
+    },
+
+    { VMEModuleType::MTDC32, {
+                                 { "00XXX1XX000AAAAADDDDDDDDDDDDDDDD", "Time" },
+                                 { "00XXX1XX0010000ADDDDDDDDDDDDDDDD", "Trigger time" },
+                             }
+    },
+};
+
 inline bool isMesytecModule(VMEModuleType type)
 {
     switch (type)

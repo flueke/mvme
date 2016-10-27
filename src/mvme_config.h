@@ -52,9 +52,7 @@ class ConfigObject: public QObject
 
                 if (recurse)
                 {
-                    auto obj = configObject->findChildById<T>(id, recurse);
-
-                    if (obj)
+                    if (auto obj = configObject->findChildById<T>(id, recurse))
                         return obj;
                 }
             }
@@ -62,24 +60,27 @@ class ConfigObject: public QObject
             return {};
         }
 
-#if 0
         template<typename T, typename Predicate>
         T findChildByPredicate(Predicate p, bool recurse=true) const
         {
             for (auto child: children())
             {
-                auto casted = qobject_cast<T>(child);
+                auto asT = qobject_cast<T>(child);
 
-                if (casted && p(casted))
-                    return casted;
+                if (asT && p(asT))
+                    return asT;
 
                 if (recurse)
                 {
-                    auto obj = qobject_cast<ConfigObject *>(child);
-
-                    //if (obj)
+                    if (auto cfg = qobject_cast<ConfigObject *>(child))
+                    {
+                        if (auto obj = cfg->findChildByPredicate<T>(p, recurse))
+                            return obj;
+                    }
+                }
+            }
+            return {};
         }
-#endif
 
     protected:
         ConfigObject(QObject *parent, bool watchDynamicProperties);

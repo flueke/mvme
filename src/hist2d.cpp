@@ -30,6 +30,11 @@ Hist2D::Hist2D(uint32_t xBits, uint32_t yBits, QObject *parent)
     clear();
 }
 
+Hist2D::~Hist2D()
+{
+    delete[] m_data;
+}
+
 QwtLinearColorMap *Hist2D::getColorMap() const
 {
     auto colorMap = new QwtLinearColorMap(Qt::darkBlue, Qt::darkRed);

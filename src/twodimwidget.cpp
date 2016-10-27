@@ -70,7 +70,7 @@ TwoDimWidget::TwoDimWidget(HistogramCollection *histo, QWidget *parent)
 
     ui->channelBox->setMaximum(m_hist->m_channels-1);
     m_plotZoomer = new ScrollZoomer(this->ui->mainPlot->canvas());
-    // assign the unused rRight axis to only zoom in x
+    // assign the unused yRight axis to only zoom in x
     m_plotZoomer->setAxis(QwtPlot::xBottom, QwtPlot::yRight);
     m_plotZoomer->setVScrollBarMode(Qt::ScrollBarAlwaysOff);
     m_plotZoomer->setZoomBase();

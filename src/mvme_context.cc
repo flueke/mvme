@@ -379,20 +379,21 @@ bool MVMEContext::containsObject(QObject *object)
     return m_objects.contains(object);
 }
 
-#if 0
+#if 1
 void MVMEContext::addObjectMapping(QObject *key, QObject *value, const QString &category)
 {
     m_objectMappings[category][key] = value;
     emit objectMappingAdded(key, value, category);
 }
 
-void MVMEContext::removeObjectMapping(QObject *key, const QString &category)
+bool MVMEContext::removeObjectMapping(QObject *key, const QString &category)
 {
-    if (m_objectMappings[category].contains(key))
+    if (auto value = m_objectMappings[category].take(key))
     {
-        QObject *value = m_objectMappings[category].take(key);
         emit objectMappingRemoved(key, value, category);
+        return true;
     }
+    return false;
 }
 
 QObject *MVMEContext::getMappedObject(QObject *key, const QString &category) const

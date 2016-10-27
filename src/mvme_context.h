@@ -107,11 +107,9 @@ class MVMEContext: public QObject
         //
         // Object mappings
         //
-#if 0
         void addObjectMapping(QObject *key, QObject *value, const QString &category = QString());
-        void removeObjectMapping(QObject *key, const QString &category = QString());
+        bool removeObjectMapping(QObject *key, const QString &category = QString());
         QObject *getMappedObject(QObject *key, const QString &category = QString()) const;
-#endif
 
         void setConfigFileName(const QString &name)
         {

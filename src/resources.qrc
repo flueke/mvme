@@ -12,7 +12,8 @@
     <file alias="document-save-as.png">resources/document-save-as.png</file>
     <file alias="script-run.png">resources/media-playback-start.png</file>
     <file alias="tree-settings.png">resources/view-list-tree.png</file>
-    <file alias="data_filter.png">resources/folder-orange.png</file>
+    <file alias="data_filter.png">resources/view-filter.png</file>
+    <file alias="hist1d.png">resources/office-chart-bar.png</file>
 </qresource>
 </RCC>
 <!-- vim:ft=xml

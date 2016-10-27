@@ -32,3 +32,6 @@ unix {
     QMAKE_LFLAGS += "-Wl,-rpath,\'\$$ORIGIN\'"
 }
 
+FORMS += \
+    datafilter_dialog.ui
+

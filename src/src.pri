@@ -70,6 +70,7 @@ HEADERS += \
 FORMS += \
     $$PWD/event_config_dialog.ui \
     $$PWD/hist2ddialog.ui \
+    $$PWD/hist1dwidget.ui \
     $$PWD/hist2dwidget.ui \
     $$PWD/mvme.ui \
     $$PWD/twodimwidget.ui \

@@ -11,6 +11,7 @@ class MVMEContext;
 namespace Ui
 {
     class EventConfigDialog;
+    class DataFilterDialog;
 }
 
 class EventConfigDialog: public QDialog
@@ -18,6 +19,7 @@ class EventConfigDialog: public QDialog
     Q_OBJECT
     public:
         EventConfigDialog(MVMEContext *context, EventConfig *config, QWidget *parent = 0);
+        ~EventConfigDialog();
 
         EventConfig *getConfig() const { return m_config; }
 
@@ -54,5 +56,24 @@ class ModuleConfigDialog: public QDialog
         MVMEContext *m_context;
         ModuleConfig *m_module;
 };
+
+class DataFilterDialog: public QDialog
+{
+    Q_OBJECT
+    public:
+        DataFilterDialog(DataFilterConfig *config, QWidget *parent = 0);
+        ~DataFilterDialog();
+
+        DataFilterConfig *getConfig() const { return m_config; }
+
+        virtual void accept();
+
+    private:
+        loadFromConfig();
+        saveToConfig();
+
+        // XXX: leftoff
+        //Ui::
+}
 
 #endif /* __CONFIG_WIDGETS_H__ */

@@ -77,6 +77,7 @@ XXX filter order can matter! does it?
 * save and restore the position and size of windows
 * save and restore the zoom and pan of histograms
 * save and restore open histograms
+* histograms: look at the storage type used. currently it's u32. should this be double?
 
 ==== Maybe do these ====
 * Move from MDI to multiple top-level windows (allows making use of multiple monitors)
