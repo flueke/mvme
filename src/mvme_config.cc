@@ -527,6 +527,7 @@ void Hist1DConfig::read_impl(const QJsonObject &json)
     m_bits = json["bits"].toInt();
     m_filterId = QUuid(json["filterId"].toString());
     m_filterAddress = json["filterAddress"].toInt();
+    loadDynamicProperties(json["properties"].toObject(), this);
 }
 
 void Hist1DConfig::write_impl(QJsonObject &json) const
@@ -534,6 +535,7 @@ void Hist1DConfig::write_impl(QJsonObject &json) const
     json["bits"] = static_cast<qint64>(m_bits);
     json["filterId"] = m_filterId.toString();
     json["filterAddress"] = static_cast<qint64>(m_filterAddress);
+    json["properties"] = storeDynamicProperties(this);
 }
 
 //
@@ -547,6 +549,7 @@ void Hist2DConfig::read_impl(const QJsonObject &json)
     m_yFilterId = QUuid(json["yFilterId"].toString());
     m_xAddress = json["xAddress"].toInt();
     m_yAddress = json["yAddress"].toInt();
+    loadDynamicProperties(json["properties"].toObject(), this);
 }
 
 void Hist2DConfig::write_impl(QJsonObject &json) const
@@ -557,6 +560,7 @@ void Hist2DConfig::write_impl(QJsonObject &json) const
     json["yFilterId"] = m_yFilterId.toString();
     json["xAddress"] = static_cast<qint64>(m_xAddress);
     json["yAddress"] = static_cast<qint64>(m_yAddress);
+    json["properties"] = storeDynamicProperties(this);
 }
 
 //
@@ -590,20 +594,33 @@ void AnalysisConfig::removeFilters(int eventIndex, int moduleIndex)
     }
 }
 
+void AnalysisConfig::addFilter(int eventIndex, int moduleIndex, DataFilterConfig *config)
+{
+    m_filters[eventIndex][moduleIndex].push_back(config);
+    config->setParent(this);
+    emit objectAdded(config);
+}
+
+void AnalysisConfig::removeFilter(int eventIndex, int moduleIndex, DataFilterConfig *config)
+{
+    if (m_filters[eventIndex][moduleIndex].removeOne(config))
+    {
+        emit objectAboutToBeRemoved(config);
+        config->deleteLater();
+    }
+}
+
 QPair<int, int> AnalysisConfig::getEventAndModuleIndices(DataFilterConfig *cfg) const
 {
-    for (int eventIndex = 0;
-         eventIndex < m_filters.size();
-         ++eventIndex)
+    for (int eventIndex: m_filters.keys())
     {
-        for (int moduleIndex = 0;
-             moduleIndex < m_filters[eventIndex].size();
-             ++moduleIndex)
+        for (int moduleIndex: m_filters[eventIndex].keys())
         {
             if (m_filters[eventIndex][moduleIndex].contains(cfg))
                 return qMakePair(eventIndex, moduleIndex);
         }
     }
+
     return qMakePair(-1, -1);
 }
 
@@ -619,6 +636,24 @@ void AnalysisConfig::addHist2DConfig(Hist2DConfig *config)
     m_2dHistograms.push_back(config);
     config->setParent(this);
     emit objectAdded(config);
+}
+
+void AnalysisConfig::removeHist1DConfig(Hist1DConfig *config)
+{
+    if (m_1dHistograms.removeOne(config))
+    {
+        emit objectAboutToBeRemoved(config);
+        config->deleteLater();
+    }
+}
+
+void AnalysisConfig::removeHist2DConfig(Hist2DConfig *config)
+{
+    if (m_2dHistograms.removeOne(config))
+    {
+        emit objectAboutToBeRemoved(config);
+        config->deleteLater();
+    }
 }
 
 void AnalysisConfig::read_impl(const QJsonObject &json)

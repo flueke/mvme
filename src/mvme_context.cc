@@ -357,7 +357,7 @@ GlobalMode MVMEContext::getMode() const
 
 void MVMEContext::addObject(QObject *object)
 {
-    qDebug() << __PRETTY_FUNCTION__ << object;
+    //qDebug() << __PRETTY_FUNCTION__ << object;
     m_objects.insert(object);
     emit objectAdded(object);
 }
@@ -366,7 +366,7 @@ void MVMEContext::removeObject(QObject *object, bool doDeleteLater)
 {
     if (m_objects.contains(object))
     {
-        qDebug() << __PRETTY_FUNCTION__ << object;
+        //qDebug() << __PRETTY_FUNCTION__ << object;
         emit objectAboutToBeRemoved(object);
         m_objects.remove(object);
         if (doDeleteLater)
@@ -382,18 +382,20 @@ bool MVMEContext::containsObject(QObject *object)
 #if 1
 void MVMEContext::addObjectMapping(QObject *key, QObject *value, const QString &category)
 {
+    //qDebug() << __PRETTY_FUNCTION__ << category << key << "->" << value;
     m_objectMappings[category][key] = value;
     emit objectMappingAdded(key, value, category);
 }
 
-bool MVMEContext::removeObjectMapping(QObject *key, const QString &category)
+QObject *MVMEContext::removeObjectMapping(QObject *key, const QString &category)
 {
     if (auto value = m_objectMappings[category].take(key))
     {
+        //qDebug() << __PRETTY_FUNCTION__ << category << key << "->" << value;
         emit objectMappingRemoved(key, value, category);
-        return true;
+        return value;
     }
-    return false;
+    return nullptr;
 }
 
 QObject *MVMEContext::getMappedObject(QObject *key, const QString &category) const
@@ -599,7 +601,7 @@ void MVMEContext::onEventAboutToBeRemoved(EventConfig *config)
 
 void MVMEContext::onModuleAdded(ModuleConfig *module)
 {
-    qDebug() << __PRETTY_FUNCTION__ << module;
+    //qDebug() << __PRETTY_FUNCTION__ << module;
 }
 
 void MVMEContext::onModuleAboutToBeRemoved(ModuleConfig *module)

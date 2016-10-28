@@ -108,7 +108,7 @@ class MVMEContext: public QObject
         // Object mappings
         //
         void addObjectMapping(QObject *key, QObject *value, const QString &category = QString());
-        bool removeObjectMapping(QObject *key, const QString &category = QString());
+        QObject *removeObjectMapping(QObject *key, const QString &category = QString());
         QObject *getMappedObject(QObject *key, const QString &category = QString()) const;
 
         void setConfigFileName(const QString &name)
@@ -124,9 +124,6 @@ class MVMEContext: public QObject
 
         AnalysisConfig *getAnalysisConfig() const { return m_analysisConfig; }
         void setAnalysisConfig(AnalysisConfig *config);
-
-        //void write(QJsonObject &json) const;
-        //void read(const QJsonObject &json);
 
         void logMessage(const QString &msg);
         void logMessages(const QStringList &mgs, const QString &prefix = QString());

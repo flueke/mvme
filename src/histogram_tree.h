@@ -41,6 +41,10 @@ class HistogramTreeWidget: public QWidget
         void add2DHistogram();
         void generateDefaultFilters();
         void updateHistogramCountDisplay();
+        void addDataFilter();
+        void removeDataFilter(QTreeWidgetItem *node);
+        void removeDataFilter();
+        void clearHistograms();
 
         MVMEContext *m_context = nullptr;
         DAQConfig *m_daqConfig = nullptr;

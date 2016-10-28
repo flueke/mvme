@@ -6,6 +6,7 @@
 
 class EventConfig;
 class ModuleConfig;
+class DataFilterConfig;
 class MVMEContext;
 
 namespace Ui
@@ -23,7 +24,7 @@ class EventConfigDialog: public QDialog
 
         EventConfig *getConfig() const { return m_config; }
 
-        virtual void accept();
+        virtual void accept() override;
         
     private:
         void loadFromConfig();
@@ -47,7 +48,7 @@ class ModuleConfigDialog: public QDialog
 
         ModuleConfig *getModule() const { return m_module; }
 
-        virtual void accept();
+        virtual void accept() override;
 
         QComboBox *typeCombo;
         QLineEdit *nameEdit;
@@ -61,19 +62,21 @@ class DataFilterDialog: public QDialog
 {
     Q_OBJECT
     public:
-        DataFilterDialog(DataFilterConfig *config, QWidget *parent = 0);
+        DataFilterDialog(DataFilterConfig *config, const QString &defaultFilter, QWidget *parent = 0);
+
         ~DataFilterDialog();
 
         DataFilterConfig *getConfig() const { return m_config; }
 
-        virtual void accept();
+        virtual void accept() override;
 
     private:
-        loadFromConfig();
-        saveToConfig();
+        void loadFromConfig();
+        void saveToConfig();
+        void validate();
 
-        // XXX: leftoff
-        //Ui::
-}
+        Ui::DataFilterDialog *ui;
+        DataFilterConfig *m_config;
+};
 
 #endif /* __CONFIG_WIDGETS_H__ */

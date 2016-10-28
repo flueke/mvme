@@ -1,5 +1,6 @@
 #include "config_widgets.h"
 #include "ui_event_config_dialog.h"
+#include "ui_datafilter_dialog.h"
 #include "mvme_config.h"
 #include "mvme_context.h"
 #include "vme_script.h"
@@ -38,6 +39,11 @@ EventConfigDialog::EventConfigDialog(MVMEContext *context, EventConfig *config, 
     connect(context, &MVMEContext::modeChanged, this, handleContextStateChange);
 
     handleContextStateChange();
+}
+
+EventConfigDialog::~EventConfigDialog()
+{
+    delete ui;
 }
 
 void EventConfigDialog::loadFromConfig()
@@ -724,5 +730,73 @@ VHS4030pWidget::VHS4030pWidget(MVMEContext *context, ModuleConfig *config, QWidg
     });
 }
 #endif
+
 #endif
 
+//
+// DataFilterDialog
+//
+DataFilterDialog::DataFilterDialog(DataFilterConfig *config, const QString &defaultFilter, QWidget *parent)
+    : QDialog(parent)
+    , ui(new Ui::DataFilterDialog)
+    , m_config(config)
+{
+    ui->setupUi(this);
+
+    QFont font("MonoSpace");
+    font.setStyleHint(QFont::Monospace);
+
+    QFontMetrics metrics(font);
+    int width = metrics.width(ui->le_filter->inputMask());
+
+    ui->le_filterKey->setFont(font);
+    ui->le_filterKey->setMinimumWidth(width);
+    ui->le_filter->setFont(font);
+    ui->le_filter->setMinimumWidth(width);
+
+    ui->le_filterKey->setText(defaultFilter);
+
+    connect(ui->le_filter, &QLineEdit::textChanged, this, &DataFilterDialog::validate);
+    connect(ui->le_name, &QLineEdit::textChanged, this, &DataFilterDialog::validate);
+
+    loadFromConfig();
+    validate();
+}
+
+DataFilterDialog::~DataFilterDialog()
+{
+    delete ui;
+}
+
+void DataFilterDialog::accept()
+{
+    saveToConfig();
+    QDialog::accept();
+}
+
+void DataFilterDialog::loadFromConfig()
+{
+    ui->le_name->setText(m_config->objectName());
+    ui->le_filter->setText(QString::fromLocal8Bit(m_config->getFilter().getFilter()));
+}
+
+void DataFilterDialog::saveToConfig()
+{
+    m_config->setObjectName(ui->le_name->text());
+    auto filterDataRaw = ui->le_filter->text().toLocal8Bit();
+    QByteArray filterData;
+
+    for (auto c: filterDataRaw)
+    {
+        if (c != ' ')
+            filterData.push_back(c);
+    }
+    m_config->setFilter(DataFilter(filterData));
+}
+
+void DataFilterDialog::validate()
+{
+    bool isValid = ui->le_filter->hasAcceptableInput()
+        && !ui->le_name->text().isEmpty();
+    ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(isValid);
+}

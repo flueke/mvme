@@ -436,11 +436,16 @@ class AnalysisConfig: public ConfigObject
         QMap<int, QMap<int, DataFilterConfigList>> getFilters() const { return m_filters; }
         void setFilters(int eventIndex, int moduleIndex, const DataFilterConfigList &filters);
         void removeFilters(int eventIndex, int moduleIndex);
+        void addFilter(int eventIndex, int moduleIndex, DataFilterConfig *config);
+        void removeFilter(int eventIndex, int moduleIndex, DataFilterConfig *config);
 
-        QPair<int, int> getEventAndModuleIndices(DataFilterConfig *cfg) const;
+        QPair<int, int> getEventAndModuleIndices(DataFilterConfig *config) const;
 
         void addHist1DConfig(Hist1DConfig *config);
         void addHist2DConfig(Hist2DConfig *config);
+
+        void removeHist1DConfig(Hist1DConfig *config);
+        void removeHist2DConfig(Hist2DConfig *config);
 
         QList<Hist1DConfig *> get1DHistogramConfigs() const { return m_1dHistograms; }
         QList<Hist2DConfig *> get2DHistogramConfigs() const { return m_2dHistograms; }

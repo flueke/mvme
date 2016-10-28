@@ -6,6 +6,7 @@
 #include "mvme_context.h"
 #include "mvme_config.h"
 #include "treewidget_utils.h"
+#include "config_widgets.h"
 
 #include <QDebug>
 #include <QHBoxLayout>
@@ -15,6 +16,70 @@
 #include <QTreeWidget>
 #include <QTimer>
 
+//
+// Utility functions for filter and histogram creation.
+//
+using DataFilterConfigList = AnalysisConfig::DataFilterConfigList;
+
+static DataFilterConfigList generateDefaultFilters(ModuleConfig *moduleConfig)
+{
+    DataFilterConfigList result;
+
+    const auto filterDefinitions = defaultDataFilters.value(moduleConfig->type);
+
+    for (const auto &def: filterDefinitions)
+    {
+        auto cfg = new DataFilterConfig(QByteArray(def.filter));
+        cfg->setObjectName(def.name);
+        result.push_back(cfg);
+    }
+
+    return result;
+}
+
+static QList<Hist1DConfig *> generateHistogramConfigs(DataFilterConfig *filterConfig)
+{
+    QList<Hist1DConfig *> result;
+
+    const auto &filter = filterConfig->getFilter();
+    u32 addressCount = 1 << filter.getExtractBits('A');
+    u32 dataBits = filter.getExtractBits('D');
+
+    for (u32 address = 0; address < addressCount; ++address)
+    {
+        auto cfg = new Hist1DConfig;
+        cfg->setObjectName(QString::number(address));
+        cfg->setFilterId(filterConfig->getId());
+        cfg->setFilterAddress(address);
+        cfg->setBits(dataBits);
+        cfg->setProperty("xAxisTitle", QString("%1 %2").arg(filterConfig->objectName()).arg(address));
+        result.push_back(cfg);
+    }
+
+    return result;
+}
+
+static Hist1D *createHistogram(Hist1DConfig *config)
+{
+    Hist1D *result = new Hist1D(config->getBits());
+    result->setProperty("configId", config->getId());
+    return result;
+}
+
+static Hist1D *createAndAddHist1D(MVMEContext *context, Hist1DConfig *histoConfig)
+{
+    context->getAnalysisConfig()->addHist1DConfig(histoConfig);
+    auto histo = createHistogram(histoConfig);
+    histo->setParent(context);
+    context->addObjectMapping(histoConfig, histo, QSL("ConfigToObject"));
+    context->addObjectMapping(histo, histoConfig, QSL("ObjectToConfig"));
+    context->addObject(histo);
+    return histo;
+}
+
+//
+// Histo Tree stuff
+//
 enum NodeType
 {
     NodeType_Module = QTreeWidgetItem::UserType,
@@ -34,6 +99,45 @@ class TreeNode: public QTreeWidgetItem
     public:
         using QTreeWidgetItem::QTreeWidgetItem;
 };
+
+template<typename T>
+TreeNode *makeNode(T *data, int type = QTreeWidgetItem::Type)
+{
+    auto ret = new TreeNode(type);
+    ret->setData(0, DataRole_Pointer, Ptr2Var(data));
+    return ret;
+}
+
+static QList<QPair<TreeNode *, Hist1D *>>
+generateHistogramNodes(MVMEContext *context, DataFilterConfig *filterConfig)
+{
+    QList<QPair<TreeNode *, Hist1D *>> result;
+
+    const auto &filter = filterConfig->getFilter();
+    u32 addressCount = 1 << filter.getExtractBits('A');
+
+    for (u32 address = 0; address < addressCount; ++address)
+    {
+        auto addressNode = makeNode(filterConfig, NodeType_Hist1D);
+        addressNode->setText(0, QString::number(address));
+        addressNode->setIcon(0, QIcon(":/hist1d.png"));
+        addressNode->setData(0, DataRole_FilterAddress, address);
+
+        auto predicate = [filterConfig, address] (Hist1DConfig *histoConfig)
+        {
+            return (histoConfig->getFilterId() == filterConfig->getId()
+                    && histoConfig->getFilterAddress() == address);
+        };
+
+        auto histoConfig = context->getAnalysisConfig()->findChildByPredicate<Hist1DConfig *>(predicate);
+        auto histo = qobject_cast<Hist1D *>(context->getMappedObject(histoConfig, QSL("ConfigToObject")));
+
+        addressNode->setData(0, DataRole_Pointer, Ptr2Var(histo));
+        result.push_back(qMakePair(addressNode, histo));
+    }
+
+    return result;
+}
 
 HistogramTreeWidget::HistogramTreeWidget(MVMEContext *context, QWidget *parent)
     : QWidget(parent)
@@ -62,13 +166,13 @@ HistogramTreeWidget::HistogramTreeWidget(MVMEContext *context, QWidget *parent)
     m_node1D->setExpanded(true);
     m_node2D->setExpanded(true);
 
-    pb_generateDefaultFilters = new QPushButton("Generate Default Filters");
-    connect(pb_generateDefaultFilters, &QPushButton::clicked, this, &HistogramTreeWidget::generateDefaultFilters);
+    //pb_generateDefaultFilters = new QPushButton("Generate Default Filters");
+    //connect(pb_generateDefaultFilters, &QPushButton::clicked, this, &HistogramTreeWidget::generateDefaultFilters);
 
     auto buttonLayout = new QHBoxLayout;
     buttonLayout->setContentsMargins(0, 0, 0, 0);
     buttonLayout->setSpacing(2);
-    buttonLayout->addWidget(pb_generateDefaultFilters);
+    //buttonLayout->addWidget(pb_generateDefaultFilters);
     buttonLayout->addStretch(1);
 
     auto layout = new QVBoxLayout(this);
@@ -94,14 +198,6 @@ HistogramTreeWidget::HistogramTreeWidget(MVMEContext *context, QWidget *parent)
     timer->setInterval(1000);
     timer->start();
     connect(timer, &QTimer::timeout, this, &HistogramTreeWidget::updateHistogramCountDisplay);
-}
-
-template<typename T>
-TreeNode *makeNode(T *data, int type = QTreeWidgetItem::Type)
-{
-    auto ret = new TreeNode(type);
-    ret->setData(0, DataRole_Pointer, Ptr2Var(data));
-    return ret;
 }
 
 void HistogramTreeWidget::onObjectAdded(QObject *object)
@@ -135,6 +231,11 @@ void HistogramTreeWidget::onObjectAdded(QObject *object)
     else if (auto filterConfig = qobject_cast<DataFilterConfig *>(object))
     {
         auto idxPair = m_context->getAnalysisConfig()->getEventAndModuleIndices(filterConfig);
+        if (idxPair.first < 0)
+        {
+            qDebug() << __PRETTY_FUNCTION__ << "invalid analysisconfig indices for filterConfig" << filterConfig;
+            return;
+        }
         auto moduleConfig = m_context->getDAQConfig()->getModuleConfig(idxPair.first, idxPair.second);
         auto moduleNode = m_treeMap.value(moduleConfig);
 
@@ -146,32 +247,18 @@ void HistogramTreeWidget::onObjectAdded(QObject *object)
             moduleNode->addChild(filterNode);
             m_treeMap[filterConfig] = filterNode;
 
-            const auto &filter = filterConfig->getFilter();
-            u32 addressCount = 1 << filter.getExtractBits('A');
+            auto histoNodePairs = generateHistogramNodes(m_context, filterConfig);
 
-            for (u32 address = 0; address < addressCount; ++address)
+            for (auto pair: histoNodePairs)
             {
-                auto addressNode = makeNode(filterConfig, NodeType_Hist1D);
-                addressNode->setText(0, QString::number(address));
-                addressNode->setIcon(0, QIcon(":/hist1d.png"));
-                addressNode->setData(0, DataRole_FilterAddress, address);
-                filterNode->addChild(addressNode);
-
-                auto predicate = [filterConfig, address] (Hist1DConfig *histoConfig)
-                {
-                    return (histoConfig->getFilterId() == filterConfig->getId()
-                            && histoConfig->getFilterAddress() == address);
-                };
-
-                auto histoConfig = m_context->getAnalysisConfig()->findChildByPredicate<Hist1DConfig *>(predicate);
-                auto histo = m_context->getMappedObject(histoConfig, QSL("ConfigToObject"));
-
-                qDebug() << "found" << histoConfig << histo;
-
-                addressNode->setData(0, DataRole_Pointer, Ptr2Var(histo));
-                m_treeMap[histo] = addressNode;
+                filterNode->addChild(pair.first);
+                m_treeMap[pair.second] = pair.first;
             }
         }
+    }
+    else if (auto histoConfig = qobject_cast<Hist1DConfig *>(object))
+    {
+        
     }
 
 #if 0
@@ -196,6 +283,7 @@ void HistogramTreeWidget::onObjectAdded(QObject *object)
 
 void HistogramTreeWidget::onObjectAboutToBeRemoved(QObject *object)
 {
+    qDebug() << __PRETTY_FUNCTION__ << object;
     delete m_treeMap.take(object);
 }
 
@@ -230,19 +318,61 @@ void HistogramTreeWidget::onItemClicked(QTreeWidgetItem *item, int column)
         emit objectClicked(obj);
 }
 
-void HistogramTreeWidget::onItemDoubleClicked(QTreeWidgetItem *item, int column)
+void HistogramTreeWidget::onItemDoubleClicked(QTreeWidgetItem *node, int column)
 {
-    auto obj = Var2Ptr<QObject>(item->data(0, DataRole_Pointer));
-    qDebug() << __PRETTY_FUNCTION__ << item << obj;
+    auto obj = Var2Ptr<QObject>(node->data(0, DataRole_Pointer));
+    qDebug() << __PRETTY_FUNCTION__ << node << obj;
 
-    //if (obj)
-    //    emit objectDoubleClicked(obj);
-
-    switch (item->type())
+    switch (node->type())
     {
         case NodeType_Hist1D:
-            emit objectDoubleClicked(obj);
-            break;
+            {
+                emit objectDoubleClicked(obj);
+            } break;
+        case NodeType_DataFilter:
+            {
+                auto moduleNode   = node->parent();
+                auto moduleConfig = Var2Ptr<ModuleConfig>(moduleNode->data(0, DataRole_Pointer));
+                auto defaultFilter = QString(defaultDataFilters.value(moduleConfig->type).value(0).filter);
+                auto filterConfig = Var2Ptr<DataFilterConfig>(node->data(0, DataRole_Pointer));
+
+                DataFilterDialog dialog(filterConfig, defaultFilter);
+
+                if (dialog.exec() == QDialog::Accepted)
+                {
+                    // remove all the histograms (config and histogram) that where generated by this filter.
+                    auto histoNodes = node->takeChildren();
+
+                    for (auto histoNode: histoNodes)
+                    {
+                        auto histo = Var2Ptr<Hist1D>(histoNode->data(0, DataRole_Pointer));
+                        auto histoConfig = qobject_cast<Hist1DConfig *>(
+                            m_context->removeObjectMapping(histo, QSL("ObjectToConfig")));
+
+                        qDebug() << __PRETTY_FUNCTION__ << "removing histo from treeMap" << histo
+                            << m_treeMap.remove(histo);
+                        m_context->removeObject(histo);
+                        m_context->getAnalysisConfig()->removeHist1DConfig(histoConfig);
+                        // TODO: remove any 2d histograms using this histoConfig as a source
+                        delete histoNode;
+                    }
+
+                    // generate new histograms from the filter
+                    for (auto histoConfig: generateHistogramConfigs(filterConfig))
+                    {
+                        createAndAddHist1D(m_context, histoConfig);
+                    }
+
+                    // generate the histogram nodes
+                    auto histoNodePairs = generateHistogramNodes(m_context, filterConfig);
+
+                    for (auto pair: histoNodePairs)
+                    {
+                        node->addChild(pair.first);
+                        m_treeMap[pair.second] = pair.first;
+                    }
+                }
+            } break;
     }
 }
 
@@ -262,6 +392,33 @@ void HistogramTreeWidget::treeContextMenu(const QPoint &pos)
     auto obj = Var2Ptr<QObject>(node->data(0, DataRole_Pointer));
 
     QMenu menu;
+
+    if (node == m_node1D)
+    {
+        menu.addAction(QSL("Clear Histograms"), this, &HistogramTreeWidget::clearHistograms);
+    }
+
+    if (node->type() == NodeType_Module)
+    {
+        menu.addAction(QSL("Clear Histograms"), this, &HistogramTreeWidget::clearHistograms);
+        menu.addAction(QSL("Add filter"), this, &HistogramTreeWidget::addDataFilter);
+        menu.addAction(QSL("Generate default filters"), this, &HistogramTreeWidget::generateDefaultFilters);
+
+    }
+
+    if (node->type() == NodeType_DataFilter)
+    {
+        menu.addAction(QSL("Clear Histograms"), this, &HistogramTreeWidget::clearHistograms);
+        menu.addSeparator();
+        menu.addAction(QSL("Remove filter"), this,
+                       static_cast<void (HistogramTreeWidget::*) ()>(
+                       &HistogramTreeWidget::removeDataFilter));
+    }
+
+    if (node->type() == NodeType_Hist1D)
+    {
+        menu.addAction(QSL("Clear"), this, &HistogramTreeWidget::clearHistogram);
+    }
 
 #if 0
     if (node->type() == NodeType_HistoCollection
@@ -321,54 +478,54 @@ void HistogramTreeWidget::add2DHistogram()
     }
 }
 
-using DataFilterConfigList = AnalysisConfig::DataFilterConfigList;
-
-static DataFilterConfigList generateDefaultFilters(ModuleConfig *moduleConfig)
+void HistogramTreeWidget::updateHistogramCountDisplay()
 {
-    DataFilterConfigList result;
-
-    const auto filterDefinitions = defaultDataFilters.value(moduleConfig->type);
-
-    for (const auto &def: filterDefinitions)
+    for (auto it = m_treeMap.begin();
+         it != m_treeMap.end();
+         ++it)
     {
-        auto cfg = new DataFilterConfig(QByteArray(def.filter));
-        cfg->setObjectName(def.name);
-        result.push_back(cfg);
+        if (auto histo = qobject_cast<Hist1D *>(it.key()))
+        {
+            auto node = it.value();
+            node->setText(1, QString("entries=%1").arg(histo->getEntryCount()));
+        }
     }
-
-    return result;
-}
-
-static QList<Hist1DConfig *> generateHistogramConfigs(DataFilterConfig *filterConfig)
-{
-    QList<Hist1DConfig *> result;
-
-    const auto &filter = filterConfig->getFilter();
-    u32 addressCount = 1 << filter.getExtractBits('A');
-    u32 dataBits = filter.getExtractBits('D');
-
-    for (u32 address = 0; address < addressCount; ++address)
-    {
-        auto cfg = new Hist1DConfig;
-        cfg->setObjectName(QString::number(address));
-        cfg->setFilterId(filterConfig->getId());
-        cfg->setFilterAddress(address);
-        cfg->setBits(dataBits);
-        result.push_back(cfg);
-    }
-
-    return result;
-}
-
-Hist1D *createHistogram(Hist1DConfig *config)
-{
-    Hist1D *result = new Hist1D(config->getBits());
-    result->setProperty("configId", config->getId());
-    return result;
 }
 
 void HistogramTreeWidget::generateDefaultFilters()
 {
+    auto node = m_tree->currentItem();
+    auto var  = node->data(0, DataRole_Pointer);
+    auto moduleConfig = Var2Ptr<ModuleConfig>(node->data(0, DataRole_Pointer));
+    auto indices = m_context->getDAQConfig()->getEventAndModuleIndices(moduleConfig);
+
+    if (indices.first < 0)
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "invalid daqconfig indices for moduleConfig" << moduleConfig;
+        return;
+    }
+
+    for (int i=0; i<node->childCount(); ++i)
+    {
+        auto filterNode = node->child(i);
+        if (filterNode->type() == NodeType_DataFilter)
+        {
+            removeDataFilter(filterNode);
+        }
+
+        auto filterConfigs = ::generateDefaultFilters(moduleConfig);
+
+        for (auto filterConfig: filterConfigs)
+        {
+            for (auto histoConfig: generateHistogramConfigs(filterConfig))
+                createAndAddHist1D(m_context, histoConfig);
+        }
+
+        m_context->getAnalysisConfig()->setFilters(indices.first, indices.second, filterConfigs);
+    }
+
+
+#if 0
     /* for all modules in the daqconfig:
      *   remove all filters and the histograms using those filters
      *   generate the new default filters and their histograms by loading filter templates
@@ -396,34 +553,113 @@ void HistogramTreeWidget::generateDefaultFilters()
 
             for (auto filterConfig: filterConfigs)
             {
-                auto histoConfigs = generateHistogramConfigs(filterConfig);
-
-                for (auto histoConfig: histoConfigs)
-                {
-                    analysisConfig->addHist1DConfig(histoConfig);
-                    auto histo = createHistogram(histoConfig);
-                    histo->setParent(m_context);
-                    m_context->addObject(histo);
-                    m_context->addObjectMapping(histoConfig, histo, QSL("ConfigToObject"));
-                    m_context->addObjectMapping(histo, histoConfig, QSL("ObjectToConfig"));
-                }
+                for (auto histoConfig: generateHistogramConfigs(filterConfig))
+                    createAndAddHist1D(m_context, histoConfig);
             }
 
             analysisConfig->setFilters(eventIndex, moduleIndex, filterConfigs);
         }
     }
+#endif
 }
 
-void HistogramTreeWidget::updateHistogramCountDisplay()
+void HistogramTreeWidget::addDataFilter()
 {
-    for (auto it = m_treeMap.begin();
-         it != m_treeMap.end();
-         ++it)
+    auto node = m_tree->currentItem();
+    auto var  = node->data(0, DataRole_Pointer);
+    auto moduleConfig = Var2Ptr<ModuleConfig>(node->data(0, DataRole_Pointer));
+    auto defaultFilter = defaultDataFilters.value(moduleConfig->type).value(0).filter;
+    auto filterConfig = new DataFilterConfig(DataFilter(defaultFilter));
+
+    DataFilterDialog dialog(filterConfig, defaultFilter);
+
+    if (dialog.exec() == QDialog::Accepted)
     {
-        if (auto histo = qobject_cast<Hist1D *>(it.key()))
+        for (auto histoConfig: generateHistogramConfigs(filterConfig))
+            createAndAddHist1D(m_context, histoConfig);
+
+        auto indices = m_context->getDAQConfig()->getEventAndModuleIndices(moduleConfig);
+        if (indices.first < 0)
         {
-            auto node = it.value();
-            node->setText(1, QString("entries=%1").arg(histo->getEntryCount()));
+            qDebug() << __PRETTY_FUNCTION__ << "invalid daqconfig indices for moduleConfig" << moduleConfig;
+            return;
         }
+        m_context->getAnalysisConfig()->addFilter(indices.first, indices.second, filterConfig);
+    }
+    else
+    {
+        delete filterConfig;
+    }
+}
+
+void HistogramTreeWidget::removeDataFilter()
+{
+    auto node = m_tree->currentItem();
+    removeDataFilter(node);
+}
+
+void HistogramTreeWidget::removeDataFilter(QTreeWidgetItem *node)
+{
+    auto histoNodes = node->takeChildren();
+
+    for (auto histoNode: histoNodes)
+    {
+        auto histo = Var2Ptr<Hist1D>(histoNode->data(0, DataRole_Pointer));
+        auto histoConfig = qobject_cast<Hist1DConfig *>(
+            m_context->removeObjectMapping(histo, QSL("ObjectToConfig")));
+        qDebug() << __PRETTY_FUNCTION__ << "removing histo from treeMap" << histo
+            << m_treeMap.remove(histo);
+        m_context->removeObject(histo);
+        m_context->getAnalysisConfig()->removeHist1DConfig(histoConfig);
+        delete histoNode;
+    }
+
+    auto filterConfig = Var2Ptr<DataFilterConfig>(node->data(0, DataRole_Pointer));
+    auto moduleNode   = node->parent();
+    auto moduleConfig = Var2Ptr<ModuleConfig>(moduleNode->data(0, DataRole_Pointer));
+    auto indices      = m_context->getDAQConfig()->getEventAndModuleIndices(moduleConfig);
+    if (indices.first < 0)
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "invalid daqconfig indices for moduleConfig" << moduleConfig;
+        return;
+    }
+    m_context->getAnalysisConfig()->removeFilter(indices.first, indices.second, filterConfig);
+}
+
+void HistogramTreeWidget::clearHistograms()
+{
+    auto clearFilterNode = [](QTreeWidgetItem *filterNode)
+    {
+        for (int i = 0; i < filterNode->childCount(); ++i)
+        {
+            auto histoNode = filterNode->child(i);
+            if (histoNode->type() == NodeType_Hist1D)
+            {
+                auto var = histoNode->data(0, DataRole_Pointer);
+                if (auto histo = Var2QObject<Hist1D>(var))
+                    histo->clear();
+            }
+        }
+    };
+
+    auto clearModuleNode = [clearFilterNode](QTreeWidgetItem *moduleNode)
+    {
+        for (int i = 0; i < moduleNode->childCount(); ++i)
+        {
+            auto filterNode = moduleNode->child(i);
+            if (filterNode->type() == NodeType_DataFilter)
+                clearFilterNode(filterNode);
+        }
+    };
+
+    auto node = m_tree->currentItem();
+
+    if (node->type() == NodeType_Module)
+    {
+        clearModuleNode(node);
+    }
+    else if (node->type() == NodeType_DataFilter)
+    {
+        clearFilterNode(node);
     }
 }
