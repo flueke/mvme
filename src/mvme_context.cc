@@ -652,3 +652,23 @@ MVMEContext::runScript(const vme_script::VMEScript &script,
 
     return result;
 }
+
+QString getFilterPath(MVMEContext *context, DataFilterConfig *filterConfig, int filterAddress)
+{
+    auto indexPair = context->getAnalysisConfig()->getEventAndModuleIndices(filterConfig);
+    if (indexPair.first >= 0)
+    {
+        auto eventConfig = context->getDAQConfig()->getEventConfig(indexPair.first);
+        auto moduleConfig = context->getDAQConfig()->getModuleConfig(indexPair.first, indexPair.second);
+
+        if (eventConfig && moduleConfig)
+        {
+            return QString("%1/%2/%3/%4")
+                .arg(eventConfig->objectName())
+                .arg(moduleConfig->objectName())
+                .arg(filterConfig->objectName())
+                .arg(filterAddress);
+        }
+    }
+    return QString();
+}

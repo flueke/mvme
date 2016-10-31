@@ -9,6 +9,10 @@ QMAKE_CFLAGS += -Wno-unused -Wno-format
 DEFINES += VME_CONTROLLER_WIENER
 #DEFINES += VME_CONTROLLER_CAEN
 
+# ASAN
+QMAKE_CXXFLAGS += -fsanitize=address
+LIBS += -lasan
+
 include(src.pri)
 
 SOURCES += main.cpp

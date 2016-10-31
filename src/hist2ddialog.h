@@ -7,6 +7,9 @@
 #include <QValidator>
 
 class MVMEContext;
+class QTreeWidget;
+class QTreeWidgetItem;
+class QDialogButtonBox;
 
 namespace Ui {
 class Hist2DDialog;
@@ -20,20 +23,37 @@ public:
     explicit Hist2DDialog(MVMEContext *context, Hist2D *histo = 0, QWidget *parent = 0);
     ~Hist2DDialog();
 
-    Hist2D *getHist2D();
+    QPair<Hist2D *, Hist2DConfig *> getHistoAndConfig();
+
+private slots:
+    void on_pb_xSource_clicked();
+    void on_pb_ySource_clicked();
+    void on_pb_xClear_clicked();
+    void on_pb_yClear_clicked();
+    void updateAndValidate();
 
 private:
-    void onEventXChanged(int index);
-    void onModuleXChanged(int index);
-    void onChannelXChanged(int index);
-
-    void onEventYChanged(int index);
-    void onModuleYChanged(int index);
-    void onChannelYChanged(int index);
-
     Ui::Hist2DDialog *ui;
     MVMEContext *m_context;
     Hist2D *m_histo;
+    QPair<DataFilterConfig *, int> m_xSource;
+    QPair<DataFilterConfig *, int> m_ySource;
+};
+
+class SelectAxisSourceDialog: public QDialog
+{
+    Q_OBJECT
+public:
+        SelectAxisSourceDialog(MVMEContext *context, int selectedEventIndex = -1, QWidget *parent = 0);
+
+        virtual void accept() override;
+        QPair<DataFilterConfig *, int> getAxisSource() const;
+
+private:
+        void onTreeCurrentItemChanged(QTreeWidgetItem *current, QTreeWidgetItem *previous);
+
+        QTreeWidget *m_tree;
+        QDialogButtonBox *m_buttonBox;
 };
 
 class NameValidator: public QValidator

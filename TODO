@@ -1,8 +1,18 @@
+==========================
 ==== Do these first! =====
-* BUGS: generating default filters when clicking on module nodes does not always work!!!!
+==========================
+* fix the histo widgets! (window and axis titles!)
+* hist1d: go back to QwtPlotCurve
+* Generate Hist1D and Hist2D on config load!
+* implement void HistogramTreeWidget::saveConfig()
 
 
 
+
+
+==========================
+==== Do these later! =====
+==========================
 * Histogram properties:
     - name
     - size in bits
@@ -10,9 +20,6 @@
     - unit (Text: "ps") // Histogram may show at 64k: "24 ps/chan" or at 8k res: "192 ps/chan"
     - zero point        (chan 2048 is zero, left negative, right positive)
 
-
-
-==== Do these later! =====
 * threading and vme commands
   * run vme scripts in a separate thread when invoked from the gui
   * FIX the pause, run script, resume implementation. it's buggy and hacky!
@@ -22,10 +29,6 @@
                         the state change
     -> look at QFutureInterface
 
-* fix Hist2D source definitions
-* HistogramCollection improvements: subsections for amplitude, time, trigger time, etc
-    => see data filter specification below
-* TwoDimWidget: use QwtPlotHistogram instead of QwtPlotCurve
 * add histogram filters
 * add histogram fitting
 * add log scale to 2d histograms (?)
@@ -55,10 +58,14 @@
 * save and restore open histograms
 * histograms: look at the storage type used. currently it's u32. should this be double?
 
-==== Maybe do these ====
+==========================
+===== Maybe do these =====
+==========================
 * Move from MDI to multiple top-level windows (allows making use of multiple monitors)
 
+======================================
 ==== Done, but kept for reference ====
+======================================
 * module data filter specifications:
   P=pileup, O=overflow, U=underflow (add these as special histogram channels?)
   Histograms: array[A][D]++

@@ -87,7 +87,7 @@ QString ConfigObject::getObjectPath() const
     auto result = parentConfig->getObjectPath();
 
     if (!result.isEmpty())
-        result += QChar('.');
+        result += QChar('/');
 
     result += objectName();
 
@@ -541,6 +541,60 @@ void Hist1DConfig::write_impl(QJsonObject &json) const
 //
 // Hist2DConfig
 //
+void Hist2DConfig::setXFilterId(const QUuid &id)
+{
+    if (id != m_xFilterId)
+    {
+        m_xFilterId = id;
+        setModified();
+    }
+}
+
+void Hist2DConfig::setYFilterId(const QUuid &id)
+{
+    if (id != m_yFilterId)
+    {
+        m_yFilterId = id;
+        setModified();
+    }
+}
+
+void Hist2DConfig::setXFilterAddress(u32 address)
+{
+    if (address != m_xAddress)
+    {
+        m_xAddress = address;
+        setModified();
+    }
+}
+
+void Hist2DConfig::setYFilterAddress(u32 address)
+{
+    if (address != m_yAddress)
+    {
+        m_yAddress = address;
+        setModified();
+    }
+}
+
+void Hist2DConfig::setXBits(u32 bits)
+{
+    if (m_xBits != bits)
+    {
+        m_xBits = bits;
+        setModified();
+    }
+}
+
+void Hist2DConfig::setYBits(u32 bits)
+{
+    if (m_yBits != bits)
+    {
+        m_yBits = bits;
+        setModified();
+    }
+}
+
 void Hist2DConfig::read_impl(const QJsonObject &json)
 {
     m_xBits = json["xBits"].toInt();
@@ -590,6 +644,7 @@ void AnalysisConfig::removeFilters(int eventIndex, int moduleIndex)
     for (auto filter: filters)
     {
         emit objectAboutToBeRemoved(filter);
+        filter->setParent(nullptr);
         filter->deleteLater();
     }
 }
@@ -606,6 +661,7 @@ void AnalysisConfig::removeFilter(int eventIndex, int moduleIndex, DataFilterCon
     if (m_filters[eventIndex][moduleIndex].removeOne(config))
     {
         emit objectAboutToBeRemoved(config);
+        config->setParent(nullptr);
         config->deleteLater();
     }
 }
@@ -643,6 +699,7 @@ void AnalysisConfig::removeHist1DConfig(Hist1DConfig *config)
     if (m_1dHistograms.removeOne(config))
     {
         emit objectAboutToBeRemoved(config);
+        config->setParent(nullptr);
         config->deleteLater();
     }
 }
@@ -652,6 +709,7 @@ void AnalysisConfig::removeHist2DConfig(Hist2DConfig *config)
     if (m_2dHistograms.removeOne(config))
     {
         emit objectAboutToBeRemoved(config);
+        config->setParent(nullptr);
         config->deleteLater();
     }
 }

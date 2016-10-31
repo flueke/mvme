@@ -237,4 +237,6 @@ inline u32 number_of_set_bits(u32 i)
      return (((i + (i >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24;
 }
 
+QJsonDocument gui_read_json_file(const QString &fileName);
+
 #endif // UTIL_H

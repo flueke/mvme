@@ -45,6 +45,14 @@ class HistogramTreeWidget: public QWidget
         void removeDataFilter(QTreeWidgetItem *node);
         void removeDataFilter();
         void clearHistograms();
+        void removeHist1D(QTreeWidgetItem *node);
+
+        void addToTreeMap(QObject *object, TreeNode *node);
+        void removeFromTreeMap(QObject *object);
+
+        void loadConfig();
+        void saveConfig();
+        void saveConfigAs();
 
         MVMEContext *m_context = nullptr;
         DAQConfig *m_daqConfig = nullptr;
@@ -53,7 +61,7 @@ class HistogramTreeWidget: public QWidget
         QMap<QObject *, TreeNode *> m_treeMap;
         TreeNode *m_node1D, *m_node2D;
 
-        QPushButton *pb_generateDefaultFilters;
+        QPushButton *pb_load, *pb_save, *pb_saveAs;
 };
 
 #endif /* __HISTOGRAM_TREE_H__ */

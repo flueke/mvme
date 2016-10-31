@@ -127,14 +127,16 @@ Hist2DWidget::Hist2DWidget(MVMEContext *context, Hist2D *hist2d, QWidget *parent
         replot();
     });
 
-    connect(ui->pb_edit, &QPushButton::clicked, this, [this] {
-        Hist2DDialog dialog(m_context, m_hist2d, this);
-        int result = dialog.exec();
-        if (result == QDialog::Accepted)
-        {
-            dialog.getHist2D(); // this updates the histogram
-        }
-    });
+    ui->pb_edit->setVisible(false);
+    // FIXME: reenable or remove the edit button!
+    //connect(ui->pb_edit, &QPushButton::clicked, this, [this] {
+    //    Hist2DDialog dialog(m_context, m_hist2d, this);
+    //    int result = dialog.exec();
+    //    if (result == QDialog::Accepted)
+    //    {
+    //        dialog.getHist2D(); // this updates the histogram
+    //    }
+    //});
 
 
     auto histData = m_hist2d->makeRasterData();

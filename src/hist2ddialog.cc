@@ -3,15 +3,130 @@
 
 #include <QPushButton>
 #include <QSignalBlocker>
+#include <QTreeWidget>
 
-/* TODO: This dialog needs to display a tree of available data filters to choose from for each axis. */
+class TreeNode: public QTreeWidgetItem
+{
+    public:
+        using QTreeWidgetItem::QTreeWidgetItem;
+};
 
+enum NodeType
+{
+    NodeType_FilterAddress = QTreeWidgetItem::UserType,
+};
+
+enum DataRole
+{
+    DataRole_Pointer = Qt::UserRole,
+    DataRole_FilterAddress,
+};
+
+//
+// SelectAxisSourceDialog
+//
+SelectAxisSourceDialog::SelectAxisSourceDialog(MVMEContext *context, int selectedEventIndex, QWidget *parent)
+    : QDialog(parent)
+{
+    setWindowTitle(QSL("Select axis source"));
+
+    auto treeWidget = new QTreeWidget;
+    m_tree = treeWidget;
+    treeWidget->headerItem()->setHidden(true);
+    treeWidget->setIndentation(10);
+
+    auto daqConfig = context->getDAQConfig();
+    auto analysisConfig = context->getAnalysisConfig();
+    auto filters = analysisConfig->getFilters();
+
+    for (int eventIndex: filters.keys())
+    {
+        if (selectedEventIndex >= 0 && eventIndex != selectedEventIndex)
+            continue;
+
+        auto eventConfig = daqConfig->getEventConfig(eventIndex);
+        auto eventNode = new TreeNode;
+        eventNode->setText(0, eventConfig ? eventConfig->objectName() : QString::number(eventIndex));
+        eventNode->setIcon(0, QIcon(":/config_category.png"));
+        treeWidget->addTopLevelItem(eventNode);
+
+        for (int moduleIndex: filters[eventIndex].keys())
+        {
+            auto moduleConfig = daqConfig->getModuleConfig(eventIndex, moduleIndex);
+            auto moduleNode = new TreeNode;
+            moduleNode->setText(0, moduleConfig ? moduleConfig->objectName() : QString::number(moduleIndex));
+            moduleNode->setIcon(0, QIcon(":/vme_module.png"));
+            eventNode->addChild(moduleNode);
+
+            for (auto filterConfig: filters[eventIndex][moduleIndex])
+            {
+                auto filterNode = new TreeNode;
+                filterNode->setText(0, filterConfig->objectName());
+                filterNode->setIcon(0, QIcon(":/data_filter.png"));
+                moduleNode->addChild(filterNode);
+                const auto &filter = filterConfig->getFilter();
+                u32 addressCount = 1 << filter.getExtractBits('A');
+
+                for (u32 address = 0; address < addressCount; ++address)
+                {
+                    auto addressNode = new TreeNode(NodeType_FilterAddress);
+                    addressNode->setText(0, QString::number(address));
+                    addressNode->setData(0, DataRole_Pointer, Ptr2Var(filterConfig));
+                    addressNode->setData(0, DataRole_FilterAddress, address);
+                    addressNode->setIcon(0, QIcon(":/hist1d.png"));
+                    filterNode->addChild(addressNode);
+                }
+            }
+        }
+    }
+
+    connect(treeWidget, &QTreeWidget::currentItemChanged, this, &SelectAxisSourceDialog::onTreeCurrentItemChanged);
+
+    auto buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+    m_buttonBox = buttonBox;
+    buttonBox->button(QDialogButtonBox::Ok)->setEnabled(false);
+    connect(buttonBox, &QDialogButtonBox::accepted, this, &QDialog::accept);
+    connect(buttonBox, &QDialogButtonBox::rejected, this, &QDialog::reject);
+
+    auto layout = new QVBoxLayout(this);
+    layout->addWidget(treeWidget);
+    layout->addWidget(buttonBox);
+}
+
+void SelectAxisSourceDialog::onTreeCurrentItemChanged(QTreeWidgetItem *current, QTreeWidgetItem *previous)
+{
+    bool isFilterAddressNode = (current->type() == NodeType_FilterAddress);
+    m_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(isFilterAddressNode);
+}
+
+void SelectAxisSourceDialog::accept()
+{
+    QDialog::accept();
+}
+
+QPair<DataFilterConfig *, int> SelectAxisSourceDialog::getAxisSource() const
+{
+    auto node = m_tree->currentItem();
+    if (node->type() == NodeType_FilterAddress)
+    {
+        return qMakePair(Var2Ptr<DataFilterConfig>(node->data(0, DataRole_Pointer)),
+                         node->data(0, DataRole_FilterAddress).toInt());
+    }
+    return QPair<DataFilterConfig *, int>(nullptr, -1);
+}
+
+//
+// Hist2DDialog
+//
 Hist2DDialog::Hist2DDialog(MVMEContext *context, Hist2D *histo, QWidget *parent)
     : QDialog(parent)
     , ui(new Ui::Hist2DDialog)
     , m_context(context)
     , m_histo(histo)
 {
+    m_xSource = QPair<DataFilterConfig *, int>(nullptr, -1);
+    m_ySource = QPair<DataFilterConfig *, int>(nullptr, -1);
+
     ui->setupUi(this);
 
     auto validator = new NameValidator(context, histo, this);
@@ -21,15 +136,27 @@ Hist2DDialog::Hist2DDialog(MVMEContext *context, Hist2D *histo, QWidget *parent)
     if (m_histo)
     {
         ui->le_name->setText(m_histo->objectName());
+        auto histoConfig = qobject_cast<Hist2DConfig *>(m_context->getMappedObject(m_histo, QSL("ObjectToConfig")));
+
+        if (histoConfig)
+        {
+            {
+                auto filterConfig = m_context->getAnalysisConfig()->findChildById<DataFilterConfig *>(histoConfig->getXFilterId());
+                auto address = histoConfig->getXFilterAddress();
+                m_xSource = qMakePair(filterConfig, address);
+            }
+
+            {
+                auto filterConfig = m_context->getAnalysisConfig()->findChildById<DataFilterConfig *>(histoConfig->getYFilterId());
+                auto address = histoConfig->getYFilterAddress();
+                m_ySource = qMakePair(filterConfig, address);
+            }
+        }
     }
 
     connect(ui->le_name, &QLineEdit::textChanged, this, [this](const QString &) {
-        ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(
-                    ui->le_name->hasAcceptableInput());
+        updateAndValidate();
     });
-
-    ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(
-        ui->le_name->hasAcceptableInput());
 
     static const int bitsMin =  9;
     static const int bitsMax = 13;
@@ -37,8 +164,12 @@ Hist2DDialog::Hist2DDialog(MVMEContext *context, Hist2D *histo, QWidget *parent)
     for (int bits=bitsMin; bits<=bitsMax; ++bits)
     {
         int value = 1 << bits;
-        ui->comboXResolution->addItem(QString::number(value), bits);
-        ui->comboYResolution->addItem(QString::number(value), bits);
+        QString text = QString("%1, %2 bit")
+            .arg(value, 4)
+            .arg(bits, 2);
+
+        ui->comboXResolution->addItem(text, bits);
+        ui->comboYResolution->addItem(text, bits);
     }
 
     if (m_histo)
@@ -54,44 +185,7 @@ Hist2DDialog::Hist2DDialog(MVMEContext *context, Hist2D *histo, QWidget *parent)
         ui->comboYResolution->setCurrentIndex(1);
     }
 
-    auto eventConfigs = m_context->getConfig()->getEventConfigs();
-    QStringList eventNames;
-
-    for (auto eventConfig: eventConfigs)
-    {
-        eventNames << eventConfig->objectName();
-    }
-
-    ui->eventX->addItems(eventNames);
-    ui->eventY->addItems(eventNames);
-
-    //onEventXChanged(m_histo ? m_histo->getXEventIndex() : 0);
-    //onEventYChanged(m_histo ? m_histo->getYEventIndex() : 0);
-    //onModuleXChanged(m_histo ? m_histo->getXModuleIndex() : 0);
-    //onModuleYChanged(m_histo ? m_histo->getYModuleIndex() : 0);
-    //ui->channelX->setCurrentIndex(m_histo ? m_histo->getXAddressValue() : 0);
-    //ui->channelY->setCurrentIndex(m_histo ? m_histo->getYAddressValue() : 1);
-
-    // event
-    connect(ui->eventX, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
-            this, &Hist2DDialog::onEventXChanged);
-
-    connect(ui->eventY, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
-            this, &Hist2DDialog::onEventYChanged);
-
-    // module
-    connect(ui->moduleX, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
-            this, &Hist2DDialog::onModuleXChanged);
-
-    connect(ui->moduleY, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
-            this, &Hist2DDialog::onModuleYChanged);
-
-    // channel
-    connect(ui->channelX, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
-            this, &Hist2DDialog::onChannelXChanged);
-
-    connect(ui->channelY, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
-            this, &Hist2DDialog::onChannelYChanged);
+    updateAndValidate();
 }
 
 Hist2DDialog::~Hist2DDialog()
@@ -99,130 +193,99 @@ Hist2DDialog::~Hist2DDialog()
     delete ui;
 }
 
-Hist2D *Hist2DDialog::getHist2D()
+QPair<Hist2D *, Hist2DConfig *> Hist2DDialog::getHistoAndConfig()
 {
-    int xBits = ui->comboXResolution->currentData().toInt();
-    int yBits = ui->comboYResolution->currentData().toInt();
-
-    QString xSource = QString("%1.%2.%3")
-        .arg(ui->eventX->currentIndex())
-        .arg(ui->moduleX->currentIndex())
-        .arg(ui->channelX->currentIndex())
-        ;
-
-    QString ySource = QString("%1.%2.%3")
-        .arg(ui->eventY->currentIndex())
-        .arg(ui->moduleY->currentIndex())
-        .arg(ui->channelY->currentIndex())
-        ;
-
-    QString name = ui->le_name->text();
-
-    qDebug() << "Hist2D: xBits =" << xBits
-        << ", yBits =" << yBits
-        << ", xSource =" << xSource
-        << ", ySource =" << ySource
-        << ", name =" << name
-        ;
+    u32 xBits = ui->comboXResolution->currentData().toInt();
+    u32 yBits = ui->comboYResolution->currentData().toInt();
+    Hist2DConfig *histoConfig = nullptr;
 
     if (!m_histo)
     {
         m_histo = new Hist2D(xBits, yBits);
+        histoConfig = new Hist2DConfig;
     }
     else
     {
-        if (m_histo->property("Hist2D.xAxisSource").toString() != xSource
-            || m_histo->property("Hist2D.yAxisSource").toString() != ySource)
-        {
-            m_histo->clear();
-        }
+        histoConfig = qobject_cast<Hist2DConfig *>(m_context->getMappedObject(m_histo, QSL("ObjectToConfig")));
     }
 
-    m_histo->setObjectName(ui->le_name->text());
-    m_histo->setProperty("Hist2D.xAxisSource", xSource);
-    m_histo->setProperty("Hist2D.yAxisSource", ySource);
-
-    return m_histo;
-}
-
-void Hist2DDialog::onEventXChanged(int index)
-{
-    ui->moduleX->clear();
-    auto eventConfig = m_context->getEventConfigs().at(index);
-    if (eventConfig)
+    if (histoConfig)
     {
-        QStringList names;
-        for (auto moduleConfig: eventConfig->modules)
-        {
-            names << moduleConfig->objectName();
-        }
+        m_histo->setObjectName(ui->le_name->text());
+        histoConfig->setObjectName(ui->le_name->text());
+        histoConfig->setXFilterId(m_xSource.first->getId());
+        histoConfig->setXFilterAddress(m_xSource.second);
+        histoConfig->setXBits(xBits);
 
-        ui->moduleX->addItems(names);
+        histoConfig->setYFilterId(m_ySource.first->getId());
+        histoConfig->setYFilterAddress(m_ySource.second);
+        histoConfig->setYBits(yBits);
     }
 
-    ui->eventX->setCurrentIndex(index);
-    ui->eventY->setCurrentIndex(index);
+    return qMakePair(m_histo, histoConfig);
 }
-void Hist2DDialog::onModuleXChanged(int index)
+
+void Hist2DDialog::on_pb_xSource_clicked()
 {
-#if 0
-    ui->moduleX->setCurrentIndex(index);
-    ui->channelX->clear();
-
-    auto moduleConfig = m_context->getConfig()->getModuleConfig(ui->eventX->currentIndex(), index);
-
-    if (moduleConfig)
+    int eventIndex = -1;
+    if (m_ySource.first)
     {
-        int nChannels = moduleConfig->getNumberOfChannels();
-
-        for (int c=0; c<nChannels; ++c)
-        {
-            ui->channelX->addItem(QString::number(c));
-        }
+        eventIndex = m_context->getAnalysisConfig()->getEventAndModuleIndices(m_ySource.first).first;
     }
-#endif
-}
-void Hist2DDialog::onChannelXChanged(int index)
-{
-}
 
-void Hist2DDialog::onEventYChanged(int index)
-{
-    ui->moduleY->clear();
-    auto eventConfig = m_context->getEventConfigs().at(index);
-    if (eventConfig)
+    SelectAxisSourceDialog dialog(m_context, eventIndex, this);
+
+    if (dialog.exec() == QDialog::Accepted)
     {
-        QStringList names;
-        for (auto moduleConfig: eventConfig->modules)
-        {
-            names << moduleConfig->objectName();
-        }
-
-        ui->moduleY->addItems(names);
+        m_xSource = dialog.getAxisSource();
+        updateAndValidate();
     }
-
-    ui->eventX->setCurrentIndex(index);
-    ui->eventY->setCurrentIndex(index);
 }
-void Hist2DDialog::onModuleYChanged(int index)
+
+void Hist2DDialog::on_pb_ySource_clicked()
 {
-#if 0
-    ui->moduleY->setCurrentIndex(index);
-    ui->channelY->clear();
+    int eventIndex = -1;
 
-    auto moduleConfig = m_context->getConfig()->getModuleConfig(ui->eventY->currentIndex(), index);
-
-    if (moduleConfig)
+    if (m_xSource.first)
     {
-        int nChannels = moduleConfig->getNumberOfChannels();
-
-        for (int c=0; c<nChannels; ++c)
-        {
-            ui->channelY->addItem(QString::number(c));
-        }
+        eventIndex = m_context->getAnalysisConfig()->getEventAndModuleIndices(m_xSource.first).first;
     }
-#endif
+
+    SelectAxisSourceDialog dialog(m_context, eventIndex, this);
+    if (dialog.exec() == QDialog::Accepted)
+    {
+        m_ySource = dialog.getAxisSource();
+        updateAndValidate();
+    }
 }
-void Hist2DDialog::onChannelYChanged(int index)
+
+void Hist2DDialog::on_pb_xClear_clicked()
 {
+    m_xSource = QPair<DataFilterConfig *, int>(nullptr, -1);
+    updateAndValidate();
+}
+
+void Hist2DDialog::on_pb_yClear_clicked()
+{
+    m_ySource = QPair<DataFilterConfig *, int>(nullptr, -1);
+    updateAndValidate();
+}
+
+void Hist2DDialog::updateAndValidate()
+{
+    ui->label_xSource->setText(QSL("<none selected>"));
+    ui->label_ySource->setText(QSL("<none selected>"));
+
+    if (m_xSource.first)
+    {
+        ui->label_xSource->setText(getFilterPath(m_context, m_xSource.first, m_xSource.second));
+    }
+
+    if (m_ySource.first)
+    {
+        ui->label_ySource->setText(getFilterPath(m_context, m_ySource.first, m_ySource.second));
+    }
+
+    bool valid = (m_xSource.first && m_ySource.first && ui->le_name->hasAcceptableInput());
+    ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(valid);
 }

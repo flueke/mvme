@@ -405,6 +405,17 @@ class Hist2DConfig: public ConfigObject
         u32 getXFilterAddress() const { return m_xAddress; }
         u32 getYFilterAddress() const { return m_yAddress; }
 
+        void setXFilterId(const QUuid &id);
+        void setYFilterId(const QUuid &id);
+        void setXFilterAddress(u32 address);
+        void setYFilterAddress(u32 address);
+
+        u32 getXBits() const { return m_xBits; }
+        u32 getYBits() const { return m_yBits; }
+
+        void setXBits(u32 bits);
+        void setYBits(u32 bits);
+
     protected:
         virtual void read_impl(const QJsonObject &json) override;
         virtual void write_impl(QJsonObject &json) const override;

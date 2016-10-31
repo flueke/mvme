@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>331</width>
-    <height>184</height>
+    <width>408</width>
+    <height>188</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -46,15 +46,41 @@
     </widget>
    </item>
    <item row="3" column="1">
-    <layout class="QHBoxLayout" name="horizontalLayout">
+    <layout class="QHBoxLayout" name="horizontalLayout" stretch="1,0,0">
      <item>
-      <widget class="QComboBox" name="eventX"/>
+      <widget class="QLabel" name="label_xSource">
+       <property name="minimumSize">
+        <size>
+         <width>185</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="text">
+        <string/>
+       </property>
+      </widget>
      </item>
      <item>
-      <widget class="QComboBox" name="moduleX"/>
+      <widget class="QPushButton" name="pb_xSource">
+       <property name="text">
+        <string>Select</string>
+       </property>
+       <property name="icon">
+        <iconset resource="resources.qrc">
+         <normaloff>:/tree-settings.png</normaloff>:/tree-settings.png</iconset>
+       </property>
+      </widget>
      </item>
      <item>
-      <widget class="QComboBox" name="channelX"/>
+      <widget class="QPushButton" name="pb_xClear">
+       <property name="toolTip">
+        <string>Clear selection</string>
+       </property>
+       <property name="icon">
+        <iconset resource="resources.qrc">
+         <normaloff>:/dialog-close.png</normaloff>:/dialog-close.png</iconset>
+       </property>
+      </widget>
      </item>
     </layout>
    </item>
@@ -66,15 +92,41 @@
     </widget>
    </item>
    <item row="4" column="1">
-    <layout class="QHBoxLayout" name="horizontalLayout_2">
+    <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="1,0,0">
      <item>
-      <widget class="QComboBox" name="eventY"/>
+      <widget class="QLabel" name="label_ySource">
+       <property name="minimumSize">
+        <size>
+         <width>185</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="text">
+        <string/>
+       </property>
+      </widget>
      </item>
      <item>
-      <widget class="QComboBox" name="moduleY"/>
+      <widget class="QPushButton" name="pb_ySource">
+       <property name="text">
+        <string>Select</string>
+       </property>
+       <property name="icon">
+        <iconset resource="resources.qrc">
+         <normaloff>:/tree-settings.png</normaloff>:/tree-settings.png</iconset>
+       </property>
+      </widget>
      </item>
      <item>
-      <widget class="QComboBox" name="channelY"/>
+      <widget class="QPushButton" name="pb_yClear">
+       <property name="toolTip">
+        <string>Clear selection</string>
+       </property>
+       <property name="icon">
+        <iconset resource="resources.qrc">
+         <normaloff>:/dialog-close.png</normaloff>:/dialog-close.png</iconset>
+       </property>
+      </widget>
      </item>
     </layout>
    </item>
@@ -96,7 +148,9 @@
    </item>
   </layout>
  </widget>
- <resources/>
+ <resources>
+  <include location="resources.qrc"/>
+ </resources>
  <connections>
   <connection>
    <sender>buttonBox</sender>

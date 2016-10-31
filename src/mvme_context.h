@@ -187,4 +187,6 @@ class MVMEContext: public QObject
         QTime m_replayTime;
 };
 
+QString getFilterPath(MVMEContext *context, DataFilterConfig *filterConfig, int filterAddress);
+
 #endif

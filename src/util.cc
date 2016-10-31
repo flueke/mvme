@@ -5,6 +5,8 @@
 #include <QFile>
 #include <QtDebug>
 #include <QTextStream>
+#include <QJsonDocument>
+#include <QMessageBox>
 
 void debugOutputBuffer(u32 *dataBuffer, u32 bufferCount)
 {
@@ -222,4 +224,30 @@ QString TemplateLoader::readTemplate(const QString &name)
     emit logMessage(QString("Reading template file %1").arg(name));
 
     return readStringFile(filePath);
+}
+
+QJsonDocument gui_read_json_file(const QString &fileName)
+{
+    QFile inFile(fileName);
+
+    if (!inFile.open(QIODevice::ReadOnly))
+    {
+        QMessageBox::critical(0, QSL("Error"), QString("Error reading from %1").arg(fileName));
+        return QJsonDocument();
+    }
+
+    auto data = inFile.readAll();
+
+    QJsonParseError parseError;
+    QJsonDocument doc(QJsonDocument::fromJson(data, &parseError));
+
+    if (parseError.error != QJsonParseError::NoError)
+    {
+        QMessageBox::critical(0, "Error", QString("Error reading from %1: %2 at offset %3")
+                              .arg(fileName)
+                              .arg(parseError.errorString())
+                              .arg(parseError.offset)
+                             );
+    }
+    return doc;
 }
