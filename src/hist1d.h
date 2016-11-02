@@ -5,6 +5,7 @@
 
 class QTimer;
 class QTextStream;
+class QwtPlotCurve;
 class QwtPlotHistogram;
 class QwtPlotTextLabel;
 class QwtText;
@@ -54,14 +55,19 @@ namespace Ui
     class Hist1DWidget;
 }
 
+class Hist1DConfig;
+class MVMEContext;
+
 class Hist1DWidget: public MVMEWidget
 {
     Q_OBJECT
     public:
-        Hist1DWidget(Hist1D *histo, QWidget *parent = 0);
+        Hist1DWidget(MVMEContext *context, Hist1D *histo, QWidget *parent = 0);
+        Hist1DWidget(MVMEContext *context, Hist1D *histo, Hist1DConfig *histoConfig, QWidget *parent = 0);
         ~Hist1DWidget();
 
         Hist1D *getHist1D() const { return m_histo; }
+        Hist1DConfig *getHist1DConfig() const { return m_histoConfig; }
 
     public slots:
         void replot();
@@ -80,10 +86,14 @@ class Hist1DWidget: public MVMEWidget
         bool yAxisIsLin();
 
         Ui::Hist1DWidget *ui;
+        MVMEContext *m_context;
         Hist1D *m_histo;
-        QwtPlotHistogram *m_plotItem;
+        Hist1DConfig *m_histoConfig;
+        //QwtPlotHistogram *m_plotHisto;
+        QwtPlotCurve *m_plotCurve;
         ScrollZoomer *m_zoomer;
         QTimer *m_replotTimer;
+        Hist1DStatistics m_stats;
         QwtPlotTextLabel *m_statsTextItem;
         QwtText *m_statsText;
 };

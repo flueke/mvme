@@ -77,10 +77,15 @@ SelectAxisSourceDialog::SelectAxisSourceDialog(MVMEContext *context, int selecte
                     filterNode->addChild(addressNode);
                 }
             }
+
+            moduleNode->setExpanded(true);
         }
+
+        eventNode->setExpanded(true);
     }
 
     connect(treeWidget, &QTreeWidget::currentItemChanged, this, &SelectAxisSourceDialog::onTreeCurrentItemChanged);
+    connect(treeWidget, &QTreeWidget::itemDoubleClicked, this, &SelectAxisSourceDialog::onItemDoubleClicked);
 
     auto buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
     m_buttonBox = buttonBox;
@@ -97,6 +102,14 @@ void SelectAxisSourceDialog::onTreeCurrentItemChanged(QTreeWidgetItem *current, 
 {
     bool isFilterAddressNode = (current->type() == NodeType_FilterAddress);
     m_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(isFilterAddressNode);
+}
+
+void SelectAxisSourceDialog::onItemDoubleClicked(QTreeWidgetItem *item, int column)
+{
+    bool isFilterAddressNode = (item->type() == NodeType_FilterAddress);
+
+    if (isFilterAddressNode)
+        accept();
 }
 
 void SelectAxisSourceDialog::accept()
@@ -213,13 +226,20 @@ QPair<Hist2D *, Hist2DConfig *> Hist2DDialog::getHistoAndConfig()
     {
         m_histo->setObjectName(ui->le_name->text());
         histoConfig->setObjectName(ui->le_name->text());
+
         histoConfig->setXFilterId(m_xSource.first->getId());
         histoConfig->setXFilterAddress(m_xSource.second);
         histoConfig->setXBits(xBits);
+        histoConfig->setProperty("xAxisTitle", QString("%1/%2")
+                                 .arg(m_xSource.first->objectName())
+                                 .arg(m_xSource.second));
 
         histoConfig->setYFilterId(m_ySource.first->getId());
         histoConfig->setYFilterAddress(m_ySource.second);
         histoConfig->setYBits(yBits);
+        histoConfig->setProperty("yAxisTitle", QString("%1/%2")
+                                 .arg(m_ySource.first->objectName())
+                                 .arg(m_ySource.second));
     }
 
     return qMakePair(m_histo, histoConfig);

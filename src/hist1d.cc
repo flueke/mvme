@@ -1,7 +1,10 @@
 #include "hist1d.h"
 #include "ui_hist1dwidget.h"
 #include "scrollzoomer.h"
+#include "mvme_config.h"
+#include "mvme_context.h"
 
+#include <qwt_plot_curve.h>
 #include <qwt_plot_histogram.h>
 #include <qwt_plot_magnifier.h>
 #include <qwt_plot_panner.h>
@@ -21,32 +24,6 @@
 #include <QStandardPaths>
 #include <QTextStream>
 #include <QTimer>
-
-class Hist1DSeriesData: public QwtSeriesData<QwtIntervalSample>
-{
-    public:
-        Hist1DSeriesData(Hist1D *histo)
-            : m_histo(histo)
-        {}
-
-        virtual size_t size() const override
-        {
-            return m_histo->getResolution();
-        }
-
-        virtual QwtIntervalSample sample(size_t i) const override
-        {
-            return QwtIntervalSample(m_histo->value(i), i, i+1);
-        }
-
-        virtual QRectF boundingRect() const override
-        {
-            return QRectF(0, 0, m_histo->getResolution(), m_histo->getMaxValue());
-        }
-
-    private:
-        Hist1D *m_histo;
-};
 
 //
 // Hist1D
@@ -164,6 +141,57 @@ QTextStream &writeHistogram(QTextStream &out, Hist1D *histo)
 //
 // Hist1DWidget
 //
+class Hist1DIntervalData: public QwtSeriesData<QwtIntervalSample>
+{
+    public:
+        Hist1DIntervalData(Hist1D *histo)
+            : m_histo(histo)
+        {}
+
+        virtual size_t size() const override
+        {
+            return m_histo->getResolution();
+        }
+
+        virtual QwtIntervalSample sample(size_t i) const override
+        {
+            return QwtIntervalSample(m_histo->value(i), i, i+1);
+        }
+
+        virtual QRectF boundingRect() const override
+        {
+            return QRectF(0, 0, m_histo->getResolution(), m_histo->getMaxValue());
+        }
+
+    private:
+        Hist1D *m_histo;
+};
+
+class Hist1DPointData: public QwtSeriesData<QPointF>
+{
+    public:
+        Hist1DPointData(Hist1D *histo)
+            : m_histo(histo)
+        {}
+
+        virtual size_t size() const override
+        {
+            return m_histo->getResolution();
+        }
+
+        virtual QPointF sample(size_t i) const override
+        {
+            return QPointF(i, m_histo->value(i));
+        }
+
+        virtual QRectF boundingRect() const override
+        {
+            return QRectF(0, 0, m_histo->getResolution(), m_histo->getMaxValue());
+        }
+
+    private:
+        Hist1D *m_histo;
+};
 
 // Bounds values to 0.1 to make QwtLogScaleEngine happy
 class MinBoundLogTransform: public QwtLogTransform
@@ -193,11 +221,18 @@ class MinBoundLogTransform: public QwtLogTransform
         }
 };
 
-Hist1DWidget::Hist1DWidget(Hist1D *histo, QWidget *parent)
+Hist1DWidget::Hist1DWidget(MVMEContext *context, Hist1D *histo, QWidget *parent)
+    : Hist1DWidget(context, histo, nullptr, parent)
+{}
+
+Hist1DWidget::Hist1DWidget(MVMEContext *context, Hist1D *histo, Hist1DConfig *histoConfig, QWidget *parent)
     : MVMEWidget(parent)
     , ui(new Ui::Hist1DWidget)
+    , m_context(context)
     , m_histo(histo)
-    , m_plotItem(new QwtPlotHistogram)
+    , m_histoConfig(histoConfig)
+    //, m_plotHisto(new QwtPlotHistogram)
+    , m_plotCurve(new QwtPlotCurve)
     , m_replotTimer(new QTimer(this))
 {
     ui->setupUi(this);
@@ -212,12 +247,16 @@ Hist1DWidget::Hist1DWidget(Hist1D *histo, QWidget *parent)
 
     connect(ui->linLogGroup, SIGNAL(buttonClicked(int)), this, SLOT(displayChanged()));
 
+    //m_plotHisto->setData(new Hist1DIntervalData(m_histo));
+    //m_plotHisto->attach(ui->plot);
 
-    m_plotItem->setData(new Hist1DSeriesData(m_histo));
-    m_plotItem->attach(ui->plot);
+    m_plotCurve->setData(new Hist1DPointData(m_histo));
+    m_plotCurve->setStyle(QwtPlotCurve::Steps);
+    m_plotCurve->setCurveAttribute(QwtPlotCurve::Inverted);
+    m_plotCurve->attach(ui->plot);
 
     ui->plot->axisWidget(QwtPlot::yLeft)->setTitle("Counts");
-    ui->plot->axisWidget(QwtPlot::xBottom)->setTitle("Channel X");
+    //ui->plot->axisWidget(QwtPlot::xBottom)->setTitle("Channel X");
 
     connect(m_replotTimer, SIGNAL(timeout()), this, SLOT(replot()));
     m_replotTimer->start(2000);
@@ -230,11 +269,6 @@ Hist1DWidget::Hist1DWidget(Hist1D *histo, QWidget *parent)
 
     connect(m_zoomer, &ScrollZoomer::zoomed, this, &Hist1DWidget::zoomerZoomed);
     connect(m_zoomer, &ScrollZoomer::mouseCursorMovedTo, this, &Hist1DWidget::mouseCursorMovedToPlotCoord);
-
-    /*
-    connect(m_zoomer, SIGNAL(zoomed(QRectF)),this, SLOT(zoomerZoomed(QRectF)));
-    connect(m_zoomer, SIGNAL(mouseCursorMovedTo(QPointF)), this, SLOT(mouseCursorMovedToPlotCoord(QPointF)));
-    */
 
 #if 0
     auto plotPanner = new QwtPlotPanner(ui->plot->canvas());
@@ -252,6 +286,11 @@ Hist1DWidget::Hist1DWidget(Hist1D *histo, QWidget *parent)
     m_statsTextItem = new QwtPlotTextLabel;
     m_statsTextItem->setText(*m_statsText);
     m_statsTextItem->attach(ui->plot);
+
+    if (m_histoConfig)
+    {
+        connect(m_histoConfig, &ConfigObject::modified, this, &Hist1DWidget::displayChanged);
+    }
 
     displayChanged();
 }
@@ -282,11 +321,20 @@ void Hist1DWidget::displayChanged()
         ui->plot->setAxisScaleEngine(QwtPlot::yLeft, scaleEngine);
     }
 
-    auto name = m_histo->objectName();
 
-    setWindowTitle(QString("Histogram %1")
-                   .arg(name)
-                  );
+    auto name = m_histoConfig ? m_histoConfig->objectName() : m_histo->objectName();
+    setWindowTitle(QString("Histogram %1").arg(name));
+
+    if (m_histoConfig)
+    {
+        auto axisTitle = m_histoConfig->property("xAxisTitle").toString();
+        if (!axisTitle.isNull())
+            ui->plot->axisWidget(QwtPlot::xBottom)->setTitle(axisTitle);
+
+        auto title = QSL("Histogram ") + getHistoPath(m_context, m_histoConfig);
+
+        setWindowTitle(title);
+    }
 
     replot();
 }
@@ -295,19 +343,24 @@ void Hist1DWidget::zoomerZoomed(const QRectF &zoomRect)
 {
     if (m_zoomer->zoomRectIndex() == 0)
     {
-        if (yAxisIsLog())
-        {
-            updateYAxisScale();
-        }
-        else
-        {
-            ui->plot->setAxisAutoScale(QwtPlot::yLeft, true);
-        }
+        // TODO: I think the if-else here is not needed as replot() is called
+        // below and that in turn will call updateYAxisScale() which does set a
+        // fixed y-axis scale no matter what.
+        //if (yAxisIsLog())
+        //{
+        //    updateYAxisScale();
+        //}
+        //else
+        //{
+        //    ui->plot->setAxisAutoScale(QwtPlot::yLeft, true);
+        //}
 
         ui->plot->setAxisScale( QwtPlot::xBottom, 0, m_histo->getResolution());
         ui->plot->replot();
         m_zoomer->setZoomBase();
     }
+
+    replot();
 }
 
 void Hist1DWidget::mouseCursorMovedToPlotCoord(QPointF)
@@ -319,15 +372,15 @@ void Hist1DWidget::updateStatistics()
     auto lowerBound = qFloor(ui->plot->axisScaleDiv(QwtPlot::xBottom).lowerBound());
     auto upperBound = qCeil(ui->plot->axisScaleDiv(QwtPlot::xBottom).upperBound());
 
-    auto stats = m_histo->calcStatistics(lowerBound, upperBound);
+    m_stats = m_histo->calcStatistics(lowerBound, upperBound);
 
     QString buffer;
     buffer.sprintf("\nMean: %2.2f\nSigma: %2.2f\nCounts: %u\nMaximum: %u\nat Channel: %u\n",
-                   stats.mean,
-                   stats.sigma,
-                   stats.entryCount,
-                   stats.maxValue,
-                   stats.maxChannel
+                   m_stats.mean,
+                   m_stats.sigma,
+                   m_stats.entryCount,
+                   m_stats.maxValue,
+                   m_stats.maxChannel
                   );
     m_statsText->setText(buffer);
     m_statsTextItem->setText(*m_statsText);
@@ -336,7 +389,7 @@ void Hist1DWidget::updateStatistics()
 void Hist1DWidget::updateYAxisScale()
 {
     // update the y axis using the currently visible max value
-    double maxValue = 1.2 * m_histo->getMaxValue();
+    double maxValue = 1.2 * m_stats.maxValue;
 
     if (maxValue <= 1.0)
         maxValue = 10.0;

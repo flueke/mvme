@@ -36,9 +36,9 @@ Data extraction uses the following placeholders:
   D = data extract mask
 
 The default filters contain the following flags:
-  p = pileup
-  o = overflow
-  u = underflow</string>
+  P = pileup
+  O = overflow
+  U = underflow</string>
         </property>
         <property name="textFormat">
          <enum>Qt::PlainText</enum>

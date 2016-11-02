@@ -629,6 +629,8 @@ void AnalysisConfig::setFilters(int eventIndex, int moduleIndex, const DataFilte
         filter->setParent(this);
         emit objectAdded(filter);
     }
+
+    setModified(true);
 }
 
 void AnalysisConfig::removeFilters(int eventIndex, int moduleIndex)
@@ -641,6 +643,8 @@ void AnalysisConfig::removeFilters(int eventIndex, int moduleIndex)
         filter->setParent(nullptr);
         filter->deleteLater();
     }
+
+    setModified(true);
 }
 
 void AnalysisConfig::addFilter(int eventIndex, int moduleIndex, DataFilterConfig *config)
@@ -648,6 +652,7 @@ void AnalysisConfig::addFilter(int eventIndex, int moduleIndex, DataFilterConfig
     m_filters[eventIndex][moduleIndex].push_back(config);
     config->setParent(this);
     emit objectAdded(config);
+    setModified(true);
 }
 
 void AnalysisConfig::removeFilter(int eventIndex, int moduleIndex, DataFilterConfig *config)
@@ -657,6 +662,7 @@ void AnalysisConfig::removeFilter(int eventIndex, int moduleIndex, DataFilterCon
         emit objectAboutToBeRemoved(config);
         config->setParent(nullptr);
         config->deleteLater();
+        setModified(true);
     }
 }
 
@@ -679,6 +685,7 @@ void AnalysisConfig::addHist1DConfig(Hist1DConfig *config)
     m_1dHistograms.push_back(config);
     config->setParent(this);
     emit objectAdded(config);
+    setModified(true);
 }
 
 void AnalysisConfig::addHist2DConfig(Hist2DConfig *config)
@@ -686,6 +693,7 @@ void AnalysisConfig::addHist2DConfig(Hist2DConfig *config)
     m_2dHistograms.push_back(config);
     config->setParent(this);
     emit objectAdded(config);
+    setModified(true);
 }
 
 void AnalysisConfig::removeHist1DConfig(Hist1DConfig *config)
@@ -695,6 +703,7 @@ void AnalysisConfig::removeHist1DConfig(Hist1DConfig *config)
         emit objectAboutToBeRemoved(config);
         config->setParent(nullptr);
         config->deleteLater();
+        setModified(true);
     }
 }
 
@@ -705,6 +714,7 @@ void AnalysisConfig::removeHist2DConfig(Hist2DConfig *config)
         emit objectAboutToBeRemoved(config);
         config->setParent(nullptr);
         config->deleteLater();
+        setModified(true);
     }
 }
 
@@ -757,6 +767,8 @@ void AnalysisConfig::read_impl(const QJsonObject &json)
             m_2dHistograms.push_back(cfg);
         }
     }
+
+    setModified(false);
 }
 
 void AnalysisConfig::write_impl(QJsonObject &json) const

@@ -206,13 +206,13 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                         {
                             int dataBits  = xFilter->getFilter().getExtractBits('D');
                             int histoBits = hist2d->getXBits();
-                            shiftX = std::min(dataBits - histoBits, 0);
+                            shiftX = std::max(dataBits - histoBits, 0);
                         }
 
                         {
                             int dataBits  = yFilter->getFilter().getExtractBits('D');
                             int histoBits = hist2d->getYBits();
-                            shiftY = std::min(dataBits - histoBits, 0);
+                            shiftY = std::max(dataBits - histoBits, 0);
                         }
 
                         hist2d->fill(xValue >> shiftX, yValue >> shiftY);

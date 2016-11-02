@@ -6,6 +6,7 @@
     <file alias="vme_module.png">resources/audio-card.png</file>
     <file alias="dialog-close.png">resources/dialog-close.png</file>
     <file alias="dialog-ok-apply.png">resources/dialog-ok-apply.png</file>
+    <file alias="document-new.png">resources/document-new.png</file>
     <file alias="document-open.png">resources/document-open.png</file>
     <file alias="document-revert.png">resources/document-revert.png</file>
     <file alias="document-save.png">resources/document-save.png</file>

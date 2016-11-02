@@ -95,19 +95,19 @@ struct DataFilterDefinition
 static const QMap<VMEModuleType, QList<DataFilterDefinition>> defaultDataFilters =
 {
     { VMEModuleType::MDPP16, {
-                                 { "0001XXXXpo00AAAADDDDDDDDDDDDDDDD", "Amplitude" },
+                                 { "0001XXXXPO00AAAADDDDDDDDDDDDDDDD", "Amplitude" },
                                  { "0001XXXXXX01AAAADDDDDDDDDDDDDDDD", "Time" },
                                  { "0001XXXXXX10000ADDDDDDDDDDDDDDDD", "Trigger time" },
                              }
     },
 
     { VMEModuleType::MADC32, {
-                                 { "00XXX1XX000AAAAA0o0DDDDDDDDDDDDD", "Amplitude" },
+                                 { "00XXX1XX000AAAAA0O0DDDDDDDDDDDDD", "Amplitude" },
                              }
     },
 
     { VMEModuleType::MQDC32, {
-                                 { "00XXX1XX000AAAAA0o00DDDDDDDDDDDD", "Amplitude" },
+                                 { "00XXX1XX000AAAAA0O00DDDDDDDDDDDD", "Amplitude" },
                              }
     },
 

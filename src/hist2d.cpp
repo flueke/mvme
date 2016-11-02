@@ -181,56 +181,21 @@ void Hist2DWidget::replot()
 {
     QString xTitle;
     QString yTitle;
-    // x
+
+    auto config = qobject_cast<Hist2DConfig *>(m_context->getMappedObject(m_hist2d, QSL("ObjectToConfig")));
+
+    if (config)
     {
-        QString sourcePath = m_hist2d->property("Hist2D.xAxisSource").toString();
-        bool ok;
-        int eventIndex   = sourcePath.section('.', 0, 0).toInt(&ok);
-        int moduleIndex  = sourcePath.section('.', 1, 1).toInt(&ok);
-        int addressValue = sourcePath.section('.', 2, 2).toInt(&ok);
-        auto module = m_context->getConfig()->getModuleConfig(eventIndex, moduleIndex);
+        xTitle = config->property("xAxisTitle").toString();
+        ui->plot->axisWidget(QwtPlot::xBottom)->setTitle(xTitle);
+        yTitle = config->property("yAxisTitle").toString();
+        ui->plot->axisWidget(QwtPlot::yLeft)->setTitle(yTitle);
 
-        if (module)
-        {
-            xTitle = QString("%1.%2")
-                     .arg(module->getObjectPath())
-                     .arg(addressValue);
-        }
-        else
-        {
-            xTitle = QString::number(addressValue);
-        }
-        auto axis = ui->plot->axisWidget(QwtPlot::xBottom);
-        axis->setTitle(xTitle);
+        setWindowTitle(QString("%1 - %2 | %3")
+                       .arg(config->objectName())
+                       .arg(xTitle)
+                       .arg(yTitle));
     }
-
-    // y
-    {
-        QString sourcePath = m_hist2d->property("Hist2D.yAxisSource").toString();
-        bool ok;
-        int eventIndex   = sourcePath.section('.', 0, 0).toInt(&ok);
-        int moduleIndex  = sourcePath.section('.', 1, 1).toInt(&ok);
-        int addressValue = sourcePath.section('.', 2, 2).toInt(&ok);
-        auto module = m_context->getConfig()->getModuleConfig(eventIndex, moduleIndex);
-
-        if (module)
-        {
-            yTitle = QString("%1.%2")
-                     .arg(module->getObjectPath())
-                     .arg(addressValue);
-        }
-        else
-        {
-            yTitle = QString::number(addressValue);
-        }
-        auto axis = ui->plot->axisWidget(QwtPlot::yLeft);
-        axis->setTitle(yTitle);
-    }
-
-    setWindowTitle(QString("%1 - %2 | %3")
-                   .arg(m_hist2d->objectName())
-                   .arg(xTitle)
-                   .arg(yTitle));
 
     // z
     auto histData = reinterpret_cast<Hist2DRasterData *>(m_plotItem->data());

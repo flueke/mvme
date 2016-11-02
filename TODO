@@ -1,10 +1,8 @@
 ==========================
 ==== Do these first! =====
 ==========================
-* fix the histo widgets! (window and axis titles!)
-* hist1d: go back to QwtPlotCurve
-* Generate Hist1D and Hist2D on config load!
-* implement void HistogramTreeWidget::saveConfig()
+* histo axis titles!
+* Hist1D crash at daq start after load/saving/removing
 
 
 

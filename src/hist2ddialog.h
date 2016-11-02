@@ -51,6 +51,7 @@ public:
 
 private:
         void onTreeCurrentItemChanged(QTreeWidgetItem *current, QTreeWidgetItem *previous);
+        void onItemDoubleClicked(QTreeWidgetItem *item, int column);
 
         QTreeWidget *m_tree;
         QDialogButtonBox *m_buttonBox;

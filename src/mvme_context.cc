@@ -172,9 +172,9 @@ void MVMEContext::setAnalysisConfig(AnalysisConfig *config)
     {
         auto histo = createHistogram(histoConfig);
         histo->setParent(this);
+        addObject(histo);
         addObjectMapping(histoConfig, histo, QSL("ConfigToObject"));
         addObjectMapping(histo, histoConfig, QSL("ObjectToConfig"));
-        addObject(histo);
     }
 
     connect(m_analysisConfig, &AnalysisConfig::objectAdded, this, &MVMEContext::addObject);
@@ -403,7 +403,7 @@ GlobalMode MVMEContext::getMode() const
 
 void MVMEContext::addObject(QObject *object)
 {
-    //qDebug() << __PRETTY_FUNCTION__ << object;
+    qDebug() << __PRETTY_FUNCTION__ << object;
     m_objects.insert(object);
     emit objectAdded(object);
 }
@@ -733,6 +733,14 @@ QString getFilterPath(MVMEContext *context, DataFilterConfig *filterConfig, int 
         }
     }
     return QString();
+}
+
+QString getHistoPath(MVMEContext *context, Hist1DConfig *histoConfig)
+{
+    auto filterId = histoConfig->getFilterId();
+    auto filterAddress = histoConfig->getFilterAddress();
+    auto filterConfig = context->getAnalysisConfig()->findChildById<DataFilterConfig *>(filterId);
+    return getFilterPath(context, filterConfig, filterAddress);
 }
 
 Hist1D *createHistogram(Hist1DConfig *config)

@@ -142,7 +142,7 @@ mvme::mvme(QWidget *parent) :
     m_histogramTreeWidget = new HistogramTreeWidget(m_context);
 
     {
-        auto dock = new QDockWidget(QSL("Histograms"), this);
+        auto dock = new QDockWidget(QSL("Analysis Config"), this);
         dock_histoTree = dock;
         dock->setObjectName("HistogramTreeWidgetDock");
         dock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
@@ -451,12 +451,6 @@ void mvme::on_actionNewConfig_triggered()
     m_context->setDAQConfig(new DAQConfig);
     m_context->setConfigFileName(QString());
     m_context->setMode(GlobalMode::DAQ);
-
-    for (auto obj: m_context->getObjects<HistogramCollection *>())
-        m_context->removeObject(obj);
-
-    for (auto obj: m_context->getObjects<Hist2D *>())
-        m_context->removeObject(obj);
 }
 
 void mvme::on_actionLoadConfig_triggered()
@@ -672,7 +666,8 @@ void mvme::openInNewWindow(QObject *object)
     }
     else if (histo1d)
     {
-        widget = new Hist1DWidget(histo1d);
+        auto histoConfig = qobject_cast<Hist1DConfig *>(m_context->getMappedObject(histo1d, QSL("ObjectToConfig")));
+        widget = new Hist1DWidget(m_context, histo1d, histoConfig);
     }
     else if (histo2d)
     {

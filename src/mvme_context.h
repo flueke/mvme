@@ -185,6 +185,7 @@ class MVMEContext: public QObject
 };
 
 QString getFilterPath(MVMEContext *context, DataFilterConfig *filterConfig, int filterAddress);
+QString getHistoPath(MVMEContext *context, Hist1DConfig *histoConfig);
 
 class Hist1D;
 class Hist2D;

@@ -10,7 +10,6 @@
 
 #include <QHBoxLayout>
 #include <QMenu>
-#include <QPushButton>
 #include <QStyledItemDelegate>
 #include <QTreeWidget>
 #include <QTimer>
@@ -20,6 +19,9 @@
 #include <QFileDialog>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QMessageBox>
+#include <QToolButton>
+#include <QLabel>
 
 //
 // Utility functions for filter and histogram creation.
@@ -164,26 +166,45 @@ HistogramTreeWidget::HistogramTreeWidget(MVMEContext *context, QWidget *parent)
     m_node2D->setExpanded(true);
 
     // buttons
-    pb_load = new QPushButton(QIcon(":/document-open.png"), QSL(""));
-    pb_save = new QPushButton(QIcon(":/document-save.png"), QSL(""));
-    pb_saveAs = new QPushButton(QIcon(":/document-save-as.png"), QSL(""));
+    auto makeToolButton = [](const QString &icon, const QString &text)
+    {
+        auto result = new QToolButton;
+        result->setIcon(QIcon(icon));
+        result->setText(text);
+        result->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+        auto font = result->font();
+        font.setPointSize(8);
+        result->setFont(font);
+        return result;
+    };
 
-    connect(pb_load, &QPushButton::clicked, this, &HistogramTreeWidget::loadConfig);
-    connect(pb_save, &QPushButton::clicked, this, &HistogramTreeWidget::saveConfig);
-    connect(pb_saveAs, &QPushButton::clicked, this, &HistogramTreeWidget::saveConfigAs);
+    pb_new = makeToolButton(QSL(":/document-new.png"), QSL("New"));
+    pb_load = makeToolButton(QSL(":/document-open.png"), QSL("Open"));
+    pb_save = makeToolButton(QSL(":/document-save.png"), QSL("Save"));
+    pb_saveAs = makeToolButton(QSL(":/document-save-as.png"), QSL("Save As"));
+
+    connect(pb_new, &QAbstractButton::clicked, this, &HistogramTreeWidget::newConfig);
+    connect(pb_load, &QAbstractButton::clicked, this, &HistogramTreeWidget::loadConfig);
+    connect(pb_save, &QAbstractButton::clicked, this, &HistogramTreeWidget::saveConfig);
+    connect(pb_saveAs, &QAbstractButton::clicked, this, &HistogramTreeWidget::saveConfigAs);
 
     auto buttonLayout = new QHBoxLayout;
     buttonLayout->setContentsMargins(0, 0, 0, 0);
     buttonLayout->setSpacing(2);
+    buttonLayout->addWidget(pb_new);
     buttonLayout->addWidget(pb_load);
     buttonLayout->addWidget(pb_save);
     buttonLayout->addWidget(pb_saveAs);
     buttonLayout->addStretch(1);
 
+    // filename label
+    label_fileName = new QLabel;
+
     // widget layout
     auto layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->addLayout(buttonLayout);
+    layout->addWidget(label_fileName);
     layout->addWidget(m_tree);
 
     connect(m_tree, &QTreeWidget::itemClicked, this, &HistogramTreeWidget::onItemClicked);
@@ -197,6 +218,9 @@ HistogramTreeWidget::HistogramTreeWidget(MVMEContext *context, QWidget *parent)
 
     connect(m_context, &MVMEContext::daqConfigChanged, this, &HistogramTreeWidget::onAnyConfigChanged);
     connect(m_context, &MVMEContext::analysisConfigChanged, this, &HistogramTreeWidget::onAnyConfigChanged);
+    connect(m_context, &MVMEContext::analysisConfigFileNameChanged, this, [this](const QString &) {
+        updateConfigLabel();
+    });
 
     onAnyConfigChanged();
 
@@ -210,6 +234,9 @@ void HistogramTreeWidget::onObjectAdded(QObject *object)
 {
     qDebug() << __PRETTY_FUNCTION__ << object;
 
+    if (m_treeMap.contains(object))
+        return;
+
     if (auto eventConfig = qobject_cast<EventConfig *>(object))
     {
         connect(eventConfig, &EventConfig::moduleAdded, this, &HistogramTreeWidget::onObjectAdded);
@@ -217,7 +244,7 @@ void HistogramTreeWidget::onObjectAdded(QObject *object)
 
         for (auto moduleConfig: eventConfig->getModuleConfigs())
             onObjectAdded(moduleConfig);
-
+        m_tree->resizeColumnToContents(0);
     }
     else if (auto moduleConfig = qobject_cast<ModuleConfig *>(object))
     {
@@ -226,6 +253,12 @@ void HistogramTreeWidget::onObjectAdded(QObject *object)
         moduleNode->setIcon(0, QIcon(":/vme_module.png"));
         addToTreeMap(moduleConfig, moduleNode);
         m_node1D->addChild(moduleNode);
+
+        auto idxPair = m_context->getDAQConfig()->getEventAndModuleIndices(moduleConfig);
+
+        for (auto filterConfig: m_context->getAnalysisConfig()->getFilters(idxPair.first, idxPair.second))
+            onObjectAdded(filterConfig);
+        m_tree->resizeColumnToContents(0);
     }
     else if (auto filterConfig = qobject_cast<DataFilterConfig *>(object))
     {
@@ -235,7 +268,14 @@ void HistogramTreeWidget::onObjectAdded(QObject *object)
             qDebug() << __PRETTY_FUNCTION__ << "!!! invalid analysisconfig indices for filterConfig" << filterConfig;
             return;
         }
+
         auto moduleConfig = m_context->getDAQConfig()->getModuleConfig(idxPair.first, idxPair.second);
+
+        if (!moduleConfig)
+        {
+            return;
+        }
+
         auto moduleNode = m_treeMap.value(moduleConfig);
 
         if (moduleNode)
@@ -253,27 +293,45 @@ void HistogramTreeWidget::onObjectAdded(QObject *object)
                 filterNode->addChild(pair.first);
                 addToTreeMap(pair.second, pair.first);
             }
+            m_tree->resizeColumnToContents(0);
         }
         else
         {
             qDebug() << __PRETTY_FUNCTION__ << "!!! no module node found for filter config" << filterConfig << "and module config" << moduleConfig;
         }
     }
-    else if (auto histoConfig = qobject_cast<Hist2D *>(object))
+    else if (auto histo = qobject_cast<Hist2D *>(object))
     {
-        auto node = makeNode(object, NodeType_Hist2D);
-        node->setText(0, object->objectName());
-        m_treeMap[object] = node;
-        m_node2D->addChild(node);
-        m_tree->resizeColumnToContents(0);
+        auto histoConfig = qobject_cast<Hist2DConfig *>(m_context->getMappedObject(histo, QSL("ObjectToConfig")));
+
+        if (histoConfig)
+        {
+            auto node = makeNode(object, NodeType_Hist2D);
+            node->setText(0, histoConfig->objectName());
+            m_node2D->addChild(node);
+            addToTreeMap(object, node);
+            m_tree->resizeColumnToContents(0);
+        }
     }
 }
 
 void HistogramTreeWidget::onObjectAboutToBeRemoved(QObject *object)
 {
     qDebug() << __PRETTY_FUNCTION__ << object;
-    auto node = m_treeMap.value(object, nullptr);
-    removeFromTreeMap(object);
+    if (auto node = m_treeMap.value(object, nullptr))
+        removeNode(node);
+}
+
+void HistogramTreeWidget::removeNode(QTreeWidgetItem *node)
+{
+    auto obj = Var2Ptr<QObject>(node->data(0, DataRole_Pointer));
+    removeFromTreeMap(obj);
+
+    for (auto childNode: node->takeChildren())
+    {
+        removeNode(childNode);
+    }
+
     delete node;
 }
 
@@ -281,15 +339,15 @@ void HistogramTreeWidget::onAnyConfigChanged()
 {
     qDebug() << __PRETTY_FUNCTION__ << "begin";
 
+    qDeleteAll(m_node1D->takeChildren());
+    qDeleteAll(m_node2D->takeChildren());
+    m_treeMap.clear();
+
     bool daqChanged = m_daqConfig != m_context->getDAQConfig();
     bool analysisChanged = m_analysisConfig != m_context->getAnalysisConfig();
 
     m_daqConfig = m_context->getDAQConfig();
     m_analysisConfig = m_context->getAnalysisConfig();
-
-    qDeleteAll(m_node1D->takeChildren());
-    qDeleteAll(m_node2D->takeChildren());
-    m_treeMap.clear();
 
     if (m_daqConfig)
     {
@@ -312,10 +370,20 @@ void HistogramTreeWidget::onAnyConfigChanged()
            }
        }
 
-       //connect(m_analysisConfig, &AnalysisConfig::objectAdded, this, &HistogramTreeWidget::onObjectAdded);
-       //connect(m_analysisConfig
+       for (auto hist2d: m_context->getObjects<Hist2D *>())
+       {
+           onObjectAdded(hist2d);
+       }
+
+       if (analysisChanged)
+       {
+           connect(m_analysisConfig, &ConfigObject::modifiedChanged, this, [this](bool) {
+               updateConfigLabel();
+           });
+       }
+
+       updateConfigLabel();
     }
-       // TODO: where and when does histogram generation happen?
     qDebug() << __PRETTY_FUNCTION__ << "end";
 }
 
@@ -337,6 +405,7 @@ void HistogramTreeWidget::onItemDoubleClicked(QTreeWidgetItem *node, int column)
     switch (node->type())
     {
         case NodeType_Hist1D:
+        case NodeType_Hist2D:
             {
                 emit objectDoubleClicked(obj);
             } break;
@@ -421,18 +490,17 @@ void HistogramTreeWidget::treeContextMenu(const QPoint &pos)
 
     if (node && node->type() == NodeType_Hist1D)
     {
+        menu.addAction(QSL("Open in new window"), this, [obj, this]() { emit openInNewWindow(obj); });
         menu.addAction(QSL("Clear"), this, &HistogramTreeWidget::clearHistogram);
     }
 
-#if 0
-    if (node->type() == NodeType_HistoCollection
-        || node->type() == NodeType_Histo2D)
+    if (node && node->type() == NodeType_Hist2D)
     {
         menu.addAction(QSL("Open in new window"), this, [obj, this]() { emit openInNewWindow(obj); });
         menu.addAction(QSL("Clear"), this, &HistogramTreeWidget::clearHistogram);
-
+        menu.addSeparator();
+        menu.addAction(QSL("Remove Histogram"), this, &HistogramTreeWidget::removeHistogram);
     }
-#endif
 
     if (node == m_node2D && m_context->getConfig()->getAllModuleConfigs().size())
     {
@@ -468,11 +536,27 @@ void HistogramTreeWidget::add2DHistogram()
         auto histo = histoAndConfig.first;
         auto histoConfig = histoAndConfig.second;
         histo->setProperty("configId", histoConfig->getId());
-        m_context->addObject(histo);
         m_context->addObjectMapping(histo, histoConfig, QSL("ObjectToConfig"));
         m_context->addObjectMapping(histoConfig, histo, QSL("ConfigToObject"));
+        m_context->addObject(histo);
         m_context->getAnalysisConfig()->addHist2DConfig(histoConfig);
         emit openInNewWindow(histo);
+    }
+}
+
+void HistogramTreeWidget::removeHistogram()
+{
+    auto node = m_tree->currentItem();
+    auto var  = node->data(0, DataRole_Pointer);
+
+    if (auto histo = Var2QObject<Hist2D>(var))
+    {
+        auto histoConfig = qobject_cast<Hist2DConfig *>(m_context->getMappedObject(histo, QSL("ObjectToConfig")));
+
+        m_context->removeObject(histo);
+        m_context->removeObjectMapping(histo, QSL("ObjectToConfig"));
+        m_context->removeObjectMapping(histoConfig, QSL("ConfigToObject"));
+        m_analysisConfig->removeHist2DConfig(histoConfig);
     }
 }
 
@@ -662,8 +746,52 @@ void HistogramTreeWidget::removeFromTreeMap(QObject *object)
 static const QString fileFilter = QSL("Config Files (*.json);; All Files (*.*)");
 static const QString settingsPath = QSL("Files/LastAnalysisConfig");
 
+void HistogramTreeWidget::newConfig()
+{
+    if (m_context->getAnalysisConfig()->isModified())
+    {
+        QMessageBox msgBox(QMessageBox::Question, QSL("Save analysis config?"),
+                           QSL("The current analysis configuration has modifications. Do you want to save it?"),
+                           QMessageBox::Save | QMessageBox::Cancel | QMessageBox::Discard);
+
+        int result = msgBox.exec();
+
+        if (result == QMessageBox::Save)
+        {
+            if (!saveConfig())
+                return;
+        }
+        else if (result == QMessageBox::Cancel)
+        {
+            return;
+        }
+    }
+
+    m_context->setAnalysisConfig(new AnalysisConfig);
+    m_context->setAnalysisConfigFileName(QString());
+}
+
 void HistogramTreeWidget::loadConfig()
 {
+    if (m_context->getAnalysisConfig()->isModified())
+    {
+        QMessageBox msgBox(QMessageBox::Question, QSL("Save analysis config?"),
+                           QSL("The current analysis configuration has modifications. Do you want to save it?"),
+                           QMessageBox::Save | QMessageBox::Cancel | QMessageBox::Discard);
+
+        int result = msgBox.exec();
+
+        if (result == QMessageBox::Save)
+        {
+            if (!saveConfig())
+                return;
+        }
+        else if (result == QMessageBox::Cancel)
+        {
+            return;
+        }
+    }
+
     QString path = QFileInfo(QSettings().value(settingsPath).toString()).absolutePath();
 
     if (path.isEmpty())
@@ -682,28 +810,33 @@ void HistogramTreeWidget::loadConfig()
     auto config = new AnalysisConfig;
     config->read(doc.object()[QSL("AnalysisConfig")].toObject());
     m_context->setAnalysisConfig(config);
+    m_context->setAnalysisConfigFileName(fileName);
 
     QSettings().setValue(settingsPath, fileName);
 
 }
 
-void HistogramTreeWidget::saveConfig()
+bool HistogramTreeWidget::saveConfig()
 {
     QString fileName = m_context->getAnalysisConfigFileName();
 
     if (fileName.isEmpty())
     {
-        saveConfigAs();
-        return;
+        return saveConfigAs();
     }
 
     QJsonObject json, configJson;
     m_context->getAnalysisConfig()->write(configJson);
     json[QSL("AnalysisConfig")] = configJson;
-    gui_write_json_file(fileName, QJsonDocument(json));
+    if (gui_write_json_file(fileName, QJsonDocument(json)))
+    {
+        m_context->getAnalysisConfig()->setModified(false);
+        return true;
+    }
+    return false;
 }
 
-void HistogramTreeWidget::saveConfigAs()
+bool HistogramTreeWidget::saveConfigAs()
 {
     QString path = QFileInfo(QSettings().value(settingsPath).toString()).absolutePath();
 
@@ -715,7 +848,7 @@ void HistogramTreeWidget::saveConfigAs()
     QString fileName = QFileDialog::getSaveFileName(this, QSL("Save analysis config"), path, fileFilter);
 
     if (fileName.isEmpty())
-        return;
+        return false;
 
     QFileInfo fi(fileName);
     if (fi.completeSuffix().isEmpty())
@@ -729,5 +862,22 @@ void HistogramTreeWidget::saveConfigAs()
     {
         QSettings().setValue(settingsPath, fileName);
         m_context->setAnalysisConfigFileName(fileName);
+        m_context->getAnalysisConfig()->setModified(false);
+        return true;
     }
+    return false;
+}
+
+void HistogramTreeWidget::updateConfigLabel()
+{
+    QString fileName = m_context->getAnalysisConfigFileName();
+
+    if (m_context->getAnalysisConfig()->isModified())
+        fileName += QSL(" *");
+
+    QFontMetrics fm(label_fileName->font());
+    auto text = fm.elidedText(fileName, Qt::ElideMiddle, label_fileName->width());
+
+
+    label_fileName->setText(text);
 }

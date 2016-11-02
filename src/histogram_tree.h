@@ -4,9 +4,10 @@
 #include <QWidget>
 #include <QMap>
 
+class QLabel;
 class QTreeWidget;
 class QTreeWidgetItem;
-class QPushButton;
+class QToolButton;
 
 class MVMEContext;
 class TreeNode;
@@ -47,12 +48,15 @@ class HistogramTreeWidget: public QWidget
         void clearHistograms();
         void removeHist1D(QTreeWidgetItem *node);
 
+        void removeNode(QTreeWidgetItem *node);
         void addToTreeMap(QObject *object, TreeNode *node);
         void removeFromTreeMap(QObject *object);
 
+        void newConfig();
         void loadConfig();
-        void saveConfig();
-        void saveConfigAs();
+        bool saveConfig();
+        bool saveConfigAs();
+        void updateConfigLabel();
 
         MVMEContext *m_context = nullptr;
         DAQConfig *m_daqConfig = nullptr;
@@ -61,7 +65,8 @@ class HistogramTreeWidget: public QWidget
         QMap<QObject *, TreeNode *> m_treeMap;
         TreeNode *m_node1D, *m_node2D;
 
-        QPushButton *pb_load, *pb_save, *pb_saveAs;
+        QToolButton *pb_new, *pb_load, *pb_save, *pb_saveAs;
+        QLabel *label_fileName;
 };
 
 #endif /* __HISTOGRAM_TREE_H__ */
