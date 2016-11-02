@@ -10,8 +10,8 @@ DEFINES += VME_CONTROLLER_WIENER
 #DEFINES += VME_CONTROLLER_CAEN
 
 # ASAN
-QMAKE_CXXFLAGS += -fsanitize=address
-LIBS += -lasan
+# QMAKE_CXXFLAGS += -fsanitize=address
+# LIBS += -lasan
 
 include(src.pri)
 
