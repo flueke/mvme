@@ -5,13 +5,10 @@
 
 DataFilter::DataFilter(const QByteArray &filter)
     : m_filter(filter)
-    , m_variables(256, 'X')
 {
     if (filter.size() > 32)
         throw std::length_error("maximum filter size of 32 exceeded");
 
-    m_variables['0'] = '0';
-    m_variables['1'] = '1';
     compile();
 }
 
@@ -24,20 +21,13 @@ void DataFilter::compile()
     for (int i=0; i<m_filter.size(); ++i)
     {
         char c = m_filter[m_filter.size() - i - 1];
-        char var = getVariable(c);
 
-        if (var == '0' || var == '1' || var == 0 || var == 1)
+        if (c == '0' || c == '1' || c == 0 || c == 1)
             m_matchMask |= 1 << i;
 
-        if (var == '1' || var == 1)
+        if (c == '1' || c == 1)
             m_matchValue |= 1 << i;
     }
-}
-
-void DataFilter::setVariable(char var, char value)
-{
-    m_variables[var] = value;
-    compile();
 }
 
 u32 DataFilter::getExtractMask(char marker) const
@@ -55,9 +45,7 @@ u32 DataFilter::getExtractMask(char marker) const
             char c = m_filter[m_filter.size() - i - 1];
 
             if (c == marker)
-            {
                 result |= 1 << i;
-            }
         }
         m_extractCache[marker] = result;
     }
@@ -84,8 +72,7 @@ u32 DataFilter::extractData(u32 value, char marker) const
 
 bool DataFilter::operator==(const DataFilter &other) const
 {
-    return (m_filter == other.m_filter
-            && m_variables == other.m_variables);
+    return (m_filter == other.m_filter);
 }
 
 QString DataFilter::toString() const

@@ -37,6 +37,7 @@ class MVMEContext: public QObject
         void daqConfigFileNameChanged(const QString &fileName);
 
         void analysisConfigChanged(AnalysisConfig *config);
+        void analysisConfigFileNameChanged(const QString &name);
 
         void objectAdded(QObject *object);
         void objectAboutToBeRemoved(QObject *object);
@@ -111,16 +112,11 @@ class MVMEContext: public QObject
         QObject *removeObjectMapping(QObject *key, const QString &category = QString());
         QObject *getMappedObject(QObject *key, const QString &category = QString()) const;
 
-        void setConfigFileName(const QString &name)
-        {
-            m_configFileName = name;
-            emit daqConfigFileNameChanged(name);
-        }
+        void setConfigFileName(const QString &name);
+        QString getConfigFileName() const { return m_configFileName; }
 
-        QString getConfigFileName() const
-        {
-            return m_configFileName;
-        }
+        void setAnalysisConfigFileName(const QString &name);
+        QString getAnalysisConfigFileName() const { return m_analysisConfigFileName; }
 
         AnalysisConfig *getAnalysisConfig() const { return m_analysisConfig; }
         void setAnalysisConfig(AnalysisConfig *config);
@@ -176,6 +172,7 @@ class MVMEContext: public QObject
 
         DataBufferQueue m_freeBuffers;
         QString m_configFileName;
+        QString m_analysisConfigFileName;
         QSet<QObject *> m_objects;
         QMap<QString, QMap<QObject *, QObject *>> m_objectMappings;
         mvme *m_mainwin;
@@ -188,5 +185,11 @@ class MVMEContext: public QObject
 };
 
 QString getFilterPath(MVMEContext *context, DataFilterConfig *filterConfig, int filterAddress);
+
+class Hist1D;
+class Hist2D;
+
+Hist1D *createHistogram(Hist1DConfig *config);
+Hist2D *createHistogram(Hist2DConfig *config);
 
 #endif

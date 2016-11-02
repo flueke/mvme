@@ -127,9 +127,55 @@ void MVMEContext::setDAQConfig(DAQConfig *config)
 void MVMEContext::setAnalysisConfig(AnalysisConfig *config)
 {
     if (m_analysisConfig)
+    {
+        m_analysisConfig->setParent(nullptr);
         m_analysisConfig->deleteLater();
+
+        for (auto histo: getObjects<Hist1D *>())
+        {
+            removeObject(histo);
+            removeObjectMapping(histo, QSL("ObjectToConfig"));
+        }
+        
+        for (auto histo: getObjects<Hist2D *>())
+        {
+            removeObject(histo);
+            removeObjectMapping(histo, QSL("ObjectToConfig"));
+        }
+
+        for (auto histoConfig: m_analysisConfig->get1DHistogramConfigs())
+        {
+            removeObjectMapping(histoConfig, QSL("ConfigToObject"));
+            removeObject(histoConfig, false);
+        }
+
+        for (auto histoConfig: m_analysisConfig->get2DHistogramConfigs())
+        {
+            removeObjectMapping(histoConfig, QSL("ConfigToObject"));
+            removeObject(histoConfig, false);
+        }
+    }
+
     m_analysisConfig = config;
     config->setParent(this);
+
+    for (auto histoConfig: config->get1DHistogramConfigs())
+    {
+        auto histo = createHistogram(histoConfig);
+        histo->setParent(this);
+        addObjectMapping(histoConfig, histo, QSL("ConfigToObject"));
+        addObjectMapping(histo, histoConfig, QSL("ObjectToConfig"));
+        addObject(histo);
+    }
+
+    for (auto histoConfig: config->get2DHistogramConfigs())
+    {
+        auto histo = createHistogram(histoConfig);
+        histo->setParent(this);
+        addObjectMapping(histoConfig, histo, QSL("ConfigToObject"));
+        addObjectMapping(histo, histoConfig, QSL("ObjectToConfig"));
+        addObject(histo);
+    }
 
     connect(m_analysisConfig, &AnalysisConfig::objectAdded, this, &MVMEContext::addObject);
     connect(m_analysisConfig, &AnalysisConfig::objectAboutToBeRemoved, this, [this](QObject *object) {
@@ -379,7 +425,6 @@ bool MVMEContext::containsObject(QObject *object)
     return m_objects.contains(object);
 }
 
-#if 1
 void MVMEContext::addObjectMapping(QObject *key, QObject *value, const QString &category)
 {
     //qDebug() << __PRETTY_FUNCTION__ << category << key << "->" << value;
@@ -402,7 +447,24 @@ QObject *MVMEContext::getMappedObject(QObject *key, const QString &category) con
 {
     return m_objectMappings[category].value(key, nullptr);
 }
-#endif
+
+void MVMEContext::setConfigFileName(const QString &name)
+{
+    if (m_configFileName != name)
+    {
+        m_configFileName = name;
+        emit daqConfigFileNameChanged(name);
+    }
+}
+
+void MVMEContext::setAnalysisConfigFileName(const QString &name)
+{
+    if (m_analysisConfigFileName != name)
+    {
+        m_analysisConfigFileName = name;
+        emit analysisConfigFileNameChanged(name);
+    }
+}
 
 void MVMEContext::prepareStart()
 {
@@ -671,4 +733,18 @@ QString getFilterPath(MVMEContext *context, DataFilterConfig *filterConfig, int 
         }
     }
     return QString();
+}
+
+Hist1D *createHistogram(Hist1DConfig *config)
+{
+    Hist1D *result = new Hist1D(config->getBits());
+    result->setProperty("configId", config->getId());
+    return result;
+}
+
+Hist2D *createHistogram(Hist2DConfig *config)
+{
+    Hist2D *result = new Hist2D(config->getXBits(), config->getYBits());
+    result->setProperty("configId", config->getId());
+    return result;
 }

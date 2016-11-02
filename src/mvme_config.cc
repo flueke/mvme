@@ -504,18 +504,12 @@ void DataFilterConfig::setFilter(const DataFilter &filter)
 void DataFilterConfig::read_impl(const QJsonObject &json)
 {
     m_filter = DataFilter(json["filter"].toString().toLocal8Bit());
-    auto variables = json["variables"].toString().toLocal8Bit();
-
-    for (int i=0; i<variables.size(); ++i)
-        m_filter.setVariable(static_cast<char>(i), variables[i]);
-
     loadDynamicProperties(json["properties"].toObject(), this);
 }
 
 void DataFilterConfig::write_impl(QJsonObject &json) const
 {
     json["filter"] = QString::fromLocal8Bit(m_filter.getFilter());
-    json["variables"] = QString::fromLocal8Bit(m_filter.getVariables());
     json["properties"] = storeDynamicProperties(this);
 }
 
@@ -717,42 +711,106 @@ void AnalysisConfig::removeHist2DConfig(Hist2DConfig *config)
 void AnalysisConfig::read_impl(const QJsonObject &json)
 {
     m_filters.clear();
-    QJsonArray filtersArray = json["filters"].toArray();
+    m_1dHistograms.clear();
+    m_2dHistograms.clear();
 
-    for (auto it=filtersArray.begin();
-         it != filtersArray.end();
-         ++it)
     {
-        auto filterJson = it->toObject();
-        auto cfg = new DataFilterConfig(this);
-        cfg->read(filterJson);
+        QJsonArray array = json["filters"].toArray();
+
+        for (auto it=array.begin();
+             it != array.end();
+             ++it)
+        {
+            auto filterJson = it->toObject();
+            auto cfg = new DataFilterConfig(this);
+            cfg->read(filterJson);
+            int eventIndex = filterJson["eventIndex"].toInt();
+            int moduleIndex = filterJson["moduleIndex"].toInt();
+            m_filters[eventIndex][moduleIndex].push_back(cfg);
+        }
+    }
+
+    {
+        QJsonArray array = json["1dHistograms"].toArray();
+
+        for (auto it=array.begin();
+             it != array.end();
+             ++it)
+        {
+            auto histoJson = it->toObject();
+            auto cfg = new Hist1DConfig(this);
+            cfg->read(histoJson);
+            m_1dHistograms.push_back(cfg);
+        }
+    }
+
+    {
+        QJsonArray array = json["2dHistograms"].toArray();
+
+        for (auto it=array.begin();
+             it != array.end();
+             ++it)
+        {
+            auto histoJson = it->toObject();
+            auto cfg = new Hist2DConfig(this);
+            cfg->read(histoJson);
+            m_2dHistograms.push_back(cfg);
+        }
     }
 }
 
 void AnalysisConfig::write_impl(QJsonObject &json) const
 {
-    QJsonArray filterJson;
-
-    for (int eventIndex = 0;
-         eventIndex < m_filters.size();
-         ++eventIndex)
     {
-        for (int moduleIndex = 0;
-             moduleIndex < m_filters[eventIndex].size();
-             ++moduleIndex)
+        QJsonArray array;
+
+        for (int eventIndex = 0;
+             eventIndex < m_filters.size();
+             ++eventIndex)
         {
-            for (const auto &filterConfig: m_filters[eventIndex][moduleIndex])
+            for (int moduleIndex = 0;
+                 moduleIndex < m_filters[eventIndex].size();
+                 ++moduleIndex)
             {
-                QJsonObject filterObject;
-                filterConfig->write(filterObject);
-                filterObject["eventIndex"] = eventIndex;
-                filterObject["moduleIndex"] = moduleIndex;
-                filterJson.append(filterObject);
+                for (const auto &filterConfig: m_filters[eventIndex][moduleIndex])
+                {
+                    QJsonObject filterObject;
+                    filterConfig->write(filterObject);
+                    filterObject["eventIndex"] = eventIndex;
+                    filterObject["moduleIndex"] = moduleIndex;
+                    array.append(filterObject);
+                }
             }
         }
+
+        json["filters"] = array;
     }
 
-    json["filters"] = filterJson;
+    {
+        QJsonArray array;
+
+        for (auto histoConfig: m_1dHistograms)
+        {
+            QJsonObject histoJson;
+            histoConfig->write(histoJson);
+            array.append(histoJson);
+        }
+
+        json["1dHistograms"] = array;
+    }
+
+    {
+        QJsonArray array;
+
+        for (auto histoConfig: m_2dHistograms)
+        {
+            QJsonObject histoJson;
+            histoConfig->write(histoJson);
+            array.append(histoJson);
+        }
+
+        json["2dHistograms"] = array;
+    }
 }
 
 #if 0

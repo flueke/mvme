@@ -211,6 +211,7 @@ mvme::mvme(QWidget *parent) :
 
     QSettings settings;
 
+    // DAQConfig
     if (settings.contains("Files/LastConfigFile"))
     {
         auto configFileName = settings.value("Files/LastConfigFile").toString();
@@ -231,6 +232,27 @@ mvme::mvme(QWidget *parent) :
         if (fi.exists() && fi.isReadable())
         {
             loadConfig(configFileName);
+        }
+    }
+    
+    // AnalysisConfig
+    {
+        const QString settingsPath = QSL("Files/LastAnalysisConfig");
+        if (settings.contains(settingsPath))
+        {
+            auto fileName = settings.value(settingsPath).toString();
+            auto doc = gui_read_json_file(fileName);
+            if (doc.isNull())
+            {
+                settings.remove(settingsPath);
+            }
+            else
+            {
+                auto analysisConfig = new AnalysisConfig;
+                analysisConfig->read(doc.object()[QSL("AnalysisConfig")].toObject());
+                m_context->setAnalysisConfig(analysisConfig);
+                m_context->setAnalysisConfigFileName(fileName);
+            }
         }
     }
 

@@ -251,3 +251,22 @@ QJsonDocument gui_read_json_file(const QString &fileName)
     }
     return doc;
 }
+
+bool gui_write_json_file(const QString &fileName, const QJsonDocument &doc)
+{
+    QFile outFile(fileName);
+    if (!outFile.open(QIODevice::WriteOnly))
+    {
+        QMessageBox::critical(0, QSL("Error"), QString("Error opening %1 for writing").arg(fileName));
+        return false;
+    }
+
+    if (outFile.write(doc.toJson()) < 0)
+    {
+        QMessageBox::critical(0, QSL("Error"), QString("Error writing to %1").arg(fileName));
+        return false;
+    }
+
+    return true;
+}
+
