@@ -148,11 +148,11 @@ Hist2DDialog::Hist2DDialog(MVMEContext *context, Hist2D *histo, QWidget *parent)
 
     if (m_histo)
     {
-        ui->le_name->setText(m_histo->objectName());
         auto histoConfig = qobject_cast<Hist2DConfig *>(m_context->getMappedObject(m_histo, QSL("ObjectToConfig")));
 
         if (histoConfig)
         {
+            ui->le_name->setText(histoConfig->objectName());
             {
                 auto filterConfig = m_context->getAnalysisConfig()->findChildById<DataFilterConfig *>(histoConfig->getXFilterId());
                 auto address = histoConfig->getXFilterAddress();

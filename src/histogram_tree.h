@@ -40,6 +40,7 @@ class HistogramTreeWidget: public QWidget
         void clearHistogram();
         void removeHistogram();
         void add2DHistogram();
+        void edit2DHistogram();
         void generateDefaultFilters();
         void updateHistogramCountDisplay();
         void addDataFilter();

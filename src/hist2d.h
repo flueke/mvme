@@ -23,6 +23,8 @@ public:
     Hist2D(uint32_t xBits, uint32_t yBits, QObject *parent = 0);
     ~Hist2D();
 
+    void resize(uint32_t xBits, uint32_t yBits);
+
     uint32_t getXResolution() const { return 1 << m_xBits; }
     uint32_t getYResolution() const { return 1 << m_yBits; }
 
@@ -34,7 +36,6 @@ public:
     void clear();
 
     Hist2DRasterData *makeRasterData();
-    QwtLinearColorMap *getColorMap() const;
 
     const QwtInterval &interval(Qt::Axis axis) const
     {
@@ -49,9 +50,9 @@ public:
 private:
     void setInterval(Qt::Axis axis, const QwtInterval &interval);
 
-    uint32_t m_xBits;
-    uint32_t m_yBits;
-    uint32_t *m_data = 0;
+    uint32_t m_xBits = 0;
+    uint32_t m_yBits = 0;
+    uint32_t *m_data = nullptr;
     uint32_t m_maxValue = 0;
     uint32_t m_maxX = 0;
     uint32_t m_maxY = 0;
@@ -101,9 +102,13 @@ public slots:
     void exportPlot();
 
 private slots:
-    void addTestData();
+    void displayChanged();
 
 private:
+    bool zAxisIsLog() const;
+    bool zAxisIsLin() const;
+    QwtLinearColorMap *getColorMap() const;
+
     Ui::Hist2DWidget *ui;
     MVMEContext *m_context;
     Hist2D *m_hist2d;

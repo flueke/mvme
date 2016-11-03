@@ -9,6 +9,7 @@
 #include <qwt_plot_renderer.h>
 #include <qwt_plot_panner.h>
 #include <qwt_plot_magnifier.h>
+#include <qwt_scale_engine.h>
 #include <QDebug>
 #include <QComboBox>
 #include <QTimer>
@@ -20,14 +21,8 @@
 
 Hist2D::Hist2D(uint32_t xBits, uint32_t yBits, QObject *parent)
     : QObject(parent)
-    , m_xBits(xBits)
-    , m_yBits(yBits)
-    , m_maxValue(0)
 {
-    m_data = new uint32_t[getXResolution() * getYResolution()];
-    setInterval(Qt::XAxis, QwtInterval(0, getXResolution() - 1));
-    setInterval(Qt::YAxis, QwtInterval(0, getYResolution() - 1));
-    clear();
+    resize(xBits, yBits);
 }
 
 Hist2D::~Hist2D()
@@ -35,17 +30,15 @@ Hist2D::~Hist2D()
     delete[] m_data;
 }
 
-QwtLinearColorMap *Hist2D::getColorMap() const
+void Hist2D::resize(uint32_t xBits, uint32_t yBits)
 {
-    auto colorMap = new QwtLinearColorMap(Qt::darkBlue, Qt::darkRed);
-    colorMap->addColorStop(0.2, Qt::blue);
-    colorMap->addColorStop(0.4, Qt::cyan);
-    colorMap->addColorStop(0.6, Qt::yellow);
-    colorMap->addColorStop(0.8, Qt::red);
-
-    colorMap->setMode(QwtLinearColorMap::ScaledColors);
-
-    return colorMap;
+    m_xBits = xBits;
+    m_yBits = yBits;
+    delete[] m_data;
+    m_data = new uint32_t[getXResolution() * getYResolution()];
+    setInterval(Qt::XAxis, QwtInterval(0, getXResolution() - 1));
+    setInterval(Qt::YAxis, QwtInterval(0, getYResolution() - 1));
+    clear();
 }
 
 void Hist2D::clear()
@@ -101,13 +94,58 @@ void Hist2D::setInterval(Qt::Axis axis, const QwtInterval &interval)
     m_intervals[axis] = interval;
 }
 
-//
-// Hist2DRasterData
-//
 Hist2DRasterData *Hist2D::makeRasterData()
 {
     return new Hist2DRasterData(this);
 }
+
+//
+// Hist2DWidget
+//
+// Bounds values to 0.1 to make QwtLogScaleEngine happy
+class MinBoundLogTransform: public QwtLogTransform
+{
+    public:
+        virtual double bounded(double value) const
+        {
+            double result = qBound(0.1, value, QwtLogTransform::LogMax);
+            return result;
+        }
+
+        virtual double transform(double value) const
+        {
+            double result = QwtLogTransform::transform(bounded(value));
+            return result;
+        }
+
+        virtual double invTransform(double value) const
+        {
+            double result = QwtLogTransform::invTransform(value);
+            return result;
+        }
+
+        virtual QwtTransform *copy() const
+        {
+            return new MinBoundLogTransform;
+        }
+};
+
+// from http://stackoverflow.com/a/9021841
+class LogarithmicColorMap : public QwtLinearColorMap
+{
+    public:
+        LogarithmicColorMap(const QColor &from, const QColor &to)
+            : QwtLinearColorMap(from, to)
+        {
+        }
+
+        QRgb rgb(const QwtInterval &interval, double value) const
+        {
+            return QwtLinearColorMap::rgb(QwtInterval(std::log(interval.minValue()),
+                                                      std::log(interval.maxValue())),
+                                          std::log(value));
+        }
+};
 
 Hist2DWidget::Hist2DWidget(MVMEContext *context, Hist2D *hist2d, QWidget *parent)
     : MVMEWidget(parent)
@@ -127,6 +165,8 @@ Hist2DWidget::Hist2DWidget(MVMEContext *context, Hist2D *hist2d, QWidget *parent
         replot();
     });
 
+    connect(ui->linLogGroup, SIGNAL(buttonClicked(int)), this, SLOT(displayChanged()));
+
     ui->pb_edit->setVisible(false);
     // FIXME: reenable or remove the edit button!
     //connect(ui->pb_edit, &QPushButton::clicked, this, [this] {
@@ -138,11 +178,10 @@ Hist2DWidget::Hist2DWidget(MVMEContext *context, Hist2D *hist2d, QWidget *parent
     //    }
     //});
 
-
     auto histData = m_hist2d->makeRasterData();
     m_plotItem->setData(histData);
     m_plotItem->setRenderThreadCount(0); // use system specific ideal thread count
-    m_plotItem->setColorMap(m_hist2d->getColorMap());
+    m_plotItem->setColorMap(getColorMap());
     m_plotItem->attach(ui->plot);
 
     auto rightAxis = ui->plot->axisWidget(QwtPlot::yRight);
@@ -168,7 +207,12 @@ Hist2DWidget::Hist2DWidget(MVMEContext *context, Hist2D *hist2d, QWidget *parent
     auto plotMagnifier = new QwtPlotMagnifier(ui->plot->canvas());
     plotMagnifier->setMouseButton(Qt::NoButton);
 
-    replot();
+    auto config = qobject_cast<Hist2DConfig *>(m_context->getMappedObject(m_hist2d, QSL("ObjectToConfig")));
+
+    if (config)
+        connect(config, &ConfigObject::modified, this, &Hist2DWidget::displayChanged);
+
+    displayChanged();
 }
 
 Hist2DWidget::~Hist2DWidget()
@@ -203,7 +247,7 @@ void Hist2DWidget::replot()
     auto interval = histData->interval(Qt::ZAxis);
     ui->plot->setAxisScale(QwtPlot::yRight, interval.minValue(), interval.maxValue());
     auto axis = ui->plot->axisWidget(QwtPlot::yRight);
-    axis->setColorMap(interval, m_hist2d->getColorMap());
+    axis->setColorMap(interval, getColorMap());
 
     ui->plot->replot();
 
@@ -213,6 +257,25 @@ void Hist2DWidget::replot()
     ui->label_maxY->setText(QString::number(m_hist2d->getMaxY()));
 }
 
+void Hist2DWidget::displayChanged()
+{
+    if (ui->scaleLin->isChecked() && !zAxisIsLin())
+    {
+        ui->plot->setAxisScaleEngine(QwtPlot::yRight, new QwtLinearScaleEngine);
+        ui->plot->setAxisAutoScale(QwtPlot::yRight, true);
+    }
+    else if (ui->scaleLog->isChecked() && !zAxisIsLog())
+    {
+        auto scaleEngine = new QwtLogScaleEngine;
+        scaleEngine->setTransformation(new MinBoundLogTransform);
+        ui->plot->setAxisScaleEngine(QwtPlot::yRight, scaleEngine);
+    }
+
+    m_plotItem->setColorMap(getColorMap());
+
+    replot();
+}
+
 void Hist2DWidget::exportPlot()
 {
     QString fileName = m_hist2d->objectName();
@@ -220,20 +283,38 @@ void Hist2DWidget::exportPlot()
     renderer.exportTo(ui->plot, fileName);
 }
 
-void Hist2DWidget::addTestData()
+bool Hist2DWidget::zAxisIsLog() const
 {
-#if 0
-    qDebug() << "begin addTestData" << m_hist2d->interval(Qt::ZAxis);
+    return dynamic_cast<QwtLogScaleEngine *>(ui->plot->axisScaleEngine(QwtPlot::yRight));
+}
 
-    for (uint32_t x=0; x<m_hist2d->xAxisResolution(); ++x)
+bool Hist2DWidget::zAxisIsLin() const
+{
+    return dynamic_cast<QwtLinearScaleEngine *>(ui->plot->axisScaleEngine(QwtPlot::yRight));
+}
+
+QwtLinearColorMap *Hist2DWidget::getColorMap() const
+{
+    auto colorFrom = Qt::darkBlue;
+    auto colorTo   = Qt::darkRed;
+    QwtLinearColorMap *colorMap = nullptr;
+
+    if (zAxisIsLin())
     {
-        for (uint32_t y=0; y<m_hist2d->yAxisResolution(); ++y)
-        {
-            uint32_t weight = x;
-            m_hist2d->fill(x, y, weight);
-        }
+        colorMap = new QwtLinearColorMap(colorFrom, colorTo);
+    }
+    else
+    {
+        colorMap = new LogarithmicColorMap(colorFrom, colorTo);
     }
 
-    qDebug() << "end addTestData" << m_hist2d->interval(Qt::ZAxis);
-#endif
+    colorMap->addColorStop(0.2, Qt::blue);
+    colorMap->addColorStop(0.4, Qt::cyan);
+    colorMap->addColorStop(0.6, Qt::yellow);
+    colorMap->addColorStop(0.8, Qt::red);
+
+    colorMap->setMode(QwtLinearColorMap::ScaledColors);
+
+    return colorMap;
 }
+

@@ -472,6 +472,7 @@ void HistogramTreeWidget::treeContextMenu(const QPoint &pos)
         menu.addAction(QSL("Open in new window"), this, [obj, this]() { emit openInNewWindow(obj); });
         menu.addAction(QSL("Clear"), this, &HistogramTreeWidget::clearHistogram);
         menu.addSeparator();
+        menu.addAction(QSL("Edit Histogram"), this, &HistogramTreeWidget::edit2DHistogram);
         menu.addAction(QSL("Remove Histogram"), this, &HistogramTreeWidget::removeHistogram);
     }
 
@@ -514,6 +515,23 @@ void HistogramTreeWidget::add2DHistogram()
         m_context->addObject(histo);
         m_context->getAnalysisConfig()->addHist2DConfig(histoConfig);
         emit openInNewWindow(histo);
+    }
+}
+
+void HistogramTreeWidget::edit2DHistogram()
+{
+    auto node = m_tree->currentItem();
+    auto var  = node->data(0, DataRole_Pointer);
+    if (auto histo = Var2QObject<Hist2D>(var))
+    {
+        Hist2DDialog dialog(m_context, histo);
+        int result = dialog.exec();
+
+        if (result == QDialog::Accepted)
+        {
+            dialog.getHistoAndConfig(); // updates both histo and config
+            histo->clear();
+        }
     }
 }
 
