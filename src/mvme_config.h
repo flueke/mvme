@@ -237,6 +237,8 @@ class DAQConfig: public ConfigObject
             if (ret)
             {
                 emit eventAboutToBeRemoved(config);
+                config->setParent(nullptr);
+                config->deleteLater();
                 setModified();
             }
 
@@ -263,6 +265,8 @@ class DAQConfig: public ConfigObject
                 if (vmeScriptLists[category].removeOne(config))
                 {
                     emit globalScriptAboutToBeRemoved(config);
+                    config->setParent(nullptr);
+                    config->deleteLater();
                     setModified();
                     return true;
                 }

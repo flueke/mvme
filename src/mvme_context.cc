@@ -120,6 +120,7 @@ void MVMEContext::setDAQConfig(DAQConfig *config)
 
     connect(m_daqConfig, &DAQConfig::eventAdded, this, &MVMEContext::onEventAdded);
     connect(m_daqConfig, &DAQConfig::eventAboutToBeRemoved, this, &MVMEContext::onEventAboutToBeRemoved);
+    connect(m_daqConfig, &DAQConfig::globalScriptAboutToBeRemoved, this, &MVMEContext::onGlobalScriptAboutToBeRemoved);
 
     emit daqConfigChanged(config);
 }
@@ -659,6 +660,18 @@ void MVMEContext::onEventAdded(EventConfig *event)
 
 void MVMEContext::onEventAboutToBeRemoved(EventConfig *config)
 {
+    for (auto module: config->modules)
+        emit objectAboutToBeRemoved(module);
+
+    for (auto key: config->vmeScripts.keys())
+        emit objectAboutToBeRemoved(config->vmeScripts[key]);
+
+    emit objectAboutToBeRemoved(config);
+}
+
+void MVMEContext::onGlobalScriptAboutToBeRemoved(VMEScriptConfig *config)
+{
+    emit objectAboutToBeRemoved(config);
 }
 
 void MVMEContext::onModuleAdded(ModuleConfig *module)
@@ -668,15 +681,8 @@ void MVMEContext::onModuleAdded(ModuleConfig *module)
 
 void MVMEContext::onModuleAboutToBeRemoved(ModuleConfig *module)
 {
-    auto predicate = [module](HistogramCollection *hist) {
-        auto id = hist->property("Histogram.sourceModule").toUuid();
-        return module->getId() == id;
-    };
-
-    auto histos = filterObjects<HistogramCollection *>(predicate);
-
-    for (auto histo: histos)
-        removeObject(histo);
+    for (auto key: module->vmeScripts.keys())
+        emit objectAboutToBeRemoved(module->vmeScripts[key]);
 }
 
 static void processQtEvents(QEventLoop::ProcessEventsFlags flags = QEventLoop::AllEvents)

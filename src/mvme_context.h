@@ -150,6 +150,7 @@ class MVMEContext: public QObject
         void onEventAboutToBeRemoved(EventConfig *config);
         void onModuleAdded(ModuleConfig *module);
         void onModuleAboutToBeRemoved(ModuleConfig *config);
+        void onGlobalScriptAboutToBeRemoved(VMEScriptConfig *config);
 
     private:
         void prepareStart();

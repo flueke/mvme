@@ -2,7 +2,7 @@
 ==== Do these first! =====
 ==========================
 * histo axis titles!
-* Hist1D crash at daq start after load/saving/removing
+* Hist1D crash at daq start after load/saving/removing. It's there but can't reproduce!
 
 
 

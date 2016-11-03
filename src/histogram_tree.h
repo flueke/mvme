@@ -45,6 +45,8 @@ class HistogramTreeWidget: public QWidget
         void addDataFilter();
         void removeDataFilter(QTreeWidgetItem *node);
         void removeDataFilter();
+        void editDataFilter(QTreeWidgetItem *node);
+        void editDataFilter();
         void clearHistograms();
         void removeHist1D(QTreeWidgetItem *node);
 
