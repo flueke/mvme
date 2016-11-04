@@ -1,14 +1,14 @@
 ==========================
 ==== Do these first! =====
 ==========================
-* VMUSB handling got way worse compared to last version
-* add log scale to 2d histograms (?)
+* add log scale to 2d histograms
 * Hist1D crash at daq start after load/saving/removing. It's there but can't reproduce!
 * How to handle filters without matching module? Right now they're not
   displayed until a module with the corresponding (eventIndex,moduleIndex) is
   created.
   Related: Remove Hist2d on filter removal?
-
+* Manual pause, run script -> daq is resumed when it should stay paused
+* mesytec module diagnostics filter
 
 
 ==========================
