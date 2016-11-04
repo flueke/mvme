@@ -80,6 +80,7 @@ mvme::mvme(QWidget *parent) :
     connect(m_context, &MVMEContext::daqConfigFileNameChanged, this, &mvme::updateWindowTitle);
     connect(m_context, &MVMEContext::daqConfigChanged, this, &mvme::onConfigChanged);
     connect(m_context, &MVMEContext::objectAboutToBeRemoved, this, &mvme::onObjectAboutToBeRemoved);
+    connect(m_context, &MVMEContext::daqAboutToStart, this, &mvme::onDAQAboutToStart);
 
     // check and initialize VME interface
     VMEController *controller = new VMUSB;
@@ -817,4 +818,40 @@ void mvme::resizeEvent(QResizeEvent *event)
     resizeDocks({dock_daqControl, dock_configTree}, {1, 10}, Qt::Vertical);
     resizeDocks({dock_daqStats, dock_logView}, {1, 10}, Qt::Horizontal);
     QMainWindow::resizeEvent(event);
+}
+
+void mvme::onDAQAboutToStart(quint32 nCycles)
+{
+    QList<VMEScriptEditor *> scriptEditors;
+
+    for (auto windowList: m_objectWindows.values())
+    {
+        for (auto window: windowList)
+        {
+            if (auto scriptEditor = qobject_cast<VMEScriptEditor *>(window->widget()))
+            {
+                if (scriptEditor->isModified())
+                {
+                    scriptEditors.push_back(scriptEditor);
+                }
+            }
+        }
+    }
+
+    if (!scriptEditors.isEmpty())
+    {
+        QMessageBox box(QMessageBox::Question, QSL("Pending script modifications"),
+                        QSL("Some VME scripts have been modified.\nDo you want to use those modifications for the current DAQ run?"),
+                        QMessageBox::Yes | QMessageBox::No);
+
+        int result = box.exec();
+
+        if (result == QMessageBox::Yes)
+        {
+            for (auto scriptEditor: scriptEditors)
+            {
+                scriptEditor->applyChanges();
+            }
+        }
+    }
 }

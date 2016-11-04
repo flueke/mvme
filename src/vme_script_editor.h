@@ -16,6 +16,9 @@ class VMEScriptEditor: public MVMEWidget
     public:
         VMEScriptEditor(MVMEContext *context, VMEScriptConfig *script, QWidget *parent = 0);
 
+        bool isModified() const;
+        void applyChanges() { apply(); }
+
     private:
         void updateWindowTitle();
 

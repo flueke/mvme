@@ -78,6 +78,8 @@ private slots:
     void updateWindowTitle();
     void onConfigChanged(DAQConfig *config);
 
+    void onDAQAboutToStart(quint32 nCycles);
+
 
 private:
     Ui::mvme *ui;

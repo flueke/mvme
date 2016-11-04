@@ -497,6 +497,8 @@ void MVMEContext::startDAQ(quint32 nCycles)
     if (m_mode != GlobalMode::DAQ)
         return;
 
+    emit daqAboutToStart(nCycles);
+
     prepareStart();
     emit sigLogMessage(QSL("DAQ starting"));
     m_mainwin->clearLog();

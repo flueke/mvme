@@ -47,6 +47,8 @@ class MVMEContext: public QObject
 
         void sigLogMessage(const QString &);
 
+        void daqAboutToStart(quint32 nCycles);
+
     public:
         MVMEContext(mvme *mainwin, QObject *parent = 0);
         ~MVMEContext();

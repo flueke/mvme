@@ -7,7 +7,6 @@
   displayed until a module with the corresponding (eventIndex,moduleIndex) is
   created.
   Related: Remove Hist2d on filter removal?
-* Manual pause, run script -> daq is resumed when it should stay paused
 * mesytec module diagnostics filter
 
 

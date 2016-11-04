@@ -81,6 +81,11 @@ VMEScriptEditor::VMEScriptEditor(MVMEContext *context, VMEScriptConfig *script, 
     m_toolbar->addAction(QIcon(":/document-revert.png"), "Revert Changes", this, &VMEScriptEditor::revert); 
 }
 
+bool VMEScriptEditor::isModified() const
+{
+    return m_editor->document()->isModified();
+}
+
 void VMEScriptEditor::updateWindowTitle()
 {
     auto title = m_scriptConfig->getVerboseTitle();
