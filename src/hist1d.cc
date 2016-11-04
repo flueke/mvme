@@ -34,6 +34,7 @@ Hist1D::Hist1D(u32 bits, QObject *parent)
 {
     m_data = new u32[getResolution()];
     clear();
+    qDebug() << __PRETTY_FUNCTION__ << this << getResolution();
 }
 
 Hist1D::~Hist1D()

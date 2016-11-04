@@ -2,7 +2,7 @@
 #define UUID_bf5f9bfd_f2f3_4736_bf7e_f2a96176abe9
 
 #include "util.h"
-#include <qwt_raster_data.h>
+#include <qwt_interval.h>
 
 namespace Ui
 {
@@ -12,7 +12,6 @@ class Hist2DWidget;
 class QTimer;
 class QwtPlotSpectrogram;
 class QwtLinearColorMap;
-class Hist2DRasterData;
 class ScrollZoomer;
 class MVMEContext;
 
@@ -35,8 +34,6 @@ public:
     void fill(uint32_t x, uint32_t y, uint32_t weight=1);
     void clear();
 
-    Hist2DRasterData *makeRasterData();
-
     const QwtInterval &interval(Qt::Axis axis) const
     {
         return m_intervals[axis];
@@ -58,33 +55,6 @@ private:
     uint32_t m_maxY = 0;
     uint32_t m_numberOfEntries = 0;
     QwtInterval m_intervals[3];
-};
-
-class Hist2DRasterData: public QwtRasterData
-{
-public:
-
-    Hist2DRasterData(Hist2D *hist2d)
-        : m_hist2d(hist2d)
-    {
-        updateIntervals();
-    }
-
-    virtual double value(double x, double y) const
-    {
-        return m_hist2d->value(x, y);
-    }
-
-    void updateIntervals()
-    {
-        for (int axis=0; axis<3; ++axis)
-        {
-            setInterval(static_cast<Qt::Axis>(axis), m_hist2d->interval(static_cast<Qt::Axis>(axis)));
-        }
-    }
-
-private:
-    Hist2D *m_hist2d;
 };
 
 class Hist2DWidget: public MVMEWidget

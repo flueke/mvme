@@ -4,6 +4,12 @@
 #include "hist1d.h"
 #include "hist2d.h"
 
+#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+    inline QDebug qEPDebug() { return QDebug(QtDebugMsg); }
+#else
+    inline QNoDebug qEPDebug() { return QNoDebug(); }
+#endif
+
 using namespace listfile;
 
 using DataFilterConfigList = AnalysisConfig::DataFilterConfigList;
@@ -49,7 +55,13 @@ void MVMEEventProcessor::newRun()
             if (auto filterConfig = analysisConfig->findChildById<DataFilterConfig *>(
                     histoConfig->getFilterId()))
             {
-                m_d->histogramsByFilterConfig[filterConfig][histoConfig->getFilterAddress()] = histo;
+                auto address = histoConfig->getFilterAddress();
+
+                qEPDebug() << __PRETTY_FUNCTION__
+                    << "filter:" << filterConfig << address
+                    << "histo:" << histo;
+
+                m_d->histogramsByFilterConfig[filterConfig][address] = histo;
             }
         }
     }
@@ -59,13 +71,18 @@ void MVMEEventProcessor::newRun()
         if (auto histoConfig = analysisConfig->findChildById<Hist2DConfig *>(
             histo->property("configId").toUuid()))
         {
+            qEPDebug() << __PRETTY_FUNCTION__
+                << "hist2d:" << histoConfig << histo;
+
             m_d->hist2dByConfig[histoConfig] = histo;
         }
     }
 
     for (auto filterConfig: analysisConfig->findChildren<DataFilterConfig *>())
     {
-        m_d->filterConfigsById[filterConfig->getId()] = filterConfig;
+        auto id = filterConfig->getId();
+        qEPDebug() << __PRETTY_FUNCTION__ << "filterById:" << id << filterConfig;
+        m_d->filterConfigsById[id] = filterConfig;
     }
 }
 
@@ -76,7 +93,7 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
 
     try
     {
-        //qDebug() << __PRETTY_FUNCTION__ << buffer;
+        //qEPDebug() << __PRETTY_FUNCTION__ << buffer;
         ++stats.mvmeBuffersSeen;
 
         BufferIterator iter(buffer->data, buffer->used, BufferIterator::Align32);
@@ -130,13 +147,24 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
 
                     for (auto filterConfig: filterConfigs)
                     {
+                        qEPDebug() << __PRETTY_FUNCTION__ << "trying filter" << filterConfig
+                            << filterConfig->getFilter().toString()
+                            << "current word" << hex << currentWord << dec;
+
                         if (filterConfig->getFilter().matches(currentWord))
                         {
                             u32 address = filterConfig->getFilter().extractData(currentWord, 'A');
                             u32 data    = filterConfig->getFilter().extractData(currentWord, 'D');
                             auto histo  = m_d->histogramsByFilterConfig[filterConfig].value(address);
                             if (histo)
+                            {
+                                qEPDebug() << __PRETTY_FUNCTION__ << "fill" << histo << data;
                                 histo->fill(data);
+                            }
+                            else
+                            {
+                                qEPDebug() << __PRETTY_FUNCTION__ << "filter matched but found no histo!";
+                            }
                             m_d->valuesByFilterConfig[filterConfig][address] = data;
                         }
                     }
@@ -286,7 +314,7 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                                 {
                                     //if (eventValues[subEventIndex][address] >= 0)
                                     //{
-                                    //    qDebug() << "eventvalues overwrite!";
+                                    //    qEPDebug() << "eventvalues overwrite!";
                                     //}
 
                                     eventValues[subEventIndex][address] = value;

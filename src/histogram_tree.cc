@@ -256,6 +256,8 @@ void HistogramTreeWidget::onObjectAdded(QObject *object)
 
         auto idxPair = m_context->getDAQConfig()->getEventAndModuleIndices(moduleConfig);
 
+        moduleNode->setText(1, QString("event=%1, module=%2").arg(idxPair.first).arg(idxPair.second));
+
         for (auto filterConfig: m_context->getAnalysisConfig()->getFilters(idxPair.first, idxPair.second))
             onObjectAdded(filterConfig);
         m_tree->resizeColumnToContents(0);

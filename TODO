@@ -1,7 +1,7 @@
 ==========================
 ==== Do these first! =====
 ==========================
-* When loading a listfile existing histograms are not filled!
+* VMUSB handling got way worse compared to last version
 * add log scale to 2d histograms (?)
 * Hist1D crash at daq start after load/saving/removing. It's there but can't reproduce!
 * How to handle filters without matching module? Right now they're not

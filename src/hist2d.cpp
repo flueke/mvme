@@ -9,6 +9,7 @@
 #include <qwt_plot_renderer.h>
 #include <qwt_plot_panner.h>
 #include <qwt_plot_magnifier.h>
+#include <qwt_raster_data.h>
 #include <qwt_scale_engine.h>
 #include <QDebug>
 #include <QComboBox>
@@ -23,6 +24,7 @@ Hist2D::Hist2D(uint32_t xBits, uint32_t yBits, QObject *parent)
     : QObject(parent)
 {
     resize(xBits, yBits);
+    qDebug() << __PRETTY_FUNCTION__ << this << getXResolution() << getYResolution();
 }
 
 Hist2D::~Hist2D()
@@ -94,21 +96,43 @@ void Hist2D::setInterval(Qt::Axis axis, const QwtInterval &interval)
     m_intervals[axis] = interval;
 }
 
-Hist2DRasterData *Hist2D::makeRasterData()
-{
-    return new Hist2DRasterData(this);
-}
-
 //
 // Hist2DWidget
 //
+class Hist2DRasterData: public QwtRasterData
+{
+public:
+
+    Hist2DRasterData(Hist2D *hist2d)
+        : m_hist2d(hist2d)
+    {
+        updateIntervals();
+    }
+
+    virtual double value(double x, double y) const
+    {
+        return m_hist2d->value(x, y);
+    }
+
+    void updateIntervals()
+    {
+        for (int axis=0; axis<3; ++axis)
+        {
+            setInterval(static_cast<Qt::Axis>(axis), m_hist2d->interval(static_cast<Qt::Axis>(axis)));
+        }
+    }
+
+private:
+    Hist2D *m_hist2d;
+};
+
 // Bounds values to 0.1 to make QwtLogScaleEngine happy
 class MinBoundLogTransform: public QwtLogTransform
 {
     public:
         virtual double bounded(double value) const
         {
-            double result = qBound(0.1, value, QwtLogTransform::LogMax);
+            double result = qBound(1.0, value, QwtLogTransform::LogMax);
             return result;
         }
 
@@ -178,7 +202,7 @@ Hist2DWidget::Hist2DWidget(MVMEContext *context, Hist2D *hist2d, QWidget *parent
     //    }
     //});
 
-    auto histData = m_hist2d->makeRasterData();
+    auto histData = new Hist2DRasterData(m_hist2d);
     m_plotItem->setData(histData);
     m_plotItem->setRenderThreadCount(0); // use system specific ideal thread count
     m_plotItem->setColorMap(getColorMap());
@@ -261,11 +285,13 @@ void Hist2DWidget::displayChanged()
 {
     if (ui->scaleLin->isChecked() && !zAxisIsLin())
     {
+        qDebug() << "switch to lin";
         ui->plot->setAxisScaleEngine(QwtPlot::yRight, new QwtLinearScaleEngine);
         ui->plot->setAxisAutoScale(QwtPlot::yRight, true);
     }
     else if (ui->scaleLog->isChecked() && !zAxisIsLog())
     {
+        qDebug() << "switch to log";
         auto scaleEngine = new QwtLogScaleEngine;
         scaleEngine->setTransformation(new MinBoundLogTransform);
         ui->plot->setAxisScaleEngine(QwtPlot::yRight, scaleEngine);
