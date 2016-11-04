@@ -312,9 +312,7 @@ void VMUSBReadoutWorker::readoutLoop()
     auto error = vmusb->enterDaqMode();
 
     if (error.isError())
-    {
         throw QString("Error entering VMUSB DAQ mode: %1").arg(error.toString());
-    }
 
     setState(DAQState::Running);
 
@@ -329,7 +327,10 @@ void VMUSBReadoutWorker::readoutLoop()
         if (m_state == DAQState::Running && m_desiredState == DAQState::Paused)
         {
             //QThread::msleep(5000);
-            vmusb->leaveDaqMode();
+            auto error = vmusb->leaveDaqMode();
+            if (error.isError())
+                throw QString("Error leaving VMUSB DAQ mode: %1").arg(error.toString());
+
             while (readBuffer(leaveDaqReadTimeout) > 0);
             setState(DAQState::Paused);
             emit logMessage(QSL("VMUSB readout paused"));
@@ -337,7 +338,10 @@ void VMUSBReadoutWorker::readoutLoop()
         // resume
         else if (m_state == DAQState::Paused && m_desiredState == DAQState::Running)
         {
-            vmusb->enterDaqMode();
+            auto error = vmusb->enterDaqMode();
+            if (error.isError())
+                throw QString("Error entering VMUSB DAQ mode: %1").arg(error.toString());
+
             setState(DAQState::Running);
             emit logMessage(QSL("VMUSB readout resumed"));
         }
@@ -384,7 +388,10 @@ void VMUSBReadoutWorker::readoutLoop()
     processQtEvents();
 
     qDebug() << __PRETTY_FUNCTION__ << "left readoutLoop, reading remaining data";
-    vmusb->leaveDaqMode();
+    error = vmusb->leaveDaqMode();
+    if (error.isError())
+        throw QString("Error leaving VMUSB DAQ mode: %1").arg(error.toString());
+
     while (readBuffer(leaveDaqReadTimeout) > 0);
 }
 
