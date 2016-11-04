@@ -30,6 +30,7 @@ class HistogramTreeWidget: public QWidget
         void onObjectAdded(QObject *object);
         void onObjectAboutToBeRemoved(QObject *object);
         void onAnyConfigChanged();
+        void onObjectNameChanged(QObject *object, const QString &name);
 
         void onItemClicked(QTreeWidgetItem *item, int column);
         void onItemDoubleClicked(QTreeWidgetItem *item, int column);

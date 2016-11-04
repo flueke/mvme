@@ -260,7 +260,12 @@ void HistogramTreeWidget::onObjectAdded(QObject *object)
 
         for (auto filterConfig: m_context->getAnalysisConfig()->getFilters(idxPair.first, idxPair.second))
             onObjectAdded(filterConfig);
+
         m_tree->resizeColumnToContents(0);
+
+        connect(moduleConfig, &QObject::objectNameChanged, this, [this, moduleConfig](const QString &name) {
+            onObjectNameChanged(moduleConfig, name);
+        });
     }
     else if (auto filterConfig = qobject_cast<DataFilterConfig *>(object))
     {
@@ -280,6 +285,7 @@ void HistogramTreeWidget::onObjectAdded(QObject *object)
 
         auto moduleNode = m_treeMap.value(moduleConfig);
 
+        // TODO: add nodes for filters that don't have a corresponding module in the daq config
         if (moduleNode)
         {
             auto filterNode = makeNode(filterConfig, NodeType_DataFilter);
@@ -296,6 +302,10 @@ void HistogramTreeWidget::onObjectAdded(QObject *object)
                 addToTreeMap(pair.second, pair.first);
             }
             m_tree->resizeColumnToContents(0);
+
+            connect(filterConfig, &QObject::objectNameChanged, this, [this, filterConfig](const QString &name) {
+                onObjectNameChanged(filterConfig, name);
+            });
         }
         else
         {
@@ -387,6 +397,14 @@ void HistogramTreeWidget::onAnyConfigChanged()
        updateConfigLabel();
     }
     qDebug() << __PRETTY_FUNCTION__ << "end";
+}
+
+void HistogramTreeWidget::onObjectNameChanged(QObject *object, const QString &name)
+{
+    if (auto node = m_treeMap.value(object, nullptr))
+    {
+        node->setText(0, name);
+    }
 }
 
 void HistogramTreeWidget::onItemClicked(QTreeWidgetItem *item, int column)
