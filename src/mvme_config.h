@@ -223,95 +223,24 @@ class DAQConfig: public ConfigObject
     public:
         using ConfigObject::ConfigObject;
 
-        void addEventConfig(EventConfig *config)
-        {
-            config->setParent(this);
-            eventConfigs.push_back(config);
-            emit eventAdded(config);
-            setModified();
-        }
-
-        bool removeEventConfig(EventConfig *config)
-        {
-            bool ret = eventConfigs.removeOne(config);
-            if (ret)
-            {
-                emit eventAboutToBeRemoved(config);
-                config->setParent(nullptr);
-                config->deleteLater();
-                setModified();
-            }
-
-            return ret;
-        }
-
-        bool contains(EventConfig *config)
-        {
-            return eventConfigs.indexOf(config) >= 0;
-        }
-
-        void addGlobalScript(VMEScriptConfig *config, const QString &category)
-        {
-            config->setParent(this);
-            vmeScriptLists[category].push_back(config);
-            emit globalScriptAdded(config, category);
-            setModified();
-        }
-
-        bool removeGlobalScript(VMEScriptConfig *config)
-        {
-            for (auto category: vmeScriptLists.keys())
-            {
-                if (vmeScriptLists[category].removeOne(config))
-                {
-                    emit globalScriptAboutToBeRemoved(config);
-                    config->setParent(nullptr);
-                    config->deleteLater();
-                    setModified();
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
+        void addEventConfig(EventConfig *config);
+        bool removeEventConfig(EventConfig *config);
+        bool contains(EventConfig *config);
         QList<EventConfig *> getEventConfigs() const { return eventConfigs; }
         EventConfig *getEventConfig(int eventIndex) { return eventConfigs.value(eventIndex); }
         EventConfig *getEventConfig(const QString &name) const;
 
         ModuleConfig *getModuleConfig(int eventIndex, int moduleIndex);
         QList<ModuleConfig *> getAllModuleConfigs() const;
-
         QPair<int, int> getEventAndModuleIndices(ModuleConfig *cfg) const;
 
-        void setListFileOutputDirectory(const QString &dir)
-        {
-            if (dir != m_listFileOutputDirectory)
-            {
-                m_listFileOutputDirectory = dir;
-                m_listFileOutputEnabled = !dir.isEmpty();
-                setModified();
-            }
-        }
+        void addGlobalScript(VMEScriptConfig *config, const QString &category);
+        bool removeGlobalScript(VMEScriptConfig *config);
 
-        QString getListFileOutputDirectory() const
-        {
-            return m_listFileOutputDirectory;
-        }
-
-        bool isListFileOutputEnabled() const
-        {
-            return m_listFileOutputEnabled;
-        }
-
-        void setListFileOutputEnabled(bool enabled)
-        {
-            if (m_listFileOutputEnabled != enabled)
-            {
-                m_listFileOutputEnabled = enabled;
-                setModified();
-            }
-        }
+        void setListFileOutputDirectory(const QString &dir);
+        QString getListFileOutputDirectory() const { return m_listFileOutputDirectory; }
+        bool isListFileOutputEnabled() const { return m_listFileOutputEnabled; }
+        void setListFileOutputEnabled(bool enabled);
 
         /** Known keys for a DAQConfig:
          * "daq_start", "daq_stop", "manual"

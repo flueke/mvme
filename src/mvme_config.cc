@@ -356,6 +356,77 @@ void EventConfig::write_impl(QJsonObject &json) const
 //
 // DAQConfig
 //
+void DAQConfig::addEventConfig(EventConfig *config)
+{
+    config->setParent(this);
+    eventConfigs.push_back(config);
+    emit eventAdded(config);
+    setModified();
+}
+
+bool DAQConfig::removeEventConfig(EventConfig *config)
+{
+    bool ret = eventConfigs.removeOne(config);
+    if (ret)
+    {
+        emit eventAboutToBeRemoved(config);
+        config->setParent(nullptr);
+        config->deleteLater();
+        setModified();
+    }
+
+    return ret;
+}
+
+bool DAQConfig::contains(EventConfig *config)
+{
+    return eventConfigs.indexOf(config) >= 0;
+}
+
+void DAQConfig::addGlobalScript(VMEScriptConfig *config, const QString &category)
+{
+    config->setParent(this);
+    vmeScriptLists[category].push_back(config);
+    emit globalScriptAdded(config, category);
+    setModified();
+}
+
+bool DAQConfig::removeGlobalScript(VMEScriptConfig *config)
+{
+    for (auto category: vmeScriptLists.keys())
+    {
+        if (vmeScriptLists[category].removeOne(config))
+        {
+            emit globalScriptAboutToBeRemoved(config);
+            config->setParent(nullptr);
+            config->deleteLater();
+            setModified();
+            return true;
+        }
+    }
+
+    return false;
+}
+
+void DAQConfig::setListFileOutputDirectory(const QString &dir)
+{
+    if (dir != m_listFileOutputDirectory)
+    {
+        m_listFileOutputDirectory = dir;
+        m_listFileOutputEnabled = !dir.isEmpty();
+        setModified();
+    }
+}
+
+void DAQConfig::setListFileOutputEnabled(bool enabled)
+{
+    if (m_listFileOutputEnabled != enabled)
+    {
+        m_listFileOutputEnabled = enabled;
+        setModified();
+    }
+}
+
 void DAQConfig::read_impl(const QJsonObject &json)
 {
     qDeleteAll(eventConfigs);
