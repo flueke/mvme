@@ -661,7 +661,10 @@ void MVMEContext::onEventAdded(EventConfig *event)
 void MVMEContext::onEventAboutToBeRemoved(EventConfig *config)
 {
     for (auto module: config->modules)
+    {
+        onModuleAboutToBeRemoved(module);
         emit objectAboutToBeRemoved(module);
+    }
 
     for (auto key: config->vmeScripts.keys())
         emit objectAboutToBeRemoved(config->vmeScripts[key]);
