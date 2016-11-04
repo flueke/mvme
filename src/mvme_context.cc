@@ -711,6 +711,7 @@ MVMEContext::runScript(const vme_script::VMEScript &script,
         return (daqState == DAQState::Idle || daqState == DAQState::Paused);
     };
 
+    bool wasPaused = (getDAQState() == DAQState::Paused);
     pauseDAQ();
     while (!may_run_script())
     {
@@ -719,7 +720,8 @@ MVMEContext::runScript(const vme_script::VMEScript &script,
 
     auto result = vme_script::run_script(m_controller, script, logger, logEachResult);
 
-    resumeDAQ();
+    if (!wasPaused)
+        resumeDAQ();
 
     return result;
 }
