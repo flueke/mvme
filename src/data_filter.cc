@@ -1,13 +1,19 @@
 #include "data_filter.h"
 #include "util.h"
 
+#include <cctype>
 #include <stdexcept>
 
 DataFilter::DataFilter(const QByteArray &filter)
-    : m_filter(filter)
 {
     if (filter.size() > 32)
         throw std::length_error("maximum filter size of 32 exceeded");
+
+    for (char c: filter)
+    {
+        c = std::tolower(c);
+        m_filter.push_back(c);
+    }
 
     compile();
 }
@@ -33,6 +39,8 @@ void DataFilter::compile()
 u32 DataFilter::getExtractMask(char marker) const
 {
     u32 result = 0;
+
+    marker = std::tolower(marker);
 
     if (m_extractCache.contains(marker))
     {

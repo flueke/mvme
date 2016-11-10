@@ -17,6 +17,9 @@
  * No checking is done if extraction masks are in fact continuous, e.g. "A0AA"
  * will be accepted.
  *
+ * The filter and mask characters are turned into lowercase before being
+ * processed.
+ *
  */
 
 class DataFilter
