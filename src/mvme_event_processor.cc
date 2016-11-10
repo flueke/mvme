@@ -147,9 +147,11 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
 
                     for (auto filterConfig: filterConfigs)
                     {
+#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
                         qEPDebug() << __PRETTY_FUNCTION__ << "trying filter" << filterConfig
                             << filterConfig->getFilter().toString()
                             << "current word" << hex << currentWord << dec;
+#endif
 
                         if (filterConfig->getFilter().matches(currentWord))
                         {
