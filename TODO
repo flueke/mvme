@@ -2,17 +2,35 @@
 ==== Do these first! =====
 ==========================
 * add log scale to 2d histograms
-* Hist1D crash at daq start after load/saving/removing. It's there but can't reproduce!
 * How to handle filters without matching module? Right now they're not
   displayed until a module with the corresponding (eventIndex,moduleIndex) is
   created.
   Related: Remove Hist2d on filter removal?
 * mesytec module diagnostics filter
+* Hist1D crash at daq start after load/saving/removing. It's there but can't reproduce!
 
 
 ==========================
 ==== Do these later! =====
 ==========================
+* Data Filters: for each (filter, address) pair keep a list of values as some
+  modules can yield multiple (address, value) pairs in a single event!
+  When accumulating 2D histograms check if the list length for both axes is the
+  same. If so accumulate pairs from both lists, else ignore the data.
+
+* add ability to create 2d histograms during DAQ/replay and fill them immediately
+
+* Hist1DWidget
+  - don't zoom into negative x
+  - fix mousewheel zoom or disable it
+  - display coordinate and value under mouse cursor
+  - displayed zoomrect coordinate values are sometimes bogus
+
+* Hist2DWidget
+  - log scale
+  - display stats for zoomed area
+
+
 * Histogram properties:
     - name
     - size in bits
@@ -38,7 +56,10 @@
     - daqconfig.json
     - analysis.json
 
-* make use of the "enabled" flag for vme scripts, modules, events, etc
+* prefix and run number for listfiles
+* display generated listfile name when daq runs
+* don't write listfile on "1 cycle"
+
 * ReadoutWorker split into generic and controller specific parts:
     Generic part is responsible for:
         - running vme init scripts
@@ -56,6 +77,7 @@
 * save and restore the zoom and pan of histograms
 * save and restore open histograms
 * histograms: look at the storage type used. currently it's u32. should this be double?
+* make use of the "enabled" flag for vme scripts, modules, events, etc
 
 ==========================
 ===== Maybe do these =====
