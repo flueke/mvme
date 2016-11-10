@@ -132,7 +132,7 @@ class MinBoundLogTransform: public QwtLogTransform
     public:
         virtual double bounded(double value) const
         {
-            double result = qBound(1.0, value, QwtLogTransform::LogMax);
+            double result = qBound(0.1, value, QwtLogTransform::LogMax);
             return result;
         }
 
@@ -165,7 +165,15 @@ class LogarithmicColorMap : public QwtLinearColorMap
 
         QRgb rgb(const QwtInterval &interval, double value) const
         {
-            return QwtLinearColorMap::rgb(QwtInterval(std::log(interval.minValue()),
+            /* XXX: Hack for log scale. Is this the right place? Limit the
+             * interval somewhere else so that it is bounded to (1, X) when
+             * this function is called? */
+            double minValue = interval.minValue();
+            if (interval.minValue() <= 0)
+            {
+                minValue = 1.0;
+            }
+            return QwtLinearColorMap::rgb(QwtInterval(std::log(minValue),
                                                       std::log(interval.maxValue())),
                                           std::log(value));
         }
@@ -268,7 +276,11 @@ void Hist2DWidget::replot()
     // z
     auto histData = reinterpret_cast<Hist2DRasterData *>(m_plotItem->data());
     histData->updateIntervals();
+
     auto interval = histData->interval(Qt::ZAxis);
+    double base = zAxisIsLog() ? 1.0 : 0.0;
+    interval = interval.limited(base, interval.maxValue());
+
     ui->plot->setAxisScale(QwtPlot::yRight, interval.minValue(), interval.maxValue());
     auto axis = ui->plot->axisWidget(QwtPlot::yRight);
     axis->setColorMap(interval, getColorMap());
@@ -285,16 +297,17 @@ void Hist2DWidget::displayChanged()
 {
     if (ui->scaleLin->isChecked() && !zAxisIsLin())
     {
-        qDebug() << "switch to lin";
+        qDebug() << __PRETTY_FUNCTION__ << "switch to lin";
         ui->plot->setAxisScaleEngine(QwtPlot::yRight, new QwtLinearScaleEngine);
         ui->plot->setAxisAutoScale(QwtPlot::yRight, true);
     }
     else if (ui->scaleLog->isChecked() && !zAxisIsLog())
     {
-        qDebug() << "switch to log";
+        qDebug() << __PRETTY_FUNCTION__ << "switch to log";
         auto scaleEngine = new QwtLogScaleEngine;
         scaleEngine->setTransformation(new MinBoundLogTransform);
         ui->plot->setAxisScaleEngine(QwtPlot::yRight, scaleEngine);
+        ui->plot->setAxisAutoScale(QwtPlot::yRight, true);
     }
 
     m_plotItem->setColorMap(getColorMap());
@@ -327,10 +340,12 @@ QwtLinearColorMap *Hist2DWidget::getColorMap() const
 
     if (zAxisIsLin())
     {
+        //qDebug() << __PRETTY_FUNCTION__ << "returning lin colormap";
         colorMap = new QwtLinearColorMap(colorFrom, colorTo);
     }
     else
     {
+        //qDebug() << __PRETTY_FUNCTION__ << "returning log colormap";
         colorMap = new LogarithmicColorMap(colorFrom, colorTo);
     }
 
