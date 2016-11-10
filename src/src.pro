@@ -10,8 +10,17 @@ DEFINES += VME_CONTROLLER_WIENER
 #DEFINES += VME_CONTROLLER_CAEN
 
 # ASAN
-# QMAKE_CXXFLAGS += -fsanitize=address
-# LIBS += -lasan
+asan {
+    QMAKE_CXXFLAGS += -fsanitize=address
+    LIBS += -lasan
+}
+
+# profiling
+profiling {
+    QMAKE_CXXFLAGS += -pg
+    QMAKE_CFLAGS += -pg
+    QMAKE_LFLAGS += -pg
+}
 
 include(src.pri)
 
@@ -35,7 +44,3 @@ unix {
     QMAKE_LFLAGS_RPATH=
     QMAKE_LFLAGS += "-Wl,-rpath,\'\$$ORIGIN\'"
 }
-
-FORMS += \
-    datafilter_dialog.ui
-

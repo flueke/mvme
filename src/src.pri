@@ -75,6 +75,7 @@ FORMS += \
     $$PWD/mvme.ui \
     $$PWD/twodimwidget.ui \
     $$PWD/vme_debug_widget.ui \
+    $$PWD/datafilter_dialog.ui \
 
 
 contains(DEFINES, "VME_CONTROLLER_WIENER") {
