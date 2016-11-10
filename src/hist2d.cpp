@@ -96,6 +96,40 @@ void Hist2D::setInterval(Qt::Axis axis, const QwtInterval &interval)
     m_intervals[axis] = interval;
 }
 
+Hist2DStatistics Hist2D::calcStatistics(QwtInterval xInterval, QwtInterval yInterval) const
+{
+    // TODO: if stats for the whole histogram are requested just return the global stats
+    Hist2DStatistics result;
+
+    xInterval = xInterval.normalized();
+    yInterval = yInterval.normalized();
+
+    for (u32 iy = yInterval.minValue();
+         iy < yInterval.maxValue();
+         ++iy)
+    {
+        for (u32 ix = xInterval.minValue();
+             ix < xInterval.maxValue();
+             ++ix)
+        {
+            // TODO: access value directory to speed this up a bit
+            double v = value(ix, iy);
+            if (!qIsNaN(v))
+            {
+                if (v > result.maxValue)
+                {
+                    result.maxValue = v;
+                    result.maxX = ix;
+                    result.maxY = iy;
+                }
+                ++result.entryCount;
+            }
+        }
+    }
+
+    return result;
+}
+
 //
 // Hist2DWidget
 //
@@ -287,10 +321,14 @@ void Hist2DWidget::replot()
 
     ui->plot->replot();
 
-    ui->label_numberOfEntries->setText(QString::number(m_hist2d->getNumberOfEntries()));
-    ui->label_maxValue->setText(QString::number(m_hist2d->getMaxValue()));
-    ui->label_maxX->setText(QString::number(m_hist2d->getMaxX()));
-    ui->label_maxY->setText(QString::number(m_hist2d->getMaxY()));
+    auto stats = m_hist2d->calcStatistics(
+        ui->plot->axisScaleDiv(QwtPlot::xBottom).interval(),
+        ui->plot->axisScaleDiv(QwtPlot::yLeft).interval());
+
+    ui->label_numberOfEntries->setText(QString::number(stats.entryCount));
+    ui->label_maxValue->setText(QString::number(stats.maxValue));
+    ui->label_maxX->setText(QString::number(stats.maxX));
+    ui->label_maxY->setText(QString::number(stats.maxY));
 }
 
 void Hist2DWidget::displayChanged()

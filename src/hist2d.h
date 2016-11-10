@@ -15,6 +15,14 @@ class QwtLinearColorMap;
 class ScrollZoomer;
 class MVMEContext;
 
+struct Hist2DStatistics
+{
+    u32 maxX = 0;
+    u32 maxY = 0;
+    u32 maxValue = 0;
+    u32 entryCount = 0;
+};
+
 class Hist2D: public QObject
 {
     Q_OBJECT
@@ -39,10 +47,11 @@ public:
         return m_intervals[axis];
     }
 
-    uint32_t getMaxValue() const { return m_maxValue; }
-    uint32_t getMaxX() const { return m_maxX; }
-    uint32_t getMaxY() const { return m_maxY; }
-    uint32_t getNumberOfEntries() const { return m_numberOfEntries; }
+    //uint32_t getMaxValue() const { return m_maxValue; }
+    //uint32_t getMaxX() const { return m_maxX; }
+    //uint32_t getMaxY() const { return m_maxY; }
+    //uint32_t getNumberOfEntries() const { return m_numberOfEntries; }
+    Hist2DStatistics calcStatistics(QwtInterval xInterval, QwtInterval yInterval) const;
 
 private:
     void setInterval(Qt::Axis axis, const QwtInterval &interval);

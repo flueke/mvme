@@ -1,7 +1,6 @@
 ==========================
 ==== Do these first! =====
 ==========================
-* add log scale to 2d histograms
 * How to handle filters without matching module? Right now they're not
   displayed until a module with the corresponding (eventIndex,moduleIndex) is
   created.
@@ -27,7 +26,6 @@
   - displayed zoomrect coordinate values are sometimes bogus
 
 * Hist2DWidget
-  - log scale
   - display stats for zoomed area
 
 
