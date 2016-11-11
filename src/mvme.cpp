@@ -9,7 +9,7 @@
 #include "histogram.h"
 #include "mvmedefines.h"
 #include "vmusb_readout_worker.h"
-#include "config_widgets.h"
+#include "config_ui.h"
 #include "mvme_listfile.h"
 #include "daqconfig_tree.h"
 #include "vme_script_editor.h"
@@ -233,6 +233,11 @@ mvme::mvme(QWidget *parent) :
         if (fi.exists() && fi.isReadable())
         {
             loadConfig(configFileName);
+
+            // don't use the default filename for saving
+            m_context->setConfigFileName(QString());
+            QSettings settings;
+            settings.setValue("Files/LastConfigFile", QString());
         }
     }
     
@@ -349,10 +354,11 @@ void mvme::closeEvent(QCloseEvent *event){
         return;
     }
 
+    // DAQConfig
     if (m_context->getConfig()->isModified())
     {
-        QMessageBox msgBox(QMessageBox::Question, "Save configuration?",
-                           "The current configuration has modifications. Do you want to save it?",
+        QMessageBox msgBox(QMessageBox::Question, QSL("Save DAQ configuration?"),
+                           QSL("The current DAQ configuration has modifications. Do you want to save it?"),
                            QMessageBox::Save | QMessageBox::Cancel | QMessageBox::Discard);
         int result = msgBox.exec();
 
@@ -371,6 +377,31 @@ void mvme::closeEvent(QCloseEvent *event){
         }
     }
 
+    // AnalysisConfig
+    auto analysisConfig = m_context->getAnalysisConfig();
+    if (analysisConfig->isModified())
+    {
+        QMessageBox msgBox(QMessageBox::Question, QSL("Save analysis config?"),
+                           QSL("The current analysis configuration has modifications. Do you want to save it?"),
+                           QMessageBox::Save | QMessageBox::Cancel | QMessageBox::Discard);
+        int result = msgBox.exec();
+
+        if (result == QMessageBox::Save)
+        {
+            if (!saveAnalysisConfig(analysisConfig, m_context->getAnalysisConfigFileName()))
+            {
+                event->ignore();
+                return;
+            }
+        }
+        else if (result == QMessageBox::Cancel)
+        {
+            event->ignore();
+            return;
+        }
+    }
+
+    // window sizes and positions
     QSettings settings;
     settings.setValue("mainWindowGeometry", saveGeometry());
     settings.setValue("mainWindowState", saveState());
@@ -730,6 +761,8 @@ void mvme::onObjectDoubleClicked(QObject *object)
 void mvme::onObjectAboutToBeRemoved(QObject *object)
 {
     auto &windowList = m_objectWindows[object];
+
+    qDebug() << __PRETTY_FUNCTION__ << object << windowList;
 
     for (auto subwin: windowList)
         subwin->close();

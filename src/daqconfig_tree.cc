@@ -1,7 +1,7 @@
 #include "daqconfig_tree.h"
 #include "mvme_config.h"
 #include "mvme_context.h"
-#include "config_widgets.h"
+#include "config_ui.h"
 #include "treewidget_utils.h"
 
 #include <QDebug>

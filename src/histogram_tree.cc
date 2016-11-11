@@ -6,7 +6,7 @@
 #include "mvme_context.h"
 #include "mvme_config.h"
 #include "treewidget_utils.h"
-#include "config_widgets.h"
+#include "config_ui.h"
 
 #include <QHBoxLayout>
 #include <QMenu>
@@ -808,7 +808,8 @@ static const QString settingsPath = QSL("Files/LastAnalysisConfig");
 
 void HistogramTreeWidget::newConfig()
 {
-    if (m_context->getAnalysisConfig()->isModified())
+    auto analysisConfig = m_context->getAnalysisConfig();
+    if (analysisConfig->isModified())
     {
         QMessageBox msgBox(QMessageBox::Question, QSL("Save analysis config?"),
                            QSL("The current analysis configuration has modifications. Do you want to save it?"),
@@ -878,19 +879,22 @@ void HistogramTreeWidget::loadConfig()
 
 bool HistogramTreeWidget::saveConfig()
 {
+    auto analysisConfig = m_context->getAnalysisConfig();
     QString fileName = m_context->getAnalysisConfigFileName();
 
     if (fileName.isEmpty())
     {
-        return saveConfigAs();
+        auto result = saveAnalysisConfigAs(analysisConfig);
+        if (result.first)
+        {
+            analysisConfig->setModified(false);
+            m_context->setAnalysisConfigFileName(result.second);
+            return true;
+        }
     }
-
-    QJsonObject json, configJson;
-    m_context->getAnalysisConfig()->write(configJson);
-    json[QSL("AnalysisConfig")] = configJson;
-    if (gui_write_json_file(fileName, QJsonDocument(json)))
+    else if (saveAnalysisConfig(analysisConfig, fileName))
     {
-        m_context->getAnalysisConfig()->setModified(false);
+        analysisConfig->setModified(false);
         return true;
     }
     return false;
@@ -898,34 +902,16 @@ bool HistogramTreeWidget::saveConfig()
 
 bool HistogramTreeWidget::saveConfigAs()
 {
-    QString path = QFileInfo(QSettings().value(settingsPath).toString()).absolutePath();
+    auto analysisConfig = m_context->getAnalysisConfig();
+    auto result = saveAnalysisConfigAs(analysisConfig);
 
-    if (path.isEmpty())
-        path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
-
-    path += QSL("/analysis.json");
-
-    QString fileName = QFileDialog::getSaveFileName(this, QSL("Save analysis config"), path, fileFilter);
-
-    if (fileName.isEmpty())
-        return false;
-
-    QFileInfo fi(fileName);
-    if (fi.completeSuffix().isEmpty())
-        fileName += QSL(".json");
-
-    QJsonObject json, configJson;
-    m_context->getAnalysisConfig()->write(configJson);
-    json[QSL("AnalysisConfig")] = configJson;
-
-    if (gui_write_json_file(fileName, QJsonDocument(json)))
+    if (result.first)
     {
-        QSettings().setValue(settingsPath, fileName);
-        m_context->setAnalysisConfigFileName(fileName);
-        m_context->getAnalysisConfig()->setModified(false);
-        return true;
+        analysisConfig->setModified(false);
+        m_context->setAnalysisConfigFileName(result.second);
     }
-    return false;
+
+    return result.first;
 }
 
 void HistogramTreeWidget::updateConfigLabel()

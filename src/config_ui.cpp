@@ -1,4 +1,4 @@
-#include "config_widgets.h"
+#include "config_ui.h"
 #include "ui_event_config_dialog.h"
 #include "ui_datafilter_dialog.h"
 #include "mvme_config.h"
@@ -16,6 +16,8 @@
 #include <QCloseEvent>
 #include <QScrollBar>
 #include <QPushButton>
+#include <QJsonObject>
+#include <QJsonDocument>
 
 //
 // EventConfigDialog
@@ -799,4 +801,53 @@ void DataFilterDialog::validate()
     bool isValid = ui->le_filter->hasAcceptableInput()
         && !ui->le_name->text().isEmpty();
     ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(isValid);
+}
+
+namespace
+{
+    bool saveAnalysisConfigImpl(AnalysisConfig *config, const QString &fileName)
+    {
+        QJsonObject json, configJson;
+        config->write(configJson);
+        json[QSL("AnalysisConfig")] = configJson;
+        return gui_write_json_file(fileName, QJsonDocument(json));
+    }
+
+    static const QString fileFilter = QSL("Config Files (*.json);; All Files (*.*)");
+    static const QString settingsPath = QSL("Files/LastAnalysisConfig");
+}
+
+bool saveAnalysisConfig(AnalysisConfig *config, const QString &fileName)
+{
+    if (fileName.isEmpty())
+        return saveAnalysisConfigAs(config).first;
+
+    return saveAnalysisConfigImpl(config, fileName);
+}
+
+QPair<bool, QString> saveAnalysisConfigAs(AnalysisConfig *config)
+{
+    QString path = QFileInfo(QSettings().value(settingsPath).toString()).absolutePath();
+
+    if (path.isEmpty())
+        path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
+
+    path += QSL("/analysis.json");
+
+    QString fileName = QFileDialog::getSaveFileName(nullptr, QSL("Save analysis config"), path, fileFilter);
+
+    if (fileName.isEmpty())
+        return qMakePair(false, QString());
+
+    QFileInfo fi(fileName);
+    if (fi.completeSuffix().isEmpty())
+        fileName += QSL(".json");
+
+    if (saveAnalysisConfigImpl(config, fileName))
+    {
+        QSettings().setValue(settingsPath, fileName);
+        return qMakePair(true, fileName);
+    }
+
+    return qMakePair(false, QString());
 }

@@ -8,6 +8,7 @@ class EventConfig;
 class ModuleConfig;
 class DataFilterConfig;
 class MVMEContext;
+class AnalysisConfig;
 
 namespace Ui
 {
@@ -78,5 +79,8 @@ class DataFilterDialog: public QDialog
         Ui::DataFilterDialog *ui;
         DataFilterConfig *m_config;
 };
+
+bool saveAnalysisConfig(AnalysisConfig *config, const QString &fileName);
+QPair<bool, QString> saveAnalysisConfigAs(AnalysisConfig *config);
 
 #endif /* __CONFIG_WIDGETS_H__ */

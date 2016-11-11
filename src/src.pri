@@ -3,7 +3,6 @@ DEPENDPATH += $$PWD .
 
 
 SOURCES += \
-    $$PWD/config_widgets.cpp \
     $$PWD/CVMUSBReadoutList.cpp \
     $$PWD/hist1d.cc \
     $$PWD/hist2d.cpp \
@@ -30,10 +29,10 @@ SOURCES += \
     $$PWD/daqcontrol_widget.cc \
     $$PWD/daqstats_widget.cc \
     $$PWD/data_filter.cc \
+    $$PWD/config_ui.cpp
 
 
 HEADERS += \
-    $$PWD/config_widgets.h \
     $$PWD/CVMUSBReadoutList.h \
     $$PWD/databuffer.h \
     $$PWD/globals.h \
@@ -65,6 +64,7 @@ HEADERS += \
     $$PWD/daqcontrol_widget.h \
     $$PWD/daqstats_widget.h \
     $$PWD/data_filter.h \
+    $$PWD/config_ui.h
 
 
 FORMS += \
@@ -90,12 +90,10 @@ contains(DEFINES, "VME_CONTROLLER_WIENER") {
 
 
     HEADERS += \
-        $$PWD/libxxusb.h \
         $$PWD/vmusb.h \
 
     SOURCES += \
         $$PWD/vmusb.cpp \
-        $$PWD/libxxusb.cc \
 }
 
 contains(DEFINES, "VME_CONTROLLER_CAEN") {
@@ -111,3 +109,5 @@ contains(DEFINES, "VME_CONTROLLER_CAEN") {
     SOURCES += \
         caenusb.cpp \
 }
+
+# vim:ft=conf
