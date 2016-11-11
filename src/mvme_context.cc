@@ -111,7 +111,21 @@ void MVMEContext::setDAQConfig(DAQConfig *config)
     // the controller type changed.
 
     if (m_daqConfig)
+    {
+        for (auto eventConfig: m_daqConfig->getEventConfigs())
+            onEventAboutToBeRemoved(eventConfig);
+
+        for (auto key: m_daqConfig->vmeScriptLists.keys())
+        {
+            auto scriptList = m_daqConfig->vmeScriptLists[key];
+
+            for (auto vmeScript: scriptList)
+                emit objectAboutToBeRemoved(vmeScript);
+        }
+
         m_daqConfig->deleteLater();
+    }
+
     m_daqConfig = config;
     config->setParent(this);
 
