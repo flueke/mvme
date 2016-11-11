@@ -16,11 +16,21 @@ int main(int argc, char *argv[])
 
     QCoreApplication app(argc, argv);
 
-    for (auto obj: tests) {
-      ret |= QTest::qExec(obj.get(), argc, argv);
+    bool first = true;
+
+    for (auto obj: tests)
+    {
+        if (first)
+        {
+            ret |= QTest::qExec(obj.get(), argc, argv);
+            first = false;
+        }
+        else
+        {
+            ret |= QTest::qExec(obj.get());
+        }
     }
   }
 
   return ret;
 }
-

@@ -5,15 +5,10 @@
 #include <stdexcept>
 
 DataFilter::DataFilter(const QByteArray &filter)
+    : m_filter(filter)
 {
     if (filter.size() > 32)
         throw std::length_error("maximum filter size of 32 exceeded");
-
-    for (char c: filter)
-    {
-        c = std::tolower(c);
-        m_filter.push_back(c);
-    }
 
     compile();
 }
@@ -50,7 +45,7 @@ u32 DataFilter::getExtractMask(char marker) const
     {
         for (int i=0; i<m_filter.size(); ++i)
         {
-            char c = m_filter[m_filter.size() - i - 1];
+            char c = std::tolower(m_filter[m_filter.size() - i - 1]);
 
             if (c == marker)
                 result |= 1 << i;

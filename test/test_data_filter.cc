@@ -114,4 +114,16 @@ void TestDataFilter::test_extract_data_()
         QCOMPARE(filter.extractData(0x0, 'D'), 0x0u);
         QCOMPARE(filter.extractData(0xf012345f, 'D'), 0x1u);
     }
+
+    // should be case insensitive
+    {
+        DataFilter filter("11XXDDDD");
+
+        QCOMPARE(filter.getExtractMask('d'), 0xfu);
+        QCOMPARE(filter.getExtractShift('d'), 0u);
+        QCOMPARE(filter.getExtractBits('d'), 4u);
+        QCOMPARE(filter.extractData(0xff, 'd'), 0xfu);
+        QCOMPARE(filter.extractData(0xf0, 'd'), 0x0u);
+        QCOMPARE(filter.extractData(0x0f, 'd'), 0xfu);
+    }
 }
