@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>406</width>
-    <height>327</height>
+    <width>434</width>
+    <height>369</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -38,7 +38,10 @@ Data extraction uses the following placeholders:
 The default filters contain the following flags:
   P = pileup
   O = overflow
-  U = underflow</string>
+  U = underflow
+
+Note: The filter matching is case-insensitive, so both
+      'D' and 'd' are allowed for the data extract mask.</string>
         </property>
         <property name="textFormat">
          <enum>Qt::PlainText</enum>

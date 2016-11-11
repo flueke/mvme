@@ -44,7 +44,7 @@
         <item row="0" column="0">
          <widget class="QPushButton" name="pb_export">
           <property name="text">
-           <string>Export</string>
+           <string>Print to File</string>
           </property>
          </widget>
         </item>
