@@ -12,6 +12,8 @@
 ==========================
 ==== Do these later! =====
 ==========================
+* add versioning to the GUI state saved via QSettings. If the version changes
+  use the default layout instead of restoring a possibly incompatible state.
 * Data Filters: for each (filter, address) pair keep a list of values as some
   modules can yield multiple (address, value) pairs in a single event!
   When accumulating 2D histograms check if the list length for both axes is the
