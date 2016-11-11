@@ -38,5 +38,5 @@
        	#This results in highest resolution and ballistic loss correction.
 
 # Pulser setting; Window of interest has to include 0+- 3ns
-0x6070 1	# 3= pulser on , 0=pulser off
-0x6072 2000	# pulser amplitude, 0...2047
+0x6070 0	# 3= pulser on , 0=pulser off
+0x6072 1000	# pulser amplitude, 0...2047
