@@ -45,10 +45,10 @@ void Hist2D::resize(uint32_t xBits, uint32_t yBits)
 
 void Hist2D::clear()
 {
-    m_maxValue = 0;
-    m_maxX = 0;
-    m_maxY = 0;
-    m_numberOfEntries = 0;
+    m_stats.maxValue = 0;
+    m_stats.maxX = 0;
+    m_stats.maxY = 0;
+    m_stats.entryCount = 0;
 
     for (size_t i=0; i < getXResolution() * getYResolution(); ++i)
     {
@@ -65,15 +65,15 @@ void Hist2D::fill(uint32_t x, uint32_t y, uint32_t weight)
         m_data[y * getXResolution() + x] += weight;
         uint32_t value = m_data[y * getXResolution() + x];
 
-        if (value >= m_maxValue)
+        if (value >= m_stats.maxValue)
         {
-            m_maxValue = value;
-            m_maxX = x;
-            m_maxY = y;
+            m_stats.maxValue = value;
+            m_stats.maxX = x;
+            m_stats.maxY = y;
         }
-        ++m_numberOfEntries;
+        ++m_stats.entryCount;
 
-        setInterval(Qt::ZAxis, QwtInterval(0, m_maxValue));
+        setInterval(Qt::ZAxis, QwtInterval(0, m_stats.maxValue));
     }
 }
 
@@ -98,11 +98,16 @@ void Hist2D::setInterval(Qt::Axis axis, const QwtInterval &interval)
 
 Hist2DStatistics Hist2D::calcStatistics(QwtInterval xInterval, QwtInterval yInterval) const
 {
-    // TODO: if stats for the whole histogram are requested just return the global stats
-    Hist2DStatistics result;
-
     xInterval = xInterval.normalized();
     yInterval = yInterval.normalized();
+
+    if (xInterval == interval(Qt::XAxis)
+        && yInterval == interval(Qt::YAxis))
+    {
+        return m_stats;
+    }
+
+    Hist2DStatistics result;
 
     for (u32 iy = yInterval.minValue();
          iy < yInterval.maxValue();
@@ -112,7 +117,7 @@ Hist2DStatistics Hist2D::calcStatistics(QwtInterval xInterval, QwtInterval yInte
              ix < xInterval.maxValue();
              ++ix)
         {
-            // TODO: access value directory to speed this up a bit
+            // TODO: access value directly to speed this up a bit
             double v = value(ix, iy);
             if (!qIsNaN(v))
             {

@@ -20,7 +20,7 @@ struct Hist2DStatistics
     u32 maxX = 0;
     u32 maxY = 0;
     u32 maxValue = 0;
-    u32 entryCount = 0;
+    s64 entryCount = 0;
 };
 
 class Hist2D: public QObject
@@ -47,10 +47,6 @@ public:
         return m_intervals[axis];
     }
 
-    //uint32_t getMaxValue() const { return m_maxValue; }
-    //uint32_t getMaxX() const { return m_maxX; }
-    //uint32_t getMaxY() const { return m_maxY; }
-    //uint32_t getNumberOfEntries() const { return m_numberOfEntries; }
     Hist2DStatistics calcStatistics(QwtInterval xInterval, QwtInterval yInterval) const;
 
 private:
@@ -59,10 +55,7 @@ private:
     uint32_t m_xBits = 0;
     uint32_t m_yBits = 0;
     uint32_t *m_data = nullptr;
-    uint32_t m_maxValue = 0;
-    uint32_t m_maxX = 0;
-    uint32_t m_maxY = 0;
-    uint32_t m_numberOfEntries = 0;
+    Hist2DStatistics m_stats;
     QwtInterval m_intervals[3];
 };
 
