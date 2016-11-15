@@ -3,6 +3,7 @@
 #include "mvme_context.h"
 #include "config_ui.h"
 #include "treewidget_utils.h"
+#include "mvme_event_processor.h"
 
 #include <QDebug>
 #include <QHBoxLayout>
@@ -400,6 +401,9 @@ void DAQConfigTreeWidget::treeContextMenu(const QPoint &pos)
         menu.addAction(QSL("Rename Module"), this, &DAQConfigTreeWidget::editName);
         menu.addSeparator();
         menu.addAction(QSL("Remove Module"), this, &DAQConfigTreeWidget::removeModule);
+
+        if (!m_context->getEventProcessor()->getDiagnostics())
+            menu.addAction(QSL("Show Diagnostics"), this, &DAQConfigTreeWidget::handleShowDiagnostics);
     }
 
     //
@@ -766,3 +770,10 @@ void DAQConfigTreeWidget::onActionShowAdvancedChanged()
     QSettings settings;
     settings.setValue("DAQTree/ShowAdvanced", showAdvanced);
 };
+
+void DAQConfigTreeWidget::handleShowDiagnostics()
+{
+    auto node = m_tree->currentItem();
+    auto module = Var2Ptr<ModuleConfig>(node->data(0, DataRole_Pointer));
+    emit showDiagnostics(module);
+}

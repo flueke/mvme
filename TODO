@@ -6,7 +6,6 @@
   created.
   Related: Remove Hist2d on filter removal?
 * mesytec module diagnostics filter
-* Hist1D crash at daq start after load/saving/removing. It's there but can't reproduce!
 
 
 ==========================
@@ -21,14 +20,17 @@
 
 * add ability to create 2d histograms during DAQ/replay and fill them immediately
 
-* Hist1DWidget
-  - don't zoom into negative x
-  - fix mousewheel zoom or disable it
-  - display coordinate and value under mouse cursor
-  - displayed zoomrect coordinate values are sometimes bogus
-
-* Hist2DWidget
-  - display stats for zoomed area
+* Histos
+  * mousewheel zoom does not add scrollbars to the plot!
+  * left click in 1d histo shows wrong y-values
+  * Hist1DWidget
+    - don't zoom into negative x
+    - fix mousewheel zoom or disable it
+    - display coordinate and value under mouse cursor
+    - displayed zoomrect coordinate values are sometimes bogus
+  
+  * Hist2DWidget
+    - display stats for zoomed area
 
 
 * Histogram properties:

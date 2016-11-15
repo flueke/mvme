@@ -29,7 +29,9 @@ SOURCES += \
     $$PWD/daqcontrol_widget.cc \
     $$PWD/daqstats_widget.cc \
     $$PWD/data_filter.cc \
-    $$PWD/config_ui.cpp
+    $$PWD/config_ui.cpp \
+    $$PWD/mesytec_diagnostics.cc \
+    $$PWD/realtimedata.cpp \
 
 
 HEADERS += \
@@ -64,7 +66,9 @@ HEADERS += \
     $$PWD/daqcontrol_widget.h \
     $$PWD/daqstats_widget.h \
     $$PWD/data_filter.h \
-    $$PWD/config_ui.h
+    $$PWD/config_ui.h \
+    $$PWD/mesytec_diagnostics.h \
+    $$PWD/realtimedata.h \
 
 
 FORMS += \
@@ -76,6 +80,7 @@ FORMS += \
     $$PWD/twodimwidget.ui \
     $$PWD/vme_debug_widget.ui \
     $$PWD/datafilter_dialog.ui \
+    $$PWD/mesytec_diagnostics.ui
 
 
 contains(DEFINES, "VME_CONTROLLER_WIENER") {

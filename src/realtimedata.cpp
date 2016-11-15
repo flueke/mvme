@@ -8,6 +8,7 @@ RealtimeData::RealtimeData(QObject *parent) :
     m_lo = 0;
     m_hi = 34;
     qDebug("new RTdata %d, %d", m_lo, m_hi);
+    clearData();
 }
 
 RealtimeData::~RealtimeData()

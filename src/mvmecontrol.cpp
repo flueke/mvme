@@ -1159,7 +1159,7 @@ void mvmeControl::dispRt()
 
 void mvmeControl::dispChan(int c)
 {
-#if 0
+#if 1
     qDebug("dispchan");
     QString str;
     str.sprintf("%d", theApp->diag->getChannel(theApp->getHist(), ui->diagChan->value(), ui->diagBin->value()));

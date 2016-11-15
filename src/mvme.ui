@@ -55,6 +55,7 @@
      <string>Window</string>
     </property>
     <addaction name="actionVME_Debug"/>
+    <addaction name="actionMesytec_Diagnostics"/>
     <addaction name="separator"/>
     <addaction name="actionTile"/>
     <addaction name="actionCascade"/>
@@ -143,6 +144,11 @@
   <action name="actionVME_Debug">
    <property name="text">
     <string>VME Debug</string>
+   </property>
+  </action>
+  <action name="actionMesytec_Diagnostics">
+   <property name="text">
+    <string>Mesytec Diagnostics</string>
    </property>
   </action>
  </widget>

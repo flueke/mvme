@@ -24,6 +24,7 @@ class DAQConfigTreeWidget: public QWidget
     signals:
         void configObjectClicked(ConfigObject *object);
         void configObjectDoubleClicked(ConfigObject *object);
+        void showDiagnostics(ModuleConfig *cfg);
 
     public:
         DAQConfigTreeWidget(MVMEContext *context, QWidget *parent = 0);
@@ -62,6 +63,7 @@ class DAQConfigTreeWidget: public QWidget
         void editName();
         void initModule();
         void onActionShowAdvancedChanged();
+        void handleShowDiagnostics();
 
         void runScriptConfigs(const QVector<VMEScriptConfig *> &configs);
 

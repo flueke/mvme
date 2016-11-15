@@ -80,6 +80,8 @@ private slots:
 
     void onDAQAboutToStart(quint32 nCycles);
 
+    void onShowDiagnostics(ModuleConfig *config);
+
 
 private:
     Ui::mvme *ui;

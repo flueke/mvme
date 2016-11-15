@@ -3,6 +3,7 @@
 #include "mvme_listfile.h"
 #include "hist1d.h"
 #include "hist2d.h"
+#include "mesytec_diagnostics.h"
 
 #ifdef MVME_EVENT_PROCESSOR_DEBUGGING
     inline QDebug qEPDebug() { return QDebug(QtDebugMsg); }
@@ -22,6 +23,7 @@ struct MVMEEventProcessorPrivate
     QHash<DataFilterConfig *, QHash<int, s64>> valuesByFilterConfig;
     QHash<Hist2DConfig *, Hist2D *> hist2dByConfig;
     QHash<QUuid, DataFilterConfig *> filterConfigsById;
+    MesytecDiagnostics *diag = nullptr;
 };
 
 MVMEEventProcessor::MVMEEventProcessor(MVMEContext *context)
@@ -33,6 +35,16 @@ MVMEEventProcessor::MVMEEventProcessor(MVMEContext *context)
 MVMEEventProcessor::~MVMEEventProcessor()
 {
     delete m_d;
+}
+
+void MVMEEventProcessor::setDiagnostics(MesytecDiagnostics *diag)
+{
+    m_d->diag = diag;
+}
+
+MesytecDiagnostics *MVMEEventProcessor::getDiagnostics() const
+{
+    return m_d->diag;
 }
 
 void MVMEEventProcessor::newRun()
@@ -169,6 +181,11 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                             }
                             m_d->valuesByFilterConfig[filterConfig][address] = data;
                         }
+                    }
+
+                    if (m_d->diag && m_d->diag->getEventIndex() == eventIndex && m_d->diag->getModuleIndex() == moduleIndex)
+                    {
+                        m_d->diag->handleDataWord(currentWord);
                     }
                 }
 

@@ -22,6 +22,7 @@ class HistogramTreeWidget: public QWidget
         void objectClicked(QObject *object);
         void objectDoubleClicked(QObject *object);
         void openInNewWindow(QObject *object);
+        void showDiagnostics(ModuleConfig *cfg);
 
     public:
         HistogramTreeWidget(MVMEContext *context, QWidget *parent = 0);
@@ -61,6 +62,7 @@ class HistogramTreeWidget: public QWidget
         bool saveConfig();
         bool saveConfigAs();
         void updateConfigLabel();
+        void handleShowDiagnostics();
 
         MVMEContext *m_context = nullptr;
         DAQConfig *m_daqConfig = nullptr;

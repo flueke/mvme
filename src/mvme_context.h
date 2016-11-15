@@ -73,6 +73,7 @@ class MVMEContext: public QObject
         ListFile *getListFile() const { return m_listFile; }
         void setMode(GlobalMode mode);
         GlobalMode getMode() const;
+        MVMEEventProcessor *getEventProcessor() const { return m_eventProcessor; }
 
         //
         // Object registry

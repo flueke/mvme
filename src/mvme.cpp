@@ -17,6 +17,8 @@
 #include "histogram_tree.h"
 #include "daqcontrol_widget.h"
 #include "daqstats_widget.h"
+#include "mesytec_diagnostics.h"
+#include "mvme_event_processor.h"
 
 #include <QDockWidget>
 #include <QFileDialog>
@@ -135,6 +137,9 @@ mvme::mvme(QWidget *parent) :
 
         connect(m_daqConfigTreeWidget, &DAQConfigTreeWidget::configObjectDoubleClicked,
                 this, &mvme::onObjectDoubleClicked);
+
+        connect(m_daqConfigTreeWidget, &DAQConfigTreeWidget::showDiagnostics,
+                this, &mvme::onShowDiagnostics);
     }
 
     //
@@ -887,4 +892,30 @@ void mvme::onDAQAboutToStart(quint32 nCycles)
             }
         }
     }
+}
+
+void mvme::onShowDiagnostics(ModuleConfig *moduleConfig)
+{
+    if (m_context->getEventProcessor()->getDiagnostics())
+        return;
+
+    auto diag   = new MesytecDiagnostics;
+    diag->setEventAndModuleIndices(m_context->getDAQConfig()->getEventAndModuleIndices(moduleConfig));
+
+    auto widget = new MesytecDiagnosticsWidget(diag);
+    diag->setParent(widget);
+
+    // TODO: use QMetaObject::invokeMethod to execute in the event processors thread!
+    m_context->getEventProcessor()->setDiagnostics(diag);
+    connect(widget, &MVMEWidget::aboutToClose, this, [this]() {
+        m_context->getEventProcessor()->setDiagnostics(nullptr);
+    });
+
+    auto subwin = new QMdiSubWindow(ui->mdiArea);
+    subwin->setWidget(widget);
+    subwin->setAttribute(Qt::WA_DeleteOnClose);
+    subwin->resize(1024, 760);
+    ui->mdiArea->addSubWindow(subwin);
+    subwin->show();
+    ui->mdiArea->setActiveSubWindow(subwin);
 }

@@ -464,6 +464,9 @@ void HistogramTreeWidget::treeContextMenu(const QPoint &pos)
         menu.addAction(QSL("Add filter"), this, &HistogramTreeWidget::addDataFilter);
         menu.addAction(QSL("Generate default filters"), this, &HistogramTreeWidget::generateDefaultFilters);
 
+        if (!m_context->getEventProcessor()->getDiagnostics())
+            menu.addAction(QSL("Show Diagnostics"), this, &HistogramTreeWidget::handleShowDiagnostics);
+
     }
 
     if (node && node->type() == NodeType_DataFilter)
@@ -926,4 +929,11 @@ void HistogramTreeWidget::updateConfigLabel()
 
 
     label_fileName->setText(text);
+}
+
+void HistogramTreeWidget::handleShowDiagnostics()
+{
+    auto node = m_tree->currentItem();
+    auto module = Var2Ptr<ModuleConfig>(node->data(0, DataRole_Pointer));
+    emit showDiagnostics(module);
 }

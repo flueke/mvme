@@ -5,6 +5,7 @@
 
 class DataBuffer;
 class MVMEContext;
+class MesytecDiagnostics;
 
 class MVMEEventProcessorPrivate;
 
@@ -18,6 +19,9 @@ class MVMEEventProcessor: public QObject
     public:
         MVMEEventProcessor(MVMEContext *context);
         ~MVMEEventProcessor();
+
+        void setDiagnostics(MesytecDiagnostics *diag);
+        MesytecDiagnostics *getDiagnostics() const;
 
     public slots:
         void newRun();
