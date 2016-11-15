@@ -189,8 +189,8 @@ Hist2DDialog::Hist2DDialog(MVMEContext *context, Hist2D *histo, QWidget *parent)
     {
         ui->comboXResolution->setCurrentIndex(m_histo->getXBits() - bitsMin);
         ui->comboYResolution->setCurrentIndex(m_histo->getYBits() - bitsMin);
-        ui->comboXResolution->setEnabled(false);
-        ui->comboYResolution->setEnabled(false);
+        //ui->comboXResolution->setEnabled(false);
+        //ui->comboYResolution->setEnabled(false);
     }
     else
     {
@@ -220,6 +220,7 @@ QPair<Hist2D *, Hist2DConfig *> Hist2DDialog::getHistoAndConfig()
     else
     {
         histoConfig = qobject_cast<Hist2DConfig *>(m_context->getMappedObject(m_histo, QSL("ObjectToConfig")));
+        m_histo->resize(xBits, yBits);
     }
 
     if (histoConfig)

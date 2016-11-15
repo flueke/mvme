@@ -34,13 +34,19 @@ Hist2D::~Hist2D()
 
 void Hist2D::resize(uint32_t xBits, uint32_t yBits)
 {
-    m_xBits = xBits;
-    m_yBits = yBits;
-    delete[] m_data;
-    m_data = new uint32_t[getXResolution() * getYResolution()];
-    setInterval(Qt::XAxis, QwtInterval(0, getXResolution() - 1));
-    setInterval(Qt::YAxis, QwtInterval(0, getYResolution() - 1));
-    clear();
+    if (xBits != m_xBits || yBits != m_yBits)
+    {
+        qDebug() << __PRETTY_FUNCTION__ << xBits << yBits;
+        m_xBits = xBits;
+        m_yBits = yBits;
+        auto old_data = m_data;
+        m_data = new uint32_t[getXResolution() * getYResolution()];
+        delete[] old_data;
+        setInterval(Qt::XAxis, QwtInterval(0, getXResolution() - 1));
+        setInterval(Qt::YAxis, QwtInterval(0, getYResolution() - 1));
+        clear();
+        emit resized(xBits, yBits);
+    }
 }
 
 void Hist2D::clear()
@@ -238,17 +244,6 @@ Hist2DWidget::Hist2DWidget(MVMEContext *context, Hist2D *hist2d, QWidget *parent
 
     connect(ui->linLogGroup, SIGNAL(buttonClicked(int)), this, SLOT(displayChanged()));
 
-    ui->pb_edit->setVisible(false);
-    // FIXME: reenable or remove the edit button!
-    //connect(ui->pb_edit, &QPushButton::clicked, this, [this] {
-    //    Hist2DDialog dialog(m_context, m_hist2d, this);
-    //    int result = dialog.exec();
-    //    if (result == QDialog::Accepted)
-    //    {
-    //        dialog.getHist2D(); // this updates the histogram
-    //    }
-    //});
-
     auto histData = new Hist2DRasterData(m_hist2d);
     m_plotItem->setData(histData);
     m_plotItem->setRenderThreadCount(0); // use system specific ideal thread count
@@ -312,7 +307,7 @@ void Hist2DWidget::replot()
                        .arg(yTitle));
     }
 
-    // z
+    // z axis interval
     auto histData = reinterpret_cast<Hist2DRasterData *>(m_plotItem->data());
     histData->updateIntervals();
 
@@ -402,3 +397,16 @@ QwtLinearColorMap *Hist2DWidget::getColorMap() const
     return colorMap;
 }
 
+void Hist2DWidget::onHistoResized()
+{
+    auto histData = reinterpret_cast<Hist2DRasterData *>(m_plotItem->data());
+    histData->updateIntervals();
+
+    auto interval = histData->interval(Qt::XAxis);
+    ui->plot->setAxisScale(QwtPlot::xBottom, interval.minValue(), interval.maxValue());
+
+    interval = histData->interval(Qt::YAxis);
+    ui->plot->setAxisScale(QwtPlot::yLeft, interval.minValue(), interval.maxValue());
+
+    m_zoomer->setZoomBase();
+}

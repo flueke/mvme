@@ -26,6 +26,9 @@ struct Hist2DStatistics
 class Hist2D: public QObject
 {
     Q_OBJECT
+signals:
+    void resized(u32 xBits, u32 yBits);
+
 public:
     Hist2D(uint32_t xBits, uint32_t yBits, QObject *parent = 0);
     ~Hist2D();
@@ -80,6 +83,7 @@ private:
     bool zAxisIsLog() const;
     bool zAxisIsLin() const;
     QwtLinearColorMap *getColorMap() const;
+    void onHistoResized();
 
     Ui::Hist2DWidget *ui;
     MVMEContext *m_context;

@@ -48,17 +48,10 @@
           </property>
          </widget>
         </item>
-        <item row="2" column="0">
+        <item row="1" column="0">
          <widget class="QPushButton" name="pb_clear">
           <property name="text">
            <string>Clear</string>
-          </property>
-         </widget>
-        </item>
-        <item row="1" column="0">
-         <widget class="QPushButton" name="pb_edit">
-          <property name="text">
-           <string>Edit Sources</string>
           </property>
          </widget>
         </item>
