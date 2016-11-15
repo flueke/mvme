@@ -2,7 +2,7 @@
 #define REALTIMEDATA_H
 
 #define CHANPERMOD 36
-#define CHANSIZE 10000
+#define CHANSIZE 2500 // was 10000, but when changing device thresholds it takes too long for the number to catch up
 
 #include <QObject>
 

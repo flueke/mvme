@@ -100,8 +100,8 @@ void RealtimeData::calcData(void)
         m_RDsigma[CHANPERMOD+1] =0;
     }
     if(evens){
-        m_RDmean[CHANPERMOD] /= odds;
-        m_RDsigma[CHANPERMOD] /= odds;
+        m_RDmean[CHANPERMOD] /= evens;
+        m_RDsigma[CHANPERMOD] /= evens;
     }
     else{
         m_RDmean[CHANPERMOD] =0;
@@ -122,6 +122,7 @@ double RealtimeData::getRdSigma(quint8 slot)
 void RealtimeData::setFilter(quint8 lo, quint8 hi)
 {
     qDebug("setRtFilter %d %d", lo, hi);
+    clearData();
     m_lo = lo;
     m_hi = hi;
 }
