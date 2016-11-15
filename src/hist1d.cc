@@ -4,6 +4,8 @@
 #include "mvme_config.h"
 #include "mvme_context.h"
 
+#include <cmath>
+
 #include <qwt_plot_curve.h>
 #include <qwt_plot_histogram.h>
 #include <qwt_plot_magnifier.h>
@@ -83,17 +85,17 @@ void Hist1D::clear()
 
 Hist1DStatistics Hist1D::calcStatistics(u32 startChannel, u32 onePastEndChannel) const
 {
-    Hist1DStatistics result;
-
     if (startChannel > onePastEndChannel)
         std::swap(startChannel, onePastEndChannel);
 
     startChannel = std::min(startChannel, getResolution());
     onePastEndChannel = std::min(onePastEndChannel, getResolution());
 
+    Hist1DStatistics result;
+
     for (u32 i = startChannel; i < onePastEndChannel; ++i)
     {
-        u32 v = value(i);
+        double v = value(i);
         result.mean += v * i;
         result.entryCount += v;
 
@@ -137,6 +139,36 @@ QTextStream &writeHistogram(QTextStream &out, Hist1D *histo)
     }
 
     return out;
+}
+
+Hist1D *readHistogram(QTextStream &in)
+{
+    double value;
+    QVector<double> values;
+
+    while (true)
+    {
+        u32 channelIndex;
+        in >> channelIndex >> value;
+        if (in.status() != QTextStream::Ok)
+            break;
+        values.push_back(value);
+    }
+
+    u32 bits = std::ceil(std::log2(values.size()));
+
+    qDebug() << values.size() << bits;
+
+    auto result = new Hist1D(bits);
+
+    for (int channelIndex = 0;
+         channelIndex < values.size();
+        ++channelIndex)
+    {
+        result->fill(channelIndex, static_cast<u32>(values[channelIndex]));
+    }
+
+    return result;
 }
 
 //
@@ -283,6 +315,12 @@ Hist1DWidget::Hist1DWidget(MVMEContext *context, Hist1D *histo, Hist1DConfig *hi
 
     m_statsText = new QwtText;
     m_statsText->setRenderFlags(Qt::AlignLeft | Qt::AlignTop);
+#if 0
+    auto font = QFont("Monospace", 8);
+    font.setStyleHint(QFont::Monospace);
+    font.setFixedPitch(true);
+    m_statsText->setFont(font);
+#endif
 
     m_statsTextItem = new QwtPlotTextLabel;
     m_statsTextItem->setText(*m_statsText);
@@ -375,6 +413,7 @@ void Hist1DWidget::updateStatistics()
 
     m_stats = m_histo->calcStatistics(lowerBound, upperBound);
 
+#if 0
     QString buffer;
     buffer.sprintf("\nMean: %2.2f\nSigma: %2.2f\nCounts: %u\nMaximum: %u\nat Channel: %u\n",
                    m_stats.mean,
@@ -383,6 +422,21 @@ void Hist1DWidget::updateStatistics()
                    m_stats.maxValue,
                    m_stats.maxChannel
                   );
+#else
+    static const int fieldWidth = 0;
+    QString buffer = QString("\nMean: %L1"
+                             "\nSigma: %L2"
+                             "\nCounts: %L3"
+                             "\nMaximum: %L4"
+                             "\nat Channel: %L5\n")
+        .arg(m_stats.mean, fieldWidth)
+        .arg(m_stats.sigma, fieldWidth)
+        .arg(m_stats.entryCount, fieldWidth)
+        .arg(m_stats.maxValue, fieldWidth)
+        .arg(m_stats.maxChannel, fieldWidth)
+        ;
+#endif
+
     m_statsText->setText(buffer);
     m_statsTextItem->setText(*m_statsText);
 }

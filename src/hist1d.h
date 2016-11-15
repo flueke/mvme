@@ -17,7 +17,7 @@ struct Hist1DStatistics
     u32 maxValue = 0;
     double mean = 0.0;
     double sigma = 0.0;
-    u32 entryCount = 0;
+    u64 entryCount = 0;
 };
 
 class Hist1D: public QObject
@@ -34,7 +34,7 @@ class Hist1D: public QObject
         void fill(u32 x, u32 weight=1);
         void clear();
 
-        inline u32 getEntryCount() const { return m_count; }
+        inline u64 getEntryCount() const { return m_count; }
         inline u32 getMaxValue() const { return m_maxValue; }
         inline u32 getMaxChannel() const { return m_maxChannel; }
 
@@ -43,12 +43,13 @@ class Hist1D: public QObject
     private:
         u32 m_bits;
         u32 *m_data = nullptr;
-        u32 m_count = 0;
+        u64 m_count = 0;
         u32 m_maxValue = 0;
         u32 m_maxChannel = 0;
 };
 
 QTextStream &writeHistogram(QTextStream &out, Hist1D *histo);
+Hist1D *readHistogram(QTextStream &in);
 
 namespace Ui
 {
