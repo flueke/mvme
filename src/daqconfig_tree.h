@@ -55,8 +55,12 @@ class DAQConfigTreeWidget: public QWidget
         // context menu action implementations
         void addEvent();
         void removeEvent();
+        void editEvent();
+
         void addModule();
         void removeModule();
+        void editModule();
+
         void addGlobalScript();
         void removeGlobalScript();
         void runScripts();

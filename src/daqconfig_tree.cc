@@ -69,7 +69,7 @@ DAQConfigTreeWidget::DAQConfigTreeWidget(MVMEContext *context, QWidget *parent)
     , m_nodeScripts(new TreeNode)
 {
     m_tree->setColumnCount(2);
-    m_tree->setExpandsOnDoubleClick(false);
+    m_tree->setExpandsOnDoubleClick(true);
     m_tree->setContextMenuPolicy(Qt::CustomContextMenu);
     m_tree->setIndentation(10);
     m_tree->setItemDelegateForColumn(1, new NoEditDelegate(this));
@@ -314,25 +314,25 @@ void DAQConfigTreeWidget::onItemDoubleClicked(QTreeWidgetItem *item, int column)
 {
     auto configObject = Var2Ptr<ConfigObject>(item->data(0, DataRole_Pointer));
     auto scriptConfig = qobject_cast<VMEScriptConfig *>(configObject);
-    auto eventConfig = qobject_cast<EventConfig *>(configObject);
-    auto moduleConfig = qobject_cast<ModuleConfig *>(configObject);
 
     if (scriptConfig)
     {
         emit configObjectDoubleClicked(scriptConfig);
     }
 
-    if (moduleConfig)
-    {
-        ModuleConfigDialog dialog(m_context, moduleConfig);
-        dialog.exec();
-    }
+    //auto moduleConfig = qobject_cast<ModuleConfig *>(configObject);
+    //if (moduleConfig)
+    //{
+    //    ModuleConfigDialog dialog(m_context, moduleConfig);
+    //    dialog.exec();
+    //}
 
-    if (eventConfig)
-    {
-        EventConfigDialog dialog(m_context, eventConfig);
-        dialog.exec();
-    }
+    //auto eventConfig = qobject_cast<EventConfig *>(configObject);
+    //if (eventConfig)
+    //{
+    //    EventConfigDialog dialog(m_context, eventConfig);
+    //    dialog.exec();
+    //}
 }
 
 void DAQConfigTreeWidget::onItemChanged(QTreeWidgetItem *item, int column)
@@ -384,6 +384,7 @@ void DAQConfigTreeWidget::treeContextMenu(const QPoint &pos)
 
     if (node && node->type() == NodeType_Event)
     {
+        menu.addAction(QSL("Edit Event"), this, &DAQConfigTreeWidget::editEvent);
         menu.addAction(QSL("Add Module"), this, &DAQConfigTreeWidget::addModule);
         menu.addAction(QSL("Rename Event"), this, &DAQConfigTreeWidget::editName);
         menu.addSeparator();
@@ -398,6 +399,7 @@ void DAQConfigTreeWidget::treeContextMenu(const QPoint &pos)
     if (node && node->type() == NodeType_Module)
     {
         menu.addAction(QSL("Init Module"), this, &DAQConfigTreeWidget::initModule);
+        menu.addAction(QSL("Edit Module"), this, &DAQConfigTreeWidget::editModule);
         menu.addAction(QSL("Rename Module"), this, &DAQConfigTreeWidget::editName);
         menu.addSeparator();
         menu.addAction(QSL("Remove Module"), this, &DAQConfigTreeWidget::removeModule);
@@ -594,6 +596,18 @@ void DAQConfigTreeWidget::removeEvent()
     }
 }
 
+void DAQConfigTreeWidget::editEvent()
+{
+    auto node = m_tree->currentItem();
+
+    if (node && node->type() == NodeType_Event)
+    {
+        auto eventConfig = Var2Ptr<EventConfig>(node->data(0, DataRole_Pointer));
+        EventConfigDialog dialog(m_context, eventConfig);
+        dialog.exec();
+    }
+}
+
 void DAQConfigTreeWidget::addModule()
 {
     auto node = m_tree->currentItem();
@@ -653,6 +667,23 @@ void DAQConfigTreeWidget::removeModule()
             event->removeModuleConfig(module);
             module->deleteLater();
         }
+    }
+}
+
+void DAQConfigTreeWidget::editModule()
+{
+    auto node = m_tree->currentItem();
+
+    while (node && node->type() != NodeType_Module)
+    {
+        node = node->parent();
+    }
+
+    if (node)
+    {
+        auto moduleConfig = Var2Ptr<ModuleConfig>(node->data(0, DataRole_Pointer));
+        ModuleConfigDialog dialog(m_context, moduleConfig);
+        dialog.exec();
     }
 }
 
