@@ -30,6 +30,7 @@ MesytecDiagnostics::MesytecDiagnostics(QObject *parent)
     {
         m_histograms.push_back(new Hist1D(histoBits, this));
     }
+    clear();
 }
 
 void MesytecDiagnostics::setEventAndModuleIndices(const QPair<int, int> &indices)
@@ -43,6 +44,11 @@ void MesytecDiagnostics::handleDataWord(quint32 currentWord)
 {
     if (currentWord == 0xFFFFFFFF || currentWord == 0x00000000)
         return;
+
+    bool header_found_flag = (currentWord & 0xC0000000) == 0x40000000;
+
+    if (header_found_flag)
+        ++m_nHeaders;
 
     bool data_found_flag = ((currentWord & 0xF0000000) == 0x10000000) // MDPP
         || ((currentWord & 0xFF800000) == 0x04000000); // MxDC
@@ -59,6 +65,11 @@ void MesytecDiagnostics::handleDataWord(quint32 currentWord)
 
         m_rtd->insertData(channel, value);
     }
+
+    bool eoe_found_flag = (currentWord & 0xC0000000) == 0xC0000000;
+
+    if (eoe_found_flag)
+        ++m_nEOEs;
 }
 
 void MesytecDiagnostics::clear(void)
@@ -80,6 +91,8 @@ void MesytecDiagnostics::clear(void)
     sigma[MINIDX] = 128000;
     mean[MINFILT] = 128000;
     sigma[MINFILT] = 128000;
+    m_nHeaders = 0;
+    m_nEOEs = 0;
 }
 
 void MesytecDiagnostics::calcAll(quint16 lo, quint16 hi, quint16 lo2, quint16 hi2, quint16 binLo, quint16 binHi)
@@ -301,7 +314,7 @@ MesytecDiagnosticsWidget::MesytecDiagnosticsWidget(MesytecDiagnostics *diag, QWi
 {
     ui->setupUi(this);
     auto updateTimer = new QTimer(this);
-    connect(updateTimer, &QTimer::timeout, this, &MesytecDiagnosticsWidget::updateRtDisplay);
+    connect(updateTimer, &QTimer::timeout, this, &MesytecDiagnosticsWidget::updateDisplay);
 
     updateTimer->setInterval(updateInterval);
     updateTimer->start();
@@ -345,6 +358,20 @@ void MesytecDiagnosticsWidget::on_diagBin_valueChanged(int value)
 void MesytecDiagnosticsWidget::on_diagChan_valueChanged(int value)
 {
     dispChan();
+}
+
+void MesytecDiagnosticsWidget::on_diagLowChannel2_valueChanged(int)
+{
+    m_diag->getRealtimeData()->setFilter(
+        ui->diagLowChannel2->value(),
+        ui->diagHiChannel2->value());
+}
+
+void MesytecDiagnosticsWidget::on_diagHiChannel2_valueChanged(int)
+{
+    m_diag->getRealtimeData()->setFilter(
+        ui->diagLowChannel2->value(),
+        ui->diagHiChannel2->value());
 }
 
 void MesytecDiagnosticsWidget::dispAll()
@@ -454,8 +481,11 @@ void MesytecDiagnosticsWidget::dispRt()
     ui->rtSigmOdd->setText(str);
 }
 
-void MesytecDiagnosticsWidget::updateRtDisplay()
+void MesytecDiagnosticsWidget::updateDisplay()
 {
     m_diag->getRealtimeData()->calcData();
     dispRt();
+
+    ui->label_nHeaders->setText(QString("%L1").arg(m_diag->getNumberOfHeaders()));
+    ui->label_nEOEs->setText(QString("%L1").arg(m_diag->getNumberOfEOEs()));
 }

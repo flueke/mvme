@@ -28,6 +28,8 @@ public:
     quint32 getMaxchan(quint16 chan);
     quint32 getCounts(quint16 chan);
     quint32 getChannel(quint16 chan, quint32 bin);
+    quint32 getNumberOfHeaders() const { return m_nHeaders; }
+    quint32 getNumberOfEOEs() const { return m_nEOEs; }
 
 private:
     double mean[50];
@@ -37,6 +39,8 @@ private:
     quint32 max[50];
     quint32 maxchan[50];
     quint32 counts[50];
+    quint32 m_nHeaders;
+    quint32 m_nEOEs;
 
     RealtimeData *m_rtd = nullptr;;
     QVector<Hist1D *> m_histograms;
@@ -60,6 +64,8 @@ class MesytecDiagnosticsWidget: public MVMEWidget
         void on_calcAll_clicked();
         void on_diagBin_valueChanged(int value);
         void on_diagChan_valueChanged(int value);
+        void on_diagLowChannel2_valueChanged(int value);
+        void on_diagHiChannel2_valueChanged(int value);
 
     private:
         void dispAll();
@@ -68,7 +74,7 @@ class MesytecDiagnosticsWidget: public MVMEWidget
         void dispResultList();
         void dispChan();
         void dispRt();
-        void updateRtDisplay();
+        void updateDisplay();
 
         Ui::DiagnosticsWidget *ui;
         MesytecDiagnostics *m_diag;
