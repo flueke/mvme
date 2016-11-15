@@ -163,6 +163,9 @@ mvme::mvme(QWidget *parent) :
 
         connect(m_histogramTreeWidget, &HistogramTreeWidget::openInNewWindow,
                 this, &mvme::openInNewWindow);
+
+        connect(m_histogramTreeWidget, &HistogramTreeWidget::showDiagnostics,
+                this, &mvme::onShowDiagnostics);
     }
 
     //

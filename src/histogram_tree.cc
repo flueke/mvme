@@ -7,6 +7,7 @@
 #include "mvme_config.h"
 #include "treewidget_utils.h"
 #include "config_ui.h"
+#include "mvme_event_processor.h"
 
 #include <QHBoxLayout>
 #include <QMenu>
