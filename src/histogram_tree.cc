@@ -624,6 +624,8 @@ void HistogramTreeWidget::generateDefaultFilters()
     }
 
     m_context->getAnalysisConfig()->setFilters(indices.first, indices.second, filterConfigs);
+
+    node->setExpanded(true);
 }
 
 void HistogramTreeWidget::addDataFilter()
@@ -892,6 +894,8 @@ bool HistogramTreeWidget::saveConfig()
         if (result.first)
         {
             analysisConfig->setModified(false);
+            for (auto obj: analysisConfig->findChildren<ConfigObject *>())
+                obj->setModified(false);
             m_context->setAnalysisConfigFileName(result.second);
             return true;
         }
@@ -899,6 +903,8 @@ bool HistogramTreeWidget::saveConfig()
     else if (saveAnalysisConfig(analysisConfig, fileName))
     {
         analysisConfig->setModified(false);
+        for (auto obj: analysisConfig->findChildren<ConfigObject *>())
+            obj->setModified(false);
         return true;
     }
     return false;
@@ -912,6 +918,8 @@ bool HistogramTreeWidget::saveConfigAs()
     if (result.first)
     {
         analysisConfig->setModified(false);
+        for (auto obj: analysisConfig->findChildren<ConfigObject *>())
+            obj->setModified(false);
         m_context->setAnalysisConfigFileName(result.second);
     }
 
@@ -921,6 +929,9 @@ bool HistogramTreeWidget::saveConfigAs()
 void HistogramTreeWidget::updateConfigLabel()
 {
     QString fileName = m_context->getAnalysisConfigFileName();
+
+    if (fileName.isEmpty())
+        fileName = QSL("<not saved>");
 
     if (m_context->getAnalysisConfig()->isModified())
         fileName += QSL(" *");
