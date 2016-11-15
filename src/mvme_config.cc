@@ -52,16 +52,19 @@ ConfigObject::ConfigObject(QObject *parent)
 void ConfigObject::setModified(bool b)
 {
     emit modified(b);
+
     if (m_modified != b)
     {
+        qDebug() << __PRETTY_FUNCTION__ << this << m_modified << "->" << b;
         m_modified = b;
         emit modifiedChanged(b);
 
-        if (b)
-        {
-            if (auto parentConfig = qobject_cast<ConfigObject *>(parent()))
-                parentConfig->setModified(true);
-        }
+    }
+
+    if (b)
+    {
+        if (auto parentConfig = qobject_cast<ConfigObject *>(parent()))
+            parentConfig->setModified(true);
     }
 }
 
