@@ -1,6 +1,7 @@
 ==========================
 ==== Do these first! =====
 ==========================
+* Limit the number of messages/s appended to the logview
 * How to handle filters without matching module? Right now they're not
   displayed until a module with the corresponding (eventIndex,moduleIndex) is
   created.
