@@ -55,7 +55,7 @@
      <string>Window</string>
     </property>
     <addaction name="actionVME_Debug"/>
-    <addaction name="actionMesytec_Diagnostics"/>
+    <addaction name="actionImport_Histogram"/>
     <addaction name="separator"/>
     <addaction name="actionTile"/>
     <addaction name="actionCascade"/>
@@ -149,6 +149,11 @@
   <action name="actionMesytec_Diagnostics">
    <property name="text">
     <string>Mesytec Diagnostics</string>
+   </property>
+  </action>
+  <action name="actionImport_Histogram">
+   <property name="text">
+    <string>Import Histogram</string>
    </property>
   </action>
  </widget>

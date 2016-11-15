@@ -922,3 +922,35 @@ void mvme::onShowDiagnostics(ModuleConfig *moduleConfig)
     subwin->show();
     ui->mdiArea->setActiveSubWindow(subwin);
 }
+
+void mvme::on_actionImport_Histogram_triggered()
+{
+    auto path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
+    QString fileName = QFileDialog::getOpenFileName(this, QSL("Import Histogram"),
+                                                    path,
+                                                    "Text files (*.txt);; All Files (*.*)");
+    if (fileName.isEmpty())
+        return;
+
+    QFile inFile(fileName);
+
+    if (inFile.open(QIODevice::ReadOnly))
+    {
+        QTextStream inStream(&inFile);
+        auto histo = readHistogram(inStream);
+
+        if (histo)
+        {
+            auto widget = new Hist1DWidget(m_context, histo);
+            histo->setParent(widget);
+            histo->setObjectName(fileName);
+            widget->setAttribute(Qt::WA_DeleteOnClose);
+            auto subwin = new QMdiSubWindow;
+            subwin->setAttribute(Qt::WA_DeleteOnClose);
+            subwin->setWidget(widget);
+            ui->mdiArea->addSubWindow(subwin);
+            subwin->show();
+            ui->mdiArea->setActiveSubWindow(subwin);
+        }
+    }
+}

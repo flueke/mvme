@@ -81,6 +81,7 @@ private slots:
     void onDAQAboutToStart(quint32 nCycles);
 
     void onShowDiagnostics(ModuleConfig *config);
+    void on_actionImport_Histogram_triggered();
 
 
 private:
