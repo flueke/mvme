@@ -70,15 +70,14 @@ class Hist1DWidget: public MVMEWidget
         Hist1D *getHist1D() const { return m_histo; }
         Hist1DConfig *getHist1DConfig() const { return m_histoConfig; }
 
-    public slots:
+    private slots:
         void replot();
         void exportPlot();
         void saveHistogram();
         void zoomerZoomed(const QRectF &);
         void mouseCursorMovedToPlotCoord(QPointF);
+        void mouseCursorLeftPlot();
         void updateStatistics();
-
-    private slots:
         void displayChanged();
 
     private:

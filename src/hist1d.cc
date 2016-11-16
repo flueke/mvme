@@ -70,7 +70,6 @@ void Hist1D::fill(u32 x, u32 weight)
             m_maxValue = value;
             m_maxChannel = x;
         }
-        ++m_count;
     }
 }
 
@@ -290,19 +289,26 @@ Hist1DWidget::Hist1DWidget(MVMEContext *context, Hist1D *histo, Hist1DConfig *hi
     m_plotCurve->attach(ui->plot);
 
     ui->plot->axisWidget(QwtPlot::yLeft)->setTitle("Counts");
-    //ui->plot->axisWidget(QwtPlot::xBottom)->setTitle("Channel X");
 
     connect(m_replotTimer, SIGNAL(timeout()), this, SLOT(replot()));
     m_replotTimer->start(2000);
 
+    ui->plot->canvas()->setMouseTracking(true);
+
     m_zoomer = new ScrollZoomer(ui->plot->canvas());
+
     // assign the unused yRight axis to only zoom in x
-    m_zoomer->setAxis(QwtPlot::xBottom, QwtPlot::yRight);
+    // Note: I disabled this as it caused a wrong y value to be displayed on
+    // the tracker text when creating a zoom rectangle. The effect of not
+    // zooming into y is achieved by setting a fixed yAxis after a zoom
+    // operation.
+    //m_zoomer->setAxis(QwtPlot::xBottom, QwtPlot::yRight);
     m_zoomer->setVScrollBarMode(Qt::ScrollBarAlwaysOff);
     m_zoomer->setZoomBase();
 
     connect(m_zoomer, &ScrollZoomer::zoomed, this, &Hist1DWidget::zoomerZoomed);
     connect(m_zoomer, &ScrollZoomer::mouseCursorMovedTo, this, &Hist1DWidget::mouseCursorMovedToPlotCoord);
+    connect(m_zoomer, &ScrollZoomer::mouseCursorLeftPlot, this, &Hist1DWidget::mouseCursorLeftPlot);
 
 #if 0
     auto plotPanner = new QwtPlotPanner(ui->plot->canvas());
@@ -383,18 +389,6 @@ void Hist1DWidget::zoomerZoomed(const QRectF &zoomRect)
 {
     if (m_zoomer->zoomRectIndex() == 0)
     {
-        // TODO: I think the if-else here is not needed as replot() is called
-        // below and that in turn will call updateYAxisScale() which does set a
-        // fixed y-axis scale no matter what.
-        //if (yAxisIsLog())
-        //{
-        //    updateYAxisScale();
-        //}
-        //else
-        //{
-        //    ui->plot->setAxisAutoScale(QwtPlot::yLeft, true);
-        //}
-
         ui->plot->setAxisScale( QwtPlot::xBottom, 0, m_histo->getResolution());
         ui->plot->replot();
         m_zoomer->setZoomBase();
@@ -403,8 +397,23 @@ void Hist1DWidget::zoomerZoomed(const QRectF &zoomRect)
     replot();
 }
 
-void Hist1DWidget::mouseCursorMovedToPlotCoord(QPointF)
+void Hist1DWidget::mouseCursorMovedToPlotCoord(QPointF pos)
 {
+    // TODO: update label in replot() to react to changes in the data without having to move the mouse
+    u32 ix = static_cast<u32>(std::max(pos.x(), 0.0));
+    double value = m_histo->value(ix);
+
+    QString text = QString("x=%1\ny=%2")
+        .arg(ix)
+        .arg(value);
+
+    ui->label_cursorInfo->setVisible(true);
+    ui->label_cursorInfo->setText(text);
+}
+
+void Hist1DWidget::mouseCursorLeftPlot()
+{
+    ui->label_cursorInfo->setVisible(false);
 }
 
 void Hist1DWidget::updateStatistics()
@@ -450,6 +459,7 @@ void Hist1DWidget::updateYAxisScale()
     if (maxValue <= 1.0)
         maxValue = 10.0;
 
+    // this sets a fixed y axis scale effectively overriding any changes made by the scrollzoomer
     double base = yAxisIsLog() ? 1.0 : 0.0l;
     ui->plot->setAxisScale(QwtPlot::yLeft, base, maxValue);
 }
