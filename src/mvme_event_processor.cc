@@ -18,9 +18,9 @@ using DataFilterConfigList = AnalysisConfig::DataFilterConfigList;
 struct MVMEEventProcessorPrivate
 {
     MVMEContext *context;
-    QMap<int, QMap<int, DataFilterConfigList>> filterConfigs;
-    QHash<DataFilterConfig *, QHash<int, Hist1D *>> histogramsByFilterConfig;
-    QHash<DataFilterConfig *, QHash<int, s64>> valuesByFilterConfig;
+    QMap<int, QMap<int, DataFilterConfigList>> filterConfigs; // eventIdx -> moduleIdx -> filterList
+    QHash<DataFilterConfig *, QHash<int, Hist1D *>> histogramsByFilterConfig; // filter -> address -> histo
+    QHash<DataFilterConfig *, QHash<int, QVector<u32>>> valuesByFilterConfig; // filter -> address -> list of values
     QHash<Hist2DConfig *, Hist2D *> hist2dByConfig;
     QHash<QUuid, DataFilterConfig *> filterConfigsById;
     MesytecDiagnostics *diag = nullptr;
@@ -132,13 +132,21 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                 ++stats.eventCounters[eventConfig].events;
 
             {
+                // clears the values for the current eventIndex
                 // FIXME: slow!
                 const auto &filterMap = m_d->filterConfigs.value(eventIndex);
 
                 for (auto it=filterMap.begin(); it!=filterMap.end(); ++it)
                 {
                     for (const auto filterConfig: it.value())
-                        m_d->valuesByFilterConfig[filterConfig].clear();
+                    {
+                        auto &valueHash = m_d->valuesByFilterConfig[filterConfig];
+
+                        for (auto jt=valueHash.begin(); jt!=valueHash.end(); ++jt)
+                        {
+                            jt.value().clear();
+                        }
+                    }
                 }
             }
 
@@ -179,7 +187,7 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                             {
                                 qEPDebug() << __PRETTY_FUNCTION__ << "filter matched but found no histo!";
                             }
-                            m_d->valuesByFilterConfig[filterConfig][address] = data;
+                            m_d->valuesByFilterConfig[filterConfig][address].push_back(data);
                         }
                     }
 
@@ -239,13 +247,12 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                 auto yFilter   = m_d->filterConfigsById.value(yFilterId, nullptr);
                 auto yAddress  = hist2dConfig->getYFilterAddress();
 
-                if (xFilter && yFilter)
+                if (hist2d && xFilter && yFilter)
                 {
-                    s64 xValue = m_d->valuesByFilterConfig[xFilter].value(xAddress, -1);
-                    s64 yValue = m_d->valuesByFilterConfig[yFilter].value(yAddress, -1);
+                    const auto &xValues = m_d->valuesByFilterConfig[xFilter][xAddress];
+                    const auto &yValues = m_d->valuesByFilterConfig[yFilter][yAddress];
 
-
-                    if (hist2d && xValue >= 0 && yValue >= 0)
+                    if (xValues.size() > 0 && xValues.size() == yValues.size())
                     {
                         int shiftX = 0;
                         int shiftY = 0;
@@ -262,7 +269,11 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                             shiftY = std::max(dataBits - histoBits, 0);
                         }
 
-                        hist2d->fill(xValue >> shiftX, yValue >> shiftY);
+                        for (auto i=0; i<xValues.size(); ++i)
+                        {
+                            hist2d->fill(xValues[i] >> shiftX, yValues[i] >> shiftY);
+                        }
+
                     }
                 }
             }
