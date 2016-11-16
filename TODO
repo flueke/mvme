@@ -1,37 +1,36 @@
 ==========================
 ==== Do these first! =====
 ==========================
+
+==========================
+==== Do these later! =====
+==========================
 * Limit the number of messages/s appended to the logview
 * How to handle filters without matching module? Right now they're not
   displayed until a module with the corresponding (eventIndex,moduleIndex) is
   created.
   Related: Remove Hist2d on filter removal?
-* mesytec module diagnostics filter
 
 
-==========================
-==== Do these later! =====
-==========================
 * add versioning to the GUI state saved via QSettings. If the version changes
   use the default layout instead of restoring a possibly incompatible state.
-* Data Filters: for each (filter, address) pair keep a list of values as some
-  modules can yield multiple (address, value) pairs in a single event!
-  When accumulating 2D histograms check if the list length for both axes is the
-  same. If so accumulate pairs from both lists, else ignore the data.
-
 * add ability to create 2d histograms during DAQ/replay and fill them immediately
 
 * Histos
   * mousewheel zoom does not add scrollbars to the plot!
   * left click in 1d histo shows wrong y-values
-  * Hist1DWidget
+  * Hist1DWidget:
     - don't zoom into negative x
     - fix mousewheel zoom or disable it
     - display coordinate and value under mouse cursor
     - displayed zoomrect coordinate values are sometimes bogus
   
-  * Hist2DWidget
-    - display stats for zoomed area
+  * Hist2DWidget:
+
+  * add histogram cuts
+  * add histogram fitting
+  * Hist1D:
+    - axis titles do not contain slashes as (filter/address) separators
 
 
 * Histogram properties:
@@ -50,8 +49,6 @@
                         the state change
     -> look at QFutureInterface
 
-* add histogram filters
-* add histogram fitting
 * vmusb & mvme buffer debugging
 * workspace concept
     - workspace directory
