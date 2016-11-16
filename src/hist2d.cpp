@@ -77,7 +77,7 @@ void Hist2D::fill(uint32_t x, uint32_t y, uint32_t weight)
             m_stats.maxX = x;
             m_stats.maxY = y;
         }
-        ++m_stats.entryCount;
+        m_stats.entryCount += weight;
 
         setInterval(Qt::ZAxis, QwtInterval(0, m_stats.maxValue));
     }
@@ -110,18 +110,20 @@ Hist2DStatistics Hist2D::calcStatistics(QwtInterval xInterval, QwtInterval yInte
     if (xInterval == interval(Qt::XAxis)
         && yInterval == interval(Qt::YAxis))
     {
+        // global range for both intervals, return global stats
         return m_stats;
     }
 
     Hist2DStatistics result;
 
-    for (u32 iy = yInterval.minValue();
-         iy < yInterval.maxValue();
-         ++iy)
+    u32 xMin = static_cast<u32>(std::max(xInterval.minValue(), 0.0));
+    u32 xMax = static_cast<u32>(std::max(xInterval.maxValue(), 0.0));
+    u32 yMin = static_cast<u32>(std::max(yInterval.minValue(), 0.0));
+    u32 yMax = static_cast<u32>(std::max(yInterval.maxValue(), 0.0));
+
+    for (u32 iy = yMin; iy < yMax; ++iy)
     {
-        for (u32 ix = xInterval.minValue();
-             ix < xInterval.maxValue();
-             ++ix)
+        for (u32 ix = xMin; ix < xMax; ++ix)
         {
             // TODO: access value directly to speed this up a bit
             double v = value(ix, iy);
@@ -133,7 +135,7 @@ Hist2DStatistics Hist2D::calcStatistics(QwtInterval xInterval, QwtInterval yInte
                     result.maxX = ix;
                     result.maxY = iy;
                 }
-                ++result.entryCount;
+                result.entryCount += v;
             }
         }
     }
