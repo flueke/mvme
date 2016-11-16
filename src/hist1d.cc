@@ -62,6 +62,7 @@ void Hist1D::fill(u32 x, u32 weight)
     if (x < getResolution())
     {
         m_data[x] += weight;
+        m_count += weight;
         u32 value = m_data[x];
         
         if (value >= m_maxValue)
