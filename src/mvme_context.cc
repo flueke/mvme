@@ -169,6 +169,19 @@ void MVMEContext::setAnalysisConfig(AnalysisConfig *config)
             removeObjectMapping(histoConfig, QSL("ConfigToObject"));
             removeObject(histoConfig, false);
         }
+
+        auto filterMaps = m_analysisConfig->getFilters();
+
+        for (auto it = filterMaps.begin(); it != filterMaps.end(); ++it)
+        {
+            for (auto jt = it->begin(); jt != it->end(); ++jt)
+            {
+                for (auto filterConfig: jt.value())
+                {
+                    removeObject(filterConfig);
+                }
+            }
+        }
     }
 
     m_analysisConfig = config;
@@ -483,6 +496,16 @@ void MVMEContext::setAnalysisConfigFileName(const QString &name)
 
 void MVMEContext::prepareStart()
 {
+#if 0
+    // Use this to force a crash in case deleted objects remain in the object set.
+    for (auto it=m_objects.begin(); it!=m_objects.end(); ++it)
+    {
+        qDebug() << reinterpret_cast<void *>(*it);
+        qDebug() << *it;
+    }
+#endif
+
+
     for (auto histo: getObjects<Hist1D *>())
         histo->clear();
 
