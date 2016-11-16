@@ -234,6 +234,7 @@ Hist2DWidget::Hist2DWidget(MVMEContext *context, Hist2D *hist2d, QWidget *parent
 {
     ui->setupUi(this);
 
+    connect(hist2d, &Hist2D::resized, this, &Hist2DWidget::onHistoResized);
 
     connect(ui->pb_export, &QPushButton::clicked, this, &Hist2DWidget::exportPlot);
 
@@ -408,5 +409,5 @@ void Hist2DWidget::onHistoResized()
     interval = histData->interval(Qt::YAxis);
     ui->plot->setAxisScale(QwtPlot::yLeft, interval.minValue(), interval.maxValue());
 
-    m_zoomer->setZoomBase();
+    m_zoomer->setZoomBase(true);
 }
