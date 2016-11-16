@@ -15,6 +15,7 @@ class ScrollZoomer: public QwtPlotZoomer
 
 signals:
     void mouseCursorMovedTo(QPointF);
+    void mouseCursorLeftPlot();
 
 public:
     enum ScrollBarPosition
@@ -57,6 +58,10 @@ protected:
     virtual void layoutScrollBars( const QRect & );
 
     virtual void widgetMouseMoveEvent(QMouseEvent *event);
+    virtual void widgetLeaveEvent( QEvent * );
+
+    // from QwtPlotPicker
+    virtual QwtText trackerTextF( const QPointF & ) const override;
 
 private Q_SLOTS:
     void scrollBarMoved( Qt::Orientation o, double min, double max );

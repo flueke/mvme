@@ -518,3 +518,30 @@ void ScrollZoomer::widgetMouseMoveEvent(QMouseEvent *event)
     emit mouseCursorMovedTo(point);
     QwtPlotZoomer::widgetMouseMoveEvent(event);
 }
+
+void ScrollZoomer::widgetLeaveEvent( QEvent * event )
+{
+    emit mouseCursorLeftPlot();
+    QwtPlotZoomer::widgetLeaveEvent(event);
+}
+
+// Note: modified version of the implementation in qwt_plot_picker.cpp
+QwtText ScrollZoomer::trackerTextF( const QPointF &pos ) const
+{
+    QString text;
+
+    switch ( rubberBand() )
+    {
+        case HLineRubberBand:
+            text.sprintf( "%.4f", pos.y() );
+            break;
+        case VLineRubberBand:
+            text.sprintf( "%.4f", pos.x() );
+            break;
+        default:
+            text.sprintf( "%lld, %lld",
+                         static_cast<int64_t>(pos.x()),
+                         static_cast<int64_t>(pos.y()));
+    }
+    return QwtText( text );
+}
