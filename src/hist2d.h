@@ -72,11 +72,11 @@ public:
 
     Hist2D *getHist2D() const { return m_hist2d; }
 
-public slots:
+private slots:
     void replot();
     void exportPlot();
-
-private slots:
+    void mouseCursorMovedToPlotCoord(QPointF);
+    void mouseCursorLeftPlot();
     void displayChanged();
 
 private:
