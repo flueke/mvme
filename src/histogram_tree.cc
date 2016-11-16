@@ -267,6 +267,8 @@ void HistogramTreeWidget::onObjectAdded(QObject *object)
         connect(moduleConfig, &QObject::objectNameChanged, this, [this, moduleConfig](const QString &name) {
             onObjectNameChanged(moduleConfig, name);
         });
+
+        moduleNode->setExpanded(true);
     }
     else if (auto filterConfig = qobject_cast<DataFilterConfig *>(object))
     {
