@@ -352,7 +352,7 @@ void mvme::displayAbout()
 }
 
 void mvme::closeEvent(QCloseEvent *event){
-    if (m_context->getDAQState() != DAQState::Idle)
+    if (m_context->getDAQState() != DAQState::Idle && m_context->getMode() == GlobalMode::DAQ)
     {
         QMessageBox msgBox(QMessageBox::Warning, QSL("DAQ is running"),
                            QSL("Data acquisition is currently active. Ignoring request to exit."),
