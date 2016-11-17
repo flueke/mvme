@@ -84,6 +84,7 @@ class Hist1DWidget: public MVMEWidget
         void updateAxisScales();
         bool yAxisIsLog();
         bool yAxisIsLin();
+        void updateCursorInfoLabel();
 
         Ui::Hist1DWidget *ui;
         MVMEContext *m_context;
@@ -96,6 +97,7 @@ class Hist1DWidget: public MVMEWidget
         Hist1DStatistics m_stats;
         QwtPlotTextLabel *m_statsTextItem;
         QwtText *m_statsText;
+        QPointF m_cursorPosition;
 };
 
 #endif /* __HIST1D_H__ */

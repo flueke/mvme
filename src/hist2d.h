@@ -85,6 +85,7 @@ private:
     bool zAxisIsLin() const;
     QwtLinearColorMap *getColorMap() const;
     void onHistoResized();
+    void updateCursorInfoLabel();
 
     Ui::Hist2DWidget *ui;
     MVMEContext *m_context;
@@ -92,6 +93,7 @@ private:
     QwtPlotSpectrogram *m_plotItem;
     ScrollZoomer *m_zoomer;
     QTimer *m_replotTimer;
+    QPointF m_cursorPosition;
 };
 
 #endif

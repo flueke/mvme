@@ -18,7 +18,6 @@
 
 * Histos
   * mousewheel zoom does not add scrollbars to the plot!
-  * left click in 1d histo shows wrong y-values
   * Hist1DWidget:
     - don't zoom into negative x
     - fix mousewheel zoom or disable it

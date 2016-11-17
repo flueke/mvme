@@ -236,6 +236,8 @@ Hist2DWidget::Hist2DWidget(MVMEContext *context, Hist2D *hist2d, QWidget *parent
 {
     ui->setupUi(this);
 
+    ui->label_cursorInfo->setVisible(false);
+
     connect(hist2d, &Hist2D::resized, this, &Hist2DWidget::onHistoResized);
 
     connect(ui->pb_export, &QPushButton::clicked, this, &Hist2DWidget::exportPlot);
@@ -269,11 +271,13 @@ Hist2DWidget::Hist2DWidget(MVMEContext *context, Hist2D *hist2d, QWidget *parent
     connect(m_zoomer, &ScrollZoomer::mouseCursorMovedTo, this, &Hist2DWidget::mouseCursorMovedToPlotCoord);
     connect(m_zoomer, &ScrollZoomer::mouseCursorLeftPlot, this, &Hist2DWidget::mouseCursorLeftPlot);
 
+#if 0
     auto plotPanner = new QwtPlotPanner(ui->plot->canvas());
     plotPanner->setMouseButton(Qt::MiddleButton);
 
     auto plotMagnifier = new QwtPlotMagnifier(ui->plot->canvas());
     plotMagnifier->setMouseButton(Qt::NoButton);
+#endif
 
     auto config = qobject_cast<Hist2DConfig *>(m_context->getMappedObject(m_hist2d, QSL("ObjectToConfig")));
 
@@ -322,8 +326,6 @@ void Hist2DWidget::replot()
     auto axis = ui->plot->axisWidget(QwtPlot::yRight);
     axis->setColorMap(interval, getColorMap());
 
-    ui->plot->replot();
-
     auto stats = m_hist2d->calcStatistics(
         ui->plot->axisScaleDiv(QwtPlot::xBottom).interval(),
         ui->plot->axisScaleDiv(QwtPlot::yLeft).interval());
@@ -332,6 +334,9 @@ void Hist2DWidget::replot()
     ui->label_maxValue->setText(QString::number(stats.maxValue));
     ui->label_maxX->setText(QString::number(stats.maxX));
     ui->label_maxY->setText(QString::number(stats.maxY));
+
+    updateCursorInfoLabel();
+    ui->plot->replot();
 }
 
 void Hist2DWidget::displayChanged()
@@ -416,21 +421,9 @@ void Hist2DWidget::onHistoResized()
 
 void Hist2DWidget::mouseCursorMovedToPlotCoord(QPointF pos)
 {
-    // TODO: update label in replot() to react to changes in the data without having to move the mouse
-    u32 ix = static_cast<u32>(std::max(pos.x(), 0.0));
-    u32 iy = static_cast<u32>(std::max(pos.y(), 0.0));
-    double value = m_hist2d->value(ix, iy);
-
-    if (qIsNaN(value))
-        value = 0.0;
-
-    QString text = QString("x=%1\ny=%2\nz=%3")
-        .arg(ix)
-        .arg(iy)
-        .arg(value);
-
     ui->label_cursorInfo->setVisible(true);
-    ui->label_cursorInfo->setText(text);
+    m_cursorPosition = pos;
+    updateCursorInfoLabel();
 }
 
 void Hist2DWidget::mouseCursorLeftPlot()
@@ -459,4 +452,24 @@ void Hist2DWidget::zoomerZoomed(const QRectF &zoomRect)
     }
 
     replot();
+}
+
+void Hist2DWidget::updateCursorInfoLabel()
+{
+    if (ui->label_cursorInfo->isVisible())
+    {
+        u32 ix = static_cast<u32>(std::max(m_cursorPosition.x(), 0.0));
+        u32 iy = static_cast<u32>(std::max(m_cursorPosition.y(), 0.0));
+        double value = m_hist2d->value(ix, iy);
+
+        if (qIsNaN(value))
+            value = 0.0;
+
+        QString text = QString("x=%1\ny=%2\nz=%3")
+            .arg(ix)
+            .arg(iy)
+            .arg(value);
+
+        ui->label_cursorInfo->setText(text);
+    }
 }

@@ -270,6 +270,8 @@ Hist1DWidget::Hist1DWidget(MVMEContext *context, Hist1D *histo, Hist1DConfig *hi
 {
     ui->setupUi(this);
 
+    ui->label_cursorInfo->setVisible(false);
+
     connect(ui->pb_export, &QPushButton::clicked, this, &Hist1DWidget::exportPlot);
     connect(ui->pb_save, &QPushButton::clicked, this, &Hist1DWidget::saveHistogram);
 
@@ -316,18 +318,14 @@ Hist1DWidget::Hist1DWidget(MVMEContext *context, Hist1D *histo, Hist1DConfig *hi
     plotPanner->setMouseButton(Qt::MiddleButton);
 #endif
 
+#if 0
     auto plotMagnifier = new QwtPlotMagnifier(ui->plot->canvas());
     plotMagnifier->setAxisEnabled(QwtPlot::yLeft, false);
     plotMagnifier->setMouseButton(Qt::NoButton);
+#endif
 
     m_statsText = new QwtText;
     m_statsText->setRenderFlags(Qt::AlignLeft | Qt::AlignTop);
-#if 0
-    auto font = QFont("Monospace", 8);
-    font.setStyleHint(QFont::Monospace);
-    font.setFixedPitch(true);
-    m_statsText->setFont(font);
-#endif
 
     m_statsTextItem = new QwtPlotTextLabel;
     m_statsTextItem->setText(*m_statsText);
@@ -350,6 +348,7 @@ void Hist1DWidget::replot()
 {
     updateStatistics();
     updateAxisScales();
+    updateCursorInfoLabel();
     ui->plot->replot();
 }
 
@@ -418,16 +417,9 @@ void Hist1DWidget::zoomerZoomed(const QRectF &zoomRect)
 
 void Hist1DWidget::mouseCursorMovedToPlotCoord(QPointF pos)
 {
-    // TODO: update label in replot() to react to changes in the data without having to move the mouse
-    u32 ix = static_cast<u32>(std::max(pos.x(), 0.0));
-    double value = m_histo->value(ix);
-
-    QString text = QString("x=%1\ny=%2")
-        .arg(ix)
-        .arg(value);
-
     ui->label_cursorInfo->setVisible(true);
-    ui->label_cursorInfo->setText(text);
+    m_cursorPosition = pos;
+    updateCursorInfoLabel();
 }
 
 void Hist1DWidget::mouseCursorLeftPlot()
@@ -442,16 +434,6 @@ void Hist1DWidget::updateStatistics()
 
     m_stats = m_histo->calcStatistics(lowerBound, upperBound);
 
-#if 0
-    QString buffer;
-    buffer.sprintf("\nMean: %2.2f\nSigma: %2.2f\nCounts: %u\nMaximum: %u\nat Channel: %u\n",
-                   m_stats.mean,
-                   m_stats.sigma,
-                   m_stats.entryCount,
-                   m_stats.maxValue,
-                   m_stats.maxChannel
-                  );
-#else
     static const int fieldWidth = 0;
     QString buffer = QString("\nMean: %L1"
                              "\nSigma: %L2"
@@ -464,7 +446,6 @@ void Hist1DWidget::updateStatistics()
         .arg(m_stats.maxValue, fieldWidth)
         .arg(m_stats.maxChannel, fieldWidth)
         ;
-#endif
 
     m_statsText->setText(buffer);
     m_statsTextItem->setText(*m_statsText);
@@ -548,5 +529,20 @@ void Hist1DWidget::saveHistogram()
     {
         fi.setFile(fileName);
         QSettings().setValue("Files/LastHistogramExportDirectory", fi.absolutePath());
+    }
+}
+
+void Hist1DWidget::updateCursorInfoLabel()
+{
+    if (ui->label_cursorInfo->isVisible())
+    {
+        u32 ix = static_cast<u32>(std::max(m_cursorPosition.x(), 0.0));
+        double value = m_histo->value(ix);
+
+        QString text = QString("x=%1\ny=%2")
+            .arg(ix)
+            .arg(value);
+
+        ui->label_cursorInfo->setText(text);
     }
 }
