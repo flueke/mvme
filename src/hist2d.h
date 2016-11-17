@@ -78,6 +78,7 @@ private slots:
     void mouseCursorMovedToPlotCoord(QPointF);
     void mouseCursorLeftPlot();
     void displayChanged();
+    void zoomerZoomed(const QRectF &);
 
 private:
     bool zAxisIsLog() const;

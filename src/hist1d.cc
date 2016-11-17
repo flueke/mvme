@@ -349,7 +349,7 @@ Hist1DWidget::~Hist1DWidget()
 void Hist1DWidget::replot()
 {
     updateStatistics();
-    updateYAxisScale();
+    updateAxisScales();
     ui->plot->replot();
 }
 
@@ -389,9 +389,28 @@ void Hist1DWidget::zoomerZoomed(const QRectF &zoomRect)
 {
     if (m_zoomer->zoomRectIndex() == 0)
     {
+        // fully zoomed out -> set to full resolution
         ui->plot->setAxisScale( QwtPlot::xBottom, 0, m_histo->getResolution());
         ui->plot->replot();
         m_zoomer->setZoomBase();
+    }
+
+    // do not zoom into negatives
+
+    auto scaleDiv = ui->plot->axisScaleDiv(QwtPlot::xBottom);
+
+    if (scaleDiv.lowerBound() < 0.0)
+    {
+        scaleDiv.setLowerBound(0.0);
+        ui->plot->setAxisScaleDiv(QwtPlot::xBottom, scaleDiv);
+    }
+
+    scaleDiv = ui->plot->axisScaleDiv(QwtPlot::yLeft);
+
+    if (scaleDiv.lowerBound() < 0.0)
+    {
+        scaleDiv.setLowerBound(0.0);
+        ui->plot->setAxisScaleDiv(QwtPlot::yLeft, scaleDiv);
     }
 
     replot();
@@ -451,7 +470,7 @@ void Hist1DWidget::updateStatistics()
     m_statsTextItem->setText(*m_statsText);
 }
 
-void Hist1DWidget::updateYAxisScale()
+void Hist1DWidget::updateAxisScales()
 {
     // update the y axis using the currently visible max value
     double maxValue = 1.2 * m_stats.maxValue;
@@ -462,6 +481,13 @@ void Hist1DWidget::updateYAxisScale()
     // this sets a fixed y axis scale effectively overriding any changes made by the scrollzoomer
     double base = yAxisIsLog() ? 1.0 : 0.0l;
     ui->plot->setAxisScale(QwtPlot::yLeft, base, maxValue);
+
+    // xAxis
+    if (m_zoomer->zoomRectIndex() == 0)
+    {
+        // fully zoomed out -> set to full resolution
+        ui->plot->setAxisScale(QwtPlot::xBottom, 0, m_histo->getResolution());
+    }
 }
 
 bool Hist1DWidget::yAxisIsLog()

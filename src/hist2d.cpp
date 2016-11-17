@@ -258,12 +258,6 @@ Hist2DWidget::Hist2DWidget(MVMEContext *context, Hist2D *hist2d, QWidget *parent
     rightAxis->setColorBarEnabled(true);
     ui->plot->enableAxis(QwtPlot::yRight);
 
-    auto interval = histData->interval(Qt::XAxis);
-    ui->plot->setAxisScale(QwtPlot::xBottom, interval.minValue(), interval.maxValue());
-
-    interval = histData->interval(Qt::YAxis);
-    ui->plot->setAxisScale(QwtPlot::yLeft, interval.minValue(), interval.maxValue());
-
     connect(m_replotTimer, SIGNAL(timeout()), this, SLOT(replot()));
     m_replotTimer->start(2000);
 
@@ -271,6 +265,7 @@ Hist2DWidget::Hist2DWidget(MVMEContext *context, Hist2D *hist2d, QWidget *parent
 
     m_zoomer = new ScrollZoomer(ui->plot->canvas());
     m_zoomer->setZoomBase();
+    connect(m_zoomer, &ScrollZoomer::zoomed, this, &Hist2DWidget::zoomerZoomed);
     connect(m_zoomer, &ScrollZoomer::mouseCursorMovedTo, this, &Hist2DWidget::mouseCursorMovedToPlotCoord);
     connect(m_zoomer, &ScrollZoomer::mouseCursorLeftPlot, this, &Hist2DWidget::mouseCursorLeftPlot);
 
@@ -285,6 +280,7 @@ Hist2DWidget::Hist2DWidget(MVMEContext *context, Hist2D *hist2d, QWidget *parent
     if (config)
         connect(config, &ConfigObject::modified, this, &Hist2DWidget::displayChanged);
 
+    onHistoResized();
     displayChanged();
 }
 
@@ -440,4 +436,27 @@ void Hist2DWidget::mouseCursorMovedToPlotCoord(QPointF pos)
 void Hist2DWidget::mouseCursorLeftPlot()
 {
     ui->label_cursorInfo->setVisible(false);
+}
+
+void Hist2DWidget::zoomerZoomed(const QRectF &zoomRect)
+{
+    // do not zoom into negatives
+
+    auto scaleDiv = ui->plot->axisScaleDiv(QwtPlot::xBottom);
+
+    if (scaleDiv.lowerBound() < 0.0)
+    {
+        scaleDiv.setLowerBound(0.0);
+        ui->plot->setAxisScaleDiv(QwtPlot::xBottom, scaleDiv);
+    }
+
+    scaleDiv = ui->plot->axisScaleDiv(QwtPlot::yLeft);
+
+    if (scaleDiv.lowerBound() < 0.0)
+    {
+        scaleDiv.setLowerBound(0.0);
+        ui->plot->setAxisScaleDiv(QwtPlot::yLeft, scaleDiv);
+    }
+
+    replot();
 }

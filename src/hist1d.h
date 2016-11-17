@@ -81,7 +81,7 @@ class Hist1DWidget: public MVMEWidget
         void displayChanged();
 
     private:
-        void updateYAxisScale();
+        void updateAxisScales();
         bool yAxisIsLog();
         bool yAxisIsLin();
 
