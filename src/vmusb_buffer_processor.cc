@@ -210,11 +210,13 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
         const double alpha = 0.1;
         stats->vmusbAvgEventsPerBuffer = (alpha * numberOfEvents) + (1.0 - alpha) * stats->vmusbAvgEventsPerBuffer;
 
+#if 0
         if (lastBuffer || scalerBuffer || continuousMode || multiBuffer)
         {
             qDebug("buffer_size=%u, header1: 0x%08x, lastBuffer=%d, scalerBuffer=%d, continuousMode=%d, multiBuffer=%d, numberOfEvents=%u",
                    readBuffer->used, header1, lastBuffer, scalerBuffer, continuousMode, multiBuffer, numberOfEvents);
         }
+#endif
 
         if (vmusb->getMode() & GlobalMode::HeaderOptMask)
         {
@@ -260,19 +262,19 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
                     u16 bufferTerminator = iter.extractU16();
                     if (bufferTerminator != Buffer::BufferTerminator)
                     {
-                        emit logMessage(QString("VMUSB Error: unexpected buffer terminator 0x%1")
+                        emit logMessage(QString("VMUSB Warning: unexpected buffer terminator 0x%1")
                                         .arg(bufferTerminator, 4, 16, QLatin1Char('0')));
                     }
                 }
             }
             else
             {
-                emit logMessage(QSL("VMUSB Error: no terminator words found"));
+                emit logMessage(QSL("VMUSB Warning: no terminator words found at end of buffer"));
             }
 
             if (iter.bytesLeft() != 0)
             {
-                emit logMessage(QString("VMUSB Error: %1 bytes left in buffer")
+                emit logMessage(QString("VMUSB Warning: %1 bytes left in buffer")
                                 .arg(iter.bytesLeft()));
 
                 while (iter.longwordsLeft())
@@ -323,7 +325,7 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
     }
     catch (const end_of_buffer &)
     {
-        emit logMessage(QSL("VMUSB Error: end of readBuffer reached unexpectedly!"));
+        emit logMessage(QSL("VMUSB Warning: end of readBuffer reached unexpectedly!"));
         getStats()->buffersWithErrors++;
     }
 
@@ -359,18 +361,19 @@ bool VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *output
     u16 eventHeader = iter.extractU16();
 
     u8 stackID          = (eventHeader >> Buffer::StackIDShift) & Buffer::StackIDMask;
-    bool partialEvent   = eventHeader & Buffer::ContinuationMask; // TODO: handle this!
+    bool partialEvent   = eventHeader & Buffer::ContinuationMask;
     u32 eventLength     = eventHeader & Buffer::EventLengthMask; // in 16-bit words
 
-    //qDebug("eventHeader=0x%08x, stackID=%u, partialEvent=%d, eventLength=%u short words",
-    //           eventHeader, stackID, partialEvent, eventLength);
-
-    if (partialEvent)
+    if (iter.shortwordsLeft() < eventLength)
     {
-        qDebug("eventHeader=0x%08x, stackID=%u, partialEvent=%d, eventLength=%u shorts",
-               eventHeader, stackID, partialEvent, eventLength);
-        qDebug() << "===== Error: partial event support not implemented! ======";
-        emit logMessage(QSL("VMUSB Error: got a partial event"));
+        emit logMessage(QSL("VMUSB Error: event length exceeds buffer length, skipping buffer"));
+        iter.skip(sizeof(u16), eventLength);
+        return false;
+    }
+
+    if (StackIDMin < stackID || stackID > StackIDMax)
+    {
+        emit logMessage(QString(QSL("VMUSB: Parsed stackID=%1 is out of range, skipping event")).arg(stackID));
         iter.skip(sizeof(u16), eventLength);
         return false;
     }
@@ -383,6 +386,18 @@ bool VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *output
         return false;
     }
 
+    if (partialEvent)
+    {
+        qDebug("eventHeader=0x%08x, stackID=%u, partialEvent=%d, eventLength=%u shorts",
+               eventHeader, stackID, partialEvent, eventLength);
+        qDebug() << "===== Error: partial event support not implemented! ======";
+        emit logMessage(QSL("VMUSB Error: got a partial event (not supported yet!)"));
+        iter.skip(sizeof(u16), eventLength);
+        return false;
+    }
+
+    /* Create a local iterator limited by the event length. A check above made
+     * sure that the event length does not exceed the inputs size. */
     BufferIterator eventIter(iter.buffp, eventLength * sizeof(u16), BufferIterator::Align16);
 
     //qDebug() << "eventIter size =" << eventIter.bytesLeft() << " bytes";
@@ -435,8 +450,6 @@ bool VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *output
         }
     }
 
-    iter.buffp = eventIter.buffp; // advance the buffer iterator
-
     if (eventIter.bytesLeft())
     {
         emit logMessage(QString(QSL("VMUSB Error: %1 bytes left in event"))
@@ -468,6 +481,8 @@ bool VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *output
 
     *mvmeEventHeader |= (eventSize << SectionSizeShift) & SectionSizeMask;
     outputBuffer->used = (u8 *)outp - outputBuffer->data;
+
+    iter.buffp = eventIter.buffp; // advance the buffer iterator
 
     return true;
 }

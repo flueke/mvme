@@ -24,7 +24,10 @@ static const int StackIDMask        = 7;
 static const int ContinuationMask   = (1 << 12);
 static const int EventLengthMask    = 0xfff;
 
-static const int EventTerminator    = 0xaaaa; // TODO: is this actually output? is it configurable?
+/* This appears in the documentation but is not configurable and does not
+ * actually appear in the output data stream. */
+//static const int EventTerminator    = 0xaaaa;
+
 static const int BufferTerminator   = 0xffff;
 }
 
@@ -33,6 +36,9 @@ namespace GlobalMode
 static const int Align32Mask        = (1 << 7);
 static const int HeaderOptMask      = (1 << 8);
 }
+
+static const int StackIDMin = 0;
+static const int StackIDMax = 7;
 }
 
 #endif
