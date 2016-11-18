@@ -424,29 +424,39 @@ int VMUSB::setFirmwareId(int val)
 /*!
     \fn vmUsb::setMode()
  */
-int VMUSB::setMode(int val)
+VMEError VMUSB::setMode(int val)
 {
-    if(!writeRegister(4, val).isError())
+    auto result = writeRegister(4, val);
+
+    if (!result.isError())
     {
-        u32 retval;
-        readRegister(4, &retval);
-        globalMode = (int)retval & 0xFFFF;
+        u32 regVal;
+        result = readRegister(4, &regVal);
+        if (!result.isError())
+            globalMode = (int)regVal & 0xFFFF;
     }
-    return globalMode;
+    return result;
 }
 
 /*!
   \fn vmUsb::setDaqSettings()
  */
-int VMUSB::setDaqSettings(int val)
+VMEError VMUSB::setDaqSettings(int val)
 {
-    if(!writeRegister(8, val).isError())
+    VMEError result;
+
+    result = writeRegister(8, val);
+
+    if (!result.isError())
     {
-        u32 retval;
-        readRegister(8, &retval);
-        daqSettings = (int)retval;
+        u32 regVal;
+        result = readRegister(8, &regVal);
+
+        if (!result.isError())
+            daqSettings = static_cast<int>(regVal);
     }
-    return daqSettings;
+
+    return result;
 }
 
 /*!
@@ -563,43 +573,43 @@ static int irq_vector_register_address(int vec)
   \fn vmUsb::setIrq()
   Set the zero-based irq service vector vec to the given value val.
  */
-int VMUSB::setIrq(int vec, uint16_t val)
+VMEError VMUSB::setIrq(int vec, uint16_t val)
 {
     int regAddress = irq_vector_register_address(vec);
 
     if (regAddress < 0)
-    {
-        qDebug("setIrq: invalid vector number given");
-        return -1;
-    }
+        return VMEError(QString("setIrq: invalid vector number given (%1)").arg(vec));
 
     u32 regValue = 0;
+    auto error = readRegister(regAddress, &regValue);
 
-    if (regAddress >= 0 && !readRegister(regAddress, &regValue).isError())
+    if (error.isError())
+        return error;
+
+    val = val & 0xFFFF;
+
+    if (vec % 2 == 0)
     {
-        val = val & 0xFFFF;
-
-        if (vec % 2 == 0)
-        {
-            regValue &= 0xFFFF0000;
-            regValue |= val;
-        }
-        else
-        {
-            regValue &= 0x0000FFFF;
-            regValue |= (val << 16);
-        }
-
-        if (!writeRegister(regAddress, regValue).isError() &&
-                !readRegister(regAddress, &regValue).isError())
-        {
-            int regIndex = vec / 2;
-            irqV[regIndex] = regValue;
-            return regValue;
-        }
+        regValue &= 0xFFFF0000;
+        regValue |= val;
+    }
+    else
+    {
+        regValue &= 0x0000FFFF;
+        regValue |= (val << 16);
     }
 
-    return -1;
+    error = writeRegister(regAddress, regValue);
+
+    if (error.isError())
+        return error;
+
+    error = readRegister(regAddress, &regValue);
+
+    int regIndex = vec / 2;
+    irqV[regIndex] = regValue;
+
+    return VMEError();
 }
 
 /**
@@ -653,6 +663,7 @@ int VMUSB::setUsbSettings(int val)
 
 VMEError VMUSB::writeActionRegister(uint16_t value)
 {
+    QMutexLocker locker(&m_lock);
     if (!isOpen())
         return VMEError(VMEError::NotOpen);
 
@@ -665,7 +676,6 @@ VMEError VMUSB::writeActionRegister(uint16_t value)
 
     // This operation is write only.
 
-    QMutexLocker locker(&m_lock);
     int outSize = pOut - outPacket;
     int status = usb_bulk_write(hUsbDevice, ENDPOINT_OUT, outPacket, outSize, defaultTimeout_ms);
 
@@ -772,11 +782,15 @@ VMEError VMUSB::listExecute(CVMUSBReadoutList *list, void *readBuffer, size_t re
   return vmeError;
 }
 
-int VMUSB::listLoad(CVMUSBReadoutList *list, uint8_t stackID, size_t stackMemoryOffset, int timeout_ms)
+VMEError VMUSB::listLoad(CVMUSBReadoutList *list, uint8_t stackID, size_t stackMemoryOffset, int timeout_ms)
 {
+    QMutexLocker locker(&m_lock);
+    if (!isOpen())
+        return VMEError(VMEError::NotOpen);
+
+    // Note (flueke): taken from NSCLDAQ
     // Need to construct the TA field, straightforward except for the list number
     // which is splattered all over creation.
-
     uint16_t ta = TAVcsSel | TAVcsWrite;
     if (stackID & 1)  ta |= TAVcsID0;
     if (stackID & 2)  ta |= TAVcsID1; // Probably the simplest way for this
@@ -785,9 +799,6 @@ int VMUSB::listLoad(CVMUSBReadoutList *list, uint8_t stackID, size_t stackMemory
     size_t   packetSize;
     uint16_t *outPacket = listToOutPacket(ta, list, &packetSize, stackMemoryOffset);
 
-    QMutexLocker locker(&m_lock);
-    if (!isOpen())
-        return -3;
     int status = usb_bulk_write(hUsbDevice, ENDPOINT_OUT,
                                 reinterpret_cast<char *>(outPacket),
                                 packetSize, timeout_ms);
@@ -795,13 +806,9 @@ int VMUSB::listLoad(CVMUSBReadoutList *list, uint8_t stackID, size_t stackMemory
     delete []outPacket;
 
     if (status < 0)
-    {
-        errno = -status;
-        qDebug("vmUsb::listLoad: usb write failed with code %d: %s", status,
-               errnoString(errno).toLocal8Bit().constData());
-    }
+        return VMEError(VMEError::WriteError, status, errnoString(-status));
 
-    return status;
+    return VMEError();
 }
 
 /*
@@ -864,18 +871,15 @@ int VMUSB::bulkRead(void *outBuffer, size_t outBufferSize, int timeout_ms)
     return status;
 }
 
-int
+VMEError
 VMUSB::stackWrite(u8 stackNumber, u32 loadOffset, const QVector<u32> &stackData)
 {
     CVMUSBReadoutList stackList(stackData);
     return listLoad(&stackList, stackNumber, loadOffset);
 }
 
-QPair<QVector<u32>, u32>
-VMUSB::stackRead(u8 stackID)
+VMEError VMUSB::stackRead(u8 stackID, QVector<u32> &stackOut, u32 &loadOffsetOut)
 {
-    auto ret = qMakePair(QVector<u32>(), 0);
-
     u16 ta = TAVcsSel;
     if (stackID & 1)  ta |= TAVcsID0;
     if (stackID & 2)  ta |= TAVcsID1; // Probably the simplest way for this
@@ -884,25 +888,19 @@ VMUSB::stackRead(u8 stackID)
     QMutexLocker locker(&m_lock);
 
     if (!isOpen())
-        return ret;
+        return VMEError(VMEError::NotOpen);
 
     int status = usb_bulk_write(hUsbDevice, ENDPOINT_OUT, reinterpret_cast<char *>(&ta), sizeof(ta), 100);
 
-    if (status <= 0)
-    {
-        qDebug("stackRead: usb_bulk_write failed");
-        return ret;
-    }
+    if (status < 0)
+        return VMEError(VMEError::WriteError, status, errnoString(-status));
 
     u16 inBuffer[2048] = {};
 
     int bytesRead = usb_bulk_read(hUsbDevice, ENDPOINT_IN, reinterpret_cast<char *>(&inBuffer), sizeof(inBuffer), 100);
 
     if (bytesRead <= 0)
-    {
-        qDebug("stackRead: usb_bulk_read failed");
-        return ret;
-    }
+        return VMEError(VMEError::ReadError, bytesRead, errnoString(-bytesRead));
 
     qDebug("stackRead begin");
     for (size_t i=0; i<bytesRead/sizeof(u16); ++i)
@@ -911,17 +909,15 @@ VMUSB::stackRead(u8 stackID)
     }
     qDebug("stackRead end");
 
-    ret.second = inBuffer[1];
+    loadOffsetOut = inBuffer[1];
 
     u32 *bufp = reinterpret_cast<u32 *>(inBuffer + 2);
     u32 *endp = reinterpret_cast<u32 *>(inBuffer + bytesRead/sizeof(u16));
 
     while (bufp < endp)
-    {
-        ret.first.append(*bufp++);
-    }
+        stackOut.append(*bufp++);
 
-    return ret;
+    return VMEError();
 }
 
 VMEError

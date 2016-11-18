@@ -61,6 +61,11 @@ class VMEError
             , m_message(message)
         {}
 
+        VMEError(const QString &message)
+            : m_error(ErrorType::UnknownError)
+            , m_message(message)
+        {}
+
         VMEError(ErrorType error, s32 code)
             : m_error(error)
             , m_errorCode(code)

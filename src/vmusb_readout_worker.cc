@@ -46,8 +46,9 @@ void VMUSBReadoutWorker::start(quint32 cycles)
     m_cyclesToRun = cycles;
     setState(DAQState::Starting);
     DAQStats &stats(m_context->getDAQStats());
-    bool error = false;
+    bool errorThrown = false;
     auto daqConfig = m_context->getDAQConfig();
+    VMEError error;
 
     try
     {
@@ -57,20 +58,25 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         m_vmusbStack.resetLoadOffset(); // reset the static load offset
 
         emit logMessage(QSL("VMUSB readout starting"));
-        int result;
 
-        for (int i=0; i<8; ++i)
+        for (int i = StackIDMin; i <= StackIDMax; ++i)
         {
-            result = vmusb->setIrq(i, 0);
-            if (result < 0)
-                throw QString("Resetting IRQ vectors failed");
+            error = vmusb->setIrq(i, 0);
+            if (error.isError())
+                throw QString("Resetting IRQ vectors failed: %1").arg(error.toString());
         }
 
-        vmusb->setDaqSettings(0);
+        error = vmusb->setDaqSettings(0);
+
+        if (error.isError())
+            throw QString("Setting DaqSettings register failed: %1").arg(error.toString());
 
         int globalMode = vmusb->getMode();
         globalMode |= (1 << GlobalModeRegister::MixedBufferShift);
-        vmusb->setMode(globalMode);
+
+        error = vmusb->setMode(globalMode);
+        if (error.isError())
+            throw QString("Setting VMUSB global mode failed: %1").arg(error.toString());
 
         int nextStackID = 2; // start at ID=2 as NIM=0 and scaler=1 (fixed)
 
@@ -136,13 +142,13 @@ void VMUSBReadoutWorker::start(quint32 cycles)
                     }
                 }
 
-                result = m_vmusbStack.loadStack(vmusb);
-                if (result < 0)
-                    throw QString("Error loading readout stack");
+                error = m_vmusbStack.loadStack(vmusb);
+                if (error.isError())
+                    throw QString("Error loading readout stack: %1").arg(error.toString());
 
-                result = m_vmusbStack.enableStack(vmusb);
-                if (result < 0)
-                    throw QString("Error enabling readout stack");
+                error = m_vmusbStack.enableStack(vmusb);
+                if (error.isError())
+                    throw QString("Error enabling readout stack: %1").arg(error.toString());
             }
             else
             {
@@ -251,25 +257,25 @@ void VMUSBReadoutWorker::start(quint32 cycles)
     catch (const char *message)
     {
         setError(message);
-        error = true;
+        errorThrown = true;
     }
     catch (const QString &message)
     {
         setError(message);
-        error = true;
+        errorThrown = true;
     }
     catch (const std::runtime_error &e)
     {
         setError(e.what());
-        error = true;
+        errorThrown = true;
     }
     catch (const vme_script::ParseError &)
     {
         setError(QSL("VME Script parse error"));
-        error = true;
+        errorThrown = true;
     }
 
-    if (error)
+    if (errorThrown)
     {
         try
         {

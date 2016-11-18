@@ -97,8 +97,8 @@ class VMUSB: public VMEController
         int getUsbSettings();
 
         int setFirmwareId(int val);
-        int setMode(int val);
-        int setDaqSettings(int val);
+        VMEError setMode(int val);
+        VMEError setDaqSettings(int val);
         int setLedSources(int val);
         int setDeviceSources(int val);
         int setDggA(int val);
@@ -106,7 +106,7 @@ class VMUSB: public VMEController
         int setScalerAdata(int val);
         int setScalerBdata(int val);
         u32 setEventsPerBuffer(u32 val);
-        int setIrq(int vec, uint16_t val);
+        VMEError setIrq(int vec, uint16_t val);
         int setDggSettings(int val);
         int setUsbSettings(int val);
 #if 0
@@ -125,11 +125,11 @@ class VMUSB: public VMEController
         int setScalerTiming(unsigned int frequency, unsigned char period, unsigned char delay);
 
         /* Loads the given stack to stackID using the given memory offset. */
-        int listLoad(CVMUSBReadoutList *list, uint8_t stackID, size_t stackMemoryOffset, int timeout_ms = 1000);
+        VMEError listLoad(CVMUSBReadoutList *list, uint8_t stackID, size_t stackMemoryOffset, int timeout_ms = 1000);
 
-        int stackWrite(u8 stackNumber, u32 loadOffset, const QVector<u32> &stackData);
+        VMEError stackWrite(u8 stackNumber, u32 loadOffset, const QVector<u32> &stackData);
         // returns the stack words and the stack load offset
-        QPair<QVector<u32>, u32> stackRead(u8 stackNumber);
+        VMEError stackRead(u8 stackNumber, QVector<u32> &stackOut, u32 &loadOffsetOut);
         VMEError stackExecute(const QVector<u32> &stackData, size_t resultMaxWords, QVector<u32> *dest);
 
 

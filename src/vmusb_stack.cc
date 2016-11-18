@@ -7,7 +7,7 @@
 
 size_t VMUSBStack::loadOffset = 0;
 
-int VMUSBStack::loadStack(VMUSB *vmusb)
+VMEError VMUSBStack::loadStack(VMUSB *vmusb)
 {
     auto contents = getContents();
 
@@ -20,12 +20,12 @@ int VMUSBStack::loadStack(VMUSB *vmusb)
     }
     qDebug("----- End of stack -----");
 
-    int result = -1;
+    VMEError result;
 
     if (contents.size())
     {
         result = vmusb->stackWrite(getStackID(), loadOffset, contents);
-        if (result >= 0)
+        if (!result.isError())
         {
             // Stack size in 16-bit words + 4 for the stack header (from nscldaqs CStack)
             loadOffset += contents.size() * 2 + 4;
@@ -34,10 +34,10 @@ int VMUSBStack::loadStack(VMUSB *vmusb)
     return result;
 }
 
-int VMUSBStack::enableStack(VMUSB *controller)
+VMEError VMUSBStack::enableStack(VMUSB *controller)
 {
     auto stackID = getStackID();
-    int result = 0;
+    VMEError result;
 
     switch (triggerCondition)
     {

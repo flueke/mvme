@@ -32,8 +32,8 @@ class VMUSBStack
             return 0;
         }
 
-        int loadStack(VMUSB *controller);
-        int enableStack(VMUSB *controller);
+        VMEError loadStack(VMUSB *controller);
+        VMEError enableStack(VMUSB *controller);
 
         void setContents(const QVector<u32> contents) { m_contents = contents; }
         QVector<u32> getContents() const { return m_contents; }

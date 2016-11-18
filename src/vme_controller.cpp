@@ -16,6 +16,9 @@ static const QMap<VMEError::ErrorType, QString> errorNames =
 
 QString VMEError::toString() const
 {
+    if (error() == VMEError::UnknownError && !m_message.isEmpty())
+        return m_message;
+
     QString result(errorName());
     if (!m_message.isEmpty())
         result += QSL(": ") + m_message;

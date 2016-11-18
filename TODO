@@ -38,6 +38,7 @@
       - unit (Text: "ps") // Histogram may show at 64k: "24 ps/chan" or at 8k res: "192 ps/chan"
       - zero point        (chan 2048 is zero, left negative, right positive)
   * Allow smaller sizes for Hist2D Axes
+  * Offsets for hist2d accumulation
 
 * threading and vme commands
   * run vme scripts in a separate thread when invoked from the gui
