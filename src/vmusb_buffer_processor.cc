@@ -371,7 +371,7 @@ bool VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *output
         return false;
     }
 
-    if (StackIDMin < stackID || stackID > StackIDMax)
+    if (stackID > StackIDMax)
     {
         emit logMessage(QString(QSL("VMUSB: Parsed stackID=%1 is out of range, skipping event")).arg(stackID));
         iter.skip(sizeof(u16), eventLength);
