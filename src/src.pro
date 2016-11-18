@@ -45,6 +45,6 @@ unix {
     QMAKE_LFLAGS += "-Wl,-rpath,\'\$$ORIGIN\'"
 }
 
-include($$PWD/../git_version.pri)
+include($$shell_path($$PWD/../git_version.pri))
 
 # vim:ft=conf
