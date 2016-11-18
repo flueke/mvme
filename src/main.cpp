@@ -29,7 +29,7 @@ int main(int argc, char *argv[])
     qDebug() << "librariesPaths = " << QLibraryInfo::location(QLibraryInfo::LibrariesPath);
     qDebug() << "pluginsPaths = " << QLibraryInfo::location(QLibraryInfo::PluginsPath);
 
-    QSplashScreen splash(QPixmap(":/mesytec-logo.png"), Qt::WindowStaysOnTopHint);
+    QSplashScreen splash(QPixmap(":/mesytec-logo.png"), Qt::CustomizeWindowHint | Qt::Window | Qt::WindowStaysOnTopHint);
     splash.showMessage(QSL("                                       mvme - VME Data Acquisition\n"
                            "                                © 2015-2016 mesytec GmbH & Co. KG"
                           ));
