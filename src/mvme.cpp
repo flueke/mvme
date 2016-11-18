@@ -22,16 +22,18 @@
 
 #include <QDockWidget>
 #include <QFileDialog>
+#include <QFont>
+#include <QLabel>
+#include <QList>
 #include <QMdiSubWindow>
 #include <QMessageBox>
+#include <QPushButton>
+#include <QScrollBar>
+#include <QTextBrowser>
+#include <QTextEdit>
 #include <QtGui>
 #include <QTimer>
 #include <QToolBar>
-#include <QTextEdit>
-#include <QFont>
-#include <QList>
-#include <QTextBrowser>
-#include <QScrollBar>
 
 #include <qwt_plot_curve.h>
 
@@ -78,6 +80,8 @@ mvme::mvme(QWidget *parent) :
     , m_logView(new QTextBrowser)
 {
     qDebug() << "main thread: " << QThread::currentThread();
+
+    setWindowIcon(QIcon(QPixmap(":/mesytec-window-icon.png")));
 
     connect(m_context, &MVMEContext::daqConfigFileNameChanged, this, &mvme::updateWindowTitle);
     connect(m_context, &MVMEContext::daqConfigChanged, this, &mvme::onConfigChanged);
@@ -348,7 +352,92 @@ void mvme::drawTimerSlot()
 
 void mvme::displayAbout()
 {
-    QMessageBox::about(this, tr("about mvme"), tr("mvme by G. Montermann, mesytec GmbH & Co. KG"));
+    auto dialog = new QDialog(this);
+    dialog->setWindowTitle(QSL("About mvme"));
+
+    auto tb_license = new QTextBrowser(dialog);
+    tb_license->setWindowFlags(Qt::Window);
+    tb_license->setWindowTitle(QSL("mvme license"));
+
+    {
+        QFile licenseFile(":/gpl-notice.txt");
+        licenseFile.open(QIODevice::ReadOnly);
+        tb_license->setText(licenseFile.readAll());
+    }
+
+    auto layout = new QVBoxLayout(dialog);
+
+    {
+        auto label = new QLabel;
+        label->setPixmap(QPixmap(":/mesytec-logo.png").
+                              scaledToWidth(300, Qt::SmoothTransformation));
+        layout->addWidget(label);
+    }
+
+    {
+        QString text = QString("mvme - %1").arg(GIT_VERSION);
+        auto label = new QLabel;
+        auto font = label->font();
+        font.setPointSize(15);
+        font.setBold(true);
+        label->setFont(font);
+        layout->addWidget(label);
+    }
+
+    layout->addWidget(new QLabel(QSL("VME Data Acquisition")));
+    layout->addWidget(new QLabel(QSL("© 2015-2016 mesytec GmbH & Co. KG")));
+    layout->addWidget(new QLabel(QSL("Authors: F. Lüke, G. Montermann")));
+
+    {
+        QString text(QSL("<a href=\"mailto:info@mesytec.com\">info@mesytec.com</a> - <a href=\"http://www.mesytec.com\">www.mesytec.com</a>"));
+        auto label = new QLabel(text);
+        label->setOpenExternalLinks(true);
+        layout->addWidget(label);
+    }
+
+    layout->addSpacing(20);
+
+    auto buttonLayout = new QHBoxLayout;
+
+    {
+        auto button = new QPushButton(QSL("&License"));
+        connect(button, &QPushButton::clicked, this, [this, tb_license]() {
+            auto sz = tb_license->size();
+            sz = sz.expandedTo(QSize(500, 300));
+            tb_license->resize(sz);
+            tb_license->show();
+            tb_license->raise();
+        });
+
+        buttonLayout->addWidget(button);
+    }
+
+    {
+        auto button = new QPushButton(QSL("&Close"));
+        connect(button, &QPushButton::clicked, dialog, &QDialog::close);
+        button->setAutoDefault(true);
+        button->setDefault(true);
+        buttonLayout->addWidget(button);
+    }
+
+    layout->addLayout(buttonLayout);
+
+    for (int i=0; i<layout->count(); ++i)
+    {
+        auto item = layout->itemAt(i);
+        item->setAlignment(Qt::AlignHCenter);
+
+        auto label = qobject_cast<QLabel *>(item->widget());
+        if (label)
+            label->setTextInteractionFlags(Qt::TextBrowserInteraction);
+    }
+
+    dialog->exec();
+}
+
+void mvme::displayAboutQt()
+{
+    QMessageBox::aboutQt(this, QSL("About Qt"));
 }
 
 void mvme::closeEvent(QCloseEvent *event){
@@ -680,6 +769,7 @@ void mvme::on_actionVME_Debug_triggered()
 {
     auto widget = new VMEDebugWidget(m_context);
     auto subwin = new QMdiSubWindow(ui->mdiArea);
+    subwin->setWindowIcon(QIcon(QPixmap(":/mesytec-window-icon.png")));
     subwin->setWidget(widget);
     subwin->setAttribute(Qt::WA_DeleteOnClose);
     ui->mdiArea->addSubWindow(subwin);
@@ -695,10 +785,12 @@ void mvme::openInNewWindow(QObject *object)
     auto histo1d            = qobject_cast<Hist1D *>(object); 
 
     MVMEWidget *widget = nullptr;
+    QIcon windowIcon;
 
     if (scriptConfig)
     {
         widget = new VMEScriptEditor(m_context, scriptConfig);
+        windowIcon = QIcon(QPixmap(":/vme_script.png"));
     }
     else if (histoCollection)
     {
@@ -708,17 +800,23 @@ void mvme::openInNewWindow(QObject *object)
     {
         auto histoConfig = qobject_cast<Hist1DConfig *>(m_context->getMappedObject(histo1d, QSL("ObjectToConfig")));
         widget = new Hist1DWidget(m_context, histo1d, histoConfig);
+        windowIcon = QIcon(QPixmap(":/hist1d.png"));
     }
     else if (histo2d)
     {
         widget = new Hist2DWidget(m_context, histo2d);
     }
 
+    if (windowIcon.isNull())
+        windowIcon = QIcon(QPixmap(":/mesytec-window-icon.png"));
+
     if (widget)
     {
         widget->setAttribute(Qt::WA_DeleteOnClose);
         auto subwin = new QMdiSubWindow;
         subwin->setAttribute(Qt::WA_DeleteOnClose);
+        if (!windowIcon.isNull())
+            subwin->setWindowIcon(windowIcon);
         subwin->setWidget(widget);
         ui->mdiArea->addSubWindow(subwin);
         subwin->show();

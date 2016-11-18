@@ -50,6 +50,7 @@ public slots:
     void replot();
     void drawTimerSlot();
     void displayAbout();
+    void displayAboutQt();
     void clearLog();
 
     void openInNewWindow(QObject *object);

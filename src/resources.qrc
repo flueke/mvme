@@ -15,6 +15,10 @@
     <file alias="tree-settings.png">resources/view-list-tree.png</file>
     <file alias="data_filter.png">resources/view-filter.png</file>
     <file alias="hist1d.png">resources/office-chart-bar.png</file>
+
+    <file alias="gpl-notice.txt">resources/gpl-notice.txt</file>
+    <file alias="mesytec-logo.png">resources/mesytec-logo.png</file>
+    <file alias="mesytec-window-icon.png">resources/mesytec-window-icon.png</file>
 </qresource>
 </RCC>
 <!-- vim:ft=xml

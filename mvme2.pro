@@ -15,4 +15,3 @@ export(first.depends)
 export(copytemplates.commands)
 export(copyfiles.commands)
 QMAKE_EXTRA_TARGETS += first copytemplates copyfiles
-

@@ -36,3 +36,4 @@ unix {
     QMAKE_LFLAGS += "-Wl,-rpath,\'\$$ORIGIN\'"
 }
 
+include($$PWD/../git_version.pri)

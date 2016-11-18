@@ -1,7 +1,7 @@
 QT       += core gui concurrent widgets
 CONFIG   += c++11
 
-TARGET = ../mvme2
+TARGET = ../mvme
 TEMPLATE = app
 
 QMAKE_CXXFLAGS += -Wno-unused-variable -Wno-unused-parameter -Wno-unused-function -Wno-format
@@ -25,8 +25,8 @@ profiling {
 include(src.pri)
 
 SOURCES += main.cpp
-
 RESOURCES += resources.qrc
+RC_FILE = mvme.rc
 
 unix:!macx:!symbian {
     CONFIG += qwt
@@ -44,5 +44,7 @@ unix {
     QMAKE_LFLAGS_RPATH=
     QMAKE_LFLAGS += "-Wl,-rpath,\'\$$ORIGIN\'"
 }
+
+include($$PWD/../git_version.pri)
 
 # vim:ft=conf

@@ -9,31 +9,44 @@
 #include <QApplication>
 #include <QDebug>
 #include <QLibraryInfo>
-
-#include <QJsonObject>
-#include <QJsonDocument>
+#include <QSplashScreen>
+#include <QTimer>
 
 int main(int argc, char *argv[])
 {
     qRegisterMetaType<DAQState>("DAQState");
     qRegisterMetaType<DAQState>("GlobalMode");
     qRegisterMetaType<DAQState>("ControllerState");
-    QApplication a(argc, argv);
+
+    QApplication app(argc, argv);
 
     QCoreApplication::setOrganizationDomain("www.mesytec.com");
     QCoreApplication::setOrganizationName("mesytec");
     QCoreApplication::setApplicationName("mvme");
-    QCoreApplication::setApplicationVersion("0.2.0");
+    QCoreApplication::setApplicationVersion(GIT_VERSION);
 
     qDebug() << "prefixPath = " << QLibraryInfo::location(QLibraryInfo::PrefixPath);
     qDebug() << "librariesPaths = " << QLibraryInfo::location(QLibraryInfo::LibrariesPath);
     qDebug() << "pluginsPaths = " << QLibraryInfo::location(QLibraryInfo::PluginsPath);
 
+    QSplashScreen splash(QPixmap(":/mesytec-logo.png"), Qt::WindowStaysOnTopHint);
+    splash.showMessage(QSL("                                       mvme - VME Data Acquisition\n"
+                           "                                © 2015-2016 mesytec GmbH & Co. KG"
+                          ));
+    splash.show();
+
+    const int splashMaxTime = 3000;
+    QTimer splashTimer;
+    splashTimer.setInterval(splashMaxTime);
+    splashTimer.setSingleShot(true);
+    splashTimer.start();
+    QObject::connect(&splashTimer, &QTimer::timeout, &splash, &QWidget::close);
+
     mvme w;
     w.show();
     w.restoreSettings();
 
-    int ret = a.exec();
+    int ret = app.exec();
 
     return ret;
 }
