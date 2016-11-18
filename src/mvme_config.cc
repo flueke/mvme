@@ -566,11 +566,54 @@ QPair<int, int> DAQConfig::getEventAndModuleIndices(ModuleConfig *cfg) const
 //
 // DataFilterConfig
 //
+
 void DataFilterConfig::setFilter(const DataFilter &filter)
 {
     if (m_filter != filter)
     {
         m_filter = filter;
+        setModified();
+    }
+}
+
+void DataFilterConfig::setAxisTitle(const QString &title)
+{
+    if (m_axisTitle != title)
+    {
+        m_axisTitle = title;
+        setModified();
+    }
+}
+
+void DataFilterConfig::setUnitString(const QString &unit)
+{
+    if (m_unitString != unit)
+    {
+        m_unitString = unit;
+        setModified();
+    }
+}
+
+void DataFilterConfig::setUnitRange(QPair<double, double> range)
+{
+    setUnitMinValue(range.first);
+    setUnitMaxValue(range.second);
+}
+
+void DataFilterConfig::setUnitMinValue(double v)
+{
+    if (m_unitMinValue != v)
+    {
+        m_unitMinValue = v;
+        setModified();
+    }
+}
+
+void DataFilterConfig::setUnitMaxValue(double v)
+{
+    if (m_unitMaxValue != v)
+    {
+        m_unitMaxValue = v;
         setModified();
     }
 }

@@ -60,7 +60,24 @@ static QList<Hist1DConfig *> generateHistogramConfigs(DataFilterConfig *filterCo
         cfg->setFilterId(filterConfig->getId());
         cfg->setFilterAddress(address);
         cfg->setBits(dataBits);
-        cfg->setProperty("xAxisTitle", QString("%1 %2").arg(filterConfig->objectName()).arg(address));
+
+
+        auto axisTitle = filterConfig->getAxisTitle();
+
+        if (!axisTitle.isEmpty())
+        {
+            axisTitle.replace(QSL("%A"), QString::number(address));
+            axisTitle.replace(QSL("%a"), QString::number(address));
+        }
+        else
+        {
+            axisTitle = QString("%1 %2").arg(filterConfig->objectName()).arg(address);
+        }
+
+        cfg->setProperty("xAxisTitle", axisTitle);
+        cfg->setProperty("xAxisUnit", filterConfig->getUnitString());
+        cfg->setProperty("xAxisUnitMin", filterConfig->getUnitMinValue());
+        cfg->setProperty("xAxisUnitMax", filterConfig->getUnitMaxValue());
         result.push_back(cfg);
     }
 

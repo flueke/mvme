@@ -780,6 +780,11 @@ void DataFilterDialog::loadFromConfig()
 {
     ui->le_name->setText(m_config->objectName());
     ui->le_filter->setText(QString::fromLocal8Bit(m_config->getFilter().getFilter()));
+
+    ui->le_axisTitle->setText(m_config->getAxisTitle());
+    ui->le_axisUnit->setText(m_config->getUnitString());
+    ui->spin_rangeMin->setValue(m_config->getUnitMinValue());
+    ui->spin_rangeMax->setValue(m_config->getUnitMaxValue());
 }
 
 void DataFilterDialog::saveToConfig()
@@ -794,6 +799,11 @@ void DataFilterDialog::saveToConfig()
             filterData.push_back(c);
     }
     m_config->setFilter(DataFilter(filterData));
+
+    m_config->setAxisTitle(ui->le_axisTitle->text());
+    m_config->setUnitString(ui->le_axisUnit->text());
+    m_config->setUnitMinValue(ui->spin_rangeMin->value());
+    m_config->setUnitMaxValue(ui->spin_rangeMax->value());
 }
 
 void DataFilterDialog::validate()

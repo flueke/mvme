@@ -273,12 +273,31 @@ class DataFilterConfig: public ConfigObject
         const DataFilter &getFilter() const { return m_filter; }
         void setFilter(const DataFilter &filter);
 
+        QString getAxisTitle() const { return m_axisTitle; }
+        void setAxisTitle(const QString &title);
+
+        QString getUnitString() const { return m_unitString; }
+        void setUnitString(const QString &unit);
+
+        QPair<double, double> getUnitRange() const { return qMakePair(m_unitMinValue, m_unitMaxValue); }
+        void setUnitRange(QPair<double, double> range);
+
+        double getUnitMinValue() const { return m_unitMinValue; }
+        void setUnitMinValue(double v);
+
+        double getUnitMaxValue() const { return m_unitMaxValue; }
+        void setUnitMaxValue(double v);
+
     protected:
         virtual void read_impl(const QJsonObject &json) override;
         virtual void write_impl(QJsonObject &json) const override;
 
     private:
         DataFilter m_filter;
+        QString m_axisTitle;
+        QString m_unitString;
+        double m_unitMinValue;
+        double m_unitMaxValue;
 };
 
 class Hist1DConfig: public ConfigObject
