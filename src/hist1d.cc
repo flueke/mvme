@@ -258,6 +258,12 @@ Hist1DWidget::Hist1DWidget(MVMEContext *context, Hist1D *histo, QWidget *parent)
     : Hist1DWidget(context, histo, nullptr, parent)
 {}
 
+/* TODO:
+ * use QwtScaleDraw to draw scale values and units labels
+ * use unit value and label in the cursor info area
+ * XXX: the zoomer rectangle values will not be converted to unit values. how to fix this? custom transform?
+ * XXX: this must also work when using a log scale!
+ */
 Hist1DWidget::Hist1DWidget(MVMEContext *context, Hist1D *histo, Hist1DConfig *histoConfig, QWidget *parent)
     : MVMEWidget(parent)
     , ui(new Ui::Hist1DWidget)
