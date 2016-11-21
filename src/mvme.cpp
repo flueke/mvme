@@ -787,11 +787,13 @@ void mvme::openInNewWindow(QObject *object)
 
     MVMEWidget *widget = nullptr;
     QIcon windowIcon;
+    QSize windowSize;
 
     if (scriptConfig)
     {
         widget = new VMEScriptEditor(m_context, scriptConfig);
         windowIcon = QIcon(QPixmap(":/vme_script.png"));
+        windowSize = QSize(700, 450);
     }
     else if (histoCollection)
     {
@@ -816,10 +818,16 @@ void mvme::openInNewWindow(QObject *object)
         widget->setAttribute(Qt::WA_DeleteOnClose);
         auto subwin = new QMdiSubWindow;
         subwin->setAttribute(Qt::WA_DeleteOnClose);
+        subwin->setWidget(widget);
+
         if (!windowIcon.isNull())
             subwin->setWindowIcon(windowIcon);
-        subwin->setWidget(widget);
+
         ui->mdiArea->addSubWindow(subwin);
+
+        if (windowSize.isValid())
+            subwin->resize(windowSize);
+
         subwin->show();
         ui->mdiArea->setActiveSubWindow(subwin);
 
