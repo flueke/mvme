@@ -296,8 +296,8 @@ class DataFilterConfig: public ConfigObject
         DataFilter m_filter;
         QString m_axisTitle;
         QString m_unitString;
-        double m_unitMinValue;
-        double m_unitMaxValue;
+        double m_unitMinValue = 0.0;
+        double m_unitMaxValue = 0.0;
 };
 
 class Hist1DConfig: public ConfigObject
