@@ -295,10 +295,14 @@ void Hist2DWidget::replot()
         ui->plot->axisScaleDiv(QwtPlot::xBottom).interval(),
         ui->plot->axisScaleDiv(QwtPlot::yLeft).interval());
 
-    ui->label_numberOfEntries->setText(QString::number(stats.entryCount));
-    ui->label_maxValue->setText(QString::number(stats.maxValue));
-    ui->label_maxX->setText(QString::number(stats.maxX));
-    ui->label_maxY->setText(QString::number(stats.maxY));
+    double maxX = m_xConversion.transform(stats.maxX);
+    double maxY = m_yConversion.transform(stats.maxY);
+
+    ui->label_numberOfEntries->setText(QString("%L1").arg(stats.entryCount));
+    ui->label_maxValue->setText(QString("%L1").arg(stats.maxValue));
+
+    ui->label_maxX->setText(QString("%1").arg(maxX, 0, 'g', 6));
+    ui->label_maxY->setText(QString("%1").arg(maxY, 0, 'g', 6));
 
     updateCursorInfoLabel();
     ui->plot->replot();
@@ -375,7 +379,7 @@ void Hist2DWidget::displayChanged()
         if (std::abs(unitMax - unitMin) > 0.0)
             m_yConversion.setPaintInterval(unitMin, unitMax);
         else
-            m_xConversion.setPaintInterval(0, m_hist2d->getYResolution());
+            m_yConversion.setPaintInterval(0, m_hist2d->getYResolution());
 
         auto scaleDraw = new UnitConversionAxisScaleDraw(m_yConversion);
         ui->plot->setAxisScaleDraw(QwtPlot::yLeft, scaleDraw);
@@ -498,10 +502,22 @@ void Hist2DWidget::updateCursorInfoLabel()
         if (qIsNaN(value))
             value = 0.0;
 
-        QString text = QString("x=%1\ny=%2\nz=%3")
+        double x = m_xConversion.transform(ix);
+        double y = m_yConversion.transform(iy);
+
+        auto text =
+            QString("x=%1\n"
+                    "y=%2\n"
+                    "z=%3\n"
+                    "xbin=%4\n"
+                    "ybin=%5"
+                   )
+            .arg(x, 0, 'g', 6)
+            .arg(y, 0, 'g', 6)
+            .arg(value)
             .arg(ix)
             .arg(iy)
-            .arg(value);
+            ;
 
         ui->label_cursorInfo->setText(text);
     }

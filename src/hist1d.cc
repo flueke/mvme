@@ -434,17 +434,20 @@ void Hist1DWidget::updateStatistics()
 
     m_stats = m_histo->calcStatistics(lowerBound, upperBound);
 
+    double mean = m_conversionMap.transform(m_stats.mean);
+    double maxAt = m_conversionMap.transform(m_stats.maxChannel);
+
     static const int fieldWidth = 0;
     QString buffer = QString("\nMean: %L1"
                              "\nSigma: %L2"
                              "\nCounts: %L3"
                              "\nMaximum: %L4"
-                             "\nat Channel: %L5\n")
-        .arg(m_stats.mean, fieldWidth)
+                             "\nMax at: %L5\n")
+        .arg(mean, fieldWidth)
         .arg(m_stats.sigma, fieldWidth)
         .arg(m_stats.entryCount, fieldWidth)
         .arg(m_stats.maxValue, fieldWidth)
-        .arg(m_stats.maxChannel, fieldWidth)
+        .arg(maxAt, fieldWidth);
         ;
 
     m_statsText->setText(buffer);
@@ -539,12 +542,14 @@ void Hist1DWidget::updateCursorInfoLabel()
         u32 ix = static_cast<u32>(std::max(m_cursorPosition.x(), 0.0));
         double value = m_histo->value(ix);
 
-        QString text = QString("bin=%1\n"
-                               "x=%2\n"
-                               "y=%3")
-            .arg(ix)
-            .arg(m_conversionMap.transform(ix), 0, 'f', 2)
-            .arg(value);
+        QString text = QString(
+                               "x=%1\n"
+                               "y=%2\n"
+                               "bin=%3"
+                               )
+            .arg(m_conversionMap.transform(ix), 0, 'g', 6)
+            .arg(value)
+            .arg(ix);
 
         ui->label_cursorInfo->setText(text);
     }
