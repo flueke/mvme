@@ -2,6 +2,7 @@
 #define __HIST1D_H__
 
 #include "util.h"
+#include <qwt_scale_map.h>
 
 class QTimer;
 class QTextStream;
@@ -98,6 +99,7 @@ class Hist1DWidget: public MVMEWidget
         QwtPlotTextLabel *m_statsTextItem;
         QwtText *m_statsText;
         QPointF m_cursorPosition;
+        QwtScaleMap m_conversionMap;
 };
 
 #endif /* __HIST1D_H__ */

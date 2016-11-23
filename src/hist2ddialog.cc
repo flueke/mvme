@@ -189,8 +189,6 @@ Hist2DDialog::Hist2DDialog(MVMEContext *context, Hist2D *histo, QWidget *parent)
     {
         ui->comboXResolution->setCurrentIndex(m_histo->getXBits() - bitsMin);
         ui->comboYResolution->setCurrentIndex(m_histo->getYBits() - bitsMin);
-        //ui->comboXResolution->setEnabled(false);
-        //ui->comboYResolution->setEnabled(false);
     }
     else
     {
@@ -235,12 +233,24 @@ QPair<Hist2D *, Hist2DConfig *> Hist2DDialog::getHistoAndConfig()
                                  .arg(m_xSource.first->objectName())
                                  .arg(m_xSource.second));
 
+        auto xFilter = m_xSource.first;
+        histoConfig->setProperty("xAxisUnitMin", xFilter->getUnitMinValue());
+        histoConfig->setProperty("xAxisUnitMax", xFilter->getUnitMaxValue());
+        histoConfig->setProperty("xAxisTitle", xFilter->getAxisTitle());
+        histoConfig->setProperty("xAxisUnit", xFilter->getAxisTitle());
+
         histoConfig->setYFilterId(m_ySource.first->getId());
         histoConfig->setYFilterAddress(m_ySource.second);
         histoConfig->setYBits(yBits);
         histoConfig->setProperty("yAxisTitle", QString("%1/%2")
                                  .arg(m_ySource.first->objectName())
                                  .arg(m_ySource.second));
+        auto yFilter = m_ySource.first;
+
+        histoConfig->setProperty("yAxisUnitMin", yFilter->getUnitMinValue());
+        histoConfig->setProperty("yAxisUnitMax", yFilter->getUnitMaxValue());
+        histoConfig->setProperty("yAxisTitle", yFilter->getAxisTitle());
+        histoConfig->setProperty("yAxisUnit", yFilter->getAxisTitle());
     }
 
     return qMakePair(m_histo, histoConfig);

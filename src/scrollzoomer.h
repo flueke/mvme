@@ -4,6 +4,7 @@
 #include <qglobal.h>
 #include <qwt_plot_zoomer.h>
 #include <qwt_plot.h>
+#include <qwt_scale_map.h>
 
 class ScrollData;
 class ScrollBar;
@@ -51,6 +52,11 @@ public:
     quint32 getLowborder();
     quint32 getHiborder();
 
+    void setConversionX(const QwtScaleMap &map)
+    {
+        m_conversionX = map;
+    }
+
 
 protected:
     virtual ScrollBar *scrollBar( Qt::Orientation );
@@ -77,6 +83,7 @@ private:
 
     bool d_inZoom;
     bool d_alignCanvasToScales[ QwtPlot::axisCnt ];
+    QwtScaleMap m_conversionX;
 };
 
 #endif

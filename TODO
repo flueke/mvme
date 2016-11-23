@@ -5,6 +5,8 @@
 ==========================
 ==== Do these later! =====
 ==========================
+* Don't regenerate hists if data filter string did not change
+* Force locale to EN-US to get consistent number displays
 * Hist2d Icon
 * Limit the number of messages/s appended to the logview
 * How to handle filters without matching module? Right now they're not
@@ -38,7 +40,7 @@
       - value/ channel
       - unit (Text: "ps") // Histogram may show at 64k: "24 ps/chan" or at 8k res: "192 ps/chan"
       - zero point        (chan 2048 is zero, left negative, right positive)
-  * Allow smaller sizes for Hist2D Axes
+  * Allow smaller resolutions for Hist2D Axes
   * Offsets for hist2d accumulation
 
 * threading and vme commands

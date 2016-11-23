@@ -3,6 +3,7 @@
 
 #include "util.h"
 #include <qwt_interval.h>
+#include <qwt_scale_map.h>
 
 namespace Ui
 {
@@ -94,6 +95,8 @@ private:
     ScrollZoomer *m_zoomer;
     QTimer *m_replotTimer;
     QPointF m_cursorPosition;
+    QwtScaleMap m_xConversion;
+    QwtScaleMap m_yConversion;
 };
 
 #endif

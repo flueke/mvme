@@ -3,6 +3,7 @@
 #include "scrollzoomer.h"
 #include "mvme_config.h"
 #include "mvme_context.h"
+#include "histo_util.h"
 
 #include <cmath>
 
@@ -226,44 +227,10 @@ class Hist1DPointData: public QwtSeriesData<QPointF>
         Hist1D *m_histo;
 };
 
-// Bounds values to 0.1 to make QwtLogScaleEngine happy
-class MinBoundLogTransform: public QwtLogTransform
-{
-    public:
-        virtual double bounded(double value) const
-        {
-            double result = qBound(0.1, value, QwtLogTransform::LogMax);
-            return result;
-        }
-
-        virtual double transform(double value) const
-        {
-            double result = QwtLogTransform::transform(bounded(value));
-            return result;
-        }
-
-        virtual double invTransform(double value) const
-        {
-            double result = QwtLogTransform::invTransform(value);
-            return result;
-        }
-
-        virtual QwtTransform *copy() const
-        {
-            return new MinBoundLogTransform;
-        }
-};
-
 Hist1DWidget::Hist1DWidget(MVMEContext *context, Hist1D *histo, QWidget *parent)
     : Hist1DWidget(context, histo, nullptr, parent)
 {}
 
-/* TODO:
- * use QwtScaleDraw to draw scale values and units labels
- * use unit value and label in the cursor info area
- * XXX: the zoomer rectangle values will not be converted to unit values. how to fix this? custom transform?
- * XXX: this must also work when using a log scale!
- */
 Hist1DWidget::Hist1DWidget(MVMEContext *context, Hist1D *histo, Hist1DConfig *histoConfig, QWidget *parent)
     : MVMEWidget(parent)
     , ui(new Ui::Hist1DWidget)
@@ -337,10 +304,31 @@ Hist1DWidget::Hist1DWidget(MVMEContext *context, Hist1D *histo, Hist1DConfig *hi
     m_statsTextItem->setText(*m_statsText);
     m_statsTextItem->attach(ui->plot);
 
+    // init to 1:1 transform
+    m_conversionMap.setScaleInterval(0, m_histo->getResolution());
+    m_conversionMap.setPaintInterval(0, m_histo->getResolution());
+
     if (m_histoConfig)
     {
         connect(m_histoConfig, &ConfigObject::modified, this, &Hist1DWidget::displayChanged);
+
+        double unitMin = m_histoConfig->property("xAxisUnitMin").toDouble();
+        double unitMax = m_histoConfig->property("xAxisUnitMax").toDouble();
+        if (std::abs(unitMax - unitMin) > 0.0)
+        {
+            m_conversionMap.setPaintInterval(unitMin, unitMax);
+
+            auto scaleDraw = new UnitConversionAxisScaleDraw(m_conversionMap, m_histoConfig->property("xAxisUnit").toString());
+            ui->plot->setAxisScaleDraw(QwtPlot::xBottom, scaleDraw);
+
+            auto scaleEngine = new UnitConversionLinearScaleEngine(m_conversionMap);
+            ui->plot->setAxisScaleEngine(QwtPlot::xBottom, scaleEngine);
+
+            m_conversionMap = m_conversionMap;
+        }
     }
+
+    m_zoomer->setConversionX(m_conversionMap);
 
     displayChanged();
 }
@@ -372,6 +360,7 @@ void Hist1DWidget::displayChanged()
         ui->plot->setAxisScaleEngine(QwtPlot::yLeft, scaleEngine);
     }
 
+    // FIXME: windowTitle handling! it's setting the title twice down there
 
     auto name = m_histoConfig ? m_histoConfig->objectName() : m_histo->objectName();
     setWindowTitle(QString("Histogram %1").arg(name));
@@ -379,12 +368,20 @@ void Hist1DWidget::displayChanged()
     if (m_histoConfig)
     {
         auto axisTitle = m_histoConfig->property("xAxisTitle").toString();
-        if (!axisTitle.isNull())
+        if (!axisTitle.isEmpty())
+        {
+            auto unitString = m_histoConfig->property("xAxisUnit").toString();
+            if (!unitString.isEmpty())
+            {
+                axisTitle += QString(" [%1]").arg(unitString);
+            }
+
             ui->plot->axisWidget(QwtPlot::xBottom)->setTitle(axisTitle);
+        }
 
-        auto title = QSL("Histogram ") + getHistoPath(m_context, m_histoConfig);
+        auto windowTitle = QSL("Histogram ") + getHistoPath(m_context, m_histoConfig);
 
-        setWindowTitle(title);
+        setWindowTitle(windowTitle);
     }
 
     replot();
@@ -545,8 +542,11 @@ void Hist1DWidget::updateCursorInfoLabel()
         u32 ix = static_cast<u32>(std::max(m_cursorPosition.x(), 0.0));
         double value = m_histo->value(ix);
 
-        QString text = QString("x=%1\ny=%2")
+        QString text = QString("bin=%1\n"
+                               "x=%2\n"
+                               "y=%3")
             .arg(ix)
+            .arg(m_conversionMap.transform(ix), 0, 'f', 2)
             .arg(value);
 
         ui->label_cursorInfo->setText(text);

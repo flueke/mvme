@@ -621,12 +621,23 @@ void DataFilterConfig::setUnitMaxValue(double v)
 void DataFilterConfig::read_impl(const QJsonObject &json)
 {
     m_filter = DataFilter(json["filter"].toString().toLocal8Bit());
+    m_axisTitle = json["axisTitle"].toString();
+    m_unitString = json["unitString"].toString();
+    m_unitMinValue = json["unitMinValue"].toDouble();
+    m_unitMaxValue = json["unitMaxValue"].toDouble();
+
     loadDynamicProperties(json["properties"].toObject(), this);
 }
 
 void DataFilterConfig::write_impl(QJsonObject &json) const
 {
     json["filter"] = QString::fromLocal8Bit(m_filter.getFilter());
+    json["axisTitle"] = getAxisTitle();
+    json["unitString"] = getUnitString();
+    json["unitMinValue"] = getUnitMinValue();
+    json["unitMaxValue"] = getUnitMaxValue();
+
+
     json["properties"] = storeDynamicProperties(this);
 }
 

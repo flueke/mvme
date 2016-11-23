@@ -3,6 +3,8 @@
 #include "mvme_context.h"
 #include "scrollzoomer.h"
 #include "ui_hist2dwidget.h"
+#include "histo_util.h"
+
 #include <qwt_plot_spectrogram.h>
 #include <qwt_color_map.h>
 #include <qwt_scale_widget.h>
@@ -173,34 +175,6 @@ private:
     Hist2D *m_hist2d;
 };
 
-// Bounds values to 0.1 to make QwtLogScaleEngine happy
-class MinBoundLogTransform: public QwtLogTransform
-{
-    public:
-        virtual double bounded(double value) const
-        {
-            double result = qBound(0.1, value, QwtLogTransform::LogMax);
-            return result;
-        }
-
-        virtual double transform(double value) const
-        {
-            double result = QwtLogTransform::transform(bounded(value));
-            return result;
-        }
-
-        virtual double invTransform(double value) const
-        {
-            double result = QwtLogTransform::invTransform(value);
-            return result;
-        }
-
-        virtual QwtTransform *copy() const
-        {
-            return new MinBoundLogTransform;
-        }
-};
-
 // from http://stackoverflow.com/a/9021841
 class LogarithmicColorMap : public QwtLinearColorMap
 {
@@ -279,10 +253,41 @@ Hist2DWidget::Hist2DWidget(MVMEContext *context, Hist2D *hist2d, QWidget *parent
     plotMagnifier->setMouseButton(Qt::NoButton);
 #endif
 
+    m_xConversion.setScaleInterval(0, m_hist2d->getXResolution());
+    m_xConversion.setPaintInterval(0, m_hist2d->getXResolution());
+    m_yConversion.setScaleInterval(0, m_hist2d->getYResolution());
+    m_yConversion.setPaintInterval(0, m_hist2d->getYResolution());
+
     auto config = qobject_cast<Hist2DConfig *>(m_context->getMappedObject(m_hist2d, QSL("ObjectToConfig")));
 
     if (config)
+    {
         connect(config, &ConfigObject::modified, this, &Hist2DWidget::displayChanged);
+
+        {
+            double unitMin = config->property("xAxisUnitMin").toDouble();
+            double unitMax = config->property("xAxisUnitMax").toDouble();
+            m_xConversion.setPaintInterval(unitMin, unitMax);
+
+            auto scaleDraw = new UnitConversionAxisScaleDraw(m_xConversion, config->property("xAxisUnit").toString());
+            ui->plot->setAxisScaleDraw(QwtPlot::xBottom, scaleDraw);
+
+            auto scaleEngine = new UnitConversionLinearScaleEngine(m_xConversion);
+            ui->plot->setAxisScaleEngine(QwtPlot::xBottom, scaleEngine);
+        }
+
+        {
+            double unitMin = config->property("yAxisUnitMin").toDouble();
+            double unitMax = config->property("yAxisUnitMax").toDouble();
+            m_yConversion.setPaintInterval(unitMin, unitMax);
+
+            auto scaleDraw = new UnitConversionAxisScaleDraw(m_yConversion, config->property("yAxisUnit").toString());
+            ui->plot->setAxisScaleDraw(QwtPlot::yLeft, scaleDraw);
+
+            auto scaleEngine = new UnitConversionLinearScaleEngine(m_yConversion);
+            ui->plot->setAxisScaleEngine(QwtPlot::yLeft, scaleEngine);
+        }
+    }
 
     onHistoResized();
     displayChanged();
@@ -296,24 +301,6 @@ Hist2DWidget::~Hist2DWidget()
 
 void Hist2DWidget::replot()
 {
-    QString xTitle;
-    QString yTitle;
-
-    auto config = qobject_cast<Hist2DConfig *>(m_context->getMappedObject(m_hist2d, QSL("ObjectToConfig")));
-
-    if (config)
-    {
-        xTitle = config->property("xAxisTitle").toString();
-        ui->plot->axisWidget(QwtPlot::xBottom)->setTitle(xTitle);
-        yTitle = config->property("yAxisTitle").toString();
-        ui->plot->axisWidget(QwtPlot::yLeft)->setTitle(yTitle);
-
-        setWindowTitle(QString("%1 - %2 | %3")
-                       .arg(config->objectName())
-                       .arg(xTitle)
-                       .arg(yTitle));
-    }
-
     // z axis interval
     auto histData = reinterpret_cast<Hist2DRasterData *>(m_plotItem->data());
     histData->updateIntervals();
@@ -343,13 +330,11 @@ void Hist2DWidget::displayChanged()
 {
     if (ui->scaleLin->isChecked() && !zAxisIsLin())
     {
-        qDebug() << __PRETTY_FUNCTION__ << "switch to lin";
         ui->plot->setAxisScaleEngine(QwtPlot::yRight, new QwtLinearScaleEngine);
         ui->plot->setAxisAutoScale(QwtPlot::yRight, true);
     }
     else if (ui->scaleLog->isChecked() && !zAxisIsLog())
     {
-        qDebug() << __PRETTY_FUNCTION__ << "switch to log";
         auto scaleEngine = new QwtLogScaleEngine;
         scaleEngine->setTransformation(new MinBoundLogTransform);
         ui->plot->setAxisScaleEngine(QwtPlot::yRight, scaleEngine);
@@ -357,6 +342,25 @@ void Hist2DWidget::displayChanged()
     }
 
     m_plotItem->setColorMap(getColorMap());
+
+    QString xTitle;
+    QString yTitle;
+
+    auto config = qobject_cast<Hist2DConfig *>(m_context->getMappedObject(m_hist2d, QSL("ObjectToConfig")));
+
+    if (config)
+    {
+        xTitle = config->property("xAxisTitle").toString();
+        ui->plot->axisWidget(QwtPlot::xBottom)->setTitle(xTitle);
+        yTitle = config->property("yAxisTitle").toString();
+        ui->plot->axisWidget(QwtPlot::yLeft)->setTitle(yTitle);
+
+        setWindowTitle(QString("%1 - %2 | %3")
+                       .arg(config->objectName())
+                       .arg(xTitle)
+                       .arg(yTitle));
+    }
+
 
     replot();
 }

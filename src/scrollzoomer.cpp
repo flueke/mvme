@@ -539,9 +539,12 @@ QwtText ScrollZoomer::trackerTextF( const QPointF &pos ) const
             text.sprintf( "%.4f", pos.x() );
             break;
         default:
-            text.sprintf( "%lld, %lld",
-                         static_cast<int64_t>(pos.x()),
+            /*
+            text.sprintf("%lld, %lld",
+                         static_cast<int64_t>(m_conversionX.transform(pos.x())),
                          static_cast<int64_t>(pos.y()));
+            */
+            break;
     }
     return QwtText( text );
 }

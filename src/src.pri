@@ -69,6 +69,7 @@ HEADERS += \
     $$PWD/config_ui.h \
     $$PWD/mesytec_diagnostics.h \
     $$PWD/realtimedata.h \
+    $$PWD/histo_util.h \
 
 
 FORMS += \
