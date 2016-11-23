@@ -304,7 +304,9 @@ class Hist1DConfig: public ConfigObject
 {
     Q_OBJECT
     public:
-        using ConfigObject::ConfigObject;
+        Hist1DConfig(QObject *parent = 0)
+            : ConfigObject(parent, true)
+        {}
 
         u32 getBits() const { return m_bits; }
         void setBits(u32 bits)
@@ -350,7 +352,9 @@ class Hist2DConfig: public ConfigObject
 {
     Q_OBJECT
     public:
-        using ConfigObject::ConfigObject;
+        Hist2DConfig(QObject *parent = 0)
+            : ConfigObject(parent, true)
+        {}
 
         QUuid getXFilterId() const { return m_xFilterId; }
         QUuid getYFilterId() const { return m_yFilterId; }
