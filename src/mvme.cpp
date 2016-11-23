@@ -804,10 +804,12 @@ void mvme::openInNewWindow(QObject *object)
         auto histoConfig = qobject_cast<Hist1DConfig *>(m_context->getMappedObject(histo1d, QSL("ObjectToConfig")));
         widget = new Hist1DWidget(m_context, histo1d, histoConfig);
         windowIcon = QIcon(QPixmap(":/hist1d.png"));
+        windowSize = QSize(600, 400);
     }
     else if (histo2d)
     {
         widget = new Hist2DWidget(m_context, histo2d);
+        windowSize = QSize(600, 400);
     }
 
     if (windowIcon.isNull())
