@@ -57,6 +57,11 @@ public:
         m_conversionX = map;
     }
 
+    void setConversionY(const QwtScaleMap &map)
+    {
+        m_conversionY = map;
+    }
+
 
 protected:
     virtual ScrollBar *scrollBar( Qt::Orientation );
@@ -84,6 +89,7 @@ private:
     bool d_inZoom;
     bool d_alignCanvasToScales[ QwtPlot::axisCnt ];
     QwtScaleMap m_conversionX;
+    QwtScaleMap m_conversionY;
 };
 
 #endif

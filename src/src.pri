@@ -32,6 +32,7 @@ SOURCES += \
     $$PWD/config_ui.cpp \
     $$PWD/mesytec_diagnostics.cc \
     $$PWD/realtimedata.cpp \
+    $$PWD/histo_util.cc \
 
 
 HEADERS += \

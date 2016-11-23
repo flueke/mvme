@@ -312,23 +312,7 @@ Hist1DWidget::Hist1DWidget(MVMEContext *context, Hist1D *histo, Hist1DConfig *hi
     {
         connect(m_histoConfig, &ConfigObject::modified, this, &Hist1DWidget::displayChanged);
 
-        double unitMin = m_histoConfig->property("xAxisUnitMin").toDouble();
-        double unitMax = m_histoConfig->property("xAxisUnitMax").toDouble();
-        if (std::abs(unitMax - unitMin) > 0.0)
-        {
-            m_conversionMap.setPaintInterval(unitMin, unitMax);
-
-            auto scaleDraw = new UnitConversionAxisScaleDraw(m_conversionMap, m_histoConfig->property("xAxisUnit").toString());
-            ui->plot->setAxisScaleDraw(QwtPlot::xBottom, scaleDraw);
-
-            auto scaleEngine = new UnitConversionLinearScaleEngine(m_conversionMap);
-            ui->plot->setAxisScaleEngine(QwtPlot::xBottom, scaleEngine);
-
-            m_conversionMap = m_conversionMap;
-        }
     }
-
-    m_zoomer->setConversionX(m_conversionMap);
 
     displayChanged();
 }
@@ -360,28 +344,41 @@ void Hist1DWidget::displayChanged()
         ui->plot->setAxisScaleEngine(QwtPlot::yLeft, scaleEngine);
     }
 
-    // FIXME: windowTitle handling! it's setting the title twice down there
-
     auto name = m_histoConfig ? m_histoConfig->objectName() : m_histo->objectName();
     setWindowTitle(QString("Histogram %1").arg(name));
 
     if (m_histoConfig)
     {
-        auto axisTitle = m_histoConfig->property("xAxisTitle").toString();
+        auto axisTitle = makeAxisTitle(m_histoConfig->property("xAxisTitle").toString(),
+                                       m_histoConfig->property("xAxisUnit").toString());
+
         if (!axisTitle.isEmpty())
         {
-            auto unitString = m_histoConfig->property("xAxisUnit").toString();
-            if (!unitString.isEmpty())
-            {
-                axisTitle += QString(" [%1]").arg(unitString);
-            }
-
             ui->plot->axisWidget(QwtPlot::xBottom)->setTitle(axisTitle);
         }
 
         auto windowTitle = QSL("Histogram ") + getHistoPath(m_context, m_histoConfig);
 
         setWindowTitle(windowTitle);
+
+        double unitMin = m_histoConfig->property("xAxisUnitMin").toDouble();
+        double unitMax = m_histoConfig->property("xAxisUnitMax").toDouble();
+        if (std::abs(unitMax - unitMin) > 0.0)
+        {
+            m_conversionMap.setPaintInterval(unitMin, unitMax);
+        }
+        else
+        {
+            m_conversionMap.setPaintInterval(0, m_histo->getResolution());
+        }
+
+        auto scaleDraw = new UnitConversionAxisScaleDraw(m_conversionMap);
+        ui->plot->setAxisScaleDraw(QwtPlot::xBottom, scaleDraw);
+
+        auto scaleEngine = new UnitConversionLinearScaleEngine(m_conversionMap);
+        ui->plot->setAxisScaleEngine(QwtPlot::xBottom, scaleEngine);
+
+        m_zoomer->setConversionX(m_conversionMap);
     }
 
     replot();

@@ -253,6 +253,7 @@ Hist2DWidget::Hist2DWidget(MVMEContext *context, Hist2D *hist2d, QWidget *parent
     plotMagnifier->setMouseButton(Qt::NoButton);
 #endif
 
+    // init to 1:1 transform
     m_xConversion.setScaleInterval(0, m_hist2d->getXResolution());
     m_xConversion.setPaintInterval(0, m_hist2d->getXResolution());
     m_yConversion.setScaleInterval(0, m_hist2d->getYResolution());
@@ -264,29 +265,6 @@ Hist2DWidget::Hist2DWidget(MVMEContext *context, Hist2D *hist2d, QWidget *parent
     {
         connect(config, &ConfigObject::modified, this, &Hist2DWidget::displayChanged);
 
-        {
-            double unitMin = config->property("xAxisUnitMin").toDouble();
-            double unitMax = config->property("xAxisUnitMax").toDouble();
-            m_xConversion.setPaintInterval(unitMin, unitMax);
-
-            auto scaleDraw = new UnitConversionAxisScaleDraw(m_xConversion, config->property("xAxisUnit").toString());
-            ui->plot->setAxisScaleDraw(QwtPlot::xBottom, scaleDraw);
-
-            auto scaleEngine = new UnitConversionLinearScaleEngine(m_xConversion);
-            ui->plot->setAxisScaleEngine(QwtPlot::xBottom, scaleEngine);
-        }
-
-        {
-            double unitMin = config->property("yAxisUnitMin").toDouble();
-            double unitMax = config->property("yAxisUnitMax").toDouble();
-            m_yConversion.setPaintInterval(unitMin, unitMax);
-
-            auto scaleDraw = new UnitConversionAxisScaleDraw(m_yConversion, config->property("yAxisUnit").toString());
-            ui->plot->setAxisScaleDraw(QwtPlot::yLeft, scaleDraw);
-
-            auto scaleEngine = new UnitConversionLinearScaleEngine(m_yConversion);
-            ui->plot->setAxisScaleEngine(QwtPlot::yLeft, scaleEngine);
-        }
     }
 
     onHistoResized();
@@ -350,17 +328,64 @@ void Hist2DWidget::displayChanged()
 
     if (config)
     {
-        xTitle = config->property("xAxisTitle").toString();
-        ui->plot->axisWidget(QwtPlot::xBottom)->setTitle(xTitle);
-        yTitle = config->property("yAxisTitle").toString();
-        ui->plot->axisWidget(QwtPlot::yLeft)->setTitle(yTitle);
+        // x
+        QString xTitle = config->property("xAxisTitle").toString();
+        auto address = config->getXFilterAddress();
+        xTitle.replace(QSL("%A"), QString::number(address));
+        xTitle.replace(QSL("%a"), QString::number(address));
+
+        QString axisTitle = makeAxisTitle(xTitle, config->property("xAxisUnit").toString());
+        ui->plot->axisWidget(QwtPlot::xBottom)->setTitle(axisTitle);
+
+        // y
+        QString yTitle = config->property("yAxisTitle").toString();
+        address = config->getYFilterAddress();
+        yTitle.replace(QSL("%A"), QString::number(address));
+        yTitle.replace(QSL("%a"), QString::number(address));
+
+        axisTitle = makeAxisTitle(yTitle, config->property("yAxisUnit").toString());
+        ui->plot->axisWidget(QwtPlot::yLeft)->setTitle(axisTitle);
+
 
         setWindowTitle(QString("%1 - %2 | %3")
                        .arg(config->objectName())
                        .arg(xTitle)
-                       .arg(yTitle));
+                       .arg(yTitle)
+                      );
     }
 
+    {
+        double unitMin = config->property("xAxisUnitMin").toDouble();
+        double unitMax = config->property("xAxisUnitMax").toDouble();
+        if (std::abs(unitMax - unitMin) > 0.0)
+            m_xConversion.setPaintInterval(unitMin, unitMax);
+        else
+            m_xConversion.setPaintInterval(0, m_hist2d->getXResolution());
+
+        auto scaleDraw = new UnitConversionAxisScaleDraw(m_xConversion);
+        ui->plot->setAxisScaleDraw(QwtPlot::xBottom, scaleDraw);
+
+        auto scaleEngine = new UnitConversionLinearScaleEngine(m_xConversion);
+        ui->plot->setAxisScaleEngine(QwtPlot::xBottom, scaleEngine);
+    }
+
+    {
+        double unitMin = config->property("yAxisUnitMin").toDouble();
+        double unitMax = config->property("yAxisUnitMax").toDouble();
+        if (std::abs(unitMax - unitMin) > 0.0)
+            m_yConversion.setPaintInterval(unitMin, unitMax);
+        else
+            m_xConversion.setPaintInterval(0, m_hist2d->getYResolution());
+
+        auto scaleDraw = new UnitConversionAxisScaleDraw(m_yConversion);
+        ui->plot->setAxisScaleDraw(QwtPlot::yLeft, scaleDraw);
+
+        auto scaleEngine = new UnitConversionLinearScaleEngine(m_yConversion);
+        ui->plot->setAxisScaleEngine(QwtPlot::yLeft, scaleEngine);
+    }
+
+    m_zoomer->setConversionX(m_xConversion);
+    m_zoomer->setConversionY(m_yConversion);
 
     replot();
 }
@@ -411,6 +436,9 @@ QwtLinearColorMap *Hist2DWidget::getColorMap() const
 
 void Hist2DWidget::onHistoResized()
 {
+    m_xConversion.setScaleInterval(0, m_hist2d->getXResolution());
+    m_yConversion.setScaleInterval(0, m_hist2d->getYResolution());
+
     auto histData = reinterpret_cast<Hist2DRasterData *>(m_plotItem->data());
     histData->updateIntervals();
 
@@ -421,6 +449,7 @@ void Hist2DWidget::onHistoResized()
     ui->plot->setAxisScale(QwtPlot::yLeft, interval.minValue(), interval.maxValue());
 
     m_zoomer->setZoomBase(true);
+    displayChanged();
 }
 
 void Hist2DWidget::mouseCursorMovedToPlotCoord(QPointF pos)

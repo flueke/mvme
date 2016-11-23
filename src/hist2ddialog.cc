@@ -226,31 +226,39 @@ QPair<Hist2D *, Hist2DConfig *> Hist2DDialog::getHistoAndConfig()
         m_histo->setObjectName(ui->le_name->text());
         histoConfig->setObjectName(ui->le_name->text());
 
-        histoConfig->setXFilterId(m_xSource.first->getId());
-        histoConfig->setXFilterAddress(m_xSource.second);
-        histoConfig->setXBits(xBits);
-        histoConfig->setProperty("xAxisTitle", QString("%1/%2")
-                                 .arg(m_xSource.first->objectName())
-                                 .arg(m_xSource.second));
+        // x axis
+        {
+            auto filter = m_xSource.first;
+            auto address = m_xSource.second;
+            auto title = filter->getAxisTitle();
+            if (title.isEmpty())
+                title = QString("%1/%2") .arg(filter->objectName()) .arg(address);
 
-        auto xFilter = m_xSource.first;
-        histoConfig->setProperty("xAxisUnitMin", xFilter->getUnitMinValue());
-        histoConfig->setProperty("xAxisUnitMax", xFilter->getUnitMaxValue());
-        histoConfig->setProperty("xAxisTitle", xFilter->getAxisTitle());
-        histoConfig->setProperty("xAxisUnit", xFilter->getAxisTitle());
+            histoConfig->setXFilterId(filter->getId());
+            histoConfig->setXFilterAddress(address);
+            histoConfig->setXBits(xBits);
+            histoConfig->setProperty("xAxisTitle", title);
+            histoConfig->setProperty("xAxisUnit", filter->getUnitString());
+            histoConfig->setProperty("xAxisUnitMin", filter->getUnitMinValue());
+            histoConfig->setProperty("xAxisUnitMax", filter->getUnitMaxValue());
+        }
 
-        histoConfig->setYFilterId(m_ySource.first->getId());
-        histoConfig->setYFilterAddress(m_ySource.second);
-        histoConfig->setYBits(yBits);
-        histoConfig->setProperty("yAxisTitle", QString("%1/%2")
-                                 .arg(m_ySource.first->objectName())
-                                 .arg(m_ySource.second));
-        auto yFilter = m_ySource.first;
+        // y axis
+        {
+            auto filter = m_ySource.first;
+            auto address = m_ySource.second;
+            auto title = filter->getAxisTitle();
+            if (title.isEmpty())
+                title = QString("%1/%2").arg(filter->objectName()).arg(address);
 
-        histoConfig->setProperty("yAxisUnitMin", yFilter->getUnitMinValue());
-        histoConfig->setProperty("yAxisUnitMax", yFilter->getUnitMaxValue());
-        histoConfig->setProperty("yAxisTitle", yFilter->getAxisTitle());
-        histoConfig->setProperty("yAxisUnit", yFilter->getAxisTitle());
+            histoConfig->setYFilterId(filter->getId());
+            histoConfig->setYFilterAddress(address);
+            histoConfig->setYBits(yBits);
+            histoConfig->setProperty("yAxisTitle", title);
+            histoConfig->setProperty("yAxisUnit", filter->getUnitString());
+            histoConfig->setProperty("yAxisUnitMin", filter->getUnitMinValue());
+            histoConfig->setProperty("yAxisUnitMax", filter->getUnitMaxValue());
+        }
     }
 
     return qMakePair(m_histo, histoConfig);
