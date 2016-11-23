@@ -75,6 +75,7 @@ class DataFilterDialog: public QDialog
         void loadFromConfig();
         void saveToConfig();
         void validate();
+        void updateUnitLimits();
 
         Ui::DataFilterDialog *ui;
         DataFilterConfig *m_config;

@@ -760,6 +760,7 @@ DataFilterDialog::DataFilterDialog(DataFilterConfig *config, const QString &defa
 
     connect(ui->le_filter, &QLineEdit::textChanged, this, &DataFilterDialog::validate);
     connect(ui->le_name, &QLineEdit::textChanged, this, &DataFilterDialog::validate);
+    connect(ui->le_filter, &QLineEdit::textChanged, this, &DataFilterDialog::updateUnitLimits);
 
     loadFromConfig();
     validate();
@@ -783,14 +784,22 @@ void DataFilterDialog::loadFromConfig()
 
     ui->le_axisTitle->setText(m_config->getAxisTitle());
     ui->le_axisUnit->setText(m_config->getUnitString());
-    ui->spin_rangeMin->setValue(m_config->getUnitMinValue());
-    ui->spin_rangeMax->setValue(m_config->getUnitMaxValue());
+
+    auto minValue = m_config->getUnitMinValue();
+    auto maxValue = m_config->getUnitMaxValue();
+
+    ui->spin_rangeMin->setValue(minValue);
+    ui->spin_rangeMax->setValue(maxValue);
+
+    if (std::abs(maxValue - minValue) == 0.0)
+        updateUnitLimits();
 }
 
-void DataFilterDialog::saveToConfig()
+// Converts input to 8 bit, removes spaces, creates filter.
+DataFilter makeFilterFromString(const QString &str)
 {
-    m_config->setObjectName(ui->le_name->text());
-    auto filterDataRaw = ui->le_filter->text().toLocal8Bit();
+    auto filterDataRaw = str.toLocal8Bit();
+
     QByteArray filterData;
 
     for (auto c: filterDataRaw)
@@ -798,8 +807,14 @@ void DataFilterDialog::saveToConfig()
         if (c != ' ')
             filterData.push_back(c);
     }
-    m_config->setFilter(DataFilter(filterData));
 
+    return DataFilter(filterData);
+}
+
+void DataFilterDialog::saveToConfig()
+{
+    m_config->setObjectName(ui->le_name->text());
+    m_config->setFilter(makeFilterFromString(ui->le_filter->text()));
     m_config->setAxisTitle(ui->le_axisTitle->text());
     m_config->setUnitString(ui->le_axisUnit->text());
     m_config->setUnitMinValue(ui->spin_rangeMin->value());
@@ -811,6 +826,19 @@ void DataFilterDialog::validate()
     bool isValid = ui->le_filter->hasAcceptableInput()
         && !ui->le_name->text().isEmpty();
     ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(isValid);
+}
+
+void DataFilterDialog::updateUnitLimits()
+{
+    try
+    {
+        auto filter = makeFilterFromString(ui->le_filter->text());
+        auto dataBits = filter.getExtractBits('D');
+        ui->spin_rangeMin->setValue(0.0);
+        ui->spin_rangeMax->setValue((1ull << dataBits) - 1);
+    }
+    catch (const std::string &)
+    {}
 }
 
 namespace
