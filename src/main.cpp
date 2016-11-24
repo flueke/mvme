@@ -53,6 +53,8 @@ int main(int argc, char *argv[])
     w.show();
     w.restoreSettings();
 
+    splash.raise();
+
     int ret = app.exec();
 
     return ret;
