@@ -18,7 +18,7 @@
 
     <file alias="gpl-notice.txt">resources/gpl-notice.txt</file>
     <file alias="mesytec-logo.png">resources/mesytec-logo.png</file>
-    <file alias="splash-screen.jpg">resources/Splash_Screen.jpg</file>
+    <file alias="splash-screen.png">resources/Splash_Screen.png</file>
     <file alias="mesytec-window-icon.png">resources/mesytec-window-icon.png</file>
 </qresource>
 </RCC>

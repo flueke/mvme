@@ -32,7 +32,7 @@ int main(int argc, char *argv[])
     qDebug() << "librariesPaths = " << QLibraryInfo::location(QLibraryInfo::LibrariesPath);
     qDebug() << "pluginsPaths = " << QLibraryInfo::location(QLibraryInfo::PluginsPath);
 
-    QSplashScreen splash(QPixmap(":/splash-screen.jpg"), Qt::CustomizeWindowHint | Qt::Window | Qt::WindowStaysOnTopHint);
+    QSplashScreen splash(QPixmap(":/splash-screen.png"), Qt::CustomizeWindowHint | Qt::Window | Qt::WindowStaysOnTopHint);
     auto font = splash.font();
     font.setPixelSize(22);
     splash.setFont(font);
