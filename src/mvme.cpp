@@ -170,6 +170,9 @@ mvme::mvme(QWidget *parent) :
 
         connect(m_histogramTreeWidget, &HistogramTreeWidget::showDiagnostics,
                 this, &mvme::onShowDiagnostics);
+
+        connect(m_histogramTreeWidget, &HistogramTreeWidget::addWidgetWindow,
+                this, &mvme::addWidgetWindow);
     }
 
     //
@@ -840,6 +843,37 @@ void mvme::openInNewWindow(QObject *object)
         connect(widget, &MVMEWidget::aboutToClose, this, [this, object, subwin] {
             qDebug() << "removing window" << subwin << "for object" << object;
             m_objectWindows[object].removeOne(subwin);
+            subwin->close();
+        });
+    }
+}
+
+void mvme::addWidgetWindow(QWidget *widget, QSize windowSize)
+{
+    auto windowIcon = QIcon(QPixmap(":/mesytec-window-icon.png"));
+    widget->setAttribute(Qt::WA_DeleteOnClose);
+    auto subwin = new QMdiSubWindow;
+    subwin->setAttribute(Qt::WA_DeleteOnClose);
+    subwin->setWidget(widget);
+
+
+    subwin->setWindowIcon(windowIcon);
+
+    ui->mdiArea->addSubWindow(subwin);
+
+    if (windowSize.isValid())
+        subwin->resize(windowSize);
+    else
+        subwin->resize(QSize(600, 400));
+
+    subwin->show();
+    ui->mdiArea->setActiveSubWindow(subwin);
+
+    auto mvmeWidget = qobject_cast<MVMEWidget *>(widget);
+
+    if (mvmeWidget)
+    {
+        connect(mvmeWidget, &MVMEWidget::aboutToClose, this, [subwin]() {
             subwin->close();
         });
     }

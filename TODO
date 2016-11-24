@@ -5,7 +5,6 @@
 ==========================
 ==== Do these later! =====
 ==========================
-* Don't regenerate hists if data filter string did not change
 * Force locale to EN-US to get consistent number displays
 * Hist2d Icon
 * Limit the number of messages/s appended to the logview

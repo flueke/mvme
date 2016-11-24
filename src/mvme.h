@@ -54,6 +54,7 @@ public slots:
     void clearLog();
 
     void openInNewWindow(QObject *object);
+    void addWidgetWindow(QWidget *widget, QSize windowSize = QSize(600, 400));
 
 protected:
     void resizeEvent(QResizeEvent *event) override;

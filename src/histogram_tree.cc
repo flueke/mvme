@@ -500,10 +500,12 @@ void HistogramTreeWidget::treeContextMenu(const QPoint &pos)
 
     if (node && node->type() == NodeType_DataFilter)
     {
+        menu.addAction(QSL("Open all histograms"), this, &HistogramTreeWidget::openHistoListWidget);
+
+        menu.addSeparator();
         menu.addAction(QSL("Clear Histograms"), this, &HistogramTreeWidget::clearHistograms);
 
         menu.addSeparator();
-
         menu.addAction(QSL("Edit filter"), this,
                        static_cast<void (HistogramTreeWidget::*) ()>(
                        &HistogramTreeWidget::editDataFilter));
@@ -1008,4 +1010,36 @@ void HistogramTreeWidget::handleShowDiagnostics()
     auto node = m_tree->currentItem();
     auto module = Var2Ptr<ModuleConfig>(node->data(0, DataRole_Pointer));
     emit showDiagnostics(module);
+}
+
+void HistogramTreeWidget::openHistoListWidget()
+{
+    auto node = m_tree->currentItem();
+
+    if (node->type() != NodeType_DataFilter)
+        return;
+
+    auto filter = Var2Ptr<DataFilterConfig>(node->data(0, DataRole_Pointer));
+
+    if (!filter)
+        return;
+
+    QList<Hist1D *> histograms;
+
+    for (int i=0; i < node->childCount(); ++i)
+    {
+        auto histoNode = node->child(i);
+        if (histoNode->type() == NodeType_Hist1D)
+        {
+            auto histo = Var2Ptr<Hist1D>(histoNode->data(0, DataRole_Pointer));
+            if (histo)
+                histograms.push_back(histo);
+        }
+    }
+
+    if (!histograms.isEmpty())
+    {
+        auto widget = new Hist1DListWidget(m_context, histograms, this);
+        emit addWidgetWindow(widget);
+    }
 }

@@ -24,6 +24,7 @@
 #include <QLabel>
 #include <QMessageBox>
 #include <QSettings>
+#include <QSpinBox>
 #include <QStandardPaths>
 #include <QTextStream>
 #include <QTimer>
@@ -235,8 +236,6 @@ Hist1DWidget::Hist1DWidget(MVMEContext *context, Hist1D *histo, Hist1DConfig *hi
     : MVMEWidget(parent)
     , ui(new Ui::Hist1DWidget)
     , m_context(context)
-    , m_histo(histo)
-    , m_histoConfig(histoConfig)
     //, m_plotHisto(new QwtPlotHistogram)
     , m_plotCurve(new QwtPlotCurve)
     , m_replotTimer(new QTimer(this))
@@ -258,7 +257,6 @@ Hist1DWidget::Hist1DWidget(MVMEContext *context, Hist1D *histo, Hist1DConfig *hi
     //m_plotHisto->setData(new Hist1DIntervalData(m_histo));
     //m_plotHisto->attach(ui->plot);
 
-    m_plotCurve->setData(new Hist1DPointData(m_histo));
     m_plotCurve->setStyle(QwtPlotCurve::Steps);
     m_plotCurve->setCurveAttribute(QwtPlotCurve::Inverted);
     m_plotCurve->attach(ui->plot);
@@ -304,15 +302,8 @@ Hist1DWidget::Hist1DWidget(MVMEContext *context, Hist1D *histo, Hist1DConfig *hi
     m_statsTextItem->setText(*m_statsText);
     m_statsTextItem->attach(ui->plot);
 
-    // init to 1:1 transform
-    m_conversionMap.setScaleInterval(0, m_histo->getResolution());
-    m_conversionMap.setPaintInterval(0, m_histo->getResolution());
 
-    if (m_histoConfig)
-    {
-        connect(m_histoConfig, &ConfigObject::modified, this, &Hist1DWidget::displayChanged);
-
-    }
+    setHistogram(histo, histoConfig);
 
     displayChanged();
 }
@@ -320,6 +311,25 @@ Hist1DWidget::Hist1DWidget(MVMEContext *context, Hist1D *histo, Hist1DConfig *hi
 Hist1DWidget::~Hist1DWidget()
 {
     delete ui;
+}
+
+void Hist1DWidget::setHistogram(Hist1D *histo, Hist1DConfig *histoConfig)
+{
+    if (m_histoConfig)
+        disconnect(m_histoConfig, &ConfigObject::modified, this, &Hist1DWidget::displayChanged);
+
+    m_histo = histo;
+    m_histoConfig = histoConfig;
+    m_plotCurve->setData(new Hist1DPointData(m_histo));
+
+    // init to 1:1 transform
+    m_conversionMap.setScaleInterval(0, m_histo->getResolution());
+    m_conversionMap.setPaintInterval(0, m_histo->getResolution());
+
+    if (m_histoConfig)
+        connect(m_histoConfig, &ConfigObject::modified, this, &Hist1DWidget::displayChanged);
+
+    displayChanged();
 }
 
 void Hist1DWidget::replot()
@@ -556,4 +566,67 @@ void Hist1DWidget::updateCursorInfoLabel()
 
         ui->label_cursorInfo->setText(text);
     }
+}
+
+//
+// Hist1DListWidget
+//
+Hist1DListWidget::Hist1DListWidget(MVMEContext *context, QList<Hist1D *> histos, QWidget *parent)
+    : MVMEWidget(parent)
+    , m_context(context)
+    , m_histos(histos)
+{
+    Q_ASSERT(histos.size());
+
+    auto histo = histos[0];
+    auto histoConfig = qobject_cast<Hist1DConfig *>(m_context->getMappedObject(histo, QSL("ObjectToConfig")));
+    m_histoWidget = new Hist1DWidget(context, histo, histoConfig, this);
+
+    connect(m_histoWidget, &QWidget::windowTitleChanged,
+            this, &QWidget::setWindowTitle);
+
+
+    connect(m_context, &MVMEContext::objectAboutToBeRemoved,
+            this, &Hist1DListWidget::onObjectAboutToBeRemoved);
+
+
+    /* create the controls to switch the current histogram and inject into the
+     * histo widget layout. */
+    auto gb = new QGroupBox(QSL("Histogram"));
+    auto histoSpinLayout = new QHBoxLayout(gb);
+    histoSpinLayout->setContentsMargins(0, 0, 0, 0);
+
+    auto histoSpinBox = new QSpinBox;
+    histoSpinBox->setMaximum(histos.size() - 1);
+    connect(histoSpinBox, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
+            this, &Hist1DListWidget::onHistSpinBoxValueChanged);
+
+    histoSpinLayout->addWidget(histoSpinBox);
+
+    auto controlsLayout = m_histoWidget->ui->controlsLayout;
+    controlsLayout->insertWidget(0, gb);
+
+    auto layout = new QHBoxLayout(this);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(2);
+    layout->addWidget(m_histoWidget);
+}
+
+void Hist1DListWidget::onHistSpinBoxValueChanged(int index)
+{
+    auto histo = m_histos.value(index, nullptr);
+
+    if (histo)
+    {
+        auto histoConfig = qobject_cast<Hist1DConfig *>(m_context->getMappedObject(histo, QSL("ObjectToConfig")));
+        m_histoWidget->setHistogram(histo, histoConfig);
+    }
+}
+
+void Hist1DListWidget::onObjectAboutToBeRemoved(QObject *obj)
+{
+    auto histo = qobject_cast<Hist1D *>(obj);
+
+    if (histo && m_histos.indexOf(histo))
+        close();
 }

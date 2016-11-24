@@ -71,6 +71,10 @@ class Hist1DWidget: public MVMEWidget
         Hist1D *getHist1D() const { return m_histo; }
         Hist1DConfig *getHist1DConfig() const { return m_histoConfig; }
 
+        void setHistogram(Hist1D *histo, Hist1DConfig *histoConfig = nullptr);
+
+        friend class Hist1DListWidget;
+
     private slots:
         void replot();
         void exportPlot();
@@ -89,8 +93,8 @@ class Hist1DWidget: public MVMEWidget
 
         Ui::Hist1DWidget *ui;
         MVMEContext *m_context;
-        Hist1D *m_histo;
-        Hist1DConfig *m_histoConfig;
+        Hist1D *m_histo = nullptr;
+        Hist1DConfig *m_histoConfig = nullptr;
         //QwtPlotHistogram *m_plotHisto;
         QwtPlotCurve *m_plotCurve;
         ScrollZoomer *m_zoomer;
@@ -100,6 +104,24 @@ class Hist1DWidget: public MVMEWidget
         QwtText *m_statsText;
         QPointF m_cursorPosition;
         QwtScaleMap m_conversionMap;
+};
+
+class Hist1DListWidget: public MVMEWidget
+{
+    Q_OBJECT
+    public:
+        Hist1DListWidget(MVMEContext *context, QList<Hist1D *> histos, QWidget *parent = 0);
+
+        QList<Hist1D *> getHistograms() const { return m_histos; }
+
+    private:
+        void onHistSpinBoxValueChanged(int index);
+        void onObjectAboutToBeRemoved(QObject *obj);
+
+        MVMEContext *m_context;
+        QList<Hist1D *> m_histos;
+        Hist1DWidget *m_histoWidget;
+        int m_currentIndex = 0;
 };
 
 #endif /* __HIST1D_H__ */
