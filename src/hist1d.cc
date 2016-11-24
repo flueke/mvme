@@ -110,7 +110,7 @@ Hist1DStatistics Hist1D::calcStatistics(u32 startChannel, u32 onePastEndChannel)
     if (result.entryCount)
         result.mean /= result.entryCount;
     else
-        result.mean = 0.0;
+        result.mean = qQNaN();
 
     if (result.mean > 0 && result.entryCount > 0)
     {
@@ -436,6 +436,9 @@ void Hist1DWidget::updateStatistics()
 
     double mean = m_conversionMap.transform(m_stats.mean);
     double maxAt = m_conversionMap.transform(m_stats.maxChannel);
+    // abs(unitMax - unitMin) / (histoMax - histoMin)
+    double factor = std::abs((m_conversionMap.p2() - m_conversionMap.p1())) / (m_conversionMap.s2() - m_conversionMap.s1());
+    double sigma = m_stats.sigma * factor;
 
     static const int fieldWidth = 0;
     QString buffer = QString("\nMean: %L1"
@@ -444,10 +447,10 @@ void Hist1DWidget::updateStatistics()
                              "\nMaximum: %L4"
                              "\nMax at: %L5\n")
         .arg(mean, fieldWidth)
-        .arg(m_stats.sigma, fieldWidth)
+        .arg(sigma, fieldWidth)
         .arg(m_stats.entryCount, fieldWidth)
         .arg(m_stats.maxValue, fieldWidth)
-        .arg(maxAt, fieldWidth);
+        .arg(maxAt, fieldWidth)
         ;
 
     m_statsText->setText(buffer);
