@@ -9,6 +9,7 @@
 #include <QApplication>
 #include <QDebug>
 #include <QLibraryInfo>
+#include <QLocale>
 #include <QSplashScreen>
 #include <QTimer>
 
@@ -24,6 +25,8 @@ int main(int argc, char *argv[])
     QCoreApplication::setOrganizationName("mesytec");
     QCoreApplication::setApplicationName("mvme");
     QCoreApplication::setApplicationVersion(GIT_VERSION);
+
+    QLocale::setDefault(QLocale::c());
 
     qDebug() << "prefixPath = " << QLibraryInfo::location(QLibraryInfo::PrefixPath);
     qDebug() << "librariesPaths = " << QLibraryInfo::location(QLibraryInfo::LibrariesPath);
