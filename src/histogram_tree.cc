@@ -460,7 +460,7 @@ void HistogramTreeWidget::onItemDoubleClicked(QTreeWidgetItem *node, int column)
             } break;
         case NodeType_DataFilter:
             {
-                editDataFilter(node);
+                openHistoListWidget();
             } break;
     }
 }
@@ -479,6 +479,7 @@ void HistogramTreeWidget::treeContextMenu(const QPoint &pos)
     auto node = m_tree->itemAt(pos);
     auto parent = node ? node->parent() : nullptr;
     auto obj = node ? Var2Ptr<ConfigObject>(node->data(0, DataRole_Pointer)) : nullptr;
+    auto isIdle = m_context->getDAQState() == DAQState::Idle;
 
     QMenu menu;
 
@@ -490,8 +491,9 @@ void HistogramTreeWidget::treeContextMenu(const QPoint &pos)
     if (node && node->type() == NodeType_Module)
     {
         menu.addAction(QSL("Clear Histograms"), this, &HistogramTreeWidget::clearHistograms);
-        menu.addAction(QSL("Add filter"), this, &HistogramTreeWidget::addDataFilter);
-        menu.addAction(QSL("Generate default filters"), this, &HistogramTreeWidget::generateDefaultFilters);
+
+        menu.addAction(QSL("Add filter"), this, &HistogramTreeWidget::addDataFilter)->setEnabled(isIdle);
+        menu.addAction(QSL("Generate default filters"), this, &HistogramTreeWidget::generateDefaultFilters)->setEnabled(isIdle);
 
         if (!m_context->getEventProcessor()->getDiagnostics())
             menu.addAction(QSL("Show Diagnostics"), this, &HistogramTreeWidget::handleShowDiagnostics);
@@ -508,11 +510,11 @@ void HistogramTreeWidget::treeContextMenu(const QPoint &pos)
         menu.addSeparator();
         menu.addAction(QSL("Edit filter"), this,
                        static_cast<void (HistogramTreeWidget::*) ()>(
-                       &HistogramTreeWidget::editDataFilter));
+                       &HistogramTreeWidget::editDataFilter))->setEnabled(isIdle);
 
         menu.addAction(QSL("Remove filter"), this,
                        static_cast<void (HistogramTreeWidget::*) ()>(
-                       &HistogramTreeWidget::removeDataFilter));
+                       &HistogramTreeWidget::removeDataFilter))->setEnabled(isIdle);
     }
 
     if (node && node->type() == NodeType_Hist1D)
@@ -527,12 +529,12 @@ void HistogramTreeWidget::treeContextMenu(const QPoint &pos)
         menu.addAction(QSL("Clear"), this, &HistogramTreeWidget::clearHistogram);
         menu.addSeparator();
         menu.addAction(QSL("Edit Histogram"), this, &HistogramTreeWidget::edit2DHistogram);
-        menu.addAction(QSL("Remove Histogram"), this, &HistogramTreeWidget::removeHistogram);
+        menu.addAction(QSL("Remove Histogram"), this, &HistogramTreeWidget::removeHistogram)->setEnabled(isIdle);
     }
 
     if (node == m_node2D && m_context->getConfig()->getAllModuleConfigs().size())
     {
-        menu.addAction(QSL("Add 2D Histogram"), this, &HistogramTreeWidget::add2DHistogram);
+        menu.addAction(QSL("Add 2D Histogram"), this, &HistogramTreeWidget::add2DHistogram)->setEnabled(isIdle);
     }
 
     if (!menu.isEmpty())

@@ -771,12 +771,27 @@ void mvme::on_actionOpen_Listfile_triggered()
 
 void mvme::on_actionVME_Debug_triggered()
 {
-    auto widget = new VMEDebugWidget(m_context);
-    auto subwin = new QMdiSubWindow(ui->mdiArea);
-    subwin->setWindowIcon(QIcon(QPixmap(":/mesytec-window-icon.png")));
-    subwin->setWidget(widget);
-    subwin->setAttribute(Qt::WA_DeleteOnClose);
-    ui->mdiArea->addSubWindow(subwin);
+    QMdiSubWindow *subwin = nullptr;
+
+    for (auto win: ui->mdiArea->subWindowList())
+    {
+        if (qobject_cast<VMEDebugWidget *>(win->widget()))
+        {
+            subwin = win;
+            break;
+        }
+    }
+
+    if (!subwin)
+    {
+        auto widget = new VMEDebugWidget(m_context);
+        subwin = new QMdiSubWindow(ui->mdiArea);
+        subwin->setWindowIcon(QIcon(QPixmap(":/mesytec-window-icon.png")));
+        subwin->setWidget(widget);
+        subwin->setAttribute(Qt::WA_DeleteOnClose);
+        ui->mdiArea->addSubWindow(subwin);
+    }
+
     subwin->show();
     ui->mdiArea->setActiveSubWindow(subwin);
 }
@@ -1049,12 +1064,13 @@ void mvme::onShowDiagnostics(ModuleConfig *moduleConfig)
     diag->setEventAndModuleIndices(m_context->getDAQConfig()->getEventAndModuleIndices(moduleConfig));
 
     auto widget = new MesytecDiagnosticsWidget(diag);
-    diag->setParent(widget);
+    
 
-    // TODO: use QMetaObject::invokeMethod to execute in the event processors thread!
-    m_context->getEventProcessor()->setDiagnostics(diag);
+    auto eventProcessor = m_context->getEventProcessor();
+    eventProcessor->setDiagnostics(diag);
+
     connect(widget, &MVMEWidget::aboutToClose, this, [this]() {
-        m_context->getEventProcessor()->setDiagnostics(nullptr);
+        QMetaObject::invokeMethod(m_context->getEventProcessor(), "removeDiagnostics", Qt::QueuedConnection);
     });
 
     auto subwin = new QMdiSubWindow(ui->mdiArea);

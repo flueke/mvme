@@ -24,6 +24,7 @@ class MVMEEventProcessor: public QObject
         MesytecDiagnostics *getDiagnostics() const;
 
     public slots:
+        void removeDiagnostics();
         void newRun();
         void processDataBuffer(DataBuffer *buffer);
 

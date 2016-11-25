@@ -34,17 +34,25 @@ MVMEEventProcessor::MVMEEventProcessor(MVMEContext *context)
 
 MVMEEventProcessor::~MVMEEventProcessor()
 {
+    delete m_d->diag;
     delete m_d;
 }
 
 void MVMEEventProcessor::setDiagnostics(MesytecDiagnostics *diag)
 {
+    qDebug() << __PRETTY_FUNCTION__ << diag;
+    delete m_d->diag;
     m_d->diag = diag;
 }
 
 MesytecDiagnostics *MVMEEventProcessor::getDiagnostics() const
 {
     return m_d->diag;
+}
+
+void MVMEEventProcessor::removeDiagnostics()
+{
+    setDiagnostics(nullptr);
 }
 
 void MVMEEventProcessor::newRun()
