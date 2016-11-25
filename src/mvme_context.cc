@@ -17,6 +17,11 @@ static const size_t dataBufferSize = vmusb_constants::BufferMaxSize * 2; // doub
 static const int TryOpenControllerInterval_ms = 1000;
 static const int PeriodicLoggingInterval_ms = 5000;
 
+static void processQtEvents(QEventLoop::ProcessEventsFlags flags = QEventLoop::AllEvents)
+{
+    QCoreApplication::processEvents(flags);
+}
+
 MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
     : QObject(parent)
     , m_ctrlOpenTimer(new QTimer(this))
@@ -88,11 +93,24 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
 
 MVMEContext::~MVMEContext()
 {
-    QMetaObject::invokeMethod(m_readoutWorker, "stop", Qt::QueuedConnection);
-    while (getDAQState() != DAQState::Idle)
+    if (getDAQState() != DAQState::Idle)
     {
-        QThread::msleep(50);
+        if (getMode() == GlobalMode::DAQ)
+        {
+            QMetaObject::invokeMethod(m_readoutWorker, "stop", Qt::QueuedConnection);
+        }
+        else if (getMode() == GlobalMode::ListFile)
+        {
+            QMetaObject::invokeMethod(m_listFileWorker, "stopReplay", Qt::QueuedConnection);
+        }
+
+        while (getDAQState() != DAQState::Idle)
+        {
+            processQtEvents();
+            QThread::msleep(50);
+        }
     }
+
     m_readoutThread->quit();
     m_readoutThread->wait();
     m_eventThread->quit();
@@ -725,11 +743,6 @@ void MVMEContext::onModuleAboutToBeRemoved(ModuleConfig *module)
 {
     for (auto key: module->vmeScripts.keys())
         emit objectAboutToBeRemoved(module->vmeScripts[key]);
-}
-
-static void processQtEvents(QEventLoop::ProcessEventsFlags flags = QEventLoop::AllEvents)
-{
-    QCoreApplication::processEvents(flags);
 }
 
 //QFuture<vme_script::ResultList>
