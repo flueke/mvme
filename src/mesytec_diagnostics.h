@@ -15,10 +15,13 @@ public:
     void setEventAndModuleIndices(const QPair<int, int> &indices);
     inline int getEventIndex() const { return m_eventIndex; }
     inline int getModuleIndex() const { return m_moduleIndex; }
+    void beginEvent();
+    void endEvent();
     void handleDataWord(quint32 data);
     RealtimeData *getRealtimeData() const { return m_rtd; }
 
     void clear(void);
+    void reset();
     void calcAll(quint16 lo, quint16 hi, quint16 lo2, quint16 hi2, quint16 binLo, quint16 binHi);
     double getMean(quint16 chan);
     double getSigma(quint16 chan);

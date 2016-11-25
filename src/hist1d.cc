@@ -130,27 +130,29 @@ Hist1DStatistics Hist1D::calcStatistics(u32 startChannel, u32 onePastEndChannel)
 
     if (result.maxValue > 0.0)
     {
-        // find first bin in range with value >= max/2
+        // find first bin to the left with  value < max/2.0
         double leftBin = 0.0;
-        for (u32 bin = startChannel; bin < result.maxChannel; ++bin)
+        for (s64 bin = result.maxChannel; bin >= startChannel; --bin)
         {
-            if (value(bin) >= (result.maxValue / 2.0))
+            if (value(bin) < (result.maxValue / 2.0))
             {
                 leftBin = bin;
                 break;
             }
         }
 
-        // find last bin in range with value >= max/2
+        // find first bin to the right with  value < max/2.0
         double rightBin = 0.0;
-        for (u32 bin = onePastEndChannel - 1; bin > result.maxChannel; --bin)
+        for (u32 bin = result.maxChannel; bin < onePastEndChannel; ++bin)
         {
-            if (value(bin) >= (result.maxValue / 2.0))
+            if (value(bin) < (result.maxValue / 2.0))
             {
                 rightBin = bin;
                 break;
             }
         }
+
+        //qDebug() << "leftbin" << leftBin << "rightBin" << rightBin;
 
         result.fwhm = std::abs(rightBin - leftBin);
     }

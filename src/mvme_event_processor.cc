@@ -62,6 +62,8 @@ void MVMEEventProcessor::newRun()
     m_d->valuesByFilterConfig.clear();
     m_d->hist2dByConfig.clear();
     m_d->filterConfigsById.clear();
+    if (m_d->diag)
+        m_d->diag->reset();
 
     auto analysisConfig = m_d->context->getAnalysisConfig();
 
@@ -169,6 +171,13 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
 
                 const auto filterConfigs = m_d->filterConfigs.value(eventIndex).value(moduleIndex);
 
+                MesytecDiagnostics *diag = nullptr;
+                if (m_d->diag && m_d->diag->getEventIndex() == eventIndex && m_d->diag->getModuleIndex() == moduleIndex)
+                {
+                    diag = m_d->diag;
+                    diag->beginEvent();
+                }
+
                 for (u32 i=0; i<subEventSize-1; ++i)
                 {
                     u32 currentWord = iter.extractU32();
@@ -199,10 +208,15 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                         }
                     }
 
-                    if (m_d->diag && m_d->diag->getEventIndex() == eventIndex && m_d->diag->getModuleIndex() == moduleIndex)
+                    if (diag)
                     {
-                        m_d->diag->handleDataWord(currentWord);
+                        diag->handleDataWord(currentWord);
                     }
+                }
+
+                if (diag)
+                {
+                    diag->endEvent();
                 }
 
                 u32 nextWord = iter.peekU32();

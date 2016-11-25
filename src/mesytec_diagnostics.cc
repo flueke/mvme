@@ -40,6 +40,14 @@ void MesytecDiagnostics::setEventAndModuleIndices(const QPair<int, int> &indices
     m_moduleIndex = indices.second;
 }
 
+void MesytecDiagnostics::beginEvent()
+{
+}
+
+void MesytecDiagnostics::endEvent()
+{
+}
+
 void MesytecDiagnostics::handleDataWord(quint32 currentWord)
 {
     if (currentWord == 0xFFFFFFFF || currentWord == 0x00000000)
@@ -91,6 +99,11 @@ void MesytecDiagnostics::clear(void)
     sigma[MINIDX] = 128000;
     mean[MINFILT] = 128000;
     sigma[MINFILT] = 128000;
+}
+
+void MesytecDiagnostics::reset()
+{
+    clear();
     m_nHeaders = 0;
     m_nEOEs = 0;
 }
