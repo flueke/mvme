@@ -428,10 +428,7 @@ QString to_string(const Command &cmd)
 
 QString format_hex(uint32_t value)
 {
-    if (value > 0xffff)
-        return QString("0x%1").arg(value, 8, 16, QChar('0'));
-
-    return QString("0x%1").arg(value, 4, 16, QChar('0'));
+    return QString("0x%1").arg(value, 8, 16, QChar('0'));
 }
 
 Command add_base_address(Command cmd, uint32_t baseAddress)
