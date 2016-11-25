@@ -102,6 +102,7 @@ void VMEScriptEditor::onScriptModified(bool isModified)
         return;
 
     // TODO: ask about reloading from the config or keeping the current text editor content
+    // This should not happen unless the config has been modified by something other than this editor.
     //m_editor->setText(m_scriptConfig->getScriptContents());
 
     updateWindowTitle();
