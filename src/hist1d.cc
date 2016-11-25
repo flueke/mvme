@@ -128,6 +128,33 @@ Hist1DStatistics Hist1D::calcStatistics(u32 startChannel, u32 onePastEndChannel)
         result.sigma = sqrt(result.sigma / result.entryCount);
     }
 
+    if (result.maxValue > 0.0)
+    {
+        // find first bin in range with value >= max/2
+        double leftBin = 0.0;
+        for (u32 bin = startChannel; bin < result.maxChannel; ++bin)
+        {
+            if (value(bin) >= (result.maxValue / 2.0))
+            {
+                leftBin = bin;
+                break;
+            }
+        }
+
+        // find last bin in range with value >= max/2
+        double rightBin = 0.0;
+        for (u32 bin = onePastEndChannel - 1; bin > result.maxChannel; --bin)
+        {
+            if (value(bin) >= (result.maxValue / 2.0))
+            {
+                rightBin = bin;
+                break;
+            }
+        }
+
+        result.fwhm = std::abs(rightBin - leftBin);
+    }
+
     return result;
 }
 
@@ -445,8 +472,11 @@ void Hist1DWidget::updateStatistics()
     m_stats = m_histo->calcStatistics(lowerBound, upperBound);
 
     double mean = m_conversionMap.transform(m_stats.mean);
-    double maxAt = m_conversionMap.transform(m_stats.maxChannel);
-    // abs(unitMax - unitMin) / (histoMax - histoMin)
+    double maxAt = 0.0;
+    if (m_stats.entryCount)
+        maxAt = m_conversionMap.transform(m_stats.maxChannel);
+
+    // conversion factor: abs(unitMax - unitMin) / (histoMax - histoMin)
     double factor = std::abs((m_conversionMap.p2() - m_conversionMap.p1())) / (m_conversionMap.s2() - m_conversionMap.s1());
     double sigma = m_stats.sigma * factor;
 
@@ -455,12 +485,16 @@ void Hist1DWidget::updateStatistics()
                              "\nSigma: %L2"
                              "\nCounts: %L3"
                              "\nMaximum: %L4"
-                             "\nMax at: %L5\n")
+                             "\nMax at: %L5"
+                             "\nFWHM: %L6"
+                             "\n"
+                            )
         .arg(mean, fieldWidth)
         .arg(sigma, fieldWidth)
         .arg(m_stats.entryCount, fieldWidth)
         .arg(m_stats.maxValue, fieldWidth)
         .arg(maxAt, fieldWidth)
+        .arg(m_stats.fwhm * factor);
         ;
 
     m_statsText->setText(buffer);

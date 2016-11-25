@@ -15,10 +15,11 @@ class ScrollZoomer;
 struct Hist1DStatistics
 {
     u32 maxChannel = 0;
-    u32 maxValue = 0;
+    double maxValue = 0.0;
     double mean = 0.0;
     double sigma = 0.0;
     u64 entryCount = 0;
+    double fwhm = 0.0;
 };
 
 class Hist1D: public QObject
