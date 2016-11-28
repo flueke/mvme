@@ -356,6 +356,7 @@ class Hist2DConfig: public ConfigObject
             : ConfigObject(parent, true)
         {}
 
+        // Source filter Id and address
         QUuid getXFilterId() const { return m_xFilterId; }
         QUuid getYFilterId() const { return m_yFilterId; }
         u32 getXFilterAddress() const { return m_xAddress; }
@@ -366,11 +367,22 @@ class Hist2DConfig: public ConfigObject
         void setXFilterAddress(u32 address);
         void setYFilterAddress(u32 address);
 
+        // Axis resolutions
         u32 getXBits() const { return m_xBits; }
         u32 getYBits() const { return m_yBits; }
-
         void setXBits(u32 bits);
         void setYBits(u32 bits);
+
+        // Bin ranges to only accumulate subsets of the source filters
+        u32 getXBinMin() const { return m_xBinMin; }
+        u32 getXBinMax() const { return m_xBinMax; }
+        u32 getYBinMin() const { return m_yBinMin; }
+        u32 getYBinMax() const { return m_yBinMax; }
+
+        void setXBinMin(u32 bin);
+        void setXBinMax(u32 bin);
+        void setYBinMin(u32 bin);
+        void setYBinMax(u32 bin);
 
     protected:
         virtual void read_impl(const QJsonObject &json) override;
@@ -385,6 +397,12 @@ class Hist2DConfig: public ConfigObject
 
         u32 m_xAddress = 0,
             m_yAddress = 0;
+
+        u32 m_xBinMin = 0,
+            m_xBinMax = 0,
+            m_yBinMin = 0,
+            m_yBinMax = 0;
+
 };
 
 class AnalysisConfig: public ConfigObject

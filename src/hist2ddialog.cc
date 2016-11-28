@@ -237,6 +237,7 @@ QPair<Hist2D *, Hist2DConfig *> Hist2DDialog::getHistoAndConfig()
             histoConfig->setXFilterId(filter->getId());
             histoConfig->setXFilterAddress(address);
             histoConfig->setXBits(xBits);
+            histoConfig->setXBinMax((1 << xBits));
             histoConfig->setProperty("xAxisTitle", title);
             histoConfig->setProperty("xAxisUnit", filter->getUnitString());
             histoConfig->setProperty("xAxisUnitMin", filter->getUnitMinValue());
@@ -254,6 +255,7 @@ QPair<Hist2D *, Hist2DConfig *> Hist2DDialog::getHistoAndConfig()
             histoConfig->setYFilterId(filter->getId());
             histoConfig->setYFilterAddress(address);
             histoConfig->setYBits(yBits);
+            histoConfig->setYBinMax((1 << yBits));
             histoConfig->setProperty("yAxisTitle", title);
             histoConfig->setProperty("yAxisUnit", filter->getUnitString());
             histoConfig->setProperty("yAxisUnitMin", filter->getUnitMinValue());

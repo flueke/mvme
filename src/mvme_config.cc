@@ -717,6 +717,42 @@ void Hist2DConfig::setYBits(u32 bits)
     }
 }
 
+void Hist2DConfig::setXBinMin(u32 bin)
+{
+    if (m_xBinMin != bin)
+    {
+        m_xBinMin = bin;
+        setModified();
+    }
+}
+
+void Hist2DConfig::setXBinMax(u32 bin)
+{
+    if (m_xBinMax != bin)
+    {
+        m_xBinMax = bin;
+        setModified();
+    }
+}
+
+void Hist2DConfig::setYBinMin(u32 bin)
+{
+    if (m_yBinMin != bin)
+    {
+        m_yBinMin = bin;
+        setModified();
+    }
+}
+
+void Hist2DConfig::setYBinMax(u32 bin)
+{
+    if (m_yBinMax != bin)
+    {
+        m_yBinMax = bin;
+        setModified();
+    }
+}
+
 void Hist2DConfig::read_impl(const QJsonObject &json)
 {
     m_xBits = json["xBits"].toInt();
@@ -725,6 +761,10 @@ void Hist2DConfig::read_impl(const QJsonObject &json)
     m_yFilterId = QUuid(json["yFilterId"].toString());
     m_xAddress = json["xAddress"].toInt();
     m_yAddress = json["yAddress"].toInt();
+    m_xBinMin = json["xBinMin"].toInt();
+    m_xBinMax = json["xBinMax"].toInt();
+    m_yBinMin = json["yBinMin"].toInt();
+    m_yBinMax = json["yBinMax"].toInt();
     loadDynamicProperties(json["properties"].toObject(), this);
 }
 
@@ -736,6 +776,10 @@ void Hist2DConfig::write_impl(QJsonObject &json) const
     json["yFilterId"] = m_yFilterId.toString();
     json["xAddress"] = static_cast<qint64>(m_xAddress);
     json["yAddress"] = static_cast<qint64>(m_yAddress);
+    json["xBinMin"] = static_cast<qint64>(m_xBinMin);
+    json["xBinMax"] = static_cast<qint64>(m_xBinMax);
+    json["yBinMin"] = static_cast<qint64>(m_yBinMin);
+    json["yBinMax"] = static_cast<qint64>(m_yBinMax);
     json["properties"] = storeDynamicProperties(this);
 }
 

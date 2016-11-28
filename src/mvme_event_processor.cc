@@ -275,12 +275,19 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
             for (const auto hist2dConfig: m_d->hist2dByConfig.keys())
             {
                 auto hist2d    = m_d->hist2dByConfig[hist2dConfig];
+
                 auto xFilterId = hist2dConfig->getXFilterId();
                 auto xFilter   = m_d->filterConfigsById.value(xFilterId, nullptr);
                 auto xAddress  = hist2dConfig->getXFilterAddress();
+
                 auto yFilterId = hist2dConfig->getYFilterId();
                 auto yFilter   = m_d->filterConfigsById.value(yFilterId, nullptr);
                 auto yAddress  = hist2dConfig->getYFilterAddress();
+
+                u32 xMin     = hist2dConfig->getXBinMin();
+                u32 xMax     = hist2dConfig->getXBinMax();
+                u32 yMin     = hist2dConfig->getYBinMin();
+                u32 yMax     = hist2dConfig->getYBinMax();
 
                 if (hist2d && xFilter && yFilter)
                 {
@@ -306,9 +313,23 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
 
                         for (auto i=0; i<xValues.size(); ++i)
                         {
-                            hist2d->fill(xValues[i] >> shiftX, yValues[i] >> shiftY);
-                        }
+                            auto xValue = xValues[i];
+                            auto yValue = yValues[i];
 
+                            //if ((xMin <= xValue && xValue < xMax)
+                            //    && (yMin <= yValue && yValue < yMax))
+                            {
+                                xValue -= xMin;
+                                yValue -= yMin;
+
+                                xValue >>= shiftX;
+                                yValue >>= shiftY;
+
+                                hist2d->fill(xValue, yValue);
+
+                                //hist2d->fill(xValues[i] >> shiftX, yValues[i] >> shiftY);
+                            }
+                        }
                     }
                 }
             }
