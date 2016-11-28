@@ -2,6 +2,7 @@
 #include "globals.h"
 #include "mvme_config.h"
 
+#include <QCoreApplication>
 #include <QDebug>
 #include <QJsonObject>
 #include <QtMath>
@@ -218,17 +219,21 @@ s32 ListFile::readSectionsIntoBuffer(DataBuffer *buffer)
 }
 
 static const size_t ListFileBufferSize = 1 * 1024 * 1024;
+static const size_t nBuffers = 2;
 
 ListFileReader::ListFileReader(DAQStats &stats, QObject *parent)
     : QObject(parent)
     , m_stats(stats)
-    , m_buffer(new DataBuffer(ListFileBufferSize))
 {
+    for (size_t i=0; i<nBuffers; ++i)
+    {
+        m_freeBuffers.push_back(new DataBuffer(ListFileBufferSize));
+    }
 }
 
 ListFileReader::~ListFileReader()
 {
-    delete m_buffer;
+    qDeleteAll(m_freeBuffers);
 }
 
 void ListFileReader::setListFile(ListFile *listFile)
@@ -236,8 +241,17 @@ void ListFileReader::setListFile(ListFile *listFile)
     m_listFile = listFile;
 }
 
+void ListFileReader::setState(DAQState state)
+{
+    m_state = state;
+    emit stateChanged(state);
+}
+
 void ListFileReader::startFromBeginning()
 {
+    if (!m_listFile)
+        return;
+
     m_stopped = false;
     m_listFile->seek(0);
     m_bytesRead = 0;
@@ -246,39 +260,69 @@ void ListFileReader::startFromBeginning()
 
     m_stats.start();
 
-    emit stateChanged(DAQState::Running);
+    setState(DAQState::Running);
     emit progressChanged(m_bytesRead, m_totalBytes);
-    readNextBuffer();
+
+    while (m_state != DAQState::Idle)
+    {
+        auto buffer = getFreeBuffer();
+
+        if (!readNextBuffer(buffer))
+            addFreeBuffer(buffer);
+    }
+
+    qDebug() << __PRETTY_FUNCTION__ << "left loop";
 }
 
-void ListFileReader::readNextBuffer()
+// Returns true if a buffer was read, false otherwise
+bool ListFileReader::readNextBuffer(DataBuffer *dest)
 {
-    if (!m_listFile) return;
+    if (!m_listFile) return false;
 
-    m_buffer->used = 0;
+    dest->used = 0;
     s32 sectionsRead = 0;
 
-    if (!m_stopped && (sectionsRead = m_listFile->readSectionsIntoBuffer(m_buffer)) > 0)
+    if (!m_stopped && (sectionsRead = m_listFile->readSectionsIntoBuffer(dest)) > 0)
     {
-        m_bytesRead += m_buffer->used;
+        m_bytesRead += dest->used;
         emit progressChanged(m_bytesRead, m_totalBytes);
-        emit mvmeEventBufferReady(m_buffer);
+        emit mvmeEventBufferReady(dest);
 
         m_stats.addBuffersRead(1);
-        m_stats.addBytesRead(m_buffer->used);
+        m_stats.addBytesRead(dest->used);
+        return true;
     }
     else
     {
+        qDebug() << __PRETTY_FUNCTION__ << "stopping stats; setting idle";
         m_stats.stop();
-        emit stateChanged(DAQState::Idle);
+        setState(DAQState::Idle);
         emit replayStopped();
     }
+
+    return false;
 }
 
 void ListFileReader::stopReplay()
 {
     qDebug() << __PRETTY_FUNCTION__;
     m_stopped = true;
+}
+
+void ListFileReader::addFreeBuffer(DataBuffer *buffer)
+{
+    m_freeBuffers.enqueue(buffer);
+}
+
+DataBuffer* ListFileReader::getFreeBuffer()
+{
+    // Check if buffers are available
+    while (!m_freeBuffers.size())
+    {
+        QCoreApplication::processEvents();
+    }
+
+    return m_freeBuffers.dequeue();
 }
 
 //

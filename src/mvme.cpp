@@ -76,7 +76,7 @@ QList<QMdiSubWindow *> getSubwindowsByWidgetType(QMdiArea *mdiArea)
 mvme::mvme(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::mvme)
-    , m_context(new MVMEContext(this))
+    , m_context(new MVMEContext(this, this))
     , m_logView(new QTextBrowser)
 {
     qDebug() << "main thread: " << QThread::currentThread();
@@ -289,7 +289,6 @@ mvme::~mvme()
     }
 
     delete ui;
-    delete m_context;
 }
 
 bool mvme::loadConfig(const QString &fileName)

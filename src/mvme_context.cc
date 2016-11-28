@@ -104,12 +104,15 @@ MVMEContext::~MVMEContext()
             QMetaObject::invokeMethod(m_listFileWorker, "stopReplay", Qt::QueuedConnection);
         }
 
-        while (getDAQState() != DAQState::Idle)
+        while ((getDAQState() != DAQState::Idle)
+               || m_eventProcessor->isProcessingBuffer())
         {
             processQtEvents();
             QThread::msleep(50);
         }
     }
+
+    qDebug() << __PRETTY_FUNCTION__ << "eventProcessor->isProcessingBuffer()" << m_eventProcessor->isProcessingBuffer();
 
     m_readoutThread->quit();
     m_readoutThread->wait();
@@ -406,7 +409,7 @@ void MVMEContext::setMode(GlobalMode mode)
                                m_eventProcessor, &MVMEEventProcessor::processDataBuffer);
 
                     disconnect(m_eventProcessor, &MVMEEventProcessor::bufferProcessed,
-                               m_listFileWorker, &ListFileReader::readNextBuffer);
+                               m_listFileWorker, &ListFileReader::addFreeBuffer);
                 } break;
 
             case GlobalMode::NotSet:
@@ -429,7 +432,7 @@ void MVMEContext::setMode(GlobalMode mode)
                             m_eventProcessor, &MVMEEventProcessor::processDataBuffer);
 
                     connect(m_eventProcessor, &MVMEEventProcessor::bufferProcessed,
-                            m_listFileWorker, &ListFileReader::readNextBuffer);
+                            m_listFileWorker, &ListFileReader::addFreeBuffer);
                 } break;
 
             case GlobalMode::NotSet:

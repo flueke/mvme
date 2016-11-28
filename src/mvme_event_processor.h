@@ -20,6 +20,8 @@ class MVMEEventProcessor: public QObject
         MVMEEventProcessor(MVMEContext *context);
         ~MVMEEventProcessor();
 
+        bool isProcessingBuffer() const;
+
         void setDiagnostics(MesytecDiagnostics *diag);
         MesytecDiagnostics *getDiagnostics() const;
 

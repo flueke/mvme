@@ -129,16 +129,22 @@ class ListFileReader: public QObject
 
     public slots:
         void startFromBeginning();
-        void readNextBuffer();
         void stopReplay();
+        void addFreeBuffer(DataBuffer *buffer); // put processed buffers back into the queue
 
     private:
+        bool readNextBuffer(DataBuffer *dest);
+        DataBuffer *getFreeBuffer();
+        void setState(DAQState state);
+
         DAQStats &m_stats;
-        DataBuffer *m_buffer;
+        DataBuffer *m_buffer = nullptr;
         ListFile *m_listFile = 0;
         qint64 m_bytesRead = 0;
         qint64 m_totalBytes = 0;
         bool m_stopped = false;
+        DataBufferQueue m_freeBuffers;
+        DAQState m_state = DAQState::Idle;
 };
 
 class ListFileWriter: public QObject

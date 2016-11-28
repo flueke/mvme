@@ -24,6 +24,8 @@ struct MVMEEventProcessorPrivate
     QHash<Hist2DConfig *, Hist2D *> hist2dByConfig;
     QHash<QUuid, DataFilterConfig *> filterConfigsById;
     MesytecDiagnostics *diag = nullptr;
+    bool isProcessingBuffer = false;
+    QMutex isProcessingMutex;
 };
 
 MVMEEventProcessor::MVMEEventProcessor(MVMEContext *context)
@@ -36,6 +38,12 @@ MVMEEventProcessor::~MVMEEventProcessor()
 {
     delete m_d->diag;
     delete m_d;
+}
+
+bool MVMEEventProcessor::isProcessingBuffer() const
+{
+    QMutexLocker locker(&m_d->isProcessingMutex);
+    return m_d->isProcessingBuffer;
 }
 
 void MVMEEventProcessor::setDiagnostics(MesytecDiagnostics *diag)
@@ -111,6 +119,11 @@ void MVMEEventProcessor::newRun()
 // Process an event buffer containing one or more events.
 void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
 {
+    {
+        QMutexLocker locker(&m_d->isProcessingMutex);
+        m_d->isProcessingBuffer = true;
+    }
+
     auto &stats = m_d->context->getDAQStats();
 
     try
@@ -308,6 +321,11 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
 
 
     emit bufferProcessed(buffer);
+
+    {
+        QMutexLocker locker(&m_d->isProcessingMutex);
+        m_d->isProcessingBuffer = false;
+    }
 }
 
 #if 0
