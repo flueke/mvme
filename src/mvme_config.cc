@@ -663,124 +663,196 @@ void Hist1DConfig::write_impl(QJsonObject &json) const
 //
 // Hist2DConfig
 //
-void Hist2DConfig::setXFilterId(const QUuid &id)
+
+void Hist2DConfig::setAxisConfig(Qt::Axis axis, const Hist2DAxisConfig &config)
 {
-    if (id != m_xFilterId)
+    if (m_axes[axis] != config)
     {
-        m_xFilterId = id;
+        m_axes[axis] = config;
         setModified();
     }
 }
 
-void Hist2DConfig::setYFilterId(const QUuid &id)
+QUuid Hist2DConfig::getFilterId(Qt::Axis axis) const
 {
-    if (id != m_yFilterId)
+    return m_axes[axis].filterId;
+}
+
+void Hist2DConfig::setFilterId(Qt::Axis axis, const QUuid &id)
+{
+    if (m_axes[axis].filterId != id)
     {
-        m_yFilterId = id;
+        m_axes[axis].filterId = id;
         setModified();
     }
 }
 
-void Hist2DConfig::setXFilterAddress(u32 address)
+u32 Hist2DConfig::getFilterAddress(Qt::Axis axis) const
 {
-    if (address != m_xAddress)
+    return m_axes[axis].filterAddress;
+}
+void Hist2DConfig::setFilterAddress(Qt::Axis axis, u32 address)
+{
+    if (m_axes[axis].filterAddress != address)
     {
-        m_xAddress = address;
+        m_axes[axis].filterAddress = address;
         setModified();
     }
 }
 
-void Hist2DConfig::setYFilterAddress(u32 address)
+u32 Hist2DConfig::getBits(Qt::Axis axis) const
 {
-    if (address != m_yAddress)
+    return m_axes[axis].bits;
+}
+void Hist2DConfig::setBits(Qt::Axis axis, u32 bits)
+{
+    if (m_axes[axis].bits != bits)
     {
-        m_yAddress = address;
+        m_axes[axis].bits = bits;
         setModified();
     }
 }
 
-void Hist2DConfig::setXBits(u32 bits)
+u32 Hist2DConfig::getOffset(Qt::Axis axis) const
 {
-    if (m_xBits != bits)
+    return m_axes[axis].offset;
+}
+void Hist2DConfig::setOffset(Qt::Axis axis, u32 offset)
+{
+    if (m_axes[axis].offset != offset)
     {
-        m_xBits = bits;
+        m_axes[axis].offset = offset;
         setModified();
     }
 }
 
-void Hist2DConfig::setYBits(u32 bits)
+u32 Hist2DConfig::getShift(Qt::Axis axis) const
 {
-    if (m_yBits != bits)
+    return m_axes[axis].shift;
+}
+void Hist2DConfig::setShift(Qt::Axis axis, u32 shift)
+{
+    if (m_axes[axis].shift != shift)
     {
-        m_yBits = bits;
+        m_axes[axis].shift = shift;
         setModified();
     }
 }
 
-void Hist2DConfig::setXBinMin(u32 bin)
+QString Hist2DConfig::getAxisTitle(Qt::Axis axis) const
 {
-    if (m_xBinMin != bin)
+    return m_axes[axis].title;
+}
+void Hist2DConfig::setAxisTitle(Qt::Axis axis, const QString &title)
+{
+    if (m_axes[axis].title != title)
     {
-        m_xBinMin = bin;
+        m_axes[axis].title = title;
         setModified();
     }
 }
 
-void Hist2DConfig::setXBinMax(u32 bin)
+QString Hist2DConfig::getAxisUnitLabel(Qt::Axis axis) const
 {
-    if (m_xBinMax != bin)
+    return m_axes[axis].unit;
+}
+void Hist2DConfig::setAxisUnitLabel(Qt::Axis axis, const QString &unit)
+{
+    if (m_axes[axis].unit != unit)
     {
-        m_xBinMax = bin;
+        m_axes[axis].unit = unit;
         setModified();
     }
 }
 
-void Hist2DConfig::setYBinMin(u32 bin)
+double Hist2DConfig::getUnitMin(Qt::Axis axis) const
 {
-    if (m_yBinMin != bin)
+    return m_axes[axis].unitMin;
+}
+void Hist2DConfig::setUnitMin(Qt::Axis axis, double unitMin)
+{
+    if (m_axes[axis].unitMin != unitMin)
     {
-        m_yBinMin = bin;
+        m_axes[axis].unitMin = unitMin;
         setModified();
     }
 }
 
-void Hist2DConfig::setYBinMax(u32 bin)
+double Hist2DConfig::getUnitMax(Qt::Axis axis) const
 {
-    if (m_yBinMax != bin)
+    return m_axes[axis].unitMax;
+}
+void Hist2DConfig::setUnitMax(Qt::Axis axis, double unitMax)
+{
+    if (m_axes[axis].unitMax != unitMax)
     {
-        m_yBinMax = bin;
+        m_axes[axis].unitMax = unitMax;
         setModified();
     }
 }
 
 void Hist2DConfig::read_impl(const QJsonObject &json)
 {
-    m_xBits = json["xBits"].toInt();
-    m_yBits = json["yBits"].toInt();
-    m_xFilterId = QUuid(json["xFilterId"].toString());
-    m_yFilterId = QUuid(json["yFilterId"].toString());
-    m_xAddress = json["xAddress"].toInt();
-    m_yAddress = json["yAddress"].toInt();
-    m_xBinMin = json["xBinMin"].toInt();
-    m_xBinMax = json["xBinMax"].toInt();
-    m_yBinMin = json["yBinMin"].toInt();
-    m_yBinMax = json["yBinMax"].toInt();
-    loadDynamicProperties(json["properties"].toObject(), this);
+    m_axes[Qt::XAxis].bits = json["xBits"].toInt();
+    m_axes[Qt::YAxis].bits = json["yBits"].toInt();
+
+    m_axes[Qt::XAxis].filterId = QUuid(json["xFilterId"].toString());
+    m_axes[Qt::YAxis].filterId = QUuid(json["yFilterId"].toString());
+
+    m_axes[Qt::XAxis].filterAddress = json["xAddress"].toInt();
+    m_axes[Qt::YAxis].filterAddress = json["yAddress"].toInt();
+
+    m_axes[Qt::XAxis].offset = json["xOffset"].toInt();
+    m_axes[Qt::YAxis].offset = json["yOffset"].toInt();
+
+    m_axes[Qt::XAxis].shift = json["xShift"].toInt();
+    m_axes[Qt::YAxis].shift = json["yShift"].toInt();
+
+    m_axes[Qt::XAxis].title = json["xTitle"].toString();
+    m_axes[Qt::YAxis].title = json["yTitle"].toString();
+
+    m_axes[Qt::XAxis].unit = json["xUnit"].toString();
+    m_axes[Qt::YAxis].unit = json["yUnit"].toString();
+
+    m_axes[Qt::XAxis].unitMin = json["xUnitMin"].toDouble();
+    m_axes[Qt::YAxis].unitMin = json["yUnitMin"].toDouble();
+
+    m_axes[Qt::XAxis].unitMax = json["xUnitMax"].toDouble();
+    m_axes[Qt::YAxis].unitMax = json["yUnitMax"].toDouble();
+
+    //loadDynamicProperties(json["properties"].toObject(), this);
 }
 
 void Hist2DConfig::write_impl(QJsonObject &json) const
 {
-    json["xBits"] = static_cast<qint64>(m_xBits);
-    json["yBits"] = static_cast<qint64>(m_yBits);
-    json["xFilterId"] = m_xFilterId.toString();
-    json["yFilterId"] = m_yFilterId.toString();
-    json["xAddress"] = static_cast<qint64>(m_xAddress);
-    json["yAddress"] = static_cast<qint64>(m_yAddress);
-    json["xBinMin"] = static_cast<qint64>(m_xBinMin);
-    json["xBinMax"] = static_cast<qint64>(m_xBinMax);
-    json["yBinMin"] = static_cast<qint64>(m_yBinMin);
-    json["yBinMax"] = static_cast<qint64>(m_yBinMax);
-    json["properties"] = storeDynamicProperties(this);
+    json["xBits"] = static_cast<qint64>(m_axes[Qt::XAxis].bits);
+    json["yBits"] = static_cast<qint64>(m_axes[Qt::YAxis].bits);
+
+    json["xFilterId"] = m_axes[Qt::XAxis].filterId.toString();
+    json["yFilterId"] = m_axes[Qt::YAxis].filterId.toString();
+
+    json["xAddress"] = static_cast<qint64>(m_axes[Qt::XAxis].filterAddress);
+    json["yAddress"] = static_cast<qint64>(m_axes[Qt::YAxis].filterAddress);
+
+    json["xOffset"] = static_cast<qint64>(m_axes[Qt::XAxis].offset);
+    json["yOffset"] = static_cast<qint64>(m_axes[Qt::YAxis].offset);
+
+    json["xShift"] = static_cast<qint64>(m_axes[Qt::XAxis].shift);
+    json["yShift"] = static_cast<qint64>(m_axes[Qt::YAxis].shift);
+
+    json["xTitle"] = m_axes[Qt::XAxis].title;
+    json["yTitle"] = m_axes[Qt::YAxis].title;
+                                                         
+    json["xUnit"] = m_axes[Qt::XAxis].unit;
+    json["yUnit"] = m_axes[Qt::YAxis].unit;
+
+    json["xUnitMin"] = m_axes[Qt::XAxis].unitMin;
+    json["yUnitMin"] = m_axes[Qt::YAxis].unitMin;
+
+    json["xUnitMax"] = m_axes[Qt::XAxis].unitMax;
+    json["yUnitMax"] = m_axes[Qt::YAxis].unitMax;
+
+    //json["properties"] = storeDynamicProperties(this);
 }
 
 //

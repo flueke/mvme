@@ -64,6 +64,7 @@ void Hist2D::clear()
     }
 
     setInterval(Qt::ZAxis, QwtInterval());
+    m_overflow = 0.0;
 }
 
 void Hist2D::fill(uint32_t x, uint32_t y, uint32_t weight)
@@ -82,6 +83,10 @@ void Hist2D::fill(uint32_t x, uint32_t y, uint32_t weight)
         m_stats.entryCount += weight;
 
         setInterval(Qt::ZAxis, QwtInterval(0, m_stats.maxValue));
+    }
+    else
+    {
+        m_overflow += 1.0;
     }
 }
 
@@ -267,6 +272,13 @@ Hist2DWidget::Hist2DWidget(MVMEContext *context, Hist2D *hist2d, QWidget *parent
 
     }
 
+    auto button = new QPushButton(QSL("Create Sub-Histogram"));
+    connect(button, &QPushButton::clicked, this, &Hist2DWidget::makeSubHistogram);
+
+    ui->controlsLayout->insertWidget(
+        ui->controlsLayout->count() - 2,
+        button);
+
     onHistoResized();
     displayChanged();
 }
@@ -333,21 +345,23 @@ void Hist2DWidget::displayChanged()
     if (config)
     {
         // x
-        QString xTitle = config->property("xAxisTitle").toString();
-        auto address = config->getXFilterAddress();
+        auto xTitle = config->getAxisTitle(Qt::XAxis);
+        auto address = config->getFilterAddress(Qt::XAxis);
         xTitle.replace(QSL("%A"), QString::number(address));
         xTitle.replace(QSL("%a"), QString::number(address));
+        auto unit = config->getAxisUnitLabel(Qt::XAxis);
 
-        QString axisTitle = makeAxisTitle(xTitle, config->property("xAxisUnit").toString());
+        QString axisTitle = makeAxisTitle(xTitle, unit);
         ui->plot->axisWidget(QwtPlot::xBottom)->setTitle(axisTitle);
 
         // y
-        QString yTitle = config->property("yAxisTitle").toString();
-        address = config->getYFilterAddress();
+        QString yTitle = config->getAxisTitle(Qt::YAxis);
+        address = config->getFilterAddress(Qt::YAxis);
         yTitle.replace(QSL("%A"), QString::number(address));
         yTitle.replace(QSL("%a"), QString::number(address));
+        unit = config->getAxisUnitLabel(Qt::YAxis);
 
-        axisTitle = makeAxisTitle(yTitle, config->property("yAxisUnit").toString());
+        axisTitle = makeAxisTitle(yTitle, unit);
         ui->plot->axisWidget(QwtPlot::yLeft)->setTitle(axisTitle);
 
 
@@ -359,8 +373,8 @@ void Hist2DWidget::displayChanged()
     }
 
     {
-        double unitMin = config->property("xAxisUnitMin").toDouble();
-        double unitMax = config->property("xAxisUnitMax").toDouble();
+        double unitMin = config->getUnitMin(Qt::XAxis);
+        double unitMax = config->getUnitMax(Qt::XAxis);
         if (std::abs(unitMax - unitMin) > 0.0)
             m_xConversion.setPaintInterval(unitMin, unitMax);
         else
@@ -374,8 +388,8 @@ void Hist2DWidget::displayChanged()
     }
 
     {
-        double unitMin = config->property("yAxisUnitMin").toDouble();
-        double unitMax = config->property("yAxisUnitMax").toDouble();
+        double unitMin = config->getUnitMin(Qt::YAxis);
+        double unitMax = config->getUnitMax(Qt::YAxis);
         if (std::abs(unitMax - unitMin) > 0.0)
             m_yConversion.setPaintInterval(unitMin, unitMax);
         else
@@ -470,24 +484,31 @@ void Hist2DWidget::mouseCursorLeftPlot()
 
 void Hist2DWidget::zoomerZoomed(const QRectF &zoomRect)
 {
-    // do not zoom into negatives
+    // do not zoom into negatives or above the upper bin
 
+    // x
     auto scaleDiv = ui->plot->axisScaleDiv(QwtPlot::xBottom);
+    auto maxValue = m_hist2d->interval(Qt::XAxis).maxValue();
 
     if (scaleDiv.lowerBound() < 0.0)
-    {
         scaleDiv.setLowerBound(0.0);
-        ui->plot->setAxisScaleDiv(QwtPlot::xBottom, scaleDiv);
-    }
 
+    if (scaleDiv.upperBound() > maxValue)
+        scaleDiv.setUpperBound(maxValue);
+
+    ui->plot->setAxisScaleDiv(QwtPlot::xBottom, scaleDiv);
+
+    // y
     scaleDiv = ui->plot->axisScaleDiv(QwtPlot::yLeft);
+    maxValue = m_hist2d->interval(Qt::YAxis).maxValue();
 
     if (scaleDiv.lowerBound() < 0.0)
-    {
         scaleDiv.setLowerBound(0.0);
-        ui->plot->setAxisScaleDiv(QwtPlot::yLeft, scaleDiv);
-    }
 
+    if (scaleDiv.upperBound() > maxValue)
+        scaleDiv.setUpperBound(maxValue);
+
+    ui->plot->setAxisScaleDiv(QwtPlot::yLeft, scaleDiv);
     replot();
 }
 
@@ -521,4 +542,186 @@ void Hist2DWidget::updateCursorInfoLabel()
 
         ui->label_cursorInfo->setText(text);
     }
+}
+
+struct SubHistoAxisInfo
+{
+    DataFilterConfig *filterConfig;
+    u32 bits;
+    u32 shift;
+    u32 offset;
+    double unitMin;
+    double unitMax;
+};
+
+SubHistoAxisInfo makeAxisInfo(Qt::Axis axis, QwtInterval scaleInterval, DataFilterConfig *filterConfig, Hist2DConfig *histoConfig)
+{
+    qDebug() << "scale interval" << scaleInterval;
+
+    /* The scalediv interval is 0-1023 for a 10 bit axis. When upscaling the
+     * maxValue to a 16 bit source this would yield 1023 * 2^(16-10) = 65472
+     * instead of the desired 65536. That's why 1.0 is added to the maxValue
+     * before upscaling.
+     * FIXME: When zooming further and further into the histogram this yields
+     * bin-values that are too large for the visible area and thus more bits
+     * than needed are used.
+     */
+    double lowerBin = std::floor(scaleInterval.minValue());
+    double upperBin = std::ceil(scaleInterval.maxValue());
+
+    if (lowerBin < 0.0)
+        lowerBin = 0.0;
+
+    const double maxBin = std::pow(2.0, histoConfig->getBits(axis));
+    qDebug() << "maxBin" << maxBin;
+
+    if (upperBin > maxBin)
+        upperBin = maxBin;
+
+    upperBin += 1.0;
+
+    const double unitMin = histoConfig->getUnitMin(axis);
+    const double unitMax = histoConfig->getUnitMax(axis);
+
+    QwtScaleMap conversion;
+    conversion.setScaleInterval(0, maxBin);
+    conversion.setPaintInterval(unitMin, unitMax);
+
+    double unitLower = conversion.transform(lowerBin);
+    double unitUpper = conversion.transform(upperBin);
+
+    qDebug() << "this" << lowerBin << upperBin;
+    qDebug() << "unit lower and upper values for lower and upper bins (pre upscale)"
+        << unitLower << unitUpper;
+
+    auto shift  = histoConfig->getShift(axis);
+    auto offset = histoConfig->getOffset(axis);
+
+    // convert to full resolution bin numbers
+    lowerBin = lowerBin * std::pow(2.0, shift) + offset;
+    upperBin = upperBin * std::pow(2.0, shift) + offset;
+
+    // limit upper and lower bins to full res limits
+    double sourceUpperBin = std::pow(2.0, filterConfig->getFilter().getExtractBits('D')) - 1.0;
+    lowerBin = std::max(lowerBin, 0.0);
+    upperBin = std::min(upperBin, sourceUpperBin);
+    double range = upperBin - lowerBin;
+
+    // the number of bits needed to store the selected range in full resolution
+    u32 bits = std::ceil(std::log2(range));
+
+    qDebug() << "source" << lowerBin << upperBin << range << bits;
+
+    // limit the number of bits
+    static const u32 maxBits = 10;
+    if (bits > maxBits)
+    {
+        shift = bits - maxBits;
+        bits = maxBits;
+    }
+
+    // axis unit values
+
+    SubHistoAxisInfo result;
+    result.filterConfig = filterConfig;
+    result.bits = bits;
+    result.shift = shift;
+    result.offset = lowerBin;
+    result.unitMin = unitLower;
+    result.unitMax = unitUpper;
+
+    return result;
+
+}
+
+void Hist2DWidget::makeSubHistogram()
+{
+    auto histoConfig = qobject_cast<Hist2DConfig *>(m_context->getMappedObject(m_hist2d, QSL("ObjectToConfig")));
+
+    if (!histoConfig) return;
+
+    //
+    // X-Axis
+    //
+
+    auto filterConfig = m_context->getAnalysisConfig()->findChildById<DataFilterConfig *>(histoConfig->getFilterId(Qt::XAxis));
+
+    if (!filterConfig) return;
+
+    auto scaleInterval = ui->plot->axisScaleDiv(QwtPlot::xBottom).interval();
+
+    auto axisInfo = makeAxisInfo(Qt::XAxis, scaleInterval, filterConfig, histoConfig);
+
+    qDebug() << "axisInfo for x:"
+        << "filter" << axisInfo.filterConfig
+        << "bits" << axisInfo.bits
+        << "shift" << axisInfo.shift
+        << "offset" << axisInfo.offset
+        << "unitMin" << axisInfo.unitMin
+        << "unitMax" << axisInfo.unitMax
+        ;
+
+    auto xAxisInfo = axisInfo;
+
+    //
+    // Y-Axis
+    //
+    filterConfig = m_context->getAnalysisConfig()->findChildById<DataFilterConfig *>(histoConfig->getFilterId(Qt::YAxis));
+
+    if (!filterConfig) return;
+
+    scaleInterval = ui->plot->axisScaleDiv(QwtPlot::yLeft).interval();
+
+    axisInfo = makeAxisInfo(Qt::YAxis, scaleInterval, filterConfig, histoConfig);
+
+    qDebug() << "axisInfo for y:"
+        << "filter" << axisInfo.filterConfig
+        << "bits" << axisInfo.bits
+        << "shift" << axisInfo.shift
+        << "offset" << axisInfo.offset
+        << "unitMin" << axisInfo.unitMin
+        << "unitMax" << axisInfo.unitMax
+        ;
+
+    auto yAxisInfo = axisInfo;
+
+
+    auto newConfig = new Hist2DConfig;
+    newConfig->setObjectName(histoConfig->objectName() + " sub");
+
+    newConfig->setFilterId(Qt::XAxis, xAxisInfo.filterConfig->getId());
+    newConfig->setFilterId(Qt::YAxis, yAxisInfo.filterConfig->getId());
+
+    newConfig->setFilterAddress(Qt::XAxis, histoConfig->getFilterAddress(Qt::XAxis));
+    newConfig->setFilterAddress(Qt::YAxis, histoConfig->getFilterAddress(Qt::YAxis));
+
+    newConfig->setBits(Qt::XAxis, xAxisInfo.bits);
+    newConfig->setBits(Qt::YAxis, yAxisInfo.bits);
+
+    newConfig->setShift(Qt::XAxis, xAxisInfo.shift);
+    newConfig->setShift(Qt::YAxis, yAxisInfo.shift);
+
+    newConfig->setOffset(Qt::XAxis, xAxisInfo.offset);
+    newConfig->setOffset(Qt::YAxis, yAxisInfo.offset);
+
+    newConfig->setAxisTitle(Qt::XAxis, histoConfig->getAxisTitle(Qt::XAxis));
+    newConfig->setAxisTitle(Qt::YAxis, histoConfig->getAxisTitle(Qt::YAxis));
+
+    newConfig->setAxisUnitLabel(Qt::XAxis, histoConfig->getAxisUnitLabel(Qt::XAxis));
+    newConfig->setAxisUnitLabel(Qt::YAxis, histoConfig->getAxisUnitLabel(Qt::YAxis));
+
+    newConfig->setUnitMin(Qt::XAxis, xAxisInfo.unitMin);
+    newConfig->setUnitMin(Qt::YAxis, yAxisInfo.unitMin);
+
+    newConfig->setUnitMax(Qt::XAxis, xAxisInfo.unitMax);
+    newConfig->setUnitMax(Qt::YAxis, yAxisInfo.unitMax);
+
+    auto newHisto = new Hist2D(newConfig->getBits(Qt::XAxis),
+                               newConfig->getBits(Qt::YAxis));
+
+    newHisto->setProperty("configId", newConfig->getId()); // TODO: remove this. needs an update in mvme_event_processor.cc!
+    m_context->addObjectMapping(newHisto, newConfig, QSL("ObjectToConfig"));
+    m_context->addObjectMapping(newConfig, newHisto, QSL("ConfigToObject"));
+    m_context->addObject(newHisto);
+    m_context->getAnalysisConfig()->addHist2DConfig(newConfig);
 }

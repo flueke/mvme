@@ -154,14 +154,14 @@ Hist2DDialog::Hist2DDialog(MVMEContext *context, Hist2D *histo, QWidget *parent)
         {
             ui->le_name->setText(histoConfig->objectName());
             {
-                auto filterConfig = m_context->getAnalysisConfig()->findChildById<DataFilterConfig *>(histoConfig->getXFilterId());
-                auto address = histoConfig->getXFilterAddress();
+                auto filterConfig = m_context->getAnalysisConfig()->findChildById<DataFilterConfig *>(histoConfig->getFilterId(Qt::XAxis));
+                auto address = histoConfig->getFilterAddress(Qt::XAxis);
                 m_xSource = qMakePair(filterConfig, address);
             }
 
             {
-                auto filterConfig = m_context->getAnalysisConfig()->findChildById<DataFilterConfig *>(histoConfig->getYFilterId());
-                auto address = histoConfig->getYFilterAddress();
+                auto filterConfig = m_context->getAnalysisConfig()->findChildById<DataFilterConfig *>(histoConfig->getFilterId(Qt::YAxis));
+                auto address = histoConfig->getFilterAddress(Qt::YAxis);
                 m_ySource = qMakePair(filterConfig, address);
             }
         }
@@ -206,8 +206,8 @@ Hist2DDialog::~Hist2DDialog()
 
 QPair<Hist2D *, Hist2DConfig *> Hist2DDialog::getHistoAndConfig()
 {
-    u32 xBits = ui->comboXResolution->currentData().toInt();
-    u32 yBits = ui->comboYResolution->currentData().toInt();
+    int xBits = ui->comboXResolution->currentData().toInt();
+    int yBits = ui->comboYResolution->currentData().toInt();
     Hist2DConfig *histoConfig = nullptr;
 
     if (!m_histo)
@@ -234,14 +234,18 @@ QPair<Hist2D *, Hist2DConfig *> Hist2DDialog::getHistoAndConfig()
             if (title.isEmpty())
                 title = QString("%1/%2") .arg(filter->objectName()) .arg(address);
 
-            histoConfig->setXFilterId(filter->getId());
-            histoConfig->setXFilterAddress(address);
-            histoConfig->setXBits(xBits);
-            histoConfig->setXBinMax((1 << xBits));
-            histoConfig->setProperty("xAxisTitle", title);
-            histoConfig->setProperty("xAxisUnit", filter->getUnitString());
-            histoConfig->setProperty("xAxisUnitMin", filter->getUnitMinValue());
-            histoConfig->setProperty("xAxisUnitMax", filter->getUnitMaxValue());
+            int dataBits = filter->getFilter().getExtractBits('D');
+
+            histoConfig->setFilterId(Qt::XAxis, filter->getId());
+            histoConfig->setFilterAddress(Qt::XAxis, address);
+            histoConfig->setBits(Qt::XAxis, xBits);
+            histoConfig->setShift(Qt::XAxis, std::max(dataBits - xBits, 0));
+            histoConfig->setAxisTitle(Qt::XAxis, title);
+            histoConfig->setAxisUnitLabel(Qt::XAxis, filter->getUnitString());
+            histoConfig->setUnitMin(Qt::XAxis, filter->getUnitMinValue());
+            histoConfig->setUnitMax(Qt::XAxis, filter->getUnitMaxValue());
+
+            qDebug() << __PRETTY_FUNCTION__ << "xShift" << histoConfig->getShift(Qt::XAxis);
         }
 
         // y axis
@@ -252,14 +256,18 @@ QPair<Hist2D *, Hist2DConfig *> Hist2DDialog::getHistoAndConfig()
             if (title.isEmpty())
                 title = QString("%1/%2").arg(filter->objectName()).arg(address);
 
-            histoConfig->setYFilterId(filter->getId());
-            histoConfig->setYFilterAddress(address);
-            histoConfig->setYBits(yBits);
-            histoConfig->setYBinMax((1 << yBits));
-            histoConfig->setProperty("yAxisTitle", title);
-            histoConfig->setProperty("yAxisUnit", filter->getUnitString());
-            histoConfig->setProperty("yAxisUnitMin", filter->getUnitMinValue());
-            histoConfig->setProperty("yAxisUnitMax", filter->getUnitMaxValue());
+            int dataBits = filter->getFilter().getExtractBits('D');
+
+            histoConfig->setFilterId(Qt::YAxis, filter->getId());
+            histoConfig->setFilterAddress(Qt::YAxis, address);
+            histoConfig->setBits(Qt::YAxis, yBits);
+            histoConfig->setShift(Qt::YAxis, std::max(dataBits - yBits, 0));
+            histoConfig->setAxisTitle(Qt::YAxis, title);
+            histoConfig->setAxisUnitLabel(Qt::YAxis, filter->getUnitString());
+            histoConfig->setUnitMin(Qt::YAxis, filter->getUnitMinValue());
+            histoConfig->setUnitMax(Qt::YAxis, filter->getUnitMaxValue());
+
+            qDebug() << __PRETTY_FUNCTION__ << "yShift" << histoConfig->getShift(Qt::YAxis);
         }
     }
 

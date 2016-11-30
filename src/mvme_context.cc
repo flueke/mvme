@@ -590,112 +590,6 @@ void MVMEContext::resumeDAQ()
     QMetaObject::invokeMethod(m_readoutWorker, "resume", Qt::QueuedConnection);
 }
 
-#if 0
-void MVMEContext::write(QJsonObject &json) const
-{
-    QJsonObject daqConfigObject;
-    m_daqConfig->write(daqConfigObject);
-    json["DAQConfig"] = daqConfigObject;
-
-    QJsonArray histArray;
-
-    for (auto histo: getObjects<HistogramCollection *>())
-    {
-        QJsonObject json;
-        json["name"] = histo->objectName();
-        json["channels"] = (int)histo->m_channels;
-        json["resolution"] = (int)histo->m_resolution;
-
-        QJsonObject propObject;
-        for (auto name: histo->dynamicPropertyNames())
-        {
-           propObject[QString::fromLocal8Bit(name)] = QJsonValue::fromVariant(histo->property(name.constData()));
-        }
-
-        json["properties"] = propObject;
-
-        histArray.append(json);
-    }
-
-    json["Histograms"] = histArray;
-
-    QJsonArray hist2DArray;
-
-    for (auto hist2d: getObjects<Hist2D *>())
-    {
-        QJsonObject json;
-        json["name"] = hist2d->objectName();
-        json["xAxisBits"] = (qint64)hist2d->getXBits();
-        json["yAxisBits"] = (qint64)hist2d->getYBits();
-        json["xAxisSource"] = QJsonValue::fromVariant(hist2d->property("Hist2D.xAxisSource"));
-        json["yAxisSource"] = QJsonValue::fromVariant(hist2d->property("Hist2D.yAxisSource"));
-        hist2DArray.append(json);
-    }
-
-    json["2DHistograms"] = hist2DArray;
-}
-
-void MVMEContext::read(const QJsonObject &json)
-{
-    for (auto obj: getObjects<HistogramCollection *>())
-        removeObject(obj);
-
-    for (auto obj: getObjects<Hist2D *>())
-        removeObject(obj);
-
-    QJsonArray histograms = json["Histograms"].toArray();
-
-    for (int i=0; i<histograms.size(); ++i)
-    {
-        QJsonObject histodef = histograms[i].toObject();
-        QString name = histodef["name"].toString();
-
-        int channels   = histodef["channels"].toInt();
-        int resolution = histodef["resolution"].toInt();
-
-        if (!name.isEmpty() && channels > 0 && resolution > 0)
-        {
-            auto histo = new HistogramCollection(this, channels, resolution);
-            histo->setObjectName(name);
-            auto properties = histodef["properties"].toObject().toVariantMap();
-
-            for (auto propName: properties.keys())
-            {
-                auto value = properties[propName];
-                histo->setProperty(propName.toLocal8Bit().constData(), value);
-            }
-            addObject(histo);
-        }
-    }
-
-    QJsonArray hist2DArray = json["2DHistograms"].toArray();
-
-    for (int i=0; i<hist2DArray.size(); ++i)
-    {
-        QJsonObject histodef = hist2DArray[i].toObject();
-        QString name = histodef["name"].toString();
-        int xBits = histodef["xAxisBits"].toInt();
-        int yBits = histodef["yAxisBits"].toInt();
-        QString xAxisSource = histodef["xAxisSource"].toString();
-        QString yAxisSource = histodef["yAxisSource"].toString();
-
-        if (!name.isEmpty() && xBits > 0 && yBits > 0)
-        {
-            auto hist2d = new Hist2D(xBits, yBits, this);
-            hist2d->setObjectName(name);
-            hist2d->setProperty("Hist2D.xAxisSource", xAxisSource);
-            hist2d->setProperty("Hist2D.yAxisSource", yAxisSource);
-            addObject(hist2d);
-        }
-    }
-
-    auto config = new DAQConfig;
-    config->read(json["DAQConfig"].toObject());
-    setDAQConfig(config);
-    setMode(GlobalMode::DAQ);
-}
-#endif
-
 void MVMEContext::logMessage(const QString &msg)
 {
     emit sigLogMessage(msg);
@@ -818,7 +712,7 @@ Hist1D *createHistogram(Hist1DConfig *config)
 
 Hist2D *createHistogram(Hist2DConfig *config)
 {
-    Hist2D *result = new Hist2D(config->getXBits(), config->getYBits());
+    Hist2D *result = new Hist2D(config->getBits(Qt::XAxis), config->getBits(Qt::YAxis));
     result->setProperty("configId", config->getId());
     return result;
 }

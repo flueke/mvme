@@ -46,6 +46,8 @@ public:
     void fill(uint32_t x, uint32_t y, uint32_t weight=1);
     void clear();
 
+    double overflow() const { return m_overflow; }
+
     const QwtInterval &interval(Qt::Axis axis) const
     {
         return m_intervals[axis];
@@ -61,6 +63,7 @@ private:
     uint32_t *m_data = nullptr;
     Hist2DStatistics m_stats;
     QwtInterval m_intervals[3];
+    double m_overflow = 0.0;
 };
 
 class Hist2DWidget: public MVMEWidget
@@ -80,6 +83,7 @@ private slots:
     void mouseCursorLeftPlot();
     void displayChanged();
     void zoomerZoomed(const QRectF &);
+    void makeSubHistogram();
 
 private:
     bool zAxisIsLog() const;

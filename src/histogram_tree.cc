@@ -565,7 +565,7 @@ void HistogramTreeWidget::add2DHistogram()
         auto histoAndConfig = dialog.getHistoAndConfig();
         auto histo = histoAndConfig.first;
         auto histoConfig = histoAndConfig.second;
-        histo->setProperty("configId", histoConfig->getId());
+        histo->setProperty("configId", histoConfig->getId()); // TODO: remove this. needs an update in mvme_event_processor.cc!
         m_context->addObjectMapping(histo, histoConfig, QSL("ObjectToConfig"));
         m_context->addObjectMapping(histoConfig, histo, QSL("ConfigToObject"));
         m_context->addObject(histo);
@@ -782,20 +782,20 @@ void HistogramTreeWidget::editDataFilter(QTreeWidgetItem *node)
             // update hist2d configs
             for (auto histoConfig: m_context->getAnalysisConfig()->get2DHistogramConfigs())
             {
-                if (histoConfig->getXFilterId() == filterConfig->getId())
+                if (histoConfig->getFilterId(Qt::XAxis) == filterConfig->getId())
                 {
-                    histoConfig->setProperty("xAxisTitle", filterConfig->getAxisTitle());
-                    histoConfig->setProperty("xAxisUnit", filterConfig->getUnitString());
-                    histoConfig->setProperty("xAxisUnitMin", filterConfig->getUnitMinValue());
-                    histoConfig->setProperty("xAxisUnitMax", filterConfig->getUnitMaxValue());
+                    histoConfig->setAxisTitle(Qt::XAxis, filterConfig->getAxisTitle());
+                    histoConfig->setAxisUnitLabel(Qt::XAxis, filterConfig->getUnitString());
+                    histoConfig->setUnitMin(Qt::XAxis, filterConfig->getUnitMinValue());
+                    histoConfig->setUnitMax(Qt::XAxis, filterConfig->getUnitMaxValue());
                 }
 
-                if (histoConfig->getYFilterId() == filterConfig->getId())
+                if (histoConfig->getFilterId(Qt::YAxis) == filterConfig->getId())
                 {
-                    histoConfig->setProperty("yAxisTitle", filterConfig->getAxisTitle());
-                    histoConfig->setProperty("yAxisUnit", filterConfig->getUnitString());
-                    histoConfig->setProperty("yAxisUnitMin", filterConfig->getUnitMinValue());
-                    histoConfig->setProperty("yAxisUnitMax", filterConfig->getUnitMaxValue());
+                    histoConfig->setAxisTitle(Qt::YAxis, filterConfig->getAxisTitle());
+                    histoConfig->setAxisUnitLabel(Qt::YAxis, filterConfig->getUnitString());
+                    histoConfig->setUnitMin(Qt::YAxis, filterConfig->getUnitMinValue());
+                    histoConfig->setUnitMax(Qt::YAxis, filterConfig->getUnitMaxValue());
                 }
             }
         }

@@ -348,6 +348,38 @@ class Hist1DConfig: public ConfigObject
         u32 m_filterAddress = 0;
 };
 
+struct Hist2DAxisConfig
+{
+    QUuid filterId;
+    u32 filterAddress = 0;
+    u32 bits = 0;
+    u32 offset = 0;
+    u32 shift = 0;
+    QString title;
+    QString unit;
+    double unitMin = 0.0;
+    double unitMax = 0.0;
+
+    bool operator==(const Hist2DAxisConfig &o) const
+    {
+        return filterId == o.filterId
+            && filterAddress == o.filterAddress
+            && bits == o.bits
+            && offset == o.offset
+            && shift == o.shift
+            && title == o.title
+            && unit == o.unit
+            && unitMin == o.unitMin
+            && unitMax == o.unitMax
+            ;
+    }
+
+    bool operator!=(const Hist2DAxisConfig &o) const
+    {
+        return !operator==(o);
+    }
+};
+
 class Hist2DConfig: public ConfigObject
 {
     Q_OBJECT
@@ -356,53 +388,49 @@ class Hist2DConfig: public ConfigObject
             : ConfigObject(parent, true)
         {}
 
-        // Source filter Id and address
-        QUuid getXFilterId() const { return m_xFilterId; }
-        QUuid getYFilterId() const { return m_yFilterId; }
-        u32 getXFilterAddress() const { return m_xAddress; }
-        u32 getYFilterAddress() const { return m_yAddress; }
+        Hist2DAxisConfig getAxisConfig(Qt::Axis axis) const { return m_axes[axis]; }
+        void setAxisConfig(Qt::Axis axis, const Hist2DAxisConfig &config);
 
-        void setXFilterId(const QUuid &id);
-        void setYFilterId(const QUuid &id);
-        void setXFilterAddress(u32 address);
-        void setYFilterAddress(u32 address);
+        // Source filter Id and address
+        QUuid getFilterId(Qt::Axis axis) const;
+        void setFilterId(Qt::Axis axis, const QUuid &id);
+
+        u32 getFilterAddress(Qt::Axis axis) const;
+        void setFilterAddress(Qt::Axis axis, u32 address);
 
         // Axis resolutions
-        u32 getXBits() const { return m_xBits; }
-        u32 getYBits() const { return m_yBits; }
-        void setXBits(u32 bits);
-        void setYBits(u32 bits);
+        u32 getBits(Qt::Axis axis) const;
+        void setBits(Qt::Axis axis, u32 bits);
 
-        // Bin ranges to only accumulate subsets of the source filters
-        u32 getXBinMin() const { return m_xBinMin; }
-        u32 getXBinMax() const { return m_xBinMax; }
-        u32 getYBinMin() const { return m_yBinMin; }
-        u32 getYBinMax() const { return m_yBinMax; }
+        // Bin offsets in source resolution to only accumulate a subset of the
+        // source filters data.
+        u32 getOffset(Qt::Axis axis) const;
+        void setOffset(Qt::Axis axis, u32 offset);
 
-        void setXBinMin(u32 bin);
-        void setXBinMax(u32 bin);
-        void setYBinMin(u32 bin);
-        void setYBinMax(u32 bin);
+        // Shift amount to scale source value after offset subtraction when
+        // filling the histogram.
+        u32 getShift(Qt::Axis axis) const;
+        void setShift(Qt::Axis axis, u32 shift);
+
+        // Axis meta information: title, unit label and unit range
+        QString getAxisTitle(Qt::Axis) const;
+        void setAxisTitle(Qt::Axis, const QString &title);
+
+        QString getAxisUnitLabel(Qt::Axis) const;
+        void setAxisUnitLabel(Qt::Axis, const QString &unit);
+
+        double getUnitMin(Qt::Axis axis) const;
+        void setUnitMin(Qt::Axis axis, double value);
+
+        double getUnitMax(Qt::Axis axis) const;
+        void setUnitMax(Qt::Axis axis, double value);
 
     protected:
         virtual void read_impl(const QJsonObject &json) override;
         virtual void write_impl(QJsonObject &json) const override;
 
     private:
-        u32 m_xBits = 0,
-            m_yBits = 0;
-
-        QUuid m_xFilterId,
-              m_yFilterId;
-
-        u32 m_xAddress = 0,
-            m_yAddress = 0;
-
-        u32 m_xBinMin = 0,
-            m_xBinMax = 0,
-            m_yBinMin = 0,
-            m_yBinMax = 0;
-
+        Hist2DAxisConfig m_axes[Qt::ZAxis];
 };
 
 class AnalysisConfig: public ConfigObject

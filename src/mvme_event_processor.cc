@@ -276,18 +276,18 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
             {
                 auto hist2d    = m_d->hist2dByConfig[hist2dConfig];
 
-                auto xFilterId = hist2dConfig->getXFilterId();
+                auto xFilterId = hist2dConfig->getFilterId(Qt::XAxis);
                 auto xFilter   = m_d->filterConfigsById.value(xFilterId, nullptr);
-                auto xAddress  = hist2dConfig->getXFilterAddress();
+                auto xAddress  = hist2dConfig->getFilterAddress(Qt::XAxis);
 
-                auto yFilterId = hist2dConfig->getYFilterId();
+                auto yFilterId = hist2dConfig->getFilterId(Qt::YAxis);
                 auto yFilter   = m_d->filterConfigsById.value(yFilterId, nullptr);
-                auto yAddress  = hist2dConfig->getYFilterAddress();
+                auto yAddress  = hist2dConfig->getFilterAddress(Qt::YAxis);
 
-                u32 xMin     = hist2dConfig->getXBinMin();
-                u32 xMax     = hist2dConfig->getXBinMax();
-                u32 yMin     = hist2dConfig->getYBinMin();
-                u32 yMax     = hist2dConfig->getYBinMax();
+                const u32 xOffset     = hist2dConfig->getOffset(Qt::XAxis);
+                const u32 xShift      = hist2dConfig->getShift(Qt::XAxis);
+                const u32 yOffset     = hist2dConfig->getOffset(Qt::YAxis);
+                const u32 yShift      = hist2dConfig->getShift(Qt::YAxis);
 
                 if (hist2d && xFilter && yFilter)
                 {
@@ -296,38 +296,55 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
 
                     if (xValues.size() > 0 && xValues.size() == yValues.size())
                     {
-                        int shiftX = 0;
-                        int shiftY = 0;
+                        //int shiftX = 0;
+                        //int shiftY = 0;
 
-                        {
-                            int dataBits  = xFilter->getFilter().getExtractBits('D');
-                            int histoBits = hist2d->getXBits();
-                            shiftX = std::max(dataBits - histoBits, 0);
-                        }
+                        //{
+                        //    int dataBits  = xFilter->getFilter().getExtractBits('D');
+                        //    int histoBits = hist2d->getXBits();
+                        //    //shiftX = std::max(dataBits - histoBits, 0);
+                        //    shiftX = std::max(dataBits - xBinBits, 0);
+                        //}
 
-                        {
-                            int dataBits  = yFilter->getFilter().getExtractBits('D');
-                            int histoBits = hist2d->getYBits();
-                            shiftY = std::max(dataBits - histoBits, 0);
-                        }
+                        //{
+                        //    int dataBits  = yFilter->getFilter().getExtractBits('D');
+                        //    int histoBits = hist2d->getYBits();
+                        //    //shiftY = std::max(dataBits - histoBits, 0);
+                        //    shiftY = std::max(dataBits - yBinBits, 0);
+                        //}
 
                         for (auto i=0; i<xValues.size(); ++i)
                         {
                             auto xValue = xValues[i];
                             auto yValue = yValues[i];
 
-                            //if ((xMin <= xValue && xValue < xMax)
-                            //    && (yMin <= yValue && yValue < yMax))
+#if 0
+                            if (xOffset != 0)
                             {
-                                xValue -= xMin;
-                                yValue -= yMin;
+                                qDebug()
+                                    << "xOffset" << xOffset
+                                    << "xShift" << xShift
+                                    << "xValue" << xValue;
+                            }
 
-                                xValue >>= shiftX;
-                                yValue >>= shiftY;
+                            if (yOffset != 0)
+                            {
+                                qDebug()
+                                    << "yOffset" << yOffset
+                                    << "yShift" << yShift
+                                    << "yValue" << yValue;
+                            }
+#endif
+
+                            if (xOffset <= xValue && yOffset <= yValue)
+                            {
+                                xValue -= xOffset;
+                                yValue -= yOffset;
+
+                                xValue >>= xShift;
+                                yValue >>= yShift;
 
                                 hist2d->fill(xValue, yValue);
-
-                                //hist2d->fill(xValues[i] >> shiftX, yValues[i] >> shiftY);
                             }
                         }
                     }
