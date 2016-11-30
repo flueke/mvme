@@ -203,12 +203,14 @@ TreeNode *DAQConfigTreeWidget::addEventNode(TreeNode *parent, EventConfig *event
     eventNode->setFlags(eventNode->flags() | Qt::ItemIsEditable);
     m_treeMap[event] = eventNode;
     parent->addChild(eventNode);
+    eventNode->setExpanded(true);
 
     eventNode->modulesNode = new TreeNode(NodeType_EventModulesInit);
     auto modulesNode = eventNode->modulesNode;
     modulesNode->setText(0, QSL("Modules Init"));
     modulesNode->setIcon(0, QIcon(":/config_category.png"));
     eventNode->addChild(modulesNode);
+    modulesNode->setExpanded(true);
 
     eventNode->readoutLoopNode = new TreeNode(NodeType_EventReadoutLoop);
     auto readoutLoopNode = eventNode->readoutLoopNode;
