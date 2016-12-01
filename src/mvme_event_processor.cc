@@ -336,7 +336,7 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                             }
 #endif
 
-                            if (xOffset <= xValue && yOffset <= yValue)
+                            if (xValue >= xOffset && yValue >= yOffset)
                             {
                                 xValue -= xOffset;
                                 yValue -= yOffset;

@@ -516,8 +516,10 @@ void Hist2DWidget::updateCursorInfoLabel()
 {
     if (ui->label_cursorInfo->isVisible())
     {
-        u32 ix = static_cast<u32>(std::max(m_cursorPosition.x(), 0.0));
-        u32 iy = static_cast<u32>(std::max(m_cursorPosition.y(), 0.0));
+        //u32 ix = static_cast<u32>(std::max(m_cursorPosition.x(), 0.0));
+        //u32 iy = static_cast<u32>(std::max(m_cursorPosition.y(), 0.0));
+        double ix = std::max(m_cursorPosition.x(), 0.0);
+        double iy = std::max(m_cursorPosition.y(), 0.0);
         double value = m_hist2d->value(ix, iy);
 
         if (qIsNaN(value))
@@ -556,6 +558,13 @@ struct SubHistoAxisInfo
 
 SubHistoAxisInfo makeAxisInfo(Qt::Axis axis, QwtInterval scaleInterval, DataFilterConfig *filterConfig, Hist2DConfig *histoConfig)
 {
+    QString axisName("X");
+    if (axis == Qt::YAxis)
+        axisName = "Y";
+
+    qDebug() << __PRETTY_FUNCTION__ << "axis =" << axisName;
+
+
     qDebug() << "scale interval" << scaleInterval;
 
     /* The scalediv interval is 0-1023 for a 10 bit axis. When upscaling the
@@ -580,26 +589,18 @@ SubHistoAxisInfo makeAxisInfo(Qt::Axis axis, QwtInterval scaleInterval, DataFilt
 
     upperBin += 1.0;
 
-    const double unitMin = histoConfig->getUnitMin(axis);
-    const double unitMax = histoConfig->getUnitMax(axis);
-
-    QwtScaleMap conversion;
-    conversion.setScaleInterval(0, maxBin);
-    conversion.setPaintInterval(unitMin, unitMax);
-
-    double unitLower = conversion.transform(lowerBin);
-    double unitUpper = conversion.transform(upperBin);
-
-    qDebug() << "this" << lowerBin << upperBin;
-    qDebug() << "unit lower and upper values for lower and upper bins (pre upscale)"
-        << unitLower << unitUpper;
+    qDebug() << "this: lowerBin" << lowerBin << " upperBin" << upperBin;
 
     auto shift  = histoConfig->getShift(axis);
     auto offset = histoConfig->getOffset(axis);
 
+    qDebug() << "this: shift" << shift << " offset" << offset;
+
     // convert to full resolution bin numbers
     lowerBin = lowerBin * std::pow(2.0, shift) + offset;
     upperBin = upperBin * std::pow(2.0, shift) + offset;
+
+    qDebug() << "source bins (not adjusted)" << lowerBin << upperBin;
 
     // limit upper and lower bins to full res limits
     double sourceUpperBin = std::pow(2.0, filterConfig->getFilter().getExtractBits('D')) - 1.0;
@@ -609,16 +610,30 @@ SubHistoAxisInfo makeAxisInfo(Qt::Axis axis, QwtInterval scaleInterval, DataFilt
 
     // the number of bits needed to store the selected range in full resolution
     u32 bits = std::ceil(std::log2(range));
+    shift = 0;
 
-    qDebug() << "source" << lowerBin << upperBin << range << bits;
+    qDebug() << "source bins (adjusted)" << lowerBin << upperBin << range << bits;
+
+    double storedRange = 1 << bits;
 
     // limit the number of bits
-    static const u32 maxBits = 10;
+    static const u32 maxBits = 13;
     if (bits > maxBits)
     {
         shift = bits - maxBits;
         bits = maxBits;
     }
+
+    // unit conversion for the full res bin range
+    QwtScaleMap conversion;
+    conversion.setScaleInterval(0, std::pow(2.0, filterConfig->getFilter().getExtractBits('D')) - 1.0);
+    conversion.setPaintInterval(filterConfig->getUnitMinValue(), filterConfig->getUnitMaxValue());
+
+    double unitLower = conversion.transform(lowerBin);
+    double unitUpper = conversion.transform(lowerBin + storedRange - 1.0);
+
+    qDebug() << "unit lower and upper values for lower and upper bins (pre upscale)"
+        << unitLower << unitUpper;
 
     // axis unit values
 
@@ -631,7 +646,6 @@ SubHistoAxisInfo makeAxisInfo(Qt::Axis axis, QwtInterval scaleInterval, DataFilt
     result.unitMax = unitUpper;
 
     return result;
-
 }
 
 void Hist2DWidget::makeSubHistogram()

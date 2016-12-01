@@ -171,7 +171,7 @@ Hist2DDialog::Hist2DDialog(MVMEContext *context, Hist2D *histo, QWidget *parent)
         updateAndValidate();
     });
 
-    static const int bitsMin =  9;
+    static const int bitsMin =  1;
     static const int bitsMax = 13;
 
     for (int bits=bitsMin; bits<=bitsMax; ++bits)
