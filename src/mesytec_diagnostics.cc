@@ -25,13 +25,33 @@ static const int dataExtractMask = 0x00001FFF;
 MesytecDiagnostics::MesytecDiagnostics(QObject *parent)
     : QObject(parent)
     , m_rtd(new RealtimeData(this))
+    , m_eventBuffers(2)
 {
     for (int i=0; i<histoCount; ++i)
     {
         m_histograms.push_back(new Hist1D(histoBits, this));
     }
-    clear();
+
+    m_currentEventBuffer = &m_eventBuffers[0];
+    m_lastEventBuffer = &m_eventBuffers[1];
+
+    reset();
 }
+
+void MesytecDiagnostics::reset()
+{
+    clearChannelStats();
+    m_nHeaders = 0;
+    m_nEOEs = 0;
+    m_nEvents = 0;
+
+    m_eventBuffers[0].clear();
+    m_eventBuffers[1].clear();
+
+    m_currentStamp = -1;
+    m_lastStamp = -1;
+}
+
 
 void MesytecDiagnostics::setEventAndModuleIndices(const QPair<int, int> &indices)
 {
@@ -42,22 +62,139 @@ void MesytecDiagnostics::setEventAndModuleIndices(const QPair<int, int> &indices
 
 void MesytecDiagnostics::beginEvent()
 {
+    ++m_nEvents;
+    m_nHeadersInEvent = 0;
+    m_nEOEsInEvent = 0;
 }
 
 void MesytecDiagnostics::endEvent()
 {
+    bool doLog = false;
+    QVector<QString> messages;
+
+    //
+    // consistency checks
+    //
+    if (m_nHeadersInEvent != m_nEOEsInEvent)
+    {
+        doLog = true;
+        messages.push_back(QSL("#Headers != #EOEs"));
+    }
+
+    if (!m_nEOEsInEvent)
+    {
+        doLog = true;
+        messages.push_back(QSL("No EOE in event"));
+    }
+    else
+    {
+        // m_currentStamp was extracted from this events EOE
+        if (m_stampMode == Counter && m_lastStamp >= 0)
+        {
+            auto diff = m_currentStamp - m_lastStamp;
+
+            if (diff != 1)
+            {
+                doLog = true;
+                messages.push_back(QString("Counter difference != 1: last=%1, current=%2")
+                                   .arg(m_lastStamp)
+                                   .arg(m_currentStamp));
+            }
+        }
+        else if (m_stampMode == TimeStamp && m_lastStamp >= 0)
+        {
+            if (!(m_currentStamp > m_lastStamp))
+            {
+                doLog = true;
+                messages.push_back(QString("Timestamp not increasing: last=%1, current=%2")
+                                   .arg(m_lastStamp)
+                                   .arg(m_currentStamp));
+            }
+        }
+    }
+
+
+
+    //
+    // output generation
+    //
+    if (doLog)
+    {
+        QStringList messagesToLog;
+
+        messagesToLog.append(QSL(">>>>>>>>>>>>>>>>>>>>"));
+
+        if (m_lastEventBuffer->size())
+        {
+
+            messagesToLog.append(QString("Last Event (%1):")
+                            .arg(m_nEvents - 1));
+
+            for (int i=0; i<m_lastEventBuffer->size(); ++i)
+            {
+                messagesToLog.append(QString("  %1: 0x%2")
+                                .arg(i, 2)
+                                .arg(m_lastEventBuffer->at(i), 8, 16, QLatin1Char('0'))
+                               );
+            }
+
+            messagesToLog.append(QString());
+        }
+
+        messagesToLog.append(QString("Current Event (%1):")
+                        .arg(m_nEvents));
+
+        for (int i=0; i<m_currentEventBuffer->size(); ++i)
+        {
+            messagesToLog.append(QString("  %1: 0x%2")
+                            .arg(i, 2)
+                            .arg(m_currentEventBuffer->at(i), 8, 16, QLatin1Char('0'))
+                           );
+
+        }
+
+        messagesToLog.append(QString());
+
+        for (const auto &msg: messages)
+        {
+            messagesToLog.append(msg);
+        }
+
+        messagesToLog.append(QSL("<<<<<<<<<<<<<<<<<<<<"));
+
+        emit logMessage(messagesToLog.join("\n"));
+    }
+
+    // swap buffers and clear new current buffer
+    std::swap(m_currentEventBuffer, m_lastEventBuffer);
+    m_currentEventBuffer->clear();
+
+    m_lastStamp = m_currentStamp;
+    m_currentStamp = -1;
 }
 
 void MesytecDiagnostics::handleDataWord(quint32 currentWord)
 {
+    m_currentEventBuffer->push_back(currentWord);
+
+
     if (currentWord == 0xFFFFFFFF || currentWord == 0x00000000)
         return;
 
+    //
+    // header
+    //
     bool header_found_flag = (currentWord & 0xC0000000) == 0x40000000;
 
     if (header_found_flag)
+    {
         ++m_nHeaders;
+        ++m_nHeadersInEvent;
+    }
 
+    //
+    // data
+    //
     bool data_found_flag = ((currentWord & 0xF0000000) == 0x10000000) // MDPP
         || ((currentWord & 0xFF800000) == 0x04000000); // MxDC
 
@@ -74,13 +211,36 @@ void MesytecDiagnostics::handleDataWord(quint32 currentWord)
         m_rtd->insertData(channel, value);
     }
 
+    //
+    // eoe
+    //
     bool eoe_found_flag = (currentWord & 0xC0000000) == 0xC0000000;
 
     if (eoe_found_flag)
+    {
         ++m_nEOEs;
+        ++m_nEOEsInEvent;
+
+        // low 30 bits of timestamp/counter
+        u32 low_stamp = (currentWord & 0x3FFFFFFF);
+
+        m_currentStamp = low_stamp;
+        
+    }
+
+    //
+    // extended timestamp
+    //
+    bool ext_ts_flag = ((currentWord & 0xFF800000) == 0x04800000);
+    
+    if (ext_ts_flag)
+    {
+        // high 16 bits of timestamp
+        u32 high_stamp = (currentWord & 0x0000FFFF);
+    }
 }
 
-void MesytecDiagnostics::clear(void)
+void MesytecDiagnostics::clearChannelStats(void)
 {
     quint16 i;
 
@@ -101,13 +261,6 @@ void MesytecDiagnostics::clear(void)
     sigma[MINFILT] = 128000;
 }
 
-void MesytecDiagnostics::reset()
-{
-    clear();
-    m_nHeaders = 0;
-    m_nEOEs = 0;
-}
-
 void MesytecDiagnostics::calcAll(quint16 lo, quint16 hi, quint16 lo2, quint16 hi2, quint16 binLo, quint16 binHi)
 {
     quint16 i, j;
@@ -116,7 +269,7 @@ void MesytecDiagnostics::calcAll(quint16 lo, quint16 hi, quint16 lo2, quint16 hi
     //quint32 res = 1 << histoBits;
     qDebug("%d %d", binLo, binHi);
     //reset all old calculations
-    clear();
+    clearChannelStats();
 
     // iterate through all channels (34 real channels max.)
     for(i=0; i<34; i++){
@@ -319,6 +472,7 @@ quint32 MesytecDiagnostics::getChannel(quint16 chan, quint32 bin)
 //
 
 static const int updateInterval = 500;
+static const int resultMaxBlockCount = 10000;
 
 MesytecDiagnosticsWidget::MesytecDiagnosticsWidget(MesytecDiagnostics *diag, QWidget *parent)
     : MVMEWidget(parent)
@@ -326,9 +480,14 @@ MesytecDiagnosticsWidget::MesytecDiagnosticsWidget(MesytecDiagnostics *diag, QWi
     , m_diag(diag)
 {
     ui->setupUi(this);
+    ui->diagResult->setMaximumBlockCount(10000);
+
+    connect(diag, &MesytecDiagnostics::logMessage,
+            this, &MesytecDiagnosticsWidget::onLogMessage);
+
+
     auto updateTimer = new QTimer(this);
     connect(updateTimer, &QTimer::timeout, this, &MesytecDiagnosticsWidget::updateDisplay);
-
     updateTimer->setInterval(updateInterval);
     updateTimer->start();
 }
@@ -336,6 +495,16 @@ MesytecDiagnosticsWidget::MesytecDiagnosticsWidget(MesytecDiagnostics *diag, QWi
 MesytecDiagnosticsWidget::~MesytecDiagnosticsWidget()
 {
     delete ui;
+}
+
+void MesytecDiagnosticsWidget::clearResultsDisplay()
+{
+    ui->diagResult->clear();
+}
+
+void MesytecDiagnosticsWidget::onLogMessage(const QString &message)
+{
+    ui->diagResult->appendPlainText(message);
 }
 
 void MesytecDiagnosticsWidget::on_calcAll_clicked()
@@ -385,6 +554,11 @@ void MesytecDiagnosticsWidget::on_diagHiChannel2_valueChanged(int)
     m_diag->getRealtimeData()->setFilter(
         ui->diagLowChannel2->value(),
         ui->diagHiChannel2->value());
+}
+
+void MesytecDiagnosticsWidget::on_rb_timestamp_toggled(bool checked)
+{
+    m_diag->m_stampMode = (checked ? MesytecDiagnostics::TimeStamp : MesytecDiagnostics::Counter);
 }
 
 void MesytecDiagnosticsWidget::dispAll()
@@ -499,6 +673,12 @@ void MesytecDiagnosticsWidget::updateDisplay()
     m_diag->getRealtimeData()->calcData();
     dispRt();
 
-    ui->label_nHeaders->setText(QString("%L1").arg(m_diag->getNumberOfHeaders()));
-    ui->label_nEOEs->setText(QString("%L1").arg(m_diag->getNumberOfEOEs()));
+    auto headers = m_diag->getNumberOfHeaders();
+    auto eoes = m_diag->getNumberOfEOEs();
+    s64 delta = headers - eoes;
+
+    ui->label_nHeaders->setText(QString("%L1").arg(headers));
+    ui->label_nEOEs->setText(QString("%L1").arg(eoes));
+    ui->label_delta->setText(QString("%L1").arg(delta));
+    ui->label_nEvents->setText(QString("%L1").arg(m_diag->m_nEvents));
 }

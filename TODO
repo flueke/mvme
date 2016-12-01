@@ -5,10 +5,13 @@
 ==========================
 ==== Do these later! =====
 ==========================
+* Mesytec Werbung ^^ Hintergrundbilder, Wasserzeichen, etc. (CSS Theme?)
 * Hist2d: look for standard color scales as used in publications, ROOT, etc.
 * Avoiding spinning in processEvents() while waiting for buffers. Instead use
   something like a semaphore and figure out how to still react to "stop"
   commands.
+  Could signal the same semaphore when receiving commands and set some
+  variables that are checked once the thread wakes up.
 * Hist2d Icon
 * Limit the number of messages/s appended to the logview
 * How to handle filters without matching module? Right now they're not

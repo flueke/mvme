@@ -1067,9 +1067,18 @@ void mvme::onShowDiagnostics(ModuleConfig *moduleConfig)
 
     auto eventProcessor = m_context->getEventProcessor();
     eventProcessor->setDiagnostics(diag);
+    // XXX: moveToThread?
 
     connect(widget, &MVMEWidget::aboutToClose, this, [this]() {
         QMetaObject::invokeMethod(m_context->getEventProcessor(), "removeDiagnostics", Qt::QueuedConnection);
+    });
+
+    connect(m_context, &MVMEContext::daqStateChanged, widget, [this, widget] (const DAQState &state) {
+        if (state == DAQState::Running)
+        {
+            widget->clearResultsDisplay();
+        }
+
     });
 
     auto subwin = new QMdiSubWindow(ui->mdiArea);

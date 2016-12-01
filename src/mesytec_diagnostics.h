@@ -9,6 +9,9 @@ class RealtimeData;
 class MesytecDiagnostics : public QObject
 {
     Q_OBJECT
+signals:
+    void logMessage(const QString &message);
+
 public:
     explicit MesytecDiagnostics(QObject *parent = 0);
 
@@ -20,7 +23,8 @@ public:
     void handleDataWord(quint32 data);
     RealtimeData *getRealtimeData() const { return m_rtd; }
 
-    void clear(void);
+    void clearChannelStats(void);
+    // resets all internal data. to be called when a new run/replay starts
     void reset();
     void calcAll(quint16 lo, quint16 hi, quint16 lo2, quint16 hi2, quint16 binLo, quint16 binHi);
     double getMean(quint16 chan);
@@ -34,6 +38,10 @@ public:
     quint32 getNumberOfHeaders() const { return m_nHeaders; }
     quint32 getNumberOfEOEs() const { return m_nEOEs; }
 
+    friend class MesytecDiagnosticsWidget;
+
+    enum StampMode { TimeStamp, Counter};
+
 private:
     double mean[50];
     double sigma[50];
@@ -42,13 +50,24 @@ private:
     quint32 max[50];
     quint32 maxchan[50];
     quint32 counts[50];
-    quint32 m_nHeaders;
-    quint32 m_nEOEs;
+    quint32 m_nHeaders = 0;
+    quint32 m_nEOEs = 0;
+
+    u64 m_nEvents = 0;
 
     RealtimeData *m_rtd = nullptr;;
     QVector<Hist1D *> m_histograms;
     int m_eventIndex = -1;
     int m_moduleIndex = -1;
+
+    u32 m_nHeadersInEvent = 0;
+    u32 m_nEOEsInEvent = 0;
+    QVarLengthArray<QVector<u32>, 2> m_eventBuffers;
+    QVector<u32> *m_currentEventBuffer;
+    QVector<u32> *m_lastEventBuffer;
+    s64 m_currentStamp = -1;
+    s64 m_lastStamp = -1;
+    StampMode m_stampMode = Counter;
 };
 
 namespace Ui
@@ -63,12 +82,16 @@ class MesytecDiagnosticsWidget: public MVMEWidget
         MesytecDiagnosticsWidget(MesytecDiagnostics *diag, QWidget *parent = 0);
         ~MesytecDiagnosticsWidget();
 
+        void clearResultsDisplay();
+
     private slots:
         void on_calcAll_clicked();
         void on_diagBin_valueChanged(int value);
         void on_diagChan_valueChanged(int value);
         void on_diagLowChannel2_valueChanged(int value);
         void on_diagHiChannel2_valueChanged(int value);
+        void on_rb_timestamp_toggled(bool checked);
+        void onLogMessage(const QString &);
 
     private:
         void dispAll();
