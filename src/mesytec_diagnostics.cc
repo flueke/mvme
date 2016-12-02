@@ -80,18 +80,18 @@ void MesytecDiagnostics::endEvent()
     //
     // consistency checks
     //
-    if (m_nHeadersInEvent != m_nEOEsInEvent)
+    if (m_reportMissingEOE && m_nHeadersInEvent != m_nEOEsInEvent)
     {
         doLog = true;
         messages.push_back(QSL("#Headers != #EOEs"));
     }
 
-    if (!m_nEOEsInEvent)
+    if (m_reportMissingEOE && !m_nEOEsInEvent)
     {
         doLog = true;
         messages.push_back(QSL("No EOE in event"));
     }
-    else
+    else if (m_reportCounterDiff)
     {
         // m_currentStamp was extracted from this events EOE
         if (m_stampMode == Counter && m_lastStamp >= 0)
@@ -731,4 +731,14 @@ void MesytecDiagnosticsWidget::on_tb_saveResultList_clicked()
     {
         settings.setValue("Files/LastDiagnosticsResultFile", fileName);
     }
+}
+
+void MesytecDiagnosticsWidget::on_cb_reportCounterDiff_toggled(bool checked)
+{
+    m_diag->m_reportCounterDiff = checked;
+}
+
+void MesytecDiagnosticsWidget::on_cb_reportMissingEOE_toggled(bool checked)
+{
+    m_diag->m_reportMissingEOE = checked;
 }

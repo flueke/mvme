@@ -68,6 +68,8 @@ private:
     s64 m_currentStamp = -1;
     s64 m_lastStamp = -1;
     StampMode m_stampMode = Counter;
+    bool m_reportCounterDiff = true;
+    bool m_reportMissingEOE = true;
 };
 
 namespace Ui
@@ -93,6 +95,8 @@ class MesytecDiagnosticsWidget: public MVMEWidget
         void on_rb_timestamp_toggled(bool checked);
         void onLogMessage(const QString &);
         void on_tb_saveResultList_clicked();
+        void on_cb_reportCounterDiff_toggled(bool checked);
+        void on_cb_reportMissingEOE_toggled(bool checked);
 
     private:
         void dispAll();
