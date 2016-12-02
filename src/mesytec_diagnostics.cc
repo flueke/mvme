@@ -4,6 +4,11 @@
 #include "hist1d.h"
 
 #include <QDebug>
+#include <QFileDialog>
+#include <QFileInfo>
+#include <QMessageBox>
+#include <QSettings>
+#include <QStandardPaths>
 #include <QTimer>
 
 //
@@ -681,4 +686,49 @@ void MesytecDiagnosticsWidget::updateDisplay()
     ui->label_nEOEs->setText(QString("%L1").arg(eoes));
     ui->label_delta->setText(QString("%L1").arg(delta));
     ui->label_nEvents->setText(QString("%L1").arg(m_diag->m_nEvents));
+}
+
+void MesytecDiagnosticsWidget::on_tb_saveResultList_clicked()
+{
+    QSettings settings;
+
+    QString lastFile = settings.value("Files/LastDiagnosticsResultFile").toString();
+
+    if (lastFile.isEmpty())
+        lastFile = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
+
+    QString fileName = QFileDialog::getSaveFileName(this, "Save Config As", lastFile,
+                                                    "Text Files (*.txt);; All Files (*.*)");
+
+    if (fileName.isEmpty())
+        return;
+
+    QFileInfo fi(fileName);
+    if (fi.completeSuffix().isEmpty())
+    {
+        fileName += ".txt";
+
+        if (QFile::exists(fileName))
+        {
+            int result = QMessageBox::question(this, "Overwrite?", "Overwrite the file?",
+                                               QMessageBox::Yes | QMessageBox::No);
+
+            if (result == QMessageBox::No)
+                return;
+        }
+    }
+
+    QFile outFile(fileName);
+    if (!outFile.open(QIODevice::WriteOnly))
+    {
+        QMessageBox::critical(0, "Error", QString("Error opening %1 for writing").arg(fileName));
+        return;
+    }
+
+    int result = outFile.write(ui->diagResult->toPlainText().toLocal8Bit());
+
+    if (result >= 0)
+    {
+        settings.setValue("Files/LastDiagnosticsResultFile", fileName);
+    }
 }

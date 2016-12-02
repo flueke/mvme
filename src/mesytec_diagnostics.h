@@ -92,6 +92,7 @@ class MesytecDiagnosticsWidget: public MVMEWidget
         void on_diagHiChannel2_valueChanged(int value);
         void on_rb_timestamp_toggled(bool checked);
         void onLogMessage(const QString &);
+        void on_tb_saveResultList_clicked();
 
     private:
         void dispAll();
