@@ -269,15 +269,7 @@ Hist2DWidget::Hist2DWidget(MVMEContext *context, Hist2D *hist2d, QWidget *parent
     if (config)
     {
         connect(config, &ConfigObject::modified, this, &Hist2DWidget::displayChanged);
-
     }
-
-    auto button = new QPushButton(QSL("Create Sub-Histogram"));
-    connect(button, &QPushButton::clicked, this, &Hist2DWidget::makeSubHistogram);
-
-    ui->controlsLayout->insertWidget(
-        ui->controlsLayout->count() - 2,
-        button);
 
     onHistoResized();
     displayChanged();
@@ -648,8 +640,34 @@ SubHistoAxisInfo makeAxisInfo(Qt::Axis axis, QwtInterval scaleInterval, DataFilt
     return result;
 }
 
-void Hist2DWidget::makeSubHistogram()
+void Hist2DWidget::on_pb_subHisto_clicked()
 {
+    auto xBinRange = ui->plot->axisScaleDiv(QwtPlot::xBottom).interval();
+    auto yBinRange = ui->plot->axisScaleDiv(QwtPlot::yLeft).interval();
+
+
+    Hist2DDialog dialog(m_context, m_hist2d, xBinRange, yBinRange, this);
+
+    if (dialog.exec() == QDialog::Accepted)
+    {
+        auto result = dialog.getHistoAndConfig();
+
+        auto histo = result.first;
+        auto histoConfig = result.second;
+        histo->setProperty("configId", histoConfig->getId()); // TODO: remove this. needs an update in mvme_event_processor.cc!
+        m_context->registerObjectAndConfig(histo, histoConfig);
+        m_context->getAnalysisConfig()->addHist2DConfig(histoConfig);
+        m_context->openInNewWindow(histo);
+    }
+
+#if 0
+
+
+
+
+
+
+
     auto histoConfig = qobject_cast<Hist2DConfig *>(m_context->getMappedObject(m_hist2d, QSL("ObjectToConfig")));
 
     if (!histoConfig) return;
@@ -738,4 +756,5 @@ void Hist2DWidget::makeSubHistogram()
     m_context->addObjectMapping(newConfig, newHisto, QSL("ConfigToObject"));
     m_context->addObject(newHisto);
     m_context->getAnalysisConfig()->addHist2DConfig(newConfig);
+#endif
 }

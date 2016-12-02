@@ -131,46 +131,80 @@ QPair<DataFilterConfig *, int> SelectAxisSourceDialog::getAxisSource() const
 //
 // Hist2DDialog
 //
+
+Hist2DDialog::Hist2DDialog(MVMEContext *context, QWidget *parent)
+    : Hist2DDialog(Create, context, nullptr, QwtInterval(), QwtInterval(), parent)
+{
+}
+
 Hist2DDialog::Hist2DDialog(MVMEContext *context, Hist2D *histo, QWidget *parent)
+    : Hist2DDialog(Edit, context, histo, QwtInterval(), QwtInterval(), parent)
+{
+}
+
+Hist2DDialog::Hist2DDialog(MVMEContext *context, Hist2D *histo,
+                 QwtInterval xBinRange, QwtInterval yBinRange,
+                 QWidget *parent)
+    : Hist2DDialog(Sub, context, histo, xBinRange, yBinRange, parent)
+{
+}
+
+#if 0
+    auto round_interval = [](const QwtInterval &interval)
+    {
+        return QwtInterval(
+            std::floor(interval.minValue()),
+            std::ceil(interval.maxValue()));
+    };
+#endif
+
+
+Hist2DDialog::Hist2DDialog(Mode mode, MVMEContext *context, Hist2D *histo,
+             QwtInterval xBinRange, QwtInterval yBinRange,
+             QWidget *parent)
     : QDialog(parent)
     , ui(new Ui::Hist2DDialog)
+    , m_mode(mode)
     , m_context(context)
     , m_histo(histo)
+    , m_histoConfig(nullptr)
+    , m_xSource(nullptr, -1)
+    , m_ySource(nullptr, -1)
+    , m_xBinRange(xBinRange)
+    , m_yBinRange(yBinRange)
+    , m_result(nullptr, nullptr)
 {
-    m_xSource = QPair<DataFilterConfig *, int>(nullptr, -1);
-    m_ySource = QPair<DataFilterConfig *, int>(nullptr, -1);
-
     ui->setupUi(this);
-
-    auto validator = new NameValidator(context, histo, this);
-
-    ui->le_name->setValidator(validator);
 
     if (m_histo)
     {
-        auto histoConfig = qobject_cast<Hist2DConfig *>(m_context->getMappedObject(m_histo, QSL("ObjectToConfig")));
+        m_histoConfig = qobject_cast<Hist2DConfig *>(m_context->getConfigForObject(m_histo));
 
-        if (histoConfig)
+        if (m_histoConfig)
         {
-            ui->le_name->setText(histoConfig->objectName());
+            ui->le_name->setText(m_histoConfig->objectName());
             {
-                auto filterConfig = m_context->getAnalysisConfig()->findChildById<DataFilterConfig *>(histoConfig->getFilterId(Qt::XAxis));
-                auto address = histoConfig->getFilterAddress(Qt::XAxis);
+                auto filterConfig = m_context->getAnalysisConfig()->findChildById<DataFilterConfig *>(m_histoConfig->getFilterId(Qt::XAxis));
+                auto address = m_histoConfig->getFilterAddress(Qt::XAxis);
                 m_xSource = qMakePair(filterConfig, address);
             }
-
             {
-                auto filterConfig = m_context->getAnalysisConfig()->findChildById<DataFilterConfig *>(histoConfig->getFilterId(Qt::YAxis));
-                auto address = histoConfig->getFilterAddress(Qt::YAxis);
+                auto filterConfig = m_context->getAnalysisConfig()->findChildById<DataFilterConfig *>(m_histoConfig->getFilterId(Qt::YAxis));
+                auto address = m_histoConfig->getFilterAddress(Qt::YAxis);
                 m_ySource = qMakePair(filterConfig, address);
             }
         }
     }
 
+    auto validator = new NameValidator(context, histo, this);
+    ui->le_name->setValidator(validator);
+
     connect(ui->le_name, &QLineEdit::textChanged, this, [this](const QString &) {
         updateAndValidate();
     });
 
+    // TODO: this needs to dynamically change when the selected sub range changes
+    // the max needs to be limited to the max resolution of the source filter for the sub range
     static const int bitsMin =  1;
     static const int bitsMax = 13;
 
@@ -192,8 +226,8 @@ Hist2DDialog::Hist2DDialog(MVMEContext *context, Hist2D *histo, QWidget *parent)
     }
     else
     {
-        ui->comboXResolution->setCurrentIndex(1);
-        ui->comboYResolution->setCurrentIndex(1);
+        ui->comboXResolution->setCurrentIndex(9);
+        ui->comboYResolution->setCurrentIndex(9);
     }
 
     updateAndValidate();

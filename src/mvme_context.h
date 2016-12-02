@@ -115,6 +115,39 @@ class MVMEContext: public QObject
         QObject *removeObjectMapping(QObject *key, const QString &category = QString());
         QObject *getMappedObject(QObject *key, const QString &category = QString()) const;
 
+        //
+        // Config mappings (specialized object mappings)
+        //
+        void registerObjectAndConfig(QObject *object, QObject *config)
+        {
+            addObjectMapping(object, config, QSL("ObjectToConfig"));
+            addObjectMapping(config, object, QSL("ConfigToObject"));
+            addObject(object);
+        }
+
+        void unregisterObjectAndConfig(QObject *object=nullptr, QObject *config=nullptr)
+        {
+            if (object)
+                config = getConfigForObject(object);
+            else if (config)
+                object = getObjectForConfig(config);
+            else
+                return;
+
+            removeObjectMapping(object, QSL("ObjectToConfig"));
+            removeObjectMapping(config, QSL("ConfigToObject"));
+        }
+
+        QObject *getObjectForConfig(QObject *config)
+        {
+            return getMappedObject(config, QSL("ConfigToObject"));
+        }
+
+        QObject *getConfigForObject(QObject *object)
+        {
+            return getMappedObject(object, QSL("ObjectToConfig"));
+        }
+
         void setConfigFileName(const QString &name);
         QString getConfigFileName() const { return m_configFileName; }
 
@@ -141,6 +174,7 @@ class MVMEContext: public QObject
         void stopDAQ();
         void pauseDAQ();
         void resumeDAQ();
+        void openInNewWindow(QObject *object);
 
     private slots:
         void tryOpenController();

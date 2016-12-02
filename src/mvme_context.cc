@@ -590,6 +590,12 @@ void MVMEContext::resumeDAQ()
     QMetaObject::invokeMethod(m_readoutWorker, "resume", Qt::QueuedConnection);
 }
 
+void MVMEContext::openInNewWindow(QObject *object)
+{
+    if (m_mainwin)
+        m_mainwin->openInNewWindow(object);
+}
+
 void MVMEContext::logMessage(const QString &msg)
 {
     emit sigLogMessage(msg);

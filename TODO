@@ -5,20 +5,23 @@
 ==========================
 ==== Do these later! =====
 ==========================
+* Get rid of "configId" property and use registerObjectAndConfig,
+  getConfigForObject, getObjectForConfig instead
 * Mesytec Werbung ^^ Hintergrundbilder, Wasserzeichen, etc. (CSS Theme?)
 * Hist2d: look for standard color scales as used in publications, ROOT, etc.
+  https://root.cern.ch/doc/master/TColor_8cxx_source.html#l02400
 * Avoiding spinning in processEvents() while waiting for buffers. Instead use
   something like a semaphore and figure out how to still react to "stop"
   commands.
   Could signal the same semaphore when receiving commands and set some
   variables that are checked once the thread wakes up.
+  (Try WaitForMoreEvents as a quick fix)
 * Hist2d Icon
 * Limit the number of messages/s appended to the logview
 * How to handle filters without matching module? Right now they're not
   displayed until a module with the corresponding (eventIndex,moduleIndex) is
   created.
   Related: Remove Hist2d on filter removal?
-
 
 * add versioning to the GUI state saved via QSettings. If the version changes
   use the default layout instead of restoring a possibly incompatible state.

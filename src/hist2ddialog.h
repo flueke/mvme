@@ -20,9 +20,30 @@ class Hist2DDialog : public QDialog
     Q_OBJECT
 
 public:
-    explicit Hist2DDialog(MVMEContext *context, Hist2D *histo = 0, QWidget *parent = 0);
+    enum Mode
+    {
+        Create, // create a new histogram
+        Edit,   // edit an existign histo
+        Sub     // create a sub histogram
+    };
+
+    // to create a new histogram
+    Hist2DDialog(MVMEContext *context, QWidget *parent = nullptr);
+
+    // edit an existing histogram
+    Hist2DDialog(MVMEContext *context, Hist2D *histo, QWidget *parent = nullptr);
+
+    // create a sub histogram
+    Hist2DDialog(MVMEContext *context, Hist2D *histo,
+                 QwtInterval xBinRange,
+                 QwtInterval yBinRange,
+                 QWidget *parent = nullptr);
+
     ~Hist2DDialog();
 
+    /* Get the resulting histo and config. In case of editing an existing
+     * histogram this call will update both the histo and config with the new
+     * values. */
     QPair<Hist2D *, Hist2DConfig *> getHistoAndConfig();
 
 private slots:
@@ -33,11 +54,21 @@ private slots:
     void updateAndValidate();
 
 private:
+    Hist2DDialog(Mode mode, MVMEContext *context, Hist2D *histo,
+                 QwtInterval xBinRange, QwtInterval yBinRange,
+                 QWidget *parent);
+
+
     Ui::Hist2DDialog *ui;
+    Mode m_mode;
     MVMEContext *m_context;
     Hist2D *m_histo;
+    Hist2DConfig *m_histoConfig;
     QPair<DataFilterConfig *, int> m_xSource;
     QPair<DataFilterConfig *, int> m_ySource;
+    QwtInterval m_xBinRange;
+    QwtInterval m_yBinRange;
+    QPair<Hist2D *, Hist2DConfig *> m_result;
 };
 
 class SelectAxisSourceDialog: public QDialog

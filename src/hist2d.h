@@ -83,7 +83,7 @@ private slots:
     void mouseCursorLeftPlot();
     void displayChanged();
     void zoomerZoomed(const QRectF &);
-    void makeSubHistogram();
+    void on_pb_subHisto_clicked();
 
 private:
     bool zAxisIsLog() const;

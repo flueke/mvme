@@ -41,6 +41,13 @@
         <string/>
        </property>
        <layout class="QGridLayout" name="gridLayout_2">
+        <item row="1" column="0">
+         <widget class="QPushButton" name="pb_clear">
+          <property name="text">
+           <string>Clear</string>
+          </property>
+         </widget>
+        </item>
         <item row="0" column="0">
          <widget class="QPushButton" name="pb_export">
           <property name="text">
@@ -48,10 +55,13 @@
           </property>
          </widget>
         </item>
-        <item row="1" column="0">
-         <widget class="QPushButton" name="pb_clear">
+        <item row="2" column="0">
+         <widget class="QPushButton" name="pb_subHisto">
+          <property name="toolTip">
+           <string>Create a sub-histogram limited to the currently visible area.</string>
+          </property>
           <property name="text">
-           <string>Clear</string>
+           <string>Create Sub-Histo</string>
           </property>
          </widget>
         </item>
