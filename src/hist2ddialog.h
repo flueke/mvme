@@ -13,6 +13,7 @@ class QDialogButtonBox;
 
 namespace Ui {
 class Hist2DDialog;
+class AxisDataWidget;
 }
 
 class Hist2DDialog : public QDialog
@@ -47,11 +48,11 @@ public:
     QPair<Hist2D *, Hist2DConfig *> getHistoAndConfig();
 
 private slots:
-    void on_pb_xSource_clicked();
-    void on_pb_ySource_clicked();
-    void on_pb_xClear_clicked();
-    void on_pb_yClear_clicked();
+    void onSelectSourceClicked(Qt::Axis axis);
+    void onClearSourceClicked(Qt::Axis axis);
     void updateAndValidate();
+    void onSourceSelected(Qt::Axis axis);
+    void updateResolutionCombo(Qt::Axis axis);
 
 private:
     Hist2DDialog(Mode mode, MVMEContext *context, Hist2D *histo,
@@ -69,6 +70,8 @@ private:
     QwtInterval m_xBinRange;
     QwtInterval m_yBinRange;
     QPair<Hist2D *, Hist2DConfig *> m_result;
+    Ui::AxisDataWidget *m_xAxisUi;
+    Ui::AxisDataWidget *m_yAxisUi;
 };
 
 class SelectAxisSourceDialog: public QDialog

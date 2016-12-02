@@ -6,14 +6,14 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>408</width>
-    <height>188</height>
+    <width>411</width>
+    <height>341</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Hist2D</string>
   </property>
-  <layout class="QFormLayout" name="formLayout">
+  <layout class="QGridLayout" name="gridLayout">
    <item row="0" column="0">
     <widget class="QLabel" name="label">
      <property name="text">
@@ -21,116 +21,21 @@
      </property>
     </widget>
    </item>
-   <item row="0" column="1">
-    <widget class="QLineEdit" name="le_name"/>
-   </item>
-   <item row="1" column="0">
-    <widget class="QLabel" name="label_2">
-     <property name="text">
-      <string>X Resolution</string>
+   <item row="1" column="0" colspan="3">
+    <widget class="QGroupBox" name="gb_xAxis">
+     <property name="title">
+      <string>X-Axis</string>
      </property>
     </widget>
    </item>
-   <item row="2" column="0">
-    <widget class="QLabel" name="label_3">
-     <property name="text">
-      <string>Y Resolution</string>
+   <item row="2" column="0" colspan="3">
+    <widget class="QGroupBox" name="gb_yAxis">
+     <property name="title">
+      <string>Y-Axis</string>
      </property>
     </widget>
    </item>
-   <item row="3" column="0">
-    <widget class="QLabel" name="label_4">
-     <property name="text">
-      <string>X Source</string>
-     </property>
-    </widget>
-   </item>
-   <item row="3" column="1">
-    <layout class="QHBoxLayout" name="horizontalLayout" stretch="1,0,0">
-     <item>
-      <widget class="QLabel" name="label_xSource">
-       <property name="minimumSize">
-        <size>
-         <width>185</width>
-         <height>0</height>
-        </size>
-       </property>
-       <property name="text">
-        <string/>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QPushButton" name="pb_xSource">
-       <property name="text">
-        <string>Select</string>
-       </property>
-       <property name="icon">
-        <iconset resource="resources.qrc">
-         <normaloff>:/tree-settings.png</normaloff>:/tree-settings.png</iconset>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QPushButton" name="pb_xClear">
-       <property name="toolTip">
-        <string>Clear selection</string>
-       </property>
-       <property name="icon">
-        <iconset resource="resources.qrc">
-         <normaloff>:/dialog-close.png</normaloff>:/dialog-close.png</iconset>
-       </property>
-      </widget>
-     </item>
-    </layout>
-   </item>
-   <item row="4" column="0">
-    <widget class="QLabel" name="label_5">
-     <property name="text">
-      <string>Y Source</string>
-     </property>
-    </widget>
-   </item>
-   <item row="4" column="1">
-    <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="1,0,0">
-     <item>
-      <widget class="QLabel" name="label_ySource">
-       <property name="minimumSize">
-        <size>
-         <width>185</width>
-         <height>0</height>
-        </size>
-       </property>
-       <property name="text">
-        <string/>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QPushButton" name="pb_ySource">
-       <property name="text">
-        <string>Select</string>
-       </property>
-       <property name="icon">
-        <iconset resource="resources.qrc">
-         <normaloff>:/tree-settings.png</normaloff>:/tree-settings.png</iconset>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QPushButton" name="pb_yClear">
-       <property name="toolTip">
-        <string>Clear selection</string>
-       </property>
-       <property name="icon">
-        <iconset resource="resources.qrc">
-         <normaloff>:/dialog-close.png</normaloff>:/dialog-close.png</iconset>
-       </property>
-      </widget>
-     </item>
-    </layout>
-   </item>
-   <item row="5" column="0" colspan="2">
+   <item row="3" column="2">
     <widget class="QDialogButtonBox" name="buttonBox">
      <property name="orientation">
       <enum>Qt::Horizontal</enum>
@@ -140,17 +45,12 @@
      </property>
     </widget>
    </item>
-   <item row="1" column="1">
-    <widget class="QComboBox" name="comboXResolution"/>
-   </item>
-   <item row="2" column="1">
-    <widget class="QComboBox" name="comboYResolution"/>
+   <item row="0" column="1" colspan="2">
+    <widget class="QLineEdit" name="le_name"/>
    </item>
   </layout>
  </widget>
- <resources>
-  <include location="resources.qrc"/>
- </resources>
+ <resources/>
  <connections>
   <connection>
    <sender>buttonBox</sender>

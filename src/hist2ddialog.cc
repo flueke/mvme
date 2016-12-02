@@ -1,5 +1,6 @@
 #include "hist2ddialog.h"
 #include "ui_hist2ddialog.h"
+#include "ui_hist2ddialog_axis_widget.h"
 
 #include <QPushButton>
 #include <QSignalBlocker>
@@ -129,6 +130,44 @@ QPair<DataFilterConfig *, int> SelectAxisSourceDialog::getAxisSource() const
 }
 
 //
+// util
+//
+static QwtInterval clean_interval(const QwtInterval &interval, int bits)
+{
+    auto result = QwtInterval(
+        std::floor(interval.minValue()),
+        std::ceil(interval.maxValue()));
+
+    if (result.minValue() < 0.0)
+        result.setMinValue(0.0);
+
+    const double maxBin = std::pow(2.0, bits);
+
+    if (result.maxValue() > maxBin)
+        result.setMaxValue(maxBin);
+
+    return result;
+};
+
+static void fill_resolution_combo(QComboBox *combo, int minBits, int maxBits, int selectedBits = 0)
+{
+    combo->clear();
+
+    for (int bits=minBits; bits<=maxBits; ++bits)
+    {
+        int value = 1 << bits;
+        QString text = QString("%1, %2 bit")
+            .arg(value, 4)
+            .arg(bits, 2);
+
+        combo->addItem(text, bits);
+    }
+
+    if (selectedBits > 0)
+        combo->setCurrentIndex(selectedBits - minBits);
+}
+
+//
 // Hist2DDialog
 //
 
@@ -149,16 +188,6 @@ Hist2DDialog::Hist2DDialog(MVMEContext *context, Hist2D *histo,
 {
 }
 
-#if 0
-    auto round_interval = [](const QwtInterval &interval)
-    {
-        return QwtInterval(
-            std::floor(interval.minValue()),
-            std::ceil(interval.maxValue()));
-    };
-#endif
-
-
 Hist2DDialog::Hist2DDialog(Mode mode, MVMEContext *context, Hist2D *histo,
              QwtInterval xBinRange, QwtInterval yBinRange,
              QWidget *parent)
@@ -175,6 +204,32 @@ Hist2DDialog::Hist2DDialog(Mode mode, MVMEContext *context, Hist2D *histo,
     , m_result(nullptr, nullptr)
 {
     ui->setupUi(this);
+
+    {
+        m_xAxisUi = new Ui::AxisDataWidget;
+        auto widget = new QWidget;
+        m_xAxisUi->setupUi(widget);
+        auto layout = new QHBoxLayout(ui->gb_xAxis);
+        layout->addWidget(widget);
+
+        connect(m_xAxisUi->pb_selectSource, &QPushButton::clicked,
+                this, [this]() { onSelectSourceClicked(Qt::XAxis); });
+        connect(m_xAxisUi->pb_clearSource, &QPushButton::clicked,
+                this, [this]() { onClearSourceClicked(Qt::YAxis); });
+    }
+
+    {
+        m_yAxisUi = new Ui::AxisDataWidget;
+        auto widget = new QWidget;
+        m_yAxisUi->setupUi(widget);
+        auto layout = new QHBoxLayout(ui->gb_yAxis);
+        layout->addWidget(widget);
+
+        connect(m_yAxisUi->pb_selectSource, &QPushButton::clicked,
+                this, [this]() { onSelectSourceClicked(Qt::YAxis); });
+        connect(m_yAxisUi->pb_clearSource, &QPushButton::clicked,
+                this, [this]() { onClearSourceClicked(Qt::YAxis); });
+    }
 
     if (m_histo)
     {
@@ -193,6 +248,12 @@ Hist2DDialog::Hist2DDialog(Mode mode, MVMEContext *context, Hist2D *histo,
                 auto address = m_histoConfig->getFilterAddress(Qt::YAxis);
                 m_ySource = qMakePair(filterConfig, address);
             }
+
+            if (m_xBinRange.isValid())
+                m_xBinRange = clean_interval(m_xBinRange, m_histoConfig->getBits(Qt::XAxis));
+
+            if (m_yBinRange.isValid())
+                m_yBinRange = clean_interval(m_yBinRange, m_histoConfig->getBits(Qt::YAxis));
         }
     }
 
@@ -203,45 +264,22 @@ Hist2DDialog::Hist2DDialog(Mode mode, MVMEContext *context, Hist2D *histo,
         updateAndValidate();
     });
 
-    // TODO: this needs to dynamically change when the selected sub range changes
-    // the max needs to be limited to the max resolution of the source filter for the sub range
-    static const int bitsMin =  1;
-    static const int bitsMax = 13;
-
-    for (int bits=bitsMin; bits<=bitsMax; ++bits)
-    {
-        int value = 1 << bits;
-        QString text = QString("%1, %2 bit")
-            .arg(value, 4)
-            .arg(bits, 2);
-
-        ui->comboXResolution->addItem(text, bits);
-        ui->comboYResolution->addItem(text, bits);
-    }
-
-    if (m_histo)
-    {
-        ui->comboXResolution->setCurrentIndex(m_histo->getXBits() - bitsMin);
-        ui->comboYResolution->setCurrentIndex(m_histo->getYBits() - bitsMin);
-    }
-    else
-    {
-        ui->comboXResolution->setCurrentIndex(9);
-        ui->comboYResolution->setCurrentIndex(9);
-    }
-
+    updateResolutionCombo(Qt::XAxis);
+    updateResolutionCombo(Qt::YAxis);
     updateAndValidate();
 }
 
 Hist2DDialog::~Hist2DDialog()
 {
     delete ui;
+    delete m_xAxisUi;
+    delete m_yAxisUi;
 }
 
 QPair<Hist2D *, Hist2DConfig *> Hist2DDialog::getHistoAndConfig()
 {
-    int xBits = ui->comboXResolution->currentData().toInt();
-    int yBits = ui->comboYResolution->currentData().toInt();
+    int xBits = m_xAxisUi->combo_resolution->currentData().toInt();
+    int yBits = m_yAxisUi->combo_resolution->currentData().toInt();
     Hist2DConfig *histoConfig = nullptr;
 
     if (!m_histo)
@@ -308,67 +346,105 @@ QPair<Hist2D *, Hist2DConfig *> Hist2DDialog::getHistoAndConfig()
     return qMakePair(m_histo, histoConfig);
 }
 
-void Hist2DDialog::on_pb_xSource_clicked()
+void Hist2DDialog::onSelectSourceClicked(Qt::Axis axis)
 {
+    const auto &otherAxisSource = (axis == Qt::XAxis ? m_ySource : m_xSource);
+
     int eventIndex = -1;
-    if (m_ySource.first)
+    if (otherAxisSource.first)
     {
-        eventIndex = m_context->getAnalysisConfig()->getEventAndModuleIndices(m_ySource.first).first;
+        eventIndex = m_context->getAnalysisConfig()->getEventAndModuleIndices(otherAxisSource.first).first;
     }
+
+    qDebug() << __PRETTY_FUNCTION__ <<  "eventIndex" << eventIndex;
 
     SelectAxisSourceDialog dialog(m_context, eventIndex, this);
 
     if (dialog.exec() == QDialog::Accepted)
     {
-        m_xSource = dialog.getAxisSource();
+        auto &source = (axis == Qt::XAxis ? m_xSource : m_ySource);
+        source = dialog.getAxisSource();
+        onSourceSelected(axis);
         updateAndValidate();
     }
 }
 
-void Hist2DDialog::on_pb_ySource_clicked()
+void Hist2DDialog::onClearSourceClicked(Qt::Axis axis)
 {
-    int eventIndex = -1;
-
-    if (m_xSource.first)
-    {
-        eventIndex = m_context->getAnalysisConfig()->getEventAndModuleIndices(m_xSource.first).first;
-    }
-
-    SelectAxisSourceDialog dialog(m_context, eventIndex, this);
-    if (dialog.exec() == QDialog::Accepted)
-    {
-        m_ySource = dialog.getAxisSource();
-        updateAndValidate();
-    }
-}
-
-void Hist2DDialog::on_pb_xClear_clicked()
-{
-    m_xSource = QPair<DataFilterConfig *, int>(nullptr, -1);
-    updateAndValidate();
-}
-
-void Hist2DDialog::on_pb_yClear_clicked()
-{
-    m_ySource = QPair<DataFilterConfig *, int>(nullptr, -1);
+    auto &source = (axis == Qt::XAxis ? m_xSource : m_ySource);
+    source = QPair<DataFilterConfig *, int>(nullptr, -1);
+    onSourceSelected(axis);
     updateAndValidate();
 }
 
 void Hist2DDialog::updateAndValidate()
 {
-    ui->label_xSource->setText(QSL("<none selected>"));
-    ui->label_ySource->setText(QSL("<none selected>"));
+    m_xAxisUi->label_source->setText(QSL("<none selected>"));
+    m_yAxisUi->label_source->setText(QSL("<none selected>"));
 
     if (m_xSource.first)
     {
-        ui->label_xSource->setText(getFilterPath(m_context, m_xSource.first, m_xSource.second));
+        m_xAxisUi->label_source->setText(getFilterPath(m_context, m_xSource.first, m_xSource.second));
     }
 
     if (m_ySource.first)
     {
-        ui->label_ySource->setText(getFilterPath(m_context, m_ySource.first, m_ySource.second));
+        m_yAxisUi->label_source->setText(getFilterPath(m_context, m_ySource.first, m_ySource.second));
     }
 
     bool valid = (m_xSource.first && m_ySource.first && ui->le_name->hasAcceptableInput());
     ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(valid);
+}
+
+void Hist2DDialog::onSourceSelected(Qt::Axis axis)
+{
+    auto axisUi = (axis == Qt::XAxis ? m_xAxisUi : m_yAxisUi);
+    const auto &source = (axis == Qt::XAxis ? m_xSource : m_ySource);
+
+    double unitMin = 0.0;
+    double unitMax = 0.0;
+    QString label;
+
+    if (source.first)
+    {
+        unitMin = source.first->getUnitMinValue();
+        unitMax = source.first->getUnitMaxValue();
+        label   = source.first->getUnitString();
+        if (!label.isEmpty())
+            label = "[" + label + "]";
+    }
+
+    axisUi->spin_unitMin->setMinimum(unitMin);
+    axisUi->spin_unitMin->setMaximum(unitMax);
+    axisUi->spin_unitMax->setMinimum(unitMin);
+    axisUi->spin_unitMax->setMaximum(unitMax);
+
+    axisUi->spin_unitMin->setValue(unitMin);
+    axisUi->spin_unitMax->setValue(unitMax);
+    axisUi->label_unit->setText(label);
+}
+
+void Hist2DDialog::updateResolutionCombo(Qt::Axis axis)
+{
+    static const int defaultMinBits =  1;
+    static const int defaultMaxBits = 13;
+    static const int defaultBits    = 10;
+
+    auto axisUi = (axis == Qt::XAxis ? m_xAxisUi : m_yAxisUi);
+
+    int maxBits      = defaultMaxBits;
+    int selectedBits = defaultBits;
+
+    if (m_mode == Edit && m_histoConfig)
+        selectedBits = m_histoConfig->getBits(axis);
+
+    const auto &source = (axis == Qt::XAxis ? m_xSource : m_ySource);
+
+    // TODO: check selected unit range and calc max res from this
+    if (source.first)
+    {
+        maxBits = source.first->getFilter().getExtractBits('D');
+    }
+
+    fill_resolution_combo(axisUi->combo_resolution, defaultMinBits, maxBits, selectedBits);
 }

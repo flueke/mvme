@@ -643,7 +643,10 @@ SubHistoAxisInfo makeAxisInfo(Qt::Axis axis, QwtInterval scaleInterval, DataFilt
 void Hist2DWidget::on_pb_subHisto_clicked()
 {
     auto xBinRange = ui->plot->axisScaleDiv(QwtPlot::xBottom).interval();
+    xBinRange.setMaxValue(xBinRange.maxValue() + 1.0);
+
     auto yBinRange = ui->plot->axisScaleDiv(QwtPlot::yLeft).interval();
+    yBinRange.setMaxValue(yBinRange.maxValue() + 1.0);
 
 
     Hist2DDialog dialog(m_context, m_hist2d, xBinRange, yBinRange, this);
