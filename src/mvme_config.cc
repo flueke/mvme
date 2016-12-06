@@ -567,6 +567,14 @@ QPair<int, int> DAQConfig::getEventAndModuleIndices(ModuleConfig *cfg) const
 // DataFilterConfig
 //
 
+QwtScaleMap DataFilterConfig::makeConversionMap() const
+{
+    QwtScaleMap result;
+    result.setScaleInterval(0, std::pow(2.0, getDataBits()) - 1.0);
+    result.setPaintInterval(getUnitMinValue(), getUnitMaxValue());
+    return result;
+}
+
 void DataFilterConfig::setFilter(const DataFilter &filter)
 {
     if (m_filter != filter)

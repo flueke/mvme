@@ -557,7 +557,7 @@ void HistogramTreeWidget::clearHistogram()
 
 void HistogramTreeWidget::add2DHistogram()
 {
-    Hist2DDialog dialog(m_context);
+    Hist2DDialog dialog(m_context, this);
     int result = dialog.exec();
 
     if (result == QDialog::Accepted)

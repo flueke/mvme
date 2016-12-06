@@ -712,6 +712,7 @@ QString getHistoPath(MVMEContext *context, Hist1DConfig *histoConfig)
 Hist1D *createHistogram(Hist1DConfig *config)
 {
     Hist1D *result = new Hist1D(config->getBits());
+    result->setObjectName(config->objectName());
     result->setProperty("configId", config->getId());
     return result;
 }
@@ -719,6 +720,7 @@ Hist1D *createHistogram(Hist1DConfig *config)
 Hist2D *createHistogram(Hist2DConfig *config)
 {
     Hist2D *result = new Hist2D(config->getBits(Qt::XAxis), config->getBits(Qt::YAxis));
+    result->setObjectName(config->objectName());
     result->setProperty("configId", config->getId());
     return result;
 }

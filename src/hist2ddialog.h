@@ -28,6 +28,8 @@ public:
         Sub     // create a sub histogram
     };
 
+    using AxisSource = QPair<DataFilterConfig *, int>;
+
     // to create a new histogram
     Hist2DDialog(MVMEContext *context, QWidget *parent = nullptr);
 
@@ -46,12 +48,13 @@ public:
      * histogram this call will update both the histo and config with the new
      * values. */
     QPair<Hist2D *, Hist2DConfig *> getHistoAndConfig();
-
 private slots:
+    bool validate();
+    void updateSourceLabels();
     void onSelectSourceClicked(Qt::Axis axis);
     void onClearSourceClicked(Qt::Axis axis);
-    void updateAndValidate();
-    void onSourceSelected(Qt::Axis axis);
+    void onSourceSelected(Qt::Axis axis, AxisSource prevSource = AxisSource());
+    void onUnitRangeChanged(Qt::Axis axis);
     void updateResolutionCombo(Qt::Axis axis);
 
 private:
@@ -65,8 +68,8 @@ private:
     MVMEContext *m_context;
     Hist2D *m_histo;
     Hist2DConfig *m_histoConfig;
-    QPair<DataFilterConfig *, int> m_xSource;
-    QPair<DataFilterConfig *, int> m_ySource;
+    AxisSource m_xSource;
+    AxisSource m_ySource;
     QwtInterval m_xBinRange;
     QwtInterval m_yBinRange;
     QPair<Hist2D *, Hist2DConfig *> m_result;

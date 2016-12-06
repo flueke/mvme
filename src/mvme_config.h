@@ -6,6 +6,7 @@
 #include "data_filter.h"
 #include <QObject>
 #include <QUuid>
+#include <qwt_scale_map.h>
 
 class QJsonObject;
 
@@ -287,6 +288,10 @@ class DataFilterConfig: public ConfigObject
 
         double getUnitMaxValue() const { return m_unitMaxValue; }
         void setUnitMaxValue(double v);
+
+        int getDataBits() const { return getFilter().getExtractBits('D'); }
+
+        QwtScaleMap makeConversionMap() const;
 
     protected:
         virtual void read_impl(const QJsonObject &json) override;

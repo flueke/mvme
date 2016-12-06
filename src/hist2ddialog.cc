@@ -164,7 +164,19 @@ static void fill_resolution_combo(QComboBox *combo, int minBits, int maxBits, in
     }
 
     if (selectedBits > 0)
-        combo->setCurrentIndex(selectedBits - minBits);
+    {
+        int index = selectedBits - minBits;
+        index = std::min(index, combo->count() - 1);
+        combo->setCurrentIndex(index);
+    }
+}
+
+static QwtScaleMap makeConversionMap(double binMin, double binMax, double unitMin, double unitMax)
+{
+    QwtScaleMap result;
+    result.setScaleInterval(binMin, binMax);
+    result.setPaintInterval(unitMin, unitMax);
+    return result;
 }
 
 //
@@ -205,31 +217,37 @@ Hist2DDialog::Hist2DDialog(Mode mode, MVMEContext *context, Hist2D *histo,
 {
     ui->setupUi(this);
 
+    auto makeAxisUi = [this](Qt::Axis axis, QWidget *dest)
     {
-        m_xAxisUi = new Ui::AxisDataWidget;
+        auto axisUi = new Ui::AxisDataWidget;
         auto widget = new QWidget;
-        m_xAxisUi->setupUi(widget);
-        auto layout = new QHBoxLayout(ui->gb_xAxis);
+        axisUi->setupUi(widget);
+        auto layout = new QHBoxLayout(dest);
         layout->addWidget(widget);
 
-        connect(m_xAxisUi->pb_selectSource, &QPushButton::clicked,
-                this, [this]() { onSelectSourceClicked(Qt::XAxis); });
-        connect(m_xAxisUi->pb_clearSource, &QPushButton::clicked,
-                this, [this]() { onClearSourceClicked(Qt::YAxis); });
-    }
+        connect(axisUi->pb_selectSource, &QPushButton::clicked,
+                this, [this, axis]() { onSelectSourceClicked(axis); });
 
-    {
-        m_yAxisUi = new Ui::AxisDataWidget;
-        auto widget = new QWidget;
-        m_yAxisUi->setupUi(widget);
-        auto layout = new QHBoxLayout(ui->gb_yAxis);
-        layout->addWidget(widget);
+        connect(axisUi->pb_clearSource, &QPushButton::clicked,
+                this, [this, axis]() { onClearSourceClicked(axis); });
 
-        connect(m_yAxisUi->pb_selectSource, &QPushButton::clicked,
-                this, [this]() { onSelectSourceClicked(Qt::YAxis); });
-        connect(m_yAxisUi->pb_clearSource, &QPushButton::clicked,
-                this, [this]() { onClearSourceClicked(Qt::YAxis); });
-    }
+        connect(axisUi->spin_unitMin, static_cast<void(QDoubleSpinBox::*)(double)>(&QDoubleSpinBox::valueChanged),
+                this, [this, axis] (double) { onUnitRangeChanged(axis); });
+
+        connect(axisUi->spin_unitMax, static_cast<void(QDoubleSpinBox::*)(double)>(&QDoubleSpinBox::valueChanged),
+                this, [this, axis] (double) { onUnitRangeChanged(axis); });
+
+        if (m_mode == Sub)
+        {
+            axisUi->pb_selectSource->setEnabled(false);
+            axisUi->pb_clearSource->setEnabled(false);
+        }
+
+        return axisUi;
+    };
+
+    m_xAxisUi = makeAxisUi(Qt::XAxis, ui->gb_xAxis);
+    m_yAxisUi = makeAxisUi(Qt::YAxis, ui->gb_yAxis);
 
     if (m_histo)
     {
@@ -254,19 +272,23 @@ Hist2DDialog::Hist2DDialog(Mode mode, MVMEContext *context, Hist2D *histo,
 
             if (m_yBinRange.isValid())
                 m_yBinRange = clean_interval(m_yBinRange, m_histoConfig->getBits(Qt::YAxis));
+
         }
     }
 
-    auto validator = new NameValidator(context, histo, this);
+    auto validator = new NameValidator(context, (m_mode == Edit ? histo : nullptr), this);
     ui->le_name->setValidator(validator);
 
     connect(ui->le_name, &QLineEdit::textChanged, this, [this](const QString &) {
-        updateAndValidate();
+        validate();
     });
 
-    updateResolutionCombo(Qt::XAxis);
-    updateResolutionCombo(Qt::YAxis);
-    updateAndValidate();
+    onSourceSelected(Qt::XAxis);
+    onSourceSelected(Qt::YAxis);
+    //updateResolutionCombo(Qt::XAxis);
+    //updateResolutionCombo(Qt::YAxis);
+    //updateSourceLabels();
+    validate();
 }
 
 Hist2DDialog::~Hist2DDialog()
@@ -280,70 +302,112 @@ QPair<Hist2D *, Hist2DConfig *> Hist2DDialog::getHistoAndConfig()
 {
     int xBits = m_xAxisUi->combo_resolution->currentData().toInt();
     int yBits = m_yAxisUi->combo_resolution->currentData().toInt();
+    Hist2D *histo = nullptr;
     Hist2DConfig *histoConfig = nullptr;
 
-    if (!m_histo)
+    if (m_mode == Create || m_mode == Sub)
     {
-        m_histo = new Hist2D(xBits, yBits);
+        histo = new Hist2D(xBits, yBits);
         histoConfig = new Hist2DConfig;
     }
-    else
+    else if (m_mode == Edit)
     {
         histoConfig = qobject_cast<Hist2DConfig *>(m_context->getMappedObject(m_histo, QSL("ObjectToConfig")));
-        m_histo->resize(xBits, yBits);
+        histo = m_histo;
+        histo->resize(xBits, yBits);
     }
 
     if (histoConfig)
     {
-        m_histo->setObjectName(ui->le_name->text());
+        histo->setObjectName(ui->le_name->text());
         histoConfig->setObjectName(ui->le_name->text());
 
-        // x axis
+        auto setConfigValues = [this] (Hist2DConfig *histoConfig, Qt::Axis axis, int bits)
         {
-            auto filter = m_xSource.first;
-            auto address = m_xSource.second;
+            auto source = (axis == Qt::XAxis ? m_xSource : m_ySource);
+            auto axisUi = (axis == Qt::XAxis ? m_xAxisUi : m_yAxisUi);
+
+            auto filter = source.first;
+            auto address = source.second;
             auto title = filter->getAxisTitle();
             if (title.isEmpty())
                 title = QString("%1/%2") .arg(filter->objectName()) .arg(address);
 
-            int dataBits = filter->getFilter().getExtractBits('D');
+            int dataBits = filter->getDataBits();
+            int shift    = std::max(dataBits - bits, 0);
+            // the full resolution unit conversion
+            auto conversion = filter->makeConversionMap();
 
-            histoConfig->setFilterId(Qt::XAxis, filter->getId());
-            histoConfig->setFilterAddress(Qt::XAxis, address);
-            histoConfig->setBits(Qt::XAxis, xBits);
-            histoConfig->setShift(Qt::XAxis, std::max(dataBits - xBits, 0));
-            histoConfig->setAxisTitle(Qt::XAxis, title);
-            histoConfig->setAxisUnitLabel(Qt::XAxis, filter->getUnitString());
-            histoConfig->setUnitMin(Qt::XAxis, filter->getUnitMinValue());
-            histoConfig->setUnitMax(Qt::XAxis, filter->getUnitMaxValue());
+            // unitMax from the Ui is not used here. Instead unitMax is
+            // calculated using the starting bin and the number of bits for the
+            // histogram
+            double unitMin = axisUi->spin_unitMin->value();
 
-            qDebug() << __PRETTY_FUNCTION__ << "xShift" << histoConfig->getShift(Qt::XAxis);
-        }
+            double fullResLowerBin = std::floor(conversion.invTransform(unitMin));
+            double storedRange = 1 << bits;
+            double fullResRange = storedRange * std::pow(2.0, shift);
 
-        // y axis
-        {
-            auto filter = m_ySource.first;
-            auto address = m_ySource.second;
-            auto title = filter->getAxisTitle();
-            if (title.isEmpty())
-                title = QString("%1/%2").arg(filter->objectName()).arg(address);
 
-            int dataBits = filter->getFilter().getExtractBits('D');
+            double unitMax = conversion.transform(fullResLowerBin + fullResRange - 1.0);
 
-            histoConfig->setFilterId(Qt::YAxis, filter->getId());
-            histoConfig->setFilterAddress(Qt::YAxis, address);
-            histoConfig->setBits(Qt::YAxis, yBits);
-            histoConfig->setShift(Qt::YAxis, std::max(dataBits - yBits, 0));
-            histoConfig->setAxisTitle(Qt::YAxis, title);
-            histoConfig->setAxisUnitLabel(Qt::YAxis, filter->getUnitString());
-            histoConfig->setUnitMin(Qt::YAxis, filter->getUnitMinValue());
-            histoConfig->setUnitMax(Qt::YAxis, filter->getUnitMaxValue());
+            qDebug() << __PRETTY_FUNCTION__
+                << "unitMin" << unitMin
+                << "fullResLowerBin" << fullResLowerBin
+                << "bits" << bits
+                << "storedRange" << storedRange
+                << "storedRange" << storedRange << shift
+                << "unitMax" << unitMax
+                << "fullResRange" << fullResRange;
 
-            qDebug() << __PRETTY_FUNCTION__ << "yShift" << histoConfig->getShift(Qt::YAxis);
-        }
+
+            histoConfig->setFilterId(axis, filter->getId());
+            histoConfig->setFilterAddress(axis, address);
+            histoConfig->setBits(axis, bits);
+            histoConfig->setShift(axis, std::max(dataBits - bits, 0));
+            histoConfig->setOffset(axis, fullResLowerBin);
+            histoConfig->setAxisTitle(axis, title);
+            histoConfig->setAxisUnitLabel(axis, filter->getUnitString());
+
+
+
+            histoConfig->setUnitMin(axis, unitMin);
+            histoConfig->setUnitMax(axis, unitMax);
+
+            qDebug() << __PRETTY_FUNCTION__
+                << "Shift" << histoConfig->getShift(axis)
+                << "Offset" << histoConfig->getOffset(axis);
+        };
+
+        setConfigValues(histoConfig, Qt::XAxis, xBits);
+        setConfigValues(histoConfig, Qt::YAxis, yBits);
     }
 
-    return qMakePair(m_histo, histoConfig);
+    return qMakePair(histo, histoConfig);
+}
+
+bool Hist2DDialog::validate()
+{
+    bool valid = (m_xSource.first && m_ySource.first && ui->le_name->hasAcceptableInput());
+    valid = valid && m_xAxisUi->combo_resolution->count() && m_yAxisUi->combo_resolution->count();
+
+    ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(valid);
+    return valid;
+}
+
+void Hist2DDialog::updateSourceLabels()
+{
+    m_xAxisUi->label_source->setText(QSL("<none selected>"));
+    m_yAxisUi->label_source->setText(QSL("<none selected>"));
+
+    if (m_xSource.first)
+    {
+        m_xAxisUi->label_source->setText(getFilterPath(m_context, m_xSource.first, m_xSource.second));
+    }
+
+    if (m_ySource.first)
+    {
+        m_yAxisUi->label_source->setText(getFilterPath(m_context, m_ySource.first, m_ySource.second));
+    }
 }
 
 void Hist2DDialog::onSelectSourceClicked(Qt::Axis axis)
@@ -363,65 +427,92 @@ void Hist2DDialog::onSelectSourceClicked(Qt::Axis axis)
     if (dialog.exec() == QDialog::Accepted)
     {
         auto &source = (axis == Qt::XAxis ? m_xSource : m_ySource);
+        auto prevSource = source;
         source = dialog.getAxisSource();
-        onSourceSelected(axis);
-        updateAndValidate();
+        onSourceSelected(axis, prevSource);
     }
 }
 
 void Hist2DDialog::onClearSourceClicked(Qt::Axis axis)
 {
     auto &source = (axis == Qt::XAxis ? m_xSource : m_ySource);
-    source = QPair<DataFilterConfig *, int>(nullptr, -1);
+    source = AxisSource(nullptr, -1);
     onSourceSelected(axis);
-    updateAndValidate();
 }
 
-void Hist2DDialog::updateAndValidate()
-{
-    m_xAxisUi->label_source->setText(QSL("<none selected>"));
-    m_yAxisUi->label_source->setText(QSL("<none selected>"));
-
-    if (m_xSource.first)
-    {
-        m_xAxisUi->label_source->setText(getFilterPath(m_context, m_xSource.first, m_xSource.second));
-    }
-
-    if (m_ySource.first)
-    {
-        m_yAxisUi->label_source->setText(getFilterPath(m_context, m_ySource.first, m_ySource.second));
-    }
-
-    bool valid = (m_xSource.first && m_ySource.first && ui->le_name->hasAcceptableInput());
-    ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(valid);
-}
-
-void Hist2DDialog::onSourceSelected(Qt::Axis axis)
+void Hist2DDialog::onSourceSelected(Qt::Axis axis, AxisSource prevSource)
 {
     auto axisUi = (axis == Qt::XAxis ? m_xAxisUi : m_yAxisUi);
     const auto &source = (axis == Qt::XAxis ? m_xSource : m_ySource);
 
+    double unitLimitMin = 0.0;
+    double unitLimitMax = 0.0;
     double unitMin = 0.0;
     double unitMax = 0.0;
     QString label;
 
     if (source.first)
     {
-        unitMin = source.first->getUnitMinValue();
-        unitMax = source.first->getUnitMaxValue();
+        unitLimitMin = source.first->getUnitMinValue();
+        unitLimitMax = source.first->getUnitMaxValue();
         label   = source.first->getUnitString();
-        if (!label.isEmpty())
-            label = "[" + label + "]";
+
+        // FIXME: for "label-less units" this will show "bins" instead of an empty label
+        if (label.isEmpty())
+            label = "bins";
+
+        label = "[" + label + "]";
     }
 
-    axisUi->spin_unitMin->setMinimum(unitMin);
-    axisUi->spin_unitMin->setMaximum(unitMax);
-    axisUi->spin_unitMax->setMinimum(unitMin);
-    axisUi->spin_unitMax->setMaximum(unitMax);
+    {
+        QSignalBlocker b1(axisUi->spin_unitMin);
+        QSignalBlocker b2(axisUi->spin_unitMax);
 
-    axisUi->spin_unitMin->setValue(unitMin);
-    axisUi->spin_unitMax->setValue(unitMax);
+        axisUi->spin_unitMin->setMinimum(unitLimitMin);
+        axisUi->spin_unitMin->setMaximum(unitLimitMax);
+        axisUi->spin_unitMin->setValue(unitLimitMin);
+
+        axisUi->spin_unitMax->setMinimum(unitLimitMin);
+        axisUi->spin_unitMax->setMaximum(unitLimitMax);
+        axisUi->spin_unitMax->setValue(unitLimitMax);
+
+        if (m_mode == Edit && source.first && source.first->getId() == m_histoConfig->getFilterId(axis))
+        {
+            axisUi->spin_unitMin->setValue(m_histoConfig->getUnitMin(axis));
+            axisUi->spin_unitMax->setValue(m_histoConfig->getUnitMax(axis));
+        }
+        else if (m_mode == Sub)
+        {
+            auto binRange = (axis == Qt::XAxis ? m_xBinRange : m_yBinRange);
+            double lowerBin = binRange.minValue();
+            double upperBin = binRange.maxValue();
+            auto shift  = m_histoConfig->getShift(axis);
+            auto offset = m_histoConfig->getOffset(axis);
+
+            // convert to full resolution bin numbers
+            lowerBin = lowerBin * std::pow(2.0, shift) + offset;
+            upperBin = upperBin * std::pow(2.0, shift) + offset;
+
+            auto conversion = source.first->makeConversionMap();
+
+            qDebug() << __PRETTY_FUNCTION__ << "binRange" << binRange;
+
+            axisUi->spin_unitMin->setValue(conversion.transform(lowerBin));
+            axisUi->spin_unitMax->setValue(conversion.transform(upperBin));
+        }
+    }
+
     axisUi->label_unit->setText(label);
+
+    updateSourceLabels();
+    updateResolutionCombo(axis);
+    validate();
+}
+
+void Hist2DDialog::onUnitRangeChanged(Qt::Axis axis)
+{
+    qDebug() << __PRETTY_FUNCTION__;
+    updateResolutionCombo(axis);
 }
 
 void Hist2DDialog::updateResolutionCombo(Qt::Axis axis)
@@ -440,10 +531,42 @@ void Hist2DDialog::updateResolutionCombo(Qt::Axis axis)
 
     const auto &source = (axis == Qt::XAxis ? m_xSource : m_ySource);
 
-    // TODO: check selected unit range and calc max res from this
     if (source.first)
     {
-        maxBits = source.first->getFilter().getExtractBits('D');
+        auto filterConfig = source.first;
+        maxBits = filterConfig->getDataBits();
+        auto conversion = filterConfig->makeConversionMap();
+
+        qDebug() << __PRETTY_FUNCTION__
+            << "scaleInterval" << conversion.s1() << conversion.s2()
+            << "paintInterval" << conversion.p1() << conversion.p2();
+        
+        double unitMin = axisUi->spin_unitMin->value();
+        double unitMax = axisUi->spin_unitMax->value();
+
+        qDebug() << __PRETTY_FUNCTION__
+            << "unitMin" << unitMin
+            << "unitMax" << unitMax;
+
+        double lowerBin = std::floor(conversion.invTransform(axisUi->spin_unitMin->value()));
+        double upperBin = std::ceil(conversion.invTransform(axisUi->spin_unitMax->value()));
+        double binRange = upperBin - lowerBin;
+
+        qDebug() << __PRETTY_FUNCTION__
+            << "lowerBin" << lowerBin
+            << "upperBin" << upperBin
+            << "binRange" << binRange;
+
+        // the number of bits needed to store the selected range in full resolution
+        maxBits = std::ceil(std::log2(binRange + 1.0));
+
+
+        qDebug() << __PRETTY_FUNCTION__ << "maxBits (not adjusted)" << maxBits;
+
+        maxBits = std::min(maxBits, defaultMaxBits);
+
+        qDebug() << __PRETTY_FUNCTION__ << "maxBits (adjusted)" << maxBits;
+
     }
 
     fill_resolution_combo(axisUi->combo_resolution, defaultMinBits, maxBits, selectedBits);
