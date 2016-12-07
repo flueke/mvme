@@ -382,7 +382,7 @@ QPair<Hist2D *, Hist2DConfig *> Hist2DDialog::getHistoAndConfig()
             binRange = 1 << bits;
 
             // fix unit max to account for the number of bins that are actually stored
-            unitMax = conversion.invTransform(lowerBin + binRange - 1.0);
+            unitMax = conversion.transform(lowerBin + binRange - 1.0);
 
             // calculate shift if something lower than full res was selected
             int shift = 0;
