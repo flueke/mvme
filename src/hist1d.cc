@@ -483,13 +483,14 @@ void Hist1DWidget::updateStatistics()
     double sigma = m_stats.sigma * factor;
 
     static const int fieldWidth = 0;
-    QString buffer = QString("\nMean: %L1"
-                             "\nSigma: %L2"
-                             "\nCounts: %L3"
-                             "\nMaximum: %L4"
-                             "\nMax at: %L5"
-                             "\nFWHM: %L6"
-                             "\n"
+    QString buffer = QString(
+        "\nSigma: %L2"
+        "\nFWHM: %L6"
+        "\nMean: %L1"
+        "\nMax at: %L5"
+        "\nMax Y: %L4"
+        "\nCounts: %L3"
+        "\n"
                             )
         .arg(mean, fieldWidth)
         .arg(sigma, fieldWidth)
