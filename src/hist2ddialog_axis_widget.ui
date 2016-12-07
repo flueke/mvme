@@ -77,7 +77,11 @@
       </widget>
      </item>
      <item>
-      <widget class="QDoubleSpinBox" name="spin_unitMin"/>
+      <widget class="QDoubleSpinBox" name="spin_unitMin">
+       <property name="decimals">
+        <number>4</number>
+       </property>
+      </widget>
      </item>
      <item>
       <widget class="QLabel" name="label_6">
@@ -87,7 +91,11 @@
       </widget>
      </item>
      <item>
-      <widget class="QDoubleSpinBox" name="spin_unitMax"/>
+      <widget class="QDoubleSpinBox" name="spin_unitMax">
+       <property name="decimals">
+        <number>4</number>
+       </property>
+      </widget>
      </item>
      <item>
       <widget class="QLabel" name="label_unit">
