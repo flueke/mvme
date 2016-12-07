@@ -84,6 +84,7 @@ private slots:
     void displayChanged();
     void zoomerZoomed(const QRectF &);
     void on_pb_subHisto_clicked();
+    void on_tb_info_clicked();
 
 private:
     bool zAxisIsLog() const;

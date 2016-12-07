@@ -761,3 +761,89 @@ void Hist2DWidget::on_pb_subHisto_clicked()
     m_context->getAnalysisConfig()->addHist2DConfig(newConfig);
 #endif
 }
+
+void Hist2DWidget::on_tb_info_clicked()
+{
+    auto histoConfig = qobject_cast<Hist2DConfig *>(m_context->getMappedObject(m_hist2d, QSL("ObjectToConfig")));
+
+    if (!histoConfig) return;
+
+    auto dialogPtr = new QDialog(this);
+    auto &dialog = *dialogPtr;
+    dialog.setWindowTitle("Histogram Information");
+
+
+    QFormLayout layout(&dialog);
+
+    auto label = new QLabel(m_hist2d->objectName());
+    label->setFrameStyle(QFrame::Panel | QFrame::Sunken);
+    layout.addRow("Name", label);
+
+    /*
+    layout.addRow("Resolution x/y", new QLabel(QString("%1 (%2) / %3 (%4)")
+                                               .arg(m_hist2d->getXBits())
+                                               .arg(m_hist2d->getXResolution())
+                                               .arg(m_hist2d->getYBits())
+                                               .arg(m_hist2d->getYResolution())
+                                              ));
+    */
+
+
+    auto addAxisInfo = [this, &layout, histoConfig](Qt::Axis axis)
+    {
+
+        auto filterConfig = m_context->getAnalysisConfig()->findChildById<DataFilterConfig *>(histoConfig->getFilterId(axis));
+
+        int prevIndex = std::max(layout.rowCount() , 0);
+
+        layout.addRow("Bits / Resolution", new QLabel(QString("%1 / %2")
+                                                      .arg(histoConfig->getBits(axis))
+                                                      .arg(1 << histoConfig->getBits(axis))));
+
+        layout.addRow("Filter / Address", new QLabel(QString("%1 / %2")
+                                                   .arg(filterConfig->objectName())
+                                                   .arg(histoConfig->getFilterAddress(axis))));
+
+        layout.addRow("Filter Data Bits", new QLabel(QString::number(filterConfig->getDataBits())));
+
+        layout.addRow("Data Shift",  new QLabel(QString::number(histoConfig->getShift(axis))));
+        layout.addRow("Bin Offset", new QLabel(QString::number(histoConfig->getOffset(axis))));
+        layout.addRow("Unit min/max", new QLabel(QString("[%1, %2] %3")
+                                                 .arg(histoConfig->getUnitMin(axis))
+                                                 .arg(histoConfig->getUnitMax(axis))
+                                                 .arg(histoConfig->getAxisUnitLabel(axis))));
+
+        for (int i = prevIndex; i < layout.rowCount(); ++i)
+        {
+            auto item = layout.itemAt(i, QFormLayout::FieldRole);
+            if (item)
+            {
+                auto label = qobject_cast<QLabel *>(item->widget());
+                if (label)
+                {
+                    label->setFrameStyle(QFrame::Panel | QFrame::Sunken);
+                }
+            }
+        }
+    };
+
+    label = new QLabel("===== X-Axis =====");
+    label->setAlignment(Qt::AlignHCenter);
+    layout.addRow(label);
+    addAxisInfo(Qt::XAxis);
+
+    label = new QLabel("===== Y-Axis =====");
+    label->setAlignment(Qt::AlignHCenter);
+    layout.addRow(label);
+    addAxisInfo(Qt::YAxis);
+
+
+    auto closeButton = new QPushButton("&Close");
+    connect(closeButton, &QPushButton::clicked, &dialog, &QDialog::accept);
+    layout.addRow(closeButton);
+
+    dialog.setWindowIcon(QIcon(QPixmap(":/info.png")));
+    dialog.setWindowModality(Qt::NonModal);
+    dialog.setAttribute(Qt::WA_DeleteOnClose);
+    dialog.show();
+}

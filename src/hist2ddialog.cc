@@ -182,6 +182,31 @@ static QwtScaleMap makeConversionMap(double binMin, double binMax, double unitMi
 //
 // Hist2DDialog
 //
+/* Modes:
+ * Create
+ *   - unit spins are filled with full range
+ *   - resolution is set to max of the filter source (limited to 13 bits)
+ *   - changing the unit spins results in an offset being added to the resulting histo
+ *
+ *  Edit
+ *   - unit spins are filled with the values set on the histo
+ *   - resolution is set to the values set on the histo
+ *   - changing the unit spins will result in a new offset and possibly a different resolution
+ *
+ *  Sub
+ *   - used to create a sub-histogram from the given histo and the given bin-intervals
+ *   - the axes of the newly created histo start at the minimum of the corresponding interval
+ *   - the upper limit of the interval is used to calculate the number of bins needed to store the requested range.
+ *     This number is then rounded up to next power of two. The resulting histo will have an offset and possibly a
+ *     shift different from the source histo.
+ *   - The unit spins are filled with unit values caclulated by taking the given bin-intervals, upscaling them to
+ *     full resolution and convertion those full res bins to unit values.
+ *
+ * Note: the unitMax spin is used to calculate the required resolution to
+ * minimally store that range. Lower resolutions can be selected and result in
+ * a shift being added to the histo. The unit max value may be exceeded as the
+ * resolution will always be the next biggest power of two.
+ */
 
 Hist2DDialog::Hist2DDialog(MVMEContext *context, QWidget *parent)
     : Hist2DDialog(Create, context, nullptr, QwtInterval(), QwtInterval(), parent)
@@ -191,6 +216,8 @@ Hist2DDialog::Hist2DDialog(MVMEContext *context, QWidget *parent)
 Hist2DDialog::Hist2DDialog(MVMEContext *context, Hist2D *histo, QWidget *parent)
     : Hist2DDialog(Edit, context, histo, QwtInterval(), QwtInterval(), parent)
 {
+    Q_ASSERT(histo);
+    Q_ASSERT(m_histoConfig);
 }
 
 Hist2DDialog::Hist2DDialog(MVMEContext *context, Hist2D *histo,
@@ -198,6 +225,8 @@ Hist2DDialog::Hist2DDialog(MVMEContext *context, Hist2D *histo,
                  QWidget *parent)
     : Hist2DDialog(Sub, context, histo, xBinRange, yBinRange, parent)
 {
+    Q_ASSERT(histo);
+    Q_ASSERT(m_histoConfig);
 }
 
 Hist2DDialog::Hist2DDialog(Mode mode, MVMEContext *context, Hist2D *histo,
@@ -215,6 +244,8 @@ Hist2DDialog::Hist2DDialog(Mode mode, MVMEContext *context, Hist2D *histo,
     , m_yBinRange(yBinRange)
     , m_result(nullptr, nullptr)
 {
+    Q_ASSERT(context);
+
     ui->setupUi(this);
 
     auto makeAxisUi = [this](Qt::Axis axis, QWidget *dest)
@@ -322,17 +353,57 @@ QPair<Hist2D *, Hist2DConfig *> Hist2DDialog::getHistoAndConfig()
         histo->setObjectName(ui->le_name->text());
         histoConfig->setObjectName(ui->le_name->text());
 
-        auto setConfigValues = [this] (Hist2DConfig *histoConfig, Qt::Axis axis, int bits)
+        auto setConfigValues = [this] (Hist2DConfig *histoConfig, Qt::Axis axis, int selectedBits)
         {
             auto source = (axis == Qt::XAxis ? m_xSource : m_ySource);
             auto axisUi = (axis == Qt::XAxis ? m_xAxisUi : m_yAxisUi);
-
             auto filter = source.first;
             auto address = source.second;
             auto title = filter->getAxisTitle();
+
             if (title.isEmpty())
                 title = QString("%1/%2") .arg(filter->objectName()) .arg(address);
 
+            int sourceBits = filter->getDataBits();
+
+            double unitMin = axisUi->spin_unitMin->value();
+            double unitMax = axisUi->spin_unitMax->value();
+
+            auto conversion = filter->makeConversionMap();
+
+            double lowerBin = conversion.invTransform(unitMin);
+            double upperBin = conversion.invTransform(unitMax);
+            double binRange = upperBin - lowerBin;
+
+            // the number of bits needed to store the selected range in full resolution
+            int bits  = std::ceil(std::log2(binRange));
+            
+            // the resulting number of stored bins in full res
+            binRange = 1 << bits;
+
+            // fix unit max to account for the number of bins that are actually stored
+            unitMax = conversion.invTransform(lowerBin + binRange - 1.0);
+
+            // calculate shift if something lower than full res was selected
+            int shift = 0;
+
+            if (bits > selectedBits)
+            {
+                shift = bits - selectedBits;
+                bits = selectedBits;
+            }
+
+            histoConfig->setFilterId(axis, filter->getId());
+            histoConfig->setFilterAddress(axis, address);
+            histoConfig->setBits(axis, bits);
+            histoConfig->setShift(axis, shift);
+            histoConfig->setOffset(axis, lowerBin);
+            histoConfig->setAxisTitle(axis, title);
+            histoConfig->setAxisUnitLabel(axis, filter->getUnitString());
+            histoConfig->setUnitMin(axis, unitMin);
+            histoConfig->setUnitMax(axis, unitMax);
+
+#if 0
             int dataBits = filter->getDataBits();
             int shift    = std::max(dataBits - bits, 0);
             // the full resolution unit conversion
@@ -341,6 +412,7 @@ QPair<Hist2D *, Hist2DConfig *> Hist2DDialog::getHistoAndConfig()
             // unitMax from the Ui is not used here. Instead unitMax is
             // calculated using the starting bin and the number of bits for the
             // histogram
+            // FIXME this is wrong
             double unitMin = axisUi->spin_unitMin->value();
 
             double fullResLowerBin = std::floor(conversion.invTransform(unitMin));
@@ -376,6 +448,7 @@ QPair<Hist2D *, Hist2DConfig *> Hist2DDialog::getHistoAndConfig()
             qDebug() << __PRETTY_FUNCTION__
                 << "Shift" << histoConfig->getShift(axis)
                 << "Offset" << histoConfig->getOffset(axis);
+#endif
         };
 
         setConfigValues(histoConfig, Qt::XAxis, xBits);
@@ -457,11 +530,8 @@ void Hist2DDialog::onSourceSelected(Qt::Axis axis, AxisSource prevSource)
         unitLimitMax = source.first->getUnitMaxValue();
         label   = source.first->getUnitString();
 
-        // FIXME: for "label-less units" this will show "bins" instead of an empty label
-        if (label.isEmpty())
-            label = "bins";
-
-        label = "[" + label + "]";
+        if (!label.isEmpty())
+            label = "[" + label + "]";
     }
 
     {
@@ -484,6 +554,7 @@ void Hist2DDialog::onSourceSelected(Qt::Axis axis, AxisSource prevSource)
         else if (m_mode == Sub)
         {
             auto binRange = (axis == Qt::XAxis ? m_xBinRange : m_yBinRange);
+            qDebug() << __PRETTY_FUNCTION__ << "binRange" << binRange;
             double lowerBin = binRange.minValue();
             double upperBin = binRange.maxValue();
             auto shift  = m_histoConfig->getShift(axis);
@@ -493,12 +564,11 @@ void Hist2DDialog::onSourceSelected(Qt::Axis axis, AxisSource prevSource)
             lowerBin = lowerBin * std::pow(2.0, shift) + offset;
             upperBin = upperBin * std::pow(2.0, shift) + offset;
 
+            // and use the full res bins to convert back into units
             auto conversion = source.first->makeConversionMap();
-
-            qDebug() << __PRETTY_FUNCTION__ << "binRange" << binRange;
-
             axisUi->spin_unitMin->setValue(conversion.transform(lowerBin));
             axisUi->spin_unitMax->setValue(conversion.transform(upperBin));
+
         }
     }
 
@@ -526,8 +596,17 @@ void Hist2DDialog::updateResolutionCombo(Qt::Axis axis)
     int maxBits      = defaultMaxBits;
     int selectedBits = defaultBits;
 
-    if (m_mode == Edit && m_histoConfig)
+    if (axisUi->combo_resolution->count())
+    {
+        // keep selected bits
+        auto var = axisUi->combo_resolution->currentData();
+        if (var.isValid())
+            selectedBits = var.toInt();
+    }
+    else if (m_mode == Edit && m_histoConfig)
+    {
         selectedBits = m_histoConfig->getBits(axis);
+    }
 
     const auto &source = (axis == Qt::XAxis ? m_xSource : m_ySource);
 
