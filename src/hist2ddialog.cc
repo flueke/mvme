@@ -286,7 +286,24 @@ Hist2DDialog::Hist2DDialog(Mode mode, MVMEContext *context, Hist2D *histo,
 
         if (m_histoConfig)
         {
-            ui->le_name->setText(m_histoConfig->objectName());
+            auto histoName = m_histoConfig->objectName();
+
+            if (m_mode == Sub)
+            {
+                QRegularExpression re("^(.*)(\\d+)$");
+                auto match = re.match(histoName);
+                if (match.lastCapturedIndex() == 2)
+                {
+                    histoName = match.captured(1) + QString::number(match.captured(2).toInt() + 1);
+                }
+                else
+                {
+                    histoName += QSL(" 1");
+                }
+            }
+
+            ui->le_name->setText(histoName);
+
             {
                 auto filterConfig = m_context->getAnalysisConfig()->findChildById<DataFilterConfig *>(m_histoConfig->getFilterId(Qt::XAxis));
                 auto address = m_histoConfig->getFilterAddress(Qt::XAxis);
@@ -316,9 +333,6 @@ Hist2DDialog::Hist2DDialog(Mode mode, MVMEContext *context, Hist2D *histo,
 
     onSourceSelected(Qt::XAxis);
     onSourceSelected(Qt::YAxis);
-    //updateResolutionCombo(Qt::XAxis);
-    //updateResolutionCombo(Qt::YAxis);
-    //updateSourceLabels();
     validate();
 }
 
@@ -402,53 +416,6 @@ QPair<Hist2D *, Hist2DConfig *> Hist2DDialog::getHistoAndConfig()
             histoConfig->setAxisUnitLabel(axis, filter->getUnitString());
             histoConfig->setUnitMin(axis, unitMin);
             histoConfig->setUnitMax(axis, unitMax);
-
-#if 0
-            int dataBits = filter->getDataBits();
-            int shift    = std::max(dataBits - bits, 0);
-            // the full resolution unit conversion
-            auto conversion = filter->makeConversionMap();
-
-            // unitMax from the Ui is not used here. Instead unitMax is
-            // calculated using the starting bin and the number of bits for the
-            // histogram
-            // FIXME this is wrong
-            double unitMin = axisUi->spin_unitMin->value();
-
-            double fullResLowerBin = std::floor(conversion.invTransform(unitMin));
-            double storedRange = 1 << bits;
-            double fullResRange = storedRange * std::pow(2.0, shift);
-
-
-            double unitMax = conversion.transform(fullResLowerBin + fullResRange - 1.0);
-
-            qDebug() << __PRETTY_FUNCTION__
-                << "unitMin" << unitMin
-                << "fullResLowerBin" << fullResLowerBin
-                << "bits" << bits
-                << "storedRange" << storedRange
-                << "storedRange" << storedRange << shift
-                << "unitMax" << unitMax
-                << "fullResRange" << fullResRange;
-
-
-            histoConfig->setFilterId(axis, filter->getId());
-            histoConfig->setFilterAddress(axis, address);
-            histoConfig->setBits(axis, bits);
-            histoConfig->setShift(axis, std::max(dataBits - bits, 0));
-            histoConfig->setOffset(axis, fullResLowerBin);
-            histoConfig->setAxisTitle(axis, title);
-            histoConfig->setAxisUnitLabel(axis, filter->getUnitString());
-
-
-
-            histoConfig->setUnitMin(axis, unitMin);
-            histoConfig->setUnitMax(axis, unitMax);
-
-            qDebug() << __PRETTY_FUNCTION__
-                << "Shift" << histoConfig->getShift(axis)
-                << "Offset" << histoConfig->getOffset(axis);
-#endif
         };
 
         setConfigValues(histoConfig, Qt::XAxis, xBits);
