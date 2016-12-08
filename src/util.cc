@@ -270,3 +270,14 @@ bool gui_write_json_file(const QString &fileName, const QJsonDocument &doc)
     return true;
 }
 
+QPair<double, QString> byte_unit(size_t inBytes)
+{
+    QStringList units = { "B", "kB", "MB", "GB", "TB" };
+    double bytes = inBytes;
+
+    int power = std::floor(((bytes > 0.0) ? std::log2(bytes) : 0.0) / std::log2(1024.0));
+    power = std::min(power, units.size() - 1);
+    bytes /= std::pow(1024.0, power);
+
+    return qMakePair(bytes, units[power]);
+}

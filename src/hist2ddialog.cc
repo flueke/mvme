@@ -254,6 +254,7 @@ Hist2DDialog::Hist2DDialog(Mode mode, MVMEContext *context, Hist2D *histo,
         auto widget = new QWidget;
         axisUi->setupUi(widget);
         auto layout = new QHBoxLayout(dest);
+        layout->setContentsMargins(0, 0, 0, 0);
         layout->addWidget(widget);
 
         connect(axisUi->pb_selectSource, &QPushButton::clicked,
@@ -267,6 +268,9 @@ Hist2DDialog::Hist2DDialog(Mode mode, MVMEContext *context, Hist2D *histo,
 
         connect(axisUi->spin_unitMax, static_cast<void(QDoubleSpinBox::*)(double)>(&QDoubleSpinBox::valueChanged),
                 this, [this, axis] (double) { onUnitRangeChanged(axis); });
+
+        connect(axisUi->combo_resolution, static_cast<void(QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
+                this, [this, axis] (int) { onResolutionSelected(axis); });
 
         if (m_mode == Sub)
         {
@@ -290,7 +294,7 @@ Hist2DDialog::Hist2DDialog(Mode mode, MVMEContext *context, Hist2D *histo,
 
             if (m_mode == Sub)
             {
-                QRegularExpression re("^(.*)(\\d+)$");
+                QRegularExpression re("^(.*\\ )(\\d+)$");
                 auto match = re.match(histoName);
                 if (match.lastCapturedIndex() == 2)
                 {
@@ -555,7 +559,7 @@ void Hist2DDialog::onUnitRangeChanged(Qt::Axis axis)
 void Hist2DDialog::updateResolutionCombo(Qt::Axis axis)
 {
     static const int defaultMinBits =  1;
-    static const int defaultMaxBits = 13;
+    static const int defaultMaxBits = 13; // hard limit for the number of bits used per axis
     static const int defaultBits    = 10;
 
     auto axisUi = (axis == Qt::XAxis ? m_xAxisUi : m_yAxisUi);
@@ -583,37 +587,57 @@ void Hist2DDialog::updateResolutionCombo(Qt::Axis axis)
         maxBits = filterConfig->getDataBits();
         auto conversion = filterConfig->makeConversionMap();
 
-        qDebug() << __PRETTY_FUNCTION__
-            << "scaleInterval" << conversion.s1() << conversion.s2()
-            << "paintInterval" << conversion.p1() << conversion.p2();
         
         double unitMin = axisUi->spin_unitMin->value();
         double unitMax = axisUi->spin_unitMax->value();
 
-        qDebug() << __PRETTY_FUNCTION__
-            << "unitMin" << unitMin
-            << "unitMax" << unitMax;
 
         double lowerBin = std::floor(conversion.invTransform(axisUi->spin_unitMin->value()));
         double upperBin = std::ceil(conversion.invTransform(axisUi->spin_unitMax->value()));
         double binRange = upperBin - lowerBin;
 
+#if 0
+        qDebug() << __PRETTY_FUNCTION__
+            << "scaleInterval" << conversion.s1() << conversion.s2()
+            << "paintInterval" << conversion.p1() << conversion.p2();
+
+        qDebug() << __PRETTY_FUNCTION__
+            << "unitMin" << unitMin
+            << "unitMax" << unitMax;
+
         qDebug() << __PRETTY_FUNCTION__
             << "lowerBin" << lowerBin
             << "upperBin" << upperBin
             << "binRange" << binRange;
+#endif
 
         // the number of bits needed to store the selected range in full resolution
         maxBits = std::ceil(std::log2(binRange + 1.0));
-
-
-        qDebug() << __PRETTY_FUNCTION__ << "maxBits (not adjusted)" << maxBits;
-
         maxBits = std::min(maxBits, defaultMaxBits);
-
-        qDebug() << __PRETTY_FUNCTION__ << "maxBits (adjusted)" << maxBits;
-
     }
 
     fill_resolution_combo(axisUi->combo_resolution, defaultMinBits, maxBits, selectedBits);
+}
+
+void Hist2DDialog::onResolutionSelected(Qt::Axis axis)
+{
+    ui->label_memory->clear();
+
+    bool xOk, yOk;
+
+    int xBits = m_xAxisUi->combo_resolution->currentData().toInt(&xOk);
+    int yBits = m_yAxisUi->combo_resolution->currentData().toInt(&yOk);
+
+    if (xOk && yOk)
+    {
+        size_t xBins = 1 << xBits;
+        size_t yBins = 1 << yBits;
+        size_t mem = xBins * yBins * sizeof(double);
+
+        auto sizeAndUnit = byte_unit(mem);
+
+        ui->label_memory->setText(QString("%L1 %2")
+                                  .arg(sizeAndUnit.first, 0, 'f', 2)
+                                  .arg(sizeAndUnit.second));
+    }
 }

@@ -240,4 +240,8 @@ inline u32 number_of_set_bits(u32 i)
 QJsonDocument gui_read_json_file(const QString &fileName);
 bool gui_write_json_file(const QString &fileName, const QJsonDocument &doc);
 
+QPair<double, QString> byte_unit(size_t bytes);
+
+//QString format_memory_size(size_t bytes);
+
 #endif // UTIL_H

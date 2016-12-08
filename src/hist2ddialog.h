@@ -56,6 +56,7 @@ private slots:
     void onSourceSelected(Qt::Axis axis, AxisSource prevSource = AxisSource());
     void onUnitRangeChanged(Qt::Axis axis);
     void updateResolutionCombo(Qt::Axis axis);
+    void onResolutionSelected(Qt::Axis axis);
 
 private:
     Hist2DDialog(Mode mode, MVMEContext *context, Hist2D *histo,
