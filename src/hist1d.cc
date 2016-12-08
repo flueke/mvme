@@ -325,15 +325,35 @@ Hist1DWidget::Hist1DWidget(MVMEContext *context, Hist1D *histo, Hist1DConfig *hi
 #endif
 
     m_statsText = new QwtText;
-    m_statsText->setRenderFlags(Qt::AlignLeft | Qt::AlignTop);
+    /* This controls the alignment of the whole text on the canvas aswell as
+     * the alignment of text itself. */
+    m_statsText->setRenderFlags(Qt::AlignRight | Qt::AlignTop);
+
+    QPen borderPen(Qt::SolidLine);
+    borderPen.setColor(Qt::black);
+    m_statsText->setBorderPen(borderPen);
+
+    QBrush brush;
+    brush.setColor("#e6e2de");
+    brush.setStyle(Qt::SolidPattern);
+    m_statsText->setBackgroundBrush(brush);
+
+    /* The text rendered by qwt looked non-antialiased when using the RichText
+     * format. Manually setting the pixelSize fixes this. */
+    QFont font;
+    font.setPixelSize(12);
+    m_statsText->setFont(font);
 
     m_statsTextItem = new QwtPlotTextLabel;
+    //m_statsTextItem->setRenderHint(QwtPlotItem::RenderAntialiased);
+    /* Margin added to contentsMargins() of the canvas. This is (mis)used to
+     * not clip the top scrollbar. */
+    m_statsTextItem->setMargin(15);
     m_statsTextItem->setText(*m_statsText);
+    //m_statsTextItem->setZ(42.0); // something > 0
     m_statsTextItem->attach(ui->plot);
 
-
     setHistogram(histo, histoConfig);
-
     displayChanged();
 }
 
@@ -482,16 +502,19 @@ void Hist1DWidget::updateStatistics()
     double factor = std::abs((m_conversionMap.p2() - m_conversionMap.p1())) / (m_conversionMap.s2() - m_conversionMap.s1());
     double sigma = m_stats.sigma * factor;
 
+    static const QString textTemplate = QSL(
+        "<table>"
+        "<tr><td align=\"left\">Sigma</td><td>%L2</td></tr>"
+        "<tr><td align=\"left\">FWHM</td><td>%L6</td></tr>"
+        "<tr><td align=\"left\">Mean</td><td>%L1</td></tr>"
+        "<tr><td align=\"left\">Max</td><td>%L5</td></tr>"
+        "<tr><td align=\"left\">Max Y</td><td>%L4</td></tr>"
+        "<tr><td align=\"left\">Counts</td><td>%L3</td></tr>"
+        "</table>"
+        );
+
     static const int fieldWidth = 0;
-    QString buffer = QString(
-        "\nSigma: %L2"
-        "\nFWHM: %L6"
-        "\nMean: %L1"
-        "\nMax at: %L5"
-        "\nMax Y: %L4"
-        "\nCounts: %L3"
-        "\n"
-                            )
+    QString buffer = textTemplate
         .arg(mean, fieldWidth)
         .arg(sigma, fieldWidth)
         .arg(m_stats.entryCount, fieldWidth)
@@ -500,7 +523,7 @@ void Hist1DWidget::updateStatistics()
         .arg(m_stats.fwhm * factor);
         ;
 
-    m_statsText->setText(buffer);
+    m_statsText->setText(buffer, QwtText::RichText);
     m_statsTextItem->setText(*m_statsText);
 }
 
