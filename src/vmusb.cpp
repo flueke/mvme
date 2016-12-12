@@ -154,100 +154,88 @@ VMEError VMUSB::writeRegister(u32 address, u32 value)
     return ret;
 }
 
-#if 0
-void VMUSB::readAllRegisters(void)
+static const QMap<u32, QString> registerNames =
 {
-  firmwareId = 0;
-  globalMode = 0;
-  daqSettings = 0;
-  ledSources = 0;
-  deviceSources = 0;
-  dggAsettings = 0;
-  dggBsettings = 0;
-  scalerAdata = 0;
-  scalerBdata = 0;
-  eventsPerBuffer = 0;
-  irqV[0] = 0;
-  irqV[1] = 0;
-  irqV[2] = 0;
-  irqV[3] = 0;
-  extDggSettings = 0;
-  usbBulkSetup = 0;
+    { FIDRegister, "FirmwareId" },
+    { GMODERegister, "GlobalMode" },
+    { DAQSetRegister, "DAQSettings" },
+    { LEDSrcRegister, "LEDSources" },
+    { DEVSrcRegister, "DeviceSources" },
+    { DGGARegister, "DGGASettings" },
+    { DGGBRegister, "DGGBSettings" },
+    { ScalerA, "ScalerAData" },
+    { ScalerB, "ScalerBData" },
+    { EventsPerBuffer, "EventsPerBuffer" },
+    { ISV12, "Irq12" },
+    { ISV34, "Irq34" },
+    { ISV56, "Irq56" },
+    { ISV78, "Irq78" },
+    { DGGExtended, "ExtDGGSettings" },
+    { USBSetup, "USBBulkSetup" },
+};
 
-  u32 val = 0;
-  int status = 0;
-
-  QMutexLocker locker(&m_lock);
-
-  status = readRegister(0, &val);
-  if (status)
-    firmwareId = (int) val;
-  qDebug("Id: %x",firmwareId);
-
-
-  status = readRegister(4, &val);
-  if (status)
-    globalMode = (int)val & 0xFFFF;
-
-  qDebug("globalMode: %x", globalMode);
-
-  status = readRegister(8, &val);
-  if (status)
-    daqSettings = (int)val;
-
-  status = readRegister(12, &val);
-  if (status)
-    ledSources = (int)val;
-
-  status = readRegister(16, &val);
-  if (status)
-    deviceSources = (int)val;
-
-  status = readRegister(20, &val);
-  if (status)
-    dggAsettings = (int)val;
-
-  status = readRegister(24, &val);
-  if (status)
-    dggBsettings = (int)val;
-
-  status = readRegister(28, &val);
-  if (status)
-    scalerAdata = (int)val;
-
-  status = readRegister(32, &val);
-  if (status)
-    scalerBdata = (int)val;
-
-  status = readRegister(36, &val);
-  if (status)
-    eventsPerBuffer = (u32)val;
-
-  status = readRegister(40, &val);
-  if (status)
-    irqV[0] = (int)val;
-
-  status = readRegister(44, &val);
-  if (status)
-    irqV[1] = (int)val;
-
-  status = readRegister(48, &val);
-  if (status)
-    irqV[2] = (int)val;
-
-  status = readRegister(52, &val);
-  if (status)
-    irqV[3] = (int)val;
-
-  status = readRegister(56, &val);
-  if (status)
-    extDggSettings = (int)val;
-
-  status = readRegister(60, &val);
-  if (status)
-    usbBulkSetup = (int)val;
+QString getRegisterName(u32 registerAddress)
+{
+    return registerNames.value(registerAddress, QSL("Unknown Register"));
 }
-#endif
+
+QList<u32> getRegisterAddresses()
+{
+    static const QList<u32> result = registerNames.keys();
+    return result;
+}
+
+VMEError VMUSB::readAllRegisters(void)
+{
+    firmwareId = 0;
+    globalMode = 0;
+    daqSettings = 0;
+    ledSources = 0;
+    deviceSources = 0;
+    dggAsettings = 0;
+    dggBsettings = 0;
+    scalerAdata = 0;
+    scalerBdata = 0;
+    eventsPerBuffer = 0;
+    irqV[0] = 0;
+    irqV[1] = 0;
+    irqV[2] = 0;
+    irqV[3] = 0;
+    extDggSettings = 0;
+    usbBulkSetup = 0;
+
+    QVector<QPair<int, u32 *>> regVars =
+    {
+        { FIDRegister, &firmwareId },
+        { GMODERegister, &globalMode },
+        { DAQSetRegister, &daqSettings },
+        { LEDSrcRegister, &ledSources },
+        { DEVSrcRegister, &deviceSources },
+        { DGGARegister, &dggAsettings },
+        { DGGBRegister, &dggBsettings },
+        { ScalerA, &scalerAdata },
+        { ScalerB, &scalerBdata },
+        { DGGExtended, &extDggSettings },
+        { USBSetup, &usbBulkSetup },
+        { ISV12, &irqV[0] },
+        { ISV34, &irqV[1] },
+        { ISV56, &irqV[2] },
+        { ISV78, &irqV[3] },
+        { EventsPerBuffer, &eventsPerBuffer },
+    };
+
+    VMEError error;
+
+    for (auto pair: regVars)
+    {
+        error = readRegister(pair.first, pair.second);
+
+        if (error.isError())
+            return error;
+    }
+
+    return error;
+}
 
 
 
@@ -312,7 +300,7 @@ void VMUSB::readAllRegisters(void)
 /*!
     \fn vmUsb::getFirmwareId()
  */
-int VMUSB::getFirmwareId()
+u32 VMUSB::getFirmwareId()
 {
   return firmwareId;
 }
@@ -320,7 +308,7 @@ int VMUSB::getFirmwareId()
 /*!
     \fn vmUsb::getMode()
  */
-int VMUSB::getMode()
+u32 VMUSB::getMode()
 {
   return globalMode;
 }
@@ -328,14 +316,14 @@ int VMUSB::getMode()
 /*!
   \fn vmUsb::getDaqSettings()
  */
-int VMUSB::getDaqSettings()
+u32 VMUSB::getDaqSettings()
 {
   return daqSettings;
 }
 /*!
   \fn vmUsb::getLedSources()
  */
-int VMUSB::getLedSources()
+u32 VMUSB::getLedSources()
 {
   return ledSources;
 }
@@ -343,7 +331,7 @@ int VMUSB::getLedSources()
 /*!
   \fn vmUsb::getDeviceSources()
  */
-int VMUSB::getDeviceSources()
+u32 VMUSB::getDeviceSources()
 {
   return deviceSources;
 }
@@ -351,7 +339,7 @@ int VMUSB::getDeviceSources()
 /*!
   \fn vmUsb::getDggA()
  */
-int VMUSB::getDggA()
+u32 VMUSB::getDggA()
 {
   return dggAsettings;
 }
@@ -359,7 +347,7 @@ int VMUSB::getDggA()
 /*!
   \fn vmUsb::getDggB()
  */
-int VMUSB::getDggB()
+u32 VMUSB::getDggB()
 {
   return dggBsettings;
 }
@@ -367,7 +355,7 @@ int VMUSB::getDggB()
 /*!
   \fn vmUsb::getScalerAdata()
  */
-int VMUSB::getScalerAdata()
+u32 VMUSB::getScalerAdata()
 {
   return scalerAdata;
 }
@@ -375,7 +363,7 @@ int VMUSB::getScalerAdata()
 /*!
   \fn vmUsb::getScalerBdata()
  */
-int VMUSB::getScalerBdata()
+u32 VMUSB::getScalerBdata()
 {
   return scalerBdata;
 }
@@ -391,7 +379,7 @@ u32 VMUSB::getEventsPerBuffer()
 /*!
   \fn vmUsb::getDggSettings()
  */
-int VMUSB::getDggSettings()
+u32 VMUSB::getDggSettings()
 {
   return extDggSettings;
 }
@@ -399,7 +387,7 @@ int VMUSB::getDggSettings()
 /*!
   \fn vmUsb::getUsbSettings()
  */
-int VMUSB::getUsbSettings()
+u32 VMUSB::getUsbSettings()
 {
   return usbBulkSetup;
 }
@@ -453,7 +441,7 @@ VMEError VMUSB::setDaqSettings(int val)
         result = readRegister(8, &regVal);
 
         if (!result.isError())
-            daqSettings = static_cast<int>(regVal);
+            daqSettings = regVal;
     }
 
     return result;
@@ -538,14 +526,20 @@ int VMUSB::setScalerBdata(int val)
   return scalerBdata;
 }
 
-u32 VMUSB::setEventsPerBuffer(u32 val)
+VMEError VMUSB::setEventsPerBuffer(u32 val)
 {
-    u32 retval;
-  if(!writeRegister(36, val).isError()){
-    readRegister(36, &retval);
-    eventsPerBuffer = (u32)retval;
-  }
-  return eventsPerBuffer;
+    auto result = writeRegister(EventsPerBuffer, val);
+
+    if (!result.isError())
+    {
+        u32 regVal;
+        result = readRegister(EventsPerBuffer, &regVal);
+
+        if (!result.isError())
+            eventsPerBuffer = regVal;
+    }
+
+    return result;
 }
 
 static int irq_vector_register_address(int vec)
@@ -635,6 +629,36 @@ uint16_t VMUSB::getIrq(int vec)
     return 0;
 }
 
+/**
+  Read the 16-bit interrupt service vector value for the given zero-based vector number. */
+VMEError VMUSB::readIrq(int vec, u16 *value)
+{
+    int regAddress = irq_vector_register_address(vec);
+
+    if (regAddress < 0)
+        return VMEError(QString("readIrq: invalid vector number given (%1)").arg(vec));
+
+    u32 regValue = 0;
+    auto error = readRegister(regAddress, &regValue);
+
+    if (!error.isError())
+    {
+        int regIndex = vec / 2;
+        irqV[regIndex] = regValue;
+
+        if (vec % 2 == 0)
+        {
+            *value = regValue & 0xFFFF;
+        }
+        else
+        {
+            *value = regValue >> 16;
+        }
+    }
+
+    return error;
+}
+
 /*!
   \fn vmUsb::setDggSettings(int val)
  */
@@ -648,17 +672,18 @@ int VMUSB::setDggSettings(int val)
   return extDggSettings;
 }
 
-/*!
-  \fn vmUsb::setUsbSettings(int val)
- */
-int VMUSB::setUsbSettings(int val)
+VMEError VMUSB::setUsbSettings(int val)
 {
-    u32 retval;
-  if(!writeRegister(60, val).isError()){
-    readRegister(60, &retval);
-    usbBulkSetup = (int)retval;
-  }
-  return usbBulkSetup;
+    auto result = writeRegister(USBSetup, val);
+
+    if (!result.isError())
+    {
+        u32 regVal;
+        result = readRegister(USBSetup, &regVal);
+        if (!result.isError())
+            usbBulkSetup = regVal;
+    }
+    return result;
 }
 
 VMEError VMUSB::writeActionRegister(uint16_t value)
@@ -1091,4 +1116,31 @@ VMEError VMUSB::tryErrorRecovery()
     } while (bytesRead > 0);
 
     return leaveDaqMode();
+}
+
+void dump_registers(VMUSB *vmusb, Dumper dumper)
+{
+    dumper(QSL("Begin VMUSB register dump"));
+    for (u32 addr: getRegisterAddresses())
+    {
+        u32 value = 0;
+        auto error = vmusb->readRegister(addr, &value);
+        auto name = getRegisterName(addr);
+        if (error.isError())
+        {
+            dumper(QString("  Error reading register (%1, 0x%2, %3)")
+                   .arg(addr)
+                   .arg(addr, 2, 16, QLatin1Char('0'))
+                   .arg(name));
+        }
+        else
+        {
+            dumper(QString("  0x%2, %1 = 0x%3 (%4)")
+                   .arg(addr, 2, 10, QLatin1Char(' '))
+                   .arg(addr, 2, 16, QLatin1Char('0'))
+                   .arg(value, 8, 16, QLatin1Char('0'))
+                   .arg(name));
+        }
+    }
+    dumper(QSL("End VMUSB register dump"));
 }

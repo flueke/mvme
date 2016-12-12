@@ -29,6 +29,8 @@
 #include <QVector>
 #include <QMutex>
 
+#include <functional>
+
 class CVMUSBReadoutList;
 struct usb_dev_handle;
 struct usb_device;
@@ -80,21 +82,23 @@ class VMUSB: public VMEController
          * operation that works in autonomous daq mode. */
         VMEError writeActionRegister(uint16_t value);
 
-        //void readAllRegisters(void);
+        VMEError readAllRegisters(void);
 
-        int getFirmwareId();
-        int getMode();
-        int getDaqSettings();
-        int getLedSources();
-        int getDeviceSources();
-        int getDggA();
-        int getDggB();
-        int getScalerAdata();
-        int getScalerBdata();
+        u32 getFirmwareId();
+        u32 getMode();
+        u32 getDaqSettings();
+        u32 getLedSources();
+        u32 getDeviceSources();
+        u32 getDggA();
+        u32 getDggB();
+        u32 getScalerAdata();
+        u32 getScalerBdata();
         u32 getEventsPerBuffer();
         uint16_t getIrq(int vec);
-        int getDggSettings();
-        int getUsbSettings();
+        u32 getDggSettings();
+        u32 getUsbSettings();
+
+        VMEError readIrq(int vec, u16 *value);
 
         int setFirmwareId(int val);
         VMEError setMode(int val);
@@ -105,10 +109,10 @@ class VMUSB: public VMEController
         int setDggB(int val);
         int setScalerAdata(int val);
         int setScalerBdata(int val);
-        u32 setEventsPerBuffer(u32 val);
+        VMEError setEventsPerBuffer(u32 val);
         VMEError setIrq(int vec, uint16_t val);
         int setDggSettings(int val);
-        int setUsbSettings(int val);
+        VMEError setUsbSettings(int val);
 #if 0
         short vmeWrite32(long addr, long data);
         short vmeWrite32(long addr, long data, uint8_t amod);
@@ -170,19 +174,19 @@ class VMUSB: public VMEController
         QVector<vmusb_device_info> deviceInfos;
         usb_dev_handle* hUsbDevice = nullptr;
 
-        int firmwareId;
-        int globalMode;
-        int daqSettings;
-        int ledSources;
-        int deviceSources;
-        int dggAsettings;
-        int dggBsettings;
-        int scalerAdata;
-        int scalerBdata;
+        u32 firmwareId;
+        u32 globalMode;
+        u32 daqSettings;
+        u32 ledSources;
+        u32 deviceSources;
+        u32 dggAsettings;
+        u32 dggBsettings;
+        u32 scalerAdata;
+        u32 scalerBdata;
         u32 eventsPerBuffer;
-        int irqV[4];
-        int extDggSettings;
-        int usbBulkSetup;
+        u32 irqV[4];
+        u32 extDggSettings;
+        u32 usbBulkSetup;
         bool m_daqMode = false;
         QString m_currentSerialNumber;
 
@@ -211,7 +215,8 @@ static const unsigned int DGGARegister(0x14);   // GDD A settings.
 static const unsigned int DGGBRegister(0x18);   // GDD B settings.
 static const unsigned int ScalerA(0x1c);        // Scaler A counter.
 static const unsigned int ScalerB(0x20);        // Scaler B data.
-static const unsigned int ExtractMask(0x24);    // CountExtract mask.
+//static const unsigned int ExtractMask(0x24);    // CountExtract mask. // I think this is from an older firmware.
+static const unsigned int EventsPerBuffer(0x24);
 static const unsigned int ISV12(0x28);          // Interrupt 1/2 dispatch.
 static const unsigned int ISV34(0x2c);          // Interrupt 3/4 dispatch.
 static const unsigned int ISV56(0x30);          // Interrupt 5/6 dispatch.
@@ -238,8 +243,11 @@ namespace TransferSetupRegister
     static const uint32_t multiBufferCountMask   = 0xff;
     static const uint32_t multiBufferCountShift  = 0;
 
-    static const uint32_t timeoutMask            = 0xf00;
+    // FIXME: The docs mention both bit 8 and bit 16 as the start of the timeout value. Verify which is the correct one!
     static const uint32_t timeoutShift           = 8;
+    static const uint32_t timeoutMask            = 0xf00;
+    //static const uint32_t timeoutShift           = 16;
+    //static const uint32_t timeoutMask            = 0xf0000;
 }
 
 namespace ISVWord // half of a ISV register
@@ -262,11 +270,17 @@ namespace GlobalModeRegister
 {
     static const uint32_t MixedBufferShift = 5;
     static const uint32_t MixedBufferMask  = 0x00000020;
+    static const uint32_t ForceScalerDumpShift = 6;
 }
 
 uint16_t*
 listToOutPacket(uint16_t ta, CVMUSBReadoutList* list,
                         size_t* outSize, off_t offset = 0);
 
+QString getRegisterName(u32 registerAddress);
+QList<u32> getRegisterAddresses();
+
+typedef std::function<void (const QString &)> Dumper;
+void dump_registers(VMUSB *vmusb, Dumper dumper);
 
 #endif

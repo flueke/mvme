@@ -183,6 +183,7 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
 {
     auto stats = getStats();
     auto vmusb = dynamic_cast<VMUSB *>(m_context->getController());
+    u64 bufferNumber = stats->totalBuffersRead;
 
     BufferIterator iter(readBuffer->data, readBuffer->used, BufferIterator::Align16);
 
@@ -210,11 +211,13 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
         const double alpha = 0.1;
         stats->vmusbAvgEventsPerBuffer = (alpha * numberOfEvents) + (1.0 - alpha) * stats->vmusbAvgEventsPerBuffer;
 
-#if 0
+#if 1
         if (lastBuffer || scalerBuffer || continuousMode || multiBuffer)
         {
-            qDebug("buffer_size=%u, header1: 0x%08x, lastBuffer=%d, scalerBuffer=%d, continuousMode=%d, multiBuffer=%d, numberOfEvents=%u",
-                   readBuffer->used, header1, lastBuffer, scalerBuffer, continuousMode, multiBuffer, numberOfEvents);
+            qDebug("buffer #%llu, buffer_size=%u, header1: 0x%08x, lastBuffer=%d"
+                   ", scalerBuffer=%d, continuousMode=%d, multiBuffer=%d, numberOfEvents=%u",
+                   bufferNumber, readBuffer->used, header1, lastBuffer, scalerBuffer,
+                   continuousMode, multiBuffer, numberOfEvents);
         }
 #endif
 
@@ -231,24 +234,33 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
         {
             try 
             {
-                if (!processEvent(iter, outputBuffer))
+                if (!processEvent(iter, outputBuffer, bufferNumber))
                 {
-                    emit logMessage(QString(QSL("VMUSB Error: processEvent() returned false, skipping buffer, eventIndex=%1, numberOfEvents=%2, header=0x%3"))
+                    emit logMessage(QString(QSL("VMUSB Error: (buffer #%4) processEvent() returned false, skipping buffer, eventIndex=%1, numberOfEvents=%2, header=0x%3"))
                                     .arg(eventIndex)
                                     .arg(numberOfEvents)
                                     .arg(header1, 8, 16, QLatin1Char('0'))
+                                    .arg(bufferNumber)
                                    );
                     skipBuffer = true;
                     break;
                 }
+#if 0
+                else
+                {
+                    emit logMessage(QString("(buffer #%2) good event for eventindex=%1")
+                                    .arg(eventIndex)
+                                    .arg(bufferNumber));
+                }
+#endif
             }
             catch (const end_of_buffer &)
             {
-                emit logMessage(QString("VMUSB Error: end_of_buffer from processEvent(): eventIndex=%1, numberOfEvents=%2, header=0x%3")
+                emit logMessage(QString("VMUSB Error: (buffer #%4) end_of_buffer from processEvent(): eventIndex=%1, numberOfEvents=%2, header=0x%3")
                                 .arg(eventIndex)
                                 .arg(numberOfEvents)
                                 .arg(header1, 8, 16, QLatin1Char('0'))
-                               );
+                                .arg(bufferNumber));
                 throw;
             }
         }
@@ -262,20 +274,25 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
                     u16 bufferTerminator = iter.extractU16();
                     if (bufferTerminator != Buffer::BufferTerminator)
                     {
-                        emit logMessage(QString("VMUSB Warning: unexpected buffer terminator 0x%1")
-                                        .arg(bufferTerminator, 4, 16, QLatin1Char('0')));
+                        emit logMessage(QString("VMUSB Warning: (buffer #%2) unexpected buffer terminator 0x%1")
+                                        .arg(bufferTerminator, 4, 16, QLatin1Char('0'))
+                                        .arg(bufferNumber));
                     }
                 }
             }
             else
             {
-                emit logMessage(QSL("VMUSB Warning: no terminator words found at end of buffer"));
+                emit logMessage(QSL("VMUSB Warning: (buffer #%1) no terminator words found at end of buffer")
+                                .arg(bufferNumber));
             }
 
             if (iter.bytesLeft() != 0)
             {
-                emit logMessage(QString("VMUSB Warning: %1 bytes left in buffer")
-                                .arg(iter.bytesLeft()));
+                emit logMessage(QString("VMUSB Warning: (buffer #%3) %1 bytes left in buffer, numberOfEvents=%2")
+                                .arg(iter.bytesLeft())
+                                .arg(numberOfEvents)
+                                .arg(bufferNumber)
+                                );
 
                 while (iter.longwordsLeft())
                 {
@@ -325,7 +342,8 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
     }
     catch (const end_of_buffer &)
     {
-        emit logMessage(QSL("VMUSB Warning: end of readBuffer reached unexpectedly!"));
+        emit logMessage(QSL("VMUSB Warning: (buffer #%1) end of readBuffer reached unexpectedly!")
+                        .arg(bufferNumber));
         getStats()->buffersWithErrors++;
     }
 
@@ -350,11 +368,12 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
  * Event Header
  * ...
  */
-bool VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputBuffer)
+bool VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputBuffer, u64 bufferNumber)
 {
     if (iter.shortwordsLeft() < 1)
     {
-        emit logMessage(QString(QSL("VMUSB Error: processEvent(): end of buffer when extracting event header")));
+        emit logMessage(QString(QSL("VMUSB Error: (buffer #%1) processEvent(): end of buffer when extracting event header"))
+                        .arg(bufferNumber));
         return false;
     }
 
@@ -366,24 +385,30 @@ bool VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *output
 
     if (iter.shortwordsLeft() < eventLength)
     {
-        emit logMessage(QSL("VMUSB Error: event length exceeds buffer length, skipping buffer"));
-        iter.skip(sizeof(u16), eventLength);
+        emit logMessage(QSL("VMUSB Error: (buffer #%1) event length exceeds buffer length, skipping buffer")
+                        .arg(bufferNumber));
+        //iter.skip(sizeof(u16), iter.shortwordsLeft());
         return false;
     }
 
     if (stackID > StackIDMax)
     {
-        emit logMessage(QString(QSL("VMUSB: Parsed stackID=%1 is out of range, skipping event")).arg(stackID));
-        iter.skip(sizeof(u16), eventLength);
+        emit logMessage(QString(QSL("VMUSB: (buffer #%2) Parsed stackID=%1 is out of range, skipping event"))
+                        .arg(stackID)
+                        .arg(bufferNumber));
+        //iter.skip(sizeof(u16), eventLength);
         return false;
     }
 
     if (!m_eventConfigByStackID.contains(stackID))
     {
         //qDebug("===== Error: no event config for stackID=%u! ======", stackID);
-        emit logMessage(QString(QSL("VMUSB: No event config for stackID=%1, skipping event")).arg(stackID));
+        emit logMessage(QString(QSL("VMUSB: (buffer #%3) No event config for stackID=%1, eventLength=%2, skipping event"))
+                        .arg(stackID)
+                        .arg(eventLength)
+                        .arg(bufferNumber));
         iter.skip(sizeof(u16), eventLength);
-        return false;
+        return true;
     }
 
     if (partialEvent)
@@ -391,7 +416,8 @@ bool VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *output
         qDebug("eventHeader=0x%08x, stackID=%u, partialEvent=%d, eventLength=%u shorts",
                eventHeader, stackID, partialEvent, eventLength);
         qDebug() << "===== Error: partial event support not implemented! ======";
-        emit logMessage(QSL("VMUSB Error: got a partial event (not supported yet!)"));
+        emit logMessage(QString(QSL("VMUSB Error: (buffer #%1) got a partial event (not supported yet!)"))
+                        .arg(bufferNumber));
         iter.skip(sizeof(u16), eventLength);
         return false;
     }

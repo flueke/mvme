@@ -34,7 +34,7 @@ class VMUSBBufferProcessor: public QObject
 
     private:
         DataBuffer *getFreeBuffer();
-        bool processEvent(BufferIterator &iter, DataBuffer *outputBuffer);
+        bool processEvent(BufferIterator &iter, DataBuffer *outputBuffer, u64 bufferNumber);
         DAQStats *getStats();
 
         MVMEContext *m_context = nullptr;

@@ -52,13 +52,9 @@ void VMUSBReadoutWorker::start(quint32 cycles)
 
     try
     {
-        //
-        // Generate and load VMUSB stacks
-        //
-        m_vmusbStack.resetLoadOffset(); // reset the static load offset
-
         emit logMessage(QSL("VMUSB readout starting"));
 
+        // Reset IRQs
         for (int i = StackIDMin; i <= StackIDMax; ++i)
         {
             error = vmusb->setIrq(i, 0);
@@ -66,18 +62,70 @@ void VMUSBReadoutWorker::start(quint32 cycles)
                 throw QString("Resetting IRQ vectors failed: %1").arg(error.toString());
         }
 
-        error = vmusb->setDaqSettings(0);
+        //
+        // DAQ Settings Register
+        //
+        u32 daqSettings = 0;
+
+        // FIXME: test code; remove once done
+        //u32 scalerPeriodSeconds = 4;
+        //daqSettings |= ((scalerPeriodSeconds / 2) << DaqSettingsRegister::ScalerReadoutPerdiodShift);
+        // FIXME: end of test code
+        error = vmusb->setDaqSettings(daqSettings);
 
         if (error.isError())
             throw QString("Setting DaqSettings register failed: %1").arg(error.toString());
 
-        int globalMode = vmusb->getMode();
+        //
+        // Global Mode Register
+        //
+        int globalMode = 0;
         globalMode |= (1 << GlobalModeRegister::MixedBufferShift);
+        globalMode |= (1 << GlobalModeRegister::ForceScalerDumpShift);
+
+        qDebug() << __PRETTY_FUNCTION__ << "globalMode is" << QString().sprintf("0x%08x", globalMode)
+            << "buffOpt" << (globalMode & 0xf);
 
         error = vmusb->setMode(globalMode);
         if (error.isError())
             throw QString("Setting VMUSB global mode failed: %1").arg(error.toString());
 
+        //
+        // EventsPerBuffer - This only has an effect if BuffOpt=9 in GlobalModeRegister
+        //
+#if 0
+        static const u32 eventsPerBuffer = 3;
+        error = vmusb->setEventsPerBuffer(eventsPerBuffer);
+
+        if (error.isError())
+            throw QString("Setting VMUSB EventsPerBuffer failed: %1").arg(error.toString());
+#endif
+        
+
+        //
+        // USB Bulk Transfer Setup Register
+        //
+        static const int usbBulkTimeoutSecs = 1; // resulting register value is usbBulkTimeoutSecs - 1 (0 == 1s)
+        static const int usbBulkNumberOfBuffers = 200;
+
+        u32 bulkTransfer = (usbBulkNumberOfBuffers | (
+                ((usbBulkTimeoutSecs - 1) << TransferSetupRegister::timeoutShift) & TransferSetupRegister::timeoutMask));
+
+        qDebug() << "setting bulkTransfer to" << QString().sprintf("0x%08x", bulkTransfer);
+        
+        error = vmusb->setUsbSettings(bulkTransfer);
+        if (error.isError())
+            throw QString("Setting VMUSB Bulk Transfer Register failed: %1").arg(error.toString());
+
+        vmusb->readRegister(USBSetup, &bulkTransfer);
+
+        qDebug() << "bulkTransfer readback:" << QString().sprintf("0x%08x", bulkTransfer);
+
+
+        //
+        // Generate and load VMUSB stacks
+        //
+        m_vmusbStack.resetLoadOffset(); // reset the static load offset
         int nextStackID = 2; // start at ID=2 as NIM=0 and scaler=1 (fixed)
 
         for (auto event: daqConfig->eventConfigs)
@@ -215,6 +263,12 @@ void VMUSBReadoutWorker::start(quint32 cycles)
             run_script(vmusb, event->vmeScripts["daq_start"]->getScript(), indentingLogger, true);
         }
 
+
+        //
+        // Debug Dump of all VMUSB registers
+        //
+        dump_registers(vmusb, [this] (const QString &line) { this->logMessage(line); });
+
         //
         // Readout
         //
@@ -309,7 +363,7 @@ void VMUSBReadoutWorker::resume()
         m_desiredState = DAQState::Running;
 }
 
-static const int leaveDaqReadTimeout = 500;
+static const int leaveDaqReadTimeout = 100;
 static const int daqReadTimeout = 2000;
 
 void VMUSBReadoutWorker::readoutLoop()
