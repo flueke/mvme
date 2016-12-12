@@ -10,7 +10,7 @@
     <height>446</height>
    </rect>
   </property>
-  <layout class="QGridLayout" name="gridLayout">
+  <layout class="QGridLayout" name="gridLayout" columnstretch="1,0">
    <item row="0" column="0">
     <widget class="QwtPlot" name="plot">
      <property name="sizePolicy">
@@ -111,6 +111,9 @@
         </item>
        </layout>
       </widget>
+     </item>
+     <item>
+      <widget class="QFrame" name="frame_calib"/>
      </item>
      <item>
       <spacer name="verticalSpacer">

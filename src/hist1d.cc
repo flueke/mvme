@@ -4,6 +4,7 @@
 #include "mvme_config.h"
 #include "mvme_context.h"
 #include "histo_util.h"
+#include "qt-collapsible-section/Section.h"
 
 #include <cmath>
 
@@ -257,6 +258,13 @@ class Hist1DPointData: public QwtSeriesData<QPointF>
         Hist1D *m_histo;
 };
 
+struct CalibUi
+{
+    QDoubleSpinBox *actual1, *actual2,
+                   *target1, *target2;
+    QPushButton *applyButton;
+};
+
 Hist1DWidget::Hist1DWidget(MVMEContext *context, Hist1D *histo, QWidget *parent)
     : Hist1DWidget(context, histo, nullptr, parent)
 {}
@@ -324,6 +332,9 @@ Hist1DWidget::Hist1DWidget(MVMEContext *context, Hist1D *histo, Hist1DConfig *hi
     plotMagnifier->setMouseButton(Qt::NoButton);
 #endif
 
+    //
+    // Stats text
+    //
     m_statsText = new QwtText;
     /* This controls the alignment of the whole text on the canvas aswell as
      * the alignment of text itself. */
@@ -352,6 +363,48 @@ Hist1DWidget::Hist1DWidget(MVMEContext *context, Hist1D *histo, Hist1DConfig *hi
     m_statsTextItem->setText(*m_statsText);
     //m_statsTextItem->setZ(42.0); // something > 0
     m_statsTextItem->attach(ui->plot);
+
+    //
+    // Calib Ui
+    //
+    CalibUi calibUi;
+    calibUi.actual1 = new QDoubleSpinBox;
+    calibUi.actual2 = new QDoubleSpinBox;
+    calibUi.target1 = new QDoubleSpinBox;
+    calibUi.target2 = new QDoubleSpinBox;
+    calibUi.applyButton = new QPushButton(QSL("Apply"));
+    calibUi.applyButton->setEnabled(false);
+
+    QVector<QDoubleSpinBox *> spins = { calibUi.actual1, calibUi.actual2, calibUi.target1, calibUi.target2 };
+
+    for (auto spin: spins)
+    {
+        spin->setDecimals(4);
+        spin->setSingleStep(0.0001);
+        spin->setMinimum(std::numeric_limits<double>::lowest());
+        spin->setMaximum(std::numeric_limits<double>::max());
+        spin->setValue(0.0);
+    }
+    
+    auto calibLayout = new QGridLayout;
+    calibLayout->setContentsMargins(3, 3, 3, 3);
+    calibLayout->setSpacing(2);
+    calibLayout->addWidget(new QLabel(QSL("Actual")), 0, 0, Qt::AlignHCenter);
+    calibLayout->addWidget(calibUi.actual1, 1, 0);
+    calibLayout->addWidget(calibUi.actual2, 2, 0);
+
+    calibLayout->addWidget(new QLabel(QSL("Target")), 0, 1, Qt::AlignHCenter);
+    calibLayout->addWidget(calibUi.target1, 1, 1);
+    calibLayout->addWidget(calibUi.target2, 2, 1);
+
+    calibLayout->addWidget(calibUi.applyButton, 3, 0, 1, 2, Qt::AlignCenter);
+
+    auto calibSection = new Section(QSL("Calibration"));
+    calibSection->setContentLayout(*calibLayout);
+
+    auto calibFrameLayout = new QHBoxLayout(ui->frame_calib);
+    calibFrameLayout->setContentsMargins(0, 0, 0, 0);
+    calibFrameLayout->addWidget(calibSection);
 
     setHistogram(histo, histoConfig);
     displayChanged();
