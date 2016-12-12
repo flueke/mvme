@@ -4,6 +4,7 @@
 #include "config_ui.h"
 #include "treewidget_utils.h"
 #include "mvme_event_processor.h"
+#include "vmusb.h"
 
 #include <QDebug>
 #include <QHBoxLayout>
@@ -104,11 +105,16 @@ DAQConfigTreeWidget::DAQConfigTreeWidget(MVMEContext *context, QWidget *parent)
 
     m_tree->resizeColumnToContents(0);
 
+    QPushButton *pb_treeSettings = nullptr;
+
     {
         auto menu = new QMenu;
         action_showAdvanced = menu->addAction(QSL("Show advanced objects"));
         action_showAdvanced->setCheckable(true);
         connect(action_showAdvanced, &QAction::changed, this, &DAQConfigTreeWidget::onActionShowAdvancedChanged);
+
+        auto action_dumpVMUSBRegisters = menu->addAction(QSL("Dump VMUSB Registers"));
+        connect(action_dumpVMUSBRegisters, &QAction::triggered, this, &DAQConfigTreeWidget::dumpVMUSBRegisters);
 
         pb_treeSettings = new QPushButton(QIcon(":/tree-settings.png"), QSL(""));
         pb_treeSettings->setMenu(menu);
@@ -809,4 +815,14 @@ void DAQConfigTreeWidget::handleShowDiagnostics()
     auto node = m_tree->currentItem();
     auto module = Var2Ptr<ModuleConfig>(node->data(0, DataRole_Pointer));
     emit showDiagnostics(module);
+}
+
+void DAQConfigTreeWidget::dumpVMUSBRegisters()
+{
+    auto vmusb = dynamic_cast<VMUSB *>(m_context->getController());
+
+    if (vmusb && m_context->getDAQState() == DAQState::Idle)
+    {
+        dump_registers(vmusb, [this] (const QString &line) { m_context->logMessage(line); });
+    }
 }

@@ -68,6 +68,7 @@ class DAQConfigTreeWidget: public QWidget
         void initModule();
         void onActionShowAdvancedChanged();
         void handleShowDiagnostics();
+        void dumpVMUSBRegisters();
 
         void runScriptConfigs(const QVector<VMEScriptConfig *> &configs);
 
@@ -80,7 +81,6 @@ class DAQConfigTreeWidget: public QWidget
         TreeNode *m_nodeEvents, *m_nodeManual, *m_nodeStart, *m_nodeStop,
                  *m_nodeScripts;
 
-        QPushButton *pb_treeSettings;
         QAction *action_showAdvanced;
 };
 

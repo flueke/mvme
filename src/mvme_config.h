@@ -303,6 +303,7 @@ class DataFilterConfig: public ConfigObject
         QString m_unitString;
         double m_unitMinValue = 0.0;
         double m_unitMaxValue = 0.0;
+        QVector<QPair<double, double>> m_unitRanges;
 };
 
 class Hist1DConfig: public ConfigObject

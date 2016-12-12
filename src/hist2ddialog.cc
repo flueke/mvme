@@ -171,14 +171,6 @@ static void fill_resolution_combo(QComboBox *combo, int minBits, int maxBits, in
     }
 }
 
-static QwtScaleMap makeConversionMap(double binMin, double binMax, double unitMin, double unitMax)
-{
-    QwtScaleMap result;
-    result.setScaleInterval(binMin, binMax);
-    result.setPaintInterval(unitMin, unitMax);
-    return result;
-}
-
 //
 // Hist2DDialog
 //

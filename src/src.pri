@@ -118,4 +118,6 @@ contains(DEFINES, "VME_CONTROLLER_CAEN") {
         caenusb.cpp \
 }
 
+include($$PWD/3rdparty/3rdparty.pri)
+
 # vim:ft=conf
