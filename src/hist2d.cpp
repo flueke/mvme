@@ -662,104 +662,6 @@ void Hist2DWidget::on_pb_subHisto_clicked()
         m_context->getAnalysisConfig()->addHist2DConfig(histoConfig);
         m_context->openInNewWindow(histo);
     }
-
-#if 0
-
-
-
-
-
-
-
-    auto histoConfig = qobject_cast<Hist2DConfig *>(m_context->getMappedObject(m_hist2d, QSL("ObjectToConfig")));
-
-    if (!histoConfig) return;
-
-    //
-    // X-Axis
-    //
-
-    auto filterConfig = m_context->getAnalysisConfig()->findChildById<DataFilterConfig *>(histoConfig->getFilterId(Qt::XAxis));
-
-    if (!filterConfig) return;
-
-    auto scaleInterval = ui->plot->axisScaleDiv(QwtPlot::xBottom).interval();
-
-    auto axisInfo = makeAxisInfo(Qt::XAxis, scaleInterval, filterConfig, histoConfig);
-
-    qDebug() << "axisInfo for x:"
-        << "filter" << axisInfo.filterConfig
-        << "bits" << axisInfo.bits
-        << "shift" << axisInfo.shift
-        << "offset" << axisInfo.offset
-        << "unitMin" << axisInfo.unitMin
-        << "unitMax" << axisInfo.unitMax
-        ;
-
-    auto xAxisInfo = axisInfo;
-
-    //
-    // Y-Axis
-    //
-    filterConfig = m_context->getAnalysisConfig()->findChildById<DataFilterConfig *>(histoConfig->getFilterId(Qt::YAxis));
-
-    if (!filterConfig) return;
-
-    scaleInterval = ui->plot->axisScaleDiv(QwtPlot::yLeft).interval();
-
-    axisInfo = makeAxisInfo(Qt::YAxis, scaleInterval, filterConfig, histoConfig);
-
-    qDebug() << "axisInfo for y:"
-        << "filter" << axisInfo.filterConfig
-        << "bits" << axisInfo.bits
-        << "shift" << axisInfo.shift
-        << "offset" << axisInfo.offset
-        << "unitMin" << axisInfo.unitMin
-        << "unitMax" << axisInfo.unitMax
-        ;
-
-    auto yAxisInfo = axisInfo;
-
-
-    auto newConfig = new Hist2DConfig;
-    newConfig->setObjectName(histoConfig->objectName() + " sub");
-
-    newConfig->setFilterId(Qt::XAxis, xAxisInfo.filterConfig->getId());
-    newConfig->setFilterId(Qt::YAxis, yAxisInfo.filterConfig->getId());
-
-    newConfig->setFilterAddress(Qt::XAxis, histoConfig->getFilterAddress(Qt::XAxis));
-    newConfig->setFilterAddress(Qt::YAxis, histoConfig->getFilterAddress(Qt::YAxis));
-
-    newConfig->setBits(Qt::XAxis, xAxisInfo.bits);
-    newConfig->setBits(Qt::YAxis, yAxisInfo.bits);
-
-    newConfig->setShift(Qt::XAxis, xAxisInfo.shift);
-    newConfig->setShift(Qt::YAxis, yAxisInfo.shift);
-
-    newConfig->setOffset(Qt::XAxis, xAxisInfo.offset);
-    newConfig->setOffset(Qt::YAxis, yAxisInfo.offset);
-
-    newConfig->setAxisTitle(Qt::XAxis, histoConfig->getAxisTitle(Qt::XAxis));
-    newConfig->setAxisTitle(Qt::YAxis, histoConfig->getAxisTitle(Qt::YAxis));
-
-    newConfig->setAxisUnitLabel(Qt::XAxis, histoConfig->getAxisUnitLabel(Qt::XAxis));
-    newConfig->setAxisUnitLabel(Qt::YAxis, histoConfig->getAxisUnitLabel(Qt::YAxis));
-
-    newConfig->setUnitMin(Qt::XAxis, xAxisInfo.unitMin);
-    newConfig->setUnitMin(Qt::YAxis, yAxisInfo.unitMin);
-
-    newConfig->setUnitMax(Qt::XAxis, xAxisInfo.unitMax);
-    newConfig->setUnitMax(Qt::YAxis, yAxisInfo.unitMax);
-
-    auto newHisto = new Hist2D(newConfig->getBits(Qt::XAxis),
-                               newConfig->getBits(Qt::YAxis));
-
-    newHisto->setProperty("configId", newConfig->getId()); // TODO: remove this. needs an update in mvme_event_processor.cc!
-    m_context->addObjectMapping(newHisto, newConfig, QSL("ObjectToConfig"));
-    m_context->addObjectMapping(newConfig, newHisto, QSL("ConfigToObject"));
-    m_context->addObject(newHisto);
-    m_context->getAnalysisConfig()->addHist2DConfig(newConfig);
-#endif
 }
 
 void Hist2DWidget::on_tb_info_clicked()
@@ -778,16 +680,6 @@ void Hist2DWidget::on_tb_info_clicked()
     auto label = new QLabel(m_hist2d->objectName());
     label->setFrameStyle(QFrame::Panel | QFrame::Sunken);
     layout.addRow("Name", label);
-
-    /*
-    layout.addRow("Resolution x/y", new QLabel(QString("%1 (%2) / %3 (%4)")
-                                               .arg(m_hist2d->getXBits())
-                                               .arg(m_hist2d->getXResolution())
-                                               .arg(m_hist2d->getYBits())
-                                               .arg(m_hist2d->getYResolution())
-                                              ));
-    */
-
 
     auto addAxisInfo = [this, &layout, histoConfig](Qt::Axis axis)
     {
