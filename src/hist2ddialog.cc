@@ -379,7 +379,7 @@ QPair<Hist2D *, Hist2DConfig *> Hist2DDialog::getHistoAndConfig()
             double unitMin = axisUi->spin_unitMin->value();
             double unitMax = axisUi->spin_unitMax->value();
 
-            auto conversion = filter->makeConversionMap();
+            auto conversion = filter->makeConversionMap(address);
 
             double lowerBin = conversion.invTransform(unitMin);
             double upperBin = conversion.invTransform(unitMax);
@@ -489,8 +489,8 @@ void Hist2DDialog::onSourceSelected(Qt::Axis axis, AxisSource prevSource)
 
     if (source.first)
     {
-        unitLimitMin = source.first->getUnitMinValue();
-        unitLimitMax = source.first->getUnitMaxValue();
+        unitLimitMin = source.first->getUnitMin(source.second);
+        unitLimitMax = source.first->getUnitMax(source.second);
         label   = source.first->getUnitString();
 
         if (!label.isEmpty())
@@ -528,7 +528,7 @@ void Hist2DDialog::onSourceSelected(Qt::Axis axis, AxisSource prevSource)
             upperBin = upperBin * std::pow(2.0, shift) + offset;
 
             // and use the full res bins to convert back into units
-            auto conversion = source.first->makeConversionMap();
+            auto conversion = source.first->makeConversionMap(source.second);
             axisUi->spin_unitMin->setValue(conversion.transform(lowerBin));
             axisUi->spin_unitMax->setValue(conversion.transform(upperBin));
 
@@ -577,7 +577,7 @@ void Hist2DDialog::updateResolutionCombo(Qt::Axis axis)
     {
         auto filterConfig = source.first;
         maxBits = filterConfig->getDataBits();
-        auto conversion = filterConfig->makeConversionMap();
+        auto conversion = filterConfig->makeConversionMap(source.second);
 
         
         double unitMin = axisUi->spin_unitMin->value();

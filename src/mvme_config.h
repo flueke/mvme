@@ -280,29 +280,37 @@ class DataFilterConfig: public ConfigObject
         QString getUnitString() const { return m_unitString; }
         void setUnitString(const QString &unit);
 
-        QPair<double, double> getUnitRange() const { return qMakePair(m_unitMinValue, m_unitMaxValue); }
-        void setUnitRange(QPair<double, double> range);
+        double getUnitMin(u32 address) const;
+        void setUnitMin(u32 address, double value);
 
-        double getUnitMinValue() const { return m_unitMinValue; }
-        void setUnitMinValue(double v);
+        double getUnitMax(u32 address) const;
+        void setUnitMax(u32 address, double value);
 
-        double getUnitMaxValue() const { return m_unitMaxValue; }
-        void setUnitMaxValue(double v);
+        QPair<double, double> getUnitRange(u32 address) const;
+        void setUnitRange(u32 address, double min, double max);
+        void setUnitRange(u32 address, QPair<double, double> range);
 
-        int getDataBits() const { return getFilter().getExtractBits('D'); }
+        QPair<double, double> getBaseUnitRange() const;
+        void setBaseUnitRange(double min, double max);
+        void resetToBaseUnits(u32 address);
 
-        QwtScaleMap makeConversionMap() const;
+        u32 getDataBits() const { return getFilter().getExtractBits('D'); }
+        u32 getAddressBits() const { return getFilter().getExtractBits('A'); }
+        u32 getAddressCount() const { return (1u << getAddressBits()); }
+
+        QwtScaleMap makeConversionMap(u32 address) const;
 
     protected:
         virtual void read_impl(const QJsonObject &json) override;
         virtual void write_impl(QJsonObject &json) const override;
 
     private:
+        bool isAddressValid(u32 address);
+
         DataFilter m_filter;
         QString m_axisTitle;
         QString m_unitString;
-        double m_unitMinValue = 0.0;
-        double m_unitMaxValue = 0.0;
+        QPair<double, double> m_baseUnitRange;
         QVector<QPair<double, double>> m_unitRanges;
 };
 
@@ -469,6 +477,10 @@ class AnalysisConfig: public ConfigObject
         QList<Hist1DConfig *> get1DHistogramConfigs() const { return m_1dHistograms; }
         QList<Hist2DConfig *> get2DHistogramConfigs() const { return m_2dHistograms; }
 
+        /* Update 1d and 2d histograms using the given filter as their source.
+         * Axis titles, units and ranges will be updated. */
+        void updateHistogramsForFilter(DataFilterConfig *filter);
+
     protected:
         virtual void read_impl(const QJsonObject &json) override;
         virtual void write_impl(QJsonObject &json) const override;
@@ -478,6 +490,8 @@ class AnalysisConfig: public ConfigObject
         QList<Hist1DConfig *> m_1dHistograms;
         QList<Hist2DConfig *> m_2dHistograms;
 };
+
+void updateHistogramConfigFromFilterConfig(Hist1DConfig *histoConfig, DataFilterConfig *filterConfig);
 
 #if 0
 class VariantMapConfig: public ConfigObject

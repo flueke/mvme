@@ -785,8 +785,8 @@ void DataFilterDialog::loadFromConfig()
     ui->le_axisTitle->setText(m_config->getAxisTitle());
     ui->le_axisUnit->setText(m_config->getUnitString());
 
-    auto minValue = m_config->getUnitMinValue();
-    auto maxValue = m_config->getUnitMaxValue();
+    auto minValue = m_config->getBaseUnitRange().first;
+    auto maxValue = m_config->getBaseUnitRange().second;
 
     ui->spin_rangeMin->setValue(minValue);
     ui->spin_rangeMax->setValue(maxValue);
@@ -817,8 +817,16 @@ void DataFilterDialog::saveToConfig()
     m_config->setFilter(makeFilterFromString(ui->le_filter->text()));
     m_config->setAxisTitle(ui->le_axisTitle->text());
     m_config->setUnitString(ui->le_axisUnit->text());
-    m_config->setUnitMinValue(ui->spin_rangeMin->value());
-    m_config->setUnitMaxValue(ui->spin_rangeMax->value());
+
+    double unitMin = ui->spin_rangeMin->value();
+    double unitMax = ui->spin_rangeMax->value();
+
+    m_config->setBaseUnitRange(unitMin, unitMax);
+
+    for (u32 addr = 0; addr < m_config->getAddressCount(); ++addr)
+    {
+        m_config->setUnitRange(addr, unitMin, unitMax);
+    }
 }
 
 void DataFilterDialog::validate()

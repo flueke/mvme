@@ -567,11 +567,12 @@ QPair<int, int> DAQConfig::getEventAndModuleIndices(ModuleConfig *cfg) const
 // DataFilterConfig
 //
 
-QwtScaleMap DataFilterConfig::makeConversionMap() const
+QwtScaleMap DataFilterConfig::makeConversionMap(u32 address) const
 {
+    auto unitRange = m_unitRanges.value(address, m_baseUnitRange);
     QwtScaleMap result;
     result.setScaleInterval(0, std::pow(2.0, getDataBits()) - 1.0);
-    result.setPaintInterval(getUnitMinValue(), getUnitMaxValue());
+    result.setPaintInterval(unitRange.first, unitRange.second);
     return result;
 }
 
@@ -580,6 +581,13 @@ void DataFilterConfig::setFilter(const DataFilter &filter)
     if (m_filter != filter)
     {
         m_filter = filter;
+        m_baseUnitRange = qMakePair(0.0, (1 << getDataBits()) - 1.0);
+
+        m_unitRanges.clear();
+
+        for (u32 addr = 0; addr < getAddressCount(); ++addr)
+            m_unitRanges.push_back(m_baseUnitRange);
+
         setModified();
     }
 }
@@ -602,37 +610,101 @@ void DataFilterConfig::setUnitString(const QString &unit)
     }
 }
 
-void DataFilterConfig::setUnitRange(QPair<double, double> range)
+double DataFilterConfig::getUnitMin(u32 address) const
 {
-    setUnitMinValue(range.first);
-    setUnitMaxValue(range.second);
+    return m_unitRanges.value(address, m_baseUnitRange).first;
 }
 
-void DataFilterConfig::setUnitMinValue(double v)
+void DataFilterConfig::setUnitMin(u32 address, double value)
 {
-    if (m_unitMinValue != v)
+    if (address < getAddressCount() && m_unitRanges[address].first != value)
     {
-        m_unitMinValue = v;
+        m_unitRanges[address].first = value;
         setModified();
     }
 }
 
-void DataFilterConfig::setUnitMaxValue(double v)
+
+double DataFilterConfig::getUnitMax(u32 address) const
 {
-    if (m_unitMaxValue != v)
+    return m_unitRanges.value(address, m_baseUnitRange).second;
+}
+
+void DataFilterConfig::setUnitMax(u32 address, double value)
+{
+    if (address < getAddressCount() && m_unitRanges[address].second != value)
     {
-        m_unitMaxValue = v;
+        m_unitRanges[address].second = value;
         setModified();
     }
+}
+
+QPair<double, double> DataFilterConfig::getUnitRange(u32 address) const
+{
+    return m_unitRanges.value(address, m_baseUnitRange);
+}
+
+void DataFilterConfig::setUnitRange(u32 address, double min, double max)
+{
+    setUnitRange(address, qMakePair(min, max));
+}
+
+void DataFilterConfig::setUnitRange(u32 address, QPair<double, double> range)
+{
+    if (address < getAddressCount() && m_unitRanges[address] != range)
+    {
+        m_unitRanges[address] = range;
+        setModified();
+    }
+}
+
+QPair<double, double> DataFilterConfig::getBaseUnitRange() const
+{
+    return m_baseUnitRange;
+}
+
+void DataFilterConfig::setBaseUnitRange(double min, double max)
+{
+    auto range = qMakePair(min, max);
+
+    if (range != m_baseUnitRange)
+    {
+        m_baseUnitRange = range;
+        setModified();
+    }
+}
+
+void DataFilterConfig::resetToBaseUnits(u32 address)
+{
+    setUnitRange(address, getBaseUnitRange());
+}
+
+bool DataFilterConfig::isAddressValid(u32 address)
+{
+    return (address < (1u << getAddressBits()));
 }
 
 void DataFilterConfig::read_impl(const QJsonObject &json)
 {
-    m_filter = DataFilter(json["filter"].toString().toLocal8Bit());
+    setFilter(DataFilter(json["filter"].toString().toLocal8Bit()));
     m_axisTitle = json["axisTitle"].toString();
     m_unitString = json["unitString"].toString();
-    m_unitMinValue = json["unitMinValue"].toDouble();
-    m_unitMaxValue = json["unitMaxValue"].toDouble();
+    double baseMin = json["unitMinValue"].toDouble();
+    double baseMax = json["unitMaxValue"].toDouble();
+    m_baseUnitRange = qMakePair(baseMin, baseMax);
+
+    auto array = json["unitRanges"].toArray();
+
+    u32 addr = 0;
+    for (auto it=array.begin();
+         it != array.end();
+         ++it, ++addr)
+    {
+        auto rangeJson = it->toObject();
+        auto range = qMakePair(rangeJson["min"].toDouble(), rangeJson["max"].toDouble());
+        setUnitRange(addr, range);
+    }
+
 
     loadDynamicProperties(json["properties"].toObject(), this);
 }
@@ -642,9 +714,22 @@ void DataFilterConfig::write_impl(QJsonObject &json) const
     json["filter"] = QString::fromLocal8Bit(m_filter.getFilter());
     json["axisTitle"] = getAxisTitle();
     json["unitString"] = getUnitString();
-    json["unitMinValue"] = getUnitMinValue();
-    json["unitMaxValue"] = getUnitMaxValue();
+    json["unitMinValue"] = getBaseUnitRange().first;
+    json["unitMaxValue"] = getBaseUnitRange().second;
 
+    QJsonArray array;
+
+    for (auto range: m_unitRanges)
+    {
+        QJsonObject rangeObject;
+
+        rangeObject["min"] = range.first;
+        rangeObject["max"] = range.second;
+
+        array.append(rangeObject);
+    }
+
+    json["unitRanges"] = array;
 
     json["properties"] = storeDynamicProperties(this);
 }
@@ -1075,6 +1160,65 @@ void AnalysisConfig::write_impl(QJsonObject &json) const
 
         json["2dHistograms"] = array;
     }
+}
+
+void AnalysisConfig::updateHistogramsForFilter(DataFilterConfig *filterConfig)
+{
+    // 1d
+    for (auto histoConfig: get1DHistogramConfigs())
+    {
+        if (histoConfig->getFilterId() == filterConfig->getId())
+        {
+            updateHistogramConfigFromFilterConfig(histoConfig, filterConfig);
+        }
+    }
+
+    // 2d
+    auto update_hist2d_axis = [](Qt::Axis axis, Hist2DConfig *histoConfig, DataFilterConfig *filterConfig)
+    {
+        u32 address = histoConfig->getFilterAddress(axis);
+        histoConfig->setAxisTitle(axis, filterConfig->getAxisTitle());
+        histoConfig->setAxisUnitLabel(axis, filterConfig->getUnitString());
+        histoConfig->setUnitMin(axis, filterConfig->getUnitMin(address));
+        histoConfig->setUnitMax(axis, filterConfig->getUnitMax(address));
+    };
+
+    for (auto histoConfig: get2DHistogramConfigs())
+    {
+        if (histoConfig->getFilterId(Qt::XAxis) == filterConfig->getId())
+        {
+            update_hist2d_axis(Qt::XAxis, histoConfig, filterConfig);
+        }
+
+        if (histoConfig->getFilterId(Qt::YAxis) == filterConfig->getId())
+        {
+            update_hist2d_axis(Qt::YAxis, histoConfig, filterConfig);
+        }
+    }
+}
+
+void updateHistogramConfigFromFilterConfig(Hist1DConfig *histoConfig, DataFilterConfig *filterConfig)
+{
+    auto axisTitle = filterConfig->getAxisTitle();
+    u32 address = histoConfig->getFilterAddress();
+
+    // TODO: move this into Hist1DWidget just as is done for 2D histograms.
+    if (!axisTitle.isEmpty())
+    {
+        axisTitle.replace(QSL("%A"), QString::number(address));
+        axisTitle.replace(QSL("%a"), QString::number(address));
+    }
+    else
+    {
+        axisTitle = QString("%1 %2").arg(filterConfig->objectName()).arg(address);
+    }
+
+    // TODO: replace with custom methods to automatically setModified()
+    histoConfig->setProperty("xAxisTitle", axisTitle);
+    histoConfig->setProperty("xAxisUnit", filterConfig->getUnitString());
+    histoConfig->setProperty("xAxisUnitMin", filterConfig->getUnitMin(address));
+    histoConfig->setProperty("xAxisUnitMax", filterConfig->getUnitMax(address));
+    histoConfig->setModified();
 }
 
 #if 0

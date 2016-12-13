@@ -425,12 +425,10 @@ QwtLinearColorMap *Hist2DWidget::getColorMap() const
 
     if (zAxisIsLin())
     {
-        //qDebug() << __PRETTY_FUNCTION__ << "returning lin colormap";
         colorMap = new QwtLinearColorMap(colorFrom, colorTo);
     }
     else
     {
-        //qDebug() << __PRETTY_FUNCTION__ << "returning log colormap";
         colorMap = new LogarithmicColorMap(colorFrom, colorTo);
     }
 
@@ -508,8 +506,6 @@ void Hist2DWidget::updateCursorInfoLabel()
 {
     if (ui->label_cursorInfo->isVisible())
     {
-        //u32 ix = static_cast<u32>(std::max(m_cursorPosition.x(), 0.0));
-        //u32 iy = static_cast<u32>(std::max(m_cursorPosition.y(), 0.0));
         double ix = std::max(m_cursorPosition.x(), 0.0);
         double iy = std::max(m_cursorPosition.y(), 0.0);
         double value = m_hist2d->value(ix, iy);
@@ -536,108 +532,6 @@ void Hist2DWidget::updateCursorInfoLabel()
 
         ui->label_cursorInfo->setText(text);
     }
-}
-
-struct SubHistoAxisInfo
-{
-    DataFilterConfig *filterConfig;
-    u32 bits;
-    u32 shift;
-    u32 offset;
-    double unitMin;
-    double unitMax;
-};
-
-SubHistoAxisInfo makeAxisInfo(Qt::Axis axis, QwtInterval scaleInterval, DataFilterConfig *filterConfig, Hist2DConfig *histoConfig)
-{
-    QString axisName("X");
-    if (axis == Qt::YAxis)
-        axisName = "Y";
-
-    qDebug() << __PRETTY_FUNCTION__ << "axis =" << axisName;
-
-
-    qDebug() << "scale interval" << scaleInterval;
-
-    /* The scalediv interval is 0-1023 for a 10 bit axis. When upscaling the
-     * maxValue to a 16 bit source this would yield 1023 * 2^(16-10) = 65472
-     * instead of the desired 65536. That's why 1.0 is added to the maxValue
-     * before upscaling.
-     * FIXME: When zooming further and further into the histogram this yields
-     * bin-values that are too large for the visible area and thus more bits
-     * than needed are used.
-     */
-    double lowerBin = std::floor(scaleInterval.minValue());
-    double upperBin = std::ceil(scaleInterval.maxValue());
-
-    if (lowerBin < 0.0)
-        lowerBin = 0.0;
-
-    const double maxBin = std::pow(2.0, histoConfig->getBits(axis));
-    qDebug() << "maxBin" << maxBin;
-
-    if (upperBin > maxBin)
-        upperBin = maxBin;
-
-    upperBin += 1.0;
-
-    qDebug() << "this: lowerBin" << lowerBin << " upperBin" << upperBin;
-
-    auto shift  = histoConfig->getShift(axis);
-    auto offset = histoConfig->getOffset(axis);
-
-    qDebug() << "this: shift" << shift << " offset" << offset;
-
-    // convert to full resolution bin numbers
-    lowerBin = lowerBin * std::pow(2.0, shift) + offset;
-    upperBin = upperBin * std::pow(2.0, shift) + offset;
-
-    qDebug() << "source bins (not adjusted)" << lowerBin << upperBin;
-
-    // limit upper and lower bins to full res limits
-    double sourceUpperBin = std::pow(2.0, filterConfig->getFilter().getExtractBits('D')) - 1.0;
-    lowerBin = std::max(lowerBin, 0.0);
-    upperBin = std::min(upperBin, sourceUpperBin);
-    double range = upperBin - lowerBin;
-
-    // the number of bits needed to store the selected range in full resolution
-    u32 bits = std::ceil(std::log2(range));
-    shift = 0;
-
-    qDebug() << "source bins (adjusted)" << lowerBin << upperBin << range << bits;
-
-    double storedRange = 1 << bits;
-
-    // limit the number of bits
-    static const u32 maxBits = 13;
-    if (bits > maxBits)
-    {
-        shift = bits - maxBits;
-        bits = maxBits;
-    }
-
-    // unit conversion for the full res bin range
-    QwtScaleMap conversion;
-    conversion.setScaleInterval(0, std::pow(2.0, filterConfig->getFilter().getExtractBits('D')) - 1.0);
-    conversion.setPaintInterval(filterConfig->getUnitMinValue(), filterConfig->getUnitMaxValue());
-
-    double unitLower = conversion.transform(lowerBin);
-    double unitUpper = conversion.transform(lowerBin + storedRange - 1.0);
-
-    qDebug() << "unit lower and upper values for lower and upper bins (pre upscale)"
-        << unitLower << unitUpper;
-
-    // axis unit values
-
-    SubHistoAxisInfo result;
-    result.filterConfig = filterConfig;
-    result.bits = bits;
-    result.shift = shift;
-    result.offset = lowerBin;
-    result.unitMin = unitLower;
-    result.unitMax = unitUpper;
-
-    return result;
 }
 
 void Hist2DWidget::on_pb_subHisto_clicked()

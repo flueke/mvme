@@ -197,6 +197,9 @@ Note: The filter matching is case-insensitive, so both
        </item>
        <item row="0" column="1">
         <widget class="QDoubleSpinBox" name="spin_rangeMin">
+         <property name="decimals">
+          <number>4</number>
+         </property>
          <property name="minimum">
           <double>-99999999999999.000000000000000</double>
          </property>
@@ -217,6 +220,9 @@ Note: The filter matching is case-insensitive, so both
        </item>
        <item row="1" column="1">
         <widget class="QDoubleSpinBox" name="spin_rangeMax">
+         <property name="decimals">
+          <number>4</number>
+         </property>
          <property name="minimum">
           <double>-99999999999999.000000000000000</double>
          </property>

@@ -58,8 +58,10 @@ namespace Ui
     class Hist1DWidget;
 }
 
+class DataFilterConfig;
 class Hist1DConfig;
 class MVMEContext;
+class CalibUi;
 
 class Hist1DWidget: public MVMEWidget
 {
@@ -91,11 +93,15 @@ class Hist1DWidget: public MVMEWidget
         bool yAxisIsLog();
         bool yAxisIsLin();
         void updateCursorInfoLabel();
+        void calibApply();
+        void calibFillMax();
+        void calibResetToFilter();
 
         Ui::Hist1DWidget *ui;
         MVMEContext *m_context;
         Hist1D *m_histo = nullptr;
         Hist1DConfig *m_histoConfig = nullptr;
+        DataFilterConfig *m_sourceFilter = nullptr;
         //QwtPlotHistogram *m_plotHisto;
         QwtPlotCurve *m_plotCurve;
         ScrollZoomer *m_zoomer;
@@ -105,6 +111,7 @@ class Hist1DWidget: public MVMEWidget
         QwtText *m_statsText;
         QPointF m_cursorPosition;
         QwtScaleMap m_conversionMap;
+        CalibUi *m_calibUi;
 };
 
 class Hist1DListWidget: public MVMEWidget

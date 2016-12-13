@@ -262,7 +262,9 @@ struct CalibUi
 {
     QDoubleSpinBox *actual1, *actual2,
                    *target1, *target2;
-    QPushButton *applyButton;
+    QPushButton *applyButton,
+                *fillMaxButton,
+                *resetToFilterButton;
 };
 
 Hist1DWidget::Hist1DWidget(MVMEContext *context, Hist1D *histo, QWidget *parent)
@@ -276,6 +278,7 @@ Hist1DWidget::Hist1DWidget(MVMEContext *context, Hist1D *histo, Hist1DConfig *hi
     //, m_plotHisto(new QwtPlotHistogram)
     , m_plotCurve(new QwtPlotCurve)
     , m_replotTimer(new QTimer(this))
+    , m_calibUi(new CalibUi)
 {
     ui->setupUi(this);
 
@@ -367,15 +370,22 @@ Hist1DWidget::Hist1DWidget(MVMEContext *context, Hist1D *histo, Hist1DConfig *hi
     //
     // Calib Ui
     //
-    CalibUi calibUi;
-    calibUi.actual1 = new QDoubleSpinBox;
-    calibUi.actual2 = new QDoubleSpinBox;
-    calibUi.target1 = new QDoubleSpinBox;
-    calibUi.target2 = new QDoubleSpinBox;
-    calibUi.applyButton = new QPushButton(QSL("Apply"));
-    calibUi.applyButton->setEnabled(false);
+    m_calibUi = new CalibUi;
+    m_calibUi->actual1 = new QDoubleSpinBox;
+    m_calibUi->actual2 = new QDoubleSpinBox;
+    m_calibUi->target1 = new QDoubleSpinBox;
+    m_calibUi->target2 = new QDoubleSpinBox;
+    m_calibUi->applyButton = new QPushButton(QSL("Apply"));
+    m_calibUi->fillMaxButton = new QPushButton(QSL("Vis. Max"));
+    m_calibUi->fillMaxButton->setToolTip(QSL("Fill 2nd actual value with visible max"));
+    m_calibUi->resetToFilterButton = new QPushButton(QSL("Restore"));
+    m_calibUi->resetToFilterButton->setToolTip(QSL("Restore base unit values from source filter"));
 
-    QVector<QDoubleSpinBox *> spins = { calibUi.actual1, calibUi.actual2, calibUi.target1, calibUi.target2 };
+    connect(m_calibUi->applyButton, &QPushButton::clicked, this, &Hist1DWidget::calibApply);
+    connect(m_calibUi->fillMaxButton, &QPushButton::clicked, this, &Hist1DWidget::calibFillMax);
+    connect(m_calibUi->resetToFilterButton, &QPushButton::clicked, this, &Hist1DWidget::calibResetToFilter);
+
+    QVector<QDoubleSpinBox *> spins = { m_calibUi->actual1, m_calibUi->actual2, m_calibUi->target1, m_calibUi->target2 };
 
     for (auto spin: spins)
     {
@@ -389,15 +399,19 @@ Hist1DWidget::Hist1DWidget(MVMEContext *context, Hist1D *histo, Hist1DConfig *hi
     auto calibLayout = new QGridLayout;
     calibLayout->setContentsMargins(3, 3, 3, 3);
     calibLayout->setSpacing(2);
+
     calibLayout->addWidget(new QLabel(QSL("Actual")), 0, 0, Qt::AlignHCenter);
-    calibLayout->addWidget(calibUi.actual1, 1, 0);
-    calibLayout->addWidget(calibUi.actual2, 2, 0);
+    calibLayout->addWidget(m_calibUi->actual1, 1, 0);
+    calibLayout->addWidget(m_calibUi->actual2, 2, 0);
 
     calibLayout->addWidget(new QLabel(QSL("Target")), 0, 1, Qt::AlignHCenter);
-    calibLayout->addWidget(calibUi.target1, 1, 1);
-    calibLayout->addWidget(calibUi.target2, 2, 1);
+    calibLayout->addWidget(m_calibUi->target1, 1, 1);
+    calibLayout->addWidget(m_calibUi->target2, 2, 1);
 
-    calibLayout->addWidget(calibUi.applyButton, 3, 0, 1, 2, Qt::AlignCenter);
+    calibLayout->addWidget(m_calibUi->fillMaxButton, 3, 0, 1, 1);
+    calibLayout->addWidget(m_calibUi->applyButton, 3, 1, 1, 1);
+
+    calibLayout->addWidget(m_calibUi->resetToFilterButton, 4, 0, 1, 1);
 
     auto calibSection = new Section(QSL("Calibration"));
     calibSection->setContentLayout(*calibLayout);
@@ -417,6 +431,8 @@ Hist1DWidget::~Hist1DWidget()
 
 void Hist1DWidget::setHistogram(Hist1D *histo, Hist1DConfig *histoConfig)
 {
+    m_sourceFilter = nullptr;
+
     if (m_histoConfig)
         disconnect(m_histoConfig, &ConfigObject::modified, this, &Hist1DWidget::displayChanged);
 
@@ -429,7 +445,13 @@ void Hist1DWidget::setHistogram(Hist1D *histo, Hist1DConfig *histoConfig)
     m_conversionMap.setPaintInterval(0, m_histo->getResolution());
 
     if (m_histoConfig)
+    {
         connect(m_histoConfig, &ConfigObject::modified, this, &Hist1DWidget::displayChanged);
+
+        auto filterId = m_histoConfig->getFilterId();
+        m_sourceFilter = m_context->getAnalysisConfig()->findChildById<DataFilterConfig *>(filterId);
+        ui->frame_calib->setVisible(m_sourceFilter);
+    }
 
     displayChanged();
 }
@@ -679,6 +701,52 @@ void Hist1DWidget::updateCursorInfoLabel()
 
         ui->label_cursorInfo->setText(text);
     }
+}
+
+void Hist1DWidget::calibApply()
+{
+    double a1 = m_calibUi->actual1->value();
+    double a2 = m_calibUi->actual2->value();
+    double t1 = m_calibUi->target1->value();
+    double t2 = m_calibUi->target2->value();
+
+    if (a1 - a2 == 0.0 || t1 == t2)
+        return;
+
+    double a = (t1 - t2) / (a1 - a2);
+    double b = t1 - a * a1;
+
+    u32 address = m_histoConfig->getFilterAddress();
+
+    double actualMin = m_sourceFilter->getUnitMin(address);
+    double actualMax = m_sourceFilter->getUnitMax(address);
+
+    double targetMin = a * actualMin + b;
+    double targetMax = a * actualMax + b;
+
+    qDebug() << __PRETTY_FUNCTION__ << endl
+        << "a1 a2" << a1 << a2 << endl
+        << "t1 t2" << t1 << t2 << endl
+        << "tMinMax" << targetMin << targetMax;
+
+
+    m_sourceFilter->setUnitRange(address, targetMin, targetMax);
+
+    m_context->getAnalysisConfig()->updateHistogramsForFilter(m_sourceFilter);
+}
+
+void Hist1DWidget::calibResetToFilter()
+{
+    u32 address = m_histoConfig->getFilterAddress();
+    m_sourceFilter->resetToBaseUnits(address);
+
+    m_context->getAnalysisConfig()->updateHistogramsForFilter(m_sourceFilter);
+}
+
+void Hist1DWidget::calibFillMax()
+{
+    double maxAt = m_conversionMap.transform(m_stats.maxChannel);
+    m_calibUi->actual2->setValue(maxAt);
 }
 
 //
