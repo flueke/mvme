@@ -234,7 +234,7 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
         {
             try 
             {
-                if (!processEvent(iter, outputBuffer, bufferNumber))
+                if (!processEvent(iter, outputBuffer, bufferNumber, eventIndex))
                 {
                     emit logMessage(QString(QSL("VMUSB Error: (buffer #%4) processEvent() returned false, skipping buffer, eventIndex=%1, numberOfEvents=%2, header=0x%3"))
                                     .arg(eventIndex)
@@ -368,7 +368,7 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
  * Event Header
  * ...
  */
-bool VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputBuffer, u64 bufferNumber)
+bool VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputBuffer, u64 bufferNumber, u16 eventIndex)
 {
     if (iter.shortwordsLeft() < 1)
     {
@@ -425,6 +425,19 @@ bool VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *output
     /* Create a local iterator limited by the event length. A check above made
      * sure that the event length does not exceed the inputs size. */
     BufferIterator eventIter(iter.buffp, eventLength * sizeof(u16), BufferIterator::Align16);
+
+    if (m_logBuffers)
+    {
+        logMessage(QString(">>> Begin event %1 in buffer #%2")
+                   .arg(eventIndex)
+                   .arg(bufferNumber));
+
+        logBuffer(eventIter, [this](const QString &str) { logMessage(str); });
+
+        logMessage(QString("<<< End event %1 in buffer #%2")
+                   .arg(eventIndex)
+                   .arg(bufferNumber));
+    }
 
     //qDebug() << "eventIter size =" << eventIter.bytesLeft() << " bytes";
 

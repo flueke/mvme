@@ -281,3 +281,37 @@ QPair<double, QString> byte_unit(size_t inBytes)
 
     return qMakePair(bytes, units[power]);
 }
+
+void logBuffer(BufferIterator iter, std::function<void (const QString &)> loggerFun)
+{
+    static const u32 wordsPerRow = 8;
+    static const u32 berrMarker  = 0xffffffff;
+    static const u32 EoMMarker   = 0x87654321;
+    QString strbuf;
+
+    while (iter.longwordsLeft())
+    {
+        strbuf.clear();
+        u32 nWords = std::min(wordsPerRow, iter.longwordsLeft());
+
+        for (u32 i=0; i<nWords; ++i)
+        {
+            u32 currentWord = iter.extractU32();
+
+            if (currentWord == berrMarker)
+            {
+                strbuf += QString(QSL("BERRMarker "));
+            }
+            else if (currentWord == EoMMarker)
+            {
+                strbuf += QString(QSL(" EndMarker "));
+            }
+            else
+            {
+                strbuf += QString("0x%1 ").arg(currentWord, 8, 16, QLatin1Char('0'));
+            }
+        }
+
+        loggerFun(strbuf);
+    }
+}

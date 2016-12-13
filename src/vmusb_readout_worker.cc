@@ -50,11 +50,15 @@ void VMUSBReadoutWorker::start(quint32 cycles)
     auto daqConfig = m_context->getDAQConfig();
     VMEError error;
 
+    m_bufferProcessor->setLogBuffers(cycles == 1);
+
     try
     {
         emit logMessage(QSL("VMUSB readout starting"));
 
+        //
         // Reset IRQs
+        //
         for (int i = StackIDMin; i <= StackIDMax; ++i)
         {
             error = vmusb->setIrq(i, 0);
@@ -81,10 +85,7 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         //
         int globalMode = 0;
         globalMode |= (1 << GlobalModeRegister::MixedBufferShift);
-        globalMode |= (1 << GlobalModeRegister::ForceScalerDumpShift);
-
-        qDebug() << __PRETTY_FUNCTION__ << "globalMode is" << QString().sprintf("0x%08x", globalMode)
-            << "buffOpt" << (globalMode & 0xf);
+        //globalMode |= (1 << GlobalModeRegister::ForceScalerDumpShift);
 
         error = vmusb->setMode(globalMode);
         if (error.isError())
@@ -105,22 +106,21 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         //
         // USB Bulk Transfer Setup Register
         //
-        static const int usbBulkTimeoutSecs = 1; // resulting register value is usbBulkTimeoutSecs - 1 (0 == 1s)
-        static const int usbBulkNumberOfBuffers = 200;
+        u32 bulkTransfer = 0;
 
-        u32 bulkTransfer = (usbBulkNumberOfBuffers | (
-                ((usbBulkTimeoutSecs - 1) << TransferSetupRegister::timeoutShift) & TransferSetupRegister::timeoutMask));
+        // FIXME: test code; remove once done
+        //static const int usbBulkTimeoutSecs = 1; // resulting register value is usbBulkTimeoutSecs - 1 (0 == 1s)
+        //static const int usbBulkNumberOfBuffers = 200;
+
+        //u32 bulkTransfer = (usbBulkNumberOfBuffers | (
+        //        ((usbBulkTimeoutSecs - 1) << TransferSetupRegister::timeoutShift) & TransferSetupRegister::timeoutMask));
+        // FIXME: end of test code
 
         qDebug() << "setting bulkTransfer to" << QString().sprintf("0x%08x", bulkTransfer);
         
         error = vmusb->setUsbSettings(bulkTransfer);
         if (error.isError())
             throw QString("Setting VMUSB Bulk Transfer Register failed: %1").arg(error.toString());
-
-        vmusb->readRegister(USBSetup, &bulkTransfer);
-
-        qDebug() << "bulkTransfer readback:" << QString().sprintf("0x%08x", bulkTransfer);
-
 
         //
         // Generate and load VMUSB stacks

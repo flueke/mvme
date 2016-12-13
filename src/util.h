@@ -7,6 +7,7 @@
 #include <QPair>
 #include <QVariant>
 #include <QWidget>
+#include <functional>
 
 #define QSL(str) QStringLiteral(str)
 
@@ -243,5 +244,7 @@ bool gui_write_json_file(const QString &fileName, const QJsonDocument &doc);
 QPair<double, QString> byte_unit(size_t bytes);
 
 //QString format_memory_size(size_t bytes);
+
+void logBuffer(BufferIterator iter, std::function<void (const QString &)> loggerFun);
 
 #endif // UTIL_H

@@ -27,6 +27,7 @@ class VMUSBBufferProcessor: public QObject
         bool processBuffer(DataBuffer *buffer);
 
     public slots:
+        void setLogBuffers(bool b) { m_logBuffers = b; }
         void beginRun();
         void endRun();
         void resetRunState(); // call this when a new DAQ run starts
@@ -34,7 +35,7 @@ class VMUSBBufferProcessor: public QObject
 
     private:
         DataBuffer *getFreeBuffer();
-        bool processEvent(BufferIterator &iter, DataBuffer *outputBuffer, u64 bufferNumber);
+        bool processEvent(BufferIterator &iter, DataBuffer *outputBuffer, u64 bufferNumber, u16 eventIndex);
         DAQStats *getStats();
 
         MVMEContext *m_context = nullptr;
@@ -43,6 +44,7 @@ class VMUSBBufferProcessor: public QObject
         QFile m_listFileOut;
         DataBuffer m_localEventBuffer;
         ListFileWriter *m_listFileWriter = nullptr;
+        bool m_logBuffers = false;
 };
 
 #endif
