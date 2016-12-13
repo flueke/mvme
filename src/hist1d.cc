@@ -156,16 +156,19 @@ Hist1DStatistics Hist1D::calcStatistics(u32 startChannel, u32 onePastEndChannel)
             }
         }
 
-        //qDebug() << "leftbin" << leftBin << "rightBin" << rightBin << "maxBin" << result.maxChannel;
         auto interp = [](double x0, double y0, double x1, double y1, double x)
         {
             return y0 + ((y1 - y0) / (x1 - x0)) *  (x - x0);
         };
 
-        leftBin = interp(result.maxValue, result.maxChannel, value(leftBin), leftBin, halfMax);
-        rightBin = interp(result.maxValue, result.maxChannel, value(rightBin), rightBin, halfMax);
+        qDebug() << "leftbin" << leftBin << "rightBin" << rightBin << "maxBin" << result.maxChannel;
 
-        //qDebug() << "leftbin" << leftBin << "rightBin" << rightBin << "maxBin" << result.maxChannel;
+        // FIXME: this is not correct. am I allowed to sawp x/y when calling interp()?
+
+        leftBin = interp(value(leftBin+1), leftBin+1, value(leftBin), leftBin, halfMax);
+        rightBin = interp(value(rightBin-1), rightBin-1, value(rightBin), rightBin, halfMax);
+
+        qDebug() << "leftbin" << leftBin << "rightBin" << rightBin << "maxBin" << result.maxChannel;
 
         result.fwhm = std::abs(rightBin - leftBin);
     }
