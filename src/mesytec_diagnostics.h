@@ -22,6 +22,7 @@ public:
     void endEvent();
     void handleDataWord(quint32 data);
     RealtimeData *getRealtimeData() const { return m_rtd; }
+    void setLogNextEvent() { m_logNextEvent = true; }
 
     void clearChannelStats(void);
     // resets all internal data. to be called when a new run/replay starts
@@ -70,6 +71,7 @@ private:
     StampMode m_stampMode = Counter;
     bool m_reportCounterDiff = true;
     bool m_reportMissingEOE = true;
+    bool m_logNextEvent = false;
 };
 
 namespace Ui

@@ -170,6 +170,15 @@ void MesytecDiagnostics::endEvent()
         emit logMessage(messagesToLog.join("\n"));
     }
 
+    if (m_logNextEvent)
+    {
+        BufferIterator iter(reinterpret_cast<u8 *>(m_currentEventBuffer->data()),
+                            m_currentEventBuffer->size() * sizeof(u32),
+                            BufferIterator::Align32);
+        logBuffer(iter, [this] (const QString &str) { logMessage(str); });
+        m_logNextEvent = false;
+    }
+
     // swap buffers and clear new current buffer
     std::swap(m_currentEventBuffer, m_lastEventBuffer);
     m_currentEventBuffer->clear();
@@ -489,6 +498,8 @@ MesytecDiagnosticsWidget::MesytecDiagnosticsWidget(MesytecDiagnostics *diag, QWi
 
     connect(diag, &MesytecDiagnostics::logMessage,
             this, &MesytecDiagnosticsWidget::onLogMessage);
+
+    connect(ui->tb_dumpNextEvent, &QAbstractButton::clicked, this, [this]() { m_diag->setLogNextEvent(); });
 
 
     auto updateTimer = new QTimer(this);
