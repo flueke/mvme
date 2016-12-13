@@ -129,31 +129,43 @@ Hist1DStatistics Hist1D::calcStatistics(u32 startChannel, u32 onePastEndChannel)
         result.sigma = sqrt(result.sigma / result.entryCount);
     }
 
+    // FWHM
     if (result.maxValue > 0.0)
     {
-        // find first bin to the left with  value < max/2.0
+        double halfMax = result.maxValue / 2.0;
+
+        // find first bin to the left with  value < halfMax
         double leftBin = 0.0;
         for (s64 bin = result.maxChannel; bin >= startChannel; --bin)
         {
-            if (value(bin) < (result.maxValue / 2.0))
+            if (value(bin) < halfMax)
             {
                 leftBin = bin;
                 break;
             }
         }
 
-        // find first bin to the right with  value < max/2.0
+        // find first bin to the right with  value < halfMax
         double rightBin = 0.0;
         for (u32 bin = result.maxChannel; bin < onePastEndChannel; ++bin)
         {
-            if (value(bin) < (result.maxValue / 2.0))
+            if (value(bin) < halfMax)
             {
                 rightBin = bin;
                 break;
             }
         }
 
-        //qDebug() << "leftbin" << leftBin << "rightBin" << rightBin;
+        //qDebug() << "leftbin" << leftBin << "rightBin" << rightBin << "maxBin" << result.maxChannel;
+        auto interp = [](double x0, double y0, double x1, double y1, double x)
+        {
+            return y0 + ((y1 - y0) / (x1 - x0)) *  (x - x0);
+        };
+
+        leftBin = interp(result.maxValue, result.maxChannel, value(leftBin), leftBin, halfMax);
+        rightBin = interp(result.maxValue, result.maxChannel, value(rightBin), rightBin, halfMax);
+
+        //qDebug() << "leftbin" << leftBin << "rightBin" << rightBin << "maxBin" << result.maxChannel;
 
         result.fwhm = std::abs(rightBin - leftBin);
     }
