@@ -481,7 +481,7 @@ void HistogramTreeWidget::treeContextMenu(const QPoint &pos)
 
     if (node && node->type() == NodeType_DataFilter)
     {
-        menu.addAction(QSL("Open all histograms"), this, &HistogramTreeWidget::openHistoListWidget);
+        menu.addAction(QSL("Open histogram list"), this, &HistogramTreeWidget::openHistoListWidget);
 
         menu.addSeparator();
         menu.addAction(QSL("Clear Histograms"), this, &HistogramTreeWidget::clearHistograms);
