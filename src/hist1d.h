@@ -76,6 +76,8 @@ class Hist1DWidget: public MVMEWidget
 
         void setHistogram(Hist1D *histo, Hist1DConfig *histoConfig = nullptr);
 
+        virtual bool eventFilter(QObject *watched, QEvent *event) override;
+
         friend class Hist1DListWidget;
 
     private slots:

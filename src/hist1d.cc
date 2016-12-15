@@ -299,7 +299,8 @@ class Hist1DPointData: public QwtSeriesData<QPointF>
 struct CalibUi
 {
     QDoubleSpinBox *actual1, *actual2,
-                   *target1, *target2;
+                   *target1, *target2,
+                   *lastFocusedActual;
     QPushButton *applyButton,
                 *fillMaxButton,
                 *resetToFilterButton;
@@ -415,9 +416,13 @@ Hist1DWidget::Hist1DWidget(MVMEContext *context, Hist1D *histo, Hist1DConfig *hi
     m_calibUi->target2 = new QDoubleSpinBox;
     m_calibUi->applyButton = new QPushButton(QSL("Apply"));
     m_calibUi->fillMaxButton = new QPushButton(QSL("Vis. Max"));
-    m_calibUi->fillMaxButton->setToolTip(QSL("Fill 2nd actual value with visible max"));
+    m_calibUi->fillMaxButton->setToolTip(QSL("Fill the last focused actual value with the visible maximum histogram value"));
     m_calibUi->resetToFilterButton = new QPushButton(QSL("Restore"));
     m_calibUi->resetToFilterButton->setToolTip(QSL("Restore base unit values from source filter"));
+
+    m_calibUi->lastFocusedActual = m_calibUi->actual2;
+    m_calibUi->actual1->installEventFilter(this);
+    m_calibUi->actual2->installEventFilter(this);
 
     connect(m_calibUi->applyButton, &QPushButton::clicked, this, &Hist1DWidget::calibApply);
     connect(m_calibUi->fillMaxButton, &QPushButton::clicked, this, &Hist1DWidget::calibFillMax);
@@ -439,11 +444,12 @@ Hist1DWidget::Hist1DWidget(MVMEContext *context, Hist1D *histo, Hist1DConfig *hi
     calibLayout->setSpacing(2);
 
     calibLayout->addWidget(new QLabel(QSL("Actual")), 0, 0, Qt::AlignHCenter);
-    calibLayout->addWidget(m_calibUi->actual1, 1, 0);
-    calibLayout->addWidget(m_calibUi->actual2, 2, 0);
-
     calibLayout->addWidget(new QLabel(QSL("Target")), 0, 1, Qt::AlignHCenter);
+
+    calibLayout->addWidget(m_calibUi->actual1, 1, 0);
     calibLayout->addWidget(m_calibUi->target1, 1, 1);
+
+    calibLayout->addWidget(m_calibUi->actual2, 2, 0);
     calibLayout->addWidget(m_calibUi->target2, 2, 1);
 
     calibLayout->addWidget(m_calibUi->fillMaxButton, 3, 0, 1, 1);
@@ -772,6 +778,9 @@ void Hist1DWidget::calibApply()
     m_sourceFilter->setUnitRange(address, targetMin, targetMax);
 
     m_context->getAnalysisConfig()->updateHistogramsForFilter(m_sourceFilter);
+
+    m_calibUi->actual1->setValue(m_calibUi->target1->value());
+    m_calibUi->actual2->setValue(m_calibUi->target2->value());
 }
 
 void Hist1DWidget::calibResetToFilter()
@@ -785,7 +794,17 @@ void Hist1DWidget::calibResetToFilter()
 void Hist1DWidget::calibFillMax()
 {
     double maxAt = m_conversionMap.transform(m_stats.maxChannel);
-    m_calibUi->actual2->setValue(maxAt);
+    m_calibUi->lastFocusedActual->setValue(maxAt);
+}
+
+bool Hist1DWidget::eventFilter(QObject *watched, QEvent *event)
+{
+    if ((watched == m_calibUi->actual1 || watched == m_calibUi->actual2)
+        && (event->type() == QEvent::FocusIn))
+    {
+        m_calibUi->lastFocusedActual = qobject_cast<QDoubleSpinBox *>(watched);
+    }
+    return MVMEWidget::eventFilter(watched, event);
 }
 
 //
