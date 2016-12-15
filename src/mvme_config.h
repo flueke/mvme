@@ -268,8 +268,9 @@ class DataFilterConfig: public ConfigObject
 
         DataFilterConfig(const DataFilter &filter, QObject *parent = 0)
             : ConfigObject(parent, true)
-            , m_filter(filter)
-        {}
+        {
+            setFilter(filter);
+        }
 
         const DataFilter &getFilter() const { return m_filter; }
         void setFilter(const DataFilter &filter);
