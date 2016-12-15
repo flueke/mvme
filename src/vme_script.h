@@ -50,13 +50,6 @@ enum class DataWidth
     D32
 };
 
-//enum class TransferType
-//{
-//    Single,
-//    BLT,
-//    MBLT
-//};
-
 struct Command
 {
     CommandType type = CommandType::Invalid;
@@ -113,7 +106,6 @@ class SyntaxHighlighter: public QSyntaxHighlighter
 };
 
 uint8_t amod_from_AddressMode(AddressMode mode, bool blt=false, bool mblt=false);
-//uint8_t amod_from_AddressMode(AddressMode mode, TransferType transferType = TransferType::Single);
 
 struct Result
 {
