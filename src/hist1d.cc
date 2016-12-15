@@ -132,7 +132,7 @@ Hist1DStatistics Hist1D::calcStatistics(u32 startChannel, u32 onePastEndChannel)
     // FWHM
     if (result.maxValue > 0.0)
     {
-        double halfMax = result.maxValue / 2.0;
+        const double halfMax = result.maxValue / 2.0;
 
         // find first bin to the left with  value < halfMax
         double leftBin = 0.0;
@@ -156,19 +156,42 @@ Hist1DStatistics Hist1D::calcStatistics(u32 startChannel, u32 onePastEndChannel)
             }
         }
 
+#if 0
+        // Using the delta
+        double deltaX = 1.0; // distance from bin to bin+1;
+        double deltaY = value(leftBin+1) - value(leftBin);
+        double deltaHalfY = value(leftBin+1) - halfMax;
+        double deltaHalfX = deltaHalfY * (deltaX / deltaY);
+        leftBin = (leftBin + 1.0) - deltaHalfX;
+
+        qDebug() << "leftbin" << leftBin
+            << "deltaY" << deltaY
+            << "deltaHalfY" << deltaHalfY
+            << "deltaHalfX" << deltaHalfX;
+
+        deltaY = value(rightBin-1) - value(rightBin);
+        deltaHalfY = value(rightBin-1) - halfMax;
+        deltaHalfX = deltaHalfY * (deltaX / deltaY);
+        rightBin = (rightBin - 1.0) + deltaHalfX;
+
+        qDebug() << "rightBin" << rightBin
+            << "deltaY" << deltaY
+            << "deltaHalfY" << deltaHalfY
+            << "deltaHalfX" << deltaHalfX;
+#else
         auto interp = [](double x0, double y0, double x1, double y1, double x)
         {
             return y0 + ((y1 - y0) / (x1 - x0)) *  (x - x0);
         };
 
-        qDebug() << "leftbin" << leftBin << "rightBin" << rightBin << "maxBin" << result.maxChannel;
 
-        // FIXME: this is not correct. am I allowed to sawp x/y when calling interp()?
+        // FIXME: this is not correct. am I allowed to swap x/y when calling interp()?
 
         leftBin = interp(value(leftBin+1), leftBin+1, value(leftBin), leftBin, halfMax);
         rightBin = interp(value(rightBin-1), rightBin-1, value(rightBin), rightBin, halfMax);
 
-        qDebug() << "leftbin" << leftBin << "rightBin" << rightBin << "maxBin" << result.maxChannel;
+        //qDebug() << "leftbin" << leftBin << "rightBin" << rightBin << "maxBin" << result.maxChannel;
+#endif
 
         result.fwhm = std::abs(rightBin - leftBin);
     }
@@ -740,10 +763,11 @@ void Hist1DWidget::calibApply()
     double targetMax = a * actualMax + b;
 
     qDebug() << __PRETTY_FUNCTION__ << endl
+        << "address" << address << endl
         << "a1 a2" << a1 << a2 << endl
         << "t1 t2" << t1 << t2 << endl
+        << "aMinMax" << actualMin << actualMax << endl
         << "tMinMax" << targetMin << targetMax;
-
 
     m_sourceFilter->setUnitRange(address, targetMin, targetMax);
 
