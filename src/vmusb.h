@@ -271,6 +271,8 @@ namespace GlobalModeRegister
     static const uint32_t MixedBufferShift = 5;
     static const uint32_t MixedBufferMask  = 0x00000020;
     static const uint32_t ForceScalerDumpShift = 6;
+    static const uint32_t Align32Shift = 7;
+    static const uint32_t Align32Mask  = 0x00000080;
 }
 
 uint16_t*

@@ -402,9 +402,9 @@ int VMUSB::setFirmwareId(int val)
 {
     if(!writeRegister(0, val).isError())
     {
-        u32 retval = 0;
-        readRegister(0, &retval);
-        firmwareId = (int)retval;
+        u32 regVal = 0;
+        readRegister(0, &regVal);
+        firmwareId = regVal;
     }
     return firmwareId;
 }
@@ -421,7 +421,7 @@ VMEError VMUSB::setMode(int val)
         u32 regVal;
         result = readRegister(4, &regVal);
         if (!result.isError())
-            globalMode = (int)regVal & 0xFFFF;
+            globalMode = (regVal & 0xFFFF);
     }
     return result;
 }
@@ -455,7 +455,7 @@ int VMUSB::setLedSources(int val)
     u32 retval;
     if(!writeRegister(12, val).isError()){
         readRegister(12, &retval);
-        ledSources = (int)retval;
+        ledSources = retval;
     }
     qDebug("set value: %x", ledSources);
     return ledSources;
@@ -469,7 +469,7 @@ int VMUSB::setDeviceSources(int val)
     u32 retval;
   if(!writeRegister(16, val).isError()){
     readRegister(16, &retval);
-    deviceSources = (int)retval;
+    deviceSources = retval;
   }
   return deviceSources;
 }
@@ -482,7 +482,7 @@ int VMUSB::setDggA(int val)
     u32 retval;
   if(!writeRegister(20, val).isError()){
     readRegister(20, &retval);
-    dggAsettings = (int)retval;
+    dggAsettings = retval;
   }
   return dggAsettings;
 }
@@ -495,7 +495,7 @@ int VMUSB::setDggB(int val)
     u32 retval;
   if(!writeRegister(24, val).isError()){
     readRegister(24, &retval);
-    dggBsettings = (int)retval;
+    dggBsettings = retval;
   }
   return dggBsettings;
 }
@@ -508,7 +508,7 @@ int VMUSB::setScalerAdata(int val)
     u32 retval;
   if(!writeRegister(28, val).isError()){
     readRegister(28, &retval);
-    scalerAdata = (int)retval;
+    scalerAdata = retval;
   }
   return scalerAdata;
 }
@@ -521,7 +521,7 @@ int VMUSB::setScalerBdata(int val)
     u32 retval;
   if(!writeRegister(32, val).isError()){
     readRegister(32, &retval);
-    scalerBdata = (int)retval;
+    scalerBdata = retval;
   }
   return scalerBdata;
 }
@@ -667,7 +667,7 @@ int VMUSB::setDggSettings(int val)
     u32 retval;
   if(!writeRegister(56, val).isError()){
     readRegister(56, &retval);
-    extDggSettings = (int)retval;
+    extDggSettings = retval;
   }
   return extDggSettings;
 }
@@ -741,7 +741,7 @@ int VMUSB::setScalerTiming(unsigned int frequency, unsigned char period, unsigne
 
   if(!writeRegister(8, val).isError()){
     readRegister(8, &retval);
-    daqSettings = (int)retval;
+    daqSettings = retval;
   }
   else
     qDebug("Write failed");
