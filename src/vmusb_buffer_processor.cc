@@ -192,9 +192,12 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
 {
     auto stats = getStats();
     auto vmusb = m_vmusb;
+    auto alignment = ((vmusb->getMode() & GlobalModeRegister::Align32Mask)
+                      ? BufferIterator::Align32
+                      : BufferIterator::Align16);
     u64 bufferNumber = stats->totalBuffersRead;
 
-    BufferIterator iter(readBuffer->data, readBuffer->used, BufferIterator::Align16);
+    BufferIterator iter(readBuffer->data, readBuffer->used, alignment);
 
     DataBuffer *outputBuffer = getFreeBuffer();
 
@@ -472,18 +475,16 @@ bool VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *output
         u32 *moduleHeader = outp++;
         *moduleHeader = (((u32)module->type) << ModuleTypeShift) & ModuleTypeMask;
 
-        // extract and copy data until we used up the whole event length
-        // or until BerrMarker and EndMarker have been found
-        while (eventIter.longwordsLeft() >= 2)
+        /* Extract and copy data until we used up the whole event length or
+         * until the EndMarker has been found. */
+        while (eventIter.longwordsLeft() >= 1)
         {
-            /* TODO: this assumes 32 bit data from the module and BerrMarker
-             * followed by EndMarker. Support modules/readout stacks
-             * yielding 16 bit data and don't require a BerrMarker.
-             * Note: just pad 16-bit data with zeroes. */
+            /* Note: this assumes 32 bit data alignment from the module! */
+
             u32 data = eventIter.extractU32();
-            if (data == BerrMarker && eventIter.peekU32() == EndMarker)
+            if (data == EndMarker)
             {
-                *outp++ = eventIter.extractU32(); // copy the EndMarker
+                *outp++ = EndMarker; // copy the EndMarker
                 ++subEventSize;
 
                 *moduleHeader |= (subEventSize << SubEventSizeShift) & SubEventSizeMask;
