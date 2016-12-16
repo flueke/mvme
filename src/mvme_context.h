@@ -175,6 +175,7 @@ class MVMEContext: public QObject
         void pauseDAQ();
         void resumeDAQ();
         void openInNewWindow(QObject *object);
+        void addWidgetWindow(QWidget *widget, QSize windowSize = QSize(600, 400));
 
     private slots:
         void tryOpenController();

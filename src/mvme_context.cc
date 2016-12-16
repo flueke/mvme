@@ -596,6 +596,14 @@ void MVMEContext::openInNewWindow(QObject *object)
         m_mainwin->openInNewWindow(object);
 }
 
+void MVMEContext::addWidgetWindow(QWidget *widget, QSize windowSize)
+{
+    if (m_mainwin)
+    {
+        m_mainwin->addWidgetWindow(widget);
+    }
+}
+
 void MVMEContext::logMessage(const QString &msg)
 {
     emit sigLogMessage(msg);

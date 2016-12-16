@@ -7,6 +7,7 @@
 #include <QMessageBox>
 #include <QSettings>
 #include <QStandardPaths>
+#include <QTextBrowser>
 #include <QTextEdit>
 #include <QToolBar>
 #include <QToolButton>
@@ -75,10 +76,31 @@ VMEScriptEditor::VMEScriptEditor(MVMEContext *context, VMEScriptConfig *script, 
         loadButton->setPopupMode(QToolButton::InstantPopup);
 
     m_toolbar->addAction(QIcon(":/document-save-as.png"), "Save to file", this, &VMEScriptEditor::saveToFile);
-
     m_toolbar->addSeparator();
-
     m_toolbar->addAction(QIcon(":/document-revert.png"), "Revert Changes", this, &VMEScriptEditor::revert); 
+    m_toolbar->addSeparator();
+    m_toolbar->addAction(QIcon(":/help.png"), "Script Help", this, [this]() {
+        
+        QFile inFile(":/vme-script-help.html");
+        if (inFile.open(QIODevice::ReadOnly))
+        {
+            auto tb = new QTextBrowser;
+            QTextStream inStream(&inFile);
+            tb->document()->setHtml(inStream.readAll());
+
+            // scroll to top
+            auto cursor = tb->textCursor();
+            cursor.setPosition(0);
+            tb->setTextCursor(cursor);
+
+            auto widget = new QWidget(this);
+            widget->setWindowTitle(QSL("VME Script Reference"));
+            auto layout = new QHBoxLayout(widget);
+            layout->setContentsMargins(0, 0, 0, 0);
+            layout->addWidget(tb);
+            m_context->addWidgetWindow(widget);
+        }
+    });
 }
 
 bool VMEScriptEditor::isModified() const
