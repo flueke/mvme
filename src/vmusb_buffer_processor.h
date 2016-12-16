@@ -13,6 +13,7 @@ class EventConfig;
 class BufferIterator;
 class DAQStats;
 class ListFileWriter;
+class VMUSB;
 
 class VMUSBBufferProcessor: public QObject
 {
@@ -45,6 +46,7 @@ class VMUSBBufferProcessor: public QObject
         DataBuffer m_localEventBuffer;
         ListFileWriter *m_listFileWriter = nullptr;
         bool m_logBuffers = false;
+        VMUSB *m_vmusb = nullptr;
 };
 
 #endif

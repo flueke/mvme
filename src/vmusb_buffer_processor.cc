@@ -146,6 +146,15 @@ void VMUSBBufferProcessor::beginRun()
 
         getStats()->listFileBytesWritten = m_listFileWriter->bytesWritten();
     }
+
+    m_vmusb = dynamic_cast<VMUSB *>(m_context->getController());
+
+    if (!m_vmusb)
+    {
+        /* This should not happen but ensures that m_vmusb is set when
+         * processBuffer() will be called later on. */
+        throw QString(QSL("Error from VMUSBBufferProcessor: no VMUSB present!"));
+    }
 }
 
 void VMUSBBufferProcessor::endRun()
@@ -182,7 +191,7 @@ void VMUSBBufferProcessor::resetRunState()
 bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
 {
     auto stats = getStats();
-    auto vmusb = dynamic_cast<VMUSB *>(m_context->getController());
+    auto vmusb = m_vmusb;
     u64 bufferNumber = stats->totalBuffersRead;
 
     BufferIterator iter(readBuffer->data, readBuffer->used, BufferIterator::Align16);
