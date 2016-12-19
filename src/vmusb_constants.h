@@ -1,6 +1,8 @@
 #ifndef UUID_09e438bb_1fac_49bb_b2d5_5c514a191e48
 #define UUID_09e438bb_1fac_49bb_b2d5_5c514a191e48
 
+#include "typedefs.h"
+
 namespace vmusb_constants
 {
 
@@ -28,7 +30,7 @@ static const int EventLengthMask    = 0xfff;
  * actually appear in the output data stream. */
 //static const int EventTerminator    = 0xaaaa;
 
-static const int BufferTerminator   = 0xffff;
+static const u16 BufferTerminator   = 0xffff;
 }
 
 namespace GlobalMode

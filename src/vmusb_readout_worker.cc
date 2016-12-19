@@ -225,7 +225,7 @@ void VMUSBReadoutWorker::start(quint32 cycles)
             }
         }
 
-        emit logMessage(QSL("Initializing Modules:"));
+        emit logMessage(QSL("\nInitializing Modules:"));
         for (auto event: daqConfig->eventConfigs)
         {
             for (auto module: event->modules)
@@ -267,6 +267,7 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         //
         // Debug Dump of all VMUSB registers
         //
+        emit logMessage(QSL(""));
         dump_registers(vmusb, [this] (const QString &line) { this->logMessage(line); });
 
         //

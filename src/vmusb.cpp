@@ -961,7 +961,12 @@ VMEError VMUSB::write32(u32 address, u32 value, u8 amod)
     CVMUSBReadoutList readoutList;
     readoutList.addWrite32(address, amod, value);
 
-    u16 response = 0;
+    /* Always use a 32-bit value to hold the response not taking into account
+     * the current alignment mode. In 16-bit alignment mode the VMUSB will only
+     * yield a 16-bit word but that does not cause any problems here. If not
+     * using a 32-bit value we'd need to handle the align16 and align32 cases
+     * separately. */
+    u32 response = 0;
     size_t bytesRead = 0;
     auto error = listExecute(&readoutList, &response, sizeof(response), &bytesRead);
 
@@ -979,7 +984,8 @@ VMEError VMUSB::write16(u32 address, u16 value, u8 amod)
     CVMUSBReadoutList readoutList;
     readoutList.addWrite16(address, amod, value);
 
-    u16 response = 0;
+    /* Same as in write32: always use a 32-bit value to hold the result. */
+    u32 response = 0;
     size_t bytesRead = 0;
     auto error = listExecute(&readoutList, &response, sizeof(response), &bytesRead);
 
