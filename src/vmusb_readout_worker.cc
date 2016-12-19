@@ -3,6 +3,7 @@
 #include "vmusb.h"
 #include "CVMUSBReadoutList.h"
 #include <QCoreApplication>
+#include <QElapsedTimer>
 #include <QThread>
 #include <memory>
 #include <functional>
@@ -364,8 +365,8 @@ void VMUSBReadoutWorker::resume()
         m_desiredState = DAQState::Running;
 }
 
-static const int leaveDaqReadTimeout = 100;
-static const int daqReadTimeout = 2000;
+static const int leaveDaqReadTimeout_ms = 100;
+static const int daqReadTimeout_ms = 250;
 
 void VMUSBReadoutWorker::readoutLoop()
 {
@@ -392,27 +393,66 @@ void VMUSBReadoutWorker::readoutLoop()
             if (error.isError())
                 throw QString("Error leaving VMUSB DAQ mode: %1").arg(error.toString());
 
-            while (readBuffer(leaveDaqReadTimeout) > 0);
+            while (readBuffer(leaveDaqReadTimeout_ms) > 0);
             setState(DAQState::Paused);
             emit logMessage(QSL("VMUSB readout paused"));
         }
         // resume
         else if (m_state == DAQState::Paused && m_desiredState == DAQState::Running)
         {
-            auto error = vmusb->enterDaqMode();
+            error = vmusb->enterDaqMode();
             if (error.isError())
                 throw QString("Error entering VMUSB DAQ mode: %1").arg(error.toString());
 
             setState(DAQState::Running);
             emit logMessage(QSL("VMUSB readout resumed"));
         }
+        // stop
         else if (m_desiredState == DAQState::Stopping)
         {
             break;
         }
+        // stay in running state
         else if (m_state == DAQState::Running)
         {
-            int bytesRead = readBuffer(daqReadTimeout);
+            int bytesRead = readBuffer(daqReadTimeout_ms);
+
+            /* XXX: Begin hack:
+             * A timeout here can mean that either there is an error when
+             * communicating with the vmusb or that no data is available. The
+             * second case can happen if the module sends no or very little
+             * data so that the internal buffer of the controller does not fill
+             * up fast enough. To avoid the second case a smaller buffer size
+             * could be chosen but that will negatively impact performance for
+             * high data rates. Another method would be to use VMUSBs watchdog
+             * feature but that does not seem to work.
+             * Now testing another method: when getting a read timeout leave
+             * DAQ mode which forces the controller to dump its buffer, then
+             * resume DAQ mode. If we still don't receive data after this there
+             * is a communication error, otherwise the data rate was just too
+             * low to fill the buffer and we continue on. */
+#if 1
+            if (bytesRead <= 0)
+            {
+                error = vmusb->leaveDaqMode();
+                if (error.isError())
+                    throw QString("Error leaving VMUSB DAQ mode (timeout handling): %1").arg(error.toString());
+
+                QElapsedTimer hackTime;
+                hackTime.start();
+                static const int hackTimeout = 10;
+                bytesRead = readBuffer(hackTimeout);
+                qint64 hackElapsed = hackTime.nsecsElapsed();
+
+                qDebug() << "VMUSB hackElapsed =" << hackElapsed << "ns,"
+                    << hackElapsed / 1e6 << "ms";
+
+
+                error = vmusb->enterDaqMode();
+                if (error.isError())
+                    throw QString("Error entering VMUSB DAQ mode (timeout handling): %1").arg(error.toString());
+            }
+#endif
 
             if (bytesRead <= 0)
             {
@@ -453,7 +493,7 @@ void VMUSBReadoutWorker::readoutLoop()
     if (error.isError())
         throw QString("Error leaving VMUSB DAQ mode: %1").arg(error.toString());
 
-    while (readBuffer(leaveDaqReadTimeout) > 0);
+    while (readBuffer(leaveDaqReadTimeout_ms) > 0);
 }
 
 void VMUSBReadoutWorker::setState(DAQState state)

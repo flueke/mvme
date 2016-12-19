@@ -716,12 +716,10 @@ VMEError VMUSB::writeActionRegister(uint16_t value)
         m_daqMode = daqMode;
         if (daqMode)
         {
-            qDebug() << "vmusb: entered daq mode";
             emit daqModeEntered();
         }
         else
         {
-            qDebug() << "vmusb: left daq mode";
             emit daqModeLeft();
         }
         emit daqModeChanged(daqMode);
@@ -1039,13 +1037,11 @@ VMEError VMUSB::blockRead(u32 address, u32 transfers, QVector<u32> *dest, u8 amo
 
 VMEError VMUSB::enterDaqMode()
 {
-    qDebug() << __PRETTY_FUNCTION__;
     return writeActionRegister(1);
 }
 
 VMEError VMUSB::leaveDaqMode()
 {
-    qDebug() << __PRETTY_FUNCTION__;
     return writeActionRegister(0);
 }
 
