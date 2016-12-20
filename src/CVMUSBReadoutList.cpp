@@ -201,6 +201,7 @@ void CVMUSBReadoutList::addScriptCommand(const vme_script::Command &cmd)
                 {
                     case DataWidth::D16:
                         addRead16(cmd.address, amod_from_AddressMode(cmd.addressMode));
+                        addMarker(0x0000u); // Align to 32-bits by padding with zeroes
                         break;
                     case DataWidth::D32:
                         addRead32(cmd.address, amod_from_AddressMode(cmd.addressMode));

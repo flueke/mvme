@@ -42,6 +42,8 @@ enum class VMEModuleType
     MDPP32  = 5,
     MDI2    = 6,
 
+    MesytecCounter = 16,
+
     // RegisterRead = 20, // TODO: add support for this. maybe?
     VHS4030p = 21,
 };
@@ -72,6 +74,7 @@ static const QMap<VMEModuleType, QString> VMEModuleTypeNames =
     { VMEModuleType::MDI2,      "MDI-2" },
     //{ VMEModuleType::Generic,   "Generic" },
     { VMEModuleType::VHS4030p,  "iseg VHS4030p" },
+    { VMEModuleType::MesytecCounter,  "Mesytec Counter" },
 };
 
 static const QMap<VMEModuleType, QString> VMEModuleShortNames =
@@ -84,6 +87,7 @@ static const QMap<VMEModuleType, QString> VMEModuleShortNames =
     { VMEModuleType::MDI2,      "mdi2" },
     //{ VMEModuleType::Generic,   "generic" },
     { VMEModuleType::VHS4030p,  "vhs4030p" },
+    { VMEModuleType::MesytecCounter,  "mesytec_counter" },
 };
 
 struct DataFilterDefinition

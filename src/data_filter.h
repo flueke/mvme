@@ -25,22 +25,24 @@
 class DataFilter
 {
     public:
-        DataFilter(const QByteArray &filter = QByteArray());
+        DataFilter(const QByteArray &filter = QByteArray(), s32 wordIndex = -1);
 
         QByteArray getFilter() const { return m_filter; }
 
         inline u32 getMatchMask() const { return m_matchMask; }
         inline u32 getMatchValue() const { return m_matchValue; }
 
-        inline bool matches(u32 value) const
+        inline bool matches(u32 value, s32 wordIndex = -1) const
         {
-            return ((value & getMatchMask()) == getMatchValue());
+            return ((m_matchWordIndex < 0) || (m_matchWordIndex == wordIndex))
+                && ((value & getMatchMask()) == getMatchValue());
         }
 
         u32 getExtractMask(char marker) const;
         u32 getExtractShift(char marker) const;
         u32 getExtractBits(char marker) const;
         u32 extractData(u32 value, char marker) const;
+        s32 getWordIndex() const { return m_matchWordIndex; }
 
         bool operator==(const DataFilter &other) const;
         inline bool operator!=(const DataFilter &other) { return !(*this == other); }
@@ -55,6 +57,7 @@ class DataFilter
 
         u32 m_matchMask  = 0;
         u32 m_matchValue = 0;
+        s32 m_matchWordIndex = -1;
 };
 
 #endif

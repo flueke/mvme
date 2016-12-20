@@ -4,8 +4,9 @@
 #include <cctype>
 #include <stdexcept>
 
-DataFilter::DataFilter(const QByteArray &filter)
+DataFilter::DataFilter(const QByteArray &filter, s32 wordIndex)
     : m_filter(filter)
+    , m_matchWordIndex(wordIndex)
 {
     if (filter.size() > 32)
         throw std::length_error("maximum filter size of 32 exceeded");
@@ -75,11 +76,13 @@ u32 DataFilter::extractData(u32 value, char marker) const
 
 bool DataFilter::operator==(const DataFilter &other) const
 {
-    return (m_filter == other.m_filter);
+    return (m_filter == other.m_filter)
+        && (m_matchWordIndex == other.m_matchWordIndex);
 }
 
 QString DataFilter::toString() const
 {
-    return QString("DataFilter(f=%1)")
-        .arg(QString::fromLocal8Bit(getFilter()));
+    return QString("DataFilter(f=%1,i=%2)")
+        .arg(QString::fromLocal8Bit(getFilter()))
+        .arg(m_matchWordIndex);
 }

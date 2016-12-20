@@ -641,9 +641,13 @@ void DAQConfigTreeWidget::addModule()
             
             module->vmeScripts["parameters"]->setScriptContents(loader.readTemplate(
                     QString("%1_parameters.vme").arg(VMEModuleShortNames.value(module->type, "unknown"))));
-            module->vmeScripts["readout_settings"]->setScriptContents(loader.readTemplate(QSL("mesytec_readout_settings.vme")));
-            module->vmeScripts["readout"]->setScriptContents(loader.readTemplate(QSL("mesytec_readout.vme")));
-            module->vmeScripts["reset"]->setScriptContents(loader.readTemplate(QSL("mesytec_reset.vme")));
+
+            if (isMesytecModule(module->type))
+            {
+                module->vmeScripts["readout_settings"]->setScriptContents(loader.readTemplate(QSL("mesytec_readout_settings.vme")));
+                module->vmeScripts["readout"]->setScriptContents(loader.readTemplate(QSL("mesytec_readout.vme")));
+                module->vmeScripts["reset"]->setScriptContents(loader.readTemplate(QSL("mesytec_reset.vme")));
+            }
 
             event->addModuleConfig(module);
 

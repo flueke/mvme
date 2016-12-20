@@ -56,7 +56,7 @@ void EventConfigDialog::loadFromConfig()
     ui->combo_triggerCondition->setCurrentIndex(
         static_cast<int>(config->triggerCondition));
 
-    ui->spin_period->setValue(config->scalerReadoutPeriod * 0.5); // TODO: why 0.5? unit for the readout period?
+    ui->spin_period->setValue(config->scalerReadoutPeriod * 0.5);
     ui->spin_frequency->setValue(config->scalerReadoutFrequency);
     ui->spin_irqLevel->setValue(config->irqLevel);
     ui->spin_irqVector->setValue(config->irqVector);
@@ -68,7 +68,7 @@ void EventConfigDialog::saveToConfig()
 
     config->setObjectName(ui->le_name->text());
     config->triggerCondition = static_cast<TriggerCondition>(ui->combo_triggerCondition->currentIndex());
-    config->scalerReadoutPeriod = static_cast<uint8_t>(ui->spin_period->value() * 2);
+    config->scalerReadoutPeriod = static_cast<uint8_t>(ui->spin_period->value() * 2.0);
     config->scalerReadoutFrequency = static_cast<uint16_t>(ui->spin_frequency->value());
     config->irqLevel = static_cast<uint8_t>(ui->spin_irqLevel->value());
     config->irqVector = static_cast<uint8_t>(ui->spin_irqVector->value());

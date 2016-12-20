@@ -431,7 +431,8 @@ void VMUSBReadoutWorker::readoutLoop()
              * resume DAQ mode. If we still don't receive data after this there
              * is a communication error, otherwise the data rate was just too
              * low to fill the buffer and we continue on. */
-#if 1
+#define USE_DAQMODE_HACK
+#ifdef USE_DAQMODE_HACK
             if (bytesRead <= 0)
             {
                 error = vmusb->leaveDaqMode();
@@ -440,12 +441,14 @@ void VMUSBReadoutWorker::readoutLoop()
 
                 QElapsedTimer hackTime;
                 hackTime.start();
+
                 static const int hackTimeout = 10;
                 bytesRead = readBuffer(hackTimeout);
+
                 qint64 hackElapsed = hackTime.nsecsElapsed();
 
-                qDebug() << "VMUSB hackElapsed =" << hackElapsed << "ns,"
-                    << hackElapsed / 1e6 << "ms";
+                //qDebug() << "VMUSB hackElapsed =" << hackElapsed << "ns,"
+                //    << hackElapsed / 1e6 << "ms";
 
 
                 error = vmusb->enterDaqMode();

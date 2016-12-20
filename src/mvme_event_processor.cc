@@ -191,6 +191,8 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                     diag->beginEvent();
                 }
 
+                s32 wordIndexInSubEvent = 0;
+
                 for (u32 i=0; i<subEventSize-1; ++i)
                 {
                     u32 currentWord = iter.extractU32();
@@ -203,7 +205,7 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                             << "current word" << hex << currentWord << dec;
 #endif
 
-                        if (filterConfig->getFilter().matches(currentWord))
+                        if (filterConfig->getFilter().matches(currentWord, wordIndexInSubEvent))
                         {
                             u32 address = filterConfig->getFilter().extractData(currentWord, 'A');
                             u32 data    = filterConfig->getFilter().extractData(currentWord, 'D');
@@ -225,6 +227,16 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                     {
                         diag->handleDataWord(currentWord);
                     }
+
+                    if (moduleType == VMEModuleType::MesytecCounter)
+                    {
+                        emit logMessage(QString("CounterWord %1: 0x%2")
+                                        .arg(wordIndexInSubEvent)
+                                        .arg(currentWord, 8, 16, QLatin1Char('0')));
+
+                    }
+
+                    ++wordIndexInSubEvent;
                 }
 
                 if (diag)

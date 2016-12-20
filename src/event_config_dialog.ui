@@ -106,15 +106,21 @@
         </widget>
        </item>
        <item row="0" column="1">
-        <widget class="QSpinBox" name="spin_period">
-         <property name="suffix">
-          <string> s</string>
-         </property>
+        <widget class="QDoubleSpinBox" name="spin_period">
          <property name="prefix">
           <string>Every </string>
          </property>
+         <property name="suffix">
+          <string> seconds</string>
+         </property>
+         <property name="decimals">
+          <number>1</number>
+         </property>
          <property name="maximum">
-          <number>127</number>
+          <double>127.500000000000000</double>
+         </property>
+         <property name="singleStep">
+          <double>0.500000000000000</double>
          </property>
         </widget>
        </item>

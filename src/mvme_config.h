@@ -273,6 +273,7 @@ class DataFilterConfig: public ConfigObject
         }
 
         const DataFilter &getFilter() const { return m_filter; }
+        DataFilter &getFilter() { return m_filter; }
         void setFilter(const DataFilter &filter);
 
         QString getAxisTitle() const { return m_axisTitle; }

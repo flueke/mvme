@@ -96,3 +96,5 @@ The last word of event and subevent sections is the EndMarker (0x87654321).
 # Libraries and 3rd-party code
 * http://qwt.sourceforge.net/
 * https://github.com/Elypson/qt-collapsible-section
+* CVMUSBReadoutList from NSCLDAQ (http://docs.nscl.msu.edu/daq/,
+  https://sourceforge.net/projects/nscldaq/)
