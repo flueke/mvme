@@ -193,9 +193,18 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
 
                 s32 wordIndexInSubEvent = 0;
 
-                for (u32 i=0; i<subEventSize-1; ++i)
+                for (u32 i=0; i<subEventSize-1; ++i, ++wordIndexInSubEvent)
                 {
                     u32 currentWord = iter.extractU32();
+
+                    /* Do not pass BerrMarker words to the analysis if and only
+                     * if they are the last word in the subevent.
+                     * There is still the possibilty of missing the actual last
+                     * word of the readout if that last word is the same as
+                     * BerrMarker and the readout did not actually result in a
+                     * BERR on the bus. */
+                    if ((i == subEventSize-2) && currentWord == BerrMarker)
+                        continue;
 
                     for (auto filterConfig: filterConfigs)
                     {
@@ -236,7 +245,6 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
 
                     }
 
-                    ++wordIndexInSubEvent;
                 }
 
                 if (diag)
