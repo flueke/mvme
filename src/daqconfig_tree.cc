@@ -576,10 +576,13 @@ void DAQConfigTreeWidget::addEvent()
         TemplateLoader loader;
         connect(&loader, &TemplateLoader::logMessage, m_context, &MVMEContext::logMessage);
 
-        config->vmeScripts["daq_start"]->setScriptContents(loader.readTemplate(QSL("event_daq_start.vme")));
-        config->vmeScripts["daq_stop"]->setScriptContents(loader.readTemplate(QSL("event_daq_stop.vme")));
-        config->vmeScripts["readout_start"]->setScriptContents(loader.readTemplate(QSL("readout_cycle_start.vme")));
-        config->vmeScripts["readout_end"]->setScriptContents(loader.readTemplate(QSL("readout_cycle_end.vme")));
+        if (config->triggerCondition != TriggerCondition::Periodic)
+        {
+            config->vmeScripts["daq_start"]->setScriptContents(loader.readTemplate(QSL("event_daq_start.vme")));
+            config->vmeScripts["daq_stop"]->setScriptContents(loader.readTemplate(QSL("event_daq_stop.vme")));
+            config->vmeScripts["readout_start"]->setScriptContents(loader.readTemplate(QSL("readout_cycle_start.vme")));
+            config->vmeScripts["readout_end"]->setScriptContents(loader.readTemplate(QSL("readout_cycle_end.vme")));
+        }
 
         m_config->addEventConfig(config);
         auto node = m_treeMap.value(config, nullptr);
@@ -639,15 +642,32 @@ void DAQConfigTreeWidget::addModule()
             TemplateLoader loader;
             connect(&loader, &TemplateLoader::logMessage, m_context, &MVMEContext::logMessage);
             
-            module->vmeScripts["parameters"]->setScriptContents(loader.readTemplate(
-                    QString("%1_parameters.vme").arg(VMEModuleShortNames.value(module->type, "unknown"))));
+            const QString shortName = VMEModuleShortNames.value(module->type, QSL("unknown"));
 
+            module->vmeScripts["parameters"]->setScriptContents(loader.readTemplate(
+                    QString("%1_parameters.vme").arg(shortName)));
+
+            // Generic module scripts for mesytec modules
             if (isMesytecModule(module->type))
             {
                 module->vmeScripts["readout_settings"]->setScriptContents(loader.readTemplate(QSL("mesytec_readout_settings.vme")));
                 module->vmeScripts["readout"]->setScriptContents(loader.readTemplate(QSL("mesytec_readout.vme")));
                 module->vmeScripts["reset"]->setScriptContents(loader.readTemplate(QSL("mesytec_reset.vme")));
             }
+
+            // Scripts for the specific module type. The override the generic ones loaded above.
+            QString tmpl = loader.readTemplate(QString("%1_readout_settings.vme").arg(shortName));
+            if (!tmpl.isEmpty())
+                module->vmeScripts["readout_settings"]->setScriptContents(tmpl);
+
+            tmpl = loader.readTemplate(QString("%1_readout.vme").arg(shortName));
+            if (!tmpl.isEmpty())
+                module->vmeScripts["readout"]->setScriptContents(tmpl);
+
+            tmpl = loader.readTemplate(QString("%1_reset.vme").arg(shortName));
+            if (!tmpl.isEmpty())
+                module->vmeScripts["reset"]->setScriptContents(tmpl);
+
 
             event->addModuleConfig(module);
 
