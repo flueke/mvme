@@ -378,6 +378,11 @@ void VMUSBReadoutWorker::readoutLoop()
 
     setState(DAQState::Running);
 
+    /* According to Jan we need to wait at least one millisecond
+     * after entering DAQ mode to make sure that the VMUSB is
+     * ready. */
+    QThread::msleep(1);
+
     DAQStats &stats(m_context->getDAQStats());
     QTime logReadErrorTimer;
 
@@ -444,6 +449,11 @@ void VMUSBReadoutWorker::readoutLoop()
 
                 static const int hackTimeout = 10;
                 bytesRead = readBuffer(hackTimeout);
+
+                /* According to Jan we need to wait at least one millisecond
+                 * after entering DAQ mode to make sure that the VMUSB is
+                 * ready. */
+                QThread::msleep(1);
 
                 qint64 hackElapsed = hackTime.nsecsElapsed();
 
