@@ -90,6 +90,9 @@ static const QMap<VMEModuleType, QString> VMEModuleShortNames =
     { VMEModuleType::MesytecCounter,  "mesytec_counter" },
 };
 
+//
+// DataFilters
+//
 struct DataFilterDefinition
 {
     const char *filter;
@@ -119,6 +122,54 @@ static const QMap<VMEModuleType, QList<DataFilterDefinition>> defaultDataFilters
     { VMEModuleType::MTDC32, {
                                  { "00XXX1XX000AAAAADDDDDDDDDDDDDDDD", "Time",          "Time %a" },
                                  { "00XXX1XX0010000ADDDDDDDDDDDDDDDD", "Trigger time",  "Trigger time %a" },
+                             }
+    },
+};
+
+//
+// DualWordDataFilters
+//
+struct DualWordDataFilterDefinition
+{
+    const char *name;
+    const char *lowFilter;
+    int lowIndex;
+    const char *highFilter;
+    int highIndex;
+};
+
+static const QMap<VMEModuleType, QList<DualWordDataFilterDefinition>> defaultDualWordFilters =
+{
+    { VMEModuleType::MDPP16, {
+                                 {
+                                     "Event Counter",
+                                     "11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD", -1,
+                                     "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", -1
+                                 }
+                             }
+    },
+    { VMEModuleType::MADC32, {
+                                 {
+                                     "Event Counter",
+                                     "11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD", -1,
+                                     "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", -1
+                                 }
+                             }
+    },
+    { VMEModuleType::MQDC32, {
+                                 {
+                                     "Event Counter",
+                                     "11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD", -1,
+                                     "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", -1
+                                 }
+                             }
+    },
+    { VMEModuleType::MTDC32, {
+                                 {
+                                     "Event Counter",
+                                     "11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD", -1,
+                                     "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", -1
+                                 }
                              }
     },
 };

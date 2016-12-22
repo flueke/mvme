@@ -1,6 +1,7 @@
 #include "config_ui.h"
 #include "ui_event_config_dialog.h"
 #include "ui_datafilter_dialog.h"
+#include "ui_dualword_datafilter_dialog.h"
 #include "mvme_config.h"
 #include "mvme_context.h"
 #include "vme_script.h"
@@ -796,7 +797,7 @@ void DataFilterDialog::loadFromConfig()
 }
 
 // Converts input to 8 bit, removes spaces, creates filter.
-DataFilter makeFilterFromString(const QString &str)
+DataFilter makeFilterFromString(const QString &str, s32 wordIndex = -1)
 {
     auto filterDataRaw = str.toLocal8Bit();
 
@@ -808,7 +809,7 @@ DataFilter makeFilterFromString(const QString &str)
             filterData.push_back(c);
     }
 
-    return DataFilter(filterData);
+    return DataFilter(filterData, wordIndex);
 }
 
 void DataFilterDialog::saveToConfig()
@@ -842,6 +843,132 @@ void DataFilterDialog::updateUnitLimits()
     {
         auto filter = makeFilterFromString(ui->le_filter->text());
         auto dataBits = filter.getExtractBits('D');
+        ui->spin_rangeMin->setValue(0.0);
+        ui->spin_rangeMax->setValue((1ull << dataBits) - 1);
+    }
+    catch (const std::string &)
+    {}
+}
+
+//
+// DualWordDataFilterDialog
+//
+DualWordDataFilterDialog::DualWordDataFilterDialog(DualWordDataFilterConfig *config, QWidget *parent)
+    : QDialog(parent)
+    , ui(new Ui::DualWordDataFilterDialog)
+    , m_config(config)
+{
+    ui->setupUi(this);
+    // FIXME: reenable UI
+    ui->label_5->setVisible(false);
+    ui->label_9->setVisible(false);
+    ui->label_6->setVisible(false);
+    ui->le_axisTitle->setVisible(false);
+    ui->le_axisUnit->setVisible(false);
+    ui->label_7->setVisible(false);
+    ui->label_8->setVisible(false);
+    ui->spin_rangeMin->setVisible(false);
+    ui->spin_rangeMax->setVisible(false);
+    ui->line->setVisible(false);
+
+    QFont font("MonoSpace");
+    font.setStyleHint(QFont::Monospace);
+
+    // FIXME(flueke): the lineedit gets way too wide on my machine
+    //QFontMetrics metrics(font);
+    //int width = metrics.width(ui->le_lowFilter->inputMask());
+    //int width = metrics.boundingRect(ui->le_lowFilter->inputMask()).width();
+
+    ui->le_lowFilter->setFont(font);
+    //ui->le_lowFilter->setMinimumWidth(width);
+    ui->le_highFilter->setFont(font);
+    //ui->le_highFilter->setMinimumWidth(width);
+
+    connect(ui->le_lowFilter, &QLineEdit::textChanged, this, &DualWordDataFilterDialog::validate);
+    connect(ui->le_highFilter, &QLineEdit::textChanged, this, &DualWordDataFilterDialog::validate);
+    connect(ui->le_name, &QLineEdit::textChanged, this, &DualWordDataFilterDialog::validate);
+    connect(ui->le_lowFilter, &QLineEdit::textChanged, this, &DualWordDataFilterDialog::updateUnitLimits);
+    connect(ui->le_highFilter, &QLineEdit::textChanged, this, &DualWordDataFilterDialog::updateUnitLimits);
+
+    loadFromConfig();
+    validate();
+}
+
+DualWordDataFilterDialog::~DualWordDataFilterDialog()
+{
+    delete ui;
+}
+
+void DualWordDataFilterDialog::accept()
+{
+    saveToConfig();
+    QDialog::accept();
+}
+
+void DualWordDataFilterDialog::loadFromConfig()
+{
+    ui->le_name->setText(m_config->objectName());
+
+    ui->le_lowFilter->setText(QString::fromLocal8Bit(m_config->getLowWordFilter().getFilter()));
+    ui->le_highFilter->setText(QString::fromLocal8Bit(m_config->getHighWordFilter().getFilter()));
+
+    ui->spin_lowWordIndex->setValue(m_config->getLowWordFilter().getWordIndex());
+    ui->spin_highWordIndex->setValue(m_config->getHighWordFilter().getWordIndex());
+
+    updateUnitLimits();
+    /* FIXME: reenable
+    ui->le_axisTitle->setText(m_config->getAxisTitle());
+    ui->le_axisUnit->setText(m_config->getUnitString());
+
+    auto minValue = m_config->getBaseUnitRange().first;
+    auto maxValue = m_config->getBaseUnitRange().second;
+
+    ui->spin_rangeMin->setValue(minValue);
+    ui->spin_rangeMax->setValue(maxValue);
+
+    if (std::abs(maxValue - minValue) == 0.0)
+        updateUnitLimits();
+    */
+}
+
+void DualWordDataFilterDialog::saveToConfig()
+{
+    m_config->setObjectName(ui->le_name->text());
+    auto lowFilter = makeFilterFromString(ui->le_lowFilter->text(), ui->spin_lowWordIndex->value());
+    auto highFilter = makeFilterFromString(ui->le_highFilter->text(), ui->spin_highWordIndex->value());
+    m_config->setFilter(DualWordDataFilter(lowFilter, highFilter));
+
+    /* FIXME: reenable
+    m_config->setAxisTitle(ui->le_axisTitle->text());
+    m_config->setUnitString(ui->le_axisUnit->text());
+
+    double unitMin = ui->spin_rangeMin->value();
+    double unitMax = ui->spin_rangeMax->value();
+
+    m_config->setBaseUnitRange(unitMin, unitMax);
+
+    for (u32 addr = 0; addr < m_config->getAddressCount(); ++addr)
+    {
+        m_config->setUnitRange(addr, unitMin, unitMax);
+    }
+    */
+}
+
+void DualWordDataFilterDialog::validate()
+{
+    bool isValid = ui->le_lowFilter->hasAcceptableInput()
+        && ui->le_highFilter->hasAcceptableInput()
+        && !ui->le_name->text().isEmpty();
+    ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(isValid);
+}
+
+void DualWordDataFilterDialog::updateUnitLimits()
+{
+    try
+    {
+        auto lowFilter = makeFilterFromString(ui->le_lowFilter->text(), ui->spin_lowWordIndex->value());
+        auto highFilter = makeFilterFromString(ui->le_highFilter->text(), ui->spin_highWordIndex->value());
+        auto dataBits = lowFilter.getExtractBits('D') + highFilter.getExtractBits('D');
         ui->spin_rangeMin->setValue(0.0);
         ui->spin_rangeMax->setValue((1ull << dataBits) - 1);
     }

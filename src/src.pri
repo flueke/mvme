@@ -82,6 +82,7 @@ FORMS += \
     $$PWD/twodimwidget.ui \
     $$PWD/vme_debug_widget.ui \
     $$PWD/datafilter_dialog.ui \
+    $$PWD/dualword_datafilter_dialog.ui \
     $$PWD/mesytec_diagnostics.ui \
     $$PWD/hist2ddialog_axis_widget.ui \
 

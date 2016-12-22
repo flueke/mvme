@@ -29,7 +29,6 @@
 //
 // Utility functions for filter and histogram creation.
 //
-using DataFilterConfigList = AnalysisConfig::DataFilterConfigList;
 
 static DataFilterConfigList generateDefaultFilters(ModuleConfig *moduleConfig)
 {
@@ -42,6 +41,26 @@ static DataFilterConfigList generateDefaultFilters(ModuleConfig *moduleConfig)
         auto cfg = new DataFilterConfig(QByteArray(def.filter));
         cfg->setObjectName(def.name);
         cfg->setAxisTitle(def.title);
+        result.push_back(cfg);
+    }
+
+    return result;
+}
+
+static DualWordDataFilterConfigList generateDefaultDualWordFilters(ModuleConfig *moduleConfig)
+{
+    DualWordDataFilterConfigList result;
+
+    const auto filterDefinitions = defaultDualWordFilters.value(moduleConfig->type);
+
+    for (const auto &def: filterDefinitions)
+    {
+        auto cfg = new DualWordDataFilterConfig(
+            DualWordDataFilter(
+                DataFilter(def.lowFilter, def.lowIndex),
+                DataFilter(def.highFilter, def.highIndex)));
+
+        cfg->setObjectName(def.name);
         result.push_back(cfg);
     }
 
@@ -92,6 +111,7 @@ enum NodeType
     NodeType_Hist1D,
     NodeType_Hist2D,
     NodeType_DataFilter,
+    NodeType_DualWordDataFilter,
 };
 
 enum DataRole
@@ -293,7 +313,7 @@ void HistogramTreeWidget::onObjectAdded(QObject *object)
 
         auto moduleNode = m_treeMap.value(moduleConfig);
 
-        // TODO: add nodes for filters that don't have a corresponding module in the daq config
+        // TODO (maybe): add nodes for filters that don't have a corresponding module in the daq config
         if (moduleNode)
         {
             auto filterNode = makeNode(filterConfig, NodeType_DataFilter);
@@ -318,6 +338,38 @@ void HistogramTreeWidget::onObjectAdded(QObject *object)
         else
         {
             qDebug() << __PRETTY_FUNCTION__ << "!!! no module node found for filter config" << filterConfig << "and module config" << moduleConfig;
+        }
+    }
+    else if (auto filterConfig = qobject_cast<DualWordDataFilterConfig *>(object))
+    {
+        auto idxPair = m_context->getAnalysisConfig()->getEventAndModuleIndices(filterConfig);
+        if (idxPair.first < 0)
+        {
+            qDebug() << __PRETTY_FUNCTION__ << "!!! invalid analysisconfig indices for DualWordDataFilterConfig" << filterConfig;
+            return;
+        }
+        auto moduleConfig = m_context->getDAQConfig()->getModuleConfig(idxPair.first, idxPair.second);
+
+        if (!moduleConfig)
+        {
+            return;
+        }
+
+        auto moduleNode = m_treeMap.value(moduleConfig);
+
+        if (moduleNode)
+        {
+            auto filterNode = makeNode(filterConfig, NodeType_DualWordDataFilter);
+            filterNode->setText(0, filterConfig->objectName());
+            filterNode->setIcon(0, QIcon(":/data_filter.png"));
+            moduleNode->addChild(filterNode);
+            addToTreeMap(filterConfig, filterNode);
+
+            m_tree->resizeColumnToContents(0);
+
+            connect(filterConfig, &QObject::objectNameChanged, this, [this, filterConfig](const QString &name) {
+                onObjectNameChanged(filterConfig, name);
+            });
         }
     }
     else if (auto histo = qobject_cast<Hist2D *>(object))
@@ -379,30 +431,45 @@ void HistogramTreeWidget::onAnyConfigChanged()
 
     if (m_analysisConfig)
     {
-       auto filters = m_analysisConfig->getFilters();
+        {
+            auto filters = m_analysisConfig->getFilters();
 
-       for (int eventIndex: filters.keys())
-       {
-           for (int moduleIndex: filters[eventIndex].keys())
-           {
-               for (auto filter: filters[eventIndex][moduleIndex])
-                   onObjectAdded(filter);
-           }
-       }
+            for (int eventIndex: filters.keys())
+            {
+                for (int moduleIndex: filters[eventIndex].keys())
+                {
+                    for (auto filter: filters[eventIndex][moduleIndex])
+                        onObjectAdded(filter);
+                }
+            }
+        }
 
-       for (auto hist2d: m_context->getObjects<Hist2D *>())
-       {
-           onObjectAdded(hist2d);
-       }
+        {
+            auto filters = m_analysisConfig->getDualWordFilters();
 
-       if (analysisChanged)
-       {
-           connect(m_analysisConfig, &ConfigObject::modifiedChanged, this, [this](bool) {
-               updateConfigLabel();
-           });
-       }
+            for (int eventIndex: filters.keys())
+            {
+                for (int moduleIndex: filters[eventIndex].keys())
+                {
+                    for (auto filter: filters[eventIndex][moduleIndex])
+                        onObjectAdded(filter);
+                }
+            }
+        }
 
-       updateConfigLabel();
+        for (auto hist2d: m_context->getObjects<Hist2D *>())
+        {
+            onObjectAdded(hist2d);
+        }
+
+        if (analysisChanged)
+        {
+            connect(m_analysisConfig, &ConfigObject::modifiedChanged, this, [this](bool) {
+                updateConfigLabel();
+            });
+        }
+
+        updateConfigLabel();
     }
     qDebug() << __PRETTY_FUNCTION__ << "end";
 }
@@ -472,6 +539,7 @@ void HistogramTreeWidget::treeContextMenu(const QPoint &pos)
         menu.addAction(QSL("Clear Histograms"), this, &HistogramTreeWidget::clearHistograms);
 
         menu.addAction(QSL("Add filter"), this, &HistogramTreeWidget::addDataFilter)->setEnabled(isIdle);
+        menu.addAction(QSL("Add dual word filter"), this, &HistogramTreeWidget::addDualWordDataFilter)->setEnabled(isIdle);
         menu.addAction(QSL("Generate default filters"), this, &HistogramTreeWidget::generateDefaultFilters)->setEnabled(isIdle);
 
         if (!m_context->getEventProcessor()->getDiagnostics())
@@ -494,6 +562,17 @@ void HistogramTreeWidget::treeContextMenu(const QPoint &pos)
         menu.addAction(QSL("Remove filter"), this,
                        static_cast<void (HistogramTreeWidget::*) ()>(
                        &HistogramTreeWidget::removeDataFilter))->setEnabled(isIdle);
+    }
+
+    if (node && node->type() == NodeType_DualWordDataFilter)
+    {
+        menu.addAction(QSL("Edit filter"), this,
+                       static_cast<void (HistogramTreeWidget::*) ()>(
+                       &HistogramTreeWidget::editDualWordDataFilter))->setEnabled(isIdle);
+
+        menu.addAction(QSL("Remove filter"), this,
+                       static_cast<void (HistogramTreeWidget::*) ()>(
+                       &HistogramTreeWidget::removeDualWordDataFilter))->setEnabled(isIdle);
     }
 
     if (node && node->type() == NodeType_Hist1D)
@@ -598,7 +677,46 @@ void HistogramTreeWidget::updateHistogramCountDisplay()
             auto node = it.value();
             node->setText(1, QString("entries=%1").arg(histo->getEntryCount()));
         }
+        else if (auto filterConfig = qobject_cast<DualWordDataFilterConfig *>(it.key()))
+        {
+            const auto valuesMapping = m_context->getEventProcessor()->getDualWordFilterValues();
+            auto values = valuesMapping.value(filterConfig);
+
+            // XXX: this only displays the first value that matched
+            if (!values.isEmpty())
+            {
+                auto node = it.value();
+                node->setText(1, QString("value=%1").arg(values[0]));
+            }
+        }
     }
+
+#if 0
+    // FIXME: testcode
+    {
+        const auto valuesMapping = m_context->getEventProcessor()->getDualWordFilterValues();
+
+        for (auto eventIter = valuesMapping.begin();
+             eventIter != valuesMapping.end();
+             ++eventIter)
+        {
+            int eventIndex = eventIter.key();
+
+            for (auto moduleIter = eventIter.value().begin();
+                 moduleIter != eventIter.value().end();
+                 ++moduleIter)
+            {
+                int moduleIndex = moduleIter.key();
+
+                for (auto value: moduleIter.value())
+                {
+                    qDebug() << "dualWordFilterValue" << eventIndex << moduleIndex << value;
+                }
+            }
+                 
+        }
+    }
+#endif
 }
 
 void HistogramTreeWidget::generateDefaultFilters()
@@ -624,17 +742,25 @@ void HistogramTreeWidget::generateDefaultFilters()
         }
     }
 
-    auto filterConfigs = ::generateDefaultFilters(moduleConfig);
-
-    qDebug() << __PRETTY_FUNCTION__ << "generated filters:" << filterConfigs;
-
-    for (auto filterConfig: filterConfigs)
     {
-        for (auto histoConfig: generateHistogramConfigs(filterConfig))
-            createAndAddHist1D(m_context, histoConfig);
+        auto filterConfigs = ::generateDefaultFilters(moduleConfig);
+
+        qDebug() << __PRETTY_FUNCTION__ << "generated filters:" << filterConfigs;
+
+        for (auto filterConfig: filterConfigs)
+        {
+            for (auto histoConfig: generateHistogramConfigs(filterConfig))
+                createAndAddHist1D(m_context, histoConfig);
+        }
+
+        m_context->getAnalysisConfig()->setFilters(indices.first, indices.second, filterConfigs);
     }
 
-    m_context->getAnalysisConfig()->setFilters(indices.first, indices.second, filterConfigs);
+    {
+        auto filterConfigs = ::generateDefaultDualWordFilters(moduleConfig);
+
+        m_context->getAnalysisConfig()->setDualWordFilters(indices.first, indices.second, filterConfigs);
+    }
 
     node->setExpanded(true);
 }
@@ -752,6 +878,76 @@ void HistogramTreeWidget::editDataFilter(QTreeWidgetItem *node)
 
         qDebug() << "<<<<< end edited filter";
     }
+}
+
+void HistogramTreeWidget::addDualWordDataFilter()
+{
+    auto node = m_tree->currentItem();
+    auto var  = node->data(0, DataRole_Pointer);
+    auto moduleConfig = Var2Ptr<ModuleConfig>(node->data(0, DataRole_Pointer));
+    // FIXME: define and load default filter //auto defaultFilter = defaultDataFilters.value(moduleConfig->type).value(0).filter;
+    std::unique_ptr<DualWordDataFilterConfig> filterConfig(new DualWordDataFilterConfig);
+
+    DualWordDataFilterDialog dialog(filterConfig.get());
+
+    if (dialog.exec() == QDialog::Accepted)
+    {
+        auto indices = m_context->getDAQConfig()->getEventAndModuleIndices(moduleConfig);
+        if (indices.first < 0)
+        {
+            qDebug() << __PRETTY_FUNCTION__ << "invalid daqconfig indices for moduleConfig" << moduleConfig;
+            return;
+        }
+        m_context->getAnalysisConfig()->addDualWordFilter(indices.first, indices.second, filterConfig.release());
+    }
+}
+
+void HistogramTreeWidget::removeDualWordDataFilter()
+{
+    auto node = m_tree->currentItem();
+    removeDualWordDataFilter(node);
+}
+
+void HistogramTreeWidget::removeDualWordDataFilter(QTreeWidgetItem *node)
+{
+    Q_ASSERT(node->type() == NodeType_DualWordDataFilter);
+    auto filterConfig = Var2Ptr<DualWordDataFilterConfig>(node->data(0, DataRole_Pointer));
+
+    Q_ASSERT(filterConfig);
+    Q_ASSERT(m_treeMap[filterConfig] == node);
+
+    auto moduleNode   = node->parent();
+
+    delete node;
+    removeFromTreeMap(filterConfig);
+
+    auto moduleConfig = Var2Ptr<ModuleConfig>(moduleNode->data(0, DataRole_Pointer));
+    auto indices      = m_context->getDAQConfig()->getEventAndModuleIndices(moduleConfig);
+    if (indices.first < 0)
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "invalid daqconfig indices for moduleConfig" << moduleConfig;
+        return;
+    }
+    m_context->getAnalysisConfig()->removeDualWordFilter(indices.first, indices.second, filterConfig);
+}
+
+void HistogramTreeWidget::editDualWordDataFilter()
+{
+    auto node = m_tree->currentItem();
+    editDualWordDataFilter(node);
+}
+
+void HistogramTreeWidget::editDualWordDataFilter(QTreeWidgetItem *node)
+{
+    auto moduleNode   = node->parent();
+    auto moduleConfig = Var2Ptr<ModuleConfig>(moduleNode->data(0, DataRole_Pointer));
+    // FIXME: define and load defaults filter //auto defaultFilter = QString(defaultDataFilters.value(moduleConfig->type).value(0).filter);
+    auto filterConfig = Var2Ptr<DualWordDataFilterConfig>(node->data(0, DataRole_Pointer));
+    auto preEditFilter = filterConfig->getFilter();
+
+    DualWordDataFilterDialog dialog(filterConfig);
+
+    dialog.exec();
 }
 
 void HistogramTreeWidget::removeHist1D(QTreeWidgetItem *node)

@@ -316,6 +316,36 @@ class DataFilterConfig: public ConfigObject
         QVector<QPair<double, double>> m_unitRanges;
 };
 
+class DualWordDataFilterConfig: public ConfigObject
+{
+    Q_OBJECT
+    public:
+        DualWordDataFilterConfig(QObject *parent = 0)
+            : ConfigObject(parent, true)
+        {}
+
+        DualWordDataFilterConfig(const DualWordDataFilter &filter, QObject *parent = 0)
+            : ConfigObject(parent, true)
+        {
+            setFilter(filter);
+        }
+
+        void setFilter(const DualWordDataFilter &filter);
+
+        const DualWordDataFilter &getFilter() const { return m_filter; }
+        DualWordDataFilter &getFilter() { return m_filter; }
+
+        DataFilter getLowWordFilter() const { return m_filter.getFilters()[0]; }
+        DataFilter getHighWordFilter() const { return m_filter.getFilters()[1]; }
+
+    protected:
+        virtual void read_impl(const QJsonObject &json) override;
+        virtual void write_impl(QJsonObject &json) const override;
+
+    private:
+        DualWordDataFilter m_filter;
+};
+
 class Hist1DConfig: public ConfigObject
 {
     Q_OBJECT
@@ -449,6 +479,12 @@ class Hist2DConfig: public ConfigObject
         Hist2DAxisConfig m_axes[Qt::ZAxis];
 };
 
+using DataFilterConfigList = QList<DataFilterConfig *>;
+using DualWordDataFilterConfigList = QList<DualWordDataFilterConfig *>;
+
+//typedef QList<DataFilterConfig *> DataFilterConfigList;
+//typedef QList<DualWordDataFilterConfig *> DualWordDataFilterConfigList;
+
 class AnalysisConfig: public ConfigObject
 {
     Q_OBJECT
@@ -459,8 +495,8 @@ class AnalysisConfig: public ConfigObject
     public:
         using ConfigObject::ConfigObject;
 
-        using DataFilterConfigList = QList<DataFilterConfig *>;
 
+        // DataFilterConfig
         DataFilterConfigList getFilters(int eventIndex, int moduleIndex) const;
         QMap<int, QMap<int, DataFilterConfigList>> getFilters() const { return m_filters; }
         void setFilters(int eventIndex, int moduleIndex, const DataFilterConfigList &filters);
@@ -468,7 +504,16 @@ class AnalysisConfig: public ConfigObject
         void addFilter(int eventIndex, int moduleIndex, DataFilterConfig *config);
         void removeFilter(int eventIndex, int moduleIndex, DataFilterConfig *config);
 
+        // DualWordDataFilterConfig
+        DualWordDataFilterConfigList getDualWordFilters(int eventIndex, int moduleIndex) const;
+        QMap<int, QMap<int, DualWordDataFilterConfigList>> getDualWordFilters() const { return m_dualWordFilters; }
+        void setDualWordFilters(int eventIndex, int moduleIndex, const DualWordDataFilterConfigList &filters);
+        void removeDualWordFilters(int eventIndex, int moduleIndex);
+        void addDualWordFilter(int eventIndex, int moduleIndex, DualWordDataFilterConfig *config);
+        void removeDualWordFilter(int eventIndex, int moduleIndex, DualWordDataFilterConfig *config);
+
         QPair<int, int> getEventAndModuleIndices(DataFilterConfig *config) const;
+        QPair<int, int> getEventAndModuleIndices(DualWordDataFilterConfig *config) const;
 
         void addHist1DConfig(Hist1DConfig *config);
         void addHist2DConfig(Hist2DConfig *config);
@@ -489,6 +534,7 @@ class AnalysisConfig: public ConfigObject
 
     private:
         QMap<int, QMap<int, DataFilterConfigList>> m_filters;
+        QMap<int, QMap<int, DualWordDataFilterConfigList>> m_dualWordFilters;
         QList<Hist1DConfig *> m_1dHistograms;
         QList<Hist2DConfig *> m_2dHistograms;
 };

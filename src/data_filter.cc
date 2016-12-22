@@ -4,6 +4,9 @@
 #include <cctype>
 #include <stdexcept>
 
+//
+// DataFilter
+//
 DataFilter::DataFilter(const QByteArray &filter, s32 wordIndex)
     : m_filter(filter)
     , m_matchWordIndex(wordIndex)
@@ -85,4 +88,23 @@ QString DataFilter::toString() const
     return QString("DataFilter(f=%1,i=%2)")
         .arg(QString::fromLocal8Bit(getFilter()))
         .arg(m_matchWordIndex);
+}
+
+//
+// DualWordDataFilter
+//
+static const int nFilters = 2;
+DualWordDataFilter::DualWordDataFilter(const DataFilter &lowFilter, const DataFilter &highFilter)
+    : m_filters(nFilters)
+    , m_results(nFilters)
+{
+    m_filters[0] = lowFilter;
+    m_filters[1] = highFilter;
+}
+
+QString DualWordDataFilter::toString() const
+{
+    return QString("DualWordDataFilter(lo=%1, hi=%2)")
+        .arg(m_filters[0].toString())
+        .arg(m_filters[1].toString());
 }

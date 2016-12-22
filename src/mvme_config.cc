@@ -686,7 +686,10 @@ bool DataFilterConfig::isAddressValid(u32 address)
 
 void DataFilterConfig::read_impl(const QJsonObject &json)
 {
-    setFilter(DataFilter(json["filter"].toString().toLocal8Bit()));
+    auto filterString = json["filter"].toString().toLocal8Bit();
+    auto filterWordIndex = json["filterWordIndex"].toInt(-1);
+    setFilter(DataFilter(filterString, filterWordIndex));
+
     m_axisTitle = json["axisTitle"].toString();
     m_unitString = json["unitString"].toString();
     double baseMin = json["unitMinValue"].toDouble();
@@ -712,6 +715,7 @@ void DataFilterConfig::read_impl(const QJsonObject &json)
 void DataFilterConfig::write_impl(QJsonObject &json) const
 {
     json["filter"] = QString::fromLocal8Bit(m_filter.getFilter());
+    json["filterWordIndex"] = m_filter.getWordIndex();
     json["axisTitle"] = getAxisTitle();
     json["unitString"] = getUnitString();
     json["unitMinValue"] = getBaseUnitRange().first;
@@ -730,6 +734,45 @@ void DataFilterConfig::write_impl(QJsonObject &json) const
     }
 
     json["unitRanges"] = array;
+
+    json["properties"] = storeDynamicProperties(this);
+}
+
+//
+// DualWordDataFilter
+//
+void DualWordDataFilterConfig::setFilter(const DualWordDataFilter &filter)
+{
+    if (m_filter != filter)
+    {
+        m_filter = filter;
+        setModified();
+    }
+}
+
+void DualWordDataFilterConfig::read_impl(const QJsonObject &json)
+{
+    auto lowFilterString  = json["lowFilter"].toString().toLocal8Bit();
+    auto lowFilterWordIndex  = json["lowFilterWordIndex"].toInt(-1);
+    DataFilter lowFilter(lowFilterString, lowFilterWordIndex);
+
+    auto highFilterString = json["highFilter"].toString().toLocal8Bit();
+    auto highFilterWordIndex = json["highFilterWordIndex"].toInt(-1);
+    DataFilter highFilter(highFilterString, highFilterWordIndex);
+
+    m_filter = DualWordDataFilter(lowFilter, highFilter);
+
+    loadDynamicProperties(json["properties"].toObject(), this);
+}
+
+void DualWordDataFilterConfig::write_impl(QJsonObject &json) const
+{
+    auto filters = m_filter.getFilters();
+
+    json["lowFilter"]  = QString::fromLocal8Bit(filters[0].getFilter());
+    json["lowFilterWordIndex"] = filters[0].getWordIndex();
+    json["highFilter"] = QString::fromLocal8Bit(filters[1].getFilter());
+    json["highFilterWordIndex"] = filters[1].getWordIndex();
 
     json["properties"] = storeDynamicProperties(this);
 }
@@ -935,7 +978,7 @@ void Hist2DConfig::write_impl(QJsonObject &json) const
 
     json["xTitle"] = m_axes[Qt::XAxis].title;
     json["yTitle"] = m_axes[Qt::YAxis].title;
-                                                         
+
     json["xUnit"] = m_axes[Qt::XAxis].unit;
     json["yUnit"] = m_axes[Qt::YAxis].unit;
 
@@ -1003,6 +1046,59 @@ void AnalysisConfig::removeFilter(int eventIndex, int moduleIndex, DataFilterCon
     }
 }
 
+DualWordDataFilterConfigList AnalysisConfig::getDualWordFilters(int eventIndex, int moduleIndex) const
+{
+    return m_dualWordFilters.value(eventIndex).value(moduleIndex);
+}
+
+void AnalysisConfig::setDualWordFilters(int eventIndex, int moduleIndex, const DualWordDataFilterConfigList &filters)
+{
+    removeDualWordFilters(eventIndex, moduleIndex);
+    m_dualWordFilters[eventIndex][moduleIndex] = filters;
+
+    for (auto filter: filters)
+    {
+        qDebug() << __PRETTY_FUNCTION__ << filter;
+        filter->setParent(this);
+        emit objectAdded(filter);
+    }
+
+    setModified(true);
+}
+
+void AnalysisConfig::removeDualWordFilters(int eventIndex, int moduleIndex)
+{
+    auto filters = m_dualWordFilters[eventIndex].take(moduleIndex);
+
+    for (auto filter: filters)
+    {
+        emit objectAboutToBeRemoved(filter);
+        filter->setParent(nullptr);
+        filter->deleteLater();
+    }
+
+    setModified(true);
+}
+
+void AnalysisConfig::addDualWordFilter(int eventIndex, int moduleIndex, DualWordDataFilterConfig *config)
+{
+    m_dualWordFilters[eventIndex][moduleIndex].push_back(config);
+    config->setParent(this);
+    emit objectAdded(config);
+    setModified(true);
+}
+
+void AnalysisConfig::removeDualWordFilter(int eventIndex, int moduleIndex, DualWordDataFilterConfig *config)
+{
+    if (m_dualWordFilters[eventIndex][moduleIndex].removeOne(config))
+    {
+        emit objectAboutToBeRemoved(config);
+        config->setParent(nullptr);
+        config->deleteLater();
+        setModified(true);
+    }
+}
+
 QPair<int, int> AnalysisConfig::getEventAndModuleIndices(DataFilterConfig *cfg) const
 {
     for (int eventIndex: m_filters.keys())
@@ -1010,6 +1106,20 @@ QPair<int, int> AnalysisConfig::getEventAndModuleIndices(DataFilterConfig *cfg) 
         for (int moduleIndex: m_filters[eventIndex].keys())
         {
             if (m_filters[eventIndex][moduleIndex].contains(cfg))
+                return qMakePair(eventIndex, moduleIndex);
+        }
+    }
+
+    return qMakePair(-1, -1);
+}
+
+QPair<int, int> AnalysisConfig::getEventAndModuleIndices(DualWordDataFilterConfig *cfg) const
+{
+    for (int eventIndex: m_dualWordFilters.keys())
+    {
+        for (int moduleIndex: m_dualWordFilters[eventIndex].keys())
+        {
+            if (m_dualWordFilters[eventIndex][moduleIndex].contains(cfg))
                 return qMakePair(eventIndex, moduleIndex);
         }
     }
@@ -1058,6 +1168,7 @@ void AnalysisConfig::removeHist2DConfig(Hist2DConfig *config)
 void AnalysisConfig::read_impl(const QJsonObject &json)
 {
     m_filters.clear();
+    m_dualWordFilters.clear();
     m_1dHistograms.clear();
     m_2dHistograms.clear();
 
@@ -1074,6 +1185,22 @@ void AnalysisConfig::read_impl(const QJsonObject &json)
             int eventIndex = filterJson["eventIndex"].toInt();
             int moduleIndex = filterJson["moduleIndex"].toInt();
             m_filters[eventIndex][moduleIndex].push_back(cfg);
+        }
+    }
+
+    {
+        QJsonArray array = json["dualWordFilters"].toArray();
+
+        for (auto it=array.begin();
+             it != array.end();
+             ++it)
+        {
+            auto filterJson = it->toObject();
+            auto cfg = new DualWordDataFilterConfig(this);
+            cfg->read(filterJson);
+            int eventIndex = filterJson["eventIndex"].toInt();
+            int moduleIndex = filterJson["moduleIndex"].toInt();
+            m_dualWordFilters[eventIndex][moduleIndex].push_back(cfg);
         }
     }
 
@@ -1113,15 +1240,19 @@ void AnalysisConfig::write_impl(QJsonObject &json) const
     {
         QJsonArray array;
 
-        for (int eventIndex = 0;
-             eventIndex < m_filters.size();
-             ++eventIndex)
+        for (auto eventIter = m_filters.begin();
+             eventIter != m_filters.end();
+             ++eventIter)
         {
-            for (int moduleIndex = 0;
-                 moduleIndex < m_filters[eventIndex].size();
-                 ++moduleIndex)
+            int eventIndex = eventIter.key();
+
+            for (auto moduleIter = eventIter.value().begin();
+                 moduleIter != eventIter.value().end();
+                 ++moduleIter)
             {
-                for (const auto &filterConfig: m_filters[eventIndex][moduleIndex])
+                int moduleIndex = moduleIter.key();
+
+                for (const auto &filterConfig: moduleIter.value())
                 {
                     QJsonObject filterObject;
                     filterConfig->write(filterObject);
@@ -1133,6 +1264,35 @@ void AnalysisConfig::write_impl(QJsonObject &json) const
         }
 
         json["filters"] = array;
+    }
+
+    {
+        QJsonArray array;
+
+        for (auto eventIter = m_dualWordFilters.begin();
+             eventIter != m_dualWordFilters.end();
+             ++eventIter)
+        {
+            int eventIndex = eventIter.key();
+
+            for (auto moduleIter = eventIter.value().begin();
+                 moduleIter != eventIter.value().end();
+                 ++moduleIter)
+            {
+                int moduleIndex = moduleIter.key();
+
+                for (const auto &filterConfig: moduleIter.value())
+                {
+                    QJsonObject filterObject;
+                    filterConfig->write(filterObject);
+                    filterObject["eventIndex"] = eventIndex;
+                    filterObject["moduleIndex"] = moduleIndex;
+                    array.append(filterObject);
+                }
+            }
+        }
+
+        json["dualWordFilters"] = array;
     }
 
     {

@@ -46,11 +46,19 @@ class HistogramTreeWidget: public QWidget
         void edit2DHistogram();
         void generateDefaultFilters();
         void updateHistogramCountDisplay();
+
         void addDataFilter();
         void removeDataFilter(QTreeWidgetItem *node);
         void removeDataFilter();
         void editDataFilter(QTreeWidgetItem *node);
         void editDataFilter();
+
+        void addDualWordDataFilter();
+        void removeDualWordDataFilter(QTreeWidgetItem *node);
+        void removeDualWordDataFilter();
+        void editDualWordDataFilter(QTreeWidgetItem *node);
+        void editDualWordDataFilter();
+
         void clearHistograms();
         void removeHist1D(QTreeWidgetItem *node);
 
