@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>504</width>
-    <height>601</height>
+    <width>518</width>
+    <height>657</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -249,9 +249,13 @@ If an &quot;Index&quot; value is set to anything other than &quot;any&quot; the
 corresponding filter only matches if the data word is the n-th
 word in the event.
 
-Unlike for standard filters no histograms are created and no
-address value is extracted. Instead the the resulting value
-is displayed next to the filter in the histogram tree view.</string>
+The resulting value is displayed next to the filter in the histogram
+tree view.
+
+Additionally a single 1D histogram is created to display the 
+difference of the results of consecutive applications of the filter.
+This difference histogram can be opened by double-clicking the
+filter.</string>
         </property>
         <property name="textFormat">
          <enum>Qt::PlainText</enum>

@@ -508,6 +508,23 @@ void HistogramTreeWidget::onItemDoubleClicked(QTreeWidgetItem *node, int column)
             {
                 openHistoListWidget();
             } break;
+
+        case NodeType_DualWordDataFilter:
+            {
+                auto filterConfig = qobject_cast<DualWordDataFilterConfig *>(obj);
+                if (filterConfig)
+                {
+                    auto histoConfig = m_context->getAnalysisConfig()->findChildByPredicate<Hist1DConfig *>(
+                        [filterConfig](Hist1DConfig *histoConfig) {
+                            return histoConfig->getFilterId() == filterConfig->getId();
+                        });
+                    if (histoConfig)
+                    {
+                        auto histo = m_context->getObjectForConfig(histoConfig);
+                        emit objectDoubleClicked(histo);
+                    }
+                }
+            } break;
     }
 }
 
@@ -733,12 +750,22 @@ void HistogramTreeWidget::generateDefaultFilters()
         return;
     }
 
-    while (node->childCount() > 0)
+    for (int childIndex = 0;
+         childIndex < node->childCount();
+        )
     {
-        auto filterNode = node->child(0);
+        auto filterNode = node->child(childIndex);
         if (filterNode->type() == NodeType_DataFilter)
         {
             removeDataFilter(filterNode);
+        }
+        else if (filterNode->type() == NodeType_DualWordDataFilter)
+        {
+            removeDualWordDataFilter(filterNode);
+        }
+        else
+        {
+            ++childIndex;
         }
     }
 
@@ -758,6 +785,20 @@ void HistogramTreeWidget::generateDefaultFilters()
 
     {
         auto filterConfigs = ::generateDefaultDualWordFilters(moduleConfig);
+
+        for (auto filterConfig: filterConfigs)
+        {
+            // Create the single histogram holding the difference values generated using the filter
+            // FIXME: factor out DualWordDataFilter histo creation
+            static const u32 dualWordFilterHistoBits = 16;
+
+            auto histoConfig = new Hist1DConfig;
+            histoConfig->setObjectName(QString("%1 Differences").arg(filterConfig->objectName()));
+            histoConfig->setFilterId(filterConfig->getId());
+            histoConfig->setBits(dualWordFilterHistoBits);
+
+            createAndAddHist1D(m_context, histoConfig);
+        }
 
         m_context->getAnalysisConfig()->setDualWordFilters(indices.first, indices.second, filterConfigs);
     }
@@ -892,12 +933,25 @@ void HistogramTreeWidget::addDualWordDataFilter()
 
     if (dialog.exec() == QDialog::Accepted)
     {
+
         auto indices = m_context->getDAQConfig()->getEventAndModuleIndices(moduleConfig);
         if (indices.first < 0)
         {
             qDebug() << __PRETTY_FUNCTION__ << "invalid daqconfig indices for moduleConfig" << moduleConfig;
             return;
         }
+
+        // Create the single histogram holding the difference values generated using the filter
+        // FIXME: factor out DualWordDataFilter histo creation
+        static const u32 dualWordFilterHistoBits = 16;
+
+        auto histoConfig = new Hist1DConfig;
+        histoConfig->setObjectName(QString("%1 Differences").arg(filterConfig->objectName()));
+        histoConfig->setFilterId(filterConfig->getId());
+        histoConfig->setBits(dualWordFilterHistoBits);
+
+        createAndAddHist1D(m_context, histoConfig);
+
         m_context->getAnalysisConfig()->addDualWordFilter(indices.first, indices.second, filterConfig.release());
     }
 }
@@ -929,6 +983,20 @@ void HistogramTreeWidget::removeDualWordDataFilter(QTreeWidgetItem *node)
         return;
     }
     m_context->getAnalysisConfig()->removeDualWordFilter(indices.first, indices.second, filterConfig);
+
+    // remove the difference histogram
+    auto histoConfig = m_context->getAnalysisConfig()->findChildByPredicate<Hist1DConfig *>(
+        [filterConfig](Hist1DConfig *histoConfig) {
+            return histoConfig->getFilterId() == filterConfig->getId();
+        });
+    if (histoConfig)
+    {
+        auto histo = m_context->getObjectForConfig(histoConfig);
+        removeFromTreeMap(histo);
+        m_context->unregisterObjectAndConfig(histo, histoConfig);
+        m_context->removeObject(histo);
+        m_context->getAnalysisConfig()->removeHist1DConfig(histoConfig);
+    }
 }
 
 void HistogramTreeWidget::editDualWordDataFilter()
