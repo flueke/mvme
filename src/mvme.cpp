@@ -980,14 +980,14 @@ void mvme::updateWindowTitle()
 
     if (!fileName.isEmpty())
     {
-        title = QString("%1 [%2] - mvme2")
+        title = QString("%1 [%2] - mvme")
                  .arg(fileName)
                  .arg(modeString)
                  ;
     }
     else
     {
-        title = QString("[%2] - mvme2")
+        title = QString("[%2] - mvme")
             .arg(modeString)
             ;
     }
