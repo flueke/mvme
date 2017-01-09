@@ -140,9 +140,6 @@
      </item>
      <item row="4" column="1" colspan="3">
       <widget class="QLineEdit" name="le_axisTitle">
-       <property name="enabled">
-        <bool>false</bool>
-       </property>
        <property name="toolTip">
         <string>Axis title for the generated histograms.
 '%a' will be replaced with the extracted address value.</string>
@@ -153,11 +150,7 @@
       </widget>
      </item>
      <item row="5" column="1" colspan="3">
-      <widget class="QLineEdit" name="le_axisUnit">
-       <property name="enabled">
-        <bool>false</bool>
-       </property>
-      </widget>
+      <widget class="QLineEdit" name="le_axisUnit"/>
      </item>
      <item row="6" column="1" colspan="3">
       <layout class="QFormLayout" name="formLayout_2">
@@ -170,9 +163,6 @@
        </item>
        <item row="0" column="1">
         <widget class="QDoubleSpinBox" name="spin_rangeMin">
-         <property name="enabled">
-          <bool>false</bool>
-         </property>
          <property name="decimals">
           <number>4</number>
          </property>
@@ -196,9 +186,6 @@
        </item>
        <item row="1" column="1">
         <widget class="QDoubleSpinBox" name="spin_rangeMax">
-         <property name="enabled">
-          <bool>false</bool>
-         </property>
          <property name="decimals">
           <number>4</number>
          </property>

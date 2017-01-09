@@ -5,6 +5,7 @@
 ==========================
 ==== Do these later! =====
 ==========================
+* DualWordDataFilters: handle negative difference values when filling the histograms
 * Get rid of "configId" property and use registerObjectAndConfig,
   getConfigForObject, getObjectForConfig instead
 * Mesytec Werbung ^^ Hintergrundbilder, Wasserzeichen, etc. (CSS Theme?)
@@ -15,7 +16,7 @@
   commands.
   Could signal the same semaphore when receiving commands and set some
   variables that are checked once the thread wakes up.
-  (Try WaitForMoreEvents as a quick fix)
+  (Maybe try WaitForMoreEvents as a quick fix)
 * Hist2d Icon
 * Limit the number of messages/s appended to the logview
 * How to handle filters without matching module? Right now they're not

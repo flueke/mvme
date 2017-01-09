@@ -496,20 +496,11 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                     {
                         for (int i=0; i<currentValues.size(); ++i)
                         {
+                            // TODO: add a way to handle negative results here!
                             s64 diff = currentValues[i] - lastValues[i];
                             histo->fill(diff);
                         }
                     }
-
-#if 0
-                    if (m_d->currentDualWordFilterValues.contains(filterConfig)
-                        && m_d->lastDualWordFilterValues.contains(filterConfig)
-                        && (m_d->currentDualWordFilterValues[filterConfig].size() ==
-                            m_d->lastDualWordFilterValues[filterConfig].size()))
-                    {
-
-                    }
-#endif
                 }
             }
         }

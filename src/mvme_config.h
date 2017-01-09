@@ -338,12 +338,24 @@ class DualWordDataFilterConfig: public ConfigObject
         DataFilter getLowWordFilter() const { return m_filter.getFilters()[0]; }
         DataFilter getHighWordFilter() const { return m_filter.getFilters()[1]; }
 
+        QString getAxisTitle() const { return m_axisTitle; }
+        void setAxisTitle(const QString &title);
+
+        QString getUnitString() const { return m_unitString; }
+        void setUnitString(const QString &unit);
+
+        QPair<double, double> getUnitRange() const;
+        void setUnitRange(double min, double max);
+
     protected:
         virtual void read_impl(const QJsonObject &json) override;
         virtual void write_impl(QJsonObject &json) const override;
 
     private:
         DualWordDataFilter m_filter;
+        QString m_axisTitle;
+        QString m_unitString;
+        QPair<double, double> m_unitRange;
 };
 
 class Hist1DConfig: public ConfigObject
@@ -540,6 +552,7 @@ class AnalysisConfig: public ConfigObject
 };
 
 void updateHistogramConfigFromFilterConfig(Hist1DConfig *histoConfig, DataFilterConfig *filterConfig);
+void updateHistogramConfigFromFilterConfig(Hist1DConfig *histoConfig, DualWordDataFilterConfig *filterConfig);
 
 #if 0
 class VariantMapConfig: public ConfigObject

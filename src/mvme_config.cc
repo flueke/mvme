@@ -162,11 +162,15 @@ vme_script::VMEScript VMEScriptConfig::getScript(u32 baseAddress) const
 void VMEScriptConfig::read_impl(const QJsonObject &json)
 {
     m_script = json["vme_script"].toString();
+    loadDynamicProperties(json["properties"].toObject(), this);
 }
 
 void VMEScriptConfig::write_impl(QJsonObject &json) const
 {
     json["vme_script"] = m_script;
+    auto props = storeDynamicProperties(this);
+    if (!props.isEmpty())
+        json["properties"] = props;
 }
 
 QString VMEScriptConfig::getVerboseTitle() const
@@ -237,6 +241,7 @@ void ModuleConfig::read_impl(const QJsonObject &json)
         cfg->read(it.value().toObject());
         vmeScripts[it.key()] = cfg;
     }
+    loadDynamicProperties(json["properties"].toObject(), this);
 }
 
 void ModuleConfig::write_impl(QJsonObject &json) const
@@ -259,6 +264,9 @@ void ModuleConfig::write_impl(QJsonObject &json) const
     }
 
     json["vme_scripts"] = scriptsObject;
+    auto props = storeDynamicProperties(this);
+    if (!props.isEmpty())
+        json["properties"] = props;
 }
 
 //
@@ -318,6 +326,8 @@ void EventConfig::read_impl(const QJsonObject &json)
             vmeScripts[it.key()]->read(it.value().toObject());
         }
     }
+
+    loadDynamicProperties(json["properties"].toObject(), this);
 }
 
 void EventConfig::write_impl(QJsonObject &json) const
@@ -353,6 +363,9 @@ void EventConfig::write_impl(QJsonObject &json) const
     }
 
     json["vme_scripts"] = scriptsObject;
+    auto props = storeDynamicProperties(this);
+    if (!props.isEmpty())
+        json["properties"] = props;
 }
 
 
@@ -447,6 +460,7 @@ void DAQConfig::read_impl(const QJsonObject &json)
         eventConfig->read(eventObject);
         eventConfigs.append(eventConfig);
     }
+    qDebug() << __PRETTY_FUNCTION__ << "read" << eventConfigs.size() << "event configs";
 
     QJsonObject scriptsObject = json["vme_script_lists"].toObject();
 
@@ -468,7 +482,7 @@ void DAQConfig::read_impl(const QJsonObject &json)
         }
     }
 
-    qDebug() << __PRETTY_FUNCTION__ << "read" << eventConfigs.size() << "event configs";
+    loadDynamicProperties(json["properties"].toObject(), this);
 }
 
 void DAQConfig::write_impl(QJsonObject &json) const
@@ -508,6 +522,9 @@ void DAQConfig::write_impl(QJsonObject &json) const
     }
 
     json["vme_script_lists"] = scriptsObject;
+    auto props = storeDynamicProperties(this);
+    if (!props.isEmpty())
+        json["properties"] = props;
 }
 
 ModuleConfig *DAQConfig::getModuleConfig(int eventIndex, int moduleIndex)
@@ -735,7 +752,9 @@ void DataFilterConfig::write_impl(QJsonObject &json) const
 
     json["unitRanges"] = array;
 
-    json["properties"] = storeDynamicProperties(this);
+    auto props = storeDynamicProperties(this);
+    if (!props.isEmpty())
+        json["properties"] = props;
 }
 
 //
@@ -746,6 +765,40 @@ void DualWordDataFilterConfig::setFilter(const DualWordDataFilter &filter)
     if (m_filter != filter)
     {
         m_filter = filter;
+        setModified();
+    }
+}
+
+void DualWordDataFilterConfig::setAxisTitle(const QString &title)
+{
+    if (m_axisTitle != title)
+    {
+        m_axisTitle = title;
+        setModified();
+    }
+}
+
+void DualWordDataFilterConfig::setUnitString(const QString &unit)
+{
+    if (m_unitString != unit)
+    {
+        m_unitString = unit;
+        setModified();
+    }
+}
+
+QPair<double, double> DualWordDataFilterConfig::getUnitRange() const
+{
+    return m_unitRange;
+}
+
+void DualWordDataFilterConfig::setUnitRange(double min, double max)
+{
+    auto range = qMakePair(min, max);
+
+    if (range != m_unitRange)
+    {
+        m_unitRange = range;
         setModified();
     }
 }
@@ -762,6 +815,12 @@ void DualWordDataFilterConfig::read_impl(const QJsonObject &json)
 
     m_filter = DualWordDataFilter(lowFilter, highFilter);
 
+    m_axisTitle = json["axisTitle"].toString();
+    m_unitString = json["unitString"].toString();
+    double unitMin = json["unitMinValue"].toDouble();
+    double unitMax = json["unitMaxValue"].toDouble();
+    m_unitRange = qMakePair(unitMin, unitMax);
+
     loadDynamicProperties(json["properties"].toObject(), this);
 }
 
@@ -774,7 +833,14 @@ void DualWordDataFilterConfig::write_impl(QJsonObject &json) const
     json["highFilter"] = QString::fromLocal8Bit(filters[1].getFilter());
     json["highFilterWordIndex"] = filters[1].getWordIndex();
 
-    json["properties"] = storeDynamicProperties(this);
+    json["axisTitle"] = getAxisTitle();
+    json["unitString"] = getUnitString();
+    json["unitMinValue"] = getUnitRange().first;
+    json["unitMaxValue"] = getUnitRange().second;
+
+    auto props = storeDynamicProperties(this);
+    if (!props.isEmpty())
+        json["properties"] = props;
 }
 
 //
@@ -793,7 +859,9 @@ void Hist1DConfig::write_impl(QJsonObject &json) const
     json["bits"] = static_cast<qint64>(m_bits);
     json["filterId"] = m_filterId.toString();
     json["filterAddress"] = static_cast<qint64>(m_filterAddress);
-    json["properties"] = storeDynamicProperties(this);
+    auto props = storeDynamicProperties(this);
+    if (!props.isEmpty())
+        json["properties"] = props;
 }
 
 //
@@ -956,7 +1024,7 @@ void Hist2DConfig::read_impl(const QJsonObject &json)
     m_axes[Qt::XAxis].unitMax = json["xUnitMax"].toDouble();
     m_axes[Qt::YAxis].unitMax = json["yUnitMax"].toDouble();
 
-    //loadDynamicProperties(json["properties"].toObject(), this);
+    loadDynamicProperties(json["properties"].toObject(), this);
 }
 
 void Hist2DConfig::write_impl(QJsonObject &json) const
@@ -988,7 +1056,9 @@ void Hist2DConfig::write_impl(QJsonObject &json) const
     json["xUnitMax"] = m_axes[Qt::XAxis].unitMax;
     json["yUnitMax"] = m_axes[Qt::YAxis].unitMax;
 
-    //json["properties"] = storeDynamicProperties(this);
+    auto props = storeDynamicProperties(this);
+    if (!props.isEmpty())
+        json["properties"] = props;
 }
 
 //
@@ -1233,6 +1303,7 @@ void AnalysisConfig::read_impl(const QJsonObject &json)
     }
 
     setModified(false);
+    loadDynamicProperties(json["properties"].toObject(), this);
 }
 
 void AnalysisConfig::write_impl(QJsonObject &json) const
@@ -1320,6 +1391,10 @@ void AnalysisConfig::write_impl(QJsonObject &json) const
 
         json["2dHistograms"] = array;
     }
+
+    auto props = storeDynamicProperties(this);
+    if (!props.isEmpty())
+        json["properties"] = props;
 }
 
 void AnalysisConfig::updateHistogramsForFilter(DataFilterConfig *filterConfig)
@@ -1373,12 +1448,18 @@ void updateHistogramConfigFromFilterConfig(Hist1DConfig *histoConfig, DataFilter
         axisTitle = QString("%1 %2").arg(filterConfig->objectName()).arg(address);
     }
 
-    // TODO: replace with custom methods to automatically setModified()
     histoConfig->setProperty("xAxisTitle", axisTitle);
     histoConfig->setProperty("xAxisUnit", filterConfig->getUnitString());
     histoConfig->setProperty("xAxisUnitMin", filterConfig->getUnitMin(address));
     histoConfig->setProperty("xAxisUnitMax", filterConfig->getUnitMax(address));
-    histoConfig->setModified();
+}
+
+void updateHistogramConfigFromFilterConfig(Hist1DConfig *histoConfig, DualWordDataFilterConfig *filterConfig)
+{
+    histoConfig->setProperty("xAxisTitle", filterConfig->getAxisTitle());
+    histoConfig->setProperty("xAxisUnit", filterConfig->getUnitString());
+    histoConfig->setProperty("xAxisUnitMin", filterConfig->getUnitRange().first);
+    histoConfig->setProperty("xAxisUnitMax", filterConfig->getUnitRange().second);
 }
 
 #if 0

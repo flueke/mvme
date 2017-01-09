@@ -859,17 +859,6 @@ DualWordDataFilterDialog::DualWordDataFilterDialog(DualWordDataFilterConfig *con
     , m_config(config)
 {
     ui->setupUi(this);
-    // FIXME: reenable UI
-    ui->label_5->setVisible(false);
-    ui->label_9->setVisible(false);
-    ui->label_6->setVisible(false);
-    ui->le_axisTitle->setVisible(false);
-    ui->le_axisUnit->setVisible(false);
-    ui->label_7->setVisible(false);
-    ui->label_8->setVisible(false);
-    ui->spin_rangeMin->setVisible(false);
-    ui->spin_rangeMax->setVisible(false);
-    ui->line->setVisible(false);
 
     QFont font("MonoSpace");
     font.setStyleHint(QFont::Monospace);
@@ -916,19 +905,17 @@ void DualWordDataFilterDialog::loadFromConfig()
     ui->spin_highWordIndex->setValue(m_config->getHighWordFilter().getWordIndex());
 
     updateUnitLimits();
-    /* FIXME: reenable
     ui->le_axisTitle->setText(m_config->getAxisTitle());
     ui->le_axisUnit->setText(m_config->getUnitString());
 
-    auto minValue = m_config->getBaseUnitRange().first;
-    auto maxValue = m_config->getBaseUnitRange().second;
+    auto minValue = m_config->getUnitRange().first;
+    auto maxValue = m_config->getUnitRange().second;
 
     ui->spin_rangeMin->setValue(minValue);
     ui->spin_rangeMax->setValue(maxValue);
 
     if (std::abs(maxValue - minValue) == 0.0)
         updateUnitLimits();
-    */
 }
 
 void DualWordDataFilterDialog::saveToConfig()
@@ -938,20 +925,13 @@ void DualWordDataFilterDialog::saveToConfig()
     auto highFilter = makeFilterFromString(ui->le_highFilter->text(), ui->spin_highWordIndex->value());
     m_config->setFilter(DualWordDataFilter(lowFilter, highFilter));
 
-    /* FIXME: reenable
     m_config->setAxisTitle(ui->le_axisTitle->text());
     m_config->setUnitString(ui->le_axisUnit->text());
 
     double unitMin = ui->spin_rangeMin->value();
     double unitMax = ui->spin_rangeMax->value();
 
-    m_config->setBaseUnitRange(unitMin, unitMax);
-
-    for (u32 addr = 0; addr < m_config->getAddressCount(); ++addr)
-    {
-        m_config->setUnitRange(addr, unitMin, unitMax);
-    }
-    */
+    m_config->setUnitRange(unitMin, unitMax);
 }
 
 void DualWordDataFilterDialog::validate()

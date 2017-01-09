@@ -43,8 +43,6 @@ enum class VMEModuleType
     MDI2    = 6,
 
     MesytecCounter = 16,
-
-    // RegisterRead = 20, // TODO: add support for this. maybe?
     VHS4030p = 21,
 };
 
@@ -72,7 +70,6 @@ static const QMap<VMEModuleType, QString> VMEModuleTypeNames =
     { VMEModuleType::MDPP16,    "MDPP-16" },
     { VMEModuleType::MDPP32,    "MDPP-32" },
     { VMEModuleType::MDI2,      "MDI-2" },
-    //{ VMEModuleType::Generic,   "Generic" },
     { VMEModuleType::VHS4030p,  "iseg VHS4030p" },
     { VMEModuleType::MesytecCounter,  "Mesytec Counter" },
 };
@@ -85,7 +82,6 @@ static const QMap<VMEModuleType, QString> VMEModuleShortNames =
     { VMEModuleType::MDPP16,    "mdpp16" },
     { VMEModuleType::MDPP32,    "mdpp32" },
     { VMEModuleType::MDI2,      "mdi2" },
-    //{ VMEModuleType::Generic,   "generic" },
     { VMEModuleType::VHS4030p,  "vhs4030p" },
     { VMEModuleType::MesytecCounter,  "mesytec_counter" },
 };
@@ -95,7 +91,7 @@ static const QMap<VMEModuleType, QString> VMEModuleShortNames =
 //
 struct DataFilterDefinition
 {
-    const char *filter;
+    const char *filter ;
     const char *name;
     const char *title;
 };
@@ -142,7 +138,7 @@ static const QMap<VMEModuleType, QList<DualWordDataFilterDefinition>> defaultDua
 {
     { VMEModuleType::MDPP16, {
                                  {
-                                     "Event Counter",
+                                     "Event Counter / TS",
                                      "11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD", -1,
                                      "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", -1
                                  }
@@ -150,7 +146,7 @@ static const QMap<VMEModuleType, QList<DualWordDataFilterDefinition>> defaultDua
     },
     { VMEModuleType::MADC32, {
                                  {
-                                     "Event Counter",
+                                     "Event Counter / TS",
                                      "11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD", -1,
                                      "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", -1
                                  }
@@ -158,7 +154,7 @@ static const QMap<VMEModuleType, QList<DualWordDataFilterDefinition>> defaultDua
     },
     { VMEModuleType::MQDC32, {
                                  {
-                                     "Event Counter",
+                                     "Event Counter / TS",
                                      "11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD", -1,
                                      "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", -1
                                  }
@@ -166,11 +162,19 @@ static const QMap<VMEModuleType, QList<DualWordDataFilterDefinition>> defaultDua
     },
     { VMEModuleType::MTDC32, {
                                  {
-                                     "Event Counter",
+                                     "Event Counter / TS",
                                      "11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD", -1,
                                      "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", -1
                                  }
                              }
+    },
+    { VMEModuleType::MesytecCounter, {
+                                         {
+                                             "Event Counter",
+                                             "XXXXXXXXXXXXXXXXDDDDDDDDDDDDDDDD", 0,
+                                             "XXXXXXXXXXXXXXXXDDDDDDDDDDDDDDDD", 1
+                                         }
+                                     }
     },
 };
 
