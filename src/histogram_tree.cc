@@ -684,6 +684,8 @@ void HistogramTreeWidget::removeHistogram()
 
 void HistogramTreeWidget::updateHistogramCountDisplay()
 {
+    const auto dualWordValues = m_context->getEventProcessor()->getDualWordFilterValues();
+
     for (auto it = m_treeMap.begin();
          it != m_treeMap.end();
          ++it)
@@ -696,8 +698,7 @@ void HistogramTreeWidget::updateHistogramCountDisplay()
         }
         else if (auto filterConfig = qobject_cast<DualWordDataFilterConfig *>(it.key()))
         {
-            const auto valuesMapping = m_context->getEventProcessor()->getDualWordFilterValues();
-            auto values = valuesMapping.value(filterConfig);
+            auto values = dualWordValues.value(filterConfig);
 
             // XXX: this only displays the first value that matched
             if (!values.isEmpty())
@@ -707,33 +708,6 @@ void HistogramTreeWidget::updateHistogramCountDisplay()
             }
         }
     }
-
-#if 0
-    // FIXME: testcode
-    {
-        const auto valuesMapping = m_context->getEventProcessor()->getDualWordFilterValues();
-
-        for (auto eventIter = valuesMapping.begin();
-             eventIter != valuesMapping.end();
-             ++eventIter)
-        {
-            int eventIndex = eventIter.key();
-
-            for (auto moduleIter = eventIter.value().begin();
-                 moduleIter != eventIter.value().end();
-                 ++moduleIter)
-            {
-                int moduleIndex = moduleIter.key();
-
-                for (auto value: moduleIter.value())
-                {
-                    qDebug() << "dualWordFilterValue" << eventIndex << moduleIndex << value;
-                }
-            }
-                 
-        }
-    }
-#endif
 }
 
 void HistogramTreeWidget::generateDefaultFilters()
