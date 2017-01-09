@@ -61,6 +61,7 @@ static DualWordDataFilterConfigList generateDefaultDualWordFilters(ModuleConfig 
                 DataFilter(def.highFilter, def.highIndex)));
 
         cfg->setObjectName(def.name);
+        cfg->setAxisTitle(def.title);
         result.push_back(cfg);
     }
 
