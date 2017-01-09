@@ -215,7 +215,13 @@ QString TemplateLoader::readTemplate(const QString &name)
 
     QFileInfo fi(filePath);
 
-    if (!fi.exists() || !fi.isReadable())
+    if (!fi.exists())
+    {
+        emit logMessage(QString("Template file %1 not found").arg(name));
+        return QString();
+    }
+
+    if (!fi.isReadable())
     {
         emit logMessage(QString("Could not read template file %1").arg(name));
         return QString();
