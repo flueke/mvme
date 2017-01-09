@@ -535,9 +535,13 @@ void Hist1DWidget::displayChanged()
             ui->plot->axisWidget(QwtPlot::xBottom)->setTitle(axisTitle);
         }
 
-        auto windowTitle = QSL("Histogram ") + getHistoPath(m_context, m_histoConfig);
+        auto histoPath = getHistoPath(m_context, m_histoConfig);
 
-        setWindowTitle(windowTitle);
+        if (!histoPath.isEmpty())
+        {
+            auto windowTitle = QSL("Histogram ") + histoPath;
+            setWindowTitle(windowTitle);
+        }
 
         double unitMin = m_histoConfig->property("xAxisUnitMin").toDouble();
         double unitMax = m_histoConfig->property("xAxisUnitMax").toDouble();
@@ -849,6 +853,8 @@ Hist1DListWidget::Hist1DListWidget(MVMEContext *context, QList<Hist1D *> histos,
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(2);
     layout->addWidget(m_histoWidget);
+
+    setWindowTitle(m_histoWidget->windowTitle());
 }
 
 void Hist1DListWidget::onHistSpinBoxValueChanged(int index)
