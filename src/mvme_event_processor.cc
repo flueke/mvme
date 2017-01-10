@@ -443,45 +443,10 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
 
                     if (xValues.size() > 0 && xValues.size() == yValues.size())
                     {
-                        //int shiftX = 0;
-                        //int shiftY = 0;
-
-                        //{
-                        //    int dataBits  = xFilter->getFilter().getExtractBits('D');
-                        //    int histoBits = hist2d->getXBits();
-                        //    //shiftX = std::max(dataBits - histoBits, 0);
-                        //    shiftX = std::max(dataBits - xBinBits, 0);
-                        //}
-
-                        //{
-                        //    int dataBits  = yFilter->getFilter().getExtractBits('D');
-                        //    int histoBits = hist2d->getYBits();
-                        //    //shiftY = std::max(dataBits - histoBits, 0);
-                        //    shiftY = std::max(dataBits - yBinBits, 0);
-                        //}
-
                         for (auto i=0; i<xValues.size(); ++i)
                         {
                             auto xValue = xValues[i];
                             auto yValue = yValues[i];
-
-#if 0
-                            if (xOffset != 0)
-                            {
-                                qDebug()
-                                    << "xOffset" << xOffset
-                                    << "xShift" << xShift
-                                    << "xValue" << xValue;
-                            }
-
-                            if (yOffset != 0)
-                            {
-                                qDebug()
-                                    << "yOffset" << yOffset
-                                    << "yShift" << yShift
-                                    << "yValue" << yValue;
-                            }
-#endif
 
                             if (xValue >= xOffset && yValue >= yOffset)
                             {
@@ -525,7 +490,7 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                             double ddiff = static_cast<double>(currentValues[i]) - static_cast<double>(lastValues[i]);
 
                             m_d->dualWordFilterDiffs[filterConfig].push_back(ddiff);
-                            qDebug() << m_d->dualWordFilterDiffs[filterConfig].size() << currentValues.size() << lastValues.size();
+                            qDebug() << filterConfig << m_d->dualWordFilterDiffs[filterConfig].size() << currentValues.size() << lastValues.size();
                         }
                     }
                 }
