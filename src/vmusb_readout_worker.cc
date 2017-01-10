@@ -87,6 +87,7 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         int globalMode = 0;
         globalMode |= (1 << GlobalModeRegister::MixedBufferShift);
         //globalMode |= (1 << GlobalModeRegister::ForceScalerDumpShift);
+        globalMode |= 0x800; // 250ms watchdog timeout with newer firmware 0A03_010917
 
         error = vmusb->setMode(globalMode);
         if (error.isError())
@@ -366,7 +367,7 @@ void VMUSBReadoutWorker::resume()
 }
 
 static const int leaveDaqReadTimeout_ms = 100;
-static const int daqReadTimeout_ms = 250;
+static const int daqReadTimeout_ms = 500; // This should be higher than the watchdog timeout.
 
 void VMUSBReadoutWorker::readoutLoop()
 {
