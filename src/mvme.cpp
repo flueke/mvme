@@ -134,8 +134,6 @@ mvme::mvme(QWidget *parent) :
         dock->setWidget(m_daqConfigTreeWidget);
         //addDockWidget(Qt::LeftDockWidgetArea, dock);
 
-        connect(m_context, &MVMEContext::daqConfigChanged, m_daqConfigTreeWidget, &DAQConfigTreeWidget::setConfig);
-
         connect(m_daqConfigTreeWidget, &DAQConfigTreeWidget::configObjectClicked,
                 this, &mvme::onObjectClicked);
 

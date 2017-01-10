@@ -9,20 +9,20 @@
 #include "config_ui.h"
 #include "mvme_event_processor.h"
 
-#include <QHBoxLayout>
-#include <QMenu>
-#include <QStyledItemDelegate>
-#include <QTreeWidget>
-#include <QTimer>
-#include <QSettings>
-#include <QFileInfo>
-#include <QStandardPaths>
 #include <QFileDialog>
+#include <QFileInfo>
+#include <QHBoxLayout>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QLineEdit>
+#include <QMenu>
 #include <QMessageBox>
+#include <QSettings>
+#include <QStandardPaths>
+#include <QStyledItemDelegate>
+#include <QTimer>
 #include <QToolButton>
-#include <QLabel>
+#include <QTreeWidget>
 
 #include <memory>
 
@@ -211,7 +211,9 @@ HistogramTreeWidget::HistogramTreeWidget(MVMEContext *context, QWidget *parent)
         auto result = new QToolButton;
         result->setIcon(QIcon(icon));
         result->setText(text);
-        result->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+        result->setStatusTip(text);
+        //result->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+        result->setToolButtonStyle(Qt::ToolButtonIconOnly);
         auto font = result->font();
         font.setPointSize(8);
         result->setFont(font);
@@ -238,13 +240,17 @@ HistogramTreeWidget::HistogramTreeWidget(MVMEContext *context, QWidget *parent)
     buttonLayout->addStretch(1);
 
     // filename label
-    label_fileName = new QLabel;
+    le_fileName = new QLineEdit;
+    le_fileName->setReadOnly(true);
+    auto pal = le_fileName->palette();
+    pal.setBrush(QPalette::Base, QColor(239, 235, 231));
+    le_fileName->setPalette(pal);
 
     // widget layout
     auto layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->addLayout(buttonLayout);
-    layout->addWidget(label_fileName);
+    layout->addWidget(le_fileName);
     layout->addWidget(m_tree);
 
     connect(m_tree, &QTreeWidget::itemClicked, this, &HistogramTreeWidget::onItemClicked);
@@ -1216,11 +1222,9 @@ void HistogramTreeWidget::updateConfigLabel()
     if (m_context->getAnalysisConfig()->isModified())
         fileName += QSL(" *");
 
-    QFontMetrics fm(label_fileName->font());
-    auto text = fm.elidedText(fileName, Qt::ElideMiddle, label_fileName->width());
-
-
-    label_fileName->setText(text);
+    le_fileName->setText(fileName);
+    le_fileName->setToolTip(fileName);
+    le_fileName->setStatusTip(fileName);
 }
 
 void HistogramTreeWidget::handleShowDiagnostics()

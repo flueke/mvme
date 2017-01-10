@@ -4,7 +4,7 @@
 #include <QWidget>
 #include <QMap>
 
-class QLabel;
+class QLineEdit;
 class QTreeWidget;
 class QTreeWidgetItem;
 class QToolButton;
@@ -82,7 +82,7 @@ class HistogramTreeWidget: public QWidget
         TreeNode *m_node1D, *m_node2D;
 
         QToolButton *pb_new, *pb_load, *pb_save, *pb_saveAs;
-        QLabel *label_fileName;
+        QLineEdit *le_fileName;
 };
 
 #endif /* __HISTOGRAM_TREE_H__ */

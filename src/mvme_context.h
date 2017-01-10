@@ -168,6 +168,8 @@ class MVMEContext: public QObject
                       vme_script::LoggerFun logger = vme_script::LoggerFun(),
                       bool logEachResult = false);
 
+        mvme *getMainWindow() const { return m_mainwin; }
+
     public slots:
         void startReplay();
         void startDAQ(quint32 nCycles=0);

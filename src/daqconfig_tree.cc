@@ -1,4 +1,5 @@
 #include "daqconfig_tree.h"
+#include "mvme.h"
 #include "mvme_config.h"
 #include "mvme_context.h"
 #include "config_ui.h"
@@ -8,9 +9,11 @@
 
 #include <QDebug>
 #include <QHBoxLayout>
+#include <QLineEdit>
 #include <QMenu>
 #include <QPushButton>
 #include <QSettings>
+#include <QToolButton>
 #include <QTreeWidget>
 
 using namespace std::placeholders;
@@ -105,7 +108,31 @@ DAQConfigTreeWidget::DAQConfigTreeWidget(MVMEContext *context, QWidget *parent)
 
     m_tree->resizeColumnToContents(0);
 
-    QPushButton *pb_treeSettings = nullptr;
+    // Toolbar buttons
+    auto makeToolButton = [](const QString &icon, const QString &text)
+    {
+        auto result = new QToolButton;
+        result->setIcon(QIcon(icon));
+        result->setText(text);
+        result->setStatusTip(text);
+        //result->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+        result->setToolButtonStyle(Qt::ToolButtonIconOnly);
+        auto font = result->font();
+        font.setPointSize(8);
+        result->setFont(font);
+        return result;
+    };
+    pb_new = makeToolButton(QSL(":/document-new.png"), QSL("New"));
+    pb_load = makeToolButton(QSL(":/document-open.png"), QSL("Open"));
+    pb_save = makeToolButton(QSL(":/document-save.png"), QSL("Save"));
+    pb_saveAs = makeToolButton(QSL(":/document-save-as.png"), QSL("Save As"));
+
+    connect(pb_new, &QAbstractButton::clicked, this, &DAQConfigTreeWidget::newConfig);
+    connect(pb_load, &QAbstractButton::clicked, this, &DAQConfigTreeWidget::loadConfig);
+    connect(pb_save, &QAbstractButton::clicked, this, &DAQConfigTreeWidget::saveConfig);
+    connect(pb_saveAs, &QAbstractButton::clicked, this, &DAQConfigTreeWidget::saveConfigAs);
+
+    QToolButton *pb_treeSettings = nullptr;
 
     {
         auto menu = new QMenu;
@@ -116,8 +143,10 @@ DAQConfigTreeWidget::DAQConfigTreeWidget(MVMEContext *context, QWidget *parent)
         auto action_dumpVMUSBRegisters = menu->addAction(QSL("Dump VMUSB Registers"));
         connect(action_dumpVMUSBRegisters, &QAction::triggered, this, &DAQConfigTreeWidget::dumpVMUSBRegisters);
 
-        pb_treeSettings = new QPushButton(QIcon(":/tree-settings.png"), QSL(""));
+        //pb_treeSettings = new QPushButton(QIcon(":/tree-settings.png"), QSL(""));
+        pb_treeSettings = makeToolButton(QSL(":/tree-settings.png"), QSL("More"));
         pb_treeSettings->setMenu(menu);
+        pb_treeSettings->setPopupMode(QToolButton::InstantPopup);
 
         QSettings settings;
         action_showAdvanced->setChecked(settings.value("DAQTree/ShowAdvanced", false).toBool());
@@ -127,12 +156,24 @@ DAQConfigTreeWidget::DAQConfigTreeWidget(MVMEContext *context, QWidget *parent)
     auto buttonLayout = new QHBoxLayout;
     buttonLayout->setContentsMargins(0, 0, 0, 0);
     buttonLayout->setSpacing(2);
+    buttonLayout->addWidget(pb_new);
+    buttonLayout->addWidget(pb_load);
+    buttonLayout->addWidget(pb_save);
+    buttonLayout->addWidget(pb_saveAs);
     buttonLayout->addWidget(pb_treeSettings);
     buttonLayout->addStretch(1);
+
+    // filename label
+    le_fileName = new QLineEdit;
+    le_fileName->setReadOnly(true);
+    auto pal = le_fileName->palette();
+    pal.setBrush(QPalette::Base, QColor(239, 235, 231));
+    le_fileName->setPalette(pal);
 
     auto layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->addLayout(buttonLayout);
+    layout->addWidget(le_fileName);
     layout->addWidget(m_tree);
 
     connect(m_tree, &QTreeWidget::itemClicked, this, &DAQConfigTreeWidget::onItemClicked);
@@ -140,6 +181,13 @@ DAQConfigTreeWidget::DAQConfigTreeWidget(MVMEContext *context, QWidget *parent)
     connect(m_tree, &QTreeWidget::itemChanged, this, &DAQConfigTreeWidget::onItemChanged);
     connect(m_tree, &QTreeWidget::itemExpanded, this, &DAQConfigTreeWidget::onItemExpanded);
     connect(m_tree, &QWidget::customContextMenuRequested, this, &DAQConfigTreeWidget::treeContextMenu);
+
+    connect(m_context, &MVMEContext::daqConfigChanged, this, &DAQConfigTreeWidget::setConfig);
+    connect(m_context, &MVMEContext::daqConfigFileNameChanged, this, [this](const QString &) {
+        updateConfigLabel();
+    });
+
+    setConfig(m_context->getDAQConfig());
 }
 
 void DAQConfigTreeWidget::setConfig(DAQConfig *cfg)
@@ -835,4 +883,42 @@ void DAQConfigTreeWidget::dumpVMUSBRegisters()
     {
         dump_registers(vmusb, [this] (const QString &line) { m_context->logMessage(line); });
     }
+}
+
+static const QString fileFilter = QSL("Config Files (*.mvmecfg);; All Files (*.*)");
+static const QString settingsPath = QSL("Files/LastConfigFile");
+
+void DAQConfigTreeWidget::newConfig()
+{
+    m_context->getMainWindow()->on_actionNewConfig_triggered();
+}
+
+void DAQConfigTreeWidget::loadConfig()
+{
+    m_context->getMainWindow()->on_actionLoadConfig_triggered();
+}
+
+bool DAQConfigTreeWidget::saveConfig()
+{
+    return m_context->getMainWindow()->on_actionSaveConfig_triggered();
+}
+
+bool DAQConfigTreeWidget::saveConfigAs()
+{
+    return m_context->getMainWindow()->on_actionSaveConfigAs_triggered();
+}
+
+void DAQConfigTreeWidget::updateConfigLabel()
+{
+    QString fileName = m_context->getConfigFileName();
+
+    if (fileName.isEmpty())
+        fileName = QSL("<not saved>");
+
+    if (m_context->getDAQConfig()->isModified())
+        fileName += QSL(" *");
+
+    le_fileName->setText(fileName);
+    le_fileName->setToolTip(fileName);
+    le_fileName->setStatusTip(fileName);
 }

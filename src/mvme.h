@@ -59,7 +59,7 @@ public slots:
 protected:
     void resizeEvent(QResizeEvent *event) override;
 
-private slots:
+public slots:
     void on_actionNewConfig_triggered();
     void on_actionLoadConfig_triggered();
     bool on_actionSaveConfig_triggered();
@@ -67,6 +67,7 @@ private slots:
 
     bool loadConfig(const QString &fileName);
 
+private slots:
     void on_actionOpen_Listfile_triggered();
 
     void on_actionVME_Debug_triggered();

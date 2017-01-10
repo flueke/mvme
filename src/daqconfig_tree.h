@@ -4,9 +4,10 @@
 #include <QWidget>
 #include <QMap>
 
+class QLineEdit;
 class QTreeWidget;
 class QTreeWidgetItem;
-class QPushButton;
+class QToolButton;
 
 class TreeNode;
 class ConfigObject;
@@ -72,6 +73,12 @@ class DAQConfigTreeWidget: public QWidget
 
         void runScriptConfigs(const QVector<VMEScriptConfig *> &configs);
 
+        void newConfig();
+        void loadConfig();
+        bool saveConfig();
+        bool saveConfigAs();
+        void updateConfigLabel();
+
         MVMEContext *m_context = nullptr;
         DAQConfig *m_config = nullptr;
         QTreeWidget *m_tree;
@@ -82,6 +89,9 @@ class DAQConfigTreeWidget: public QWidget
                  *m_nodeScripts;
 
         QAction *action_showAdvanced;
+
+        QToolButton *pb_new, *pb_load, *pb_save, *pb_saveAs;
+        QLineEdit *le_fileName;
 };
 
 #endif /* __DAQCONFIG_TREE_H__ */
