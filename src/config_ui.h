@@ -46,8 +46,7 @@ class ModuleConfigDialog: public QDialog
 {
     Q_OBJECT
     public:
-        ModuleConfigDialog(MVMEContext *context, ModuleConfig *module,
-                           bool isNewModule = false, QWidget *parent = 0);
+        ModuleConfigDialog(MVMEContext *context, ModuleConfig *module, QWidget *parent = 0);
 
         ModuleConfig *getModule() const { return m_module; }
 

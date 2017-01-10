@@ -93,7 +93,7 @@ void EventConfigDialog::setReadOnly(bool readOnly)
 //
 // ModuleConfigDialog
 //
-ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *module, bool isNewModule, QWidget *parent)
+ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *module, QWidget *parent)
     : QDialog(parent)
     , m_context(context)
     , m_module(module)
@@ -129,8 +129,6 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *modul
 
     connect(typeCombo, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
             this, onTypeComboIndexChanged);
-
-    typeCombo->setEnabled(isNewModule);
 
     addressEdit = new QLineEdit;
     addressEdit->setInputMask("\\0\\xHHHHHHHH");

@@ -327,20 +327,6 @@ void DAQConfigTreeWidget::onItemDoubleClicked(QTreeWidgetItem *item, int column)
     {
         emit configObjectDoubleClicked(scriptConfig);
     }
-
-    //auto moduleConfig = qobject_cast<ModuleConfig *>(configObject);
-    //if (moduleConfig)
-    //{
-    //    ModuleConfigDialog dialog(m_context, moduleConfig);
-    //    dialog.exec();
-    //}
-
-    //auto eventConfig = qobject_cast<EventConfig *>(configObject);
-    //if (eventConfig)
-    //{
-    //    EventConfigDialog dialog(m_context, eventConfig);
-    //    dialog.exec();
-    //}
 }
 
 void DAQConfigTreeWidget::onItemChanged(QTreeWidgetItem *item, int column)
@@ -634,7 +620,7 @@ void DAQConfigTreeWidget::addModule()
         bool doExpand = (event->modules.size() == 0);
 
         auto module = new ModuleConfig;
-        ModuleConfigDialog dialog(m_context, module, true);
+        ModuleConfigDialog dialog(m_context, module);
         int result = dialog.exec();
 
         if (result == QDialog::Accepted)
