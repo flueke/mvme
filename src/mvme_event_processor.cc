@@ -33,6 +33,7 @@ struct MVMEEventProcessorPrivate
     QHash<DualWordDataFilterConfig *, Hist1D *> histogramsByDualWordDataFilterConfig;
     DualWordFilterValues currentDualWordFilterValues;
     DualWordFilterValues lastDualWordFilterValues;
+    DualWordFilterDiffs dualWordFilterDiffs;
     QMutex dualWordFilterValuesLock;
 
     MesytecDiagnostics *diag = nullptr;
@@ -79,6 +80,25 @@ DualWordFilterValues MVMEEventProcessor::getDualWordFilterValues() const
     // create a deep copy of the values hash
     for (auto it = m_d->currentDualWordFilterValues.begin();
          it != m_d->currentDualWordFilterValues.end();
+        ++it)
+    {
+        const auto &values = it.value();
+        auto &dest = result[it.key()];
+        std::copy(values.begin(), values.end(), std::back_inserter(dest));
+    }
+
+    return result;
+}
+
+DualWordFilterDiffs MVMEEventProcessor::getDualWordFilterDiffs() const
+{
+    QMutexLocker locker(&m_d->dualWordFilterValuesLock);
+
+    DualWordFilterDiffs result;
+
+    // create a deep copy of the values hash
+    for (auto it = m_d->dualWordFilterDiffs.begin();
+         it != m_d->dualWordFilterDiffs.end();
         ++it)
     {
         const auto &values = it.value();
@@ -159,6 +179,7 @@ void MVMEEventProcessor::newRun()
         m_d->histogramsByDualWordDataFilterConfig.clear();
         m_d->currentDualWordFilterValues.clear();
         m_d->lastDualWordFilterValues.clear();
+        m_d->dualWordFilterDiffs.clear();
 
         for (auto histoConfig: analysisConfig->findChildren<Hist1DConfig *>())
         {
@@ -247,6 +268,7 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                         std::swap(m_d->currentDualWordFilterValues[filterConfig],
                                   m_d->lastDualWordFilterValues[filterConfig]);
                         m_d->currentDualWordFilterValues[filterConfig].clear();
+                        m_d->dualWordFilterDiffs[filterConfig].clear();
                     }
                 }
             }
@@ -279,7 +301,6 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                     for (auto filterConfig: dualWordfilterConfigs)
                     {
                         filterConfig->getFilter().clearCompletion();
-                        //m_d->currentDualWordFilterValues[filterConfig].clear(); // XXX: do I have to do this?
                     }
                 }
 
@@ -482,6 +503,7 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
             //
             {
                 QMutexLocker locker(&m_d->dualWordFilterValuesLock);
+
                 for (auto it = m_d->histogramsByDualWordDataFilterConfig.begin();
                      it != m_d->histogramsByDualWordDataFilterConfig.end();
                      ++it)
@@ -499,6 +521,11 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                             // TODO: add a way to handle negative results here!
                             s64 diff = currentValues[i] - lastValues[i];
                             histo->fill(diff);
+
+                            double ddiff = static_cast<double>(currentValues[i]) - static_cast<double>(lastValues[i]);
+
+                            m_d->dualWordFilterDiffs[filterConfig].push_back(ddiff);
+                            qDebug() << m_d->dualWordFilterDiffs[filterConfig].size() << currentValues.size() << lastValues.size();
                         }
                     }
                 }

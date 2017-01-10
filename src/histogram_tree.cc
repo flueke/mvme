@@ -699,6 +699,7 @@ void HistogramTreeWidget::removeHistogram()
 void HistogramTreeWidget::updateHistogramCountDisplay()
 {
     const auto dualWordValues = m_context->getEventProcessor()->getDualWordFilterValues();
+    const auto dualWordDiffs  = m_context->getEventProcessor()->getDualWordFilterDiffs();
 
     for (auto it = m_treeMap.begin();
          it != m_treeMap.end();
@@ -713,12 +714,16 @@ void HistogramTreeWidget::updateHistogramCountDisplay()
         else if (auto filterConfig = qobject_cast<DualWordDataFilterConfig *>(it.key()))
         {
             auto values = dualWordValues.value(filterConfig);
+            auto diffs  = dualWordDiffs.value(filterConfig);
 
             // XXX: this only displays the first value that matched
             if (!values.isEmpty())
             {
                 auto node = it.value();
-                node->setText(1, QString("value=%1").arg(values[0]));
+                if (diffs.isEmpty())
+                    node->setText(1, QString("val=%1").arg(values[0]));
+                else
+                    node->setText(1, QString("val=%1, diff=%2").arg(values[0]).arg(diffs[0]));
             }
         }
     }

@@ -50,8 +50,19 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
         auto result = m_ctrlOpenWatcher.result();
         if (!result.isError())
         {
-            logMessage(QString("Opened VME controller %1")
-                       .arg(m_controller->getIdentifyingString()));
+            if (auto vmusb = dynamic_cast<VMUSB *>(m_controller))
+            {
+                vmusb->readAllRegisters();
+                logMessage(QString("Opened VME controller %1 - Firmware Version %2")
+                           .arg(m_controller->getIdentifyingString())
+                           .arg(vmusb->getFirmwareId(), 8, 16, QLatin1Char('0'))
+                           );
+            }
+            else
+            {
+                logMessage(QString("Opened VME controller %1")
+                           .arg(m_controller->getIdentifyingString()));
+            }
         }
     });
 

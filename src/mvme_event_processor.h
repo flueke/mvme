@@ -14,6 +14,7 @@ class DualWordDataFilterConfig;
 class MVMEEventProcessorPrivate;
 
 using DualWordFilterValues = QHash<DualWordDataFilterConfig *, QVector<u64>>;
+using DualWordFilterDiffs  = QHash<DualWordDataFilterConfig *, QVector<double>>;
 
 class MVMEEventProcessor: public QObject
 {
@@ -33,6 +34,9 @@ class MVMEEventProcessor: public QObject
 
         // Returns a deep copy of the hash to avoid threading issues.
         DualWordFilterValues getDualWordFilterValues() const;
+
+        // Returns a hash of the most recent differences of dual word filter values.
+        DualWordFilterDiffs getDualWordFilterDiffs() const;
 
     public slots:
         void removeDiagnostics();
