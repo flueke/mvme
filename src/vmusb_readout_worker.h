@@ -32,7 +32,7 @@ class VMUSBReadoutWorker: public QObject
     private:
         void readoutLoop();
         void setState(DAQState state);
-        void setError(const QString &);
+        void logError(const QString &);
         void clearError() { m_errorMessage.clear(); }
         int readBuffer(int timeout_ms);
 

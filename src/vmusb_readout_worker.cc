@@ -38,7 +38,7 @@ void VMUSBReadoutWorker::start(quint32 cycles)
     auto vmusb = dynamic_cast<VMUSB *>(m_context->getController());
     if (!vmusb)
     {
-        setError("VMUSB controller required");
+        logError("VMUSB controller required");
         return;
     }
 
@@ -72,10 +72,6 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         //
         u32 daqSettings = 0;
 
-        // FIXME: test code; remove once done
-        //u32 scalerPeriodSeconds = 4;
-        //daqSettings |= ((scalerPeriodSeconds / 2) << DaqSettingsRegister::ScalerReadoutPerdiodShift);
-        // FIXME: end of test code
         error = vmusb->setDaqSettings(daqSettings);
 
         if (error.isError())
@@ -86,40 +82,17 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         //
         int globalMode = 0;
         globalMode |= (1 << GlobalModeRegister::MixedBufferShift);
-        //globalMode |= (1 << GlobalModeRegister::ForceScalerDumpShift);
-        globalMode |= 0x800; // 250ms watchdog timeout with newer firmware 0A03_010917
+        globalMode |= GlobalModeRegister::WatchDog250; // 250ms watchdog
 
         error = vmusb->setMode(globalMode);
         if (error.isError())
             throw QString("Setting VMUSB global mode failed: %1").arg(error.toString());
 
         //
-        // EventsPerBuffer - This only has an effect if BuffOpt=9 in GlobalModeRegister
-        //
-#if 0
-        static const u32 eventsPerBuffer = 3;
-        error = vmusb->setEventsPerBuffer(eventsPerBuffer);
-
-        if (error.isError())
-            throw QString("Setting VMUSB EventsPerBuffer failed: %1").arg(error.toString());
-#endif
-        
-
-        //
         // USB Bulk Transfer Setup Register
         //
         u32 bulkTransfer = 0;
 
-        // FIXME: test code; remove once done
-        //static const int usbBulkTimeoutSecs = 1; // resulting register value is usbBulkTimeoutSecs - 1 (0 == 1s)
-        //static const int usbBulkNumberOfBuffers = 200;
-
-        //u32 bulkTransfer = (usbBulkNumberOfBuffers | (
-        //        ((usbBulkTimeoutSecs - 1) << TransferSetupRegister::timeoutShift) & TransferSetupRegister::timeoutMask));
-        // FIXME: end of test code
-
-        qDebug() << "setting bulkTransfer to" << QString().sprintf("0x%08x", bulkTransfer);
-        
         error = vmusb->setUsbSettings(bulkTransfer);
         if (error.isError())
             throw QString("Setting VMUSB Bulk Transfer Register failed: %1").arg(error.toString());
@@ -313,22 +286,22 @@ void VMUSBReadoutWorker::start(quint32 cycles)
     }
     catch (const char *message)
     {
-        setError(message);
+        logError(message);
         errorThrown = true;
     }
     catch (const QString &message)
     {
-        setError(message);
+        logError(message);
         errorThrown = true;
     }
     catch (const std::runtime_error &e)
     {
-        setError(e.what());
+        logError(e.what());
         errorThrown = true;
     }
     catch (const vme_script::ParseError &)
     {
-        setError(QSL("VME Script parse error"));
+        logError(QSL("VME Script parse error"));
         errorThrown = true;
     }
 
@@ -432,39 +405,40 @@ void VMUSBReadoutWorker::readoutLoop()
              * could be chosen but that will negatively impact performance for
              * high data rates. Another method would be to use VMUSBs watchdog
              * feature but that does not seem to work.
+             *
              * Now testing another method: when getting a read timeout leave
              * DAQ mode which forces the controller to dump its buffer, then
              * resume DAQ mode. If we still don't receive data after this there
              * is a communication error, otherwise the data rate was just too
-             * low to fill the buffer and we continue on. */
+             * low to fill the buffer and we continue on.
+             *
+             * Since firmware version 0A03_010917 there is a new watchdog
+             * feature, different from the one in the documentation for version
+             * 0A00. It does not use the USB Bulk Transfer Setup Register but
+             * the Global Mode Register. The workaround here is left active to
+             * work with older firmware versions. As long as the
+             * daqReadTimeout_ms is higher than the watchdog timeout the
+             * watchdog will be activated if it is available. */
 #define USE_DAQMODE_HACK
 #ifdef USE_DAQMODE_HACK
             if (bytesRead <= 0)
             {
                 error = vmusb->leaveDaqMode();
                 if (error.isError())
-                    throw QString("Error leaving VMUSB DAQ mode (timeout handling): %1").arg(error.toString());
+                    throw QString("Error leaving VMUSB DAQ mode (in timeout handling): %1").arg(error.toString());
 
-                QElapsedTimer hackTime;
-                hackTime.start();
-
-                static const int hackTimeout = 10;
-                bytesRead = readBuffer(hackTimeout);
+                /* This timeout can be very small as leaving DAQ mode forces a buffer dump. */
+                static const int daqModeHackTimeout = 10;
+                bytesRead = readBuffer(daqModeHackTimeout);
 
                 /* According to Jan we need to wait at least one millisecond
                  * after entering DAQ mode to make sure that the VMUSB is
                  * ready. */
                 QThread::msleep(1);
 
-                qint64 hackElapsed = hackTime.nsecsElapsed();
-
-                //qDebug() << "VMUSB hackElapsed =" << hackElapsed << "ns,"
-                //    << hackElapsed / 1e6 << "ms";
-
-
                 error = vmusb->enterDaqMode();
                 if (error.isError())
-                    throw QString("Error entering VMUSB DAQ mode (timeout handling): %1").arg(error.toString());
+                    throw QString("Error entering VMUSB DAQ mode (in timeout handling): %1").arg(error.toString());
             }
 #endif
 
@@ -518,11 +492,9 @@ void VMUSBReadoutWorker::setState(DAQState state)
     emit stateChanged(state);
 }
 
-// TODO: rename to logError() as it does not do anything else right now
-void VMUSBReadoutWorker::setError(const QString &message)
+void VMUSBReadoutWorker::logError(const QString &message)
 {
     emit logMessage(QString("VMUSB Error: %1").arg(message));
-    //setState(DAQState::Idle);
 }
 
 

@@ -273,6 +273,12 @@ namespace GlobalModeRegister
     static const uint32_t ForceScalerDumpShift = 6;
     static const uint32_t Align32Shift = 7;
     static const uint32_t Align32Mask  = 0x00000080;
+
+    /* For the watchdog flags to work firmware at least firmware version
+     * 0A03_010917 is required. */
+    static const uint32_t WatchDog100 = 0x400;
+    static const uint32_t WatchDog250 = 0x800;
+    static const uint32_t WatchDog500 = 0xC00;
 }
 
 uint16_t*
