@@ -11,12 +11,6 @@
     inline QNoDebug qEPDebug() { return QNoDebug(); }
 #endif
 
-/* Maybe FIXME: With DualWordDataFilters: if a module does not appear in a
- * certain event I still swap the current and last value vectors and then clear
- * the new current vector. This means the actual last value of the module is
- * lost. It should be kept around if the module did not appear in the event and
- * used once the module appears again. I think. Maybe. */
-
 using namespace listfile;
 
 struct MVMEEventProcessorPrivate
@@ -295,13 +289,9 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                 const auto filterConfigs = m_d->filterConfigs.value(eventIndex).value(moduleIndex);
                 const auto dualWordfilterConfigs = m_d->dualWordFilterConfigs.value(eventIndex).value(moduleIndex);
 
-                if (!m_d->dualWordFilterConfigs.isEmpty())
+                for (auto filterConfig: dualWordfilterConfigs)
                 {
-                    QMutexLocker locker(&m_d->dualWordFilterValuesLock);
-                    for (auto filterConfig: dualWordfilterConfigs)
-                    {
-                        filterConfig->getFilter().clearCompletion();
-                    }
+                    filterConfig->getFilter().clearCompletion();
                 }
 
                 s32 wordIndexInSubEvent = 0;
@@ -362,13 +352,17 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                         diag->handleDataWord(currentWord);
                     }
 
+#if 0
                     if (moduleType == VMEModuleType::MesytecCounter)
                     {
-                        emit logMessage(QString("CounterWord %1: 0x%2")
+                        emit logMessage(QString("CounterWord %1: 0x%2, evtIdx=%3, modIdx=%4")
                                         .arg(wordIndexInSubEvent)
-                                        .arg(currentWord, 8, 16, QLatin1Char('0')));
-
+                                        .arg(currentWord, 8, 16, QLatin1Char('0'))
+                                        .arg(eventIndex)
+                                        .arg(moduleIndex)
+                                        );
                     }
+#endif
 
                 }
 
@@ -466,31 +460,41 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
             //
             // Calculate dual word filter differences and fill related 1d histograms
             //
+
             {
                 QMutexLocker locker(&m_d->dualWordFilterValuesLock);
 
-                for (auto it = m_d->histogramsByDualWordDataFilterConfig.begin();
-                     it != m_d->histogramsByDualWordDataFilterConfig.end();
-                     ++it)
+                const auto &filtersByModule(m_d->dualWordFilterConfigs[eventIndex]);
+
+                for (auto jt = filtersByModule.begin();
+                     jt != filtersByModule.end();
+                     ++jt)
                 {
-                    const auto &filterConfig = it.key();
-                    const auto &histo = it.value();
+                    const auto &filters(jt.value());
 
-                    const auto &currentValues(m_d->currentDualWordFilterValues[filterConfig]);
-                    const auto &lastValues(m_d->lastDualWordFilterValues[filterConfig]);
-
-                    if (!currentValues.isEmpty() && (currentValues.size() == lastValues.size()))
+                    for (auto filterConfig: filters)
                     {
-                        for (int i=0; i<currentValues.size(); ++i)
+                        auto histo = m_d->histogramsByDualWordDataFilterConfig.value(filterConfig);
+
+                        if (histo)
                         {
-                            // TODO: add a way to handle negative results here!
-                            s64 diff = currentValues[i] - lastValues[i];
-                            histo->fill(diff);
+                            const auto &currentValues(m_d->currentDualWordFilterValues[filterConfig]);
+                            const auto &lastValues(m_d->lastDualWordFilterValues[filterConfig]);
 
-                            double ddiff = static_cast<double>(currentValues[i]) - static_cast<double>(lastValues[i]);
+                            if (!currentValues.isEmpty() && (currentValues.size() == lastValues.size()))
+                            {
+                                for (int i=0; i<currentValues.size(); ++i)
+                                {
+                                    // TODO: add a way to handle negative results here!
+                                    s64 diff = currentValues[i] - lastValues[i];
+                                    histo->fill(diff);
 
-                            m_d->dualWordFilterDiffs[filterConfig].push_back(ddiff);
-                            qDebug() << filterConfig << m_d->dualWordFilterDiffs[filterConfig].size() << currentValues.size() << lastValues.size();
+                                    double ddiff = static_cast<double>(currentValues[i]) - static_cast<double>(lastValues[i]);
+
+                                    m_d->dualWordFilterDiffs[filterConfig].push_back(ddiff);
+                                    qDebug() << filterConfig << m_d->dualWordFilterDiffs[filterConfig].size() << currentValues.size() << lastValues.size();
+                                }
+                            }
                         }
                     }
                 }
