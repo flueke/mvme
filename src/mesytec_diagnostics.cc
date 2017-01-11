@@ -553,13 +553,12 @@ void MesytecDiagnosticsWidget::on_calcAll_clicked()
                     ui->diagLowChannel->value(), ui->diagHiChannel->value(),
                     lobin, hibin);
 
-    dispAll();
 }
 
 void MesytecDiagnosticsWidget::on_pb_reset_clicked()
 {
     m_diag->reset();
-    on_calcAll_clicked();
+    dispAll();
 }
 
 void MesytecDiagnosticsWidget::on_diagBin_valueChanged(int value)
@@ -705,7 +704,7 @@ void MesytecDiagnosticsWidget::updateDisplay()
 
     auto headers = m_diag->getNumberOfHeaders();
     auto eoes = m_diag->getNumberOfEOEs();
-    s64 delta = headers - eoes;
+    double delta = std::abs(static_cast<double>(headers) - static_cast<double>(eoes));
 
     ui->label_nHeaders->setText(QString("%L1").arg(headers));
     ui->label_nEOEs->setText(QString("%L1").arg(eoes));

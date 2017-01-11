@@ -36,8 +36,8 @@ public:
     quint32 getMaxchan(quint16 chan);
     quint32 getCounts(quint16 chan);
     quint32 getChannel(quint16 chan, quint32 bin);
-    quint32 getNumberOfHeaders() const { return m_nHeaders; }
-    quint32 getNumberOfEOEs() const { return m_nEOEs; }
+    u64 getNumberOfHeaders() const { return m_nHeaders; }
+    u64 getNumberOfEOEs() const { return m_nEOEs; }
 
     friend class MesytecDiagnosticsWidget;
 
@@ -51,8 +51,8 @@ private:
     quint32 max[50];
     quint32 maxchan[50];
     quint32 counts[50];
-    quint32 m_nHeaders = 0;
-    quint32 m_nEOEs = 0;
+    u64 m_nHeaders = 0;
+    u64 m_nEOEs = 0;
 
     u64 m_nEvents = 0;
 
