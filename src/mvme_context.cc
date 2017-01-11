@@ -53,9 +53,16 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
             if (auto vmusb = dynamic_cast<VMUSB *>(m_controller))
             {
                 vmusb->readAllRegisters();
-                logMessage(QString("Opened VME controller %1 - Firmware Version %2")
+
+                u32 fwReg = vmusb->getFirmwareId();
+                u32 fwMajor = (fwReg & 0xFFFF);
+                u32 fwMinor = ((fwReg >> 16) &  0xFFFF);
+
+
+                logMessage(QString("Opened VME controller %1 - Firmware Version %2_%3")
                            .arg(m_controller->getIdentifyingString())
-                           .arg(vmusb->getFirmwareId(), 8, 16, QLatin1Char('0'))
+                           .arg(fwMajor, 4, 16, QLatin1Char('0'))
+                           .arg(fwMinor, 4, 16, QLatin1Char('0'))
                            );
             }
             else
