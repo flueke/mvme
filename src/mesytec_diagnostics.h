@@ -69,8 +69,8 @@ private:
     s64 m_currentStamp = -1;
     s64 m_lastStamp = -1;
     StampMode m_stampMode = Counter;
-    bool m_reportCounterDiff = true;
-    bool m_reportMissingEOE = true;
+    bool m_reportCounterDiff = false;
+    bool m_reportMissingEOE = false;
     bool m_logNextEvent = false;
 };
 
