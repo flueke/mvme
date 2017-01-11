@@ -115,10 +115,10 @@ DAQConfigTreeWidget::DAQConfigTreeWidget(MVMEContext *context, QWidget *parent)
         result->setIcon(QIcon(icon));
         result->setText(text);
         result->setStatusTip(text);
-        //result->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
-        result->setToolButtonStyle(Qt::ToolButtonIconOnly);
+        result->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+        //result->setToolButtonStyle(Qt::ToolButtonIconOnly);
         auto font = result->font();
-        font.setPointSize(8);
+        font.setPointSize(7);
         result->setFont(font);
         return result;
     };
