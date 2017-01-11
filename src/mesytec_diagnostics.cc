@@ -55,6 +55,14 @@ void MesytecDiagnostics::reset()
 
     m_currentStamp = -1;
     m_lastStamp = -1;
+
+
+    for (auto histo: m_histograms)
+    {
+        histo->clear();
+    }
+
+    m_rtd->clearData();
 }
 
 
@@ -546,6 +554,12 @@ void MesytecDiagnosticsWidget::on_calcAll_clicked()
                     lobin, hibin);
 
     dispAll();
+}
+
+void MesytecDiagnosticsWidget::on_pb_reset_clicked()
+{
+    m_diag->reset();
+    on_calcAll_clicked();
 }
 
 void MesytecDiagnosticsWidget::on_diagBin_valueChanged(int value)

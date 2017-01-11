@@ -90,6 +90,7 @@ class MesytecDiagnosticsWidget: public MVMEWidget
 
     private slots:
         void on_calcAll_clicked();
+        void on_pb_reset_clicked();
         void on_diagBin_valueChanged(int value);
         void on_diagChan_valueChanged(int value);
         void on_diagLowChannel2_valueChanged(int value);
