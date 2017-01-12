@@ -52,17 +52,6 @@ public:
     quint32 getLowborder();
     quint32 getHiborder();
 
-    void setConversionX(const QwtScaleMap &map)
-    {
-        m_conversionX = map;
-    }
-
-    void setConversionY(const QwtScaleMap &map)
-    {
-        m_conversionY = map;
-    }
-
-
 protected:
     virtual ScrollBar *scrollBar( Qt::Orientation );
     virtual void updateScrollBars();
@@ -88,8 +77,6 @@ private:
 
     bool d_inZoom;
     bool d_alignCanvasToScales[ QwtPlot::axisCnt ];
-    QwtScaleMap m_conversionX;
-    QwtScaleMap m_conversionY;
 };
 
 #endif

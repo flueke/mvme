@@ -394,9 +394,6 @@ void Hist2DWidget::displayChanged()
         ui->plot->setAxisScaleEngine(QwtPlot::yLeft, scaleEngine);
     }
 
-    m_zoomer->setConversionX(m_xConversion);
-    m_zoomer->setConversionY(m_yConversion);
-
     replot();
 }
 

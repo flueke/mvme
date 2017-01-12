@@ -559,8 +559,6 @@ void Hist1DWidget::displayChanged()
 
         auto scaleEngine = new UnitConversionLinearScaleEngine(m_conversionMap);
         ui->plot->setAxisScaleEngine(QwtPlot::xBottom, scaleEngine);
-
-        m_zoomer->setConversionX(m_conversionMap);
     }
 
     /* Before the scale change the zoomer might have been zoomed into negative
