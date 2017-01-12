@@ -563,6 +563,18 @@ void Hist1DWidget::displayChanged()
         m_zoomer->setConversionX(m_conversionMap);
     }
 
+    /* Before the scale change the zoomer might have been zoomed into negative
+     * x-axis bins. This results in scaling errors and a zoom into negative
+     * coordinates which we don't want to allow.
+     *
+     * To fix this call updateAxes() on the plot to rebuild the axes, then
+     * simulate a zoom event with the current zoomRect by calling
+     * zoomerZoomed(). This method will then again limit the x-axis' lower
+     * bound to 0.0.
+     */
+    ui->plot->updateAxes();
+    zoomerZoomed(m_zoomer->zoomRect());
+
     replot();
 }
 
