@@ -185,41 +185,36 @@ void MVMEContext::setAnalysisConfig(AnalysisConfig *config)
         m_analysisConfig->setParent(nullptr);
         m_analysisConfig->deleteLater();
 
-        for (auto histo: getObjects<Hist1D *>())
+        for (auto config: m_analysisConfig->get1DHistogramConfigs())
         {
-            removeObject(histo);
-            removeObjectMapping(histo, QSL("ObjectToConfig"));
-        }
-        
-        for (auto histo: getObjects<Hist2D *>())
-        {
-            removeObject(histo);
-            removeObjectMapping(histo, QSL("ObjectToConfig"));
+            auto object = getObjectForConfig(config);
+            unregisterObjectAndConfig(object, config);
+            removeObject(object);
+            removeObject(config, false);
         }
 
-        for (auto histoConfig: m_analysisConfig->get1DHistogramConfigs())
+        for (auto config: m_analysisConfig->get2DHistogramConfigs())
         {
-            removeObjectMapping(histoConfig, QSL("ConfigToObject"));
-            removeObject(histoConfig, false);
+            auto object = getObjectForConfig(config);
+            unregisterObjectAndConfig(object, config);
+            removeObject(object);
+            removeObject(config, false);
         }
 
-        for (auto histoConfig: m_analysisConfig->get2DHistogramConfigs())
         {
-            removeObjectMapping(histoConfig, QSL("ConfigToObject"));
-            removeObject(histoConfig, false);
+            auto filterMaps = m_analysisConfig->getFilters();
+            for (auto it = filterMaps.begin(); it != filterMaps.end(); ++it)
+                for (auto jt = it->begin(); jt != it->end(); ++jt)
+                    for (auto filterConfig: jt.value())
+                        removeObject(filterConfig);
         }
 
-        auto filterMaps = m_analysisConfig->getFilters();
-
-        for (auto it = filterMaps.begin(); it != filterMaps.end(); ++it)
         {
-            for (auto jt = it->begin(); jt != it->end(); ++jt)
-            {
-                for (auto filterConfig: jt.value())
-                {
-                    removeObject(filterConfig);
-                }
-            }
+            auto filterMaps = m_analysisConfig->getDualWordFilters();
+            for (auto it = filterMaps.begin(); it != filterMaps.end(); ++it)
+                for (auto jt = it->begin(); jt != it->end(); ++jt)
+                    for (auto filterConfig: jt.value())
+                        removeObject(filterConfig);
         }
     }
 
@@ -239,9 +234,9 @@ void MVMEContext::setAnalysisConfig(AnalysisConfig *config)
     {
         auto histo = createHistogram(histoConfig);
         histo->setParent(this);
-        addObject(histo);
         addObjectMapping(histoConfig, histo, QSL("ConfigToObject"));
         addObjectMapping(histo, histoConfig, QSL("ObjectToConfig"));
+        addObject(histo);
     }
 
     connect(m_analysisConfig, &AnalysisConfig::objectAdded, this, &MVMEContext::addObject);
@@ -735,18 +730,30 @@ QString getHistoPath(MVMEContext *context, Hist1DConfig *histoConfig)
     return getFilterPath(context, filterConfig, filterAddress);
 }
 
-Hist1D *createHistogram(Hist1DConfig *config)
+Hist1D *createHistogram(Hist1DConfig *config, MVMEContext *ctx)
 {
     Hist1D *result = new Hist1D(config->getBits());
     result->setObjectName(config->objectName());
-    result->setProperty("configId", config->getId());
+
+    if (ctx)
+    {
+        result->setParent(ctx);
+        ctx->registerObjectAndConfig(result, config);
+    }
+
     return result;
 }
 
-Hist2D *createHistogram(Hist2DConfig *config)
+Hist2D *createHistogram(Hist2DConfig *config, MVMEContext *ctx)
 {
     Hist2D *result = new Hist2D(config->getBits(Qt::XAxis), config->getBits(Qt::YAxis));
     result->setObjectName(config->objectName());
-    result->setProperty("configId", config->getId());
+
+    if (ctx)
+    {
+        result->setParent(ctx);
+        ctx->registerObjectAndConfig(result, config);
+    }
+
     return result;
 }

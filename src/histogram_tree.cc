@@ -108,11 +108,7 @@ static Hist1DConfig *generateDifferenceHistogramConfig(DualWordDataFilterConfig 
 static Hist1D *createAndAddHist1D(MVMEContext *context, Hist1DConfig *histoConfig)
 {
     context->getAnalysisConfig()->addHist1DConfig(histoConfig);
-    auto histo = createHistogram(histoConfig);
-    histo->setParent(context);
-    context->addObjectMapping(histoConfig, histo, QSL("ConfigToObject"));
-    context->addObjectMapping(histo, histoConfig, QSL("ObjectToConfig"));
-    context->addObject(histo);
+    auto histo = createHistogram(histoConfig, context);
     return histo;
 }
 
@@ -668,10 +664,7 @@ void HistogramTreeWidget::add2DHistogram()
         auto histoAndConfig = dialog.getHistoAndConfig();
         auto histo = histoAndConfig.first;
         auto histoConfig = histoAndConfig.second;
-        histo->setProperty("configId", histoConfig->getId()); // TODO: remove this. needs an update in mvme_event_processor.cc!
-        m_context->addObjectMapping(histo, histoConfig, QSL("ObjectToConfig"));
-        m_context->addObjectMapping(histoConfig, histo, QSL("ConfigToObject"));
-        m_context->addObject(histo);
+        m_context->registerObjectAndConfig(histo, histoConfig);
         m_context->getAnalysisConfig()->addHist2DConfig(histoConfig);
         emit openInNewWindow(histo);
     }
@@ -703,9 +696,8 @@ void HistogramTreeWidget::removeHistogram()
     {
         auto histoConfig = qobject_cast<Hist2DConfig *>(m_context->getMappedObject(histo, QSL("ObjectToConfig")));
 
+        m_context->unregisterObjectAndConfig(histo, histoConfig);
         m_context->removeObject(histo);
-        m_context->removeObjectMapping(histo, QSL("ObjectToConfig"));
-        m_context->removeObjectMapping(histoConfig, QSL("ConfigToObject"));
         m_analysisConfig->removeHist2DConfig(histoConfig);
     }
 }

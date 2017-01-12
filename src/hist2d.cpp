@@ -548,7 +548,6 @@ void Hist2DWidget::on_pb_subHisto_clicked()
 
         auto histo = result.first;
         auto histoConfig = result.second;
-        histo->setProperty("configId", histoConfig->getId()); // TODO: remove this. needs an update in mvme_event_processor.cc!
         m_context->registerObjectAndConfig(histo, histoConfig);
         m_context->getAnalysisConfig()->addHist2DConfig(histoConfig);
         m_context->openInNewWindow(histo);

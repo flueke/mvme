@@ -148,6 +148,18 @@ class MVMEContext: public QObject
             return getMappedObject(object, QSL("ObjectToConfig"));
         }
 
+        template<typename T>
+        T *getObjectForConfig(QObject *config)
+        {
+            return qobject_cast<T *>(getObjectForConfig(config));
+        }
+
+        template<typename T>
+        T *getConfigForObject(QObject *object)
+        {
+            return qobject_cast<T *>(getConfigForObject(object));
+        }
+
         void setConfigFileName(const QString &name);
         QString getConfigFileName() const { return m_configFileName; }
 
@@ -231,7 +243,7 @@ QString getHistoPath(MVMEContext *context, Hist1DConfig *histoConfig);
 class Hist1D;
 class Hist2D;
 
-Hist1D *createHistogram(Hist1DConfig *config);
-Hist2D *createHistogram(Hist2DConfig *config);
+Hist1D *createHistogram(Hist1DConfig *config, MVMEContext *ctx = nullptr);
+Hist2D *createHistogram(Hist2DConfig *config, MVMEContext *ctx = nullptr);
 
 #endif

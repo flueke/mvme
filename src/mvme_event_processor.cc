@@ -125,9 +125,7 @@ void MVMEEventProcessor::newRun()
 
     for (auto histo: m_d->context->getObjects<Hist1D *>())
     {
-        // TODO: don't use the configId property here! instead use context object mappings (ObjectToConfig)!
-        if (auto histoConfig = analysisConfig->findChildById<Hist1DConfig *>(
-            histo->property("configId").toUuid()))
+        if (auto histoConfig = qobject_cast<Hist1DConfig *>(m_d->context->getConfigForObject(histo)))
         {
             if (auto filterConfig = analysisConfig->findChildById<DataFilterConfig *>(
                     histoConfig->getFilterId()))
@@ -145,8 +143,7 @@ void MVMEEventProcessor::newRun()
 
     for (auto histo: m_d->context->getObjects<Hist2D *>())
     {
-        if (auto histoConfig = analysisConfig->findChildById<Hist2DConfig *>(
-            histo->property("configId").toUuid()))
+        if (auto histoConfig = qobject_cast<Hist2DConfig *>(m_d->context->getConfigForObject(histo)))
         {
             qEPDebug() << __PRETTY_FUNCTION__
                 << "hist2d:" << histoConfig << histo;
