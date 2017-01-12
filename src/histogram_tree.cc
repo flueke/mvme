@@ -568,12 +568,14 @@ void HistogramTreeWidget::treeContextMenu(const QPoint &pos)
 
     if (node == m_node1D)
     {
-        menu.addAction(QSL("Clear Histograms"), this, &HistogramTreeWidget::clearHistograms);
+        menu.addAction(QSL("Clear Histograms"), this,
+                       static_cast<void (HistogramTreeWidget::*) ()>(&HistogramTreeWidget::clearHistograms));
     }
 
     if (node && node->type() == NodeType_Module)
     {
-        menu.addAction(QSL("Clear Histograms"), this, &HistogramTreeWidget::clearHistograms);
+        menu.addAction(QSL("Clear Histograms"), this,
+                       static_cast<void (HistogramTreeWidget::*) ()>(&HistogramTreeWidget::clearHistograms));
 
         menu.addAction(QSL("Add filter"), this, &HistogramTreeWidget::addDataFilter)->setEnabled(isIdle);
         menu.addAction(QSL("Add dual word filter"), this, &HistogramTreeWidget::addDualWordDataFilter)->setEnabled(isIdle);
@@ -589,7 +591,8 @@ void HistogramTreeWidget::treeContextMenu(const QPoint &pos)
         menu.addAction(QSL("Open histogram list"), this, &HistogramTreeWidget::openHistoListWidget);
 
         menu.addSeparator();
-        menu.addAction(QSL("Clear Histograms"), this, &HistogramTreeWidget::clearHistograms);
+        menu.addAction(QSL("Clear Histograms"), this,
+                       static_cast<void (HistogramTreeWidget::*) ()>(&HistogramTreeWidget::clearHistograms));
 
         menu.addSeparator();
         menu.addAction(QSL("Edit filter"), this,
@@ -603,6 +606,11 @@ void HistogramTreeWidget::treeContextMenu(const QPoint &pos)
 
     if (node && node->type() == NodeType_DualWordDataFilter)
     {
+        menu.addAction(QSL("Clear Histogram"), this,
+                       static_cast<void (HistogramTreeWidget::*) ()>(&HistogramTreeWidget::clearHistograms));
+
+        menu.addSeparator();
+
         menu.addAction(QSL("Edit filter"), this,
                        static_cast<void (HistogramTreeWidget::*) ()>(
                        &HistogramTreeWidget::editDualWordDataFilter))->setEnabled(isIdle);
@@ -1045,41 +1053,78 @@ void HistogramTreeWidget::removeHist1D(QTreeWidgetItem *node)
     m_context->getAnalysisConfig()->removeHist1DConfig(histoConfig);
 }
 
+static void filterNodeClearHistos(QTreeWidgetItem *filterNode)
+{
+    for (int i = 0; i < filterNode->childCount(); ++i)
+    {
+        auto histoNode = filterNode->child(i);
+        if (histoNode->type() == NodeType_Hist1D)
+        {
+            auto var = histoNode->data(0, DataRole_Pointer);
+            if (auto histo = Var2QObject<Hist1D>(var))
+                histo->clear();
+        }
+    }
+}
+
+static void dualWordFilterNodeClearHistos(MVMEContext *context, QTreeWidgetItem *filterNode)
+{
+    auto obj = Var2Ptr<QObject>(filterNode->data(0, DataRole_Pointer));
+    auto filterConfig = qobject_cast<DualWordDataFilterConfig *>(obj);
+    if (filterConfig)
+    {
+        auto histoConfig = context->getAnalysisConfig()->findChildByPredicate<Hist1DConfig *>(
+            [filterConfig](Hist1DConfig *histoConfig) {
+                return histoConfig->getFilterId() == filterConfig->getId();
+            });
+
+        if (histoConfig)
+        {
+            auto histo = qobject_cast<Hist1D *>(context->getObjectForConfig(histoConfig));
+            if (histo)
+                histo->clear();
+        }
+    }
+}
+
+static void moduleNodeClearHistos(MVMEContext *context, QTreeWidgetItem *moduleNode)
+{
+    for (int i = 0; i < moduleNode->childCount(); ++i)
+    {
+        auto filterNode = moduleNode->child(i);
+        if (filterNode->type() == NodeType_DataFilter)
+            filterNodeClearHistos(filterNode);
+        else if (filterNode->type() == NodeType_DualWordDataFilter)
+            dualWordFilterNodeClearHistos(context, filterNode);
+    }
+}
+
 void HistogramTreeWidget::clearHistograms()
 {
-    auto clearFilterNode = [](QTreeWidgetItem *filterNode)
-    {
-        for (int i = 0; i < filterNode->childCount(); ++i)
-        {
-            auto histoNode = filterNode->child(i);
-            if (histoNode->type() == NodeType_Hist1D)
-            {
-                auto var = histoNode->data(0, DataRole_Pointer);
-                if (auto histo = Var2QObject<Hist1D>(var))
-                    histo->clear();
-            }
-        }
-    };
-
-    auto clearModuleNode = [clearFilterNode](QTreeWidgetItem *moduleNode)
-    {
-        for (int i = 0; i < moduleNode->childCount(); ++i)
-        {
-            auto filterNode = moduleNode->child(i);
-            if (filterNode->type() == NodeType_DataFilter)
-                clearFilterNode(filterNode);
-        }
-    };
-
     auto node = m_tree->currentItem();
+    clearHistograms(node);
+}
 
+void HistogramTreeWidget::clearHistograms(QTreeWidgetItem *node)
+{
     if (node->type() == NodeType_Module)
     {
-        clearModuleNode(node);
+        moduleNodeClearHistos(m_context, node);
     }
     else if (node->type() == NodeType_DataFilter)
     {
-        clearFilterNode(node);
+        filterNodeClearHistos(node);
+    }
+    else if (node->type() == NodeType_DualWordDataFilter)
+    {
+        dualWordFilterNodeClearHistos(m_context, node);
+    }
+    else if (node == m_node1D)
+    {
+        for (int i = 0; i < node->childCount(); ++i)
+        {
+            clearHistograms(node->child(i));
+        }
     }
 }
 

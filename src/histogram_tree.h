@@ -60,6 +60,7 @@ class HistogramTreeWidget: public QWidget
         void editDualWordDataFilter();
 
         void clearHistograms();
+        void clearHistograms(QTreeWidgetItem *node);
         void removeHist1D(QTreeWidgetItem *node);
 
         void removeNode(QTreeWidgetItem *node);
