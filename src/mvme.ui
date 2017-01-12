@@ -48,6 +48,8 @@
      <string>&amp;Help</string>
     </property>
     <addaction name="separator"/>
+    <addaction name="actionVMEScriptRef"/>
+    <addaction name="separator"/>
     <addaction name="actionAbout_mvme"/>
     <addaction name="actionAbout_Qt"/>
    </widget>
@@ -88,6 +90,10 @@
    </property>
   </action>
   <action name="actionAbout_mvme">
+   <property name="icon">
+    <iconset resource="resources.qrc">
+     <normaloff>:/mesytec-window-icon.png</normaloff>:/mesytec-window-icon.png</iconset>
+   </property>
    <property name="text">
     <string>&amp;About mvme</string>
    </property>
@@ -162,9 +168,16 @@
     <string>About &amp;Qt</string>
    </property>
   </action>
+  <action name="actionVMEScriptRef">
+   <property name="text">
+    <string>&amp;VME Script Reference</string>
+   </property>
+  </action>
  </widget>
  <layoutdefault spacing="6" margin="11"/>
- <resources/>
+ <resources>
+  <include location="resources.qrc"/>
+ </resources>
  <connections>
   <connection>
    <sender>actionQuit</sender>

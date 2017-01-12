@@ -33,6 +33,7 @@ SOURCES += \
     $$PWD/mesytec_diagnostics.cc \
     $$PWD/realtimedata.cpp \
     $$PWD/histo_util.cc \
+    $$PWD/gui_util.cc \
 
 
 HEADERS += \
@@ -71,6 +72,7 @@ HEADERS += \
     $$PWD/mesytec_diagnostics.h \
     $$PWD/realtimedata.h \
     $$PWD/histo_util.h \
+    $$PWD/gui_util.h \
 
 
 FORMS += \

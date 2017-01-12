@@ -19,6 +19,7 @@
 #include "daqstats_widget.h"
 #include "mesytec_diagnostics.h"
 #include "mvme_event_processor.h"
+#include "gui_util.h"
 
 #include <QDockWidget>
 #include <QFileDialog>
@@ -1126,4 +1127,10 @@ void mvme::on_actionImport_Histogram_triggered()
             ui->mdiArea->setActiveSubWindow(subwin);
         }
     }
+}
+
+void mvme::on_actionVMEScriptRef_triggered()
+{
+    auto widget = make_vme_script_ref_widget();
+    addWidgetWindow(widget);
 }
