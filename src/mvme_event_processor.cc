@@ -492,7 +492,7 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                                     double ddiff = static_cast<double>(currentValues[i]) - static_cast<double>(lastValues[i]);
 
                                     m_d->dualWordFilterDiffs[filterConfig].push_back(ddiff);
-                                    qDebug() << filterConfig << m_d->dualWordFilterDiffs[filterConfig].size() << currentValues.size() << lastValues.size();
+                                    //qDebug() << filterConfig << m_d->dualWordFilterDiffs[filterConfig].size() << currentValues.size() << lastValues.size();
                                 }
                             }
                         }
