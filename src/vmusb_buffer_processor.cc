@@ -110,6 +110,7 @@ void VMUSBBufferProcessor::beginRun()
     QString outPath = m_context->getConfig()->getListFileOutputDirectory();
     bool listFileOutputEnabled = m_context->getConfig()->isListFileOutputEnabled();
 
+    // TODO: this needs to move into some generic listfile handler!
     if (listFileOutputEnabled && outPath.size())
     {
         auto now = QDateTime::currentDateTime();

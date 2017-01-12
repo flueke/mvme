@@ -618,7 +618,7 @@ void MVMEContext::addWidgetWindow(QWidget *widget, QSize windowSize)
 {
     if (m_mainwin)
     {
-        m_mainwin->addWidgetWindow(widget);
+        m_mainwin->addWidgetWindow(widget, windowSize);
     }
 }
 
