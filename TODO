@@ -1,6 +1,35 @@
 ==========================
 ==== Do these first! =====
 ==========================
+* workspace concept
+    - workspace directory
+    - subdirectory for listfiles
+    - daqconfig.json
+    - analysis.json
+
+  Fresh start:
+   Dialog asking for project directory.
+   => ProjectDirectory
+      All file dialogs should start relative to this directory.
+      A SubDir for listfiles needs to be created.
+
+      LastAnalysisConfig and LastConfigFile are still used but they are
+      relative to LastProjectDirectory.
+
+      Use vme.mvmecfg and analysis.json as default config file names.
+
+  Next start:
+    Set LastProjectDirectory as ProjectDirectory, open vme and analysis config
+    files relative to the project dir.
+
+
+  Opening a project dir:
+    Which vme and analysis config to load?
+    Either ask the user or keep a mvmeproject.ini file around where the values
+    for the last config files are stored.
+ => Idea: All settings, except for LastProjectDirectory, could move into the
+    mvmeproject.ini file. This would mean the GUI layout and options would be
+    project-specific.
 
 ==========================
 ==== Do these later! =====
@@ -18,7 +47,9 @@
   variables that are checked once the thread wakes up.
   (Maybe try WaitForMoreEvents as a quick fix)
 * Hist2d Icon
-* Limit the number of messages/s appended to the logview
+* Limit the number of messages/s appended to the logview. With multithreading:
+  do messages fill up one of the threads event queues? Can this be limited
+  somehow? Better to directly limit the generation of these messages?
 * How to handle filters without matching module? Right now they're not
   displayed until a module with the corresponding (eventIndex,moduleIndex) is
   created.
@@ -29,48 +60,20 @@
 * add ability to create 2d histograms during DAQ/replay and fill them immediately
 
 * Histos
-  * mousewheel zoom does not add scrollbars to the plot!
-  * Hist1DWidget:
-    - don't zoom into negative x
-    - fix mousewheel zoom or disable it
-    - display coordinate and value under mouse cursor
-    - displayed zoomrect coordinate values are sometimes bogus
-  
-  * Hist2DWidget:
-
   * add histogram cuts
   * add histogram fitting
-  * Hist1D:
-    - axis titles do not contain slashes as (filter/address) separators
-
-  * Histogram properties:
-      - name
-      - size in bits
-      - value/ channel
-      - unit (Text: "ps") // Histogram may show at 64k: "24 ps/chan" or at 8k res: "192 ps/chan"
-      - zero point        (chan 2048 is zero, left negative, right positive)
-  * Allow smaller resolutions for Hist2D Axes
-  * Offsets for hist2d accumulation
 
 * threading and vme commands
   * run vme scripts in a separate thread when invoked from the gui
-  * FIX the pause, run script, resume implementation. it's buggy and hacky!
+  * FIX the pause, run script, resume implementation. it's very hacky!
     - run script: Maybe implement a command queue in the context and return
                   QFuture<VMEResultList> objects to clients.
     - pause and resume: also return a QFuture or something to be able to wait for
                         the state change
     -> look at QFutureInterface
 
-* vmusb & mvme buffer debugging
-* workspace concept
-    - workspace directory
-    - subdirectory for listfiles
-    - daqconfig.json
-    - analysis.json
-
 * prefix and run number for listfiles
 * display generated listfile name when daq runs
-* don't write listfile on "1 cycle"
 
 * ReadoutWorker split into generic and controller specific parts:
     Generic part is responsible for:
