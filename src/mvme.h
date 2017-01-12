@@ -69,6 +69,7 @@ public slots:
 
 private slots:
     void on_actionOpen_Listfile_triggered();
+    void on_actionClose_Listfile_triggered();
 
     void on_actionVME_Debug_triggered();
 

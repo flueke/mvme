@@ -84,6 +84,7 @@ mvme::mvme(QWidget *parent) :
     setWindowIcon(QIcon(QPixmap(":/mesytec-window-icon.png")));
 
     connect(m_context, &MVMEContext::daqConfigFileNameChanged, this, &mvme::updateWindowTitle);
+    connect(m_context, &MVMEContext::modeChanged, this, &mvme::updateWindowTitle);
     connect(m_context, &MVMEContext::daqConfigChanged, this, &mvme::onConfigChanged);
     connect(m_context, &MVMEContext::objectAboutToBeRemoved, this, &mvme::onObjectAboutToBeRemoved);
     connect(m_context, &MVMEContext::daqAboutToStart, this, &mvme::onDAQAboutToStart);
@@ -764,6 +765,13 @@ void mvme::on_actionOpen_Listfile_triggered()
 
     settings.setValue("Files/LastListFile", fileName);
     m_context->setListFile(listFile);
+}
+
+void mvme::on_actionClose_Listfile_triggered()
+{
+    m_context->setDAQConfig(new DAQConfig);
+    m_context->setConfigFileName(QString());
+    m_context->setMode(GlobalMode::DAQ);
 }
 
 void mvme::on_actionVME_Debug_triggered()
