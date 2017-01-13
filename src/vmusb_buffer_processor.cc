@@ -114,7 +114,7 @@ void VMUSBBufferProcessor::beginRun()
     if (listFileOutputEnabled && outPath.size())
     {
         auto now = QDateTime::currentDateTime();
-        QString outFilename = outPath + '/' + now.toString("yyyyMMdd_HHmmss") + ".mvmelst";
+        QString outFilename = outPath + '/' + now.toString("yyMMdd_HHmmss") + ".mvmelst";
         m_listFileOut.setFileName(outFilename);
 
         emit logMessage(QString("Writing to listfile %1").arg(outFilename));
