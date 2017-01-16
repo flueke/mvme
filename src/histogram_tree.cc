@@ -1133,7 +1133,6 @@ void HistogramTreeWidget::removeFromTreeMap(QObject *object)
 }
 
 static const QString fileFilter = QSL("Config Files (*.json);; All Files (*.*)");
-static const QString settingsPath = QSL("Files/LastAnalysisConfig");
 
 void HistogramTreeWidget::newConfig()
 {
@@ -1182,7 +1181,7 @@ void HistogramTreeWidget::loadConfig()
         }
     }
 
-    QString path = QFileInfo(QSettings().value(settingsPath).toString()).absolutePath();
+    auto path = m_context->getWorkspaceDirectory();
 
     if (path.isEmpty())
         path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
@@ -1192,18 +1191,7 @@ void HistogramTreeWidget::loadConfig()
     if (fileName.isEmpty())
         return;
 
-    QJsonDocument doc(gui_read_json_file(fileName));
-
-    if (doc.isNull())
-        return;
-
-    auto config = new AnalysisConfig;
-    config->read(doc.object()[QSL("AnalysisConfig")].toObject());
-    m_context->setAnalysisConfig(config);
-    m_context->setAnalysisConfigFileName(fileName);
-
-    QSettings().setValue(settingsPath, fileName);
-
+    m_context->loadAnalysisConfig(fileName);
 }
 
 bool HistogramTreeWidget::saveConfig()
@@ -1213,7 +1201,7 @@ bool HistogramTreeWidget::saveConfig()
 
     if (fileName.isEmpty())
     {
-        auto result = saveAnalysisConfigAs(analysisConfig);
+        auto result = saveAnalysisConfigAs(analysisConfig, m_context->getWorkspaceDirectory());
         if (result.first)
         {
             analysisConfig->setModified(false);
@@ -1223,7 +1211,7 @@ bool HistogramTreeWidget::saveConfig()
             return true;
         }
     }
-    else if (saveAnalysisConfig(analysisConfig, fileName))
+    else if (saveAnalysisConfig(analysisConfig, fileName, m_context->getWorkspaceDirectory()).first)
     {
         analysisConfig->setModified(false);
         for (auto obj: analysisConfig->findChildren<ConfigObject *>())
@@ -1236,7 +1224,7 @@ bool HistogramTreeWidget::saveConfig()
 bool HistogramTreeWidget::saveConfigAs()
 {
     auto analysisConfig = m_context->getAnalysisConfig();
-    auto result = saveAnalysisConfigAs(analysisConfig);
+    auto result = saveAnalysisConfigAs(analysisConfig, m_context->getWorkspaceDirectory());
 
     if (result.first)
     {
@@ -1258,6 +1246,13 @@ void HistogramTreeWidget::updateConfigLabel()
 
     if (m_context->getAnalysisConfig()->isModified())
         fileName += QSL(" *");
+
+    auto wsDir = m_context->getWorkspaceDirectory() + '/';
+
+    if (fileName.startsWith(wsDir))
+    {
+        fileName.remove(wsDir);
+    }
 
     le_fileName->setText(fileName);
     le_fileName->setToolTip(fileName);

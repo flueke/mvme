@@ -227,53 +227,15 @@ mvme::mvme(QWidget *parent) :
 
     QSettings settings;
 
-    // DAQConfig
-    if (settings.contains("Files/LastConfigFile"))
+    // workspace
+    if (settings.contains("LastWorkspaceDirectory"))
     {
-        auto configFileName = settings.value("Files/LastConfigFile").toString();
-        qDebug() << "LastConfigFile" << configFileName;
-        if (!loadConfig(configFileName))
+        try
         {
-            settings.remove("Files/LastConfigFile");
-        }
-    }
-    else
-    {
-        // try to load a default config file
-        auto configFileName = QCoreApplication::applicationDirPath() + QSL("/default.mvmecfg");
-        QFileInfo fi(configFileName);
-
-        qDebug() << "default config" << configFileName;
-
-        if (fi.exists() && fi.isReadable())
+            m_context->openWorkspace(settings.value("LastWorkspaceDirectory").toString());
+        } catch (const QString &e)
         {
-            loadConfig(configFileName);
-
-            // don't use the default filename for saving
-            m_context->setConfigFileName(QString());
-            QSettings settings;
-            settings.setValue("Files/LastConfigFile", QString());
-        }
-    }
-    
-    // AnalysisConfig
-    {
-        const QString settingsPath = QSL("Files/LastAnalysisConfig");
-        if (settings.contains(settingsPath))
-        {
-            auto fileName = settings.value(settingsPath).toString();
-            auto doc = gui_read_json_file(fileName);
-            if (doc.isNull())
-            {
-                settings.remove(settingsPath);
-            }
-            else
-            {
-                auto analysisConfig = new AnalysisConfig;
-                analysisConfig->read(doc.object()[QSL("AnalysisConfig")].toObject());
-                m_context->setAnalysisConfig(analysisConfig);
-                m_context->setAnalysisConfigFileName(fileName);
-            }
+            QMessageBox::critical(this, QSL("Workspace Error"), QString("Error opening workspace: %1").arg(e));
         }
     }
 
@@ -282,57 +244,67 @@ mvme::mvme(QWidget *parent) :
 
 mvme::~mvme()
 {
-    QSettings settings;
-    if (!m_context->getConfigFileName().isEmpty())
+
+    auto workspaceDir = m_context->getWorkspaceDirectory();
+
+    if (!workspaceDir.isEmpty())
     {
-        settings.setValue("Files/LastConfigFile", m_context->getConfigFileName());
+        QSettings settings;
+        settings.setValue("LastWorkspaceDirectory", workspaceDir);
     }
 
     delete ui;
 }
 
-bool mvme::loadConfig(const QString &fileName)
+void mvme::loadConfig(const QString &fileName)
 {
-    qDebug() << __PRETTY_FUNCTION__ << fileName;
+    m_context->loadVMEConfig(fileName);
+}
 
-    if (fileName.isEmpty())
+void mvme::on_actionNewWorkspace_triggered()
+{
+    auto startDir = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
+    auto dirName  = QFileDialog::getExistingDirectory(this, QSL("Select workspace"), startDir);
+
+    try
     {
-        return false;
+        m_context->newWorkspace(dirName);
+    } catch (const QString &e)
+    {
+        QMessageBox::critical(this, QSL("Workspace Error"), QString("Error creating workspace: %1").arg(e));
+    }
+}
+
+void mvme::on_actionOpenWorkspace_triggered()
+{
+    auto startDir = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
+    auto dirName  = QFileDialog::getExistingDirectory(this, QSL("Select workspace"), startDir);
+
+    try
+    {
+        m_context->openWorkspace(dirName);
+    } catch (const QString &e)
+    {
+        QMessageBox::critical(this, QSL("Workspace Error"), QString("Error opening workspace: %1").arg(e));
     }
 
-    QFile inFile(fileName);
-    if (!inFile.open(QIODevice::ReadOnly))
+#if 0
+    QFileInfo workspaceFi(dirname + QSL("/mvmeworkspace.ini"));
+
+    if (!workspaceFi.exists())
     {
-        QMessageBox::critical(0, "Error", QString("Error reading from %1").arg(fileName));
-        return false;
+        QMessageBox::critical(this, QSL("Workspace error"),
+                              QSL("Not a valid workspace: mvmeworkspace.ini not found"));
+        return;
     }
 
-    auto data = inFile.readAll();
-
-    QJsonParseError parseError;
-    QJsonDocument doc(QJsonDocument::fromJson(data, &parseError));
-
-    if (parseError.error != QJsonParseError::NoError)
+    if (!workspaceFi.isReadable())
     {
-        QMessageBox::critical(0, "Error", QString("Error reading from %1: %2 at offset %3")
-                              .arg(fileName)
-                              .arg(parseError.errorString())
-                              .arg(parseError.offset)
-                             );
-        return false;
+        QMessageBox::critical(this, QSL("Workspace error"),
+                              QSL("Not a valid workspace: mvmeworkspace.ini not readable"));
+        return;
     }
-
-    auto daqConfig = new DAQConfig;
-    daqConfig->read(doc.object()["DAQConfig"].toObject());
-
-    m_context->setDAQConfig(daqConfig);
-    m_context->setConfigFileName(fileName);
-    m_context->setMode(GlobalMode::DAQ);
-
-    QSettings settings;
-    settings.setValue("Files/LastConfigFile", fileName);
-
-    return true;
+#endif
 }
 
 void mvme::replot()
@@ -488,11 +460,14 @@ void mvme::closeEvent(QCloseEvent *event){
 
         if (result == QMessageBox::Save)
         {
-            if (!saveAnalysisConfig(analysisConfig, m_context->getAnalysisConfigFileName()))
+            auto result = saveAnalysisConfig(analysisConfig, m_context->getAnalysisConfigFileName(),
+                                             m_context->getWorkspaceDirectory());
+            if (!result.first)
             {
                 event->ignore();
                 return;
             }
+            m_context->setAnalysisConfigFileName(result.second);
         }
         else if (result == QMessageBox::Cancel)
         {
@@ -527,7 +502,6 @@ void mvme::closeEvent(QCloseEvent *event){
 
 void mvme::restoreSettings()
 {
-#if 1
     qDebug("restoreSettings");
     QSettings settings;
     restoreGeometry(settings.value("mainWindowGeometry").toByteArray());
@@ -553,7 +527,6 @@ void mvme::restoreSettings()
     }
 
     settings.endGroup();
-#endif
 }
 
 void mvme::on_actionNewConfig_triggered()
@@ -589,8 +562,8 @@ void mvme::on_actionLoadConfig_triggered()
 {
     if (m_context->getConfig()->isModified())
     {
-        QMessageBox msgBox(QMessageBox::Question, "Save configuration?",
-                           "The current configuration has modifications. Do you want to save it?",
+        QMessageBox msgBox(QMessageBox::Question, "Save VME configuration?",
+                           "The current VME configuration has modifications. Do you want to save it?",
                            QMessageBox::Save | QMessageBox::Cancel | QMessageBox::Discard);
         int result = msgBox.exec();
 
@@ -607,7 +580,7 @@ void mvme::on_actionLoadConfig_triggered()
         }
     }
 
-    QString path = QFileInfo(QSettings().value("Files/LastConfigFile").toString()).absolutePath();
+    auto path = m_context->getWorkspaceDirectory();
 
     if (path.isEmpty())
     {
@@ -664,12 +637,13 @@ bool mvme::on_actionSaveConfig_triggered()
 
 bool mvme::on_actionSaveConfigAs_triggered()
 {
-    QString path = QFileInfo(QSettings().value("Files/LastConfigFile").toString()).absolutePath();
+    QString path = QFileInfo(m_context->getConfigFileName()).absolutePath();
 
     if (path.isEmpty())
-    {
+        path = m_context->getWorkspaceDirectory();
+
+    if (path.isEmpty())
         path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
-    }
 
     QString fileName = QFileDialog::getSaveFileName(this, "Save Config As", path,
                                                     "MVME Config Files (*.mvmecfg);; All Files (*.*)");
@@ -704,7 +678,6 @@ bool mvme::on_actionSaveConfigAs_triggered()
 
     m_context->setConfigFileName(fileName);
     m_context->getConfig()->setModified(false);
-    QSettings().setValue("Files/LastConfigFile", fileName);
     updateWindowTitle();
     return true;
 }
@@ -958,48 +931,38 @@ void mvme::appendToLog(const QString &s)
 
 void mvme::updateWindowTitle()
 {
-    QString title;
-    QString modeString;
-    QString fileName;
+    QString workspaceDir = m_context->getWorkspaceDirectory();
+    workspaceDir.replace(QDir::homePath(), QSL("~"));
 
+    QString title;
     switch (m_context->getMode())
     {
         case GlobalMode::DAQ:
             {
-                QString filePath = m_context->getConfigFileName();
-                fileName =  QFileInfo(filePath).fileName();
-                modeString = QSL("DAQ mode");
+                title = QString("%1 - [DAQ mode] - mvme")
+                    .arg(workspaceDir);
             } break;
+
         case GlobalMode::ListFile:
             {
                 auto listFile = m_context->getListFile();
+                QString fileName(QSL("<no listfile>"));
                 if (listFile)
                 {
                     QString filePath = m_context->getListFile()->getFileName();
                     fileName =  QFileInfo(filePath).fileName();
                 }
-                modeString = QSL("ListFile mode");
+
+                title = QString("%1 - %2 - [ListFile mode] - mvme")
+                    .arg(workspaceDir)
+                    .arg(fileName);
             } break;
 
         case GlobalMode::NotSet:
             break;
     }
 
-    if (!fileName.isEmpty())
-    {
-        title = QString("%1 [%2] - mvme")
-                 .arg(fileName)
-                 .arg(modeString)
-                 ;
-    }
-    else
-    {
-        title = QString("[%2] - mvme")
-            .arg(modeString)
-            ;
-    }
-
-    if (m_context->getMode() == GlobalMode::DAQ && m_context->getConfig()->isModified())
+    if (m_context->getMode() == GlobalMode::DAQ && m_context->isWorkspaceModified())
     {
         title += " *";
     }

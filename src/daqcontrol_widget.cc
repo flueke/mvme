@@ -88,14 +88,14 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
 
     connect(cb_writeListFile, &QCheckBox::stateChanged, this, [this](int state) {
         bool enabled = (state != Qt::Unchecked);
-        m_context->getConfig()->setListFileOutputEnabled(enabled);
+        m_context->setListFileOutputEnabled(enabled);
     });
 
     auto pb_outputDirectory = new QPushButton("Select directory");
 
     connect(pb_outputDirectory, &QPushButton::clicked, this, [this] {
         auto dirName = QFileDialog::getExistingDirectory(this, "Select output directory",
-                                                         m_context->getConfig()->getListFileOutputDirectory());
+                                                         m_context->getListFileDirectory());
         if (!dirName.isEmpty())
         {
             QFontMetrics fm(label_listFileDir->font());
@@ -103,7 +103,7 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
 
             label_listFileDir->setText(labelText);
             label_listFileDir->setToolTip(dirName);
-            m_context->getConfig()->setListFileOutputDirectory(dirName);
+            m_context->setListFileDirectory(dirName);
         }
     });
 
@@ -180,15 +180,13 @@ void DAQControlWidget::updateWidget()
 
     pb_reconnect->setEnabled(globalMode == GlobalMode::DAQ && daqState == DAQState::Idle);
 
-    auto config = m_context->getConfig();
-
     {
         QSignalBlocker b(cb_writeListFile);
-        cb_writeListFile->setChecked(config->isListFileOutputEnabled());
+        cb_writeListFile->setChecked(m_context->isListFileOutputEnabled());
     }
 
     QFontMetrics fm(label_listFileDir->font());
-    auto dirName = config->getListFileOutputDirectory();
+    auto dirName = m_context->getListFileDirectory();
     auto labelText = fm.elidedText(dirName, Qt::ElideMiddle, label_listFileDir->width());
     label_listFileDir->setText(labelText);
     label_listFileDir->setToolTip(dirName);

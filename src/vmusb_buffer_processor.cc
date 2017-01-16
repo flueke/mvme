@@ -107,8 +107,8 @@ void VMUSBBufferProcessor::beginRun()
 {
     resetRunState();
 
-    QString outPath = m_context->getConfig()->getListFileOutputDirectory();
-    bool listFileOutputEnabled = m_context->getConfig()->isListFileOutputEnabled();
+    QString outPath = m_context->getListFileDirectory();
+    bool listFileOutputEnabled = m_context->isListFileOutputEnabled();
 
     // TODO: this needs to move into some generic listfile handler!
     if (listFileOutputEnabled && outPath.size())

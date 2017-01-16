@@ -2,14 +2,21 @@
 ==== Do these first! =====
 ==========================
 * workspace concept
-    - workspace directory
+  - workspace directory
     - subdirectory for listfiles
-    - daqconfig.json
+    - vme.mvmecfg
     - analysis.json
+    - mvmeworkspace.ini
+      Contains the names of the last vme and analysis configs and the name of the listfile subdir
+
+  The global QSettings now only contain GUI state and the path to the last used workspace.
+
+  QSettings globalSettings;
+  QSettings workspaceSettings(workspacePath + '/mvmeworkspace.ini', QSettings::IniFormat);
 
   Fresh start:
-   Dialog asking for project directory.
-   => ProjectDirectory
+   Dialog asking for workspace directory.
+   => WorkspaceDirectory
       All file dialogs should start relative to this directory.
       A SubDir for listfiles needs to be created.
 
@@ -23,13 +30,10 @@
     files relative to the project dir.
 
 
-  Opening a project dir:
-    Which vme and analysis config to load?
-    Either ask the user or keep a mvmeproject.ini file around where the values
-    for the last config files are stored.
- => Idea: All settings, except for LastProjectDirectory, could move into the
-    mvmeproject.ini file. This would mean the GUI layout and options would be
-    project-specific.
+  Move listfile stuff from DAQConfig to the context.
+
+  How to handle absolute paths?
+
 
 ==========================
 ==== Do these later! =====

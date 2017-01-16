@@ -238,11 +238,6 @@ class DAQConfig: public ConfigObject
         void addGlobalScript(VMEScriptConfig *config, const QString &category);
         bool removeGlobalScript(VMEScriptConfig *config);
 
-        void setListFileOutputDirectory(const QString &dir);
-        QString getListFileOutputDirectory() const { return m_listFileOutputDirectory; }
-        bool isListFileOutputEnabled() const { return m_listFileOutputEnabled; }
-        void setListFileOutputEnabled(bool enabled);
-
         /** Known keys for a DAQConfig:
          * "daq_start", "daq_stop", "manual"
          */
@@ -252,10 +247,6 @@ class DAQConfig: public ConfigObject
     protected:
         virtual void read_impl(const QJsonObject &json) override;
         virtual void write_impl(QJsonObject &json) const override;
-
-    private:
-        QString m_listFileOutputDirectory;
-        bool m_listFileOutputEnabled = false;
 };
 
 class DataFilterConfig: public ConfigObject
@@ -517,6 +508,9 @@ class AnalysisConfig: public ConfigObject
         void removeFilter(int eventIndex, int moduleIndex, DataFilterConfig *config);
 
         // DualWordDataFilterConfig
+        //
+        //
+        // 
         DualWordDataFilterConfigList getDualWordFilters(int eventIndex, int moduleIndex) const;
         QMap<int, QMap<int, DualWordDataFilterConfigList>> getDualWordFilters() const { return m_dualWordFilters; }
         void setDualWordFilters(int eventIndex, int moduleIndex, const DualWordDataFilterConfigList &filters);

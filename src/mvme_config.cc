@@ -424,32 +424,10 @@ bool DAQConfig::removeGlobalScript(VMEScriptConfig *config)
     return false;
 }
 
-void DAQConfig::setListFileOutputDirectory(const QString &dir)
-{
-    if (dir != m_listFileOutputDirectory)
-    {
-        m_listFileOutputDirectory = dir;
-        m_listFileOutputEnabled = !dir.isEmpty();
-        setModified();
-    }
-}
-
-void DAQConfig::setListFileOutputEnabled(bool enabled)
-{
-    if (m_listFileOutputEnabled != enabled)
-    {
-        m_listFileOutputEnabled = enabled;
-        setModified();
-    }
-}
-
 void DAQConfig::read_impl(const QJsonObject &json)
 {
     qDeleteAll(eventConfigs);
     eventConfigs.clear();
-
-    m_listFileOutputDirectory = json["listFileOutputDirectory"].toString();
-    m_listFileOutputEnabled = json["listFileOutputEnabled"].toBool();
 
     QJsonArray eventArray = json["events"].toArray();
 
@@ -487,9 +465,6 @@ void DAQConfig::read_impl(const QJsonObject &json)
 
 void DAQConfig::write_impl(QJsonObject &json) const
 {
-    json["listFileOutputDirectory"] = m_listFileOutputDirectory;
-    json["listFileOutputEnabled"] = m_listFileOutputEnabled;
-
     QJsonArray eventArray;
     for (auto event: eventConfigs)
     {

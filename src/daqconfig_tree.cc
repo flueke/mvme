@@ -918,6 +918,13 @@ void DAQConfigTreeWidget::updateConfigLabel()
     if (m_context->getDAQConfig()->isModified())
         fileName += QSL(" *");
 
+    auto wsDir = m_context->getWorkspaceDirectory() + '/';
+
+    if (fileName.startsWith(wsDir))
+    {
+        fileName.remove(wsDir);
+    }
+
     le_fileName->setText(fileName);
     le_fileName->setToolTip(fileName);
     le_fileName->setStatusTip(fileName);

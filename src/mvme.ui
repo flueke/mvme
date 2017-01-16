@@ -33,6 +33,9 @@
     <property name="title">
      <string>&amp;File</string>
     </property>
+    <addaction name="actionNewWorkspace"/>
+    <addaction name="actionOpenWorkspace"/>
+    <addaction name="separator"/>
     <addaction name="actionNewConfig"/>
     <addaction name="actionLoadConfig"/>
     <addaction name="actionSaveConfig"/>
@@ -171,6 +174,16 @@
   <action name="actionVMEScriptRef">
    <property name="text">
     <string>&amp;VME Script Reference</string>
+   </property>
+  </action>
+  <action name="actionOpenWorkspace">
+   <property name="text">
+    <string>Open Workspace</string>
+   </property>
+  </action>
+  <action name="actionNewWorkspace">
+   <property name="text">
+    <string>New Workspace</string>
    </property>
   </action>
  </widget>

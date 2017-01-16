@@ -56,16 +56,18 @@ public slots:
     void openInNewWindow(QObject *object);
     void addWidgetWindow(QWidget *widget, QSize windowSize = QSize(600, 400));
 
-protected:
-    void resizeEvent(QResizeEvent *event) override;
-
-public slots:
     void on_actionNewConfig_triggered();
     void on_actionLoadConfig_triggered();
     bool on_actionSaveConfig_triggered();
     bool on_actionSaveConfigAs_triggered();
 
-    bool loadConfig(const QString &fileName);
+    void loadConfig(const QString &fileName);
+
+    void on_actionNewWorkspace_triggered();
+    void on_actionOpenWorkspace_triggered();
+
+protected:
+    void resizeEvent(QResizeEvent *event) override;
 
 private slots:
     void on_actionOpen_Listfile_triggered();

@@ -104,7 +104,7 @@ class DualWordDataFilterDialog: public QDialog
         DualWordDataFilterConfig *m_config;
 };
 
-bool saveAnalysisConfig(AnalysisConfig *config, const QString &fileName);
-QPair<bool, QString> saveAnalysisConfigAs(AnalysisConfig *config);
+QPair<bool, QString> saveAnalysisConfig(AnalysisConfig *config, const QString &fileName, QString startPath);
+QPair<bool, QString> saveAnalysisConfigAs(AnalysisConfig *config, QString startPath);
 
 #endif /* __CONFIG_WIDGETS_H__ */

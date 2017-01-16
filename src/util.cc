@@ -244,6 +244,9 @@ QJsonDocument gui_read_json_file(const QString &fileName)
 
     auto data = inFile.readAll();
 
+    if (data.isEmpty())
+        return QJsonDocument();
+
     QJsonParseError parseError;
     QJsonDocument doc(QJsonDocument::fromJson(data, &parseError));
 

@@ -424,25 +424,24 @@ namespace
     }
 
     static const QString fileFilter = QSL("Config Files (*.json);; All Files (*.*)");
-    static const QString settingsPath = QSL("Files/LastAnalysisConfig");
 }
 
-bool saveAnalysisConfig(AnalysisConfig *config, const QString &fileName)
+QPair<bool, QString> saveAnalysisConfig(AnalysisConfig *config, const QString &fileName, QString startPath)
 {
     if (fileName.isEmpty())
-        return saveAnalysisConfigAs(config).first;
+        return saveAnalysisConfigAs(config, startPath);
 
-    return saveAnalysisConfigImpl(config, fileName);
+    if (saveAnalysisConfigImpl(config, fileName))
+    {
+        return qMakePair(true, fileName);
+    }
+    return qMakePair(false, QString());
 }
 
-QPair<bool, QString> saveAnalysisConfigAs(AnalysisConfig *config)
+QPair<bool, QString> saveAnalysisConfigAs(AnalysisConfig *config, QString path)
 {
-    QString path = QFileInfo(QSettings().value(settingsPath).toString()).absolutePath();
-
     if (path.isEmpty())
         path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
-
-    path += QSL("/analysis.json");
 
     QString fileName = QFileDialog::getSaveFileName(nullptr, QSL("Save analysis config"), path, fileFilter);
 
@@ -455,7 +454,6 @@ QPair<bool, QString> saveAnalysisConfigAs(AnalysisConfig *config)
 
     if (saveAnalysisConfigImpl(config, fileName))
     {
-        QSettings().setValue(settingsPath, fileName);
         return qMakePair(true, fileName);
     }
 

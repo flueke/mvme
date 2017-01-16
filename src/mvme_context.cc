@@ -16,6 +16,7 @@ static const size_t dataBufferCount = 20;
 static const size_t dataBufferSize = vmusb_constants::BufferMaxSize * 2; // double the size of a vmusb read buffer
 static const int TryOpenControllerInterval_ms = 1000;
 static const int PeriodicLoggingInterval_ms = 5000;
+static const QString WorkspaceIniName = "mvmeworkspace.ini";
 
 static void processQtEvents(QEventLoop::ProcessEventsFlags flags = QEventLoop::AllEvents)
 {
@@ -510,20 +511,22 @@ QObject *MVMEContext::getMappedObject(QObject *key, const QString &category) con
     return m_objectMappings[category].value(key, nullptr);
 }
 
-void MVMEContext::setConfigFileName(const QString &name)
+void MVMEContext::setConfigFileName(QString name)
 {
     if (m_configFileName != name)
     {
         m_configFileName = name;
+        makeWorkspaceSettings()->setValue(QSL("LastVMEConfig"), name.remove(getWorkspaceDirectory() + '/'));
         emit daqConfigFileNameChanged(name);
     }
 }
 
-void MVMEContext::setAnalysisConfigFileName(const QString &name)
+void MVMEContext::setAnalysisConfigFileName(QString name)
 {
     if (m_analysisConfigFileName != name)
     {
         m_analysisConfigFileName = name;
+        makeWorkspaceSettings()->setValue(QSL("LastAnalysisConfig"), name.remove(getWorkspaceDirectory() + '/'));
         emit analysisConfigFileNameChanged(name);
     }
 }
@@ -700,6 +703,130 @@ MVMEContext::runScript(const vme_script::VMEScript &script,
         resumeDAQ();
 
     return result;
+}
+
+//
+// Workspace handling
+//
+void MVMEContext::newWorkspace(const QString &dirName)
+{
+    QDir dir(dirName);
+
+    if (!dir.entryList(QDir::AllEntries | QDir::NoDot | QDir::NoDotDot).isEmpty())
+        throw QString(QSL("Selected workspace directory is not empty"));
+
+    if (!dir.mkdir(QSL("listfiles")))
+        throw QString(QSL("Error creating listfiles subdirectory"));
+
+    QFile vmeConfigFile(dir.filePath(QSL("vme.mvmecfg")));
+    if (!vmeConfigFile.open(QIODevice::WriteOnly))
+    {
+        throw QString("Error opening %1 for writing:  %2")
+            .arg(vmeConfigFile.fileName())
+            .arg(vmeConfigFile.errorString());
+    }
+
+    QFile analysisConfigFile(dir.filePath(QSL("analysis.json")));
+    if (!analysisConfigFile.open(QIODevice::WriteOnly))
+    {
+        throw QString("Error opening %1 for writing:  %2")
+            .arg(analysisConfigFile.fileName())
+            .arg(analysisConfigFile.errorString());
+    }
+
+    setWorkspaceDirectory(dirName);
+
+    {
+        auto workspaceSettings(makeWorkspaceSettings());
+        workspaceSettings->setValue(QSL("ListfileDirectory"), QSL("listfiles"));
+        workspaceSettings->setValue(QSL("LastVMEConfig"), QSL("vme.mvmecfg"));
+        workspaceSettings->setValue(QSL("LastAnalysisConfig"), QSL("analysis.json"));
+        workspaceSettings->sync();
+
+        if (workspaceSettings->status() != QSettings::NoError)
+        {
+            throw QString("Error writing workspace settings to %1")
+                .arg(workspaceSettings->fileName());
+        }
+    }
+
+    openWorkspace(dirName);
+}
+
+void MVMEContext::openWorkspace(const QString &dirName)
+{
+    QDir dir(dirName);
+
+    if (!dir.exists(WorkspaceIniName))
+    {
+        throw QString("Workspace settings file %1 not found in %2")
+            .arg(WorkspaceIniName)
+            .arg(dirName);
+    }
+
+    auto workspaceSettings(makeWorkspaceSettings());
+
+    auto listfileDirectory  = workspaceSettings->value(QSL("ListfileDirectory")).toString();
+    auto listfileEnabled    = workspaceSettings->value(QSL("ListfileEnabled")).toBool();
+    auto lastVMEConfig      = workspaceSettings->value(QSL("LastVMEConfig")).toString();
+    auto lastAnalysisConfig = workspaceSettings->value(QSL("LastAnalysisConfig")).toString();
+
+    setWorkspaceDirectory(dirName);
+    setListFileDirectory(listfileDirectory);
+    setListFileOutputEnabled(listfileEnabled);
+    loadVMEConfig(dir.filePath(lastVMEConfig));
+    loadAnalysisConfig(dir.filePath(lastAnalysisConfig));
+}
+
+void MVMEContext::setWorkspaceDirectory(const QString &dirName)
+{
+    if (m_workspaceDir != dirName)
+    {
+        m_workspaceDir = dirName;
+        emit workspaceDirectoryChanged(dirName);
+    }
+}
+
+std::shared_ptr<QSettings> MVMEContext::makeWorkspaceSettings() const
+{
+    QDir dir(getWorkspaceDirectory());
+    return std::make_shared<QSettings>(dir.filePath(WorkspaceIniName), QSettings::IniFormat);
+}
+
+void MVMEContext::loadVMEConfig(const QString &fileName)
+{
+    QJsonDocument doc(gui_read_json_file(fileName));
+    auto daqConfig = new DAQConfig;
+    daqConfig->read(doc.object()["DAQConfig"].toObject());
+    setDAQConfig(daqConfig);
+    setConfigFileName(fileName);
+    setMode(GlobalMode::DAQ);
+}
+
+void MVMEContext::loadAnalysisConfig(const QString &fileName)
+{
+    QJsonDocument doc(gui_read_json_file(fileName));
+    auto config = new AnalysisConfig;
+    config->read(doc.object()[QSL("AnalysisConfig")].toObject());
+    setAnalysisConfig(config);
+    setAnalysisConfigFileName(fileName);
+}
+
+void MVMEContext::setListFileDirectory(const QString &dirName)
+{
+    m_listFileDir = dirName;
+}
+
+void MVMEContext::setListFileOutputEnabled(bool b)
+{
+    m_listFileEnabled = b;
+}
+
+/** True if at least one of VME-config and analysis-config is modified. */
+bool MVMEContext::isWorkspaceModified() const
+{
+    return ((m_daqConfig && m_daqConfig->isModified())
+            || (m_analysisConfig && m_analysisConfig->isModified()));
 }
 
 QString getFilterPath(MVMEContext *context, DataFilterConfig *filterConfig, int filterAddress)

@@ -6,10 +6,12 @@
 #include "mvme_config.h"
 #include "histogram.h"
 #include "vme_controller.h"
+#include <memory>
 #include <QList>
 #include <QWidget>
 #include <QFuture>
 #include <QFutureWatcher>
+#include <QSettings>
 #include <QSet>
 
 class VMUSBReadoutWorker;
@@ -48,6 +50,8 @@ class MVMEContext: public QObject
         void sigLogMessage(const QString &);
 
         void daqAboutToStart(quint32 nCycles);
+
+        void workspaceDirectoryChanged(const QString &);
 
     public:
         MVMEContext(mvme *mainwin, QObject *parent = 0);
@@ -160,10 +164,10 @@ class MVMEContext: public QObject
             return qobject_cast<T *>(getConfigForObject(object));
         }
 
-        void setConfigFileName(const QString &name);
+        void setConfigFileName(QString name);
         QString getConfigFileName() const { return m_configFileName; }
 
-        void setAnalysisConfigFileName(const QString &name);
+        void setAnalysisConfigFileName(QString name);
         QString getAnalysisConfigFileName() const { return m_analysisConfigFileName; }
 
         AnalysisConfig *getAnalysisConfig() const { return m_analysisConfig; }
@@ -181,6 +185,24 @@ class MVMEContext: public QObject
                       bool logEachResult = false);
 
         mvme *getMainWindow() const { return m_mainwin; }
+
+        // Workspace handling
+        void newWorkspace(const QString &dirName);
+        void openWorkspace(const QString &dirName);
+
+        void setWorkspaceDirectory(const QString &dirName);
+        QString getWorkspaceDirectory() const { return m_workspaceDir; }
+        std::shared_ptr<QSettings> makeWorkspaceSettings() const;
+
+        void loadVMEConfig(const QString &fileName);
+        void loadAnalysisConfig(const QString &fileName);
+
+        void setListFileDirectory(const QString &dirName);
+        QString getListFileDirectory() const { return m_listFileDir; }
+        void setListFileOutputEnabled(bool b);
+        bool isListFileOutputEnabled() const { return m_listFileEnabled; }
+
+        bool isWorkspaceModified() const;
 
     public slots:
         void startReplay();
@@ -207,9 +229,14 @@ class MVMEContext: public QObject
     private:
         void prepareStart();
 
-
         DAQConfig *m_daqConfig = nullptr;
         AnalysisConfig *m_analysisConfig = nullptr;
+        QString m_configFileName;
+        QString m_analysisConfigFileName;
+        QString m_workspaceDir;
+        QString m_listFileDir;
+        bool    m_listFileEnabled;
+
         VMEController *m_controller = nullptr;
         QTimer *m_ctrlOpenTimer;
         QTimer *m_logTimer;
@@ -224,8 +251,6 @@ class MVMEContext: public QObject
         MVMEEventProcessor *m_eventProcessor;
 
         DataBufferQueue m_freeBuffers;
-        QString m_configFileName;
-        QString m_analysisConfigFileName;
         QSet<QObject *> m_objects;
         QMap<QString, QMap<QObject *, QObject *>> m_objectMappings;
         mvme *m_mainwin;
