@@ -95,13 +95,13 @@ class DualWordDataFilter
             return m_results[0].matched && m_results[1].matched;
         }
 
-        void clearCompletion()
+        inline void clearCompletion()
         {
             m_results[0].matched = false;
             m_results[1].matched = false;
         }
 
-        u64 getResult() const
+        inline u64 getResult() const
         {
             u64 result = m_results[0].value;
             result |= (m_results[1].value << m_filters[0].getExtractBits('D'));
