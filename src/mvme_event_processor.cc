@@ -308,7 +308,7 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
 
                     for (auto filterConfig: filterConfigs)
                     {
-#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+#if 0 //#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
                         qEPDebug() << __PRETTY_FUNCTION__ << "trying filter" << filterConfig
                             << filterConfig->getFilter().toString()
                             << "current word" << hex << currentWord << dec;
@@ -321,12 +321,16 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                             auto histo  = m_d->histogramsByFilterConfig[filterConfig].value(address);
                             if (histo)
                             {
+#if 0 //#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
                                 qEPDebug() << __PRETTY_FUNCTION__ << "fill" << histo << data;
+#endif
                                 histo->fill(data);
                             }
                             else
                             {
+#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
                                 qEPDebug() << __PRETTY_FUNCTION__ << "filter matched but found no histo!";
+#endif
                             }
                             m_d->valuesByFilterConfig[filterConfig][address].push_back(data);
                         }
@@ -363,6 +367,18 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
 #endif
 
                 }
+
+
+#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+                for (auto filterConfig: dualWordfilterConfigs)
+                {
+                    if (m_d->currentDualWordFilterValues.contains(filterConfig))
+                    {
+                        qDebug() << filterConfig
+                            << "#values =" << m_d->currentDualWordFilterValues[filterConfig].size();
+                    }
+                }
+#endif
 
                 if (diag)
                 {
