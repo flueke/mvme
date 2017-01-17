@@ -341,6 +341,7 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                         {
                             QMutexLocker locker(&m_d->dualWordFilterValuesLock);
                             m_d->currentDualWordFilterValues[filterConfig].push_back(filter.getResult());
+                            filter.clearCompletion();
                         }
                     }
 
