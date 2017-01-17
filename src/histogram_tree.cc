@@ -62,6 +62,7 @@ static DualWordDataFilterConfigList generateDefaultDualWordFilters(ModuleConfig 
 
         cfg->setObjectName(def.name);
         cfg->setAxisTitle(def.title);
+        cfg->setUnitRange(0.0, std::pow(2.0, static_cast<double>(cfg->getDataBits())) - 1.0);
         result.push_back(cfg);
     }
 
