@@ -228,14 +228,15 @@ mvme::mvme(QWidget *parent) :
     QSettings settings;
 
     // workspace
-    if (settings.contains("LastWorkspaceDirectory"))
+    if (settings.contains(QSL("LastWorkspaceDirectory")))
     {
         try
         {
-            m_context->openWorkspace(settings.value("LastWorkspaceDirectory").toString());
+            m_context->openWorkspace(settings.value(QSL("LastWorkspaceDirectory")).toString());
         } catch (const QString &e)
         {
             QMessageBox::critical(this, QSL("Workspace Error"), QString("Error opening workspace: %1").arg(e));
+            settings.remove(QSL("LastWorkspaceDirectory"));
         }
     }
 
