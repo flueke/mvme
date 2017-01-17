@@ -83,6 +83,7 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         int globalMode = 0;
         globalMode |= (1 << GlobalModeRegister::MixedBufferShift);
         globalMode |= GlobalModeRegister::WatchDog250; // 250ms watchdog
+        //globalMode |= GlobalModeRegister::NoIRQHandshake;
 
         error = vmusb->setMode(globalMode);
         if (error.isError())

@@ -279,6 +279,10 @@ namespace GlobalModeRegister
     static const uint32_t WatchDog100 = 0x400;
     static const uint32_t WatchDog250 = 0x800;
     static const uint32_t WatchDog500 = 0xC00;
+
+    /* Since version 0A03_011617 there's a new NoIRQHandshake mode which should
+     * speed up high-rate small-event scenarios. */
+    static const uint32_t NoIRQHandshake = 0x80000;
 }
 
 uint16_t*
