@@ -213,9 +213,11 @@ void DAQConfigTreeWidget::setConfig(DAQConfig *cfg)
         connect(cfg, &DAQConfig::eventAboutToBeRemoved, this, &DAQConfigTreeWidget::onEventAboutToBeRemoved);
         connect(cfg, &DAQConfig::globalScriptAdded, this, &DAQConfigTreeWidget::onScriptAdded);
         connect(cfg, &DAQConfig::globalScriptAboutToBeRemoved, this, &DAQConfigTreeWidget::onScriptAboutToBeRemoved);
+        connect(cfg, &DAQConfig::modifiedChanged, this, &DAQConfigTreeWidget::updateConfigLabel);
     }
 
     m_tree->resizeColumnToContents(0);
+    updateConfigLabel();
 }
 
 DAQConfig *DAQConfigTreeWidget::getConfig() const
