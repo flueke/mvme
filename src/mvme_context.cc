@@ -764,6 +764,7 @@ void MVMEContext::openWorkspace(const QString &dirName)
             .arg(dirName);
     }
 
+    setWorkspaceDirectory(dirName);
     auto workspaceSettings(makeWorkspaceSettings());
 
     auto listfileDirectory  = workspaceSettings->value(QSL("ListfileDirectory")).toString();
@@ -771,11 +772,18 @@ void MVMEContext::openWorkspace(const QString &dirName)
     auto lastVMEConfig      = workspaceSettings->value(QSL("LastVMEConfig")).toString();
     auto lastAnalysisConfig = workspaceSettings->value(QSL("LastAnalysisConfig")).toString();
 
-    setWorkspaceDirectory(dirName);
     setListFileDirectory(listfileDirectory);
     setListFileOutputEnabled(listfileEnabled);
-    loadVMEConfig(dir.filePath(lastVMEConfig));
-    loadAnalysisConfig(dir.filePath(lastAnalysisConfig));
+
+    if (!lastVMEConfig.isEmpty())
+    {
+        loadVMEConfig(dir.filePath(lastVMEConfig));
+    }
+
+    if (!lastAnalysisConfig.isEmpty())
+    {
+        loadAnalysisConfig(dir.filePath(lastAnalysisConfig));
+    }
 }
 
 void MVMEContext::setWorkspaceDirectory(const QString &dirName)
