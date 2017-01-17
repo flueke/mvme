@@ -706,8 +706,7 @@ void mvme::on_actionOpen_Listfile_triggered()
     }
 
 
-    QSettings settings;
-    QString path = QFileInfo(settings.value("Files/LastListFile").toString()).absolutePath();
+    QString path = m_context->getListFileDirectory();
 
     if (path.isEmpty())
     {
@@ -738,7 +737,6 @@ void mvme::on_actionOpen_Listfile_triggered()
         return;
     }
 
-    settings.setValue("Files/LastListFile", fileName);
     m_context->setListFile(listFile);
 }
 

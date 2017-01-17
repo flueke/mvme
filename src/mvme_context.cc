@@ -772,7 +772,7 @@ void MVMEContext::openWorkspace(const QString &dirName)
     auto lastVMEConfig      = workspaceSettings->value(QSL("LastVMEConfig")).toString();
     auto lastAnalysisConfig = workspaceSettings->value(QSL("LastAnalysisConfig")).toString();
 
-    setListFileDirectory(listfileDirectory);
+    setListFileDirectory(dir.filePath(listfileDirectory));
     setListFileOutputEnabled(listfileEnabled);
 
     if (!lastVMEConfig.isEmpty())
