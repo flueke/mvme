@@ -338,6 +338,11 @@ class DualWordDataFilterConfig: public ConfigObject
         QPair<double, double> getUnitRange() const;
         void setUnitRange(double min, double max);
 
+        u32 getDataBits() const
+        {
+            return getLowWordFilter().getExtractBits('D') + getHighWordFilter().getExtractBits('D');
+        }
+
     protected:
         virtual void read_impl(const QJsonObject &json) override;
         virtual void write_impl(QJsonObject &json) const override;
