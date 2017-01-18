@@ -723,9 +723,9 @@ void HistogramTreeWidget::updateHistogramCountDisplay()
             auto values = dualWordValues.value(filterConfig);
             auto diffs  = dualWordDiffs.value(filterConfig);
 
-            // XXX: this only displays the first value that matched
             if (!values.isEmpty())
             {
+                // Show the first value and difference value
                 auto node = it.value();
                 if (diffs.isEmpty())
                     node->setText(1, QString("val=%1").arg(values[0]));
