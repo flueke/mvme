@@ -738,9 +738,10 @@ void MVMEContext::newWorkspace(const QString &dirName)
 
     {
         auto workspaceSettings(makeWorkspaceSettings());
-        workspaceSettings->setValue(QSL("ListfileDirectory"), QSL("listfiles"));
         workspaceSettings->setValue(QSL("LastVMEConfig"), QSL("vme.mvmecfg"));
         workspaceSettings->setValue(QSL("LastAnalysisConfig"), QSL("analysis.json"));
+        workspaceSettings->setValue(QSL("ListfileDirectory"), QSL("listfiles"));
+        workspaceSettings->setValue(QSL("WriteListfile"), true);
         workspaceSettings->sync();
 
         if (workspaceSettings->status() != QSettings::NoError)
@@ -768,7 +769,7 @@ void MVMEContext::openWorkspace(const QString &dirName)
     auto workspaceSettings(makeWorkspaceSettings());
 
     auto listfileDirectory  = workspaceSettings->value(QSL("ListfileDirectory")).toString();
-    auto listfileEnabled    = workspaceSettings->value(QSL("ListfileEnabled")).toBool();
+    auto listfileEnabled    = workspaceSettings->value(QSL("WriteListfile")).toBool();
     auto lastVMEConfig      = workspaceSettings->value(QSL("LastVMEConfig")).toString();
     auto lastAnalysisConfig = workspaceSettings->value(QSL("LastAnalysisConfig")).toString();
 
@@ -827,7 +828,11 @@ void MVMEContext::setListFileDirectory(const QString &dirName)
 
 void MVMEContext::setListFileOutputEnabled(bool b)
 {
-    m_listFileEnabled = b;
+    if (m_listFileEnabled != b)
+    {
+        m_listFileEnabled = b;
+        makeWorkspaceSettings()->setValue(QSL("WriteListfile"), b);
+    }
 }
 
 /** True if at least one of VME-config and analysis-config is modified. */

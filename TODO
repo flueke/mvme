@@ -2,45 +2,22 @@
 ==== Do these first! =====
 ==========================
 * workspace concept
-  - workspace directory
-    - subdirectory for listfiles
-    - vme.mvmecfg
-    - analysis.json
-    - mvmeworkspace.ini
-      Contains the names of the last vme and analysis configs and the name of the listfile subdir
+    copy templates from app dir to workspace
 
-  The global QSettings now only contain GUI state and the path to the last used workspace.
+* Limit the number of messages/s appended to the logview. With multithreading:
+  do messages fill up one of the threads event queues? Can this be limited
+  somehow? Better to directly limit the generation of these messages?
+* Fix diagnostics window blocking when there are a lot of error messages being generated.
 
-  QSettings globalSettings;
-  QSettings workspaceSettings(workspacePath + '/mvmeworkspace.ini', QSettings::IniFormat);
-
-  Fresh start:
-   Dialog asking for workspace directory.
-   => WorkspaceDirectory
-      All file dialogs should start relative to this directory.
-      A SubDir for listfiles needs to be created.
-
-      LastAnalysisConfig and LastConfigFile are still used but they are
-      relative to LastProjectDirectory.
-
-      Use vme.mvmecfg and analysis.json as default config file names.
-
-  Next start:
-    Set LastProjectDirectory as ProjectDirectory, open vme and analysis config
-    files relative to the project dir.
-
-
-  Move listfile stuff from DAQConfig to the context.
-
-  How to handle absolute paths?
+* prefix and (maybe) run number for listfiles
+* display generated listfile name when daq runs
+* display written listfile size in daqcontrol widget
 
 
 ==========================
 ==== Do these later! =====
 ==========================
 * DualWordDataFilters: handle negative difference values when filling the histograms
-* Get rid of "configId" property and use registerObjectAndConfig,
-  getConfigForObject, getObjectForConfig instead
 * Mesytec Werbung ^^ Hintergrundbilder, Wasserzeichen, etc. (CSS Theme?)
 * Hist2d: look for standard color scales as used in publications, ROOT, etc.
   https://root.cern.ch/doc/master/TColor_8cxx_source.html#l02400
@@ -51,9 +28,6 @@
   variables that are checked once the thread wakes up.
   (Maybe try WaitForMoreEvents as a quick fix)
 * Hist2d Icon
-* Limit the number of messages/s appended to the logview. With multithreading:
-  do messages fill up one of the threads event queues? Can this be limited
-  somehow? Better to directly limit the generation of these messages?
 * How to handle filters without matching module? Right now they're not
   displayed until a module with the corresponding (eventIndex,moduleIndex) is
   created.
@@ -75,9 +49,6 @@
     - pause and resume: also return a QFuture or something to be able to wait for
                         the state change
     -> look at QFutureInterface
-
-* prefix and run number for listfiles
-* display generated listfile name when daq runs
 
 * ReadoutWorker split into generic and controller specific parts:
     Generic part is responsible for:

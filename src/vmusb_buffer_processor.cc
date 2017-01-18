@@ -133,6 +133,7 @@ void VMUSBBufferProcessor::beginRun()
         }
 
         m_listFileWriter->setOutputDevice(&m_listFileOut);
+        getStats()->listfileFilename = outFilename;
 
         QJsonObject daqConfigJson;
         m_context->getDAQConfig()->write(daqConfigJson);

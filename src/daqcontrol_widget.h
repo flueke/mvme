@@ -3,10 +3,10 @@
 
 #include <QWidget>
 
-class QPushButton;
-class QLabel;
-class QCheckBox;
-class QGroupBox;
+namespace Ui
+{
+    class DAQControlWidget;
+}
 
 class MVMEContext;
 
@@ -19,11 +19,8 @@ class DAQControlWidget: public QWidget
     private:
         void updateWidget();
 
+        Ui::DAQControlWidget *ui;
         MVMEContext *m_context;
-        QPushButton *pb_start, *pb_stop, *pb_oneCycle, *pb_reconnect;
-        QLabel *label_controller, *label_daqState, *label_listFileDir;
-        QCheckBox *cb_writeListFile;
-        QGroupBox *gbListFile;
 };
 
 #endif /* __DAQCONTROL_WIDGET_H__ */

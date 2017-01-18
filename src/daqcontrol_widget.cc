@@ -1,26 +1,20 @@
 #include "daqcontrol_widget.h"
 #include "mvme_context.h"
 #include "util.h"
+#include "ui_daqcontrol_widget.h"
 
-#include <QCheckBox>
-#include <QFormLayout>
-#include <QGroupBox>
-#include <QHBoxLayout>
-#include <QLabel>
-#include <QPushButton>
-#include <QVBoxLayout>
-#include <QFileDialog>
+#include <QTimer>
+
+static const int updateInterval = 500;
 
 DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
     : QWidget(parent)
+    , ui(new Ui::DAQControlWidget)
     , m_context(context)
 {
-    // DAQ Control buttons
-    pb_start    = new QPushButton(QSL("Start"));
-    pb_stop     = new QPushButton(QSL("Stop"));
-    pb_oneCycle = new QPushButton(QSL("1 Cycle"));
+    ui->setupUi(this);
 
-    connect(pb_start, &QPushButton::clicked, m_context, [this] {
+    connect(ui->pb_start, &QPushButton::clicked, m_context, [this] {
         auto globalMode = m_context->getMode();
         auto daqState = m_context->getDAQState();
 
@@ -39,96 +33,35 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
         }
     });
 
-    connect(pb_oneCycle, &QPushButton::clicked, this, [this] {
+    connect(ui->pb_oneCycle, &QPushButton::clicked, this, [this] {
         m_context->startDAQ(1);
     });
 
-    connect(pb_stop, &QPushButton::clicked, m_context, &MVMEContext::stopDAQ);
+    connect(ui->pb_stop, &QPushButton::clicked, m_context, &MVMEContext::stopDAQ);
 
-    auto buttonBox = new QHBoxLayout;
-    buttonBox->setContentsMargins(2, 2, 2, 2);
-    buttonBox->setSpacing(2);
-    buttonBox->addWidget(pb_start);
-    buttonBox->addWidget(pb_stop);
-    buttonBox->addWidget(pb_oneCycle);
-    buttonBox->addStretch(1);
-
-    // VME controller and DAQ state
-    label_controller = new QLabel;
-    label_daqState = new QLabel;
-    pb_reconnect = new QPushButton(QSL("Reconnect"));
-
-    auto controllerLayout = new QHBoxLayout;
-    controllerLayout->setContentsMargins(0, 0, 0, 0);
-    controllerLayout->setSpacing(2);
-    controllerLayout->addWidget(label_controller);
-    controllerLayout->addWidget(pb_reconnect);
-    controllerLayout->addStretch(1);
-
-    connect(pb_reconnect, &QPushButton::clicked, this, [this] {
+    connect(ui->pb_reconnect, &QPushButton::clicked, this, [this] {
+        /* Just disconnect the controller here. MVMEContext will call
+         * tryOpenController() periodically which will connect again. */
         auto ctrl = m_context->getController();
         if (ctrl)
             ctrl->close();
-        // m_context will call tryOpenController() eventually
     });
 
-
-    auto labelLayout = new QFormLayout;
-    labelLayout->setContentsMargins(2, 2, 2, 2);
-    labelLayout->addRow(QSL("VME Controller:"), controllerLayout);
-    labelLayout->addRow(QSL("DAQ State:"), label_daqState);
-
-    // Listfile
-    gbListFile = new QGroupBox(QSL("Listfile Output"));
-    auto listFileLayout = new QFormLayout(gbListFile);
-
-    label_listFileDir = new QLabel;
-    label_listFileDir->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Minimum);
-    cb_writeListFile = new QCheckBox("Write listfile");
-
-    connect(cb_writeListFile, &QCheckBox::stateChanged, this, [this](int state) {
+    connect(ui->cb_writeListfile, &QCheckBox::stateChanged, this, [this](int state) {
         bool enabled = (state != Qt::Unchecked);
         m_context->setListFileOutputEnabled(enabled);
     });
-
-    auto pb_outputDirectory = new QPushButton("Select directory");
-
-    connect(pb_outputDirectory, &QPushButton::clicked, this, [this] {
-        auto dirName = QFileDialog::getExistingDirectory(this, "Select output directory",
-                                                         m_context->getListFileDirectory());
-        if (!dirName.isEmpty())
-        {
-            QFontMetrics fm(label_listFileDir->font());
-            auto labelText = fm.elidedText(dirName, Qt::ElideMiddle, label_listFileDir->width());
-
-            label_listFileDir->setText(labelText);
-            label_listFileDir->setToolTip(dirName);
-            m_context->setListFileDirectory(dirName);
-        }
-    });
-
-    auto hbox = new QHBoxLayout;
-    hbox->addWidget(cb_writeListFile);
-    hbox->addWidget(pb_outputDirectory);
-    hbox->addStretch(1);
-
-    listFileLayout->addRow(hbox);
-    listFileLayout->addRow(label_listFileDir);
-
-    // Widget layout
-    auto layout = new QVBoxLayout(this);
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(2);
-    layout->addLayout(buttonBox);
-    layout->addLayout(labelLayout);
-    layout->addWidget(gbListFile);
-
-    setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Minimum);
 
     connect(m_context, &MVMEContext::daqStateChanged, this, &DAQControlWidget::updateWidget);
     connect(m_context, &MVMEContext::modeChanged, this, &DAQControlWidget::updateWidget);
     connect(m_context, &MVMEContext::controllerStateChanged, this, &DAQControlWidget::updateWidget);
     connect(m_context, &MVMEContext::daqConfigChanged, this, &DAQControlWidget::updateWidget);
+
+    auto timer = new QTimer(this);
+    timer->setInterval(updateInterval);
+    timer->start();
+
+    connect(timer, &QTimer::timeout, this, &DAQControlWidget::updateWidget);
 
     updateWidget();
 }
@@ -138,56 +71,79 @@ void DAQControlWidget::updateWidget()
     auto globalMode = m_context->getMode();
     auto daqState = m_context->getDAQState();
     auto controllerState = m_context->getController()->getState();
+    const auto &stats = m_context->getDAQStats();
 
-    pb_start->setEnabled((globalMode == GlobalMode::DAQ
+    ui->pb_start->setEnabled((globalMode == GlobalMode::DAQ
                           && controllerState == ControllerState::Opened)
                          || (globalMode == GlobalMode::ListFile
                              && daqState == DAQState::Idle)
                          );
 
-    pb_stop->setEnabled((globalMode == GlobalMode::DAQ
+    ui->pb_stop->setEnabled((globalMode == GlobalMode::DAQ
                          && daqState != DAQState::Idle
                          && controllerState == ControllerState::Opened)
                         || (globalMode == GlobalMode::ListFile
                             && daqState != DAQState::Idle)
                        );
 
-    pb_oneCycle->setEnabled(globalMode == GlobalMode::DAQ
+    ui->pb_oneCycle->setEnabled(globalMode == GlobalMode::DAQ
                             && daqState == DAQState::Idle
                             && controllerState == ControllerState::Opened);
 
-    gbListFile->setEnabled(globalMode == GlobalMode::DAQ);
+    ui->gb_listfile->setEnabled(globalMode == GlobalMode::DAQ);
 
     if (globalMode == GlobalMode::DAQ)
     {
         if (daqState == DAQState::Idle)
-            pb_start->setText(QSL("Start"));
+            ui->pb_start->setText(QSL("Start"));
         else if (daqState == DAQState::Paused)
-            pb_start->setText(QSL("Resume"));
+            ui->pb_start->setText(QSL("Resume"));
         else
-            pb_start->setText(QSL("Pause"));
+            ui->pb_start->setText(QSL("Pause"));
     }
     else if (globalMode == GlobalMode::ListFile)
     {
-        pb_start->setText(QSL("Start Replay"));
+        ui->pb_start->setText(QSL("Start Replay"));
     }
 
-    label_daqState->setText(DAQStateStrings.value(daqState, QSL("Unknown")));
 
-    label_controller->setText(controllerState == ControllerState::Closed
-                              ? QSL("Disconnected")
-                              : QSL("Connected"));
+    auto stateString = DAQStateStrings.value(daqState, QSL("Unknown"));
 
-    pb_reconnect->setEnabled(globalMode == GlobalMode::DAQ && daqState == DAQState::Idle);
+    if (daqState != DAQState::Idle)
+    {
+        auto duration  = stats.startTime.secsTo(QDateTime::currentDateTime());
+        auto durationString = makeDurationString(duration);
+
+        stateString = QString("%1 (%2)").arg(stateString).arg(durationString);
+    }
+
+
+    ui->label_daqState->setText(stateString);
+
+    ui->label_controllerState->setText(controllerState == ControllerState::Closed
+                                       ? QSL("Disconnected")
+                                       : QSL("Connected"));
+
+    ui->pb_reconnect->setEnabled(globalMode == GlobalMode::DAQ && daqState == DAQState::Idle);
 
     {
-        QSignalBlocker b(cb_writeListFile);
-        cb_writeListFile->setChecked(m_context->isListFileOutputEnabled());
+        QSignalBlocker b(ui->cb_writeListfile);
+        ui->cb_writeListfile->setChecked(m_context->isListFileOutputEnabled());
     }
 
-    QFontMetrics fm(label_listFileDir->font());
-    auto dirName = m_context->getListFileDirectory();
-    auto labelText = fm.elidedText(dirName, Qt::ElideMiddle, label_listFileDir->width());
-    label_listFileDir->setText(labelText);
-    label_listFileDir->setToolTip(dirName);
+    auto filename = stats.listfileFilename;
+    filename.remove(m_context->getWorkspaceDirectory() + "/listfiles/");
+    if (ui->le_listfileFilename->text() != filename)
+        ui->le_listfileFilename->setText(filename);
+
+
+    QString sizeString;
+
+    if (globalMode == GlobalMode::DAQ)
+    {
+        double mb = static_cast<double>(stats.listFileBytesWritten) / (1024.0*1024.0);
+        sizeString = QString("%1 MB").arg(mb, 6, 'f', 2);
+    }
+
+    ui->label_listfileSize->setText(sizeString);
 }

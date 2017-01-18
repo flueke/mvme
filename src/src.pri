@@ -87,6 +87,7 @@ FORMS += \
     $$PWD/dualword_datafilter_dialog.ui \
     $$PWD/mesytec_diagnostics.ui \
     $$PWD/hist2ddialog_axis_widget.ui \
+    $$PWD/daqcontrol_widget.ui \
 
 
 contains(DEFINES, "VME_CONTROLLER_WIENER") {
