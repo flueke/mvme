@@ -10,8 +10,6 @@
 * Fix diagnostics window blocking when there are a lot of error messages being generated.
 
 * prefix and (maybe) run number for listfiles
-* display generated listfile name when daq runs
-* display written listfile size in daqcontrol widget
 
 
 ==========================
