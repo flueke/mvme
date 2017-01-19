@@ -79,6 +79,7 @@ static QList<Hist1DConfig *> generateHistogramConfigs(DataFilterConfig *filterCo
 
     for (u32 address = 0; address < addressCount; ++address)
     {
+        // TODO: move as much as possible into updateHistogramConfigFromFilterConfig()
         auto cfg = new Hist1DConfig;
         cfg->setObjectName(QString::number(address));
         cfg->setFilterId(filterConfig->getId());
@@ -97,10 +98,12 @@ static Hist1DConfig *generateDifferenceHistogramConfig(DualWordDataFilterConfig 
 {
     static const u32 dualWordFilterHistoBits = 16;
 
+    // TODO: move as much as possible into updateHistogramConfigFromFilterConfig()
     auto result = new Hist1DConfig;
     result->setObjectName(QString("%1 Differences").arg(filterConfig->objectName()));
     result->setFilterId(filterConfig->getId());
     result->setBits(dualWordFilterHistoBits);
+
     updateHistogramConfigFromFilterConfig(result, filterConfig);
 
     return result;
@@ -939,7 +942,6 @@ void HistogramTreeWidget::addDualWordDataFilter()
 
     if (dialog.exec() == QDialog::Accepted)
     {
-
         auto indices = m_context->getDAQConfig()->getEventAndModuleIndices(moduleConfig);
         if (indices.first < 0)
         {

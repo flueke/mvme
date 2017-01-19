@@ -24,7 +24,7 @@ struct MVMEEventProcessorPrivate
     QHash<QUuid, DataFilterConfig *> filterConfigsById;
 
     QMap<int, QMap<int, DualWordDataFilterConfigList>> dualWordFilterConfigs; // eventIdx -> moduleIdx -> filterList
-    QHash<DualWordDataFilterConfig *, Hist1D *> histogramsByDualWordDataFilterConfig;
+    QHash<DualWordDataFilterConfig *, QPair<Hist1D *, Hist1DConfig *>> histogramsByDualWordDataFilterConfig;
     DualWordFilterValues currentDualWordFilterValues;
     DualWordFilterValues lastDualWordFilterValues;
     DualWordFilterDiffs dualWordFilterDiffs;
@@ -182,7 +182,7 @@ void MVMEEventProcessor::newRun()
 
                 if (histo)
                 {
-                    m_d->histogramsByDualWordDataFilterConfig[filterConfig] = histo;
+                    m_d->histogramsByDualWordDataFilterConfig[filterConfig] = qMakePair(histo, histoConfig);
                 }
             }
         }
@@ -339,10 +339,10 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                     for (auto filterConfig: dualWordfilterConfigs)
                     {
                         /* Note: This can break if a dual word filter has one
-                         * of its' filter words consist only of X'es, meaning
-                         * the word does match any input, but the subevent
-                         * consists of only one word the filter will never
-                         * be marked as complete. */
+                         * of its' filter words consist only of X'es (meaning
+                         * the word does match any input) but the subevent
+                         * consists of only one word, then the filter will
+                         * never be marked as complete. */
                         auto &filter(filterConfig->getFilter());
                         filter.handleDataWord(currentWord, wordIndexInSubEvent);
 
@@ -493,7 +493,10 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
 
                     for (auto filterConfig: filters)
                     {
-                        auto histo = m_d->histogramsByDualWordDataFilterConfig.value(filterConfig);
+                        auto histoPair = m_d->histogramsByDualWordDataFilterConfig.value(filterConfig);
+                        auto histo = histoPair.first;
+                        auto histoConfig = histoPair.second;
+                        u32  histoShift = histoConfig->getShift();
 
                         if (histo)
                         {
@@ -507,6 +510,10 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                                     // TODO: add a way to handle negative results here!
                                     // also results that are out of range (double values for histos needed)
                                     s64 diff = currentValues[i] - lastValues[i];
+                                    if (histoShift != 0)
+                                    {
+                                        diff /= std::pow(2.0, histoShift);
+                                    }
                                     histo->fill(diff);
 
                                     double ddiff = static_cast<double>(currentValues[i]) - static_cast<double>(lastValues[i]);

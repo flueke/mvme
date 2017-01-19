@@ -392,6 +392,11 @@ class Hist1DConfig: public ConfigObject
             }
         }
 
+        // Shift amount to scale source value by when filling the histogram.
+        // FIXME: this is currently only used if the histogram is filled by a DualWordDataFilter!
+        u32 getShift() const { return m_shift; }
+        void setShift(u32 shift);
+
     protected:
         virtual void read_impl(const QJsonObject &json) override;
         virtual void write_impl(QJsonObject &json) const override;
@@ -400,6 +405,7 @@ class Hist1DConfig: public ConfigObject
         u32 m_bits = 0;
         QUuid m_filterId;
         u32 m_filterAddress = 0;
+        u32 m_shift = 0;
 };
 
 struct Hist2DAxisConfig

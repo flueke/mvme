@@ -821,11 +821,21 @@ void DualWordDataFilterConfig::write_impl(QJsonObject &json) const
 //
 // Hist1DConfig
 //
+void Hist1DConfig::setShift(u32 shift)
+{
+    if (m_shift != shift)
+    {
+        m_shift = shift;
+        setModified();
+    }
+}
+
 void Hist1DConfig::read_impl(const QJsonObject &json)
 {
     m_bits = json["bits"].toInt();
     m_filterId = QUuid(json["filterId"].toString());
     m_filterAddress = json["filterAddress"].toInt();
+    m_shift = json["shift"].toInt();
     loadDynamicProperties(json["properties"].toObject(), this);
 }
 
@@ -834,6 +844,7 @@ void Hist1DConfig::write_impl(QJsonObject &json) const
     json["bits"] = static_cast<qint64>(m_bits);
     json["filterId"] = m_filterId.toString();
     json["filterAddress"] = static_cast<qint64>(m_filterAddress);
+    json["shift"] = static_cast<qint64>(m_shift);
     auto props = storeDynamicProperties(this);
     if (!props.isEmpty())
         json["properties"] = props;
@@ -1435,6 +1446,14 @@ void updateHistogramConfigFromFilterConfig(Hist1DConfig *histoConfig, DualWordDa
     histoConfig->setProperty("xAxisUnit", filterConfig->getUnitString());
     histoConfig->setProperty("xAxisUnitMin", filterConfig->getUnitRange().first);
     histoConfig->setProperty("xAxisUnitMax", filterConfig->getUnitRange().second);
+
+    /* Expand the unsigneds to signed to correctly handle the case where the
+     * shift calculation yields a negative result. */
+    s64 dataBits = filterConfig->getDataBits();
+    s64 histoBits = histoConfig->getBits();
+    u32 shift = static_cast<u32>(std::max(0l, dataBits - histoBits));
+
+    histoConfig->setShift(shift);
 }
 
 #if 0
