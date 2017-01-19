@@ -278,8 +278,25 @@ void mvme::on_actionNewWorkspace_triggered()
 
 void mvme::on_actionOpenWorkspace_triggered()
 {
-    auto startDir = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
+   /* Use the parent directory of last opened workspace as the start directory
+    * for browsing. */
+    auto startDir = QSettings().value("LastWorkspaceDirectory").toString();
+
+    if (!startDir.isEmpty())
+    {
+        QDir dir(startDir);
+        dir.cdUp();
+        startDir = dir.absolutePath();
+    }
+    else
+    {
+        startDir = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
+    }
+
     auto dirName  = QFileDialog::getExistingDirectory(this, QSL("Select workspace"), startDir);
+
+    if (dirName.isEmpty())
+        return;
 
     try
     {
