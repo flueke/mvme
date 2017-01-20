@@ -200,9 +200,6 @@ void MesytecDiagnostics::handleDataWord(quint32 currentWord)
     m_currentEventBuffer->push_back(currentWord);
 
 
-    if (currentWord == 0xFFFFFFFF || currentWord == 0x00000000)
-        return;
-
     //
     // header
     //
