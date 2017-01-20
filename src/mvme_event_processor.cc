@@ -385,7 +385,7 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                         diag->handleDataWord(currentWord);
                     }
 
-#if 0
+#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
                     if (moduleType == VMEModuleType::MesytecCounter)
                     {
                         emit logMessage(QString("CounterWord %1: 0x%2, evtIdx=%3, modIdx=%4")
@@ -396,7 +396,6 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                                         );
                     }
 #endif
-
                 }
 
 
@@ -536,11 +535,23 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                                     // TODO: add a way to handle negative results here!
                                     // also results that are out of range (double values for histos needed)
                                     s64 diff = currentValues[i] - lastValues[i];
-                                    if (histoShift != 0)
+                                    if (diff >= 0)
                                     {
-                                        diff /= std::pow(2.0, histoShift);
+                                        if (histoShift != 0)
+                                        {
+                                            diff /= std::pow(2.0, histoShift);
+                                        }
+                                        histo->fill(diff);
+
+#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+                                        qDebug() << "histo fill value =" << diff
+                                            << ", #values =" << currentValues.size()
+                                            << ", filterConfig =" << filterConfig
+                                            << ", event =" << eventIndex
+                                            << ", module =" << moduleIndex
+                                            ;
+#endif
                                     }
-                                    histo->fill(diff);
 
                                     double ddiff = static_cast<double>(currentValues[i]) - static_cast<double>(lastValues[i]);
 
@@ -559,6 +570,9 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
         ++stats.mvmeBuffersWithErrors;
     }
 
+#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+    qDebug() << __PRETTY_FUNCTION__ << "end processing" << buffer;
+#endif
 
     emit bufferProcessed(buffer);
 
