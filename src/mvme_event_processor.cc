@@ -27,9 +27,10 @@ struct MVMEEventProcessorPrivate
 
     QMap<int, QMap<int, DualWordDataFilterConfigList>> dualWordFilterConfigs; // eventIdx -> moduleIdx -> filterList
     QHash<DualWordDataFilterConfig *, QPair<Hist1D *, Hist1DConfig *>> histogramsByDualWordDataFilterConfig;
-    DualWordFilterValues currentDualWordFilterValues;
-    DualWordFilterValues lastDualWordFilterValues;
-    DualWordFilterDiffs dualWordFilterDiffs;
+
+    QHash<DualWordDataFilterConfig *, QPair<u64, bool>> currentDualWordFilterValues;
+    QHash<DualWordDataFilterConfig *, QPair<u64, bool>> lastDualWordFilterValues;
+    QHash<DualWordDataFilterConfig *, QPair<double, bool>> dualWordFilterDiffs;
     QMutex dualWordFilterValuesLock;
 
     MesytecDiagnostics *diag = nullptr;
@@ -78,9 +79,12 @@ DualWordFilterValues MVMEEventProcessor::getDualWordFilterValues() const
          it != m_d->currentDualWordFilterValues.end();
         ++it)
     {
-        const auto &values = it.value();
-        auto &dest = result[it.key()];
-        std::copy(values.begin(), values.end(), std::back_inserter(dest));
+        const auto &value(it.value());
+
+        if (value.second)
+        {
+            result[it.key()] = value.first;
+        }
     }
 
     return result;
@@ -97,9 +101,12 @@ DualWordFilterDiffs MVMEEventProcessor::getDualWordFilterDiffs() const
          it != m_d->dualWordFilterDiffs.end();
         ++it)
     {
-        const auto &values = it.value();
-        auto &dest = result[it.key()];
-        std::copy(values.begin(), values.end(), std::back_inserter(dest));
+        const auto &value(it.value());
+
+        if (value.second)
+        {
+            result[it.key()] = value.first;
+        }
     }
 
     return result;
@@ -255,7 +262,7 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
             {
                 /* DualWordDataFilters: swap current and last values for each
                  * module for the current eventIndex, then clear the new
-                 * current values array.  */
+                 * current value.  */
                 QMutexLocker locker(&m_d->dualWordFilterValuesLock);
                 const auto &filterMap = m_d->dualWordFilterConfigs.value(eventIndex);
                 for (auto it=filterMap.begin(); it!=filterMap.end(); ++it)
@@ -264,8 +271,9 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                     {
                         std::swap(m_d->currentDualWordFilterValues[filterConfig],
                                   m_d->lastDualWordFilterValues[filterConfig]);
-                        m_d->currentDualWordFilterValues[filterConfig].clear();
-                        m_d->dualWordFilterDiffs[filterConfig].clear();
+
+                        m_d->currentDualWordFilterValues[filterConfig].second = false;
+                        m_d->dualWordFilterDiffs[filterConfig].second = false;
                     }
                 }
             }
@@ -375,7 +383,9 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                         if (filter.isComplete())
                         {
                             QMutexLocker locker(&m_d->dualWordFilterValuesLock);
-                            m_d->currentDualWordFilterValues[filterConfig].push_back(filter.getResult());
+                            auto &pair(m_d->currentDualWordFilterValues[filterConfig]);
+                            pair.first = filter.getResult();
+                            pair.second = true;
                             filter.clearCompletion();
                         }
                     }
@@ -404,8 +414,7 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                 {
                     if (m_d->currentDualWordFilterValues.contains(filterConfig))
                     {
-                        qDebug() << filterConfig
-                            << "#values =" << m_d->currentDualWordFilterValues[filterConfig].size();
+                        qDebug() << filterConfig << m_d->currentDualWordFilterValues[filterConfig];
                     }
                 }
 #endif
@@ -525,39 +534,37 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
 
                         if (histo)
                         {
-                            const auto &currentValues(m_d->currentDualWordFilterValues[filterConfig]);
-                            const auto &lastValues(m_d->lastDualWordFilterValues[filterConfig]);
+                            const auto &currentValue(m_d->currentDualWordFilterValues[filterConfig]);
+                            const auto &lastValue(m_d->lastDualWordFilterValues[filterConfig]);
 
-                            if (!currentValues.isEmpty() && (currentValues.size() == lastValues.size()))
+                            if (currentValue.second && lastValue.second)
                             {
-                                for (int i=0; i<currentValues.size(); ++i)
+                                // TODO: add a way to handle negative results here!
+                                // also results that are out of range (double values for histos needed)
+                                s64 diff = currentValue.first - lastValue.first;
+
+                                if (diff >= 0)
                                 {
-                                    // TODO: add a way to handle negative results here!
-                                    // also results that are out of range (double values for histos needed)
-                                    s64 diff = currentValues[i] - lastValues[i];
-                                    if (diff >= 0)
+                                    if (histoShift != 0)
                                     {
-                                        if (histoShift != 0)
-                                        {
-                                            diff /= std::pow(2.0, histoShift);
-                                        }
-                                        histo->fill(diff);
+                                        diff /= std::pow(2.0, histoShift);
+                                    }
+                                    histo->fill(diff);
 
 #ifdef MVME_EVENT_PROCESSOR_DEBUGGING
-                                        qDebug() << "histo fill value =" << diff
-                                            << ", #values =" << currentValues.size()
-                                            << ", filterConfig =" << filterConfig
-                                            << ", event =" << eventIndex
-                                            << ", module =" << moduleIndex
-                                            ;
+                                    qDebug() << "histo fill value =" << diff
+                                        << ", #values =" << currentValues.size()
+                                        << ", filterConfig =" << filterConfig
+                                        << ", event =" << eventIndex
+                                        << ", module =" << moduleIndex
+                                        ;
 #endif
-                                    }
-
-                                    double ddiff = static_cast<double>(currentValues[i]) - static_cast<double>(lastValues[i]);
-
-                                    m_d->dualWordFilterDiffs[filterConfig].push_back(ddiff);
-                                    //qDebug() << filterConfig << m_d->dualWordFilterDiffs[filterConfig].size() << currentValues.size() << lastValues.size();
                                 }
+
+                                double ddiff = static_cast<double>(currentValue.first) - static_cast<double>(lastValue.first);
+
+                                m_d->dualWordFilterDiffs[filterConfig].first = ddiff;
+                                m_d->dualWordFilterDiffs[filterConfig].second = true;
                             }
                         }
                     }

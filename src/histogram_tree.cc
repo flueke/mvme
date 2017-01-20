@@ -721,17 +721,21 @@ void HistogramTreeWidget::updateHistogramCountDisplay()
         }
         else if (auto filterConfig = qobject_cast<DualWordDataFilterConfig *>(it.key()))
         {
-            auto values = dualWordValues.value(filterConfig);
-            auto diffs  = dualWordDiffs.value(filterConfig);
-
-            if (!values.isEmpty())
+            if (dualWordValues.contains(filterConfig))
             {
-                // Show the first value and difference value
                 auto node = it.value();
-                if (diffs.isEmpty())
-                    node->setText(1, QString("val=%1").arg(values[0]));
+
+                if (dualWordDiffs.contains(filterConfig))
+                {
+                    node->setText(1, QString("val=%1, diff=%2")
+                                  .arg(dualWordValues[filterConfig])
+                                  .arg(dualWordDiffs[filterConfig]));
+                }
                 else
-                    node->setText(1, QString("val=%1, diff=%2").arg(values[0]).arg(diffs[0]));
+                {
+                    node->setText(1, QString("val=%1")
+                                  .arg(dualWordValues[filterConfig]));
+                }
             }
         }
     }

@@ -13,8 +13,8 @@ class DualWordDataFilterConfig;
 
 class MVMEEventProcessorPrivate;
 
-using DualWordFilterValues = QHash<DualWordDataFilterConfig *, QVector<u64>>;
-using DualWordFilterDiffs  = QHash<DualWordDataFilterConfig *, QVector<double>>;
+using DualWordFilterValues = QHash<DualWordDataFilterConfig *, u64>;
+using DualWordFilterDiffs  = QHash<DualWordDataFilterConfig *, double>;
 
 class MVMEEventProcessor: public QObject
 {
