@@ -79,7 +79,6 @@ static QList<Hist1DConfig *> generateHistogramConfigs(DataFilterConfig *filterCo
 
     for (u32 address = 0; address < addressCount; ++address)
     {
-        // TODO: move as much as possible into updateHistogramConfigFromFilterConfig()
         auto cfg = new Hist1DConfig;
         cfg->setObjectName(QString::number(address));
         cfg->setFilterId(filterConfig->getId());
@@ -98,9 +97,8 @@ static Hist1DConfig *generateDifferenceHistogramConfig(DualWordDataFilterConfig 
 {
     static const u32 dualWordFilterHistoBits = 16;
 
-    // TODO: move as much as possible into updateHistogramConfigFromFilterConfig()
     auto result = new Hist1DConfig;
-    result->setObjectName(QString("%1 Differences").arg(filterConfig->objectName()));
+
     result->setFilterId(filterConfig->getId());
     result->setBits(dualWordFilterHistoBits);
 
@@ -1017,6 +1015,16 @@ void HistogramTreeWidget::editDualWordDataFilter(QTreeWidgetItem *node)
 
     if (dialog.exec() == QDialog::Accepted)
     {
+        qDebug() << "<<<<< begin edited filter";
+
+        /* Unlike for DataFilters the number of histogram bits for
+         * DualWordDataFilters is fixed (see
+         * histogram_tree.cc:generateDifferenceHistogramConfig) so there's no
+         * need to regenerate the histogram even if the filter string is
+         * edited. */
+        m_context->getAnalysisConfig()->updateHistogramsForFilter(filterConfig);
+
+        /*
         auto histoConfig = m_context->getAnalysisConfig()->findChildByPredicate<Hist1DConfig *>(
             [filterConfig](Hist1DConfig *histoConfig) {
                 return histoConfig->getFilterId() == filterConfig->getId();
@@ -1026,6 +1034,8 @@ void HistogramTreeWidget::editDualWordDataFilter(QTreeWidgetItem *node)
         {
             updateHistogramConfigFromFilterConfig(histoConfig, filterConfig);
         }
+        */
+        qDebug() << "<<<<< end edited filter";
     }
 }
 

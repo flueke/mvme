@@ -1418,6 +1418,18 @@ void AnalysisConfig::updateHistogramsForFilter(DataFilterConfig *filterConfig)
     }
 }
 
+void AnalysisConfig::updateHistogramsForFilter(DualWordDataFilterConfig *filterConfig)
+{
+    // 1d
+    for (auto histoConfig: get1DHistogramConfigs())
+    {
+        if (histoConfig->getFilterId() == filterConfig->getId())
+        {
+            updateHistogramConfigFromFilterConfig(histoConfig, filterConfig);
+        }
+    }
+}
+
 void updateHistogramConfigFromFilterConfig(Hist1DConfig *histoConfig, DataFilterConfig *filterConfig)
 {
     auto axisTitle = filterConfig->getAxisTitle();
@@ -1442,6 +1454,7 @@ void updateHistogramConfigFromFilterConfig(Hist1DConfig *histoConfig, DataFilter
 
 void updateHistogramConfigFromFilterConfig(Hist1DConfig *histoConfig, DualWordDataFilterConfig *filterConfig)
 {
+    histoConfig->setObjectName(QString("%1 Differences").arg(filterConfig->objectName()));
     histoConfig->setProperty("xAxisTitle", filterConfig->getAxisTitle());
     histoConfig->setProperty("xAxisUnit", filterConfig->getUnitString());
     histoConfig->setProperty("xAxisUnitMin", filterConfig->getUnitRange().first);

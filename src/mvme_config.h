@@ -544,6 +544,7 @@ class AnalysisConfig: public ConfigObject
         /* Update 1d and 2d histograms using the given filter as their source.
          * Axis titles, units and ranges will be updated. */
         void updateHistogramsForFilter(DataFilterConfig *filter);
+        void updateHistogramsForFilter(DualWordDataFilterConfig *filterConfig);
 
     protected:
         virtual void read_impl(const QJsonObject &json) override;
