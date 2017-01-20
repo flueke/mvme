@@ -5,6 +5,8 @@
 #include "hist2d.h"
 #include "mesytec_diagnostics.h"
 
+//#define MVME_EVENT_PROCESSOR_DEBUGGING
+
 #ifdef MVME_EVENT_PROCESSOR_DEBUGGING
     inline QDebug qEPDebug() { return QDebug(QtDebugMsg); }
 #else
@@ -197,6 +199,10 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
         m_d->isProcessingBuffer = true;
     }
 
+#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+    qDebug() << __PRETTY_FUNCTION__ << "begin processing" << buffer;
+#endif
+
     auto &stats = m_d->context->getDAQStats();
 
     try
@@ -293,17 +299,37 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
 
                 s32 wordIndexInSubEvent = 0;
 
+                /* Iterate over a subevent. The last word in the subevent is
+                 * the EndMarker so the actual data is in
+                 * subevent[0..subEventSize-2]. */
                 for (u32 i=0; i<subEventSize-1; ++i, ++wordIndexInSubEvent)
                 {
                     u32 currentWord = iter.extractU32();
 
+#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+                    qDebug("subEventSize=%u, i=%u, currentWord=0x%08x",
+                           subEventSize, i, currentWord);
+#endif
+
                     /* Do not pass BerrMarker words to the analysis if and only
-                     * if they are the last word in the subevent.
+                     * if they are the last words in the subevent.
+                     * Specific to VMUSB: for BLT readouts one BerrMarker is
+                     * written to the output stream, for MBLT readouts two of
+                     * those markers are written!
                      * There is still the possibilty of missing the actual last
                      * word of the readout if that last word is the same as
                      * BerrMarker and the readout did not actually result in a
                      * BERR on the bus. */
-                    if ((i == subEventSize-2) && currentWord == BerrMarker)
+
+                    // The MBLT case: if the two last words are BerrMarkers skip the current word.
+                    if (subEventSize >= 3 && (i == subEventSize-3)
+                        && (currentWord == BerrMarker)
+                        && (iter.peekU32() == BerrMarker))
+                        continue;
+
+                    // If the last word is a BerrMarker skip it.
+                    if (subEventSize >= 2 && (i == subEventSize-2)
+                        && (currentWord == BerrMarker))
                         continue;
 
                     for (auto filterConfig: filterConfigs)
