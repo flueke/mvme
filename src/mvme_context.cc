@@ -399,7 +399,7 @@ void MVMEContext::setListFile(ListFile *listFile)
     delete m_listFile;
     m_listFile = listFile;
     m_listFileWorker->setListFile(listFile);
-    setConfigFileName(QString());
+    setConfigFileName(QString(), false);
     setMode(GlobalMode::ListFile);
 }
 
@@ -511,12 +511,15 @@ QObject *MVMEContext::getMappedObject(QObject *key, const QString &category) con
     return m_objectMappings[category].value(key, nullptr);
 }
 
-void MVMEContext::setConfigFileName(QString name)
+void MVMEContext::setConfigFileName(QString name, bool updateWorkspace)
 {
     if (m_configFileName != name)
     {
         m_configFileName = name;
-        makeWorkspaceSettings()->setValue(QSL("LastVMEConfig"), name.remove(getWorkspaceDirectory() + '/'));
+        if (updateWorkspace)
+        {
+            makeWorkspaceSettings()->setValue(QSL("LastVMEConfig"), name.remove(getWorkspaceDirectory() + '/'));
+        }
         emit daqConfigFileNameChanged(name);
     }
 }

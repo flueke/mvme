@@ -164,7 +164,7 @@ class MVMEContext: public QObject
             return qobject_cast<T *>(getConfigForObject(object));
         }
 
-        void setConfigFileName(QString name);
+        void setConfigFileName(QString name, bool updateWorkspace = true);
         QString getConfigFileName() const { return m_configFileName; }
 
         void setAnalysisConfigFileName(QString name);
