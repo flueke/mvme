@@ -705,7 +705,7 @@ void mvme::on_actionOpen_Listfile_triggered()
     if (m_context->getConfig()->isModified())
     {
         QMessageBox msgBox(QMessageBox::Question, "Save configuration?",
-                           "The current configuration has modifications. Do you want to save it?",
+                           "The current VME configuration has modifications. Do you want to save it?",
                            QMessageBox::Save | QMessageBox::Cancel | QMessageBox::Discard);
         int result = msgBox.exec();
 
@@ -759,9 +759,22 @@ void mvme::on_actionOpen_Listfile_triggered()
 
 void mvme::on_actionClose_Listfile_triggered()
 {
-    m_context->setDAQConfig(new DAQConfig);
-    m_context->setConfigFileName(QString());
-    m_context->setMode(GlobalMode::DAQ);
+    /* Open the last used VME config in the workspace. Create a new VME config
+     * if no previous exists. */
+
+    QString lastVMEConfig = m_context->makeWorkspaceSettings()->value(QSL("LastVMEConfig")).toString();
+
+    if (!lastVMEConfig.isEmpty())
+    {
+        QDir wsDir(m_context->getWorkspaceDirectory());
+        loadConfig(wsDir.filePath(lastVMEConfig));
+    }
+    else
+    {
+        m_context->setDAQConfig(new DAQConfig);
+        m_context->setConfigFileName(QString());
+        m_context->setMode(GlobalMode::DAQ);
+    }
 }
 
 void mvme::on_actionVME_Debug_triggered()
