@@ -372,6 +372,15 @@ void EventConfig::write_impl(QJsonObject &json) const
 //
 // DAQConfig
 //
+// Versioning of the DAQ config in case incompatible changes need to be made.
+static const int DAQConfigVersion = 1;
+
+DAQConfig::DAQConfig(QObject *parent)
+    : ConfigObject(parent)
+{
+    setProperty("version", DAQConfigVersion);
+}
+
 void DAQConfig::addEventConfig(EventConfig *config)
 {
     config->setParent(this);
@@ -1050,6 +1059,14 @@ void Hist2DConfig::write_impl(QJsonObject &json) const
 //
 // AnalysisConfig
 //
+static const int AnalysisConfigVersion = 1;
+
+AnalysisConfig::AnalysisConfig(QObject *parent)
+    : ConfigObject(parent)
+{
+    setProperty("version", AnalysisConfigVersion);
+}
+
 QList<DataFilterConfig *> AnalysisConfig::getFilters(int eventIndex, int moduleIndex) const
 {
     return m_filters.value(eventIndex).value(moduleIndex);

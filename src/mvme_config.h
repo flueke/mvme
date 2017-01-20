@@ -222,7 +222,7 @@ class DAQConfig: public ConfigObject
         void globalScriptAboutToBeRemoved(VMEScriptConfig *config);
 
     public:
-        using ConfigObject::ConfigObject;
+        DAQConfig(QObject *parent = 0);
 
         void addEventConfig(EventConfig *config);
         bool removeEventConfig(EventConfig *config);
@@ -507,8 +507,7 @@ class AnalysisConfig: public ConfigObject
         void objectAboutToBeRemoved(ConfigObject *object);
 
     public:
-        using ConfigObject::ConfigObject;
-
+        AnalysisConfig(QObject *parent = 0);
 
         // DataFilterConfig
         DataFilterConfigList getFilters(int eventIndex, int moduleIndex) const;
