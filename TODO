@@ -1,21 +1,54 @@
 ==========================
 ==== Do these first! =====
 ==========================
-* workspace concept
-    copy templates from app dir to workspace
+* DualWordFilter: keep last valid value as an option. Change the code to only
+  keep one value (this will not work for the case where we read multiple events
+  from the module in one cycle. That case will be handled in a later version
+  and before the data reaches the analysis).
 
+* workspace
+    * copy templates from app dir to workspace
+????* The Window title does not always show the correct listfile in listfile mode (can no reproduce)
 * Limit the number of messages/s appended to the logview. With multithreading:
   do messages fill up one of the threads event queues? Can this be limited
   somehow? Better to directly limit the generation of these messages?
 * Fix diagnostics window blocking when there are a lot of error messages being generated.
+* Histos
+  HistogramTreeWidget::editDataFilter():
+  * Handle the case where the source of a Hist2D axis disappears. (address extraction in the filter is changed)
+    Options:
+      - Clear the corresponding axis source and display the histo as being
+        invalid in the tree.
+      - Delete the histogram.
+  * Handle changes to the number of data bits in the filter: Shift and LowerBin
+    might need adjusting. Same logic as in
+  Hist2DDialog::getHistoAndConfig::setConfigValues but the selected unit
+  range might not exist anymore.
 
-* prefix and (maybe) run number for listfiles
+* add versioning to the GUI state saved via QSettings. If the version changes
+  use the default layout instead of restoring a possibly incompatible state.
+* add a "reset gui state" button somewhere
+* add ability to add notes to VME/analysis config (maybe other objects too)
 
 
 ==========================
 ==== Do these later! =====
 ==========================
-* DualWordDataFilters: handle negative difference values when filling the histograms
+* Listfile format:
+  Implement version 2 of the format as documented in the header file!
+
+* Analysis:
+  * DualWordDataFilters: handle negative difference values when filling the
+    histograms => New histo implementation! Like ROOT histograms.
+
+* Histos:
+  * add histogram cuts
+  * add histogram fitting
+
+* VMUSB: support continuous mode
+* Mesytec Module Firmware Revision & Hardware ID
+* prefix and (maybe) run number for listfiles
+
 * Mesytec Werbung ^^ Hintergrundbilder, Wasserzeichen, etc. (CSS Theme?)
 * Hist2d: look for standard color scales as used in publications, ROOT, etc.
   https://root.cern.ch/doc/master/TColor_8cxx_source.html#l02400
@@ -31,13 +64,7 @@
   created.
   Related: Remove Hist2d on filter removal?
 
-* add versioning to the GUI state saved via QSettings. If the version changes
-  use the default layout instead of restoring a possibly incompatible state.
 * add ability to create 2d histograms during DAQ/replay and fill them immediately
-
-* Histos
-  * add histogram cuts
-  * add histogram fitting
 
 * threading and vme commands
   * run vme scripts in a separate thread when invoked from the gui
