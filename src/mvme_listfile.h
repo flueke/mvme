@@ -12,11 +12,12 @@
  * Header Types:
  * Config
  * Event
+ * End
  *
  */
 
 /*
- *  ------- Section Header ----------
+ *  ------- Section (Event) Header ----------
  *  33222222222211111111110000000000
  *  10987654321098765432109876543210
  * +--------------------------------+
@@ -31,7 +32,7 @@
 
  * Sections with SectionType_Event contain subevents with the following header:
 
- *  ------- Subevent Header --------
+ *  ------- Subevent (Module) Header --------
  *  33222222222211111111110000000000
  *  10987654321098765432109876543210
  * +--------------------------------+
@@ -42,6 +43,39 @@
  * s = 10 bit size in units of 32 bit words
  *
  * The last word of each event section is the EndMarker (globals.h)
+ *
+*/
+
+/*  ===== VERSION 2 TODO =====
+ *
+ *  ------- Section (Event) Header ----------
+ *  33222222222211111111110000000000
+ *  10987654321098765432109876543210
+ * +--------------------------------+
+ * |ttteeee     ssssssssssssssssssss|
+ * +--------------------------------+
+ *
+ * t =  3 bit section type
+ * e =  4 bit event type (== event number/index) for event sections
+ * s = 16 bit size in units of 32 bit words (fillwords added to data if needed) -> 256k section max size
+ *
+ * Section size is the number of following 32 bit words not including the header word itself.
+
+ * Sections with SectionType_Event contain subevents with the following header:
+
+ *  ------- Subevent (Module) Header --------
+ *  33222222222211111111110000000000
+ *  10987654321098765432109876543210
+ * +--------------------------------+
+ * |mmmmmmmm    ssssssssssssssssssss|
+ * +--------------------------------+
+ *
+ * m =  6 bit module type (VMEModuleType enum from globals.h)
+ * s = 10 bit size in units of 32 bit words
+ *
+ * The last word of each event section is the EndMarker (globals.h)
+ *
+ * New section type: revision
  *
 */
 
