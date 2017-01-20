@@ -109,6 +109,9 @@ void DAQControlWidget::updateWidget()
 
     auto stateString = DAQStateStrings.value(daqState, QSL("Unknown"));
 
+    if (daqState == DAQState::Running && globalMode == GlobalMode::ListFile)
+        stateString = QSL("Replay");
+
     if (daqState != DAQState::Idle)
     {
         auto duration  = stats.startTime.secsTo(QDateTime::currentDateTime());
