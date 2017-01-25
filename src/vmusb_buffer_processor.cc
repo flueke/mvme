@@ -14,41 +14,6 @@ using namespace listfile;
 //#define BPDEBUG
 
 #if 0
-void format_vmusb_eventbuffer(DataBuffer *buffer, QTextStream &out)
-{
-    QString tmp;
-    BufferIterator iter(buffer->data, buffer->used, BufferIterator::Align16);
-
-    u32 eventHeader = iter.extractShortword();
-
-    u8 stackID          = (eventHeader >> Buffer::StackIDShift) & Buffer::StackIDMask;
-    bool partialEvent   = eventHeader & Buffer::ContinuationMask;
-    u32 eventLength     = eventHeader & Buffer::EventLengthMask;
-
-    out << "Buffer: bytes=" << buffer->used
-        << ", shortwords=" << buffer->used/sizeof(u16)
-        << ", longwords=" << buffer->used/sizeof(u32)
-        << endl;
-
-    out << "StackID=" << stackID << ", partial=" << partialEvent << ", eventLength=" << eventLength << endl;
-
-    while (iter.longwordsLeft())
-    {
-        tmp.sprintf("0x%08x", iter.extractLongword());
-        out << tmp << endl;
-    }
-    while (iter.shortwordsLeft())
-    {
-        tmp.sprintf("0x%04x", iter.extractShortword());
-        out << tmp << endl;
-    }
-    while (iter.bytesLeft())
-    {
-        tmp.sprintf("0x%02x", iter.extractByte());
-        out << tmp << endl;
-    }
-}
-
 struct DataProcessorPrivate
 {
     MVMEContext *context;
@@ -90,6 +55,127 @@ void DataProcessor::processBuffer(DataBuffer *buffer)
     emit bufferProcessed(buffer);
 }
 #endif
+
+#ifdef BPDEBUG
+// Note: Assumption: VMUSBs HeaderOptMask option is not used!
+void format_vmusb_buffer(DataBuffer *buffer, QTextStream &out)
+{
+    try
+    {
+        out << "Buffer: bytes=" << buffer->used
+            << ", shortwords=" << buffer->used/sizeof(u16)
+            << ", longwords=" << buffer->used/sizeof(u32)
+            << endl;
+
+        QString tmp;
+        BufferIterator iter(buffer->data, buffer->used, BufferIterator::Align16);
+
+
+        u32 header1 = iter.extractWord();
+        bool lastBuffer     = header1 & Buffer::LastBufferMask;
+        bool scalerBuffer   = header1 & Buffer::IsScalerBufferMask;
+        bool continuousMode = header1 & Buffer::ContinuationMask;
+        bool multiBuffer    = header1 & Buffer::MultiBufferMask;
+        u16 numberOfEvents  = header1 & Buffer::NumberOfEventsMask;
+
+
+        tmp = QString("header1=0x%1, numberOfEvents=%2, lastBuffer=%3, cont=%4, mult=%5")
+            .arg(header1, 8, 16, QLatin1Char('0'))
+            .arg(numberOfEvents)
+            .arg(lastBuffer)
+            .arg(continuousMode)
+            .arg(multiBuffer)
+            ;
+
+        out << tmp << endl;
+
+        for (u16 eventIndex = 0; eventIndex < numberOfEvents; ++eventIndex)
+        {
+            u32 eventHeader = iter.extractShortword();
+            u8 stackID          = (eventHeader >> Buffer::StackIDShift) & Buffer::StackIDMask;
+            bool partialEvent   = eventHeader & Buffer::ContinuationMask;
+            u32 eventLength     = eventHeader & Buffer::EventLengthMask;
+
+            tmp = QString("event #%5, header=0x%1, stackID=%2, length=%3 shorts, partial=%4")
+                .arg(eventHeader, 8, 16, QLatin1Char('0'))
+                .arg(stackID)
+                .arg(eventLength)
+                .arg(partialEvent)
+                .arg(eventIndex)
+                ;
+
+            out << tmp << endl;
+
+            int col = 0;
+            u32 longwordsLeft = eventLength / 2;
+
+            while (longwordsLeft--)
+            {
+                tmp = QString("0x%1").arg(iter.extractU32(), 8, 16, QLatin1Char('0'));
+                out << tmp;
+                ++col;
+                if (col < 8)
+                {
+                    out << " ";
+                }
+                else
+                {
+                    out << endl;
+                    col = 0;
+                }
+            }
+
+            u32 shortwordsLeft = eventLength - ((eventLength / 2) * 2);
+
+            out << endl;
+            col = 0;
+            while (shortwordsLeft--)
+            {
+                tmp = QString("0x%1").arg(iter.extractU16(), 4, 16, QLatin1Char('0'));
+                out << tmp;
+                ++col;
+                if (col < 8)
+                {
+                    out << " ";
+                }
+                else
+                {
+                    out << endl;
+                    col = 0;
+                }
+            }
+        }
+
+
+        if (iter.bytesLeft())
+        {
+            out << endl;
+            out << iter.bytesLeft() << " bytes left in buffer:" << endl;
+            int col = 0;
+            while (iter.bytesLeft())
+            {
+                tmp = QString("0x%1").arg(iter.extractU8(), 2, 16, QLatin1Char('0'));
+                out << tmp;
+                ++col;
+                if (col < 8)
+                {
+                    out << " ";
+                }
+                else
+                {
+                    out << endl;
+                    col = 0;
+                }
+            }
+        }
+    }
+    catch (const end_of_buffer &)
+    {
+        out << "!!! end of buffer reached unexpectedly !!!" << endl;
+    }
+}
+#endif
+
 
 static void processQtEvents(QEventLoop::ProcessEventsFlags flags = QEventLoop::AllEvents)
 {
@@ -201,6 +287,16 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
                       : BufferIterator::Align16);
 
     u64 bufferNumber = stats->totalBuffersRead;
+
+#ifdef BPDEBUG
+    {
+        QTextStream out(stdout);
+        out << ">>>>> begin buffer #" << bufferNumber << endl;
+        format_vmusb_buffer(readBuffer, out);
+        out << "<<<<< end buffer #" << bufferNumber << endl;
+    }
+#endif
+
 
     BufferIterator iter(readBuffer->data, readBuffer->used, alignment);
 
