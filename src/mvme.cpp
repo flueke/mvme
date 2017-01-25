@@ -755,6 +755,7 @@ void mvme::on_actionOpen_Listfile_triggered()
     }
 
     m_context->setListFile(listFile);
+    updateWindowTitle();
 }
 
 void mvme::on_actionClose_Listfile_triggered()
