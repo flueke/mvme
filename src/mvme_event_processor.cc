@@ -259,6 +259,10 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                 }
             }
 
+#if 0
+            /* Wed Jan 25 14:32:55 CET 2017
+             * Don't do this anymore. Instead keep the values across buffers
+             * and do the swap when calculating the difference. */
             {
                 /* DualWordDataFilters: swap current and last values for each
                  * module for the current eventIndex, then clear the new
@@ -277,6 +281,7 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                     }
                 }
             }
+#endif
 
             int moduleIndex = 0;
 
@@ -534,8 +539,8 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
 
                         if (histo)
                         {
-                            const auto &currentValue(m_d->currentDualWordFilterValues[filterConfig]);
-                            const auto &lastValue(m_d->lastDualWordFilterValues[filterConfig]);
+                            auto &currentValue(m_d->currentDualWordFilterValues[filterConfig]);
+                            auto &lastValue(m_d->lastDualWordFilterValues[filterConfig]);
 
                             if (currentValue.second && lastValue.second)
                             {
@@ -565,6 +570,15 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
 
                                 m_d->dualWordFilterDiffs[filterConfig].first = ddiff;
                                 m_d->dualWordFilterDiffs[filterConfig].second = true;
+                            }
+
+                            /* There was a current value. Assign it to the pair
+                             * stored in lastDualWordFilterValues and reset the
+                             * boolean flag for the current pair. */
+                            if (currentValue.second)
+                            {
+                                lastValue = currentValue;
+                                currentValue.second = false;
                             }
                         }
                     }
