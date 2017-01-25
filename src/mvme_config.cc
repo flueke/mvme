@@ -1417,8 +1417,22 @@ void AnalysisConfig::updateHistogramsForFilter(DataFilterConfig *filterConfig)
         u32 address = histoConfig->getFilterAddress(axis);
         histoConfig->setAxisTitle(axis, filterConfig->getAxisTitle());
         histoConfig->setAxisUnitLabel(axis, filterConfig->getUnitString());
-        histoConfig->setUnitMin(axis, filterConfig->getUnitMin(address));
-        histoConfig->setUnitMax(axis, filterConfig->getUnitMax(address));
+
+        // lower and upper bin in source resolution
+        u32 lowerBin = histoConfig->getOffset(axis);
+        u32 upperBin = lowerBin + (1 << (histoConfig->getBits(axis) + histoConfig->getShift(axis)));
+
+        auto conversion = filterConfig->makeConversionMap(address);
+        double unitMin = conversion.transform(lowerBin);
+        double unitMax = conversion.transform(upperBin);
+
+        qDebug() << __PRETTY_FUNCTION__ << filterConfig << axis;
+        qDebug() << "calculated source lowerBin/upperBin" << lowerBin << upperBin;
+        qDebug() << "old unit min/max" << histoConfig->getUnitMin(axis) << histoConfig->getUnitMax(axis);
+        qDebug() << "new unit min/max" << unitMin << unitMax;
+
+        histoConfig->setUnitMin(axis, unitMin);
+        histoConfig->setUnitMax(axis, unitMax);
     };
 
     for (auto histoConfig: get2DHistogramConfigs())
