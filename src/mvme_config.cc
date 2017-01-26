@@ -1495,7 +1495,7 @@ void updateHistogramConfigFromFilterConfig(Hist1DConfig *histoConfig, DualWordDa
      * shift calculation yields a negative result. */
     s64 dataBits = filterConfig->getDataBits();
     s64 histoBits = histoConfig->getBits();
-    u32 shift = static_cast<u32>(std::max(0l, dataBits - histoBits));
+    u32 shift = static_cast<u32>(std::max(static_cast<s64>(0), dataBits - histoBits));
 
     histoConfig->setShift(shift);
 }
