@@ -15,8 +15,10 @@
     <file alias="tree-settings.png">resources/view-list-tree.png</file>
     <file alias="data_filter.png">resources/view-filter.png</file>
     <file alias="hist1d.png">resources/office-chart-bar.png</file>
+    <file alias="hist2d.png">resources/hist2d.png</file>
     <file alias="info.png">resources/dialog-information.png</file>
     <file alias="help.png">resources/system-help.png</file>
+    <file alias="exclam-circle.png">resources/emblem-important.png</file>
 
     <file alias="gpl-notice.txt">resources/gpl-notice.txt</file>
     <file alias="mesytec-logo.png">resources/mesytec-logo.png</file>
