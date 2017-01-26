@@ -239,6 +239,10 @@ mvme::mvme(QWidget *parent) :
             settings.remove(QSL("LastWorkspaceDirectory"));
         }
     }
+    else
+    {
+        on_actionNewWorkspace_triggered();
+    }
 
     updateWindowTitle();
 }
@@ -265,7 +269,10 @@ void mvme::loadConfig(const QString &fileName)
 void mvme::on_actionNewWorkspace_triggered()
 {
     auto startDir = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
-    auto dirName  = QFileDialog::getExistingDirectory(this, QSL("Select workspace"), startDir);
+    auto dirName  = QFileDialog::getExistingDirectory(this, QSL("Choose workspace directory"), startDir);
+
+    if (dirName.isEmpty())
+        return;
 
     try
     {
