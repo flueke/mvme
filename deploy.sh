@@ -1,6 +1,7 @@
 #!/bin/bash
 # Example usage:
 # sh ../mvme2/deploy.sh ./mvme2 ../mvme2 ~/Qt/5.7/gcc_64 ./deploy
+# florian@ubuntu-1404-lts-amd64:~/src/build-mvme2$ sh ../mvme2/deploy.sh ./mvme ../mvme2 ~/Qt/5.7/gcc_64 ../deploy-mvme2/
 
 set -e
 
@@ -46,6 +47,10 @@ for lib in `ldd "$PATH_TO_BINARY" | cut -d'>' -f2 | awk '{print $1}'` ; do
    fi  
 done
 
+echo "----> remove libc and libstdc++ from target folder"
+rm -v "$TARGET_FOLDER/libstdc++.so.6"
+rm -v "$TARGET_FOLDER/libc.so.6"
+
 echo "---> copy additional qt libraries"
 libs="libQt5DBus.so.5 libQt5XcbQpa.so.5"
 
@@ -59,6 +64,6 @@ cp -vr "$QT_INSTALL_PREFIX/plugins/imageformats" "$TARGET_FOLDER"
 
 echo "---> copy auxiliary files"
 cp -v "$PATH_TO_SOURCES/README.txt" "$TARGET_FOLDER"
-cp -v "$PATH_TO_SOURCES/mvme2.sh" "$TARGET_FOLDER"
+cp -v "$PATH_TO_SOURCES/mvme.sh" "$TARGET_FOLDER"
 cp -v "$PATH_TO_SOURCES/qt.conf" "$TARGET_FOLDER"
 cp -vr "$PATH_TO_SOURCES/templates" "$TARGET_FOLDER"
