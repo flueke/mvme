@@ -8,6 +8,7 @@
 #include "treewidget_utils.h"
 #include "config_ui.h"
 #include "mvme_event_processor.h"
+#include "gui_util.h"
 
 #include <QFileDialog>
 #include <QFileInfo>
@@ -397,10 +398,14 @@ void HistogramTreeWidget::onObjectAdded(QObject *object)
         if (histoConfig)
         {
             auto node = makeNode(object, NodeType_Hist2D);
-            node->setText(0, histoConfig->objectName());
             m_node2D->addChild(node);
             addToTreeMap(object, node);
             m_tree->resizeColumnToContents(0);
+
+            connect(histoConfig, &ConfigObject::modified, this, [this, histoConfig]() {
+                updateNodesFor(histoConfig);
+            });
+            updateNodesFor(histoConfig);
         }
     }
 }
@@ -741,6 +746,36 @@ void HistogramTreeWidget::updateHistogramCountDisplay()
     }
 }
 
+void HistogramTreeWidget::updateNodesFor(Hist2DConfig *histoConfig)
+{
+    auto histo = qobject_cast<Hist2D *>(m_context->getObjectForConfig(histoConfig));
+
+    if (histo)
+    {
+        if (auto node = m_treeMap.value(histo, nullptr))
+        {
+            node->setText(0, histoConfig->objectName());
+
+            auto xFilterId = histoConfig->getFilterId(Qt::XAxis);
+            auto yFilterId = histoConfig->getFilterId(Qt::YAxis);
+
+            auto xFilterConfig = m_context->getAnalysisConfig()->findChildById<DataFilterConfig *>(xFilterId);
+            auto yFilterConfig = m_context->getAnalysisConfig()->findChildById<DataFilterConfig *>(yFilterId);
+
+            if (xFilterId.isNull() || !xFilterConfig
+                || yFilterId.isNull() || !yFilterConfig)
+            {
+                auto pixmap(embellish_pixmap(":/hist2d.png", ":/exclam-circle.png"));
+                node->setIcon(0, QIcon(pixmap));
+            }
+            else
+            {
+                node->setIcon(0, QIcon(":/hist2d.png"));
+            }
+        }
+    }
+}
+
 void HistogramTreeWidget::generateDefaultFilters()
 {
     qDebug() << __PRETTY_FUNCTION__;
@@ -862,6 +897,11 @@ void HistogramTreeWidget::removeDataFilter(QTreeWidgetItem *node)
         return;
     }
     m_context->getAnalysisConfig()->removeFilter(indices.first, indices.second, filterConfig);
+
+    for (auto histoConfig: m_context->getAnalysisConfig()->get2DHistogramConfigs())
+    {
+        updateNodesFor(histoConfig);
+    }
 }
 
 void HistogramTreeWidget::editDataFilter()
@@ -907,6 +947,34 @@ void HistogramTreeWidget::editDataFilter(QTreeWidgetItem *node)
             {
                 node->addChild(pair.first);
                 addToTreeMap(pair.second, pair.first);
+            }
+
+            // 2d histograms: clear the axis sources
+            auto clear_axis = [](Qt::Axis axis, Hist2DConfig *histoConfig)
+            {
+                histoConfig->setFilterId(axis, QUuid());
+                histoConfig->setFilterAddress(axis, 0);
+                histoConfig->setOffset(axis, 0);
+            };
+
+            for (auto histoConfig: m_context->getAnalysisConfig()->get2DHistogramConfigs())
+            {
+                bool doUpdate = false;
+
+                if (histoConfig->getFilterId(Qt::XAxis) == filterConfig->getId())
+                {
+                    clear_axis(Qt::XAxis, histoConfig);
+                    doUpdate = true;
+                }
+
+                if (histoConfig->getFilterId(Qt::YAxis) == filterConfig->getId())
+                {
+                    clear_axis(Qt::YAxis, histoConfig);
+                    doUpdate = true;
+                }
+
+                if (doUpdate)
+                    updateNodesFor(histoConfig);
             }
         }
         else

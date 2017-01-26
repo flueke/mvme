@@ -14,6 +14,7 @@ class TreeNode;
 class DAQConfig;
 class AnalysisConfig;
 class ModuleConfig;
+class Hist2DConfig;
 
 class HistogramTreeWidget: public QWidget
 {
@@ -46,6 +47,7 @@ class HistogramTreeWidget: public QWidget
         void edit2DHistogram();
         void generateDefaultFilters();
         void updateHistogramCountDisplay();
+        void updateNodesFor(Hist2DConfig *config);
 
         void addDataFilter();
         void removeDataFilter(QTreeWidgetItem *node);
