@@ -1,0 +1,27 @@
+* Is MultiWordDataFilter::handleDataWord() behaviour "correct"/"good"?
+  Should it break out of the loop once a filter matched?
+  -> This would make it so that at least n words of data are needed
+     for an n-word filter. Right now, given the right subfilters the
+     filter can complete with a single word of data.
+  Should it skip matched filters when the next data word comes in?
+  -> Right now the already extracted value for the filter will be
+     overwritten.
+
+* Rename DataFilter to ParameterExtractor
+
+* Single word data filter matching and extraction must be very fast as they're
+  used to handle most of the data and multi word filters are implemented in
+  terms of single word filters.
+
+* Filter on number of occurence: the filter is considered complete only if it
+  matched N times.
+  Needed for devices that can yield data for the same address in a single
+  event. If the filter does not specify an occurence condition but matches
+  multiple times only the first matched value will be kept.
+
+  XXX: Impossible to simply accumulate all raw values for a channel into a Hist1D!
+
+  -> Not an issue according to Robert as multi hits per channel need to be
+     handled explicitly anyways.
+
+* Address value extraction should be allowed for multi word data filters

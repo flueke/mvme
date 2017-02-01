@@ -1,5 +1,5 @@
 TEMPLATE = subdirs
-SUBDIRS = src test
+SUBDIRS = src #test
 
 win32 {
     copytemplates.commands = $(COPY_DIR) /E $$shell_path($$PWD/templates) $$shell_path($$OUT_PWD/templates)

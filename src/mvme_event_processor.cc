@@ -15,6 +15,9 @@
 
 using namespace listfile;
 
+
+#include "analysis/analysis.h"
+
 struct MVMEEventProcessorPrivate
 {
     MVMEContext *context = nullptr;
@@ -36,6 +39,8 @@ struct MVMEEventProcessorPrivate
     MesytecDiagnostics *diag = nullptr;
     bool isProcessingBuffer = false;
     QMutex isProcessingMutex;
+
+    analysis::Analysis analysis_ng; // :D
 };
 
 MVMEEventProcessor::MVMEEventProcessor(MVMEContext *context)
@@ -196,6 +201,35 @@ void MVMEEventProcessor::newRun()
             }
         }
     }
+
+    {
+        using namespace analysis;
+
+        auto mdpp16_extractor = std::make_shared<Extractor>();
+        mdpp16_extractor->filter.addFilter(analysis::DataFilter("0001XXXXXX00AAAADDDDDDDDDDDDDDDD"));
+
+        m_d->analysis_ng.m_extractors.clear();
+        m_d->analysis_ng.m_extractors.push_back({0, 0, mdpp16_extractor}); // e=0, m=0
+
+        auto calib = std::make_shared<CalibrationOperator>();
+        calib->input = &mdpp16_extractor->output;
+        calib->output.rank = calib->input->rank + 1;
+        calib->globalCalibration.factor = 1.0;
+        calib->globalCalibration.offset = 0;
+
+        m_d->analysis_ng.m_operators.clear();
+        m_d->analysis_ng.m_operators.push_back(calib);
+
+        auto histoSink = std::make_shared<Histo1DSink>();
+        histoSink->histo = std::make_shared<Histo1D>(10, 0.0, 65535);
+        histoSink->input = &calib->output;
+        histoSink->address = 8;
+
+        m_d->analysis_ng.m_sinks.clear();
+        m_d->analysis_ng.m_sinks.push_back(histoSink);
+
+        m_d->analysis_ng.beginRun();
+    }
 }
 
 // Process an event buffer containing one or more events.
@@ -282,6 +316,8 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                 }
             }
 #endif
+
+            m_d->analysis_ng.beginEvent(eventIndex);
 
             int moduleIndex = 0;
 
@@ -411,6 +447,8 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                                         );
                     }
 #endif
+
+                    m_d->analysis_ng.processDataWord(eventIndex, moduleIndex, currentWord, wordIndexInSubEvent);
                 }
 
 
@@ -467,6 +505,8 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                 emit bufferProcessed(buffer);
                 return;
             }
+
+            m_d->analysis_ng.endEvent(eventIndex);
 
             //
             // fill 2D Histograms

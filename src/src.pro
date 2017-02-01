@@ -1,5 +1,6 @@
 QT       += core gui concurrent widgets
 CONFIG   += c++11
+CONFIG   += object_parallel_to_source
 
 TARGET = ../mvme
 TEMPLATE = app
