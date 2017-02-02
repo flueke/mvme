@@ -3,9 +3,52 @@
 
 #include "typedefs.h"
 #include <cmath>
+#include <QString>
 
 namespace analysis
 {
+
+class BinnedAxis
+{
+    public:
+        static const s64 Underflow = -1;
+        static const s64 Overflow = -2;
+
+
+        BinnedAxis(u32 nBins, double Min, double Max)
+            : m_nBins(nBins)
+            , m_min(Min)
+            , m_max(Max)
+        {}
+
+        inline double getMin() const { return m_min; }
+        inline double getMax() const { return m_max; }
+        inline double getWidth() const { return std::abs(getMax() - getMin()); }
+
+        inline u32 getBins() const { return m_nBins; }
+        inline double getBinWidth() const { return getWidth() / getBins(); }
+        inline double getBinLowEdge(u32 bin) const { return getMin() + bin * getBinWidth(); }
+        inline double getBinCenter(u32 bin) const { return getBinLowEdge(bin) + getBinWidth() * 0.5; }
+
+        inline s64 getBin(double x) const
+        {
+            if (x < getMin())
+                return Underflow;
+
+            if (x >= getMax())
+                return Overflow;
+
+            double binWidth = getBinWidth();
+            u32 bin = static_cast<u32>(std::floor(x / binWidth));
+
+            return bin;
+        }
+
+    private:
+        u32 m_nBins;
+        double m_min;
+        double m_max;
+};
 
 //
 // Histo1D
@@ -17,7 +60,8 @@ class Histo1D
         Histo1D(u32 nBins, double xMin, double xMax);
         ~Histo1D();
 
-        void fill(double x, double weight = 1.0);
+        // Returns the bin number or -1 in case of under/overflow.
+        s32 fill(double x, double weight = 1.0);
         double getValue(double x) const;
         void clear();
 
@@ -40,6 +84,7 @@ class Histo1D
 
         void debugDump() const;
 
+        QString m_name;
 
     private:
         u32 m_nBins = 0;
@@ -71,9 +116,26 @@ class Histo2D
     public:
         Histo2D(u32 xBins, double xMin, double xMax,
                u32 yBins, double yMin, double yMax);
+        ~Histo2D();
 
-        void fill(double x, double y, double weight = 1.0) {}
-        double value(double x, double y) { return 3.14159;}
+        void fill(double x, double y, double weight = 1.0);
+        double getValue(double x, double y) const;
+        void clear();
+
+        void debugDump() const;
+
+        QString m_name;
+
+    private:
+        BinnedAxis m_xAxis;
+        BinnedAxis m_yAxis;
+
+        double *m_data = nullptr;
+
+        double m_underflow = 0.0;
+        double m_overflow = 0.0;
+
+        Hist2DStatistics m_stats;
 };
 
 }
