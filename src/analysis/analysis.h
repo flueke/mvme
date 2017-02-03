@@ -7,15 +7,32 @@
 
 #include <memory>
 
-// TODO: rank calculation
-//   The output rank of an operator depends on the operators inputs and thus is operator specific.
-//   The operator needs to implement a getOutputRank() method that yields 1
-//   plus the maximum rank of all the inputs.
-//
-//   Histo1DSink and Histo2DSink should probably not do the channel selection.
-//   Instead they except a single value (a pair of values) for hist2d and fill
-//   the histo if both values are valid.
-//   To implement this i need an IndexSelector Operator
+/* TODO: rank calculation
+ *   The output rank of an operator depends on the operators inputs and thus is operator specific.
+ *   The operator needs to implement a getOutputRank() method that yields 1
+ *   plus the maximum rank of all the inputs.
+ *
+ *   Operators vs Sinks:
+ *   - difference was: sinks have no output
+ *   - both Histo1DSink and Histo2DSink could have outputs: an array of the
+ *     bins of the histogram (information about the bins would still have to be
+ *     carried around elsewhere, bin width or histo min max value)
+ *     Producing the output for histos is expensive compared to something like
+ *     a data filter with 5 address bits).
+ *     Solutions: - Make sinks have no output
+ *                - Only generate output if there are consumers
+ *                  Also make updating of the output efficient: Only change
+ *                  modified bins, otherwise leave the output untouched.
+ *
+ *   Operators vs Sources:
+ *   - Sources have no input but are directly attached to a module.
+ *   - Source have a processDataWord() method
+ *
+ *   Allow multiple outputs? Implications?
+ *
+
+ *
+ */
 
 namespace analysis
 {
@@ -84,6 +101,16 @@ void subtract_params(const Parameter &a, const Parameter &b, Parameter &dest)
 
 typedef QVector<Parameter> ParameterVector;
 
+// TODO: use this
+struct ParameterArray
+{
+    // TODO: clone parts of the QVector interface here
+    ParameterVector parameters;
+    QString name;
+    QString unit;
+};
+
+
 void clear_parameters(ParameterVector &params)
 {
     for (auto &param: params)
@@ -91,6 +118,8 @@ void clear_parameters(ParameterVector &params)
         param.valid = false;
     }
 }
+
+struct Operator;
 
 struct Pipe
 {
@@ -107,7 +136,19 @@ struct Pipe
         return dummy;
     }
 
+    Parameter &first()
+    {
+        if (parameters.isEmpty())
+        {
+            parameters.resize(1);
+        }
+        return parameters[0];
+    }
+
     const Parameter dummy = {};
+
+    // Always null when the pipe is the output of a source
+    Operator *source = nullptr;
 };
 
 //
@@ -213,8 +254,16 @@ void extractor_process_data(Extractor &ex, u32 data, u32 wordIndex)
 
 struct Operator
 {
-    virtual void step() = 0;
+    Operator()
+    {
+        output.source = this;
+    }
     virtual ~Operator() {}
+
+    virtual void step() = 0;
+    virtual bool hasOutput() const { return true; }
+
+    virtual QVector<Pipe *> getInputs() = 0;
 
     Pipe output;
 };
@@ -299,6 +348,13 @@ struct CalibrationOperator: public Operator
             }
         }
     }
+
+    virtual QVector<Pipe *> getInputs() override
+    {
+        QVector<Pipe *> result = { input };
+
+        return result;
+    }
 };
 
 #if 0
@@ -377,6 +433,13 @@ struct IndexSelector: public Operator
             }
         }
     }
+
+    virtual QVector<Pipe *> getInputs() override
+    {
+        QVector<Pipe *> result = { input };
+
+        return result;
+    }
 };
 
 // Calculates A - B;
@@ -409,6 +472,13 @@ struct Difference: public Operator
             }
         }
     }
+
+    virtual QVector<Pipe *> getInputs() override
+    {
+        QVector<Pipe *> result = { inputA, inputB };
+
+        return result;
+    }
 };
 
 struct PreviousValue: public Operator
@@ -425,6 +495,13 @@ struct PreviousValue: public Operator
     }
 
     ParameterVector previousInput;
+
+    virtual QVector<Pipe *> getInputs() override
+    {
+        QVector<Pipe *> result = { input };
+
+        return result;
+    }
 };
 
 struct RetainValid: public Operator
@@ -453,6 +530,13 @@ struct RetainValid: public Operator
             }
         }
     }
+
+    virtual QVector<Pipe *> getInputs() override
+    {
+        QVector<Pipe *> result = { input };
+
+        return result;
+    }
 };
 
 // Output is a boolean flag
@@ -460,33 +544,50 @@ struct Histo2DRectangleCut: public Operator
 {
     Pipe *inputX;
     Pipe *inputY;
-    s32 addressX;
-    s32 addressY;
 
     double minX, maxX, minY, maxY;
 
     virtual void step() override
     {
-        if (inputY && inputX)
+        auto &outParam(output.first());
+        outParam.valid = false;
+
+        if (inputX && inputY)
         {
-            // TODO: implement
+            outParam.valid = true;
+            outParam.type = Parameter::Bool;
+            outParam.bval = false;
+
+            const auto &parX(inputX->first());
+            const auto &parY(inputY->first());
+
+            if (parX.valid && parY.valid)
+            {
+                double x = parX.dval;
+                double y = parY.dval;
+
+                if (x >= minX && x < maxX
+                    && y >= minY && y < maxY)
+                {
+                    outParam.bval = true;
+                }
+            }
         }
+    }
+
+    virtual QVector<Pipe *> getInputs() override
+    {
+        QVector<Pipe *> result = { inputX, inputY };
+
+        return result;
     }
 };
 
 //
 // Sinks
 //
-struct Sink
-{
-    virtual void step() = 0;
-    virtual ~Sink() {};
-};
-
-typedef std::shared_ptr<Sink> SinkPtr;
-
 // Accepts a single value as input
-struct Histo1DSink: public Sink
+struct Histo1DSink: public Operator
 {
     std::shared_ptr<Histo1D> histo;
 
@@ -516,10 +617,19 @@ struct Histo1DSink: public Sink
         }
         //qDebug() << "end" << __PRETTY_FUNCTION__;
     }
+
+    virtual bool hasOutput() const override { return false; }
+
+    virtual QVector<Pipe *> getInputs() override
+    {
+        QVector<Pipe *> result = { input };
+
+        return result;
+    }
 };
 
 
-struct Histo2DSink: public Sink
+struct Histo2DSink: public Operator
 {
     std::shared_ptr<Histo2D> histo;
 
@@ -540,8 +650,16 @@ struct Histo2DSink: public Sink
             }
         }
     }
-};
 
+    virtual bool hasOutput() const override { return false; }
+
+    virtual QVector<Pipe *> getInputs() override
+    {
+        QVector<Pipe *> result;
+
+        return result;
+    }
+};
 
 class Analysis
 {
@@ -553,14 +671,38 @@ class Analysis
             SourcePtr source;
         };
 
+        struct OperatorEntry
+        {
+            int eventIndex;
+            OperatorPtr op;
+        };
+
         QVector<SourceEntry> m_sources;
-        QVector<OperatorPtr> m_operators;
-        QVector<SinkPtr> m_sinks;
+        QVector<OperatorEntry> m_operators;
+
+        void addSource(int eventIndex, int moduleIndex, const SourcePtr &source)
+        {
+            m_sources.push_back({eventIndex, moduleIndex, source});
+        }
+
+        void addOperator(int eventIndex, const OperatorPtr &op)
+        {
+            m_operators.push_back({eventIndex, op});
+        }
+
+        void clear()
+        {
+            m_sources.clear();
+            m_operators.clear();
+        }
 
         void beginRun()
         {
-            qSort(m_operators.begin(), m_operators.end(), [] (const OperatorPtr &o1, const OperatorPtr &o2) {
-                return o1->output.rank < o2->output.rank;
+            updateRanks();
+
+
+            qSort(m_operators.begin(), m_operators.end(), [] (const OperatorEntry &oe1, const OperatorEntry &oe2) {
+                return oe1.op->output.rank < oe2.op->output.rank;
             });
 
 
@@ -604,18 +746,102 @@ class Analysis
             // take the last known output of an operator from another event and
             // the output of an operator from the current event and just work
             // as usual. When to step operators that come afterwards?
-            for (auto &op: m_operators)
+            //
+            // How to decide which eventIndex an operator belongs to? Has to be done in the GUI!
+            qDebug() << "begin endEvent" << eventIndex;
+            for (auto &opEntry: m_operators)
             {
-                op->step();
+                if (opEntry.eventIndex == eventIndex)
+                {
+                    Operator *op = opEntry.op.get();
+                    const char *name = typeid(*op).name();
+                    qDebug() << "  stepping operator" << opEntry.op.get() << name << ", output rank =" << opEntry.op->output.rank;
+                    opEntry.op->step();
+                }
+            }
+            qDebug() << "end endEvent" << eventIndex;
+        }
+
+        void updateRanks()
+        {
+            for (auto &sourceEntry: m_sources)
+            {
+                sourceEntry.source->output.rank = 0;
             }
 
-            for (auto &sink: m_sinks)
+            QSet<Operator *> updated;
+
+            for (auto &opEntry: m_operators)
             {
-                sink->step();
+                Operator *op = opEntry.op.get();
+
+                updateRank(op, updated);
             }
+        }
+
+        void updateRank(Operator *op, QSet<Operator *> &updated)
+        {
+            if (updated.contains(op))
+                return;
+
+            QVector<Pipe *> inputPipes(op->getInputs());
+
+            for (Pipe *pipe: inputPipes)
+            {
+                if (pipe->source)
+                {
+                    updateRank(pipe->source, updated);
+                }
+                else
+                {
+                    pipe->rank = 0;
+                }
+            }
+
+            int maxInputRank = 0;
+            for (Pipe *pipe: inputPipes)
+            {
+                if (pipe->rank > maxInputRank)
+                    maxInputRank = pipe->rank;
+            }
+
+            op->output.rank = maxInputRank + 1;
+            updated.insert(op);
         }
 };
 
 }
+
+class OperatorFactoryInterface
+{
+    public:
+        virtual ~OperatorFactoryInterface() {}
+
+        virtual QStringList operatorNames() const = 0;
+        virtual analysis::OperatorPtr makeOperator(const QString &name) const = 0;
+};
+
+class OperatorInterface
+{
+    public:
+        virtual ~OperatorInterface() {}
+
+        virtual int numberOfInputs() const = 0;
+        virtual QString inputName(int inputIndex) const = 0;
+        virtual bool hasOutput() const = 0;
+
+        virtual void setInput(int index, const analysis::Operator *inputOp) = 0;
+};
+
+
+#define OperatorFactoryInterface_iid "com.mesytec.mvme.analysis.OperatorFactoryInterface.1"
+Q_DECLARE_INTERFACE(OperatorFactoryInterface, OperatorFactoryInterface_iid)
+
+#define OperatorInterface_iid "com.mesytec.mvme.analysis.OperatorInterface.1"
+Q_DECLARE_INTERFACE(OperatorInterface, OperatorInterface_iid);
+
+// The same could be done for sources. Maybe another abstraction would be needed:
+// Something like OperatorPluginInterface which can create a widget for the
+// operator and provide other meta information.
 
 #endif /* __ANALYSIS_H__ */
