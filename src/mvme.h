@@ -47,8 +47,6 @@ public:
     MVMEContext *getContext() { return m_context; }
 
 public slots:
-    void replot();
-    void drawTimerSlot();
     void displayAbout();
     void displayAboutQt();
     void clearLog();
@@ -94,7 +92,6 @@ private slots:
 
 private:
     Ui::mvme *ui;
-    QTimer* drawTimer;
 
     // list of possibly connected VME devices
 

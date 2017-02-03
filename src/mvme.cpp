@@ -31,7 +31,6 @@
 #include <QTextBrowser>
 #include <QTextEdit>
 #include <QtGui>
-#include <QTimer>
 #include <QToolBar>
 
 #include <qwt_plot_curve.h>
@@ -52,8 +51,6 @@ QList<T *> getSubwindowWidgetsByType(QMdiArea *mdiArea)
 
     return ret;
 }
-
-static const int DrawTimerInterval = 1000;
 
 template<typename T>
 QList<QMdiSubWindow *> getSubwindowsByWidgetType(QMdiArea *mdiArea)
@@ -217,9 +214,6 @@ mvme::mvme(QWidget *parent) :
     //
     //
     //
-    drawTimer = new QTimer(this);
-    connect(drawTimer, SIGNAL(timeout()), SLOT(drawTimerSlot()));
-    drawTimer->start(DrawTimerInterval);
 
     connect(m_context, &MVMEContext::sigLogMessage, this, &mvme::appendToLog);
 
@@ -328,15 +322,6 @@ void mvme::on_actionOpenWorkspace_triggered()
         return;
     }
 #endif
-}
-
-void mvme::replot()
-{
-}
-
-void mvme::drawTimerSlot()
-{
-    replot();
 }
 
 void mvme::displayAbout()
