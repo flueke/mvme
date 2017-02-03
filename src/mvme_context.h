@@ -4,7 +4,6 @@
 #include "globals.h"
 #include "databuffer.h"
 #include "mvme_config.h"
-#include "histogram.h"
 #include "vme_controller.h"
 #include <memory>
 #include <QList>

@@ -1,5 +1,4 @@
 #include "histogram_tree.h"
-#include "histogram.h"
 #include "hist1d.h"
 #include "hist2d.h"
 #include "hist2ddialog.h"

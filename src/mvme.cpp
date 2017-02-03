@@ -3,10 +3,8 @@
 #include "ui_mvme.h"
 #include "vmusb.h"
 #include "mvme_context.h"
-#include "twodimwidget.h"
 #include "hist1d.h"
 #include "hist2d.h"
-#include "histogram.h"
 #include "mvmedefines.h"
 #include "vmusb_readout_worker.h"
 #include "config_ui.h"
@@ -334,14 +332,6 @@ void mvme::on_actionOpenWorkspace_triggered()
 
 void mvme::replot()
 {
-    foreach(QMdiSubWindow *w, ui->mdiArea->subWindowList())
-    {
-        auto tdw = qobject_cast<TwoDimWidget *>(w->widget());
-        if (tdw)
-        {
-            tdw->plot();
-        }
-    }
 }
 
 void mvme::drawTimerSlot()
@@ -815,7 +805,6 @@ void mvme::on_actionVME_Debug_triggered()
 void mvme::openInNewWindow(QObject *object)
 {
     auto scriptConfig       = qobject_cast<VMEScriptConfig *>(object);
-    auto histoCollection    = qobject_cast<HistogramCollection *>(object); 
     auto histo2d            = qobject_cast<Hist2D *>(object); 
     auto histo1d            = qobject_cast<Hist1D *>(object); 
 
@@ -828,10 +817,6 @@ void mvme::openInNewWindow(QObject *object)
         widget = new VMEScriptEditor(m_context, scriptConfig);
         windowIcon = QIcon(QPixmap(":/vme_script.png"));
         windowSize = QSize(700, 450);
-    }
-    else if (histoCollection)
-    {
-        widget = new TwoDimWidget(histoCollection);
     }
     else if (histo1d)
     {

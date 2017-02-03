@@ -211,7 +211,7 @@ void MVMEEventProcessor::newRun()
         auto mdpp16_extractor = std::make_shared<Extractor>();
         mdpp16_extractor->filter.addFilter(analysis::DataFilter("0001XXXXXX00AAAADDDDDDDDDDDDDDDD"));
         
-        m_d->analysis.addSource(0, 0, mdpp16_extractor);
+        m_d->analysis_ng.addSource(0, 0, mdpp16_extractor);
 
 
         // Operators

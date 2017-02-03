@@ -7,7 +7,6 @@ SOURCES += \
     $$PWD/hist1d.cc \
     $$PWD/hist2d.cpp \
     $$PWD/hist2ddialog.cc \
-    $$PWD/histogram.cpp \
     $$PWD/mvme_config.cc \
     $$PWD/mvme_context.cc \
     $$PWD/mvme.cpp \
@@ -15,7 +14,6 @@ SOURCES += \
     $$PWD/mvme_listfile.cc \
     $$PWD/scrollbar.cpp \
     $$PWD/scrollzoomer.cpp \
-    $$PWD/twodimwidget.cpp \
     $$PWD/util.cc \
     $$PWD/vme_controller.cpp \
     $$PWD/vme_script.cc \
@@ -46,7 +44,6 @@ HEADERS += \
     $$PWD/hist1d.h \
     $$PWD/hist2ddialog.h \
     $$PWD/hist2d.h \
-    $$PWD/histogram.h \
     $$PWD/mvme_config.h \
     $$PWD/mvme_context.h \
     $$PWD/mvmedefines.h \
@@ -55,7 +52,6 @@ HEADERS += \
     $$PWD/mvme_listfile.h \
     $$PWD/scrollbar.h \
     $$PWD/scrollzoomer.h \
-    $$PWD/twodimwidget.h \
     $$PWD/util.h \
     $$PWD/vme_controller.h \
     $$PWD/vme.h \
@@ -87,7 +83,6 @@ FORMS += \
     $$PWD/hist1dwidget.ui \
     $$PWD/hist2dwidget.ui \
     $$PWD/mvme.ui \
-    $$PWD/twodimwidget.ui \
     $$PWD/vme_debug_widget.ui \
     $$PWD/datafilter_dialog.ui \
     $$PWD/dualword_datafilter_dialog.ui \
