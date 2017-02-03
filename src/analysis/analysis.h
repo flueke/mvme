@@ -3,7 +3,8 @@
 
 #include "../typedefs.h"
 #include "data_filter.h"
-#include "histograms.h"
+#include "../histo1d.h"
+#include "../histo2d.h"
 
 #include <memory>
 

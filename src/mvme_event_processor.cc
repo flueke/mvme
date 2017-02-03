@@ -3,6 +3,7 @@
 #include "mvme_listfile.h"
 #include "hist1d.h"
 #include "hist2d.h"
+#include "histo1d.h"
 #include "mesytec_diagnostics.h"
 
 //#define MVME_EVENT_PROCESSOR_DEBUGGING
@@ -235,7 +236,7 @@ void MVMEEventProcessor::newRun()
 
             auto histoSink = std::make_shared<Histo1DSink>();
             histoSink->histo = std::make_shared<Histo1D>(16, 0.0, 65536);
-            histoSink->histo->m_name = QString("Histo for address %1").arg(i);
+            histoSink->histo->setObjectName(QString("Histo for address %1").arg(i));
             histoSink->input = &selector->output;
             //histoSink->output.rank = histoSink->input->rank + 1;
             m_d->analysis_ng.m_operators.push_back({0, histoSink});
@@ -275,7 +276,7 @@ void MVMEEventProcessor::newRun()
             auto sink = std::make_shared<Histo2DSink>();
             sink->histo = std::make_shared<Histo2D>(8, 0.0, 1 << 16,
                                                     8, 0.0, 1 << 16);
-            sink->histo->m_name = QString("Channel 0 vs Channel 8");
+            sink->histo->setObjectName(QString("Channel 0 vs Channel 8"));
             sink->inputX = &xSelector->output;
             sink->inputY = &ySelector->output;
             //sink->output.rank = std::max(sink->inputX->rank, sink->inputY->rank) + 1;

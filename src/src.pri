@@ -32,9 +32,9 @@ SOURCES += \
     $$PWD/realtimedata.cpp \
     $$PWD/histo_util.cc \
     $$PWD/gui_util.cc \
-    $$PWD/analysis/histogram_widgets.cc \
-    $$PWD/analysis/histograms.cc \
-    $$PWD/analysis/data_filter.cc
+    $$PWD/analysis/data_filter.cc \
+    $$PWD/histo1d.cc \
+    $$PWD/histo1d_widget.cc \
 
 
 HEADERS += \
@@ -72,9 +72,9 @@ HEADERS += \
     $$PWD/realtimedata.h \
     $$PWD/histo_util.h \
     $$PWD/gui_util.h \
-    $$PWD/analysis/histogram_widgets.h \
-    $$PWD/analysis/histograms.h \
-    $$PWD/analysis/data_filter.h
+    $$PWD/analysis/data_filter.h \
+    $$PWD/histo1d.h \
+    $$PWD/histo1d_widget.h \
 
 
 FORMS += \
@@ -88,7 +88,9 @@ FORMS += \
     $$PWD/dualword_datafilter_dialog.ui \
     $$PWD/mesytec_diagnostics.ui \
     $$PWD/hist2ddialog_axis_widget.ui \
-    $$PWD/daqcontrol_widget.ui
+    $$PWD/daqcontrol_widget.ui \
+    $$PWD/histo1d_widget.ui \
+
 
 contains(DEFINES, "VME_CONTROLLER_WIENER") {
     message("Building with WIENER VM_USB support")

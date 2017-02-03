@@ -116,4 +116,46 @@ class MinBoundLogTransform: public QwtLogTransform
 
 QString makeAxisTitle(const QString &title, const QString &unit);
 
+class AxisBinning
+{
+    public:
+        static const s64 Underflow = -1;
+        static const s64 Overflow = -2;
+
+
+        AxisBinning(u32 nBins, double Min, double Max)
+            : m_nBins(nBins)
+            , m_min(Min)
+            , m_max(Max)
+        {}
+
+        inline double getMin() const { return m_min; }
+        inline double getMax() const { return m_max; }
+        inline double getWidth() const { return std::abs(getMax() - getMin()); }
+
+        inline u32 getBins() const { return m_nBins; }
+        inline double getBinWidth() const { return getWidth() / getBins(); }
+        inline double getBinLowEdge(u32 bin) const { return getMin() + bin * getBinWidth(); }
+        inline double getBinCenter(u32 bin) const { return getBinLowEdge(bin) + getBinWidth() * 0.5; }
+
+        inline s64 getBin(double x) const
+        {
+            if (x < getMin())
+                return Underflow;
+
+            if (x >= getMax())
+                return Overflow;
+
+            double binWidth = getBinWidth();
+            u32 bin = static_cast<u32>(std::floor(x / binWidth));
+
+            return bin;
+        }
+
+    private:
+        u32 m_nBins;
+        double m_min;
+        double m_max;
+};
+
 #endif /* __HISTO_UTIL_H__ */
