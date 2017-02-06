@@ -1,11 +1,11 @@
 #ifndef __HISTO_UTIL_H__
 #define __HISTO_UTIL_H__
 
+#include "typedefs.h"
+
 #include <qwt_scale_draw.h>
 #include <qwt_scale_engine.h>
 #include <qwt_scale_map.h>
-
-#include "typedefs.h"
 
 // Adapted from: http://stackoverflow.com/a/18593942
 

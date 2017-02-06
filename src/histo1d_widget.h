@@ -1,9 +1,9 @@
 #ifndef __HISTO1D_WIDGET_H__
 #define __HISTO1D_WIDGET_H__
 
+#include "histo1d.h"
 #include <QWidget>
 
-class Histo1D;
 class QTimer;
 class QTextStream;
 class QwtPlotCurve;
@@ -23,6 +23,10 @@ class Histo1DWidget: public QWidget
     public:
         Histo1DWidget(Histo1D *histo, QWidget *parent = 0);
         ~Histo1DWidget();
+
+        void setHistogram(Histo1D *histo);
+
+        virtual bool eventFilter(QObject *watched, QEvent *event) override;
 
     private slots:
         void replot();
@@ -51,7 +55,8 @@ class Histo1DWidget: public QWidget
         ScrollZoomer *m_zoomer;
         QTimer *m_replotTimer;
         Histo1DStatistics m_stats;
-
+        QwtPlotTextLabel *m_statsTextItem;
+        QwtText *m_statsText;
         QPointF m_cursorPosition;
 #ifdef ENABLE_CALIB_UI
         CalibUi *m_calibUi;

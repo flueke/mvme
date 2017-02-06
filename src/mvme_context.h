@@ -24,6 +24,11 @@ class QJsonObject;
 class QTimer;
 class QThread;
 
+namespace analysis
+{
+    class Analysis;
+}
+
 class MVMEContext: public QObject
 {
     Q_OBJECT
@@ -203,6 +208,8 @@ class MVMEContext: public QObject
 
         bool isWorkspaceModified() const;
 
+        analysis::Analysis *getAnalysisNG() const { return m_analysis_ng; }
+
     public slots:
         void startReplay();
         void startDAQ(quint32 nCycles=0);
@@ -259,6 +266,8 @@ class MVMEContext: public QObject
         DAQState m_state;
         ListFileReader *m_listFileWorker;
         QTime m_replayTime;
+
+        analysis::Analysis *m_analysis_ng;
 };
 
 QString getFilterPath(MVMEContext *context, DataFilterConfig *filterConfig, int filterAddress);

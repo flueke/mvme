@@ -73,9 +73,10 @@ void Histo1D::debugDump() const
     }
 }
 
+// TODO: probably want both: (binMin, binMax[ and (xMin, xMax[
 Histo1DStatistics Histo1D::calcStatistics(u32 startChannel, u32 onePastEndChannel) const
 {
-    Q_ASSERT(!"not implemented");
+    //Q_ASSERT(!"not implemented");
     Histo1DStatistics result;
     return result;
 #if 0

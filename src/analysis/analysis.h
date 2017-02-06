@@ -1,10 +1,10 @@
 #ifndef __ANALYSIS_H__
 #define __ANALYSIS_H__
 
-#include "../typedefs.h"
+#include "typedefs.h"
 #include "data_filter.h"
-#include "../histo1d.h"
-#include "../histo2d.h"
+#include "histo1d.h"
+#include "histo2d.h"
 
 #include <memory>
 
@@ -29,8 +29,6 @@
  *   - Sources have no input but are directly attached to a module.
  *   - Source have a processDataWord() method
  *
- *   Allow multiple outputs? Implications?
- *
 
  *
  */
@@ -38,18 +36,6 @@
 namespace analysis
 {
 
-static constexpr double make_quiet_nan()
-{
-    return std::numeric_limits<double>::quiet_NaN();
-}
-
-#if 0
-struct Parameter
-{
-    bool valid = false;
-    double value = 0.0;
-};
-#else
 struct Parameter
 {
     enum Type { Double, Uint, Bool };
@@ -67,10 +53,137 @@ struct Parameter
     };
 };
 
+class ParameterVector: public QVector<Parameter>
+{
+    public:
+        void invalidateAll()
+        {
+            for (auto &param: *this)
+            {
+                param.valid = false;
+            }
+        }
+};
+
+class OperatorInterface;
+
+class Pipe
+{
+    public:
+        const Parameter &first() const
+        {
+            if (!m_parameters.isEmpty())
+            {
+                return m_parameters[0];
+            }
+
+            return dummy;
+        }
+
+        Parameter &first()
+        {
+            if (m_parameters.isEmpty())
+            {
+                m_parameters.resize(1);
+            }
+            return m_parameters[0];
+        }
+
+        const ParameterVector &getParameters() const { return m_parameters; }
+        ParameterVector &getParameters() { return m_parameters; }
+
+        OperatorInterface *getSource() const { return m_source; }
+        void setSource(OperatorInterface *source) { m_source = source; }
+
+        void addDestination(OperatorInterface *dest)
+        {
+            if (!m_destinations.contains(dest))
+            {
+                m_destinations.push_back(dest);
+            }
+        }
+
+        void removeDestination(OperatorInterface *dest)
+        {
+            m_destinations.removeAll(dest);
+        }
+
+        QVector<OperatorInterface *> getDestinations() const
+        {
+            return m_destinations;
+        }
+
+    private:
+        const Parameter dummy = {};
+
+        ParameterVector m_parameters;
+
+        // Always null when the pipe is the output of a SourceInterface
+        OperatorInterface *m_source = nullptr;
+        QVector<OperatorInterface *> m_destinations;
+};
+
+class SourceInterface
+{
+    public:
+        virtual void beginRun() {}
+        virtual void beginEvent() {}
+        virtual void processDataWord(u32 data, s32 wordIndex) = 0;
+
+        virtual int numberOfOutputs() const = 0;
+        virtual QString outputName(int outputIndex) const = 0;
+        virtual Pipe *getOutput(int index) = 0;
+
+        virtual ~SourceInterface() {}
+};
+
+class OperatorInterface
+{
+    public:
+        virtual void beginRun() {}
+        virtual void beginEvent() {}
+        virtual void step() = 0;
+
+        virtual int getNumberOfInputs() const = 0;
+        virtual QString getInputName(int inputIndex) const = 0;
+        virtual void setInput(int index, Pipe *inputPipe) = 0;
+        virtual void removeInput(Pipe *pipe) = 0;
+
+        virtual int getNumberOfOutputs() const = 0;
+        virtual QString getOutputName(int outputIndex) const = 0;
+        virtual Pipe *getOutput(int index) = 0;
+
+        virtual ~OperatorInterface() {}
+};
+
+}
+
+#define SourceInterface_iid "com.mesytec.mvme.analysis.SourceInterface.1"
+Q_DECLARE_INTERFACE(analysis::SourceInterface, SourceInterface_iid);
+
+#define OperatorInterface_iid "com.mesytec.mvme.analysis.OperatorInterface.1"
+Q_DECLARE_INTERFACE(analysis::OperatorInterface, OperatorInterface_iid);
+
+namespace analysis
+{
+
+static constexpr double make_quiet_nan()
+{
+    return std::numeric_limits<double>::quiet_NaN();
+}
+
+#if 0
+struct Parameter
+{
+    bool valid = false;
+    double value = 0.0;
+};
+#else
+
 // dest = a - b iff a and b are valid and a and b are of the same type
 // FIXME: not a good idea for Uint values as they're _unsigned_! Could convert
 // the result to be of type Double... Same for Bool values as `false - true = -1'.
-void subtract_params(const Parameter &a, const Parameter &b, Parameter &dest)
+inline void subtract_params(const Parameter &a, const Parameter &b, Parameter &dest)
 {
     if (a.valid && b.valid && a.type == b.type)
     {
@@ -100,8 +213,6 @@ void subtract_params(const Parameter &a, const Parameter &b, Parameter &dest)
 }
 #endif
 
-typedef QVector<Parameter> ParameterVector;
-
 // TODO: use this
 struct ParameterArray
 {
@@ -112,140 +223,59 @@ struct ParameterArray
 };
 
 
-void clear_parameters(ParameterVector &params)
-{
-    for (auto &param: params)
-    {
-        param.valid = false;
-    }
-}
-
-struct Operator;
-
-struct Pipe
-{
-    ParameterVector parameters;
-    int rank = 0;
-
-    const Parameter &first() const
-    {
-        if (!parameters.isEmpty())
-        {
-            return parameters[0];
-        }
-
-        return dummy;
-    }
-
-    Parameter &first()
-    {
-        if (parameters.isEmpty())
-        {
-            parameters.resize(1);
-        }
-        return parameters[0];
-    }
-
-    const Parameter dummy = {};
-
-    // Always null when the pipe is the output of a source
-    Operator *source = nullptr;
-};
-
 //
 // Sources
 //
 
-struct Source
-{
-    virtual void beginRun() {}
-    virtual void beginEvent() {}
-    virtual void processDataWord(u32 data, s32 wordIndex) = 0;
-    virtual ~Source() {}
-
-    Pipe output;
-};
-
-typedef std::shared_ptr<Source> SourcePtr;
+typedef std::shared_ptr<SourceInterface> SourcePtr;
 
 /* A Source using a MultiWordDataFilter for data extraction. Additionally
  * requiredCompletionCount can be set to only produce output for the nth
  * match (in the current event). */
-struct Extractor: public Source
+class Extractor: public QObject, public SourceInterface
 {
-    // configuration
-    MultiWordDataFilter filter;
-    u32 requiredCompletionCount = 0;
+    Q_OBJECT
+    Q_INTERFACES(analysis::SourceInterface)
 
-    // state
-    u32 currentCompletionCount = 0;
+    public:
+        Extractor(QObject *parent = 0);
 
-    // result
-    Pipe output;
+        MultiWordDataFilter getFilter() const { return m_filter; }
+        void setFilter(const MultiWordDataFilter &filter) { m_filter = filter; }
 
-    virtual void beginRun() override
-    {
-        currentCompletionCount = 0;
+        u32 getRequiredCompletionCount() const { return m_requiredCompletionCount; }
+        void setRequiredCompletionCount(u32 count) { m_requiredCompletionCount = count; }
 
-        u32 addressCount = 1 << filter.getAddressBits();
+        virtual void beginRun() override;
+        virtual void beginEvent() override;
+        virtual void processDataWord(u32 data, s32 wordIndex) override;
 
-        output.parameters.resize(addressCount);
+        virtual int numberOfOutputs() const override;
+        virtual QString outputName(int outputIndex) const override;
+        virtual Pipe *getOutput(int index) override;
 
-        u32 upperLimit = 1 << filter.getDataBits();
+    private:
+        // configuration
+        MultiWordDataFilter m_filter;
+        u32 m_requiredCompletionCount = 0;
 
-        for (int i=0; i<output.parameters.size(); ++i)
-        {
-            output.parameters[i].type = Parameter::Uint;
-            output.parameters[i].lowerLimit = 0.0;
-            output.parameters[i].upperLimit = upperLimit;
-        }
-    }
+        // state
+        u32 m_currentCompletionCount = 0;
 
-    virtual void beginEvent() override
-    {
-        clear_parameters(output.parameters);
-    }
-
-    virtual void processDataWord(u32 data, s32 wordIndex) override
-    {
-        filter.handleDataWord(data, wordIndex);
-        if (filter.isComplete())
-        {
-            ++currentCompletionCount;
-
-            if (requiredCompletionCount == 0 || requiredCompletionCount == currentCompletionCount)
-            {
-                u64 value   = filter.getResultValue();
-                s32 address = filter.getResultAddress();
-
-                if (address < output.parameters.size())
-                {
-                    auto &param = output.parameters[address];
-                    // only fill if not valid to keep the first value in case of multiple hits
-                    if (!param.valid)
-                    {
-                        param.valid = true;
-                        param.ival = value;
-                        //qDebug() << __PRETTY_FUNCTION__ << "address" << address << "value" << value;
-                    }
-                }
-            }
-            filter.clearCompletion();
-        }
-    }
+        Pipe m_output;
 };
 
 typedef std::shared_ptr<Extractor> ExtractorPtr;
 
-void extractor_begin_run(Extractor &ex)
+inline void extractor_begin_run(Extractor &ex)
 {
 }
 
-void extractor_begin_event(Extractor &ex)
+inline void extractor_begin_event(Extractor &ex)
 {
 }
 
-void extractor_process_data(Extractor &ex, u32 data, u32 wordIndex)
+inline void extractor_process_data(Extractor &ex, u32 data, u32 wordIndex)
 {
 }
 
@@ -253,23 +283,7 @@ void extractor_process_data(Extractor &ex, u32 data, u32 wordIndex)
 // Operators
 //
 
-struct Operator
-{
-    Operator()
-    {
-        output.source = this;
-    }
-    virtual ~Operator() {}
-
-    virtual void step() = 0;
-    virtual bool hasOutput() const { return true; }
-
-    virtual QVector<Pipe *> getInputs() = 0;
-
-    Pipe output;
-};
-
-typedef std::shared_ptr<Operator> OperatorPtr;
+typedef std::shared_ptr<OperatorInterface> OperatorPtr;
 
 struct CalibrationParams
 {
@@ -290,6 +304,32 @@ struct CalibrationParams
     double offset = make_quiet_nan();
 };
 
+class CalibrationOperator: public QObject, public OperatorInterface
+{
+    Q_OBJECT
+    Q_INTERFACES(analysis::OperatorInterface)
+    public:
+        CalibrationOperator(QObject *parent = 0);
+
+        virtual void step() override;
+
+        virtual int getNumberOfInputs() const override;
+        virtual QString getInputName(int inputIndex) const override;
+        virtual void setInput(int index, Pipe *inputPipe) override;
+        virtual void removeInput(Pipe *pipe) override;
+
+        virtual int getNumberOfOutputs() const override;
+        virtual QString getOutputName(int outputIndex) const override;
+        virtual Pipe *getOutput(int index) override;
+
+    //private:
+        CalibrationParams m_globalCalibration;
+        QVector<CalibrationParams> m_calibrations;
+        Pipe *m_input;
+        Pipe m_output;
+};
+
+#if 0
 struct CalibrationOperator: public Operator
 {
     CalibrationParams globalCalibration = { 1.0, 0.0 };
@@ -357,6 +397,7 @@ struct CalibrationOperator: public Operator
         return result;
     }
 };
+#endif
 
 #if 0
 struct HypotheticalSortingMachine: public Operator
@@ -412,6 +453,7 @@ struct HypotheticalSortingMachine: public Operator
 };
 #endif
 
+#if 0
 struct IndexSelector: public Operator
 {
     Pipe *input = nullptr;
@@ -661,6 +703,7 @@ struct Histo2DSink: public Operator
         return result;
     }
 };
+#endif
 
 class Analysis
 {
@@ -680,6 +723,16 @@ class Analysis
 
         QVector<SourceEntry> m_sources;
         QVector<OperatorEntry> m_operators;
+
+        const QVector<SourceEntry> &getSources() const
+        {
+            return m_sources;
+        }
+
+        const QVector<OperatorEntry> &getOperators() const
+        {
+            return m_operators;
+        }
 
         void addSource(int eventIndex, int moduleIndex, const SourcePtr &source)
         {
@@ -701,7 +754,8 @@ class Analysis
         {
             updateRanks();
 
-
+            // FIXME: reenable
+#if 0
             qSort(m_operators.begin(), m_operators.end(), [] (const OperatorEntry &oe1, const OperatorEntry &oe2) {
                 return oe1.op->output.rank < oe2.op->output.rank;
             });
@@ -711,6 +765,7 @@ class Analysis
             {
                 sourceEntry.source->beginRun();
             }
+#endif
         }
 
         void beginEvent(int eventIndex)
@@ -754,9 +809,9 @@ class Analysis
             {
                 if (opEntry.eventIndex == eventIndex)
                 {
-                    Operator *op = opEntry.op.get();
+                    OperatorInterface *op = opEntry.op.get();
                     const char *name = typeid(*op).name();
-                    qDebug() << "  stepping operator" << opEntry.op.get() << name << ", output rank =" << opEntry.op->output.rank;
+                    qDebug() << "  stepping operator" << opEntry.op.get() << name;// << ", output rank =" << opEntry.op->output.rank;
                     opEntry.op->step();
                 }
             }
@@ -765,23 +820,28 @@ class Analysis
 
         void updateRanks()
         {
+// FIXME: reenable
+#if 0
             for (auto &sourceEntry: m_sources)
             {
                 sourceEntry.source->output.rank = 0;
             }
 
-            QSet<Operator *> updated;
+            QSet<OperatorInterface *> updated;
 
             for (auto &opEntry: m_operators)
             {
-                Operator *op = opEntry.op.get();
+                OperatorInterface *op = opEntry.op.get();
 
                 updateRank(op, updated);
             }
+#endif
         }
 
-        void updateRank(Operator *op, QSet<Operator *> &updated)
+        void updateRank(OperatorInterface *op, QSet<OperatorInterface *> &updated)
         {
+// FIXME: reenable
+#if 0
             if (updated.contains(op))
                 return;
 
@@ -808,41 +868,9 @@ class Analysis
 
             op->output.rank = maxInputRank + 1;
             updated.insert(op);
+#endif
         }
 };
 
 }
-
-class OperatorFactoryInterface
-{
-    public:
-        virtual ~OperatorFactoryInterface() {}
-
-        virtual QStringList operatorNames() const = 0;
-        virtual analysis::OperatorPtr makeOperator(const QString &name) const = 0;
-};
-
-class OperatorInterface
-{
-    public:
-        virtual ~OperatorInterface() {}
-
-        virtual int numberOfInputs() const = 0;
-        virtual QString inputName(int inputIndex) const = 0;
-        virtual bool hasOutput() const = 0;
-
-        virtual void setInput(int index, const analysis::Operator *inputOp) = 0;
-};
-
-
-#define OperatorFactoryInterface_iid "com.mesytec.mvme.analysis.OperatorFactoryInterface.1"
-Q_DECLARE_INTERFACE(OperatorFactoryInterface, OperatorFactoryInterface_iid)
-
-#define OperatorInterface_iid "com.mesytec.mvme.analysis.OperatorInterface.1"
-Q_DECLARE_INTERFACE(OperatorInterface, OperatorInterface_iid);
-
-// The same could be done for sources. Maybe another abstraction would be needed:
-// Something like OperatorPluginInterface which can create a widget for the
-// operator and provide other meta information.
-
 #endif /* __ANALYSIS_H__ */

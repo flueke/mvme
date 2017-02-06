@@ -2,14 +2,13 @@
 #define UTIL_H
 
 #include "typedefs.h"
+#include "qt_util.h"
 #include <stdexcept>
 #include <QVector>
 #include <QPair>
 #include <QVariant>
 #include <QWidget>
 #include <functional>
-
-#define QSL(str) QStringLiteral(str)
 
 class QTextStream;
 

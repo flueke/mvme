@@ -62,7 +62,7 @@ void Histo2D::clear()
 
 void Histo2D::debugDump() const
 {
-    qDebug() << "Histo2D" << this << m_name;
+    qDebug() << "Histo2D" << this << objectName();
     qDebug() << "X-Axis: bins =" << m_xAxis.getBins()
         << ", min =" << m_xAxis.getMin()
         << ", max =" << m_xAxis.getMax();

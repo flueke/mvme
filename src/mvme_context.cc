@@ -7,6 +7,7 @@
 #include "mvme_listfile.h"
 #include "hist1d.h"
 #include "hist2d.h"
+#include "analysis/analysis.h"
 
 #include <QtConcurrent>
 #include <QTimer>
@@ -36,6 +37,7 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
     , m_mode(GlobalMode::NotSet)
     , m_state(DAQState::Idle)
     , m_listFileWorker(new ListFileReader(m_daqStats))
+    , m_analysis_ng(new analysis::Analysis)
 {
 
     for (size_t i=0; i<dataBufferCount; ++i)
@@ -137,6 +139,7 @@ MVMEContext::~MVMEContext()
     m_readoutThread->wait();
     m_eventThread->quit();
     m_eventThread->wait();
+    delete m_analysis_ng;
     delete m_readoutWorker;
     delete m_bufferProcessor;
     delete m_eventProcessor;

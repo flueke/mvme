@@ -41,7 +41,7 @@ struct MVMEEventProcessorPrivate
     bool isProcessingBuffer = false;
     QMutex isProcessingMutex;
 
-    analysis::Analysis analysis_ng; // :D
+    analysis::Analysis *analysis_ng;
 };
 
 MVMEEventProcessor::MVMEEventProcessor(MVMEContext *context)
@@ -204,87 +204,9 @@ void MVMEEventProcessor::newRun()
     }
 
     {
-        using namespace analysis;
-
-        m_d->analysis_ng.clear();
-
-        // Sources
-        auto mdpp16_extractor = std::make_shared<Extractor>();
-        mdpp16_extractor->filter.addFilter(analysis::DataFilter("0001XXXXXX00AAAADDDDDDDDDDDDDDDD"));
-        
-        m_d->analysis_ng.addSource(0, 0, mdpp16_extractor);
-
-
-        // Operators
-        m_d->analysis_ng.m_operators.clear();
-
-        auto calib = std::make_shared<CalibrationOperator>();
-        calib->input = &mdpp16_extractor->output;
-        //calib->output.rank = calib->input->rank + 1;
-        calib->globalCalibration.factor = 1.0;
-        calib->globalCalibration.offset = 0;
-        m_d->analysis_ng.m_operators.push_back({0, calib});
-
-        // Sinks (they're also Operators now)
-
-        for (s32 i=0; i<16; ++i)
-        {
-            auto selector = std::make_shared<IndexSelector>(i);
-            selector->input = &calib->output;
-            //selector->output.rank = selector->input->rank + 1;
-            m_d->analysis_ng.m_operators.push_back({0, selector});
-
-            auto histoSink = std::make_shared<Histo1DSink>();
-            histoSink->histo = std::make_shared<Histo1D>(16, 0.0, 65536);
-            histoSink->histo->setObjectName(QString("Histo for address %1").arg(i));
-            histoSink->input = &selector->output;
-            //histoSink->output.rank = histoSink->input->rank + 1;
-            m_d->analysis_ng.m_operators.push_back({0, histoSink});
-        }
-
-        {
-            auto firstSelector = std::make_shared<IndexSelector>(2);
-            m_d->analysis_ng.m_operators.push_back({0, firstSelector});
-            firstSelector->input = &calib->output;
-
-            auto currentSelector = firstSelector;
-
-            for (int i=0; i<20; ++i)
-            {
-                auto nextSelector = std::make_shared<IndexSelector>(2);
-                m_d->analysis_ng.m_operators.push_back({0, nextSelector});
-                nextSelector->input =  &currentSelector->output;
-                currentSelector = nextSelector;
-            }
-        }
-
-
-        {
-            // X is channel 0
-            auto xSelector = std::make_shared<IndexSelector>(0);
-            xSelector->input = &calib->output;
-            //xSelector->output.rank = xSelector->input->rank + 1;
-            m_d->analysis_ng.m_operators.push_back({0, xSelector});
-
-            // Y is channel 8
-            auto ySelector = std::make_shared<IndexSelector>(8);
-            ySelector->input = &calib->output;
-            //ySelector->output.rank = ySelector->input->rank + 1;
-            m_d->analysis_ng.m_operators.push_back({0, ySelector});
-
-            // the histogram
-            auto sink = std::make_shared<Histo2DSink>();
-            sink->histo = std::make_shared<Histo2D>(8, 0.0, 1 << 16,
-                                                    8, 0.0, 1 << 16);
-            sink->histo->setObjectName(QString("Channel 0 vs Channel 8"));
-            sink->inputX = &xSelector->output;
-            sink->inputY = &ySelector->output;
-            //sink->output.rank = std::max(sink->inputX->rank, sink->inputY->rank) + 1;
-
-            m_d->analysis_ng.m_operators.push_back({0, sink});
-        }
-
-        m_d->analysis_ng.beginRun();
+        m_d->analysis_ng = m_d->context->getAnalysisNG();
+        if (m_d->analysis_ng)
+            m_d->analysis_ng->beginRun();
     }
 }
 
@@ -373,7 +295,8 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
             }
 #endif
 
-            m_d->analysis_ng.beginEvent(eventIndex);
+            if (m_d->analysis_ng)
+                m_d->analysis_ng->beginEvent(eventIndex);
 
             int moduleIndex = 0;
 
@@ -504,7 +427,8 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                     }
 #endif
 
-                    m_d->analysis_ng.processDataWord(eventIndex, moduleIndex, currentWord, wordIndexInSubEvent);
+                    if (m_d->analysis_ng)
+                        m_d->analysis_ng->processDataWord(eventIndex, moduleIndex, currentWord, wordIndexInSubEvent);
                 }
 
 
@@ -562,7 +486,8 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                 return;
             }
 
-            m_d->analysis_ng.endEvent(eventIndex);
+            if (m_d->analysis_ng)
+                m_d->analysis_ng->endEvent(eventIndex);
 
             //
             // fill 2D Histograms

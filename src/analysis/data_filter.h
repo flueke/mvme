@@ -4,7 +4,7 @@
 #include <QByteArray>
 #include <QHash>
 #include <QVector>
-#include "../typedefs.h"
+#include "typedefs.h"
 
 namespace analysis
 {
@@ -78,9 +78,9 @@ class MultiWordDataFilter
     public:
         MultiWordDataFilter(const QVector<DataFilter> &filters = QVector<DataFilter>());
 
-        void addFilter(const DataFilter &filter);
-        QVector<DataFilter> getFilters() const { return m_filters; }
-        int getFilterCount() const { return m_filters.size(); }
+        void addSubFilter(const DataFilter &filter);
+        QVector<DataFilter> getSubFilters() const { return m_filters; }
+        int getSubFilterCount() const { return m_filters.size(); }
 
         inline void handleDataWord(u32 dataWord, s32 wordIndex = -1)
         {

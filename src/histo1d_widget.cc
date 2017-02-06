@@ -2,6 +2,7 @@
 #include "histo1d_widget.h"
 #include "ui_histo1d_widget.h"
 #include "scrollzoomer.h"
+#include "util.h"
 
 #include <qwt_plot_curve.h>
 #include <qwt_plot_histogram.h>
@@ -214,7 +215,7 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     calibFrameLayout->addWidget(calibSection);
 #endif
 
-    setHistogram(histo, histoConfig);
+    setHistogram(histo);
     displayChanged();
 }
 
@@ -223,29 +224,10 @@ Histo1DWidget::~Histo1DWidget()
     delete ui;
 }
 
-void Histo1DWidget::setHistogram(Histo1D *histo, Hist1DConfig *histoConfig)
+void Histo1DWidget::setHistogram(Histo1D *histo)
 {
-    m_sourceFilter = nullptr;
-
-    if (m_histoConfig)
-        disconnect(m_histoConfig, &ConfigObject::modified, this, &Histo1DWidget::displayChanged);
-
     m_histo = histo;
-    m_histoConfig = histoConfig;
-    m_plotCurve->setData(new Hist1DPointData(m_histo));
-
-    // init to 1:1 transform
-    m_conversionMap.setScaleInterval(0, m_histo->getResolution());
-    m_conversionMap.setPaintInterval(0, m_histo->getResolution());
-
-    if (m_histoConfig)
-    {
-        connect(m_histoConfig, &ConfigObject::modified, this, &Histo1DWidget::displayChanged);
-
-        auto filterId = m_histoConfig->getFilterId();
-        m_sourceFilter = m_context->getAnalysisConfig()->findChildById<DataFilterConfig *>(filterId);
-        ui->frame_calib->setVisible(m_sourceFilter);
-    }
+    m_plotCurve->setData(new Histo1DPointData(m_histo));
 
     displayChanged();
 }
@@ -272,44 +254,9 @@ void Histo1DWidget::displayChanged()
         ui->plot->setAxisScaleEngine(QwtPlot::yLeft, scaleEngine);
     }
 
-    auto name = m_histoConfig ? m_histoConfig->objectName() : m_histo->objectName();
+    auto name = m_histo->objectName();
+
     setWindowTitle(QString("Histogram %1").arg(name));
-
-    if (m_histoConfig)
-    {
-        auto axisTitle = makeAxisTitle(m_histoConfig->property("xAxisTitle").toString(),
-                                       m_histoConfig->property("xAxisUnit").toString());
-
-        if (!axisTitle.isEmpty())
-        {
-            ui->plot->axisWidget(QwtPlot::xBottom)->setTitle(axisTitle);
-        }
-
-        auto histoPath = getHistoPath(m_context, m_histoConfig);
-
-        if (!histoPath.isEmpty())
-        {
-            auto windowTitle = QSL("Histogram ") + histoPath;
-            setWindowTitle(windowTitle);
-        }
-
-        double unitMin = m_histoConfig->property("xAxisUnitMin").toDouble();
-        double unitMax = m_histoConfig->property("xAxisUnitMax").toDouble();
-        if (std::abs(unitMax - unitMin) > 0.0)
-        {
-            m_conversionMap.setPaintInterval(unitMin, unitMax);
-        }
-        else
-        {
-            m_conversionMap.setPaintInterval(0, m_histo->getResolution());
-        }
-
-        auto scaleDraw = new UnitConversionAxisScaleDraw(m_conversionMap);
-        ui->plot->setAxisScaleDraw(QwtPlot::xBottom, scaleDraw);
-
-        auto scaleEngine = new UnitConversionLinearScaleEngine(m_conversionMap);
-        ui->plot->setAxisScaleEngine(QwtPlot::xBottom, scaleEngine);
-    }
 
     /* Before the scale change the zoomer might have been zoomed into negative
      * x-axis bins. This results in scaling errors and a zoom into negative
@@ -331,7 +278,7 @@ void Histo1DWidget::zoomerZoomed(const QRectF &zoomRect)
     if (m_zoomer->zoomRectIndex() == 0)
     {
         // fully zoomed out -> set to full resolution
-        ui->plot->setAxisScale( QwtPlot::xBottom, 0, m_histo->getResolution());
+        ui->plot->setAxisScale( QwtPlot::xBottom, 0, m_histo->getXMax());
         ui->plot->replot();
         m_zoomer->setZoomBase();
     }
@@ -376,15 +323,6 @@ void Histo1DWidget::updateStatistics()
 
     m_stats = m_histo->calcStatistics(lowerBound, upperBound);
 
-    double mean = m_conversionMap.transform(m_stats.mean);
-    double maxAt = 0.0;
-    if (m_stats.entryCount)
-        maxAt = m_conversionMap.transform(m_stats.maxChannel);
-
-    // conversion factor: abs(unitMax - unitMin) / (histoMax - histoMin)
-    double factor = std::abs((m_conversionMap.p2() - m_conversionMap.p1())) / (m_conversionMap.s2() - m_conversionMap.s1());
-    double sigma = m_stats.sigma * factor;
-
     static const QString textTemplate = QSL(
         "<table>"
         "<tr><td align=\"left\">Sigma</td><td>%L2</td></tr>"
@@ -398,12 +336,12 @@ void Histo1DWidget::updateStatistics()
 
     static const int fieldWidth = 0;
     QString buffer = textTemplate
-        .arg(mean, fieldWidth)
-        .arg(sigma, fieldWidth)
+        .arg(m_stats.mean, fieldWidth)
+        .arg(m_stats.sigma, fieldWidth)
         .arg(m_stats.entryCount, fieldWidth)
         .arg(m_stats.maxValue, fieldWidth)
-        .arg(maxAt, fieldWidth)
-        .arg(m_stats.fwhm * factor);
+        .arg(m_histo->getBinContent(m_stats.maxBin), fieldWidth)
+        .arg(m_stats.fwhm)
         ;
 
     m_statsText->setText(buffer, QwtText::RichText);
@@ -426,7 +364,7 @@ void Histo1DWidget::updateAxisScales()
     if (m_zoomer->zoomRectIndex() == 0)
     {
         // fully zoomed out -> set to full resolution
-        ui->plot->setAxisScale(QwtPlot::xBottom, 0, m_histo->getResolution());
+        ui->plot->setAxisScale(QwtPlot::xBottom, 0, m_histo->getXMax());
     }
 }
 
@@ -482,7 +420,7 @@ void Histo1DWidget::saveHistogram()
     }
 
     QTextStream out(&outFile);
-    writeHistogram(out, m_histo);
+    writeHisto1D(out, m_histo);
 
     if (out.status() == QTextStream::Ok)
     {
@@ -496,15 +434,17 @@ void Histo1DWidget::updateCursorInfoLabel()
     if (ui->label_cursorInfo->isVisible())
     {
         u32 ix = static_cast<u32>(std::max(m_cursorPosition.x(), 0.0));
-        double value = m_histo->value(ix);
+
+        double x = m_histo->getBinCenter(ix);
+        double y = m_histo->getBinContent(ix);
 
         QString text = QString(
                                "x=%1\n"
                                "y=%2\n"
                                "bin=%3"
                                )
-            .arg(m_conversionMap.transform(ix), 0, 'g', 6)
-            .arg(value)
+            .arg(x)
+            .arg(y)
             .arg(ix);
 
         ui->label_cursorInfo->setText(text);
@@ -513,6 +453,7 @@ void Histo1DWidget::updateCursorInfoLabel()
 
 void Histo1DWidget::calibApply()
 {
+#ifdef ENABLE_CALIB_UI
     double a1 = m_calibUi->actual1->value();
     double a2 = m_calibUi->actual2->value();
     double t1 = m_calibUi->target1->value();
@@ -545,30 +486,39 @@ void Histo1DWidget::calibApply()
 
     m_calibUi->actual1->setValue(m_calibUi->target1->value());
     m_calibUi->actual2->setValue(m_calibUi->target2->value());
+#endif
 }
 
 void Histo1DWidget::calibResetToFilter()
 {
+#ifdef ENABLE_CALIB_UI
     u32 address = m_histoConfig->getFilterAddress();
     m_sourceFilter->resetToBaseUnits(address);
 
     m_context->getAnalysisConfig()->updateHistogramsForFilter(m_sourceFilter);
+#endif
 }
 
 void Histo1DWidget::calibFillMax()
 {
+#ifdef ENABLE_CALIB_UI
     double maxAt = m_conversionMap.transform(m_stats.maxChannel);
     m_calibUi->lastFocusedActual->setValue(maxAt);
+#endif
 }
 
 bool Histo1DWidget::eventFilter(QObject *watched, QEvent *event)
 {
+#ifdef ENABLE_CALIB_UI
     if ((watched == m_calibUi->actual1 || watched == m_calibUi->actual2)
         && (event->type() == QEvent::FocusIn))
     {
         m_calibUi->lastFocusedActual = qobject_cast<QDoubleSpinBox *>(watched);
     }
     return MVMEWidget::eventFilter(watched, event);
+#else
+    return QWidget::eventFilter(watched, event);
+#endif
 }
 
 //

@@ -124,7 +124,7 @@ MultiWordDataFilter::MultiWordDataFilter(const QVector<DataFilter> &filters)
 {
 }
 
-void MultiWordDataFilter::addFilter(const DataFilter &filter)
+void MultiWordDataFilter::addSubFilter(const DataFilter &filter)
 {
     m_filters.push_back(filter);
     m_results.resize(m_filters.size());

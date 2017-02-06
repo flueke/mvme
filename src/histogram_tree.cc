@@ -8,6 +8,10 @@
 #include "config_ui.h"
 #include "mvme_event_processor.h"
 #include "gui_util.h"
+#include "histo1d_widget.h"
+#include "mvme.h"
+
+#include "analysis/analysis.h"
 
 #include <QFileDialog>
 #include <QFileInfo>
@@ -124,6 +128,9 @@ enum NodeType
     NodeType_Hist2D,
     NodeType_DataFilter,
     NodeType_DualWordDataFilter,
+    // The new histograms
+    NodeType_Source,
+    NodeType_Operator,
 };
 
 enum DataRole
@@ -182,6 +189,9 @@ HistogramTreeWidget::HistogramTreeWidget(MVMEContext *context, QWidget *parent)
     , m_tree(new QTreeWidget)
     , m_node1D(new TreeNode)
     , m_node2D(new TreeNode)
+    , m_node1dNew(new TreeNode)
+    , m_node2dNew(new TreeNode)
+    , m_nodeAnalysisNG(new TreeNode)
 {
     m_tree->setColumnCount(2);
     m_tree->setExpandsOnDoubleClick(false);
@@ -202,6 +212,20 @@ HistogramTreeWidget::HistogramTreeWidget(MVMEContext *context, QWidget *parent)
 
     m_node1D->setExpanded(true);
     m_node2D->setExpanded(true);
+
+    m_node1dNew->setText(0, QSL("1d (double)"));
+    m_tree->addTopLevelItem(m_node1dNew);
+
+    m_node2dNew->setText(0, QSL("2d (double)"));
+    m_tree->addTopLevelItem(m_node2dNew);
+
+    m_nodeAnalysisNG->setText(0, QSL("Analysis NG"));
+    m_tree->addTopLevelItem(m_nodeAnalysisNG);
+
+    for (auto node: {m_node1dNew, m_node2dNew, m_nodeAnalysisNG})
+    {
+        node->setExpanded(true);
+    }
 
     // buttons
     auto makeToolButton = [](const QString &icon, const QString &text)
@@ -272,6 +296,7 @@ HistogramTreeWidget::HistogramTreeWidget(MVMEContext *context, QWidget *parent)
     timer->setInterval(1000);
     timer->start();
     connect(timer, &QTimer::timeout, this, &HistogramTreeWidget::updateHistogramCountDisplay);
+    connect(timer, &QTimer::timeout, this, &HistogramTreeWidget::updateAnalysisNGStuff);
 }
 
 void HistogramTreeWidget::onObjectAdded(QObject *object)
@@ -506,24 +531,65 @@ void HistogramTreeWidget::onObjectNameChanged(QObject *object, const QString &na
 
 void HistogramTreeWidget::onItemClicked(QTreeWidgetItem *item, int column)
 {
-    auto obj = Var2Ptr<QObject>(item->data(0, DataRole_Pointer));
+    switch (item->type())
+    {
+        case NodeType_Module:
+        case NodeType_Hist1D:
+        case NodeType_Hist2D:
+        case NodeType_DataFilter:
+        case NodeType_DualWordDataFilter:
+            {
+                auto obj = Var2Ptr<QObject>(item->data(0, DataRole_Pointer));
 
-    qDebug() << __PRETTY_FUNCTION__ << item << obj;
+                qDebug() << __PRETTY_FUNCTION__ << item << obj;
 
-    if (obj)
-        emit objectClicked(obj);
+                if (obj)
+                    emit objectClicked(obj);
+            } break;
+
+        // Analysis NG stuff
+        case NodeType_Source:
+            {
+                auto source = Var2Ptr<analysis::SourceInterface>(item->data(0, DataRole_Pointer));
+
+                if (source)
+                {
+                    auto extractor = dynamic_cast<analysis::Extractor *>(source);
+                    if (extractor)
+                    {
+                    }
+                    else
+                    {
+                    }
+                }
+
+            } break;
+
+        case NodeType_Operator:
+            {
+                auto op = Var2Ptr<analysis::OperatorInterface>(item->data(0, DataRole_Pointer));
+            } break;
+
+        default:
+            {
+                auto variant = item->data(0, DataRole_Pointer);
+                auto voidStar = Var2Ptr<void>(variant);
+
+                qDebug() << __PRETTY_FUNCTION__ << item << voidStar;
+            } break;
+    }
 }
 
 void HistogramTreeWidget::onItemDoubleClicked(QTreeWidgetItem *node, int column)
 {
-    auto obj = Var2Ptr<QObject>(node->data(0, DataRole_Pointer));
-    qDebug() << __PRETTY_FUNCTION__ << node << obj;
+    qDebug() << __PRETTY_FUNCTION__ << node;
 
     switch (node->type())
     {
         case NodeType_Hist1D:
         case NodeType_Hist2D:
             {
+                auto obj = Var2Ptr<QObject>(node->data(0, DataRole_Pointer));
                 emit objectDoubleClicked(obj);
             } break;
         case NodeType_DataFilter:
@@ -533,6 +599,7 @@ void HistogramTreeWidget::onItemDoubleClicked(QTreeWidgetItem *node, int column)
 
         case NodeType_DualWordDataFilter:
             {
+                auto obj = Var2Ptr<QObject>(node->data(0, DataRole_Pointer));
                 auto filterConfig = qobject_cast<DualWordDataFilterConfig *>(obj);
                 if (filterConfig)
                 {
@@ -546,6 +613,18 @@ void HistogramTreeWidget::onItemDoubleClicked(QTreeWidgetItem *node, int column)
                         emit objectDoubleClicked(histo);
                     }
                 }
+            } break;
+
+        case NodeType_Operator:
+            {
+#if 0
+                auto op = Var2Ptr<analysis::OperatorInterface>(node->data(0, DataRole_Pointer));
+                if (auto histoSink = dynamic_cast<analysis::Histo1DSink *>(op))
+                {
+                    auto widget = new Histo1DWidget(histoSink->histo.get());
+                    m_context->getMainWindow()->addWidgetWindow(widget);
+                }
+#endif
             } break;
     }
 }
@@ -1380,4 +1459,49 @@ void HistogramTreeWidget::openHistoListWidget()
         auto widget = new Hist1DListWidget(m_context, histograms, this);
         emit addWidgetWindow(widget);
     }
+}
+
+void HistogramTreeWidget::updateAnalysisNGStuff()
+{
+    //qDeleteAll(m_node1dNew->takeChildren());
+    //qDeleteAll(m_node2dNew->takeChildren());
+    //qDeleteAll(m_nodeAnalysisNG->takeChildren());
+
+    auto analysis = m_context->getAnalysisNG();
+
+    for (const auto &entry: analysis->getSources())
+    {
+        analysis::SourceInterface *source = entry.source.get();
+        if (!m_treeMapUntyped.contains(source))
+        {
+            auto node = makeNode(source, NodeType_Source);
+            const char *name = typeid(*source).name();
+            node->setText(0, QString("Source %1").arg(name));
+            m_nodeAnalysisNG->addChild(node);
+            m_treeMapUntyped[source] = node;
+        }
+    }
+
+#if 0
+    for (const auto &entry: analysis->getOperators())
+    {
+        analysis::OperatorInterface *op = entry.op.get();
+        if (!m_treeMapUntyped.contains(op))
+        {
+            auto node = makeNode(op, NodeType_Operator);
+            const char *name = typeid(*op).name();
+            node->setText(0, QString("Operator %1").arg(name));
+            m_treeMapUntyped[op] = node;
+            if (auto histoSink = dynamic_cast<analysis::Histo1DSink *>(op))
+            {
+                node->setIcon(0, QIcon(":/hist1d.png"));
+                m_node1dNew->addChild(node);
+            }
+            else
+            {
+                m_nodeAnalysisNG->addChild(node);
+            }
+        }
+    }
+#endif
 }
