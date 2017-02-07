@@ -53,19 +53,38 @@ struct Parameter
     };
 };
 
-class ParameterVector: public QVector<Parameter>
+struct ParameterVector: public QVector<Parameter>
 {
-    public:
-        void invalidateAll()
+    void invalidateAll()
+    {
+        for (auto &param: *this)
         {
-            for (auto &param: *this)
-            {
-                param.valid = false;
-            }
+            param.valid = false;
         }
+    }
+
+    QString name;
+    QString unit;
 };
 
 class OperatorInterface;
+
+/* Interface to indicate that something can the be source of a Pipe. */
+class PipeSourceInterface: public QObject
+{
+    Q_OBJECT
+    public:
+        PipeSourceInterface(QObject *parent = 0): QObject(parent) {}
+        virtual ~PipeSourceInterface() {}
+};
+
+}
+
+#define PipeSourceInterface_iid "com.mesytec.mvme.analysis.PipeSourceInterface.1"
+Q_DECLARE_INTERFACE(analysis::PipeSourceInterface, PipeSourceInterface_iid);
+
+namespace analysis
+{
 
 class Pipe
 {
@@ -92,8 +111,8 @@ class Pipe
         const ParameterVector &getParameters() const { return m_parameters; }
         ParameterVector &getParameters() { return m_parameters; }
 
-        OperatorInterface *getSource() const { return m_source; }
-        void setSource(OperatorInterface *source) { m_source = source; }
+        PipeSourceInterface *getSource() const { return m_source; }
+        void setSource(PipeSourceInterface *source) { m_source = source; }
 
         void addDestination(OperatorInterface *dest)
         {
@@ -113,33 +132,54 @@ class Pipe
             return m_destinations;
         }
 
+        void invalidateAll()
+        {
+            m_parameters.invalidateAll();
+        }
+
+        s32 getRank() const { return m_rank; }
+        void setRank(s32 rank) { m_rank = rank; }
+
     private:
         const Parameter dummy = {};
 
         ParameterVector m_parameters;
 
-        // Always null when the pipe is the output of a SourceInterface
-        OperatorInterface *m_source = nullptr;
+        PipeSourceInterface *m_source = nullptr;
         QVector<OperatorInterface *> m_destinations;
+
+        s32 m_rank = 0;
 };
 
-class SourceInterface
+/* Data source interface. The analysis feeds single data words into this using
+ * processDataWord(). */
+class SourceInterface: public PipeSourceInterface
 {
+    Q_OBJECT
+    Q_INTERFACES(analysis::PipeSourceInterface)
     public:
+        SourceInterface(QObject *parent = 0): PipeSourceInterface(parent) {}
+
         virtual void beginRun() {}
         virtual void beginEvent() {}
         virtual void processDataWord(u32 data, s32 wordIndex) = 0;
 
-        virtual int numberOfOutputs() const = 0;
+        virtual int getNumberOfOutputs() const = 0;
         virtual QString outputName(int outputIndex) const = 0;
         virtual Pipe *getOutput(int index) = 0;
 
         virtual ~SourceInterface() {}
 };
 
-class OperatorInterface
+/* Operator interface. Consumes one or multiple input pipes and produces one or
+ * multiple output pipes. */
+class OperatorInterface: public PipeSourceInterface
 {
+    Q_OBJECT
+    Q_INTERFACES(analysis::PipeSourceInterface)
     public:
+        OperatorInterface(QObject *parent = 0): PipeSourceInterface(parent) {}
+
         virtual void beginRun() {}
         virtual void beginEvent() {}
         virtual void step() = 0;
@@ -147,6 +187,7 @@ class OperatorInterface
         virtual int getNumberOfInputs() const = 0;
         virtual QString getInputName(int inputIndex) const = 0;
         virtual void setInput(int index, Pipe *inputPipe) = 0;
+        virtual Pipe *getInput(int index) const = 0;
         virtual void removeInput(Pipe *pipe) = 0;
 
         virtual int getNumberOfOutputs() const = 0;
@@ -154,6 +195,9 @@ class OperatorInterface
         virtual Pipe *getOutput(int index) = 0;
 
         virtual ~OperatorInterface() {}
+
+        s32 getMaximumInputRank();
+        s32 getMaximumOutputRank();
 };
 
 }
@@ -213,16 +257,6 @@ inline void subtract_params(const Parameter &a, const Parameter &b, Parameter &d
 }
 #endif
 
-// TODO: use this
-struct ParameterArray
-{
-    // TODO: clone parts of the QVector interface here
-    ParameterVector parameters;
-    QString name;
-    QString unit;
-};
-
-
 //
 // Sources
 //
@@ -232,7 +266,7 @@ typedef std::shared_ptr<SourceInterface> SourcePtr;
 /* A Source using a MultiWordDataFilter for data extraction. Additionally
  * requiredCompletionCount can be set to only produce output for the nth
  * match (in the current event). */
-class Extractor: public QObject, public SourceInterface
+class Extractor: public SourceInterface
 {
     Q_OBJECT
     Q_INTERFACES(analysis::SourceInterface)
@@ -250,7 +284,7 @@ class Extractor: public QObject, public SourceInterface
         virtual void beginEvent() override;
         virtual void processDataWord(u32 data, s32 wordIndex) override;
 
-        virtual int numberOfOutputs() const override;
+        virtual int getNumberOfOutputs() const override;
         virtual QString outputName(int outputIndex) const override;
         virtual Pipe *getOutput(int index) override;
 
@@ -265,32 +299,66 @@ class Extractor: public QObject, public SourceInterface
         Pipe m_output;
 };
 
-typedef std::shared_ptr<Extractor> ExtractorPtr;
-
-inline void extractor_begin_run(Extractor &ex)
-{
-}
-
-inline void extractor_begin_event(Extractor &ex)
-{
-}
-
-inline void extractor_process_data(Extractor &ex, u32 data, u32 wordIndex)
-{
-}
-
 //
 // Operators
 //
 
 typedef std::shared_ptr<OperatorInterface> OperatorPtr;
 
-struct CalibrationParams
+/* An operator with one input and one output pipe. Only step() needs to be
+ * implemented in subclasses. */
+class BasicOperator: public OperatorInterface
 {
-    CalibrationParams()
+    Q_OBJECT
+    Q_INTERFACES(analysis::OperatorInterface)
+    public:
+        BasicOperator(QObject *parent = 0);
+        ~BasicOperator();
+
+        int getNumberOfInputs() const override;
+        QString getInputName(int inputIndex) const override;
+        void setInput(int index, Pipe *inputPipe) override;
+        Pipe *getInput(int index) const override;
+        void removeInput(Pipe *pipe) override;
+
+        int getNumberOfOutputs() const override;
+        QString getOutputName(int outputIndex) const override;
+        Pipe *getOutput(int index) override;
+
+    protected:
+        Pipe m_output;
+        Pipe *m_input = nullptr;
+};
+
+/* An operator with one input and no output. Only step() needs to be
+ * implemented in subclasses. */
+class BasicSink: public OperatorInterface
+{
+    Q_OBJECT
+    Q_INTERFACES(analysis::OperatorInterface)
+    public:
+        using OperatorInterface::OperatorInterface;
+        ~BasicSink();
+        int getNumberOfInputs() const override;
+        QString getInputName(int inputIndex) const override;
+        void setInput(int index, Pipe *inputPipe) override;
+        Pipe *getInput(int index) const override;
+        void removeInput(Pipe *pipe) override;
+
+        int getNumberOfOutputs() const override;
+        QString getOutputName(int outputIndex) const override;
+        Pipe *getOutput(int index) override;
+
+    protected:
+        Pipe *m_input = nullptr;
+};
+
+struct CalibrationParameters
+{
+    CalibrationParameters()
     {}
 
-    CalibrationParams(double factor, double offset)
+    CalibrationParameters(double factor, double offset)
         : factor(factor)
         , offset(offset)
     {}
@@ -304,100 +372,50 @@ struct CalibrationParams
     double offset = make_quiet_nan();
 };
 
-class CalibrationOperator: public QObject, public OperatorInterface
+class CalibrationOperator: public BasicOperator
 {
     Q_OBJECT
-    Q_INTERFACES(analysis::OperatorInterface)
     public:
         CalibrationOperator(QObject *parent = 0);
 
         virtual void step() override;
 
-        virtual int getNumberOfInputs() const override;
-        virtual QString getInputName(int inputIndex) const override;
-        virtual void setInput(int index, Pipe *inputPipe) override;
-        virtual void removeInput(Pipe *pipe) override;
-
-        virtual int getNumberOfOutputs() const override;
-        virtual QString getOutputName(int outputIndex) const override;
-        virtual Pipe *getOutput(int index) override;
-
-    //private:
-        CalibrationParams m_globalCalibration;
-        QVector<CalibrationParams> m_calibrations;
-        Pipe *m_input;
-        Pipe m_output;
-};
-
-#if 0
-struct CalibrationOperator: public Operator
-{
-    CalibrationParams globalCalibration = { 1.0, 0.0 };
-
-    // optional calibrations for per incoming address
-    QVector<CalibrationParams> calibrations;
-
-    Pipe *input = nullptr;
-
-    virtual void step() override
-    {
-        if (input)
+        void setGlobalCalibration(const CalibrationParameters &params)
         {
-            // TODO: for performance the resize should happen at init time and usually not change afterwards
-            output.parameters.resize(input->parameters.size());
-            clear_parameters(output.parameters);
-
-            for (int address = 0;
-                 address < input->parameters.size();
-                 ++address)
-            {
-                const auto &parameter(input->parameters[address]);
-
-                if (parameter.valid)
-                {
-                    double value;
-                    bool validValue = false;
-                    if (parameter.type == Parameter::Double)
-                    {
-                        value = parameter.dval;
-                        validValue = true;
-                    }
-                    else if (parameter.type == Parameter::Uint)
-                    {
-                        value = parameter.ival;
-                        validValue = true;
-                    }
-
-                    if (validValue)
-                    {
-                        // get the CalibrationParams
-                        auto calib = globalCalibration;
-                        if (address < calibrations.size() && calibrations[address].isValid())
-                        {
-                            calib = calibrations[address];
-                        }
-
-                        value = value * calib.factor + calib.offset;
-
-                        output.parameters[address].type = Parameter::Double;
-                        output.parameters[address].dval = value;
-                        output.parameters[address].valid = true;
-                        //TODO output.current[address].lowerLimit =
-                        //TODO output.current[address].upperLimit =
-                    }
-                }
-            }
+            m_globalCalibration = params;
         }
-    }
 
-    virtual QVector<Pipe *> getInputs() override
-    {
-        QVector<Pipe *> result = { input };
+        void setGlobalCalibration(double factor, double offset)
+        {
+            m_globalCalibration = CalibrationParameters(factor, offset);
+        }
 
-        return result;
-    }
+        CalibrationParameters getGlobalCalibration() const
+        {
+            return m_globalCalibration;
+        }
+
+        void setCalibration(s32 address, const CalibrationParameters &params);
+        void setCalibration(s32 address, double factor, double offset)
+        {
+            setCalibration(address, CalibrationParameters(factor, offset));
+        }
+
+        s32 getCalibrationCount() const
+        {
+            return m_calibrations.size();
+        }
+
+        CalibrationParameters getCalibration(s32 address) const;
+
+        QString getUnitLabel() const { return m_unit; }
+        void setUnitLabel(const QString &label) { m_unit = label; }
+
+    private:
+        CalibrationParameters m_globalCalibration;
+        QVector<CalibrationParameters> m_calibrations;
+        QString m_unit;
 };
-#endif
 
 #if 0
 struct HypotheticalSortingMachine: public Operator
@@ -453,38 +471,22 @@ struct HypotheticalSortingMachine: public Operator
 };
 #endif
 
-#if 0
-struct IndexSelector: public Operator
+class IndexSelector: public BasicOperator
 {
-    Pipe *input = nullptr;
-    s32 index;
+    Q_OBJECT
+    public:
+        IndexSelector(QObject *parent = 0): BasicOperator(parent) {}
 
-    IndexSelector(s32 index)
-        : index(index)
-    { }
+        void setIndex(s32 index) { m_index = index; }
+        s32 getIndex() const { return m_index; }
 
-    virtual void step() override
-    {
-        if (input)
-        {
-            output.parameters.resize(1);
-            clear_parameters(output.parameters);
+        virtual void step() override;
 
-            if (index < input->parameters.size())
-            {
-                output.parameters[0] = input->parameters[index];
-            }
-        }
-    }
-
-    virtual QVector<Pipe *> getInputs() override
-    {
-        QVector<Pipe *> result = { input };
-
-        return result;
-    }
+    private:
+        s32 m_index;
 };
 
+#if 0
 // Calculates A - B;
 struct Difference: public Operator
 {
@@ -625,53 +627,26 @@ struct Histo2DRectangleCut: public Operator
         return result;
     }
 };
+#endif
 
 //
 // Sinks
 //
 // Accepts a single value as input
-struct Histo1DSink: public Operator
+class Histo1DSink: public BasicSink
 {
-    std::shared_ptr<Histo1D> histo;
+    Q_OBJECT
+    public:
+        std::shared_ptr<Histo1D> histo;
 
-    Pipe *input = nullptr;
+        virtual void step() override;
 
-    u32 fillsSinceLastDebug = 0;
-
-    virtual void step() override
-    {
-        //qDebug() << "begin" << __PRETTY_FUNCTION__;
-        if (input && histo)
-        {
-            const auto &parameter(input->first());
-
-            if (parameter.valid)
-            {
-                //qDebug() << __PRETTY_FUNCTION__ << "histo fill" << "address" << address << "value" << parameter.dval;
-                histo->fill(parameter.dval);
-                ++fillsSinceLastDebug;
-
-                if (fillsSinceLastDebug > 1000)
-                {
-                    histo->debugDump();
-                    fillsSinceLastDebug = 0;
-                }
-            }
-        }
-        //qDebug() << "end" << __PRETTY_FUNCTION__;
-    }
-
-    virtual bool hasOutput() const override { return false; }
-
-    virtual QVector<Pipe *> getInputs() override
-    {
-        QVector<Pipe *> result = { input };
-
-        return result;
-    }
+    private:
+        u32 fillsSinceLastDebug = 0;
 };
 
 
+#if 0
 struct Histo2DSink: public Operator
 {
     std::shared_ptr<Histo2D> histo;
@@ -721,9 +696,6 @@ class Analysis
             OperatorPtr op;
         };
 
-        QVector<SourceEntry> m_sources;
-        QVector<OperatorEntry> m_operators;
-
         const QVector<SourceEntry> &getSources() const
         {
             return m_sources;
@@ -750,126 +722,18 @@ class Analysis
             m_operators.clear();
         }
 
-        void beginRun()
-        {
-            updateRanks();
+        void beginRun();
+        void beginEvent(int eventIndex);
+        void processDataWord(int eventIndex, int moduleIndex, u32 data, s32 wordIndex);
+        void endEvent(int eventIndex);
+        void updateRanks();
 
-            // FIXME: reenable
-#if 0
-            qSort(m_operators.begin(), m_operators.end(), [] (const OperatorEntry &oe1, const OperatorEntry &oe2) {
-                return oe1.op->output.rank < oe2.op->output.rank;
-            });
+    private:
+        void updateRank(OperatorInterface *op, QSet<OperatorInterface *> &updated);
 
+        QVector<SourceEntry> m_sources;
+        QVector<OperatorEntry> m_operators;
 
-            for (auto &sourceEntry: m_sources)
-            {
-                sourceEntry.source->beginRun();
-            }
-#endif
-        }
-
-        void beginEvent(int eventIndex)
-        {
-            for (auto &sourceEntry: m_sources)
-            {
-                if (sourceEntry.eventIndex == eventIndex)
-                {
-                    sourceEntry.source->beginEvent();
-                }
-            }
-        }
-
-        void processDataWord(int eventIndex, int moduleIndex, u32 data, s32 wordIndex)
-        {
-            for (auto &sourceEntry: m_sources)
-            {
-                if (sourceEntry.eventIndex == eventIndex && sourceEntry.moduleIndex == moduleIndex)
-                {
-                    sourceEntry.source->processDataWord(data, wordIndex);
-                }
-            }
-        }
-
-        void endEvent(int eventIndex)
-        {
-            /* In beginRun() operators are sorted by rank. This way step()'ing
-             * operators can be done by just traversing the array. */
-
-            // TODO: only operators for the current eventIndex should be stepped!
-            // FIXME: does this mean cross-event operators are not possible?
-            // They could be as the output of an operator that was generated in
-            // another event can stay "alive". So a cross-event operator would
-            // take the last known output of an operator from another event and
-            // the output of an operator from the current event and just work
-            // as usual. When to step operators that come afterwards?
-            //
-            // How to decide which eventIndex an operator belongs to? Has to be done in the GUI!
-            qDebug() << "begin endEvent" << eventIndex;
-            for (auto &opEntry: m_operators)
-            {
-                if (opEntry.eventIndex == eventIndex)
-                {
-                    OperatorInterface *op = opEntry.op.get();
-                    const char *name = typeid(*op).name();
-                    qDebug() << "  stepping operator" << opEntry.op.get() << name;// << ", output rank =" << opEntry.op->output.rank;
-                    opEntry.op->step();
-                }
-            }
-            qDebug() << "end endEvent" << eventIndex;
-        }
-
-        void updateRanks()
-        {
-// FIXME: reenable
-#if 0
-            for (auto &sourceEntry: m_sources)
-            {
-                sourceEntry.source->output.rank = 0;
-            }
-
-            QSet<OperatorInterface *> updated;
-
-            for (auto &opEntry: m_operators)
-            {
-                OperatorInterface *op = opEntry.op.get();
-
-                updateRank(op, updated);
-            }
-#endif
-        }
-
-        void updateRank(OperatorInterface *op, QSet<OperatorInterface *> &updated)
-        {
-// FIXME: reenable
-#if 0
-            if (updated.contains(op))
-                return;
-
-            QVector<Pipe *> inputPipes(op->getInputs());
-
-            for (Pipe *pipe: inputPipes)
-            {
-                if (pipe->source)
-                {
-                    updateRank(pipe->source, updated);
-                }
-                else
-                {
-                    pipe->rank = 0;
-                }
-            }
-
-            int maxInputRank = 0;
-            for (Pipe *pipe: inputPipes)
-            {
-                if (pipe->rank > maxInputRank)
-                    maxInputRank = pipe->rank;
-            }
-
-            op->output.rank = maxInputRank + 1;
-            updated.insert(op);
-#endif
-        }
 };
 
 }

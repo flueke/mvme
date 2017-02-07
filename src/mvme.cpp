@@ -255,37 +255,29 @@ mvme::mvme(QWidget *parent) :
         
         analysis_ng->addSource(0, 0, mdpp16_extractor);
 
-
         // Operators
-        analysis_ng->m_operators.clear();
-
         auto calib = std::make_shared<CalibrationOperator>();
-        // XXX
-        //calib->input = &mdpp16_extractor->output;
+        calib->setGlobalCalibration(1.0, 0.0);
         calib->setInput(0, mdpp16_extractor->getOutput(0));
-        //calib->output.rank = calib->input->rank + 1;
-#if 0
-        calib->globalCalibration.factor = 1.0;
-        calib->globalCalibration.offset = 0;
-        analysis_ng->m_operators.push_back({0, calib});
+        analysis_ng->addOperator(0, calib);
 
-        // Sinks (they're also Operators now)
-
-        for (s32 i=0; i<16; ++i)
+        for (s32 i=0; i<1; ++i)
         {
-            auto selector = std::make_shared<IndexSelector>(i);
-            selector->input = &calib->output;
-            //selector->output.rank = selector->input->rank + 1;
-            analysis_ng->m_operators.push_back({0, selector});
+            auto selector = std::make_shared<IndexSelector>();
+            selector->setIndex(i);
+            selector->setInput(0, calib->getOutput(0));
+            analysis_ng->addOperator(0, selector);
 
             auto histoSink = std::make_shared<Histo1DSink>();
-            histoSink->histo = std::make_shared<Histo1D>(16, 0.0, 65536);
+            histoSink->setObjectName(QString("HistoSink for address %1").arg(i));
+            histoSink->histo = std::make_shared<Histo1D>(10, 0.0, 65536);
             histoSink->histo->setObjectName(QString("Histo for address %1").arg(i));
-            histoSink->input = &selector->output;
-            //histoSink->output.rank = histoSink->input->rank + 1;
-            analysis_ng->m_operators.push_back({0, histoSink});
+            histoSink->setInput(0, selector->getOutput(0));
+            analysis_ng->addOperator(0, histoSink);
         }
 
+#if 0
+        // Make a chain
         {
             auto firstSelector = std::make_shared<IndexSelector>(2);
             analysis_ng->m_operators.push_back({0, firstSelector});

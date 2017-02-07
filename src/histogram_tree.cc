@@ -550,24 +550,18 @@ void HistogramTreeWidget::onItemClicked(QTreeWidgetItem *item, int column)
         // Analysis NG stuff
         case NodeType_Source:
             {
-                auto source = Var2Ptr<analysis::SourceInterface>(item->data(0, DataRole_Pointer));
+                auto obj = Var2Ptr<analysis::SourceInterface>(item->data(0, DataRole_Pointer));
 
-                if (source)
-                {
-                    auto extractor = dynamic_cast<analysis::Extractor *>(source);
-                    if (extractor)
-                    {
-                    }
-                    else
-                    {
-                    }
-                }
+                qDebug() << "source clicked:" << obj;
+
 
             } break;
 
         case NodeType_Operator:
             {
-                auto op = Var2Ptr<analysis::OperatorInterface>(item->data(0, DataRole_Pointer));
+                auto obj = Var2Ptr<analysis::OperatorInterface>(item->data(0, DataRole_Pointer));
+
+                qDebug() << "operator clicked:" << obj;
             } break;
 
         default:
@@ -617,14 +611,12 @@ void HistogramTreeWidget::onItemDoubleClicked(QTreeWidgetItem *node, int column)
 
         case NodeType_Operator:
             {
-#if 0
                 auto op = Var2Ptr<analysis::OperatorInterface>(node->data(0, DataRole_Pointer));
-                if (auto histoSink = dynamic_cast<analysis::Histo1DSink *>(op))
+                if (auto histoSink = qobject_cast<analysis::Histo1DSink *>(op))
                 {
                     auto widget = new Histo1DWidget(histoSink->histo.get());
                     m_context->getMainWindow()->addWidgetWindow(widget);
                 }
-#endif
             } break;
     }
 }
@@ -1463,45 +1455,40 @@ void HistogramTreeWidget::openHistoListWidget()
 
 void HistogramTreeWidget::updateAnalysisNGStuff()
 {
-    //qDeleteAll(m_node1dNew->takeChildren());
-    //qDeleteAll(m_node2dNew->takeChildren());
-    //qDeleteAll(m_nodeAnalysisNG->takeChildren());
-
     auto analysis = m_context->getAnalysisNG();
 
     for (const auto &entry: analysis->getSources())
     {
-        analysis::SourceInterface *source = entry.source.get();
-        if (!m_treeMapUntyped.contains(source))
+        auto obj = entry.source.get();
+
+        if (!m_treeMap.contains(obj))
         {
-            auto node = makeNode(source, NodeType_Source);
-            const char *name = typeid(*source).name();
-            node->setText(0, QString("Source %1").arg(name));
+            auto node = makeNode(obj, NodeType_Source);
+            node->setText(0, QString("Source: cls=%1, name=%2, ei=%3, mi=%4")
+                .arg(obj->metaObject()->className())
+                .arg(obj->objectName())
+                .arg(entry.eventIndex)
+                .arg(entry.moduleIndex)
+                );
             m_nodeAnalysisNG->addChild(node);
-            m_treeMapUntyped[source] = node;
+            m_treeMap[obj] = node;
         }
     }
 
-#if 0
     for (const auto &entry: analysis->getOperators())
     {
-        analysis::OperatorInterface *op = entry.op.get();
-        if (!m_treeMapUntyped.contains(op))
+        auto obj = entry.op.get();
+
+        if (!m_treeMap.contains(obj))
         {
-            auto node = makeNode(op, NodeType_Operator);
-            const char *name = typeid(*op).name();
-            node->setText(0, QString("Operator %1").arg(name));
-            m_treeMapUntyped[op] = node;
-            if (auto histoSink = dynamic_cast<analysis::Histo1DSink *>(op))
-            {
-                node->setIcon(0, QIcon(":/hist1d.png"));
-                m_node1dNew->addChild(node);
-            }
-            else
-            {
-                m_nodeAnalysisNG->addChild(node);
-            }
+            auto node = makeNode(obj, NodeType_Operator);
+            node->setText(0, QString("Operator: cls=%1, name=%2, ei=%3")
+                .arg(obj->metaObject()->className())
+                .arg(obj->objectName())
+                .arg(entry.eventIndex)
+                );
+            m_nodeAnalysisNG->addChild(node);
+            m_treeMap[obj] = node;
         }
     }
-#endif
 }

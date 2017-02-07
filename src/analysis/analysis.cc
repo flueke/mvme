@@ -5,11 +5,49 @@ namespace analysis
 {
 
 //
+// OperatorInterface
+//
+s32 OperatorInterface::getMaximumInputRank()
+{
+    s32 result = 0;
+
+    for (s32 inputIndex = 0;
+         inputIndex < getNumberOfInputs();
+         ++inputIndex)
+    {
+        if (Pipe *input = getInput(inputIndex))
+        {
+            result = std::max(result, input->getRank());
+        }
+    }
+
+    return result;
+}
+
+s32 OperatorInterface::getMaximumOutputRank()
+{
+    s32 result = 0;
+
+    for (s32 outputIndex = 0;
+         outputIndex < getNumberOfOutputs();
+         ++outputIndex)
+    {
+        if (Pipe *output = getOutput(outputIndex))
+        {
+            result = std::max(result, output->getRank());
+        }
+    }
+
+    return result;
+}
+
+//
 // Extractor
 //
 Extractor::Extractor(QObject *parent)
-    : QObject(parent)
+    : SourceInterface(parent)
 {
+    m_output.setSource(this);
 }
 
 void Extractor::beginRun()
@@ -64,7 +102,7 @@ void Extractor::processDataWord(u32 data, s32 wordIndex)
     }
 }
 
-int Extractor::numberOfOutputs() const
+int Extractor::getNumberOfOutputs() const
 {
     return 1;
 }
@@ -87,61 +125,409 @@ Pipe *Extractor::getOutput(int index)
 }
 
 //
-// CalibrationOperator
+// BasicOperator
 //
-CalibrationOperator::CalibrationOperator(QObject *parent)
-    : QObject(parent)
+BasicOperator::BasicOperator(QObject *parent)
+    : OperatorInterface(parent)
 {
     m_output.setSource(this);
 }
 
-void CalibrationOperator::step()
+BasicOperator::~BasicOperator()
 {
+    if (m_input)
+    {
+        m_input->removeDestination(this);
+    }
 }
 
-int CalibrationOperator::getNumberOfInputs() const
+int BasicOperator::getNumberOfInputs() const
 {
     return 1;
 }
 
-QString CalibrationOperator::getInputName(int inputIndex) const
+QString BasicOperator::getInputName(int inputIndex) const
 {
-    return "Input Array";
+    if (inputIndex == 0)
+    {
+        return QSL("Input");
+    }
+    
+    return QString();
 }
 
-void CalibrationOperator::setInput(int index, Pipe *inputPipe)
+void BasicOperator::setInput(int index, Pipe *inputPipe)
 {
-    m_input = inputPipe;
-    m_input->addDestination(this);
+    if (index == 0)
+    {
+        if (m_input)
+        {
+            m_input->removeDestination(this);
+        }
+
+        m_input = inputPipe;
+
+        if (m_input)
+        {
+            m_input->addDestination(this);
+        }
+    }
 }
 
-void CalibrationOperator::removeInput(Pipe *pipe)
+Pipe *BasicOperator::getInput(int index) const
 {
-    if (m_input == pipe)
+    Pipe *result = nullptr;
+    if (index == 0)
+    {
+        result = m_input;
+    }
+    return result;
+}
+
+void BasicOperator::removeInput(Pipe *pipe)
+{
+    if (m_input && m_input == pipe)
     {
         m_input->removeDestination(this);
         m_input = nullptr;
     }
 }
 
-int CalibrationOperator::getNumberOfOutputs() const
+
+int BasicOperator::getNumberOfOutputs() const
 {
     return 1;
 }
 
-QString CalibrationOperator::getOutputName(int outputIndex) const
+QString BasicOperator::getOutputName(int outputIndex) const
 {
-    return QSL("Calibrated data array");
+    if (outputIndex == 1)
+    {
+        return QSL("Output");
+    }
+    return QString();
+
 }
 
-Pipe *CalibrationOperator::getOutput(int index)
+Pipe *BasicOperator::getOutput(int index)
 {
     Pipe *result = nullptr;
     if (index == 0)
     {
         result = &m_output;
     }
+
     return result;
+}
+
+//
+// BasicSink
+//
+BasicSink::~BasicSink()
+{
+    if (m_input)
+    {
+        m_input->removeDestination(this);
+    }
+}
+
+int BasicSink::getNumberOfInputs() const
+{
+    return 1;
+}
+
+QString BasicSink::getInputName(int inputIndex) const
+{
+    if (inputIndex == 0)
+    {
+        return QSL("Input");
+    }
+    
+    return QString();
+}
+
+void BasicSink::setInput(int index, Pipe *inputPipe)
+{
+    if (index == 0)
+    {
+        if (m_input)
+        {
+            m_input->removeDestination(this);
+        }
+
+        m_input = inputPipe;
+
+        if (m_input)
+        {
+            m_input->addDestination(this);
+        }
+    }
+}
+
+Pipe *BasicSink::getInput(int index) const
+{
+    Pipe *result = nullptr;
+    if (index == 0)
+    {
+        result = m_input;
+    }
+    return result;
+}
+
+void BasicSink::removeInput(Pipe *pipe)
+{
+    if (m_input && m_input == pipe)
+    {
+        m_input->removeDestination(this);
+        m_input = nullptr;
+    }
+}
+
+
+int BasicSink::getNumberOfOutputs() const
+{
+    return 0;
+}
+
+QString BasicSink::getOutputName(int outputIndex) const
+{
+    return QString();
+}
+
+Pipe *BasicSink::getOutput(int index)
+{
+    Pipe *result = nullptr;
+    return result;
+}
+
+//
+// CalibrationOperator
+//
+CalibrationOperator::CalibrationOperator(QObject *parent)
+    : BasicOperator(parent)
+{
+}
+
+void CalibrationOperator::step()
+{
+    if (m_input)
+    {
+        auto &out(m_output.getParameters());
+        const auto &in(m_input->getParameters());
+
+        out.resize(in.size());
+        out.invalidateAll();
+
+        out.name = in.name;
+        out.unit = getUnitLabel();
+
+
+        const s32 size = in.size();
+        for (s32 address = 0;
+             address < size;
+             ++address)
+        {
+            auto &outParam(out[address]);
+            const auto &inParam(in[address]);
+
+            if (inParam.valid)
+            {
+                CalibrationParameters calib(getCalibration(address));
+
+                outParam.dval = inParam.dval * calib.factor + calib.offset;
+                outParam.type = Parameter::Double;
+                outParam.valid = true;
+            }
+        }
+    }
+}
+
+void CalibrationOperator::setCalibration(s32 address, const CalibrationParameters &params)
+{
+    m_calibrations.resize(std::max(m_calibrations.size(), address+1));
+    m_calibrations[address] = params;
+}
+
+CalibrationParameters CalibrationOperator::getCalibration(s32 address) const
+{
+    CalibrationParameters result = m_globalCalibration;
+
+    if (address < m_calibrations.size() && m_calibrations[address].isValid())
+    {
+        result = m_calibrations[address];
+    }
+
+    return result;
+}
+
+//
+// IndexSelector
+//
+void IndexSelector::step()
+{
+    if (m_input)
+    {
+        auto &out(m_output.getParameters());
+        const auto &in(m_input->getParameters());
+
+        out.resize(1);
+        out.invalidateAll();
+
+        if (m_index < in.size())
+        {
+            const auto &inParam(in[m_index]);
+
+            if (inParam.valid)
+            {
+                out.name = in.name;
+                out.unit = in.unit;
+                out[0] = inParam;
+            }
+        }
+    }
+}
+
+//
+// Histo1DSink
+//
+void Histo1DSink::step()
+{
+    if (m_input && histo)
+    {
+        const auto &param(m_input->first());
+
+        if (param.valid)
+        {
+            histo->fill(param.dval);
+            ++fillsSinceLastDebug;
+            if (fillsSinceLastDebug > 1000)
+            {
+                histo->debugDump();
+                fillsSinceLastDebug = 0;
+            }
+        }
+    }
+}
+
+//
+// Analysis
+//
+void Analysis::beginRun()
+{
+    updateRanks();
+
+    qSort(m_operators.begin(), m_operators.end(), [] (const OperatorEntry &oe1, const OperatorEntry &oe2) {
+        return oe1.op->getMaximumInputRank() < oe2.op->getMaximumInputRank();
+    });
+
+    for (auto &sourceEntry: m_sources)
+    {
+        sourceEntry.source->beginRun();
+    }
+}
+
+void Analysis::beginEvent(int eventIndex)
+{
+    for (auto &sourceEntry: m_sources)
+    {
+        if (sourceEntry.eventIndex == eventIndex)
+        {
+            sourceEntry.source->beginEvent();
+        }
+    }
+}
+
+void Analysis::processDataWord(int eventIndex, int moduleIndex, u32 data, s32 wordIndex)
+{
+    for (auto &sourceEntry: m_sources)
+    {
+        if (sourceEntry.eventIndex == eventIndex && sourceEntry.moduleIndex == moduleIndex)
+        {
+            sourceEntry.source->processDataWord(data, wordIndex);
+        }
+    }
+}
+
+void Analysis::endEvent(int eventIndex)
+{
+    /* In beginRun() operators are sorted by rank. This way step()'ing
+     * operators can be done by just traversing the array. */
+
+    qDebug() << "begin endEvent" << eventIndex;
+    for (auto &opEntry: m_operators)
+    {
+        if (opEntry.eventIndex == eventIndex)
+        {
+            OperatorInterface *op = opEntry.op.get();
+            qDebug() << "  stepping operator" << opEntry.op.get()
+                << ", input rank =" << opEntry.op->getMaximumInputRank()
+                << ", output rank =" << opEntry.op->getMaximumOutputRank()
+                ;
+            opEntry.op->step();
+        }
+    }
+    qDebug() << "end endEvent" << eventIndex;
+}
+
+void Analysis::updateRanks()
+{
+    for (auto &sourceEntry: m_sources)
+    {
+        SourceInterface *source = sourceEntry.source.get();
+        const s32 outputCount = source->getNumberOfOutputs();
+
+        for (s32 outputIndex = 0;
+             outputIndex < source->getNumberOfOutputs();
+             ++outputIndex)
+        {
+            source->getOutput(outputIndex)->setRank(0);
+        }
+    }
+
+    QSet<OperatorInterface *> updated;
+
+    for (auto &opEntry: m_operators)
+    {
+        OperatorInterface *op = opEntry.op.get();
+
+        updateRank(op, updated);
+    }
+}
+
+void Analysis::updateRank(OperatorInterface *op, QSet<OperatorInterface *> &updated)
+{
+    if (updated.contains(op))
+        return;
+
+
+    for (s32 inputIndex = 0;
+         inputIndex < op->getNumberOfInputs();
+         ++inputIndex)
+    {
+        Pipe *input = op->getInput(inputIndex);
+
+        PipeSourceInterface *source(input->getSource());
+        OperatorInterface *sourceOp(qobject_cast<OperatorInterface *>(source));
+
+        if (sourceOp)
+        {
+            updateRank(sourceOp, updated);
+        }
+        else
+        {
+            input->setRank(0);
+        }
+    }
+
+    s32 maxInputRank = op->getMaximumInputRank();
+
+    for (s32 outputIndex = 0;
+         outputIndex < op->getNumberOfOutputs();
+         ++outputIndex)
+    {
+        op->getOutput(outputIndex)->setRank(maxInputRank + 1);
+        updated.insert(op);
+    }
 }
 
 }
