@@ -62,6 +62,7 @@
     </property>
     <addaction name="actionVME_Debug"/>
     <addaction name="actionImport_Histogram"/>
+    <addaction name="actionImport_Histo1D"/>
     <addaction name="separator"/>
     <addaction name="actionTile"/>
     <addaction name="actionCascade"/>
@@ -184,6 +185,11 @@
   <action name="actionNewWorkspace">
    <property name="text">
     <string>New Workspace</string>
+   </property>
+  </action>
+  <action name="actionImport_Histo1D">
+   <property name="text">
+    <string>Import Histo1D</string>
    </property>
   </action>
  </widget>

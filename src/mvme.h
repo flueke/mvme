@@ -86,6 +86,7 @@ private slots:
 
     void onShowDiagnostics(ModuleConfig *config);
     void on_actionImport_Histogram_triggered();
+    void on_actionImport_Histo1D_triggered();
 
     void on_actionVMEScriptRef_triggered();
 

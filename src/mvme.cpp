@@ -19,6 +19,7 @@
 #include "mvme_event_processor.h"
 #include "gui_util.h"
 #include "analysis/analysis.h"
+#include "histo1d_widget.h"
 
 #include <QDockWidget>
 #include <QFileDialog>
@@ -1179,6 +1180,60 @@ void mvme::on_actionImport_Histogram_triggered()
             ui->mdiArea->addSubWindow(subwin);
             subwin->show();
             ui->mdiArea->setActiveSubWindow(subwin);
+        }
+    }
+}
+
+void mvme::on_actionImport_Histo1D_triggered()
+{
+    QSettings settings;
+    QString path = settings.value(QSL("LastHisto1DDirectory")).toString();
+
+    if (path.isEmpty())
+    {
+        path = m_context->getWorkspaceDirectory();
+    }
+
+    QString filename = QFileDialog::getOpenFileName(
+        this, QSL("Import Histogram"),
+        path,
+        QSL("Histogram files (*.histo1d);; All Files (*)"));
+
+    if (filename.isEmpty())
+        return;
+
+    QFile inFile(filename);
+
+    if (inFile.open(QIODevice::ReadOnly))
+    {
+        QTextStream inStream(&inFile);
+
+        auto histo = readHisto1D(inStream);
+
+        if (histo)
+        {
+            auto widget = new Histo1DWidget(histo);
+            widget->setAttribute(Qt::WA_DeleteOnClose);
+            histo->setParent(widget);
+
+            auto subwin = new QMdiSubWindow;
+            subwin->setAttribute(Qt::WA_DeleteOnClose);
+
+            subwin->setAttribute(Qt::WA_DeleteOnClose);
+            subwin->setWidget(widget);
+            ui->mdiArea->addSubWindow(subwin);
+            subwin->show();
+            ui->mdiArea->setActiveSubWindow(subwin);
+
+
+            if (path != m_context->getWorkspaceDirectory())
+            {
+                settings.setValue(QSL("LastHisto1DDirectory"), path);
+            }
+            else
+            {
+                settings.remove(QSL("LastHisto1DDirectory"));
+            }
         }
     }
 }
