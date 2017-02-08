@@ -180,6 +180,7 @@ class ListFileReader: public QObject
         DataBufferQueue m_freeBuffers;
         DAQState m_state = DAQState::Idle;
         quint32 m_buffersToRead = 0;
+        bool m_limitBuffers = false;
 };
 
 class ListFileWriter: public QObject

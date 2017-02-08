@@ -253,6 +253,7 @@ void ListFileReader::startFromBeginning(quint32 nBuffers)
         return;
 
     m_buffersToRead = nBuffers;
+    m_limitBuffers = (m_buffersToRead > 0);
     m_stopped = false;
     m_listFile->seek(0);
     m_bytesRead = 0;
@@ -283,7 +284,8 @@ bool ListFileReader::readNextBuffer(DataBuffer *dest)
     dest->used = 0;
     s32 sectionsRead = 0;
 
-    if (!m_stopped && m_buffersToRead > 0 && (sectionsRead = m_listFile->readSectionsIntoBuffer(dest)) > 0)
+    if (!m_stopped && (!m_limitBuffers || m_buffersToRead > 0)
+        && ((sectionsRead = m_listFile->readSectionsIntoBuffer(dest)) > 0))
     {
         --m_buffersToRead;
         m_bytesRead += dest->used;

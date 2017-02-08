@@ -98,8 +98,10 @@ void Extractor::processDataWord(u32 data, s32 wordIndex)
                 {
                     param.valid = true;
                     param.dval = value; // XXX: using the double here! ival is not used anymore
+#if ENABLE_ANALYSIS_DEBUG
                     qDebug() << this << "setting param valid, addr =" << address << ", value =" << param.dval
                         << ", dataWord =" << QString("0x%1").arg(data, 8, 16, QLatin1Char('0'));
+#endif
                 }
             }
         }
