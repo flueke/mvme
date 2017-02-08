@@ -45,7 +45,7 @@ class Histo1D: public QObject
         double getMaxValue() const { return m_maxValue; }
         u32 getMaxBin() const { return m_maxBin; }
 
-        void debugDump() const;
+        void debugDump(bool dumpEmptyBins = true) const;
 
         double getUnderflow() const { return m_underflow; }
         void setUnderflow(double value) { m_underflow = value; }

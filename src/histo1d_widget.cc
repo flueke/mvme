@@ -258,7 +258,7 @@ void Histo1DWidget::displayChanged()
 
     auto name = m_histo->objectName();
 
-    setWindowTitle(QString("Histogram %1").arg(name));
+    setWindowTitle(QString("Histogram %1 [double based]").arg(name));
 
     /* Before the scale change the zoomer might have been zoomed into negative
      * x-axis bins. This results in scaling errors and a zoom into negative

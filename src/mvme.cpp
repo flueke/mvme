@@ -262,20 +262,24 @@ mvme::mvme(QWidget *parent) :
         calib->setInput(0, mdpp16_extractor->getOutput(0));
         analysis_ng->addOperator(0, calib);
 
-        for (s32 i=0; i<1; ++i)
+        auto addSelectorAndSink = [calib, analysis_ng](s32 address)
         {
             auto selector = std::make_shared<IndexSelector>();
-            selector->setIndex(i);
+            selector->setIndex(address);
             selector->setInput(0, calib->getOutput(0));
             analysis_ng->addOperator(0, selector);
 
             auto histoSink = std::make_shared<Histo1DSink>();
-            histoSink->setObjectName(QString("HistoSink for address %1").arg(i));
-            histoSink->histo = std::make_shared<Histo1D>(10, 0.0, 65536);
-            histoSink->histo->setObjectName(QString("Histo for address %1").arg(i));
+            histoSink->setObjectName(QString("HistoSink for address %1").arg(address));
+            histoSink->histo = std::make_shared<Histo1D>(1 << 16, 0, 1 << 16);
+            histoSink->histo->setObjectName(QString("Histo for address %1").arg(address));
             histoSink->setInput(0, selector->getOutput(0));
             analysis_ng->addOperator(0, histoSink);
-        }
+        };
+
+        addSelectorAndSink(0);
+        addSelectorAndSink(8);
+
 
 #if 0
         // Make a chain

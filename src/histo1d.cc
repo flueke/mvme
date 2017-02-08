@@ -74,7 +74,7 @@ bool Histo1D::setBinContent(u32 bin, double value)
     return result;
 }
 
-void Histo1D::debugDump() const
+void Histo1D::debugDump(bool dumpEmptyBins) const
 {
     qDebug() << "Histo1D" << this;
     qDebug() << "  bins =" << m_xAxis.getBins() << ", xMin =" << m_xAxis.getMin() << ", xMax =" << m_xAxis.getMax();
@@ -82,7 +82,8 @@ void Histo1D::debugDump() const
 
     for (u32 bin = 0; bin < m_xAxis.getBins(); ++bin)
     {
-        qDebug() << "  bin =" << bin << ", lowEdge=" << m_xAxis.getBinLowEdge(bin) << ", value =" << m_data[bin];
+        if (dumpEmptyBins || m_data[bin] > 0.0)
+            qDebug() << "  bin =" << bin << ", lowEdge=" << m_xAxis.getBinLowEdge(bin) << ", value =" << m_data[bin];
     }
 }
 

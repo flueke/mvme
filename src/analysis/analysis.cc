@@ -1,7 +1,7 @@
 #include "analysis.h"
 #include "../qt_util.h"
 
-#define ENABLE_ANALYSIS_DEBUG 1
+#define ENABLE_ANALYSIS_DEBUG 0
 
 namespace analysis
 {
@@ -80,6 +80,7 @@ void Extractor::beginEvent()
 void Extractor::processDataWord(u32 data, s32 wordIndex)
 {
     m_filter.handleDataWord(data, wordIndex);
+
     if (m_filter.isComplete())
     {
         ++m_currentCompletionCount;
@@ -97,14 +98,27 @@ void Extractor::processDataWord(u32 data, s32 wordIndex)
                 {
                     param.valid = true;
                     param.dval = value; // XXX: using the double here! ival is not used anymore
-                    //qDebug() << __PRETTY_FUNCTION__ << "address" << address << "value" << value;
-                    qDebug("setting param valid. addr=%d, val=%lf, dataword=0x%08x",
-                           address, param.dval, data);
+                    qDebug() << this << "setting param valid, addr =" << address << ", value =" << param.dval
+                        << ", dataWord =" << QString("0x%1").arg(data, 8, 16, QLatin1Char('0'));
                 }
             }
         }
         m_filter.clearCompletion();
     }
+
+#if 0
+    qDebug() << this << "output:";
+    auto &params(m_output.getParameters());
+
+    for (s32 ip=0; ip<params.size(); ++ip)
+    {
+        auto &param(params[ip]);
+        if (param.valid)
+            qDebug() << "        " << ip << "=" << to_string(param);
+        else
+            qDebug() << "        " << ip << "=" << "<not valid>";
+    }
+#endif
 }
 
 int Extractor::getNumberOfOutputs() const
@@ -395,12 +409,16 @@ void Histo1DSink::step()
         if (param.valid)
         {
             histo->fill(param.dval);
+
+#if ENABLE_ANALYSIS_DEBUG
+            qDebug() << this << "fill" << histo.get() << param.dval;
             ++fillsSinceLastDebug;
-            if (fillsSinceLastDebug > 1000)
+            if (fillsSinceLastDebug > 10000)
             {
-                histo->debugDump();
+                histo->debugDump(false);
                 fillsSinceLastDebug = 0;
             }
+#endif
         }
     }
 }
@@ -455,7 +473,7 @@ void Analysis::endEvent(int eventIndex)
      * operators can be done by just traversing the array. */
 
 #if ENABLE_ANALYSIS_DEBUG
-    qDebug() << "begin endEvent" << eventIndex;
+    qDebug() << "begin endEvent()" << eventIndex;
 #endif
 
     for (auto &opEntry: m_operators)
@@ -475,25 +493,30 @@ void Analysis::endEvent(int eventIndex)
     }
 
 #if ENABLE_ANALYSIS_DEBUG
+    qDebug() << "  >>> Sources <<<";
     for (auto &entry: m_sources)
     {
         auto source = entry.source;
-        qDebug() << "Source: e =" << entry.eventIndex << ", m =" << entry.moduleIndex << ", src =" << source.get();
+        qDebug() << "    Source: e =" << entry.eventIndex << ", m =" << entry.moduleIndex << ", src =" << source.get();
 
-        for (s32 i = 0; i < source->getNumberOfOutputs(); ++i)
+        for (s32 outputIndex = 0; outputIndex < source->getNumberOfOutputs(); ++outputIndex)
         {
-            auto pipe = source->getOutput(i);
+            auto pipe = source->getOutput(outputIndex);
             const auto &params = pipe->getParameters();
-            qDebug() << "  Output#" << i << ", name =" << params.name << ", unit =" << params.unit;
+            qDebug() << "      Output#" << outputIndex << ", name =" << params.name << ", unit =" << params.unit << ", size =" << params.size();
             for (s32 ip=0; ip<params.size(); ++ip)
             {
-                auto &param(params[i]);
+                auto &param(params[ip]);
                 if (param.valid)
-                    qDebug() << "    " << ip << "=" << to_string(param);
+                    qDebug() << "        " << ip << "=" << to_string(param);
+                else
+                    qDebug() << "        " << ip << "=" << "<not valid>";
             }
         }
     }
+    qDebug() << "  <<< End Sources >>>";
 
+    qDebug() << "  >>> Operators <<<";
     for (auto &entry: m_operators)
     {
         auto op = entry.op;
@@ -501,25 +524,28 @@ void Analysis::endEvent(int eventIndex)
         if (op->getNumberOfOutputs() == 0)
             continue;
 
-        qDebug() << "Op: e =" << entry.eventIndex << ", op =" << op.get();
+        qDebug() << "    Op: e =" << entry.eventIndex << ", op =" << op.get();
 
-        for (s32 i = 0; i < op->getNumberOfOutputs(); ++i)
+        for (s32 outputIndex = 0; outputIndex < op->getNumberOfOutputs(); ++outputIndex)
         {
-            auto pipe = op->getOutput(i);
+            auto pipe = op->getOutput(outputIndex);
             const auto &params = pipe->getParameters();
-            qDebug() << "  Output#" << i << ", name =" << params.name << ", unit =" << params.unit;
+            qDebug() << "      Output#" << outputIndex << ", name =" << params.name << ", unit =" << params.unit;
             for (s32 ip=0; ip<params.size(); ++ip)
             {
-                auto &param(params[i]);
+                auto &param(params[ip]);
                 if (param.valid)
-                    qDebug() << "    " << ip << "=" << to_string(param);
+                    qDebug() << "        " << ip << "=" << to_string(param);
+                else
+                    qDebug() << "        " << ip << "=" << "<not valid>";
             }
         }
     }
+    qDebug() << " <<< End Operators >>>";
 #endif
 
 #if ENABLE_ANALYSIS_DEBUG
-    qDebug() << "end endEvent" << eventIndex;
+    qDebug() << "end endEvent()" << eventIndex;
 #endif
 }
 

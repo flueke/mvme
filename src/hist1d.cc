@@ -523,7 +523,7 @@ void Hist1DWidget::displayChanged()
     }
 
     auto name = m_histoConfig ? m_histoConfig->objectName() : m_histo->objectName();
-    setWindowTitle(QString("Histogram %1").arg(name));
+    setWindowTitle(QString("Histogram %1 [int based]").arg(name));
 
     if (m_histoConfig)
     {
@@ -539,7 +539,7 @@ void Hist1DWidget::displayChanged()
 
         if (!histoPath.isEmpty())
         {
-            auto windowTitle = QSL("Histogram ") + histoPath;
+            auto windowTitle = QSL("Histogram ") + histoPath + " [int based]";
             setWindowTitle(windowTitle);
         }
 
