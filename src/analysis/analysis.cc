@@ -128,7 +128,7 @@ int Extractor::getNumberOfOutputs() const
     return 1;
 }
 
-QString Extractor::outputName(int outputIndex) const
+QString Extractor::getOutputName(int outputIndex) const
 {
     return QSL("Extracted data array");
 }
@@ -609,6 +609,60 @@ void Analysis::updateRank(OperatorInterface *op, QSet<OperatorInterface *> &upda
     {
         op->getOutput(outputIndex)->setRank(maxInputRank + 1);
         updated.insert(op);
+    }
+}
+
+void Analysis::removeSource(const SourcePtr &source) // TODO: test this
+{
+    s32 entryIndex = -1;
+    for (s32 i = 0; i < m_sources.size(); ++i)
+    {
+        if (m_sources[i].source == source)
+        {
+            entryIndex = i;
+            break;
+        }
+    }
+
+    if (entryIndex >= 0)
+    {
+        m_sources.remove(entryIndex);
+
+        for (int outputIndex = 0; outputIndex < source->getNumberOfOutputs(); ++outputIndex)
+        {
+            Pipe *outPipe = source->getOutput(outputIndex);
+            for (OperatorInterface *destOp: outPipe->getDestinations())
+            {
+                destOp->removeInput(outPipe);
+            }
+        }
+    }
+}
+
+void Analysis::removeOperator(const OperatorPtr &op) // TODO: test this
+{
+    s32 entryIndex = -1;
+    for (s32 i = 0; i < m_operators.size(); ++i)
+    {
+        if (m_operators[i].op == op)
+        {
+            entryIndex = i;
+            break;
+        }
+    }
+
+    if (entryIndex >= 0)
+    {
+        m_operators.remove(entryIndex);
+
+        for (int outputIndex = 0; outputIndex < op->getNumberOfOutputs(); ++outputIndex)
+        {
+            Pipe *outPipe = op->getOutput(outputIndex);
+            for (OperatorInterface *destOp: outPipe->getDestinations())
+            {
+                destOp->removeInput(outPipe);
+            }
+        }
     }
 }
 

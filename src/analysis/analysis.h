@@ -176,7 +176,7 @@ class SourceInterface: public PipeSourceInterface
         virtual void processDataWord(u32 data, s32 wordIndex) = 0;
 
         virtual int getNumberOfOutputs() const = 0;
-        virtual QString outputName(int outputIndex) const = 0;
+        virtual QString getOutputName(int outputIndex) const = 0;
         virtual Pipe *getOutput(int index) = 0;
 
         virtual ~SourceInterface() {}
@@ -296,7 +296,7 @@ class Extractor: public SourceInterface
         virtual void processDataWord(u32 data, s32 wordIndex) override;
 
         virtual int getNumberOfOutputs() const override;
-        virtual QString outputName(int outputIndex) const override;
+        virtual QString getOutputName(int outputIndex) const override;
         virtual Pipe *getOutput(int index) override;
 
     private:
@@ -707,6 +707,11 @@ class Analysis
             OperatorPtr op;
         };
 
+        void beginRun();
+        void beginEvent(int eventIndex);
+        void processDataWord(int eventIndex, int moduleIndex, u32 data, s32 wordIndex);
+        void endEvent(int eventIndex);
+
         const QVector<SourceEntry> &getSources() const
         {
             return m_sources;
@@ -727,19 +732,18 @@ class Analysis
             m_operators.push_back({eventIndex, op});
         }
 
+        void removeSource(const SourcePtr &source);
+        void removeOperator(const OperatorPtr &op);
+
+
         void clear()
         {
             m_sources.clear();
             m_operators.clear();
         }
 
-        void beginRun();
-        void beginEvent(int eventIndex);
-        void processDataWord(int eventIndex, int moduleIndex, u32 data, s32 wordIndex);
-        void endEvent(int eventIndex);
-        void updateRanks();
-
     private:
+        void updateRanks();
         void updateRank(OperatorInterface *op, QSet<OperatorInterface *> &updated);
 
         QVector<SourceEntry> m_sources;

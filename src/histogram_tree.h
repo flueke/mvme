@@ -2,7 +2,7 @@
 #define __HISTOGRAM_TREE_H__
 
 #include <QWidget>
-#include <QMap>
+#include <QMultiMap>
 
 class QLineEdit;
 class QTreeWidget;
@@ -73,6 +73,7 @@ class HistogramTreeWidget: public QWidget
         void removeNode(QTreeWidgetItem *node);
         void addToTreeMap(QObject *object, TreeNode *node);
         void removeFromTreeMap(QObject *object);
+        void removeFromTreeMap(QObject *object, TreeNode *node);
 
         void newConfig();
         void loadConfig();
@@ -88,11 +89,12 @@ class HistogramTreeWidget: public QWidget
         DAQConfig *m_daqConfig = nullptr;
         AnalysisConfig *m_analysisConfig = nullptr;
         QTreeWidget *m_tree;
-        QMap<QObject *, TreeNode *> m_treeMap;
+        QMultiMap<QObject *, TreeNode *> m_treeMap;
         QMap<void *, TreeNode *> m_treeMapUntyped;
         TreeNode *m_node1D, *m_node2D;
         TreeNode *m_node1dNew, *m_node2dNew;
         TreeNode *m_nodeAnalysisNG;
+        TreeNode *m_nodeAnalysisNGObjects;
 
         QToolButton *pb_new, *pb_load, *pb_save, *pb_saveAs;
         QLineEdit *le_fileName;

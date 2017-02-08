@@ -30,6 +30,8 @@
 
 #include <memory>
 
+#define ENABLE_ANALYSIS_NG 1
+
 //
 // Utility functions for filter and histogram creation.
 //
@@ -128,7 +130,7 @@ enum NodeType
     NodeType_Hist2D,
     NodeType_DataFilter,
     NodeType_DualWordDataFilter,
-    // The new histograms
+    // Analysis NG stuff
     NodeType_Source,
     NodeType_Operator,
 };
@@ -192,6 +194,7 @@ HistogramTreeWidget::HistogramTreeWidget(MVMEContext *context, QWidget *parent)
     , m_node1dNew(new TreeNode)
     , m_node2dNew(new TreeNode)
     , m_nodeAnalysisNG(new TreeNode)
+    , m_nodeAnalysisNGObjects(new TreeNode)
 {
     m_tree->setColumnCount(2);
     m_tree->setExpandsOnDoubleClick(false);
@@ -222,7 +225,10 @@ HistogramTreeWidget::HistogramTreeWidget(MVMEContext *context, QWidget *parent)
     m_nodeAnalysisNG->setText(0, QSL("Analysis NG"));
     m_tree->addTopLevelItem(m_nodeAnalysisNG);
 
-    for (auto node: {m_node1dNew, m_node2dNew, m_nodeAnalysisNG})
+    m_nodeAnalysisNGObjects->setText(0, QSL("Analysis NG Objects"));
+    m_tree->addTopLevelItem(m_nodeAnalysisNGObjects);
+
+    for (auto node: {m_node1dNew, m_node2dNew, m_nodeAnalysisNG, m_nodeAnalysisNGObjects})
     {
         node->setExpanded(true);
     }
@@ -317,26 +323,54 @@ void HistogramTreeWidget::onObjectAdded(QObject *object)
     }
     else if (auto moduleConfig = qobject_cast<ModuleConfig *>(object))
     {
-        auto moduleNode = makeNode(moduleConfig, NodeType_Module);
-        moduleNode->setText(0, moduleConfig->objectName());
-        moduleNode->setIcon(0, QIcon(":/vme_module.png"));
-        addToTreeMap(moduleConfig, moduleNode);
-        m_node1D->addChild(moduleNode);
+        {
+            auto moduleNode = makeNode(moduleConfig, NodeType_Module);
+            moduleNode->setText(0, moduleConfig->objectName());
+            moduleNode->setIcon(0, QIcon(":/vme_module.png"));
+            addToTreeMap(moduleConfig, moduleNode);
+            m_node1D->addChild(moduleNode);
 
-        auto idxPair = m_context->getDAQConfig()->getEventAndModuleIndices(moduleConfig);
+            auto idxPair = m_context->getDAQConfig()->getEventAndModuleIndices(moduleConfig);
 
-        moduleNode->setText(1, QString("event=%1, module=%2").arg(idxPair.first).arg(idxPair.second));
+            moduleNode->setText(1, QString("event=%1, module=%2").arg(idxPair.first).arg(idxPair.second));
 
-        for (auto filterConfig: m_context->getAnalysisConfig()->getFilters(idxPair.first, idxPair.second))
-            onObjectAdded(filterConfig);
+            for (auto filterConfig: m_context->getAnalysisConfig()->getFilters(idxPair.first, idxPair.second))
+                onObjectAdded(filterConfig);
 
-        m_tree->resizeColumnToContents(0);
+            m_tree->resizeColumnToContents(0);
 
-        connect(moduleConfig, &QObject::objectNameChanged, this, [this, moduleConfig](const QString &name) {
-            onObjectNameChanged(moduleConfig, name);
-        });
+            connect(moduleConfig, &QObject::objectNameChanged, this, [this, moduleConfig](const QString &name) {
+                onObjectNameChanged(moduleConfig, name);
+            });
 
-        moduleNode->setExpanded(true);
+            moduleNode->setExpanded(true);
+        }
+
+#if ENABLE_ANALYSIS_NG
+        {
+            auto moduleNode = makeNode(moduleConfig, NodeType_Module);
+            moduleNode->setText(0, moduleConfig->objectName());
+            moduleNode->setIcon(0, QIcon(":/vme_module.png"));
+            addToTreeMap(moduleConfig, moduleNode);
+            m_nodeAnalysisNG->addChild(moduleNode);
+
+            auto idxPair = m_context->getDAQConfig()->getEventAndModuleIndices(moduleConfig);
+
+            moduleNode->setText(1, QString("event=%1, module=%2").arg(idxPair.first).arg(idxPair.second));
+
+            for (auto filterConfig: m_context->getAnalysisConfig()->getFilters(idxPair.first, idxPair.second))
+                onObjectAdded(filterConfig);
+
+            m_tree->resizeColumnToContents(0);
+
+            connect(moduleConfig, &QObject::objectNameChanged, this, [this, moduleConfig](const QString &name) {
+                onObjectNameChanged(moduleConfig, name);
+            });
+
+            moduleNode->setExpanded(true);
+        }
+#endif
+
     }
     else if (auto filterConfig = qobject_cast<DataFilterConfig *>(object))
     {
@@ -354,7 +388,17 @@ void HistogramTreeWidget::onObjectAdded(QObject *object)
             return;
         }
 
-        auto moduleNode = m_treeMap.value(moduleConfig);
+        // TODO: ANALYSIS_NG related
+        TreeNode *moduleNode = nullptr;
+        auto moduleNodes = m_treeMap.values(moduleConfig);
+        for (auto node: moduleNodes)
+        {
+            if (node->parent() == m_node1D)
+            {
+                moduleNode = node;
+                break;
+            }
+        }
 
         // TODO (maybe): add nodes for filters that don't have a corresponding module in the daq config
         if (moduleNode)
@@ -398,7 +442,17 @@ void HistogramTreeWidget::onObjectAdded(QObject *object)
             return;
         }
 
-        auto moduleNode = m_treeMap.value(moduleConfig);
+        // TODO: ANALYSIS_NG related
+        TreeNode *moduleNode = nullptr;
+        auto moduleNodes = m_treeMap.values(moduleConfig);
+        for (auto node: moduleNodes)
+        {
+            if (node->parent() == m_node1D)
+            {
+                moduleNode = node;
+                break;
+            }
+        }
 
         if (moduleNode)
         {
@@ -441,10 +495,11 @@ void HistogramTreeWidget::onObjectAboutToBeRemoved(QObject *object)
         removeNode(node);
 }
 
-void HistogramTreeWidget::removeNode(QTreeWidgetItem *node)
+void HistogramTreeWidget::removeNode(QTreeWidgetItem *item)
 {
+    auto node = reinterpret_cast<TreeNode *>(item);
     auto obj = Var2Ptr<QObject>(node->data(0, DataRole_Pointer));
-    removeFromTreeMap(obj);
+    removeFromTreeMap(obj, node);
 
     for (auto childNode: node->takeChildren())
     {
@@ -464,7 +519,7 @@ void HistogramTreeWidget::onAnyConfigChanged()
 
     qDeleteAll(m_node1dNew->takeChildren());
     qDeleteAll(m_node2dNew->takeChildren());
-    qDeleteAll(m_nodeAnalysisNG->takeChildren());
+    qDeleteAll(m_nodeAnalysisNGObjects->takeChildren());
 
 
     m_treeMap.clear();
@@ -530,7 +585,7 @@ void HistogramTreeWidget::onAnyConfigChanged()
 
 void HistogramTreeWidget::onObjectNameChanged(QObject *object, const QString &name)
 {
-    if (auto node = m_treeMap.value(object, nullptr))
+    for (auto node: m_treeMap.values(object))
     {
         node->setText(0, name);
     }
@@ -948,13 +1003,14 @@ void HistogramTreeWidget::removeDataFilter()
     removeDataFilter(node);
 }
 
-void HistogramTreeWidget::removeDataFilter(QTreeWidgetItem *node)
+void HistogramTreeWidget::removeDataFilter(QTreeWidgetItem *item)
 {
+    auto node = reinterpret_cast<TreeNode *>(item);
     Q_ASSERT(node->type() == NodeType_DataFilter);
     auto filterConfig = Var2Ptr<DataFilterConfig>(node->data(0, DataRole_Pointer));
 
     Q_ASSERT(filterConfig);
-    Q_ASSERT(m_treeMap[filterConfig] == node);
+    Q_ASSERT(m_treeMap.values(filterConfig).contains(node));
 
     for (auto histoNode: node->takeChildren())
     {
@@ -1109,13 +1165,14 @@ void HistogramTreeWidget::removeDualWordDataFilter()
     removeDualWordDataFilter(node);
 }
 
-void HistogramTreeWidget::removeDualWordDataFilter(QTreeWidgetItem *node)
+void HistogramTreeWidget::removeDualWordDataFilter(QTreeWidgetItem *item)
 {
+    auto node = reinterpret_cast<TreeNode *>(item);
     Q_ASSERT(node->type() == NodeType_DualWordDataFilter);
     auto filterConfig = Var2Ptr<DualWordDataFilterConfig>(node->data(0, DataRole_Pointer));
 
     Q_ASSERT(filterConfig);
-    Q_ASSERT(m_treeMap[filterConfig] == node);
+    Q_ASSERT(m_treeMap.values(filterConfig).contains(node));
 
     auto moduleNode   = node->parent();
 
@@ -1188,14 +1245,15 @@ void HistogramTreeWidget::editDualWordDataFilter(QTreeWidgetItem *node)
     }
 }
 
-void HistogramTreeWidget::removeHist1D(QTreeWidgetItem *node)
+void HistogramTreeWidget::removeHist1D(QTreeWidgetItem *item)
 {
+    auto node = reinterpret_cast<TreeNode *>(item);
     Q_ASSERT(node->type() == NodeType_Hist1D);
 
     auto histo = Var2Ptr<Hist1D>(node->data(0, DataRole_Pointer));
 
     Q_ASSERT(histo);
-    Q_ASSERT(m_treeMap[histo] == node);
+    Q_ASSERT(m_treeMap.values(histo).contains(node));
 
     delete node;
     removeFromTreeMap(histo);
@@ -1285,13 +1343,19 @@ void HistogramTreeWidget::clearHistograms(QTreeWidgetItem *node)
 void HistogramTreeWidget::addToTreeMap(QObject *object, TreeNode *node)
 {
     qDebug() << __PRETTY_FUNCTION__ << object << "->" << node;
-    m_treeMap[object] = node;
+    m_treeMap.insert(object, node);
 }
 
 void HistogramTreeWidget::removeFromTreeMap(QObject *object)
 {
-    qDebug() << __PRETTY_FUNCTION__ << object;
-    m_treeMap.remove(object);
+    int n_removed = m_treeMap.remove(object);
+    qDebug() << __PRETTY_FUNCTION__ << object << "removed" << n_removed << " items";
+}
+
+void HistogramTreeWidget::removeFromTreeMap(QObject *object, TreeNode *node)
+{
+    int n_removed = m_treeMap.remove(object, node);
+    qDebug() << __PRETTY_FUNCTION__ << object << "removed" << n_removed << " items";
 }
 
 static const QString fileFilter = QSL("Config Files (*.json);; All Files (*.*)");
@@ -1478,8 +1542,8 @@ void HistogramTreeWidget::updateAnalysisNGStuff()
                 .arg(entry.eventIndex)
                 .arg(entry.moduleIndex)
                 );
-            m_nodeAnalysisNG->addChild(node);
-            m_treeMap[obj] = node;
+            m_nodeAnalysisNGObjects->addChild(node);
+            m_treeMap.insert(obj, node);
             nodesAdded = true;
         }
     }
@@ -1496,8 +1560,8 @@ void HistogramTreeWidget::updateAnalysisNGStuff()
                 .arg(obj->objectName())
                 .arg(entry.eventIndex)
                 );
-            m_nodeAnalysisNG->addChild(node);
-            m_treeMap[obj] = node;
+            m_nodeAnalysisNGObjects->addChild(node);
+            m_treeMap.insert(obj, node);
             nodesAdded = true;
         }
     }
