@@ -138,8 +138,18 @@ class AxisBinning
         inline double getBinLowEdge(u32 bin) const { return getMin() + bin * getBinWidth(); }
         inline double getBinCenter(u32 bin) const { return getBinLowEdge(bin) + getBinWidth() * 0.5; }
 
+        /* Returns the bin number for the value x. Returns Underflow/Overflow
+         * if x is out of range. */
         inline s64 getBin(double x) const
         {
+            s64 bin = getBinUnchecked(x);
+
+            if (bin < 0)
+                return Underflow;
+
+            if (bin >= getBins())
+                return Overflow;
+#if 0
             if (x < getMin())
                 return Underflow;
 
@@ -148,7 +158,20 @@ class AxisBinning
 
             double binWidth = getBinWidth();
             u32 bin = static_cast<u32>(std::floor(x / binWidth));
+#endif
 
+            return bin;
+        }
+
+        // bin = 1 + int (fNbins*(x-fXmin)/(fXmax-fXmin) );
+
+        /* Returns the bin number for the value x. No check is performed if x
+         * is in range of the axis. */
+        inline s64 getBinUnchecked(double x) const
+        {
+            double binWidth = getBinWidth();
+            //s64 bin = static_cast<s64>(std::floor(x / binWidth));
+            s64 bin = m_nBins * (x - m_min) / (m_max - m_min);
             return bin;
         }
 
