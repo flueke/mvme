@@ -1,6 +1,8 @@
 #include "analysis.h"
 #include "../qt_util.h"
 
+#define ENABLE_ANALYSIS_DEBUG 1
+
 namespace analysis
 {
 
@@ -55,15 +57,16 @@ void Extractor::beginRun()
     m_currentCompletionCount = 0;
 
     u32 addressCount = 1 << m_filter.getAddressBits();
-
-    m_output.getParameters().resize(addressCount);
-
     u32 upperLimit = 1 << m_filter.getDataBits();
 
-    for (int i=0; i<m_output.getParameters().size(); ++i)
+    auto &params(m_output.getParameters());
+    params.resize(addressCount);
+
+    for (int i=0; i<params.size(); ++i)
     {
-        auto &param(m_output.getParameters()[i]);
-        param.type = Parameter::Uint;
+        auto &param(params[i]);
+        param.type = Parameter::Double; // XXX: using the double here! ival is not used anymore
+
         param.lowerLimit = 0.0;
         param.upperLimit = upperLimit;
     }
@@ -93,8 +96,10 @@ void Extractor::processDataWord(u32 data, s32 wordIndex)
                 if (!param.valid)
                 {
                     param.valid = true;
-                    param.ival = value;
+                    param.dval = value; // XXX: using the double here! ival is not used anymore
                     //qDebug() << __PRETTY_FUNCTION__ << "address" << address << "value" << value;
+                    qDebug("setting param valid. addr=%d, val=%lf, dataword=0x%08x",
+                           address, param.dval, data);
                 }
             }
         }
@@ -135,10 +140,6 @@ BasicOperator::BasicOperator(QObject *parent)
 
 BasicOperator::~BasicOperator()
 {
-    if (m_input)
-    {
-        m_input->removeDestination(this);
-    }
 }
 
 int BasicOperator::getNumberOfInputs() const
@@ -193,7 +194,6 @@ void BasicOperator::removeInput(Pipe *pipe)
     }
 }
 
-
 int BasicOperator::getNumberOfOutputs() const
 {
     return 1;
@@ -225,10 +225,6 @@ Pipe *BasicOperator::getOutput(int index)
 //
 BasicSink::~BasicSink()
 {
-    if (m_input)
-    {
-        m_input->removeDestination(this);
-    }
 }
 
 int BasicSink::getNumberOfInputs() const
@@ -424,6 +420,11 @@ void Analysis::beginRun()
     {
         sourceEntry.source->beginRun();
     }
+
+    for (auto &operatorEntry: m_operators)
+    {
+        operatorEntry.op->beginRun();
+    }
 }
 
 void Analysis::beginEvent(int eventIndex)
@@ -453,20 +454,73 @@ void Analysis::endEvent(int eventIndex)
     /* In beginRun() operators are sorted by rank. This way step()'ing
      * operators can be done by just traversing the array. */
 
+#if ENABLE_ANALYSIS_DEBUG
     qDebug() << "begin endEvent" << eventIndex;
+#endif
+
     for (auto &opEntry: m_operators)
     {
         if (opEntry.eventIndex == eventIndex)
         {
             OperatorInterface *op = opEntry.op.get();
+
+#if ENABLE_ANALYSIS_DEBUG
             qDebug() << "  stepping operator" << opEntry.op.get()
                 << ", input rank =" << opEntry.op->getMaximumInputRank()
                 << ", output rank =" << opEntry.op->getMaximumOutputRank()
                 ;
+#endif
             opEntry.op->step();
         }
     }
+
+#if ENABLE_ANALYSIS_DEBUG
+    for (auto &entry: m_sources)
+    {
+        auto source = entry.source;
+        qDebug() << "Source: e =" << entry.eventIndex << ", m =" << entry.moduleIndex << ", src =" << source.get();
+
+        for (s32 i = 0; i < source->getNumberOfOutputs(); ++i)
+        {
+            auto pipe = source->getOutput(i);
+            const auto &params = pipe->getParameters();
+            qDebug() << "  Output#" << i << ", name =" << params.name << ", unit =" << params.unit;
+            for (s32 ip=0; ip<params.size(); ++ip)
+            {
+                auto &param(params[i]);
+                if (param.valid)
+                    qDebug() << "    " << ip << "=" << to_string(param);
+            }
+        }
+    }
+
+    for (auto &entry: m_operators)
+    {
+        auto op = entry.op;
+
+        if (op->getNumberOfOutputs() == 0)
+            continue;
+
+        qDebug() << "Op: e =" << entry.eventIndex << ", op =" << op.get();
+
+        for (s32 i = 0; i < op->getNumberOfOutputs(); ++i)
+        {
+            auto pipe = op->getOutput(i);
+            const auto &params = pipe->getParameters();
+            qDebug() << "  Output#" << i << ", name =" << params.name << ", unit =" << params.unit;
+            for (s32 ip=0; ip<params.size(); ++ip)
+            {
+                auto &param(params[i]);
+                if (param.valid)
+                    qDebug() << "    " << ip << "=" << to_string(param);
+            }
+        }
+    }
+#endif
+
+#if ENABLE_ANALYSIS_DEBUG
     qDebug() << "end endEvent" << eventIndex;
+#endif
 }
 
 void Analysis::updateRanks()

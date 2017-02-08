@@ -53,6 +53,16 @@ struct Parameter
     };
 };
 
+inline QString to_string(const Parameter &p)
+{
+    return QString("P(%1, %2, [%3, %4[)")
+        .arg(p.valid)
+        .arg(p.dval)
+        .arg(p.lowerLimit)
+        .arg(p.upperLimit)
+        ;
+}
+
 struct ParameterVector: public QVector<Parameter>
 {
     void invalidateAll()
@@ -69,7 +79,8 @@ struct ParameterVector: public QVector<Parameter>
 
 class OperatorInterface;
 
-/* Interface to indicate that something can the be source of a Pipe. */
+/* Interface to indicate that something can the be source of a Pipe. Mostly
+ * exists to have a common base for SourceInterface and OperatorInterface... */
 class PipeSourceInterface: public QObject
 {
     Q_OBJECT
@@ -181,7 +192,6 @@ class OperatorInterface: public PipeSourceInterface
         OperatorInterface(QObject *parent = 0): PipeSourceInterface(parent) {}
 
         virtual void beginRun() {}
-        virtual void beginEvent() {}
         virtual void step() = 0;
 
         virtual int getNumberOfInputs() const = 0;
@@ -274,7 +284,8 @@ class Extractor: public SourceInterface
     public:
         Extractor(QObject *parent = 0);
 
-        MultiWordDataFilter getFilter() const { return m_filter; }
+        const MultiWordDataFilter &getFilter() const { return m_filter; }
+        MultiWordDataFilter &getFilter() { return m_filter; }
         void setFilter(const MultiWordDataFilter &filter) { m_filter = filter; }
 
         u32 getRequiredCompletionCount() const { return m_requiredCompletionCount; }
