@@ -460,6 +460,13 @@ void HistogramTreeWidget::onAnyConfigChanged()
 
     qDeleteAll(m_node1D->takeChildren());
     qDeleteAll(m_node2D->takeChildren());
+
+
+    qDeleteAll(m_node1dNew->takeChildren());
+    qDeleteAll(m_node2dNew->takeChildren());
+    qDeleteAll(m_nodeAnalysisNG->takeChildren());
+
+
     m_treeMap.clear();
 
     bool daqChanged = m_daqConfig != m_context->getDAQConfig();
@@ -1455,6 +1462,7 @@ void HistogramTreeWidget::openHistoListWidget()
 
 void HistogramTreeWidget::updateAnalysisNGStuff()
 {
+    bool nodesAdded = false;
     auto analysis = m_context->getAnalysisNG();
 
     for (const auto &entry: analysis->getSources())
@@ -1472,6 +1480,7 @@ void HistogramTreeWidget::updateAnalysisNGStuff()
                 );
             m_nodeAnalysisNG->addChild(node);
             m_treeMap[obj] = node;
+            nodesAdded = true;
         }
     }
 
@@ -1489,6 +1498,10 @@ void HistogramTreeWidget::updateAnalysisNGStuff()
                 );
             m_nodeAnalysisNG->addChild(node);
             m_treeMap[obj] = node;
+            nodesAdded = true;
         }
     }
+
+    if (nodesAdded)
+        m_tree->resizeColumnToContents(0);
 }
