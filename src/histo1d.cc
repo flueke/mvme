@@ -61,6 +61,19 @@ void Histo1D::clear()
     }
 }
 
+bool Histo1D::setBinContent(u32 bin, double value)
+{
+    bool result = false;
+
+    if (bin < getNumberOfBins())
+    {
+        m_data[bin] = value;
+        result = true;
+    }
+
+    return result;
+}
+
 void Histo1D::debugDump() const
 {
     qDebug() << "Histo1D" << this;
@@ -73,31 +86,38 @@ void Histo1D::debugDump() const
     }
 }
 
-// TODO: probably want both: (binMin, binMax[ and (xMin, xMax[
-Histo1DStatistics Histo1D::calcStatistics(u32 startChannel, u32 onePastEndChannel) const
+Histo1DStatistics Histo1D::calcStatistics(double minX, double maxX) const
 {
-    //Q_ASSERT(!"not implemented");
-    Histo1DStatistics result;
-    return result;
-#if 0
-    if (startChannel > onePastEndChannel)
-        std::swap(startChannel, onePastEndChannel);
+    s64 minBin = m_xAxis.getBinUnchecked(minX);
+    s64 maxBin = m_xAxis.getBinUnchecked(maxX);
 
-    startChannel = std::min(startChannel, getResolution());
-    onePastEndChannel = std::min(onePastEndChannel, getResolution());
-
-    Hist1DStatistics result;
-
-    for (u32 i = startChannel; i < onePastEndChannel; ++i)
+    if (minBin >= 0 && maxBin >= 0)
     {
-        double v = value(i);
-        result.mean += v * i;
+        return calcBinStatistics(minBin, maxBin);
+    }
+
+    return {};
+}
+
+Histo1DStatistics Histo1D::calcBinStatistics(u32 startBin, u32 onePastEndBin) const
+{
+    Histo1DStatistics result;
+
+    if (startBin > onePastEndBin)
+        std::swap(startBin, onePastEndBin);
+
+    onePastEndBin = std::min(onePastEndBin, getNumberOfBins());
+
+    for (u32 bin = startBin; bin < onePastEndBin; ++bin)
+    {
+        double v = getBinContent(bin);
+        result.mean += v * getBinLowEdge(bin);
         result.entryCount += v;
 
         if (v > result.maxValue)
         {
             result.maxValue = v;
-            result.maxChannel = i;
+            result.maxBin = bin;
         }
     }
 
@@ -108,12 +128,12 @@ Histo1DStatistics Histo1D::calcStatistics(u32 startChannel, u32 onePastEndChanne
 
     if (result.mean > 0 && result.entryCount > 0)
     {
-        for (u32 i = startChannel; i < onePastEndChannel; ++i)
+        for (u32 bin = startBin; bin < onePastEndBin; ++bin)
         {
-            u32 v = value(i);
+            u32 v = getBinContent(bin);
             if (v)
             {
-                double d = i - result.mean;
+                double d = getBinLowEdge(bin) - result.mean;
                 d *= d;
                 result.sigma += d * v;
             }
@@ -128,9 +148,9 @@ Histo1DStatistics Histo1D::calcStatistics(u32 startChannel, u32 onePastEndChanne
 
         // find first bin to the left with  value < halfMax
         double leftBin = 0.0;
-        for (s64 bin = result.maxChannel; bin >= startChannel; --bin)
+        for (s64 bin = result.maxBin; bin >= startBin; --bin)
         {
-            if (value(bin) < halfMax)
+            if (getBinContent(bin) < halfMax)
             {
                 leftBin = bin;
                 break;
@@ -139,9 +159,9 @@ Histo1DStatistics Histo1D::calcStatistics(u32 startChannel, u32 onePastEndChanne
 
         // find first bin to the right with  value < halfMax
         double rightBin = 0.0;
-        for (u32 bin = result.maxChannel; bin < onePastEndChannel; ++bin)
+        for (u32 bin = result.maxBin; bin < onePastEndBin; ++bin)
         {
-            if (value(bin) < halfMax)
+            if (getBinContent(bin) < halfMax)
             {
                 rightBin = bin;
                 break;
@@ -179,8 +199,8 @@ Histo1DStatistics Histo1D::calcStatistics(u32 startChannel, u32 onePastEndChanne
 
         // FIXME: this is not correct. am I allowed to swap x/y when calling interp()?
 
-        leftBin = interp(value(leftBin+1), leftBin+1, value(leftBin), leftBin, halfMax);
-        rightBin = interp(value(rightBin-1), rightBin-1, value(rightBin), rightBin, halfMax);
+        leftBin = interp(getBinContent(leftBin+1), leftBin+1, getBinContent(leftBin), leftBin, halfMax);
+        rightBin = interp(getBinContent(rightBin-1), rightBin-1, getBinContent(rightBin), rightBin, halfMax);
 
         //qDebug() << "leftbin" << leftBin << "rightBin" << rightBin << "maxBin" << result.maxChannel;
 #endif
@@ -189,54 +209,50 @@ Histo1DStatistics Histo1D::calcStatistics(u32 startChannel, u32 onePastEndChanne
     }
 
     return result;
-#endif
 }
+
+/* The Histo1D text format is
+ * 1st line: bins xMin xMax underflow overflow
+ * subsequent lines: one double per line representing the bin content starting at bin=0
+ */
 
 QTextStream &writeHisto1D(QTextStream &out, Histo1D *histo)
 {
-    Q_ASSERT(!"not implemented");
-#if 0
-    for (quint32 valueIndex=0; valueIndex<histo->getResolution(); ++valueIndex)
+    out << histo->getNumberOfBins() << histo->getXMin() << histo->getXMax()
+        << histo->getUnderflow() << histo->getOverflow();
+
+    for (u32 bin = 0; bin < histo->getNumberOfBins(); ++bin)
     {
-        out << valueIndex << " "
-            << histo->value(valueIndex)
-            << endl;
+        out << histo->getBinContent(bin) << endl;
     }
-#endif
 
     return out;
 }
 
 Histo1D *readHisto1D(QTextStream &in)
 {
-    Q_ASSERT(!"not implemented");
-    return nullptr;
-#if 0
-    double value;
-    QVector<double> values;
+    double xMin, xMax, underflow, overflow;
+    u32 nBins;
 
-    while (true)
+    in >> nBins >> xMin >> xMax >> underflow >> overflow;
+
+    if (in.status() != QTextStream::Ok)
+        return nullptr;
+
+    auto result = new Histo1D(nBins, xMin, xMax);
+    result->setUnderflow(underflow);
+    result->setOverflow(overflow);
+
+    for (u32 bin = 0; bin < result->getNumberOfBins(); ++bin)
     {
-        u32 channelIndex;
-        in >> channelIndex >> value;
+        double value;
+        in >> value;
+
         if (in.status() != QTextStream::Ok)
             break;
-        values.push_back(value);
-    }
 
-    u32 bits = std::ceil(std::log2(values.size()));
-
-    qDebug() << values.size() << bits;
-
-    auto result = new Hist1D(bits);
-
-    for (int channelIndex = 0;
-         channelIndex < values.size();
-        ++channelIndex)
-    {
-        result->fill(channelIndex, static_cast<u32>(values[channelIndex]));
+        result->setBinContent(bin, value);
     }
 
     return result;
-#endif
 }

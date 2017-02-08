@@ -45,10 +45,12 @@ class Histo1DPointData: public QwtSeriesData<QPointF>
                 m_histo->getBinLowEdge(i),
                 m_histo->getBinContent(i));
 
+#if 0
             qDebug() << __PRETTY_FUNCTION__
                 << "i =" << i
                 << "result =" << result
                 ;
+#endif
             return result;
         }
 
@@ -278,7 +280,7 @@ void Histo1DWidget::zoomerZoomed(const QRectF &zoomRect)
     if (m_zoomer->zoomRectIndex() == 0)
     {
         // fully zoomed out -> set to full resolution
-        ui->plot->setAxisScale( QwtPlot::xBottom, 0, m_histo->getXMax());
+        ui->plot->setAxisScale(QwtPlot::xBottom, m_histo->getXMin(), m_histo->getXMax());
         ui->plot->replot();
         m_zoomer->setZoomBase();
     }
@@ -287,9 +289,9 @@ void Histo1DWidget::zoomerZoomed(const QRectF &zoomRect)
 
     auto scaleDiv = ui->plot->axisScaleDiv(QwtPlot::xBottom);
 
-    if (scaleDiv.lowerBound() < 0.0)
+    if (scaleDiv.lowerBound() < m_histo->getXMin())
     {
-        scaleDiv.setLowerBound(0.0);
+        scaleDiv.setLowerBound(m_histo->getXMin());
         ui->plot->setAxisScaleDiv(QwtPlot::xBottom, scaleDiv);
     }
 
@@ -325,23 +327,23 @@ void Histo1DWidget::updateStatistics()
 
     static const QString textTemplate = QSL(
         "<table>"
-        "<tr><td align=\"left\">Sigma</td><td>%L2</td></tr>"
-        "<tr><td align=\"left\">FWHM</td><td>%L6</td></tr>"
-        "<tr><td align=\"left\">Mean</td><td>%L1</td></tr>"
-        "<tr><td align=\"left\">Max</td><td>%L5</td></tr>"
-        "<tr><td align=\"left\">Max Y</td><td>%L4</td></tr>"
-        "<tr><td align=\"left\">Counts</td><td>%L3</td></tr>"
+        "<tr><td align=\"left\">Sigma  </td><td>%L1</td></tr>"
+        "<tr><td align=\"left\">FWHM   </td><td>%L2</td></tr>"
+        "<tr><td align=\"left\">Mean   </td><td>%L3</td></tr>"
+        "<tr><td align=\"left\">Max    </td><td>%L4</td></tr>"
+        "<tr><td align=\"left\">Max Y  </td><td>%L5</td></tr>"
+        "<tr><td align=\"left\">Counts </td><td>%L6</td></tr>"
         "</table>"
         );
 
     static const int fieldWidth = 0;
     QString buffer = textTemplate
-        .arg(m_stats.mean, fieldWidth)
         .arg(m_stats.sigma, fieldWidth)
-        .arg(m_stats.entryCount, fieldWidth)
-        .arg(m_stats.maxValue, fieldWidth)
-        .arg(m_histo->getBinContent(m_stats.maxBin), fieldWidth)
         .arg(m_stats.fwhm)
+        .arg(m_stats.mean, fieldWidth)
+        .arg(m_histo->getBinLowEdge(m_stats.maxBin), fieldWidth)
+        .arg(m_stats.maxValue, fieldWidth)
+        .arg(m_stats.entryCount, fieldWidth)
         ;
 
     m_statsText->setText(buffer, QwtText::RichText);
@@ -364,7 +366,7 @@ void Histo1DWidget::updateAxisScales()
     if (m_zoomer->zoomRectIndex() == 0)
     {
         // fully zoomed out -> set to full resolution
-        ui->plot->setAxisScale(QwtPlot::xBottom, 0, m_histo->getXMax());
+        ui->plot->setAxisScale(QwtPlot::xBottom, m_histo->getXMin(), m_histo->getXMax());
     }
 }
 
@@ -435,7 +437,7 @@ void Histo1DWidget::updateCursorInfoLabel()
     {
         u32 ix = static_cast<u32>(std::max(m_cursorPosition.x(), 0.0));
 
-        double x = m_histo->getBinCenter(ix);
+        double x = m_histo->getBinLowEdge(ix);
         double y = m_histo->getBinContent(ix);
 
         QString text = QString(
