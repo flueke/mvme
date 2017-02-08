@@ -247,11 +247,12 @@ void ListFileReader::setState(DAQState state)
     emit stateChanged(state);
 }
 
-void ListFileReader::startFromBeginning()
+void ListFileReader::startFromBeginning(quint32 nBuffers)
 {
     if (!m_listFile)
         return;
 
+    m_buffersToRead = nBuffers;
     m_stopped = false;
     m_listFile->seek(0);
     m_bytesRead = 0;
@@ -282,8 +283,9 @@ bool ListFileReader::readNextBuffer(DataBuffer *dest)
     dest->used = 0;
     s32 sectionsRead = 0;
 
-    if (!m_stopped && (sectionsRead = m_listFile->readSectionsIntoBuffer(dest)) > 0)
+    if (!m_stopped && m_buffersToRead > 0 && (sectionsRead = m_listFile->readSectionsIntoBuffer(dest)) > 0)
     {
+        --m_buffersToRead;
         m_bytesRead += dest->used;
         emit progressChanged(m_bytesRead, m_totalBytes);
         emit mvmeEventBufferReady(dest);

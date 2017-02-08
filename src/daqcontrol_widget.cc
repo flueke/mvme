@@ -34,7 +34,14 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
     });
 
     connect(ui->pb_oneCycle, &QPushButton::clicked, this, [this] {
-        m_context->startDAQ(1);
+        auto globalMode = m_context->getMode();
+        if (globalMode == GlobalMode::DAQ)
+        {
+            m_context->startDAQ(1);
+        } else if (globalMode == GlobalMode::ListFile)
+        {
+            m_context->startReplay(1);
+        }
     });
 
     connect(ui->pb_stop, &QPushButton::clicked, m_context, &MVMEContext::stopDAQ);
@@ -86,9 +93,10 @@ void DAQControlWidget::updateWidget()
                             && daqState != DAQState::Idle)
                        );
 
-    ui->pb_oneCycle->setEnabled(globalMode == GlobalMode::DAQ
-                            && daqState == DAQState::Idle
-                            && controllerState == ControllerState::Opened);
+    ui->pb_oneCycle->setEnabled(daqState == DAQState::Idle
+                                && ((globalMode == GlobalMode::DAQ && controllerState == ControllerState::Opened)
+                                    || (globalMode == GlobalMode::ListFile))
+                                );
 
     ui->gb_listfile->setEnabled(globalMode == GlobalMode::DAQ);
 
