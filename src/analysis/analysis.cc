@@ -666,4 +666,41 @@ void Analysis::removeOperator(const OperatorPtr &op) // TODO: test this
     }
 }
 
+#if 0
+void Analysis::read(const QJsonObject &json)
+{
+}
+
+void Analysis::write(QJsonObject &json) const
+{
+    // Sources
+    {
+        QJsonArray destArray;
+        for (auto &sourceEntry: m_sources)
+        {
+            QJsonObject destObject;
+            destObject["eventIndex"]  = static_cast<qint64>(sourceEntry.eventIndex);
+            destObject["moduleIndex"] = static_cast<qint64>(sourceEntry.moduleIndex);
+            QJsonObject sourceJson;
+            sourceEntry->write(sourceJson);
+            destObject["source"] = sourceJson;
+        }
+        json["sources"] = destArray;
+    }
+
+    // Operators
+    {
+        QJsonArray
+    }
+
+
+
+
+
+    json["operators"] = 
+
+    json["pipes"] = 
+}
+#endif
+
 }

@@ -8,11 +8,9 @@
 
 #include <memory>
 
+class QJsonObject;
+
 /* TODO: rank calculation
- *   The output rank of an operator depends on the operators inputs and thus is operator specific.
- *   The operator needs to implement a getOutputRank() method that yields 1
- *   plus the maximum rank of all the inputs.
- *
  *   Operators vs Sinks:
  *   - difference was: sinks have no output
  *   - both Histo1DSink and Histo2DSink could have outputs: an array of the
@@ -27,6 +25,8 @@
  *
  *   Operators vs Sources:
  *   - Sources have no input but are directly attached to a module.
+ *     -> They have eventIndex and moduleIndex whereas operators are only
+ *        associated with an event.
  *   - Source have a processDataWord() method
  *
 
@@ -179,6 +179,9 @@ class SourceInterface: public PipeSourceInterface
         virtual QString getOutputName(int outputIndex) const = 0;
         virtual Pipe *getOutput(int index) = 0;
 
+        //virtual void read(const QJsonObject &json) const = 0;
+        //virtual void write(QJsonObject &json) const = 0;
+
         virtual ~SourceInterface() {}
 };
 
@@ -203,6 +206,9 @@ class OperatorInterface: public PipeSourceInterface
         virtual int getNumberOfOutputs() const = 0;
         virtual QString getOutputName(int outputIndex) const = 0;
         virtual Pipe *getOutput(int index) = 0;
+
+        //virtual void read(const QJsonObject &json) const = 0;
+        //virtual void write(QJsonObject &json) const = 0;
 
         virtual ~OperatorInterface() {}
 
@@ -741,6 +747,9 @@ class Analysis
             m_sources.clear();
             m_operators.clear();
         }
+
+        void read(const QJsonObject &json);
+        void write(QJsonObject &json) const;
 
     private:
         void updateRanks();

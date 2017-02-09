@@ -250,6 +250,7 @@ mvme::mvme(QWidget *parent) :
 
         analysis_ng->clear();
 
+#if 0
         // Sources
         auto mdpp16_extractor = std::make_shared<Extractor>();
         mdpp16_extractor->getFilter().addSubFilter(analysis::DataFilter("0001XXXXXX00AAAADDDDDDDDDDDDDDDD"));
@@ -279,6 +280,7 @@ mvme::mvme(QWidget *parent) :
 
         addSelectorAndSink(0);
         addSelectorAndSink(8);
+#endif
 
 
 #if 0

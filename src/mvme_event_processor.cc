@@ -6,6 +6,7 @@
 #include "histo1d.h"
 #include "mesytec_diagnostics.h"
 
+#define ENABLE_OLD_ANALYSIS 0
 //#define MVME_EVENT_PROCESSOR_DEBUGGING
 
 #ifdef MVME_EVENT_PROCESSOR_DEBUGGING
@@ -252,6 +253,7 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
             if (eventConfig)
                 ++stats.eventCounters[eventConfig].events;
 
+#if ENABLE_OLD_ANALYSIS
             {
                 // clears the values for the current eventIndex
                 // FIXME: slow!
@@ -270,6 +272,7 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                     }
                 }
             }
+#endif
 
 #if 0
             /* Wed Jan 25 14:32:55 CET 2017
@@ -317,6 +320,7 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                     diag->beginEvent();
                 }
 
+#if ENABLE_OLD_ANALYSIS
                 const auto filterConfigs = m_d->filterConfigs.value(eventIndex).value(moduleIndex);
                 const auto dualWordfilterConfigs = m_d->dualWordFilterConfigs.value(eventIndex).value(moduleIndex);
 
@@ -324,6 +328,7 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                 {
                     filterConfig->getFilter().clearCompletion();
                 }
+#endif
 
                 s32 wordIndexInSubEvent = 0;
 
@@ -360,6 +365,7 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                         && (currentWord == BerrMarker))
                         continue;
 
+#if ENABLE_OLD_ANALYSIS
                     for (auto filterConfig: filterConfigs)
                     {
 #if 0 //#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
@@ -425,6 +431,8 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                                         .arg(moduleIndex)
                                         );
                     }
+#endif
+
 #endif
 
                     if (m_d->analysis_ng)

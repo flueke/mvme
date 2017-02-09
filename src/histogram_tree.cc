@@ -850,6 +850,8 @@ void HistogramTreeWidget::updateHistogramCountDisplay()
          it != m_treeMap.end();
          ++it)
     {
+        //qDebug() << it.key();
+
         if (auto histo = qobject_cast<Hist1D *>(it.key()))
         {
             //qDebug() << __PRETTY_FUNCTION__ << histo << it.value();
@@ -922,6 +924,9 @@ void HistogramTreeWidget::generateDefaultFilters()
         return;
     }
 
+    //
+    // remove old filters
+    //
     for (int childIndex = 0;
          childIndex < node->childCount();
         )
@@ -941,6 +946,9 @@ void HistogramTreeWidget::generateDefaultFilters()
         }
     }
 
+    //
+    // generate new filters and them to the analysis config
+    //
     {
         auto filterConfigs = ::generateDefaultFilters(moduleConfig);
 
@@ -970,6 +978,65 @@ void HistogramTreeWidget::generateDefaultFilters()
     }
 
     node->setExpanded(true);
+
+#if ENABLE_ANALYSIS_NG
+    {
+        /* TODO/FIXME:
+         * - placeholders in filterDef.title are not used
+         * - easier to use MultiWordDataFilter constructor
+         * - IndexSelector.m_index is signed because of Qts containers using a
+         *   signed type for their sizes. What happens if the index is actually
+         *   negative?
+         */
+
+        s32 eventIndex = indices.first;
+        s32 moduleIndex = indices.second;
+
+        const auto filterDefinitions = defaultDataFilters.value(moduleConfig->type);
+        auto analysis_ng = m_context->getAnalysisNG();
+
+        for (const auto &filterDef: filterDefinitions)
+        {
+            analysis::DataFilter dataFilter(filterDef.filter);
+            analysis::MultiWordDataFilter multiWordFilter({dataFilter});
+
+            auto extractor = std::make_shared<analysis::Extractor>();
+            extractor->setFilter(multiWordFilter);
+            extractor->setObjectName(filterDef.name);
+
+            auto calibration = std::make_shared<analysis::CalibrationOperator>();
+            calibration->setGlobalCalibration(1.0, 0.0);
+            calibration->setObjectName(QString("Calibration for %1").arg(filterDef.name));
+            calibration->setInput(0, extractor->getOutput(0));
+
+            u32 addressCount = (1 << multiWordFilter.getAddressBits());
+            u32 dataMax  = (1 << multiWordFilter.getDataBits());
+
+            for (u32 address = 0; address < addressCount; ++address)
+            {
+                auto selector = std::make_shared<analysis::IndexSelector>();
+                selector->setIndex(static_cast<s32>(address));
+                selector->setObjectName(QString("%1[%2]").arg(filterDef.name).arg(address));
+                selector->setInput(0, calibration->getOutput(0));
+                
+                auto histoSink = std::make_shared<analysis::Histo1DSink>();
+                histoSink->setObjectName(QString("%1[%2]").arg(filterDef.name).arg(address));
+                histoSink->histo = std::make_shared<Histo1D>(dataMax, 0.0, dataMax);
+                histoSink->histo->setObjectName(filterDef.title);
+                histoSink->setInput(0, selector->getOutput(0));
+
+                analysis_ng->addOperator(eventIndex, selector);
+                analysis_ng->addOperator(eventIndex, histoSink);
+            }
+
+            analysis_ng->addSource(eventIndex, moduleIndex, extractor);
+            analysis_ng->addOperator(eventIndex, calibration);
+        }
+
+        // update the widget
+        updateAnalysisNGStuff();
+    }
+#endif
 }
 
 void HistogramTreeWidget::addDataFilter()
@@ -1560,6 +1627,12 @@ void HistogramTreeWidget::updateAnalysisNGStuff()
                 .arg(obj->objectName())
                 .arg(entry.eventIndex)
                 );
+
+            if (auto histoSink = qobject_cast<analysis::Histo1DSink *>(obj))
+            {
+                node->setIcon(0, QIcon(":/hist1d.png"));
+            }
+
             m_nodeAnalysisNGObjects->addChild(node);
             m_treeMap.insert(obj, node);
             nodesAdded = true;
