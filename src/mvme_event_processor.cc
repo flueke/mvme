@@ -6,7 +6,7 @@
 #include "histo1d.h"
 #include "mesytec_diagnostics.h"
 
-#define ENABLE_OLD_ANALYSIS 0
+#define ENABLE_OLD_ANALYSIS 1
 //#define MVME_EVENT_PROCESSOR_DEBUGGING
 
 #ifdef MVME_EVENT_PROCESSOR_DEBUGGING

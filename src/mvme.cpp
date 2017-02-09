@@ -244,13 +244,13 @@ mvme::mvme(QWidget *parent) :
     // FIXME: test code!
     //
     {
+#if 0
         using namespace analysis;
 
         auto analysis_ng = m_context->getAnalysisNG();
 
         analysis_ng->clear();
 
-#if 0
         // Sources
         auto mdpp16_extractor = std::make_shared<Extractor>();
         mdpp16_extractor->getFilter().addSubFilter(analysis::DataFilter("0001XXXXXX00AAAADDDDDDDDDDDDDDDD"));
@@ -551,7 +551,9 @@ void mvme::closeEvent(QCloseEvent *event){
 
         if (result == QMessageBox::Save)
         {
-            auto result = saveAnalysisConfig(analysisConfig, m_context->getAnalysisConfigFileName(),
+            auto result = saveAnalysisConfig(analysisConfig,
+                                             m_context->getAnalysisNG(),
+                                             m_context->getAnalysisConfigFileName(),
                                              m_context->getWorkspaceDirectory());
             if (!result.first)
             {

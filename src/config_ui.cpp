@@ -5,6 +5,7 @@
 #include "mvme_config.h"
 #include "mvme_context.h"
 #include "vme_script.h"
+#include "analysis/analysis.h"
 
 #include <QMenu>
 #include <QStandardPaths>
@@ -415,30 +416,36 @@ void DualWordDataFilterDialog::updateUnitLimits()
 
 namespace
 {
-    bool saveAnalysisConfigImpl(AnalysisConfig *config, const QString &fileName)
+    bool saveAnalysisConfigImpl(AnalysisConfig *config, analysis::Analysis *analysis_ng, const QString &fileName)
     {
         QJsonObject json, configJson;
         config->write(configJson);
         json[QSL("AnalysisConfig")] = configJson;
+
+        {
+            QJsonObject destObject;
+            analysis_ng->write(destObject);
+            json[QSL("AnalysisNG")] = destObject;
+        }
         return gui_write_json_file(fileName, QJsonDocument(json));
     }
 
     static const QString fileFilter = QSL("Config Files (*.json);; All Files (*.*)");
 }
 
-QPair<bool, QString> saveAnalysisConfig(AnalysisConfig *config, const QString &fileName, QString startPath)
+QPair<bool, QString> saveAnalysisConfig(AnalysisConfig *config, analysis::Analysis *analysis_ng, const QString &fileName, QString startPath)
 {
     if (fileName.isEmpty())
-        return saveAnalysisConfigAs(config, startPath);
+        return saveAnalysisConfigAs(config, analysis_ng, startPath);
 
-    if (saveAnalysisConfigImpl(config, fileName))
+    if (saveAnalysisConfigImpl(config, analysis_ng, fileName))
     {
         return qMakePair(true, fileName);
     }
     return qMakePair(false, QString());
 }
 
-QPair<bool, QString> saveAnalysisConfigAs(AnalysisConfig *config, QString path)
+QPair<bool, QString> saveAnalysisConfigAs(AnalysisConfig *config, analysis::Analysis *analysis_ng, QString path)
 {
     if (path.isEmpty())
         path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
@@ -452,7 +459,7 @@ QPair<bool, QString> saveAnalysisConfigAs(AnalysisConfig *config, QString path)
     if (fi.completeSuffix().isEmpty())
         fileName += QSL(".json");
 
-    if (saveAnalysisConfigImpl(config, fileName))
+    if (saveAnalysisConfigImpl(config, analysis_ng, fileName))
     {
         return qMakePair(true, fileName);
     }

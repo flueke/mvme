@@ -7,6 +7,7 @@
 #include "histo2d.h"
 
 #include <memory>
+#include <QUuid>
 
 class QJsonObject;
 
@@ -78,15 +79,32 @@ struct ParameterVector: public QVector<Parameter>
 };
 
 class OperatorInterface;
+class Pipe;
 
-/* Interface to indicate that something can the be source of a Pipe. Mostly
- * exists to have a common base for SourceInterface and OperatorInterface... */
+/* Interface to indicate that something can the be source of a Pipe. */
 class PipeSourceInterface: public QObject
 {
     Q_OBJECT
     public:
-        PipeSourceInterface(QObject *parent = 0): QObject(parent) {}
+        PipeSourceInterface(QObject *parent = 0)
+            : QObject(parent)
+            , m_id(QUuid::createUuid())
+        {}
+
+        virtual int getNumberOfOutputs() const = 0;
+        virtual QString getOutputName(int outputIndex) const = 0;
+        virtual Pipe *getOutput(int index) = 0;
+
         virtual ~PipeSourceInterface() {}
+
+        QUuid getId() const { return m_id; }
+        /* Note: setId() should only be used when restoring the object from a
+         * config file. Otherwise just keep the id that's generated in the
+         * constructor. */
+        void setId(const QUuid &id) { m_id = id; }
+
+    private:
+        QUuid m_id;
 };
 
 }
@@ -175,12 +193,8 @@ class SourceInterface: public PipeSourceInterface
         virtual void beginEvent() {}
         virtual void processDataWord(u32 data, s32 wordIndex) = 0;
 
-        virtual int getNumberOfOutputs() const = 0;
-        virtual QString getOutputName(int outputIndex) const = 0;
-        virtual Pipe *getOutput(int index) = 0;
-
-        //virtual void read(const QJsonObject &json) const = 0;
-        //virtual void write(QJsonObject &json) const = 0;
+        virtual void read(const QJsonObject &json) = 0;
+        virtual void write(QJsonObject &json) const = 0;
 
         virtual ~SourceInterface() {}
 };
@@ -203,12 +217,8 @@ class OperatorInterface: public PipeSourceInterface
         virtual Pipe *getInput(int index) const = 0;
         virtual void removeInput(Pipe *pipe) = 0;
 
-        virtual int getNumberOfOutputs() const = 0;
-        virtual QString getOutputName(int outputIndex) const = 0;
-        virtual Pipe *getOutput(int index) = 0;
-
-        //virtual void read(const QJsonObject &json) const = 0;
-        //virtual void write(QJsonObject &json) const = 0;
+        virtual void read(const QJsonObject &json) = 0;
+        virtual void write(QJsonObject &json) const = 0;
 
         virtual ~OperatorInterface() {}
 
@@ -304,6 +314,9 @@ class Extractor: public SourceInterface
         virtual int getNumberOfOutputs() const override;
         virtual QString getOutputName(int outputIndex) const override;
         virtual Pipe *getOutput(int index) override;
+
+        virtual void read(const QJsonObject &json) override;
+        virtual void write(QJsonObject &json) const override;
 
     private:
         // configuration
@@ -428,6 +441,9 @@ class CalibrationOperator: public BasicOperator
         QString getUnitLabel() const { return m_unit; }
         void setUnitLabel(const QString &label) { m_unit = label; }
 
+        virtual void read(const QJsonObject &json) override;
+        virtual void write(QJsonObject &json) const override;
+
     private:
         CalibrationParameters m_globalCalibration;
         QVector<CalibrationParameters> m_calibrations;
@@ -498,6 +514,9 @@ class IndexSelector: public BasicOperator
         s32 getIndex() const { return m_index; }
 
         virtual void step() override;
+
+        virtual void read(const QJsonObject &json) override;
+        virtual void write(QJsonObject &json) const override;
 
     private:
         s32 m_index;
@@ -658,6 +677,9 @@ class Histo1DSink: public BasicSink
 
         virtual void step() override;
 
+        virtual void read(const QJsonObject &json) override;
+        virtual void write(QJsonObject &json) const override;
+
     private:
         u32 fillsSinceLastDebug = 0;
 };
@@ -697,6 +719,98 @@ struct Histo2DSink: public Operator
 };
 #endif
 
+template<typename T>
+SourceInterface *createSource()
+{
+    return new T;
+}
+
+template<typename T>
+OperatorInterface *createOperator()
+{
+    return new T;
+}
+
+class Registry
+{
+    public:
+        template<typename T>
+        bool registerSource(const QString &name)
+        {
+            if (m_sourceRegistry.contains(name))
+                return false;
+
+            m_sourceRegistry.insert(name, &createSource<T>);
+
+            return true;
+        }
+
+        template<typename T>
+        bool registerSource()
+        {
+            QString className = T::staticMetaObject.className();
+            return registerSource<T>(className);
+        }
+
+        template<typename T>
+        bool registerOperator(const QString &name)
+        {
+            if (m_operatorRegistry.contains(name))
+                return false;
+
+            m_operatorRegistry.insert(name, &createOperator<T>);
+
+            return true;
+        }
+
+        template<typename T>
+        bool registerOperator()
+        {
+            QString className = T::staticMetaObject.className();
+            return registerOperator<T>(className);
+        }
+
+
+        SourceInterface *makeSource(const QString &name)
+        {
+            SourceInterface *result = nullptr;
+
+            if (m_sourceRegistry.contains(name))
+            {
+                result = m_sourceRegistry[name]();
+            }
+
+            return result;
+        }
+
+        OperatorInterface *makeOperator(const QString &name)
+        {
+            OperatorInterface *result = nullptr;
+
+            if (m_operatorRegistry.contains(name))
+            {
+                result = m_operatorRegistry[name]();
+            }
+
+            return result;
+        }
+
+        QStringList getSourceNames() const
+        {
+            return m_sourceRegistry.keys();
+        }
+
+        QStringList getOperatorNames() const
+        {
+            return m_operatorRegistry.keys();
+        }
+
+    private:
+        QMap<QString, SourceInterface *(*)()> m_sourceRegistry;
+        QMap<QString, OperatorInterface *(*)()> m_operatorRegistry;
+};
+
+
 class Analysis
 {
     public:
@@ -712,6 +826,8 @@ class Analysis
             int eventIndex;
             OperatorPtr op;
         };
+
+        Analysis();
 
         void beginRun();
         void beginEvent(int eventIndex);
@@ -758,6 +874,7 @@ class Analysis
         QVector<SourceEntry> m_sources;
         QVector<OperatorEntry> m_operators;
 
+        Registry m_registry;
 };
 
 }

@@ -3,6 +3,7 @@
 
 #include <QWidget>
 #include <QMultiMap>
+#include <QSet>
 
 class QLineEdit;
 class QTreeWidget;
@@ -98,6 +99,8 @@ class HistogramTreeWidget: public QWidget
 
         QToolButton *pb_new, *pb_load, *pb_save, *pb_saveAs;
         QLineEdit *le_fileName;
+
+        QSet<QObject *> m_analysisObjects;
 };
 
 #endif /* __HISTOGRAM_TREE_H__ */

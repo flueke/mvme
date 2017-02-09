@@ -826,6 +826,10 @@ void MVMEContext::loadAnalysisConfig(const QString &fileName)
     config->read(doc.object()[QSL("AnalysisConfig")].toObject());
     setAnalysisConfig(config);
     setAnalysisConfigFileName(fileName);
+
+
+    // FIXME: incomplete
+    m_analysis_ng->read(doc.object()[QSL("AnalysisNG")].toObject());
 }
 
 void MVMEContext::setListFileDirectory(const QString &dirName)

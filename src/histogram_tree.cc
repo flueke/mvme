@@ -1494,7 +1494,7 @@ bool HistogramTreeWidget::saveConfig()
 
     if (fileName.isEmpty())
     {
-        auto result = saveAnalysisConfigAs(analysisConfig, m_context->getWorkspaceDirectory());
+        auto result = saveAnalysisConfigAs(analysisConfig, m_context->getAnalysisNG(), m_context->getWorkspaceDirectory());
         if (result.first)
         {
             analysisConfig->setModified(false);
@@ -1504,7 +1504,7 @@ bool HistogramTreeWidget::saveConfig()
             return true;
         }
     }
-    else if (saveAnalysisConfig(analysisConfig, fileName, m_context->getWorkspaceDirectory()).first)
+    else if (saveAnalysisConfig(analysisConfig, m_context->getAnalysisNG(), fileName, m_context->getWorkspaceDirectory()).first)
     {
         analysisConfig->setModified(false);
         for (auto obj: analysisConfig->findChildren<ConfigObject *>())
@@ -1517,7 +1517,7 @@ bool HistogramTreeWidget::saveConfig()
 bool HistogramTreeWidget::saveConfigAs()
 {
     auto analysisConfig = m_context->getAnalysisConfig();
-    auto result = saveAnalysisConfigAs(analysisConfig, m_context->getWorkspaceDirectory());
+    auto result = saveAnalysisConfigAs(analysisConfig, m_context->getAnalysisNG(), m_context->getWorkspaceDirectory());
 
     if (result.first)
     {
@@ -1596,6 +1596,8 @@ void HistogramTreeWidget::updateAnalysisNGStuff()
     bool nodesAdded = false;
     auto analysis = m_context->getAnalysisNG();
 
+    QSet<QObject *> analysisObjects;
+
     for (const auto &entry: analysis->getSources())
     {
         auto obj = entry.source.get();
@@ -1613,6 +1615,9 @@ void HistogramTreeWidget::updateAnalysisNGStuff()
             m_treeMap.insert(obj, node);
             nodesAdded = true;
         }
+
+        analysisObjects.insert(obj);
+
     }
 
     for (const auto &entry: analysis->getOperators())
@@ -1637,7 +1642,25 @@ void HistogramTreeWidget::updateAnalysisNGStuff()
             m_treeMap.insert(obj, node);
             nodesAdded = true;
         }
+
+        analysisObjects.insert(obj);
     }
+
+    // FIXME: copying stuffz?!?
+    QSet<QObject *> currentObjects = analysisObjects;
+    QSet<QObject *> oldObjects = m_analysisObjects;
+
+    oldObjects.subtract(currentObjects);
+    // oldObjects now contains the objects that have been removed
+    
+    for (QObject *obj: oldObjects)
+    {
+        // XXX: will probably crash cause of nodes deleting children
+        qDeleteAll(m_treeMap.values(obj));
+        m_treeMap.remove(obj);
+    }
+
+    m_analysisObjects = analysisObjects;
 
     if (nodesAdded)
         m_tree->resizeColumnToContents(0);

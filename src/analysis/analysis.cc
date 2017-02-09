@@ -1,5 +1,7 @@
 #include "analysis.h"
 #include "../qt_util.h"
+#include <QJsonArray>
+#include <QJsonObject>
 
 #define ENABLE_ANALYSIS_DEBUG 0
 
@@ -145,6 +147,41 @@ Pipe *Extractor::getOutput(int index)
     return result;
 }
 
+void Extractor::read(const QJsonObject &json)
+{
+    m_filter = MultiWordDataFilter();
+
+    auto filterArray = json["subFilters"].toArray();
+
+    for (auto it=filterArray.begin();
+         it != filterArray.end();
+         ++it)
+    {
+        auto filterJson = it->toObject();
+        auto filterString = filterJson["filterString"].toString().toLocal8Bit();
+        auto wordIndex    = filterJson["wordIndex"].toInt(-1);
+        DataFilter filter(filterString, wordIndex);
+        m_filter.addSubFilter(filter);
+    }
+
+    setRequiredCompletionCount(static_cast<u32>(json["requiredCompletionCount"].toInt()));
+}
+
+void Extractor::write(QJsonObject &json) const
+{
+    QJsonArray filterArray;
+    for (auto dataFilter: m_filter.getSubFilters())
+    {
+        QJsonObject filterJson;
+        filterJson["filterString"] = QString::fromLocal8Bit(dataFilter.getFilter());
+        filterJson["wordIndex"] = dataFilter.getWordIndex();
+        filterArray.append(filterJson);
+    }
+
+    json["subFilters"] = filterArray;
+    json["requiredCompletionCount"] = static_cast<qint64>(m_requiredCompletionCount);
+}
+
 //
 // BasicOperator
 //
@@ -169,7 +206,7 @@ QString BasicOperator::getInputName(int inputIndex) const
     {
         return QSL("Input");
     }
-    
+
     return QString();
 }
 
@@ -254,7 +291,7 @@ QString BasicSink::getInputName(int inputIndex) const
     {
         return QSL("Input");
     }
-    
+
     return QString();
 }
 
@@ -372,6 +409,52 @@ CalibrationParameters CalibrationOperator::getCalibration(s32 address) const
     return result;
 }
 
+void CalibrationOperator::read(const QJsonObject &json)
+{
+    m_unit = json["unitLabel"].toString();
+    m_globalCalibration.factor = json["globalFactor"].toDouble();
+    m_globalCalibration.offset = json["globalOffset"].toDouble();
+
+    m_calibrations.clear();
+    QJsonArray calibArray = json["calibrations"].toArray();
+
+    for (auto it=calibArray.begin();
+         it != calibArray.end();
+         ++it)
+    {
+        auto paramJson = it->toObject();
+        CalibrationParameters param;
+        if (paramJson.contains("factor") && paramJson.contains("offset"))
+        {
+            param.factor = paramJson["factor"].toDouble();
+            param.offset = paramJson["offset"].toDouble();
+        }
+        m_calibrations.push_back(param);
+    }
+}
+
+void CalibrationOperator::write(QJsonObject &json) const
+{
+    json["unitLabel"] = m_unit;
+    json["globalFactor"] = m_globalCalibration.factor;
+    json["globalOffset"] = m_globalCalibration.offset;
+
+    QJsonArray calibArray;
+
+    for (auto &param: m_calibrations)
+    {
+        QJsonObject paramJson;
+        if (param.isValid())
+        {
+            paramJson["factor"] = param.factor;
+            paramJson["offset"] = param.offset;
+        }
+        calibArray.append(paramJson);
+    }
+
+    json["calibrations"] = calibArray;
+}
+
 //
 // IndexSelector
 //
@@ -397,6 +480,16 @@ void IndexSelector::step()
             }
         }
     }
+}
+
+void IndexSelector::read(const QJsonObject &json)
+{
+    m_index = json["index"].toInt();
+}
+
+void IndexSelector::write(QJsonObject &json) const
+{
+    json["index"] = m_index;
 }
 
 //
@@ -425,9 +518,36 @@ void Histo1DSink::step()
     }
 }
 
+void Histo1DSink::read(const QJsonObject &json)
+{
+    u32 nBins = static_cast<u32>(json["nBins"].toInt());
+    double xMin = json["xMin"].toDouble();
+    double xMax = json["xMax"].toDouble();
+    histo = std::make_shared<Histo1D>(nBins, xMin, xMax);
+}
+
+void Histo1DSink::write(QJsonObject &json) const
+{
+    json["nBins"] = static_cast<qint64>(histo->getNumberOfBins());
+    json["xMin"] = histo->getXMin();
+    json["xMax"] = histo->getXMax();
+}
+
 //
 // Analysis
 //
+Analysis::Analysis()
+{
+    m_registry.registerSource<Extractor>();
+
+    m_registry.registerOperator<CalibrationOperator>();
+    m_registry.registerOperator<IndexSelector>();
+    m_registry.registerOperator<Histo1DSink>();
+
+    qDebug() << m_registry.getSourceNames();
+    qDebug() << m_registry.getOperatorNames();
+}
+
 void Analysis::beginRun()
 {
     updateRanks();
@@ -667,8 +787,101 @@ void Analysis::removeOperator(const OperatorPtr &op) // TODO: test this
 }
 
 #if 0
+        struct Connection
+        {
+            PipeSourceInterface *srcObject;
+            int srcIndex; // the output index of the source object
+
+            OperatorInterface *dstObject;
+            int dstIndex; // the input index of the dest object
+        };
+#endif
+
+template<typename T>
+QString getClassName(T *obj)
+{
+    return obj->metaObject()->className();
+}
+
 void Analysis::read(const QJsonObject &json)
 {
+    clear();
+
+    QMap<QUuid, PipeSourceInterface *> objectsById;
+
+    // Sources
+    {
+        QJsonArray array = json["sources"].toArray();
+
+        for (auto it = array.begin(); it != array.end(); ++it)
+        {
+            auto objectJson = it->toObject();
+            auto className = objectJson["class"].toString();
+
+            SourcePtr source(m_registry.makeSource(className));
+
+            if (source)
+            {
+                source->setId(QUuid(objectJson["id"].toString()));
+                source->setObjectName(objectJson["name"].toString());
+                source->read(objectJson["data"].toObject());
+
+                addSource(objectJson["eventIndex"].toInt(),
+                          objectJson["moduleIndex"].toInt(),
+                          source);
+
+                objectsById.insert(source->getId(), source.get());
+            }
+        }
+    }
+
+    // Operators
+    {
+        QJsonArray array = json["operators"].toArray();
+
+        for (auto it = array.begin(); it != array.end(); ++it)
+        {
+            auto objectJson = it->toObject();
+            auto className = objectJson["class"].toString();
+
+            OperatorPtr op(m_registry.makeOperator(className));
+
+            if (op)
+            {
+                op->setId(QUuid(objectJson["id"].toString()));
+                op->setObjectName(objectJson["name"].toString());
+                op->read(objectJson["data"].toObject());
+
+                addOperator(objectJson["eventIndex"].toInt(),
+                            op);
+
+                objectsById.insert(op->getId(), op.get());
+            }
+        }
+    }
+
+    // Connections
+    {
+        QJsonArray array = json["connections"].toArray();
+        for (auto it = array.begin(); it != array.end(); ++it)
+        {
+            auto objectJson = it->toObject();
+
+            QUuid srcId(objectJson["srcId"].toString());
+            s32 srcIndex = objectJson["srcIndex"].toInt();
+
+            QUuid dstId(objectJson["dstId"].toString());
+            s32 dstIndex = objectJson["dstIndex"].toInt();
+
+            auto srcObject = objectsById.value(srcId);
+            auto dstObject = qobject_cast<OperatorInterface *>(objectsById.value(dstId));
+
+            if (srcObject && dstObject)
+            {
+                dstObject->setInput(dstIndex, srcObject->getOutput(srcIndex));
+            }
+        }
+    }
 }
 
 void Analysis::write(QJsonObject &json) const
@@ -678,29 +891,91 @@ void Analysis::write(QJsonObject &json) const
         QJsonArray destArray;
         for (auto &sourceEntry: m_sources)
         {
+            SourceInterface *source = sourceEntry.source.get();
             QJsonObject destObject;
+            destObject["id"] = source->getId().toString();
+            destObject["name"] = source->objectName();
             destObject["eventIndex"]  = static_cast<qint64>(sourceEntry.eventIndex);
             destObject["moduleIndex"] = static_cast<qint64>(sourceEntry.moduleIndex);
-            QJsonObject sourceJson;
-            sourceEntry->write(sourceJson);
-            destObject["source"] = sourceJson;
+            destObject["class"] = getClassName(source);
+            QJsonObject dataJson;
+            source->write(dataJson);
+            destObject["data"] = dataJson;
+            destArray.append(destObject);
         }
         json["sources"] = destArray;
     }
 
     // Operators
     {
-        QJsonArray
+        QJsonArray destArray;
+        for (auto &opEntry: m_operators)
+        {
+            OperatorInterface *op = opEntry.op.get();
+            QJsonObject destObject;
+            destObject["id"] = op->getId().toString();
+            destObject["name"] = op->objectName();
+            destObject["eventIndex"]  = static_cast<qint64>(opEntry.eventIndex);
+            destObject["class"] = getClassName(op);
+            QJsonObject dataJson;
+            op->write(dataJson);
+            destObject["data"] = dataJson;
+            destArray.append(destObject);
+        }
+        json["operators"] = destArray;
     }
 
+    // Connections
+    {
+        QJsonArray conArray;
+        QVector<PipeSourceInterface *> pipeSources;
 
+        for (auto &sourceEntry: m_sources)
+        {
+            pipeSources.push_back(sourceEntry.source.get());
+        }
 
+        for (auto &opEntry: m_operators)
+        {
+            pipeSources.push_back(opEntry.op.get());
+        }
 
+        for (PipeSourceInterface *srcObject: pipeSources)
+        {
+            for (int outputIndex = 0; outputIndex < srcObject->getNumberOfOutputs(); ++outputIndex)
+            {
+                Pipe *pipe = srcObject->getOutput(outputIndex);
 
-    json["operators"] = 
+                for (OperatorInterface *destOp: pipe->getDestinations())
+                {
+                    int dstIndex = -1;
+                    for (int inputIndex = 0; inputIndex < destOp->getNumberOfInputs(); ++inputIndex)
+                    {
+                        Pipe *inputPipe = destOp->getInput(inputIndex);
 
-    json["pipes"] = 
+                        if (inputPipe == pipe)
+                        {
+                            dstIndex = inputIndex;
+                            break;
+                        }
+                    }
+
+                    if (dstIndex >= 0)
+                    {
+                        qDebug() << "Connection:" << srcObject << outputIndex << "->" << destOp << dstIndex;
+                        QJsonObject conJson;
+                        conJson["srcId"] = srcObject->getId().toString();
+                        conJson["srcIndex"] = outputIndex;
+                        conJson["dstId"] = destOp->getId().toString();
+                        conJson["dstIndex"] = dstIndex;
+                        conArray.append(conJson);
+                    }
+                }
+            }
+        }
+
+        json["connections"] = conArray;
+    }
 }
-#endif
 
 }

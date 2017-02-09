@@ -11,6 +11,11 @@ class DualWordDataFilterConfig;
 class MVMEContext;
 class AnalysisConfig;
 
+namespace analysis
+{
+    class Analysis;
+}
+
 namespace Ui
 {
     class EventConfigDialog;
@@ -104,7 +109,7 @@ class DualWordDataFilterDialog: public QDialog
         DualWordDataFilterConfig *m_config;
 };
 
-QPair<bool, QString> saveAnalysisConfig(AnalysisConfig *config, const QString &fileName, QString startPath);
-QPair<bool, QString> saveAnalysisConfigAs(AnalysisConfig *config, QString startPath);
+QPair<bool, QString> saveAnalysisConfig(AnalysisConfig *config, analysis::Analysis *analysis_ng, const QString &fileName, QString startPath);
+QPair<bool, QString> saveAnalysisConfigAs(AnalysisConfig *config, analysis::Analysis *analysis_ng, QString startPath);
 
 #endif /* __CONFIG_WIDGETS_H__ */
