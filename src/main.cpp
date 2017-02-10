@@ -32,6 +32,7 @@ int main(int argc, char *argv[])
     qDebug() << "librariesPaths = " << QLibraryInfo::location(QLibraryInfo::LibrariesPath);
     qDebug() << "pluginsPaths = " << QLibraryInfo::location(QLibraryInfo::PluginsPath);
 
+#ifdef QT_NO_DEBUG
     QSplashScreen splash(QPixmap(":/splash-screen.png"), Qt::CustomizeWindowHint | Qt::Window | Qt::WindowStaysOnTopHint);
     auto font = splash.font();
     font.setPixelSize(22);
@@ -48,12 +49,15 @@ int main(int argc, char *argv[])
     splashTimer.setSingleShot(true);
     splashTimer.start();
     QObject::connect(&splashTimer, &QTimer::timeout, &splash, &QWidget::close);
+#endif
 
     mvme w;
     w.show();
     w.restoreSettings();
 
+#ifdef QT_NO_DEBUG
     splash.raise();
+#endif
 
     int ret = app.exec();
 

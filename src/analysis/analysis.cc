@@ -5,6 +5,13 @@
 
 #define ENABLE_ANALYSIS_DEBUG 0
 
+template<typename T>
+QDebug &operator<< (QDebug &dbg, const std::shared_ptr<T> &ptr)
+{
+    dbg << ptr.get();
+    return dbg;
+}
+
 namespace analysis
 {
 
@@ -786,6 +793,14 @@ void Analysis::removeOperator(const OperatorPtr &op) // TODO: test this
     }
 }
 
+
+void Analysis::clear()
+{
+    m_sources.clear();
+    m_operators.clear();
+    rawDataDisplays.clear();
+}
+
 #if 0
         struct Connection
         {
@@ -807,7 +822,7 @@ void Analysis::read(const QJsonObject &json)
 {
     clear();
 
-    QMap<QUuid, PipeSourceInterface *> objectsById;
+    QMap<QUuid, PipeSourcePtr> objectsById;
 
     // Sources
     {
@@ -830,7 +845,7 @@ void Analysis::read(const QJsonObject &json)
                           objectJson["moduleIndex"].toInt(),
                           source);
 
-                objectsById.insert(source->getId(), source.get());
+                objectsById.insert(source->getId(), source);
             }
         }
     }
@@ -855,7 +870,7 @@ void Analysis::read(const QJsonObject &json)
                 addOperator(objectJson["eventIndex"].toInt(),
                             op);
 
-                objectsById.insert(op->getId(), op.get());
+                objectsById.insert(op->getId(), op);
             }
         }
     }
@@ -874,12 +889,56 @@ void Analysis::read(const QJsonObject &json)
             s32 dstIndex = objectJson["dstIndex"].toInt();
 
             auto srcObject = objectsById.value(srcId);
-            auto dstObject = qobject_cast<OperatorInterface *>(objectsById.value(dstId));
+            auto dstObject = std::dynamic_pointer_cast<OperatorInterface>(objectsById.value(dstId));
 
             if (srcObject && dstObject)
             {
                 dstObject->setInput(dstIndex, srcObject->getOutput(srcIndex));
             }
+        }
+    }
+
+    // Compound objects
+    {
+        // FIXME: error checking
+        QJsonArray sourceArray = json["rawDataDisplays"].toArray();
+
+        for (auto it = sourceArray.begin(); it != sourceArray.end(); ++it)
+        {
+            auto objectJson = it->toObject();
+
+            RawDataDisplay display;
+
+            display.id = QUuid(objectJson["id"].toString());
+            display.extractor = std::dynamic_pointer_cast<SourceInterface>(objectsById.value(QUuid(objectJson["extractorId"].toString())));
+            display.calibration = std::dynamic_pointer_cast<OperatorInterface>(objectsById.value(QUuid(objectJson["calibrationId"].toString())));
+
+            auto rawSinkArray = objectJson["rawHistoSinks"].toArray();
+
+            for (auto jt = rawSinkArray.begin(); jt != rawSinkArray.end(); ++jt)
+            {
+                auto rawSinkJson = jt->toObject();
+                auto selector = std::dynamic_pointer_cast<OperatorInterface>(
+                    objectsById.value(QUuid(rawSinkJson["selectorId"].toString())));
+                auto histoSink = std::dynamic_pointer_cast<OperatorInterface>(
+                    objectsById.value(QUuid(rawSinkJson["histoSinkId"].toString())));
+
+                display.rawHistoSinks.push_back({selector, histoSink});
+            }
+
+            auto cmp = [](const RawDataDisplay::RawHistoSink &aS, const RawDataDisplay::RawHistoSink &bS)
+            {
+                auto a = qobject_cast<IndexSelector *>(aS.selector.get());
+                auto b = qobject_cast<IndexSelector *>(bS.selector.get());
+
+                return (a && b && a->getIndex() < b->getIndex());
+            };
+
+            // make sure selectors and histosinks are in selector address order!
+            qSort(display.rawHistoSinks.begin(), display.rawHistoSinks.end(), cmp);
+
+
+            rawDataDisplays.push_back(display);
         }
     }
 }
@@ -976,6 +1035,107 @@ void Analysis::write(QJsonObject &json) const
 
         json["connections"] = conArray;
     }
+
+    // Compound objects
+    {
+        QJsonArray destArray;
+
+        for (auto &display: rawDataDisplays)
+        {
+            QJsonObject displayObject;
+            displayObject["id"] = display.id.toString();
+            displayObject["extractorId"] = display.extractor->getId().toString();
+            displayObject["calibrationId"] = display.calibration->getId().toString();
+
+            QJsonArray rawSinkArray;
+
+            for (const auto &rawSink: display.rawHistoSinks)
+            {
+                QJsonObject rawSinkJson;
+                rawSinkJson["selectorId"] = rawSink.selector->getId().toString();
+                rawSinkJson["histoSinkId"] = rawSink.histoSink->getId().toString();
+                rawSinkArray.append(rawSinkJson);
+            }
+
+            displayObject["rawHistoSinks"] = rawSinkArray;
+
+            destArray.append(displayObject);
+        }
+
+        json["rawDataDisplays"] = destArray;
+    }
+}
+
+        /* TODO/FIXME:
+         * - histo axis titles are still missing
+         * - easier to use MultiWordDataFilter constructor
+         * - IndexSelector.m_index is signed because of Qts containers using a
+         *   signed type for their sizes. What happens if the index is actually
+         *   negative?
+         */
+RawDataDisplay make_raw_data_display(const MultiWordDataFilter &extractionFilter, double unitMin, double unitMax,
+                                     const QString &name, const QString &xAxisTitle, const QString &unitLabel)
+{
+    RawDataDisplay result;
+
+    auto extractor = std::make_shared<analysis::Extractor>();
+    extractor->setFilter(extractionFilter);
+    extractor->setObjectName(QString("Extractor for %1").arg(name));
+
+    result.extractor = extractor;
+
+    double srcMin  = 0.0;
+    double srcMax  = (1 << extractionFilter.getDataBits());
+
+    // factor in U/S, offset in U
+    // TODO: should factor be in U?
+    double factor = std::abs(unitMax - unitMin) / (srcMax - srcMin);
+    double offset = unitMin - srcMin * factor; // FIXME: correct in all cases?
+
+    qDebug() << ">>>>> factor =" << factor << ", offset =" << offset;
+
+    auto calibration = std::make_shared<analysis::CalibrationOperator>();
+    calibration->setGlobalCalibration(factor, offset);
+    calibration->setObjectName(QString("Calibration for %1").arg(name));
+    calibration->setInput(0, extractor->getOutput(0));
+
+    result.calibration = calibration;
+
+    u32 addressCount = (1 << extractionFilter.getAddressBits());
+
+    for (u32 address = 0; address < addressCount; ++address)
+    {
+        auto selector = std::make_shared<analysis::IndexSelector>();
+        selector->setIndex(static_cast<s32>(address));
+        selector->setObjectName(QString("%1[%2]").arg(name).arg(address));
+        selector->setInput(0, calibration->getOutput(0));
+
+        auto histoSink = std::make_shared<analysis::Histo1DSink>();
+        histoSink->setObjectName(QString("%1[%2]").arg(name).arg(address));
+        // Use full resolution bins and calibration min and max values
+        histoSink->histo = std::make_shared<Histo1D>(srcMax, unitMin, unitMax);
+        histoSink->histo->setObjectName(QString("%1[%2]").arg(name).arg(address));
+        // TODO: histoSink->histo->setXAxisTitle(xAxisTitle);
+        histoSink->setInput(0, selector->getOutput(0));
+
+        result.rawHistoSinks.push_back({selector, histoSink});
+    }
+
+    return result;
+}
+
+void add_raw_data_display(Analysis *analysis, int eventIndex, int moduleIndex, const RawDataDisplay &display)
+{
+    analysis->addSource(eventIndex, moduleIndex, display.extractor);
+    analysis->addOperator(eventIndex, display.calibration);
+
+    for (const auto &rs: display.rawHistoSinks)
+    {
+        analysis->addOperator(eventIndex, rs.selector);
+        analysis->addOperator(eventIndex, rs.histoSink);
+    }
+
+    analysis->rawDataDisplays.push_back(display);
 }
 
 }

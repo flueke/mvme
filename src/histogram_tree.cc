@@ -133,12 +133,15 @@ enum NodeType
     // Analysis NG stuff
     NodeType_Source,
     NodeType_Operator,
+    NodeType_RawDataDisplayFilter,
+    NodeType_RawDataDisplayHisto
 };
 
 enum DataRole
 {
     DataRole_Pointer = Qt::UserRole,
     DataRole_FilterAddress,
+    DataRole_Uuid,
 };
 
 class TreeNode: public QTreeWidgetItem
@@ -358,9 +361,6 @@ void HistogramTreeWidget::onObjectAdded(QObject *object)
 
             moduleNode->setText(1, QString("event=%1, module=%2").arg(idxPair.first).arg(idxPair.second));
 
-            for (auto filterConfig: m_context->getAnalysisConfig()->getFilters(idxPair.first, idxPair.second))
-                onObjectAdded(filterConfig);
-
             m_tree->resizeColumnToContents(0);
 
             connect(moduleConfig, &QObject::objectNameChanged, this, [this, moduleConfig](const QString &name) {
@@ -519,6 +519,7 @@ void HistogramTreeWidget::onAnyConfigChanged()
 
     qDeleteAll(m_node1dNew->takeChildren());
     qDeleteAll(m_node2dNew->takeChildren());
+    qDeleteAll(m_nodeAnalysisNG->takeChildren());
     qDeleteAll(m_nodeAnalysisNGObjects->takeChildren());
 
 
@@ -580,6 +581,11 @@ void HistogramTreeWidget::onAnyConfigChanged()
 
         updateConfigLabel();
     }
+
+#if ENABLE_ANALYSIS_NG
+    m_rawDataDisplayNodes.clear();
+#endif
+
     qDebug() << __PRETTY_FUNCTION__ << "end";
 }
 
@@ -981,56 +987,25 @@ void HistogramTreeWidget::generateDefaultFilters()
 
 #if ENABLE_ANALYSIS_NG
     {
-        /* TODO/FIXME:
-         * - placeholders in filterDef.title are not used
-         * - easier to use MultiWordDataFilter constructor
-         * - IndexSelector.m_index is signed because of Qts containers using a
-         *   signed type for their sizes. What happens if the index is actually
-         *   negative?
-         */
 
         s32 eventIndex = indices.first;
         s32 moduleIndex = indices.second;
 
         const auto filterDefinitions = defaultDataFilters.value(moduleConfig->type);
-        auto analysis_ng = m_context->getAnalysisNG();
 
         for (const auto &filterDef: filterDefinitions)
         {
             analysis::DataFilter dataFilter(filterDef.filter);
             analysis::MultiWordDataFilter multiWordFilter({dataFilter});
+            double unitMin = 0.0;
+            double unitMax = (1 << multiWordFilter.getDataBits());
 
-            auto extractor = std::make_shared<analysis::Extractor>();
-            extractor->setFilter(multiWordFilter);
-            extractor->setObjectName(filterDef.name);
+            analysis::RawDataDisplay rawDataDisplay = make_raw_data_display(multiWordFilter, unitMin, unitMax,
+                                                                            moduleConfig->objectName(),
+                                                                            filterDef.title,
+                                                                            QString());
 
-            auto calibration = std::make_shared<analysis::CalibrationOperator>();
-            calibration->setGlobalCalibration(1.0, 0.0);
-            calibration->setObjectName(QString("Calibration for %1").arg(filterDef.name));
-            calibration->setInput(0, extractor->getOutput(0));
-
-            u32 addressCount = (1 << multiWordFilter.getAddressBits());
-            u32 dataMax  = (1 << multiWordFilter.getDataBits());
-
-            for (u32 address = 0; address < addressCount; ++address)
-            {
-                auto selector = std::make_shared<analysis::IndexSelector>();
-                selector->setIndex(static_cast<s32>(address));
-                selector->setObjectName(QString("%1[%2]").arg(filterDef.name).arg(address));
-                selector->setInput(0, calibration->getOutput(0));
-                
-                auto histoSink = std::make_shared<analysis::Histo1DSink>();
-                histoSink->setObjectName(QString("%1[%2]").arg(filterDef.name).arg(address));
-                histoSink->histo = std::make_shared<Histo1D>(dataMax, 0.0, dataMax);
-                histoSink->histo->setObjectName(filterDef.title);
-                histoSink->setInput(0, selector->getOutput(0));
-
-                analysis_ng->addOperator(eventIndex, selector);
-                analysis_ng->addOperator(eventIndex, histoSink);
-            }
-
-            analysis_ng->addSource(eventIndex, moduleIndex, extractor);
-            analysis_ng->addOperator(eventIndex, calibration);
+            add_raw_data_display(m_context->getAnalysisNG(), eventIndex, moduleIndex, rawDataDisplay);
         }
 
         // update the widget
@@ -1060,7 +1035,31 @@ void HistogramTreeWidget::addDataFilter()
             qDebug() << __PRETTY_FUNCTION__ << "invalid daqconfig indices for moduleConfig" << moduleConfig;
             return;
         }
-        m_context->getAnalysisConfig()->addFilter(indices.first, indices.second, filterConfig.release());
+        m_context->getAnalysisConfig()->addFilter(indices.first, indices.second, filterConfig.get());
+
+#if ENABLE_ANALYSIS_NG
+        {
+            analysis::DataFilter dataFilter(filterConfig->getFilter().getFilter());
+            analysis::MultiWordDataFilter multiWordFilter({dataFilter});
+            double unitMin = filterConfig->getBaseUnitRange().first;
+            double unitMax = filterConfig->getBaseUnitRange().second;
+
+            analysis::RawDataDisplay rawDataDisplay = make_raw_data_display(multiWordFilter, unitMin, unitMax,
+                                                                            moduleConfig->objectName(),
+                                                                            filterConfig->getAxisTitle(),
+                                                                            filterConfig->getUnitString());
+            int eventIndex  = indices.first;
+            int moduleIndex = indices.second;
+
+            add_raw_data_display(m_context->getAnalysisNG(), eventIndex, moduleIndex, rawDataDisplay);
+
+            // update the widget
+            updateAnalysisNGStuff();
+        }
+#endif
+        /* The filter config was passed to the old analysis. Release the
+         * pointer here instead of letting it destroy the config. */
+        filterConfig.release();
     }
 }
 
@@ -1451,6 +1450,11 @@ void HistogramTreeWidget::newConfig()
 
     m_context->setAnalysisConfig(new AnalysisConfig);
     m_context->setAnalysisConfigFileName(QString());
+
+#if ENABLE_ANALYSIS_NG
+    m_context->getAnalysisNG()->clear();
+    updateAnalysisNGStuff();
+#endif
 }
 
 void HistogramTreeWidget::loadConfig()
@@ -1646,7 +1650,6 @@ void HistogramTreeWidget::updateAnalysisNGStuff()
         analysisObjects.insert(obj);
     }
 
-    // FIXME: copying stuffz?!?
     QSet<QObject *> currentObjects = analysisObjects;
     QSet<QObject *> oldObjects = m_analysisObjects;
 
@@ -1655,12 +1658,65 @@ void HistogramTreeWidget::updateAnalysisNGStuff()
     
     for (QObject *obj: oldObjects)
     {
-        // XXX: will probably crash cause of nodes deleting children
+        // FIXME: will probably crash cause of nodes deleting children
         qDeleteAll(m_treeMap.values(obj));
         m_treeMap.remove(obj);
     }
 
     m_analysisObjects = analysisObjects;
+
+    for (const auto &rawDisp: analysis->rawDataDisplays)
+    {
+        if (m_rawDataDisplayNodes.contains(rawDisp.id))
+            continue;
+
+        int eventIndex  = analysis->getEventIndex(rawDisp.extractor);
+        int moduleIndex = analysis->getModuleIndex(rawDisp.extractor);
+        auto moduleConfig = m_context->getDAQConfig()->getModuleConfig(eventIndex, moduleIndex);
+
+        if (!moduleConfig)
+            continue;
+
+        TreeNode *moduleNode = nullptr;
+
+        for (auto node: m_treeMap.values(moduleConfig))
+        {
+            if (node->parent() == m_nodeAnalysisNG)
+            {
+                moduleNode = node;
+                break;
+            }
+        }
+
+        if (!moduleNode) // the module node should've been created in onObjectAdded()
+            continue;
+
+        auto filterNode = std::unique_ptr<TreeNode>(new TreeNode(NodeType_RawDataDisplayFilter));
+        filterNode->setData(0, DataRole_Uuid, rawDisp.id);
+        filterNode->setText(0, rawDisp.extractor->objectName());
+        filterNode->setIcon(0, QIcon(":/data_filter.png"));
+
+        const s32 addressCount = rawDisp.rawHistoSinks.size();
+
+        for (s32 address = 0; address < addressCount; ++address)
+        {
+            auto histoSink = qobject_cast<analysis::Histo1DSink *>(rawDisp.rawHistoSinks.value(address).histoSink.get());
+
+            if (histoSink)
+            {
+                auto histoNode = makeNode(histoSink, NodeType_Operator);
+                histoNode->setText(0, histoSink->histo->objectName());
+                histoNode->setIcon(0, QIcon(":/hist1d.png"));
+                filterNode->addChild(histoNode);
+            }
+        }
+
+        auto filterNodeP = filterNode.release();
+        m_rawDataDisplayNodes.insert(rawDisp.id, filterNodeP);
+        moduleNode->addChild(filterNodeP);
+
+        nodesAdded = true;
+    }
 
     if (nodesAdded)
         m_tree->resizeColumnToContents(0);

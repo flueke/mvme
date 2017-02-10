@@ -4,6 +4,7 @@
 #include <QWidget>
 #include <QMultiMap>
 #include <QSet>
+#include <QUuid>
 
 class QLineEdit;
 class QTreeWidget;
@@ -101,6 +102,7 @@ class HistogramTreeWidget: public QWidget
         QLineEdit *le_fileName;
 
         QSet<QObject *> m_analysisObjects;
+        QMultiMap<QUuid, TreeNode *> m_rawDataDisplayNodes;
 };
 
 #endif /* __HISTOGRAM_TREE_H__ */

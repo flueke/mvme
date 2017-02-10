@@ -572,7 +572,7 @@ QwtScaleMap DataFilterConfig::makeConversionMap(u32 address) const
 {
     auto unitRange = m_unitRanges.value(address, m_baseUnitRange);
     QwtScaleMap result;
-    result.setScaleInterval(0, std::pow(2.0, getDataBits()) - 1.0);
+    result.setScaleInterval(0, std::pow(2.0, getDataBits()));
     result.setPaintInterval(unitRange.first, unitRange.second);
     return result;
 }
@@ -582,7 +582,7 @@ void DataFilterConfig::setFilter(const DataFilter &filter)
     if (m_filter != filter)
     {
         m_filter = filter;
-        m_baseUnitRange = qMakePair(0.0, (1 << getDataBits()) - 1.0);
+        m_baseUnitRange = qMakePair(0.0, (1 << getDataBits()));
 
         m_unitRanges.clear();
 

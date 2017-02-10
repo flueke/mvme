@@ -302,7 +302,7 @@ void DataFilterDialog::updateUnitLimits()
         auto filter = makeFilterFromString(ui->le_filter->text());
         auto dataBits = filter.getExtractBits('D');
         ui->spin_rangeMin->setValue(0.0);
-        ui->spin_rangeMax->setValue((1ull << dataBits) - 1);
+        ui->spin_rangeMax->setValue((1ull << dataBits));
     }
     catch (const std::string &)
     {}

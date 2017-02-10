@@ -107,6 +107,8 @@ class PipeSourceInterface: public QObject
         QUuid m_id;
 };
 
+typedef std::shared_ptr<PipeSourceInterface> PipeSourcePtr;
+
 }
 
 #define PipeSourceInterface_iid "com.mesytec.mvme.analysis.PipeSourceInterface.1"
@@ -810,6 +812,28 @@ class Registry
         QMap<QString, OperatorInterface *(*)()> m_operatorRegistry;
 };
 
+/* Compound structure to model the old DataFilter+units -> address -> histo
+ * scheme. */
+struct RawDataDisplay
+{
+    SourcePtr extractor;
+    OperatorPtr calibration;
+
+    struct RawHistoSink
+    {
+        OperatorPtr selector;
+        OperatorPtr histoSink;
+    };
+
+    // Kept in order of selector index.
+    QVector<RawHistoSink> rawHistoSinks;
+
+    QUuid id;
+
+    RawDataDisplay()
+        : id(QUuid::createUuid())
+    {}
+};
 
 class Analysis
 {
@@ -857,15 +881,52 @@ class Analysis
         void removeSource(const SourcePtr &source);
         void removeOperator(const OperatorPtr &op);
 
-
-        void clear()
-        {
-            m_sources.clear();
-            m_operators.clear();
-        }
+        void clear();
 
         void read(const QJsonObject &json);
         void write(QJsonObject &json) const;
+
+        // FIXME: this stuff is bad
+        int getModuleIndex(const SourcePtr &src) const { return getModuleIndex(src.get()); }
+        int getModuleIndex(const SourceInterface *src) const
+        {
+            for (const auto &sourceEntry: m_sources)
+            {
+                if (sourceEntry.source.get() == src)
+                {
+                    return sourceEntry.moduleIndex;
+                }
+            }
+            return -1 ;
+        }
+
+        int getEventIndex(const SourcePtr &src) const { return getEventIndex(src.get()); }
+        int getEventIndex(const SourceInterface *src) const
+        {
+            for (const auto &sourceEntry: m_sources)
+            {
+                if (sourceEntry.source.get() == src)
+                {
+                    return sourceEntry.moduleIndex;
+                }
+            }
+            return -1;
+        }
+
+        int getEventIndex(const OperatorPtr &op) const { return getEventIndex(op.get()); }
+        int getEventIndex(const OperatorInterface *op) const
+        {
+            for (const auto &opEntry: m_operators)
+            {
+                if (opEntry.op.get() == op)
+                {
+                    return opEntry.eventIndex;
+                }
+            }
+            return -1;
+        }
+
+        QVector<RawDataDisplay> rawDataDisplays;
 
     private:
         void updateRanks();
@@ -876,6 +937,11 @@ class Analysis
 
         Registry m_registry;
 };
+
+RawDataDisplay make_raw_data_display(const MultiWordDataFilter &extractionFilter, double unitMin, double unitMax,
+                                     const QString &name, const QString &xAxisTitle, const QString &unitLabel);
+
+void add_raw_data_display(Analysis *analysis, int eventIndex, int moduleIndex, const RawDataDisplay &display);
 
 }
 #endif /* __ANALYSIS_H__ */
