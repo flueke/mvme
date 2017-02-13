@@ -5,20 +5,24 @@
 #include "data_filter.h"
 #include "histo1d.h"
 #include "histo2d.h"
+#include "../qt_util.h"
 
 #include <memory>
 #include <QUuid>
 
 class QJsonObject;
 
-/* TODO: rank calculation
- *   Operators vs Sources:
+/* TODO:
+ *   Operators vs Sources vs Sinks:
  *   - Sources have no input but are directly attached to a module.
  *     -> They have eventIndex and moduleIndex whereas operators are only
  *        associated with an event.
  *   - Source have a processDataWord() method, Operators have a step() method
+ *   - Sinks usually don't have any output but consume input. Histograms could
+ *     have output but outputting whole histograms into ParameterVectors doubles
+ *     the storage required for historams.
  *
-
+ * - Operator Icon
  *
  */
 
@@ -73,6 +77,8 @@ class PipeSourceInterface: public QObject
         virtual int getNumberOfOutputs() const = 0;
         virtual QString getOutputName(int outputIndex) const = 0;
         virtual Pipe *getOutput(int index) = 0;
+
+        virtual QString getDisplayName() const = 0;
 
         virtual ~PipeSourceInterface() {}
 
@@ -263,6 +269,9 @@ class Extractor: public SourceInterface
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
 
+        virtual QString getDisplayName() const override { return QSL("Extractor"); }
+
+
     private:
         // configuration
         MultiWordDataFilter m_filter;
@@ -390,6 +399,8 @@ class CalibrationOperator: public BasicOperator
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
 
+        virtual QString getDisplayName() const override { return QSL("Calibration"); }
+
     private:
         CalibrationParameters m_globalCalibration;
         QVector<CalibrationParameters> m_calibrations;
@@ -464,6 +475,8 @@ class IndexSelector: public BasicOperator
 
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
+
+        virtual QString getDisplayName() const override { return QSL("Index Selection"); }
 
     private:
         s32 m_index;
@@ -626,6 +639,8 @@ class Histo1DSink: public BasicSink
 
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
+
+        virtual QString getDisplayName() const override { return QSL("Histo1D"); }
 
     private:
         u32 fillsSinceLastDebug = 0;
@@ -808,6 +823,21 @@ class Analysis
             return m_sources;
         }
 
+        QVector<SourceEntry> getSources(int eventIndex, int moduleIndex) const
+        {
+            QVector<SourceEntry> result;
+
+            for (const auto &e: m_sources)
+            {
+                if (e.eventIndex == eventIndex && e.moduleIndex == moduleIndex)
+                {
+                    result.push_back(e);
+                }
+            }
+
+            return result;
+        }
+
         const QVector<OperatorEntry> &getOperators() const
         {
             return m_operators;
@@ -816,11 +846,13 @@ class Analysis
         void addSource(int eventIndex, int moduleIndex, const SourcePtr &source)
         {
             m_sources.push_back({eventIndex, moduleIndex, source});
+            updateRanks();
         }
 
         void addOperator(int eventIndex, const OperatorPtr &op)
         {
             m_operators.push_back({eventIndex, op});
+            updateRanks();
         }
 
         void removeSource(const SourcePtr &source);

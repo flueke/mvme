@@ -21,6 +21,17 @@ int main(int argc, char *argv[])
 
     QApplication app(argc, argv);
 
+#if 0
+    {
+        QFile qssFile(":/stylesheet.qss");
+        if (qssFile.open(QIODevice::ReadOnly))
+        {
+            auto qssData = qssFile.readAll();
+            app.setStyleSheet(qssData);
+        }
+    }
+#endif
+
     QCoreApplication::setOrganizationDomain("www.mesytec.com");
     QCoreApplication::setOrganizationName("mesytec");
     QCoreApplication::setApplicationName("mvme");

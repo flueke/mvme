@@ -20,6 +20,7 @@
 #include "gui_util.h"
 #include "analysis/analysis.h"
 #include "histo1d_widget.h"
+#include "analysis/analysis_ui.h"
 
 #include <QDockWidget>
 #include <QFileDialog>
@@ -244,89 +245,9 @@ mvme::mvme(QWidget *parent) :
     // FIXME: test code!
     //
     {
-#if 0
-        using namespace analysis;
-
-        auto analysis_ng = m_context->getAnalysisNG();
-
-        analysis_ng->clear();
-
-        // Sources
-        auto mdpp16_extractor = std::make_shared<Extractor>();
-        mdpp16_extractor->getFilter().addSubFilter(analysis::DataFilter("0001XXXXXX00AAAADDDDDDDDDDDDDDDD"));
-        
-        analysis_ng->addSource(0, 0, mdpp16_extractor);
-
-        // Operators
-        auto calib = std::make_shared<CalibrationOperator>();
-        calib->setGlobalCalibration(1.0, 0.0);
-        calib->setInput(0, mdpp16_extractor->getOutput(0));
-        analysis_ng->addOperator(0, calib);
-
-        auto addSelectorAndSink = [calib, analysis_ng](s32 address)
-        {
-            auto selector = std::make_shared<IndexSelector>();
-            selector->setIndex(address);
-            selector->setInput(0, calib->getOutput(0));
-            analysis_ng->addOperator(0, selector);
-
-            auto histoSink = std::make_shared<Histo1DSink>();
-            histoSink->setObjectName(QString("HistoSink for address %1").arg(address));
-            histoSink->histo = std::make_shared<Histo1D>(1 << 16, 0, 1 << 16);
-            histoSink->histo->setObjectName(QString("Histo for address %1").arg(address));
-            histoSink->setInput(0, selector->getOutput(0));
-            analysis_ng->addOperator(0, histoSink);
-        };
-
-        addSelectorAndSink(0);
-        addSelectorAndSink(8);
-#endif
-
-
-#if 0
-        // Make a chain
-        {
-            auto firstSelector = std::make_shared<IndexSelector>(2);
-            analysis_ng->m_operators.push_back({0, firstSelector});
-            firstSelector->input = &calib->output;
-
-            auto currentSelector = firstSelector;
-
-            for (int i=0; i<20; ++i)
-            {
-                auto nextSelector = std::make_shared<IndexSelector>(2);
-                analysis_ng->m_operators.push_back({0, nextSelector});
-                nextSelector->input =  &currentSelector->output;
-                currentSelector = nextSelector;
-            }
-        }
-
-
-        {
-            // X is channel 0
-            auto xSelector = std::make_shared<IndexSelector>(0);
-            xSelector->input = &calib->output;
-            //xSelector->output.rank = xSelector->input->rank + 1;
-            analysis_ng->m_operators.push_back({0, xSelector});
-
-            // Y is channel 8
-            auto ySelector = std::make_shared<IndexSelector>(8);
-            ySelector->input = &calib->output;
-            //ySelector->output.rank = ySelector->input->rank + 1;
-            analysis_ng->m_operators.push_back({0, ySelector});
-
-            // the histogram
-            auto sink = std::make_shared<Histo2DSink>();
-            sink->histo = std::make_shared<Histo2D>(8, 0.0, 1 << 16,
-                                                    8, 0.0, 1 << 16);
-            sink->histo->setObjectName(QString("Channel 0 vs Channel 8"));
-            sink->inputX = &xSelector->output;
-            sink->inputY = &ySelector->output;
-            //sink->output.rank = std::max(sink->inputX->rank, sink->inputY->rank) + 1;
-
-            analysis_ng->m_operators.push_back({0, sink});
-        }
-#endif
+        auto widget = new analysis::AnalysisWidget(m_context);
+        widget->setWindowTitle("Analysis UI");
+        addWidgetWindow(widget);
     }
 }
 

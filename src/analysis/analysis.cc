@@ -1,5 +1,4 @@
 #include "analysis.h"
-#include "../qt_util.h"
 #include <QJsonArray>
 #include <QJsonObject>
 
@@ -726,16 +725,20 @@ void Analysis::updateRank(OperatorInterface *op, QSet<OperatorInterface *> &upda
     {
         Pipe *input = op->getInput(inputIndex);
 
-        PipeSourceInterface *source(input->getSource());
-        OperatorInterface *sourceOp(qobject_cast<OperatorInterface *>(source));
+        if (input)
+        {
 
-        if (sourceOp)
-        {
-            updateRank(sourceOp, updated);
-        }
-        else
-        {
-            input->setRank(0);
+            PipeSourceInterface *source(input->getSource());
+            OperatorInterface *sourceOp(qobject_cast<OperatorInterface *>(source));
+
+            if (sourceOp)
+            {
+                updateRank(sourceOp, updated);
+            }
+            else
+            {
+                input->setRank(0);
+            }
         }
     }
 
@@ -1085,13 +1088,13 @@ void Analysis::write(QJsonObject &json) const
          *   negative?
          */
 RawDataDisplay make_raw_data_display(const MultiWordDataFilter &extractionFilter, double unitMin, double unitMax,
-                                     const QString &name, const QString &xAxisTitle, const QString &unitLabel)
+                                     const QString &filterName, const QString &xAxisTitle, const QString &unitLabel)
 {
     RawDataDisplay result;
 
     auto extractor = std::make_shared<analysis::Extractor>();
     extractor->setFilter(extractionFilter);
-    extractor->setObjectName(QString("Extractor for %1").arg(name));
+    extractor->setObjectName(filterName);
 
     result.extractor = extractor;
 
@@ -1107,7 +1110,7 @@ RawDataDisplay make_raw_data_display(const MultiWordDataFilter &extractionFilter
 
     auto calibration = std::make_shared<analysis::CalibrationOperator>();
     calibration->setGlobalCalibration(factor, offset);
-    calibration->setObjectName(QString("Calibration for %1").arg(name));
+    calibration->setObjectName(filterName);
     calibration->setInput(0, extractor->getOutput(0));
 
     result.calibration = calibration;
@@ -1118,14 +1121,14 @@ RawDataDisplay make_raw_data_display(const MultiWordDataFilter &extractionFilter
     {
         auto selector = std::make_shared<analysis::IndexSelector>();
         selector->setIndex(static_cast<s32>(address));
-        selector->setObjectName(QString("%1[%2]").arg(name).arg(address));
+        selector->setObjectName(QString("%1[%2]").arg(filterName).arg(address));
         selector->setInput(0, calibration->getOutput(0));
 
         auto histoSink = std::make_shared<analysis::Histo1DSink>();
-        histoSink->setObjectName(QString("%1[%2]").arg(name).arg(address));
+        histoSink->setObjectName(QString("%1[%2]").arg(filterName).arg(address));
         // Use full resolution bins and calibration min and max values
         histoSink->histo = std::make_shared<Histo1D>(srcMax, unitMin, unitMax);
-        histoSink->histo->setObjectName(QString("%1[%2]").arg(name).arg(address));
+        histoSink->histo->setObjectName(histoSink->objectName());
         // TODO: histoSink->histo->setXAxisTitle(xAxisTitle);
         histoSink->setInput(0, selector->getOutput(0));
 

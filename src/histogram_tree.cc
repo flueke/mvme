@@ -1001,7 +1001,7 @@ void HistogramTreeWidget::generateDefaultFilters()
             double unitMax = (1 << multiWordFilter.getDataBits());
 
             analysis::RawDataDisplay rawDataDisplay = make_raw_data_display(multiWordFilter, unitMin, unitMax,
-                                                                            moduleConfig->objectName(),
+                                                                            filterDef.name,
                                                                             filterDef.title,
                                                                             QString());
 
@@ -1045,7 +1045,7 @@ void HistogramTreeWidget::addDataFilter()
             double unitMax = filterConfig->getBaseUnitRange().second;
 
             analysis::RawDataDisplay rawDataDisplay = make_raw_data_display(multiWordFilter, unitMin, unitMax,
-                                                                            moduleConfig->objectName(),
+                                                                            filterConfig->objectName(),
                                                                             filterConfig->getAxisTitle(),
                                                                             filterConfig->getUnitString());
             int eventIndex  = indices.first;
