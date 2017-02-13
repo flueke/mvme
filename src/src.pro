@@ -10,6 +10,9 @@ QMAKE_CFLAGS += -Wno-unused -Wno-format
 DEFINES += VME_CONTROLLER_WIENER
 #DEFINES += VME_CONTROLLER_CAEN
 
+#CONFIG   += sse2
+#QMAKE_CXXFLAGS += -msse -msse2
+
 # ASAN
 asan {
     QMAKE_CXXFLAGS += -fsanitize=address

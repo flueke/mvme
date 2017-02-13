@@ -66,16 +66,14 @@ void Extractor::beginRun()
     m_currentCompletionCount = 0;
 
     u32 addressCount = 1 << m_filter.getAddressBits();
-    u32 upperLimit = 1 << m_filter.getDataBits();
+    u32 upperLimit = (1 << m_filter.getDataBits()) - 1;
 
     auto &params(m_output.getParameters());
     params.resize(addressCount);
 
     for (int i=0; i<params.size(); ++i)
     {
-        auto &param(params[i]);
-        param.type = Parameter::Double; // XXX: using the double here! ival is not used anymore
-
+        auto param(params[i]);
         param.lowerLimit = 0.0;
         param.upperLimit = upperLimit;
     }
@@ -99,19 +97,16 @@ void Extractor::processDataWord(u32 data, s32 wordIndex)
             u64 value   = m_filter.getResultValue();
             s32 address = m_filter.getResultAddress();
 
-            if (address < m_output.getParameters().size())
+            auto &param = m_output.getParameters()[address];
+            // only fill if not valid to keep the first value in case of multiple hits
+            if (!param.valid)
             {
-                auto &param = m_output.getParameters()[address];
-                // only fill if not valid to keep the first value in case of multiple hits
-                if (!param.valid)
-                {
-                    param.valid = true;
-                    param.dval = value; // XXX: using the double here! ival is not used anymore
+                param.valid = true;
+                param.value = value; // XXX: using the double here! ival is not used anymore
 #if ENABLE_ANALYSIS_DEBUG
-                    qDebug() << this << "setting param valid, addr =" << address << ", value =" << param.dval
-                        << ", dataWord =" << QString("0x%1").arg(data, 8, 16, QLatin1Char('0'));
+                qDebug() << this << "setting param valid, addr =" << address << ", value =" << param.value
+                    << ", dataWord =" << QString("0x%1").arg(data, 8, 16, QLatin1Char('0'));
 #endif
-                }
             }
         }
         m_filter.clearCompletion();
@@ -364,7 +359,7 @@ CalibrationOperator::CalibrationOperator(QObject *parent)
 {
 }
 
-void CalibrationOperator::step()
+void CalibrationOperator::beginRun()
 {
     if (m_input)
     {
@@ -372,16 +367,21 @@ void CalibrationOperator::step()
         const auto &in(m_input->getParameters());
 
         out.resize(in.size());
-        out.invalidateAll();
-
-        out.name = in.name;
+        out.name = in.name; // TODO: set the new parameter name here
         out.unit = getUnitLabel();
+    }
+}
 
+void CalibrationOperator::step()
+{
+    if (m_input)
+    {
+        auto &out(m_output.getParameters());
+        const auto &in(m_input->getParameters());
 
         const s32 size = in.size();
-        for (s32 address = 0;
-             address < size;
-             ++address)
+
+        for (s32 address = 0; address < size; ++address)
         {
             auto &outParam(out[address]);
             const auto &inParam(in[address]);
@@ -390,9 +390,15 @@ void CalibrationOperator::step()
             {
                 CalibrationParameters calib(getCalibration(address));
 
-                outParam.dval = inParam.dval * calib.factor + calib.offset;
-                outParam.type = Parameter::Double;
+                outParam.value = inParam.value * calib.factor + calib.offset;
+                // TODO: the two limit calculations could be moved into beginRun()
+                outParam.lowerLimit = inParam.lowerLimit * calib.factor + calib.offset;
+                outParam.upperLimit = inParam.upperLimit * calib.factor + calib.offset;
                 outParam.valid = true;
+            }
+            else
+            {
+                outParam.valid = false;
             }
         }
     }
@@ -465,7 +471,7 @@ void CalibrationOperator::write(QJsonObject &json) const
 //
 // IndexSelector
 //
-void IndexSelector::step()
+void IndexSelector::beginRun()
 {
     if (m_input)
     {
@@ -473,18 +479,23 @@ void IndexSelector::step()
         const auto &in(m_input->getParameters());
 
         out.resize(1);
-        out.invalidateAll();
+        out.name = in.name;
+        out.unit = in.unit;
+    }
+}
+
+void IndexSelector::step()
+{
+    if (m_input)
+    {
+        auto &out(m_output.getParameters());
+        const auto &in(m_input->getParameters());
+
+        out[0].valid = false;
 
         if (m_index < in.size())
         {
-            const auto &inParam(in[m_index]);
-
-            if (inParam.valid)
-            {
-                out.name = in.name;
-                out.unit = in.unit;
-                out[0] = inParam;
-            }
+            out[0] = in[m_index];
         }
     }
 }
@@ -506,14 +517,14 @@ void Histo1DSink::step()
 {
     if (m_input && histo)
     {
-        const auto &param(m_input->first());
+        const Parameter *param = m_input->first();
 
-        if (param.valid)
+        if (param && param->valid)
         {
-            histo->fill(param.dval);
+            histo->fill(param->value);
 
 #if ENABLE_ANALYSIS_DEBUG
-            qDebug() << this << "fill" << histo.get() << param.dval;
+            qDebug() << this << "fill" << histo.get() << param->value;
             ++fillsSinceLastDebug;
             if (fillsSinceLastDebug > 10000)
             {

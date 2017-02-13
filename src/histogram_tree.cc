@@ -1705,7 +1705,9 @@ void HistogramTreeWidget::updateAnalysisNGStuff()
             if (histoSink)
             {
                 auto histoNode = makeNode(histoSink, NodeType_Operator);
-                histoNode->setText(0, histoSink->histo->objectName());
+                histoNode->setText(0, QString("Sink: %1, Histo: %2")
+                                   .arg(histoSink->objectName())
+                                   .arg(histoSink->histo->objectName()));
                 histoNode->setIcon(0, QIcon(":/hist1d.png"));
                 filterNode->addChild(histoNode);
             }

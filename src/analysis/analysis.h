@@ -12,23 +12,11 @@
 class QJsonObject;
 
 /* TODO: rank calculation
- *   Operators vs Sinks:
- *   - difference was: sinks have no output
- *   - both Histo1DSink and Histo2DSink could have outputs: an array of the
- *     bins of the histogram (information about the bins would still have to be
- *     carried around elsewhere, bin width or histo min max value)
- *     Producing the output for histos is expensive compared to something like
- *     a data filter with 5 address bits).
- *     Solutions: - Make sinks have no output
- *                - Only generate output if there are consumers
- *                  Also make updating of the output efficient: Only change
- *                  modified bins, otherwise leave the output untouched.
- *
  *   Operators vs Sources:
  *   - Sources have no input but are directly attached to a module.
  *     -> They have eventIndex and moduleIndex whereas operators are only
  *        associated with an event.
- *   - Source have a processDataWord() method
+ *   - Source have a processDataWord() method, Operators have a step() method
  *
 
  *
@@ -39,26 +27,17 @@ namespace analysis
 
 struct Parameter
 {
-    enum Type { Double, Uint, Bool };
-    Type type = Double;
     bool valid = false;
-
+    double value = 0.0;
     double lowerLimit = 0.0; // inclusive
-    double upperLimit = 0.0; // exclusive
-
-    union
-    {
-        double dval = 0.0;
-        u64 ival;
-        bool bval;
-    };
+    double upperLimit = 0.0; // inclusive
 };
 
 inline QString to_string(const Parameter &p)
 {
     return QString("P(%1, %2, [%3, %4[)")
         .arg(p.valid)
-        .arg(p.dval)
+        .arg(p.value)
         .arg(p.lowerLimit)
         .arg(p.upperLimit)
         ;
@@ -120,66 +99,65 @@ namespace analysis
 class Pipe
 {
     public:
-        const Parameter &first() const
+        const Parameter *first() const
         {
-            if (!m_parameters.isEmpty())
+            if (!parameters.isEmpty())
             {
-                return m_parameters[0];
+                return &parameters[0];
             }
 
-            return dummy;
+            return nullptr;
         }
 
-        Parameter &first()
+        Parameter *first()
         {
-            if (m_parameters.isEmpty())
+            if (!parameters.isEmpty())
             {
-                m_parameters.resize(1);
+                return &parameters[0];
             }
-            return m_parameters[0];
+
+            return nullptr;
         }
 
-        const ParameterVector &getParameters() const { return m_parameters; }
-        ParameterVector &getParameters() { return m_parameters; }
+        const ParameterVector &getParameters() const { return parameters; }
+        ParameterVector &getParameters() { return parameters; }
 
-        PipeSourceInterface *getSource() const { return m_source; }
-        void setSource(PipeSourceInterface *source) { m_source = source; }
+        void setParameterName(const QString &name) { parameters.name = name; }
+        QString getParameterName() const { return parameters.name; }
+
+        PipeSourceInterface *getSource() const { return source; }
+        void setSource(PipeSourceInterface *source) { source = source; }
 
         void addDestination(OperatorInterface *dest)
         {
-            if (!m_destinations.contains(dest))
+            if (!destinations.contains(dest))
             {
-                m_destinations.push_back(dest);
+                destinations.push_back(dest);
             }
         }
 
         void removeDestination(OperatorInterface *dest)
         {
-            m_destinations.removeAll(dest);
+            destinations.removeAll(dest);
         }
 
         QVector<OperatorInterface *> getDestinations() const
         {
-            return m_destinations;
+            return destinations;
         }
 
         void invalidateAll()
         {
-            m_parameters.invalidateAll();
+            parameters.invalidateAll();
         }
 
-        s32 getRank() const { return m_rank; }
-        void setRank(s32 rank) { m_rank = rank; }
+        s32 getRank() const { return rank; }
+        void setRank(s32 newRank) { rank = newRank; }
 
-    private:
-        const Parameter dummy = {};
-
-        ParameterVector m_parameters;
-
-        PipeSourceInterface *m_source = nullptr;
-        QVector<OperatorInterface *> m_destinations;
-
-        s32 m_rank = 0;
+        ParameterVector parameters;
+        PipeSourceInterface *source = nullptr;
+        QVector<OperatorInterface *> destinations;
+        s32 rank = 0;
 };
 
 /* Data source interface. The analysis feeds single data words into this using
@@ -191,8 +169,12 @@ class SourceInterface: public PipeSourceInterface
     public:
         SourceInterface(QObject *parent = 0): PipeSourceInterface(parent) {}
 
+        /* Use beginRun() to preallocate the outputs and setup internal state. */
         virtual void beginRun() {}
+
+        /* Use beginEvent() to invalidate output parameters if needed. */
         virtual void beginEvent() {}
+
         virtual void processDataWord(u32 data, s32 wordIndex) = 0;
 
         virtual void read(const QJsonObject &json) = 0;
@@ -210,7 +192,9 @@ class OperatorInterface: public PipeSourceInterface
     public:
         OperatorInterface(QObject *parent = 0): PipeSourceInterface(parent) {}
 
+        /* Use beginRun() to preallocate the outputs and setup internal state. */
         virtual void beginRun() {}
+
         virtual void step() = 0;
 
         virtual int getNumberOfInputs() const = 0;
@@ -243,47 +227,6 @@ static constexpr double make_quiet_nan()
 {
     return std::numeric_limits<double>::quiet_NaN();
 }
-
-#if 0
-struct Parameter
-{
-    bool valid = false;
-    double value = 0.0;
-};
-#else
-
-// dest = a - b iff a and b are valid and a and b are of the same type
-// FIXME: not a good idea for Uint values as they're _unsigned_! Could convert
-// the result to be of type Double... Same for Bool values as `false - true = -1'.
-inline void subtract_params(const Parameter &a, const Parameter &b, Parameter &dest)
-{
-    if (a.valid && b.valid && a.type == b.type)
-    {
-        switch (a.type)
-        {
-            case Parameter::Double:
-                {
-                    dest.dval = a.dval - b.dval;
-                } break;
-            case Parameter::Uint:
-                {
-                    dest.dval = static_cast<double>(a.ival) - static_cast<double>(b.ival);
-                } break;
-            case Parameter::Bool:
-                {
-                    dest.dval = static_cast<double>(a.bval) - static_cast<double>(b.bval);
-                } break;
-        }
-        dest.type = Parameter::Double;
-        dest.valid = true;
-        // FIXME: limits
-    }
-    else
-    {
-        dest.valid = false;
-    }
-}
-#endif
 
 //
 // Sources
@@ -410,6 +353,7 @@ class CalibrationOperator: public BasicOperator
     public:
         CalibrationOperator(QObject *parent = 0);
 
+        virtual void beginRun() override;
         virtual void step() override;
 
         void setGlobalCalibration(const CalibrationParameters &params)
@@ -515,6 +459,7 @@ class IndexSelector: public BasicOperator
         void setIndex(s32 index) { m_index = index; }
         s32 getIndex() const { return m_index; }
 
+        virtual void beginRun() override;
         virtual void step() override;
 
         virtual void read(const QJsonObject &json) override;
@@ -550,7 +495,7 @@ struct Difference: public Operator
                 {
                     output.parameters[paramIndex].valid = true;
                     output.parameters[paramIndex].type  = Parameter::Double;
-                    output.parameters[paramIndex].dval = paramA.dval - paramB.dval;
+                    output.parameters[paramIndex].value = paramA.value - paramB.value;
                 }
             }
         }
@@ -646,8 +591,8 @@ struct Histo2DRectangleCut: public Operator
 
             if (parX.valid && parY.valid)
             {
-                double x = parX.dval;
-                double y = parY.dval;
+                double x = parX.value;
+                double y = parY.value;
 
                 if (x >= minX && x < maxX
                     && y >= minY && y < maxY)
@@ -704,8 +649,8 @@ struct Histo2DSink: public Operator
 
             if (paramX.valid && paramY.valid)
             {
-                qDebug() << __PRETTY_FUNCTION__ << "fill" << histo.get() << paramX.dval << paramY.dval;
-                histo->fill(paramX.dval, paramY.dval);
+                qDebug() << __PRETTY_FUNCTION__ << "fill" << histo.get() << paramX.value << paramY.value;
+                histo->fill(paramX.value, paramY.value);
             }
         }
     }
