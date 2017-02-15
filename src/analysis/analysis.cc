@@ -571,22 +571,6 @@ void Histo1DSink::step()
             }
         }
     }
-
-
-
-
-#if ENABLE_ANALYSIS_DEBUG
-#if 0
-    // old debugging stuff. has to be ported to newer version
-            qDebug() << this << "fill" << histo.get() << param->value;
-            ++fillsSinceLastDebug;
-            if (fillsSinceLastDebug > 10000)
-            {
-                histo->debugDump(false);
-                fillsSinceLastDebug = 0;
-            }
-#endif
-#endif
 }
 
 void Histo1DSink::read(const QJsonObject &json)
@@ -620,6 +604,21 @@ void Histo1DSink::write(QJsonObject &json) const
     }
 
     json["histos"] = histosJson;
+}
+
+//
+// Histo2DSink
+//
+void Histo2DSink::step()
+{
+}
+
+void Histo2DSink::read(const QJsonObject &json)
+{
+}
+
+void Histo2DSink::write(QJsonObject &json) const
+{
 }
 
 //

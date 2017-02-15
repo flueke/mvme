@@ -686,7 +686,6 @@ struct Histo2DRectangleCut: public Operator
 //
 // Sinks
 //
-// Accepts a single value as input
 class Histo1DSink: public BasicSink
 {
     Q_OBJECT
@@ -702,6 +701,20 @@ class Histo1DSink: public BasicSink
 
     private:
         u32 fillsSinceLastDebug = 0;
+};
+
+class Histo2DSink: public BasicSink
+{
+    Q_OBJECT
+    public:
+        std::shared_ptr<Histo2D> histo;
+
+        virtual void step() override;
+
+        virtual void read(const QJsonObject &json) override;
+        virtual void write(QJsonObject &json) const override;
+
+        virtual QString getDisplayName() const override { return QSL("Histo2D"); }
 };
 
 

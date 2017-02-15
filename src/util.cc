@@ -1,4 +1,5 @@
 #include "util.h"
+#include <cmath>
 #include <QCloseEvent>
 #include <QCoreApplication>
 #include <QDir>

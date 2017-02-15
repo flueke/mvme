@@ -2,10 +2,17 @@
 ==== Do these first! =====
 ==========================
 >>>>> Begin Analysis NG <<<<<
+ - !!! Make analysis use DAQConfig object ids instead of only going by eventIndex/moduleIndex !!!
+   This way it would be possible to show that a certain Event/Module does not
+   exist anymore in the DAQConfig.
+   Otherwise the problem with analysis and daqconfig getting out of sync will
+   keep coming and back and result in user confusion.
  - Gui to add new Hist1D
  - Hist2DSink
  - Gui to add new Hist2D
-
+ - Add some way to distinguish between Operators for processing and the display tree.
+   Right now it's like: if (!histo1DSink && !histo2DSink) { /* it's a processing operator */ }
+   This does not scale.
 
 
 - Split Registry into Source and Operator registries. Could be templated I think.

@@ -3,6 +3,8 @@
 #include "realtimedata.h"
 #include "hist1d.h"
 
+#include <cmath>
+
 #include <QDebug>
 #include <QFileDialog>
 #include <QFileInfo>
@@ -321,7 +323,7 @@ void MesytecDiagnostics::calcAll(quint16 lo, quint16 hi, quint16 lo2, quint16 hi
                 sigma[i] += dval;
             }
             if(counts[i])
-                sigma[i] = sqrt(sigma[i]/counts[i]);
+                sigma[i] = std::sqrt(sigma[i]/counts[i]);
             else
                 sigma[i] = 0;
         }
@@ -425,22 +427,22 @@ void MesytecDiagnostics::calcAll(quint16 lo, quint16 hi, quint16 lo2, quint16 hi
 //    qDebug("%2.2f, %2.2f, %2.2f, %2.2f, %2.2f, %2.2f", counts[EVEN], sigma[EVEN], counts[ODD], sigma[ODD], sigma[32], sigma[33]);
 
     if(counts[EVEN])
-        sigma[EVEN] = sqrt(sigma[EVEN]/counts[EVEN]);
+        sigma[EVEN] = std::sqrt(sigma[EVEN]/counts[EVEN]);
     else
         sigma[EVEN] = 0;
 
     if(counts[ODD])
-        sigma[ODD] = sqrt(sigma[ODD]/counts[ODD]);
+        sigma[ODD] = std::sqrt(sigma[ODD]/counts[ODD]);
     else
         sigma[ODD] = 0;
 
     if(counts[EVENFILT])
-        sigma[EVENFILT] = sqrt(sigma[EVENFILT]/counts[EVENFILT]);
+        sigma[EVENFILT] = std::sqrt(sigma[EVENFILT]/counts[EVENFILT]);
     else
         sigma[EVENFILT] = 0;
 
     if(counts[ODDFILT])
-        sigma[ODDFILT] = sqrt(sigma[ODDFILT]/counts[ODDFILT]);
+        sigma[ODDFILT] = std::sqrt(sigma[ODDFILT]/counts[ODDFILT]);
     else
         sigma[ODDFILT] = 0;
 

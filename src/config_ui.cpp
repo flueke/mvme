@@ -7,6 +7,8 @@
 #include "vme_script.h"
 #include "analysis/analysis.h"
 
+#include <cmath>
+
 #include <QMenu>
 #include <QStandardPaths>
 #include <QSettings>

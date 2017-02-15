@@ -242,8 +242,9 @@ DisplayLevelTrees AnalysisWidgetPrivate::createTrees(s32 eventIndex, s32 level)
     // populate the OperatorTree
     for (auto entry: operators)
     {
-        auto histoSink = qobject_cast<Histo1DSink *>(entry.op.get());
-        if (!histoSink)
+        auto histo1DSink = qobject_cast<Histo1DSink *>(entry.op.get());
+        auto histo2DSink = qobject_cast<Histo2DSink *>(entry.op.get());
+        if (!histo1DSink && !histo2DSink)
         {
             auto opNode = makeOperatorNode(entry.op.get());
             result.operatorTree->addTopLevelItem(opNode);
@@ -257,20 +258,19 @@ DisplayLevelTrees AnalysisWidgetPrivate::createTrees(s32 eventIndex, s32 level)
         result.displayTree->addTopLevelItem(histo1DNode);
         result.displayTree->addTopLevelItem(histo2DNode);
 
-        // FIXME: almost the same code as in createSourceTrees()
         QVector<Histo1DSink *> histoSinks;
         for (const auto &entry: operators)
         {
-            auto histoSink = qobject_cast<Histo1DSink *>(entry.op.get());
-            if (histoSink)
+            auto histo1DSink = qobject_cast<Histo1DSink *>(entry.op.get());
+            if (histo1DSink)
             {
-                histoSinks.push_back(histoSink);
+                histoSinks.push_back(histo1DSink);
             }
         }
 
-        for (auto histoSink: histoSinks)
+        for (auto histo1DSink: histoSinks)
         {
-                auto histoNode = makeHistoNode(histoSink);
+                auto histoNode = makeHistoNode(histo1DSink);
                 histo1DNode->addChild(histoNode);
         }
     }
@@ -450,11 +450,15 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
 
     sync_splitters(operatorFrameColumnSplitter, displayFrameColumnSplitter);
 
-    m_d->createView(0); // FIXME: create views for all events!
+    // FIXME: create views for all events!
+    // FIXME: only create views for existing events!
+    if (m_d->context->getEventConfigs().size() > 0)
+        m_d->createView(0);
 
     auto onItemClicked = [](TreeNode *node, int column)
     {
-        qDebug() << "AnalysisWidget item clicked:" << node << getQObject(node);
+        qDebug() << "AnalysisWidget item clicked:" << node;
+        qDebug() << getQObject(node);
     };
 
     for (int levelIndex = 0;

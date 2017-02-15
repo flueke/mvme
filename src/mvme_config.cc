@@ -1,5 +1,7 @@
 #include "mvme_config.h"
 #include "CVMUSBReadoutList.h"
+
+#include <cmath>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>

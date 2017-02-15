@@ -2,6 +2,8 @@
 #include "ui_hist2ddialog.h"
 #include "ui_hist2ddialog_axis_widget.h"
 
+#include <cmath>
+
 #include <QPushButton>
 #include <QSignalBlocker>
 #include <QTreeWidget>
