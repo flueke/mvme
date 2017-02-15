@@ -23,6 +23,7 @@ enum NodeType
     NodeType_Module = QTreeWidgetItem::UserType,
     NodeType_Source,
     NodeType_Operator,
+    NodeType_Histo1DSink,
     NodeType_Histo1D,
 };
 
@@ -79,14 +80,28 @@ inline TreeNode *makeDisplayTreeSourceNode(SourceInterface *source)
 
 inline TreeNode *makeHistoNode(Histo1DSink *op)
 {
-    auto node = makeNode(op, NodeType_Histo1D);
+    auto node = makeNode(op, NodeType_Histo1DSink);
     node->setText(0, QString("%1 %2").arg(
             op->getDisplayName(),
             op->objectName()));
     node->setIcon(0, QIcon(":/hist1d.png"));
+
+    if (op->histos.size() > 1)
+    {
+        for (s32 addr = 0; addr < op->histos.size(); ++addr)
+        {
+            auto histo = op->histos[addr].get();
+            auto histoNode = makeNode(histo, NodeType_Histo1D);
+            histoNode->setText(0, QString::number(addr));
+            histoNode->setIcon(0, QIcon(":/hist1d.png"));
+
+            node->addChild(histoNode);
+        }
+    }
     return node;
 };
 
+#if 1 // PIPE CHANGES
 inline TreeNode *makeOperatorNode(OperatorInterface *op)
 {
     auto result = makeNode(op, NodeType_Operator);
@@ -103,76 +118,67 @@ inline TreeNode *makeOperatorNode(OperatorInterface *op)
     outputsNode->setText(0, "outputs");
     result->addChild(outputsNode);
 
-
+    // inputs
     for (s32 inputIndex = 0;
-         inputIndex < op->getNumberOfInputs();
+         inputIndex < op->getNumberOfSlots();
          ++inputIndex)
     {
-        auto inputPipe = op->getInput(inputIndex);
-        s32 inputElementCount = inputPipe ? inputPipe->parameters.size() : 0;
+        // FIXME: check for array or value slot
+        // display slot acceptance type
+        // display if no inputpipe connected
+        // add something like NodeType_Slot
+        // add something like NodeType_ArrayValue or ParamIndex VectorElement ... best name for this?
+        // add NodeType_OutputPipe, Output, ...
 
-        auto node = new TreeNode;
-        node->setText(0, QString("#%1 \"%2\" (%3 elements)")
-                      .arg(inputIndex)
-                      .arg(op->getInputName(inputIndex))
-                      .arg(inputElementCount)
-                      );
+        auto slot = op->getSlot(inputIndex);
+        auto inputPipe = slot->inputPipe;
+        s32 inputParamSize = inputPipe ? inputPipe->parameters.size() : 0;
 
-        inputsNode->addChild(node);
+        auto slotNode = new TreeNode;
+        slotNode->setText(0, QString("#%1 \"%2\" (%3 elements)")
+                          .arg(inputIndex)
+                          .arg(slot->name)
+                          .arg(inputParamSize)
+                         );
+
+        inputsNode->addChild(slotNode);
+
+        for (s32 paramIndex = 0; paramIndex < inputParamSize; ++paramIndex)
+        {
+            auto paramNode = new TreeNode;
+            paramNode->setText(0, QString("[%1]").arg(paramIndex));
+
+            slotNode->addChild(paramNode);
+        }
     }
 
+    // outputs
     for (s32 outputIndex = 0;
          outputIndex < op->getNumberOfOutputs();
          ++outputIndex)
     {
         auto outputPipe = op->getOutput(outputIndex);
-        s32 outputElementCount = outputPipe->parameters.size();
+        s32 outputParamSize = outputPipe->parameters.size();
 
+        auto pipeNode = new TreeNode;
+        pipeNode->setText(0, QString("#%1 \"%2\" (%3 elements)")
+                          .arg(outputIndex)
+                          .arg(op->getOutputName(outputIndex))
+                          .arg(outputParamSize)
+                         );
+        outputsNode->addChild(pipeNode);
 
-        auto node = new TreeNode;
-        node->setText(0, QString("#%1 \"%2\" (%3 elements)")
-                      .arg(outputIndex)
-                      .arg(op->getOutputName(outputIndex))
-                      .arg(outputElementCount)
-                      );
-        outputsNode->addChild(node);
+        for (s32 paramIndex = 0; paramIndex < outputParamSize; ++paramIndex)
+        {
+            auto paramNode = new TreeNode;
+            paramNode->setText(0, QString("[%1]").arg(paramIndex));
+
+            pipeNode->addChild(paramNode);
+        }
     }
 
     return result;
 };
-
-#if 0
-inline TreeNode *makeOperatorDisplayNode(OperatorInterface *op)
-{
-    auto result = makeNode(op, NodeType_Operator);
-    result->setText(0, QString("%1 %2").arg(
-            op->getDisplayName(),
-            op->objectName()));
-    result->setIcon(0, QIcon(":/analysis_operator.png"));
-
-    for (s32 outputIndex = 0;
-         outputIndex < op->getNumberOfOutputs();
-         ++outputIndex)
-    {
-        auto outputNode = new TreeNode;
-        outputNode->setText(0, QString("%1 %2").arg(outputIndex).arg(op->getOutputName(outputIndex)));
-        result->addChild(outputNode);
-
-        auto outPipe = op->getOutput(outputIndex);
-        auto outDests = outPipe->getDestinations();
-
-        for (auto destOp: outDests)
-        {
-            if (auto histoSink = qobject_cast<Histo1DSink *>(destOp))
-            {
-                auto histoNode = makeHistoNode(histoSink);
-                outputNode->addChild(histoNode);
-            }
-        }
-    }
-    return result;
-}
-#endif
 
 struct DisplayLevelTrees
 {
@@ -262,38 +268,12 @@ DisplayLevelTrees AnalysisWidgetPrivate::createTrees(s32 eventIndex, s32 level)
             }
         }
 
-        qSort(histoSinks.begin(), histoSinks.end(), [](const Histo1DSink *a, const Histo1DSink *b) {
-            return a->inputIndex < b->inputIndex;
-        });
-
         for (auto histoSink: histoSinks)
         {
                 auto histoNode = makeHistoNode(histoSink);
                 histo1DNode->addChild(histoNode);
         }
     }
-
-
-
-#if 0
-    for (auto entry: operators)
-    {
-        if (qobject_cast<Histo1DSink *>(entry.op.get()))
-            continue;
-
-        auto opNode = makeOperatorDisplayNode(entry.op.get());
-        result.displayTree->addTopLevelItem(opNode);
-
-#if 0
-        auto histoSink = qobject_cast<Histo1DSink *>(entry.op.get());
-        if (histoSink)
-        {
-            auto histoNode = makeHistoNode(histoSink);
-            result.displayTree->addTopLevelItem(histoNode);
-        }
-#endif
-    }
-#endif
 
     return result;
 }
@@ -346,19 +326,18 @@ DisplayLevelTrees AnalysisWidgetPrivate::createSourceTrees(s32 eventIndex)
 
             // TODO: move into makeDisplayTreeSourceNode!?
             // FIXME: almost the same code as in createTrees()
+            // But this here is the special case for level 0 stuff
             QVector<Histo1DSink *> histoSinks;
             for (const auto &entry: opEntries)
             {
                 auto histoSink = qobject_cast<Histo1DSink *>(entry.op.get());
-                if (histoSink && histoSink->getInput(0) == sourceEntry.source->getOutput(0))
+                if (histoSink
+                    && histoSink->getSlot(0)
+                    && (histoSink->getSlot(0)->inputPipe == sourceEntry.source->getOutput(0)))
                 {
                     histoSinks.push_back(histoSink);
                 }
             }
-
-            qSort(histoSinks.begin(), histoSinks.end(), [](const Histo1DSink *a, const Histo1DSink *b) {
-                return a->inputIndex < b->inputIndex;
-            });
 
             for (auto histoSink: histoSinks)
             {
@@ -390,10 +369,10 @@ void AnalysisWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint p
         {
             case NodeType_Histo1D:
                 {
-                    if (auto histoSink = qobject_cast<Histo1DSink *>(obj))
+                    if (auto histo = qobject_cast<Histo1D *>(obj))
                     {
-                        menu.addAction(QSL("Open"), m_q, [this, histoSink]() {
-                            context->openInNewWindow(histoSink->histo.get());
+                        menu.addAction(QSL("Open"), m_q, [this, histo]() {
+                            context->openInNewWindow(histo);
                         });
                     }
                 } break;
@@ -405,11 +384,15 @@ void AnalysisWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint p
         menu.exec(tree->mapToGlobal(pos));
     }
 }
+#endif
 
 AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     : QWidget(parent)
+#if 1 // PIPE CHANGES
     , m_d(new AnalysisWidgetPrivate)
+#endif
 {
+#if 1 // PIPE CHANGES
     setMinimumSize(1000, 600); // FIXME: find another way to make the window be sanely sized at startup
     m_d->m_q = this;
     m_d->context = ctx;
@@ -499,11 +482,14 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
             m_d->doDisplayTreeContextMenu(dispTree, pos);
         });
     }
+#endif
 }
 
 AnalysisWidget::~AnalysisWidget()
 {
+#if 1 // PIPE CHANGES
     delete m_d;
+#endif
 }
 
 }

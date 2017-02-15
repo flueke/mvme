@@ -2,6 +2,16 @@
 ==== Do these first! =====
 ==========================
 >>>>> Begin Analysis NG <<<<<
+ - Gui to add new Hist1D
+ - Hist2DSink
+ - Gui to add new Hist2D
+
+
+
+- Split Registry into Source and Operator registries. Could be templated I think.
+- More icons: icon for array of histos
+- Histo1DListWidget needed!
+
 <<<<< End AnalysisNG >>>>>
 
 
@@ -114,4 +124,16 @@
   XXX: Impossible to simply accumulate all raw values for a channel into a Hist1D!
   -> Not an issue according to Robert as multi hits per channel need to be
      handled explicitly anyways.
+===== Plan to handle array -> single value conversion =====
+- Pipes are only used as output of Operators/Sources
+- Pipes connect to Slots of Operators
+- The slot specifies what kind of inputs it accepts: Array, Value, Both
+- When an output pipe is connected to an input slot and the slot accepts Values
+  the index into the input parameters must be supplied.
+- Slots live in the receiving Operator. They now hold the source Pipe pointers
+- The 'destination' member of Pipes now contains pointers to Slot instead of OperatorInterface
+- Slots need to contain pointers to their owning Operator to be able to traverse the tree forward:
+  sourceOp.outputPipe[i].destinations[j].destOp
+- Fix operators to use Slot::acceptedInputTypes!
+=====
 <<<<< End AnalysisNG >>>>>

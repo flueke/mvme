@@ -346,7 +346,7 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
         }
 #endif
 
-        if (vmusb->getMode() & GlobalMode::HeaderOptMask)
+        if (vmusb->getMode() & vmusb_constants::GlobalMode::HeaderOptMask)
         {
             u32 header2 = iter.extractWord();
             u16 numberOfWords = header2 & Buffer::NumberOfWordsMask;

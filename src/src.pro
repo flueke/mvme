@@ -5,8 +5,13 @@ CONFIG   += object_parallel_to_source
 TARGET = ../mvme
 TEMPLATE = app
 
-QMAKE_CXXFLAGS += -Wno-unused-variable -Wno-unused-parameter -Wno-unused-function -Wno-format
-QMAKE_CFLAGS += -Wno-unused -Wno-format
+# When building with clang qmake puts -Wall after the contents of
+# QMAKE_CXXFLAGS and clang thus turns all warnings on again. To circumvent this
+# problem disable warnings via warn_off and then prepend -Wall to
+# QMAKE_CXXFLAGS.
+CONFIG   += warn_off
+QMAKE_CXXFLAGS += -O2 -Wall -Wno-unused-variable -Wno-unused-parameter -Wno-unused-function -Wno-format
+QMAKE_CFLAGS += -O2 -Wall -Wno-unused -Wno-format
 DEFINES += VME_CONTROLLER_WIENER
 #DEFINES += VME_CONTROLLER_CAEN
 
@@ -16,7 +21,8 @@ DEFINES += VME_CONTROLLER_WIENER
 # ASAN
 asan {
     QMAKE_CXXFLAGS += -fsanitize=address
-    LIBS += -lasan
+    QMAKE_LFLAGS += -fsanitize=address # clang needs this
+    #LIBS += -lasan # gcc needs this
 }
 
 # profiling

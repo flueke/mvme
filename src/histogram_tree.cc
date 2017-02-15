@@ -682,7 +682,8 @@ void HistogramTreeWidget::onItemDoubleClicked(QTreeWidgetItem *node, int column)
                 auto op = Var2Ptr<analysis::OperatorInterface>(node->data(0, DataRole_Pointer));
                 if (auto histoSink = qobject_cast<analysis::Histo1DSink *>(op))
                 {
-                    auto widget = new Histo1DWidget(histoSink->histo.get());
+                    // TODO: Histo1DListWidget needed here!
+                    auto widget = new Histo1DWidget(histoSink->histos[0].get());
                     m_context->getMainWindow()->addWidgetWindow(widget);
                 }
             } break;

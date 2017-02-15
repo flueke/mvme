@@ -224,6 +224,7 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
 Histo1DWidget::~Histo1DWidget()
 {
     delete ui;
+    delete m_statsText;
 }
 
 void Histo1DWidget::setHistogram(Histo1D *histo)

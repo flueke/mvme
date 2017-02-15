@@ -15,6 +15,7 @@ class DAQControlWidget: public QWidget
     Q_OBJECT
     public:
         DAQControlWidget(MVMEContext *context, QWidget *parent = 0);
+        ~DAQControlWidget();
 
     private:
         void updateWidget();

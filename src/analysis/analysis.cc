@@ -21,13 +21,14 @@ s32 OperatorInterface::getMaximumInputRank()
 {
     s32 result = 0;
 
-    for (s32 inputIndex = 0;
-         inputIndex < getNumberOfInputs();
-         ++inputIndex)
+    for (s32 slotIndex = 0;
+         slotIndex < getNumberOfSlots();
+         ++slotIndex)
     {
-        if (Pipe *input = getInput(inputIndex))
+        if (Slot *slot = getSlot(slotIndex))
         {
-            result = std::max(result, input->getRank());
+            if (slot->inputPipe)
+                result = std::max(result, slot->inputPipe->getRank());
         }
     }
 
@@ -190,61 +191,58 @@ BasicOperator::BasicOperator(QObject *parent)
     : OperatorInterface(parent)
 {
     m_output.setSource(this);
+
+    m_inputSlot.parentOperator = this;
+    m_inputSlot.parentSlotIndex = 0;
+    m_inputSlot.name = "Input";
+    m_inputSlot.acceptedInputTypes = InputType::Both;
 }
 
 BasicOperator::~BasicOperator()
 {
 }
 
-s32 BasicOperator::getNumberOfInputs() const
+s32 BasicOperator::getNumberOfSlots() const
 {
     return 1;
 }
 
-QString BasicOperator::getInputName(s32 inputIndex) const
+void BasicOperator::connectInputSlot(s32 slotIndex, Pipe *inputPipe, s32 paramIndex)
 {
-    if (inputIndex == 0)
+    if (slotIndex == 0)
     {
-        return QSL("Input");
-    }
-
-    return QString();
-}
-
-void BasicOperator::setInput(s32 index, Pipe *inputPipe)
-{
-    if (index == 0)
-    {
-        if (m_input)
+        if (m_inputSlot.inputPipe)
         {
-            m_input->removeDestination(this);
+            m_inputSlot.inputPipe->removeDestination(&m_inputSlot);
         }
 
-        m_input = inputPipe;
+        m_inputSlot.inputPipe = inputPipe;
+        m_inputSlot.valueIndex = paramIndex;
 
-        if (m_input)
+        if (inputPipe)
         {
-            m_input->addDestination(this);
+            inputPipe->addDestination(&m_inputSlot);
         }
     }
 }
 
-Pipe *BasicOperator::getInput(s32 index) const
+Slot *BasicOperator::getSlot(s32 slotIndex)
 {
-    Pipe *result = nullptr;
-    if (index == 0)
+    Slot *result = nullptr;
+    if (slotIndex == 0)
     {
-        result = m_input;
+        result = &m_inputSlot;
     }
     return result;
 }
 
-void BasicOperator::removeInput(Pipe *pipe)
+void BasicOperator::disconnectSlot(Pipe *sourcePipe)
 {
-    if (m_input && m_input == pipe)
+    if (sourcePipe && m_inputSlot.inputPipe == sourcePipe)
     {
-        m_input->removeDestination(this);
-        m_input = nullptr;
+        m_inputSlot.inputPipe->removeDestination(&m_inputSlot);
+        m_inputSlot.inputPipe = nullptr;
+        m_inputSlot.valueIndex = -1;
     }
 }
 
@@ -277,62 +275,61 @@ Pipe *BasicOperator::getOutput(s32 index)
 //
 // BasicSink
 //
+BasicSink::BasicSink()
+{
+    m_inputSlot.parentOperator = this;
+    m_inputSlot.parentSlotIndex = 0;
+    m_inputSlot.name = "Input";
+    m_inputSlot.acceptedInputTypes = InputType::Both;
+}
+
 BasicSink::~BasicSink()
 {
 }
 
-s32 BasicSink::getNumberOfInputs() const
+s32 BasicSink::getNumberOfSlots() const
 {
     return 1;
 }
 
-QString BasicSink::getInputName(s32 inputIndex) const
+void BasicSink::connectInputSlot(s32 slotIndex, Pipe *inputPipe, s32 paramIndex)
 {
-    if (inputIndex == 0)
+    if (slotIndex == 0)
     {
-        return QSL("Input");
-    }
-
-    return QString();
-}
-
-void BasicSink::setInput(s32 index, Pipe *inputPipe)
-{
-    if (index == 0)
-    {
-        if (m_input)
+        if (m_inputSlot.inputPipe)
         {
-            m_input->removeDestination(this);
+            m_inputSlot.inputPipe->removeDestination(&m_inputSlot);
         }
 
-        m_input = inputPipe;
+        m_inputSlot.inputPipe = inputPipe;
+        m_inputSlot.valueIndex = paramIndex;
 
-        if (m_input)
+        if (inputPipe)
         {
-            m_input->addDestination(this);
+            inputPipe->addDestination(&m_inputSlot);
         }
     }
 }
 
-Pipe *BasicSink::getInput(s32 index) const
+Slot *BasicSink::getSlot(s32 slotIndex)
 {
-    Pipe *result = nullptr;
-    if (index == 0)
+    Slot *result = nullptr;
+    if (slotIndex == 0)
     {
-        result = m_input;
+        result = &m_inputSlot;
     }
     return result;
 }
 
-void BasicSink::removeInput(Pipe *pipe)
+void BasicSink::disconnectSlot(Pipe *sourcePipe)
 {
-    if (m_input && m_input == pipe)
+    if (sourcePipe && m_inputSlot.inputPipe == sourcePipe)
     {
-        m_input->removeDestination(this);
-        m_input = nullptr;
+        m_inputSlot.inputPipe->removeDestination(&m_inputSlot);
+        m_inputSlot.inputPipe = nullptr;
+        m_inputSlot.valueIndex = -1;
     }
 }
-
 
 s32 BasicSink::getNumberOfOutputs() const
 {
@@ -360,12 +357,20 @@ Calibration::Calibration(QObject *parent)
 
 void Calibration::beginRun()
 {
-    if (m_input)
+    if (m_inputSlot.inputPipe)
     {
         auto &out(m_output.getParameters());
-        const auto &in(m_input->getParameters());
+        const auto &in(m_inputSlot.inputPipe->getParameters());
 
-        out.resize(in.size());
+        if (m_inputSlot.valueIndex >= 0)
+        {
+            out.resize(1);
+        }
+        else
+        {
+            out.resize(in.size());
+        }
+
         out.name = in.name; // TODO: set the new parameter name here
         out.unit = getUnitLabel();
     }
@@ -373,31 +378,47 @@ void Calibration::beginRun()
 
 void Calibration::step()
 {
-    if (m_input)
+    auto calibOneParam = [](const Parameter &inParam, Parameter &outParam, const CalibrationParameters &calib)
+    {
+        outParam.valid = inParam.valid;
+        if (inParam.valid)
+        {
+            outParam.value = inParam.value * calib.factor + calib.offset;
+            outParam.lowerLimit = inParam.lowerLimit * calib.factor + calib.offset;
+            outParam.upperLimit = inParam.upperLimit * calib.factor + calib.offset;
+            outParam.valid = true;
+        }
+    };
+
+
+    if (m_inputSlot.inputPipe)
     {
         auto &out(m_output.getParameters());
-        const auto &in(m_input->getParameters());
+        const auto &in(m_inputSlot.inputPipe->getParameters());
+        const s32 inSize = in.size();
 
-        const s32 size = in.size();
-
-        for (s32 address = 0; address < size; ++address)
+        if (m_inputSlot.valueIndex >= 0)
         {
-            auto &outParam(out[address]);
-            const auto &inParam(in[address]);
+            auto &outParam(out[0]);
+            outParam.valid = false;
+            s32 valueIndex = m_inputSlot.valueIndex;
 
-            if (inParam.valid)
+            if (valueIndex >= 0 && valueIndex < inSize)
             {
-                CalibrationParameters calib(getCalibration(address));
-
-                outParam.value = inParam.value * calib.factor + calib.offset;
-                // TODO: the two limit calculations could be moved into beginRun()
-                outParam.lowerLimit = inParam.lowerLimit * calib.factor + calib.offset;
-                outParam.upperLimit = inParam.upperLimit * calib.factor + calib.offset;
-                outParam.valid = true;
+                const auto &inParam(in[valueIndex]);
+                calibOneParam(inParam, outParam, m_globalCalibration);
             }
-            else
+        }
+        else
+        {
+            const s32 size = in.size();
+
+            for (s32 address = 0; address < size; ++address)
             {
-                outParam.valid = false;
+                auto &outParam(out[address]);
+                const auto &inParam(in[address]);
+
+                calibOneParam(inParam, outParam, getCalibration(address));
             }
         }
     }
@@ -470,12 +491,18 @@ void Calibration::write(QJsonObject &json) const
 //
 // IndexSelector
 //
+IndexSelector::IndexSelector(QObject *parent)
+    : BasicOperator(parent)
+{
+    m_inputSlot.acceptedInputTypes = InputType::Array;
+}
+
 void IndexSelector::beginRun()
 {
-    if (m_input)
+    if (m_inputSlot.inputPipe)
     {
         auto &out(m_output.getParameters());
-        const auto &in(m_input->getParameters());
+        const auto &in(m_inputSlot.inputPipe->getParameters());
 
         out.resize(1);
         out.name = in.name;
@@ -485,10 +512,10 @@ void IndexSelector::beginRun()
 
 void IndexSelector::step()
 {
-    if (m_input)
+    if (m_inputSlot.inputPipe)
     {
         auto &out(m_output.getParameters());
-        const auto &in(m_input->getParameters());
+        const auto &in(m_inputSlot.inputPipe->getParameters());
 
         out[0].valid = false;
 
@@ -514,15 +541,43 @@ void IndexSelector::write(QJsonObject &json) const
 //
 void Histo1DSink::step()
 {
-    if (m_input && histo)
+    if (m_inputSlot.inputPipe && !histos.isEmpty())
     {
-        const Parameter *param = m_input->getParameter(inputIndex);
+        s32 valueIndex = m_inputSlot.valueIndex;
 
-        if (param && param->valid)
+        if (valueIndex >= 0)
         {
-            histo->fill(param->value);
+            // Input is a single value
+            const Parameter *param = m_inputSlot.inputPipe->getParameter(valueIndex);
+            if (param && param->valid)
+            {
+                histos[0]->fill(param->value);
+            }
+        }
+        else
+        {
+            // Input is an array
+            const auto &in(m_inputSlot.inputPipe->getParameters());
+            const s32 inSize = in.size();
+            const s32 histoSize = histos.size();
+
+            for (s32 valueIndex = 0; valueIndex < std::min(inSize, histoSize); ++valueIndex)
+            {
+                const Parameter *param = m_inputSlot.inputPipe->getParameter(valueIndex);
+                if (param && param->valid)
+                {
+                    histos[valueIndex]->fill(param->value);
+                }
+            }
+        }
+    }
+
+
+
 
 #if ENABLE_ANALYSIS_DEBUG
+#if 0
+    // old debugging stuff. has to be ported to newer version
             qDebug() << this << "fill" << histo.get() << param->value;
             ++fillsSinceLastDebug;
             if (fillsSinceLastDebug > 10000)
@@ -531,25 +586,40 @@ void Histo1DSink::step()
                 fillsSinceLastDebug = 0;
             }
 #endif
-        }
-    }
+#endif
 }
 
 void Histo1DSink::read(const QJsonObject &json)
 {
-    u32 nBins = static_cast<u32>(json["nBins"].toInt());
-    double xMin = json["xMin"].toDouble();
-    double xMax = json["xMax"].toDouble();
-    inputIndex = static_cast<u32>(json["inputIndex"].toInt());
-    histo = std::make_shared<Histo1D>(nBins, xMin, xMax);
+    QJsonArray histosJson = json["histos"].toArray();
+
+    for (auto it=histosJson.begin();
+         it != histosJson.end();
+         ++it)
+    {
+        auto objectJson = it->toObject();
+
+        u32 nBins = static_cast<u32>(objectJson["nBins"].toInt());
+        double xMin = objectJson["xMin"].toDouble();
+        double xMax = objectJson["xMax"].toDouble();
+        histos.push_back(std::make_shared<Histo1D>(nBins, xMin, xMax));
+    }
 }
 
 void Histo1DSink::write(QJsonObject &json) const
 {
-    json["nBins"] = static_cast<qint64>(histo->getNumberOfBins());
-    json["xMin"] = histo->getXMin();
-    json["xMax"] = histo->getXMax();
-    json["inputIndex"] = static_cast<qint64>(inputIndex);
+    QJsonArray histosJson;
+
+    for (const auto &histo: histos)
+    {
+        QJsonObject objectJson;
+        objectJson["nBins"] = static_cast<qint64>(histo->getNumberOfBins());
+        objectJson["xMin"] = histo->getXMin();
+        objectJson["xMax"] = histo->getXMax();
+        histosJson.append(objectJson);
+    }
+
+    json["histos"] = histosJson;
 }
 
 //
@@ -722,10 +792,10 @@ void Analysis::updateRank(OperatorInterface *op, QSet<OperatorInterface *> &upda
 
 
     for (s32 inputIndex = 0;
-         inputIndex < op->getNumberOfInputs();
+         inputIndex < op->getNumberOfSlots();
          ++inputIndex)
     {
-        Pipe *input = op->getInput(inputIndex);
+        Pipe *input = op->getSlot(inputIndex)->inputPipe;
 
         if (input)
         {
@@ -774,9 +844,9 @@ void Analysis::removeSource(const SourcePtr &source) // TODO: test this
         for (s32 outputIndex = 0; outputIndex < source->getNumberOfOutputs(); ++outputIndex)
         {
             Pipe *outPipe = source->getOutput(outputIndex);
-            for (OperatorInterface *destOp: outPipe->getDestinations())
+            for (Slot *destSlot: outPipe->getDestinations())
             {
-                destOp->removeInput(outPipe);
+                destSlot->inputPipe->removeDestination(destSlot);
             }
         }
     }
@@ -801,9 +871,9 @@ void Analysis::removeOperator(const OperatorPtr &op) // TODO: test this
         for (s32 outputIndex = 0; outputIndex < op->getNumberOfOutputs(); ++outputIndex)
         {
             Pipe *outPipe = op->getOutput(outputIndex);
-            for (OperatorInterface *destOp: outPipe->getDestinations())
+            for (Slot *destSlot: outPipe->getDestinations())
             {
-                destOp->removeInput(outPipe);
+                destSlot->inputPipe->removeDestination(destSlot);
             }
         }
     }
@@ -899,18 +969,27 @@ void Analysis::read(const QJsonObject &json)
         {
             auto objectJson = it->toObject();
 
+            // PipeSourceInterface data
             QUuid srcId(objectJson["srcId"].toString());
             s32 srcIndex = objectJson["srcIndex"].toInt();
 
+            // OperatorInterface data
             QUuid dstId(objectJson["dstId"].toString());
             s32 dstIndex = objectJson["dstIndex"].toInt();
+
+            // Slot data
+            u32 acceptedInputTypes = static_cast<u32>(objectJson["dstAcceptedInputTypes"].toInt());
+            s32 valueIndex = objectJson["dstValueIndex"].toInt();
 
             auto srcObject = objectsById.value(srcId);
             auto dstObject = std::dynamic_pointer_cast<OperatorInterface>(objectsById.value(dstId));
 
             if (srcObject && dstObject)
             {
-                dstObject->setInput(dstIndex, srcObject->getOutput(srcIndex));
+                Slot *dstSlot = dstObject->getSlot(dstIndex);
+                dstSlot->acceptedInputTypes = acceptedInputTypes;
+                dstSlot->valueIndex = valueIndex;
+                dstObject->connectInputSlot(dstIndex, srcObject->getOutput(srcIndex), valueIndex);
             }
         }
     }
@@ -1025,28 +1104,19 @@ void Analysis::write(QJsonObject &json) const
             {
                 Pipe *pipe = srcObject->getOutput(outputIndex);
 
-                for (OperatorInterface *destOp: pipe->getDestinations())
+                for (Slot *dstSlot: pipe->getDestinations())
                 {
-                    s32 dstIndex = -1;
-                    for (s32 inputIndex = 0; inputIndex < destOp->getNumberOfInputs(); ++inputIndex)
+                    auto dstOp = dstSlot->parentOperator;
+                    if (dstOp)
                     {
-                        Pipe *inputPipe = destOp->getInput(inputIndex);
-
-                        if (inputPipe == pipe)
-                        {
-                            dstIndex = inputIndex;
-                            break;
-                        }
-                    }
-
-                    if (dstIndex >= 0)
-                    {
-                        qDebug() << "Connection:" << srcObject << outputIndex << "->" << destOp << dstIndex;
+                        qDebug() << "Connection:" << srcObject << outputIndex << "->" << dstOp << dstSlot << dstSlot->parentSlotIndex;
                         QJsonObject conJson;
                         conJson["srcId"] = srcObject->getId().toString();
                         conJson["srcIndex"] = outputIndex;
-                        conJson["dstId"] = destOp->getId().toString();
-                        conJson["dstIndex"] = dstIndex;
+                        conJson["dstId"] = dstOp->getId().toString();
+                        conJson["dstIndex"] = dstSlot->parentSlotIndex;
+                        conJson["dstAcceptedInputTypes"] = static_cast<qint64>(dstSlot->acceptedInputTypes);
+                        conJson["dstValueIndex"] = static_cast<qint64>(dstSlot->valueIndex);
                         conArray.append(conJson);
                     }
                 }
@@ -1100,7 +1170,7 @@ RawDataDisplay make_raw_data_display(const MultiWordDataFilter &extractionFilter
 {
     RawDataDisplay result;
 
-    auto extractor = std::make_shared<analysis::Extractor>();
+    auto extractor = std::make_shared<Extractor>();
     extractor->setFilter(extractionFilter);
     extractor->setObjectName(filterName);
 
@@ -1116,40 +1186,39 @@ RawDataDisplay make_raw_data_display(const MultiWordDataFilter &extractionFilter
 
     qDebug() << ">>>>> factor =" << factor << ", offset =" << offset;
 
-    auto calibration = std::make_shared<analysis::Calibration>();
+    auto calibration = std::make_shared<Calibration>();
     calibration->setGlobalCalibration(factor, offset);
     calibration->setObjectName(filterName);
-    calibration->setInput(0, extractor->getOutput(0));
+    calibration->connectArrayToInputSlot(0, extractor->getOutput(0));
 
     result.calibration = calibration;
+
+    auto rawHistoSink = std::make_shared<Histo1DSink>();
+    rawHistoSink->setObjectName(QString("Raw %1").arg(filterName));
+    result.rawHistoSink = rawHistoSink;
+
+    auto calHistoSink = std::make_shared<Histo1DSink>();
+    calHistoSink->setObjectName(QString("Cal %1").arg(filterName));
+    result.calibratedHistoSink = calHistoSink;
 
     u32 addressCount = (1 << extractionFilter.getAddressBits());
 
     for (u32 address = 0; address < addressCount; ++address)
     {
         // create a histo for the raw uncalibrated data
-        auto rawHistoSink = std::make_shared<analysis::Histo1DSink>();
-        rawHistoSink->setObjectName(QString("%1[%2]").arg(filterName).arg(address));
-        rawHistoSink->histo = std::make_shared<Histo1D>(srcMax, 0.0, srcMax);
-        rawHistoSink->histo->setObjectName(rawHistoSink->objectName());
+        auto histo = std::make_shared<Histo1D>(srcMax, 0.0, srcMax);
+        histo->setObjectName(QString("%1[%2]").arg(rawHistoSink->objectName()).arg(address));
+        rawHistoSink->histos.push_back(histo);
         // TODO: rawHistoSink->histo->setXAxisTitle(xAxisTitle);
-        rawHistoSink->inputIndex = address;
-        rawHistoSink->setInput(0, extractor->getOutput(0));
-
-        result.rawHistoSinks.push_back(rawHistoSink);
 
         // create a histo for the calibrated data
-        auto calHistoSink = std::make_shared<analysis::Histo1DSink>();
-        calHistoSink->setObjectName(QString("%1[%2]").arg(filterName).arg(address));
-        calHistoSink->histo = std::make_shared<Histo1D>(srcMax, unitMin, unitMax);
-        calHistoSink->histo->setObjectName(calHistoSink->objectName());
-        // TODO: calHistoSink->histo->setXAxisTitle(xAxisTitle);
-        calHistoSink->inputIndex = address;
-        calHistoSink->setInput(0, calibration->getOutput(0));
-
-        result.calibratedHistoSinks.push_back(calHistoSink);
-
+        histo = std::make_shared<Histo1D>(srcMax, unitMin, unitMax);
+        histo->setObjectName(QString("%1[%2]").arg(calHistoSink->objectName()).arg(address));
+        calHistoSink->histos.push_back(histo);
     }
+
+    rawHistoSink->connectArrayToInputSlot(0, extractor->getOutput(0));
+    calHistoSink->connectArrayToInputSlot(0, calibration->getOutput(0));
 
     return result;
 }
@@ -1157,18 +1226,9 @@ RawDataDisplay make_raw_data_display(const MultiWordDataFilter &extractionFilter
 void add_raw_data_display(Analysis *analysis, s32 eventIndex, s32 moduleIndex, const RawDataDisplay &display)
 {
     analysis->addSource(eventIndex, moduleIndex, display.extractor);
-
-    for (const auto &histoSink: display.rawHistoSinks)
-    {
-        analysis->addOperator(eventIndex, histoSink, 0);
-    }
-
+    analysis->addOperator(eventIndex, display.rawHistoSink, 0);
     analysis->addOperator(eventIndex, display.calibration, 1);
-
-    for (const auto &histoSink: display.calibratedHistoSinks)
-    {
-        analysis->addOperator(eventIndex, histoSink, 1);
-    }
+    analysis->addOperator(eventIndex, display.calibratedHistoSink, 1);
 }
 
 }

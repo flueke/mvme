@@ -73,6 +73,11 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
     updateWidget();
 }
 
+DAQControlWidget::~DAQControlWidget()
+{
+    delete ui;
+}
+
 void DAQControlWidget::updateWidget()
 {
     auto globalMode = m_context->getMode();

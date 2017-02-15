@@ -23,12 +23,6 @@ class QJsonObject;
  *     the storage required for historams.
  */
 
-/* TODO:
- * - Integrate index selection into Histo1DSink. The stand-alone IndexSelector
- *   will still be available and can be instantiated manually if needed.
- *
- */
-
 namespace analysis
 {
 
@@ -99,11 +93,41 @@ typedef std::shared_ptr<PipeSourceInterface> PipeSourcePtr;
 
 }
 
+// This needs to happen outside any namespace
 #define PipeSourceInterface_iid "com.mesytec.mvme.analysis.PipeSourceInterface.1"
 Q_DECLARE_INTERFACE(analysis::PipeSourceInterface, PipeSourceInterface_iid);
 
 namespace analysis
 {
+
+struct InputType
+{
+    static const u32 Invalid = 0;
+    static const u32 Array   = 1u << 0;
+    static const u32 Value   = 1u << 1;
+    static const u32 Both    = (Array | Value);
+};
+
+
+// The destination of a Pipe
+struct Slot
+{
+    u32 acceptedInputTypes = InputType::Both;
+    s32 valueIndex = -1; // For InputType::Value
+
+    Pipe *inputPipe = nullptr;
+    
+    // The owner of this Slot.
+    OperatorInterface *parentOperator = nullptr;
+
+    /* The index of this Slot in parentOperator. If correctly setup the
+     * following should be true:
+     * (parentOperator->getSlot(parentSlotIndex) == this)
+     */
+    s32 parentSlotIndex = -1;
+    /* The name if this Slot in the parentOperator. Set by the parentOperator. */
+    QString name;
+};
 
 class Pipe
 {
@@ -147,7 +171,7 @@ class Pipe
         PipeSourceInterface *getSource() const { return source; }
         void setSource(PipeSourceInterface *source) { source = source; }
 
-        void addDestination(OperatorInterface *dest)
+        void addDestination(Slot *dest)
         {
             if (!destinations.contains(dest))
             {
@@ -155,12 +179,12 @@ class Pipe
             }
         }
 
-        void removeDestination(OperatorInterface *dest)
+        void removeDestination(Slot *dest)
         {
             destinations.removeAll(dest);
         }
 
-        QVector<OperatorInterface *> getDestinations() const
+        QVector<Slot *> getDestinations() const
         {
             return destinations;
         }
@@ -175,7 +199,12 @@ class Pipe
 
         ParameterVector parameters;
         PipeSourceInterface *source = nullptr;
-        QVector<OperatorInterface *> destinations;
+        /* The index of this Pipe in source. If correctly setup the following
+         * should be true:
+         * (source->getOutput(sourceOutputIndex) == this)
+         */
+        s32 sourceOutputIndex = 0;
+        QVector<Slot *> destinations;
         s32 rank = 0;
 };
 
@@ -218,16 +247,25 @@ class OperatorInterface: public PipeSourceInterface
 
         virtual void step() = 0;
 
-        virtual s32 getNumberOfInputs() const = 0;
-        virtual QString getInputName(s32 inputIndex) const = 0;
-        virtual void setInput(s32 index, Pipe *inputPipe) = 0;
-        virtual Pipe *getInput(s32 index) const = 0;
-        virtual void removeInput(Pipe *pipe) = 0;
+        virtual s32 getNumberOfSlots() const = 0;
+
+        /* If paramIndex is -1 the operator should use the whole array. */
+        virtual void connectInputSlot(s32 slotIndex, Pipe *inputPipe, s32 paramIndex) = 0;
+
+        virtual Slot *getSlot(s32 slotIndex) = 0;
+        virtual void disconnectSlot(Pipe *sourcePipe) = 0;
 
         virtual void read(const QJsonObject &json) = 0;
         virtual void write(QJsonObject &json) const = 0;
 
         virtual ~OperatorInterface() {}
+
+
+        void connectArrayToInputSlot(s32 slotIndex, Pipe *inputPipe)
+        { connectInputSlot(slotIndex, inputPipe, -1); }
+
+        void connectValueToInputSlot(s32 slotIndex, Pipe *inputPipe, s32 paramIndex)
+        { connectInputSlot(slotIndex, inputPipe, paramIndex); }
 
         s32 getMaximumInputRank();
         s32 getMaximumOutputRank();
@@ -304,8 +342,9 @@ class Extractor: public SourceInterface
 
 typedef std::shared_ptr<OperatorInterface> OperatorPtr;
 
-/* An operator with one input and one output pipe. Only step() needs to be
- * implemented in subclasses. */
+/* An operator with one input slot and one output pipe. Only step() needs to be
+ * implemented in subclasses. The input slot by default accepts both
+ * InputType::Array and InputType::Value.  */
 class BasicOperator: public OperatorInterface
 {
     Q_OBJECT
@@ -314,42 +353,46 @@ class BasicOperator: public OperatorInterface
         BasicOperator(QObject *parent = 0);
         ~BasicOperator();
 
-        s32 getNumberOfInputs() const override;
-        QString getInputName(s32 inputIndex) const override;
-        void setInput(s32 index, Pipe *inputPipe) override;
-        Pipe *getInput(s32 index) const override;
-        void removeInput(Pipe *pipe) override;
-
+        // PipeSourceInterface
         s32 getNumberOfOutputs() const override;
         QString getOutputName(s32 outputIndex) const override;
         Pipe *getOutput(s32 index) override;
 
+        // OperatorInterface
+        virtual s32 getNumberOfSlots() const override;
+        virtual void connectInputSlot(s32 slotIndex, Pipe *inputPipe, s32 paramIndex) override;
+        virtual Slot *getSlot(s32 slotIndex) override;
+        virtual void disconnectSlot(Pipe *sourcePipe) override;
+
     protected:
         Pipe m_output;
-        Pipe *m_input = nullptr;
+        Slot m_inputSlot;
 };
 
 /* An operator with one input and no output. Only step() needs to be
- * implemented in subclasses. */
+ * implemented in subclasses. The input slot by default accepts both
+ * InputType::Array and InputType::Value. */
 class BasicSink: public OperatorInterface
 {
     Q_OBJECT
     Q_INTERFACES(analysis::OperatorInterface)
     public:
-        using OperatorInterface::OperatorInterface;
+        BasicSink();
         ~BasicSink();
-        s32 getNumberOfInputs() const override;
-        QString getInputName(s32 inputIndex) const override;
-        void setInput(s32 index, Pipe *inputPipe) override;
-        Pipe *getInput(s32 index) const override;
-        void removeInput(Pipe *pipe) override;
 
+        // PipeSourceInterface
         s32 getNumberOfOutputs() const override;
         QString getOutputName(s32 outputIndex) const override;
         Pipe *getOutput(s32 index) override;
 
+        // OperatorInterface
+        virtual s32 getNumberOfSlots() const override;
+        virtual void connectInputSlot(s32 slotIndex, Pipe *inputPipe, s32 paramIndex) override;
+        virtual Slot *getSlot(s32 slotIndex) override;
+        virtual void disconnectSlot(Pipe *sourcePipe) override;
+
     protected:
-        Pipe *m_input = nullptr;
+        Slot m_inputSlot;
 };
 
 struct CalibrationParameters
@@ -480,7 +523,7 @@ class IndexSelector: public BasicOperator
 {
     Q_OBJECT
     public:
-        IndexSelector(QObject *parent = 0): BasicOperator(parent) {}
+        IndexSelector(QObject *parent = 0);
 
         void setIndex(s32 index) { m_index = index; }
         s32 getIndex() const { return m_index; }
@@ -648,8 +691,7 @@ class Histo1DSink: public BasicSink
 {
     Q_OBJECT
     public:
-        std::shared_ptr<Histo1D> histo;
-        u32 inputIndex;
+        QVector<std::shared_ptr<Histo1D>> histos;
 
         virtual void step() override;
 
@@ -940,12 +982,10 @@ class Analysis
 
 struct RawDataDisplay
 {
-    using Histo1DSinkVector = QVector<std::shared_ptr<Histo1DSink>>;
-
     std::shared_ptr<Extractor> extractor;
-    Histo1DSinkVector rawHistoSinks;
+    std::shared_ptr<Histo1DSink> rawHistoSink;
     std::shared_ptr<Calibration> calibration;
-    Histo1DSinkVector calibratedHistoSinks;
+    std::shared_ptr<Histo1DSink> calibratedHistoSink;
 };
 
 RawDataDisplay make_raw_data_display(const MultiWordDataFilter &extractionFilter, double unitMin, double unitMax,
