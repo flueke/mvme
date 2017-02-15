@@ -12,7 +12,7 @@
 
 class QJsonObject;
 
-/* TODO:
+/*
  *   Operators vs Sources vs Sinks:
  *   - Sources have no input but are directly attached to a module.
  *     -> They have eventIndex and moduleIndex whereas operators are only
@@ -21,8 +21,11 @@ class QJsonObject;
  *   - Sinks usually don't have any output but consume input. Histograms could
  *     have output but outputting whole histograms into ParameterVectors doubles
  *     the storage required for historams.
- *
- * - Operator Icon
+ */
+
+/* TODO:
+ * - Integrate index selection into Histo1DSink. The stand-alone IndexSelector
+ *   will still be available and can be instantiated manually if needed.
  *
  */
 
@@ -74,9 +77,9 @@ class PipeSourceInterface: public QObject
             , m_id(QUuid::createUuid())
         {}
 
-        virtual int getNumberOfOutputs() const = 0;
-        virtual QString getOutputName(int outputIndex) const = 0;
-        virtual Pipe *getOutput(int index) = 0;
+        virtual s32 getNumberOfOutputs() const = 0;
+        virtual QString getOutputName(s32 outputIndex) const = 0;
+        virtual Pipe *getOutput(s32 index) = 0;
 
         virtual QString getDisplayName() const = 0;
 
@@ -120,6 +123,16 @@ class Pipe
             if (!parameters.isEmpty())
             {
                 return &parameters[0];
+            }
+
+            return nullptr;
+        }
+
+        const Parameter *getParameter(u32 index)
+        {
+            if (index < static_cast<u32>(parameters.size()))
+            {
+                return &parameters[index];
             }
 
             return nullptr;
@@ -175,7 +188,9 @@ class SourceInterface: public PipeSourceInterface
     public:
         SourceInterface(QObject *parent = 0): PipeSourceInterface(parent) {}
 
-        /* Use beginRun() to preallocate the outputs and setup internal state. */
+        /* Use beginRun() to preallocate the outputs and setup internal state.
+         * This will also be called by Analysis UI to be able to get array
+         * sizes from operator output pipes! */
         virtual void beginRun() {}
 
         /* Use beginEvent() to invalidate output parameters if needed. */
@@ -203,10 +218,10 @@ class OperatorInterface: public PipeSourceInterface
 
         virtual void step() = 0;
 
-        virtual int getNumberOfInputs() const = 0;
-        virtual QString getInputName(int inputIndex) const = 0;
-        virtual void setInput(int index, Pipe *inputPipe) = 0;
-        virtual Pipe *getInput(int index) const = 0;
+        virtual s32 getNumberOfInputs() const = 0;
+        virtual QString getInputName(s32 inputIndex) const = 0;
+        virtual void setInput(s32 index, Pipe *inputPipe) = 0;
+        virtual Pipe *getInput(s32 index) const = 0;
         virtual void removeInput(Pipe *pipe) = 0;
 
         virtual void read(const QJsonObject &json) = 0;
@@ -262,9 +277,9 @@ class Extractor: public SourceInterface
         virtual void beginEvent() override;
         virtual void processDataWord(u32 data, s32 wordIndex) override;
 
-        virtual int getNumberOfOutputs() const override;
-        virtual QString getOutputName(int outputIndex) const override;
-        virtual Pipe *getOutput(int index) override;
+        virtual s32 getNumberOfOutputs() const override;
+        virtual QString getOutputName(s32 outputIndex) const override;
+        virtual Pipe *getOutput(s32 index) override;
 
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
@@ -299,15 +314,15 @@ class BasicOperator: public OperatorInterface
         BasicOperator(QObject *parent = 0);
         ~BasicOperator();
 
-        int getNumberOfInputs() const override;
-        QString getInputName(int inputIndex) const override;
-        void setInput(int index, Pipe *inputPipe) override;
-        Pipe *getInput(int index) const override;
+        s32 getNumberOfInputs() const override;
+        QString getInputName(s32 inputIndex) const override;
+        void setInput(s32 index, Pipe *inputPipe) override;
+        Pipe *getInput(s32 index) const override;
         void removeInput(Pipe *pipe) override;
 
-        int getNumberOfOutputs() const override;
-        QString getOutputName(int outputIndex) const override;
-        Pipe *getOutput(int index) override;
+        s32 getNumberOfOutputs() const override;
+        QString getOutputName(s32 outputIndex) const override;
+        Pipe *getOutput(s32 index) override;
 
     protected:
         Pipe m_output;
@@ -323,15 +338,15 @@ class BasicSink: public OperatorInterface
     public:
         using OperatorInterface::OperatorInterface;
         ~BasicSink();
-        int getNumberOfInputs() const override;
-        QString getInputName(int inputIndex) const override;
-        void setInput(int index, Pipe *inputPipe) override;
-        Pipe *getInput(int index) const override;
+        s32 getNumberOfInputs() const override;
+        QString getInputName(s32 inputIndex) const override;
+        void setInput(s32 index, Pipe *inputPipe) override;
+        Pipe *getInput(s32 index) const override;
         void removeInput(Pipe *pipe) override;
 
-        int getNumberOfOutputs() const override;
-        QString getOutputName(int outputIndex) const override;
-        Pipe *getOutput(int index) override;
+        s32 getNumberOfOutputs() const override;
+        QString getOutputName(s32 outputIndex) const override;
+        Pipe *getOutput(s32 index) override;
 
     protected:
         Pipe *m_input = nullptr;
@@ -356,11 +371,11 @@ struct CalibrationParameters
     double offset = make_quiet_nan();
 };
 
-class CalibrationOperator: public BasicOperator
+class Calibration: public BasicOperator
 {
     Q_OBJECT
     public:
-        CalibrationOperator(QObject *parent = 0);
+        Calibration(QObject *parent = 0);
 
         virtual void beginRun() override;
         virtual void step() override;
@@ -431,27 +446,27 @@ struct HypotheticalSortingMachine: public Operator
     virtual void step() override
     {
         // calc output size. FIXME: this should be done in a preparation step
-        int output_size = 0;
+        s32 output_size = 0;
         for (auto transport: inputs)
         {
             output_size += transport->parameters.size();
         }
         output.parameters.resize(output_size);
 
-        for (int input_index = 0;
+        for (s32 input_index = 0;
              input_index < inputs.size();
              ++input_index)
         {
             Pipe *transport = inputs[input_index];
 
-            for (int address = 0;
+            for (s32 address = 0;
                  address < transport->parameters.size();
                  ++address)
             {
                 const auto &param(transport->parameters[address]);
                 if (param.valid)
                 {
-                    int output_address = address + (input_index * 16);
+                    s32 output_address = address + (input_index * 16);
 
                     output.parameters[output_address] = param; // copy the param struct
                 }
@@ -634,6 +649,7 @@ class Histo1DSink: public BasicSink
     Q_OBJECT
     public:
         std::shared_ptr<Histo1D> histo;
+        u32 inputIndex;
 
         virtual void step() override;
 
@@ -772,58 +788,37 @@ class Registry
         QMap<QString, OperatorInterface *(*)()> m_operatorRegistry;
 };
 
-/* Compound structure to model the old DataFilter+units -> address -> histo
- * scheme. */
-struct RawDataDisplay
-{
-    SourcePtr extractor;
-    OperatorPtr calibration;
-
-    struct RawHistoSink
-    {
-        OperatorPtr selector;
-        OperatorPtr histoSink;
-    };
-
-    // Kept in order of selector index.
-    QVector<RawHistoSink> rawHistoSinks;
-
-    QUuid id;
-
-    RawDataDisplay()
-        : id(QUuid::createUuid())
-    {}
-};
-
 class Analysis
 {
     public:
         struct SourceEntry
         {
-            int eventIndex;
-            int moduleIndex;
+            s32 eventIndex;
+            s32 moduleIndex;
             SourcePtr source;
         };
 
         struct OperatorEntry
         {
-            int eventIndex;
+            s32 eventIndex;
             OperatorPtr op;
+            // A user defined level used for UI display structuring.
+            s32 userLevel;
         };
 
         Analysis();
 
         void beginRun();
-        void beginEvent(int eventIndex);
-        void processDataWord(int eventIndex, int moduleIndex, u32 data, s32 wordIndex);
-        void endEvent(int eventIndex);
+        void beginEvent(s32 eventIndex);
+        void processDataWord(s32 eventIndex, s32 moduleIndex, u32 data, s32 wordIndex);
+        void endEvent(s32 eventIndex);
 
         const QVector<SourceEntry> &getSources() const
         {
             return m_sources;
         }
 
-        QVector<SourceEntry> getSources(int eventIndex, int moduleIndex) const
+        QVector<SourceEntry> getSources(s32 eventIndex, s32 moduleIndex) const
         {
             QVector<SourceEntry> result;
 
@@ -838,20 +833,50 @@ class Analysis
             return result;
         }
 
-        const QVector<OperatorEntry> &getOperators() const
-        {
-            return m_operators;
-        }
-
-        void addSource(int eventIndex, int moduleIndex, const SourcePtr &source)
+        void addSource(s32 eventIndex, s32 moduleIndex, const SourcePtr &source)
         {
             m_sources.push_back({eventIndex, moduleIndex, source});
             updateRanks();
         }
 
-        void addOperator(int eventIndex, const OperatorPtr &op)
+        const QVector<OperatorEntry> &getOperators() const
         {
-            m_operators.push_back({eventIndex, op});
+            return m_operators;
+        }
+
+        const QVector<OperatorEntry> getOperators(s32 eventIndex) const
+        {
+            QVector<OperatorEntry> result;
+
+            for (const auto &e: m_operators)
+            {
+                if (e.eventIndex == eventIndex)
+                {
+                  result.push_back(e);
+                }
+            }
+
+            return result;
+        }
+
+        const QVector<OperatorEntry> getOperators(s32 eventIndex, s32 userLevel) const
+        {
+            QVector<OperatorEntry> result;
+
+            for (const auto &e: m_operators)
+            {
+                if (e.eventIndex ==eventIndex && e.userLevel == userLevel)
+                {
+                  result.push_back(e);
+                }
+            }
+
+            return result;
+        }
+
+        void addOperator(s32 eventIndex, const OperatorPtr &op, s32 userLevel)
+        {
+            m_operators.push_back({eventIndex, op, userLevel});
             updateRanks();
         }
 
@@ -863,9 +888,8 @@ class Analysis
         void read(const QJsonObject &json);
         void write(QJsonObject &json) const;
 
-        // FIXME: this stuff is bad
-        int getModuleIndex(const SourcePtr &src) const { return getModuleIndex(src.get()); }
-        int getModuleIndex(const SourceInterface *src) const
+        s32 getModuleIndex(const SourcePtr &src) const { return getModuleIndex(src.get()); }
+        s32 getModuleIndex(const SourceInterface *src) const
         {
             for (const auto &sourceEntry: m_sources)
             {
@@ -877,8 +901,8 @@ class Analysis
             return -1 ;
         }
 
-        int getEventIndex(const SourcePtr &src) const { return getEventIndex(src.get()); }
-        int getEventIndex(const SourceInterface *src) const
+        s32 getEventIndex(const SourcePtr &src) const { return getEventIndex(src.get()); }
+        s32 getEventIndex(const SourceInterface *src) const
         {
             for (const auto &sourceEntry: m_sources)
             {
@@ -890,8 +914,8 @@ class Analysis
             return -1;
         }
 
-        int getEventIndex(const OperatorPtr &op) const { return getEventIndex(op.get()); }
-        int getEventIndex(const OperatorInterface *op) const
+        s32 getEventIndex(const OperatorPtr &op) const { return getEventIndex(op.get()); }
+        s32 getEventIndex(const OperatorInterface *op) const
         {
             for (const auto &opEntry: m_operators)
             {
@@ -903,10 +927,9 @@ class Analysis
             return -1;
         }
 
-        QVector<RawDataDisplay> rawDataDisplays;
+        void updateRanks();
 
     private:
-        void updateRanks();
         void updateRank(OperatorInterface *op, QSet<OperatorInterface *> &updated);
 
         QVector<SourceEntry> m_sources;
@@ -915,10 +938,20 @@ class Analysis
         Registry m_registry;
 };
 
+struct RawDataDisplay
+{
+    using Histo1DSinkVector = QVector<std::shared_ptr<Histo1DSink>>;
+
+    std::shared_ptr<Extractor> extractor;
+    Histo1DSinkVector rawHistoSinks;
+    std::shared_ptr<Calibration> calibration;
+    Histo1DSinkVector calibratedHistoSinks;
+};
+
 RawDataDisplay make_raw_data_display(const MultiWordDataFilter &extractionFilter, double unitMin, double unitMax,
                                      const QString &name, const QString &xAxisTitle, const QString &unitLabel);
 
-void add_raw_data_display(Analysis *analysis, int eventIndex, int moduleIndex, const RawDataDisplay &display);
+void add_raw_data_display(Analysis *analysis, s32 eventIndex, s32 moduleIndex, const RawDataDisplay &display);
 
 }
 #endif /* __ANALYSIS_H__ */

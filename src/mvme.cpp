@@ -803,11 +803,13 @@ void mvme::on_actionVME_Debug_triggered()
 
 void mvme::openInNewWindow(QObject *object)
 {
-    auto scriptConfig       = qobject_cast<VMEScriptConfig *>(object);
-    auto histo2d            = qobject_cast<Hist2D *>(object); 
-    auto histo1d            = qobject_cast<Hist1D *>(object); 
+    auto scriptConfig      = qobject_cast<VMEScriptConfig *>(object);
+    auto hist2d            = qobject_cast<Hist2D *>(object); 
+    auto hist1d            = qobject_cast<Hist1D *>(object); 
+    // The new histo type
+    auto histo1d = qobject_cast<Histo1D *>(object);
 
-    MVMEWidget *widget = nullptr;
+    QWidget *widget = nullptr;
     QIcon windowIcon;
     QSize windowSize;
 
@@ -817,16 +819,21 @@ void mvme::openInNewWindow(QObject *object)
         windowIcon = QIcon(QPixmap(":/vme_script.png"));
         windowSize = QSize(700, 450);
     }
-    else if (histo1d)
+    else if (hist1d)
     {
-        auto histoConfig = qobject_cast<Hist1DConfig *>(m_context->getMappedObject(histo1d, QSL("ObjectToConfig")));
-        widget = new Hist1DWidget(m_context, histo1d, histoConfig);
+        auto histoConfig = qobject_cast<Hist1DConfig *>(m_context->getMappedObject(hist1d, QSL("ObjectToConfig")));
+        widget = new Hist1DWidget(m_context, hist1d, histoConfig);
         windowIcon = QIcon(QPixmap(":/hist1d.png"));
         windowSize = QSize(600, 400);
     }
-    else if (histo2d)
+    else if (hist2d)
     {
-        widget = new Hist2DWidget(m_context, histo2d);
+        widget = new Hist2DWidget(m_context, hist2d);
+        windowSize = QSize(600, 400);
+    }
+    else if (histo1d)
+    {
+        widget = new Histo1DWidget(histo1d);
         windowSize = QSize(600, 400);
     }
 
@@ -855,11 +862,14 @@ void mvme::openInNewWindow(QObject *object)
 
         m_objectWindows[object].push_back(subwin);
 
-        connect(widget, &MVMEWidget::aboutToClose, this, [this, object, subwin] {
-            qDebug() << "removing window" << subwin << "for object" << object;
-            m_objectWindows[object].removeOne(subwin);
-            subwin->close();
-        });
+        if (auto mvmeWidget = qobject_cast<MVMEWidget *>(widget))
+        {
+            connect(mvmeWidget, &MVMEWidget::aboutToClose, this, [this, object, subwin] {
+                qDebug() << "removing window" << subwin << "for object" << object;
+                m_objectWindows[object].removeOne(subwin);
+                subwin->close();
+            });
+        }
     }
 }
 

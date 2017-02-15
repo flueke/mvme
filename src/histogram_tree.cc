@@ -997,8 +997,8 @@ void HistogramTreeWidget::generateDefaultFilters()
         {
             analysis::DataFilter dataFilter(filterDef.filter);
             analysis::MultiWordDataFilter multiWordFilter({dataFilter});
-            double unitMin = 0.0;
-            double unitMax = (1 << multiWordFilter.getDataBits());
+            double unitMin = -1000.0; //0.0;
+            double unitMax = 1000.0; //(1 << multiWordFilter.getDataBits());
 
             analysis::RawDataDisplay rawDataDisplay = make_raw_data_display(multiWordFilter, unitMin, unitMax,
                                                                             filterDef.name,
@@ -1665,6 +1665,7 @@ void HistogramTreeWidget::updateAnalysisNGStuff()
 
     m_analysisObjects = analysisObjects;
 
+#if 0 // TODO: RawDataDisplays are not stored anymore. Delete this code sometime soon
     for (const auto &rawDisp: analysis->rawDataDisplays)
     {
         if (m_rawDataDisplayNodes.contains(rawDisp.id))
@@ -1719,6 +1720,7 @@ void HistogramTreeWidget::updateAnalysisNGStuff()
 
         nodesAdded = true;
     }
+#endif
 
     if (nodesAdded)
         m_tree->resizeColumnToContents(0);

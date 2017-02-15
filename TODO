@@ -1,7 +1,14 @@
 ==========================
 ==== Do these first! =====
 ==========================
->>>>> Analysis NG <<<<<
+>>>>> Begin Analysis NG <<<<<
+<<<<< End AnalysisNG >>>>>
+
+
+==========================
+==== Do these later! =====
+==========================
+>>>>> Begin Analysis NG <<<<<
 * Is MultiWordDataFilter::handleDataWord() behaviour "correct"/"good"?
   Should it break out of the loop once a filter matched?
   -> This would make it so that at least n words of data are needed
@@ -10,36 +17,16 @@
   Should it skip matched filters when the next data word comes in?
   -> Right now the already extracted value for the filter will be
      overwritten.
-
 * Rename DataFilter to ParameterExtractor
-
 * Single word data filter matching and extraction must be very fast as they're
   used to handle most of the data and multi word filters are implemented in
   terms of single word filters.
-
-* Filter on number of occurence: the filter is considered complete only if it
-  matched N times.
-  Needed for devices that can yield data for the same address in a single
-  event. If the filter does not specify an occurence condition but matches
-  multiple times only the first matched value will be kept.
-
-  XXX: Impossible to simply accumulate all raw values for a channel into a Hist1D!
-
-  -> Not an issue according to Robert as multi hits per channel need to be
-     handled explicitly anyways.
-<<<<< Analysis NG >>>>>
-
-* Address value extraction should be allowed for multi word data filters
-
-
-
+* Histo1D
+  - Mouse cursor info area displays wrong bin number
+<<<<< End AnalysisNG >>>>>
 
 * Git version is not updated when rebuilding the project! FIX THIS!
 
-
-==========================
-==== Do these later! =====
-==========================
 * GUI
   * add versioning to the GUI state saved via QSettings. If the version changes
     use the default layout instead of restoring a possibly incompatible state.
@@ -56,10 +43,6 @@
     * copy templates from app dir to workspace (vielleicht?)
 * Listfile format:
   Implement version 2 of the format as documented in the header file!
-
-* Analysis:
-  * DualWordDataFilters: handle negative difference values when filling the
-    histograms => New histo implementation! Like ROOT histograms.
 
 * Histos:
   * add histogram cuts
@@ -122,3 +105,13 @@
 ======================================
 ==== Done, but kept for reference ====
 ======================================
+>>>>> Begin Analysis NG <<<<<
+* Filter on number of occurence: the filter is considered complete only if it
+  matched N times.
+  Needed for devices that can yield data for the same address in a single
+  event. If the filter does not specify an occurence condition but matches
+  multiple times only the first matched value will be kept.
+  XXX: Impossible to simply accumulate all raw values for a channel into a Hist1D!
+  -> Not an issue according to Robert as multi hits per channel need to be
+     handled explicitly anyways.
+<<<<< End AnalysisNG >>>>>

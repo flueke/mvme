@@ -70,7 +70,7 @@ void Extractor::beginRun()
     auto &params(m_output.getParameters());
     params.resize(addressCount);
 
-    for (int i=0; i<params.size(); ++i)
+    for (s32 i=0; i<params.size(); ++i)
     {
         auto param(params[i]);
         param.lowerLimit = 0.0;
@@ -126,17 +126,17 @@ void Extractor::processDataWord(u32 data, s32 wordIndex)
 #endif
 }
 
-int Extractor::getNumberOfOutputs() const
+s32 Extractor::getNumberOfOutputs() const
 {
     return 1;
 }
 
-QString Extractor::getOutputName(int outputIndex) const
+QString Extractor::getOutputName(s32 outputIndex) const
 {
     return QSL("Extracted data array");
 }
 
-Pipe *Extractor::getOutput(int index)
+Pipe *Extractor::getOutput(s32 index)
 {
     Pipe *result = nullptr;
 
@@ -196,12 +196,12 @@ BasicOperator::~BasicOperator()
 {
 }
 
-int BasicOperator::getNumberOfInputs() const
+s32 BasicOperator::getNumberOfInputs() const
 {
     return 1;
 }
 
-QString BasicOperator::getInputName(int inputIndex) const
+QString BasicOperator::getInputName(s32 inputIndex) const
 {
     if (inputIndex == 0)
     {
@@ -211,7 +211,7 @@ QString BasicOperator::getInputName(int inputIndex) const
     return QString();
 }
 
-void BasicOperator::setInput(int index, Pipe *inputPipe)
+void BasicOperator::setInput(s32 index, Pipe *inputPipe)
 {
     if (index == 0)
     {
@@ -229,7 +229,7 @@ void BasicOperator::setInput(int index, Pipe *inputPipe)
     }
 }
 
-Pipe *BasicOperator::getInput(int index) const
+Pipe *BasicOperator::getInput(s32 index) const
 {
     Pipe *result = nullptr;
     if (index == 0)
@@ -248,14 +248,14 @@ void BasicOperator::removeInput(Pipe *pipe)
     }
 }
 
-int BasicOperator::getNumberOfOutputs() const
+s32 BasicOperator::getNumberOfOutputs() const
 {
     return 1;
 }
 
-QString BasicOperator::getOutputName(int outputIndex) const
+QString BasicOperator::getOutputName(s32 outputIndex) const
 {
-    if (outputIndex == 1)
+    if (outputIndex == 0)
     {
         return QSL("Output");
     }
@@ -263,7 +263,7 @@ QString BasicOperator::getOutputName(int outputIndex) const
 
 }
 
-Pipe *BasicOperator::getOutput(int index)
+Pipe *BasicOperator::getOutput(s32 index)
 {
     Pipe *result = nullptr;
     if (index == 0)
@@ -281,12 +281,12 @@ BasicSink::~BasicSink()
 {
 }
 
-int BasicSink::getNumberOfInputs() const
+s32 BasicSink::getNumberOfInputs() const
 {
     return 1;
 }
 
-QString BasicSink::getInputName(int inputIndex) const
+QString BasicSink::getInputName(s32 inputIndex) const
 {
     if (inputIndex == 0)
     {
@@ -296,7 +296,7 @@ QString BasicSink::getInputName(int inputIndex) const
     return QString();
 }
 
-void BasicSink::setInput(int index, Pipe *inputPipe)
+void BasicSink::setInput(s32 index, Pipe *inputPipe)
 {
     if (index == 0)
     {
@@ -314,7 +314,7 @@ void BasicSink::setInput(int index, Pipe *inputPipe)
     }
 }
 
-Pipe *BasicSink::getInput(int index) const
+Pipe *BasicSink::getInput(s32 index) const
 {
     Pipe *result = nullptr;
     if (index == 0)
@@ -334,31 +334,31 @@ void BasicSink::removeInput(Pipe *pipe)
 }
 
 
-int BasicSink::getNumberOfOutputs() const
+s32 BasicSink::getNumberOfOutputs() const
 {
     return 0;
 }
 
-QString BasicSink::getOutputName(int outputIndex) const
+QString BasicSink::getOutputName(s32 outputIndex) const
 {
     return QString();
 }
 
-Pipe *BasicSink::getOutput(int index)
+Pipe *BasicSink::getOutput(s32 index)
 {
     Pipe *result = nullptr;
     return result;
 }
 
 //
-// CalibrationOperator
+// Calibration
 //
-CalibrationOperator::CalibrationOperator(QObject *parent)
+Calibration::Calibration(QObject *parent)
     : BasicOperator(parent)
 {
 }
 
-void CalibrationOperator::beginRun()
+void Calibration::beginRun()
 {
     if (m_input)
     {
@@ -371,7 +371,7 @@ void CalibrationOperator::beginRun()
     }
 }
 
-void CalibrationOperator::step()
+void Calibration::step()
 {
     if (m_input)
     {
@@ -403,13 +403,13 @@ void CalibrationOperator::step()
     }
 }
 
-void CalibrationOperator::setCalibration(s32 address, const CalibrationParameters &params)
+void Calibration::setCalibration(s32 address, const CalibrationParameters &params)
 {
     m_calibrations.resize(std::max(m_calibrations.size(), address+1));
     m_calibrations[address] = params;
 }
 
-CalibrationParameters CalibrationOperator::getCalibration(s32 address) const
+CalibrationParameters Calibration::getCalibration(s32 address) const
 {
     CalibrationParameters result = m_globalCalibration;
 
@@ -421,7 +421,7 @@ CalibrationParameters CalibrationOperator::getCalibration(s32 address) const
     return result;
 }
 
-void CalibrationOperator::read(const QJsonObject &json)
+void Calibration::read(const QJsonObject &json)
 {
     m_unit = json["unitLabel"].toString();
     m_globalCalibration.factor = json["globalFactor"].toDouble();
@@ -445,7 +445,7 @@ void CalibrationOperator::read(const QJsonObject &json)
     }
 }
 
-void CalibrationOperator::write(QJsonObject &json) const
+void Calibration::write(QJsonObject &json) const
 {
     json["unitLabel"] = m_unit;
     json["globalFactor"] = m_globalCalibration.factor;
@@ -516,7 +516,7 @@ void Histo1DSink::step()
 {
     if (m_input && histo)
     {
-        const Parameter *param = m_input->first();
+        const Parameter *param = m_input->getParameter(inputIndex);
 
         if (param && param->valid)
         {
@@ -540,6 +540,7 @@ void Histo1DSink::read(const QJsonObject &json)
     u32 nBins = static_cast<u32>(json["nBins"].toInt());
     double xMin = json["xMin"].toDouble();
     double xMax = json["xMax"].toDouble();
+    inputIndex = static_cast<u32>(json["inputIndex"].toInt());
     histo = std::make_shared<Histo1D>(nBins, xMin, xMax);
 }
 
@@ -548,6 +549,7 @@ void Histo1DSink::write(QJsonObject &json) const
     json["nBins"] = static_cast<qint64>(histo->getNumberOfBins());
     json["xMin"] = histo->getXMin();
     json["xMax"] = histo->getXMax();
+    json["inputIndex"] = static_cast<qint64>(inputIndex);
 }
 
 //
@@ -557,7 +559,7 @@ Analysis::Analysis()
 {
     m_registry.registerSource<Extractor>();
 
-    m_registry.registerOperator<CalibrationOperator>();
+    m_registry.registerOperator<Calibration>();
     m_registry.registerOperator<IndexSelector>();
     m_registry.registerOperator<Histo1DSink>();
 
@@ -584,7 +586,7 @@ void Analysis::beginRun()
     }
 }
 
-void Analysis::beginEvent(int eventIndex)
+void Analysis::beginEvent(s32 eventIndex)
 {
     for (auto &sourceEntry: m_sources)
     {
@@ -595,7 +597,7 @@ void Analysis::beginEvent(int eventIndex)
     }
 }
 
-void Analysis::processDataWord(int eventIndex, int moduleIndex, u32 data, s32 wordIndex)
+void Analysis::processDataWord(s32 eventIndex, s32 moduleIndex, u32 data, s32 wordIndex)
 {
     for (auto &sourceEntry: m_sources)
     {
@@ -606,7 +608,7 @@ void Analysis::processDataWord(int eventIndex, int moduleIndex, u32 data, s32 wo
     }
 }
 
-void Analysis::endEvent(int eventIndex)
+void Analysis::endEvent(s32 eventIndex)
 {
     /* In beginRun() operators are sorted by rank. This way step()'ing
      * operators can be done by just traversing the array. */
@@ -769,7 +771,7 @@ void Analysis::removeSource(const SourcePtr &source) // TODO: test this
     {
         m_sources.remove(entryIndex);
 
-        for (int outputIndex = 0; outputIndex < source->getNumberOfOutputs(); ++outputIndex)
+        for (s32 outputIndex = 0; outputIndex < source->getNumberOfOutputs(); ++outputIndex)
         {
             Pipe *outPipe = source->getOutput(outputIndex);
             for (OperatorInterface *destOp: outPipe->getDestinations())
@@ -796,7 +798,7 @@ void Analysis::removeOperator(const OperatorPtr &op) // TODO: test this
     {
         m_operators.remove(entryIndex);
 
-        for (int outputIndex = 0; outputIndex < op->getNumberOfOutputs(); ++outputIndex)
+        for (s32 outputIndex = 0; outputIndex < op->getNumberOfOutputs(); ++outputIndex)
         {
             Pipe *outPipe = op->getOutput(outputIndex);
             for (OperatorInterface *destOp: outPipe->getDestinations())
@@ -812,17 +814,16 @@ void Analysis::clear()
 {
     m_sources.clear();
     m_operators.clear();
-    rawDataDisplays.clear();
 }
 
 #if 0
         struct Connection
         {
             PipeSourceInterface *srcObject;
-            int srcIndex; // the output index of the source object
+            s32 srcIndex; // the output index of the source object
 
             OperatorInterface *dstObject;
-            int dstIndex; // the input index of the dest object
+            s32 dstIndex; // the input index of the dest object
         };
 #endif
 
@@ -882,7 +883,9 @@ void Analysis::read(const QJsonObject &json)
                 op->read(objectJson["data"].toObject());
 
                 addOperator(objectJson["eventIndex"].toInt(),
-                            op);
+                            op,
+                            objectJson["userLevel"].toInt()
+                           );
 
                 objectsById.insert(op->getId(), op);
             }
@@ -914,6 +917,7 @@ void Analysis::read(const QJsonObject &json)
 
     // Compound objects
     {
+#if 0 // TODO: RawDataDisplays are not stored anymore. Delete this code sometime soon
         // FIXME: error checking
         QJsonArray sourceArray = json["rawDataDisplays"].toArray();
 
@@ -954,6 +958,7 @@ void Analysis::read(const QJsonObject &json)
 
             rawDataDisplays.push_back(display);
         }
+#endif
     }
 }
 
@@ -990,6 +995,7 @@ void Analysis::write(QJsonObject &json) const
             destObject["name"] = op->objectName();
             destObject["eventIndex"]  = static_cast<qint64>(opEntry.eventIndex);
             destObject["class"] = getClassName(op);
+            destObject["userLevel"] = opEntry.userLevel;
             QJsonObject dataJson;
             op->write(dataJson);
             destObject["data"] = dataJson;
@@ -1015,14 +1021,14 @@ void Analysis::write(QJsonObject &json) const
 
         for (PipeSourceInterface *srcObject: pipeSources)
         {
-            for (int outputIndex = 0; outputIndex < srcObject->getNumberOfOutputs(); ++outputIndex)
+            for (s32 outputIndex = 0; outputIndex < srcObject->getNumberOfOutputs(); ++outputIndex)
             {
                 Pipe *pipe = srcObject->getOutput(outputIndex);
 
                 for (OperatorInterface *destOp: pipe->getDestinations())
                 {
-                    int dstIndex = -1;
-                    for (int inputIndex = 0; inputIndex < destOp->getNumberOfInputs(); ++inputIndex)
+                    s32 dstIndex = -1;
+                    for (s32 inputIndex = 0; inputIndex < destOp->getNumberOfInputs(); ++inputIndex)
                     {
                         Pipe *inputPipe = destOp->getInput(inputIndex);
 
@@ -1052,6 +1058,7 @@ void Analysis::write(QJsonObject &json) const
 
     // Compound objects
     {
+#if 0 // TODO: RawDataDisplays are not stored anymore. Delete this code sometime soon
         QJsonArray destArray;
 
         for (auto &display: rawDataDisplays)
@@ -1077,6 +1084,7 @@ void Analysis::write(QJsonObject &json) const
         }
 
         json["rawDataDisplays"] = destArray;
+#endif
     }
 }
 
@@ -1102,13 +1110,13 @@ RawDataDisplay make_raw_data_display(const MultiWordDataFilter &extractionFilter
     double srcMax  = (1 << extractionFilter.getDataBits());
 
     // factor in U/S, offset in U
-    // TODO: should factor be in U?
+    // TODO: should offset be in S?
     double factor = std::abs(unitMax - unitMin) / (srcMax - srcMin);
     double offset = unitMin - srcMin * factor; // FIXME: correct in all cases?
 
     qDebug() << ">>>>> factor =" << factor << ", offset =" << offset;
 
-    auto calibration = std::make_shared<analysis::CalibrationOperator>();
+    auto calibration = std::make_shared<analysis::Calibration>();
     calibration->setGlobalCalibration(factor, offset);
     calibration->setObjectName(filterName);
     calibration->setInput(0, extractor->getOutput(0));
@@ -1119,37 +1127,48 @@ RawDataDisplay make_raw_data_display(const MultiWordDataFilter &extractionFilter
 
     for (u32 address = 0; address < addressCount; ++address)
     {
-        auto selector = std::make_shared<analysis::IndexSelector>();
-        selector->setIndex(static_cast<s32>(address));
-        selector->setObjectName(QString("%1[%2]").arg(filterName).arg(address));
-        selector->setInput(0, calibration->getOutput(0));
+        // create a histo for the raw uncalibrated data
+        auto rawHistoSink = std::make_shared<analysis::Histo1DSink>();
+        rawHistoSink->setObjectName(QString("%1[%2]").arg(filterName).arg(address));
+        rawHistoSink->histo = std::make_shared<Histo1D>(srcMax, 0.0, srcMax);
+        rawHistoSink->histo->setObjectName(rawHistoSink->objectName());
+        // TODO: rawHistoSink->histo->setXAxisTitle(xAxisTitle);
+        rawHistoSink->inputIndex = address;
+        rawHistoSink->setInput(0, extractor->getOutput(0));
 
-        auto histoSink = std::make_shared<analysis::Histo1DSink>();
-        histoSink->setObjectName(QString("%1[%2]").arg(filterName).arg(address));
-        // Use full resolution bins and calibration min and max values
-        histoSink->histo = std::make_shared<Histo1D>(srcMax, unitMin, unitMax);
-        histoSink->histo->setObjectName(histoSink->objectName());
-        // TODO: histoSink->histo->setXAxisTitle(xAxisTitle);
-        histoSink->setInput(0, selector->getOutput(0));
+        result.rawHistoSinks.push_back(rawHistoSink);
 
-        result.rawHistoSinks.push_back({selector, histoSink});
+        // create a histo for the calibrated data
+        auto calHistoSink = std::make_shared<analysis::Histo1DSink>();
+        calHistoSink->setObjectName(QString("%1[%2]").arg(filterName).arg(address));
+        calHistoSink->histo = std::make_shared<Histo1D>(srcMax, unitMin, unitMax);
+        calHistoSink->histo->setObjectName(calHistoSink->objectName());
+        // TODO: calHistoSink->histo->setXAxisTitle(xAxisTitle);
+        calHistoSink->inputIndex = address;
+        calHistoSink->setInput(0, calibration->getOutput(0));
+
+        result.calibratedHistoSinks.push_back(calHistoSink);
+
     }
 
     return result;
 }
 
-void add_raw_data_display(Analysis *analysis, int eventIndex, int moduleIndex, const RawDataDisplay &display)
+void add_raw_data_display(Analysis *analysis, s32 eventIndex, s32 moduleIndex, const RawDataDisplay &display)
 {
     analysis->addSource(eventIndex, moduleIndex, display.extractor);
-    analysis->addOperator(eventIndex, display.calibration);
 
-    for (const auto &rs: display.rawHistoSinks)
+    for (const auto &histoSink: display.rawHistoSinks)
     {
-        analysis->addOperator(eventIndex, rs.selector);
-        analysis->addOperator(eventIndex, rs.histoSink);
+        analysis->addOperator(eventIndex, histoSink, 0);
     }
 
-    analysis->rawDataDisplays.push_back(display);
+    analysis->addOperator(eventIndex, display.calibration, 1);
+
+    for (const auto &histoSink: display.calibratedHistoSinks)
+    {
+        analysis->addOperator(eventIndex, histoSink, 1);
+    }
 }
 
 }
