@@ -72,13 +72,17 @@ inline TreeNode *makeOperatorTreeSourceNode(SourceInterface *source)
     sourceNode->setText(0, source->objectName());
     sourceNode->setIcon(0, QIcon(":/data_filter.png"));
 
+    // FIXME: can't this be done generically via getNumberOfOutputs() and using
+    // the pipes parameter vector size?
     if (auto extractor = qobject_cast<Extractor *>(source))
     {
-        u32 addressCount = (1 << extractor->getFilter().getAddressBits());
+        s32 addressCount = (1 << extractor->getFilter().getAddressBits());
+        Pipe *outputPipe = extractor->getOutput(0);
 
-        for (u32 address = 0; address < addressCount; ++address)
+        for (s32 address = 0; address < addressCount; ++address)
         {
-            auto addressNode = new TreeNode(NodeType_OutputPipeParameter);
+            auto addressNode = makeNode(outputPipe, NodeType_OutputPipeParameter);
+            addressNode->setData(0, DataRole_ParameterIndex, address);
             addressNode->setText(0, QString::number(address));
             sourceNode->addChild(addressNode);
         }
@@ -174,11 +178,11 @@ inline TreeNode *makeOperatorNode(OperatorInterface *op)
          outputIndex < op->getNumberOfOutputs();
          ++outputIndex)
     {
-        auto outputPipe = op->getOutput(outputIndex);
+        Pipe *outputPipe = op->getOutput(outputIndex);
         s32 outputParamSize = outputPipe->parameters.size();
 
         // TODO: add data to pipeNode
-        auto pipeNode = new TreeNode(NodeType_OutputPipe);
+        auto pipeNode = makeNode(outputPipe, NodeType_OutputPipe);
         pipeNode->setText(0, QString("#%1 \"%2\" (%3 elements)")
                           .arg(outputIndex)
                           .arg(op->getOutputName(outputIndex))
@@ -189,7 +193,8 @@ inline TreeNode *makeOperatorNode(OperatorInterface *op)
         for (s32 paramIndex = 0; paramIndex < outputParamSize; ++paramIndex)
         {
             // TODO: add data to paramNode
-            auto paramNode = new TreeNode(NodeType_OutputPipeParameter);
+            auto paramNode = makeNode(outputPipe, NodeType_OutputPipeParameter);
+            paramNode->setData(0, DataRole_ParameterIndex, paramIndex);
             paramNode->setText(0, QString("[%1]").arg(paramIndex));
 
             pipeNode->addChild(paramNode);
@@ -214,12 +219,13 @@ struct EventWidgetPrivate
     };
 
     EventWidget *m_q;
-    MVMEContext *context;
-    QVector<DisplayLevelTrees> levelTrees;
+    MVMEContext *m_context;
+    QVector<DisplayLevelTrees> m_levelTrees;
 
-    Mode mode;
-    Slot *selectInputSlot;
-    s32 selectInputUserLevel;
+    Mode m_mode;
+    Slot *m_selectInputSlot;
+    s32 m_selectInputUserLevel;
+    EventWidget::SelectInputCallback m_selectInputCallback;
 
     void createView(int eventIndex);
     DisplayLevelTrees createTrees(s32 eventIndex, s32 level);
@@ -230,12 +236,15 @@ struct EventWidgetPrivate
 
     void modeChanged();
     void highlightValidInputNodes(QTreeWidgetItem *node);
+    void clearNodeHighlights(QTreeWidgetItem *node);
+    void onNodeClicked(TreeNode *node, int column);
+    void onNodeDoubleClicked(TreeNode *node, int column);
 };
 
 // FIXME: the param should be eventId
 void EventWidgetPrivate::createView(int eventIndex)
 {
-    auto analysis = context->getAnalysisNG();
+    auto analysis = m_context->getAnalysisNG();
     s32 maxUserLevel = 0;
 
     for (const auto &opEntry: analysis->getOperators(eventIndex))
@@ -248,7 +257,7 @@ void EventWidgetPrivate::createView(int eventIndex)
 
     for (s32 userLevel = 0; userLevel <= maxUserLevel; ++userLevel)
     {
-        levelTrees.push_back(createTrees(eventIndex, userLevel));
+        m_levelTrees.push_back(createTrees(eventIndex, userLevel));
     }
 }
 
@@ -269,7 +278,7 @@ DisplayLevelTrees EventWidgetPrivate::createTrees(s32 eventIndex, s32 level)
 
     // Build a list of operators for the current level
 
-    auto analysis = context->getAnalysisNG();
+    auto analysis = m_context->getAnalysisNG();
     QVector<Analysis::OperatorEntry> operators = analysis->getOperators(eventIndex, level);
 
     // populate the OperatorTree
@@ -304,8 +313,8 @@ DisplayLevelTrees EventWidgetPrivate::createTrees(s32 eventIndex, s32 level)
 
 DisplayLevelTrees EventWidgetPrivate::createSourceTrees(s32 eventIndex)
 {
-    auto analysis = context->getAnalysisNG();
-    auto vmeConfig = context->getDAQConfig();
+    auto analysis = m_context->getAnalysisNG();
+    auto vmeConfig = m_context->getDAQConfig();
 
     auto eventConfig = vmeConfig->getEventConfig(eventIndex);
     auto modules = eventConfig->getModuleConfigs();
@@ -380,7 +389,7 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
                     if (auto histo = qobject_cast<Histo1D *>(obj))
                     {
                         menu.addAction(QSL("Open"), m_q, [this, histo]() {
-                            context->openInNewWindow(histo);
+                            m_context->openInNewWindow(histo);
                         });
                     }
                 } break;
@@ -388,44 +397,27 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
     }
     else
     {
-        auto menuNew = new QMenu;
-
-        auto add_action = [this, menuNew, userLevel](const QString &title, auto opPtr)
+        if (m_mode == EventWidgetPrivate::Default)
         {
-            menuNew->addAction(title, m_q, [this, userLevel, opPtr]() {
-                auto widget = new AddOperatorWidget(opPtr, userLevel, m_q);
-                widget->move(QCursor::pos());
-                widget->setAttribute(Qt::WA_DeleteOnClose);
-                widget->show();
-            });
-        };
+            auto menuNew = new QMenu;
 
-        add_action(QSL("1D Histogramm"), std::make_shared<Histo1DSink>());
-        add_action(QSL("2D Histogramm"), std::make_shared<Histo2DSink>());
+            auto add_action = [this, menuNew, userLevel](const QString &title, auto opPtr)
+            {
+                menuNew->addAction(title, m_q, [this, userLevel, opPtr]() {
+                    auto widget = new AddOperatorWidget(opPtr, userLevel, m_q);
+                    widget->move(QCursor::pos());
+                    widget->setAttribute(Qt::WA_DeleteOnClose);
+                    widget->show();
+                });
+            };
 
-        //auto histoSink = std::make_shared<Histo1DSink>();
+            add_action(QSL("1D Histogramm"), std::make_shared<Histo1DSink>());
+            add_action(QSL("2D Histogramm"), std::make_shared<Histo2DSink>());
 
-#if 0
-        menuNew->addAction(QSL("1D Histogram"), m_q, [this, userLevel]() {
-            auto histoSink = std::make_shared<Histo1DSink>();
-            auto widget = new AddOperatorWidget(histoSink, userLevel m_q);
-            widget->move(QCursor::pos());
-            widget->setAttribute(Qt::WA_DeleteOnClose);
-            widget->show();
-        });
-
-        menuNew->addAction(QSL("2D Histogram"), m_q, [this]() {
-            auto histoSink = std::make_shared<Histo2DSink>();
-            auto widget = new AddOperatorWidget(histoSink, userLevel m_q);
-            widget->move(QCursor::pos());
-            widget->setAttribute(Qt::WA_DeleteOnClose);
-            widget->show();
-        });
-#endif
-
-        auto actionNew = menu.addAction(QSL("New"));
-        actionNew->setMenu(menuNew);
-        menu.addAction(actionNew);
+            auto actionNew = menu.addAction(QSL("New"));
+            actionNew->setMenu(menuNew);
+            menu.addAction(actionNew);
+        }
     }
 
     if (!menu.isEmpty())
@@ -436,55 +428,66 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
 
 void EventWidgetPrivate::modeChanged()
 {
-    switch (mode)
+    switch (m_mode)
     {
         case Default:
-            // clear any highlights
             {
+                /* The previous mode was SelectInput so m_selectInputUserLevel
+                 * must still be valid */
+                Q_ASSERT(m_selectInputUserLevel < m_levelTrees.size());
+
+                for (s32 userLevel = 0; userLevel <= m_selectInputUserLevel; ++userLevel)
+                {
+                    auto opTree = m_levelTrees[userLevel].operatorTree;
+                    clearNodeHighlights(opTree->invisibleRootItem());
+                }
             } break;
 
         case SelectInput:
             // highlight valid sources
             {
-                Q_ASSERT(selectInputUserLevel < levelTrees.size());
+                Q_ASSERT(m_selectInputUserLevel < m_levelTrees.size());
 
-                for (s32 userLevel = 0; userLevel <= selectInputUserLevel; ++userLevel)
+                for (s32 userLevel = 0; userLevel <= m_selectInputUserLevel; ++userLevel)
                 {
-                    auto opTree = levelTrees[userLevel].operatorTree;
+                    auto opTree = m_levelTrees[userLevel].operatorTree;
                     highlightValidInputNodes(opTree->invisibleRootItem());
                 }
             } break;
     }
 }
 
-// FIXME: prolly not the best structure. write more code, then restructure once things clear up
-// also: how to undo highlights efficiently? probably just brute force walk all
-// nodes of all trees (limited by last userlevel as nothing above can be highlighted)
-void EventWidgetPrivate::highlightValidInputNodes(QTreeWidgetItem *node)
+bool isValidInputNode(QTreeWidgetItem *node, Slot *slot)
 {
-    bool doHighlight = false;
-
-    if ((selectInputSlot->acceptedInputTypes & InputType::Array)
+    bool result = false;
+    if ((slot->acceptedInputTypes & InputType::Array)
         && (node->type() == NodeType_Operator || node->type() == NodeType_Source))
     {
-        auto pipeSource = getPointer<PipeSourceInterface>(node);
+        // Highlight operator and source nodes only if they have exactly a
+        // single output.
+        PipeSourceInterface *pipeSource = getPointer<PipeSourceInterface>(node);
         if (pipeSource->getNumberOfOutputs() == 1)
         {
-            doHighlight = true;
+            result = true;
         }
     }
-    else if ((selectInputSlot->acceptedInputTypes & InputType::Array)
+    else if ((slot->acceptedInputTypes & InputType::Array)
              && node->type() == NodeType_OutputPipe)
     {
-
+        result = true;
     }
-    else if ((selectInputSlot->acceptedInputTypes & InputType::Value)
+    else if ((slot->acceptedInputTypes & InputType::Value)
              && node->type() == NodeType_OutputPipeParameter)
     {
-        doHighlight = true;
+        result = true;
     }
 
-    if (doHighlight)
+    return result;
+}
+
+void EventWidgetPrivate::highlightValidInputNodes(QTreeWidgetItem *node)
+{
+    if (isValidInputNode(node, m_selectInputSlot))
     {
         node->setBackground(0, Qt::green);
     }
@@ -497,12 +500,91 @@ void EventWidgetPrivate::highlightValidInputNodes(QTreeWidgetItem *node)
     }
 }
 
+void EventWidgetPrivate::clearNodeHighlights(QTreeWidgetItem *node)
+{
+    node->setBackground(0, QBrush());
+
+    for (s32 childIndex = 0; childIndex < node->childCount(); ++childIndex)
+    {
+        // recurse
+        auto child = node->child(childIndex);
+        clearNodeHighlights(child);
+    }
+}
+
+void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column)
+{
+    switch (m_mode)
+    {
+        case Default:
+            {
+            } break;
+
+        case SelectInput:
+            {
+                if (isValidInputNode(node, m_selectInputSlot))
+                {
+                    Slot *slot = m_selectInputSlot;
+                    // connect the slot with the selected input source
+                    switch (node->type())
+                    {
+                        case NodeType_Source:
+                        case NodeType_Operator:
+                            {
+                                Q_ASSERT(slot->acceptedInputTypes & InputType::Array);
+
+                                PipeSourceInterface *source = getPointer<PipeSourceInterface>(node);
+                                slot->inputPipe = source->getOutput(0);
+                                slot->paramIndex = Slot::NoParamIndex;
+
+                            } break;
+
+                        case NodeType_OutputPipe:
+                            {
+                                Q_ASSERT(slot->acceptedInputTypes & InputType::Array);
+
+                                Pipe *pipe = getPointer<Pipe>(node);
+                                slot->inputPipe = pipe;
+                                slot->paramIndex = Slot::NoParamIndex;
+                            } break;
+
+                        case NodeType_OutputPipeParameter:
+                            {
+                                Q_ASSERT(slot->acceptedInputTypes & InputType::Value);
+
+                                Pipe *pipe = getPointer<Pipe>(node);
+                                s32 paramIndex = node->data(0, DataRole_ParameterIndex).toInt();
+                                slot->inputPipe = pipe;
+                                slot->paramIndex = paramIndex;
+                            } break;
+                    }
+
+                    // tell the widget that initiated the select that we're done
+                    if (m_selectInputCallback)
+                    {
+                        m_selectInputCallback();
+                    }
+
+                    // leave SelectInput mode
+                    m_mode = Default;
+                    m_selectInputCallback = nullptr;
+                    modeChanged();
+                }
+            } break;
+    }
+}
+
+void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column)
+{
+}
+
 EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, QWidget *parent)
     : QWidget(parent)
     , m_d(new EventWidgetPrivate)
 {
+    *m_d = {};
     m_d->m_q = this;
-    m_d->context = ctx;
+    m_d->m_context = ctx;
     setMinimumSize(1000, 600); // FIXME: find another way to make the window be sanely sized at startup
 
     // TODO: This needs to be done whenever the analysis object is modified.
@@ -560,7 +642,7 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, QWidget *parent
 
     // FIXME: use the actual eventId here instead of going back to get the index
     int eventIndex = -1;
-    auto eventConfigs = m_d->context->getEventConfigs();
+    auto eventConfigs = m_d->m_context->getEventConfigs();
     for (int idx = 0; idx < eventConfigs.size(); ++idx)
     {
         if (eventConfigs[idx]->getId() == eventId)
@@ -582,11 +664,11 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, QWidget *parent
     };
 
     for (s32 levelIndex = 0;
-         levelIndex < m_d->levelTrees.size();
+         levelIndex < m_d->m_levelTrees.size();
          ++levelIndex)
     {
-        auto opTree   = m_d->levelTrees[levelIndex].operatorTree;
-        auto dispTree = m_d->levelTrees[levelIndex].displayTree;
+        auto opTree   = m_d->m_levelTrees[levelIndex].operatorTree;
+        auto dispTree = m_d->m_levelTrees[levelIndex].displayTree;
         s32 minTreeWidth = 200;
         opTree->setMinimumWidth(minTreeWidth);
         dispTree->setMinimumWidth(minTreeWidth);
@@ -596,24 +678,51 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, QWidget *parent
         operatorFrameColumnSplitter->addWidget(opTree);
         displayFrameColumnSplitter->addWidget(dispTree);
 
-        connect(opTree, &QTreeWidget::itemClicked, this, onItemClicked);
+        // operator tree
+        connect(opTree, &QTreeWidget::itemClicked, this, [this] (TreeNode *node, int column) {
+            m_d->onNodeClicked(node, column);
+        });
+
+        connect(opTree, &QTreeWidget::itemDoubleClicked, this, [this] (TreeNode *node, int column) {
+            m_d->onNodeDoubleClicked(node, column);
+        });
+
         connect(opTree, &QWidget::customContextMenuRequested, this, [this, opTree, levelIndex] (QPoint pos) {
             m_d->doOperatorTreeContextMenu(opTree, pos, levelIndex);
         });
 
-        connect(dispTree, &QTreeWidget::itemClicked, this, onItemClicked);
+        // display tree
+        connect(dispTree, &QTreeWidget::itemClicked, this, [this] (TreeNode *node, int column) {
+            m_d->onNodeClicked(node, column);
+        });
+
+        connect(dispTree, &QTreeWidget::itemDoubleClicked, this, [this] (TreeNode *node, int column) {
+            m_d->onNodeDoubleClicked(node, column);
+        });
+
         connect(dispTree, &QWidget::customContextMenuRequested, this, [this, dispTree, levelIndex] (QPoint pos) {
             m_d->doDisplayTreeContextMenu(dispTree, pos, levelIndex);
         });
     }
 }
 
-void EventWidget::selectInputFor(Slot *slot, s32 userLevel)
+void EventWidget::selectInputFor(Slot *slot, s32 userLevel, SelectInputCallback callback)
 {
-    m_d->mode = EventWidgetPrivate::SelectInput;
-    m_d->selectInputSlot = slot;
-    m_d->selectInputUserLevel = userLevel;
+    m_d->m_mode = EventWidgetPrivate::SelectInput;
+    m_d->m_selectInputSlot = slot;
+    m_d->m_selectInputUserLevel = userLevel;
+    m_d->m_selectInputCallback = callback;
     m_d->modeChanged();
+}
+
+void EventWidget::endSelectInput()
+{
+    if (m_d->m_mode == EventWidgetPrivate::SelectInput)
+    {
+        m_d->m_mode = EventWidgetPrivate::Default;
+        m_d->m_selectInputCallback = nullptr;
+        m_d->modeChanged();
+    }
 }
 
 EventWidget::~EventWidget()
@@ -624,7 +733,7 @@ EventWidget::~EventWidget()
 struct AnalysisWidgetPrivate
 {
     AnalysisWidget *m_q;
-    MVMEContext *context;
+    MVMEContext *m_context;
 };
 
 AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
@@ -632,7 +741,7 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     , m_d(new AnalysisWidgetPrivate)
 {
     m_d->m_q = this;
-    m_d->context = ctx;
+    m_d->m_context = ctx;
 
     auto eventSelectCombo = new QComboBox;
     auto eventWidgetStack = new QStackedWidget;
@@ -640,7 +749,7 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     connect(eventSelectCombo, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
             eventWidgetStack, &QStackedWidget::setCurrentIndex);
 
-    auto eventConfigs = m_d->context->getEventConfigs();
+    auto eventConfigs = m_d->m_context->getEventConfigs();
 
     // FIXME:  use ids here
     for (s32 eventIndex = 0;
@@ -649,7 +758,7 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     {
         auto eventConfig = eventConfigs[eventIndex];
         auto eventId = eventConfig->getId();
-        auto eventWidget = new EventWidget(m_d->context, eventId);
+        auto eventWidget = new EventWidget(m_d->m_context, eventId);
         eventSelectCombo->addItem(QString("<FIXME event%1 name here!> %2").arg(eventIndex).arg(eventId.toString()));
         eventWidgetStack->addWidget(eventWidget);
     }

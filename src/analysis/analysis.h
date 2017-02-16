@@ -128,10 +128,10 @@ struct Slot
     void setInput(Pipe *newInput);
 
 
-    static const s32 NoParamIndex = -1;
+    static const s32 NoParamIndex = -1; // special paramIndex value for InputType::Array
 
     u32 acceptedInputTypes = InputType::Both;
-    s32 paramIndex = -1; // For InputType::Value
+    s32 paramIndex = NoParamIndex; // parameter index for InputType::Value or NoParamIndex
     Pipe *inputPipe = nullptr;
     
     // The owner of this Slot.

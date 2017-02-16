@@ -361,7 +361,7 @@ void Calibration::beginRun()
         auto &out(m_output.getParameters());
         const auto &in(m_inputSlot.inputPipe->getParameters());
 
-        if (m_inputSlot.paramIndex >= 0)
+        if (m_inputSlot.paramIndex != Slot::NoParamIndex)
         {
             out.resize(1);
         }
