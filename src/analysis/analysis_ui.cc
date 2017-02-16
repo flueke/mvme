@@ -78,7 +78,7 @@ inline TreeNode *makeOperatorTreeSourceNode(SourceInterface *source)
 
         for (u32 address = 0; address < addressCount; ++address)
         {
-            auto addressNode = new TreeNode;
+            auto addressNode = new TreeNode(NodeType_OutputPipeParameter);
             addressNode->setText(0, QString::number(address));
             sourceNode->addChild(addressNode);
         }
@@ -177,7 +177,8 @@ inline TreeNode *makeOperatorNode(OperatorInterface *op)
         auto outputPipe = op->getOutput(outputIndex);
         s32 outputParamSize = outputPipe->parameters.size();
 
-        auto pipeNode = new TreeNode;
+        // TODO: add data to pipeNode
+        auto pipeNode = new TreeNode(NodeType_OutputPipe);
         pipeNode->setText(0, QString("#%1 \"%2\" (%3 elements)")
                           .arg(outputIndex)
                           .arg(op->getOutputName(outputIndex))
@@ -187,7 +188,8 @@ inline TreeNode *makeOperatorNode(OperatorInterface *op)
 
         for (s32 paramIndex = 0; paramIndex < outputParamSize; ++paramIndex)
         {
-            auto paramNode = new TreeNode;
+            // TODO: add data to paramNode
+            auto paramNode = new TreeNode(NodeType_OutputPipeParameter);
             paramNode->setText(0, QString("[%1]").arg(paramIndex));
 
             pipeNode->addChild(paramNode);
@@ -205,9 +207,19 @@ struct DisplayLevelTrees
 
 struct EventWidgetPrivate
 {
+    enum Mode
+    {
+        Default,
+        SelectInput
+    };
+
     EventWidget *m_q;
     MVMEContext *context;
     QVector<DisplayLevelTrees> levelTrees;
+
+    Mode mode;
+    Slot *selectInputSlot;
+    s32 selectInputUserLevel;
 
     void createView(int eventIndex);
     DisplayLevelTrees createTrees(s32 eventIndex, s32 level);
@@ -215,8 +227,12 @@ struct EventWidgetPrivate
 
     void doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel);
     void doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel);
+
+    void modeChanged();
+    void highlightValidInputNodes(QTreeWidgetItem *node);
 };
 
+// FIXME: the param should be eventId
 void EventWidgetPrivate::createView(int eventIndex)
 {
     auto analysis = context->getAnalysisNG();
@@ -227,7 +243,7 @@ void EventWidgetPrivate::createView(int eventIndex)
         maxUserLevel = std::max(maxUserLevel, opEntry.userLevel);
     }
 
-    // To make an empty display for the next level a user might want use.
+    // +1 to make an empty display for the next level a user might want to use.
     ++maxUserLevel;
 
     for (s32 userLevel = 0; userLevel <= maxUserLevel; ++userLevel)
@@ -374,9 +390,25 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
     {
         auto menuNew = new QMenu;
 
-        menuNew->addAction(QSL("1D Histogram"), m_q, [this]() {
+        auto add_action = [this, menuNew, userLevel](const QString &title, auto opPtr)
+        {
+            menuNew->addAction(title, m_q, [this, userLevel, opPtr]() {
+                auto widget = new AddOperatorWidget(opPtr, userLevel, m_q);
+                widget->move(QCursor::pos());
+                widget->setAttribute(Qt::WA_DeleteOnClose);
+                widget->show();
+            });
+        };
+
+        add_action(QSL("1D Histogramm"), std::make_shared<Histo1DSink>());
+        add_action(QSL("2D Histogramm"), std::make_shared<Histo2DSink>());
+
+        //auto histoSink = std::make_shared<Histo1DSink>();
+
+#if 0
+        menuNew->addAction(QSL("1D Histogram"), m_q, [this, userLevel]() {
             auto histoSink = std::make_shared<Histo1DSink>();
-            auto widget = new AddOperatorWidget(histoSink, m_q, Qt::Dialog);
+            auto widget = new AddOperatorWidget(histoSink, userLevel m_q);
             widget->move(QCursor::pos());
             widget->setAttribute(Qt::WA_DeleteOnClose);
             widget->show();
@@ -384,11 +416,12 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
 
         menuNew->addAction(QSL("2D Histogram"), m_q, [this]() {
             auto histoSink = std::make_shared<Histo2DSink>();
-            auto widget = new AddOperatorWidget(histoSink, m_q, Qt::Dialog);
+            auto widget = new AddOperatorWidget(histoSink, userLevel m_q);
             widget->move(QCursor::pos());
             widget->setAttribute(Qt::WA_DeleteOnClose);
             widget->show();
         });
+#endif
 
         auto actionNew = menu.addAction(QSL("New"));
         actionNew->setMenu(menuNew);
@@ -401,6 +434,69 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
     }
 }
 
+void EventWidgetPrivate::modeChanged()
+{
+    switch (mode)
+    {
+        case Default:
+            // clear any highlights
+            {
+            } break;
+
+        case SelectInput:
+            // highlight valid sources
+            {
+                Q_ASSERT(selectInputUserLevel < levelTrees.size());
+
+                for (s32 userLevel = 0; userLevel <= selectInputUserLevel; ++userLevel)
+                {
+                    auto opTree = levelTrees[userLevel].operatorTree;
+                    highlightValidInputNodes(opTree->invisibleRootItem());
+                }
+            } break;
+    }
+}
+
+// FIXME: prolly not the best structure. write more code, then restructure once things clear up
+// also: how to undo highlights efficiently? probably just brute force walk all
+// nodes of all trees (limited by last userlevel as nothing above can be highlighted)
+void EventWidgetPrivate::highlightValidInputNodes(QTreeWidgetItem *node)
+{
+    bool doHighlight = false;
+
+    if ((selectInputSlot->acceptedInputTypes & InputType::Array)
+        && (node->type() == NodeType_Operator || node->type() == NodeType_Source))
+    {
+        auto pipeSource = getPointer<PipeSourceInterface>(node);
+        if (pipeSource->getNumberOfOutputs() == 1)
+        {
+            doHighlight = true;
+        }
+    }
+    else if ((selectInputSlot->acceptedInputTypes & InputType::Array)
+             && node->type() == NodeType_OutputPipe)
+    {
+
+    }
+    else if ((selectInputSlot->acceptedInputTypes & InputType::Value)
+             && node->type() == NodeType_OutputPipeParameter)
+    {
+        doHighlight = true;
+    }
+
+    if (doHighlight)
+    {
+        node->setBackground(0, Qt::green);
+    }
+
+    for (s32 childIndex = 0; childIndex < node->childCount(); ++childIndex)
+    {
+        // recurse
+        auto child = node->child(childIndex);
+        highlightValidInputNodes(child);
+    }
+}
+
 EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, QWidget *parent)
     : QWidget(parent)
     , m_d(new EventWidgetPrivate)
@@ -409,7 +505,7 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, QWidget *parent
     m_d->context = ctx;
     setMinimumSize(1000, 600); // FIXME: find another way to make the window be sanely sized at startup
 
-    // TODO: This needs to be done when the analysis object is modified.
+    // TODO: This needs to be done whenever the analysis object is modified.
     auto analysis = ctx->getAnalysisNG();
     analysis->updateRanks();
     analysis->beginRun();
@@ -462,8 +558,6 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, QWidget *parent
 
     sync_splitters(operatorFrameColumnSplitter, displayFrameColumnSplitter);
 
-    // FIXME: create views for all events!
-    // FIXME: only create views for existing events!
     // FIXME: use the actual eventId here instead of going back to get the index
     int eventIndex = -1;
     auto eventConfigs = m_d->context->getEventConfigs();
@@ -512,6 +606,14 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, QWidget *parent
             m_d->doDisplayTreeContextMenu(dispTree, pos, levelIndex);
         });
     }
+}
+
+void EventWidget::selectInputFor(Slot *slot, s32 userLevel)
+{
+    m_d->mode = EventWidgetPrivate::SelectInput;
+    m_d->selectInputSlot = slot;
+    m_d->selectInputUserLevel = userLevel;
+    m_d->modeChanged();
 }
 
 EventWidget::~EventWidget()

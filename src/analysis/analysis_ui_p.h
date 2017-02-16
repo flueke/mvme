@@ -19,6 +19,8 @@ class EventWidget: public QWidget
         EventWidget(MVMEContext *ctx, const QUuid &eventId, QWidget *parent = 0);
         ~EventWidget();
 
+        void selectInputFor(Slot *slot, s32 userLevel);
+
     private:
         EventWidgetPrivate *m_d;
 };
@@ -28,9 +30,11 @@ class AddOperatorWidget: public QWidget
     Q_OBJECT
 
     public:
-        AddOperatorWidget(OperatorPtr op, QWidget *parent = 0, Qt::WindowFlags f = Qt::WindowFlags());
+        AddOperatorWidget(OperatorPtr op, s32 userLevel, EventWidget *eventWidget);
 
         OperatorPtr m_op;
+        s32 m_userLevel;
+        EventWidget *m_eventWidget;
 };
 
 }
