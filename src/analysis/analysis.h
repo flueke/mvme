@@ -34,6 +34,11 @@ struct Parameter
     double upperLimit = 0.0; // inclusive
 };
 
+inline bool isParameterValid(const Parameter *param)
+{
+    return (param && param->valid);
+}
+
 inline QString to_string(const Parameter &p)
 {
     return QString("P(%1, %2, [%3, %4[)")
@@ -112,9 +117,21 @@ struct InputType
 // The destination of a Pipe
 struct Slot
 {
-    u32 acceptedInputTypes = InputType::Both;
-    s32 valueIndex = -1; // For InputType::Value
+    Slot(OperatorInterface *parentOp, s32 parentSlotIndex, const QString &name, u32 acceptedInputs = InputType::Both)
+        : parentOperator(parentOp)
+        , parentSlotIndex(parentSlotIndex)
+        , name(name)
+        , acceptedInputTypes(acceptedInputs)
+    {}
 
+    /* Sets newInput to be this slots input. Replaces any previous input pipe. */
+    void setInput(Pipe *newInput);
+
+
+    static const s32 NoParamIndex = -1;
+
+    u32 acceptedInputTypes = InputType::Both;
+    s32 paramIndex = -1; // For InputType::Value
     Pipe *inputPipe = nullptr;
     
     // The owner of this Slot.
@@ -253,7 +270,9 @@ class OperatorInterface: public PipeSourceInterface
         virtual void connectInputSlot(s32 slotIndex, Pipe *inputPipe, s32 paramIndex) = 0;
 
         virtual Slot *getSlot(s32 slotIndex) = 0;
-        virtual void disconnectSlot(Pipe *sourcePipe) = 0;
+
+        // FIXME: Not sure if this is needed or disconnectSlot(s32 slotIndex) is needed or both
+        //virtual void disconnectSlot(Pipe *sourcePipe) = 0;
 
         virtual void read(const QJsonObject &json) = 0;
         virtual void write(QJsonObject &json) const = 0;
@@ -362,17 +381,29 @@ class BasicOperator: public OperatorInterface
         virtual s32 getNumberOfSlots() const override;
         virtual void connectInputSlot(s32 slotIndex, Pipe *inputPipe, s32 paramIndex) override;
         virtual Slot *getSlot(s32 slotIndex) override;
-        virtual void disconnectSlot(Pipe *sourcePipe) override;
+        //virtual void disconnectSlot(Pipe *sourcePipe) override;
 
     protected:
         Pipe m_output;
         Slot m_inputSlot;
 };
 
-/* An operator with one input and no output. Only step() needs to be
- * implemented in subclasses. The input slot by default accepts both
- * InputType::Array and InputType::Value. */
-class BasicSink: public OperatorInterface
+/* Base class for sinks. Sinks are operators with no output. In the UI these
+ * operators are shown in the data display section */
+class AbstractSink: public OperatorInterface
+{
+    Q_OBJECT
+    Q_INTERFACES(analysis::OperatorInterface)
+    public:
+        // PipeSourceInterface
+        s32 getNumberOfOutputs() const override { return 0; }
+        QString getOutputName(s32 outputIndex) const override { return QString(); }
+        Pipe *getOutput(s32 index) override { return nullptr; }
+};
+
+/* An operator with one input and no output. The input slot by default accepts
+ * both InputType::Array and InputType::Value. */
+class BasicSink: public AbstractSink
 {
     Q_OBJECT
     Q_INTERFACES(analysis::OperatorInterface)
@@ -380,16 +411,11 @@ class BasicSink: public OperatorInterface
         BasicSink();
         ~BasicSink();
 
-        // PipeSourceInterface
-        s32 getNumberOfOutputs() const override;
-        QString getOutputName(s32 outputIndex) const override;
-        Pipe *getOutput(s32 index) override;
-
         // OperatorInterface
         virtual s32 getNumberOfSlots() const override;
         virtual void connectInputSlot(s32 slotIndex, Pipe *inputPipe, s32 paramIndex) override;
         virtual Slot *getSlot(s32 slotIndex) override;
-        virtual void disconnectSlot(Pipe *sourcePipe) override;
+        //virtual void disconnectSlot(Pipe *sourcePipe) override;
 
     protected:
         Slot m_inputSlot;
@@ -540,148 +566,6 @@ class IndexSelector: public BasicOperator
         s32 m_index;
 };
 
-#if 0
-// Calculates A - B;
-struct Difference: public Operator
-{
-    Pipe *inputA;
-    Pipe *inputB;
-
-    virtual void step() override
-    {
-        if (inputA && inputB)
-        {
-            s32 minSize = std::min(inputA->parameters.size(), inputB->parameters.size());
-            output.parameters.resize(minSize);
-            clear_parameters(output.parameters);
-
-            for (s32 paramIndex = 0;
-                 paramIndex < minSize;
-                 ++paramIndex)
-            {
-                const auto &paramA(inputA->parameters[paramIndex]);
-                const auto &paramB(inputB->parameters[paramIndex]);
-
-                if (paramA.valid && paramB.valid)
-                {
-                    output.parameters[paramIndex].valid = true;
-                    output.parameters[paramIndex].type  = Parameter::Double;
-                    output.parameters[paramIndex].value = paramA.value - paramB.value;
-                }
-            }
-        }
-    }
-
-    virtual QVector<Pipe *> getInputs() override
-    {
-        QVector<Pipe *> result = { inputA, inputB };
-
-        return result;
-    }
-};
-
-struct PreviousValue: public Operator
-{
-    Pipe *input;
-
-    virtual void step() override
-    {
-        if (input)
-        {
-            output.parameters = previousInput;
-            previousInput = input->parameters;
-        }
-    }
-
-    ParameterVector previousInput;
-
-    virtual QVector<Pipe *> getInputs() override
-    {
-        QVector<Pipe *> result = { input };
-
-        return result;
-    }
-};
-
-struct RetainValid: public Operator
-{
-    Pipe *input;
-
-    virtual void step() override
-    {
-        if (input)
-        {
-            if (output.parameters.size() < input->parameters.size())
-            {
-                output.parameters.resize(input->parameters.size());
-            }
-
-            s32 indexLimit = std::min(output.parameters.size(), input->parameters.size());
-
-            for (s32 i = 0; i < indexLimit; ++i)
-            {
-                const auto &inputParam(input->parameters[i]);
-                if (inputParam.valid)
-                {
-                    auto &outputParam(output.parameters[i]);
-                    outputParam = inputParam; // copy valid value
-                }
-            }
-        }
-    }
-
-    virtual QVector<Pipe *> getInputs() override
-    {
-        QVector<Pipe *> result = { input };
-
-        return result;
-    }
-};
-
-// Output is a boolean flag
-struct Histo2DRectangleCut: public Operator
-{
-    Pipe *inputX;
-    Pipe *inputY;
-
-    double minX, maxX, minY, maxY;
-
-    virtual void step() override
-    {
-        auto &outParam(output.first());
-        outParam.valid = false;
-
-        if (inputX && inputY)
-        {
-            outParam.valid = true;
-            outParam.type = Parameter::Bool;
-            outParam.bval = false;
-
-            const auto &parX(inputX->first());
-            const auto &parY(inputY->first());
-
-            if (parX.valid && parY.valid)
-            {
-                double x = parX.value;
-                double y = parY.value;
-
-                if (x >= minX && x < maxX
-                    && y >= minY && y < maxY)
-                {
-                    outParam.bval = true;
-                }
-            }
-        }
-    }
-
-    virtual QVector<Pipe *> getInputs() override
-    {
-        QVector<Pipe *> result = { inputX, inputY };
-
-        return result;
-    }
-};
-#endif
 
 //
 // Sinks
@@ -703,54 +587,30 @@ class Histo1DSink: public BasicSink
         u32 fillsSinceLastDebug = 0;
 };
 
-class Histo2DSink: public BasicSink
+class Histo2DSink: public AbstractSink
 {
     Q_OBJECT
     public:
-        std::shared_ptr<Histo2D> histo;
+        Histo2DSink();
+
+        // OperatorInterface
+        virtual s32 getNumberOfSlots() const override;
+        virtual void connectInputSlot(s32 slotIndex, Pipe *inputPipe, s32 paramIndex) override;
+        virtual Slot *getSlot(s32 slotIndex) override;
+        //virtual void disconnectSlot(Pipe *sourcePipe) override;
 
         virtual void step() override;
-
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
 
         virtual QString getDisplayName() const override { return QSL("Histo2D"); }
+
+    private:
+        std::shared_ptr<Histo2D> m_histo;
+        Slot m_inputX;
+        Slot m_inputY;
 };
 
-
-#if 0
-struct Histo2DSink: public Operator
-{
-    std::shared_ptr<Histo2D> histo;
-
-    Pipe *inputX;
-    Pipe *inputY;
-
-    virtual void step() override
-    {
-        if (inputX && inputY)
-        {
-            const auto &paramX(inputX->first());
-            const auto &paramY(inputX->first());
-
-            if (paramX.valid && paramY.valid)
-            {
-                qDebug() << __PRETTY_FUNCTION__ << "fill" << histo.get() << paramX.value << paramY.value;
-                histo->fill(paramX.value, paramY.value);
-            }
-        }
-    }
-
-    virtual bool hasOutput() const override { return false; }
-
-    virtual QVector<Pipe *> getInputs() override
-    {
-        QVector<Pipe *> result;
-
-        return result;
-    }
-};
-#endif
 
 template<typename T>
 SourceInterface *createSource()
@@ -848,14 +708,14 @@ class Analysis
     public:
         struct SourceEntry
         {
-            s32 eventIndex;
-            s32 moduleIndex;
+            s32 eventIndex; // TODO: eventId
+            s32 moduleIndex; // TODO: moduleId
             SourcePtr source;
         };
 
         struct OperatorEntry
         {
-            s32 eventIndex;
+            s32 eventIndex; // TODO: eventId
             OperatorPtr op;
             // A user defined level used for UI display structuring.
             s32 userLevel;
@@ -1007,4 +867,210 @@ RawDataDisplay make_raw_data_display(const MultiWordDataFilter &extractionFilter
 void add_raw_data_display(Analysis *analysis, s32 eventIndex, s32 moduleIndex, const RawDataDisplay &display);
 
 }
+
+
+
+
+#if 0
+// Calculates A - B;
+struct Difference: public Operator
+{
+    Pipe *inputA;
+    Pipe *inputB;
+
+    virtual void step() override
+    {
+        if (inputA && inputB)
+        {
+            s32 minSize = std::min(inputA->parameters.size(), inputB->parameters.size());
+            output.parameters.resize(minSize);
+            clear_parameters(output.parameters);
+
+            for (s32 paramIndex = 0;
+                 paramIndex < minSize;
+                 ++paramIndex)
+            {
+                const auto &paramA(inputA->parameters[paramIndex]);
+                const auto &paramB(inputB->parameters[paramIndex]);
+
+                if (paramA.valid && paramB.valid)
+                {
+                    output.parameters[paramIndex].valid = true;
+                    output.parameters[paramIndex].type  = Parameter::Double;
+                    output.parameters[paramIndex].value = paramA.value - paramB.value;
+                }
+            }
+        }
+    }
+
+    virtual QVector<Pipe *> getInputs() override
+    {
+        QVector<Pipe *> result = { inputA, inputB };
+
+        return result;
+    }
+};
+
+struct PreviousValue: public Operator
+{
+    Pipe *input;
+
+    virtual void step() override
+    {
+        if (input)
+        {
+            output.parameters = previousInput;
+            previousInput = input->parameters;
+        }
+    }
+
+    ParameterVector previousInput;
+
+    virtual QVector<Pipe *> getInputs() override
+    {
+        QVector<Pipe *> result = { input };
+
+        return result;
+    }
+};
+
+struct RetainValid: public Operator
+{
+    Pipe *input;
+
+    virtual void step() override
+    {
+        if (input)
+        {
+            if (output.parameters.size() < input->parameters.size())
+            {
+                output.parameters.resize(input->parameters.size());
+            }
+
+            s32 indexLimit = std::min(output.parameters.size(), input->parameters.size());
+
+            for (s32 i = 0; i < indexLimit; ++i)
+            {
+                const auto &inputParam(input->parameters[i]);
+                if (inputParam.valid)
+                {
+                    auto &outputParam(output.parameters[i]);
+                    outputParam = inputParam; // copy valid value
+                }
+            }
+        }
+    }
+
+    virtual QVector<Pipe *> getInputs() override
+    {
+        QVector<Pipe *> result = { input };
+
+        return result;
+    }
+};
+
+// Output is a boolean flag
+struct Histo2DRectangleCut: public Operator
+{
+    Pipe *inputX;
+    Pipe *inputY;
+
+    double minX, maxX, minY, maxY;
+
+    virtual void step() override
+    {
+        auto &outParam(output.first());
+        outParam.valid = false;
+
+        if (inputX && inputY)
+        {
+            outParam.valid = true;
+            outParam.type = Parameter::Bool;
+            outParam.bval = false;
+
+            const auto &parX(inputX->first());
+            const auto &parY(inputY->first());
+
+            if (parX.valid && parY.valid)
+            {
+                double x = parX.value;
+                double y = parY.value;
+
+                if (x >= minX && x < maxX
+                    && y >= minY && y < maxY)
+                {
+                    outParam.bval = true;
+                }
+            }
+        }
+    }
+
+    virtual QVector<Pipe *> getInputs() override
+    {
+        QVector<Pipe *> result = { inputX, inputY };
+
+        return result;
+    }
+};
+#endif
+
+
+#if 0
+struct Histo2DSink: public Operator
+{
+    std::shared_ptr<Histo2D> histo;
+
+    Pipe *inputX;
+    Pipe *inputY;
+
+    virtual void step() override
+    {
+        if (inputX && inputY)
+        {
+            const auto &paramX(inputX->first());
+            const auto &paramY(inputX->first());
+
+            if (paramX.valid && paramY.valid)
+            {
+                qDebug() << __PRETTY_FUNCTION__ << "fill" << histo.get() << paramX.value << paramY.value;
+                histo->fill(paramX.value, paramY.value);
+            }
+        }
+    }
+
+    virtual bool hasOutput() const override { return false; }
+
+    virtual QVector<Pipe *> getInputs() override
+    {
+        QVector<Pipe *> result;
+
+        return result;
+    }
+};
+#endif
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #endif /* __ANALYSIS_H__ */
+

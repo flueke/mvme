@@ -27,6 +27,19 @@ class Histo2D: public QObject
 
         void debugDump() const;
 
+        AxisBinning getAxis(Qt::Axis axis) const
+        {
+            switch (axis)
+            {
+                case Qt::XAxis:
+                    return m_xAxis;
+                case Qt::YAxis:
+                    return m_yAxis;
+                default:
+                    return AxisBinning();
+            }
+        }
+
         //Hist2DStatistics calcStatistics(QwtInterval xInterval, QwtInterval yInterval) const;
 
     private:

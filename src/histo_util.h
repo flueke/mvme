@@ -124,6 +124,12 @@ class AxisBinning
         static const s64 Overflow = -2;
 
 
+        AxisBinning()
+            : m_nBins(0)
+            , m_min(0.0)
+            , m_max(0.0)
+        {}
+
         AxisBinning(u32 nBins, double Min, double Max)
             : m_nBins(nBins)
             , m_min(Min)

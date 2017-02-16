@@ -13,6 +13,24 @@ QDebug &operator<< (QDebug &dbg, const std::shared_ptr<T> &ptr)
 
 namespace analysis
 {
+//
+// Slot
+//
+
+void Slot::setInput(Pipe *newInput)
+{
+    if (inputPipe)
+    {
+        inputPipe->removeDestination(this);
+    }
+
+    inputPipe = newInput;
+
+    if (inputPipe)
+    {
+        inputPipe->addDestination(this);
+    }
+}
 
 //
 // OperatorInterface
@@ -189,13 +207,9 @@ void Extractor::write(QJsonObject &json) const
 //
 BasicOperator::BasicOperator(QObject *parent)
     : OperatorInterface(parent)
+    , m_inputSlot(this, 0, QSL("Input"))
 {
     m_output.setSource(this);
-
-    m_inputSlot.parentOperator = this;
-    m_inputSlot.parentSlotIndex = 0;
-    m_inputSlot.name = "Input";
-    m_inputSlot.acceptedInputTypes = InputType::Both;
 }
 
 BasicOperator::~BasicOperator()
@@ -217,7 +231,7 @@ void BasicOperator::connectInputSlot(s32 slotIndex, Pipe *inputPipe, s32 paramIn
         }
 
         m_inputSlot.inputPipe = inputPipe;
-        m_inputSlot.valueIndex = paramIndex;
+        m_inputSlot.paramIndex = paramIndex;
 
         if (inputPipe)
         {
@@ -236,15 +250,17 @@ Slot *BasicOperator::getSlot(s32 slotIndex)
     return result;
 }
 
+#if 0
 void BasicOperator::disconnectSlot(Pipe *sourcePipe)
 {
     if (sourcePipe && m_inputSlot.inputPipe == sourcePipe)
     {
         m_inputSlot.inputPipe->removeDestination(&m_inputSlot);
         m_inputSlot.inputPipe = nullptr;
-        m_inputSlot.valueIndex = -1;
+        m_inputSlot.paramIndex = Slot::NoParamIndex;
     }
 }
+#endif
 
 s32 BasicOperator::getNumberOfOutputs() const
 {
@@ -276,11 +292,8 @@ Pipe *BasicOperator::getOutput(s32 index)
 // BasicSink
 //
 BasicSink::BasicSink()
+    : m_inputSlot(this, 0, QSL("Input"))
 {
-    m_inputSlot.parentOperator = this;
-    m_inputSlot.parentSlotIndex = 0;
-    m_inputSlot.name = "Input";
-    m_inputSlot.acceptedInputTypes = InputType::Both;
 }
 
 BasicSink::~BasicSink()
@@ -302,7 +315,7 @@ void BasicSink::connectInputSlot(s32 slotIndex, Pipe *inputPipe, s32 paramIndex)
         }
 
         m_inputSlot.inputPipe = inputPipe;
-        m_inputSlot.valueIndex = paramIndex;
+        m_inputSlot.paramIndex = paramIndex;
 
         if (inputPipe)
         {
@@ -321,31 +334,17 @@ Slot *BasicSink::getSlot(s32 slotIndex)
     return result;
 }
 
+#if 0
 void BasicSink::disconnectSlot(Pipe *sourcePipe)
 {
     if (sourcePipe && m_inputSlot.inputPipe == sourcePipe)
     {
         m_inputSlot.inputPipe->removeDestination(&m_inputSlot);
         m_inputSlot.inputPipe = nullptr;
-        m_inputSlot.valueIndex = -1;
+        m_inputSlot.paramIndex = Slot::NoParamIndex;
     }
 }
-
-s32 BasicSink::getNumberOfOutputs() const
-{
-    return 0;
-}
-
-QString BasicSink::getOutputName(s32 outputIndex) const
-{
-    return QString();
-}
-
-Pipe *BasicSink::getOutput(s32 index)
-{
-    Pipe *result = nullptr;
-    return result;
-}
+#endif
 
 //
 // Calibration
@@ -362,7 +361,7 @@ void Calibration::beginRun()
         auto &out(m_output.getParameters());
         const auto &in(m_inputSlot.inputPipe->getParameters());
 
-        if (m_inputSlot.valueIndex >= 0)
+        if (m_inputSlot.paramIndex >= 0)
         {
             out.resize(1);
         }
@@ -397,15 +396,15 @@ void Calibration::step()
         const auto &in(m_inputSlot.inputPipe->getParameters());
         const s32 inSize = in.size();
 
-        if (m_inputSlot.valueIndex >= 0)
+        if (m_inputSlot.paramIndex >= 0)
         {
             auto &outParam(out[0]);
             outParam.valid = false;
-            s32 valueIndex = m_inputSlot.valueIndex;
+            s32 paramIndex = m_inputSlot.paramIndex;
 
-            if (valueIndex >= 0 && valueIndex < inSize)
+            if (paramIndex >= 0 && paramIndex < inSize)
             {
-                const auto &inParam(in[valueIndex]);
+                const auto &inParam(in[paramIndex]);
                 calibOneParam(inParam, outParam, m_globalCalibration);
             }
         }
@@ -543,12 +542,12 @@ void Histo1DSink::step()
 {
     if (m_inputSlot.inputPipe && !histos.isEmpty())
     {
-        s32 valueIndex = m_inputSlot.valueIndex;
+        s32 paramIndex = m_inputSlot.paramIndex;
 
-        if (valueIndex >= 0)
+        if (paramIndex >= 0)
         {
             // Input is a single value
-            const Parameter *param = m_inputSlot.inputPipe->getParameter(valueIndex);
+            const Parameter *param = m_inputSlot.inputPipe->getParameter(paramIndex);
             if (param && param->valid)
             {
                 histos[0]->fill(param->value);
@@ -561,12 +560,12 @@ void Histo1DSink::step()
             const s32 inSize = in.size();
             const s32 histoSize = histos.size();
 
-            for (s32 valueIndex = 0; valueIndex < std::min(inSize, histoSize); ++valueIndex)
+            for (s32 paramIndex = 0; paramIndex < std::min(inSize, histoSize); ++paramIndex)
             {
-                const Parameter *param = m_inputSlot.inputPipe->getParameter(valueIndex);
+                const Parameter *param = m_inputSlot.inputPipe->getParameter(paramIndex);
                 if (param && param->valid)
                 {
-                    histos[valueIndex]->fill(param->value);
+                    histos[paramIndex]->fill(param->value);
                 }
             }
         }
@@ -609,16 +608,93 @@ void Histo1DSink::write(QJsonObject &json) const
 //
 // Histo2DSink
 //
+Histo2DSink::Histo2DSink()
+    : m_inputX(this, 0, QSL("X-Axis"), InputType::Value)
+    , m_inputY(this, 1, QSL("Y-Axis"), InputType::Value)
+{
+}
+
+s32 Histo2DSink::getNumberOfSlots() const
+{
+    return 2;
+}
+
+Slot *Histo2DSink::getSlot(s32 slotIndex)
+{
+    switch (slotIndex)
+    {
+        case 0:
+            return &m_inputX;
+        case 1:
+            return &m_inputY;
+        default:
+            return nullptr;
+    }
+}
+
+void Histo2DSink::connectInputSlot(s32 slotIndex, Pipe *inputPipe, s32 paramIndex)
+{
+    Slot *destSlot = getSlot(slotIndex);
+
+    if (!destSlot || !inputPipe || paramIndex < 0)
+        return;
+
+    destSlot->setInput(inputPipe);
+    destSlot->paramIndex = paramIndex;
+}
+
+#if 0
+void Histo2DSink::disconnectSlot(Pipe *sourcePipe)
+{
+    if (sourcePipe && m_inputSlot.inputPipe == sourcePipe)
+    {
+        m_inputSlot.inputPipe->removeDestination(&m_inputSlot);
+        m_inputSlot.inputPipe = nullptr;
+        m_inputSlot.paramIndex = -1;
+    }
+}
+#endif
+
 void Histo2DSink::step()
 {
+    if (m_inputX.inputPipe && m_inputY.inputPipe && m_histo)
+    {
+        auto paramX = m_inputX.inputPipe->getParameter(m_inputX.paramIndex);
+        auto paramY = m_inputY.inputPipe->getParameter(m_inputY.paramIndex);
+
+        if (isParameterValid(paramX) && isParameterValid(paramY))
+        {
+            m_histo->fill(paramX->value, paramY->value);
+        }
+    }
 }
 
 void Histo2DSink::read(const QJsonObject &json)
 {
+    u32 xBins = static_cast<u32>(json["xBins"].toInt());
+    double xMin = json["xMin"].toDouble();
+    double xMax = json["xMax"].toDouble();
+
+    u32 yBins = static_cast<u32>(json["yBins"].toInt());
+    double yMin = json["yMin"].toDouble();
+    double yMax = json["yMax"].toDouble();
+
+    m_histo = std::make_shared<Histo2D>(xBins, xMin, xMax,
+                                      yBins, yMin, yMax);
 }
 
 void Histo2DSink::write(QJsonObject &json) const
 {
+    if (m_histo)
+    {
+        json["xBins"] = static_cast<qint64>(m_histo->getAxis(Qt::XAxis).getBins());
+        json["xMin"]  = m_histo->getAxis(Qt::XAxis).getMin();
+        json["xMax"]  = m_histo->getAxis(Qt::XAxis).getMax();
+
+        json["yBins"] = static_cast<qint64>(m_histo->getAxis(Qt::YAxis).getBins());
+        json["yMin"]  = m_histo->getAxis(Qt::YAxis).getMin();
+        json["yMax"]  = m_histo->getAxis(Qt::YAxis).getMax();
+    }
 }
 
 //
@@ -978,7 +1054,7 @@ void Analysis::read(const QJsonObject &json)
 
             // Slot data
             u32 acceptedInputTypes = static_cast<u32>(objectJson["dstAcceptedInputTypes"].toInt());
-            s32 valueIndex = objectJson["dstValueIndex"].toInt();
+            s32 paramIndex = objectJson["dstParamIndex"].toInt();
 
             auto srcObject = objectsById.value(srcId);
             auto dstObject = std::dynamic_pointer_cast<OperatorInterface>(objectsById.value(dstId));
@@ -987,8 +1063,8 @@ void Analysis::read(const QJsonObject &json)
             {
                 Slot *dstSlot = dstObject->getSlot(dstIndex);
                 dstSlot->acceptedInputTypes = acceptedInputTypes;
-                dstSlot->valueIndex = valueIndex;
-                dstObject->connectInputSlot(dstIndex, srcObject->getOutput(srcIndex), valueIndex);
+                dstSlot->paramIndex = paramIndex;
+                dstObject->connectInputSlot(dstIndex, srcObject->getOutput(srcIndex), paramIndex);
             }
         }
     }
@@ -1115,7 +1191,7 @@ void Analysis::write(QJsonObject &json) const
                         conJson["dstId"] = dstOp->getId().toString();
                         conJson["dstIndex"] = dstSlot->parentSlotIndex;
                         conJson["dstAcceptedInputTypes"] = static_cast<qint64>(dstSlot->acceptedInputTypes);
-                        conJson["dstValueIndex"] = static_cast<qint64>(dstSlot->valueIndex);
+                        conJson["dstParamIndex"] = static_cast<qint64>(dstSlot->paramIndex);
                         conArray.append(conJson);
                     }
                 }
