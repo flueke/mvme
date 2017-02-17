@@ -325,8 +325,9 @@ Pipe *BasicOperator::getOutput(s32 index)
 //
 // BasicSink
 //
-BasicSink::BasicSink()
-    : m_inputSlot(this, 0, QSL("Input"))
+BasicSink::BasicSink(QObject *parent)
+    : SinkInterface(parent)
+    , m_inputSlot(this, 0, QSL("Input"))
 {
 }
 
@@ -644,8 +645,9 @@ void Histo1DSink::write(QJsonObject &json) const
 //
 // Histo2DSink
 //
-Histo2DSink::Histo2DSink()
-    : m_inputX(this, 0, QSL("X-Axis"), InputType::Value)
+Histo2DSink::Histo2DSink(QObject *parent)
+    : SinkInterface(parent)
+    , m_inputX(this, 0, QSL("X-Axis"), InputType::Value)
     , m_inputY(this, 1, QSL("Y-Axis"), InputType::Value)
 {
 }

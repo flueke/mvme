@@ -74,15 +74,20 @@ class PipeSourceInterface: public QObject
         PipeSourceInterface(QObject *parent = 0)
             : QObject(parent)
             , m_id(QUuid::createUuid())
-        {}
+        {
+            qDebug() << __PRETTY_FUNCTION__ << reinterpret_cast<void *>(this);
+        }
+
+        virtual ~PipeSourceInterface()
+        {
+            qDebug() << __PRETTY_FUNCTION__ << reinterpret_cast<void *>(this);
+        }
 
         virtual s32 getNumberOfOutputs() const = 0;
         virtual QString getOutputName(s32 outputIndex) const = 0;
         virtual Pipe *getOutput(s32 index) = 0;
 
         virtual QString getDisplayName() const = 0;
-
-        virtual ~PipeSourceInterface() {}
 
         QUuid getId() const { return m_id; }
         /* Note: setId() should only be used when restoring the object from a
@@ -91,6 +96,7 @@ class PipeSourceInterface: public QObject
         void setId(const QUuid &id) { m_id = id; }
 
     private:
+        PipeSourceInterface() = delete;
         QUuid m_id;
 };
 
@@ -236,7 +242,7 @@ class SourceInterface: public PipeSourceInterface
     Q_OBJECT
     Q_INTERFACES(analysis::PipeSourceInterface)
     public:
-        SourceInterface(QObject *parent = 0): PipeSourceInterface(parent) {}
+        using PipeSourceInterface::PipeSourceInterface;
 
         /* Use beginRun() to preallocate the outputs and setup internal state.
          * This will also be called by Analysis UI to be able to get array
@@ -261,12 +267,13 @@ class OperatorInterface: public PipeSourceInterface
     Q_OBJECT
     Q_INTERFACES(analysis::PipeSourceInterface)
     public:
-        OperatorInterface(QObject *parent = 0):
-            PipeSourceInterface(parent)
-        { qDebug() << __PRETTY_FUNCTION__ << reinterpret_cast<void *>(this); }
+        using PipeSourceInterface::PipeSourceInterface;
+        //OperatorInterface(QObject *parent = 0):
+        //    PipeSourceInterface(parent)
+        //{ qDebug() << __PRETTY_FUNCTION__ << reinterpret_cast<void *>(this); }
 
-        ~OperatorInterface()
-        { qDebug() << __PRETTY_FUNCTION__ << reinterpret_cast<void *>(this); }
+        //~OperatorInterface()
+        //{ qDebug() << __PRETTY_FUNCTION__ << reinterpret_cast<void *>(this); }
 
         /* Use beginRun() to preallocate the outputs and setup internal state. */
         virtual void beginRun() {}
@@ -315,8 +322,9 @@ class SinkInterface: public OperatorInterface
     Q_OBJECT
     Q_INTERFACES(analysis::OperatorInterface)
     public:
-        SinkInterface(QObject *parent = 0): OperatorInterface(parent) {}
-        ~SinkInterface() {}
+        using OperatorInterface::OperatorInterface;
+        //SinkInterface(QObject *parent = 0): OperatorInterface(parent) {}
+        //~SinkInterface() {}
 
         // PipeSourceInterface
         s32 getNumberOfOutputs() const override { return 0; }
@@ -424,7 +432,7 @@ class BasicSink: public SinkInterface
     Q_OBJECT
     Q_INTERFACES(analysis::SinkInterface)
     public:
-        BasicSink();
+        BasicSink(QObject *parent = 0);
         ~BasicSink();
 
         // OperatorInterface
@@ -537,6 +545,8 @@ class Histo1DSink: public BasicSink
 {
     Q_OBJECT
     public:
+        using BasicSink::BasicSink;
+
         QVector<std::shared_ptr<Histo1D>> histos;
 
         virtual void step() override;
@@ -554,7 +564,7 @@ class Histo2DSink: public SinkInterface
 {
     Q_OBJECT
     public:
-        Histo2DSink();
+        Histo2DSink(QObject *parent = 0);
 
         // OperatorInterface
         virtual s32 getNumberOfSlots() const override;

@@ -32,6 +32,8 @@ class EventWidget: public QWidget
         void addOperator(OperatorPtr op, s32 userLevel);
 
     private:
+        // Note: the EventWidgetPrivate part is not neccessary anymore as this
+        // now already is inside a private header...
         EventWidgetPrivate *m_d;
 };
 
