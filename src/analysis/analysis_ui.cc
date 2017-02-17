@@ -279,6 +279,7 @@ struct EventWidgetPrivate
     QVector<DisplayLevelTrees> m_levelTrees;
 
     Mode m_mode;
+    bool m_addAnalysisElementWidgetActive;
     Slot *m_selectInputSlot;
     s32 m_selectInputUserLevel;
     EventWidget::SelectInputCallback m_selectInputCallback;
@@ -471,7 +472,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
 
     if (node)
     {
-        if (userLevel == 0 && node->type() == NodeType_Module)
+        if (userLevel == 0 && node->type() == NodeType_Module && !m_addAnalysisElementWidgetActive)
         {
         // TODO: implement this stuff
 #if 0
@@ -484,6 +485,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                          widget->move(QCursor::pos());
                     widget->setAttribute(Qt::WA_DeleteOnClose);
                     widget->show();
+                    m_addAnalysisElementWidgetActive = true;
                 });
             };
 
@@ -504,7 +506,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
     }
     else
     {
-        if (m_mode == EventWidgetPrivate::Default)
+        if (m_mode == EventWidgetPrivate::Default && !m_addAnalysisElementWidgetActive)
         {
             if (userLevel > 0)
             {
@@ -517,6 +519,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                         widget->move(QCursor::pos());
                         widget->setAttribute(Qt::WA_DeleteOnClose);
                         widget->show();
+                        m_addAnalysisElementWidgetActive = true;
                     });
                 };
 
@@ -566,7 +569,7 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
     }
     else
     {
-        if (m_mode == EventWidgetPrivate::Default)
+        if (m_mode == EventWidgetPrivate::Default && !m_addAnalysisElementWidgetActive)
         {
             auto menuNew = new QMenu;
 
@@ -577,6 +580,7 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
                     widget->move(QCursor::pos());
                     widget->setAttribute(Qt::WA_DeleteOnClose);
                     widget->show();
+                    m_addAnalysisElementWidgetActive = true;
                 });
             };
 
@@ -737,6 +741,9 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column)
                                 s32 paramIndex = node->data(0, DataRole_ParameterIndex).toInt();
                                 slot->connectPipe(pipe, paramIndex);
                             } break;
+
+                        default:
+                            Q_ASSERT(!"Invalid code path");
                     }
 
                     // tell the widget that initiated the select that we're done
@@ -933,7 +940,6 @@ void EventWidget::endSelectInput()
 
 void EventWidget::addOperator(OperatorPtr op, s32 userLevel)
 {
-    // TODO: add operator to the tree
     Q_ASSERT(userLevel < m_d->m_levelTrees.size());
     if (userLevel < m_d->m_levelTrees.size())
     {
@@ -945,19 +951,20 @@ void EventWidget::addOperator(OperatorPtr op, s32 userLevel)
         if (auto histoSink = qobject_cast<Histo1DSink *>(op.get()))
         {
             destTree = trees.displayTree;
-            // FIXME: destNode = histo1DRoot; how to get it? just the first child? it has to be the first child
             auto node = makeHisto1DNode(histoSink);
-            destTree->addTopLevelItem(node);
+            // the histo1DRoot node is the first child of the display tree
+            destTree->topLevelItem(0)->addChild(node);
         }
         else if (auto histoSink = qobject_cast<Histo2DSink *>(op.get()))
         {
             destTree = trees.displayTree;
-            // FIXME: destNode = histo2DRoot; how to get it? just the second child? it has to be the second child
             auto node = makeHisto2DNode(histoSink);
-            destTree->addTopLevelItem(node);
+            // the histo2DRoot node is the second child of the display tree
+            destTree->topLevelItem(1)->addChild(node);
         }
         else if (auto sink = qobject_cast<SinkInterface *>(op.get()))
         {
+            // other sink type
             destTree = trees.displayTree;
             auto node = makeSinkNode(sink);
             destTree->addTopLevelItem(node);
@@ -969,6 +976,11 @@ void EventWidget::addOperator(OperatorPtr op, s32 userLevel)
             destTree->addTopLevelItem(node);
         }
     }
+}
+
+void EventWidget::addAnalysisElementWidgetCloses()
+{
+    m_d->m_addAnalysisElementWidgetActive = false;
 }
 
 EventWidget::~EventWidget()
@@ -1005,7 +1017,7 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
         auto eventConfig = eventConfigs[eventIndex];
         auto eventId = eventConfig->getId();
         auto eventWidget = new EventWidget(m_d->m_context, eventId);
-        eventSelectCombo->addItem(QString("<FIXME event%1 name here!> %2").arg(eventIndex).arg(eventId.toString()));
+        eventSelectCombo->addItem(QString("%1 (id=%2)").arg(eventConfig->objectName()).arg(eventIndex));
         eventWidgetStack->addWidget(eventWidget);
     }
 

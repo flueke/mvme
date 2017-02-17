@@ -30,6 +30,7 @@ class EventWidget: public QWidget
         void selectInputFor(Slot *slot, s32 userLevel, SelectInputCallback callback);
         void endSelectInput();
         void addOperator(OperatorPtr op, s32 userLevel);
+        void addAnalysisElementWidgetCloses(); // FIXME: better name
 
     private:
         // Note: the EventWidgetPrivate part is not neccessary anymore as this
