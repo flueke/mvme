@@ -34,6 +34,8 @@ enum NodeType
 
     NodeType_Histo1DSink,
     NodeType_Histo2DSink,
+    NodeType_Sink,          // Sinks that are not handled specifically
+
     NodeType_Histo1D,
 
     NodeType_MaxNodeType
@@ -100,19 +102,19 @@ inline TreeNode *makeDisplayTreeSourceNode(SourceInterface *source)
     return sourceNode;
 }
 
-inline TreeNode *makeHistoNode(Histo1DSink *op)
+inline TreeNode *makeHisto1DNode(Histo1DSink *sink)
 {
-    auto node = makeNode(op, NodeType_Histo1DSink);
+    auto node = makeNode(sink, NodeType_Histo1DSink);
     node->setText(0, QString("%1 %2").arg(
-            op->getDisplayName(),
-            op->objectName()));
+            sink->getDisplayName(),
+            sink->objectName()));
     node->setIcon(0, QIcon(":/hist1d.png"));
 
-    if (op->histos.size() > 1)
+    if (sink->histos.size() > 1)
     {
-        for (s32 addr = 0; addr < op->histos.size(); ++addr)
+        for (s32 addr = 0; addr < sink->histos.size(); ++addr)
         {
-            auto histo = op->histos[addr].get();
+            auto histo = sink->histos[addr].get();
             auto histoNode = makeNode(histo, NodeType_Histo1D);
             histoNode->setText(0, QString::number(addr));
             histoNode->setIcon(0, QIcon(":/hist1d.png"));
@@ -122,6 +124,28 @@ inline TreeNode *makeHistoNode(Histo1DSink *op)
     }
     return node;
 };
+
+inline TreeNode *makeHisto2DNode(Histo2DSink *sink)
+{
+    auto node = makeNode(sink, NodeType_Histo2DSink);
+    node->setText(0, QString("%1 %2").arg(
+            sink->getDisplayName(),
+            sink->objectName()));
+    node->setIcon(0, QIcon(":/hist2d.png"));
+
+    return node;
+}
+
+inline TreeNode *makeSinkNode(SinkInterface *sink)
+{
+    auto node = makeNode(sink, NodeType_Sink);
+    node->setText(0, QString("%1 %2").arg(
+            sink->getDisplayName(),
+            sink->objectName()));
+    node->setIcon(0, QIcon(":/sink.png"));
+
+    return node;
+}
 
 inline TreeNode *makeOperatorNode(OperatorInterface *op)
 {
@@ -220,6 +244,9 @@ struct EventWidgetPrivate
 
     EventWidget *m_q;
     MVMEContext *m_context;
+    QUuid m_eventId;
+    int eventIndex; // FIXME: init
+
     QVector<DisplayLevelTrees> m_levelTrees;
 
     Mode m_mode;
@@ -284,8 +311,9 @@ DisplayLevelTrees EventWidgetPrivate::createTrees(s32 eventIndex, s32 level)
     // populate the OperatorTree
     for (auto entry: operators)
     {
-        if(!qobject_cast<AbstractSink *>(entry.op.get()))
+        if(!qobject_cast<SinkInterface *>(entry.op.get()))
         {
+            qDebug() << ">>> Adding to the display tree cause it's not a SinkInterface:" << entry.op.get();
             auto opNode = makeOperatorNode(entry.op.get());
             result.operatorTree->addTopLevelItem(opNode);
         }
@@ -302,8 +330,18 @@ DisplayLevelTrees EventWidgetPrivate::createTrees(s32 eventIndex, s32 level)
         {
             if (auto histoSink = qobject_cast<Histo1DSink *>(entry.op.get()))
             {
-                auto histoNode = makeHistoNode(histoSink);
+                auto histoNode = makeHisto1DNode(histoSink);
                 histo1DRoot->addChild(histoNode);
+            }
+            else if (auto histoSink = qobject_cast<Histo2DSink *>(entry.op.get()))
+            {
+                auto histoNode = makeHisto2DNode(histoSink);
+                histo2DRoot->addChild(histoNode);
+            }
+            else if (auto sink = qobject_cast<SinkInterface *>(entry.op.get()))
+            {
+                auto sinkNode = makeSinkNode(sink);
+                result.displayTree->addTopLevelItem(sinkNode);
             }
         }
     }
@@ -357,7 +395,7 @@ DisplayLevelTrees EventWidgetPrivate::createSourceTrees(s32 eventIndex)
                 auto histoSink = qobject_cast<Histo1DSink *>(entry.op.get());
                 if (histoSink && (histoSink->getSlot(0)->inputPipe == sourceEntry.source->getOutput(0)))
                 {
-                    auto histoNode = makeHistoNode(histoSink);
+                    auto histoNode = makeHisto1DNode(histoSink);
                     moduleNode->addChild(histoNode);
                 }
             }
@@ -370,7 +408,55 @@ DisplayLevelTrees EventWidgetPrivate::createSourceTrees(s32 eventIndex)
 
 void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel)
 {
+    // TODO: handle (userLevel == 0): 
+
+
     auto node = tree->itemAt(pos);
+    auto obj  = getQObject(node);
+
+    QMenu menu;
+
+    if (node)
+    {
+    }
+    else
+    {
+        if (m_mode == EventWidgetPrivate::Default)
+        {
+            if (userLevel > 0)
+            {
+                auto menuNew = new QMenu;
+
+                auto add_action = [this, &menu, menuNew, userLevel](const QString &title, auto opPtr)
+                {
+                    menuNew->addAction(title, &menu, [this, userLevel, opPtr]() {
+                        auto widget = new AddOperatorWidget(opPtr, userLevel, m_q);
+                        widget->move(QCursor::pos());
+                        widget->setAttribute(Qt::WA_DeleteOnClose);
+                        widget->show();
+                    });
+                };
+
+                auto analysis = m_context->getAnalysisNG();
+                auto &registry(analysis->getRegistry());
+
+                for (auto operatorName: registry.getOperatorNames())
+                {
+                    OperatorPtr op(registry.makeOperator(operatorName));
+                    add_action(op->getDisplayName(), op);
+                }
+
+                auto actionNew = menu.addAction(QSL("New"));
+                actionNew->setMenu(menuNew);
+                menu.addAction(actionNew);
+            }
+        }
+    }
+
+    if (!menu.isEmpty())
+    {
+        menu.exec(tree->mapToGlobal(pos));
+    }
 }
 
 void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel)
@@ -401,9 +487,9 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
         {
             auto menuNew = new QMenu;
 
-            auto add_action = [this, menuNew, userLevel](const QString &title, auto opPtr)
+            auto add_action = [this, &menu, menuNew, userLevel](const QString &title, auto opPtr)
             {
-                menuNew->addAction(title, m_q, [this, userLevel, opPtr]() {
+                menuNew->addAction(title, &menu, [this, userLevel, opPtr]() {
                     auto widget = new AddOperatorWidget(opPtr, userLevel, m_q);
                     widget->move(QCursor::pos());
                     widget->setAttribute(Qt::WA_DeleteOnClose);
@@ -411,8 +497,14 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
                 });
             };
 
-            add_action(QSL("1D Histogramm"), std::make_shared<Histo1DSink>());
-            add_action(QSL("2D Histogramm"), std::make_shared<Histo2DSink>());
+            auto analysis = m_context->getAnalysisNG();
+            auto &registry(analysis->getRegistry());
+
+            for (auto sinkName: registry.getSinkNames())
+            {
+                OperatorPtr sink(registry.makeSink(sinkName));
+                add_action(sink->getDisplayName(), sink);
+            }
 
             auto actionNew = menu.addAction(QSL("New"));
             actionNew->setMenu(menuNew);
@@ -534,18 +626,16 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column)
                                 Q_ASSERT(slot->acceptedInputTypes & InputType::Array);
 
                                 PipeSourceInterface *source = getPointer<PipeSourceInterface>(node);
-                                slot->inputPipe = source->getOutput(0);
-                                slot->paramIndex = Slot::NoParamIndex;
-
+                                slot->connectPipe(source->getOutput(0), Slot::NoParamIndex);
                             } break;
 
                         case NodeType_OutputPipe:
                             {
                                 Q_ASSERT(slot->acceptedInputTypes & InputType::Array);
+                                Q_ASSERT(slot->parentOperator);
 
                                 Pipe *pipe = getPointer<Pipe>(node);
-                                slot->inputPipe = pipe;
-                                slot->paramIndex = Slot::NoParamIndex;
+                                slot->connectPipe(pipe, Slot::NoParamIndex);
                             } break;
 
                         case NodeType_OutputPipeParameter:
@@ -554,8 +644,7 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column)
 
                                 Pipe *pipe = getPointer<Pipe>(node);
                                 s32 paramIndex = node->data(0, DataRole_ParameterIndex).toInt();
-                                slot->inputPipe = pipe;
-                                slot->paramIndex = paramIndex;
+                                slot->connectPipe(pipe, paramIndex);
                             } break;
                     }
 
@@ -585,6 +674,7 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, QWidget *parent
     *m_d = {};
     m_d->m_q = this;
     m_d->m_context = ctx;
+    m_d->m_eventId = eventId;
     setMinimumSize(1000, 600); // FIXME: find another way to make the window be sanely sized at startup
 
     // TODO: This needs to be done whenever the analysis object is modified.
@@ -723,6 +813,13 @@ void EventWidget::endSelectInput()
         m_d->m_selectInputCallback = nullptr;
         m_d->modeChanged();
     }
+}
+
+void EventWidget::addOperator(OperatorPtr op, s32 userLevel)
+{
+    m_d->m_context->getAnalysisNG()->addOperator(m_d->eventIndex, op, userLevel);
+    // TODO: add operator to the tree
+    // XXX: leftoff
 }
 
 EventWidget::~EventWidget()

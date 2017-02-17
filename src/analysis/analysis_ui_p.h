@@ -4,9 +4,12 @@
 #include "analysis.h"
 
 #include <functional>
+
+#include <QCloseEvent>
+#include <QDialogButtonBox>
+#include <QPushButton>
 #include <QWidget>
 
-class QCloseEvent;
 class MVMEContext;
 
 namespace analysis
@@ -26,6 +29,7 @@ class EventWidget: public QWidget
 
         void selectInputFor(Slot *slot, s32 userLevel, SelectInputCallback callback);
         void endSelectInput();
+        void addOperator(OperatorPtr op, s32 userLevel);
 
     private:
         EventWidgetPrivate *m_d;
@@ -38,15 +42,16 @@ class AddOperatorWidget: public QWidget
     public:
         AddOperatorWidget(OperatorPtr op, s32 userLevel, EventWidget *eventWidget);
 
+        virtual void closeEvent(QCloseEvent *event) override;
+        void inputSelected(s32 slotIndex);
+        void accept();
+
         OperatorPtr m_op;
         s32 m_userLevel;
         EventWidget *m_eventWidget;
-
-    protected:
-        virtual void closeEvent(QCloseEvent *event) override;
-
-    private:
-        void inputSelected(s32 slotIndex);
+        QVector<QPushButton *> m_selectButtons;
+        QDialogButtonBox *m_buttonBox = nullptr;
+        bool m_inputSelectActive = false;
 };
 
 }

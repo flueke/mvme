@@ -96,7 +96,7 @@ class PipeSourceInterface: public QObject
 
 typedef std::shared_ptr<PipeSourceInterface> PipeSourcePtr;
 
-}
+} // end namespace analysis
 
 // This needs to happen outside any namespace
 #define PipeSourceInterface_iid "com.mesytec.mvme.analysis.PipeSourceInterface.1"
@@ -125,8 +125,12 @@ struct Slot
     {}
 
     /* Sets newInput to be this slots input. Replaces any previous input pipe. */
-    void setInput(Pipe *newInput);
+    void setInput_(Pipe *newInput); // TODO: remove this
 
+    /* Sets inputPipe to be the new input for this Slot. */
+    void connectPipe(Pipe *inputPipe, s32 paramIndex);
+    /* Clears this slots input. */
+    void disconnectPipe();
 
     static const s32 NoParamIndex = -1; // special paramIndex value for InputType::Array
 
@@ -186,7 +190,7 @@ class Pipe
         QString getParameterName() const { return parameters.name; }
 
         PipeSourceInterface *getSource() const { return source; }
-        void setSource(PipeSourceInterface *source) { source = source; }
+        void setSource(PipeSourceInterface *theSource) { source = theSource; }
 
         void addDestination(Slot *dest)
         {
@@ -257,7 +261,12 @@ class OperatorInterface: public PipeSourceInterface
     Q_OBJECT
     Q_INTERFACES(analysis::PipeSourceInterface)
     public:
-        OperatorInterface(QObject *parent = 0): PipeSourceInterface(parent) {}
+        OperatorInterface(QObject *parent = 0):
+            PipeSourceInterface(parent)
+        { qDebug() << __PRETTY_FUNCTION__ << reinterpret_cast<void *>(this); }
+
+        ~OperatorInterface()
+        { qDebug() << __PRETTY_FUNCTION__ << reinterpret_cast<void *>(this); }
 
         /* Use beginRun() to preallocate the outputs and setup internal state. */
         virtual void beginRun() {}
@@ -265,9 +274,6 @@ class OperatorInterface: public PipeSourceInterface
         virtual void step() = 0;
 
         virtual s32 getNumberOfSlots() const = 0;
-
-        /* If paramIndex is -1 the operator should use the whole array. */
-        virtual void connectInputSlot(s32 slotIndex, Pipe *inputPipe, s32 paramIndex) = 0;
 
         virtual Slot *getSlot(s32 slotIndex) = 0;
 
@@ -277,26 +283,51 @@ class OperatorInterface: public PipeSourceInterface
         virtual void read(const QJsonObject &json) = 0;
         virtual void write(QJsonObject &json) const = 0;
 
-        virtual ~OperatorInterface() {}
-
+        /* If paramIndex is Slot::NoParamIndex the operator should use the whole array. */
+        bool connectInputSlot(s32 slotIndex, Pipe *inputPipe, s32 paramIndex);
 
         void connectArrayToInputSlot(s32 slotIndex, Pipe *inputPipe)
-        { connectInputSlot(slotIndex, inputPipe, -1); }
+        { connectInputSlot(slotIndex, inputPipe, Slot::NoParamIndex); }
 
-        void connectValueToInputSlot(s32 slotIndex, Pipe *inputPipe, s32 paramIndex)
-        { connectInputSlot(slotIndex, inputPipe, paramIndex); }
+        //void connectValueToInputSlot(s32 slotIndex, Pipe *inputPipe, s32 paramIndex)
+        //{ connectInputSlot(slotIndex, inputPipe, paramIndex); }
 
         s32 getMaximumInputRank();
         s32 getMaximumOutputRank();
 };
 
-}
+typedef std::shared_ptr<OperatorInterface> OperatorPtr;
+
+} // end namespace analysis
 
 #define SourceInterface_iid "com.mesytec.mvme.analysis.SourceInterface.1"
 Q_DECLARE_INTERFACE(analysis::SourceInterface, SourceInterface_iid);
 
 #define OperatorInterface_iid "com.mesytec.mvme.analysis.OperatorInterface.1"
 Q_DECLARE_INTERFACE(analysis::OperatorInterface, OperatorInterface_iid);
+
+namespace analysis
+{
+/* Base class for sinks. Sinks are operators with no output. In the UI these
+ * operators are shown in the data display section */
+class SinkInterface: public OperatorInterface
+{
+    Q_OBJECT
+    Q_INTERFACES(analysis::OperatorInterface)
+    public:
+        SinkInterface(QObject *parent = 0): OperatorInterface(parent) {}
+        ~SinkInterface() {}
+
+        // PipeSourceInterface
+        s32 getNumberOfOutputs() const override { return 0; }
+        QString getOutputName(s32 outputIndex) const override { return QString(); }
+        Pipe *getOutput(s32 index) override { return nullptr; }
+};
+
+} // end namespace analysis
+
+#define SinkInterface_iid "com.mesytec.mvme.analysis.SinkInterface.1"
+Q_DECLARE_INTERFACE(analysis::SinkInterface, SinkInterface_iid);
 
 namespace analysis
 {
@@ -359,8 +390,6 @@ class Extractor: public SourceInterface
 // Operators
 //
 
-typedef std::shared_ptr<OperatorInterface> OperatorPtr;
-
 /* An operator with one input slot and one output pipe. Only step() needs to be
  * implemented in subclasses. The input slot by default accepts both
  * InputType::Array and InputType::Value.  */
@@ -379,7 +408,7 @@ class BasicOperator: public OperatorInterface
 
         // OperatorInterface
         virtual s32 getNumberOfSlots() const override;
-        virtual void connectInputSlot(s32 slotIndex, Pipe *inputPipe, s32 paramIndex) override;
+        //virtual void connectInputSlot(s32 slotIndex, Pipe *inputPipe, s32 paramIndex) override;
         virtual Slot *getSlot(s32 slotIndex) override;
         //virtual void disconnectSlot(Pipe *sourcePipe) override;
 
@@ -388,34 +417,22 @@ class BasicOperator: public OperatorInterface
         Slot m_inputSlot;
 };
 
-/* Base class for sinks. Sinks are operators with no output. In the UI these
- * operators are shown in the data display section */
-class AbstractSink: public OperatorInterface
-{
-    Q_OBJECT
-    Q_INTERFACES(analysis::OperatorInterface)
-    public:
-        // PipeSourceInterface
-        s32 getNumberOfOutputs() const override { return 0; }
-        QString getOutputName(s32 outputIndex) const override { return QString(); }
-        Pipe *getOutput(s32 index) override { return nullptr; }
-};
-
 /* An operator with one input and no output. The input slot by default accepts
  * both InputType::Array and InputType::Value. */
-class BasicSink: public AbstractSink
+class BasicSink: public SinkInterface
 {
     Q_OBJECT
-    Q_INTERFACES(analysis::OperatorInterface)
+    Q_INTERFACES(analysis::SinkInterface)
     public:
         BasicSink();
         ~BasicSink();
 
         // OperatorInterface
         virtual s32 getNumberOfSlots() const override;
-        virtual void connectInputSlot(s32 slotIndex, Pipe *inputPipe, s32 paramIndex) override;
+        //virtual void connectInputSlot(s32 slotIndex, Pipe *inputPipe, s32 paramIndex) override;
         virtual Slot *getSlot(s32 slotIndex) override;
         //virtual void disconnectSlot(Pipe *sourcePipe) override;
+        //
 
     protected:
         Slot m_inputSlot;
@@ -491,60 +508,6 @@ class Calibration: public BasicOperator
         QString m_unit;
 };
 
-#if 0
-struct HypotheticalSortingMachine: public Operator
-{
-    /* Takes a variable amount of inputs.
-     * The rank of this operators output is the highest input rank + 1.
-     * This functionality would be used to take data from multiple modules and
-     * assign virtual channel numbers to it. For example if there's 4 MSCF16s
-     * as input, input[0] provides amplitudes 0-15, input[1] amplitudes 16-31
-     * and so on up to amplitude 63 for input[3].
-     *
-     * Output size is the sum of the input sizes.
-     *
-     * FIXME: Assumption for now: all inputs have the same size! The user would
-     * normally want this to be true but it may not be the case. If it's not
-     * the case the output address would be the input address + the sum of the
-     * size of the previous inputs.
-     */
-
-
-    QVector<Pipe *> inputs;
-
-    virtual void step() override
-    {
-        // calc output size. FIXME: this should be done in a preparation step
-        s32 output_size = 0;
-        for (auto transport: inputs)
-        {
-            output_size += transport->parameters.size();
-        }
-        output.parameters.resize(output_size);
-
-        for (s32 input_index = 0;
-             input_index < inputs.size();
-             ++input_index)
-        {
-            Pipe *transport = inputs[input_index];
-
-            for (s32 address = 0;
-                 address < transport->parameters.size();
-                 ++address)
-            {
-                const auto &param(transport->parameters[address]);
-                if (param.valid)
-                {
-                    s32 output_address = address + (input_index * 16);
-
-                    output.parameters[output_address] = param; // copy the param struct
-                }
-            }
-        }
-    }
-};
-#endif
-
 class IndexSelector: public BasicOperator
 {
     Q_OBJECT
@@ -581,13 +544,13 @@ class Histo1DSink: public BasicSink
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
 
-        virtual QString getDisplayName() const override { return QSL("Histo1D"); }
+        virtual QString getDisplayName() const override { return QSL("1D Histogram"); }
 
     private:
         u32 fillsSinceLastDebug = 0;
 };
 
-class Histo2DSink: public AbstractSink
+class Histo2DSink: public SinkInterface
 {
     Q_OBJECT
     public:
@@ -595,7 +558,7 @@ class Histo2DSink: public AbstractSink
 
         // OperatorInterface
         virtual s32 getNumberOfSlots() const override;
-        virtual void connectInputSlot(s32 slotIndex, Pipe *inputPipe, s32 paramIndex) override;
+        //virtual void connectInputSlot(s32 slotIndex, Pipe *inputPipe, s32 paramIndex) override;
         virtual Slot *getSlot(s32 slotIndex) override;
         //virtual void disconnectSlot(Pipe *sourcePipe) override;
 
@@ -603,7 +566,7 @@ class Histo2DSink: public AbstractSink
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
 
-        virtual QString getDisplayName() const override { return QSL("Histo2D"); }
+        virtual QString getDisplayName() const override { return QSL("2D Histogram"); }
 
     private:
         std::shared_ptr<Histo2D> m_histo;
@@ -620,6 +583,12 @@ SourceInterface *createSource()
 
 template<typename T>
 OperatorInterface *createOperator()
+{
+    return new T;
+}
+
+template<typename T>
+SinkInterface *createSink()
 {
     return new T;
 }
@@ -663,6 +632,23 @@ class Registry
             return registerOperator<T>(className);
         }
 
+        template<typename T>
+        bool registerSink(const QString &name)
+        {
+            if (m_sinkRegistry.contains(name))
+                return false;
+
+            m_sinkRegistry.insert(name, &createSink<T>);
+
+            return true;
+        }
+
+        template<typename T>
+        bool registerSink()
+        {
+            QString className = T::staticMetaObject.className();
+            return registerSink<T>(className);
+        }
 
         SourceInterface *makeSource(const QString &name)
         {
@@ -688,6 +674,18 @@ class Registry
             return result;
         }
 
+        SinkInterface *makeSink(const QString &name)
+        {
+            SinkInterface *result = nullptr;
+
+            if (m_sinkRegistry.contains(name))
+            {
+                result = m_sinkRegistry[name]();
+            }
+
+            return result;
+        }
+
         QStringList getSourceNames() const
         {
             return m_sourceRegistry.keys();
@@ -698,9 +696,15 @@ class Registry
             return m_operatorRegistry.keys();
         }
 
+        QStringList getSinkNames() const
+        {
+            return m_sinkRegistry.keys();
+        }
+
     private:
         QMap<QString, SourceInterface *(*)()> m_sourceRegistry;
         QMap<QString, OperatorInterface *(*)()> m_operatorRegistry;
+        QMap<QString, SinkInterface *(*)()> m_sinkRegistry;
 };
 
 class Analysis
@@ -844,6 +848,8 @@ class Analysis
 
         void updateRanks();
 
+        Registry &getRegistry() { return m_registry; }
+
     private:
         void updateRank(OperatorInterface *op, QSet<OperatorInterface *> &updated);
 
@@ -866,7 +872,7 @@ RawDataDisplay make_raw_data_display(const MultiWordDataFilter &extractionFilter
 
 void add_raw_data_display(Analysis *analysis, s32 eventIndex, s32 moduleIndex, const RawDataDisplay &display);
 
-}
+} // end namespace analysis
 
 
 
@@ -1049,6 +1055,59 @@ struct Histo2DSink: public Operator
 };
 #endif
 
+#if 0
+struct HypotheticalSortingMachine: public Operator
+{
+    /* Takes a variable amount of inputs.
+     * The rank of this operators output is the highest input rank + 1.
+     * This functionality would be used to take data from multiple modules and
+     * assign virtual channel numbers to it. For example if there's 4 MSCF16s
+     * as input, input[0] provides amplitudes 0-15, input[1] amplitudes 16-31
+     * and so on up to amplitude 63 for input[3].
+     *
+     * Output size is the sum of the input sizes.
+     *
+     * FIXME: Assumption for now: all inputs have the same size! The user would
+     * normally want this to be true but it may not be the case. If it's not
+     * the case the output address would be the input address + the sum of the
+     * size of the previous inputs.
+     */
+
+
+    QVector<Pipe *> inputs;
+
+    virtual void step() override
+    {
+        // calc output size. FIXME: this should be done in a preparation step
+        s32 output_size = 0;
+        for (auto transport: inputs)
+        {
+            output_size += transport->parameters.size();
+        }
+        output.parameters.resize(output_size);
+
+        for (s32 input_index = 0;
+             input_index < inputs.size();
+             ++input_index)
+        {
+            Pipe *transport = inputs[input_index];
+
+            for (s32 address = 0;
+                 address < transport->parameters.size();
+                 ++address)
+            {
+                const auto &param(transport->parameters[address]);
+                if (param.valid)
+                {
+                    s32 output_address = address + (input_index * 16);
+
+                    output.parameters[output_address] = param; // copy the param struct
+                }
+            }
+        }
+    }
+};
+#endif
 
 
 

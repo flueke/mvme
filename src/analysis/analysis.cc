@@ -17,7 +17,8 @@ namespace analysis
 // Slot
 //
 
-void Slot::setInput(Pipe *newInput)
+// TODO: remove this
+void Slot::setInput_(Pipe *newInput)
 {
     if (inputPipe)
     {
@@ -32,9 +33,40 @@ void Slot::setInput(Pipe *newInput)
     }
 }
 
+void Slot::connectPipe(Pipe *newInput, s32 newParamIndex)
+{
+    disconnectPipe();
+    if (newInput)
+    {
+        inputPipe = newInput;
+        paramIndex = newParamIndex;
+        inputPipe->addDestination(this);
+    }
+}
+
+void Slot::disconnectPipe()
+{
+    if (inputPipe)
+    {
+        inputPipe->removeDestination(this);
+        paramIndex = Slot::NoParamIndex;
+    }
+}
+
 //
 // OperatorInterface
 //
+// XXX: does not perform acceptedInputTypes validity test atm!
+bool OperatorInterface::connectInputSlot(s32 slotIndex, Pipe *inputPipe, s32 paramIndex)
+{
+    Slot *slot = getSlot(slotIndex);
+
+    if (slot)
+    {
+        slot->connectPipe(inputPipe, paramIndex);
+    }
+}
+
 s32 OperatorInterface::getMaximumInputRank()
 {
     s32 result = 0;
@@ -221,6 +253,7 @@ s32 BasicOperator::getNumberOfSlots() const
     return 1;
 }
 
+#if 0
 void BasicOperator::connectInputSlot(s32 slotIndex, Pipe *inputPipe, s32 paramIndex)
 {
     if (slotIndex == 0)
@@ -239,6 +272,7 @@ void BasicOperator::connectInputSlot(s32 slotIndex, Pipe *inputPipe, s32 paramIn
         }
     }
 }
+#endif
 
 Slot *BasicOperator::getSlot(s32 slotIndex)
 {
@@ -305,6 +339,7 @@ s32 BasicSink::getNumberOfSlots() const
     return 1;
 }
 
+#if 0
 void BasicSink::connectInputSlot(s32 slotIndex, Pipe *inputPipe, s32 paramIndex)
 {
     if (slotIndex == 0)
@@ -323,6 +358,7 @@ void BasicSink::connectInputSlot(s32 slotIndex, Pipe *inputPipe, s32 paramIndex)
         }
     }
 }
+#endif
 
 Slot *BasicSink::getSlot(s32 slotIndex)
 {
@@ -632,6 +668,7 @@ Slot *Histo2DSink::getSlot(s32 slotIndex)
     }
 }
 
+#if 0
 void Histo2DSink::connectInputSlot(s32 slotIndex, Pipe *inputPipe, s32 paramIndex)
 {
     Slot *destSlot = getSlot(slotIndex);
@@ -642,6 +679,7 @@ void Histo2DSink::connectInputSlot(s32 slotIndex, Pipe *inputPipe, s32 paramInde
     destSlot->setInput(inputPipe);
     destSlot->paramIndex = paramIndex;
 }
+#endif
 
 #if 0
 void Histo2DSink::disconnectSlot(Pipe *sourcePipe)
@@ -706,10 +744,14 @@ Analysis::Analysis()
 
     m_registry.registerOperator<Calibration>();
     m_registry.registerOperator<IndexSelector>();
-    m_registry.registerOperator<Histo1DSink>();
+
+
+    m_registry.registerSink<Histo1DSink>();
+    m_registry.registerSink<Histo2DSink>();
 
     qDebug() << m_registry.getSourceNames();
     qDebug() << m_registry.getOperatorNames();
+    qDebug() << m_registry.getSinkNames();
 }
 
 void Analysis::beginRun()
@@ -1021,6 +1063,12 @@ void Analysis::read(const QJsonObject &json)
 
             OperatorPtr op(m_registry.makeOperator(className));
 
+            // No operator with the given name exists, try a sink instead.
+            if (!op)
+            {
+                op.reset(m_registry.makeSink(className));
+            }
+
             if (op)
             {
                 op->setId(QUuid(objectJson["id"].toString()));
@@ -1061,10 +1109,36 @@ void Analysis::read(const QJsonObject &json)
 
             if (srcObject && dstObject)
             {
+                auto srcRawPtr = srcObject.get();
+                auto dstRawPtr = dstObject.get();
                 Slot *dstSlot = dstObject->getSlot(dstIndex);
-                dstSlot->acceptedInputTypes = acceptedInputTypes;
-                dstSlot->paramIndex = paramIndex;
-                dstObject->connectInputSlot(dstIndex, srcObject->getOutput(srcIndex), paramIndex);
+                Q_ASSERT(dstSlot); // FIXME: testing
+
+                if (dstSlot)
+                {
+                    dstSlot->acceptedInputTypes = acceptedInputTypes;
+                    dstSlot->paramIndex = paramIndex;
+
+                    Pipe *thePipe = srcRawPtr->getOutput(srcIndex);
+                    Q_ASSERT(thePipe);
+                    Q_ASSERT(thePipe->source == srcRawPtr);
+
+                    dstRawPtr->connectInputSlot(dstIndex, thePipe, paramIndex);
+
+                    Q_ASSERT(thePipe->destinations.contains(dstSlot));
+                }
+
+
+#if 0
+                Slot *dstSlot = dstObject->getSlot(dstIndex);
+                Q_ASSERT(dstSlot); // FIXME: testing
+                if (dstSlot)
+                {
+                    dstSlot->acceptedInputTypes = acceptedInputTypes;
+                    dstSlot->paramIndex = paramIndex;
+                    dstObject->connectInputSlot(dstIndex, srcObject->getOutput(srcIndex), paramIndex);
+                }
+#endif
             }
         }
     }
