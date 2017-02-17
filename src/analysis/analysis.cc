@@ -49,6 +49,7 @@ void Slot::disconnectPipe()
     if (inputPipe)
     {
         inputPipe->removeDestination(this);
+        inputPipe = nullptr;
         paramIndex = Slot::NoParamIndex;
     }
 }
