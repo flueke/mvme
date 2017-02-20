@@ -431,7 +431,6 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
         {
             if (!m_addAnalysisElementWidgetActive)
             {
-                // TODO: implement this stuff
 #if 0
                 auto menuNew = new QMenu;
 

@@ -173,6 +173,9 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorPtr opPtr, s32 
 
     auto *formLayout = new QFormLayout(this);
 
+    le_name = new QLineEdit;
+    formLayout->addRow(QSL("Name"), le_name);
+
     if (auto histoSink = qobject_cast<Histo1DSink *>(op))
     {
         spin_bins = new QSpinBox;
@@ -229,6 +232,9 @@ bool OperatorConfigurationWidget::validateInputs()
 {
     OperatorInterface *op = m_op.get();
 
+    if (le_name->text().isEmpty())
+        return false;
+
     if (auto histoSink = qobject_cast<Histo1DSink *>(op))
     {
         return spin_bins->value() > 0;
@@ -250,6 +256,8 @@ bool OperatorConfigurationWidget::validateInputs()
 void OperatorConfigurationWidget::configureOperator()
 {
     OperatorInterface *op = m_op.get();
+
+    op->setObjectName(le_name->text());
 
     if (auto histoSink = qobject_cast<Histo1DSink *>(op))
     {
@@ -366,6 +374,8 @@ void PipeDisplay::refresh()
 
     m_parameterTable->resizeColumnsToContents();
     m_parameterTable->resizeRowsToContents();
+
+    setWindowTitle(m_pipe->parameters.name);
 }
 
 }

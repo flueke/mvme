@@ -2,6 +2,8 @@
 ==== Do these first! =====
 ==========================
 >>>>> Begin Analysis NG <<<<<
+ - Pass and build names throughout the analysis
+
  - AddOperatorWidget: Instead of connecting the slot directly only pass
    information about the selected pipe around. This is needed to allow
    editing while DAQ/Replay are running.
@@ -19,7 +21,6 @@
  - Add some way to distinguish between Operators for processing and the display tree.
    Right now it's like: if (!histo1DSink && !histo2DSink) { /* it's a processing operator */ }
    This does not scale.
-- Pass and build names throughout the analysis
 
 - Histo1DListWidget needed!
 <<<<< End AnalysisNG >>>>>

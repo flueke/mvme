@@ -112,6 +112,10 @@ void Extractor::beginRun()
         param.lowerLimit = 0.0;
         param.upperLimit = upperLimit;
     }
+
+    // TODO: insert module name into the string
+    // -> L0.mdpp16.amplitude
+    params.name = QString("L0.%2").arg(this->objectName());
 }
 
 void Extractor::beginEvent()
@@ -408,7 +412,7 @@ void Calibration::beginRun()
             outParam.upperLimit = inParam.upperLimit * calib.factor + calib.offset;
         }
 
-        out.name = in.name; // TODO: set the new parameter name here
+        out.name = objectName();
         out.unit = getUnitLabel();
     }
 }
@@ -684,31 +688,6 @@ Slot *Histo2DSink::getSlot(s32 slotIndex)
             return nullptr;
     }
 }
-
-#if 0
-void Histo2DSink::connectInputSlot(s32 slotIndex, Pipe *inputPipe, s32 paramIndex)
-{
-    Slot *destSlot = getSlot(slotIndex);
-
-    if (!destSlot || !inputPipe || paramIndex < 0)
-        return;
-
-    destSlot->setInput(inputPipe);
-    destSlot->paramIndex = paramIndex;
-}
-#endif
-
-#if 0
-void Histo2DSink::disconnectSlot(Pipe *sourcePipe)
-{
-    if (sourcePipe && m_inputSlot.inputPipe == sourcePipe)
-    {
-        m_inputSlot.inputPipe->removeDestination(&m_inputSlot);
-        m_inputSlot.inputPipe = nullptr;
-        m_inputSlot.paramIndex = -1;
-    }
-}
-#endif
 
 void Histo2DSink::step()
 {
@@ -1020,17 +999,6 @@ void Analysis::clear()
     m_operators.clear();
 }
 
-#if 0
-        struct Connection
-        {
-            PipeSourceInterface *srcObject;
-            s32 srcIndex; // the output index of the source object
-
-            OperatorInterface *dstObject;
-            s32 dstIndex; // the input index of the dest object
-        };
-#endif
-
 template<typename T>
 QString getClassName(T *obj)
 {
@@ -1104,6 +1072,19 @@ void Analysis::read(const QJsonObject &json)
 
     // Connections
     {
+        /* Connections are defined by a structure looking like this:
+        struct Connection
+        {
+            PipeSourceInterface *srcObject;
+            s32 srcIndex; // the output index of the source object
+
+            OperatorInterface *dstObject;
+            s32 dstIndex; // the input index of the dest object
+            u32 acceptedInputTypes; // input type mask the slot accepts (Array | Value)
+            s32 paramIndex; // if input type is a single value this is the array index of that value
+        };
+        */
+
         QJsonArray array = json["connections"].toArray();
         for (auto it = array.begin(); it != array.end(); ++it)
         {

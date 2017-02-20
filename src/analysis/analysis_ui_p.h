@@ -76,6 +76,7 @@ class OperatorConfigurationWidget: public QWidget
         OperatorPtr m_op;
         s32 m_userLevel;
 
+        QLineEdit *le_name = nullptr;
         QSpinBox *spin_bins = nullptr;
         QSpinBox *spin_xBins = nullptr;
         QSpinBox *spin_yBins = nullptr;
