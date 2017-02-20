@@ -551,7 +551,7 @@ void MesytecDiagnosticsWidget::on_calcAll_clicked()
     m_diag->calcAll(ui->diagLowChannel2->value(), ui->diagHiChannel2->value(),
                     ui->diagLowChannel->value(), ui->diagHiChannel->value(),
                     lobin, hibin);
-
+    dispAll();
 }
 
 void MesytecDiagnosticsWidget::on_pb_reset_clicked()
