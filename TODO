@@ -2,12 +2,14 @@
 ==== Do these first! =====
 ==========================
 >>>>> Begin Analysis NG <<<<<
- - Make connectInputSlot() return a bool
+ - AddOperatorWidget: Instead of connecting the slot directly only pass
+   information about the selected pipe around. This is needed to allow
+   editing while DAQ/Replay are running.
  - !!! Make analysis use DAQConfig object ids instead of only going by eventIndex/moduleIndex !!!
    This way it would be possible to show that a certain Event/Module does not
    exist anymore in the DAQConfig.
    Otherwise the problem with analysis and daqconfig getting out of sync will
-   keep coming and back and result in user confusion.
+   keep coming back and result in user confusion.
 
    Sources need to be attached to a module. From there we can get the event id.
 
@@ -19,8 +21,6 @@
    This does not scale.
 - Pass and build names throughout the analysis
 
-- Split Registry into Source and Operator registries. Could be templated I think.
-- More icons: icon for array of histos
 - Histo1DListWidget needed!
 <<<<< End AnalysisNG >>>>>
 
@@ -28,7 +28,9 @@
 ==========================
 ==== Do these later! =====
 ==========================
+- Refactor DAQConfig -> VMEConfig and DAQConfigTree to VMEConfigTree
 >>>>> Begin Analysis NG <<<<<
+- More icons: icon for array of histos
 - Make Histo1DSink and Histo2DSink keep histo meta info as members. This would
   allow allocating histos on demand. But the info has to be kept in sync of
   course!
