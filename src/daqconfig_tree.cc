@@ -323,6 +323,13 @@ TreeNode *DAQConfigTreeWidget::addModuleNodes(EventNode *parent, ModuleConfig *m
     parent->modulesNode->addChild(moduleNode);
 
     {
+        auto resetNode = makeNode(module->vmeScripts["reset"], NodeType_ModuleReset);
+        resetNode->setText(0, QSL("Module Reset"));
+        resetNode->setIcon(0, QIcon(":/vme_script.png"));
+        moduleNode->addChild(resetNode);
+    }
+
+    {
         auto parametersNode = makeNode(module->vmeScripts["parameters"]);
         parametersNode->setText(0, QSL("Module Init"));
         parametersNode->setIcon(0, QIcon(":/vme_script.png"));
@@ -334,13 +341,6 @@ TreeNode *DAQConfigTreeWidget::addModuleNodes(EventNode *parent, ModuleConfig *m
         readoutSettingsNode->setText(0, QSL("VME Interface Settings"));
         readoutSettingsNode->setIcon(0, QIcon(":/vme_script.png"));
         moduleNode->addChild(readoutSettingsNode);
-    }
-
-    {
-        auto resetNode = makeNode(module->vmeScripts["reset"], NodeType_ModuleReset);
-        resetNode->setText(0, QSL("Module Reset"));
-        resetNode->setIcon(0, QIcon(":/vme_script.png"));
-        moduleNode->addChild(resetNode);
     }
 
     {
