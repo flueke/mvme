@@ -17,22 +17,6 @@ namespace analysis
 // Slot
 //
 
-// TODO: remove this
-void Slot::setInput_(Pipe *newInput)
-{
-    if (inputPipe)
-    {
-        inputPipe->removeDestination(this);
-    }
-
-    inputPipe = newInput;
-
-    if (inputPipe)
-    {
-        inputPipe->addDestination(this);
-    }
-}
-
 void Slot::connectPipe(Pipe *newInput, s32 newParamIndex)
 {
     disconnectPipe();
@@ -124,7 +108,7 @@ void Extractor::beginRun()
 
     for (s32 i=0; i<params.size(); ++i)
     {
-        auto param(params[i]);
+        auto &param(params[i]);
         param.lowerLimit = 0.0;
         param.upperLimit = upperLimit;
     }
@@ -399,13 +383,29 @@ void Calibration::beginRun()
         auto &out(m_output.getParameters());
         const auto &in(m_inputSlot.inputPipe->getParameters());
 
+        s32 idxMin = 0;
+        s32 idxMax = in.size();
+
         if (m_inputSlot.paramIndex != Slot::NoParamIndex)
         {
             out.resize(1);
+            idxMin = m_inputSlot.paramIndex;
+            idxMax = idxMin + 1;
         }
         else
         {
             out.resize(in.size());
+        }
+
+        s32 outIdx = 0;
+        for (s32 idx = idxMin; idx < idxMax; ++idx)
+        {
+            const Parameter &inParam(in[idx]);
+            Parameter &outParam(out[outIdx++]);
+            auto calib = getCalibration(idx);
+
+            outParam.lowerLimit = inParam.lowerLimit * calib.factor + calib.offset;
+            outParam.upperLimit = inParam.upperLimit * calib.factor + calib.offset;
         }
 
         out.name = in.name; // TODO: set the new parameter name here
@@ -421,8 +421,6 @@ void Calibration::step()
         if (inParam.valid)
         {
             outParam.value = inParam.value * calib.factor + calib.offset;
-            outParam.lowerLimit = inParam.lowerLimit * calib.factor + calib.offset;
-            outParam.upperLimit = inParam.upperLimit * calib.factor + calib.offset;
             outParam.valid = true;
         }
     };
@@ -434,7 +432,7 @@ void Calibration::step()
         const auto &in(m_inputSlot.inputPipe->getParameters());
         const s32 inSize = in.size();
 
-        if (m_inputSlot.paramIndex >= 0)
+        if (m_inputSlot.paramIndex != Slot::NoParamIndex)
         {
             auto &outParam(out[0]);
             outParam.valid = false;
@@ -576,6 +574,14 @@ void IndexSelector::write(QJsonObject &json) const
 //
 // Histo1DSink
 //
+void Histo1DSink::beginRun()
+{
+    for (auto &histo: histos)
+    {
+        histo->clear();
+    }
+}
+
 void Histo1DSink::step()
 {
     if (m_inputSlot.inputPipe && !histos.isEmpty())
@@ -651,6 +657,14 @@ Histo2DSink::Histo2DSink(QObject *parent)
     , m_inputX(this, 0, QSL("X-Axis"), InputType::Value)
     , m_inputY(this, 1, QSL("Y-Axis"), InputType::Value)
 {
+}
+
+void Histo2DSink::beginRun()
+{
+    if (m_histo)
+    {
+        m_histo->clear();
+    }
 }
 
 s32 Histo2DSink::getNumberOfSlots() const

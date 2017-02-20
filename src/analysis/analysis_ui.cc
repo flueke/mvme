@@ -183,50 +183,6 @@ inline TreeNode *makeOperatorNode(OperatorInterface *op)
             op->objectName()));
     result->setIcon(0, QIcon(":/analysis_operator.png"));
 
-#if 0 // Input nodes disabled for now
-    auto inputsNode = new TreeNode;
-    inputsNode->setText(0, "inputs");
-    result->addChild(inputsNode);
-
-    // inputs
-    for (s32 inputIndex = 0;
-         inputIndex < op->getNumberOfSlots();
-         ++inputIndex)
-    {
-        // FIXME: check for array or value slot
-        // display slot acceptance type
-        // display if no inputpipe connected
-        // add something like NodeType_Slot
-        // add something like NodeType_ArrayValue or ParamIndex VectorElement ... best name for this?
-        // add NodeType_OutputPipe, Output, ...
-
-        auto slot = op->getSlot(inputIndex);
-        auto inputPipe = slot->inputPipe;
-        s32 inputParamSize = inputPipe ? inputPipe->parameters.size() : 0;
-
-        auto slotNode = new TreeNode;
-        slotNode->setText(0, QString("#%1 \"%2\" (%3 elements)")
-                          .arg(inputIndex)
-                          .arg(slot->name)
-                          .arg(inputParamSize)
-                         );
-
-        inputsNode->addChild(slotNode);
-
-        for (s32 paramIndex = 0; paramIndex < inputParamSize; ++paramIndex)
-        {
-            auto paramNode = new TreeNode;
-            paramNode->setText(0, QString("[%1]").arg(paramIndex));
-
-            slotNode->addChild(paramNode);
-        }
-    }
-
-    auto outputsNode = new TreeNode;
-    outputsNode->setText(0, "outputs");
-    result->addChild(outputsNode);
-#endif
-
     // outputs
     for (s32 outputIndex = 0;
          outputIndex < op->getNumberOfOutputs();
@@ -241,7 +197,6 @@ inline TreeNode *makeOperatorNode(OperatorInterface *op)
                           .arg(op->getOutputName(outputIndex))
                           .arg(outputParamSize)
                          );
-        //outputsNode->addChild(pipeNode);
         result->addChild(pipeNode);
 
         for (s32 paramIndex = 0; paramIndex < outputParamSize; ++paramIndex)
@@ -472,39 +427,71 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
 
     if (node)
     {
-        if (userLevel == 0 && node->type() == NodeType_Module && !m_addAnalysisElementWidgetActive)
+        if (userLevel == 0 && node->type() == NodeType_Module)
         {
-        // TODO: implement this stuff
-#if 0
-            auto menuNew = new QMenu;
-
-            auto add_action = [this, &menu, menuNew, userLevel](const QString &title, auto srcPtr)
+            if (!m_addAnalysisElementWidgetActive)
             {
-                menuNew->addAction(title, &menu, [this, userLevel, srcPtr]() {
-                    auto widget = new AddSourceWidget(srcPtr, //TODO: module info herem_q);
-                         widget->move(QCursor::pos());
+                // TODO: implement this stuff
+#if 0
+                auto menuNew = new QMenu;
+
+                auto add_action = [this, &menu, menuNew, userLevel](const QString &title, auto srcPtr)
+                {
+                    menuNew->addAction(title, &menu, [this, userLevel, srcPtr]() {
+                        auto widget = new AddSourceWidget(srcPtr, //TODO: module info herem_q);
+                             widget->move(QCursor::pos());
+                        widget->setAttribute(Qt::WA_DeleteOnClose);
+                        widget->show();
+                        m_addAnalysisElementWidgetActive = true;
+                        clearAllTreeSelections();
+                    });
+                };
+
+                auto analysis = m_context->getAnalysisNG();
+                auto &registry(analysis->getRegistry());
+
+                for (auto sourceName: registry.getSourceNames())
+                {
+                    SourcePtr src(registry.makeSource(sourceName));
+                    add_action(src->getDisplayName(), src);
+                }
+
+                auto actionNew = menu.addAction(QSL("New"));
+                actionNew->setMenu(menuNew);
+                menu.addAction(actionNew);
+#endif
+            }
+        }
+
+        if (userLevel == 0 && node->type() == NodeType_Source)
+        {
+            auto pipeSource = getPointer<PipeSourceInterface>(node);
+
+            if (pipeSource)
+            {
+                auto pipe = pipeSource->getOutput(0);
+
+                menu.addAction(QSL("Show Parameters"), [this, pipe]() {
+                    auto widget = new PipeDisplay(pipe, m_q);
+                    widget->move(QCursor::pos());
                     widget->setAttribute(Qt::WA_DeleteOnClose);
                     widget->show();
-                    m_addAnalysisElementWidgetActive = true;
                 });
-            };
-
-            auto analysis = m_context->getAnalysisNG();
-            auto &registry(analysis->getRegistry());
-
-            for (auto sourceName: registry.getSourceNames())
-            {
-                SourcePtr src(registry.makeSource(sourceName));
-                add_action(src->getDisplayName(), src);
             }
+        }
+        else if (userLevel > 0 && node->type() == NodeType_OutputPipe)
+        {
+            auto pipe = getPointer<Pipe>(node);
 
-            auto actionNew = menu.addAction(QSL("New"));
-            actionNew->setMenu(menuNew);
-            menu.addAction(actionNew);
-#endif
+            menu.addAction(QSL("Show Parameters"), [this, pipe]() {
+                auto widget = new PipeDisplay(pipe, m_q);
+                widget->move(QCursor::pos());
+                widget->setAttribute(Qt::WA_DeleteOnClose);
+                widget->show();
+            });
         }
     }
-    else
+    else // No node selected
     {
         if (m_mode == EventWidgetPrivate::Default && !m_addAnalysisElementWidgetActive)
         {
@@ -520,6 +507,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                         widget->setAttribute(Qt::WA_DeleteOnClose);
                         widget->show();
                         m_addAnalysisElementWidgetActive = true;
+                        clearAllTreeSelections();
                     });
                 };
 
@@ -581,6 +569,7 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
                     widget->setAttribute(Qt::WA_DeleteOnClose);
                     widget->show();
                     m_addAnalysisElementWidgetActive = true;
+                    clearAllTreeSelections();
                 });
             };
 
@@ -713,6 +702,9 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column)
                 {
                     Slot *slot = m_selectInputSlot;
                     // connect the slot with the selected input source
+                    // TODO: don't directly connect here. instead pass info
+                    // about the selected input to the AddOperatorWidget
+                    // (probably using the callback method).
                     switch (node->type())
                     {
                         case NodeType_Source:

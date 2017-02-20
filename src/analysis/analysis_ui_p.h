@@ -7,6 +7,9 @@
 
 #include <QCloseEvent>
 #include <QDialogButtonBox>
+#include <QDoubleSpinBox>
+#include <QLineEdit>
+#include <QTableWidget>
 #include <QPushButton>
 #include <QWidget>
 
@@ -34,9 +37,12 @@ class EventWidget: public QWidget
 
     private:
         // Note: the EventWidgetPrivate part is not neccessary anymore as this
-        // now already is inside a private header...
+        // now already is inside a private header. This class started as the
+        // main AnalaysisUi class
         EventWidgetPrivate *m_d;
 };
+
+class OperatorConfigurationWidget;
 
 class AddOperatorWidget: public QWidget
 {
@@ -55,6 +61,41 @@ class AddOperatorWidget: public QWidget
         QVector<QPushButton *> m_selectButtons;
         QDialogButtonBox *m_buttonBox = nullptr;
         bool m_inputSelectActive = false;
+        OperatorConfigurationWidget *m_opConfigWidget = nullptr;
+};
+
+class OperatorConfigurationWidget: public QWidget
+{
+    Q_OBJECT
+    public:
+        OperatorConfigurationWidget(OperatorPtr op, s32 userLevel, AddOperatorWidget *parent);
+        bool validateInputs();
+        void configureOperator();
+
+        AddOperatorWidget *m_parent;
+        OperatorPtr m_op;
+        s32 m_userLevel;
+
+        QSpinBox *spin_bins = nullptr;
+        QSpinBox *spin_xBins = nullptr;
+        QSpinBox *spin_yBins = nullptr;
+        QLineEdit *le_unit = nullptr;
+        QDoubleSpinBox *spin_factor = nullptr;
+        QDoubleSpinBox *spin_offset = nullptr;
+        QSpinBox *spin_index = nullptr;
+};
+
+class PipeDisplay: public QWidget
+{
+    Q_OBJECT
+    public:
+        PipeDisplay(Pipe *pipe, QWidget *parent = 0);
+
+        void refresh();
+
+        Pipe *m_pipe;
+
+        QTableWidget *m_parameterTable;
 };
 
 }

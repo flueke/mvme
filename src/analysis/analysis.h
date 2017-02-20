@@ -130,9 +130,6 @@ struct Slot
         , acceptedInputTypes(acceptedInputs)
     {}
 
-    /* Sets newInput to be this slots input. Replaces any previous input pipe. */
-    void setInput_(Pipe *newInput); // TODO: remove this
-
     /* Sets inputPipe to be the new input for this Slot. */
     void connectPipe(Pipe *inputPipe, s32 paramIndex);
     /* Clears this slots input. */
@@ -549,6 +546,7 @@ class Histo1DSink: public BasicSink
 
         QVector<std::shared_ptr<Histo1D>> histos;
 
+        virtual void beginRun() override;
         virtual void step() override;
 
         virtual void read(const QJsonObject &json) override;
@@ -572,13 +570,15 @@ class Histo2DSink: public SinkInterface
         virtual Slot *getSlot(s32 slotIndex) override;
         //virtual void disconnectSlot(Pipe *sourcePipe) override;
 
+        virtual void beginRun() override;
         virtual void step() override;
+
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
 
         virtual QString getDisplayName() const override { return QSL("2D Histogram"); }
 
-    private:
+    public:
         std::shared_ptr<Histo2D> m_histo;
         Slot m_inputX;
         Slot m_inputY;
