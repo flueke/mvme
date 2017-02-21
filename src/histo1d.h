@@ -2,6 +2,7 @@
 #define __HISTO1D_H__
 
 #include "histo_util.h"
+#include <memory>
 #include <QObject>
 
 struct Histo1DStatistics

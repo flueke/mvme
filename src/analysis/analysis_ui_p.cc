@@ -14,7 +14,7 @@ AddOperatorWidget::AddOperatorWidget(OperatorPtr op, s32 userLevel, EventWidget 
     , m_eventWidget(eventWidget)
     , m_opConfigWidget(new OperatorConfigurationWidget(op, userLevel, this))
 {
-    m_opConfigWidget->setEnabled(false);
+    //m_opConfigWidget->setEnabled(false);
 
     auto slotGrid = new QGridLayout;
     int row = 0;
@@ -70,7 +70,8 @@ AddOperatorWidget::AddOperatorWidget(OperatorPtr op, s32 userLevel, EventWidget 
             m_selectButtons[slotIndex]->setText(QSL("<select>"));
             // Disable ok button as there's now at least one unset input
             m_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(false);
-            m_opConfigWidget->setEnabled(false);
+            //m_opConfigWidget->setEnabled(false);
+            m_opConfigWidget->inputSelected(slotIndex);
         });
 
         slotGrid->addWidget(new QLabel(slot->name), row, 0);
@@ -135,7 +136,7 @@ void AddOperatorWidget::inputSelected(s32 slotIndex)
     m_opConfigWidget->inputSelected(slotIndex);
 
     m_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(enableOkButton);
-    m_opConfigWidget->setEnabled(enableOkButton);
+    //m_opConfigWidget->setEnabled(enableOkButton);
     m_inputSelectActive = false;
 }
 

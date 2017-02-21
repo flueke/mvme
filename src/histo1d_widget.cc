@@ -18,6 +18,7 @@
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QSettings>
+#include <QSpinBox>
 #include <QStandardPaths>
 #include <QTextStream>
 #include <QTimer>
@@ -525,27 +526,18 @@ bool Histo1DWidget::eventFilter(QObject *watched, QEvent *event)
 }
 
 //
-// Hist1DListWidget
+// Histo1DListWidget
 //
-#if 0
-Hist1DListWidget::Hist1DListWidget(MVMEContext *context, QList<Histo1D *> histos, QWidget *parent)
-    : MVMEWidget(parent)
-    , m_context(context)
+Histo1DListWidget::Histo1DListWidget(const HistoList &histos, QWidget *parent)
+    : QWidget(parent)
     , m_histos(histos)
 {
     Q_ASSERT(histos.size());
 
-    auto histo = histos[0];
-    auto histoConfig = qobject_cast<Hist1DConfig *>(m_context->getMappedObject(histo, QSL("ObjectToConfig")));
-    m_histoWidget = new Histo1DWidget(context, histo, histoConfig, this);
+    auto histo = histos[0].get();
+    m_histoWidget = new Histo1DWidget(histo, this);
 
-    connect(m_histoWidget, &QWidget::windowTitleChanged,
-            this, &QWidget::setWindowTitle);
-
-
-    connect(m_context, &MVMEContext::objectAboutToBeRemoved,
-            this, &Hist1DListWidget::onObjectAboutToBeRemoved);
-
+    connect(m_histoWidget, &QWidget::windowTitleChanged, this, &QWidget::setWindowTitle);
 
     /* create the controls to switch the current histogram and inject into the
      * histo widget layout. */
@@ -556,7 +548,7 @@ Hist1DListWidget::Hist1DListWidget(MVMEContext *context, QList<Histo1D *> histos
     auto histoSpinBox = new QSpinBox;
     histoSpinBox->setMaximum(histos.size() - 1);
     connect(histoSpinBox, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
-            this, &Hist1DListWidget::onHistSpinBoxValueChanged);
+            this, &Histo1DListWidget::onHistSpinBoxValueChanged);
 
     histoSpinLayout->addWidget(histoSpinBox);
 
@@ -571,23 +563,12 @@ Hist1DListWidget::Hist1DListWidget(MVMEContext *context, QList<Histo1D *> histos
     setWindowTitle(m_histoWidget->windowTitle());
 }
 
-void Hist1DListWidget::onHistSpinBoxValueChanged(int index)
+void Histo1DListWidget::onHistSpinBoxValueChanged(int index)
 {
-    auto histo = m_histos.value(index, nullptr);
+    auto histo = m_histos.value(index);
 
     if (histo)
     {
-        auto histoConfig = qobject_cast<Hist1DConfig *>(m_context->getMappedObject(histo, QSL("ObjectToConfig")));
-        m_histoWidget->setHistogram(histo, histoConfig);
+        m_histoWidget->setHistogram(histo.get());
     }
 }
-
-void Hist1DListWidget::onObjectAboutToBeRemoved(QObject *obj)
-{
-    auto histo = qobject_cast<Histo1D *>(obj);
-
-    if (histo && m_histos.indexOf(histo))
-        close();
-}
-
-#endif

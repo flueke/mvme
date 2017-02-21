@@ -28,6 +28,8 @@ class Histo1DWidget: public QWidget
 
         virtual bool eventFilter(QObject *watched, QEvent *event) override;
 
+        friend class Histo1DListWidget;
+
     private slots:
         void replot();
         void exportPlot();
@@ -63,24 +65,22 @@ class Histo1DWidget: public QWidget
 #endif
 };
 
-#if 0 
-class Histo1DListWidget: public MVMEWidget
+class Histo1DListWidget: public QWidget
 {
     Q_OBJECT
     public:
-        Hist1DListWidget(MVMEContext *context, QList<Histo1D *> histos, QWidget *parent = 0);
+        using HistoList = QVector<std::shared_ptr<Histo1D>>;
 
-        QList<Histo1D *> getHistograms() const { return m_histos; }
+        Histo1DListWidget(const HistoList &histos, QWidget *parent = 0);
+
+        HistoList getHistograms() const { return m_histos; }
 
     private:
         void onHistSpinBoxValueChanged(int index);
-        void onObjectAboutToBeRemoved(QObject *obj);
 
-        MVMEContext *m_context;
-        QList<Histo1D *> m_histos;
-        Hist1DWidget *m_histoWidget;
+        HistoList m_histos;
+        Histo1DWidget *m_histoWidget;
         int m_currentIndex = 0;
 };
-#endif
 
 #endif /* __HISTO1D_WIDGET_H__ */

@@ -2,6 +2,7 @@
 #include "analysis_ui_p.h"
 
 #include "../mvme_context.h"
+#include "../histo1d_widget.h"
 
 #include <QComboBox>
 #include <QCursor>
@@ -596,6 +597,21 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
                         menu.addAction(QSL("Open"), m_q, [this, histo]() {
                             m_context->openInNewWindow(histo);
                         });
+                    }
+                } break;
+
+            case NodeType_Histo1DSink:
+                {
+                    if (auto histoSink = qobject_cast<Histo1DSink *>(obj))
+                    {
+                        if (!histoSink->histos.isEmpty())
+                        {
+                            auto histos = histoSink->histos;
+                            menu.addAction(QSL("Open"), m_q, [this, histos]() {
+                                auto listWidget = new Histo1DListWidget(histos);
+                                m_context->addWidgetWindow(listWidget);
+                            });
+                        }
                     }
                 } break;
 
