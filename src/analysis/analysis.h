@@ -563,6 +563,7 @@ class RetainValid: public BasicOperator
 class Difference: public OperatorInterface
 {
     Q_OBJECT
+    Q_INTERFACES(analysis::OperatorInterface)
     public:
         Difference(QObject *parent = 0);
 
@@ -620,6 +621,7 @@ class Histo1DSink: public BasicSink
 class Histo2DSink: public SinkInterface
 {
     Q_OBJECT
+    Q_INTERFACES(analysis::SinkInterface)
     public:
         Histo2DSink(QObject *parent = 0);
 
