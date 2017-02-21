@@ -34,6 +34,7 @@ class EventWidget: public QWidget
         void endSelectInput();
         void addOperator(OperatorPtr op, s32 userLevel);
         void addAnalysisElementWidgetCloses(); // FIXME: better name
+        void addUserLevel(s32 eventIndex);
 
     private:
         // Note: the EventWidgetPrivate part is not neccessary anymore as this
@@ -71,15 +72,20 @@ class OperatorConfigurationWidget: public QWidget
         OperatorConfigurationWidget(OperatorPtr op, s32 userLevel, AddOperatorWidget *parent);
         bool validateInputs();
         void configureOperator();
+        void inputSelected(s32 slotIndex);
 
         AddOperatorWidget *m_parent;
         OperatorPtr m_op;
         s32 m_userLevel;
 
         QLineEdit *le_name = nullptr;
-        QSpinBox *spin_bins = nullptr;
         QSpinBox *spin_xBins = nullptr;
         QSpinBox *spin_yBins = nullptr;
+        QDoubleSpinBox *spin_xMin = nullptr;
+        QDoubleSpinBox *spin_xMax = nullptr;
+        QDoubleSpinBox *spin_yMin = nullptr;
+        QDoubleSpinBox *spin_yMax = nullptr;
+
         QLineEdit *le_unit = nullptr;
         QDoubleSpinBox *spin_factor = nullptr;
         QDoubleSpinBox *spin_offset = nullptr;

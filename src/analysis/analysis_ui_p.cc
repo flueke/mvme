@@ -132,6 +132,8 @@ void AddOperatorWidget::inputSelected(s32 slotIndex)
         }
     }
 
+    m_opConfigWidget->inputSelected(slotIndex);
+
     m_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(enableOkButton);
     m_opConfigWidget->setEnabled(enableOkButton);
     m_inputSelectActive = false;
@@ -178,12 +180,14 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorPtr opPtr, s32 
 
     if (auto histoSink = qobject_cast<Histo1DSink *>(op))
     {
-        spin_bins = new QSpinBox;
-        spin_bins->setMinimum(bin1DMin);
-        spin_bins->setMaximum(bin1DMax);
-        spin_bins->setValue(bin1DDef);
+        spin_xBins = new QSpinBox;
+        spin_xBins->setMinimum(bin1DMin);
+        spin_xBins->setMaximum(bin1DMax);
+        spin_xBins->setValue(bin1DDef);
 
-        formLayout->addRow(QSL("Bins"), spin_bins);
+        spin_xMin = new QDoubleSpinBox;
+
+        formLayout->addRow(QSL("Bins"), spin_xBins);
     }
     else if (auto histoSink = qobject_cast<Histo2DSink *>(op))
     {
@@ -237,7 +241,7 @@ bool OperatorConfigurationWidget::validateInputs()
 
     if (auto histoSink = qobject_cast<Histo1DSink *>(op))
     {
-        return spin_bins->value() > 0;
+        return spin_xBins->value() > 0;
     }
     else if (auto histoSink = qobject_cast<Histo2DSink *>(op))
     {
@@ -261,7 +265,7 @@ void OperatorConfigurationWidget::configureOperator()
 
     if (auto histoSink = qobject_cast<Histo1DSink *>(op))
     {
-        s32 bins = spin_bins->value();
+        s32 bins = spin_xBins->value();
 
         Slot *slot = histoSink->getSlot(0);
         s32 minIdx = 0;
@@ -311,6 +315,10 @@ void OperatorConfigurationWidget::configureOperator()
         s32 index = spin_index->value();
         selector->setIndex(index);
     }
+}
+
+void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
+{
 }
 
 //

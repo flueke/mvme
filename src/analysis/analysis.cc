@@ -329,27 +329,6 @@ s32 BasicSink::getNumberOfSlots() const
     return 1;
 }
 
-#if 0
-void BasicSink::connectInputSlot(s32 slotIndex, Pipe *inputPipe, s32 paramIndex)
-{
-    if (slotIndex == 0)
-    {
-        if (m_inputSlot.inputPipe)
-        {
-            m_inputSlot.inputPipe->removeDestination(&m_inputSlot);
-        }
-
-        m_inputSlot.inputPipe = inputPipe;
-        m_inputSlot.paramIndex = paramIndex;
-
-        if (inputPipe)
-        {
-            inputPipe->addDestination(&m_inputSlot);
-        }
-    }
-}
-#endif
-
 Slot *BasicSink::getSlot(s32 slotIndex)
 {
     Slot *result = nullptr;
@@ -359,18 +338,6 @@ Slot *BasicSink::getSlot(s32 slotIndex)
     }
     return result;
 }
-
-#if 0
-void BasicSink::disconnectSlot(Pipe *sourcePipe)
-{
-    if (sourcePipe && m_inputSlot.inputPipe == sourcePipe)
-    {
-        m_inputSlot.inputPipe->removeDestination(&m_inputSlot);
-        m_inputSlot.inputPipe = nullptr;
-        m_inputSlot.paramIndex = Slot::NoParamIndex;
-    }
-}
-#endif
 
 //
 // Calibration
@@ -576,6 +543,175 @@ void IndexSelector::write(QJsonObject &json) const
 }
 
 //
+// PreviousValue
+//
+PreviousValue::PreviousValue(QObject *parent)
+    : BasicOperator(parent)
+{
+    m_inputSlot.acceptedInputTypes = InputType::Array;
+}
+
+void PreviousValue::beginRun()
+{
+    if (m_inputSlot.inputPipe)
+    {
+        auto &out(m_output.getParameters());
+        const auto &in(m_inputSlot.inputPipe->getParameters());
+
+        m_previousInput.resize(in.size());
+        m_previousInput.invalidateAll();
+        out.resize(in.size());
+        out.name = in.name;
+        out.unit = in.unit;
+    }
+}
+
+void PreviousValue::step()
+{
+    if (m_inputSlot.inputPipe)
+    {
+        auto &out(m_output.getParameters());
+        const auto &in(m_inputSlot.inputPipe->getParameters());
+
+        // copy elements instead of assigning the vector directly as others
+        // (e.g. the PipeDisplay widget) may keep temporary references to our
+        // output vector!
+        s32 maxIdx = in.size();
+
+        for (s32 idx = 0; idx < maxIdx; ++idx)
+        {
+            out[idx] = m_previousInput[idx];
+        }
+
+        for (s32 idx = 0; idx < maxIdx; ++idx)
+        {
+            m_previousInput[idx] = in[idx];
+        }
+    }
+}
+
+void PreviousValue::read(const QJsonObject &json)
+{
+}
+
+void PreviousValue::write(QJsonObject &json) const
+{
+}
+
+//
+// RetainValid
+//
+RetainValid::RetainValid(QObject *parent)
+    : BasicOperator(parent)
+{
+    m_inputSlot.acceptedInputTypes = InputType::Value;
+}
+
+void RetainValid::beginRun()
+{
+    if (m_inputSlot.inputPipe)
+    {
+        auto &out(m_output.getParameters());
+        const auto &in(m_inputSlot.inputPipe->getParameters());
+
+        out.resize(1);
+        out.invalidateAll();
+        out.name = in.name;
+        out.unit = in.unit;
+    }
+}
+
+void RetainValid::step()
+{
+    if (m_inputSlot.inputPipe)
+    {
+        auto &out(m_output.getParameters());
+        const Parameter *in(m_inputSlot.inputPipe->getParameter(m_inputSlot.paramIndex));
+
+        if (in && in->valid)
+        {
+            out[0] = *in;
+        }
+    }
+}
+
+void RetainValid::read(const QJsonObject &json)
+{
+}
+
+void RetainValid::write(QJsonObject &json) const
+{
+}
+
+//
+// Difference
+//
+Difference::Difference(QObject *parent)
+    : OperatorInterface(parent)
+    , m_inputA(this, 0, QSL("A"))
+    , m_inputB(this, 1, QSL("B"))
+{
+    m_output.setSource(this);
+}
+
+void Difference::beginRun()
+{
+    if (!(m_inputA.inputPipe && m_inputB.inputPipe))
+        return;
+
+    s32 minSize = std::numeric_limits<s32>::max();
+    QString unit;
+
+    minSize = std::min(minSize, m_inputA.inputPipe->parameters.size());
+    unit = m_inputA.inputPipe->parameters.unit;
+
+    minSize = std::max(minSize, m_inputB.inputPipe->parameters.size());
+    unit = m_inputB.inputPipe->parameters.unit;
+
+    m_output.parameters.resize(minSize);
+    m_output.parameters.name = QSL("A-B"); // FIXME
+    m_output.parameters.unit = unit;
+
+    for (s32 idx = 0; idx < minSize; ++idx)
+    {
+        auto &out(m_output.parameters[idx]);
+        const auto &inA(m_inputA.inputPipe->parameters[idx]);
+        const auto &inB(m_inputB.inputPipe->parameters[idx]);
+
+        out.lowerLimit = inA.lowerLimit - inB.upperLimit;
+        out.upperLimit = inA.upperLimit - inB.lowerLimit;
+    }
+}
+
+void Difference::step()
+{
+    if (!(m_inputA.inputPipe && m_inputB.inputPipe))
+        return;
+
+    const auto &paramsA(m_inputA.inputPipe->parameters);
+    const auto &paramsB(m_inputB.inputPipe->parameters);
+    auto &paramsOut(m_output.parameters);
+
+    s32 maxIdx = paramsOut.size();
+    for (s32 idx = 0; idx < maxIdx; ++idx)
+    {
+        paramsOut[idx].valid = (paramsA[idx].valid && paramsB[idx].valid);
+        if (paramsOut[idx].valid)
+        {
+            paramsOut[idx].value = paramsA[idx].value - paramsB[idx].value;
+        }
+    }
+}
+
+void Difference::read(const QJsonObject &json)
+{
+}
+
+void Difference::write(QJsonObject &json) const
+{
+}
+
+//
 // Histo1DSink
 //
 void Histo1DSink::beginRun()
@@ -740,6 +876,9 @@ Analysis::Analysis()
 
     m_registry.registerOperator<Calibration>();
     m_registry.registerOperator<IndexSelector>();
+    m_registry.registerOperator<PreviousValue>();
+    m_registry.registerOperator<RetainValid>();
+    m_registry.registerOperator<Difference>();
 
 
     m_registry.registerSink<Histo1DSink>();
@@ -1099,6 +1238,9 @@ void Analysis::read(const QJsonObject &json)
             s32 dstIndex = objectJson["dstIndex"].toInt();
 
             // Slot data
+            // FIXME: acceptedInputTypes does not need to be stored in the
+            // config! If it's stored it should only be used for validation,
+            // not assigend to the Slot!
             u32 acceptedInputTypes = static_cast<u32>(objectJson["dstAcceptedInputTypes"].toInt());
             s32 paramIndex = objectJson["dstParamIndex"].toInt();
 

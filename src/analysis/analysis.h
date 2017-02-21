@@ -225,7 +225,7 @@ class Pipe
         PipeSourceInterface *source = nullptr;
         /* The index of this Pipe in source. If correctly setup the following
          * should be true:
-         * (source->getOutput(sourceOutputIndex) == this)
+         * (this->source->getOutput(sourceOutputIndex) == this)
          */
         s32 sourceOutputIndex = 0;
         QVector<Slot *> destinations;
@@ -413,9 +413,7 @@ class BasicOperator: public OperatorInterface
 
         // OperatorInterface
         virtual s32 getNumberOfSlots() const override;
-        //virtual void connectInputSlot(s32 slotIndex, Pipe *inputPipe, s32 paramIndex) override;
         virtual Slot *getSlot(s32 slotIndex) override;
-        //virtual void disconnectSlot(Pipe *sourcePipe) override;
 
     protected:
         Pipe m_output;
@@ -434,10 +432,7 @@ class BasicSink: public SinkInterface
 
         // OperatorInterface
         virtual s32 getNumberOfSlots() const override;
-        //virtual void connectInputSlot(s32 slotIndex, Pipe *inputPipe, s32 paramIndex) override;
         virtual Slot *getSlot(s32 slotIndex) override;
-        //virtual void disconnectSlot(Pipe *sourcePipe) override;
-        //
 
     protected:
         Slot m_inputSlot;
@@ -534,6 +529,75 @@ class IndexSelector: public BasicOperator
         s32 m_index;
 };
 
+class PreviousValue: public BasicOperator
+{
+    Q_OBJECT
+    public:
+        PreviousValue(QObject *parent = 0);
+
+        virtual void beginRun() override;
+        virtual void step() override;
+
+        virtual void read(const QJsonObject &json) override;
+        virtual void write(QJsonObject &json) const override;
+
+        virtual QString getDisplayName() const override { return QSL("Previous Value"); }
+
+    private:
+        ParameterVector m_previousInput;
+};
+
+class RetainValid: public BasicOperator
+{
+    Q_OBJECT
+    public:
+        RetainValid(QObject *parent = 0);
+
+        virtual void beginRun() override;
+        virtual void step() override;
+
+        virtual void read(const QJsonObject &json) override;
+        virtual void write(QJsonObject &json) const override;
+
+        virtual QString getDisplayName() const override { return QSL("Retain Valid"); }
+
+    private:
+        ParameterVector m_lastValidInput;
+};
+
+class Difference: public OperatorInterface
+{
+    Q_OBJECT
+    public:
+        Difference(QObject *parent = 0);
+
+        virtual void beginRun() override;
+        virtual void step() override;
+
+        // PipeSourceInterface
+        s32 getNumberOfOutputs() const override { return 1; }
+        QString getOutputName(s32 outputIndex) const override { return QSL("difference"); }
+        Pipe *getOutput(s32 index) override { return (index == 0) ? &m_output : nullptr; }
+
+        // OperatorInterface
+        virtual s32 getNumberOfSlots() const override { return 2; }
+        virtual Slot *getSlot(s32 slotIndex) override
+        {
+            if (slotIndex == 0) return &m_inputA;
+            if (slotIndex == 1) return &m_inputB;
+            return nullptr;
+        }
+
+        virtual void read(const QJsonObject &json) override;
+        virtual void write(QJsonObject &json) const override;
+
+        virtual QString getDisplayName() const override { return QSL("Difference"); }
+
+    private:
+        Slot m_inputA;
+        Slot m_inputB;
+        Pipe m_output;
+};
 
 //
 // Sinks

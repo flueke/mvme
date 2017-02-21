@@ -4,15 +4,36 @@
 >>>>> Begin Analysis NG <<<<<
  - Pass and build names throughout the analysis
 
+ - Edit operators
+   * select different inputs
+   * edit operator params
+   * edit names
+ - Delete operators
+   * remote operator from dependents inputs
+   * highlight dependents that are now missing inputs (Note: this highlight should not be removed by any clearHighlight calls!)
+ - When selecting an operator highlight it's input operators
+
  - AddOperatorWidget: Instead of connecting the slot directly only pass
    information about the selected pipe around. This is needed to allow
    editing while DAQ/Replay are running.
+   !!! Better:
+   Alternatively: Partly connect the pipe. This means filling out all the info
+   in the Slot but not adding the Slot to the Pipes list of destinations. Then
+   later make sure the analysis is paused and complete the connection by added
+   the Slot to the destinations vector.
+   This has the advantage of the target operator being able to use all the
+   information of the source pipe as if it was connected. The analysis itself
+   will not "see" the new slot as it does not appear in the list of
+   destinations of the pipe, nor is it registered with the analysis.
+
+   Thinking again: can I just fully connect the pipe? The analysis won't use it
+   until it's added via addOperator(), right?
+
  - !!! Make analysis use DAQConfig object ids instead of only going by eventIndex/moduleIndex !!!
    This way it would be possible to show that a certain Event/Module does not
    exist anymore in the DAQConfig.
    Otherwise the problem with analysis and daqconfig getting out of sync will
    keep coming back and result in user confusion.
-
    Sources need to be attached to a module. From there we can get the event id.
 
  - Gui to add new Hist1D

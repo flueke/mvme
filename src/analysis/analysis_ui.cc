@@ -101,12 +101,12 @@ inline TreeNode *makeOperatorTreeSourceNode(SourceInterface *source)
     sourceNode->setText(0, source->objectName());
     sourceNode->setIcon(0, QIcon(":/data_filter.png"));
 
-    // FIXME: can't this be done generically via getNumberOfOutputs() and using
-    // the pipes parameter vector size?
-    if (auto extractor = qobject_cast<Extractor *>(source))
+    Q_ASSERT(source->getNumberOfOutputs() == 1); // TODO: implement the case for multiple outputs
+
+    if (source->getNumberOfOutputs() == 1)
     {
-        s32 addressCount = (1 << extractor->getFilter().getAddressBits());
-        Pipe *outputPipe = extractor->getOutput(0);
+        Pipe *outputPipe = source->getOutput(0);
+        s32 addressCount = outputPipe->parameters.size();
 
         for (s32 address = 0; address < addressCount; ++address)
         {
@@ -137,7 +137,7 @@ inline TreeNode *makeHisto1DNode(Histo1DSink *sink)
             sink->objectName()));
     node->setIcon(0, QIcon(":/hist1d.png"));
 
-    if (sink->histos.size() > 1)
+    if (sink->histos.size() > 0)
     {
         for (s32 addr = 0; addr < sink->histos.size(); ++addr)
         {
@@ -216,6 +216,7 @@ struct DisplayLevelTrees
 {
     QTreeWidget *operatorTree;
     QTreeWidget *displayTree;
+    s32 userLevel;
 };
 
 struct EventWidgetPrivate
@@ -229,7 +230,9 @@ struct EventWidgetPrivate
     EventWidget *m_q;
     MVMEContext *m_context;
     QUuid m_eventId;
-    int eventIndex; // FIXME: init
+    // TODO: initialize eventIndex at creation time and use it instead of passing it around internally
+    // TODO: or would it be better to use m_eventId instead?
+    int eventIndex;
 
     QVector<DisplayLevelTrees> m_levelTrees;
 
@@ -239,9 +242,15 @@ struct EventWidgetPrivate
     s32 m_selectInputUserLevel;
     EventWidget::SelectInputCallback m_selectInputCallback;
 
-    void createView(int eventIndex);
+    QSplitter *m_operatorFrameSplitter;
+    QSplitter *m_displayFrameSplitter;
+
+    void createView(s32 eventIndex);
     DisplayLevelTrees createTrees(s32 eventIndex, s32 level);
     DisplayLevelTrees createSourceTrees(s32 eventIndex);
+    void appendTreesToView(DisplayLevelTrees trees);
+
+    void addUserLevel(s32 eventIndex);
 
     void doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel);
     void doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel);
@@ -256,7 +265,7 @@ struct EventWidgetPrivate
 };
 
 // FIXME: the param should be eventId
-void EventWidgetPrivate::createView(int eventIndex)
+void EventWidgetPrivate::createView(s32 eventIndex)
 {
     auto analysis = m_context->getAnalysisNG();
     s32 maxUserLevel = 0;
@@ -273,26 +282,6 @@ void EventWidgetPrivate::createView(int eventIndex)
     {
         auto trees = createTrees(eventIndex, userLevel);
         m_levelTrees.push_back(trees);
-
-        for (auto tree: {trees.operatorTree, trees.displayTree})
-        {
-            QObject::connect(tree, &QTreeWidget::currentItemChanged, m_q,
-                             [this, tree](QTreeWidgetItem *current, QTreeWidgetItem *previous) {
-                if (current)
-                {
-                    clearTreeSelectionsExcept(tree);
-                }
-            });
-
-        }
-#if 0
-        QObject::connect(trees.operatorTree, &QTreeWidget::itemClicked, m_q, [](QTreeWidgetItem *node, int column) {
-            qDebug() << "item clicked" << node << column;
-        });
-        QObject::connect(trees.operatorTree, &QTreeWidget::itemPressed, m_q, [](QTreeWidgetItem *node, int column) {
-            qDebug() << "item pressed" << node << column;
-        });
-#endif
     }
 }
 
@@ -304,7 +293,7 @@ DisplayLevelTrees EventWidgetPrivate::createTrees(s32 eventIndex, s32 level)
         return createSourceTrees(eventIndex);
     }
 
-    DisplayLevelTrees result = { new QTreeWidget, new QTreeWidget };
+    DisplayLevelTrees result = { new QTreeWidget, new QTreeWidget, level };
     auto headerItem = result.operatorTree->headerItem();
     headerItem->setText(0, QString(QSL("L%1 Processing")).arg(level));
 
@@ -367,7 +356,7 @@ DisplayLevelTrees EventWidgetPrivate::createSourceTrees(s32 eventIndex)
     auto eventConfig = vmeConfig->getEventConfig(eventIndex);
     auto modules = eventConfig->getModuleConfigs();
 
-    DisplayLevelTrees result = { new QTreeWidget, new QTreeWidget };
+    DisplayLevelTrees result = { new QTreeWidget, new QTreeWidget, 0 };
 
     auto headerItem = result.operatorTree->headerItem();
     headerItem->setText(0, QSL("L0 Parameter Extraction"));
@@ -416,6 +405,62 @@ DisplayLevelTrees EventWidgetPrivate::createSourceTrees(s32 eventIndex)
     result.displayTree->sortItems(0, Qt::AscendingOrder);
 
     return result;
+}
+
+static const s32 minTreeWidth = 200;
+static const s32 minTreeHeight = 150;
+
+void EventWidgetPrivate::appendTreesToView(DisplayLevelTrees trees)
+{
+    auto opTree   = trees.operatorTree;
+    auto dispTree = trees.displayTree;
+    s32 levelIndex = trees.userLevel;
+
+    opTree->setMinimumWidth(minTreeWidth);
+    opTree->setMinimumHeight(minTreeHeight);
+    opTree->setContextMenuPolicy(Qt::CustomContextMenu);
+
+    dispTree->setMinimumWidth(minTreeWidth);
+    dispTree->setMinimumHeight(minTreeHeight);
+    dispTree->setContextMenuPolicy(Qt::CustomContextMenu);
+
+    m_operatorFrameSplitter->addWidget(opTree);
+    m_displayFrameSplitter->addWidget(dispTree);
+
+    QObject::connect(opTree, &QWidget::customContextMenuRequested, m_q, [this, opTree, levelIndex] (QPoint pos) {
+        doOperatorTreeContextMenu(opTree, pos, levelIndex);
+    });
+
+    QObject::connect(dispTree, &QWidget::customContextMenuRequested, m_q, [this, dispTree, levelIndex] (QPoint pos) {
+        doDisplayTreeContextMenu(dispTree, pos, levelIndex);
+    });
+
+    for (auto tree: {opTree, dispTree})
+    {
+        QObject::connect(tree, &QTreeWidget::itemClicked, m_q, [this] (QTreeWidgetItem *node, int column) {
+            onNodeClicked(reinterpret_cast<TreeNode *>(node), column);
+        });
+
+        QObject::connect(tree, &QTreeWidget::itemDoubleClicked, m_q, [this] (QTreeWidgetItem *node, int column) {
+            onNodeDoubleClicked(reinterpret_cast<TreeNode *>(node), column);
+        });
+
+        QObject::connect(tree, &QTreeWidget::currentItemChanged, m_q,
+                         [this, tree](QTreeWidgetItem *current, QTreeWidgetItem *previous) {
+            if (current)
+            {
+                clearTreeSelectionsExcept(tree);
+            }
+        });
+    }
+}
+
+void EventWidgetPrivate::addUserLevel(s32 eventIndex)
+{
+    s32 levelIndex = m_levelTrees.size();
+    auto trees = createTrees(eventIndex, levelIndex);
+    m_levelTrees.push_back(trees);
+    appendTreesToView(trees);
 }
 
 void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel)
@@ -468,6 +513,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
 
             if (pipeSource)
             {
+                Q_ASSERT(pipeSource->getNumberOfOutputs() == 1); // TODO: implement the case for multiple outputs
                 auto pipe = pipeSource->getOutput(0);
 
                 menu.addAction(QSL("Show Parameters"), [this, pipe]() {
@@ -621,6 +667,9 @@ void EventWidgetPrivate::modeChanged()
         case SelectInput:
             // highlight valid sources
             {
+                clearAllTreeSelections();
+
+
                 Q_ASSERT(m_selectInputUserLevel < m_levelTrees.size());
 
                 for (s32 userLevel = 0; userLevel <= m_selectInputUserLevel; ++userLevel)
@@ -660,11 +709,13 @@ bool isValidInputNode(QTreeWidgetItem *node, Slot *slot)
     return result;
 }
 
+static const QColor ValidInputNodeColor = QColor("lightgreen");
+
 void EventWidgetPrivate::highlightValidInputNodes(QTreeWidgetItem *node)
 {
     if (isValidInputNode(node, m_selectInputSlot))
     {
-        node->setBackground(0, Qt::green);
+        node->setBackground(0, ValidInputNodeColor);
     }
 
     for (s32 childIndex = 0; childIndex < node->childCount(); ++childIndex)
@@ -789,7 +840,6 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, QWidget *parent
     m_d->m_q = this;
     m_d->m_context = ctx;
     m_d->m_eventId = eventId;
-    setMinimumSize(1000, 600); // FIXME: find another way to make the window be sanely sized at startup
 
     // TODO: This needs to be done whenever the analysis object is modified.
     auto analysis = ctx->getAnalysisNG();
@@ -798,19 +848,12 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, QWidget *parent
 
     auto outerLayout = new QHBoxLayout(this);
     outerLayout->setContentsMargins(0, 0, 0, 0);
-    auto scrollArea = new QScrollArea;
-    outerLayout->addWidget(scrollArea);
 
-    // FIXME: I don't get how scrollarea works
-    //auto scrollWidget = new QWidget;
-    //scrollArea->setWidget(scrollWidget);
-
-    auto scrollLayout = new QHBoxLayout(scrollArea);
-    scrollLayout->setContentsMargins(0, 0, 0, 0);
-
-    // row frames and splitter
+    // Row frames and splitter:
+    // Two rows, the top one containing Modules and Operators, the bottom one
+    // containing histograms.
     auto rowSplitter = new QSplitter(Qt::Vertical);
-    scrollLayout->addWidget(rowSplitter);
+    outerLayout->addWidget(rowSplitter);
 
     auto operatorFrame = new QFrame;
     auto operatorFrameLayout = new QHBoxLayout(operatorFrame);
@@ -822,12 +865,13 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, QWidget *parent
     displayFrameLayout->setContentsMargins(2, 2, 2, 2);
     rowSplitter->addWidget(displayFrame);
 
-    // column frames and splitters
-    auto operatorFrameColumnSplitter = new QSplitter;
-    operatorFrameLayout->addWidget(operatorFrameColumnSplitter);
+    // Column frames and splitters:
+    // One column for each user level
+    m_d->m_operatorFrameSplitter = new QSplitter;
+    operatorFrameLayout->addWidget(m_d->m_operatorFrameSplitter);
 
-    auto displayFrameColumnSplitter = new QSplitter;
-    displayFrameLayout->addWidget(displayFrameColumnSplitter);
+    m_d->m_displayFrameSplitter = new QSplitter;
+    displayFrameLayout->addWidget(m_d->m_displayFrameSplitter);
 
     auto sync_splitters = [](QSplitter *sa, QSplitter *sb)
     {
@@ -842,7 +886,7 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, QWidget *parent
         sync_one_way(sb, sa);
     };
 
-    sync_splitters(operatorFrameColumnSplitter, displayFrameColumnSplitter);
+    sync_splitters(m_d->m_operatorFrameSplitter, m_d->m_displayFrameSplitter);
 
     // FIXME: use the actual eventId here instead of going back to get the index
     int eventIndex = -1;
@@ -858,55 +902,13 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, QWidget *parent
 
     if (eventIndex >= 0)
     {
+        // This populates m_d->m_levelTrees
         m_d->createView(eventIndex);
     }
 
-    auto onItemClicked = [](TreeNode *node, int column)
+    for (auto trees: m_d->m_levelTrees)
     {
-        qDebug() << "EventWidget item clicked:" << node;
-        qDebug() << getQObject(node);
-    };
-
-    for (s32 levelIndex = 0;
-         levelIndex < m_d->m_levelTrees.size();
-         ++levelIndex)
-    {
-        auto opTree   = m_d->m_levelTrees[levelIndex].operatorTree;
-        auto dispTree = m_d->m_levelTrees[levelIndex].displayTree;
-        s32 minTreeWidth = 200;
-        opTree->setMinimumWidth(minTreeWidth);
-        dispTree->setMinimumWidth(minTreeWidth);
-        opTree->setContextMenuPolicy(Qt::CustomContextMenu);
-        dispTree->setContextMenuPolicy(Qt::CustomContextMenu);
-
-        operatorFrameColumnSplitter->addWidget(opTree);
-        displayFrameColumnSplitter->addWidget(dispTree);
-
-        // operator tree
-        connect(opTree, &QTreeWidget::itemClicked, this, [this] (QTreeWidgetItem *node, int column) {
-            m_d->onNodeClicked(reinterpret_cast<TreeNode *>(node), column);
-        });
-
-        connect(opTree, &QTreeWidget::itemDoubleClicked, this, [this] (QTreeWidgetItem *node, int column) {
-            m_d->onNodeDoubleClicked(reinterpret_cast<TreeNode *>(node), column);
-        });
-
-        connect(opTree, &QWidget::customContextMenuRequested, this, [this, opTree, levelIndex] (QPoint pos) {
-            m_d->doOperatorTreeContextMenu(opTree, pos, levelIndex);
-        });
-
-        // display tree
-        connect(dispTree, &QTreeWidget::itemClicked, this, [this] (QTreeWidgetItem *node, int column) {
-            m_d->onNodeClicked(reinterpret_cast<TreeNode *>(node), column);
-        });
-
-        connect(dispTree, &QTreeWidget::itemDoubleClicked, this, [this] (QTreeWidgetItem *node, int column) {
-            m_d->onNodeDoubleClicked(reinterpret_cast<TreeNode *>(node), column);
-        });
-
-        connect(dispTree, &QWidget::customContextMenuRequested, this, [this, dispTree, levelIndex] (QPoint pos) {
-            m_d->doDisplayTreeContextMenu(dispTree, pos, levelIndex);
-        });
+        m_d->appendTreesToView(trees);
     }
 }
 
@@ -974,6 +976,11 @@ void EventWidget::addAnalysisElementWidgetCloses()
     m_d->m_addAnalysisElementWidgetActive = false;
 }
 
+void EventWidget::addUserLevel(s32 eventIndex)
+{
+    m_d->addUserLevel(eventIndex);
+}
+
 EventWidget::~EventWidget()
 {
     delete m_d;
@@ -983,6 +990,8 @@ struct AnalysisWidgetPrivate
 {
     AnalysisWidget *m_q;
     MVMEContext *m_context;
+    QHash<QUuid, EventWidget *> m_eventWidgetsByEventId;
+    QList<EventConfig *> m_eventConfigs;
 };
 
 AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
@@ -998,24 +1007,42 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     connect(eventSelectCombo, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
             eventWidgetStack, &QStackedWidget::setCurrentIndex);
 
-    auto eventConfigs = m_d->m_context->getEventConfigs();
+    m_d->m_eventConfigs = m_d->m_context->getEventConfigs();
 
     // FIXME:  use ids here
     for (s32 eventIndex = 0;
-         eventIndex < eventConfigs.size();
+         eventIndex < m_d->m_eventConfigs.size();
          ++eventIndex)
     {
-        auto eventConfig = eventConfigs[eventIndex];
+        auto eventConfig = m_d->m_eventConfigs[eventIndex];
         auto eventId = eventConfig->getId();
         auto eventWidget = new EventWidget(m_d->m_context, eventId);
-        eventSelectCombo->addItem(QString("%1 (id=%2)").arg(eventConfig->objectName()).arg(eventIndex));
-        eventWidgetStack->addWidget(eventWidget);
+        eventSelectCombo->addItem(QString("%1 (idx=%2)").arg(eventConfig->objectName()).arg(eventIndex));
+
+        auto scrollArea = new QScrollArea;
+        scrollArea->setWidget(eventWidget);
+        scrollArea->setWidgetResizable(true);
+
+        eventWidgetStack->addWidget(scrollArea);
+        m_d->m_eventWidgetsByEventId[eventId] = eventWidget;
     }
+
+    auto addUserLevelButton = new QPushButton("+");
+    connect(addUserLevelButton, &QPushButton::clicked, this, [this, eventSelectCombo]() {
+        s32 eventIndex = eventSelectCombo->currentIndex();
+        EventConfig *eventConfig = m_d->m_eventConfigs[eventIndex];
+        EventWidget *eventWidget = m_d->m_eventWidgetsByEventId.value(eventConfig->getId());
+        if (eventWidget)
+        {
+            eventWidget->addUserLevel(eventIndex);
+        }
+    });
 
     auto eventSelectLayout = new QHBoxLayout;
     eventSelectLayout->addWidget(new QLabel(QSL("Event:")));
     eventSelectLayout->addWidget(eventSelectCombo);
     eventSelectLayout->addStretch();
+    eventSelectLayout->addWidget(addUserLevelButton);
 
     auto layout = new QGridLayout(this);
     layout->setContentsMargins(2, 2, 2, 2);
