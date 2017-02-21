@@ -33,6 +33,15 @@ void Histo2D::fill(double x, double y, double weight)
     {
         u32 linearBin = yBin * m_xAxis.getBins() + xBin;
         m_data[linearBin] += weight;
+        double newValue = m_data[linearBin];
+
+        if (newValue > m_stats.maxValue)
+        {
+            m_stats.maxValue = newValue;
+            m_stats.maxX = x;
+            m_stats.maxY = y;
+        }
+        m_stats.entryCount += weight;
     }
 }
 
@@ -78,4 +87,26 @@ void Histo2D::debugDump() const
              ++x)
     }
 #endif
+}
+
+AxisInterval Histo2D::getInterval(Qt::Axis axis) const
+{
+    AxisInterval result = {};
+    if (axis == Qt::XAxis)
+    {
+        result.minValue = m_xAxis.getMin();
+        result.maxValue = m_xAxis.getMax();
+    }
+    else if (axis == Qt::YAxis)
+    {
+        result.minValue = m_yAxis.getMin();
+        result.maxValue = m_yAxis.getMax();
+    }
+    else if (axis == Qt::ZAxis)
+    {
+        result.minValue = 0.0;
+        result.maxValue = m_stats.maxValue;
+    }
+
+    return result;
 }

@@ -6,10 +6,10 @@
 
 struct Histo2DStatistics
 {
-    u32 maxX = 0;
-    u32 maxY = 0;
-    u32 maxValue = 0;
-    s64 entryCount = 0;
+    double maxX = 0.0;
+    double maxY = 0.0;
+    double maxValue = 0.0;
+    double entryCount = 0;
 };
 
 class Histo2D: public QObject
@@ -39,6 +39,8 @@ class Histo2D: public QObject
                     return AxisBinning();
             }
         }
+
+        AxisInterval getInterval(Qt::Axis axis) const;
 
         //Hist2DStatistics calcStatistics(QwtInterval xInterval, QwtInterval yInterval) const;
 

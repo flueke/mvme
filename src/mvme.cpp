@@ -20,6 +20,7 @@
 #include "gui_util.h"
 #include "analysis/analysis.h"
 #include "histo1d_widget.h"
+#include "histo2d_widget.h"
 #include "analysis/analysis_ui.h"
 
 #include <QDockWidget>
@@ -808,6 +809,7 @@ void mvme::openInNewWindow(QObject *object)
     auto hist1d            = qobject_cast<Hist1D *>(object); 
     // The new histo type
     auto histo1d = qobject_cast<Histo1D *>(object);
+    auto histo2d = qobject_cast<Histo2D *>(object);
 
     QWidget *widget = nullptr;
     QIcon windowIcon;
@@ -834,6 +836,11 @@ void mvme::openInNewWindow(QObject *object)
     else if (histo1d)
     {
         widget = new Histo1DWidget(histo1d);
+        windowSize = QSize(600, 400);
+    }
+    else if (histo2d)
+    {
+        widget = new Histo2DWidget(histo2d);
         windowSize = QSize(600, 400);
     }
 

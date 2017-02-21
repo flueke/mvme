@@ -9,6 +9,7 @@
 #include <QVariant>
 #include <QWidget>
 #include <functional>
+#include <limits>
 
 class QTextStream;
 
@@ -245,5 +246,10 @@ QPair<double, QString> byte_unit(size_t bytes);
 //QString format_memory_size(size_t bytes);
 
 void logBuffer(BufferIterator iter, std::function<void (const QString &)> loggerFun);
+
+static constexpr double make_quiet_nan()
+{
+    return std::numeric_limits<double>::quiet_NaN();
+}
 
 #endif // UTIL_H

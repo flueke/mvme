@@ -5,7 +5,7 @@
 #include "data_filter.h"
 #include "histo1d.h"
 #include "histo2d.h"
-#include "../qt_util.h"
+#include "../util.h"
 
 #include <memory>
 #include <QUuid>
@@ -336,11 +336,6 @@ Q_DECLARE_INTERFACE(analysis::SinkInterface, SinkInterface_iid);
 
 namespace analysis
 {
-
-static constexpr double make_quiet_nan()
-{
-    return std::numeric_limits<double>::quiet_NaN();
-}
 
 //
 // Sources

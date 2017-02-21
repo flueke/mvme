@@ -188,4 +188,10 @@ class AxisBinning
         double m_max;
 };
 
+struct AxisInterval
+{
+    double minValue;
+    double maxValue;
+};
+
 #endif /* __HISTO_UTIL_H__ */

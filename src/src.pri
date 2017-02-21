@@ -88,6 +88,7 @@ FORMS += \
     $$PWD/hist2ddialog.ui \
     $$PWD/hist2dwidget.ui \
     $$PWD/histo1d_widget.ui \
+    $$PWD/histo2d_widget.ui \
     $$PWD/mesytec_diagnostics.ui \
     $$PWD/mvme.ui \
     $$PWD/vme_debug_widget.ui \

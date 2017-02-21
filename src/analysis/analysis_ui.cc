@@ -598,6 +598,20 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
                         });
                     }
                 } break;
+
+            case NodeType_Histo2DSink:
+                {
+                    if (auto histoSink = qobject_cast<Histo2DSink *>(obj))
+                    {
+                        auto histo = histoSink->m_histo.get();
+                        if (histo)
+                        {
+                            menu.addAction(QSL("Open"), m_q, [this, histo]() {
+                                m_context->openInNewWindow(histo);
+                            });
+                        }
+                    }
+                } break;
         }
     }
     else

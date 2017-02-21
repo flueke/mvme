@@ -1,4 +1,3 @@
-#include "histo1d.h"
 #include "histo1d_widget.h"
 #include "ui_histo1d_widget.h"
 #include "scrollzoomer.h"
@@ -223,6 +222,7 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
 
 Histo1DWidget::~Histo1DWidget()
 {
+    delete m_plotCurve;
     delete ui;
     delete m_statsText;
 }
