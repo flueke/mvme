@@ -36,4 +36,23 @@ void findItems(QTreeWidgetItem *root, Pred predicate, QList<QTreeWidgetItem *> *
     }
 }
 
+template<typename Predicate>
+QTreeWidgetItem *findFirstNode(QTreeWidgetItem *node, Predicate predicate)
+{
+    if (predicate(node))
+        return node;
+
+    int childCount = node->childCount();
+
+    for (int i = 0; i < childCount; ++i)
+    {
+        if (auto result = findFirstNode(node->child(i), predicate))
+        {
+            return result;
+        }
+    }
+
+    return nullptr;
+}
+
 #endif /* __TREEWIDGET_UTIL_H__ */

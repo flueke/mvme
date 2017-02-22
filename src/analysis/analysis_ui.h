@@ -21,6 +21,6 @@ class AnalysisWidget: public QWidget
         AnalysisWidgetPrivate *m_d;
 };
 
-}
+} // end namespace analysis
 
 #endif /* __ANALYSIS_UI_H__ */

@@ -1,8 +1,10 @@
 #include "analysis_ui.h"
 #include "analysis_ui_p.h"
+#include "data_extraction_widget.h"
 
 #include "../mvme_context.h"
 #include "../histo1d_widget.h"
+#include "../treewidget_utils.h"
 
 #include <QComboBox>
 #include <QCursor>
@@ -12,6 +14,7 @@
 #include <QScrollArea>
 #include <QSplitter>
 #include <QStackedWidget>
+#include <QToolButton>
 #include <QTreeWidget>
 
 namespace analysis
@@ -69,6 +72,38 @@ class TreeNode: public QTreeWidgetItem
         }
 };
 
+#if 0
+// Was playing around with storing shared_ptr<T> in QVariants. Getting the
+// value out of the variant involves having to know the exact type T with which
+// it was added. I prefer just storing raw pointers and qobject_cast()'ing or
+// reinterpret_cast()'ing those.
+
+template<typename T, typename U>
+std::shared_ptr<T> qobject_pointer_cast(const std::shared_ptr<U> &src)
+{
+    if (auto rawT = qobject_cast<T *>(src.get()))
+    {
+        return std::shared_ptr<T>(src, rawT);
+    }
+
+    return std::shared_ptr<T>();
+}
+
+template<typename T>
+TreeNode *makeNode(const std::shared_ptr<T> &data, int type = QTreeWidgetItem::Type)
+{
+    auto ret = new TreeNode(type);
+    ret->setData(0, DataRole_SharedPointer, QVariant::fromValue(data));
+    return ret;
+}
+
+template<typename T>
+std::shared_ptr<T> getSharedPointer(QTreeWidgetItem *node, s32 dataRole = DataRole_SharedPointer)
+{
+    return node ? node->data(0, dataRole).value<std::shared_ptr<T>>() : std::shared_ptr<T>();
+}
+#endif
+
 template<typename T>
 TreeNode *makeNode(T *data, int type = QTreeWidgetItem::Type)
 {
@@ -78,7 +113,7 @@ TreeNode *makeNode(T *data, int type = QTreeWidgetItem::Type)
 }
 
 template<typename T>
-T *getPointer(QTreeWidgetItem *node, s32 dataRole = Qt::UserRole)
+T *getPointer(QTreeWidgetItem *node, s32 dataRole = DataRole_Pointer)
 {
     return node ? reinterpret_cast<T *>(node->data(0, dataRole).value<void *>()) : nullptr;
 }
@@ -238,7 +273,7 @@ struct EventWidgetPrivate
     QVector<DisplayLevelTrees> m_levelTrees;
 
     Mode m_mode;
-    bool m_addAnalysisElementWidgetActive;
+    bool m_uniqueWidgetActive;
     Slot *m_selectInputSlot;
     s32 m_selectInputUserLevel;
     EventWidget::SelectInputCallback m_selectInputCallback;
@@ -475,19 +510,21 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
     {
         if (userLevel == 0 && node->type() == NodeType_Module)
         {
-            if (!m_addAnalysisElementWidgetActive)
+            if (!m_uniqueWidgetActive)
             {
-#if 0
+#if 1
                 auto menuNew = new QMenu;
 
-                auto add_action = [this, &menu, menuNew, userLevel](const QString &title, auto srcPtr)
+                auto moduleConfig = getPointer<ModuleConfig>(node);
+
+                auto add_action = [this, &menu, menuNew, moduleConfig](const QString &title, auto srcPtr)
                 {
-                    menuNew->addAction(title, &menu, [this, userLevel, srcPtr]() {
-                        auto widget = new AddSourceWidget(srcPtr, //TODO: module info herem_q);
-                             widget->move(QCursor::pos());
+                    menuNew->addAction(title, &menu, [this, moduleConfig, srcPtr]() {
+                        auto widget = new AddEditSourceWidget(srcPtr, moduleConfig, m_q);
+                        widget->move(QCursor::pos());
                         widget->setAttribute(Qt::WA_DeleteOnClose);
                         widget->show();
-                        m_addAnalysisElementWidgetActive = true;
+                        m_uniqueWidgetActive = true;
                         clearAllTreeSelections();
                     });
                 };
@@ -510,12 +547,12 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
 
         if (userLevel == 0 && node->type() == NodeType_Source)
         {
-            auto pipeSource = getPointer<PipeSourceInterface>(node);
+            auto sourceInterface = getPointer<SourceInterface>(node);
 
-            if (pipeSource)
+            if (sourceInterface)
             {
-                Q_ASSERT(pipeSource->getNumberOfOutputs() == 1); // TODO: implement the case for multiple outputs
-                auto pipe = pipeSource->getOutput(0);
+                Q_ASSERT(sourceInterface->getNumberOfOutputs() == 1); // TODO: implement the case for multiple outputs
+                auto pipe = sourceInterface->getOutput(0);
 
                 menu.addAction(QSL("Show Parameters"), [this, pipe]() {
                     auto widget = new PipeDisplay(pipe, m_q);
@@ -523,6 +560,23 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                     widget->setAttribute(Qt::WA_DeleteOnClose);
                     widget->show();
                 });
+
+                auto moduleNode = node->parent();
+                Q_ASSERT(moduleNode && moduleNode->type() == NodeType_Module);
+
+                auto moduleConfig = getPointer<ModuleConfig>(moduleNode);
+
+                if (moduleConfig)
+                {
+                    menu.addAction(QSL("Edit"), [this, sourceInterface, moduleConfig]() {
+                        auto widget = new AddEditSourceWidget(sourceInterface, moduleConfig, m_q);
+                        widget->move(QCursor::pos());
+                        widget->setAttribute(Qt::WA_DeleteOnClose);
+                        widget->show();
+                        m_uniqueWidgetActive = true;
+                        clearAllTreeSelections();
+                    });
+                }
             }
         }
         else if (userLevel > 0 && node->type() == NodeType_OutputPipe)
@@ -539,7 +593,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
     }
     else // No node selected
     {
-        if (m_mode == EventWidgetPrivate::Default && !m_addAnalysisElementWidgetActive)
+        if (m_mode == EventWidgetPrivate::Default && !m_uniqueWidgetActive)
         {
             if (userLevel > 0)
             {
@@ -548,11 +602,11 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                 auto add_action = [this, &menu, menuNew, userLevel](const QString &title, auto opPtr)
                 {
                     menuNew->addAction(title, &menu, [this, userLevel, opPtr]() {
-                        auto widget = new AddOperatorWidget(opPtr, userLevel, m_q);
+                        auto widget = new AddEditOperatorWidget(opPtr, userLevel, m_q);
                         widget->move(QCursor::pos());
                         widget->setAttribute(Qt::WA_DeleteOnClose);
                         widget->show();
-                        m_addAnalysisElementWidgetActive = true;
+                        m_uniqueWidgetActive = true;
                         clearAllTreeSelections();
                     });
                 };
@@ -632,18 +686,18 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
     }
     else
     {
-        if (m_mode == EventWidgetPrivate::Default && !m_addAnalysisElementWidgetActive)
+        if (m_mode == EventWidgetPrivate::Default && !m_uniqueWidgetActive)
         {
             auto menuNew = new QMenu;
 
             auto add_action = [this, &menu, menuNew, userLevel](const QString &title, auto opPtr)
             {
                 menuNew->addAction(title, &menu, [this, userLevel, opPtr]() {
-                    auto widget = new AddOperatorWidget(opPtr, userLevel, m_q);
+                    auto widget = new AddEditOperatorWidget(opPtr, userLevel, m_q);
                     widget->move(QCursor::pos());
                     widget->setAttribute(Qt::WA_DeleteOnClose);
                     widget->show();
-                    m_addAnalysisElementWidgetActive = true;
+                    m_uniqueWidgetActive = true;
                     clearAllTreeSelections();
                 });
             };
@@ -783,7 +837,7 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column)
                     Slot *slot = m_selectInputSlot;
                     // connect the slot with the selected input source
                     // TODO: don't directly connect here. instead pass info
-                    // about the selected input to the AddOperatorWidget
+                    // about the selected input to the AddEditOperatorWidget
                     // (probably using the callback method).
                     switch (node->type())
                     {
@@ -963,7 +1017,10 @@ void EventWidget::endSelectInput()
 
 void EventWidget::addOperator(OperatorPtr op, s32 userLevel)
 {
+    if (!op) return;
+
     Q_ASSERT(userLevel < m_d->m_levelTrees.size());
+
     if (userLevel < m_d->m_levelTrees.size())
     {
         m_d->m_context->getAnalysisNG()->addOperator(m_d->eventIndex, op, userLevel);
@@ -1001,9 +1058,54 @@ void EventWidget::addOperator(OperatorPtr op, s32 userLevel)
     }
 }
 
-void EventWidget::addAnalysisElementWidgetCloses()
+void EventWidget::addSource(SourcePtr src, ModuleConfig *module)
 {
-    m_d->m_addAnalysisElementWidgetActive = false;
+    if (!src) return;
+
+    auto indices = m_d->m_context->getDAQConfig()->getEventAndModuleIndices(module);
+    s32 eventIndex = indices.first;
+    s32 moduleIndex = indices.second;
+    m_d->m_context->getAnalysisNG()->addSource(eventIndex, moduleIndex, src);
+    src->beginRun();
+
+    auto sourceTree = m_d->m_levelTrees[0].operatorTree;
+
+    // find the module node
+    auto moduleNode = findFirstNode(sourceTree->invisibleRootItem(), [module](QTreeWidgetItem *node) {
+        return (node->type() == NodeType_Module
+                && getPointer<ModuleConfig>(node) == module);
+    });
+
+    if (moduleNode)
+    {
+        auto sourceNode = makeOperatorTreeSourceNode(src.get());
+        moduleNode->addChild(sourceNode);
+    }
+}
+
+void EventWidget::sourceEdited(SourceInterface *src, ModuleConfig *module)
+{
+    auto sourceTree = m_d->m_levelTrees[0].operatorTree;
+    auto sourceNode = findFirstNode(sourceTree->invisibleRootItem(), [src](QTreeWidgetItem *node) {
+        return (node->type() == NodeType_Source
+                && getPointer<SourceInterface>(node) == src);
+    });
+
+    if (sourceNode && sourceNode->parent())
+    {
+        auto moduleNode = sourceNode->parent();
+        bool wasExpanded = sourceNode->isExpanded();
+        delete sourceNode;
+        src->beginRun();
+        sourceNode = makeOperatorTreeSourceNode(src);
+        moduleNode->addChild(sourceNode);
+        sourceNode->setExpanded(wasExpanded);
+    }
+}
+
+void EventWidget::uniqueWidgetCloses()
+{
+    m_d->m_uniqueWidgetActive = false;
 }
 
 void EventWidget::addUserLevel(s32 eventIndex)
@@ -1057,7 +1159,8 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
         m_d->m_eventWidgetsByEventId[eventId] = eventWidget;
     }
 
-    auto addUserLevelButton = new QPushButton("+");
+    auto addUserLevelButton = new QToolButton();
+    addUserLevelButton->setIcon(QIcon(QSL(":/list_add.png")));
     connect(addUserLevelButton, &QPushButton::clicked, this, [this, eventSelectCombo]() {
         s32 eventIndex = eventSelectCombo->currentIndex();
         EventConfig *eventConfig = m_d->m_eventConfigs[eventIndex];
@@ -1078,6 +1181,24 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     layout->setContentsMargins(2, 2, 2, 2);
     layout->addLayout(eventSelectLayout, 0, 0);
     layout->addWidget(eventWidgetStack, 1, 0);
+
+#if 0
+    {
+        // DataExtractionEditor test
+        analysis::MultiWordDataFilter testFilter;
+        testFilter.addSubFilter(analysis::DataFilter("0001XXXXPO00AAAADDDDDDDDDDDDDDDD", 3));
+        testFilter.addSubFilter(analysis::DataFilter("0101XXXXXXXXXXXXDDDDDDDDDDDDDDDD", 4));
+
+        auto testWidget = new DataExtractionEditor(this);
+        testWidget->setWindowFlags(Qt::Tool);
+        testWidget->show();
+
+        testWidget->m_defaultFilter = "0001XXXXPO00AAAADDDDDDDDDDDDDDDD";
+        testWidget->m_subFilters = testFilter.getSubFilters();
+        testWidget->m_requiredCompletionCount = 42;
+        testWidget->updateDisplay();
+    }
+#endif
 }
 
 AnalysisWidget::~AnalysisWidget()

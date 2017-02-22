@@ -1,4 +1,7 @@
 #include "analysis_ui_p.h"
+#include "data_extraction_widget.h"
+#include "../globals.h"
+#include "../mvme_config.h"
 
 #include <limits>
 #include <QFormLayout>
@@ -7,20 +10,30 @@
 
 namespace analysis
 {
-AddOperatorWidget::AddOperatorWidget(OperatorPtr op, s32 userLevel, EventWidget *eventWidget)
+
+
+AddEditOperatorWidget::AddEditOperatorWidget(OperatorPtr opPtr, s32 userLevel, EventWidget *eventWidget)
+    : AddEditOperatorWidget(opPtr.get(), userLevel, eventWidget)
+{
+    m_opPtr = opPtr;
+}
+
+AddEditOperatorWidget::AddEditOperatorWidget(OperatorInterface *op, s32 userLevel, EventWidget *eventWidget)
     : QWidget(eventWidget, Qt::Tool)
     , m_op(op)
     , m_userLevel(userLevel)
     , m_eventWidget(eventWidget)
     , m_opConfigWidget(new OperatorConfigurationWidget(op, userLevel, this))
 {
+    // TODO: actually do implement edit support for AddEditOperatorWidget
+
     //m_opConfigWidget->setEnabled(false);
 
     auto slotGrid = new QGridLayout;
     int row = 0;
-    for (s32 slotIndex = 0; slotIndex < op->getNumberOfSlots(); ++slotIndex)
+    for (s32 slotIndex = 0; slotIndex < m_op->getNumberOfSlots(); ++slotIndex)
     {
-        Slot *slot = op->getSlot(slotIndex);
+        Slot *slot = m_op->getSlot(slotIndex);
         
         auto selectButton = new QPushButton(QSL("<select>"));
         selectButton->setCheckable(true);
@@ -82,7 +95,7 @@ AddOperatorWidget::AddOperatorWidget(OperatorPtr op, s32 userLevel, EventWidget 
 
     m_buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
     m_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(false);
-    connect(m_buttonBox, &QDialogButtonBox::accepted, this, &AddOperatorWidget::accept);
+    connect(m_buttonBox, &QDialogButtonBox::accepted, this, &AddEditOperatorWidget::accept);
     connect(m_buttonBox, &QDialogButtonBox::rejected, this, &QWidget::close);
     auto buttonBoxLayout = new QVBoxLayout;
     buttonBoxLayout->addStretch();
@@ -102,7 +115,7 @@ AddOperatorWidget::AddOperatorWidget(OperatorPtr op, s32 userLevel, EventWidget 
     layout->setRowStretch(1, 1);
 }
 
-void AddOperatorWidget::inputSelected(s32 slotIndex)
+void AddEditOperatorWidget::inputSelected(s32 slotIndex)
 {
     Slot *slot = m_op->getSlot(slotIndex);
     qDebug() << __PRETTY_FUNCTION__ << slot;
@@ -140,17 +153,113 @@ void AddOperatorWidget::inputSelected(s32 slotIndex)
     m_inputSelectActive = false;
 }
 
-void AddOperatorWidget::accept()
+void AddEditOperatorWidget::accept()
 {
     m_opConfigWidget->configureOperator();
-    m_eventWidget->addOperator(m_op, m_userLevel);
+    if (m_opPtr)
+    {
+        m_eventWidget->addOperator(m_opPtr, m_userLevel);
+    }
     close();
 }
 
-void AddOperatorWidget::closeEvent(QCloseEvent *event)
+void AddEditOperatorWidget::closeEvent(QCloseEvent *event)
 {
     m_eventWidget->endSelectInput();
-    m_eventWidget->addAnalysisElementWidgetCloses();
+    m_eventWidget->uniqueWidgetCloses();
+    event->accept();
+}
+
+//
+// AddEditSourceWidget
+//
+QByteArray getDefaultFilter(VMEModuleType moduleType)
+{
+    // defined in globals.h
+    return defaultDataFilters.value(moduleType).value(0).filter;
+}
+
+AddEditSourceWidget::AddEditSourceWidget(SourcePtr srcPtr, ModuleConfig *mod, EventWidget *eventWidget)
+    : AddEditSourceWidget(srcPtr.get(), mod, eventWidget)
+{
+    m_srcPtr = srcPtr;
+}
+
+AddEditSourceWidget::AddEditSourceWidget(SourceInterface *src, ModuleConfig *module, EventWidget *eventWidget)
+    : QWidget(eventWidget, Qt::Tool)
+    , m_src(src)
+    , m_module(module)
+    , m_eventWidget(eventWidget)
+{
+    auto extractor = qobject_cast<Extractor *>(src);
+    Q_ASSERT(extractor); // TODO: implement support for other sources once they exist
+    Q_ASSERT(module);
+
+    le_name = new QLineEdit;
+    m_filterEditor = new DataExtractionEditor;
+    m_filterEditor->setMinimumHeight(125);
+
+    if (extractor)
+    {
+        le_name->setText(extractor->objectName());
+
+        m_filterEditor->m_defaultFilter = getDefaultFilter(module->type);
+        m_filterEditor->m_subFilters = extractor->getFilter().getSubFilters();
+        if (m_filterEditor->m_subFilters.isEmpty())
+        {
+            m_filterEditor->m_subFilters.push_back(DataFilter(m_filterEditor->m_defaultFilter));
+        }
+        m_filterEditor->m_requiredCompletionCount = extractor->getRequiredCompletionCount();
+
+        m_filterEditor->updateDisplay();
+    }
+
+    m_buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+    //m_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(false);
+    connect(m_buttonBox, &QDialogButtonBox::accepted, this, &AddEditSourceWidget::accept);
+    connect(m_buttonBox, &QDialogButtonBox::rejected, this, &QWidget::close);
+    auto buttonBoxLayout = new QVBoxLayout;
+    buttonBoxLayout->addStretch();
+    buttonBoxLayout->addWidget(m_buttonBox);
+
+    auto layout = new QGridLayout(this);
+    layout->setContentsMargins(2, 2, 2, 2);
+
+    s32 row = 0, col = 0, maxCol = 2;
+    // row, col, rowSpan, colSpan
+    layout->addWidget(new QLabel(QSL("Name")), row, 0);
+    layout->addWidget(le_name, row, 1);
+    ++row;
+
+    layout->addWidget(m_filterEditor, row++, 0, 1, maxCol);
+    layout->addLayout(buttonBoxLayout, row++, 0, 1, maxCol);
+
+    layout->setRowStretch(1, 1);
+}
+
+void AddEditSourceWidget::accept()
+{
+    auto extractor = qobject_cast<Extractor *>(m_src);
+
+    extractor->setObjectName(le_name->text());
+    m_filterEditor->apply();
+    extractor->getFilter().setSubFilters(m_filterEditor->m_subFilters);
+    extractor->setRequiredCompletionCount(m_filterEditor->m_requiredCompletionCount);
+
+    if (m_srcPtr)
+    {
+        m_eventWidget->addSource(m_srcPtr, m_module);
+    }
+    else
+    {
+        m_eventWidget->sourceEdited(m_src, m_module);
+    }
+    close();
+}
+
+void AddEditSourceWidget::closeEvent(QCloseEvent *event)
+{
+    m_eventWidget->uniqueWidgetCloses();
     event->accept();
 }
 
@@ -166,14 +275,12 @@ static const s32 bin2DMin = 1;
 static const s32 bin2DMax = 1 << 12;
 static const s32 bin2DDef = 1 << 10;
 
-OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorPtr opPtr, s32 userLevel, AddOperatorWidget *parent)
+OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, s32 userLevel, AddEditOperatorWidget *parent)
     : QWidget(parent)
     , m_parent(parent)
-    , m_op(opPtr)
+    , m_op(op)
     , m_userLevel(userLevel)
 {
-    OperatorInterface *op = opPtr.get();
-
     auto *formLayout = new QFormLayout(this);
 
     le_name = new QLineEdit;
@@ -235,7 +342,7 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorPtr opPtr, s32 
 
 bool OperatorConfigurationWidget::validateInputs()
 {
-    OperatorInterface *op = m_op.get();
+    OperatorInterface *op = m_op;
 
     if (le_name->text().isEmpty())
         return false;
@@ -260,7 +367,7 @@ bool OperatorConfigurationWidget::validateInputs()
 
 void OperatorConfigurationWidget::configureOperator()
 {
-    OperatorInterface *op = m_op.get();
+    OperatorInterface *op = m_op;
 
     op->setObjectName(le_name->text());
 
@@ -325,6 +432,7 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
 //
 // PipeDisplay
 //
+
 PipeDisplay::PipeDisplay(Pipe *pipe, QWidget *parent)
     : QWidget(parent, Qt::Tool)
     , m_pipe(pipe)

@@ -14,11 +14,14 @@
 #include <QWidget>
 
 class MVMEContext;
+class ModuleConfig;
 
 namespace analysis
 {
 
 class EventWidgetPrivate;
+class OperatorConfigurationWidget;
+class DataExtractionEditor;
 
 class EventWidget: public QWidget
 {
@@ -33,7 +36,9 @@ class EventWidget: public QWidget
         void selectInputFor(Slot *slot, s32 userLevel, SelectInputCallback callback);
         void endSelectInput();
         void addOperator(OperatorPtr op, s32 userLevel);
-        void addAnalysisElementWidgetCloses(); // FIXME: better name
+        void addSource(SourcePtr src, ModuleConfig *module);
+        void sourceEdited(SourceInterface *src, ModuleConfig *module);
+        void uniqueWidgetCloses();
         void addUserLevel(s32 eventIndex);
 
     private:
@@ -43,20 +48,23 @@ class EventWidget: public QWidget
         EventWidgetPrivate *m_d;
 };
 
-class OperatorConfigurationWidget;
+// FIXME: Both AddEditOperatorWidget and AddEditSourceWidget go into "add" mode
+// if they're constructed with a shared_ptr argument. This is intransparent and
+// surprising.
 
-class AddOperatorWidget: public QWidget
+class AddEditOperatorWidget: public QWidget
 {
     Q_OBJECT
-
     public:
-        AddOperatorWidget(OperatorPtr op, s32 userLevel, EventWidget *eventWidget);
+        AddEditOperatorWidget(OperatorPtr opPtr, s32 userLevel, EventWidget *eventWidget);
+        AddEditOperatorWidget(OperatorInterface *op, s32 userLevel, EventWidget *eventWidget);
 
         virtual void closeEvent(QCloseEvent *event) override;
         void inputSelected(s32 slotIndex);
         void accept();
 
-        OperatorPtr m_op;
+        OperatorPtr m_opPtr;
+        OperatorInterface *m_op;
         s32 m_userLevel;
         EventWidget *m_eventWidget;
         QVector<QPushButton *> m_selectButtons;
@@ -65,17 +73,37 @@ class AddOperatorWidget: public QWidget
         OperatorConfigurationWidget *m_opConfigWidget = nullptr;
 };
 
+class AddEditSourceWidget: public QWidget
+{
+    Q_OBJECT
+    public:
+        AddEditSourceWidget(SourcePtr srcPtr, ModuleConfig *mod, EventWidget *eventWidget);
+        AddEditSourceWidget(SourceInterface *src, ModuleConfig *mod, EventWidget *eventWidget);
+
+        virtual void closeEvent(QCloseEvent *event) override;
+        void accept();
+
+        SourcePtr m_srcPtr;
+        SourceInterface *m_src;
+        ModuleConfig *m_module;
+        EventWidget *m_eventWidget;
+
+        QLineEdit *le_name = nullptr;
+        QDialogButtonBox *m_buttonBox = nullptr;
+        DataExtractionEditor *m_filterEditor = nullptr;
+};
+
 class OperatorConfigurationWidget: public QWidget
 {
     Q_OBJECT
     public:
-        OperatorConfigurationWidget(OperatorPtr op, s32 userLevel, AddOperatorWidget *parent);
+        OperatorConfigurationWidget(OperatorInterface *op, s32 userLevel, AddEditOperatorWidget *parent);
         bool validateInputs();
         void configureOperator();
         void inputSelected(s32 slotIndex);
 
-        AddOperatorWidget *m_parent;
-        OperatorPtr m_op;
+        AddEditOperatorWidget *m_parent;
+        OperatorInterface *m_op;
         s32 m_userLevel;
 
         QLineEdit *le_name = nullptr;

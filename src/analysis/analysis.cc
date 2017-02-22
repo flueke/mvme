@@ -242,27 +242,6 @@ s32 BasicOperator::getNumberOfSlots() const
     return 1;
 }
 
-#if 0
-void BasicOperator::connectInputSlot(s32 slotIndex, Pipe *inputPipe, s32 paramIndex)
-{
-    if (slotIndex == 0)
-    {
-        if (m_inputSlot.inputPipe)
-        {
-            m_inputSlot.inputPipe->removeDestination(&m_inputSlot);
-        }
-
-        m_inputSlot.inputPipe = inputPipe;
-        m_inputSlot.paramIndex = paramIndex;
-
-        if (inputPipe)
-        {
-            inputPipe->addDestination(&m_inputSlot);
-        }
-    }
-}
-#endif
-
 Slot *BasicOperator::getSlot(s32 slotIndex)
 {
     Slot *result = nullptr;
@@ -272,18 +251,6 @@ Slot *BasicOperator::getSlot(s32 slotIndex)
     }
     return result;
 }
-
-#if 0
-void BasicOperator::disconnectSlot(Pipe *sourcePipe)
-{
-    if (sourcePipe && m_inputSlot.inputPipe == sourcePipe)
-    {
-        m_inputSlot.inputPipe->removeDestination(&m_inputSlot);
-        m_inputSlot.inputPipe = nullptr;
-        m_inputSlot.paramIndex = Slot::NoParamIndex;
-    }
-}
-#endif
 
 s32 BasicOperator::getNumberOfOutputs() const
 {
@@ -604,7 +571,7 @@ void PreviousValue::write(QJsonObject &json) const
 RetainValid::RetainValid(QObject *parent)
     : BasicOperator(parent)
 {
-    m_inputSlot.acceptedInputTypes = InputType::Value;
+    m_inputSlot.acceptedInputTypes = InputType::Both;
 }
 
 void RetainValid::beginRun()
@@ -614,10 +581,34 @@ void RetainValid::beginRun()
         auto &out(m_output.getParameters());
         const auto &in(m_inputSlot.inputPipe->getParameters());
 
-        out.resize(1);
+        s32 idxMin = 0;
+        s32 idxMax = in.size();
+
+        if (m_inputSlot.paramIndex != Slot::NoParamIndex)
+        {
+            out.resize(1);
+            idxMin = m_inputSlot.paramIndex;
+            idxMax = idxMin + 1;
+        }
+        else
+        {
+            out.resize(in.size());
+        }
+
         out.invalidateAll();
         out.name = in.name;
         out.unit = in.unit;
+
+        for (s32 idx = idxMin, outIdx = 0;
+             idx < idxMax;
+             ++idx, ++outIdx)
+        {
+            const Parameter &inParam(in[idx]);
+            Parameter &outParam(out[outIdx]);
+
+            outParam.lowerLimit = inParam.lowerLimit;
+            outParam.upperLimit = inParam.upperLimit;
+        }
     }
 }
 
@@ -626,11 +617,33 @@ void RetainValid::step()
     if (m_inputSlot.inputPipe)
     {
         auto &out(m_output.getParameters());
-        const Parameter *in(m_inputSlot.inputPipe->getParameter(m_inputSlot.paramIndex));
+        const auto &in(m_inputSlot.inputPipe->getParameters());
 
-        if (in && in->valid)
+        s32 paramIndex = m_inputSlot.paramIndex;
+
+        if (paramIndex != Slot::NoParamIndex)
         {
-            out[0] = *in;
+            Q_ASSERT(paramIndex >= 0 && paramIndex < in.size());
+
+            if (in[paramIndex].valid)
+            {
+                out[0] = in[paramIndex];
+            }
+        }
+        else
+        {
+            const s32 size = in.size();
+
+            for (s32 address = 0; address < size; ++address)
+            {
+                auto &outParam(out[address]);
+                const auto &inParam(in[address]);
+
+                if (inParam.valid)
+                {
+                    outParam = inParam;
+                }
+            }
         }
     }
 }

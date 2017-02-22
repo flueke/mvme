@@ -80,6 +80,7 @@ class MultiWordDataFilter
 
         void addSubFilter(const DataFilter &filter);
         QVector<DataFilter> getSubFilters() const { return m_filters; }
+        void setSubFilters(const QVector<DataFilter> &subfilters);
         int getSubFilterCount() const { return m_filters.size(); }
 
         inline void handleDataWord(u32 dataWord, s32 wordIndex = -1)
@@ -184,6 +185,9 @@ class MultiWordDataFilter
 
         QVector<ResultPart> m_results;
 };
+
+// Converts input to 8 bit, removes spaces, creates filter.
+DataFilter makeFilterFromString(const QString &str, s32 wordIndex = -1);
 
 }
 

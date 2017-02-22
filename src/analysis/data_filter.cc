@@ -131,10 +131,32 @@ void MultiWordDataFilter::addSubFilter(const DataFilter &filter)
     clearCompletion();
 }
 
+void MultiWordDataFilter::setSubFilters(const QVector<DataFilter> &subFilters)
+{
+    m_filters = subFilters;
+    m_results.resize(m_filters.size());
+    clearCompletion();
+}
+
 QString MultiWordDataFilter::toString() const
 {
     return QString("MultiWordDataFilter(filterCount=%1)")
         .arg(m_filters.size());
+}
+
+DataFilter makeFilterFromString(const QString &str, s32 wordIndex)
+{
+    auto filterDataRaw = str.toLocal8Bit();
+
+    QByteArray filterData;
+
+    for (auto c: filterDataRaw)
+    {
+        if (c != ' ')
+            filterData.push_back(c);
+    }
+
+    return DataFilter(filterData, wordIndex);
 }
 
 }

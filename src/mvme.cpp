@@ -246,9 +246,7 @@ mvme::mvme(QWidget *parent) :
     // FIXME: test code!
     //
     {
-        auto widget = new analysis::AnalysisWidget(m_context);
-        widget->setWindowTitle("Analysis UI");
-        addWidgetWindow(widget);
+        on_actionAnalysis_UI_triggered();
     }
 }
 
@@ -773,6 +771,24 @@ void mvme::on_actionClose_Listfile_triggered()
         m_context->setConfigFileName(QString());
         m_context->setMode(GlobalMode::DAQ);
     }
+}
+
+void mvme::on_actionAnalysis_UI_triggered()
+{
+    for (auto win: ui->mdiArea->subWindowList())
+    {
+        if (qobject_cast<analysis::AnalysisWidget *>(win->widget()))
+        {
+            auto subwin = win;
+            subwin->show();
+            ui->mdiArea->setActiveSubWindow(subwin);
+            return;
+        }
+    }
+
+    auto widget = new analysis::AnalysisWidget(m_context);
+    widget->setWindowTitle(QSL("Analysis UI"));
+    addWidgetWindow(widget);
 }
 
 void mvme::on_actionVME_Debug_triggered()

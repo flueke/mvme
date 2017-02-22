@@ -329,6 +329,8 @@ class SinkInterface: public OperatorInterface
         Pipe *getOutput(s32 index) override { return nullptr; }
 };
 
+typedef std::shared_ptr<SinkInterface> SinkPtr;
+
 } // end namespace analysis
 
 #define SinkInterface_iid "com.mesytec.mvme.analysis.SinkInterface.1"

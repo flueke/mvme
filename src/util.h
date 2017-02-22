@@ -10,6 +10,10 @@
 #include <QWidget>
 #include <functional>
 #include <limits>
+#include <memory>
+#include <QMetaType>
+
+Q_DECLARE_SMART_POINTER_METATYPE(std::shared_ptr);
 
 class QTextStream;
 

@@ -60,6 +60,7 @@
     <property name="title">
      <string>&amp;Window</string>
     </property>
+    <addaction name="actionAnalysis_UI"/>
     <addaction name="actionVME_Debug"/>
     <addaction name="actionImport_Histogram"/>
     <addaction name="actionImport_Histo1D"/>
@@ -95,7 +96,7 @@
   </action>
   <action name="actionAbout_mvme">
    <property name="icon">
-    <iconset resource="resources.qrc">
+    <iconset>
      <normaloff>:/mesytec-window-icon.png</normaloff>:/mesytec-window-icon.png</iconset>
    </property>
    <property name="text">
@@ -192,11 +193,14 @@
     <string>Import Histo1D</string>
    </property>
   </action>
+  <action name="actionAnalysis_UI">
+   <property name="text">
+    <string>Analysis UI</string>
+   </property>
+  </action>
  </widget>
  <layoutdefault spacing="6" margin="11"/>
- <resources>
-  <include location="resources.qrc"/>
- </resources>
+ <resources/>
  <connections>
   <connection>
    <sender>actionQuit</sender>
