@@ -14,6 +14,7 @@
 #include <QScrollArea>
 #include <QSplitter>
 #include <QStackedWidget>
+#include <QToolBar>
 #include <QToolButton>
 #include <QTreeWidget>
 
@@ -71,38 +72,6 @@ class TreeNode: public QTreeWidgetItem
             return QTreeWidgetItem::operator<(other);
         }
 };
-
-#if 0
-// Was playing around with storing shared_ptr<T> in QVariants. Getting the
-// value out of the variant involves having to know the exact type T with which
-// it was added. I prefer just storing raw pointers and qobject_cast()'ing or
-// reinterpret_cast()'ing those.
-
-template<typename T, typename U>
-std::shared_ptr<T> qobject_pointer_cast(const std::shared_ptr<U> &src)
-{
-    if (auto rawT = qobject_cast<T *>(src.get()))
-    {
-        return std::shared_ptr<T>(src, rawT);
-    }
-
-    return std::shared_ptr<T>();
-}
-
-template<typename T>
-TreeNode *makeNode(const std::shared_ptr<T> &data, int type = QTreeWidgetItem::Type)
-{
-    auto ret = new TreeNode(type);
-    ret->setData(0, DataRole_SharedPointer, QVariant::fromValue(data));
-    return ret;
-}
-
-template<typename T>
-std::shared_ptr<T> getSharedPointer(QTreeWidgetItem *node, s32 dataRole = DataRole_SharedPointer)
-{
-    return node ? node->data(0, dataRole).value<std::shared_ptr<T>>() : std::shared_ptr<T>();
-}
-#endif
 
 template<typename T>
 TreeNode *makeNode(T *data, int type = QTreeWidgetItem::Type)
@@ -268,7 +237,8 @@ struct EventWidgetPrivate
     QUuid m_eventId;
     // TODO: initialize eventIndex at creation time and use it instead of passing it around internally
     // TODO: or would it be better to use m_eventId instead?
-    int eventIndex;
+    int m_eventIndex;
+    AnalysisWidget *m_analysisWidget;
 
     QVector<DisplayLevelTrees> m_levelTrees;
 
@@ -280,11 +250,13 @@ struct EventWidgetPrivate
 
     QSplitter *m_operatorFrameSplitter;
     QSplitter *m_displayFrameSplitter;
+    QSet<void *> m_expandedObjects; // FIXME: (leftoff) This does not expand! Well it does but a method is needed to traverse all trees and expand all items!
 
     void createView(s32 eventIndex);
     DisplayLevelTrees createTrees(s32 eventIndex, s32 level);
     DisplayLevelTrees createSourceTrees(s32 eventIndex);
     void appendTreesToView(DisplayLevelTrees trees);
+    void repopulate();
 
     void addUserLevel(s32 eventIndex);
 
@@ -346,9 +318,11 @@ DisplayLevelTrees EventWidgetPrivate::createTrees(s32 eventIndex, s32 level)
     {
         if(!qobject_cast<SinkInterface *>(entry.op.get()))
         {
-            qDebug() << ">>> Adding to the display tree cause it's not a SinkInterface:" << entry.op.get();
+            //qDebug() << ">>> Adding to the display tree cause it's not a SinkInterface:" << entry.op.get();
             auto opNode = makeOperatorNode(entry.op.get());
             result.operatorTree->addTopLevelItem(opNode);
+            if (m_expandedObjects.contains(entry.op.get()))
+                result.displayTree->expandItem(opNode);
         }
     }
     result.operatorTree->sortItems(0, Qt::AscendingOrder);
@@ -366,11 +340,15 @@ DisplayLevelTrees EventWidgetPrivate::createTrees(s32 eventIndex, s32 level)
             {
                 auto histoNode = makeHisto1DNode(histoSink);
                 histo1DRoot->addChild(histoNode);
+                if (m_expandedObjects.contains(histoSink))
+                    result.displayTree->expandItem(histoNode);
             }
             else if (auto histoSink = qobject_cast<Histo2DSink *>(entry.op.get()))
             {
                 auto histoNode = makeHisto2DNode(histoSink);
                 histo2DRoot->addChild(histoNode);
+                if (m_expandedObjects.contains(histoSink))
+                    result.displayTree->expandItem(histoNode);
             }
             else if (auto sink = qobject_cast<SinkInterface *>(entry.op.get()))
             {
@@ -411,6 +389,8 @@ DisplayLevelTrees EventWidgetPrivate::createSourceTrees(s32 eventIndex)
         {
             auto sourceNode = makeOperatorTreeSourceNode(sourceEntry.source.get());
             moduleNode->addChild(sourceNode);
+            if (m_expandedObjects.contains(sourceEntry.source.get()))
+                result.operatorTree->expandItem(sourceNode);
         }
         ++moduleIndex;
     }
@@ -433,6 +413,9 @@ DisplayLevelTrees EventWidgetPrivate::createSourceTrees(s32 eventIndex)
                 {
                     auto histoNode = makeHisto1DNode(histoSink);
                     moduleNode->addChild(histoNode);
+
+                    if (m_expandedObjects.contains(entry.op.get()))
+                        result.displayTree->expandItem(histoNode);
                 }
             }
         }
@@ -488,6 +471,64 @@ void EventWidgetPrivate::appendTreesToView(DisplayLevelTrees trees)
                 clearTreeSelectionsExcept(tree);
             }
         });
+
+        QObject::connect(tree, &QTreeWidget::itemExpanded, m_q, [this] (QTreeWidgetItem *node) {
+            if (void *voidObj = getPointer<void>(node))
+            {
+                m_expandedObjects.insert(voidObj);
+            }
+        });
+
+        QObject::connect(tree, &QTreeWidget::itemCollapsed, m_q, [this] (QTreeWidgetItem *node) {
+            if (void *voidObj = getPointer<void>(node))
+            {
+                m_expandedObjects.remove(voidObj);
+            }
+        });
+    }
+}
+
+void EventWidgetPrivate::repopulate()
+{
+    // clear
+#if 0
+    for (s32 i = 0; i < m_operatorFrameSplitter->count(); ++i)
+    {
+        auto widget = m_operatorFrameSplitter->widget(i);
+        widget->setParent(nullptr);
+        widget->deleteLater();
+    }
+    Q_ASSERT(m_operatorFrameSplitter->count() == 0);
+
+    for (s32 i = 0; i < m_displayFrameSplitter->count(); ++i)
+    {
+        auto widget = m_displayFrameSplitter->widget(i);
+        widget->setParent(nullptr);
+        widget->deleteLater();
+    }
+    Q_ASSERT(m_displayFrameSplitter->count() == 0);
+#else
+    for (auto trees: m_levelTrees)
+    {
+        trees.operatorTree->setParent(nullptr);
+        trees.operatorTree->deleteLater();
+
+        trees.displayTree->setParent(nullptr);
+        trees.displayTree->deleteLater();
+    }
+    m_levelTrees.clear();
+#endif
+
+    // populate
+    if (m_eventIndex >= 0)
+    {
+        // This populates m_d->m_levelTrees
+        createView(m_eventIndex);
+    }
+
+    for (auto trees: m_levelTrees)
+    {
+        appendTreesToView(trees);
     }
 }
 
@@ -577,9 +618,15 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                         clearAllTreeSelections();
                     });
                 }
+
+                menu.addAction(QSL("Remove"), [this, sourceInterface]() {
+                    // TODO: QMessageBox::question or similar
+                    m_q->removeSource(sourceInterface);
+                });
             }
         }
-        else if (userLevel > 0 && node->type() == NodeType_OutputPipe)
+
+        if (userLevel > 0 && node->type() == NodeType_OutputPipe)
         {
             auto pipe = getPointer<Pipe>(node);
 
@@ -588,6 +635,25 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                 widget->move(QCursor::pos());
                 widget->setAttribute(Qt::WA_DeleteOnClose);
                 widget->show();
+            });
+        }
+
+        if (userLevel > 0 && node->type() == NodeType_Operator)
+        {
+            auto op = getPointer<OperatorInterface>(node);
+            Q_ASSERT(op);
+            menu.addAction(QSL("Edit"), [this, userLevel, op]() {
+                auto widget = new AddEditOperatorWidget(op, userLevel, m_q);
+                widget->move(QCursor::pos());
+                widget->setAttribute(Qt::WA_DeleteOnClose);
+                widget->show();
+                m_uniqueWidgetActive = true;
+                clearAllTreeSelections();
+            });
+
+            menu.addAction(QSL("Remove"), [this, op]() {
+                // TODO: QMessageBox::question or similar
+                m_q->removeOperator(op);
             });
         }
     }
@@ -682,6 +748,23 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
                         }
                     }
                 } break;
+        }
+
+        if (auto op = qobject_cast<OperatorInterface *>(obj))
+        {
+            menu.addAction(QSL("Edit"), [this, userLevel, op]() {
+                auto widget = new AddEditOperatorWidget(op, userLevel, m_q);
+                widget->move(QCursor::pos());
+                widget->setAttribute(Qt::WA_DeleteOnClose);
+                widget->show();
+                m_uniqueWidgetActive = true;
+                clearAllTreeSelections();
+            });
+
+            menu.addAction(QSL("Remove"), [this, op]() {
+                // TODO: QMessageBox::question or similar
+                m_q->removeOperator(op);
+            });
         }
     }
     else
@@ -916,7 +999,7 @@ void EventWidgetPrivate::clearTreeSelectionsExcept(QTreeWidget *treeNotToClear)
     }
 }
 
-EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, QWidget *parent)
+EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, AnalysisWidget *analysisWidget, QWidget *parent)
     : QWidget(parent)
     , m_d(new EventWidgetPrivate)
 {
@@ -924,11 +1007,20 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, QWidget *parent
     m_d->m_q = this;
     m_d->m_context = ctx;
     m_d->m_eventId = eventId;
+    m_d->m_analysisWidget = analysisWidget;
 
-    // TODO: This needs to be done whenever the analysis object is modified.
-    auto analysis = ctx->getAnalysisNG();
-    analysis->updateRanks();
-    analysis->beginRun();
+    int eventIndex = -1;
+    auto eventConfigs = m_d->m_context->getEventConfigs();
+    for (int idx = 0; idx < eventConfigs.size(); ++idx)
+    {
+        if (eventConfigs[idx]->getId() == eventId)
+        {
+            eventIndex = idx;
+            break;
+        }
+    }
+
+    m_d->m_eventIndex = eventIndex;
 
     auto outerLayout = new QHBoxLayout(this);
     outerLayout->setContentsMargins(0, 0, 0, 0);
@@ -972,28 +1064,7 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, QWidget *parent
 
     sync_splitters(m_d->m_operatorFrameSplitter, m_d->m_displayFrameSplitter);
 
-    // FIXME: use the actual eventId here instead of going back to get the index
-    int eventIndex = -1;
-    auto eventConfigs = m_d->m_context->getEventConfigs();
-    for (int idx = 0; idx < eventConfigs.size(); ++idx)
-    {
-        if (eventConfigs[idx]->getId() == eventId)
-        {
-            eventIndex= idx;
-            break;
-        }
-    }
-
-    if (eventIndex >= 0)
-    {
-        // This populates m_d->m_levelTrees
-        m_d->createView(eventIndex);
-    }
-
-    for (auto trees: m_d->m_levelTrees)
-    {
-        m_d->appendTreesToView(trees);
-    }
+    m_d->repopulate();
 }
 
 void EventWidget::selectInputFor(Slot *slot, s32 userLevel, SelectInputCallback callback)
@@ -1023,7 +1094,7 @@ void EventWidget::addOperator(OperatorPtr op, s32 userLevel)
 
     if (userLevel < m_d->m_levelTrees.size())
     {
-        m_d->m_context->getAnalysisNG()->addOperator(m_d->eventIndex, op, userLevel);
+        m_d->m_context->getAnalysisNG()->addOperator(m_d->m_eventIndex, op, userLevel);
         op->beginRun();
 
         auto trees = m_d->m_levelTrees[userLevel];
@@ -1058,6 +1129,20 @@ void EventWidget::addOperator(OperatorPtr op, s32 userLevel)
     }
 }
 
+void EventWidget::operatorEdited(OperatorInterface *op)
+{
+    // Updates the edited SourceInterface and recursively all the operators
+    // depending on it.
+    do_beginRun_forward(op);
+    m_d->repopulate();
+}
+
+void EventWidget::removeOperator(OperatorInterface *op)
+{
+    m_d->m_context->getAnalysisNG()->removeOperator(op);
+    m_d->repopulate();
+}
+
 void EventWidget::addSource(SourcePtr src, ModuleConfig *module)
 {
     if (!src) return;
@@ -1083,24 +1168,40 @@ void EventWidget::addSource(SourcePtr src, ModuleConfig *module)
     }
 }
 
-void EventWidget::sourceEdited(SourceInterface *src, ModuleConfig *module)
+void EventWidget::sourceEdited(SourceInterface *src)
 {
+    // Updates the edited SourceInterface and recursively all the operators
+    // depending on it.
+    do_beginRun_forward(src);
+    m_d->repopulate();
+
+#if 0
+    // Find the tree node for this source.
     auto sourceTree = m_d->m_levelTrees[0].operatorTree;
     auto sourceNode = findFirstNode(sourceTree->invisibleRootItem(), [src](QTreeWidgetItem *node) {
         return (node->type() == NodeType_Source
                 && getPointer<SourceInterface>(node) == src);
     });
 
+    // Remove the existing node for this source, recreate it using the now
+    // modified source and re-add the node to the tree.
     if (sourceNode && sourceNode->parent())
     {
         auto moduleNode = sourceNode->parent();
         bool wasExpanded = sourceNode->isExpanded();
         delete sourceNode;
-        src->beginRun();
         sourceNode = makeOperatorTreeSourceNode(src);
         moduleNode->addChild(sourceNode);
+        moduleNode->sortChildren(0, Qt::AscendingOrder);
         sourceNode->setExpanded(wasExpanded);
     }
+#endif
+}
+
+void EventWidget::removeSource(SourceInterface *src)
+{
+    m_d->m_context->getAnalysisNG()->removeSource(src);
+    m_d->repopulate();
 }
 
 void EventWidget::uniqueWidgetCloses()
@@ -1124,7 +1225,58 @@ struct AnalysisWidgetPrivate
     MVMEContext *m_context;
     QHash<QUuid, EventWidget *> m_eventWidgetsByEventId;
     QList<EventConfig *> m_eventConfigs;
+
+
+    QToolBar *m_toolbar;
+    QComboBox *m_eventSelectCombo;
+    QStackedWidget *m_eventWidgetStack;
+
+    void repopulate();
 };
+
+void AnalysisWidgetPrivate::repopulate()
+{
+    int lastEventSelectIndex = m_eventSelectCombo->currentIndex();
+
+    // Clear combobox and stacked widget. This deletes all existing EventWidgets.
+    m_eventSelectCombo->clear();
+    
+    while (auto widget = m_eventWidgetStack->currentWidget())
+    {
+        m_eventWidgetStack->removeWidget(widget);
+        widget->deleteLater();
+    }
+    Q_ASSERT(m_eventWidgetStack->count() == 0);
+    m_eventWidgetsByEventId.clear();
+
+    // Repopulate combobox and stacked widget
+    m_eventConfigs = m_context->getEventConfigs();
+
+    // FIXME: use ids here
+    // FIXME: event creation is still entirely based on the DAQ config. events
+    //        that do exist in the analysis but in the DAQ won't show up at all
+    for (s32 eventIndex = 0;
+         eventIndex < m_eventConfigs.size();
+         ++eventIndex)
+    {
+        auto eventConfig = m_eventConfigs[eventIndex];
+        auto eventId = eventConfig->getId();
+        auto eventWidget = new EventWidget(m_context, eventId, m_q);
+        m_eventSelectCombo->addItem(QString("%1 (idx=%2)").arg(eventConfig->objectName()).arg(eventIndex));
+
+        auto scrollArea = new QScrollArea;
+        scrollArea->setWidget(eventWidget);
+        scrollArea->setWidgetResizable(true);
+
+        m_eventWidgetStack->addWidget(scrollArea);
+        m_eventWidgetsByEventId[eventId] = eventWidget;
+    }
+
+    if (lastEventSelectIndex >= 0 && lastEventSelectIndex < m_eventSelectCombo->count())
+    {
+        m_eventSelectCombo->setCurrentIndex(lastEventSelectIndex);
+    }
+}
 
 AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     : QWidget(parent)
@@ -1133,36 +1285,56 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     m_d->m_q = this;
     m_d->m_context = ctx;
 
-    auto eventSelectCombo = new QComboBox;
-    auto eventWidgetStack = new QStackedWidget;
+    connect(m_d->m_context, &MVMEContext::daqConfigChanged, this, [this](DAQConfig *) {
+        m_d->repopulate();
+    });
 
-    connect(eventSelectCombo, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
-            eventWidgetStack, &QStackedWidget::setCurrentIndex);
+    connect(m_d->m_context, &MVMEContext::analysisNGChanged, this, [this]() {
+        m_d->repopulate();
+    });
 
-    m_d->m_eventConfigs = m_d->m_context->getEventConfigs();
-
-    // FIXME:  use ids here
-    for (s32 eventIndex = 0;
-         eventIndex < m_d->m_eventConfigs.size();
-         ++eventIndex)
+    // toolbar
+    // TODO: statustips, tooltips, action implementations, filename display
     {
-        auto eventConfig = m_d->m_eventConfigs[eventIndex];
-        auto eventId = eventConfig->getId();
-        auto eventWidget = new EventWidget(m_d->m_context, eventId);
-        eventSelectCombo->addItem(QString("%1 (idx=%2)").arg(eventConfig->objectName()).arg(eventIndex));
+        m_d->m_toolbar = new QToolBar;
+        m_d->m_toolbar->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+        m_d->m_toolbar->setIconSize(QSize(16, 16));
+        auto font = m_d->m_toolbar->font();
+        font.setPointSize(font.pointSize() - 2);
+        m_d->m_toolbar->setFont(font);
 
-        auto scrollArea = new QScrollArea;
-        scrollArea->setWidget(eventWidget);
-        scrollArea->setWidgetResizable(true);
-
-        eventWidgetStack->addWidget(scrollArea);
-        m_d->m_eventWidgetsByEventId[eventId] = eventWidget;
+        m_d->m_toolbar->addAction(QIcon(":/document-new.png"), QSL("New"));
+        m_d->m_toolbar->addAction(QIcon(":/document-open.png"), QSL("Open"));
+        m_d->m_toolbar->addAction(QIcon(":/document-save.png"), QSL("Save"));
+        m_d->m_toolbar->addAction(QIcon(":/document-save-as.png"), QSL("Save As"));
     }
+
+    auto toolbarFrame = new QFrame;
+    toolbarFrame->setFrameStyle(
+        //QFrame::NoFrame);
+        QFrame::StyledPanel | QFrame::Sunken);
+    auto toolbarFrameLayout = new QHBoxLayout(toolbarFrame);
+    toolbarFrameLayout->setContentsMargins(0, 0, 0, 0);
+    toolbarFrameLayout->setSpacing(0);
+    toolbarFrameLayout->addWidget(m_d->m_toolbar);
+
+    m_d->m_eventSelectCombo = new QComboBox;
+    m_d->m_eventWidgetStack = new QStackedWidget;
+
+    connect(m_d->m_eventSelectCombo, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
+            m_d->m_eventWidgetStack, &QStackedWidget::setCurrentIndex);
+
+    // TODO: implement removeUserLevel functionality. Disable button if highest
+    // user level is not empty. Enable if it becomes empty.
+    auto removeUserLevelButton = new QToolButton();
+    removeUserLevelButton->setIcon(QIcon(QSL(":/list_remove.png")));
+    connect(removeUserLevelButton, &QPushButton::clicked, this, [this]() {
+    });
 
     auto addUserLevelButton = new QToolButton();
     addUserLevelButton->setIcon(QIcon(QSL(":/list_add.png")));
-    connect(addUserLevelButton, &QPushButton::clicked, this, [this, eventSelectCombo]() {
-        s32 eventIndex = eventSelectCombo->currentIndex();
+    connect(addUserLevelButton, &QPushButton::clicked, this, [this]() {
+        s32 eventIndex = m_d->m_eventSelectCombo->currentIndex();
         EventConfig *eventConfig = m_d->m_eventConfigs[eventIndex];
         EventWidget *eventWidget = m_d->m_eventWidgetsByEventId.value(eventConfig->getId());
         if (eventWidget)
@@ -1173,14 +1345,41 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
 
     auto eventSelectLayout = new QHBoxLayout;
     eventSelectLayout->addWidget(new QLabel(QSL("Event:")));
-    eventSelectLayout->addWidget(eventSelectCombo);
+    eventSelectLayout->addWidget(m_d->m_eventSelectCombo);
     eventSelectLayout->addStretch();
+    eventSelectLayout->addWidget(removeUserLevelButton);
     eventSelectLayout->addWidget(addUserLevelButton);
+
+    auto toolbarSeparator = new QFrame;
+    toolbarSeparator->setFrameShape(QFrame::HLine);
+    toolbarSeparator->setFrameShadow(QFrame::Sunken);
 
     auto layout = new QGridLayout(this);
     layout->setContentsMargins(2, 2, 2, 2);
-    layout->addLayout(eventSelectLayout, 0, 0);
-    layout->addWidget(eventWidgetStack, 1, 0);
+    //layout->setVerticalSpacing(2);
+    s32 row = 0;
+    layout->addWidget(toolbarFrame, row++, 0);
+    //layout->addWidget(m_d->m_toolbar, row++, 0);
+    //layout->addWidget(toolbarSeparator, row++, 0);
+    layout->addLayout(eventSelectLayout, row++, 0);
+    layout->addWidget(m_d->m_eventWidgetStack, row++, 0);
+
+#if 1
+    // FIXME: This needs to be done whenever the analysis object is modified.
+    auto analysis = ctx->getAnalysisNG();
+    analysis->updateRanks();
+    analysis->beginRun();
+#endif
+
+    m_d->repopulate();
+}
+
+AnalysisWidget::~AnalysisWidget()
+{
+    delete m_d;
+}
+
+} // end namespace analysis
 
 #if 0
     {
@@ -1199,11 +1398,36 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
         testWidget->updateDisplay();
     }
 #endif
-}
 
-AnalysisWidget::~AnalysisWidget()
+#if 0
+// Was playing around with storing shared_ptr<T> in QVariants. Getting the
+// value out of the variant involves having to know the exact type T with which
+// it was added. I prefer just storing raw pointers and qobject_cast()'ing or
+// reinterpret_cast()'ing those.
+
+template<typename T, typename U>
+std::shared_ptr<T> qobject_pointer_cast(const std::shared_ptr<U> &src)
 {
-    delete m_d;
+    if (auto rawT = qobject_cast<T *>(src.get()))
+    {
+        return std::shared_ptr<T>(src, rawT);
+    }
+
+    return std::shared_ptr<T>();
 }
 
-} // end namespace analysis
+template<typename T>
+TreeNode *makeNode(const std::shared_ptr<T> &data, int type = QTreeWidgetItem::Type)
+{
+    auto ret = new TreeNode(type);
+    ret->setData(0, DataRole_SharedPointer, QVariant::fromValue(data));
+    return ret;
+}
+
+template<typename T>
+std::shared_ptr<T> getSharedPointer(QTreeWidgetItem *node, s32 dataRole = DataRole_SharedPointer)
+{
+    return node ? node->data(0, dataRole).value<std::shared_ptr<T>>() : std::shared_ptr<T>();
+}
+#endif
+

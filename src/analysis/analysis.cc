@@ -13,6 +13,8 @@ QDebug &operator<< (QDebug &dbg, const std::shared_ptr<T> &ptr)
 
 namespace analysis
 {
+    static const int CurrentAnalysisVersion = 1;
+
 //
 // Slot
 //
@@ -678,7 +680,7 @@ void Difference::beginRun()
     minSize = std::min(minSize, m_inputA.inputPipe->parameters.size());
     unit = m_inputA.inputPipe->parameters.unit;
 
-    minSize = std::max(minSize, m_inputB.inputPipe->parameters.size());
+    minSize = std::min(minSize, m_inputB.inputPipe->parameters.size());
     unit = m_inputB.inputPipe->parameters.unit;
 
     m_output.parameters.resize(minSize);
@@ -1090,12 +1092,18 @@ void Analysis::updateRank(OperatorInterface *op, QSet<OperatorInterface *> &upda
     }
 }
 
-void Analysis::removeSource(const SourcePtr &source) // TODO: test this
+void Analysis::removeSource(const SourcePtr &source)
+{
+    removeSource(source.get());
+}
+
+// TODO: test this
+void Analysis::removeSource(SourceInterface *source)
 {
     s32 entryIndex = -1;
     for (s32 i = 0; i < m_sources.size(); ++i)
     {
-        if (m_sources[i].source == source)
+        if (m_sources[i].source.get() == source)
         {
             entryIndex = i;
             break;
@@ -1104,25 +1112,32 @@ void Analysis::removeSource(const SourcePtr &source) // TODO: test this
 
     if (entryIndex >= 0)
     {
-        m_sources.remove(entryIndex);
-
         for (s32 outputIndex = 0; outputIndex < source->getNumberOfOutputs(); ++outputIndex)
         {
             Pipe *outPipe = source->getOutput(outputIndex);
             for (Slot *destSlot: outPipe->getDestinations())
             {
-                destSlot->inputPipe->removeDestination(destSlot);
+                destSlot->disconnectPipe();
             }
         }
+
+        m_sources.remove(entryIndex);
+        beginRun();
     }
 }
 
-void Analysis::removeOperator(const OperatorPtr &op) // TODO: test this
+void Analysis::removeOperator(const OperatorPtr &op)
+{
+    removeOperator(op.get());
+}
+
+// TODO: test this
+void Analysis::removeOperator(OperatorInterface *op)
 {
     s32 entryIndex = -1;
     for (s32 i = 0; i < m_operators.size(); ++i)
     {
-        if (m_operators[i].op == op)
+        if (m_operators[i].op.get() == op)
         {
             entryIndex = i;
             break;
@@ -1131,19 +1146,21 @@ void Analysis::removeOperator(const OperatorPtr &op) // TODO: test this
 
     if (entryIndex >= 0)
     {
-        m_operators.remove(entryIndex);
+        //auto opPtr = m_operators[entryIndex].op; // to keep it from being deleted while this method is running
 
         for (s32 outputIndex = 0; outputIndex < op->getNumberOfOutputs(); ++outputIndex)
         {
             Pipe *outPipe = op->getOutput(outputIndex);
             for (Slot *destSlot: outPipe->getDestinations())
             {
-                destSlot->inputPipe->removeDestination(destSlot);
+                destSlot->disconnectPipe();
             }
         }
+
+        m_operators.remove(entryIndex);
+        beginRun();
     }
 }
-
 
 void Analysis::clear()
 {
@@ -1157,11 +1174,23 @@ QString getClassName(T *obj)
     return obj->metaObject()->className();
 }
 
-void Analysis::read(const QJsonObject &json)
+Analysis::ReadResult Analysis::read(const QJsonObject &json)
 {
     clear();
 
     QMap<QUuid, PipeSourcePtr> objectsById;
+
+    ReadResult result = {};
+
+    int version = json["version"].toInt(0);
+
+    if (version != CurrentAnalysisVersion)
+    {
+        result.code = ReadResult::VersionMismatch;
+        result.data["version"] = version;
+        result.data["expected version"] = CurrentAnalysisVersion;
+        return result;
+    }
 
     // Sources
     {
@@ -1341,10 +1370,13 @@ void Analysis::read(const QJsonObject &json)
         }
 #endif
     }
+    return result;
 }
 
 void Analysis::write(QJsonObject &json) const
 {
+    json["version"] = CurrentAnalysisVersion;
+
     // Sources
     {
         QJsonArray destArray;
@@ -1531,6 +1563,39 @@ void add_raw_data_display(Analysis *analysis, s32 eventIndex, s32 moduleIndex, c
     analysis->addOperator(eventIndex, display.rawHistoSink, 0);
     analysis->addOperator(eventIndex, display.calibration, 1);
     analysis->addOperator(eventIndex, display.calibratedHistoSink, 1);
+}
+
+void do_beginRun_forward(PipeSourceInterface *pipeSource)
+{
+    Q_ASSERT(pipeSource);
+
+    qDebug() << __PRETTY_FUNCTION__ << "calling beginRun() on" << pipeSource;
+    pipeSource->beginRun();
+
+    const s32 outputCount = pipeSource->getNumberOfOutputs();
+
+    for (s32 outputIndex = 0;
+         outputIndex < outputCount;
+         ++outputIndex)
+    {
+        Pipe *outPipe = pipeSource->getOutput(outputIndex);
+        Q_ASSERT(outPipe); // Must exist as the source said it would exist.
+
+        const s32 destCount = outPipe->destinations.size();
+
+        for (s32 destIndex = 0;
+             destIndex < destCount;
+             ++destIndex)
+        {
+            Slot *destSlot = outPipe->destinations[destIndex];
+
+            if (destSlot && destSlot->parentOperator)
+            {
+                do_beginRun_forward(destSlot->parentOperator);
+            }
+        }
+
+    }
 }
 
 }

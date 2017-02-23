@@ -12,12 +12,16 @@ namespace analysis
 {
 
 
+/** IMPORTANT: This constructor makes the Widget go into "add" mode. When
+ * closing it will call eventWidget->addOperator(). */
 AddEditOperatorWidget::AddEditOperatorWidget(OperatorPtr opPtr, s32 userLevel, EventWidget *eventWidget)
     : AddEditOperatorWidget(opPtr.get(), userLevel, eventWidget)
 {
     m_opPtr = opPtr;
 }
 
+/** IMPORTANT: This constructor makes the Widget go into "edit" mode. When
+ * closing it will call FIXME */
 AddEditOperatorWidget::AddEditOperatorWidget(OperatorInterface *op, s32 userLevel, EventWidget *eventWidget)
     : QWidget(eventWidget, Qt::Tool)
     , m_op(op)
@@ -160,6 +164,10 @@ void AddEditOperatorWidget::accept()
     {
         m_eventWidget->addOperator(m_opPtr, m_userLevel);
     }
+    else
+    {
+        m_eventWidget->operatorEdited(m_op);
+    }
     close();
 }
 
@@ -179,12 +187,16 @@ QByteArray getDefaultFilter(VMEModuleType moduleType)
     return defaultDataFilters.value(moduleType).value(0).filter;
 }
 
+/** IMPORTANT: This constructor makes the Widget go into "add" mode. When
+ * accepting the widget inputs it will call eventWidget->addSource(). */
 AddEditSourceWidget::AddEditSourceWidget(SourcePtr srcPtr, ModuleConfig *mod, EventWidget *eventWidget)
     : AddEditSourceWidget(srcPtr.get(), mod, eventWidget)
 {
     m_srcPtr = srcPtr;
 }
 
+/** IMPORTANT: This constructor makes the Widget go into "edit" mode. When
+ * accepting the widget inputs it will call eventWidget->sourceEdited(). */
 AddEditSourceWidget::AddEditSourceWidget(SourceInterface *src, ModuleConfig *module, EventWidget *eventWidget)
     : QWidget(eventWidget, Qt::Tool)
     , m_src(src)
@@ -252,7 +264,7 @@ void AddEditSourceWidget::accept()
     }
     else
     {
-        m_eventWidget->sourceEdited(m_src, m_module);
+        m_eventWidget->sourceEdited(m_src);
     }
     close();
 }

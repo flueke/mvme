@@ -95,6 +95,11 @@ class PipeSourceInterface: public QObject
          * constructor. */
         void setId(const QUuid &id) { m_id = id; }
 
+        /* Use beginRun() to preallocate the outputs and setup internal state.
+         * This will also be called by Analysis UI to be able to get array
+         * sizes from operator output pipes! */
+        virtual void beginRun() = 0;
+
     private:
         PipeSourceInterface() = delete;
         QUuid m_id;
@@ -244,7 +249,7 @@ class SourceInterface: public PipeSourceInterface
         /* Use beginRun() to preallocate the outputs and setup internal state.
          * This will also be called by Analysis UI to be able to get array
          * sizes from operator output pipes! */
-        virtual void beginRun() {}
+        virtual void beginRun() override {}
 
         /* Use beginEvent() to invalidate output parameters if needed. */
         virtual void beginEvent() {}
@@ -273,7 +278,7 @@ class OperatorInterface: public PipeSourceInterface
         //{ qDebug() << __PRETTY_FUNCTION__ << reinterpret_cast<void *>(this); }
 
         /* Use beginRun() to preallocate the outputs and setup internal state. */
-        virtual void beginRun() {}
+        virtual void beginRun() override {}
 
         virtual void step() = 0;
 
@@ -831,6 +836,9 @@ class Analysis
             updateRanks();
         }
 
+        void removeSource(const SourcePtr &source);
+        void removeSource(SourceInterface *source);
+
         const QVector<OperatorEntry> &getOperators() const
         {
             return m_operators;
@@ -872,13 +880,10 @@ class Analysis
             updateRanks();
         }
 
-        void removeSource(const SourcePtr &source);
         void removeOperator(const OperatorPtr &op);
+        void removeOperator(OperatorInterface *op);
 
         void clear();
-
-        void read(const QJsonObject &json);
-        void write(QJsonObject &json) const;
 
         s32 getModuleIndex(const SourcePtr &src) const { return getModuleIndex(src.get()); }
         s32 getModuleIndex(const SourceInterface *src) const
@@ -923,6 +928,20 @@ class Analysis
 
         Registry &getRegistry() { return m_registry; }
 
+        struct ReadResult
+        {
+            enum Code
+            {
+                NoError = 0,
+                VersionMismatch
+            };
+
+            Code code;
+            QMap<QString, QVariant> data;
+        };
+        ReadResult read(const QJsonObject &json);
+        void write(QJsonObject &json) const;
+
     private:
         void updateRank(OperatorInterface *op, QSet<OperatorInterface *> &updated);
 
@@ -945,108 +964,16 @@ RawDataDisplay make_raw_data_display(const MultiWordDataFilter &extractionFilter
 
 void add_raw_data_display(Analysis *analysis, s32 eventIndex, s32 moduleIndex, const RawDataDisplay &display);
 
+void do_beginRun_forward(PipeSourceInterface *pipeSource);
+
 } // end namespace analysis
 
 
 
 
 #if 0
-// Calculates A - B;
-struct Difference: public Operator
-{
-    Pipe *inputA;
-    Pipe *inputB;
 
-    virtual void step() override
-    {
-        if (inputA && inputB)
-        {
-            s32 minSize = std::min(inputA->parameters.size(), inputB->parameters.size());
-            output.parameters.resize(minSize);
-            clear_parameters(output.parameters);
 
-            for (s32 paramIndex = 0;
-                 paramIndex < minSize;
-                 ++paramIndex)
-            {
-                const auto &paramA(inputA->parameters[paramIndex]);
-                const auto &paramB(inputB->parameters[paramIndex]);
-
-                if (paramA.valid && paramB.valid)
-                {
-                    output.parameters[paramIndex].valid = true;
-                    output.parameters[paramIndex].type  = Parameter::Double;
-                    output.parameters[paramIndex].value = paramA.value - paramB.value;
-                }
-            }
-        }
-    }
-
-    virtual QVector<Pipe *> getInputs() override
-    {
-        QVector<Pipe *> result = { inputA, inputB };
-
-        return result;
-    }
-};
-
-struct PreviousValue: public Operator
-{
-    Pipe *input;
-
-    virtual void step() override
-    {
-        if (input)
-        {
-            output.parameters = previousInput;
-            previousInput = input->parameters;
-        }
-    }
-
-    ParameterVector previousInput;
-
-    virtual QVector<Pipe *> getInputs() override
-    {
-        QVector<Pipe *> result = { input };
-
-        return result;
-    }
-};
-
-struct RetainValid: public Operator
-{
-    Pipe *input;
-
-    virtual void step() override
-    {
-        if (input)
-        {
-            if (output.parameters.size() < input->parameters.size())
-            {
-                output.parameters.resize(input->parameters.size());
-            }
-
-            s32 indexLimit = std::min(output.parameters.size(), input->parameters.size());
-
-            for (s32 i = 0; i < indexLimit; ++i)
-            {
-                const auto &inputParam(input->parameters[i]);
-                if (inputParam.valid)
-                {
-                    auto &outputParam(output.parameters[i]);
-                    outputParam = inputParam; // copy valid value
-                }
-            }
-        }
-    }
-
-    virtual QVector<Pipe *> getInputs() override
-    {
-        QVector<Pipe *> result = { input };
-
-        return result;
-    }
-};
 
 // Output is a boolean flag
 struct Histo2DRectangleCut: public Operator
@@ -1094,39 +1021,6 @@ struct Histo2DRectangleCut: public Operator
 #endif
 
 
-#if 0
-struct Histo2DSink: public Operator
-{
-    std::shared_ptr<Histo2D> histo;
-
-    Pipe *inputX;
-    Pipe *inputY;
-
-    virtual void step() override
-    {
-        if (inputX && inputY)
-        {
-            const auto &paramX(inputX->first());
-            const auto &paramY(inputX->first());
-
-            if (paramX.valid && paramY.valid)
-            {
-                qDebug() << __PRETTY_FUNCTION__ << "fill" << histo.get() << paramX.value << paramY.value;
-                histo->fill(paramX.value, paramY.value);
-            }
-        }
-    }
-
-    virtual bool hasOutput() const override { return false; }
-
-    virtual QVector<Pipe *> getInputs() override
-    {
-        QVector<Pipe *> result;
-
-        return result;
-    }
-};
-#endif
 
 #if 0
 struct HypotheticalSortingMachine: public Operator

@@ -30,7 +30,7 @@
 
 #include <memory>
 
-#define ENABLE_ANALYSIS_NG 1
+#define ENABLE_ANALYSIS_NG 0
 
 //
 // Utility functions for filter and histogram creation.
@@ -196,8 +196,10 @@ HistogramTreeWidget::HistogramTreeWidget(MVMEContext *context, QWidget *parent)
     , m_node2D(new TreeNode)
     , m_node1dNew(new TreeNode)
     , m_node2dNew(new TreeNode)
+#if ENABLE_ANALYSIS_NG
     , m_nodeAnalysisNG(new TreeNode)
     , m_nodeAnalysisNGObjects(new TreeNode)
+#endif
 {
     m_tree->setColumnCount(2);
     m_tree->setExpandsOnDoubleClick(false);
@@ -225,6 +227,7 @@ HistogramTreeWidget::HistogramTreeWidget(MVMEContext *context, QWidget *parent)
     m_node2dNew->setText(0, QSL("2d (double)"));
     m_tree->addTopLevelItem(m_node2dNew);
 
+#if ENABLE_ANALYSIS_NG
     m_nodeAnalysisNG->setText(0, QSL("Analysis NG"));
     m_tree->addTopLevelItem(m_nodeAnalysisNG);
 
@@ -235,6 +238,7 @@ HistogramTreeWidget::HistogramTreeWidget(MVMEContext *context, QWidget *parent)
     {
         node->setExpanded(true);
     }
+#endif
 
     // buttons
     auto makeToolButton = [](const QString &icon, const QString &text)
@@ -519,8 +523,11 @@ void HistogramTreeWidget::onAnyConfigChanged()
 
     qDeleteAll(m_node1dNew->takeChildren());
     qDeleteAll(m_node2dNew->takeChildren());
+
+#if ENABLE_ANALYSIS_NG
     qDeleteAll(m_nodeAnalysisNG->takeChildren());
     qDeleteAll(m_nodeAnalysisNGObjects->takeChildren());
+#endif
 
 
     m_treeMap.clear();
@@ -1598,6 +1605,7 @@ void HistogramTreeWidget::openHistoListWidget()
 
 void HistogramTreeWidget::updateAnalysisNGStuff()
 {
+#if ENABLE_ANALYSIS_NG
     bool nodesAdded = false;
     auto analysis = m_context->getAnalysisNG();
 
@@ -1725,4 +1733,5 @@ void HistogramTreeWidget::updateAnalysisNGStuff()
 
     if (nodesAdded)
         m_tree->resizeColumnToContents(0);
+#endif
 }

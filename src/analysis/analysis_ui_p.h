@@ -19,9 +19,10 @@ class ModuleConfig;
 namespace analysis
 {
 
+class AnalysisWidget;
+class DataExtractionEditor;
 class EventWidgetPrivate;
 class OperatorConfigurationWidget;
-class DataExtractionEditor;
 
 class EventWidget: public QWidget
 {
@@ -30,14 +31,20 @@ class EventWidget: public QWidget
 
         using SelectInputCallback = std::function<void ()>;
 
-        EventWidget(MVMEContext *ctx, const QUuid &eventId, QWidget *parent = 0);
+        EventWidget(MVMEContext *ctx, const QUuid &eventId, AnalysisWidget *analysisWidget, QWidget *parent = 0);
         ~EventWidget();
 
         void selectInputFor(Slot *slot, s32 userLevel, SelectInputCallback callback);
         void endSelectInput();
-        void addOperator(OperatorPtr op, s32 userLevel);
+
         void addSource(SourcePtr src, ModuleConfig *module);
-        void sourceEdited(SourceInterface *src, ModuleConfig *module);
+        void sourceEdited(SourceInterface *src);
+        void removeSource(SourceInterface *src);
+
+        void addOperator(OperatorPtr op, s32 userLevel);
+        void operatorEdited(OperatorInterface *op);
+        void removeOperator(OperatorInterface *op);
+
         void uniqueWidgetCloses();
         void addUserLevel(s32 eventIndex);
 

@@ -828,8 +828,20 @@ void MVMEContext::loadAnalysisConfig(const QString &fileName)
     setAnalysisConfigFileName(fileName);
 
 
-    // FIXME: incomplete
-    m_analysis_ng->read(doc.object()[QSL("AnalysisNG")].toObject());
+    // FIXME: incomplete; error checking needed
+    auto analysis_ng = new analysis::Analysis;
+    auto readResult = analysis_ng->read(doc.object()[QSL("AnalysisNG")].toObject());
+    if (readResult.code != analysis::Analysis::ReadResult::NoError)
+    {
+        // TODO: press the self-destruct button
+        qDebug() << "!!!!! Error reading analysis ng from" << fileName << readResult.code << readResult.data;
+    }
+    else
+    {
+        delete m_analysis_ng;
+        m_analysis_ng = analysis_ng;
+        emit analysisNGChanged();
+    }
 }
 
 void MVMEContext::setListFileDirectory(const QString &dirName)

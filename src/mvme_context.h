@@ -44,6 +44,7 @@ class MVMEContext: public QObject
 
         void analysisConfigChanged(AnalysisConfig *config);
         void analysisConfigFileNameChanged(const QString &name);
+        void analysisNGChanged();
 
         void objectAdded(QObject *object);
         void objectAboutToBeRemoved(QObject *object);
