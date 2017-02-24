@@ -1097,7 +1097,6 @@ void Analysis::removeSource(const SourcePtr &source)
     removeSource(source.get());
 }
 
-// TODO: test this
 void Analysis::removeSource(SourceInterface *source)
 {
     s32 entryIndex = -1;
@@ -1110,18 +1109,27 @@ void Analysis::removeSource(SourceInterface *source)
         }
     }
 
+    Q_ASSERT(entryIndex >= 0);
+
     if (entryIndex >= 0)
     {
-        for (s32 outputIndex = 0; outputIndex < source->getNumberOfOutputs(); ++outputIndex)
+        // Remove our output pipes from any connected slots.
+        for (s32 outputIndex = 0;
+             outputIndex < source->getNumberOfOutputs();
+             ++outputIndex)
         {
             Pipe *outPipe = source->getOutput(outputIndex);
             for (Slot *destSlot: outPipe->getDestinations())
             {
                 destSlot->disconnectPipe();
             }
+            Q_ASSERT(outPipe->getDestinations().isEmpty());
         }
 
+        // Remove the source entry. Releases our reference to the SourcePtr stored there.
         m_sources.remove(entryIndex);
+
+        // Update ranks and recalculate output sizes for all analysis elements.
         beginRun();
     }
 }
@@ -1131,7 +1139,6 @@ void Analysis::removeOperator(const OperatorPtr &op)
     removeOperator(op.get());
 }
 
-// TODO: test this
 void Analysis::removeOperator(OperatorInterface *op)
 {
     s32 entryIndex = -1;
@@ -1144,20 +1151,38 @@ void Analysis::removeOperator(OperatorInterface *op)
         }
     }
 
+    Q_ASSERT(entryIndex >= 0);
+
     if (entryIndex >= 0)
     {
-        //auto opPtr = m_operators[entryIndex].op; // to keep it from being deleted while this method is running
+        // Remove pipe connections to our input slots.
+        for (s32 inputSlotIndex = 0;
+             inputSlotIndex < op->getNumberOfSlots();
+             ++inputSlotIndex)
+        {
+            Slot *inputSlot = op->getSlot(inputSlotIndex);
+            Q_ASSERT(inputSlot);
+            inputSlot->disconnectPipe();
+            Q_ASSERT(!inputSlot->inputPipe);
+        }
 
-        for (s32 outputIndex = 0; outputIndex < op->getNumberOfOutputs(); ++outputIndex)
+        // Remove our output pipes from any connected slots.
+        for (s32 outputIndex = 0;
+             outputIndex < op->getNumberOfOutputs();
+             ++outputIndex)
         {
             Pipe *outPipe = op->getOutput(outputIndex);
             for (Slot *destSlot: outPipe->getDestinations())
             {
                 destSlot->disconnectPipe();
             }
+            Q_ASSERT(outPipe->getDestinations().isEmpty());
         }
 
+        // Remove the operator entry. Releases our reference to the OperatorPtr stored there.
         m_operators.remove(entryIndex);
+
+        // Update ranks and recalculate output sizes for all analysis elements.
         beginRun();
     }
 }
