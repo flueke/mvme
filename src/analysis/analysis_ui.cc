@@ -921,8 +921,35 @@ void EventWidgetPrivate::modeChanged()
 
 bool isValidInputNode(QTreeWidgetItem *node, Slot *slot)
 {
+    PipeSourceInterface *dstObject = slot->parentOperator;
+    Q_ASSERT(dstObject);
+
+    PipeSourceInterface *srcObject = nullptr;
+
+    switch (node->type())
+    {
+        case NodeType_Operator:
+            {
+                srcObject = getPointer<PipeSourceInterface>(node);
+                Q_ASSERT(srcObject);
+            } break;
+        case NodeType_OutputPipe:
+        case NodeType_OutputPipeParameter:
+            {
+                auto pipe = getPointer<Pipe>(node);
+                srcObject = pipe->source;
+                Q_ASSERT(srcObject);
+            } break;
+    }
+
     bool result = false;
-    if ((slot->acceptedInputTypes & InputType::Array)
+
+    if (srcObject == dstObject)
+    {
+        // do not allow self-connections! :)
+        result = false;
+    }
+    else if ((slot->acceptedInputTypes & InputType::Array)
         && (node->type() == NodeType_Operator || node->type() == NodeType_Source))
     {
         // Highlight operator and source nodes only if they have exactly a

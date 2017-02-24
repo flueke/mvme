@@ -1338,10 +1338,6 @@ Analysis::ReadResult Analysis::read(const QJsonObject &json)
             s32 dstIndex = objectJson["dstIndex"].toInt();
 
             // Slot data
-            // FIXME: acceptedInputTypes does not need to be stored in the
-            // config! If it's stored it should only be used for validation,
-            // not assigend to the Slot!
-            u32 acceptedInputTypes = static_cast<u32>(objectJson["dstAcceptedInputTypes"].toInt());
             s32 paramIndex = objectJson["dstParamIndex"].toInt();
 
             auto srcObject = objectsById.value(srcId);
@@ -1356,10 +1352,10 @@ Analysis::ReadResult Analysis::read(const QJsonObject &json)
 
                 if (dstSlot)
                 {
-                    dstSlot->acceptedInputTypes = acceptedInputTypes;
                     dstSlot->paramIndex = paramIndex;
 
                     Pipe *thePipe = srcRawPtr->getOutput(srcIndex);
+
                     Q_ASSERT(thePipe);
                     Q_ASSERT(thePipe->source == srcRawPtr);
 
@@ -1367,18 +1363,6 @@ Analysis::ReadResult Analysis::read(const QJsonObject &json)
 
                     Q_ASSERT(thePipe->destinations.contains(dstSlot));
                 }
-
-
-#if 0
-                Slot *dstSlot = dstObject->getSlot(dstIndex);
-                Q_ASSERT(dstSlot); // FIXME: testing
-                if (dstSlot)
-                {
-                    dstSlot->acceptedInputTypes = acceptedInputTypes;
-                    dstSlot->paramIndex = paramIndex;
-                    dstObject->connectInputSlot(dstIndex, srcObject->getOutput(srcIndex), paramIndex);
-                }
-#endif
             }
         }
     }
@@ -1507,7 +1491,6 @@ void Analysis::write(QJsonObject &json) const
                         conJson["srcIndex"] = outputIndex;
                         conJson["dstId"] = dstOp->getId().toString();
                         conJson["dstIndex"] = dstSlot->parentSlotIndex;
-                        conJson["dstAcceptedInputTypes"] = static_cast<qint64>(dstSlot->acceptedInputTypes);
                         conJson["dstParamIndex"] = static_cast<qint64>(dstSlot->paramIndex);
                         conArray.append(conJson);
                     }
