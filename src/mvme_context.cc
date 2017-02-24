@@ -840,6 +840,7 @@ void MVMEContext::loadAnalysisConfig(const QString &fileName)
     {
         delete m_analysis_ng;
         m_analysis_ng = analysis_ng;
+        m_analysis_ng->beginRun(); // FIXME: good place to call this?
         emit analysisNGChanged();
     }
 }

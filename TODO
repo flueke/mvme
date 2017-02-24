@@ -2,6 +2,12 @@
 ==== Do these first! =====
 ==========================
 >>>>> Begin Analysis NG <<<<<
+ - should OperatorInterface::connectInputSlot() perform a validity check of
+   Slot::acceptedInputTypes?
+ - add a way for operators to change the Slot::acceptedInputTypes when a slot
+   is connected/disconnected!
+ - combine "single word" and "dual word" filters. the distinction is not needed
+   anymore as both are MultiWordDataFilters now
  - "modified" concept for the analysis and it's elements
  - save/saveas/load error reporting
  - Pass and build names throughout the analysis

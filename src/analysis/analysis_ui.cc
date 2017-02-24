@@ -285,6 +285,7 @@ struct EventWidgetPrivate
     void onNodeDoubleClicked(TreeNode *node, int column);
     void clearAllTreeSelections();
     void clearTreeSelectionsExcept(QTreeWidget *tree);
+    void generateDefaultFilters(ModuleConfig *module);
 };
 
 // FIXME: the param should be eventId
@@ -624,11 +625,11 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
         {
             if (!m_uniqueWidgetActive)
             {
-#if 1
-                auto menuNew = new QMenu;
-
                 auto moduleConfig = getPointer<ModuleConfig>(node);
 
+                auto menuNew = new QMenu;
+
+                // new sources
                 auto add_action = [this, &menu, menuNew, moduleConfig](const QString &title, auto srcPtr)
                 {
                     menuNew->addAction(title, &menu, [this, moduleConfig, srcPtr]() {
@@ -653,7 +654,15 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                 auto actionNew = menu.addAction(QSL("New"));
                 actionNew->setMenu(menuNew);
                 menu.addAction(actionNew);
-#endif
+
+                // default data filters and "raw display" creation
+                if (moduleConfig && (defaultDataFilters.contains(moduleConfig->type)
+                                     || defaultDualWordFilters.contains(moduleConfig->type)))
+                {
+                    menu.addAction(QSL("Generate default filters"), [this, moduleConfig] () {
+                        generateDefaultFilters(moduleConfig);
+                    });
+                }
             }
         }
 
@@ -1095,6 +1104,60 @@ void EventWidgetPrivate::clearTreeSelectionsExcept(QTreeWidget *treeNotToClear)
             }
         }
     }
+}
+
+void EventWidgetPrivate::generateDefaultFilters(ModuleConfig *module)
+{
+    auto indices = m_context->getDAQConfig()->getEventAndModuleIndices(module);
+    s32 eventIndex = indices.first;
+    s32 moduleIndex = indices.second;
+
+    if (eventIndex < 0 || moduleIndex < 0)
+        return;
+
+    // "single word" filters
+    {
+        const auto filterDefinitions = defaultDataFilters.value(module->type);
+
+        for (const auto &filterDef: filterDefinitions)
+        {
+            DataFilter dataFilter(filterDef.filter);
+            MultiWordDataFilter multiWordFilter({dataFilter});
+            double unitMin = 0.0;
+            double unitMax = (1 << multiWordFilter.getDataBits());
+
+            RawDataDisplay rawDataDisplay = make_raw_data_display(multiWordFilter, unitMin, unitMax,
+                                                                  filterDef.name,
+                                                                  filterDef.title,
+                                                                  QString());
+
+            add_raw_data_display(m_context->getAnalysisNG(), eventIndex, moduleIndex, rawDataDisplay);
+        }
+    }
+
+    // "dual word" filters
+    {
+        const auto filterDefinitions = defaultDualWordFilters.value(module->type);
+        for (const auto &filterDef: filterDefinitions)
+        {
+            DataFilter loWordFilter(filterDef.lowFilter);
+            DataFilter hiWordFilter(filterDef.highFilter);
+            MultiWordDataFilter multiWordFilter({loWordFilter, hiWordFilter});
+
+            double unitMin = 0.0;
+            double unitMax = (1 << multiWordFilter.getDataBits());
+
+            RawDataDisplay rawDataDisplay = make_raw_data_display(multiWordFilter, unitMin, unitMax,
+                                                                  filterDef.name,
+                                                                  filterDef.title,
+                                                                  QString());
+
+            add_raw_data_display(m_context->getAnalysisNG(), eventIndex, moduleIndex, rawDataDisplay);
+        }
+    }
+
+    m_context->getAnalysisNG()->beginRun();
+    repopulate();
 }
 
 EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, AnalysisWidget *analysisWidget, QWidget *parent)

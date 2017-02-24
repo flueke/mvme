@@ -10,6 +10,7 @@ TEMPLATE = app
 # problem disable warnings via warn_off and then prepend -Wall to
 # QMAKE_CXXFLAGS.
 CONFIG   += warn_off
+# FIXME: Forcing -O0 here for debug builds. Should not be set for release builds!!!
 QMAKE_CXXFLAGS += -O0 -Wall -Wno-unused-variable -Wno-unused-parameter -Wno-unused-function -Wno-format
 QMAKE_CFLAGS += -O0 -Wall -Wno-unused -Wno-format
 DEFINES += VME_CONTROLLER_WIENER

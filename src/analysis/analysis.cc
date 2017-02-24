@@ -43,7 +43,8 @@ void Slot::disconnectPipe()
 //
 // OperatorInterface
 //
-// XXX: does not perform acceptedInputTypes validity test atm!
+// FIXME: does not perform acceptedInputTypes validity test atm!
+// FIXME: does not return a value atm!
 bool OperatorInterface::connectInputSlot(s32 slotIndex, Pipe *inputPipe, s32 paramIndex)
 {
     Slot *slot = getSlot(slotIndex);
@@ -1533,6 +1534,8 @@ void Analysis::write(QJsonObject &json) const
     }
 }
 
+static const u32 maxRawHistoBins = (1 << 16);
+
         /* TODO/FIXME:
          * - histo axis titles are still missing
          * - easier to use MultiWordDataFilter constructor
@@ -1553,6 +1556,7 @@ RawDataDisplay make_raw_data_display(const MultiWordDataFilter &extractionFilter
 
     double srcMin  = 0.0;
     double srcMax  = (1 << extractionFilter.getDataBits());
+    u32 histoBins  = std::min(static_cast<u32>(srcMax), maxRawHistoBins);
 
     // factor in U/S, offset in U
     // TODO: should offset be in S?
@@ -1581,13 +1585,13 @@ RawDataDisplay make_raw_data_display(const MultiWordDataFilter &extractionFilter
     for (u32 address = 0; address < addressCount; ++address)
     {
         // create a histo for the raw uncalibrated data
-        auto histo = std::make_shared<Histo1D>(srcMax, 0.0, srcMax);
+        auto histo = std::make_shared<Histo1D>(histoBins, 0.0, srcMax);
         histo->setObjectName(QString("%1[%2]").arg(rawHistoSink->objectName()).arg(address));
         rawHistoSink->histos.push_back(histo);
         // TODO: rawHistoSink->histo->setXAxisTitle(xAxisTitle);
 
         // create a histo for the calibrated data
-        histo = std::make_shared<Histo1D>(srcMax, unitMin, unitMax);
+        histo = std::make_shared<Histo1D>(histoBins, unitMin, unitMax);
         histo->setObjectName(QString("%1[%2]").arg(calHistoSink->objectName()).arg(address));
         calHistoSink->histos.push_back(histo);
     }

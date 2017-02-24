@@ -51,8 +51,6 @@ class Histo1D: public QObject
             }
         }
 
-        //inline const AxisBinning &getAxisBinning() const { return m_xAxis; }
-
         inline double getEntryCount() const { return m_count; }
         double getMaxValue() const { return m_maxValue; }
         u32 getMaxBin() const { return m_maxBin; }

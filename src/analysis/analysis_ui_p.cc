@@ -340,8 +340,11 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
         formLayout->addRow(QSL("X Bins"), spin_xBins);
         formLayout->addRow(QSL("Y Bins"), spin_yBins);
 
-        spin_xBins->setValue(histoSink->m_histo->getAxis(Qt::XAxis).getBins());
-        spin_yBins->setValue(histoSink->m_histo->getAxis(Qt::YAxis).getBins());
+        if (histoSink->m_histo)
+        {
+            spin_xBins->setValue(histoSink->m_histo->getAxis(Qt::XAxis).getBins());
+            spin_yBins->setValue(histoSink->m_histo->getAxis(Qt::YAxis).getBins());
+        }
     }
     else if (auto calibration = qobject_cast<Calibration *>(op))
     {

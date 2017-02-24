@@ -142,7 +142,8 @@ static const QMap<VMEModuleType, QList<DualWordDataFilterDefinition>> defaultDua
                                      "Event Counter / TS",
                                      "11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD", -1,
                                      "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", -1,
-                                     "Counter Difference"
+                                     "Event Counter / TS"
+                                     //"Counter Difference"
                                  }
                              }
     },
@@ -151,7 +152,8 @@ static const QMap<VMEModuleType, QList<DualWordDataFilterDefinition>> defaultDua
                                      "Event Counter / TS",
                                      "11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD", -1,
                                      "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", -1,
-                                     "Counter Difference"
+                                     "Event Counter / TS"
+                                     //"Counter Difference"
                                  }
                              }
     },
@@ -160,7 +162,8 @@ static const QMap<VMEModuleType, QList<DualWordDataFilterDefinition>> defaultDua
                                      "Event Counter / TS",
                                      "11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD", -1,
                                      "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", -1,
-                                     "Counter Difference"
+                                     "Event Counter / TS"
+                                     //"Counter Difference"
                                  }
                              }
     },
@@ -169,7 +172,8 @@ static const QMap<VMEModuleType, QList<DualWordDataFilterDefinition>> defaultDua
                                      "Event Counter / TS",
                                      "11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD", -1,
                                      "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", -1,
-                                     "Counter Difference"
+                                     "Event Counter / TS"
+                                     //"Counter Difference"
                                  }
                              }
     },
@@ -178,7 +182,8 @@ static const QMap<VMEModuleType, QList<DualWordDataFilterDefinition>> defaultDua
                                              "Event Counter",
                                              "XXXXXXXXXXXXXXXXDDDDDDDDDDDDDDDD", 0,
                                              "XXXXXXXXXXXXXXXXDDDDDDDDDDDDDDDD", 1,
-                                             "Counter Difference"
+                                             "Event Counter / TS"
+                                             //"Counter Difference"
                                          }
                                      }
     },
