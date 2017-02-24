@@ -13,7 +13,7 @@ namespace analysis
 
 
 /** IMPORTANT: This constructor makes the Widget go into "add" mode. When
- * closing it will call eventWidget->addOperator(). */
+ * closing it will call eventWidget->addOperator()! */
 AddEditOperatorWidget::AddEditOperatorWidget(OperatorPtr opPtr, s32 userLevel, EventWidget *eventWidget)
     : AddEditOperatorWidget(opPtr.get(), userLevel, eventWidget)
 {
@@ -21,7 +21,7 @@ AddEditOperatorWidget::AddEditOperatorWidget(OperatorPtr opPtr, s32 userLevel, E
 }
 
 /** IMPORTANT: This constructor makes the Widget go into "edit" mode. When
- * closing it will call FIXME */
+ * closing it will call eventWidget->operatorEdited()! */
 AddEditOperatorWidget::AddEditOperatorWidget(OperatorInterface *op, s32 userLevel, EventWidget *eventWidget)
     : QWidget(eventWidget, Qt::Tool)
     , m_op(op)
@@ -117,6 +117,14 @@ AddEditOperatorWidget::AddEditOperatorWidget(OperatorInterface *op, s32 userLeve
 
     layout->setRowStretch(0, 1);
     layout->setRowStretch(1, 1);
+
+
+    // Updates the slot select buttons in case we're editing a connected operator
+    for (s32 slotIndex = 0; slotIndex < m_op->getNumberOfSlots(); ++slotIndex)
+    {
+        if (m_op->getSlot(slotIndex)->inputPipe)
+            inputSelected(slotIndex);
+    }
 }
 
 void AddEditOperatorWidget::inputSelected(s32 slotIndex)
@@ -298,6 +306,8 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
     le_name = new QLineEdit;
     formLayout->addRow(QSL("Name"), le_name);
 
+    le_name->setText(op->objectName());
+
     if (auto histoSink = qobject_cast<Histo1DSink *>(op))
     {
         spin_xBins = new QSpinBox;
@@ -308,6 +318,12 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
         spin_xMin = new QDoubleSpinBox;
 
         formLayout->addRow(QSL("Bins"), spin_xBins);
+
+        // XXX: assuming that the histograms are uniform
+        if (!histoSink->histos.isEmpty())
+        {
+            spin_xBins->setValue(histoSink->histos[0]->getAxis(Qt::XAxis).getBins());
+        }
     }
     else if (auto histoSink = qobject_cast<Histo2DSink *>(op))
     {
@@ -323,6 +339,9 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
 
         formLayout->addRow(QSL("X Bins"), spin_xBins);
         formLayout->addRow(QSL("Y Bins"), spin_yBins);
+
+        spin_xBins->setValue(histoSink->m_histo->getAxis(Qt::XAxis).getBins());
+        spin_yBins->setValue(histoSink->m_histo->getAxis(Qt::YAxis).getBins());
     }
     else if (auto calibration = qobject_cast<Calibration *>(op))
     {
@@ -342,6 +361,15 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
         formLayout->addRow(QSL("Unit Label"), le_unit);
         formLayout->addRow(QSL("Factor"), spin_factor);
         formLayout->addRow(QSL("Offset"), spin_offset);
+
+        // TODO: add list of individual calibration entries
+        le_unit->setText(calibration->getUnitLabel());
+        auto globalParams = calibration->getGlobalCalibration();
+        if (globalParams.isValid())
+        {
+            spin_factor->setValue(globalParams.factor);
+            spin_offset->setValue(globalParams.offset);
+        }
     }
     else if (auto selector = qobject_cast<IndexSelector *>(op))
     {
@@ -349,6 +377,8 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
         spin_index->setMinimum(0);
         spin_index->setMaximum(std::numeric_limits<s32>::max());
         formLayout->addRow(QSL("Selected Index"), spin_index);
+
+        spin_index->setValue(selector->getIndex());
     }
 }
 

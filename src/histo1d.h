@@ -40,6 +40,17 @@ class Histo1D: public QObject
         inline double getBinLowEdge(u32 bin) const { return m_xAxis.getBinLowEdge(bin); }
         inline double getBinCenter(u32 bin) const { return m_xAxis.getBinCenter(bin); }
 
+        AxisBinning getAxis(Qt::Axis axis) const
+        {
+            switch (axis)
+            {
+                case Qt::XAxis:
+                    return m_xAxis;
+                default:
+                    return AxisBinning();
+            }
+        }
+
         //inline const AxisBinning &getAxisBinning() const { return m_xAxis; }
 
         inline double getEntryCount() const { return m_count; }

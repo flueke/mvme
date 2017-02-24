@@ -55,10 +55,6 @@ class EventWidget: public QWidget
         EventWidgetPrivate *m_d;
 };
 
-// FIXME: Both AddEditOperatorWidget and AddEditSourceWidget go into "add" mode
-// if they're constructed with a shared_ptr argument. This is intransparent and
-// surprising.
-
 class AddEditOperatorWidget: public QWidget
 {
     Q_OBJECT

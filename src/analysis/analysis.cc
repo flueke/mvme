@@ -318,9 +318,13 @@ Calibration::Calibration(QObject *parent)
 
 void Calibration::beginRun()
 {
+    auto &out(m_output.getParameters());
+
+    out.name = objectName();
+    out.unit = getUnitLabel();
+
     if (m_inputSlot.inputPipe)
     {
-        auto &out(m_output.getParameters());
         const auto &in(m_inputSlot.inputPipe->getParameters());
 
         s32 idxMin = 0;
@@ -347,9 +351,10 @@ void Calibration::beginRun()
             outParam.lowerLimit = inParam.lowerLimit * calib.factor + calib.offset;
             outParam.upperLimit = inParam.upperLimit * calib.factor + calib.offset;
         }
-
-        out.name = objectName();
-        out.unit = getUnitLabel();
+    }
+    else
+    {
+        out.resize(0);
     }
 }
 
@@ -474,14 +479,22 @@ IndexSelector::IndexSelector(QObject *parent)
 
 void IndexSelector::beginRun()
 {
+    auto &out(m_output.getParameters());
+
+
     if (m_inputSlot.inputPipe)
     {
-        auto &out(m_output.getParameters());
         const auto &in(m_inputSlot.inputPipe->getParameters());
 
         out.resize(1);
         out.name = in.name;
         out.unit = in.unit;
+    }
+    else
+    {
+        out.resize(0);
+        out.name = QString();
+        out.unit = QString();
     }
 }
 
@@ -522,9 +535,10 @@ PreviousValue::PreviousValue(QObject *parent)
 
 void PreviousValue::beginRun()
 {
+    auto &out(m_output.getParameters());
+
     if (m_inputSlot.inputPipe)
     {
-        auto &out(m_output.getParameters());
         const auto &in(m_inputSlot.inputPipe->getParameters());
 
         m_previousInput.resize(in.size());
@@ -532,6 +546,12 @@ void PreviousValue::beginRun()
         out.resize(in.size());
         out.name = in.name;
         out.unit = in.unit;
+    }
+    else
+    {
+        out.resize(0);
+        out.name = QString();
+        out.unit = QString();
     }
 }
 
@@ -578,9 +598,10 @@ RetainValid::RetainValid(QObject *parent)
 
 void RetainValid::beginRun()
 {
+    auto &out(m_output.getParameters());
+
     if (m_inputSlot.inputPipe)
     {
-        auto &out(m_output.getParameters());
         const auto &in(m_inputSlot.inputPipe->getParameters());
 
         s32 idxMin = 0;
@@ -611,6 +632,12 @@ void RetainValid::beginRun()
             outParam.lowerLimit = inParam.lowerLimit;
             outParam.upperLimit = inParam.upperLimit;
         }
+    }
+    else
+    {
+        out.resize(0);
+        out.name = QString();
+        out.unit = QString();
     }
 }
 
@@ -671,8 +698,14 @@ Difference::Difference(QObject *parent)
 
 void Difference::beginRun()
 {
+    m_output.parameters.name = QSL("A-B"); // FIXME
+    m_output.parameters.unit = QString();
+
     if (!(m_inputA.inputPipe && m_inputB.inputPipe))
+    {
+        m_output.parameters.resize(0);
         return;
+    }
 
     s32 minSize = std::numeric_limits<s32>::max();
     QString unit;
@@ -683,9 +716,9 @@ void Difference::beginRun()
     minSize = std::min(minSize, m_inputB.inputPipe->parameters.size());
     unit = m_inputB.inputPipe->parameters.unit;
 
-    m_output.parameters.resize(minSize);
-    m_output.parameters.name = QSL("A-B"); // FIXME
     m_output.parameters.unit = unit;
+
+    m_output.parameters.resize(minSize);
 
     for (s32 idx = 0; idx < minSize; ++idx)
     {

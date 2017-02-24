@@ -1197,6 +1197,8 @@ void EventWidget::addOperator(OperatorPtr op, s32 userLevel)
             auto node = makeOperatorNode(op.get());
             destTree->addTopLevelItem(node);
         }
+
+        destTree->sortItems(0, Qt::AscendingOrder);
     }
 }
 
@@ -1236,6 +1238,7 @@ void EventWidget::addSource(SourcePtr src, ModuleConfig *module)
     {
         auto sourceNode = makeOperatorTreeSourceNode(src.get());
         moduleNode->addChild(sourceNode);
+        moduleNode->sortChildren(0, Qt::AscendingOrder);
     }
 }
 
@@ -1245,28 +1248,6 @@ void EventWidget::sourceEdited(SourceInterface *src)
     // depending on it.
     do_beginRun_forward(src);
     m_d->repopulate();
-
-#if 0
-    // Find the tree node for this source.
-    auto sourceTree = m_d->m_levelTrees[0].operatorTree;
-    auto sourceNode = findFirstNode(sourceTree->invisibleRootItem(), [src](QTreeWidgetItem *node) {
-        return (node->type() == NodeType_Source
-                && getPointer<SourceInterface>(node) == src);
-    });
-
-    // Remove the existing node for this source, recreate it using the now
-    // modified source and re-add the node to the tree.
-    if (sourceNode && sourceNode->parent())
-    {
-        auto moduleNode = sourceNode->parent();
-        bool wasExpanded = sourceNode->isExpanded();
-        delete sourceNode;
-        sourceNode = makeOperatorTreeSourceNode(src);
-        moduleNode->addChild(sourceNode);
-        moduleNode->sortChildren(0, Qt::AscendingOrder);
-        sourceNode->setExpanded(wasExpanded);
-    }
-#endif
 }
 
 void EventWidget::removeSource(SourceInterface *src)
@@ -1443,7 +1424,6 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     });
 
     // toolbar
-    // TODO: statustips, tooltips, action implementations, filename display
     {
         m_d->m_toolbar = new QToolBar;
         m_d->m_toolbar->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
