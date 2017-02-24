@@ -426,6 +426,8 @@ void mvme::displayAboutQt()
     QMessageBox::aboutQt(this, QSL("About Qt"));
 }
 
+static const QString DefaultAnalysisFileFilter = QSL("Config Files (*.json);; All Files (*.*)");
+
 void mvme::closeEvent(QCloseEvent *event){
     if (m_context->getDAQState() != DAQState::Idle && m_context->getMode() == GlobalMode::DAQ)
     {
@@ -474,7 +476,8 @@ void mvme::closeEvent(QCloseEvent *event){
             auto result = saveAnalysisConfig(analysisConfig,
                                              m_context->getAnalysisNG(),
                                              m_context->getAnalysisConfigFileName(),
-                                             m_context->getWorkspaceDirectory());
+                                             m_context->getWorkspaceDirectory(),
+                                             DefaultAnalysisFileFilter);
             if (!result.first)
             {
                 event->ignore();
@@ -787,7 +790,6 @@ void mvme::on_actionAnalysis_UI_triggered()
     }
 
     auto widget = new analysis::AnalysisWidget(m_context);
-    widget->setWindowTitle(QSL("Analysis UI"));
     addWidgetWindow(widget);
 }
 

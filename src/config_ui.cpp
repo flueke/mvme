@@ -420,9 +420,13 @@ namespace
 {
     bool saveAnalysisConfigImpl(AnalysisConfig *config, analysis::Analysis *analysis_ng, const QString &fileName)
     {
-        QJsonObject json, configJson;
-        config->write(configJson);
-        json[QSL("AnalysisConfig")] = configJson;
+        QJsonObject json;
+        if (config)
+        {
+            QJsonObject configJson;
+            config->write(configJson);
+            json[QSL("AnalysisConfig")] = configJson;
+        }
 
         {
             QJsonObject destObject;
@@ -431,14 +435,12 @@ namespace
         }
         return gui_write_json_file(fileName, QJsonDocument(json));
     }
-
-    static const QString fileFilter = QSL("Config Files (*.json);; All Files (*.*)");
 }
 
-QPair<bool, QString> saveAnalysisConfig(AnalysisConfig *config, analysis::Analysis *analysis_ng, const QString &fileName, QString startPath)
+QPair<bool, QString> saveAnalysisConfig(AnalysisConfig *config, analysis::Analysis *analysis_ng, const QString &fileName, QString startPath, QString fileFilter)
 {
     if (fileName.isEmpty())
-        return saveAnalysisConfigAs(config, analysis_ng, startPath);
+        return saveAnalysisConfigAs(config, analysis_ng, startPath, fileFilter);
 
     if (saveAnalysisConfigImpl(config, analysis_ng, fileName))
     {
@@ -447,7 +449,7 @@ QPair<bool, QString> saveAnalysisConfig(AnalysisConfig *config, analysis::Analys
     return qMakePair(false, QString());
 }
 
-QPair<bool, QString> saveAnalysisConfigAs(AnalysisConfig *config, analysis::Analysis *analysis_ng, QString path)
+QPair<bool, QString> saveAnalysisConfigAs(AnalysisConfig *config, analysis::Analysis *analysis_ng, QString path, QString fileFilter)
 {
     if (path.isEmpty())
         path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);

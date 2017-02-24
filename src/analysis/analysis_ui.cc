@@ -5,15 +5,18 @@
 #include "../mvme_context.h"
 #include "../histo1d_widget.h"
 #include "../treewidget_utils.h"
+#include "../config_ui.h"
 
 #include <QComboBox>
 #include <QCursor>
+#include <QFileDialog>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QMenu>
 #include <QScrollArea>
 #include <QSplitter>
 #include <QStackedWidget>
+#include <QStandardPaths>
 #include <QToolBar>
 #include <QToolButton>
 #include <QTreeWidget>
@@ -1300,6 +1303,13 @@ struct AnalysisWidgetPrivate
     QStackedWidget *m_eventWidgetStack;
 
     void repopulate();
+
+    void actionNew();
+    void actionOpen();
+    void actionSave();
+    void actionSaveAs();
+
+    void updateWindowTitle();
 };
 
 void AnalysisWidgetPrivate::repopulate()
@@ -1344,6 +1354,73 @@ void AnalysisWidgetPrivate::repopulate()
     {
         m_eventSelectCombo->setCurrentIndex(lastEventSelectIndex);
     }
+
+    updateWindowTitle();
+}
+
+static const QString AnalysisFileFilter = QSL("MVME Analysis Files (*.analysis);; All Files (*.*)");
+
+void AnalysisWidgetPrivate::actionNew()
+{
+    m_context->getAnalysisNG()->clear();
+    m_context->setAnalysisConfigFileName(QString());
+    repopulate();
+}
+
+void AnalysisWidgetPrivate::actionOpen()
+{
+    auto path = m_context->getWorkspaceDirectory();
+    if (path.isEmpty())
+        path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
+    QString fileName = QFileDialog::getOpenFileName(m_q, QSL("Load analysis config"), path, AnalysisFileFilter);
+    if (fileName.isEmpty())
+        return;
+    m_context->loadAnalysisConfig(fileName);
+}
+
+void AnalysisWidgetPrivate::actionSave()
+{
+    QString fileName = m_context->getAnalysisConfigFileName();
+
+    if (fileName.isEmpty())
+    {
+        actionSaveAs();
+    }
+    else
+    {
+        auto result = saveAnalysisConfig(nullptr, m_context->getAnalysisNG(), fileName,
+                                         m_context->getWorkspaceDirectory(), AnalysisFileFilter);
+        if (result.first)
+        {
+            m_context->setAnalysisConfigFileName(result.second);
+        }
+    }
+}
+
+void AnalysisWidgetPrivate::actionSaveAs()
+{
+    auto result = saveAnalysisConfigAs(nullptr, m_context->getAnalysisNG(),
+                                       m_context->getWorkspaceDirectory(), AnalysisFileFilter);
+
+    if (result.first)
+    {
+        m_context->setAnalysisConfigFileName(result.second);
+    }
+}
+
+void AnalysisWidgetPrivate::updateWindowTitle()
+{
+    QString fileName = m_context->getAnalysisConfigFileName();
+
+    if (fileName.isEmpty())
+        fileName = QSL("<not saved>");
+
+    auto wsDir = m_context->getWorkspaceDirectory() + '/';
+
+    if (fileName.startsWith(wsDir))
+        fileName.remove(wsDir);
+
+    m_q->setWindowTitle(QString(QSL("%1 - [Analysis UI]")).arg(fileName));
 }
 
 AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
@@ -1361,6 +1438,10 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
         m_d->repopulate();
     });
 
+    connect(m_d->m_context, &MVMEContext::analysisConfigFileNameChanged, this, [this](const QString &) {
+        m_d->updateWindowTitle();
+    });
+
     // toolbar
     // TODO: statustips, tooltips, action implementations, filename display
     {
@@ -1371,10 +1452,10 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
         font.setPointSize(font.pointSize() - 2);
         m_d->m_toolbar->setFont(font);
 
-        m_d->m_toolbar->addAction(QIcon(":/document-new.png"), QSL("New"));
-        m_d->m_toolbar->addAction(QIcon(":/document-open.png"), QSL("Open"));
-        m_d->m_toolbar->addAction(QIcon(":/document-save.png"), QSL("Save"));
-        m_d->m_toolbar->addAction(QIcon(":/document-save-as.png"), QSL("Save As"));
+        m_d->m_toolbar->addAction(QIcon(":/document-new.png"), QSL("New"), this, [this]() { m_d->actionNew(); });
+        m_d->m_toolbar->addAction(QIcon(":/document-open.png"), QSL("Open"), this, [this]() { m_d->actionOpen(); });
+        m_d->m_toolbar->addAction(QIcon(":/document-save.png"), QSL("Save"), this, [this]() { m_d->actionSave(); });
+        m_d->m_toolbar->addAction(QIcon(":/document-save-as.png"), QSL("Save As"), this, [this]() { m_d->actionSaveAs(); });
     }
 
     auto toolbarFrame = new QFrame;
@@ -1398,6 +1479,8 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     removeUserLevelButton->setIcon(QIcon(QSL(":/list_remove.png")));
     connect(removeUserLevelButton, &QPushButton::clicked, this, [this]() {
     });
+    removeUserLevelButton->setEnabled(false);
+    
 
     auto addUserLevelButton = new QToolButton();
     addUserLevelButton->setIcon(QIcon(QSL(":/list_add.png")));
@@ -1448,6 +1531,19 @@ AnalysisWidget::~AnalysisWidget()
 }
 
 } // end namespace analysis
+
+#if 0
+QAction *add_toolbar_action(QToolBar *toolbar, QIcon icon, const QString &title, const QString &statusTip = QString())
+{
+    auto result = toolbar->addAction(icon, title);
+    if (!statusTip.isEmpty())
+        result->setStatusTip(statusTip);
+    else
+        result->setStatusTip(title);
+
+    return result;
+}
+#endif
 
 #if 0
     {

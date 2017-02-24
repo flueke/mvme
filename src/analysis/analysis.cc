@@ -899,9 +899,9 @@ Analysis::Analysis()
     m_registry.registerSink<Histo1DSink>();
     m_registry.registerSink<Histo2DSink>();
 
-    qDebug() << m_registry.getSourceNames();
-    qDebug() << m_registry.getOperatorNames();
-    qDebug() << m_registry.getSinkNames();
+    qDebug() << "Registered Sources:   " << m_registry.getSourceNames();
+    qDebug() << "Registered Operators: " << m_registry.getOperatorNames();
+    qDebug() << "Registered Sinks:     " << m_registry.getSinkNames();
 }
 
 void Analysis::beginRun()
@@ -1207,7 +1207,7 @@ Analysis::ReadResult Analysis::read(const QJsonObject &json)
 
     ReadResult result = {};
 
-    int version = json["version"].toInt(0);
+    int version = json["MVMEAnalysisVersion"].toInt(0);
 
     if (version != CurrentAnalysisVersion)
     {
@@ -1400,7 +1400,7 @@ Analysis::ReadResult Analysis::read(const QJsonObject &json)
 
 void Analysis::write(QJsonObject &json) const
 {
-    json["version"] = CurrentAnalysisVersion;
+    json["MVMEAnalysisVersion"] = CurrentAnalysisVersion;
 
     // Sources
     {

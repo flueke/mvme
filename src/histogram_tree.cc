@@ -1499,6 +1499,8 @@ void HistogramTreeWidget::loadConfig()
     m_context->loadAnalysisConfig(fileName);
 }
 
+static const QString DefaultFileFilter = QSL("Config Files (*.json);; All Files (*.*)");
+
 bool HistogramTreeWidget::saveConfig()
 {
     auto analysisConfig = m_context->getAnalysisConfig();
@@ -1506,7 +1508,7 @@ bool HistogramTreeWidget::saveConfig()
 
     if (fileName.isEmpty())
     {
-        auto result = saveAnalysisConfigAs(analysisConfig, m_context->getAnalysisNG(), m_context->getWorkspaceDirectory());
+        auto result = saveAnalysisConfigAs(analysisConfig, m_context->getAnalysisNG(), m_context->getWorkspaceDirectory(), DefaultFileFilter);
         if (result.first)
         {
             analysisConfig->setModified(false);
@@ -1516,7 +1518,7 @@ bool HistogramTreeWidget::saveConfig()
             return true;
         }
     }
-    else if (saveAnalysisConfig(analysisConfig, m_context->getAnalysisNG(), fileName, m_context->getWorkspaceDirectory()).first)
+    else if (saveAnalysisConfig(analysisConfig, m_context->getAnalysisNG(), fileName, m_context->getWorkspaceDirectory(), DefaultFileFilter).first)
     {
         analysisConfig->setModified(false);
         for (auto obj: analysisConfig->findChildren<ConfigObject *>())
@@ -1529,7 +1531,7 @@ bool HistogramTreeWidget::saveConfig()
 bool HistogramTreeWidget::saveConfigAs()
 {
     auto analysisConfig = m_context->getAnalysisConfig();
-    auto result = saveAnalysisConfigAs(analysisConfig, m_context->getAnalysisNG(), m_context->getWorkspaceDirectory());
+    auto result = saveAnalysisConfigAs(analysisConfig, m_context->getAnalysisNG(), m_context->getWorkspaceDirectory(), DefaultFileFilter);
 
     if (result.first)
     {
