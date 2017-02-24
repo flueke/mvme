@@ -224,6 +224,8 @@ struct DisplayLevelTrees
     s32 userLevel;
 };
 
+using SetOfVoidStar = QSet<void *>;
+
 struct EventWidgetPrivate
 {
     enum Mode
@@ -250,7 +252,17 @@ struct EventWidgetPrivate
 
     QSplitter *m_operatorFrameSplitter;
     QSplitter *m_displayFrameSplitter;
-    QSet<void *> m_expandedObjects; // FIXME: (leftoff) This does not expand! Well it does but a method is needed to traverse all trees and expand all items!
+
+    enum TreeType
+    {
+        TreeType_Operator,
+        TreeType_Display,
+        TreeType_Count
+    };
+    // Keeps track of the expansion state of those tree nodes that are storing objects in DataRole_Pointer.
+    // There's two sets, one for the operator trees and one for the display
+    // trees, because objects may have nodes in both trees.
+    std::array<SetOfVoidStar, TreeType_Count> m_expandedObjects;
 
     void createView(s32 eventIndex);
     DisplayLevelTrees createTrees(s32 eventIndex, s32 level);
@@ -321,8 +333,6 @@ DisplayLevelTrees EventWidgetPrivate::createTrees(s32 eventIndex, s32 level)
             //qDebug() << ">>> Adding to the display tree cause it's not a SinkInterface:" << entry.op.get();
             auto opNode = makeOperatorNode(entry.op.get());
             result.operatorTree->addTopLevelItem(opNode);
-            if (m_expandedObjects.contains(entry.op.get()))
-                result.displayTree->expandItem(opNode);
         }
     }
     result.operatorTree->sortItems(0, Qt::AscendingOrder);
@@ -333,6 +343,8 @@ DisplayLevelTrees EventWidgetPrivate::createTrees(s32 eventIndex, s32 level)
         auto histo2DRoot = new TreeNode({QSL("2D")});
         result.displayTree->addTopLevelItem(histo1DRoot);
         result.displayTree->addTopLevelItem(histo2DRoot);
+        histo1DRoot->setExpanded(true);
+        histo2DRoot->setExpanded(true);
 
         for (const auto &entry: operators)
         {
@@ -340,15 +352,11 @@ DisplayLevelTrees EventWidgetPrivate::createTrees(s32 eventIndex, s32 level)
             {
                 auto histoNode = makeHisto1DNode(histoSink);
                 histo1DRoot->addChild(histoNode);
-                if (m_expandedObjects.contains(histoSink))
-                    result.displayTree->expandItem(histoNode);
             }
             else if (auto histoSink = qobject_cast<Histo2DSink *>(entry.op.get()))
             {
                 auto histoNode = makeHisto2DNode(histoSink);
                 histo2DRoot->addChild(histoNode);
-                if (m_expandedObjects.contains(histoSink))
-                    result.displayTree->expandItem(histoNode);
             }
             else if (auto sink = qobject_cast<SinkInterface *>(entry.op.get()))
             {
@@ -389,14 +397,14 @@ DisplayLevelTrees EventWidgetPrivate::createSourceTrees(s32 eventIndex)
         {
             auto sourceNode = makeOperatorTreeSourceNode(sourceEntry.source.get());
             moduleNode->addChild(sourceNode);
-            if (m_expandedObjects.contains(sourceEntry.source.get()))
-                result.operatorTree->expandItem(sourceNode);
         }
         ++moduleIndex;
     }
     result.operatorTree->sortItems(0, Qt::AscendingOrder);
 
-    // populate the DisplayTree
+    // Populate the DisplayTree
+    // Create module nodes and nodes for the raw histograms for each data source for the module.
+    QSet<QObject *> sinksAddedBelowModules;
     moduleIndex = 0;
     auto opEntries = analysis->getOperators(eventIndex, 0);
     for (auto mod: modules)
@@ -413,14 +421,43 @@ DisplayLevelTrees EventWidgetPrivate::createSourceTrees(s32 eventIndex)
                 {
                     auto histoNode = makeHisto1DNode(histoSink);
                     moduleNode->addChild(histoNode);
-
-                    if (m_expandedObjects.contains(entry.op.get()))
-                        result.displayTree->expandItem(histoNode);
+                    sinksAddedBelowModules.insert(histoSink);
                 }
             }
         }
         ++moduleIndex;
     }
+
+    // This handles any "lost" display elements. E.g. raw histograms whose data
+    // source has been deleted.
+    for (auto &entry: opEntries)
+    {
+        if (auto histoSink = qobject_cast<Histo1DSink *>(entry.op.get()))
+        {
+            if (!sinksAddedBelowModules.contains(histoSink))
+            {
+                auto histoNode = makeHisto1DNode(histoSink);
+                result.displayTree->addTopLevelItem(histoNode);
+            }
+        }
+        else if (auto histoSink = qobject_cast<Histo2DSink *>(entry.op.get()))
+        {
+            if (!sinksAddedBelowModules.contains(histoSink))
+            {
+                auto histoNode = makeHisto2DNode(histoSink);
+                result.displayTree->addTopLevelItem(histoNode);
+            }
+        }
+        else if (auto sink = qobject_cast<SinkInterface *>(entry.op.get()))
+        {
+            if (!sinksAddedBelowModules.contains(sink))
+            {
+                auto sinkNode = makeSinkNode(sink);
+                result.displayTree->addTopLevelItem(sinkNode);
+            }
+        }
+    }
+
     result.displayTree->sortItems(0, Qt::AscendingOrder);
 
     return result;
@@ -464,6 +501,7 @@ void EventWidgetPrivate::appendTreesToView(DisplayLevelTrees trees)
             onNodeDoubleClicked(reinterpret_cast<TreeNode *>(node), column);
         });
 
+
         QObject::connect(tree, &QTreeWidget::currentItemChanged, m_q,
                          [this, tree](QTreeWidgetItem *current, QTreeWidgetItem *previous) {
             if (current)
@@ -472,42 +510,60 @@ void EventWidgetPrivate::appendTreesToView(DisplayLevelTrees trees)
             }
         });
 
-        QObject::connect(tree, &QTreeWidget::itemExpanded, m_q, [this] (QTreeWidgetItem *node) {
+        TreeType treeType = (tree == opTree ? TreeType_Operator : TreeType_Display);
+
+        QObject::connect(tree, &QTreeWidget::itemExpanded, m_q, [this, treeType] (QTreeWidgetItem *node) {
             if (void *voidObj = getPointer<void>(node))
             {
-                m_expandedObjects.insert(voidObj);
+                qDebug() << voidObj << "was expanded";
+                m_expandedObjects[treeType].insert(voidObj);
             }
         });
 
-        QObject::connect(tree, &QTreeWidget::itemCollapsed, m_q, [this] (QTreeWidgetItem *node) {
+        QObject::connect(tree, &QTreeWidget::itemCollapsed, m_q, [this, treeType] (QTreeWidgetItem *node) {
             if (void *voidObj = getPointer<void>(node))
             {
-                m_expandedObjects.remove(voidObj);
+                qDebug() << voidObj << "was collapsed";
+                m_expandedObjects[treeType].remove(voidObj);
             }
         });
     }
 }
 
+static void expandObjectNodes(QTreeWidgetItem *node, const SetOfVoidStar &objectsToExpand)
+{
+    s32 childCount = node->childCount();
+
+    for (s32 childIndex = 0;
+         childIndex < childCount;
+         ++childIndex)
+    {
+        auto childNode = node->child(childIndex);
+        expandObjectNodes(childNode, objectsToExpand);
+    }
+
+    void *voidObj = getPointer<void>(node);
+
+    if (voidObj && objectsToExpand.contains(voidObj))
+    {
+        node->setExpanded(true);
+    }
+}
+
+template<typename T>
+static void expandObjectNodes(const QVector<DisplayLevelTrees> &treeVector, const T &objectsToExpand)
+{
+    for (auto trees: treeVector)
+    {
+        expandObjectNodes(trees.operatorTree->invisibleRootItem(), objectsToExpand[EventWidgetPrivate::TreeType_Operator]);
+        expandObjectNodes(trees.displayTree->invisibleRootItem(), objectsToExpand[EventWidgetPrivate::TreeType_Display]);
+    }
+}
+
 void EventWidgetPrivate::repopulate()
 {
+    auto splitterSizes = m_operatorFrameSplitter->sizes();
     // clear
-#if 0
-    for (s32 i = 0; i < m_operatorFrameSplitter->count(); ++i)
-    {
-        auto widget = m_operatorFrameSplitter->widget(i);
-        widget->setParent(nullptr);
-        widget->deleteLater();
-    }
-    Q_ASSERT(m_operatorFrameSplitter->count() == 0);
-
-    for (s32 i = 0; i < m_displayFrameSplitter->count(); ++i)
-    {
-        auto widget = m_displayFrameSplitter->widget(i);
-        widget->setParent(nullptr);
-        widget->deleteLater();
-    }
-    Q_ASSERT(m_displayFrameSplitter->count() == 0);
-#else
     for (auto trees: m_levelTrees)
     {
         trees.operatorTree->setParent(nullptr);
@@ -517,7 +573,8 @@ void EventWidgetPrivate::repopulate()
         trees.displayTree->deleteLater();
     }
     m_levelTrees.clear();
-#endif
+    Q_ASSERT(m_operatorFrameSplitter->count() == 0);
+    Q_ASSERT(m_displayFrameSplitter->count() == 0);
 
     // populate
     if (m_eventIndex >= 0)
@@ -528,8 +585,19 @@ void EventWidgetPrivate::repopulate()
 
     for (auto trees: m_levelTrees)
     {
+        // This populates the operator and display splitters
         appendTreesToView(trees);
     }
+
+    if (splitterSizes.size() == m_operatorFrameSplitter->count())
+    {
+        // Restore the splitter sizes. As the splitters are synced via
+        // splitterMoved() they both had the same sizes before.
+        m_operatorFrameSplitter->setSizes(splitterSizes);
+        m_displayFrameSplitter->setSizes(splitterSizes);
+    }
+
+    expandObjectNodes(m_levelTrees, m_expandedObjects);
 }
 
 void EventWidgetPrivate::addUserLevel(s32 eventIndex)
