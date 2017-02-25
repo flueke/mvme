@@ -27,6 +27,8 @@
 #include <QLabel>
 #endif
 
+static const s32 ReplotPeriod_ms = 1000;
+
 class Histo1DPointData: public QwtSeriesData<QPointF>
 {
     public:
@@ -94,7 +96,7 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     ui->plot->axisWidget(QwtPlot::yLeft)->setTitle("Counts");
 
     connect(m_replotTimer, SIGNAL(timeout()), this, SLOT(replot()));
-    m_replotTimer->start(2000);
+    m_replotTimer->start(ReplotPeriod_ms);
 
     ui->plot->canvas()->setMouseTracking(true);
 
