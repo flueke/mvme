@@ -533,6 +533,7 @@ void Hist2DWidget::updateCursorInfoLabel()
 
 void Hist2DWidget::on_pb_subHisto_clicked()
 {
+#ifdef ENABLE_OLD_ANALYSIS
     auto xBinRange = ui->plot->axisScaleDiv(QwtPlot::xBottom).interval();
     xBinRange.setMaxValue(xBinRange.maxValue() + 1.0);
 
@@ -552,10 +553,12 @@ void Hist2DWidget::on_pb_subHisto_clicked()
         m_context->getAnalysisConfig()->addHist2DConfig(histoConfig);
         m_context->openInNewWindow(histo);
     }
+#endif
 }
 
 void Hist2DWidget::on_tb_info_clicked()
 {
+#ifdef ENABLE_OLD_ANALYSIS
     auto histoConfig = qobject_cast<Hist2DConfig *>(m_context->getMappedObject(m_hist2d, QSL("ObjectToConfig")));
 
     if (!histoConfig) return;
@@ -628,4 +631,5 @@ void Hist2DWidget::on_tb_info_clicked()
     dialog.setWindowModality(Qt::NonModal);
     dialog.setAttribute(Qt::WA_DeleteOnClose);
     dialog.show();
+#endif
 }

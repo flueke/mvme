@@ -107,7 +107,9 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
     setMode(GlobalMode::DAQ);
 
     setDAQConfig(new DAQConfig(this));
+#ifdef ENABLE_OLD_ANALYSIS
     setAnalysisConfig(new AnalysisConfig(this));
+#endif
 
     tryOpenController();
 }
@@ -182,6 +184,7 @@ void MVMEContext::setDAQConfig(DAQConfig *config)
     emit daqConfigChanged(config);
 }
 
+#ifdef ENABLE_OLD_ANALYSIS
 void MVMEContext::setAnalysisConfig(AnalysisConfig *config)
 {
     if (m_analysisConfig)
@@ -250,6 +253,7 @@ void MVMEContext::setAnalysisConfig(AnalysisConfig *config)
 
     emit analysisConfigChanged(config);
 }
+#endif
 
 void MVMEContext::setController(VMEController *controller)
 {
@@ -822,9 +826,11 @@ void MVMEContext::loadVMEConfig(const QString &fileName)
 void MVMEContext::loadAnalysisConfig(const QString &fileName)
 {
     QJsonDocument doc(gui_read_json_file(fileName));
+#ifdef ENABLE_OLD_ANALYSIS
     auto config = new AnalysisConfig;
     config->read(doc.object()[QSL("AnalysisConfig")].toObject());
     setAnalysisConfig(config);
+#endif
     setAnalysisConfigFileName(fileName);
 
 
@@ -862,12 +868,17 @@ void MVMEContext::setListFileOutputEnabled(bool b)
 /** True if at least one of VME-config and analysis-config is modified. */
 bool MVMEContext::isWorkspaceModified() const
 {
+#ifdef ENABLE_OLD_ANALYSIS
     return ((m_daqConfig && m_daqConfig->isModified())
             || (m_analysisConfig && m_analysisConfig->isModified()));
+#else
+    return ((m_daqConfig && m_daqConfig->isModified()));
+#endif
 }
 
 QString getFilterPath(MVMEContext *context, DataFilterConfig *filterConfig, int filterAddress)
 {
+#ifdef ENABLE_OLD_ANALYSIS
     auto indexPair = context->getAnalysisConfig()->getEventAndModuleIndices(filterConfig);
     if (indexPair.first >= 0)
     {
@@ -883,15 +894,20 @@ QString getFilterPath(MVMEContext *context, DataFilterConfig *filterConfig, int 
                 .arg(filterAddress);
         }
     }
+#endif
     return QString();
 }
 
 QString getHistoPath(MVMEContext *context, Hist1DConfig *histoConfig)
 {
+#if ENABLE_ANALYSIS_NG
     auto filterId = histoConfig->getFilterId();
     auto filterAddress = histoConfig->getFilterAddress();
     auto filterConfig = context->getAnalysisConfig()->findChildById<DataFilterConfig *>(filterId);
     return getFilterPath(context, filterConfig, filterAddress);
+#else
+    return QString();
+#endif
 }
 
 Hist1D *createHistogram(Hist1DConfig *config, MVMEContext *ctx)

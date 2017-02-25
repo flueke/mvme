@@ -42,7 +42,9 @@ class MVMEContext: public QObject
         void daqConfigChanged(DAQConfig *config);
         void daqConfigFileNameChanged(const QString &fileName);
 
+#ifdef ENABLE_OLD_ANALYSIS
         void analysisConfigChanged(AnalysisConfig *config);
+#endif
         void analysisConfigFileNameChanged(const QString &name);
         void analysisNGChanged();
 
@@ -175,8 +177,10 @@ class MVMEContext: public QObject
         void setAnalysisConfigFileName(QString name);
         QString getAnalysisConfigFileName() const { return m_analysisConfigFileName; }
 
+#ifdef ENABLE_OLD_ANALYSIS
         AnalysisConfig *getAnalysisConfig() const { return m_analysisConfig; }
         void setAnalysisConfig(AnalysisConfig *config);
+#endif
 
         void logMessage(const QString &msg);
         void logMessages(const QStringList &mgs, const QString &prefix = QString());
@@ -237,7 +241,9 @@ class MVMEContext: public QObject
         void prepareStart();
 
         DAQConfig *m_daqConfig = nullptr;
+#ifdef ENABLE_OLD_ANALYSIS
         AnalysisConfig *m_analysisConfig = nullptr;
+#endif
         QString m_configFileName;
         QString m_analysisConfigFileName;
         QString m_workspaceDir;

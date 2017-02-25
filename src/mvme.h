@@ -101,12 +101,16 @@ private:
     QTextBrowser *m_logView;
     QMap<QObject *, QList<QMdiSubWindow *>> m_objectWindows;
     DAQConfigTreeWidget *m_daqConfigTreeWidget;
+#ifdef ENABLE_OLD_ANALYSIS
     HistogramTreeWidget *m_histogramTreeWidget;
+#endif
 
     QDockWidget *dock_daqControl,
                 *dock_daqStats,
                 *dock_configTree,
+#ifdef ENABLE_OLD_ANALYSIS
                 *dock_histoTree,
+#endif
                 *dock_logView;
 };
 

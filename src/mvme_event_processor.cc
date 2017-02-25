@@ -135,6 +135,7 @@ void MVMEEventProcessor::newRun()
     if (m_d->diag)
         m_d->diag->reset();
 
+#ifdef ENABLE_ANALYSIS_NG
     auto analysisConfig = m_d->context->getAnalysisConfig();
 
     m_d->filterConfigs = analysisConfig->getFilters();
@@ -203,6 +204,7 @@ void MVMEEventProcessor::newRun()
             }
         }
     }
+#endif
 
     {
         m_d->analysis_ng = m_d->context->getAnalysisNG();
@@ -253,7 +255,7 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
             if (eventConfig)
                 ++stats.eventCounters[eventConfig].events;
 
-#if ENABLE_OLD_ANALYSIS
+#ifdef ENABLE_OLD_ANALYSIS
             {
                 // clears the values for the current eventIndex
                 // FIXME: slow!
@@ -320,7 +322,7 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                     diag->beginEvent();
                 }
 
-#if ENABLE_OLD_ANALYSIS
+#ifdef ENABLE_OLD_ANALYSIS
                 const auto filterConfigs = m_d->filterConfigs.value(eventIndex).value(moduleIndex);
                 const auto dualWordfilterConfigs = m_d->dualWordFilterConfigs.value(eventIndex).value(moduleIndex);
 
@@ -365,7 +367,7 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                         && (currentWord == BerrMarker))
                         continue;
 
-#if ENABLE_OLD_ANALYSIS
+#ifdef ENABLE_OLD_ANALYSIS
                     for (auto filterConfig: filterConfigs)
                     {
 #if 0 //#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
@@ -396,6 +398,7 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                         }
                     }
 
+#ifdef ENABLE_OLD_ANALYSIS
                     for (auto filterConfig: dualWordfilterConfigs)
                     {
                         /* Note: This can break if a dual word filter has one
@@ -415,6 +418,7 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                             filter.clearCompletion();
                         }
                     }
+#endif
 
                     if (diag)
                     {
@@ -440,6 +444,7 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                 }
 
 
+#ifdef ENABLE_OLD_ANALYSIS
 #ifdef MVME_EVENT_PROCESSOR_DEBUGGING
                 for (auto filterConfig: dualWordfilterConfigs)
                 {
@@ -448,6 +453,7 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                         qDebug() << filterConfig << m_d->currentDualWordFilterValues[filterConfig];
                     }
                 }
+#endif
 #endif
 
                 if (diag)
@@ -497,6 +503,7 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
             if (m_d->analysis_ng)
                 m_d->analysis_ng->endEvent(eventIndex);
 
+#ifdef ENABLE_OLD_ANALYSIS
             //
             // fill 2D Histograms
             //
@@ -613,6 +620,7 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                     }
                 }
             }
+#endif
         }
     } catch (const end_of_buffer &)
     {

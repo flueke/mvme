@@ -39,6 +39,7 @@ SelectAxisSourceDialog::SelectAxisSourceDialog(MVMEContext *context, int selecte
     treeWidget->setIndentation(10);
 
     auto daqConfig = context->getDAQConfig();
+#ifdef ENABLE_OLD_ANALYSIS
     auto analysisConfig = context->getAnalysisConfig();
     auto filters = analysisConfig->getFilters();
 
@@ -86,6 +87,7 @@ SelectAxisSourceDialog::SelectAxisSourceDialog(MVMEContext *context, int selecte
 
         eventNode->setExpanded(true);
     }
+#endif
 
     connect(treeWidget, &QTreeWidget::currentItemChanged, this, &SelectAxisSourceDialog::onTreeCurrentItemChanged);
     connect(treeWidget, &QTreeWidget::itemDoubleClicked, this, &SelectAxisSourceDialog::onItemDoubleClicked);
@@ -302,6 +304,7 @@ Hist2DDialog::Hist2DDialog(Mode mode, MVMEContext *context, Hist2D *histo,
 
             ui->le_name->setText(histoName);
 
+#ifdef ENABLE_OLD_ANALYSIS
             {
                 auto filterConfig = m_context->getAnalysisConfig()->findChildById<DataFilterConfig *>(m_histoConfig->getFilterId(Qt::XAxis));
                 auto address = m_histoConfig->getFilterAddress(Qt::XAxis);
@@ -312,6 +315,7 @@ Hist2DDialog::Hist2DDialog(Mode mode, MVMEContext *context, Hist2D *histo,
                 auto address = m_histoConfig->getFilterAddress(Qt::YAxis);
                 m_ySource = qMakePair(filterConfig, address);
             }
+#endif
 
             if (m_xBinRange.isValid())
                 m_xBinRange = clean_interval(m_xBinRange, m_histoConfig->getBits(Qt::XAxis));
@@ -450,6 +454,7 @@ void Hist2DDialog::updateSourceLabels()
 
 void Hist2DDialog::onSelectSourceClicked(Qt::Axis axis)
 {
+#ifdef ENABLE_OLD_ANALYSIS
     const auto &otherAxisSource = (axis == Qt::XAxis ? m_ySource : m_xSource);
 
     int eventIndex = -1;
@@ -469,6 +474,7 @@ void Hist2DDialog::onSelectSourceClicked(Qt::Axis axis)
         source = dialog.getAxisSource();
         onSourceSelected(axis, prevSource);
     }
+#endif
 }
 
 void Hist2DDialog::onClearSourceClicked(Qt::Axis axis)

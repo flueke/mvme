@@ -148,6 +148,7 @@ mvme::mvme(QWidget *parent) :
     //
     // HistogramTreeWidget
     //
+#ifdef ENABLE_OLD_ANALYSIS
     m_histogramTreeWidget = new HistogramTreeWidget(m_context);
 
     {
@@ -173,6 +174,7 @@ mvme::mvme(QWidget *parent) :
         connect(m_histogramTreeWidget, &HistogramTreeWidget::addWidgetWindow,
                 this, &mvme::addWidgetWindow);
     }
+#endif
 
     //
     // Log Window
@@ -204,8 +206,10 @@ mvme::mvme(QWidget *parent) :
 
     addDockWidget(Qt::LeftDockWidgetArea, dock_daqControl);
     addDockWidget(Qt::LeftDockWidgetArea, dock_configTree);
+#ifdef ENABLE_OLD_ANALYSIS
     addDockWidget(Qt::LeftDockWidgetArea, dock_histoTree);
     tabifyDockWidget(dock_configTree, dock_histoTree);
+#endif
 
     addDockWidget(Qt::BottomDockWidgetArea, dock_daqStats);
     addDockWidget(Qt::BottomDockWidgetArea, dock_logView);
@@ -463,6 +467,7 @@ void mvme::closeEvent(QCloseEvent *event){
     }
 
     // AnalysisConfig
+#ifdef ENABLE_OLD_ANALYSIS
     auto analysisConfig = m_context->getAnalysisConfig();
     if (analysisConfig->isModified())
     {
@@ -491,6 +496,9 @@ void mvme::closeEvent(QCloseEvent *event){
             return;
         }
     }
+#else
+    // FIXME: add isModified() concept to analysis::Analysis
+#endif
 
     // window sizes and positions
     QSettings settings;

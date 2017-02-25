@@ -488,6 +488,7 @@ void Hist1DWidget::setHistogram(Hist1D *histo, Hist1DConfig *histoConfig)
     m_conversionMap.setScaleInterval(0, m_histo->getResolution());
     m_conversionMap.setPaintInterval(0, m_histo->getResolution());
 
+#ifdef ENABLE_OLD_ANALYSIS
     if (m_histoConfig)
     {
         connect(m_histoConfig, &ConfigObject::modified, this, &Hist1DWidget::displayChanged);
@@ -496,6 +497,7 @@ void Hist1DWidget::setHistogram(Hist1D *histo, Hist1DConfig *histoConfig)
         m_sourceFilter = m_context->getAnalysisConfig()->findChildById<DataFilterConfig *>(filterId);
         ui->frame_calib->setVisible(m_sourceFilter);
     }
+#endif
 
     displayChanged();
 }
@@ -763,6 +765,7 @@ void Hist1DWidget::updateCursorInfoLabel()
 
 void Hist1DWidget::calibApply()
 {
+#ifdef ENABLE_OLD_ANALYSIS
     double a1 = m_calibUi->actual1->value();
     double a2 = m_calibUi->actual2->value();
     double t1 = m_calibUi->target1->value();
@@ -795,14 +798,17 @@ void Hist1DWidget::calibApply()
 
     m_calibUi->actual1->setValue(m_calibUi->target1->value());
     m_calibUi->actual2->setValue(m_calibUi->target2->value());
+#endif
 }
 
 void Hist1DWidget::calibResetToFilter()
 {
+#ifdef ENABLE_OLD_ANALYSIS
     u32 address = m_histoConfig->getFilterAddress();
     m_sourceFilter->resetToBaseUnits(address);
 
     m_context->getAnalysisConfig()->updateHistogramsForFilter(m_sourceFilter);
+#endif
 }
 
 void Hist1DWidget::calibFillMax()

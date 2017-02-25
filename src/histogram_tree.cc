@@ -115,9 +115,13 @@ static Hist1DConfig *generateDifferenceHistogramConfig(DualWordDataFilterConfig 
 
 static Hist1D *createAndAddHist1D(MVMEContext *context, Hist1DConfig *histoConfig)
 {
+#ifdef ENABLE_OLD_ANALYSIS
     context->getAnalysisConfig()->addHist1DConfig(histoConfig);
     auto histo = createHistogram(histoConfig, context);
     return histo;
+#else
+    return nullptr;
+#endif
 }
 
 //
@@ -163,6 +167,7 @@ generateHistogramNodes(MVMEContext *context, DataFilterConfig *filterConfig)
 {
     QList<QPair<TreeNode *, Hist1D *>> result;
 
+#ifdef ENABLE_OLD_ANALYSIS
     const auto &filter = filterConfig->getFilter();
     u32 addressCount = 1 << filter.getExtractBits('A');
 
@@ -184,6 +189,7 @@ generateHistogramNodes(MVMEContext *context, DataFilterConfig *filterConfig)
 
         result.push_back(qMakePair(addressNode, histo));
     }
+#endif
 
     return result;
 }
@@ -260,10 +266,12 @@ HistogramTreeWidget::HistogramTreeWidget(MVMEContext *context, QWidget *parent)
     pb_save = makeToolButton(QSL(":/document-save.png"), QSL("Save"));
     pb_saveAs = makeToolButton(QSL(":/document-save-as.png"), QSL("Save As"));
 
+#ifdef ENABLE_OLD_ANALYSIS
     connect(pb_new, &QAbstractButton::clicked, this, &HistogramTreeWidget::newConfig);
     connect(pb_load, &QAbstractButton::clicked, this, &HistogramTreeWidget::loadConfig);
     connect(pb_save, &QAbstractButton::clicked, this, &HistogramTreeWidget::saveConfig);
     connect(pb_saveAs, &QAbstractButton::clicked, this, &HistogramTreeWidget::saveConfigAs);
+#endif
 
     auto buttonLayout = new QHBoxLayout;
     buttonLayout->setContentsMargins(0, 0, 0, 0);
@@ -288,6 +296,7 @@ HistogramTreeWidget::HistogramTreeWidget(MVMEContext *context, QWidget *parent)
     layout->addWidget(le_fileName);
     layout->addWidget(m_tree);
 
+#ifdef ENABLE_OLD_ANALYSIS
     connect(m_tree, &QTreeWidget::itemClicked, this, &HistogramTreeWidget::onItemClicked);
     connect(m_tree, &QTreeWidget::itemDoubleClicked, this, &HistogramTreeWidget::onItemDoubleClicked);
     connect(m_tree, &QTreeWidget::itemChanged, this, &HistogramTreeWidget::onItemChanged);
@@ -299,6 +308,7 @@ HistogramTreeWidget::HistogramTreeWidget(MVMEContext *context, QWidget *parent)
 
     connect(m_context, &MVMEContext::daqConfigChanged, this, &HistogramTreeWidget::onAnyConfigChanged);
     connect(m_context, &MVMEContext::analysisConfigChanged, this, &HistogramTreeWidget::onAnyConfigChanged);
+#endif
     connect(m_context, &MVMEContext::analysisConfigFileNameChanged, this, [this](const QString &) {
         updateConfigLabel();
     });
@@ -341,8 +351,10 @@ void HistogramTreeWidget::onObjectAdded(QObject *object)
 
             moduleNode->setText(1, QString("event=%1, module=%2").arg(idxPair.first).arg(idxPair.second));
 
+#ifdef ENABLE_OLD_ANALYSIS
             for (auto filterConfig: m_context->getAnalysisConfig()->getFilters(idxPair.first, idxPair.second))
                 onObjectAdded(filterConfig);
+#endif
 
             m_tree->resizeColumnToContents(0);
 
@@ -378,6 +390,7 @@ void HistogramTreeWidget::onObjectAdded(QObject *object)
     }
     else if (auto filterConfig = qobject_cast<DataFilterConfig *>(object))
     {
+#ifdef ENABLE_OLD_ANALYSIS
         auto idxPair = m_context->getAnalysisConfig()->getEventAndModuleIndices(filterConfig);
         if (idxPair.first < 0)
         {
@@ -430,9 +443,11 @@ void HistogramTreeWidget::onObjectAdded(QObject *object)
         {
             qDebug() << __PRETTY_FUNCTION__ << "!!! no module node found for filter config" << filterConfig << "and module config" << moduleConfig;
         }
+#endif
     }
     else if (auto filterConfig = qobject_cast<DualWordDataFilterConfig *>(object))
     {
+#ifdef ENABLE_OLD_ANALYSIS
         auto idxPair = m_context->getAnalysisConfig()->getEventAndModuleIndices(filterConfig);
         if (idxPair.first < 0)
         {
@@ -472,6 +487,7 @@ void HistogramTreeWidget::onObjectAdded(QObject *object)
                 onObjectNameChanged(filterConfig, name);
             });
         }
+#endif
     }
     else if (auto histo = qobject_cast<Hist2D *>(object))
     {
@@ -533,10 +549,14 @@ void HistogramTreeWidget::onAnyConfigChanged()
     m_treeMap.clear();
 
     bool daqChanged = m_daqConfig != m_context->getDAQConfig();
+#ifdef ENABLE_OLD_ANALYSIS
     bool analysisChanged = m_analysisConfig != m_context->getAnalysisConfig();
+#endif
 
     m_daqConfig = m_context->getDAQConfig();
+#ifdef ENABLE_OLD_ANALYSIS
     m_analysisConfig = m_context->getAnalysisConfig();
+#endif
 
     if (m_daqConfig)
     {
@@ -546,6 +566,7 @@ void HistogramTreeWidget::onAnyConfigChanged()
         connect(m_daqConfig, &DAQConfig::eventAdded, this, &HistogramTreeWidget::onObjectAdded);
     }
 
+#ifdef ENABLE_OLD_ANALYSIS
     if (m_analysisConfig)
     {
         {
@@ -588,6 +609,7 @@ void HistogramTreeWidget::onAnyConfigChanged()
 
         updateConfigLabel();
     }
+#endif
 
 #if ENABLE_ANALYSIS_NG
     m_rawDataDisplayNodes.clear();
@@ -668,6 +690,7 @@ void HistogramTreeWidget::onItemDoubleClicked(QTreeWidgetItem *node, int column)
 
         case NodeType_DualWordDataFilter:
             {
+#ifdef ENABLE_OLD_ANALYSIS
                 auto obj = Var2Ptr<QObject>(node->data(0, DataRole_Pointer));
                 auto filterConfig = qobject_cast<DualWordDataFilterConfig *>(obj);
                 if (filterConfig)
@@ -682,6 +705,7 @@ void HistogramTreeWidget::onItemDoubleClicked(QTreeWidgetItem *node, int column)
                         emit objectDoubleClicked(histo);
                     }
                 }
+#endif
             } break;
 
         case NodeType_Operator:
@@ -809,6 +833,7 @@ void HistogramTreeWidget::clearHistogram()
 
 void HistogramTreeWidget::add2DHistogram()
 {
+#ifdef ENABLE_OLD_ANALYSIS
     Hist2DDialog dialog(m_context, this);
     int result = dialog.exec();
 
@@ -821,6 +846,7 @@ void HistogramTreeWidget::add2DHistogram()
         m_context->getAnalysisConfig()->addHist2DConfig(histoConfig);
         emit openInNewWindow(histo);
     }
+#endif
 }
 
 void HistogramTreeWidget::edit2DHistogram()
@@ -896,6 +922,7 @@ void HistogramTreeWidget::updateHistogramCountDisplay()
 
 void HistogramTreeWidget::updateNodesFor(Hist2DConfig *histoConfig)
 {
+#ifdef ENABLE_OLD_ANALYSIS
     auto histo = qobject_cast<Hist2D *>(m_context->getObjectForConfig(histoConfig));
 
     if (histo)
@@ -922,10 +949,12 @@ void HistogramTreeWidget::updateNodesFor(Hist2DConfig *histoConfig)
             }
         }
     }
+#endif
 }
 
 void HistogramTreeWidget::generateDefaultFilters()
 {
+#ifdef ENABLE_OLD_ANALYSIS
     qDebug() << __PRETTY_FUNCTION__;
     auto node = m_tree->currentItem();
     auto var  = node->data(0, DataRole_Pointer);
@@ -1020,10 +1049,12 @@ void HistogramTreeWidget::generateDefaultFilters()
         updateAnalysisNGStuff();
     }
 #endif
+#endif
 }
 
 void HistogramTreeWidget::addDataFilter()
 {
+#ifdef ENABLE_OLD_ANALYSIS
     auto node = m_tree->currentItem();
     auto var  = node->data(0, DataRole_Pointer);
     auto moduleConfig = Var2Ptr<ModuleConfig>(node->data(0, DataRole_Pointer));
@@ -1069,6 +1100,7 @@ void HistogramTreeWidget::addDataFilter()
          * pointer here instead of letting it destroy the config. */
         filterConfig.release();
     }
+#endif
 }
 
 void HistogramTreeWidget::removeDataFilter()
@@ -1079,6 +1111,7 @@ void HistogramTreeWidget::removeDataFilter()
 
 void HistogramTreeWidget::removeDataFilter(QTreeWidgetItem *item)
 {
+#ifdef ENABLE_OLD_ANALYSIS
     auto node = reinterpret_cast<TreeNode *>(item);
     Q_ASSERT(node->type() == NodeType_DataFilter);
     auto filterConfig = Var2Ptr<DataFilterConfig>(node->data(0, DataRole_Pointer));
@@ -1109,6 +1142,7 @@ void HistogramTreeWidget::removeDataFilter(QTreeWidgetItem *item)
     {
         updateNodesFor(histoConfig);
     }
+#endif
 }
 
 void HistogramTreeWidget::editDataFilter()
@@ -1119,6 +1153,7 @@ void HistogramTreeWidget::editDataFilter()
 
 void HistogramTreeWidget::editDataFilter(QTreeWidgetItem *node)
 {
+#ifdef ENABLE_OLD_ANALYSIS
     auto moduleNode   = node->parent();
     auto moduleConfig = Var2Ptr<ModuleConfig>(moduleNode->data(0, DataRole_Pointer));
     auto defaultFilter = QString(defaultDataFilters.value(moduleConfig->type).value(0).filter);
@@ -1193,10 +1228,12 @@ void HistogramTreeWidget::editDataFilter(QTreeWidgetItem *node)
 
         qDebug() << "<<<<< end edited filter";
     }
+#endif
 }
 
 void HistogramTreeWidget::addDualWordDataFilter()
 {
+#ifdef ENABLE_OLD_ANALYSIS
     auto node = m_tree->currentItem();
     auto var  = node->data(0, DataRole_Pointer);
     auto moduleConfig = Var2Ptr<ModuleConfig>(node->data(0, DataRole_Pointer));
@@ -1231,6 +1268,7 @@ void HistogramTreeWidget::addDualWordDataFilter()
 
         m_context->getAnalysisConfig()->addDualWordFilter(indices.first, indices.second, filterConfig.release());
     }
+#endif
 }
 
 void HistogramTreeWidget::removeDualWordDataFilter()
@@ -1241,6 +1279,7 @@ void HistogramTreeWidget::removeDualWordDataFilter()
 
 void HistogramTreeWidget::removeDualWordDataFilter(QTreeWidgetItem *item)
 {
+#ifdef ENABLE_OLD_ANALYSIS
     auto node = reinterpret_cast<TreeNode *>(item);
     Q_ASSERT(node->type() == NodeType_DualWordDataFilter);
     auto filterConfig = Var2Ptr<DualWordDataFilterConfig>(node->data(0, DataRole_Pointer));
@@ -1276,6 +1315,7 @@ void HistogramTreeWidget::removeDualWordDataFilter(QTreeWidgetItem *item)
         m_context->removeObject(histo);
         m_context->getAnalysisConfig()->removeHist1DConfig(histoConfig);
     }
+#endif
 }
 
 void HistogramTreeWidget::editDualWordDataFilter()
@@ -1286,6 +1326,7 @@ void HistogramTreeWidget::editDualWordDataFilter()
 
 void HistogramTreeWidget::editDualWordDataFilter(QTreeWidgetItem *node)
 {
+#ifdef ENABLE_OLD_ANALYSIS
     auto moduleNode   = node->parent();
     auto moduleConfig = Var2Ptr<ModuleConfig>(moduleNode->data(0, DataRole_Pointer));
     auto filterConfig = Var2Ptr<DualWordDataFilterConfig>(node->data(0, DataRole_Pointer));
@@ -1317,10 +1358,12 @@ void HistogramTreeWidget::editDualWordDataFilter(QTreeWidgetItem *node)
         */
         qDebug() << "<<<<< end edited filter";
     }
+#endif
 }
 
 void HistogramTreeWidget::removeHist1D(QTreeWidgetItem *item)
 {
+#ifdef ENABLE_OLD_ANALYSIS
     auto node = reinterpret_cast<TreeNode *>(item);
     Q_ASSERT(node->type() == NodeType_Hist1D);
 
@@ -1337,6 +1380,7 @@ void HistogramTreeWidget::removeHist1D(QTreeWidgetItem *item)
 
     m_context->removeObject(histo);
     m_context->getAnalysisConfig()->removeHist1DConfig(histoConfig);
+#endif
 }
 
 static void filterNodeClearHistos(QTreeWidgetItem *filterNode)
@@ -1355,6 +1399,7 @@ static void filterNodeClearHistos(QTreeWidgetItem *filterNode)
 
 static void dualWordFilterNodeClearHistos(MVMEContext *context, QTreeWidgetItem *filterNode)
 {
+#ifdef ENABLE_OLD_ANALYSIS
     auto obj = Var2Ptr<QObject>(filterNode->data(0, DataRole_Pointer));
     auto filterConfig = qobject_cast<DualWordDataFilterConfig *>(obj);
     if (filterConfig)
@@ -1371,6 +1416,7 @@ static void dualWordFilterNodeClearHistos(MVMEContext *context, QTreeWidgetItem 
                 histo->clear();
         }
     }
+#endif
 }
 
 static void moduleNodeClearHistos(MVMEContext *context, QTreeWidgetItem *moduleNode)
@@ -1436,6 +1482,7 @@ static const QString fileFilter = QSL("Config Files (*.json);; All Files (*.*)")
 
 void HistogramTreeWidget::newConfig()
 {
+#ifdef ENABLE_OLD_ANALYSIS
     auto analysisConfig = m_context->getAnalysisConfig();
     if (analysisConfig->isModified())
     {
@@ -1463,10 +1510,12 @@ void HistogramTreeWidget::newConfig()
     m_context->getAnalysisNG()->clear();
     updateAnalysisNGStuff();
 #endif
+#endif
 }
 
 void HistogramTreeWidget::loadConfig()
 {
+#ifdef ENABLE_OLD_ANALYSIS
     if (m_context->getAnalysisConfig()->isModified())
     {
         QMessageBox msgBox(QMessageBox::Question, QSL("Save analysis config?"),
@@ -1497,12 +1546,14 @@ void HistogramTreeWidget::loadConfig()
         return;
 
     m_context->loadAnalysisConfig(fileName);
+#endif
 }
 
 static const QString DefaultFileFilter = QSL("Config Files (*.json);; All Files (*.*)");
 
 bool HistogramTreeWidget::saveConfig()
 {
+#ifdef ENABLE_OLD_ANALYSIS
     auto analysisConfig = m_context->getAnalysisConfig();
     QString fileName = m_context->getAnalysisConfigFileName();
 
@@ -1526,10 +1577,12 @@ bool HistogramTreeWidget::saveConfig()
         return true;
     }
     return false;
+#endif
 }
 
 bool HistogramTreeWidget::saveConfigAs()
 {
+#ifdef ENABLE_OLD_ANALYSIS
     auto analysisConfig = m_context->getAnalysisConfig();
     auto result = saveAnalysisConfigAs(analysisConfig, m_context->getAnalysisNG(), m_context->getWorkspaceDirectory(), DefaultFileFilter);
 
@@ -1542,10 +1595,12 @@ bool HistogramTreeWidget::saveConfigAs()
     }
 
     return result.first;
+#endif
 }
 
 void HistogramTreeWidget::updateConfigLabel()
 {
+#ifdef ENABLE_OLD_ANALYSIS
     QString fileName = m_context->getAnalysisConfigFileName();
 
     if (fileName.isEmpty())
@@ -1564,6 +1619,7 @@ void HistogramTreeWidget::updateConfigLabel()
     le_fileName->setText(fileName);
     le_fileName->setToolTip(fileName);
     le_fileName->setStatusTip(fileName);
+#endif
 }
 
 void HistogramTreeWidget::handleShowDiagnostics()
