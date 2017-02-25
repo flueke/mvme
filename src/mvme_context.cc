@@ -80,7 +80,7 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
     m_logTimer->setInterval(PeriodicLoggingInterval_ms);
 
 
-    m_readoutThread->setObjectName("ReadoutThread");
+    m_readoutThread->setObjectName("mvme ReadoutThread");
     m_readoutWorker->moveToThread(m_readoutThread);
     m_bufferProcessor->moveToThread(m_readoutThread);
     m_readoutWorker->setBufferProcessor(m_bufferProcessor);
@@ -99,7 +99,7 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
     //    qDebug() << cur << total;
     //});
 
-    m_eventThread->setObjectName("EventProcessorThread");
+    m_eventThread->setObjectName("mvme AnalysisThread");
     m_eventProcessor->moveToThread(m_eventThread);
     m_eventThread->start();
     connect(m_eventProcessor, &MVMEEventProcessor::logMessage, this, &MVMEContext::sigLogMessage);
