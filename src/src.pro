@@ -10,9 +10,15 @@ TEMPLATE = app
 # problem disable warnings via warn_off and then prepend -Wall to
 # QMAKE_CXXFLAGS.
 CONFIG   += warn_off
-# FIXME: Forcing -O0 here for debug builds. Should not be set for release builds!!!
-QMAKE_CXXFLAGS += -O0 -Wall -Wno-unused-variable -Wno-unused-parameter -Wno-unused-function -Wno-format
-QMAKE_CFLAGS += -O0 -Wall -Wno-unused -Wno-format
+warning_flags = -Wall -Wno-unused-variable -Wno-unused-parameter -Wno-unused-function -Wno-format
+QMAKE_CXXFLAGS += $$warning_flags
+QMAKE_CFLAGS += $$warning_flags
+
+CONFIG(debug, debug|release) {
+    QMAKE_CXXFLAGS += -O0 $$QMAKE_CXXFLAGS
+    QMAKE_CFLAGS += -O0 $$QMAKE_CFLAGS
+}
+
 DEFINES += VME_CONTROLLER_WIENER
 #DEFINES += VME_CONTROLLER_CAEN
 
@@ -22,8 +28,13 @@ DEFINES += VME_CONTROLLER_WIENER
 # ASAN
 asan {
     QMAKE_CXXFLAGS += -fsanitize=address -fno-omit-frame-pointer
-    QMAKE_LFLAGS += -fsanitize=address # clang needs this
-    LIBS += -lasan # gcc needs this
+    linux-clang++ {
+        QMAKE_LFLAGS += -fsanitize=address # clang needs this
+    }
+
+    linux-g++ {
+        LIBS += -lasan # gcc needs this
+    }
 }
 
 # profiling
