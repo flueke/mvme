@@ -5,6 +5,7 @@
 #include "databuffer.h"
 #include "mvme_config.h"
 #include "vme_controller.h"
+#include "threading.h"
 #include <memory>
 #include <QList>
 #include <QWidget>
@@ -237,6 +238,9 @@ class MVMEContext: public QObject
         void onModuleAboutToBeRemoved(ModuleConfig *config);
         void onGlobalScriptAboutToBeRemoved(VMEScriptConfig *config);
 
+        //ThreadSafeDataBufferQueue *getFreeBufferQueue() { return &m_freeBufferQueue; }
+        //ThreadSafeDataBufferQueue *getFilledBufferQueue() { return &m_filledBufferQueue; }
+
     private:
         void prepareStart();
 
@@ -275,6 +279,9 @@ class MVMEContext: public QObject
         QTime m_replayTime;
 
         analysis::Analysis *m_analysis_ng;
+
+        ThreadSafeDataBufferQueue m_freeBufferQueue;
+        ThreadSafeDataBufferQueue m_filledBufferQueue;
 };
 
 QString getFilterPath(MVMEContext *context, DataFilterConfig *filterConfig, int filterAddress);

@@ -6,6 +6,9 @@
 #include <QDebug>
 #include <QJsonObject>
 #include <QtMath>
+#include <QTime>
+
+#include "threading.h"
 
 using namespace listfile;
 
@@ -225,10 +228,12 @@ ListFileReader::ListFileReader(DAQStats &stats, QObject *parent)
     : QObject(parent)
     , m_stats(stats)
 {
+#ifdef OLD_STYLE_THREADING
     for (size_t i=0; i<nBuffers; ++i)
     {
         m_freeBuffers.push_back(new DataBuffer(ListFileBufferSize));
     }
+#endif
 }
 
 ListFileReader::~ListFileReader()
@@ -252,6 +257,9 @@ void ListFileReader::startFromBeginning(quint32 nBuffers)
     if (!m_listFile)
         return;
 
+    Q_ASSERT(m_freeBufferQueue);
+    Q_ASSERT(m_filledBufferQueue);
+
     m_buffersToRead = nBuffers;
     m_limitBuffers = (m_buffersToRead > 0);
     m_stopped = false;
@@ -263,14 +271,59 @@ void ListFileReader::startFromBeginning(quint32 nBuffers)
     m_stats.start();
 
     setState(DAQState::Running);
-    emit progressChanged(m_bytesRead, m_totalBytes);
+    // FIXME: not actually used by anyone
+    //emit progressChanged(m_bytesRead, m_totalBytes);
 
+    QTime timeSinceLastProcessEvents;
+    timeSinceLastProcessEvents.start();
     while (m_state != DAQState::Idle)
     {
+#ifdef OLD_STYLE_THREADING
         auto buffer = getFreeBuffer();
 
         if (!readNextBuffer(buffer))
             addFreeBuffer(buffer);
+#else
+        // Note: readNextBuffer() will modify m_state. That way we drop out of
+        // the loop if there was an error reading a buffer.
+
+        DataBuffer *buffer = nullptr;
+
+        {
+            QMutexLocker lock(&m_freeBufferQueue->mutex);
+            while (m_freeBufferQueue->queue.isEmpty())
+            {
+                m_freeBufferQueue->wc.wait(&m_freeBufferQueue->mutex);
+            }
+            buffer = m_freeBufferQueue->queue.dequeue();
+        }
+        // The mutex is unlocked again at this point
+
+        Q_ASSERT(buffer);
+
+        if (!readNextBuffer(buffer))
+        {
+            // Reading did not succeed. Put the previously acquired buffer back
+            // into the free queue. No need to notfiy the wait condition as
+            // there's no one else waiting on it.
+            QMutexLocker lock(&m_freeBufferQueue->mutex);
+            m_freeBufferQueue->queue.enqueue(buffer);
+        }
+        else
+        {
+            m_filledBufferQueue->mutex.lock();
+            m_filledBufferQueue->queue.enqueue(buffer);
+            m_filledBufferQueue->mutex.unlock();
+            m_filledBufferQueue->wc.wakeOne();
+        }
+
+        // Process event to be able to "receive" queued calls to our slots (stopReplay())
+        if (timeSinceLastProcessEvents.elapsed() > 500)
+        {
+            QCoreApplication::processEvents();
+            timeSinceLastProcessEvents.restart();
+        }
+#endif
     }
 
     qDebug() << __PRETTY_FUNCTION__ << "left loop";
@@ -289,8 +342,11 @@ bool ListFileReader::readNextBuffer(DataBuffer *dest)
     {
         --m_buffersToRead;
         m_bytesRead += dest->used;
-        emit progressChanged(m_bytesRead, m_totalBytes);
+        // FIXME: not actually used by anyone
+        //emit progressChanged(m_bytesRead, m_totalBytes);
+#ifdef OLD_STYLE_THREADING
         emit mvmeEventBufferReady(dest);
+#endif
 
         m_stats.addBuffersRead(1);
         m_stats.addBytesRead(dest->used);
@@ -320,6 +376,7 @@ void ListFileReader::addFreeBuffer(DataBuffer *buffer)
 
 DataBuffer* ListFileReader::getFreeBuffer()
 {
+#ifdef OLD_STYLE_THREADING
     // Check if buffers are available
     while (!m_freeBuffers.size())
     {
@@ -327,6 +384,9 @@ DataBuffer* ListFileReader::getFreeBuffer()
     }
 
     return m_freeBuffers.dequeue();
+#else
+    return nullptr;
+#endif
 }
 
 //

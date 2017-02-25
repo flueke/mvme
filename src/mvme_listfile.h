@@ -82,6 +82,7 @@
 #include "globals.h"
 #include "databuffer.h"
 #include "util.h"
+#include "threading.h"
 
 #include <QTextStream>
 #include <QFile>
@@ -150,7 +151,9 @@ class ListFileReader: public QObject
     Q_OBJECT
     signals:
         void stateChanged(DAQState);
+#ifdef OLD_STYLE_THREADING
         void mvmeEventBufferReady(DataBuffer *);
+#endif
         void logMessage(const QString &);
         void replayStopped();
         void progressChanged(qint64, qint64);
@@ -160,6 +163,9 @@ class ListFileReader: public QObject
         ~ListFileReader();
         void setListFile(ListFile *listFile);
         ListFile *getListFile() const { return m_listFile; }
+
+        ThreadSafeDataBufferQueue *m_freeBufferQueue = nullptr;
+        ThreadSafeDataBufferQueue *m_filledBufferQueue = nullptr;
 
     public slots:
         void startFromBeginning(quint32 nBuffers = 0);

@@ -5,8 +5,10 @@
 #include "hist2d.h"
 #include "histo1d.h"
 #include "mesytec_diagnostics.h"
+#include "analysis/analysis.h"
 
-#define ENABLE_OLD_ANALYSIS 1
+#include <QCoreApplication>
+
 //#define MVME_EVENT_PROCESSOR_DEBUGGING
 
 #ifdef MVME_EVENT_PROCESSOR_DEBUGGING
@@ -17,8 +19,6 @@
 
 using namespace listfile;
 
-
-#include "analysis/analysis.h"
 
 struct MVMEEventProcessorPrivate
 {
@@ -43,6 +43,7 @@ struct MVMEEventProcessorPrivate
     QMutex isProcessingMutex;
 
     analysis::Analysis *analysis_ng;
+    volatile bool m_running = false;
 };
 
 MVMEEventProcessor::MVMEEventProcessor(MVMEContext *context)
@@ -135,7 +136,7 @@ void MVMEEventProcessor::newRun()
     if (m_d->diag)
         m_d->diag->reset();
 
-#ifdef ENABLE_ANALYSIS_NG
+#ifdef ENABLE_OLD_ANALYSIS
     auto analysisConfig = m_d->context->getAnalysisConfig();
 
     m_d->filterConfigs = analysisConfig->getFilters();
@@ -473,7 +474,9 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                                     .arg(eventIndex)
                                     .arg(moduleIndex)
                                    );
+#ifdef OLD_STYLE_THREADING
                     emit bufferProcessed(buffer);
+#endif
                     return;
                 }
 
@@ -496,7 +499,9 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                                         "(eventIndex=%1)")
                                 .arg(eventIndex)
                                );
+#ifdef OLD_STYLE_THREADING
                 emit bufferProcessed(buffer);
+#endif
                 return;
             }
 
@@ -632,10 +637,59 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
     qDebug() << __PRETTY_FUNCTION__ << "end processing" << buffer;
 #endif
 
+#ifdef OLD_STYLE_THREADING
     emit bufferProcessed(buffer);
+#endif
 
     {
         QMutexLocker locker(&m_d->isProcessingMutex);
         m_d->isProcessingBuffer = false;
     }
+}
+
+static const u32 FilledBufferWaitTimeout_ms = 500;
+
+void MVMEEventProcessor::startProcessing()
+{
+    Q_ASSERT(m_freeBufferQueue);
+    Q_ASSERT(m_filledBufferQueue);
+
+    m_d->m_running = true;
+
+    while (m_d->m_running)
+    {
+        DataBuffer *buffer = nullptr;
+
+        {
+            QMutexLocker lock(&m_filledBufferQueue->mutex);
+            while (m_d->m_running && m_filledBufferQueue->queue.isEmpty())
+            {
+                m_filledBufferQueue->wc.wait(&m_filledBufferQueue->mutex, FilledBufferWaitTimeout_ms);
+                QCoreApplication::processEvents();
+            }
+
+            if (!m_filledBufferQueue->queue.isEmpty())
+            {
+                buffer = m_filledBufferQueue->queue.dequeue();
+            }
+        }
+
+        // Either we where told to quit or we should have gotten a buffer.
+        Q_ASSERT(!m_d->m_running || buffer);
+
+        if (m_d->m_running)
+        {
+            processDataBuffer(buffer);
+
+            m_freeBufferQueue->mutex.lock();
+            m_freeBufferQueue->queue.enqueue(buffer);
+            m_freeBufferQueue->mutex.unlock();
+            m_freeBufferQueue->wc.wakeOne();
+        }
+    }
+}
+
+void MVMEEventProcessor::stopProcessing()
+{
+    m_d->m_running = false;
 }

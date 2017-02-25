@@ -1,6 +1,19 @@
 ==========================
 ==== Do these first! =====
 ==========================
+* Threading
+  - Make sure the event processor does process all remaining buffers when stopping DAQ/replay
+  - Check that all filled buffers are put back into the free buffer queue once DAQ/replay has stopped
+
+  - Connections in DAQ mode
+    VMUSBBufferProcessor::mvmeEventBufferReady -> MVMEEventProcessor::processDataBuffer
+    MVMEEventProcessor::bufferProcessed -> VMUSBBufferProcessor::addFreeBuffer
+
+  - Connections in Listfile mode
+    ListFileReader::mvmeEventBufferReady -> MVMEEventProcessor::processDataBuffer
+    MVMEEventProcessor::bufferProcessed -> ListFileReader::addFreeBuffer
+
+
 >>>>> Begin Analysis NG <<<<<
  - should OperatorInterface::connectInputSlot() perform a validity check of
    Slot::acceptedInputTypes?

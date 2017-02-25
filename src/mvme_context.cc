@@ -14,7 +14,12 @@
 #include <QThread>
 
 static const size_t dataBufferCount = 20;
+#ifdef OLD_STYLE_THREADING
 static const size_t dataBufferSize = vmusb_constants::BufferMaxSize * 2; // double the size of a vmusb read buffer
+#else
+// Use the same size that was used by the ListFileReader (it used to allocate its own buffers).
+static const size_t dataBufferSize = 1 * 1024 * 1024;
+#endif
 static const int TryOpenControllerInterval_ms = 1000;
 static const int PeriodicLoggingInterval_ms = 5000;
 static const QString WorkspaceIniName = "mvmeworkspace.ini";
@@ -40,10 +45,22 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
     , m_analysis_ng(new analysis::Analysis)
 {
 
+#ifdef OLD_STYLE_THREADING
     for (size_t i=0; i<dataBufferCount; ++i)
     {
         m_freeBuffers.push_back(new DataBuffer(dataBufferSize));
     }
+#else
+    for (size_t i=0; i<dataBufferCount; ++i)
+    {
+        m_freeBufferQueue.queue.push_back(new DataBuffer(dataBufferSize));
+    }
+
+    m_listFileWorker->m_freeBufferQueue = &m_freeBufferQueue;
+    m_listFileWorker->m_filledBufferQueue = &m_filledBufferQueue;
+    m_eventProcessor->m_freeBufferQueue = &m_freeBufferQueue;
+    m_eventProcessor->m_filledBufferQueue = &m_filledBufferQueue;
+#endif
 
     connect(m_ctrlOpenTimer, &QTimer::timeout, this, &MVMEContext::tryOpenController);
     m_ctrlOpenTimer->setInterval(TryOpenControllerInterval_ms);
@@ -93,7 +110,8 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
     connect(m_readoutWorker, &VMUSBReadoutWorker::logMessages, this, &MVMEContext::logMessages);
     connect(m_bufferProcessor, &VMUSBBufferProcessor::logMessage, this, &MVMEContext::sigLogMessage);
     connect(m_listFileWorker, &ListFileReader::stateChanged, this, &MVMEContext::onDAQStateChanged);
-    connect(m_listFileWorker, &ListFileReader::logMessage, this, &MVMEContext::sigLogMessage);
+    // FIXME: not actually emitted by ListFileReader
+    //connect(m_listFileWorker, &ListFileReader::logMessage, this, &MVMEContext::sigLogMessage);
     connect(m_listFileWorker, &ListFileReader::replayStopped, this, &MVMEContext::onReplayDone);
     //connect(m_listFileWorker, &ListFileWorker::progressChanged, this, [this](qint64 cur, qint64 total) {
     //    qDebug() << cur << total;
@@ -126,6 +144,9 @@ MVMEContext::~MVMEContext()
         {
             QMetaObject::invokeMethod(m_listFileWorker, "stopReplay", Qt::QueuedConnection);
         }
+
+        QMetaObject::invokeMethod(m_eventProcessor, "stopProcessing",
+                                  Qt::QueuedConnection);
 
         while ((getDAQState() != DAQState::Idle)
                || m_eventProcessor->isProcessingBuffer())
@@ -414,6 +435,7 @@ void MVMEContext::setMode(GlobalMode mode)
 {
     if (mode != m_mode)
     {
+#ifdef OLD_STYLE_THREADING
         switch (m_mode)
         {
             case GlobalMode::DAQ:
@@ -459,8 +481,7 @@ void MVMEContext::setMode(GlobalMode mode)
             case GlobalMode::NotSet:
                 break;
         }
-
-
+#endif
         m_mode = mode;
         emit modeChanged(m_mode);
     }
@@ -574,6 +595,8 @@ void MVMEContext::startReplay(quint32 nEvents)
     m_mainwin->clearLog();
     QMetaObject::invokeMethod(m_listFileWorker, "startFromBeginning",
                               Qt::QueuedConnection, Q_ARG(quint32, nEvents));
+    QMetaObject::invokeMethod(m_eventProcessor, "startProcessing",
+                              Qt::QueuedConnection);
     m_replayTime.restart();
 }
 
@@ -589,6 +612,8 @@ void MVMEContext::startDAQ(quint32 nCycles)
     m_mainwin->clearLog();
     QMetaObject::invokeMethod(m_readoutWorker, "start",
                               Qt::QueuedConnection, Q_ARG(quint32, nCycles));
+    QMetaObject::invokeMethod(m_eventProcessor, "startProcessing",
+                              Qt::QueuedConnection);
 }
 
 void MVMEContext::stopDAQ()
@@ -598,11 +623,19 @@ void MVMEContext::stopDAQ()
         emit sigLogMessage(QSL("DAQ stopping"));
         QMetaObject::invokeMethod(m_readoutWorker, "stop",
                                   Qt::QueuedConnection);
+        // FIXME: to work 100% correct make sure the event processor has
+        // processed all available buffers before stopping it
+        QMetaObject::invokeMethod(m_eventProcessor, "stopProcessing",
+                                  Qt::QueuedConnection);
     }
     else if (m_mode == GlobalMode::ListFile)
     {
         emit sigLogMessage(QSL("Replay stopping"));
         QMetaObject::invokeMethod(m_listFileWorker, "stopReplay",
+                                  Qt::QueuedConnection);
+        // FIXME: to work 100% correct make sure the event processor has
+        // processed all available buffers before stopping it
+        QMetaObject::invokeMethod(m_eventProcessor, "stopProcessing",
                                   Qt::QueuedConnection);
     }
 }

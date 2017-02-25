@@ -2,6 +2,7 @@
 #define UUID_289d9e07_4304_4a19_9cf1_bfd5d1d41e44
 
 #include "databuffer.h"
+#include "threading.h"
 
 #include <QObject>
 #include <QMap>
@@ -26,6 +27,9 @@ class VMUSBBufferProcessor: public QObject
         VMUSBBufferProcessor(MVMEContext *context, QObject *parent = 0);
 
         bool processBuffer(DataBuffer *buffer);
+
+        ThreadSafeDataBufferQueue *m_freeBufferQueue;
+        ThreadSafeDataBufferQueue *m_filledBufferQueue;
 
     public slots:
         void setLogBuffers(bool b) { m_logBuffers = b; }
