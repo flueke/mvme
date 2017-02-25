@@ -654,6 +654,8 @@ void MVMEEventProcessor::startProcessing()
     Q_ASSERT(m_freeBufferQueue);
     Q_ASSERT(m_filledBufferQueue);
 
+    qDebug() << __PRETTY_FUNCTION__ << "started processing";
+
     m_d->m_running = true;
 
     while (m_d->m_running)
@@ -687,6 +689,8 @@ void MVMEEventProcessor::startProcessing()
             m_freeBufferQueue->wc.wakeOne();
         }
     }
+
+    qDebug() << __PRETTY_FUNCTION__ << "stopped processing";
 }
 
 void MVMEEventProcessor::stopProcessing()

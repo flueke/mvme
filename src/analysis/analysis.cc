@@ -955,6 +955,10 @@ void Analysis::beginRun()
     {
         operatorEntry.op->beginRun();
     }
+
+    qDebug() << "Analysis NG:"
+        << m_sources.size() << " sources,"
+        << m_operators.size() << " operators";
 }
 
 void Analysis::beginEvent(s32 eventIndex)
