@@ -58,7 +58,7 @@ DAQStatsWidget::DAQStatsWidget(MVMEContext *context, QWidget *parent)
 
     formLayout->addRow("Running time:", m_d->label_daqDuration);
     formLayout->addRow("Free event buffers:", m_d->label_freeBuffers);
-    formLayout->addRow("Buffers read / dropped / errors:", m_d->label_buffersReadAndDropped);
+    formLayout->addRow("Buffers read / dropped / errors / processed:", m_d->label_buffersReadAndDropped);
     formLayout->addRow("Buffers/s / MB/s:", m_d->label_mbPerSecond);
     formLayout->addRow("Events:", m_d->label_events);
     formLayout->addRow("Avg. read size:", m_d->label_readSize);
@@ -98,10 +98,11 @@ void DAQStatsWidget::updateWidget()
 
     m_d->label_daqDuration->setText(durationString);
 
-    m_d->label_buffersReadAndDropped->setText(QString("%1 / %2 / %3")
+    m_d->label_buffersReadAndDropped->setText(QString("%1 / %2 / %3 / %4")
                                               .arg(stats.totalBuffersRead)
                                               .arg(stats.droppedBuffers)
                                               .arg(stats.buffersWithErrors)
+                                              .arg(stats.totalBuffersProcessed)
                                               );
 
     m_d->label_freeBuffers->setText(QString::number(stats.freeBuffers));

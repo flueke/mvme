@@ -291,7 +291,7 @@ struct DAQStats
     u64 listFileTotalBytes = 0; // For replay mode: the size of the replay file
     QString listfileFilename;
 
-    //u64 buffersProcessed = 0;
+    u64 totalBuffersProcessed = 0;
     //u64 eventsProcessed = 0;
     u64 mvmeBuffersSeen = 0;
     u64 mvmeBuffersWithErrors = 0;

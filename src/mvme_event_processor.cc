@@ -627,6 +627,7 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
             }
 #endif
         }
+        ++stats.totalBuffersProcessed;
     } catch (const end_of_buffer &)
     {
         emit logMessage(QString("Error: unexpectedly reached end of buffer"));
@@ -647,14 +648,14 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
     }
 }
 
-static const u32 FilledBufferWaitTimeout_ms = 500;
+static const u32 FilledBufferWaitTimeout_ms = 250;
 
 void MVMEEventProcessor::startProcessing()
 {
     Q_ASSERT(m_freeBufferQueue);
     Q_ASSERT(m_filledBufferQueue);
 
-    qDebug() << __PRETTY_FUNCTION__ << "started processing";
+    qDebug() << __PRETTY_FUNCTION__ << "begin";
 
     m_d->m_running = true;
 
@@ -674,6 +675,12 @@ void MVMEEventProcessor::startProcessing()
             {
                 buffer = m_filledBufferQueue->queue.dequeue();
             }
+
+            if (!m_d->m_running)
+            {
+                qDebug() << QDateTime::currentDateTime().toString("HH:mm:ss")
+                    << __PRETTY_FUNCTION__ << "was told to stop";
+            }
         }
 
         // Either we where told to quit or we should have gotten a buffer.
@@ -690,10 +697,12 @@ void MVMEEventProcessor::startProcessing()
         }
     }
 
-    qDebug() << __PRETTY_FUNCTION__ << "stopped processing";
+    qDebug() << __PRETTY_FUNCTION__ << "end";
 }
 
 void MVMEEventProcessor::stopProcessing()
 {
+    qDebug() << QDateTime::currentDateTime().toString("HH:mm:ss")
+        << __PRETTY_FUNCTION__;
     m_d->m_running = false;
 }

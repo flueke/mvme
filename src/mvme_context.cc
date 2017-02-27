@@ -394,6 +394,11 @@ void MVMEContext::onDAQStateChanged(DAQState state)
 
 void MVMEContext::onReplayDone()
 {
+    // Tell the event processor we're done. Otherwise it will wait continue
+    // waiting for filled buffers to appear.
+    QMetaObject::invokeMethod(m_eventProcessor, "stopProcessing",
+                              Qt::QueuedConnection);
+
     double secondsElapsed = m_replayTime.elapsed() / 1000.0;
     u64 replayBytes = m_daqStats.totalBytesRead;
     double replayMB = (double)replayBytes / (1024.0 * 1024.0);
@@ -583,6 +588,10 @@ void MVMEContext::prepareStart()
     m_eventProcessor->newRun();
 
     m_daqStats = DAQStats();
+
+    qDebug() << __PRETTY_FUNCTION__
+        << "free buffers:" << m_freeBufferQueue.queue.size()
+        << "filled buffers:" << m_filledBufferQueue.queue.size();
 }
 
 void MVMEContext::startReplay(quint32 nEvents)

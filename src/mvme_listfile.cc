@@ -252,6 +252,8 @@ void ListFileReader::setState(DAQState state)
     emit stateChanged(state);
 }
 
+static const u32 FreeBufferWaitTimeout_ms = 250;
+
 void ListFileReader::startFromBeginning(quint32 nBuffers)
 {
     if (!m_listFile)
@@ -293,7 +295,7 @@ void ListFileReader::startFromBeginning(quint32 nBuffers)
             QMutexLocker lock(&m_freeBufferQueue->mutex);
             while (m_freeBufferQueue->queue.isEmpty())
             {
-                m_freeBufferQueue->wc.wait(&m_freeBufferQueue->mutex);
+                m_freeBufferQueue->wc.wait(&m_freeBufferQueue->mutex, FreeBufferWaitTimeout_ms);
             }
             buffer = m_freeBufferQueue->queue.dequeue();
         }
@@ -306,6 +308,8 @@ void ListFileReader::startFromBeginning(quint32 nBuffers)
             // Reading did not succeed. Put the previously acquired buffer back
             // into the free queue. No need to notfiy the wait condition as
             // there's no one else waiting on it.
+            // Would not event have to lock either but keeping it here just to
+            // be on the safe side.
             QMutexLocker lock(&m_freeBufferQueue->mutex);
             m_freeBufferQueue->queue.enqueue(buffer);
         }
@@ -317,7 +321,7 @@ void ListFileReader::startFromBeginning(quint32 nBuffers)
             m_filledBufferQueue->wc.wakeOne();
         }
 
-        // Process event to be able to "receive" queued calls to our slots (stopReplay())
+        // Process Qt events to be able to "receive" queued calls to our slots (stopReplay())
         if (timeSinceLastProcessEvents.elapsed() > 500)
         {
             QCoreApplication::processEvents();
