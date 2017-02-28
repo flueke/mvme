@@ -2,6 +2,8 @@
 #include <QJsonArray>
 #include <QJsonObject>
 
+#include <chrono>
+
 #define ENABLE_ANALYSIS_DEBUG 0
 
 template<typename T>
@@ -972,8 +974,32 @@ void Analysis::beginEvent(s32 eventIndex)
     }
 }
 
+using HighResClock = std::chrono::high_resolution_clock;
+
+struct TimedBlock
+{
+    TimedBlock(const char *name_)
+        : name(name_)
+        , start(HighResClock::now())
+    {
+    }
+
+    ~TimedBlock()
+    {
+        end = HighResClock::now();
+        std::chrono::duration<double, std::nano> diff = end - start;
+        qDebug() << "end timed block" << name << diff.count() << "ns";
+    }
+
+    const char *name;
+    HighResClock::time_point start;
+    HighResClock::time_point end;
+};
+
 void Analysis::processDataWord(s32 eventIndex, s32 moduleIndex, u32 data, s32 wordIndex)
 {
+    //TimedBlock tb(__PRETTY_FUNCTION__);
+
     for (auto &sourceEntry: m_sources)
     {
         if (sourceEntry.eventIndex == eventIndex && sourceEntry.moduleIndex == moduleIndex)
@@ -985,6 +1011,7 @@ void Analysis::processDataWord(s32 eventIndex, s32 moduleIndex, u32 data, s32 wo
 
 void Analysis::endEvent(s32 eventIndex)
 {
+    //TimedBlock tb(__PRETTY_FUNCTION__);
     /* In beginRun() operators are sorted by rank. This way step()'ing
      * operators can be done by just traversing the array. */
 
