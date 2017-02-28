@@ -65,6 +65,11 @@ class Histo1DPointData: public QwtSeriesData<QPointF>
         Histo1D *m_histo;
 };
 
+Histo1DWidget::Histo1DWidget(const Histo1DPtr &histoPtr, QWidget *parent)
+    : Histo1DWidget(histoPtr.get(), parent)
+{
+    m_histoPtr = histoPtr;
+}
 
 Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     : QWidget(parent)
@@ -73,9 +78,6 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     , m_plotCurve(new QwtPlotCurve)
     , m_replotTimer(new QTimer(this))
 {
-
-
-
     ui->setupUi(this);
     ui->label_cursorInfo->setVisible(false);
 

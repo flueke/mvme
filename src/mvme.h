@@ -20,6 +20,7 @@ class DAQConfigTreeWidget;
 class HistogramTreeWidget;
 class VMEScriptConfig;
 class ConfigObject;
+class WidgetGeometrySaver;
 
 class QMdiSubWindow;
 class QThread;
@@ -52,7 +53,7 @@ public slots:
     void clearLog();
 
     void openInNewWindow(QObject *object);
-    void addWidgetWindow(QWidget *widget, QSize windowSize = QSize(600, 400));
+    QMdiSubWindow *addWidgetWindow(QWidget *widget, QSize windowSize = QSize());
 
     void on_actionNewConfig_triggered();
     void on_actionLoadConfig_triggered();
@@ -112,6 +113,8 @@ private:
                 *dock_histoTree,
 #endif
                 *dock_logView;
+
+    WidgetGeometrySaver *m_geometrySaver;
 };
 
 #endif // MVME_H

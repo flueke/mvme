@@ -21,6 +21,7 @@ class Histo1DWidget: public QWidget
 {
     Q_OBJECT
     public:
+        Histo1DWidget(const Histo1DPtr &histo, QWidget *parent = 0);
         Histo1DWidget(Histo1D *histo, QWidget *parent = 0);
         ~Histo1DWidget();
 
@@ -52,6 +53,7 @@ class Histo1DWidget: public QWidget
         Ui::Histo1DWidget *ui;
 
         Histo1D *m_histo;
+        Histo1DPtr m_histoPtr;
         QwtPlotCurve *m_plotCurve;
 
         ScrollZoomer *m_zoomer;

@@ -79,6 +79,8 @@ class Histo1D: public QObject
         u32 m_maxBin = 0;
 };
 
+typedef std::shared_ptr<Histo1D> Histo1DPtr;
+
 QTextStream &writeHisto1D(QTextStream &out, Histo1D *histo);
 Histo1D *readHisto1D(QTextStream &in);
 

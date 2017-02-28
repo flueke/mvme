@@ -1501,10 +1501,16 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     m_d->m_q = this;
     m_d->m_context = ctx;
 
-    connect(m_d->m_context, &MVMEContext::daqConfigChanged, this, [this](DAQConfig *) {
-        m_d->repopulate();
-    });
+    auto do_repopulate_lambda = [this]() { m_d->repopulate(); };
 
+    // DAQ config changes
+    connect(m_d->m_context, &MVMEContext::daqConfigChanged, this, do_repopulate_lambda);
+    connect(m_d->m_context, &MVMEContext::eventAdded, this, do_repopulate_lambda);
+    connect(m_d->m_context, &MVMEContext::eventAboutToBeRemoved, this, do_repopulate_lambda);
+    connect(m_d->m_context, &MVMEContext::moduleAdded, this, do_repopulate_lambda);
+    connect(m_d->m_context, &MVMEContext::moduleAboutToBeRemoved, this, do_repopulate_lambda);
+
+    // Analysis changes
     connect(m_d->m_context, &MVMEContext::analysisNGChanged, this, [this]() {
         m_d->repopulate();
     });

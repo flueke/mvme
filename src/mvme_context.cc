@@ -760,6 +760,7 @@ void MVMEContext::logMessages(const QStringList &messages, const QString &prefix
 
 void MVMEContext::onEventAdded(EventConfig *event)
 {
+    emit eventAdded(event);
     for (auto module: event->modules)
         onModuleAdded(module);
 
@@ -779,6 +780,7 @@ void MVMEContext::onEventAboutToBeRemoved(EventConfig *config)
         emit objectAboutToBeRemoved(config->vmeScripts[key]);
 
     emit objectAboutToBeRemoved(config);
+    emit eventAboutToBeRemoved(config);
 }
 
 void MVMEContext::onGlobalScriptAboutToBeRemoved(VMEScriptConfig *config)
@@ -789,12 +791,14 @@ void MVMEContext::onGlobalScriptAboutToBeRemoved(VMEScriptConfig *config)
 void MVMEContext::onModuleAdded(ModuleConfig *module)
 {
     //qDebug() << __PRETTY_FUNCTION__ << module;
+    emit moduleAdded(module);
 }
 
 void MVMEContext::onModuleAboutToBeRemoved(ModuleConfig *module)
 {
     for (auto key: module->vmeScripts.keys())
         emit objectAboutToBeRemoved(module->vmeScripts[key]);
+    emit moduleAboutToBeRemoved(module);
 }
 
 //QFuture<vme_script::ResultList>

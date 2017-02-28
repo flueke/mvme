@@ -69,6 +69,12 @@ class LogarithmicColorMap : public QwtLinearColorMap
         }
 };
 
+Histo2DWidget::Histo2DWidget(const Histo2DPtr histoPtr, QWidget *parent)
+    : Histo2DWidget(histoPtr.get(), parent)
+{
+    m_histoPtr = histoPtr;
+}
+
 Histo2DWidget::Histo2DWidget(Histo2D *histo, QWidget *parent)
     : QWidget(parent)
     , ui(new Ui::Histo2DWidget)

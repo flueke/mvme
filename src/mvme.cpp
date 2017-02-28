@@ -22,6 +22,7 @@
 #include "histo1d_widget.h"
 #include "histo2d_widget.h"
 #include "analysis/analysis_ui.h"
+#include "qt_util.h"
 
 #include <QDockWidget>
 #include <QFileDialog>
@@ -78,6 +79,7 @@ mvme::mvme(QWidget *parent) :
     ui(new Ui::mvme)
     , m_context(new MVMEContext(this, this))
     , m_logView(new QTextBrowser)
+    , m_geometrySaver(new WidgetGeometrySaver(this))
 {
     qDebug() << "main thread: " << QThread::currentThread();
 
@@ -249,9 +251,7 @@ mvme::mvme(QWidget *parent) :
     //
     // FIXME: test code!
     //
-    {
-        on_actionAnalysis_UI_triggered();
-    }
+    QTimer::singleShot(0, [this] () { on_actionAnalysis_UI_triggered(); });
 }
 
 mvme::~mvme()
@@ -432,7 +432,8 @@ void mvme::displayAboutQt()
 
 static const QString DefaultAnalysisFileFilter = QSL("Config Files (*.json);; All Files (*.*)");
 
-void mvme::closeEvent(QCloseEvent *event){
+void mvme::closeEvent(QCloseEvent *event)
+{
     if (m_context->getDAQState() != DAQState::Idle && m_context->getMode() == GlobalMode::DAQ)
     {
         QMessageBox msgBox(QMessageBox::Warning, QSL("DAQ is running"),
@@ -520,6 +521,12 @@ void mvme::closeEvent(QCloseEvent *event){
     }
 
     settings.endGroup();
+
+    // To make m_geometrySaver see the closeEvents
+    for (auto subwin: windowList)
+    {
+        subwin->close();
+    }
 
     QMainWindow::closeEvent(event);
 }
@@ -798,7 +805,8 @@ void mvme::on_actionAnalysis_UI_triggered()
     }
 
     auto widget = new analysis::AnalysisWidget(m_context);
-    addWidgetWindow(widget);
+    auto subwin = addWidgetWindow(widget);
+    m_geometrySaver->addAndRestore(subwin, QSL("AnalysisUI/windowSize"), QSL("AnalysisUI/windowPosition"));
 }
 
 void mvme::on_actionVME_Debug_triggered()
@@ -906,7 +914,7 @@ void mvme::openInNewWindow(QObject *object)
     }
 }
 
-void mvme::addWidgetWindow(QWidget *widget, QSize windowSize)
+QMdiSubWindow *mvme::addWidgetWindow(QWidget *widget, QSize windowSize)
 {
     auto windowIcon = QIcon(QPixmap(":/mesytec-window-icon.png"));
     widget->setAttribute(Qt::WA_DeleteOnClose);
@@ -920,9 +928,15 @@ void mvme::addWidgetWindow(QWidget *widget, QSize windowSize)
     ui->mdiArea->addSubWindow(subwin);
 
     if (windowSize.isValid())
+    {
+        qDebug() << "valid size, resizing";
         subwin->resize(windowSize);
+    }
     else
-        subwin->resize(QSize(600, 400));
+    {
+        qDebug() << "invalid size, not resizing";
+    //    subwin->resize(QSize(600, 400));
+    }
 
     subwin->show();
     ui->mdiArea->setActiveSubWindow(subwin);
@@ -935,6 +949,8 @@ void mvme::addWidgetWindow(QWidget *widget, QSize windowSize)
             subwin->close();
         });
     }
+
+    return subwin;
 }
 
 void mvme::onObjectClicked(QObject *object)

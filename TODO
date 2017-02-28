@@ -1,62 +1,10 @@
 ==========================
 ==== Do these first! =====
 ==========================
-* Threading
-  - Make sure the event processor does process all remaining buffers when stopping DAQ/replay
-    -> Right now it's ok as it only calls processEvents() if the queue is empty.
-  - Check that all filled buffers are put back into the free buffer queue once DAQ/replay has stopped
-
-  Pressing "start" starts the replay, then pressing "stop" and "start" again in
-  quick succession leads to the following:
-
-  The ListFileReader stops putting buffers into the filled queue, then immediately resumes.
-
-  The MVMEEventProcessor is told to stop and then start again. At most
-  times it will be processing a buffer so the loop in startProcessing()
-  will never see m_d->m_running set to false. => For the event processor it
-  looks like the replay was never stopped.
-  !!! Wrong: the queued call to stopProcessing() just doesn't happen until the buffer queue is empty!
-
-  Also if there are still buffers the left to process those will get processed in the "new" replay!
-
-  Solution:
-  Wait for the event processor to stop, then make sure all buffers are back in
-  the free queue, then start again.
-
-  Problem: right now there's no difference between manually stopping a replay
-  and reaching the end of the replay file. This means the last few buffers of a
-  replay file will never get processed as the event processor will drop out of
-  the loop!
-
-  Update: actual behaviour when spamming start/stop: invokeMethod() calls to
-  MVMEEventProcessor methods get queued up and will happen later when the
-  filled buffer queue is empty for the first time!
-
-  Fix this and call processEvents() periodically like in ListFileReader to make
-  event processing not depend on the queue being empty or not!
-
-  Think about how to stop properly:
-  The easy way: always process all buffers that are left over. This will yield
-  to the "start" button being disabled for a while after pressing "stop".
-
-  The harder way: distinguish between "hard" and "soft" stopping. Use "hard"
-  when the user wants to stop a replay but not when the user just wants to stop the DAQ!
-
-  -> Try the easy way first and play with the number of buffers to get a
-  reasonable time between pressing "stop" and "start" being enabled again.
-
-
-
-  - Connections in DAQ mode
-    VMUSBBufferProcessor::mvmeEventBufferReady -> MVMEEventProcessor::processDataBuffer
-    MVMEEventProcessor::bufferProcessed -> VMUSBBufferProcessor::addFreeBuffer
-
-  - Connections in Listfile mode
-    ListFileReader::mvmeEventBufferReady -> MVMEEventProcessor::processDataBuffer
-    MVMEEventProcessor::bufferProcessed -> ListFileReader::addFreeBuffer
-
-
 >>>>> Begin Analysis NG <<<<<
+ - react to event and module renames
+ - L0 Data Display -> module -> create raw histograms
+
  - should OperatorInterface::connectInputSlot() perform a validity check of
    Slot::acceptedInputTypes?
  - add a way for operators to change the Slot::acceptedInputTypes when a slot

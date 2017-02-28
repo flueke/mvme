@@ -19,6 +19,7 @@ class Histo2DWidget: public QWidget
 {
     Q_OBJECT
     public:
+        Histo2DWidget(const Histo2DPtr histoPtr, QWidget *parent = 0);
         Histo2DWidget(Histo2D *histo, QWidget *parent = 0);
         ~Histo2DWidget();
 
@@ -41,6 +42,7 @@ class Histo2DWidget: public QWidget
 
         Ui::Histo2DWidget *ui;
         Histo2D *m_histo;
+        Histo2DPtr m_histoPtr;
         QwtPlotSpectrogram *m_plotItem;
         ScrollZoomer *m_zoomer;
         QTimer *m_replotTimer;

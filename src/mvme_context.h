@@ -64,6 +64,12 @@ class MVMEContext: public QObject
 
         void workspaceDirectoryChanged(const QString &);
 
+        // Forwarding DAQConfig signals
+        void eventAdded(EventConfig *event);
+        void eventAboutToBeRemoved(EventConfig *event);
+        void moduleAdded(ModuleConfig *module);
+        void moduleAboutToBeRemoved(ModuleConfig *module);
+
     public:
         MVMEContext(mvme *mainwin, QObject *parent = 0);
         ~MVMEContext();

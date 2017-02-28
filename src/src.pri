@@ -27,6 +27,7 @@ HEADERS += \
     $$PWD/mvme_event_processor.h \
     $$PWD/mvme_listfile.h \
     $$PWD/mvmedefines.h \
+    $$PWD/qt_util.h \
     $$PWD/realtimedata.h \
     $$PWD/scrollbar.h \
     $$PWD/scrollzoomer.h \
@@ -65,6 +66,7 @@ SOURCES += \
     $$PWD/mvme.cpp \
     $$PWD/mvme_event_processor.cc \
     $$PWD/mvme_listfile.cc \
+    $$PWD/qt_util.cc \
     $$PWD/realtimedata.cpp \
     $$PWD/scrollbar.cpp \
     $$PWD/scrollzoomer.cpp \

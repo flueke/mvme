@@ -3,6 +3,7 @@
 
 #include "histo_util.h"
 #include <QObject>
+#include <memory>
 
 struct Histo2DStatistics
 {
@@ -55,5 +56,7 @@ class Histo2D: public QObject
 
         Histo2DStatistics m_stats;
 };
+
+typedef std::shared_ptr<Histo2D> Histo2DPtr;
 
 #endif /* __HISTO2D_H__ */
