@@ -3,6 +3,7 @@
 
 #include "typedefs.h"
 #include "threading.h"
+#include "globals.h"
 #include <QHash>
 #include <QObject>
 #include <QVector>
@@ -21,16 +22,15 @@ class MVMEEventProcessor: public QObject
 {
     Q_OBJECT
     signals:
-#ifdef OLD_STYLE_THREADING
-        void bufferProcessed(DataBuffer *buffer);
-#endif
+        void started();
+        void stopped();
+        void stateChanged(EventProcessorState);
+
         void logMessage(const QString &);
 
     public:
         MVMEEventProcessor(MVMEContext *context);
         ~MVMEEventProcessor();
-
-        bool isProcessingBuffer() const;
 
         void setDiagnostics(MesytecDiagnostics *diag);
         MesytecDiagnostics *getDiagnostics() const;
@@ -41,6 +41,8 @@ class MVMEEventProcessor: public QObject
         // Returns a hash of the most recent differences of dual word filter values.
         DualWordFilterDiffs getDualWordFilterDiffs() const;
 
+        EventProcessorState getState() const;
+
         ThreadSafeDataBufferQueue *m_freeBufferQueue = nullptr;
         ThreadSafeDataBufferQueue *m_filledBufferQueue = nullptr;
 
@@ -50,7 +52,7 @@ class MVMEEventProcessor: public QObject
         void processDataBuffer(DataBuffer *buffer);
 
         void startProcessing();
-        void stopProcessing();
+        void stopProcessing(bool whenQueueEmpty = true);
 
     private:
         MVMEEventProcessorPrivate *m_d;

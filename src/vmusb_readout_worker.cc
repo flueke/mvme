@@ -318,6 +318,7 @@ void VMUSBReadoutWorker::start(quint32 cycles)
     }
 
     setState(DAQState::Idle);
+    emit daqStopped();
 }
 
 void VMUSBReadoutWorker::stop()
@@ -341,7 +342,7 @@ void VMUSBReadoutWorker::resume()
 }
 
 static const int leaveDaqReadTimeout_ms = 100;
-static const int daqReadTimeout_ms = 500; // This should be higher than the watchdog timeout.
+static const int daqReadTimeout_ms = 500; // This should be higher than the watchdog timeout which is 250ms.
 
 void VMUSBReadoutWorker::readoutLoop()
 {
@@ -351,12 +352,12 @@ void VMUSBReadoutWorker::readoutLoop()
     if (error.isError())
         throw QString("Error entering VMUSB DAQ mode: %1").arg(error.toString());
 
-    setState(DAQState::Running);
-
     /* According to Jan we need to wait at least one millisecond
      * after entering DAQ mode to make sure that the VMUSB is
      * ready. */
     QThread::msleep(1);
+
+    setState(DAQState::Running);
 
     DAQStats &stats(m_context->getDAQStats());
     QTime logReadErrorTimer;
@@ -384,6 +385,8 @@ void VMUSBReadoutWorker::readoutLoop()
             if (error.isError())
                 throw QString("Error entering VMUSB DAQ mode: %1").arg(error.toString());
 
+            QThread::msleep(1);
+
             setState(DAQState::Running);
             emit logMessage(QSL("VMUSB readout resumed"));
         }
@@ -407,11 +410,11 @@ void VMUSBReadoutWorker::readoutLoop()
              * high data rates. Another method would be to use VMUSBs watchdog
              * feature but that does not seem to work.
              *
-             * Now testing another method: when getting a read timeout leave
-             * DAQ mode which forces the controller to dump its buffer, then
-             * resume DAQ mode. If we still don't receive data after this there
-             * is a communication error, otherwise the data rate was just too
-             * low to fill the buffer and we continue on.
+             * The workaround: when getting a read timeout leave DAQ mode which
+             * forces the controller to dump its buffer, then resume DAQ mode.
+             * If we still don't receive data after this there is a
+             * communication error, otherwise the data rate was just too low to
+             * fill the buffer and we continue on.
              *
              * Since firmware version 0A03_010917 there is a new watchdog
              * feature, different from the one in the documentation for version
@@ -432,14 +435,14 @@ void VMUSBReadoutWorker::readoutLoop()
                 static const int daqModeHackTimeout = 10;
                 bytesRead = readBuffer(daqModeHackTimeout);
 
+                error = vmusb->enterDaqMode();
+                if (error.isError())
+                    throw QString("Error entering VMUSB DAQ mode (in timeout handling): %1").arg(error.toString());
+
                 /* According to Jan we need to wait at least one millisecond
                  * after entering DAQ mode to make sure that the VMUSB is
                  * ready. */
                 QThread::msleep(1);
-
-                error = vmusb->enterDaqMode();
-                if (error.isError())
-                    throw QString("Error entering VMUSB DAQ mode (in timeout handling): %1").arg(error.toString());
             }
 #endif
 

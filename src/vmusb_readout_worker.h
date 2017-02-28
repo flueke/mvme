@@ -15,6 +15,8 @@ class VMUSBReadoutWorker: public QObject
         void logMessage(const QString &);
         void logMessages(const QStringList &, const QString &prefix = QString()); // messages, prefix
 
+        void daqStopped();
+
     public:
         VMUSBReadoutWorker(MVMEContext *context, QObject *parent = 0);
         ~VMUSBReadoutWorker();

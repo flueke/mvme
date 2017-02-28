@@ -6,7 +6,7 @@
 #include <QDebug>
 #include <QJsonObject>
 #include <QtMath>
-#include <QTime>
+#include <QElapsedTimer>
 
 #include "threading.h"
 
@@ -221,24 +221,14 @@ s32 ListFile::readSectionsIntoBuffer(DataBuffer *buffer)
     return sectionsRead;
 }
 
-static const size_t ListFileBufferSize = 1 * 1024 * 1024;
-static const size_t nBuffers = 2;
-
 ListFileReader::ListFileReader(DAQStats &stats, QObject *parent)
     : QObject(parent)
     , m_stats(stats)
 {
-#ifdef OLD_STYLE_THREADING
-    for (size_t i=0; i<nBuffers; ++i)
-    {
-        m_freeBuffers.push_back(new DataBuffer(ListFileBufferSize));
-    }
-#endif
 }
 
 ListFileReader::~ListFileReader()
 {
-    qDeleteAll(m_freeBuffers);
 }
 
 void ListFileReader::setListFile(ListFile *listFile)
@@ -246,13 +236,14 @@ void ListFileReader::setListFile(ListFile *listFile)
     m_listFile = listFile;
 }
 
-void ListFileReader::setState(DAQState state)
+void ListFileReader::changeState(DAQState state)
 {
     m_state = state;
     emit stateChanged(state);
 }
 
 static const u32 FreeBufferWaitTimeout_ms = 250;
+static const u32 ProcessEventsMinInterval_ms = 500;
 
 void ListFileReader::startFromBeginning(quint32 nBuffers)
 {
@@ -261,10 +252,11 @@ void ListFileReader::startFromBeginning(quint32 nBuffers)
 
     Q_ASSERT(m_freeBufferQueue);
     Q_ASSERT(m_filledBufferQueue);
+    Q_ASSERT(m_state == DAQState::Idle);
 
     m_buffersToRead = nBuffers;
     m_limitBuffers = (m_buffersToRead > 0);
-    m_stopped = false;
+    m_keepRunning = true;
     m_listFile->seek(0);
     m_bytesRead = 0;
     m_totalBytes = m_listFile->size();
@@ -272,20 +264,12 @@ void ListFileReader::startFromBeginning(quint32 nBuffers)
 
     m_stats.start();
 
-    setState(DAQState::Running);
-    // FIXME: not actually used by anyone
-    //emit progressChanged(m_bytesRead, m_totalBytes);
+    changeState(DAQState::Running);
 
-    QTime timeSinceLastProcessEvents;
+    QElapsedTimer timeSinceLastProcessEvents;
     timeSinceLastProcessEvents.start();
     while (m_state != DAQState::Idle)
     {
-#ifdef OLD_STYLE_THREADING
-        auto buffer = getFreeBuffer();
-
-        if (!readNextBuffer(buffer))
-            addFreeBuffer(buffer);
-#else
         // Note: readNextBuffer() will modify m_state. That way we drop out of
         // the loop if there was an error reading a buffer.
 
@@ -322,14 +306,14 @@ void ListFileReader::startFromBeginning(quint32 nBuffers)
         }
 
         // Process Qt events to be able to "receive" queued calls to our slots (stopReplay())
-        if (timeSinceLastProcessEvents.elapsed() > 500)
+        if (timeSinceLastProcessEvents.elapsed() > ProcessEventsMinInterval_ms)
         {
             QCoreApplication::processEvents();
             timeSinceLastProcessEvents.restart();
         }
-#endif
     }
 
+    emit replayStopped();
     qDebug() << __PRETTY_FUNCTION__ << "left loop";
 }
 
@@ -341,16 +325,11 @@ bool ListFileReader::readNextBuffer(DataBuffer *dest)
     dest->used = 0;
     s32 sectionsRead = 0;
 
-    if (!m_stopped && (!m_limitBuffers || m_buffersToRead > 0)
+    if (m_keepRunning && (!m_limitBuffers || m_buffersToRead > 0)
         && ((sectionsRead = m_listFile->readSectionsIntoBuffer(dest)) > 0))
     {
         --m_buffersToRead;
         m_bytesRead += dest->used;
-        // FIXME: not actually used by anyone
-        //emit progressChanged(m_bytesRead, m_totalBytes);
-#ifdef OLD_STYLE_THREADING
-        emit mvmeEventBufferReady(dest);
-#endif
 
         m_stats.addBuffersRead(1);
         m_stats.addBytesRead(dest->used);
@@ -360,8 +339,7 @@ bool ListFileReader::readNextBuffer(DataBuffer *dest)
     {
         qDebug() << __PRETTY_FUNCTION__ << "stopping stats; setting idle";
         m_stats.stop();
-        setState(DAQState::Idle);
-        emit replayStopped();
+        changeState(DAQState::Idle);
     }
 
     return false;
@@ -370,27 +348,7 @@ bool ListFileReader::readNextBuffer(DataBuffer *dest)
 void ListFileReader::stopReplay()
 {
     qDebug() << __PRETTY_FUNCTION__;
-    m_stopped = true;
-}
-
-void ListFileReader::addFreeBuffer(DataBuffer *buffer)
-{
-    m_freeBuffers.enqueue(buffer);
-}
-
-DataBuffer* ListFileReader::getFreeBuffer()
-{
-#ifdef OLD_STYLE_THREADING
-    // Check if buffers are available
-    while (!m_freeBuffers.size())
-    {
-        QCoreApplication::processEvents();
-    }
-
-    return m_freeBuffers.dequeue();
-#else
-    return nullptr;
-#endif
+    m_keepRunning = false;
 }
 
 //

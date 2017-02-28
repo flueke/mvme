@@ -60,6 +60,7 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
     });
 
     connect(m_context, &MVMEContext::daqStateChanged, this, &DAQControlWidget::updateWidget);
+    connect(m_context, &MVMEContext::eventProcessorStateChanged, this, &DAQControlWidget::updateWidget);
     connect(m_context, &MVMEContext::modeChanged, this, &DAQControlWidget::updateWidget);
     connect(m_context, &MVMEContext::controllerStateChanged, this, &DAQControlWidget::updateWidget);
     connect(m_context, &MVMEContext::daqConfigChanged, this, &DAQControlWidget::updateWidget);
@@ -82,26 +83,24 @@ void DAQControlWidget::updateWidget()
 {
     auto globalMode = m_context->getMode();
     auto daqState = m_context->getDAQState();
+    auto eventProcState = m_context->getEventProcessorState();
     auto controllerState = m_context->getController()->getState();
     const auto &stats = m_context->getDAQStats();
 
-    ui->pb_start->setEnabled((globalMode == GlobalMode::DAQ
-                          && controllerState == ControllerState::Opened)
-                         || (globalMode == GlobalMode::ListFile
-                             && daqState == DAQState::Idle)
-                         );
+    ui->pb_start->setEnabled(((globalMode == GlobalMode::DAQ && controllerState == ControllerState::Opened)
+                              || (globalMode == GlobalMode::ListFile && daqState == DAQState::Idle))
+                             && (eventProcState == EventProcessorState::Idle)
+                            );
 
-    ui->pb_stop->setEnabled((globalMode == GlobalMode::DAQ
-                         && daqState != DAQState::Idle
-                         && controllerState == ControllerState::Opened)
-                        || (globalMode == GlobalMode::ListFile
-                            && daqState != DAQState::Idle)
-                       );
+    ui->pb_stop->setEnabled(((globalMode == GlobalMode::DAQ && daqState != DAQState::Idle && controllerState == ControllerState::Opened)
+                             || (globalMode == GlobalMode::ListFile && daqState != DAQState::Idle))
+                           );
 
     ui->pb_oneCycle->setEnabled(daqState == DAQState::Idle
                                 && ((globalMode == GlobalMode::DAQ && controllerState == ControllerState::Opened)
                                     || (globalMode == GlobalMode::ListFile))
-                                );
+                                && (eventProcState == EventProcessorState::Idle)
+                               );
 
     ui->gb_listfile->setEnabled(globalMode == GlobalMode::DAQ);
 
@@ -120,21 +119,23 @@ void DAQControlWidget::updateWidget()
     }
 
 
-    auto stateString = DAQStateStrings.value(daqState, QSL("Unknown"));
+    auto daqStateString = DAQStateStrings.value(daqState, QSL("Unknown"));
+    QString eventProcStateString = (eventProcState == EventProcessorState::Idle ? QSL("Idle") : QSL("Running"));
 
     if (daqState == DAQState::Running && globalMode == GlobalMode::ListFile)
-        stateString = QSL("Replay");
+        daqStateString = QSL("Replay");
 
     if (daqState != DAQState::Idle)
     {
         auto duration  = stats.startTime.secsTo(QDateTime::currentDateTime());
         auto durationString = makeDurationString(duration);
 
-        stateString = QString("%1 (%2)").arg(stateString).arg(durationString);
+        daqStateString = QString("%1 (%2)").arg(daqStateString).arg(durationString);
     }
 
 
-    ui->label_daqState->setText(stateString);
+    ui->label_daqState->setText(daqStateString);
+    ui->label_analysisState->setText(eventProcStateString);
 
     ui->label_controllerState->setText(controllerState == ControllerState::Closed
                                        ? QSL("Disconnected")

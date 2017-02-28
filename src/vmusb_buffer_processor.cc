@@ -191,6 +191,18 @@ VMUSBBufferProcessor::VMUSBBufferProcessor(MVMEContext *context, QObject *parent
 
 void VMUSBBufferProcessor::beginRun()
 {
+    Q_ASSERT(m_freeBufferQueue);
+    Q_ASSERT(m_filledBufferQueue);
+
+    m_vmusb = dynamic_cast<VMUSB *>(m_context->getController());
+
+    if (!m_vmusb)
+    {
+        /* This should not happen but ensures that m_vmusb is set when
+         * processBuffer() will be called later on. */
+        throw QString(QSL("Error from VMUSBBufferProcessor: no VMUSB present!"));
+    }
+
     resetRunState();
 
     QString outPath = m_context->getListFileDirectory();
@@ -236,15 +248,6 @@ void VMUSBBufferProcessor::beginRun()
 
         getStats()->listFileBytesWritten = m_listFileWriter->bytesWritten();
     }
-
-    m_vmusb = dynamic_cast<VMUSB *>(m_context->getController());
-
-    if (!m_vmusb)
-    {
-        /* This should not happen but ensures that m_vmusb is set when
-         * processBuffer() will be called later on. */
-        throw QString(QSL("Error from VMUSBBufferProcessor: no VMUSB present!"));
-    }
 }
 
 void VMUSBBufferProcessor::endRun()
@@ -280,6 +283,9 @@ void VMUSBBufferProcessor::resetRunState()
 
 bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
 {
+    Q_ASSERT(m_freeBufferQueue);
+    Q_ASSERT(m_filledBufferQueue);
+
     auto stats = getStats();
     auto vmusb = m_vmusb;
     auto alignment = ((vmusb->getMode() & GlobalModeRegister::Align32Mask)
@@ -462,7 +468,11 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
 
             if (outputBuffer != &m_localEventBuffer)
             {
-                emit mvmeEventBufferReady(outputBuffer);
+                // It's not the local buffer -> put it into the queue of filled buffers
+                m_filledBufferQueue->mutex.lock();
+                m_filledBufferQueue->queue.enqueue(outputBuffer);
+                m_filledBufferQueue->mutex.unlock();
+                m_filledBufferQueue->wc.wakeOne();
             }
             else
             {
@@ -481,7 +491,9 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
 
     if (outputBuffer != &m_localEventBuffer)
     {
-        addFreeBuffer(outputBuffer);
+        // Put the buffer back onto the free queue
+        QMutexLocker lock(&m_freeBufferQueue->mutex);
+        m_freeBufferQueue->queue.enqueue(outputBuffer);
     }
 
     return false;
@@ -694,22 +706,13 @@ void VMUSBBufferProcessor::addFreeBuffer(DataBuffer *buffer)
 
 DataBuffer* VMUSBBufferProcessor::getFreeBuffer()
 {
-    auto queue = m_context->getFreeBuffers();
-    getStats()->freeBuffers = queue->size();
+    DataBuffer *result = nullptr;
 
-    // Process pending events, then check if buffers are available
+    QMutexLocker lock(&m_freeBufferQueue->mutex);
+    if (!m_freeBufferQueue->queue.isEmpty())
+        result = m_freeBufferQueue->queue.dequeue();
 
-    if (!queue->size())
-    {
-        processQtEvents(/*QEventLoop::WaitForMoreEvents*/);
-    }
-
-    if (queue->size())
-    {
-        return queue->dequeue();
-    }
-
-    return 0;
+    return result;
 }
 
 DAQStats *VMUSBBufferProcessor::getStats()

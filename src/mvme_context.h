@@ -30,12 +30,15 @@ namespace analysis
     class Analysis;
 }
 
+struct MVMEContextPrivate;
+
 class MVMEContext: public QObject
 {
     Q_OBJECT
     signals:
-        void daqStateChanged(const DAQState &state);
         void modeChanged(GlobalMode mode);
+        void daqStateChanged(const DAQState &state);
+        void eventProcessorStateChanged(EventProcessorState);
         void controllerStateChanged(ControllerState state);
 
         void vmeControllerSet(VMEController *controller);
@@ -79,6 +82,7 @@ class MVMEContext: public QObject
         QList<EventConfig *> getEventConfigs() const { return m_daqConfig->getEventConfigs(); }
         DataBufferQueue *getFreeBuffers() { return &m_freeBuffers; }
         DAQState getDAQState() const;
+        EventProcessorState getEventProcessorState() const;
         const DAQStats &getDAQStats() const { return m_daqStats; }
         DAQStats &getDAQStats() { return m_daqStats; }
         void setListFile(ListFile *listFile);
@@ -229,6 +233,7 @@ class MVMEContext: public QObject
         void tryOpenController();
         void logModuleCounters();
         void onDAQStateChanged(DAQState state);
+        void onEventProcessorStateChanged(EventProcessorState state);
         void onReplayDone();
 
         // config related
@@ -241,8 +246,12 @@ class MVMEContext: public QObject
         //ThreadSafeDataBufferQueue *getFreeBufferQueue() { return &m_freeBufferQueue; }
         //ThreadSafeDataBufferQueue *getFilledBufferQueue() { return &m_filledBufferQueue; }
 
+        friend class MVMEContextPrivate;
+
     private:
         void prepareStart();
+
+        MVMEContextPrivate *m_d;
 
         DAQConfig *m_daqConfig = nullptr;
 #ifdef ENABLE_OLD_ANALYSIS
@@ -274,7 +283,7 @@ class MVMEContext: public QObject
         DAQStats m_daqStats;
         ListFile *m_listFile = nullptr;
         GlobalMode m_mode;
-        DAQState m_state;
+        DAQState m_daqState;
         ListFileReader *m_listFileWorker;
         QTime m_replayTime;
 

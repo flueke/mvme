@@ -8,6 +8,7 @@
 #include "analysis/analysis.h"
 
 #include <QCoreApplication>
+#include <QElapsedTimer>
 
 //#define MVME_EVENT_PROCESSOR_DEBUGGING
 
@@ -19,6 +20,12 @@
 
 using namespace listfile;
 
+enum RunAction
+{
+    KeepRunning,
+    StopIfQueueEmpty,
+    StopImmediately
+};
 
 struct MVMEEventProcessorPrivate
 {
@@ -39,11 +46,10 @@ struct MVMEEventProcessorPrivate
     QMutex dualWordFilterValuesLock;
 
     MesytecDiagnostics *diag = nullptr;
-    bool isProcessingBuffer = false;
-    QMutex isProcessingMutex;
 
     analysis::Analysis *analysis_ng;
-    volatile bool m_running = false;
+    volatile RunAction m_runAction = KeepRunning;
+    EventProcessorState m_state = EventProcessorState::Idle;
 };
 
 MVMEEventProcessor::MVMEEventProcessor(MVMEContext *context)
@@ -56,12 +62,6 @@ MVMEEventProcessor::~MVMEEventProcessor()
 {
     delete m_d->diag;
     delete m_d;
-}
-
-bool MVMEEventProcessor::isProcessingBuffer() const
-{
-    QMutexLocker locker(&m_d->isProcessingMutex);
-    return m_d->isProcessingBuffer;
 }
 
 void MVMEEventProcessor::setDiagnostics(MesytecDiagnostics *diag)
@@ -217,11 +217,6 @@ void MVMEEventProcessor::newRun()
 // Process an event buffer containing one or more events.
 void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
 {
-    {
-        QMutexLocker locker(&m_d->isProcessingMutex);
-        m_d->isProcessingBuffer = true;
-    }
-
 #ifdef MVME_EVENT_PROCESSOR_DEBUGGING
     qDebug() << __PRETTY_FUNCTION__ << "begin processing" << buffer;
 #endif
@@ -421,11 +416,6 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                     }
 #endif
 
-                    if (diag)
-                    {
-                        diag->handleDataWord(currentWord);
-                    }
-
 #ifdef MVME_EVENT_PROCESSOR_DEBUGGING
                     if (moduleType == VMEModuleType::MesytecCounter)
                     {
@@ -439,6 +429,10 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
 #endif
 
 #endif
+                    if (diag)
+                    {
+                        diag->handleDataWord(currentWord);
+                    }
 
                     if (m_d->analysis_ng)
                         m_d->analysis_ng->processDataWord(eventIndex, moduleIndex, currentWord, wordIndexInSubEvent);
@@ -474,9 +468,6 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                                     .arg(eventIndex)
                                     .arg(moduleIndex)
                                    );
-#ifdef OLD_STYLE_THREADING
-                    emit bufferProcessed(buffer);
-#endif
                     return;
                 }
 
@@ -499,9 +490,6 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                                         "(eventIndex=%1)")
                                 .arg(eventIndex)
                                );
-#ifdef OLD_STYLE_THREADING
-                emit bufferProcessed(buffer);
-#endif
                 return;
             }
 
@@ -637,72 +625,84 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
 #ifdef MVME_EVENT_PROCESSOR_DEBUGGING
     qDebug() << __PRETTY_FUNCTION__ << "end processing" << buffer;
 #endif
-
-#ifdef OLD_STYLE_THREADING
-    emit bufferProcessed(buffer);
-#endif
-
-    {
-        QMutexLocker locker(&m_d->isProcessingMutex);
-        m_d->isProcessingBuffer = false;
-    }
 }
 
 static const u32 FilledBufferWaitTimeout_ms = 250;
+static const u32 ProcessEventsMinInterval_ms = 500;
 
 void MVMEEventProcessor::startProcessing()
 {
+    qDebug() << __PRETTY_FUNCTION__ << "begin";
     Q_ASSERT(m_freeBufferQueue);
     Q_ASSERT(m_filledBufferQueue);
+    Q_ASSERT(m_d->m_state == EventProcessorState::Idle);
 
-    qDebug() << __PRETTY_FUNCTION__ << "begin";
+    emit started();
+    emit stateChanged(m_d->m_state = EventProcessorState::Running);
 
-    m_d->m_running = true;
+    QCoreApplication::processEvents();
 
-    while (m_d->m_running)
+    QElapsedTimer timeSinceLastProcessEvents;
+    timeSinceLastProcessEvents.start();
+
+    m_d->m_runAction = KeepRunning;
+
+    while (m_d->m_runAction != StopImmediately)
     {
         DataBuffer *buffer = nullptr;
 
         {
             QMutexLocker lock(&m_filledBufferQueue->mutex);
-            while (m_d->m_running && m_filledBufferQueue->queue.isEmpty())
+
+            if (m_filledBufferQueue->queue.isEmpty())
             {
+                if (m_d->m_runAction == StopIfQueueEmpty)
+                    break;
+
                 m_filledBufferQueue->wc.wait(&m_filledBufferQueue->mutex, FilledBufferWaitTimeout_ms);
-                QCoreApplication::processEvents();
             }
 
             if (!m_filledBufferQueue->queue.isEmpty())
             {
                 buffer = m_filledBufferQueue->queue.dequeue();
             }
-
-            if (!m_d->m_running)
-            {
-                qDebug() << QDateTime::currentDateTime().toString("HH:mm:ss")
-                    << __PRETTY_FUNCTION__ << "was told to stop";
-            }
         }
+        // The mutex is unlocked again at this point
 
-        // Either we where told to quit or we should have gotten a buffer.
-        Q_ASSERT(!m_d->m_running || buffer);
-
-        if (m_d->m_running)
+        if (buffer)
         {
             processDataBuffer(buffer);
 
+            // Put the buffer back into the free queue
             m_freeBufferQueue->mutex.lock();
             m_freeBufferQueue->queue.enqueue(buffer);
             m_freeBufferQueue->mutex.unlock();
             m_freeBufferQueue->wc.wakeOne();
         }
+
+        // Process Qt events to be able to "receive" queued calls to our slots.
+        if (timeSinceLastProcessEvents.elapsed() > ProcessEventsMinInterval_ms)
+        {
+            QCoreApplication::processEvents();
+            timeSinceLastProcessEvents.restart();
+        }
     }
+
+    emit stopped();
+    emit stateChanged(m_d->m_state = EventProcessorState::Idle);
 
     qDebug() << __PRETTY_FUNCTION__ << "end";
 }
 
-void MVMEEventProcessor::stopProcessing()
+void MVMEEventProcessor::stopProcessing(bool whenQueueEmpty)
 {
     qDebug() << QDateTime::currentDateTime().toString("HH:mm:ss")
         << __PRETTY_FUNCTION__;
-    m_d->m_running = false;
+
+    m_d->m_runAction = whenQueueEmpty ? StopIfQueueEmpty : StopImmediately;
+}
+
+EventProcessorState MVMEEventProcessor::getState() const
+{
+    return m_d->m_state;
 }

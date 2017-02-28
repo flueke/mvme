@@ -151,9 +151,6 @@ class ListFileReader: public QObject
     Q_OBJECT
     signals:
         void stateChanged(DAQState);
-#ifdef OLD_STYLE_THREADING
-        void mvmeEventBufferReady(DataBuffer *);
-#endif
         void logMessage(const QString &);
         void replayStopped();
         void progressChanged(qint64, qint64);
@@ -170,20 +167,17 @@ class ListFileReader: public QObject
     public slots:
         void startFromBeginning(quint32 nBuffers = 0);
         void stopReplay();
-        void addFreeBuffer(DataBuffer *buffer); // put processed buffers back into the queue
 
     private:
         bool readNextBuffer(DataBuffer *dest);
-        DataBuffer *getFreeBuffer();
-        void setState(DAQState state);
+        void changeState(DAQState state);
 
         DAQStats &m_stats;
         DataBuffer *m_buffer = nullptr;
         ListFile *m_listFile = 0;
         qint64 m_bytesRead = 0;
         qint64 m_totalBytes = 0;
-        bool m_stopped = false;
-        DataBufferQueue m_freeBuffers;
+        bool m_keepRunning = false;
         DAQState m_state = DAQState::Idle;
         quint32 m_buffersToRead = 0;
         bool m_limitBuffers = false;
