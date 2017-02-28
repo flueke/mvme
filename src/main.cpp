@@ -16,8 +16,9 @@
 int main(int argc, char *argv[])
 {
     qRegisterMetaType<DAQState>("DAQState");
-    qRegisterMetaType<DAQState>("GlobalMode");
-    qRegisterMetaType<DAQState>("ControllerState");
+    qRegisterMetaType<GlobalMode>("GlobalMode");
+    qRegisterMetaType<EventProcessorState>("EventProcessorState");
+    qRegisterMetaType<ControllerState>("ControllerState");
 
     QApplication app(argc, argv);
 
