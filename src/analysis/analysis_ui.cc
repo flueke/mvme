@@ -279,7 +279,9 @@ struct EventWidgetPrivate
 
     void modeChanged();
     void highlightValidInputNodes(QTreeWidgetItem *node);
+    void highlightInputNodes(OperatorInterface *op);
     void clearNodeHighlights(QTreeWidgetItem *node);
+    void clearAllNodeHighlights();
     void onNodeClicked(TreeNode *node, int column);
     void onNodeDoubleClicked(TreeNode *node, int column);
     void clearAllTreeSelections();
@@ -637,6 +639,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                         widget->show();
                         m_uniqueWidgetActive = true;
                         clearAllTreeSelections();
+                        clearAllNodeHighlights();
                     });
                 };
 
@@ -690,6 +693,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                         widget->show();
                         m_uniqueWidgetActive = true;
                         clearAllTreeSelections();
+                        clearAllNodeHighlights();
                     });
                 }
 
@@ -723,6 +727,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                 widget->show();
                 m_uniqueWidgetActive = true;
                 clearAllTreeSelections();
+                clearAllNodeHighlights();
             });
 
             menu.addAction(QSL("Remove"), [this, op]() {
@@ -746,6 +751,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                         widget->show();
                         m_uniqueWidgetActive = true;
                         clearAllTreeSelections();
+                        clearAllNodeHighlights();
                     });
                 };
 
@@ -797,6 +803,7 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
             widget->show();
             m_uniqueWidgetActive = true;
             clearAllTreeSelections();
+            clearAllNodeHighlights();
         });
     };
 
@@ -859,6 +866,7 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
                 widget->show();
                 m_uniqueWidgetActive = true;
                 clearAllTreeSelections();
+                clearAllNodeHighlights();
             });
 
             menu.addAction(QSL("Remove"), [this, op]() {
@@ -962,7 +970,7 @@ void EventWidgetPrivate::modeChanged()
     }
 }
 
-bool isValidInputNode(QTreeWidgetItem *node, Slot *slot)
+static bool isValidInputNode(QTreeWidgetItem *node, Slot *slot)
 {
     PipeSourceInterface *dstObject = slot->parentOperator;
     Q_ASSERT(dstObject);
@@ -1018,6 +1026,8 @@ bool isValidInputNode(QTreeWidgetItem *node, Slot *slot)
 }
 
 static const QColor ValidInputNodeColor = QColor("lightgreen");
+// lightgreen but with alpha
+static const QColor InputNodeOfColor = QColor(0x90, 0xEE, 0x90, 255.0/4);
 
 void EventWidgetPrivate::highlightValidInputNodes(QTreeWidgetItem *node)
 {
@@ -1034,6 +1044,67 @@ void EventWidgetPrivate::highlightValidInputNodes(QTreeWidgetItem *node)
     }
 }
 
+static bool isSourceNodeOf(QTreeWidgetItem *node, Slot *slot)
+{
+    PipeSourceInterface *srcObject = nullptr;
+
+    switch (node->type())
+    {
+        // TODO: NodeType_Source?
+
+        case NodeType_Operator:
+            {
+                srcObject = getPointer<PipeSourceInterface>(node);
+                Q_ASSERT(srcObject);
+            } break;
+        case NodeType_OutputPipe:
+        case NodeType_OutputPipeParameter:
+            {
+                auto pipe = getPointer<Pipe>(node);
+                srcObject = pipe->source;
+                Q_ASSERT(srcObject);
+            } break;
+    }
+
+    bool result = false;
+
+    if (slot->inputPipe->source == srcObject)
+    {
+        result = true;
+    }
+
+    return result;
+}
+
+static void highlightInputNodes(OperatorInterface *op, QTreeWidgetItem *node)
+{
+    for (s32 slotIndex = 0; slotIndex < op->getNumberOfSlots(); ++slotIndex)
+    {
+        Slot *slot = op->getSlot(slotIndex);
+        if (slot->inputPipe && isSourceNodeOf(node, slot))
+        {
+            node->setBackground(0, InputNodeOfColor);
+        }
+    }
+
+    for (s32 childIndex = 0; childIndex < node->childCount(); ++childIndex)
+    {
+        // recurse
+        auto child = node->child(childIndex);
+        highlightInputNodes(op, child);
+    }
+}
+
+void EventWidgetPrivate::highlightInputNodes(OperatorInterface *op)
+{
+    for (auto trees: m_levelTrees)
+    {
+        // Without the namespace prefix the compiler can't find
+        // highlightInputNodes(). C++ surprises me again and again...
+        analysis::highlightInputNodes(op, trees.operatorTree->invisibleRootItem());
+    }
+}
+
 void EventWidgetPrivate::clearNodeHighlights(QTreeWidgetItem *node)
 {
     node->setBackground(0, QBrush());
@@ -1046,12 +1117,34 @@ void EventWidgetPrivate::clearNodeHighlights(QTreeWidgetItem *node)
     }
 }
 
+void EventWidgetPrivate::clearAllNodeHighlights()
+{
+    for (auto trees: m_levelTrees)
+    {
+        auto opTree = trees.operatorTree;
+        clearNodeHighlights(opTree->invisibleRootItem());
+    }
+}
+
 void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column)
 {
     switch (m_mode)
     {
         case Default:
             {
+                clearAllNodeHighlights();
+
+                switch (node->type())
+                {
+                    case NodeType_Operator:
+                    case NodeType_Histo1DSink:
+                    case NodeType_Histo2DSink:
+                    case NodeType_Sink:
+                        {
+                            auto op = getPointer<OperatorInterface>(node);
+                            highlightInputNodes(op);
+                        } break;
+                }
             } break;
 
         case SelectInput:
