@@ -223,6 +223,12 @@ QByteArray getDefaultFilter(VMEModuleType moduleType)
     return defaultDataFilters.value(moduleType).value(0).filter;
 }
 
+const char *getDefaultFilterName(VMEModuleType moduleType)
+{
+    // defined in globals.h
+    return defaultDataFilters.value(moduleType).value(0).name;
+}
+
 /** IMPORTANT: This constructor makes the Widget go into "add" mode. When
  * accepting the widget inputs it will call eventWidget->addSource(). */
 AddEditSourceWidget::AddEditSourceWidget(SourcePtr srcPtr, ModuleConfig *mod, EventWidget *eventWidget)
@@ -249,7 +255,14 @@ AddEditSourceWidget::AddEditSourceWidget(SourceInterface *src, ModuleConfig *mod
 
     if (extractor)
     {
-        le_name->setText(extractor->objectName());
+        if (!extractor->objectName().isEmpty())
+        {
+            le_name->setText(extractor->objectName());
+        }
+        else
+        {
+            le_name->setText(getDefaultFilterName(module->type));
+        }
 
         m_filterEditor->m_defaultFilter = getDefaultFilter(module->type);
         m_filterEditor->m_subFilters = extractor->getFilter().getSubFilters();

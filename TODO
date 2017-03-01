@@ -25,6 +25,12 @@
    keep coming back and result in user confusion.
    Sources need to be attached to a module. From there we can get the event id.
 
+ - DisplayTree: finding histo1DRoot and histo2DRoot breaks easily. If there's a
+   sink in the tree that's not below one of the two root nodes but gets sorted
+   before them (because it's name sort before "1D" and/or "2D") then just
+   getting the top level nodes 0 and 1 will not yield the correct nodes
+   anymore!
+
 <<<<< End AnalysisNG >>>>>
 
 

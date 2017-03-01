@@ -617,6 +617,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
     auto obj  = getQObject(node);
 
     QMenu menu;
+    auto menuNew = new QMenu;
 
     if (node)
     {
@@ -625,8 +626,6 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
             if (!m_uniqueWidgetActive)
             {
                 auto moduleConfig = getPointer<ModuleConfig>(node);
-
-                auto menuNew = new QMenu;
 
                 // new sources
                 auto add_action = [this, &menu, menuNew, moduleConfig](const QString &title, auto srcPtr)
@@ -649,10 +648,6 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                     SourcePtr src(registry.makeSource(sourceName));
                     add_action(src->getDisplayName(), src);
                 }
-
-                auto actionNew = menu.addAction(QSL("New"));
-                actionNew->setMenu(menuNew);
-                menu.addAction(actionNew);
 
                 // default data filters and "raw display" creation
                 if (moduleConfig && (defaultDataFilters.contains(moduleConfig->type)
@@ -742,8 +737,6 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
         {
             if (userLevel > 0)
             {
-                auto menuNew = new QMenu;
-
                 auto add_action = [this, &menu, menuNew, userLevel](const QString &title, auto opPtr)
                 {
                     menuNew->addAction(title, &menu, [this, userLevel, opPtr]() {
@@ -764,12 +757,19 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                     OperatorPtr op(registry.makeOperator(operatorName));
                     add_action(op->getDisplayName(), op);
                 }
-
-                auto actionNew = menu.addAction(QSL("New"));
-                actionNew->setMenu(menuNew);
-                menu.addAction(actionNew);
             }
         }
+    }
+
+    if (menuNew->isEmpty())
+    {
+        delete menuNew;
+    }
+    else
+    {
+        auto actionNew = menu.addAction(QSL("New"));
+        actionNew->setMenu(menuNew);
+        menu.addAction(actionNew);
     }
 
     if (!menu.isEmpty())
@@ -780,10 +780,25 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
 
 void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel)
 {
+    Q_ASSERT(userLevel >= 0 && userLevel < m_levelTrees.size());
+
     auto node = tree->itemAt(pos);
     auto obj  = getQObject(node);
 
     QMenu menu;
+    auto menuNew = new QMenu;
+
+    auto add_action = [this, &menu, menuNew, userLevel](const QString &title, auto op)
+    {
+        menuNew->addAction(title, &menu, [this, userLevel, op]() {
+            auto widget = new AddEditOperatorWidget(op, userLevel, m_q);
+            widget->move(QCursor::pos());
+            widget->setAttribute(Qt::WA_DeleteOnClose);
+            widget->show();
+            m_uniqueWidgetActive = true;
+            clearAllTreeSelections();
+        });
+    };
 
     if (node)
     {
@@ -827,6 +842,12 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
                         }
                     }
                 } break;
+
+            case NodeType_Module:
+                {
+                    auto sink = std::make_shared<Histo1DSink>();
+                    add_action(sink->getDisplayName(), sink);
+                } break;
         }
 
         if (auto op = qobject_cast<OperatorInterface *>(obj))
@@ -845,25 +866,32 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
                 m_q->removeOperator(op);
             });
         }
+
+        if (userLevel > 0 && !m_uniqueWidgetActive)
+        {
+            auto displayTree = m_levelTrees[userLevel].displayTree;
+            Q_ASSERT(displayTree->topLevelItemCount() >= 2);
+            auto histo1DRoot = displayTree->topLevelItem(0);
+            auto histo2DRoot = displayTree->topLevelItem(1);
+
+            if (node == histo1DRoot)
+            {
+                auto sink = std::make_shared<Histo1DSink>();
+                add_action(sink->getDisplayName(), sink);
+            }
+
+            if (node == histo2DRoot)
+            {
+                auto sink = std::make_shared<Histo2DSink>();
+                add_action(sink->getDisplayName(), sink);
+            }
+
+        }
     }
     else
     {
         if (m_mode == EventWidgetPrivate::Default && !m_uniqueWidgetActive)
         {
-            auto menuNew = new QMenu;
-
-            auto add_action = [this, &menu, menuNew, userLevel](const QString &title, auto opPtr)
-            {
-                menuNew->addAction(title, &menu, [this, userLevel, opPtr]() {
-                    auto widget = new AddEditOperatorWidget(opPtr, userLevel, m_q);
-                    widget->move(QCursor::pos());
-                    widget->setAttribute(Qt::WA_DeleteOnClose);
-                    widget->show();
-                    m_uniqueWidgetActive = true;
-                    clearAllTreeSelections();
-                });
-            };
-
             if (userLevel == 0)
             {
                 auto sink = std::make_shared<Histo1DSink>();
@@ -880,11 +908,18 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
                     add_action(sink->getDisplayName(), sink);
                 }
             }
-
-            auto actionNew = menu.addAction(QSL("New"));
-            actionNew->setMenu(menuNew);
-            menu.addAction(actionNew);
         }
+    }
+
+    if (menuNew->isEmpty())
+    {
+        delete menuNew;
+    }
+    else
+    {
+        auto actionNew = menu.addAction(QSL("New"));
+        actionNew->setMenu(menuNew);
+        menu.addAction(actionNew);
     }
 
     if (!menu.isEmpty())
