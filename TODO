@@ -9,19 +9,13 @@
    Slot::acceptedInputTypes?
  - add a way for operators to change the Slot::acceptedInputTypes when a slot
    is connected/disconnected!
- - combine "single word" and "dual word" filters. the distinction is not needed
-   anymore as both are MultiWordDataFilters now
  - "modified" concept for the analysis and it's elements
  - save/saveas/load error reporting
  - Pass and build names throughout the analysis
 
- - Edit operators
-   * select different inputs
-   * edit operator params
-   * edit names
  - Delete operators
-   * remote operator from dependents inputs
    * highlight dependents that are now missing inputs (Note: this highlight should not be removed by any clearHighlight calls!)
+
  - When selecting an operator highlight it's input operators
 
  - !!! Make analysis use DAQConfig object ids instead of only going by eventIndex/moduleIndex !!!
@@ -31,9 +25,6 @@
    keep coming back and result in user confusion.
    Sources need to be attached to a module. From there we can get the event id.
 
- - Gui to add new Hist1D
- - Gui to add new Hist2D
-
 <<<<< End AnalysisNG >>>>>
 
 
@@ -42,6 +33,8 @@
 ==========================
 - Refactor DAQConfig -> VMEConfig and DAQConfigTree to VMEConfigTree
 >>>>> Begin Analysis NG <<<<<
+ - combine "single word" and "dual word" filters. the distinction is not needed
+   anymore as both are MultiWordDataFilters now
 - More icons: icon for array of histos
 - Make Histo1DSink and Histo2DSink keep histo meta info as members. This would
   allow allocating histos on demand. But the info has to be kept in sync of
@@ -55,12 +48,12 @@
   Should it skip matched filters when the next data word comes in?
   -> Right now the already extracted value for the filter will be
      overwritten.
-* Rename DataFilter to ParameterExtractor
 * Single word data filter matching and extraction must be very fast as they're
   used to handle most of the data and multi word filters are implemented in
   terms of single word filters.
 * Histo1D
   - Mouse cursor info area displays wrong bin number
+ - Histo1D: sigma calculation wrong if axis is in the negatives!
 <<<<< End AnalysisNG >>>>>
 
 * Git version is not updated when rebuilding the project! FIX THIS!

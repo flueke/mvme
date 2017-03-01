@@ -65,6 +65,7 @@ class AddEditOperatorWidget: public QWidget
         virtual void closeEvent(QCloseEvent *event) override;
         void inputSelected(s32 slotIndex);
         void accept();
+        void reject();
 
         OperatorPtr m_opPtr;
         OperatorInterface *m_op;
@@ -74,6 +75,14 @@ class AddEditOperatorWidget: public QWidget
         QDialogButtonBox *m_buttonBox = nullptr;
         bool m_inputSelectActive = false;
         OperatorConfigurationWidget *m_opConfigWidget = nullptr;
+
+        struct SlotConnection
+        {
+            Pipe *inputPipe;
+            s32 paramIndex;
+        };
+
+        QVector<SlotConnection> m_slotBackups;
 };
 
 class AddEditSourceWidget: public QWidget
@@ -120,6 +129,8 @@ class OperatorConfigurationWidget: public QWidget
         QLineEdit *le_unit = nullptr;
         QDoubleSpinBox *spin_factor = nullptr;
         QDoubleSpinBox *spin_offset = nullptr;
+        QDoubleSpinBox *spin_unitMin = nullptr;
+        QDoubleSpinBox *spin_unitMax = nullptr;
         QSpinBox *spin_index = nullptr;
 };
 

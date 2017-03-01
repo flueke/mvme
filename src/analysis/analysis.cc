@@ -312,14 +312,14 @@ Slot *BasicSink::getSlot(s32 slotIndex)
 }
 
 //
-// Calibration
+// CalibrationFactorOffset
 //
-Calibration::Calibration(QObject *parent)
+CalibrationFactorOffset::CalibrationFactorOffset(QObject *parent)
     : BasicOperator(parent)
 {
 }
 
-void Calibration::beginRun()
+void CalibrationFactorOffset::beginRun()
 {
     auto &out(m_output.getParameters());
 
@@ -361,9 +361,9 @@ void Calibration::beginRun()
     }
 }
 
-void Calibration::step()
+void CalibrationFactorOffset::step()
 {
-    auto calibOneParam = [](const Parameter &inParam, Parameter &outParam, const CalibrationParameters &calib)
+    auto calibOneParam = [](const Parameter &inParam, Parameter &outParam, const CalibrationFactorOffsetParameters &calib)
     {
         outParam.valid = inParam.valid;
         if (inParam.valid)
@@ -407,15 +407,15 @@ void Calibration::step()
     }
 }
 
-void Calibration::setCalibration(s32 address, const CalibrationParameters &params)
+void CalibrationFactorOffset::setCalibration(s32 address, const CalibrationFactorOffsetParameters &params)
 {
     m_calibrations.resize(std::max(m_calibrations.size(), address+1));
     m_calibrations[address] = params;
 }
 
-CalibrationParameters Calibration::getCalibration(s32 address) const
+CalibrationFactorOffsetParameters CalibrationFactorOffset::getCalibration(s32 address) const
 {
-    CalibrationParameters result = m_globalCalibration;
+    CalibrationFactorOffsetParameters result = m_globalCalibration;
 
     if (address < m_calibrations.size() && m_calibrations[address].isValid())
     {
@@ -425,7 +425,7 @@ CalibrationParameters Calibration::getCalibration(s32 address) const
     return result;
 }
 
-void Calibration::read(const QJsonObject &json)
+void CalibrationFactorOffset::read(const QJsonObject &json)
 {
     m_unit = json["unitLabel"].toString();
     m_globalCalibration.factor = json["globalFactor"].toDouble();
@@ -439,7 +439,7 @@ void Calibration::read(const QJsonObject &json)
          ++it)
     {
         auto paramJson = it->toObject();
-        CalibrationParameters param;
+        CalibrationFactorOffsetParameters param;
         if (paramJson.contains("factor") && paramJson.contains("offset"))
         {
             param.factor = paramJson["factor"].toDouble();
@@ -449,7 +449,7 @@ void Calibration::read(const QJsonObject &json)
     }
 }
 
-void Calibration::write(QJsonObject &json) const
+void CalibrationFactorOffset::write(QJsonObject &json) const
 {
     json["unitLabel"] = m_unit;
     json["globalFactor"] = m_globalCalibration.factor;
@@ -471,6 +471,178 @@ void Calibration::write(QJsonObject &json) const
     json["calibrations"] = calibArray;
 }
 
+//
+// CalibrationMinMax
+//
+CalibrationMinMax::CalibrationMinMax(QObject *parent)
+    : BasicOperator(parent)
+{
+}
+
+void CalibrationMinMax::beginRun()
+{
+    auto &out(m_output.getParameters());
+
+    out.name = objectName();
+    out.unit = getUnitLabel();
+
+    if (m_inputSlot.inputPipe)
+    {
+        const auto &in(m_inputSlot.inputPipe->getParameters());
+
+        s32 idxMin = 0;
+        s32 idxMax = in.size();
+
+        if (m_inputSlot.paramIndex != Slot::NoParamIndex)
+        {
+            out.resize(1);
+            idxMin = m_inputSlot.paramIndex;
+            idxMax = idxMin + 1;
+        }
+        else
+        {
+            out.resize(in.size());
+        }
+
+        s32 outIdx = 0;
+        for (s32 idx = idxMin; idx < idxMax; ++idx)
+        {
+            const Parameter &inParam(in[idx]);
+            Parameter &outParam(out[outIdx++]);
+            auto calib = getCalibration(idx);
+
+            outParam.lowerLimit = calib.unitMin;
+            outParam.upperLimit = calib.unitMax;
+        }
+    }
+    else
+    {
+        out.resize(0);
+    }
+}
+
+void CalibrationMinMax::step()
+{
+    auto calibOneParam = [](const Parameter &inParam, Parameter &outParam, const CalibrationMinMaxParameters &calib)
+    {
+        outParam.valid = inParam.valid;
+        if (inParam.valid)
+        {
+            double a1 = inParam.lowerLimit;
+            double a2 = inParam.upperLimit;
+            double t1 = calib.unitMin;
+            double t2 = calib.unitMax;
+
+            Q_ASSERT(a1 - a2 != 0.0);
+            Q_ASSERT(t1 - t2 != 0.0);
+
+            //if (std::abs(a1) > std::abs(a2))
+            //    std::swap(a1, a2);
+
+            //if (std::abs(t1) > std::abs(t2))
+            //    std::swap(t1, t2);
+
+            outParam.value = (inParam.value - a1) * (t2 - t1) / (a2 - a1) + t1;
+            outParam.valid = true;
+        }
+    };
+
+    if (m_inputSlot.inputPipe)
+    {
+        auto &out(m_output.getParameters());
+        const auto &in(m_inputSlot.inputPipe->getParameters());
+        const s32 inSize = in.size();
+
+        if (m_inputSlot.paramIndex != Slot::NoParamIndex)
+        {
+            auto &outParam(out[0]);
+            outParam.valid = false;
+            s32 paramIndex = m_inputSlot.paramIndex;
+
+            if (paramIndex >= 0 && paramIndex < inSize)
+            {
+                const auto &inParam(in[paramIndex]);
+                calibOneParam(inParam, outParam, m_globalCalibration);
+            }
+        }
+        else
+        {
+            const s32 size = in.size();
+
+            for (s32 address = 0; address < size; ++address)
+            {
+                auto &outParam(out[address]);
+                const auto &inParam(in[address]);
+
+                calibOneParam(inParam, outParam, getCalibration(address));
+            }
+        }
+    }
+}
+
+void CalibrationMinMax::setCalibration(s32 address, const CalibrationMinMaxParameters &params)
+{
+    m_calibrations.resize(std::max(m_calibrations.size(), address+1));
+    m_calibrations[address] = params;
+}
+
+CalibrationMinMaxParameters CalibrationMinMax::getCalibration(s32 address) const
+{
+    CalibrationMinMaxParameters result = m_globalCalibration;
+
+    if (address < m_calibrations.size() && m_calibrations[address].isValid())
+    {
+        result = m_calibrations[address];
+    }
+
+    return result;
+}
+
+void CalibrationMinMax::read(const QJsonObject &json)
+{
+    m_unit = json["unitLabel"].toString();
+    m_globalCalibration.unitMin = json["globalUnitMin"].toDouble();
+    m_globalCalibration.unitMax = json["globalUnitMax"].toDouble();
+
+    m_calibrations.clear();
+    QJsonArray calibArray = json["calibrations"].toArray();
+
+    for (auto it=calibArray.begin();
+         it != calibArray.end();
+         ++it)
+    {
+        auto paramJson = it->toObject();
+        CalibrationMinMaxParameters param;
+        if (paramJson.contains("unitMin") && paramJson.contains("unitMax"))
+        {
+            param.unitMin = paramJson["unitMin"].toDouble();
+            param.unitMax = paramJson["unitMax"].toDouble();
+        }
+        m_calibrations.push_back(param);
+    }
+}
+
+void CalibrationMinMax::write(QJsonObject &json) const
+{
+    json["unitLabel"] = m_unit;
+    json["globalUnitMin"] = m_globalCalibration.unitMin;
+    json["globalUnitMax"] = m_globalCalibration.unitMax;
+
+    QJsonArray calibArray;
+
+    for (auto &param: m_calibrations)
+    {
+        QJsonObject paramJson;
+        if (param.isValid())
+        {
+            paramJson["unitMin"] = param.unitMin;
+            paramJson["unitMax"] = param.unitMax;
+        }
+        calibArray.append(paramJson);
+    }
+
+    json["calibrations"] = calibArray;
+}
 //
 // IndexSelector
 //
@@ -925,7 +1097,8 @@ Analysis::Analysis()
 {
     m_registry.registerSource<Extractor>();
 
-    m_registry.registerOperator<Calibration>();
+    m_registry.registerOperator<CalibrationFactorOffset>();
+    m_registry.registerOperator<CalibrationMinMax>();
     m_registry.registerOperator<IndexSelector>();
     m_registry.registerOperator<PreviousValue>();
     m_registry.registerOperator<RetainValid>();
@@ -1596,7 +1769,7 @@ RawDataDisplay make_raw_data_display(const MultiWordDataFilter &extractionFilter
 
     qDebug() << ">>>>> factor =" << factor << ", offset =" << offset;
 
-    auto calibration = std::make_shared<Calibration>();
+    auto calibration = std::make_shared<CalibrationFactorOffset>();
     calibration->setGlobalCalibration(factor, offset);
     calibration->setObjectName(filterName);
     calibration->connectArrayToInputSlot(0, extractor->getOutput(0));

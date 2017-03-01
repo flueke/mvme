@@ -13,7 +13,7 @@ namespace analysis
 
 
 /** IMPORTANT: This constructor makes the Widget go into "add" mode. When
- * closing it will call eventWidget->addOperator()! */
+ * accepted it will call eventWidget->addOperator()! */
 AddEditOperatorWidget::AddEditOperatorWidget(OperatorPtr opPtr, s32 userLevel, EventWidget *eventWidget)
     : AddEditOperatorWidget(opPtr.get(), userLevel, eventWidget)
 {
@@ -21,7 +21,7 @@ AddEditOperatorWidget::AddEditOperatorWidget(OperatorPtr opPtr, s32 userLevel, E
 }
 
 /** IMPORTANT: This constructor makes the Widget go into "edit" mode. When
- * closing it will call eventWidget->operatorEdited()! */
+ * accepted it will call eventWidget->operatorEdited()! */
 AddEditOperatorWidget::AddEditOperatorWidget(OperatorInterface *op, s32 userLevel, EventWidget *eventWidget)
     : QWidget(eventWidget, Qt::Tool)
     , m_op(op)
@@ -29,15 +29,14 @@ AddEditOperatorWidget::AddEditOperatorWidget(OperatorInterface *op, s32 userLeve
     , m_eventWidget(eventWidget)
     , m_opConfigWidget(new OperatorConfigurationWidget(op, userLevel, this))
 {
-    // TODO: actually do implement edit support for AddEditOperatorWidget
-
-    //m_opConfigWidget->setEnabled(false);
-
     auto slotGrid = new QGridLayout;
     int row = 0;
     for (s32 slotIndex = 0; slotIndex < m_op->getNumberOfSlots(); ++slotIndex)
     {
         Slot *slot = m_op->getSlot(slotIndex);
+
+        // Record the current slot input
+        m_slotBackups.push_back({slot->inputPipe, slot->paramIndex});
         
         auto selectButton = new QPushButton(QSL("<select>"));
         selectButton->setCheckable(true);
@@ -100,7 +99,7 @@ AddEditOperatorWidget::AddEditOperatorWidget(OperatorInterface *op, s32 userLeve
     m_buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
     m_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(false);
     connect(m_buttonBox, &QDialogButtonBox::accepted, this, &AddEditOperatorWidget::accept);
-    connect(m_buttonBox, &QDialogButtonBox::rejected, this, &QWidget::close);
+    connect(m_buttonBox, &QDialogButtonBox::rejected, this, &AddEditOperatorWidget::reject);
     auto buttonBoxLayout = new QVBoxLayout;
     buttonBoxLayout->addStretch();
     buttonBoxLayout->addWidget(m_buttonBox);
@@ -161,7 +160,6 @@ void AddEditOperatorWidget::inputSelected(s32 slotIndex)
     m_opConfigWidget->inputSelected(slotIndex);
 
     m_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(enableOkButton);
-    //m_opConfigWidget->setEnabled(enableOkButton);
     m_inputSelectActive = false;
 }
 
@@ -170,11 +168,41 @@ void AddEditOperatorWidget::accept()
     m_opConfigWidget->configureOperator();
     if (m_opPtr)
     {
+        // add mode
         m_eventWidget->addOperator(m_opPtr, m_userLevel);
     }
     else
     {
+        // edit mode
         m_eventWidget->operatorEdited(m_op);
+    }
+    close();
+}
+
+void AddEditOperatorWidget::reject()
+{
+    if (m_opPtr)
+    {
+        // add mode
+        // The operator will not be added to the analysis. This means any slots
+        // connected by the user must be disconnected again to avoid having
+        // stale connections in the source operators.
+        for (s32 slotIndex = 0; slotIndex < m_op->getNumberOfSlots(); ++slotIndex)
+        {
+            Slot *slot = m_op->getSlot(slotIndex);
+            slot->disconnectPipe();
+        }
+    }
+    else
+    {
+        // edit mode
+        // Restore previous slot connections.
+        for (s32 slotIndex = 0; slotIndex < m_op->getNumberOfSlots(); ++slotIndex)
+        {
+            Slot *slot = m_op->getSlot(slotIndex);
+            auto oldConnection = m_slotBackups[slotIndex];
+            slot->connectPipe(oldConnection.inputPipe, oldConnection.paramIndex);
+        }
     }
     close();
 }
@@ -346,19 +374,19 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
             spin_yBins->setValue(histoSink->m_histo->getAxis(Qt::YAxis).getBins());
         }
     }
-    else if (auto calibration = qobject_cast<Calibration *>(op))
+    else if (auto calibration = qobject_cast<CalibrationFactorOffset *>(op))
     {
         le_unit = new QLineEdit;
         spin_factor = new QDoubleSpinBox;
         spin_factor->setDecimals(8);
-        spin_factor->setMinimum(1e-20);
-        spin_factor->setMaximum(1e+20);
+        spin_factor->setMinimum(-1e20);
+        spin_factor->setMaximum(+1e20);
         spin_factor->setValue(1.0);
 
         spin_offset = new QDoubleSpinBox;
         spin_offset->setDecimals(8);
-        spin_offset->setMinimum(1e-20);
-        spin_offset->setMaximum(1e+20);
+        spin_offset->setMinimum(-1e20);
+        spin_offset->setMaximum(+1e20);
         spin_offset->setValue(0.0);
 
         formLayout->addRow(QSL("Unit Label"), le_unit);
@@ -372,6 +400,34 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
         {
             spin_factor->setValue(globalParams.factor);
             spin_offset->setValue(globalParams.offset);
+        }
+    }
+    else if (auto calibration = qobject_cast<CalibrationMinMax *>(op))
+    {
+        le_unit = new QLineEdit;
+        spin_unitMin = new QDoubleSpinBox;
+        spin_unitMin->setDecimals(8);
+        spin_unitMin->setMinimum(-1e20);
+        spin_unitMin->setMaximum(+1e20);
+        spin_unitMin->setValue(0.0); // FIXME: find a better default value. Maybe input dependent (lowerLimit)
+
+        spin_unitMax = new QDoubleSpinBox;
+        spin_unitMax->setDecimals(8);
+        spin_unitMax->setMinimum(-1e20);
+        spin_unitMax->setMaximum(+1e20);
+        spin_unitMax->setValue(1 << 16); // FIXME: find a better default value. Maybe input dependent (upperLimit)
+
+        formLayout->addRow(QSL("Unit Label"), le_unit);
+        formLayout->addRow(QSL("Unit Min"), spin_unitMin);
+        formLayout->addRow(QSL("Unit Max"), spin_unitMax);
+
+        // TODO: add list of individual calibration entries
+        le_unit->setText(calibration->getUnitLabel());
+        auto globalParams = calibration->getGlobalCalibration();
+        if (globalParams.isValid())
+        {
+            spin_unitMin->setValue(globalParams.unitMin);
+            spin_unitMax->setValue(globalParams.unitMax);
         }
     }
     else if (auto selector = qobject_cast<IndexSelector *>(op))
@@ -400,9 +456,15 @@ bool OperatorConfigurationWidget::validateInputs()
     {
         return spin_xBins->value() > 0 && spin_yBins->value() > 0;
     }
-    else if (auto calibration = qobject_cast<Calibration *>(op))
+    else if (auto calibration = qobject_cast<CalibrationFactorOffset *>(op))
     {
         return spin_factor->value() != 0.0;
+    }
+    else if (auto calibration = qobject_cast<CalibrationMinMax *>(op))
+    {
+        double unitMin = spin_unitMin->value();
+        double unitMax = spin_unitMax->value();
+        return (unitMin != unitMax);
     }
     else if (auto selector = qobject_cast<IndexSelector *>(op))
     {
@@ -456,12 +518,19 @@ void OperatorConfigurationWidget::configureOperator()
         histoSink->m_histo = std::make_shared<Histo2D>(xBins, xMin, xMax,
                                                        yBins, yMin, yMax);
     }
-    else if (auto calibration = qobject_cast<Calibration *>(op))
+    else if (auto calibration = qobject_cast<CalibrationFactorOffset *>(op))
     {
         double factor = spin_factor->value();
         double offset = spin_offset->value();
 
         calibration->setGlobalCalibration(factor, offset);
+    }
+    else if (auto calibration = qobject_cast<CalibrationMinMax *>(op))
+    {
+        double unitMin = spin_unitMin->value();
+        double unitMax = spin_unitMax->value();
+
+        calibration->setGlobalCalibration(unitMin, unitMax);
     }
     else if (auto selector = qobject_cast<IndexSelector *>(op))
     {

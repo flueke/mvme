@@ -440,12 +440,12 @@ class BasicSink: public SinkInterface
         Slot m_inputSlot;
 };
 
-struct CalibrationParameters
+struct CalibrationFactorOffsetParameters
 {
-    CalibrationParameters()
+    CalibrationFactorOffsetParameters()
     {}
 
-    CalibrationParameters(double factor, double offset)
+    CalibrationFactorOffsetParameters(double factor, double offset)
         : factor(factor)
         , offset(offset)
     {}
@@ -459,34 +459,34 @@ struct CalibrationParameters
     double offset = make_quiet_nan();
 };
 
-class Calibration: public BasicOperator
+class CalibrationFactorOffset: public BasicOperator
 {
     Q_OBJECT
     public:
-        Calibration(QObject *parent = 0);
+        CalibrationFactorOffset(QObject *parent = 0);
 
         virtual void beginRun() override;
         virtual void step() override;
 
-        void setGlobalCalibration(const CalibrationParameters &params)
+        void setGlobalCalibration(const CalibrationFactorOffsetParameters &params)
         {
             m_globalCalibration = params;
         }
 
         void setGlobalCalibration(double factor, double offset)
         {
-            m_globalCalibration = CalibrationParameters(factor, offset);
+            m_globalCalibration = CalibrationFactorOffsetParameters(factor, offset);
         }
 
-        CalibrationParameters getGlobalCalibration() const
+        CalibrationFactorOffsetParameters getGlobalCalibration() const
         {
             return m_globalCalibration;
         }
 
-        void setCalibration(s32 address, const CalibrationParameters &params);
+        void setCalibration(s32 address, const CalibrationFactorOffsetParameters &params);
         void setCalibration(s32 address, double factor, double offset)
         {
-            setCalibration(address, CalibrationParameters(factor, offset));
+            setCalibration(address, CalibrationFactorOffsetParameters(factor, offset));
         }
 
         s32 getCalibrationCount() const
@@ -494,7 +494,7 @@ class Calibration: public BasicOperator
             return m_calibrations.size();
         }
 
-        CalibrationParameters getCalibration(s32 address) const;
+        CalibrationFactorOffsetParameters getCalibration(s32 address) const;
 
         QString getUnitLabel() const { return m_unit; }
         void setUnitLabel(const QString &label) { m_unit = label; }
@@ -502,11 +502,81 @@ class Calibration: public BasicOperator
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
 
-        virtual QString getDisplayName() const override { return QSL("Calibration"); }
+        virtual QString getDisplayName() const override { return QSL("CalibrationFactorOffset"); }
 
     private:
-        CalibrationParameters m_globalCalibration;
-        QVector<CalibrationParameters> m_calibrations;
+        CalibrationFactorOffsetParameters m_globalCalibration;
+        QVector<CalibrationFactorOffsetParameters> m_calibrations;
+        QString m_unit;
+};
+
+struct CalibrationMinMaxParameters
+{
+    CalibrationMinMaxParameters()
+    {}
+
+    CalibrationMinMaxParameters(double unitMin, double unitMax)
+        : unitMin(unitMin)
+        , unitMax(unitMax)
+    {}
+
+    bool isValid() const
+    {
+        return !(std::isnan(unitMin) || std::isnan(unitMax));
+    }
+
+    double unitMin = make_quiet_nan();
+    double unitMax = make_quiet_nan();
+};
+
+class CalibrationMinMax: public BasicOperator
+{
+    Q_OBJECT
+    public:
+        CalibrationMinMax(QObject *parent = 0);
+
+        virtual void beginRun() override;
+        virtual void step() override;
+
+        void setGlobalCalibration(const CalibrationMinMaxParameters &params)
+        {
+            m_globalCalibration = params;
+        }
+
+        void setGlobalCalibration(double unitMin, double unitMax)
+        {
+            m_globalCalibration = CalibrationMinMaxParameters(unitMin, unitMax);
+        }
+
+        CalibrationMinMaxParameters getGlobalCalibration() const
+        {
+            return m_globalCalibration;
+        }
+
+        void setCalibration(s32 address, const CalibrationMinMaxParameters &params);
+        void setCalibration(s32 address, double unitMin, double unitMax)
+        {
+            setCalibration(address, CalibrationMinMaxParameters(unitMin, unitMax));
+        }
+
+        s32 getCalibrationCount() const
+        {
+            return m_calibrations.size();
+        }
+
+        CalibrationMinMaxParameters getCalibration(s32 address) const;
+
+        QString getUnitLabel() const { return m_unit; }
+        void setUnitLabel(const QString &label) { m_unit = label; }
+
+        virtual void read(const QJsonObject &json) override;
+        virtual void write(QJsonObject &json) const override;
+
+        virtual QString getDisplayName() const override { return QSL("CalibrationMinMax"); }
+
+    private:
+        CalibrationMinMaxParameters m_globalCalibration;
+        QVector<CalibrationMinMaxParameters> m_calibrations;
         QString m_unit;
 };
 
@@ -955,7 +1025,7 @@ struct RawDataDisplay
 {
     std::shared_ptr<Extractor> extractor;
     std::shared_ptr<Histo1DSink> rawHistoSink;
-    std::shared_ptr<Calibration> calibration;
+    std::shared_ptr<CalibrationFactorOffset> calibration;
     std::shared_ptr<Histo1DSink> calibratedHistoSink;
 };
 

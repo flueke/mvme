@@ -461,7 +461,7 @@ QPair<bool, QString> saveAnalysisConfigAs(AnalysisConfig *config, analysis::Anal
 
     QFileInfo fi(fileName);
     if (fi.completeSuffix().isEmpty())
-        fileName += QSL(".json");
+        fileName += QSL(".analysis");
 
     if (saveAnalysisConfigImpl(config, analysis_ng, fileName))
     {

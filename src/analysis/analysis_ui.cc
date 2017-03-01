@@ -48,7 +48,6 @@ enum NodeType
     NodeType_MaxNodeType
 };
 
-//typedef QTreeWidgetItem TreeNode;
 class TreeNode: public QTreeWidgetItem
 {
     public:
@@ -1026,9 +1025,6 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column)
                 {
                     Slot *slot = m_selectInputSlot;
                     // connect the slot with the selected input source
-                    // TODO: don't directly connect here. instead pass info
-                    // about the selected input to the AddEditOperatorWidget
-                    // (probably using the callback method).
                     switch (node->type())
                     {
                         case NodeType_Source:
