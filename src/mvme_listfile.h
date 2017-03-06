@@ -161,6 +161,8 @@ class ListFileReader: public QObject
         void setListFile(ListFile *listFile);
         ListFile *getListFile() const { return m_listFile; }
 
+        bool isRunning() const { return m_state != DAQState::Idle; }
+
         ThreadSafeDataBufferQueue *m_freeBufferQueue = nullptr;
         ThreadSafeDataBufferQueue *m_filledBufferQueue = nullptr;
 

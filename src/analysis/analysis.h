@@ -903,6 +903,7 @@ class Analysis
         void addSource(s32 eventIndex, s32 moduleIndex, const SourcePtr &source)
         {
             m_sources.push_back({eventIndex, moduleIndex, source});
+            source->beginRun();
             updateRanks();
         }
 
@@ -947,6 +948,7 @@ class Analysis
         void addOperator(s32 eventIndex, const OperatorPtr &op, s32 userLevel)
         {
             m_operators.push_back({eventIndex, op, userLevel});
+            op->beginRun();
             updateRanks();
         }
 

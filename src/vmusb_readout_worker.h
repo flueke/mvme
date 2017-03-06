@@ -25,6 +25,8 @@ class VMUSBReadoutWorker: public QObject
         VMUSBBufferProcessor *getBufferProcessor() const { return m_bufferProcessor; }
         QString getLastErrorMessage() const { return m_errorMessage; }
 
+        bool isRunning() const { return m_state != DAQState::Idle; }
+
     public slots:
         void start(quint32 cycles = 0);
         void stop();

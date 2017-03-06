@@ -555,6 +555,7 @@ void CalibrationMinMax::step()
 
         if (m_inputSlot.paramIndex != Slot::NoParamIndex)
         {
+            Q_ASSERT(out.size() == 1);
             auto &outParam(out[0]);
             outParam.valid = false;
             s32 paramIndex = m_inputSlot.paramIndex;
@@ -568,6 +569,7 @@ void CalibrationMinMax::step()
         else
         {
             const s32 size = in.size();
+            Q_ASSERT(out.size() == size);
 
             for (s32 address = 0; address < size; ++address)
             {

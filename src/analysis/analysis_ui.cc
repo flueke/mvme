@@ -1399,6 +1399,7 @@ void EventWidget::addOperator(OperatorPtr op, s32 userLevel)
 
     if (userLevel < m_d->m_levelTrees.size())
     {
+// TODO PAUSE_BEGIN
         m_d->m_context->getAnalysisNG()->addOperator(m_d->m_eventIndex, op, userLevel);
         op->beginRun();
 
@@ -1434,20 +1435,25 @@ void EventWidget::addOperator(OperatorPtr op, s32 userLevel)
 
         destTree->sortItems(0, Qt::AscendingOrder);
     }
+// TODO PAUSE_END
 }
 
 void EventWidget::operatorEdited(OperatorInterface *op)
 {
     // Updates the edited SourceInterface and recursively all the operators
     // depending on it.
+// TODO PAUSE_BEGIN
     do_beginRun_forward(op);
     m_d->repopulate();
+// TODO PAUSE_END
 }
 
 void EventWidget::removeOperator(OperatorInterface *op)
 {
+// TODO PAUSE_BEGIN
     m_d->m_context->getAnalysisNG()->removeOperator(op);
     m_d->repopulate();
+// TODO PAUSE_END
 }
 
 static const u32 maxRawHistoBins = (1 << 16);
@@ -1460,8 +1466,12 @@ void EventWidget::addSource(SourcePtr src, ModuleConfig *module, bool addHistogr
     s32 eventIndex = indices.first;
     s32 moduleIndex = indices.second;
     auto analysis = m_d->m_context->getAnalysisNG();
+
+
+// PAUSE_BEGIN
+    m_d->m_context->stopAnalysis();
+
     analysis->addSource(eventIndex, moduleIndex, src);
-    src->beginRun();
 
     auto extractor = qobject_cast<Extractor *>(src.get());
 
@@ -1501,38 +1511,27 @@ void EventWidget::addSource(SourcePtr src, ModuleConfig *module, bool addHistogr
         analysis->addOperator(eventIndex, calibration, 1);
         analysis->addOperator(eventIndex, calHistoSink, 1);
     }
+    m_d->m_context->resumeAnalysis();
+// PAUSE_END
 
     m_d->repopulate();
-
-#if 0
-    auto sourceTree = m_d->m_levelTrees[0].operatorTree;
-
-    // find the module node
-    auto moduleNode = findFirstNode(sourceTree->invisibleRootItem(), [module](QTreeWidgetItem *node) {
-        return (node->type() == NodeType_Module
-                && getPointer<ModuleConfig>(node) == module);
-    });
-
-    if (moduleNode)
-    {
-        auto sourceNode = makeOperatorTreeSourceNode(src.get());
-        moduleNode->addChild(sourceNode);
-        moduleNode->sortChildren(0, Qt::AscendingOrder);
-    }
-#endif
 }
 
 void EventWidget::sourceEdited(SourceInterface *src)
 {
     // Updates the edited SourceInterface and recursively all the operators
     // depending on it.
+// TODO PAUSE_BEGIN
     do_beginRun_forward(src);
+// TODO PAUSE_END
     m_d->repopulate();
 }
 
 void EventWidget::removeSource(SourceInterface *src)
 {
+// TODO PAUSE_BEGIN
     m_d->m_context->getAnalysisNG()->removeSource(src);
+// TODO PAUSE_END
     m_d->repopulate();
 }
 

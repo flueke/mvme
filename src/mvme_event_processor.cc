@@ -697,7 +697,7 @@ void MVMEEventProcessor::startProcessing()
 void MVMEEventProcessor::stopProcessing(bool whenQueueEmpty)
 {
     qDebug() << QDateTime::currentDateTime().toString("HH:mm:ss")
-        << __PRETTY_FUNCTION__;
+        << __PRETTY_FUNCTION__ << (whenQueueEmpty ? "when empty" : "immediately");
 
     m_d->m_runAction = whenQueueEmpty ? StopIfQueueEmpty : StopImmediately;
 }

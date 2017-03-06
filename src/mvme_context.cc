@@ -39,6 +39,9 @@ struct MVMEContextPrivate
     void stopDAQ();
     void stopDAQReplay();
     void stopDAQDAQ();
+
+    void stopAnalysis();
+    void resumeAnalysis();
 };
 
 // FIXME: there are no checks done to see if any of the workers is already idle
@@ -70,20 +73,29 @@ void MVMEContextPrivate::stopDAQReplay()
     // The timer is used to avoid a race between the worker stopping and the
     // progress dialog entering its eventloop.
 
-    QTimer::singleShot(0, [this]() { QMetaObject::invokeMethod(m_q->m_listFileWorker, "stopReplay", Qt::QueuedConnection); });
-    auto con = QObject::connect(m_q->m_listFileWorker, &ListFileReader::replayStopped, &localLoop, &QEventLoop::quit);
-    localLoop.exec();
-    QObject::disconnect(con);
+    if (m_q->m_listFileWorker->isRunning())
+    {
+        QTimer::singleShot(0, [this]() { QMetaObject::invokeMethod(m_q->m_listFileWorker, "stopReplay", Qt::QueuedConnection); });
+        auto con = QObject::connect(m_q->m_listFileWorker, &ListFileReader::replayStopped, &localLoop, &QEventLoop::quit);
+        localLoop.exec();
+        QObject::disconnect(con);
+    }
 
     // At this point the ListFileReader is stopped and will not produce any
     // more buffers. Now tell the MVMEEventProcessor to stop after finishing
     // the current queue.
-    // Alternative: monitor the m_filledBufferQueue and wait until it's empty
 
-    QTimer::singleShot(0, [this]() { QMetaObject::invokeMethod(m_q->m_eventProcessor, "stopProcessing", Qt::QueuedConnection); });
-    con = QObject::connect(m_q->m_eventProcessor, &MVMEEventProcessor::stopped, &localLoop, &QEventLoop::quit);
-    localLoop.exec();
-    QObject::disconnect(con);
+    // There should be no race here. If the analysis is running we will stop it
+    // and receive the stopped() signal.  If it just now stopped on its own
+    // (e.g. end of replay) the signal is pending and will be delivered as soon
+    // as we enter the event loop.
+    if (m_q->m_eventProcessor->getState() != EventProcessorState::Idle)
+    {
+        QTimer::singleShot(0, [this]() { QMetaObject::invokeMethod(m_q->m_eventProcessor, "stopProcessing", Qt::QueuedConnection); });
+        auto con = QObject::connect(m_q->m_eventProcessor, &MVMEEventProcessor::stopped, &localLoop, &QEventLoop::quit);
+        localLoop.exec();
+        QObject::disconnect(con);
+    }
 
     m_q->onDAQStateChanged(DAQState::Idle);
 }
@@ -99,17 +111,52 @@ void MVMEContextPrivate::stopDAQDAQ()
 
     QEventLoop localLoop;
 
-    QTimer::singleShot(0, [this]() { QMetaObject::invokeMethod(m_q->m_readoutWorker, "stop", Qt::QueuedConnection); });
-    auto con = QObject::connect(m_q->m_readoutWorker, &VMUSBReadoutWorker::daqStopped, &localLoop, &QEventLoop::quit);
-    localLoop.exec();
-    QObject::disconnect(con);
+    if (m_q->m_readoutWorker->isRunning())
+    {
+        QTimer::singleShot(0, [this]() { QMetaObject::invokeMethod(m_q->m_readoutWorker, "stop", Qt::QueuedConnection); });
+        auto con = QObject::connect(m_q->m_readoutWorker, &VMUSBReadoutWorker::daqStopped, &localLoop, &QEventLoop::quit);
+        localLoop.exec();
+        QObject::disconnect(con);
+    }
 
-    QTimer::singleShot(0, [this]() { QMetaObject::invokeMethod(m_q->m_eventProcessor, "stopProcessing", Qt::QueuedConnection); });
-    con = QObject::connect(m_q->m_eventProcessor, &MVMEEventProcessor::stopped, &localLoop, &QEventLoop::quit);
-    localLoop.exec();
-    QObject::disconnect(con);
+    if (m_q->m_eventProcessor->getState() != EventProcessorState::Idle)
+    {
+        QTimer::singleShot(0, [this]() { QMetaObject::invokeMethod(m_q->m_eventProcessor, "stopProcessing", Qt::QueuedConnection); });
+        auto con = QObject::connect(m_q->m_eventProcessor, &MVMEEventProcessor::stopped, &localLoop, &QEventLoop::quit);
+        localLoop.exec();
+        QObject::disconnect(con);
+    }
 
     m_q->onDAQStateChanged(DAQState::Idle);
+}
+
+void MVMEContextPrivate::stopAnalysis()
+{
+    QProgressDialog progressDialog("Stopping Analysis", QString(), 0, 0);
+    progressDialog.setWindowModality(Qt::ApplicationModal);
+    progressDialog.setCancelButton(nullptr);
+    progressDialog.show();
+
+    QEventLoop localLoop;
+
+    if (m_q->m_eventProcessor->getState() != EventProcessorState::Idle)
+    {
+        // Tell the analysis top stop immediately
+        QTimer::singleShot(0, [this]() { QMetaObject::invokeMethod(m_q->m_eventProcessor, "stopProcessing",
+                                                                   Qt::QueuedConnection, Q_ARG(bool, false)); });
+        auto con = QObject::connect(m_q->m_eventProcessor, &MVMEEventProcessor::stopped, &localLoop, &QEventLoop::quit);
+        localLoop.exec();
+        QObject::disconnect(con);
+    }
+
+    qDebug() << __PRETTY_FUNCTION__ << "analysis stopped";
+}
+
+void MVMEContextPrivate::resumeAnalysis()
+{
+    QMetaObject::invokeMethod(m_q->m_eventProcessor, "startProcessing",
+                              Qt::QueuedConnection);
+    qDebug() << __PRETTY_FUNCTION__ << "analysis resumed";
 }
 
 MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
@@ -992,6 +1039,16 @@ bool MVMEContext::isWorkspaceModified() const
 #else
     return ((m_daqConfig && m_daqConfig->isModified()));
 #endif
+}
+
+void MVMEContext::stopAnalysis()
+{
+    m_d->stopAnalysis();
+}
+
+void MVMEContext::resumeAnalysis()
+{
+    m_d->resumeAnalysis();
 }
 
 QString getFilterPath(MVMEContext *context, DataFilterConfig *filterConfig, int filterAddress)

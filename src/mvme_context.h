@@ -226,6 +226,9 @@ class MVMEContext: public QObject
 
         analysis::Analysis *getAnalysisNG() const { return m_analysis_ng; }
 
+        void stopAnalysis();
+        void resumeAnalysis();
+
     public slots:
         void startReplay(quint32 nEvents = 0);
         void startDAQ(quint32 nCycles=0);
