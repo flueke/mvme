@@ -385,7 +385,7 @@ class Extractor: public SourceInterface
     private:
         // configuration
         MultiWordDataFilter m_filter;
-        u32 m_requiredCompletionCount = 0;
+        u32 m_requiredCompletionCount = 1;
 
         // state
         u32 m_currentCompletionCount = 0;
@@ -1025,9 +1025,11 @@ struct RawDataDisplay
 {
     std::shared_ptr<Extractor> extractor;
     std::shared_ptr<Histo1DSink> rawHistoSink;
-    std::shared_ptr<CalibrationFactorOffset> calibration;
+    std::shared_ptr<CalibrationMinMax> calibration;
     std::shared_ptr<Histo1DSink> calibratedHistoSink;
 };
+
+CalibrationMinMax *make_calibration_for_extractor(Extractor *extractor);
 
 RawDataDisplay make_raw_data_display(const MultiWordDataFilter &extractionFilter, double unitMin, double unitMax,
                                      const QString &name, const QString &xAxisTitle, const QString &unitLabel);

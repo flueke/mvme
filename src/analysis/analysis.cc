@@ -118,9 +118,7 @@ void Extractor::beginRun()
         param.upperLimit = upperLimit;
     }
 
-    // TODO: insert module name into the string
-    // -> L0.mdpp16.amplitude
-    params.name = QString("L0.%2").arg(this->objectName());
+    params.name = this->objectName();
 }
 
 void Extractor::beginEvent()
@@ -136,7 +134,7 @@ void Extractor::processDataWord(u32 data, s32 wordIndex)
     {
         ++m_currentCompletionCount;
 
-        if (m_requiredCompletionCount == 0 || m_requiredCompletionCount == m_currentCompletionCount)
+        if (m_requiredCompletionCount == m_currentCompletionCount)
         {
             u64 value   = m_filter.getResultValue();
             s32 address = m_filter.getResultAddress();
@@ -152,6 +150,8 @@ void Extractor::processDataWord(u32 data, s32 wordIndex)
                     << ", dataWord =" << QString("0x%1").arg(data, 8, 16, QLatin1Char('0'));
 #endif
             }
+
+            m_currentCompletionCount = 0;
         }
         m_filter.clearCompletion();
     }
@@ -992,7 +992,10 @@ void Histo1DSink::read(const QJsonObject &json)
         u32 nBins = static_cast<u32>(objectJson["nBins"].toInt());
         double xMin = objectJson["xMin"].toDouble();
         double xMax = objectJson["xMax"].toDouble();
-        histos.push_back(std::make_shared<Histo1D>(nBins, xMin, xMax));
+        QString histoName = objectJson["name"].toString();
+        auto histo = std::make_shared<Histo1D>(nBins, xMin, xMax);
+        histo->setObjectName(histoName);
+        histos.push_back(histo);
     }
 }
 
@@ -1006,6 +1009,7 @@ void Histo1DSink::write(QJsonObject &json) const
         objectJson["nBins"] = static_cast<qint64>(histo->getNumberOfBins());
         objectJson["xMin"] = histo->getXMin();
         objectJson["xMax"] = histo->getXMax();
+        objectJson["name"] = histo->objectName();
         histosJson.append(objectJson);
     }
 
@@ -1747,6 +1751,21 @@ static const u32 maxRawHistoBins = (1 << 16);
          *   signed type for their sizes. What happens if the index is actually
          *   negative?
          */
+
+CalibrationMinMax *make_calibration_for_extractor(Extractor *extractor)
+{
+    double srcMin  = 0.0;
+    double srcMax  = (1 << extractor->getFilter().getDataBits());
+    u32 histoBins  = std::min(static_cast<u32>(srcMax), maxRawHistoBins);
+
+    auto calibration = new CalibrationMinMax;
+    calibration->setObjectName(extractor->objectName());
+    calibration->setGlobalCalibration(srcMin, srcMax);
+    calibration->connectArrayToInputSlot(0, extractor->getOutput(0));
+
+    return calibration;
+}
+
 RawDataDisplay make_raw_data_display(const MultiWordDataFilter &extractionFilter, double unitMin, double unitMax,
                                      const QString &filterName, const QString &xAxisTitle, const QString &unitLabel)
 {
@@ -1769,10 +1788,7 @@ RawDataDisplay make_raw_data_display(const MultiWordDataFilter &extractionFilter
 
     qDebug() << ">>>>> factor =" << factor << ", offset =" << offset;
 
-    auto calibration = std::make_shared<CalibrationFactorOffset>();
-    calibration->setGlobalCalibration(factor, offset);
-    calibration->setObjectName(filterName);
-    calibration->connectArrayToInputSlot(0, extractor->getOutput(0));
+    auto calibration = std::shared_ptr<CalibrationMinMax>(make_calibration_for_extractor(extractor.get()));
 
     result.calibration = calibration;
 
