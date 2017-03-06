@@ -23,7 +23,6 @@ class DataExtractionEditor: public QWidget
 
         QByteArray m_defaultFilter;
         QVector<DataFilter> m_subFilters;
-        u32 m_requiredCompletionCount;
         QString m_unitString;
 #if 0
         double m_unitMin;

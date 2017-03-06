@@ -19,7 +19,6 @@ DataExtractionEditor::DataExtractionEditor(QWidget *parent)
 
     auto filterGridWidget = new QWidget;
     m_filterGrid = new QGridLayout(filterGridWidget);
-    m_filterGrid->setContentsMargins(3, 3, 3, 3);
     m_filterGrid->setSpacing(6);
     m_filterGrid->setColumnStretch(1, 1);
 
@@ -29,6 +28,7 @@ DataExtractionEditor::DataExtractionEditor(QWidget *parent)
 
     auto widgetLayout = new QVBoxLayout(this);
     widgetLayout->addWidget(filterGridScrollArea);
+    widgetLayout->setContentsMargins(0, 0, 0, 0);
 
     updateDisplay();
 }

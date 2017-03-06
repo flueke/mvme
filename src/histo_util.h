@@ -194,4 +194,10 @@ struct AxisInterval
     double maxValue;
 };
 
+struct AxisInfo
+{
+    QString title;
+    QString unit;
+};
+
 #endif /* __HISTO_UTIL_H__ */

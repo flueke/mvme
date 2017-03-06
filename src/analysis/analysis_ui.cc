@@ -620,6 +620,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
 
     QMenu menu;
     auto menuNew = new QMenu;
+    bool actionNewIsFirst = false;
 
     if (node)
     {
@@ -660,6 +661,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                         generateDefaultFilters(moduleConfig);
                     });
                 }
+                actionNewIsFirst = true;
             }
         }
 
@@ -775,7 +777,12 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
     {
         auto actionNew = menu.addAction(QSL("New"));
         actionNew->setMenu(menuNew);
-        menu.addAction(actionNew);
+        QAction *before = nullptr;
+        if (actionNewIsFirst)
+        {
+            before = menu.actions().value(0);
+        }
+        menu.insertAction(before, actionNew);
     }
 
     if (!menu.isEmpty())
@@ -1027,7 +1034,8 @@ static bool isValidInputNode(QTreeWidgetItem *node, Slot *slot)
 
 static const QColor ValidInputNodeColor = QColor("lightgreen");
 // lightgreen but with alpha
-static const QColor InputNodeOfColor = QColor(0x90, 0xEE, 0x90, 255.0/4);
+static const QColor InputNodeOfColor = QColor(0x90, 0xEE, 0x90, 255.0/3);
+static const QColor ChildIsInputNodeOfColor = QColor(0x90, 0xEE, 0x90, 255.0/6);
 
 void EventWidgetPrivate::highlightValidInputNodes(QTreeWidgetItem *node)
 {
@@ -1050,13 +1058,13 @@ static bool isSourceNodeOf(QTreeWidgetItem *node, Slot *slot)
 
     switch (node->type())
     {
-        // TODO: NodeType_Source?
-
+        case NodeType_Source:
         case NodeType_Operator:
             {
                 srcObject = getPointer<PipeSourceInterface>(node);
                 Q_ASSERT(srcObject);
             } break;
+
         case NodeType_OutputPipe:
         case NodeType_OutputPipeParameter:
             {
@@ -1076,23 +1084,35 @@ static bool isSourceNodeOf(QTreeWidgetItem *node, Slot *slot)
     return result;
 }
 
-static void highlightInputNodes(OperatorInterface *op, QTreeWidgetItem *node)
+// Returns true if this node or any of its children represent an input of the
+// given operator
+static bool highlightInputNodes(OperatorInterface *op, QTreeWidgetItem *node)
 {
+    bool result = false;
+
+    for (s32 childIndex = 0; childIndex < node->childCount(); ++childIndex)
+    {
+        // recurse
+        auto child = node->child(childIndex);
+        result = highlightInputNodes(op, child) || result;
+    }
+
+    if (result)
+    {
+        node->setBackground(0, ChildIsInputNodeOfColor);
+    }
+
     for (s32 slotIndex = 0; slotIndex < op->getNumberOfSlots(); ++slotIndex)
     {
         Slot *slot = op->getSlot(slotIndex);
         if (slot->inputPipe && isSourceNodeOf(node, slot))
         {
             node->setBackground(0, InputNodeOfColor);
+            result = true;
         }
     }
 
-    for (s32 childIndex = 0; childIndex < node->childCount(); ++childIndex)
-    {
-        // recurse
-        auto child = node->child(childIndex);
-        highlightInputNodes(op, child);
-    }
+    return result;
 }
 
 void EventWidgetPrivate::highlightInputNodes(OperatorInterface *op)
@@ -1430,16 +1450,61 @@ void EventWidget::removeOperator(OperatorInterface *op)
     m_d->repopulate();
 }
 
-void EventWidget::addSource(SourcePtr src, ModuleConfig *module)
+static const u32 maxRawHistoBins = (1 << 16);
+
+void EventWidget::addSource(SourcePtr src, ModuleConfig *module, bool addHistogramsAndCalibration)
 {
     if (!src) return;
 
     auto indices = m_d->m_context->getDAQConfig()->getEventAndModuleIndices(module);
     s32 eventIndex = indices.first;
     s32 moduleIndex = indices.second;
-    m_d->m_context->getAnalysisNG()->addSource(eventIndex, moduleIndex, src);
+    auto analysis = m_d->m_context->getAnalysisNG();
+    analysis->addSource(eventIndex, moduleIndex, src);
     src->beginRun();
 
+    auto extractor = qobject_cast<Extractor *>(src.get());
+
+    if (addHistogramsAndCalibration && extractor)
+    {
+        auto calibration = std::shared_ptr<CalibrationMinMax>(make_calibration_for_extractor(extractor));
+
+        auto rawHistoSink = std::make_shared<Histo1DSink>();
+        rawHistoSink->setObjectName(QString("Raw %1").arg(extractor->objectName()));
+
+        auto calHistoSink = std::make_shared<Histo1DSink>();
+        calHistoSink->setObjectName(QString("%1").arg(extractor->objectName()));
+
+        // FIXME: very similar to the code in make_raw_data_display
+        u32 addressCount = (1 << extractor->getFilter().getAddressBits());
+        double srcMax  = (1 << extractor->getFilter().getDataBits());
+        u32 histoBins  = std::min(static_cast<u32>(srcMax), maxRawHistoBins);
+
+        for (u32 address = 0; address < addressCount; ++address)
+        {
+            // create a histo for the raw uncalibrated data
+            auto histo = std::make_shared<Histo1D>(histoBins, 0.0, srcMax);
+            histo->setObjectName(QString("%1[%2]").arg(rawHistoSink->objectName()).arg(address));
+            rawHistoSink->histos.push_back(histo);
+            // TODO: rawHistoSink->histo->setXAxisTitle(xAxisTitle);
+
+            // create a histo for the calibrated data
+            histo = std::make_shared<Histo1D>(histoBins, 0.0, srcMax);
+            histo->setObjectName(QString("%1[%2]").arg(calHistoSink->objectName()).arg(address));
+            calHistoSink->histos.push_back(histo);
+        }
+
+        rawHistoSink->connectArrayToInputSlot(0, extractor->getOutput(0));
+        calHistoSink->connectArrayToInputSlot(0, calibration->getOutput(0));
+
+        analysis->addOperator(eventIndex, rawHistoSink, 0);
+        analysis->addOperator(eventIndex, calibration, 1);
+        analysis->addOperator(eventIndex, calHistoSink, 1);
+    }
+
+    m_d->repopulate();
+
+#if 0
     auto sourceTree = m_d->m_levelTrees[0].operatorTree;
 
     // find the module node
@@ -1454,6 +1519,7 @@ void EventWidget::addSource(SourcePtr src, ModuleConfig *module)
         moduleNode->addChild(sourceNode);
         moduleNode->sortChildren(0, Qt::AscendingOrder);
     }
+#endif
 }
 
 void EventWidget::sourceEdited(SourceInterface *src)

@@ -6,6 +6,7 @@
 #include <limits>
 #include <QFormLayout>
 #include <QGridLayout>
+#include <QGroupBox>
 #include <QLabel>
 
 namespace analysis
@@ -18,6 +19,7 @@ AddEditOperatorWidget::AddEditOperatorWidget(OperatorPtr opPtr, s32 userLevel, E
     : AddEditOperatorWidget(opPtr.get(), userLevel, eventWidget)
 {
     m_opPtr = opPtr;
+    setWindowTitle(QString("New  %1").arg(opPtr->getDisplayName()));
 }
 
 /** IMPORTANT: This constructor makes the Widget go into "edit" mode. When
@@ -29,9 +31,14 @@ AddEditOperatorWidget::AddEditOperatorWidget(OperatorInterface *op, s32 userLeve
     , m_eventWidget(eventWidget)
     , m_opConfigWidget(new OperatorConfigurationWidget(op, userLevel, this))
 {
-    auto slotGrid = new QGridLayout;
-    int row = 0;
-    for (s32 slotIndex = 0; slotIndex < m_op->getNumberOfSlots(); ++slotIndex)
+    setWindowTitle(QString("Edit %1").arg(m_op->getDisplayName()));
+
+    s32 slotCount = m_op->getNumberOfSlots();
+    auto slotGroupBox = new QGroupBox(slotCount > 1 ? QSL("Inputs") : QSL("Input"));
+    auto slotGrid = new QGridLayout(slotGroupBox);
+    slotGrid->setContentsMargins(2, 2, 2, 2);
+    s32 row = 0;
+    for (s32 slotIndex = 0; slotIndex < slotCount; ++slotIndex)
     {
         Slot *slot = m_op->getSlot(slotIndex);
 
@@ -90,10 +97,28 @@ AddEditOperatorWidget::AddEditOperatorWidget(OperatorInterface *op, s32 userLeve
             m_opConfigWidget->inputSelected(slotIndex);
         });
 
-        slotGrid->addWidget(new QLabel(slot->name), row, 0);
-        slotGrid->addWidget(selectButton, row, 1);
-        slotGrid->addWidget(clearButton, row, 2);
+        s32 col = 0;
+        if (slotCount > 1)
+        {
+            slotGrid->addWidget(new QLabel(slot->name), row, col++);
+        }
+
+        slotGrid->addWidget(selectButton, row, col++);
+        slotGrid->addWidget(clearButton, row, col++);
         ++row;
+    }
+
+    if (slotCount == 1)
+    {
+        slotGrid->setColumnStretch(0, 1);
+        slotGrid->setColumnStretch(1, 0);
+    }
+
+    if (slotCount > 1)
+    {
+        slotGrid->setColumnStretch(0, 0);
+        slotGrid->setColumnStretch(1, 1);
+        slotGrid->setColumnStretch(2, 0);
     }
 
     m_buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
@@ -105,16 +130,16 @@ AddEditOperatorWidget::AddEditOperatorWidget(OperatorInterface *op, s32 userLeve
     buttonBoxLayout->addWidget(m_buttonBox);
 
     auto layout = new QGridLayout(this);
-    layout->setContentsMargins(2, 2, 2, 2);
+    //layout->setContentsMargins(2, 2, 2, 2);
 
     int col = 0, maxCol = 1;
     row = 0;
     // row, col, rowSpan, colSpan
-    layout->addLayout(slotGrid, row++, 0);
+    layout->addWidget(slotGroupBox, row++, 0);
     layout->addWidget(m_opConfigWidget, row++, 0, 1, 2);
     layout->addLayout(buttonBoxLayout, row++, 0);
 
-    layout->setRowStretch(0, 1);
+    layout->setRowStretch(0, 0);
     layout->setRowStretch(1, 1);
 
 
@@ -235,6 +260,11 @@ AddEditSourceWidget::AddEditSourceWidget(SourcePtr srcPtr, ModuleConfig *mod, Ev
     : AddEditSourceWidget(srcPtr.get(), mod, eventWidget)
 {
     m_srcPtr = srcPtr;
+    setWindowTitle(QString("New  %1").arg(srcPtr->getDisplayName()));
+
+    m_cbGenHistograms = new QCheckBox;
+    m_cbGenHistograms->setChecked(true);
+    m_optionsLayout->addRow(QSL("Generate Histograms"), m_cbGenHistograms);
 }
 
 /** IMPORTANT: This constructor makes the Widget go into "edit" mode. When
@@ -244,24 +274,32 @@ AddEditSourceWidget::AddEditSourceWidget(SourceInterface *src, ModuleConfig *mod
     , m_src(src)
     , m_module(module)
     , m_eventWidget(eventWidget)
+    , m_cbGenHistograms(nullptr)
 {
+    setWindowTitle(QString("Edit %1").arg(m_src->getDisplayName()));
+
     auto extractor = qobject_cast<Extractor *>(src);
-    Q_ASSERT(extractor); // TODO: implement support for other sources once they exist
+    Q_ASSERT(extractor); // TODO: implement support for other sources once they exist (if they ever do)
     Q_ASSERT(module);
 
     le_name = new QLineEdit;
     m_filterEditor = new DataExtractionEditor;
     m_filterEditor->setMinimumHeight(125);
+    m_filterEditor->setMinimumWidth(550);
+
+    m_spinCompletionCount = new QSpinBox;
+    m_spinCompletionCount->setMinimum(1);
+    m_spinCompletionCount->setMaximum(std::numeric_limits<int>::max());
 
     if (extractor)
     {
         if (!extractor->objectName().isEmpty())
         {
-            le_name->setText(extractor->objectName());
+            le_name->setText(QString("%1").arg(extractor->objectName()));
         }
         else
         {
-            le_name->setText(getDefaultFilterName(module->type));
+            le_name->setText(QString("%1.%2").arg(module->objectName()).arg(getDefaultFilterName(module->type)));
         }
 
         m_filterEditor->m_defaultFilter = getDefaultFilter(module->type);
@@ -270,32 +308,27 @@ AddEditSourceWidget::AddEditSourceWidget(SourceInterface *src, ModuleConfig *mod
         {
             m_filterEditor->m_subFilters.push_back(DataFilter(m_filterEditor->m_defaultFilter));
         }
-        m_filterEditor->m_requiredCompletionCount = extractor->getRequiredCompletionCount();
-
         m_filterEditor->updateDisplay();
+        m_spinCompletionCount->setValue(extractor->getRequiredCompletionCount());
     }
 
+    m_optionsLayout = new QFormLayout;
+    m_optionsLayout->addRow(QSL("Name"), le_name);
+    m_optionsLayout->addRow(QSL("Required Completion Count"), m_spinCompletionCount);
+
     m_buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
-    //m_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(false);
     connect(m_buttonBox, &QDialogButtonBox::accepted, this, &AddEditSourceWidget::accept);
     connect(m_buttonBox, &QDialogButtonBox::rejected, this, &QWidget::close);
     auto buttonBoxLayout = new QVBoxLayout;
     buttonBoxLayout->addStretch();
     buttonBoxLayout->addWidget(m_buttonBox);
 
-    auto layout = new QGridLayout(this);
-    layout->setContentsMargins(2, 2, 2, 2);
+    auto layout = new QVBoxLayout(this);
 
-    s32 row = 0, col = 0, maxCol = 2;
-    // row, col, rowSpan, colSpan
-    layout->addWidget(new QLabel(QSL("Name")), row, 0);
-    layout->addWidget(le_name, row, 1);
-    ++row;
-
-    layout->addWidget(m_filterEditor, row++, 0, 1, maxCol);
-    layout->addLayout(buttonBoxLayout, row++, 0, 1, maxCol);
-
-    layout->setRowStretch(1, 1);
+    layout->addWidget(m_filterEditor);
+    layout->addLayout(m_optionsLayout);
+    layout->addLayout(buttonBoxLayout);
+    layout->setStretch(1, 1);
 }
 
 void AddEditSourceWidget::accept()
@@ -305,11 +338,11 @@ void AddEditSourceWidget::accept()
     extractor->setObjectName(le_name->text());
     m_filterEditor->apply();
     extractor->getFilter().setSubFilters(m_filterEditor->m_subFilters);
-    extractor->setRequiredCompletionCount(m_filterEditor->m_requiredCompletionCount);
+    extractor->setRequiredCompletionCount(m_spinCompletionCount->value());
 
     if (m_srcPtr)
     {
-        m_eventWidget->addSource(m_srcPtr, m_module);
+        m_eventWidget->addSource(m_srcPtr, m_module, m_cbGenHistograms->isChecked());
     }
     else
     {
@@ -343,6 +376,7 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
     , m_userLevel(userLevel)
 {
     auto *formLayout = new QFormLayout(this);
+    formLayout->setContentsMargins(2, 2, 2, 2);
 
     le_name = new QLineEdit;
     formLayout->addRow(QSL("Name"), le_name);
@@ -493,6 +527,7 @@ void OperatorConfigurationWidget::configureOperator()
 
     if (auto histoSink = qobject_cast<Histo1DSink *>(op))
     {
+        histoSink->histos.clear();
         s32 bins = spin_xBins->value();
 
         Slot *slot = histoSink->getSlot(0);
@@ -512,6 +547,12 @@ void OperatorConfigurationWidget::configureOperator()
 
             auto histo = std::make_shared<Histo1D>(bins, xMin, xMax);
             histoSink->histos.push_back(histo);
+            auto histoName = op->objectName();
+            if (maxIdx > 1)
+            {
+                histoName = QString("%1[%2]").arg(histoName).arg(idx);
+            }
+            histo->setObjectName(histoName);
         }
     }
     else if (auto histoSink = qobject_cast<Histo2DSink *>(op))
