@@ -27,6 +27,15 @@ class DataExtractionEditor;
 class EventWidgetPrivate;
 class OperatorConfigurationWidget;
 
+struct AnalysisPauser
+{
+    AnalysisPauser(MVMEContext *context);
+    ~AnalysisPauser();
+
+    MVMEContext *context;
+    bool was_running;
+};
+
 class EventWidget: public QWidget
 {
     Q_OBJECT
@@ -50,6 +59,10 @@ class EventWidget: public QWidget
 
         void uniqueWidgetCloses();
         void addUserLevel(s32 eventIndex);
+
+        MVMEContext *getContext() const;
+
+        virtual bool eventFilter(QObject *watched, QEvent *event);
 
     private:
         // Note: the EventWidgetPrivate part is not neccessary anymore as this

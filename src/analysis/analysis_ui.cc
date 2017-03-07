@@ -25,6 +25,29 @@
 namespace analysis
 {
 
+AnalysisPauser::AnalysisPauser(MVMEContext *context)
+    : context(context)
+{
+    was_running = context->isAnalysisRunning();
+
+    qDebug() << __PRETTY_FUNCTION__ << was_running;
+
+    if (was_running)
+    {
+        context->stopAnalysis();
+    }
+}
+
+AnalysisPauser::~AnalysisPauser()
+{
+    qDebug() << __PRETTY_FUNCTION__ << was_running;
+    if (was_running)
+    {
+        context->resumeAnalysis();
+    }
+}
+
+
 enum DataRole
 {
     DataRole_Pointer = Qt::UserRole,
@@ -274,6 +297,7 @@ struct EventWidgetPrivate
     void repopulate();
 
     void addUserLevel(s32 eventIndex);
+    s32 getUserLevelForTree(QTreeWidget *tree);
 
     void doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel);
     void doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel);
@@ -281,8 +305,9 @@ struct EventWidgetPrivate
     void modeChanged();
     void highlightValidInputNodes(QTreeWidgetItem *node);
     void highlightInputNodes(OperatorInterface *op);
-    void clearNodeHighlights(QTreeWidgetItem *node);
-    void clearAllNodeHighlights();
+    void highlightOutputNodes(PipeSourceInterface *ps);
+    void clearToDefaultNodeHighlights(QTreeWidgetItem *node);
+    void clearAllToDefaultNodeHighlights();
     void onNodeClicked(TreeNode *node, int column);
     void onNodeDoubleClicked(TreeNode *node, int column);
     void clearAllTreeSelections();
@@ -504,6 +529,9 @@ void EventWidgetPrivate::appendTreesToView(DisplayLevelTrees trees)
 
     for (auto tree: {opTree, dispTree})
     {
+        tree->installEventFilter(m_q);
+
+
         QObject::connect(tree, &QTreeWidget::itemClicked, m_q, [this] (QTreeWidgetItem *node, int column) {
             onNodeClicked(reinterpret_cast<TreeNode *>(node), column);
         });
@@ -518,6 +546,7 @@ void EventWidgetPrivate::appendTreesToView(DisplayLevelTrees trees)
             if (current)
             {
                 clearTreeSelectionsExcept(tree);
+                onNodeClicked(reinterpret_cast<TreeNode *>(current), 0);
             }
         });
 
@@ -577,6 +606,23 @@ void EventWidgetPrivate::repopulate()
     // clear
     for (auto trees: m_levelTrees)
     {
+        // FIXME: this is done because setParent(nullptr) below will cause a
+        // focus in event on one of the other trees and that will call
+        // EventWidget::eventFilter() which will call setCurrentItem() on
+        // whatever tree gained focus which will emit currentItemChanged()
+        // which will invoke a lambda which will call onNodeClicked() which
+        // will call clearAllToDefaultNodeHighlights() which will try to figure
+        // out if any operator is missing any inputs which will dereference the
+        // operator which might have just been deleted via the context menu.
+        // This is complicated and not great. Is it generally dangerous to have
+        // currentItemChanged() call onNodeClicked()? Is there some other way
+        // to stop the call chain earlier?
+        trees.operatorTree->removeEventFilter(m_q);
+        trees.displayTree->removeEventFilter(m_q);
+    }
+
+    for (auto trees: m_levelTrees)
+    {
         trees.operatorTree->setParent(nullptr);
         trees.operatorTree->deleteLater();
 
@@ -619,6 +665,22 @@ void EventWidgetPrivate::addUserLevel(s32 eventIndex)
     appendTreesToView(trees);
 }
 
+s32 EventWidgetPrivate::getUserLevelForTree(QTreeWidget *tree)
+{
+    for (s32 userLevel = 0;
+         userLevel < m_levelTrees.size();
+         ++userLevel)
+    {
+        auto trees = m_levelTrees[userLevel];
+        if (tree == trees.operatorTree || tree == trees.displayTree)
+        {
+            return userLevel;
+        }
+    }
+
+    return -1;
+}
+
 void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel)
 {
     auto node = tree->itemAt(pos);
@@ -646,7 +708,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                         widget->show();
                         m_uniqueWidgetActive = true;
                         clearAllTreeSelections();
-                        clearAllNodeHighlights();
+                        clearAllToDefaultNodeHighlights();
                     });
                 };
 
@@ -701,7 +763,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                         widget->show();
                         m_uniqueWidgetActive = true;
                         clearAllTreeSelections();
-                        clearAllNodeHighlights();
+                        clearAllToDefaultNodeHighlights();
                     });
                 }
 
@@ -735,7 +797,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                 widget->show();
                 m_uniqueWidgetActive = true;
                 clearAllTreeSelections();
-                clearAllNodeHighlights();
+                clearAllToDefaultNodeHighlights();
             });
 
             menu.addAction(QSL("Remove"), [this, op]() {
@@ -759,7 +821,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                         widget->show();
                         m_uniqueWidgetActive = true;
                         clearAllTreeSelections();
-                        clearAllNodeHighlights();
+                        clearAllToDefaultNodeHighlights();
                     });
                 };
 
@@ -816,7 +878,7 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
             widget->show();
             m_uniqueWidgetActive = true;
             clearAllTreeSelections();
-            clearAllNodeHighlights();
+            clearAllToDefaultNodeHighlights();
         });
     };
 
@@ -879,7 +941,7 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
                 widget->show();
                 m_uniqueWidgetActive = true;
                 clearAllTreeSelections();
-                clearAllNodeHighlights();
+                clearAllToDefaultNodeHighlights();
             });
 
             menu.addAction(QSL("Remove"), [this, op]() {
@@ -962,7 +1024,7 @@ void EventWidgetPrivate::modeChanged()
                 for (s32 userLevel = 0; userLevel <= m_selectInputUserLevel; ++userLevel)
                 {
                     auto opTree = m_levelTrees[userLevel].operatorTree;
-                    clearNodeHighlights(opTree->invisibleRootItem());
+                    clearToDefaultNodeHighlights(opTree->invisibleRootItem());
                 }
             } break;
 
@@ -1038,10 +1100,14 @@ static bool isValidInputNode(QTreeWidgetItem *node, Slot *slot)
     return result;
 }
 
-static const QColor ValidInputNodeColor = QColor("lightgreen");
-// lightgreen but with alpha
-static const QColor InputNodeOfColor = QColor(0x90, 0xEE, 0x90, 255.0/3);
-static const QColor ChildIsInputNodeOfColor = QColor(0x90, 0xEE, 0x90, 255.0/6);
+static const QColor ValidInputNodeColor         = QColor("lightgreen");
+static const QColor InputNodeOfColor            = QColor(0x90, 0xEE, 0x90, 255.0/3); // lightgreen but with alpha
+static const QColor ChildIsInputNodeOfColor     = QColor(0x90, 0xEE, 0x90, 255.0/6);
+
+static const QColor OutputNodeOfColor           = QColor(0x00, 0x00, 0xCD, 255.0/3); // mediumblue with alpha
+static const QColor ChildIsOutputNodeOfColor    = QColor(0x00, 0x00, 0xCD, 255.0/6);
+
+static const QColor MissingInputColor           = QColor(0xB2, 0x22, 0x22, 255.0/3); // firebrick with alpha
 
 void EventWidgetPrivate::highlightValidInputNodes(QTreeWidgetItem *node)
 {
@@ -1098,8 +1164,50 @@ static bool isSourceNodeOf(QTreeWidgetItem *node, Slot *slot)
     return result;
 }
 
+static bool isOutputNodeOf(QTreeWidgetItem *node, PipeSourceInterface *ps)
+{
+    OperatorInterface *dstObject = nullptr;
+
+    switch (node->type())
+    {
+        case NodeType_Operator:
+        case NodeType_Histo1DSink:
+        case NodeType_Histo2DSink:
+        case NodeType_Sink:
+            {
+                dstObject = getPointer<OperatorInterface>(node);
+                Q_ASSERT(dstObject);
+            } break;
+    }
+
+    bool result = false;
+
+    if (dstObject)
+    {
+        for (s32 slotIndex = 0; slotIndex < dstObject->getNumberOfSlots(); ++slotIndex)
+        {
+            Slot *slot = dstObject->getSlot(slotIndex);
+
+            if (slot->inputPipe)
+            {
+                for (s32 outputIndex = 0; outputIndex < ps->getNumberOfOutputs(); ++outputIndex)
+                {
+                    Pipe *pipe = ps->getOutput(outputIndex);
+                    if (slot->inputPipe == pipe)
+                    {
+                        result = true;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    return result;
+}
+
 // Returns true if this node or any of its children represent an input of the
-// given operator
+// given operator.
 static bool highlightInputNodes(OperatorInterface *op, QTreeWidgetItem *node)
 {
     bool result = false;
@@ -1129,6 +1237,33 @@ static bool highlightInputNodes(OperatorInterface *op, QTreeWidgetItem *node)
     return result;
 }
 
+// Returns true if this node or any of its children are connected to an output of the
+// given pipe source.
+static bool highlightOutputNodes(PipeSourceInterface *ps, QTreeWidgetItem *node)
+{
+    bool result = false;
+
+    for (s32 childIndex = 0; childIndex < node->childCount(); ++childIndex)
+    {
+        // recurse
+        auto child = node->child(childIndex);
+        result = highlightOutputNodes(ps, child) || result;
+    }
+
+    if (result)
+    {
+        node->setBackground(0, ChildIsOutputNodeOfColor);
+    }
+
+    if (isOutputNodeOf(node, ps))
+    {
+        node->setBackground(0, OutputNodeOfColor);
+        result = true;
+    }
+
+    return result;
+}
+
 void EventWidgetPrivate::highlightInputNodes(OperatorInterface *op)
 {
     for (auto trees: m_levelTrees)
@@ -1139,7 +1274,16 @@ void EventWidgetPrivate::highlightInputNodes(OperatorInterface *op)
     }
 }
 
-void EventWidgetPrivate::clearNodeHighlights(QTreeWidgetItem *node)
+void EventWidgetPrivate::highlightOutputNodes(PipeSourceInterface *ps)
+{
+    for (auto trees: m_levelTrees)
+    {
+        analysis::highlightOutputNodes(ps, trees.operatorTree->invisibleRootItem());
+        analysis::highlightOutputNodes(ps, trees.displayTree->invisibleRootItem());
+    }
+}
+
+void EventWidgetPrivate::clearToDefaultNodeHighlights(QTreeWidgetItem *node)
 {
     node->setBackground(0, QBrush());
 
@@ -1147,16 +1291,35 @@ void EventWidgetPrivate::clearNodeHighlights(QTreeWidgetItem *node)
     {
         // recurse
         auto child = node->child(childIndex);
-        clearNodeHighlights(child);
+        clearToDefaultNodeHighlights(child);
+    }
+
+    switch (node->type())
+    {
+        case NodeType_Operator:
+        case NodeType_Histo1DSink:
+        case NodeType_Histo2DSink:
+            {
+                auto op = getPointer<OperatorInterface>(node);
+                for (auto slotIndex = 0; slotIndex < op->getNumberOfSlots(); ++slotIndex)
+                {
+                    Slot *slot = op->getSlot(slotIndex);
+                    if (!slot->inputPipe)
+                    {
+                        node->setBackground(0, MissingInputColor);
+                        break;
+                    }
+                }
+            } break;
     }
 }
 
-void EventWidgetPrivate::clearAllNodeHighlights()
+void EventWidgetPrivate::clearAllToDefaultNodeHighlights()
 {
     for (auto trees: m_levelTrees)
     {
-        auto opTree = trees.operatorTree;
-        clearNodeHighlights(opTree->invisibleRootItem());
+        clearToDefaultNodeHighlights(trees.operatorTree->invisibleRootItem());
+        clearToDefaultNodeHighlights(trees.displayTree->invisibleRootItem());
     }
 }
 
@@ -1166,7 +1329,7 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column)
     {
         case Default:
             {
-                clearAllNodeHighlights();
+                clearAllToDefaultNodeHighlights();
 
                 switch (node->type())
                 {
@@ -1179,11 +1342,22 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column)
                             highlightInputNodes(op);
                         } break;
                 }
+
+                switch (node->type())
+                {
+                    case NodeType_Source:
+                    case NodeType_Operator:
+                        {
+                            auto ps = getPointer<PipeSourceInterface>(node);
+                            highlightOutputNodes(ps);
+                        } break;
+                }
             } break;
 
         case SelectInput:
             {
-                if (isValidInputNode(node, m_selectInputSlot))
+                if (isValidInputNode(node, m_selectInputSlot)
+                    && getUserLevelForTree(node->treeWidget()) <= m_selectInputUserLevel)
                 {
                     Slot *slot = m_selectInputSlot;
                     // connect the slot with the selected input source
@@ -1194,6 +1368,7 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column)
                             {
                                 Q_ASSERT(slot->acceptedInputTypes & InputType::Array);
 
+                                AnalysisPauser pauser(m_context);
                                 PipeSourceInterface *source = getPointer<PipeSourceInterface>(node);
                                 slot->connectPipe(source->getOutput(0), Slot::NoParamIndex);
                             } break;
@@ -1216,8 +1391,7 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column)
                                 slot->connectPipe(pipe, paramIndex);
                             } break;
 
-                        default:
-                            Q_ASSERT(!"Invalid code path");
+                        InvalidDefaultCase;
                     }
 
                     // tell the widget that initiated the select that we're done
@@ -1242,7 +1416,6 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column)
         switch (node->type())
         {
             // TODO: do not create duplicate widgets here. instead raise existing ones
-            //
             case NodeType_Histo1D:
                 {
                     // Note: obj is a raw pointer to the histo, but it's better
@@ -1314,6 +1487,8 @@ void EventWidgetPrivate::generateDefaultFilters(ModuleConfig *module)
     if (eventIndex < 0 || moduleIndex < 0)
         return;
 
+    AnalysisPauser pauser(m_context);
+
     // "single word" filters
     {
         const auto filterDefinitions = defaultDataFilters.value(module->type);
@@ -1355,37 +1530,9 @@ void EventWidgetPrivate::generateDefaultFilters(ModuleConfig *module)
         }
     }
 
-    m_context->getAnalysisNG()->beginRun();
+    //m_context->getAnalysisNG()->beginRun(); // FIXME: needed?
     repopulate();
 }
-
-struct AnalysisPauser
-{
-    AnalysisPauser(MVMEContext *context)
-        : context(context)
-    {
-        was_running = context->isAnalysisRunning();
-
-        qDebug() << __PRETTY_FUNCTION__ << was_running;
-
-        if (was_running)
-        {
-            context->stopAnalysis();
-        }
-    }
-
-    ~AnalysisPauser()
-    {
-        qDebug() << __PRETTY_FUNCTION__ << was_running;
-        if (was_running)
-        {
-            context->resumeAnalysis();
-        }
-    }
-
-    MVMEContext *context;
-    bool was_running;
-};
 
 EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, AnalysisWidget *analysisWidget, QWidget *parent)
     : QWidget(parent)
@@ -1619,6 +1766,33 @@ void EventWidget::uniqueWidgetCloses()
 void EventWidget::addUserLevel(s32 eventIndex)
 {
     m_d->addUserLevel(eventIndex);
+}
+
+MVMEContext *EventWidget::getContext() const
+{
+    return m_d->m_context;
+}
+
+bool EventWidget::eventFilter(QObject *watched, QEvent *event)
+{
+    if (event->type() == QEvent::FocusIn)
+    {
+        for (auto trees: m_d->m_levelTrees)
+        {
+            for (auto tree: {trees.operatorTree, trees.displayTree})
+            {
+                if (tree == watched)
+                {
+                    auto node = tree->topLevelItem(0);
+                    if (node)
+                    {
+                        tree->setCurrentItem(node);
+                    }
+                    break;
+                }
+            }
+        }
+    }
 }
 
 EventWidget::~EventWidget()

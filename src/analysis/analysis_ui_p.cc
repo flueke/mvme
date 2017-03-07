@@ -87,6 +87,7 @@ AddEditOperatorWidget::AddEditOperatorWidget(OperatorInterface *op, s32 userLeve
                 button->setChecked(false);
             }
 
+            AnalysisPauser pauser(m_eventWidget->getContext());
             // Clear the slot
             slot->disconnectPipe();
             // Update the current select button to reflect the change
