@@ -144,9 +144,8 @@ void MVMEContextPrivate::stopAnalysis()
         // Tell the analysis top stop immediately
         QTimer::singleShot(0, [this]() { QMetaObject::invokeMethod(m_q->m_eventProcessor, "stopProcessing",
                                                                    Qt::QueuedConnection, Q_ARG(bool, false)); });
-        auto con = QObject::connect(m_q->m_eventProcessor, &MVMEEventProcessor::stopped, &localLoop, &QEventLoop::quit);
+        QObject::connect(m_q->m_eventProcessor, &MVMEEventProcessor::stopped, &localLoop, &QEventLoop::quit);
         localLoop.exec();
-        QObject::disconnect(con);
     }
 
     qDebug() << __PRETTY_FUNCTION__ << "analysis stopped";
@@ -154,9 +153,13 @@ void MVMEContextPrivate::stopAnalysis()
 
 void MVMEContextPrivate::resumeAnalysis()
 {
-    QMetaObject::invokeMethod(m_q->m_eventProcessor, "startProcessing",
-                              Qt::QueuedConnection);
-    qDebug() << __PRETTY_FUNCTION__ << "analysis resumed";
+    if (m_q->m_eventProcessor->getState() == EventProcessorState::Idle)
+    {
+        QMetaObject::invokeMethod(m_q->m_eventProcessor, "startProcessing",
+                                  Qt::QueuedConnection);
+
+        qDebug() << __PRETTY_FUNCTION__ << "analysis resumed";
+    }
 }
 
 MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
@@ -305,7 +308,7 @@ MVMEContext::~MVMEContext()
     {
         qDebug() << __PRETTY_FUNCTION__ << "waiting for event processing to stop";
 
-        QMetaObject::invokeMethod(m_eventProcessor, "stopProcessing", Qt::QueuedConnection);
+        QMetaObject::invokeMethod(m_eventProcessor, "stopProcessing", Qt::QueuedConnection, Q_ARG(bool, false));
 
         while (getEventProcessorState() != EventProcessorState::Idle)
         {
@@ -1039,6 +1042,11 @@ bool MVMEContext::isWorkspaceModified() const
 #else
     return ((m_daqConfig && m_daqConfig->isModified()));
 #endif
+}
+
+bool MVMEContext::isAnalysisRunning()
+{
+    return (getEventProcessorState() != EventProcessorState::Idle);
 }
 
 void MVMEContext::stopAnalysis()

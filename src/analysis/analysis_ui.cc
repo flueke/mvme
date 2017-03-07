@@ -1304,6 +1304,34 @@ void EventWidgetPrivate::generateDefaultFilters(ModuleConfig *module)
     repopulate();
 }
 
+struct AnalysisPauser
+{
+    AnalysisPauser(MVMEContext *context)
+        : context(context)
+    {
+        was_running = context->isAnalysisRunning();
+
+        qDebug() << __PRETTY_FUNCTION__ << was_running;
+
+        if (was_running)
+        {
+            context->stopAnalysis();
+        }
+    }
+
+    ~AnalysisPauser()
+    {
+        qDebug() << __PRETTY_FUNCTION__ << was_running;
+        if (was_running)
+        {
+            context->resumeAnalysis();
+        }
+    }
+
+    MVMEContext *context;
+    bool was_running;
+};
+
 EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, AnalysisWidget *analysisWidget, QWidget *parent)
     : QWidget(parent)
     , m_d(new EventWidgetPrivate)
@@ -1399,7 +1427,7 @@ void EventWidget::addOperator(OperatorPtr op, s32 userLevel)
 
     if (userLevel < m_d->m_levelTrees.size())
     {
-// TODO PAUSE_BEGIN
+        AnalysisPauser pauser(m_d->m_context);
         m_d->m_context->getAnalysisNG()->addOperator(m_d->m_eventIndex, op, userLevel);
         op->beginRun();
 
@@ -1435,27 +1463,25 @@ void EventWidget::addOperator(OperatorPtr op, s32 userLevel)
 
         destTree->sortItems(0, Qt::AscendingOrder);
     }
-// TODO PAUSE_END
 }
 
 void EventWidget::operatorEdited(OperatorInterface *op)
 {
     // Updates the edited SourceInterface and recursively all the operators
     // depending on it.
-// TODO PAUSE_BEGIN
+    AnalysisPauser pauser(m_d->m_context);
     do_beginRun_forward(op);
     m_d->repopulate();
-// TODO PAUSE_END
 }
 
 void EventWidget::removeOperator(OperatorInterface *op)
 {
-// TODO PAUSE_BEGIN
+    AnalysisPauser pauser(m_d->m_context);
     m_d->m_context->getAnalysisNG()->removeOperator(op);
     m_d->repopulate();
-// TODO PAUSE_END
 }
 
+// FIXME: same as used by make_raw_data_display. compress!
 static const u32 maxRawHistoBins = (1 << 16);
 
 void EventWidget::addSource(SourcePtr src, ModuleConfig *module, bool addHistogramsAndCalibration)
@@ -1468,8 +1494,7 @@ void EventWidget::addSource(SourcePtr src, ModuleConfig *module, bool addHistogr
     auto analysis = m_d->m_context->getAnalysisNG();
 
 
-// PAUSE_BEGIN
-    m_d->m_context->stopAnalysis();
+    AnalysisPauser pauser(m_d->m_context);
 
     analysis->addSource(eventIndex, moduleIndex, src);
 
@@ -1485,7 +1510,7 @@ void EventWidget::addSource(SourcePtr src, ModuleConfig *module, bool addHistogr
         auto calHistoSink = std::make_shared<Histo1DSink>();
         calHistoSink->setObjectName(QString("%1").arg(extractor->objectName()));
 
-        // FIXME: very similar to the code in make_raw_data_display
+        // FIXME: very similar to the code in make_raw_data_display. compress if possible
         u32 addressCount = (1 << extractor->getFilter().getAddressBits());
         double srcMax  = (1 << extractor->getFilter().getDataBits());
         u32 histoBins  = std::min(static_cast<u32>(srcMax), maxRawHistoBins);
@@ -1511,8 +1536,6 @@ void EventWidget::addSource(SourcePtr src, ModuleConfig *module, bool addHistogr
         analysis->addOperator(eventIndex, calibration, 1);
         analysis->addOperator(eventIndex, calHistoSink, 1);
     }
-    m_d->m_context->resumeAnalysis();
-// PAUSE_END
 
     m_d->repopulate();
 }
@@ -1521,17 +1544,15 @@ void EventWidget::sourceEdited(SourceInterface *src)
 {
     // Updates the edited SourceInterface and recursively all the operators
     // depending on it.
-// TODO PAUSE_BEGIN
+    AnalysisPauser pauser(m_d->m_context);
     do_beginRun_forward(src);
-// TODO PAUSE_END
     m_d->repopulate();
 }
 
 void EventWidget::removeSource(SourceInterface *src)
 {
-// TODO PAUSE_BEGIN
+    AnalysisPauser pauser(m_d->m_context);
     m_d->m_context->getAnalysisNG()->removeSource(src);
-// TODO PAUSE_END
     m_d->repopulate();
 }
 

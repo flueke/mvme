@@ -929,13 +929,7 @@ QMdiSubWindow *mvme::addWidgetWindow(QWidget *widget, QSize windowSize)
 
     if (windowSize.isValid())
     {
-        qDebug() << "valid size, resizing";
         subwin->resize(windowSize);
-    }
-    else
-    {
-        qDebug() << "invalid size, not resizing";
-    //    subwin->resize(QSize(600, 400));
     }
 
     subwin->show();

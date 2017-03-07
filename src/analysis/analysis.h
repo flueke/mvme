@@ -75,12 +75,12 @@ class PipeSourceInterface: public QObject
             : QObject(parent)
             , m_id(QUuid::createUuid())
         {
-            qDebug() << __PRETTY_FUNCTION__ << reinterpret_cast<void *>(this);
+            //qDebug() << __PRETTY_FUNCTION__ << reinterpret_cast<void *>(this);
         }
 
         virtual ~PipeSourceInterface()
         {
-            qDebug() << __PRETTY_FUNCTION__ << reinterpret_cast<void *>(this);
+            //qDebug() << __PRETTY_FUNCTION__ << reinterpret_cast<void *>(this);
         }
 
         virtual s32 getNumberOfOutputs() const = 0;

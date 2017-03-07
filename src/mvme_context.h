@@ -226,6 +226,7 @@ class MVMEContext: public QObject
 
         analysis::Analysis *getAnalysisNG() const { return m_analysis_ng; }
 
+        bool isAnalysisRunning();
         void stopAnalysis();
         void resumeAnalysis();
 
