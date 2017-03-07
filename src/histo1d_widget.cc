@@ -47,12 +47,6 @@ class Histo1DPointData: public QwtSeriesData<QPointF>
                 m_histo->getBinLowEdge(i),
                 m_histo->getBinContent(i));
 
-#if 0
-            qDebug() << __PRETTY_FUNCTION__
-                << "i =" << i
-                << "result =" << result
-                ;
-#endif
             return result;
         }
 

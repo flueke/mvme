@@ -4,6 +4,7 @@
 
 #include "../mvme_context.h"
 #include "../histo1d_widget.h"
+#include "../histo2d_widget.h"
 #include "../treewidget_utils.h"
 #include "../config_ui.h"
 
@@ -325,24 +326,25 @@ DisplayLevelTrees EventWidgetPrivate::createTrees(s32 eventIndex, s32 level)
     headerItem = result.displayTree->headerItem();
     headerItem->setText(0, QString(QSL("L%1 Data Display")).arg(level));
 
-    // Build a list of operators for the current level
+    result.operatorTree->setExpandsOnDoubleClick(false);
+    result.displayTree->setExpandsOnDoubleClick(false);
 
+    // Build a list of operators for the current level
     auto analysis = m_context->getAnalysisNG();
     QVector<Analysis::OperatorEntry> operators = analysis->getOperators(eventIndex, level);
 
-    // populate the OperatorTree
+    // Populate the OperatorTree
     for (auto entry: operators)
     {
         if(!qobject_cast<SinkInterface *>(entry.op.get()))
         {
-            //qDebug() << ">>> Adding to the display tree cause it's not a SinkInterface:" << entry.op.get();
             auto opNode = makeOperatorNode(entry.op.get());
             result.operatorTree->addTopLevelItem(opNode);
         }
     }
     result.operatorTree->sortItems(0, Qt::AscendingOrder);
 
-    // populate the DisplayTree
+    // Populate the DisplayTree
     {
         auto histo1DRoot = new TreeNode({QSL("1D")});
         auto histo2DRoot = new TreeNode({QSL("2D")});
@@ -391,7 +393,10 @@ DisplayLevelTrees EventWidgetPrivate::createSourceTrees(s32 eventIndex)
     headerItem = result.displayTree->headerItem();
     headerItem->setText(0, QSL("L0 Data Display"));
 
-    // populate the OperatorTree
+    result.operatorTree->setExpandsOnDoubleClick(false);
+    result.displayTree->setExpandsOnDoubleClick(false);
+
+    // Populate the OperatorTree
     int moduleIndex = 0;
     for (auto mod: modules)
     {
@@ -412,6 +417,7 @@ DisplayLevelTrees EventWidgetPrivate::createSourceTrees(s32 eventIndex)
     QSet<QObject *> sinksAddedBelowModules;
     moduleIndex = 0;
     auto opEntries = analysis->getOperators(eventIndex, 0);
+
     for (auto mod: modules)
     {
         auto moduleNode = makeModuleNode(mod);
@@ -1078,7 +1084,15 @@ static bool isSourceNodeOf(QTreeWidgetItem *node, Slot *slot)
 
     if (slot->inputPipe->source == srcObject)
     {
-        result = true;
+        if (slot->paramIndex == Slot::NoParamIndex && node->type() != NodeType_OutputPipeParameter)
+        {
+            result = true;
+        }
+        else if (slot->paramIndex != Slot::NoParamIndex && node->type() == NodeType_OutputPipeParameter)
+        {
+            s32 nodeParamAddress = node->data(0, DataRole_ParameterIndex).toInt();
+            result = (nodeParamAddress == slot->paramIndex);
+        }
     }
 
     return result;
@@ -1223,6 +1237,47 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column)
 
 void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column)
 {
+    if (m_mode == Default)
+    {
+        switch (node->type())
+        {
+            // TODO: do not create duplicate widgets here. instead raise existing ones
+            //
+            case NodeType_Histo1D:
+                {
+                    // Note: obj is a raw pointer to the histo, but it's better
+                    // to use the shared_ptr held by the parent Histo1DSink.
+                    // This way we can pass the shared_ptr to Histo1DWidget and
+                    // be sure that the histo is not deleted while the widget
+                    // is active.
+                    Q_ASSERT(node->parent());
+
+                    auto histoSink = getPointer<Histo1DSink>(node->parent());
+                    s32 histoAddress = node->data(0, DataRole_HistoAddress).toInt();
+
+                    Q_ASSERT(histoAddress < histoSink->histos.size());
+
+                    auto histoPtr = histoSink->histos[histoAddress];
+                    auto widget = new Histo1DWidget(histoPtr);
+                    m_context->addWidgetWindow(widget);
+                } break;
+
+            case NodeType_Histo1DSink:
+                {
+                    auto histoSink = getPointer<Histo1DSink>(node);
+                    auto widget = new Histo1DListWidget(histoSink->histos);
+                    m_context->addWidgetWindow(widget);
+                } break;
+
+            case NodeType_Histo2DSink:
+                {
+                    auto histoSink = getPointer<Histo2DSink>(node);
+                    auto histoPtr = histoSink->m_histo;
+                    auto widget = new Histo2DWidget(histoPtr);
+                    m_context->addWidgetWindow(widget);
+                } break;
+        }
+    }
 }
 
 void EventWidgetPrivate::clearAllTreeSelections()
@@ -1589,6 +1644,7 @@ struct AnalysisWidgetPrivate
     void actionOpen();
     void actionSave();
     void actionSaveAs();
+    void actionClearHistograms();
 
     void updateWindowTitle();
 };
@@ -1689,6 +1745,26 @@ void AnalysisWidgetPrivate::actionSaveAs()
     }
 }
 
+void AnalysisWidgetPrivate::actionClearHistograms()
+{
+    AnalysisPauser pauser(m_context);
+
+    for (auto &opEntry: m_context->getAnalysisNG()->getOperators())
+    {
+        if (auto histoSink = qobject_cast<Histo1DSink *>(opEntry.op.get()))
+        {
+            for (auto &histo: histoSink->histos)
+            {
+                histo->clear();
+            }
+        }
+        else if (auto histoSink = qobject_cast<Histo2DSink *>(opEntry.op.get()))
+        {
+            histoSink->m_histo->clear();
+        }
+    }
+}
+
 void AnalysisWidgetPrivate::updateWindowTitle()
 {
     QString fileName = m_context->getAnalysisConfigFileName();
@@ -1735,13 +1811,15 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
         m_d->m_toolbar->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
         m_d->m_toolbar->setIconSize(QSize(16, 16));
         auto font = m_d->m_toolbar->font();
-        font.setPointSize(font.pointSize() - 2);
+        font.setPointSize(font.pointSize() - 1);
         m_d->m_toolbar->setFont(font);
 
         m_d->m_toolbar->addAction(QIcon(":/document-new.png"), QSL("New"), this, [this]() { m_d->actionNew(); });
         m_d->m_toolbar->addAction(QIcon(":/document-open.png"), QSL("Open"), this, [this]() { m_d->actionOpen(); });
         m_d->m_toolbar->addAction(QIcon(":/document-save.png"), QSL("Save"), this, [this]() { m_d->actionSave(); });
         m_d->m_toolbar->addAction(QIcon(":/document-save-as.png"), QSL("Save As"), this, [this]() { m_d->actionSaveAs(); });
+        m_d->m_toolbar->addSeparator();
+        m_d->m_toolbar->addAction(QIcon(":/clear_histos.png"), QSL("Clear Histograms"), this, [this]() { m_d->actionClearHistograms(); });
     }
 
     auto toolbarFrame = new QFrame;

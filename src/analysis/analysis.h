@@ -140,6 +140,8 @@ struct Slot
     /* Clears this slots input. */
     void disconnectPipe();
 
+    inline bool isConnected() { return (inputPipe != nullptr); }
+
     static const s32 NoParamIndex = -1; // special paramIndex value for InputType::Array
 
     u32 acceptedInputTypes = InputType::Both;
@@ -270,12 +272,6 @@ class OperatorInterface: public PipeSourceInterface
     Q_INTERFACES(analysis::PipeSourceInterface)
     public:
         using PipeSourceInterface::PipeSourceInterface;
-        //OperatorInterface(QObject *parent = 0):
-        //    PipeSourceInterface(parent)
-        //{ qDebug() << __PRETTY_FUNCTION__ << reinterpret_cast<void *>(this); }
-
-        //~OperatorInterface()
-        //{ qDebug() << __PRETTY_FUNCTION__ << reinterpret_cast<void *>(this); }
 
         /* Use beginRun() to preallocate the outputs and setup internal state. */
         virtual void beginRun() override {}
@@ -286,9 +282,6 @@ class OperatorInterface: public PipeSourceInterface
 
         virtual Slot *getSlot(s32 slotIndex) = 0;
 
-        // FIXME: Not sure if this is needed or disconnectSlot(s32 slotIndex) is needed or both
-        //virtual void disconnectSlot(Pipe *sourcePipe) = 0;
-
         virtual void read(const QJsonObject &json) = 0;
         virtual void write(QJsonObject &json) const = 0;
 
@@ -298,11 +291,11 @@ class OperatorInterface: public PipeSourceInterface
         void connectArrayToInputSlot(s32 slotIndex, Pipe *inputPipe)
         { connectInputSlot(slotIndex, inputPipe, Slot::NoParamIndex); }
 
-        //void connectValueToInputSlot(s32 slotIndex, Pipe *inputPipe, s32 paramIndex)
-        //{ connectInputSlot(slotIndex, inputPipe, paramIndex); }
-
         s32 getMaximumInputRank();
         s32 getMaximumOutputRank();
+
+        virtual void slotConnected(Slot *slot) {}
+        virtual void slotDisconnected(Slot *slot) {}
 };
 
 typedef std::shared_ptr<OperatorInterface> OperatorPtr;
@@ -325,8 +318,6 @@ class SinkInterface: public OperatorInterface
     Q_INTERFACES(analysis::OperatorInterface)
     public:
         using OperatorInterface::OperatorInterface;
-        //SinkInterface(QObject *parent = 0): OperatorInterface(parent) {}
-        //~SinkInterface() {}
 
         // PipeSourceInterface
         s32 getNumberOfOutputs() const override { return 0; }
@@ -664,6 +655,9 @@ class Difference: public OperatorInterface
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
 
+        virtual void slotConnected(Slot *slot) override;
+        virtual void slotDisconnected(Slot *slot) override;
+
         virtual QString getDisplayName() const override { return QSL("Difference"); }
 
     private:
@@ -716,7 +710,6 @@ class Histo2DSink: public SinkInterface
 
         virtual QString getDisplayName() const override { return QSL("2D Histogram"); }
 
-    public:
         std::shared_ptr<Histo2D> m_histo;
         Slot m_inputX;
         Slot m_inputY;

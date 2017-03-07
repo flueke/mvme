@@ -260,6 +260,7 @@ inline constexpr size_t Kilobytes(size_t x) { return x * 1024; }
 inline constexpr size_t Megabytes(size_t x) { return Kilobytes(x) * 1024; }
 inline constexpr size_t Gigabytes(size_t x) { return Megabytes(x) * 1024; }
 
+#define InvalidCodePath Q_ASSERT(!"invalid code path")
 #define InvalidDefaultCase default: { Q_ASSERT(!"invalid default case"); }
 
 #endif // UTIL_H

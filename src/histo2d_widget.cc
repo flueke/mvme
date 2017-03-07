@@ -15,6 +15,8 @@
 #include <QDebug>
 #include <QTimer>
 
+static const s32 ReplotPeriod_ms = 1000;
+
 class Histo2DRasterData: public QwtRasterData
 {
 public:
@@ -112,7 +114,7 @@ Histo2DWidget::Histo2DWidget(Histo2D *histo, QWidget *parent)
     ui->plot->enableAxis(QwtPlot::yRight);
 
     connect(m_replotTimer, SIGNAL(timeout()), this, SLOT(replot()));
-    m_replotTimer->start(2000);
+    m_replotTimer->start(ReplotPeriod_ms);
 
     ui->plot->canvas()->setMouseTracking(true);
 

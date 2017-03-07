@@ -154,6 +154,7 @@ AddEditOperatorWidget::AddEditOperatorWidget(OperatorInterface *op, s32 userLeve
 void AddEditOperatorWidget::inputSelected(s32 slotIndex)
 {
     Slot *slot = m_op->getSlot(slotIndex);
+    Q_ASSERT(slot);
     qDebug() << __PRETTY_FUNCTION__ << slot;
 
     auto selectButton = m_selectButtons[slotIndex];

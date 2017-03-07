@@ -23,6 +23,7 @@
     <file alias="sink.png">resources/server-database.png</file>
     <file alias="list_add.png">resources/list-add.png</file>
     <file alias="list_remove.png">resources/list-remove.png</file>
+    <file alias="clear_histos.png">resources/user-trash.png</file>
 
     <file alias="gpl-notice.txt">resources/gpl-notice.txt</file>
     <file alias="mesytec-logo.png">resources/mesytec-logo.png</file>

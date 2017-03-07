@@ -29,6 +29,7 @@ void Slot::connectPipe(Pipe *newInput, s32 newParamIndex)
         inputPipe = newInput;
         paramIndex = newParamIndex;
         inputPipe->addDestination(this);
+        parentOperator->slotConnected(this);
     }
 }
 
@@ -39,6 +40,7 @@ void Slot::disconnectPipe()
         inputPipe->removeDestination(this);
         inputPipe = nullptr;
         paramIndex = Slot::NoParamIndex;
+        parentOperator->slotDisconnected(this);
     }
 }
 
@@ -867,10 +869,37 @@ void RetainValid::write(QJsonObject &json) const
 //
 Difference::Difference(QObject *parent)
     : OperatorInterface(parent)
-    , m_inputA(this, 0, QSL("A"))
-    , m_inputB(this, 1, QSL("B"))
+    , m_inputA(this, 0, QSL(" A"))
+    , m_inputB(this, 1, QSL("-B"))
 {
     m_output.setSource(this);
+}
+
+void Difference::slotConnected(Slot *slot)
+{
+    Q_ASSERT(slot == &m_inputA || slot == &m_inputB);
+
+    if (slot->paramIndex != Slot::NoParamIndex)
+    {
+        m_inputA.acceptedInputTypes = InputType::Value;
+        m_inputB.acceptedInputTypes = InputType::Value;
+    }
+    else
+    {
+        m_inputA.acceptedInputTypes = InputType::Array;
+        m_inputB.acceptedInputTypes = InputType::Array;
+    }
+}
+
+void Difference::slotDisconnected(Slot *slot)
+{
+    Q_ASSERT(slot == &m_inputA || slot == &m_inputB);
+
+    if (!m_inputA.isConnected() && !m_inputB.isConnected())
+    {
+        m_inputA.acceptedInputTypes = InputType::Both;
+        m_inputB.acceptedInputTypes = InputType::Both;
+    }
 }
 
 void Difference::beginRun()
@@ -884,27 +913,42 @@ void Difference::beginRun()
         return;
     }
 
-    s32 minSize = std::numeric_limits<s32>::max();
-    QString unit;
+    // Either both inputs are arrays or both are single values
+    Q_ASSERT((m_inputA.paramIndex == Slot::NoParamIndex && m_inputB.paramIndex == Slot::NoParamIndex)
+             || (m_inputA.paramIndex != Slot::NoParamIndex && m_inputB.paramIndex != Slot::NoParamIndex));
 
-    minSize = std::min(minSize, m_inputA.inputPipe->parameters.size());
-    unit = m_inputA.inputPipe->parameters.unit;
+    m_output.parameters.unit = m_inputA.inputPipe->parameters.unit;
 
-    minSize = std::min(minSize, m_inputB.inputPipe->parameters.size());
-    unit = m_inputB.inputPipe->parameters.unit;
-
-    m_output.parameters.unit = unit;
-
-    m_output.parameters.resize(minSize);
-
-    for (s32 idx = 0; idx < minSize; ++idx)
+    if (m_inputA.paramIndex != Slot::NoParamIndex && m_inputB.paramIndex != Slot::NoParamIndex)
     {
-        auto &out(m_output.parameters[idx]);
-        const auto &inA(m_inputA.inputPipe->parameters[idx]);
-        const auto &inB(m_inputB.inputPipe->parameters[idx]);
-
+        // Both inputs are single values
+        m_output.parameters.resize(1);
+        auto &out(m_output.parameters[0]);
+        const auto &inA(m_inputA.inputPipe->parameters[m_inputA.paramIndex]);
+        const auto &inB(m_inputB.inputPipe->parameters[m_inputB.paramIndex]);
         out.lowerLimit = inA.lowerLimit - inB.upperLimit;
         out.upperLimit = inA.upperLimit - inB.lowerLimit;
+    }
+    else if (m_inputA.paramIndex == Slot::NoParamIndex && m_inputB.paramIndex == Slot::NoParamIndex)
+    {
+        // Both inputs are arrays
+        s32 minSize = std::numeric_limits<s32>::max();
+        minSize = std::min(minSize, m_inputA.inputPipe->parameters.size());
+        minSize = std::min(minSize, m_inputB.inputPipe->parameters.size());
+        m_output.parameters.resize(minSize);
+        for (s32 idx = 0; idx < minSize; ++idx)
+        {
+            auto &out(m_output.parameters[idx]);
+            const auto &inA(m_inputA.inputPipe->parameters[idx]);
+            const auto &inB(m_inputB.inputPipe->parameters[idx]);
+
+            out.lowerLimit = inA.lowerLimit - inB.upperLimit;
+            out.upperLimit = inA.upperLimit - inB.lowerLimit;
+        }
+    }
+    else
+    {
+        InvalidCodePath;
     }
 }
 
@@ -913,18 +957,38 @@ void Difference::step()
     if (!(m_inputA.inputPipe && m_inputB.inputPipe))
         return;
 
-    const auto &paramsA(m_inputA.inputPipe->parameters);
-    const auto &paramsB(m_inputB.inputPipe->parameters);
-    auto &paramsOut(m_output.parameters);
-
-    s32 maxIdx = paramsOut.size();
-    for (s32 idx = 0; idx < maxIdx; ++idx)
+    if (m_inputA.paramIndex != Slot::NoParamIndex && m_inputB.paramIndex != Slot::NoParamIndex)
     {
-        paramsOut[idx].valid = (paramsA[idx].valid && paramsB[idx].valid);
-        if (paramsOut[idx].valid)
+        // Both inputs are single values
+        auto &out(m_output.parameters[0]);
+        const auto &inA(m_inputA.inputPipe->parameters[m_inputA.paramIndex]);
+        const auto &inB(m_inputB.inputPipe->parameters[m_inputB.paramIndex]);
+        out.valid = (inA.valid && inB.valid);
+        if (out.valid)
         {
-            paramsOut[idx].value = paramsA[idx].value - paramsB[idx].value;
+            out.value = inA.value - inB.value;
         }
+    }
+    else if (m_inputA.paramIndex == Slot::NoParamIndex && m_inputB.paramIndex == Slot::NoParamIndex)
+    {
+        // Both inputs are arrays
+        const auto &paramsA(m_inputA.inputPipe->parameters);
+        const auto &paramsB(m_inputB.inputPipe->parameters);
+        auto &paramsOut(m_output.parameters);
+
+        s32 maxIdx = paramsOut.size();
+        for (s32 idx = 0; idx < maxIdx; ++idx)
+        {
+            paramsOut[idx].valid = (paramsA[idx].valid && paramsB[idx].valid);
+            if (paramsOut[idx].valid)
+            {
+                paramsOut[idx].value = paramsA[idx].value - paramsB[idx].value;
+            }
+        }
+    }
+    else
+    {
+        InvalidCodePath;
     }
 }
 

@@ -328,9 +328,9 @@ MVMEContext::~MVMEContext()
     delete m_listFileWorker;
     delete m_listFile;
     qDeleteAll(m_freeBuffers);
-    Q_ASSERT(m_freeBufferQueue.queue.size() == DataBufferCount);
-    Q_ASSERT(m_filledBufferQueue.queue.size() == 0);
+    Q_ASSERT(m_freeBufferQueue.queue.size() + m_filledBufferQueue.queue.size() == DataBufferCount);
     qDeleteAll(m_freeBufferQueue.queue);
+    qDeleteAll(m_filledBufferQueue.queue);
 }
 
 void MVMEContext::setDAQConfig(DAQConfig *config)
