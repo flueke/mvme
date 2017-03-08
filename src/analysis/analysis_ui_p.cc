@@ -11,236 +11,6 @@
 
 namespace analysis
 {
-
-
-/** IMPORTANT: This constructor makes the Widget go into "add" mode. When
- * accepted it will call eventWidget->addOperator()! */
-AddEditOperatorWidget::AddEditOperatorWidget(OperatorPtr opPtr, s32 userLevel, EventWidget *eventWidget)
-    : AddEditOperatorWidget(opPtr.get(), userLevel, eventWidget)
-{
-    m_opPtr = opPtr;
-    setWindowTitle(QString("New  %1").arg(opPtr->getDisplayName()));
-}
-
-/** IMPORTANT: This constructor makes the Widget go into "edit" mode. When
- * accepted it will call eventWidget->operatorEdited()! */
-AddEditOperatorWidget::AddEditOperatorWidget(OperatorInterface *op, s32 userLevel, EventWidget *eventWidget)
-    : QWidget(eventWidget, Qt::Tool)
-    , m_op(op)
-    , m_userLevel(userLevel)
-    , m_eventWidget(eventWidget)
-    , m_opConfigWidget(new OperatorConfigurationWidget(op, userLevel, this))
-{
-    setWindowTitle(QString("Edit %1").arg(m_op->getDisplayName()));
-
-    s32 slotCount = m_op->getNumberOfSlots();
-    auto slotGroupBox = new QGroupBox(slotCount > 1 ? QSL("Inputs") : QSL("Input"));
-    auto slotGrid = new QGridLayout(slotGroupBox);
-    slotGrid->setContentsMargins(2, 2, 2, 2);
-    s32 row = 0;
-    for (s32 slotIndex = 0; slotIndex < slotCount; ++slotIndex)
-    {
-        Slot *slot = m_op->getSlot(slotIndex);
-
-        // Record the current slot input
-        m_slotBackups.push_back({slot->inputPipe, slot->paramIndex});
-        
-        auto selectButton = new QPushButton(QSL("<select>"));
-        selectButton->setCheckable(true);
-        m_selectButtons.push_back(selectButton);
-
-        connect(selectButton, &QPushButton::toggled, this, [this, slot, slotIndex, userLevel](bool checked) {
-            // Cancel any previous input selection. Has no effect if no input selection was active.
-            m_eventWidget->endSelectInput();
-
-            if (checked)
-            {
-                for (s32 buttonIndex = 0; buttonIndex < m_selectButtons.size(); ++buttonIndex)
-                {
-                    if (buttonIndex != slotIndex)
-                    {
-                        m_selectButtons[buttonIndex]->setChecked(false);
-                    }
-                }
-
-                /* Tell the EventWidget that we want input for the current slot.
-                 * The lambda is the callback for the EventWidget. This means
-                 * inputSelected() will be called with the current slotIndex
-                 * once input selection is complete. */
-                m_eventWidget->selectInputFor(slot, userLevel, [this, slotIndex] () {
-                    this->inputSelected(slotIndex);
-                });
-            }
-
-            m_inputSelectActive = checked;
-        });
-
-        auto clearButton  = new QPushButton(QIcon(":/dialog-close.png"), QString());
-
-        connect(clearButton, &QPushButton::clicked, this, [this, slot, slotIndex]() {
-            // End any active input selection if any of the clear buttons is
-            // clicked. Seems to make the most sense in the UI.
-            m_eventWidget->endSelectInput();
-
-            for (auto button: m_selectButtons)
-            {
-                button->setChecked(false);
-            }
-
-            AnalysisPauser pauser(m_eventWidget->getContext());
-            // Clear the slot
-            slot->disconnectPipe();
-            // Update the current select button to reflect the change
-            m_selectButtons[slotIndex]->setText(QSL("<select>"));
-            // Disable ok button as there's now at least one unset input
-            m_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(false);
-            //m_opConfigWidget->setEnabled(false);
-            m_opConfigWidget->inputSelected(slotIndex);
-        });
-
-        s32 col = 0;
-        if (slotCount > 1)
-        {
-            slotGrid->addWidget(new QLabel(slot->name), row, col++);
-        }
-
-        slotGrid->addWidget(selectButton, row, col++);
-        slotGrid->addWidget(clearButton, row, col++);
-        ++row;
-    }
-
-    if (slotCount == 1)
-    {
-        slotGrid->setColumnStretch(0, 1);
-        slotGrid->setColumnStretch(1, 0);
-    }
-
-    if (slotCount > 1)
-    {
-        slotGrid->setColumnStretch(0, 0);
-        slotGrid->setColumnStretch(1, 1);
-        slotGrid->setColumnStretch(2, 0);
-    }
-
-    m_buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
-    m_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(false);
-    connect(m_buttonBox, &QDialogButtonBox::accepted, this, &AddEditOperatorWidget::accept);
-    connect(m_buttonBox, &QDialogButtonBox::rejected, this, &AddEditOperatorWidget::reject);
-    auto buttonBoxLayout = new QVBoxLayout;
-    buttonBoxLayout->addStretch();
-    buttonBoxLayout->addWidget(m_buttonBox);
-
-    auto layout = new QGridLayout(this);
-    //layout->setContentsMargins(2, 2, 2, 2);
-
-    int col = 0, maxCol = 1;
-    row = 0;
-    // row, col, rowSpan, colSpan
-    layout->addWidget(slotGroupBox, row++, 0);
-    layout->addWidget(m_opConfigWidget, row++, 0, 1, 2);
-    layout->addLayout(buttonBoxLayout, row++, 0);
-
-    layout->setRowStretch(0, 0);
-    layout->setRowStretch(1, 1);
-
-
-    // Updates the slot select buttons in case we're editing a connected operator
-    for (s32 slotIndex = 0; slotIndex < m_op->getNumberOfSlots(); ++slotIndex)
-    {
-        if (m_op->getSlot(slotIndex)->inputPipe)
-            inputSelected(slotIndex);
-    }
-}
-
-void AddEditOperatorWidget::inputSelected(s32 slotIndex)
-{
-    Slot *slot = m_op->getSlot(slotIndex);
-    Q_ASSERT(slot);
-    qDebug() << __PRETTY_FUNCTION__ << slot;
-
-    auto selectButton = m_selectButtons[slotIndex];
-    QSignalBlocker b(selectButton);
-    selectButton->setChecked(false);
-
-    QString buttonText = slot->inputPipe->source->objectName();
-    if (slot->paramIndex != Slot::NoParamIndex)
-    {
-        buttonText = QString("%1[%2]").arg(buttonText).arg(slot->paramIndex);
-    }
-    else
-    {
-        buttonText = QString("%1 (size=%2)").arg(buttonText).arg(slot->inputPipe->getParameters().size());
-    }
-    selectButton->setText(buttonText);
-
-    bool enableOkButton = true;
-
-    for (s32 slotIndex = 0; slotIndex < m_op->getNumberOfSlots(); ++slotIndex)
-    {
-        if (!m_op->getSlot(slotIndex)->inputPipe)
-        {
-            enableOkButton = false;
-            break;
-        }
-    }
-
-    m_opConfigWidget->inputSelected(slotIndex);
-
-    m_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(enableOkButton);
-    m_inputSelectActive = false;
-}
-
-void AddEditOperatorWidget::accept()
-{
-    m_opConfigWidget->configureOperator();
-    if (m_opPtr)
-    {
-        // add mode
-        m_eventWidget->addOperator(m_opPtr, m_userLevel);
-    }
-    else
-    {
-        // edit mode
-        m_eventWidget->operatorEdited(m_op);
-    }
-    close();
-}
-
-void AddEditOperatorWidget::reject()
-{
-    if (m_opPtr)
-    {
-        // add mode
-        // The operator will not be added to the analysis. This means any slots
-        // connected by the user must be disconnected again to avoid having
-        // stale connections in the source operators.
-        for (s32 slotIndex = 0; slotIndex < m_op->getNumberOfSlots(); ++slotIndex)
-        {
-            Slot *slot = m_op->getSlot(slotIndex);
-            slot->disconnectPipe();
-        }
-    }
-    else
-    {
-        // edit mode
-        // Restore previous slot connections.
-        for (s32 slotIndex = 0; slotIndex < m_op->getNumberOfSlots(); ++slotIndex)
-        {
-            Slot *slot = m_op->getSlot(slotIndex);
-            auto oldConnection = m_slotBackups[slotIndex];
-            slot->connectPipe(oldConnection.inputPipe, oldConnection.paramIndex);
-        }
-    }
-    close();
-}
-
-void AddEditOperatorWidget::closeEvent(QCloseEvent *event)
-{
-    m_eventWidget->endSelectInput();
-    m_eventWidget->uniqueWidgetCloses();
-    event->accept();
-}
-
 //
 // AddEditSourceWidget
 //
@@ -359,17 +129,299 @@ void AddEditSourceWidget::closeEvent(QCloseEvent *event)
     event->accept();
 }
 
+
+//
+// AddEditOperatorWidget
+//
+
+/** IMPORTANT: This constructor makes the Widget go into "add" mode. When
+ * accepted it will call eventWidget->addOperator()! */
+AddEditOperatorWidget::AddEditOperatorWidget(OperatorPtr opPtr, s32 userLevel, EventWidget *eventWidget)
+    : AddEditOperatorWidget(opPtr.get(), userLevel, eventWidget)
+{
+    m_opPtr = opPtr;
+    setWindowTitle(QString("New  %1").arg(opPtr->getDisplayName()));
+
+    // Creating a new operator. Override the setting of wasNameEdited by the
+    // constructor below.
+    m_opConfigWidget->wasNameEdited = false;
+}
+
+/** IMPORTANT: This constructor makes the Widget go into "edit" mode. When
+ * accepted it will call eventWidget->operatorEdited()! */
+AddEditOperatorWidget::AddEditOperatorWidget(OperatorInterface *op, s32 userLevel, EventWidget *eventWidget)
+    : QWidget(eventWidget, Qt::Tool)
+    , m_op(op)
+    , m_userLevel(userLevel)
+    , m_eventWidget(eventWidget)
+    , m_opConfigWidget(new OperatorConfigurationWidget(op, userLevel, this))
+{
+    setWindowTitle(QString("Edit %1").arg(m_op->getDisplayName()));
+
+    // We're editing an operator so we assume the name has been specified by the user.
+    m_opConfigWidget->wasNameEdited = true;
+
+    s32 slotCount = m_op->getNumberOfSlots();
+    auto slotGroupBox = new QGroupBox(slotCount > 1 ? QSL("Inputs") : QSL("Input"));
+    auto slotGrid = new QGridLayout(slotGroupBox);
+    slotGrid->setContentsMargins(2, 2, 2, 2);
+    s32 row = 0;
+    for (s32 slotIndex = 0; slotIndex < slotCount; ++slotIndex)
+    {
+        Slot *slot = m_op->getSlot(slotIndex);
+
+        // Record the current slot input
+        m_slotBackups.push_back({slot->inputPipe, slot->paramIndex});
+
+        auto selectButton = new QPushButton(QSL("<select>"));
+        selectButton->setCheckable(true);
+        m_selectButtons.push_back(selectButton);
+
+        connect(selectButton, &QPushButton::toggled, this, [this, slot, slotIndex, userLevel](bool checked) {
+            // Cancel any previous input selection. Has no effect if no input selection was active.
+            m_eventWidget->endSelectInput();
+
+            if (checked)
+            {
+                for (s32 buttonIndex = 0; buttonIndex < m_selectButtons.size(); ++buttonIndex)
+                {
+                    if (buttonIndex != slotIndex)
+                    {
+                        m_selectButtons[buttonIndex]->setChecked(false);
+                    }
+                }
+
+                /* Tell the EventWidget that we want input for the current slot.
+                 * The lambda is the callback for the EventWidget. This means
+                 * inputSelected() will be called with the current slotIndex
+                 * once input selection is complete. */
+                m_eventWidget->selectInputFor(slot, userLevel, [this, slotIndex] () {
+                    this->inputSelected(slotIndex);
+                });
+            }
+
+            m_inputSelectActive = checked;
+        });
+
+        auto clearButton  = new QPushButton(QIcon(":/dialog-close.png"), QString());
+
+        connect(clearButton, &QPushButton::clicked, this, [this, slot, slotIndex]() {
+            // End any active input selection if any of the clear buttons is
+            // clicked. Seems to make the most sense in the UI.
+            m_eventWidget->endSelectInput();
+
+            for (auto button: m_selectButtons)
+            {
+                button->setChecked(false);
+            }
+
+            AnalysisPauser pauser(m_eventWidget->getContext());
+            // Clear the slot
+            slot->disconnectPipe();
+            // Update the current select button to reflect the change
+            m_selectButtons[slotIndex]->setText(QSL("<select>"));
+            // Disable ok button as there's now at least one unset input
+            m_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(false);
+            //m_opConfigWidget->setEnabled(false);
+            m_opConfigWidget->inputSelected(slotIndex);
+        });
+
+        s32 col = 0;
+        if (slotCount > 1)
+        {
+            slotGrid->addWidget(new QLabel(slot->name), row, col++);
+        }
+
+        slotGrid->addWidget(selectButton, row, col++);
+        slotGrid->addWidget(clearButton, row, col++);
+        ++row;
+    }
+
+    if (slotCount == 1)
+    {
+        slotGrid->setColumnStretch(0, 1);
+        slotGrid->setColumnStretch(1, 0);
+    }
+
+    if (slotCount > 1)
+    {
+        slotGrid->setColumnStretch(0, 0);
+        slotGrid->setColumnStretch(1, 1);
+        slotGrid->setColumnStretch(2, 0);
+    }
+
+    m_buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+    m_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(false);
+    connect(m_buttonBox, &QDialogButtonBox::accepted, this, &AddEditOperatorWidget::accept);
+    connect(m_buttonBox, &QDialogButtonBox::rejected, this, &AddEditOperatorWidget::reject);
+    auto buttonBoxLayout = new QVBoxLayout;
+    buttonBoxLayout->addStretch();
+    buttonBoxLayout->addWidget(m_buttonBox);
+
+    auto layout = new QGridLayout(this);
+    //layout->setContentsMargins(2, 2, 2, 2);
+
+    int col = 0, maxCol = 1;
+    row = 0;
+    // row, col, rowSpan, colSpan
+    layout->addWidget(slotGroupBox, row++, 0);
+    layout->addWidget(m_opConfigWidget, row++, 0, 1, 2);
+    layout->addLayout(buttonBoxLayout, row++, 0);
+
+    layout->setRowStretch(0, 0);
+    layout->setRowStretch(1, 1);
+
+
+    // Updates the slot select buttons in case we're editing a connected operator
+    for (s32 slotIndex = 0; slotIndex < m_op->getNumberOfSlots(); ++slotIndex)
+    {
+        if (m_op->getSlot(slotIndex)->inputPipe)
+            inputSelected(slotIndex);
+    }
+}
+
+QString makeSlotSourceString(Slot *slot)
+{
+    Q_ASSERT(slot->inputPipe);
+    Q_ASSERT(slot->inputPipe->source);
+
+    QString result = slot->inputPipe->source->objectName();
+
+    if (slot->paramIndex != Slot::NoParamIndex)
+    {
+        result = QString("%1[%2]").arg(result).arg(slot->paramIndex);
+    }
+
+    return result;
+}
+
+void AddEditOperatorWidget::inputSelected(s32 slotIndex)
+{
+    Slot *slot = m_op->getSlot(slotIndex);
+    Q_ASSERT(slot);
+    qDebug() << __PRETTY_FUNCTION__ << slot;
+
+    auto selectButton = m_selectButtons[slotIndex];
+    QSignalBlocker b(selectButton);
+    selectButton->setChecked(false);
+    selectButton->setText(makeSlotSourceString(slot));
+
+    bool enableOkButton = true;
+
+    for (s32 slotIndex = 0; slotIndex < m_op->getNumberOfSlots(); ++slotIndex)
+    {
+        if (!m_op->getSlot(slotIndex)->inputPipe)
+        {
+            enableOkButton = false;
+            break;
+        }
+    }
+
+    m_opConfigWidget->inputSelected(slotIndex);
+
+    m_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(enableOkButton);
+    m_inputSelectActive = false;
+}
+
+void AddEditOperatorWidget::accept()
+{
+    AnalysisPauser pauser(m_eventWidget->getContext());
+    m_opConfigWidget->configureOperator();
+    if (m_opPtr)
+    {
+        // add mode
+        m_eventWidget->addOperator(m_opPtr, m_userLevel);
+    }
+    else
+    {
+        // edit mode
+        m_eventWidget->operatorEdited(m_op);
+    }
+    close();
+}
+
+void AddEditOperatorWidget::reject()
+{
+    AnalysisPauser pauser(m_eventWidget->getContext());
+
+    if (m_opPtr)
+    {
+        // add mode
+        // The operator will not be added to the analysis. This means any slots
+        // connected by the user must be disconnected again to avoid having
+        // stale connections in the source operators.
+        for (s32 slotIndex = 0; slotIndex < m_op->getNumberOfSlots(); ++slotIndex)
+        {
+            Slot *slot = m_op->getSlot(slotIndex);
+            slot->disconnectPipe();
+        }
+    }
+    else
+    {
+        // edit mode
+        // Restore previous slot connections.
+        for (s32 slotIndex = 0; slotIndex < m_op->getNumberOfSlots(); ++slotIndex)
+        {
+            Slot *slot = m_op->getSlot(slotIndex);
+            auto oldConnection = m_slotBackups[slotIndex];
+            slot->connectPipe(oldConnection.inputPipe, oldConnection.paramIndex);
+        }
+    }
+    close();
+}
+
+void AddEditOperatorWidget::closeEvent(QCloseEvent *event)
+{
+    m_eventWidget->endSelectInput();
+    m_eventWidget->uniqueWidgetCloses();
+    event->accept();
+}
+
 //
 // OperatorConfigurationWidget
 //
 
-static const s32 bin1DMin = 1;
-static const s32 bin1DMax = 1 << 20;
-static const s32 bin1DDef = 1 << 16;
+static const s32 Histo1DMinBits = 1;
+static const s32 Histo1DMaxBits = 20;
+static const s32 Histo1DDefBits = 16;
 
-static const s32 bin2DMin = 1;
-static const s32 bin2DMax = 1 << 12;
-static const s32 bin2DDef = 1 << 10;
+static const s32 Histo2DMinBits = 1;
+static const s32 Histo2DMaxBits = 13;
+static const s32 Histo2DDefBits = 10;
+
+// Assumes that selectedRes is a power of 2!
+void select_by_resolution(QComboBox *combo, s32 selectedRes)
+{
+    s32 minBits = 0;
+    s32 selectedBits = std::log2(selectedRes);
+
+    if (selectedBits > 0)
+    {
+        s32 index = selectedBits - minBits - 1;
+        index = std::min(index, combo->count() - 1);
+        combo->setCurrentIndex(index);
+    }
+}
+
+QComboBox *make_resolution_combo(s32 minBits, s32 maxBits, s32 selectedBits)
+{
+    QComboBox *result = new QComboBox;
+
+    for (s32 bits = minBits;
+         bits <= maxBits;
+         ++bits)
+    {
+        s32 value = 1 << bits;
+
+        QString text = QString("%1, %2 bit").arg(value, 4).arg(bits, 2);
+
+        result->addItem(text, value);
+    }
+
+    select_by_resolution(result, 1 << selectedBits);
+
+    return result;
+}
 
 OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, s32 userLevel, AddEditOperatorWidget *parent)
     : QWidget(parent)
@@ -381,47 +433,33 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
     formLayout->setContentsMargins(2, 2, 2, 2);
 
     le_name = new QLineEdit;
+    connect(le_name, &QLineEdit::textEdited, this, [this](const QString &newText) {
+        this->wasNameEdited = !newText.isEmpty();
+    });
     formLayout->addRow(QSL("Name"), le_name);
 
     le_name->setText(op->objectName());
 
     if (auto histoSink = qobject_cast<Histo1DSink *>(op))
     {
-        spin_xBins = new QSpinBox;
-        spin_xBins->setMinimum(bin1DMin);
-        spin_xBins->setMaximum(bin1DMax);
-        spin_xBins->setValue(bin1DDef);
+        combo_xBins = make_resolution_combo(Histo1DMinBits, Histo1DMaxBits, Histo1DDefBits);
+        select_by_resolution(combo_xBins, histoSink->m_bins);
 
-        spin_xMin = new QDoubleSpinBox;
-
-        formLayout->addRow(QSL("Bins"), spin_xBins);
-
-        // XXX: assuming that the histograms are uniform
-        if (!histoSink->histos.isEmpty())
-        {
-            spin_xBins->setValue(histoSink->histos[0]->getAxis(Qt::XAxis).getBins());
-        }
+        formLayout->addRow(QSL("Resolution"), combo_xBins);
     }
     else if (auto histoSink = qobject_cast<Histo2DSink *>(op))
     {
-        spin_xBins = new QSpinBox;
-        spin_yBins = new QSpinBox;
-
-        for (auto spin: {spin_xBins, spin_yBins})
-        {
-            spin->setMinimum(bin2DMin);
-            spin->setMaximum(bin2DMax);
-            spin->setValue(bin2DDef);
-        }
-
-        formLayout->addRow(QSL("X Bins"), spin_xBins);
-        formLayout->addRow(QSL("Y Bins"), spin_yBins);
+        combo_xBins = make_resolution_combo(Histo2DMinBits, Histo2DMaxBits, Histo2DDefBits);
+        combo_yBins = make_resolution_combo(Histo2DMinBits, Histo2DMaxBits, Histo2DDefBits);
 
         if (histoSink->m_histo)
         {
-            spin_xBins->setValue(histoSink->m_histo->getAxis(Qt::XAxis).getBins());
-            spin_yBins->setValue(histoSink->m_histo->getAxis(Qt::YAxis).getBins());
+            select_by_resolution(combo_xBins, histoSink->m_histo->getAxisBinning(Qt::XAxis).getBins());
+            select_by_resolution(combo_yBins, histoSink->m_histo->getAxisBinning(Qt::YAxis).getBins());
         }
+
+        formLayout->addRow(QSL("X Resolution"), combo_xBins);
+        formLayout->addRow(QSL("Y Resolution"), combo_yBins);
     }
     else if (auto calibration = qobject_cast<CalibrationFactorOffset *>(op))
     {
@@ -499,11 +537,11 @@ bool OperatorConfigurationWidget::validateInputs()
 
     if (auto histoSink = qobject_cast<Histo1DSink *>(op))
     {
-        return spin_xBins->value() > 0;
+        return true;
     }
     else if (auto histoSink = qobject_cast<Histo2DSink *>(op))
     {
-        return spin_xBins->value() > 0 && spin_yBins->value() > 0;
+        return true;
     }
     else if (auto calibration = qobject_cast<CalibrationFactorOffset *>(op))
     {
@@ -529,50 +567,35 @@ void OperatorConfigurationWidget::configureOperator()
 
     if (auto histoSink = qobject_cast<Histo1DSink *>(op))
     {
-        histoSink->histos.clear();
-        s32 bins = spin_xBins->value();
-
-        Slot *slot = histoSink->getSlot(0);
-        s32 minIdx = 0;
-        s32 maxIdx = slot->inputPipe->parameters.size();
-
-        if (slot->paramIndex != Slot::NoParamIndex)
-        {
-            minIdx = slot->paramIndex;
-            maxIdx = minIdx + 1;
-        }
-
-        for (s32 idx = minIdx; idx < maxIdx; ++idx)
-        {
-            double xMin = slot->inputPipe->parameters[idx].lowerLimit;
-            double xMax = slot->inputPipe->parameters[idx].upperLimit;
-
-            auto histo = std::make_shared<Histo1D>(bins, xMin, xMax);
-            histoSink->histos.push_back(histo);
-            auto histoName = op->objectName();
-            if (maxIdx > 1)
-            {
-                histoName = QString("%1[%2]").arg(histoName).arg(idx);
-            }
-            histo->setObjectName(histoName);
-        }
+        s32 bins = combo_xBins->currentData().toInt();
+        histoSink->m_bins = bins;
+        // Actually updating the histograms is done in Histo1DSink::beginRun();
     }
     else if (auto histoSink = qobject_cast<Histo2DSink *>(op))
     {
-        s32 xBins = spin_xBins->value();
-        s32 yBins = spin_yBins->value();
+        s32 xBins = combo_xBins->currentData().toInt();
+        s32 yBins = combo_yBins->currentData().toInt();
 
-        auto xSlot = op->getSlot(0);
-        auto ySlot = op->getSlot(1);
+        if (histoSink->m_histo)
+        {
+            qDebug() << "histo2d resize" << xBins << yBins;
+            histoSink->m_histo->resize(xBins, yBins);
+        }
+        else
+        {
+            // Note: these are "fake" values. Histo2DSink::beginRun() will look
+            // at the input parameters and update the axis limits accordingly
+            double xMin = 0;
+            double xMax = 1 << xBins;
 
-        double xMin = xSlot->inputPipe->parameters[xSlot->paramIndex].lowerLimit;
-        double xMax = xSlot->inputPipe->parameters[xSlot->paramIndex].upperLimit;
+            double yMin = 0;
+            double yMax = 1 << yBins;
 
-        double yMin = ySlot->inputPipe->parameters[ySlot->paramIndex].lowerLimit;
-        double yMax = ySlot->inputPipe->parameters[ySlot->paramIndex].upperLimit;
+            qDebug() << "new histo2d" << xBins << yBins;
 
-        histoSink->m_histo = std::make_shared<Histo2D>(xBins, xMin, xMax,
-                                                       yBins, yMin, yMax);
+            histoSink->m_histo = std::make_shared<Histo2D>(xBins, xMin, xMax,
+                                                           yBins, yMin, yMax);
+        }
     }
     else if (auto calibration = qobject_cast<CalibrationFactorOffset *>(op))
     {
@@ -597,6 +620,32 @@ void OperatorConfigurationWidget::configureOperator()
 
 void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
 {
+    OperatorInterface *op = m_op;
+    Slot *slot = op->getSlot(slotIndex);
+
+    if (wasNameEdited)
+    {
+        return;
+    }
+
+    // The name field is empty or was never modified by the user. Update its
+    // contents to reflect the newly selected input(s).
+
+    if (op->getNumberOfSlots() == 1)
+    {
+        le_name->setText(makeSlotSourceString(slot));
+    }
+    else if (auto histoSink = qobject_cast<Histo2DSink *>(op))
+    {
+        if (histoSink->m_inputX.isConnected() && histoSink->m_inputY.isConnected())
+        {
+            QString nameX = makeSlotSourceString(&histoSink->m_inputX);
+            QString nameY = makeSlotSourceString(&histoSink->m_inputY);
+            le_name->setText(QString("%1_vs_%2")
+                             .arg(nameX)
+                             .arg(nameY));
+        }
+    }
 }
 
 //

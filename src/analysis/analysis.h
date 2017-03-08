@@ -673,9 +673,7 @@ class Histo1DSink: public BasicSink
 {
     Q_OBJECT
     public:
-        using BasicSink::BasicSink;
-
-        QVector<std::shared_ptr<Histo1D>> histos;
+        Histo1DSink(QObject *parent = 0);
 
         virtual void beginRun() override;
         virtual void step() override;
@@ -684,6 +682,9 @@ class Histo1DSink: public BasicSink
         virtual void write(QJsonObject &json) const override;
 
         virtual QString getDisplayName() const override { return QSL("1D Histogram"); }
+
+        QVector<std::shared_ptr<Histo1D>> m_histos;
+        s32 m_bins = 0;
 
     private:
         u32 fillsSinceLastDebug = 0;
@@ -698,9 +699,7 @@ class Histo2DSink: public SinkInterface
 
         // OperatorInterface
         virtual s32 getNumberOfSlots() const override;
-        //virtual void connectInputSlot(s32 slotIndex, Pipe *inputPipe, s32 paramIndex) override;
         virtual Slot *getSlot(s32 slotIndex) override;
-        //virtual void disconnectSlot(Pipe *sourcePipe) override;
 
         virtual void beginRun() override;
         virtual void step() override;
@@ -1000,6 +999,8 @@ class Analysis
                 NoError = 0,
                 VersionMismatch
             };
+
+            static const QMap<Code, const char *> ErrorCodeStrings;
 
             Code code;
             QMap<QString, QVariant> data;

@@ -22,13 +22,15 @@ class Histo2D: public QObject
                 QObject *parent = 0);
         ~Histo2D();
 
+        void resize(s32 xBins, s32 yBins);
+
         void fill(double x, double y, double weight = 1.0);
         double getValue(double x, double y) const;
         void clear();
 
         void debugDump() const;
 
-        AxisBinning getAxis(Qt::Axis axis) const
+        AxisBinning getAxisBinning(Qt::Axis axis) const
         {
             switch (axis)
             {
@@ -38,6 +40,21 @@ class Histo2D: public QObject
                     return m_yAxis;
                 default:
                     return AxisBinning();
+            }
+        }
+
+        void setAxisBinning(Qt::Axis axis, AxisBinning binning)
+        {
+            switch (axis)
+            {
+                case Qt::XAxis:
+                    m_xAxis = binning;
+                    break;
+                case Qt::YAxis:
+                    m_yAxis = binning;
+                    break;
+                default:
+                    break;
             }
         }
 

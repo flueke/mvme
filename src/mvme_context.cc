@@ -13,6 +13,7 @@
 #include <QTimer>
 #include <QThread>
 #include <QProgressDialog>
+#include <QMessageBox>
 
 // Buffers to pass between DAQ/replay and the analysis. The buffer size should
 // be at least twice as big as the max VMUSB buffer size (2 * 64k). Just using
@@ -321,13 +322,14 @@ MVMEContext::~MVMEContext()
     m_readoutThread->wait();
     m_eventThread->quit();
     m_eventThread->wait();
+
     delete m_analysis_ng;
     delete m_readoutWorker;
     delete m_bufferProcessor;
     delete m_eventProcessor;
     delete m_listFileWorker;
     delete m_listFile;
-    qDeleteAll(m_freeBuffers);
+    qDeleteAll(m_freeBuffers); // TODO: old analysis, to be removed
     Q_ASSERT(m_freeBufferQueue.queue.size() + m_filledBufferQueue.queue.size() == DataBufferCount);
     qDeleteAll(m_freeBufferQueue.queue);
     qDeleteAll(m_filledBufferQueue.queue);
@@ -993,29 +995,50 @@ void MVMEContext::loadVMEConfig(const QString &fileName)
 
 void MVMEContext::loadAnalysisConfig(const QString &fileName)
 {
+    qDebug() << "loadAnalysisConfig from" << fileName;
+
     QJsonDocument doc(gui_read_json_file(fileName));
 #ifdef ENABLE_OLD_ANALYSIS
     auto config = new AnalysisConfig;
     config->read(doc.object()[QSL("AnalysisConfig")].toObject());
     setAnalysisConfig(config);
 #endif
-    setAnalysisConfigFileName(fileName);
 
+    using namespace analysis;
 
-    // FIXME: incomplete; error checking needed
-    auto analysis_ng = new analysis::Analysis;
+    auto analysis_ng = std::make_unique<Analysis>();
     auto readResult = analysis_ng->read(doc.object()[QSL("AnalysisNG")].toObject());
-    if (readResult.code != analysis::Analysis::ReadResult::NoError)
+
+    if (readResult.code != Analysis::ReadResult::NoError)
     {
-        // TODO: press the self-destruct button
+        // TODO: print readResult.data in the messagebox
         qDebug() << "!!!!! Error reading analysis ng from" << fileName << readResult.code << readResult.data;
+        QMessageBox::critical(m_mainwin, QSL("Error"),
+                              QString("Error loading analysis\n"
+                                      "File %1\n"
+                                      "Error: %2")
+                              .arg(fileName)
+                              .arg(Analysis::ReadResult::ErrorCodeStrings.value(readResult.code, "Unknown error")));
     }
     else
     {
+        bool was_running = isAnalysisRunning();
+
+        if (was_running)
+        {
+            stopAnalysis();
+        }
+
         delete m_analysis_ng;
-        m_analysis_ng = analysis_ng;
-        m_analysis_ng->beginRun(); // FIXME: good place to call this?
+        m_analysis_ng = analysis_ng.release();
+        m_eventProcessor->newRun();
+        setAnalysisConfigFileName(fileName);
         emit analysisNGChanged();
+
+        if (was_running)
+        {
+            resumeAnalysis();
+        }
     }
 }
 

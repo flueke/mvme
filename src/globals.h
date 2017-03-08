@@ -107,25 +107,25 @@ struct DataFilterDefinition
 static const QMap<VMEModuleType, QList<DataFilterDefinition>> defaultDataFilters =
 {
     { VMEModuleType::MDPP16, {
-                                 { "0001XXXXPO00AAAADDDDDDDDDDDDDDDD", "Amplitude",     "Amplitude %a" },
-                                 { "0001XXXXXX01AAAADDDDDDDDDDDDDDDD", "Time",          "Time %a" },
-                                 { "0001XXXXXX10000ADDDDDDDDDDDDDDDD", "Trigger time",  "Trigger time %a" },
+                                 { "0001XXXXPO00AAAADDDDDDDDDDDDDDDD", "amplitude",     "Amplitude %a" },
+                                 { "0001XXXXXX01AAAADDDDDDDDDDDDDDDD", "time",          "Time %a" },
+                                 { "0001XXXXXX10000ADDDDDDDDDDDDDDDD", "trigger_time",  "Trigger time %a" },
                              }
     },
 
     { VMEModuleType::MADC32, {
-                                 { "00XXX1XX000AAAAA0O0DDDDDDDDDDDDD", "Amplitude",     "Amplitude %a" },
+                                 { "00XXX1XX000AAAAA0O0DDDDDDDDDDDDD", "amplitude",     "Amplitude %a" },
                              }
     },
 
     { VMEModuleType::MQDC32, {
-                                 { "00XXX1XX000AAAAA0O00DDDDDDDDDDDD", "Amplitude",     "Amplitude %a" },
+                                 { "00XXX1XX000AAAAA0O00DDDDDDDDDDDD", "amplitude",     "Amplitude %a" },
                              }
     },
 
     { VMEModuleType::MTDC32, {
-                                 { "00XXX1XX000AAAAADDDDDDDDDDDDDDDD", "Time",          "Time %a" },
-                                 { "00XXX1XX0010000ADDDDDDDDDDDDDDDD", "Trigger time",  "Trigger time %a" },
+                                 { "00XXX1XX000AAAAADDDDDDDDDDDDDDDD", "time",          "Time %a" },
+                                 { "00XXX1XX0010000ADDDDDDDDDDDDDDDD", "trigger_time",  "Trigger time %a" },
                              }
     },
 };
@@ -147,7 +147,7 @@ static const QMap<VMEModuleType, QList<DualWordDataFilterDefinition>> defaultDua
 {
     { VMEModuleType::MDPP16, {
                                  {
-                                     "Event Counter / TS",
+                                     "event_counter/ts",
                                      "11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD", -1,
                                      "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", -1,
                                      "Event Counter / TS"
@@ -157,7 +157,7 @@ static const QMap<VMEModuleType, QList<DualWordDataFilterDefinition>> defaultDua
     },
     { VMEModuleType::MADC32, {
                                  {
-                                     "Event Counter / TS",
+                                     "event_counter/ts",
                                      "11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD", -1,
                                      "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", -1,
                                      "Event Counter / TS"
@@ -167,7 +167,7 @@ static const QMap<VMEModuleType, QList<DualWordDataFilterDefinition>> defaultDua
     },
     { VMEModuleType::MQDC32, {
                                  {
-                                     "Event Counter / TS",
+                                     "event_counter/ts",
                                      "11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD", -1,
                                      "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", -1,
                                      "Event Counter / TS"
@@ -177,7 +177,7 @@ static const QMap<VMEModuleType, QList<DualWordDataFilterDefinition>> defaultDua
     },
     { VMEModuleType::MTDC32, {
                                  {
-                                     "Event Counter / TS",
+                                     "event_counter/ts",
                                      "11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD", -1,
                                      "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", -1,
                                      "Event Counter / TS"
@@ -187,7 +187,7 @@ static const QMap<VMEModuleType, QList<DualWordDataFilterDefinition>> defaultDua
     },
     { VMEModuleType::MesytecCounter, {
                                          {
-                                             "Event Counter",
+                                             "event_counter",
                                              "XXXXXXXXXXXXXXXXDDDDDDDDDDDDDDDD", 0,
                                              "XXXXXXXXXXXXXXXXDDDDDDDDDDDDDDDD", 1,
                                              "Event Counter / TS"

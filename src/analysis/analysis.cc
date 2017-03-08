@@ -1003,17 +1003,66 @@ void Difference::write(QJsonObject &json) const
 //
 // Histo1DSink
 //
+Histo1DSink::Histo1DSink(QObject *parent)
+    : BasicSink(parent)
+{
+}
+
 void Histo1DSink::beginRun()
 {
-    for (auto &histo: histos)
+    // Instead of just clearing the histos vector and recreating it this code
+    // tries to reuse existing histograms. This is done so that open histogram
+    // windows still reference the correct histogram after beginRun() is
+    // invoked. Otherwise the user would have to reopen histogram windows quite
+    // frequently.
+
+    if (m_inputSlot.inputPipe)
     {
-        histo->clear();
+        s32 minIdx = 0;
+        s32 maxIdx = m_inputSlot.inputPipe->parameters.size();
+
+        if (m_inputSlot.paramIndex != Slot::NoParamIndex)
+        {
+            minIdx = m_inputSlot.paramIndex;
+            maxIdx = minIdx + 1;
+        }
+
+        m_histos.resize(maxIdx - minIdx);
+
+        for (s32 idx = minIdx, histoIndex = 0; idx < maxIdx; ++idx, ++histoIndex)
+        {
+            double xMin = m_inputSlot.inputPipe->parameters[idx].lowerLimit;
+            double xMax = m_inputSlot.inputPipe->parameters[idx].upperLimit;
+
+            if (m_histos[histoIndex])
+            {
+                auto histo = m_histos[histoIndex];
+                histo->resize(m_bins); // calls clear() even if the size does not change
+                histo->setAxisBinning(Qt::XAxis, AxisBinning(m_bins, xMin, xMax));
+            }
+            else
+            {
+                m_histos[histoIndex] = std::make_shared<Histo1D>(m_bins, xMin, xMax);
+            }
+
+            auto histo = m_histos[histoIndex];
+            auto histoName = this->objectName();
+            if (maxIdx - minIdx > 1)
+            {
+                histoName = QString("%1[%2]").arg(histoName).arg(idx);
+            }
+            histo->setObjectName(histoName);
+        }
+    }
+    else
+    {
+        m_histos.resize(0);
     }
 }
 
 void Histo1DSink::step()
 {
-    if (m_inputSlot.inputPipe && !histos.isEmpty())
+    if (m_inputSlot.inputPipe && !m_histos.isEmpty())
     {
         s32 paramIndex = m_inputSlot.paramIndex;
 
@@ -1023,7 +1072,7 @@ void Histo1DSink::step()
             const Parameter *param = m_inputSlot.inputPipe->getParameter(paramIndex);
             if (param && param->valid)
             {
-                histos[0]->fill(param->value);
+                m_histos[0]->fill(param->value);
             }
         }
         else
@@ -1031,14 +1080,14 @@ void Histo1DSink::step()
             // Input is an array
             const auto &in(m_inputSlot.inputPipe->getParameters());
             const s32 inSize = in.size();
-            const s32 histoSize = histos.size();
+            const s32 histoCount = m_histos.size();
 
-            for (s32 paramIndex = 0; paramIndex < std::min(inSize, histoSize); ++paramIndex)
+            for (s32 paramIndex = 0; paramIndex < std::min(inSize, histoCount); ++paramIndex)
             {
                 const Parameter *param = m_inputSlot.inputPipe->getParameter(paramIndex);
                 if (param && param->valid)
                 {
-                    histos[paramIndex]->fill(param->value);
+                    m_histos[paramIndex]->fill(param->value);
                 }
             }
         }
@@ -1047,6 +1096,10 @@ void Histo1DSink::step()
 
 void Histo1DSink::read(const QJsonObject &json)
 {
+    m_bins = json["nBins"].toInt();
+
+    Q_ASSERT(m_bins > 0);
+
     QJsonArray histosJson = json["histos"].toArray();
 
     for (auto it=histosJson.begin();
@@ -1061,15 +1114,17 @@ void Histo1DSink::read(const QJsonObject &json)
         QString histoName = objectJson["name"].toString();
         auto histo = std::make_shared<Histo1D>(nBins, xMin, xMax);
         histo->setObjectName(histoName);
-        histos.push_back(histo);
+        m_histos.push_back(histo);
     }
 }
 
 void Histo1DSink::write(QJsonObject &json) const
 {
+    json["nBins"] = static_cast<qint64>(m_bins);
+
     QJsonArray histosJson;
 
-    for (const auto &histo: histos)
+    for (const auto &histo: m_histos)
     {
         QJsonObject objectJson;
         objectJson["nBins"] = static_cast<qint64>(histo->getNumberOfBins());
@@ -1092,12 +1147,26 @@ Histo2DSink::Histo2DSink(QObject *parent)
 {
 }
 
+// Updates the axis limits to match the input parameters limits. Clears the
+// histogram. No resizing is performed here! If the number of bins should be
+// changed it must be done externally.
 void Histo2DSink::beginRun()
 {
-    if (m_histo)
+    if (m_inputX.inputPipe && m_inputY.inputPipe && m_histo)
     {
-        m_histo->clear();
+        s32 xBins = m_histo->getAxisBinning(Qt::XAxis).getBins();
+        s32 yBins = m_histo->getAxisBinning(Qt::YAxis).getBins();
+
+        double xMin = m_inputX.inputPipe->parameters[m_inputX.paramIndex].lowerLimit;
+        double xMax = m_inputX.inputPipe->parameters[m_inputX.paramIndex].upperLimit;
+
+        double yMin = m_inputX.inputPipe->parameters[m_inputY.paramIndex].lowerLimit;
+        double yMax = m_inputY.inputPipe->parameters[m_inputY.paramIndex].upperLimit;
+
+        m_histo->setAxisBinning(Qt::XAxis, AxisBinning(xBins, xMin, xMax));
+        m_histo->setAxisBinning(Qt::YAxis, AxisBinning(yBins, yMin, yMax));
     }
+    m_histo->clear();
 }
 
 s32 Histo2DSink::getNumberOfSlots() const
@@ -1150,19 +1219,25 @@ void Histo2DSink::write(QJsonObject &json) const
 {
     if (m_histo)
     {
-        json["xBins"] = static_cast<qint64>(m_histo->getAxis(Qt::XAxis).getBins());
-        json["xMin"]  = m_histo->getAxis(Qt::XAxis).getMin();
-        json["xMax"]  = m_histo->getAxis(Qt::XAxis).getMax();
+        json["xBins"] = static_cast<qint64>(m_histo->getAxisBinning(Qt::XAxis).getBins());
+        json["xMin"]  = m_histo->getAxisBinning(Qt::XAxis).getMin();
+        json["xMax"]  = m_histo->getAxisBinning(Qt::XAxis).getMax();
 
-        json["yBins"] = static_cast<qint64>(m_histo->getAxis(Qt::YAxis).getBins());
-        json["yMin"]  = m_histo->getAxis(Qt::YAxis).getMin();
-        json["yMax"]  = m_histo->getAxis(Qt::YAxis).getMax();
+        json["yBins"] = static_cast<qint64>(m_histo->getAxisBinning(Qt::YAxis).getBins());
+        json["yMin"]  = m_histo->getAxisBinning(Qt::YAxis).getMin();
+        json["yMax"]  = m_histo->getAxisBinning(Qt::YAxis).getMax();
     }
 }
 
 //
 // Analysis
 //
+const QMap<Analysis::ReadResult::Code, const char *> Analysis::ReadResult::ErrorCodeStrings =
+{
+    { NoError, "No Error" },
+    { VersionMismatch, "Version Mismatch" },
+};
+
 Analysis::Analysis()
 {
     m_registry.registerSource<Extractor>();
@@ -1860,10 +1935,12 @@ RawDataDisplay make_raw_data_display(const MultiWordDataFilter &extractionFilter
 
     auto rawHistoSink = std::make_shared<Histo1DSink>();
     rawHistoSink->setObjectName(QString("Raw %1").arg(filterName));
+    rawHistoSink->m_bins = histoBins;
     result.rawHistoSink = rawHistoSink;
 
     auto calHistoSink = std::make_shared<Histo1DSink>();
     calHistoSink->setObjectName(QString("Cal %1").arg(filterName));
+    calHistoSink->m_bins = histoBins;
     result.calibratedHistoSink = calHistoSink;
 
     u32 addressCount = (1 << extractionFilter.getAddressBits());
@@ -1873,13 +1950,13 @@ RawDataDisplay make_raw_data_display(const MultiWordDataFilter &extractionFilter
         // create a histo for the raw uncalibrated data
         auto histo = std::make_shared<Histo1D>(histoBins, 0.0, srcMax);
         histo->setObjectName(QString("%1[%2]").arg(rawHistoSink->objectName()).arg(address));
-        rawHistoSink->histos.push_back(histo);
+        rawHistoSink->m_histos.push_back(histo);
         // TODO: rawHistoSink->histo->setXAxisTitle(xAxisTitle);
 
         // create a histo for the calibrated data
         histo = std::make_shared<Histo1D>(histoBins, unitMin, unitMax);
         histo->setObjectName(QString("%1[%2]").arg(calHistoSink->objectName()).arg(address));
-        calHistoSink->histos.push_back(histo);
+        calHistoSink->m_histos.push_back(histo);
     }
 
     rawHistoSink->connectArrayToInputSlot(0, extractor->getOutput(0));

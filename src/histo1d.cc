@@ -4,7 +4,6 @@ Histo1D::Histo1D(u32 nBins, double xMin, double xMax, QObject *parent)
     : QObject(parent)
     , m_xAxis(nBins, xMin, xMax)
     , m_data(new double[nBins])
-
 {
     clear();
 }
@@ -12,6 +11,19 @@ Histo1D::Histo1D(u32 nBins, double xMin, double xMax, QObject *parent)
 Histo1D::~Histo1D()
 {
     delete[] m_data;
+}
+
+void Histo1D::resize(u32 nBins)
+{
+    Q_ASSERT(nBins > 0);
+
+    if (nBins != m_xAxis.getBins())
+    {
+        delete[] m_data;
+        m_data = new double[nBins];
+        m_xAxis.setBins(nBins);
+    }
+    clear();
 }
 
 s32 Histo1D::fill(double x, double weight)

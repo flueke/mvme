@@ -7,6 +7,7 @@
 
 #include <QCheckBox>
 #include <QCloseEvent>
+#include <QComboBox>
 #include <QDialogButtonBox>
 #include <QDoubleSpinBox>
 #include <QFormLayout>
@@ -71,6 +72,30 @@ class EventWidget: public QWidget
         EventWidgetPrivate *m_d;
 };
 
+class AddEditSourceWidget: public QWidget
+{
+    Q_OBJECT
+    public:
+        AddEditSourceWidget(SourcePtr srcPtr, ModuleConfig *mod, EventWidget *eventWidget);
+        AddEditSourceWidget(SourceInterface *src, ModuleConfig *mod, EventWidget *eventWidget);
+
+        virtual void closeEvent(QCloseEvent *event) override;
+        void accept();
+
+        SourcePtr m_srcPtr;
+        SourceInterface *m_src;
+        ModuleConfig *m_module;
+        EventWidget *m_eventWidget;
+
+        QLineEdit *le_name;
+        QDialogButtonBox *m_buttonBox;
+        DataExtractionEditor *m_filterEditor;
+        QFormLayout *m_optionsLayout;
+        QSpinBox *m_spinCompletionCount;
+        QCheckBox *m_cbGenHistograms;
+        bool m_editMode;
+};
+
 class AddEditOperatorWidget: public QWidget
 {
     Q_OBJECT
@@ -101,30 +126,6 @@ class AddEditOperatorWidget: public QWidget
         QVector<SlotConnection> m_slotBackups;
 };
 
-class AddEditSourceWidget: public QWidget
-{
-    Q_OBJECT
-    public:
-        AddEditSourceWidget(SourcePtr srcPtr, ModuleConfig *mod, EventWidget *eventWidget);
-        AddEditSourceWidget(SourceInterface *src, ModuleConfig *mod, EventWidget *eventWidget);
-
-        virtual void closeEvent(QCloseEvent *event) override;
-        void accept();
-
-        SourcePtr m_srcPtr;
-        SourceInterface *m_src;
-        ModuleConfig *m_module;
-        EventWidget *m_eventWidget;
-
-        QLineEdit *le_name;
-        QDialogButtonBox *m_buttonBox;
-        DataExtractionEditor *m_filterEditor;
-        QFormLayout *m_optionsLayout;
-        QSpinBox *m_spinCompletionCount;
-        QCheckBox *m_cbGenHistograms;
-        bool m_editMode;
-};
-
 class OperatorConfigurationWidget: public QWidget
 {
     Q_OBJECT
@@ -139,18 +140,20 @@ class OperatorConfigurationWidget: public QWidget
         s32 m_userLevel;
 
         QLineEdit *le_name = nullptr;
-        QSpinBox *spin_xBins = nullptr;
-        QSpinBox *spin_yBins = nullptr;
-        QDoubleSpinBox *spin_xMin = nullptr;
-        QDoubleSpinBox *spin_xMax = nullptr;
-        QDoubleSpinBox *spin_yMin = nullptr;
-        QDoubleSpinBox *spin_yMax = nullptr;
+        bool wasNameEdited = false;
 
+        // Histo1DSink and Histo2DSink
+        QComboBox *combo_xBins = nullptr;
+        QComboBox *combo_yBins = nullptr;
+
+        // CalibrationFactorOffset and CalibrationMinMax
         QLineEdit *le_unit = nullptr;
         QDoubleSpinBox *spin_factor = nullptr;
         QDoubleSpinBox *spin_offset = nullptr;
         QDoubleSpinBox *spin_unitMin = nullptr;
         QDoubleSpinBox *spin_unitMax = nullptr;
+
+        // IndexSelector
         QSpinBox *spin_index = nullptr;
 };
 

@@ -22,6 +22,8 @@ class Histo1D: public QObject
         Histo1D(u32 nBins, double xMin, double xMax, QObject *parent = 0);
         ~Histo1D();
 
+        void resize(u32 nBins);
+
         // Returns the bin number or -1 in case of under/overflow.
         s32 fill(double x, double weight = 1.0);
         double getValue(double x) const;
@@ -40,7 +42,7 @@ class Histo1D: public QObject
         inline double getBinLowEdge(u32 bin) const { return m_xAxis.getBinLowEdge(bin); }
         inline double getBinCenter(u32 bin) const { return m_xAxis.getBinCenter(bin); }
 
-        AxisBinning getAxis(Qt::Axis axis) const
+        AxisBinning getAxisBinning(Qt::Axis axis) const
         {
             switch (axis)
             {
@@ -48,6 +50,14 @@ class Histo1D: public QObject
                     return m_xAxis;
                 default:
                     return AxisBinning();
+            }
+        }
+
+        void setAxisBinning(Qt::Axis axis, AxisBinning binning)
+        {
+            if (axis == Qt::XAxis)
+            {
+                m_xAxis = binning;
             }
         }
 

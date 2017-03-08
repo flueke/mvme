@@ -16,6 +16,20 @@ Histo2D::~Histo2D()
     delete[] m_data;
 }
 
+void Histo2D::resize(s32 xBins, s32 yBins)
+{
+    Q_ASSERT(xBins > 0 && yBins > 0);
+
+    if (xBins * yBins != m_xAxis.getBins() * m_yAxis.getBins())
+    {
+        delete[] m_data;
+        m_data = new double[xBins * yBins];
+        m_xAxis.setBins(xBins);
+        m_yAxis.setBins(yBins);
+    }
+    clear();
+}
+
 void Histo2D::fill(double x, double y, double weight)
 {
     s64 xBin = m_xAxis.getBin(x);
@@ -48,7 +62,7 @@ void Histo2D::fill(double x, double y, double weight)
 double Histo2D::getValue(double x, double y) const
 {
     s64 xBin = m_xAxis.getBin(x);
-    s64 yBin = m_xAxis.getBin(y);
+    s64 yBin = m_yAxis.getBin(y);
 
     if (xBin < 0 || yBin < 0)
         return 0.0;

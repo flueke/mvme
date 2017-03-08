@@ -168,11 +168,11 @@ inline TreeNode *makeHisto1DNode(Histo1DSink *sink)
             sink->objectName()));
     node->setIcon(0, QIcon(":/hist1d.png"));
 
-    if (sink->histos.size() > 0)
+    if (sink->m_histos.size() > 0)
     {
-        for (s32 addr = 0; addr < sink->histos.size(); ++addr)
+        for (s32 addr = 0; addr < sink->m_histos.size(); ++addr)
         {
-            auto histo = sink->histos[addr].get();
+            auto histo = sink->m_histos[addr].get();
             auto histoNode = makeNode(histo, NodeType_Histo1D);
             histoNode->setData(0, DataRole_HistoAddress, addr);
             histoNode->setText(0, QString::number(addr));
@@ -427,6 +427,7 @@ DisplayLevelTrees EventWidgetPrivate::createSourceTrees(s32 eventIndex)
     {
         auto moduleNode = makeModuleNode(mod);
         result.operatorTree->addTopLevelItem(moduleNode);
+        moduleNode->setExpanded(true);
 
         for (auto sourceEntry: analysis->getSources(eventIndex, moduleIndex))
         {
@@ -447,6 +448,7 @@ DisplayLevelTrees EventWidgetPrivate::createSourceTrees(s32 eventIndex)
     {
         auto moduleNode = makeModuleNode(mod);
         result.displayTree->addTopLevelItem(moduleNode);
+        moduleNode->setExpanded(true);
 
         for (auto sourceEntry: analysis->getSources(eventIndex, moduleIndex))
         {
@@ -546,7 +548,6 @@ void EventWidgetPrivate::appendTreesToView(DisplayLevelTrees trees)
             if (current)
             {
                 clearTreeSelectionsExcept(tree);
-                onNodeClicked(reinterpret_cast<TreeNode *>(current), 0);
             }
         });
 
@@ -604,6 +605,7 @@ void EventWidgetPrivate::repopulate()
 {
     auto splitterSizes = m_operatorFrameSplitter->sizes();
     // clear
+#if 0
     for (auto trees: m_levelTrees)
     {
         // FIXME: this is done because setParent(nullptr) below will cause a
@@ -620,6 +622,7 @@ void EventWidgetPrivate::repopulate()
         trees.operatorTree->removeEventFilter(m_q);
         trees.displayTree->removeEventFilter(m_q);
     }
+#endif
 
     for (auto trees: m_levelTrees)
     {
@@ -655,6 +658,7 @@ void EventWidgetPrivate::repopulate()
     }
 
     expandObjectNodes(m_levelTrees, m_expandedObjects);
+    clearAllToDefaultNodeHighlights();
 }
 
 void EventWidgetPrivate::addUserLevel(s32 eventIndex)
@@ -900,9 +904,9 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
                 {
                     if (auto histoSink = qobject_cast<Histo1DSink *>(obj))
                     {
-                        if (!histoSink->histos.isEmpty())
+                        if (!histoSink->m_histos.isEmpty())
                         {
-                            auto histos = histoSink->histos;
+                            auto histos = histoSink->m_histos;
                             menu.addAction(QSL("Open"), m_q, [this, histos]() {
                                 auto listWidget = new Histo1DListWidget(histos);
                                 m_context->addWidgetWindow(listWidget);
@@ -1101,13 +1105,13 @@ static bool isValidInputNode(QTreeWidgetItem *node, Slot *slot)
 }
 
 static const QColor ValidInputNodeColor         = QColor("lightgreen");
-static const QColor InputNodeOfColor            = QColor(0x90, 0xEE, 0x90, 255.0/3); // lightgreen but with alpha
+static const QColor InputNodeOfColor            = QColor(0x90, 0xEE, 0x90, 255.0/3); // lightgreen but with some alpha
 static const QColor ChildIsInputNodeOfColor     = QColor(0x90, 0xEE, 0x90, 255.0/6);
 
-static const QColor OutputNodeOfColor           = QColor(0x00, 0x00, 0xCD, 255.0/3); // mediumblue with alpha
+static const QColor OutputNodeOfColor           = QColor(0x00, 0x00, 0xCD, 255.0/3); // mediumblue with some alpha
 static const QColor ChildIsOutputNodeOfColor    = QColor(0x00, 0x00, 0xCD, 255.0/6);
 
-static const QColor MissingInputColor           = QColor(0xB2, 0x22, 0x22, 255.0/3); // firebrick with alpha
+static const QColor MissingInputColor           = QColor(0xB2, 0x22, 0x22, 255.0/3); // firebrick with some alpha
 
 void EventWidgetPrivate::highlightValidInputNodes(QTreeWidgetItem *node)
 {
@@ -1360,6 +1364,8 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column)
                     && getUserLevelForTree(node->treeWidget()) <= m_selectInputUserLevel)
                 {
                     Slot *slot = m_selectInputSlot;
+                    Q_ASSERT(slot);
+                    AnalysisPauser pauser(m_context);
                     // connect the slot with the selected input source
                     switch (node->type())
                     {
@@ -1368,7 +1374,6 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column)
                             {
                                 Q_ASSERT(slot->acceptedInputTypes & InputType::Array);
 
-                                AnalysisPauser pauser(m_context);
                                 PipeSourceInterface *source = getPointer<PipeSourceInterface>(node);
                                 slot->connectPipe(source->getOutput(0), Slot::NoParamIndex);
                             } break;
@@ -1428,9 +1433,9 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column)
                     auto histoSink = getPointer<Histo1DSink>(node->parent());
                     s32 histoAddress = node->data(0, DataRole_HistoAddress).toInt();
 
-                    Q_ASSERT(histoAddress < histoSink->histos.size());
+                    Q_ASSERT(histoAddress < histoSink->m_histos.size());
 
-                    auto histoPtr = histoSink->histos[histoAddress];
+                    auto histoPtr = histoSink->m_histos[histoAddress];
                     auto widget = new Histo1DWidget(histoPtr);
                     m_context->addWidgetWindow(widget);
                 } break;
@@ -1438,7 +1443,7 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column)
             case NodeType_Histo1DSink:
                 {
                     auto histoSink = getPointer<Histo1DSink>(node);
-                    auto widget = new Histo1DListWidget(histoSink->histos);
+                    auto widget = new Histo1DListWidget(histoSink->m_histos);
                     m_context->addWidgetWindow(widget);
                 } break;
 
@@ -1609,6 +1614,7 @@ void EventWidget::selectInputFor(Slot *slot, s32 userLevel, SelectInputCallback 
     m_d->m_selectInputUserLevel = userLevel;
     m_d->m_selectInputCallback = callback;
     m_d->modeChanged();
+    // The actual input selection is handled in onNodeClicked()
 }
 
 void EventWidget::endSelectInput()
@@ -1722,13 +1728,13 @@ void EventWidget::addSource(SourcePtr src, ModuleConfig *module, bool addHistogr
             // create a histo for the raw uncalibrated data
             auto histo = std::make_shared<Histo1D>(histoBins, 0.0, srcMax);
             histo->setObjectName(QString("%1[%2]").arg(rawHistoSink->objectName()).arg(address));
-            rawHistoSink->histos.push_back(histo);
+            rawHistoSink->m_histos.push_back(histo);
             // TODO: rawHistoSink->histo->setXAxisTitle(xAxisTitle);
 
             // create a histo for the calibrated data
             histo = std::make_shared<Histo1D>(histoBins, 0.0, srcMax);
             histo->setObjectName(QString("%1[%2]").arg(calHistoSink->objectName()).arg(address));
-            calHistoSink->histos.push_back(histo);
+            calHistoSink->m_histos.push_back(histo);
         }
 
         rawHistoSink->connectArrayToInputSlot(0, extractor->getOutput(0));
@@ -1873,6 +1879,7 @@ static const QString AnalysisFileFilter = QSL("MVME Analysis Files (*.analysis);
 
 void AnalysisWidgetPrivate::actionNew()
 {
+    AnalysisPauser pauser(m_context);
     m_context->getAnalysisNG()->clear();
     m_context->setAnalysisConfigFileName(QString());
     repopulate();
@@ -1927,7 +1934,7 @@ void AnalysisWidgetPrivate::actionClearHistograms()
     {
         if (auto histoSink = qobject_cast<Histo1DSink *>(opEntry.op.get()))
         {
-            for (auto &histo: histoSink->histos)
+            for (auto &histo: histoSink->m_histos)
             {
                 histo->clear();
             }
