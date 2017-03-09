@@ -1631,46 +1631,9 @@ void EventWidget::addOperator(OperatorPtr op, s32 userLevel)
 {
     if (!op) return;
 
-    Q_ASSERT(userLevel < m_d->m_levelTrees.size());
-
-    if (userLevel < m_d->m_levelTrees.size())
-    {
-        AnalysisPauser pauser(m_d->m_context);
-        m_d->m_context->getAnalysisNG()->addOperator(m_d->m_eventIndex, op, userLevel);
-        op->beginRun();
-
-        auto trees = m_d->m_levelTrees[userLevel];
-        QTreeWidget *destTree = nullptr;
-        if (auto histoSink = qobject_cast<Histo1DSink *>(op.get()))
-        {
-            destTree = trees.displayTree;
-            auto node = makeHisto1DNode(histoSink);
-            // the histo1DRoot node is the first child of the display tree
-            destTree->topLevelItem(0)->addChild(node);
-        }
-        else if (auto histoSink = qobject_cast<Histo2DSink *>(op.get()))
-        {
-            destTree = trees.displayTree;
-            auto node = makeHisto2DNode(histoSink);
-            // the histo2DRoot node is the second child of the display tree
-            destTree->topLevelItem(1)->addChild(node);
-        }
-        else if (auto sink = qobject_cast<SinkInterface *>(op.get()))
-        {
-            // other sink type
-            destTree = trees.displayTree;
-            auto node = makeSinkNode(sink);
-            destTree->addTopLevelItem(node);
-        }
-        else // It's an operator
-        {
-            destTree = trees.operatorTree;
-            auto node = makeOperatorNode(op.get());
-            destTree->addTopLevelItem(node);
-        }
-
-        destTree->sortItems(0, Qt::AscendingOrder);
-    }
+    AnalysisPauser pauser(m_d->m_context);
+    m_d->m_context->getAnalysisNG()->addOperator(m_d->m_eventIndex, op, userLevel);
+    m_d->repopulate();
 }
 
 void EventWidget::operatorEdited(OperatorInterface *op)
@@ -1689,10 +1652,8 @@ void EventWidget::removeOperator(OperatorInterface *op)
     m_d->repopulate();
 }
 
-// FIXME: same as used by make_raw_data_display. compress!
-static const u32 maxRawHistoBins = (1 << 16);
-
-void EventWidget::addSource(SourcePtr src, ModuleConfig *module, bool addHistogramsAndCalibration)
+void EventWidget::addSource(SourcePtr src, ModuleConfig *module, bool addHistogramsAndCalibration,
+                            const QString &unitLabel, double unitMin, double unitMax)
 {
     if (!src) return;
 
@@ -1704,45 +1665,18 @@ void EventWidget::addSource(SourcePtr src, ModuleConfig *module, bool addHistogr
 
     AnalysisPauser pauser(m_d->m_context);
 
-    analysis->addSource(eventIndex, moduleIndex, src);
-
-    auto extractor = qobject_cast<Extractor *>(src.get());
-
-    if (addHistogramsAndCalibration && extractor)
+    if (addHistogramsAndCalibration)
     {
-        auto calibration = std::shared_ptr<CalibrationMinMax>(make_calibration_for_extractor(extractor));
-
-        auto rawHistoSink = std::make_shared<Histo1DSink>();
-        rawHistoSink->setObjectName(QString("Raw %1").arg(extractor->objectName()));
-
-        auto calHistoSink = std::make_shared<Histo1DSink>();
-        calHistoSink->setObjectName(QString("%1").arg(extractor->objectName()));
-
-        // FIXME: very similar to the code in make_raw_data_display. compress if possible
-        u32 addressCount = (1 << extractor->getFilter().getAddressBits());
-        double srcMax  = (1 << extractor->getFilter().getDataBits());
-        u32 histoBins  = std::min(static_cast<u32>(srcMax), maxRawHistoBins);
-
-        for (u32 address = 0; address < addressCount; ++address)
-        {
-            // create a histo for the raw uncalibrated data
-            auto histo = std::make_shared<Histo1D>(histoBins, 0.0, srcMax);
-            histo->setObjectName(QString("%1[%2]").arg(rawHistoSink->objectName()).arg(address));
-            rawHistoSink->m_histos.push_back(histo);
-            // TODO: rawHistoSink->histo->setXAxisTitle(xAxisTitle);
-
-            // create a histo for the calibrated data
-            histo = std::make_shared<Histo1D>(histoBins, 0.0, srcMax);
-            histo->setObjectName(QString("%1[%2]").arg(calHistoSink->objectName()).arg(address));
-            calHistoSink->m_histos.push_back(histo);
-        }
-
-        rawHistoSink->connectArrayToInputSlot(0, extractor->getOutput(0));
-        calHistoSink->connectArrayToInputSlot(0, calibration->getOutput(0));
-
-        analysis->addOperator(eventIndex, rawHistoSink, 0);
-        analysis->addOperator(eventIndex, calibration, 1);
-        analysis->addOperator(eventIndex, calHistoSink, 1);
+        // Only implemented for Extractor type sources
+        auto extractor = std::dynamic_pointer_cast<Extractor>(src);
+        Q_ASSERT(extractor);
+        auto rawDisplay = make_raw_data_display(extractor, unitMin, unitMax, "MISSING TITLE", // INCOMPLETE
+                                                unitLabel);
+        add_raw_data_display(analysis, eventIndex, moduleIndex, rawDisplay);
+    }
+    else
+    {
+        analysis->addSource(eventIndex, moduleIndex, src);
     }
 
     m_d->repopulate();
@@ -2060,12 +1994,9 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     layout->addLayout(eventSelectLayout, row++, 0);
     layout->addWidget(m_d->m_eventWidgetStack, row++, 0);
 
-#if 1
-    // FIXME: This needs to be done whenever the analysis object is modified.
     auto analysis = ctx->getAnalysisNG();
     analysis->updateRanks();
     analysis->beginRun();
-#endif
 
     m_d->repopulate();
 }

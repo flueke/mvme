@@ -5,12 +5,12 @@
 
 #include <functional>
 
-#include <QCheckBox>
 #include <QCloseEvent>
 #include <QComboBox>
 #include <QDialogButtonBox>
 #include <QDoubleSpinBox>
 #include <QFormLayout>
+#include <QGroupBox>
 #include <QLineEdit>
 #include <QSpinBox>
 #include <QTableWidget>
@@ -50,7 +50,8 @@ class EventWidget: public QWidget
         void selectInputFor(Slot *slot, s32 userLevel, SelectInputCallback callback);
         void endSelectInput();
 
-        void addSource(SourcePtr src, ModuleConfig *module, bool addHistogramsAndCalibration);
+        void addSource(SourcePtr src, ModuleConfig *module, bool addHistogramsAndCalibration,
+                       const QString &unit = QString(), double unitMin = 0.0, double unitMax = 0.0);
         void sourceEdited(SourceInterface *src);
         void removeSource(SourceInterface *src);
 
@@ -92,7 +93,11 @@ class AddEditSourceWidget: public QWidget
         DataExtractionEditor *m_filterEditor;
         QFormLayout *m_optionsLayout;
         QSpinBox *m_spinCompletionCount;
-        QCheckBox *m_cbGenHistograms;
+        QGroupBox *m_gbGenHistograms;
+        QLineEdit *le_unit = nullptr;
+        QDoubleSpinBox *spin_unitMin = nullptr;
+        QDoubleSpinBox *spin_unitMax = nullptr;
+
         bool m_editMode;
 };
 

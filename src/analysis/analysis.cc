@@ -97,10 +97,19 @@ s32 OperatorInterface::getMaximumOutputRank()
 //
 // Extractor
 //
+
+static std::uniform_real_distribution<double> RealDist01(0.0, 1.0);
+
 Extractor::Extractor(QObject *parent)
     : SourceInterface(parent)
 {
     m_output.setSource(this);
+
+    // Generate a random seed for the rng. This seed will be written out in
+    // write() and restored in read().
+    std::random_device rd;
+    std::uniform_int_distribution<u64> dist;
+    m_rngSeed = dist(rd);
 }
 
 void Extractor::beginRun()
@@ -121,6 +130,8 @@ void Extractor::beginRun()
     }
 
     params.name = this->objectName();
+
+    m_rng.seed(m_rngSeed);
 }
 
 void Extractor::beginEvent()
@@ -142,11 +153,15 @@ void Extractor::processDataWord(u32 data, s32 wordIndex)
             s32 address = m_filter.getResultAddress();
 
             auto &param = m_output.getParameters()[address];
-            // only fill if not valid to keep the first value in case of multiple hits
+            // Only fill if not valid to keep the first value in case of multiple hits in this event
             if (!param.valid)
             {
+                double dValue = value + RealDist01(m_rng);
+
                 param.valid = true;
-                param.value = value; // XXX: using the double here! ival is not used anymore
+                param.value = dValue;
+
+
 #if ENABLE_ANALYSIS_DEBUG
                 qDebug() << this << "setting param valid, addr =" << address << ", value =" << param.value
                     << ", dataWord =" << QString("0x%1").arg(data, 8, 16, QLatin1Char('0'));
@@ -197,6 +212,20 @@ Pipe *Extractor::getOutput(s32 index)
 
 void Extractor::read(const QJsonObject &json)
 {
+    // If a seed was stored reuse it, otherwise stick with the one generated in
+    // the constructor.
+    if (json.contains("rngSeed"))
+    {
+        // Need the full 64-bits which QJsonValue::toInt() does not provide.
+        // Storing as double will lead to loss of precision which effectively
+        // truncates the seed.
+        // Instead the seed is stored as a string and then parsed back to u64.
+        QString sSeed = json["rngSeed"].toString();
+        m_rngSeed = sSeed.toULongLong(nullptr, 16);
+        QString sSeedCompare = QString::number(m_rngSeed, 16);
+        Q_ASSERT(sSeed == sSeedCompare);
+    }
+
     m_filter = MultiWordDataFilter();
 
     auto filterArray = json["subFilters"].toArray();
@@ -217,6 +246,8 @@ void Extractor::read(const QJsonObject &json)
 
 void Extractor::write(QJsonObject &json) const
 {
+    json["rngSeed"] = QString::number(m_rngSeed, 16);
+
     QJsonArray filterArray;
     for (auto dataFilter: m_filter.getSubFilters())
     {
@@ -1018,6 +1049,7 @@ void Histo1DSink::beginRun()
 
     if (m_inputSlot.inputPipe)
     {
+        Q_ASSERT(m_bins);
         s32 minIdx = 0;
         s32 maxIdx = m_inputSlot.inputPipe->parameters.size();
 
@@ -1893,76 +1925,50 @@ static const u32 maxRawHistoBins = (1 << 16);
          *   negative?
          */
 
-CalibrationMinMax *make_calibration_for_extractor(Extractor *extractor)
-{
-    double srcMin  = 0.0;
-    double srcMax  = (1 << extractor->getFilter().getDataBits());
-    u32 histoBins  = std::min(static_cast<u32>(srcMax), maxRawHistoBins);
-
-    auto calibration = new CalibrationMinMax;
-    calibration->setObjectName(extractor->objectName());
-    calibration->setGlobalCalibration(srcMin, srcMax);
-    calibration->connectArrayToInputSlot(0, extractor->getOutput(0));
-
-    return calibration;
-}
-
-RawDataDisplay make_raw_data_display(const MultiWordDataFilter &extractionFilter, double unitMin, double unitMax,
-                                     const QString &filterName, const QString &xAxisTitle, const QString &unitLabel)
+RawDataDisplay make_raw_data_display(std::shared_ptr<Extractor> extractor, double unitMin, double unitMax,
+                                     const QString &xAxisTitle, const QString &unitLabel)
 {
     RawDataDisplay result;
-
-    auto extractor = std::make_shared<Extractor>();
-    extractor->setFilter(extractionFilter);
-    extractor->setObjectName(filterName);
-
     result.extractor = extractor;
+
+    auto objectName = extractor->objectName();
+    auto extractionFilter = extractor->getFilter();
 
     double srcMin  = 0.0;
     double srcMax  = (1 << extractionFilter.getDataBits());
     u32 histoBins  = std::min(static_cast<u32>(srcMax), maxRawHistoBins);
 
-    // factor in U/S, offset in U
-    // TODO: should offset be in S?
-    double factor = std::abs(unitMax - unitMin) / (srcMax - srcMin);
-    double offset = unitMin - srcMin * factor; // FIXME: correct in all cases?
-
-    qDebug() << ">>>>> factor =" << factor << ", offset =" << offset;
-
-    auto calibration = std::shared_ptr<CalibrationMinMax>(make_calibration_for_extractor(extractor.get()));
-
+    auto calibration = std::make_shared<CalibrationMinMax>();
+    calibration->setObjectName(objectName);
+    calibration->setGlobalCalibration(unitMin, unitMax);
+    calibration->setUnitLabel(unitLabel);
+    calibration->connectArrayToInputSlot(0, extractor->getOutput(0));
     result.calibration = calibration;
 
     auto rawHistoSink = std::make_shared<Histo1DSink>();
-    rawHistoSink->setObjectName(QString("Raw %1").arg(filterName));
+    rawHistoSink->setObjectName(QString("%1_raw").arg(objectName));
     rawHistoSink->m_bins = histoBins;
     result.rawHistoSink = rawHistoSink;
 
     auto calHistoSink = std::make_shared<Histo1DSink>();
-    calHistoSink->setObjectName(QString("Cal %1").arg(filterName));
+    calHistoSink->setObjectName(QString("%1").arg(objectName));
     calHistoSink->m_bins = histoBins;
     result.calibratedHistoSink = calHistoSink;
-
-    u32 addressCount = (1 << extractionFilter.getAddressBits());
-
-    for (u32 address = 0; address < addressCount; ++address)
-    {
-        // create a histo for the raw uncalibrated data
-        auto histo = std::make_shared<Histo1D>(histoBins, 0.0, srcMax);
-        histo->setObjectName(QString("%1[%2]").arg(rawHistoSink->objectName()).arg(address));
-        rawHistoSink->m_histos.push_back(histo);
-        // TODO: rawHistoSink->histo->setXAxisTitle(xAxisTitle);
-
-        // create a histo for the calibrated data
-        histo = std::make_shared<Histo1D>(histoBins, unitMin, unitMax);
-        histo->setObjectName(QString("%1[%2]").arg(calHistoSink->objectName()).arg(address));
-        calHistoSink->m_histos.push_back(histo);
-    }
 
     rawHistoSink->connectArrayToInputSlot(0, extractor->getOutput(0));
     calHistoSink->connectArrayToInputSlot(0, calibration->getOutput(0));
 
     return result;
+}
+
+RawDataDisplay make_raw_data_display(const MultiWordDataFilter &extractionFilter, double unitMin, double unitMax,
+                                     const QString &objectName, const QString &xAxisTitle, const QString &unitLabel)
+{
+    auto extractor = std::make_shared<Extractor>();
+    extractor->setFilter(extractionFilter);
+    extractor->setObjectName(objectName);
+
+    return make_raw_data_display(extractor, unitMin, unitMax, xAxisTitle, unitLabel);
 }
 
 void add_raw_data_display(Analysis *analysis, s32 eventIndex, s32 moduleIndex, const RawDataDisplay &display)

@@ -37,6 +37,7 @@
 ==========================
 ==== Do these later! =====
 ==========================
+- License info needs Apache License for PCG. Maybe others. Check what is needed here!
 - Refactor DAQConfig -> VMEConfig and DAQConfigTree to VMEConfigTree
 >>>>> Begin Analysis NG <<<<<
  - combine "single word" and "dual word" filters. the distinction is not needed

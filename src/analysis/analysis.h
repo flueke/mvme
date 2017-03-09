@@ -6,6 +6,7 @@
 #include "histo1d.h"
 #include "histo2d.h"
 #include "../util.h"
+#include "../3rdparty/pcg-cpp-0.98/include/pcg_random.hpp"
 
 #include <memory>
 #include <QUuid>
@@ -372,15 +373,16 @@ class Extractor: public SourceInterface
 
         virtual QString getDisplayName() const override { return QSL("Extractor"); }
 
-
-    private:
         // configuration
         MultiWordDataFilter m_filter;
         u32 m_requiredCompletionCount = 1;
+        u64 m_rngSeed;
+
 
         // state
         u32 m_currentCompletionCount = 0;
 
+        pcg32_fast m_rng;
         Pipe m_output;
 };
 
@@ -660,7 +662,6 @@ class Difference: public OperatorInterface
 
         virtual QString getDisplayName() const override { return QSL("Difference"); }
 
-    private:
         Slot m_inputA;
         Slot m_inputB;
         Pipe m_output;
@@ -1025,7 +1026,8 @@ struct RawDataDisplay
     std::shared_ptr<Histo1DSink> calibratedHistoSink;
 };
 
-CalibrationMinMax *make_calibration_for_extractor(Extractor *extractor);
+RawDataDisplay make_raw_data_display(std::shared_ptr<Extractor> extractor, double unitMin, double unitMax,
+                                     const QString &xAxisTitle, const QString &unitLabel);
 
 RawDataDisplay make_raw_data_display(const MultiWordDataFilter &extractionFilter, double unitMin, double unitMax,
                                      const QString &name, const QString &xAxisTitle, const QString &unitLabel);

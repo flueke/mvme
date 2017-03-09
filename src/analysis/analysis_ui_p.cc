@@ -34,9 +34,39 @@ AddEditSourceWidget::AddEditSourceWidget(SourcePtr srcPtr, ModuleConfig *mod, Ev
     m_srcPtr = srcPtr;
     setWindowTitle(QString("New  %1").arg(srcPtr->getDisplayName()));
 
-    m_cbGenHistograms = new QCheckBox;
-    m_cbGenHistograms->setChecked(true);
-    m_optionsLayout->addRow(QSL("Generate Histograms"), m_cbGenHistograms);
+    // Histogram generation and calibration
+    m_gbGenHistograms = new QGroupBox(QSL("Generate Histograms"));
+    m_gbGenHistograms->setCheckable(true);
+    m_gbGenHistograms->setChecked(true);
+
+    le_unit = new QLineEdit;
+
+    spin_unitMin = new QDoubleSpinBox;
+    spin_unitMin->setDecimals(8);
+    spin_unitMin->setMinimum(-1e20);
+    spin_unitMin->setMaximum(+1e20);
+    spin_unitMin->setValue(0.0);
+
+    spin_unitMax = new QDoubleSpinBox;
+    spin_unitMax->setDecimals(8);
+    spin_unitMax->setMinimum(-1e20);
+    spin_unitMax->setMaximum(+1e20);
+    spin_unitMax->setValue(1 << 16); // FIXME: find a better default value. Maybe input dependent (upperLimit)
+
+    auto genHistogramsLayout = new QHBoxLayout(m_gbGenHistograms);
+    genHistogramsLayout->setContentsMargins(0, 0, 0, 0);
+    auto calibInfoFrame = new QFrame;
+    genHistogramsLayout->addWidget(calibInfoFrame);
+    auto calibInfoLayout = new QFormLayout(calibInfoFrame);
+    calibInfoLayout->addRow(QSL("Unit Label"), le_unit);
+    calibInfoLayout->addRow(QSL("Unit Min"), spin_unitMin);
+    calibInfoLayout->addRow(QSL("Unit Max"), spin_unitMax);
+
+    connect(m_gbGenHistograms, &QGroupBox::toggled, this, [calibInfoFrame](bool checked) {
+        calibInfoFrame->setEnabled(checked);
+    });
+
+    m_optionsLayout->addRow(m_gbGenHistograms);
 }
 
 /** IMPORTANT: This constructor makes the Widget go into "edit" mode. When
@@ -46,12 +76,12 @@ AddEditSourceWidget::AddEditSourceWidget(SourceInterface *src, ModuleConfig *mod
     , m_src(src)
     , m_module(module)
     , m_eventWidget(eventWidget)
-    , m_cbGenHistograms(nullptr)
+    , m_gbGenHistograms(nullptr)
 {
     setWindowTitle(QString("Edit %1").arg(m_src->getDisplayName()));
 
     auto extractor = qobject_cast<Extractor *>(src);
-    Q_ASSERT(extractor); // TODO: implement support for other sources once they exist (if they ever do)
+    Q_ASSERT(extractor);
     Q_ASSERT(module);
 
     le_name = new QLineEdit;
@@ -114,7 +144,8 @@ void AddEditSourceWidget::accept()
 
     if (m_srcPtr)
     {
-        m_eventWidget->addSource(m_srcPtr, m_module, m_cbGenHistograms->isChecked());
+        m_eventWidget->addSource(m_srcPtr, m_module, m_gbGenHistograms->isChecked(),
+                                 le_unit->text(), spin_unitMin->value(), spin_unitMax->value());
     }
     else
     {
@@ -222,7 +253,6 @@ AddEditOperatorWidget::AddEditOperatorWidget(OperatorInterface *op, s32 userLeve
             m_selectButtons[slotIndex]->setText(QSL("<select>"));
             // Disable ok button as there's now at least one unset input
             m_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(false);
-            //m_opConfigWidget->setEnabled(false);
             m_opConfigWidget->inputSelected(slotIndex);
         });
 
@@ -434,6 +464,7 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
 
     le_name = new QLineEdit;
     connect(le_name, &QLineEdit::textEdited, this, [this](const QString &newText) {
+        // If the user clears the textedit reset wasNameEdited to false.
         this->wasNameEdited = !newText.isEmpty();
     });
     formLayout->addRow(QSL("Name"), le_name);
@@ -496,7 +527,7 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
         spin_unitMin->setDecimals(8);
         spin_unitMin->setMinimum(-1e20);
         spin_unitMin->setMaximum(+1e20);
-        spin_unitMin->setValue(0.0); // FIXME: find a better default value. Maybe input dependent (lowerLimit)
+        spin_unitMin->setValue(0.0);
 
         spin_unitMax = new QDoubleSpinBox;
         spin_unitMax->setDecimals(8);
@@ -641,9 +672,16 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
         {
             QString nameX = makeSlotSourceString(&histoSink->m_inputX);
             QString nameY = makeSlotSourceString(&histoSink->m_inputY);
-            le_name->setText(QString("%1_vs_%2")
-                             .arg(nameX)
-                             .arg(nameY));
+            le_name->setText(QString("%1_vs_%2").arg(nameX).arg(nameY));
+        }
+    }
+    else if (auto difference = qobject_cast<Difference *>(op))
+    {
+        if (difference->m_inputA.isConnected() && difference->m_inputB.isConnected())
+        {
+            QString nameA = makeSlotSourceString(&difference->m_inputA);
+            QString nameB = makeSlotSourceString(&difference->m_inputB);
+            le_name->setText(QString("%1 - %2").arg(nameA).arg(nameB));
         }
     }
 }
