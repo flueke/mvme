@@ -2,6 +2,9 @@
 #include "ui_histo1d_widget.h"
 #include "scrollzoomer.h"
 #include "util.h"
+#include "analysis/analysis.h"
+#include "qt-collapsible-section/Section.h"
+#include "mvme_context.h"
 
 #include <qwt_plot_curve.h>
 #include <qwt_plot_histogram.h>
@@ -16,16 +19,13 @@
 #include <QFileInfo>
 #include <QFile>
 #include <QFileDialog>
+#include <QLabel>
 #include <QMessageBox>
 #include <QSettings>
 #include <QSpinBox>
 #include <QStandardPaths>
 #include <QTextStream>
 #include <QTimer>
-
-#ifdef ENABLE_CALIB_UI
-#include <QLabel>
-#endif
 
 static const s32 ReplotPeriod_ms = 1000;
 
@@ -57,6 +57,16 @@ class Histo1DPointData: public QwtSeriesData<QPointF>
 
     private:
         Histo1D *m_histo;
+};
+
+struct CalibUi
+{
+    QDoubleSpinBox *actual1, *actual2,
+                   *target1, *target2,
+                   *lastFocusedActual;
+    QPushButton *applyButton,
+                *fillMaxButton,
+                *resetToFilterButton;
 };
 
 Histo1DWidget::Histo1DWidget(const Histo1DPtr &histoPtr, QWidget *parent)
@@ -98,12 +108,6 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
 
     m_zoomer = new ScrollZoomer(ui->plot->canvas());
 
-    // assign the unused yRight axis to only zoom in x
-    // Note: I disabled this as it caused a wrong y value to be displayed on
-    // the tracker text when creating a zoom rectangle. The effect of not
-    // zooming into y is achieved by setting a fixed yAxis after a zoom
-    // operation.
-    //m_zoomer->setAxis(QwtPlot::xBottom, QwtPlot::yRight);
     m_zoomer->setVScrollBarMode(Qt::ScrollBarAlwaysOff);
     m_zoomer->setZoomBase();
 
@@ -158,7 +162,6 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     //
     // Calib Ui
     //
-#ifdef ENABLE_CALIB_UI
     m_calibUi = new CalibUi;
     m_calibUi->actual1 = new QDoubleSpinBox;
     m_calibUi->actual2 = new QDoubleSpinBox;
@@ -168,7 +171,7 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     m_calibUi->fillMaxButton = new QPushButton(QSL("Vis. Max"));
     m_calibUi->fillMaxButton->setToolTip(QSL("Fill the last focused actual value with the visible maximum histogram value"));
     m_calibUi->resetToFilterButton = new QPushButton(QSL("Restore"));
-    m_calibUi->resetToFilterButton->setToolTip(QSL("Restore base unit values from source filter"));
+    m_calibUi->resetToFilterButton->setToolTip(QSL("Restore base unit values from source calibration"));
 
     m_calibUi->lastFocusedActual = m_calibUi->actual2;
     m_calibUi->actual1->installEventFilter(this);
@@ -213,7 +216,9 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     auto calibFrameLayout = new QHBoxLayout(ui->frame_calib);
     calibFrameLayout->setContentsMargins(0, 0, 0, 0);
     calibFrameLayout->addWidget(calibSection);
-#endif
+
+    // Hide the calibration UI. It will be shown if setCalibrationInfo() is called.
+    ui->frame_calib->setVisible(false);
 
     setHistogram(histo);
     displayChanged();
@@ -453,9 +458,19 @@ void Histo1DWidget::updateCursorInfoLabel()
     }
 }
 
+void Histo1DWidget::setCalibrationInfo(const std::shared_ptr<analysis::CalibrationMinMax> &calib, s32 histoAddress, MVMEContext *context)
+{
+    m_calib = calib;
+    m_histoAddress = histoAddress;
+    ui->frame_calib->setVisible(m_calib != nullptr);
+    m_context = context;
+}
+
 void Histo1DWidget::calibApply()
 {
-#ifdef ENABLE_CALIB_UI
+    Q_ASSERT(m_calib);
+    Q_ASSERT(m_context);
+
     double a1 = m_calibUi->actual1->value();
     double a2 = m_calibUi->actual2->value();
     double t1 = m_calibUi->target1->value();
@@ -467,10 +482,10 @@ void Histo1DWidget::calibApply()
     double a = (t1 - t2) / (a1 - a2);
     double b = t1 - a * a1;
 
-    u32 address = m_histoConfig->getFilterAddress();
+    u32 address = m_histoAddress;
 
-    double actualMin = m_sourceFilter->getUnitMin(address);
-    double actualMax = m_sourceFilter->getUnitMax(address);
+    double actualMin = m_calib->getCalibration(address).unitMin;
+    double actualMax = m_calib->getCalibration(address).unitMax;
 
     double targetMin = a * actualMin + b;
     double targetMax = a * actualMax + b;
@@ -482,45 +497,37 @@ void Histo1DWidget::calibApply()
         << "aMinMax" << actualMin << actualMax << endl
         << "tMinMax" << targetMin << targetMax;
 
-    m_sourceFilter->setUnitRange(address, targetMin, targetMax);
-
-    m_context->getAnalysisConfig()->updateHistogramsForFilter(m_sourceFilter);
-
     m_calibUi->actual1->setValue(m_calibUi->target1->value());
     m_calibUi->actual2->setValue(m_calibUi->target2->value());
-#endif
+
+    AnalysisPauser pauser(m_context);
+    m_calib->setCalibration(address, targetMin, targetMax);
+    analysis::do_beginRun_forward(m_calib.get());
 }
 
 void Histo1DWidget::calibResetToFilter()
 {
-#ifdef ENABLE_CALIB_UI
-    u32 address = m_histoConfig->getFilterAddress();
-    m_sourceFilter->resetToBaseUnits(address);
-
-    m_context->getAnalysisConfig()->updateHistogramsForFilter(m_sourceFilter);
-#endif
+    u32 address = m_histoAddress;
+    auto globalCalib = m_calib->getGlobalCalibration();
+    AnalysisPauser pauser(m_context);
+    m_calib->setCalibration(address, globalCalib);
+    analysis::do_beginRun_forward(m_calib.get());
 }
 
 void Histo1DWidget::calibFillMax()
 {
-#ifdef ENABLE_CALIB_UI
-    double maxAt = m_conversionMap.transform(m_stats.maxChannel);
+    double maxAt = m_histo->getAxisBinning(Qt::XAxis).getBinCenter(m_stats.maxBin);
     m_calibUi->lastFocusedActual->setValue(maxAt);
-#endif
 }
 
 bool Histo1DWidget::eventFilter(QObject *watched, QEvent *event)
 {
-#ifdef ENABLE_CALIB_UI
     if ((watched == m_calibUi->actual1 || watched == m_calibUi->actual2)
         && (event->type() == QEvent::FocusIn))
     {
         m_calibUi->lastFocusedActual = qobject_cast<QDoubleSpinBox *>(watched);
     }
-    return MVMEWidget::eventFilter(watched, event);
-#else
     return QWidget::eventFilter(watched, event);
-#endif
 }
 
 //
@@ -529,6 +536,7 @@ bool Histo1DWidget::eventFilter(QObject *watched, QEvent *event)
 Histo1DListWidget::Histo1DListWidget(const HistoList &histos, QWidget *parent)
     : QWidget(parent)
     , m_histos(histos)
+    , m_currentIndex(0)
 {
     Q_ASSERT(histos.size());
 
@@ -546,7 +554,7 @@ Histo1DListWidget::Histo1DListWidget(const HistoList &histos, QWidget *parent)
     auto histoSpinBox = new QSpinBox;
     histoSpinBox->setMaximum(histos.size() - 1);
     connect(histoSpinBox, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
-            this, &Histo1DListWidget::onHistSpinBoxValueChanged);
+            this, &Histo1DListWidget::onHistoSpinBoxValueChanged);
 
     histoSpinLayout->addWidget(histoSpinBox);
 
@@ -559,14 +567,30 @@ Histo1DListWidget::Histo1DListWidget(const HistoList &histos, QWidget *parent)
     layout->addWidget(m_histoWidget);
 
     setWindowTitle(m_histoWidget->windowTitle());
+    onHistoSpinBoxValueChanged(0);
 }
 
-void Histo1DListWidget::onHistSpinBoxValueChanged(int index)
+void Histo1DListWidget::onHistoSpinBoxValueChanged(int index)
 {
+    m_currentIndex = index;
     auto histo = m_histos.value(index);
 
     if (histo)
     {
         m_histoWidget->setHistogram(histo.get());
+        if (m_calib)
+        {
+            m_histoWidget->setCalibrationInfo(m_calib, index, m_context);
+        }
+    }
+}
+
+void Histo1DListWidget::setCalibration(const std::shared_ptr<analysis::CalibrationMinMax> &calib, MVMEContext *context)
+{
+    m_calib = calib;
+    m_context = context;
+    if (m_calib)
+    {
+        m_histoWidget->setCalibrationInfo(m_calib, m_currentIndex, m_context);
     }
 }

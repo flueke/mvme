@@ -11,16 +11,24 @@ class QwtPlotHistogram;
 class QwtPlotTextLabel;
 class QwtText;
 class ScrollZoomer;
+class CalibUi;
+class MVMEContext;
 
 namespace Ui
 {
     class Histo1DWidget;
 }
 
+namespace analysis
+{
+    class CalibrationMinMax;
+}
+
 class Histo1DWidget: public QWidget
 {
     Q_OBJECT
     public:
+        // Convenience constructor that enables the widget to keep the histo alive.
         Histo1DWidget(const Histo1DPtr &histo, QWidget *parent = 0);
         Histo1DWidget(Histo1D *histo, QWidget *parent = 0);
         ~Histo1DWidget();
@@ -30,6 +38,8 @@ class Histo1DWidget: public QWidget
         virtual bool eventFilter(QObject *watched, QEvent *event) override;
 
         friend class Histo1DListWidget;
+
+        void setCalibrationInfo(const std::shared_ptr<analysis::CalibrationMinMax> &calib, s32 histoAddress, MVMEContext *context);
 
     private slots:
         void replot();
@@ -62,9 +72,11 @@ class Histo1DWidget: public QWidget
         QwtPlotTextLabel *m_statsTextItem;
         QwtText *m_statsText;
         QPointF m_cursorPosition;
-#ifdef ENABLE_CALIB_UI
+
         CalibUi *m_calibUi;
-#endif
+        std::shared_ptr<analysis::CalibrationMinMax> m_calib;
+        s32 m_histoAddress;
+        MVMEContext *m_context;
 };
 
 class Histo1DListWidget: public QWidget
@@ -77,12 +89,17 @@ class Histo1DListWidget: public QWidget
 
         HistoList getHistograms() const { return m_histos; }
 
+        // XXX: MVMEContext is passed so that the analysis can be paused from within the widget.
+        void setCalibration(const std::shared_ptr<analysis::CalibrationMinMax> &calib, MVMEContext *context);
+
     private:
-        void onHistSpinBoxValueChanged(int index);
+        void onHistoSpinBoxValueChanged(int index);
 
         HistoList m_histos;
         Histo1DWidget *m_histoWidget;
-        int m_currentIndex = 0;
+        s32 m_currentIndex = 0;
+        std::shared_ptr<analysis::CalibrationMinMax> m_calib;
+        MVMEContext *m_context;
 };
 
 #endif /* __HISTO1D_WIDGET_H__ */

@@ -2,6 +2,7 @@
 #include "data_extraction_widget.h"
 #include "../globals.h"
 #include "../mvme_config.h"
+#include "../mvme_context.h"
 
 #include <limits>
 #include <QFormLayout>

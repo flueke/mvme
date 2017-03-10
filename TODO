@@ -31,6 +31,9 @@
    getting the top level nodes 0 and 1 will not yield the correct nodes
    anymore!
 
+- AnalysisPauser: define a creator function for it or encapsulate it so that
+  MVMEContext does not need to be passed around everywhere.
+
 <<<<< End AnalysisNG >>>>>
 
 

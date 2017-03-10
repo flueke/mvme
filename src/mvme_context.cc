@@ -1143,3 +1143,25 @@ Hist2D *createHistogram(Hist2DConfig *config, MVMEContext *ctx)
 
     return result;
 }
+
+AnalysisPauser::AnalysisPauser(MVMEContext *context)
+    : context(context)
+{
+    was_running = context->isAnalysisRunning();
+
+    qDebug() << __PRETTY_FUNCTION__ << was_running;
+
+    if (was_running)
+    {
+        context->stopAnalysis();
+    }
+}
+
+AnalysisPauser::~AnalysisPauser()
+{
+    qDebug() << __PRETTY_FUNCTION__ << was_running;
+    if (was_running)
+    {
+        context->resumeAnalysis();
+    }
+}

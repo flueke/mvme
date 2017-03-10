@@ -25,29 +25,6 @@
 namespace analysis
 {
 
-AnalysisPauser::AnalysisPauser(MVMEContext *context)
-    : context(context)
-{
-    was_running = context->isAnalysisRunning();
-
-    qDebug() << __PRETTY_FUNCTION__ << was_running;
-
-    if (was_running)
-    {
-        context->stopAnalysis();
-    }
-}
-
-AnalysisPauser::~AnalysisPauser()
-{
-    qDebug() << __PRETTY_FUNCTION__ << was_running;
-    if (was_running)
-    {
-        context->resumeAnalysis();
-    }
-}
-
-
 enum DataRole
 {
     DataRole_Pointer = Qt::UserRole,
@@ -242,6 +219,53 @@ inline TreeNode *makeOperatorNode(OperatorInterface *op)
 
     return result;
 };
+
+struct Histo1DWidgetInfo
+{
+    QVector<std::shared_ptr<Histo1D>> histos;
+    s32 histoAddress;
+    std::shared_ptr<CalibrationMinMax> calib;
+};
+
+Histo1DWidgetInfo getHisto1DWidgetInfoFromNode(QTreeWidgetItem *node)
+{
+    QTreeWidgetItem *sinkNode = nullptr;
+    Histo1DWidgetInfo result;
+
+    switch (node->type())
+    {
+        case NodeType_Histo1D:
+            {
+                Q_ASSERT(node->parent() && node->parent()->type() == NodeType_Histo1DSink);
+                sinkNode = node->parent();
+                result.histoAddress = node->data(0, DataRole_HistoAddress).toInt();
+            } break;
+
+        case NodeType_Histo1DSink:
+            {
+                sinkNode = node;
+                result.histoAddress = 0;
+            } break;
+
+        InvalidDefaultCase;
+    }
+
+    auto histoSink = getPointer<Histo1DSink>(sinkNode);
+    result.histos = histoSink->m_histos;
+
+    Q_ASSERT(histoSink->m_histos.size() && result.histoAddress < histoSink->m_histos.size());
+
+    // Check if the histosinks input is a CalibrationMinMax
+    if (Pipe *sinkInputPipe = histoSink->getSlot(0)->inputPipe)
+    {
+        if (auto calibRaw = qobject_cast<CalibrationMinMax *>(sinkInputPipe->getSource()))
+        {
+            result.calib = std::dynamic_pointer_cast<CalibrationMinMax>(calibRaw->getSharedPointer());
+        }
+    }
+
+    return result;
+}
 
 struct DisplayLevelTrees
 {
@@ -892,27 +916,30 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
         {
             case NodeType_Histo1D:
                 {
-                    if (auto histo = qobject_cast<Histo1D *>(obj))
-                    {
-                        menu.addAction(QSL("Open"), m_q, [this, histo]() {
-                            m_context->openInNewWindow(histo);
-                        });
-                    }
+                    Histo1DWidgetInfo widgetInfo = getHisto1DWidgetInfoFromNode(node);
+
+                    menu.addAction(QSL("Open"), m_q, [this, widgetInfo]() {
+                        auto widget = new Histo1DWidget(widgetInfo.histos[widgetInfo.histoAddress]);
+                        if (widgetInfo.calib)
+                        {
+                            widget->setCalibrationInfo(widgetInfo.calib, widgetInfo.histoAddress, m_context);
+                        }
+                        m_context->addWidgetWindow(widget);
+                    });
                 } break;
 
             case NodeType_Histo1DSink:
                 {
-                    if (auto histoSink = qobject_cast<Histo1DSink *>(obj))
-                    {
-                        if (!histoSink->m_histos.isEmpty())
+                    Histo1DWidgetInfo widgetInfo = getHisto1DWidgetInfoFromNode(node);
+
+                    menu.addAction(QSL("Open"), m_q, [this, widgetInfo]() {
+                        auto listWidget = new Histo1DListWidget(widgetInfo.histos);
+                        if (widgetInfo.calib)
                         {
-                            auto histos = histoSink->m_histos;
-                            menu.addAction(QSL("Open"), m_q, [this, histos]() {
-                                auto listWidget = new Histo1DListWidget(histos);
-                                m_context->addWidgetWindow(listWidget);
-                            });
+                            listWidget->setCalibration(widgetInfo.calib, m_context);
                         }
-                    }
+                        m_context->addWidgetWindow(listWidget);
+                    });
                 } break;
 
             case NodeType_Histo2DSink:
@@ -1423,28 +1450,24 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column)
             // TODO: do not create duplicate widgets here. instead raise existing ones
             case NodeType_Histo1D:
                 {
-                    // Note: obj is a raw pointer to the histo, but it's better
-                    // to use the shared_ptr held by the parent Histo1DSink.
-                    // This way we can pass the shared_ptr to Histo1DWidget and
-                    // be sure that the histo is not deleted while the widget
-                    // is active.
-                    Q_ASSERT(node->parent());
-
-                    auto histoSink = getPointer<Histo1DSink>(node->parent());
-                    s32 histoAddress = node->data(0, DataRole_HistoAddress).toInt();
-
-                    Q_ASSERT(histoAddress < histoSink->m_histos.size());
-
-                    auto histoPtr = histoSink->m_histos[histoAddress];
-                    auto widget = new Histo1DWidget(histoPtr);
+                    Histo1DWidgetInfo widgetInfo = getHisto1DWidgetInfoFromNode(node);
+                    auto widget = new Histo1DWidget(widgetInfo.histos[widgetInfo.histoAddress]);
+                    if (widgetInfo.calib)
+                    {
+                        widget->setCalibrationInfo(widgetInfo.calib, widgetInfo.histoAddress, m_context);
+                    }
                     m_context->addWidgetWindow(widget);
                 } break;
 
             case NodeType_Histo1DSink:
                 {
-                    auto histoSink = getPointer<Histo1DSink>(node);
-                    auto widget = new Histo1DListWidget(histoSink->m_histos);
-                    m_context->addWidgetWindow(widget);
+                    Histo1DWidgetInfo widgetInfo = getHisto1DWidgetInfoFromNode(node);
+                    auto listWidget = new Histo1DListWidget(widgetInfo.histos);
+                    if (widgetInfo.calib)
+                    {
+                        listWidget->setCalibration(widgetInfo.calib, m_context);
+                    }
+                    m_context->addWidgetWindow(listWidget);
                 } break;
 
             case NodeType_Histo2DSink:
@@ -1723,10 +1746,13 @@ bool EventWidget::eventFilter(QObject *watched, QEvent *event)
             {
                 if (tree == watched)
                 {
-                    auto node = tree->topLevelItem(0);
-                    if (node)
+                    if (!tree->currentItem())
                     {
-                        tree->setCurrentItem(node);
+                        auto node = tree->topLevelItem(0);
+                        if (node)
+                        {
+                            tree->setCurrentItem(node);
+                        }
                     }
                     break;
                 }

@@ -68,7 +68,7 @@ class OperatorInterface;
 class Pipe;
 
 /* Interface to indicate that something can the be source of a Pipe. */
-class PipeSourceInterface: public QObject
+class PipeSourceInterface: public QObject, public std::enable_shared_from_this<PipeSourceInterface>
 {
     Q_OBJECT
     public:
@@ -100,6 +100,8 @@ class PipeSourceInterface: public QObject
          * This will also be called by Analysis UI to be able to get array
          * sizes from operator output pipes! */
         virtual void beginRun() = 0;
+
+        std::shared_ptr<PipeSourceInterface> getSharedPointer() { return shared_from_this(); }
 
     private:
         PipeSourceInterface() = delete;
@@ -552,12 +554,12 @@ class CalibrationMinMax: public BasicOperator
             setCalibration(address, CalibrationMinMaxParameters(unitMin, unitMax));
         }
 
+        CalibrationMinMaxParameters getCalibration(s32 address) const;
+
         s32 getCalibrationCount() const
         {
             return m_calibrations.size();
         }
-
-        CalibrationMinMaxParameters getCalibration(s32 address) const;
 
         QString getUnitLabel() const { return m_unit; }
         void setUnitLabel(const QString &label) { m_unit = label; }

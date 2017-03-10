@@ -28,15 +28,6 @@ class DataExtractionEditor;
 class EventWidgetPrivate;
 class OperatorConfigurationWidget;
 
-struct AnalysisPauser
-{
-    AnalysisPauser(MVMEContext *context);
-    ~AnalysisPauser();
-
-    MVMEContext *context;
-    bool was_running;
-};
-
 class EventWidget: public QWidget
 {
     Q_OBJECT

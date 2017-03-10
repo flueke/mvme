@@ -312,4 +312,13 @@ class Hist2D;
 Hist1D *createHistogram(Hist1DConfig *config, MVMEContext *ctx = nullptr);
 Hist2D *createHistogram(Hist2DConfig *config, MVMEContext *ctx = nullptr);
 
+struct AnalysisPauser
+{
+    AnalysisPauser(MVMEContext *context);
+    ~AnalysisPauser();
+
+    MVMEContext *context;
+    bool was_running;
+};
+
 #endif
