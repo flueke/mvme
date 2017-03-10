@@ -148,9 +148,13 @@ class OperatorConfigurationWidget: public QWidget
         QDoubleSpinBox *spin_offset = nullptr;
         QDoubleSpinBox *spin_unitMin = nullptr;
         QDoubleSpinBox *spin_unitMax = nullptr;
+        // CalibrationMinMax
+        QTableWidget *m_calibrationTable = nullptr;
 
         // IndexSelector
         QSpinBox *spin_index = nullptr;
+
+        void fillCalibrationTable(CalibrationMinMax *calib);
 };
 
 class PipeDisplay: public QWidget

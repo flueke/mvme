@@ -5,6 +5,10 @@ CONFIG   += object_parallel_to_source
 TARGET = ../mvme
 TEMPLATE = app
 
+#CONFIG += sse2
+#QMAKE_CXXFLAGS_RELEASE -= -O2
+#QMAKE_CXXFLAGS_RELEASE += -O3 -msse -msse2
+
 # When building with clang qmake puts -Wall after the contents of
 # QMAKE_CXXFLAGS and clang thus turns all warnings on again. To circumvent this
 # problem disable warnings via warn_off and then prepend -Wall to
@@ -22,9 +26,6 @@ CONFIG(debug, debug|release) {
 DEFINES += ENABLE_OLD_ANALYSIS
 DEFINES += VME_CONTROLLER_WIENER
 #DEFINES += VME_CONTROLLER_CAEN
-
-#CONFIG   += sse2
-#QMAKE_CXXFLAGS += -msse -msse2
 
 # ASAN
 asan {

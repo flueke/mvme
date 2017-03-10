@@ -460,8 +460,13 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
     , m_op(op)
     , m_userLevel(userLevel)
 {
-    auto *formLayout = new QFormLayout(this);
+    auto widgetLayout = new QVBoxLayout(this);
+    widgetLayout->setContentsMargins(0, 0, 0, 0);
+
+    auto *formLayout = new QFormLayout;
     formLayout->setContentsMargins(2, 2, 2, 2);
+
+    widgetLayout->addLayout(formLayout);
 
     le_name = new QLineEdit;
     connect(le_name, &QLineEdit::textEdited, this, [this](const QString &newText) {
@@ -534,7 +539,7 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
         spin_unitMax->setDecimals(8);
         spin_unitMax->setMinimum(-1e20);
         spin_unitMax->setMaximum(+1e20);
-        spin_unitMax->setValue(1 << 16); // FIXME: find a better default value. Maybe input dependent (upperLimit)
+        spin_unitMax->setValue(0.0);
 
         formLayout->addRow(QSL("Unit Label"), le_unit);
         formLayout->addRow(QSL("Unit Min"), spin_unitMin);
@@ -548,6 +553,13 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
             spin_unitMin->setValue(globalParams.unitMin);
             spin_unitMax->setValue(globalParams.unitMax);
         }
+
+        m_calibrationTable = new QTableWidget;
+        m_calibrationTable->setVisible(false);
+
+        inputSelected(0);
+
+        widgetLayout->addWidget(m_calibrationTable);
     }
     else if (auto selector = qobject_cast<IndexSelector *>(op))
     {
@@ -594,6 +606,11 @@ bool OperatorConfigurationWidget::validateInputs()
 void OperatorConfigurationWidget::configureOperator()
 {
     OperatorInterface *op = m_op;
+
+    for (s32 slotIndex = 0; slotIndex < m_op->getNumberOfSlots(); ++slotIndex)
+    {
+        Q_ASSERT(op->getSlot(slotIndex)->isConnected());
+    }
 
     op->setObjectName(le_name->text());
 
@@ -642,6 +659,19 @@ void OperatorConfigurationWidget::configureOperator()
         double unitMax = spin_unitMax->value();
 
         calibration->setGlobalCalibration(unitMin, unitMax);
+
+        for (s32 addr = 0; addr < op->getSlot(0)->inputPipe->parameters.size(); ++addr)
+        {
+            unitMin = unitMin = make_quiet_nan();
+
+            if (auto item = m_calibrationTable->item(addr, 0))
+                unitMin = item->data(Qt::EditRole).toDouble();
+
+            if (auto item = m_calibrationTable->item(addr, 1))
+                unitMax = item->data(Qt::EditRole).toDouble();
+
+            calibration->setCalibration(addr, unitMin, unitMax);
+        }
     }
     else if (auto selector = qobject_cast<IndexSelector *>(op))
     {
@@ -655,36 +685,93 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
     OperatorInterface *op = m_op;
     Slot *slot = op->getSlot(slotIndex);
 
-    if (wasNameEdited)
-    {
-        return;
-    }
 
-    // The name field is empty or was never modified by the user. Update its
-    // contents to reflect the newly selected input(s).
-
-    if (op->getNumberOfSlots() == 1)
+    if (!wasNameEdited)
     {
-        le_name->setText(makeSlotSourceString(slot));
-    }
-    else if (auto histoSink = qobject_cast<Histo2DSink *>(op))
-    {
-        if (histoSink->m_inputX.isConnected() && histoSink->m_inputY.isConnected())
+        // The name field is empty or was never modified by the user. Update its
+        // contents to reflect the newly selected input(s).
+        if (op->getNumberOfSlots() == 1 && op->getSlot(0)->isConnected())
         {
-            QString nameX = makeSlotSourceString(&histoSink->m_inputX);
-            QString nameY = makeSlotSourceString(&histoSink->m_inputY);
-            le_name->setText(QString("%1_vs_%2").arg(nameX).arg(nameY));
+            le_name->setText(makeSlotSourceString(slot));
+        }
+        else if (auto histoSink = qobject_cast<Histo2DSink *>(op))
+        {
+            if (histoSink->m_inputX.isConnected() && histoSink->m_inputY.isConnected())
+            {
+                QString nameX = makeSlotSourceString(&histoSink->m_inputX);
+                QString nameY = makeSlotSourceString(&histoSink->m_inputY);
+                le_name->setText(QString("%1_vs_%2").arg(nameX).arg(nameY));
+            }
+        }
+        else if (auto difference = qobject_cast<Difference *>(op))
+        {
+            if (difference->m_inputA.isConnected() && difference->m_inputB.isConnected())
+            {
+                QString nameA = makeSlotSourceString(&difference->m_inputA);
+                QString nameB = makeSlotSourceString(&difference->m_inputB);
+                le_name->setText(QString("%1 - %2").arg(nameA).arg(nameB));
+            }
         }
     }
-    else if (auto difference = qobject_cast<Difference *>(op))
+
+    if (auto calibration = qobject_cast<CalibrationMinMax *>(op))
     {
-        if (difference->m_inputA.isConnected() && difference->m_inputB.isConnected())
+        if (calibration->getSlot(0)->isConnected())
         {
-            QString nameA = makeSlotSourceString(&difference->m_inputA);
-            QString nameB = makeSlotSourceString(&difference->m_inputB);
-            le_name->setText(QString("%1 - %2").arg(nameA).arg(nameB));
+            if (!calibration->getGlobalCalibration().isValid())
+            {
+                Parameter *firstParam = calibration->getSlot(0)->inputPipe->first();
+                if (firstParam)
+                {
+                    calibration->setGlobalCalibration(firstParam->lowerLimit, firstParam->upperLimit);
+                    spin_unitMin->setValue(firstParam->lowerLimit);
+                    spin_unitMax->setValue(firstParam->upperLimit);
+                }
+            }
+
+            fillCalibrationTable(calibration);
+        }
+        else
+        {
+            m_calibrationTable->setVisible(false);
         }
     }
+}
+
+void OperatorConfigurationWidget::fillCalibrationTable(CalibrationMinMax *calib)
+{
+    Q_ASSERT(calib->getSlot(0)->isConnected());
+
+
+    s32 paramCount = calib->getSlot(0)->inputPipe->parameters.size();
+
+    m_calibrationTable->clear();
+    m_calibrationTable->setColumnCount(2);
+    m_calibrationTable->setHorizontalHeaderLabels({"Min", "Max"});
+    m_calibrationTable->setCornerButtonEnabled(true);
+    m_calibrationTable->setRowCount(paramCount);
+
+    for (s32 addr = 0; addr < paramCount; ++addr)
+    {
+        auto calibParams = calib->getCalibration(addr);
+        auto item = new QTableWidgetItem;
+        item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled | Qt::ItemIsEditable);
+        item->setData(Qt::EditRole, calibParams.unitMin);
+        //item->setText(QString::number(calibParams.unitMin));
+        m_calibrationTable->setItem(addr, 0, item);
+
+        item = new QTableWidgetItem;
+        item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled | Qt::ItemIsEditable);
+        item->setData(Qt::EditRole, calibParams.unitMax);
+        item->setText(QString::number(calibParams.unitMax));
+        m_calibrationTable->setItem(addr, 1, item);
+
+        m_calibrationTable->setVerticalHeaderItem(addr, new QTableWidgetItem(QString::number(addr)));
+    }
+
+    m_calibrationTable->setVisible(true);
+    //m_calibrationTable->resizeColumnsToContents();
+    m_calibrationTable->resizeRowsToContents();
 }
 
 //

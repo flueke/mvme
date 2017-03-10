@@ -1,6 +1,7 @@
 ==========================
 ==== Do these first! =====
 ==========================
+- Histo1DWidget: zoom out after applying calibration
 >>>>> Begin Analysis NG <<<<<
  - react to event and module renames
  - L0 Data Display -> module -> create raw histograms
@@ -43,6 +44,7 @@
 - License info needs Apache License for PCG. Maybe others. Check what is needed here!
 - Refactor DAQConfig -> VMEConfig and DAQConfigTree to VMEConfigTree
 >>>>> Begin Analysis NG <<<<<
+ - remove CalibrationFactorOffset. CalibrationMinMax seems to be everything that's needed right now
  - combine "single word" and "dual word" filters. the distinction is not needed
    anymore as both are MultiWordDataFilters now
 - More icons: icon for array of histos

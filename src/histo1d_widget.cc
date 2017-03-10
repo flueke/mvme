@@ -52,7 +52,11 @@ class Histo1DPointData: public QwtSeriesData<QPointF>
 
         virtual QRectF boundingRect() const override
         {
-            return QRectF(0, 0, m_histo->getWidth(), m_histo->getMaxValue());
+            auto result = QRectF(
+                m_histo->getXMin(),  m_histo->getMaxValue(), // top-left
+                m_histo->getWidth(), m_histo->getMaxValue());  // width, height
+
+            return result;
         }
 
     private:
@@ -221,7 +225,6 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     ui->frame_calib->setVisible(false);
 
     setHistogram(histo);
-    displayChanged();
 }
 
 Histo1DWidget::~Histo1DWidget()
@@ -263,7 +266,7 @@ void Histo1DWidget::displayChanged()
 
     auto name = m_histo->objectName();
 
-    setWindowTitle(QString("Histogram %1 [double based]").arg(name));
+    setWindowTitle(QString("Histogram %1").arg(name));
 
     /* Before the scale change the zoomer might have been zoomed into negative
      * x-axis bins. This results in scaling errors and a zoom into negative
@@ -274,8 +277,8 @@ void Histo1DWidget::displayChanged()
      * zoomerZoomed(). This method will then again limit the x-axis' lower
      * bound to 0.0.
      */
-    ui->plot->updateAxes();
-    zoomerZoomed(m_zoomer->zoomRect());
+    //ui->plot->updateAxes();
+    //zoomerZoomed(m_zoomer->zoomRect());
 
     replot();
 }
@@ -290,16 +293,27 @@ void Histo1DWidget::zoomerZoomed(const QRectF &zoomRect)
         m_zoomer->setZoomBase();
     }
 
-    // do not zoom into negatives
-
+// FIXME: reenable this
+#if 0
+    // do not zoom outside the histogram range
     auto scaleDiv = ui->plot->axisScaleDiv(QwtPlot::xBottom);
 
     if (scaleDiv.lowerBound() < m_histo->getXMin())
     {
         scaleDiv.setLowerBound(m_histo->getXMin());
-        ui->plot->setAxisScaleDiv(QwtPlot::xBottom, scaleDiv);
     }
 
+    if (scaleDiv.upperBound() > m_histo->getXMax())
+    {
+        scaleDiv.setUpperBound(m_histo->getXMax());
+    }
+
+    ui->plot->setAxisScaleDiv(QwtPlot::xBottom, scaleDiv);
+#endif
+
+
+// FIXME: needed at all?
+#if 0
     scaleDiv = ui->plot->axisScaleDiv(QwtPlot::yLeft);
 
     if (scaleDiv.lowerBound() < 0.0)
@@ -307,6 +321,7 @@ void Histo1DWidget::zoomerZoomed(const QRectF &zoomRect)
         scaleDiv.setLowerBound(0.0);
         ui->plot->setAxisScaleDiv(QwtPlot::yLeft, scaleDiv);
     }
+#endif
 
     replot();
 }
@@ -358,6 +373,8 @@ void Histo1DWidget::updateStatistics()
 void Histo1DWidget::updateAxisScales()
 {
     // update the y axis using the currently visible max value
+// FIXME: m_stats.maxValue is wrong
+#if 0
     double maxValue = 1.2 * m_stats.maxValue;
 
     if (maxValue <= 1.0)
@@ -366,6 +383,7 @@ void Histo1DWidget::updateAxisScales()
     // this sets a fixed y axis scale effectively overriding any changes made by the scrollzoomer
     double base = yAxisIsLog() ? 1.0 : 0.0l;
     ui->plot->setAxisScale(QwtPlot::yLeft, base, maxValue);
+#endif
 
     // xAxis
     if (m_zoomer->zoomRectIndex() == 0)
