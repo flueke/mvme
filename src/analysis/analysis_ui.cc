@@ -782,23 +782,26 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
 
                 auto moduleConfig = getPointer<ModuleConfig>(moduleNode);
 
-                if (moduleConfig)
+                if (!m_uniqueWidgetActive)
                 {
-                    menu.addAction(QSL("Edit"), [this, sourceInterface, moduleConfig]() {
-                        auto widget = new AddEditSourceWidget(sourceInterface, moduleConfig, m_q);
-                        widget->move(QCursor::pos());
-                        widget->setAttribute(Qt::WA_DeleteOnClose);
-                        widget->show();
-                        m_uniqueWidgetActive = true;
-                        clearAllTreeSelections();
-                        clearAllToDefaultNodeHighlights();
+                    if (moduleConfig)
+                    {
+                        menu.addAction(QSL("Edit"), [this, sourceInterface, moduleConfig]() {
+                            auto widget = new AddEditSourceWidget(sourceInterface, moduleConfig, m_q);
+                            widget->move(QCursor::pos());
+                            widget->setAttribute(Qt::WA_DeleteOnClose);
+                            widget->show();
+                            m_uniqueWidgetActive = true;
+                            clearAllTreeSelections();
+                            clearAllToDefaultNodeHighlights();
+                        });
+                    }
+
+                    menu.addAction(QSL("Remove"), [this, sourceInterface]() {
+                        // TODO: QMessageBox::question or similar
+                        m_q->removeSource(sourceInterface);
                     });
                 }
-
-                menu.addAction(QSL("Remove"), [this, sourceInterface]() {
-                    // TODO: QMessageBox::question or similar
-                    m_q->removeSource(sourceInterface);
-                });
             }
         }
 
@@ -816,22 +819,25 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
 
         if (userLevel > 0 && node->type() == NodeType_Operator)
         {
-            auto op = getPointer<OperatorInterface>(node);
-            Q_ASSERT(op);
-            menu.addAction(QSL("Edit"), [this, userLevel, op]() {
-                auto widget = new AddEditOperatorWidget(op, userLevel, m_q);
-                widget->move(QCursor::pos());
-                widget->setAttribute(Qt::WA_DeleteOnClose);
-                widget->show();
-                m_uniqueWidgetActive = true;
-                clearAllTreeSelections();
-                clearAllToDefaultNodeHighlights();
-            });
+            if (!m_uniqueWidgetActive)
+            {
+                auto op = getPointer<OperatorInterface>(node);
+                Q_ASSERT(op);
+                menu.addAction(QSL("Edit"), [this, userLevel, op]() {
+                    auto widget = new AddEditOperatorWidget(op, userLevel, m_q);
+                    widget->move(QCursor::pos());
+                    widget->setAttribute(Qt::WA_DeleteOnClose);
+                    widget->show();
+                    m_uniqueWidgetActive = true;
+                    clearAllTreeSelections();
+                    clearAllToDefaultNodeHighlights();
+                });
 
-            menu.addAction(QSL("Remove"), [this, op]() {
-                // TODO: QMessageBox::question or similar
-                m_q->removeOperator(op);
-            });
+                menu.addAction(QSL("Remove"), [this, op]() {
+                    // TODO: QMessageBox::question or similar
+                    m_q->removeOperator(op);
+                });
+            }
         }
     }
     else // No node selected
@@ -965,20 +971,23 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
 
         if (auto op = qobject_cast<OperatorInterface *>(obj))
         {
-            menu.addAction(QSL("Edit"), [this, userLevel, op]() {
-                auto widget = new AddEditOperatorWidget(op, userLevel, m_q);
-                widget->move(QCursor::pos());
-                widget->setAttribute(Qt::WA_DeleteOnClose);
-                widget->show();
-                m_uniqueWidgetActive = true;
-                clearAllTreeSelections();
-                clearAllToDefaultNodeHighlights();
-            });
+            if (!m_uniqueWidgetActive)
+            {
+                menu.addAction(QSL("Edit"), [this, userLevel, op]() {
+                    auto widget = new AddEditOperatorWidget(op, userLevel, m_q);
+                    widget->move(QCursor::pos());
+                    widget->setAttribute(Qt::WA_DeleteOnClose);
+                    widget->show();
+                    m_uniqueWidgetActive = true;
+                    clearAllTreeSelections();
+                    clearAllToDefaultNodeHighlights();
+                });
 
-            menu.addAction(QSL("Remove"), [this, op]() {
-                // TODO: QMessageBox::question or similar
-                m_q->removeOperator(op);
-            });
+                menu.addAction(QSL("Remove"), [this, op]() {
+                    // TODO: QMessageBox::question or similar
+                    m_q->removeOperator(op);
+                });
+            }
         }
 
         if (userLevel > 0 && !m_uniqueWidgetActive)
