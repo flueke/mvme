@@ -83,13 +83,13 @@ Histo2DWidget::Histo2DWidget(Histo2D *histo, QWidget *parent)
     , m_histo(histo)
     , m_plotItem(new QwtPlotSpectrogram)
     , m_replotTimer(new QTimer(this))
+    , m_cursorPosition(make_quiet_nan(), make_quiet_nan())
+    , m_labelCursorInfoWidth(-1)
 {
     ui->setupUi(this);
 
     ui->pb_subHisto->setEnabled(false);
     ui->tb_info->setEnabled(false);
-
-    ui->label_cursorInfo->setVisible(false);
 
     //connect(histo, &Histo2D::resized, this, &Histo2DWidget::onHistoResized);
 
@@ -132,7 +132,7 @@ Histo2DWidget::Histo2DWidget(Histo2D *histo, QWidget *parent)
     plotMagnifier->setMouseButton(Qt::NoButton);
 #endif
 
-    onHistoResized();
+    //onHistoResized();
     displayChanged();
 }
 
@@ -144,10 +144,23 @@ Histo2DWidget::~Histo2DWidget()
 
 void Histo2DWidget::replot()
 {
-    // z axis interval
     auto histData = reinterpret_cast<Histo2DRasterData *>(m_plotItem->data());
     histData->updateIntervals();
 
+#if 1 // testing
+    if (m_zoomer->zoomRectIndex() == 0)
+    {
+        auto xInterval = histData->interval(Qt::XAxis);
+        ui->plot->setAxisScale(QwtPlot::xBottom, xInterval.minValue(), xInterval.maxValue());
+
+        auto yInterval = histData->interval(Qt::YAxis);
+        ui->plot->setAxisScale(QwtPlot::yLeft, yInterval.minValue(), yInterval.maxValue());
+
+        m_zoomer->setZoomBase();
+    }
+#endif
+
+    // z axis interval
     auto interval = histData->interval(Qt::ZAxis);
     double base = zAxisIsLog() ? 1.0 : 0.0;
     interval = interval.limited(base, interval.maxValue());
@@ -156,12 +169,12 @@ void Histo2DWidget::replot()
     auto axis = ui->plot->axisWidget(QwtPlot::yRight);
     axis->setColorMap(interval, getColorMap());
 
-#if 0
+    QwtInterval xInterval = ui->plot->axisScaleDiv(QwtPlot::xBottom).interval();
+    QwtInterval yInterval = ui->plot->axisScaleDiv(QwtPlot::yLeft).interval();
+
     auto stats = m_histo->calcStatistics(
-        ui->plot->axisScaleDiv(QwtPlot::xBottom).interval(),
-        ui->plot->axisScaleDiv(QwtPlot::yLeft).interval());
-#endif
-    Histo2DStatistics stats;
+        {xInterval.minValue(), xInterval.maxValue()},
+        {yInterval.minValue(), yInterval.maxValue()});
 
     double maxX = stats.maxX;
     double maxY = stats.maxY;
@@ -193,72 +206,18 @@ void Histo2DWidget::displayChanged()
 
     m_plotItem->setColorMap(getColorMap());
 
-    QString xTitle;
-    QString yTitle;
+    auto name = m_histo->objectName();
+    setWindowTitle(QString("Histogram %1").arg(name));
 
-#if 0
-    auto config = qobject_cast<Hist2DConfig *>(m_context->getMappedObject(m_histo, QSL("ObjectToConfig")));
-
-    if (config)
     {
-        // x
-        auto xTitle = config->getAxisTitle(Qt::XAxis);
-        auto address = config->getFilterAddress(Qt::XAxis);
-        xTitle.replace(QSL("%A"), QString::number(address));
-        xTitle.replace(QSL("%a"), QString::number(address));
-        auto unit = config->getAxisUnitLabel(Qt::XAxis);
-
-        QString axisTitle = makeAxisTitle(xTitle, unit);
-        ui->plot->axisWidget(QwtPlot::xBottom)->setTitle(axisTitle);
-
-        // y
-        QString yTitle = config->getAxisTitle(Qt::YAxis);
-        address = config->getFilterAddress(Qt::YAxis);
-        yTitle.replace(QSL("%A"), QString::number(address));
-        yTitle.replace(QSL("%a"), QString::number(address));
-        unit = config->getAxisUnitLabel(Qt::YAxis);
-
-        axisTitle = makeAxisTitle(yTitle, unit);
-        ui->plot->axisWidget(QwtPlot::yLeft)->setTitle(axisTitle);
-
-
-        setWindowTitle(QString("%1 - %2 | %3")
-                       .arg(config->objectName())
-                       .arg(xTitle)
-                       .arg(yTitle)
-                      );
+        auto axisInfo = m_histo->getAxisInfo(Qt::XAxis);
+        ui->plot->axisWidget(QwtPlot::xBottom)->setTitle(make_title_string(axisInfo));
     }
 
     {
-        double unitMin = config->getUnitMin(Qt::XAxis);
-        double unitMax = config->getUnitMax(Qt::XAxis);
-        if (std::abs(unitMax - unitMin) > 0.0)
-            m_xConversion.setPaintInterval(unitMin, unitMax);
-        else
-            m_xConversion.setPaintInterval(0, m_histo->getXResolution());
-
-        auto scaleDraw = new UnitConversionAxisScaleDraw(m_xConversion);
-        ui->plot->setAxisScaleDraw(QwtPlot::xBottom, scaleDraw);
-
-        auto scaleEngine = new UnitConversionLinearScaleEngine(m_xConversion);
-        ui->plot->setAxisScaleEngine(QwtPlot::xBottom, scaleEngine);
+        auto axisInfo = m_histo->getAxisInfo(Qt::YAxis);
+        ui->plot->axisWidget(QwtPlot::yLeft)->setTitle(make_title_string(axisInfo));
     }
-
-    {
-        double unitMin = config->getUnitMin(Qt::YAxis);
-        double unitMax = config->getUnitMax(Qt::YAxis);
-        if (std::abs(unitMax - unitMin) > 0.0)
-            m_yConversion.setPaintInterval(unitMin, unitMax);
-        else
-            m_yConversion.setPaintInterval(0, m_histo->getYResolution());
-
-        auto scaleDraw = new UnitConversionAxisScaleDraw(m_yConversion);
-        ui->plot->setAxisScaleDraw(QwtPlot::yLeft, scaleDraw);
-
-        auto scaleEngine = new UnitConversionLinearScaleEngine(m_yConversion);
-        ui->plot->setAxisScaleEngine(QwtPlot::yLeft, scaleEngine);
-    }
-#endif
 
     replot();
 }
@@ -327,14 +286,14 @@ void Histo2DWidget::onHistoResized()
 
 void Histo2DWidget::mouseCursorMovedToPlotCoord(QPointF pos)
 {
-    ui->label_cursorInfo->setVisible(true);
     m_cursorPosition = pos;
     updateCursorInfoLabel();
 }
 
 void Histo2DWidget::mouseCursorLeftPlot()
 {
-    ui->label_cursorInfo->setVisible(false);
+    m_cursorPosition = QPointF(make_quiet_nan(), make_quiet_nan());
+    updateCursorInfoLabel();
 }
 
 void Histo2DWidget::zoomerZoomed(const QRectF &zoomRect)
@@ -371,36 +330,40 @@ void Histo2DWidget::zoomerZoomed(const QRectF &zoomRect)
 
 void Histo2DWidget::updateCursorInfoLabel()
 {
-#if 0
-    if (ui->label_cursorInfo->isVisible())
+    double plotX = m_cursorPosition.x();
+    double plotY = m_cursorPosition.y();
+    s64 binX = m_histo->getAxisBinning(Qt::XAxis).getBin(plotX);
+    s64 binY = m_histo->getAxisBinning(Qt::YAxis).getBin(plotY);
+
+    QString text;
+
+    if (!qIsNaN(plotX) && !qIsNaN(plotY) && binX >= 0 && binY >= 0)
     {
-        double ix = std::max(m_cursorPosition.x(), 0.0);
-        double iy = std::max(m_cursorPosition.y(), 0.0);
-        double value = m_histo->value(ix, iy);
+        double value = m_histo->getValue(plotX, plotY);
 
         if (qIsNaN(value))
             value = 0.0;
 
-        double x = m_xConversion.transform(ix);
-        double y = m_yConversion.transform(iy);
-
-        auto text =
-            QString("x=%1\n"
-                    "y=%2\n"
-                    "z=%3\n"
-                    "xbin=%4\n"
-                    "ybin=%5"
-                   )
-            .arg(x, 0, 'g', 6)
-            .arg(y, 0, 'g', 6)
+        text = QString("x=%1\n"
+                       "y=%2\n"
+                       "z=%3\n"
+                       "xbin=%4\n"
+                       "ybin=%5"
+                      )
+            .arg(plotX, 0, 'g', 6)
+            .arg(plotY, 0, 'g', 6)
             .arg(value)
-            .arg(ix)
-            .arg(iy)
+            .arg(binX)
+            .arg(binY)
             ;
 
-        ui->label_cursorInfo->setText(text);
     }
-#endif
+
+    // update the label which will calculate a new width
+    ui->label_cursorInfo->setText(text);
+    // use the largest width the label ever had to stop the label from constantly changing its width
+    m_labelCursorInfoWidth = std::max(m_labelCursorInfoWidth, ui->label_cursorInfo->width());
+    ui->label_cursorInfo->setMinimumWidth(m_labelCursorInfoWidth);
 }
 
 void Histo2DWidget::on_pb_subHisto_clicked()

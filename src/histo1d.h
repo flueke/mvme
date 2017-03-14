@@ -29,25 +29,25 @@ class Histo1D: public QObject
         double getValue(double x) const;
         void clear();
 
-        inline u32 getNumberOfBins() const { return m_xAxis.getBins(); }
+        inline u32 getNumberOfBins() const { return m_xAxisBinning.getBins(); }
 
         inline double getBinContent(u32 bin) const { return (bin < getNumberOfBins()) ? m_data[bin] : 0.0; }
         bool setBinContent(u32 bin, double value);
 
-        inline double getXMin() const { return m_xAxis.getMin(); }
-        inline double getXMax() const { return m_xAxis.getMax(); }
-        inline double getWidth() const { return m_xAxis.getWidth(); }
+        inline double getXMin() const { return m_xAxisBinning.getMin(); }
+        inline double getXMax() const { return m_xAxisBinning.getMax(); }
+        inline double getWidth() const { return m_xAxisBinning.getWidth(); }
 
-        inline double getBinWidth() const { return m_xAxis.getBinWidth(); }
-        inline double getBinLowEdge(u32 bin) const { return m_xAxis.getBinLowEdge(bin); }
-        inline double getBinCenter(u32 bin) const { return m_xAxis.getBinCenter(bin); }
+        inline double getBinWidth() const { return m_xAxisBinning.getBinWidth(); }
+        inline double getBinLowEdge(u32 bin) const { return m_xAxisBinning.getBinLowEdge(bin); }
+        inline double getBinCenter(u32 bin) const { return m_xAxisBinning.getBinCenter(bin); }
 
         AxisBinning getAxisBinning(Qt::Axis axis) const
         {
             switch (axis)
             {
                 case Qt::XAxis:
-                    return m_xAxis;
+                    return m_xAxisBinning;
                 default:
                     return AxisBinning();
             }
@@ -57,7 +57,26 @@ class Histo1D: public QObject
         {
             if (axis == Qt::XAxis)
             {
-                m_xAxis = binning;
+                m_xAxisBinning = binning;
+            }
+        }
+
+        AxisInfo getAxisInfo(Qt::Axis axis) const
+        {
+            switch (axis)
+            {
+                case Qt::XAxis:
+                    return m_xAxisInfo;
+                default:
+                    return AxisInfo();
+            }
+        }
+
+        void setAxisInfo(Qt::Axis axis, AxisInfo info)
+        {
+            if (axis == Qt::XAxis)
+            {
+                m_xAxisInfo = info;
             }
         }
 
@@ -74,10 +93,11 @@ class Histo1D: public QObject
         void setOverflow(double value) { m_overflow = value; }
 
         Histo1DStatistics calcStatistics(double minX, double maxX) const;
-        Histo1DStatistics calcBinStatistics(u32 startChannel, u32 onePastEndChannel) const;
+        Histo1DStatistics calcBinStatistics(u32 startBin, u32 onePastEndBin) const;
 
     private:
-        AxisBinning m_xAxis;
+        AxisBinning m_xAxisBinning;
+        AxisInfo m_xAxisInfo;
 
         double *m_data = nullptr;
 

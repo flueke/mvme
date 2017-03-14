@@ -13,6 +13,8 @@
 #include <memory>
 #include <QMetaType>
 
+#define ArrayCount(a) (sizeof(a) / sizeof((a)[0]))
+
 Q_DECLARE_SMART_POINTER_METATYPE(std::shared_ptr);
 
 class QTextStream;

@@ -4,20 +4,12 @@
 - Histo1DWidget: zoom out after applying calibration
 >>>>> Begin Analysis NG <<<<<
  - react to event and module renames
- - L0 Data Display -> module -> create raw histograms
 
  - should OperatorInterface::connectInputSlot() perform a validity check of
    Slot::acceptedInputTypes?
- - add a way for operators to change the Slot::acceptedInputTypes when a slot
-   is connected/disconnected!
  - "modified" concept for the analysis and it's elements
  - save/saveas/load error reporting
  - Pass and build names throughout the analysis
-
- - Delete operators
-   * highlight dependents that are now missing inputs (Note: this highlight should not be removed by any clearHighlight calls!)
-
- - When selecting an operator highlight it's input operators
 
  - !!! Make analysis use DAQConfig object ids instead of only going by eventIndex/moduleIndex !!!
    This way it would be possible to show that a certain Event/Module does not
@@ -32,9 +24,6 @@
    getting the top level nodes 0 and 1 will not yield the correct nodes
    anymore!
 
-- AnalysisPauser: define a creator function for it or encapsulate it so that
-  MVMEContext does not need to be passed around everywhere.
-
 <<<<< End AnalysisNG >>>>>
 
 
@@ -44,13 +33,14 @@
 - License info needs Apache License for PCG. Maybe others. Check what is needed here!
 - Refactor DAQConfig -> VMEConfig and DAQConfigTree to VMEConfigTree
 >>>>> Begin Analysis NG <<<<<
- - remove CalibrationFactorOffset. CalibrationMinMax seems to be everything that's needed right now
+ - Histo1DSink and Histo2DSink implementations are quite different. Histo1DSink
+   handled everything in beginRun() while Histo2DSink relies on the
+   OperatorConfigurationWidget to set things up. Make these work similar.
+ - Should Histo axis titles be editable? if so the edited title has to be
+   stored with Histo1DSink and automatic axis title creation must not be performed.
  - combine "single word" and "dual word" filters. the distinction is not needed
    anymore as both are MultiWordDataFilters now
 - More icons: icon for array of histos
-- Make Histo1DSink and Histo2DSink keep histo meta info as members. This would
-  allow allocating histos on demand. But the info has to be kept in sync of
-  course!
   
 * Is MultiWordDataFilter::handleDataWord() behaviour "correct"/"good"?
   Should it break out of the loop once a filter matched?

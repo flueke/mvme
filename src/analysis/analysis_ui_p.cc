@@ -479,13 +479,24 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
 
     if (auto histoSink = qobject_cast<Histo1DSink *>(op))
     {
+        le_xAxisTitle = new QLineEdit;
+        le_xAxisTitle->setText(histoSink->m_xAxisTitle);
+        formLayout->addRow(QSL("X Title"), le_xAxisTitle);
+
         combo_xBins = make_resolution_combo(Histo1DMinBits, Histo1DMaxBits, Histo1DDefBits);
         select_by_resolution(combo_xBins, histoSink->m_bins);
-
         formLayout->addRow(QSL("Resolution"), combo_xBins);
     }
     else if (auto histoSink = qobject_cast<Histo2DSink *>(op))
     {
+        le_xAxisTitle = new QLineEdit;
+        le_xAxisTitle->setText(histoSink->m_xAxisTitle);
+        formLayout->addRow(QSL("X Title"), le_xAxisTitle);
+
+        le_yAxisTitle = new QLineEdit;
+        le_yAxisTitle->setText(histoSink->m_yAxisTitle);
+        formLayout->addRow(QSL("Y Title"), le_yAxisTitle);
+
         combo_xBins = make_resolution_combo(Histo2DMinBits, Histo2DMaxBits, Histo2DDefBits);
         combo_yBins = make_resolution_combo(Histo2DMinBits, Histo2DMaxBits, Histo2DDefBits);
 
@@ -498,8 +509,10 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
         formLayout->addRow(QSL("X Resolution"), combo_xBins);
         formLayout->addRow(QSL("Y Resolution"), combo_yBins);
     }
+#if 0
     else if (auto calibration = qobject_cast<CalibrationFactorOffset *>(op))
     {
+        // Note: CalibrationFactorOffset is not used anymore. This code hasn't been updated for a while.
         le_unit = new QLineEdit;
         spin_factor = new QDoubleSpinBox;
         spin_factor->setDecimals(8);
@@ -517,7 +530,6 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
         formLayout->addRow(QSL("Factor"), spin_factor);
         formLayout->addRow(QSL("Offset"), spin_offset);
 
-        // TODO: add list of individual calibration entries
         le_unit->setText(calibration->getUnitLabel());
         auto globalParams = calibration->getGlobalCalibration();
         if (globalParams.isValid())
@@ -526,6 +538,7 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
             spin_offset->setValue(globalParams.offset);
         }
     }
+#endif
     else if (auto calibration = qobject_cast<CalibrationMinMax *>(op))
     {
         le_unit = new QLineEdit;
@@ -545,7 +558,6 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
         formLayout->addRow(QSL("Unit Min"), spin_unitMin);
         formLayout->addRow(QSL("Unit Max"), spin_unitMax);
 
-        // TODO: add list of individual calibration entries
         le_unit->setText(calibration->getUnitLabel());
         auto globalParams = calibration->getGlobalCalibration();
         if (globalParams.isValid())
@@ -587,10 +599,12 @@ bool OperatorConfigurationWidget::validateInputs()
     {
         return true;
     }
+#if 0
     else if (auto calibration = qobject_cast<CalibrationFactorOffset *>(op))
     {
         return spin_factor->value() != 0.0;
     }
+#endif
     else if (auto calibration = qobject_cast<CalibrationMinMax *>(op))
     {
         double unitMin = spin_unitMin->value();
@@ -601,6 +615,8 @@ bool OperatorConfigurationWidget::validateInputs()
     {
         return true;
     }
+
+    return false;
 }
 
 void OperatorConfigurationWidget::configureOperator()
@@ -616,12 +632,17 @@ void OperatorConfigurationWidget::configureOperator()
 
     if (auto histoSink = qobject_cast<Histo1DSink *>(op))
     {
+        histoSink->m_xAxisTitle = le_xAxisTitle->text();
+
         s32 bins = combo_xBins->currentData().toInt();
         histoSink->m_bins = bins;
         // Actually updating the histograms is done in Histo1DSink::beginRun();
     }
     else if (auto histoSink = qobject_cast<Histo2DSink *>(op))
     {
+        histoSink->m_xAxisTitle = le_xAxisTitle->text();
+        histoSink->m_yAxisTitle = le_yAxisTitle->text();
+
         s32 xBins = combo_xBins->currentData().toInt();
         s32 yBins = combo_yBins->currentData().toInt();
 
@@ -644,8 +665,10 @@ void OperatorConfigurationWidget::configureOperator()
 
             histoSink->m_histo = std::make_shared<Histo2D>(xBins, xMin, xMax,
                                                            yBins, yMin, yMax);
+            histoSink->m_histo->setObjectName(op->objectName());
         }
     }
+#if 0
     else if (auto calibration = qobject_cast<CalibrationFactorOffset *>(op))
     {
         double factor = spin_factor->value();
@@ -653,12 +676,14 @@ void OperatorConfigurationWidget::configureOperator()
 
         calibration->setGlobalCalibration(factor, offset);
     }
+#endif
     else if (auto calibration = qobject_cast<CalibrationMinMax *>(op))
     {
         double unitMin = spin_unitMin->value();
         double unitMax = spin_unitMax->value();
 
         calibration->setGlobalCalibration(unitMin, unitMax);
+        calibration->setUnitLabel(le_unit->text());
 
         for (s32 addr = 0; addr < op->getSlot(0)->inputPipe->parameters.size(); ++addr)
         {
@@ -684,7 +709,6 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
 {
     OperatorInterface *op = m_op;
     Slot *slot = op->getSlot(slotIndex);
-
 
     if (!wasNameEdited)
     {
@@ -735,6 +759,21 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
         {
             m_calibrationTable->setVisible(false);
         }
+    }
+    else if (auto histoSink = qobject_cast<Histo1DSink *>(op))
+    {
+        if (le_xAxisTitle->text().isEmpty())
+        {
+            le_xAxisTitle->setText(le_name->text());
+        }
+    }
+    else if (auto histoSink = qobject_cast<Histo2DSink *>(op))
+    {
+        if (le_xAxisTitle->text().isEmpty() && histoSink->m_inputX.isConnected())
+            le_xAxisTitle->setText(makeSlotSourceString(&histoSink->m_inputX));
+
+        if (le_yAxisTitle->text().isEmpty() && histoSink->m_inputY.isConnected())
+            le_yAxisTitle->setText(makeSlotSourceString(&histoSink->m_inputY));
     }
 }
 

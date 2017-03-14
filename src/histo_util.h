@@ -153,22 +153,22 @@ class AxisBinning
          * if x is out of range. */
         inline s64 getBin(double x) const
         {
-            s64 bin = getBinUnchecked(x);
+            double bin = getBinUnchecked(x);
 
-            if (bin < 0)
+            if (bin < 0.0)
                 return Underflow;
 
             if (bin >= getBins())
                 return Overflow;
 
-            return bin;
+            return static_cast<s64>(bin);
         }
 
         /* Returns the bin number for the value x. No check is performed if x
          * is in range of the axis. */
-        inline s64 getBinUnchecked(double x) const
+        inline double getBinUnchecked(double x) const
         {
-            s64 bin = m_nBins * (x - m_min) / (m_max - m_min);
+            double bin = m_nBins * (x - m_min) / (m_max - m_min);
             return bin;
         }
 
@@ -184,10 +184,32 @@ struct AxisInterval
     double maxValue;
 };
 
+inline bool operator==(const AxisInterval &a, const AxisInterval &b)
+{
+    return (a.minValue == b.minValue && a.maxValue == b.maxValue);
+}
+
 struct AxisInfo
 {
     QString title;
     QString unit;
 };
+
+inline
+QString make_title_string(const AxisInfo &axisInfo)
+{
+    QString result;
+
+    if (!axisInfo.title.isEmpty())
+    {
+        result = axisInfo.title;
+        if (!axisInfo.unit.isEmpty())
+        {
+            result = QString("%1 <small>[%2]</small>").arg(axisInfo.title).arg(axisInfo.unit);
+        }
+    }
+
+    return result;
+}
 
 #endif /* __HISTO_UTIL_H__ */

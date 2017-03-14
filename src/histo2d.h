@@ -3,12 +3,15 @@
 
 #include "histo_util.h"
 #include <QObject>
+#include <array>
 #include <memory>
 
 struct Histo2DStatistics
 {
-    double maxX = 0.0;
-    double maxY = 0.0;
+    u32 maxBinX = 0;        // x bin of max value
+    u32 maxBinY = 0;        // y bin of max value
+    double maxX = 0.0;      // low edge of maxBinX
+    double maxY = 0.0;      // low edge of maxBinY
     double maxValue = 0.0;
     double entryCount = 0;
 };
@@ -32,39 +35,46 @@ class Histo2D: public QObject
 
         AxisBinning getAxisBinning(Qt::Axis axis) const
         {
-            switch (axis)
+            if (axis < m_axisBinnings.size())
             {
-                case Qt::XAxis:
-                    return m_xAxis;
-                case Qt::YAxis:
-                    return m_yAxis;
-                default:
-                    return AxisBinning();
+                return m_axisBinnings[axis];
             }
+
+            return AxisBinning();
         }
 
         void setAxisBinning(Qt::Axis axis, AxisBinning binning)
         {
-            switch (axis)
+            if (axis < m_axisBinnings.size())
             {
-                case Qt::XAxis:
-                    m_xAxis = binning;
-                    break;
-                case Qt::YAxis:
-                    m_yAxis = binning;
-                    break;
-                default:
-                    break;
+                m_axisBinnings[axis] = binning;
+            }
+        }
+
+        AxisInfo getAxisInfo(Qt::Axis axis) const
+        {
+            if (axis < m_axisInfos.size())
+            {
+                return m_axisInfos[axis];
+            }
+            return AxisInfo();
+        }
+
+        void setAxisInfo(Qt::Axis axis, AxisInfo info)
+        {
+            if (axis < m_axisInfos.size())
+            {
+                m_axisInfos[axis] = info;
             }
         }
 
         AxisInterval getInterval(Qt::Axis axis) const;
 
-        //Hist2DStatistics calcStatistics(QwtInterval xInterval, QwtInterval yInterval) const;
+        Histo2DStatistics calcStatistics(AxisInterval xInterval, AxisInterval yInterval) const;
 
     private:
-        AxisBinning m_xAxis;
-        AxisBinning m_yAxis;
+        std::array<AxisBinning, 2> m_axisBinnings;
+        std::array<AxisInfo, 2> m_axisInfos;
 
         double *m_data = nullptr;
 

@@ -52,9 +52,15 @@ class Histo1DPointData: public QwtSeriesData<QPointF>
 
         virtual QRectF boundingRect() const override
         {
+            // Qt and Qwt have different understanding of rectangles. For Qt
+            // it's top-down like screen coordinates, for Qwt it's bottom-up
+            // like the coordinates in a plot.
+            //auto result = QRectF(
+            //    m_histo->getXMin(),  m_histo->getMaxValue(), // top-left
+            //    m_histo->getWidth(), m_histo->getMaxValue());  // width, height
             auto result = QRectF(
-                m_histo->getXMin(),  m_histo->getMaxValue(), // top-left
-                m_histo->getWidth(), m_histo->getMaxValue());  // width, height
+                m_histo->getXMin(), 0.0,
+                m_histo->getWidth(), m_histo->getMaxValue());
 
             return result;
         }
@@ -85,9 +91,10 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     , m_histo(histo)
     , m_plotCurve(new QwtPlotCurve)
     , m_replotTimer(new QTimer(this))
+    , m_cursorPosition(make_quiet_nan(), make_quiet_nan())
+    , m_labelCursorInfoWidth(-1)
 {
     ui->setupUi(this);
-    ui->label_cursorInfo->setVisible(false);
 
     connect(ui->pb_export, &QPushButton::clicked, this, &Histo1DWidget::exportPlot);
     connect(ui->pb_save, &QPushButton::clicked, this, &Histo1DWidget::saveHistogram);
@@ -114,6 +121,7 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
 
     m_zoomer->setVScrollBarMode(Qt::ScrollBarAlwaysOff);
     m_zoomer->setZoomBase();
+    qDebug() << "zoomRectIndex()" << m_zoomer->zoomRectIndex();
 
     connect(m_zoomer, &ScrollZoomer::zoomed, this, &Histo1DWidget::zoomerZoomed);
     connect(m_zoomer, &ScrollZoomer::mouseCursorMovedTo, this, &Histo1DWidget::mouseCursorMovedToPlotCoord);
@@ -195,7 +203,7 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
         spin->setMaximum(std::numeric_limits<double>::max());
         spin->setValue(0.0);
     }
-    
+
     auto calibLayout = new QGridLayout;
     calibLayout->setContentsMargins(3, 3, 3, 3);
     calibLayout->setSpacing(2);
@@ -244,8 +252,8 @@ void Histo1DWidget::setHistogram(Histo1D *histo)
 
 void Histo1DWidget::replot()
 {
-    updateStatistics();
     updateAxisScales();
+    updateStatistics();
     updateCursorInfoLabel();
     ui->plot->replot();
 }
@@ -265,8 +273,10 @@ void Histo1DWidget::displayChanged()
     }
 
     auto name = m_histo->objectName();
-
     setWindowTitle(QString("Histogram %1").arg(name));
+
+    auto axisInfo = m_histo->getAxisInfo(Qt::XAxis);
+    ui->plot->axisWidget(QwtPlot::xBottom)->setTitle(make_title_string(axisInfo));
 
     /* Before the scale change the zoomer might have been zoomed into negative
      * x-axis bins. This results in scaling errors and a zoom into negative
@@ -277,8 +287,8 @@ void Histo1DWidget::displayChanged()
      * zoomerZoomed(). This method will then again limit the x-axis' lower
      * bound to 0.0.
      */
-    //ui->plot->updateAxes();
-    //zoomerZoomed(m_zoomer->zoomRect());
+    ui->plot->updateAxes();
+    zoomerZoomed(m_zoomer->zoomRect());
 
     replot();
 }
@@ -328,20 +338,22 @@ void Histo1DWidget::zoomerZoomed(const QRectF &zoomRect)
 
 void Histo1DWidget::mouseCursorMovedToPlotCoord(QPointF pos)
 {
-    ui->label_cursorInfo->setVisible(true);
     m_cursorPosition = pos;
     updateCursorInfoLabel();
 }
 
 void Histo1DWidget::mouseCursorLeftPlot()
 {
-    ui->label_cursorInfo->setVisible(false);
+    m_cursorPosition = QPointF(make_quiet_nan(), make_quiet_nan());
+    updateCursorInfoLabel();
 }
 
 void Histo1DWidget::updateStatistics()
 {
     auto lowerBound = qFloor(ui->plot->axisScaleDiv(QwtPlot::xBottom).lowerBound());
     auto upperBound = qCeil(ui->plot->axisScaleDiv(QwtPlot::xBottom).upperBound());
+
+    //qDebug() << __PRETTY_FUNCTION__ << lowerBound << upperBound;
 
     m_stats = m_histo->calcStatistics(lowerBound, upperBound);
 
@@ -373,17 +385,17 @@ void Histo1DWidget::updateStatistics()
 void Histo1DWidget::updateAxisScales()
 {
     // update the y axis using the currently visible max value
-// FIXME: m_stats.maxValue is wrong
-#if 0
+    // 20% larger than the current maximum value
     double maxValue = 1.2 * m_stats.maxValue;
 
+    // force a minimum of 10 units in y
     if (maxValue <= 1.0)
         maxValue = 10.0;
 
-    // this sets a fixed y axis scale effectively overriding any changes made by the scrollzoomer
+    // This sets a fixed y axis scale effectively overriding any changes made
+    // by the scrollzoomer. Makes the y-axis start at 1.0 for logarithmic scales.
     double base = yAxisIsLog() ? 1.0 : 0.0l;
     ui->plot->setAxisScale(QwtPlot::yLeft, base, maxValue);
-#endif
 
     // xAxis
     if (m_zoomer->zoomRectIndex() == 0)
@@ -391,6 +403,8 @@ void Histo1DWidget::updateAxisScales()
         // fully zoomed out -> set to full resolution
         ui->plot->setAxisScale(QwtPlot::xBottom, m_histo->getXMin(), m_histo->getXMax());
     }
+
+    ui->plot->updateAxes();
 }
 
 bool Histo1DWidget::yAxisIsLog()
@@ -426,7 +440,7 @@ void Histo1DWidget::saveHistogram()
 
     qDebug() << fileName;
 
-    fileName = QFileDialog::getSaveFileName(this, "Save Histogram", fileName, "Text Files (*.txt);; All Files (*.*)");
+    fileName = QFileDialog::getSaveFileName(this, "Save Histogram", fileName, "Text Files (*.histo1d);; All Files (*.*)");
 
     if (fileName.isEmpty())
         return;
@@ -434,7 +448,7 @@ void Histo1DWidget::saveHistogram()
     QFileInfo fi(fileName);
     if (fi.completeSuffix().isEmpty())
     {
-        fileName += ".txt";
+        fileName += ".histo1d";
     }
 
     QFile outFile(fileName);
@@ -456,24 +470,53 @@ void Histo1DWidget::saveHistogram()
 
 void Histo1DWidget::updateCursorInfoLabel()
 {
-    if (ui->label_cursorInfo->isVisible())
+    double plotX = m_cursorPosition.x();
+    double plotY = m_cursorPosition.y();
+    auto binning = m_histo->getAxisBinning(Qt::XAxis);
+    s64 binX = binning.getBin(plotX);
+
+    QString text;
+
+    if (!qIsNaN(plotX) && !qIsNaN(plotY) && binX >= 0)
     {
-        u32 ix = static_cast<u32>(std::max(m_cursorPosition.x(), 0.0));
+        double x = plotX;
+        double y = m_histo->getBinContent(binX);
+        double binLowEdge = binning.getBinLowEdge(binX);
 
-        double x = m_histo->getBinLowEdge(ix);
-        double y = m_histo->getBinContent(ix);
-
-        QString text = QString(
-                               "x=%1\n"
-                               "y=%2\n"
-                               "bin=%3"
-                               )
+        text = QString("x=%1\n"
+                       "y=%2\n"
+                       "bin=%3\n"
+                       "low edge=%4"
+                      )
             .arg(x)
             .arg(y)
-            .arg(ix);
+            .arg(binX)
+            .arg(binLowEdge)
+            ;
+#if 0
+        double binXUnchecked = binning.getBinUnchecked(plotX);
 
-        ui->label_cursorInfo->setText(text);
+        auto sl = QStringList()
+            << QString("cursorPlotX=%1").arg(plotX)
+            << QString("binXUnchecked=%1").arg(binXUnchecked)
+            << QString("binX=%1, u=%2, o=%3").arg(binX).arg(binX == AxisBinning::Underflow).arg(binX == AxisBinning::Overflow)
+            << QString("nBins=%1").arg(binning.getBins())
+            << QString("binXLow=%1").arg(binning.getBinLowEdge(binX))
+            << QString("binXCenter=%1").arg(binning.getBinCenter(binX))
+            << QString("binWidth=%1").arg(binning.getBinWidth())
+            << QString("Y=%1").arg(m_histo->getBinContent(binX))
+            << QString("minX=%1, maxX=%2").arg(m_histo->getXMin()).arg(m_histo->getXMax());
+        ;
+
+        QString text = sl.join("\n");
+#endif
     }
+
+    // update the label which will calculate a new width
+    ui->label_cursorInfo->setText(text);
+    // use the largest width the label ever had to stop the label from constantly changing its width
+    m_labelCursorInfoWidth = std::max(m_labelCursorInfoWidth, ui->label_cursorInfo->width());
+    ui->label_cursorInfo->setMinimumWidth(m_labelCursorInfoWidth);
 }
 
 void Histo1DWidget::setCalibrationInfo(const std::shared_ptr<analysis::CalibrationMinMax> &calib, s32 histoAddress, MVMEContext *context)

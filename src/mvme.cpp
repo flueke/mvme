@@ -1210,11 +1210,11 @@ void mvme::on_actionImport_Histo1D_triggered()
 
             if (path != m_context->getWorkspaceDirectory())
             {
-                settings.setValue(QSL("LastHisto1DDirectory"), path);
+                settings.setValue(QSL("Files/LastHistogramExportDirectory"), path);
             }
             else
             {
-                settings.remove(QSL("LastHisto1DDirectory"));
+                settings.remove(QSL("Files/LastHistogramExportDirectory"));
             }
         }
     }

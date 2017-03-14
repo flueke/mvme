@@ -141,6 +141,8 @@ class OperatorConfigurationWidget: public QWidget
         // Histo1DSink and Histo2DSink
         QComboBox *combo_xBins = nullptr;
         QComboBox *combo_yBins = nullptr;
+        QLineEdit *le_xAxisTitle = nullptr;
+        QLineEdit *le_yAxisTitle = nullptr;
 
         // CalibrationFactorOffset and CalibrationMinMax
         QLineEdit *le_unit = nullptr;

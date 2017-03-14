@@ -222,8 +222,9 @@ void Extractor::read(const QJsonObject &json)
         // Instead the seed is stored as a string and then parsed back to u64.
         QString sSeed = json["rngSeed"].toString();
         m_rngSeed = sSeed.toULongLong(nullptr, 16);
-        QString sSeedCompare = QString::number(m_rngSeed, 16);
-        Q_ASSERT(sSeed == sSeedCompare);
+
+        // convert back and compare the strings
+        Q_ASSERT(sSeed == QString::number(m_rngSeed, 16));
     }
 
     m_filter = MultiWordDataFilter();
@@ -1079,11 +1080,17 @@ void Histo1DSink::beginRun()
 
             auto histo = m_histos[histoIndex];
             auto histoName = this->objectName();
+            AxisInfo axisInfo;
+            axisInfo.title = this->m_xAxisTitle;
+            axisInfo.unit  = m_inputSlot.inputPipe->parameters.unit;
+
             if (maxIdx - minIdx > 1)
             {
                 histoName = QString("%1[%2]").arg(histoName).arg(idx);
+                axisInfo.title = QString("%1[%2]").arg(axisInfo.title).arg(idx);
             }
             histo->setObjectName(histoName);
+            histo->setAxisInfo(Qt::XAxis, axisInfo);
         }
     }
     else
@@ -1129,6 +1136,7 @@ void Histo1DSink::step()
 void Histo1DSink::read(const QJsonObject &json)
 {
     m_bins = json["nBins"].toInt();
+    m_xAxisTitle = json["xAxisTitle"].toString();
 
     Q_ASSERT(m_bins > 0);
 
@@ -1143,9 +1151,7 @@ void Histo1DSink::read(const QJsonObject &json)
         u32 nBins = static_cast<u32>(objectJson["nBins"].toInt());
         double xMin = objectJson["xMin"].toDouble();
         double xMax = objectJson["xMax"].toDouble();
-        QString histoName = objectJson["name"].toString();
         auto histo = std::make_shared<Histo1D>(nBins, xMin, xMax);
-        histo->setObjectName(histoName);
         m_histos.push_back(histo);
     }
 }
@@ -1153,6 +1159,7 @@ void Histo1DSink::read(const QJsonObject &json)
 void Histo1DSink::write(QJsonObject &json) const
 {
     json["nBins"] = static_cast<qint64>(m_bins);
+    json["xAxisTitle"] = m_xAxisTitle;
 
     QJsonArray histosJson;
 
@@ -1162,7 +1169,6 @@ void Histo1DSink::write(QJsonObject &json) const
         objectJson["nBins"] = static_cast<qint64>(histo->getNumberOfBins());
         objectJson["xMin"] = histo->getXMin();
         objectJson["xMax"] = histo->getXMax();
-        objectJson["name"] = histo->objectName();
         histosJson.append(objectJson);
     }
 
@@ -1197,8 +1203,25 @@ void Histo2DSink::beginRun()
 
         m_histo->setAxisBinning(Qt::XAxis, AxisBinning(xBins, xMin, xMax));
         m_histo->setAxisBinning(Qt::YAxis, AxisBinning(yBins, yMin, yMax));
+
+        {
+            AxisInfo info;
+            info.title = m_xAxisTitle;
+            info.unit  = m_inputX.inputPipe->parameters.unit;
+            m_histo->setAxisInfo(Qt::XAxis, info);
+        }
+
+        {
+            AxisInfo info;
+            info.title = m_yAxisTitle;
+            info.unit  = m_inputY.inputPipe->parameters.unit;
+            m_histo->setAxisInfo(Qt::YAxis, info);
+        }
     }
-    m_histo->clear();
+    if (m_histo)
+    {
+        m_histo->clear();
+    }
 }
 
 s32 Histo2DSink::getNumberOfSlots() const
@@ -1243,8 +1266,13 @@ void Histo2DSink::read(const QJsonObject &json)
     double yMin = json["yMin"].toDouble();
     double yMax = json["yMax"].toDouble();
 
+    m_xAxisTitle = json["xAxisTitle"].toString();
+    m_yAxisTitle = json["yAxisTitle"].toString();
+
     m_histo = std::make_shared<Histo2D>(xBins, xMin, xMax,
                                       yBins, yMin, yMax);
+
+    m_histo->setObjectName(json["objectName"].toString());
 }
 
 void Histo2DSink::write(QJsonObject &json) const
@@ -1258,6 +1286,11 @@ void Histo2DSink::write(QJsonObject &json) const
         json["yBins"] = static_cast<qint64>(m_histo->getAxisBinning(Qt::YAxis).getBins());
         json["yMin"]  = m_histo->getAxisBinning(Qt::YAxis).getMin();
         json["yMax"]  = m_histo->getAxisBinning(Qt::YAxis).getMax();
+
+        json["xAxisTitle"] = m_xAxisTitle;
+        json["yAxisTitle"] = m_yAxisTitle;
+
+        json["objectName"] = objectName();
     }
 }
 
@@ -1274,7 +1307,7 @@ Analysis::Analysis()
 {
     m_registry.registerSource<Extractor>();
 
-    m_registry.registerOperator<CalibrationFactorOffset>();
+    //m_registry.registerOperator<CalibrationFactorOffset>();
     m_registry.registerOperator<CalibrationMinMax>();
     m_registry.registerOperator<IndexSelector>();
     m_registry.registerOperator<PreviousValue>();

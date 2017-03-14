@@ -514,7 +514,7 @@ int ScrollZoomer::oppositeAxis( int axis ) const
 
 void ScrollZoomer::widgetMouseMoveEvent(QMouseEvent *event)
 {
-    auto point = invTransform(event->pos());
+    auto point = invTransform(event->pos()); // translate from pixel to plot coordinates
     emit mouseCursorMovedTo(point);
     QwtPlotZoomer::widgetMouseMoveEvent(event);
 }

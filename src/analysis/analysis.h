@@ -60,6 +60,7 @@ struct ParameterVector: public QVector<Parameter>
         }
     }
 
+    // Note: name is currently not used anywhere in the gui
     QString name;
     QString unit;
 };
@@ -567,7 +568,7 @@ class CalibrationMinMax: public BasicOperator
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
 
-        virtual QString getDisplayName() const override { return QSL("CalibrationMinMax"); }
+        virtual QString getDisplayName() const override { return QSL("Calibration"); }
 
     private:
         CalibrationMinMaxParameters m_globalCalibration;
@@ -688,6 +689,7 @@ class Histo1DSink: public BasicSink
 
         QVector<std::shared_ptr<Histo1D>> m_histos;
         s32 m_bins = 0;
+        QString m_xAxisTitle;
 
     private:
         u32 fillsSinceLastDebug = 0;
@@ -715,6 +717,8 @@ class Histo2DSink: public SinkInterface
         std::shared_ptr<Histo2D> m_histo;
         Slot m_inputX;
         Slot m_inputY;
+        QString m_xAxisTitle;
+        QString m_yAxisTitle;
 };
 
 

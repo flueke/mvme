@@ -47,6 +47,7 @@ class Histo2DWidget: public QWidget
         ScrollZoomer *m_zoomer;
         QTimer *m_replotTimer;
         QPointF m_cursorPosition;
+        int m_labelCursorInfoWidth;
 };
 
 #endif /* __HISTO2D_WIDGET_H__ */
