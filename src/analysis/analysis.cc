@@ -1140,6 +1140,7 @@ void Histo1DSink::read(const QJsonObject &json)
 
     Q_ASSERT(m_bins > 0);
 
+#if 0
     QJsonArray histosJson = json["histos"].toArray();
 
     for (auto it=histosJson.begin();
@@ -1154,6 +1155,7 @@ void Histo1DSink::read(const QJsonObject &json)
         auto histo = std::make_shared<Histo1D>(nBins, xMin, xMax);
         m_histos.push_back(histo);
     }
+#endif
 }
 
 void Histo1DSink::write(QJsonObject &json) const
@@ -1161,6 +1163,7 @@ void Histo1DSink::write(QJsonObject &json) const
     json["nBins"] = static_cast<qint64>(m_bins);
     json["xAxisTitle"] = m_xAxisTitle;
 
+#if 0
     QJsonArray histosJson;
 
     for (const auto &histo: m_histos)
@@ -1173,6 +1176,7 @@ void Histo1DSink::write(QJsonObject &json) const
     }
 
     json["histos"] = histosJson;
+#endif
 }
 
 //
