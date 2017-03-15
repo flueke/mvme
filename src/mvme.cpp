@@ -93,7 +93,7 @@ mvme::mvme(QWidget *parent) :
 
     // check and initialize VME interface
     VMEController *controller = new VMUSB;
-    m_context->setController(controller);
+    m_context->setController(controller); // The context take ownership
 
     // create and initialize displays
     ui->setupUi(this);

@@ -290,7 +290,7 @@ class OperatorInterface: public PipeSourceInterface
         virtual void write(QJsonObject &json) const = 0;
 
         /* If paramIndex is Slot::NoParamIndex the operator should use the whole array. */
-        bool connectInputSlot(s32 slotIndex, Pipe *inputPipe, s32 paramIndex);
+        void connectInputSlot(s32 slotIndex, Pipe *inputPipe, s32 paramIndex);
 
         void connectArrayToInputSlot(s32 slotIndex, Pipe *inputPipe)
         { connectInputSlot(slotIndex, inputPipe, Slot::NoParamIndex); }

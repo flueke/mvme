@@ -135,7 +135,7 @@ DAQConfigTreeWidget::DAQConfigTreeWidget(MVMEContext *context, QWidget *parent)
     QToolButton *pb_treeSettings = nullptr;
 
     {
-        auto menu = new QMenu;
+        auto menu = new QMenu(this);
         action_showAdvanced = menu->addAction(QSL("Show advanced objects"));
         action_showAdvanced->setCheckable(true);
         connect(action_showAdvanced, &QAction::changed, this, &DAQConfigTreeWidget::onActionShowAdvancedChanged);

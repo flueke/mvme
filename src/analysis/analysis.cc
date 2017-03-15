@@ -49,7 +49,7 @@ void Slot::disconnectPipe()
 //
 // FIXME: does not perform acceptedInputTypes validity test atm!
 // FIXME: does not return a value atm!
-bool OperatorInterface::connectInputSlot(s32 slotIndex, Pipe *inputPipe, s32 paramIndex)
+void OperatorInterface::connectInputSlot(s32 slotIndex, Pipe *inputPipe, s32 paramIndex)
 {
     Slot *slot = getSlot(slotIndex);
 

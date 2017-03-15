@@ -333,6 +333,7 @@ MVMEContext::~MVMEContext()
     Q_ASSERT(m_freeBufferQueue.queue.size() + m_filledBufferQueue.queue.size() == DataBufferCount);
     qDeleteAll(m_freeBufferQueue.queue);
     qDeleteAll(m_filledBufferQueue.queue);
+    delete m_controller;
 }
 
 void MVMEContext::setDAQConfig(DAQConfig *config)

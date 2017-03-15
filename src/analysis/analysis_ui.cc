@@ -1768,6 +1768,8 @@ bool EventWidget::eventFilter(QObject *watched, QEvent *event)
             }
         }
     }
+
+    return QWidget::eventFilter(watched, event);
 }
 
 EventWidget::~EventWidget()
@@ -2015,17 +2017,12 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     eventSelectLayout->addWidget(removeUserLevelButton);
     eventSelectLayout->addWidget(addUserLevelButton);
 
-    auto toolbarSeparator = new QFrame;
-    toolbarSeparator->setFrameShape(QFrame::HLine);
-    toolbarSeparator->setFrameShadow(QFrame::Sunken);
-
     auto layout = new QGridLayout(this);
     layout->setContentsMargins(2, 2, 2, 2);
     //layout->setVerticalSpacing(2);
     s32 row = 0;
     layout->addWidget(toolbarFrame, row++, 0);
     //layout->addWidget(m_d->m_toolbar, row++, 0);
-    //layout->addWidget(toolbarSeparator, row++, 0);
     layout->addLayout(eventSelectLayout, row++, 0);
     layout->addWidget(m_d->m_eventWidgetStack, row++, 0);
 
