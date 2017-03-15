@@ -1023,22 +1023,34 @@ void MVMEContext::loadAnalysisConfig(const QString &fileName)
     }
     else
     {
-        bool was_running = isAnalysisRunning();
-
-        if (was_running)
+        try
         {
-            stopAnalysis();
+            bool was_running = isAnalysisRunning();
+
+            if (was_running)
+            {
+                stopAnalysis();
+            }
+
+            delete m_analysis_ng;
+            m_analysis_ng = analysis_ng.release();
+
+            // Prepares operators, allocates histograms, etc..
+            m_eventProcessor->newRun();
+            setAnalysisConfigFileName(fileName);
+            emit analysisNGChanged();
+
+            if (was_running)
+            {
+                resumeAnalysis();
+            }
         }
-
-        delete m_analysis_ng;
-        m_analysis_ng = analysis_ng.release();
-        m_eventProcessor->newRun();
-        setAnalysisConfigFileName(fileName);
-        emit analysisNGChanged();
-
-        if (was_running)
+        catch (const std::bad_alloc &e)
         {
-            resumeAnalysis();
+            m_analysis_ng->clear();
+            setAnalysisConfigFileName(QString());
+            QMessageBox::critical(m_mainwin, QSL("Error"), QString("Out of memory when creating analysis objects"));
+            emit analysisNGChanged();
         }
     }
 }
