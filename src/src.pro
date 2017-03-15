@@ -23,14 +23,14 @@ CONFIG(debug, debug|release) {
     QMAKE_CFLAGS += -O0 $$QMAKE_CFLAGS
 }
 
-DEFINES += ENABLE_OLD_ANALYSIS
+#DEFINES += ENABLE_OLD_ANALYSIS
 DEFINES += VME_CONTROLLER_WIENER
 #DEFINES += VME_CONTROLLER_CAEN
 
 # ASAN
 asan {
     QMAKE_CXXFLAGS += -fsanitize=address -fno-omit-frame-pointer
-    linux-clang++ {
+    linux-clang {
         QMAKE_LFLAGS += -fsanitize=address # clang needs this
     }
 
