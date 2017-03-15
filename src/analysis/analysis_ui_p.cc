@@ -500,11 +500,8 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
         combo_xBins = make_resolution_combo(Histo2DMinBits, Histo2DMaxBits, Histo2DDefBits);
         combo_yBins = make_resolution_combo(Histo2DMinBits, Histo2DMaxBits, Histo2DDefBits);
 
-        if (histoSink->m_histo)
-        {
-            select_by_resolution(combo_xBins, histoSink->m_histo->getAxisBinning(Qt::XAxis).getBins());
-            select_by_resolution(combo_yBins, histoSink->m_histo->getAxisBinning(Qt::YAxis).getBins());
-        }
+        select_by_resolution(combo_xBins, histoSink->m_xBins);
+        select_by_resolution(combo_yBins, histoSink->m_yBins);
 
         formLayout->addRow(QSL("X Resolution"), combo_xBins);
         formLayout->addRow(QSL("Y Resolution"), combo_yBins);
@@ -646,27 +643,9 @@ void OperatorConfigurationWidget::configureOperator()
         s32 xBins = combo_xBins->currentData().toInt();
         s32 yBins = combo_yBins->currentData().toInt();
 
-        if (histoSink->m_histo)
-        {
-            qDebug() << "histo2d resize" << xBins << yBins;
-            histoSink->m_histo->resize(xBins, yBins);
-        }
-        else
-        {
-            // Note: these are "fake" values. Histo2DSink::beginRun() will look
-            // at the input parameters and update the axis limits accordingly
-            double xMin = 0;
-            double xMax = 1 << xBins;
-
-            double yMin = 0;
-            double yMax = 1 << yBins;
-
-            qDebug() << "new histo2d" << xBins << yBins;
-
-            histoSink->m_histo = std::make_shared<Histo2D>(xBins, xMin, xMax,
-                                                           yBins, yMin, yMax);
-            histoSink->m_histo->setObjectName(op->objectName());
-        }
+        histoSink->m_xBins = xBins;
+        histoSink->m_yBins = yBins;
+        // Same as for Histo1DSink: the histogram is created or updated in Histo2DSink::beginRun()
     }
 #if 0
     else if (auto calibration = qobject_cast<CalibrationFactorOffset *>(op))

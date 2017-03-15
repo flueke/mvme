@@ -714,9 +714,17 @@ class Histo2DSink: public SinkInterface
 
         virtual QString getDisplayName() const override { return QSL("2D Histogram"); }
 
-        std::shared_ptr<Histo2D> m_histo;
         Slot m_inputX;
         Slot m_inputY;
+
+        std::shared_ptr<Histo2D> m_histo;
+        s32 m_xBins;
+        s32 m_yBins;
+        // TODO: implement subrange selection
+        //double m_xMin;
+        //double m_xMax;
+        //double m_yMin;
+        //double m_yMax;
         QString m_xAxisTitle;
         QString m_yAxisTitle;
 };

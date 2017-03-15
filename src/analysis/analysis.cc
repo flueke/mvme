@@ -1194,19 +1194,28 @@ Histo2DSink::Histo2DSink(QObject *parent)
 // changed it must be done externally.
 void Histo2DSink::beginRun()
 {
-    if (m_inputX.inputPipe && m_inputY.inputPipe && m_histo)
+    if (m_inputX.inputPipe && m_inputY.inputPipe)
     {
-        s32 xBins = m_histo->getAxisBinning(Qt::XAxis).getBins();
-        s32 yBins = m_histo->getAxisBinning(Qt::YAxis).getBins();
-
         double xMin = m_inputX.inputPipe->parameters[m_inputX.paramIndex].lowerLimit;
         double xMax = m_inputX.inputPipe->parameters[m_inputX.paramIndex].upperLimit;
 
         double yMin = m_inputX.inputPipe->parameters[m_inputY.paramIndex].lowerLimit;
         double yMax = m_inputY.inputPipe->parameters[m_inputY.paramIndex].upperLimit;
 
-        m_histo->setAxisBinning(Qt::XAxis, AxisBinning(xBins, xMin, xMax));
-        m_histo->setAxisBinning(Qt::YAxis, AxisBinning(yBins, yMin, yMax));
+        if (!m_histo)
+        {
+            m_histo = std::make_shared<Histo2D>(m_xBins, xMin, xMax,
+                                                m_yBins, yMin, yMax);
+
+            m_histo->setObjectName(objectName());
+        }
+        else
+        {
+            m_histo->resize(m_xBins, m_yBins);
+
+            m_histo->setAxisBinning(Qt::XAxis, AxisBinning(m_xBins, xMin, xMax));
+            m_histo->setAxisBinning(Qt::YAxis, AxisBinning(m_yBins, yMin, yMax));
+        }
 
         {
             AxisInfo info;
@@ -1221,10 +1230,6 @@ void Histo2DSink::beginRun()
             info.unit  = m_inputY.inputPipe->parameters.unit;
             m_histo->setAxisInfo(Qt::YAxis, info);
         }
-    }
-    if (m_histo)
-    {
-        m_histo->clear();
     }
 }
 
@@ -1262,40 +1267,34 @@ void Histo2DSink::step()
 
 void Histo2DSink::read(const QJsonObject &json)
 {
-    u32 xBins = static_cast<u32>(json["xBins"].toInt());
-    double xMin = json["xMin"].toDouble();
-    double xMax = json["xMax"].toDouble();
+    m_xBins = static_cast<s32>(json["xBins"].toInt());
+    // TODO: implement subrange selection
+    //m_xMin = json["xMin"].toDouble();
+    //m_xMax = json["xMax"].toDouble();
 
-    u32 yBins = static_cast<u32>(json["yBins"].toInt());
-    double yMin = json["yMin"].toDouble();
-    double yMax = json["yMax"].toDouble();
+    m_yBins = static_cast<s32>(json["yBins"].toInt());
+    // TODO: implement subrange selection
+    //m_yMin = json["yMin"].toDouble();
+    //m_yMax = json["yMax"].toDouble();
 
     m_xAxisTitle = json["xAxisTitle"].toString();
     m_yAxisTitle = json["yAxisTitle"].toString();
-
-    m_histo = std::make_shared<Histo2D>(xBins, xMin, xMax,
-                                      yBins, yMin, yMax);
-
-    m_histo->setObjectName(json["objectName"].toString());
 }
 
 void Histo2DSink::write(QJsonObject &json) const
 {
-    if (m_histo)
-    {
-        json["xBins"] = static_cast<qint64>(m_histo->getAxisBinning(Qt::XAxis).getBins());
-        json["xMin"]  = m_histo->getAxisBinning(Qt::XAxis).getMin();
-        json["xMax"]  = m_histo->getAxisBinning(Qt::XAxis).getMax();
+    json["xBins"] = m_xBins;
+    // TODO: implement subrange selection
+    //json["xMin"]  = m_xMin;
+    //json["xMax"]  = m_xMax;
 
-        json["yBins"] = static_cast<qint64>(m_histo->getAxisBinning(Qt::YAxis).getBins());
-        json["yMin"]  = m_histo->getAxisBinning(Qt::YAxis).getMin();
-        json["yMax"]  = m_histo->getAxisBinning(Qt::YAxis).getMax();
+    json["yBins"] = m_yBins;
+    // TODO: implement subrange selection
+    //json["yMin"]  = m_yMin;
+    //json["yMax"]  = m_yMax;
 
-        json["xAxisTitle"] = m_xAxisTitle;
-        json["yAxisTitle"] = m_yAxisTitle;
-
-        json["objectName"] = objectName();
-    }
+    json["xAxisTitle"] = m_xAxisTitle;
+    json["yAxisTitle"] = m_yAxisTitle;
 }
 
 //

@@ -3,6 +3,7 @@
 ==========================
 - Histo1DWidget: zoom out after applying calibration
 >>>>> Begin Analysis NG <<<<<
+ - histo2d: make it possible to create sub histos by selecting a range for each of the input axes
  - react to event and module renames
 
  - should OperatorInterface::connectInputSlot() perform a validity check of
@@ -33,6 +34,10 @@
 - License info needs Apache License for PCG. Maybe others. Check what is needed here!
 - Refactor DAQConfig -> VMEConfig and DAQConfigTree to VMEConfigTree
 >>>>> Begin Analysis NG <<<<<
+ - Memory management: how to handle errors in beginRun()? It's called in a lot
+   of places and it's not clear what to do. Maybe mark the operator as defunct
+   in teh GUI and display a message or something.
+   Maybe also set a user defined limit for the maximum histogram memory.
  - Histo1DSink and Histo2DSink implementations are quite different. Histo1DSink
    handled everything in beginRun() while Histo2DSink relies on the
    OperatorConfigurationWidget to set things up. Make these work similar.
