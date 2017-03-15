@@ -718,8 +718,8 @@ class Histo2DSink: public SinkInterface
         Slot m_inputY;
 
         std::shared_ptr<Histo2D> m_histo;
-        s32 m_xBins;
-        s32 m_yBins;
+        s32 m_xBins = 0;
+        s32 m_yBins = 0;
         // TODO: implement subrange selection
         //double m_xMin;
         //double m_xMax;
