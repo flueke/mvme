@@ -147,9 +147,10 @@ void Histo2DWidget::replot()
     auto histData = reinterpret_cast<Histo2DRasterData *>(m_plotItem->data());
     histData->updateIntervals();
 
-#if 1 // testing
     if (m_zoomer->zoomRectIndex() == 0)
     {
+        // Fully zoomed out => set axis scales to full size and use that as the zoomer base.
+
         auto xInterval = histData->interval(Qt::XAxis);
         ui->plot->setAxisScale(QwtPlot::xBottom, xInterval.minValue(), xInterval.maxValue());
 
@@ -158,7 +159,6 @@ void Histo2DWidget::replot()
 
         m_zoomer->setZoomBase();
     }
-#endif
 
     // z axis interval
     auto interval = histData->interval(Qt::ZAxis);
@@ -169,6 +169,22 @@ void Histo2DWidget::replot()
     auto axis = ui->plot->axisWidget(QwtPlot::yRight);
     axis->setColorMap(interval, getColorMap());
 
+    // window and axis titles
+    auto name = m_histo->objectName();
+    setWindowTitle(QString("Histogram %1").arg(name));
+
+    {
+        auto axisInfo = m_histo->getAxisInfo(Qt::XAxis);
+        ui->plot->axisWidget(QwtPlot::xBottom)->setTitle(make_title_string(axisInfo));
+    }
+
+    {
+        auto axisInfo = m_histo->getAxisInfo(Qt::YAxis);
+        ui->plot->axisWidget(QwtPlot::yLeft)->setTitle(make_title_string(axisInfo));
+    }
+
+
+    // stats display
     QwtInterval xInterval = ui->plot->axisScaleDiv(QwtPlot::xBottom).interval();
     QwtInterval yInterval = ui->plot->axisScaleDiv(QwtPlot::yLeft).interval();
 
@@ -205,19 +221,6 @@ void Histo2DWidget::displayChanged()
     }
 
     m_plotItem->setColorMap(getColorMap());
-
-    auto name = m_histo->objectName();
-    setWindowTitle(QString("Histogram %1").arg(name));
-
-    {
-        auto axisInfo = m_histo->getAxisInfo(Qt::XAxis);
-        ui->plot->axisWidget(QwtPlot::xBottom)->setTitle(make_title_string(axisInfo));
-    }
-
-    {
-        auto axisInfo = m_histo->getAxisInfo(Qt::YAxis);
-        ui->plot->axisWidget(QwtPlot::yLeft)->setTitle(make_title_string(axisInfo));
-    }
 
     replot();
 }
