@@ -1050,7 +1050,7 @@ void MVMEContext::loadAnalysisConfig(const QString &fileName)
         {
             m_analysis_ng->clear();
             setAnalysisConfigFileName(QString());
-            QMessageBox::critical(m_mainwin, QSL("Error"), QString("Out of memory when creating analysis objects"));
+            QMessageBox::critical(m_mainwin, QSL("Error"), QString("Out of memory when creating analysis objects."));
             emit analysisNGChanged();
         }
     }

@@ -14,6 +14,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QMenu>
+#include <QMessageBox>
 #include <QScrollArea>
 #include <QSplitter>
 #include <QStackedWidget>
@@ -1663,9 +1664,16 @@ void EventWidget::addOperator(OperatorPtr op, s32 userLevel)
 {
     if (!op) return;
 
-    AnalysisPauser pauser(m_d->m_context);
-    m_d->m_context->getAnalysisNG()->addOperator(m_d->m_eventIndex, op, userLevel);
-    m_d->repopulate();
+    try
+    {
+        AnalysisPauser pauser(m_d->m_context);
+        m_d->m_context->getAnalysisNG()->addOperator(m_d->m_eventIndex, op, userLevel);
+        m_d->repopulate();
+    }
+    catch (const std::bad_alloc &)
+    {
+        QMessageBox::critical(this, QSL("Error"), QString("Out of memory when creating analysis object."));
+    }
 }
 
 void EventWidget::operatorEdited(OperatorInterface *op)
@@ -1673,7 +1681,19 @@ void EventWidget::operatorEdited(OperatorInterface *op)
     // Updates the edited SourceInterface and recursively all the operators
     // depending on it.
     AnalysisPauser pauser(m_d->m_context);
-    do_beginRun_forward(op);
+
+    try
+    {
+        do_beginRun_forward(op);
+    }
+    catch (const std::bad_alloc &)
+    {
+        // Not being able to allocate enough memory for the operator is hopefully the rare case.
+        // To keep the code simple we just delete the operator in question and show an error message.
+        m_d->m_context->getAnalysisNG()->removeOperator(op);
+        QMessageBox::critical(this, QSL("Error"), QString("Out of memory when creating analysis object."));
+    }
+
     m_d->repopulate();
 }
 
@@ -1694,32 +1714,49 @@ void EventWidget::addSource(SourcePtr src, ModuleConfig *module, bool addHistogr
     s32 moduleIndex = indices.second;
     auto analysis = m_d->m_context->getAnalysisNG();
 
-
-    AnalysisPauser pauser(m_d->m_context);
-
-    if (addHistogramsAndCalibration)
+    try
     {
-        // Only implemented for Extractor type sources
-        auto extractor = std::dynamic_pointer_cast<Extractor>(src);
-        Q_ASSERT(extractor);
-        auto rawDisplay = make_raw_data_display(extractor, unitMin, unitMax, "MISSING TITLE", // INCOMPLETE
-                                                unitLabel);
-        add_raw_data_display(analysis, eventIndex, moduleIndex, rawDisplay);
-    }
-    else
-    {
-        analysis->addSource(eventIndex, moduleIndex, src);
-    }
+        AnalysisPauser pauser(m_d->m_context);
 
-    m_d->repopulate();
+        if (addHistogramsAndCalibration)
+        {
+            // Only implemented for Extractor type sources
+            auto extractor = std::dynamic_pointer_cast<Extractor>(src);
+            Q_ASSERT(extractor);
+            auto rawDisplay = make_raw_data_display(extractor, unitMin, unitMax, "MISSING TITLE", // INCOMPLETE
+                                                    unitLabel);
+            add_raw_data_display(analysis, eventIndex, moduleIndex, rawDisplay);
+        }
+        else
+        {
+            analysis->addSource(eventIndex, moduleIndex, src);
+        }
+        m_d->repopulate();
+    }
+    catch (const std::bad_alloc &)
+    {
+        QMessageBox::critical(this, QSL("Error"), QString("Out of memory when creating analysis object."));
+    }
 }
 
 void EventWidget::sourceEdited(SourceInterface *src)
 {
-    // Updates the edited SourceInterface and recursively all the operators
-    // depending on it.
+
     AnalysisPauser pauser(m_d->m_context);
-    do_beginRun_forward(src);
+
+    try
+    {
+        // Updates the edited SourceInterface and recursively all the operators
+        // depending on it.
+        do_beginRun_forward(src);
+    }
+    catch (const std::bad_alloc &)
+    {
+        // Not being able to allocate enough memory here should be the rare case.
+        // To keep the code simple we just delete the source in question and show an error message.
+        m_d->m_context->getAnalysisNG()->removeSource(src);
+        QMessageBox::critical(this, QSL("Error"), QString("Out of memory when editing analysis object."));
+    }
     m_d->repopulate();
 }
 

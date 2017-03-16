@@ -3,6 +3,7 @@
 #include <QJsonObject>
 
 #include <chrono>
+#include <random>
 
 #define ENABLE_ANALYSIS_DEBUG 0
 
@@ -1189,9 +1190,8 @@ Histo2DSink::Histo2DSink(QObject *parent)
 {
 }
 
-// Updates the axis limits to match the input parameters limits. Clears the
-// histogram. No resizing is performed here! If the number of bins should be
-// changed it must be done externally.
+// Creates or resizes the histogram. Updates the axis limits to match
+// the input parameters limits. Clears the histogram.
 void Histo2DSink::beginRun()
 {
     if (m_inputX.inputPipe && m_inputY.inputPipe)
@@ -1199,7 +1199,7 @@ void Histo2DSink::beginRun()
         double xMin = m_inputX.inputPipe->parameters[m_inputX.paramIndex].lowerLimit;
         double xMax = m_inputX.inputPipe->parameters[m_inputX.paramIndex].upperLimit;
 
-        double yMin = m_inputX.inputPipe->parameters[m_inputY.paramIndex].lowerLimit;
+        double yMin = m_inputY.inputPipe->parameters[m_inputY.paramIndex].lowerLimit;
         double yMax = m_inputY.inputPipe->parameters[m_inputY.paramIndex].upperLimit;
 
         if (!m_histo)

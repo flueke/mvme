@@ -24,7 +24,15 @@ void Histo2D::resize(s32 xBins, s32 yBins)
     {
         // Reallocate memory for the new size
         delete[] m_data;
-        m_data = new double[xBins * yBins];
+        try
+        {
+            m_data = new double[xBins * yBins];
+        }
+        catch (const std::bad_alloc &)
+        {
+            m_data = nullptr;
+            throw;
+        }
     }
 
     // Always update the axis binnings even if the size stayed the same as

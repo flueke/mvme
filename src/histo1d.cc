@@ -20,7 +20,16 @@ void Histo1D::resize(u32 nBins)
     if (nBins != m_xAxisBinning.getBins())
     {
         delete[] m_data;
-        m_data = new double[nBins];
+        try
+        {
+            m_data = new double[nBins];
+        }
+        catch (const std::bad_alloc &)
+        {
+            m_data = nullptr;
+            throw;
+        }
+
         m_xAxisBinning.setBins(nBins);
     }
     clear();
