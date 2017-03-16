@@ -720,11 +720,16 @@ class Histo2DSink: public SinkInterface
         std::shared_ptr<Histo2D> m_histo;
         s32 m_xBins = 0;
         s32 m_yBins = 0;
-        // TODO: implement subrange selection
-        //double m_xMin;
-        //double m_xMax;
-        //double m_yMin;
-        //double m_yMax;
+
+        // For subrange selection. Makes it possible to get a high resolution
+        // view of a rectangular part of the input without having to add a cut
+        // operator. This might be temporary or stay in even after cuts are
+        // properly implemented.
+        double m_xLimitMin = make_quiet_nan();
+        double m_xLimitMax = make_quiet_nan();
+        double m_yLimitMin = make_quiet_nan();
+        double m_yLimitMax = make_quiet_nan();
+
         QString m_xAxisTitle;
         QString m_yAxisTitle;
 };

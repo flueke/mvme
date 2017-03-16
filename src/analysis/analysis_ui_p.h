@@ -122,6 +122,14 @@ class AddEditOperatorWidget: public QWidget
         QVector<SlotConnection> m_slotBackups;
 };
 
+struct Histo2DAxisLimitsUI
+{
+    QGroupBox *groupBox;
+    QFrame *limitFrame;
+    QDoubleSpinBox *spin_min;
+    QDoubleSpinBox *spin_max;
+};
+
 class OperatorConfigurationWidget: public QWidget
 {
     Q_OBJECT
@@ -143,6 +151,8 @@ class OperatorConfigurationWidget: public QWidget
         QComboBox *combo_yBins = nullptr;
         QLineEdit *le_xAxisTitle = nullptr;
         QLineEdit *le_yAxisTitle = nullptr;
+        Histo2DAxisLimitsUI limits_x;
+        Histo2DAxisLimitsUI limits_y;
 
         // CalibrationFactorOffset and CalibrationMinMax
         QLineEdit *le_unit = nullptr;

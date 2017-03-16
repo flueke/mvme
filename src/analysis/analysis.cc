@@ -1198,11 +1198,31 @@ void Histo2DSink::beginRun()
 {
     if (m_inputX.inputPipe && m_inputY.inputPipe)
     {
-        double xMin = m_inputX.inputPipe->parameters[m_inputX.paramIndex].lowerLimit;
-        double xMax = m_inputX.inputPipe->parameters[m_inputX.paramIndex].upperLimit;
+        double xMin = m_xLimitMin;
+        double xMax = m_xLimitMax;
 
-        double yMin = m_inputY.inputPipe->parameters[m_inputY.paramIndex].lowerLimit;
-        double yMax = m_inputY.inputPipe->parameters[m_inputY.paramIndex].upperLimit;
+        if (std::isnan(xMin))
+        {
+            xMin = m_inputX.inputPipe->parameters[m_inputX.paramIndex].lowerLimit;
+        }
+
+        if (std::isnan(xMax))
+        {
+            xMax = m_inputX.inputPipe->parameters[m_inputX.paramIndex].upperLimit;
+        }
+
+        double yMin = m_yLimitMin;
+        double yMax = m_yLimitMax;
+
+        if (std::isnan(yMin))
+        {
+            yMin = m_inputY.inputPipe->parameters[m_inputY.paramIndex].lowerLimit;
+        }
+
+        if (std::isnan(yMax))
+        {
+            yMax = m_inputY.inputPipe->parameters[m_inputY.paramIndex].upperLimit;
+        }
 
         if (!m_histo)
         {
@@ -1270,14 +1290,12 @@ void Histo2DSink::step()
 void Histo2DSink::read(const QJsonObject &json)
 {
     m_xBins = static_cast<s32>(json["xBins"].toInt());
-    // TODO: implement subrange selection
-    //m_xMin = json["xMin"].toDouble();
-    //m_xMax = json["xMax"].toDouble();
+    m_xLimitMin = json["xLimitMin"].toDouble(make_quiet_nan());
+    m_xLimitMax = json["xLimitMax"].toDouble(make_quiet_nan());
 
     m_yBins = static_cast<s32>(json["yBins"].toInt());
-    // TODO: implement subrange selection
-    //m_yMin = json["yMin"].toDouble();
-    //m_yMax = json["yMax"].toDouble();
+    m_yLimitMin = json["yLimitMin"].toDouble(make_quiet_nan());
+    m_yLimitMax = json["yLimitMax"].toDouble(make_quiet_nan());
 
     m_xAxisTitle = json["xAxisTitle"].toString();
     m_yAxisTitle = json["yAxisTitle"].toString();
@@ -1286,14 +1304,12 @@ void Histo2DSink::read(const QJsonObject &json)
 void Histo2DSink::write(QJsonObject &json) const
 {
     json["xBins"] = m_xBins;
-    // TODO: implement subrange selection
-    //json["xMin"]  = m_xMin;
-    //json["xMax"]  = m_xMax;
+    json["xLimitMin"]  = m_xLimitMin;
+    json["xLimitMax"]  = m_xLimitMax;
 
     json["yBins"] = m_yBins;
-    // TODO: implement subrange selection
-    //json["yMin"]  = m_yMin;
-    //json["yMax"]  = m_yMax;
+    json["yLimitMin"]  = m_yLimitMin;
+    json["yLimitMax"]  = m_yLimitMax;
 
     json["xAxisTitle"] = m_xAxisTitle;
     json["yAxisTitle"] = m_yAxisTitle;
