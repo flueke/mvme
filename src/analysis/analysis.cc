@@ -30,6 +30,7 @@ void Slot::connectPipe(Pipe *newInput, s32 newParamIndex)
         inputPipe = newInput;
         paramIndex = newParamIndex;
         inputPipe->addDestination(this);
+        Q_ASSERT(parentOperator);
         parentOperator->slotConnected(this);
     }
 }
@@ -41,6 +42,7 @@ void Slot::disconnectPipe()
         inputPipe->removeDestination(this);
         inputPipe = nullptr;
         paramIndex = Slot::NoParamIndex;
+        Q_ASSERT(parentOperator);
         parentOperator->slotDisconnected(this);
     }
 }
@@ -2045,20 +2047,50 @@ void do_beginRun_forward(PipeSourceInterface *pipeSource)
         Pipe *outPipe = pipeSource->getOutput(outputIndex);
         Q_ASSERT(outPipe); // Must exist as the source said it would exist.
 
-        const s32 destCount = outPipe->destinations.size();
+        // Copy destinations vector here as disconnectPipe() below will modify it.
+        auto destinations = outPipe->destinations;
+        const s32 destCount = destinations.size();
 
         for (s32 destIndex = 0;
              destIndex < destCount;
              ++destIndex)
         {
-            Slot *destSlot = outPipe->destinations[destIndex];
+            Slot *destSlot = destinations[destIndex];
 
-            if (destSlot && destSlot->parentOperator)
+            if (destSlot)
             {
+                Q_ASSERT(destSlot->parentOperator);
+
+                auto destOperator = destSlot->parentOperator;
+
+                // Check all the slots of the destination operator. This is
+                // necessary as multiple slots might be connected to the
+                // current pipeSource.
+                for (s32 destSlotIndex = 0;
+                     destSlotIndex < destOperator->getNumberOfSlots();
+                     ++destSlotIndex)
+                {
+                    Slot *parentSlot = destOperator->getSlot(destSlotIndex);
+
+                    if (parentSlot->inputPipe
+                        && parentSlot->paramIndex != Slot::NoParamIndex
+                        && parentSlot->paramIndex >= parentSlot->inputPipe->parameters.size())
+                    {
+                        // The paramIndex is out of range. This can happen when
+                        // e.g. an Extractor is edited and the new number of
+                        // address bits is less than the old number.
+                        // For now handle this case by just disconnecting the slot.
+                        // It will then be highlighted in the UI.
+                        qDebug() << __PRETTY_FUNCTION__
+                            << "disconnecting Slot" << parentSlot->name << "of operator" << destOperator
+                            << "because its paramIndex is now out of range";
+                        parentSlot->disconnectPipe();
+                    }
+                }
+
                 do_beginRun_forward(destSlot->parentOperator);
             }
         }
-
     }
 }
 
