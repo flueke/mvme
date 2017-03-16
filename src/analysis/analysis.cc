@@ -1674,14 +1674,20 @@ Analysis::ReadResult Analysis::read(const QJsonObject &json)
 
     ReadResult result = {};
 
-    int version = json["MVMEAnalysisVersion"].toInt(0);
-
-    if (version != CurrentAnalysisVersion)
+    // Bit of a hack: check the version number only if there's a matching key
+    // in the json data. This works around the problem that loading an empty
+    // config led to a version mismatch error.
+    if (json.contains(QSL("MVMEAnalysisVersion")))
     {
-        result.code = ReadResult::VersionMismatch;
-        result.data["version"] = version;
-        result.data["expected version"] = CurrentAnalysisVersion;
-        return result;
+        int version = json[QSL("MVMEAnalysisVersion")].toInt(0);
+
+        if (version != CurrentAnalysisVersion)
+        {
+            result.code = ReadResult::VersionMismatch;
+            result.data["version"] = version;
+            result.data["expected version"] = CurrentAnalysisVersion;
+            return result;
+        }
     }
 
     // Sources
