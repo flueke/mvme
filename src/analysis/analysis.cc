@@ -1360,6 +1360,20 @@ void Analysis::beginEvent(s32 eventIndex)
     }
 }
 
+void Analysis::addSource(s32 eventIndex, s32 moduleIndex, const SourcePtr &source)
+{
+    source->beginRun();
+    m_sources.push_back({eventIndex, moduleIndex, source});
+    updateRanks();
+}
+
+void Analysis::addOperator(s32 eventIndex, const OperatorPtr &op, s32 userLevel)
+{
+    op->beginRun();
+    m_operators.push_back({eventIndex, op, userLevel});
+    updateRanks();
+}
+
 using HighResClock = std::chrono::high_resolution_clock;
 
 struct TimedBlock
