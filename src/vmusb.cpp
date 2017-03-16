@@ -117,7 +117,7 @@ static void close_usb_device(usb_dev_handle *devHandle)
 
 VMUSB::VMUSB()
     : m_state(ControllerState::Closed)
-    , m_lock(QMutex::Recursive)
+    , m_lock(QMutex::Recursive) // FIXME: make this non-recursive!
 {
 }
 

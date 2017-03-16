@@ -329,11 +329,17 @@ MVMEContext::~MVMEContext()
     delete m_eventProcessor;
     delete m_listFileWorker;
     delete m_listFile;
+
     qDeleteAll(m_freeBuffers); // TODO: old analysis, to be removed
     Q_ASSERT(m_freeBufferQueue.queue.size() + m_filledBufferQueue.queue.size() == DataBufferCount);
     qDeleteAll(m_freeBufferQueue.queue);
     qDeleteAll(m_filledBufferQueue.queue);
+
+    // Wait for possibly active VMEController::open() to return before deleting
+    // the controller object.
+    m_ctrlOpenFuture.waitForFinished();
     delete m_controller;
+
     delete m_d;
 }
 
