@@ -1050,12 +1050,16 @@ VMEError VMUSB::openFirstDevice()
     QMutexLocker locker(&m_lock);
 
     if (isOpen())
+    {
         return VMEError(VMEError::DeviceIsOpen);
+    }
 
     getUsbDevices();
 
     if (deviceInfos.isEmpty())
+    {
         return VMEError(VMEError::NoDevice);
+    }
 
     auto deviceInfo = deviceInfos[0];
 
