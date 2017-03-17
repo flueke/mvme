@@ -127,6 +127,15 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     connect(m_zoomer, &ScrollZoomer::mouseCursorMovedTo, this, &Histo1DWidget::mouseCursorMovedToPlotCoord);
     connect(m_zoomer, &ScrollZoomer::mouseCursorLeftPlot, this, &Histo1DWidget::mouseCursorLeftPlot);
 
+    connect(m_histo, &Histo1D::axisBinningChanged, this, [this] (Qt::Axis) {
+        // Handle axis changes by zooming out fully. This will make sure
+        // possible axis scale changes are immediately visible and the zoomer
+        // is in a clean state.
+        m_zoomer->setZoomStack(QStack<QRectF>(), -1);
+        m_zoomer->zoom(0);
+        replot();
+    });
+
 #if 0
     auto plotPanner = new QwtPlotPanner(ui->plot->canvas());
     plotPanner->setAxisEnabled(QwtPlot::yLeft, false);

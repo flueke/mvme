@@ -18,6 +18,9 @@ struct Histo1DStatistics
 class Histo1D: public QObject
 {
     Q_OBJECT
+    signals:
+        void axisBinningChanged(Qt::Axis axis);
+
     public:
         Histo1D(u32 nBins, double xMin, double xMax, QObject *parent = 0);
         ~Histo1D();
@@ -55,9 +58,10 @@ class Histo1D: public QObject
 
         void setAxisBinning(Qt::Axis axis, AxisBinning binning)
         {
-            if (axis == Qt::XAxis)
+            if (axis == Qt::XAxis && binning != m_xAxisBinning)
             {
                 m_xAxisBinning = binning;
+                emit axisBinningChanged(axis);
             }
         }
 

@@ -125,7 +125,6 @@ Histo2DWidget::Histo2DWidget(Histo2D *histo, QWidget *parent)
         // Handle axis changes by zooming out fully. This will make sure
         // possible axis scale changes are immediately visible and the zoomer
         // is in a clean state.
-        qDebug() << __PRETTY_FUNCTION__;
         m_zoomer->setZoomStack(QStack<QRectF>(), -1);
         m_zoomer->zoom(0);
         replot();
