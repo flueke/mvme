@@ -37,7 +37,6 @@ class Histo2DWidget: public QWidget
         bool zAxisIsLog() const;
         bool zAxisIsLin() const;
         QwtLinearColorMap *getColorMap() const;
-        void onHistoResized();
         void updateCursorInfoLabel();
 
         Ui::Histo2DWidget *ui;

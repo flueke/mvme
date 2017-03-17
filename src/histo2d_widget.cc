@@ -91,8 +91,6 @@ Histo2DWidget::Histo2DWidget(Histo2D *histo, QWidget *parent)
     ui->pb_subHisto->setEnabled(false);
     ui->tb_info->setEnabled(false);
 
-    //connect(histo, &Histo2D::resized, this, &Histo2DWidget::onHistoResized);
-
     connect(ui->pb_export, &QPushButton::clicked, this, &Histo2DWidget::exportPlot);
 
     connect(ui->pb_clear, &QPushButton::clicked, this, [this] {
@@ -141,7 +139,6 @@ Histo2DWidget::Histo2DWidget(Histo2D *histo, QWidget *parent)
     plotMagnifier->setMouseButton(Qt::NoButton);
 #endif
 
-    //onHistoResized();
     displayChanged();
 }
 
@@ -274,26 +271,6 @@ QwtLinearColorMap *Histo2DWidget::getColorMap() const
     colorMap->setMode(QwtLinearColorMap::ScaledColors);
 
     return colorMap;
-}
-
-void Histo2DWidget::onHistoResized()
-{
-#if 0
-    m_xConversion.setScaleInterval(0, m_histo->getXResolution());
-    m_yConversion.setScaleInterval(0, m_histo->getYResolution());
-
-    auto histData = reinterpret_cast<Histo2DRasterData *>(m_plotItem->data());
-    histData->updateIntervals();
-
-    auto interval = histData->interval(Qt::XAxis);
-    ui->plot->setAxisScale(QwtPlot::xBottom, interval.minValue(), interval.maxValue());
-
-    interval = histData->interval(Qt::YAxis);
-    ui->plot->setAxisScale(QwtPlot::yLeft, interval.minValue(), interval.maxValue());
-
-    m_zoomer->setZoomBase(true);
-    displayChanged();
-#endif
 }
 
 void Histo2DWidget::mouseCursorMovedToPlotCoord(QPointF pos)
