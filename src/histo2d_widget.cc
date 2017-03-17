@@ -119,10 +119,19 @@ Histo2DWidget::Histo2DWidget(Histo2D *histo, QWidget *parent)
     ui->plot->canvas()->setMouseTracking(true);
 
     m_zoomer = new ScrollZoomer(ui->plot->canvas());
-    m_zoomer->setZoomBase();
     connect(m_zoomer, &ScrollZoomer::zoomed, this, &Histo2DWidget::zoomerZoomed);
     connect(m_zoomer, &ScrollZoomer::mouseCursorMovedTo, this, &Histo2DWidget::mouseCursorMovedToPlotCoord);
     connect(m_zoomer, &ScrollZoomer::mouseCursorLeftPlot, this, &Histo2DWidget::mouseCursorLeftPlot);
+
+    connect(m_histo, &Histo2D::axisBinningChanged, this, [this] (Qt::Axis) {
+        // Handle axis changes by zooming out fully. This will make sure
+        // possible axis scale changes are immediately visible and the zoomer
+        // is in a clean state.
+        qDebug() << __PRETTY_FUNCTION__;
+        m_zoomer->setZoomStack(QStack<QRectF>(), -1);
+        m_zoomer->zoom(0);
+        replot();
+    });
 
 #if 0
     auto plotPanner = new QwtPlotPanner(ui->plot->canvas());

@@ -19,6 +19,9 @@ struct Histo2DStatistics
 class Histo2D: public QObject
 {
     Q_OBJECT
+    signals:
+        void axisBinningChanged(Qt::Axis axis);
+
     public:
         Histo2D(u32 xBins, double xMin, double xMax,
                 u32 yBins, double yMin, double yMax,
@@ -47,7 +50,11 @@ class Histo2D: public QObject
         {
             if (axis < m_axisBinnings.size())
             {
-                m_axisBinnings[axis] = binning;
+                if (binning != m_axisBinnings[axis])
+                {
+                    m_axisBinnings[axis] = binning;
+                    emit axisBinningChanged(axis);
+                }
             }
         }
 

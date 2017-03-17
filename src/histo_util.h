@@ -172,6 +172,18 @@ class AxisBinning
             return bin;
         }
 
+        inline bool operator==(const AxisBinning &other)
+        {
+            return (m_nBins == other.m_nBins
+                    && m_min == other.m_min
+                    && m_max == other.m_max);
+        }
+
+        inline bool operator!=(const AxisBinning &other)
+        {
+            return !(*this == other);
+        }
+
     private:
         u32 m_nBins;
         double m_min;
