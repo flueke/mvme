@@ -264,6 +264,14 @@ void Histo1DWidget::replot()
     updateAxisScales();
     updateStatistics();
     updateCursorInfoLabel();
+
+    // update histo info label
+    auto infoText = QString("Underflow: %1\n"
+                            "Overflow:  %2")
+        .arg(m_histo->getUnderflow())
+        .arg(m_histo->getOverflow());
+    ui->label_histoInfo->setText(infoText);
+
     ui->plot->replot();
 }
 

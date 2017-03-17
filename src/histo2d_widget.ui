@@ -189,7 +189,7 @@
         <string>...</string>
        </property>
        <property name="icon">
-        <iconset resource="resources.qrc">
+        <iconset>
          <normaloff>:/info.png</normaloff>:/info.png</iconset>
        </property>
       </widget>
@@ -208,9 +208,16 @@
       </spacer>
      </item>
      <item>
+      <widget class="QLabel" name="label_histoInfo">
+       <property name="text">
+        <string>histoInfo</string>
+       </property>
+      </widget>
+     </item>
+     <item>
       <widget class="QLabel" name="label_cursorInfo">
        <property name="text">
-        <string/>
+        <string>cursorInfo</string>
        </property>
       </widget>
      </item>
@@ -226,9 +233,7 @@
    <container>1</container>
   </customwidget>
  </customwidgets>
- <resources>
-  <include location="resources.qrc"/>
- </resources>
+ <resources/>
  <connections/>
  <buttongroups>
   <buttongroup name="linLogGroup"/>

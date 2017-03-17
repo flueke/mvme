@@ -129,6 +129,13 @@
       </spacer>
      </item>
      <item>
+      <widget class="QLabel" name="label_histoInfo">
+       <property name="text">
+        <string/>
+       </property>
+      </widget>
+     </item>
+     <item>
       <widget class="QLabel" name="label_cursorInfo">
        <property name="text">
         <string/>

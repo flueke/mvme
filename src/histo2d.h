@@ -79,6 +79,12 @@ class Histo2D: public QObject
 
         Histo2DStatistics calcStatistics(AxisInterval xInterval, AxisInterval yInterval) const;
 
+        double getUnderflow() const { return m_underflow; }
+        void setUnderflow(double value) { m_underflow = value; }
+
+        double getOverflow() const { return m_overflow; }
+        void setOverflow(double value) { m_overflow = value; }
+
     private:
         std::array<AxisBinning, 2> m_axisBinnings;
         std::array<AxisInfo, 2> m_axisInfos;
