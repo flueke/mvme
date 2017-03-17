@@ -1,7 +1,9 @@
 #include "histo2d_widget.h"
 #include "ui_histo2d_widget.h"
+#include "histo2d_widget_p.h"
 #include "scrollzoomer.h"
 #include "util.h"
+#include "analysis/analysis.h"
 
 #include <qwt_plot_spectrogram.h>
 #include <qwt_color_map.h>
@@ -88,8 +90,8 @@ Histo2DWidget::Histo2DWidget(Histo2D *histo, QWidget *parent)
 {
     ui->setupUi(this);
 
-    ui->pb_subHisto->setEnabled(false);
     ui->tb_info->setEnabled(false);
+    ui->tb_subRange->setEnabled(false);
 
     connect(ui->pb_export, &QPushButton::clicked, this, &Histo2DWidget::exportPlot);
 
@@ -129,6 +131,7 @@ Histo2DWidget::Histo2DWidget(Histo2D *histo, QWidget *parent)
         m_zoomer->zoom(0);
         replot();
     });
+
 
 #if 0
     auto plotPanner = new QwtPlotPanner(ui->plot->canvas());
@@ -362,31 +365,6 @@ void Histo2DWidget::updateCursorInfoLabel()
     ui->label_cursorInfo->setMinimumWidth(m_labelCursorInfoWidth);
 }
 
-void Histo2DWidget::on_pb_subHisto_clicked()
-{
-#if 0
-    auto xBinRange = ui->plot->axisScaleDiv(QwtPlot::xBottom).interval();
-    xBinRange.setMaxValue(xBinRange.maxValue() + 1.0);
-
-    auto yBinRange = ui->plot->axisScaleDiv(QwtPlot::yLeft).interval();
-    yBinRange.setMaxValue(yBinRange.maxValue() + 1.0);
-
-
-    Hist2DDialog dialog(m_context, m_histo, xBinRange, yBinRange, this);
-
-    if (dialog.exec() == QDialog::Accepted)
-    {
-        auto result = dialog.getHistoAndConfig();
-
-        auto histo = result.first;
-        auto histoConfig = result.second;
-        m_context->registerObjectAndConfig(histo, histoConfig);
-        m_context->getAnalysisConfig()->addHist2DConfig(histoConfig);
-        m_context->openInNewWindow(histo);
-    }
-#endif
-}
-
 void Histo2DWidget::on_tb_info_clicked()
 {
 #if 0
@@ -463,4 +441,26 @@ void Histo2DWidget::on_tb_info_clicked()
     dialog.setAttribute(Qt::WA_DeleteOnClose);
     dialog.show();
 #endif
+}
+
+void Histo2DWidget::setSink(const SinkPtr &sink, HistoSinkCallback addSinkCallback, HistoSinkCallback sinkModifiedCallback)
+{
+    Q_ASSERT(sink && sink->m_histo.get() == m_histo);
+    m_sink = sink;
+    m_addSinkCallback = addSinkCallback;
+    m_sinkModifiedCallback = sinkModifiedCallback;
+    ui->tb_subRange->setEnabled(true);
+}
+
+void Histo2DWidget::on_tb_subRange_clicked()
+{
+    Q_ASSERT(m_sink);
+    double visibleMinX = ui->plot->axisScaleDiv(QwtPlot::xBottom).lowerBound();
+    double visibleMaxX = ui->plot->axisScaleDiv(QwtPlot::xBottom).upperBound();
+    double visibleMinY = ui->plot->axisScaleDiv(QwtPlot::yLeft).lowerBound();
+    double visibleMaxY = ui->plot->axisScaleDiv(QwtPlot::yLeft).upperBound();
+    Histo2DSubRangeDialog dialog(m_sink, m_addSinkCallback, m_sinkModifiedCallback,
+                                 visibleMinX, visibleMaxX, visibleMinY, visibleMaxY,
+                                 this);
+    dialog.exec();
 }

@@ -2,6 +2,7 @@
 #define __ANALYSIS_UI_P_H__
 
 #include "analysis.h"
+#include "../histo_util.h"
 
 #include <functional>
 
@@ -57,10 +58,12 @@ class EventWidget: public QWidget
 
         virtual bool eventFilter(QObject *watched, QEvent *event);
 
+        friend class AnalysisWidget;
+
     private:
         // Note: the EventWidgetPrivate part is not neccessary anymore as this
-        // now already is inside a private header. This class started as the
-        // main AnalaysisUi class
+        // now already is inside a private header. I started EventWidget as the
+        // main AnalysisUI class...
         EventWidgetPrivate *m_d;
 };
 
@@ -120,14 +123,6 @@ class AddEditOperatorWidget: public QWidget
         };
 
         QVector<SlotConnection> m_slotBackups;
-};
-
-struct Histo2DAxisLimitsUI
-{
-    QGroupBox *groupBox;
-    QFrame *limitFrame;
-    QDoubleSpinBox *spin_min;
-    QDoubleSpinBox *spin_max;
 };
 
 class OperatorConfigurationWidget: public QWidget

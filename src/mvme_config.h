@@ -230,6 +230,7 @@ class DAQConfig: public ConfigObject
         QList<EventConfig *> getEventConfigs() const { return eventConfigs; }
         EventConfig *getEventConfig(int eventIndex) { return eventConfigs.value(eventIndex); }
         EventConfig *getEventConfig(const QString &name) const;
+        EventConfig *getEventConfig(const QUuid &id) const;
 
         ModuleConfig *getModuleConfig(int eventIndex, int moduleIndex);
         QList<ModuleConfig *> getAllModuleConfigs() const;

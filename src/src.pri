@@ -18,6 +18,7 @@ HEADERS += \
     $$PWD/histo1d_widget.h \
     $$PWD/histo2d.h \
     $$PWD/histo2d_widget.h \
+    $$PWD/histo2d_widget_p.h \
     $$PWD/histo_util.h \
     $$PWD/histogram_tree.h \
     $$PWD/mesytec_diagnostics.h \
@@ -58,6 +59,7 @@ SOURCES += \
     $$PWD/histo1d_widget.cc \
     $$PWD/histo2d.cc \
     $$PWD/histo2d_widget.cc \
+    $$PWD/histo2d_widget_p.cc \
     $$PWD/histogram_tree.cc \
     $$PWD/histo_util.cc \
     $$PWD/mesytec_diagnostics.cc \

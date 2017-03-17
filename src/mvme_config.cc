@@ -536,6 +536,16 @@ EventConfig *DAQConfig::getEventConfig(const QString &name) const
     return nullptr;
 }
 
+EventConfig *DAQConfig::getEventConfig(const QUuid &id) const
+{
+    for (auto cfg: eventConfigs)
+    {
+        if (cfg->getId() == id)
+            return cfg;
+    }
+    return nullptr;
+}
+
 QList<ModuleConfig *> DAQConfig::getAllModuleConfigs() const
 {
     QList<ModuleConfig *> result;

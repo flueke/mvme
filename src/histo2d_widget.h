@@ -9,19 +9,30 @@ class QwtPlotSpectrogram;
 class QwtLinearColorMap;
 class QwtPlotHistogram;
 class ScrollZoomer;
+class MVMEContext;
 
 namespace Ui
 {
     class Histo2DWidget;
 }
 
+namespace analysis
+{
+    class Histo2DSink;
+};
+
 class Histo2DWidget: public QWidget
 {
     Q_OBJECT
     public:
+        using SinkPtr = std::shared_ptr<analysis::Histo2DSink>;
+        using HistoSinkCallback = std::function<void (const SinkPtr &)>;
+
         Histo2DWidget(const Histo2DPtr histoPtr, QWidget *parent = 0);
         Histo2DWidget(Histo2D *histo, QWidget *parent = 0);
         ~Histo2DWidget();
+
+        void setSink(const SinkPtr &sink, HistoSinkCallback addSinkCallback, HistoSinkCallback sinkModifiedCallback);
 
     private slots:
         void replot();
@@ -30,8 +41,8 @@ class Histo2DWidget: public QWidget
         void mouseCursorLeftPlot();
         void displayChanged();
         void zoomerZoomed(const QRectF &);
-        void on_pb_subHisto_clicked();
         void on_tb_info_clicked();
+        void on_tb_subRange_clicked();
 
     private:
         bool zAxisIsLog() const;
@@ -47,6 +58,10 @@ class Histo2DWidget: public QWidget
         QTimer *m_replotTimer;
         QPointF m_cursorPosition;
         int m_labelCursorInfoWidth;
+
+        std::shared_ptr<analysis::Histo2DSink> m_sink;
+        HistoSinkCallback m_addSinkCallback;
+        HistoSinkCallback m_sinkModifiedCallback;
 };
 
 #endif /* __HISTO2D_WIDGET_H__ */

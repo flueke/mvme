@@ -951,6 +951,7 @@ class Analysis
             return result;
         }
 
+        // FIXME: use eventId here!
         void addOperator(s32 eventIndex, const OperatorPtr &op, s32 userLevel);
         void removeOperator(const OperatorPtr &op);
         void removeOperator(OperatorInterface *op);

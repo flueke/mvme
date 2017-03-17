@@ -8,6 +8,7 @@
 #include "hist1d.h"
 #include "hist2d.h"
 #include "analysis/analysis.h"
+#include "analysis/analysis_ui.h"
 
 #include <QtConcurrent>
 #include <QTimer>
@@ -1100,6 +1101,33 @@ void MVMEContext::stopAnalysis()
 void MVMEContext::resumeAnalysis()
 {
     m_d->resumeAnalysis();
+}
+
+void MVMEContext::addAnalysisOperator(QUuid eventId, const std::shared_ptr<analysis::OperatorInterface> &op, s32 userLevel)
+{
+    auto eventConfig = m_daqConfig->getEventConfig(eventId);
+    if (eventConfig)
+    {
+        s32 eventIndex = m_daqConfig->getEventConfigs().indexOf(eventConfig);
+        AnalysisPauser pauser(this);
+        getAnalysisNG()->addOperator(eventIndex, op, userLevel);
+
+        if (m_analysisUi)
+        {
+            m_analysisUi->operatorAdded(op);
+        }
+    }
+}
+
+void MVMEContext::analysisOperatorEdited(const std::shared_ptr<analysis::OperatorInterface> &op)
+{
+    AnalysisPauser pauser(this);
+    analysis::do_beginRun_forward(op.get());
+
+    if (m_analysisUi)
+    {
+        m_analysisUi->operatorEdited(op);
+    }
 }
 
 QString getFilterPath(MVMEContext *context, DataFilterConfig *filterConfig, int filterAddress)

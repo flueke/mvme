@@ -28,6 +28,8 @@ class QThread;
 namespace analysis
 {
     class Analysis;
+    class OperatorInterface;
+    class AnalysisWidget;
 }
 
 struct MVMEContextPrivate;
@@ -230,6 +232,11 @@ class MVMEContext: public QObject
         void stopAnalysis();
         void resumeAnalysis();
 
+        void setAnalysisUi(analysis::AnalysisWidget *analysisUi)
+        {
+            m_analysisUi = analysisUi;
+        }
+
     public slots:
         void startReplay(quint32 nEvents = 0);
         void startDAQ(quint32 nCycles=0);
@@ -238,6 +245,9 @@ class MVMEContext: public QObject
         void resumeDAQ();
         void openInNewWindow(QObject *object);
         void addWidgetWindow(QWidget *widget, QSize windowSize = QSize(600, 400));
+
+        void addAnalysisOperator(QUuid eventId, const std::shared_ptr<analysis::OperatorInterface> &op, s32 userLevel);
+        void analysisOperatorEdited(const std::shared_ptr<analysis::OperatorInterface> &op);
 
     private slots:
         void tryOpenController();
@@ -301,6 +311,8 @@ class MVMEContext: public QObject
 
         ThreadSafeDataBufferQueue m_freeBufferQueue;
         ThreadSafeDataBufferQueue m_filledBufferQueue;
+
+        analysis::AnalysisWidget *m_analysisUi = nullptr;
 };
 
 QString getFilterPath(MVMEContext *context, DataFilterConfig *filterConfig, int filterAddress);

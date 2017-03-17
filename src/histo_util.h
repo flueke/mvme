@@ -8,6 +8,11 @@
 #include <qwt_scale_engine.h>
 #include <qwt_scale_map.h>
 
+class QComboBox;
+class QDoubleSpinBox;
+class QFrame;
+class QGroupBox;
+
 // Adapted from: http://stackoverflow.com/a/18593942
 
 // This uses QwtScaleMap to perform the coordinate transformations:
@@ -223,5 +228,28 @@ QString make_title_string(const AxisInfo &axisInfo)
 
     return result;
 }
+
+static const s32 Histo1DMinBits = 1;
+static const s32 Histo1DMaxBits = 20;
+static const s32 Histo1DDefBits = 16;
+
+static const s32 Histo2DMinBits = 1;
+static const s32 Histo2DMaxBits = 13;
+static const s32 Histo2DDefBits = 10;
+
+QComboBox *make_resolution_combo(s32 minBits, s32 maxBits, s32 selectedBits);
+// Assumes that selectedRes is a power of 2!
+void select_by_resolution(QComboBox *combo, s32 selectedRes);
+
+struct Histo2DAxisLimitsUI
+{
+    QGroupBox *groupBox;
+    QFrame *limitFrame;
+    QDoubleSpinBox *spin_min;
+    QDoubleSpinBox *spin_max;
+};
+
+Histo2DAxisLimitsUI make_histo2d_axis_limits_ui(const QString &groupBoxTitle, double inputMin, double inputMax,
+                                                double limitMin, double limitMax);
 
 #endif /* __HISTO_UTIL_H__ */

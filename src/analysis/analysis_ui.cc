@@ -333,8 +333,8 @@ struct EventWidgetPrivate
     void highlightOutputNodes(PipeSourceInterface *ps);
     void clearToDefaultNodeHighlights(QTreeWidgetItem *node);
     void clearAllToDefaultNodeHighlights();
-    void onNodeClicked(TreeNode *node, int column);
-    void onNodeDoubleClicked(TreeNode *node, int column);
+    void onNodeClicked(TreeNode *node, int column, s32 userLevel);
+    void onNodeDoubleClicked(TreeNode *node, int column, s32 userLevel);
     void clearAllTreeSelections();
     void clearTreeSelectionsExcept(QTreeWidget *tree);
     void generateDefaultFilters(ModuleConfig *module);
@@ -559,12 +559,12 @@ void EventWidgetPrivate::appendTreesToView(DisplayLevelTrees trees)
         tree->installEventFilter(m_q);
 
 
-        QObject::connect(tree, &QTreeWidget::itemClicked, m_q, [this] (QTreeWidgetItem *node, int column) {
-            onNodeClicked(reinterpret_cast<TreeNode *>(node), column);
+        QObject::connect(tree, &QTreeWidget::itemClicked, m_q, [this, levelIndex] (QTreeWidgetItem *node, int column) {
+            onNodeClicked(reinterpret_cast<TreeNode *>(node), column, levelIndex);
         });
 
-        QObject::connect(tree, &QTreeWidget::itemDoubleClicked, m_q, [this] (QTreeWidgetItem *node, int column) {
-            onNodeDoubleClicked(reinterpret_cast<TreeNode *>(node), column);
+        QObject::connect(tree, &QTreeWidget::itemDoubleClicked, m_q, [this, levelIndex] (QTreeWidgetItem *node, int column) {
+            onNodeDoubleClicked(reinterpret_cast<TreeNode *>(node), column, levelIndex);
         });
 
 
@@ -953,11 +953,26 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
                 {
                     if (auto histoSink = qobject_cast<Histo2DSink *>(obj))
                     {
-                        auto histo = histoSink->m_histo.get();
+                        auto histo = histoSink->m_histo;
                         if (histo)
                         {
-                            menu.addAction(QSL("Open"), m_q, [this, histo]() {
-                                m_context->openInNewWindow(histo);
+                            auto sinkPtr = std::dynamic_pointer_cast<Histo2DSink>(histoSink->getSharedPointer());
+                            menu.addAction(QSL("Open"), m_q, [this, histo, sinkPtr, userLevel]() {
+                                auto widget = new Histo2DWidget(histo);
+                                auto context = m_context;
+                                auto eventId = m_eventId;
+
+                                widget->setSink(sinkPtr,
+                                                // addSinkCallback
+                                                [context, eventId, userLevel] (const std::shared_ptr<Histo2DSink> &sink) {
+                                                    context->addAnalysisOperator(eventId, sink, userLevel);
+                                                },
+                                                // sinkModifiedCallback
+                                                [context] (const std::shared_ptr<Histo2DSink> &sink) {
+                                                    context->analysisOperatorEdited(sink);
+                                                });
+
+                                m_context->addWidgetWindow(widget);
                             });
                         }
                     }
@@ -1364,7 +1379,7 @@ void EventWidgetPrivate::clearAllToDefaultNodeHighlights()
     }
 }
 
-void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column)
+void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel)
 {
     switch (m_mode)
     {
@@ -1451,7 +1466,7 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column)
     }
 }
 
-void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column)
+void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 userLevel)
 {
     if (m_mode == Default)
     {
@@ -1482,9 +1497,23 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column)
 
             case NodeType_Histo2DSink:
                 {
-                    auto histoSink = getPointer<Histo2DSink>(node);
-                    auto histoPtr = histoSink->m_histo;
+                    auto sinkPtr = std::dynamic_pointer_cast<Histo2DSink>(getPointer<Histo2DSink>(node)->getSharedPointer());
+                    auto histoPtr = sinkPtr->m_histo;
                     auto widget = new Histo2DWidget(histoPtr);
+
+                    auto context = m_context;
+                    auto eventId = m_eventId;
+
+                    widget->setSink(sinkPtr,
+                                    // addSinkCallback
+                                    [context, eventId, userLevel] (const std::shared_ptr<Histo2DSink> &sink) {
+                                        context->addAnalysisOperator(eventId, sink, userLevel);
+                                    },
+                                    // sinkModifiedCallback
+                                    [context] (const std::shared_ptr<Histo2DSink> &sink) {
+                                        context->analysisOperatorEdited(sink);
+                                    });
+
                     m_context->addWidgetWindow(widget);
                 } break;
         }
@@ -1678,7 +1707,7 @@ void EventWidget::addOperator(OperatorPtr op, s32 userLevel)
 
 void EventWidget::operatorEdited(OperatorInterface *op)
 {
-    // Updates the edited SourceInterface and recursively all the operators
+    // Updates the edited OperatorInterface and recursively all the operators
     // depending on it.
     AnalysisPauser pauser(m_d->m_context);
 
@@ -1975,6 +2004,7 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
 {
     m_d->m_q = this;
     m_d->m_context = ctx;
+    m_d->m_context->setAnalysisUi(this);
 
     auto do_repopulate_lambda = [this]() { m_d->repopulate(); };
 
@@ -2072,7 +2102,58 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
 
 AnalysisWidget::~AnalysisWidget()
 {
+    m_d->m_context->setAnalysisUi(nullptr);
     delete m_d;
+}
+
+void AnalysisWidget::operatorAdded(const std::shared_ptr<OperatorInterface> &op)
+{
+    // FIXME: same as operatorEdited
+    // FIXME: do not use eventIndex anymore
+
+    const auto &opEntries(m_d->m_context->getAnalysisNG()->getOperators());
+    auto it = std::find_if(opEntries.begin(), opEntries.end(), [op] (const Analysis::OperatorEntry &entry) {
+        return entry.op == op;
+    });
+
+    if (it != opEntries.end())
+    {
+        auto entry = *it;
+        auto eventConfig = m_d->m_context->getDAQConfig()->getEventConfig(entry.eventIndex);
+        if (eventConfig)
+        {
+            auto eventWidget = m_d->m_eventWidgetsByEventId.value(eventConfig->getId());
+            if (eventWidget)
+            {
+                eventWidget->m_d->repopulate();
+            }
+        }
+    }
+}
+
+void AnalysisWidget::operatorEdited(const std::shared_ptr<OperatorInterface> &op)
+{
+    // FIXME: same as operatorEdited
+    // FIXME: do not use eventIndex anymore
+
+    const auto &opEntries(m_d->m_context->getAnalysisNG()->getOperators());
+    auto it = std::find_if(opEntries.begin(), opEntries.end(), [op] (const Analysis::OperatorEntry &entry) {
+        return entry.op == op;
+    });
+
+    if (it != opEntries.end())
+    {
+        auto entry = *it;
+        auto eventConfig = m_d->m_context->getDAQConfig()->getEventConfig(entry.eventIndex);
+        if (eventConfig)
+        {
+            auto eventWidget = m_d->m_eventWidgetsByEventId.value(eventConfig->getId());
+            if (eventWidget)
+            {
+                eventWidget->m_d->repopulate();
+            }
+        }
+    }
 }
 
 } // end namespace analysis
