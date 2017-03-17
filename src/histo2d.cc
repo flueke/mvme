@@ -68,7 +68,7 @@ void Histo2D::fill(double x, double y, double weight)
             m_stats.maxBinX  = xBin;
             m_stats.maxBinY  = yBin;
             m_stats.maxX = m_axisBinnings[Qt::XAxis].getBinLowEdge(xBin);
-            m_stats.maxY = m_axisBinnings[Qt::XAxis].getBinLowEdge(yBin);
+            m_stats.maxY = m_axisBinnings[Qt::YAxis].getBinLowEdge(yBin);
         }
         m_stats.entryCount += weight;
     }
@@ -184,20 +184,21 @@ Histo2DStatistics Histo2D::calcStatistics(AxisInterval xInterval, AxisInterval y
             s64 linearBin = yBin * m_axisBinnings[Qt::XAxis].getBins() + xBin;
             double v = m_data[linearBin];
 
-            if (!qIsNaN(v))
+            if (!std::isnan(v))
             {
                 if (v > result.maxValue)
                 {
                     result.maxValue = v;
                     result.maxBinX  = xBin;
                     result.maxBinY  = yBin;
-                    result.maxX = m_axisBinnings[Qt::XAxis].getBinLowEdge(xBin);
-                    result.maxY = m_axisBinnings[Qt::YAxis].getBinLowEdge(yBin);
                 }
                 result.entryCount += v;
             }
         }
     }
+
+    result.maxX = m_axisBinnings[Qt::XAxis].getBinLowEdge(result.maxBinX);
+    result.maxY = m_axisBinnings[Qt::YAxis].getBinLowEdge(result.maxBinY);
 
     return result;
 }
