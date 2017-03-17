@@ -312,8 +312,6 @@ void Histo1DWidget::zoomerZoomed(const QRectF &zoomRect)
         m_zoomer->setZoomBase();
     }
 
-// FIXME: reenable this
-#if 0
     // do not zoom outside the histogram range
     auto scaleDiv = ui->plot->axisScaleDiv(QwtPlot::xBottom);
 
@@ -328,19 +326,7 @@ void Histo1DWidget::zoomerZoomed(const QRectF &zoomRect)
     }
 
     ui->plot->setAxisScaleDiv(QwtPlot::xBottom, scaleDiv);
-#endif
 
-
-// FIXME: needed at all?
-#if 0
-    scaleDiv = ui->plot->axisScaleDiv(QwtPlot::yLeft);
-
-    if (scaleDiv.lowerBound() < 0.0)
-    {
-        scaleDiv.setLowerBound(0.0);
-        ui->plot->setAxisScaleDiv(QwtPlot::yLeft, scaleDiv);
-    }
-#endif
 
     replot();
 }
