@@ -315,14 +315,34 @@ void Histo1DWidget::zoomerZoomed(const QRectF &zoomRect)
     // do not zoom outside the histogram range
     auto scaleDiv = ui->plot->axisScaleDiv(QwtPlot::xBottom);
 
-    if (scaleDiv.lowerBound() < m_histo->getXMin())
+    if (m_histo->getXMin() <= 0)
     {
-        scaleDiv.setLowerBound(m_histo->getXMin());
+        if (scaleDiv.lowerBound() < m_histo->getXMin())
+        {
+            scaleDiv.setLowerBound(m_histo->getXMin());
+        }
+    }
+    else
+    {
+        if (scaleDiv.lowerBound() > m_histo->getXMin())
+        {
+            scaleDiv.setLowerBound(m_histo->getXMin());
+        }
     }
 
-    if (scaleDiv.upperBound() > m_histo->getXMax())
+    if (m_histo->getXMax() <= 0)
     {
-        scaleDiv.setUpperBound(m_histo->getXMax());
+        if (scaleDiv.upperBound() < m_histo->getXMax())
+        {
+            scaleDiv.setUpperBound(m_histo->getXMax());
+        }
+    }
+    else
+    {
+        if (scaleDiv.upperBound() > m_histo->getXMax())
+        {
+            scaleDiv.setUpperBound(m_histo->getXMax());
+        }
     }
 
     ui->plot->setAxisScaleDiv(QwtPlot::xBottom, scaleDiv);
