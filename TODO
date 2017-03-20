@@ -3,14 +3,11 @@
 ==========================
 - Histo1DWidget: zoom out after applying calibration
 >>>>> Begin Analysis NG <<<<<
- - histo2d: make it possible to create sub histos by selecting a range for each of the input axes
+ - Icons for different operator types
+ - Make default operator name contain a short version of the operator type
  - react to event and module renames
-
- - should OperatorInterface::connectInputSlot() perform a validity check of
-   Slot::acceptedInputTypes?
  - "modified" concept for the analysis and it's elements
  - save/saveas/load error reporting
- - Pass and build names throughout the analysis
 
  - !!! Make analysis use DAQConfig object ids instead of only going by eventIndex/moduleIndex !!!
    This way it would be possible to show that a certain Event/Module does not
@@ -18,12 +15,6 @@
    Otherwise the problem with analysis and daqconfig getting out of sync will
    keep coming back and result in user confusion.
    Sources need to be attached to a module. From there we can get the event id.
-
- - DisplayTree: finding histo1DRoot and histo2DRoot breaks easily. If there's a
-   sink in the tree that's not below one of the two root nodes but gets sorted
-   before them (because it's name sort before "1D" and/or "2D") then just
-   getting the top level nodes 0 and 1 will not yield the correct nodes
-   anymore!
 
 <<<<< End AnalysisNG >>>>>
 
@@ -33,19 +24,14 @@
 ==========================
 - License info needs Apache License for PCG. Maybe others. Check what is needed here!
 - Refactor DAQConfig -> VMEConfig and DAQConfigTree to VMEConfigTree
+- VMUSB: if there are connect/reconnect error write them to the log view
 >>>>> Begin Analysis NG <<<<<
- - Memory management: how to handle errors in beginRun()? It's called in a lot
-   of places and it's not clear what to do. Maybe mark the operator as defunct
-   in teh GUI and display a message or something.
-   Maybe also set a user defined limit for the maximum histogram memory.
- - Histo1DSink and Histo2DSink implementations are quite different. Histo1DSink
-   handled everything in beginRun() while Histo2DSink relies on the
-   OperatorConfigurationWidget to set things up. Make these work similar.
+ - should OperatorInterface::connectInputSlot() perform a validity check of
+   Slot::acceptedInputTypes?
  - Should Histo axis titles be editable? if so the edited title has to be
    stored with Histo1DSink and automatic axis title creation must not be performed.
  - combine "single word" and "dual word" filters. the distinction is not needed
    anymore as both are MultiWordDataFilters now
-- More icons: icon for array of histos
   
 * Is MultiWordDataFilter::handleDataWord() behaviour "correct"/"good"?
   Should it break out of the loop once a filter matched?
