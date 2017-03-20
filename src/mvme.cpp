@@ -805,6 +805,12 @@ void mvme::on_actionAnalysis_UI_triggered()
     }
 
     auto widget = new analysis::AnalysisWidget(m_context);
+    m_context->setAnalysisUi(widget);
+
+    connect(widget, &QObject::destroyed, this, [this] (QObject *) {
+        this->m_context->setAnalysisUi(nullptr);
+    });
+
     auto subwin = addWidgetWindow(widget);
     m_geometrySaver->addAndRestore(subwin, QSL("AnalysisUI/windowSize"), QSL("AnalysisUI/windowPosition"));
 }

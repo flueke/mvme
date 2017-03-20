@@ -2004,7 +2004,6 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
 {
     m_d->m_q = this;
     m_d->m_context = ctx;
-    m_d->m_context->setAnalysisUi(this);
 
     auto do_repopulate_lambda = [this]() { m_d->repopulate(); };
 
@@ -2102,7 +2101,6 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
 
 AnalysisWidget::~AnalysisWidget()
 {
-    m_d->m_context->setAnalysisUi(nullptr);
     delete m_d;
 }
 

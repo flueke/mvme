@@ -30,14 +30,12 @@ void WidgetGeometrySaver::restoreGeometry(QWidget *widget, const QString &sizeKe
     if (settings.contains(posKey))
     {
         auto pos = settings.value(posKey).toPoint();
-        qDebug() << "pos ok" << pos;
         widget->move(pos);
     }
 
     if (settings.contains(sizeKey))
     {
         auto size = settings.value(sizeKey).toSize();
-        qDebug() << "size ok" << size;
         widget->resize(size);
     }
 
