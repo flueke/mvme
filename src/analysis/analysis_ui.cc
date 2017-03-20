@@ -268,10 +268,21 @@ Histo1DWidgetInfo getHisto1DWidgetInfoFromNode(QTreeWidgetItem *node)
     return result;
 }
 
+// Subclass storing pointers to the roots for 1D and 2D histograms. Originally
+// finding those nodes was done via QTreeWidget::topLevelItem() but this would
+// break if anything gets sorted before or in-between the two root nodes.
+struct DisplayTree: public QTreeWidget
+{
+    using QTreeWidget::QTreeWidget;
+
+    QTreeWidgetItem *histo1DRoot = nullptr;
+    QTreeWidgetItem *histo2DRoot = nullptr;
+};
+
 struct DisplayLevelTrees
 {
     QTreeWidget *operatorTree;
-    QTreeWidget *displayTree;
+    DisplayTree *displayTree;
     s32 userLevel;
 };
 
@@ -369,7 +380,7 @@ DisplayLevelTrees EventWidgetPrivate::createTrees(s32 eventIndex, s32 level)
         return createSourceTrees(eventIndex);
     }
 
-    DisplayLevelTrees result = { new QTreeWidget, new QTreeWidget, level };
+    DisplayLevelTrees result = { new QTreeWidget, new DisplayTree, level };
     auto headerItem = result.operatorTree->headerItem();
     headerItem->setText(0, QString(QSL("L%1 Processing")).arg(level));
 
@@ -402,6 +413,8 @@ DisplayLevelTrees EventWidgetPrivate::createTrees(s32 eventIndex, s32 level)
         result.displayTree->addTopLevelItem(histo2DRoot);
         histo1DRoot->setExpanded(true);
         histo2DRoot->setExpanded(true);
+        result.displayTree->histo1DRoot = histo1DRoot;
+        result.displayTree->histo2DRoot = histo2DRoot;
 
         for (const auto &entry: operators)
         {
@@ -435,7 +448,7 @@ DisplayLevelTrees EventWidgetPrivate::createSourceTrees(s32 eventIndex)
     auto eventConfig = vmeConfig->getEventConfig(eventIndex);
     auto modules = eventConfig->getModuleConfigs();
 
-    DisplayLevelTrees result = { new QTreeWidget, new QTreeWidget, 0 };
+    DisplayLevelTrees result = { new QTreeWidget, new DisplayTree, 0 };
 
     auto headerItem = result.operatorTree->headerItem();
     headerItem->setText(0, QSL("L0 Parameter Extraction"));
@@ -554,7 +567,7 @@ void EventWidgetPrivate::appendTreesToView(DisplayLevelTrees trees)
         doDisplayTreeContextMenu(dispTree, pos, levelIndex);
     });
 
-    for (auto tree: {opTree, dispTree})
+    for (auto tree: {opTree, reinterpret_cast<QTreeWidget *>(dispTree)})
     {
         tree->installEventFilter(m_q);
 
@@ -1010,8 +1023,11 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
         {
             auto displayTree = m_levelTrees[userLevel].displayTree;
             Q_ASSERT(displayTree->topLevelItemCount() >= 2);
-            auto histo1DRoot = displayTree->topLevelItem(0);
-            auto histo2DRoot = displayTree->topLevelItem(1);
+            Q_ASSERT(displayTree->histo1DRoot);
+            Q_ASSERT(displayTree->histo2DRoot);
+
+            auto histo1DRoot = displayTree->histo1DRoot;
+            auto histo2DRoot = displayTree->histo2DRoot;
 
             if (node == histo1DRoot)
             {
@@ -1024,7 +1040,6 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
                 auto sink = std::make_shared<Histo2DSink>();
                 add_action(sink->getDisplayName(), sink);
             }
-
         }
     }
     else
@@ -1524,7 +1539,7 @@ void EventWidgetPrivate::clearAllTreeSelections()
 {
     for (DisplayLevelTrees trees: m_levelTrees)
     {
-        for (auto tree: {trees.operatorTree, trees.displayTree})
+        for (auto tree: {trees.operatorTree, reinterpret_cast<QTreeWidget *>(trees.displayTree)})
         {
             tree->setCurrentItem(nullptr);
         }
@@ -1535,7 +1550,7 @@ void EventWidgetPrivate::clearTreeSelectionsExcept(QTreeWidget *treeNotToClear)
 {
     for (DisplayLevelTrees trees: m_levelTrees)
     {
-        for (auto tree: {trees.operatorTree, trees.displayTree})
+        for (auto tree: {trees.operatorTree, reinterpret_cast<QTreeWidget *>(trees.displayTree)})
         {
             if (tree != treeNotToClear)
             {
@@ -1817,7 +1832,7 @@ bool EventWidget::eventFilter(QObject *watched, QEvent *event)
     {
         for (auto trees: m_d->m_levelTrees)
         {
-            for (auto tree: {trees.operatorTree, trees.displayTree})
+            for (auto tree: {trees.operatorTree, reinterpret_cast<QTreeWidget *>(trees.displayTree)})
             {
                 if (tree == watched)
                 {
