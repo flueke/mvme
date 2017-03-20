@@ -258,7 +258,10 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
     // modifications.
 
     connect(m_readoutWorker, &VMUSBReadoutWorker::stateChanged, this, &MVMEContext::onDAQStateChanged);
+    connect(m_readoutWorker, &VMUSBReadoutWorker::daqStopped, this, &MVMEContext::onDAQDone);
+
     connect(m_listFileWorker, &ListFileReader::stateChanged, this, &MVMEContext::onDAQStateChanged);
+    connect(m_listFileWorker, &ListFileReader::replayStopped, this, &MVMEContext::onReplayDone);
 
 
     connect(m_readoutWorker, &VMUSBReadoutWorker::logMessage, this, &MVMEContext::sigLogMessage);
@@ -266,7 +269,6 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
     connect(m_bufferProcessor, &VMUSBBufferProcessor::logMessage, this, &MVMEContext::sigLogMessage);
     // FIXME: not actually emitted by ListFileReader
     //connect(m_listFileWorker, &ListFileReader::logMessage, this, &MVMEContext::sigLogMessage);
-    connect(m_listFileWorker, &ListFileReader::replayStopped, this, &MVMEContext::onReplayDone);
 
     m_eventThread->setObjectName("mvme AnalysisThread");
     m_eventProcessor->moveToThread(m_eventThread);
@@ -570,6 +572,13 @@ void MVMEContext::onEventProcessorStateChanged(EventProcessorState state)
     emit eventProcessorStateChanged(state);
 }
 
+// Called on VMUSBReadoutWorker::daqStopped()
+void MVMEContext::onDAQDone()
+{
+    QMetaObject::invokeMethod(m_eventProcessor, "stopProcessing", Qt::QueuedConnection);
+}
+
+// Called on ListFileReader::replayStopped()
 void MVMEContext::onReplayDone()
 {
     QMetaObject::invokeMethod(m_eventProcessor, "stopProcessing", Qt::QueuedConnection);

@@ -254,6 +254,7 @@ class MVMEContext: public QObject
         void logModuleCounters();
         void onDAQStateChanged(DAQState state);
         void onEventProcessorStateChanged(EventProcessorState state);
+        void onDAQDone();
         void onReplayDone();
 
         // config related
