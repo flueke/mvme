@@ -24,8 +24,11 @@
 ==========================
 - License info needs Apache License for PCG. Maybe others. Check what is needed here!
 - Refactor DAQConfig -> VMEConfig and DAQConfigTree to VMEConfigTree
-- VMUSB: if there are connect/reconnect error write them to the log view
+- VMUSB: if there are connect/reconnect errors write them to the log view
+- VME Debug window: fix tab order
+
 >>>>> Begin Analysis NG <<<<<
+ - display required memory in Histo2D dialog.
  - should OperatorInterface::connectInputSlot() perform a validity check of
    Slot::acceptedInputTypes?
  - Should Histo axis titles be editable? if so the edited title has to be
@@ -44,9 +47,6 @@
 * Single word data filter matching and extraction must be very fast as they're
   used to handle most of the data and multi word filters are implemented in
   terms of single word filters.
-* Histo1D
-  - Mouse cursor info area displays wrong bin number
- - Histo1D: sigma calculation wrong if axis is in the negatives!
 <<<<< End AnalysisNG >>>>>
 
 * Git version is not updated when rebuilding the project! FIX THIS!

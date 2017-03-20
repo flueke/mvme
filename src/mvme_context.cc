@@ -341,6 +341,9 @@ MVMEContext::~MVMEContext()
     // Wait for possibly active VMEController::open() to return before deleting
     // the controller object.
     m_ctrlOpenFuture.waitForFinished();
+    // Disconnect controller signals so that we're not emitting our own
+    // controllerStateChanged anymore.
+    disconnect(m_controller, &VMEController::controllerStateChanged, this, &MVMEContext::controllerStateChanged);
     delete m_controller;
 
     delete m_d;
