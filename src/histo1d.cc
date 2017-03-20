@@ -75,6 +75,8 @@ void Histo1D::clear()
     m_count = 0.0;
     m_maxValue = 0;
     m_maxBin = 0;
+    m_underflow = 0.0;
+    m_overflow = 0.0;
 
     for (u32 i=0; i<m_xAxisBinning.getBins(); ++i)
     {
