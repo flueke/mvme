@@ -212,11 +212,13 @@ void Histo2DWidget::replot()
     updateCursorInfoLabel();
 
     // update histo info label
+#if 0
     auto infoText = QString("Underflow: %1\n"
                             "Overflow:  %2")
         .arg(m_histo->getUnderflow())
         .arg(m_histo->getOverflow());
     ui->label_histoInfo->setText(infoText);
+#endif
 
     ui->plot->replot();
 }
