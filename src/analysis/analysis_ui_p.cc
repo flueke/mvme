@@ -676,7 +676,7 @@ void OperatorConfigurationWidget::configureOperator()
 
         for (s32 addr = 0; addr < op->getSlot(0)->inputPipe->parameters.size(); ++addr)
         {
-            unitMin = unitMin = make_quiet_nan();
+            unitMin = unitMax = make_quiet_nan();
 
             if (auto item = m_calibrationTable->item(addr, 0))
                 unitMin = item->data(Qt::EditRole).toDouble();
