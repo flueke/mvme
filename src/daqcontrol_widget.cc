@@ -29,7 +29,12 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
         }
         else if (globalMode == GlobalMode::ListFile)
         {
-            m_context->startReplay();
+            if (daqState == DAQState::Running)
+                m_context->pauseReplay();
+            else if (daqState == DAQState::Paused)
+                m_context->resumeReplay();
+            else if (daqState == DAQState::Idle)
+                m_context->startReplay();
         }
     });
 
@@ -87,13 +92,16 @@ void DAQControlWidget::updateWidget()
     auto controllerState = m_context->getController()->getState();
     const auto &stats = m_context->getDAQStats();
 
+    //
+    // start/pause/resume button
+    //
     bool enableStartButton = false;
 
     if (globalMode == GlobalMode::DAQ && controllerState == ControllerState::Opened)
     {
         enableStartButton = true;
     }
-    else if (globalMode == GlobalMode::ListFile && daqState == DAQState::Idle && eventProcState == EventProcessorState::Idle)
+    else if (globalMode == GlobalMode::ListFile) // && daqState == DAQState::Idle && eventProcState == EventProcessorState::Idle)
     {
         enableStartButton = true;
     }
@@ -107,10 +115,16 @@ void DAQControlWidget::updateWidget()
                             );
 #endif
 
+    //
+    // stop button
+    //
     ui->pb_stop->setEnabled(((globalMode == GlobalMode::DAQ && daqState != DAQState::Idle && controllerState == ControllerState::Opened)
                              || (globalMode == GlobalMode::ListFile && daqState != DAQState::Idle))
                            );
 
+    //
+    // one cycle button
+    //
     ui->pb_oneCycle->setEnabled(daqState == DAQState::Idle
                                 && ((globalMode == GlobalMode::DAQ && controllerState == ControllerState::Opened)
                                     || (globalMode == GlobalMode::ListFile))
@@ -130,7 +144,12 @@ void DAQControlWidget::updateWidget()
     }
     else if (globalMode == GlobalMode::ListFile)
     {
-        ui->pb_start->setText(QSL("Start Replay"));
+        if (daqState == DAQState::Idle)
+            ui->pb_start->setText(QSL("Start Replay"));
+        else if (daqState == DAQState::Paused)
+            ui->pb_start->setText(QSL("Resume Replay"));
+        else
+            ui->pb_start->setText(QSL("Pause Replay"));
     }
 
 

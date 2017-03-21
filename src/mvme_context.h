@@ -238,11 +238,15 @@ class MVMEContext: public QObject
         }
 
     public slots:
-        void startReplay(quint32 nEvents = 0);
         void startDAQ(quint32 nCycles=0);
         void stopDAQ();
         void pauseDAQ();
         void resumeDAQ();
+
+        void startReplay(quint32 nEvents = 0);
+        void pauseReplay();
+        void resumeReplay();
+
         void openInNewWindow(QObject *object);
         void addWidgetWindow(QWidget *widget, QSize windowSize = QSize(600, 400));
 

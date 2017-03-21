@@ -163,26 +163,35 @@ class ListFileReader: public QObject
 
         bool isRunning() const { return m_state != DAQState::Idle; }
 
+        void setEventsToRead(u32 eventsToRead);
+
         ThreadSafeDataBufferQueue *m_freeBufferQueue = nullptr;
         ThreadSafeDataBufferQueue *m_filledBufferQueue = nullptr;
 
     public slots:
-        void startFromBeginning(quint32 nBuffers = 0);
-        void stopReplay();
+        void start();
+        void stop();
+        void pause();
+        void resume();
 
     private:
+        void mainLoop();
+        void setState(DAQState state);
+
+        // XXX
         bool readNextBuffer(DataBuffer *dest);
-        void changeState(DAQState state);
 
         DAQStats &m_stats;
-        DataBuffer *m_buffer = nullptr;
+
+        DAQState m_state = DAQState::Idle;
+        DAQState m_desiredState = DAQState::Idle;
+
         ListFile *m_listFile = 0;
+
         qint64 m_bytesRead = 0;
         qint64 m_totalBytes = 0;
-        bool m_keepRunning = false;
-        DAQState m_state = DAQState::Idle;
-        quint32 m_buffersToRead = 0;
-        bool m_limitBuffers = false;
+
+        u32 m_eventsToRead = 0;
 };
 
 class ListFileWriter: public QObject
