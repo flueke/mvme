@@ -568,7 +568,7 @@ class CalibrationMinMax: public BasicOperator
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
 
-        virtual QString getDisplayName() const override { return QSL("Calibration"); }
+        virtual QString getDisplayName() const override { return QSL("Cal"); }
 
     private:
         CalibrationMinMaxParameters m_globalCalibration;
@@ -591,12 +591,13 @@ class IndexSelector: public BasicOperator
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
 
-        virtual QString getDisplayName() const override { return QSL("Index Selection"); }
+        virtual QString getDisplayName() const override { return QSL("Idx"); }
 
     private:
         s32 m_index;
 };
 
+#if 1
 class PreviousValue: public BasicOperator
 {
     Q_OBJECT
@@ -609,11 +610,12 @@ class PreviousValue: public BasicOperator
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
 
-        virtual QString getDisplayName() const override { return QSL("Previous Value"); }
+        virtual QString getDisplayName() const override { return QSL("Prev"); }
 
     private:
         ParameterVector m_previousInput;
 };
+#endif
 
 class RetainValid: public BasicOperator
 {
@@ -627,7 +629,7 @@ class RetainValid: public BasicOperator
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
 
-        virtual QString getDisplayName() const override { return QSL("Retain Valid"); }
+        virtual QString getDisplayName() const override { return QSL("Ret"); }
 
     private:
         ParameterVector m_lastValidInput;
@@ -663,7 +665,7 @@ class Difference: public OperatorInterface
         virtual void slotConnected(Slot *slot) override;
         virtual void slotDisconnected(Slot *slot) override;
 
-        virtual QString getDisplayName() const override { return QSL("Difference"); }
+        virtual QString getDisplayName() const override { return QSL("Diff"); }
 
         Slot m_inputA;
         Slot m_inputB;
@@ -685,7 +687,7 @@ class Histo1DSink: public BasicSink
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
 
-        virtual QString getDisplayName() const override { return QSL("1D Histogram"); }
+        virtual QString getDisplayName() const override { return QSL("1D Histo"); }
 
         QVector<std::shared_ptr<Histo1D>> m_histos;
         s32 m_bins = 0;
@@ -712,7 +714,7 @@ class Histo2DSink: public SinkInterface
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
 
-        virtual QString getDisplayName() const override { return QSL("2D Histogram"); }
+        virtual QString getDisplayName() const override { return QSL("2D Histo"); }
 
         Slot m_inputX;
         Slot m_inputY;

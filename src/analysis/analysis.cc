@@ -741,6 +741,7 @@ void IndexSelector::write(QJsonObject &json) const
 //
 // PreviousValue
 //
+#if 1
 PreviousValue::PreviousValue(QObject *parent)
     : BasicOperator(parent)
 {
@@ -800,6 +801,7 @@ void PreviousValue::read(const QJsonObject &json)
 void PreviousValue::write(QJsonObject &json) const
 {
 }
+#endif
 
 //
 // RetainValid

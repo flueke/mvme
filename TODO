@@ -3,6 +3,9 @@
 ==========================
 - Histo1DWidget: zoom out after applying calibration
 >>>>> Begin Analysis NG <<<<<
+ - UserLevel hide/show GUI
+ - Implement "Remove UserLevel" button
+ - Calibration: if only one event don't show the list of calibrations
  - Icons for different operator types
  - Make default operator name contain a short version of the operator type
  - react to event and module renames

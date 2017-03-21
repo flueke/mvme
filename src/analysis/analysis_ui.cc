@@ -141,7 +141,7 @@ inline TreeNode *makeDisplayTreeSourceNode(SourceInterface *source)
 inline TreeNode *makeHisto1DNode(Histo1DSink *sink)
 {
     auto node = makeNode(sink, NodeType_Histo1DSink);
-    node->setText(0, QString("%1 %2").arg(
+    node->setText(0, QString("<b>%1</b> %2").arg(
             sink->getDisplayName(),
             sink->objectName()));
     node->setIcon(0, QIcon(":/hist1d.png"));
@@ -165,7 +165,7 @@ inline TreeNode *makeHisto1DNode(Histo1DSink *sink)
 inline TreeNode *makeHisto2DNode(Histo2DSink *sink)
 {
     auto node = makeNode(sink, NodeType_Histo2DSink);
-    node->setText(0, QString("%1 %2").arg(
+    node->setText(0, QString("<b>%1</b> %2").arg(
             sink->getDisplayName(),
             sink->objectName()));
     node->setIcon(0, QIcon(":/hist2d.png"));
@@ -176,7 +176,7 @@ inline TreeNode *makeHisto2DNode(Histo2DSink *sink)
 inline TreeNode *makeSinkNode(SinkInterface *sink)
 {
     auto node = makeNode(sink, NodeType_Sink);
-    node->setText(0, QString("%1 %2").arg(
+    node->setText(0, QString("<b>%1</b> %2").arg(
             sink->getDisplayName(),
             sink->objectName()));
     node->setIcon(0, QIcon(":/sink.png"));
@@ -187,7 +187,7 @@ inline TreeNode *makeSinkNode(SinkInterface *sink)
 inline TreeNode *makeOperatorNode(OperatorInterface *op)
 {
     auto result = makeNode(op, NodeType_Operator);
-    result->setText(0, QString("%1 %2").arg(
+    result->setText(0, QString("<b>%1</b> %2").arg(
             op->getDisplayName(),
             op->objectName()));
     result->setIcon(0, QIcon(":/analysis_operator.png"));
@@ -389,6 +389,8 @@ DisplayLevelTrees EventWidgetPrivate::createTrees(s32 eventIndex, s32 level)
 
     result.operatorTree->setExpandsOnDoubleClick(false);
     result.displayTree->setExpandsOnDoubleClick(false);
+    result.operatorTree->setItemDelegate(new HtmlDelegate());
+    result.displayTree->setItemDelegate(new HtmlDelegate());
 
     // Build a list of operators for the current level
     auto analysis = m_context->getAnalysisNG();
@@ -458,6 +460,8 @@ DisplayLevelTrees EventWidgetPrivate::createSourceTrees(s32 eventIndex)
 
     result.operatorTree->setExpandsOnDoubleClick(false);
     result.displayTree->setExpandsOnDoubleClick(false);
+    result.operatorTree->setItemDelegate(new HtmlDelegate());
+    result.displayTree->setItemDelegate(new HtmlDelegate());
 
     // Populate the OperatorTree
     int moduleIndex = 0;

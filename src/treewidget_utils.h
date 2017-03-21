@@ -55,4 +55,13 @@ QTreeWidgetItem *findFirstNode(QTreeWidgetItem *node, Predicate predicate)
     return nullptr;
 }
 
+// Item delegate supporting rich text by using a QTextDocument internally.
+// Source: http://stackoverflow.com/a/2039745
+class HtmlDelegate : public QStyledItemDelegate
+{
+    protected:
+        void paint ( QPainter * painter, const QStyleOptionViewItem & option, const QModelIndex & index ) const;
+        QSize sizeHint ( const QStyleOptionViewItem & option, const QModelIndex & index ) const;
+};
+
 #endif /* __TREEWIDGET_UTIL_H__ */
