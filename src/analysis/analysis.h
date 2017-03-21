@@ -597,7 +597,9 @@ class IndexSelector: public BasicOperator
         s32 m_index;
 };
 
-#if 1
+/* This operator has the value array from the previous cycle as its output.
+ * Optionally if m_keepValid is set values from the array that where valid are
+ * kept and not replaced by new invalid input values. */
 class PreviousValue: public BasicOperator
 {
     Q_OBJECT
@@ -612,10 +614,11 @@ class PreviousValue: public BasicOperator
 
         virtual QString getDisplayName() const override { return QSL("Prev"); }
 
+        bool m_keepValid;
+
     private:
         ParameterVector m_previousInput;
 };
-#endif
 
 class RetainValid: public BasicOperator
 {
