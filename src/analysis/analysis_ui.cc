@@ -138,13 +138,37 @@ inline TreeNode *makeDisplayTreeSourceNode(SourceInterface *source)
     return sourceNode;
 }
 
+static QIcon makeIconFor(OperatorInterface *op)
+{
+    if (qobject_cast<Histo1DSink *>(op))
+        return QIcon(":/hist1d.png");
+
+    if (qobject_cast<Histo2DSink *>(op))
+        return QIcon(":/hist2d.png");
+
+    if (qobject_cast<SinkInterface *>(op))
+        return QIcon(":/sink.png");
+
+    if (qobject_cast<CalibrationMinMax *>(op))
+        return QIcon(":/operator_calibration.png");
+
+    if (qobject_cast<Difference *>(op))
+        return QIcon(":/operator_difference.png");
+
+    if (qobject_cast<PreviousValue *>(op))
+        return QIcon(":/operator_previous.png");
+
+    return QIcon(":/operator_generic.png");
+}
+
 inline TreeNode *makeHisto1DNode(Histo1DSink *sink)
 {
     auto node = makeNode(sink, NodeType_Histo1DSink);
     node->setText(0, QString("<b>%1</b> %2").arg(
+    //node->setText(0, QString("%1 <b>%2</b>").arg(
             sink->getDisplayName(),
             sink->objectName()));
-    node->setIcon(0, QIcon(":/hist1d.png"));
+    node->setIcon(0, makeIconFor(sink));
 
     if (sink->m_histos.size() > 0)
     {
@@ -154,7 +178,7 @@ inline TreeNode *makeHisto1DNode(Histo1DSink *sink)
             auto histoNode = makeNode(histo, NodeType_Histo1D);
             histoNode->setData(0, DataRole_HistoAddress, addr);
             histoNode->setText(0, QString::number(addr));
-            histoNode->setIcon(0, QIcon(":/hist1d.png"));
+            node->setIcon(0, makeIconFor(sink));
 
             node->addChild(histoNode);
         }
@@ -166,9 +190,10 @@ inline TreeNode *makeHisto2DNode(Histo2DSink *sink)
 {
     auto node = makeNode(sink, NodeType_Histo2DSink);
     node->setText(0, QString("<b>%1</b> %2").arg(
+    //node->setText(0, QString("%1 <b>%2</b>").arg(
             sink->getDisplayName(),
             sink->objectName()));
-    node->setIcon(0, QIcon(":/hist2d.png"));
+    node->setIcon(0, makeIconFor(sink));
 
     return node;
 }
@@ -177,9 +202,10 @@ inline TreeNode *makeSinkNode(SinkInterface *sink)
 {
     auto node = makeNode(sink, NodeType_Sink);
     node->setText(0, QString("<b>%1</b> %2").arg(
+    //node->setText(0, QString("%1 <b>%2</b>").arg(
             sink->getDisplayName(),
             sink->objectName()));
-    node->setIcon(0, QIcon(":/sink.png"));
+    node->setIcon(0, makeIconFor(sink));
 
     return node;
 }
@@ -188,9 +214,10 @@ inline TreeNode *makeOperatorNode(OperatorInterface *op)
 {
     auto result = makeNode(op, NodeType_Operator);
     result->setText(0, QString("<b>%1</b> %2").arg(
+    //result->setText(0, QString("%1 <b>%2</b>").arg(
             op->getDisplayName(),
             op->objectName()));
-    result->setIcon(0, QIcon(":/analysis_operator.png"));
+    result->setIcon(0, makeIconFor(op));
 
     // outputs
     for (s32 outputIndex = 0;

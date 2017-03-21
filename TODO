@@ -3,11 +3,11 @@
 ==========================
 - Histo1DWidget: zoom out after applying calibration
 >>>>> Begin Analysis NG <<<<<
+ - Add Operator::getLongName() or getVerboseName() and/or getDescription()
  - UserLevel hide/show GUI
  - Implement "Remove UserLevel" button
  - Calibration: if only one event don't show the list of calibrations
- - Icons for different operator types
- - Make default operator name contain a short version of the operator type
+ - Make default operator object name contain a short version of the operator type
  - react to event and module renames
  - "modified" concept for the analysis and it's elements
  - save/saveas/load error reporting
@@ -26,6 +26,7 @@
 ==== Do these later! =====
 ==========================
 - License info needs Apache License for PCG. Maybe others. Check what is needed here!
+  Also use info from resources/README
 - Refactor DAQConfig -> VMEConfig and DAQConfigTree to VMEConfigTree
 - VMUSB: if there are connect/reconnect errors write them to the log view
 - VME Debug window: fix tab order
@@ -53,6 +54,7 @@
 <<<<< End AnalysisNG >>>>>
 
 * Git version is not updated when rebuilding the project! FIX THIS!
+  -> I failed at this. qmake is horrible.
 
 * GUI
   * add versioning to the GUI state saved via QSettings. If the version changes

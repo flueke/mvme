@@ -687,7 +687,7 @@ class Histo1DSink: public BasicSink
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
 
-        virtual QString getDisplayName() const override { return QSL("1D Histo"); }
+        virtual QString getDisplayName() const override { return QSL("H1D"); }
 
         QVector<std::shared_ptr<Histo1D>> m_histos;
         s32 m_bins = 0;
@@ -714,7 +714,7 @@ class Histo2DSink: public SinkInterface
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
 
-        virtual QString getDisplayName() const override { return QSL("2D Histo"); }
+        virtual QString getDisplayName() const override { return QSL("H2D"); }
 
         Slot m_inputX;
         Slot m_inputY;
