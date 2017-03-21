@@ -32,12 +32,12 @@
 #include <functional>
 
 class CVMUSBReadoutList;
-struct usb_dev_handle;
-struct usb_device;
+struct libusb_device_handle;
+struct libusb_device;
 
 struct vmusb_device_info
 {
-    usb_device *usbdev = nullptr;
+    libusb_device *usbdev = nullptr;
     char serial[7] = {};
 };
 
@@ -172,7 +172,7 @@ class VMUSB: public VMEController
         void getUsbDevices(void);
 
         QVector<vmusb_device_info> deviceInfos;
-        usb_dev_handle* hUsbDevice = nullptr;
+        libusb_device_handle* hUsbDevice = nullptr;
 
         u32 firmwareId;
         u32 globalMode;

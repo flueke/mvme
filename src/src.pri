@@ -101,16 +101,21 @@ FORMS += \
 contains(DEFINES, "VME_CONTROLLER_WIENER") {
     message("Building with WIENER VM_USB support")
 
-    unix:!macx:!symbian: LIBS += -L/usr/lib/ -lusb
+    unix:!macx:!symbian {
+        #QMAKE_CXXFLAGS += `pkg-config --cflags libusb-1.0`
+        #LIBS += `pkg-config --libs libusb-1.0`
+        CONFIG += link_pkgconfig
+        PKGCONFIG += libusb-1.0
+    }
 
     win32 {
-        INCLUDEPATH += "C:\libusb-win32-bin-1.2.6.0\include"
-        LIBS += -L"C:\libusb-win32-bin-1.2.6.0\lib\gcc" -lusb
+        error("TODO")
+        #INCLUDEPATH += "C:\libusb-win32-bin-1.2.6.0\include"
+        #LIBS += -L"C:\libusb-win32-bin-1.2.6.0\lib\gcc" -lusb
     }
 
 
     HEADERS += $$PWD/vmusb.h
-
     SOURCES += $$PWD/vmusb.cpp
 }
 

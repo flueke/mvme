@@ -24,9 +24,10 @@
 #include <QMutexLocker>
 
 #ifdef __MINGW32__
-#include <lusb0_usb.h>
+//#include <lusb0_usb.h>
+#error "implement windows libusb-1.0 support"
 #else
-#include <usb.h>
+#include <libusb.h>
 #endif
 
 #define XXUSB_WIENER_VENDOR_ID  0x16DC  /* Wiener, Plein & Baus */
@@ -101,6 +102,13 @@ static usb_dev_handle *open_usb_device(struct usb_device *dev)
     }
 
     return udev;
+}
+
+static libusb_device_handle *open_usb_device(struct libusb_device *dev)
+{
+    libusb_device_handle *result = nullptr;
+
+    // XXX: leftoff
 }
 
 static void close_usb_device(usb_dev_handle *devHandle)
