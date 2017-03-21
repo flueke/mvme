@@ -87,10 +87,25 @@ void DAQControlWidget::updateWidget()
     auto controllerState = m_context->getController()->getState();
     const auto &stats = m_context->getDAQStats();
 
+    bool enableStartButton = false;
+
+    if (globalMode == GlobalMode::DAQ && controllerState == ControllerState::Opened)
+    {
+        enableStartButton = true;
+    }
+    else if (globalMode == GlobalMode::ListFile && daqState == DAQState::Idle && eventProcState == EventProcessorState::Idle)
+    {
+        enableStartButton = true;
+    }
+
+    ui->pb_start->setEnabled(enableStartButton);
+
+#if 0
     ui->pb_start->setEnabled(((globalMode == GlobalMode::DAQ && controllerState == ControllerState::Opened)
                               || (globalMode == GlobalMode::ListFile && daqState == DAQState::Idle))
                              && (eventProcState == EventProcessorState::Idle)
                             );
+#endif
 
     ui->pb_stop->setEnabled(((globalMode == GlobalMode::DAQ && daqState != DAQState::Idle && controllerState == ControllerState::Opened)
                              || (globalMode == GlobalMode::ListFile && daqState != DAQState::Idle))

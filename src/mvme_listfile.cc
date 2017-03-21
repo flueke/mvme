@@ -201,7 +201,7 @@ s32 ListFile::readSectionsIntoBuffer(DataBuffer *buffer)
 
         qint64 bytesToRead = sectionWords * sizeof(u32);
 
-        // add one u32 for the sectionHeader
+        // add the size of one u32 for the sectionHeader
         if ((qint64)buffer->free() < bytesToRead + (qint64)sizeof(u32))
         {
             // seek back to the sectionHeader

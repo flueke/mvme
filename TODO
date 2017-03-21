@@ -3,6 +3,7 @@
 ==========================
 - Histo1DWidget: zoom out after applying calibration
 >>>>> Begin Analysis NG <<<<<
+ - Bug: "close listfile" while replay is running does not stop replay and analysis!
  - Add Operator::getLongName() or getVerboseName() and/or getDescription()
  - UserLevel hide/show GUI
  - Implement "Remove UserLevel" button
