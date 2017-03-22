@@ -771,6 +771,17 @@ void PreviousValue::beginRun()
 
         m_previousInput.resize(idxMax - idxMin);
         m_previousInput.invalidateAll();
+
+        for (s32 idx = idxMin, outIdx = 0;
+             idx < idxMax;
+             ++idx, ++outIdx)
+        {
+            const Parameter &inParam(in[idx]);
+            Parameter &outParam(out[outIdx]);
+
+            outParam.lowerLimit = inParam.lowerLimit;
+            outParam.upperLimit = inParam.upperLimit;
+        }
     }
     else
     {

@@ -19,6 +19,7 @@
 #include <QSplitter>
 #include <QStackedWidget>
 #include <QStandardPaths>
+#include <QTimer>
 #include <QToolBar>
 #include <QToolButton>
 #include <QTreeWidget>
@@ -352,6 +353,7 @@ struct EventWidgetPrivate
     // There's two sets, one for the operator trees and one for the display
     // trees, because objects may have nodes in both trees.
     std::array<SetOfVoidStar, TreeType_Count> m_expandedObjects;
+    QTimer *m_pipeDisplayRefreshTimer;
 
     void createView(s32 eventIndex);
     DisplayLevelTrees createTrees(s32 eventIndex, s32 level);
@@ -817,6 +819,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
 
                 menu.addAction(QSL("Show Parameters"), [this, pipe]() {
                     auto widget = new PipeDisplay(pipe, m_q);
+                    QObject::connect(m_pipeDisplayRefreshTimer, &QTimer::timeout, widget, &PipeDisplay::refresh);
                     widget->move(QCursor::pos());
                     widget->setAttribute(Qt::WA_DeleteOnClose);
                     widget->show();
@@ -856,6 +859,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
 
             menu.addAction(QSL("Show Parameters"), [this, pipe]() {
                 auto widget = new PipeDisplay(pipe, m_q);
+                QObject::connect(m_pipeDisplayRefreshTimer, &QTimer::timeout, widget, &PipeDisplay::refresh);
                 widget->move(QCursor::pos());
                 widget->setAttribute(Qt::WA_DeleteOnClose);
                 widget->show();
@@ -868,6 +872,20 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
             {
                 auto op = getPointer<OperatorInterface>(node);
                 Q_ASSERT(op);
+
+                if (op->getNumberOfOutputs() == 1)
+                {
+                    Pipe *pipe = op->getOutput(0);
+
+                    menu.addAction(QSL("Show Parameters"), [this, pipe]() {
+                        auto widget = new PipeDisplay(pipe, m_q);
+                        QObject::connect(m_pipeDisplayRefreshTimer, &QTimer::timeout, widget, &PipeDisplay::refresh);
+                        widget->move(QCursor::pos());
+                        widget->setAttribute(Qt::WA_DeleteOnClose);
+                        widget->show();
+                    });
+                }
+
                 menu.addAction(QSL("Edit"), [this, userLevel, op]() {
                     auto widget = new AddEditOperatorWidget(op, userLevel, m_q);
                     widget->move(QCursor::pos());
@@ -1647,6 +1665,8 @@ void EventWidgetPrivate::generateDefaultFilters(ModuleConfig *module)
     repopulate();
 }
 
+static const u32 pipeDisplayRefreshInterval_ms = 1000;
+
 EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, AnalysisWidget *analysisWidget, QWidget *parent)
     : QWidget(parent)
     , m_d(new EventWidgetPrivate)
@@ -1656,6 +1676,8 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, AnalysisWidget 
     m_d->m_context = ctx;
     m_d->m_eventId = eventId;
     m_d->m_analysisWidget = analysisWidget;
+    m_d->m_pipeDisplayRefreshTimer = new QTimer(this);
+    m_d->m_pipeDisplayRefreshTimer->start(pipeDisplayRefreshInterval_ms);
 
     int eventIndex = -1;
     auto eventConfigs = m_d->m_context->getEventConfigs();
