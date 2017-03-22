@@ -166,8 +166,7 @@ inline TreeNode *makeHisto1DNode(Histo1DSink *sink)
 {
     auto node = makeNode(sink, NodeType_Histo1DSink);
     node->setText(0, QString("<b>%1</b> %2").arg(
-    //node->setText(0, QString("%1 <b>%2</b>").arg(
-            sink->getDisplayName(),
+            sink->getShortName(),
             sink->objectName()));
     node->setIcon(0, makeIconFor(sink));
 
@@ -191,8 +190,7 @@ inline TreeNode *makeHisto2DNode(Histo2DSink *sink)
 {
     auto node = makeNode(sink, NodeType_Histo2DSink);
     node->setText(0, QString("<b>%1</b> %2").arg(
-    //node->setText(0, QString("%1 <b>%2</b>").arg(
-            sink->getDisplayName(),
+            sink->getShortName(),
             sink->objectName()));
     node->setIcon(0, makeIconFor(sink));
 
@@ -203,8 +201,7 @@ inline TreeNode *makeSinkNode(SinkInterface *sink)
 {
     auto node = makeNode(sink, NodeType_Sink);
     node->setText(0, QString("<b>%1</b> %2").arg(
-    //node->setText(0, QString("%1 <b>%2</b>").arg(
-            sink->getDisplayName(),
+            sink->getShortName(),
             sink->objectName()));
     node->setIcon(0, makeIconFor(sink));
 
@@ -215,8 +212,7 @@ inline TreeNode *makeOperatorNode(OperatorInterface *op)
 {
     auto result = makeNode(op, NodeType_Operator);
     result->setText(0, QString("<b>%1</b> %2").arg(
-    //result->setText(0, QString("%1 <b>%2</b>").arg(
-            op->getDisplayName(),
+            op->getShortName(),
             op->objectName()));
     result->setIcon(0, makeIconFor(op));
 
