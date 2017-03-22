@@ -3,7 +3,6 @@
 ==========================
 - Histo1DWidget: zoom out after applying calibration
 >>>>> Begin Analysis NG <<<<<
- - Bug: "close listfile" while replay is running does not stop replay and analysis!
  - Add Operator::getLongName() or getVerboseName() and/or getDescription()
  - UserLevel hide/show GUI
  - Implement "Remove UserLevel" button
@@ -30,9 +29,10 @@
   Also use info from resources/README
 - Refactor DAQConfig -> VMEConfig and DAQConfigTree to VMEConfigTree
 - VMUSB: if there are connect/reconnect errors write them to the log view
-- VME Debug window: fix tab order
+  Do this when porting to libusb-1.0 as that should also provide better error messages.
 
 >>>>> Begin Analysis NG <<<<<
+ - make sure the UI works if with empty vme and event configs
  - display required memory in Histo2D dialog.
  - should OperatorInterface::connectInputSlot() perform a validity check of
    Slot::acceptedInputTypes?

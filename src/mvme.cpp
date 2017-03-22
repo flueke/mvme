@@ -248,9 +248,7 @@ mvme::mvme(QWidget *parent) :
 
     updateWindowTitle();
 
-    //
-    // FIXME: test code!
-    //
+    // Open the analysis window at startup
     QTimer::singleShot(0, [this] () { on_actionAnalysis_UI_triggered(); });
 }
 
