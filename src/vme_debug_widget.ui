@@ -664,6 +664,9 @@
                <pointsize>8</pointsize>
               </font>
              </property>
+             <property name="tabChangesFocus">
+              <bool>true</bool>
+             </property>
              <property name="lineWrapMode">
               <enum>QTextEdit::NoWrap</enum>
              </property>
@@ -799,6 +802,46 @@ p, li { white-space: pre-wrap; }
    </item>
   </layout>
  </widget>
+ <tabstops>
+  <tabstop>writeOffset1</tabstop>
+  <tabstop>writeAddress1</tabstop>
+  <tabstop>writeValue1</tabstop>
+  <tabstop>writeLoop1</tabstop>
+  <tabstop>writeWrite1</tabstop>
+  <tabstop>writeOffset2</tabstop>
+  <tabstop>writeAddress2</tabstop>
+  <tabstop>writeValue2</tabstop>
+  <tabstop>writeLoop2</tabstop>
+  <tabstop>writeWrite2</tabstop>
+  <tabstop>writeOffset3</tabstop>
+  <tabstop>writeAddress3</tabstop>
+  <tabstop>writeValue3</tabstop>
+  <tabstop>writeLoop3</tabstop>
+  <tabstop>writeWrite3</tabstop>
+  <tabstop>readOffset1</tabstop>
+  <tabstop>readAddress1</tabstop>
+  <tabstop>readModeSingle</tabstop>
+  <tabstop>readModeBLT</tabstop>
+  <tabstop>readModeMBLT</tabstop>
+  <tabstop>blockReadCount</tabstop>
+  <tabstop>readLoop1</tabstop>
+  <tabstop>readRead1</tabstop>
+  <tabstop>readOffset2</tabstop>
+  <tabstop>readAddress2</tabstop>
+  <tabstop>readLoop2</tabstop>
+  <tabstop>readRead2</tabstop>
+  <tabstop>readOffset3</tabstop>
+  <tabstop>readAddress3</tabstop>
+  <tabstop>readLoop3</tabstop>
+  <tabstop>readRead3</tabstop>
+  <tabstop>bltResult</tabstop>
+  <tabstop>scriptOffset</tabstop>
+  <tabstop>scriptInput</tabstop>
+  <tabstop>scriptOutput</tabstop>
+  <tabstop>runScript</tabstop>
+  <tabstop>saveScript</tabstop>
+  <tabstop>loadScript</tabstop>
+ </tabstops>
  <resources/>
  <connections/>
  <buttongroups>

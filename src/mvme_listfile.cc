@@ -173,8 +173,6 @@ bool ListFile::readNextSection(DataBuffer *buffer)
     if (sectionSize == 0)
         return true;
 
-    qDebug() << sectionSize;
-
     buffer->reserve(sectionSize + sizeof(u32));
 
     if (m_file.read((char *)(buffer->data + buffer->used), sectionSize) != sectionSize)
@@ -201,7 +199,7 @@ s32 ListFile::readSectionsIntoBuffer(DataBuffer *buffer)
 
         qint64 bytesToRead = sectionWords * sizeof(u32);
 
-        // add one u32 for the sectionHeader
+        // add the size of one u32 for the sectionHeader
         if ((qint64)buffer->free() < bytesToRead + (qint64)sizeof(u32))
         {
             // seek back to the sectionHeader
@@ -236,119 +234,196 @@ void ListFileReader::setListFile(ListFile *listFile)
     m_listFile = listFile;
 }
 
-void ListFileReader::changeState(DAQState state)
+void ListFileReader::setEventsToRead(u32 eventsToRead)
 {
-    m_state = state;
-    emit stateChanged(state);
+    Q_ASSERT(m_state != DAQState::Running);
+    m_eventsToRead = eventsToRead;
+}
+
+void ListFileReader::start()
+{
+    Q_ASSERT(m_freeBufferQueue);
+    Q_ASSERT(m_filledBufferQueue);
+    Q_ASSERT(m_state == DAQState::Idle);
+
+    if (m_state != DAQState::Idle || !m_listFile)
+        return;
+
+    m_listFile->seek(0);
+    m_bytesRead = 0;
+    m_totalBytes = m_listFile->size();
+    m_stats.listFileTotalBytes = m_listFile->size();
+    m_stats.start();
+
+    mainLoop();
+
+    setState(DAQState::Idle);
+    emit replayStopped();
+}
+
+void ListFileReader::stop()
+{
+    if (!(m_state == DAQState::Running || m_state == DAQState::Paused))
+        return;
+
+    m_desiredState = DAQState::Stopping;
+}
+
+void ListFileReader::pause()
+{
+    if (m_state == DAQState::Running)
+        m_desiredState = DAQState::Paused;
+}
+
+void ListFileReader::resume()
+{
+    if (m_state == DAQState::Paused)
+        m_desiredState = DAQState::Running;
 }
 
 static const u32 FreeBufferWaitTimeout_ms = 250;
 static const u32 ProcessEventsMinInterval_ms = 500;
 
-void ListFileReader::startFromBeginning(quint32 nBuffers)
+void ListFileReader::mainLoop()
 {
-    if (!m_listFile)
-        return;
+    setState(DAQState::Running);
 
-    Q_ASSERT(m_freeBufferQueue);
-    Q_ASSERT(m_filledBufferQueue);
-    Q_ASSERT(m_state == DAQState::Idle);
-
-    m_buffersToRead = nBuffers;
-    m_limitBuffers = (m_buffersToRead > 0);
-    m_keepRunning = true;
-    m_listFile->seek(0);
-    m_bytesRead = 0;
-    m_totalBytes = m_listFile->size();
-    m_stats.listFileTotalBytes = m_listFile->size();
-
-    m_stats.start();
-
-    changeState(DAQState::Running);
+    QCoreApplication::processEvents();
 
     QElapsedTimer timeSinceLastProcessEvents;
     timeSinceLastProcessEvents.start();
-    while (m_state != DAQState::Idle)
+
+    while (true)
     {
-        // Note: readNextBuffer() will modify m_state. That way we drop out of
-        // the loop if there was an error reading a buffer.
-
-        DataBuffer *buffer = nullptr;
-
+        // pause
+        if (m_state == DAQState::Running && m_desiredState == DAQState::Paused)
         {
-            QMutexLocker lock(&m_freeBufferQueue->mutex);
-            while (m_freeBufferQueue->queue.isEmpty())
-            {
-                m_freeBufferQueue->wc.wait(&m_freeBufferQueue->mutex, FreeBufferWaitTimeout_ms);
-            }
-            buffer = m_freeBufferQueue->queue.dequeue();
+            setState(DAQState::Paused);
         }
-        // The mutex is unlocked again at this point
-
-        Q_ASSERT(buffer);
-
-        if (!readNextBuffer(buffer))
+        // resume
+        else if (m_state == DAQState::Paused && m_desiredState == DAQState::Running)
         {
-            // Reading did not succeed. Put the previously acquired buffer back
-            // into the free queue. No need to notfiy the wait condition as
-            // there's no one else waiting on it.
-            // Would not event have to lock either but keeping it here just to
-            // be on the safe side.
-            QMutexLocker lock(&m_freeBufferQueue->mutex);
-            m_freeBufferQueue->queue.enqueue(buffer);
+            setState(DAQState::Running);
+        }
+        // stop
+        else if (m_desiredState == DAQState::Stopping)
+        {
+            break;
+        }
+        // stay in running state
+        else if (m_state == DAQState::Running)
+        {
+            DataBuffer *buffer = nullptr;
+
+            {
+                QMutexLocker lock(&m_freeBufferQueue->mutex);
+                while (m_freeBufferQueue->queue.isEmpty())
+                {
+                    m_freeBufferQueue->wc.wait(&m_freeBufferQueue->mutex, FreeBufferWaitTimeout_ms);
+                }
+                buffer = m_freeBufferQueue->queue.dequeue();
+            }
+            // The mutex is unlocked again at this point
+
+            Q_ASSERT(buffer);
+
+            buffer->used = 0;
+            bool isBufferValid = false;
+
+            if (m_eventsToRead > 0)
+            {
+                // Read single events
+                bool readMore = true;
+
+                // Skip non event sections
+                while (readMore)
+                {
+                    isBufferValid = m_listFile->readNextSection(buffer);
+
+                    if (isBufferValid && buffer->used >= sizeof(u32))
+                    {
+                        u32 sectionHeader = *reinterpret_cast<u32 *>(buffer->data);
+                        u32 sectionType   = (sectionHeader & SectionTypeMask) >> SectionTypeShift;
+
+#if 0
+                        u32 sectionWords  = (sectionHeader & SectionSizeMask) >> SectionSizeShift;
+
+                        qDebug() << __PRETTY_FUNCTION__ << "got section of type" << sectionType
+                            << ", words =" << sectionWords
+                            << ", size =" << sectionWords * sizeof(u32)
+                            << ", buffer->used =" << buffer->used;
+                        qDebug("%s sectionHeader=0x%08x", __PRETTY_FUNCTION__, sectionHeader);
+#endif
+
+                        if (sectionType == SectionType_Event)
+                        {
+                            readMore = false;
+                        }
+                    }
+                    else
+                    {
+                        readMore = false;
+                    }
+                }
+
+                if (--m_eventsToRead == 0)
+                {
+                    // When done reading the requested amount of events transition
+                    // to Paused state.
+                    m_desiredState = DAQState::Paused;
+                }
+            }
+            else
+            {
+                // Read until buffer is full
+                s32 sectionsRead = m_listFile->readSectionsIntoBuffer(buffer);
+                isBufferValid = (sectionsRead > 0);
+            }
+
+            if (!isBufferValid)
+            {
+                // Reading did not succeed. Put the previously acquired buffer
+                // back into the free queue. No need to notfiy the wait
+                // condition as there's no one else waiting on it.
+                QMutexLocker lock(&m_freeBufferQueue->mutex);
+                m_freeBufferQueue->queue.enqueue(buffer);
+
+                setState(DAQState::Stopping);
+            }
+            else
+            {
+                // Push the valid buffer onto the output queue.
+                m_filledBufferQueue->mutex.lock();
+                m_filledBufferQueue->queue.enqueue(buffer);
+                m_filledBufferQueue->mutex.unlock();
+                m_filledBufferQueue->wc.wakeOne();
+            }
+        }
+        else if (m_state == DAQState::Paused)
+        {
+            QCoreApplication::processEvents(QEventLoop::WaitForMoreEvents);
+            timeSinceLastProcessEvents.restart();
         }
         else
         {
-            m_filledBufferQueue->mutex.lock();
-            m_filledBufferQueue->queue.enqueue(buffer);
-            m_filledBufferQueue->mutex.unlock();
-            m_filledBufferQueue->wc.wakeOne();
+            Q_ASSERT(!"Unhandled case in ListFileReader::mainLoop()!");
         }
 
-        // Process Qt events to be able to "receive" queued calls to our slots (stopReplay())
+        // Process Qt events to be able to "receive" queued calls to our slots.
         if (timeSinceLastProcessEvents.elapsed() > ProcessEventsMinInterval_ms)
         {
             QCoreApplication::processEvents();
             timeSinceLastProcessEvents.restart();
         }
     }
-
-    emit replayStopped();
-    qDebug() << __PRETTY_FUNCTION__ << "left loop";
 }
 
-// Returns true if a buffer was read, false otherwise
-bool ListFileReader::readNextBuffer(DataBuffer *dest)
+void ListFileReader::setState(DAQState state)
 {
-    if (!m_listFile) return false;
-
-    dest->used = 0;
-    s32 sectionsRead = 0;
-
-    if (m_keepRunning && (!m_limitBuffers || m_buffersToRead > 0)
-        && ((sectionsRead = m_listFile->readSectionsIntoBuffer(dest)) > 0))
-    {
-        --m_buffersToRead;
-        m_bytesRead += dest->used;
-
-        m_stats.addBuffersRead(1);
-        m_stats.addBytesRead(dest->used);
-        return true;
-    }
-    else
-    {
-        qDebug() << __PRETTY_FUNCTION__ << "stopping stats; setting idle";
-        m_stats.stop();
-        changeState(DAQState::Idle);
-    }
-
-    return false;
-}
-
-void ListFileReader::stopReplay()
-{
-    qDebug() << __PRETTY_FUNCTION__;
-    m_keepRunning = false;
+    qDebug() << __PRETTY_FUNCTION__ << DAQStateStrings[m_state] << "->" << DAQStateStrings[state];
+    m_state = state;
+    m_desiredState = state;
+    emit stateChanged(state);
 }
 
 //

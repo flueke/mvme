@@ -77,7 +77,7 @@ void MVMEContextPrivate::stopDAQReplay()
 
     if (m_q->m_listFileWorker->isRunning())
     {
-        QTimer::singleShot(0, [this]() { QMetaObject::invokeMethod(m_q->m_listFileWorker, "stopReplay", Qt::QueuedConnection); });
+        QTimer::singleShot(0, [this]() { QMetaObject::invokeMethod(m_q->m_listFileWorker, "stop", Qt::QueuedConnection); });
         auto con = QObject::connect(m_q->m_listFileWorker, &ListFileReader::replayStopped, &localLoop, &QEventLoop::quit);
         localLoop.exec();
         QObject::disconnect(con);
@@ -298,7 +298,7 @@ MVMEContext::~MVMEContext()
         }
         else if (getMode() == GlobalMode::ListFile)
         {
-            QMetaObject::invokeMethod(m_listFileWorker, "stopReplay", Qt::QueuedConnection);
+            QMetaObject::invokeMethod(m_listFileWorker, "stop", Qt::QueuedConnection);
         }
 
         while ((getDAQState() != DAQState::Idle))
@@ -616,7 +616,7 @@ EventProcessorState MVMEContext::getEventProcessorState() const
     return m_eventProcessor->getState();
 }
 
-void MVMEContext::setListFile(ListFile *listFile)
+void MVMEContext::setReplayFile(ListFile *listFile)
 {
     auto configJson = listFile->getDAQConfig();
     auto daqConfig = new DAQConfig;
@@ -628,6 +628,35 @@ void MVMEContext::setListFile(ListFile *listFile)
     m_listFileWorker->setListFile(listFile);
     setConfigFileName(QString(), false);
     setMode(GlobalMode::ListFile);
+}
+
+void MVMEContext::closeReplayFile()
+{
+    if (getMode() == GlobalMode::ListFile)
+    {
+        stopDAQ();
+
+        delete m_listFile;
+        m_listFile = nullptr;
+        m_listFileWorker->setListFile(nullptr);
+
+        /* Open the last used VME config in the workspace. Create a new VME config
+         * if no previous exists. */
+
+        QString lastVMEConfig = makeWorkspaceSettings()->value(QSL("LastVMEConfig")).toString();
+
+        if (!lastVMEConfig.isEmpty())
+        {
+            QDir wsDir(getWorkspaceDirectory());
+            loadVMEConfig(wsDir.filePath(lastVMEConfig));
+        }
+        else
+        {
+            setDAQConfig(new DAQConfig);
+            setConfigFileName(QString());
+            setMode(GlobalMode::DAQ);
+        }
+    }
 }
 
 void MVMEContext::setMode(GlobalMode mode)
@@ -741,31 +770,6 @@ void MVMEContext::prepareStart()
         << "filled buffers:" << m_filledBufferQueue.queue.size();
 }
 
-void MVMEContext::startReplay(quint32 nEvents)
-{
-    Q_ASSERT(getDAQState() == DAQState::Idle);
-    Q_ASSERT(getEventProcessorState() == EventProcessorState::Idle);
-
-    if (m_mode != GlobalMode::ListFile || !m_listFile
-        || getDAQState() != DAQState::Idle
-        || getEventProcessorState() != EventProcessorState::Idle)
-    {
-        return;
-    }
-
-    prepareStart();
-    emit sigLogMessage(QSL("Replay starting"));
-    m_mainwin->clearLog();
-
-    QMetaObject::invokeMethod(m_listFileWorker, "startFromBeginning",
-                              Qt::QueuedConnection, Q_ARG(quint32, nEvents));
-
-    QMetaObject::invokeMethod(m_eventProcessor, "startProcessing",
-                              Qt::QueuedConnection);
-
-    m_replayTime.restart();
-}
-
 void MVMEContext::startDAQ(quint32 nCycles)
 {
     Q_ASSERT(getDAQState() == DAQState::Idle);
@@ -802,6 +806,42 @@ void MVMEContext::pauseDAQ()
 void MVMEContext::resumeDAQ()
 {
     QMetaObject::invokeMethod(m_readoutWorker, "resume", Qt::QueuedConnection);
+}
+
+void MVMEContext::startReplay(u32 nEvents)
+{
+    Q_ASSERT(getDAQState() == DAQState::Idle);
+    Q_ASSERT(getEventProcessorState() == EventProcessorState::Idle);
+
+    if (m_mode != GlobalMode::ListFile || !m_listFile
+        || getDAQState() != DAQState::Idle
+        || getEventProcessorState() != EventProcessorState::Idle)
+    {
+        return;
+    }
+
+    prepareStart();
+    emit sigLogMessage(QSL("Replay starting"));
+    m_mainwin->clearLog();
+
+    m_listFileWorker->setEventsToRead(nEvents);
+
+    QMetaObject::invokeMethod(m_listFileWorker, "start", Qt::QueuedConnection);
+    QMetaObject::invokeMethod(m_eventProcessor, "startProcessing", Qt::QueuedConnection);
+
+    m_replayTime.restart();
+}
+
+void MVMEContext::pauseReplay()
+{
+    QMetaObject::invokeMethod(m_listFileWorker, "pause", Qt::QueuedConnection);
+}
+
+void MVMEContext::resumeReplay(u32 nEvents)
+{
+    Q_ASSERT(getDAQState() == DAQState::Idle || getDAQState() == DAQState::Paused);
+    m_listFileWorker->setEventsToRead(nEvents);
+    QMetaObject::invokeMethod(m_listFileWorker, "resume", Qt::QueuedConnection);
 }
 
 void MVMEContext::openInNewWindow(QObject *object)

@@ -90,6 +90,7 @@ class PipeSourceInterface: public QObject, public std::enable_shared_from_this<P
         virtual Pipe *getOutput(s32 index) = 0;
 
         virtual QString getDisplayName() const = 0;
+        virtual QString getShortName() const = 0;
 
         QUuid getId() const { return m_id; }
         /* Note: setId() should only be used when restoring the object from a
@@ -375,6 +376,7 @@ class Extractor: public SourceInterface
         virtual void write(QJsonObject &json) const override;
 
         virtual QString getDisplayName() const override { return QSL("Extractor"); }
+        virtual QString getShortName() const override { return QSL("Ext"); }
 
         // configuration
         MultiWordDataFilter m_filter;
@@ -499,6 +501,7 @@ class CalibrationFactorOffset: public BasicOperator
         virtual void write(QJsonObject &json) const override;
 
         virtual QString getDisplayName() const override { return QSL("CalibrationFactorOffset"); }
+        virtual QString getShortName() const override { return QSL("CalibrationFactorOffset"); }
 
     private:
         CalibrationFactorOffsetParameters m_globalCalibration;
@@ -569,6 +572,7 @@ class CalibrationMinMax: public BasicOperator
         virtual void write(QJsonObject &json) const override;
 
         virtual QString getDisplayName() const override { return QSL("Calibration"); }
+        virtual QString getShortName() const override { return QSL("Cal"); }
 
     private:
         CalibrationMinMaxParameters m_globalCalibration;
@@ -591,12 +595,16 @@ class IndexSelector: public BasicOperator
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
 
-        virtual QString getDisplayName() const override { return QSL("Index Selection"); }
+        virtual QString getDisplayName() const override { return QSL("Index Selector"); }
+        virtual QString getShortName() const override { return QSL("Idx"); }
 
     private:
         s32 m_index;
 };
 
+/* This operator has the value array from the previous cycle as its output.
+ * Optionally if m_keepValid is set values from the array that where valid are
+ * kept and not replaced by new invalid input values. */
 class PreviousValue: public BasicOperator
 {
     Q_OBJECT
@@ -610,6 +618,9 @@ class PreviousValue: public BasicOperator
         virtual void write(QJsonObject &json) const override;
 
         virtual QString getDisplayName() const override { return QSL("Previous Value"); }
+        virtual QString getShortName() const override { return QSL("Prev"); }
+
+        bool m_keepValid;
 
     private:
         ParameterVector m_previousInput;
@@ -628,6 +639,7 @@ class RetainValid: public BasicOperator
         virtual void write(QJsonObject &json) const override;
 
         virtual QString getDisplayName() const override { return QSL("Retain Valid"); }
+        virtual QString getShortName() const override { return QSL("Ret"); }
 
     private:
         ParameterVector m_lastValidInput;
@@ -664,6 +676,7 @@ class Difference: public OperatorInterface
         virtual void slotDisconnected(Slot *slot) override;
 
         virtual QString getDisplayName() const override { return QSL("Difference"); }
+        virtual QString getShortName() const override { return QSL("Diff"); }
 
         Slot m_inputA;
         Slot m_inputB;
@@ -686,6 +699,7 @@ class Histo1DSink: public BasicSink
         virtual void write(QJsonObject &json) const override;
 
         virtual QString getDisplayName() const override { return QSL("1D Histogram"); }
+        virtual QString getShortName() const override { return QSL("H1D"); }
 
         QVector<std::shared_ptr<Histo1D>> m_histos;
         s32 m_bins = 0;
@@ -713,6 +727,7 @@ class Histo2DSink: public SinkInterface
         virtual void write(QJsonObject &json) const override;
 
         virtual QString getDisplayName() const override { return QSL("2D Histogram"); }
+        virtual QString getShortName() const override { return QSL("H2D"); }
 
         Slot m_inputX;
         Slot m_inputY;

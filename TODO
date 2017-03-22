@@ -3,8 +3,13 @@
 ==========================
 - Histo1DWidget: zoom out after applying calibration
 >>>>> Begin Analysis NG <<<<<
- - Icons for different operator types
- - Make default operator name contain a short version of the operator type
+ - Fix replay stats display and replay timer. It wasn't designed with pausing
+   and stepping in mind.
+ - Add Operator::getDescription()
+ - UserLevel hide/show GUI
+ - Implement "Remove UserLevel" button
+ - Calibration: if only one event don't show the list of calibrations
+ - Make default operator object name contain a short version of the operator type
  - react to event and module renames
  - "modified" concept for the analysis and it's elements
  - save/saveas/load error reporting
@@ -23,11 +28,14 @@
 ==== Do these later! =====
 ==========================
 - License info needs Apache License for PCG. Maybe others. Check what is needed here!
+  Also use info from resources/README
 - Refactor DAQConfig -> VMEConfig and DAQConfigTree to VMEConfigTree
 - VMUSB: if there are connect/reconnect errors write them to the log view
-- VME Debug window: fix tab order
+  Do this when porting to libusb-1.0 as that should also provide better error messages.
 
 >>>>> Begin Analysis NG <<<<<
+ - get rid of the old analysis code
+ - make sure the UI works with empty vme and event configs
  - display required memory in Histo2D dialog.
  - should OperatorInterface::connectInputSlot() perform a validity check of
    Slot::acceptedInputTypes?
@@ -50,6 +58,7 @@
 <<<<< End AnalysisNG >>>>>
 
 * Git version is not updated when rebuilding the project! FIX THIS!
+  -> I failed at this. qmake is horrible.
 
 * GUI
   * add versioning to the GUI state saved via QSettings. If the version changes

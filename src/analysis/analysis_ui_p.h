@@ -6,6 +6,7 @@
 
 #include <functional>
 
+#include <QCheckBox>
 #include <QCloseEvent>
 #include <QComboBox>
 #include <QDialogButtonBox>
@@ -59,6 +60,7 @@ class EventWidget: public QWidget
         virtual bool eventFilter(QObject *watched, QEvent *event);
 
         friend class AnalysisWidget;
+        friend class AnalysisWidgetPrivate;
 
     private:
         // Note: the EventWidgetPrivate part is not neccessary anymore as this
@@ -160,6 +162,9 @@ class OperatorConfigurationWidget: public QWidget
 
         // IndexSelector
         QSpinBox *spin_index = nullptr;
+
+        // PreviousValue
+        QCheckBox *cb_keepValid = nullptr;
 
         void fillCalibrationTable(CalibrationMinMax *calib);
 };

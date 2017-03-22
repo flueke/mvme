@@ -553,6 +553,13 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
 
         spin_index->setValue(selector->getIndex());
     }
+    else if (auto previous = qobject_cast<PreviousValue *>(op))
+    {
+        cb_keepValid = new QCheckBox(QSL("Keep valid parameters"));
+        cb_keepValid->setChecked(previous->m_keepValid);
+
+        formLayout->addRow(cb_keepValid);
+    }
 }
 
 // FIXME: right now this is not actually called by AddEditOperatorWidget...
@@ -691,6 +698,10 @@ void OperatorConfigurationWidget::configureOperator()
     {
         s32 index = spin_index->value();
         selector->setIndex(index);
+    }
+    else if (auto previous = qobject_cast<PreviousValue *>(op))
+    {
+        previous->m_keepValid = cb_keepValid->isChecked();
     }
 }
 

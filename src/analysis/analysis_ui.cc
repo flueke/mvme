@@ -19,6 +19,7 @@
 #include <QSplitter>
 #include <QStackedWidget>
 #include <QStandardPaths>
+#include <QTimer>
 #include <QToolBar>
 #include <QToolButton>
 #include <QTreeWidget>
@@ -138,13 +139,36 @@ inline TreeNode *makeDisplayTreeSourceNode(SourceInterface *source)
     return sourceNode;
 }
 
+static QIcon makeIconFor(OperatorInterface *op)
+{
+    if (qobject_cast<Histo1DSink *>(op))
+        return QIcon(":/hist1d.png");
+
+    if (qobject_cast<Histo2DSink *>(op))
+        return QIcon(":/hist2d.png");
+
+    if (qobject_cast<SinkInterface *>(op))
+        return QIcon(":/sink.png");
+
+    if (qobject_cast<CalibrationMinMax *>(op))
+        return QIcon(":/operator_calibration.png");
+
+    if (qobject_cast<Difference *>(op))
+        return QIcon(":/operator_difference.png");
+
+    if (qobject_cast<PreviousValue *>(op))
+        return QIcon(":/operator_previous.png");
+
+    return QIcon(":/operator_generic.png");
+}
+
 inline TreeNode *makeHisto1DNode(Histo1DSink *sink)
 {
     auto node = makeNode(sink, NodeType_Histo1DSink);
-    node->setText(0, QString("%1 %2").arg(
-            sink->getDisplayName(),
+    node->setText(0, QString("<b>%1</b> %2").arg(
+            sink->getShortName(),
             sink->objectName()));
-    node->setIcon(0, QIcon(":/hist1d.png"));
+    node->setIcon(0, makeIconFor(sink));
 
     if (sink->m_histos.size() > 0)
     {
@@ -154,7 +178,7 @@ inline TreeNode *makeHisto1DNode(Histo1DSink *sink)
             auto histoNode = makeNode(histo, NodeType_Histo1D);
             histoNode->setData(0, DataRole_HistoAddress, addr);
             histoNode->setText(0, QString::number(addr));
-            histoNode->setIcon(0, QIcon(":/hist1d.png"));
+            node->setIcon(0, makeIconFor(sink));
 
             node->addChild(histoNode);
         }
@@ -165,10 +189,10 @@ inline TreeNode *makeHisto1DNode(Histo1DSink *sink)
 inline TreeNode *makeHisto2DNode(Histo2DSink *sink)
 {
     auto node = makeNode(sink, NodeType_Histo2DSink);
-    node->setText(0, QString("%1 %2").arg(
-            sink->getDisplayName(),
+    node->setText(0, QString("<b>%1</b> %2").arg(
+            sink->getShortName(),
             sink->objectName()));
-    node->setIcon(0, QIcon(":/hist2d.png"));
+    node->setIcon(0, makeIconFor(sink));
 
     return node;
 }
@@ -176,10 +200,10 @@ inline TreeNode *makeHisto2DNode(Histo2DSink *sink)
 inline TreeNode *makeSinkNode(SinkInterface *sink)
 {
     auto node = makeNode(sink, NodeType_Sink);
-    node->setText(0, QString("%1 %2").arg(
-            sink->getDisplayName(),
+    node->setText(0, QString("<b>%1</b> %2").arg(
+            sink->getShortName(),
             sink->objectName()));
-    node->setIcon(0, QIcon(":/sink.png"));
+    node->setIcon(0, makeIconFor(sink));
 
     return node;
 }
@@ -187,10 +211,10 @@ inline TreeNode *makeSinkNode(SinkInterface *sink)
 inline TreeNode *makeOperatorNode(OperatorInterface *op)
 {
     auto result = makeNode(op, NodeType_Operator);
-    result->setText(0, QString("%1 %2").arg(
-            op->getDisplayName(),
+    result->setText(0, QString("<b>%1</b> %2").arg(
+            op->getShortName(),
             op->objectName()));
-    result->setIcon(0, QIcon(":/analysis_operator.png"));
+    result->setIcon(0, makeIconFor(op));
 
     // outputs
     for (s32 outputIndex = 0;
@@ -325,6 +349,7 @@ struct EventWidgetPrivate
     // There's two sets, one for the operator trees and one for the display
     // trees, because objects may have nodes in both trees.
     std::array<SetOfVoidStar, TreeType_Count> m_expandedObjects;
+    QTimer *m_pipeDisplayRefreshTimer;
 
     void createView(s32 eventIndex);
     DisplayLevelTrees createTrees(s32 eventIndex, s32 level);
@@ -389,6 +414,8 @@ DisplayLevelTrees EventWidgetPrivate::createTrees(s32 eventIndex, s32 level)
 
     result.operatorTree->setExpandsOnDoubleClick(false);
     result.displayTree->setExpandsOnDoubleClick(false);
+    result.operatorTree->setItemDelegate(new HtmlDelegate());
+    result.displayTree->setItemDelegate(new HtmlDelegate());
 
     // Build a list of operators for the current level
     auto analysis = m_context->getAnalysisNG();
@@ -458,6 +485,8 @@ DisplayLevelTrees EventWidgetPrivate::createSourceTrees(s32 eventIndex)
 
     result.operatorTree->setExpandsOnDoubleClick(false);
     result.displayTree->setExpandsOnDoubleClick(false);
+    result.operatorTree->setItemDelegate(new HtmlDelegate());
+    result.displayTree->setItemDelegate(new HtmlDelegate());
 
     // Populate the OperatorTree
     int moduleIndex = 0;
@@ -786,6 +815,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
 
                 menu.addAction(QSL("Show Parameters"), [this, pipe]() {
                     auto widget = new PipeDisplay(pipe, m_q);
+                    QObject::connect(m_pipeDisplayRefreshTimer, &QTimer::timeout, widget, &PipeDisplay::refresh);
                     widget->move(QCursor::pos());
                     widget->setAttribute(Qt::WA_DeleteOnClose);
                     widget->show();
@@ -825,6 +855,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
 
             menu.addAction(QSL("Show Parameters"), [this, pipe]() {
                 auto widget = new PipeDisplay(pipe, m_q);
+                QObject::connect(m_pipeDisplayRefreshTimer, &QTimer::timeout, widget, &PipeDisplay::refresh);
                 widget->move(QCursor::pos());
                 widget->setAttribute(Qt::WA_DeleteOnClose);
                 widget->show();
@@ -837,6 +868,20 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
             {
                 auto op = getPointer<OperatorInterface>(node);
                 Q_ASSERT(op);
+
+                if (op->getNumberOfOutputs() == 1)
+                {
+                    Pipe *pipe = op->getOutput(0);
+
+                    menu.addAction(QSL("Show Parameters"), [this, pipe]() {
+                        auto widget = new PipeDisplay(pipe, m_q);
+                        QObject::connect(m_pipeDisplayRefreshTimer, &QTimer::timeout, widget, &PipeDisplay::refresh);
+                        widget->move(QCursor::pos());
+                        widget->setAttribute(Qt::WA_DeleteOnClose);
+                        widget->show();
+                    });
+                }
+
                 menu.addAction(QSL("Edit"), [this, userLevel, op]() {
                     auto widget = new AddEditOperatorWidget(op, userLevel, m_q);
                     widget->move(QCursor::pos());
@@ -1616,6 +1661,8 @@ void EventWidgetPrivate::generateDefaultFilters(ModuleConfig *module)
     repopulate();
 }
 
+static const u32 pipeDisplayRefreshInterval_ms = 1000;
+
 EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, AnalysisWidget *analysisWidget, QWidget *parent)
     : QWidget(parent)
     , m_d(new EventWidgetPrivate)
@@ -1625,6 +1672,8 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, AnalysisWidget 
     m_d->m_context = ctx;
     m_d->m_eventId = eventId;
     m_d->m_analysisWidget = analysisWidget;
+    m_d->m_pipeDisplayRefreshTimer = new QTimer(this);
+    m_d->m_pipeDisplayRefreshTimer->start(pipeDisplayRefreshInterval_ms);
 
     int eventIndex = -1;
     auto eventConfigs = m_d->m_context->getEventConfigs();

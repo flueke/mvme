@@ -29,7 +29,12 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
         }
         else if (globalMode == GlobalMode::ListFile)
         {
-            m_context->startReplay();
+            if (daqState == DAQState::Running)
+                m_context->pauseReplay();
+            else if (daqState == DAQState::Paused)
+                m_context->resumeReplay();
+            else if (daqState == DAQState::Idle)
+                m_context->startReplay();
         }
     });
 
@@ -40,7 +45,15 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
             m_context->startDAQ(1);
         } else if (globalMode == GlobalMode::ListFile)
         {
-            m_context->startReplay(1);
+            auto daqState = m_context->getDAQState();
+            if (daqState == DAQState::Idle)
+            {
+                m_context->startReplay(1);
+            }
+            else if (daqState == DAQState::Paused)
+            {
+                m_context->resumeReplay(1);
+            }
         }
     });
 
@@ -87,20 +100,60 @@ void DAQControlWidget::updateWidget()
     auto controllerState = m_context->getController()->getState();
     const auto &stats = m_context->getDAQStats();
 
+    //
+    // start/pause/resume button
+    //
+    bool enableStartButton = false;
+
+    if (globalMode == GlobalMode::DAQ && controllerState == ControllerState::Opened)
+    {
+        enableStartButton = true;
+    }
+    else if (globalMode == GlobalMode::ListFile) // && daqState == DAQState::Idle && eventProcState == EventProcessorState::Idle)
+    {
+        enableStartButton = true;
+    }
+
+    ui->pb_start->setEnabled(enableStartButton);
+
+#if 0
     ui->pb_start->setEnabled(((globalMode == GlobalMode::DAQ && controllerState == ControllerState::Opened)
                               || (globalMode == GlobalMode::ListFile && daqState == DAQState::Idle))
                              && (eventProcState == EventProcessorState::Idle)
                             );
+#endif
 
+    //
+    // stop button
+    //
     ui->pb_stop->setEnabled(((globalMode == GlobalMode::DAQ && daqState != DAQState::Idle && controllerState == ControllerState::Opened)
                              || (globalMode == GlobalMode::ListFile && daqState != DAQState::Idle))
                            );
 
+    //
+    // one cycle button
+    //
+    bool enableOneCycleButton = false;
+
+    if (globalMode == GlobalMode::DAQ && controllerState == ControllerState::Opened && daqState == DAQState::Idle)
+    {
+        enableOneCycleButton = true;
+    }
+    else if (globalMode == GlobalMode::ListFile && (daqState == DAQState::Idle || daqState == DAQState::Paused))
+    {
+        enableOneCycleButton = true;
+    }
+
+    ui->pb_oneCycle->setEnabled(enableOneCycleButton);
+
+
+#if 0
     ui->pb_oneCycle->setEnabled(daqState == DAQState::Idle
                                 && ((globalMode == GlobalMode::DAQ && controllerState == ControllerState::Opened)
                                     || (globalMode == GlobalMode::ListFile))
                                 && (eventProcState == EventProcessorState::Idle)
                                );
+#endif
 
     ui->gb_listfile->setEnabled(globalMode == GlobalMode::DAQ);
 
@@ -112,10 +165,22 @@ void DAQControlWidget::updateWidget()
             ui->pb_start->setText(QSL("Resume"));
         else
             ui->pb_start->setText(QSL("Pause"));
+
+        ui->pb_oneCycle->setText(QSL("1 Cycle"));
     }
     else if (globalMode == GlobalMode::ListFile)
     {
-        ui->pb_start->setText(QSL("Start Replay"));
+        if (daqState == DAQState::Idle)
+            ui->pb_start->setText(QSL("Start Replay"));
+        else if (daqState == DAQState::Paused)
+            ui->pb_start->setText(QSL("Resume Replay"));
+        else
+            ui->pb_start->setText(QSL("Pause Replay"));
+
+        if (daqState == DAQState::Idle)
+            ui->pb_oneCycle->setText(QSL("1 Event"));
+        else if (daqState == DAQState::Paused)
+            ui->pb_oneCycle->setText(QSL("Next Event"));
     }
 
 

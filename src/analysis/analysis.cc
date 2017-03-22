@@ -744,7 +744,7 @@ void IndexSelector::write(QJsonObject &json) const
 PreviousValue::PreviousValue(QObject *parent)
     : BasicOperator(parent)
 {
-    m_inputSlot.acceptedInputTypes = InputType::Array;
+    m_inputSlot.acceptedInputTypes = InputType::Both;
 }
 
 void PreviousValue::beginRun()
@@ -755,11 +755,33 @@ void PreviousValue::beginRun()
     {
         const auto &in(m_inputSlot.inputPipe->getParameters());
 
-        m_previousInput.resize(in.size());
-        m_previousInput.invalidateAll();
-        out.resize(in.size());
+        s32 idxMin = 0;
+        s32 idxMax = in.size();
+
+        if (m_inputSlot.paramIndex != Slot::NoParamIndex)
+        {
+            idxMin = m_inputSlot.paramIndex;
+            idxMax = idxMin + 1;
+        }
+
+        out.resize(idxMax - idxMin);
+        out.invalidateAll();
         out.name = in.name;
         out.unit = in.unit;
+
+        m_previousInput.resize(idxMax - idxMin);
+        m_previousInput.invalidateAll();
+
+        for (s32 idx = idxMin, outIdx = 0;
+             idx < idxMax;
+             ++idx, ++outIdx)
+        {
+            const Parameter &inParam(in[idx]);
+            Parameter &outParam(out[outIdx]);
+
+            outParam.lowerLimit = inParam.lowerLimit;
+            outParam.upperLimit = inParam.upperLimit;
+        }
     }
     else
     {
@@ -776,29 +798,40 @@ void PreviousValue::step()
         auto &out(m_output.getParameters());
         const auto &in(m_inputSlot.inputPipe->getParameters());
 
-        // copy elements instead of assigning the vector directly as others
-        // (e.g. the PipeDisplay widget) may keep temporary references to our
-        // output vector!
-        s32 maxIdx = in.size();
+        s32 minIdx = 0;
+        s32 maxIdx = out.size();
+        s32 paramIndex = (m_inputSlot.paramIndex == Slot::NoParamIndex ? 0 : m_inputSlot.paramIndex);
 
-        for (s32 idx = 0; idx < maxIdx; ++idx)
+        // Copy elements instead of assigning the vector directly as others
+        // (e.g. the PipeDisplay widget) may keep temporary references to our
+        // output vector and those would be invalidated on assignment!
+        for (s32 idx = minIdx; idx < maxIdx; ++idx, ++paramIndex)
         {
-            out[idx] = m_previousInput[idx];
+            out[idx] = m_previousInput[paramIndex];
         }
 
-        for (s32 idx = 0; idx < maxIdx; ++idx)
+        paramIndex = (m_inputSlot.paramIndex == Slot::NoParamIndex ? 0 : m_inputSlot.paramIndex);
+
+        for (s32 idx = minIdx; idx < maxIdx; ++idx, ++paramIndex)
         {
-            m_previousInput[idx] = in[idx];
+            const Parameter &inParam(in[paramIndex]);
+
+            if (!m_keepValid || inParam.valid)
+            {
+                m_previousInput[idx] = inParam;
+            }
         }
     }
 }
 
 void PreviousValue::read(const QJsonObject &json)
 {
+    m_keepValid = json["keepValid"].toBool();
 }
 
 void PreviousValue::write(QJsonObject &json) const
 {
+    json["keepValid"] = m_keepValid;
 }
 
 //
@@ -1332,7 +1365,7 @@ Analysis::Analysis()
     m_registry.registerOperator<CalibrationMinMax>();
     m_registry.registerOperator<IndexSelector>();
     m_registry.registerOperator<PreviousValue>();
-    m_registry.registerOperator<RetainValid>();
+    //m_registry.registerOperator<RetainValid>();
     m_registry.registerOperator<Difference>();
 
 
