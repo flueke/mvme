@@ -767,28 +767,13 @@ void mvme::on_actionOpen_Listfile_triggered()
         return;
     }
 
-    m_context->setListFile(listFile);
+    m_context->setReplayFile(listFile);
     updateWindowTitle();
 }
 
 void mvme::on_actionClose_Listfile_triggered()
 {
-    /* Open the last used VME config in the workspace. Create a new VME config
-     * if no previous exists. */
-
-    QString lastVMEConfig = m_context->makeWorkspaceSettings()->value(QSL("LastVMEConfig")).toString();
-
-    if (!lastVMEConfig.isEmpty())
-    {
-        QDir wsDir(m_context->getWorkspaceDirectory());
-        loadConfig(wsDir.filePath(lastVMEConfig));
-    }
-    else
-    {
-        m_context->setDAQConfig(new DAQConfig);
-        m_context->setConfigFileName(QString());
-        m_context->setMode(GlobalMode::DAQ);
-    }
+    m_context->closeReplayFile();
 }
 
 void mvme::on_actionAnalysis_UI_triggered()
@@ -1025,11 +1010,11 @@ void mvme::updateWindowTitle()
 
         case GlobalMode::ListFile:
             {
-                auto listFile = m_context->getListFile();
+                auto listFile = m_context->getReplayFile();
                 QString fileName(QSL("<no listfile>"));
                 if (listFile)
                 {
-                    QString filePath = m_context->getListFile()->getFileName();
+                    QString filePath = listFile->getFileName();
                     fileName =  QFileInfo(filePath).fileName();
                 }
 

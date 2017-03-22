@@ -616,7 +616,7 @@ EventProcessorState MVMEContext::getEventProcessorState() const
     return m_eventProcessor->getState();
 }
 
-void MVMEContext::setListFile(ListFile *listFile)
+void MVMEContext::setReplayFile(ListFile *listFile)
 {
     auto configJson = listFile->getDAQConfig();
     auto daqConfig = new DAQConfig;
@@ -628,6 +628,35 @@ void MVMEContext::setListFile(ListFile *listFile)
     m_listFileWorker->setListFile(listFile);
     setConfigFileName(QString(), false);
     setMode(GlobalMode::ListFile);
+}
+
+void MVMEContext::closeReplayFile()
+{
+    if (getMode() == GlobalMode::ListFile)
+    {
+        stopDAQ();
+
+        delete m_listFile;
+        m_listFile = nullptr;
+        m_listFileWorker->setListFile(nullptr);
+
+        /* Open the last used VME config in the workspace. Create a new VME config
+         * if no previous exists. */
+
+        QString lastVMEConfig = makeWorkspaceSettings()->value(QSL("LastVMEConfig")).toString();
+
+        if (!lastVMEConfig.isEmpty())
+        {
+            QDir wsDir(getWorkspaceDirectory());
+            loadVMEConfig(wsDir.filePath(lastVMEConfig));
+        }
+        else
+        {
+            setDAQConfig(new DAQConfig);
+            setConfigFileName(QString());
+            setMode(GlobalMode::DAQ);
+        }
+    }
 }
 
 void MVMEContext::setMode(GlobalMode mode)

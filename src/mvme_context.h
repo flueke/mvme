@@ -93,8 +93,9 @@ class MVMEContext: public QObject
         EventProcessorState getEventProcessorState() const;
         const DAQStats &getDAQStats() const { return m_daqStats; }
         DAQStats &getDAQStats() { return m_daqStats; }
-        void setListFile(ListFile *listFile);
-        ListFile *getListFile() const { return m_listFile; }
+        void setReplayFile(ListFile *listFile);
+        void closeReplayFile();
+        ListFile *getReplayFile() const { return m_listFile; }
         void setMode(GlobalMode mode);
         GlobalMode getMode() const;
         MVMEEventProcessor *getEventProcessor() const { return m_eventProcessor; }
@@ -239,6 +240,7 @@ class MVMEContext: public QObject
 
     public slots:
         void startDAQ(quint32 nCycles=0);
+        // Stops DAQ or replay depending on the current GlobalMode
         void stopDAQ();
         void pauseDAQ();
         void resumeDAQ();
