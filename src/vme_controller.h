@@ -77,6 +77,13 @@ class VMEError
             , m_message(message)
         {}
 
+        VMEError(ErrorType error, s32 code, const QString &message, const QString &codeString)
+            : m_error(error)
+            , m_errorCode(code)
+            , m_message(message)
+            , m_errorCodeString(codeString)
+        {}
+
         bool isError() const { return m_error != NoError; }
 
         // Returns this errors type.
@@ -97,6 +104,7 @@ class VMEError
         ErrorType m_error = NoError;
         s32 m_errorCode = 0;
         QString m_message;
+        QString m_errorCodeString;
 };
 
 class VMEController: public QObject

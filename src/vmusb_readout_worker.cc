@@ -506,9 +506,10 @@ int VMUSBReadoutWorker::readBuffer(int timeout_ms)
 {
     m_readBuffer->used = 0;
 
-    int bytesRead = m_vmusb->bulkRead(m_readBuffer->data, m_readBuffer->size, timeout_ms);
+    int bytesRead = 0;
+    VMEError error = m_vmusb->bulkRead(m_readBuffer->data, m_readBuffer->size, &bytesRead, timeout_ms);
 
-    if (bytesRead > 0)
+    if (!error.isError() && bytesRead > 0)
     {
         m_readBuffer->used = bytesRead;
         DAQStats &stats(m_context->getDAQStats());
