@@ -298,7 +298,7 @@ MVMEContext::~MVMEContext()
         }
         else if (getMode() == GlobalMode::ListFile)
         {
-            QMetaObject::invokeMethod(m_listFileWorker, "stopReplay", Qt::QueuedConnection);
+            QMetaObject::invokeMethod(m_listFileWorker, "stop", Qt::QueuedConnection);
         }
 
         while ((getDAQState() != DAQState::Idle))
@@ -779,7 +779,7 @@ void MVMEContext::resumeDAQ()
     QMetaObject::invokeMethod(m_readoutWorker, "resume", Qt::QueuedConnection);
 }
 
-void MVMEContext::startReplay(quint32 nEvents)
+void MVMEContext::startReplay(u32 nEvents)
 {
     Q_ASSERT(getDAQState() == DAQState::Idle);
     Q_ASSERT(getEventProcessorState() == EventProcessorState::Idle);
@@ -808,8 +808,10 @@ void MVMEContext::pauseReplay()
     QMetaObject::invokeMethod(m_listFileWorker, "pause", Qt::QueuedConnection);
 }
 
-void MVMEContext::resumeReplay()
+void MVMEContext::resumeReplay(u32 nEvents)
 {
+    Q_ASSERT(getDAQState() == DAQState::Idle || getDAQState() == DAQState::Paused);
+    m_listFileWorker->setEventsToRead(nEvents);
     QMetaObject::invokeMethod(m_listFileWorker, "resume", Qt::QueuedConnection);
 }
 

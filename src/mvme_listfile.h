@@ -178,9 +178,6 @@ class ListFileReader: public QObject
         void mainLoop();
         void setState(DAQState state);
 
-        // XXX
-        bool readNextBuffer(DataBuffer *dest);
-
         DAQStats &m_stats;
 
         DAQState m_state = DAQState::Idle;

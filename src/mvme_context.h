@@ -243,9 +243,9 @@ class MVMEContext: public QObject
         void pauseDAQ();
         void resumeDAQ();
 
-        void startReplay(quint32 nEvents = 0);
+        void startReplay(u32 nEvents = 0);
         void pauseReplay();
-        void resumeReplay();
+        void resumeReplay(u32 nEvents = 0);
 
         void openInNewWindow(QObject *object);
         void addWidgetWindow(QWidget *widget, QSize windowSize = QSize(600, 400));
