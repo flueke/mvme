@@ -12,6 +12,7 @@ static const QMap<VMEError::ErrorType, QString> errorNames =
     { VMEError::BusError,       QSL("VME Bus Error") },
     { VMEError::NoDevice,       QSL("No device found") },
     { VMEError::DeviceIsOpen,   QSL("Device is open") },
+    { VMEError::Timeout,        QSL("Timeout") },
 };
 
 QString VMEError::toString() const

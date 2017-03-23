@@ -1021,9 +1021,18 @@ VMUSB::transaction(void* writePacket, size_t writeSize,
 
     if (status != 0)
     {
-        return VMEError(VMEError::ReadError, status,
-                        libusb_strerror(static_cast<libusb_error>(status)),
-                        libusb_error_name(status));
+        if (status != LIBUSB_ERROR_TIMEOUT)
+        {
+            return VMEError(VMEError::ReadError, status,
+                            libusb_strerror(static_cast<libusb_error>(status)),
+                            libusb_error_name(status));
+        }
+        else
+        {
+            return VMEError(VMEError::Timeout, status,
+                            libusb_strerror(static_cast<libusb_error>(status)),
+                            libusb_error_name(status));
+        }
     }
 
     *bytesRead = transferred;
@@ -1044,9 +1053,18 @@ VMEError VMUSB::bulkRead(void *outBuffer, size_t outBufferSize, int *transferred
 
     if (status != 0)
     {
-        return VMEError(VMEError::ReadError, status,
-                        libusb_strerror(static_cast<libusb_error>(status)),
-                        libusb_error_name(status));
+        if (status != LIBUSB_ERROR_TIMEOUT)
+        {
+            return VMEError(VMEError::ReadError, status,
+                            libusb_strerror(static_cast<libusb_error>(status)),
+                            libusb_error_name(status));
+        }
+        else
+        {
+            return VMEError(VMEError::Timeout, status,
+                            libusb_strerror(static_cast<libusb_error>(status)),
+                            libusb_error_name(status));
+        }
     }
 
     return VMEError();
@@ -1092,7 +1110,7 @@ VMEError VMUSB::stackRead(u8 stackID, QVector<u32> &stackOut, u32 &loadOffsetOut
                                       reinterpret_cast<u8 *>(&inBuffer),
                                       sizeof(inBuffer), &transferred, StackReadTimeout_ms);
 
-    if (status != 0)
+    if (status != 0 && status != LIBUSB_ERROR_TIMEOUT)
     {
         return VMEError(VMEError::ReadError, status,
                         libusb_strerror(static_cast<libusb_error>(status)),
@@ -1142,7 +1160,7 @@ VMEError VMUSB::write32(u32 address, u32 value, u8 amod)
     size_t bytesRead = 0;
     auto error = listExecute(&readoutList, &response, sizeof(response), &bytesRead);
 
-    if (error.isError())
+    if (error.isError() && !error.isTimeout())
         return error;
 
     if (response == 0)
@@ -1161,7 +1179,7 @@ VMEError VMUSB::write16(u32 address, u16 value, u8 amod)
     size_t bytesRead = 0;
     auto error = listExecute(&readoutList, &response, sizeof(response), &bytesRead);
 
-    if (error.isError())
+    if (error.isError() && !error.isTimeout())
         return error;
 
     if (response == 0)

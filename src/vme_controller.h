@@ -47,6 +47,7 @@ class VMEError
             BusError,       // VME Bus error
             NoDevice,       // No controller-type specific device found
             DeviceIsOpen,   // Tried to open an already opened device
+            Timeout,
         };
 
         VMEError()
@@ -84,16 +85,17 @@ class VMEError
             , m_errorCodeString(codeString)
         {}
 
-        bool isError() const { return m_error != NoError; }
+        inline bool isError() const { return m_error != NoError; }
+        inline bool isTimeout() const { return m_error == Timeout; }
 
         // Returns this errors type.
-        ErrorType error() const { return m_error; }
+        inline ErrorType error() const { return m_error; }
 
         // Returns an implementation defined error message. Defaults to an empty string.
-        QString message() const { return m_message; }
+        inline QString message() const { return m_message; }
 
         // Returns an implementation defined error code. Defaults to 0.
-        s32 errorCode() const { return m_errorCode; }
+        inline s32 errorCode() const { return m_errorCode; }
 
         QString toString() const;
 
