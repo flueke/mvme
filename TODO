@@ -32,6 +32,7 @@
 - Refactor DAQConfig -> VMEConfig and DAQConfigTree to VMEConfigTree
 - VMUSB: if there are connect/reconnect errors write them to the log view
   Do this when porting to libusb-1.0 as that should also provide better error messages.
+- VMUSB: make the mutex non-recursive!
 
 >>>>> Begin Analysis NG <<<<<
  - get rid of the old analysis code

@@ -202,18 +202,6 @@ void VMUSB::getUsbDevices(void)
         {
             qDebug() << __PRETTY_FUNCTION__ << "found a VMUSB device";
 
-#if 0
-            VMUSBDeviceInfo deviceInfo;
-            deviceInfo.serial[0] = 'T';
-            deviceInfo.serial[1] = 'E';
-            deviceInfo.serial[2] = 'S';
-            deviceInfo.serial[3] = 'T';
-            deviceInfo.serial[4] = '\0';
-            deviceInfo.device = device;
-            // Increment the devices ref counter.
-            libusb_ref_device(device);
-            m_deviceInfos.push_back(deviceInfo);
-#else
             libusb_device_handle *deviceHandle;
             int openResult = libusb_open(device, &deviceHandle);
 
@@ -238,7 +226,6 @@ void VMUSB::getUsbDevices(void)
                 qDebug() << __PRETTY_FUNCTION__ << "could not open the VMUSB:"
                     << libusb_strerror(static_cast<libusb_error>(openResult));
             }
-#endif
         }
     }
 

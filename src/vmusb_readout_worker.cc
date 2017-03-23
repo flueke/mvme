@@ -82,7 +82,7 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         //
         int globalMode = 0;
         globalMode |= (1 << GlobalModeRegister::MixedBufferShift);
-        //globalMode |= GlobalModeRegister::WatchDog250; // 250ms watchdog
+        globalMode |= GlobalModeRegister::WatchDog250; // 250ms watchdog
         //globalMode |= GlobalModeRegister::NoIRQHandshake;
 
         error = vmusb->setMode(globalMode);
@@ -400,7 +400,7 @@ void VMUSBReadoutWorker::readoutLoop()
         {
             int bytesRead = readBuffer(daqReadTimeout_ms);
 
-            qDebug() << __PRETTY_FUNCTION__ << "DAQState::Running: readBuffer() returned" << bytesRead << "bytes";
+            //qDebug() << __PRETTY_FUNCTION__ << "DAQState::Running: readBuffer() returned" << bytesRead << "bytes";
 
             /* XXX: Begin hack:
              * A timeout here can mean that either there is an error when
@@ -427,6 +427,7 @@ void VMUSBReadoutWorker::readoutLoop()
              * watchdog will be activated if it is available. */
 #define USE_DAQMODE_HACK
 #ifdef USE_DAQMODE_HACK
+            // TODO; explicitly check return value for timeout
             if (bytesRead <= 0)
             {
                 error = vmusb->leaveDaqMode();
@@ -506,6 +507,9 @@ void VMUSBReadoutWorker::logError(const QString &message)
 }
 
 
+// TODO: Return a struct containing { error, bytesRead } to make the libusb
+// error code available to the callers. With libusb-0.1 this was done via
+// bytesRead which returned negative errno values to report errors.
 int VMUSBReadoutWorker::readBuffer(int timeout_ms)
 {
     m_readBuffer->used = 0;
@@ -515,8 +519,8 @@ int VMUSBReadoutWorker::readBuffer(int timeout_ms)
 
     if ((!error.isError() || error.isTimeout()) && bytesRead > 0)
     {
-        if (error.isTimeout())
-            qDebug() << __PRETTY_FUNCTION__ << "VMUSB::bulkRead() timed out but returned" << bytesRead << "bytes";
+        //if (error.isTimeout())
+        //    qDebug() << __PRETTY_FUNCTION__ << "VMUSB::bulkRead() timed out but returned" << bytesRead << "bytes";
 
         m_readBuffer->used = bytesRead;
         DAQStats &stats(m_context->getDAQStats());
@@ -531,7 +535,7 @@ int VMUSBReadoutWorker::readBuffer(int timeout_ms)
     }
     else if (error.isTimeout() && bytesRead == 0)
     {
-        qDebug() << __PRETTY_FUNCTION__ << "got a timeout from VMUSB::bulkRead and read 0 bytes";
+        //qDebug() << __PRETTY_FUNCTION__ << "got a timeout from VMUSB::bulkRead and read 0 bytes";
         return -1; // emulate the way libusb-0.1 used to work which the calling code still assumes
     }
     else
