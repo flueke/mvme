@@ -69,6 +69,8 @@ unix {
     QMAKE_LFLAGS += "-Wl,-rpath,\'\$$ORIGIN\'"
 }
 
-include($$shell_path($$PWD/../git_version.pri))
+#include($$shell_path($$PWD/../git_version.pri))
+# When building under msys2 using shell_path() does not work.
+include($$PWD/../git_version.pri)
 
 # vim:ft=conf

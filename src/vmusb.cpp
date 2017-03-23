@@ -23,12 +23,7 @@
 #include <QDebug>
 #include <QMutexLocker>
 
-#ifdef __MINGW32__
-//#include <lusb0_usb.h>
-#error "implement windows libusb-1.0 support"
-#else
 #include <libusb.h>
-#endif
 
 #define XXUSB_WIENER_VENDOR_ID  0x16DC  /* Wiener, Plein & Baus */
 #define XXUSB_VMUSB_PRODUCT_ID  0x000B  /* VM-USB */
@@ -92,7 +87,8 @@ static VMUSBOpenResult open_usb_device(libusb_device *dev)
 
     if (result.errorCode != 0)
     {
-        qDebug() << "libusb_open failed";
+        qDebug() << "libusb_open failed"
+            << libusb_strerror(static_cast<libusb_error>(result.errorCode));
         return result;
     }
 
@@ -100,8 +96,10 @@ static VMUSBOpenResult open_usb_device(libusb_device *dev)
 
     if (result.errorCode != 0)
     {
+        qDebug() << "libusb_set_configuration failed"
+            << libusb_strerror(static_cast<libusb_error>(result.errorCode));
+
         libusb_close(result.deviceHandle);
-        qDebug() << "libusb_set_configuration failed";
         return result;
     }
 
@@ -109,8 +107,10 @@ static VMUSBOpenResult open_usb_device(libusb_device *dev)
 
     if (result.errorCode != 0)
     {
+        qDebug() << "libusb_claim_interface failed"
+            << libusb_strerror(static_cast<libusb_error>(result.errorCode));
+
         libusb_close(result.deviceHandle);
-        qDebug() << "libusb_claim_interface failed";
         return result;
     }
 
@@ -125,7 +125,8 @@ static int close_usb_device(libusb_device_handle *deviceHandle)
 
     if (result != 0)
     {
-        qDebug() << "libusb_release_interface failed";
+        qDebug() << "libusb_release_interface failed:"
+            << libusb_strerror(static_cast<libusb_error>(result));
         return result;
     }
 
@@ -154,6 +155,164 @@ VMUSB::~VMUSB()
     {
         libusb_exit(m_libusbContext);
     }
+}
+
+// TODO: add some sort of error reporting here
+void VMUSB::getUsbDevices(void)
+{
+    if (!m_libusbContext)
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "libusb init";
+        int result = libusb_init(&m_libusbContext);
+
+        if (result != 0)
+        {
+            m_libusbContext = nullptr;
+            return;
+        }
+        else
+        {
+            libusb_set_debug(m_libusbContext, LIBUSB_LOG_LEVEL_WARNING);
+            //libusb_set_debug(m_libusbContext, LIBUSB_LOG_LEVEL_DEBUG);
+        }
+    }
+
+    for (auto deviceInfo: m_deviceInfos)
+    {
+        libusb_unref_device(deviceInfo.device);
+    }
+
+    m_deviceInfos.clear();
+
+    libusb_device **deviceList;
+
+    ssize_t deviceCount = libusb_get_device_list(m_libusbContext, &deviceList);
+
+    qDebug() << __PRETTY_FUNCTION__ << "got a list of" << deviceCount << "usb devices";
+
+    for (ssize_t deviceIndex = 0; deviceIndex < deviceCount; ++deviceIndex)
+    {
+        libusb_device *device = deviceList[deviceIndex];
+
+        struct libusb_device_descriptor descriptor;
+
+        if (libusb_get_device_descriptor(device, &descriptor) == 0
+            && descriptor.idVendor == XXUSB_WIENER_VENDOR_ID
+            && descriptor.idProduct == XXUSB_VMUSB_PRODUCT_ID)
+        {
+            qDebug() << __PRETTY_FUNCTION__ << "found a VMUSB device";
+
+#if 0
+            VMUSBDeviceInfo deviceInfo;
+            deviceInfo.serial[0] = 'T';
+            deviceInfo.serial[1] = 'E';
+            deviceInfo.serial[2] = 'S';
+            deviceInfo.serial[3] = 'T';
+            deviceInfo.serial[4] = '\0';
+            deviceInfo.device = device;
+            // Increment the devices ref counter.
+            libusb_ref_device(device);
+            m_deviceInfos.push_back(deviceInfo);
+#else
+            libusb_device_handle *deviceHandle;
+            int openResult = libusb_open(device, &deviceHandle);
+
+            if (openResult == 0)
+            {
+                qDebug() << __PRETTY_FUNCTION__ << "was able to open the VMUSB";
+                VMUSBDeviceInfo deviceInfo;
+
+                if (libusb_get_string_descriptor_ascii(deviceHandle, descriptor.iSerialNumber,
+                                                       deviceInfo.serial, sizeof(deviceInfo.serial)) >= 0)
+                {
+                    qDebug() << __PRETTY_FUNCTION__ << "was able to read the serial number:" << deviceInfo.serial;
+                    deviceInfo.device = device;
+                    // Increment the devices ref counter.
+                    libusb_ref_device(device);
+                    m_deviceInfos.push_back(deviceInfo);
+                }
+                libusb_close(deviceHandle);
+            }
+            else
+            {
+                qDebug() << __PRETTY_FUNCTION__ << "could not open the VMUSB:"
+                    << libusb_strerror(static_cast<libusb_error>(openResult));
+            }
+#endif
+        }
+    }
+
+    // Set the 'unref' parameter. Devices that we're interested in have been
+    // manually referenced above.
+    qDebug() << "freeing the libusb device list";
+    libusb_free_device_list(deviceList, 1);
+}
+
+VMEError VMUSB::openFirstDevice()
+{
+    QMutexLocker locker(&m_lock);
+
+    if (isOpen())
+    {
+        return VMEError(VMEError::DeviceIsOpen);
+    }
+
+    getUsbDevices();
+
+    if (m_deviceInfos.isEmpty())
+    {
+        return VMEError(VMEError::NoDevice);
+    }
+
+    auto deviceInfo = m_deviceInfos[0];
+
+    VMUSBOpenResult openResult = open_usb_device(deviceInfo.device);
+
+    if (openResult.errorCode == 0)
+    {
+        m_deviceHandle = openResult.deviceHandle;
+
+        m_currentSerialNumber = reinterpret_cast<char *>(deviceInfo.serial);
+
+        qDebug() << "opened VMUSB, serial =" << m_currentSerialNumber;
+
+        writeActionRegister(0x04); // reset usb
+
+        // clear the action register (makes sure daq mode is disabled)
+        auto error = tryErrorRecovery();
+        if (!error.isError())
+        {
+            m_state = ControllerState::Opened;
+            emit controllerOpened();
+            emit controllerStateChanged(m_state);
+        }
+        else
+        {
+            qDebug() << "vmusb error recovery failed:" << error.toString();
+            close();
+        }
+
+        return error;
+    }
+
+    return VMEError(VMEError::CommError, openResult.errorCode,
+                    libusb_strerror(static_cast<libusb_error>(openResult.errorCode)),
+                    libusb_error_name(openResult.errorCode));
+}
+
+VMEError VMUSB::close()
+{
+    QMutexLocker locker (&m_lock);
+    if (m_deviceHandle)
+    {
+        close_usb_device(m_deviceHandle);
+        m_deviceHandle = nullptr;
+        m_currentSerialNumber = QString();
+        m_state = ControllerState::Closed;
+        emit controllerClosed();
+        emit controllerStateChanged(m_state);
+    }
+    return {};
 }
 
 QString VMUSB::getIdentifyingString() const
@@ -264,76 +423,6 @@ VMEError VMUSB::readAllRegisters(void)
     }
 
     return error;
-}
-
-
-
-
-/*!
-    \fn vmUsb::getUsbDevices(void)
- */
-
-// TODO: add some sort of error reporting here
-void VMUSB::getUsbDevices(void)
-{
-    if (!m_libusbContext)
-    {
-        int result = libusb_init(&m_libusbContext);
-
-        if (result != 0)
-        {
-            m_libusbContext = nullptr;
-            return;
-        }
-        else
-        {
-            libusb_set_debug(m_libusbContext, LIBUSB_LOG_LEVEL_WARNING);
-        }
-    }
-
-    for (auto deviceInfo: m_deviceInfos)
-    {
-        libusb_unref_device(deviceInfo.device);
-    }
-
-    m_deviceInfos.clear();
-
-    libusb_device **deviceList;
-
-    ssize_t deviceCount = libusb_get_device_list(m_libusbContext, &deviceList);
-
-    for (ssize_t deviceIndex = 0; deviceIndex < deviceCount; ++deviceIndex)
-    {
-        libusb_device *device = deviceList[deviceIndex];
-
-        struct libusb_device_descriptor descriptor;
-
-        if (libusb_get_device_descriptor(device, &descriptor) == 0
-            && descriptor.idVendor == XXUSB_WIENER_VENDOR_ID
-            && descriptor.idProduct == XXUSB_VMUSB_PRODUCT_ID)
-        {
-            libusb_device_handle *deviceHandle;
-
-            if (libusb_open(device, &deviceHandle) == 0)
-            {
-                VMUSBDeviceInfo deviceInfo;
-
-                if (libusb_get_string_descriptor_ascii(deviceHandle, descriptor.iSerialNumber,
-                                                       deviceInfo.serial, sizeof(deviceInfo.serial)) >= 0)
-                {
-                    deviceInfo.device = device;
-                    // Increment the devices ref counter.
-                    libusb_ref_device(device);
-                    m_deviceInfos.push_back(deviceInfo);
-                    libusb_close(deviceHandle);
-                }
-            }
-        }
-    }
-
-    // Set the 'unref' parameter. Devices that we're interested in have been
-    // manually referenced above.
-    libusb_free_device_list(deviceList, 1);
 }
 
 //
@@ -1128,69 +1217,6 @@ VMEError VMUSB::enterDaqMode()
 VMEError VMUSB::leaveDaqMode()
 {
     return writeActionRegister(0);
-}
-
-VMEError VMUSB::openFirstDevice()
-{
-    QMutexLocker locker(&m_lock);
-
-    if (isOpen())
-    {
-        return VMEError(VMEError::DeviceIsOpen);
-    }
-
-    getUsbDevices();
-
-    if (m_deviceInfos.isEmpty())
-    {
-        return VMEError(VMEError::NoDevice);
-    }
-
-    auto deviceInfo = m_deviceInfos[0];
-
-    int status = libusb_open(deviceInfo.device, &m_deviceHandle);
-
-    if (status == 0)
-    {
-        m_currentSerialNumber = reinterpret_cast<char *>(deviceInfo.serial);
-
-        writeActionRegister(0x04); // reset usb
-
-        // clear the action register (makes sure daq mode is disabled)
-        auto error = tryErrorRecovery();
-        if (!error.isError())
-        {
-            m_state = ControllerState::Opened;
-            emit controllerOpened();
-            emit controllerStateChanged(m_state);
-        }
-        else
-        {
-            qDebug() << "vmusb error recovery failed:" << error.toString();
-            close();
-        }
-
-        return error;
-    }
-
-    return VMEError(VMEError::CommError, status,
-                    libusb_strerror(static_cast<libusb_error>(status)),
-                    libusb_error_name(status));
-}
-
-VMEError VMUSB::close()
-{
-    QMutexLocker locker (&m_lock);
-    if (m_deviceHandle)
-    {
-        libusb_close(m_deviceHandle);
-        m_deviceHandle = nullptr;
-        m_currentSerialNumber = QString();
-        m_state = ControllerState::Closed;
-        emit controllerClosed();
-        emit controllerStateChanged(m_state);
-    }
-    return {};
 }
 
 static const s32 ErrorRecoveryReadTimeout_ms = 250;
