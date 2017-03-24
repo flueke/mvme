@@ -740,6 +740,10 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
             }
         }
     }
+    else
+    {
+        le_name->setText(op->objectName());
+    }
 
     //
     // Operator specific actions

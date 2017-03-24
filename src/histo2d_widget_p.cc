@@ -9,6 +9,7 @@ using namespace analysis;
 
 Histo2DSubRangeDialog::Histo2DSubRangeDialog(const std::shared_ptr<Histo2DSink> &histoSink,
                                              HistoSinkCallback addSinkCallback, HistoSinkCallback sinkModifiedCallback,
+                                             MakeUniqueOperatorNameFunction makeUniqueOperatorNameFunction,
                                              double visibleMinX, double visibleMaxX, double visibleMinY, double visibleMaxY,
                                              QWidget *parent)
     : QDialog(parent)
@@ -34,7 +35,7 @@ Histo2DSubRangeDialog::Histo2DSubRangeDialog(const std::shared_ptr<Histo2DSink> 
     // create as new
     //
     le_name = new QLineEdit;
-    le_name->setText(histoSink->m_histo->objectName());
+    le_name->setText(makeUniqueOperatorNameFunction(histoSink->m_histo->objectName()));
     combo_xBins = make_resolution_combo(Histo2DMinBits, Histo2DMaxBits, Histo2DDefBits);
     combo_yBins = make_resolution_combo(Histo2DMinBits, Histo2DMaxBits, Histo2DDefBits);
 

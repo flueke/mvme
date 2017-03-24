@@ -27,12 +27,14 @@ class Histo2DWidget: public QWidget
     public:
         using SinkPtr = std::shared_ptr<analysis::Histo2DSink>;
         using HistoSinkCallback = std::function<void (const SinkPtr &)>;
+        using MakeUniqueOperatorNameFunction = std::function<QString (const QString &name)>;
 
         Histo2DWidget(const Histo2DPtr histoPtr, QWidget *parent = 0);
         Histo2DWidget(Histo2D *histo, QWidget *parent = 0);
         ~Histo2DWidget();
 
-        void setSink(const SinkPtr &sink, HistoSinkCallback addSinkCallback, HistoSinkCallback sinkModifiedCallback);
+        void setSink(const SinkPtr &sink, HistoSinkCallback addSinkCallback, HistoSinkCallback sinkModifiedCallback,
+                     MakeUniqueOperatorNameFunction makeUniqueOperatorNameFunction);
 
     private slots:
         void replot();
@@ -62,6 +64,7 @@ class Histo2DWidget: public QWidget
         std::shared_ptr<analysis::Histo2DSink> m_sink;
         HistoSinkCallback m_addSinkCallback;
         HistoSinkCallback m_sinkModifiedCallback;
+        MakeUniqueOperatorNameFunction m_makeUniqueOperatorNameFunction;
 };
 
 #endif /* __HISTO2D_WIDGET_H__ */

@@ -107,25 +107,25 @@ struct DataFilterDefinition
 static const QMap<VMEModuleType, QList<DataFilterDefinition>> defaultDataFilters =
 {
     { VMEModuleType::MDPP16, {
-                                 { "0001XXXXPO00AAAADDDDDDDDDDDDDDDD", "amplitude",     "Amplitude %a" },
-                                 { "0001XXXXXX01AAAADDDDDDDDDDDDDDDD", "time",          "Time %a" },
-                                 { "0001XXXXXX10000ADDDDDDDDDDDDDDDD", "trigger_time",  "Trigger time %a" },
+                                 { "0001XXXXPO00AAAADDDDDDDDDDDDDDDD", "amplitude",     "Amplitude" },
+                                 { "0001XXXXXX01AAAADDDDDDDDDDDDDDDD", "time",          "Time" },
+                                 { "0001XXXXXX10000ADDDDDDDDDDDDDDDD", "trigger_time",  "Trigger time" },
                              }
     },
 
     { VMEModuleType::MADC32, {
-                                 { "00XXX1XX000AAAAA0O0DDDDDDDDDDDDD", "amplitude",     "Amplitude %a" },
+                                 { "00XXX1XX000AAAAA0O0DDDDDDDDDDDDD", "amplitude",     "Amplitude" },
                              }
     },
 
     { VMEModuleType::MQDC32, {
-                                 { "00XXX1XX000AAAAA0O00DDDDDDDDDDDD", "amplitude",     "Amplitude %a" },
+                                 { "00XXX1XX000AAAAA0O00DDDDDDDDDDDD", "amplitude",     "Amplitude" },
                              }
     },
 
     { VMEModuleType::MTDC32, {
-                                 { "00XXX1XX000AAAAADDDDDDDDDDDDDDDD", "time",          "Time %a" },
-                                 { "00XXX1XX0010000ADDDDDDDDDDDDDDDD", "trigger_time",  "Trigger time %a" },
+                                 { "00XXX1XX000AAAAADDDDDDDDDDDDDDDD", "time",          "Time" },
+                                 { "00XXX1XX0010000ADDDDDDDDDDDDDDDD", "trigger_time",  "Trigger time" },
                              }
     },
 };

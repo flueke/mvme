@@ -1,10 +1,21 @@
 ==========================
 ==== Do these first! =====
 ==========================
-- Histo1DWidget: zoom out after applying calibration
+* Change listfile format to newer version 1.
+* Histo1DWidget: zoom out after applying calibration
+* Fix replay stats display and replay timer. It wasn't designed with pausing
+  and stepping in mind.
+* Add Sum Operator with option to sum array members or calculate the mean
+* Add H2D projection displays
+* Append suffix to zoomed H2D default name
+* ZIP file support:
+  Write listfile to zip. It still includes the VME config.
+  On close:
+  - write current analysis config to zip.
+  - write program log file to zip (log from start of current run)
+  - write some user description text file to the zip.
+
 >>>>> Begin Analysis NG <<<<<
- - Fix replay stats display and replay timer. It wasn't designed with pausing
-   and stepping in mind.
  - Add Operator::getDescription()
  - UserLevel hide/show GUI
  - Implement "Remove UserLevel" button
@@ -27,12 +38,19 @@
 ==========================
 ==== Do these later! =====
 ==========================
+* DAQStats:
+  - add pause/resume
+  - figure out why buffers/s never has a fractional part
+    -> part of the system. addBuffersRead() and addBytesRead() each call maybeUpdateIntervalCounters().
+       If we're reading less than 1 buffer per second the resulting bytesPerSecond will be 0 for that interval.
+    How to make this better?
 - License info needs Apache License for PCG. Maybe others. Check what is needed here!
   Also use info from resources/README
 - Refactor DAQConfig -> VMEConfig and DAQConfigTree to VMEConfigTree
 - VMUSB: if there are connect/reconnect errors write them to the log view
   Do this when porting to libusb-1.0 as that should also provide better error messages.
 - VMUSB: make the mutex non-recursive!
+* Move from MDI to multiple top-level windows (allows making use of multiple monitors)
 
 >>>>> Begin Analysis NG <<<<<
  - get rid of the old analysis code
@@ -134,7 +152,6 @@
 ==========================
 ===== Maybe do these =====
 ==========================
-* Move from MDI to multiple top-level windows (allows making use of multiple monitors)
 
 ======================================
 ==== Done, but kept for reference ====

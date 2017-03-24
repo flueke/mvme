@@ -1028,6 +1028,10 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
                                                 // sinkModifiedCallback
                                                 [context] (const std::shared_ptr<Histo2DSink> &sink) {
                                                     context->analysisOperatorEdited(sink);
+                                                },
+                                                // makeUniqueOperatorNameFunction
+                                                [context] (const QString &name) {
+                                                    return make_unique_operator_name(context->getAnalysisNG(), name);
                                                 });
 
                                 m_context->addWidgetWindow(widget);
@@ -1572,6 +1576,10 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                                     // sinkModifiedCallback
                                     [context] (const std::shared_ptr<Histo2DSink> &sink) {
                                         context->analysisOperatorEdited(sink);
+                                    },
+                                    // makeUniqueOperatorNameFunction
+                                    [context] (const QString &name) {
+                                        return make_unique_operator_name(context->getAnalysisNG(), name);
                                     });
 
                     m_context->addWidgetWindow(widget);
@@ -1657,7 +1665,6 @@ void EventWidgetPrivate::generateDefaultFilters(ModuleConfig *module)
         }
     }
 
-    //m_context->getAnalysisNG()->beginRun(); // FIXME: needed?
     repopulate();
 }
 

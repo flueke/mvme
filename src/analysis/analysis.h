@@ -1059,6 +1059,8 @@ void add_raw_data_display(Analysis *analysis, s32 eventIndex, s32 moduleIndex, c
 
 void do_beginRun_forward(PipeSourceInterface *pipeSource);
 
+QString make_unique_operator_name(Analysis *analysis, const QString &prefix);
+
 } // end namespace analysis
 
 

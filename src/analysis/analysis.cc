@@ -2055,11 +2055,13 @@ RawDataDisplay make_raw_data_display(std::shared_ptr<Extractor> extractor, doubl
     auto rawHistoSink = std::make_shared<Histo1DSink>();
     rawHistoSink->setObjectName(QString("%1_raw").arg(objectName));
     rawHistoSink->m_bins = histoBins;
+    rawHistoSink->m_xAxisTitle = xAxisTitle;
     result.rawHistoSink = rawHistoSink;
 
     auto calHistoSink = std::make_shared<Histo1DSink>();
     calHistoSink->setObjectName(QString("%1").arg(objectName));
     calHistoSink->m_bins = histoBins;
+    calHistoSink->m_xAxisTitle = xAxisTitle;
     result.calibratedHistoSink = calHistoSink;
 
     rawHistoSink->connectArrayToInputSlot(0, extractor->getOutput(0));
@@ -2147,6 +2149,40 @@ void do_beginRun_forward(PipeSourceInterface *pipeSource)
             }
         }
     }
+}
+
+QString make_unique_operator_name(Analysis *analysis, const QString &prefix)
+{
+    int suffixNumber = 0;
+
+    for (const auto &opEntry: analysis->getOperators())
+    {
+        const auto &op(opEntry.op);
+        auto name = op->objectName();
+
+        if (name.startsWith(prefix))
+        {
+            QString suffix;
+            if (name.size() - 1 > prefix.size())
+            {
+                suffix = name.right(name.size() - prefix.size() - 1);
+            }
+
+            if (suffix.size())
+            {
+                bool ok;
+                int n = suffix.toInt(&ok);
+                if (ok)
+                {
+                    suffixNumber = std::max(suffixNumber, n);
+                }
+            }
+        }
+    }
+
+    ++suffixNumber;
+
+    return prefix + QSL(".") + QString::number(suffixNumber);
 }
 
 }

@@ -20,10 +20,12 @@ class Histo2DSubRangeDialog: public QDialog
     public:
         using SinkPtr = std::shared_ptr<analysis::Histo2DSink>;
         using HistoSinkCallback = std::function<void (const SinkPtr &)>;
+        using MakeUniqueOperatorNameFunction = std::function<QString (const QString &name)>;
 
 
         Histo2DSubRangeDialog(const SinkPtr &histoSink,
                               HistoSinkCallback addSinkCallback, HistoSinkCallback sinkModifiedCallback,
+                              MakeUniqueOperatorNameFunction makeUniqueOperatorNameFunction,
                               double visibleMinX, double visibleMaxX, double visibleMinY, double visibleMaxY,
                               QWidget *parent = 0);
 

@@ -968,7 +968,7 @@ void MVMEContext::newWorkspace(const QString &dirName)
             .arg(vmeConfigFile.errorString());
     }
 
-    QFile analysisConfigFile(dir.filePath(QSL("analysis.json")));
+    QFile analysisConfigFile(dir.filePath(QSL("analysis.analysis")));
     if (!analysisConfigFile.open(QIODevice::WriteOnly))
     {
         throw QString("Error opening %1 for writing:  %2")
@@ -981,7 +981,7 @@ void MVMEContext::newWorkspace(const QString &dirName)
     {
         auto workspaceSettings(makeWorkspaceSettings());
         workspaceSettings->setValue(QSL("LastVMEConfig"), QSL("vme.mvmecfg"));
-        workspaceSettings->setValue(QSL("LastAnalysisConfig"), QSL("analysis.json"));
+        workspaceSettings->setValue(QSL("LastAnalysisConfig"), QSL("analysis.analysis"));
         workspaceSettings->setValue(QSL("ListfileDirectory"), QSL("listfiles"));
         workspaceSettings->setValue(QSL("WriteListfile"), true);
         workspaceSettings->sync();

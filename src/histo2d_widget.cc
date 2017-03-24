@@ -445,12 +445,14 @@ void Histo2DWidget::on_tb_info_clicked()
 #endif
 }
 
-void Histo2DWidget::setSink(const SinkPtr &sink, HistoSinkCallback addSinkCallback, HistoSinkCallback sinkModifiedCallback)
+void Histo2DWidget::setSink(const SinkPtr &sink, HistoSinkCallback addSinkCallback, HistoSinkCallback sinkModifiedCallback,
+                            MakeUniqueOperatorNameFunction makeUniqueOperatorNameFunction)
 {
     Q_ASSERT(sink && sink->m_histo.get() == m_histo);
     m_sink = sink;
     m_addSinkCallback = addSinkCallback;
     m_sinkModifiedCallback = sinkModifiedCallback;
+    m_makeUniqueOperatorNameFunction = makeUniqueOperatorNameFunction;
     ui->tb_subRange->setEnabled(true);
 }
 
@@ -462,6 +464,7 @@ void Histo2DWidget::on_tb_subRange_clicked()
     double visibleMinY = ui->plot->axisScaleDiv(QwtPlot::yLeft).lowerBound();
     double visibleMaxY = ui->plot->axisScaleDiv(QwtPlot::yLeft).upperBound();
     Histo2DSubRangeDialog dialog(m_sink, m_addSinkCallback, m_sinkModifiedCallback,
+                                 m_makeUniqueOperatorNameFunction,
                                  visibleMinX, visibleMaxX, visibleMinY, visibleMaxY,
                                  this);
     dialog.exec();
