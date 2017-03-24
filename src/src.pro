@@ -18,6 +18,11 @@ warning_flags = -Wall -Wno-unused-variable -Wno-unused-parameter -Wno-unused-fun
 QMAKE_CXXFLAGS += $$warning_flags
 QMAKE_CFLAGS += $$warning_flags
 
+CONFIG(release, debug|release) {
+    QMAKE_CXXFLAGS += -march=nocona -mtune=core2
+    QMAKE_CFLAGS += -march=nocona -mtune=core2
+}
+
 CONFIG(debug, debug|release) {
     QMAKE_CXXFLAGS += -O0 $$QMAKE_CXXFLAGS
     QMAKE_CFLAGS += -O0 $$QMAKE_CFLAGS
