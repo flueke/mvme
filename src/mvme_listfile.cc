@@ -299,15 +299,18 @@ void ListFileReader::mainLoop()
         if (m_state == DAQState::Running && m_desiredState == DAQState::Paused)
         {
             setState(DAQState::Paused);
+            // TODO: pause stats
         }
         // resume
         else if (m_state == DAQState::Paused && m_desiredState == DAQState::Running)
         {
             setState(DAQState::Running);
+            // TODO: resume stats
         }
         // stop
         else if (m_desiredState == DAQState::Stopping)
         {
+            m_stats.stop();
             break;
         }
         // stay in running state
@@ -339,6 +342,12 @@ void ListFileReader::mainLoop()
                 while (readMore)
                 {
                     isBufferValid = m_listFile->readNextSection(buffer);
+
+                    if (isBufferValid)
+                    {
+                        m_stats.addBuffersRead(1);
+                        m_stats.addBytesRead(buffer->used);
+                    }
 
                     if (isBufferValid && buffer->used >= sizeof(u32))
                     {
@@ -378,6 +387,12 @@ void ListFileReader::mainLoop()
                 // Read until buffer is full
                 s32 sectionsRead = m_listFile->readSectionsIntoBuffer(buffer);
                 isBufferValid = (sectionsRead > 0);
+
+                if (isBufferValid)
+                {
+                    m_stats.addBuffersRead(1);
+                    m_stats.addBytesRead(buffer->used);
+                }
             }
 
             if (!isBufferValid)
