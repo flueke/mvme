@@ -59,6 +59,9 @@ QTreeWidgetItem *findFirstNode(QTreeWidgetItem *node, Predicate predicate)
 // Source: http://stackoverflow.com/a/2039745
 class HtmlDelegate : public QStyledItemDelegate
 {
+    public:
+        using QStyledItemDelegate::QStyledItemDelegate;
+
     protected:
         void paint ( QPainter * painter, const QStyleOptionViewItem & option, const QModelIndex & index ) const;
         QSize sizeHint ( const QStyleOptionViewItem & option, const QModelIndex & index ) const;

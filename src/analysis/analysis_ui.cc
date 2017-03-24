@@ -485,8 +485,8 @@ DisplayLevelTrees EventWidgetPrivate::createSourceTrees(s32 eventIndex)
 
     result.operatorTree->setExpandsOnDoubleClick(false);
     result.displayTree->setExpandsOnDoubleClick(false);
-    result.operatorTree->setItemDelegate(new HtmlDelegate());
-    result.displayTree->setItemDelegate(new HtmlDelegate());
+    result.operatorTree->setItemDelegate(new HtmlDelegate(result.operatorTree));
+    result.displayTree->setItemDelegate(new HtmlDelegate(result.displayTree));
 
     // Populate the OperatorTree
     int moduleIndex = 0;
