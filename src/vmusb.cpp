@@ -188,7 +188,7 @@ void VMUSB::getUsbDevices(void)
 
     ssize_t deviceCount = libusb_get_device_list(m_libusbContext, &deviceList);
 
-    qDebug() << __PRETTY_FUNCTION__ << "got a list of" << deviceCount << "usb devices";
+    //qDebug() << __PRETTY_FUNCTION__ << "got a list of" << deviceCount << "usb devices";
 
     for (ssize_t deviceIndex = 0; deviceIndex < deviceCount; ++deviceIndex)
     {
@@ -231,7 +231,7 @@ void VMUSB::getUsbDevices(void)
 
     // Set the 'unref' parameter. Devices that we're interested in have been
     // manually referenced above.
-    qDebug() << "freeing the libusb device list";
+    //qDebug() << "freeing the libusb device list";
     libusb_free_device_list(deviceList, 1);
 }
 
