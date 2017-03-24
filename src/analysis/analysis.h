@@ -705,6 +705,10 @@ class Histo1DSink: public BasicSink
         s32 m_bins = 0;
         QString m_xAxisTitle;
 
+        // Subrange limits
+        double m_xLimitMin = make_quiet_nan();
+        double m_xLimitMax = make_quiet_nan();
+
     private:
         u32 fillsSinceLastDebug = 0;
 };

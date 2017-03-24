@@ -1100,8 +1100,18 @@ void Histo1DSink::beginRun()
 
         for (s32 idx = minIdx, histoIndex = 0; idx < maxIdx; ++idx, ++histoIndex)
         {
-            double xMin = m_inputSlot.inputPipe->parameters[idx].lowerLimit;
-            double xMax = m_inputSlot.inputPipe->parameters[idx].upperLimit;
+            double xMin = m_xLimitMin;
+            double xMax = m_xLimitMax;
+
+            if (std::isnan(xMin))
+            {
+                xMin = m_inputSlot.inputPipe->parameters[idx].lowerLimit;
+            }
+
+            if (std::isnan(xMax))
+            {
+                xMax = m_inputSlot.inputPipe->parameters[idx].upperLimit;
+            }
 
             if (m_histos[histoIndex])
             {
@@ -1173,6 +1183,8 @@ void Histo1DSink::read(const QJsonObject &json)
 {
     m_bins = json["nBins"].toInt();
     m_xAxisTitle = json["xAxisTitle"].toString();
+    m_xLimitMin = json["xLimitMin"].toDouble(make_quiet_nan());
+    m_xLimitMax = json["xLimitMax"].toDouble(make_quiet_nan());
 
     Q_ASSERT(m_bins > 0);
 
@@ -1198,6 +1210,8 @@ void Histo1DSink::write(QJsonObject &json) const
 {
     json["nBins"] = static_cast<qint64>(m_bins);
     json["xAxisTitle"] = m_xAxisTitle;
+    json["xLimitMin"]  = m_xLimitMin;
+    json["xLimitMax"]  = m_xLimitMax;
 
 #if 0
     QJsonArray histosJson;

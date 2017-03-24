@@ -54,10 +54,10 @@ QComboBox *make_resolution_combo(s32 minBits, s32 maxBits, s32 selectedBits)
     return result;
 }
 
-Histo2DAxisLimitsUI make_histo2d_axis_limits_ui(const QString &groupBoxTitle, double inputMin, double inputMax,
+HistoAxisLimitsUI make_histo2d_axis_limits_ui(const QString &groupBoxTitle, double inputMin, double inputMax,
                                                 double limitMin, double limitMax)
 {
-    Histo2DAxisLimitsUI result = {};
+    HistoAxisLimitsUI result = {};
     result.groupBox = new QGroupBox(groupBoxTitle);
     result.groupBox->setCheckable(true);
     result.spin_min = new QDoubleSpinBox;

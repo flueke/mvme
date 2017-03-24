@@ -241,7 +241,7 @@ QComboBox *make_resolution_combo(s32 minBits, s32 maxBits, s32 selectedBits);
 // Assumes that selectedRes is a power of 2!
 void select_by_resolution(QComboBox *combo, s32 selectedRes);
 
-struct Histo2DAxisLimitsUI
+struct HistoAxisLimitsUI
 {
     QGroupBox *groupBox;
     QFrame *limitFrame;
@@ -249,7 +249,7 @@ struct Histo2DAxisLimitsUI
     QDoubleSpinBox *spin_max;
 };
 
-Histo2DAxisLimitsUI make_histo2d_axis_limits_ui(const QString &groupBoxTitle, double inputMin, double inputMax,
+HistoAxisLimitsUI make_histo2d_axis_limits_ui(const QString &groupBoxTitle, double inputMin, double inputMax,
                                                 double limitMin, double limitMax);
 
 #endif /* __HISTO_UTIL_H__ */

@@ -42,8 +42,8 @@ class Histo2DSubRangeDialog: public QDialog
 
         QComboBox *combo_xBins = nullptr;
         QComboBox *combo_yBins = nullptr;
-        Histo2DAxisLimitsUI limits_x;
-        Histo2DAxisLimitsUI limits_y;
+        HistoAxisLimitsUI limits_x;
+        HistoAxisLimitsUI limits_y;
         QDialogButtonBox *buttonBox;
         QLineEdit *le_name;
         QGroupBox *gb_createAsNew;

@@ -22,12 +22,16 @@ namespace Ui
 namespace analysis
 {
     class CalibrationMinMax;
+    class Histo1DSink;
 }
 
 class Histo1DWidget: public QWidget
 {
     Q_OBJECT
     public:
+        using SinkPtr = std::shared_ptr<analysis::Histo1DSink>;
+        using HistoSinkCallback = std::function<void (const SinkPtr &)>;
+
         // Convenience constructor that enables the widget to keep the histo alive.
         Histo1DWidget(const Histo1DPtr &histo, QWidget *parent = 0);
         Histo1DWidget(Histo1D *histo, QWidget *parent = 0);
@@ -40,6 +44,7 @@ class Histo1DWidget: public QWidget
         friend class Histo1DListWidget;
 
         void setCalibrationInfo(const std::shared_ptr<analysis::CalibrationMinMax> &calib, s32 histoAddress, MVMEContext *context);
+        void setSink(const SinkPtr &sink, HistoSinkCallback sinkModifiedCallback);
 
     private slots:
         void replot();
@@ -50,6 +55,8 @@ class Histo1DWidget: public QWidget
         void mouseCursorLeftPlot();
         void updateStatistics();
         void displayChanged();
+        void on_tb_info_clicked();
+        void on_tb_subRange_clicked();
 
     private:
         void updateAxisScales();
@@ -78,6 +85,9 @@ class Histo1DWidget: public QWidget
         std::shared_ptr<analysis::CalibrationMinMax> m_calib;
         s32 m_histoAddress;
         MVMEContext *m_context;
+
+        SinkPtr m_sink;
+        HistoSinkCallback m_sinkModifiedCallback;
 };
 
 class Histo1DListWidget: public QWidget
@@ -85,6 +95,8 @@ class Histo1DListWidget: public QWidget
     Q_OBJECT
     public:
         using HistoList = QVector<std::shared_ptr<Histo1D>>;
+        using SinkPtr = Histo1DWidget::SinkPtr;
+        using HistoSinkCallback = Histo1DWidget::HistoSinkCallback;
 
         Histo1DListWidget(const HistoList &histos, QWidget *parent = 0);
 
@@ -92,6 +104,8 @@ class Histo1DListWidget: public QWidget
 
         // XXX: MVMEContext is passed so that the analysis can be paused from within the widget.
         void setCalibration(const std::shared_ptr<analysis::CalibrationMinMax> &calib, MVMEContext *context);
+
+        void setSink(const SinkPtr &sink, HistoSinkCallback sinkModifiedCallback);
 
     private:
         void onHistoSpinBoxValueChanged(int index);
@@ -101,6 +115,9 @@ class Histo1DListWidget: public QWidget
         s32 m_currentIndex = 0;
         std::shared_ptr<analysis::CalibrationMinMax> m_calib;
         MVMEContext *m_context;
+
+        SinkPtr m_sink;
+        HistoSinkCallback m_sinkModifiedCallback;
 };
 
 #endif /* __HISTO1D_WIDGET_H__ */

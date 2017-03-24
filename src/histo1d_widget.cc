@@ -1,5 +1,6 @@
 #include "histo1d_widget.h"
 #include "ui_histo1d_widget.h"
+#include "histo1d_widget_p.h"
 #include "scrollzoomer.h"
 #include "util.h"
 #include "analysis/analysis.h"
@@ -95,6 +96,9 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     , m_labelCursorInfoWidth(-1)
 {
     ui->setupUi(this);
+
+    ui->tb_info->setEnabled(false);
+    ui->tb_subRange->setEnabled(false);
 
     connect(ui->pb_export, &QPushButton::clicked, this, &Histo1DWidget::exportPlot);
     connect(ui->pb_save, &QPushButton::clicked, this, &Histo1DWidget::saveHistogram);
@@ -376,7 +380,7 @@ void Histo1DWidget::updateStatistics()
     auto lowerBound = qFloor(ui->plot->axisScaleDiv(QwtPlot::xBottom).lowerBound());
     auto upperBound = qCeil(ui->plot->axisScaleDiv(QwtPlot::xBottom).upperBound());
 
-    //qDebug() << __PRETTY_FUNCTION__ << lowerBound << upperBound;
+    qDebug() << __PRETTY_FUNCTION__ << lowerBound << upperBound;
 
     m_stats = m_histo->calcStatistics(lowerBound, upperBound);
 
@@ -614,6 +618,28 @@ bool Histo1DWidget::eventFilter(QObject *watched, QEvent *event)
     return QWidget::eventFilter(watched, event);
 }
 
+void Histo1DWidget::on_tb_info_clicked()
+{
+    Q_ASSERT(!"Not implemented");
+}
+
+void Histo1DWidget::setSink(const SinkPtr &sink, HistoSinkCallback sinkModifiedCallback)
+{
+    Q_ASSERT(sink);
+    m_sink = sink;
+    m_sinkModifiedCallback = sinkModifiedCallback;
+    ui->tb_subRange->setEnabled(true);
+}
+
+void Histo1DWidget::on_tb_subRange_clicked()
+{
+    Q_ASSERT(m_sink);
+    double visibleMinX = ui->plot->axisScaleDiv(QwtPlot::xBottom).lowerBound();
+    double visibleMaxX = ui->plot->axisScaleDiv(QwtPlot::xBottom).upperBound();
+    Histo1DSubRangeDialog dialog(m_sink, m_sinkModifiedCallback, visibleMinX, visibleMaxX, this);
+    dialog.exec();
+}
+
 //
 // Histo1DListWidget
 //
@@ -662,9 +688,15 @@ void Histo1DListWidget::onHistoSpinBoxValueChanged(int index)
     if (histo)
     {
         m_histoWidget->setHistogram(histo.get());
+
         if (m_calib)
         {
             m_histoWidget->setCalibrationInfo(m_calib, index, m_context);
+        }
+
+        if (m_sink)
+        {
+            m_histoWidget->setSink(m_sink, m_sinkModifiedCallback);
         }
     }
 }
@@ -677,4 +709,13 @@ void Histo1DListWidget::setCalibration(const std::shared_ptr<analysis::Calibrati
     {
         m_histoWidget->setCalibrationInfo(m_calib, m_currentIndex, m_context);
     }
+}
+
+void Histo1DListWidget::setSink(const SinkPtr &sink, HistoSinkCallback sinkModifiedCallback)
+{
+    Q_ASSERT(sink);
+    m_sink = sink;
+    m_sinkModifiedCallback = sinkModifiedCallback;
+
+    onHistoSpinBoxValueChanged(m_currentIndex);
 }

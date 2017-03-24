@@ -148,8 +148,8 @@ class OperatorConfigurationWidget: public QWidget
         QComboBox *combo_yBins = nullptr;
         QLineEdit *le_xAxisTitle = nullptr;
         QLineEdit *le_yAxisTitle = nullptr;
-        Histo2DAxisLimitsUI limits_x;
-        Histo2DAxisLimitsUI limits_y;
+        HistoAxisLimitsUI limits_x;
+        HistoAxisLimitsUI limits_y;
 
         // CalibrationFactorOffset and CalibrationMinMax
         QLineEdit *le_unit = nullptr;

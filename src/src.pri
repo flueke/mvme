@@ -16,6 +16,7 @@ HEADERS += \
     $$PWD/hist2ddialog.h \
     $$PWD/histo1d.h \
     $$PWD/histo1d_widget.h \
+    $$PWD/histo1d_widget_p.h \
     $$PWD/histo2d.h \
     $$PWD/histo2d_widget.h \
     $$PWD/histo2d_widget_p.h \
@@ -58,6 +59,7 @@ SOURCES += \
     $$PWD/hist2ddialog.cc \
     $$PWD/histo1d.cc \
     $$PWD/histo1d_widget.cc \
+    $$PWD/histo1d_widget_p.cc \
     $$PWD/histo2d.cc \
     $$PWD/histo2d_widget.cc \
     $$PWD/histo2d_widget_p.cc \

@@ -1,6 +1,7 @@
 ==========================
 ==== Do these first! =====
 ==========================
+    // FIXME: when using subranges the getBinUnchecked() calculation often yields negative bins. why?
 * Change listfile format to newer version 1.
 * Histo1DWidget: zoom out after applying calibration
 * Fix replay stats display and replay timer. It wasn't designed with pausing

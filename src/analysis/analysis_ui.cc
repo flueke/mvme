@@ -250,6 +250,7 @@ struct Histo1DWidgetInfo
     QVector<std::shared_ptr<Histo1D>> histos;
     s32 histoAddress;
     std::shared_ptr<CalibrationMinMax> calib;
+    std::shared_ptr<Histo1DSink> sink;
 };
 
 Histo1DWidgetInfo getHisto1DWidgetInfoFromNode(QTreeWidgetItem *node)
@@ -277,6 +278,7 @@ Histo1DWidgetInfo getHisto1DWidgetInfoFromNode(QTreeWidgetItem *node)
 
     auto histoSink = getPointer<Histo1DSink>(sinkNode);
     result.histos = histoSink->m_histos;
+    result.sink = std::dynamic_pointer_cast<Histo1DSink>(histoSink->getSharedPointer());
 
     Q_ASSERT(histoSink->m_histos.size() && result.histoAddress < histoSink->m_histos.size());
 
@@ -989,6 +991,14 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
                         {
                             widget->setCalibrationInfo(widgetInfo.calib, widgetInfo.histoAddress, m_context);
                         }
+
+                        if (widgetInfo.sink)
+                        {
+                            auto context = m_context;
+                            widget->setSink(widgetInfo.sink, [context] (const std::shared_ptr<Histo1DSink> &sink) {
+                                context->analysisOperatorEdited(sink);
+                            });
+                        }
                         m_context->addWidgetWindow(widget);
                     });
                 } break;
@@ -998,12 +1008,20 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
                     Histo1DWidgetInfo widgetInfo = getHisto1DWidgetInfoFromNode(node);
 
                     menu.addAction(QSL("Open"), m_q, [this, widgetInfo]() {
-                        auto listWidget = new Histo1DListWidget(widgetInfo.histos);
+                        auto widget = new Histo1DListWidget(widgetInfo.histos);
                         if (widgetInfo.calib)
                         {
-                            listWidget->setCalibration(widgetInfo.calib, m_context);
+                            widget->setCalibration(widgetInfo.calib, m_context);
                         }
-                        m_context->addWidgetWindow(listWidget);
+
+                        if (widgetInfo.sink)
+                        {
+                            auto context = m_context;
+                            widget->setSink(widgetInfo.sink, [context] (const std::shared_ptr<Histo1DSink> &sink) {
+                                context->analysisOperatorEdited(sink);
+                            });
+                        }
+                        m_context->addWidgetWindow(widget);
                     });
                 } break;
 
@@ -1541,22 +1559,42 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                 {
                     Histo1DWidgetInfo widgetInfo = getHisto1DWidgetInfoFromNode(node);
                     auto widget = new Histo1DWidget(widgetInfo.histos[widgetInfo.histoAddress]);
+
                     if (widgetInfo.calib)
                     {
                         widget->setCalibrationInfo(widgetInfo.calib, widgetInfo.histoAddress, m_context);
                     }
+
+                    if (widgetInfo.sink)
+                    {
+                        auto context = m_context;
+                        widget->setSink(widgetInfo.sink, [context] (const std::shared_ptr<Histo1DSink> &sink) {
+                            context->analysisOperatorEdited(sink);
+                        });
+                    }
+
                     m_context->addWidgetWindow(widget);
                 } break;
 
             case NodeType_Histo1DSink:
                 {
                     Histo1DWidgetInfo widgetInfo = getHisto1DWidgetInfoFromNode(node);
-                    auto listWidget = new Histo1DListWidget(widgetInfo.histos);
+                    auto widget = new Histo1DListWidget(widgetInfo.histos);
+
                     if (widgetInfo.calib)
                     {
-                        listWidget->setCalibration(widgetInfo.calib, m_context);
+                        widget->setCalibration(widgetInfo.calib, m_context);
                     }
-                    m_context->addWidgetWindow(listWidget);
+
+                    if (widgetInfo.sink)
+                    {
+                        auto context = m_context;
+                        widget->setSink(widgetInfo.sink, [context] (const std::shared_ptr<Histo1DSink> &sink) {
+                            context->analysisOperatorEdited(sink);
+                        });
+                    }
+
+                    m_context->addWidgetWindow(widget);
                 } break;
 
             case NodeType_Histo2DSink:
