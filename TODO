@@ -20,7 +20,12 @@
  - Add Operator::getDescription()
  - UserLevel hide/show GUI
  - Implement "Remove UserLevel" button
- - Calibration: if only one event don't show the list of calibrations
+ - Show some indicator if a Histo1DSink has subrange limits applied
+ - Calibration:
+   * if only one event don't show the list of calibrations
+   * when creating a new calib the global values are not applied to the
+     individual ones, instead the default values from the table are used
+
  - Make default operator object name contain a short version of the operator type
  - react to event and module renames
  - "modified" concept for the analysis and it's elements

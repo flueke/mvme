@@ -35,9 +35,8 @@ void Histo2D::resize(s32 xBins, s32 yBins)
         }
     }
 
-    // Always update the axis binnings even if the size stayed the same as
-    // individual axis resolutions might still have changed, e.g.
-    // 10bit:10bit -> 9bit:11bit
+    // Always update the number of bins on both axes, even if the total number
+    // stayed the same, because 10bit:10bit might become 9bit:11bit.
     m_axisBinnings[Qt::XAxis].setBins(xBins);
     m_axisBinnings[Qt::YAxis].setBins(yBins);
     clear();

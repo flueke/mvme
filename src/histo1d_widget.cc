@@ -263,6 +263,32 @@ void Histo1DWidget::setHistogram(Histo1D *histo)
     displayChanged();
 }
 
+void Histo1DWidget::updateAxisScales()
+{
+    // update the y axis using the currently visible max value
+    // 20% larger than the current maximum value
+    double maxValue = 1.2 * m_stats.maxValue;
+
+    // force a minimum of 10 units in y
+    if (maxValue <= 1.0)
+        maxValue = 10.0;
+
+    // This sets a fixed y axis scale effectively overriding any changes made
+    // by the scrollzoomer. Makes the y-axis start at 1.0 for logarithmic scales.
+    double base = yAxisIsLog() ? 1.0 : 0.0l;
+    ui->plot->setAxisScale(QwtPlot::yLeft, base, maxValue);
+
+    // xAxis
+    if (m_zoomer->zoomRectIndex() == 0)
+    {
+        // fully zoomed out -> set to full resolution
+        ui->plot->setAxisScale(QwtPlot::xBottom, m_histo->getXMin(), m_histo->getXMax());
+        m_zoomer->setZoomBase();
+    }
+
+    ui->plot->updateAxes();
+}
+
 void Histo1DWidget::replot()
 {
     updateAxisScales();
@@ -275,6 +301,13 @@ void Histo1DWidget::replot()
         .arg(m_histo->getUnderflow())
         .arg(m_histo->getOverflow());
     ui->label_histoInfo->setText(infoText);
+
+    // window and axis titles
+    auto name = m_histo->objectName();
+    setWindowTitle(QString("Histogram %1").arg(name));
+
+    auto axisInfo = m_histo->getAxisInfo(Qt::XAxis);
+    ui->plot->axisWidget(QwtPlot::xBottom)->setTitle(make_title_string(axisInfo));
 
     ui->plot->replot();
 }
@@ -293,24 +326,6 @@ void Histo1DWidget::displayChanged()
         ui->plot->setAxisScaleEngine(QwtPlot::yLeft, scaleEngine);
     }
 
-    auto name = m_histo->objectName();
-    setWindowTitle(QString("Histogram %1").arg(name));
-
-    auto axisInfo = m_histo->getAxisInfo(Qt::XAxis);
-    ui->plot->axisWidget(QwtPlot::xBottom)->setTitle(make_title_string(axisInfo));
-
-    /* Before the scale change the zoomer might have been zoomed into negative
-     * x-axis bins. This results in scaling errors and a zoom into negative
-     * coordinates which we don't want to allow.
-     *
-     * To fix this call updateAxes() on the plot to rebuild the axes, then
-     * simulate a zoom event with the current zoomRect by calling
-     * zoomerZoomed(). This method will then again limit the x-axis' lower
-     * bound to 0.0.
-     */
-    ui->plot->updateAxes();
-    zoomerZoomed(m_zoomer->zoomRect());
-
     replot();
 }
 
@@ -326,39 +341,35 @@ void Histo1DWidget::zoomerZoomed(const QRectF &zoomRect)
 
     // do not zoom outside the histogram range
     auto scaleDiv = ui->plot->axisScaleDiv(QwtPlot::xBottom);
+    double lowerBound = scaleDiv.lowerBound();
+    double upperBound = scaleDiv.upperBound();
 
-    if (m_histo->getXMin() <= 0)
+    if (lowerBound <= upperBound)
     {
-        if (scaleDiv.lowerBound() < m_histo->getXMin())
+        if (lowerBound < m_histo->getXMin())
         {
             scaleDiv.setLowerBound(m_histo->getXMin());
         }
-    }
-    else
-    {
-        if (scaleDiv.lowerBound() > m_histo->getXMin())
-        {
-            scaleDiv.setLowerBound(m_histo->getXMin());
-        }
-    }
 
-    if (m_histo->getXMax() <= 0)
-    {
-        if (scaleDiv.upperBound() < m_histo->getXMax())
+        if (upperBound > m_histo->getXMax())
         {
             scaleDiv.setUpperBound(m_histo->getXMax());
         }
     }
     else
     {
-        if (scaleDiv.upperBound() > m_histo->getXMax())
+        if (lowerBound > m_histo->getXMin())
+        {
+            scaleDiv.setLowerBound(m_histo->getXMin());
+        }
+
+        if (upperBound < m_histo->getXMax())
         {
             scaleDiv.setUpperBound(m_histo->getXMax());
         }
     }
 
     ui->plot->setAxisScaleDiv(QwtPlot::xBottom, scaleDiv);
-
 
     replot();
 }
@@ -377,10 +388,8 @@ void Histo1DWidget::mouseCursorLeftPlot()
 
 void Histo1DWidget::updateStatistics()
 {
-    auto lowerBound = qFloor(ui->plot->axisScaleDiv(QwtPlot::xBottom).lowerBound());
-    auto upperBound = qCeil(ui->plot->axisScaleDiv(QwtPlot::xBottom).upperBound());
-
-    qDebug() << __PRETTY_FUNCTION__ << lowerBound << upperBound;
+    double lowerBound = qFloor(ui->plot->axisScaleDiv(QwtPlot::xBottom).lowerBound());
+    double upperBound = qCeil(ui->plot->axisScaleDiv(QwtPlot::xBottom).upperBound());
 
     m_stats = m_histo->calcStatistics(lowerBound, upperBound);
 
@@ -407,31 +416,6 @@ void Histo1DWidget::updateStatistics()
 
     m_statsText->setText(buffer, QwtText::RichText);
     m_statsTextItem->setText(*m_statsText);
-}
-
-void Histo1DWidget::updateAxisScales()
-{
-    // update the y axis using the currently visible max value
-    // 20% larger than the current maximum value
-    double maxValue = 1.2 * m_stats.maxValue;
-
-    // force a minimum of 10 units in y
-    if (maxValue <= 1.0)
-        maxValue = 10.0;
-
-    // This sets a fixed y axis scale effectively overriding any changes made
-    // by the scrollzoomer. Makes the y-axis start at 1.0 for logarithmic scales.
-    double base = yAxisIsLog() ? 1.0 : 0.0l;
-    ui->plot->setAxisScale(QwtPlot::yLeft, base, maxValue);
-
-    // xAxis
-    if (m_zoomer->zoomRectIndex() == 0)
-    {
-        // fully zoomed out -> set to full resolution
-        ui->plot->setAxisScale(QwtPlot::xBottom, m_histo->getXMin(), m_histo->getXMax());
-    }
-
-    ui->plot->updateAxes();
 }
 
 bool Histo1DWidget::yAxisIsLog()
