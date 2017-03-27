@@ -159,6 +159,9 @@ static QIcon makeIconFor(OperatorInterface *op)
     if (qobject_cast<PreviousValue *>(op))
         return QIcon(":/operator_previous.png");
 
+    if (qobject_cast<Sum *>(op))
+        return QIcon(":/operator_sum.png");
+
     return QIcon(":/operator_generic.png");
 }
 

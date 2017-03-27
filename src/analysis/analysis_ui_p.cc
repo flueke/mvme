@@ -560,6 +560,13 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
 
         formLayout->addRow(cb_keepValid);
     }
+    else if (auto sum = qobject_cast<Sum *>(op))
+    {
+        cb_isMean = new QCheckBox(QSL("Calculate Mean"));
+        cb_isMean->setChecked(sum->m_calculateMean);
+
+        formLayout->addRow(cb_isMean);
+    }
 }
 
 // FIXME: right now this is not actually called by AddEditOperatorWidget...
@@ -702,6 +709,10 @@ void OperatorConfigurationWidget::configureOperator()
     else if (auto previous = qobject_cast<PreviousValue *>(op))
     {
         previous->m_keepValid = cb_keepValid->isChecked();
+    }
+    else if (auto sum = qobject_cast<Sum *>(op))
+    {
+        sum->m_calculateMean = cb_isMean->isChecked();
     }
 }
 

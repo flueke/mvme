@@ -1069,6 +1069,104 @@ void Difference::write(QJsonObject &json) const
 }
 
 //
+// Sum
+//
+Sum::Sum(QObject *parent)
+    : BasicOperator(parent)
+{
+    m_inputSlot.acceptedInputTypes = InputType::Array;
+}
+
+void Sum::beginRun()
+{
+    // FIXME: limits!
+
+    auto &out(m_output.getParameters());
+
+    if (m_inputSlot.inputPipe)
+    {
+        out.resize(1);
+
+        const auto &in(m_inputSlot.inputPipe->getParameters());
+        out.name = in.name;
+        out.unit = in.unit;
+
+        double lowerBound = 0.0;
+        double upperBound = 0.0;
+
+        for (s32 i = 0; i < in.size(); ++i)
+        {
+            const auto &param(in[i]);
+
+            lowerBound += std::min(param.lowerLimit, param.upperLimit);
+            upperBound += std::max(param.lowerLimit, param.upperLimit);
+        }
+
+        if (m_calculateMean)
+        {
+            lowerBound /= in.size();
+            upperBound /= in.size();
+        }
+
+        out[0].lowerLimit = std::min(lowerBound, upperBound);
+        out[0].upperLimit = std::max(lowerBound, upperBound);
+    }
+    else
+    {
+        out.resize(0);
+        out.name = QString();
+        out.unit = QString();
+    }
+}
+
+void Sum::step()
+{
+    if (m_inputSlot.inputPipe)
+    {
+        auto &outParam(m_output.getParameters()[0]);
+        const auto &in(m_inputSlot.inputPipe->getParameters());
+
+        outParam.value = 0.0;
+        outParam.valid = false;
+        s32 validCount = 0;
+
+        for (s32 i = 0; i < in.size(); ++i)
+        {
+            const auto &inParam(in[i]);
+
+            if (inParam.valid)
+            {
+                outParam.value += inParam.value;
+                outParam.valid = true;
+                ++validCount;
+            }
+        }
+
+        if (m_calculateMean)
+        {
+            if (validCount > 0)
+            {
+                outParam.value /= validCount;
+            }
+            else
+            {
+                outParam.valid = false;
+            }
+        }
+    }
+}
+
+void Sum::read(const QJsonObject &json)
+{
+    m_calculateMean = json["isMean"].toBool();
+}
+
+void Sum::write(QJsonObject &json) const
+{
+    json["isMean"] = m_calculateMean;
+}
+
+//
 // Histo1DSink
 //
 Histo1DSink::Histo1DSink(QObject *parent)
@@ -1381,6 +1479,7 @@ Analysis::Analysis()
     m_registry.registerOperator<PreviousValue>();
     //m_registry.registerOperator<RetainValid>();
     m_registry.registerOperator<Difference>();
+    m_registry.registerOperator<Sum>();
 
 
     m_registry.registerSink<Histo1DSink>();

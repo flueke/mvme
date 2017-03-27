@@ -166,6 +166,9 @@ class OperatorConfigurationWidget: public QWidget
         // PreviousValue
         QCheckBox *cb_keepValid = nullptr;
 
+        // Sum
+        QCheckBox *cb_isMean = nullptr;
+
         void fillCalibrationTable(CalibrationMinMax *calib);
 };
 

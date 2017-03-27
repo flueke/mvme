@@ -683,6 +683,24 @@ class Difference: public OperatorInterface
         Pipe m_output;
 };
 
+class Sum: public BasicOperator
+{
+    Q_OBJECT
+    public:
+        Sum(QObject *parent = 0);
+
+        virtual void beginRun() override;
+        virtual void step() override;
+
+        virtual void read(const QJsonObject &json) override;
+        virtual void write(QJsonObject &json) const override;
+
+        virtual QString getDisplayName() const override { return QSL("Sum"); }
+        virtual QString getShortName() const override { return QSL("Sum"); }
+
+        bool m_calculateMean = false;
+};
+
 //
 // Sinks
 //
