@@ -4,6 +4,7 @@
 #include "scrollzoomer.h"
 #include "util.h"
 #include "analysis/analysis.h"
+#include "histo1d_widget.h"
 
 #include <qwt_plot_spectrogram.h>
 #include <qwt_color_map.h>
@@ -463,9 +464,60 @@ void Histo2DWidget::on_tb_subRange_clicked()
     double visibleMaxX = ui->plot->axisScaleDiv(QwtPlot::xBottom).upperBound();
     double visibleMinY = ui->plot->axisScaleDiv(QwtPlot::yLeft).lowerBound();
     double visibleMaxY = ui->plot->axisScaleDiv(QwtPlot::yLeft).upperBound();
+
     Histo2DSubRangeDialog dialog(m_sink, m_addSinkCallback, m_sinkModifiedCallback,
                                  m_makeUniqueOperatorNameFunction,
                                  visibleMinX, visibleMaxX, visibleMinY, visibleMaxY,
                                  this);
     dialog.exec();
+}
+
+void Histo2DWidget::on_tb_projX_clicked()
+{
+    double visibleMinX = ui->plot->axisScaleDiv(QwtPlot::xBottom).lowerBound();
+    double visibleMaxX = ui->plot->axisScaleDiv(QwtPlot::xBottom).upperBound();
+
+    auto histo = make_x_projection(m_histo, visibleMinX, visibleMaxX);
+
+    if (!m_xProjWidget)
+    {
+        m_xProjWidget = new Histo1DWidget(histo);
+        m_xProjWidget->setWindowIcon(QIcon(":/mesytec_icon.png"));
+        m_xProjWidget->setAttribute(Qt::WA_DeleteOnClose);
+        connect(m_xProjWidget, &QObject::destroyed, this, [this] (QObject *) {
+            m_xProjWidget = nullptr;
+        });
+    }
+    else
+    {
+        m_xProjWidget->setHistogram(histo);
+    }
+
+    m_xProjWidget->show();
+    m_xProjWidget->raise();
+}
+
+void Histo2DWidget::on_tb_projY_clicked()
+{
+    double visibleMinY = ui->plot->axisScaleDiv(QwtPlot::yLeft).lowerBound();
+    double visibleMaxY = ui->plot->axisScaleDiv(QwtPlot::yLeft).upperBound();
+
+    auto histo = make_y_projection(m_histo, visibleMinY, visibleMaxY);
+
+    if (!m_yProjWidget)
+    {
+        m_yProjWidget = new Histo1DWidget(histo);
+        m_yProjWidget->setWindowIcon(QIcon(":/mesytec_icon.png"));
+        m_yProjWidget->setAttribute(Qt::WA_DeleteOnClose);
+        connect(m_yProjWidget, &QObject::destroyed, this, [this] (QObject *) {
+            m_yProjWidget = nullptr;
+        });
+    }
+    else
+    {
+        m_yProjWidget->setHistogram(histo);
+    }
+
+    m_yProjWidget->show();
+    m_yProjWidget->raise();
 }

@@ -25,6 +25,7 @@
     <file alias="clear_histos.png">resources/user-trash.png</file>
     <file alias="zoom_in.png">resources/zoom-in.png</file>
     <file alias="arrow_down.png">resources/arrow-270.png</file>
+    <file alias="mesytec_icon.png">resources/mesytec-window-icon.png</file>
 
     <file alias="operator_calibration.png">resources/measure.png</file>
     <file alias="operator_difference.png">resources/minus-white.png</file>

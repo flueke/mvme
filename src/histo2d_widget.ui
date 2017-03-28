@@ -194,7 +194,7 @@
            <string>Histogram Info</string>
           </property>
           <property name="icon">
-           <iconset resource="resources.qrc">
+           <iconset>
             <normaloff>:/info.png</normaloff>:/info.png</iconset>
           </property>
          </widget>
@@ -202,8 +202,22 @@
         <item>
          <widget class="QToolButton" name="tb_subRange">
           <property name="icon">
-           <iconset resource="resources.qrc">
+           <iconset>
             <normaloff>:/zoom_in.png</normaloff>:/zoom_in.png</iconset>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QToolButton" name="tb_projX">
+          <property name="text">
+           <string>Proj X</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QToolButton" name="tb_projY">
+          <property name="text">
+           <string>Proj Y</string>
           </property>
          </widget>
         </item>
@@ -237,13 +251,6 @@
       </spacer>
      </item>
      <item>
-      <widget class="QLabel" name="label_histoInfo">
-       <property name="text">
-        <string>histoInfo</string>
-       </property>
-      </widget>
-     </item>
-     <item>
       <widget class="QLabel" name="label_cursorInfo">
        <property name="text">
         <string>cursorInfo</string>
@@ -262,9 +269,7 @@
    <container>1</container>
   </customwidget>
  </customwidgets>
- <resources>
-  <include location="resources.qrc"/>
- </resources>
+ <resources/>
  <connections/>
  <buttongroups>
   <buttongroup name="linLogGroup"/>

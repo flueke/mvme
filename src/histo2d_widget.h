@@ -10,6 +10,7 @@ class QwtLinearColorMap;
 class QwtPlotHistogram;
 class ScrollZoomer;
 class MVMEContext;
+class Histo1DWidget;
 
 namespace Ui
 {
@@ -20,6 +21,7 @@ namespace analysis
 {
     class Histo2DSink;
 };
+
 
 class Histo2DWidget: public QWidget
 {
@@ -45,6 +47,8 @@ class Histo2DWidget: public QWidget
         void zoomerZoomed(const QRectF &);
         void on_tb_info_clicked();
         void on_tb_subRange_clicked();
+        void on_tb_projX_clicked();
+        void on_tb_projY_clicked();
 
     private:
         bool zAxisIsLog() const;
@@ -65,6 +69,9 @@ class Histo2DWidget: public QWidget
         HistoSinkCallback m_addSinkCallback;
         HistoSinkCallback m_sinkModifiedCallback;
         MakeUniqueOperatorNameFunction m_makeUniqueOperatorNameFunction;
+
+        Histo1DWidget *m_xProjWidget = nullptr;
+        Histo1DWidget *m_yProjWidget = nullptr;
 };
 
 #endif /* __HISTO2D_WIDGET_H__ */

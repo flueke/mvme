@@ -32,7 +32,9 @@ class Histo2D: public QObject
 
         void fill(double x, double y, double weight = 1.0);
         double getValue(double x, double y) const;
+        double getBinContent(u32 xBin, u32 yBin) const;
         void clear();
+
 
         void debugDump() const;
 
@@ -97,6 +99,20 @@ class Histo2D: public QObject
         Histo2DStatistics m_stats;
 };
 
-typedef std::shared_ptr<Histo2D> Histo2DPtr;
+using Histo2DPtr = std::shared_ptr<Histo2D>;
+
+class Histo1D;
+
+using Histo1DPtr = std::shared_ptr<Histo1D>;
+
+
+Histo1DPtr make_x_projection(Histo2D *histo);
+Histo1DPtr make_x_projection(Histo2D *histo, double startValue, double endValue);
+
+Histo1DPtr make_y_projection(Histo2D *histo);
+Histo1DPtr make_y_projection(Histo2D *histo, double startValue, double endValue);
+
+Histo1DPtr make_projection(Histo2D *histo, Qt::Axis axis);
+Histo1DPtr make_projection(Histo2D *histo, Qt::Axis axis, double startValue, double endValue);
 
 #endif /* __HISTO2D_H__ */

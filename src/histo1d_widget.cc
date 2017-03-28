@@ -255,6 +255,13 @@ Histo1DWidget::~Histo1DWidget()
     delete m_statsText;
 }
 
+void Histo1DWidget::setHistogram(const Histo1DPtr &histoPtr)
+{
+    m_histoPtr = histoPtr;
+
+    setHistogram(histoPtr.get());
+}
+
 void Histo1DWidget::setHistogram(Histo1D *histo)
 {
     m_histo = histo;

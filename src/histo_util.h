@@ -169,6 +169,19 @@ class AxisBinning
             return static_cast<s64>(bin);
         }
 
+        inline s64 getBinBounded(double x) const
+        {
+            s64 bin = getBin(x);
+
+            if (bin == Underflow)
+                bin = 0;
+
+            if (bin == Overflow)
+                bin = getBins() - 1;
+
+            return bin;
+        }
+
         /* Returns the bin number for the value x. No check is performed if x
          * is in range of the axis. */
         inline double getBinUnchecked(double x) const

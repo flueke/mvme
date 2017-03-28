@@ -37,6 +37,7 @@ class Histo1DWidget: public QWidget
         Histo1DWidget(Histo1D *histo, QWidget *parent = 0);
         ~Histo1DWidget();
 
+        void setHistogram(const Histo1DPtr &histo);
         void setHistogram(Histo1D *histo);
 
         virtual bool eventFilter(QObject *watched, QEvent *event) override;
