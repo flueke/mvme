@@ -7,13 +7,9 @@ HEADERS += \
     $$PWD/daqconfig_tree.h \
     $$PWD/daqcontrol_widget.h \
     $$PWD/daqstats_widget.h \
-    $$PWD/data_filter.h \
     $$PWD/databuffer.h \
     $$PWD/globals.h \
     $$PWD/gui_util.h \
-    $$PWD/hist1d.h \
-    $$PWD/hist2d.h \
-    $$PWD/hist2ddialog.h \
     $$PWD/histo1d.h \
     $$PWD/histo1d_widget.h \
     $$PWD/histo1d_widget_p.h \
@@ -21,7 +17,6 @@ HEADERS += \
     $$PWD/histo2d_widget.h \
     $$PWD/histo2d_widget_p.h \
     $$PWD/histo_util.h \
-    $$PWD/histogram_tree.h \
     $$PWD/mesytec_diagnostics.h \
     $$PWD/mvme.h \
     $$PWD/mvme_config.h \
@@ -52,18 +47,13 @@ SOURCES += \
     $$PWD/daqconfig_tree.cc \
     $$PWD/daqcontrol_widget.cc \
     $$PWD/daqstats_widget.cc \
-    $$PWD/data_filter.cc \
     $$PWD/gui_util.cc \
-    $$PWD/hist1d.cc \
-    $$PWD/hist2d.cpp \
-    $$PWD/hist2ddialog.cc \
     $$PWD/histo1d.cc \
     $$PWD/histo1d_widget.cc \
     $$PWD/histo1d_widget_p.cc \
     $$PWD/histo2d.cc \
     $$PWD/histo2d_widget.cc \
     $$PWD/histo2d_widget_p.cc \
-    $$PWD/histogram_tree.cc \
     $$PWD/histo_util.cc \
     $$PWD/mesytec_diagnostics.cc \
     $$PWD/mvme_config.cc \
@@ -88,13 +78,7 @@ SOURCES += \
 
 FORMS += \
     $$PWD/daqcontrol_widget.ui \
-    $$PWD/datafilter_dialog.ui \
-    $$PWD/dualword_datafilter_dialog.ui \
     $$PWD/event_config_dialog.ui \
-    $$PWD/hist1dwidget.ui \
-    $$PWD/hist2ddialog_axis_widget.ui \
-    $$PWD/hist2ddialog.ui \
-    $$PWD/hist2dwidget.ui \
     $$PWD/histo1d_widget.ui \
     $$PWD/histo2d_widget.ui \
     $$PWD/mesytec_diagnostics.ui \

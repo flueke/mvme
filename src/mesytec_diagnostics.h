@@ -3,7 +3,7 @@
 
 #include "util.h"
 
-class Hist1D;
+class Histo1D;
 class RealtimeData;
 
 class MesytecDiagnostics : public QObject
@@ -57,7 +57,7 @@ private:
     u64 m_nEvents = 0;
 
     RealtimeData *m_rtd = nullptr;;
-    QVector<Hist1D *> m_histograms;
+    QVector<Histo1D *> m_histograms;
     int m_eventIndex = -1;
     int m_moduleIndex = -1;
 

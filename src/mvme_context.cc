@@ -5,8 +5,6 @@
 #include "vmusb_buffer_processor.h"
 #include "mvme_event_processor.h"
 #include "mvme_listfile.h"
-#include "hist1d.h"
-#include "hist2d.h"
 #include "analysis/analysis.h"
 #include "analysis/analysis_ui.h"
 
@@ -279,9 +277,6 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
     setMode(GlobalMode::DAQ);
 
     setDAQConfig(new DAQConfig(this));
-#ifdef ENABLE_OLD_ANALYSIS
-    setAnalysisConfig(new AnalysisConfig(this));
-#endif
 
     tryOpenController();
 }
@@ -382,77 +377,6 @@ void MVMEContext::setDAQConfig(DAQConfig *config)
 
     emit daqConfigChanged(config);
 }
-
-#ifdef ENABLE_OLD_ANALYSIS
-void MVMEContext::setAnalysisConfig(AnalysisConfig *config)
-{
-    if (m_analysisConfig)
-    {
-        m_analysisConfig->setParent(nullptr);
-        m_analysisConfig->deleteLater();
-
-        for (auto config: m_analysisConfig->get1DHistogramConfigs())
-        {
-            auto object = getObjectForConfig(config);
-            unregisterObjectAndConfig(object, config);
-            removeObject(object);
-            removeObject(config, false);
-        }
-
-        for (auto config: m_analysisConfig->get2DHistogramConfigs())
-        {
-            auto object = getObjectForConfig(config);
-            unregisterObjectAndConfig(object, config);
-            removeObject(object);
-            removeObject(config, false);
-        }
-
-        {
-            auto filterMaps = m_analysisConfig->getFilters();
-            for (auto it = filterMaps.begin(); it != filterMaps.end(); ++it)
-                for (auto jt = it->begin(); jt != it->end(); ++jt)
-                    for (auto filterConfig: jt.value())
-                        removeObject(filterConfig);
-        }
-
-        {
-            auto filterMaps = m_analysisConfig->getDualWordFilters();
-            for (auto it = filterMaps.begin(); it != filterMaps.end(); ++it)
-                for (auto jt = it->begin(); jt != it->end(); ++jt)
-                    for (auto filterConfig: jt.value())
-                        removeObject(filterConfig);
-        }
-    }
-
-    m_analysisConfig = config;
-    config->setParent(this);
-
-    for (auto histoConfig: config->get1DHistogramConfigs())
-    {
-        auto histo = createHistogram(histoConfig);
-        histo->setParent(this);
-        addObjectMapping(histoConfig, histo, QSL("ConfigToObject"));
-        addObjectMapping(histo, histoConfig, QSL("ObjectToConfig"));
-        addObject(histo);
-    }
-
-    for (auto histoConfig: config->get2DHistogramConfigs())
-    {
-        auto histo = createHistogram(histoConfig);
-        histo->setParent(this);
-        addObjectMapping(histoConfig, histo, QSL("ConfigToObject"));
-        addObjectMapping(histo, histoConfig, QSL("ObjectToConfig"));
-        addObject(histo);
-    }
-
-    connect(m_analysisConfig, &AnalysisConfig::objectAdded, this, &MVMEContext::addObject);
-    connect(m_analysisConfig, &AnalysisConfig::objectAboutToBeRemoved, this, [this](QObject *object) {
-        removeObject(object, false);
-    });
-
-    emit analysisConfigChanged(config);
-}
-#endif
 
 void MVMEContext::setController(VMEController *controller)
 {
@@ -754,13 +678,6 @@ void MVMEContext::prepareStart()
     }
 #endif
 
-
-    for (auto histo: getObjects<Hist1D *>())
-        histo->clear();
-
-    for (auto histo: getObjects<Hist2D *>())
-        histo->clear();
-
     m_eventProcessor->newRun();
 
     m_daqStats = DAQStats();
@@ -1059,11 +976,6 @@ void MVMEContext::loadAnalysisConfig(const QString &fileName)
     qDebug() << "loadAnalysisConfig from" << fileName;
 
     QJsonDocument doc(gui_read_json_file(fileName));
-#ifdef ENABLE_OLD_ANALYSIS
-    auto config = new AnalysisConfig;
-    config->read(doc.object()[QSL("AnalysisConfig")].toObject());
-    setAnalysisConfig(config);
-#endif
 
     using namespace analysis;
 
@@ -1132,12 +1044,9 @@ void MVMEContext::setListFileOutputEnabled(bool b)
 /** True if at least one of VME-config and analysis-config is modified. */
 bool MVMEContext::isWorkspaceModified() const
 {
-#ifdef ENABLE_OLD_ANALYSIS
     return ((m_daqConfig && m_daqConfig->isModified())
-            || (m_analysisConfig && m_analysisConfig->isModified()));
-#else
-    return ((m_daqConfig && m_daqConfig->isModified()));
-#endif
+            || (m_analysis_ng && m_analysis_ng->isModified())
+           );
 }
 
 bool MVMEContext::isAnalysisRunning()
@@ -1180,68 +1089,6 @@ void MVMEContext::analysisOperatorEdited(const std::shared_ptr<analysis::Operato
     {
         m_analysisUi->operatorEdited(op);
     }
-}
-
-QString getFilterPath(MVMEContext *context, DataFilterConfig *filterConfig, int filterAddress)
-{
-#ifdef ENABLE_OLD_ANALYSIS
-    auto indexPair = context->getAnalysisConfig()->getEventAndModuleIndices(filterConfig);
-    if (indexPair.first >= 0)
-    {
-        auto eventConfig = context->getDAQConfig()->getEventConfig(indexPair.first);
-        auto moduleConfig = context->getDAQConfig()->getModuleConfig(indexPair.first, indexPair.second);
-
-        if (eventConfig && moduleConfig)
-        {
-            return QString("%1/%2/%3/%4")
-                .arg(eventConfig->objectName())
-                .arg(moduleConfig->objectName())
-                .arg(filterConfig->objectName())
-                .arg(filterAddress);
-        }
-    }
-#endif
-    return QString();
-}
-
-QString getHistoPath(MVMEContext *context, Hist1DConfig *histoConfig)
-{
-#if ENABLE_ANALYSIS_NG
-    auto filterId = histoConfig->getFilterId();
-    auto filterAddress = histoConfig->getFilterAddress();
-    auto filterConfig = context->getAnalysisConfig()->findChildById<DataFilterConfig *>(filterId);
-    return getFilterPath(context, filterConfig, filterAddress);
-#else
-    return QString();
-#endif
-}
-
-Hist1D *createHistogram(Hist1DConfig *config, MVMEContext *ctx)
-{
-    Hist1D *result = new Hist1D(config->getBits());
-    result->setObjectName(config->objectName());
-
-    if (ctx)
-    {
-        result->setParent(ctx);
-        ctx->registerObjectAndConfig(result, config);
-    }
-
-    return result;
-}
-
-Hist2D *createHistogram(Hist2DConfig *config, MVMEContext *ctx)
-{
-    Hist2D *result = new Hist2D(config->getBits(Qt::XAxis), config->getBits(Qt::YAxis));
-    result->setObjectName(config->objectName());
-
-    if (ctx)
-    {
-        result->setParent(ctx);
-        ctx->registerObjectAndConfig(result, config);
-    }
-
-    return result;
 }
 
 AnalysisPauser::AnalysisPauser(MVMEContext *context)

@@ -3,8 +3,6 @@
 #include "ui_mvme.h"
 #include "vmusb.h"
 #include "mvme_context.h"
-#include "hist1d.h"
-#include "hist2d.h"
 #include "mvmedefines.h"
 #include "vmusb_readout_worker.h"
 #include "config_ui.h"
@@ -12,7 +10,6 @@
 #include "daqconfig_tree.h"
 #include "vme_script_editor.h"
 #include "vme_debug_widget.h"
-#include "histogram_tree.h"
 #include "daqcontrol_widget.h"
 #include "daqstats_widget.h"
 #include "mesytec_diagnostics.h"
@@ -148,37 +145,6 @@ mvme::mvme(QWidget *parent) :
     }
 
     //
-    // HistogramTreeWidget
-    //
-#ifdef ENABLE_OLD_ANALYSIS
-    m_histogramTreeWidget = new HistogramTreeWidget(m_context);
-
-    {
-        auto dock = new QDockWidget(QSL("Analysis Config"), this);
-        dock_histoTree = dock;
-        dock->setObjectName("HistogramTreeWidgetDock");
-        dock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
-        dock->setWidget(m_histogramTreeWidget);
-        //addDockWidget(Qt::LeftDockWidgetArea, dock);
-
-        connect(m_histogramTreeWidget, &HistogramTreeWidget::objectClicked,
-                this, &mvme::onObjectClicked);
-
-        connect(m_histogramTreeWidget, &HistogramTreeWidget::objectDoubleClicked,
-                this, &mvme::onObjectDoubleClicked);
-
-        connect(m_histogramTreeWidget, &HistogramTreeWidget::openInNewWindow,
-                this, &mvme::openInNewWindow);
-
-        connect(m_histogramTreeWidget, &HistogramTreeWidget::showDiagnostics,
-                this, &mvme::onShowDiagnostics);
-
-        connect(m_histogramTreeWidget, &HistogramTreeWidget::addWidgetWindow,
-                this, &mvme::addWidgetWindow);
-    }
-#endif
-
-    //
     // Log Window
     //
     {
@@ -208,10 +174,6 @@ mvme::mvme(QWidget *parent) :
 
     addDockWidget(Qt::LeftDockWidgetArea, dock_daqControl);
     addDockWidget(Qt::LeftDockWidgetArea, dock_configTree);
-#ifdef ENABLE_OLD_ANALYSIS
-    addDockWidget(Qt::LeftDockWidgetArea, dock_histoTree);
-    tabifyDockWidget(dock_configTree, dock_histoTree);
-#endif
 
     addDockWidget(Qt::BottomDockWidgetArea, dock_daqStats);
     addDockWidget(Qt::BottomDockWidgetArea, dock_logView);
@@ -466,9 +428,8 @@ void mvme::closeEvent(QCloseEvent *event)
     }
 
     // AnalysisConfig
-#ifdef ENABLE_OLD_ANALYSIS
-    auto analysisConfig = m_context->getAnalysisConfig();
-    if (analysisConfig->isModified())
+    auto analysis = m_context->getAnalysisNG();
+    if (analysis->isModified())
     {
         QMessageBox msgBox(QMessageBox::Question, QSL("Save analysis config?"),
                            QSL("The current analysis configuration has modifications. Do you want to save it?"),
@@ -477,7 +438,7 @@ void mvme::closeEvent(QCloseEvent *event)
 
         if (result == QMessageBox::Save)
         {
-            auto result = saveAnalysisConfig(analysisConfig,
+            auto result = saveAnalysisConfig(nullptr,
                                              m_context->getAnalysisNG(),
                                              m_context->getAnalysisConfigFileName(),
                                              m_context->getWorkspaceDirectory(),
@@ -495,9 +456,6 @@ void mvme::closeEvent(QCloseEvent *event)
             return;
         }
     }
-#else
-    // FIXME: add isModified() concept to analysis::Analysis
-#endif
 
     // window sizes and positions
     QSettings settings;
@@ -828,8 +786,6 @@ void mvme::on_actionVME_Debug_triggered()
 void mvme::openInNewWindow(QObject *object)
 {
     auto scriptConfig      = qobject_cast<VMEScriptConfig *>(object);
-    auto hist2d            = qobject_cast<Hist2D *>(object); 
-    auto hist1d            = qobject_cast<Hist1D *>(object); 
     // The new histo type
     auto histo1d = qobject_cast<Histo1D *>(object);
     auto histo2d = qobject_cast<Histo2D *>(object);
@@ -843,18 +799,6 @@ void mvme::openInNewWindow(QObject *object)
         widget = new VMEScriptEditor(m_context, scriptConfig);
         windowIcon = QIcon(QPixmap(":/vme_script.png"));
         windowSize = QSize(700, 450);
-    }
-    else if (hist1d)
-    {
-        auto histoConfig = qobject_cast<Hist1DConfig *>(m_context->getMappedObject(hist1d, QSL("ObjectToConfig")));
-        widget = new Hist1DWidget(m_context, hist1d, histoConfig);
-        windowIcon = QIcon(QPixmap(":/hist1d.png"));
-        windowSize = QSize(600, 400);
-    }
-    else if (hist2d)
-    {
-        widget = new Hist2DWidget(m_context, hist2d);
-        windowSize = QSize(600, 400);
     }
     else if (histo1d)
     {
@@ -1121,38 +1065,6 @@ void mvme::onShowDiagnostics(ModuleConfig *moduleConfig)
     ui->mdiArea->addSubWindow(subwin);
     subwin->show();
     ui->mdiArea->setActiveSubWindow(subwin);
-}
-
-void mvme::on_actionImport_Histogram_triggered()
-{
-    auto path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
-    QString fileName = QFileDialog::getOpenFileName(this, QSL("Import Histogram"),
-                                                    path,
-                                                    "Text files (*.txt);; All Files (*.*)");
-    if (fileName.isEmpty())
-        return;
-
-    QFile inFile(fileName);
-
-    if (inFile.open(QIODevice::ReadOnly))
-    {
-        QTextStream inStream(&inFile);
-        auto histo = readHistogram(inStream);
-
-        if (histo)
-        {
-            auto widget = new Hist1DWidget(m_context, histo);
-            histo->setParent(widget);
-            histo->setObjectName(fileName);
-            widget->setAttribute(Qt::WA_DeleteOnClose);
-            auto subwin = new QMdiSubWindow;
-            subwin->setAttribute(Qt::WA_DeleteOnClose);
-            subwin->setWidget(widget);
-            ui->mdiArea->addSubWindow(subwin);
-            subwin->show();
-            ui->mdiArea->setActiveSubWindow(subwin);
-        }
-    }
 }
 
 void mvme::on_actionImport_Histo1D_triggered()

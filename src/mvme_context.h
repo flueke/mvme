@@ -48,9 +48,6 @@ class MVMEContext: public QObject
         void daqConfigChanged(DAQConfig *config);
         void daqConfigFileNameChanged(const QString &fileName);
 
-#ifdef ENABLE_OLD_ANALYSIS
-        void analysisConfigChanged(AnalysisConfig *config);
-#endif
         void analysisConfigFileNameChanged(const QString &name);
         void analysisNGChanged();
 
@@ -191,11 +188,6 @@ class MVMEContext: public QObject
         void setAnalysisConfigFileName(QString name);
         QString getAnalysisConfigFileName() const { return m_analysisConfigFileName; }
 
-#ifdef ENABLE_OLD_ANALYSIS
-        AnalysisConfig *getAnalysisConfig() const { return m_analysisConfig; }
-        void setAnalysisConfig(AnalysisConfig *config);
-#endif
-
         void logMessage(const QString &msg);
         void logMessages(const QStringList &mgs, const QString &prefix = QString());
 
@@ -281,9 +273,6 @@ class MVMEContext: public QObject
         MVMEContextPrivate *m_d;
 
         DAQConfig *m_daqConfig = nullptr;
-#ifdef ENABLE_OLD_ANALYSIS
-        AnalysisConfig *m_analysisConfig = nullptr;
-#endif
         QString m_configFileName;
         QString m_analysisConfigFileName;
         QString m_workspaceDir;
@@ -321,15 +310,6 @@ class MVMEContext: public QObject
 
         analysis::AnalysisWidget *m_analysisUi = nullptr;
 };
-
-QString getFilterPath(MVMEContext *context, DataFilterConfig *filterConfig, int filterAddress);
-QString getHistoPath(MVMEContext *context, Hist1DConfig *histoConfig);
-
-class Hist1D;
-class Hist2D;
-
-Hist1D *createHistogram(Hist1DConfig *config, MVMEContext *ctx = nullptr);
-Hist2D *createHistogram(Hist2DConfig *config, MVMEContext *ctx = nullptr);
 
 struct AnalysisPauser
 {

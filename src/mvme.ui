@@ -62,7 +62,6 @@
     </property>
     <addaction name="actionAnalysis_UI"/>
     <addaction name="actionVME_Debug"/>
-    <addaction name="actionImport_Histogram"/>
     <addaction name="actionImport_Histo1D"/>
     <addaction name="separator"/>
     <addaction name="actionTile"/>
@@ -96,7 +95,7 @@
   </action>
   <action name="actionAbout_mvme">
    <property name="icon">
-    <iconset>
+    <iconset resource="resources.qrc">
      <normaloff>:/mesytec-window-icon.png</normaloff>:/mesytec-window-icon.png</iconset>
    </property>
    <property name="text">
@@ -163,11 +162,6 @@
     <string>Mesytec Diagnostics</string>
    </property>
   </action>
-  <action name="actionImport_Histogram">
-   <property name="text">
-    <string>Import Histogram</string>
-   </property>
-  </action>
   <action name="actionAbout_Qt">
    <property name="text">
     <string>About &amp;Qt</string>
@@ -200,7 +194,9 @@
   </action>
  </widget>
  <layoutdefault spacing="6" margin="11"/>
- <resources/>
+ <resources>
+  <include location="resources.qrc"/>
+ </resources>
  <connections>
   <connection>
    <sender>actionQuit</sender>

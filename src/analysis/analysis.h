@@ -844,8 +844,13 @@ class Registry
         QMap<QString, SinkInterface *(*)()> m_sinkRegistry;
 };
 
-class Analysis
+class Analysis: public QObject
 {
+    Q_OBJECT
+    signals:
+        void modified(bool);
+        void modifiedChanged(bool);
+
     public:
         struct SourceEntry
         {
@@ -862,7 +867,7 @@ class Analysis
             s32 userLevel;
         };
 
-        Analysis();
+        Analysis(QObject *parent = nullptr);
 
         void beginRun();
         void beginEvent(s32 eventIndex);
@@ -994,6 +999,9 @@ class Analysis
         ReadResult read(const QJsonObject &json);
         void write(QJsonObject &json) const;
 
+        bool isModified() const { return m_modified; }
+        void setModified(bool b = true);
+
     private:
         void updateRank(OperatorInterface *op, QSet<OperatorInterface *> &updated);
 
@@ -1001,6 +1009,8 @@ class Analysis
         QVector<OperatorEntry> m_operators;
 
         Registry m_registry;
+
+        bool m_modified;
 };
 
 struct RawDataDisplay

@@ -1,7 +1,7 @@
 #include "mesytec_diagnostics.h"
 #include "ui_mesytec_diagnostics.h"
 #include "realtimedata.h"
-#include "hist1d.h"
+#include "histo1d.h"
 
 #include <cmath>
 
@@ -27,6 +27,7 @@
 
 static const int histoCount = 34;
 static const int histoBits = 13;
+static const int histoBins = 1 << histoBits;
 static const int dataExtractMask = 0x00001FFF;
 
 MesytecDiagnostics::MesytecDiagnostics(QObject *parent)
@@ -34,9 +35,13 @@ MesytecDiagnostics::MesytecDiagnostics(QObject *parent)
     , m_rtd(new RealtimeData(this))
     , m_eventBuffers(2)
 {
+    double minValue = 0;
+    double maxValue = 1 << histoBits;
+
+
     for (int i=0; i<histoCount; ++i)
     {
-        m_histograms.push_back(new Hist1D(histoBits, this));
+        m_histograms.push_back(new Histo1D(histoBins, minValue, maxValue, this));
     }
 
     m_currentEventBuffer = &m_eventBuffers[0];
@@ -296,7 +301,7 @@ void MesytecDiagnostics::calcAll(quint16 lo, quint16 hi, quint16 lo2, quint16 hi
     for(i=0; i<34; i++){
         // calculate means and maxima
         for(j=binLo; j<=binHi; j++){
-            auto value = m_histograms[i]->value(j);
+            auto value = m_histograms[i]->getBinContent(j);
 
             mean[i] += value * j;
             counts[i] += value;
@@ -318,7 +323,7 @@ void MesytecDiagnostics::calcAll(quint16 lo, quint16 hi, quint16 lo2, quint16 hi
             for(j=binLo; j<=binHi; j++){
                 dval =  j - mean[i];
                 dval *= dval;
-                dval *= m_histograms[i]->value(j);
+                dval *= m_histograms[i]->getBinContent(j);
                 //dval *= p_myHist->m_data[i*res + j];
                 sigma[i] += dval;
             }
@@ -408,7 +413,7 @@ void MesytecDiagnostics::calcAll(quint16 lo, quint16 hi, quint16 lo2, quint16 hi
         for(j=binLo; j<=binHi; j++){
             dval =  j - mean[i];
             dval *= dval,
-            dval *= m_histograms[i]->value(j);
+            dval *= m_histograms[i]->getBinContent(j);
             //dval *= p_myHist->m_data[i*res + j];
             if(i%2){
                 if(i>=lo && i <= hi)
@@ -485,7 +490,7 @@ quint32 MesytecDiagnostics::getCounts(quint16 chan)
 
 quint32 MesytecDiagnostics::getChannel(quint16 chan, quint32 bin)
 {
-    return m_histograms[chan]->value(bin);
+    return m_histograms[chan]->getBinContent(bin);
 }
 
 //

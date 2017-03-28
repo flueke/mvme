@@ -1309,7 +1309,9 @@ const QMap<Analysis::ReadResult::Code, const char *> Analysis::ReadResult::Error
     { VersionMismatch, "Version Mismatch" },
 };
 
-Analysis::Analysis()
+Analysis::Analysis(QObject *parent)
+    : QObject(parent)
+    , m_modified(false)
 {
     m_registry.registerSource<Extractor>();
 
@@ -1369,6 +1371,7 @@ void Analysis::addSource(s32 eventIndex, s32 moduleIndex, const SourcePtr &sourc
     source->beginRun();
     m_sources.push_back({eventIndex, moduleIndex, source});
     updateRanks();
+    setModified();
 }
 
 void Analysis::addOperator(s32 eventIndex, const OperatorPtr &op, s32 userLevel)
@@ -1376,6 +1379,7 @@ void Analysis::addOperator(s32 eventIndex, const OperatorPtr &op, s32 userLevel)
     op->beginRun();
     m_operators.push_back({eventIndex, op, userLevel});
     updateRanks();
+    setModified();
 }
 
 using HighResClock = std::chrono::high_resolution_clock;
@@ -1600,6 +1604,8 @@ void Analysis::removeSource(SourceInterface *source)
 
         // Update ranks and recalculate output sizes for all analysis elements.
         beginRun();
+
+        setModified();
     }
 }
 
@@ -1653,6 +1659,8 @@ void Analysis::removeOperator(OperatorInterface *op)
 
         // Update ranks and recalculate output sizes for all analysis elements.
         beginRun();
+
+        setModified();
     }
 }
 
@@ -1660,6 +1668,7 @@ void Analysis::clear()
 {
     m_sources.clear();
     m_operators.clear();
+    setModified();
 }
 
 template<typename T>
@@ -1854,6 +1863,9 @@ Analysis::ReadResult Analysis::read(const QJsonObject &json)
         }
 #endif
     }
+
+    setModified(false);
+
     return result;
 }
 
@@ -1972,6 +1984,17 @@ void Analysis::write(QJsonObject &json) const
 
         json["rawDataDisplays"] = destArray;
 #endif
+    }
+}
+
+void Analysis::setModified(bool b)
+{
+    emit modified(b);
+
+    if (m_modified != b)
+    {
+        m_modified = b;
+        emit modifiedChanged(b);
     }
 }
 
