@@ -152,13 +152,10 @@ class OperatorConfigurationWidget: public QWidget
         HistoAxisLimitsUI limits_x;
         HistoAxisLimitsUI limits_y;
 
-        // CalibrationFactorOffset and CalibrationMinMax
+        // CalibrationMinMax
         QLineEdit *le_unit = nullptr;
-        QDoubleSpinBox *spin_factor = nullptr;
-        QDoubleSpinBox *spin_offset = nullptr;
         QDoubleSpinBox *spin_unitMin = nullptr;
         QDoubleSpinBox *spin_unitMax = nullptr;
-        // CalibrationMinMax
         QTableWidget *m_calibrationTable = nullptr;
         QFrame *m_applyGlobalCalibFrame = nullptr;
         QPushButton *m_pb_applyGlobalCalib = nullptr;

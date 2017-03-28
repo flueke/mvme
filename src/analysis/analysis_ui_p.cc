@@ -481,36 +481,6 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
         formLayout->addRow(limits_x.groupBox);
         formLayout->addRow(limits_y.groupBox);
     }
-#if 0
-    else if (auto calibration = qobject_cast<CalibrationFactorOffset *>(op))
-    {
-        // Note: CalibrationFactorOffset is not used anymore. This code hasn't been updated for a while.
-        le_unit = new QLineEdit;
-        spin_factor = new QDoubleSpinBox;
-        spin_factor->setDecimals(8);
-        spin_factor->setMinimum(-1e20);
-        spin_factor->setMaximum(+1e20);
-        spin_factor->setValue(1.0);
-
-        spin_offset = new QDoubleSpinBox;
-        spin_offset->setDecimals(8);
-        spin_offset->setMinimum(-1e20);
-        spin_offset->setMaximum(+1e20);
-        spin_offset->setValue(0.0);
-
-        formLayout->addRow(QSL("Unit Label"), le_unit);
-        formLayout->addRow(QSL("Factor"), spin_factor);
-        formLayout->addRow(QSL("Offset"), spin_offset);
-
-        le_unit->setText(calibration->getUnitLabel());
-        auto globalParams = calibration->getGlobalCalibration();
-        if (globalParams.isValid())
-        {
-            spin_factor->setValue(globalParams.factor);
-            spin_offset->setValue(globalParams.offset);
-        }
-    }
-#endif
     else if (auto calibration = qobject_cast<CalibrationMinMax *>(op))
     {
         parent->resize(350, 450);
@@ -638,12 +608,6 @@ bool OperatorConfigurationWidget::validateInputs()
 
         return result;
     }
-#if 0
-    else if (auto calibration = qobject_cast<CalibrationFactorOffset *>(op))
-    {
-        return spin_factor->value() != 0.0;
-    }
-#endif
     else if (auto calibration = qobject_cast<CalibrationMinMax *>(op))
     {
         double unitMin = spin_unitMin->value();
@@ -712,15 +676,6 @@ void OperatorConfigurationWidget::configureOperator()
 
         // Same as for Histo1DSink: the histogram is created or updated in Histo2DSink::beginRun()
     }
-#if 0
-    else if (auto calibration = qobject_cast<CalibrationFactorOffset *>(op))
-    {
-        double factor = spin_factor->value();
-        double offset = spin_offset->value();
-
-        calibration->setGlobalCalibration(factor, offset);
-    }
-#endif
     else if (auto calibration = qobject_cast<CalibrationMinMax *>(op))
     {
         double unitMin = spin_unitMin->value();
@@ -913,7 +868,6 @@ void OperatorConfigurationWidget::fillCalibrationTable(CalibrationMinMax *calib,
         m_calibrationTable->setItem(addr, 0, item);
 
         auto calibParams = calib->getCalibration(addr);
-        qDebug() << __PRETTY_FUNCTION__ << "calib params for" << addr << ": valid =" << calibParams.isValid();
         double unitMin = calibParams.isValid() ? calibParams.unitMin : proposedMin;
         double unitMax = calibParams.isValid() ? calibParams.unitMax : proposedMax;
 
