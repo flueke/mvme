@@ -116,8 +116,8 @@ Histo1DStatistics Histo1D::calcStatistics(double minX, double maxX) const
     s64 maxBin = m_xAxisBinning.getBinUnchecked(maxX);
 
     // FIXME: when using subranges the getBinUnchecked() calculation often yields negative bins. why?
-    minBin = std::max(0l, minBin);
-    maxBin = std::max(0l, maxBin);
+    minBin = std::max(static_cast<s64>(0), minBin);
+    maxBin = std::max(static_cast<s64>(0), maxBin);
 
     //qDebug() << __PRETTY_FUNCTION__ << minX << maxX << minBin << maxBin;
     //qDebug() << __PRETTY_FUNCTION__ << getXMin() << getXMax();
