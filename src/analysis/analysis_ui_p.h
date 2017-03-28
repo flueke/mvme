@@ -14,9 +14,10 @@
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QLineEdit>
-#include <QSpinBox>
-#include <QTableWidget>
 #include <QPushButton>
+#include <QSpinBox>
+#include <QStyledItemDelegate>
+#include <QTableWidget>
 #include <QWidget>
 
 class MVMEContext;
@@ -159,6 +160,8 @@ class OperatorConfigurationWidget: public QWidget
         QDoubleSpinBox *spin_unitMax = nullptr;
         // CalibrationMinMax
         QTableWidget *m_calibrationTable = nullptr;
+        QFrame *m_applyGlobalCalibFrame = nullptr;
+        QPushButton *m_pb_applyGlobalCalib = nullptr;
 
         // IndexSelector
         QSpinBox *spin_index = nullptr;
@@ -169,7 +172,7 @@ class OperatorConfigurationWidget: public QWidget
         // Sum
         QCheckBox *cb_isMean = nullptr;
 
-        void fillCalibrationTable(CalibrationMinMax *calib);
+        void fillCalibrationTable(CalibrationMinMax *calib, double proposedMin, double proposedMax);
 };
 
 class PipeDisplay: public QWidget
@@ -183,6 +186,13 @@ class PipeDisplay: public QWidget
         Pipe *m_pipe;
 
         QTableWidget *m_parameterTable;
+};
+
+class CalibrationItemDelegate: public QStyledItemDelegate
+{
+    public:
+        using QStyledItemDelegate::QStyledItemDelegate;
+        virtual QWidget* createEditor(QWidget *parent, const QStyleOptionViewItem &option, const QModelIndex &index) const;
 };
 
 }

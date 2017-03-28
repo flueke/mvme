@@ -9,6 +9,7 @@
 #include <QFormLayout>
 #include <QGridLayout>
 #include <QGroupBox>
+#include <QHeaderView>
 #include <QLabel>
 
 namespace analysis
@@ -512,24 +513,29 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
 #endif
     else if (auto calibration = qobject_cast<CalibrationMinMax *>(op))
     {
+        parent->resize(350, 450);
         le_unit = new QLineEdit;
+        le_unit->setText(calibration->getUnitLabel());
+
         spin_unitMin = new QDoubleSpinBox;
         spin_unitMin->setDecimals(8);
         spin_unitMin->setMinimum(-1e20);
         spin_unitMin->setMaximum(+1e20);
-        spin_unitMin->setValue(0.0);
+        spin_unitMin->setValue(spin_unitMin->minimum());
+        spin_unitMin->setSpecialValueText(QSL("not set"));
 
         spin_unitMax = new QDoubleSpinBox;
         spin_unitMax->setDecimals(8);
         spin_unitMax->setMinimum(-1e20);
         spin_unitMax->setMaximum(+1e20);
-        spin_unitMax->setValue(0.0);
+        spin_unitMax->setValue(spin_unitMin->minimum());
+        spin_unitMax->setSpecialValueText(QSL("not set"));
 
         formLayout->addRow(QSL("Unit Label"), le_unit);
         formLayout->addRow(QSL("Unit Min"), spin_unitMin);
         formLayout->addRow(QSL("Unit Max"), spin_unitMax);
 
-        le_unit->setText(calibration->getUnitLabel());
+
         auto globalParams = calibration->getGlobalCalibration();
         if (globalParams.isValid())
         {
@@ -538,7 +544,42 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
         }
 
         m_calibrationTable = new QTableWidget;
+
+        m_pb_applyGlobalCalib = new QPushButton(QIcon(":/arrow_down.png"), QSL("Apply"));
+        m_pb_applyGlobalCalib->setToolTip(QSL("Apply to all addresses"));
+
+        connect(m_pb_applyGlobalCalib, &QPushButton::clicked, this, [this] () {
+            double unitMin = spin_unitMin->value();
+            double unitMax = spin_unitMax->value();
+
+            for (s32 row = 0;
+                 row < m_calibrationTable->rowCount();
+                 ++row)
+            {
+                auto minItem = m_calibrationTable->item(row, 1);
+                minItem->setData(Qt::EditRole, unitMin);
+
+                auto maxItem = m_calibrationTable->item(row, 2);
+                maxItem->setData(Qt::EditRole, unitMax);
+            }
+        });
+
+        m_applyGlobalCalibFrame = new QFrame;
+        auto applyCalibLayout = new QHBoxLayout(m_applyGlobalCalibFrame);
+        applyCalibLayout->setContentsMargins(0, 0, 0, 0);
+        applyCalibLayout->addStretch(1);
+        applyCalibLayout->addWidget(m_pb_applyGlobalCalib);
+        applyCalibLayout->addStretch(1);
+
+        formLayout->addRow(m_applyGlobalCalibFrame);
+        m_applyGlobalCalibFrame->setVisible(false);
+
         m_calibrationTable->setVisible(false);
+        m_calibrationTable->setColumnCount(3);
+        m_calibrationTable->setItemDelegateForColumn(1, new CalibrationItemDelegate(m_calibrationTable));
+        m_calibrationTable->setItemDelegateForColumn(2, new CalibrationItemDelegate(m_calibrationTable));
+        m_calibrationTable->setHorizontalHeaderLabels({"Address", "Min", "Max"});
+        m_calibrationTable->verticalHeader()->setVisible(false);
 
         inputSelected(0);
 
@@ -685,6 +726,12 @@ void OperatorConfigurationWidget::configureOperator()
         double unitMin = spin_unitMin->value();
         double unitMax = spin_unitMax->value();
 
+        if (unitMin == spin_unitMin->minimum())
+            unitMin = make_quiet_nan();
+
+        if (unitMax == spin_unitMax->minimum())
+            unitMax = make_quiet_nan();
+
         calibration->setGlobalCalibration(unitMin, unitMax);
         calibration->setUnitLabel(le_unit->text());
 
@@ -692,10 +739,10 @@ void OperatorConfigurationWidget::configureOperator()
         {
             unitMin = unitMax = make_quiet_nan();
 
-            if (auto item = m_calibrationTable->item(addr, 0))
+            if (auto item = m_calibrationTable->item(addr, 1))
                 unitMin = item->data(Qt::EditRole).toDouble();
 
-            if (auto item = m_calibrationTable->item(addr, 1))
+            if (auto item = m_calibrationTable->item(addr, 2))
                 unitMax = item->data(Qt::EditRole).toDouble();
 
             calibration->setCalibration(addr, unitMin, unitMax);
@@ -721,6 +768,12 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
     OperatorInterface *op = m_op;
     Slot *slot = op->getSlot(slotIndex);
 
+    if (no_input_connected(op) && !wasNameEdited)
+    {
+        le_name->clear();
+        wasNameEdited = false;
+    }
+
     //
     // Operator name
     //
@@ -728,6 +781,7 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
     {
         // The name field is empty or was never modified by the user. Update its
         // contents to reflect the newly selected input(s).
+
         if (op->getNumberOfSlots() == 1 && op->getSlot(0)->isConnected())
         {
             le_name->setText(makeSlotSourceString(slot));
@@ -756,30 +810,58 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
         le_name->setText(op->objectName());
     }
 
+    if (!le_name->text().isEmpty() && op->getNumberOfOutputs() > 0 && all_inputs_connected(op) && !wasNameEdited)
+    {
+        // Append the lowercase short name for non sinks
+        auto name = le_name->text();
+        name = name + "." + op->getShortName().toLower();
+        le_name->setText(name);
+    }
+
     //
     // Operator specific actions
     //
 
     if (auto calibration = qobject_cast<CalibrationMinMax *>(op))
     {
-        if (calibration->getSlot(0)->isConnected())
+        if (slot->isConnected())
         {
             if (!calibration->getGlobalCalibration().isValid())
             {
-                Parameter *firstParam = calibration->getSlot(0)->inputPipe->first();
+                Parameter *firstParam = slot->inputPipe->first();
+                if (slot->paramIndex != Slot::NoParamIndex)
+                {
+                    firstParam = slot->inputPipe->getParameter(slot->paramIndex);
+                }
+
                 if (firstParam)
                 {
-                    calibration->setGlobalCalibration(firstParam->lowerLimit, firstParam->upperLimit);
                     spin_unitMin->setValue(firstParam->lowerLimit);
                     spin_unitMax->setValue(firstParam->upperLimit);
                 }
             }
 
-            fillCalibrationTable(calibration);
+            double proposedMin = spin_unitMin->value();
+            double proposedMax = spin_unitMax->value();
+
+            if (slot->paramIndex == Slot::NoParamIndex)
+            {
+                fillCalibrationTable(calibration, proposedMin, proposedMax);
+                m_calibrationTable->setVisible(true);
+                m_applyGlobalCalibFrame->setVisible(true);
+            }
+            else
+            {
+                m_calibrationTable->setVisible(false);
+                m_applyGlobalCalibFrame->setVisible(false);
+            }
         }
         else
         {
+            spin_unitMin->setValue(spin_unitMin->minimum());
+            spin_unitMax->setValue(spin_unitMax->minimum());
             m_calibrationTable->setVisible(false);
+            m_applyGlobalCalibFrame->setVisible(false);
         }
     }
     else if (auto histoSink = qobject_cast<Histo1DSink *>(op))
@@ -813,39 +895,41 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
     }
 }
 
-void OperatorConfigurationWidget::fillCalibrationTable(CalibrationMinMax *calib)
+void OperatorConfigurationWidget::fillCalibrationTable(CalibrationMinMax *calib, double proposedMin, double proposedMax)
 {
     Q_ASSERT(calib->getSlot(0)->isConnected());
 
 
     s32 paramCount = calib->getSlot(0)->inputPipe->parameters.size();
 
-    m_calibrationTable->clear();
-    m_calibrationTable->setColumnCount(2);
-    m_calibrationTable->setHorizontalHeaderLabels({"Min", "Max"});
-    m_calibrationTable->setCornerButtonEnabled(true);
     m_calibrationTable->setRowCount(paramCount);
 
     for (s32 addr = 0; addr < paramCount; ++addr)
     {
-        auto calibParams = calib->getCalibration(addr);
+        // address
         auto item = new QTableWidgetItem;
-        item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled | Qt::ItemIsEditable);
-        item->setData(Qt::EditRole, calibParams.unitMin);
-        //item->setText(QString::number(calibParams.unitMin));
+        item->setFlags(Qt::ItemIsEnabled);
+        item->setData(Qt::DisplayRole, addr);
         m_calibrationTable->setItem(addr, 0, item);
 
+        auto calibParams = calib->getCalibration(addr);
+        qDebug() << __PRETTY_FUNCTION__ << "calib params for" << addr << ": valid =" << calibParams.isValid();
+        double unitMin = calibParams.isValid() ? calibParams.unitMin : proposedMin;
+        double unitMax = calibParams.isValid() ? calibParams.unitMax : proposedMax;
+
+        // min
         item = new QTableWidgetItem;
         item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled | Qt::ItemIsEditable);
-        item->setData(Qt::EditRole, calibParams.unitMax);
-        item->setText(QString::number(calibParams.unitMax));
+        item->setData(Qt::EditRole, unitMin);
         m_calibrationTable->setItem(addr, 1, item);
 
-        m_calibrationTable->setVerticalHeaderItem(addr, new QTableWidgetItem(QString::number(addr)));
+        // max
+        item = new QTableWidgetItem;
+        item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled | Qt::ItemIsEditable);
+        item->setData(Qt::EditRole, unitMax);
+        m_calibrationTable->setItem(addr, 2, item);
     }
 
-    m_calibrationTable->setVisible(true);
-    //m_calibrationTable->resizeColumnsToContents();
     m_calibrationTable->resizeRowsToContents();
 }
 
@@ -913,6 +997,23 @@ void PipeDisplay::refresh()
     m_parameterTable->resizeRowsToContents();
 
     setWindowTitle(m_pipe->parameters.name);
+}
+
+
+QWidget* CalibrationItemDelegate::createEditor(QWidget *parent, const QStyleOptionViewItem &option, const QModelIndex &index) const
+{
+    auto result = QStyledItemDelegate::createEditor(parent, option, index);
+
+    if (auto spin = qobject_cast<QDoubleSpinBox *>(result))
+    {
+        spin->setDecimals(8);
+        spin->setMinimum(-1e20);
+        spin->setMaximum(+1e20);
+        spin->setSpecialValueText(QSL("no set"));
+        spin->setValue(spin->minimum());
+    }
+
+    return result;
 }
 
 }

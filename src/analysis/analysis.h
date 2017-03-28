@@ -188,7 +188,7 @@ class Pipe
             return nullptr;
         }
 
-        const Parameter *getParameter(u32 index)
+        Parameter *getParameter(u32 index)
         {
             if (index < static_cast<u32>(parameters.size()))
             {
@@ -695,8 +695,19 @@ class Sum: public BasicOperator
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
 
-        virtual QString getDisplayName() const override { return QSL("Sum"); }
-        virtual QString getShortName() const override { return QSL("Sum"); }
+        virtual QString getDisplayName() const override
+        {
+            if (m_calculateMean)
+                return QSL("Mean");
+            return QSL("Sum");
+        }
+
+        virtual QString getShortName() const override
+        {
+            if (m_calculateMean)
+                return QSL("Mean");
+            return QSL("Sum");
+        }
 
         bool m_calculateMean = false;
 };
@@ -1083,137 +1094,9 @@ void do_beginRun_forward(PipeSourceInterface *pipeSource);
 
 QString make_unique_operator_name(Analysis *analysis, const QString &prefix);
 
+bool all_inputs_connected(OperatorInterface *op);
+bool no_input_connected(OperatorInterface *op);
+
 } // end namespace analysis
 
-
-
-
-#if 0
-
-
-
-// Output is a boolean flag
-struct Histo2DRectangleCut: public Operator
-{
-    Pipe *inputX;
-    Pipe *inputY;
-
-    double minX, maxX, minY, maxY;
-
-    virtual void step() override
-    {
-        auto &outParam(output.first());
-        outParam.valid = false;
-
-        if (inputX && inputY)
-        {
-            outParam.valid = true;
-            outParam.type = Parameter::Bool;
-            outParam.bval = false;
-
-            const auto &parX(inputX->first());
-            const auto &parY(inputY->first());
-
-            if (parX.valid && parY.valid)
-            {
-                double x = parX.value;
-                double y = parY.value;
-
-                if (x >= minX && x < maxX
-                    && y >= minY && y < maxY)
-                {
-                    outParam.bval = true;
-                }
-            }
-        }
-    }
-
-    virtual QVector<Pipe *> getInputs() override
-    {
-        QVector<Pipe *> result = { inputX, inputY };
-
-        return result;
-    }
-};
-#endif
-
-
-
-#if 0
-struct HypotheticalSortingMachine: public Operator
-{
-    /* Takes a variable amount of inputs.
-     * The rank of this operators output is the highest input rank + 1.
-     * This functionality would be used to take data from multiple modules and
-     * assign virtual channel numbers to it. For example if there's 4 MSCF16s
-     * as input, input[0] provides amplitudes 0-15, input[1] amplitudes 16-31
-     * and so on up to amplitude 63 for input[3].
-     *
-     * Output size is the sum of the input sizes.
-     *
-     * FIXME: Assumption for now: all inputs have the same size! The user would
-     * normally want this to be true but it may not be the case. If it's not
-     * the case the output address would be the input address + the sum of the
-     * size of the previous inputs.
-     */
-
-
-    QVector<Pipe *> inputs;
-
-    virtual void step() override
-    {
-        // calc output size. FIXME: this should be done in a preparation step
-        s32 output_size = 0;
-        for (auto transport: inputs)
-        {
-            output_size += transport->parameters.size();
-        }
-        output.parameters.resize(output_size);
-
-        for (s32 input_index = 0;
-             input_index < inputs.size();
-             ++input_index)
-        {
-            Pipe *transport = inputs[input_index];
-
-            for (s32 address = 0;
-                 address < transport->parameters.size();
-                 ++address)
-            {
-                const auto &param(transport->parameters[address]);
-                if (param.valid)
-                {
-                    s32 output_address = address + (input_index * 16);
-
-                    output.parameters[output_address] = param; // copy the param struct
-                }
-            }
-        }
-    }
-};
-#endif
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 #endif /* __ANALYSIS_H__ */
-

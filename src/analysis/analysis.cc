@@ -2298,4 +2298,32 @@ QString make_unique_operator_name(Analysis *analysis, const QString &prefix)
     return prefix + QSL(".") + QString::number(suffixNumber);
 }
 
+bool all_inputs_connected(OperatorInterface *op)
+{
+    bool result = true;
+
+    for (s32 slotIndex = 0;
+         slotIndex < op->getNumberOfSlots();
+         ++slotIndex)
+    {
+        result = result && op->getSlot(slotIndex)->isConnected();
+    }
+
+    return result;
+}
+
+bool no_input_connected(OperatorInterface *op)
+{
+    bool result = true;
+
+    for (s32 slotIndex = 0;
+         slotIndex < op->getNumberOfSlots();
+         ++slotIndex)
+    {
+        result = result && !op->getSlot(slotIndex)->isConnected();
+    }
+
+    return result;
+}
+
 }
