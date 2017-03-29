@@ -476,8 +476,12 @@ void Histo2DWidget::on_tb_projX_clicked()
 {
     double visibleMinX = ui->plot->axisScaleDiv(QwtPlot::xBottom).lowerBound();
     double visibleMaxX = ui->plot->axisScaleDiv(QwtPlot::xBottom).upperBound();
+    double visibleMinY = ui->plot->axisScaleDiv(QwtPlot::yLeft).lowerBound();
+    double visibleMaxY = ui->plot->axisScaleDiv(QwtPlot::yLeft).upperBound();
 
-    auto histo = make_x_projection(m_histo, visibleMinX, visibleMaxX);
+    auto histo = make_x_projection(m_histo,
+                                   visibleMinX, visibleMaxX,
+                                   visibleMinY, visibleMaxY);
 
     if (!m_xProjWidget)
     {
@@ -499,10 +503,14 @@ void Histo2DWidget::on_tb_projX_clicked()
 
 void Histo2DWidget::on_tb_projY_clicked()
 {
+    double visibleMinX = ui->plot->axisScaleDiv(QwtPlot::xBottom).lowerBound();
+    double visibleMaxX = ui->plot->axisScaleDiv(QwtPlot::xBottom).upperBound();
     double visibleMinY = ui->plot->axisScaleDiv(QwtPlot::yLeft).lowerBound();
     double visibleMaxY = ui->plot->axisScaleDiv(QwtPlot::yLeft).upperBound();
 
-    auto histo = make_y_projection(m_histo, visibleMinY, visibleMaxY);
+    auto histo = make_y_projection(m_histo,
+                                   visibleMinX, visibleMaxX,
+                                   visibleMinY, visibleMaxY);
 
     if (!m_yProjWidget)
     {
