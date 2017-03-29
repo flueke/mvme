@@ -16,7 +16,7 @@ QDebug &operator<< (QDebug &dbg, const std::shared_ptr<T> &ptr)
 
 namespace analysis
 {
-    static const int CurrentAnalysisVersion = 1;
+    static const int CurrentAnalysisVersion = 2;
 
 //
 // Slot
@@ -1357,29 +1357,29 @@ void Analysis::beginRun()
         << m_operators.size() << " operators";
 }
 
-void Analysis::beginEvent(s32 eventIndex)
+void Analysis::beginEvent(const QUuid &eventId)
 {
     for (auto &sourceEntry: m_sources)
     {
-        if (sourceEntry.eventIndex == eventIndex)
+        if (sourceEntry.eventId == eventId)
         {
-            sourceEntry.source->beginEvent();
+            sourceEntry.sourceRaw->beginEvent();
         }
     }
 }
 
-void Analysis::addSource(s32 eventIndex, s32 moduleIndex, const SourcePtr &source)
+void Analysis::addSource(const QUuid &eventId, const QUuid &moduleId, const SourcePtr &source)
 {
     source->beginRun();
-    m_sources.push_back({eventIndex, moduleIndex, source, source.get()});
+    m_sources.push_back({eventId, moduleId, source, source.get()});
     updateRanks();
     setModified();
 }
 
-void Analysis::addOperator(s32 eventIndex, const OperatorPtr &op, s32 userLevel)
+void Analysis::addOperator(const QUuid &eventId, const OperatorPtr &op, s32 userLevel)
 {
     op->beginRun();
-    m_operators.push_back({eventIndex, op, userLevel, op.get()});
+    m_operators.push_back({eventId, op, op.get(), userLevel});
     updateRanks();
     setModified();
 }
@@ -1406,13 +1406,13 @@ struct TimedBlock
     HighResClock::time_point end;
 };
 
-void Analysis::processDataWord(s32 eventIndex, s32 moduleIndex, u32 data, s32 wordIndex)
+void Analysis::processDataWord(const QUuid &eventId, const QUuid &moduleId, u32 data, s32 wordIndex)
 {
     //TimedBlock tb(__PRETTY_FUNCTION__);
 
     for (auto &sourceEntry: m_sources)
     {
-        if (sourceEntry.eventIndex == eventIndex && sourceEntry.moduleIndex == moduleIndex)
+        if (sourceEntry.eventId == eventId && sourceEntry.moduleId == moduleId)
         {
             Q_ASSERT(sourceEntry.sourceRaw);
             Q_ASSERT(sourceEntry.sourceRaw == sourceEntry.source.get());
@@ -1422,7 +1422,7 @@ void Analysis::processDataWord(s32 eventIndex, s32 moduleIndex, u32 data, s32 wo
     }
 }
 
-void Analysis::endEvent(s32 eventIndex)
+void Analysis::endEvent(const QUuid &eventId)
 {
     //TimedBlock tb(__PRETTY_FUNCTION__);
     /* In beginRun() operators are sorted by rank. This way step()'ing
@@ -1434,7 +1434,7 @@ void Analysis::endEvent(s32 eventIndex)
 
     for (auto &opEntry: m_operators)
     {
-        if (opEntry.eventIndex == eventIndex)
+        if (opEntry.eventId == eventId)
         {
             Q_ASSERT(opEntry.opRaw);
             Q_ASSERT(opEntry.opRaw == opEntry.op.get());
@@ -1726,8 +1726,8 @@ Analysis::ReadResult Analysis::read(const QJsonObject &json)
                 source->setObjectName(objectJson["name"].toString());
                 source->read(objectJson["data"].toObject());
 
-                addSource(objectJson["eventIndex"].toInt(),
-                          objectJson["moduleIndex"].toInt(),
+                addSource(QUuid(objectJson["eventId"].toString()),
+                          QUuid(objectJson["moduleId"].toString()),
                           source);
 
                 objectsById.insert(source->getId(), source);
@@ -1758,7 +1758,7 @@ Analysis::ReadResult Analysis::read(const QJsonObject &json)
                 op->setObjectName(objectJson["name"].toString());
                 op->read(objectJson["data"].toObject());
 
-                addOperator(objectJson["eventIndex"].toInt(),
+                addOperator(QUuid(objectJson["eventId"].toString()),
                             op,
                             objectJson["userLevel"].toInt()
                            );
@@ -1807,7 +1807,7 @@ Analysis::ReadResult Analysis::read(const QJsonObject &json)
                 auto srcRawPtr = srcObject.get();
                 auto dstRawPtr = dstObject.get();
                 Slot *dstSlot = dstObject->getSlot(dstIndex);
-                Q_ASSERT(dstSlot); // FIXME: testing
+                Q_ASSERT(dstSlot);
 
                 if (dstSlot)
                 {
@@ -1844,8 +1844,8 @@ void Analysis::write(QJsonObject &json) const
             QJsonObject destObject;
             destObject["id"] = source->getId().toString();
             destObject["name"] = source->objectName();
-            destObject["eventIndex"]  = static_cast<qint64>(sourceEntry.eventIndex);
-            destObject["moduleIndex"] = static_cast<qint64>(sourceEntry.moduleIndex);
+            destObject["eventId"]  = sourceEntry.eventId.toString();
+            destObject["moduleId"] = sourceEntry.moduleId.toString();
             destObject["class"] = getClassName(source);
             QJsonObject dataJson;
             source->write(dataJson);
@@ -1864,7 +1864,7 @@ void Analysis::write(QJsonObject &json) const
             QJsonObject destObject;
             destObject["id"] = op->getId().toString();
             destObject["name"] = op->objectName();
-            destObject["eventIndex"]  = static_cast<qint64>(opEntry.eventIndex);
+            destObject["eventId"]  = opEntry.eventId.toString();
             destObject["class"] = getClassName(op);
             destObject["userLevel"] = opEntry.userLevel;
             QJsonObject dataJson;
@@ -1979,12 +1979,12 @@ RawDataDisplay make_raw_data_display(const MultiWordDataFilter &extractionFilter
     return make_raw_data_display(extractor, unitMin, unitMax, xAxisTitle, unitLabel);
 }
 
-void add_raw_data_display(Analysis *analysis, s32 eventIndex, s32 moduleIndex, const RawDataDisplay &display)
+void add_raw_data_display(Analysis *analysis, const QUuid &eventId, const QUuid &moduleId, const RawDataDisplay &display)
 {
-    analysis->addSource(eventIndex, moduleIndex, display.extractor);
-    analysis->addOperator(eventIndex, display.rawHistoSink, 0);
-    analysis->addOperator(eventIndex, display.calibration, 1);
-    analysis->addOperator(eventIndex, display.calibratedHistoSink, 1);
+    analysis->addSource(eventId, moduleId, display.extractor);
+    analysis->addOperator(eventId, display.rawHistoSink, 0);
+    analysis->addOperator(eventId, display.calibration, 1);
+    analysis->addOperator(eventId, display.calibratedHistoSink, 1);
 }
 
 void do_beginRun_forward(PipeSourceInterface *pipeSource)

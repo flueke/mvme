@@ -137,12 +137,10 @@ class ModuleConfig: public ConfigObject
             }
         }
 
-        // TODO: make private
         VMEModuleType type = VMEModuleType::Invalid;
 
         /** Known keys for a module:
          * "parameters", "readout_settings", "readout", "reset" */
-        // TODO: make private
         QMap<QString, VMEScriptConfig *> vmeScripts;
 
     protected:
@@ -202,7 +200,7 @@ class EventConfig: public ConfigObject
 
         /* Set by the readout worker and then used by the buffer
          * processor to map from stack ids to event configs. */
-        // TODO: move this elsewhere as it is vmusb specific
+        // Maybe should move this elsewhere as it is vmusb specific
         uint8_t stackID;
 
     protected:

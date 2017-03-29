@@ -328,9 +328,6 @@ struct EventWidgetPrivate
     EventWidget *m_q;
     MVMEContext *m_context;
     QUuid m_eventId;
-    // TODO: initialize eventIndex at creation time and use it instead of passing it around internally
-    // TODO: or would it be better to use m_eventId instead?
-    int m_eventIndex;
     AnalysisWidget *m_analysisWidget;
 
     QVector<DisplayLevelTrees> m_levelTrees;
@@ -356,13 +353,13 @@ struct EventWidgetPrivate
     std::array<SetOfVoidStar, TreeType_Count> m_expandedObjects;
     QTimer *m_pipeDisplayRefreshTimer;
 
-    void createView(s32 eventIndex);
-    DisplayLevelTrees createTrees(s32 eventIndex, s32 level);
-    DisplayLevelTrees createSourceTrees(s32 eventIndex);
+    void createView(const QUuid &eventId);
+    DisplayLevelTrees createTrees(const QUuid &eventId, s32 level);
+    DisplayLevelTrees createSourceTrees(const QUuid &eventId);
     void appendTreesToView(DisplayLevelTrees trees);
     void repopulate();
 
-    void addUserLevel(s32 eventIndex);
+    void addUserLevel(const QUuid &eventId);
     s32 getUserLevelForTree(QTreeWidget *tree);
 
     void doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel);
@@ -382,12 +379,12 @@ struct EventWidgetPrivate
 };
 
 // FIXME: the param should be eventId
-void EventWidgetPrivate::createView(s32 eventIndex)
+void EventWidgetPrivate::createView(const QUuid &eventId)
 {
     auto analysis = m_context->getAnalysisNG();
     s32 maxUserLevel = 0;
 
-    for (const auto &opEntry: analysis->getOperators(eventIndex))
+    for (const auto &opEntry: analysis->getOperators(eventId))
     {
         maxUserLevel = std::max(maxUserLevel, opEntry.userLevel);
     }
@@ -397,17 +394,17 @@ void EventWidgetPrivate::createView(s32 eventIndex)
 
     for (s32 userLevel = 0; userLevel <= maxUserLevel; ++userLevel)
     {
-        auto trees = createTrees(eventIndex, userLevel);
+        auto trees = createTrees(eventId, userLevel);
         m_levelTrees.push_back(trees);
     }
 }
 
-DisplayLevelTrees EventWidgetPrivate::createTrees(s32 eventIndex, s32 level)
+DisplayLevelTrees EventWidgetPrivate::createTrees(const QUuid &eventId, s32 level)
 {
     // Level 0: special case for data sources
     if (level == 0)
     {
-        return createSourceTrees(eventIndex);
+        return createSourceTrees(eventId);
     }
 
     DisplayLevelTrees result = { new QTreeWidget, new DisplayTree, level };
@@ -424,7 +421,7 @@ DisplayLevelTrees EventWidgetPrivate::createTrees(s32 eventIndex, s32 level)
 
     // Build a list of operators for the current level
     auto analysis = m_context->getAnalysisNG();
-    QVector<Analysis::OperatorEntry> operators = analysis->getOperators(eventIndex, level);
+    QVector<Analysis::OperatorEntry> operators = analysis->getOperators(eventId, level);
 
     // Populate the OperatorTree
     for (auto entry: operators)
@@ -472,12 +469,12 @@ DisplayLevelTrees EventWidgetPrivate::createTrees(s32 eventIndex, s32 level)
     return result;
 }
 
-DisplayLevelTrees EventWidgetPrivate::createSourceTrees(s32 eventIndex)
+DisplayLevelTrees EventWidgetPrivate::createSourceTrees(const QUuid &eventId)
 {
     auto analysis = m_context->getAnalysisNG();
     auto vmeConfig = m_context->getDAQConfig();
 
-    auto eventConfig = vmeConfig->getEventConfig(eventIndex);
+    auto eventConfig = vmeConfig->getEventConfig(eventId);
     auto modules = eventConfig->getModuleConfigs();
 
     DisplayLevelTrees result = { new QTreeWidget, new DisplayTree, 0 };
@@ -494,27 +491,24 @@ DisplayLevelTrees EventWidgetPrivate::createSourceTrees(s32 eventIndex)
     result.displayTree->setItemDelegate(new HtmlDelegate(result.displayTree));
 
     // Populate the OperatorTree
-    int moduleIndex = 0;
     for (auto mod: modules)
     {
         auto moduleNode = makeModuleNode(mod);
         result.operatorTree->addTopLevelItem(moduleNode);
         moduleNode->setExpanded(true);
 
-        for (auto sourceEntry: analysis->getSources(eventIndex, moduleIndex))
+        for (auto sourceEntry: analysis->getSources(eventId, mod->getId()))
         {
             auto sourceNode = makeOperatorTreeSourceNode(sourceEntry.source.get());
             moduleNode->addChild(sourceNode);
         }
-        ++moduleIndex;
     }
     result.operatorTree->sortItems(0, Qt::AscendingOrder);
 
     // Populate the DisplayTree
     // Create module nodes and nodes for the raw histograms for each data source for the module.
     QSet<QObject *> sinksAddedBelowModules;
-    moduleIndex = 0;
-    auto opEntries = analysis->getOperators(eventIndex, 0);
+    auto opEntries = analysis->getOperators(eventId, 0);
 
     for (auto mod: modules)
     {
@@ -522,7 +516,7 @@ DisplayLevelTrees EventWidgetPrivate::createSourceTrees(s32 eventIndex)
         result.displayTree->addTopLevelItem(moduleNode);
         moduleNode->setExpanded(true);
 
-        for (auto sourceEntry: analysis->getSources(eventIndex, moduleIndex))
+        for (auto sourceEntry: analysis->getSources(eventId, mod->getId()))
         {
             for (const auto &entry: opEntries)
             {
@@ -535,7 +529,6 @@ DisplayLevelTrees EventWidgetPrivate::createSourceTrees(s32 eventIndex)
                 }
             }
         }
-        ++moduleIndex;
     }
 
     // This handles any "lost" display elements. E.g. raw histograms whose data
@@ -709,10 +702,10 @@ void EventWidgetPrivate::repopulate()
     Q_ASSERT(m_displayFrameSplitter->count() == 0);
 
     // populate
-    if (m_eventIndex >= 0)
+    if (!m_eventId.isNull())
     {
         // This populates m_d->m_levelTrees
-        createView(m_eventIndex);
+        createView(m_eventId);
     }
 
     for (auto trees: m_levelTrees)
@@ -733,10 +726,10 @@ void EventWidgetPrivate::repopulate()
     clearAllToDefaultNodeHighlights();
 }
 
-void EventWidgetPrivate::addUserLevel(s32 eventIndex)
+void EventWidgetPrivate::addUserLevel(const QUuid &eventId)
 {
     s32 levelIndex = m_levelTrees.size();
-    auto trees = createTrees(eventIndex, levelIndex);
+    auto trees = createTrees(eventId, levelIndex);
     m_levelTrees.push_back(trees);
     appendTreesToView(trees);
 }
@@ -1656,13 +1649,6 @@ void EventWidgetPrivate::clearTreeSelectionsExcept(QTreeWidget *treeNotToClear)
 
 void EventWidgetPrivate::generateDefaultFilters(ModuleConfig *module)
 {
-    auto indices = m_context->getDAQConfig()->getEventAndModuleIndices(module);
-    s32 eventIndex = indices.first;
-    s32 moduleIndex = indices.second;
-
-    if (eventIndex < 0 || moduleIndex < 0)
-        return;
-
     AnalysisPauser pauser(m_context);
 
     // "single word" filters
@@ -1681,7 +1667,7 @@ void EventWidgetPrivate::generateDefaultFilters(ModuleConfig *module)
                                                                   filterDef.title,
                                                                   QString());
 
-            add_raw_data_display(m_context->getAnalysisNG(), eventIndex, moduleIndex, rawDataDisplay);
+            add_raw_data_display(m_context->getAnalysisNG(), m_eventId, module->getId(), rawDataDisplay);
         }
     }
 
@@ -1702,7 +1688,7 @@ void EventWidgetPrivate::generateDefaultFilters(ModuleConfig *module)
                                                                   filterDef.title,
                                                                   QString());
 
-            add_raw_data_display(m_context->getAnalysisNG(), eventIndex, moduleIndex, rawDataDisplay);
+            add_raw_data_display(m_context->getAnalysisNG(), m_eventId, module->getId(), rawDataDisplay);
         }
     }
 
@@ -1734,7 +1720,7 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, AnalysisWidget 
         }
     }
 
-    m_d->m_eventIndex = eventIndex;
+    m_d->m_eventId = eventId;
 
     auto outerLayout = new QHBoxLayout(this);
     outerLayout->setContentsMargins(0, 0, 0, 0);
@@ -1808,7 +1794,7 @@ void EventWidget::addOperator(OperatorPtr op, s32 userLevel)
     try
     {
         AnalysisPauser pauser(m_d->m_context);
-        m_d->m_context->getAnalysisNG()->addOperator(m_d->m_eventIndex, op, userLevel);
+        m_d->m_context->getAnalysisNG()->addOperator(m_d->m_eventId, op, userLevel);
         m_d->repopulate();
     }
     catch (const std::bad_alloc &)
@@ -1851,8 +1837,6 @@ void EventWidget::addSource(SourcePtr src, ModuleConfig *module, bool addHistogr
     if (!src) return;
 
     auto indices = m_d->m_context->getDAQConfig()->getEventAndModuleIndices(module);
-    s32 eventIndex = indices.first;
-    s32 moduleIndex = indices.second;
     auto analysis = m_d->m_context->getAnalysisNG();
 
     try
@@ -1864,13 +1848,13 @@ void EventWidget::addSource(SourcePtr src, ModuleConfig *module, bool addHistogr
             // Only implemented for Extractor type sources
             auto extractor = std::dynamic_pointer_cast<Extractor>(src);
             Q_ASSERT(extractor);
-            auto rawDisplay = make_raw_data_display(extractor, unitMin, unitMax, "MISSING TITLE", // INCOMPLETE
+            auto rawDisplay = make_raw_data_display(extractor, unitMin, unitMax, QString(), // INCOMPLETE: missing title
                                                     unitLabel);
-            add_raw_data_display(analysis, eventIndex, moduleIndex, rawDisplay);
+            add_raw_data_display(analysis, m_d->m_eventId, module->getId(), rawDisplay);
         }
         else
         {
-            analysis->addSource(eventIndex, moduleIndex, src);
+            analysis->addSource(m_d->m_eventId, module->getId(), src);
         }
         m_d->repopulate();
     }
@@ -1913,9 +1897,9 @@ void EventWidget::uniqueWidgetCloses()
     m_d->m_uniqueWidgetActive = false;
 }
 
-void EventWidget::addUserLevel(s32 eventIndex)
+void EventWidget::addUserLevel(const QUuid &eventId)
 {
-    m_d->addUserLevel(eventIndex);
+    m_d->addUserLevel(eventId);
 }
 
 MVMEContext *EventWidget::getContext() const
@@ -1980,7 +1964,7 @@ struct AnalysisWidgetPrivate
 
 void AnalysisWidgetPrivate::repopulate()
 {
-    int lastEventSelectIndex = m_eventSelectCombo->currentIndex();
+    const QUuid lastSelectedEventId = m_eventSelectCombo->currentData().toUuid();
 
     // Clear combobox and stacked widget. This deletes all existing EventWidgets.
     m_eventSelectCombo->clear();
@@ -1996,7 +1980,8 @@ void AnalysisWidgetPrivate::repopulate()
     // Repopulate combobox and stacked widget
     m_eventConfigs = m_context->getEventConfigs();
 
-    // FIXME: use ids here
+    s32 comboIndexToSelect = -1;
+
     // FIXME: event creation is still entirely based on the DAQ config. events
     //        that do exist in the analysis but in the DAQ won't show up at all
     for (s32 eventIndex = 0;
@@ -2006,7 +1991,11 @@ void AnalysisWidgetPrivate::repopulate()
         auto eventConfig = m_eventConfigs[eventIndex];
         auto eventId = eventConfig->getId();
         auto eventWidget = new EventWidget(m_context, eventId, m_q);
-        m_eventSelectCombo->addItem(QString("%1 (idx=%2)").arg(eventConfig->objectName()).arg(eventIndex));
+
+        m_eventSelectCombo->addItem(eventConfig->objectName(), eventId);
+
+        if (eventId == lastSelectedEventId)
+            comboIndexToSelect = eventIndex;
 
         auto scrollArea = new QScrollArea;
         scrollArea->setWidget(eventWidget);
@@ -2016,9 +2005,9 @@ void AnalysisWidgetPrivate::repopulate()
         m_eventWidgetsByEventId[eventId] = eventWidget;
     }
 
-    if (lastEventSelectIndex >= 0 && lastEventSelectIndex < m_eventSelectCombo->count())
+    if (!lastSelectedEventId.isNull() && comboIndexToSelect < m_eventSelectCombo->count())
     {
-        m_eventSelectCombo->setCurrentIndex(lastEventSelectIndex);
+        m_eventSelectCombo->setCurrentIndex(comboIndexToSelect);
     }
 
     updateWindowTitle();
@@ -2180,13 +2169,14 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
 
     auto addUserLevelButton = new QToolButton();
     addUserLevelButton->setIcon(QIcon(QSL(":/list_add.png")));
+
     connect(addUserLevelButton, &QPushButton::clicked, this, [this]() {
-        s32 eventIndex = m_d->m_eventSelectCombo->currentIndex();
-        EventConfig *eventConfig = m_d->m_eventConfigs[eventIndex];
-        EventWidget *eventWidget = m_d->m_eventWidgetsByEventId.value(eventConfig->getId());
+
+        QUuid eventId = m_d->m_eventSelectCombo->currentData().toUuid();
+        EventWidget *eventWidget = m_d->m_eventWidgetsByEventId.value(eventId);
         if (eventWidget)
         {
-            eventWidget->addUserLevel(eventIndex);
+            eventWidget->addUserLevel(eventId);
         }
     });
 
@@ -2231,23 +2221,16 @@ void AnalysisWidget::operatorAdded(const std::shared_ptr<OperatorInterface> &op)
     if (it != opEntries.end())
     {
         auto entry = *it;
-        auto eventConfig = m_d->m_context->getDAQConfig()->getEventConfig(entry.eventIndex);
-        if (eventConfig)
+        auto eventWidget = m_d->m_eventWidgetsByEventId.value(entry.eventId);
+        if (eventWidget)
         {
-            auto eventWidget = m_d->m_eventWidgetsByEventId.value(eventConfig->getId());
-            if (eventWidget)
-            {
-                eventWidget->m_d->repopulate();
-            }
+            eventWidget->m_d->repopulate();
         }
     }
 }
 
 void AnalysisWidget::operatorEdited(const std::shared_ptr<OperatorInterface> &op)
 {
-    // FIXME: same as operatorEdited
-    // FIXME: do not use eventIndex anymore
-
     const auto &opEntries(m_d->m_context->getAnalysisNG()->getOperators());
     auto it = std::find_if(opEntries.begin(), opEntries.end(), [op] (const Analysis::OperatorEntry &entry) {
         return entry.op == op;
@@ -2256,50 +2239,15 @@ void AnalysisWidget::operatorEdited(const std::shared_ptr<OperatorInterface> &op
     if (it != opEntries.end())
     {
         auto entry = *it;
-        auto eventConfig = m_d->m_context->getDAQConfig()->getEventConfig(entry.eventIndex);
-        if (eventConfig)
+        auto eventWidget = m_d->m_eventWidgetsByEventId.value(entry.eventId);
+        if (eventWidget)
         {
-            auto eventWidget = m_d->m_eventWidgetsByEventId.value(eventConfig->getId());
-            if (eventWidget)
-            {
-                eventWidget->m_d->repopulate();
-            }
+            eventWidget->m_d->repopulate();
         }
     }
 }
 
 } // end namespace analysis
-
-#if 0
-QAction *add_toolbar_action(QToolBar *toolbar, QIcon icon, const QString &title, const QString &statusTip = QString())
-{
-    auto result = toolbar->addAction(icon, title);
-    if (!statusTip.isEmpty())
-        result->setStatusTip(statusTip);
-    else
-        result->setStatusTip(title);
-
-    return result;
-}
-#endif
-
-#if 0
-    {
-        // DataExtractionEditor test
-        analysis::MultiWordDataFilter testFilter;
-        testFilter.addSubFilter(analysis::DataFilter("0001XXXXPO00AAAADDDDDDDDDDDDDDDD", 3));
-        testFilter.addSubFilter(analysis::DataFilter("0101XXXXXXXXXXXXDDDDDDDDDDDDDDDD", 4));
-
-        auto testWidget = new DataExtractionEditor(this);
-        testWidget->setWindowFlags(Qt::Tool);
-        testWidget->show();
-
-        testWidget->m_defaultFilter = "0001XXXXPO00AAAADDDDDDDDDDDDDDDD";
-        testWidget->m_subFilters = testFilter.getSubFilters();
-        testWidget->m_requiredCompletionCount = 42;
-        testWidget->updateDisplay();
-    }
-#endif
 
 #if 0
 // Was playing around with storing shared_ptr<T> in QVariants. Getting the
@@ -2332,4 +2280,3 @@ std::shared_ptr<T> getSharedPointer(QTreeWidgetItem *node, s32 dataRole = DataRo
     return node ? node->data(0, dataRole).value<std::shared_ptr<T>>() : std::shared_ptr<T>();
 }
 #endif
-

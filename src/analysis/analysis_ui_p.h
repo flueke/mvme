@@ -54,7 +54,7 @@ class EventWidget: public QWidget
         void removeOperator(OperatorInterface *op);
 
         void uniqueWidgetCloses();
-        void addUserLevel(s32 eventIndex);
+        void addUserLevel(const QUuid &eventId);
 
         MVMEContext *getContext() const;
 

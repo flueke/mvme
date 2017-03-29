@@ -114,8 +114,8 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
             if (eventConfig)
                 ++stats.eventCounters[eventConfig].events;
 
-            if (m_d->analysis_ng)
-                m_d->analysis_ng->beginEvent(eventIndex);
+            if (m_d->analysis_ng && eventConfig)
+                m_d->analysis_ng->beginEvent(eventConfig->getId());
 
             int moduleIndex = 0;
 
@@ -127,6 +127,7 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                 u32 subEventHeader = iter.extractU32();
                 u32 subEventSize = (subEventHeader & SubEventSizeMask) >> SubEventSizeShift;
                 auto moduleType  = static_cast<VMEModuleType>((subEventHeader & ModuleTypeMask) >> ModuleTypeShift);
+                auto moduleConfig = m_d->context->getConfig()->getModuleConfig(eventIndex, moduleIndex);
 
 
                 MesytecDiagnostics *diag = nullptr;
@@ -187,8 +188,11 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                         diag->handleDataWord(currentWord);
                     }
 
-                    if (m_d->analysis_ng)
-                        m_d->analysis_ng->processDataWord(eventIndex, moduleIndex, currentWord, wordIndexInSubEvent);
+                    if (m_d->analysis_ng && eventConfig && moduleConfig)
+                    {
+                        m_d->analysis_ng->processDataWord(eventConfig->getId(), moduleConfig->getId(),
+                                                          currentWord, wordIndexInSubEvent);
+                    }
                 }
 
                 if (diag)
@@ -233,8 +237,8 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                 return;
             }
 
-            if (m_d->analysis_ng)
-                m_d->analysis_ng->endEvent(eventIndex);
+            if (m_d->analysis_ng && eventConfig)
+                m_d->analysis_ng->endEvent(eventConfig->getId());
         }
         ++stats.totalBuffersProcessed;
     } catch (const end_of_buffer &)

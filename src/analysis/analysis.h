@@ -867,42 +867,41 @@ class Analysis: public QObject
     public:
         struct SourceEntry
         {
-            s32 eventIndex; // TODO: eventId
-            s32 moduleIndex; // TODO: moduleId
+            QUuid eventId;
+            QUuid moduleId;
             SourcePtr source;
-
             SourceInterface *sourceRaw;
         };
 
         struct OperatorEntry
         {
-            s32 eventIndex; // TODO: eventId
+            QUuid eventId;
             OperatorPtr op;
+            OperatorInterface *opRaw;
+
             // A user defined level used for UI display structuring.
             s32 userLevel;
-
-            OperatorInterface *opRaw;
         };
 
         Analysis(QObject *parent = nullptr);
 
         void beginRun();
-        void beginEvent(s32 eventIndex);
-        void processDataWord(s32 eventIndex, s32 moduleIndex, u32 data, s32 wordIndex);
-        void endEvent(s32 eventIndex);
+        void beginEvent(const QUuid &eventId);
+        void processDataWord(const QUuid &eventId, const QUuid &moduleId, u32 data, s32 wordIndex);
+        void endEvent(const QUuid &eventId);
 
         const QVector<SourceEntry> &getSources() const
         {
             return m_sources;
         }
 
-        QVector<SourceEntry> getSources(s32 eventIndex, s32 moduleIndex) const
+        QVector<SourceEntry> getSources(const QUuid &eventId, const QUuid &moduleId) const
         {
             QVector<SourceEntry> result;
 
             for (const auto &e: m_sources)
             {
-                if (e.eventIndex == eventIndex && e.moduleIndex == moduleIndex)
+                if (e.eventId == eventId && e.moduleId == moduleId)
                 {
                     result.push_back(e);
                 }
@@ -911,7 +910,7 @@ class Analysis: public QObject
             return result;
         }
 
-        void addSource(s32 eventIndex, s32 moduleIndex, const SourcePtr &source);
+        void addSource(const QUuid &eventId, const QUuid &moduleId, const SourcePtr &source);
         void removeSource(const SourcePtr &source);
         void removeSource(SourceInterface *source);
 
@@ -920,13 +919,13 @@ class Analysis: public QObject
             return m_operators;
         }
 
-        const QVector<OperatorEntry> getOperators(s32 eventIndex) const
+        const QVector<OperatorEntry> getOperators(const QUuid &eventId) const
         {
             QVector<OperatorEntry> result;
 
             for (const auto &e: m_operators)
             {
-                if (e.eventIndex == eventIndex)
+                if (e.eventId == eventId)
                 {
                   result.push_back(e);
                 }
@@ -935,13 +934,13 @@ class Analysis: public QObject
             return result;
         }
 
-        const QVector<OperatorEntry> getOperators(s32 eventIndex, s32 userLevel) const
+        const QVector<OperatorEntry> getOperators(const QUuid &eventId, s32 userLevel) const
         {
             QVector<OperatorEntry> result;
 
             for (const auto &e: m_operators)
             {
-                if (e.eventIndex ==eventIndex && e.userLevel == userLevel)
+                if (e.eventId == eventId && e.userLevel == userLevel)
                 {
                   result.push_back(e);
                 }
@@ -950,13 +949,13 @@ class Analysis: public QObject
             return result;
         }
 
-        // FIXME: use eventId here!
-        void addOperator(s32 eventIndex, const OperatorPtr &op, s32 userLevel);
+        void addOperator(const QUuid &eventId, const OperatorPtr &op, s32 userLevel);
         void removeOperator(const OperatorPtr &op);
         void removeOperator(OperatorInterface *op);
 
         void clear();
 
+#if 0
         s32 getModuleIndex(const SourcePtr &src) const { return getModuleIndex(src.get()); }
         s32 getModuleIndex(const SourceInterface *src) const
         {
@@ -995,6 +994,7 @@ class Analysis: public QObject
             }
             return -1;
         }
+#endif
 
         void updateRanks();
 
@@ -1044,7 +1044,7 @@ RawDataDisplay make_raw_data_display(std::shared_ptr<Extractor> extractor, doubl
 RawDataDisplay make_raw_data_display(const MultiWordDataFilter &extractionFilter, double unitMin, double unitMax,
                                      const QString &name, const QString &xAxisTitle, const QString &unitLabel);
 
-void add_raw_data_display(Analysis *analysis, s32 eventIndex, s32 moduleIndex, const RawDataDisplay &display);
+void add_raw_data_display(Analysis *analysis, const QUuid &eventId, const QUuid &moduleId, const RawDataDisplay &display);
 
 void do_beginRun_forward(PipeSourceInterface *pipeSource);
 

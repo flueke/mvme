@@ -42,6 +42,8 @@ struct MVMEContextPrivate
 
     void stopAnalysis();
     void resumeAnalysis();
+
+    void convertAnalysisJsonToV2(QJsonObject &json);
 };
 
 // FIXME: there are no checks done to see if any of the workers is already idle
@@ -159,6 +161,66 @@ void MVMEContextPrivate::resumeAnalysis()
                                   Qt::QueuedConnection);
 
         qDebug() << __PRETTY_FUNCTION__ << "analysis resumed";
+    }
+}
+
+void MVMEContextPrivate::convertAnalysisJsonToV2(QJsonObject &json)
+{
+    bool couldConvert = true;
+    auto vmeConfig = m_q->getDAQConfig();
+
+    // sources
+    auto array = json["sources"].toArray();
+
+    for (auto it = array.begin(); it != array.end(); ++it)
+    {
+        auto objectJson = it->toObject();
+        int eventIndex = objectJson["eventIndex"].toInt();
+        int moduleIndex = objectJson["moduleIndex"].toInt();
+
+        auto eventConfig = vmeConfig->getEventConfig(eventIndex);
+        auto moduleConfig = vmeConfig->getModuleConfig(eventIndex, moduleIndex);
+
+        if (eventConfig && moduleConfig)
+        {
+            objectJson["eventId"] = eventConfig->getId().toString();
+            objectJson["moduleId"] = moduleConfig->getId().toString();
+            *it = objectJson;
+        }
+        else
+        {
+            couldConvert = false;
+        }
+    }
+    json["sources"] = array;
+
+    // operators
+    array = json["operators"].toArray();
+
+    for (auto it = array.begin(); it != array.end(); ++it)
+    {
+        auto objectJson = it->toObject();
+        int eventIndex = objectJson["eventIndex"].toInt();
+
+        auto eventConfig = vmeConfig->getEventConfig(eventIndex);
+
+        if (eventConfig)
+        {
+            objectJson["eventId"] = eventConfig->getId().toString();
+            *it = objectJson;
+        }
+        else
+        {
+            couldConvert = false;
+        }
+    }
+    json["operators"] = array;
+
+    if (couldConvert)
+    {
+        json["MVMEAnalysisVersion"] = 2; // bumping version number to 2
+
+        qDebug() << "converted analysis config json to V2";
     }
 }
 
@@ -979,8 +1041,24 @@ void MVMEContext::loadAnalysisConfig(const QString &fileName)
 
     using namespace analysis;
 
+    auto json = doc.object()[QSL("AnalysisNG")].toObject();
+
+    /* This code converts from analysis config versions prior to V2, which
+     * stored eventIndex and moduleIndex instead of eventId and moduleId. This
+     * could be done in Analysis::read() but then the Analysis object would
+     * need a reference to either this context or the current DAQConfig which
+     * is not great.
+     * The solution implemented here makes it so that this context object has
+     * knowledge about the Analysis json structure which isn't great either.
+     */
+    int version = json[QSL("MVMEAnalysisVersion")].toInt(0);
+    if (version < 2)
+    {
+        m_d->convertAnalysisJsonToV2(json);
+    }
+
     auto analysis_ng = std::make_unique<Analysis>();
-    auto readResult = analysis_ng->read(doc.object()[QSL("AnalysisNG")].toObject());
+    auto readResult = analysis_ng->read(json);
 
     if (readResult.code != Analysis::ReadResult::NoError)
     {
@@ -1069,9 +1147,8 @@ void MVMEContext::addAnalysisOperator(QUuid eventId, const std::shared_ptr<analy
     auto eventConfig = m_daqConfig->getEventConfig(eventId);
     if (eventConfig)
     {
-        s32 eventIndex = m_daqConfig->getEventConfigs().indexOf(eventConfig);
         AnalysisPauser pauser(this);
-        getAnalysisNG()->addOperator(eventIndex, op, userLevel);
+        getAnalysisNG()->addOperator(eventId, op, userLevel);
 
         if (m_analysisUi)
         {
