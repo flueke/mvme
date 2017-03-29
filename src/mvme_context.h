@@ -229,6 +229,11 @@ class MVMEContext: public QObject
             m_analysisUi = analysisUi;
         }
 
+        analysis::AnalysisWidget *getAnalysisUi() const
+        {
+            return m_analysisUi;
+        }
+
     public slots:
         void startDAQ(quint32 nCycles=0);
         // Stops DAQ or replay depending on the current GlobalMode

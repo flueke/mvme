@@ -37,6 +37,7 @@
 
 #include <qwt_plot_curve.h>
 
+#if 0 // MDI
 template<typename T>
 QList<T *> getSubwindowWidgetsByType(QMdiArea *mdiArea)
 {
@@ -70,6 +71,7 @@ QList<QMdiSubWindow *> getSubwindowsByWidgetType(QMdiArea *mdiArea)
 
     return ret;
 }
+#endif
 
 mvme::mvme(QWidget *parent) :
     QMainWindow(parent),
@@ -96,6 +98,7 @@ mvme::mvme(QWidget *parent) :
     ui->setupUi(this);
 
 
+#if 0 // MDI
     //
     // DAQControlWidget
     //
@@ -182,10 +185,59 @@ mvme::mvme(QWidget *parent) :
     resizeDocks({dock_daqStats, dock_logView}, {1, 2}, Qt::Horizontal);
 
     dock_configTree->raise();
+#endif
 
     //
+    // central widget consiting of DAQControlWidget, DAQConfigTreeWidget and DAQStatsWidget
     //
+    {
+        m_daqControlWidget = new DAQControlWidget(m_context);
+        m_daqConfigTreeWidget = new DAQConfigTreeWidget(m_context);
+        m_daqStatsWidget = new DAQStatsWidget(m_context);
+
+        auto centralLayout = qobject_cast<QVBoxLayout *>(ui->centralWidget->layout());
+        Q_ASSERT(centralLayout);
+
+        centralLayout->addWidget(m_daqControlWidget);
+        centralLayout->addWidget(m_daqConfigTreeWidget);
+        centralLayout->addWidget(m_daqStatsWidget);
+
+        centralLayout->setStretch(1, 1);
+
+        connect(m_daqConfigTreeWidget, &DAQConfigTreeWidget::configObjectClicked,
+                this, &mvme::onObjectClicked);
+
+        connect(m_daqConfigTreeWidget, &DAQConfigTreeWidget::configObjectDoubleClicked,
+                this, &mvme::onObjectDoubleClicked);
+
+        connect(m_daqConfigTreeWidget, &DAQConfigTreeWidget::showDiagnostics,
+                this, &mvme::onShowDiagnostics);
+    }
+
     //
+    // Log Window
+    //
+    {
+        m_logView->setWindowTitle("Log View");
+        QFont font("MonoSpace");
+        font.setStyleHint(QFont::Monospace);
+        m_logView->setFont(font);
+        m_logView->setTabChangesFocus(true);
+        m_logView->document()->setMaximumBlockCount(10 * 1024 * 1024);
+        m_logView->setContextMenuPolicy(Qt::CustomContextMenu);
+        //m_logView->setStyleSheet("background-color: rgb(225, 225, 225);");
+        connect(m_logView, &QWidget::customContextMenuRequested, this, [=](const QPoint &pos) {
+            auto menu = m_logView->createStandardContextMenu(pos);
+            auto action = menu->addAction("Clear");
+            connect(action, &QAction::triggered, m_logView, &QTextBrowser::clear);
+            menu->exec(m_logView->mapToGlobal(pos));
+            menu->deleteLater();
+        });
+
+        // TODO: delete on close or disallow closing or something!
+        m_logView->show();
+        m_logView->raise();
+    }
 
     connect(m_context, &MVMEContext::sigLogMessage, this, &mvme::appendToLog);
 
@@ -462,6 +514,7 @@ void mvme::closeEvent(QCloseEvent *event)
     settings.setValue("mainWindowGeometry", saveGeometry());
     settings.setValue("mainWindowState", saveState());
 
+#if 0 // MDI
     auto windowList = ui->mdiArea->subWindowList();
 
     settings.beginGroup("MdiSubWindows");
@@ -483,6 +536,7 @@ void mvme::closeEvent(QCloseEvent *event)
     {
         subwin->close();
     }
+#endif
 
     QMainWindow::closeEvent(event);
 }
@@ -494,6 +548,7 @@ void mvme::restoreSettings()
     restoreGeometry(settings.value("mainWindowGeometry").toByteArray());
     restoreState(settings.value("mainWindowState").toByteArray());
 
+#if 0 // MDI
     auto windowList = ui->mdiArea->subWindowList();
     settings.beginGroup("MdiSubWindows");
 
@@ -514,6 +569,7 @@ void mvme::restoreSettings()
     }
 
     settings.endGroup();
+#endif
 }
 
 void mvme::on_actionNewConfig_triggered()
@@ -734,6 +790,7 @@ void mvme::on_actionClose_Listfile_triggered()
 
 void mvme::on_actionAnalysis_UI_triggered()
 {
+#if 0 // MDI
     for (auto win: ui->mdiArea->subWindowList())
     {
         if (qobject_cast<analysis::AnalysisWidget *>(win->widget()))
@@ -744,20 +801,33 @@ void mvme::on_actionAnalysis_UI_triggered()
             return;
         }
     }
+#endif
 
-    auto widget = new analysis::AnalysisWidget(m_context);
-    m_context->setAnalysisUi(widget);
+    auto analysisUi = m_context->getAnalysisUi();
 
-    connect(widget, &QObject::destroyed, this, [this] (QObject *) {
-        this->m_context->setAnalysisUi(nullptr);
-    });
+    if (!analysisUi)
+    {
+        analysisUi = new analysis::AnalysisWidget(m_context);
+        m_context->setAnalysisUi(analysisUi);
 
+        connect(analysisUi, &QObject::destroyed, this, [this] (QObject *) {
+            this->m_context->setAnalysisUi(nullptr);
+        });
+    }
+
+    analysisUi->show();
+    analysisUi->raise();
+
+
+#if 0 // MDI
     auto subwin = addWidgetWindow(widget);
     m_geometrySaver->addAndRestore(subwin, QSL("AnalysisUI/windowSize"), QSL("AnalysisUI/windowPosition"));
+#endif
 }
 
 void mvme::on_actionVME_Debug_triggered()
 {
+#if 0 // MDI
     QMdiSubWindow *subwin = nullptr;
 
     for (auto win: ui->mdiArea->subWindowList())
@@ -781,6 +851,7 @@ void mvme::on_actionVME_Debug_triggered()
 
     subwin->show();
     ui->mdiArea->setActiveSubWindow(subwin);
+#endif
 }
 
 void mvme::openInNewWindow(QObject *object)
@@ -817,6 +888,9 @@ void mvme::openInNewWindow(QObject *object)
     if (widget)
     {
         widget->setAttribute(Qt::WA_DeleteOnClose);
+        widget->show();
+        widget->raise();
+#if 0 // MDI
         auto subwin = new QMdiSubWindow;
         subwin->setAttribute(Qt::WA_DeleteOnClose);
         subwin->setWidget(widget);
@@ -844,6 +918,7 @@ void mvme::openInNewWindow(QObject *object)
                 subwin->close();
             });
         }
+#endif
     }
 }
 
@@ -851,6 +926,19 @@ QMdiSubWindow *mvme::addWidgetWindow(QWidget *widget, QSize windowSize)
 {
     auto windowIcon = QIcon(QPixmap(":/mesytec-window-icon.png"));
     widget->setAttribute(Qt::WA_DeleteOnClose);
+
+    // TODO: restore pos and size. which information to use to store it?
+
+    if (windowSize.isValid())
+    {
+        widget->resize(windowSize);
+    }
+
+    widget->show();
+    widget->raise();
+
+
+#if 0 // MDI
     auto subwin = new QMdiSubWindow;
     subwin->setAttribute(Qt::WA_DeleteOnClose);
     subwin->setWidget(widget);
@@ -878,10 +966,13 @@ QMdiSubWindow *mvme::addWidgetWindow(QWidget *widget, QSize windowSize)
     }
 
     return subwin;
+#endif
+    return nullptr;
 }
 
 void mvme::onObjectClicked(QObject *object)
 {
+#if 0 // MDI
     auto &lst = m_objectWindows[object];
 
     if (!lst.isEmpty())
@@ -896,6 +987,7 @@ void mvme::onObjectClicked(QObject *object)
             ui->mdiArea->setActiveSubWindow(window);
         }
     }
+#endif
 }
 
 void mvme::onObjectDoubleClicked(QObject *object)
@@ -990,8 +1082,10 @@ void mvme::clearLog()
 
 void mvme::resizeEvent(QResizeEvent *event)
 {
+#if 0 // MDI
     resizeDocks({dock_daqControl, dock_configTree}, {1, 10}, Qt::Vertical);
     resizeDocks({dock_daqStats, dock_logView}, {1, 10}, Qt::Horizontal);
+#endif
     QMainWindow::resizeEvent(event);
 }
 
@@ -1058,6 +1152,7 @@ void mvme::onShowDiagnostics(ModuleConfig *moduleConfig)
 
     });
 
+#if 0 // MDI
     auto subwin = new QMdiSubWindow(ui->mdiArea);
     subwin->setWidget(widget);
     subwin->setAttribute(Qt::WA_DeleteOnClose);
@@ -1065,6 +1160,7 @@ void mvme::onShowDiagnostics(ModuleConfig *moduleConfig)
     ui->mdiArea->addSubWindow(subwin);
     subwin->show();
     ui->mdiArea->setActiveSubWindow(subwin);
+#endif
 }
 
 void mvme::on_actionImport_Histo1D_triggered()
@@ -1099,6 +1195,7 @@ void mvme::on_actionImport_Histo1D_triggered()
             widget->setAttribute(Qt::WA_DeleteOnClose);
             histo->setParent(widget);
 
+#if 0 // MDI
             auto subwin = new QMdiSubWindow;
             subwin->setAttribute(Qt::WA_DeleteOnClose);
 
@@ -1107,6 +1204,7 @@ void mvme::on_actionImport_Histo1D_triggered()
             ui->mdiArea->addSubWindow(subwin);
             subwin->show();
             ui->mdiArea->setActiveSubWindow(subwin);
+#endif
 
 
             if (path != m_context->getWorkspaceDirectory())

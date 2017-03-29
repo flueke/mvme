@@ -4,22 +4,24 @@
 #include <QMainWindow>
 #include <QMap>
 
-class Hist2D;
+class ConfigObject;
+class DAQConfig;
+class DAQConfigTreeWidget;
+class DAQControlWidget;
+class DAQStatsWidget;
 class DataThread;
 class Diagnostics;
+class EventConfig;
+class Hist2D;
 class HistogramCollection;
+class HistogramTreeWidget;
+class ModuleConfig;
 class MVMEContext;
+class MVMEContextWidget;
 class RealtimeData;
 class VirtualMod;
 class vmedevice;
-class EventConfig;
-class ModuleConfig;
-class MVMEContextWidget;
-class DAQConfig;
-class DAQConfigTreeWidget;
-class HistogramTreeWidget;
 class VMEScriptConfig;
-class ConfigObject;
 class WidgetGeometrySaver;
 
 class QMdiSubWindow;
@@ -100,12 +102,10 @@ private:
     MVMEContext *m_context;
     QTextBrowser *m_logView;
     QMap<QObject *, QList<QMdiSubWindow *>> m_objectWindows;
-    DAQConfigTreeWidget *m_daqConfigTreeWidget;
 
-    QDockWidget *dock_daqControl,
-                *dock_daqStats,
-                *dock_configTree,
-                *dock_logView;
+    DAQControlWidget *m_daqControlWidget;
+    DAQConfigTreeWidget *m_daqConfigTreeWidget;
+    DAQStatsWidget *m_daqStatsWidget;
 
     WidgetGeometrySaver *m_geometrySaver;
 };
