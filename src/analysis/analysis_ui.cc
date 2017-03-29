@@ -1677,7 +1677,7 @@ void EventWidgetPrivate::generateDefaultFilters(ModuleConfig *module)
             double unitMax = (1 << multiWordFilter.getDataBits());
 
             RawDataDisplay rawDataDisplay = make_raw_data_display(multiWordFilter, unitMin, unitMax,
-                                                                  filterDef.name,
+                                                                  module->objectName() + QSL(".") + filterDef.name,
                                                                   filterDef.title,
                                                                   QString());
 
@@ -1698,7 +1698,7 @@ void EventWidgetPrivate::generateDefaultFilters(ModuleConfig *module)
             double unitMax = (1 << multiWordFilter.getDataBits());
 
             RawDataDisplay rawDataDisplay = make_raw_data_display(multiWordFilter, unitMin, unitMax,
-                                                                  filterDef.name,
+                                                                  module->objectName() + QSL(".") + filterDef.name,
                                                                   filterDef.title,
                                                                   QString());
 
