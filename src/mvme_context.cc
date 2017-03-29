@@ -46,9 +46,6 @@ struct MVMEContextPrivate
     void convertAnalysisJsonToV2(QJsonObject &json);
 };
 
-// FIXME: there are no checks done to see if any of the workers is already idle
-// Right now these checks are only done in DAQControlWidget to decide which buttons to enable
-
 void MVMEContextPrivate::stopDAQ()
 {
     switch (m_q->m_mode)
@@ -308,15 +305,6 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
 
     m_readoutThread->start();
 
-    // FIXME: onDAQStateChanged() does not properly describe the system
-    // anymore. It doesn't say anything about event processing but the
-    // implementation assumes that it does. Split this into something finer
-    // grained? But most parts of the UI are only interested in whether things
-    // are running or are stopped, not the individual components.  This is
-    // different for the analysis which soon will want to know if
-    // MVMEEventProcessor has been paused and it's thus safe to perform
-    // modifications.
-
     connect(m_readoutWorker, &VMUSBReadoutWorker::stateChanged, this, &MVMEContext::onDAQStateChanged);
     connect(m_readoutWorker, &VMUSBReadoutWorker::daqStopped, this, &MVMEContext::onDAQDone);
 
@@ -327,8 +315,6 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
     connect(m_readoutWorker, &VMUSBReadoutWorker::logMessage, this, &MVMEContext::sigLogMessage);
     connect(m_readoutWorker, &VMUSBReadoutWorker::logMessages, this, &MVMEContext::logMessages);
     connect(m_bufferProcessor, &VMUSBBufferProcessor::logMessage, this, &MVMEContext::sigLogMessage);
-    // FIXME: not actually emitted by ListFileReader
-    //connect(m_listFileWorker, &ListFileReader::logMessage, this, &MVMEContext::sigLogMessage);
 
     m_eventThread->setObjectName("mvme AnalysisThread");
     m_eventProcessor->moveToThread(m_eventThread);
@@ -390,7 +376,6 @@ MVMEContext::~MVMEContext()
     delete m_listFileWorker;
     delete m_listFile;
 
-    qDeleteAll(m_freeBuffers); // TODO: old analysis, to be removed
     Q_ASSERT(m_freeBufferQueue.queue.size() + m_filledBufferQueue.queue.size() == DataBufferCount);
     qDeleteAll(m_freeBufferQueue.queue);
     qDeleteAll(m_filledBufferQueue.queue);

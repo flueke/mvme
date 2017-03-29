@@ -85,7 +85,6 @@ class MVMEContext: public QObject
         DAQConfig *getDAQConfig() { return m_daqConfig; }
         void setDAQConfig(DAQConfig *config);
         QList<EventConfig *> getEventConfigs() const { return m_daqConfig->getEventConfigs(); }
-        DataBufferQueue *getFreeBuffers() { return &m_freeBuffers; }
         DAQState getDAQState() const;
         EventProcessorState getEventProcessorState() const;
         const DAQStats &getDAQStats() const { return m_daqStats; }
@@ -262,9 +261,6 @@ class MVMEContext: public QObject
         void onModuleAboutToBeRemoved(ModuleConfig *config);
         void onGlobalScriptAboutToBeRemoved(VMEScriptConfig *config);
 
-        //ThreadSafeDataBufferQueue *getFreeBufferQueue() { return &m_freeBufferQueue; }
-        //ThreadSafeDataBufferQueue *getFilledBufferQueue() { return &m_filledBufferQueue; }
-
         friend class MVMEContextPrivate;
 
     private:
@@ -292,7 +288,6 @@ class MVMEContext: public QObject
         QThread *m_eventThread;
         MVMEEventProcessor *m_eventProcessor;
 
-        DataBufferQueue m_freeBuffers;
         QSet<QObject *> m_objects;
         QMap<QString, QMap<QObject *, QObject *>> m_objectMappings;
         mvme *m_mainwin;

@@ -36,7 +36,6 @@ class VMUSBBufferProcessor: public QObject
         void beginRun();
         void endRun();
         void resetRunState(); // call this when a new DAQ run starts
-        void addFreeBuffer(DataBuffer *buffer); // put processed buffers back into the queue
 
     private:
         DataBuffer *getFreeBuffer();

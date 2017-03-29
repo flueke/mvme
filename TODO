@@ -26,13 +26,7 @@
  - react to event and module renames
  - "modified" concept for the analysis and it's elements
  - save/saveas/load error reporting
-
- - !!! Make analysis use DAQConfig object ids instead of only going by eventIndex/moduleIndex !!!
-   This way it would be possible to show that a certain Event/Module does not
-   exist anymore in the DAQConfig.
-   Otherwise the problem with analysis and daqconfig getting out of sync will
-   keep coming back and result in user confusion.
-   Sources need to be attached to a module. From there we can get the event id.
+ - Make the AnalysisUI show consitency errors between vme and analysis configs.
 
 * EventWidget and AnalysisWidget repopulate:
   - Restore open PipeDisplays:
@@ -69,6 +63,7 @@
  - display required memory in Histo2D dialog.
  - combine "single word" and "dual word" filters. the distinction is not needed
    anymore as both are MultiWordDataFilters now
+ - Load default filters from templates
   
 * Is MultiWordDataFilter::handleDataWord() behaviour "correct"/"good"?
   Should it break out of the loop once a filter matched?

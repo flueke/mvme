@@ -265,9 +265,6 @@ void VMUSBBufferProcessor::endRun()
 
         m_listFileOut.close();
     }
-
-    auto queue = m_context->getFreeBuffers();
-    getStats()->freeBuffers = queue->size();
 }
 
 void VMUSBBufferProcessor::resetRunState()
@@ -695,13 +692,6 @@ bool VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *output
     iter.buffp = eventIter.buffp; // advance the buffer iterator
 
     return true;
-}
-
-void VMUSBBufferProcessor::addFreeBuffer(DataBuffer *buffer)
-{
-    auto queue = m_context->getFreeBuffers();
-    queue->enqueue(buffer);
-    getStats()->freeBuffers = queue->size();
 }
 
 DataBuffer* VMUSBBufferProcessor::getFreeBuffer()

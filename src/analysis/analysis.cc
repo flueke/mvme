@@ -812,7 +812,7 @@ void Difference::slotDisconnected(Slot *slot)
 
 void Difference::beginRun()
 {
-    m_output.parameters.name = QSL("A-B"); // FIXME
+    m_output.parameters.name = QSL("A-B");
     m_output.parameters.unit = QString();
 
     if (!(m_inputA.inputPipe && m_inputB.inputPipe))
@@ -919,8 +919,6 @@ Sum::Sum(QObject *parent)
 
 void Sum::beginRun()
 {
-    // FIXME: limits!
-
     auto &out(m_output.getParameters());
 
     if (m_inputSlot.inputPipe)
@@ -1125,23 +1123,6 @@ void Histo1DSink::read(const QJsonObject &json)
     m_xLimitMax = json["xLimitMax"].toDouble(make_quiet_nan());
 
     Q_ASSERT(m_bins > 0);
-
-#if 0
-    QJsonArray histosJson = json["histos"].toArray();
-
-    for (auto it=histosJson.begin();
-         it != histosJson.end();
-         ++it)
-    {
-        auto objectJson = it->toObject();
-
-        u32 nBins = static_cast<u32>(objectJson["nBins"].toInt());
-        double xMin = objectJson["xMin"].toDouble();
-        double xMax = objectJson["xMax"].toDouble();
-        auto histo = std::make_shared<Histo1D>(nBins, xMin, xMax);
-        m_histos.push_back(histo);
-    }
-#endif
 }
 
 void Histo1DSink::write(QJsonObject &json) const
@@ -1150,21 +1131,6 @@ void Histo1DSink::write(QJsonObject &json) const
     json["xAxisTitle"] = m_xAxisTitle;
     json["xLimitMin"]  = m_xLimitMin;
     json["xLimitMax"]  = m_xLimitMax;
-
-#if 0
-    QJsonArray histosJson;
-
-    for (const auto &histo: m_histos)
-    {
-        QJsonObject objectJson;
-        objectJson["nBins"] = static_cast<qint64>(histo->getNumberOfBins());
-        objectJson["xMin"] = histo->getXMin();
-        objectJson["xMax"] = histo->getXMax();
-        histosJson.append(objectJson);
-    }
-
-    json["histos"] = histosJson;
-#endif
 }
 
 //
