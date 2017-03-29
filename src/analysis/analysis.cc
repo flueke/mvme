@@ -1181,7 +1181,9 @@ Histo2DSink::Histo2DSink(QObject *parent)
 // the input parameters limits. Clears the histogram.
 void Histo2DSink::beginRun()
 {
-    if (m_inputX.inputPipe && m_inputY.inputPipe)
+    if (m_inputX.inputPipe && m_inputY.inputPipe
+        && m_inputX.paramIndex < m_inputX.inputPipe->parameters.size()
+        && m_inputY.paramIndex < m_inputY.inputPipe->parameters.size())
     {
         double xMin = m_xLimitMin;
         double xMax = m_xLimitMax;
