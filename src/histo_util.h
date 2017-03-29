@@ -12,6 +12,7 @@ class QComboBox;
 class QDoubleSpinBox;
 class QFrame;
 class QGroupBox;
+class QRadioButton;
 
 // Adapted from: http://stackoverflow.com/a/18593942
 
@@ -256,13 +257,15 @@ void select_by_resolution(QComboBox *combo, s32 selectedRes);
 
 struct HistoAxisLimitsUI
 {
-    QGroupBox *groupBox;
+    QFrame *outerFrame;
     QFrame *limitFrame;
     QDoubleSpinBox *spin_min;
     QDoubleSpinBox *spin_max;
+    QRadioButton *rb_limited;
+    QRadioButton *rb_fullRange;
 };
 
-HistoAxisLimitsUI make_histo2d_axis_limits_ui(const QString &groupBoxTitle, double inputMin, double inputMax,
-                                                double limitMin, double limitMax);
+HistoAxisLimitsUI make_axis_limits_ui(const QString &groupBoxTitle, double inputMin, double inputMax,
+                                      double limitMin, double limitMax, bool isLimited);
 
 #endif /* __HISTO_UTIL_H__ */

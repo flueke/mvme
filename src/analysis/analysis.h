@@ -667,6 +667,11 @@ class Histo1DSink: public BasicSink
         double m_xLimitMin = make_quiet_nan();
         double m_xLimitMax = make_quiet_nan();
 
+        bool hasActiveLimits() const
+        {
+            return !(std::isnan(m_xLimitMin) || std::isnan(m_xLimitMax));
+        }
+
     private:
         u32 fillsSinceLastDebug = 0;
 };
@@ -706,6 +711,14 @@ class Histo2DSink: public SinkInterface
         double m_xLimitMax = make_quiet_nan();
         double m_yLimitMin = make_quiet_nan();
         double m_yLimitMax = make_quiet_nan();
+
+        bool hasActiveLimits(Qt::Axis axis) const
+        {
+            if (axis == Qt::XAxis)
+                return !(std::isnan(m_xLimitMin) || std::isnan(m_xLimitMax));
+            else
+                return !(std::isnan(m_yLimitMin) || std::isnan(m_yLimitMax));
+        }
 
         QString m_xAxisTitle;
         QString m_yAxisTitle;

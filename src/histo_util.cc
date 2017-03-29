@@ -5,6 +5,7 @@
 #include <QFormLayout>
 #include <QFrame>
 #include <QGroupBox>
+#include <QRadioButton>
 
 QString makeAxisTitle(const QString &title, const QString &unit)
 {
@@ -54,31 +55,48 @@ QComboBox *make_resolution_combo(s32 minBits, s32 maxBits, s32 selectedBits)
     return result;
 }
 
-HistoAxisLimitsUI make_histo2d_axis_limits_ui(const QString &groupBoxTitle, double inputMin, double inputMax,
-                                                double limitMin, double limitMax)
+/* inputMin and inputMax are used as the min and max possible values for the spin boxes.
+ *
+ * limitMin and limitMax are the values used to populate both spinboxes.
+ *
+ * isLimtied indicates whether limiting is currently in effect and affects
+ * which radio button is initially active.
+ */
+HistoAxisLimitsUI make_axis_limits_ui(const QString &limitButtonTitle, double inputMin, double inputMax,
+                                      double limitMin, double limitMax, bool isLimited)
 {
     HistoAxisLimitsUI result = {};
-    result.groupBox = new QGroupBox(groupBoxTitle);
-    result.groupBox->setCheckable(true);
+    result.rb_limited = new QRadioButton(limitButtonTitle);
+    result.rb_fullRange = new QRadioButton(QSL("Full Range"));
+
     result.spin_min = new QDoubleSpinBox;
     result.spin_max = new QDoubleSpinBox;
 
     result.limitFrame = new QFrame;
+    result.limitFrame->setFrameStyle(QFrame::StyledPanel | QFrame::Sunken);
+
     auto limitFrameLayout = new QFormLayout(result.limitFrame);
     limitFrameLayout->setContentsMargins(2, 2, 2, 2);
     limitFrameLayout->addRow(QSL("Min"), result.spin_min);
     limitFrameLayout->addRow(QSL("Max"), result.spin_max);
 
-    auto groupBoxLayout = new QVBoxLayout(result.groupBox);
-    groupBoxLayout->setContentsMargins(0, 0, 0, 0);
-    groupBoxLayout->addWidget(result.limitFrame);
+    result.outerFrame = new QFrame;
+    auto outerFrameLayout = new QVBoxLayout(result.outerFrame);
+    outerFrameLayout->setContentsMargins(4, 4, 4, 4);
+    outerFrameLayout->addWidget(result.rb_limited);
+    outerFrameLayout->addWidget(result.limitFrame);
+    outerFrameLayout->addWidget(result.rb_fullRange);
 
-    QObject::connect(result.groupBox, &QGroupBox::toggled, result.limitFrame, [result](bool usesFullRange) {
-        result.limitFrame->setEnabled(usesFullRange);
+    QObject::connect(result.rb_limited, &QAbstractButton::toggled, result.outerFrame, [result] (bool checked) {
+        result.limitFrame->setEnabled(checked);
     });
 
-    bool usesFullRange = (std::isnan(limitMin) || std::isnan(limitMax));
-    result.groupBox->setChecked(!usesFullRange);
+    result.rb_limited->setChecked(true);
+
+    if (!isLimited)
+    {
+        result.rb_fullRange->setChecked(true);
+    }
 
     result.spin_min->setMinimum(inputMin);
     result.spin_min->setMaximum(inputMax);
@@ -86,11 +104,11 @@ HistoAxisLimitsUI make_histo2d_axis_limits_ui(const QString &groupBoxTitle, doub
     result.spin_max->setMinimum(inputMin);
     result.spin_max->setMaximum(inputMax);
 
-    if (!usesFullRange)
-    {
+    if (!std::isnan(limitMin))
         result.spin_min->setValue(limitMin);
+
+    if (!std::isnan(limitMax))
         result.spin_max->setValue(limitMax);
-    }
 
     return result;
 }

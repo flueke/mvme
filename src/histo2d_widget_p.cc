@@ -1,9 +1,11 @@
 #include "histo2d_widget_p.h"
 #include "analysis/analysis.h"
+
 #include <QComboBox>
 #include <QDoubleSpinBox>
 #include <QFormLayout>
 #include <QGroupBox>
+#include <QRadioButton>
 
 using namespace analysis;
 
@@ -23,13 +25,13 @@ Histo2DSubRangeDialog::Histo2DSubRangeDialog(const std::shared_ptr<Histo2DSink> 
 {
     setWindowTitle(QSL("Subrange Histogram"));
 
-    limits_x = make_histo2d_axis_limits_ui(QSL("X Limits"),
-                                           std::numeric_limits<double>::lowest(), std::numeric_limits<double>::max(),
-                                           visibleMinX, visibleMaxX);
+    limits_x = make_axis_limits_ui(QSL("X Limits"),
+                                   std::numeric_limits<double>::lowest(), std::numeric_limits<double>::max(),
+                                   visibleMinX, visibleMaxX, true);
 
-    limits_y = make_histo2d_axis_limits_ui(QSL("Y Limits"),
-                                           std::numeric_limits<double>::lowest(), std::numeric_limits<double>::max(),
-                                           visibleMinY, visibleMaxY);
+    limits_y = make_axis_limits_ui(QSL("Y Limits"),
+                                   std::numeric_limits<double>::lowest(), std::numeric_limits<double>::max(),
+                                   visibleMinY, visibleMaxY, true);
 
     //
     // create as new
@@ -75,8 +77,11 @@ Histo2DSubRangeDialog::Histo2DSubRangeDialog(const std::shared_ptr<Histo2DSink> 
     //
     auto layout = new QVBoxLayout(this);
 
-    layout->addWidget(limits_x.groupBox);
-    layout->addWidget(limits_y.groupBox);
+    limits_x.outerFrame->setFrameStyle(QFrame::StyledPanel | QFrame::Sunken);
+    limits_y.outerFrame->setFrameStyle(QFrame::StyledPanel | QFrame::Sunken);
+
+    layout->addWidget(limits_x.outerFrame);
+    layout->addWidget(limits_y.outerFrame);
     layout->addWidget(gb_createAsNew);
     layout->addStretch();
     layout->addWidget(buttonBox);
@@ -104,7 +109,7 @@ void Histo2DSubRangeDialog::accept()
         targetSink = m_histoSink;
     }
 
-    if (limits_x.groupBox->isChecked())
+    if (limits_x.rb_limited->isChecked())
     {
         targetSink->m_xLimitMin = limits_x.spin_min->value();
         targetSink->m_xLimitMax = limits_x.spin_max->value();
@@ -115,7 +120,7 @@ void Histo2DSubRangeDialog::accept()
         targetSink->m_xLimitMax = make_quiet_nan();
     }
 
-    if (limits_y.groupBox->isChecked())
+    if (limits_y.rb_limited->isChecked())
     {
         targetSink->m_yLimitMin = limits_y.spin_min->value();
         targetSink->m_yLimitMax = limits_y.spin_max->value();

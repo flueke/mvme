@@ -11,6 +11,7 @@
 #include <QGroupBox>
 #include <QHeaderView>
 #include <QLabel>
+#include <QRadioButton>
 
 namespace analysis
 {
@@ -466,20 +467,23 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
         formLayout->addRow(QSL("X Resolution"), combo_xBins);
         formLayout->addRow(QSL("Y Resolution"), combo_yBins);
 
-        limits_x = make_histo2d_axis_limits_ui(QSL("X Limits"),
-                                               std::numeric_limits<double>::lowest(), std::numeric_limits<double>::max(),
-                                               histoSink->m_xLimitMin, histoSink->m_xLimitMax);
+        limits_x = make_axis_limits_ui(QSL("X Limits"),
+                                       std::numeric_limits<double>::lowest(), std::numeric_limits<double>::max(),
+                                       histoSink->m_xLimitMin, histoSink->m_xLimitMax, histoSink->hasActiveLimits(Qt::XAxis));
 
-        connect(limits_x.groupBox, &QGroupBox::toggled, this, [this] (bool) { this->validateInputs(); });
+        connect(limits_x.rb_limited, &QAbstractButton::toggled, this, [this] (bool) { this->validateInputs(); });
 
-        limits_y = make_histo2d_axis_limits_ui(QSL("Y Limits"),
-                                               std::numeric_limits<double>::lowest(), std::numeric_limits<double>::max(),
-                                               histoSink->m_yLimitMin, histoSink->m_yLimitMax);
+        limits_y = make_axis_limits_ui(QSL("Y Limits"),
+                                       std::numeric_limits<double>::lowest(), std::numeric_limits<double>::max(),
+                                       histoSink->m_yLimitMin, histoSink->m_yLimitMax, histoSink->hasActiveLimits(Qt::YAxis));
 
-        connect(limits_y.groupBox, &QGroupBox::toggled, this, [this] (bool) { this->validateInputs(); });
+        connect(limits_y.rb_limited, &QAbstractButton::toggled, this, [this] (bool) { this->validateInputs(); });
 
-        formLayout->addRow(limits_x.groupBox);
-        formLayout->addRow(limits_y.groupBox);
+        limits_x.outerFrame->setFrameStyle(QFrame::StyledPanel | QFrame::Sunken);
+        limits_y.outerFrame->setFrameStyle(QFrame::StyledPanel | QFrame::Sunken);
+
+        formLayout->addRow(limits_x.outerFrame);
+        formLayout->addRow(limits_y.outerFrame);
     }
     else if (auto calibration = qobject_cast<CalibrationMinMax *>(op))
     {
@@ -596,12 +600,12 @@ bool OperatorConfigurationWidget::validateInputs()
     else if (auto histoSink = qobject_cast<Histo2DSink *>(op))
     {
         bool result = true;
-        if (limits_x.groupBox->isChecked())
+        if (limits_x.rb_limited->isChecked())
         {
             result = result && (limits_x.spin_min->value() != limits_x.spin_max->value());
         }
 
-        if (limits_y.groupBox->isChecked())
+        if (limits_y.rb_limited->isChecked())
         {
             result = result && (limits_y.spin_min->value() != limits_y.spin_max->value());
         }
@@ -652,7 +656,7 @@ void OperatorConfigurationWidget::configureOperator()
         histoSink->m_xBins = xBins;
         histoSink->m_yBins = yBins;
 
-        if (limits_x.groupBox->isChecked())
+        if (limits_x.rb_limited->isChecked())
         {
             histoSink->m_xLimitMin = limits_x.spin_min->value();
             histoSink->m_xLimitMax = limits_x.spin_max->value();
@@ -663,7 +667,7 @@ void OperatorConfigurationWidget::configureOperator()
             histoSink->m_xLimitMax = make_quiet_nan();
         }
 
-        if (limits_y.groupBox->isChecked())
+        if (limits_y.rb_limited->isChecked())
         {
             histoSink->m_yLimitMin = limits_y.spin_min->value();
             histoSink->m_yLimitMax = limits_y.spin_max->value();
