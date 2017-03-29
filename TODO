@@ -1,6 +1,11 @@
 ==========================
 ==== Do these first! =====
 ==========================
+* select input UI: disable other tree highlights while it's active.
+* track down weird scrolling/selection bug when selcting inputs.
+  What happens is that the treeview scrolls up and the wrong input is selected.
+  This happens when clicking a node.
+
 * Change listfile format to newer version 1.
 * Fix replay stats display and replay timer. It wasn't designed with pausing
   and stepping in mind.
@@ -11,18 +16,13 @@
   - write program log file to zip (log from start of current run)
   - write some user description text file to the zip.
 
->>>>> Begin Analysis NG <<<<<
- - Mark 1D Histograms that have input limits applied to them. Right now there's
-   no way to see if limits are applied.
  - UserLevel hide/show GUI
  - Implement "Remove UserLevel" button
- - Show some indicator if a Histo1DSink has subrange limits applied
  - Calibration:
    * if only one event don't show the list of calibrations
    * when creating a new calib the global values are not applied to the
      individual ones, instead the default values from the table are used
 
- - Make default operator object name contain a short version of the operator type
  - react to event and module renames
  - "modified" concept for the analysis and it's elements
  - save/saveas/load error reporting
@@ -34,12 +34,19 @@
    keep coming back and result in user confusion.
    Sources need to be attached to a module. From there we can get the event id.
 
-<<<<< End AnalysisNG >>>>>
-
+* EventWidget and AnalysisWidget repopulate:
+  - Restore open PipeDisplays:
+    Store (ObjectId, OutputIndex) to get the output pipe and (pos, size) to restore the widget.
+  - Restore splitter states when recreating event widgets.
+  - Restore node expansion state
+    Could store QUuids for expanded object nodes and after repop rebuild the
+    VoidStar set of expanded nodes by getting the pointers via the ids.
 
 ==========================
 ==== Do these later! =====
 ==========================
+* Calculated listfile size in stats display and size shown by windows explorer
+  are not the same at all. Why?
 * // FIXME: when using subranges the getBinUnchecked() calculation often yields negative bins. why?
   Verify this does in fact happen.
 * DAQStats:
@@ -58,13 +65,8 @@
 
 >>>>> Begin Analysis NG <<<<<
  - Add Operator::getDescription()
- - get rid of the old analysis code
  - make sure the UI works with empty vme and event configs
  - display required memory in Histo2D dialog.
- - should OperatorInterface::connectInputSlot() perform a validity check of
-   Slot::acceptedInputTypes?
- - Should Histo axis titles be editable? if so the edited title has to be
-   stored with Histo1DSink and automatic axis title creation must not be performed.
  - combine "single word" and "dual word" filters. the distinction is not needed
    anymore as both are MultiWordDataFilters now
   
@@ -97,7 +99,7 @@
 * Fix diagnostics window blocking when there are a lot of error messages being generated.
 
 * workspace
-    * copy templates from app dir to workspace (vielleicht?)
+    * copy templates from app dir to workspace (maybe?)
 * Listfile format:
   Implement version 2 of the format as documented in the header file!
 
@@ -112,28 +114,14 @@
 * Mesytec Werbung ^^ Hintergrundbilder, Wasserzeichen, etc. (CSS Theme?)
 * Hist2d: look for standard color scales as used in publications, ROOT, etc.
   https://root.cern.ch/doc/master/TColor_8cxx_source.html#l02400
-* Avoiding spinning in processEvents() while waiting for buffers. Instead use
-  something like a semaphore and figure out how to still react to "stop"
-  commands.
-  Could signal the same semaphore when receiving commands and set some
-  variables that are checked once the thread wakes up.
-  (Maybe try WaitForMoreEvents as a quick fix)
-* Hist2d Icon
 * How to handle filters without matching module? Right now they're not
   displayed until a module with the corresponding (eventIndex,moduleIndex) is
   created.
   Related: Remove Hist2d on filter removal?
-
-* add ability to create 2d histograms during DAQ/replay and fill them immediately
+  => would all be fixed when moving from (eventIndex, moduleIndex) to using object ids.
 
 * threading and vme commands
   * run vme scripts in a separate thread when invoked from the gui
-  * FIX the pause, run script, resume implementation. it's very hacky!
-    - run script: Maybe implement a command queue in the context and return
-                  QFuture<VMEResultList> objects to clients.
-    - pause and resume: also return a QFuture or something to be able to wait for
-                        the state change
-    -> look at QFutureInterface
 
 * ReadoutWorker split into generic and controller specific parts:
     Generic part is responsible for:
@@ -146,12 +134,11 @@
         - shutdown
         - pause
         - resume
-  Do this when implementing support for another controller
+  Do this when implementing support for another controller, not before.
 
 * save and restore the position and size of windows
 * save and restore the zoom and pan of histograms
 * save and restore open histograms
-* histograms: look at the storage type used. currently it's u32. should this be double?
 * make use of the "enabled" flag for vme scripts, modules, events, etc
 
 ==========================
@@ -180,6 +167,5 @@
 - The 'destination' member of Pipes now contains pointers to Slot instead of OperatorInterface
 - Slots need to contain pointers to their owning Operator to be able to traverse the tree forward:
   sourceOp.outputPipe[i].destinations[j].destOp
-- Fix operators to use Slot::acceptedInputTypes!
 =====
 <<<<< End AnalysisNG >>>>>
