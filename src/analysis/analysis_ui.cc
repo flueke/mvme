@@ -2060,6 +2060,7 @@ void AnalysisWidgetPrivate::actionSave()
         if (result.first)
         {
             m_context->setAnalysisConfigFileName(result.second);
+            m_context->getAnalysisNG()->setModified(false);
         }
     }
 }
@@ -2072,6 +2073,7 @@ void AnalysisWidgetPrivate::actionSaveAs()
     if (result.first)
     {
         m_context->setAnalysisConfigFileName(result.second);
+        m_context->getAnalysisNG()->setModified(false);
     }
 }
 

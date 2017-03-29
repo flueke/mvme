@@ -1371,7 +1371,7 @@ void Analysis::beginEvent(s32 eventIndex)
 void Analysis::addSource(s32 eventIndex, s32 moduleIndex, const SourcePtr &source)
 {
     source->beginRun();
-    m_sources.push_back({eventIndex, moduleIndex, source});
+    m_sources.push_back({eventIndex, moduleIndex, source, source.get()});
     updateRanks();
     setModified();
 }
@@ -1379,7 +1379,7 @@ void Analysis::addSource(s32 eventIndex, s32 moduleIndex, const SourcePtr &sourc
 void Analysis::addOperator(s32 eventIndex, const OperatorPtr &op, s32 userLevel)
 {
     op->beginRun();
-    m_operators.push_back({eventIndex, op, userLevel});
+    m_operators.push_back({eventIndex, op, userLevel, op.get()});
     updateRanks();
     setModified();
 }
@@ -1414,7 +1414,10 @@ void Analysis::processDataWord(s32 eventIndex, s32 moduleIndex, u32 data, s32 wo
     {
         if (sourceEntry.eventIndex == eventIndex && sourceEntry.moduleIndex == moduleIndex)
         {
-            sourceEntry.source->processDataWord(data, wordIndex);
+            Q_ASSERT(sourceEntry.sourceRaw);
+            Q_ASSERT(sourceEntry.sourceRaw == sourceEntry.source.get());
+
+            sourceEntry.sourceRaw->processDataWord(data, wordIndex);
         }
     }
 }
@@ -1433,15 +1436,18 @@ void Analysis::endEvent(s32 eventIndex)
     {
         if (opEntry.eventIndex == eventIndex)
         {
-            OperatorInterface *op = opEntry.op.get();
+            Q_ASSERT(opEntry.opRaw);
+            Q_ASSERT(opEntry.opRaw == opEntry.op.get());
+
+            OperatorInterface *op = opEntry.opRaw;
 
 #if ENABLE_ANALYSIS_DEBUG
-            qDebug() << "  stepping operator" << opEntry.op.get()
-                << ", input rank =" << opEntry.op->getMaximumInputRank()
-                << ", output rank =" << opEntry.op->getMaximumOutputRank()
+            qDebug() << "  stepping operator" << op
+                << ", input rank =" << op->getMaximumInputRank()
+                << ", output rank =" << op->getMaximumOutputRank()
                 ;
 #endif
-            opEntry.op->step();
+            op->step();
         }
     }
 
@@ -1820,52 +1826,6 @@ Analysis::ReadResult Analysis::read(const QJsonObject &json)
         }
     }
 
-    // Compound objects
-    {
-#if 0 // TODO: RawDataDisplays are not stored anymore. Delete this code sometime soon
-        // FIXME: error checking
-        QJsonArray sourceArray = json["rawDataDisplays"].toArray();
-
-        for (auto it = sourceArray.begin(); it != sourceArray.end(); ++it)
-        {
-            auto objectJson = it->toObject();
-
-            RawDataDisplay display;
-
-            display.id = QUuid(objectJson["id"].toString());
-            display.extractor = std::dynamic_pointer_cast<SourceInterface>(objectsById.value(QUuid(objectJson["extractorId"].toString())));
-            display.calibration = std::dynamic_pointer_cast<OperatorInterface>(objectsById.value(QUuid(objectJson["calibrationId"].toString())));
-
-            auto rawSinkArray = objectJson["rawHistoSinks"].toArray();
-
-            for (auto jt = rawSinkArray.begin(); jt != rawSinkArray.end(); ++jt)
-            {
-                auto rawSinkJson = jt->toObject();
-                auto selector = std::dynamic_pointer_cast<OperatorInterface>(
-                    objectsById.value(QUuid(rawSinkJson["selectorId"].toString())));
-                auto histoSink = std::dynamic_pointer_cast<OperatorInterface>(
-                    objectsById.value(QUuid(rawSinkJson["histoSinkId"].toString())));
-
-                display.rawHistoSinks.push_back({selector, histoSink});
-            }
-
-            auto cmp = [](const RawDataDisplay::RawHistoSink &aS, const RawDataDisplay::RawHistoSink &bS)
-            {
-                auto a = qobject_cast<IndexSelector *>(aS.selector.get());
-                auto b = qobject_cast<IndexSelector *>(bS.selector.get());
-
-                return (a && b && a->getIndex() < b->getIndex());
-            };
-
-            // make sure selectors and histosinks are in selector address order!
-            qSort(display.rawHistoSinks.begin(), display.rawHistoSinks.end(), cmp);
-
-
-            rawDataDisplays.push_back(display);
-        }
-#endif
-    }
-
     setModified(false);
 
     return result;
@@ -1956,37 +1916,6 @@ void Analysis::write(QJsonObject &json) const
 
         json["connections"] = conArray;
     }
-
-    // Compound objects
-    {
-#if 0 // TODO: RawDataDisplays are not stored anymore. Delete this code sometime soon
-        QJsonArray destArray;
-
-        for (auto &display: rawDataDisplays)
-        {
-            QJsonObject displayObject;
-            displayObject["id"] = display.id.toString();
-            displayObject["extractorId"] = display.extractor->getId().toString();
-            displayObject["calibrationId"] = display.calibration->getId().toString();
-
-            QJsonArray rawSinkArray;
-
-            for (const auto &rawSink: display.rawHistoSinks)
-            {
-                QJsonObject rawSinkJson;
-                rawSinkJson["selectorId"] = rawSink.selector->getId().toString();
-                rawSinkJson["histoSinkId"] = rawSink.histoSink->getId().toString();
-                rawSinkArray.append(rawSinkJson);
-            }
-
-            displayObject["rawHistoSinks"] = rawSinkArray;
-
-            destArray.append(displayObject);
-        }
-
-        json["rawDataDisplays"] = destArray;
-#endif
-    }
 }
 
 void Analysis::setModified(bool b)
@@ -2001,14 +1930,6 @@ void Analysis::setModified(bool b)
 }
 
 static const u32 maxRawHistoBins = (1 << 16);
-
-        /* TODO/FIXME:
-         * - histo axis titles are still missing
-         * - easier to use MultiWordDataFilter constructor
-         * - IndexSelector.m_index is signed because of Qts containers using a
-         *   signed type for their sizes. What happens if the index is actually
-         *   negative?
-         */
 
 RawDataDisplay make_raw_data_display(std::shared_ptr<Extractor> extractor, double unitMin, double unitMax,
                                      const QString &xAxisTitle, const QString &unitLabel)

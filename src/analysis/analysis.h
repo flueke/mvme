@@ -870,6 +870,8 @@ class Analysis: public QObject
             s32 eventIndex; // TODO: eventId
             s32 moduleIndex; // TODO: moduleId
             SourcePtr source;
+
+            SourceInterface *sourceRaw;
         };
 
         struct OperatorEntry
@@ -878,6 +880,8 @@ class Analysis: public QObject
             OperatorPtr op;
             // A user defined level used for UI display structuring.
             s32 userLevel;
+
+            OperatorInterface *opRaw;
         };
 
         Analysis(QObject *parent = nullptr);
