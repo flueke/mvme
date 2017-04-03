@@ -139,6 +139,7 @@ void Extractor::beginRun()
 
 void Extractor::beginEvent()
 {
+    m_filter.clearCompletion();
     m_output.getParameters().invalidateAll();
 }
 
