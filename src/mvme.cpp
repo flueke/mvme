@@ -69,6 +69,7 @@ mvme::mvme(QWidget *parent) :
         auto centralLayout = qobject_cast<QVBoxLayout *>(ui->centralWidget->layout());
         Q_ASSERT(centralLayout);
 
+        centralLayout->setContentsMargins(6, 6, 6, 0); // l, t, r, b
         centralLayout->addWidget(m_daqControlWidget);
         centralLayout->addWidget(m_daqConfigTreeWidget);
         centralLayout->addWidget(m_daqStatsWidget);

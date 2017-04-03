@@ -12,7 +12,10 @@ struct DAQStatsWidgetPrivate
 
     QLabel *label_daqDuration,
            *label_freeBuffers,
-           *label_buffersReadAndDropped,
+           *label_buffersRead,
+           *label_buffersDropped,
+           *label_buffersErrors,
+           *label_buffersProcessed,
            *label_mbPerSecond,
            *label_events,
            *label_readSize,
@@ -29,7 +32,10 @@ DAQStatsWidget::DAQStatsWidget(MVMEContext *context, QWidget *parent)
 
     m_d->label_daqDuration = new QLabel;
     m_d->label_freeBuffers = new QLabel;
-    m_d->label_buffersReadAndDropped = new QLabel("0 / 0");
+    m_d->label_buffersRead = new QLabel;
+    m_d->label_buffersDropped = new QLabel;
+    m_d->label_buffersErrors = new QLabel;
+    m_d->label_buffersProcessed = new QLabel;
     m_d->label_mbPerSecond = new QLabel;
     m_d->label_events = new QLabel;
     m_d->label_readSize = new QLabel;
@@ -40,7 +46,10 @@ DAQStatsWidget::DAQStatsWidget(MVMEContext *context, QWidget *parent)
     QList<QWidget *> labels = {
         m_d->label_daqDuration,
         m_d->label_freeBuffers,
-        m_d->label_buffersReadAndDropped,
+        m_d->label_buffersRead,
+        m_d->label_buffersDropped,
+        m_d->label_buffersErrors,
+        m_d->label_buffersProcessed,
         m_d->label_mbPerSecond,
         m_d->label_events,
         m_d->label_readSize,
@@ -58,7 +67,10 @@ DAQStatsWidget::DAQStatsWidget(MVMEContext *context, QWidget *parent)
 
     formLayout->addRow("Running time:", m_d->label_daqDuration);
     formLayout->addRow("Free event buffers:", m_d->label_freeBuffers);
-    formLayout->addRow("Buffers read / dropped / errors / processed:", m_d->label_buffersReadAndDropped);
+    formLayout->addRow("Buffers read:", m_d->label_buffersRead);
+    formLayout->addRow("Buffers processed:", m_d->label_buffersProcessed);
+    formLayout->addRow("Buffers dropped:", m_d->label_buffersDropped);
+    formLayout->addRow("Buffers errors:", m_d->label_buffersErrors);
     formLayout->addRow("Buffers/s / MB/s:", m_d->label_mbPerSecond);
     formLayout->addRow("Events:", m_d->label_events);
     formLayout->addRow("Avg. read size:", m_d->label_readSize);
@@ -98,12 +110,10 @@ void DAQStatsWidget::updateWidget()
 
     m_d->label_daqDuration->setText(durationString);
 
-    m_d->label_buffersReadAndDropped->setText(QString("%1 / %2 / %3 / %4")
-                                              .arg(stats.totalBuffersRead)
-                                              .arg(stats.droppedBuffers)
-                                              .arg(stats.buffersWithErrors)
-                                              .arg(stats.totalBuffersProcessed)
-                                              );
+    m_d->label_buffersRead->setText(QString::number(stats.totalBuffersRead));
+    m_d->label_buffersDropped->setText(QString::number(stats.droppedBuffers));
+    m_d->label_buffersErrors->setText(QString::number(stats.buffersWithErrors));
+    m_d->label_buffersProcessed->setText(QString::number(stats.totalBuffersProcessed));
 
     m_d->label_freeBuffers->setText(QString::number(stats.freeBuffers));
     m_d->label_readSize->setText(QString::number(stats.avgReadSize));
