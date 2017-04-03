@@ -9,13 +9,13 @@ WidgetGeometrySaver::WidgetGeometrySaver(QObject *parent)
     : QObject(parent)
 {}
 
-void WidgetGeometrySaver::addWidget(QWidget *widget, const QString &sizeKey, const QString &posKey)
+void WidgetGeometrySaver::addWidget(QWidget *widget, const QString &key)
 {
     if (!m_widgetKeys.contains(widget))
     {
         widget->installEventFilter(this);
     }
-    m_widgetKeys.insert(widget, {sizeKey, posKey});
+    m_widgetKeys.insert(widget, key);
 }
 
 void WidgetGeometrySaver::removeWidget(QWidget *widget)
@@ -23,28 +23,20 @@ void WidgetGeometrySaver::removeWidget(QWidget *widget)
     m_widgetKeys.remove(widget);
 }
 
-void WidgetGeometrySaver::restoreGeometry(QWidget *widget, const QString &sizeKey, const QString &posKey)
+void WidgetGeometrySaver::restoreGeometry(QWidget *widget, const QString &key)
 {
     QSettings settings;
 
-    if (settings.contains(posKey))
+    if (settings.contains(key))
     {
-        auto pos = settings.value(posKey).toPoint();
-        widget->move(pos);
+        widget->restoreGeometry(settings.value(key).toByteArray());
     }
-
-    if (settings.contains(sizeKey))
-    {
-        auto size = settings.value(sizeKey).toSize();
-        widget->resize(size);
-    }
-
 }
 
-void WidgetGeometrySaver::addAndRestore(QWidget *widget, const QString &sizeKey, const QString &posKey)
+void WidgetGeometrySaver::addAndRestore(QWidget *widget, const QString &key)
 {
-    addWidget(widget, sizeKey, posKey);
-    restoreGeometry(widget, sizeKey, posKey);
+    addWidget(widget, key);
+    restoreGeometry(widget, key);
 }
 
 bool WidgetGeometrySaver::eventFilter(QObject *obj, QEvent *event)
@@ -57,8 +49,7 @@ bool WidgetGeometrySaver::eventFilter(QObject *obj, QEvent *event)
         {
             auto closeEvent = static_cast<QCloseEvent *>(event);
             QSettings settings;
-            settings.setValue(m_widgetKeys[widget].sizeKey, widget->size());
-            settings.setValue(m_widgetKeys[widget].posKey, widget->pos());
+            settings.setValue(m_widgetKeys[widget], widget->saveGeometry());
         }
     }
 

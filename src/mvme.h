@@ -20,15 +20,16 @@ class MVMEContext;
 class MVMEContextWidget;
 class RealtimeData;
 class VirtualMod;
+class VMEDebugWidget;
 class vmedevice;
 class VMEScriptConfig;
 class WidgetGeometrySaver;
 
 class QMdiSubWindow;
+class QTextBrowser;
 class QThread;
 class QTimer;
 class QwtPlotCurve;
-class QTextBrowser;
 
 
 namespace Ui {
@@ -76,6 +77,7 @@ private slots:
 
     void on_actionAnalysis_UI_triggered();
     void on_actionVME_Debug_triggered();
+    void on_actionLog_Window_triggered();
 
     void onObjectClicked(QObject *obj);
     void onObjectDoubleClicked(QObject *obj);
@@ -97,15 +99,14 @@ private slots:
 private:
     Ui::mvme *ui;
 
-    // list of possibly connected VME devices
-
     MVMEContext *m_context;
-    QTextBrowser *m_logView;
-    QMap<QObject *, QList<QMdiSubWindow *>> m_objectWindows;
+    QTextBrowser *m_logView = nullptr;
+    DAQControlWidget *m_daqControlWidget = nullptr;
+    DAQConfigTreeWidget *m_daqConfigTreeWidget = nullptr;
+    DAQStatsWidget *m_daqStatsWidget = nullptr;
+    VMEDebugWidget *m_vmeDebugWidget = nullptr;
 
-    DAQControlWidget *m_daqControlWidget;
-    DAQConfigTreeWidget *m_daqConfigTreeWidget;
-    DAQStatsWidget *m_daqStatsWidget;
+    QMap<QObject *, QList<QWidget *>> m_objectWindows;
 
     WidgetGeometrySaver *m_geometrySaver;
 };

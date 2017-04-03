@@ -389,6 +389,8 @@ MVMEContext::~MVMEContext()
     delete m_controller;
 
     delete m_d;
+
+    qDebug() << __PRETTY_FUNCTION__ << "context destroyed";
 }
 
 void MVMEContext::setDAQConfig(DAQConfig *config)

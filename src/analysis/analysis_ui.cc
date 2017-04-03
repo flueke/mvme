@@ -2145,7 +2145,6 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
 
     auto toolbarFrame = new QFrame;
     toolbarFrame->setFrameStyle(
-        //QFrame::NoFrame);
         QFrame::StyledPanel | QFrame::Sunken);
     auto toolbarFrameLayout = new QHBoxLayout(toolbarFrame);
     toolbarFrameLayout->setContentsMargins(0, 0, 0, 0);
@@ -2206,13 +2205,11 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
 AnalysisWidget::~AnalysisWidget()
 {
     delete m_d;
+    qDebug() << __PRETTY_FUNCTION__;
 }
 
 void AnalysisWidget::operatorAdded(const std::shared_ptr<OperatorInterface> &op)
 {
-    // FIXME: same as operatorEdited
-    // FIXME: do not use eventIndex anymore
-
     const auto &opEntries(m_d->m_context->getAnalysisNG()->getOperators());
     auto it = std::find_if(opEntries.begin(), opEntries.end(), [op] (const Analysis::OperatorEntry &entry) {
         return entry.op == op;
