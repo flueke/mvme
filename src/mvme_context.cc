@@ -389,6 +389,8 @@ MVMEContext::~MVMEContext()
     delete m_controller;
 
     delete m_d;
+
+    qDebug() << __PRETTY_FUNCTION__ << "context destroyed";
 }
 
 void MVMEContext::setDAQConfig(DAQConfig *config)
@@ -808,17 +810,63 @@ void MVMEContext::resumeReplay(u32 nEvents)
     QMetaObject::invokeMethod(m_listFileWorker, "resume", Qt::QueuedConnection);
 }
 
-void MVMEContext::openInNewWindow(QObject *object)
-{
-    if (m_mainwin)
-        m_mainwin->openInNewWindow(object);
-}
-
-void MVMEContext::addWidgetWindow(QWidget *widget, QSize windowSize)
+void MVMEContext::addObjectWidget(QWidget *widget, QObject *object, const QString &stateKey)
 {
     if (m_mainwin)
     {
-        m_mainwin->addWidgetWindow(widget, windowSize);
+        m_mainwin->addObjectWidget(widget, object, stateKey);
+    }
+}
+
+bool MVMEContext::hasObjectWidget(QObject *object) const
+{
+    bool result = false;
+
+    if (m_mainwin)
+    {
+        result = m_mainwin->hasObjectWidget(object);
+    }
+
+    return result;
+}
+
+QWidget *MVMEContext::getObjectWidget(QObject *object) const
+{
+    QWidget *result = nullptr;
+
+    if (m_mainwin)
+    {
+        result = m_mainwin->getObjectWidget(object);
+    }
+
+    return result;
+}
+
+QList<QWidget *> MVMEContext::getObjectWidgets(QObject *object) const
+{
+    QList<QWidget *> result;
+
+    if (m_mainwin)
+    {
+        result = m_mainwin->getObjectWidgets(object);
+    }
+
+    return result;
+}
+
+void MVMEContext::activateObjectWidget(QObject *object)
+{
+    if (m_mainwin)
+    {
+        m_mainwin->activateObjectWidget(object);
+    }
+}
+
+void MVMEContext::addWidget(QWidget *widget, const QString &stateKey)
+{
+    if (m_mainwin)
+    {
+        m_mainwin->addWidget(widget, stateKey);
     }
 }
 

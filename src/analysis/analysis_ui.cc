@@ -11,6 +11,7 @@
 #include <QComboBox>
 #include <QCursor>
 #include <QFileDialog>
+#include <QGuiApplication>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QMenu>
@@ -980,44 +981,69 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
             case NodeType_Histo1D:
                 {
                     Histo1DWidgetInfo widgetInfo = getHisto1DWidgetInfoFromNode(node);
+                    Q_ASSERT(widgetInfo.sink);
 
                     menu.addAction(QSL("Open"), m_q, [this, widgetInfo]() {
-                        auto widget = new Histo1DWidget(widgetInfo.histos[widgetInfo.histoAddress]);
-                        if (widgetInfo.calib)
-                        {
-                            widget->setCalibrationInfo(widgetInfo.calib, widgetInfo.histoAddress, m_context);
-                        }
 
-                        if (widgetInfo.sink)
+                        Histo1D *histo = widgetInfo.histos[widgetInfo.histoAddress].get();
+
+                        if (!m_context->hasObjectWidget(histo) || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
                         {
-                            auto context = m_context;
-                            widget->setSink(widgetInfo.sink, [context] (const std::shared_ptr<Histo1DSink> &sink) {
-                                context->analysisOperatorEdited(sink);
-                            });
+                            auto widget = new Histo1DWidget(widgetInfo.histos[widgetInfo.histoAddress]);
+
+                            if (widgetInfo.calib)
+                            {
+                                widget->setCalibrationInfo(widgetInfo.calib, widgetInfo.histoAddress, m_context);
+                            }
+
+                            {
+                                auto context = m_context;
+                                widget->setSink(widgetInfo.sink, [context] (const std::shared_ptr<Histo1DSink> &sink) {
+                                    context->analysisOperatorEdited(sink);
+                                });
+                            }
+
+                            m_context->addObjectWidget(widget, histo,
+                                                       widgetInfo.sink->getId().toString()
+                                                       + QSL("_")
+                                                       + QString::number(widgetInfo.histoAddress));
                         }
-                        m_context->addWidgetWindow(widget);
+                        else
+                        {
+                            m_context->activateObjectWidget(histo);
+                        }
                     });
                 } break;
 
             case NodeType_Histo1DSink:
                 {
                     Histo1DWidgetInfo widgetInfo = getHisto1DWidgetInfoFromNode(node);
+                    Q_ASSERT(widgetInfo.sink);
 
                     menu.addAction(QSL("Open"), m_q, [this, widgetInfo]() {
-                        auto widget = new Histo1DListWidget(widgetInfo.histos);
-                        if (widgetInfo.calib)
-                        {
-                            widget->setCalibration(widgetInfo.calib, m_context);
-                        }
 
-                        if (widgetInfo.sink)
+                        if (!m_context->hasObjectWidget(widgetInfo.sink.get()) || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
                         {
-                            auto context = m_context;
-                            widget->setSink(widgetInfo.sink, [context] (const std::shared_ptr<Histo1DSink> &sink) {
-                                context->analysisOperatorEdited(sink);
-                            });
+                            auto widget = new Histo1DListWidget(widgetInfo.histos);
+
+                            if (widgetInfo.calib)
+                            {
+                                widget->setCalibration(widgetInfo.calib, m_context);
+                            }
+
+                            {
+                                auto context = m_context;
+                                widget->setSink(widgetInfo.sink, [context] (const std::shared_ptr<Histo1DSink> &sink) {
+                                    context->analysisOperatorEdited(sink);
+                                });
+                            }
+
+                            m_context->addObjectWidget(widget, widgetInfo.sink.get(), widgetInfo.sink->getId().toString());
                         }
-                        m_context->addWidgetWindow(widget);
+                        else
+                        {
+                            m_context->activateObjectWidget(widgetInfo.sink.get());
+                        }
                     });
                 } break;
 
@@ -1030,25 +1056,35 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
                         {
                             auto sinkPtr = std::dynamic_pointer_cast<Histo2DSink>(histoSink->getSharedPointer());
                             menu.addAction(QSL("Open"), m_q, [this, histo, sinkPtr, userLevel]() {
-                                auto widget = new Histo2DWidget(histo);
-                                auto context = m_context;
-                                auto eventId = m_eventId;
 
-                                widget->setSink(sinkPtr,
-                                                // addSinkCallback
-                                                [context, eventId, userLevel] (const std::shared_ptr<Histo2DSink> &sink) {
-                                                    context->addAnalysisOperator(eventId, sink, userLevel);
-                                                },
-                                                // sinkModifiedCallback
-                                                [context] (const std::shared_ptr<Histo2DSink> &sink) {
-                                                    context->analysisOperatorEdited(sink);
-                                                },
-                                                // makeUniqueOperatorNameFunction
-                                                [context] (const QString &name) {
-                                                    return make_unique_operator_name(context->getAnalysisNG(), name);
-                                                });
+                                if (!m_context->hasObjectWidget(sinkPtr.get()) || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
+                                {
+                                    auto histoPtr = sinkPtr->m_histo;
+                                    auto widget = new Histo2DWidget(histoPtr);
 
-                                m_context->addWidgetWindow(widget);
+                                    auto context = m_context;
+                                    auto eventId = m_eventId;
+
+                                    widget->setSink(sinkPtr,
+                                                    // addSinkCallback
+                                                    [context, eventId, userLevel] (const std::shared_ptr<Histo2DSink> &sink) {
+                                                        context->addAnalysisOperator(eventId, sink, userLevel);
+                                                    },
+                                                    // sinkModifiedCallback
+                                                    [context] (const std::shared_ptr<Histo2DSink> &sink) {
+                                                        context->analysisOperatorEdited(sink);
+                                                    },
+                                                    // makeUniqueOperatorNameFunction
+                                                    [context] (const QString &name) {
+                                                        return make_unique_operator_name(context->getAnalysisNG(), name);
+                                                    });
+
+                                    m_context->addObjectWidget(widget, sinkPtr.get(), sinkPtr->getId().toString());
+                                }
+                                else
+                                {
+                                    m_context->activateObjectWidget(sinkPtr.get());
+                                }
                             });
                         }
                     }
@@ -1550,73 +1586,101 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
     {
         switch (node->type())
         {
-            // TODO: do not create duplicate widgets here. instead raise existing ones
             case NodeType_Histo1D:
                 {
                     Histo1DWidgetInfo widgetInfo = getHisto1DWidgetInfoFromNode(node);
-                    auto widget = new Histo1DWidget(widgetInfo.histos[widgetInfo.histoAddress]);
+                    Q_ASSERT(widgetInfo.sink);
+                    Histo1D *histo = widgetInfo.histos[widgetInfo.histoAddress].get();
 
-                    if (widgetInfo.calib)
+                    if (!m_context->hasObjectWidget(histo) || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
                     {
-                        widget->setCalibrationInfo(widgetInfo.calib, widgetInfo.histoAddress, m_context);
-                    }
+                        auto widget = new Histo1DWidget(widgetInfo.histos[widgetInfo.histoAddress]);
 
-                    if (widgetInfo.sink)
+                        if (widgetInfo.calib)
+                        {
+                            widget->setCalibrationInfo(widgetInfo.calib, widgetInfo.histoAddress, m_context);
+                        }
+
+                        {
+                            auto context = m_context;
+                            widget->setSink(widgetInfo.sink, [context] (const std::shared_ptr<Histo1DSink> &sink) {
+                                context->analysisOperatorEdited(sink);
+                            });
+                        }
+
+                        m_context->addObjectWidget(widget, histo,
+                                                   widgetInfo.sink->getId().toString()
+                                                   + QSL("_")
+                                                   + QString::number(widgetInfo.histoAddress));
+                    }
+                    else
                     {
-                        auto context = m_context;
-                        widget->setSink(widgetInfo.sink, [context] (const std::shared_ptr<Histo1DSink> &sink) {
-                            context->analysisOperatorEdited(sink);
-                        });
+                        m_context->activateObjectWidget(histo);
                     }
-
-                    m_context->addWidgetWindow(widget);
                 } break;
 
             case NodeType_Histo1DSink:
                 {
                     Histo1DWidgetInfo widgetInfo = getHisto1DWidgetInfoFromNode(node);
-                    auto widget = new Histo1DListWidget(widgetInfo.histos);
+                    Q_ASSERT(widgetInfo.sink);
 
-                    if (widgetInfo.calib)
+                    if (!m_context->hasObjectWidget(widgetInfo.sink.get()) || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
                     {
-                        widget->setCalibration(widgetInfo.calib, m_context);
+                        auto widget = new Histo1DListWidget(widgetInfo.histos);
+
+                        if (widgetInfo.calib)
+                        {
+                            widget->setCalibration(widgetInfo.calib, m_context);
+                        }
+
+                        {
+                            auto context = m_context;
+                            widget->setSink(widgetInfo.sink, [context] (const std::shared_ptr<Histo1DSink> &sink) {
+                                context->analysisOperatorEdited(sink);
+                            });
+                        }
+
+                        m_context->addObjectWidget(widget, widgetInfo.sink.get(), widgetInfo.sink->getId().toString());
+                    }
+                    else
+                    {
+                        m_context->activateObjectWidget(widgetInfo.sink.get());
                     }
 
-                    if (widgetInfo.sink)
-                    {
-                        auto context = m_context;
-                        widget->setSink(widgetInfo.sink, [context] (const std::shared_ptr<Histo1DSink> &sink) {
-                            context->analysisOperatorEdited(sink);
-                        });
-                    }
-
-                    m_context->addWidgetWindow(widget);
                 } break;
 
             case NodeType_Histo2DSink:
                 {
                     auto sinkPtr = std::dynamic_pointer_cast<Histo2DSink>(getPointer<Histo2DSink>(node)->getSharedPointer());
-                    auto histoPtr = sinkPtr->m_histo;
-                    auto widget = new Histo2DWidget(histoPtr);
 
-                    auto context = m_context;
-                    auto eventId = m_eventId;
+                    if (!m_context->hasObjectWidget(sinkPtr.get()) || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
+                    {
+                        auto histoPtr = sinkPtr->m_histo;
+                        auto widget = new Histo2DWidget(histoPtr);
 
-                    widget->setSink(sinkPtr,
-                                    // addSinkCallback
-                                    [context, eventId, userLevel] (const std::shared_ptr<Histo2DSink> &sink) {
-                                        context->addAnalysisOperator(eventId, sink, userLevel);
-                                    },
-                                    // sinkModifiedCallback
-                                    [context] (const std::shared_ptr<Histo2DSink> &sink) {
-                                        context->analysisOperatorEdited(sink);
-                                    },
-                                    // makeUniqueOperatorNameFunction
-                                    [context] (const QString &name) {
-                                        return make_unique_operator_name(context->getAnalysisNG(), name);
-                                    });
+                        auto context = m_context;
+                        auto eventId = m_eventId;
 
-                    m_context->addWidgetWindow(widget);
+                        widget->setSink(sinkPtr,
+                                        // addSinkCallback
+                                        [context, eventId, userLevel] (const std::shared_ptr<Histo2DSink> &sink) {
+                                            context->addAnalysisOperator(eventId, sink, userLevel);
+                                        },
+                                        // sinkModifiedCallback
+                                        [context] (const std::shared_ptr<Histo2DSink> &sink) {
+                                            context->analysisOperatorEdited(sink);
+                                        },
+                                        // makeUniqueOperatorNameFunction
+                                        [context] (const QString &name) {
+                                            return make_unique_operator_name(context->getAnalysisNG(), name);
+                                        });
+
+                        m_context->addObjectWidget(widget, sinkPtr.get(), sinkPtr->getId().toString());
+                    }
+                    else
+                    {
+                        m_context->activateObjectWidget(sinkPtr.get());
+                    }
                 } break;
         }
     }
@@ -2145,7 +2209,6 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
 
     auto toolbarFrame = new QFrame;
     toolbarFrame->setFrameStyle(
-        //QFrame::NoFrame);
         QFrame::StyledPanel | QFrame::Sunken);
     auto toolbarFrameLayout = new QHBoxLayout(toolbarFrame);
     toolbarFrameLayout->setContentsMargins(0, 0, 0, 0);
@@ -2206,13 +2269,11 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
 AnalysisWidget::~AnalysisWidget()
 {
     delete m_d;
+    qDebug() << __PRETTY_FUNCTION__;
 }
 
 void AnalysisWidget::operatorAdded(const std::shared_ptr<OperatorInterface> &op)
 {
-    // FIXME: same as operatorEdited
-    // FIXME: do not use eventIndex anymore
-
     const auto &opEntries(m_d->m_context->getAnalysisNG()->getOperators());
     auto it = std::find_if(opEntries.begin(), opEntries.end(), [op] (const Analysis::OperatorEntry &entry) {
         return entry.op == op;

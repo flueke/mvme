@@ -81,7 +81,7 @@ VMEScriptEditor::VMEScriptEditor(MVMEContext *context, VMEScriptConfig *script, 
     m_toolbar->addSeparator();
     m_toolbar->addAction(QIcon(":/help.png"), "Script Help", this, [this]() {
         auto widget = make_vme_script_ref_widget();
-        m_context->addWidgetWindow(widget);
+        m_context->addWidget(widget, widget->objectName());
     });
 }
 

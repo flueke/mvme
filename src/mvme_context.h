@@ -229,6 +229,19 @@ class MVMEContext: public QObject
             m_analysisUi = analysisUi;
         }
 
+        analysis::AnalysisWidget *getAnalysisUi() const
+        {
+            return m_analysisUi;
+        }
+
+        void addObjectWidget(QWidget *widget, QObject *object, const QString &stateKey);
+        bool hasObjectWidget(QObject *object) const;
+        QWidget *getObjectWidget(QObject *object) const;
+        QList<QWidget *> getObjectWidgets(QObject *object) const;
+        void activateObjectWidget(QObject *object);
+
+        void addWidget(QWidget *widget, const QString &stateKey);
+
     public slots:
         void startDAQ(quint32 nCycles=0);
         // Stops DAQ or replay depending on the current GlobalMode
@@ -239,9 +252,6 @@ class MVMEContext: public QObject
         void startReplay(u32 nEvents = 0);
         void pauseReplay();
         void resumeReplay(u32 nEvents = 0);
-
-        void openInNewWindow(QObject *object);
-        void addWidgetWindow(QWidget *widget, QSize windowSize = QSize(600, 400));
 
         void addAnalysisOperator(QUuid eventId, const std::shared_ptr<analysis::OperatorInterface> &op, s32 userLevel);
         void analysisOperatorEdited(const std::shared_ptr<analysis::OperatorInterface> &op);

@@ -6,26 +6,22 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1034</width>
-    <height>707</height>
+    <width>246</width>
+    <height>480</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>mvme</string>
   </property>
   <widget class="QWidget" name="centralWidget">
-   <layout class="QVBoxLayout" name="verticalLayout">
-    <item>
-     <widget class="QMdiArea" name="mdiArea"/>
-    </item>
-   </layout>
+   <layout class="QVBoxLayout" name="verticalLayout"/>
   </widget>
   <widget class="QMenuBar" name="menuBar">
    <property name="geometry">
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1034</width>
+     <width>246</width>
      <height>19</height>
     </rect>
    </property>
@@ -61,11 +57,11 @@
      <string>&amp;Window</string>
     </property>
     <addaction name="actionAnalysis_UI"/>
+    <addaction name="actionLog_Window"/>
     <addaction name="actionVME_Debug"/>
+    <addaction name="separator"/>
     <addaction name="actionImport_Histo1D"/>
     <addaction name="separator"/>
-    <addaction name="actionTile"/>
-    <addaction name="actionCascade"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuWindow"/>
@@ -192,28 +188,17 @@
     <string>Analysis UI</string>
    </property>
   </action>
+  <action name="actionLog_Window">
+   <property name="text">
+    <string>Log Window</string>
+   </property>
+  </action>
  </widget>
  <layoutdefault spacing="6" margin="11"/>
  <resources>
   <include location="resources.qrc"/>
  </resources>
  <connections>
-  <connection>
-   <sender>actionQuit</sender>
-   <signal>triggered()</signal>
-   <receiver>mvme</receiver>
-   <slot>close()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>-1</x>
-     <y>-1</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>516</x>
-     <y>353</y>
-    </hint>
-   </hints>
-  </connection>
   <connection>
    <sender>actionAbout_mvme</sender>
    <signal>triggered()</signal>
@@ -231,42 +216,26 @@
    </hints>
   </connection>
   <connection>
-   <sender>actionCascade</sender>
-   <signal>triggered()</signal>
-   <receiver>mdiArea</receiver>
-   <slot>cascadeSubWindows()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>-1</x>
-     <y>-1</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>516</x>
-     <y>368</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>actionTile</sender>
-   <signal>triggered()</signal>
-   <receiver>mdiArea</receiver>
-   <slot>tileSubWindows()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>-1</x>
-     <y>-1</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>516</x>
-     <y>368</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
    <sender>actionAbout_Qt</sender>
    <signal>triggered()</signal>
    <receiver>mvme</receiver>
    <slot>displayAboutQt()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>-1</x>
+     <y>-1</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>516</x>
+     <y>353</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>actionQuit</sender>
+   <signal>triggered()</signal>
+   <receiver>mvme</receiver>
+   <slot>close()</slot>
    <hints>
     <hint type="sourcelabel">
      <x>-1</x>
