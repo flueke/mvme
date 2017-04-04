@@ -16,7 +16,35 @@
  *
  */
 
-/*
+
+#include "globals.h"
+#include "databuffer.h"
+#include "util.h"
+#include "threading.h"
+
+#include <QTextStream>
+#include <QFile>
+#include <QJsonObject>
+#include <QDebug>
+
+namespace ListfileSections
+{
+    enum SectionType
+    {
+        /* The config section contains the mvmecfg as a json string padded with
+         * spaces to the next 32 bit boundary. If the config data size exceeds
+         * the maximum section size multiple config sections will be written at
+         * the start of the file. */
+        SectionType_Config = 0,
+        SectionType_Event  = 1,
+        SectionType_End    = 2,
+
+        SectionType_Max    = 7
+    };
+};
+
+/*  ===== VERSION 0 =====
+ *
  *  ------- Section (Event) Header ----------
  *  33222222222211111111110000000000
  *  10987654321098765432109876543210
@@ -45,8 +73,39 @@
  * The last word of each event section is the EndMarker (globals.h)
  *
 */
+struct listfile_v0
+{
+    static const int Version = 0;
+    static const int FirstSectionOffset = 0;
 
-/*  ===== VERSION 2 TODO =====
+    static const int SectionMaxWords  = 0xffff;
+    static const int SectionMaxSize   = SectionMaxWords * sizeof(u32);
+
+    static const int SectionTypeMask  = 0xe0000000; // 3 bit section type
+    static const int SectionTypeShift = 29;
+    static const int SectionSizeMask  = 0xffff;    // 16 bit section size in 32 bit words
+    static const int SectionSizeShift = 0;
+    static const int EventTypeMask  = 0xf0000;   // 4 bit event type
+    static const int EventTypeShift = 16;
+
+    // Subevent containing module data
+    static const int ModuleTypeMask  = 0x3f000; // 6 bit module type
+    static const int ModuleTypeShift = 12;
+
+    static const int SubEventMaxWords  = 0x3ff;
+    static const int SubEventMaxSize   = SubEventMaxWords * sizeof(u32);
+    static const int SubEventSizeMask  = 0x3ff; // 10 bit subevent size in 32 bit words
+    static const int SubEventSizeShift = 0;
+};
+
+/*  ===== VERSION 1 =====
+ *
+ * Differences to version 0:
+ * - Starts with the FourCC "MVME" followed by a 32 bit word containing the
+ *   listfile version number.
+ * - Larger section and subevent sizes: 16 -> 20 bits for sections and 10 -> 20
+ *   bits for subevents.
+ * - Module type is now 8 bit instead of 6.
  *
  *  ------- Section (Event) Header ----------
  *  33222222222211111111110000000000
@@ -70,60 +129,40 @@
  * |mmmmmmmm    ssssssssssssssssssss|
  * +--------------------------------+
  *
- * m =  6 bit module type (VMEModuleType enum from globals.h)
+ * m =  8 bit module type (VMEModuleType enum from globals.h)
  * s = 10 bit size in units of 32 bit words
  *
  * The last word of each event section is the EndMarker (globals.h)
  *
- * New section type: revision
- *
 */
-
-#include "globals.h"
-#include "databuffer.h"
-#include "util.h"
-#include "threading.h"
-
-#include <QTextStream>
-#include <QFile>
-#include <QJsonDocument>
-#include <QDebug>
-
-namespace listfile
+struct listfile_v1
 {
-    enum SectionType
-    {
-        /* The config section contains the mvmecfg as a json string padded with
-         * spaces to the next 32 bit boundary. If the config data size exceeds
-         * the maximum section size multiple config sections will be written at
-         * the start of the file. */
-        SectionType_Config = 0,
-        SectionType_Event  = 1,
-        SectionType_End    = 2,
+    static const int Version = 1;
+    constexpr static char * const FourCC = "MVME";
 
-        SectionType_Max    = 7
-    };
+    static const int FirstSectionOffset = 8;
 
-    static const int SectionMaxWords  = 0xffff;
+    static const int SectionMaxWords  = 0xfffff;
     static const int SectionMaxSize   = SectionMaxWords * sizeof(u32);
 
     static const int SectionTypeMask  = 0xe0000000; // 3 bit section type
     static const int SectionTypeShift = 29;
-    static const int SectionSizeMask  = 0xffff;    // 16 bit section size in 32 bit words
+    static const int SectionSizeMask  = 0x000fffff; // 20 bit section size in 32 bit words
     static const int SectionSizeShift = 0;
-    static const int EventTypeMask  = 0xf0000;   // 4 bit event type
-    static const int EventTypeShift = 16;
+    static const int EventTypeMask    = 0x1e000000; // 4 bit event type
+    static const int EventTypeShift   = 25;
 
     // Subevent containing module data
-    static const int ModuleTypeMask  = 0x3f000; // 6 bit module type
-    static const int ModuleTypeShift = 12;
+    static const int ModuleTypeMask  = 0xff000000;  // 8 bit module type
+    static const int ModuleTypeShift = 24;
 
-    static const int SubEventMaxWords  = 0x3ff;
+    static const int SubEventMaxWords  = 0xfffff;
     static const int SubEventMaxSize   = SubEventMaxWords * sizeof(u32);
-    static const int SubEventSizeMask  = 0x3ff; // 10 bit subevent size in 32 bit words
+    static const int SubEventSizeMask  = 0x000fffff; // 20 bit subevent size in 32 bit words
     static const int SubEventSizeShift = 0;
-}
+};
 
+void dump_mvme_buffer_v0(QTextStream &out, const DataBuffer *eventBuffer, bool dumpData=false);
 void dump_mvme_buffer(QTextStream &out, const DataBuffer *eventBuffer, bool dumpData=false);
 
 class DAQConfig;
@@ -134,16 +173,19 @@ class ListFile
         ListFile(const QString &fileName);
         bool open();
         QJsonObject getDAQConfig();
+        bool seekToFirstSection();
         bool seek(qint64 pos);
         bool readNextSection(DataBuffer *buffer);
         s32 readSectionsIntoBuffer(DataBuffer *buffer);
         const QFile &getFile() const { return m_file; }
         qint64 size() const { return m_file.size(); }
         QString getFileName() const { return m_file.fileName(); }
+        u32 getFileVersion() const { return m_fileVersion; }
 
     private:
         QFile m_file;
-        QJsonDocument m_configJson;
+        QJsonObject m_configJson;
+        u32 m_fileVersion = 0;
 };
 
 class ListFileReader: public QObject
@@ -202,6 +244,7 @@ class ListFileWriter: public QObject
         QIODevice *outputDevice() const { return m_out; }
         u64 bytesWritten() const { return m_bytesWritten; }
 
+        bool writePreamble();
         bool writeConfig(QByteArray contents);
         bool writeBuffer(const char *buffer, size_t size);
         bool writeEndSection();

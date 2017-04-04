@@ -16,8 +16,6 @@
     inline QNoDebug qEPDebug() { return QNoDebug(); }
 #endif
 
-using namespace listfile;
-
 enum RunAction
 {
     KeepRunning,
@@ -34,12 +32,25 @@ struct MVMEEventProcessorPrivate
     analysis::Analysis *analysis_ng;
     volatile RunAction m_runAction = KeepRunning;
     EventProcessorState m_state = EventProcessorState::Idle;
+
+    u32 m_listFileVersion;
+    int SectionTypeMask;
+    int SectionTypeShift;
+    int SectionSizeMask;
+    int SectionSizeShift;
+    int EventTypeMask;
+    int EventTypeShift;
+    int ModuleTypeMask;
+    int ModuleTypeShift;
+    int SubEventSizeMask;
+    int SubEventSizeShift;
 };
 
 MVMEEventProcessor::MVMEEventProcessor(MVMEContext *context)
     : m_d(new MVMEEventProcessorPrivate)
 {
     m_d->context = context;
+    setListFileVersion(1);
 }
 
 MVMEEventProcessor::~MVMEEventProcessor()
@@ -96,10 +107,10 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
         while (iter.longwordsLeft())
         {
             u32 sectionHeader = iter.extractU32();
-            int sectionType = (sectionHeader & SectionTypeMask) >> SectionTypeShift;
-            u32 sectionSize = (sectionHeader & SectionSizeMask) >> SectionSizeShift;
+            int sectionType = (sectionHeader & m_d->SectionTypeMask) >> m_d->SectionTypeShift;
+            u32 sectionSize = (sectionHeader & m_d->SectionSizeMask) >> m_d->SectionSizeShift;
 
-            if (sectionType != SectionType_Event)
+            if (sectionType != ListfileSections::SectionType_Event)
             {
                 iter.skip(sectionSize * sizeof(u32));
                 continue;
@@ -107,7 +118,7 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
 
             stats.addEventsRead(1);
 
-            int eventIndex = (sectionHeader & EventTypeMask) >> EventTypeShift;
+            int eventIndex = (sectionHeader & m_d->EventTypeMask) >> m_d->EventTypeShift;
             u32 wordsLeftInSection = sectionSize;
 
             auto eventConfig = m_d->context->getConfig()->getEventConfig(eventIndex);
@@ -125,8 +136,8 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
             {
                 u8 *oldBufferP = iter.buffp;
                 u32 subEventHeader = iter.extractU32();
-                u32 subEventSize = (subEventHeader & SubEventSizeMask) >> SubEventSizeShift;
-                auto moduleType  = static_cast<VMEModuleType>((subEventHeader & ModuleTypeMask) >> ModuleTypeShift);
+                u32 subEventSize = (subEventHeader & m_d->SubEventSizeMask) >> m_d->SubEventSizeShift;
+                auto moduleType  = static_cast<VMEModuleType>((subEventHeader & m_d->ModuleTypeMask) >> m_d->ModuleTypeShift);
                 auto moduleConfig = m_d->context->getConfig()->getModuleConfig(eventIndex, moduleIndex);
 
 
@@ -330,4 +341,38 @@ void MVMEEventProcessor::stopProcessing(bool whenQueueEmpty)
 EventProcessorState MVMEEventProcessor::getState() const
 {
     return m_d->m_state;
+}
+
+void MVMEEventProcessor::setListFileVersion(u32 version)
+{
+    qDebug() << __PRETTY_FUNCTION__ << version;
+
+    m_d->m_listFileVersion = version;
+
+    if (m_d->m_listFileVersion == 0)
+    {
+        m_d->SectionTypeMask    = listfile_v0::SectionTypeMask;
+        m_d->SectionTypeShift   = listfile_v0::SectionTypeShift;
+        m_d->SectionSizeMask    = listfile_v0::SectionSizeMask;
+        m_d->SectionSizeShift   = listfile_v0::SectionSizeShift;
+        m_d->EventTypeMask      = listfile_v0::EventTypeMask;
+        m_d->EventTypeShift     = listfile_v0::EventTypeShift;
+        m_d->ModuleTypeMask     = listfile_v0::ModuleTypeMask;
+        m_d->ModuleTypeShift    = listfile_v0::ModuleTypeShift;
+        m_d->SubEventSizeMask   = listfile_v0::SubEventSizeMask;
+        m_d->SubEventSizeShift  = listfile_v0::SubEventSizeShift;
+    }
+    else
+    {
+        m_d->SectionTypeMask    = listfile_v1::SectionTypeMask;
+        m_d->SectionTypeShift   = listfile_v1::SectionTypeShift;
+        m_d->SectionSizeMask    = listfile_v1::SectionSizeMask;
+        m_d->SectionSizeShift   = listfile_v1::SectionSizeShift;
+        m_d->EventTypeMask      = listfile_v1::EventTypeMask;
+        m_d->EventTypeShift     = listfile_v1::EventTypeShift;
+        m_d->ModuleTypeMask     = listfile_v1::ModuleTypeMask;
+        m_d->ModuleTypeShift    = listfile_v1::ModuleTypeShift;
+        m_d->SubEventSizeMask   = listfile_v1::SubEventSizeMask;
+        m_d->SubEventSizeShift  = listfile_v1::SubEventSizeShift;
+    }
 }

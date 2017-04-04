@@ -43,6 +43,8 @@ class MVMEEventProcessor: public QObject
 
         EventProcessorState getState() const;
 
+        void setListFileVersion(u32 version);
+
         ThreadSafeDataBufferQueue *m_freeBufferQueue = nullptr;
         ThreadSafeDataBufferQueue *m_filledBufferQueue = nullptr;
 

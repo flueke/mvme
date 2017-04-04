@@ -96,6 +96,7 @@ void MVMEContextPrivate::stopDAQReplay()
         QObject::disconnect(con);
     }
 
+    m_q->m_eventProcessor->setListFileVersion(1);
     m_q->onDAQStateChanged(DAQState::Idle);
 }
 
@@ -791,6 +792,7 @@ void MVMEContext::startReplay(u32 nEvents)
     m_mainwin->clearLog();
 
     m_listFileWorker->setEventsToRead(nEvents);
+    m_eventProcessor->setListFileVersion(m_listFile->getFileVersion());
 
     QMetaObject::invokeMethod(m_listFileWorker, "start", Qt::QueuedConnection);
     QMetaObject::invokeMethod(m_eventProcessor, "startProcessing", Qt::QueuedConnection);

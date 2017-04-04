@@ -3,13 +3,14 @@
 #include "vmusb.h"
 #include "mvme_listfile.h"
 #include <memory>
+
 #include <QCoreApplication>
 #include <QDateTime>
-#include <QtMath>
+#include <QJsonDocument>
 #include <QJsonObject>
+#include <QtMath>
 
 using namespace vmusb_constants;
-using namespace listfile;
 
 //#define BPDEBUG
 
@@ -608,8 +609,10 @@ bool VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *output
      * array in the header. */
     int eventType = m_context->getEventConfigs().indexOf(eventConfig);
 
-    *mvmeEventHeader = (SectionType_Event << SectionTypeShift) & SectionTypeMask;
-    *mvmeEventHeader |= (eventType << EventTypeShift) & EventTypeMask;
+    using LF = listfile_v1;
+
+    *mvmeEventHeader = (ListfileSections::SectionType_Event << LF::SectionTypeShift) & LF::SectionTypeMask;
+    *mvmeEventHeader |= (eventType << LF::EventTypeShift) & LF::EventTypeMask;
 
     for (int moduleIndex=0; moduleIndex<eventConfig->modules.size(); ++moduleIndex)
     {
@@ -617,7 +620,7 @@ bool VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *output
         auto module = eventConfig->modules[moduleIndex];
 
         u32 *moduleHeader = outp++;
-        *moduleHeader = (((u32)module->type) << ModuleTypeShift) & ModuleTypeMask;
+        *moduleHeader = (((u32)module->type) << LF::ModuleTypeShift) & LF::ModuleTypeMask;
 
         /* Extract and copy data until we used up the whole event length or
          * until the EndMarker has been found.
@@ -643,7 +646,7 @@ bool VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *output
                 *outp++ = EndMarker;
                 ++subEventSize;
 
-                *moduleHeader |= (subEventSize << SubEventSizeShift) & SubEventSizeMask;
+                *moduleHeader |= (subEventSize << LF::SubEventSizeShift) & LF::SubEventSizeMask;
                 eventSize += subEventSize + 1; // +1 for the moduleHeader
                 break;
             }
@@ -686,7 +689,7 @@ bool VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *output
     *outp++ = EndMarker;
     ++eventSize;
 
-    *mvmeEventHeader |= (eventSize << SectionSizeShift) & SectionSizeMask;
+    *mvmeEventHeader |= (eventSize << LF::SectionSizeShift) & LF::SectionSizeMask;
     outputBuffer->used = (u8 *)outp - outputBuffer->data;
 
     iter.buffp = eventIter.buffp; // advance the buffer iterator

@@ -4,14 +4,49 @@
 
 #include <QCoreApplication>
 #include <QDebug>
-#include <QJsonObject>
+#include <QJsonDocument>
 #include <QtMath>
 #include <QElapsedTimer>
 
 #include "threading.h"
 
-using namespace listfile;
+const int listfile_v0::Version;
+const int listfile_v0::FirstSectionOffset;
+const int listfile_v0::SectionMaxWords;
+const int listfile_v0::SectionMaxSize;
+const int listfile_v0::SectionTypeMask;
+const int listfile_v0::SectionTypeShift;
+const int listfile_v0::SectionSizeMask;
+const int listfile_v0::SectionSizeShift;
+const int listfile_v0::EventTypeMask;
+const int listfile_v0::EventTypeShift;
+const int listfile_v0::ModuleTypeMask;
+const int listfile_v0::ModuleTypeShift;
+const int listfile_v0::SubEventMaxWords;
+const int listfile_v0::SubEventMaxSize;
+const int listfile_v0::SubEventSizeMask;
+const int listfile_v0::SubEventSizeShift;
 
+const int listfile_v1::Version;
+const int listfile_v1::FirstSectionOffset;
+const int listfile_v1::SectionMaxWords;
+const int listfile_v1::SectionMaxSize;
+const int listfile_v1::SectionTypeMask;
+const int listfile_v1::SectionTypeShift;
+const int listfile_v1::SectionSizeMask;
+const int listfile_v1::SectionSizeShift;
+const int listfile_v1::EventTypeMask;
+const int listfile_v1::EventTypeShift;
+const int listfile_v1::ModuleTypeMask;
+const int listfile_v1::ModuleTypeShift;
+const int listfile_v1::SubEventMaxWords;
+const int listfile_v1::SubEventMaxSize;
+const int listfile_v1::SubEventSizeMask;
+const int listfile_v1::SubEventSizeShift;
+
+using namespace ListfileSections;
+
+template<typename LF>
 void dump_mvme_buffer(QTextStream &out, const DataBuffer *eventBuffer, bool dumpData)
 {
     QString buf;
@@ -20,8 +55,8 @@ void dump_mvme_buffer(QTextStream &out, const DataBuffer *eventBuffer, bool dump
     while (iter.longwordsLeft())
     {
         u32 sectionHeader = iter.extractU32();
-        int sectionType   = (sectionHeader & SectionTypeMask) >> SectionTypeShift;
-        u32 sectionSize   = (sectionHeader & SectionSizeMask) >> SectionSizeShift;
+        int sectionType   = (sectionHeader & LF::SectionTypeMask) >> LF::SectionTypeShift;
+        u32 sectionSize   = (sectionHeader & LF::SectionSizeMask) >> LF::SectionSizeShift;
 
         out << "eventBuffer: " << eventBuffer << ", used=" << eventBuffer->used
             << ", size=" << eventBuffer->size
@@ -39,7 +74,7 @@ void dump_mvme_buffer(QTextStream &out, const DataBuffer *eventBuffer, bool dump
 
             case SectionType_Event:
                 {
-                    u32 eventType = (sectionHeader & EventTypeMask) >> EventTypeShift;
+                    u32 eventType = (sectionHeader & LF::EventTypeMask) >> LF::EventTypeShift;
                     out << buf.sprintf("Event section: eventHeader=0x%08x, eventType=%d, eventSize=%u\n",
                                        sectionHeader, eventType, sectionSize);
 
@@ -49,8 +84,8 @@ void dump_mvme_buffer(QTextStream &out, const DataBuffer *eventBuffer, bool dump
                     {
                         u32 subEventHeader = iter.extractU32();
                         --wordsLeft;
-                        u32 moduleType = (subEventHeader & ModuleTypeMask) >> ModuleTypeShift;
-                        u32 subEventSize = (subEventHeader & SubEventSizeMask) >> SubEventSizeShift;
+                        u32 moduleType = (subEventHeader & LF::ModuleTypeMask) >> LF::ModuleTypeShift;
+                        u32 subEventSize = (subEventHeader & LF::SubEventSizeMask) >> LF::SubEventSizeShift;
                         QString moduleString = VMEModuleShortNames.value(static_cast<VMEModuleType>(moduleType), "unknown");
 
                         out << buf.sprintf("  subEventHeader=0x%08x, moduleType=%u (%s), subEventSize=%u\n",
@@ -81,6 +116,16 @@ void dump_mvme_buffer(QTextStream &out, const DataBuffer *eventBuffer, bool dump
     }
 }
 
+void dump_mvme_buffer_v0(QTextStream &out, const DataBuffer *eventBuffer, bool dumpData)
+{
+    dump_mvme_buffer<listfile_v0>(out, eventBuffer, dumpData);
+}
+
+void dump_mvme_buffer(QTextStream &out, const DataBuffer *eventBuffer, bool dumpData)
+{
+    dump_mvme_buffer<listfile_v1>(out, eventBuffer, dumpData);
+}
+
 ListFile::ListFile(const QString &fileName)
 {
     m_file.setFileName(fileName);
@@ -88,51 +133,74 @@ ListFile::ListFile(const QString &fileName)
 
 bool ListFile::open()
 {
-    return m_file.open(QIODevice::ReadOnly);
+    m_fileVersion = 0;
+    bool result = m_file.open(QIODevice::ReadOnly);
+
+    if (result)
+    {
+        char fourCC[4];
+        qint64 bytesRead = m_file.read(reinterpret_cast<char *>(fourCC), sizeof(fourCC));
+
+        if (bytesRead == sizeof(fourCC)
+            && std::strncmp(reinterpret_cast<char *>(fourCC), listfile_v1::FourCC, sizeof(fourCC)) == 0)
+        {
+            u32 version;
+            bytesRead = m_file.read(reinterpret_cast<char *>(&version), sizeof(version));
+
+            if (bytesRead == sizeof(version))
+            {
+                m_fileVersion = version;
+            }
+        }
+
+        seekToFirstSection();
+
+        qDebug() << "detected listfile version" << m_fileVersion;
+    }
+
+    return result;
 }
 
-QJsonObject ListFile::getDAQConfig()
+template<typename LF>
+QJsonObject get_daq_config(QIODevice &m_file)
 {
-    if (m_configJson.isEmpty())
+    qint64 savedPos = m_file.pos();
+    m_file.seek(LF::FirstSectionOffset);
+
+    QByteArray configData;
+
+    while (true)
     {
-        qint64 savedPos = m_file.pos();
-        m_file.seek(0);
+        u32 sectionHeader = 0;
 
-        QByteArray configData;
+        if (m_file.read((char *)&sectionHeader, sizeof(sectionHeader)) != sizeof(sectionHeader))
+            break;
 
-        while (true)
-        {
-            u32 sectionHeader = 0;
+        int sectionType  = (sectionHeader & LF::SectionTypeMask) >> LF::SectionTypeShift;
+        u32 sectionWords = (sectionHeader & LF::SectionSizeMask) >> LF::SectionSizeShift;
 
-            if (m_file.read((char *)&sectionHeader, sizeof(sectionHeader)) != sizeof(sectionHeader))
-                break;
+        qDebug() << "sectionType" << sectionType << ", sectionWords" << sectionWords;
 
-            int sectionType  = (sectionHeader & SectionTypeMask) >> SectionTypeShift;
-            u32 sectionWords = (sectionHeader & SectionSizeMask) >> SectionSizeShift;
+        if (sectionType != SectionType_Config)
+            break;
 
-            qDebug() << "sectionType" << sectionType << ", sectionWords" << sectionWords;
+        if (sectionWords == 0)
+            break;
 
-            if (sectionType != SectionType_Config)
-                break;
+        u32 sectionSize = sectionWords * sizeof(u32);
 
-            if (sectionWords == 0)
-                break;
+        QByteArray data = m_file.read(sectionSize);
+        configData.append(data);
+    }
 
-            u32 sectionSize = sectionWords * sizeof(u32);
+    m_file.seek(savedPos);
 
-            QByteArray data = m_file.read(sectionSize);
-            configData.append(data);
-        }
+    QJsonParseError parseError; // TODO: make parse error message available to the user
+    auto m_configJson = QJsonDocument::fromJson(configData, &parseError);
 
-        m_file.seek(savedPos);
-
-        QJsonParseError parseError; // TODO: make parse error message available to the user
-        m_configJson = QJsonDocument::fromJson(configData, &parseError);
-
-        if (parseError.error != QJsonParseError::NoError)
-        {
-            qDebug() << "Parse error: " << parseError.errorString();
-        }
+    if (parseError.error != QJsonParseError::NoError)
+    {
+        qDebug() << "Parse error: " << parseError.errorString();
     }
 
     if (!m_configJson.isEmpty())
@@ -150,13 +218,36 @@ QJsonObject ListFile::getDAQConfig()
     return QJsonObject();
 }
 
+QJsonObject ListFile::getDAQConfig()
+{
+    if (m_configJson.isEmpty())
+    {
+        if (m_fileVersion == 0)
+        {
+            m_configJson = get_daq_config<listfile_v0>(m_file);
+        }
+        else
+        {
+            m_configJson = get_daq_config<listfile_v1>(m_file);
+        }
+    }
+
+    return m_configJson;
+}
+
+bool ListFile::seekToFirstSection()
+{
+    return seek((m_fileVersion == 0) ? listfile_v0::FirstSectionOffset : listfile_v1::FirstSectionOffset);
+}
+
 bool ListFile::seek(qint64 pos)
 {
     qDebug() << &m_file << m_file.fileName() << m_file.isOpen();
     return m_file.seek(pos);
 }
 
-bool ListFile::readNextSection(DataBuffer *buffer)
+template<typename LF>
+bool read_next_section(QIODevice &m_file, DataBuffer *buffer)
 {
     buffer->reserve(sizeof(u32));
     buffer->used = 0;
@@ -167,7 +258,7 @@ bool ListFile::readNextSection(DataBuffer *buffer)
     buffer->used = sizeof(u32);
 
     u32 sectionHeader = *((u32 *)buffer->data);
-    u32 sectionWords = (sectionHeader & SectionSizeMask) >> SectionSizeShift;
+    u32 sectionWords = (sectionHeader & LF::SectionSizeMask) >> LF::SectionSizeShift;
     qint64 sectionSize = sectionWords * sizeof(u32);
 
     if (sectionSize == 0)
@@ -182,7 +273,20 @@ bool ListFile::readNextSection(DataBuffer *buffer)
     return true;
 }
 
-s32 ListFile::readSectionsIntoBuffer(DataBuffer *buffer)
+bool ListFile::readNextSection(DataBuffer *buffer)
+{
+    if (m_fileVersion == 0)
+    {
+        return read_next_section<listfile_v0>(m_file, buffer);
+    }
+    else
+    {
+        return read_next_section<listfile_v1>(m_file, buffer);
+    }
+}
+
+template<typename LF>
+s32 read_sections_into_buffer(QIODevice &m_file, DataBuffer *buffer)
 {
     s32 sectionsRead = 0;
 
@@ -195,7 +299,7 @@ s32 ListFile::readSectionsIntoBuffer(DataBuffer *buffer)
         if (m_file.read((char *)&sectionHeader, sizeof(u32)) != sizeof(u32))
             return -1;
 
-        u32 sectionWords = (sectionHeader & SectionSizeMask) >> SectionSizeShift;
+        u32 sectionWords = (sectionHeader & LF::SectionSizeMask) >> LF::SectionSizeShift;
 
         qint64 bytesToRead = sectionWords * sizeof(u32);
 
@@ -217,6 +321,18 @@ s32 ListFile::readSectionsIntoBuffer(DataBuffer *buffer)
         ++sectionsRead;
     }
     return sectionsRead;
+}
+
+s32 ListFile::readSectionsIntoBuffer(DataBuffer *buffer)
+{
+    if (m_fileVersion == 0)
+    {
+        return read_sections_into_buffer<listfile_v0>(m_file, buffer);
+    }
+    else
+    {
+        return read_sections_into_buffer<listfile_v1>(m_file, buffer);
+    }
 }
 
 ListFileReader::ListFileReader(DAQStats &stats, QObject *parent)
@@ -249,7 +365,7 @@ void ListFileReader::start()
     if (m_state != DAQState::Idle || !m_listFile)
         return;
 
-    m_listFile->seek(0);
+    m_listFile->seekToFirstSection();
     m_bytesRead = 0;
     m_totalBytes = m_listFile->size();
     m_stats.listFileTotalBytes = m_listFile->size();
@@ -352,7 +468,16 @@ void ListFileReader::mainLoop()
                     if (isBufferValid && buffer->used >= sizeof(u32))
                     {
                         u32 sectionHeader = *reinterpret_cast<u32 *>(buffer->data);
-                        u32 sectionType   = (sectionHeader & SectionTypeMask) >> SectionTypeShift;
+                        u32 sectionType   = 0;
+
+                        if (m_listFile->getFileVersion() == 0)
+                        {
+                            sectionType = (sectionHeader & listfile_v0::SectionTypeMask) >> listfile_v0::SectionTypeShift;
+                        }
+                        else
+                        {
+                            sectionType = (sectionHeader & listfile_v1::SectionTypeMask) >> listfile_v1::SectionTypeShift;
+                        }
 
 #if 0
                         u32 sectionWords  = (sectionHeader & SectionSizeMask) >> SectionSizeShift;
@@ -459,8 +584,22 @@ void ListFileWriter::setOutputDevice(QIODevice *device)
     m_out = device;
 }
 
+bool ListFileWriter::writePreamble()
+{
+    if (m_out->write(listfile_v1::FourCC, sizeof(listfile_v1::FourCC)) != sizeof(listfile_v1::FourCC))
+        return false;
+
+    u32 fileVersion = 1;
+    if (m_out->write(reinterpret_cast<const char *>(&fileVersion), sizeof(fileVersion)) != sizeof(fileVersion))
+        return false;
+
+    return true;
+}
+
 bool ListFileWriter::writeConfig(QByteArray contents)
 {
+    using LF = listfile_v1;
+
     while (contents.size() % sizeof(u32))
     {
         contents.append(' ');
@@ -468,10 +607,10 @@ bool ListFileWriter::writeConfig(QByteArray contents)
 
     int configSize = contents.size();
     int configWords = configSize / sizeof(u32);
-    int configSections = qCeil((float)configSize / (float)SectionMaxSize);
+    int configSections = qCeil((float)configSize / (float)LF::SectionMaxSize);
 
-    DataBuffer localBuffer(configSections * SectionMaxSize + // space for all config sections
-                           configSections * sizeof(u32)); // space for headers
+    DataBuffer localBuffer(configSections * LF::SectionMaxSize // space for all config sections
+                           + configSections * sizeof(u32));    // space for headers
 
     DataBuffer *buffer = &localBuffer;
 
@@ -482,10 +621,10 @@ bool ListFileWriter::writeConfig(QByteArray contents)
     {
         u32 *sectionHeader = (u32 *)bufferP;
         bufferP += sizeof(u32);
-        *sectionHeader = (SectionType_Config << SectionTypeShift) & SectionTypeMask;
-        int sectionBytes = qMin(configSize, SectionMaxSize);
+        *sectionHeader = (SectionType_Config << LF::SectionTypeShift) & LF::SectionTypeMask;
+        int sectionBytes = qMin(configSize, LF::SectionMaxSize);
         int sectionWords = sectionBytes / sizeof(u32);
-        *sectionHeader |= (sectionWords << SectionSizeShift) & SectionSizeMask;
+        *sectionHeader |= (sectionWords << LF::SectionSizeShift) & LF::SectionSizeMask;
 
         memcpy(bufferP, configP, sectionBytes);
         bufferP += sectionBytes;
@@ -519,7 +658,9 @@ bool ListFileWriter::writeBuffer(const char *buffer, size_t size)
 
 bool ListFileWriter::writeEndSection()
 {
-    u32 header = (SectionType_End << SectionTypeShift) & SectionTypeMask;
+    using LF = listfile_v1;
+
+    u32 header = (SectionType_End << LF::SectionTypeShift) & LF::SectionTypeMask;
 
     if (m_out->write((const char *)&header, sizeof(header)) != sizeof(header))
         return false;
