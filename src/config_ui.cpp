@@ -1,7 +1,5 @@
 #include "config_ui.h"
 #include "ui_event_config_dialog.h"
-#include "ui_datafilter_dialog.h"
-#include "ui_dualword_datafilter_dialog.h"
 #include "mvme_config.h"
 #include "mvme_context.h"
 #include "vme_script.h"
