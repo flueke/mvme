@@ -1,11 +1,13 @@
 #ifndef __QT_UTIL_H__
 #define __QT_UTIL_H__
 
-#include <QObject>
 #include <QHash>
+#include <QKeySequence>
+#include <QObject>
 
 #define QSL(str) QStringLiteral(str)
 
+class QAction;
 class QEvent;
 class QWidget;
 
@@ -25,5 +27,9 @@ class WidgetGeometrySaver: public QObject
     private:
         QHash<QWidget *, QString> m_widgetKeys;
 };
+
+QAction *add_widget_close_action(QWidget *widget,
+                                const QKeySequence &shortcut = QKeySequence(QSL("Ctrl+W")),
+                                Qt::ShortcutContext shortcutContext = Qt::WindowShortcut);
 
 #endif /* __QT_UTIL_H__ */

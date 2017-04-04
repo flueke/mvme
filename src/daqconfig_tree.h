@@ -23,8 +23,8 @@ class DAQConfigTreeWidget: public QWidget
 {
     Q_OBJECT
     signals:
-        void configObjectClicked(ConfigObject *object);
-        void configObjectDoubleClicked(ConfigObject *object);
+        //void configObjectClicked(ConfigObject *object);
+        //void configObjectDoubleClicked(ConfigObject *object);
         void showDiagnostics(ModuleConfig *cfg);
 
     public:

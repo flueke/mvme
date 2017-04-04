@@ -47,8 +47,15 @@ public:
     virtual void closeEvent(QCloseEvent *event);
     void restoreSettings();
 
-
     MVMEContext *getContext() { return m_context; }
+
+    void addObjectWidget(QWidget *widget, QObject *object, const QString &stateKey);
+    bool hasObjectWidget(QObject *object) const;
+    QWidget *getObjectWidget(QObject *object) const;
+    QList<QWidget *> getObjectWidgets(QObject *object) const;
+    void activateObjectWidget(QObject *object);
+
+    void addWidget(QWidget *widget, const QString &stateKey);
 
 public slots:
     void displayAbout();

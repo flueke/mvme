@@ -6,6 +6,7 @@
 #include "treewidget_utils.h"
 #include "mvme_event_processor.h"
 #include "vmusb.h"
+#include "vme_script_editor.h"
 
 #include <QDebug>
 #include <QHBoxLayout>
@@ -364,7 +365,7 @@ void DAQConfigTreeWidget::onItemClicked(QTreeWidgetItem *item, int column)
 
     if (configObject)
     {
-        emit configObjectClicked(configObject);
+        m_context->activateObjectWidget(configObject);
     }
 }
 
@@ -375,7 +376,16 @@ void DAQConfigTreeWidget::onItemDoubleClicked(QTreeWidgetItem *item, int column)
 
     if (scriptConfig)
     {
-        emit configObjectDoubleClicked(scriptConfig);
+        if (m_context->hasObjectWidget(scriptConfig))
+        {
+            m_context->activateObjectWidget(scriptConfig);
+        }
+        else
+        {
+            auto widget = new VMEScriptEditor(m_context, scriptConfig);
+            widget->setWindowIcon(QIcon(QPixmap(":/vme_script.png")));
+            m_context->addObjectWidget(widget, scriptConfig, scriptConfig->getId().toString());
+        }
     }
 }
 

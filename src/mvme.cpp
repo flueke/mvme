@@ -76,12 +76,6 @@ mvme::mvme(QWidget *parent) :
 
         centralLayout->setStretch(1, 1);
 
-        connect(m_daqConfigTreeWidget, &DAQConfigTreeWidget::configObjectClicked,
-                this, &mvme::onObjectClicked);
-
-        connect(m_daqConfigTreeWidget, &DAQConfigTreeWidget::configObjectDoubleClicked,
-                this, &mvme::onObjectDoubleClicked);
-
         connect(m_daqConfigTreeWidget, &DAQConfigTreeWidget::showDiagnostics,
                 this, &mvme::onShowDiagnostics);
     }
@@ -403,6 +397,60 @@ void mvme::restoreSettings()
 #endif
 }
 
+void mvme::addObjectWidget(QWidget *widget, QObject *object, const QString &stateKey)
+{
+    connect(widget, &QObject::destroyed, this, [this, object, widget] (QObject *) {
+        m_objectWindows[object].removeOne(widget);
+    });
+
+    widget->setAttribute(Qt::WA_DeleteOnClose);
+    m_geometrySaver->addAndRestore(widget, QSL("WindowGeometries/") + stateKey);
+    add_widget_close_action(widget);
+
+    m_objectWindows[object].push_back(widget);
+    widget->show();
+}
+
+bool mvme::hasObjectWidget(QObject *object) const
+{
+    return !m_objectWindows[object].isEmpty();
+}
+
+QWidget *mvme::getObjectWidget(QObject *object) const
+{
+    QWidget *result = nullptr;
+    const auto &l(m_objectWindows[object]);
+
+    if (!l.isEmpty())
+    {
+        result = l.last();
+    }
+
+    return result;
+}
+
+QList<QWidget *> mvme::getObjectWidgets(QObject *object) const
+{
+    return m_objectWindows[object];
+}
+
+void mvme::activateObjectWidget(QObject *object)
+{
+    if (auto widget = getObjectWidget(object))
+    {
+        widget->show();
+        widget->raise();
+    }
+}
+
+void mvme::addWidget(QWidget *widget, const QString &stateKey)
+{
+    widget->setAttribute(Qt::WA_DeleteOnClose);
+    m_geometrySaver->addAndRestore(widget, QSL("WindowGeometries/") + stateKey);
+    add_widget_close_action(widget);
+    widget->show();
+}
+
 void mvme::on_actionNewConfig_triggered()
 {
     if (m_context->getConfig()->isModified())
@@ -617,23 +665,6 @@ void mvme::on_actionOpen_Listfile_triggered()
 void mvme::on_actionClose_Listfile_triggered()
 {
     m_context->closeReplayFile();
-}
-
-QAction *add_widget_close_action(QWidget *widget,
-                                const QKeySequence &shortcut = QKeySequence(QSL("Ctrl+W")),
-                                Qt::ShortcutContext shortcutContext = Qt::WindowShortcut)
-{
-    auto closeAction = new QAction(QSL("Close"), widget);
-
-    QObject::connect(closeAction, &QAction::triggered, widget, [widget] (bool) {
-        widget->close();
-    });
-
-    closeAction->setShortcutContext(Qt::WindowShortcut);
-    closeAction->setShortcut(QSL("Ctrl+W"));
-    widget->addAction(closeAction);
-
-    return closeAction;
 }
 
 void mvme::on_actionAnalysis_UI_triggered()

@@ -26,6 +26,7 @@ QWidget *make_vme_script_ref_widget()
         tb->setTextCursor(cursor);
 
         widget = new QWidget;
+        widget->setObjectName("vme_script_refernce");
         widget->setWindowTitle(QSL("VME Script Reference"));
         auto layout = new QHBoxLayout(widget);
         layout->setContentsMargins(0, 0, 0, 0);
