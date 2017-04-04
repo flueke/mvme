@@ -1,0 +1,2 @@
+= Clang Asan options =
+export ASAN_OPTIONS="detect_leaks=false"
