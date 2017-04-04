@@ -268,6 +268,7 @@ void Histo1DWidget::setHistogram(Histo1D *histo)
     m_plotCurve->setData(new Histo1DPointData(m_histo));
 
     displayChanged();
+    replot();
 }
 
 void Histo1DWidget::updateAxisScales()

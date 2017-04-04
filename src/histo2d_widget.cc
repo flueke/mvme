@@ -88,6 +88,7 @@ Histo2DWidget::Histo2DWidget(Histo2D *histo, QWidget *parent)
     , m_replotTimer(new QTimer(this))
     , m_cursorPosition(make_quiet_nan(), make_quiet_nan())
     , m_labelCursorInfoWidth(-1)
+    , m_geometrySaver(new WidgetGeometrySaver(this))
 {
     ui->setupUi(this);
 
@@ -222,6 +223,16 @@ void Histo2DWidget::replot()
 #endif
 
     ui->plot->replot();
+
+    if (m_xProjWidget)
+    {
+        doXProjection();
+    }
+
+    if (m_yProjWidget)
+    {
+        doYProjection();
+    }
 }
 
 void Histo2DWidget::displayChanged()
@@ -328,6 +339,16 @@ void Histo2DWidget::zoomerZoomed(const QRectF &zoomRect)
     ui->plot->setAxisScaleDiv(QwtPlot::yLeft, scaleDiv);
     replot();
 #endif
+
+    if (m_xProjWidget)
+    {
+        doXProjection();
+    }
+
+    if (m_yProjWidget)
+    {
+        doYProjection();
+    }
 }
 
 void Histo2DWidget::updateCursorInfoLabel()
@@ -472,7 +493,7 @@ void Histo2DWidget::on_tb_subRange_clicked()
     dialog.exec();
 }
 
-void Histo2DWidget::on_tb_projX_clicked()
+void Histo2DWidget::doXProjection()
 {
     double visibleMinX = ui->plot->axisScaleDiv(QwtPlot::xBottom).lowerBound();
     double visibleMaxX = ui->plot->axisScaleDiv(QwtPlot::xBottom).upperBound();
@@ -491,17 +512,17 @@ void Histo2DWidget::on_tb_projX_clicked()
         connect(m_xProjWidget, &QObject::destroyed, this, [this] (QObject *) {
             m_xProjWidget = nullptr;
         });
+        add_widget_close_action(m_xProjWidget);
+        QString stateKey = (m_sink ? m_sink->getId().toString() : m_histo->objectName()) + QSL("_xProj");
+        m_geometrySaver->addAndRestore(m_xProjWidget, QSL("WindowGeometries/") + stateKey);
     }
     else
     {
         m_xProjWidget->setHistogram(histo);
     }
-
-    m_xProjWidget->show();
-    m_xProjWidget->raise();
 }
 
-void Histo2DWidget::on_tb_projY_clicked()
+void Histo2DWidget::doYProjection()
 {
     double visibleMinX = ui->plot->axisScaleDiv(QwtPlot::xBottom).lowerBound();
     double visibleMaxX = ui->plot->axisScaleDiv(QwtPlot::xBottom).upperBound();
@@ -520,11 +541,27 @@ void Histo2DWidget::on_tb_projY_clicked()
         connect(m_yProjWidget, &QObject::destroyed, this, [this] (QObject *) {
             m_yProjWidget = nullptr;
         });
+        add_widget_close_action(m_yProjWidget);
+        QString stateKey = (m_sink ? m_sink->getId().toString() : m_histo->objectName()) + QSL("_yProj");
+        m_geometrySaver->addAndRestore(m_yProjWidget, QSL("WindowGeometries/") + stateKey);
     }
     else
     {
         m_yProjWidget->setHistogram(histo);
     }
+}
+
+void Histo2DWidget::on_tb_projX_clicked()
+{
+    doXProjection();
+
+    m_xProjWidget->show();
+    m_xProjWidget->raise();
+}
+
+void Histo2DWidget::on_tb_projY_clicked()
+{
+    doYProjection();
 
     m_yProjWidget->show();
     m_yProjWidget->raise();

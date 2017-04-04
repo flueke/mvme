@@ -11,6 +11,7 @@ class QwtPlotHistogram;
 class ScrollZoomer;
 class MVMEContext;
 class Histo1DWidget;
+class WidgetGeometrySaver;
 
 namespace Ui
 {
@@ -55,6 +56,8 @@ class Histo2DWidget: public QWidget
         bool zAxisIsLin() const;
         QwtLinearColorMap *getColorMap() const;
         void updateCursorInfoLabel();
+        void doXProjection();
+        void doYProjection();
 
         Ui::Histo2DWidget *ui;
         Histo2D *m_histo;
@@ -72,6 +75,8 @@ class Histo2DWidget: public QWidget
 
         Histo1DWidget *m_xProjWidget = nullptr;
         Histo1DWidget *m_yProjWidget = nullptr;
+
+        WidgetGeometrySaver *m_geometrySaver;
 };
 
 #endif /* __HISTO2D_WIDGET_H__ */

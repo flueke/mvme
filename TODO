@@ -1,6 +1,8 @@
 ==========================
 ==== Do these first! =====
 ==========================
+
+* Histo1DWidget: zoom out after setHistogram()
 * select input UI: disable other tree highlights while it's active.
 * track down weird scrolling/selection bug when selcting inputs.
   What happens is that the treeview scrolls up and the wrong input is selected.

@@ -109,8 +109,6 @@ mvme::mvme(QWidget *parent) :
         on_actionAnalysis_UI_triggered();
         this->raise();
     });
-
-    //m_geometrySaver->addAndRestore(this, QSL("WindowGeometries/MainWindow"));
 }
 
 mvme::~mvme()
