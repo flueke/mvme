@@ -138,11 +138,14 @@ bool ListFile::open()
 
     if (result)
     {
-        char fourCC[4];
-        qint64 bytesRead = m_file.read(reinterpret_cast<char *>(fourCC), sizeof(fourCC));
+        const char *toCompare = listfile_v1::FourCC;
+        size_t bytesToRead = strlen(toCompare);
+        char fourCC[bytesToRead + 1] = {};
 
-        if (bytesRead == sizeof(fourCC)
-            && std::strncmp(reinterpret_cast<char *>(fourCC), listfile_v1::FourCC, sizeof(fourCC)) == 0)
+        qint64 bytesRead = m_file.read(reinterpret_cast<char *>(fourCC), bytesToRead);
+
+        if (bytesRead == bytesToRead
+            && std::strncmp(reinterpret_cast<char *>(fourCC), toCompare, bytesToRead) == 0)
         {
             u32 version;
             bytesRead = m_file.read(reinterpret_cast<char *>(&version), sizeof(version));
@@ -586,7 +589,7 @@ void ListFileWriter::setOutputDevice(QIODevice *device)
 
 bool ListFileWriter::writePreamble()
 {
-    if (m_out->write(listfile_v1::FourCC, sizeof(listfile_v1::FourCC)) != sizeof(listfile_v1::FourCC))
+    if (m_out->write(listfile_v1::FourCC, strlen(listfile_v1::FourCC)) != strlen(listfile_v1::FourCC))
         return false;
 
     u32 fileVersion = 1;

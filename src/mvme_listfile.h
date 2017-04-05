@@ -174,7 +174,6 @@ class ListFile
         bool open();
         QJsonObject getDAQConfig();
         bool seekToFirstSection();
-        bool seek(qint64 pos);
         bool readNextSection(DataBuffer *buffer);
         s32 readSectionsIntoBuffer(DataBuffer *buffer);
         const QFile &getFile() const { return m_file; }
@@ -183,6 +182,8 @@ class ListFile
         u32 getFileVersion() const { return m_fileVersion; }
 
     private:
+        bool seek(qint64 pos);
+
         QFile m_file;
         QJsonObject m_configJson;
         u32 m_fileVersion = 0;

@@ -14,6 +14,30 @@
 #include <QProgressDialog>
 #include <QMessageBox>
 
+QString toString(const ListFileFormat &fmt)
+{
+    switch (fmt)
+    {
+        case ListFileFormat::Invalid:
+            return QSL("Invalid");
+        case ListFileFormat::Plain:
+            return QSL("Plain");
+        case ListFileFormat::ZIP:
+            return QSL("ZIP");
+    }
+}
+
+ListFileFormat fromString(const QString &str)
+{
+    if (str == "Plain")
+        return ListFileFormat::Plain;
+
+    if (str == "ZIP")
+        return ListFileFormat::ZIP;
+
+    return ListFileFormat::Invalid;
+}
+
 // Buffers to pass between DAQ/replay and the analysis. The buffer size should
 // be at least twice as big as the max VMUSB buffer size (2 * 64k). Just using
 // 1MB buffers for now as that's a good value for the listfile readout and
@@ -35,6 +59,7 @@ static void processQtEvents(QEventLoop::ProcessEventsFlags flags = QEventLoop::A
 struct MVMEContextPrivate
 {
     MVMEContext *m_q;
+    QStringList m_logBuffer;
 
     void stopDAQ();
     void stopDAQReplay();
@@ -44,6 +69,8 @@ struct MVMEContextPrivate
     void resumeAnalysis();
 
     void convertAnalysisJsonToV2(QJsonObject &json);
+
+    void clearLog();
 };
 
 void MVMEContextPrivate::stopDAQ()
@@ -162,6 +189,8 @@ void MVMEContextPrivate::resumeAnalysis()
     }
 }
 
+/* Converts eventIndex and moduleIndex as used in analysis config versions prio
+ * to V2 to eventId and moduleId using the currently open vme config. */
 void MVMEContextPrivate::convertAnalysisJsonToV2(QJsonObject &json)
 {
     bool couldConvert = true;
@@ -222,6 +251,16 @@ void MVMEContextPrivate::convertAnalysisJsonToV2(QJsonObject &json)
     }
 }
 
+void MVMEContextPrivate::clearLog()
+{
+    m_logBuffer.clear();
+
+    if (m_q->m_mainwin)
+    {
+        m_q->m_mainwin->clearLog();
+    }
+}
+
 MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
     : QObject(parent)
     , m_d(new MVMEContextPrivate)
@@ -237,6 +276,7 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
     , m_daqState(DAQState::Idle)
     , m_listFileWorker(new ListFileReader(m_daqStats))
     , m_analysis_ng(new analysis::Analysis)
+    , m_listFileFormat(ListFileFormat::Plain)
 {
     m_d->m_q = this;
 
@@ -313,14 +353,14 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
     connect(m_listFileWorker, &ListFileReader::replayStopped, this, &MVMEContext::onReplayDone);
 
 
-    connect(m_readoutWorker, &VMUSBReadoutWorker::logMessage, this, &MVMEContext::sigLogMessage);
+    connect(m_readoutWorker, &VMUSBReadoutWorker::logMessage, this, &MVMEContext::logMessage);
     connect(m_readoutWorker, &VMUSBReadoutWorker::logMessages, this, &MVMEContext::logMessages);
-    connect(m_bufferProcessor, &VMUSBBufferProcessor::logMessage, this, &MVMEContext::sigLogMessage);
+    connect(m_bufferProcessor, &VMUSBBufferProcessor::logMessage, this, &MVMEContext::logMessage);
 
     m_eventThread->setObjectName("mvme AnalysisThread");
     m_eventProcessor->moveToThread(m_eventThread);
     m_eventThread->start();
-    connect(m_eventProcessor, &MVMEEventProcessor::logMessage, this, &MVMEContext::sigLogMessage);
+    connect(m_eventProcessor, &MVMEEventProcessor::logMessage, this, &MVMEContext::logMessage);
     connect(m_eventProcessor, &MVMEEventProcessor::stateChanged, this, &MVMEContext::onEventProcessorStateChanged);
 
     setMode(GlobalMode::DAQ);
@@ -512,7 +552,7 @@ void MVMEContext::logModuleCounters()
         }
     }
 
-    emit sigLogMessage(buffer);
+    logMessage(buffer);
 #endif
 }
 
@@ -575,7 +615,7 @@ void MVMEContext::onReplayDone()
         .arg(mbPerSecond)
         ;
 
-    emit sigLogMessage(str);
+    logMessage(str);
 }
 
 DAQState MVMEContext::getDAQState() const
@@ -752,8 +792,8 @@ void MVMEContext::startDAQ(quint32 nCycles)
     emit daqAboutToStart(nCycles);
 
     prepareStart();
-    emit sigLogMessage(QSL("DAQ starting"));
-    m_mainwin->clearLog();
+    m_d->clearLog();
+    logMessage(QSL("DAQ starting"));
     QMetaObject::invokeMethod(m_readoutWorker, "start",
                               Qt::QueuedConnection, Q_ARG(quint32, nCycles));
     QMetaObject::invokeMethod(m_eventProcessor, "startProcessing",
@@ -788,8 +828,8 @@ void MVMEContext::startReplay(u32 nEvents)
     }
 
     prepareStart();
-    emit sigLogMessage(QSL("Replay starting"));
-    m_mainwin->clearLog();
+    logMessage(QSL("Replay starting"));
+    m_d->clearLog();
 
     m_listFileWorker->setEventsToRead(nEvents);
     m_eventProcessor->setListFileVersion(m_listFile->getFileVersion());
@@ -874,6 +914,7 @@ void MVMEContext::addWidget(QWidget *widget, const QString &stateKey)
 
 void MVMEContext::logMessage(const QString &msg)
 {
+    m_d->m_logBuffer.append(msg);
     emit sigLogMessage(msg);
 }
 
@@ -881,8 +922,13 @@ void MVMEContext::logMessages(const QStringList &messages, const QString &prefix
 {
     for (auto msg: messages)
     {
-        emit sigLogMessage(prefix + msg);
+        logMessage(prefix + msg);
     }
+}
+
+QStringList MVMEContext::getLogBuffer() const
+{
+    return m_d->m_logBuffer;
 }
 
 void MVMEContext::onEventAdded(EventConfig *event)
@@ -1154,6 +1200,15 @@ void MVMEContext::setListFileOutputEnabled(bool b)
     }
 }
 
+void MVMEContext::setListFileFormat(const ListFileFormat &fmt)
+{
+    if (m_listFileFormat != fmt)
+    {
+        m_listFileFormat = fmt;
+        makeWorkspaceSettings()->setValue(QSL("ListFileFormat"), toString(fmt));
+    }
+}
+
 /** True if at least one of VME-config and analysis-config is modified. */
 bool MVMEContext::isWorkspaceModified() const
 {
@@ -1175,6 +1230,15 @@ void MVMEContext::stopAnalysis()
 void MVMEContext::resumeAnalysis()
 {
     m_d->resumeAnalysis();
+}
+
+QJsonDocument MVMEContext::getAnalysisJsonDocument() const
+{
+    QJsonObject dest, json;
+    getAnalysisNG()->write(dest);
+    json[QSL("AnalysisNG")] = dest;
+    QJsonDocument doc(json);
+    return doc;
 }
 
 void MVMEContext::addAnalysisOperator(QUuid eventId, const std::shared_ptr<analysis::OperatorInterface> &op, s32 userLevel)

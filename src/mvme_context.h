@@ -7,12 +7,14 @@
 #include "vme_controller.h"
 #include "threading.h"
 #include <memory>
-#include <QList>
-#include <QWidget>
+
 #include <QFuture>
 #include <QFutureWatcher>
-#include <QSettings>
+#include <QJsonDocument>
+#include <QList>
 #include <QSet>
+#include <QSettings>
+#include <QWidget>
 
 class VMUSBReadoutWorker;
 class VMUSBBufferProcessor;
@@ -33,6 +35,16 @@ namespace analysis
 }
 
 struct MVMEContextPrivate;
+
+enum class ListFileFormat
+{
+    Invalid,
+    Plain,
+    ZIP
+};
+
+QString toString(const ListFileFormat &fmt);
+ListFileFormat fromString(const QString &str);
 
 class MVMEContext: public QObject
 {
@@ -189,6 +201,7 @@ class MVMEContext: public QObject
 
         void logMessage(const QString &msg);
         void logMessages(const QStringList &mgs, const QString &prefix = QString());
+        QStringList getLogBuffer() const;
 
         friend class mvme;
 
@@ -211,10 +224,13 @@ class MVMEContext: public QObject
         void loadVMEConfig(const QString &fileName);
         void loadAnalysisConfig(const QString &fileName);
 
+        // listfile output
         void setListFileDirectory(const QString &dirName);
         QString getListFileDirectory() const { return m_listFileDir; }
         void setListFileOutputEnabled(bool b);
         bool isListFileOutputEnabled() const { return m_listFileEnabled; }
+        void setListFileFormat(const ListFileFormat &fmt);
+        ListFileFormat getListFileFormat() const { return m_listFileFormat; }
 
         bool isWorkspaceModified() const;
 
@@ -223,6 +239,7 @@ class MVMEContext: public QObject
         bool isAnalysisRunning();
         void stopAnalysis();
         void resumeAnalysis();
+        QJsonDocument getAnalysisJsonDocument() const;
 
         void setAnalysisUi(analysis::AnalysisWidget *analysisUi)
         {
@@ -284,6 +301,7 @@ class MVMEContext: public QObject
         QString m_workspaceDir;
         QString m_listFileDir;
         bool    m_listFileEnabled;
+        ListFileFormat m_listFileFormat = ListFileFormat::Plain;
 
         VMEController *m_controller = nullptr;
         QTimer *m_ctrlOpenTimer;

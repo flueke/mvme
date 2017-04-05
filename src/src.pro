@@ -58,10 +58,15 @@ RESOURCES += resources.qrc
 RC_FILE = mvme.rc
 
 unix:!macx:!symbian {
+    # qwt
     CONFIG += qwt
     LIBS += -L/usr/local/qwt-6.1.3/lib/ -lqwt
     INCLUDEPATH += /usr/local/qwt-6.1.3/include
     DEPENDPATH  += /usr/local/qwt-6.1.3/include
+
+    # quazip
+    INCLUDEPATH += /usr/local/include
+    LIBS += -L/home/florian/local/lib/ -lquazip
 }
 
 win32 {

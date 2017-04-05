@@ -10,52 +10,12 @@
 #include <QJsonObject>
 #include <QtMath>
 
+#include <quazip/quazip.h>
+#include <quazip/quazipfile.h>
+
 using namespace vmusb_constants;
 
 //#define BPDEBUG
-
-#if 0
-struct DataProcessorPrivate
-{
-    MVMEContext *context;
-    QTime time;
-    size_t buffersInInterval = 0;
-    QMap<int, size_t> buffersPerStack;
-};
-
-DataProcessor::DataProcessor(MVMEContext *context, QObject *parent)
-    : QObject(parent)
-    , m_d(new DataProcessorPrivate)
-{
-    m_d->context = context;
-    m_d->time.start();
-}
-
-/* Process one event buffer containing one or more subevents. */
-void DataProcessor::processBuffer(DataBuffer *buffer)
-{
-    static size_t totalBuffers = 0;
-    ++totalBuffers;
-    ++m_d->buffersInInterval;
-
-    if (m_d->time.elapsed() > 1000)
-    {
-        auto buffersPerSecond = (float)m_d->buffersInInterval / (m_d->time.elapsed() / 1000.0);
-        qDebug() << "buffers processed =" << totalBuffers
-            << "buffers/sec =" << buffersPerSecond;
-
-        m_d->time.restart();
-        m_d->buffersInInterval = 0;
-
-        QString buf;
-        QTextStream stream(&buf);
-        format_vmusb_eventbuffer(buffer, stream);
-        emit eventFormatted(buf);
-    }
-
-    emit bufferProcessed(buffer);
-}
-#endif
 
 #ifdef BPDEBUG
 // Note: Assumption: VMUSBs HeaderOptMask option is not used!
@@ -177,6 +137,42 @@ void format_vmusb_buffer(DataBuffer *buffer, QTextStream &out)
 }
 #endif
 
+static std::runtime_error make_zip_error(const QString &msg, const QuaZip &zip)
+{
+  auto m = QString("Error: archive=%1, error=%2")
+    .arg(msg)
+    .arg(zip.getZipError());
+
+  return std::runtime_error(m.toStdString());
+}
+
+static void throw_io_device_error(QIODevice *device)
+{
+    if (auto zipFile = qobject_cast<QuaZipFile *>(device))
+    {
+        throw make_zip_error(zipFile->getZip()->getZipName(),
+                             *(zipFile->getZip()));
+    }
+    else if (auto file = qobject_cast<QFile *>(device))
+    {
+        throw QString("Error: file=%1, error=%2")
+            .arg(file->fileName())
+            .arg(file->errorString())
+            ;
+    }
+    else
+    {
+        throw QString("IO Error: %1")
+            .arg(device->errorString());
+    }
+}
+
+struct VMUSBBufferProcessorPrivate
+{
+    VMUSBBufferProcessor *m_q;
+    QuaZip m_listFileArchive;
+    QIODevice *m_listFileOut = nullptr;
+};
 
 static void processQtEvents(QEventLoop::ProcessEventsFlags flags = QEventLoop::AllEvents)
 {
@@ -185,10 +181,13 @@ static void processQtEvents(QEventLoop::ProcessEventsFlags flags = QEventLoop::A
 
 VMUSBBufferProcessor::VMUSBBufferProcessor(MVMEContext *context, QObject *parent)
     : QObject(parent)
+    , m_d(new VMUSBBufferProcessorPrivate)
     , m_context(context)
     , m_localEventBuffer(27 * 1024 * 2)
     , m_listFileWriter(new ListFileWriter(this))
-{}
+{
+    m_d->m_q = this;
+}
 
 void VMUSBBufferProcessor::beginRun()
 {
@@ -212,27 +211,81 @@ void VMUSBBufferProcessor::beginRun()
     // TODO: this needs to move into some generic listfile handler!
     if (listFileOutputEnabled && outPath.size())
     {
-        auto now = QDateTime::currentDateTime();
-        QString outFilename = outPath + '/' + now.toString("yyMMdd_HHmmss") + ".mvmelst";
-        m_listFileOut.setFileName(outFilename);
+        delete m_d->m_listFileOut;
+        m_d->m_listFileOut = nullptr;
 
-        emit logMessage(QString("Writing to listfile %1").arg(outFilename));
-
-        if (m_listFileOut.exists())
+        switch (m_context->getListFileFormat())
         {
-            throw QString("Error: listFile %1 exists");
+            case ListFileFormat::Plain:
+                {
+                    QFile *outFile = new QFile;
+                    m_d->m_listFileOut = outFile;
+                    auto now = QDateTime::currentDateTime();
+                    QString outFilename = outPath + '/' + now.toString("yyMMdd_HHmmss") + ".mvmelst";
+                    outFile->setFileName(outFilename);
+
+                    emit logMessage(QString("Writing to listfile %1").arg(outFilename));
+
+                    if (outFile->exists())
+                    {
+                        throw QString("Error: listFile %1 exists");
+                    }
+
+                    if (!outFile->open(QIODevice::WriteOnly))
+                    {
+                        throw QString("Error opening listFile %1 for writing: %2")
+                            .arg(outFile->fileName())
+                            .arg(outFile->errorString())
+                            ;
+                    }
+
+                    m_listFileWriter->setOutputDevice(outFile);
+                    getStats()->listfileFilename = outFilename;
+                } break;
+
+            case ListFileFormat::ZIP:
+                {
+                    auto now = QDateTime::currentDateTime();
+                    QString outFilename = outPath + '/' + now.toString("yyMMdd_HHmmss") + ".zip";
+                    m_d->m_listFileArchive.setZipName(outFilename);
+                    m_d->m_listFileArchive.setZip64Enabled(true);
+
+                    if (!m_d->m_listFileArchive.open(QuaZip::mdCreate))
+                    {
+                        throw make_zip_error(m_d->m_listFileArchive.getZipName(), m_d->m_listFileArchive);
+                    }
+
+                    auto outFile = new QuaZipFile(&m_d->m_listFileArchive);
+                    m_d->m_listFileOut = outFile;
+
+                    QuaZipNewInfo zipFileInfo("listfile.mvmelst");
+                    zipFileInfo.setPermissions(static_cast<QFile::Permissions>(0x6644));
+
+                    bool res = outFile->open(QIODevice::WriteOnly, zipFileInfo,
+                                             // password, crc
+                                             nullptr, 0,
+                                             // method (Z_DEFLATED or 0 for no compression)
+                                             0,
+                                             // level
+                                             Z_DEFAULT_COMPRESSION
+                                             //Z_BEST_SPEED
+                                            );
+
+                    if (!res)
+                    {
+                        delete m_d->m_listFileOut;
+                        m_d->m_listFileOut = nullptr;
+                        throw make_zip_error(m_d->m_listFileArchive.getZipName(), m_d->m_listFileArchive);
+                    }
+
+                    m_listFileWriter->setOutputDevice(m_d->m_listFileOut);
+                    getStats()->listfileFilename = outFilename;
+
+                } break;
+
+            InvalidDefaultCase;
         }
 
-        if (!m_listFileOut.open(QIODevice::WriteOnly))
-        {
-            throw QString("Error opening listFile %1 for writing: %2")
-                .arg(m_listFileOut.fileName())
-                .arg(m_listFileOut.errorString())
-                ;
-        }
-
-        m_listFileWriter->setOutputDevice(&m_listFileOut);
-        getStats()->listfileFilename = outFilename;
 
         QJsonObject daqConfigJson;
         m_context->getDAQConfig()->write(daqConfigJson);
@@ -240,11 +293,9 @@ void VMUSBBufferProcessor::beginRun()
         configJson["DAQConfig"] = daqConfigJson;
         QJsonDocument doc(configJson);
 
-        if (!m_listFileWriter->writeConfig(doc.toJson()))
+        if (!m_listFileWriter->writePreamble() || !m_listFileWriter->writeConfig(doc.toJson()))
         {
-            throw QString("Error writing to %1: %2")
-                .arg(m_listFileOut.fileName())
-                .arg(m_listFileOut.errorString());
+            throw_io_device_error(m_d->m_listFileOut);
         }
 
         getStats()->listFileBytesWritten = m_listFileWriter->bytesWritten();
@@ -253,18 +304,86 @@ void VMUSBBufferProcessor::beginRun()
 
 void VMUSBBufferProcessor::endRun()
 {
-    if (m_listFileOut.isOpen())
+    if (m_d->m_listFileOut->isOpen())
     {
         if (!m_listFileWriter->writeEndSection())
         {
-            throw QString("Error writing to %1: %2")
-                .arg(m_listFileOut.fileName())
-                .arg(m_listFileOut.errorString());
+            throw_io_device_error(m_d->m_listFileOut);
         }
 
         getStats()->listFileBytesWritten = m_listFileWriter->bytesWritten();
 
-        m_listFileOut.close();
+        m_d->m_listFileOut->close();
+    }
+
+    switch (m_context->getListFileFormat())
+    {
+        case ListFileFormat::Plain:
+            {
+            } break;
+
+        case ListFileFormat::ZIP:
+            {
+                // TODO: more error reporting here
+
+                // Logfile
+                {
+                    QuaZipNewInfo info("messages.log");
+                    info.setPermissions(static_cast<QFile::Permissions>(0x6644));
+                    QuaZipFile outFile(&m_d->m_listFileArchive);
+
+                    bool res = outFile.open(QIODevice::WriteOnly, info,
+                                             // password, crc
+                                             nullptr, 0,
+                                             // method (Z_DEFLATED or 0 for no compression)
+                                             0,
+                                             // level
+                                             Z_DEFAULT_COMPRESSION
+                                             //Z_BEST_SPEED
+                                            );
+
+                    if (res)
+                    {
+                        auto messages = m_context->getLogBuffer();
+                        for (const auto &msg: messages)
+                        {
+                            outFile.write(msg.toLocal8Bit());
+                            outFile.write("\n");
+                        }
+                    }
+                }
+
+                // Analysis
+                {
+                    QuaZipNewInfo info("analysis.analysis");
+                    info.setPermissions(static_cast<QFile::Permissions>(0x6644));
+                    QuaZipFile outFile(&m_d->m_listFileArchive);
+
+                    bool res = outFile.open(QIODevice::WriteOnly, info,
+                                             // password, crc
+                                             nullptr, 0,
+                                             // method (Z_DEFLATED or 0 for no compression)
+                                             0,
+                                             // level
+                                             Z_DEFAULT_COMPRESSION
+                                             //Z_BEST_SPEED
+                                            );
+
+                    if (res)
+                    {
+                        outFile.write(m_context->getAnalysisJsonDocument().toJson());
+                    }
+                }
+
+                m_d->m_listFileArchive.close();
+
+                if (m_d->m_listFileArchive.getZipError() != UNZ_OK)
+                {
+                    throw make_zip_error(m_d->m_listFileArchive.getZipName(), m_d->m_listFileArchive);
+                }
+            } break;
+
+        InvalidDefaultCase;
     }
 }
 
@@ -449,14 +568,12 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
                 }
             }
 
-            if (m_listFileOut.isOpen())
+            if (m_d->m_listFileOut->isOpen())
             {
                 if (!m_listFileWriter->writeBuffer(reinterpret_cast<const char *>(outputBuffer->data),
                                                    outputBuffer->used))
                 {
-                    throw QString("Error writing to listfile '%1': %2")
-                        .arg(m_listFileOut.fileName())
-                        .arg(m_listFileOut.errorString());
+                    throw_io_device_error(m_d->m_listFileOut);
                 }
                 getStats()->listFileBytesWritten = m_listFileWriter->bytesWritten();
             }
