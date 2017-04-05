@@ -276,7 +276,7 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
     , m_daqState(DAQState::Idle)
     , m_listFileWorker(new ListFileReader(m_daqStats))
     , m_analysis_ng(new analysis::Analysis)
-    , m_listFileFormat(ListFileFormat::Plain)
+    , m_listFileFormat(ListFileFormat::ZIP)
 {
     m_d->m_q = this;
 

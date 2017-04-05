@@ -139,7 +139,7 @@ bool ListFile::open()
     if (result)
     {
         const char *toCompare = listfile_v1::FourCC;
-        size_t bytesToRead = strlen(toCompare);
+        const size_t bytesToRead = 4;
         char fourCC[bytesToRead + 1] = {};
 
         qint64 bytesRead = m_file.read(reinterpret_cast<char *>(fourCC), bytesToRead);
