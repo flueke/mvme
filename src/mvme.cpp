@@ -649,7 +649,7 @@ void mvme::on_actionOpen_Listfile_triggered()
     }
 
 
-    QString path = m_context->getListFileDirectory();
+    QString path = m_context->getListFileOutputInfo().directory;
 
     if (path.isEmpty())
     {

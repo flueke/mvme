@@ -7,6 +7,23 @@
 
 static const int updateInterval = 500;
 
+static void fill_compression_combo(QComboBox *combo)
+{
+    for (int i=0; i<=9; ++i)
+    {
+        QString label(QString::number(i));
+
+        switch (i)
+        {
+            case 0: label = QSL("No compression"); break;
+            case 6: label = QSL("Default"); break;
+            case 9: label = QSL("Best compression"); break;
+        }
+
+        combo->addItem(label, i);
+    }
+}
+
 DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
     : QWidget(parent)
     , ui(new Ui::DAQControlWidget)
@@ -68,13 +85,25 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
     });
 
     connect(ui->cb_writeListfile, &QCheckBox::stateChanged, this, [this](int state) {
-        bool enabled = (state != Qt::Unchecked);
-        m_context->setListFileOutputEnabled(enabled);
+        auto info = m_context->getListFileOutputInfo();
+        info.enabled = (state != Qt::Unchecked);
+        m_context->setListFileOutputInfo(info);
     });
 
     connect(ui->cb_writeZip, &QCheckBox::stateChanged, this, [this](int state) {
+        auto info = m_context->getListFileOutputInfo();
         bool enabled = (state != Qt::Unchecked);
-        m_context->setListFileFormat(enabled ? ListFileFormat::ZIP : ListFileFormat::Plain);
+        info.format = (enabled ? ListFileFormat::ZIP : ListFileFormat::Plain);
+        m_context->setListFileOutputInfo(info);
+    });
+
+    fill_compression_combo(ui->combo_compression);
+
+    connect(ui->combo_compression, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged), this, [this] (int index) {
+        int compression = ui->combo_compression->currentData().toInt();
+        auto info = m_context->getListFileOutputInfo();
+        info.compressionLevel = compression;
+        m_context->setListFileOutputInfo(info);
     });
 
     connect(m_context, &MVMEContext::daqStateChanged, this, &DAQControlWidget::updateWidget);
@@ -213,16 +242,24 @@ void DAQControlWidget::updateWidget()
 
     ui->pb_reconnect->setEnabled(globalMode == GlobalMode::DAQ && daqState == DAQState::Idle);
 
+    auto outputInfo = m_context->getListFileOutputInfo();
+
     {
         QSignalBlocker b(ui->cb_writeListfile);
-        ui->cb_writeListfile->setChecked(m_context->isListFileOutputEnabled());
+        ui->cb_writeListfile->setChecked(outputInfo.enabled);
     }
 
     {
         QSignalBlocker b(ui->cb_writeZip);
-        ui->cb_writeZip->setChecked(m_context->getListFileFormat() == ListFileFormat::ZIP);
+        ui->cb_writeZip->setChecked(outputInfo.format == ListFileFormat::ZIP);
     }
 
+    {
+        QSignalBlocker b(ui->combo_compression);
+        ui->combo_compression->setCurrentIndex(outputInfo.compressionLevel);
+    }
+
+    // FIXME: use listfile directory here?
     auto filename = stats.listfileFilename;
     filename.remove(m_context->getWorkspaceDirectory() + "/listfiles/");
     if (ui->le_listfileFilename->text() != filename)

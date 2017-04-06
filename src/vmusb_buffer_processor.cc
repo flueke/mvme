@@ -205,8 +205,10 @@ void VMUSBBufferProcessor::beginRun()
 
     resetRunState();
 
-    QString outPath = m_context->getListFileDirectory();
-    bool listFileOutputEnabled = m_context->isListFileOutputEnabled();
+    auto outputInfo = m_context->getListFileOutputInfo();
+
+    QString outPath = outputInfo.directory;
+    bool listFileOutputEnabled = outputInfo.enabled;
 
     // TODO: this needs to move into some generic listfile handler!
     if (listFileOutputEnabled && outPath.size())
@@ -214,7 +216,7 @@ void VMUSBBufferProcessor::beginRun()
         delete m_d->m_listFileOut;
         m_d->m_listFileOut = nullptr;
 
-        switch (m_context->getListFileFormat())
+        switch (outputInfo.format)
         {
             case ListFileFormat::Plain:
                 {
@@ -265,10 +267,9 @@ void VMUSBBufferProcessor::beginRun()
                                              // password, crc
                                              nullptr, 0,
                                              // method (Z_DEFLATED or 0 for no compression)
-                                             0,
+                                             Z_DEFLATED,
                                              // level
-                                             Z_DEFAULT_COMPRESSION
-                                             //Z_BEST_SPEED
+                                             outputInfo.compressionLevel
                                             );
 
                     if (!res)
@@ -315,8 +316,10 @@ void VMUSBBufferProcessor::endRun()
 
         m_d->m_listFileOut->close();
 
+        auto outputInfo = m_context->getListFileOutputInfo();
+
         // TODO: more error reporting here (file I/O)
-        switch (m_context->getListFileFormat())
+        switch (outputInfo.format)
         {
             case ListFileFormat::Plain:
                 {
@@ -352,8 +355,7 @@ void VMUSBBufferProcessor::endRun()
                                                 // method (Z_DEFLATED or 0 for no compression)
                                                 0,
                                                 // level
-                                                Z_DEFAULT_COMPRESSION
-                                                //Z_BEST_SPEED
+                                                outputInfo.compressionLevel
                                                );
 
                         if (res)
@@ -379,8 +381,7 @@ void VMUSBBufferProcessor::endRun()
                                                 // method (Z_DEFLATED or 0 for no compression)
                                                 0,
                                                 // level
-                                                Z_DEFAULT_COMPRESSION
-                                                //Z_BEST_SPEED
+                                                outputInfo.compressionLevel
                                                );
 
                         if (res)

@@ -61,6 +61,7 @@ struct MVMEContextPrivate
     MVMEContext *m_q;
     QStringList m_logBuffer;
     QMutex m_logBufferMutex;
+    ListFileOutputInfo m_listFileOutputInfo = {};
 
     void stopDAQ();
     void stopDAQReplay();
@@ -1049,7 +1050,7 @@ void MVMEContext::newWorkspace(const QString &dirName)
         auto workspaceSettings(makeWorkspaceSettings());
         workspaceSettings->setValue(QSL("LastVMEConfig"), QSL("vme.mvmecfg"));
         workspaceSettings->setValue(QSL("LastAnalysisConfig"), QSL("analysis.analysis"));
-        workspaceSettings->setValue(QSL("ListfileDirectory"), QSL("listfiles"));
+        workspaceSettings->setValue(QSL("ListFileDirectory"), QSL("listfiles"));
         workspaceSettings->setValue(QSL("WriteListfile"), true);
         workspaceSettings->sync();
 
@@ -1077,15 +1078,17 @@ void MVMEContext::openWorkspace(const QString &dirName)
     setWorkspaceDirectory(dirName);
     auto workspaceSettings(makeWorkspaceSettings());
 
-    auto listfileDirectory  = workspaceSettings->value(QSL("ListfileDirectory")).toString();
-    auto listfileEnabled    = workspaceSettings->value(QSL("WriteListfile")).toBool();
-    auto listfileFormatStr  = workspaceSettings->value(QSL("ListFileFormat"), QSL("Plain")).toString();
+    {
+        ListFileOutputInfo info = {};
+        info.enabled   = workspaceSettings->value(QSL("WriteListFile")).toBool();
+        info.format    = fromString(workspaceSettings->value(QSL("ListFileFormat"), QSL("Plain")).toString());
+        info.directory = dir.filePath(workspaceSettings->value(QSL("ListFileDirectory")).toString());
+        info.compressionLevel = workspaceSettings->value(QSL("ListFileCompressionLevel"), 6).toInt();
+        m_d->m_listFileOutputInfo = info;
+    }
+
     auto lastVMEConfig      = workspaceSettings->value(QSL("LastVMEConfig")).toString();
     auto lastAnalysisConfig = workspaceSettings->value(QSL("LastAnalysisConfig")).toString();
-
-    setListFileDirectory(dir.filePath(listfileDirectory));
-    setListFileOutputEnabled(listfileEnabled);
-    setListFileFormat(fromString(listfileFormatStr));
 
     if (!lastVMEConfig.isEmpty())
     {
@@ -1211,27 +1214,20 @@ bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc)
     return true;
 }
 
-void MVMEContext::setListFileDirectory(const QString &dirName)
+void MVMEContext::setListFileOutputInfo(const ListFileOutputInfo &info)
 {
-    m_listFileDir = dirName;
+    m_d->m_listFileOutputInfo = info;
+
+    auto settings = makeWorkspaceSettings();
+    settings->setValue(QSL("WriteListFile"), info.enabled);
+    settings->setValue(QSL("ListFileFormat"), toString(info.format));
+    settings->setValue(QSL("ListFileDirectory"), info.directory);
+    settings->setValue(QSL("ListFileCompressionLevel"), info.compressionLevel);
 }
 
-void MVMEContext::setListFileOutputEnabled(bool b)
+ListFileOutputInfo MVMEContext::getListFileOutputInfo() const
 {
-    if (m_listFileEnabled != b)
-    {
-        m_listFileEnabled = b;
-        makeWorkspaceSettings()->setValue(QSL("WriteListfile"), b);
-    }
-}
-
-void MVMEContext::setListFileFormat(const ListFileFormat &fmt)
-{
-    if (m_listFileFormat != fmt)
-    {
-        m_listFileFormat = fmt;
-        makeWorkspaceSettings()->setValue(QSL("ListFileFormat"), toString(fmt));
-    }
+    return m_d->m_listFileOutputInfo;
 }
 
 /** True if at least one of VME-config and analysis-config is modified. */

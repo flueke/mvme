@@ -43,6 +43,14 @@ enum class ListFileFormat
     ZIP
 };
 
+struct ListFileOutputInfo
+{
+    bool enabled;
+    ListFileFormat format;
+    QString directory;
+    int compressionLevel;
+};
+
 QString toString(const ListFileFormat &fmt);
 ListFileFormat fromString(const QString &str);
 
@@ -230,12 +238,9 @@ class MVMEContext: public QObject
         bool loadAnalysisConfig(const QJsonDocument &doc);
 
         // listfile output
-        void setListFileDirectory(const QString &dirName);
-        QString getListFileDirectory() const { return m_listFileDir; }
-        void setListFileOutputEnabled(bool b);
-        bool isListFileOutputEnabled() const { return m_listFileEnabled; }
-        void setListFileFormat(const ListFileFormat &fmt);
-        ListFileFormat getListFileFormat() const { return m_listFileFormat; }
+        void setListFileOutputInfo(const ListFileOutputInfo &info);
+        ListFileOutputInfo getListFileOutputInfo() const;
+
 
         bool isWorkspaceModified() const;
 
