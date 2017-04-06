@@ -79,7 +79,10 @@ class MultiWordDataFilter
         MultiWordDataFilter(const QVector<DataFilter> &filters = QVector<DataFilter>());
 
         void addSubFilter(const DataFilter &filter);
-        QVector<DataFilter> getSubFilters() const { return m_filters; }
+
+        // Returning a copy here would be dangerous because of threading and
+        // m_filters being copied at the same time another thread is iterating.
+        const QVector<DataFilter> &getSubFilters() const { return m_filters; }
         void setSubFilters(const QVector<DataFilter> &subfilters);
         int getSubFilterCount() const { return m_filters.size(); }
 

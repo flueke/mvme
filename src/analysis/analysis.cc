@@ -254,7 +254,8 @@ void Extractor::write(QJsonObject &json) const
     json["rngSeed"] = QString::number(m_rngSeed, 16);
 
     QJsonArray filterArray;
-    for (auto dataFilter: m_filter.getSubFilters())
+    const auto &subFilters(m_filter.getSubFilters());
+    for (const auto &dataFilter: subFilters)
     {
         QJsonObject filterJson;
         filterJson["filterString"] = QString::fromLocal8Bit(dataFilter.getFilter());
