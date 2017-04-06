@@ -1646,6 +1646,11 @@ void Analysis::clear()
     setModified();
 }
 
+bool Analysis::isEmpty() const
+{
+    return m_sources.isEmpty() && m_operators.isEmpty();
+}
+
 template<typename T>
 QString getClassName(T *obj)
 {

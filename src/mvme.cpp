@@ -37,6 +37,30 @@
 
 #include <qwt_plot_curve.h>
 
+#include <quazip/quazipfile.h>
+
+static QString make_zip_error(const QString &message, const QuaZip *zip)
+{
+  auto m = QString("%1\narchive=%2, code=%3")
+      .arg(message)
+      .arg(zip->getZipName())
+      .arg(zip->getZipError());
+
+  return m;
+}
+
+static QString make_zip_error(const QString &message, QuaZipFile *zipFile)
+{
+    auto m = QString("%1\narchive=%2, file=%3, code=%4")
+        .arg(message)
+        .arg(zipFile->getZipName())
+        .arg(zipFile->getFileName())
+        .arg(zipFile->getZipError())
+        ;
+
+    return m;
+}
+
 mvme::mvme(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::mvme)
@@ -634,29 +658,77 @@ void mvme::on_actionOpen_Listfile_triggered()
 
     QString fileName = QFileDialog::getOpenFileName(this, "Load Listfile",
                                                     path,
-                                                    "MVME Listfiles (*.mvmelst);; All Files (*.*)");
+                                                    "MVME Listfiles (*.mvmelst *.zip);; All Files (*.*)");
     if (fileName.isEmpty())
         return;
 
-    ListFile *listFile = new ListFile(fileName);
-
-    if (!listFile->open())
+    // ZIP
+    if (fileName.toLower().endsWith(QSL(".zip")))
     {
-        QMessageBox::critical(0, "Error", QString("Error opening %1 for reading").arg(fileName));
-        delete listFile;
-        return;
+        auto inFile = std::make_unique<QuaZipFile>(fileName, QSL("listfile.mvmelst"));
+
+        if (!inFile->open(QIODevice::ReadOnly))
+        {
+            QMessageBox::critical(0, "Error", make_zip_error("Could not open listfile", inFile.get()));
+            return;
+        }
+
+        auto listFile = std::make_unique<ListFile>(inFile.release());
+
+        if (!listFile->open())
+        {
+            QMessageBox::critical(0, "Error", QString("Error opening listfile inside %1 for reading").arg(fileName));
+            return;
+        }
+
+        auto json = listFile->getDAQConfig();
+
+        if (json.isEmpty())
+        {
+            QMessageBox::critical(0, "Error", QString("Listfile does not contain a valid DAQ configuration"));
+            return;
+        }
+
+        m_context->setReplayFile(listFile.release());
+
+        if (!m_context->getAnalysisNG()->isModified() && m_context->getAnalysisNG()->isEmpty())
+        {
+            QuaZipFile inFile(fileName, QSL("analysis.analysis"));
+
+            if (!inFile.open(QIODevice::ReadOnly))
+            {
+                QMessageBox::critical(0, "Error", make_zip_error("Could not read analysis file", &inFile));
+            }
+            else
+            {
+                m_context->loadAnalysisConfig(&inFile);
+            }
+        }
+    }
+    // Plain
+    else
+    {
+        ListFile *listFile = new ListFile(fileName);
+
+        if (!listFile->open())
+        {
+            QMessageBox::critical(0, "Error", QString("Error opening %1 for reading").arg(fileName));
+            delete listFile;
+            return;
+        }
+
+        auto json = listFile->getDAQConfig();
+
+        if (json.isEmpty())
+        {
+            QMessageBox::critical(0, "Error", QString("Listfile does not contain a valid DAQ configuration"));
+            delete listFile;
+            return;
+        }
+
+        m_context->setReplayFile(listFile);
     }
 
-    auto json = listFile->getDAQConfig();
-
-    if (json.isEmpty())
-    {
-        QMessageBox::critical(0, "Error", QString("Listfile does not contain a valid DAQ configuration"));
-        delete listFile;
-        return;
-    }
-
-    m_context->setReplayFile(listFile);
     updateWindowTitle();
 }
 

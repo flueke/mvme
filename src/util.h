@@ -3,15 +3,17 @@
 
 #include "typedefs.h"
 #include "qt_util.h"
-#include <stdexcept>
-#include <QVector>
+
+#include <QMetaType>
 #include <QPair>
 #include <QVariant>
+#include <QVector>
 #include <QWidget>
+
 #include <functional>
 #include <limits>
 #include <memory>
-#include <QMetaType>
+#include <stdexcept>
 
 #define ArrayCount(a) (sizeof(a) / sizeof((a)[0]))
 
@@ -244,6 +246,7 @@ inline u32 number_of_set_bits(u32 i)
      return (((i + (i >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24;
 }
 
+QJsonDocument gui_read_json(QIODevice *input);
 QJsonDocument gui_read_json_file(const QString &fileName);
 bool gui_write_json_file(const QString &fileName, const QJsonDocument &doc);
 

@@ -222,7 +222,10 @@ class MVMEContext: public QObject
         std::shared_ptr<QSettings> makeWorkspaceSettings() const;
 
         void loadVMEConfig(const QString &fileName);
-        void loadAnalysisConfig(const QString &fileName);
+
+        bool loadAnalysisConfig(const QString &fileName);
+        bool loadAnalysisConfig(QIODevice *input);
+        bool loadAnalysisConfig(const QJsonDocument &doc);
 
         // listfile output
         void setListFileDirectory(const QString &dirName);

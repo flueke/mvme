@@ -166,27 +166,32 @@ void dump_mvme_buffer_v0(QTextStream &out, const DataBuffer *eventBuffer, bool d
 void dump_mvme_buffer(QTextStream &out, const DataBuffer *eventBuffer, bool dumpData=false);
 
 class DAQConfig;
+class QuaZipFile;
 
 class ListFile
 {
     public:
         ListFile(const QString &fileName);
+        ListFile(QuaZipFile *inFile);
+        ~ListFile();
+
         bool open();
         QJsonObject getDAQConfig();
         bool seekToFirstSection();
         bool readNextSection(DataBuffer *buffer);
         s32 readSectionsIntoBuffer(DataBuffer *buffer);
-        const QFile &getFile() const { return m_file; }
-        qint64 size() const { return m_file.size(); }
-        QString getFileName() const { return m_file.fileName(); }
+        const QIODevice *getInputDevice() const { return m_input; }
+        qint64 size() const;
+        QString getFileName() const;
         u32 getFileVersion() const { return m_fileVersion; }
 
     private:
         bool seek(qint64 pos);
 
-        QFile m_file;
+        QIODevice *m_input = nullptr;
         QJsonObject m_configJson;
         u32 m_fileVersion = 0;
+        u32 m_sectionHeaderBuffer = 0;
 };
 
 class ListFileReader: public QObject

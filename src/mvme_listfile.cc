@@ -8,6 +8,9 @@
 #include <QtMath>
 #include <QElapsedTimer>
 
+#include <quazip/quazip.h>
+#include <quazip/quazipfile.h>
+
 #include "threading.h"
 
 const int listfile_v0::Version;
@@ -127,48 +130,120 @@ void dump_mvme_buffer(QTextStream &out, const DataBuffer *eventBuffer, bool dump
 }
 
 ListFile::ListFile(const QString &fileName)
+    : m_input(new QFile(fileName))
 {
-    m_file.setFileName(fileName);
+}
+
+ListFile::ListFile(QuaZipFile *inFile)
+    : m_input(inFile)
+{
+}
+
+ListFile::~ListFile()
+{
+    delete m_input;
 }
 
 bool ListFile::open()
 {
     m_fileVersion = 0;
-    bool result = m_file.open(QIODevice::ReadOnly);
 
-    if (result)
+    if (auto inFile = qobject_cast<QFile *>(m_input))
     {
-        const char *toCompare = listfile_v1::FourCC;
-        const size_t bytesToRead = 4;
-        char fourCC[bytesToRead + 1] = {};
-
-        qint64 bytesRead = m_file.read(reinterpret_cast<char *>(fourCC), bytesToRead);
-
-        if (bytesRead == bytesToRead
-            && std::strncmp(reinterpret_cast<char *>(fourCC), toCompare, bytesToRead) == 0)
+        if (!inFile->open(QIODevice::ReadOnly))
         {
-            u32 version;
-            bytesRead = m_file.read(reinterpret_cast<char *>(&version), sizeof(version));
-
-            if (bytesRead == sizeof(version))
-            {
-                m_fileVersion = version;
-            }
+            return false;
         }
-
-        seekToFirstSection();
-
-        qDebug() << "detected listfile version" << m_fileVersion;
     }
 
-    return result;
+    // For ZIP file input it is assumed that the file has been opened before
+    // being passed to our constructor.
+
+    const char *toCompare = listfile_v1::FourCC;
+    const size_t bytesToRead = 4;
+    char fourCC[bytesToRead + 1] = {};
+
+    qint64 bytesRead = m_input->read(reinterpret_cast<char *>(fourCC), bytesToRead);
+
+    if (bytesRead == bytesToRead
+        && std::strncmp(reinterpret_cast<char *>(fourCC), toCompare, bytesToRead) == 0)
+    {
+        u32 version;
+        bytesRead = m_input->read(reinterpret_cast<char *>(&version), sizeof(version));
+
+        if (bytesRead == sizeof(version))
+        {
+            m_fileVersion = version;
+        }
+    }
+
+    seekToFirstSection();
+    m_sectionHeaderBuffer = 0;
+
+    qDebug() << "detected listfile version" << m_fileVersion;
+
+    return true;
+}
+
+qint64 ListFile::size() const
+{
+    return m_input->size();
+}
+
+QString ListFile::getFileName() const
+{
+    if (auto inFile = qobject_cast<QFile *>(m_input))
+    {
+        return inFile->fileName();
+    }
+    else if (auto inZipFile = qobject_cast<QuaZipFile *>(m_input))
+    {
+        return inZipFile->getZipName();
+    }
+
+    InvalidCodePath;
+
+    return QString();
+}
+
+/* Note: this is very inefficient for ZIP files and should be used sparingly
+ * and only to look for a position near the start of the file. */
+static bool seek_in_listfile(QIODevice *input, qint64 pos)
+{
+    if (auto inFile = qobject_cast<QFile *>(input))
+    {
+        return inFile->seek(pos);
+    }
+    else if (auto inZipFile = qobject_cast<QuaZipFile *>(input))
+    {
+        inZipFile->close();
+
+        if (!inZipFile->open(QIODevice::ReadOnly))
+        {
+            return false;
+        }
+
+        while (pos > 0)
+        {
+            char c;
+            inZipFile->read(&c, sizeof(c));
+            --pos;
+        }
+
+        return true;
+    }
+
+    InvalidCodePath;
+
+    return false;
 }
 
 template<typename LF>
 QJsonObject get_daq_config(QIODevice &m_file)
 {
     qint64 savedPos = m_file.pos();
-    m_file.seek(LF::FirstSectionOffset);
+
+    seek_in_listfile(&m_file, LF::FirstSectionOffset);
 
     QByteArray configData;
 
@@ -196,7 +271,7 @@ QJsonObject get_daq_config(QIODevice &m_file)
         configData.append(data);
     }
 
-    m_file.seek(savedPos);
+    seek_in_listfile(&m_file, savedPos);
 
     QJsonParseError parseError; // TODO: make parse error message available to the user
     auto m_configJson = QJsonDocument::fromJson(configData, &parseError);
@@ -227,11 +302,11 @@ QJsonObject ListFile::getDAQConfig()
     {
         if (m_fileVersion == 0)
         {
-            m_configJson = get_daq_config<listfile_v0>(m_file);
+            m_configJson = get_daq_config<listfile_v0>(*m_input);
         }
         else
         {
-            m_configJson = get_daq_config<listfile_v1>(m_file);
+            m_configJson = get_daq_config<listfile_v1>(*m_input);
         }
     }
 
@@ -240,13 +315,15 @@ QJsonObject ListFile::getDAQConfig()
 
 bool ListFile::seekToFirstSection()
 {
-    return seek((m_fileVersion == 0) ? listfile_v0::FirstSectionOffset : listfile_v1::FirstSectionOffset);
+    auto offset = (m_fileVersion == 0) ? listfile_v0::FirstSectionOffset : listfile_v1::FirstSectionOffset;
+
+    return seek(offset);
 }
 
 bool ListFile::seek(qint64 pos)
 {
-    qDebug() << &m_file << m_file.fileName() << m_file.isOpen();
-    return m_file.seek(pos);
+    qDebug() << m_input << getFileName() << m_input->isOpen();
+    return seek_in_listfile(m_input, pos);
 }
 
 template<typename LF>
@@ -278,40 +355,62 @@ bool read_next_section(QIODevice &m_file, DataBuffer *buffer)
 
 bool ListFile::readNextSection(DataBuffer *buffer)
 {
+    m_sectionHeaderBuffer = 0;
+
     if (m_fileVersion == 0)
     {
-        return read_next_section<listfile_v0>(m_file, buffer);
+        return read_next_section<listfile_v0>(*m_input, buffer);
     }
     else
     {
-        return read_next_section<listfile_v1>(m_file, buffer);
+        return read_next_section<listfile_v1>(*m_input, buffer);
     }
 }
 
 template<typename LF>
-s32 read_sections_into_buffer(QIODevice &m_file, DataBuffer *buffer)
+s32 read_sections_into_buffer(QIODevice &m_file, DataBuffer *buffer, u32 *savedSectionHeader)
 {
+    Q_ASSERT(savedSectionHeader);
+
+    qDebug() << __PRETTY_FUNCTION__ << "savedSectionHeader =" << QString::number(*savedSectionHeader, 16);
+
     s32 sectionsRead = 0;
 
     while (!m_file.atEnd() && buffer->free() >= sizeof(u32))
     {
-        u32 sectionHeader = 0;
+        u32 sectionHeader = *savedSectionHeader;
 
-        qint64 savedPos = m_file.pos();
-
-        if (m_file.read((char *)&sectionHeader, sizeof(u32)) != sizeof(u32))
-            return -1;
+        // If 0 was passed in there was no previous section header so we have to read one.
+        if (sectionHeader == 0)
+        {
+            if (m_file.read((char *)&sectionHeader, sizeof(u32)) != sizeof(u32))
+            {
+                return -1;
+            }
+            qDebug() << "new sectionHeader =" << QString::number(sectionHeader, 16);
+        }
 
         u32 sectionWords = (sectionHeader & LF::SectionSizeMask) >> LF::SectionSizeShift;
 
         qint64 bytesToRead = sectionWords * sizeof(u32);
 
-        // add the size of one u32 for the sectionHeader
+        // Check if there's enough free space in the buffer for the section
+        // contents plus the section header.
         if ((qint64)buffer->free() < bytesToRead + (qint64)sizeof(u32))
         {
-            // seek back to the sectionHeader
-            m_file.seek(savedPos);
+            // Not enough space. Store the sectionHeader in *savedSectionHeader
+            // and break out of the loop.
+            qDebug() << "not enough space in buffer. saving section header" << QString::number(sectionHeader, 16);
+            *savedSectionHeader = sectionHeader;
             break;
+        }
+        else
+        {
+            if (*savedSectionHeader != 0)
+            {
+                qDebug() << "got enough space in buffer. reseting saved section header to 0";
+            }
+            *savedSectionHeader = 0;
         }
 
         *(buffer->asU32()) = sectionHeader;
@@ -323,6 +422,7 @@ s32 read_sections_into_buffer(QIODevice &m_file, DataBuffer *buffer)
         buffer->used += bytesToRead;
         ++sectionsRead;
     }
+
     return sectionsRead;
 }
 
@@ -330,11 +430,11 @@ s32 ListFile::readSectionsIntoBuffer(DataBuffer *buffer)
 {
     if (m_fileVersion == 0)
     {
-        return read_sections_into_buffer<listfile_v0>(m_file, buffer);
+        return read_sections_into_buffer<listfile_v0>(*m_input, buffer, &m_sectionHeaderBuffer);
     }
     else
     {
-        return read_sections_into_buffer<listfile_v1>(m_file, buffer);
+        return read_sections_into_buffer<listfile_v1>(*m_input, buffer, &m_sectionHeaderBuffer);
     }
 }
 

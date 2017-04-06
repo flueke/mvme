@@ -84,3 +84,6 @@ unix {
 include($$PWD/../git_version.pri)
 
 # vim:ft=conf
+
+FORMS += \
+    form.ui

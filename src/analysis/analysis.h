@@ -954,6 +954,7 @@ class Analysis: public QObject
         void removeOperator(OperatorInterface *op);
 
         void clear();
+        bool isEmpty() const;
 
 #if 0
         s32 getModuleIndex(const SourcePtr &src) const { return getModuleIndex(src.get()); }

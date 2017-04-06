@@ -243,7 +243,12 @@ QJsonDocument gui_read_json_file(const QString &fileName)
         return QJsonDocument();
     }
 
-    auto data = inFile.readAll();
+    return gui_read_json(&inFile);
+}
+
+QJsonDocument gui_read_json(QIODevice *input)
+{
+    auto data = input->readAll();
 
     if (data.isEmpty())
         return QJsonDocument();
@@ -253,8 +258,7 @@ QJsonDocument gui_read_json_file(const QString &fileName)
 
     if (parseError.error != QJsonParseError::NoError)
     {
-        QMessageBox::critical(0, "Error", QString("Error reading from %1: %2 at offset %3")
-                              .arg(fileName)
+        QMessageBox::critical(0, "Error", QString("Error reading JSON: %1 at offset %2")
                               .arg(parseError.errorString())
                               .arg(parseError.offset)
                              );

@@ -72,6 +72,11 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
         m_context->setListFileOutputEnabled(enabled);
     });
 
+    connect(ui->cb_writeZip, &QCheckBox::stateChanged, this, [this](int state) {
+        bool enabled = (state != Qt::Unchecked);
+        m_context->setListFileFormat(enabled ? ListFileFormat::ZIP : ListFileFormat::Plain);
+    });
+
     connect(m_context, &MVMEContext::daqStateChanged, this, &DAQControlWidget::updateWidget);
     connect(m_context, &MVMEContext::eventProcessorStateChanged, this, &DAQControlWidget::updateWidget);
     connect(m_context, &MVMEContext::modeChanged, this, &DAQControlWidget::updateWidget);
@@ -211,6 +216,11 @@ void DAQControlWidget::updateWidget()
     {
         QSignalBlocker b(ui->cb_writeListfile);
         ui->cb_writeListfile->setChecked(m_context->isListFileOutputEnabled());
+    }
+
+    {
+        QSignalBlocker b(ui->cb_writeZip);
+        ui->cb_writeZip->setChecked(m_context->getListFileFormat() == ListFileFormat::ZIP);
     }
 
     auto filename = stats.listfileFilename;

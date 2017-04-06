@@ -189,8 +189,14 @@ void MVMEContextPrivate::resumeAnalysis()
     }
 }
 
-/* Converts eventIndex and moduleIndex as used in analysis config versions prio
- * to V2 to eventId and moduleId using the currently open vme config. */
+/* This code converts from analysis config versions prior to V2, which
+ * stored eventIndex and moduleIndex instead of eventId and moduleId. This
+ * could be done in Analysis::read() but then the Analysis object would
+ * need a reference to either this context or the current DAQConfig which
+ * is not great.
+ * The solution implemented here makes it so that this context object has
+ * knowledge about the Analysis json structure which isn't great either.
+ */
 void MVMEContextPrivate::convertAnalysisJsonToV2(QJsonObject &json)
 {
     bool couldConvert = true;
@@ -1072,11 +1078,13 @@ void MVMEContext::openWorkspace(const QString &dirName)
 
     auto listfileDirectory  = workspaceSettings->value(QSL("ListfileDirectory")).toString();
     auto listfileEnabled    = workspaceSettings->value(QSL("WriteListfile")).toBool();
+    auto listfileFormatStr  = workspaceSettings->value(QSL("ListFileFormat"), QSL("Plain")).toString();
     auto lastVMEConfig      = workspaceSettings->value(QSL("LastVMEConfig")).toString();
     auto lastAnalysisConfig = workspaceSettings->value(QSL("LastAnalysisConfig")).toString();
 
     setListFileDirectory(dir.filePath(listfileDirectory));
     setListFileOutputEnabled(listfileEnabled);
+    setListFileFormat(fromString(listfileFormatStr));
 
     if (!lastVMEConfig.isEmpty())
     {
@@ -1114,24 +1122,40 @@ void MVMEContext::loadVMEConfig(const QString &fileName)
     setMode(GlobalMode::DAQ);
 }
 
-void MVMEContext::loadAnalysisConfig(const QString &fileName)
+bool MVMEContext::loadAnalysisConfig(const QString &fileName)
 {
     qDebug() << "loadAnalysisConfig from" << fileName;
 
     QJsonDocument doc(gui_read_json_file(fileName));
 
+    if (loadAnalysisConfig(doc))
+    {
+        setAnalysisConfigFileName(fileName);
+        return true;
+    }
+
+    return false;
+}
+
+bool MVMEContext::loadAnalysisConfig(QIODevice *input)
+{
+    QJsonDocument doc(gui_read_json(input));
+
+    if (loadAnalysisConfig(doc))
+    {
+        setAnalysisConfigFileName(QString());
+        return true;
+    }
+
+    return false;
+}
+
+bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc)
+{
     using namespace analysis;
 
     auto json = doc.object()[QSL("AnalysisNG")].toObject();
 
-    /* This code converts from analysis config versions prior to V2, which
-     * stored eventIndex and moduleIndex instead of eventId and moduleId. This
-     * could be done in Analysis::read() but then the Analysis object would
-     * need a reference to either this context or the current DAQConfig which
-     * is not great.
-     * The solution implemented here makes it so that this context object has
-     * knowledge about the Analysis json structure which isn't great either.
-     */
     int version = json[QSL("MVMEAnalysisVersion")].toInt(0);
     if (version < 2)
     {
@@ -1143,47 +1167,47 @@ void MVMEContext::loadAnalysisConfig(const QString &fileName)
 
     if (readResult.code != Analysis::ReadResult::NoError)
     {
-        // TODO: print readResult.data in the messagebox
-        qDebug() << "!!!!! Error reading analysis ng from" << fileName << readResult.code << readResult.data;
+        qDebug() << "!!!!! Error reading analysis ng" << readResult.code << readResult.data;
+
         QMessageBox::critical(m_mainwin, QSL("Error"),
                               QString("Error loading analysis\n"
-                                      "File %1\n"
-                                      "Error: %2")
-                              .arg(fileName)
+                                      "Error: %1")
                               .arg(Analysis::ReadResult::ErrorCodeStrings.value(readResult.code, "Unknown error")));
+        return false;
     }
-    else
+
+    try
     {
-        try
+        bool was_running = isAnalysisRunning();
+
+        if (was_running)
         {
-            bool was_running = isAnalysisRunning();
-
-            if (was_running)
-            {
-                stopAnalysis();
-            }
-
-            delete m_analysis_ng;
-            m_analysis_ng = analysis_ng.release();
-
-            // Prepares operators, allocates histograms, etc..
-            m_eventProcessor->newRun();
-            setAnalysisConfigFileName(fileName);
-            emit analysisNGChanged();
-
-            if (was_running)
-            {
-                resumeAnalysis();
-            }
+            stopAnalysis();
         }
-        catch (const std::bad_alloc &e)
+
+        delete m_analysis_ng;
+        m_analysis_ng = analysis_ng.release();
+
+        // Prepares operators, allocates histograms, etc..
+        m_eventProcessor->newRun();
+        emit analysisNGChanged();
+
+        if (was_running)
         {
-            m_analysis_ng->clear();
-            setAnalysisConfigFileName(QString());
-            QMessageBox::critical(m_mainwin, QSL("Error"), QString("Out of memory when creating analysis objects."));
-            emit analysisNGChanged();
+            resumeAnalysis();
         }
     }
+    catch (const std::bad_alloc &e)
+    {
+        m_analysis_ng->clear();
+        setAnalysisConfigFileName(QString());
+        QMessageBox::critical(m_mainwin, QSL("Error"), QString("Out of memory when creating analysis objects."));
+        emit analysisNGChanged();
+
+        return false;
+    }
+
+    return true;
 }
 
 void MVMEContext::setListFileDirectory(const QString &dirName)
