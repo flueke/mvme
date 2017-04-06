@@ -21,10 +21,6 @@ struct VMUSBBufferProcessorPrivate;
 class VMUSBBufferProcessor: public QObject
 {
     Q_OBJECT
-    signals:
-        void mvmeEventBufferReady(DataBuffer *);
-        void logMessage(const QString &);
-
     public:
         VMUSBBufferProcessor(MVMEContext *context, QObject *parent = 0);
 
@@ -43,6 +39,7 @@ class VMUSBBufferProcessor: public QObject
         DataBuffer *getFreeBuffer();
         bool processEvent(BufferIterator &iter, DataBuffer *outputBuffer, u64 bufferNumber, u16 eventIndex);
         DAQStats *getStats();
+        void logMessage(const QString &message);
 
         VMUSBBufferProcessorPrivate *m_d;
 

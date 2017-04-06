@@ -199,8 +199,10 @@ class MVMEContext: public QObject
         void setAnalysisConfigFileName(QString name);
         QString getAnalysisConfigFileName() const { return m_analysisConfigFileName; }
 
+        // Logs the given msg as-is.
+        void logMessageRaw(const QString &msg);
+        // Prepends the current time to the given msg.
         void logMessage(const QString &msg);
-        void logMessages(const QStringList &mgs, const QString &prefix = QString());
         QStringList getLogBuffer() const;
 
         friend class mvme;

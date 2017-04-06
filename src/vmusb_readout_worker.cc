@@ -55,7 +55,7 @@ void VMUSBReadoutWorker::start(quint32 cycles)
 
     try
     {
-        emit logMessage(QSL("VMUSB readout starting"));
+        logMessage(QSL("VMUSB readout starting"));
 
         //
         // Reset IRQs
@@ -149,7 +149,7 @@ void VMUSBReadoutWorker::start(quint32 cycles)
 
             if (m_vmusbStack.getContents().size())
             {
-                emit logMessage(QString("Loading readout stack for event \"%1\""
+                logMessage(QString("Loading readout stack for event \"%1\""
                                    ", stack id = %2, size= %4, load offset = %3")
                            .arg(event->objectName())
                            .arg(m_vmusbStack.getStackID())
@@ -162,7 +162,7 @@ void VMUSBReadoutWorker::start(quint32 cycles)
                     for (u32 line: m_vmusbStack.getContents())
                     {
                         tmp.sprintf("  0x%08x", line);
-                        emit logMessage(tmp);
+                        logMessage(tmp);
                     }
                 }
 
@@ -176,7 +176,7 @@ void VMUSBReadoutWorker::start(quint32 cycles)
             }
             else
             {
-                emit logMessage(QString("Empty readout stack for event \"%1\".")
+                logMessage(QString("Empty readout stack for event \"%1\".")
                                 .arg(event->objectName())
                                );
             }
@@ -192,21 +192,21 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         auto startScripts = daqConfig->vmeScriptLists["daq_start"];
         if (!startScripts.isEmpty())
         {
-            emit logMessage(QSL("Global DAQ Start scripts:"));
+            logMessage(QSL("Global DAQ Start scripts:"));
             for (auto script: startScripts)
             {
-                emit logMessage(QString("  %1").arg(script->objectName()));
+                logMessage(QString("  %1").arg(script->objectName()));
                 auto indentingLogger = [this](const QString &str) { this->logMessage(QSL("    ") + str); };
                 run_script(vmusb, script->getScript(), indentingLogger, true);
             }
         }
 
-        emit logMessage(QSL("\nInitializing Modules:"));
+        logMessage(QSL("\nInitializing Modules:"));
         for (auto event: daqConfig->eventConfigs)
         {
             for (auto module: event->modules)
             {
-                emit logMessage(QString("  %1.%2")
+                logMessage(QString("  %1.%2")
                                 .arg(event->objectName())
                                 .arg(module->objectName())
                                 );
@@ -219,7 +219,7 @@ void VMUSBReadoutWorker::start(quint32 cycles)
 
                 for (auto scriptConfig: scripts)
                 {
-                    emit logMessage(QSL("    %1")
+                    logMessage(QSL("    %1")
                                     .arg(scriptConfig->objectName())
                                     //.arg(event->objectName())
                                     //.arg(module->objectName())
@@ -231,10 +231,10 @@ void VMUSBReadoutWorker::start(quint32 cycles)
             }
         }
 
-        emit logMessage(QSL("Events DAQ Start"));
+        logMessage(QSL("Events DAQ Start"));
         for (auto event: daqConfig->eventConfigs)
         {
-            emit logMessage(QString("  %1").arg(event->objectName()));
+            logMessage(QString("  %1").arg(event->objectName()));
             auto indentingLogger = [this](const QString &str) { this->logMessage(QSL("    ") + str); };
             run_script(vmusb, event->vmeScripts["daq_start"]->getScript(), indentingLogger, true);
         }
@@ -243,32 +243,31 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         //
         // Debug Dump of all VMUSB registers
         //
-        emit logMessage(QSL(""));
+        logMessage(QSL(""));
         dump_registers(vmusb, [this] (const QString &line) { this->logMessage(line); });
 
         //
         // Readout
         //
         m_bufferProcessor->beginRun();
-        emit logMessage(QSL(""));
-        emit logMessage(QSL("Entering readout loop"));
+        logMessage(QSL(""));
+        logMessage(QSL("Entering readout loop"));
         stats.start();
 
         readoutLoop();
 
         stats.stop();
-        emit logMessage(QSL(""));
-        emit logMessage(QSL("Leaving readout loop"));
-        emit logMessage(QSL(""));
-        m_bufferProcessor->endRun();
+        logMessage(QSL(""));
+        logMessage(QSL("Leaving readout loop"));
+        logMessage(QSL(""));
 
         //
         // DAQ Stop
         //
-        emit logMessage(QSL("Events DAQ Stop"));
+        logMessage(QSL("Events DAQ Stop"));
         for (auto event: daqConfig->eventConfigs)
         {
-            emit logMessage(QString("  %1").arg(event->objectName()));
+            logMessage(QString("  %1").arg(event->objectName()));
             auto indentingLogger = [this](const QString &str) { this->logMessage(QSL("    ") + str); };
             run_script(vmusb, event->vmeScripts["daq_stop"]->getScript(), indentingLogger, true);
         }
@@ -276,14 +275,16 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         auto stopScripts = daqConfig->vmeScriptLists["daq_stop"];
         if (!stopScripts.isEmpty())
         {
-            emit logMessage(QSL("Global DAQ Stop scripts:"));
+            logMessage(QSL("Global DAQ Stop scripts:"));
             for (auto script: stopScripts)
             {
-                emit logMessage(QString("  %1").arg(script->objectName()));
+                logMessage(QString("  %1").arg(script->objectName()));
                 auto indentingLogger = [this](const QString &str) { this->logMessage(QSL("    ") + str); };
                 run_script(vmusb, script->getScript(), indentingLogger, true);
             }
         }
+
+        m_bufferProcessor->endRun();
     }
     catch (const char *message)
     {
@@ -376,7 +377,7 @@ void VMUSBReadoutWorker::readoutLoop()
 
             while (readBuffer(leaveDaqReadTimeout_ms) > 0);
             setState(DAQState::Paused);
-            emit logMessage(QSL("VMUSB readout paused"));
+            logMessage(QSL("VMUSB readout paused"));
         }
         // resume
         else if (m_state == DAQState::Paused && m_desiredState == DAQState::Running)
@@ -388,7 +389,7 @@ void VMUSBReadoutWorker::readoutLoop()
             QThread::msleep(1);
 
             setState(DAQState::Running);
-            emit logMessage(QSL("VMUSB readout resumed"));
+            logMessage(QSL("VMUSB readout resumed"));
         }
         // stop
         else if (m_desiredState == DAQState::Stopping)
@@ -457,7 +458,7 @@ void VMUSBReadoutWorker::readoutLoop()
                     // information is passed in bytesRead anymore.  Instead
                     // make VMEError generated by VMUSB::bulkRead() (and not
                     // passed on by readBuffer()) available here.
-                    emit logMessage(QString("VMUSB Warning: no data from bulk read (error=\"FIXME\", code=FIXME)"));
+                    logMessage(QString("VMUSB Warning: no data from bulk read (error=\"FIXME\", code=FIXME)"));
                     logReadErrorTimer.restart();
                 }
             }
@@ -503,9 +504,13 @@ void VMUSBReadoutWorker::setState(DAQState state)
 
 void VMUSBReadoutWorker::logError(const QString &message)
 {
-    emit logMessage(QString("VMUSB Error: %1").arg(message));
+    logMessage(QString("VMUSB Error: %1").arg(message));
 }
 
+void VMUSBReadoutWorker::logMessage(const QString &message)
+{
+    m_context->logMessage(message);
+}
 
 // TODO: Return a struct containing { error, bytesRead } to make the libusb
 // error code available to the callers. With libusb-0.1 this was done via

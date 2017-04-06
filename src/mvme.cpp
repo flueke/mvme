@@ -972,19 +972,14 @@ void mvme::onObjectAboutToBeRemoved(QObject *object)
     m_objectWindows.remove(object);
 }
 
-void mvme::appendToLog(const QString &s)
+void mvme::appendToLog(const QString &str)
 {
-    auto str(QString("%1: %2")
-             .arg(QDateTime::currentDateTime().toString("HH:mm:ss"))
-             .arg(s));
-
     auto debug(qDebug());
     debug.noquote();
     debug << str;
 
     if (m_logView)
     {
-
         m_logView->append(str);
         auto bar = m_logView->verticalScrollBar();
         bar->setValue(bar->maximum());

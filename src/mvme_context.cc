@@ -60,6 +60,7 @@ struct MVMEContextPrivate
 {
     MVMEContext *m_q;
     QStringList m_logBuffer;
+    QMutex m_logBufferMutex;
 
     void stopDAQ();
     void stopDAQReplay();
@@ -259,6 +260,7 @@ void MVMEContextPrivate::convertAnalysisJsonToV2(QJsonObject &json)
 
 void MVMEContextPrivate::clearLog()
 {
+    QMutexLocker lock(&m_logBufferMutex);
     m_logBuffer.clear();
 
     if (m_q->m_mainwin)
@@ -358,10 +360,6 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
     connect(m_listFileWorker, &ListFileReader::stateChanged, this, &MVMEContext::onDAQStateChanged);
     connect(m_listFileWorker, &ListFileReader::replayStopped, this, &MVMEContext::onReplayDone);
 
-
-    connect(m_readoutWorker, &VMUSBReadoutWorker::logMessage, this, &MVMEContext::logMessage);
-    connect(m_readoutWorker, &VMUSBReadoutWorker::logMessages, this, &MVMEContext::logMessages);
-    connect(m_bufferProcessor, &VMUSBBufferProcessor::logMessage, this, &MVMEContext::logMessage);
 
     m_eventThread->setObjectName("mvme AnalysisThread");
     m_eventProcessor->moveToThread(m_eventThread);
@@ -918,22 +916,25 @@ void MVMEContext::addWidget(QWidget *widget, const QString &stateKey)
     }
 }
 
-void MVMEContext::logMessage(const QString &msg)
+void MVMEContext::logMessageRaw(const QString &msg)
 {
+    QMutexLocker lock(&m_d->m_logBufferMutex);
     m_d->m_logBuffer.append(msg);
     emit sigLogMessage(msg);
 }
 
-void MVMEContext::logMessages(const QStringList &messages, const QString &prefix)
+void MVMEContext::logMessage(const QString &msg)
 {
-    for (auto msg: messages)
-    {
-        logMessage(prefix + msg);
-    }
+    QString fullMessage(QString("%1: %2")
+             .arg(QDateTime::currentDateTime().toString("HH:mm:ss"))
+             .arg(msg));
+
+    logMessageRaw(fullMessage);
 }
 
 QStringList MVMEContext::getLogBuffer() const
 {
+    QMutexLocker lock(&m_d->m_logBufferMutex);
     return m_d->m_logBuffer;
 }
 

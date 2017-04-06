@@ -224,7 +224,7 @@ void VMUSBBufferProcessor::beginRun()
                     QString outFilename = outPath + '/' + now.toString("yyMMdd_HHmmss") + ".mvmelst";
                     outFile->setFileName(outFilename);
 
-                    emit logMessage(QString("Writing to listfile %1").arg(outFilename));
+                    logMessage(QString("Writing to listfile %1").arg(outFilename));
 
                     if (outFile->exists())
                     {
@@ -316,15 +316,30 @@ void VMUSBBufferProcessor::endRun()
         m_d->m_listFileOut->close();
     }
 
+    // TODO: more error reporting here (file I/O)
     switch (m_context->getListFileFormat())
     {
         case ListFileFormat::Plain:
             {
+                // Write a Logfile
+                QFile *listFileOut = qobject_cast<QFile *>(m_d->m_listFileOut);
+                Q_ASSERT(listFileOut);
+                QString logFileName = listFileOut->fileName();
+                logFileName.replace(".mvmelst", ".log");
+                QFile logFile(logFileName);
+                if (logFile.open(QIODevice::WriteOnly))
+                {
+                    auto messages = m_context->getLogBuffer();
+                    for (const auto &msg: messages)
+                    {
+                        logFile.write(msg.toLocal8Bit());
+                        logFile.write("\n");
+                    }
+                }
             } break;
 
         case ListFileFormat::ZIP:
             {
-                // TODO: more error reporting here
 
                 // Logfile
                 {
@@ -448,7 +463,7 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
         stats->vmusbAvgEventsPerBuffer = (alpha * numberOfEvents) + (1.0 - alpha) * stats->vmusbAvgEventsPerBuffer;
 
 #ifdef BPDEBUG
-        emit logMessage(QString("buffer #%1, header1=0x%2, numberOfEvents=%3, lastBuffer=%4, cont=%5, mult=%6")
+        logMessage(QString("buffer #%1, header1=0x%2, numberOfEvents=%3, lastBuffer=%4, cont=%5, mult=%6")
                         .arg(bufferNumber)
                         .arg(header1, 8, 16, QLatin1Char('0'))
                         .arg(numberOfEvents)
@@ -475,7 +490,7 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
             u16 numberOfWords = header2 & Buffer::NumberOfWordsMask;
             //qDebug("header2: numberOfWords=%u, bytes in readBuffer=%u", numberOfWords, readBuffer->used);
 #ifdef BPDEBUG
-            emit logMessage(QString("buffer #%1: extracted header2=0x%2, numberOfWords=%3")
+            logMessage(QString("buffer #%1: extracted header2=0x%2, numberOfWords=%3")
                             .arg(bufferNumber)
                             .arg(header2, 8, 16, QLatin1Char('0'))
                             .arg(numberOfWords)
@@ -491,7 +506,7 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
             {
                 if (!processEvent(iter, outputBuffer, bufferNumber, eventIndex))
                 {
-                    emit logMessage(QString(QSL("VMUSB Error: (buffer #%4) processEvent() returned false, skipping buffer, eventIndex=%1, numberOfEvents=%2, header=0x%3"))
+                    logMessage(QString(QSL("VMUSB Error: (buffer #%4) processEvent() returned false, skipping buffer, eventIndex=%1, numberOfEvents=%2, header=0x%3"))
                                     .arg(eventIndex)
                                     .arg(numberOfEvents)
                                     .arg(header1, 8, 16, QLatin1Char('0'))
@@ -503,7 +518,7 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
 #if 0
                 else
                 {
-                    emit logMessage(QString("(buffer #%2) good event for eventindex=%1")
+                    logMessage(QString("(buffer #%2) good event for eventindex=%1")
                                     .arg(eventIndex)
                                     .arg(bufferNumber));
                 }
@@ -511,7 +526,7 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
             }
             catch (const end_of_buffer &)
             {
-                emit logMessage(QString("VMUSB Error: (buffer #%4) end_of_buffer from processEvent(): eventIndex=%1, numberOfEvents=%2, header=0x%3")
+                logMessage(QString("VMUSB Error: (buffer #%4) end_of_buffer from processEvent(): eventIndex=%1, numberOfEvents=%2, header=0x%3")
                                 .arg(eventIndex)
                                 .arg(numberOfEvents)
                                 .arg(header1, 8, 16, QLatin1Char('0'))
@@ -529,7 +544,7 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
                     u16 bufferTerminator = iter.extractU16();
                     if (bufferTerminator != Buffer::BufferTerminator)
                     {
-                        emit logMessage(QString("VMUSB Warning: (buffer #%2) unexpected buffer terminator 0x%1")
+                        logMessage(QString("VMUSB Warning: (buffer #%2) unexpected buffer terminator 0x%1")
                                         .arg(bufferTerminator, 4, 16, QLatin1Char('0'))
                                         .arg(bufferNumber));
                     }
@@ -537,13 +552,13 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
             }
             else
             {
-                emit logMessage(QSL("VMUSB Warning: (buffer #%1) no terminator words found at end of buffer")
+                logMessage(QSL("VMUSB Warning: (buffer #%1) no terminator words found at end of buffer")
                                 .arg(bufferNumber));
             }
 
             if (iter.bytesLeft() != 0)
             {
-                emit logMessage(QString("VMUSB Warning: (buffer #%3) %1 bytes left in buffer, numberOfEvents=%2")
+                logMessage(QString("VMUSB Warning: (buffer #%3) %1 bytes left in buffer, numberOfEvents=%2")
                                 .arg(iter.bytesLeft())
                                 .arg(numberOfEvents)
                                 .arg(bufferNumber)
@@ -551,19 +566,19 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
 
                 while (iter.longwordsLeft())
                 {
-                    emit logMessage(QString(QSL("  0x%1"))
+                    logMessage(QString(QSL("  0x%1"))
                                     .arg(iter.extractU32(), 8, 16, QLatin1Char('0')));
                 }
 
                 while (iter.wordsLeft())
                 {
-                    emit logMessage(QString(QSL("  0x%1"))
+                    logMessage(QString(QSL("  0x%1"))
                                     .arg(iter.extractU16(), 4, 16, QLatin1Char('0')));
                 }
 
                 while (iter.bytesLeft())
                 {
-                    emit logMessage(QString(QSL("  0x%1"))
+                    logMessage(QString(QSL("  0x%1"))
                                     .arg(iter.extractU8(), 2, 16, QLatin1Char('0')));
                 }
             }
@@ -599,7 +614,7 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
     }
     catch (const end_of_buffer &)
     {
-        emit logMessage(QSL("VMUSB Warning: (buffer #%1) end of readBuffer reached unexpectedly!")
+        logMessage(QSL("VMUSB Warning: (buffer #%1) end of readBuffer reached unexpectedly!")
                         .arg(bufferNumber));
         getStats()->buffersWithErrors++;
     }
@@ -637,7 +652,7 @@ bool VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *output
 
     if (iter.wordsLeft() < 1)
     {
-        emit logMessage(QString(QSL("VMUSB Error: (buffer #%1) processEvent(): end of buffer when extracting event header"))
+        logMessage(QString(QSL("VMUSB Error: (buffer #%1) processEvent(): end of buffer when extracting event header"))
                         .arg(bufferNumber));
         return false;
     }
@@ -649,7 +664,7 @@ bool VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *output
     u32 eventLength     = eventHeader & Buffer::EventLengthMask; // in 16-bit words
 
 #ifdef BPDEBUG
-    emit logMessage(QString("buffer #%1, eventIndex=%2, eventHeader=0x%3, stackID=%4, eventLength=%5, partialEvent=%6")
+    logMessage(QString("buffer #%1, eventIndex=%2, eventHeader=0x%3, stackID=%4, eventLength=%5, partialEvent=%6")
                     .arg(bufferNumber)
                     .arg(eventIndex)
                     .arg(eventHeader, 8, 16, QLatin1Char('0'))
@@ -661,14 +676,14 @@ bool VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *output
 
     if (iter.shortwordsLeft() < eventLength)
     {
-        emit logMessage(QSL("VMUSB Error: (buffer #%1) event length exceeds buffer length, skipping buffer")
+        logMessage(QSL("VMUSB Error: (buffer #%1) event length exceeds buffer length, skipping buffer")
                         .arg(bufferNumber));
         return false;
     }
 
     if (stackID > StackIDMax)
     {
-        emit logMessage(QString(QSL("VMUSB: (buffer #%2) Parsed stackID=%1 is out of range, skipping event"))
+        logMessage(QString(QSL("VMUSB: (buffer #%2) Parsed stackID=%1 is out of range, skipping event"))
                         .arg(stackID)
                         .arg(bufferNumber));
         iter.skip(sizeof(u16), eventLength);
@@ -677,7 +692,7 @@ bool VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *output
 
     if (!m_eventConfigByStackID.contains(stackID))
     {
-        emit logMessage(QString(QSL("VMUSB: (buffer #%3) No event config for stackID=%1, eventLength=%2, skipping event"))
+        logMessage(QString(QSL("VMUSB: (buffer #%3) No event config for stackID=%1, eventLength=%2, skipping event"))
                         .arg(stackID)
                         .arg(eventLength)
                         .arg(bufferNumber));
@@ -690,7 +705,7 @@ bool VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *output
         qDebug("eventHeader=0x%08x, stackID=%u, partialEvent=%d, eventLength=%u shorts",
                eventHeader, stackID, partialEvent, eventLength);
         qDebug() << "===== Error: partial event support not implemented! ======";
-        emit logMessage(QString(QSL("VMUSB Error: (buffer #%1) got a partial event (not supported yet!)"))
+        logMessage(QString(QSL("VMUSB Error: (buffer #%1) got a partial event (not supported yet!)"))
                         .arg(bufferNumber));
         iter.skip(sizeof(u16), eventLength);
         return true;
@@ -754,7 +769,7 @@ bool VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *output
             if (data == EndMarker)
             {
 #ifdef BPDEBUG
-                emit logMessage(QString("buffer #%1, eventIndex=%2, found EndMarker!")
+                logMessage(QString("buffer #%1, eventIndex=%2, found EndMarker!")
                                 .arg(bufferNumber)
                                 .arg(eventIndex)
                                );
@@ -777,19 +792,19 @@ bool VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *output
 
     if (eventIter.bytesLeft())
     {
-        emit logMessage(QString(QSL("VMUSB Error: %1 bytes left in event"))
+        logMessage(QString(QSL("VMUSB Error: %1 bytes left in event"))
                         .arg(eventIter.bytesLeft()));
 
 
         while (eventIter.longwordsLeft())
         {
-            emit logMessage(QString(QSL("  0x%1"))
+            logMessage(QString(QSL("  0x%1"))
                             .arg(eventIter.extractU32(), 8, 16, QLatin1Char('0')));
         }
 
         while (eventIter.wordsLeft())
         {
-            emit logMessage(QString(QSL("  0x%1"))
+            logMessage(QString(QSL("  0x%1"))
                             .arg(eventIter.extractU16(),
                                  (eventIter.alignment == BufferIterator::Align16) ? 4 : 8,
                                  16, QLatin1Char('0')));
@@ -797,7 +812,7 @@ bool VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *output
 
         while (eventIter.bytesLeft())
         {
-            emit logMessage(QString(QSL("  0x%1"))
+            logMessage(QString(QSL("  0x%1"))
                             .arg(eventIter.extractU8(), 2, 16, QLatin1Char('0')));
         }
     }
@@ -828,4 +843,9 @@ DataBuffer* VMUSBBufferProcessor::getFreeBuffer()
 DAQStats *VMUSBBufferProcessor::getStats()
 {
     return &m_context->getDAQStats();
+}
+
+void VMUSBBufferProcessor::logMessage(const QString &message)
+{
+    m_context->logMessage(message);
 }

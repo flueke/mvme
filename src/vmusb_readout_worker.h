@@ -12,9 +12,6 @@ class VMUSBReadoutWorker: public QObject
     Q_OBJECT
     signals:
         void stateChanged(DAQState);
-        void logMessage(const QString &);
-        void logMessages(const QStringList &, const QString &prefix = QString()); // messages, prefix
-
         void daqStopped();
 
     public:
@@ -36,6 +33,7 @@ class VMUSBReadoutWorker: public QObject
     private:
         void readoutLoop();
         void setState(DAQState state);
+        void logMessage(const QString &message);
         void logError(const QString &);
         void clearError() { m_errorMessage.clear(); }
         int readBuffer(int timeout_ms);
