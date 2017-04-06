@@ -13,6 +13,8 @@
 
 #include "threading.h"
 
+#define LISTFILE_VERBOSE 0
+
 const int listfile_v0::Version;
 const int listfile_v0::FirstSectionOffset;
 const int listfile_v0::SectionMaxWords;
@@ -323,47 +325,58 @@ bool ListFile::seekToFirstSection()
 bool ListFile::seek(qint64 pos)
 {
     qDebug() << m_input << getFileName() << m_input->isOpen();
+    // Reset the currently saved sectionHeader on any seek.
+    m_sectionHeaderBuffer = 0;
     return seek_in_listfile(m_input, pos);
 }
 
 template<typename LF>
-bool read_next_section(QIODevice &m_file, DataBuffer *buffer)
+bool read_next_section(QIODevice &m_file, DataBuffer *buffer, u32 *savedSectionHeader)
 {
-    buffer->reserve(sizeof(u32));
+    Q_ASSERT(savedSectionHeader);
+
+    u32 sectionHeader = *savedSectionHeader;
+
+    if (sectionHeader == 0)
+    {
+        // If 0 was passed in there was no previous section header so we have to read one.
+        if (m_file.read((char *)&sectionHeader, sizeof(u32)) != sizeof(u32))
+            return false;
+    }
+    else
+    {
+        // Reset the saved header as we're reading that section now.
+        *savedSectionHeader = 0;
+    }
+
+    u32 sectionWords = (sectionHeader & LF::SectionSizeMask) >> LF::SectionSizeShift;
+    qint64 bytesToRead = sectionWords * sizeof(u32);
+
     buffer->used = 0;
 
-    if (m_file.read((char *)buffer->data, sizeof(u32)) != sizeof(u32))
-        return false;
-
-    buffer->used = sizeof(u32);
-
-    u32 sectionHeader = *((u32 *)buffer->data);
-    u32 sectionWords = (sectionHeader & LF::SectionSizeMask) >> LF::SectionSizeShift;
-    qint64 sectionSize = sectionWords * sizeof(u32);
-
-    if (sectionSize == 0)
+    if (bytesToRead == 0)
         return true;
 
-    buffer->reserve(sectionSize + sizeof(u32));
+    buffer->reserve(bytesToRead + sizeof(u32));
+    *(buffer->asU32()) = sectionHeader;
+    buffer->used += sizeof(sectionHeader);
 
-    if (m_file.read((char *)(buffer->data + buffer->used), sectionSize) != sectionSize)
+    if (m_file.read((char *)(buffer->data + buffer->used), bytesToRead) != bytesToRead)
         return false;
 
-    buffer->used += sectionSize;
+    buffer->used += bytesToRead;
     return true;
 }
 
 bool ListFile::readNextSection(DataBuffer *buffer)
 {
-    m_sectionHeaderBuffer = 0;
-
     if (m_fileVersion == 0)
     {
-        return read_next_section<listfile_v0>(*m_input, buffer);
+        return read_next_section<listfile_v0>(*m_input, buffer, &m_sectionHeaderBuffer);
     }
     else
     {
-        return read_next_section<listfile_v1>(*m_input, buffer);
+        return read_next_section<listfile_v1>(*m_input, buffer, &m_sectionHeaderBuffer);
     }
 }
 
@@ -372,7 +385,9 @@ s32 read_sections_into_buffer(QIODevice &m_file, DataBuffer *buffer, u32 *savedS
 {
     Q_ASSERT(savedSectionHeader);
 
+#if LISTFILE_VERBOSE
     qDebug() << __PRETTY_FUNCTION__ << "savedSectionHeader =" << QString::number(*savedSectionHeader, 16);
+#endif
 
     s32 sectionsRead = 0;
 
@@ -380,14 +395,16 @@ s32 read_sections_into_buffer(QIODevice &m_file, DataBuffer *buffer, u32 *savedS
     {
         u32 sectionHeader = *savedSectionHeader;
 
-        // If 0 was passed in there was no previous section header so we have to read one.
         if (sectionHeader == 0)
         {
+            // If 0 was passed in there was no previous section header so we have to read one.
             if (m_file.read((char *)&sectionHeader, sizeof(u32)) != sizeof(u32))
             {
                 return -1;
             }
+#if LISTFILE_VERBOSE
             qDebug() << "new sectionHeader =" << QString::number(sectionHeader, 16);
+#endif
         }
 
         u32 sectionWords = (sectionHeader & LF::SectionSizeMask) >> LF::SectionSizeShift;
@@ -400,7 +417,9 @@ s32 read_sections_into_buffer(QIODevice &m_file, DataBuffer *buffer, u32 *savedS
         {
             // Not enough space. Store the sectionHeader in *savedSectionHeader
             // and break out of the loop.
+#if LISTFILE_VERBOSE
             qDebug() << "not enough space in buffer. saving section header" << QString::number(sectionHeader, 16);
+#endif
             *savedSectionHeader = sectionHeader;
             break;
         }
@@ -408,7 +427,9 @@ s32 read_sections_into_buffer(QIODevice &m_file, DataBuffer *buffer, u32 *savedS
         {
             if (*savedSectionHeader != 0)
             {
+#if LISTFILE_VERBOSE
                 qDebug() << "got enough space in buffer. reseting saved section header to 0";
+#endif
             }
             *savedSectionHeader = 0;
         }
@@ -642,6 +663,7 @@ void ListFileReader::mainLoop()
                 m_filledBufferQueue->wc.wakeOne();
             }
         }
+        // paused
         else if (m_state == DAQState::Paused)
         {
             QCoreApplication::processEvents(QEventLoop::WaitForMoreEvents);
