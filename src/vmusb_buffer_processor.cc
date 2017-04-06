@@ -304,7 +304,7 @@ void VMUSBBufferProcessor::beginRun()
 
 void VMUSBBufferProcessor::endRun()
 {
-    if (m_d->m_listFileOut->isOpen())
+    if (m_d->m_listFileOut && m_d->m_listFileOut->isOpen())
     {
         if (!m_listFileWriter->writeEndSection())
         {
@@ -314,91 +314,91 @@ void VMUSBBufferProcessor::endRun()
         getStats()->listFileBytesWritten = m_listFileWriter->bytesWritten();
 
         m_d->m_listFileOut->close();
-    }
 
-    // TODO: more error reporting here (file I/O)
-    switch (m_context->getListFileFormat())
-    {
-        case ListFileFormat::Plain:
-            {
-                // Write a Logfile
-                QFile *listFileOut = qobject_cast<QFile *>(m_d->m_listFileOut);
-                Q_ASSERT(listFileOut);
-                QString logFileName = listFileOut->fileName();
-                logFileName.replace(".mvmelst", ".log");
-                QFile logFile(logFileName);
-                if (logFile.open(QIODevice::WriteOnly))
+        // TODO: more error reporting here (file I/O)
+        switch (m_context->getListFileFormat())
+        {
+            case ListFileFormat::Plain:
                 {
-                    auto messages = m_context->getLogBuffer();
-                    for (const auto &msg: messages)
-                    {
-                        logFile.write(msg.toLocal8Bit());
-                        logFile.write("\n");
-                    }
-                }
-            } break;
-
-        case ListFileFormat::ZIP:
-            {
-
-                // Logfile
-                {
-                    QuaZipNewInfo info("messages.log");
-                    info.setPermissions(static_cast<QFile::Permissions>(0x6644));
-                    QuaZipFile outFile(&m_d->m_listFileArchive);
-
-                    bool res = outFile.open(QIODevice::WriteOnly, info,
-                                             // password, crc
-                                             nullptr, 0,
-                                             // method (Z_DEFLATED or 0 for no compression)
-                                             0,
-                                             // level
-                                             Z_DEFAULT_COMPRESSION
-                                             //Z_BEST_SPEED
-                                            );
-
-                    if (res)
+                    // Write a Logfile
+                    QFile *listFileOut = qobject_cast<QFile *>(m_d->m_listFileOut);
+                    Q_ASSERT(listFileOut);
+                    QString logFileName = listFileOut->fileName();
+                    logFileName.replace(".mvmelst", ".log");
+                    QFile logFile(logFileName);
+                    if (logFile.open(QIODevice::WriteOnly))
                     {
                         auto messages = m_context->getLogBuffer();
                         for (const auto &msg: messages)
                         {
-                            outFile.write(msg.toLocal8Bit());
-                            outFile.write("\n");
+                            logFile.write(msg.toLocal8Bit());
+                            logFile.write("\n");
                         }
                     }
-                }
+                } break;
 
-                // Analysis
+            case ListFileFormat::ZIP:
                 {
-                    QuaZipNewInfo info("analysis.analysis");
-                    info.setPermissions(static_cast<QFile::Permissions>(0x6644));
-                    QuaZipFile outFile(&m_d->m_listFileArchive);
 
-                    bool res = outFile.open(QIODevice::WriteOnly, info,
-                                             // password, crc
-                                             nullptr, 0,
-                                             // method (Z_DEFLATED or 0 for no compression)
-                                             0,
-                                             // level
-                                             Z_DEFAULT_COMPRESSION
-                                             //Z_BEST_SPEED
-                                            );
-
-                    if (res)
+                    // Logfile
                     {
-                        outFile.write(m_context->getAnalysisJsonDocument().toJson());
+                        QuaZipNewInfo info("messages.log");
+                        info.setPermissions(static_cast<QFile::Permissions>(0x6644));
+                        QuaZipFile outFile(&m_d->m_listFileArchive);
+
+                        bool res = outFile.open(QIODevice::WriteOnly, info,
+                                                // password, crc
+                                                nullptr, 0,
+                                                // method (Z_DEFLATED or 0 for no compression)
+                                                0,
+                                                // level
+                                                Z_DEFAULT_COMPRESSION
+                                                //Z_BEST_SPEED
+                                               );
+
+                        if (res)
+                        {
+                            auto messages = m_context->getLogBuffer();
+                            for (const auto &msg: messages)
+                            {
+                                outFile.write(msg.toLocal8Bit());
+                                outFile.write("\n");
+                            }
+                        }
                     }
-                }
 
-                m_d->m_listFileArchive.close();
+                    // Analysis
+                    {
+                        QuaZipNewInfo info("analysis.analysis");
+                        info.setPermissions(static_cast<QFile::Permissions>(0x6644));
+                        QuaZipFile outFile(&m_d->m_listFileArchive);
 
-                if (m_d->m_listFileArchive.getZipError() != UNZ_OK)
-                {
-                    throw make_zip_error(m_d->m_listFileArchive.getZipName(), m_d->m_listFileArchive);
-                }
-            } break;
+                        bool res = outFile.open(QIODevice::WriteOnly, info,
+                                                // password, crc
+                                                nullptr, 0,
+                                                // method (Z_DEFLATED or 0 for no compression)
+                                                0,
+                                                // level
+                                                Z_DEFAULT_COMPRESSION
+                                                //Z_BEST_SPEED
+                                               );
 
-        InvalidDefaultCase;
+                        if (res)
+                        {
+                            outFile.write(m_context->getAnalysisJsonDocument().toJson());
+                        }
+                    }
+
+                    m_d->m_listFileArchive.close();
+
+                    if (m_d->m_listFileArchive.getZipError() != UNZ_OK)
+                    {
+                        throw make_zip_error(m_d->m_listFileArchive.getZipName(), m_d->m_listFileArchive);
+                    }
+                } break;
+
+                InvalidDefaultCase;
+        }
     }
 }
 
@@ -583,7 +583,7 @@ bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
                 }
             }
 
-            if (m_d->m_listFileOut->isOpen())
+            if (m_d->m_listFileOut && m_d->m_listFileOut->isOpen())
             {
                 if (!m_listFileWriter->writeBuffer(reinterpret_cast<const char *>(outputBuffer->data),
                                                    outputBuffer->used))
