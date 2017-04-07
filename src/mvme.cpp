@@ -737,6 +737,11 @@ void mvme::on_actionClose_Listfile_triggered()
     m_context->closeReplayFile();
 }
 
+void mvme::on_actionMainWindow_triggered()
+{
+    raise();
+}
+
 void mvme::on_actionAnalysis_UI_triggered()
 {
     auto analysisUi = m_context->getAnalysisUi();
