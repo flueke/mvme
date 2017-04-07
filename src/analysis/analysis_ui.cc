@@ -796,7 +796,20 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                                      || defaultDualWordFilters.contains(moduleConfig->type)))
                 {
                     menu.addAction(QSL("Generate default filters"), [this, moduleConfig] () {
-                        generateDefaultFilters(moduleConfig);
+
+                        QMessageBox box(QMessageBox::Question,
+                                        QSL("Generate default filters"),
+                                        QSL("This action will generate extraction filters, calibrations and histograms for the selected module."
+                                            " Do you want to continue?"),
+                                        QMessageBox::Ok | QMessageBox::No,
+                                        m_q
+                                       );
+                        box.button(QMessageBox::Ok)->setText("Yes, generate filters");
+
+                        if (box.exec() == QMessageBox::Ok)
+                        {
+                            generateDefaultFilters(moduleConfig);
+                        }
                     });
                 }
                 actionNewIsFirst = true;
