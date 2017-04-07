@@ -4,6 +4,7 @@
 #include "typedefs.h"
 
 #include <cmath>
+#include <memory>
 #include <qwt_scale_draw.h>
 #include <qwt_scale_engine.h>
 #include <qwt_scale_map.h>
@@ -267,5 +268,30 @@ struct HistoAxisLimitsUI
 
 HistoAxisLimitsUI make_axis_limits_ui(const QString &groupBoxTitle, double inputMin, double inputMax,
                                       double limitMin, double limitMax, bool isLimited);
+
+class Histo2D;
+class Histo1D;
+
+using Histo1DPtr = std::shared_ptr<Histo1D>;
+using Histo1DList = QVector<Histo1DPtr>;
+
+Histo1DPtr make_x_projection(Histo2D *histo);
+Histo1DPtr make_x_projection(Histo2D *histo,
+                             double startX, double endX,
+                             double startY, double endY);
+
+Histo1DPtr make_y_projection(Histo2D *histo);
+Histo1DPtr make_y_projection(Histo2D *histo,
+                             double startX, double endX,
+                             double startY, double endY);
+
+Histo1DPtr make_projection(Histo2D *histo, Qt::Axis axis);
+Histo1DPtr make_projection(Histo2D *histo, Qt::Axis axis,
+                           double startX, double endX,
+                           double startY, double endY);
+
+Histo1DPtr make_projection(const Histo1DList &histos, Qt::Axis axis,
+                           double startX, double endX,
+                           double startY, double endY);
 
 #endif /* __HISTO_UTIL_H__ */

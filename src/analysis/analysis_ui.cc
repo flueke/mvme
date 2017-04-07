@@ -796,7 +796,20 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                                      || defaultDualWordFilters.contains(moduleConfig->type)))
                 {
                     menu.addAction(QSL("Generate default filters"), [this, moduleConfig] () {
-                        generateDefaultFilters(moduleConfig);
+
+                        QMessageBox box(QMessageBox::Question,
+                                        QSL("Generate default filters"),
+                                        QSL("This action will generate extraction filters, calibrations and histograms for the selected module."
+                                            " Do you want to continue?"),
+                                        QMessageBox::Ok | QMessageBox::No,
+                                        m_q
+                                       );
+                        box.button(QMessageBox::Ok)->setText("Yes, generate filters");
+
+                        if (box.exec() == QMessageBox::Ok)
+                        {
+                            generateDefaultFilters(moduleConfig);
+                        }
                     });
                 }
                 actionNewIsFirst = true;
@@ -983,7 +996,7 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
                     Histo1DWidgetInfo widgetInfo = getHisto1DWidgetInfoFromNode(node);
                     Q_ASSERT(widgetInfo.sink);
 
-                    menu.addAction(QSL("Open"), m_q, [this, widgetInfo]() {
+                    menu.addAction(QSL("Open Histogram"), m_q, [this, widgetInfo]() {
 
                         Histo1D *histo = widgetInfo.histos[widgetInfo.histoAddress].get();
 
@@ -1020,7 +1033,7 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
                     Histo1DWidgetInfo widgetInfo = getHisto1DWidgetInfoFromNode(node);
                     Q_ASSERT(widgetInfo.sink);
 
-                    menu.addAction(QSL("Open"), m_q, [this, widgetInfo]() {
+                    menu.addAction(QSL("Open 1D List View"), m_q, [this, widgetInfo]() {
 
                         if (!m_context->hasObjectWidget(widgetInfo.sink.get()) || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
                         {
@@ -1044,6 +1057,11 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
                         {
                             m_context->activateObjectWidget(widgetInfo.sink.get());
                         }
+                    });
+
+                    menu.addAction(QSL("Open 2D Combined View"), m_q, [this, widgetInfo]() {
+                        auto widget = new Histo2DWidget(widgetInfo.sink);
+                        m_context->addWidget(widget, widgetInfo.sink->getId().toString() + QSL("_2dCombined"));
                     });
                 } break;
 
@@ -2081,6 +2099,7 @@ static const QString AnalysisFileFilter = QSL("MVME Analysis Files (*.analysis);
 
 void AnalysisWidgetPrivate::actionNew()
 {
+    // TODO: handle modified() state
     AnalysisPauser pauser(m_context);
     m_context->getAnalysisNG()->clear();
     m_context->setAnalysisConfigFileName(QString());
@@ -2089,6 +2108,7 @@ void AnalysisWidgetPrivate::actionNew()
 
 void AnalysisWidgetPrivate::actionOpen()
 {
+    // TODO: handle modified() state
     auto path = m_context->getWorkspaceDirectory();
     if (path.isEmpty())
         path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);

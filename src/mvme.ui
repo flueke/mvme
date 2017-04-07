@@ -56,6 +56,7 @@
     <property name="title">
      <string>&amp;Window</string>
     </property>
+    <addaction name="actionMainWindow"/>
     <addaction name="actionAnalysis_UI"/>
     <addaction name="actionLog_Window"/>
     <addaction name="actionVME_Debug"/>
@@ -152,6 +153,12 @@
    <property name="text">
     <string>VME Debug</string>
    </property>
+   <property name="shortcut">
+    <string>Ctrl+4</string>
+   </property>
+   <property name="shortcutContext">
+    <enum>Qt::ApplicationShortcut</enum>
+   </property>
   </action>
   <action name="actionMesytec_Diagnostics">
    <property name="text">
@@ -187,10 +194,33 @@
    <property name="text">
     <string>Analysis UI</string>
    </property>
+   <property name="shortcut">
+    <string>Ctrl+2</string>
+   </property>
+   <property name="shortcutContext">
+    <enum>Qt::ApplicationShortcut</enum>
+   </property>
   </action>
   <action name="actionLog_Window">
    <property name="text">
     <string>Log Window</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+3</string>
+   </property>
+   <property name="shortcutContext">
+    <enum>Qt::ApplicationShortcut</enum>
+   </property>
+  </action>
+  <action name="actionMainWindow">
+   <property name="text">
+    <string>Main Window</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+1</string>
+   </property>
+   <property name="shortcutContext">
+    <enum>Qt::ApplicationShortcut</enum>
    </property>
   </action>
  </widget>

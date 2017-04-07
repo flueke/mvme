@@ -82,6 +82,7 @@ private slots:
     void on_actionOpen_Listfile_triggered();
     void on_actionClose_Listfile_triggered();
 
+    void on_actionMainWindow_triggered();
     void on_actionAnalysis_UI_triggered();
     void on_actionVME_Debug_triggered();
     void on_actionLog_Window_triggered();

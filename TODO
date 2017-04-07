@@ -2,7 +2,29 @@
 ==== Do these first! =====
 ==========================
 
+* Debug Histo1DList 2D combined views!
+  Is x-axis data always correct? Rounding?
+
 * Histo1DWidget: zoom out after setHistogram()
+  But not when the usage is the one in x- and y-projections where the histo is
+  replaced with a similar one.
+
+* Calibration:
+  - On close ask if edits should be applied to the whole list.
+  - Bugs when clearing/selecting inputs.
+
+* Copy/Paste and Move Operators
+  - Moving operators could violate the rule that inputs should come from the
+    current user level or the ones below. For consistency keep that rule intact
+    while moving.
+  - Copy needs a clone() operation for analysis elements.
+  - On copying an extractor the edit dialog should be opened.
+
+* Open new histograms immediately. Do this when creating a sub-histogram.
+
+* void AnalysisWidgetPrivate::actionOpen() and actionNew(): handle modified() state
+
+
 * select input UI: disable other tree highlights while it's active.
 * track down weird scrolling/selection bug when selcting inputs.
   What happens is that the treeview scrolls up and the wrong input is selected.

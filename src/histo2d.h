@@ -4,7 +4,6 @@
 #include "histo_util.h"
 #include <QObject>
 #include <array>
-#include <memory>
 
 struct Histo2DStatistics
 {
@@ -100,25 +99,5 @@ class Histo2D: public QObject
 };
 
 using Histo2DPtr = std::shared_ptr<Histo2D>;
-
-class Histo1D;
-
-using Histo1DPtr = std::shared_ptr<Histo1D>;
-
-
-Histo1DPtr make_x_projection(Histo2D *histo);
-Histo1DPtr make_x_projection(Histo2D *histo,
-                             double startX, double endX,
-                             double startY, double endY);
-
-Histo1DPtr make_y_projection(Histo2D *histo);
-Histo1DPtr make_y_projection(Histo2D *histo,
-                             double startX, double endX,
-                             double startY, double endY);
-
-Histo1DPtr make_projection(Histo2D *histo, Qt::Axis axis);
-Histo1DPtr make_projection(Histo2D *histo, Qt::Axis axis,
-                           double startX, double endX,
-                           double startY, double endY);
 
 #endif /* __HISTO2D_H__ */
