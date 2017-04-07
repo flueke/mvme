@@ -267,6 +267,15 @@ void Histo1DWidget::setHistogram(Histo1D *histo)
     m_histo = histo;
     m_plotCurve->setData(new Histo1DPointData(m_histo));
 
+    // Reset the zoom stack and zoom fully zoom out as the scales might be
+    // completely different now.
+    // FIXME: this is not good for the usage of projection widgets where the
+    // histo is replaced with a similar one. The zoom level should stay the same in that case...
+    // Maybe compare the axses before replacing the histo and decide based on
+    // that whether to reset the zoom stack or not.
+    //m_zoomer->setZoomStack(QStack<QRectF>(), -1);
+    //m_zoomer->zoom(0);
+
     displayChanged();
     replot();
 }
