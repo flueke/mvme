@@ -71,6 +71,7 @@ unix:!macx:!symbian {
 
 win32 {
     include("C:\Qwt-6.1.3\features\qwt.prf")
+    LIBS += -lquazip
 }
 
 unix {
@@ -84,6 +85,3 @@ unix {
 include($$PWD/../git_version.pri)
 
 # vim:ft=conf
-
-FORMS += \
-    form.ui
