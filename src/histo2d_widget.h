@@ -20,6 +20,7 @@ namespace Ui
 
 namespace analysis
 {
+    class Histo1DSink;
     class Histo2DSink;
 };
 
@@ -31,9 +32,11 @@ class Histo2DWidget: public QWidget
         using SinkPtr = std::shared_ptr<analysis::Histo2DSink>;
         using HistoSinkCallback = std::function<void (const SinkPtr &)>;
         using MakeUniqueOperatorNameFunction = std::function<QString (const QString &name)>;
+        using Histo1DSinkPtr = std::shared_ptr<analysis::Histo1DSink>;
 
         Histo2DWidget(const Histo2DPtr histoPtr, QWidget *parent = 0);
         Histo2DWidget(Histo2D *histo, QWidget *parent = 0);
+        Histo2DWidget(const Histo1DSinkPtr &histo1DSink, QWidget *parent = 0);
         ~Histo2DWidget();
 
         void setSink(const SinkPtr &sink, HistoSinkCallback addSinkCallback, HistoSinkCallback sinkModifiedCallback,
@@ -52,6 +55,8 @@ class Histo2DWidget: public QWidget
         void on_tb_projY_clicked();
 
     private:
+        Histo2DWidget(QWidget *parent = 0);
+
         bool zAxisIsLog() const;
         bool zAxisIsLin() const;
         QwtLinearColorMap *getColorMap() const;
@@ -60,8 +65,9 @@ class Histo2DWidget: public QWidget
         void doYProjection();
 
         Ui::Histo2DWidget *ui;
-        Histo2D *m_histo;
+        Histo2D *m_histo = nullptr;
         Histo2DPtr m_histoPtr;
+        Histo1DSinkPtr m_histo1DSink;
         QwtPlotSpectrogram *m_plotItem;
         ScrollZoomer *m_zoomer;
         QTimer *m_replotTimer;

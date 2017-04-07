@@ -1,5 +1,7 @@
 #include "histo_util.h"
 #include "qt_util.h"
+#include "histo1d.h"
+#include "histo2d.h"
 #include <QComboBox>
 #include <QDoubleSpinBox>
 #include <QFormLayout>
@@ -109,6 +111,175 @@ HistoAxisLimitsUI make_axis_limits_ui(const QString &limitButtonTitle, double in
 
     if (!std::isnan(limitMax))
         result.spin_max->setValue(limitMax);
+
+    return result;
+}
+
+Histo1DPtr make_x_projection(Histo2D *histo)
+{
+    return make_projection(histo, Qt::XAxis);
+}
+
+Histo1DPtr make_x_projection(Histo2D *histo,
+                             double startX, double endX,
+                             double startY, double endY)
+{
+    return make_projection(histo, Qt::XAxis, startX, endX, startY, endY);
+}
+
+Histo1DPtr make_y_projection(Histo2D *histo)
+{
+    return make_projection(histo, Qt::YAxis);
+}
+
+Histo1DPtr make_y_projection(Histo2D *histo,
+                             double startX, double endX,
+                             double startY, double endY)
+{
+    return make_projection(histo, Qt::YAxis, startX, endX, startY, endY);
+}
+
+std::shared_ptr<Histo1D> make_projection(Histo2D *histo, Qt::Axis axis)
+{
+    auto projBinning  = histo->getAxisBinning(axis);
+    auto otherBinning = histo->getAxisBinning(axis == Qt::XAxis ? Qt::YAxis : Qt::XAxis);
+
+    return make_projection(histo, axis,
+                           projBinning.getMin(), projBinning.getMax(),
+                           otherBinning.getMin(), otherBinning.getMax());
+}
+
+std::shared_ptr<Histo1D> make_projection(Histo2D *histo, Qt::Axis axis,
+                                         double startX, double endX,
+                                         double startY, double endY)
+{
+    double projStart = (axis == Qt::XAxis ? startX : startY);
+    double projEnd   = (axis == Qt::XAxis ? endX : endY);
+
+    double otherStart = (axis == Qt::XAxis ? startY : startX);
+    double otherEnd   = (axis == Qt::XAxis ? endY : endX);
+
+    auto projBinning  = histo->getAxisBinning(axis);
+    auto otherBinning = histo->getAxisBinning(axis == Qt::XAxis ? Qt::YAxis : Qt::XAxis);
+
+    s64 projStartBin = projBinning.getBinBounded(projStart);
+    s64 projEndBin   = projBinning.getBinBounded(projEnd);
+
+    s64 otherStartBin = otherBinning.getBinBounded(otherStart);
+    s64 otherEndBin   = otherBinning.getBinBounded(otherEnd);
+
+    s64 nProjBins = (projEndBin - projStartBin) + 1;
+
+    // adjust start and end to low edge of corresponding bin
+    projStart = projBinning.getBinLowEdge(projStartBin);
+    projEnd   = projBinning.getBinLowEdge(projEndBin);
+
+    auto result = std::make_shared<Histo1D>(nProjBins, projStart, projEnd);
+    result->setAxisInfo(Qt::XAxis, histo->getAxisInfo(axis));
+    result->setObjectName(histo->objectName() + (axis == Qt::XAxis ? QSL(" X") : QSL(" Y")) + QSL(" Projection"));
+
+    u32 destBin = 0;
+
+    for (u32 binI = projStartBin;
+         binI < projEndBin;
+         ++binI)
+    {
+        double value = 0.0;
+
+        for (u32 binJ = otherStartBin;
+             binJ < otherEndBin;
+             ++binJ)
+        {
+            if (axis == Qt::XAxis)
+            {
+                value += histo->getBinContent(binI, binJ);
+            }
+            else
+            {
+                value += histo->getBinContent(binJ, binI);
+            }
+        }
+
+        result->setBinContent(destBin++, value);
+    }
+
+    return result;
+}
+
+/* Creates a projection for a combined view of the given histograms list.
+ * Assumes that all histograms in the list have the same x-axis binning!. */
+Histo1DPtr make_projection(const Histo1DList &histos, Qt::Axis axis,
+                           double startX, double endX,
+                           double startY, double endY)
+{
+    Q_ASSERT(!histos.isEmpty());
+    Q_ASSERT(axis == Qt::XAxis || axis == Qt::YAxis);
+
+    double projStart = (axis == Qt::XAxis ? startX : startY);
+    double projEnd   = (axis == Qt::XAxis ? endX : endY);
+
+    double otherStart = (axis == Qt::XAxis ? startY : startX);
+    double otherEnd   = (axis == Qt::XAxis ? endY : endX);
+
+    // Create an artificial binning of the combined views x-axis
+    AxisBinning xBinning(histos.size(), 0.0, histos.size() - 1);
+
+    AxisBinning projBinning;
+    AxisBinning otherBinning;
+
+    if (axis == Qt::XAxis)
+    {
+        projBinning  = xBinning;
+        otherBinning = histos[0]->getAxisBinning(Qt::XAxis);
+    }
+    else if (axis == Qt::YAxis)
+    {
+        projBinning  = histos[0]->getAxisBinning(Qt::XAxis);
+        otherBinning = xBinning;
+    }
+
+    s64 projStartBin = projBinning.getBinBounded(projStart);
+    s64 projEndBin   = projBinning.getBinBounded(projEnd);
+
+    s64 otherStartBin = otherBinning.getBinBounded(otherStart);
+    s64 otherEndBin   = otherBinning.getBinBounded(otherEnd);
+
+    s64 nProjBins = (projEndBin - projStartBin) + 1;
+
+    // adjust start and end to low edge of corresponding bin
+    projStart = projBinning.getBinLowEdge(projStartBin);
+    projEnd   = projBinning.getBinLowEdge(projEndBin);
+
+    auto result = std::make_shared<Histo1D>(nProjBins, projStart, projEnd);
+
+    // FIXME: TODO
+    //result->setAxisInfo(Qt::XAxis, histo->getAxisInfo(axis));
+    //result->setObjectName(histo->objectName() + (axis == Qt::XAxis ? QSL(" X") : QSL(" Y")) + QSL(" Projection"));
+    //
+    u32 destBin = 0;
+
+    for (u32 binI = projStartBin;
+         binI < projEndBin;
+         ++binI)
+    {
+        double value = 0.0;
+
+        for (u32 binJ = otherStartBin;
+             binJ < otherEndBin;
+             ++binJ)
+        {
+            if (axis == Qt::XAxis)
+            {
+                value += histos[binI]->getBinContent(binJ);
+            }
+            else
+            {
+                value += histos[binJ]->getBinContent(binI);
+            }
+        }
+
+        result->setBinContent(destBin++, value);
+    }
 
     return result;
 }
