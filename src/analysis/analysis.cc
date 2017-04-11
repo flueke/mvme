@@ -1007,6 +1007,181 @@ void Sum::write(QJsonObject &json) const
 }
 
 //
+// ArrayMap
+//
+ArrayMap::ArrayMap(QObject *parent)
+    : OperatorInterface(parent)
+{
+    addSlot();
+    m_output.setSource(this);
+}
+
+bool ArrayMap::addSlot()
+{
+    auto slot = new Slot(this, getNumberOfSlots(), QSL("Input#") + QString::number(getNumberOfSlots()), InputType::Array);
+    m_inputs.push_back(slot);
+    return true;
+}
+
+bool ArrayMap::removeLastSlot()
+{
+    if (getNumberOfSlots() > 1)
+    {
+        m_inputs.pop_back();
+        return true;
+    }
+
+    return false;
+}
+
+void ArrayMap::beginRun()
+{
+    s32 mappingCount = m_mappings.size();
+    m_output.parameters.resize(mappingCount);
+
+    for (s32 mIndex = 0;
+         mIndex < mappingCount;
+         ++mIndex)
+    {
+        IndexPair ip(m_mappings.at(mIndex));
+        Parameter *inParam = nullptr;
+        Slot *inputSlot = m_inputs.value(ip.slotIndex, nullptr);
+
+        if (inputSlot && inputSlot->inputPipe)
+        {
+            inParam = inputSlot->inputPipe->getParameter(ip.paramIndex);
+
+            if (mIndex == 0)
+            {
+                // Use the first inputs name and unit label.
+                m_output.parameters.name = inputSlot->inputPipe->parameters.name;
+                m_output.parameters.unit = inputSlot->inputPipe->parameters.unit;
+            }
+        }
+
+        if (inParam)
+        {
+            m_output.parameters[mIndex].lowerLimit = inParam->lowerLimit;
+            m_output.parameters[mIndex].upperLimit = inParam->upperLimit;
+        }
+    }
+}
+
+void ArrayMap::step()
+{
+    s32 mappingCount = m_mappings.size();
+
+    for (s32 mIndex = 0;
+         mIndex < mappingCount;
+         ++mIndex)
+    {
+        IndexPair ip(m_mappings.at(mIndex));
+        Parameter *inParam = nullptr;
+        Slot *inputSlot = m_inputs.value(ip.slotIndex, nullptr);
+
+        if (inputSlot && inputSlot->inputPipe)
+        {
+            inParam = inputSlot->inputPipe->getParameter(ip.paramIndex);
+        }
+
+        if (inParam)
+        {
+            m_output.parameters[mIndex] = *inParam;
+        }
+        else
+        {
+            m_output.parameters[mIndex].valid = false;
+        }
+    }
+}
+
+s32 ArrayMap::getNumberOfSlots() const
+{
+    return m_inputs.size();
+}
+
+Slot *ArrayMap::getSlot(s32 slotIndex)
+{
+    Slot *result = nullptr;
+
+    if (slotIndex < getNumberOfSlots())
+    {
+        result = m_inputs[slotIndex];
+    }
+
+    return result;
+}
+
+s32 ArrayMap::getNumberOfOutputs() const
+{
+    return 1;
+}
+
+QString ArrayMap::getOutputName(s32 outputIndex) const
+{
+    return QSL("Output");
+}
+
+Pipe *ArrayMap::getOutput(s32 index)
+{
+    return &m_output;
+}
+
+void ArrayMap::read(const QJsonObject &json)
+{
+    m_inputs.clear();
+
+    s32 inputCount = json["numberOfInputs"].toInt();
+
+    for (s32 inputIndex = 0;
+         inputIndex < inputCount;
+         ++inputIndex)
+    {
+        addSlot();
+    }
+
+    auto mappingsArray = json["mappings"].toArray();
+
+    for (auto it = mappingsArray.begin();
+         it != mappingsArray.end();
+         ++it)
+    {
+        auto objectJson = it->toObject();
+        IndexPair ip;
+        ip.slotIndex  = objectJson["slotIndex"].toInt();
+        ip.paramIndex = objectJson["paramIndex"].toInt();
+        m_mappings.push_back(ip);
+    }
+}
+
+void ArrayMap::write(QJsonObject &json) const
+{
+    json["numberOfInputs"] = getNumberOfSlots();
+
+    QJsonArray mappingsArray;
+
+    for (auto mapping: m_mappings)
+    {
+        QJsonObject dest;
+        dest["slotIndex"]  = mapping.slotIndex;
+        dest["paramIndex"] = mapping.paramIndex;
+        mappingsArray.append(dest);
+    }
+
+    json["mappings"] = mappingsArray;
+}
+
+QString ArrayMap::getDisplayName() const
+{
+    return QSL("Array Map");
+}
+
+QString ArrayMap::getShortName() const
+{
+    return QSL("Map");
+}
+
+//
 // Histo1DSink
 //
 Histo1DSink::Histo1DSink(QObject *parent)
@@ -1292,6 +1467,7 @@ Analysis::Analysis(QObject *parent)
     //m_registry.registerOperator<RetainValid>();
     m_registry.registerOperator<Difference>();
     m_registry.registerOperator<Sum>();
+    m_registry.registerOperator<ArrayMap>();
 
 
     m_registry.registerSink<Histo1DSink>();
@@ -1751,8 +1927,7 @@ Analysis::ReadResult Analysis::read(const QJsonObject &json)
 
             OperatorInterface *dstObject;
             s32 dstIndex; // the input index of the dest object
-            u32 acceptedInputTypes; // input type mask the slot accepts (Array | Value)
-            s32 paramIndex; // if input type is a single value this is the array index of that value
+            s32 dstParamIndex; // array index the input uses or Slot::NoParamIndex if the whole input is used
         };
         */
 

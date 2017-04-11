@@ -109,6 +109,7 @@ class AddEditOperatorWidget: public QWidget
         void inputSelected(s32 slotIndex);
         void accept();
         void reject();
+        void repopulateSlotGrid();
 
         OperatorPtr m_opPtr;
         OperatorInterface *m_op;
@@ -118,6 +119,9 @@ class AddEditOperatorWidget: public QWidget
         QDialogButtonBox *m_buttonBox = nullptr;
         bool m_inputSelectActive = false;
         OperatorConfigurationWidget *m_opConfigWidget = nullptr;
+        QGridLayout *m_slotGrid = nullptr;
+        QPushButton *m_addSlotButton = nullptr;
+        QPushButton *m_removeSlotButton = nullptr;
 
         struct SlotConnection
         {
@@ -159,6 +163,7 @@ class OperatorConfigurationWidget: public QWidget
         QTableWidget *m_calibrationTable = nullptr;
         QFrame *m_applyGlobalCalibFrame = nullptr;
         QPushButton *m_pb_applyGlobalCalib = nullptr;
+        void fillCalibrationTable(CalibrationMinMax *calib, double proposedMin, double proposedMax);
 
         // IndexSelector
         QSpinBox *spin_index = nullptr;
@@ -169,7 +174,10 @@ class OperatorConfigurationWidget: public QWidget
         // Sum
         QCheckBox *cb_isMean = nullptr;
 
-        void fillCalibrationTable(CalibrationMinMax *calib, double proposedMin, double proposedMax);
+        // ArrayMap
+        QVector<ArrayMap::IndexPair> m_arrayMappings;
+        QTableWidget *tw_input = nullptr;
+        QTableWidget *tw_output = nullptr;
 };
 
 class PipeDisplay: public QWidget

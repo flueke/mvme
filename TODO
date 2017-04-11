@@ -1,6 +1,18 @@
 ==========================
 ==== Do these first! =====
 ==========================
+* Make listfile-dumper handle the v1 format.
+* Open Listfile has the wrong path. Something with mvmeworkspace.ini?
+* PipeDisplay::refresh crash if source operator is deleted!
+
+* implement remove and add userlevel. also do not display additional empty
+  userlevel if it wasn't added manually
+
+* lastlog.log:
+  Write every logged message to lastlog.log. Do this in the main thread. Flush
+  to disk frequently.
+  At startup move lastlog.log to lastlog.1.log.
+  Keep 5 logfiles around. 4 -> 5, 3 -> 4, 2 -> 3, 1 -> 2, 0 -> 1
 
 * Debug Histo1DList 2D combined views!
   Is x-axis data always correct? Rounding?
@@ -35,9 +47,7 @@
 * ZIP file support:
   Write listfile to zip. It still includes the VME config.
   On close:
-  - write current analysis config to zip.
-  - write program log file to zip (log from start of current run)
-  - write some user description text file to the zip.
+  - write some user description text file to the zip. "Run description", "Run notes", "DAQ notes"
 
  - UserLevel hide/show GUI
  - Implement "Remove UserLevel" button
@@ -49,7 +59,7 @@
  - react to event and module renames
  - "modified" concept for the analysis and it's elements
  - save/saveas/load error reporting
- - Make the AnalysisUI show consitency errors between vme and analysis configs.
+ - Make the AnalysisUI show consistency errors between vme and analysis configs.
 
 * EventWidget and AnalysisWidget repopulate:
   - Restore open PipeDisplays:

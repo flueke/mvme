@@ -196,17 +196,119 @@ AddEditOperatorWidget::AddEditOperatorWidget(OperatorInterface *op, s32 userLeve
     // We're editing an operator so we assume the name has been specified by the user.
     m_opConfigWidget->wasNameEdited = true;
 
-    s32 slotCount = m_op->getNumberOfSlots();
-    auto slotGroupBox = new QGroupBox(slotCount > 1 ? QSL("Inputs") : QSL("Input"));
-    auto slotGrid = new QGridLayout(slotGroupBox);
-    slotGrid->setContentsMargins(2, 2, 2, 2);
-    s32 row = 0;
+    const s32 slotCount = m_op->getNumberOfSlots();
+
     for (s32 slotIndex = 0; slotIndex < slotCount; ++slotIndex)
     {
         Slot *slot = m_op->getSlot(slotIndex);
-
         // Record the current slot input
         m_slotBackups.push_back({slot->inputPipe, slot->paramIndex});
+    }
+
+    auto slotFrame = new QFrame;
+    auto slotGrid = new QGridLayout(slotFrame);
+    m_slotGrid = slotGrid;
+    slotGrid->setContentsMargins(0, 0, 0, 0);
+
+    if (slotCount == 1 && !op->hasVariableNumberOfSlots())
+    {
+        slotGrid->setColumnStretch(0, 1);
+        slotGrid->setColumnStretch(1, 0);
+    }
+
+    if (slotCount > 1 || op->hasVariableNumberOfSlots())
+    {
+        slotGrid->setColumnStretch(0, 0);
+        slotGrid->setColumnStretch(1, 1);
+        slotGrid->setColumnStretch(2, 0);
+    }
+
+    auto slotGroupBox = new QGroupBox(slotCount > 1 ? QSL("Inputs") : QSL("Input"));
+    auto slotGroupBoxLayout = new QGridLayout(slotGroupBox);
+    slotGroupBoxLayout->setContentsMargins(2, 2, 2, 2);
+    slotGroupBoxLayout->addWidget(slotFrame, 0, 0, 1, 2);
+
+    if (op->hasVariableNumberOfSlots())
+    {
+        m_addSlotButton = new QPushButton(QIcon(QSL(":/list_add.png")), QString());
+        m_addSlotButton->setToolTip(QSL("Add input"));
+
+        m_removeSlotButton = new QPushButton(QIcon(QSL(":/list_remove.png")), QString());
+        m_removeSlotButton->setToolTip(QSL("Remove last input"));
+        m_removeSlotButton->setEnabled(m_op->getNumberOfSlots() > 1);
+
+        connect(m_addSlotButton, &QPushButton::clicked, this, [this] () {
+            m_op->addSlot();
+            repopulateSlotGrid();
+            inputSelected(-1);
+            m_removeSlotButton->setEnabled(m_op->getNumberOfSlots() > 1);
+        });
+
+        connect(m_removeSlotButton, &QPushButton::clicked, this, [this] () {
+            if (m_op->getNumberOfSlots() > 1)
+            {
+                m_op->removeLastSlot();
+                repopulateSlotGrid();
+                inputSelected(-1);
+            }
+            m_removeSlotButton->setEnabled(m_op->getNumberOfSlots() > 1);
+        });
+
+        auto buttonLayout = new QHBoxLayout;
+        buttonLayout->setContentsMargins(0, 0, 0, 0);
+        buttonLayout->addStretch();
+        buttonLayout->addWidget(m_addSlotButton);
+        buttonLayout->addWidget(m_removeSlotButton);
+        slotGroupBoxLayout->addLayout(buttonLayout, 1, 0, 1, 2);
+    }
+
+    m_buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+    m_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(false);
+    connect(m_buttonBox, &QDialogButtonBox::accepted, this, &AddEditOperatorWidget::accept);
+    connect(m_buttonBox, &QDialogButtonBox::rejected, this, &AddEditOperatorWidget::reject);
+    auto buttonBoxLayout = new QVBoxLayout;
+    buttonBoxLayout->addStretch();
+    buttonBoxLayout->addWidget(m_buttonBox);
+
+    auto layout = new QGridLayout(this);
+    //layout->setContentsMargins(2, 2, 2, 2);
+
+    s32 row = 0;
+    // row, col, rowSpan, colSpan
+    layout->addWidget(slotGroupBox, row++, 0);
+    layout->addWidget(m_opConfigWidget, row++, 0, 1, 2);
+    layout->addLayout(buttonBoxLayout, row++, 0);
+
+    layout->setRowStretch(0, 0);
+    layout->setRowStretch(1, 1);
+
+    // The widget is complete, now populate the slot grid.
+    repopulateSlotGrid();
+}
+
+void AddEditOperatorWidget::repopulateSlotGrid()
+{
+    // Clear the grid and the select buttons
+    {
+        while (QLayoutItem *child = m_slotGrid->takeAt(0))
+        {
+            if (auto widget = child->widget())
+                delete widget;
+            delete child;
+        }
+
+        Q_ASSERT(m_slotGrid->count() == 0);
+
+        m_selectButtons.clear();
+    }
+
+    const s32 slotCount = m_op->getNumberOfSlots();
+    s32 row = 0;
+    s32 userLevel = m_userLevel;
+
+    for (s32 slotIndex = 0; slotIndex < slotCount; ++slotIndex)
+    {
+        Slot *slot = m_op->getSlot(slotIndex);
 
         auto selectButton = new QPushButton(QSL("<select>"));
         selectButton->setCheckable(true);
@@ -261,53 +363,18 @@ AddEditOperatorWidget::AddEditOperatorWidget(OperatorInterface *op, s32 userLeve
         });
 
         s32 col = 0;
-        if (slotCount > 1)
+        if (slotCount > 1 || m_op->hasVariableNumberOfSlots())
         {
-            slotGrid->addWidget(new QLabel(slot->name), row, col++);
+            m_slotGrid->addWidget(new QLabel(slot->name), row, col++);
         }
 
-        slotGrid->addWidget(selectButton, row, col++);
-        slotGrid->addWidget(clearButton, row, col++);
+        m_slotGrid->addWidget(selectButton, row, col++);
+        m_slotGrid->addWidget(clearButton, row, col++);
         ++row;
     }
 
-    if (slotCount == 1)
-    {
-        slotGrid->setColumnStretch(0, 1);
-        slotGrid->setColumnStretch(1, 0);
-    }
-
-    if (slotCount > 1)
-    {
-        slotGrid->setColumnStretch(0, 0);
-        slotGrid->setColumnStretch(1, 1);
-        slotGrid->setColumnStretch(2, 0);
-    }
-
-    m_buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
-    m_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(false);
-    connect(m_buttonBox, &QDialogButtonBox::accepted, this, &AddEditOperatorWidget::accept);
-    connect(m_buttonBox, &QDialogButtonBox::rejected, this, &AddEditOperatorWidget::reject);
-    auto buttonBoxLayout = new QVBoxLayout;
-    buttonBoxLayout->addStretch();
-    buttonBoxLayout->addWidget(m_buttonBox);
-
-    auto layout = new QGridLayout(this);
-    //layout->setContentsMargins(2, 2, 2, 2);
-
-    int col = 0, maxCol = 1;
-    row = 0;
-    // row, col, rowSpan, colSpan
-    layout->addWidget(slotGroupBox, row++, 0);
-    layout->addWidget(m_opConfigWidget, row++, 0, 1, 2);
-    layout->addLayout(buttonBoxLayout, row++, 0);
-
-    layout->setRowStretch(0, 0);
-    layout->setRowStretch(1, 1);
-
-
     // Updates the slot select buttons in case we're editing a connected operator
-    for (s32 slotIndex = 0; slotIndex < m_op->getNumberOfSlots(); ++slotIndex)
+    for (s32 slotIndex = 0; slotIndex < slotCount; ++slotIndex)
     {
         if (m_op->getSlot(slotIndex)->inputPipe)
             inputSelected(slotIndex);
@@ -331,14 +398,19 @@ QString makeSlotSourceString(Slot *slot)
 
 void AddEditOperatorWidget::inputSelected(s32 slotIndex)
 {
-    Slot *slot = m_op->getSlot(slotIndex);
-    Q_ASSERT(slot);
-    qDebug() << __PRETTY_FUNCTION__ << slot;
+    if (slotIndex >= 0)
+    {
+        Slot *slot = m_op->getSlot(slotIndex);
+        Q_ASSERT(slot);
+        qDebug() << __PRETTY_FUNCTION__ << slot;
 
-    auto selectButton = m_selectButtons[slotIndex];
-    QSignalBlocker b(selectButton);
-    selectButton->setChecked(false);
-    selectButton->setText(makeSlotSourceString(slot));
+        auto selectButton = m_selectButtons[slotIndex];
+        QSignalBlocker b(selectButton);
+        selectButton->setChecked(false);
+        selectButton->setText(makeSlotSourceString(slot));
+    }
+
+    m_opConfigWidget->inputSelected(slotIndex);
 
     bool enableOkButton = true;
 
@@ -350,8 +422,6 @@ void AddEditOperatorWidget::inputSelected(s32 slotIndex)
             break;
         }
     }
-
-    m_opConfigWidget->inputSelected(slotIndex);
 
     m_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(enableOkButton);
     m_inputSelectActive = false;
@@ -394,6 +464,19 @@ void AddEditOperatorWidget::reject()
     {
         // edit mode
         // Restore previous slot connections.
+
+        if (m_op->hasVariableNumberOfSlots())
+        {
+            // Restore the original number of inputs.
+
+            while (m_op->removeLastSlot());
+
+            while (m_op->getNumberOfSlots() < m_slotBackups.size())
+            {
+                m_op->addSlot();
+            }
+        }
+
         for (s32 slotIndex = 0; slotIndex < m_op->getNumberOfSlots(); ++slotIndex)
         {
             Slot *slot = m_op->getSlot(slotIndex);
@@ -414,6 +497,67 @@ void AddEditOperatorWidget::closeEvent(QCloseEvent *event)
 //
 // OperatorConfigurationWidget
 //
+
+static const s32 SlotIndexRole  = Qt::UserRole;
+static const s32 ParamIndexRole = Qt::UserRole + 1;
+
+using ArrayMappings = QVector<ArrayMap::IndexPair>;
+
+void repopulate_arrayMap_tables(ArrayMap *arrayMap, const ArrayMappings &mappings, QTableWidget *tw_input, QTableWidget *tw_output)
+{
+    Q_ASSERT(arrayMap && tw_input && tw_output);
+
+    tw_input->clearContents();
+    tw_input->setRowCount(0);
+
+    tw_output->clearContents();
+    tw_output->setRowCount(0);
+
+    const s32 slotCount = arrayMap->getNumberOfSlots();
+
+    for (s32 slotIndex = 0;
+         slotIndex < slotCount;
+         ++slotIndex)
+    {
+        auto slot = arrayMap->getSlot(slotIndex);
+
+        if (!slot->isConnected())
+            continue;
+
+        const s32 paramCount = slot->inputPipe->parameters.size();
+
+        for (s32 paramIndex = 0;
+             paramIndex < paramCount;
+             ++paramIndex)
+        {
+            QTableWidget *tw = nullptr;
+
+            if (!mappings.contains({slotIndex, paramIndex}))
+            {
+                tw = tw_input;
+            }
+            else
+            {
+                tw = tw_output;
+            }
+
+            auto item = new QTableWidgetItem;
+
+            item->setData(Qt::DisplayRole, QString("%1[%2]")
+                          .arg(slot->inputPipe->source->objectName())
+                          .arg(paramIndex));
+
+            item->setData(SlotIndexRole, slotIndex);
+            item->setData(ParamIndexRole, paramIndex);
+
+            tw->setRowCount(tw->rowCount() + 1);
+            tw->setItem(tw->rowCount() - 1, 0, item);
+        }
+    }
+
+    tw_input->resizeRowsToContents();
+    tw_output->resizeRowsToContents();
+}
 
 OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, s32 userLevel, AddEditOperatorWidget *parent)
     : QWidget(parent)
@@ -582,6 +726,73 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
 
         formLayout->addRow(cb_isMean);
     }
+    else if (auto arrayMap = qobject_cast<ArrayMap *>(op))
+    {
+        tw_input = new QTableWidget;
+        tw_input->setColumnCount(1);
+        tw_input->setHorizontalHeaderLabels({"Input"});
+        tw_input->horizontalHeader()->setStretchLastSection(true);
+        tw_input->verticalHeader()->setVisible(false);
+
+        tw_output = new QTableWidget;
+        tw_output->setColumnCount(1);
+        tw_output->setHorizontalHeaderLabels({"Output"});
+        tw_output->horizontalHeader()->setStretchLastSection(true);
+        tw_output->verticalHeader()->setVisible(false);
+
+        auto pb_inputToOutput = new QPushButton(QIcon(":/arrow_right.png"), QString());
+        pb_inputToOutput->setEnabled(false);
+
+        auto pb_outputToInput = new QPushButton(QIcon(":/arrow_left.png"), QString());
+        pb_outputToInput->setEnabled(false);
+
+        connect(tw_input, &QTableWidget::itemSelectionChanged, this, [this, pb_inputToOutput] () {
+            pb_inputToOutput->setEnabled(tw_input->selectedItems().size() > 0);
+        });
+
+        connect(tw_output, &QTableWidget::itemSelectionChanged, this, [this, pb_outputToInput] () {
+            pb_outputToInput->setEnabled(tw_output->selectedItems().size() > 0);
+        });
+
+        connect(pb_inputToOutput, &QPushButton::clicked, this, [this, arrayMap] () {
+            for (auto item: tw_input->selectedItems())
+            {
+                ArrayMap::IndexPair ip;
+                ip.slotIndex = item->data(SlotIndexRole).toInt();
+                ip.paramIndex = item->data(ParamIndexRole).toInt();
+                m_arrayMappings.push_back(ip);
+            }
+            repopulate_arrayMap_tables(arrayMap, m_arrayMappings, tw_input, tw_output);
+        });
+
+        connect(pb_outputToInput, &QPushButton::clicked, this, [this, arrayMap] () {
+            for (auto item: tw_output->selectedItems())
+            {
+                ArrayMap::IndexPair ip;
+                ip.slotIndex = item->data(SlotIndexRole).toInt();
+                ip.paramIndex = item->data(ParamIndexRole).toInt();
+                m_arrayMappings.removeOne(ip);
+            }
+            repopulate_arrayMap_tables(arrayMap, m_arrayMappings, tw_input, tw_output);
+        });
+
+        auto buttonsLayout = new QVBoxLayout;
+        buttonsLayout->setContentsMargins(0, 0, 0, 0);
+        buttonsLayout->addStretch();
+        buttonsLayout->addWidget(pb_inputToOutput);
+        buttonsLayout->addWidget(pb_outputToInput);
+        buttonsLayout->addStretch();
+
+        auto listsLayout = new QHBoxLayout;
+        listsLayout->addWidget(tw_input);
+        listsLayout->addLayout(buttonsLayout);
+        listsLayout->addWidget(tw_output);
+
+        widgetLayout->addLayout(listsLayout);
+
+        m_arrayMappings = arrayMap->m_mappings;
+        repopulate_arrayMap_tables(arrayMap, m_arrayMappings, tw_input, tw_output);
+    }
 }
 
 // FIXME: right now this is not actually called by AddEditOperatorWidget...
@@ -720,12 +931,15 @@ void OperatorConfigurationWidget::configureOperator()
     {
         sum->m_calculateMean = cb_isMean->isChecked();
     }
+    else if (auto arrayMap = qobject_cast<ArrayMap *>(op))
+    {
+        arrayMap->m_mappings = m_arrayMappings;
+    }
 }
 
 void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
 {
     OperatorInterface *op = m_op;
-    Slot *slot = op->getSlot(slotIndex);
 
     if (no_input_connected(op) && !wasNameEdited)
     {
@@ -743,7 +957,7 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
 
         if (op->getNumberOfSlots() == 1 && op->getSlot(0)->isConnected())
         {
-            le_name->setText(makeSlotSourceString(slot));
+            le_name->setText(makeSlotSourceString(op->getSlot(0)));
         }
         else if (auto histoSink = qobject_cast<Histo2DSink *>(op))
         {
@@ -772,17 +986,25 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
     if (!le_name->text().isEmpty() && op->getNumberOfOutputs() > 0 && all_inputs_connected(op) && !wasNameEdited)
     {
         // Append the lowercase short name for non sinks
+        auto suffix = QSL(".") + op->getShortName().toLower();
         auto name = le_name->text();
-        name = name + "." + op->getShortName().toLower();
-        le_name->setText(name);
+        if (!name.endsWith(suffix))
+        {
+            name += suffix;
+            le_name->setText(name);
+        }
     }
 
     //
     // Operator specific actions
     //
 
+    Slot *slot = (slotIndex >= 0 ? op->getSlot(slotIndex) : nullptr);
+
     if (auto calibration = qobject_cast<CalibrationMinMax *>(op))
     {
+        Q_ASSERT(slot);
+
         if (slot->isConnected())
         {
             if (!calibration->getGlobalCalibration().isValid())
@@ -851,6 +1073,10 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
             limits_y.spin_min->setValue(slot->inputPipe->parameters[slot->paramIndex].lowerLimit);
             limits_y.spin_max->setValue(slot->inputPipe->parameters[slot->paramIndex].upperLimit);
         }
+    }
+    else if (auto arrayMap = qobject_cast<ArrayMap *>(op))
+    {
+        repopulate_arrayMap_tables(arrayMap, m_arrayMappings, tw_input, tw_output);
     }
 }
 

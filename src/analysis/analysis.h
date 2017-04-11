@@ -301,6 +301,11 @@ class OperatorInterface: public PipeSourceInterface
 
         virtual void slotConnected(Slot *slot) {}
         virtual void slotDisconnected(Slot *slot) {}
+
+        virtual bool hasVariableNumberOfSlots() const { return false; }
+        virtual bool addSlot() { return false; }
+        virtual bool removeLastSlot() { return false; }
+
 };
 
 typedef std::shared_ptr<OperatorInterface> OperatorPtr;
@@ -639,6 +644,57 @@ class Sum: public BasicOperator
         }
 
         bool m_calculateMean = false;
+};
+
+class ArrayMap: public OperatorInterface
+{
+    Q_OBJECT
+    public:
+        struct IndexPair
+        {
+            s32 slotIndex;
+            s32 paramIndex;
+
+            bool operator==(const IndexPair &o) const
+            {
+                return slotIndex == o.slotIndex && paramIndex == o.paramIndex;
+            }
+        };
+
+        ArrayMap(QObject *parent = 0);
+
+        virtual bool hasVariableNumberOfSlots() const override { return true; }
+        virtual bool addSlot() override;
+        virtual bool removeLastSlot() override;
+
+        virtual void beginRun() override;
+        virtual void step() override;
+
+        // Inputs
+        virtual s32 getNumberOfSlots() const override;
+        virtual Slot *getSlot(s32 slotIndex) override;
+
+        // Outputs
+        virtual s32 getNumberOfOutputs() const override;
+        virtual QString getOutputName(s32 outputIndex) const override;
+        virtual Pipe *getOutput(s32 index) override;
+
+        // Serialization
+        virtual void read(const QJsonObject &json) override;
+        virtual void write(QJsonObject &json) const override;
+
+        // Info
+        virtual QString getDisplayName() const override;
+        virtual QString getShortName() const override;
+
+        // Maps input slot and param indices to the output vector.
+        QVector<IndexPair> m_mappings;
+
+    private:
+        // Using pointer to Slot here to avoid having to deal with changing
+        // Slot addresses on resizing the inputs vector.
+        QVector<Slot *> m_inputs;
+        Pipe m_output;
 };
 
 //
