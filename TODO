@@ -1,8 +1,8 @@
 ==========================
 ==== Do these first! =====
 ==========================
+* Check for off-by-one errors in the 2D projection code
 * Make listfile-dumper handle the v1 format.
-* Open Listfile has the wrong path. Something with mvmeworkspace.ini?
 * PipeDisplay::refresh crash if source operator is deleted!
 
 * implement remove and add userlevel. also do not display additional empty
