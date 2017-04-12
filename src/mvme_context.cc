@@ -1082,6 +1082,13 @@ void MVMEContext::openWorkspace(const QString &dirName)
         ListFileOutputInfo info = {};
         info.enabled   = workspaceSettings->value(QSL("WriteListFile")).toBool();
         info.format    = fromString(workspaceSettings->value(QSL("ListFileFormat"), QSL("Plain")).toString());
+
+        if (!workspaceSettings->contains(QSL("ListFileDirectory")) && workspaceSettings->contains(QSL("ListfileDirectory")))
+        {
+            // Conversion from old string to new string. Why did I even change it? OCD?
+            workspaceSettings->setValue(QSL("ListFileDirectory"), workspaceSettings->value(QSL("ListfileDirectory")));
+            workspaceSettings->remove(QSL("ListfileDirectory"));
+        }
         info.directory = dir.filePath(workspaceSettings->value(QSL("ListFileDirectory")).toString());
         info.compressionLevel = workspaceSettings->value(QSL("ListFileCompressionLevel"), 6).toInt();
         m_d->m_listFileOutputInfo = info;
