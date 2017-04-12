@@ -85,7 +85,7 @@ struct Histo1DListRasterData: public QwtRasterData
             zMax = std::max(zMax, m_histos[i]->getMaxValue());
         }
 
-        setInterval(Qt::XAxis, QwtInterval(0, m_histos.size() - 1));
+        setInterval(Qt::XAxis, QwtInterval(0, m_histos.size()));
         setInterval(Qt::YAxis, QwtInterval(yMin, yMax));
         setInterval(Qt::ZAxis, QwtInterval(0.0, zMax));
     }

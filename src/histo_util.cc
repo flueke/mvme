@@ -222,7 +222,7 @@ Histo1DPtr make_projection(const Histo1DList &histos, Qt::Axis axis,
     double otherEnd   = (axis == Qt::XAxis ? endY : endX);
 
     // Create an artificial binning of the combined views x-axis
-    AxisBinning xBinning(histos.size(), 0.0, histos.size() - 1);
+    AxisBinning xBinning(histos.size(), 0.0, histos.size());
 
     AxisBinning projBinning;
     AxisBinning otherBinning;
@@ -248,7 +248,7 @@ Histo1DPtr make_projection(const Histo1DList &histos, Qt::Axis axis,
 
     // adjust start and end to low edge of corresponding bin
     projStart = projBinning.getBinLowEdge(projStartBin);
-    projEnd   = projBinning.getBinLowEdge(projEndBin);
+    projEnd   = projBinning.getBinLowEdge(projEndBin + 1);
 
     auto result = std::make_shared<Histo1D>(nProjBins, projStart, projEnd);
 
@@ -259,13 +259,13 @@ Histo1DPtr make_projection(const Histo1DList &histos, Qt::Axis axis,
     u32 destBin = 0;
 
     for (u32 binI = projStartBin;
-         binI < projEndBin;
+         binI <= projEndBin;
          ++binI)
     {
         double value = 0.0;
 
         for (u32 binJ = otherStartBin;
-             binJ < otherEndBin;
+             binJ <= otherEndBin;
              ++binJ)
         {
             if (axis == Qt::XAxis)
