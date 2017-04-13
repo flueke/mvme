@@ -97,10 +97,18 @@ contains(DEFINES, "VME_CONTROLLER_WIENER") {
     }
 
     win32 {
-        CONFIG += link_pkgconfig
-        PKGCONFIG += libusb-1.0
+	# Old libusb-win32 paths.
         #INCLUDEPATH += "C:\libusb-win32-bin-1.2.6.0\include"
         #LIBS += -L"C:\libusb-win32-bin-1.2.6.0\lib\gcc" -lusb
+
+	# When building with libusb-1.0 under msys pkgconfig is available.
+        #CONFIG += link_pkgconfig
+        #PKGCONFIG += libusb-1.0
+
+	# Manually adding paths fopr libusb-1.0 when not building under msys as
+	# I did not bother to install pkgconfig there.
+	INCLUDEPATH += C:\libusb-1.0.21\include\libusb-1.0
+	LIBS += -L"C:\libusb-1.0.21\MinGW32\dll" -lusb-1.0
     }
 
 
