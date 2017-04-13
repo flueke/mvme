@@ -719,6 +719,9 @@ VMEError VMUSB::setIrq(int vec, uint16_t val)
 
     error = readRegister(regAddress, &regValue);
 
+    if (error.isError())
+        return error;
+
     int regIndex = vec / 2;
     irqV[regIndex] = regValue;
 

@@ -14,12 +14,10 @@
   At startup move lastlog.log to lastlog.1.log.
   Keep 5 logfiles around. 4 -> 5, 3 -> 4, 2 -> 3, 1 -> 2, 0 -> 1
 
-* Debug Histo1DList 2D combined views!
-  Is x-axis data always correct? Rounding?
-
 * Histo1DWidget: zoom out after setHistogram()
   But not when the usage is the one in x- and y-projections where the histo is
   replaced with a similar one.
+* Histo1DWidget: The curve for the last bin is not drawn. Try to finally find a fix for this.
 
 * Calibration:
   - On close ask if edits should be applied to the whole list.

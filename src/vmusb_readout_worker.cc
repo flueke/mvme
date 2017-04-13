@@ -342,21 +342,47 @@ void VMUSBReadoutWorker::resume()
         m_desiredState = DAQState::Running;
 }
 
-static const int leaveDaqReadTimeout_ms = 100;
+static const int leaveDaqReadTimeout_ms = 250;
 static const int daqReadTimeout_ms = 500; // This should be higher than the watchdog timeout which is 250ms.
+
+/* According to Jan we need to wait at least one millisecond
+ * after entering DAQ mode to make sure that the VMUSB is
+ * ready.
+ * Trying to see if upping this value will make the USE_DAQMODE_HACK more stable. */
+static const int PostEnterDaqModeDelay_ms = 100;
+static const int PostLeaveDaqModeDelay_ms = 100;
+
+static VMEError enter_daq_mode(VMUSB *vmusb)
+{
+    auto result = vmusb->enterDaqMode();
+
+    if (!result.isError())
+    {
+        QThread::msleep(PostEnterDaqModeDelay_ms);
+    }
+
+    return result;
+}
+
+static VMEError leave_daq_mode(VMUSB *vmusb)
+{
+    auto result = vmusb->leaveDaqMode();
+
+    if (!result.isError())
+    {
+        QThread::msleep(PostLeaveDaqModeDelay_ms);
+    }
+
+    return result;
+}
 
 void VMUSBReadoutWorker::readoutLoop()
 {
     auto vmusb = m_vmusb;
-    auto error = vmusb->enterDaqMode();
+    auto error = enter_daq_mode(vmusb);
 
     if (error.isError())
         throw QString("Error entering VMUSB DAQ mode: %1").arg(error.toString());
-
-    /* According to Jan we need to wait at least one millisecond
-     * after entering DAQ mode to make sure that the VMUSB is
-     * ready. */
-    QThread::msleep(1);
 
     setState(DAQState::Running);
 
@@ -370,8 +396,7 @@ void VMUSBReadoutWorker::readoutLoop()
         // pause
         if (m_state == DAQState::Running && m_desiredState == DAQState::Paused)
         {
-            //QThread::msleep(5000);
-            auto error = vmusb->leaveDaqMode();
+            error = leave_daq_mode(vmusb);
             if (error.isError())
                 throw QString("Error leaving VMUSB DAQ mode: %1").arg(error.toString());
 
@@ -382,11 +407,9 @@ void VMUSBReadoutWorker::readoutLoop()
         // resume
         else if (m_state == DAQState::Paused && m_desiredState == DAQState::Running)
         {
-            error = vmusb->enterDaqMode();
+            error = enter_daq_mode(vmusb);
             if (error.isError())
                 throw QString("Error entering VMUSB DAQ mode: %1").arg(error.toString());
-
-            QThread::msleep(1);
 
             setState(DAQState::Running);
             logMessage(QSL("VMUSB readout resumed"));
@@ -404,17 +427,19 @@ void VMUSBReadoutWorker::readoutLoop()
             //qDebug() << __PRETTY_FUNCTION__ << "DAQState::Running: readBuffer() returned" << bytesRead << "bytes";
 
             /* XXX: Begin hack:
-             * A timeout here can mean that either there is an error when
+             * A timeout here can mean that either there was an error when
              * communicating with the vmusb or that no data is available. The
              * second case can happen if the module sends no or very little
              * data so that the internal buffer of the controller does not fill
-             * up fast enough. To avoid the second case a smaller buffer size
-             * could be chosen but that will negatively impact performance for
-             * high data rates. Another method would be to use VMUSBs watchdog
-             * feature but that does not seem to work.
+             * up fast enough. To avoid this case a smaller buffer size could
+             * be chosen but that will negatively impact performance for high
+             * data rates. Another method would be to use VMUSBs watchdog
+             * feature but that was never implemented despite what the
+             * documentation says.
              *
-             * The workaround: when getting a read timeout leave DAQ mode which
-             * forces the controller to dump its buffer, then resume DAQ mode.
+             * The workaround: when getting a read timeout is to leave DAQ
+             * mode, which forces the controller to dump its buffer, and to
+             * then resume DAQ mode.
              * If we still don't receive data after this there is a
              * communication error, otherwise the data rate was just too low to
              * fill the buffer and we continue on.
@@ -431,28 +456,24 @@ void VMUSBReadoutWorker::readoutLoop()
             // TODO; explicitly check return value for timeout
             if (bytesRead <= 0)
             {
-                error = vmusb->leaveDaqMode();
+                error = leave_daq_mode(vmusb);
                 if (error.isError())
                     throw QString("Error leaving VMUSB DAQ mode (in timeout handling): %1").arg(error.toString());
 
                 /* This timeout can be very small as leaving DAQ mode forces a buffer dump. */
-                static const int daqModeHackTimeout = 10;
+                static const int daqModeHackTimeout = 100;
                 bytesRead = readBuffer(daqModeHackTimeout);
 
-                error = vmusb->enterDaqMode();
+                error = enter_daq_mode(vmusb);
                 if (error.isError())
                     throw QString("Error entering VMUSB DAQ mode (in timeout handling): %1").arg(error.toString());
-
-                /* According to Jan we need to wait at least one millisecond
-                 * after entering DAQ mode to make sure that the VMUSB is
-                 * ready. */
-                QThread::msleep(1);
             }
 #endif
 
             if (bytesRead <= 0)
             {
-                if (!logReadErrorTimer.isValid() || logReadErrorTimer.elapsed() >= 1000)
+                static const int LogReadErrorTimer_ms = 5000;
+                if (!logReadErrorTimer.isValid() || logReadErrorTimer.elapsed() >= LogReadErrorTimer_ms)
                 {
                     // FIXME: using strerror here is wrong now! No error
                     // information is passed in bytesRead anymore.  Instead
@@ -487,7 +508,7 @@ void VMUSBReadoutWorker::readoutLoop()
     processQtEvents();
 
     qDebug() << __PRETTY_FUNCTION__ << "left readoutLoop, reading remaining data";
-    error = vmusb->leaveDaqMode();
+    error = leave_daq_mode(vmusb);
     if (error.isError())
         throw QString("Error leaving VMUSB DAQ mode: %1").arg(error.toString());
 
