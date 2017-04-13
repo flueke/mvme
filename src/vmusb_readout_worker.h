@@ -36,7 +36,14 @@ class VMUSBReadoutWorker: public QObject
         void logMessage(const QString &message);
         void logError(const QString &);
         void clearError() { m_errorMessage.clear(); }
-        int readBuffer(int timeout_ms);
+
+        struct ReadBufferResult
+        {
+            int bytesRead;
+            VMEError error;
+        };
+
+        ReadBufferResult readBuffer(int timeout_ms);
 
         MVMEContext *m_context;
         DAQState m_state = DAQState::Idle;
