@@ -540,9 +540,6 @@ VMUSBReadoutWorker::ReadBufferResult VMUSBReadoutWorker::readBuffer(int timeout_
 
     if ((!result.error.isError() || result.error.isTimeout()) && result.bytesRead > 0)
     {
-        //if (error.isTimeout())
-        //    qDebug() << __PRETTY_FUNCTION__ << "VMUSB::bulkRead() timed out but returned" << bytesRead << "bytes";
-
         m_readBuffer->used = result.bytesRead;
         DAQStats &stats(m_context->getDAQStats());
         stats.addBuffersRead(1);
