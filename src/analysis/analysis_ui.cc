@@ -360,7 +360,8 @@ struct EventWidgetPrivate
     void appendTreesToView(DisplayLevelTrees trees);
     void repopulate();
 
-    void addUserLevel(const QUuid &eventId);
+    void addUserLevel();
+    void removeUserLevel();
     s32 getUserLevelForTree(QTreeWidget *tree);
 
     void doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel);
@@ -379,7 +380,6 @@ struct EventWidgetPrivate
     void generateDefaultFilters(ModuleConfig *module);
 };
 
-// FIXME: the param should be eventId
 void EventWidgetPrivate::createView(const QUuid &eventId)
 {
     auto analysis = m_context->getAnalysisNG();
@@ -389,9 +389,6 @@ void EventWidgetPrivate::createView(const QUuid &eventId)
     {
         maxUserLevel = std::max(maxUserLevel, opEntry.userLevel);
     }
-
-    // +1 to make an empty display for the next level a user might want to use.
-    ++maxUserLevel;
 
     for (s32 userLevel = 0; userLevel <= maxUserLevel; ++userLevel)
     {
@@ -494,6 +491,8 @@ DisplayLevelTrees EventWidgetPrivate::createSourceTrees(const QUuid &eventId)
     // Populate the OperatorTree
     for (auto mod: modules)
     {
+        QObject::disconnect(mod, &ConfigObject::modified, m_q, &EventWidget::repopulate);
+        QObject::connect(mod, &ConfigObject::modified, m_q, &EventWidget::repopulate);
         auto moduleNode = makeModuleNode(mod);
         result.operatorTree->addTopLevelItem(moduleNode);
         moduleNode->setExpanded(true);
@@ -727,12 +726,21 @@ void EventWidgetPrivate::repopulate()
     clearAllToDefaultNodeHighlights();
 }
 
-void EventWidgetPrivate::addUserLevel(const QUuid &eventId)
+void EventWidgetPrivate::addUserLevel()
 {
     s32 levelIndex = m_levelTrees.size();
-    auto trees = createTrees(eventId, levelIndex);
+    auto trees = createTrees(m_eventId, levelIndex);
     m_levelTrees.push_back(trees);
     appendTreesToView(trees);
+}
+
+void EventWidgetPrivate::removeUserLevel()
+{
+    Q_ASSERT(m_levelTrees.size() > 1);
+    auto trees = m_levelTrees.last();
+    m_levelTrees.pop_back();
+    delete trees.operatorTree;
+    delete trees.displayTree;
 }
 
 s32 EventWidgetPrivate::getUserLevelForTree(QTreeWidget *tree)
@@ -828,6 +836,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                 menu.addAction(QSL("Show Parameters"), [this, pipe]() {
                     auto widget = new PipeDisplay(pipe, m_q);
                     QObject::connect(m_pipeDisplayRefreshTimer, &QTimer::timeout, widget, &PipeDisplay::refresh);
+                    QObject::connect(pipe->source, &QObject::destroyed, widget, &QWidget::close);
                     widget->move(QCursor::pos());
                     widget->setAttribute(Qt::WA_DeleteOnClose);
                     widget->show();
@@ -868,6 +877,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
             menu.addAction(QSL("Show Parameters"), [this, pipe]() {
                 auto widget = new PipeDisplay(pipe, m_q);
                 QObject::connect(m_pipeDisplayRefreshTimer, &QTimer::timeout, widget, &PipeDisplay::refresh);
+                QObject::connect(pipe->source, &QObject::destroyed, widget, &QWidget::close);
                 widget->move(QCursor::pos());
                 widget->setAttribute(Qt::WA_DeleteOnClose);
                 widget->show();
@@ -888,6 +898,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                     menu.addAction(QSL("Show Parameters"), [this, pipe]() {
                         auto widget = new PipeDisplay(pipe, m_q);
                         QObject::connect(m_pipeDisplayRefreshTimer, &QTimer::timeout, widget, &PipeDisplay::refresh);
+                        QObject::connect(pipe->source, &QObject::destroyed, widget, &QWidget::close);
                         widget->move(QCursor::pos());
                         widget->setAttribute(Qt::WA_DeleteOnClose);
                         widget->show();
@@ -1878,6 +1889,7 @@ void EventWidget::addOperator(OperatorPtr op, s32 userLevel)
         AnalysisPauser pauser(m_d->m_context);
         m_d->m_context->getAnalysisNG()->addOperator(m_d->m_eventId, op, userLevel);
         m_d->repopulate();
+        m_d->m_analysisWidget->updateAddRemoveUserLevelButtons();
     }
     catch (const std::bad_alloc &)
     {
@@ -1911,6 +1923,7 @@ void EventWidget::removeOperator(OperatorInterface *op)
     AnalysisPauser pauser(m_d->m_context);
     m_d->m_context->getAnalysisNG()->removeOperator(op);
     m_d->repopulate();
+    m_d->m_analysisWidget->updateAddRemoveUserLevelButtons();
 }
 
 void EventWidget::addSource(SourcePtr src, ModuleConfig *module, bool addHistogramsAndCalibration,
@@ -1979,9 +1992,19 @@ void EventWidget::uniqueWidgetCloses()
     m_d->m_uniqueWidgetActive = false;
 }
 
-void EventWidget::addUserLevel(const QUuid &eventId)
+void EventWidget::addUserLevel()
 {
-    m_d->addUserLevel(eventId);
+    m_d->addUserLevel();
+}
+
+void EventWidget::removeUserLevel()
+{
+    m_d->removeUserLevel();
+}
+
+void EventWidget::repopulate()
+{
+    m_d->repopulate();
 }
 
 MVMEContext *EventWidget::getContext() const
@@ -2032,25 +2055,28 @@ struct AnalysisWidgetPrivate
     QToolBar *m_toolbar;
     QComboBox *m_eventSelectCombo;
     QStackedWidget *m_eventWidgetStack;
+    QToolButton *m_removeUserLevelButton;
+    QToolButton *m_addUserLevelButton;
 
     void repopulate();
+    void repopulateEventSelectCombo();
 
     void actionNew();
     void actionOpen();
-    void actionSave();
-    void actionSaveAs();
+    QPair<bool, QString> actionSave();
+    QPair<bool, QString> actionSaveAs();
     void actionClearHistograms();
 
     void updateWindowTitle();
+    void updateAddRemoveUserLevelButtons();
 };
+
+
+// FIXME: bad design: both repopulate and repopulateEventSelectCombo update m_eventConfigs
 
 void AnalysisWidgetPrivate::repopulate()
 {
-    const QUuid lastSelectedEventId = m_eventSelectCombo->currentData().toUuid();
-
-    // Clear combobox and stacked widget. This deletes all existing EventWidgets.
-    m_eventSelectCombo->clear();
-    
+    // Clear stacked widget and delete existing even EventWidgets
     while (auto widget = m_eventWidgetStack->currentWidget())
     {
         m_eventWidgetStack->removeWidget(widget);
@@ -2062,10 +2088,8 @@ void AnalysisWidgetPrivate::repopulate()
     // Repopulate combobox and stacked widget
     m_eventConfigs = m_context->getEventConfigs();
 
-    s32 comboIndexToSelect = -1;
-
     // FIXME: event creation is still entirely based on the DAQ config. events
-    //        that do exist in the analysis but in the DAQ won't show up at all
+    //        that do exist in the analysis but not in the DAQ won't show up at all
     for (s32 eventIndex = 0;
          eventIndex < m_eventConfigs.size();
          ++eventIndex)
@@ -2073,11 +2097,6 @@ void AnalysisWidgetPrivate::repopulate()
         auto eventConfig = m_eventConfigs[eventIndex];
         auto eventId = eventConfig->getId();
         auto eventWidget = new EventWidget(m_context, eventId, m_q);
-
-        m_eventSelectCombo->addItem(eventConfig->objectName(), eventId);
-
-        if (eventId == lastSelectedEventId)
-            comboIndexToSelect = eventIndex;
 
         auto scrollArea = new QScrollArea;
         scrollArea->setWidget(eventWidget);
@@ -2087,44 +2106,114 @@ void AnalysisWidgetPrivate::repopulate()
         m_eventWidgetsByEventId[eventId] = eventWidget;
     }
 
+    repopulateEventSelectCombo();
+
+    updateWindowTitle();
+    updateAddRemoveUserLevelButtons();
+}
+
+void AnalysisWidgetPrivate::repopulateEventSelectCombo()
+{
+    const QUuid lastSelectedEventId = m_eventSelectCombo->currentData().toUuid();
+    m_eventSelectCombo->clear();
+
+    m_eventConfigs = m_context->getEventConfigs();
+
+    s32 comboIndexToSelect = -1;
+
+    for (s32 eventIndex = 0;
+         eventIndex < m_eventConfigs.size();
+         ++eventIndex)
+    {
+        auto eventConfig = m_eventConfigs[eventIndex];
+        auto eventId = eventConfig->getId();
+
+        QObject::disconnect(eventConfig, &ConfigObject::modified, m_q, &AnalysisWidget::eventConfigModified);
+        QObject::connect(eventConfig, &ConfigObject::modified, m_q, &AnalysisWidget::eventConfigModified);
+
+        m_eventSelectCombo->addItem(eventConfig->objectName(), eventId);
+        qDebug() << __PRETTY_FUNCTION__ << eventConfig->objectName() << eventId << eventIndex;
+
+        if (eventId == lastSelectedEventId)
+            comboIndexToSelect = eventIndex;
+    }
+
     if (!lastSelectedEventId.isNull() && comboIndexToSelect < m_eventSelectCombo->count())
     {
         m_eventSelectCombo->setCurrentIndex(comboIndexToSelect);
     }
-
-    updateWindowTitle();
 }
 
 static const QString AnalysisFileFilter = QSL("MVME Analysis Files (*.analysis);; All Files (*.*)");
 
 void AnalysisWidgetPrivate::actionNew()
 {
-    // TODO: handle modified() state
+    if (m_context->getAnalysisNG()->isModified())
+    {
+        QMessageBox msgBox(QMessageBox::Question, QSL("Save analysis configuration?"),
+                           QSL("The current analysis configuration has modifications. Do you want to save it?"),
+                           QMessageBox::Save | QMessageBox::Cancel | QMessageBox::Discard);
+        int result = msgBox.exec();
+
+        if (result == QMessageBox::Save)
+        {
+            if (!actionSave().first)
+                return;
+        }
+        else if (result == QMessageBox::Cancel)
+        {
+            return;
+        }
+        // else discard
+    }
+
     AnalysisPauser pauser(m_context);
     m_context->getAnalysisNG()->clear();
+    m_context->getAnalysisNG()->setModified(false);
     m_context->setAnalysisConfigFileName(QString());
     repopulate();
 }
 
 void AnalysisWidgetPrivate::actionOpen()
 {
-    // TODO: handle modified() state
     auto path = m_context->getWorkspaceDirectory();
     if (path.isEmpty())
         path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
+
     QString fileName = QFileDialog::getOpenFileName(m_q, QSL("Load analysis config"), path, AnalysisFileFilter);
+
     if (fileName.isEmpty())
         return;
+
+    if (m_context->getAnalysisNG()->isModified())
+    {
+        QMessageBox msgBox(QMessageBox::Question, QSL("Save analysis configuration?"),
+                           QSL("The current analysis configuration has modifications. Do you want to save it?"),
+                           QMessageBox::Save | QMessageBox::Cancel | QMessageBox::Discard);
+        int result = msgBox.exec();
+
+        if (result == QMessageBox::Save)
+        {
+            if (!actionSave().first)
+                return;
+        }
+        else if (result == QMessageBox::Cancel)
+        {
+            return;
+        }
+        // else discard
+    }
+
     m_context->loadAnalysisConfig(fileName);
 }
 
-void AnalysisWidgetPrivate::actionSave()
+QPair<bool, QString> AnalysisWidgetPrivate::actionSave()
 {
     QString fileName = m_context->getAnalysisConfigFileName();
 
     if (fileName.isEmpty())
     {
-        actionSaveAs();
+        return actionSaveAs();
     }
     else
     {
@@ -2135,10 +2224,12 @@ void AnalysisWidgetPrivate::actionSave()
             m_context->setAnalysisConfigFileName(result.second);
             m_context->getAnalysisNG()->setModified(false);
         }
+
+        return result;
     }
 }
 
-void AnalysisWidgetPrivate::actionSaveAs()
+QPair<bool, QString> AnalysisWidgetPrivate::actionSaveAs()
 {
     auto result = saveAnalysisConfigAs(nullptr, m_context->getAnalysisNG(),
                                        m_context->getWorkspaceDirectory(), AnalysisFileFilter);
@@ -2148,6 +2239,8 @@ void AnalysisWidgetPrivate::actionSaveAs()
         m_context->setAnalysisConfigFileName(result.second);
         m_context->getAnalysisNG()->setModified(false);
     }
+
+    return result;
 }
 
 void AnalysisWidgetPrivate::actionClearHistograms()
@@ -2185,6 +2278,33 @@ void AnalysisWidgetPrivate::updateWindowTitle()
     m_q->setWindowTitle(QString(QSL("%1 - [Analysis UI]")).arg(fileName));
 }
 
+void AnalysisWidgetPrivate::updateAddRemoveUserLevelButtons()
+{
+    qDebug() << __PRETTY_FUNCTION__;
+
+    QUuid eventId = m_eventSelectCombo->currentData().toUuid();
+    auto analysis = m_context->getAnalysisNG();
+    s32 maxUserLevel = 0;
+
+    for (const auto &opEntry: analysis->getOperators(eventId))
+    {
+        maxUserLevel = std::max(maxUserLevel, opEntry.userLevel);
+    }
+
+    s32 numUserLevels = maxUserLevel + 1;
+
+    EventWidget *eventWidget = m_eventWidgetsByEventId.value(eventId);
+
+    s32 visibleUserLevels = 0;
+
+    if (eventWidget)
+    {
+        visibleUserLevels = eventWidget->m_d->m_levelTrees.size();
+    }
+
+    m_removeUserLevelButton->setEnabled(visibleUserLevels > 1 && visibleUserLevels > numUserLevels);
+}
+
 AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     : QWidget(parent)
     , m_d(new AnalysisWidgetPrivate)
@@ -2202,9 +2322,7 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     connect(m_d->m_context, &MVMEContext::moduleAboutToBeRemoved, this, do_repopulate_lambda);
 
     // Analysis changes
-    connect(m_d->m_context, &MVMEContext::analysisNGChanged, this, [this]() {
-        m_d->repopulate();
-    });
+    connect(m_d->m_context, &MVMEContext::analysisNGChanged, this, do_repopulate_lambda);
 
     connect(m_d->m_context, &MVMEContext::analysisConfigFileNameChanged, this, [this](const QString &) {
         m_d->updateWindowTitle();
@@ -2229,37 +2347,47 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
 
     auto toolbarFrame = new QFrame;
     toolbarFrame->setFrameStyle(
-        QFrame::StyledPanel | QFrame::Sunken);
+        QFrame::StyledPanel);
     auto toolbarFrameLayout = new QHBoxLayout(toolbarFrame);
     toolbarFrameLayout->setContentsMargins(0, 0, 0, 0);
     toolbarFrameLayout->setSpacing(0);
     toolbarFrameLayout->addWidget(m_d->m_toolbar);
 
+    // event select combo
     m_d->m_eventSelectCombo = new QComboBox;
+    m_d->m_eventSelectCombo->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+
     m_d->m_eventWidgetStack = new QStackedWidget;
 
-    connect(m_d->m_eventSelectCombo, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
-            m_d->m_eventWidgetStack, &QStackedWidget::setCurrentIndex);
-
-    // TODO: implement removeUserLevel functionality. Disable button if highest
-    // user level is not empty. Enable if it becomes empty.
-    auto removeUserLevelButton = new QToolButton();
-    removeUserLevelButton->setIcon(QIcon(QSL(":/list_remove.png")));
-    connect(removeUserLevelButton, &QPushButton::clicked, this, [this]() {
+    connect(m_d->m_eventSelectCombo, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged), this, [this] (int index) {
+        m_d->m_eventWidgetStack->setCurrentIndex(index);
+        updateAddRemoveUserLevelButtons();
     });
-    removeUserLevelButton->setEnabled(false);
-    
 
-    auto addUserLevelButton = new QToolButton();
-    addUserLevelButton->setIcon(QIcon(QSL(":/list_add.png")));
-
-    connect(addUserLevelButton, &QPushButton::clicked, this, [this]() {
-
+    // remove user level
+    m_d->m_removeUserLevelButton = new QToolButton();
+    m_d->m_removeUserLevelButton->setIcon(QIcon(QSL(":/list_remove.png")));
+    connect(m_d->m_removeUserLevelButton, &QPushButton::clicked, this, [this]() {
         QUuid eventId = m_d->m_eventSelectCombo->currentData().toUuid();
         EventWidget *eventWidget = m_d->m_eventWidgetsByEventId.value(eventId);
         if (eventWidget)
         {
-            eventWidget->addUserLevel(eventId);
+            eventWidget->removeUserLevel();
+            updateAddRemoveUserLevelButtons();
+        }
+    });
+    
+    // add user level
+    m_d->m_addUserLevelButton = new QToolButton();
+    m_d->m_addUserLevelButton->setIcon(QIcon(QSL(":/list_add.png")));
+
+    connect(m_d->m_addUserLevelButton, &QPushButton::clicked, this, [this]() {
+        QUuid eventId = m_d->m_eventSelectCombo->currentData().toUuid();
+        EventWidget *eventWidget = m_d->m_eventWidgetsByEventId.value(eventId);
+        if (eventWidget)
+        {
+            eventWidget->addUserLevel();
+            updateAddRemoveUserLevelButtons();
         }
     });
 
@@ -2267,8 +2395,8 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     eventSelectLayout->addWidget(new QLabel(QSL("Event:")));
     eventSelectLayout->addWidget(m_d->m_eventSelectCombo);
     eventSelectLayout->addStretch();
-    eventSelectLayout->addWidget(removeUserLevelButton);
-    eventSelectLayout->addWidget(addUserLevelButton);
+    eventSelectLayout->addWidget(m_d->m_removeUserLevelButton);
+    eventSelectLayout->addWidget(m_d->m_addUserLevelButton);
 
     auto layout = new QGridLayout(this);
     layout->setContentsMargins(2, 2, 2, 2);
@@ -2326,6 +2454,16 @@ void AnalysisWidget::operatorEdited(const std::shared_ptr<OperatorInterface> &op
             eventWidget->m_d->repopulate();
         }
     }
+}
+
+void AnalysisWidget::updateAddRemoveUserLevelButtons()
+{
+    m_d->updateAddRemoveUserLevelButtons();
+}
+
+void AnalysisWidget::eventConfigModified()
+{
+    m_d->repopulateEventSelectCombo();
 }
 
 } // end namespace analysis

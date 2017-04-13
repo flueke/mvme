@@ -3,10 +3,6 @@
 ==========================
 * Check for off-by-one errors in the 2D projection code
 * Make listfile-dumper handle the v1 format.
-* PipeDisplay::refresh crash if source operator is deleted!
-
-* implement remove and add userlevel. also do not display additional empty
-  userlevel if it wasn't added manually
 
 * lastlog.log:
   Write every logged message to lastlog.log. Do this in the main thread. Flush
@@ -32,8 +28,6 @@
 
 * Open new histograms immediately. Do this when creating a sub-histogram.
 
-* void AnalysisWidgetPrivate::actionOpen() and actionNew(): handle modified() state
-
 
 * select input UI: disable other tree highlights while it's active.
 * track down weird scrolling/selection bug when selcting inputs.
@@ -43,18 +37,15 @@
 * Fix replay stats display and replay timer. It wasn't designed with pausing
   and stepping in mind.
 * ZIP file support:
-  Write listfile to zip. It still includes the VME config.
   On close:
   - write some user description text file to the zip. "Run description", "Run notes", "DAQ notes"
 
  - UserLevel hide/show GUI
- - Implement "Remove UserLevel" button
  - Calibration:
    * if only one event don't show the list of calibrations
    * when creating a new calib the global values are not applied to the
      individual ones, instead the default values from the table are used
 
- - react to event and module renames
  - "modified" concept for the analysis and it's elements
  - save/saveas/load error reporting
  - Make the AnalysisUI show consistency errors between vme and analysis configs.

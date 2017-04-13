@@ -611,6 +611,11 @@ void PreviousValue::beginRun()
         out.name = in.name;
         out.unit = in.unit;
 
+        if (idxMin >= in.size())
+        {
+            return;
+        }
+
         m_previousInput.resize(idxMax - idxMin);
         m_previousInput.invalidateAll();
 

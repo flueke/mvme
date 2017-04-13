@@ -22,8 +22,13 @@ class AnalysisWidget: public QWidget
         void operatorAdded(const std::shared_ptr<OperatorInterface> &op);
         void operatorEdited(const std::shared_ptr<OperatorInterface> &op);
 
+        void updateAddRemoveUserLevelButtons();
+
     private:
+        friend class AnalysisWidgetPrivate;
         AnalysisWidgetPrivate *m_d;
+
+        void eventConfigModified();
 };
 
 } // end namespace analysis
