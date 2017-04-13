@@ -1,6 +1,26 @@
 ==========================
 ==== Do these first! =====
 ==========================
+
+!!!!!!!!! Check if high rate (7 MB/s) does work with 0.6.x under linux. MTDC readout errors out quite quickly now!!!!!!
+
+
+
+
+* VMUSB: support continuous mode and partial events!
+  Buffer Processor processEvent checks eventHeader for partialEvent.
+  If partialEvent is set copy data from readBuffer to outputBuffer. Keep the
+  outputBuffer instead of putting it in the filled queue. Append data until
+  partialEvent is 0 again. This should create a complete event. The buffer can
+  now be put in the filled queue and processing starts from scratch.
+
+  Things to check and think about:
+  The stackID should stay the same while partialEvent is set.
+  Verify how the terminator words are handled. An "event terminator" word
+  should only appear in the last buffer (the one where partialEvent is 0
+  again).
+
+* When closing the main window via the window manager do quit the application.
 * Check for off-by-one errors in the 2D projection code
 * Make listfile-dumper handle the v1 format.
 
@@ -117,14 +137,11 @@
 
 * workspace
     * copy templates from app dir to workspace (maybe?)
-* Listfile format:
-  Implement version 2 of the format as documented in the header file!
 
 * Histos:
   * add histogram cuts
   * add histogram fitting
 
-* VMUSB: support continuous mode and partial events!
 * Mesytec Module Firmware Revision & Hardware ID
 * prefix and (maybe) run number for listfiles
 

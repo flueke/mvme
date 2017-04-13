@@ -453,6 +453,7 @@ void VMUSBReadoutWorker::readoutLoop()
 #ifdef USE_DAQMODE_HACK
             if (readResult.error.isTimeout() && readResult.bytesRead <= 0)
             {
+                qDebug() << "begin USE_DAQMODE_HACK";
                 error = leave_daq_mode(vmusb);
                 if (error.isError())
                     throw QString("Error leaving VMUSB DAQ mode (in timeout handling): %1").arg(error.toString());
@@ -464,6 +465,7 @@ void VMUSBReadoutWorker::readoutLoop()
                 error = enter_daq_mode(vmusb);
                 if (error.isError())
                     throw QString("Error entering VMUSB DAQ mode (in timeout handling): %1").arg(error.toString());
+                qDebug() << "end USE_DAQMODE_HACK";
             }
 #endif
 
