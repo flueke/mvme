@@ -116,7 +116,7 @@ struct listfile_v0
  *
  * t =  3 bit section type
  * e =  4 bit event type (== event number/index) for event sections
- * s = 16 bit size in units of 32 bit words (fillwords added to data if needed) -> 256k section max size
+ * s = 20 bit size in units of 32 bit words (fillwords added to data if needed) -> 256k section max size
  *
  * Section size is the number of following 32 bit words not including the header word itself.
 

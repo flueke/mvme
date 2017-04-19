@@ -36,6 +36,17 @@ struct DataBuffer
     u16 *asU16() { return reinterpret_cast<u16 *>(data + used); }
     u32 *asU32() { return reinterpret_cast<u32 *>(data + used); }
 
+    u32 *asU32(size_t offset) { return reinterpret_cast<u32 *>(data + offset); }
+
+    void ensureCapacity(size_t freeSize)
+    {
+        if (freeSize > free())
+        {
+            reserve(used + freeSize);
+            Q_ASSERT(free() >= freeSize);
+        }
+    }
+
     u8 *data;
     size_t size;
     size_t used;

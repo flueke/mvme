@@ -342,13 +342,15 @@ void VMUSBReadoutWorker::resume()
         m_desiredState = DAQState::Running;
 }
 
-static const int leaveDaqReadTimeout_ms = 250;
+static const int leaveDaqReadTimeout_ms = 200;
 static const int daqReadTimeout_ms = 500; // This should be higher than the watchdog timeout which is 250ms.
 
 /* According to Jan we need to wait at least one millisecond
  * after entering DAQ mode to make sure that the VMUSB is
  * ready.
- * Trying to see if upping this value will make the USE_DAQMODE_HACK more stable. */
+ * Trying to see if upping this value will make the USE_DAQMODE_HACK more stable.
+ * This seems to fix the problems under 32bit WinXP.
+ * */
 static const int PostEnterDaqModeDelay_ms = 100;
 static const int PostLeaveDaqModeDelay_ms = 100;
 
@@ -539,6 +541,11 @@ VMUSBReadoutWorker::ReadBufferResult VMUSBReadoutWorker::readBuffer(int timeout_
     m_readBuffer->used = 0;
 
     result.error = m_vmusb->bulkRead(m_readBuffer->data, m_readBuffer->size, &result.bytesRead, timeout_ms);
+
+    if (result.error.isError())
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "vmusb bulkRead result: " << result.error.toString();
+    }
 
     if ((!result.error.isError() || result.error.isTimeout()) && result.bytesRead > 0)
     {

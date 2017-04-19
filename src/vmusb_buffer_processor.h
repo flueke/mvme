@@ -17,6 +17,7 @@ class ListFileWriter;
 class VMUSB;
 
 struct VMUSBBufferProcessorPrivate;
+struct ProcessorState;
 
 class VMUSBBufferProcessor: public QObject
 {
@@ -25,6 +26,7 @@ class VMUSBBufferProcessor: public QObject
         VMUSBBufferProcessor(MVMEContext *context, QObject *parent = 0);
 
         bool processBuffer(DataBuffer *buffer);
+        void processBuffer2(DataBuffer *buffer);
 
         ThreadSafeDataBufferQueue *m_freeBufferQueue;
         ThreadSafeDataBufferQueue *m_filledBufferQueue;
@@ -38,13 +40,14 @@ class VMUSBBufferProcessor: public QObject
     private:
         DataBuffer *getFreeBuffer();
         bool processEvent(BufferIterator &iter, DataBuffer *outputBuffer, u64 bufferNumber, u16 eventIndex);
+        u32 processEvent2(BufferIterator &inIter, DataBuffer *outputBuffer, ProcessorState *state, u16 eventIndex);
         DAQStats *getStats();
         void logMessage(const QString &message);
 
+        friend class VMUSBBufferProcessorPrivate;
         VMUSBBufferProcessorPrivate *m_d;
 
         MVMEContext *m_context = nullptr;
-        DataBuffer *m_currentBuffer = nullptr;
         QMap<int, EventConfig *> m_eventConfigByStackID;
         DataBuffer m_localEventBuffer;
         ListFileWriter *m_listFileWriter = nullptr;
