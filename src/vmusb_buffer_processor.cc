@@ -721,6 +721,11 @@ void VMUSBBufferProcessor::processBuffer2(DataBuffer *readBuffer)
         bool multiBuffer    = header1 & Buffer::MultiBufferMask;
         u16 numberOfEvents  = header1 & Buffer::NumberOfEventsMask;
 
+        qDebug("buffer #%llu, buffer_size=%u, header1: 0x%08x, lastBuffer=%d"
+               ", scalerBuffer=%d, continuousMode=%d, multiBuffer=%d, numberOfEvents=%u",
+               bufferNumber, readBuffer->used, header1, lastBuffer, scalerBuffer,
+               continuousMode, multiBuffer, numberOfEvents);
+
         // iterate over the event sections
         for (u16 eventIndex=0; eventIndex < numberOfEvents; ++eventIndex)
         {
@@ -773,8 +778,58 @@ void VMUSBBufferProcessor::processBuffer2(DataBuffer *readBuffer)
             }
         }
 
+        qDebug() << __PRETTY_FUNCTION__
+            << "buffer #" << bufferNumber
+            << "fell out of event iteration";
+
         if (!(action & ProcessorAction::SkipInput))
         {
+            qDebug() << __PRETTY_FUNCTION__
+                << "buffer #" << bufferNumber
+                << "after event iteration and not asked to skip the buffer "
+                << "bytesLeft =" << iter.bytesLeft();
+
+            while (iter.shortwordsLeft() >= 2)
+            {
+                for (int i=0; i<2; ++i)
+                {
+                    u16 bufferTerminator = iter.extractU16();
+                    if (bufferTerminator != Buffer::BufferTerminator)
+                    {
+                        logMessage(QString("VMUSB Warning: (buffer #%2) unexpected buffer terminator 0x%1")
+                                        .arg(bufferTerminator, 4, 16, QLatin1Char('0'))
+                                        .arg(bufferNumber));
+                    }
+                }
+            }
+
+            if (iter.bytesLeft() != 0)
+            {
+                logMessage(QString("VMUSB Warning: (buffer #%3) %1 bytes left in buffer, numberOfEvents=%2")
+                                .arg(iter.bytesLeft())
+                                .arg(numberOfEvents)
+                                .arg(bufferNumber)
+                                );
+
+                while (iter.longwordsLeft())
+                {
+                    logMessage(QString(QSL("  0x%1"))
+                                    .arg(iter.extractU32(), 8, 16, QLatin1Char('0')));
+                }
+
+                while (iter.wordsLeft())
+                {
+                    logMessage(QString(QSL("  0x%1"))
+                                    .arg(iter.extractU16(), 4, 16, QLatin1Char('0')));
+                }
+
+                while (iter.bytesLeft())
+                {
+                    logMessage(QString(QSL("  0x%1"))
+                                    .arg(iter.extractU8(), 2, 16, QLatin1Char('0')));
+                }
+            }
+
             return;
         }
     }
@@ -787,6 +842,12 @@ void VMUSBBufferProcessor::processBuffer2(DataBuffer *readBuffer)
 
     // This code is only reached if SkipInput was set by processEvent2.
     // SkipInput implies that the output buffer should be discarded.
+
+    qDebug() << __PRETTY_FUNCTION__
+        << "buffer #" << bufferNumber
+        << "was told to skip the buffer;"
+        << "bytesLeft =" << iter.bytesLeft()
+        ;
 
     if (outputBuffer && outputBuffer != &m_localEventBuffer)
     {
@@ -812,6 +873,15 @@ u32 VMUSBBufferProcessor::processEvent2(BufferIterator &iter, DataBuffer *output
     u8 stackID          = (eventHeader >> Buffer::StackIDShift) & Buffer::StackIDMask;
     bool partialEvent   = eventHeader & Buffer::ContinuationMask;
     u32 eventLength     = eventHeader & Buffer::EventLengthMask; // in 16-bit words
+
+    qDebug("%s eventHeader=0x%08x, stackID=%u, partialEvent=%d, eventLength=%u shorts",
+           __PRETTY_FUNCTION__, eventHeader, stackID, partialEvent, eventLength);
+
+    if (partialEvent)
+    {
+        logMessage(QString(QSL("VMUSB Error: (buffer #%1) got a partial event!"))
+                   .arg(bufferNumber));
+    }
 
     if (iter.shortwordsLeft() < eventLength)
     {
@@ -880,16 +950,18 @@ u32 VMUSBBufferProcessor::processEvent2(BufferIterator &iter, DataBuffer *output
 
         state->eventHeaderOffset = outputBuffer->used;
         u32 *mvmeEventHeader = outputBuffer->asU32();
-        ++outputBuffer->used;
-
-        qDebug() << __PRETTY_FUNCTION__
-            << "buffer #" << bufferNumber
-            << "writing mvmeEventHeader @" << mvmeEventHeader;
+        outputBuffer->used += sizeof(u32);
 
         /* Store the event index in the header. */
         int configEventIndex = m_context->getEventConfigs().indexOf(eventConfig);
         *mvmeEventHeader = (ListfileSections::SectionType_Event << LF::SectionTypeShift) & LF::SectionTypeMask;
         *mvmeEventHeader |= (configEventIndex << LF::EventTypeShift) & LF::EventTypeMask;
+
+        qDebug() << __PRETTY_FUNCTION__
+            << "buffer #" << bufferNumber
+            << "writing mvmeEventHeader @" << mvmeEventHeader
+            << "mvmeEventHeader =" << QString::number(*mvmeEventHeader, 16)
+            ;
     }
     else
     {
@@ -921,17 +993,34 @@ u32 VMUSBBufferProcessor::processEvent2(BufferIterator &iter, DataBuffer *output
             state->moduleSize  = 0;
             state->moduleHeaderOffset = outputBuffer->used;
 
-            auto moduleConfig = eventConfig->modules[state->moduleIndex]; // TODO: check for moduleIndex out of range
+            if (state->moduleIndex >= eventConfig->modules.size())
+            {
+                logMessage(QString(QSL("VMUSB: (buffer #%1) Module index %2 is out of range while parsing input. Skipping buffer"))
+                    .arg(bufferNumber)
+                    .arg(state->moduleIndex)
+                    );
+                qDebug() << __PRETTY_FUNCTION__
+                    << "buffer #" << bufferNumber
+                    << "eventIndex =" << eventIndex
+                    << "moduleIndex =" << state->moduleIndex
+                    << "moduleIndex is out of range"
+                    ;
+                return ProcessorAction::SkipInput;
+            }
+
+            auto moduleConfig = eventConfig->modules[state->moduleIndex];
             u32 *moduleHeader = outputBuffer->asU32();
             *moduleHeader = (((u32)moduleConfig->type) << LF::ModuleTypeShift) & LF::ModuleTypeMask;
-            ++outputBuffer->used;
+            outputBuffer->used += sizeof(u32);
             ++state->eventSize; // increment for the moduleHeader
 
             qDebug() << __PRETTY_FUNCTION__
                 << "buffer #" << bufferNumber
                 << "eventIndex =" << eventIndex
                 << "moduleIndex =" << state->moduleIndex
-                << "writing moduleHeader @" << moduleHeader;
+                << "writing moduleHeader @" << moduleHeader
+                << "moduleHeader =" << QString::number(*moduleHeader, 16)
+                ;
         }
 
         s32 moduleIndex = state->moduleIndex;
@@ -942,7 +1031,7 @@ u32 VMUSBBufferProcessor::processEvent2(BufferIterator &iter, DataBuffer *output
 
             // copy data and increment pointers and sizes
             *(outputBuffer->asU32()) = data;
-            ++outputBuffer->used;
+            outputBuffer->used += sizeof(u32);
             ++state->moduleSize;
             ++state->eventSize;
 
@@ -976,10 +1065,11 @@ u32 VMUSBBufferProcessor::processEvent2(BufferIterator &iter, DataBuffer *output
         // and update the mvmeEventHeader with the correct size.
 
         *(outputBuffer->asU32()) = EndMarker;
-        ++outputBuffer->used;
+        outputBuffer->used += sizeof(u32);
         ++state->eventSize;
 
         u32 *mvmeEventHeader = outputBuffer->asU32(state->eventHeaderOffset);
+        u32 backupEventHeader = *mvmeEventHeader;
         *mvmeEventHeader |= (state->eventSize << LF::SectionSizeShift) & LF::SectionSizeMask;
 
         qDebug() << __PRETTY_FUNCTION__
@@ -987,6 +1077,7 @@ u32 VMUSBBufferProcessor::processEvent2(BufferIterator &iter, DataBuffer *output
             << "updated mvmeEventHeader @" << mvmeEventHeader
             << "with size =" << state->eventSize
             << "mvmeEventHeader =" << QString::number(*mvmeEventHeader, 16)
+            << "backupEventHeader =" << QString::number(backupEventHeader, 16)
             ;
 
         if (state->wasPartial)
@@ -1014,9 +1105,11 @@ u32 VMUSBBufferProcessor::processEvent2(BufferIterator &iter, DataBuffer *output
                     ;
                 return ProcessorAction::FlushBuffer;
             }
+
             qDebug() << __PRETTY_FUNCTION__
                 << "buffer #" << bufferNumber
-                    << "eventIndex" << eventIndex
+                << "eventIndex" << eventIndex
+                << "numberOfEvents" << numberOfEvents
                 << "returning NoneSet"
                 ;
             return ProcessorAction::NoneSet;
@@ -1027,6 +1120,7 @@ u32 VMUSBBufferProcessor::processEvent2(BufferIterator &iter, DataBuffer *output
         qDebug() << __PRETTY_FUNCTION__
             << "buffer #" << bufferNumber
             << "eventIndex" << eventIndex
+            << "numberOfEvents" << numberOfEvents
             << "setting wasPartial -> returning KeepState"
             ;
 
