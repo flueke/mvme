@@ -40,7 +40,7 @@ class VMUSBBufferProcessor: public QObject
     private:
         DataBuffer *getFreeBuffer();
         bool processEvent(BufferIterator &iter, DataBuffer *outputBuffer, u64 bufferNumber, u16 eventIndex);
-        u32 processEvent2(BufferIterator &inIter, DataBuffer *outputBuffer, ProcessorState *state, u16 eventIndex);
+        u32 processEvent2(BufferIterator &inIter, DataBuffer *outputBuffer, ProcessorState *state, u64 bufferNumber, u16 eventIndex, u16 numberOfEvents);
         DAQStats *getStats();
         void logMessage(const QString &message);
 

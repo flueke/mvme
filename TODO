@@ -20,10 +20,10 @@
   should only appear in the last buffer (the one where partialEvent is 0
   again).
 
-* VMUSB: when doing readBuffer() in a loop to leave DAQ mode do check for the
+!* VMUSB: when doing readBuffer() in a loop to leave DAQ mode do check for the
   lastBuffer bit and stop reading if it is set instead of reading again and
   running in the timeout. This would be faster and also get rid of the dmesg
-  warnings I get.
+  warnings I get. Also not hard to implement
 
 * When closing the main window via the window manager do quit the application.
 * Check for off-by-one errors in the 2D projection code

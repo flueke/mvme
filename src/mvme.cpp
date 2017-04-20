@@ -981,7 +981,7 @@ void mvme::appendToLog(const QString &str)
 {
     auto debug(qDebug());
     debug.noquote();
-    debug << str;
+    debug << __PRETTY_FUNCTION__ << str;
 
     if (m_logView)
     {

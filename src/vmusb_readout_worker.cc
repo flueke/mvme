@@ -558,7 +558,7 @@ VMUSBReadoutWorker::ReadBufferResult VMUSBReadoutWorker::readBuffer(int timeout_
         stats.avgReadSize = (alpha * result.bytesRead) + (1.0 - alpha) * stats.avgReadSize;
 
         if (m_bufferProcessor)
-            m_bufferProcessor->processBuffer(m_readBuffer);
+            m_bufferProcessor->processBuffer2(m_readBuffer);
     }
 
     return result;

@@ -8,7 +8,7 @@
 #include <QCoreApplication>
 #include <QElapsedTimer>
 
-//#define MVME_EVENT_PROCESSOR_DEBUGGING
+#define MVME_EVENT_PROCESSOR_DEBUGGING
 
 #ifdef MVME_EVENT_PROCESSOR_DEBUGGING
     inline QDebug qEPDebug() { return QDebug(QtDebugMsg); }
@@ -110,8 +110,14 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
             int sectionType = (sectionHeader & m_d->SectionTypeMask) >> m_d->SectionTypeShift;
             u32 sectionSize = (sectionHeader & m_d->SectionSizeMask) >> m_d->SectionSizeShift;
 
+            qDebug() << __PRETTY_FUNCTION__
+                << "sectionHeader" <<  QString::number(sectionHeader, 16)
+                << "sectionType" << sectionType
+                << "sectionSize" << sectionSize;
+
             if (sectionType != ListfileSections::SectionType_Event)
             {
+                qDebug() << __PRETTY_FUNCTION__ << "skipping non event section";
                 iter.skip(sectionSize * sizeof(u32));
                 continue;
             }
@@ -119,9 +125,15 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
             stats.addEventsRead(1);
 
             int eventIndex = (sectionHeader & m_d->EventTypeMask) >> m_d->EventTypeShift;
+
             u32 wordsLeftInSection = sectionSize;
 
             auto eventConfig = m_d->context->getConfig()->getEventConfig(eventIndex);
+
+            qDebug() << __PRETTY_FUNCTION__
+                << "eventIndex" << eventIndex
+                << "eventConfig" << eventConfig;
+
             if (eventConfig)
                 ++stats.eventCounters[eventConfig].events;
 
@@ -139,6 +151,12 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                 u32 subEventSize = (subEventHeader & m_d->SubEventSizeMask) >> m_d->SubEventSizeShift;
                 auto moduleType  = static_cast<VMEModuleType>((subEventHeader & m_d->ModuleTypeMask) >> m_d->ModuleTypeShift);
                 auto moduleConfig = m_d->context->getConfig()->getModuleConfig(eventIndex, moduleIndex);
+
+                qDebug() << __PRETTY_FUNCTION__
+                    << "moduleSectionHeader" << QString::number(subEventHeader, 16)
+                    << "moduleSectionSize" << subEventSize
+                    << "moduleType" << static_cast<s32>(moduleType)
+                    << "moduleConfig" << moduleConfig;
 
 
                 MesytecDiagnostics *diag = nullptr;
