@@ -213,7 +213,9 @@ struct VMUSBBufferProcessorPrivate
     VMUSBBufferProcessor *m_q;
     QuaZip m_listFileArchive;
     QIODevice *m_listFileOut = nullptr;
+#ifdef WRITE_BUFFER_LOG
     QFile *m_bufferLogFile = nullptr;
+#endif
 
     ProcessorState m_state;
     DataBuffer *m_outputBuffer = nullptr;
@@ -234,8 +236,6 @@ VMUSBBufferProcessor::VMUSBBufferProcessor(MVMEContext *context, QObject *parent
     , m_listFileWriter(new ListFileWriter(this))
 {
     m_d->m_q = this;
-    m_d->m_bufferLogFile = new QFile("buffer.log", this);
-    m_d->m_bufferLogFile->open(QIODevice::WriteOnly);
 }
 
 void VMUSBBufferProcessor::beginRun()
@@ -351,6 +351,11 @@ void VMUSBBufferProcessor::beginRun()
 
         getStats()->listFileBytesWritten = m_listFileWriter->bytesWritten();
     }
+
+#ifdef WRITE_BUFFER_LOG
+    m_d->m_bufferLogFile = new QFile("buffer.log", this);
+    m_d->m_bufferLogFile->open(QIODevice::WriteOnly);
+#endif
 }
 
 void VMUSBBufferProcessor::endRun()
@@ -362,6 +367,11 @@ void VMUSBBufferProcessor::endRun()
         m_freeBufferQueue->queue.enqueue(m_d->m_outputBuffer);
         m_d->m_outputBuffer = nullptr;
     }
+
+#ifdef WRITE_BUFFER_LOG
+    delete m_d->m_bufferLogFile;
+    m_d->m_bufferLogFile = nullptr;
+#endif
 
     if (m_d->m_listFileOut && m_d->m_listFileOut->isOpen())
     {

@@ -7,7 +7,6 @@
   work at all (mcast, start, stop, reset). Display a clear message if any of
   the required templates is missing.
 
-* VMUSBBufferProcessor: only open bufferLogFile if it will be used. Do this in beginRun()
 * Log throttling!!!!
 
 !* VMUSB: when doing readBuffer() in a loop to leave DAQ mode do check for the
