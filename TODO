@@ -7,18 +7,8 @@
   work at all (mcast, start, stop, reset). Display a clear message if any of
   the required templates is missing.
 
-* VMUSB: support continuous mode and partial events!
-  Buffer Processor processEvent checks eventHeader for partialEvent.
-  If partialEvent is set copy data from readBuffer to outputBuffer. Keep the
-  outputBuffer instead of putting it in the filled queue. Append data until
-  partialEvent is 0 again. This should create a complete event. The buffer can
-  now be put in the filled queue and processing starts from scratch.
-
-  Things to check and think about:
-  The stackID should stay the same while partialEvent is set.
-  Verify how the terminator words are handled. An "event terminator" word
-  should only appear in the last buffer (the one where partialEvent is 0
-  again).
+* VMUSBBufferProcessor: only open bufferLogFile if it will be used. Do this in beginRun()
+* Log throttling!!!!
 
 !* VMUSB: when doing readBuffer() in a loop to leave DAQ mode do check for the
   lastBuffer bit and stop reading if it is set instead of reading again and

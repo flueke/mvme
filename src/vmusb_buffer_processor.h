@@ -25,8 +25,7 @@ class VMUSBBufferProcessor: public QObject
     public:
         VMUSBBufferProcessor(MVMEContext *context, QObject *parent = 0);
 
-        bool processBuffer(DataBuffer *buffer);
-        void processBuffer2(DataBuffer *buffer);
+        void processBuffer(DataBuffer *buffer);
 
         ThreadSafeDataBufferQueue *m_freeBufferQueue;
         ThreadSafeDataBufferQueue *m_filledBufferQueue;
@@ -39,8 +38,8 @@ class VMUSBBufferProcessor: public QObject
 
     private:
         DataBuffer *getFreeBuffer();
-        bool processEvent(BufferIterator &iter, DataBuffer *outputBuffer, u64 bufferNumber, u16 eventIndex);
-        u32 processEvent2(BufferIterator &inIter, DataBuffer *outputBuffer, ProcessorState *state, u64 bufferNumber, u16 eventIndex, u16 numberOfEvents);
+        u32 processEvent(BufferIterator &inIter, DataBuffer *outputBuffer, ProcessorState *state,
+                         u64 bufferNumber, u16 eventIndex, u16 numberOfEvents);
         DAQStats *getStats();
         void logMessage(const QString &message);
 

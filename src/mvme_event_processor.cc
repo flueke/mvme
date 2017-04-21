@@ -8,7 +8,7 @@
 #include <QCoreApplication>
 #include <QElapsedTimer>
 
-#define MVME_EVENT_PROCESSOR_DEBUGGING
+//#define MVME_EVENT_PROCESSOR_DEBUGGING
 
 #ifdef MVME_EVENT_PROCESSOR_DEBUGGING
     inline QDebug qEPDebug() { return QDebug(QtDebugMsg); }
@@ -110,14 +110,18 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
             int sectionType = (sectionHeader & m_d->SectionTypeMask) >> m_d->SectionTypeShift;
             u32 sectionSize = (sectionHeader & m_d->SectionSizeMask) >> m_d->SectionSizeShift;
 
+#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
             qDebug() << __PRETTY_FUNCTION__
                 << "sectionHeader" <<  QString::number(sectionHeader, 16)
                 << "sectionType" << sectionType
                 << "sectionSize" << sectionSize;
+#endif
 
             if (sectionType != ListfileSections::SectionType_Event)
             {
+#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
                 qDebug() << __PRETTY_FUNCTION__ << "skipping non event section";
+#endif
                 iter.skip(sectionSize * sizeof(u32));
                 continue;
             }
@@ -130,9 +134,11 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
 
             auto eventConfig = m_d->context->getConfig()->getEventConfig(eventIndex);
 
+#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
             qDebug() << __PRETTY_FUNCTION__
                 << "eventIndex" << eventIndex
                 << "eventConfig" << eventConfig;
+#endif
 
             if (eventConfig)
                 ++stats.eventCounters[eventConfig].events;
@@ -152,11 +158,13 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                 auto moduleType  = static_cast<VMEModuleType>((subEventHeader & m_d->ModuleTypeMask) >> m_d->ModuleTypeShift);
                 auto moduleConfig = m_d->context->getConfig()->getModuleConfig(eventIndex, moduleIndex);
 
+#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
                 qDebug() << __PRETTY_FUNCTION__
                     << "moduleSectionHeader" << QString::number(subEventHeader, 16)
                     << "moduleSectionSize" << subEventSize
                     << "moduleType" << static_cast<s32>(moduleType)
                     << "moduleConfig" << moduleConfig;
+#endif
 
 
                 MesytecDiagnostics *diag = nullptr;

@@ -15,8 +15,8 @@
 
 using namespace vmusb_constants;
 
-#define BPDEBUG
-#define WRITE_BUFFER_LOG
+//#define BPDEBUG
+//#define WRITE_BUFFER_LOG
 
 // Note: Assumption: VMUSBs HeaderOptMask option is not used!
 void format_vmusb_buffer(DataBuffer *buffer, QTextStream &out, u64 bufferNumber)
@@ -355,6 +355,14 @@ void VMUSBBufferProcessor::beginRun()
 
 void VMUSBBufferProcessor::endRun()
 {
+    if (m_d->m_outputBuffer && m_d->m_outputBuffer != &m_localEventBuffer)
+    {
+        // Return buffer to the free queue
+        QMutexLocker lock(&m_freeBufferQueue->mutex);
+        m_freeBufferQueue->queue.enqueue(m_d->m_outputBuffer);
+        m_d->m_outputBuffer = nullptr;
+    }
+
     if (m_d->m_listFileOut && m_d->m_listFileOut->isOpen())
     {
         if (!m_listFileWriter->writeEndSection())
@@ -466,224 +474,6 @@ void VMUSBBufferProcessor::resetRunState()
     m_d->m_state = ProcessorState();
 }
 
-bool VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
-{
-    qDebug() << __PRETTY_FUNCTION__;
-    Q_ASSERT(m_freeBufferQueue);
-    Q_ASSERT(m_filledBufferQueue);
-
-    auto stats = getStats();
-    auto vmusb = m_vmusb;
-    auto alignment = ((vmusb->getMode() & GlobalModeRegister::Align32Mask)
-                      ? BufferIterator::Align32
-                      : BufferIterator::Align16);
-
-    u64 bufferNumber = stats->totalBuffersRead;
-
-#ifdef WRITE_BUFFER_LOG
-    {
-        QTextStream out(m_d->m_bufferLogFile);
-        out << ">>>>> begin buffer #" << bufferNumber << endl;
-        format_vmusb_buffer(readBuffer, out, bufferNumber);
-        out << endl << "<<<<< end buffer #" << bufferNumber << endl;
-    }
-#endif
-
-
-    BufferIterator iter(readBuffer->data, readBuffer->used, alignment);
-
-    DataBuffer *outputBuffer = getFreeBuffer();
-
-    if (!outputBuffer)
-    {
-        outputBuffer = &m_localEventBuffer;
-    }
-
-    // XXX: Just use double the size of the read buffer for now. This way all additional data will fit.
-    outputBuffer->reserve(readBuffer->used * 2);
-    outputBuffer->used = 0;
-
-    try
-    {
-        u32 header1 = iter.extractWord();
-
-        bool lastBuffer     = header1 & Buffer::LastBufferMask;
-        bool scalerBuffer   = header1 & Buffer::IsScalerBufferMask;
-        bool continuousMode = header1 & Buffer::ContinuationMask;
-        bool multiBuffer    = header1 & Buffer::MultiBufferMask;
-        u16 numberOfEvents  = header1 & Buffer::NumberOfEventsMask;
-
-        const double alpha = 0.1;
-        stats->vmusbAvgEventsPerBuffer = (alpha * numberOfEvents) + (1.0 - alpha) * stats->vmusbAvgEventsPerBuffer;
-
-//#ifdef BPDEBUG
-#if 0
-        logMessage(QString("buffer #%1, header1=0x%2, numberOfEvents=%3, lastBuffer=%4, cont=%5, mult=%6")
-                        .arg(bufferNumber)
-                        .arg(header1, 8, 16, QLatin1Char('0'))
-                        .arg(numberOfEvents)
-                        .arg(lastBuffer)
-                        .arg(continuousMode)
-                        .arg(multiBuffer)
-                        );
-#endif
-
-
-#if 1
-        if (lastBuffer || scalerBuffer || continuousMode || multiBuffer)
-        {
-            qDebug("buffer #%llu, buffer_size=%u, header1: 0x%08x, lastBuffer=%d"
-                   ", scalerBuffer=%d, continuousMode=%d, multiBuffer=%d, numberOfEvents=%u",
-                   bufferNumber, readBuffer->used, header1, lastBuffer, scalerBuffer,
-                   continuousMode, multiBuffer, numberOfEvents);
-        }
-#endif
-
-        if (vmusb->getMode() & vmusb_constants::GlobalMode::HeaderOptMask)
-        {
-            u32 header2 = iter.extractWord();
-            u16 numberOfWords = header2 & Buffer::NumberOfWordsMask;
-            //qDebug("header2: numberOfWords=%u, bytes in readBuffer=%u", numberOfWords, readBuffer->used);
-#ifdef BPDEBUG
-            logMessage(QString("buffer #%1: extracted header2=0x%2, numberOfWords=%3")
-                            .arg(bufferNumber)
-                            .arg(header2, 8, 16, QLatin1Char('0'))
-                            .arg(numberOfWords)
-                           );
-#endif
-        }
-
-        bool skipBuffer = false;
-
-        for (u16 eventIndex=0; eventIndex < numberOfEvents; ++eventIndex)
-        {
-            try
-            {
-                if (!processEvent(iter, outputBuffer, bufferNumber, eventIndex))
-                {
-                    logMessage(QString(QSL("VMUSB Error: (buffer #%4) processEvent() returned false, skipping buffer, eventIndex=%1, numberOfEvents=%2, header=0x%3"))
-                                    .arg(eventIndex)
-                                    .arg(numberOfEvents)
-                                    .arg(header1, 8, 16, QLatin1Char('0'))
-                                    .arg(bufferNumber)
-                                   );
-                    skipBuffer = true;
-                    break;
-                }
-#if 0
-                else
-                {
-                    logMessage(QString("(buffer #%2) good event for eventindex=%1")
-                                    .arg(eventIndex)
-                                    .arg(bufferNumber));
-                }
-#endif
-            }
-            catch (const end_of_buffer &)
-            {
-                logMessage(QString("VMUSB Error: (buffer #%4) end_of_buffer from processEvent(): eventIndex=%1, numberOfEvents=%2, header=0x%3")
-                                .arg(eventIndex)
-                                .arg(numberOfEvents)
-                                .arg(header1, 8, 16, QLatin1Char('0'))
-                                .arg(bufferNumber));
-                throw;
-            }
-        }
-
-        if (!skipBuffer)
-        {
-            if (iter.shortwordsLeft() >= 2)
-            {
-                for (int i=0; i<2; ++i)
-                {
-                    u16 bufferTerminator = iter.extractU16();
-                    if (bufferTerminator != Buffer::BufferTerminator)
-                    {
-                        logMessage(QString("VMUSB Warning: (buffer #%2) unexpected buffer terminator 0x%1")
-                                        .arg(bufferTerminator, 4, 16, QLatin1Char('0'))
-                                        .arg(bufferNumber));
-                    }
-                }
-            }
-            else
-            {
-                logMessage(QSL("VMUSB Warning: (buffer #%1) no terminator words found at end of buffer")
-                                .arg(bufferNumber));
-            }
-
-            if (iter.bytesLeft() != 0)
-            {
-                logMessage(QString("VMUSB Warning: (buffer #%3) %1 bytes left in buffer, numberOfEvents=%2")
-                                .arg(iter.bytesLeft())
-                                .arg(numberOfEvents)
-                                .arg(bufferNumber)
-                                );
-
-                while (iter.longwordsLeft())
-                {
-                    logMessage(QString(QSL("  0x%1"))
-                                    .arg(iter.extractU32(), 8, 16, QLatin1Char('0')));
-                }
-
-                while (iter.wordsLeft())
-                {
-                    logMessage(QString(QSL("  0x%1"))
-                                    .arg(iter.extractU16(), 4, 16, QLatin1Char('0')));
-                }
-
-                while (iter.bytesLeft())
-                {
-                    logMessage(QString(QSL("  0x%1"))
-                                    .arg(iter.extractU8(), 2, 16, QLatin1Char('0')));
-                }
-            }
-
-            if (m_d->m_listFileOut && m_d->m_listFileOut->isOpen())
-            {
-                if (!m_listFileWriter->writeBuffer(reinterpret_cast<const char *>(outputBuffer->data),
-                                                   outputBuffer->used))
-                {
-                    throw_io_device_error(m_d->m_listFileOut);
-                }
-                getStats()->listFileBytesWritten = m_listFileWriter->bytesWritten();
-            }
-
-            //QTextStream out(stdout);
-            //dump_mvme_buffer(out, outputBuffer, false);
-
-            if (outputBuffer != &m_localEventBuffer)
-            {
-                // It's not the local buffer -> put it into the queue of filled buffers
-                m_filledBufferQueue->mutex.lock();
-                m_filledBufferQueue->queue.enqueue(outputBuffer);
-                m_filledBufferQueue->mutex.unlock();
-                m_filledBufferQueue->wc.wakeOne();
-            }
-            else
-            {
-                getStats()->droppedBuffers++;
-            }
-
-            return true;
-        }
-    }
-    catch (const end_of_buffer &)
-    {
-        logMessage(QSL("VMUSB Warning: (buffer #%1) end of readBuffer reached unexpectedly!")
-                        .arg(bufferNumber));
-        getStats()->buffersWithErrors++;
-    }
-
-    if (outputBuffer != &m_localEventBuffer)
-    {
-        // Put the buffer back onto the free queue
-        QMutexLocker lock(&m_freeBufferQueue->mutex);
-        m_freeBufferQueue->queue.enqueue(outputBuffer);
-    }
-
-    return false;
-}
-
 // Returns the current output buffer if one is set. Otherwise sets and returns
 // a new output buffer.
 //
@@ -710,9 +500,12 @@ DataBuffer *VMUSBBufferProcessorPrivate::getOutputBuffer()
     return outputBuffer;
 }
 
-void VMUSBBufferProcessor::processBuffer2(DataBuffer *readBuffer)
+void VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
 {
+#ifdef BPDEBUG
     qDebug() << __PRETTY_FUNCTION__;
+#endif
+
     using LF = listfile_v1;
 
     auto stats = getStats();
@@ -743,21 +536,26 @@ void VMUSBBufferProcessor::processBuffer2(DataBuffer *readBuffer)
         bool multiBuffer    = header1 & Buffer::MultiBufferMask;
         u16 numberOfEvents  = header1 & Buffer::NumberOfEventsMask;
 
+#ifdef BPDEBUG
         qDebug("%s buffer #%llu, buffer_size=%u, header1: 0x%08x, lastBuffer=%d"
                ", scalerBuffer=%d, continuousMode=%d, multiBuffer=%d, numberOfEvents=%u",
                __PRETTY_FUNCTION__,
                bufferNumber, readBuffer->used, header1, lastBuffer, scalerBuffer,
                continuousMode, multiBuffer, numberOfEvents);
+#endif
 
         // iterate over the event sections
         for (u16 eventIndex=0; eventIndex < numberOfEvents; ++eventIndex)
         {
             outputBuffer = m_d->getOutputBuffer();
+
+#ifdef BPDEBUG
             qDebug() << __PRETTY_FUNCTION__ << "using output buffer" << outputBuffer;
+#endif
 
             try
             {
-                action = processEvent2(iter, outputBuffer, state, bufferNumber, eventIndex, numberOfEvents);
+                action = processEvent(iter, outputBuffer, state, bufferNumber, eventIndex, numberOfEvents);
             }
             catch (const end_of_buffer &)
             {
@@ -765,26 +563,32 @@ void VMUSBBufferProcessor::processBuffer2(DataBuffer *readBuffer)
                     << "buffer #" << bufferNumber
                     << "eventIndex" << eventIndex
                     << "numberOfEvents" << numberOfEvents
-                    << "processEvent2() raised end_of_buffer"
+                    << "processEvent() raised end_of_buffer"
                     ;
                 throw;
             }
 
             if (!(action & ProcessorAction::KeepState) || (action & ProcessorAction::SkipInput))
             {
+#ifdef BPDEBUG
                 qDebug() << __PRETTY_FUNCTION__ << "resetting ProcessorState";
+#endif
                 *state = ProcessorState();
             }
 
             if (action & ProcessorAction::SkipInput)
             {
+#ifdef BPDEBUG
                 qDebug() << __PRETTY_FUNCTION__ << "skipping input buffer";
+#endif
                 break;
             }
 
             if (action & ProcessorAction::FlushBuffer)
             {
+#ifdef BPDEBUG
                 qDebug() << __PRETTY_FUNCTION__ << "flusing output buffer" << outputBuffer;
+#endif
                 //
                 // FlushBuffer
                 //
@@ -806,25 +610,30 @@ void VMUSBBufferProcessor::processBuffer2(DataBuffer *readBuffer)
                     m_filledBufferQueue->queue.enqueue(outputBuffer);
                     m_filledBufferQueue->mutex.unlock();
                     m_filledBufferQueue->wc.wakeOne();
-                    m_d->m_outputBuffer = outputBuffer = nullptr;
                 }
                 else
                 {
                     getStats()->droppedBuffers++;
                 }
+
+                m_d->m_outputBuffer = outputBuffer = nullptr;
             }
         }
 
+#ifdef BPDEBUG
         qDebug() << __PRETTY_FUNCTION__
             << "buffer #" << bufferNumber
             << "fell out of event iteration";
+#endif
 
         if (!(action & ProcessorAction::SkipInput))
         {
+#ifdef BPDEBUG
             qDebug() << __PRETTY_FUNCTION__
                 << "buffer #" << bufferNumber
                 << "after event iteration and continuing with the buffer;"
                 << "bytesLeft =" << iter.bytesLeft();
+#endif
 
             while (iter.shortwordsLeft() >= 2)
             {
@@ -876,11 +685,14 @@ void VMUSBBufferProcessor::processBuffer2(DataBuffer *readBuffer)
         }
         else
         {
+#ifdef BPDEBUG
             qDebug() << __PRETTY_FUNCTION__
                 << "buffer #" << bufferNumber
                 << "was told to skip the buffer;"
                 << "bytesLeft =" << iter.bytesLeft()
                 ;
+#endif
+            getStats()->buffersWithErrors++;
         }
     }
     catch (const end_of_buffer &)
@@ -901,8 +713,21 @@ void VMUSBBufferProcessor::processBuffer2(DataBuffer *readBuffer)
     }
 }
 
-u32 VMUSBBufferProcessor::processEvent2(BufferIterator &iter, DataBuffer *outputBuffer, ProcessorState *state, u64 bufferNumber,
-                                        u16 eventIndex, u16 numberOfEvents)
+/* Process one VMUSB event, transforming it into a MVME event.
+ * MVME Event structure:
+ * Event Header
+ *   SubeventHeader (== Module header)
+ *     Raw module contents
+ *     EndMarker
+ *   SubeventHeader (== Module header)
+ *     Raw module contents
+ *     EndMarker
+ * EndMarker
+ * Event Header
+ * ...
+ */
+u32 VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputBuffer, ProcessorState *state, u64 bufferNumber,
+                                       u16 eventIndex, u16 numberOfEvents)
 {
     using LF = listfile_v1;
 
@@ -920,15 +745,18 @@ u32 VMUSBBufferProcessor::processEvent2(BufferIterator &iter, DataBuffer *output
     bool partialEvent   = eventHeader & Buffer::ContinuationMask;
     u32 eventLength     = eventHeader & Buffer::EventLengthMask; // in 16-bit words
 
+#ifdef BPDEBUG
     qDebug("%s eventHeader=0x%08x, stackID=%u, partialEvent=%d, eventLength=%u shorts",
            __PRETTY_FUNCTION__, eventHeader, stackID, partialEvent, eventLength);
+#endif
 
     if (partialEvent)
     {
+#ifdef BPDEBUG
         auto msg = QString(QSL("VMUSB (buffer #%1) got a partial event!"))
             .arg(bufferNumber);
-        //logMessage(msg);
         qDebug() << __PRETTY_FUNCTION__ << msg;
+#endif
     }
 
     if (iter.shortwordsLeft() < eventLength)
@@ -1019,11 +847,13 @@ u32 VMUSBBufferProcessor::processEvent2(BufferIterator &iter, DataBuffer *output
         *mvmeEventHeader = (ListfileSections::SectionType_Event << LF::SectionTypeShift) & LF::SectionTypeMask;
         *mvmeEventHeader |= (configEventIndex << LF::EventTypeShift) & LF::EventTypeMask;
 
+#ifdef BPDEBUG
         qDebug() << __PRETTY_FUNCTION__
             << "buffer #" << bufferNumber
             << "writing mvmeEventHeader @" << mvmeEventHeader
             << "mvmeEventHeader =" << QString::number(*mvmeEventHeader, 16)
             ;
+#endif
     }
     else
     {
@@ -1038,7 +868,6 @@ u32 VMUSBBufferProcessor::processEvent2(BufferIterator &iter, DataBuffer *output
         }
     }
 
-    //while (eventIter.longwordsLeft() > 0)
     while (true)
     {
         if (state->moduleIndex < 0 || state->moduleHeaderOffset < 0)
@@ -1080,6 +909,7 @@ u32 VMUSBBufferProcessor::processEvent2(BufferIterator &iter, DataBuffer *output
             outputBuffer->used += sizeof(u32);
             ++state->eventSize; // increment for the moduleHeader
 
+#ifdef BPDEBUG
             qDebug() << __PRETTY_FUNCTION__
                 << "buffer #" << bufferNumber
                 << "eventIndex =" << eventIndex
@@ -1087,11 +917,11 @@ u32 VMUSBBufferProcessor::processEvent2(BufferIterator &iter, DataBuffer *output
                 << "writing moduleHeader @" << moduleHeader
                 << "moduleHeader =" << QString::number(*moduleHeader, 16)
                 ;
+#endif
         }
 
         s32 moduleIndex = state->moduleIndex;
 
-        //while (eventIter.longwordsLeft() > 0)
         while (true)
         {
             u32 data = 0;
@@ -1099,12 +929,14 @@ u32 VMUSBBufferProcessor::processEvent2(BufferIterator &iter, DataBuffer *output
             {
                 state->hasPartialData = false;
                 data = (eventIter.extractU16() << 16) | state->partialData;
+#ifdef BPDEBUG
                 qDebug() << __PRETTY_FUNCTION__
                     << "buffer #" << bufferNumber
                     << "eventIndex =" << eventIndex
                     << "moduleIndex =" << state->moduleIndex
                     << "assembled partial data =" << QString::number(data, 16)
                     ;
+#endif
             }
             else if (eventIter.longwordsLeft() > 0)
             {
@@ -1112,11 +944,13 @@ u32 VMUSBBufferProcessor::processEvent2(BufferIterator &iter, DataBuffer *output
             }
             else
             {
+#ifdef BPDEBUG
                 qDebug() << __PRETTY_FUNCTION__
                     << "buffer #" << bufferNumber
                     << "eventIndex =" << eventIndex
                     << "moduleIndex =" << state->moduleIndex
                     << "breaking out of inner loop because neither partial data usable nor longwords left in input";
+#endif
                 break;
             }
 
@@ -1132,6 +966,7 @@ u32 VMUSBBufferProcessor::processEvent2(BufferIterator &iter, DataBuffer *output
                 u32 *moduleHeader = outputBuffer->asU32(state->moduleHeaderOffset);
                 *moduleHeader |= (state->moduleSize << LF::SubEventSizeShift) & LF::SubEventSizeMask;
 
+#ifdef BPDEBUG
                 qDebug() << __PRETTY_FUNCTION__
                     << "buffer #" << bufferNumber
                     << "eventIndex =" << eventIndex
@@ -1140,6 +975,7 @@ u32 VMUSBBufferProcessor::processEvent2(BufferIterator &iter, DataBuffer *output
                     << "with size =" << state->moduleSize
                     << "moduleHeader =" << QString::number(*moduleHeader, 16)
                     ;
+#endif
 
                 // Update state so that a new module section will be started but keep the moduleIndex.
                 state->moduleHeaderOffset = -1;
@@ -1150,11 +986,13 @@ u32 VMUSBBufferProcessor::processEvent2(BufferIterator &iter, DataBuffer *output
         if (!((state->hasPartialData && eventIter.shortwordsLeft() > 0)
               || (eventIter.longwordsLeft() > 0)))
         {
+#ifdef BPDEBUG
             qDebug() << __PRETTY_FUNCTION__
                 << "buffer #" << bufferNumber
                 << "eventIndex =" << eventIndex
                 << "moduleIndex =" << state->moduleIndex
                 << "breaking out of outer loop because neither partial data useable nor longwords left in input";
+#endif
             break;
         }
     }
@@ -1162,6 +1000,7 @@ u32 VMUSBBufferProcessor::processEvent2(BufferIterator &iter, DataBuffer *output
     // For partial events store a trailing 16-bit data word in the ProcessorState.
     if (partialEvent && eventIter.shortwordsLeft() == 1)
     {
+#ifdef BPDEBUG
         qDebug() << __PRETTY_FUNCTION__
             << "buffer #" << bufferNumber
             << "eventIndex =" << eventIndex
@@ -1169,11 +1008,13 @@ u32 VMUSBBufferProcessor::processEvent2(BufferIterator &iter, DataBuffer *output
             << "moduleHeaderOffset =" << state->moduleHeaderOffset
             << "partialEvent and shortword left in buffer: storing data in state"
             ;
+#endif
 
         state->partialData = eventIter.extractU16();
         state->hasPartialData = true;
     }
 
+#ifdef BPDEBUG
     qDebug() << __PRETTY_FUNCTION__
         << "buffer #" << bufferNumber
         << "eventIndex =" << eventIndex
@@ -1182,6 +1023,7 @@ u32 VMUSBBufferProcessor::processEvent2(BufferIterator &iter, DataBuffer *output
         << "after reading data:"
         << eventIter.bytesLeft() << "bytes left in event iterator"
         ;
+#endif
 
     // read possible end of event markers added by vmusb
     while (eventIter.shortwordsLeft() > 0)
@@ -1194,18 +1036,19 @@ u32 VMUSBBufferProcessor::processEvent2(BufferIterator &iter, DataBuffer *output
         }
         else
         {
-            //auto msg = QString(QSL("VMUSB Warning: (buffer #%2) unexpected buffer terminator 0x%1"))
-            //    .arg(bufferTerminator, 4, 16, QLatin1Char('0'))
-            //    .arg(bufferNumber)
-            //    ;
-            //logMessage(msg);
-            //qDebug() << __PRETTY_FUNCTION__ << msg;
+            auto msg = QString(QSL("VMUSB Warning: (buffer #%2) unexpected buffer terminator 0x%1, skipping buffer"))
+                .arg(bufferTerminator, 4, 16, QLatin1Char('0'))
+                .arg(bufferNumber)
+                ;
+            logMessage(msg);
+#ifdef BPDEBUG
             qDebug() << __PRETTY_FUNCTION__
                 << "buffer #" << bufferNumber
                 << "eventIndex =" << eventIndex
                 << "moduleIndex =" << state->moduleIndex
                 << "invalid buffer terminator at end of event:" << QString::number(bufferTerminator, 16)
                 << "-> returning SkipInput";
+#endif
             return ProcessorAction::SkipInput;
         }
     }
@@ -1225,6 +1068,7 @@ u32 VMUSBBufferProcessor::processEvent2(BufferIterator &iter, DataBuffer *output
         u32 backupEventHeader = *mvmeEventHeader;
         *mvmeEventHeader |= (state->eventSize << LF::SectionSizeShift) & LF::SectionSizeMask;
 
+#ifdef BPDEBUG
         qDebug() << __PRETTY_FUNCTION__
             << "buffer #" << bufferNumber
             << "updated mvmeEventHeader @" << mvmeEventHeader
@@ -1232,17 +1076,20 @@ u32 VMUSBBufferProcessor::processEvent2(BufferIterator &iter, DataBuffer *output
             << "mvmeEventHeader =" << QString::number(*mvmeEventHeader, 16)
             << "backupEventHeader =" << QString::number(backupEventHeader, 16)
             ;
+#endif
 
         if (state->wasPartial)
         {
             // We had a partial event and now processed the last part. This
             // means we do want to flush the output buffer so as to not start
             // processing another possibly partial event.
+#ifdef BPDEBUG
             qDebug() << __PRETTY_FUNCTION__
                 << "buffer #" << bufferNumber
                 << "eventIndex" << eventIndex
                 << "wasPartial was set -> returning FlushBuffer"
                 ;
+#endif
             return ProcessorAction::FlushBuffer;
         }
         else
@@ -1251,400 +1098,41 @@ u32 VMUSBBufferProcessor::processEvent2(BufferIterator &iter, DataBuffer *output
             // process more events and output them to the same buffer.
             if (eventIndex == numberOfEvents - 1)
             {
+#ifdef BPDEBUG
                 qDebug() << __PRETTY_FUNCTION__
                     << "buffer #" << bufferNumber
                     << "eventIndex" << eventIndex
                     << "numberOfEvents reached -> returning FlushBuffer"
                     ;
+#endif
                 return ProcessorAction::FlushBuffer;
             }
 
+#ifdef BPDEBUG
             qDebug() << __PRETTY_FUNCTION__
                 << "buffer #" << bufferNumber
                 << "eventIndex" << eventIndex
                 << "numberOfEvents" << numberOfEvents
                 << "returning NoneSet"
                 ;
+#endif
             return ProcessorAction::NoneSet;
         }
     }
     else
     {
+#ifdef BPDEBUG
         qDebug() << __PRETTY_FUNCTION__
             << "buffer #" << bufferNumber
             << "eventIndex" << eventIndex
             << "numberOfEvents" << numberOfEvents
             << "setting wasPartial -> returning KeepState"
             ;
+#endif
 
         state->wasPartial = true;
         return ProcessorAction::KeepState;
     }
-}
-
-#if 0
-void VMUSBBufferProcessor::processBuffer2(DataBuffer *readBuffer)
-{
-    // TODO: assume these settings are correct and get rid of using the VMUSB class
-    // TODO: let the context set the ListFIleOutputInfo and the DAQConfig (both in beginRun())
-    //       and the EventConfigs (used in resetRunState() and processEvent())
-    //       and the DAQStats
-    // TODO: error out if vmusb GlobalMode::Align32Mask is set to Align32
-    // TODO: error out if vmusb GlobalMode::HeaderOptMask is set
-
-    // TODO: write complete MVME format buffers to the listfile
-    // TODO: put complete MVME format buffers into m_filledBufferQueue
-
-    using LF = listfile_v1;
-
-    // Setup the output buffer.
-    DataBuffer *outputBuffer = m_d->m_outputBuffer;
-
-    if (!outputBuffer)
-    {
-        outputBuffer = getFreeBuffer();
-
-        if (!outputBuffer)
-        {
-            outputBuffer = &m_localEventBuffer;
-        }
-
-        outputBuffer->used = 0;
-    }
-
-    m_d->m_outputBuffer = outputBuffer;
-
-    auto stats = getStats();
-    u64 bufferNumber = stats->totalBuffersRead;
-    BufferIterator iter(readBuffer->data, readBuffer->used, BufferIterator::Align16);
-
-    try
-    {
-        // extract buffer header information
-
-        u32 header1 = iter.extractWord();
-
-        bool lastBuffer     = header1 & Buffer::LastBufferMask;
-        bool scalerBuffer   = header1 & Buffer::IsScalerBufferMask;
-        bool continuousMode = header1 & Buffer::ContinuationMask;
-        bool multiBuffer    = header1 & Buffer::MultiBufferMask;
-        u16 numberOfEvents  = header1 & Buffer::NumberOfEventsMask;
-
-        // iterate over the event sections
-        for (u16 eventIndex=0; eventIndex < numberOfEvents; ++eventIndex)
-        {
-            u32 eventHeader     = iter.extractWord();
-            u8 stackID          = (eventHeader >> Buffer::StackIDShift) & Buffer::StackIDMask;
-            bool partialEvent   = eventHeader & Buffer::ContinuationMask;
-            u32 eventLength     = eventHeader & Buffer::EventLengthMask; // in 16-bit words
-            auto eventConfig = m_eventConfigByStackID[stackID];
-            u32 *outp = nullptr;
-
-            // ensure double the event length is available
-            m_d->m_outputBuffer->ensureCapacity(eventLength * sizeof(u16) * 2);
-
-            if (m_d->m_eventInfo.stackID < 0)
-            {
-                // setup everything for a new event
-                m_d->m_eventInfo = {};
-                m_d->m_eventInfo.stackID = stackID;
-                m_d->m_eventInfo.moduleIndex = -1;
-
-                m_d->m_eventInfo.eventHeaderOffset = outputBuffer->used;
-                outp = outputBuffer->asU32();
-                u32 *mvmeEventHeader = outp++;
-
-                /* Store the event type, which is just the index into the event config
-                 * array in the header. */
-                int eventType = m_context->getEventConfigs().indexOf(eventConfig);
-                *mvmeEventHeader = (ListfileSections::SectionType_Event << LF::SectionTypeShift) & LF::SectionTypeMask;
-                *mvmeEventHeader |= (eventType << LF::EventTypeShift) & LF::EventTypeMask;
-            }
-            else
-            {
-                Q_ASSERT(stackID == m_d->m_eventInfo.stackID);
-
-                outp = outputBuffer->asU32();
-            }
-
-            /* Create a local iterator limited by the event length. A check above made
-             * sure that the event length does not exceed the inputs size. */
-            BufferIterator eventIter(iter.buffp, eventLength * sizeof(u16), iter.alignment);
-
-            s32 moduleCount = eventConfig->modules.size();
-
-            bool incrementModuleIndex = (m_d->m_eventInfo.moduleIndex == -1);
-
-            while (m_d->m_eventInfo.moduleIndex < moduleCount)
-            {
-                u32 *moduleHeader = nullptr;
-
-                if (incrementModuleIndex)
-                {
-                    // Setup for a new module section and write the module header
-                    ++m_d->m_eventInfo.moduleIndex;
-                    m_d->m_eventInfo.moduleSize  = 0;
-                    m_d->m_eventInfo.moduleHeaderOffset = outputBuffer->used;
-
-                    // TODO: handle moduleIndex out of range
-                    auto moduleConfig = eventConfig->modules[m_d->m_eventInfo.moduleIndex];
-                    u32 *moduleHeader = outp++;
-                    *moduleHeader = (((u32)moduleConfig->type) << LF::ModuleTypeShift) & LF::ModuleTypeMask;
-                    ++m_d->m_eventInfo.eventSize; // +1 for the moduleHeader
-                    incrementModuleIndex = false;
-                }
-                else
-                {
-                    moduleHeader = m_d->m_outputBuffer->asU32(m_d->m_eventInfo.moduleHeaderOffset);
-                }
-
-
-                /* Extract and copy data until we used up the whole event length or
-                 * until the EndMarker has been found.
-                 * VMUSB only knows about 16-bit marker words. When using 16-bit
-                 * alignment and two 16-bit markers it looks like a single 32-bit
-                 * marker word and everything works out.
-                 */
-                while (eventIter.wordsLeft() >= 1)
-                {
-                    // Note: this assumes 32 bit data alignment from the module!
-
-                    u32 data = eventIter.extractU32();
-
-                    if (data == EndMarker)
-                    {
-                        //#ifdef BPDEBUG
-#if 0
-                        logMessage(QString("buffer #%1, eventIndex=%2, found EndMarker!")
-                                   .arg(bufferNumber)
-                                   .arg(eventIndex)
-                                  );
-#endif
-                        /* Add the marker to the output stream. */
-                        *outp++ = EndMarker;
-                        ++m_d->m_eventInfo.moduleSize;
-
-                        *moduleHeader |= (m_d->m_eventInfo.moduleSize << LF::SubEventSizeShift) & LF::SubEventSizeMask;
-                        m_d->m_eventInfo.eventSize += m_d->m_eventInfo.moduleSize;
-                        incrementModuleIndex = true;
-                        break;
-                    }
-                    else
-                    {
-                        *outp++ = data;
-                        ++m_d->m_eventInfo.moduleSize;
-                    }
-                }
-            }
-        }
-    }
-    catch (const end_of_buffer &)
-    {
-        logMessage(QSL("VMUSB Warning: (buffer #%1) end of readBuffer reached unexpectedly!")
-                        .arg(bufferNumber));
-    }
-}
-#endif
-
-/* Process one VMUSB event, transforming it into a MVME event.
- * MVME Event structure:
- * Event Header
- *   SubeventHeader (== Module header)
- *     Raw module contents
- *     EndMarker
- *   SubeventHeader (== Module header)
- *     Raw module contents
- *     EndMarker
- * EndMarker
- * Event Header
- * ...
- */
-bool VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputBuffer, u64 bufferNumber, u16 eventIndex)
-{
-    /* Returning false from this method will make processEvent() skip the
-     * entire buffer. To skip only a single event do the skip in here and
-     * return true. */
-
-
-
-    if (iter.wordsLeft() < 1)
-    {
-        logMessage(QString(QSL("VMUSB Error: (buffer #%1) processEvent(): end of buffer when extracting event header"))
-                        .arg(bufferNumber));
-        return false;
-    }
-
-    u32 eventHeader = iter.extractWord();
-
-    u8 stackID          = (eventHeader >> Buffer::StackIDShift) & Buffer::StackIDMask;
-    bool partialEvent   = eventHeader & Buffer::ContinuationMask;
-    u32 eventLength     = eventHeader & Buffer::EventLengthMask; // in 16-bit words
-
-//#ifdef BPDEBUG
-#if 0
-    logMessage(QString("buffer #%1, eventIndex=%2, eventHeader=0x%3, stackID=%4, eventLength=%5, partialEvent=%6")
-                    .arg(bufferNumber)
-                    .arg(eventIndex)
-                    .arg(eventHeader, 8, 16, QLatin1Char('0'))
-                    .arg(stackID)
-                    .arg(eventLength)
-                    .arg(partialEvent)
-                   );
-#endif
-
-    if (iter.shortwordsLeft() < eventLength)
-    {
-        logMessage(QSL("VMUSB Error: (buffer #%1) event length exceeds buffer length, skipping buffer")
-                        .arg(bufferNumber));
-        return false;
-    }
-
-    if (stackID > StackIDMax)
-    {
-        logMessage(QString(QSL("VMUSB: (buffer #%2) Parsed stackID=%1 is out of range, skipping event"))
-                        .arg(stackID)
-                        .arg(bufferNumber));
-        iter.skip(sizeof(u16), eventLength);
-        return true;
-    }
-
-    if (!m_eventConfigByStackID.contains(stackID))
-    {
-        logMessage(QString(QSL("VMUSB: (buffer #%3) No event config for stackID=%1, eventLength=%2, skipping event"))
-                        .arg(stackID)
-                        .arg(eventLength)
-                        .arg(bufferNumber));
-        iter.skip(sizeof(u16), eventLength);
-        return true;
-    }
-
-    if (partialEvent)
-    {
-        qDebug("eventHeader=0x%08x, stackID=%u, partialEvent=%d, eventLength=%u shorts",
-               eventHeader, stackID, partialEvent, eventLength);
-        qDebug() << "===== Error: partial event support not implemented! ======";
-        logMessage(QString(QSL("VMUSB Error: (buffer #%1) got a partial event (not supported yet!)"))
-                        .arg(bufferNumber));
-        iter.skip(sizeof(u16), eventLength);
-        return true;
-    }
-
-    /* Create a local iterator limited by the event length. A check above made
-     * sure that the event length does not exceed the inputs size. */
-    BufferIterator eventIter(iter.buffp, eventLength * sizeof(u16), iter.alignment);
-
-    if (m_logBuffers)
-    {
-        logMessage(QString(">>> Begin event %1 in buffer #%2")
-                   .arg(eventIndex)
-                   .arg(bufferNumber));
-
-        logBuffer(eventIter, [this](const QString &str) { logMessage(str); });
-
-        logMessage(QString("<<< End event %1 in buffer #%2")
-                   .arg(eventIndex)
-                   .arg(bufferNumber));
-    }
-
-    //qDebug() << "eventIter size =" << eventIter.bytesLeft() << " bytes";
-
-    auto eventConfig = m_eventConfigByStackID[stackID];
-    int moduleIndex = 0;
-    u32 *outp = (u32 *)(outputBuffer->data + outputBuffer->used);
-    u32 *mvmeEventHeader = (u32 *)outp++;
-
-    size_t eventSize = 0;
-
-    using LF = listfile_v1;
-
-    /* Store the event type, which is just the index into the event config
-     * array in the header. */
-    int eventType = m_context->getEventConfigs().indexOf(eventConfig);
-    *mvmeEventHeader = (ListfileSections::SectionType_Event << LF::SectionTypeShift) & LF::SectionTypeMask;
-    *mvmeEventHeader |= (eventType << LF::EventTypeShift) & LF::EventTypeMask;
-
-    for (int moduleIndex=0; moduleIndex<eventConfig->modules.size(); ++moduleIndex)
-    {
-        size_t subEventSize = 0; // in 32 bit words
-        auto module = eventConfig->modules[moduleIndex];
-
-        u32 *moduleHeader = outp++;
-        *moduleHeader = (((u32)module->type) << LF::ModuleTypeShift) & LF::ModuleTypeMask;
-
-        /* Extract and copy data until we used up the whole event length or
-         * until the EndMarker has been found.
-         * VMUSB only knows about 16-bit marker words. When using 16-bit
-         * alignment and two 16-bit markers it looks like a single 32-bit
-         * marker word and everything works out.
-         */
-        while (eventIter.wordsLeft() >= 1)
-        {
-            // Note: this assumes 32 bit data alignment from the module!
-
-            u32 data = eventIter.extractU32();
-
-            if (data == EndMarker)
-            {
-//#ifdef BPDEBUG
-#if 0
-                logMessage(QString("buffer #%1, eventIndex=%2, found EndMarker!")
-                                .arg(bufferNumber)
-                                .arg(eventIndex)
-                               );
-#endif
-                /* Add the marker to the output stream. */
-                *outp++ = EndMarker;
-                ++subEventSize;
-
-                *moduleHeader |= (subEventSize << LF::SubEventSizeShift) & LF::SubEventSizeMask;
-                eventSize += subEventSize + 1; // +1 for the moduleHeader
-                break;
-            }
-            else
-            {
-                *outp++ = data;
-                ++subEventSize;
-            }
-        }
-    }
-
-    if (eventIter.bytesLeft())
-    {
-        logMessage(QString(QSL("VMUSB Error: %1 bytes left in event"))
-                        .arg(eventIter.bytesLeft()));
-
-
-        while (eventIter.longwordsLeft())
-        {
-            logMessage(QString(QSL("  0x%1"))
-                            .arg(eventIter.extractU32(), 8, 16, QLatin1Char('0')));
-        }
-
-        while (eventIter.wordsLeft())
-        {
-            logMessage(QString(QSL("  0x%1"))
-                            .arg(eventIter.extractU16(),
-                                 (eventIter.alignment == BufferIterator::Align16) ? 4 : 8,
-                                 16, QLatin1Char('0')));
-        }
-
-        while (eventIter.bytesLeft())
-        {
-            logMessage(QString(QSL("  0x%1"))
-                            .arg(eventIter.extractU8(), 2, 16, QLatin1Char('0')));
-        }
-    }
-
-    // Add an EndMarker at the end of the event
-    *outp++ = EndMarker;
-    ++eventSize;
-
-    *mvmeEventHeader |= (eventSize << LF::SectionSizeShift) & LF::SectionSizeMask;
-    outputBuffer->used = (u8 *)outp - outputBuffer->data;
-
-    iter.buffp = eventIter.buffp; // advance the buffer iterator
-
-    return true;
 }
 
 DataBuffer* VMUSBBufferProcessor::getFreeBuffer()
