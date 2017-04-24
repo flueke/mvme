@@ -172,6 +172,49 @@ static void throw_io_device_error(QIODevice *device)
     }
 }
 
+/* +=========================================================================+
+ * |             Buffer Processing - What this code tries to do              |
+ * +=========================================================================+
+ *
+ * In DAQ mode VMUSB yields buffers in the following format:
+ *   Buffer Header (numberOfEvents)
+ *     Event Header0 (stackID, eventLength, partialEvent)
+ *       Event Data0
+ *     Event Header1 (stackID, eventLength, partialEvent)
+ *       Event Data1
+ *     ...
+ *     Event HeaderN
+ *       Event DataN
+ *     BufferTerminator
+ *
+ * Event data is further structured by our own readout commands to contain
+ * module data separated by EndMarker (0x87654321).
+ *
+ * VMUSB has an internal buffer of 2k 16-bit words for event assembly. If the
+ * length of the data of a readout stack exceeds this size the Event Header
+ * will have the partialEvent bit set. The last part of the event will be
+ * marked by having the partialEvent bit unset again.
+ *
+ * Our readout assumes 32-bit aligned data from the readout commands but VMUSB
+ * interally uses 16-bit aligned data. This means a partial event can be split
+ * at a 16-bit boundary and thus a 32-bit word can be part of two event
+ * sections.
+ *
+ * The code below tries to transform incoming data from the VMUSB format into
+ * our MVME format (see mvme_listfile.h) for details. Partial events are
+ * reassembled, event data is parsed and split into individual module sections
+ * and VMUSB stackIDs are mapped to EventConfigs. Error and consistency checks
+ * are done and invalid data is discarded.
+ *
+ * The strategy to deal with buffers and partial events is as follows: If there
+ * are no partial events the VMUSB buffer is processed completely and then the
+ * output buffer is put into the outgoing queue. If there is a partial event,
+ * buffers are processed until the event is reassembled and then the output
+ * buffer is flushed immediately. This is done do avoid the case where partial
+ * events appear in succession in which case the output buffer would never get
+ * flushed and grow indefinitely.
+ */
+
 /* To keep track of the current event in case of a partial event spanning
  * multiple buffers.
  * Offsets are used instead of pointers as the buffer might have to be resized
