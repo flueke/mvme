@@ -1106,6 +1106,10 @@ void MVMEContext::openWorkspace(const QString &dirName)
     {
         loadAnalysisConfig(dir.filePath(lastAnalysisConfig));
     }
+
+    // No exceptions thrown -> store workspace directory in global settings
+    QSettings settings;
+    settings.setValue(QSL("LastWorkspaceDirectory"), getWorkspaceDirectory());
 }
 
 void MVMEContext::setWorkspaceDirectory(const QString &dirName)

@@ -139,16 +139,39 @@
            <string>Histogram Info</string>
           </property>
           <property name="icon">
-           <iconset resource="resources.qrc">
+           <iconset>
             <normaloff>:/info.png</normaloff>:/info.png</iconset>
           </property>
          </widget>
         </item>
         <item>
          <widget class="QToolButton" name="tb_subRange">
+          <property name="toolTip">
+           <string>Limit to Subrange</string>
+          </property>
           <property name="icon">
-           <iconset resource="resources.qrc">
+           <iconset>
             <normaloff>:/zoom_in.png</normaloff>:/zoom_in.png</iconset>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QToolButton" name="tb_rate">
+          <property name="toolTip">
+           <string>Free Rate Estimation</string>
+          </property>
+          <property name="text">
+           <string>R</string>
+          </property>
+          <property name="checkable">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QToolButton" name="tb_test">
+          <property name="text">
+           <string>...</string>
           </property>
          </widget>
         </item>
@@ -207,9 +230,7 @@
    <container>1</container>
   </customwidget>
  </customwidgets>
- <resources>
-  <include location="resources.qrc"/>
- </resources>
+ <resources/>
  <connections/>
  <buttongroups>
   <buttongroup name="linLogGroup"/>

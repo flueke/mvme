@@ -245,6 +245,26 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     // Hide the calibration UI. It will be shown if setCalibrationInfo() is called.
     ui->frame_calib->setVisible(false);
 
+    m_rateEstimationData.visible = false;
+
+    m_testPicker = new AutoBeginPlotPicker(QwtPlot::xBottom, QwtPlot::yLeft,
+                                     QwtPicker::VLineRubberBand, QwtPicker::AlwaysOn,
+                                     ui->plot->canvas());
+    QPen testPickerPen(Qt::red);
+    m_testPicker->setTrackerPen(testPickerPen);
+    m_testPicker->setRubberBandPen(testPickerPen);
+    m_testPicker->setStateMachine(new QwtPickerTrackerMachine);
+    m_testPicker->setEnabled(false);
+    ui->tb_test->setVisible(false); // xxx: leftoff
+
+    connect(m_testPicker, &QwtPicker::activated, this, [this](bool on) {
+        qDebug() << __PRETTY_FUNCTION__ << "m_testPicker activated" << on;
+    });
+
+    connect(m_testPicker, &QwtPicker::appended, this, [](const QPoint &pos) {
+        qDebug() << __PRETTY_FUNCTION__ << "m_testPicker appended" << pos;
+    });
+
     setHistogram(histo);
 }
 
@@ -317,6 +337,45 @@ void Histo1DWidget::replot()
                             "Overflow:  %2")
         .arg(m_histo->getUnderflow())
         .arg(m_histo->getOverflow());
+
+
+    // rate and efficiency estimation
+    if (m_rateEstimationData.visible)
+    {
+        double x1 = m_rateEstimationData.x1;
+        double x2 = m_rateEstimationData.x2;
+        double y1 = m_histo->getValue(x1);
+        double y2 = m_histo->getValue(x2);
+
+        //if (y2 != 0 && (y1 / y2 > 0.0))
+        double tau = (x2 - x1) / log(y1 / y2);
+        double e = exp(1.0);
+        double c = pow(e, x1 / tau) * y1;
+        c = c / m_histo->getBinWidth(); // norm to x-axis scale
+        double freeRate = 1.0 / tau; // 1/x-axis unit
+        double freeCounts = c * tau * (1 - pow(e, -(x2 / tau))); // for interval 0..x2
+        double histoCounts = m_histo->calcStatistics(0.0, x2).entryCount;
+        double efficiency  = histoCounts / freeCounts;
+
+        infoText += QString("\n"
+                            "(x1, y1)=(%1, %2)\n"
+                            "(x2, y2)=(%3, %4)\n"
+                            "tau=%5, c=%6\n"
+                            "FR=%7, FC=%8, HC=%9\n"
+                            "efficiency=%10")
+            .arg(x1)
+            .arg(y1)
+            .arg(x2)
+            .arg(y2)
+            .arg(tau)
+            .arg(c)
+            .arg(freeRate)
+            .arg(freeCounts)
+            .arg(histoCounts)
+            .arg(efficiency)
+            ;
+    }
+
     ui->label_histoInfo->setText(infoText);
 
     // window and axis titles
@@ -592,6 +651,8 @@ void Histo1DWidget::calibApply()
     AnalysisPauser pauser(m_context);
     m_calib->setCalibration(address, targetMin, targetMax);
     analysis::do_beginRun_forward(m_calib.get());
+
+    on_tb_rate_toggled(m_rateEstimationData.visible);
 }
 
 void Histo1DWidget::calibResetToFilter()
@@ -639,6 +700,26 @@ void Histo1DWidget::on_tb_subRange_clicked()
     double visibleMaxX = ui->plot->axisScaleDiv(QwtPlot::xBottom).upperBound();
     Histo1DSubRangeDialog dialog(m_sink, m_sinkModifiedCallback, visibleMinX, visibleMaxX, this);
     dialog.exec();
+}
+
+void Histo1DWidget::on_tb_rate_toggled(bool checked)
+{
+    if (checked)
+    {
+        m_rateEstimationData.visible = true;
+        m_rateEstimationData.x1 = ui->plot->axisScaleDiv(QwtPlot::xBottom).lowerBound();
+        m_rateEstimationData.x2 = ui->plot->axisScaleDiv(QwtPlot::xBottom).upperBound();
+    }
+    else
+    {
+        m_rateEstimationData.visible = false;
+    }
+}
+
+void Histo1DWidget::on_tb_test_clicked()
+{
+    m_zoomer->setEnabled(!m_zoomer->isEnabled());
+    m_testPicker->setEnabled(!m_testPicker->isEnabled());
 }
 
 //

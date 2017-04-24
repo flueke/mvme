@@ -4,10 +4,11 @@
 #include "histo1d.h"
 #include <QWidget>
 
-class QTimer;
 class QTextStream;
+class QTimer;
 class QwtPlotCurve;
 class QwtPlotHistogram;
+class QwtPlotPicker;
 class QwtPlotTextLabel;
 class QwtText;
 class ScrollZoomer;
@@ -58,6 +59,8 @@ class Histo1DWidget: public QWidget
         void displayChanged();
         void on_tb_info_clicked();
         void on_tb_subRange_clicked();
+        void on_tb_rate_toggled(bool checked);
+        void on_tb_test_clicked();
 
     private:
         void updateAxisScales();
@@ -89,6 +92,16 @@ class Histo1DWidget: public QWidget
 
         SinkPtr m_sink;
         HistoSinkCallback m_sinkModifiedCallback;
+
+        struct RateEstimationData
+        {
+            bool visible;
+            double x1;
+            double x2;
+        };
+
+        RateEstimationData m_rateEstimationData;
+        QwtPlotPicker *m_testPicker;
 };
 
 class Histo1DListWidget: public QWidget

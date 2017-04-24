@@ -1,9 +1,12 @@
 #ifndef __HISTO1D_WIDGET_P_H__
 #define __HISTO1D_WIDGET_P_H__
 
+#include "histo1d_widget.h"
+
 #include <QDialog>
 #include <QDialogButtonBox>
-#include "histo1d_widget.h"
+#include <qwt_picker_machine.h>
+#include <qwt_plot_picker.h>
 
 class Histo1DSubRangeDialog: public QDialog
 {
@@ -27,6 +30,46 @@ class Histo1DSubRangeDialog: public QDialog
 
         HistoAxisLimitsUI limits_x;
         QDialogButtonBox *buttonBox;
+};
+
+#if 0
+class MovePickerMachine: public QwtPickerMachine
+{
+    public:
+        virtual QwtPickerMachine::CommandList transition(const QwtEventPattern &, const QEvent *ev) override
+        {
+            QwtPickerMachine::CommandList cmdList;
+
+            if (ev->type() == QEvent::MouseMove)
+            {
+                cmdList += Move;
+            }
+
+            return cmdList;
+        }
+};
+#endif
+
+class AutoBeginPlotPicker: public QwtPlotPicker
+{
+    Q_OBJECT
+    public:
+        AutoBeginPlotPicker(int xAxis, int yAxis, RubberBand rubberBand, DisplayMode trackerMode, QWidget *canvas)
+            : QwtPlotPicker(xAxis, yAxis, rubberBand, trackerMode, canvas)
+        {
+            qDebug() << __PRETTY_FUNCTION__;
+            canvas->setMouseTracking(true);
+        }
+
+        virtual void widgetMouseMoveEvent(QMouseEvent *ev) override
+        {
+            if (!isActive())
+            {
+                begin();
+                //append(e->pos());
+            }
+            QwtPlotPicker::widgetMouseMoveEvent(ev);
+        }
 };
 
 #endif /* __HISTO1D_WIDGET_P_H__ */
