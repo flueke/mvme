@@ -32,6 +32,8 @@
 #include <functional>
 
 class CVMUSBReadoutList;
+
+#ifdef WIENER_USE_LIBUSB1
 struct libusb_context;
 struct libusb_device_handle;
 struct libusb_device;
@@ -41,6 +43,16 @@ struct VMUSBDeviceInfo
     libusb_device *device = nullptr;
     unsigned char serial[7] = {};
 };
+#else
+struct usb_dev_handle;
+struct usb_device;
+
+struct VMUSBDeviceInfo
+{
+    usb_device *device = nullptr;
+    char serial[7] = {};
+};
+#endif
 
 /*
  * Opening/closing and error handling:
@@ -173,8 +185,12 @@ class VMUSB: public VMEController
         void getUsbDevices(void);
 
         QVector<VMUSBDeviceInfo> m_deviceInfos;
+#ifdef WIENER_USE_LIBUSB1
         libusb_device_handle* m_deviceHandle = nullptr;
         libusb_context *m_libusbContext = nullptr;
+#else
+        usb_dev_handle *m_deviceHandle = nullptr;
+#endif
 
         u32 firmwareId;
         u32 globalMode;

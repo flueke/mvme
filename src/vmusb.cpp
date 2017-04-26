@@ -23,7 +23,15 @@
 #include <QDebug>
 #include <QMutexLocker>
 
+#ifdef WIENER_USE_LIBUSB1
 #include <libusb.h>
+#else
+    #ifdef __MINGW32__
+        #include <lusb0_usb.h>
+    #else
+        #include <usb.h>
+    #endif
+#endif
 
 #define XXUSB_WIENER_VENDOR_ID  0x16DC  /* Wiener, Plein & Baus */
 #define XXUSB_VMUSB_PRODUCT_ID  0x000B  /* VM-USB */
@@ -74,9 +82,14 @@ static QString errnoString(int errnum)
 struct VMUSBOpenResult
 {
     int errorCode;
+#ifdef WIENER_USE_LIBUSB1
     libusb_device_handle *deviceHandle;
+#else
+    usb_dev_handle *deviceHandle;
+#endif
 };
 
+#ifdef WIENER_USE_LIBUSB1
 static VMUSBOpenResult open_usb_device(libusb_device *dev)
 {
     Q_ASSERT(dev);
@@ -134,6 +147,61 @@ static int close_usb_device(libusb_device_handle *deviceHandle)
 
     return result;
 }
+#else
+static VMUSBOpenResult open_usb_device(struct usb_device *dev)
+{
+    Q_ASSERT(dev);
+
+    VMUSBOpenResult result = {};
+
+    result.deviceHandle = usb_open(dev);
+
+    if (!result.deviceHandle)
+    {
+        result.errorCode = -1; // FIXME: define these for libusb0
+        return result;
+    }
+
+    result.errorCode = usb_set_configuration(result.deviceHandle, 1);
+
+    if (result.errorCode != 0)
+    {
+        qDebug() << "usb_set_configuration failed";
+
+        usb_close(result.deviceHandle);
+        return result;
+    }
+
+    result.errorCode = usb_claim_interface(result.deviceHandle, 0);
+
+    if (result.errorCode != 0)
+    {
+        qDebug() << "usb_claim_interface failed";
+
+        usb_close(result.deviceHandle);
+        return result;
+    }
+
+    return result;
+}
+
+static int close_usb_device(usb_dev_handle *deviceHandle)
+{
+    Q_ASSERT(deviceHandle);
+
+    int result = usb_release_interface(deviceHandle, 0);
+
+    if (result != 0)
+    {
+        qDebug() << "usb_release_interface failed";
+        return result;
+    }
+
+    usb_close(deviceHandle);
+
+    return result;
+}
+#endif
 
 VMUSB::VMUSB()
     : m_state(ControllerState::Closed)
@@ -146,6 +214,7 @@ VMUSB::~VMUSB()
 {
     close();
 
+#ifdef WIENER_USE_LIBUSB1
     for (auto deviceInfo: m_deviceInfos)
     {
         libusb_unref_device(deviceInfo.device);
@@ -155,10 +224,12 @@ VMUSB::~VMUSB()
     {
         libusb_exit(m_libusbContext);
     }
+#endif
 }
 
 // TODO: add some sort of error reporting here
 void VMUSB::getUsbDevices(void)
+#ifdef WIENER_USE_LIBUSB1
 {
     if (!m_libusbContext)
     {
@@ -234,6 +305,55 @@ void VMUSB::getUsbDevices(void)
     //qDebug() << "freeing the libusb device list";
     libusb_free_device_list(deviceList, 1);
 }
+#else
+{
+    struct usb_bus *bus;
+    struct usb_device *dev;
+    struct usb_bus *usb_busses_;
+
+    m_deviceInfos.clear();
+
+    //usb_set_debug(4);
+    usb_init();
+    usb_find_busses();
+    usb_find_devices();
+    usb_busses_=usb_get_busses();
+
+    for (bus=usb_busses_; bus; bus = bus->next)
+    {
+        for (dev = bus->devices; dev; dev= dev->next)
+        {
+            //qDebug("descriptor: %d %d",dev->descriptor.idVendor, XXUSB_WIENER_VENDOR_ID);
+
+            if (dev->descriptor.idVendor==XXUSB_WIENER_VENDOR_ID
+                && dev->descriptor.idProduct == XXUSB_VMUSB_PRODUCT_ID)
+            {
+                qDebug("device scan: found wiener device");
+                usb_dev_handle *udev = usb_open(dev);
+                //qDebug("result of open: %d", udev);
+                if (udev)
+                {
+                    qDebug("device scan: opened wiener device");
+
+                    VMUSBDeviceInfo info;
+                    info.device = dev;
+
+                    int status = usb_get_string_simple(udev, dev->descriptor.iSerialNumber, info.serial, sizeof(info.serial));
+
+                    if (status < 0)
+                        info.serial[0] = '\0';
+
+                    m_deviceInfos.push_back(info);
+
+                    qDebug("serial=%s", info.serial);
+
+                    usb_close(udev);
+                }
+            }
+        }
+    }
+}
+#endif
 
 VMEError VMUSB::openFirstDevice()
 {
@@ -282,9 +402,13 @@ VMEError VMUSB::openFirstDevice()
         return error;
     }
 
+#ifdef WIENER_USE_LIBUSB1
     return VMEError(VMEError::CommError, openResult.errorCode,
                     libusb_strerror(static_cast<libusb_error>(openResult.errorCode)),
                     libusb_error_name(openResult.errorCode));
+#else
+    return VMEError(VMEError::CommError, errnoString(errno));
+#endif
 }
 
 VMEError VMUSB::close()
@@ -826,6 +950,7 @@ VMEError VMUSB::writeActionRegister(uint16_t value)
     int outSize = pOut - outPacket;
 
     int transferred = 0;
+#ifdef WIENER_USE_LIBUSB1
     int status = libusb_bulk_transfer(m_deviceHandle, ENDPOINT_OUT, outPacket, outSize, &transferred, defaultTimeout_ms);
 
     if (status != 0 || transferred != outSize)
@@ -834,6 +959,14 @@ VMEError VMUSB::writeActionRegister(uint16_t value)
                         libusb_strerror(static_cast<libusb_error>(status)),
                         libusb_error_name(status));
     }
+#else
+    int status = usb_bulk_write(m_deviceHandle, ENDPOINT_OUT, reinterpret_cast<const char *>(outPacket), outSize, defaultTimeout_ms);
+
+    if (status != outSize)
+    {
+        return VMEError(VMEError::WriteError, status, errnoString(-status));
+    }
+#endif
 
     bool daqMode = (value & 0x1);
 
@@ -948,19 +1081,32 @@ VMEError VMUSB::listLoad(CVMUSBReadoutList *list, uint8_t stackID, size_t stackM
     size_t   packetSize;
     uint16_t *outPacket = listToOutPacket(ta, list, &packetSize, stackMemoryOffset);
 
+#ifdef WIENER_USE_LIBUSB1
     int transferred = 0;
     int status = libusb_bulk_transfer(m_deviceHandle, ENDPOINT_OUT,
                                       reinterpret_cast<u8 *>(outPacket),
                                       packetSize, &transferred, timeout_ms);
+#else
+    int status = usb_bulk_write(m_deviceHandle, ENDPOINT_OUT,
+                                reinterpret_cast<const char *>(outPacket),
+                                packetSize, timeout_ms);
+#endif
 
     delete []outPacket;
 
+#ifdef WIENER_USE_LIBUSB1
     if (status != 0)
     {
         return VMEError(VMEError::WriteError, status,
                         libusb_strerror(static_cast<libusb_error>(status)),
                         libusb_error_name(status));
     }
+#else
+    if (status < 0)
+    {
+        return VMEError(VMEError::WriteError, status, errnoString(-status));
+    }
+#endif
 
     return VMEError();
 }
@@ -992,6 +1138,7 @@ VMUSB::transaction(void* writePacket, size_t writeSize,
     if (!isOpen())
         return VMEError(VMEError::NotOpen);
 
+#ifdef WIENER_USE_LIBUSB1
     int transferred = 0;
     int status = libusb_bulk_transfer(m_deviceHandle, ENDPOINT_OUT,
                                       reinterpret_cast<u8 *>(writePacket),
@@ -1026,6 +1173,26 @@ VMUSB::transaction(void* writePacket, size_t writeSize,
     }
 
     *bytesRead = transferred;
+#else
+    int status = usb_bulk_write(m_deviceHandle, ENDPOINT_OUT,
+                                static_cast<char*>(writePacket), writeSize,
+                                timeout_ms);
+
+    if (status < 0)
+    {
+        return VMEError(VMEError::WriteError, status, errnoString(-status));
+    }
+
+    status = usb_bulk_read(m_deviceHandle, ENDPOINT_IN,
+                           static_cast<char*>(readPacket), readSize, timeout_ms);
+
+    if (status < 0)
+    {
+        return VMEError(VMEError::ReadError, status, errnoString(-status));
+    }
+
+    *bytesRead = status;
+#endif
 
     return {};
 }
@@ -1037,6 +1204,7 @@ VMEError VMUSB::bulkRead(void *outBuffer, size_t outBufferSize, int *transferred
     if (!isOpen())
         return VMEError(VMEError::NotOpen);
 
+#ifdef WIENER_USE_LIBUSB1
     int status = libusb_bulk_transfer(m_deviceHandle, ENDPOINT_IN,
                                       reinterpret_cast<u8 *>(outBuffer),
                                       outBufferSize, transferred, timeout_ms);
@@ -1056,6 +1224,17 @@ VMEError VMUSB::bulkRead(void *outBuffer, size_t outBufferSize, int *transferred
                             libusb_error_name(status));
         }
     }
+#else
+    int status = usb_bulk_read(m_deviceHandle, ENDPOINT_IN,
+                               static_cast<char *>(outBuffer), outBufferSize, timeout_ms);
+
+    if (status < 0)
+    {
+        return VMEError(VMEError::ReadError, status, errnoString(-status));
+    }
+
+    *transferred = status;
+#endif
 
     return VMEError();
 }
@@ -1082,6 +1261,9 @@ VMEError VMUSB::stackRead(u8 stackID, QVector<u32> &stackOut, u32 &loadOffsetOut
         return VMEError(VMEError::NotOpen);
 
     int transferred = 0;
+    u16 inBuffer[2048] = {};
+
+#ifdef WIENER_USE_LIBUSB1
     int status = libusb_bulk_transfer(m_deviceHandle, ENDPOINT_OUT,
                                       reinterpret_cast<u8 *>(&ta),
                                       sizeof(ta), &transferred, StackReadTimeout_ms);
@@ -1092,8 +1274,6 @@ VMEError VMUSB::stackRead(u8 stackID, QVector<u32> &stackOut, u32 &loadOffsetOut
                         libusb_strerror(static_cast<libusb_error>(status)),
                         libusb_error_name(status));
     }
-
-    u16 inBuffer[2048] = {};
 
     transferred = 0;
     status = libusb_bulk_transfer(m_deviceHandle, ENDPOINT_IN,
@@ -1106,6 +1286,17 @@ VMEError VMUSB::stackRead(u8 stackID, QVector<u32> &stackOut, u32 &loadOffsetOut
                         libusb_strerror(static_cast<libusb_error>(status)),
                         libusb_error_name(status));
     }
+#else
+    int status = usb_bulk_write(m_deviceHandle, ENDPOINT_OUT, reinterpret_cast<char *>(&ta), sizeof(ta), 100);
+
+    if (status < 0)
+        return VMEError(VMEError::WriteError, status, errnoString(-status));
+
+    transferred = usb_bulk_read(m_deviceHandle, ENDPOINT_IN, reinterpret_cast<char *>(&inBuffer), sizeof(inBuffer), 100);
+
+    if (transferred <= 0)
+        return VMEError(VMEError::ReadError, transferred, errnoString(-transferred));
+#endif
 
     qDebug("stackRead begin");
     for (size_t i=0; i<transferred/sizeof(u16); ++i)
@@ -1241,9 +1432,13 @@ VMEError VMUSB::tryErrorRecovery()
     {
         u8 buffer[VMUSBBufferSize];
 
+#ifdef WIENER_USE_LIBUSB1
         int status = libusb_bulk_transfer(m_deviceHandle, ENDPOINT_IN, buffer, sizeof(buffer), &bytesRead, ErrorRecoveryReadTimeout_ms);
-
         qDebug() << __PRETTY_FUNCTION__ << libusb_strerror(static_cast<libusb_error>(status)) << bytesRead;
+#else
+        bytesRead = usb_bulk_read(m_deviceHandle, ENDPOINT_IN, reinterpret_cast<char *>(buffer), sizeof(buffer), 250);
+        qDebug("bulk read returned %d", bytesRead);
+#endif
     } while (bytesRead > 0);
 
     return leaveDaqMode();
