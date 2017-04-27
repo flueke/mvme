@@ -120,7 +120,7 @@ void Extractor::beginRun()
     m_currentCompletionCount = 0;
 
     u32 addressCount = 1 << m_filter.getAddressBits();
-    u32 upperLimit = (1 << m_filter.getDataBits()) - 1;
+    double upperLimit = std::pow(2.0, m_filter.getDataBits()) - 1.0;
 
     auto &params(m_output.getParameters());
     params.resize(addressCount);
