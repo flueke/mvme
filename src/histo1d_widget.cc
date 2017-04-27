@@ -524,8 +524,6 @@ void Histo1DWidget::replot()
         double plotY = ui->plot->canvasMap(QwtPlot::yLeft).invTransform(pixelY);
         double plotYOriginal = ui->plot->axisScaleDiv(QwtPlot::yLeft).upperBound() * 0.9;
 
-        //qDebug() << pixelY << plotY << plotYOriginal;
-
         m_d->m_rateFormulaMarker->setYValue(plotY);
         m_d->m_rateFormulaMarker->setLabel(rateFormulaText);
         m_d->m_rateFormulaMarker->show();

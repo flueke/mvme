@@ -8,6 +8,7 @@ class ConfigObject;
 class DAQConfig;
 class DAQConfigTreeWidget;
 class DAQControlWidget;
+enum class DAQState;
 class DAQStatsWidget;
 class DataThread;
 class Diagnostics;
@@ -97,6 +98,7 @@ private slots:
     void onConfigChanged(DAQConfig *config);
 
     void onDAQAboutToStart(quint32 nCycles);
+    void onDAQStateChanged(const DAQState &);
 
     void onShowDiagnostics(ModuleConfig *config);
     void on_actionImport_Histo1D_triggered();

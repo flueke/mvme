@@ -99,7 +99,8 @@ void MVMEContextPrivate::stopDAQReplay()
     // First stop the ListFileReader
 
     // The timer is used to avoid a race between the worker stopping and the
-    // progress dialog entering its eventloop.
+    // progress dialog entering its eventloop. (Probably not needed, see the
+    // explanation about not having a race condition below.)
 
     if (m_q->m_listFileWorker->isRunning())
     {
@@ -637,6 +638,11 @@ EventProcessorState MVMEContext::getEventProcessorState() const
 
 void MVMEContext::setReplayFile(ListFile *listFile)
 {
+    if (getDAQState() != DAQState::Idle)
+    {
+        stopDAQ();
+    }
+
     auto configJson = listFile->getDAQConfig();
     auto daqConfig = new DAQConfig;
     daqConfig->read(configJson);

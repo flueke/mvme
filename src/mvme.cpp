@@ -74,6 +74,7 @@ mvme::mvme(QWidget *parent) :
     connect(m_context, &MVMEContext::daqConfigChanged, this, &mvme::onConfigChanged);
     connect(m_context, &MVMEContext::objectAboutToBeRemoved, this, &mvme::onObjectAboutToBeRemoved);
     connect(m_context, &MVMEContext::daqAboutToStart, this, &mvme::onDAQAboutToStart);
+    connect(m_context, &MVMEContext::daqStateChanged, this, &mvme::onDAQStateChanged);
 
     // check and initialize VME interface
     VMEController *controller = new VMUSB;
@@ -689,6 +690,9 @@ void mvme::on_actionOpen_Listfile_triggered()
             return;
         }
 
+        bool wasReplaying = (m_context->getMode() == GlobalMode::ListFile
+                             && m_context->getDAQState() == DAQState::Running);
+
         m_context->setReplayFile(listFile.release());
 
         if (!m_context->getAnalysisNG()->isModified() && m_context->getAnalysisNG()->isEmpty())
@@ -703,6 +707,11 @@ void mvme::on_actionOpen_Listfile_triggered()
             {
                 m_context->loadAnalysisConfig(&inFile);
             }
+        }
+
+        if (wasReplaying)
+        {
+            m_context->startReplay();
         }
     }
     // Plain
@@ -726,7 +735,15 @@ void mvme::on_actionOpen_Listfile_triggered()
             return;
         }
 
+        bool wasReplaying = (m_context->getMode() == GlobalMode::ListFile
+                             && m_context->getDAQState() == DAQState::Running);
+
         m_context->setReplayFile(listFile);
+
+        if (wasReplaying)
+        {
+            m_context->startReplay();
+        }
     }
 
     updateWindowTitle();
@@ -1088,6 +1105,23 @@ void mvme::onDAQAboutToStart(quint32 nCycles)
                 scriptEditor->applyChanges();
             }
         }
+    }
+}
+
+void mvme::onDAQStateChanged(const DAQState &)
+{
+    auto globalMode = m_context->getMode();
+    auto daqState = m_context->getDAQState();
+
+    {
+        bool enable = true;
+
+        if (globalMode == GlobalMode::DAQ && daqState != DAQState::Idle)
+        {
+            enable = false;
+        }
+
+        ui->actionOpen_Listfile->setEnabled(enable);
     }
 }
 
