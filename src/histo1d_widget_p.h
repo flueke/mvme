@@ -5,6 +5,7 @@
 
 #include <QDialog>
 #include <QDialogButtonBox>
+#include <QEvent>
 #include <qwt_picker_machine.h>
 #include <qwt_plot_picker.h>
 
@@ -32,43 +33,64 @@ class Histo1DSubRangeDialog: public QDialog
         QDialogButtonBox *buttonBox;
 };
 
-#if 0
-class MovePickerMachine: public QwtPickerMachine
+/* A picker machine that starts a point selection as soon as the mouse moves
+ * inside the canvas. On releasing mouse button 1 the point is selected and
+ * picking ends.
+ */
+class AutoBeginClickPointMachine: public QwtPickerMachine
 {
     public:
-        virtual QwtPickerMachine::CommandList transition(const QwtEventPattern &, const QEvent *ev) override
-        {
-            QwtPickerMachine::CommandList cmdList;
+        static const int StateInitial   = 0;
+        static const int StatePickPoint = 1;
 
-            if (ev->type() == QEvent::MouseMove)
+        AutoBeginClickPointMachine()
+            : QwtPickerMachine(PointSelection)
+        {
+            setState(StateInitial);
+        }
+
+        virtual QList<QwtPickerMachine::Command> transition(const QwtEventPattern &eventPattern, const QEvent *ev) override
+        {
+            QList<QwtPickerMachine::Command> cmdList;
+
+            switch (ev->type())
             {
-                cmdList += Move;
+                case QEvent::Enter:
+                case QEvent::MouseMove:
+                    {
+                        if (state() == StateInitial)
+                        {
+                            cmdList += Begin;
+                            cmdList += Append;
+                            setState(StatePickPoint);
+                        }
+                        else // StatePickPoint
+                        {
+                            // Moves the last point appended to the point
+                            // selection to the current cursor position.
+                            cmdList += Move;
+                        }
+                    } break;
+
+                case QEvent::MouseButtonRelease:
+                    {
+                        // End selection in mouse button 1 release
+                        if (eventPattern.mouseMatch(QwtEventPattern::MouseSelect1,
+                                                    reinterpret_cast<const QMouseEvent *>(ev)))
+                        {
+                            if (state() == StatePickPoint)
+                            {
+                                cmdList += End;
+                                setState(StateInitial);
+                            }
+                        }
+                    } break;
+
+                default:
+                    break;
             }
 
             return cmdList;
-        }
-};
-#endif
-
-class AutoBeginPlotPicker: public QwtPlotPicker
-{
-    Q_OBJECT
-    public:
-        AutoBeginPlotPicker(int xAxis, int yAxis, RubberBand rubberBand, DisplayMode trackerMode, QWidget *canvas)
-            : QwtPlotPicker(xAxis, yAxis, rubberBand, trackerMode, canvas)
-        {
-            qDebug() << __PRETTY_FUNCTION__;
-            canvas->setMouseTracking(true);
-        }
-
-        virtual void widgetMouseMoveEvent(QMouseEvent *ev) override
-        {
-            if (!isActive())
-            {
-                begin();
-                //append(e->pos());
-            }
-            QwtPlotPicker::widgetMouseMoveEvent(ev);
         }
 };
 

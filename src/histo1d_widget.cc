@@ -10,6 +10,7 @@
 #include <qwt_plot_curve.h>
 #include <qwt_plot_histogram.h>
 #include <qwt_plot_magnifier.h>
+#include <qwt_plot_marker.h>
 #include <qwt_plot_panner.h>
 #include <qwt_plot_renderer.h>
 #include <qwt_plot_textlabel.h>
@@ -80,6 +81,27 @@ struct CalibUi
                 *resetToFilterButton;
 };
 
+struct RateEstimationData
+{
+    bool visible = false;
+    double x1 = make_quiet_nan();
+    double x2 = make_quiet_nan();
+
+};
+
+static const double PlotTextLayerZ = 1000.0;
+
+struct Histo1DWidgetPrivate
+{
+    Histo1DWidget *m_q;
+
+    RateEstimationData m_rateEstimationData;
+    QwtPlotPicker *m_ratePointPicker;
+    QwtPlotMarker *m_rateX1Marker;
+    QwtPlotMarker *m_rateX2Marker;
+    QwtPlotMarker *m_rateFormulaMarker;
+};
+
 Histo1DWidget::Histo1DWidget(const Histo1DPtr &histoPtr, QWidget *parent)
     : Histo1DWidget(histoPtr.get(), parent)
 {
@@ -89,12 +111,14 @@ Histo1DWidget::Histo1DWidget(const Histo1DPtr &histoPtr, QWidget *parent)
 Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     : QWidget(parent)
     , ui(new Ui::Histo1DWidget)
+    , m_d(new Histo1DWidgetPrivate)
     , m_histo(histo)
     , m_plotCurve(new QwtPlotCurve)
     , m_replotTimer(new QTimer(this))
     , m_cursorPosition(make_quiet_nan(), make_quiet_nan())
     , m_labelCursorInfoWidth(-1)
 {
+    m_d->m_q = this;
     ui->setupUi(this);
 
     ui->tb_info->setEnabled(false);
@@ -245,25 +269,102 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     // Hide the calibration UI. It will be shown if setCalibrationInfo() is called.
     ui->frame_calib->setVisible(false);
 
-    m_rateEstimationData.visible = false;
+    //
+    // Rate Estimation
+    //
+    m_d->m_rateEstimationData.visible = false;
 
-    m_testPicker = new AutoBeginPlotPicker(QwtPlot::xBottom, QwtPlot::yLeft,
-                                     QwtPicker::VLineRubberBand, QwtPicker::AlwaysOn,
-                                     ui->plot->canvas());
-    QPen testPickerPen(Qt::red);
-    m_testPicker->setTrackerPen(testPickerPen);
-    m_testPicker->setRubberBandPen(testPickerPen);
-    m_testPicker->setStateMachine(new QwtPickerTrackerMachine);
-    m_testPicker->setEnabled(false);
-    ui->tb_test->setVisible(false); // xxx: leftoff
+    auto make_position_marker = [](QwtPlot *plot)
+    {
+        auto marker = new QwtPlotMarker;
+        marker->setLabelAlignment( Qt::AlignLeft | Qt::AlignBottom );
+        marker->setLabelOrientation( Qt::Vertical );
+        marker->setLineStyle( QwtPlotMarker::VLine );
+        marker->setLinePen( Qt::black, 0, Qt::DashDotLine );
+        marker->setZ(PlotTextLayerZ);
+        marker->attach(plot);
+        marker->hide();
+        return marker;
+    };
 
-    connect(m_testPicker, &QwtPicker::activated, this, [this](bool on) {
-        qDebug() << __PRETTY_FUNCTION__ << "m_testPicker activated" << on;
+    m_d->m_rateX1Marker = make_position_marker(ui->plot);
+    m_d->m_rateX2Marker = make_position_marker(ui->plot);
+
+    m_d->m_rateFormulaMarker = new QwtPlotMarker;
+    m_d->m_rateFormulaMarker->setLabelAlignment(Qt::AlignRight | Qt::AlignTop);
+    m_d->m_rateFormulaMarker->setZ(PlotTextLayerZ);
+    m_d->m_rateFormulaMarker->attach(ui->plot);
+    m_d->m_rateFormulaMarker->hide();
+
+    m_d->m_ratePointPicker = new QwtPlotPicker(QwtPlot::xBottom, QwtPlot::yLeft,
+                                               QwtPicker::VLineRubberBand, QwtPicker::ActiveOnly,
+                                               ui->plot->canvas());
+    QPen pickerPen(Qt::red);
+    m_d->m_ratePointPicker->setTrackerPen(pickerPen);
+    m_d->m_ratePointPicker->setRubberBandPen(pickerPen);
+    m_d->m_ratePointPicker->setStateMachine(new AutoBeginClickPointMachine);
+    m_d->m_ratePointPicker->setEnabled(false);
+
+    connect(m_d->m_ratePointPicker, static_cast<void (QwtPlotPicker::*)(const QPointF &)>(&QwtPlotPicker::selected), [this](const QPointF &pos) {
+
+        if (std::isnan(m_d->m_rateEstimationData.x1))
+        {
+            m_d->m_rateEstimationData.x1 = pos.x();
+
+            m_d->m_rateX1Marker->setXValue(m_d->m_rateEstimationData.x1);
+            m_d->m_rateX1Marker->setLabel(QString("    x1=%1").arg(m_d->m_rateEstimationData.x1));
+            m_d->m_rateX1Marker->show();
+        }
+        else if (std::isnan(m_d->m_rateEstimationData.x2))
+        {
+            m_d->m_rateEstimationData.x2 = pos.x();
+
+            if (m_d->m_rateEstimationData.x1 > m_d->m_rateEstimationData.x2)
+            {
+                std::swap(m_d->m_rateEstimationData.x1, m_d->m_rateEstimationData.x2);
+            }
+
+            m_d->m_rateEstimationData.visible = true;
+            m_d->m_ratePointPicker->setEnabled(false);
+            m_zoomer->setEnabled(true);
+
+            // set both x1 and x2 as they might have been swapped above
+            m_d->m_rateX1Marker->setXValue(m_d->m_rateEstimationData.x1);
+            m_d->m_rateX1Marker->setLabel(QString("    x1=%1").arg(m_d->m_rateEstimationData.x1));
+            m_d->m_rateX2Marker->setXValue(m_d->m_rateEstimationData.x2);
+            m_d->m_rateX2Marker->setLabel(QString("    x2=%1").arg(m_d->m_rateEstimationData.x2));
+            m_d->m_rateX2Marker->show();
+        }
+        else
+        {
+            InvalidCodePath;
+        }
+
+        replot();
     });
 
-    connect(m_testPicker, &QwtPicker::appended, this, [](const QPoint &pos) {
-        qDebug() << __PRETTY_FUNCTION__ << "m_testPicker appended" << pos;
+#if 0
+    connect(m_d->m_ratePointPicker, &QwtPicker::activated, this, [this](bool on) {
+        qDebug() << __PRETTY_FUNCTION__ << "m_ratePointPicker activated" << on;
+        if (!on)
+        {
+            qDebug() << __PRETTY_FUNCTION__ << "m_ratePointPicker got deactivated, selection =" << m_d->m_ratePointPicker->selection();
+        }
     });
+
+    connect(m_d->m_ratePointPicker, &QwtPlotPicker::appended, this, [](const QPointF &pos) {
+        qDebug() << __PRETTY_FUNCTION__ << "m_ratePointPicker appended" << pos;
+    });
+
+    //connect(m_ratePointPicker, &QwtPlotPicker::moved, this, [](const QPointF &pos) {
+    //    qDebug() << __PRETTY_FUNCTION__ << "m_ratePointPicker moved" << pos;
+    //});
+
+
+    connect(m_d->m_ratePointPicker, static_cast<void (QwtPlotPicker::*)(const QVector<QPointF> &)>(&QwtPlotPicker::selected), [this](const QVector<QPointF> &pa) {
+        qDebug() << __PRETTY_FUNCTION__ << "m_ratePointPicker selected" << pa;
+    });
+#endif
 
     setHistogram(histo);
 }
@@ -273,6 +374,7 @@ Histo1DWidget::~Histo1DWidget()
     delete m_plotCurve;
     delete ui;
     delete m_statsText;
+    delete m_d;
 }
 
 void Histo1DWidget::setHistogram(const Histo1DPtr &histoPtr)
@@ -302,17 +404,28 @@ void Histo1DWidget::setHistogram(Histo1D *histo)
 
 void Histo1DWidget::updateAxisScales()
 {
-    // update the y axis using the currently visible max value
-    // 20% larger than the current maximum value
-    double maxValue = 1.2 * m_stats.maxValue;
+    // Scale the y axis using the currently visible max value plus 20%
+    double maxValue = m_stats.maxValue;
 
     // force a minimum of 10 units in y
     if (maxValue <= 1.0)
         maxValue = 10.0;
 
+    double base;
+
+    if (yAxisIsLog())
+    {
+        base = 1.0;
+        maxValue = std::pow(maxValue, 1.2);
+    }
+    else
+    {
+        base = 0.0;
+        maxValue = maxValue * 1.2;
+    }
+
     // This sets a fixed y axis scale effectively overriding any changes made
-    // by the scrollzoomer. Makes the y-axis start at 1.0 for logarithmic scales.
-    double base = yAxisIsLog() ? 1.0 : 0.0l;
+    // by the scrollzoomer.
     ui->plot->setAxisScale(QwtPlot::yLeft, base, maxValue);
 
     // xAxis
@@ -340,27 +453,29 @@ void Histo1DWidget::replot()
 
 
     // rate and efficiency estimation
-    if (m_rateEstimationData.visible)
+    if (m_d->m_rateEstimationData.visible)
     {
-        double x1 = m_rateEstimationData.x1;
-        double x2 = m_rateEstimationData.x2;
+        /* This code tries to interpolate the exponential function formed by
+         * the two selected data points. */
+        double x1 = m_d->m_rateEstimationData.x1;
+        double x2 = m_d->m_rateEstimationData.x2;
         double y1 = m_histo->getValue(x1);
         double y2 = m_histo->getValue(x2);
 
-        //if (y2 != 0 && (y1 / y2 > 0.0))
         double tau = (x2 - x1) / log(y1 / y2);
         double e = exp(1.0);
         double c = pow(e, x1 / tau) * y1;
-        c = c / m_histo->getBinWidth(); // norm to x-axis scale
+        double c_norm = c / m_histo->getBinWidth(); // norm to x-axis scale
         double freeRate = 1.0 / tau; // 1/x-axis unit
-        double freeCounts = c * tau * (1 - pow(e, -(x2 / tau))); // for interval 0..x2
+        double freeCounts = c_norm * tau * (1 - pow(e, -(x2 / tau))); // for interval 0..x2
         double histoCounts = m_histo->calcStatistics(0.0, x2).entryCount;
         double efficiency  = histoCounts / freeCounts;
 
+#if 0
         infoText += QString("\n"
                             "(x1, y1)=(%1, %2)\n"
                             "(x2, y2)=(%3, %4)\n"
-                            "tau=%5, c=%6\n"
+                            "tau=%5, c=%6, c_norm=%11\n"
                             "FR=%7, FC=%8, HC=%9\n"
                             "efficiency=%10")
             .arg(x1)
@@ -373,7 +488,47 @@ void Histo1DWidget::replot()
             .arg(freeCounts)
             .arg(histoCounts)
             .arg(efficiency)
+            .arg(c_norm)
             ;
+#endif
+
+        QString markerText;
+
+        if (!std::isnan(c) && !std::isnan(tau) && !std::isnan(efficiency))
+        {
+            markerText = QString(QSL("freeRate=%1 <sup>1</sup>&frasl;<sub>%2</sub>; eff=%3")
+                                 .arg(freeRate, 0, 'g', 4)
+                                 .arg(m_histo->getAxisInfo(Qt::XAxis).unit)
+                                 .arg(efficiency, 0, 'g', 4)
+                                );
+        }
+        else
+        {
+            markerText = QSL("");
+        }
+
+        QwtText rateFormulaText(markerText, QwtText::RichText);
+        auto font = rateFormulaText.font();
+        font.setPointSize(font.pointSize() + 1);
+        rateFormulaText.setFont(font);
+        m_d->m_rateFormulaMarker->setXValue(x1);
+
+        /* The goal is to draw the marker at 0.9 of the plot height. Doing this
+         * in plot coordinates does work for a linear y-axis scale but
+         * positions the text way too high for a logarithmic scale. Instead of
+         * using plot coordinates directly we're using 0.9 of the canvas height
+         * and transform that pixel coordinate to a plot coordinate.
+         */
+        s32 canvasHeight = ui->plot->canvas()->height();
+        s32 pixelY = canvasHeight - canvasHeight * 0.9;
+        double plotY = ui->plot->canvasMap(QwtPlot::yLeft).invTransform(pixelY);
+        double plotYOriginal = ui->plot->axisScaleDiv(QwtPlot::yLeft).upperBound() * 0.9;
+
+        //qDebug() << pixelY << plotY << plotYOriginal;
+
+        m_d->m_rateFormulaMarker->setYValue(plotY);
+        m_d->m_rateFormulaMarker->setLabel(rateFormulaText);
+        m_d->m_rateFormulaMarker->show();
     }
 
     ui->label_histoInfo->setText(infoText);
@@ -384,6 +539,16 @@ void Histo1DWidget::replot()
 
     auto axisInfo = m_histo->getAxisInfo(Qt::XAxis);
     ui->plot->axisWidget(QwtPlot::xBottom)->setTitle(make_title_string(axisInfo));
+
+
+#if 0
+    // prints item pointers and their z value
+    for (auto item: ui->plot->itemList())
+    {
+        qDebug() << __PRETTY_FUNCTION__ << item << item->z();
+    }
+#endif
+
 
     ui->plot->replot();
 }
@@ -652,7 +817,7 @@ void Histo1DWidget::calibApply()
     m_calib->setCalibration(address, targetMin, targetMax);
     analysis::do_beginRun_forward(m_calib.get());
 
-    on_tb_rate_toggled(m_rateEstimationData.visible);
+    on_tb_rate_toggled(m_d->m_rateEstimationData.visible);
 }
 
 void Histo1DWidget::calibResetToFilter()
@@ -706,20 +871,24 @@ void Histo1DWidget::on_tb_rate_toggled(bool checked)
 {
     if (checked)
     {
-        m_rateEstimationData.visible = true;
-        m_rateEstimationData.x1 = ui->plot->axisScaleDiv(QwtPlot::xBottom).lowerBound();
-        m_rateEstimationData.x2 = ui->plot->axisScaleDiv(QwtPlot::xBottom).upperBound();
+        m_d->m_rateEstimationData = RateEstimationData();
+        m_d->m_ratePointPicker->setEnabled(true);
+        m_zoomer->setEnabled(false);
     }
     else
     {
-        m_rateEstimationData.visible = false;
+        m_d->m_rateEstimationData.visible = false;
+        m_d->m_ratePointPicker->setEnabled(false);
+        m_zoomer->setEnabled(true);
+        m_d->m_rateX1Marker->hide();
+        m_d->m_rateX2Marker->hide();
+        m_d->m_rateFormulaMarker->hide();
+        replot();
     }
 }
 
 void Histo1DWidget::on_tb_test_clicked()
 {
-    m_zoomer->setEnabled(!m_zoomer->isEnabled());
-    m_testPicker->setEnabled(!m_testPicker->isEnabled());
 }
 
 //

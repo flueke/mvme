@@ -26,6 +26,8 @@ namespace analysis
     class Histo1DSink;
 }
 
+class Histo1DWidgetPrivate;
+
 class Histo1DWidget: public QWidget
 {
     Q_OBJECT
@@ -72,6 +74,7 @@ class Histo1DWidget: public QWidget
         void calibResetToFilter();
 
         Ui::Histo1DWidget *ui;
+        Histo1DWidgetPrivate *m_d;
 
         Histo1D *m_histo;
         Histo1DPtr m_histoPtr;
@@ -93,15 +96,6 @@ class Histo1DWidget: public QWidget
         SinkPtr m_sink;
         HistoSinkCallback m_sinkModifiedCallback;
 
-        struct RateEstimationData
-        {
-            bool visible;
-            double x1;
-            double x2;
-        };
-
-        RateEstimationData m_rateEstimationData;
-        QwtPlotPicker *m_testPicker;
 };
 
 class Histo1DListWidget: public QWidget
