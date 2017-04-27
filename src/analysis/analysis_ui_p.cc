@@ -646,7 +646,7 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
         spin_unitMax->setDecimals(8);
         spin_unitMax->setMinimum(-1e20);
         spin_unitMax->setMaximum(+1e20);
-        spin_unitMax->setValue(spin_unitMin->minimum());
+        spin_unitMax->setValue(spin_unitMax->minimum());
         spin_unitMax->setSpecialValueText(QSL("not set"));
 
         formLayout->addRow(QSL("Unit Label"), le_unit);
