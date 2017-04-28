@@ -500,6 +500,11 @@ class CalibrationMinMax: public BasicOperator
     private:
         QVector<CalibrationMinMaxParameters> m_calibrations;
         QString m_unit;
+
+        // Obsolete but kept to be able to load old analysis files. Only read
+        // from files, never written.
+        double m_oldGlobalUnitMin = make_quiet_nan();
+        double m_oldGlobalUnitMax = make_quiet_nan();
 };
 
 class IndexSelector: public BasicOperator

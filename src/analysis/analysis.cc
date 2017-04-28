@@ -388,6 +388,16 @@ void CalibrationMinMax::beginRun()
         {
             const Parameter &inParam(in[idx]);
             Parameter &outParam(out[outIdx++]);
+
+            // Hack to make things compatible with old configs. This forces
+            // expanding the calibrations array if it is too small. This
+            // way it will be written to file the next time the config is
+            // saved.
+            if (idx >= m_calibrations.size())
+            {
+                setCalibration(idx, {m_oldGlobalUnitMin, m_oldGlobalUnitMax});
+            }
+
             auto calib = getCalibration(idx);
 
             outParam.lowerLimit = calib.unitMin;
@@ -472,7 +482,12 @@ void CalibrationMinMax::setCalibration(s32 address, const CalibrationMinMaxParam
 
 CalibrationMinMaxParameters CalibrationMinMax::getCalibration(s32 address) const
 {
-    return m_calibrations.value(address);
+    if (address < m_calibrations.size())
+        return m_calibrations.at(address);
+
+    // Support loading of legacy configs which had a calibrations array of zero
+    // length but the global values set in case of inputs with size 1.
+    return { m_oldGlobalUnitMin, m_oldGlobalUnitMax };
 }
 
 void CalibrationMinMax::read(const QJsonObject &json)
@@ -481,8 +496,8 @@ void CalibrationMinMax::read(const QJsonObject &json)
 
     // Read the old global calbration and use it if an element of the
     // calibration array is invalid.
-    double globalUnitMin = json["globalUnitMin"].toDouble(make_quiet_nan());
-    double globalUnitMax = json["globalUnitMax"].toDouble(make_quiet_nan());
+    m_oldGlobalUnitMin = json["globalUnitMin"].toDouble(make_quiet_nan());
+    m_oldGlobalUnitMax = json["globalUnitMax"].toDouble(make_quiet_nan());
 
     m_calibrations.clear();
     QJsonArray calibArray = json["calibrations"].toArray();
@@ -500,8 +515,8 @@ void CalibrationMinMax::read(const QJsonObject &json)
 
         if (!param.isValid())
         {
-            param.unitMin = globalUnitMin;
-            param.unitMax = globalUnitMax;
+            param.unitMin = m_oldGlobalUnitMin;
+            param.unitMax = m_oldGlobalUnitMax;
         }
 
         m_calibrations.push_back(param);
