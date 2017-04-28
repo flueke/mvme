@@ -1190,6 +1190,254 @@ QString ArrayMap::getShortName() const
 }
 
 //
+// RangeFilter1D
+//
+RangeFilter1D::RangeFilter1D(QObject *parent)
+    : BasicOperator(parent)
+{
+    m_inputSlot.acceptedInputTypes = InputType::Both;
+}
+
+        //// both are inclusive
+        //double m_minValue = make_quiet_nan();
+        //double m_maxValue = make_quiet_nan();
+        //bool m_keepOutside = false;
+
+void RangeFilter1D::beginRun()
+{
+    auto &out(m_output.getParameters());
+
+    out.name = objectName();
+
+    if (m_inputSlot.inputPipe)
+    {
+        const auto &in(m_inputSlot.inputPipe->getParameters());
+
+        s32 idxMin = 0;
+        s32 idxMax = in.size();
+
+        if (m_inputSlot.paramIndex != Slot::NoParamIndex)
+        {
+            out.resize(1);
+            idxMin = m_inputSlot.paramIndex;
+            idxMax = idxMin + 1;
+        }
+        else
+        {
+            out.resize(in.size());
+        }
+
+        for (s32 idx = idxMin, outIdx = 0;
+             idx < idxMax;
+             ++idx, ++outIdx)
+        {
+            auto &outParam(out[outIdx]);
+            const auto &inParam(in[idx]);
+
+            if (!m_keepOutside)
+            {
+                outParam.lowerLimit = m_minValue;
+                outParam.upperLimit = m_maxValue;
+            }
+            else
+            {
+                outParam.lowerLimit = inParam.lowerLimit;
+                outParam.upperLimit = inParam.upperLimit;
+            }
+        }
+
+        out.unit = in.unit;
+    }
+    else
+    {
+        out.resize(0);
+    }
+
+    out.invalidateAll();
+}
+
+void RangeFilter1D::step()
+{
+    if (m_inputSlot.inputPipe)
+    {
+        auto &out(m_output.getParameters());
+        const auto &in(m_inputSlot.inputPipe->getParameters());
+
+        s32 idxMin = 0;
+        s32 idxMax = in.size();
+
+        if (m_inputSlot.paramIndex != Slot::NoParamIndex)
+        {
+            Q_ASSERT(out.size() == 1);
+            idxMin = m_inputSlot.paramIndex;
+            idxMax = idxMin + 1;
+        }
+        else
+        {
+            Q_ASSERT(out.size() == in.size());
+        }
+
+        for (s32 idx = idxMin, outIdx = 0;
+             idx < idxMax;
+             ++idx, ++outIdx)
+        {
+            auto &outParam(out[outIdx]);
+            const auto &inParam(in[idx]);
+
+            outParam.valid = false;
+
+            if (inParam.valid)
+            {
+                bool inRange = (m_minValue <= inParam.value && inParam.value <= m_maxValue);
+
+                if ((inRange && !m_keepOutside)
+                    || (!inRange && m_keepOutside))
+                {
+                    // Only assigning value instead of the whole parameter
+                    // because the limits have been adjusted in beginRun()
+                    outParam.valid = true;
+                    outParam.value = inParam.value;
+                }
+            }
+        }
+    }
+}
+
+void RangeFilter1D::read(const QJsonObject &json)
+{
+    m_minValue = json["minValue"].toDouble();
+    m_maxValue = json["maxValue"].toDouble();
+    m_keepOutside = json["keepOutside"].toBool();
+}
+
+void RangeFilter1D::write(QJsonObject &json) const
+{
+    json["minValue"] = m_minValue;
+    json["maxValue"] = m_maxValue;
+    json["keepOutside"] = m_keepOutside;
+}
+
+//
+// ConditionFilter
+//
+ConditionFilter::ConditionFilter(QObject *parent)
+    : OperatorInterface(parent)
+    , m_dataInput(this, 0, QSL("Data"))
+    , m_conditionInput(this, 1, QSL("Condition"))
+{
+    m_output.setSource(this);
+    m_dataInput.acceptedInputTypes = InputType::Array;
+    m_conditionInput.acceptedInputTypes = InputType::Array;
+}
+
+void ConditionFilter::beginRun()
+{
+    auto &out(m_output.getParameters());
+
+    if (m_dataInput.isConnected())
+    {
+        const auto &in(m_dataInput.inputPipe->getParameters());
+        out.resize(in.size());
+
+        const s32 idxMax = out.size();
+
+        for (s32 idx = 0;
+             idx < idxMax;
+             ++idx)
+        {
+            auto &outParam(out[idx]);
+            const auto &inParam(in[idx]);
+
+            outParam.lowerLimit = inParam.lowerLimit;
+            outParam.upperLimit = inParam.upperLimit;
+        }
+    }
+    else
+    {
+        out.resize(0);
+    }
+
+    out.invalidateAll();
+}
+
+void ConditionFilter::step()
+{
+    if (m_dataInput.isConnected() && m_conditionInput.isConnected())
+    {
+        auto &out(m_output.getParameters());
+        const auto &dataIn(m_dataInput.inputPipe->getParameters());
+        const auto &condIn(m_conditionInput.inputPipe->getParameters());
+
+        Q_ASSERT(out.size() == dataIn.size());
+
+        const s32 idxMax = out.size();
+
+        for (s32 idx = 0;
+             idx < idxMax;
+             ++idx)
+        {
+            auto &outParam(out[idx]);
+            const auto &dataInParam(dataIn[idx]);
+            const auto condInParam(condIn.value(idx)); // idx may be out of range for m_conditionInput
+
+            if (condInParam.valid)
+            {
+                outParam.valid = dataInParam.valid;
+                outParam.value = dataInParam.value;
+            }
+            else
+            {
+                outParam.valid = false;
+            }
+        }
+    }
+}
+
+
+// Inputs
+s32 ConditionFilter::getNumberOfSlots() const
+{
+    return 2;
+}
+
+Slot *ConditionFilter::getSlot(s32 slotIndex)
+{
+    if (slotIndex == 0)
+    {
+        return &m_dataInput;
+    }
+    else if (slotIndex == 1)
+    {
+        return &m_conditionInput;
+    }
+
+    return nullptr;
+}
+
+s32 ConditionFilter::getNumberOfOutputs() const
+{
+    return 1;
+}
+
+QString ConditionFilter::getOutputName(s32 outputIndex) const
+{
+    return QSL("Output");
+}
+
+Pipe *ConditionFilter::getOutput(s32 index)
+{
+    return &m_output;
+}
+
+void ConditionFilter::read(const QJsonObject &json)
+{
+}
+
+void ConditionFilter::write(QJsonObject &json) const
+{
+}
+
+//
 // Histo1DSink
 //
 Histo1DSink::Histo1DSink(QObject *parent)
@@ -1476,6 +1724,8 @@ Analysis::Analysis(QObject *parent)
     m_registry.registerOperator<Difference>();
     m_registry.registerOperator<Sum>();
     m_registry.registerOperator<ArrayMap>();
+    m_registry.registerOperator<RangeFilter1D>();
+    m_registry.registerOperator<ConditionFilter>();
 
 
     m_registry.registerSink<Histo1DSink>();

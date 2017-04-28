@@ -6,6 +6,7 @@
 #include "../mvme_context.h"
 
 #include <limits>
+#include <QButtonGroup>
 #include <QFormLayout>
 #include <QGridLayout>
 #include <QGroupBox>
@@ -802,6 +803,57 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
         m_arrayMappings = arrayMap->m_mappings;
         repopulate_arrayMap_tables(arrayMap, m_arrayMappings, tw_input, tw_output);
     }
+    else if (auto rangeFilter = qobject_cast<RangeFilter1D *>(op))
+    {
+        spin_minValue = new QDoubleSpinBox(this);
+        spin_minValue->setDecimals(8);
+        spin_minValue->setMinimum(-1e20);
+        spin_minValue->setMaximum(+1e20);
+        spin_minValue->setValue(spin_minValue->minimum());
+        spin_minValue->setSpecialValueText(QSL("not set"));
+
+        spin_maxValue = new QDoubleSpinBox(this);
+        spin_maxValue->setDecimals(8);
+        spin_maxValue->setMinimum(-1e20);
+        spin_maxValue->setMaximum(+1e20);
+        spin_maxValue->setValue(spin_maxValue->minimum());
+        spin_maxValue->setSpecialValueText(QSL("not set"));
+
+        rb_keepInside = new QRadioButton(QSL("Keep if inside range"), this);
+        rb_keepOutside = new QRadioButton(QSL("Keep if outside range"), this);
+
+        auto buttonGroup = new QButtonGroup(this);
+        buttonGroup->addButton(rb_keepInside);
+        buttonGroup->addButton(rb_keepOutside);
+
+        auto radioLayout = new QHBoxLayout;
+        radioLayout->setContentsMargins(0, 0, 0, 0);
+        radioLayout->addWidget(rb_keepInside);
+        radioLayout->addWidget(rb_keepOutside);
+
+        formLayout->addRow(QSL("Min Value"), spin_minValue);
+        formLayout->addRow(QSL("Max Value"), spin_maxValue);
+        formLayout->addRow(radioLayout);
+
+        if (!std::isnan(rangeFilter->m_minValue))
+        {
+            spin_minValue->setValue(rangeFilter->m_minValue);
+        }
+
+        if (!std::isnan(rangeFilter->m_maxValue))
+        {
+            spin_maxValue->setValue(rangeFilter->m_maxValue);
+        }
+
+        if (rangeFilter->m_keepOutside)
+        {
+            rb_keepOutside->setChecked(true);
+        }
+        else
+        {
+            rb_keepInside->setChecked(true);
+        }
+    }
 }
 
 #if 0
@@ -848,6 +900,7 @@ bool OperatorConfigurationWidget::validateInputs()
 }
 #endif
 
+// NOTE: This will be called after construction for each slot by AddEditOperatorWidget::repopulateSlotGrid()!
 void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
 {
     OperatorInterface *op = m_op;
@@ -886,6 +939,15 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
                 QString nameA = makeSlotSourceString(&difference->m_inputA);
                 QString nameB = makeSlotSourceString(&difference->m_inputB);
                 le_name->setText(QString("%1 - %2").arg(nameA).arg(nameB));
+            }
+        }
+        else if (auto condFilter = qobject_cast<ConditionFilter *> (op))
+        {
+            if (condFilter->m_dataInput.isConnected() && condFilter->m_conditionInput.isConnected())
+            {
+                QString dataName = makeSlotSourceString(&condFilter->m_dataInput);
+                QString condName = makeSlotSourceString(&condFilter->m_conditionInput);
+                le_name->setText(QString("%1_if_%2").arg(dataName).arg(condName));
             }
         }
     }
@@ -999,6 +1061,41 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
     else if (auto arrayMap = qobject_cast<ArrayMap *>(op))
     {
         repopulate_arrayMap_tables(arrayMap, m_arrayMappings, tw_input, tw_output);
+    }
+    else if (auto rangeFilter = qobject_cast<RangeFilter1D *>(op))
+    {
+        Q_ASSERT(slot);
+
+        if (slot->isConnected())
+        {
+            // use the first parameters min and max values to fill the spinboxes
+            s32 paramIndex = (slot->paramIndex == Slot::NoParamIndex ? 0 : slot->paramIndex);
+            Parameter *param = slot->inputPipe->getParameter(paramIndex);
+
+            if (spin_minValue->value() == spin_minValue->minimum())
+            {
+                if (param)
+                {
+                    spin_minValue->setValue(param->lowerLimit);
+                }
+                else
+                {
+                    spin_minValue->setValue(0.0);
+                }
+            }
+
+            if (spin_maxValue->value() == spin_maxValue->minimum())
+            {
+                if (param)
+                {
+                    spin_maxValue->setValue(param->upperLimit);
+                }
+                else
+                {
+                    spin_maxValue->setValue(0.0);
+                }
+            }
+        }
     }
 }
 
@@ -1116,6 +1213,12 @@ void OperatorConfigurationWidget::configureOperator()
     else if (auto arrayMap = qobject_cast<ArrayMap *>(op))
     {
         arrayMap->m_mappings = m_arrayMappings;
+    }
+    else if (auto rangeFilter = qobject_cast<RangeFilter1D *>(op))
+    {
+        rangeFilter->m_minValue = spin_minValue->value();
+        rangeFilter->m_maxValue = spin_maxValue->value();
+        rangeFilter->m_keepOutside = rb_keepOutside->isChecked();
     }
 }
 

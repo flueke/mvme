@@ -685,6 +685,74 @@ class ArrayMap: public OperatorInterface
         Pipe m_output;
 };
 
+/**
+ * Filters parameters based on a numeric inclusive range.
+ *
+ * Input parameters that do not fall inside the range are marked as invalid in
+ * the output pipe. Other parameters are passed through as is.
+ * If keepOutside is set, parameters that are outside the range will be kept,
+ * others will be passed through.
+ */
+class RangeFilter1D: public BasicOperator
+{
+    Q_OBJECT
+    public:
+        RangeFilter1D(QObject *parent = 0);
+
+        // both are inclusive
+        double m_minValue = make_quiet_nan();
+        double m_maxValue = make_quiet_nan();
+        bool m_keepOutside = false;
+
+        virtual void beginRun() override;
+        virtual void step() override;
+
+        virtual void read(const QJsonObject &json) override;
+        virtual void write(QJsonObject &json) const override;
+
+        virtual QString getDisplayName() const override { return QSL("1D Range Filter"); }
+        virtual QString getShortName() const override { return QSL("Range1D"); }
+};
+
+/**
+ * Data filtering based on a condition input.
+ *
+ * An operator with two inputs: a data and a condition input.
+ *
+ * Data is only copied to the output if the corresponding condition input
+ * parameter is valid.
+ */
+class ConditionFilter: public OperatorInterface
+{
+    Q_OBJECT
+    public:
+        ConditionFilter(QObject *parent = 0);
+
+        virtual void beginRun() override;
+        virtual void step() override;
+
+        // Inputs
+        virtual s32 getNumberOfSlots() const override;
+        virtual Slot *getSlot(s32 slotIndex) override;
+
+        // Outputs
+        virtual s32 getNumberOfOutputs() const override;
+        virtual QString getOutputName(s32 outputIndex) const override;
+        virtual Pipe *getOutput(s32 index) override;
+
+        // Serialization
+        virtual void read(const QJsonObject &json) override;
+        virtual void write(QJsonObject &json) const override;
+
+        // Info
+        virtual QString getDisplayName() const override { return QSL("Condition Filter"); }
+        virtual QString getShortName() const override { return QSL("CondFilt"); }
+
+        Slot m_dataInput;
+        Slot m_conditionInput;
+        Pipe m_output;
+};
+
 //
 // Sinks
 //

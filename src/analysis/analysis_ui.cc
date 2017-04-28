@@ -942,6 +942,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                 auto analysis = m_context->getAnalysisNG();
                 auto &registry(analysis->getRegistry());
 
+                // TODO: sort by displayname and then add
                 for (auto operatorName: registry.getOperatorNames())
                 {
                     OperatorPtr op(registry.makeOperator(operatorName));

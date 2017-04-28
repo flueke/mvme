@@ -15,6 +15,7 @@
 #include <QGroupBox>
 #include <QLineEdit>
 #include <QPushButton>
+#include <QRadioButton>
 #include <QSpinBox>
 #include <QStyledItemDelegate>
 #include <QTableWidget>
@@ -180,6 +181,12 @@ class OperatorConfigurationWidget: public QWidget
         QVector<ArrayMap::IndexPair> m_arrayMappings;
         QTableWidget *tw_input = nullptr;
         QTableWidget *tw_output = nullptr;
+
+        // RangeFilter1D
+        QDoubleSpinBox *spin_minValue;
+        QDoubleSpinBox *spin_maxValue;
+        QRadioButton *rb_keepInside;
+        QRadioButton *rb_keepOutside;
 };
 
 class PipeDisplay: public QWidget
