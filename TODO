@@ -2,7 +2,10 @@
 ==== Do these first! =====
 ==========================
 
-* DAQConfig bug: Global Scripts DAQ Start, DAQ Stop and Manual should have a folder-like icon.
+* Bug: H1D does not work when unitMin > unitMax
+* Bug: H1D Print to File is broken. Also check save to file.
+
+* DAQConfig enh: Global Scripts DAQ Start, DAQ Stop and Manual should have a folder-like icon.
 * DAQConfig: most templates are important as without them the readout does not
   work at all (mcast, start, stop, reset). Display a clear message if any of
   the required templates is missing.

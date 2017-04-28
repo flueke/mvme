@@ -615,13 +615,15 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
                                        std::numeric_limits<double>::lowest(), std::numeric_limits<double>::max(),
                                        histoSink->m_xLimitMin, histoSink->m_xLimitMax, histoSink->hasActiveLimits(Qt::XAxis));
 
-        connect(limits_x.rb_limited, &QAbstractButton::toggled, this, [this] (bool) { this->validateInputs(); });
+        // FIXME: input validation
+        //connect(limits_x.rb_limited, &QAbstractButton::toggled, this, [this] (bool) { this->validateInputs(); });
 
         limits_y = make_axis_limits_ui(QSL("Y Limits"),
                                        std::numeric_limits<double>::lowest(), std::numeric_limits<double>::max(),
                                        histoSink->m_yLimitMin, histoSink->m_yLimitMax, histoSink->hasActiveLimits(Qt::YAxis));
 
-        connect(limits_y.rb_limited, &QAbstractButton::toggled, this, [this] (bool) { this->validateInputs(); });
+        // FIXME: input validation
+        //connect(limits_y.rb_limited, &QAbstractButton::toggled, this, [this] (bool) { this->validateInputs(); });
 
         limits_x.outerFrame->setFrameStyle(QFrame::StyledPanel | QFrame::Sunken);
         limits_y.outerFrame->setFrameStyle(QFrame::StyledPanel | QFrame::Sunken);
@@ -653,12 +655,17 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
         formLayout->addRow(QSL("Unit Min"), spin_unitMin);
         formLayout->addRow(QSL("Unit Max"), spin_unitMax);
 
-
-        auto globalParams = calibration->getGlobalCalibration();
-        if (globalParams.isValid())
+        // Find first valid min/max pair and use it to fill the spinboxes.
+        for (const auto &params: calibration->getCalibrations())
         {
-            spin_unitMin->setValue(globalParams.unitMin);
-            spin_unitMax->setValue(globalParams.unitMax);
+            if (params.isValid())
+            {
+                qDebug() << __PRETTY_FUNCTION__ << calibration->objectName()
+                    << "setting spinbox values:" << params.unitMin << params.unitMax;
+                spin_unitMin->setValue(params.unitMin);
+                spin_unitMax->setValue(params.unitMax);
+                break;
+            }
         }
 
         m_calibrationTable = new QTableWidget;
@@ -670,6 +677,7 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
             double unitMin = spin_unitMin->value();
             double unitMax = spin_unitMax->value();
 
+            // Write spinbox values into the table
             for (s32 row = 0;
                  row < m_calibrationTable->rowCount();
                  ++row)
@@ -699,6 +707,7 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
         m_calibrationTable->setHorizontalHeaderLabels({"Address", "Min", "Max"});
         m_calibrationTable->verticalHeader()->setVisible(false);
 
+        // Populates the calibration table
         inputSelected(0);
 
         widgetLayout->addWidget(m_calibrationTable);
@@ -795,6 +804,7 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
     }
 }
 
+#if 0
 // FIXME: right now this is not actually called by AddEditOperatorWidget...
 bool OperatorConfigurationWidget::validateInputs()
 {
@@ -836,106 +846,7 @@ bool OperatorConfigurationWidget::validateInputs()
 
     return false;
 }
-
-void OperatorConfigurationWidget::configureOperator()
-{
-    OperatorInterface *op = m_op;
-
-    for (s32 slotIndex = 0; slotIndex < m_op->getNumberOfSlots(); ++slotIndex)
-    {
-        Q_ASSERT(op->getSlot(slotIndex)->isConnected());
-    }
-
-    op->setObjectName(le_name->text());
-
-    if (auto histoSink = qobject_cast<Histo1DSink *>(op))
-    {
-        histoSink->m_xAxisTitle = le_xAxisTitle->text();
-
-        s32 bins = combo_xBins->currentData().toInt();
-        histoSink->m_bins = bins;
-        // Actually updating the histograms is done in Histo1DSink::beginRun();
-    }
-    else if (auto histoSink = qobject_cast<Histo2DSink *>(op))
-    {
-        histoSink->m_xAxisTitle = le_xAxisTitle->text();
-        histoSink->m_yAxisTitle = le_yAxisTitle->text();
-
-        s32 xBins = combo_xBins->currentData().toInt();
-        s32 yBins = combo_yBins->currentData().toInt();
-
-        histoSink->m_xBins = xBins;
-        histoSink->m_yBins = yBins;
-
-        if (limits_x.rb_limited->isChecked())
-        {
-            histoSink->m_xLimitMin = limits_x.spin_min->value();
-            histoSink->m_xLimitMax = limits_x.spin_max->value();
-        }
-        else
-        {
-            histoSink->m_xLimitMin = make_quiet_nan();
-            histoSink->m_xLimitMax = make_quiet_nan();
-        }
-
-        if (limits_y.rb_limited->isChecked())
-        {
-            histoSink->m_yLimitMin = limits_y.spin_min->value();
-            histoSink->m_yLimitMax = limits_y.spin_max->value();
-        }
-        else
-        {
-            histoSink->m_yLimitMin = make_quiet_nan();
-            histoSink->m_yLimitMax = make_quiet_nan();
-        }
-
-        // Same as for Histo1DSink: the histogram is created or updated in Histo2DSink::beginRun()
-    }
-    else if (auto calibration = qobject_cast<CalibrationMinMax *>(op))
-    {
-        double unitMin = spin_unitMin->value();
-        double unitMax = spin_unitMax->value();
-
-        if (unitMin == spin_unitMin->minimum())
-            unitMin = make_quiet_nan();
-
-        if (unitMax == spin_unitMax->minimum())
-            unitMax = make_quiet_nan();
-
-        calibration->setGlobalCalibration(unitMin, unitMax);
-        calibration->setUnitLabel(le_unit->text());
-
-        for (s32 addr = 0; addr < op->getSlot(0)->inputPipe->parameters.size(); ++addr)
-        {
-            unitMin = unitMax = make_quiet_nan();
-
-            if (auto item = m_calibrationTable->item(addr, 1))
-                unitMin = item->data(Qt::EditRole).toDouble();
-
-            if (auto item = m_calibrationTable->item(addr, 2))
-                unitMax = item->data(Qt::EditRole).toDouble();
-
-            calibration->setCalibration(addr, unitMin, unitMax);
-        }
-    }
-    else if (auto selector = qobject_cast<IndexSelector *>(op))
-    {
-        s32 index = spin_index->value();
-        selector->setIndex(index);
-    }
-    else if (auto previous = qobject_cast<PreviousValue *>(op))
-    {
-        previous->m_keepValid = cb_keepValid->isChecked();
-    }
-    else if (auto sum = qobject_cast<Sum *>(op))
-    {
-        sum->m_calculateMean = cb_isMean->isChecked();
-    }
-    else if (auto arrayMap = qobject_cast<ArrayMap *>(op))
-    {
-        arrayMap->m_mappings = m_arrayMappings;
-    }
-}
+#endif
 
 void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
 {
@@ -1007,23 +918,33 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
 
         if (slot->isConnected())
         {
-            if (!calibration->getGlobalCalibration().isValid())
-            {
-                Parameter *firstParam = slot->inputPipe->first();
-                if (slot->paramIndex != Slot::NoParamIndex)
-                {
-                    firstParam = slot->inputPipe->getParameter(slot->paramIndex);
-                }
-
-                if (firstParam)
-                {
-                    spin_unitMin->setValue(firstParam->lowerLimit);
-                    spin_unitMax->setValue(firstParam->upperLimit);
-                }
-            }
+            // If connected to array:
+            //   use first calibration values for spinbox
+            //   if those are not valid use first input param values for spinbox
+            // if connected to param:
+            //   use calibration for param for spinbox
+            //   if that is not valid use input param values for spinbox
+            // if nothing is valid keep spinbox values
 
             double proposedMin = spin_unitMin->value();
             double proposedMax = spin_unitMax->value();
+
+            s32 paramIndex = (slot->paramIndex == Slot::NoParamIndex ? 0 : slot->paramIndex);
+            auto params = calibration->getCalibration(paramIndex);
+
+            if (params.isValid())
+            {
+                proposedMin = params.unitMin;
+                proposedMax = params.unitMax;
+            }
+            else if (auto inParam = slot->inputPipe->getParameter(paramIndex))
+            {
+                proposedMin = inParam->lowerLimit;
+                proposedMax = inParam->upperLimit;
+            }
+
+            spin_unitMin->setValue(proposedMin);
+            spin_unitMax->setValue(proposedMax);
 
             if (slot->paramIndex == Slot::NoParamIndex)
             {
@@ -1039,6 +960,7 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
         }
         else
         {
+            // Not connected -> Make spinboxes show "Not Set" and hide table and button
             spin_unitMin->setValue(spin_unitMin->minimum());
             spin_unitMax->setValue(spin_unitMax->minimum());
             m_calibrationTable->setVisible(false);
@@ -1080,10 +1002,126 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
     }
 }
 
+void OperatorConfigurationWidget::configureOperator()
+{
+    OperatorInterface *op = m_op;
+
+    for (s32 slotIndex = 0; slotIndex < m_op->getNumberOfSlots(); ++slotIndex)
+    {
+        Q_ASSERT(op->getSlot(slotIndex)->isConnected());
+    }
+
+    op->setObjectName(le_name->text());
+
+    if (auto histoSink = qobject_cast<Histo1DSink *>(op))
+    {
+        histoSink->m_xAxisTitle = le_xAxisTitle->text();
+
+        s32 bins = combo_xBins->currentData().toInt();
+        histoSink->m_bins = bins;
+        // Actually updating the histograms is done in Histo1DSink::beginRun();
+    }
+    else if (auto histoSink = qobject_cast<Histo2DSink *>(op))
+    {
+        histoSink->m_xAxisTitle = le_xAxisTitle->text();
+        histoSink->m_yAxisTitle = le_yAxisTitle->text();
+
+        s32 xBins = combo_xBins->currentData().toInt();
+        s32 yBins = combo_yBins->currentData().toInt();
+
+        histoSink->m_xBins = xBins;
+        histoSink->m_yBins = yBins;
+
+        if (limits_x.rb_limited->isChecked())
+        {
+            histoSink->m_xLimitMin = limits_x.spin_min->value();
+            histoSink->m_xLimitMax = limits_x.spin_max->value();
+        }
+        else
+        {
+            histoSink->m_xLimitMin = make_quiet_nan();
+            histoSink->m_xLimitMax = make_quiet_nan();
+        }
+
+        if (limits_y.rb_limited->isChecked())
+        {
+            histoSink->m_yLimitMin = limits_y.spin_min->value();
+            histoSink->m_yLimitMax = limits_y.spin_max->value();
+        }
+        else
+        {
+            histoSink->m_yLimitMin = make_quiet_nan();
+            histoSink->m_yLimitMax = make_quiet_nan();
+        }
+
+        // Same as for Histo1DSink: the histogram is created or updated in Histo2DSink::beginRun()
+    }
+    else if (auto calibration = qobject_cast<CalibrationMinMax *>(op))
+    {
+        calibration->setUnitLabel(le_unit->text());
+
+        double unitMin = spin_unitMin->value();
+        double unitMax = spin_unitMax->value();
+
+        if (unitMin == spin_unitMin->minimum())
+            unitMin = make_quiet_nan();
+
+        if (unitMax == spin_unitMax->minimum())
+            unitMax = make_quiet_nan();
+
+
+        for (s32 addr = 0; addr < op->getSlot(0)->inputPipe->parameters.size(); ++addr)
+        {
+            if (op->getSlot(0)->paramIndex != Slot::NoParamIndex)
+            {
+                // Connected to specific address -> use spinbox values for that address
+                if (op->getSlot(0)->paramIndex == addr)
+                {
+                    calibration->setCalibration(addr, unitMin, unitMax);
+                }
+                else
+                {
+                    // Set invalid params for other addresses
+                    calibration->setCalibration(addr, CalibrationMinMaxParameters());
+                }
+            }
+            else
+            {
+                // Connected to an array -> use table values
+                unitMin = unitMax = make_quiet_nan();
+
+                if (auto item = m_calibrationTable->item(addr, 1))
+                    unitMin = item->data(Qt::EditRole).toDouble();
+
+                if (auto item = m_calibrationTable->item(addr, 2))
+                    unitMax = item->data(Qt::EditRole).toDouble();
+
+                calibration->setCalibration(addr, unitMin, unitMax);
+            }
+        }
+    }
+    else if (auto selector = qobject_cast<IndexSelector *>(op))
+    {
+        s32 index = spin_index->value();
+        selector->setIndex(index);
+    }
+    else if (auto previous = qobject_cast<PreviousValue *>(op))
+    {
+        previous->m_keepValid = cb_keepValid->isChecked();
+    }
+    else if (auto sum = qobject_cast<Sum *>(op))
+    {
+        sum->m_calculateMean = cb_isMean->isChecked();
+    }
+    else if (auto arrayMap = qobject_cast<ArrayMap *>(op))
+    {
+        arrayMap->m_mappings = m_arrayMappings;
+    }
+}
+
 void OperatorConfigurationWidget::fillCalibrationTable(CalibrationMinMax *calib, double proposedMin, double proposedMax)
 {
     Q_ASSERT(calib->getSlot(0)->isConnected());
-
 
     s32 paramCount = calib->getSlot(0)->inputPipe->parameters.size();
 

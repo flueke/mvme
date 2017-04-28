@@ -422,7 +422,6 @@ void CalibrationMinMax::step()
             //    std::swap(t1, t2);
 
             outParam.value = (inParam.value - a1) * (t2 - t1) / (a2 - a1) + t1;
-            outParam.valid = true;
         }
     };
 
@@ -432,30 +431,34 @@ void CalibrationMinMax::step()
         const auto &in(m_inputSlot.inputPipe->getParameters());
         const s32 inSize = in.size();
 
+        s32 idxMin = 0;
+        s32 idxMax = in.size();
+
         if (m_inputSlot.paramIndex != Slot::NoParamIndex)
         {
             Q_ASSERT(out.size() == 1);
-            auto &outParam(out[0]);
-            outParam.valid = false;
-            s32 paramIndex = m_inputSlot.paramIndex;
-
-            if (paramIndex >= 0 && paramIndex < inSize)
-            {
-                const auto &inParam(in[paramIndex]);
-                calibOneParam(inParam, outParam, m_globalCalibration);
-            }
+            idxMin = m_inputSlot.paramIndex;
+            idxMax = idxMin + 1;
         }
         else
         {
-            const s32 size = in.size();
-            Q_ASSERT(out.size() == size);
+            Q_ASSERT(out.size() == in.size());
+        }
 
-            for (s32 address = 0; address < size; ++address)
+        for (s32 idx = idxMin, outIdx = 0;
+             idx < idxMax;
+             ++idx, ++outIdx)
+        {
+            auto &outParam(out[outIdx]);
+
+            if (idx < inSize)
             {
-                auto &outParam(out[address]);
-                const auto &inParam(in[address]);
-
-                calibOneParam(inParam, outParam, getCalibration(address));
+                const auto &inParam(in[idx]);
+                calibOneParam(inParam, outParam, getCalibration(idx));
+            }
+            else
+            {
+                outParam.valid = false;
             }
         }
     }
@@ -469,21 +472,17 @@ void CalibrationMinMax::setCalibration(s32 address, const CalibrationMinMaxParam
 
 CalibrationMinMaxParameters CalibrationMinMax::getCalibration(s32 address) const
 {
-    CalibrationMinMaxParameters result = m_globalCalibration;
-
-    if (address < m_calibrations.size() && m_calibrations[address].isValid())
-    {
-        result = m_calibrations[address];
-    }
-
-    return result;
+    return m_calibrations.value(address);
 }
 
 void CalibrationMinMax::read(const QJsonObject &json)
 {
     m_unit = json["unitLabel"].toString();
-    m_globalCalibration.unitMin = json["globalUnitMin"].toDouble();
-    m_globalCalibration.unitMax = json["globalUnitMax"].toDouble();
+
+    // Read the old global calbration and use it if an element of the
+    // calibration array is invalid.
+    double globalUnitMin = json["globalUnitMin"].toDouble(make_quiet_nan());
+    double globalUnitMax = json["globalUnitMax"].toDouble(make_quiet_nan());
 
     m_calibrations.clear();
     QJsonArray calibArray = json["calibrations"].toArray();
@@ -493,12 +492,18 @@ void CalibrationMinMax::read(const QJsonObject &json)
          ++it)
     {
         auto paramJson = it->toObject();
+
         CalibrationMinMaxParameters param;
-        if (paramJson.contains("unitMin") && paramJson.contains("unitMax"))
+
+        param.unitMin = paramJson["unitMin"].toDouble(make_quiet_nan());
+        param.unitMax = paramJson["unitMax"].toDouble(make_quiet_nan());
+
+        if (!param.isValid())
         {
-            param.unitMin = paramJson["unitMin"].toDouble();
-            param.unitMax = paramJson["unitMax"].toDouble();
+            param.unitMin = globalUnitMin;
+            param.unitMax = globalUnitMax;
         }
+
         m_calibrations.push_back(param);
     }
 }
@@ -506,8 +511,6 @@ void CalibrationMinMax::read(const QJsonObject &json)
 void CalibrationMinMax::write(QJsonObject &json) const
 {
     json["unitLabel"] = m_unit;
-    json["globalUnitMin"] = m_globalCalibration.unitMin;
-    json["globalUnitMax"] = m_globalCalibration.unitMax;
 
     QJsonArray calibArray;
 
@@ -2099,9 +2102,16 @@ RawDataDisplay make_raw_data_display(std::shared_ptr<Extractor> extractor, doubl
 
     auto calibration = std::make_shared<CalibrationMinMax>();
     calibration->setObjectName(objectName);
-    calibration->setGlobalCalibration(unitMin, unitMax);
     calibration->setUnitLabel(unitLabel);
     calibration->connectArrayToInputSlot(0, extractor->getOutput(0));
+
+    const u32 addressCount = 1u << extractionFilter.getAddressBits();
+
+    for (u32 addr = 0; addr < addressCount; ++addr)
+    {
+        calibration->setCalibration(addr, unitMin, unitMax);
+    }
+
     result.calibration = calibration;
 
     auto rawHistoSink = std::make_shared<Histo1DSink>();

@@ -820,11 +820,21 @@ void Histo1DWidget::calibApply()
 
 void Histo1DWidget::calibResetToFilter()
 {
-    u32 address = m_histoAddress;
-    auto globalCalib = m_calib->getGlobalCalibration();
-    AnalysisPauser pauser(m_context);
-    m_calib->setCalibration(address, globalCalib);
-    analysis::do_beginRun_forward(m_calib.get());
+    using namespace analysis;
+
+    Pipe *inputPipe = m_calib->getSlot(0)->inputPipe;
+    if (inputPipe)
+    {
+        Parameter *inputParam = inputPipe->getParameter(m_histoAddress);
+        if (inputParam)
+        {
+            double minValue = inputParam->lowerLimit;
+            double maxValue = inputParam->upperLimit;
+            AnalysisPauser pauser(m_context);
+            m_calib->setCalibration(m_histoAddress, minValue, maxValue);
+            analysis::do_beginRun_forward(m_calib.get());
+        }
+    }
 }
 
 void Histo1DWidget::calibFillMax()

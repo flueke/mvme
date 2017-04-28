@@ -152,7 +152,7 @@ struct Slot
     u32 acceptedInputTypes = InputType::Both;
     s32 paramIndex = NoParamIndex; // parameter index for InputType::Value or NoParamIndex
     Pipe *inputPipe = nullptr;
-    
+
     // The owner of this Slot.
     OperatorInterface *parentOperator = nullptr;
 
@@ -471,21 +471,6 @@ class CalibrationMinMax: public BasicOperator
         virtual void beginRun() override;
         virtual void step() override;
 
-        void setGlobalCalibration(const CalibrationMinMaxParameters &params)
-        {
-            m_globalCalibration = params;
-        }
-
-        void setGlobalCalibration(double unitMin, double unitMax)
-        {
-            m_globalCalibration = CalibrationMinMaxParameters(unitMin, unitMax);
-        }
-
-        CalibrationMinMaxParameters getGlobalCalibration() const
-        {
-            return m_globalCalibration;
-        }
-
         void setCalibration(s32 address, const CalibrationMinMaxParameters &params);
         void setCalibration(s32 address, double unitMin, double unitMax)
         {
@@ -493,6 +478,10 @@ class CalibrationMinMax: public BasicOperator
         }
 
         CalibrationMinMaxParameters getCalibration(s32 address) const;
+        QVector<CalibrationMinMaxParameters> getCalibrations() const
+        {
+            return m_calibrations;
+        }
 
         s32 getCalibrationCount() const
         {
@@ -509,7 +498,6 @@ class CalibrationMinMax: public BasicOperator
         virtual QString getShortName() const override { return QSL("Cal"); }
 
     private:
-        CalibrationMinMaxParameters m_globalCalibration;
         QVector<CalibrationMinMaxParameters> m_calibrations;
         QString m_unit;
 };

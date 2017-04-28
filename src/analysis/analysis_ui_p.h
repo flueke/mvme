@@ -139,7 +139,7 @@ class OperatorConfigurationWidget: public QWidget
     Q_OBJECT
     public:
         OperatorConfigurationWidget(OperatorInterface *op, s32 userLevel, AddEditOperatorWidget *parent);
-        bool validateInputs();
+        //bool validateInputs();
         void configureOperator();
         void inputSelected(s32 slotIndex);
 
