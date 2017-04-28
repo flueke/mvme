@@ -138,6 +138,9 @@ mvme::mvme(QWidget *parent) :
 
 mvme::~mvme()
 {
+    // To avoid a crash on exit if replay is running
+    disconnect(m_context, &MVMEContext::daqStateChanged, this, &mvme::onDAQStateChanged);
+
     auto workspaceDir = m_context->getWorkspaceDirectory();
 
     if (!workspaceDir.isEmpty())
@@ -148,7 +151,7 @@ mvme::~mvme()
 
     delete ui;
 
-    qDebug() << __PRETTY_FUNCTION__ << "mvme instance destroyed";
+    qDebug() << __PRETTY_FUNCTION__ << "mvme instance being destroyed";
 }
 
 void mvme::loadConfig(const QString &fileName)

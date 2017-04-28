@@ -416,6 +416,19 @@ MVMEContext::~MVMEContext()
     m_eventThread->quit();
     m_eventThread->wait();
 
+    // Wait for possibly active VMEController::open() to return before deleting
+    // the controller object.
+    m_ctrlOpenFuture.waitForFinished();
+
+    // Disconnect controller signals so that we're not emitting our own
+    // controllerStateChanged anymore.
+    disconnect(m_controller, &VMEController::controllerStateChanged, this, &MVMEContext::controllerStateChanged);
+    // Same for daqStateChanged() and eventProcessorStateChanged
+    disconnect(m_readoutWorker, &VMUSBReadoutWorker::stateChanged, this, &MVMEContext::onDAQStateChanged);
+    disconnect(m_listFileWorker, &ListFileReader::stateChanged, this, &MVMEContext::onDAQStateChanged);
+    disconnect(m_eventProcessor, &MVMEEventProcessor::stateChanged, this, &MVMEContext::onEventProcessorStateChanged);
+
+    delete m_controller;
     delete m_analysis_ng;
     delete m_readoutWorker;
     delete m_bufferProcessor;
@@ -427,17 +440,9 @@ MVMEContext::~MVMEContext()
     qDeleteAll(m_freeBufferQueue.queue);
     qDeleteAll(m_filledBufferQueue.queue);
 
-    // Wait for possibly active VMEController::open() to return before deleting
-    // the controller object.
-    m_ctrlOpenFuture.waitForFinished();
-    // Disconnect controller signals so that we're not emitting our own
-    // controllerStateChanged anymore.
-    disconnect(m_controller, &VMEController::controllerStateChanged, this, &MVMEContext::controllerStateChanged);
-    delete m_controller;
-
     delete m_d;
 
-    qDebug() << __PRETTY_FUNCTION__ << "context destroyed";
+    qDebug() << __PRETTY_FUNCTION__ << "context being destroyed";
 }
 
 void MVMEContext::setDAQConfig(DAQConfig *config)
