@@ -96,7 +96,12 @@ contains(DEFINES, "VME_CONTROLLER_WIENER") {
         win32 {
             # Old libusb-win32 paths.
             INCLUDEPATH += "C:\libusb-win32-bin-1.2.6.0\include"
-            LIBS += -L"C:\libusb-win32-bin-1.2.6.0\lib\gcc" -lusb
+
+	    # For 32-bit builds
+            #LIBS += -L"C:\libusb-win32-bin-1.2.6.0\lib\gcc" -lusb
+
+	    # For 64-bit builds
+	    LIBS += -L"C:\libusb-win32-bin-1.2.6.0\bin\amd64" -lusb0
         }
     }
 

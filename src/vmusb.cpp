@@ -960,7 +960,7 @@ VMEError VMUSB::writeActionRegister(uint16_t value)
                         libusb_error_name(status));
     }
 #else
-    int status = usb_bulk_write(m_deviceHandle, ENDPOINT_OUT, reinterpret_cast<const char *>(outPacket), outSize, defaultTimeout_ms);
+    int status = usb_bulk_write(m_deviceHandle, ENDPOINT_OUT, reinterpret_cast<char *>(outPacket), outSize, defaultTimeout_ms);
 
     if (status != outSize)
     {
@@ -1088,7 +1088,7 @@ VMEError VMUSB::listLoad(CVMUSBReadoutList *list, uint8_t stackID, size_t stackM
                                       packetSize, &transferred, timeout_ms);
 #else
     int status = usb_bulk_write(m_deviceHandle, ENDPOINT_OUT,
-                                reinterpret_cast<const char *>(outPacket),
+                                reinterpret_cast<char *>(outPacket),
                                 packetSize, timeout_ms);
 #endif
 
