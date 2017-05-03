@@ -72,8 +72,8 @@ QAction *add_widget_close_action(QWidget *widget,
         widget->close();
     });
 
-    closeAction->setShortcutContext(Qt::WindowShortcut);
-    closeAction->setShortcut(QSL("Ctrl+W"));
+    closeAction->setShortcutContext(shortcutContext);
+    closeAction->setShortcut(shortcut);
     widget->addAction(closeAction);
 
     return closeAction;
