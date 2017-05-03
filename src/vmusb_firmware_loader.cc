@@ -10,6 +10,8 @@
 #include <QMessageBox>
 #include <QThread>
 
+#include <time.h>
+
 /* VMUSB Firmware Loading
  * ----------------------
  *
