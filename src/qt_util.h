@@ -30,6 +30,6 @@ class WidgetGeometrySaver: public QObject
 
 QAction *add_widget_close_action(QWidget *widget,
                                 const QKeySequence &shortcut = QKeySequence(QSL("Ctrl+W")),
-                                Qt::ShortcutContext shortcutContext = Qt::WindowShortcut);
+                                Qt::ShortcutContext shortcutContext = Qt::WidgetWithChildrenShortcut);
 
 #endif /* __QT_UTIL_H__ */
