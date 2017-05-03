@@ -12,10 +12,41 @@
              NSCL
              Michigan State University
              East Lansing, MI 48824-1321
+
+  * Modified by <f.lueke@mesytec.com> in 2017 to not depent on arpa/inet.h on win32-mingw.
 */
 #include "vmusb_skipHeader.h"
+
 #include <stdint.h>
-#include <arpa/inet.h>
+
+#ifdef __MINGW32__
+
+/* Source: https://codereview.stackexchange.com/a/149751 */
+#include <string.h>
+
+uint32_t ntohl(uint32_t const net)
+{
+    uint8_t data[4] = {};
+    memcpy(&data, &net, sizeof(data));
+
+    return ((uint32_t) data[3] << 0)
+         | ((uint32_t) data[2] << 8)
+         | ((uint32_t) data[1] << 16)
+         | ((uint32_t) data[0] << 24);
+}
+
+uint16_t ntohs(uint16_t const net)
+{
+    uint8_t data[2] = {};
+    memcpy(&data, &net, sizeof(data));
+
+    return ((uint16_t) data[1] << 0)
+         | ((uint16_t) data[0] << 8);
+}
+
+#else // __MINGW32__
+    #include <arpa/inet.h>
+#endif
 
 static const uint32_t sync1(0xffffffff);
 static const uint32_t sync2(0xaa995566);
