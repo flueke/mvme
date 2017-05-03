@@ -2,6 +2,7 @@
 
 #include "ui_mvme.h"
 #include "vmusb.h"
+#include "vmusb_firmware_loader.h"
 #include "mvme_context.h"
 #include "mvmedefines.h"
 #include "vmusb_readout_worker.h"
@@ -835,6 +836,11 @@ void mvme::on_actionLog_Window_triggered()
 
     m_logView->show();
     m_logView->raise();
+}
+
+void mvme::on_actionVMUSB_Firmware_Update_triggered()
+{
+    vmusb_gui_load_firmware(m_context);
 }
 
 void mvme::openInNewWindow(QObject *object)

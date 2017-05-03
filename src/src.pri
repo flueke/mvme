@@ -127,8 +127,15 @@ contains(DEFINES, "VME_CONTROLLER_WIENER") {
         }
     }
 
-    HEADERS += $$PWD/vmusb.h
-    SOURCES += $$PWD/vmusb.cpp
+    HEADERS += \
+        $$PWD/vmusb.h \
+        $$PWD/vmusb_firmware_loader.h \
+        $$PWD/vmusb_skipHeader.h \
+
+    SOURCES += \
+        $$PWD/vmusb.cpp \
+        $$PWD/vmusb_firmware_loader.cc \
+        $$PWD/vmusb_skipHeader.cpp \
 }
 
 include($$PWD/3rdparty/3rdparty.pri)

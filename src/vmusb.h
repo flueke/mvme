@@ -150,7 +150,8 @@ class VMUSB: public VMEController
         VMEError stackExecute(const QVector<u32> &stackData, size_t resultMaxWords, QVector<u32> *dest);
 
 
-        VMEError bulkRead(void *outBuffer, size_t outBufferSize, int *transferred, int timeout_ms = 1000);
+        VMEError bulkRead(void *destBuffer, size_t destBufferSize, int *transferred, int timeout_ms = 1000);
+        VMEError bulkWrite(void *sourceBuffer, size_t sourceBufferSize, int *transferred, int timeout_ms = 1000);
 
         VMEError tryErrorRecovery();
 

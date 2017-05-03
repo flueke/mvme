@@ -158,7 +158,7 @@ static VMUSBOpenResult open_usb_device(struct usb_device *dev)
 
     if (!result.deviceHandle)
     {
-        result.errorCode = -1; // FIXME: define these for libusb0
+        result.errorCode = -1;
         return result;
     }
 
@@ -1197,8 +1197,9 @@ VMUSB::transaction(void* writePacket, size_t writeSize,
     return {};
 }
 
-VMEError VMUSB::bulkRead(void *outBuffer, size_t outBufferSize, int *transferred, int timeout_ms)
+VMEError VMUSB::bulkRead(void *destBuffer, size_t outBufferSize, int *transferred, int timeout_ms)
 {
+    Q_ASSERT(transferred);
     QMutexLocker locker(&m_lock);
 
     if (!isOpen())
@@ -1206,7 +1207,7 @@ VMEError VMUSB::bulkRead(void *outBuffer, size_t outBufferSize, int *transferred
 
 #ifdef WIENER_USE_LIBUSB1
     int status = libusb_bulk_transfer(m_deviceHandle, ENDPOINT_IN,
-                                      reinterpret_cast<u8 *>(outBuffer),
+                                      reinterpret_cast<u8 *>(destBuffer),
                                       outBufferSize, transferred, timeout_ms);
 
     if (status != 0)
@@ -1226,7 +1227,7 @@ VMEError VMUSB::bulkRead(void *outBuffer, size_t outBufferSize, int *transferred
     }
 #else
     int status = usb_bulk_read(m_deviceHandle, ENDPOINT_IN,
-                               static_cast<char *>(outBuffer), outBufferSize, timeout_ms);
+                               static_cast<char *>(destBuffer), outBufferSize, timeout_ms);
 
     if (status < 0)
     {
@@ -1236,6 +1237,48 @@ VMEError VMUSB::bulkRead(void *outBuffer, size_t outBufferSize, int *transferred
     *transferred = status;
 #endif
 
+    return VMEError();
+}
+
+VMEError VMUSB::bulkWrite(void *sourceBuffer, size_t sourceBufferSize, int *transferred, int timeout_ms)
+{
+    Q_ASSERT(transferred);
+    QMutexLocker locker(&m_lock);
+
+    if (!isOpen())
+        return VMEError(VMEError::NotOpen);
+
+#ifdef WIENER_USE_LIBUSB1
+    int status = libusb_bulk_transfer(m_deviceHandle, ENDPOINT_OUT,
+                                      reinterpret_cast<u8 *>(sourceBuffer),
+                                      sourceBufferSize, transferred, timeout_ms);
+
+    if (status != 0)
+    {
+        if (status != LIBUSB_ERROR_TIMEOUT)
+        {
+            return VMEError(VMEError::WriteError, status,
+                            libusb_strerror(static_cast<libusb_error>(status)),
+                            libusb_error_name(status));
+        }
+        else
+        {
+            return VMEError(VMEError::Timeout, status,
+                            libusb_strerror(static_cast<libusb_error>(status)),
+                            libusb_error_name(status));
+        }
+    }
+#else
+    int status = usb_bulk_write(m_deviceHandle, ENDPOINT_OUT,
+                                static_cast<char *>(sourceBuffer), sourceBufferSize, timeout_ms);
+
+    if (status < 0)
+    {
+        return VMEError(VMEError::WriteError, status, errnoString(-status));
+    }
+
+    *transferred = status;
+#endif
     return VMEError();
 }
 

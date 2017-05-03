@@ -64,8 +64,15 @@
     <addaction name="actionImport_Histo1D"/>
     <addaction name="separator"/>
    </widget>
+   <widget class="QMenu" name="menu_Tools">
+    <property name="title">
+     <string>&amp;Tools</string>
+    </property>
+    <addaction name="actionVMUSB_Firmware_Update"/>
+   </widget>
    <addaction name="menuFile"/>
    <addaction name="menuWindow"/>
+   <addaction name="menu_Tools"/>
    <addaction name="menuHelp"/>
   </widget>
   <widget class="QStatusBar" name="statusBar"/>
@@ -221,6 +228,11 @@
    </property>
    <property name="shortcutContext">
     <enum>Qt::ApplicationShortcut</enum>
+   </property>
+  </action>
+  <action name="actionVMUSB_Firmware_Update">
+   <property name="text">
+    <string>VMUSB Firmware Update</string>
    </property>
   </action>
  </widget>
