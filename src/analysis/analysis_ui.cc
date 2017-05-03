@@ -376,6 +376,7 @@ struct EventWidgetPrivate
     void clearAllTreeSelections();
     void clearTreeSelectionsExcept(QTreeWidget *tree);
     void generateDefaultFilters(ModuleConfig *module);
+    PipeDisplay *makeAndShowPipeDisplay(Pipe *pipe);
 };
 
 void EventWidgetPrivate::createView(const QUuid &eventId)
@@ -832,12 +833,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                 auto pipe = sourceInterface->getOutput(0);
 
                 menu.addAction(QSL("Show Parameters"), [this, pipe]() {
-                    auto widget = new PipeDisplay(pipe, m_q);
-                    QObject::connect(m_pipeDisplayRefreshTimer, &QTimer::timeout, widget, &PipeDisplay::refresh);
-                    QObject::connect(pipe->source, &QObject::destroyed, widget, &QWidget::close);
-                    widget->move(QCursor::pos());
-                    widget->setAttribute(Qt::WA_DeleteOnClose);
-                    widget->show();
+                    makeAndShowPipeDisplay(pipe);
                 });
 
                 auto moduleNode = node->parent();
@@ -873,12 +869,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
             auto pipe = getPointer<Pipe>(node);
 
             menu.addAction(QSL("Show Parameters"), [this, pipe]() {
-                auto widget = new PipeDisplay(pipe, m_q);
-                QObject::connect(m_pipeDisplayRefreshTimer, &QTimer::timeout, widget, &PipeDisplay::refresh);
-                QObject::connect(pipe->source, &QObject::destroyed, widget, &QWidget::close);
-                widget->move(QCursor::pos());
-                widget->setAttribute(Qt::WA_DeleteOnClose);
-                widget->show();
+                makeAndShowPipeDisplay(pipe);
             });
         }
 
@@ -894,12 +885,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                     Pipe *pipe = op->getOutput(0);
 
                     menu.addAction(QSL("Show Parameters"), [this, pipe]() {
-                        auto widget = new PipeDisplay(pipe, m_q);
-                        QObject::connect(m_pipeDisplayRefreshTimer, &QTimer::timeout, widget, &PipeDisplay::refresh);
-                        QObject::connect(pipe->source, &QObject::destroyed, widget, &QWidget::close);
-                        widget->move(QCursor::pos());
-                        widget->setAttribute(Qt::WA_DeleteOnClose);
-                        widget->show();
+                        makeAndShowPipeDisplay(pipe);
                     });
                 }
 
@@ -1804,6 +1790,18 @@ void EventWidgetPrivate::generateDefaultFilters(ModuleConfig *module)
     repopulate();
 }
 
+PipeDisplay *EventWidgetPrivate::makeAndShowPipeDisplay(Pipe *pipe)
+{
+    auto widget = new PipeDisplay(pipe, m_q);
+    QObject::connect(m_pipeDisplayRefreshTimer, &QTimer::timeout, widget, &PipeDisplay::refresh);
+    QObject::connect(pipe->source, &QObject::destroyed, widget, &QWidget::close);
+    add_widget_close_action(widget);
+    widget->move(QCursor::pos());
+    widget->setAttribute(Qt::WA_DeleteOnClose);
+    widget->show();
+    return widget;
+}
+
 static const u32 pipeDisplayRefreshInterval_ms = 1000;
 
 EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, AnalysisWidget *analysisWidget, QWidget *parent)
@@ -2065,7 +2063,6 @@ struct AnalysisWidgetPrivate
     AnalysisWidget *m_q;
     MVMEContext *m_context;
     QHash<QUuid, EventWidget *> m_eventWidgetsByEventId;
-    QList<EventConfig *> m_eventConfigs;
 
 
     QToolBar *m_toolbar;
@@ -2087,9 +2084,6 @@ struct AnalysisWidgetPrivate
     void updateAddRemoveUserLevelButtons();
 };
 
-
-// FIXME: bad design: both repopulate and repopulateEventSelectCombo update m_eventConfigs
-
 void AnalysisWidgetPrivate::repopulate()
 {
     // Clear stacked widget and delete existing even EventWidgets
@@ -2102,15 +2096,15 @@ void AnalysisWidgetPrivate::repopulate()
     m_eventWidgetsByEventId.clear();
 
     // Repopulate combobox and stacked widget
-    m_eventConfigs = m_context->getEventConfigs();
+    auto eventConfigs = m_context->getEventConfigs();
 
     // FIXME: event creation is still entirely based on the DAQ config. events
     //        that do exist in the analysis but not in the DAQ won't show up at all
     for (s32 eventIndex = 0;
-         eventIndex < m_eventConfigs.size();
+         eventIndex < eventConfigs.size();
          ++eventIndex)
     {
-        auto eventConfig = m_eventConfigs[eventIndex];
+        auto eventConfig = eventConfigs[eventIndex];
         auto eventId = eventConfig->getId();
         auto eventWidget = new EventWidget(m_context, eventId, m_q);
 
@@ -2133,15 +2127,15 @@ void AnalysisWidgetPrivate::repopulateEventSelectCombo()
     const QUuid lastSelectedEventId = m_eventSelectCombo->currentData().toUuid();
     m_eventSelectCombo->clear();
 
-    m_eventConfigs = m_context->getEventConfigs();
+    auto eventConfigs = m_context->getEventConfigs();
 
     s32 comboIndexToSelect = -1;
 
     for (s32 eventIndex = 0;
-         eventIndex < m_eventConfigs.size();
+         eventIndex < eventConfigs.size();
          ++eventIndex)
     {
-        auto eventConfig = m_eventConfigs[eventIndex];
+        auto eventConfig = eventConfigs[eventIndex];
         auto eventId = eventConfig->getId();
 
         QObject::disconnect(eventConfig, &ConfigObject::modified, m_q, &AnalysisWidget::eventConfigModified);
