@@ -159,7 +159,7 @@ class Pipe
         const ParameterVector &getParameters() const { return parameters; }
         ParameterVector &getParameters() { return parameters; }
 
-        s32 getSize() const
+        inline s32 getSize() const
         {
             return parameters.size();
         }
