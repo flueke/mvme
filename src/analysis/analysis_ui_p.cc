@@ -504,9 +504,21 @@ static const s32 ParamIndexRole = Qt::UserRole + 1;
 
 using ArrayMappings = QVector<ArrayMap::IndexPair>;
 
+static void debug_dump(const ArrayMappings &mappings)
+{
+    for (s32 i=0; i<mappings.size(); ++i)
+    {
+        qDebug("num=%3d, slot=%d, param=%d",
+               i, mappings[i].slotIndex, mappings[i].paramIndex);
+    }
+}
+
 void repopulate_arrayMap_tables(ArrayMap *arrayMap, const ArrayMappings &mappings, QTableWidget *tw_input, QTableWidget *tw_output)
 {
     Q_ASSERT(arrayMap && tw_input && tw_output);
+
+    //qDebug() << __PRETTY_FUNCTION__;
+    //debug_dump(mappings);
 
     tw_input->clearContents();
     tw_input->setRowCount(0);
@@ -516,6 +528,21 @@ void repopulate_arrayMap_tables(ArrayMap *arrayMap, const ArrayMappings &mapping
 
     const s32 slotCount = arrayMap->getNumberOfSlots();
 
+    auto make_table_item = [](const QString &name, s32 slotIndex, s32 paramIndex)
+    {
+        auto item = new QTableWidgetItem;
+
+        item->setData(Qt::DisplayRole, QString("%1[%2]")
+                      .arg(name)
+                      .arg(paramIndex));
+
+        item->setData(SlotIndexRole, slotIndex);
+        item->setData(ParamIndexRole, paramIndex);
+
+        return item;
+    };
+
+    // Fill the input table
     for (s32 slotIndex = 0;
          slotIndex < slotCount;
          ++slotIndex)
@@ -531,29 +558,28 @@ void repopulate_arrayMap_tables(ArrayMap *arrayMap, const ArrayMappings &mapping
              paramIndex < paramCount;
              ++paramIndex)
         {
-            QTableWidget *tw = nullptr;
+            if (mappings.contains({slotIndex, paramIndex}))
+                continue;
 
-            if (!mappings.contains({slotIndex, paramIndex}))
-            {
-                tw = tw_input;
-            }
-            else
-            {
-                tw = tw_output;
-            }
+            auto item = make_table_item(slot->inputPipe->source->objectName(), slotIndex, paramIndex);
 
-            auto item = new QTableWidgetItem;
-
-            item->setData(Qt::DisplayRole, QString("%1[%2]")
-                          .arg(slot->inputPipe->source->objectName())
-                          .arg(paramIndex));
-
-            item->setData(SlotIndexRole, slotIndex);
-            item->setData(ParamIndexRole, paramIndex);
-
-            tw->setRowCount(tw->rowCount() + 1);
-            tw->setItem(tw->rowCount() - 1, 0, item);
+            tw_input->setRowCount(tw_input->rowCount() + 1);
+            tw_input->setItem(tw_input->rowCount() - 1, 0, item);
         }
+    }
+
+    // Fill the output table
+    for (const auto &mapping: mappings)
+    {
+        auto slot = arrayMap->getSlot(mapping.slotIndex);
+
+        if (!slot || !slot->isConnected())
+            continue;
+
+        auto item = make_table_item(slot->inputPipe->source->objectName(), mapping.slotIndex, mapping.paramIndex);
+
+        tw_output->setRowCount(tw_output->rowCount() + 1);
+        tw_output->setItem(tw_output->rowCount() - 1, 0, item);
     }
 
     tw_input->resizeRowsToContents();
