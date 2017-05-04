@@ -210,7 +210,7 @@ static void throw_io_device_error(QIODevice *device)
  * are no partial events the VMUSB buffer is processed completely and then the
  * output buffer is put into the outgoing queue. If there is a partial event,
  * buffers are processed until the event is reassembled and then the output
- * buffer is flushed immediately. This is done do avoid the case where partial
+ * buffer is flushed immediately. This is done to avoid the case where partial
  * events appear in succession in which case the output buffer would never get
  * flushed and grow indefinitely.
  */
@@ -299,12 +299,11 @@ void VMUSBBufferProcessor::beginRun()
     resetRunState();
 
     auto outputInfo = m_context->getListFileOutputInfo();
-
-    QString outPath = outputInfo.directory;
+    QString outPath = m_context->getListFileOutputDirectoryFullPath();
     bool listFileOutputEnabled = outputInfo.enabled;
 
     // TODO: this needs to move into some generic listfile handler!
-    if (listFileOutputEnabled && outPath.size())
+    if (listFileOutputEnabled && !outPath.isEmpty())
     {
         delete m_d->m_listFileOut;
         m_d->m_listFileOut = nullptr;
@@ -344,6 +343,8 @@ void VMUSBBufferProcessor::beginRun()
                     QString outFilename = outPath + '/' + now.toString("yyMMdd_HHmmss") + ".zip";
                     m_d->m_listFileArchive.setZipName(outFilename);
                     m_d->m_listFileArchive.setZip64Enabled(true);
+
+                    logMessage(QString("Writing listfile into %1").arg(outFilename));
 
                     if (!m_d->m_listFileArchive.open(QuaZip::mdCreate))
                     {

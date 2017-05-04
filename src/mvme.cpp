@@ -76,6 +76,7 @@ mvme::mvme(QWidget *parent) :
     connect(m_context, &MVMEContext::objectAboutToBeRemoved, this, &mvme::onObjectAboutToBeRemoved);
     connect(m_context, &MVMEContext::daqAboutToStart, this, &mvme::onDAQAboutToStart);
     connect(m_context, &MVMEContext::daqStateChanged, this, &mvme::onDAQStateChanged);
+    connect(m_context, &MVMEContext::sigLogMessage, this, &mvme::appendToLog);
 
     // check and initialize VME interface
     VMEController *controller = new VMUSB;
@@ -106,34 +107,35 @@ mvme::mvme(QWidget *parent) :
                 this, &mvme::onShowDiagnostics);
     }
 
-    connect(m_context, &MVMEContext::sigLogMessage, this, &mvme::appendToLog);
-
-    QSettings settings;
-
-    // workspace
-    if (settings.contains(QSL("LastWorkspaceDirectory")))
-    {
-        try
-        {
-            m_context->openWorkspace(settings.value(QSL("LastWorkspaceDirectory")).toString());
-        } catch (const QString &e)
-        {
-            QMessageBox::critical(this, QSL("Workspace Error"), QString("Error opening workspace: %1").arg(e));
-            settings.remove(QSL("LastWorkspaceDirectory"));
-        }
-    }
-    else
-    {
-        on_actionNewWorkspace_triggered();
-    }
-
     updateWindowTitle();
 
-    // Open log and analysis windows at startup
+    // Code to run on entering the event loop for the first time.
     QTimer::singleShot(0, [this] () {
+
+        // Create and open log and analysis windows.
         on_actionLog_Window_triggered();
         on_actionAnalysis_UI_triggered();
         this->raise();
+
+
+        // Open the last workspace or create a new one.
+
+        QSettings settings;
+        if (settings.contains(QSL("LastWorkspaceDirectory")))
+        {
+            try
+            {
+                m_context->openWorkspace(settings.value(QSL("LastWorkspaceDirectory")).toString());
+            } catch (const QString &e)
+            {
+                QMessageBox::critical(this, QSL("Workspace Error"), QString("Error opening workspace: %1").arg(e));
+                settings.remove(QSL("LastWorkspaceDirectory"));
+            }
+        }
+        else
+        {
+            on_actionNewWorkspace_triggered();
+        }
     });
 }
 
@@ -653,8 +655,7 @@ void mvme::on_actionOpen_Listfile_triggered()
         }
     }
 
-
-    QString path = m_context->getListFileOutputInfo().directory;
+    QString path = m_context->getListFileOutputDirectoryFullPath();
 
     if (path.isEmpty())
     {

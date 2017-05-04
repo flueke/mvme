@@ -48,6 +48,7 @@ static const size_t DataBufferSize = Megabytes(1);
 static const int TryOpenControllerInterval_ms = 1000;
 static const int PeriodicLoggingInterval_ms = 5000;
 static const QString WorkspaceIniName = "mvmeworkspace.ini";
+static const int ListFileDefaultCompression = 6;
 
 static void stop_coordinated(VMUSBReadoutWorker *readoutWorker, MVMEEventProcessor *eventProcessor);
 
@@ -1062,7 +1063,7 @@ void MVMEContext::newWorkspace(const QString &dirName)
         workspaceSettings->setValue(QSL("LastVMEConfig"), QSL("vme.mvmecfg"));
         workspaceSettings->setValue(QSL("LastAnalysisConfig"), QSL("analysis.analysis"));
         workspaceSettings->setValue(QSL("ListFileDirectory"), QSL("listfiles"));
-        workspaceSettings->setValue(QSL("WriteListfile"), true);
+        workspaceSettings->setValue(QSL("WriteListFile"), true);
         workspaceSettings->sync();
 
         if (workspaceSettings->status() != QSettings::NoError)
@@ -1091,17 +1092,23 @@ void MVMEContext::openWorkspace(const QString &dirName)
 
     {
         ListFileOutputInfo info = {};
-        info.enabled   = workspaceSettings->value(QSL("WriteListFile")).toBool();
+        info.enabled   = workspaceSettings->value(QSL("WriteListFile"), QSL("true")).toBool();
         info.format    = fromString(workspaceSettings->value(QSL("ListFileFormat"), QSL("Plain")).toString());
+        info.directory = workspaceSettings->value(QSL("ListFileDirectory"), QSL("listfiles")).toString();
+        info.compressionLevel = workspaceSettings->value(QSL("ListFileCompressionLevel"), ListFileDefaultCompression).toInt();
 
-        if (!workspaceSettings->contains(QSL("ListFileDirectory")) && workspaceSettings->contains(QSL("ListfileDirectory")))
+        QDir listFileOutputDir(info.directory);
+
+        if (listFileOutputDir.isAbsolute() && !listFileOutputDir.exists())
         {
-            // Conversion from old string to new string. Why did I even change it? OCD?
-            workspaceSettings->setValue(QSL("ListFileDirectory"), workspaceSettings->value(QSL("ListfileDirectory")));
-            workspaceSettings->remove(QSL("ListfileDirectory"));
+            /* A non-existant absolute path was loaded from the INI -> go back
+             * to the default of "listfiles". */
+            logMessage(QString("Warning: Listfile directory %1 does not exist. Reverting back to default of \"listfiles\".")
+                       .arg(info.directory));
+            workspaceSettings->setValue(QSL("ListFileDirectory"), QSL("listfiles"));
+            info.directory = QSL("lisfiles");
         }
-        info.directory = dir.filePath(workspaceSettings->value(QSL("ListFileDirectory")).toString());
-        info.compressionLevel = workspaceSettings->value(QSL("ListFileCompressionLevel"), 6).toInt();
+
         m_d->m_listFileOutputInfo = info;
     }
 
@@ -1250,6 +1257,17 @@ void MVMEContext::setListFileOutputInfo(const ListFileOutputInfo &info)
 ListFileOutputInfo MVMEContext::getListFileOutputInfo() const
 {
     return m_d->m_listFileOutputInfo;
+}
+
+QString MVMEContext::getListFileOutputDirectoryFullPath() const
+{
+    QDir dir(getListFileOutputInfo().directory);
+
+    if (dir.isAbsolute())
+        return dir.path();
+
+    dir = QDir(getWorkspaceDirectory());
+    return dir.filePath(getListFileOutputInfo().directory);
 }
 
 /** True if at least one of VME-config and analysis-config is modified. */

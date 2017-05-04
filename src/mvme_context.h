@@ -45,10 +45,11 @@ enum class ListFileFormat
 
 struct ListFileOutputInfo
 {
-    bool enabled;
-    ListFileFormat format;
-    QString directory;
-    int compressionLevel;
+    bool enabled;               // true if a listfile should be written
+    ListFileFormat format;      // the format to write
+    QString directory;          // Path to the output directory. If it's not a
+                                // full path it's relative to the workspace directory.
+    int compressionLevel;       // zlib compression level
 };
 
 QString toString(const ListFileFormat &fmt);
@@ -240,6 +241,7 @@ class MVMEContext: public QObject
         // listfile output
         void setListFileOutputInfo(const ListFileOutputInfo &info);
         ListFileOutputInfo getListFileOutputInfo() const;
+        QString getListFileOutputDirectoryFullPath() const;
 
 
         bool isWorkspaceModified() const;
