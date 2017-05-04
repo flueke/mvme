@@ -4,6 +4,7 @@
 #include "../histo_util.h"
 #include "../mvme_config.h"
 #include "../mvme_context.h"
+#include "../qt_util.h"
 
 #include <limits>
 #include <QButtonGroup>
@@ -77,13 +78,14 @@ AddEditSourceWidget::AddEditSourceWidget(SourcePtr srcPtr, ModuleConfig *mod, Ev
 /** IMPORTANT: This constructor makes the Widget go into "edit" mode. When
  * accepting the widget inputs it will call eventWidget->sourceEdited(). */
 AddEditSourceWidget::AddEditSourceWidget(SourceInterface *src, ModuleConfig *module, EventWidget *eventWidget)
-    : QWidget(eventWidget, Qt::Tool)
+    : QDialog(eventWidget)
     , m_src(src)
     , m_module(module)
     , m_eventWidget(eventWidget)
     , m_gbGenHistograms(nullptr)
 {
     setWindowTitle(QString("Edit %1").arg(m_src->getDisplayName()));
+    add_widget_close_action(this);
 
     auto extractor = qobject_cast<Extractor *>(src);
     Q_ASSERT(extractor);
@@ -124,8 +126,9 @@ AddEditSourceWidget::AddEditSourceWidget(SourceInterface *src, ModuleConfig *mod
     m_optionsLayout->addRow(QSL("Required Completion Count"), m_spinCompletionCount);
 
     m_buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+    m_buttonBox->button(QDialogButtonBox::Ok)->setDefault(true);
     connect(m_buttonBox, &QDialogButtonBox::accepted, this, &AddEditSourceWidget::accept);
-    connect(m_buttonBox, &QDialogButtonBox::rejected, this, &QWidget::close);
+    connect(m_buttonBox, &QDialogButtonBox::rejected, this, &AddEditSourceWidget::reject);
     auto buttonBoxLayout = new QVBoxLayout;
     buttonBoxLayout->addStretch();
     buttonBoxLayout->addWidget(m_buttonBox);
@@ -140,6 +143,7 @@ AddEditSourceWidget::AddEditSourceWidget(SourceInterface *src, ModuleConfig *mod
 
 void AddEditSourceWidget::accept()
 {
+    qDebug() << __PRETTY_FUNCTION__;
     auto extractor = qobject_cast<Extractor *>(m_src);
 
     extractor->setObjectName(le_name->text());
@@ -156,15 +160,17 @@ void AddEditSourceWidget::accept()
     {
         m_eventWidget->sourceEdited(m_src);
     }
-    close();
-}
 
-void AddEditSourceWidget::closeEvent(QCloseEvent *event)
-{
     m_eventWidget->uniqueWidgetCloses();
-    event->accept();
+    QDialog::accept();
 }
 
+void AddEditSourceWidget::reject()
+{
+    qDebug() << __PRETTY_FUNCTION__;
+    m_eventWidget->uniqueWidgetCloses();
+    QDialog::reject();
+}
 
 //
 // AddEditOperatorWidget
@@ -186,13 +192,14 @@ AddEditOperatorWidget::AddEditOperatorWidget(OperatorPtr opPtr, s32 userLevel, E
 /** IMPORTANT: This constructor makes the Widget go into "edit" mode. When
  * accepted it will call eventWidget->operatorEdited()! */
 AddEditOperatorWidget::AddEditOperatorWidget(OperatorInterface *op, s32 userLevel, EventWidget *eventWidget)
-    : QWidget(eventWidget, Qt::Tool)
+    : QDialog(eventWidget)
     , m_op(op)
     , m_userLevel(userLevel)
     , m_eventWidget(eventWidget)
     , m_opConfigWidget(new OperatorConfigurationWidget(op, userLevel, this))
 {
     setWindowTitle(QString("Edit %1").arg(m_op->getDisplayName()));
+    add_widget_close_action(this);
 
     // We're editing an operator so we assume the name has been specified by the user.
     m_opConfigWidget->wasNameEdited = true;
@@ -265,6 +272,7 @@ AddEditOperatorWidget::AddEditOperatorWidget(OperatorInterface *op, s32 userLeve
 
     m_buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
     m_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(false);
+    m_buttonBox->button(QDialogButtonBox::Ok)->setDefault(true);
     connect(m_buttonBox, &QDialogButtonBox::accepted, this, &AddEditOperatorWidget::accept);
     connect(m_buttonBox, &QDialogButtonBox::rejected, this, &AddEditOperatorWidget::reject);
     auto buttonBoxLayout = new QVBoxLayout;
@@ -430,6 +438,8 @@ void AddEditOperatorWidget::inputSelected(s32 slotIndex)
 
 void AddEditOperatorWidget::accept()
 {
+    qDebug() << __PRETTY_FUNCTION__;
+
     AnalysisPauser pauser(m_eventWidget->getContext());
     m_opConfigWidget->configureOperator();
     if (m_opPtr)
@@ -442,11 +452,16 @@ void AddEditOperatorWidget::accept()
         // edit mode
         m_eventWidget->operatorEdited(m_op);
     }
-    close();
+    //close();
+    m_eventWidget->endSelectInput();
+    m_eventWidget->uniqueWidgetCloses();
+    QDialog::accept();
 }
 
 void AddEditOperatorWidget::reject()
 {
+    qDebug() << __PRETTY_FUNCTION__;
+
     AnalysisPauser pauser(m_eventWidget->getContext());
 
     if (m_opPtr)
@@ -485,14 +500,37 @@ void AddEditOperatorWidget::reject()
             slot->connectPipe(oldConnection.inputPipe, oldConnection.paramIndex);
         }
     }
-    close();
-}
-
-void AddEditOperatorWidget::closeEvent(QCloseEvent *event)
-{
+    //close();
     m_eventWidget->endSelectInput();
     m_eventWidget->uniqueWidgetCloses();
-    event->accept();
+    QDialog::reject();
+}
+
+/* Resizes the widget to have a minimum size when it's first shown.
+ *
+ * When instead using setMinimumSize() directly the widget can be resized
+ * smaller to what its child layout would normally allow. This causes shrunken
+ * input fields when for example the calibration table is shown after input is
+ * selected.
+ *
+ * Maybe there's a better way to achieve the same but I didn't find it.
+ */
+void AddEditOperatorWidget::resizeEvent(QResizeEvent *event)
+{
+    if (!m_resizeEventSeen)
+    {
+        m_resizeEventSeen = true;
+
+        auto sz = size();
+
+        if (sz.height() < WidgetMinHeight)
+            sz.setHeight(WidgetMinHeight);
+
+        if (sz.width() < WidgetMinWidth)
+            sz.setWidth(WidgetMinWidth);
+
+        resize(sz);
+    }
 }
 
 //
@@ -660,7 +698,6 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
     }
     else if (auto calibration = qobject_cast<CalibrationMinMax *>(op))
     {
-        parent->resize(350, 450);
         le_unit = new QLineEdit;
         le_unit->setText(calibration->getUnitLabel());
 
@@ -696,6 +733,7 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
         }
 
         m_calibrationTable = new QTableWidget;
+        m_calibrationTable->setMinimumSize(325, 175);
 
         m_pb_applyGlobalCalib = new QPushButton(QIcon(":/arrow_down.png"), QSL("Apply"));
         m_pb_applyGlobalCalib->setToolTip(QSL("Apply to all addresses"));

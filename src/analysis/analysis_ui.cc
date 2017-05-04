@@ -8,6 +8,7 @@
 #include "../treewidget_utils.h"
 #include "../config_ui.h"
 
+#include <QApplication>
 #include <QComboBox>
 #include <QCursor>
 #include <QFileDialog>
@@ -331,9 +332,10 @@ struct EventWidgetPrivate
 
     QVector<DisplayLevelTrees> m_levelTrees;
 
-    Mode m_mode;
-    bool m_uniqueWidgetActive;
-    Slot *m_selectInputSlot;
+    Mode m_mode = Default;
+    bool m_uniqueWidgetActive = false;
+    QWidget *m_uniqueWidget = nullptr;
+    Slot *m_selectInputSlot = nullptr;
     s32 m_selectInputUserLevel;
     EventWidget::SelectInputCallback m_selectInputCallback;
 
@@ -780,10 +782,10 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                 {
                     menuNew->addAction(title, &menu, [this, moduleConfig, srcPtr]() {
                         auto widget = new AddEditSourceWidget(srcPtr, moduleConfig, m_q);
-                        widget->move(QCursor::pos());
                         widget->setAttribute(Qt::WA_DeleteOnClose);
                         widget->show();
                         m_uniqueWidgetActive = true;
+                        m_uniqueWidget = widget;
                         clearAllTreeSelections();
                         clearAllToDefaultNodeHighlights();
                     });
@@ -847,10 +849,10 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                     {
                         menu.addAction(QSL("Edit"), [this, sourceInterface, moduleConfig]() {
                             auto widget = new AddEditSourceWidget(sourceInterface, moduleConfig, m_q);
-                            widget->move(QCursor::pos());
                             widget->setAttribute(Qt::WA_DeleteOnClose);
                             widget->show();
                             m_uniqueWidgetActive = true;
+                            m_uniqueWidget = widget;
                             clearAllTreeSelections();
                             clearAllToDefaultNodeHighlights();
                         });
@@ -891,10 +893,10 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
 
                 menu.addAction(QSL("Edit"), [this, userLevel, op]() {
                     auto widget = new AddEditOperatorWidget(op, userLevel, m_q);
-                    widget->move(QCursor::pos());
                     widget->setAttribute(Qt::WA_DeleteOnClose);
                     widget->show();
                     m_uniqueWidgetActive = true;
+                    m_uniqueWidget = widget;
                     clearAllTreeSelections();
                     clearAllToDefaultNodeHighlights();
                 });
@@ -916,10 +918,10 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                 {
                     menuNew->addAction(title, &menu, [this, userLevel, opPtr]() {
                         auto widget = new AddEditOperatorWidget(opPtr, userLevel, m_q);
-                        widget->move(QCursor::pos());
                         widget->setAttribute(Qt::WA_DeleteOnClose);
                         widget->show();
                         m_uniqueWidgetActive = true;
+                        m_uniqueWidget = widget;
                         clearAllTreeSelections();
                         clearAllToDefaultNodeHighlights();
                     });
@@ -974,10 +976,10 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
     {
         menuNew->addAction(title, &menu, [this, userLevel, op]() {
             auto widget = new AddEditOperatorWidget(op, userLevel, m_q);
-            widget->move(QCursor::pos());
             widget->setAttribute(Qt::WA_DeleteOnClose);
             widget->show();
             m_uniqueWidgetActive = true;
+            m_uniqueWidget = widget;
             clearAllTreeSelections();
             clearAllToDefaultNodeHighlights();
         });
@@ -1128,10 +1130,10 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
             {
                 menu.addAction(QSL("Edit"), [this, userLevel, op]() {
                     auto widget = new AddEditOperatorWidget(op, userLevel, m_q);
-                    widget->move(QCursor::pos());
                     widget->setAttribute(Qt::WA_DeleteOnClose);
                     widget->show();
                     m_uniqueWidgetActive = true;
+                    m_uniqueWidget = widget;
                     clearAllTreeSelections();
                     clearAllToDefaultNodeHighlights();
                 });
@@ -2004,6 +2006,7 @@ void EventWidget::removeSource(SourceInterface *src)
 void EventWidget::uniqueWidgetCloses()
 {
     m_d->m_uniqueWidgetActive = false;
+    m_d->m_uniqueWidget = nullptr;
 }
 
 void EventWidget::addUserLevel()
@@ -2055,6 +2058,16 @@ bool EventWidget::eventFilter(QObject *watched, QEvent *event)
 
 EventWidget::~EventWidget()
 {
+    qDebug() << __PRETTY_FUNCTION__;
+
+    if (m_d->m_uniqueWidgetActive)
+    {
+        if (auto dialog = qobject_cast<QDialog *>(m_d->m_uniqueWidget))
+        {
+            dialog->reject();
+        }
+    }
+
     delete m_d;
 }
 

@@ -9,6 +9,7 @@
 #include <QCheckBox>
 #include <QCloseEvent>
 #include <QComboBox>
+#include <QDialog>
 #include <QDialogButtonBox>
 #include <QDoubleSpinBox>
 #include <QFormLayout>
@@ -73,15 +74,15 @@ class EventWidget: public QWidget
         EventWidgetPrivate *m_d;
 };
 
-class AddEditSourceWidget: public QWidget
+class AddEditSourceWidget: public QDialog
 {
     Q_OBJECT
     public:
         AddEditSourceWidget(SourcePtr srcPtr, ModuleConfig *mod, EventWidget *eventWidget);
         AddEditSourceWidget(SourceInterface *src, ModuleConfig *mod, EventWidget *eventWidget);
 
-        virtual void closeEvent(QCloseEvent *event) override;
-        void accept();
+        virtual void accept() override;
+        virtual void reject() override;
 
         SourcePtr m_srcPtr;
         SourceInterface *m_src;
@@ -101,17 +102,18 @@ class AddEditSourceWidget: public QWidget
         bool m_editMode;
 };
 
-class AddEditOperatorWidget: public QWidget
+class AddEditOperatorWidget: public QDialog
 {
     Q_OBJECT
     public:
         AddEditOperatorWidget(OperatorPtr opPtr, s32 userLevel, EventWidget *eventWidget);
         AddEditOperatorWidget(OperatorInterface *op, s32 userLevel, EventWidget *eventWidget);
 
-        virtual void closeEvent(QCloseEvent *event) override;
+        virtual void resizeEvent(QResizeEvent *event) override;
+
         void inputSelected(s32 slotIndex);
-        void accept();
-        void reject();
+        virtual void accept() override;
+        virtual void reject() override;
         void repopulateSlotGrid();
 
         OperatorPtr m_opPtr;
@@ -133,6 +135,11 @@ class AddEditOperatorWidget: public QWidget
         };
 
         QVector<SlotConnection> m_slotBackups;
+        bool m_resizeEventSeen = false;
+        bool m_wasAcceptedOrRejected = false;
+
+        static const s32 WidgetMinWidth  = 325;
+        static const s32 WidgetMinHeight = 175;
 };
 
 class OperatorConfigurationWidget: public QWidget
