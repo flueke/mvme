@@ -2,9 +2,61 @@
 ==== Do these first! =====
 ==========================
 
+#0  0x00007ffff3e36067 in __GI_raise (sig=sig@entry=6) at ../nptl/sysdeps/unix/sysv/linux/raise.c:56
+#1  0x00007ffff3e37448 in __GI_abort () at abort.c:89
+#2  0x00007ffff4ef0f4e in QMessageLogger::fatal(char const*, ...) const () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
+#3  0x00007ffff4eec821 in qt_assert_x(char const*, char const*, char const*, int) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
+#4  0x00000000005e20bf in QVector<analysis::Parameter>::operator[] (this=0x60e000031a40, i=1) at ../../../Qt/5.7/gcc_64/include/QtCore/qvector.h:429
+#5  0x00000000005cf3be in analysis::Difference::step (this=0x61000000ba40) at ../../mvme2/src/analysis/analysis.cc:915
+#6  0x00000000005d82de in analysis::Analysis::endEvent (this=0x6060000dfd00, eventId=...) at ../../mvme2/src/analysis/analysis.cc:1897
+#7  0x000000000053c6bc in MVMEEventProcessor::processDataBuffer (this=0x60400002ecd0, buffer=0x603000022d50) at ../../mvme2/src/mvme_event_processor.cc:278
+#8  0x000000000053cec7 in MVMEEventProcessor::startProcessing (this=0x60400002ecd0) at ../../mvme2/src/mvme_event_processor.cc:336
+#9  0x000000000066e4d3 in MVMEEventProcessor::qt_static_metacall (_o=0x60400002ecd0, _c=QMetaObject::InvokeMetaMethod, _id=7, _a=0x60200190cad0)
+    at moc_mvme_event_processor.cpp:115
+#10 0x00007ffff50f861a in QObject::event(QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
+#11 0x00007ffff607b52c in QApplicationPrivate::notify_helper(QObject*, QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#12 0x00007ffff6082220 in QApplication::notify(QObject*, QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#13 0x00007ffff50cfae0 in QCoreApplication::notifyInternal2(QObject*, QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
+#14 0x00007ffff50d251b in QCoreApplicationPrivate::sendPostedEvents(QObject*, int, QThreadData*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
+#15 0x00007ffff511cc53 in ?? () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
+#16 0x00007ffff09c741d in g_main_context_dispatch () from /lib/x86_64-linux-gnu/libglib-2.0.so.0
+#17 0x00007ffff09c7700 in ?? () from /lib/x86_64-linux-gnu/libglib-2.0.so.0
+#18 0x00007ffff09c77ac in g_main_context_iteration () from /lib/x86_64-linux-gnu/libglib-2.0.so.0
+#19 0x00007ffff511d05c in QEventDispatcherGlib::processEvents(QFlags<QEventLoop::ProcessEventsFlag>) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
+#20 0x00007ffff50cddca in QEventLoop::exec(QFlags<QEventLoop::ProcessEventsFlag>) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
+#21 0x00007ffff4f04f1c in QThread::exec() () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
+#22 0x00007ffff4f095f9 in ?? () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
+#23 0x00007ffff49d6064 in start_thread (arg=0x7fffe4c30700) at pthread_create.c:309
+#24 0x00007ffff3ee962d in clone () at ../sysdeps/unix/sysv/linux/x86_64/clone.S:111
+
+
+
+
+
+
+
+
+
+
+* VMUSBReadoutWorker: Add daqconfig consistency checks. Abort if the checks fail.
+* New Extractor for a MesytecCounter module -> no default filter present! Name
+  is only partially filled.
+
+* Clearly document Extractor behaviour:
+  - How does it use the individual filters?
+  - How are data and address values formed?
+  - How does WordIndex behave?
+  - What does RequiredCompletionCount do?
+* Close histograms on opening a new analysis config.
 * Bug: H1D does not work when unitMin > unitMax
 * Bug: H1D Print to File is broken. Also check save to file.
+* Histograms:
+  - Print to File does not work anymore for H1D
+  - Slashes in histo names break the generated filenames.
+  - Include the listfile filename (which is kinda the run-id) in the generated image.
+  - Read up on binning error calculations. See how ROOT does it.
 
+* DAQConfig: Add a "disabled" condition to events to allow temporarily disabling them.
 * DAQConfig enh: Global Scripts DAQ Start, DAQ Stop and Manual should have a folder-like icon.
 * DAQConfig: most templates are important as without them the readout does not
   work at all (mcast, start, stop, reset). Display a clear message if any of
@@ -53,10 +105,6 @@
   - write some user description text file to the zip. "Run description", "Run notes", "DAQ notes"
 
  - UserLevel hide/show GUI
- - Calibration:
-   * if only one event don't show the list of calibrations
-   * when creating a new calib the global values are not applied to the
-     individual ones, instead the default values from the table are used
 
  - "modified" concept for the analysis and it's elements
  - save/saveas/load error reporting
@@ -73,6 +121,9 @@
 ==========================
 ==== Do these later! =====
 ==========================
+* HistoViewer: Ability to save filled Histograms to disk and reload them later.
+  This will allow using histogram tools (fits, etc.) on loaded histos. It also
+  allows comparing histos from different runs etc.
 * Calculated listfile size in stats display and size shown by windows explorer
   are not the same at all. Why?
 * // FIXME: when using subranges the getBinUnchecked() calculation often yields negative bins. why?
@@ -89,7 +140,6 @@
 - VMUSB: if there are connect/reconnect errors write them to the log view
   Do this when porting to libusb-1.0 as that should also provide better error messages.
 - VMUSB: make the mutex non-recursive!
-* Move from MDI to multiple top-level windows (allows making use of multiple monitors)
 
 >>>>> Begin Analysis NG <<<<<
  - Add Operator::getDescription()
