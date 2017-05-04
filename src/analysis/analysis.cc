@@ -561,7 +561,7 @@ void IndexSelector::beginRun()
         const auto &in(m_inputSlot.inputPipe->getParameters());
 
         out.resize(1);
-        out.name = in.name;
+        out.name = objectName();// in.name;
         out.unit = in.unit;
     }
     else
@@ -626,7 +626,7 @@ void PreviousValue::beginRun()
 
         out.resize(idxMax - idxMin);
         out.invalidateAll();
-        out.name = in.name;
+        out.name = objectName();// in.name;
         out.unit = in.unit;
 
         if (idxMin >= in.size())
@@ -731,7 +731,7 @@ void RetainValid::beginRun()
         }
 
         out.invalidateAll();
-        out.name = in.name;
+        out.name = objectName();// in.name;
         out.unit = in.unit;
 
         for (s32 idx = idxMin, outIdx = 0;
@@ -837,7 +837,7 @@ void Difference::slotDisconnected(Slot *slot)
 
 void Difference::beginRun()
 {
-    m_output.parameters.name = QSL("A-B");
+    m_output.parameters.name = objectName(); // QSL("A-B");
     m_output.parameters.unit = QString();
 
     if (!(m_inputA.inputPipe && m_inputB.inputPipe))
@@ -951,7 +951,7 @@ void Sum::beginRun()
         out.resize(1);
 
         const auto &in(m_inputSlot.inputPipe->getParameters());
-        out.name = in.name;
+        out.name = objectName();// in.name;
         out.unit = in.unit;
 
         double lowerBound = 0.0;
@@ -1060,6 +1060,7 @@ bool ArrayMap::removeLastSlot()
 void ArrayMap::beginRun()
 {
     s32 mappingCount = m_mappings.size();
+    m_output.parameters.name = objectName();
     m_output.parameters.resize(mappingCount);
 
     for (s32 mIndex = 0;
@@ -1077,7 +1078,7 @@ void ArrayMap::beginRun()
             if (mIndex == 0)
             {
                 // Use the first inputs name and unit label.
-                m_output.parameters.name = inputSlot->inputPipe->parameters.name;
+                //m_output.parameters.name = inputSlot->inputPipe->parameters.name;
                 m_output.parameters.unit = inputSlot->inputPipe->parameters.unit;
             }
         }
@@ -1350,7 +1351,7 @@ void ConditionFilter::beginRun()
     auto &out(m_output.getParameters());
 
     out.resize(0);
-    out.name = QString();
+    out.name = objectName();// in.name;
     out.unit = QString();
 
     if (!(m_dataInput.isParamIndexInRange() && m_conditionInput.isParamIndexInRange()))
@@ -1377,7 +1378,7 @@ void ConditionFilter::beginRun()
         }
 
         out.invalidateAll();
-        out.name = in.name;
+        //out.name = in.name;
         out.unit = in.unit;
 
         for (s32 idx = idxMin, outIdx = 0;

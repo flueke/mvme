@@ -663,6 +663,11 @@ class Sum: public BasicOperator
         bool m_calculateMean = false;
 };
 
+/**
+ * Map elements of one or more input arrays to an output array.
+ *
+ * Can be used to concatenate multiple arrays and/or change the order of array members.
+ */
 class ArrayMap: public OperatorInterface
 {
     Q_OBJECT
