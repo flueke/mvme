@@ -121,49 +121,7 @@ Q_DECLARE_INTERFACE(analysis::PipeSourceInterface, PipeSourceInterface_iid);
 namespace analysis
 {
 
-struct InputType
-{
-    static const u32 Invalid = 0;
-    static const u32 Array   = 1u << 0;
-    static const u32 Value   = 1u << 1;
-    static const u32 Both    = (Array | Value);
-};
-
-
-// The destination of a Pipe
-struct Slot
-{
-    Slot(OperatorInterface *parentOp, s32 parentSlotIndex, const QString &name, u32 acceptedInputs = InputType::Both)
-        : parentOperator(parentOp)
-        , parentSlotIndex(parentSlotIndex)
-        , name(name)
-        , acceptedInputTypes(acceptedInputs)
-    {}
-
-    /* Sets inputPipe to be the new input for this Slot. */
-    void connectPipe(Pipe *inputPipe, s32 paramIndex);
-    /* Clears this slots input. */
-    void disconnectPipe();
-
-    inline bool isConnected() { return (inputPipe != nullptr); }
-
-    static const s32 NoParamIndex = -1; // special paramIndex value for InputType::Array
-
-    u32 acceptedInputTypes = InputType::Both;
-    s32 paramIndex = NoParamIndex; // parameter index for InputType::Value or NoParamIndex
-    Pipe *inputPipe = nullptr;
-
-    // The owner of this Slot.
-    OperatorInterface *parentOperator = nullptr;
-
-    /* The index of this Slot in parentOperator. If correctly setup the
-     * following should be true:
-     * (parentOperator->getSlot(parentSlotIndex) == this)
-     */
-    s32 parentSlotIndex = -1;
-    /* The name if this Slot in the parentOperator. Set by the parentOperator. */
-    QString name;
-};
+struct Slot;
 
 class Pipe
 {
@@ -200,6 +158,11 @@ class Pipe
 
         const ParameterVector &getParameters() const { return parameters; }
         ParameterVector &getParameters() { return parameters; }
+
+        s32 getSize() const
+        {
+            return parameters.size();
+        }
 
         void setParameterName(const QString &name) { parameters.name = name; }
         QString getParameterName() const { return parameters.name; }
@@ -242,6 +205,67 @@ class Pipe
         s32 sourceOutputIndex = 0;
         QVector<Slot *> destinations;
         s32 rank = 0;
+};
+
+struct InputType
+{
+    static const u32 Invalid = 0;
+    static const u32 Array   = 1u << 0;
+    static const u32 Value   = 1u << 1;
+    static const u32 Both    = (Array | Value);
+};
+
+// The destination of a Pipe
+struct Slot
+{
+    static const s32 NoParamIndex = -1; // special paramIndex value for InputType::Array
+
+    Slot(OperatorInterface *parentOp, s32 parentSlotIndex, const QString &name, u32 acceptedInputs = InputType::Both)
+        : parentOperator(parentOp)
+        , parentSlotIndex(parentSlotIndex)
+        , name(name)
+        , acceptedInputTypes(acceptedInputs)
+    {}
+
+    /* Sets inputPipe to be the new input for this Slot. */
+    void connectPipe(Pipe *inputPipe, s32 paramIndex);
+    /* Clears this slots input. */
+    void disconnectPipe();
+
+    inline bool isConnected() const
+    {
+        return (inputPipe != nullptr);
+    }
+
+    inline bool isParamIndexInRange() const
+    {
+        return (isConnected() && (paramIndex < inputPipe->getSize()));
+    }
+
+    inline bool isArrayConnection() const
+    {
+        return paramIndex == NoParamIndex;
+    }
+
+    inline bool isParameterConnection() const
+    {
+        return !isArrayConnection();
+    }
+
+    u32 acceptedInputTypes = InputType::Both;
+    s32 paramIndex = NoParamIndex; // parameter index for InputType::Value or NoParamIndex
+    Pipe *inputPipe = nullptr;
+
+    // The owner of this Slot.
+    OperatorInterface *parentOperator = nullptr;
+
+    /* The index of this Slot in parentOperator. If correctly setup the
+     * following should be true:
+     * (parentOperator->getSlot(parentSlotIndex) == this)
+     */
+    s32 parentSlotIndex = -1;
+    /* The name if this Slot in the parentOperator. Set by the parentOperator. */
+    QString name;
 };
 
 /* Data source interface. The analysis feeds single data words into this using

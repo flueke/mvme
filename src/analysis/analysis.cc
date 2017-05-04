@@ -1341,64 +1341,93 @@ ConditionFilter::ConditionFilter(QObject *parent)
     , m_conditionInput(this, 1, QSL("Condition"))
 {
     m_output.setSource(this);
-    m_dataInput.acceptedInputTypes = InputType::Array;
-    m_conditionInput.acceptedInputTypes = InputType::Array;
+    m_dataInput.acceptedInputTypes = InputType::Both;
+    m_conditionInput.acceptedInputTypes = InputType::Both;
 }
 
 void ConditionFilter::beginRun()
 {
     auto &out(m_output.getParameters());
 
-    if (m_dataInput.isConnected())
+    out.resize(0);
+    out.name = QString();
+    out.unit = QString();
+
+    if (!(m_dataInput.isParamIndexInRange() && m_conditionInput.isParamIndexInRange()))
+    {
+        return;
+    }
+
+    if (m_dataInput.isConnected() && m_conditionInput.isConnected())
     {
         const auto &in(m_dataInput.inputPipe->getParameters());
-        out.resize(in.size());
 
-        const s32 idxMax = out.size();
+        s32 idxMin = 0;
+        s32 idxMax = in.size();
 
-        for (s32 idx = 0;
-             idx < idxMax;
-             ++idx)
+        if (m_dataInput.isParameterConnection())
         {
-            auto &outParam(out[idx]);
-            const auto &inParam(in[idx]);
+            out.resize(1);
+            idxMin = m_dataInput.paramIndex;
+            idxMax = idxMin + 1;
+        }
+        else
+        {
+            out.resize(in.size());
+        }
+
+        out.invalidateAll();
+        out.name = in.name;
+        out.unit = in.unit;
+
+        for (s32 idx = idxMin, outIdx = 0;
+             idx < idxMax;
+             ++idx, ++outIdx)
+        {
+            const Parameter &inParam(in[idx]);
+            Parameter &outParam(out[outIdx]);
 
             outParam.lowerLimit = inParam.lowerLimit;
             outParam.upperLimit = inParam.upperLimit;
         }
     }
-    else
-    {
-        out.resize(0);
-    }
-
-    out.invalidateAll();
 }
 
 void ConditionFilter::step()
 {
-    if (m_dataInput.isConnected() && m_conditionInput.isConnected())
+    if (m_dataInput.isParamIndexInRange() && m_conditionInput.isParamIndexInRange())
     {
         auto &out(m_output.getParameters());
         const auto &dataIn(m_dataInput.inputPipe->getParameters());
         const auto &condIn(m_conditionInput.inputPipe->getParameters());
 
-        Q_ASSERT(out.size() == dataIn.size());
+        s32 idxMin = 0;
+        s32 idxMax = out.size();
 
-        const s32 idxMax = out.size();
-
-        for (s32 idx = 0;
-             idx < idxMax;
-             ++idx)
+        if (m_dataInput.isParameterConnection())
         {
-            auto &outParam(out[idx]);
-            const auto &dataInParam(dataIn[idx]);
-            const auto condInParam(condIn.value(idx)); // idx may be out of range for m_conditionInput
+            idxMin = m_dataInput.paramIndex;
+            idxMax = idxMin + 1;
+        }
 
-            if (condInParam.valid)
+        for (s32 idx = idxMin, outIdx = 0;
+             idx < idxMax;
+             ++idx, ++outIdx)
+        {
+            auto &outParam(out[outIdx]);
+            const auto &dataParam(dataIn[idx]);
+
+            // The index into the condition array can be out of range if the
+            // condition array is smaller than the data array. In that case a
+            // default constructed and thus invalid parameter will be used.
+            const auto condParam(m_conditionInput.isParameterConnection()
+                                 ? condIn.value(m_conditionInput.paramIndex)
+                                 : condIn.value(idx));
+
+            if (condParam.valid)
             {
-                outParam.valid = dataInParam.valid;
-                outParam.value = dataInParam.value;
+                outParam.valid = dataParam.valid;
+                outParam.value = dataParam.value;
             }
             else
             {
