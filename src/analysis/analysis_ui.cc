@@ -782,6 +782,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                 {
                     menuNew->addAction(title, &menu, [this, moduleConfig, srcPtr]() {
                         auto widget = new AddEditSourceWidget(srcPtr, moduleConfig, m_q);
+                        widget->move(QCursor::pos());
                         widget->setAttribute(Qt::WA_DeleteOnClose);
                         widget->show();
                         m_uniqueWidgetActive = true;
@@ -849,6 +850,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                     {
                         menu.addAction(QSL("Edit"), [this, sourceInterface, moduleConfig]() {
                             auto widget = new AddEditSourceWidget(sourceInterface, moduleConfig, m_q);
+                            widget->move(QCursor::pos());
                             widget->setAttribute(Qt::WA_DeleteOnClose);
                             widget->show();
                             m_uniqueWidgetActive = true;
@@ -893,6 +895,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
 
                 menu.addAction(QSL("Edit"), [this, userLevel, op]() {
                     auto widget = new AddEditOperatorWidget(op, userLevel, m_q);
+                    widget->move(QCursor::pos());
                     widget->setAttribute(Qt::WA_DeleteOnClose);
                     widget->show();
                     m_uniqueWidgetActive = true;
@@ -918,6 +921,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                 {
                     menuNew->addAction(title, &menu, [this, userLevel, opPtr]() {
                         auto widget = new AddEditOperatorWidget(opPtr, userLevel, m_q);
+                        widget->move(QCursor::pos());
                         widget->setAttribute(Qt::WA_DeleteOnClose);
                         widget->show();
                         m_uniqueWidgetActive = true;
@@ -976,6 +980,7 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
     {
         menuNew->addAction(title, &menu, [this, userLevel, op]() {
             auto widget = new AddEditOperatorWidget(op, userLevel, m_q);
+            widget->move(QCursor::pos());
             widget->setAttribute(Qt::WA_DeleteOnClose);
             widget->show();
             m_uniqueWidgetActive = true;
@@ -1130,6 +1135,7 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
             {
                 menu.addAction(QSL("Edit"), [this, userLevel, op]() {
                     auto widget = new AddEditOperatorWidget(op, userLevel, m_q);
+                    widget->move(QCursor::pos());
                     widget->setAttribute(Qt::WA_DeleteOnClose);
                     widget->show();
                     m_uniqueWidgetActive = true;
@@ -1810,6 +1816,7 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, AnalysisWidget 
     : QWidget(parent)
     , m_d(new EventWidgetPrivate)
 {
+    qDebug() << __PRETTY_FUNCTION__ << this << "event =" << eventId;
     *m_d = {};
     m_d->m_q = this;
     m_d->m_context = ctx;
@@ -2058,7 +2065,7 @@ bool EventWidget::eventFilter(QObject *watched, QEvent *event)
 
 EventWidget::~EventWidget()
 {
-    qDebug() << __PRETTY_FUNCTION__;
+    qDebug() << __PRETTY_FUNCTION__ << this << "event =" << m_d->m_eventId;
 
     if (m_d->m_uniqueWidgetActive)
     {
