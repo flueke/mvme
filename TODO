@@ -14,25 +14,11 @@
     at moc_mvme_event_processor.cpp:115
 
 
-#0  0x00007ffff3e36067 in __GI_raise (sig=sig@entry=6) at ../nptl/sysdeps/unix/sysv/linux/raise.c:56
-#1  0x00007ffff3e37448 in __GI_abort () at abort.c:89
-#2  0x00007ffff4ef0f4e in QMessageLogger::fatal(char const*, ...) const () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
-#3  0x00007ffff4eec821 in qt_assert_x(char const*, char const*, char const*, int) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
-#4  0x00000000005e20bf in QVector<analysis::Parameter>::operator[] (this=0x60f00010d080, i=0) at ../../../Qt/5.7/gcc_64/include/QtCore/qvector.h:429
-#5  0x00000000005d2170 in analysis::RangeFilter1D::beginRun (this=0x60f00010d6e0) at ../../mvme2/src/analysis/analysis.cc:1251
-#6  0x00000000005d79d5 in analysis::Analysis::beginRun (this=0x606000363920) at ../../mvme2/src/analysis/analysis.cc:1799
-#7  0x00000000005d8bdb in analysis::Analysis::removeSource (this=0x606000363920, source=0x60e000091a60) at ../../mvme2/src/analysis/analysis.cc:2061
-#8  0x00000000006192b1 in analysis::EventWidget::removeSource (this=0x60600036ed20, src=0x60e000091a60) at ../../mvme2/src/analysis/analysis_ui.cc:2009
-#9  0x000000000060b000 in analysis::EventWidgetPrivate::<lambda()>::operator()(void) const (__closure=0x603000392b70) at ../../mvme2/src/analysis/analysis_ui.cc:865
 
-
-
-
-
-
-
-
-
+* RangeFilter1D: make upper limit exclusive
+* H1D: Take the median of the visible left and right edges. Subtract that value
+  from the calculated statistics values. This is supposed to remove the noise
+  to the left and right of a peak.
 
 * VMUSBReadoutWorker: Add daqconfig consistency checks. Abort if the checks fail.
 * New Extractor for a MesytecCounter module -> no default filter present! Name

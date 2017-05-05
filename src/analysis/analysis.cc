@@ -1242,17 +1242,18 @@ RangeFilter1D::RangeFilter1D(QObject *parent)
 void RangeFilter1D::beginRun()
 {
     auto &out(m_output.getParameters());
-
+    out.resize(0);
     out.name = objectName();
+    out.unit = QString();
 
-    if (m_inputSlot.inputPipe)
+    if (m_inputSlot.isParamIndexInRange())
     {
         const auto &in(m_inputSlot.inputPipe->getParameters());
 
         s32 idxMin = 0;
         s32 idxMax = in.size();
 
-        if (m_inputSlot.paramIndex != Slot::NoParamIndex)
+        if (m_inputSlot.isParameterConnection())
         {
             out.resize(1);
             idxMin = m_inputSlot.paramIndex;
@@ -1262,6 +1263,9 @@ void RangeFilter1D::beginRun()
         {
             out.resize(in.size());
         }
+
+        out.invalidateAll();
+        out.unit = in.unit;
 
         for (s32 idx = idxMin, outIdx = 0;
              idx < idxMax;
@@ -1281,20 +1285,12 @@ void RangeFilter1D::beginRun()
                 outParam.upperLimit = inParam.upperLimit;
             }
         }
-
-        out.unit = in.unit;
     }
-    else
-    {
-        out.resize(0);
-    }
-
-    out.invalidateAll();
 }
 
 void RangeFilter1D::step()
 {
-    if (m_inputSlot.inputPipe)
+    if (m_inputSlot.isParamIndexInRange())
     {
         auto &out(m_output.getParameters());
         const auto &in(m_inputSlot.inputPipe->getParameters());
@@ -1302,15 +1298,10 @@ void RangeFilter1D::step()
         s32 idxMin = 0;
         s32 idxMax = in.size();
 
-        if (m_inputSlot.paramIndex != Slot::NoParamIndex)
+        if (m_inputSlot.isParameterConnection())
         {
-            Q_ASSERT(out.size() == 1);
             idxMin = m_inputSlot.paramIndex;
             idxMax = idxMin + 1;
-        }
-        else
-        {
-            Q_ASSERT(out.size() == in.size());
         }
 
         for (s32 idx = idxMin, outIdx = 0;
@@ -1319,8 +1310,6 @@ void RangeFilter1D::step()
         {
             auto &outParam(out[outIdx]);
             const auto &inParam(in[idx]);
-
-            outParam.valid = false;
 
             if (inParam.valid)
             {
@@ -1331,8 +1320,8 @@ void RangeFilter1D::step()
                 {
                     // Only assigning value instead of the whole parameter
                     // because the limits have been adjusted in beginRun()
-                    outParam.valid = true;
                     outParam.value = inParam.value;
+                    outParam.valid = true;
                 }
             }
         }
