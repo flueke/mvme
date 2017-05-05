@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>576</width>
-    <height>446</height>
+    <width>563</width>
+    <height>450</height>
    </rect>
   </property>
   <layout class="QGridLayout" name="gridLayout" columnstretch="1,0">
@@ -139,7 +139,7 @@
            <string>Histogram Info</string>
           </property>
           <property name="icon">
-           <iconset>
+           <iconset resource="resources.qrc">
             <normaloff>:/info.png</normaloff>:/info.png</iconset>
           </property>
          </widget>
@@ -150,7 +150,7 @@
            <string>Limit to Subrange</string>
           </property>
           <property name="icon">
-           <iconset>
+           <iconset resource="resources.qrc">
             <normaloff>:/zoom_in.png</normaloff>:/zoom_in.png</iconset>
           </property>
          </widget>
@@ -162,6 +162,19 @@
           </property>
           <property name="text">
            <string>R</string>
+          </property>
+          <property name="checkable">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QToolButton" name="tb_gauss">
+          <property name="toolTip">
+           <string>Gauss Curve</string>
+          </property>
+          <property name="text">
+           <string>G</string>
           </property>
           <property name="checkable">
            <bool>true</bool>
@@ -230,7 +243,9 @@
    <container>1</container>
   </customwidget>
  </customwidgets>
- <resources/>
+ <resources>
+  <include location="resources.qrc"/>
+ </resources>
  <connections/>
  <buttongroups>
   <buttongroup name="linLogGroup"/>

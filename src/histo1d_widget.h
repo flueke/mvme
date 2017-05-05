@@ -62,6 +62,7 @@ class Histo1DWidget: public QWidget
         void on_tb_info_clicked();
         void on_tb_subRange_clicked();
         void on_tb_rate_toggled(bool checked);
+        void on_tb_gauss_toggled(bool checked);
         void on_tb_test_clicked();
 
     private:

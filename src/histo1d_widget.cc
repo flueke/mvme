@@ -14,6 +14,7 @@
 #include <qwt_plot_panner.h>
 #include <qwt_plot_renderer.h>
 #include <qwt_plot_textlabel.h>
+#include <qwt_point_data.h>
 #include <qwt_scale_engine.h>
 #include <qwt_scale_widget.h>
 #include <qwt_text.h>
@@ -71,6 +72,122 @@ class Histo1DPointData: public QwtSeriesData<QPointF>
         Histo1D *m_histo;
 };
 
+//static constexpr auto PI  = 3.14159265358979323846;
+//static constexpr auto PI2 = 2.0 * PI;
+//static const auto SqrtPI2 = std::sqrt(PI2);
+
+static const double FWHMSigmaFactor = 2.3548;
+
+static inline double squared(double x)
+{
+    return x * x;
+}
+
+#if 0
+class Histo1DGaussCurveData: public QwtSeriesData<QPointF>
+{
+    public:
+        Histo1DGaussCurveData(Histo1D *histo)
+            : m_histo(histo)
+        {
+        }
+
+        virtual size_t size() const override
+        {
+            return m_histo->getNumberOfBins();
+        }
+
+        virtual QPointF sample(size_t i) const override
+        {
+            qDebug() << __PRETTY_FUNCTION__ << "sample index =" << i;
+
+            double x = m_histo->getBinLowEdge(i);
+            double s = m_stats.fwhm / FWHMSigmaFactor;
+            double a = m_histo->getBinLowEdge(m_stats.maxBin);
+
+            double firstTerm  = m_stats.maxValue; // This is (1.0 / (SqrtPI2 * s)) if the resulting area should be 1.
+            double exponent   = -0.5 * ((squared(x - a) / squared(s)));
+            double secondTerm = std::exp(exponent);
+            double yValue     = firstTerm * secondTerm;
+
+            qDebug("i=%d, x=%lf, s=%lf, a=%lf, stats.maxBin=%d",
+                   i, x, s, a, m_stats.maxBin);
+
+            qDebug("firstTerm=%lf, exponent=%lf, secondTerm=%lf, yValue=%lf",
+                   firstTerm, exponent, secondTerm, yValue);
+
+            double y = yValue;
+
+            QPointF result(x, yValue);
+            return result;
+        }
+
+        virtual QRectF boundingRect() const override
+        {
+            auto result = QRectF(
+                m_histo->getXMin(), 0.0,
+                m_histo->getWidth(), m_histo->getMaxValue());
+
+            return result;
+        }
+
+        void setStats(Histo1DStatistics stats)
+        {
+            m_stats = stats;
+        }
+
+    private:
+        Histo1D *m_histo;
+        Histo1DStatistics m_stats;
+};
+#else
+/* Calculates a gauss fit using the currently visible maximum histogram value.
+ *
+ * Note: The resolution is independent of the underlying histograms resolution.
+ * Instead NumberOfPoints samples are used at all zoom levels.
+ */
+class Histo1DGaussCurveData: public QwtSyntheticPointData
+{
+    static const size_t NumberOfPoints = 1000;
+
+    public:
+        Histo1DGaussCurveData(Histo1D *histo)
+            : QwtSyntheticPointData(NumberOfPoints)
+            , m_histo(histo)
+        {
+        }
+
+        virtual double y(double x) const override
+        {
+            //qDebug() << __PRETTY_FUNCTION__ << "x" << x;
+
+            double s = m_stats.fwhm / FWHMSigmaFactor;
+            double a = m_histo->getBinCenter(m_stats.maxBin); // use getBinLowEdge() to align to the left side of the bin
+
+            double firstTerm  = m_stats.maxValue; // This is (1.0 / (SqrtPI2 * s)) if the resulting area should be 1.
+            double exponent   = -0.5 * ((squared(x - a) / squared(s)));
+            double secondTerm = std::exp(exponent);
+            double yValue     = firstTerm * secondTerm;
+
+            //qDebug("x=%lf, s=%lf, a=%lf, stats.maxBin=%d",
+            //       x, s, a, m_stats.maxBin);
+            //qDebug("firstTerm=%lf, exponent=%lf, secondTerm=%lf, yValue=%lf",
+            //       firstTerm, exponent, secondTerm, yValue);
+
+            return yValue;
+        }
+
+        void setStats(Histo1DStatistics stats)
+        {
+            m_stats = stats;
+        }
+
+    private:
+        Histo1D *m_histo;
+        Histo1DStatistics m_stats;
+};
+#endif
+
 struct CalibUi
 {
     QDoubleSpinBox *actual1, *actual2,
@@ -89,7 +206,8 @@ struct RateEstimationData
 
 };
 
-static const double PlotTextLayerZ = 1000.0;
+static const double PlotTextLayerZ  = 1000.0;
+static const double PlotGaussLayerZ = 1001.0;
 
 struct Histo1DWidgetPrivate
 {
@@ -100,6 +218,8 @@ struct Histo1DWidgetPrivate
     QwtPlotMarker *m_rateX1Marker;
     QwtPlotMarker *m_rateX2Marker;
     QwtPlotMarker *m_rateFormulaMarker;
+
+    QwtPlotCurve *m_gaussCurve = nullptr;
 };
 
 Histo1DWidget::Histo1DWidget(const Histo1DPtr &histoPtr, QWidget *parent)
@@ -205,7 +325,7 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
      * not clip the top scrollbar. */
     m_statsTextItem->setMargin(15);
     m_statsTextItem->setText(*m_statsText);
-    //m_statsTextItem->setZ(42.0); // something > 0
+    //m_statsTextItem->setZ(42.0); // something > 0 // FIXME
     m_statsTextItem->attach(ui->plot);
 
     //
@@ -343,6 +463,15 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
         replot();
     });
 
+    //
+    // Gauss Curve
+    //
+    m_d->m_gaussCurve = new QwtPlotCurve;
+    m_d->m_gaussCurve->setZ(PlotGaussLayerZ);
+    m_d->m_gaussCurve->setPen(Qt::green, 2.0);
+    m_d->m_gaussCurve->attach(ui->plot);
+    m_d->m_gaussCurve->hide();
+
 #if 0
     connect(m_d->m_ratePointPicker, &QwtPicker::activated, this, [this](bool on) {
         qDebug() << __PRETTY_FUNCTION__ << "m_ratePointPicker activated" << on;
@@ -388,6 +517,7 @@ void Histo1DWidget::setHistogram(Histo1D *histo)
 {
     m_histo = histo;
     m_plotCurve->setData(new Histo1DPointData(m_histo));
+    m_d->m_gaussCurve->setData(new Histo1DGaussCurveData(m_histo));
 
     // Reset the zoom stack and zoom fully zoom out as the scales might be
     // completely different now.
@@ -655,6 +785,9 @@ void Histo1DWidget::updateStatistics()
 
     m_statsText->setText(buffer, QwtText::RichText);
     m_statsTextItem->setText(*m_statsText);
+
+    auto curveData = reinterpret_cast<Histo1DGaussCurveData *>(m_d->m_gaussCurve->data());
+    curveData->setStats(m_stats);
 }
 
 bool Histo1DWidget::yAxisIsLog()
@@ -892,6 +1025,18 @@ void Histo1DWidget::on_tb_rate_toggled(bool checked)
         m_d->m_rateX2Marker->hide();
         m_d->m_rateFormulaMarker->hide();
         replot();
+    }
+}
+
+void Histo1DWidget::on_tb_gauss_toggled(bool checked)
+{
+    if (checked)
+    {
+        m_d->m_gaussCurve->show();
+    }
+    else
+    {
+        m_d->m_gaussCurve->hide();
     }
 }
 
