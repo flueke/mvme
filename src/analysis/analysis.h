@@ -32,7 +32,7 @@ struct Parameter
     bool valid = false;
     double value = 0.0;
     double lowerLimit = 0.0; // inclusive
-    double upperLimit = 0.0; // inclusive
+    double upperLimit = 0.0; // exclusive
 };
 
 inline bool isParameterValid(const Parameter *param)

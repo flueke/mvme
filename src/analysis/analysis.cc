@@ -120,7 +120,12 @@ void Extractor::beginRun()
     m_currentCompletionCount = 0;
 
     u32 addressCount = 1 << m_filter.getAddressBits();
-    double upperLimit = std::pow(2.0, m_filter.getDataBits()) - 1.0;
+
+    // The highest value the filter will yield is ((2^bits) - 1) but we're
+    // adding a random in [0.0, 1.0) so the actual exclusive upper limit is
+    // (2^bits).
+
+    double upperLimit = std::pow(2.0, m_filter.getDataBits());
 
     auto &params(m_output.getParameters());
     params.resize(addressCount);
@@ -140,6 +145,7 @@ void Extractor::beginRun()
 void Extractor::beginEvent()
 {
     m_filter.clearCompletion();
+    m_currentCompletionCount = 0;
     m_output.getParameters().invalidateAll();
 }
 
@@ -153,11 +159,16 @@ void Extractor::processDataWord(u32 data, s32 wordIndex)
 
         if (m_requiredCompletionCount == m_currentCompletionCount)
         {
+            m_currentCompletionCount = 0;
+
             u64 value   = m_filter.getResultValue();
-            s32 address = m_filter.getResultAddress();
+            u64 address = m_filter.getResultAddress();
+
+            Q_ASSERT(address < static_cast<u64>(m_output.getSize()));
 
             auto &param = m_output.getParameters()[address];
-            // Only fill if not valid to keep the first value in case of multiple hits in this event
+            // Only fill if not valid yet to keep the first value in case of
+            // multiple hits in this event.
             if (!param.valid)
             {
                 double dValue = value + RealDist01(m_rng);
@@ -171,9 +182,8 @@ void Extractor::processDataWord(u32 data, s32 wordIndex)
                     << ", dataWord =" << QString("0x%1").arg(data, 8, 16, QLatin1Char('0'));
 #endif
             }
-
-            m_currentCompletionCount = 0;
         }
+
         m_filter.clearCompletion();
     }
 

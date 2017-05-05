@@ -2,6 +2,7 @@
 #define __DATA_FILTER_H__
 
 #include <QByteArray>
+#include <QDebug>
 #include <QHash>
 #include <QVector>
 #include "typedefs.h"
@@ -65,10 +66,10 @@ class DataFilter
 };
 
 /* Combines multiple DataFilters to form a result value.
- * 
+ *
  * The resulting extracted value is an unsigned 64 bit interger. This means the
  * total number of extraction characters ('D') is limited to 64.
- * 
+ *
  * The subfilters fill the result value from low to high bits in order, i.e
  * filter[0] fills the lowest bits, filter[1] the ones after and so on.
  *
@@ -88,7 +89,9 @@ class MultiWordDataFilter
 
         inline void handleDataWord(u32 dataWord, s32 wordIndex = -1)
         {
-            for (int i=0; i<m_filters.size(); ++i)
+            const s32 nFilters = m_filters.size();
+
+            for (int i=0; i<nFilters; ++i)
             {
                 DataFilter &filter(m_filters[i]);
                 ResultPart &part(m_results[i]);
@@ -96,7 +99,13 @@ class MultiWordDataFilter
                 if (!part.matched && filter.matches(dataWord, wordIndex))
                 {
                     part.matched = true;
-                    part.matchedWord   = dataWord;
+                    part.matchedWord = dataWord;
+
+#if 0
+                    qDebug() << __PRETTY_FUNCTION__ << "part" << i << "now matched";
+#endif
+
+                    break;
                 }
             }
         }
@@ -108,7 +117,7 @@ class MultiWordDataFilter
                 if (!part.matched)
                     return false;
             }
-            
+
             return true;
         }
 
@@ -128,10 +137,34 @@ class MultiWordDataFilter
             u64 result = 0;
             u32 shift = 0;
 
-            for (int i=0; i<m_filters.size(); ++i)
+            const s32 nFilters = m_filters.size();
+
+            for (int i=0; i<nFilters; ++i)
             {
+#if 1
                 result |= (m_filters[i].extractData(m_results[i].matchedWord, marker) << shift);
                 shift += m_filters[i].getExtractBits(marker);
+#else
+                u64 filterValue = m_filters[i].extractData(m_results[i].matchedWord, marker);
+                u64 filterValueShifted = filterValue << shift;
+                u32 markerBits = m_filters[i].getExtractBits(marker);
+                u32 newShift = shift + markerBits;
+                u64 newResult = result | filterValueShifted;
+
+                qDebug()
+                    << "filterValue unshifted =" << filterValue
+                    << "shift =" << shift
+                    << "filterValue shifted =" << filterValueShifted
+                    << "marker =" << marker
+                    << "bits for marker =" << markerBits
+                    << "newShift =" << newShift
+                    << "currentResult =" << result
+                    << "newResult =" << newResult
+                    ;
+
+                result = newResult;
+                shift = newShift;
+#endif
             }
 
             return result;
