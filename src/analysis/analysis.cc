@@ -144,6 +144,10 @@ void Extractor::beginRun()
 
 void Extractor::beginEvent()
 {
+#if ENABLE_ANALYSIS_DEBUG
+    qDebug() << __PRETTY_FUNCTION__ << this << objectName();
+#endif
+
     m_filter.clearCompletion();
     m_currentCompletionCount = 0;
     m_output.getParameters().invalidateAll();
@@ -151,6 +155,12 @@ void Extractor::beginEvent()
 
 void Extractor::processDataWord(u32 data, s32 wordIndex)
 {
+#if ENABLE_ANALYSIS_DEBUG
+    qDebug() << __PRETTY_FUNCTION__ << this << objectName()
+        << "data =" << QString("0x%1").arg(data, 8, 16, QLatin1Char('0'))
+        << "wordIndex =" << wordIndex;
+#endif
+
     m_filter.handleDataWord(data, wordIndex);
 
     if (m_filter.isComplete())
@@ -1886,7 +1896,7 @@ void Analysis::endEvent(const QUuid &eventId)
      * operators can be done by just traversing the array. */
 
 #if ENABLE_ANALYSIS_DEBUG
-    qDebug() << "begin endEvent()" << eventIndex;
+    qDebug() << "begin endEvent()" << eventId;
 #endif
 
     for (auto &opEntry: m_operators)
@@ -1913,7 +1923,7 @@ void Analysis::endEvent(const QUuid &eventId)
     for (auto &entry: m_sources)
     {
         auto source = entry.source;
-        qDebug() << "    Source: e =" << entry.eventIndex << ", m =" << entry.moduleIndex << ", src =" << source.get();
+        qDebug() << "    Source: e =" << entry.eventId << ", m =" << entry.moduleId << ", src =" << source.get();
 
         for (s32 outputIndex = 0; outputIndex < source->getNumberOfOutputs(); ++outputIndex)
         {
@@ -1940,7 +1950,7 @@ void Analysis::endEvent(const QUuid &eventId)
         if (op->getNumberOfOutputs() == 0)
             continue;
 
-        qDebug() << "    Op: e =" << entry.eventIndex << ", op =" << op.get();
+        qDebug() << "    Op: e =" << entry.eventId << ", op =" << op.get();
 
         for (s32 outputIndex = 0; outputIndex < op->getNumberOfOutputs(); ++outputIndex)
         {
@@ -1961,7 +1971,7 @@ void Analysis::endEvent(const QUuid &eventId)
 #endif
 
 #if ENABLE_ANALYSIS_DEBUG
-    qDebug() << "end endEvent()" << eventIndex;
+    qDebug() << "end endEvent()" << eventId;
 #endif
 }
 

@@ -2106,7 +2106,7 @@ struct AnalysisWidgetPrivate
 
 void AnalysisWidgetPrivate::repopulate()
 {
-    // Clear stacked widget and delete existing even EventWidgets
+    // Clear stacked widget and delete existing EventWidgets
     while (auto widget = m_eventWidgetStack->currentWidget())
     {
         m_eventWidgetStack->removeWidget(widget);
@@ -2341,6 +2341,12 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
 {
     m_d->m_q = this;
     m_d->m_context = ctx;
+
+    /* Note: This code is not efficient at all. This AnalysisWidget and the
+     * EventWidgets are recreated and repopulated more often than is really
+     * necessary. Rebuilding everything when the underlying objects change was
+     * just the easiest way to implement it.
+     */
 
     auto do_repopulate_lambda = [this]() { m_d->repopulate(); };
 
