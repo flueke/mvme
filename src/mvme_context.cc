@@ -1108,6 +1108,12 @@ void MVMEContext::openWorkspace(const QString &dirName)
             .arg(dirName);
     }
 
+    if (!QDir::setCurrent(dirName))
+    {
+        throw QString("Could not change directory to workspace path %1")
+            .arg(dirName);
+    }
+
     setWorkspaceDirectory(dirName);
     auto workspaceSettings(makeWorkspaceSettings());
 
