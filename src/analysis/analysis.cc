@@ -115,7 +115,7 @@ Extractor::Extractor(QObject *parent)
     m_rngSeed = dist(rd);
 }
 
-void Extractor::beginRun()
+void Extractor::beginRun(const RunInfo &)
 {
     m_currentCompletionCount = 0;
 
@@ -378,7 +378,7 @@ CalibrationMinMax::CalibrationMinMax(QObject *parent)
 {
 }
 
-void CalibrationMinMax::beginRun()
+void CalibrationMinMax::beginRun(const RunInfo &)
 {
     auto &out(m_output.getParameters());
 
@@ -571,7 +571,7 @@ IndexSelector::IndexSelector(QObject *parent)
     m_inputSlot.acceptedInputTypes = InputType::Array;
 }
 
-void IndexSelector::beginRun()
+void IndexSelector::beginRun(const RunInfo &)
 {
     auto &out(m_output.getParameters());
 
@@ -627,7 +627,7 @@ PreviousValue::PreviousValue(QObject *parent)
     m_inputSlot.acceptedInputTypes = InputType::Both;
 }
 
-void PreviousValue::beginRun()
+void PreviousValue::beginRun(const RunInfo &)
 {
     auto &out(m_output.getParameters());
 
@@ -728,7 +728,7 @@ RetainValid::RetainValid(QObject *parent)
     m_inputSlot.acceptedInputTypes = InputType::Both;
 }
 
-void RetainValid::beginRun()
+void RetainValid::beginRun(const RunInfo &)
 {
     auto &out(m_output.getParameters());
 
@@ -855,7 +855,7 @@ void Difference::slotDisconnected(Slot *slot)
     }
 }
 
-void Difference::beginRun()
+void Difference::beginRun(const RunInfo &)
 {
     m_output.parameters.name = objectName(); // QSL("A-B");
     m_output.parameters.unit = QString();
@@ -962,7 +962,7 @@ Sum::Sum(QObject *parent)
     m_inputSlot.acceptedInputTypes = InputType::Array;
 }
 
-void Sum::beginRun()
+void Sum::beginRun(const RunInfo &)
 {
     auto &out(m_output.getParameters());
 
@@ -1077,7 +1077,7 @@ bool ArrayMap::removeLastSlot()
     return false;
 }
 
-void ArrayMap::beginRun()
+void ArrayMap::beginRun(const RunInfo &)
 {
     s32 mappingCount = m_mappings.size();
     m_output.parameters.name = objectName();
@@ -1239,7 +1239,7 @@ RangeFilter1D::RangeFilter1D(QObject *parent)
         //double m_maxValue = make_quiet_nan();
         //bool m_keepOutside = false;
 
-void RangeFilter1D::beginRun()
+void RangeFilter1D::beginRun(const RunInfo &)
 {
     auto &out(m_output.getParameters());
     out.resize(0);
@@ -1355,7 +1355,7 @@ ConditionFilter::ConditionFilter(QObject *parent)
     m_conditionInput.acceptedInputTypes = InputType::Both;
 }
 
-void ConditionFilter::beginRun()
+void ConditionFilter::beginRun(const RunInfo &)
 {
     auto &out(m_output.getParameters());
 
@@ -1499,7 +1499,7 @@ Histo1DSink::Histo1DSink(QObject *parent)
 {
 }
 
-void Histo1DSink::beginRun()
+void Histo1DSink::beginRun(const RunInfo &runInfo)
 {
     // Instead of just clearing the histos vector and recreating it this code
     // tries to reuse existing histograms. This is done so that open histogram
@@ -1560,6 +1560,12 @@ void Histo1DSink::beginRun()
             }
             histo->setObjectName(histoName);
             histo->setAxisInfo(Qt::XAxis, axisInfo);
+            histo->setTitle(QString("<small>%1</small>").arg(histoName));
+
+            if (!runInfo.runId.isEmpty())
+            {
+                histo->setFooter(QString("<small>runId=%1</small>").arg(runInfo.runId));
+            }
         }
     }
     else
@@ -1632,7 +1638,7 @@ Histo2DSink::Histo2DSink(QObject *parent)
 
 // Creates or resizes the histogram. Updates the axis limits to match
 // the input parameters limits. Clears the histogram.
-void Histo2DSink::beginRun()
+void Histo2DSink::beginRun(const RunInfo &runInfo)
 {
     if (m_inputX.inputPipe && m_inputY.inputPipe
         && m_inputX.paramIndex < m_inputX.inputPipe->parameters.size()
@@ -1669,7 +1675,6 @@ void Histo2DSink::beginRun()
             m_histo = std::make_shared<Histo2D>(m_xBins, xMin, xMax,
                                                 m_yBins, yMin, yMax);
 
-            m_histo->setObjectName(objectName());
         }
         else
         {
@@ -1677,6 +1682,14 @@ void Histo2DSink::beginRun()
 
             m_histo->setAxisBinning(Qt::XAxis, AxisBinning(m_xBins, xMin, xMax));
             m_histo->setAxisBinning(Qt::YAxis, AxisBinning(m_yBins, yMin, yMax));
+        }
+
+        m_histo->setObjectName(objectName());
+        m_histo->setTitle(QString("<small>%1</small>").arg(objectName()));
+
+        if (!runInfo.runId.isEmpty())
+        {
+            m_histo->setFooter(QString("<small>runId=%1</small>").arg(runInfo.runId));
         }
 
         {
@@ -1790,8 +1803,10 @@ Analysis::Analysis(QObject *parent)
     qDebug() << "Registered Sinks:     " << m_registry.getSinkNames();
 }
 
-void Analysis::beginRun()
+void Analysis::beginRun(const RunInfo &runInfo)
 {
+    m_runInfo = runInfo;
+
     updateRanks();
 
     qSort(m_operators.begin(), m_operators.end(), [] (const OperatorEntry &oe1, const OperatorEntry &oe2) {
@@ -1800,12 +1815,12 @@ void Analysis::beginRun()
 
     for (auto &sourceEntry: m_sources)
     {
-        sourceEntry.source->beginRun();
+        sourceEntry.source->beginRun(runInfo);
     }
 
     for (auto &operatorEntry: m_operators)
     {
-        operatorEntry.op->beginRun();
+        operatorEntry.op->beginRun(runInfo);
     }
 
     qDebug() << "Analysis NG:"
@@ -1826,7 +1841,7 @@ void Analysis::beginEvent(const QUuid &eventId)
 
 void Analysis::addSource(const QUuid &eventId, const QUuid &moduleId, const SourcePtr &source)
 {
-    source->beginRun();
+    source->beginRun(m_runInfo);
     m_sources.push_back({eventId, moduleId, source, source.get()});
     updateRanks();
     setModified();
@@ -1834,7 +1849,7 @@ void Analysis::addSource(const QUuid &eventId, const QUuid &moduleId, const Sour
 
 void Analysis::addOperator(const QUuid &eventId, const OperatorPtr &op, s32 userLevel)
 {
-    op->beginRun();
+    op->beginRun(m_runInfo);
     m_operators.push_back({eventId, op, op.get(), userLevel});
     updateRanks();
     setModified();
@@ -2067,7 +2082,7 @@ void Analysis::removeSource(SourceInterface *source)
         m_sources.remove(entryIndex);
 
         // Update ranks and recalculate output sizes for all analysis elements.
-        beginRun();
+        beginRun(m_runInfo);
 
         setModified();
     }
@@ -2122,7 +2137,7 @@ void Analysis::removeOperator(OperatorInterface *op)
         m_operators.remove(entryIndex);
 
         // Update ranks and recalculate output sizes for all analysis elements.
-        beginRun();
+        beginRun(m_runInfo);
 
         setModified();
     }
@@ -2459,7 +2474,7 @@ void do_beginRun_forward(PipeSourceInterface *pipeSource)
     Q_ASSERT(pipeSource);
 
     qDebug() << __PRETTY_FUNCTION__ << "calling beginRun() on" << pipeSource;
-    pipeSource->beginRun();
+    pipeSource->beginRun({});
 
     const s32 outputCount = pipeSource->getNumberOfOutputs();
 

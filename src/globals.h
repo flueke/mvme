@@ -325,4 +325,11 @@ enum class RegisterWidth
     W32
 };
 
+/* Information about the current DAQ run or the run that's being replayed from
+ * a listfile. */
+struct RunInfo
+{
+    QString runId;
+};
+
 #endif

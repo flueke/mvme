@@ -84,7 +84,9 @@ void MVMEEventProcessor::newRun()
     {
         m_d->analysis_ng = m_d->context->getAnalysisNG();
         if (m_d->analysis_ng)
-            m_d->analysis_ng->beginRun();
+        {
+            m_d->analysis_ng->beginRun(m_d->context->getRunInfo());
+        }
     }
 }
 

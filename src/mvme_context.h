@@ -271,6 +271,8 @@ class MVMEContext: public QObject
 
         void addWidget(QWidget *widget, const QString &stateKey);
 
+        RunInfo getRunInfo() const;
+
     public slots:
         void startDAQ(quint32 nCycles=0);
         // Stops DAQ or replay depending on the current GlobalMode

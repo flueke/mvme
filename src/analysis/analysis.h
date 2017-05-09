@@ -5,7 +5,7 @@
 #include "data_filter.h"
 #include "histo1d.h"
 #include "histo2d.h"
-#include "../util.h"
+#include "../globals.h"
 #include "../3rdparty/pcg-cpp-0.98/include/pcg_random.hpp"
 
 #include <memory>
@@ -101,7 +101,7 @@ class PipeSourceInterface: public QObject, public std::enable_shared_from_this<P
         /* Use beginRun() to preallocate the outputs and setup internal state.
          * This will also be called by Analysis UI to be able to get array
          * sizes from operator output pipes! */
-        virtual void beginRun() = 0;
+        virtual void beginRun(const RunInfo &runInfo) = 0;
 
         std::shared_ptr<PipeSourceInterface> getSharedPointer() { return shared_from_this(); }
 
@@ -280,7 +280,7 @@ class SourceInterface: public PipeSourceInterface
         /* Use beginRun() to preallocate the outputs and setup internal state.
          * This will also be called by Analysis UI to be able to get array
          * sizes from operator output pipes! */
-        virtual void beginRun() override {}
+        virtual void beginRun(const RunInfo &runInfo) override {}
 
         /* Use beginEvent() to invalidate output parameters if needed. */
         virtual void beginEvent() {}
@@ -303,7 +303,7 @@ class OperatorInterface: public PipeSourceInterface
         using PipeSourceInterface::PipeSourceInterface;
 
         /* Use beginRun() to preallocate the outputs and setup internal state. */
-        virtual void beginRun() override {}
+        virtual void beginRun(const RunInfo &runInfo) override {}
 
         virtual void step() = 0;
 
@@ -393,7 +393,7 @@ class Extractor: public SourceInterface
         u32 getRequiredCompletionCount() const { return m_requiredCompletionCount; }
         void setRequiredCompletionCount(u32 count) { m_requiredCompletionCount = count; }
 
-        virtual void beginRun() override;
+        virtual void beginRun(const RunInfo &runInfo) override;
         virtual void beginEvent() override;
         virtual void processDataWord(u32 data, s32 wordIndex) override;
 
@@ -492,7 +492,7 @@ class CalibrationMinMax: public BasicOperator
     public:
         CalibrationMinMax(QObject *parent = 0);
 
-        virtual void beginRun() override;
+        virtual void beginRun(const RunInfo &runInfo) override;
         virtual void step() override;
 
         void setCalibration(s32 address, const CalibrationMinMaxParameters &params);
@@ -540,7 +540,7 @@ class IndexSelector: public BasicOperator
         void setIndex(s32 index) { m_index = index; }
         s32 getIndex() const { return m_index; }
 
-        virtual void beginRun() override;
+        virtual void beginRun(const RunInfo &runInfo) override;
         virtual void step() override;
 
         virtual void read(const QJsonObject &json) override;
@@ -562,7 +562,7 @@ class PreviousValue: public BasicOperator
     public:
         PreviousValue(QObject *parent = 0);
 
-        virtual void beginRun() override;
+        virtual void beginRun(const RunInfo &runInfo) override;
         virtual void step() override;
 
         virtual void read(const QJsonObject &json) override;
@@ -583,7 +583,7 @@ class RetainValid: public BasicOperator
     public:
         RetainValid(QObject *parent = 0);
 
-        virtual void beginRun() override;
+        virtual void beginRun(const RunInfo &runInfo) override;
         virtual void step() override;
 
         virtual void read(const QJsonObject &json) override;
@@ -603,7 +603,7 @@ class Difference: public OperatorInterface
     public:
         Difference(QObject *parent = 0);
 
-        virtual void beginRun() override;
+        virtual void beginRun(const RunInfo &runInfo) override;
         virtual void step() override;
 
         // PipeSourceInterface
@@ -640,7 +640,7 @@ class Sum: public BasicOperator
     public:
         Sum(QObject *parent = 0);
 
-        virtual void beginRun() override;
+        virtual void beginRun(const RunInfo &runInfo) override;
         virtual void step() override;
 
         virtual void read(const QJsonObject &json) override;
@@ -689,7 +689,7 @@ class ArrayMap: public OperatorInterface
         virtual bool addSlot() override;
         virtual bool removeLastSlot() override;
 
-        virtual void beginRun() override;
+        virtual void beginRun(const RunInfo &runInfo) override;
         virtual void step() override;
 
         // Inputs
@@ -738,7 +738,7 @@ class RangeFilter1D: public BasicOperator
         double m_maxValue = make_quiet_nan();
         bool m_keepOutside = false;
 
-        virtual void beginRun() override;
+        virtual void beginRun(const RunInfo &runInfo) override;
         virtual void step() override;
 
         virtual void read(const QJsonObject &json) override;
@@ -762,7 +762,7 @@ class ConditionFilter: public OperatorInterface
     public:
         ConditionFilter(QObject *parent = 0);
 
-        virtual void beginRun() override;
+        virtual void beginRun(const RunInfo &runInfo) override;
         virtual void step() override;
 
         // Inputs
@@ -796,7 +796,7 @@ class Histo1DSink: public BasicSink
     public:
         Histo1DSink(QObject *parent = 0);
 
-        virtual void beginRun() override;
+        virtual void beginRun(const RunInfo &runInfo) override;
         virtual void step() override;
 
         virtual void read(const QJsonObject &json) override;
@@ -833,7 +833,7 @@ class Histo2DSink: public SinkInterface
         virtual s32 getNumberOfSlots() const override;
         virtual Slot *getSlot(s32 slotIndex) override;
 
-        virtual void beginRun() override;
+        virtual void beginRun(const RunInfo &runInfo) override;
         virtual void step() override;
 
         virtual void read(const QJsonObject &json) override;
@@ -1031,7 +1031,7 @@ class Analysis: public QObject
 
         Analysis(QObject *parent = nullptr);
 
-        void beginRun();
+        void beginRun(const RunInfo &runInfo);
         void beginEvent(const QUuid &eventId);
         void processDataWord(const QUuid &eventId, const QUuid &moduleId, u32 data, s32 wordIndex);
         void endEvent(const QUuid &eventId);
@@ -1175,6 +1175,7 @@ class Analysis: public QObject
         Registry m_registry;
 
         bool m_modified;
+        RunInfo m_runInfo;
 };
 
 struct RawDataDisplay

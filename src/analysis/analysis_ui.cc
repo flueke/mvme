@@ -2445,7 +2445,7 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
 
     auto analysis = ctx->getAnalysisNG();
     analysis->updateRanks();
-    analysis->beginRun();
+    analysis->beginRun(ctx->getRunInfo());
 
     m_d->repopulate();
 }

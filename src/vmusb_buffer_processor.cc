@@ -301,6 +301,7 @@ void VMUSBBufferProcessor::beginRun()
     auto outputInfo = m_context->getListFileOutputInfo();
     QString outPath = m_context->getListFileOutputDirectoryFullPath();
     bool listFileOutputEnabled = outputInfo.enabled;
+    auto runInfo = m_context->getRunInfo();
 
     // TODO: this needs to move into some generic listfile handler!
     if (listFileOutputEnabled && !outPath.isEmpty())
@@ -314,8 +315,7 @@ void VMUSBBufferProcessor::beginRun()
                 {
                     QFile *outFile = new QFile;
                     m_d->m_listFileOut = outFile;
-                    auto now = QDateTime::currentDateTime();
-                    QString outFilename = outPath + '/' + now.toString("yyMMdd_HHmmss") + ".mvmelst";
+                    QString outFilename = outPath + '/' + runInfo.runId + ".mvmelst";
                     outFile->setFileName(outFilename);
 
                     logMessage(QString("Writing to listfile %1").arg(outFilename));
@@ -339,8 +339,7 @@ void VMUSBBufferProcessor::beginRun()
 
             case ListFileFormat::ZIP:
                 {
-                    auto now = QDateTime::currentDateTime();
-                    QString outFilename = outPath + '/' + now.toString("yyMMdd_HHmmss") + ".zip";
+                    QString outFilename = outPath + '/' + runInfo.runId + ".zip";
                     m_d->m_listFileArchive.setZipName(outFilename);
                     m_d->m_listFileArchive.setZip64Enabled(true);
 

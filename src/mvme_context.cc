@@ -63,6 +63,7 @@ struct MVMEContextPrivate
     QStringList m_logBuffer;
     QMutex m_logBufferMutex;
     ListFileOutputInfo m_listFileOutputInfo = {};
+    RunInfo m_runInfo;
 
     void stopDAQ();
     void stopDAQReplay();
@@ -774,6 +775,8 @@ void MVMEContext::setAnalysisConfigFileName(QString name)
     }
 }
 
+/* Notifies MVMEEventProcessor and the analysis that a new run is going to start.
+ * Reset DAQ stats. */
 void MVMEContext::prepareStart()
 {
 #if 0
@@ -807,6 +810,11 @@ void MVMEContext::startDAQ(quint32 nCycles)
     }
 
     emit daqAboutToStart(nCycles);
+
+    // Generate new RunInfo here. Has to happen before prepareStart() calls
+    // MVMEEventProcessor::newRun()
+    auto now = QDateTime::currentDateTime();
+    m_d->m_runInfo.runId = now.toString("yyMMdd_HHmmss");
 
     prepareStart();
     m_d->clearLog();
@@ -843,6 +851,11 @@ void MVMEContext::startReplay(u32 nEvents)
     {
         return;
     }
+
+    // Extract a runId from the listfile filename.
+    QFileInfo fi(m_listFile->getFileName());
+    m_d->m_runInfo.runId = fi.completeBaseName();
+
 
     prepareStart();
     logMessage(QSL("Replay starting"));
@@ -1326,6 +1339,11 @@ void MVMEContext::analysisOperatorEdited(const std::shared_ptr<analysis::Operato
     {
         m_analysisUi->operatorEdited(op);
     }
+}
+
+RunInfo MVMEContext::getRunInfo() const
+{
+    return m_d->m_runInfo;
 }
 
 AnalysisPauser::AnalysisPauser(MVMEContext *context)
