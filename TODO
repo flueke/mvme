@@ -15,11 +15,6 @@
 
 
 
-* RangeFilter1D: make upper limit exclusive
-* H1D: Take the median of the visible left and right edges. Subtract that value
-  from the calculated statistics values. This is supposed to remove the noise
-  to the left and right of a peak.
-
 * VMUSBReadoutWorker: Add daqconfig consistency checks. Abort if the checks fail.
 * New Extractor for a MesytecCounter module -> no default filter present! Name
   is only partially filled.
@@ -33,11 +28,9 @@
 * Bug: H1D does not work when unitMin > unitMax
 * Bug: H1D Print to File is broken. Also check save to file.
 * Histograms:
-  - Print to File does not work anymore for H1D
-  - Slashes in histo names break the generated filenames.
-  - Include the listfile filename (which is kinda the run-id) in the generated image.
   - Read up on binning error calculations. See how ROOT does it.
 
+* DAQ Config gui: restore minimized vme script editors on script (double?) click
 * DAQConfig: Add a "disabled" condition to events to allow temporarily disabling them.
 * DAQConfig enh: Global Scripts DAQ Start, DAQ Stop and Manual should have a folder-like icon.
 * DAQConfig: most templates are important as without them the readout does not
@@ -62,8 +55,6 @@
 * Histo1DWidget: The curve for the last bin is not drawn. Try to finally find a fix for this.
 
 * Calibration:
-  - On close ask if edits should be applied to the whole list.
-  - Bugs when clearing/selecting inputs.
 
 * Copy/Paste and Move Operators
   - Moving operators could violate the rule that inputs should come from the
@@ -103,6 +94,9 @@
 ==========================
 ==== Do these later! =====
 ==========================
+* H1D: Take the median of the visible left and right edges. Subtract that value
+  from the calculated statistics values. This is supposed to remove the noise
+  to the left and right of a peak.
 * HistoViewer: Ability to save filled Histograms to disk and reload them later.
   This will allow using histogram tools (fits, etc.) on loaded histos. It also
   allows comparing histos from different runs etc.

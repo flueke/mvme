@@ -165,7 +165,7 @@ void mvme::loadConfig(const QString &fileName)
 void mvme::on_actionNewWorkspace_triggered()
 {
     auto startDir = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
-    auto dirName  = QFileDialog::getExistingDirectory(this, QSL("Choose workspace directory"), startDir);
+    auto dirName  = QFileDialog::getExistingDirectory(this, QSL("Choose new workspace directory"), startDir);
 
     if (dirName.isEmpty())
         return;

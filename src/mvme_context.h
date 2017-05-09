@@ -205,7 +205,7 @@ class MVMEContext: public QObject
         void setConfigFileName(QString name, bool updateWorkspace = true);
         QString getConfigFileName() const { return m_configFileName; }
 
-        void setAnalysisConfigFileName(QString name);
+        void setAnalysisConfigFileName(QString name, bool updateWorkspace = true);
         QString getAnalysisConfigFileName() const { return m_analysisConfigFileName; }
 
         // Logs the given msg as-is.
@@ -231,6 +231,7 @@ class MVMEContext: public QObject
         void setWorkspaceDirectory(const QString &dirName);
         QString getWorkspaceDirectory() const { return m_workspaceDir; }
         std::shared_ptr<QSettings> makeWorkspaceSettings() const;
+        QString getWorkspacePath(const QString &settingsKey, const QString &defaultValue = QString(), bool setIfDefaulted = true) const;
 
         void loadVMEConfig(const QString &fileName);
 

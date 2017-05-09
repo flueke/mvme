@@ -1008,10 +1008,11 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
                             if (!m_context->hasObjectWidget(histo) || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
                             {
                                 auto widget = new Histo1DWidget(widgetInfo.histos[widgetInfo.histoAddress]);
+                                widget->setContext(m_context);
 
                                 if (widgetInfo.calib)
                                 {
-                                    widget->setCalibrationInfo(widgetInfo.calib, widgetInfo.histoAddress, m_context);
+                                    widget->setCalibrationInfo(widgetInfo.calib, widgetInfo.histoAddress);
                                 }
 
                                 {
@@ -1047,10 +1048,11 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
                             if (!m_context->hasObjectWidget(widgetInfo.sink.get()) || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
                             {
                                 auto widget = new Histo1DListWidget(widgetInfo.histos);
+                                widget->setContext(m_context);
 
                                 if (widgetInfo.calib)
                                 {
-                                    widget->setCalibration(widgetInfo.calib, m_context);
+                                    widget->setCalibration(widgetInfo.calib);
                                 }
 
                                 {
@@ -1145,7 +1147,7 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
                 });
 
                 menu.addAction(QSL("Remove"), [this, op]() {
-                    // TODO: QMessageBox::question or similar
+                    // TODO: QMessageBox::question or similar as there's no way to undo the action
                     m_q->removeOperator(op);
                 });
             }
@@ -1631,10 +1633,11 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                         if (!m_context->hasObjectWidget(histo) || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
                         {
                             auto widget = new Histo1DWidget(widgetInfo.histos[widgetInfo.histoAddress]);
+                            widget->setContext(m_context);
 
                             if (widgetInfo.calib)
                             {
-                                widget->setCalibrationInfo(widgetInfo.calib, widgetInfo.histoAddress, m_context);
+                                widget->setCalibrationInfo(widgetInfo.calib, widgetInfo.histoAddress);
                             }
 
                             {
@@ -1666,10 +1669,11 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                         if (!m_context->hasObjectWidget(widgetInfo.sink.get()) || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
                         {
                             auto widget = new Histo1DListWidget(widgetInfo.histos);
+                            widget->setContext(m_context);
 
                             if (widgetInfo.calib)
                             {
-                                widget->setCalibration(widgetInfo.calib, m_context);
+                                widget->setCalibration(widgetInfo.calib);
                             }
 
                             {

@@ -234,6 +234,7 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     , m_replotTimer(new QTimer(this))
     , m_cursorPosition(make_quiet_nan(), make_quiet_nan())
     , m_labelCursorInfoWidth(-1)
+    , m_context(nullptr)
 {
     m_d->m_q = this;
     ui->setupUi(this);
@@ -802,6 +803,11 @@ void Histo1DWidget::exportPlot()
     fileName.replace("\\", "_");
     fileName += QSL(".pdf");
 
+    if (m_context)
+    {
+        fileName = QDir(m_context->getWorkspacePath(QSL("PlotsDirectory"))).filePath(fileName);
+    }
+
     ui->plot->setTitle(m_histo->getTitle());
     QwtText footerText(m_histo->getFooter());
     footerText.setRenderFlags(Qt::AlignLeft);
@@ -815,6 +821,7 @@ void Histo1DWidget::exportPlot()
     ui->plot->setTitle(QString());
     ui->plot->setFooter(QString());
 }
+
 void Histo1DWidget::saveHistogram()
 {
     QString path = QSettings().value("Files/LastHistogramExportDirectory").toString();
@@ -911,12 +918,11 @@ void Histo1DWidget::updateCursorInfoLabel()
     ui->label_cursorInfo->setMinimumWidth(m_labelCursorInfoWidth);
 }
 
-void Histo1DWidget::setCalibrationInfo(const std::shared_ptr<analysis::CalibrationMinMax> &calib, s32 histoAddress, MVMEContext *context)
+void Histo1DWidget::setCalibrationInfo(const std::shared_ptr<analysis::CalibrationMinMax> &calib, s32 histoAddress)
 {
     m_calib = calib;
     m_histoAddress = histoAddress;
     ui->frame_calib->setVisible(m_calib != nullptr);
-    m_context = context;
 }
 
 void Histo1DWidget::calibApply()
@@ -962,6 +968,9 @@ void Histo1DWidget::calibApply()
 
 void Histo1DWidget::calibResetToFilter()
 {
+    Q_ASSERT(m_calib);
+    Q_ASSERT(m_context);
+
     using namespace analysis;
 
     Pipe *inputPipe = m_calib->getSlot(0)->inputPipe;
@@ -1103,10 +1112,11 @@ void Histo1DListWidget::onHistoSpinBoxValueChanged(int index)
     if (histo)
     {
         m_histoWidget->setHistogram(histo.get());
+        m_histoWidget->setContext(m_context);
 
         if (m_calib)
         {
-            m_histoWidget->setCalibrationInfo(m_calib, index, m_context);
+            m_histoWidget->setCalibrationInfo(m_calib, index);
         }
 
         if (m_sink)
@@ -1116,13 +1126,12 @@ void Histo1DListWidget::onHistoSpinBoxValueChanged(int index)
     }
 }
 
-void Histo1DListWidget::setCalibration(const std::shared_ptr<analysis::CalibrationMinMax> &calib, MVMEContext *context)
+void Histo1DListWidget::setCalibration(const std::shared_ptr<analysis::CalibrationMinMax> &calib)
 {
     m_calib = calib;
-    m_context = context;
     if (m_calib)
     {
-        m_histoWidget->setCalibrationInfo(m_calib, m_currentIndex, m_context);
+        m_histoWidget->setCalibrationInfo(m_calib, m_currentIndex);
     }
 }
 

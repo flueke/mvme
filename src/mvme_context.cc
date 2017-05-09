@@ -765,12 +765,15 @@ void MVMEContext::setConfigFileName(QString name, bool updateWorkspace)
     }
 }
 
-void MVMEContext::setAnalysisConfigFileName(QString name)
+void MVMEContext::setAnalysisConfigFileName(QString name, bool updateWorkspace)
 {
     if (m_analysisConfigFileName != name)
     {
         m_analysisConfigFileName = name;
-        makeWorkspaceSettings()->setValue(QSL("LastAnalysisConfig"), name.remove(getWorkspaceDirectory() + '/'));
+        if (updateWorkspace)
+        {
+            makeWorkspaceSettings()->setValue(QSL("LastAnalysisConfig"), name.remove(getWorkspaceDirectory() + '/'));
+        }
         emit analysisConfigFileNameChanged(name);
     }
 }
@@ -1050,8 +1053,12 @@ void MVMEContext::newWorkspace(const QString &dirName)
     if (!dir.entryList(QDir::AllEntries | QDir::NoDot | QDir::NoDotDot).isEmpty())
         throw QString(QSL("Selected workspace directory is not empty"));
 
+#if 0
     if (!dir.mkdir(QSL("listfiles")))
         throw QString(QSL("Error creating listfiles subdirectory"));
+
+    if (!dir.mkdir(QSL("plots")))
+        throw QString(QSL("Error creating plots subdirectory"));
 
     QFile vmeConfigFile(dir.filePath(QSL("vme.mvmecfg")));
     if (!vmeConfigFile.open(QIODevice::WriteOnly))
@@ -1068,22 +1075,23 @@ void MVMEContext::newWorkspace(const QString &dirName)
             .arg(analysisConfigFile.fileName())
             .arg(analysisConfigFile.errorString());
     }
+#endif
 
     setWorkspaceDirectory(dirName);
 
-    {
-        auto workspaceSettings(makeWorkspaceSettings());
-        workspaceSettings->setValue(QSL("LastVMEConfig"), QSL("vme.mvmecfg"));
-        workspaceSettings->setValue(QSL("LastAnalysisConfig"), QSL("analysis.analysis"));
-        workspaceSettings->setValue(QSL("ListFileDirectory"), QSL("listfiles"));
-        workspaceSettings->setValue(QSL("WriteListFile"), true);
-        workspaceSettings->sync();
+    auto workspaceSettings(makeWorkspaceSettings());
+    //workspaceSettings->setValue(QSL("LastVMEConfig"), QSL("vme.mvmecfg"));
+    //workspaceSettings->setValue(QSL("LastAnalysisConfig"), QSL("analysis.analysis"));
+    //workspaceSettings->setValue(QSL("ListFileDirectory"), QSL("listfiles"));
+    workspaceSettings->setValue(QSL("WriteListFile"), true);
+    //workspaceSettings->setValue(QSL("PlotsDirectory"), QSL("plots"));
+    // Creates the mvmeworkspace.ini file
+    workspaceSettings->sync();
 
-        if (workspaceSettings->status() != QSettings::NoError)
-        {
-            throw QString("Error writing workspace settings to %1")
-                .arg(workspaceSettings->fileName());
-        }
+    if (workspaceSettings->status() != QSettings::NoError)
+    {
+        throw QString("Error writing workspace settings to %1")
+            .arg(workspaceSettings->fileName());
     }
 
     openWorkspace(dirName);
@@ -1102,6 +1110,28 @@ void MVMEContext::openWorkspace(const QString &dirName)
 
     setWorkspaceDirectory(dirName);
     auto workspaceSettings(makeWorkspaceSettings());
+
+    // listfile subdir
+    {
+        QDir dir(getWorkspacePath(QSL("ListFileDirectory"), QSL("listfiles")));
+
+        // FIXME: QDir::root() yields c:\ on windows... :-(
+        if (!QDir::root().mkpath(dir.absolutePath()))
+        {
+            throw QString(QSL("Error creating listfiles directory %1")).arg(dir.path());
+        }
+    }
+
+    // plots subdir
+    {
+        // FIXME: QDir::root() yields c:\ on windows... :-(
+        QDir dir(getWorkspacePath(QSL("PlotsDirectory"), QSL("plots")));
+
+        if (!QDir::root().mkpath(dir.absolutePath()))
+        {
+            throw QString(QSL("Error creating plots directory %1")).arg(dir.path());
+        }
+    }
 
     {
         ListFileOutputInfo info = {};
@@ -1126,16 +1156,31 @@ void MVMEContext::openWorkspace(const QString &dirName)
     }
 
     auto lastVMEConfig      = workspaceSettings->value(QSL("LastVMEConfig")).toString();
-    auto lastAnalysisConfig = workspaceSettings->value(QSL("LastAnalysisConfig")).toString();
 
     if (!lastVMEConfig.isEmpty())
     {
+        qDebug() << __PRETTY_FUNCTION__ << "loading vme config" << lastVMEConfig;
         loadVMEConfig(dir.filePath(lastVMEConfig));
     }
+    else
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "setting default vme filename";
+        // No previous filename is known so use a default name without updating
+        // the workspace settings.
+        setConfigFileName(QSL("vme.mvmecfg"), false);
+    }
+
+    auto lastAnalysisConfig = workspaceSettings->value(QSL("LastAnalysisConfig")).toString();
 
     if (!lastAnalysisConfig.isEmpty())
     {
+        qDebug() << __PRETTY_FUNCTION__ << "loading analysis config" << lastAnalysisConfig;
         loadAnalysisConfig(dir.filePath(lastAnalysisConfig));
+    }
+    else
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "setting default analysis filename";
+        setAnalysisConfigFileName(QSL("analysis.analysis"), false);
     }
 
     // No exceptions thrown -> store workspace directory in global settings
@@ -1156,6 +1201,25 @@ std::shared_ptr<QSettings> MVMEContext::makeWorkspaceSettings() const
 {
     QDir dir(getWorkspaceDirectory());
     return std::make_shared<QSettings>(dir.filePath(WorkspaceIniName), QSettings::IniFormat);
+}
+
+QString MVMEContext::getWorkspacePath(const QString &settingsKey, const QString &defaultValue, bool setIfDefaulted) const
+{
+    auto settings = makeWorkspaceSettings();
+    if (!settings->contains(settingsKey) && setIfDefaulted)
+    {
+        settings->setValue(settingsKey, defaultValue);
+    }
+
+    QString settingsValue(settings->value(settingsKey, defaultValue).toString());
+    QDir dir(settingsValue);
+
+    if (dir.isAbsolute())
+    {
+        return dir.path();
+    }
+
+    return QDir(getWorkspaceDirectory()).filePath(settingsValue);
 }
 
 void MVMEContext::loadVMEConfig(const QString &fileName)

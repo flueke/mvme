@@ -47,7 +47,8 @@ class Histo1DWidget: public QWidget
 
         friend class Histo1DListWidget;
 
-        void setCalibrationInfo(const std::shared_ptr<analysis::CalibrationMinMax> &calib, s32 histoAddress, MVMEContext *context);
+        void setContext(MVMEContext *context) { m_context = context; }
+        void setCalibrationInfo(const std::shared_ptr<analysis::CalibrationMinMax> &calib, s32 histoAddress);
         void setSink(const SinkPtr &sink, HistoSinkCallback sinkModifiedCallback);
 
     private slots:
@@ -111,9 +112,8 @@ class Histo1DListWidget: public QWidget
 
         HistoList getHistograms() const { return m_histos; }
 
-        // XXX: MVMEContext is passed so that the analysis can be paused from within the widget.
-        void setCalibration(const std::shared_ptr<analysis::CalibrationMinMax> &calib, MVMEContext *context);
-
+        void setContext(MVMEContext *context) { m_context = context; }
+        void setCalibration(const std::shared_ptr<analysis::CalibrationMinMax> &calib);
         void setSink(const SinkPtr &sink, HistoSinkCallback sinkModifiedCallback);
 
     private:
@@ -123,7 +123,7 @@ class Histo1DListWidget: public QWidget
         Histo1DWidget *m_histoWidget;
         s32 m_currentIndex = 0;
         std::shared_ptr<analysis::CalibrationMinMax> m_calib;
-        MVMEContext *m_context;
+        MVMEContext *m_context = nullptr;
 
         SinkPtr m_sink;
         HistoSinkCallback m_sinkModifiedCallback;
