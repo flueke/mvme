@@ -733,9 +733,8 @@ class RangeFilter1D: public BasicOperator
     public:
         RangeFilter1D(QObject *parent = 0);
 
-        // both are inclusive
-        double m_minValue = make_quiet_nan();
-        double m_maxValue = make_quiet_nan();
+        double m_minValue = make_quiet_nan(); // inclusive
+        double m_maxValue = make_quiet_nan(); // exclusive
         bool m_keepOutside = false;
 
         virtual void beginRun(const RunInfo &runInfo) override;

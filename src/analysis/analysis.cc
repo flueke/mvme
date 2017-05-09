@@ -1234,11 +1234,6 @@ RangeFilter1D::RangeFilter1D(QObject *parent)
     m_inputSlot.acceptedInputTypes = InputType::Both;
 }
 
-        //// both are inclusive
-        //double m_minValue = make_quiet_nan();
-        //double m_maxValue = make_quiet_nan();
-        //bool m_keepOutside = false;
-
 void RangeFilter1D::beginRun(const RunInfo &)
 {
     auto &out(m_output.getParameters());
@@ -1313,7 +1308,7 @@ void RangeFilter1D::step()
 
             if (inParam.valid)
             {
-                bool inRange = (m_minValue <= inParam.value && inParam.value <= m_maxValue);
+                bool inRange = (m_minValue <= inParam.value && inParam.value < m_maxValue);
 
                 if ((inRange && !m_keepOutside)
                     || (!inRange && m_keepOutside))
