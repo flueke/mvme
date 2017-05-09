@@ -283,7 +283,6 @@ void Histo2DWidget::replot()
     {
         auto axisInfo = m_histo->getAxisInfo(Qt::XAxis);
         ui->plot->axisWidget(QwtPlot::xBottom)->setTitle(make_title_string(axisInfo));
-        ui->plot->setTitle(m_histo->getTitle());
     }
     // TODO: implement for Histo1DSink case
 
@@ -377,8 +376,22 @@ void Histo2DWidget::exportPlot()
         InvalidCodePath;
     }
 
+    fileName.replace("/", "_");
+    fileName.replace("\\", "_");
+    fileName += QSL(".pdf");
+
+    ui->plot->setTitle(m_histo->getTitle());
+    QwtText footerText(m_histo->getFooter());
+    footerText.setRenderFlags(Qt::AlignLeft);
+    ui->plot->setFooter(footerText);
+
     QwtPlotRenderer renderer;
+    renderer.setDiscardFlags(QwtPlotRenderer::DiscardBackground | QwtPlotRenderer::DiscardCanvasBackground);
+    renderer.setLayoutFlag(QwtPlotRenderer::FrameWithScales);
     renderer.exportTo(ui->plot, fileName);
+
+    ui->plot->setTitle(QString());
+    ui->plot->setFooter(QString());
 }
 
 bool Histo2DWidget::zAxisIsLog() const
