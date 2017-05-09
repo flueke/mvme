@@ -283,6 +283,7 @@ void Histo2DWidget::replot()
     {
         auto axisInfo = m_histo->getAxisInfo(Qt::XAxis);
         ui->plot->axisWidget(QwtPlot::xBottom)->setTitle(make_title_string(axisInfo));
+        ui->plot->setTitle(m_histo->getTitle());
     }
     // TODO: implement for Histo1DSink case
 

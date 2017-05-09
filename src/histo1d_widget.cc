@@ -72,10 +72,6 @@ class Histo1DPointData: public QwtSeriesData<QPointF>
         Histo1D *m_histo;
 };
 
-//static constexpr auto PI  = 3.14159265358979323846;
-//static constexpr auto PI2 = 2.0 * PI;
-//static const auto SqrtPI2 = std::sqrt(PI2);
-
 static const double FWHMSigmaFactor = 2.3548;
 
 static inline double squared(double x)
@@ -159,10 +155,11 @@ class Histo1DGaussCurveData: public QwtSyntheticPointData
 
         virtual double y(double x) const override
         {
-            //qDebug() << __PRETTY_FUNCTION__ << "x" << x;
-
             double s = m_stats.fwhm / FWHMSigmaFactor;
-            double a = m_histo->getBinCenter(m_stats.maxBin); // use getBinLowEdge() to align to the left side of the bin
+            // Instead of using the center of the max bin the center point
+            // between the fwhm edges is used. This makes the curve remain in a
+            // much more stable x-position.
+            double a = m_stats.fwhmCenter;
 
             double firstTerm  = m_stats.maxValue; // This is (1.0 / (SqrtPI2 * s)) if the resulting area should be 1.
             double exponent   = -0.5 * ((squared(x - a) / squared(s)));
@@ -571,8 +568,8 @@ void Histo1DWidget::updateAxisScales()
 
 void Histo1DWidget::replot()
 {
-    updateAxisScales();
     updateStatistics();
+    updateAxisScales();
     updateCursorInfoLabel();
 
     // update histo info label
@@ -668,17 +665,15 @@ void Histo1DWidget::replot()
     auto axisInfo = m_histo->getAxisInfo(Qt::XAxis);
     ui->plot->axisWidget(QwtPlot::xBottom)->setTitle(make_title_string(axisInfo));
 
+    ui->plot->replot();
 
 #if 0
-    // prints item pointers and their z value
+    // prints plot item pointers and their z value
     for (auto item: ui->plot->itemList())
     {
         qDebug() << __PRETTY_FUNCTION__ << item << item->z();
     }
 #endif
-
-
-    ui->plot->replot();
 }
 
 void Histo1DWidget::displayChanged()
@@ -764,7 +759,7 @@ void Histo1DWidget::updateStatistics()
 
     static const QString textTemplate = QSL(
         "<table>"
-        "<tr><td align=\"left\">Sigma  </td><td>%L1</td></tr>"
+        "<tr><td align=\"left\">RMS    </td><td>%L1</td></tr>"
         "<tr><td align=\"left\">FWHM   </td><td>%L2</td></tr>"
         "<tr><td align=\"left\">Mean   </td><td>%L3</td></tr>"
         "<tr><td align=\"left\">Max    </td><td>%L4</td></tr>"
@@ -778,7 +773,7 @@ void Histo1DWidget::updateStatistics()
         .arg(m_stats.sigma, fieldWidth)
         .arg(m_stats.fwhm)
         .arg(m_stats.mean, fieldWidth)
-        .arg(m_histo->getBinLowEdge(m_stats.maxBin), fieldWidth)
+        .arg(m_histo->getBinCenter(m_stats.maxBin), fieldWidth)
         .arg(m_stats.maxValue, fieldWidth)
         .arg(m_stats.entryCount, fieldWidth)
         ;
@@ -803,8 +798,22 @@ bool Histo1DWidget::yAxisIsLin()
 void Histo1DWidget::exportPlot()
 {
     QString fileName = m_histo->objectName();
+    fileName.replace("/", "_");
+    fileName.replace("\\", "_");
+    fileName += QSL(".pdf");
+
+    ui->plot->setTitle(m_histo->getTitle());
+    QwtText footerText(m_histo->getFooter());
+    footerText.setRenderFlags(Qt::AlignLeft);
+    ui->plot->setFooter(footerText);
+
     QwtPlotRenderer renderer;
+    renderer.setDiscardFlags(QwtPlotRenderer::DiscardBackground | QwtPlotRenderer::DiscardCanvasBackground);
+    renderer.setLayoutFlag(QwtPlotRenderer::FrameWithScales);
     renderer.exportTo(ui->plot, fileName);
+
+    ui->plot->setTitle(QString());
+    ui->plot->setFooter(QString());
 }
 void Histo1DWidget::saveHistogram()
 {
@@ -864,7 +873,7 @@ void Histo1DWidget::updateCursorInfoLabel()
     {
         double x = plotX;
         double y = m_histo->getBinContent(binX);
-        double binLowEdge = binning.getBinLowEdge(binX);
+        double binLowEdge = binning.getBinLowEdge((u32)binX);
 
         text = QString("x=%1\n"
                        "y=%2\n"
@@ -1038,6 +1047,8 @@ void Histo1DWidget::on_tb_gauss_toggled(bool checked)
     {
         m_d->m_gaussCurve->hide();
     }
+
+    replot();
 }
 
 void Histo1DWidget::on_tb_test_clicked()

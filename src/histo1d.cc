@@ -204,17 +204,21 @@ Histo1DStatistics Histo1D::calcBinStatistics(u32 startBin, u32 onePastEndBin) co
             return y0 + ((y1 - y0) / (x1 - x0)) *  (x - x0);
         };
 
+        double leftBinFraction  = interp(getBinContent(leftBin+1), leftBin+1, getBinContent(leftBin), leftBin, halfMax);
+        double rightBinFraction = interp(getBinContent(rightBin-1), rightBin-1, getBinContent(rightBin), rightBin, halfMax);
 
-        // FIXME: Is this correct?. Am I allowed to swap x/y when calling interp()?
-        leftBin = interp(getBinContent(leftBin+1), leftBin+1, getBinContent(leftBin), leftBin, halfMax);
-        rightBin = interp(getBinContent(rightBin-1), rightBin-1, getBinContent(rightBin), rightBin, halfMax);
+#if 0
+        qDebug() << __PRETTY_FUNCTION__ << "FWHM: leftbin" << leftBinFraction << "rightBin" << rightBinFraction << "maxBin" << result.maxBin
+            << "fwhm" << result.fwhm << "fwhmCenter" << result.fwhmCenter;
+#endif
 
-        //qDebug() << __PRETTY_FUNCTION__ << "leftbin" << leftBin << "rightBin" << rightBin << "maxBin" << result.maxBin
-        //    << "fwhm" << result.fwhm;
-
-        double rightLowEdge = getBinLowEdge(rightBin);
-        double leftLowEdge = getBinLowEdge(leftBin);
+        auto binning = getAxisBinning(Qt::XAxis);
+        double rightLowEdge = binning.getBinLowEdgeFractional(rightBinFraction);
+        double leftLowEdge = binning.getBinLowEdgeFractional(leftBinFraction);
         result.fwhm = std::abs(rightLowEdge - leftLowEdge);
+        double binWidth2 = binning.getBinWidth() * 0.5;
+        // moves the fwhm center by half a bin width to the right
+        result.fwhmCenter = (rightLowEdge + leftLowEdge) * 0.5 + binWidth2;
     }
 
     return result;

@@ -13,11 +13,17 @@ struct Histo1DStatistics
     double sigma = 0.0;
     double entryCount = 0;
     double fwhm = 0.0;
+    // X coordinate of the center between the fwhm edges
+    double fwhmCenter = 0.0;
 };
 
 class Histo1D: public QObject
 {
     Q_OBJECT
+
+    Q_PROPERTY(QString title READ getTitle WRITE setTitle)
+    Q_PROPERTY(QString footer READ getFooter WRITE setFooter)
+
     signals:
         void axisBinningChanged(Qt::Axis axis);
 
@@ -99,6 +105,26 @@ class Histo1D: public QObject
         Histo1DStatistics calcStatistics(double minX, double maxX) const;
         Histo1DStatistics calcBinStatistics(u32 startBin, u32 onePastEndBin) const;
 
+        void setTitle(const QString &title)
+        {
+            m_title = title;
+        }
+
+        QString getTitle() const
+        {
+            return m_title;
+        }
+
+        void setFooter(const QString &footer)
+        {
+            m_footer = footer;
+        }
+
+        QString getFooter() const
+        {
+            return m_footer;
+        }
+
     private:
         AxisBinning m_xAxisBinning;
         AxisInfo m_xAxisInfo;
@@ -111,6 +137,9 @@ class Histo1D: public QObject
         double m_count = 0.0;
         double m_maxValue = 0.0;
         u32 m_maxBin = 0;
+
+        QString m_title;
+        QString m_footer;
 };
 
 typedef std::shared_ptr<Histo1D> Histo1DPtr;

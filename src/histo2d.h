@@ -18,6 +18,10 @@ struct Histo2DStatistics
 class Histo2D: public QObject
 {
     Q_OBJECT
+
+    Q_PROPERTY(QString title READ getTitle WRITE setTitle)
+    Q_PROPERTY(QString footer READ getFooter WRITE setFooter)
+
     signals:
         void axisBinningChanged(Qt::Axis axis);
 
@@ -86,6 +90,26 @@ class Histo2D: public QObject
         double getOverflow() const { return m_overflow; }
         void setOverflow(double value) { m_overflow = value; }
 
+        void setTitle(const QString &title)
+        {
+            m_title = title;
+        }
+
+        QString getTitle() const
+        {
+            return m_title;
+        }
+
+        void setFooter(const QString &footer)
+        {
+            m_footer = footer;
+        }
+
+        QString getFooter() const
+        {
+            return m_footer;
+        }
+
     private:
         std::array<AxisBinning, 2> m_axisBinnings;
         std::array<AxisInfo, 2> m_axisInfos;
@@ -96,6 +120,9 @@ class Histo2D: public QObject
         double m_overflow = 0.0;
 
         Histo2DStatistics m_stats;
+
+        QString m_title;
+        QString m_footer;
 };
 
 using Histo2DPtr = std::shared_ptr<Histo2D>;

@@ -156,6 +156,9 @@ class AxisBinning
         inline double getBinLowEdge(u32 bin) const { return getMin() + bin * getBinWidth(); }
         inline double getBinCenter(u32 bin) const { return getBinLowEdge(bin) + getBinWidth() * 0.5; }
 
+        // Allows passing a fractional bin number
+        inline double getBinLowEdgeFractional(double binFraction) const { return getMin() + binFraction * getBinWidth(); }
+
         /* Returns the bin number for the value x. Returns Underflow/Overflow
          * if x is out of range. */
         inline s64 getBin(double x) const
