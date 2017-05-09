@@ -468,6 +468,7 @@ void mvme::activateObjectWidget(QObject *object)
     if (auto widget = getObjectWidget(object))
     {
         widget->show();
+        widget->showNormal();
         widget->raise();
     }
 }
