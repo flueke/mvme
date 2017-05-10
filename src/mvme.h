@@ -108,6 +108,8 @@ private slots:
 
 
 private:
+    bool createNewOrOpenExistingWorkspace();
+
     Ui::mvme *ui;
 
     MVMEContext *m_context;

@@ -15,6 +15,8 @@
 
 
 
+* Analysis UI: when clicking into a tree that did not have focus the wrong item
+  is selected on mouse down
 * VMUSBReadoutWorker: Add daqconfig consistency checks. Abort if the checks fail.
 * New Extractor for a MesytecCounter module -> no default filter present! Name
   is only partially filled.

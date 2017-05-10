@@ -1051,7 +1051,7 @@ void MVMEContext::newWorkspace(const QString &dirName)
     QDir dir(dirName);
 
     if (!dir.entryList(QDir::AllEntries | QDir::NoDot | QDir::NoDotDot).isEmpty())
-        throw QString(QSL("Selected workspace directory is not empty"));
+        throw QString(QSL("Selected directory is not empty"));
 
 #if 0
     if (!dir.mkdir(QSL("listfiles")))
@@ -1101,97 +1101,112 @@ void MVMEContext::openWorkspace(const QString &dirName)
 {
     QDir dir(dirName);
 
+    if (!dir.exists())
+    {
+        throw QString ("Workspace directory %1 does not exist.")
+            .arg(dirName);
+    }
+
     if (!dir.exists(WorkspaceIniName))
     {
-        throw QString("Workspace settings file %1 not found in %2")
+        throw QString("Workspace settings file %1 not found in %2.")
             .arg(WorkspaceIniName)
             .arg(dirName);
     }
 
     if (!QDir::setCurrent(dirName))
     {
-        throw QString("Could not change directory to workspace path %1")
+        throw QString("Could not change directory to workspace path %1.")
             .arg(dirName);
     }
 
-    setWorkspaceDirectory(dirName);
-    auto workspaceSettings(makeWorkspaceSettings());
+    QString lastWorkspaceDirectory(m_workspaceDir);
 
-    // listfile subdir
+    try
     {
-        QDir dir(getWorkspacePath(QSL("ListFileDirectory"), QSL("listfiles")));
+        setWorkspaceDirectory(dirName);
+        auto workspaceSettings(makeWorkspaceSettings(dirName));
 
-        // FIXME: QDir::root() yields c:\ on windows... :-(
-        if (!QDir::root().mkpath(dir.absolutePath()))
+        // listfile subdir
         {
-            throw QString(QSL("Error creating listfiles directory %1")).arg(dir.path());
-        }
-    }
+            QDir dir(getWorkspacePath(QSL("ListFileDirectory"), QSL("listfiles")));
 
-    // plots subdir
-    {
-        // FIXME: QDir::root() yields c:\ on windows... :-(
-        QDir dir(getWorkspacePath(QSL("PlotsDirectory"), QSL("plots")));
-
-        if (!QDir::root().mkpath(dir.absolutePath()))
-        {
-            throw QString(QSL("Error creating plots directory %1")).arg(dir.path());
-        }
-    }
-
-    {
-        ListFileOutputInfo info = {};
-        info.enabled   = workspaceSettings->value(QSL("WriteListFile"), QSL("true")).toBool();
-        info.format    = fromString(workspaceSettings->value(QSL("ListFileFormat"), QSL("Plain")).toString());
-        info.directory = workspaceSettings->value(QSL("ListFileDirectory"), QSL("listfiles")).toString();
-        info.compressionLevel = workspaceSettings->value(QSL("ListFileCompressionLevel"), ListFileDefaultCompression).toInt();
-
-        QDir listFileOutputDir(info.directory);
-
-        if (listFileOutputDir.isAbsolute() && !listFileOutputDir.exists())
-        {
-            /* A non-existant absolute path was loaded from the INI -> go back
-             * to the default of "listfiles". */
-            logMessage(QString("Warning: Listfile directory %1 does not exist. Reverting back to default of \"listfiles\".")
-                       .arg(info.directory));
-            workspaceSettings->setValue(QSL("ListFileDirectory"), QSL("listfiles"));
-            info.directory = QSL("lisfiles");
+            if (!QDir::root().mkpath(dir.absolutePath()))
+            {
+                throw QString(QSL("Error creating listfiles directory %1.")).arg(dir.path());
+            }
         }
 
-        m_d->m_listFileOutputInfo = info;
+        // plots subdir
+        {
+            QDir dir(getWorkspacePath(QSL("PlotsDirectory"), QSL("plots")));
+
+            if (!QDir::root().mkpath(dir.absolutePath()))
+            {
+                throw QString(QSL("Error creating plots directory %1.")).arg(dir.path());
+            }
+        }
+
+        {
+            ListFileOutputInfo info = {};
+            info.enabled   = workspaceSettings->value(QSL("WriteListFile"), QSL("true")).toBool();
+            info.format    = fromString(workspaceSettings->value(QSL("ListFileFormat"), QSL("Plain")).toString());
+            info.directory = workspaceSettings->value(QSL("ListFileDirectory"), QSL("listfiles")).toString();
+            info.compressionLevel = workspaceSettings->value(QSL("ListFileCompressionLevel"), ListFileDefaultCompression).toInt();
+
+            QDir listFileOutputDir(info.directory);
+
+            if (listFileOutputDir.isAbsolute() && !listFileOutputDir.exists())
+            {
+                /* A non-existant absolute path was loaded from the INI -> go back
+                 * to the default of "listfiles". */
+                logMessage(QString("Warning: Listfile directory %1 does not exist. Reverting back to default of \"listfiles\".")
+                           .arg(info.directory));
+                workspaceSettings->setValue(QSL("ListFileDirectory"), QSL("listfiles"));
+                info.directory = QSL("lisfiles");
+            }
+
+            m_d->m_listFileOutputInfo = info;
+        }
+
+        auto lastVMEConfig      = workspaceSettings->value(QSL("LastVMEConfig")).toString();
+
+        if (!lastVMEConfig.isEmpty())
+        {
+            qDebug() << __PRETTY_FUNCTION__ << "loading vme config" << lastVMEConfig;
+            loadVMEConfig(dir.filePath(lastVMEConfig));
+        }
+        else
+        {
+            qDebug() << __PRETTY_FUNCTION__ << "setting default vme filename";
+            // No previous filename is known so use a default name without updating
+            // the workspace settings.
+            setConfigFileName(QSL("vme.mvmecfg"), false);
+        }
+
+        auto lastAnalysisConfig = workspaceSettings->value(QSL("LastAnalysisConfig")).toString();
+
+        if (!lastAnalysisConfig.isEmpty())
+        {
+            qDebug() << __PRETTY_FUNCTION__ << "loading analysis config" << lastAnalysisConfig;
+            loadAnalysisConfig(dir.filePath(lastAnalysisConfig));
+        }
+        else
+        {
+            qDebug() << __PRETTY_FUNCTION__ << "setting default analysis filename";
+            setAnalysisConfigFileName(QSL("analysis.analysis"), false);
+        }
+
+        // No exceptions thrown -> store workspace directory in global settings
+        QSettings settings;
+        settings.setValue(QSL("LastWorkspaceDirectory"), getWorkspaceDirectory());
     }
-
-    auto lastVMEConfig      = workspaceSettings->value(QSL("LastVMEConfig")).toString();
-
-    if (!lastVMEConfig.isEmpty())
+    catch (const QString &)
     {
-        qDebug() << __PRETTY_FUNCTION__ << "loading vme config" << lastVMEConfig;
-        loadVMEConfig(dir.filePath(lastVMEConfig));
+        // Restore previous workspace directory as the load was not successfull
+        setWorkspaceDirectory(lastWorkspaceDirectory);
+        throw;
     }
-    else
-    {
-        qDebug() << __PRETTY_FUNCTION__ << "setting default vme filename";
-        // No previous filename is known so use a default name without updating
-        // the workspace settings.
-        setConfigFileName(QSL("vme.mvmecfg"), false);
-    }
-
-    auto lastAnalysisConfig = workspaceSettings->value(QSL("LastAnalysisConfig")).toString();
-
-    if (!lastAnalysisConfig.isEmpty())
-    {
-        qDebug() << __PRETTY_FUNCTION__ << "loading analysis config" << lastAnalysisConfig;
-        loadAnalysisConfig(dir.filePath(lastAnalysisConfig));
-    }
-    else
-    {
-        qDebug() << __PRETTY_FUNCTION__ << "setting default analysis filename";
-        setAnalysisConfigFileName(QSL("analysis.analysis"), false);
-    }
-
-    // No exceptions thrown -> store workspace directory in global settings
-    QSettings settings;
-    settings.setValue(QSL("LastWorkspaceDirectory"), getWorkspaceDirectory());
 }
 
 void MVMEContext::setWorkspaceDirectory(const QString &dirName)
@@ -1205,7 +1220,12 @@ void MVMEContext::setWorkspaceDirectory(const QString &dirName)
 
 std::shared_ptr<QSettings> MVMEContext::makeWorkspaceSettings() const
 {
-    QDir dir(getWorkspaceDirectory());
+    return makeWorkspaceSettings(getWorkspaceDirectory());
+}
+
+std::shared_ptr<QSettings> MVMEContext::makeWorkspaceSettings(const QString &workspaceDirectory) const
+{
+    QDir dir(workspaceDirectory);
     return std::make_shared<QSettings>(dir.filePath(WorkspaceIniName), QSettings::IniFormat);
 }
 

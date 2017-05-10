@@ -227,8 +227,8 @@ class MVMEContext: public QObject
         // Workspace handling
         void newWorkspace(const QString &dirName);
         void openWorkspace(const QString &dirName);
+        bool isWorkspaceOpen() const { return !m_workspaceDir.isEmpty(); }
 
-        void setWorkspaceDirectory(const QString &dirName);
         QString getWorkspaceDirectory() const { return m_workspaceDir; }
         std::shared_ptr<QSettings> makeWorkspaceSettings() const;
         QString getWorkspacePath(const QString &settingsKey, const QString &defaultValue = QString(), bool setIfDefaulted = true) const;
@@ -306,6 +306,8 @@ class MVMEContext: public QObject
         friend class MVMEContextPrivate;
 
     private:
+        std::shared_ptr<QSettings> makeWorkspaceSettings(const QString &workspaceDirectory) const;
+        void setWorkspaceDirectory(const QString &dirName);
         void prepareStart();
 
         MVMEContextPrivate *m_d;

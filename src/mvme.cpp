@@ -115,7 +115,7 @@ mvme::mvme(QWidget *parent) :
         // Create and open log and analysis windows.
         on_actionLog_Window_triggered();
         on_actionAnalysis_UI_triggered();
-        this->raise();
+        this->raise(); // Focus the main window
 
 
         // Open the last workspace or create a new one.
@@ -128,13 +128,23 @@ mvme::mvme(QWidget *parent) :
                 m_context->openWorkspace(settings.value(QSL("LastWorkspaceDirectory")).toString());
             } catch (const QString &e)
             {
-                QMessageBox::critical(this, QSL("Workspace Error"), QString("Error opening workspace: %1").arg(e));
+                QMessageBox::warning(this, QSL("Could not open workspace"), QString("Error opening last workspace: %1.").arg(e));
                 settings.remove(QSL("LastWorkspaceDirectory"));
+
+                if (!createNewOrOpenExistingWorkspace())
+                {
+                    // canceled by user
+                    close();
+                }
             }
         }
         else
         {
-            on_actionNewWorkspace_triggered();
+            if (!createNewOrOpenExistingWorkspace())
+            {
+                // canceled by user
+                close();
+            }
         }
     });
 }
@@ -165,10 +175,13 @@ void mvme::loadConfig(const QString &fileName)
 void mvme::on_actionNewWorkspace_triggered()
 {
     auto startDir = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
-    auto dirName  = QFileDialog::getExistingDirectory(this, QSL("Choose new workspace directory"), startDir);
+    auto dirName  = QFileDialog::getExistingDirectory(this, QSL("Create new workspace directory"), startDir);
 
     if (dirName.isEmpty())
+    {
+        // Dialog was canceled
         return;
+    }
 
     try
     {
@@ -1216,4 +1229,54 @@ void mvme::on_actionVMEScriptRef_triggered()
 {
     auto widget = make_vme_script_ref_widget();
     addWidgetWindow(widget);
+}
+
+bool mvme::createNewOrOpenExistingWorkspace()
+{
+    do
+    {
+        auto startDir = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
+        auto dirName  = QFileDialog::getExistingDirectory(this, QSL("Create a new or select an existing workspace directory"), startDir);
+
+        if (dirName.isEmpty())
+        {
+            // Dialog was canceled
+            return false;
+        }
+
+        QDir dir(dirName);
+
+        bool triedToOpenExisting = true;
+
+        try
+        {
+            if (dir.entryList(QDir::AllEntries | QDir::NoDot | QDir::NoDotDot).isEmpty())
+            {
+                triedToOpenExisting = false;
+                m_context->newWorkspace(dirName);
+            }
+            else
+            {
+                triedToOpenExisting = true;
+                m_context->openWorkspace(dirName);
+            }
+        } catch (const QString &e)
+        {
+            Q_ASSERT(!m_context->isWorkspaceOpen());
+
+            QString title;
+            if (triedToOpenExisting)
+            {
+                title = QSL("Error opening workspace");
+            }
+            else
+            {
+                title = QSL("Error creating workspace");
+            }
+
+            QMessageBox::warning(this, title, e);
+        }
+    } while (!m_context->isWorkspaceOpen());
+
+    return true;
 }
