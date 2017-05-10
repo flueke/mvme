@@ -1589,6 +1589,7 @@ void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel
                     Slot *slot = m_selectInputSlot;
                     Q_ASSERT(slot);
                     AnalysisPauser pauser(m_context);
+
                     // connect the slot with the selected input source
                     switch (node->type())
                     {

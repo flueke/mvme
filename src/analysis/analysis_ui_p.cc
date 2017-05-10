@@ -341,7 +341,13 @@ void AddEditOperatorWidget::repopulateSlotGrid()
                  * The lambda is the callback for the EventWidget. This means
                  * inputSelected() will be called with the current slotIndex
                  * once input selection is complete. */
-                m_eventWidget->selectInputFor(slot, userLevel, [this, slotIndex] () {
+                m_eventWidget->selectInputFor(slot, userLevel, [this, slot, slotIndex] () {
+                    // The assumption is that the analysis has been paused by
+                    // the EventWidget.
+                    Q_ASSERT(!m_eventWidget->getContext()->isAnalysisRunning());
+
+                    // Update the slots source operator and all dependents
+                    do_beginRun_forward(slot->parentOperator);
                     this->inputSelected(slotIndex);
                 });
             }
@@ -499,6 +505,8 @@ void AddEditOperatorWidget::reject()
             auto oldConnection = m_slotBackups[slotIndex];
             slot->connectPipe(oldConnection.inputPipe, oldConnection.paramIndex);
         }
+
+        do_beginRun_forward(m_op);
     }
     //close();
     m_eventWidget->endSelectInput();
