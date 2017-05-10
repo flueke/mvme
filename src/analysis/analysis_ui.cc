@@ -795,9 +795,21 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                 auto analysis = m_context->getAnalysisNG();
                 auto &registry(analysis->getRegistry());
 
+                QVector<SourcePtr> sourceInstances;
+
                 for (auto sourceName: registry.getSourceNames())
                 {
                     SourcePtr src(registry.makeSource(sourceName));
+                    sourceInstances.push_back(src);
+                }
+
+                // Sort sources by displayname
+                qSort(sourceInstances.begin(), sourceInstances.end(), [](const SourcePtr &a, const SourcePtr &b) {
+                    return a->getDisplayName() < b->getDisplayName();
+                });
+
+                for (auto src: sourceInstances)
+                {
                     add_action(src->getDisplayName(), src);
                 }
 
@@ -933,11 +945,21 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
 
                 auto analysis = m_context->getAnalysisNG();
                 auto &registry(analysis->getRegistry());
+                QVector<OperatorPtr> operatorInstances;
 
-                // TODO: sort by displayname and then add
                 for (auto operatorName: registry.getOperatorNames())
                 {
                     OperatorPtr op(registry.makeOperator(operatorName));
+                    operatorInstances.push_back(op);
+                }
+
+                // Sort operators by displayname
+                qSort(operatorInstances.begin(), operatorInstances.end(), [](const OperatorPtr &a, const OperatorPtr &b) {
+                    return a->getDisplayName() < b->getDisplayName();
+                });
+
+                for (auto op: operatorInstances)
+                {
                     add_action(op->getDisplayName(), op);
                 }
             }
@@ -2463,12 +2485,15 @@ AnalysisWidget::~AnalysisWidget()
 void AnalysisWidget::operatorAdded(const std::shared_ptr<OperatorInterface> &op)
 {
     const auto &opEntries(m_d->m_context->getAnalysisNG()->getOperators());
+
+    // Find the OperatorEntry for the newly added operator
     auto it = std::find_if(opEntries.begin(), opEntries.end(), [op] (const Analysis::OperatorEntry &entry) {
         return entry.op == op;
     });
 
     if (it != opEntries.end())
     {
+        // Get and repopulate the widget by using OperatorEntry.eventId
         auto entry = *it;
         auto eventWidget = m_d->m_eventWidgetsByEventId.value(entry.eventId);
         if (eventWidget)
@@ -2481,12 +2506,15 @@ void AnalysisWidget::operatorAdded(const std::shared_ptr<OperatorInterface> &op)
 void AnalysisWidget::operatorEdited(const std::shared_ptr<OperatorInterface> &op)
 {
     const auto &opEntries(m_d->m_context->getAnalysisNG()->getOperators());
+
+    // Find the OperatorEntry for the edited operator
     auto it = std::find_if(opEntries.begin(), opEntries.end(), [op] (const Analysis::OperatorEntry &entry) {
         return entry.op == op;
     });
 
     if (it != opEntries.end())
     {
+        // Get and repopulate the widget by using OperatorEntry.eventId
         auto entry = *it;
         auto eventWidget = m_d->m_eventWidgetsByEventId.value(entry.eventId);
         if (eventWidget)

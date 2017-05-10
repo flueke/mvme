@@ -13,10 +13,19 @@
 #9  0x000000000066e4d3 in MVMEEventProcessor::qt_static_metacall (_o=0x60400002ecd0, _c=QMetaObject::InvokeMetaMethod, _id=7, _a=0x60200190cad0)
     at moc_mvme_event_processor.cpp:115
 
+#3  0x00007ffff4eec821 in qt_assert_x(char const*, char const*, char const*, int) ()
+   from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
+#4  0x00000000005eb379 in QVector<analysis::Parameter>::operator[] (this=0x6100000089c0, i=1)
+    at ../../../Qt/5.7/gcc_64/include/QtCore/qvector.h:429
+#5  0x00000000005db4be in analysis::ConditionFilter::step (this=0x610000360240) at ../../mvme2/src/analysis/analysis.cc:1423
+#6  0x00000000005e0590 in analysis::Analysis::endEvent (this=0x6070000901c0, eventId=...) at ../../mvme2/src/analysis/analysis.cc:1916
+#7  0x00000000005440fa in MVMEEventProcessor::processDataBuffer (this=0x604000049150, buffer=0x603000021e20)
+    at ../../mvme2/src/mvme_event_processor.cc:280
 
 
 * Analysis UI: when clicking into a tree that did not have focus the wrong item
   is selected on mouse down
+* AddEditOperatorWidget: highlight selected input on button hover
 * VMUSBReadoutWorker: Add daqconfig consistency checks. Abort if the checks fail.
 * New Extractor for a MesytecCounter module -> no default filter present! Name
   is only partially filled.
