@@ -10,6 +10,7 @@
 
 #include <memory>
 #include <QUuid>
+#include <qwt_interval.h>
 
 class QJsonObject;
 
@@ -671,6 +672,7 @@ class Sum: public BasicOperator
 class ArrayMap: public OperatorInterface
 {
     Q_OBJECT
+    Q_INTERFACES(analysis::OperatorInterface)
     public:
         struct IndexPair
         {
@@ -758,6 +760,7 @@ class RangeFilter1D: public BasicOperator
 class ConditionFilter: public OperatorInterface
 {
     Q_OBJECT
+    Q_INTERFACES(analysis::OperatorInterface)
     public:
         ConditionFilter(QObject *parent = 0);
 
@@ -784,6 +787,69 @@ class ConditionFilter: public OperatorInterface
         Slot m_dataInput;
         Slot m_conditionInput;
         Pipe m_output;
+};
+
+class RectFilter2D: public OperatorInterface
+{
+    Q_OBJECT
+    Q_INTERFACES(analysis::OperatorInterface)
+    public:
+        RectFilter2D(QObject *parent = 0);
+
+        virtual void beginRun(const RunInfo &runInfo) override;
+        virtual void step() override;
+
+        // Inputs
+        virtual s32 getNumberOfSlots() const override;
+        virtual Slot *getSlot(s32 slotIndex) override;
+
+        // Outputs
+        virtual s32 getNumberOfOutputs() const override;
+        virtual QString getOutputName(s32 outputIndex) const override;
+        virtual Pipe *getOutput(s32 index) override;
+
+        // Serialization
+        virtual void read(const QJsonObject &json) override;
+        virtual void write(QJsonObject &json) const override;
+
+        // Info
+        virtual QString getDisplayName() const override { return QSL("2D Rect Filter"); }
+        virtual QString getShortName() const override { return QSL("Rect2D"); }
+
+        enum Op
+        {
+            OpAnd,
+            OpOr
+        };
+
+        void setConditionOp(Op op) { m_op = op; }
+        Op getConditionOp() const { return m_op; }
+
+        void setXInterval(double x1, double x2) { setXInterval(QwtInterval(x1, x2)); }
+        void setXInterval(const QwtInterval &interval)
+        {
+            m_xInterval = interval.normalized();
+            m_xInterval.setBorderFlags(QwtInterval::ExcludeMaximum);
+        }
+        QwtInterval getXInterval() const { return m_xInterval; }
+
+        void setYInterval(double y1, double y2) { setYInterval(QwtInterval(y1, y2)); }
+        void setYInterval(const QwtInterval &interval)
+        {
+            m_yInterval = interval.normalized();
+            m_yInterval.setBorderFlags(QwtInterval::ExcludeMaximum);
+        }
+        QwtInterval getYInterval() const { return m_yInterval; }
+
+
+    private:
+        Slot m_xInput;
+        Slot m_yInput;
+        Pipe m_output;
+
+        QwtInterval m_xInterval;
+        QwtInterval m_yInterval;
+        Op m_op = OpAnd;
 };
 
 //
@@ -869,23 +935,34 @@ class Histo2DSink: public SinkInterface
         QString m_yAxisTitle;
 };
 
+/* Note: The qobject_cast()s in the createXXX() functions are there to ensure
+ * that the types properly implement the declared interface. They need to have
+ * the Q_INTERFACES() macro either directly in their declaration or inherit it
+ * from a parent class.
+ */
 
 template<typename T>
 SourceInterface *createSource()
 {
-    return new T;
+    auto result = new T;
+    Q_ASSERT(qobject_cast<SourceInterface *>(result));
+    return result;
 }
 
 template<typename T>
 OperatorInterface *createOperator()
 {
-    return new T;
+    auto result = new T;
+    Q_ASSERT(qobject_cast<OperatorInterface *>(result));
+    return result;
 }
 
 template<typename T>
 SinkInterface *createSink()
 {
-    return new T;
+    auto result = new T;
+    Q_ASSERT(qobject_cast<SinkInterface *>(result));
+    return result;
 }
 
 class Registry
@@ -898,6 +975,11 @@ class Registry
                 return false;
 
             m_sourceRegistry.insert(name, &createSource<T>);
+
+#ifndef QT_NO_DEBUG
+            // Force using the creator function to possibly trigger its assertion.
+            delete makeSource(name);
+#endif
 
             return true;
         }
@@ -917,6 +999,11 @@ class Registry
 
             m_operatorRegistry.insert(name, &createOperator<T>);
 
+#ifndef QT_NO_DEBUG
+            // Force using the creator function to possibly trigger its assertion.
+            delete makeOperator(name);
+#endif
+
             return true;
         }
 
@@ -934,6 +1021,11 @@ class Registry
                 return false;
 
             m_sinkRegistry.insert(name, &createSink<T>);
+
+#ifndef QT_NO_DEBUG
+            // Force using the creator function to possibly trigger its assertion.
+            delete makeSink(name);
+#endif
 
             return true;
         }

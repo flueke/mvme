@@ -16,7 +16,13 @@ QDebug &operator<< (QDebug &dbg, const std::shared_ptr<T> &ptr)
 
 namespace analysis
 {
-    static const int CurrentAnalysisVersion = 2;
+static const int CurrentAnalysisVersion = 2;
+
+template<typename T>
+QString getClassName(T *obj)
+{
+    return obj->metaObject()->className();
+}
 
 //
 // Slot
@@ -1358,7 +1364,7 @@ void ConditionFilter::beginRun(const RunInfo &)
     out.name = objectName();// in.name;
     out.unit = QString();
 
-    if (!(m_dataInput.isParamIndexInRange() && m_conditionInput.isParamIndexInRange()))
+    if (!m_dataInput.isParamIndexInRange() || !m_conditionInput.isParamIndexInRange())
     {
         return;
     }
@@ -1442,7 +1448,6 @@ void ConditionFilter::step()
     }
 }
 
-
 // Inputs
 s32 ConditionFilter::getNumberOfSlots() const
 {
@@ -1484,6 +1489,117 @@ void ConditionFilter::read(const QJsonObject &json)
 
 void ConditionFilter::write(QJsonObject &json) const
 {
+}
+
+//
+// RectFilter2D
+//
+RectFilter2D::RectFilter2D(QObject *parent)
+    : OperatorInterface(parent)
+    , m_xInput(this, 0, QSL("X Data"))
+    , m_yInput(this, 1, QSL("Y Data"))
+{
+    m_output.setSource(this);
+    m_xInput.acceptedInputTypes = InputType::Value;
+    m_yInput.acceptedInputTypes = InputType::Value;
+}
+
+void RectFilter2D::beginRun(const RunInfo &)
+{
+    auto &out(m_output.getParameters());
+    out.resize(0);
+    out.name = objectName();
+    out.unit = QString();
+
+    if (!m_xInput.isParamIndexInRange() || !m_yInput.isParamIndexInRange())
+        return;
+
+    // Both connected and in range
+    out.resize(1);
+}
+
+void RectFilter2D::step()
+{
+    if (!m_xInput.isParamIndexInRange() || !m_yInput.isParamIndexInRange())
+        return;
+
+    Parameter *out(m_output.getParameter(0));
+    Parameter *px = m_xInput.inputPipe->getParameter(m_xInput.paramIndex);
+    Parameter *py = m_yInput.inputPipe->getParameter(m_yInput.paramIndex);
+
+    Q_ASSERT(out);
+    Q_ASSERT(px);
+    Q_ASSERT(py);
+
+    out->valid = false;
+
+    if (px->valid && py->valid)
+    {
+        bool xInRange = m_xInterval.contains(px->value);
+        bool yInRange = m_yInterval.contains(py->value);
+
+        out->valid = (m_op == OpAnd
+                      ? (xInRange && yInRange)
+                      : (xInRange || yInRange));
+    }
+}
+
+s32 RectFilter2D::getNumberOfSlots() const
+{
+    return 2;
+}
+
+Slot *RectFilter2D::getSlot(s32 slotIndex)
+{
+    switch (slotIndex)
+    {
+        case 0:
+            return &m_xInput;
+        case 1:
+            return &m_yInput;
+    }
+    return nullptr;
+}
+
+s32 RectFilter2D::getNumberOfOutputs() const
+{
+    return 1;
+}
+
+QString RectFilter2D::getOutputName(s32 outputIndex) const
+{
+    return QSL("Output");
+}
+
+Pipe *RectFilter2D::getOutput(s32 index)
+{
+    return &m_output;
+}
+
+void RectFilter2D::read(const QJsonObject &json)
+{
+    m_op = OpAnd;
+    if (json["operator"].toString() == "or")
+    {
+        m_op = OpOr;
+    }
+
+    double x1 = json["x1"].toDouble();
+    double x2 = json["x2"].toDouble();
+    double y1 = json["y1"].toDouble();
+    double y2 = json["y2"].toDouble();
+
+    setXInterval(x1, x2);
+    setYInterval(y1, y2);
+}
+
+void RectFilter2D::write(QJsonObject &json) const
+{
+    json["operator"] = (m_op == OpAnd ? QSL("and") : QSL("or"));
+    json["x1"] = m_xInterval.minValue();
+    json["x2"] = m_xInterval.maxValue();
+    json["y1"] = m_yInterval.minValue();
+    json["y2"] = m_yInterval.maxValue();
 }
 
 //
@@ -1788,6 +1904,7 @@ Analysis::Analysis(QObject *parent)
     m_registry.registerOperator<ArrayMap>();
     m_registry.registerOperator<RangeFilter1D>();
     m_registry.registerOperator<ConditionFilter>();
+    m_registry.registerOperator<RectFilter2D>();
 
 
     m_registry.registerSink<Histo1DSink>();
@@ -1807,6 +1924,19 @@ void Analysis::beginRun(const RunInfo &runInfo)
     qSort(m_operators.begin(), m_operators.end(), [] (const OperatorEntry &oe1, const OperatorEntry &oe2) {
         return oe1.op->getMaximumInputRank() < oe2.op->getMaximumInputRank();
     });
+
+#if ENABLE_ANALYSIS_DEBUG
+    qDebug() << __PRETTY_FUNCTION__ << "<<<<< operators sorted by maximum input rank";
+    for (const auto &opEntry: m_operators)
+    {
+        qDebug() << "  "
+            << opEntry.op->getMaximumInputRank()
+            << getClassName(opEntry.op.get())
+            << opEntry.op->objectName()
+            << "max output rank" << opEntry.op->getMaximumOutputRank();
+    }
+    qDebug() << __PRETTY_FUNCTION__ << ">>>>> operators sorted by maximum input rank";
+#endif
 
     for (auto &sourceEntry: m_sources)
     {
@@ -1976,13 +2106,24 @@ void Analysis::endEvent(const QUuid &eventId)
 
 void Analysis::updateRanks()
 {
+#if ENABLE_ANALYSIS_DEBUG
+    qDebug() << __PRETTY_FUNCTION__ << ">>>>> begin";
+#endif
+
     for (auto &sourceEntry: m_sources)
     {
         SourceInterface *source = sourceEntry.source.get();
+        Q_ASSERT(source);
         const s32 outputCount = source->getNumberOfOutputs();
 
+#if ENABLE_ANALYSIS_DEBUG
+        qDebug() << __PRETTY_FUNCTION__ << "setting output ranks of source"
+            << getClassName(source) << source->objectName() << "to 0";
+#endif
+
+
         for (s32 outputIndex = 0;
-             outputIndex < source->getNumberOfOutputs();
+             outputIndex < outputCount;
              ++outputIndex)
         {
             source->getOutput(outputIndex)->setRank(0);
@@ -1997,6 +2138,9 @@ void Analysis::updateRanks()
 
         updateRank(op, updated);
     }
+#if ENABLE_ANALYSIS_DEBUG
+    qDebug() << __PRETTY_FUNCTION__ << "<<<<< end";
+#endif
 }
 
 void Analysis::updateRank(OperatorInterface *op, QSet<OperatorInterface *> &updated)
@@ -2004,6 +2148,11 @@ void Analysis::updateRank(OperatorInterface *op, QSet<OperatorInterface *> &upda
     if (updated.contains(op))
         return;
 
+#if ENABLE_ANALYSIS_DEBUG
+    qDebug() << __PRETTY_FUNCTION__ << ">>>>> updating rank for"
+        << getClassName(op)
+        << op->objectName();
+#endif
 
     for (s32 inputIndex = 0;
          inputIndex < op->getNumberOfSlots();
@@ -2013,22 +2162,30 @@ void Analysis::updateRank(OperatorInterface *op, QSet<OperatorInterface *> &upda
 
         if (input)
         {
-
             PipeSourceInterface *source(input->getSource());
+
+            // Only operators need to be updated. Sources will have their rank
+            // set to 0 already.
             OperatorInterface *sourceOp(qobject_cast<OperatorInterface *>(source));
 
             if (sourceOp)
             {
                 updateRank(sourceOp, updated);
             }
-            else
-            {
-                input->setRank(0);
-            }
+        }
+        else
+        {
+#if ENABLE_ANALYSIS_DEBUG
+            qDebug() << __PRETTY_FUNCTION__ << "input slot" << inputIndex << "is not connected";
+#endif
         }
     }
 
     s32 maxInputRank = op->getMaximumInputRank();
+
+#if ENABLE_ANALYSIS_DEBUG
+    qDebug() << __PRETTY_FUNCTION__ << "maxInputRank =" << maxInputRank;
+#endif
 
     for (s32 outputIndex = 0;
          outputIndex < op->getNumberOfOutputs();
@@ -2036,7 +2193,20 @@ void Analysis::updateRank(OperatorInterface *op, QSet<OperatorInterface *> &upda
     {
         op->getOutput(outputIndex)->setRank(maxInputRank + 1);
         updated.insert(op);
+
+#if ENABLE_ANALYSIS_DEBUG
+        qDebug() << __PRETTY_FUNCTION__ << "output"
+            << outputIndex << "now has a rank"
+            << op->getOutput(outputIndex)->getRank();
+#endif
     }
+
+#if ENABLE_ANALYSIS_DEBUG
+    qDebug() << __PRETTY_FUNCTION__ << "<<<<< updated rank for"
+        << getClassName(op)
+        << op->objectName()
+        << "new output rank" << op->getMaximumOutputRank();
+#endif
 }
 
 void Analysis::removeSource(const SourcePtr &source)
@@ -2148,12 +2318,6 @@ void Analysis::clear()
 bool Analysis::isEmpty() const
 {
     return m_sources.isEmpty() && m_operators.isEmpty();
-}
-
-template<typename T>
-QString getClassName(T *obj)
-{
-    return obj->metaObject()->className();
 }
 
 Analysis::ReadResult Analysis::read(const QJsonObject &json)

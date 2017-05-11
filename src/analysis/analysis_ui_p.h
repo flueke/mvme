@@ -194,6 +194,14 @@ class OperatorConfigurationWidget: public QWidget
         QDoubleSpinBox *spin_maxValue;
         QRadioButton *rb_keepInside;
         QRadioButton *rb_keepOutside;
+
+        // RectFilter2D
+        QDoubleSpinBox *spin_xMin,
+                       *spin_xMax,
+                       *spin_yMin,
+                       *spin_yMax;
+        QRadioButton *rb_opAnd;
+        QRadioButton *rb_opOr;
 };
 
 class PipeDisplay: public QWidget

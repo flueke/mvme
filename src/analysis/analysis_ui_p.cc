@@ -559,6 +559,24 @@ static void debug_dump(const ArrayMappings &mappings)
     }
 }
 
+static QDoubleSpinBox *make_parameter_spinbox()
+{
+    auto result = new QDoubleSpinBox;
+
+    result->setDecimals(8);
+    result->setMinimum(-1e20);
+    result->setMaximum(+1e20);
+    result->setValue(result->minimum());
+    result->setSpecialValueText(QSL("not set"));
+
+    return result;
+}
+
+static bool is_set_to_min(QDoubleSpinBox *spin)
+{
+    return (spin->value() == spin->minimum());
+}
+
 void repopulate_arrayMap_tables(ArrayMap *arrayMap, const ArrayMappings &mappings, QTableWidget *tw_input, QTableWidget *tw_output)
 {
     Q_ASSERT(arrayMap && tw_input && tw_output);
@@ -926,6 +944,53 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
             rb_keepInside->setChecked(true);
         }
     }
+    else if (auto filter = qobject_cast<RectFilter2D *>(op))
+    {
+        spin_xMin = make_parameter_spinbox();
+        spin_xMax = make_parameter_spinbox();
+        spin_yMin = make_parameter_spinbox();
+        spin_yMax = make_parameter_spinbox();
+
+        rb_opAnd = new QRadioButton(QSL("AND"));
+        rb_opOr  = new QRadioButton(QSL("OR"));
+
+        auto buttonGroup = new QButtonGroup(this);
+        buttonGroup->addButton(rb_opAnd);
+        buttonGroup->addButton(rb_opOr);
+
+        formLayout->addRow(QSL("X Min"), spin_xMin);
+        formLayout->addRow(QSL("X Max"), spin_xMax);
+        formLayout->addRow(QSL("Y Min"), spin_yMin);
+        formLayout->addRow(QSL("Y Max"), spin_yMax);
+
+        auto radioLayout = new QHBoxLayout;
+        radioLayout->setContentsMargins(0, 0, 0, 0);
+        radioLayout->addWidget(rb_opAnd);
+        radioLayout->addWidget(rb_opOr);
+
+        formLayout->addRow(QSL("Condition"), radioLayout);
+
+        if (filter->getXInterval().isValid())
+        {
+            spin_xMin->setValue(filter->getXInterval().minValue());
+            spin_xMax->setValue(filter->getXInterval().maxValue());
+        }
+
+        if (filter->getYInterval().isValid())
+        {
+            spin_yMin->setValue(filter->getYInterval().minValue());
+            spin_yMax->setValue(filter->getYInterval().maxValue());
+        }
+
+        if (filter->getConditionOp() == RectFilter2D::OpAnd)
+        {
+            rb_opAnd->setChecked(true);
+        }
+        else
+        {
+            rb_opOr->setChecked(true);
+        }
+    }
 }
 
 #if 0
@@ -1020,6 +1085,15 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
                 QString dataName = makeSlotSourceString(&condFilter->m_dataInput);
                 QString condName = makeSlotSourceString(&condFilter->m_conditionInput);
                 le_name->setText(QString("%1_if_%2").arg(dataName).arg(condName));
+            }
+        }
+        else if (auto filter = qobject_cast<RectFilter2D *>(op))
+        {
+            if (filter->getSlot(0)->isConnected() && filter->getSlot(1)->isConnected())
+            {
+                QString nameX = makeSlotSourceString(filter->getSlot(0));
+                QString nameY = makeSlotSourceString(filter->getSlot(1));
+                le_name->setText(QString("%1_%2").arg(nameX).arg(nameY)); // FIXME: better name here
             }
         }
     }
@@ -1169,6 +1243,39 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
             }
         }
     }
+    else if (auto filter = qobject_cast<RectFilter2D *>(op))
+    {
+        Q_ASSERT(slot);
+
+        if (slot == op->getSlot(0)) // x
+        {
+            Q_ASSERT(slot->isParamIndexInRange());
+
+            if (spin_xMin->value() == spin_xMin->minimum())
+            {
+                spin_xMin->setValue(slot->inputPipe->getParameter(slot->paramIndex)->lowerLimit);
+            }
+
+            if (spin_xMax->value() == spin_xMax->minimum())
+            {
+                spin_xMax->setValue(slot->inputPipe->getParameter(slot->paramIndex)->upperLimit);
+            }
+        }
+        else if (slot == op->getSlot(1)) // y
+        {
+            Q_ASSERT(slot->isParamIndexInRange());
+
+            if (spin_yMin->value() == spin_yMin->minimum())
+            {
+                spin_yMin->setValue(slot->inputPipe->getParameter(slot->paramIndex)->lowerLimit);
+            }
+
+            if (spin_yMax->value() == spin_yMax->minimum())
+            {
+                spin_yMax->setValue(slot->inputPipe->getParameter(slot->paramIndex)->upperLimit);
+            }
+        }
+    }
 }
 
 void OperatorConfigurationWidget::configureOperator()
@@ -1291,6 +1398,28 @@ void OperatorConfigurationWidget::configureOperator()
         rangeFilter->m_minValue = spin_minValue->value();
         rangeFilter->m_maxValue = spin_maxValue->value();
         rangeFilter->m_keepOutside = rb_keepOutside->isChecked();
+    }
+    else if (auto filter = qobject_cast<RectFilter2D *>(op))
+    {
+        if (is_set_to_min(spin_xMin) || is_set_to_min(spin_xMax))
+        {
+            filter->setXInterval(QwtInterval()); // set an invalid interval
+        }
+        else
+        {
+            filter->setXInterval(spin_xMin->value(), spin_xMax->value());
+        }
+
+        if (is_set_to_min(spin_yMin) || is_set_to_min(spin_yMax))
+        {
+            filter->setYInterval(QwtInterval()); // set an invalid interval
+        }
+        else
+        {
+            filter->setYInterval(spin_yMin->value(), spin_yMax->value());
+        }
+
+        filter->setConditionOp(rb_opAnd->isChecked() ? RectFilter2D::OpAnd : RectFilter2D::OpOr);
     }
 }
 
