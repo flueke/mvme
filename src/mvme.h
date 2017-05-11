@@ -66,10 +66,10 @@ public slots:
     void openInNewWindow(QObject *object);
     QMdiSubWindow *addWidgetWindow(QWidget *widget, QSize windowSize = QSize());
 
-    void on_actionNewConfig_triggered();
-    void on_actionLoadConfig_triggered();
-    bool on_actionSaveConfig_triggered();
-    bool on_actionSaveConfigAs_triggered();
+    void on_actionNewVMEConfig_triggered();
+    void on_actionOpenVMEConfig_triggered();
+    bool on_actionSaveVMEConfig_triggered();
+    bool on_actionSaveVMEConfigAs_triggered();
 
     void loadConfig(const QString &fileName);
 
@@ -80,8 +80,8 @@ protected:
     void resizeEvent(QResizeEvent *event) override;
 
 private slots:
-    void on_actionOpen_Listfile_triggered();
-    void on_actionClose_Listfile_triggered();
+    void on_actionOpenListfile_triggered();
+    void on_actionCloseListfile_triggered();
 
     void on_actionMainWindow_triggered();
     void on_actionAnalysis_UI_triggered();
@@ -105,6 +105,8 @@ private slots:
     void on_actionImport_Histo1D_triggered();
 
     void on_actionVMEScriptRef_triggered();
+
+    void updateActions();
 
 
 private:

@@ -78,6 +78,12 @@ mvme::mvme(QWidget *parent) :
     connect(m_context, &MVMEContext::daqStateChanged, this, &mvme::onDAQStateChanged);
     connect(m_context, &MVMEContext::sigLogMessage, this, &mvme::appendToLog);
 
+    connect(m_context, &MVMEContext::daqStateChanged, this, &mvme::updateActions);
+    connect(m_context, &MVMEContext::eventProcessorStateChanged, this, &mvme::updateActions);
+    connect(m_context, &MVMEContext::modeChanged, this, &mvme::updateActions);
+    //connect(m_context, &MVMEContext::controllerStateChanged, this, &mvme::updateActions);
+    connect(m_context, &MVMEContext::daqConfigChanged, this, &mvme::updateActions);
+
     // check and initialize VME interface
     VMEController *controller = new VMUSB;
     m_context->setController(controller); // The context take ownership
@@ -111,6 +117,7 @@ mvme::mvme(QWidget *parent) :
 
     // Code to run on entering the event loop for the first time.
     QTimer::singleShot(0, [this] () {
+        updateActions();
 
         // Create and open log and analysis windows.
         on_actionLog_Window_triggered();
@@ -356,7 +363,7 @@ void mvme::closeEvent(QCloseEvent *event)
 
         if (result == QMessageBox::Save)
         {
-            if (!on_actionSaveConfig_triggered())
+            if (!on_actionSaveVMEConfig_triggered())
             {
                 event->ignore();
                 return;
@@ -494,7 +501,7 @@ void mvme::addWidget(QWidget *widget, const QString &stateKey)
     widget->show();
 }
 
-void mvme::on_actionNewConfig_triggered()
+void mvme::on_actionNewVMEConfig_triggered()
 {
     if (m_context->getConfig()->isModified())
     {
@@ -505,7 +512,7 @@ void mvme::on_actionNewConfig_triggered()
 
         if (result == QMessageBox::Save)
         {
-            if (!on_actionSaveConfig_triggered())
+            if (!on_actionSaveVMEConfig_triggered())
             {
                 return;
             }
@@ -523,7 +530,7 @@ void mvme::on_actionNewConfig_triggered()
     m_context->setMode(GlobalMode::DAQ);
 }
 
-void mvme::on_actionLoadConfig_triggered()
+void mvme::on_actionOpenVMEConfig_triggered()
 {
     if (m_context->getConfig()->isModified())
     {
@@ -534,7 +541,7 @@ void mvme::on_actionLoadConfig_triggered()
 
         if (result == QMessageBox::Save)
         {
-            if (!on_actionSaveConfig_triggered())
+            if (!on_actionSaveVMEConfig_triggered())
             {
                 return;
             }
@@ -561,11 +568,11 @@ void mvme::on_actionLoadConfig_triggered()
     loadConfig(fileName);
 }
 
-bool mvme::on_actionSaveConfig_triggered()
+bool mvme::on_actionSaveVMEConfig_triggered()
 {
     if (m_context->getConfigFileName().isEmpty())
     {
-        return on_actionSaveConfigAs_triggered();
+        return on_actionSaveVMEConfigAs_triggered();
     }
 
     QString fileName = m_context->getConfigFileName();
@@ -600,7 +607,7 @@ bool mvme::on_actionSaveConfig_triggered()
     return true;
 }
 
-bool mvme::on_actionSaveConfigAs_triggered()
+bool mvme::on_actionSaveVMEConfigAs_triggered()
 {
     QString path = QFileInfo(m_context->getConfigFileName()).absolutePath();
 
@@ -647,7 +654,7 @@ bool mvme::on_actionSaveConfigAs_triggered()
     return true;
 }
 
-void mvme::on_actionOpen_Listfile_triggered()
+void mvme::on_actionOpenListfile_triggered()
 {
     if (m_context->getConfig()->isModified())
     {
@@ -658,7 +665,7 @@ void mvme::on_actionOpen_Listfile_triggered()
 
         if (result == QMessageBox::Save)
         {
-            if (!on_actionSaveConfig_triggered())
+            if (!on_actionSaveVMEConfig_triggered())
             {
                 return;
             }
@@ -768,7 +775,7 @@ void mvme::on_actionOpen_Listfile_triggered()
     updateWindowTitle();
 }
 
-void mvme::on_actionClose_Listfile_triggered()
+void mvme::on_actionCloseListfile_triggered()
 {
     m_context->closeReplayFile();
 }
@@ -1145,7 +1152,7 @@ void mvme::onDAQStateChanged(const DAQState &)
             enable = false;
         }
 
-        ui->actionOpen_Listfile->setEnabled(enable);
+        ui->actionOpenListfile->setEnabled(enable);
     }
 }
 
@@ -1279,4 +1286,26 @@ bool mvme::createNewOrOpenExistingWorkspace()
     } while (!m_context->isWorkspaceOpen());
 
     return true;
+}
+
+void mvme::updateActions()
+{
+    auto globalMode = m_context->getMode();
+    auto daqState = m_context->getDAQState();
+    auto eventProcState = m_context->getEventProcessorState();
+    auto controllerState = m_context->getController()->getState();
+
+    bool isDAQIdle = (daqState == DAQState::Idle);
+
+    // Workspaces
+    ui->actionNewWorkspace->setEnabled(isDAQIdle);
+    ui->actionOpenWorkspace->setEnabled(isDAQIdle);
+
+    // VME Config
+    ui->actionNewVMEConfig->setEnabled(isDAQIdle);
+    ui->actionOpenVMEConfig->setEnabled(isDAQIdle);
+
+    // Listfiles
+    ui->actionOpenListfile->setEnabled(isDAQIdle);
+    ui->actionCloseListfile->setEnabled(isDAQIdle);
 }

@@ -73,10 +73,6 @@ class DAQConfigTreeWidget: public QWidget
 
         void runScriptConfigs(const QVector<VMEScriptConfig *> &configs);
 
-        void newConfig();
-        void loadConfig();
-        bool saveConfig();
-        bool saveConfigAs();
         void updateConfigLabel();
 
         MVMEContext *m_context = nullptr;

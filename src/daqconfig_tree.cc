@@ -117,21 +117,29 @@ DAQConfigTreeWidget::DAQConfigTreeWidget(MVMEContext *context, QWidget *parent)
         result->setText(text);
         result->setStatusTip(text);
         result->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
-        //result->setToolButtonStyle(Qt::ToolButtonIconOnly);
         auto font = result->font();
         font.setPointSize(7);
         result->setFont(font);
         return result;
     };
-    pb_new = makeToolButton(QSL(":/document-new.png"), QSL("New"));
-    pb_load = makeToolButton(QSL(":/document-open.png"), QSL("Open"));
-    pb_save = makeToolButton(QSL(":/document-save.png"), QSL("Save"));
-    pb_saveAs = makeToolButton(QSL(":/document-save-as.png"), QSL("Save As"));
 
-    connect(pb_new, &QAbstractButton::clicked, this, &DAQConfigTreeWidget::newConfig);
-    connect(pb_load, &QAbstractButton::clicked, this, &DAQConfigTreeWidget::loadConfig);
-    connect(pb_save, &QAbstractButton::clicked, this, &DAQConfigTreeWidget::saveConfig);
-    connect(pb_saveAs, &QAbstractButton::clicked, this, &DAQConfigTreeWidget::saveConfigAs);
+    auto makeActionToolButton = [](QAction *action)
+    {
+        Q_ASSERT(action);
+        auto result = new QToolButton;
+        result->setDefaultAction(action);
+        result->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+        auto font = result->font();
+        font.setPointSize(7);
+        result->setFont(font);
+        return result;
+    };
+
+    auto mainwin = m_context->getMainWindow();
+    pb_new    = makeActionToolButton(mainwin->findChild<QAction *>("actionNewVMEConfig"));
+    pb_load   = makeActionToolButton(mainwin->findChild<QAction *>("actionOpenVMEConfig"));
+    pb_save   = makeActionToolButton(mainwin->findChild<QAction *>("actionSaveVMEConfig"));
+    pb_saveAs = makeActionToolButton(mainwin->findChild<QAction *>("actionSaveVMEConfigAs"));
 
     QToolButton *pb_treeSettings = nullptr;
 
@@ -144,7 +152,6 @@ DAQConfigTreeWidget::DAQConfigTreeWidget(MVMEContext *context, QWidget *parent)
         auto action_dumpVMUSBRegisters = menu->addAction(QSL("Dump VMUSB Registers"));
         connect(action_dumpVMUSBRegisters, &QAction::triggered, this, &DAQConfigTreeWidget::dumpVMUSBRegisters);
 
-        //pb_treeSettings = new QPushButton(QIcon(":/tree-settings.png"), QSL(""));
         pb_treeSettings = makeToolButton(QSL(":/tree-settings.png"), QSL("More"));
         pb_treeSettings->setMenu(menu);
         pb_treeSettings->setPopupMode(QToolButton::InstantPopup);
@@ -687,7 +694,7 @@ void DAQConfigTreeWidget::addModule()
         {
             TemplateLoader loader;
             connect(&loader, &TemplateLoader::logMessage, m_context, &MVMEContext::logMessage);
-            
+
             const QString shortName = VMEModuleShortNames.value(module->type, QSL("unknown"));
 
             module->vmeScripts["parameters"]->setScriptContents(loader.readTemplate(
@@ -899,26 +906,6 @@ void DAQConfigTreeWidget::dumpVMUSBRegisters()
 
 static const QString fileFilter = QSL("Config Files (*.mvmecfg);; All Files (*.*)");
 static const QString settingsPath = QSL("Files/LastConfigFile");
-
-void DAQConfigTreeWidget::newConfig()
-{
-    m_context->getMainWindow()->on_actionNewConfig_triggered();
-}
-
-void DAQConfigTreeWidget::loadConfig()
-{
-    m_context->getMainWindow()->on_actionLoadConfig_triggered();
-}
-
-bool DAQConfigTreeWidget::saveConfig()
-{
-    return m_context->getMainWindow()->on_actionSaveConfig_triggered();
-}
-
-bool DAQConfigTreeWidget::saveConfigAs()
-{
-    return m_context->getMainWindow()->on_actionSaveConfigAs_triggered();
-}
 
 void DAQConfigTreeWidget::updateConfigLabel()
 {
