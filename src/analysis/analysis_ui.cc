@@ -398,6 +398,26 @@ void EventWidgetPrivate::createView(const QUuid &eventId)
     }
 }
 
+DisplayLevelTrees make_displaylevel_trees(const QString &opTitle, const QString &dispTitle, s32 level)
+{
+    DisplayLevelTrees result = { new QTreeWidget, new DisplayTree, level };
+
+    result.operatorTree->setObjectName(opTitle);
+    result.operatorTree->headerItem()->setText(0, opTitle);
+
+    result.displayTree->setObjectName(dispTitle);
+    result.displayTree->headerItem()->setText(0, dispTitle);
+
+    for (auto tree: {result.operatorTree, reinterpret_cast<QTreeWidget *>(result.displayTree)})
+    {
+        tree->setExpandsOnDoubleClick(false);
+        tree->setItemDelegate(new HtmlDelegate(tree));
+        tree->setSelectionMode(QAbstractItemView::SingleSelection);
+    }
+
+    return result;
+}
+
 DisplayLevelTrees EventWidgetPrivate::createTrees(const QUuid &eventId, s32 level)
 {
     // Level 0: special case for data sources
@@ -406,17 +426,10 @@ DisplayLevelTrees EventWidgetPrivate::createTrees(const QUuid &eventId, s32 leve
         return createSourceTrees(eventId);
     }
 
-    DisplayLevelTrees result = { new QTreeWidget, new DisplayTree, level };
-    auto headerItem = result.operatorTree->headerItem();
-    headerItem->setText(0, QString(QSL("L%1 Processing")).arg(level));
-
-    headerItem = result.displayTree->headerItem();
-    headerItem->setText(0, QString(QSL("L%1 Data Display")).arg(level));
-
-    result.operatorTree->setExpandsOnDoubleClick(false);
-    result.displayTree->setExpandsOnDoubleClick(false);
-    result.operatorTree->setItemDelegate(new HtmlDelegate());
-    result.displayTree->setItemDelegate(new HtmlDelegate());
+    DisplayLevelTrees result = make_displaylevel_trees(
+        QString(QSL("L%1 Processing")).arg(level),
+        QString(QSL("L%1 Data Display")).arg(level),
+        level);
 
     // Build a list of operators for the current level
     auto analysis = m_context->getAnalysisNG();
@@ -476,18 +489,10 @@ DisplayLevelTrees EventWidgetPrivate::createSourceTrees(const QUuid &eventId)
     auto eventConfig = vmeConfig->getEventConfig(eventId);
     auto modules = eventConfig->getModuleConfigs();
 
-    DisplayLevelTrees result = { new QTreeWidget, new DisplayTree, 0 };
-
-    auto headerItem = result.operatorTree->headerItem();
-    headerItem->setText(0, QSL("L0 Parameter Extraction"));
-
-    headerItem = result.displayTree->headerItem();
-    headerItem->setText(0, QSL("L0 Data Display"));
-
-    result.operatorTree->setExpandsOnDoubleClick(false);
-    result.displayTree->setExpandsOnDoubleClick(false);
-    result.operatorTree->setItemDelegate(new HtmlDelegate(result.operatorTree));
-    result.displayTree->setItemDelegate(new HtmlDelegate(result.displayTree));
+    DisplayLevelTrees result = make_displaylevel_trees(
+        QSL("L0 Parameter Extraction"),
+        QSL("L0 Data Display"),
+        0);
 
     // Populate the OperatorTree
     for (auto mod: modules)
@@ -597,7 +602,7 @@ void EventWidgetPrivate::appendTreesToView(DisplayLevelTrees trees)
 
     for (auto tree: {opTree, reinterpret_cast<QTreeWidget *>(dispTree)})
     {
-        tree->installEventFilter(m_q);
+        //tree->installEventFilter(m_q);
 
 
         QObject::connect(tree, &QTreeWidget::itemClicked, m_q, [this, levelIndex] (QTreeWidgetItem *node, int column) {
@@ -1758,7 +1763,7 @@ void EventWidgetPrivate::clearAllTreeSelections()
     {
         for (auto tree: {trees.operatorTree, reinterpret_cast<QTreeWidget *>(trees.displayTree)})
         {
-            tree->setCurrentItem(nullptr);
+            tree->clearSelection();
         }
     }
 }
@@ -1771,7 +1776,7 @@ void EventWidgetPrivate::clearTreeSelectionsExcept(QTreeWidget *treeNotToClear)
         {
             if (tree != treeNotToClear)
             {
-                tree->setCurrentItem(nullptr);
+                tree->clearSelection();
             }
         }
     }
@@ -2065,6 +2070,7 @@ MVMEContext *EventWidget::getContext() const
 
 bool EventWidget::eventFilter(QObject *watched, QEvent *event)
 {
+#if 0
     if (event->type() == QEvent::FocusIn)
     {
         for (auto trees: m_d->m_levelTrees)
@@ -2075,6 +2081,13 @@ bool EventWidget::eventFilter(QObject *watched, QEvent *event)
                 {
                     if (!tree->currentItem())
                     {
+                        // FIXME: This does not interact well with scrolling.
+                        // Solutions:
+                        // - Track the previous "current" item for each tree
+                        //   and reselect it on focus in.
+                        // - Instead of using focus use node clicked. This
+                        // means keyboard focus switching and moving with arrow
+                        // keys won't work.
                         auto node = tree->topLevelItem(0);
                         if (node)
                         {
@@ -2086,6 +2099,7 @@ bool EventWidget::eventFilter(QObject *watched, QEvent *event)
             }
         }
     }
+#endif
 
     return QWidget::eventFilter(watched, event);
 }
