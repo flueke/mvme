@@ -22,8 +22,12 @@
   </p>
 
   <p>Scripts belonging to a module (Module Init, VME Interface Settings, Module Reset and the readout code) will have
-  the module base address added to every address contained in the script. An exception to this is the <b>writeabs</b>
-  command which does not modify its address argument.</p>
+  the <b>module base address</b> added to most of the commands. This allows writing scripts containing module-relative
+  addresses only. An exception is the <b>writeabs</b> command which does not modify its address argument.  The base
+  address can also be temporarily replaced with a different value by using the <b>setbase</b> and <b>resetbase</b>
+  commands.</p>
+
+  <p>
 
   <p>
   The commands below use the following values for address modifiers and data widths:
@@ -128,13 +132,23 @@
   waitspec is 200ns and the maximum value is 51000ns.</p>
 
   <p><b>Example:</b> &quot;<tt>wait 500ms # Delay script execution for 500ms</tt>&quot;</p>
-  
+
   <ul>
     <li><b>marker</b> &lt;marker_word&gt;</li>
   </ul>
 
   <p>The <b>marker</b> command adds a 32-bit marker word into the data stream. This can be used to separate data from
   different modules.</p>
+
+  <ul>
+    <li><b>setbase</b> &lt;address&gt;</li>
+    <li><b>resetbase</b></li>
+  </ul>
+  <p>
+  These commands can be used to temporarily replace the current base address with a different value. <b>setbase</b> sets
+  a new base address, which will be effective for all following commands. Use <b>resetbase</b> to restore the original
+  base address.
+  </p>
 
   <!-- TODO: add some examples here! -->
   <!--

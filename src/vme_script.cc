@@ -179,6 +179,35 @@ Command parseBlockTransferCountRead(const QStringList &args, int lineNumber)
     return result;
 }
 
+Command parseSetBase(const QStringList &args, int lineNumber)
+{
+    auto usage = QString("%1 <address>").arg(args[0]);
+
+    if (args.size() != 2)
+        throw ParseError(QString("Invalid number of arguments. Usage: %1").arg(usage), lineNumber);
+
+    Command result;
+
+    result.type = commandType_from_string(args[0]);
+    result.address = parseAddress(args[1]);
+
+    return result;
+}
+
+Command parseResetBase(const QStringList &args, int lineNumber)
+{
+    auto usage = QString("%1").arg(args[0]);
+
+    if (args.size() != 1)
+        throw ParseError(QString("Invalid numer of arguments. Usage: %1").arg(usage), lineNumber);
+
+    Command result;
+
+    result.type = commandType_from_string(args[0]);
+
+    return result;
+}
+
 typedef Command (*CommandParser)(const QStringList &args, int lineNumber);
 
 static const QMap<QString, CommandParser> commandParsers =
@@ -198,6 +227,9 @@ static const QMap<QString, CommandParser> commandParsers =
     { QSL("bltfifocount"),  parseBlockTransferCountRead },
     { QSL("mbltcount"),     parseBlockTransferCountRead },
     { QSL("mbltfifocount"), parseBlockTransferCountRead },
+
+    { QSL("setbase"),       parseSetBase },
+    { QSL("resetbase"),     parseResetBase },
 };
 
 Command parse_line(QString line, int lineNumber)
@@ -240,7 +272,7 @@ Command parse_line(QString line, int lineNumber)
     }
 
     auto fn = commandParsers.value(parts[0].toLower(), nullptr);
-    
+
     if (!fn)
         throw ParseError(QString(QSL("No such command \"%1\"")).arg(parts[0]), lineNumber);
 
@@ -270,6 +302,7 @@ VMEScript parse(QTextStream &input, uint32_t baseAddress)
 {
     VMEScript result;
     int lineNumber = 0;
+    const u32 originalBaseAddress = baseAddress;
 
     while (true)
     {
@@ -281,10 +314,26 @@ VMEScript parse(QTextStream &input, uint32_t baseAddress)
 
         auto cmd = parse_line(line, lineNumber);
 
-        if (cmd.type != CommandType::Invalid)
+        switch (cmd.type)
         {
-            cmd = add_base_address(cmd, baseAddress);
-            result.push_back(cmd);
+            case CommandType::Invalid:
+                break;
+
+            case CommandType::SetBase:
+                {
+                    baseAddress = cmd.address;
+                } break;
+
+            case CommandType::ResetBase:
+                {
+                    baseAddress = originalBaseAddress;
+                } break;
+
+            default:
+                {
+                    cmd = add_base_address(cmd, baseAddress);
+                    result.push_back(cmd);
+                } break;
         }
     }
 
@@ -306,6 +355,8 @@ static const QMap<CommandType, QString> commandTypeToString =
     { CommandType::BLTFifoCount,    QSL("bltfifocount") },
     { CommandType::MBLTCount,       QSL("mbltcount") },
     { CommandType::MBLTFifoCount,   QSL("mbltfifocount") },
+    { CommandType::SetBase,         QSL("setbase") },
+    { CommandType::ResetBase,       QSL("resetbase") },
 };
 
 QString to_string(CommandType commandType)
@@ -362,6 +413,7 @@ QString to_string(const Command &cmd)
     switch (cmd.type)
     {
         case CommandType::Invalid:
+        case CommandType::ResetBase:
             return cmdStr;
 
         case CommandType::Read:
@@ -422,6 +474,13 @@ QString to_string(const Command &cmd)
                     .arg(to_string(cmd.blockAddressMode))
                     .arg(format_hex(cmd.blockAddress));
             } break;
+
+        case CommandType::SetBase:
+            {
+                buffer = QString(QSL("%1 %2"))
+                    .arg(cmdStr)
+                    .arg(format_hex(cmd.address));
+            } break;
     }
     return buffer;
 }
@@ -439,6 +498,8 @@ Command add_base_address(Command cmd, uint32_t baseAddress)
         case CommandType::Wait:
         case CommandType::Marker:
         case CommandType::WriteAbs:
+        case CommandType::SetBase:
+        case CommandType::ResetBase:
             break;
 
         case CommandType::Read:
@@ -534,6 +595,8 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
     switch (cmd.type)
     {
         case CommandType::Invalid:
+        case CommandType::SetBase:
+        case CommandType::ResetBase:
             break;
 
         case CommandType::Read:
@@ -744,6 +807,8 @@ QString format_result(const Result &result)
         case CommandType::Invalid:
         case CommandType::Wait:
         case CommandType::Marker:
+        case CommandType::SetBase:
+        case CommandType::ResetBase:
             break;
 
         case CommandType::Write:

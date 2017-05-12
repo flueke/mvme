@@ -35,6 +35,9 @@ enum class CommandType
     BLTFifoCount,
     MBLTCount,
     MBLTFifoCount,
+
+    SetBase,
+    ResetBase,
 };
 
 enum class AddressMode
