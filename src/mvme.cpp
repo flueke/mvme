@@ -1234,9 +1234,23 @@ void mvme::on_actionImport_Histo1D_triggered()
 
 void mvme::on_actionVMEScriptRef_triggered()
 {
-    qDebug() << QGuiApplication::allWindows();
-    auto widget = make_vme_script_ref_widget();
-    addWidgetWindow(widget);
+    auto widgets = QApplication::topLevelWidgets();
+    auto it = std::find_if(widgets.begin(), widgets.end(), [](const QWidget *widget) {
+        return widget->objectName() == QSL("VMEScriptReference");
+    });
+
+    if (it != widgets.end())
+    {
+        auto widget = *it;
+        widget->show();
+        widget->showNormal();
+        widget->raise();
+    }
+    else
+    {
+        auto widget = make_vme_script_ref_widget();
+        addWidget(widget, widget->objectName());
+    }
 }
 
 bool mvme::createNewOrOpenExistingWorkspace()

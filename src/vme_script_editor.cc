@@ -2,6 +2,7 @@
 #include "mvme_context.h"
 #include "vme_script.h"
 #include "gui_util.h"
+#include "mvme.h"
 
 #include <QFileDialog>
 #include <QMenu>
@@ -70,19 +71,18 @@ VMEScriptEditor::VMEScriptEditor(MVMEContext *context, VMEScriptConfig *script, 
     loadMenu->addAction(QSL("from template"), this, &VMEScriptEditor::loadFromTemplate);
     auto loadAction = m_toolbar->addAction(QIcon(":/document-open.png"), QSL("Load"));
     loadAction->setMenu(loadMenu);
-    
+
     auto loadButton = qobject_cast<QToolButton *>(m_toolbar->widgetForAction(loadAction));
     if (loadButton)
         loadButton->setPopupMode(QToolButton::InstantPopup);
 
     m_toolbar->addAction(QIcon(":/document-save-as.png"), "Save to file", this, &VMEScriptEditor::saveToFile);
     m_toolbar->addSeparator();
-    m_toolbar->addAction(QIcon(":/document-revert.png"), "Revert Changes", this, &VMEScriptEditor::revert); 
+    m_toolbar->addAction(QIcon(":/document-revert.png"), "Revert Changes", this, &VMEScriptEditor::revert);
     m_toolbar->addSeparator();
-    m_toolbar->addAction(QIcon(":/help.png"), "Script Help", this, [this]() {
-        auto widget = make_vme_script_ref_widget();
-        m_context->addWidget(widget, widget->objectName());
-    });
+
+    // Script Help action from the main window
+    m_toolbar->addAction(m_context->getMainWindow()->findChild<QAction *>("actionVMEScriptRef"));
 }
 
 bool VMEScriptEditor::isModified() const

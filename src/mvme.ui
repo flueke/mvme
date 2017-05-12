@@ -215,8 +215,15 @@
    </property>
   </action>
   <action name="actionVMEScriptRef">
+   <property name="icon">
+    <iconset resource="resources.qrc">
+     <normaloff>:/help.png</normaloff>:/help.png</iconset>
+   </property>
    <property name="text">
     <string>&amp;VME Script Reference</string>
+   </property>
+   <property name="iconText">
+    <string>Script Help</string>
    </property>
   </action>
   <action name="actionOpenWorkspace">
