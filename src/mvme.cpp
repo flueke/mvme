@@ -26,6 +26,7 @@
 #include <QFileDialog>
 #include <QFont>
 #include <QLabel>
+#include <QPlainTextEdit>
 #include <QList>
 #include <QMdiSubWindow>
 #include <QMessageBox>
@@ -37,7 +38,6 @@
 #include <QToolBar>
 
 #include <qwt_plot_curve.h>
-
 #include <quazip/quazipfile.h>
 
 static QString make_zip_error(const QString &message, const QuaZip *zip)
@@ -830,7 +830,7 @@ void mvme::on_actionLog_Window_triggered()
 {
     if (!m_logView)
     {
-        m_logView = new QTextBrowser;
+        m_logView = new QPlainTextEdit;
         m_logView->setAttribute(Qt::WA_DeleteOnClose);
         m_logView->setWindowTitle("Log View");
         QFont font("MonoSpace");
@@ -845,7 +845,7 @@ void mvme::on_actionLog_Window_triggered()
         connect(m_logView, &QWidget::customContextMenuRequested, this, [=](const QPoint &pos) {
             auto menu = m_logView->createStandardContextMenu(pos);
             auto action = menu->addAction("Clear");
-            connect(action, &QAction::triggered, m_logView, &QTextBrowser::clear);
+            connect(action, &QAction::triggered, m_logView, &QPlainTextEdit::clear);
             menu->exec(m_logView->mapToGlobal(pos));
             menu->deleteLater();
         });
@@ -1033,7 +1033,7 @@ void mvme::appendToLog(const QString &str)
 
     if (m_logView)
     {
-        m_logView->append(str);
+        m_logView->appendPlainText(str);
         auto bar = m_logView->verticalScrollBar();
         bar->setValue(bar->maximum());
     }
@@ -1234,6 +1234,7 @@ void mvme::on_actionImport_Histo1D_triggered()
 
 void mvme::on_actionVMEScriptRef_triggered()
 {
+    qDebug() << QGuiApplication::allWindows();
     auto widget = make_vme_script_ref_widget();
     addWidgetWindow(widget);
 }

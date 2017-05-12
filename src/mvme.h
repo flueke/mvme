@@ -27,7 +27,7 @@ class VMEScriptConfig;
 class WidgetGeometrySaver;
 
 class QMdiSubWindow;
-class QTextBrowser;
+class QPlainTextEdit;
 class QThread;
 class QTimer;
 class QwtPlotCurve;
@@ -115,7 +115,7 @@ private:
     Ui::mvme *ui;
 
     MVMEContext *m_context;
-    QTextBrowser *m_logView = nullptr;
+    QPlainTextEdit *m_logView = nullptr;
     DAQControlWidget *m_daqControlWidget = nullptr;
     DAQConfigTreeWidget *m_daqConfigTreeWidget = nullptr;
     DAQStatsWidget *m_daqStatsWidget = nullptr;
