@@ -65,6 +65,9 @@ struct Command
     uint32_t countMask = 0;
     AddressMode blockAddressMode = AddressMode::A32;
     uint32_t blockAddress = 0;
+
+    QString warning;
+    s32 lineNumber = 0;
 };
 
 QString to_string(CommandType commandType);
@@ -74,7 +77,7 @@ QString to_string(DataWidth dataWidth);
 QString to_string(const Command &cmd);
 QString format_hex(uint32_t value);
 
-typedef QVector<Command> VMEScript;
+using VMEScript = QVector<Command>;
 
 Command add_base_address(Command cmd, uint32_t baseAddress);
 

@@ -7,11 +7,14 @@
 #include <QString>
 #include <QDateTime>
 
+// IMPORTANT: The numeric values are stored in VME config files. Only insert
+// new entries at the bottom!
 enum class TriggerCondition
 {
     NIM1,
     Periodic,
-    Interrupt
+    Interrupt,
+    // TODO: add Disabled
 };
 
 enum class DAQState

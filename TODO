@@ -22,6 +22,9 @@
 #7  0x00000000005440fa in MVMEEventProcessor::processDataBuffer (this=0x604000049150, buffer=0x603000021e20)
     at ../../mvme2/src/mvme_event_processor.cc:280
 
+* When quitting: if vme script editor asks for confirmation and the user
+  presses cancel the mainwindow will still close
+
 
 * Analysis UI: when clicking into a tree that did not have focus the wrong item
   is selected on mouse down

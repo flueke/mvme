@@ -37,6 +37,15 @@ DataWidth parseDataWidth(const QString &str)
     throw "invalid data width";
 }
 
+// # short form -> warning if > 0xffff
+// 0x6070 1
+//
+// # setbase -> warning if not muliple of 1 << 16
+// setbase 0x12340000
+//
+// # writeabs
+// writeabs a32 d16 0x1
+
 uint32_t parseAddress(const QString &str)
 {
     bool ok;
