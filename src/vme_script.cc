@@ -68,6 +68,56 @@ uint32_t parseValue(const QString &str)
     return ret;
 }
 
+void maybe_set_warning(Command &cmd, int lineNumber)
+{
+    cmd.lineNumber = lineNumber;
+
+    switch (cmd.type)
+    {
+        case CommandType::Read:
+        case CommandType::Write:
+        case CommandType::BLT:
+        case CommandType::BLTFifo:
+        case CommandType::MBLT:
+        case CommandType::MBLTFifo:
+        case CommandType::BLTCount:
+        case CommandType::BLTFifoCount:
+        case CommandType::MBLTCount:
+        case CommandType::MBLTFifoCount:
+            {
+                if (cmd.address >= (1 << 16))
+                {
+                    cmd.warning = QSL("Given address exceeds 0xffff");
+                }
+            } break;
+
+        case CommandType::SetBase:
+            {
+                if ((cmd.address & 0xffff) != 0)
+                {
+                    cmd.warning = QSL("Given base address has some of the low 16-bits set");
+                }
+            } break;
+    }
+
+    if (cmd.warning.isEmpty())
+    {
+        switch (cmd.type)
+        {
+            case CommandType::BLTCount:
+            case CommandType::BLTFifoCount:
+            case CommandType::MBLTCount:
+            case CommandType::MBLTFifoCount:
+                {
+                    if (cmd.address >= (1 << 16))
+                    {
+                        cmd.warning = QSL("Given block_address exceeds 0xffff");
+                    }
+                } break;
+        }
+    }
+}
+
 Command parseRead(const QStringList &args, int lineNumber)
 {
     auto usage = QSL("read <address_mode> <data_width> <address>");
@@ -82,6 +132,8 @@ Command parseRead(const QStringList &args, int lineNumber)
     result.addressMode = parseAddressMode(args[1]);
     result.dataWidth = parseDataWidth(args[2]);
     result.address = parseAddress(args[3]);
+
+    result.lineNumber = lineNumber;
 
     return result;
 }
@@ -276,18 +328,21 @@ Command parse_line(QString line, int lineNumber)
             result.address = v1;
             result.value = v2;
 
+            maybe_set_warning(result, lineNumber);
             return result;
         }
     }
 
-    auto fn = commandParsers.value(parts[0].toLower(), nullptr);
+    auto parseFun = commandParsers.value(parts[0].toLower(), nullptr);
 
-    if (!fn)
+    if (!parseFun)
         throw ParseError(QString(QSL("No such command \"%1\"")).arg(parts[0]), lineNumber);
 
     try
     {
-        return fn(parts, lineNumber);
+        Command result = parseFun(parts, lineNumber);
+        maybe_set_warning(result, lineNumber);
+        return result;
     }
     catch (const char *message)
     {
@@ -323,6 +378,17 @@ VMEScript parse(QTextStream &input, uint32_t baseAddress)
 
         auto cmd = parse_line(line, lineNumber);
 
+        /* FIXME: CommandTypes SetBase and ResetBase are handled directly in
+         * here by modifying other commands before they are pushed onto result.
+         * To make warnings generated when parsing any of SetBase/ResetBase
+         * available to the outside I needed to return them in the result
+         * although they have already been handled in here!
+         * This is confusing and will lead to errors...
+         *
+         * An alternative would be to store the original base address inside
+         * VMEScript and implement SetBase/ResetBase in run_script().
+         */
+
         switch (cmd.type)
         {
             case CommandType::Invalid:
@@ -331,11 +397,13 @@ VMEScript parse(QTextStream &input, uint32_t baseAddress)
             case CommandType::SetBase:
                 {
                     baseAddress = cmd.address;
+                    result.push_back(cmd);
                 } break;
 
             case CommandType::ResetBase:
                 {
                     baseAddress = originalBaseAddress;
+                    result.push_back(cmd);
                 } break;
 
             default:
@@ -579,6 +647,15 @@ ResultList run_script(VMEController *controller, const VMEScript &script, Logger
     {
         if (cmd.type != CommandType::Invalid)
         {
+            if (!cmd.warning.isEmpty())
+            {
+                logger(QString("Warning: %1 on line %2 (cmd=%3)")
+                       .arg(cmd.warning)
+                       .arg(cmd.lineNumber)
+                       .arg(to_string(cmd.type))
+                      );
+            }
+
             auto result = run_command(controller, cmd, logger);
             results.push_back(result);
 
@@ -604,6 +681,7 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
     switch (cmd.type)
     {
         case CommandType::Invalid:
+            /* Note: SetBase and ResetBase have already been handled at parse time. */
         case CommandType::SetBase:
         case CommandType::ResetBase:
             break;

@@ -1016,6 +1016,9 @@ void MVMEContext::onModuleAboutToBeRemoved(ModuleConfig *module)
  * Paused state takes some time. This prevents the user from clicking "run"
  * multiple times (or invoking run via different gui elements)
  * What if the transition to Paused never happens? We're stuck here...
+ *
+ * It would probably be better to use a QProgressDialog here. Maybe the same
+ * approach as in stopDAQ() works here?
  */
 vme_script::ResultList
 MVMEContext::runScript(const vme_script::VMEScript &script,
