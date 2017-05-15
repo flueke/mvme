@@ -29,7 +29,7 @@
 			#0 = Fast clear input (= "not Gate")
 			#1 = Reset time stamp counter
 			#2 = input for experiment trigger
-#0x606E 		#NIM_busy (NIM0) 4 RW 0 0? as busy 
+#0x606E 		#NIM_busy (NIM0) 4 RW 0 0? as busy
 				#(in independent bank operation:active when both banks are busy)
 			#3? as Cbus output
 			#4? buffer full

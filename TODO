@@ -2,49 +2,63 @@
 ==== Do these first! =====
 ==========================
 
+- Parse binary numbers in vme_script
+
 New VME Module Meta Information System (VMMIS)
 ----------------------------------------------
-* Reqs:
-  - Replaces the current template system. Should do everything it currently does.
-  - Goal is to remove most module information from the code. Instead load it from files.
-    It should not be neccessary to edit the code at all to add/edit/remove module types.
-  - Plugins/Code paths for certains modules can be loaded into the application to
-    allow module dependent behaviour.
-  - New feature: Add custom scripts to modules. For example a script to setup Channel Thresholds.
-    Execution order is important here!
-    Config file format right now is hash based. I think the entries are sorted
-    by interal name (daq_start, daq_stop). An array that can be sorted would be better.
+==== Reqs ====
+- Replaces the current template system. Should do everything it currently does.
+- Goal is to remove most module information from the code. Instead load it from files.
+  It should not be neccessary to edit the code at all to add/edit/remove module types.
+- Plugins/Code paths for certains modules can be loaded into the application to
+  allow module dependent behaviour.
+- New feature: Add custom scripts to modules. For example a script to setup Channel Thresholds.
+  Execution order is important here!
+  Config file format right now is hash based. I think the entries are sorted
+  by interal name (daq_start, daq_stop). An array that can be sorted would be better.
 
-  - Current template files for reference:
-      event_daq_start.vme             # Multicast stop acq, reset ctrs, reset fifo, start acq, readout reset
-      event_daq_stop.vme              # multicast stop acq
+- Current template files for reference:
+    event_daq_start.vme             # Multicast stop acq, reset ctrs, reset fifo, start acq, readout reset
+    event_daq_stop.vme              # multicast stop acq
 
-      readout_cycle_start.vme         # Cycle Start. Empty
-      readout_cycle_end.vme           # Cycle End. Multicast readout reset
+    readout_cycle_start.vme         # Cycle Start. Empty
+    readout_cycle_end.vme           # Cycle End. Multicast readout reset
 
-      # Scripts for the mesytec "group"
-      mesytec_readout_settings.vme    # Readout settings. Same for all mesytec module
-      mesytec_readout.vme             # Readout loop. mbltfifo read of the module
-      mesytec_reset.vme
+    # Scripts for the mesytec "group"
+    mesytec_readout_settings.vme    # Readout settings. Same for all mesytec module
+    mesytec_readout.vme             # Readout loop. mbltfifo read of the module
+    mesytec_reset.vme
 
-      # Module specific scripts. Override group scripts.
-      madc32_parameters.vme
-      mdi2_parameters.vme
-      mdpp16_parameters.vme
-      mdpp32_parameters.vme
-      mqdc32_parameters.vme
-      mtdc32_parameters.vme
-      mesytec_counter_parameters.vme
-      mesytec_counter_readout.vme
+    # Module specific scripts. Override group scripts.
+    madc32_parameters.vme
+    mdi2_parameters.vme
+    mdpp16_parameters.vme
+    mdpp32_parameters.vme
+    mqdc32_parameters.vme
+    mtdc32_parameters.vme
+    mesytec_counter_parameters.vme
+    mesytec_counter_readout.vme
 
-  - New feature: Module specific filters. (Analysis related, not VME Config related)
-    Default filter set. (Add default filters)
-    Additional filter sets. (Add filters)
-
-
-* Plan
+- New feature: Module specific filters. (Analysis related, not VME Config related)
+  Default filter set. (Add default filters)
+  Additional filter sets. (Add filters)
 
 
+==== Plan ====
+* Step 1 - Remove VMEModuleType from the code
+  - Create files containing all of the information that was in the code.
+  - Load these files into some sane structures
+  - Do some checking. Verify no duplicate moduleIds and moduleShortNames, etc.
+  - Change the code to use the loaded information
+  Note: This will break the analysis part of things as default filters are not
+  possible without having VMEModuleType.
+
+* Step 2 - Allow custom scripts to be added to module init.
+  - The user can add new scripts via the gui.
+  - The user can change the execution order of custom scripts.
+  - Custom scripts can be added to the VMMIS so that they're automatically
+    instantiated on module creation.
+  - Make VMUSBReadoutWorker execute the custom scripts.
 
 
 
