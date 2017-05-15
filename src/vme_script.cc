@@ -37,15 +37,6 @@ DataWidth parseDataWidth(const QString &str)
     throw "invalid data width";
 }
 
-// # short form -> warning if > 0xffff
-// 0x6070 1
-//
-// # setbase -> warning if not muliple of 1 << 16
-// setbase 0x12340000
-//
-// # writeabs
-// writeabs a32 d16 0x1
-
 uint32_t parseAddress(const QString &str)
 {
     bool ok;
@@ -753,6 +744,10 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
             } break;
 
 #if 1
+        /* There was no need to implement these in a generic way using the
+         * VMEController interface yet. VMUSB does have direct support for
+         * these types of commands (see CVMUSBReadoutList::addScriptCommand()).
+         */
         case CommandType::BLTCount:
         case CommandType::BLTFifoCount:
         case CommandType::MBLTCount:
@@ -760,6 +755,7 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
             {
                 if (logger)
                     logger(QSL("Not implemented yet!"));
+                InvalidCodePath;
             } break;
 
 #else

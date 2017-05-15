@@ -1056,30 +1056,6 @@ void MVMEContext::newWorkspace(const QString &dirName)
     if (!dir.entryList(QDir::AllEntries | QDir::NoDot | QDir::NoDotDot).isEmpty())
         throw QString(QSL("Selected directory is not empty"));
 
-#if 0
-    if (!dir.mkdir(QSL("listfiles")))
-        throw QString(QSL("Error creating listfiles subdirectory"));
-
-    if (!dir.mkdir(QSL("plots")))
-        throw QString(QSL("Error creating plots subdirectory"));
-
-    QFile vmeConfigFile(dir.filePath(QSL("vme.mvmecfg")));
-    if (!vmeConfigFile.open(QIODevice::WriteOnly))
-    {
-        throw QString("Error opening %1 for writing:  %2")
-            .arg(vmeConfigFile.fileName())
-            .arg(vmeConfigFile.errorString());
-    }
-
-    QFile analysisConfigFile(dir.filePath(QSL("analysis.analysis")));
-    if (!analysisConfigFile.open(QIODevice::WriteOnly))
-    {
-        throw QString("Error opening %1 for writing:  %2")
-            .arg(analysisConfigFile.fileName())
-            .arg(analysisConfigFile.errorString());
-    }
-#endif
-
     setWorkspaceDirectory(dirName);
 
     auto workspaceSettings(makeWorkspaceSettings());
@@ -1167,6 +1143,7 @@ void MVMEContext::openWorkspace(const QString &dirName)
                            .arg(info.directory));
                 workspaceSettings->setValue(QSL("ListFileDirectory"), QSL("listfiles"));
                 info.directory = QSL("lisfiles");
+                // TODO: create if it does not exist
             }
 
             m_d->m_listFileOutputInfo = info;

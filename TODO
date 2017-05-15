@@ -26,8 +26,6 @@
   presses cancel the mainwindow will still close
 
 
-* Analysis UI: when clicking into a tree that did not have focus the wrong item
-  is selected on mouse down
 * AddEditOperatorWidget: highlight selected input on button hover
 * VMUSBReadoutWorker: Add daqconfig consistency checks. Abort if the checks fail.
 * New Extractor for a MesytecCounter module -> no default filter present! Name
