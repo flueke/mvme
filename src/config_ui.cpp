@@ -131,8 +131,13 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *modul
     connect(typeCombo, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
             this, onTypeComboIndexChanged);
 
+
     addressEdit = new QLineEdit;
-    addressEdit->setInputMask("\\0\\xHHHHHHHH");
+    QFont font;
+    font.setFamily(QSL("Monospace"));
+    font.setStyleHint(QFont::Monospace);
+    addressEdit->setFont(font);
+    addressEdit->setInputMask("\\0\\xHHHH\\0\\0\\0\\0");
     addressEdit->setText(QString("0x%1").arg(module->getBaseAddress(), 8, 16, QChar('0')));
 
     auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);

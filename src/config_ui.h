@@ -33,7 +33,7 @@ class EventConfigDialog: public QDialog
         EventConfig *getConfig() const { return m_config; }
 
         virtual void accept() override;
-        
+
     private:
         void loadFromConfig();
         void saveToConfig();
