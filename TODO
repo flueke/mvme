@@ -1,6 +1,53 @@
 ==========================
 ==== Do these first! =====
 ==========================
+
+New VME Module Meta Information System (VMMIS)
+----------------------------------------------
+* Reqs:
+  - Replaces the current template system. Should do everything it currently does.
+  - Goal is to remove most module information from the code. Instead load it from files.
+    It should not be neccessary to edit the code at all to add/edit/remove module types.
+  - Plugins/Code paths for certains modules can be loaded into the application to
+    allow module dependent behaviour.
+  - New feature: Add custom scripts to modules. For example a script to setup Channel Thresholds.
+    Execution order is important here!
+    Config file format right now is hash based. I think the entries are sorted
+    by interal name (daq_start, daq_stop). An array that can be sorted would be better.
+
+  - Current template files for reference:
+      event_daq_start.vme             # Multicast stop acq, reset ctrs, reset fifo, start acq, readout reset
+      event_daq_stop.vme              # multicast stop acq
+
+      readout_cycle_start.vme         # Cycle Start. Empty
+      readout_cycle_end.vme           # Cycle End. Multicast readout reset
+
+      # Scripts for the mesytec "group"
+      mesytec_readout_settings.vme    # Readout settings. Same for all mesytec module
+      mesytec_readout.vme             # Readout loop. mbltfifo read of the module
+      mesytec_reset.vme
+
+      # Module specific scripts. Override group scripts.
+      madc32_parameters.vme
+      mdi2_parameters.vme
+      mdpp16_parameters.vme
+      mdpp32_parameters.vme
+      mqdc32_parameters.vme
+      mtdc32_parameters.vme
+      mesytec_counter_parameters.vme
+      mesytec_counter_readout.vme
+
+  - New feature: Module specific filters. (Analysis related, not VME Config related)
+    Default filter set. (Add default filters)
+    Additional filter sets. (Add filters)
+
+
+* Plan
+
+
+
+
+
 #0  0x00007ffff3e36067 in __GI_raise (sig=sig@entry=6) at ../nptl/sysdeps/unix/sysv/linux/raise.c:56
 #1  0x00007ffff3e37448 in __GI_abort () at abort.c:89
 #2  0x00007ffff4ef0f4e in QMessageLogger::fatal(char const*, ...) const () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
