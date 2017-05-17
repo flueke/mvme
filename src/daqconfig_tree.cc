@@ -623,20 +623,19 @@ void DAQConfigTreeWidget::addEvent()
 
     if (result == QDialog::Accepted)
     {
-        TemplateLoader loader;
-        connect(&loader, &TemplateLoader::logMessage, m_context, &MVMEContext::logMessage);
-
         if (config->triggerCondition != TriggerCondition::Periodic)
         {
-            config->vmeScripts["daq_start"]->setScriptContents(loader.readTemplate(QSL("event_daq_start.vme")));
-            config->vmeScripts["daq_stop"]->setScriptContents(loader.readTemplate(QSL("event_daq_stop.vme")));
-            config->vmeScripts["readout_start"]->setScriptContents(loader.readTemplate(QSL("readout_cycle_start.vme")));
-            config->vmeScripts["readout_end"]->setScriptContents(loader.readTemplate(QSL("readout_cycle_end.vme")));
+            VMEEventTemplates templates = read_templates().eventTemplates;
+
+            config->vmeScripts["daq_start"]->setScriptContents(templates.daqStart.contents);
+            config->vmeScripts["daq_stop"]->setScriptContents(templates.daqStop.contents);
+            config->vmeScripts["readout_start"]->setScriptContents(templates.readoutCycleStart.contents);
+            config->vmeScripts["readout_end"]->setScriptContents(templates.readoutCycleEnd.contents);
         }
 
         m_config->addEventConfig(config);
-        auto node = m_treeMap.value(config, nullptr);
-        if (node)
+
+        if (auto node = m_treeMap.value(config, nullptr))
             node->setExpanded(true);
     }
     else
