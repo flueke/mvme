@@ -515,7 +515,7 @@ static QVector<VMEConfigConverter> VMEConfigConverters =
 
 static int get_vmeconfig_version(const QJsonObject &json)
 {
-    return json["properties"].toObject()["version"].toInt();
+    return json["properties"].toObject()["version"].toInt(1);
 };
 
 static QJsonObject convert_vmeconfig_to_current_version(QJsonObject json)
