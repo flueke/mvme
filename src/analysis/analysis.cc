@@ -16,6 +16,12 @@ QDebug &operator<< (QDebug &dbg, const std::shared_ptr<T> &ptr)
 
 namespace analysis
 {
+/* File versioning. If the format changes this version needs to be incremented
+ * and a conversion routine has to be implemented.
+ *
+ * Note: Conversion from versions prior to version 2 is done in
+ * MVMEContext::loadAnalysisConfig().
+ */
 static const int CurrentAnalysisVersion = 2;
 
 template<typename T>

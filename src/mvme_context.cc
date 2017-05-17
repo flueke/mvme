@@ -201,6 +201,11 @@ void MVMEContextPrivate::resumeAnalysis()
  * is not great.
  * The solution implemented here makes it so that this context object has
  * knowledge about the Analysis json structure which isn't great either.
+ *
+ * Possibly better: create a convert_analysis_json(QJsonObject &json,
+ * MVMEContext *context) in analysis/analysis.h
+ * That way the knowledge about the structure would remain inside the analysis
+ * module.
  */
 void MVMEContextPrivate::convertAnalysisJsonToV2(QJsonObject &json)
 {
