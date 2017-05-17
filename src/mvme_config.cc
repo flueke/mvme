@@ -146,6 +146,18 @@ void ConfigObject::setWatchDynamicProperties(bool doWatch)
 //
 // VMEScriptConfig
 //
+VMEScriptConfig::VMEScriptConfig(QObject *parent)
+    : ConfigObject(parent)
+{}
+
+VMEScriptConfig::VMEScriptConfig(const QString &name, const QString &contents, QObject *parent)
+    : ConfigObject(parent)
+{
+    setObjectName(name);
+    setScriptContents(contents);
+    setModified(false);
+}
+
 void VMEScriptConfig::setScriptContents(const QString &str)
 {
     if (m_script != str)
@@ -212,27 +224,63 @@ QString VMEScriptConfig::getVerboseTitle() const
 //
 // ModuleConfig
 //
+void ModuleConfig::addInitScript(VMEScriptConfig *script)
+{
+    Q_ASSERT(script);
+
+    script->setParent(this);
+    m_initScripts.push_back(script);
+    setModified(true);
+}
+
+void ModuleConfig::setBaseAddress(uint32_t address)
+{
+    if (address != m_baseAddress)
+    {
+        m_baseAddress = address;
+        setModified();
+    }
+}
+
+VMEScriptConfig *ModuleConfig::getInitScript(const QString &scriptName) const
+{
+    auto it = std::find_if(m_initScripts.begin(), m_initScripts.end(),
+                           [scriptName] (const VMEScriptConfig *config) {
+                               return config->objectName() == scriptName;
+                           });
+
+    return (it != m_initScripts.end() ? *it : nullptr);
+}
+
+VMEScriptConfig *ModuleConfig::getInitScript(s32 scriptIndex) const
+{
+    return m_initScripts.value(scriptIndex, nullptr);
+}
+
 ModuleConfig::ModuleConfig(QObject *parent)
     : ConfigObject(parent)
+    , m_readoutScript(new VMEScriptConfig(this))
+    , m_resetScript(new VMEScriptConfig(this))
 {
-    vmeScripts["parameters"] = new VMEScriptConfig(this);
-    vmeScripts["parameters"]->setObjectName(QSL("Module Init"));
-
-    vmeScripts["readout_settings"] = new VMEScriptConfig(this);
-    vmeScripts["readout_settings"]->setObjectName(QSL("VME Interface Settings"));
-
-    vmeScripts["readout"] = new VMEScriptConfig(this);
-    vmeScripts["readout"]->setObjectName(QSL("Readout"));
-
-    vmeScripts["reset"] = new VMEScriptConfig(this);
-    vmeScripts["reset"]->setObjectName(QSL("Module Reset"));
 }
 
 void ModuleConfig::read_impl(const QJsonObject &json)
 {
-    type = VMEModuleShortNames.key(json["type"].toString(), VMEModuleType::Invalid);
+    QString typeName = json["type"].toString();
+
+    const auto moduleMetas = read_templates().moduleMetas;
+    auto it = std::find_if(moduleMetas.begin(), moduleMetas.end(), [typeName](const VMEModuleMeta &mm) {
+        return mm.typeName == typeName;
+    });
+
+    m_meta = (it != moduleMetas.end() ? *it : VMEModuleMeta());
+
     m_baseAddress = json["baseAddress"].toInt();
 
+    // TODO: check version and do conversion from version 1 to current version.
+    // This probably needs to happen in DAQConfig.
+
+#if 0
     QJsonObject scriptsObject = json["vme_scripts"].toObject();
 
     for (auto it = scriptsObject.begin();
@@ -244,13 +292,41 @@ void ModuleConfig::read_impl(const QJsonObject &json)
         vmeScripts[it.key()] = cfg;
     }
     loadDynamicProperties(json["properties"].toObject(), this);
+#endif
 }
 
 void ModuleConfig::write_impl(QJsonObject &json) const
 {
-    json["type"] = VMEModuleShortNames.value(type, "invalid");
+    json["type"] = m_meta.typeName;
     json["baseAddress"] = static_cast<qint64>(m_baseAddress);
 
+    // readout script
+    {
+        QJsonObject dstObject;
+        m_readoutScript->write(dstObject);
+        json["vmeReadout"] = dstObject;
+    }
+
+    // reset script
+    {
+        QJsonObject dstObject;
+        m_resetScript->write(dstObject);
+        json["vmeReset"] = dstObject;
+    }
+
+    // init scripts
+    {
+        QJsonArray dstArray;
+        for (auto scriptConfig: m_initScripts)
+        {
+            QJsonObject dstObject;
+            scriptConfig->write(dstObject);
+            dstArray.append(dstObject);
+        }
+        json["initScripts"] = dstArray;
+    }
+
+#if 0
     QJsonObject scriptsObject;
 
     for (auto it = vmeScripts.begin();
@@ -266,6 +342,8 @@ void ModuleConfig::write_impl(QJsonObject &json) const
     }
 
     json["vme_scripts"] = scriptsObject;
+#endif
+
     auto props = storeDynamicProperties(this);
     if (!props.isEmpty())
         json["properties"] = props;

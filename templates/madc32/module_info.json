@@ -1,6 +1,5 @@
 {
-    "id"        : 1,
-    "shortname" : "madc32",
-    "name"      : "MADC-32",
-    "group"     : "mesytec"
+    "type"          : 1,
+    "typeName"      : "madc32",
+    "displayName"   : "MADC-32"
 }

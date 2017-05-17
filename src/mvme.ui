@@ -69,6 +69,7 @@
      <string>&amp;Tools</string>
     </property>
     <addaction name="actionVMUSB_Firmware_Update"/>
+    <addaction name="actionTemplate_Info"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuWindow"/>
@@ -277,6 +278,11 @@
   <action name="actionVMUSB_Firmware_Update">
    <property name="text">
     <string>VMUSB Firmware Update</string>
+   </property>
+  </action>
+  <action name="actionTemplate_Info">
+   <property name="text">
+    <string>VME/Analysis Template Info</string>
    </property>
   </action>
  </widget>

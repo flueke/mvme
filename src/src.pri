@@ -28,6 +28,7 @@ HEADERS += \
     $$PWD/realtimedata.h \
     $$PWD/scrollbar.h \
     $$PWD/scrollzoomer.h \
+    $$PWD/template_system.h \
     $$PWD/treewidget_utils.h \
     $$PWD/util.h \
     $$PWD/vme.h \
@@ -65,6 +66,7 @@ SOURCES += \
     $$PWD/realtimedata.cpp \
     $$PWD/scrollbar.cpp \
     $$PWD/scrollzoomer.cpp \
+    $$PWD/template_system.cc \
     $$PWD/treewidget_utils.cc \
     $$PWD/util.cc \
     $$PWD/vme_controller.cpp \

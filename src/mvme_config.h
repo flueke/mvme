@@ -3,6 +3,7 @@
 
 #include "globals.h"
 #include "vme_script.h"
+#include "template_system.h"
 #include <QObject>
 #include <QUuid>
 #include <qwt_scale_map.h>
@@ -101,7 +102,8 @@ class VMEScriptConfig: public ConfigObject
 {
     Q_OBJECT
     public:
-        using ConfigObject::ConfigObject;
+        VMEScriptConfig(QObject *parent = 0);
+        VMEScriptConfig(const QString &name, const QString &contents, QObject *parent = 0);
 
         QString getScriptContents() const
         { return m_script; }
@@ -127,21 +129,20 @@ class ModuleConfig: public ConfigObject
         ModuleConfig(QObject *parent = 0);
 
         uint32_t getBaseAddress() const { return m_baseAddress; }
+        void setBaseAddress(uint32_t address);
 
-        void setBaseAddress(uint32_t address)
-        {
-            if (address != m_baseAddress)
-            {
-                m_baseAddress = address;
-                setModified();
-            }
-        }
+        const VMEModuleMeta getModuleMeta() const { return m_meta; }
+        void setModuleMeta(const VMEModuleMeta &meta) { m_meta = meta; }
 
-        VMEModuleType type = VMEModuleType::Invalid;
+        VMEScriptConfig *getReadoutScript() const { return m_readoutScript; }
 
-        /** Known keys for a module:
-         * "parameters", "readout_settings", "readout", "reset" */
-        QMap<QString, VMEScriptConfig *> vmeScripts;
+        VMEScriptConfig *getResetScript() const { return m_resetScript; }
+
+        QVector<VMEScriptConfig *>  getInitScripts() const { return m_initScripts; }
+        VMEScriptConfig *getInitScript(const QString &scriptName) const;
+        VMEScriptConfig *getInitScript(s32 scriptIndex) const;
+
+        void addInitScript(VMEScriptConfig *script);
 
     protected:
         virtual void read_impl(const QJsonObject &json) override;
@@ -149,7 +150,11 @@ class ModuleConfig: public ConfigObject
 
     private:
         uint32_t m_baseAddress = 0;
-        QHash<u32, u32> m_registerCache;
+        VMEScriptConfig *m_readoutScript;
+        VMEScriptConfig *m_resetScript;
+        QVector<VMEScriptConfig *> m_initScripts;
+
+        VMEModuleMeta m_meta;
 };
 
 class EventConfig: public ConfigObject

@@ -91,10 +91,9 @@ void dump_mvme_buffer(QTextStream &out, const DataBuffer *eventBuffer, bool dump
                         --wordsLeft;
                         u32 moduleType = (subEventHeader & LF::ModuleTypeMask) >> LF::ModuleTypeShift;
                         u32 subEventSize = (subEventHeader & LF::SubEventSizeMask) >> LF::SubEventSizeShift;
-                        QString moduleString = VMEModuleShortNames.value(static_cast<VMEModuleType>(moduleType), "unknown");
 
-                        out << buf.sprintf("  subEventHeader=0x%08x, moduleType=%u (%s), subEventSize=%u\n",
-                                           subEventHeader, moduleType, moduleString.toLatin1().constData(), subEventSize);
+                        out << buf.sprintf("  subEventHeader=0x%08x, moduleType=%u, subEventSize=%u\n",
+                                           subEventHeader, moduleType, subEventSize);
 
                         for (u32 i=0; i<subEventSize; ++i)
                         {

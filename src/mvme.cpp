@@ -832,6 +832,7 @@ void mvme::on_actionLog_Window_triggered()
     {
         m_logView = new QPlainTextEdit;
         m_logView->setAttribute(Qt::WA_DeleteOnClose);
+        m_logView->setReadOnly(true);
         m_logView->setWindowTitle("Log View");
         QFont font("MonoSpace");
         font.setStyleHint(QFont::Monospace);
@@ -863,6 +864,33 @@ void mvme::on_actionLog_Window_triggered()
 void mvme::on_actionVMUSB_Firmware_Update_triggered()
 {
     vmusb_gui_load_firmware(m_context);
+}
+
+void mvme::on_actionTemplate_Info_triggered()
+{
+    QString buffer;
+    QTextStream logStream(&buffer);
+
+    logStream << "Reading templates..." << endl;
+    MVMETemplates templates = read_templates([&logStream](const QString &msg) {
+        logStream << msg << endl;
+    });
+
+    logStream << endl << templates;
+
+    auto textEdit = new QPlainTextEdit;
+    textEdit->setAttribute(Qt::WA_DeleteOnClose);
+    textEdit->setReadOnly(true);
+    textEdit->setWindowTitle("VME/Analysis Template System Info");
+    QFont font("MonoSpace");
+    font.setStyleHint(QFont::Monospace);
+    textEdit->setFont(font);
+    textEdit->setTabChangesFocus(true);
+    textEdit->resize(600, 500);
+    textEdit->setPlainText(buffer);
+    add_widget_close_action(textEdit);
+    m_geometrySaver->addAndRestore(textEdit, QSL("WindowGeometries/VATSInfo"));
+    textEdit->show();
 }
 
 void mvme::openInNewWindow(QObject *object)

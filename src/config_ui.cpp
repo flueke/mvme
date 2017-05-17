@@ -99,38 +99,49 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *modul
     , m_context(context)
     , m_module(module)
 {
-    typeCombo = new QComboBox;
+    MVMETemplates templates = read_templates();
+    m_moduleMetas = templates.moduleMetas;
+    qSort(m_moduleMetas.begin(), m_moduleMetas.end(), [](const VMEModuleMeta &a, const VMEModuleMeta &b) {
+        return a.displayName < b.displayName;
+    });
 
+    typeCombo = new QComboBox;
     int typeComboIndex = 0;
 
-    for (auto type: VMEModuleTypeNames.keys())
+    for (const auto &mm: m_moduleMetas)
     {
-        typeCombo->addItem(VMEModuleTypeNames[type], QVariant::fromValue(static_cast<int>(type)));
-        if (type == module->type)
-            typeComboIndex = typeCombo->count() - 1;
-    }
+        typeCombo->addItem(mm.displayName);
 
-    typeCombo->setCurrentIndex(typeComboIndex);
+        if (mm.type == module->getModuleMeta().type)
+        {
+            typeComboIndex = typeCombo->count() - 1;
+        }
+    }
 
     nameEdit = new QLineEdit;
 
-    auto onTypeComboIndexChanged = [=](int index)
+    auto onTypeComboIndexChanged = [this](int index)
     {
-        auto currentType = static_cast<VMEModuleType>(typeCombo->currentData().toInt());
-        QString name = context->getUniqueModuleName(VMEModuleShortNames[currentType]);
+        Q_ASSERT(index < m_moduleMetas.size());
+        const auto &mm(m_moduleMetas[index]);
+        QString name = m_context->getUniqueModuleName(mm.typeName);
         nameEdit->setText(name);
+        qDebug() << __PRETTY_FUNCTION__ << "<<<<<<<<<<<<<<<<<<<<<<<<" << name;
     };
 
-    onTypeComboIndexChanged(typeComboIndex);
+    connect(typeCombo, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
+            this, onTypeComboIndexChanged);
+
+    if (typeComboIndex >= 0)
+    {
+        typeCombo->setCurrentIndex(typeComboIndex);
+        onTypeComboIndexChanged(typeComboIndex);
+    }
 
     if (!module->objectName().isEmpty())
     {
         nameEdit->setText(module->objectName());
     }
-
-    connect(typeCombo, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
-            this, onTypeComboIndexChanged);
-
 
     addressEdit = new QLineEdit;
     QFont font;
@@ -150,15 +161,22 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *modul
     layout->addRow("Address", addressEdit);
     layout->addRow(bb);
 
-    connect(addressEdit, &QLineEdit::textChanged, [=](const QString &) {
-        bb->button(QDialogButtonBox::Ok)->setEnabled(addressEdit->hasAcceptableInput());
-    });
+    auto updateOkButton = [=]()
+    {
+        bool isOk = (addressEdit->hasAcceptableInput() && typeCombo->count() > 0);
+        bb->button(QDialogButtonBox::Ok)->setEnabled(isOk);
+    };
+
+    connect(addressEdit, &QLineEdit::textChanged, updateOkButton);
+    updateOkButton();
 }
 
 void ModuleConfigDialog::accept()
 {
     bool ok;
-    m_module->type = static_cast<VMEModuleType>(typeCombo->currentData().toInt());
+    Q_ASSERT(typeCombo->currentIndex() >= 0 && typeCombo->currentIndex() < m_moduleMetas.size());
+    const auto &mm(m_moduleMetas[typeCombo->currentIndex()]);
+    m_module->setModuleMeta(mm);
     m_module->setObjectName(nameEdit->text());
     m_module->setBaseAddress(addressEdit->text().toUInt(&ok, 16));
     QDialog::accept();

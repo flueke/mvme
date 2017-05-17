@@ -20,16 +20,20 @@ namespace analysis
 //
 // AddEditSourceWidget
 //
-QByteArray getDefaultFilter(VMEModuleType moduleType)
+QByteArray getDefaultFilter(u8 moduleType)
 {
     // defined in globals.h
-    return defaultDataFilters.value(moduleType).value(0).filter;
+    //return defaultDataFilters.value(moduleType).value(0).filter;
+    // FIXME: implement this
+    return QByteArray();
 }
 
-const char *getDefaultFilterName(VMEModuleType moduleType)
+const char *getDefaultFilterName(u8 moduleType)
 {
     // defined in globals.h
-    return defaultDataFilters.value(moduleType).value(0).name;
+    //return defaultDataFilters.value(moduleType).value(0).name;
+    // FIXME: implement this
+    return "";
 }
 
 /** IMPORTANT: This constructor makes the Widget go into "add" mode. When
@@ -108,10 +112,10 @@ AddEditSourceWidget::AddEditSourceWidget(SourceInterface *src, ModuleConfig *mod
         }
         else
         {
-            le_name->setText(QString("%1.%2").arg(module->objectName()).arg(getDefaultFilterName(module->type)));
+            le_name->setText(QString("%1.%2").arg(module->objectName()).arg(getDefaultFilterName(module->getModuleMeta().type)));
         }
 
-        m_filterEditor->m_defaultFilter = getDefaultFilter(module->type);
+        m_filterEditor->m_defaultFilter = getDefaultFilter(module->getModuleMeta().type);
         m_filterEditor->m_subFilters = extractor->getFilter().getSubFilters();
         if (m_filterEditor->m_subFilters.isEmpty())
         {

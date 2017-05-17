@@ -958,7 +958,7 @@ u32 VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputB
 
             auto moduleConfig = eventConfig->modules[state->moduleIndex];
             u32 *moduleHeader = outputBuffer->asU32();
-            *moduleHeader = (((u32)moduleConfig->type) << LF::ModuleTypeShift) & LF::ModuleTypeMask;
+            *moduleHeader = (((u32)moduleConfig->getModuleMeta().type) << LF::ModuleTypeShift) & LF::ModuleTypeMask;
             outputBuffer->used += sizeof(u32);
             ++state->eventSize; // increment for the moduleHeader
 

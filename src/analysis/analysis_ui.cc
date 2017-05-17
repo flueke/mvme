@@ -819,6 +819,8 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                 }
 
                 // default data filters and "raw display" creation
+#if 0
+                // FIXME: build a new default filter system
                 if (moduleConfig && (defaultDataFilters.contains(moduleConfig->type)
                                      || defaultDualWordFilters.contains(moduleConfig->type)))
                 {
@@ -839,6 +841,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                         }
                     });
                 }
+#endif
                 actionNewIsFirst = true;
             }
         }
@@ -1784,6 +1787,11 @@ void EventWidgetPrivate::clearTreeSelectionsExcept(QTreeWidget *treeNotToClear)
 
 void EventWidgetPrivate::generateDefaultFilters(ModuleConfig *module)
 {
+    // FIXME: build new default filter system
+    Q_ASSERT(false);
+
+#if 0
+
     AnalysisPauser pauser(m_context);
 
     // "single word" filters
@@ -1828,6 +1836,7 @@ void EventWidgetPrivate::generateDefaultFilters(ModuleConfig *module)
     }
 
     repopulate();
+#endif
 }
 
 PipeDisplay *EventWidgetPrivate::makeAndShowPipeDisplay(Pipe *pipe)

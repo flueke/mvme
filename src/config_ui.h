@@ -2,6 +2,7 @@
 #define __CONFIG_WIDGETS_H__
 
 #include "util.h"
+#include "template_system.h"
 #include <QDialog>
 
 class EventConfig;
@@ -63,6 +64,7 @@ class ModuleConfigDialog: public QDialog
 
         MVMEContext *m_context;
         ModuleConfig *m_module;
+        QVector<VMEModuleMeta> m_moduleMetas;
 };
 
 QPair<bool, QString> saveAnalysisConfig(AnalysisConfig *config,

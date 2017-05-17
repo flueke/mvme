@@ -88,6 +88,7 @@ private slots:
     void on_actionVME_Debug_triggered();
     void on_actionLog_Window_triggered();
     void on_actionVMUSB_Firmware_Update_triggered();
+    void on_actionTemplate_Info_triggered();
 
     void onObjectClicked(QObject *obj);
     void onObjectDoubleClicked(QObject *obj);

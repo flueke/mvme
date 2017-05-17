@@ -43,20 +43,6 @@ enum class GlobalMode
     ListFile
 };
 
-enum class VMEModuleType
-{
-    Invalid = 0,
-    MADC32  = 1,
-    MQDC32  = 2,
-    MTDC32  = 3,
-    MDPP16  = 4,
-    MDPP32  = 5,
-    MDI2    = 6,
-
-    MesytecCounter = 16,
-    VHS4030p = 21,
-};
-
 static const QMap<TriggerCondition, QString> TriggerConditionNames =
 {
     { TriggerCondition::NIM1,       "NIM1" },
@@ -71,6 +57,21 @@ static const QMap<DAQState, QString> DAQStateStrings =
     { DAQState::Running,    QSL("Running") },
     { DAQState::Stopping,   QSL("Stopping") },
     { DAQState::Paused,     QSL("Paused") },
+};
+
+#if 0 // TEMPLATES
+enum class VMEModuleType
+{
+    Invalid = 0,
+    MADC32  = 1,
+    MQDC32  = 2,
+    MTDC32  = 3,
+    MDPP16  = 4,
+    MDPP32  = 5,
+    MDI2    = 6,
+
+    MesytecCounter = 16,
+    VHS4030p = 21,
 };
 
 static const QMap<VMEModuleType, QString> VMEModuleTypeNames =
@@ -96,6 +97,7 @@ static const QMap<VMEModuleType, QString> VMEModuleShortNames =
     { VMEModuleType::VHS4030p,  "vhs4030p" },
     { VMEModuleType::MesytecCounter,  "mesytec_counter" },
 };
+#endif
 
 //
 // DataFilters
@@ -107,6 +109,7 @@ struct DataFilterDefinition
     const char *title;
 };
 
+#if 0 // TEMPLATES
 static const QMap<VMEModuleType, QList<DataFilterDefinition>> defaultDataFilters =
 {
     { VMEModuleType::MDPP16, {
@@ -132,6 +135,7 @@ static const QMap<VMEModuleType, QList<DataFilterDefinition>> defaultDataFilters
                              }
     },
 };
+#endif
 
 //
 // DualWordDataFilters
@@ -146,6 +150,7 @@ struct DualWordDataFilterDefinition
     const char *title;
 };
 
+#if 0 // TEMPLATES
 static const QMap<VMEModuleType, QList<DualWordDataFilterDefinition>> defaultDualWordFilters =
 {
     { VMEModuleType::MDPP16, {
@@ -216,6 +221,7 @@ inline bool isMesytecModule(VMEModuleType type)
     }
     return false;
 }
+#endif
 
 static const u32 EndMarker = 0x87654321;
 static const u32 BerrMarker = 0xffffffff;

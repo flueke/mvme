@@ -135,7 +135,7 @@ void VMUSBReadoutWorker::start(quint32 cycles)
 
             for (auto module: event->modules)
             {
-                readoutScript += module->vmeScripts["readout"]->getScript(module->getBaseAddress());
+                readoutScript += module->getReadoutScript()->getScript(module->getBaseAddress());
                 Command marker;
                 marker.type = CommandType::Marker;
                 marker.value = EndMarker;
@@ -211,20 +211,13 @@ void VMUSBReadoutWorker::start(quint32 cycles)
                                 .arg(module->objectName())
                                 );
 
-                QVector<VMEScriptConfig *> scripts = {
-                    module->vmeScripts["reset"],
-                    module->vmeScripts["parameters"],
-                    module->vmeScripts["readout_settings"]
-                };
+                QVector<VMEScriptConfig *> scripts;
+                scripts.push_back(module->getResetScript());
+                scripts.append(module->getInitScripts());
 
                 for (auto scriptConfig: scripts)
                 {
-                    logMessage(QSL("    %1")
-                                    .arg(scriptConfig->objectName())
-                                    //.arg(event->objectName())
-                                    //.arg(module->objectName())
-                                    );
-
+                    logMessage(QSL("    %1").arg(scriptConfig->objectName()));
                     auto indentingLogger = [this](const QString &str) { this->logMessage(QSL("      ") + str); };
                     run_script(vmusb, scriptConfig->getScript(module->getBaseAddress()), indentingLogger, true);
                 }

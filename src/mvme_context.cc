@@ -1005,8 +1005,11 @@ void MVMEContext::onModuleAdded(ModuleConfig *module)
 
 void MVMEContext::onModuleAboutToBeRemoved(ModuleConfig *module)
 {
-    for (auto key: module->vmeScripts.keys())
-        emit objectAboutToBeRemoved(module->vmeScripts[key]);
+    auto vmeScripts = module->findChildren<VMEScriptConfig *>();
+    for (auto script: vmeScripts)
+    {
+        emit objectAboutToBeRemoved(script);
+    }
     emit moduleAboutToBeRemoved(module);
 }
 

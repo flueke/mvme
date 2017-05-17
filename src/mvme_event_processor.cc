@@ -157,8 +157,11 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                 u8 *oldBufferP = iter.buffp;
                 u32 subEventHeader = iter.extractU32();
                 u32 subEventSize = (subEventHeader & m_d->SubEventSizeMask) >> m_d->SubEventSizeShift;
-                auto moduleType  = static_cast<VMEModuleType>((subEventHeader & m_d->ModuleTypeMask) >> m_d->ModuleTypeShift);
+                u8 moduleType  = static_cast<u8>((subEventHeader & m_d->ModuleTypeMask) >> m_d->ModuleTypeShift);
                 auto moduleConfig = m_d->context->getConfig()->getModuleConfig(eventIndex, moduleIndex);
+
+                // TODO: skip event and report error in the following case:
+                // moduleConfig->getModuleMeta().type != moduleType
 
 #ifdef MVME_EVENT_PROCESSOR_DEBUGGING
                 qDebug() << __PRETTY_FUNCTION__

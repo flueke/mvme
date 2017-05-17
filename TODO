@@ -4,8 +4,8 @@
 
 - Parse binary numbers in vme_script
 
-New VME Module Meta Information System (VMMIS)
-----------------------------------------------
+New VME/Analysis Template System (VATS)
+---------------------------------------
 ==== Reqs ====
 - Replaces the current template system. Should do everything it currently does.
 - Goal is to remove most module information from the code. Instead load it from files.

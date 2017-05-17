@@ -330,29 +330,26 @@ TreeNode *DAQConfigTreeWidget::addModuleNodes(EventNode *parent, ModuleConfig *m
     m_treeMap[module] = moduleNode;
     parent->modulesNode->addChild(moduleNode);
 
+    // Module reset node
     {
-        auto resetNode = makeNode(module->vmeScripts["reset"], NodeType_ModuleReset);
-        resetNode->setText(0, QSL("Module Reset"));
-        resetNode->setIcon(0, QIcon(":/vme_script.png"));
-        moduleNode->addChild(resetNode);
+        auto script = module->getResetScript();
+        auto node = makeNode(script, NodeType_ModuleReset);
+        node->setText(0, script->objectName());
+        node->setIcon(0, QIcon(":/vme_script.png"));
+        moduleNode->addChild(node);
+    }
+
+    // Module init nodes
+    for (auto script: module->getInitScripts())
+    {
+        auto node = makeNode(script);
+        node->setText(0, script->objectName());
+        node->setIcon(0, QIcon(":/vme_script.png"));
+        moduleNode->addChild(node);
     }
 
     {
-        auto parametersNode = makeNode(module->vmeScripts["parameters"]);
-        parametersNode->setText(0, QSL("Module Init"));
-        parametersNode->setIcon(0, QIcon(":/vme_script.png"));
-        moduleNode->addChild(parametersNode);
-    }
-
-    {
-        auto readoutSettingsNode = makeNode(module->vmeScripts["readout_settings"]);
-        readoutSettingsNode->setText(0, QSL("VME Interface Settings"));
-        readoutSettingsNode->setIcon(0, QIcon(":/vme_script.png"));
-        moduleNode->addChild(readoutSettingsNode);
-    }
-
-    {
-        auto readoutNode = makeNode(module->vmeScripts["readout"]);
+        auto readoutNode = makeNode(module->getReadoutScript());
         moduleNode->readoutNode = readoutNode;
         readoutNode->setText(0, module->objectName());
         readoutNode->setIcon(0, QIcon(":/vme_module.png"));
@@ -568,7 +565,7 @@ void DAQConfigTreeWidget::onModuleAdded(ModuleConfig *module)
         //node->setCheckState(0, module->isEnabled() ? Qt::Checked : Qt::Unchecked);
 
         QString infoText = QString("Type=%1, Address=0x%2")
-            .arg(VMEModuleTypeNames.value(module->type, QSL("unknown")))
+            .arg(module->getModuleMeta().displayName)
             .arg(module->getBaseAddress(), 8, 16, QChar('0'));
 
         node->setText(1, infoText);
@@ -686,50 +683,32 @@ void DAQConfigTreeWidget::addModule()
         auto event = Var2Ptr<EventConfig>(node->data(0, DataRole_Pointer));
         bool doExpand = (event->modules.size() == 0);
 
-        auto module = new ModuleConfig;
-        ModuleConfigDialog dialog(m_context, module);
+        auto module = std::make_unique<ModuleConfig>();
+        ModuleConfigDialog dialog(m_context, module.get());
         int result = dialog.exec();
 
         if (result == QDialog::Accepted)
         {
-            TemplateLoader loader;
-            connect(&loader, &TemplateLoader::logMessage, m_context, &MVMEContext::logMessage);
+            // Create and add script configs using the data stored in the
+            // module meta information.
+            auto moduleMeta = module->getModuleMeta();
 
-            const QString shortName = VMEModuleShortNames.value(module->type, QSL("unknown"));
+            module->getReadoutScript()->setObjectName(moduleMeta.templates.readout.name);
+            module->getReadoutScript()->setScriptContents(moduleMeta.templates.readout.contents);
 
-            module->vmeScripts["parameters"]->setScriptContents(loader.readTemplate(
-                    QString("%1_parameters.vme").arg(shortName)));
+            module->getResetScript()->setObjectName(moduleMeta.templates.reset.name);
+            module->getResetScript()->setScriptContents(moduleMeta.templates.reset.contents);
 
-            // Generic module scripts for mesytec modules
-            if (isMesytecModule(module->type))
+            for (const auto &vmeTemplate: moduleMeta.templates.init)
             {
-                module->vmeScripts["readout_settings"]->setScriptContents(loader.readTemplate(QSL("mesytec_readout_settings.vme")));
-                module->vmeScripts["readout"]->setScriptContents(loader.readTemplate(QSL("mesytec_readout.vme")));
-                module->vmeScripts["reset"]->setScriptContents(loader.readTemplate(QSL("mesytec_reset.vme")));
+                module->addInitScript(new VMEScriptConfig(
+                        vmeTemplate.name, vmeTemplate.contents));
             }
 
-            // Scripts for the specific module type. The override the generic ones loaded above.
-            QString tmpl = loader.readTemplate(QString("%1_readout_settings.vme").arg(shortName));
-            if (!tmpl.isEmpty())
-                module->vmeScripts["readout_settings"]->setScriptContents(tmpl);
-
-            tmpl = loader.readTemplate(QString("%1_readout.vme").arg(shortName));
-            if (!tmpl.isEmpty())
-                module->vmeScripts["readout"]->setScriptContents(tmpl);
-
-            tmpl = loader.readTemplate(QString("%1_reset.vme").arg(shortName));
-            if (!tmpl.isEmpty())
-                module->vmeScripts["reset"]->setScriptContents(tmpl);
-
-
-            event->addModuleConfig(module);
+            event->addModuleConfig(module.release());
 
             if (doExpand)
                 static_cast<EventNode *>(node)->modulesNode->setExpanded(true);
-        }
-        else
-        {
-            delete module;
         }
     }
 }
@@ -833,12 +812,7 @@ void DAQConfigTreeWidget::initModule()
 {
     auto node = m_tree->currentItem();
     auto module = Var2Ptr<ModuleConfig>(node->data(0, DataRole_Pointer));
-
-    QVector<VMEScriptConfig *> scriptConfigs;
-    scriptConfigs.push_back(module->vmeScripts["parameters"]);
-    scriptConfigs.push_back(module->vmeScripts["readout_settings"]);
-
-    runScriptConfigs(scriptConfigs);
+    runScriptConfigs(module->getInitScripts());
 }
 
 void DAQConfigTreeWidget::runScriptConfigs(const QVector<VMEScriptConfig *> &scriptConfigs)
