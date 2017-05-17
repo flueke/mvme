@@ -224,13 +224,11 @@ QString VMEScriptConfig::getVerboseTitle() const
 //
 // ModuleConfig
 //
-void ModuleConfig::addInitScript(VMEScriptConfig *script)
+ModuleConfig::ModuleConfig(QObject *parent)
+    : ConfigObject(parent)
+    , m_resetScript(new VMEScriptConfig(this))
+    , m_readoutScript(new VMEScriptConfig(this))
 {
-    Q_ASSERT(script);
-
-    script->setParent(this);
-    m_initScripts.push_back(script);
-    setModified(true);
 }
 
 void ModuleConfig::setBaseAddress(uint32_t address)
@@ -240,6 +238,15 @@ void ModuleConfig::setBaseAddress(uint32_t address)
         m_baseAddress = address;
         setModified();
     }
+}
+
+void ModuleConfig::addInitScript(VMEScriptConfig *script)
+{
+    Q_ASSERT(script);
+
+    script->setParent(this);
+    m_initScripts.push_back(script);
+    setModified(true);
 }
 
 VMEScriptConfig *ModuleConfig::getInitScript(const QString &scriptName) const
@@ -257,15 +264,11 @@ VMEScriptConfig *ModuleConfig::getInitScript(s32 scriptIndex) const
     return m_initScripts.value(scriptIndex, nullptr);
 }
 
-ModuleConfig::ModuleConfig(QObject *parent)
-    : ConfigObject(parent)
-    , m_readoutScript(new VMEScriptConfig(this))
-    , m_resetScript(new VMEScriptConfig(this))
-{
-}
-
 void ModuleConfig::read_impl(const QJsonObject &json)
 {
+    qDeleteAll(m_initScripts);
+    m_initScripts.clear();
+
     QString typeName = json["type"].toString();
 
     const auto moduleMetas = read_templates().moduleMetas;
@@ -275,24 +278,25 @@ void ModuleConfig::read_impl(const QJsonObject &json)
 
     m_meta = (it != moduleMetas.end() ? *it : VMEModuleMeta());
 
-    m_baseAddress = json["baseAddress"].toInt();
+    // IMPORTANT: using json["baseAddress"].toInt() directly does not support
+    // the full range of 32-bit unsigned integers!
+    m_baseAddress = static_cast<u32>(json["baseAddress"].toDouble());
 
-    // TODO: check version and do conversion from version 1 to current version.
-    // This probably needs to happen in DAQConfig.
+    m_resetScript->read(json["vmeReset"].toObject());
+    m_readoutScript->read(json["vmeReadout"].toObject());
 
-#if 0
-    QJsonObject scriptsObject = json["vme_scripts"].toObject();
+    auto initScriptsArray = json["initScripts"].toArray();
 
-    for (auto it = scriptsObject.begin();
-         it != scriptsObject.end();
+    for (auto it = initScriptsArray.begin();
+         it != initScriptsArray.end();
          ++it)
     {
-        VMEScriptConfig *cfg(new VMEScriptConfig(this));
-        cfg->read(it.value().toObject());
-        vmeScripts[it.key()] = cfg;
+        auto cfg = new VMEScriptConfig(this);
+        cfg->read(it->toObject());
+        m_initScripts.push_back(cfg);
     }
+
     loadDynamicProperties(json["properties"].toObject(), this);
-#endif
 }
 
 void ModuleConfig::write_impl(QJsonObject &json) const
@@ -452,13 +456,90 @@ void EventConfig::write_impl(QJsonObject &json) const
 //
 // DAQConfig
 //
+
 // Versioning of the DAQ config in case incompatible changes need to be made.
-static const int DAQConfigVersion = 1;
+static const int CurrentDAQConfigVersion = 2;
+
+/* Module script storage changed:
+ * vme_scripts.readout              -> vmeReadout
+ * vme_scripts.reset                -> vmeReset
+ * vme_scripts.parameters           -> initScripts[0]
+ * vme_scripts.readout_settings     -> initScripts[1]
+ */
+static QJsonObject v1_to_v2(QJsonObject json)
+{
+    qDebug() << "VME config conversion" << __PRETTY_FUNCTION__;
+
+    auto eventsArray = json["events"].toArray();
+
+    for (int eventIndex = 0;
+         eventIndex < eventsArray.size();
+         ++eventIndex)
+    {
+        QJsonObject eventJson = eventsArray[eventIndex].toObject();
+        auto modulesArray = eventJson["modules"].toArray();
+
+        for (int moduleIndex = 0;
+             moduleIndex < modulesArray.size();
+             ++moduleIndex)
+        {
+            QJsonObject moduleJson = modulesArray[moduleIndex].toObject();
+
+            moduleJson["vmeReadout"] = moduleJson["vme_scripts"].toObject()["readout"];
+            moduleJson["vmeReset"]   = moduleJson["vme_scripts"].toObject()["reset"];
+
+            QJsonArray initScriptsArray;
+            initScriptsArray.append(moduleJson["vme_scripts"].toObject()["parameters"]);
+            initScriptsArray.append(moduleJson["vme_scripts"].toObject()["readout_settings"]);
+            moduleJson["initScripts"] = initScriptsArray;
+
+            modulesArray[moduleIndex] = moduleJson;
+        }
+
+        eventJson["modules"] = modulesArray;
+        eventsArray[eventIndex] = eventJson;
+    }
+
+    json["events"] = eventsArray;
+
+    return json;
+}
+
+using VMEConfigConverter = std::function<QJsonObject (QJsonObject)>;
+
+static QVector<VMEConfigConverter> VMEConfigConverters =
+{
+    nullptr,
+    v1_to_v2
+};
+
+static int get_vmeconfig_version(const QJsonObject &json)
+{
+    return json["properties"].toObject()["version"].toInt();
+};
+
+static QJsonObject convert_vmeconfig_to_current_version(QJsonObject json)
+{
+    int version;
+
+    while ((version = get_vmeconfig_version(json)) < CurrentDAQConfigVersion)
+    {
+        auto converter = VMEConfigConverters.value(version);
+
+        if (!converter)
+            break;
+
+        json = converter(json);
+        json["properties"] = QJsonObject({{"version", version+1}});
+    }
+
+    return json;
+}
 
 DAQConfig::DAQConfig(QObject *parent)
     : ConfigObject(parent)
 {
-    setProperty("version", DAQConfigVersion);
+    setProperty("version", CurrentDAQConfigVersion);
 }
 
 void DAQConfig::addEventConfig(EventConfig *config)
@@ -513,10 +594,12 @@ bool DAQConfig::removeGlobalScript(VMEScriptConfig *config)
     return false;
 }
 
-void DAQConfig::read_impl(const QJsonObject &json)
+void DAQConfig::read_impl(const QJsonObject &inputJson)
 {
     qDeleteAll(eventConfigs);
     eventConfigs.clear();
+
+    QJsonObject json = convert_vmeconfig_to_current_version(inputJson);
 
     QJsonArray eventArray = json["events"].toArray();
 

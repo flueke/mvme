@@ -2,6 +2,7 @@
 ==== Do these first! =====
 ==========================
 
+- VMEConfig read error handling.
 - Parse binary numbers in vme_script
 
 New VME/Analysis Template System (VATS)

@@ -134,9 +134,8 @@ class ModuleConfig: public ConfigObject
         const VMEModuleMeta getModuleMeta() const { return m_meta; }
         void setModuleMeta(const VMEModuleMeta &meta) { m_meta = meta; }
 
-        VMEScriptConfig *getReadoutScript() const { return m_readoutScript; }
-
         VMEScriptConfig *getResetScript() const { return m_resetScript; }
+        VMEScriptConfig *getReadoutScript() const { return m_readoutScript; }
 
         QVector<VMEScriptConfig *>  getInitScripts() const { return m_initScripts; }
         VMEScriptConfig *getInitScript(const QString &scriptName) const;
@@ -150,8 +149,8 @@ class ModuleConfig: public ConfigObject
 
     private:
         uint32_t m_baseAddress = 0;
-        VMEScriptConfig *m_readoutScript;
         VMEScriptConfig *m_resetScript;
+        VMEScriptConfig *m_readoutScript;
         QVector<VMEScriptConfig *> m_initScripts;
 
         VMEModuleMeta m_meta;
