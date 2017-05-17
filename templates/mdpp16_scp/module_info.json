@@ -1,5 +1,5 @@
 {
-    "type"          : 4,
+    "typeId"        : 4,
     "typeName"      : "mdpp16_scp",
     "displayName"   : "MDPP-16_SCP"
 }

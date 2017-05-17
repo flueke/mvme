@@ -1,5 +1,5 @@
 {
-    "type"          : 1,
+    "typeId"        : 1,
     "typeName"      : "madc32",
     "displayName"   : "MADC-32"
 }

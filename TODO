@@ -3,6 +3,8 @@
 ==========================
 
 - VMEConfig read error handling.
+  * Error if CurrentDAQConfigVersion < get_vmeconfig_version()
+- Template warnings if duplicate types
 - Parse binary numbers in vme_script
 
 New VME/Analysis Template System (VATS)

@@ -31,9 +31,9 @@ struct VMEModuleTemplates
 
 struct VMEModuleMeta
 {
-    static const u8 InvalidType = 0;
+    static const u8 InvalidTypeId = 0;
 
-    u8 type = InvalidType;
+    u8 typeId = InvalidTypeId;
     QString typeName;
     QString displayName;
     VMEModuleTemplates templates;

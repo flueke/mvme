@@ -112,7 +112,7 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *modul
     {
         typeCombo->addItem(mm.displayName);
 
-        if (mm.type == module->getModuleMeta().type)
+        if (mm.typeId == module->getModuleMeta().typeId)
         {
             typeComboIndex = typeCombo->count() - 1;
         }
@@ -126,7 +126,6 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *modul
         const auto &mm(m_moduleMetas[index]);
         QString name = m_context->getUniqueModuleName(mm.typeName);
         nameEdit->setText(name);
-        qDebug() << __PRETTY_FUNCTION__ << "<<<<<<<<<<<<<<<<<<<<<<<<" << name;
     };
 
     connect(typeCombo, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),

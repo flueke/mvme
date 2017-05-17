@@ -120,7 +120,7 @@ MVMETemplates read_templates(TemplateLogger logger)
 }
 
 // TODO:
-// - check for duplicate types
+// - check for duplicate typeIds
 // - check for duplicate typeNames
 // - check for empty typeNames
 
@@ -153,18 +153,18 @@ MVMETemplates read_templates_from_path(const QString &path, TemplateLogger logge
 
         auto json = moduleInfo.object();
 
-        s32 moduleType = json["type"].toInt();
+        s32 moduleType = json["typeId"].toInt();
 
         if (moduleType <= 0 || moduleType > std::numeric_limits<u8>::max())
         {
-            do_log(QString("%1: module type out of range (valid range is [1, 255])")
+            do_log(QString("%1: module typeId out of range (valid range is [1, 255])")
                    .arg(moduleDir.filePath(QSL("moduleInfo.json"))),
                    logger);
             continue;
         }
 
         VMEModuleMeta mm;
-        mm.type = static_cast<u8>(moduleType);
+        mm.typeId = static_cast<u8>(moduleType);
         mm.typeName = json["typeName"].toString();
         mm.displayName = json["displayName"].toString();
         mm.templates = read_module_templates(moduleDir.filePath(QSL("vme")), logger);
@@ -194,7 +194,7 @@ static QTextStream &print(QTextStream &out, const VMETemplate &vmeTemplate, int 
 
 static QTextStream &print(QTextStream &out, const VMEModuleMeta &module, int indent = 0)
 {
-    do_indent(out, indent) << "type=" << static_cast<u32>(module.type) << endl;
+    do_indent(out, indent) << "typeId=" << static_cast<u32>(module.typeId) << endl;
     do_indent(out, indent) << "typeName=" << module.typeName << endl;
     do_indent(out, indent) << "displayName=" << module.displayName << endl;
 

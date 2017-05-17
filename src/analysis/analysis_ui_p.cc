@@ -112,10 +112,10 @@ AddEditSourceWidget::AddEditSourceWidget(SourceInterface *src, ModuleConfig *mod
         }
         else
         {
-            le_name->setText(QString("%1.%2").arg(module->objectName()).arg(getDefaultFilterName(module->getModuleMeta().type)));
+            le_name->setText(QString("%1.%2").arg(module->objectName()).arg(getDefaultFilterName(module->getModuleMeta().typeId)));
         }
 
-        m_filterEditor->m_defaultFilter = getDefaultFilter(module->getModuleMeta().type);
+        m_filterEditor->m_defaultFilter = getDefaultFilter(module->getModuleMeta().typeId);
         m_filterEditor->m_subFilters = extractor->getFilter().getSubFilters();
         if (m_filterEditor->m_subFilters.isEmpty())
         {

@@ -1,0 +1,21 @@
+# Settings related to the readout loop
+0x6010  0           # irq level
+0x6012  0           # irq vector
+#0x601C 1	        # 1 = specifies number of words
+#0x6018  100 	    # IRQ- FIFO threshold, words
+0x601C 0	        # 0= following register specifies number of events
+0x601E  1           # IRQ- FIFO threshold, events
+
+
+# multi event mode:
+0x6036  3           # multi event mode: 1= single event, 3= multi event, number of words
+	                # b= multievent, transmits number of events specified
+                    #
+0x601A  1     	    # multi event mode =3: Berr is emitted when more ore eqal the
+	                # specified number of words are sent and "End Of Event" is detected.
+	                # multi event mode =b: Berr is emitted when
+	                # specified number of events are transmitted  is detected.
+
+# MCST
+0x6020 0x80         # Enable multicast
+0x6024 0xBB         # Set 8 high bits of MCST address
