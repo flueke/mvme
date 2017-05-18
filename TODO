@@ -4,6 +4,7 @@
 
 - VMEConfig read error handling.
   * Error if CurrentDAQConfigVersion < get_vmeconfig_version()
+    -> The file was created by a newer version of MVME and might not load correctly.
 - Template warnings if duplicate types
 - Parse binary numbers in vme_script
 

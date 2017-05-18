@@ -59,29 +59,30 @@ namespace
         return doc;
     }
 
-    VMETemplate read_vme_template(const QString &path, const QString &name, TemplateLogger logger)
+    VMETemplate read_vme_template(const QString &path, const QString &name, TemplateLogger logger, const QDir &baseDir)
     {
         VMETemplate result;
         result.contents = read_file(path, logger);
         result.name = name;
-        result.sourceFileName = path;
+        result.sourceFileName = baseDir.relativeFilePath(path);
         return result;
     }
 
-    VMEModuleTemplates read_module_templates(const QString &path, TemplateLogger logger)
+    VMEModuleTemplates read_module_templates(const QString &path, TemplateLogger logger, const QDir &baseDir)
     {
         QDir dir(path);
         VMEModuleTemplates result;
-        result.readout = read_vme_template(dir.filePath("readout.vme"), QSL("Module Readout"), logger);
-        result.reset   = read_vme_template(dir.filePath("reset.vme"), QSL("Module Reset"), logger);
+        result.readout = read_vme_template(dir.filePath("readout.vme"), QSL("Module Readout"), logger, baseDir);
+        result.reset   = read_vme_template(dir.filePath("reset.vme"), QSL("Module Reset"), logger, baseDir);
 
         auto initEntries = dir.entryList({ QSL("init-*.vme") }, QDir::Files | QDir::Readable, QDir::Name);
 
         for (const auto &fileName: initEntries)
         {
             VMETemplate vmeTemplate;
-            vmeTemplate.contents = read_file(dir.filePath(fileName), logger);
-            vmeTemplate.sourceFileName = dir.filePath(fileName);
+            QString entryFilePath = dir.filePath(fileName);
+            vmeTemplate.contents = read_file(entryFilePath, logger);
+            vmeTemplate.sourceFileName = baseDir.relativeFilePath(entryFilePath); // dir.filePath(fileName);
 
             QRegularExpression re;
             re.setPattern("^init-\\d\\d-(.*)\.vme$");
@@ -126,13 +127,13 @@ MVMETemplates read_templates(TemplateLogger logger)
 
 MVMETemplates read_templates_from_path(const QString &path, TemplateLogger logger)
 {
-    QDir baseDir(path);
+    const QDir baseDir(path);
     MVMETemplates result;
 
-    result.eventTemplates.daqStart          = read_vme_template(baseDir.filePath(QSL("event/event_daq_start.vme")), QSL("DAQ Start"), logger);
-    result.eventTemplates.daqStop           = read_vme_template(baseDir.filePath(QSL("event/event_daq_stop.vme")), QSL("DAQ Stop"), logger);
-    result.eventTemplates.readoutCycleStart = read_vme_template(baseDir.filePath(QSL("event/readout_cycle_start.vme")), QSL("Cycle Start"), logger);
-    result.eventTemplates.readoutCycleEnd   = read_vme_template(baseDir.filePath(QSL("event/readout_cycle_end.vme")), QSL("Cycle End"), logger);
+    result.eventTemplates.daqStart          = read_vme_template(baseDir.filePath(QSL("event/event_daq_start.vme")), QSL("DAQ Start"), logger, baseDir);
+    result.eventTemplates.daqStop           = read_vme_template(baseDir.filePath(QSL("event/event_daq_stop.vme")), QSL("DAQ Stop"), logger, baseDir);
+    result.eventTemplates.readoutCycleStart = read_vme_template(baseDir.filePath(QSL("event/readout_cycle_start.vme")), QSL("Cycle Start"), logger, baseDir);
+    result.eventTemplates.readoutCycleEnd   = read_vme_template(baseDir.filePath(QSL("event/readout_cycle_end.vme")), QSL("Cycle End"), logger, baseDir);
 
     auto dirEntries = baseDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot | QDir::Readable);
 
@@ -167,7 +168,7 @@ MVMETemplates read_templates_from_path(const QString &path, TemplateLogger logge
         mm.typeId = static_cast<u8>(moduleType);
         mm.typeName = json["typeName"].toString();
         mm.displayName = json["displayName"].toString();
-        mm.templates = read_module_templates(moduleDir.filePath(QSL("vme")), logger);
+        mm.templates = read_module_templates(moduleDir.filePath(QSL("vme")), logger, baseDir);
 
         result.moduleMetas.push_back(mm);
     }
@@ -222,28 +223,58 @@ static QTextStream &print(QTextStream &out, const VMEModuleMeta &module, int ind
 
 QTextStream &operator<<(QTextStream &out, const MVMETemplates &templates)
 {
-    out << ">>>>> MVMETemplates <<<<<" << endl;
-    out << "Event:" << endl;
-
-    do_indent(out, 2) << "daqStart" << endl;
-    print(out, templates.eventTemplates.daqStart, 4);
-
-    do_indent(out, 2) << "daqStop" << endl;
-    print(out, templates.eventTemplates.daqStop, 4);
-
-    do_indent(out, 2) << "readoutCycleStart" << endl;
-    print(out, templates.eventTemplates.readoutCycleStart, 4);
-
-    do_indent(out, 2) << "readoutCycleEnd" << endl;
-    print(out, templates.eventTemplates.readoutCycleEnd, 4);
-
-    out << endl << "Modules:" << endl;
-
-    for (const auto &module: templates.moduleMetas)
+    // Module table
     {
-        do_indent(out, 2) << "Begin Module" << endl;
-        print(out, module, 2);
-        do_indent(out, 2) << "End Module" << endl << endl;
+        QVector<VMEModuleMeta> modules(templates.moduleMetas);
+        qSort(modules.begin(), modules.end(), [](const VMEModuleMeta &a, const VMEModuleMeta &b) {
+            return a.typeId < b.typeId;
+        });
+
+        out << ">>>>> Known Modules <<<<<" << endl;
+        const int fw = 20;
+        left(out) << qSetFieldWidth(fw) << "typeId" << "typeName" << "displayName" << qSetFieldWidth(0) << endl;
+
+        for (const auto &mm: modules)
+        {
+            out << qSetFieldWidth(fw)
+                << static_cast<u32>(mm.typeId)
+                << mm.typeName
+                << mm.displayName
+                << qSetFieldWidth(0)
+                << endl;
+        }
+
+        out << "<<<<< Known Modules >>>>>" << endl;
+        out.reset();
     }
-    out << "<<<<< MVMETemplates >>>>>" << endl;
+
+    out << endl;
+
+    // Detailed information about loaded templates
+    {
+        out << ">>>>> VME Templates <<<<<" << endl;
+        out << "Event:" << endl;
+
+        do_indent(out, 2) << "daqStart" << endl;
+        print(out, templates.eventTemplates.daqStart, 4);
+
+        do_indent(out, 2) << "daqStop" << endl;
+        print(out, templates.eventTemplates.daqStop, 4);
+
+        do_indent(out, 2) << "readoutCycleStart" << endl;
+        print(out, templates.eventTemplates.readoutCycleStart, 4);
+
+        do_indent(out, 2) << "readoutCycleEnd" << endl;
+        print(out, templates.eventTemplates.readoutCycleEnd, 4);
+
+        out << endl << "Modules:" << endl;
+
+        for (const auto &module: templates.moduleMetas)
+        {
+            do_indent(out, 2) << "Begin Module" << endl;
+            print(out, module, 4);
+            do_indent(out, 2) << "End Module" << endl << endl;
+        }
+        out << "<<<<< VME Templates >>>>>" << endl;
+    }
 }
