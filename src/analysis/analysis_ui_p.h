@@ -20,6 +20,7 @@
 #include <QSpinBox>
 #include <QStyledItemDelegate>
 #include <QTableWidget>
+#include <QToolBar>
 #include <QWidget>
 
 class MVMEContext;
@@ -59,6 +60,7 @@ class EventWidget: public QWidget
         void addUserLevel();
         void removeUserLevel();
         void repopulate();
+        QToolBar *makeToolBar();
 
         MVMEContext *getContext() const;
 

@@ -379,6 +379,8 @@ struct EventWidgetPrivate
     void clearTreeSelectionsExcept(QTreeWidget *tree);
     void generateDefaultFilters(ModuleConfig *module);
     PipeDisplay *makeAndShowPipeDisplay(Pipe *pipe);
+
+    QAction *m_actionImport;
 };
 
 void EventWidgetPrivate::createView(const QUuid &eventId)
@@ -1921,7 +1923,26 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, AnalysisWidget 
 
     sync_splitters(m_d->m_operatorFrameSplitter, m_d->m_displayFrameSplitter);
 
+
+    m_d->m_actionImport = new QAction("Import", this);
+    connect(m_d->m_actionImport, &QAction::triggered, this, [this] { qDebug() << __PRETTY_FUNCTION__ << this; });
+
     m_d->repopulate();
+}
+
+EventWidget::~EventWidget()
+{
+    qDebug() << __PRETTY_FUNCTION__ << this << "event =" << m_d->m_eventId;
+
+    if (m_d->m_uniqueWidgetActive)
+    {
+        if (auto dialog = qobject_cast<QDialog *>(m_d->m_uniqueWidget))
+        {
+            dialog->reject();
+        }
+    }
+
+    delete m_d;
 }
 
 void EventWidget::selectInputFor(Slot *slot, s32 userLevel, SelectInputCallback callback)
@@ -2072,6 +2093,26 @@ void EventWidget::repopulate()
     m_d->repopulate();
 }
 
+static QToolBar *make_toolbar()
+{
+    auto tb = new QToolBar;
+    tb->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+    tb->setIconSize(QSize(16, 16));
+    auto font = tb->font();
+    font.setPointSize(font.pointSize() - 1);
+    tb->setFont(font);
+    return tb;
+}
+
+QToolBar *EventWidget::makeToolBar()
+{
+    auto tb = make_toolbar();
+
+    tb->addAction(m_d->m_actionImport);
+
+    return tb;
+}
+
 MVMEContext *EventWidget::getContext() const
 {
     return m_d->m_context;
@@ -2113,21 +2154,6 @@ bool EventWidget::eventFilter(QObject *watched, QEvent *event)
     return QWidget::eventFilter(watched, event);
 }
 
-EventWidget::~EventWidget()
-{
-    qDebug() << __PRETTY_FUNCTION__ << this << "event =" << m_d->m_eventId;
-
-    if (m_d->m_uniqueWidgetActive)
-    {
-        if (auto dialog = qobject_cast<QDialog *>(m_d->m_uniqueWidget))
-        {
-            dialog->reject();
-        }
-    }
-
-    delete m_d;
-}
-
 struct AnalysisWidgetPrivate
 {
     AnalysisWidget *m_q;
@@ -2138,6 +2164,7 @@ struct AnalysisWidgetPrivate
     QToolBar *m_toolbar;
     QComboBox *m_eventSelectCombo;
     QStackedWidget *m_eventWidgetStack;
+    QStackedWidget *m_eventWidgetToolbarStack;
     QToolButton *m_removeUserLevelButton;
     QToolButton *m_addUserLevelButton;
 
@@ -2165,6 +2192,13 @@ void AnalysisWidgetPrivate::repopulate()
     Q_ASSERT(m_eventWidgetStack->count() == 0);
     m_eventWidgetsByEventId.clear();
 
+    while (auto widget = m_eventWidgetToolbarStack->currentWidget())
+    {
+        m_eventWidgetToolbarStack->removeWidget(widget);
+        widget->deleteLater();
+    }
+    Q_ASSERT(m_eventWidgetToolbarStack->count() == 0);
+
     // Repopulate combobox and stacked widget
     auto eventConfigs = m_context->getEventConfigs();
 
@@ -2183,6 +2217,7 @@ void AnalysisWidgetPrivate::repopulate()
         scrollArea->setWidgetResizable(true);
 
         m_eventWidgetStack->addWidget(scrollArea);
+        m_eventWidgetToolbarStack->addWidget(eventWidget->makeToolBar());
         m_eventWidgetsByEventId[eventId] = eventWidget;
     }
 
@@ -2414,14 +2449,15 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
         m_d->updateWindowTitle();
     });
 
+    // QStackedWidgets for EventWidgets and their toolbars
+    m_d->m_eventWidgetStack = new QStackedWidget;
+    m_d->m_eventWidgetToolbarStack = new QStackedWidget;
+    connect(m_d->m_eventWidgetStack, &QStackedWidget::currentChanged,
+            m_d->m_eventWidgetToolbarStack, &QStackedWidget::setCurrentIndex);
+
     // toolbar
     {
-        m_d->m_toolbar = new QToolBar;
-        m_d->m_toolbar->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
-        m_d->m_toolbar->setIconSize(QSize(16, 16));
-        auto font = m_d->m_toolbar->font();
-        font.setPointSize(font.pointSize() - 1);
-        m_d->m_toolbar->setFont(font);
+        m_d->m_toolbar = make_toolbar();
 
         m_d->m_toolbar->addAction(QIcon(":/document-new.png"), QSL("New"), this, [this]() { m_d->actionNew(); });
         m_d->m_toolbar->addAction(QIcon(":/document-open.png"), QSL("Open"), this, [this]() { m_d->actionOpen(); });
@@ -2429,21 +2465,21 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
         m_d->m_toolbar->addAction(QIcon(":/document-save-as.png"), QSL("Save As"), this, [this]() { m_d->actionSaveAs(); });
         m_d->m_toolbar->addSeparator();
         m_d->m_toolbar->addAction(QIcon(":/clear_histos.png"), QSL("Clear Histograms"), this, [this]() { m_d->actionClearHistograms(); });
+        m_d->m_toolbar->addSeparator();
     }
 
     auto toolbarFrame = new QFrame;
-    toolbarFrame->setFrameStyle(
-        QFrame::StyledPanel);
+    toolbarFrame->setFrameStyle(QFrame::StyledPanel);
     auto toolbarFrameLayout = new QHBoxLayout(toolbarFrame);
     toolbarFrameLayout->setContentsMargins(0, 0, 0, 0);
     toolbarFrameLayout->setSpacing(0);
     toolbarFrameLayout->addWidget(m_d->m_toolbar);
+    toolbarFrameLayout->addWidget(m_d->m_eventWidgetToolbarStack);
+    toolbarFrameLayout->addStretch();
 
     // event select combo
     m_d->m_eventSelectCombo = new QComboBox;
     m_d->m_eventSelectCombo->setSizeAdjustPolicy(QComboBox::AdjustToContents);
-
-    m_d->m_eventWidgetStack = new QStackedWidget;
 
     connect(m_d->m_eventSelectCombo, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged), this, [this] (int index) {
         m_d->m_eventWidgetStack->setCurrentIndex(index);
@@ -2486,12 +2522,11 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
 
     auto layout = new QGridLayout(this);
     layout->setContentsMargins(2, 2, 2, 2);
-    //layout->setVerticalSpacing(2);
     s32 row = 0;
     layout->addWidget(toolbarFrame, row++, 0);
-    //layout->addWidget(m_d->m_toolbar, row++, 0);
     layout->addLayout(eventSelectLayout, row++, 0);
     layout->addWidget(m_d->m_eventWidgetStack, row++, 0);
+    layout->setRowStretch(row-1, 1);
 
     auto analysis = ctx->getAnalysisNG();
     analysis->updateRanks();
