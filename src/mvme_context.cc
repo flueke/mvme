@@ -1169,7 +1169,7 @@ void MVMEContext::openWorkspace(const QString &dirName)
             qDebug() << __PRETTY_FUNCTION__ << "setting default vme filename";
             // No previous filename is known so use a default name without updating
             // the workspace settings.
-            setConfigFileName(QSL("vme.mvmecfg"), false);
+            setConfigFileName(QSL("vme.vme"), false);
         }
 
         auto lastAnalysisConfig = workspaceSettings->value(QSL("LastAnalysisConfig")).toString();

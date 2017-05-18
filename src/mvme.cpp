@@ -530,6 +530,9 @@ void mvme::on_actionNewVMEConfig_triggered()
     m_context->setMode(GlobalMode::DAQ);
 }
 
+// Note: .mvmecfg was the old extension when vme and analysis config where not separated yet.
+static const QString VMEConfigFileFilter = QSL("Config Files (*.vme *.mvmecfg);; All Files (*.*)");
+
 void mvme::on_actionOpenVMEConfig_triggered()
 {
     if (m_context->getConfig()->isModified())
@@ -559,9 +562,8 @@ void mvme::on_actionOpenVMEConfig_triggered()
         path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
     }
 
-    QString fileName = QFileDialog::getOpenFileName(this, "Load MVME Config",
-                                                    path,
-                                                    "MVME Config Files (*.mvmecfg);; All Files (*.*)");
+    QString fileName = QFileDialog::getOpenFileName(this, "Load MVME Config", path, VMEConfigFileFilter);
+
     if (fileName.isEmpty())
         return;
 
@@ -617,8 +619,7 @@ bool mvme::on_actionSaveVMEConfigAs_triggered()
     if (path.isEmpty())
         path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
 
-    QString fileName = QFileDialog::getSaveFileName(this, "Save Config As", path,
-                                                    "MVME Config Files (*.mvmecfg);; All Files (*.*)");
+    QString fileName = QFileDialog::getSaveFileName(this, "Save Config As", path, VMEConfigFileFilter);
 
     if (fileName.isEmpty())
         return false;
@@ -626,7 +627,7 @@ bool mvme::on_actionSaveVMEConfigAs_triggered()
     QFileInfo fi(fileName);
     if (fi.completeSuffix().isEmpty())
     {
-        fileName += ".mvmecfg";
+        fileName += QSL(".vme");
     }
 
     QFile outFile(fileName);

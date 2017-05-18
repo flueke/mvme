@@ -877,9 +877,6 @@ void VMEConfigTreeWidget::dumpVMUSBRegisters()
     }
 }
 
-static const QString fileFilter = QSL("Config Files (*.mvmecfg);; All Files (*.*)");
-static const QString settingsPath = QSL("Files/LastConfigFile");
-
 void VMEConfigTreeWidget::updateConfigLabel()
 {
     QString fileName = m_context->getConfigFileName();
