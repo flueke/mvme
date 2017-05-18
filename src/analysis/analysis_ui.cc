@@ -484,7 +484,7 @@ DisplayLevelTrees EventWidgetPrivate::createTrees(const QUuid &eventId, s32 leve
 DisplayLevelTrees EventWidgetPrivate::createSourceTrees(const QUuid &eventId)
 {
     auto analysis = m_context->getAnalysisNG();
-    auto vmeConfig = m_context->getDAQConfig();
+    auto vmeConfig = m_context->getVMEConfig();
 
     auto eventConfig = vmeConfig->getEventConfig(eventId);
     auto modules = eventConfig->getModuleConfigs();
@@ -1995,7 +1995,7 @@ void EventWidget::addSource(SourcePtr src, ModuleConfig *module, bool addHistogr
 {
     if (!src) return;
 
-    auto indices = m_d->m_context->getDAQConfig()->getEventAndModuleIndices(module);
+    auto indices = m_d->m_context->getVMEConfig()->getEventAndModuleIndices(module);
     auto analysis = m_d->m_context->getAnalysisNG();
 
     try

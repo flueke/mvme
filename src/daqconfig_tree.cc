@@ -1,6 +1,6 @@
 #include "daqconfig_tree.h"
 #include "mvme.h"
-#include "mvme_config.h"
+#include "vme_config.h"
 #include "mvme_context.h"
 #include "config_ui.h"
 #include "treewidget_utils.h"
@@ -195,10 +195,10 @@ DAQConfigTreeWidget::DAQConfigTreeWidget(MVMEContext *context, QWidget *parent)
         updateConfigLabel();
     });
 
-    setConfig(m_context->getDAQConfig());
+    setConfig(m_context->getVMEConfig());
 }
 
-void DAQConfigTreeWidget::setConfig(DAQConfig *cfg)
+void DAQConfigTreeWidget::setConfig(VMEConfig *cfg)
 {
     qDeleteAll(m_nodeManual->takeChildren());
     qDeleteAll(m_nodeStart->takeChildren());
@@ -217,18 +217,18 @@ void DAQConfigTreeWidget::setConfig(DAQConfig *cfg)
         for (auto event: cfg->eventConfigs)
             onEventAdded(event);
 
-        connect(cfg, &DAQConfig::eventAdded, this, &DAQConfigTreeWidget::onEventAdded);
-        connect(cfg, &DAQConfig::eventAboutToBeRemoved, this, &DAQConfigTreeWidget::onEventAboutToBeRemoved);
-        connect(cfg, &DAQConfig::globalScriptAdded, this, &DAQConfigTreeWidget::onScriptAdded);
-        connect(cfg, &DAQConfig::globalScriptAboutToBeRemoved, this, &DAQConfigTreeWidget::onScriptAboutToBeRemoved);
-        connect(cfg, &DAQConfig::modifiedChanged, this, &DAQConfigTreeWidget::updateConfigLabel);
+        connect(cfg, &VMEConfig::eventAdded, this, &DAQConfigTreeWidget::onEventAdded);
+        connect(cfg, &VMEConfig::eventAboutToBeRemoved, this, &DAQConfigTreeWidget::onEventAboutToBeRemoved);
+        connect(cfg, &VMEConfig::globalScriptAdded, this, &DAQConfigTreeWidget::onScriptAdded);
+        connect(cfg, &VMEConfig::globalScriptAboutToBeRemoved, this, &DAQConfigTreeWidget::onScriptAboutToBeRemoved);
+        connect(cfg, &VMEConfig::modifiedChanged, this, &DAQConfigTreeWidget::updateConfigLabel);
     }
 
     m_tree->resizeColumnToContents(0);
     updateConfigLabel();
 }
 
-DAQConfig *DAQConfigTreeWidget::getConfig() const
+VMEConfig *DAQConfigTreeWidget::getConfig() const
 {
     return m_config;
 }
@@ -887,7 +887,7 @@ void DAQConfigTreeWidget::updateConfigLabel()
     if (fileName.isEmpty())
         fileName = QSL("<not saved>");
 
-    if (m_context->getDAQConfig()->isModified())
+    if (m_context->getVMEConfig()->isModified())
         fileName += QSL(" *");
 
     auto wsDir = m_context->getWorkspaceDirectory() + '/';

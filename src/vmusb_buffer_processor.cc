@@ -382,7 +382,7 @@ void VMUSBBufferProcessor::beginRun()
 
 
         QJsonObject daqConfigJson;
-        m_context->getDAQConfig()->write(daqConfigJson);
+        m_context->getVMEConfig()->write(daqConfigJson);
         QJsonObject configJson;
         configJson["DAQConfig"] = daqConfigJson;
         QJsonDocument doc(configJson);

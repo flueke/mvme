@@ -4,7 +4,7 @@
 #include "mvme_context.h"
 #include "vme_controller.h"
 #include "daqconfig_tree.h"
-#include "mvme_config.h"
+#include "vme_config.h"
 
 #include <QApplication>
 #include <QDebug>

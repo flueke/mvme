@@ -5,7 +5,7 @@
 #include <QMap>
 
 class ConfigObject;
-class DAQConfig;
+class VMEConfig;
 class DAQConfigTreeWidget;
 class DAQControlWidget;
 enum class DAQState;
@@ -97,7 +97,7 @@ private slots:
 
     void appendToLog(const QString &);
     void updateWindowTitle();
-    void onConfigChanged(DAQConfig *config);
+    void onConfigChanged(VMEConfig *config);
 
     void onDAQAboutToStart(quint32 nCycles);
     void onDAQStateChanged(const DAQState &);

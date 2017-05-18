@@ -212,7 +212,7 @@ class EventConfig: public ConfigObject
         virtual void write_impl(QJsonObject &json) const override;
 };
 
-class DAQConfig: public ConfigObject
+class VMEConfig: public ConfigObject
 {
     Q_OBJECT
     signals:
@@ -223,7 +223,7 @@ class DAQConfig: public ConfigObject
         void globalScriptAboutToBeRemoved(VMEScriptConfig *config);
 
     public:
-        DAQConfig(QObject *parent = 0);
+        VMEConfig(QObject *parent = 0);
 
         void addEventConfig(EventConfig *config);
         bool removeEventConfig(EventConfig *config);

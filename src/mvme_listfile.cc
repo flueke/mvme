@@ -1,6 +1,6 @@
 #include "mvme_listfile.h"
 #include "globals.h"
-#include "mvme_config.h"
+#include "vme_config.h"
 
 #include <QCoreApplication>
 #include <QDebug>

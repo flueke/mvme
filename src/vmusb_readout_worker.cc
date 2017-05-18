@@ -48,7 +48,7 @@ void VMUSBReadoutWorker::start(quint32 cycles)
     setState(DAQState::Starting);
     DAQStats &stats(m_context->getDAQStats());
     bool errorThrown = false;
-    auto daqConfig = m_context->getDAQConfig();
+    auto daqConfig = m_context->getVMEConfig();
     VMEError error;
 
     m_bufferProcessor->setLogBuffers(cycles == 1);

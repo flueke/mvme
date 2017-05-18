@@ -11,7 +11,7 @@ class QToolButton;
 
 class TreeNode;
 class ConfigObject;
-class DAQConfig;
+class VMEConfig;
 class EventConfig;
 class ModuleConfig;
 class VMEScriptConfig;
@@ -30,8 +30,8 @@ class DAQConfigTreeWidget: public QWidget
     public:
         DAQConfigTreeWidget(MVMEContext *context, QWidget *parent = 0);
 
-        void setConfig(DAQConfig *cfg);
-        DAQConfig *getConfig() const;
+        void setConfig(VMEConfig *cfg);
+        VMEConfig *getConfig() const;
 
     private:
         TreeNode *addScriptNode(TreeNode *parent, VMEScriptConfig *script, bool canDisable = false);
@@ -76,7 +76,7 @@ class DAQConfigTreeWidget: public QWidget
         void updateConfigLabel();
 
         MVMEContext *m_context = nullptr;
-        DAQConfig *m_config = nullptr;
+        VMEConfig *m_config = nullptr;
         QTreeWidget *m_tree;
         // Maps config objects to tree nodes
         QMap<QObject *, TreeNode *> m_treeMap;

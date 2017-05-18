@@ -2,7 +2,7 @@
 #define UUID_d783c880_21d1_4644_a26c_a70d9daa299e
 
 #include "globals.h"
-#include "mvme_config.h"
+#include "vme_config.h"
 #include <stdexcept>
 
 class VMUSB;

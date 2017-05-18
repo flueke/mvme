@@ -525,7 +525,7 @@ void mvme::on_actionNewVMEConfig_triggered()
 
     // TODO: run a dialog to set-up config basics: controller type, working directory, etc...
 
-    m_context->setDAQConfig(new DAQConfig);
+    m_context->setVMEConfig(new VMEConfig);
     m_context->setConfigFileName(QString());
     m_context->setMode(GlobalMode::DAQ);
 }
@@ -584,7 +584,7 @@ bool mvme::on_actionSaveVMEConfig_triggered()
     }
 
     QJsonObject daqConfigJson;
-    m_context->getDAQConfig()->write(daqConfigJson);
+    m_context->getVMEConfig()->write(daqConfigJson);
     QJsonObject configObject;
     configObject["DAQConfig"] = daqConfigJson;
     QJsonDocument doc(configObject);
@@ -637,7 +637,7 @@ bool mvme::on_actionSaveVMEConfigAs_triggered()
     }
 
     QJsonObject daqConfigJson;
-    m_context->getDAQConfig()->write(daqConfigJson);
+    m_context->getVMEConfig()->write(daqConfigJson);
     QJsonObject configObject;
     configObject["DAQConfig"] = daqConfigJson;
     QJsonDocument doc(configObject);
@@ -1108,9 +1108,9 @@ void mvme::updateWindowTitle()
     setWindowTitle(title);
 }
 
-void mvme::onConfigChanged(DAQConfig *config)
+void mvme::onConfigChanged(VMEConfig *config)
 {
-    connect(config, &DAQConfig::modifiedChanged, this, &mvme::updateWindowTitle);
+    connect(config, &VMEConfig::modifiedChanged, this, &mvme::updateWindowTitle);
     updateWindowTitle();
 }
 
@@ -1190,7 +1190,7 @@ void mvme::onShowDiagnostics(ModuleConfig *moduleConfig)
         return;
 
     auto diag   = new MesytecDiagnostics;
-    diag->setEventAndModuleIndices(m_context->getDAQConfig()->getEventAndModuleIndices(moduleConfig));
+    diag->setEventAndModuleIndices(m_context->getVMEConfig()->getEventAndModuleIndices(moduleConfig));
     auto eventProcessor = m_context->getEventProcessor();
     eventProcessor->setDiagnostics(diag);
 

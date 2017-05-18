@@ -210,7 +210,7 @@ void MVMEContextPrivate::resumeAnalysis()
 void MVMEContextPrivate::convertAnalysisJsonToV2(QJsonObject &json)
 {
     bool couldConvert = true;
-    auto vmeConfig = m_q->getDAQConfig();
+    auto vmeConfig = m_q->getVMEConfig();
 
     // sources
     auto array = json["sources"].toArray();
@@ -378,7 +378,7 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
 
     setMode(GlobalMode::DAQ);
 
-    setDAQConfig(new DAQConfig(this));
+    setVMEConfig(new VMEConfig(this));
 
     tryOpenController();
 }
@@ -452,36 +452,36 @@ MVMEContext::~MVMEContext()
     qDebug() << __PRETTY_FUNCTION__ << "context being destroyed";
 }
 
-void MVMEContext::setDAQConfig(DAQConfig *config)
+void MVMEContext::setVMEConfig(VMEConfig *config)
 {
     // TODO: create new vmecontroller and the corresponding readout worker if
     // the controller type changed.
 
-    if (m_daqConfig)
+    if (m_vmeConfig)
     {
-        for (auto eventConfig: m_daqConfig->getEventConfigs())
+        for (auto eventConfig: m_vmeConfig->getEventConfigs())
             onEventAboutToBeRemoved(eventConfig);
 
-        for (auto key: m_daqConfig->vmeScriptLists.keys())
+        for (auto key: m_vmeConfig->vmeScriptLists.keys())
         {
-            auto scriptList = m_daqConfig->vmeScriptLists[key];
+            auto scriptList = m_vmeConfig->vmeScriptLists[key];
 
             for (auto vmeScript: scriptList)
                 emit objectAboutToBeRemoved(vmeScript);
         }
 
-        m_daqConfig->deleteLater();
+        m_vmeConfig->deleteLater();
     }
 
-    m_daqConfig = config;
+    m_vmeConfig = config;
     config->setParent(this);
 
     for (auto event: config->eventConfigs)
         onEventAdded(event);
 
-    connect(m_daqConfig, &DAQConfig::eventAdded, this, &MVMEContext::onEventAdded);
-    connect(m_daqConfig, &DAQConfig::eventAboutToBeRemoved, this, &MVMEContext::onEventAboutToBeRemoved);
-    connect(m_daqConfig, &DAQConfig::globalScriptAboutToBeRemoved, this, &MVMEContext::onGlobalScriptAboutToBeRemoved);
+    connect(m_vmeConfig, &VMEConfig::eventAdded, this, &MVMEContext::onEventAdded);
+    connect(m_vmeConfig, &VMEConfig::eventAboutToBeRemoved, this, &MVMEContext::onEventAboutToBeRemoved);
+    connect(m_vmeConfig, &VMEConfig::globalScriptAboutToBeRemoved, this, &MVMEContext::onGlobalScriptAboutToBeRemoved);
 
     emit daqConfigChanged(config);
 }
@@ -504,7 +504,7 @@ ControllerState MVMEContext::getControllerState() const
 
 QString MVMEContext::getUniqueModuleName(const QString &prefix) const
 {
-    auto moduleConfigs = m_daqConfig->getAllModuleConfigs();
+    auto moduleConfigs = m_vmeConfig->getAllModuleConfigs();
     QSet<QString> moduleNames;
 
     for (auto cfg: moduleConfigs)
@@ -656,9 +656,9 @@ void MVMEContext::setReplayFile(ListFile *listFile)
     }
 
     auto configJson = listFile->getDAQConfig();
-    auto daqConfig = new DAQConfig;
+    auto daqConfig = new VMEConfig;
     daqConfig->read(configJson);
-    setDAQConfig(daqConfig);
+    setVMEConfig(daqConfig);
 
     delete m_listFile;
     m_listFile = listFile;
@@ -689,7 +689,7 @@ void MVMEContext::closeReplayFile()
         }
         else
         {
-            setDAQConfig(new DAQConfig);
+            setVMEConfig(new VMEConfig);
             setConfigFileName(QString());
             setMode(GlobalMode::DAQ);
         }
@@ -1239,9 +1239,9 @@ QString MVMEContext::getWorkspacePath(const QString &settingsKey, const QString 
 void MVMEContext::loadVMEConfig(const QString &fileName)
 {
     QJsonDocument doc(gui_read_json_file(fileName));
-    auto daqConfig = new DAQConfig;
+    auto daqConfig = new VMEConfig;
     daqConfig->read(doc.object()["DAQConfig"].toObject());
-    setDAQConfig(daqConfig);
+    setVMEConfig(daqConfig);
     setConfigFileName(fileName);
     setMode(GlobalMode::DAQ);
 }
@@ -1364,7 +1364,7 @@ QString MVMEContext::getListFileOutputDirectoryFullPath() const
 /** True if at least one of VME-config and analysis-config is modified. */
 bool MVMEContext::isWorkspaceModified() const
 {
-    return ((m_daqConfig && m_daqConfig->isModified())
+    return ((m_vmeConfig && m_vmeConfig->isModified())
             || (m_analysis_ng && m_analysis_ng->isModified())
            );
 }
@@ -1395,7 +1395,7 @@ QJsonDocument MVMEContext::getAnalysisJsonDocument() const
 
 void MVMEContext::addAnalysisOperator(QUuid eventId, const std::shared_ptr<analysis::OperatorInterface> &op, s32 userLevel)
 {
-    auto eventConfig = m_daqConfig->getEventConfig(eventId);
+    auto eventConfig = m_vmeConfig->getEventConfig(eventId);
     if (eventConfig)
     {
         AnalysisPauser pauser(this);

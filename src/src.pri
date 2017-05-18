@@ -19,7 +19,6 @@ HEADERS += \
     $$PWD/histo_util.h \
     $$PWD/mesytec_diagnostics.h \
     $$PWD/mvme.h \
-    $$PWD/mvme_config.h \
     $$PWD/mvme_context.h \
     $$PWD/mvme_event_processor.h \
     $$PWD/mvme_listfile.h \
@@ -40,6 +39,7 @@ HEADERS += \
     $$PWD/vmusb_constants.h \
     $$PWD/vmusb_readout_worker.h \
     $$PWD/vmusb_stack.h \
+    $$PWD/vme_config.h
 
 
 SOURCES += \
@@ -57,7 +57,6 @@ SOURCES += \
     $$PWD/histo2d_widget_p.cc \
     $$PWD/histo_util.cc \
     $$PWD/mesytec_diagnostics.cc \
-    $$PWD/mvme_config.cc \
     $$PWD/mvme_context.cc \
     $$PWD/mvme.cpp \
     $$PWD/mvme_event_processor.cc \
@@ -76,6 +75,7 @@ SOURCES += \
     $$PWD/vmusb_buffer_processor.cc \
     $$PWD/vmusb_readout_worker.cc \
     $$PWD/vmusb_stack.cc \
+    $$PWD/vme_config.cc
 
 
 FORMS += \

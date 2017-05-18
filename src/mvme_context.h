@@ -3,7 +3,7 @@
 
 #include "globals.h"
 #include "databuffer.h"
-#include "mvme_config.h"
+#include "vme_config.h"
 #include "vme_controller.h"
 #include "threading.h"
 #include <memory>
@@ -66,7 +66,7 @@ class MVMEContext: public QObject
 
         void vmeControllerSet(VMEController *controller);
 
-        void daqConfigChanged(DAQConfig *config);
+        void daqConfigChanged(VMEConfig *config);
         void daqConfigFileNameChanged(const QString &fileName);
 
         void analysisConfigFileNameChanged(const QString &name);
@@ -102,10 +102,10 @@ class MVMEContext: public QObject
         ControllerState getControllerState() const;
         VMUSBReadoutWorker *getReadoutWorker() const { return m_readoutWorker; }
         VMUSBBufferProcessor *getBufferProcessor() const { return m_bufferProcessor; }
-        DAQConfig *getConfig() { return m_daqConfig; }
-        DAQConfig *getDAQConfig() { return m_daqConfig; }
-        void setDAQConfig(DAQConfig *config);
-        QList<EventConfig *> getEventConfigs() const { return m_daqConfig->getEventConfigs(); }
+        VMEConfig *getConfig() { return m_vmeConfig; }
+        VMEConfig *getVMEConfig() { return m_vmeConfig; }
+        void setVMEConfig(VMEConfig *config);
+        QList<EventConfig *> getEventConfigs() const { return m_vmeConfig->getEventConfigs(); }
         DAQState getDAQState() const;
         EventProcessorState getEventProcessorState() const;
         const DAQStats &getDAQStats() const { return m_daqStats; }
@@ -312,7 +312,7 @@ class MVMEContext: public QObject
 
         MVMEContextPrivate *m_d;
 
-        DAQConfig *m_daqConfig = nullptr;
+        VMEConfig *m_vmeConfig = nullptr;
         QString m_configFileName;
         QString m_analysisConfigFileName;
         QString m_workspaceDir;

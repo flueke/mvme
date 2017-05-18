@@ -1,6 +1,6 @@
 #include "config_ui.h"
 #include "ui_event_config_dialog.h"
-#include "mvme_config.h"
+#include "vme_config.h"
 #include "mvme_context.h"
 #include "vme_script.h"
 #include "analysis/analysis.h"

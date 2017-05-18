@@ -2,7 +2,7 @@
 #include "data_extraction_widget.h"
 #include "../globals.h"
 #include "../histo_util.h"
-#include "../mvme_config.h"
+#include "../vme_config.h"
 #include "../mvme_context.h"
 #include "../qt_util.h"
 

@@ -1,4 +1,4 @@
-#include "mvme_config.h"
+#include "vme_config.h"
 #include "CVMUSBReadoutList.h"
 
 #include <cmath>
@@ -191,7 +191,7 @@ QString VMEScriptConfig::getVerboseTitle() const
 {
     auto module     = qobject_cast<ModuleConfig *>(parent());
     auto event      = qobject_cast<EventConfig *>(parent());
-    auto daqConfig  = qobject_cast<DAQConfig *>(parent());
+    auto daqConfig  = qobject_cast<VMEConfig *>(parent());
 
     QString title;
 
@@ -536,13 +536,13 @@ static QJsonObject convert_vmeconfig_to_current_version(QJsonObject json)
     return json;
 }
 
-DAQConfig::DAQConfig(QObject *parent)
+VMEConfig::VMEConfig(QObject *parent)
     : ConfigObject(parent)
 {
     setProperty("version", CurrentDAQConfigVersion);
 }
 
-void DAQConfig::addEventConfig(EventConfig *config)
+void VMEConfig::addEventConfig(EventConfig *config)
 {
     config->setParent(this);
     eventConfigs.push_back(config);
@@ -550,7 +550,7 @@ void DAQConfig::addEventConfig(EventConfig *config)
     setModified();
 }
 
-bool DAQConfig::removeEventConfig(EventConfig *config)
+bool VMEConfig::removeEventConfig(EventConfig *config)
 {
     bool ret = eventConfigs.removeOne(config);
     if (ret)
@@ -564,12 +564,12 @@ bool DAQConfig::removeEventConfig(EventConfig *config)
     return ret;
 }
 
-bool DAQConfig::contains(EventConfig *config)
+bool VMEConfig::contains(EventConfig *config)
 {
     return eventConfigs.indexOf(config) >= 0;
 }
 
-void DAQConfig::addGlobalScript(VMEScriptConfig *config, const QString &category)
+void VMEConfig::addGlobalScript(VMEScriptConfig *config, const QString &category)
 {
     config->setParent(this);
     vmeScriptLists[category].push_back(config);
@@ -577,7 +577,7 @@ void DAQConfig::addGlobalScript(VMEScriptConfig *config, const QString &category
     setModified();
 }
 
-bool DAQConfig::removeGlobalScript(VMEScriptConfig *config)
+bool VMEConfig::removeGlobalScript(VMEScriptConfig *config)
 {
     for (auto category: vmeScriptLists.keys())
     {
@@ -594,7 +594,7 @@ bool DAQConfig::removeGlobalScript(VMEScriptConfig *config)
     return false;
 }
 
-void DAQConfig::read_impl(const QJsonObject &inputJson)
+void VMEConfig::read_impl(const QJsonObject &inputJson)
 {
     qDeleteAll(eventConfigs);
     eventConfigs.clear();
@@ -635,7 +635,7 @@ void DAQConfig::read_impl(const QJsonObject &inputJson)
     loadDynamicProperties(json["properties"].toObject(), this);
 }
 
-void DAQConfig::write_impl(QJsonObject &json) const
+void VMEConfig::write_impl(QJsonObject &json) const
 {
     QJsonArray eventArray;
     for (auto event: eventConfigs)
@@ -674,7 +674,7 @@ void DAQConfig::write_impl(QJsonObject &json) const
         json["properties"] = props;
 }
 
-ModuleConfig *DAQConfig::getModuleConfig(int eventIndex, int moduleIndex)
+ModuleConfig *VMEConfig::getModuleConfig(int eventIndex, int moduleIndex)
 {
     ModuleConfig *result = 0;
     auto eventConfig = eventConfigs.value(eventIndex);
@@ -687,7 +687,7 @@ ModuleConfig *DAQConfig::getModuleConfig(int eventIndex, int moduleIndex)
     return result;
 }
 
-EventConfig *DAQConfig::getEventConfig(const QString &name) const
+EventConfig *VMEConfig::getEventConfig(const QString &name) const
 {
     for (auto cfg: eventConfigs)
     {
@@ -697,7 +697,7 @@ EventConfig *DAQConfig::getEventConfig(const QString &name) const
     return nullptr;
 }
 
-EventConfig *DAQConfig::getEventConfig(const QUuid &id) const
+EventConfig *VMEConfig::getEventConfig(const QUuid &id) const
 {
     for (auto cfg: eventConfigs)
     {
@@ -707,7 +707,7 @@ EventConfig *DAQConfig::getEventConfig(const QUuid &id) const
     return nullptr;
 }
 
-QList<ModuleConfig *> DAQConfig::getAllModuleConfigs() const
+QList<ModuleConfig *> VMEConfig::getAllModuleConfigs() const
 {
     QList<ModuleConfig *> result;
 
@@ -722,7 +722,7 @@ QList<ModuleConfig *> DAQConfig::getAllModuleConfigs() const
     return result;
 }
 
-QPair<int, int> DAQConfig::getEventAndModuleIndices(ModuleConfig *cfg) const
+QPair<int, int> VMEConfig::getEventAndModuleIndices(ModuleConfig *cfg) const
 {
     for (int eventIndex = 0;
          eventIndex < eventConfigs.size();

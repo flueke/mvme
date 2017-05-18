@@ -165,7 +165,7 @@ struct listfile_v1
 void dump_mvme_buffer_v0(QTextStream &out, const DataBuffer *eventBuffer, bool dumpData=false);
 void dump_mvme_buffer(QTextStream &out, const DataBuffer *eventBuffer, bool dumpData=false);
 
-class DAQConfig;
+class VMEConfig;
 class QuaZipFile;
 
 class ListFile
