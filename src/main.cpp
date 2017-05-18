@@ -1,10 +1,6 @@
 #include "mvme.h"
-#include "util.h"
-#include "vmusb_stack.h"
-#include "mvme_context.h"
+#include "globals.h"
 #include "vme_controller.h"
-#include "daqconfig_tree.h"
-#include "vme_config.h"
 
 #include <QApplication>
 #include <QDebug>

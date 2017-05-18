@@ -1,4 +1,4 @@
-#include "daqconfig_tree.h"
+#include "vme_config_tree.h"
 #include "mvme.h"
 #include "vme_config.h"
 #include "mvme_context.h"
@@ -63,7 +63,7 @@ class ModuleNode: public TreeNode
         TreeNode *readoutNode = nullptr;
 };
 
-DAQConfigTreeWidget::DAQConfigTreeWidget(MVMEContext *context, QWidget *parent)
+VMEConfigTreeWidget::VMEConfigTreeWidget(MVMEContext *context, QWidget *parent)
     : QWidget(parent)
     , m_context(context)
     , m_tree(new QTreeWidget(this))
@@ -147,10 +147,10 @@ DAQConfigTreeWidget::DAQConfigTreeWidget(MVMEContext *context, QWidget *parent)
         auto menu = new QMenu(this);
         action_showAdvanced = menu->addAction(QSL("Show advanced objects"));
         action_showAdvanced->setCheckable(true);
-        connect(action_showAdvanced, &QAction::changed, this, &DAQConfigTreeWidget::onActionShowAdvancedChanged);
+        connect(action_showAdvanced, &QAction::changed, this, &VMEConfigTreeWidget::onActionShowAdvancedChanged);
 
         auto action_dumpVMUSBRegisters = menu->addAction(QSL("Dump VMUSB Registers"));
-        connect(action_dumpVMUSBRegisters, &QAction::triggered, this, &DAQConfigTreeWidget::dumpVMUSBRegisters);
+        connect(action_dumpVMUSBRegisters, &QAction::triggered, this, &VMEConfigTreeWidget::dumpVMUSBRegisters);
 
         pb_treeSettings = makeToolButton(QSL(":/tree-settings.png"), QSL("More"));
         pb_treeSettings->setMenu(menu);
@@ -184,13 +184,13 @@ DAQConfigTreeWidget::DAQConfigTreeWidget(MVMEContext *context, QWidget *parent)
     layout->addWidget(le_fileName);
     layout->addWidget(m_tree);
 
-    connect(m_tree, &QTreeWidget::itemClicked, this, &DAQConfigTreeWidget::onItemClicked);
-    connect(m_tree, &QTreeWidget::itemDoubleClicked, this, &DAQConfigTreeWidget::onItemDoubleClicked);
-    connect(m_tree, &QTreeWidget::itemChanged, this, &DAQConfigTreeWidget::onItemChanged);
-    connect(m_tree, &QTreeWidget::itemExpanded, this, &DAQConfigTreeWidget::onItemExpanded);
-    connect(m_tree, &QWidget::customContextMenuRequested, this, &DAQConfigTreeWidget::treeContextMenu);
+    connect(m_tree, &QTreeWidget::itemClicked, this, &VMEConfigTreeWidget::onItemClicked);
+    connect(m_tree, &QTreeWidget::itemDoubleClicked, this, &VMEConfigTreeWidget::onItemDoubleClicked);
+    connect(m_tree, &QTreeWidget::itemChanged, this, &VMEConfigTreeWidget::onItemChanged);
+    connect(m_tree, &QTreeWidget::itemExpanded, this, &VMEConfigTreeWidget::onItemExpanded);
+    connect(m_tree, &QWidget::customContextMenuRequested, this, &VMEConfigTreeWidget::treeContextMenu);
 
-    connect(m_context, &MVMEContext::daqConfigChanged, this, &DAQConfigTreeWidget::setConfig);
+    connect(m_context, &MVMEContext::daqConfigChanged, this, &VMEConfigTreeWidget::setConfig);
     connect(m_context, &MVMEContext::daqConfigFileNameChanged, this, [this](const QString &) {
         updateConfigLabel();
     });
@@ -198,7 +198,7 @@ DAQConfigTreeWidget::DAQConfigTreeWidget(MVMEContext *context, QWidget *parent)
     setConfig(m_context->getVMEConfig());
 }
 
-void DAQConfigTreeWidget::setConfig(VMEConfig *cfg)
+void VMEConfigTreeWidget::setConfig(VMEConfig *cfg)
 {
     qDeleteAll(m_nodeManual->takeChildren());
     qDeleteAll(m_nodeStart->takeChildren());
@@ -217,18 +217,18 @@ void DAQConfigTreeWidget::setConfig(VMEConfig *cfg)
         for (auto event: cfg->eventConfigs)
             onEventAdded(event);
 
-        connect(cfg, &VMEConfig::eventAdded, this, &DAQConfigTreeWidget::onEventAdded);
-        connect(cfg, &VMEConfig::eventAboutToBeRemoved, this, &DAQConfigTreeWidget::onEventAboutToBeRemoved);
-        connect(cfg, &VMEConfig::globalScriptAdded, this, &DAQConfigTreeWidget::onScriptAdded);
-        connect(cfg, &VMEConfig::globalScriptAboutToBeRemoved, this, &DAQConfigTreeWidget::onScriptAboutToBeRemoved);
-        connect(cfg, &VMEConfig::modifiedChanged, this, &DAQConfigTreeWidget::updateConfigLabel);
+        connect(cfg, &VMEConfig::eventAdded, this, &VMEConfigTreeWidget::onEventAdded);
+        connect(cfg, &VMEConfig::eventAboutToBeRemoved, this, &VMEConfigTreeWidget::onEventAboutToBeRemoved);
+        connect(cfg, &VMEConfig::globalScriptAdded, this, &VMEConfigTreeWidget::onScriptAdded);
+        connect(cfg, &VMEConfig::globalScriptAboutToBeRemoved, this, &VMEConfigTreeWidget::onScriptAboutToBeRemoved);
+        connect(cfg, &VMEConfig::modifiedChanged, this, &VMEConfigTreeWidget::updateConfigLabel);
     }
 
     m_tree->resizeColumnToContents(0);
     updateConfigLabel();
 }
 
-VMEConfig *DAQConfigTreeWidget::getConfig() const
+VMEConfig *VMEConfigTreeWidget::getConfig() const
 {
     return m_config;
 }
@@ -241,7 +241,7 @@ TreeNode *makeNode(T *data, int type = QTreeWidgetItem::Type)
     return ret;
 }
 
-TreeNode *DAQConfigTreeWidget::addScriptNode(TreeNode *parent, VMEScriptConfig* script, bool canDisable)
+TreeNode *VMEConfigTreeWidget::addScriptNode(TreeNode *parent, VMEScriptConfig* script, bool canDisable)
 {
     auto node = new TreeNode;
     node->setData(0, DataRole_Pointer, Ptr2Var(script));
@@ -258,7 +258,7 @@ TreeNode *DAQConfigTreeWidget::addScriptNode(TreeNode *parent, VMEScriptConfig* 
     return node;
 }
 
-TreeNode *DAQConfigTreeWidget::addEventNode(TreeNode *parent, EventConfig *event)
+TreeNode *VMEConfigTreeWidget::addEventNode(TreeNode *parent, EventConfig *event)
 {
     auto eventNode = new EventNode;
     eventNode->setData(0, DataRole_Pointer, Ptr2Var(event));
@@ -319,7 +319,7 @@ TreeNode *DAQConfigTreeWidget::addEventNode(TreeNode *parent, EventConfig *event
     return eventNode;
 }
 
-TreeNode *DAQConfigTreeWidget::addModuleNodes(EventNode *parent, ModuleConfig *module)
+TreeNode *VMEConfigTreeWidget::addModuleNodes(EventNode *parent, ModuleConfig *module)
 {
     auto moduleNode = new ModuleNode;
     moduleNode->setData(0, DataRole_Pointer, Ptr2Var(module));
@@ -361,7 +361,7 @@ TreeNode *DAQConfigTreeWidget::addModuleNodes(EventNode *parent, ModuleConfig *m
     return moduleNode;
 }
 
-void DAQConfigTreeWidget::onItemClicked(QTreeWidgetItem *item, int column)
+void VMEConfigTreeWidget::onItemClicked(QTreeWidgetItem *item, int column)
 {
     auto configObject = Var2Ptr<ConfigObject>(item->data(0, DataRole_Pointer));
 
@@ -373,7 +373,7 @@ void DAQConfigTreeWidget::onItemClicked(QTreeWidgetItem *item, int column)
     }
 }
 
-void DAQConfigTreeWidget::onItemDoubleClicked(QTreeWidgetItem *item, int column)
+void VMEConfigTreeWidget::onItemDoubleClicked(QTreeWidgetItem *item, int column)
 {
     auto configObject = Var2Ptr<ConfigObject>(item->data(0, DataRole_Pointer));
     auto scriptConfig = qobject_cast<VMEScriptConfig *>(configObject);
@@ -393,7 +393,7 @@ void DAQConfigTreeWidget::onItemDoubleClicked(QTreeWidgetItem *item, int column)
     }
 }
 
-void DAQConfigTreeWidget::onItemChanged(QTreeWidgetItem *item, int column)
+void VMEConfigTreeWidget::onItemChanged(QTreeWidgetItem *item, int column)
 {
     auto obj = Var2Ptr<ConfigObject>(item->data(0, DataRole_Pointer));
 
@@ -411,12 +411,12 @@ void DAQConfigTreeWidget::onItemChanged(QTreeWidgetItem *item, int column)
     }
 }
 
-void DAQConfigTreeWidget::onItemExpanded(QTreeWidgetItem *item)
+void VMEConfigTreeWidget::onItemExpanded(QTreeWidgetItem *item)
 {
     m_tree->resizeColumnToContents(0);
 }
 
-void DAQConfigTreeWidget::treeContextMenu(const QPoint &pos)
+void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
 {
     auto node = m_tree->itemAt(pos);
     auto parent = node ? node->parent() : nullptr;
@@ -429,7 +429,7 @@ void DAQConfigTreeWidget::treeContextMenu(const QPoint &pos)
     //
     if (qobject_cast<VMEScriptConfig *>(obj))
     {
-        menu.addAction(QSL("Run Script"), this, &DAQConfigTreeWidget::runScripts);
+        menu.addAction(QSL("Run Script"), this, &VMEConfigTreeWidget::runScripts);
     }
 
     //
@@ -437,33 +437,33 @@ void DAQConfigTreeWidget::treeContextMenu(const QPoint &pos)
     //
     if (node == m_nodeEvents)
     {
-        menu.addAction(QSL("Add Event"), this, &DAQConfigTreeWidget::addEvent);
+        menu.addAction(QSL("Add Event"), this, &VMEConfigTreeWidget::addEvent);
     }
 
     if (node && node->type() == NodeType_Event)
     {
-        menu.addAction(QSL("Edit Event"), this, &DAQConfigTreeWidget::editEvent);
-        menu.addAction(QSL("Add Module"), this, &DAQConfigTreeWidget::addModule);
-        menu.addAction(QSL("Rename Event"), this, &DAQConfigTreeWidget::editName);
+        menu.addAction(QSL("Edit Event"), this, &VMEConfigTreeWidget::editEvent);
+        menu.addAction(QSL("Add Module"), this, &VMEConfigTreeWidget::addModule);
+        menu.addAction(QSL("Rename Event"), this, &VMEConfigTreeWidget::editName);
         menu.addSeparator();
-        menu.addAction(QSL("Remove Event"), this, &DAQConfigTreeWidget::removeEvent);
+        menu.addAction(QSL("Remove Event"), this, &VMEConfigTreeWidget::removeEvent);
     }
 
     if (node && node->type() == NodeType_EventModulesInit)
     {
-        menu.addAction(QSL("Add Module"), this, &DAQConfigTreeWidget::addModule);
+        menu.addAction(QSL("Add Module"), this, &VMEConfigTreeWidget::addModule);
     }
 
     if (node && node->type() == NodeType_Module)
     {
-        menu.addAction(QSL("Init Module"), this, &DAQConfigTreeWidget::initModule);
-        menu.addAction(QSL("Edit Module"), this, &DAQConfigTreeWidget::editModule);
-        menu.addAction(QSL("Rename Module"), this, &DAQConfigTreeWidget::editName);
+        menu.addAction(QSL("Init Module"), this, &VMEConfigTreeWidget::initModule);
+        menu.addAction(QSL("Edit Module"), this, &VMEConfigTreeWidget::editModule);
+        menu.addAction(QSL("Rename Module"), this, &VMEConfigTreeWidget::editName);
         menu.addSeparator();
-        menu.addAction(QSL("Remove Module"), this, &DAQConfigTreeWidget::removeModule);
+        menu.addAction(QSL("Remove Module"), this, &VMEConfigTreeWidget::removeModule);
 
         if (!m_context->getEventProcessor()->getDiagnostics())
-            menu.addAction(QSL("Show Diagnostics"), this, &DAQConfigTreeWidget::handleShowDiagnostics);
+            menu.addAction(QSL("Show Diagnostics"), this, &VMEConfigTreeWidget::handleShowDiagnostics);
     }
 
     //
@@ -472,17 +472,17 @@ void DAQConfigTreeWidget::treeContextMenu(const QPoint &pos)
     if (node == m_nodeStart || node == m_nodeStop || node == m_nodeManual)
     {
         if (node->childCount() > 0)
-            menu.addAction(QSL("Run scripts"), this, &DAQConfigTreeWidget::runScripts);
+            menu.addAction(QSL("Run scripts"), this, &VMEConfigTreeWidget::runScripts);
 
-        menu.addAction(QSL("Add script"), this, &DAQConfigTreeWidget::addGlobalScript);
+        menu.addAction(QSL("Add script"), this, &VMEConfigTreeWidget::addGlobalScript);
 
     }
 
     if (parent == m_nodeStart || parent == m_nodeStop || parent == m_nodeManual)
     {
-        menu.addAction(QSL("Rename Script"), this, &DAQConfigTreeWidget::editName);
+        menu.addAction(QSL("Rename Script"), this, &VMEConfigTreeWidget::editName);
         menu.addSeparator();
-        menu.addAction(QSL("Remove Script"), this, &DAQConfigTreeWidget::removeGlobalScript);
+        menu.addAction(QSL("Remove Script"), this, &VMEConfigTreeWidget::removeGlobalScript);
     }
 
     if (!menu.isEmpty())
@@ -491,15 +491,15 @@ void DAQConfigTreeWidget::treeContextMenu(const QPoint &pos)
     }
 }
 
-void DAQConfigTreeWidget::onEventAdded(EventConfig *eventConfig)
+void VMEConfigTreeWidget::onEventAdded(EventConfig *eventConfig)
 {
     addEventNode(m_nodeEvents, eventConfig);
 
     for (auto module: eventConfig->modules)
         onModuleAdded(module);
 
-    connect(eventConfig, &EventConfig::moduleAdded, this, &DAQConfigTreeWidget::onModuleAdded);
-    connect(eventConfig, &EventConfig::moduleAboutToBeRemoved, this, &DAQConfigTreeWidget::onModuleAboutToBeRemoved);
+    connect(eventConfig, &EventConfig::moduleAdded, this, &VMEConfigTreeWidget::onModuleAdded);
+    connect(eventConfig, &EventConfig::moduleAboutToBeRemoved, this, &VMEConfigTreeWidget::onModuleAboutToBeRemoved);
 
     auto updateEventNode = [eventConfig, this](bool isModified) {
         auto node = static_cast<EventNode *>(m_treeMap.value(eventConfig, nullptr));
@@ -539,7 +539,7 @@ void DAQConfigTreeWidget::onEventAdded(EventConfig *eventConfig)
     onActionShowAdvancedChanged();
 }
 
-void DAQConfigTreeWidget::onEventAboutToBeRemoved(EventConfig *config)
+void VMEConfigTreeWidget::onEventAboutToBeRemoved(EventConfig *config)
 {
     for (auto module: config->modules)
     {
@@ -549,7 +549,7 @@ void DAQConfigTreeWidget::onEventAboutToBeRemoved(EventConfig *config)
     delete m_treeMap.take(config);
 }
 
-void DAQConfigTreeWidget::onModuleAdded(ModuleConfig *module)
+void VMEConfigTreeWidget::onModuleAdded(ModuleConfig *module)
 {
     auto eventNode = static_cast<EventNode *>(m_treeMap[module->parent()]);
     addModuleNodes(eventNode, module);
@@ -577,14 +577,14 @@ void DAQConfigTreeWidget::onModuleAdded(ModuleConfig *module)
     onActionShowAdvancedChanged();
 }
 
-void DAQConfigTreeWidget::onModuleAboutToBeRemoved(ModuleConfig *module)
+void VMEConfigTreeWidget::onModuleAboutToBeRemoved(ModuleConfig *module)
 {
     auto moduleNode = static_cast<ModuleNode *>(m_treeMap[module]);
     delete moduleNode->readoutNode;
     delete m_treeMap.take(module);
 }
 
-void DAQConfigTreeWidget::onScriptAdded(VMEScriptConfig *script, const QString &category)
+void VMEConfigTreeWidget::onScriptAdded(VMEScriptConfig *script, const QString &category)
 {
     TreeNode *parentNode = nullptr;
     bool canDisable = true;
@@ -606,7 +606,7 @@ void DAQConfigTreeWidget::onScriptAdded(VMEScriptConfig *script, const QString &
     }
 }
 
-void DAQConfigTreeWidget::onScriptAboutToBeRemoved(VMEScriptConfig *script)
+void VMEConfigTreeWidget::onScriptAboutToBeRemoved(VMEScriptConfig *script)
 {
     delete m_treeMap.take(script);
 }
@@ -614,7 +614,7 @@ void DAQConfigTreeWidget::onScriptAboutToBeRemoved(VMEScriptConfig *script)
 //
 // context menu action implementations
 //
-void DAQConfigTreeWidget::addEvent()
+void VMEConfigTreeWidget::addEvent()
 {
     auto config = new EventConfig;
     config->setObjectName(QString("event%1").arg(m_config->getEventConfigs().size()));
@@ -644,7 +644,7 @@ void DAQConfigTreeWidget::addEvent()
     }
 }
 
-void DAQConfigTreeWidget::removeEvent()
+void VMEConfigTreeWidget::removeEvent()
 {
     auto node = m_tree->currentItem();
 
@@ -656,7 +656,7 @@ void DAQConfigTreeWidget::removeEvent()
     }
 }
 
-void DAQConfigTreeWidget::editEvent()
+void VMEConfigTreeWidget::editEvent()
 {
     auto node = m_tree->currentItem();
 
@@ -668,7 +668,7 @@ void DAQConfigTreeWidget::editEvent()
     }
 }
 
-void DAQConfigTreeWidget::addModule()
+void VMEConfigTreeWidget::addModule()
 {
     auto node = m_tree->currentItem();
 
@@ -712,7 +712,7 @@ void DAQConfigTreeWidget::addModule()
     }
 }
 
-void DAQConfigTreeWidget::removeModule()
+void VMEConfigTreeWidget::removeModule()
 {
     auto node = m_tree->currentItem();
 
@@ -733,7 +733,7 @@ void DAQConfigTreeWidget::removeModule()
     }
 }
 
-void DAQConfigTreeWidget::editModule()
+void VMEConfigTreeWidget::editModule()
 {
     auto node = m_tree->currentItem();
 
@@ -750,7 +750,7 @@ void DAQConfigTreeWidget::editModule()
     }
 }
 
-void DAQConfigTreeWidget::addGlobalScript()
+void VMEConfigTreeWidget::addGlobalScript()
 {
     auto node = m_tree->currentItem();
     auto category = node->data(0, DataRole_ScriptCategory).toString();
@@ -769,14 +769,14 @@ void DAQConfigTreeWidget::addGlobalScript()
     }
 }
 
-void DAQConfigTreeWidget::removeGlobalScript()
+void VMEConfigTreeWidget::removeGlobalScript()
 {
     auto node = m_tree->currentItem();
     auto script = Var2Ptr<VMEScriptConfig>(node->data(0, DataRole_Pointer));
     m_config->removeGlobalScript(script);
 }
 
-void DAQConfigTreeWidget::runScripts()
+void VMEConfigTreeWidget::runScripts()
 {
     auto node = m_tree->currentItem();
     auto obj  = Var2Ptr<ConfigObject>(node->data(0, DataRole_Pointer));
@@ -802,19 +802,19 @@ void DAQConfigTreeWidget::runScripts()
     runScriptConfigs(scriptConfigs);
 }
 
-void DAQConfigTreeWidget::editName()
+void VMEConfigTreeWidget::editName()
 {
     m_tree->editItem(m_tree->currentItem(), 0);
 }
 
-void DAQConfigTreeWidget::initModule()
+void VMEConfigTreeWidget::initModule()
 {
     auto node = m_tree->currentItem();
     auto module = Var2Ptr<ModuleConfig>(node->data(0, DataRole_Pointer));
     runScriptConfigs(module->getInitScripts());
 }
 
-void DAQConfigTreeWidget::runScriptConfigs(const QVector<VMEScriptConfig *> &scriptConfigs)
+void VMEConfigTreeWidget::runScriptConfigs(const QVector<VMEScriptConfig *> &scriptConfigs)
 {
     for (auto scriptConfig: scriptConfigs)
     {
@@ -841,7 +841,7 @@ void DAQConfigTreeWidget::runScriptConfigs(const QVector<VMEScriptConfig *> &scr
 }
 
 
-void DAQConfigTreeWidget::onActionShowAdvancedChanged()
+void VMEConfigTreeWidget::onActionShowAdvancedChanged()
 {
     auto nodes = findItems(m_nodeEvents, [](QTreeWidgetItem *node) {
         return node->type() == NodeType_EventReadoutLoop
@@ -860,14 +860,14 @@ void DAQConfigTreeWidget::onActionShowAdvancedChanged()
     settings.setValue("DAQTree/ShowAdvanced", showAdvanced);
 };
 
-void DAQConfigTreeWidget::handleShowDiagnostics()
+void VMEConfigTreeWidget::handleShowDiagnostics()
 {
     auto node = m_tree->currentItem();
     auto module = Var2Ptr<ModuleConfig>(node->data(0, DataRole_Pointer));
     emit showDiagnostics(module);
 }
 
-void DAQConfigTreeWidget::dumpVMUSBRegisters()
+void VMEConfigTreeWidget::dumpVMUSBRegisters()
 {
     auto vmusb = dynamic_cast<VMUSB *>(m_context->getController());
 
@@ -880,7 +880,7 @@ void DAQConfigTreeWidget::dumpVMUSBRegisters()
 static const QString fileFilter = QSL("Config Files (*.mvmecfg);; All Files (*.*)");
 static const QString settingsPath = QSL("Files/LastConfigFile");
 
-void DAQConfigTreeWidget::updateConfigLabel()
+void VMEConfigTreeWidget::updateConfigLabel()
 {
     QString fileName = m_context->getConfigFileName();
 

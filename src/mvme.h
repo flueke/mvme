@@ -6,7 +6,7 @@
 
 class ConfigObject;
 class VMEConfig;
-class DAQConfigTreeWidget;
+class VMEConfigTreeWidget;
 class DAQControlWidget;
 enum class DAQState;
 class DAQStatsWidget;
@@ -118,7 +118,7 @@ private:
     MVMEContext *m_context;
     QPlainTextEdit *m_logView = nullptr;
     DAQControlWidget *m_daqControlWidget = nullptr;
-    DAQConfigTreeWidget *m_daqConfigTreeWidget = nullptr;
+    VMEConfigTreeWidget *m_vmeConfigTreeWidget = nullptr;
     DAQStatsWidget *m_daqStatsWidget = nullptr;
     VMEDebugWidget *m_vmeDebugWidget = nullptr;
 

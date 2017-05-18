@@ -4,7 +4,6 @@ DEPENDPATH += $$PWD .
 HEADERS += \
     $$PWD/CVMUSBReadoutList.h \
     $$PWD/config_ui.h \
-    $$PWD/daqconfig_tree.h \
     $$PWD/daqcontrol_widget.h \
     $$PWD/daqstats_widget.h \
     $$PWD/databuffer.h \
@@ -39,13 +38,13 @@ HEADERS += \
     $$PWD/vmusb_constants.h \
     $$PWD/vmusb_readout_worker.h \
     $$PWD/vmusb_stack.h \
-    $$PWD/vme_config.h
+    $$PWD/vme_config.h \
+    $$PWD/vme_config_tree.h
 
 
 SOURCES += \
     $$PWD/config_ui.cpp \
     $$PWD/CVMUSBReadoutList.cpp \
-    $$PWD/daqconfig_tree.cc \
     $$PWD/daqcontrol_widget.cc \
     $$PWD/daqstats_widget.cc \
     $$PWD/gui_util.cc \
@@ -75,7 +74,8 @@ SOURCES += \
     $$PWD/vmusb_buffer_processor.cc \
     $$PWD/vmusb_readout_worker.cc \
     $$PWD/vmusb_stack.cc \
-    $$PWD/vme_config.cc
+    $$PWD/vme_config.cc \
+    $$PWD/vme_config_tree.cc
 
 
 FORMS += \

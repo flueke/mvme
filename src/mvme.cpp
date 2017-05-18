@@ -8,7 +8,7 @@
 #include "vmusb_readout_worker.h"
 #include "config_ui.h"
 #include "mvme_listfile.h"
-#include "daqconfig_tree.h"
+#include "vme_config_tree.h"
 #include "vme_script_editor.h"
 #include "vme_debug_widget.h"
 #include "daqcontrol_widget.h"
@@ -96,7 +96,7 @@ mvme::mvme(QWidget *parent) :
     //
     {
         m_daqControlWidget = new DAQControlWidget(m_context);
-        m_daqConfigTreeWidget = new DAQConfigTreeWidget(m_context);
+        m_vmeConfigTreeWidget = new VMEConfigTreeWidget(m_context);
         m_daqStatsWidget = new DAQStatsWidget(m_context);
 
         auto centralLayout = qobject_cast<QVBoxLayout *>(ui->centralWidget->layout());
@@ -104,12 +104,12 @@ mvme::mvme(QWidget *parent) :
 
         centralLayout->setContentsMargins(6, 6, 6, 0); // l, t, r, b
         centralLayout->addWidget(m_daqControlWidget);
-        centralLayout->addWidget(m_daqConfigTreeWidget);
+        centralLayout->addWidget(m_vmeConfigTreeWidget);
         centralLayout->addWidget(m_daqStatsWidget);
 
         centralLayout->setStretch(1, 1);
 
-        connect(m_daqConfigTreeWidget, &DAQConfigTreeWidget::showDiagnostics,
+        connect(m_vmeConfigTreeWidget, &VMEConfigTreeWidget::showDiagnostics,
                 this, &mvme::onShowDiagnostics);
     }
 

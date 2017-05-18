@@ -19,7 +19,7 @@ class MVMEContext;
 
 class EventNode;
 
-class DAQConfigTreeWidget: public QWidget
+class VMEConfigTreeWidget: public QWidget
 {
     Q_OBJECT
     signals:
@@ -28,7 +28,7 @@ class DAQConfigTreeWidget: public QWidget
         void showDiagnostics(ModuleConfig *cfg);
 
     public:
-        DAQConfigTreeWidget(MVMEContext *context, QWidget *parent = 0);
+        VMEConfigTreeWidget(MVMEContext *context, QWidget *parent = 0);
 
         void setConfig(VMEConfig *cfg);
         VMEConfig *getConfig() const;
