@@ -79,10 +79,8 @@ AddEditSourceWidget::AddEditSourceWidget(SourcePtr srcPtr, ModuleConfig *mod, Ev
 
     m_optionsLayout->addRow(m_gbGenHistograms);
 
-    if (m_extractorTemplates.size())
-    {
-        m_filterEditor->setSubFilters(m_extractorTemplates[0]->getFilter().getSubFilters());
-    }
+    // Load data from the first template into the gui
+    applyTemplate(0);
 }
 
 static const char *defaultNewFilter = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
@@ -134,20 +132,14 @@ AddEditSourceWidget::AddEditSourceWidget(SourceInterface *src, ModuleConfig *mod
         m_templateCombo->addItem(ex->objectName());
     }
 
-    auto applyTemplateButton = new QPushButton(QSL("Apply"));
+    auto applyTemplateButton = new QPushButton(QSL("Apply Template"));
     auto templateSelectLayout = new QHBoxLayout;
     templateSelectLayout->setContentsMargins(0, 0, 0, 0);
     templateSelectLayout->addWidget(m_templateCombo);
     templateSelectLayout->addWidget(applyTemplateButton);
     templateSelectLayout->setStretch(0, 1);
 
-    connect(applyTemplateButton, &QPushButton::clicked, this, [this]() {
-        int index = m_templateCombo->currentIndex();
-        if (0 <= index && index < m_extractorTemplates.size())
-        {
-            m_filterEditor->setSubFilters(m_extractorTemplates[index]->getFilter().getSubFilters());
-        }
-    });
+    connect(applyTemplateButton, &QPushButton::clicked, this, [this]() { applyTemplate(m_templateCombo->currentIndex()); });
 
     auto extractor = qobject_cast<Extractor *>(src);
     Q_ASSERT(extractor);
@@ -194,6 +186,18 @@ AddEditSourceWidget::AddEditSourceWidget(SourceInterface *src, ModuleConfig *mod
     layout->addRow(m_filterEditor);
     layout->addRow(m_optionsLayout);
     layout->addRow(buttonBoxLayout);
+}
+
+void AddEditSourceWidget::applyTemplate(int index)
+{
+    if (0 <= index && index < m_extractorTemplates.size())
+    {
+        auto tmpl = m_extractorTemplates[index];
+        m_filterEditor->setSubFilters(tmpl->getFilter().getSubFilters());
+        QString name = m_module->getModuleMeta().typeName + QSL(".") + tmpl->objectName().section('.', 0, -1);
+        le_name->setText(name);
+        m_spinCompletionCount->setValue(tmpl->getRequiredCompletionCount());
+    }
 }
 
 void AddEditSourceWidget::accept()

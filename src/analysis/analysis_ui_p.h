@@ -103,7 +103,7 @@ class AddEditSourceWidget: public QDialog
         QComboBox *m_templateCombo = nullptr;
         QVector<std::shared_ptr<Extractor>> m_extractorTemplates;
 
-        void onTemplateComboIndexChanged(int idx);
+        void applyTemplate(int index);
 };
 
 class AddEditOperatorWidget: public QDialog
