@@ -2343,8 +2343,8 @@ Analysis::ReadResult Analysis::read(const QJsonObject &json)
         if (version != CurrentAnalysisVersion)
         {
             result.code = ReadResult::VersionMismatch;
-            result.data["version"] = version;
-            result.data["expected version"] = CurrentAnalysisVersion;
+            result.errorData["version"] = version;
+            result.errorData["expected version"] = CurrentAnalysisVersion;
             return result;
         }
     }

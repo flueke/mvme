@@ -78,3 +78,24 @@ QAction *add_widget_close_action(QWidget *widget,
 
     return closeAction;
 }
+
+QJsonObject storeDynamicProperties(const QObject *object)
+{
+    QJsonObject json;
+
+    for (auto name: object->dynamicPropertyNames())
+       json[QString::fromLocal8Bit(name)] = QJsonValue::fromVariant(object->property(name.constData()));
+
+    return json;
+}
+
+void loadDynamicProperties(const QJsonObject &json, QObject *dest)
+{
+    auto properties = json.toVariantMap();
+
+    for (auto propName: properties.keys())
+    {
+        const auto &value = properties[propName];
+        dest->setProperty(propName.toLocal8Bit().constData(), value);
+    }
+}

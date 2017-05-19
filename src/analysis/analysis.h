@@ -1249,7 +1249,7 @@ class Analysis: public QObject
             static const QMap<Code, const char *> ErrorCodeStrings;
 
             Code code;
-            QMap<QString, QVariant> data;
+            QMap<QString, QVariant> errorData;
         };
         ReadResult read(const QJsonObject &json);
         void write(QJsonObject &json) const;

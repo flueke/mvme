@@ -1,4 +1,6 @@
 #include "vme_config.h"
+
+#include "qt_util.h"
 #include "CVMUSBReadoutList.h"
 
 #include <cmath>
@@ -6,27 +8,6 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QDebug>
-
-static QJsonObject storeDynamicProperties(const QObject *object)
-{
-    QJsonObject json;
-
-    for (auto name: object->dynamicPropertyNames())
-       json[QString::fromLocal8Bit(name)] = QJsonValue::fromVariant(object->property(name.constData()));
-
-    return json;
-}
-
-static void loadDynamicProperties(const QJsonObject &json, QObject *dest)
-{
-    auto properties = json.toVariantMap();
-
-    for (auto propName: properties.keys())
-    {
-        const auto &value = properties[propName];
-        dest->setProperty(propName.toLocal8Bit().constData(), value);
-    }
-}
 
 //
 // ConfigObject

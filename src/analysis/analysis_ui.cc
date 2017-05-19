@@ -26,6 +26,9 @@
 #include <QToolButton>
 #include <QTreeWidget>
 
+
+#include <QJsonObject>
+
 namespace analysis
 {
 
@@ -315,6 +318,8 @@ struct DisplayLevelTrees
     s32 userLevel;
 };
 
+static const QString AnalysisFileFilter = QSL("MVME Analysis Files (*.analysis);; All Files (*.*)");
+
 using SetOfVoidStar = QSet<void *>;
 
 struct EventWidgetPrivate
@@ -379,6 +384,11 @@ struct EventWidgetPrivate
     void clearTreeSelectionsExcept(QTreeWidget *tree);
     void generateDefaultFilters(ModuleConfig *module);
     PipeDisplay *makeAndShowPipeDisplay(Pipe *pipe);
+
+    // Returns the currentItem() of the tree widget that has focus.
+    QTreeWidgetItem *getCurrentNode();
+    void updateActions();
+    void importAnalysisObjects();
 
     QAction *m_actionImport;
 };
@@ -622,6 +632,7 @@ void EventWidgetPrivate::appendTreesToView(DisplayLevelTrees trees)
             {
                 clearTreeSelectionsExcept(tree);
             }
+            updateActions();
         });
 
         TreeType treeType = (tree == opTree ? TreeType_Operator : TreeType_Display);
@@ -732,6 +743,7 @@ void EventWidgetPrivate::repopulate()
 
     expandObjectNodes(m_levelTrees, m_expandedObjects);
     clearAllToDefaultNodeHighlights();
+    updateActions();
 }
 
 void EventWidgetPrivate::addUserLevel()
@@ -1280,6 +1292,8 @@ void EventWidgetPrivate::modeChanged()
                 }
             } break;
     }
+
+    updateActions();
 }
 
 static bool isValidInputNode(QTreeWidgetItem *node, Slot *slot)
@@ -1853,6 +1867,120 @@ PipeDisplay *EventWidgetPrivate::makeAndShowPipeDisplay(Pipe *pipe)
     return widget;
 }
 
+QTreeWidgetItem *EventWidgetPrivate::getCurrentNode()
+{
+    QTreeWidgetItem *result = nullptr;
+
+    if (auto activeTree = qobject_cast<QTreeWidget *>(m_q->focusWidget()))
+    {
+        result = activeTree->currentItem();
+    }
+
+    return result;
+}
+
+void EventWidgetPrivate::updateActions()
+{
+    m_actionImport->setEnabled(false);
+
+    auto node = getCurrentNode();
+
+    if (m_mode == Default && node && node->type() == NodeType_Module)
+    {
+        if (auto module = getPointer<ModuleConfig>(node))
+        {
+            m_actionImport->setEnabled(true);
+        }
+    }
+}
+
+void EventWidgetPrivate::importAnalysisObjects()
+{
+    auto node = getCurrentNode();
+
+    if (!node || node->type() != NodeType_Module)
+        return;
+
+    auto module = getPointer<ModuleConfig>(node);
+
+    if (!module)
+        return;
+
+    auto event = qobject_cast<EventConfig *>(module->parent());
+
+    if (!event)
+        return;
+
+    const auto moduleId = module->getId();
+    const auto eventId  = event->getId();
+
+    auto path = m_context->getWorkspaceDirectory();
+    if (path.isEmpty())
+        path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
+
+    // FIXME: basically copied from MVMEContext
+    QString fileName = QFileDialog::getOpenFileName(m_q, QSL("Import analysis objects"), path, AnalysisFileFilter);
+
+    if (fileName.isEmpty())
+        return;
+
+    // IMPORTANT: no conversion for formats with MVMEAnalysisVersion < 2!
+
+    // Step 1) Load Analysis
+    QJsonDocument doc(gui_read_json_file(fileName));
+    auto json = doc.object()[QSL("AnalysisNG")].toObject();
+
+    auto analysis_ng = std::make_unique<Analysis>();
+    auto readResult = analysis_ng->read(json);
+
+    if (readResult.code != Analysis::ReadResult::NoError)
+    {
+        qDebug() << "!!!!! Error reading analysis ng" << readResult.code << readResult.errorData;
+
+        QMessageBox::critical(m_q, QSL("Error"),
+                              QString("Error loading analysis\n"
+                                      "Error: %1")
+                              .arg(Analysis::ReadResult::ErrorCodeStrings.value(readResult.code, "Unknown error")));
+        return;
+    }
+
+    // TODO: Step 1.1) Verify that there's only one event and one module, verify there's a source // (both kind of the same)
+
+    // Step 2) Set new IDs on objects
+    QVector<Analysis::SourceEntry> sources = analysis_ng->getSources();
+
+    for (auto &entry: sources)
+    {
+        entry.source->setId(QUuid::createUuid());
+    }
+
+    QVector<Analysis::OperatorEntry> operators = analysis_ng->getOperators();
+    for (auto &entry: operators)
+    {
+        entry.op->setId(QUuid::createUuid());
+    }
+
+    if (sources.isEmpty() && operators.isEmpty())
+        return;
+
+    // Step 3) Insert elements into target analysis
+
+    AnalysisPauser pauser(m_context);
+    auto targetAnalysis = m_context->getAnalysisNG();
+
+    for (auto entry: sources)
+    {
+        targetAnalysis->addSource(eventId, moduleId, entry.source);
+    }
+
+    for (auto entry: operators)
+    {
+        targetAnalysis->addOperator(eventId, entry.op, entry.userLevel);
+    }
+
+    repopulate();
+}
+
 static const u32 pipeDisplayRefreshInterval_ms = 1000;
 
 EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, AnalysisWidget *analysisWidget, QWidget *parent)
@@ -1924,8 +2052,9 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, AnalysisWidget 
     sync_splitters(m_d->m_operatorFrameSplitter, m_d->m_displayFrameSplitter);
 
 
-    m_d->m_actionImport = new QAction("Import", this);
-    connect(m_d->m_actionImport, &QAction::triggered, this, [this] { qDebug() << __PRETTY_FUNCTION__ << this; });
+    // Toolbar actions
+    m_d->m_actionImport = new QAction("Import Analysis Objects", this);
+    connect(m_d->m_actionImport, &QAction::triggered, this, [this] { m_d->importAnalysisObjects(); });
 
     m_d->repopulate();
 }
@@ -2258,8 +2387,6 @@ void AnalysisWidgetPrivate::repopulateEventSelectCombo()
         m_eventSelectCombo->setCurrentIndex(comboIndexToSelect);
     }
 }
-
-static const QString AnalysisFileFilter = QSL("MVME Analysis Files (*.analysis);; All Files (*.*)");
 
 void AnalysisWidgetPrivate::actionNew()
 {

@@ -1291,7 +1291,7 @@ bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc)
 
     if (readResult.code != Analysis::ReadResult::NoError)
     {
-        qDebug() << "!!!!! Error reading analysis ng" << readResult.code << readResult.data;
+        qDebug() << "!!!!! Error reading analysis ng" << readResult.code << readResult.errorData;
 
         QMessageBox::critical(m_mainwin, QSL("Error"),
                               QString("Error loading analysis\n"

@@ -2,6 +2,7 @@
 #define __QT_UTIL_H__
 
 #include <QHash>
+#include <QJsonObject>
 #include <QKeySequence>
 #include <QObject>
 
@@ -31,5 +32,9 @@ class WidgetGeometrySaver: public QObject
 QAction *add_widget_close_action(QWidget *widget,
                                 const QKeySequence &shortcut = QKeySequence(QSL("Ctrl+W")),
                                 Qt::ShortcutContext shortcutContext = Qt::WidgetWithChildrenShortcut);
+
+
+QJsonObject storeDynamicProperties(const QObject *object);
+void loadDynamicProperties(const QJsonObject &json, QObject *dest);
 
 #endif /* __QT_UTIL_H__ */
