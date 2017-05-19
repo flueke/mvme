@@ -1,0 +1,91 @@
+{
+    "AnalysisNG": {
+        "MVMEAnalysisVersion": 2,
+        "connections": [
+        ],
+        "operators": [
+        ],
+        "properties": {
+            "ModuleProperties": [
+                {
+                    "moduleId": "{ef0ec715-e16b-449d-b3d2-d0e89eea87eb}",
+                    "moduleTypeName": "mdpp16"
+                }
+            ]
+        },
+        "sources": [
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "f357ab2ce04b8eda",
+                    "subFilters": [
+                        {
+                            "filterString": "0001XXXXPO00AAAADDDDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{1a666742-ccc6-41df-a382-4cab33778b4d}",
+                "id": "{57d32048-8d8b-4afb-83f4-f0fd967c14d4}",
+                "moduleId": "{ef0ec715-e16b-449d-b3d2-d0e89eea87eb}",
+                "name": "amplitude"
+            },
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "fa4f901b87706e8f",
+                    "subFilters": [
+                        {
+                            "filterString": "0001XXXXXX01AAAADDDDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{1a666742-ccc6-41df-a382-4cab33778b4d}",
+                "id": "{6c41533f-36ce-4e77-9de4-6d91154ece2a}",
+                "moduleId": "{ef0ec715-e16b-449d-b3d2-d0e89eea87eb}",
+                "name": "time"
+            },
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "1091f0bae0ad11cb",
+                    "subFilters": [
+                        {
+                            "filterString": "0001XXXXXX10000ADDDDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{1a666742-ccc6-41df-a382-4cab33778b4d}",
+                "id": "{cf5cdf21-6f45-4a4a-b3bb-4c7e6da38b3e}",
+                "moduleId": "{ef0ec715-e16b-449d-b3d2-d0e89eea87eb}",
+                "name": "trigger_time"
+            },
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "93af3c99a9486092",
+                    "subFilters": [
+                        {
+                            "filterString": "11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        },
+                        {
+                            "filterString": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{1a666742-ccc6-41df-a382-4cab33778b4d}",
+                "id": "{cb7049e5-5e3a-4911-b9e5-4bb88c272126}",
+                "moduleId": "{ef0ec715-e16b-449d-b3d2-d0e89eea87eb}",
+                "name": "event_counter/ts"
+            }
+        ]
+    }
+}

@@ -1,0 +1,40 @@
+{
+    "AnalysisNG": {
+        "MVMEAnalysisVersion": 2,
+        "connections": [
+        ],
+        "operators": [
+        ],
+        "properties": {
+            "ModuleProperties": [
+                {
+                    "moduleId": "{0e0e52b6-3aa9-4dce-a429-e57f2ed27f41}",
+                    "moduleTypeName": "mesytec_counter"
+                }
+            ]
+        },
+        "sources": [
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "2b5762f504535e83",
+                    "subFilters": [
+                        {
+                            "filterString": "XXXXXXXXXXXXXXXXDDDDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        },
+                        {
+                            "filterString": "XXXXXXXXXXXXXXXXDDDDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{1a666742-ccc6-41df-a382-4cab33778b4d}",
+                "id": "{83f42529-a560-467e-8345-9ef70ae0b6e5}",
+                "moduleId": "{0e0e52b6-3aa9-4dce-a429-e57f2ed27f41}",
+                "name": "event_counter"
+            }
+        ]
+    }
+}

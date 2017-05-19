@@ -1,0 +1,74 @@
+{
+    "AnalysisNG": {
+        "MVMEAnalysisVersion": 2,
+        "connections": [
+        ],
+        "operators": [
+        ],
+        "properties": {
+            "ModuleProperties": [
+                {
+                    "moduleId": "{c0906e06-3b1d-415b-ae44-8b0a108f0cc0}",
+                    "moduleTypeName": "mtdc32"
+                }
+            ]
+        },
+        "sources": [
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "c42a52cbea490bef",
+                    "subFilters": [
+                        {
+                            "filterString": "00XXX1XX000AAAAADDDDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{1a666742-ccc6-41df-a382-4cab33778b4d}",
+                "id": "{b26a021f-e2b3-4c3b-94cd-997122920c9a}",
+                "moduleId": "{c0906e06-3b1d-415b-ae44-8b0a108f0cc0}",
+                "name": "time"
+            },
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "457bf0cff0311c52",
+                    "subFilters": [
+                        {
+                            "filterString": "00XXX1XX0010000ADDDDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{1a666742-ccc6-41df-a382-4cab33778b4d}",
+                "id": "{685fafbf-dd78-4f2e-b8ce-25bb2e37d188}",
+                "moduleId": "{c0906e06-3b1d-415b-ae44-8b0a108f0cc0}",
+                "name": "trigger_time"
+            },
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "e78ec5c4510c94f1",
+                    "subFilters": [
+                        {
+                            "filterString": "11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        },
+                        {
+                            "filterString": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{1a666742-ccc6-41df-a382-4cab33778b4d}",
+                "id": "{745b5d44-47b8-481a-b9b1-11b0d8faef62}",
+                "moduleId": "{c0906e06-3b1d-415b-ae44-8b0a108f0cc0}",
+                "name": "event_counter/ts"
+            }
+        ]
+    }
+}

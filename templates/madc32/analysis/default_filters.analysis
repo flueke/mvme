@@ -1,0 +1,57 @@
+{
+    "AnalysisNG": {
+        "MVMEAnalysisVersion": 2,
+        "connections": [
+        ],
+        "operators": [
+        ],
+        "properties": {
+            "ModuleProperties": [
+                {
+                    "moduleId": "{d5581fd1-f401-43cc-81f1-848b66b5f4f9}",
+                    "moduleTypeName": "madc32"
+                }
+            ]
+        },
+        "sources": [
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "b6ec9aad546ba33e",
+                    "subFilters": [
+                        {
+                            "filterString": "00XXX1XX000AAAAA0O0DDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{1a666742-ccc6-41df-a382-4cab33778b4d}",
+                "id": "{3d1af0fa-f9a2-4f00-a3de-08794299cc8d}",
+                "moduleId": "{d5581fd1-f401-43cc-81f1-848b66b5f4f9}",
+                "name": "amplitude"
+            },
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "71bf4c848755aaf1",
+                    "subFilters": [
+                        {
+                            "filterString": "11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        },
+                        {
+                            "filterString": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{1a666742-ccc6-41df-a382-4cab33778b4d}",
+                "id": "{1a16c8f1-66e1-431e-8fc2-0a18314750bf}",
+                "moduleId": "{d5581fd1-f401-43cc-81f1-848b66b5f4f9}",
+                "name": "event_counter/ts"
+            }
+        ]
+    }
+}
