@@ -101,7 +101,7 @@ class AddEditSourceWidget: public QDialog
         QDoubleSpinBox *spin_unitMin = nullptr;
         QDoubleSpinBox *spin_unitMax = nullptr;
         QComboBox *m_templateCombo = nullptr;
-        QVector<std::shared_ptr<Extractor>> m_extractorTemplates;
+        QVector<std::shared_ptr<Extractor>> m_defaultExtractors;
 
         void applyTemplate(int index);
 };
@@ -227,6 +227,9 @@ class CalibrationItemDelegate: public QStyledItemDelegate
         using QStyledItemDelegate::QStyledItemDelegate;
         virtual QWidget* createEditor(QWidget *parent, const QStyleOptionViewItem &option, const QModelIndex &index) const;
 };
+
+// FIXME: this should be somewhere else but I don't know where to put it
+QVector<std::shared_ptr<Extractor>> get_default_data_extractors(const QString &moduleTypeName);
 
 }
 

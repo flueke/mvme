@@ -833,29 +833,31 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                 }
 
                 // default data filters and "raw display" creation
-#if 0
-                // FIXME: build a new default filter system
-                if (moduleConfig && (defaultDataFilters.contains(moduleConfig->type)
-                                     || defaultDualWordFilters.contains(moduleConfig->type)))
+                if (moduleConfig)
                 {
-                    menu.addAction(QSL("Generate default filters"), [this, moduleConfig] () {
+                    auto defaultExtractors = get_default_data_extractors(moduleConfig->getModuleMeta().typeName);
 
-                        QMessageBox box(QMessageBox::Question,
-                                        QSL("Generate default filters"),
-                                        QSL("This action will generate extraction filters, calibrations and histograms for the selected module."
-                                            " Do you want to continue?"),
-                                        QMessageBox::Ok | QMessageBox::No,
-                                        m_q
-                                       );
-                        box.button(QMessageBox::Ok)->setText("Yes, generate filters");
+                    if (!defaultExtractors.isEmpty())
+                    {
+                        menu.addAction(QSL("Generate default filters"), [this, moduleConfig] () {
 
-                        if (box.exec() == QMessageBox::Ok)
-                        {
-                            generateDefaultFilters(moduleConfig);
-                        }
-                    });
+                            QMessageBox box(QMessageBox::Question,
+                                            QSL("Generate default filters"),
+                                            QSL("This action will generate extraction filters, calibrations and histograms for the selected module."
+                                                " Do you want to continue?"),
+                                            QMessageBox::Ok | QMessageBox::No,
+                                            m_q
+                                           );
+                            box.button(QMessageBox::Ok)->setText("Yes, generate filters");
+
+                            if (box.exec() == QMessageBox::Ok)
+                            {
+                                generateDefaultFilters(moduleConfig);
+                            }
+                        });
+                    }
                 }
-#endif
+
                 actionNewIsFirst = true;
             }
         }
@@ -1803,56 +1805,26 @@ void EventWidgetPrivate::clearTreeSelectionsExcept(QTreeWidget *treeNotToClear)
 
 void EventWidgetPrivate::generateDefaultFilters(ModuleConfig *module)
 {
-    // FIXME: build new default filter system
-    Q_ASSERT(false);
-
-#if 0
-
     AnalysisPauser pauser(m_context);
 
-    // "single word" filters
+    auto defaultFilters = get_default_data_extractors(module->getModuleMeta().typeName);
+
+    for (auto &ex: defaultFilters)
     {
-        const auto filterDefinitions = defaultDataFilters.value(module->type);
+        auto dataFilter = ex->getFilter();
+        double unitMin = 0.0;
+        double unitMax = std::pow(2.0, dataFilter.getDataBits());
+        QString name = module->getModuleMeta().typeName + QSL(".") + ex->objectName().section('.', 0, -1);
 
-        for (const auto &filterDef: filterDefinitions)
-        {
-            DataFilter dataFilter(filterDef.filter);
-            MultiWordDataFilter multiWordFilter({dataFilter});
-            double unitMin = 0.0;
-            double unitMax = (1 << multiWordFilter.getDataBits());
+        RawDataDisplay rawDataDisplay = make_raw_data_display(dataFilter, unitMin, unitMax,
+                                                              name,
+                                                              ex->objectName().section('.', 0, -1),
+                                                              QString());
 
-            RawDataDisplay rawDataDisplay = make_raw_data_display(multiWordFilter, unitMin, unitMax,
-                                                                  module->objectName() + QSL(".") + filterDef.name,
-                                                                  filterDef.title,
-                                                                  QString());
-
-            add_raw_data_display(m_context->getAnalysisNG(), m_eventId, module->getId(), rawDataDisplay);
-        }
-    }
-
-    // "dual word" filters
-    {
-        const auto filterDefinitions = defaultDualWordFilters.value(module->type);
-        for (const auto &filterDef: filterDefinitions)
-        {
-            DataFilter loWordFilter(filterDef.lowFilter);
-            DataFilter hiWordFilter(filterDef.highFilter);
-            MultiWordDataFilter multiWordFilter({loWordFilter, hiWordFilter});
-
-            double unitMin = 0.0;
-            double unitMax = (1 << multiWordFilter.getDataBits());
-
-            RawDataDisplay rawDataDisplay = make_raw_data_display(multiWordFilter, unitMin, unitMax,
-                                                                  module->objectName() + QSL(".") + filterDef.name,
-                                                                  filterDef.title,
-                                                                  QString());
-
-            add_raw_data_display(m_context->getAnalysisNG(), m_eventId, module->getId(), rawDataDisplay);
-        }
+        add_raw_data_display(m_context->getAnalysisNG(), m_eventId, module->getId(), rawDataDisplay);
     }
 
     repopulate();
-#endif
 }
 
 PipeDisplay *EventWidgetPrivate::makeAndShowPipeDisplay(Pipe *pipe)
@@ -1930,7 +1902,7 @@ void EventWidgetPrivate::importAnalysisObjects()
     QJsonDocument doc(gui_read_json_file(fileName));
     auto json = doc.object()[QSL("AnalysisNG")].toObject();
 
-    auto analysis_ng = std::make_unique<Analysis>();
+    auto analysis_ng = std::make_unique<Analysis>(); // TODO: No need to create it on the heap. Change this!
     auto readResult = analysis_ng->read(json);
 
     if (readResult.code != Analysis::ReadResult::NoError)

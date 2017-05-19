@@ -37,6 +37,39 @@ const char *getDefaultFilterName(u8 moduleType)
     return "";
 }
 
+QVector<std::shared_ptr<Extractor>> get_default_data_extractors(const QString &moduleTypeName)
+{
+    QVector<std::shared_ptr<Extractor>> result;
+
+    QDir moduleDir(vats::get_module_path(moduleTypeName));
+    QFile filtersFile(moduleDir.filePath("analysis/default_filters.analysis"));
+
+    if (filtersFile.open(QIODevice::ReadOnly))
+    {
+        auto doc = QJsonDocument::fromJson(filtersFile.readAll());
+        Analysis filterAnalysis;
+        auto readResult = filterAnalysis.read(doc.object()[QSL("AnalysisNG")].toObject());
+
+        if (readResult.code == Analysis::ReadResult::NoError)
+        {
+            for (auto entry: filterAnalysis.getSources())
+            {
+                auto extractor = std::dynamic_pointer_cast<Extractor>(entry.source);
+                if (extractor)
+                {
+                    result.push_back(extractor);
+                }
+            }
+        }
+    }
+
+    qSort(result.begin(), result.end(), [](const auto &a, const auto &b) {
+        return a->objectName() < b->objectName();
+    });
+
+    return result;
+}
+
 /** IMPORTANT: This constructor makes the Widget go into "add" mode. When
  * accepting the widget inputs it will call eventWidget->addSource(). */
 AddEditSourceWidget::AddEditSourceWidget(SourcePtr srcPtr, ModuleConfig *mod, EventWidget *eventWidget)
@@ -83,8 +116,6 @@ AddEditSourceWidget::AddEditSourceWidget(SourcePtr srcPtr, ModuleConfig *mod, Ev
     applyTemplate(0);
 }
 
-static const char *defaultNewFilter = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
-
 /** IMPORTANT: This constructor makes the Widget go into "edit" mode. When
  * accepting the widget inputs it will call eventWidget->sourceEdited(). */
 AddEditSourceWidget::AddEditSourceWidget(SourceInterface *src, ModuleConfig *module, EventWidget *eventWidget)
@@ -97,42 +128,18 @@ AddEditSourceWidget::AddEditSourceWidget(SourceInterface *src, ModuleConfig *mod
     setWindowTitle(QString("Edit %1").arg(m_src->getDisplayName()));
     add_widget_close_action(this);
 
+    m_defaultExtractors = get_default_data_extractors(module->getModuleMeta().typeName);
 
     // Read filter templates for the given module
-    QDir moduleDir(vats::get_module_path(module->getModuleMeta().typeName));
-    QFile filtersFile(moduleDir.filePath("analysis/default_filters.analysis"));
-
-    if (filtersFile.open(QIODevice::ReadOnly))
-    {
-        auto doc = QJsonDocument::fromJson(filtersFile.readAll());
-        Analysis filterAnalysis;
-        auto readResult = filterAnalysis.read(doc.object()[QSL("AnalysisNG")].toObject());
-
-        if (readResult.code == Analysis::ReadResult::NoError)
-        {
-            for (auto entry: filterAnalysis.getSources())
-            {
-                auto extractor = std::dynamic_pointer_cast<Extractor>(entry.source);
-                if (extractor)
-                {
-                    m_extractorTemplates.push_back(extractor);
-                }
-            }
-            QVector<Analysis::SourceEntry> sourceEntries = filterAnalysis.getSources();
-        }
-    }
-
-    qSort(m_extractorTemplates.begin(), m_extractorTemplates.end(), [](const auto &a, const auto &b) {
-        return a->objectName() < b->objectName();
-    });
-
     m_templateCombo = new QComboBox;
-    for (auto &ex: m_extractorTemplates)
+    for (auto &ex: m_defaultExtractors)
     {
         m_templateCombo->addItem(ex->objectName());
     }
 
     auto applyTemplateButton = new QPushButton(QSL("Apply Template"));
+    applyTemplateButton->setAutoDefault(false);
+    applyTemplateButton->setDefault(false);
     auto templateSelectLayout = new QHBoxLayout;
     templateSelectLayout->setContentsMargins(0, 0, 0, 0);
     templateSelectLayout->addWidget(m_templateCombo);
@@ -179,7 +186,7 @@ AddEditSourceWidget::AddEditSourceWidget(SourceInterface *src, ModuleConfig *mod
 
     auto layout = new QFormLayout(this);
 
-    if (m_extractorTemplates.size())
+    if (m_defaultExtractors.size())
     {
         layout->addRow(QSL("Filter template"), templateSelectLayout);
     }
@@ -190,9 +197,9 @@ AddEditSourceWidget::AddEditSourceWidget(SourceInterface *src, ModuleConfig *mod
 
 void AddEditSourceWidget::applyTemplate(int index)
 {
-    if (0 <= index && index < m_extractorTemplates.size())
+    if (0 <= index && index < m_defaultExtractors.size())
     {
-        auto tmpl = m_extractorTemplates[index];
+        auto tmpl = m_defaultExtractors[index];
         m_filterEditor->setSubFilters(tmpl->getFilter().getSubFilters());
         QString name = m_module->getModuleMeta().typeName + QSL(".") + tmpl->objectName().section('.', 0, -1);
         le_name->setText(name);
