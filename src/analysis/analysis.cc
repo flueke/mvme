@@ -1626,7 +1626,6 @@ void Histo1DSink::beginRun(const RunInfo &runInfo)
 
     if (m_inputSlot.inputPipe)
     {
-        Q_ASSERT(m_bins);
         s32 minIdx = 0;
         s32 maxIdx = m_inputSlot.inputPipe->parameters.size();
 
