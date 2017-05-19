@@ -7,6 +7,7 @@
 #include "mvme_listfile.h"
 #include "analysis/analysis.h"
 #include "analysis/analysis_ui.h"
+#include "config_ui.h"
 
 #include <QtConcurrent>
 #include <QTimer>
@@ -1444,4 +1445,41 @@ AnalysisPauser::~AnalysisPauser()
     {
         context->resumeAnalysis();
     }
+}
+
+static void add_context_properties_to_analysis(MVMEContext *context, analysis::Analysis *analysis)
+{
+    // Add mappings of (moduleId -> moduleTypeName) to the analysis properties.
+    // This can be used to auto-assign Extractors to module when importing an
+    // Analysis.
+    QVariantList modulePropertyList;
+
+    for (auto module: context->getVMEConfig()->getAllModuleConfigs())
+    {
+        QVariantMap moduleProperties;
+        moduleProperties["moduleId"] = module->getId().toString();
+        moduleProperties["moduleTypeName"] = module->getModuleMeta().typeName;
+        modulePropertyList.push_back(moduleProperties);
+    }
+
+    analysis->setProperty("ModuleProperties", modulePropertyList);
+}
+
+QPair<bool, QString> saveAnalysisConfig(analysis::Analysis *analysis,
+                                        const QString &fileName,
+                                        QString startPath,
+                                        QString fileFilter,
+                                        MVMEContext *context)
+{
+    add_context_properties_to_analysis(context, analysis);
+    return gui_saveAnalysisConfig(analysis, fileName, startPath, fileFilter);
+}
+
+QPair<bool, QString> saveAnalysisConfigAs(analysis::Analysis *analysis,
+                                          QString startPath,
+                                          QString fileFilter,
+                                          MVMEContext *context)
+{
+    add_context_properties_to_analysis(context, analysis);
+    return gui_saveAnalysisConfigAs(analysis, startPath, fileFilter);
 }

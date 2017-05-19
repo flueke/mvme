@@ -390,7 +390,8 @@ void mvme::closeEvent(QCloseEvent *event)
             auto result = saveAnalysisConfig(m_context->getAnalysisNG(),
                                              m_context->getAnalysisConfigFileName(),
                                              m_context->getWorkspaceDirectory(),
-                                             DefaultAnalysisFileFilter);
+                                             DefaultAnalysisFileFilter,
+                                             m_context);
             if (!result.first)
             {
                 event->ignore();

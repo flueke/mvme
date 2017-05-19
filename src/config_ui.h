@@ -66,12 +66,12 @@ class ModuleConfigDialog: public QDialog
         QVector<VMEModuleMeta> m_moduleMetas;
 };
 
-QPair<bool, QString> saveAnalysisConfig(analysis::Analysis *analysis_ng,
+QPair<bool, QString> gui_saveAnalysisConfig(analysis::Analysis *analysis_ng,
                                         const QString &fileName,
                                         QString startPath,
                                         QString fileFilter);
 
-QPair<bool, QString> saveAnalysisConfigAs(analysis::Analysis *analysis_ng,
+QPair<bool, QString> gui_saveAnalysisConfigAs(analysis::Analysis *analysis_ng,
                                           QString startPath,
                                           QString fileFilter);
 
