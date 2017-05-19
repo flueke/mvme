@@ -2465,6 +2465,9 @@ Analysis::ReadResult Analysis::read(const QJsonObject &json)
         }
     }
 
+    // Dynamic QObject Properties
+    loadDynamicProperties(json["properties"].toObject(), this);
+
     setModified(false);
 
     return result;
@@ -2555,6 +2558,12 @@ void Analysis::write(QJsonObject &json) const
 
         json["connections"] = conArray;
     }
+
+    // Dynamic QObject Properties
+    auto props = storeDynamicProperties(this);
+
+    if (!props.isEmpty())
+        json["properties"] = props;
 }
 
 void Analysis::setModified(bool b)
