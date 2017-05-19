@@ -8,6 +8,7 @@
 
 #include <limits>
 #include <QButtonGroup>
+#include <QDir>
 #include <QFormLayout>
 #include <QGridLayout>
 #include <QGroupBox>
@@ -77,7 +78,14 @@ AddEditSourceWidget::AddEditSourceWidget(SourcePtr srcPtr, ModuleConfig *mod, Ev
     });
 
     m_optionsLayout->addRow(m_gbGenHistograms);
+
+    if (m_extractorTemplates.size())
+    {
+        m_filterEditor->setSubFilters(m_extractorTemplates[0]->getFilter().getSubFilters());
+    }
 }
+
+static const char *defaultNewFilter = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
 
 /** IMPORTANT: This constructor makes the Widget go into "edit" mode. When
  * accepting the widget inputs it will call eventWidget->sourceEdited(). */
@@ -91,12 +99,62 @@ AddEditSourceWidget::AddEditSourceWidget(SourceInterface *src, ModuleConfig *mod
     setWindowTitle(QString("Edit %1").arg(m_src->getDisplayName()));
     add_widget_close_action(this);
 
+
+    // Read filter templates for the given module
+    QDir moduleDir(vats::get_module_path(module->getModuleMeta().typeName));
+    QFile filtersFile(moduleDir.filePath("analysis/default_filters.analysis"));
+
+    if (filtersFile.open(QIODevice::ReadOnly))
+    {
+        auto doc = QJsonDocument::fromJson(filtersFile.readAll());
+        Analysis filterAnalysis;
+        auto readResult = filterAnalysis.read(doc.object()[QSL("AnalysisNG")].toObject());
+
+        if (readResult.code == Analysis::ReadResult::NoError)
+        {
+            for (auto entry: filterAnalysis.getSources())
+            {
+                auto extractor = std::dynamic_pointer_cast<Extractor>(entry.source);
+                if (extractor)
+                {
+                    m_extractorTemplates.push_back(extractor);
+                }
+            }
+            QVector<Analysis::SourceEntry> sourceEntries = filterAnalysis.getSources();
+        }
+    }
+
+    qSort(m_extractorTemplates.begin(), m_extractorTemplates.end(), [](const auto &a, const auto &b) {
+        return a->objectName() < b->objectName();
+    });
+
+    m_templateCombo = new QComboBox;
+    for (auto &ex: m_extractorTemplates)
+    {
+        m_templateCombo->addItem(ex->objectName());
+    }
+
+    auto applyTemplateButton = new QPushButton(QSL("Apply"));
+    auto templateSelectLayout = new QHBoxLayout;
+    templateSelectLayout->setContentsMargins(0, 0, 0, 0);
+    templateSelectLayout->addWidget(m_templateCombo);
+    templateSelectLayout->addWidget(applyTemplateButton);
+    templateSelectLayout->setStretch(0, 1);
+
+    connect(applyTemplateButton, &QPushButton::clicked, this, [this]() {
+        int index = m_templateCombo->currentIndex();
+        if (0 <= index && index < m_extractorTemplates.size())
+        {
+            m_filterEditor->setSubFilters(m_extractorTemplates[index]->getFilter().getSubFilters());
+        }
+    });
+
     auto extractor = qobject_cast<Extractor *>(src);
     Q_ASSERT(extractor);
     Q_ASSERT(module);
 
     le_name = new QLineEdit;
-    m_filterEditor = new DataExtractionEditor;
+    m_filterEditor = new DataExtractionEditor(extractor->getFilter().getSubFilters());
     m_filterEditor->setMinimumHeight(125);
     m_filterEditor->setMinimumWidth(550);
 
@@ -104,26 +162,16 @@ AddEditSourceWidget::AddEditSourceWidget(SourceInterface *src, ModuleConfig *mod
     m_spinCompletionCount->setMinimum(1);
     m_spinCompletionCount->setMaximum(std::numeric_limits<int>::max());
 
-    if (extractor)
+    if (!extractor->objectName().isEmpty())
     {
-        if (!extractor->objectName().isEmpty())
-        {
-            le_name->setText(QString("%1").arg(extractor->objectName()));
-        }
-        else
-        {
-            le_name->setText(QString("%1.%2").arg(module->objectName()).arg(getDefaultFilterName(module->getModuleMeta().typeId)));
-        }
-
-        m_filterEditor->m_defaultFilter = getDefaultFilter(module->getModuleMeta().typeId);
-        m_filterEditor->m_subFilters = extractor->getFilter().getSubFilters();
-        if (m_filterEditor->m_subFilters.isEmpty())
-        {
-            m_filterEditor->m_subFilters.push_back(DataFilter(m_filterEditor->m_defaultFilter));
-        }
-        m_filterEditor->updateDisplay();
-        m_spinCompletionCount->setValue(extractor->getRequiredCompletionCount());
+        le_name->setText(QString("%1").arg(extractor->objectName()));
     }
+    else
+    {
+        le_name->setText(QString("%1.%2").arg(module->objectName()).arg(getDefaultFilterName(module->getModuleMeta().typeId)));
+    }
+
+    m_spinCompletionCount->setValue(extractor->getRequiredCompletionCount());
 
     m_optionsLayout = new QFormLayout;
     m_optionsLayout->addRow(QSL("Name"), le_name);
@@ -137,12 +185,15 @@ AddEditSourceWidget::AddEditSourceWidget(SourceInterface *src, ModuleConfig *mod
     buttonBoxLayout->addStretch();
     buttonBoxLayout->addWidget(m_buttonBox);
 
-    auto layout = new QVBoxLayout(this);
+    auto layout = new QFormLayout(this);
 
-    layout->addWidget(m_filterEditor);
-    layout->addLayout(m_optionsLayout);
-    layout->addLayout(buttonBoxLayout);
-    layout->setStretch(1, 1);
+    if (m_extractorTemplates.size())
+    {
+        layout->addRow(QSL("Filter template"), templateSelectLayout);
+    }
+    layout->addRow(m_filterEditor);
+    layout->addRow(m_optionsLayout);
+    layout->addRow(buttonBoxLayout);
 }
 
 void AddEditSourceWidget::accept()

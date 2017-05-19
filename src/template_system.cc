@@ -109,6 +109,12 @@ namespace
 
         return result;
     }
+
+    QString get_template_path()
+    {
+        QString templatePath = QCoreApplication::applicationDirPath() + QSL("/templates");
+        return templatePath;
+    }
 }
 
 namespace vats
@@ -119,7 +125,7 @@ QDebug operator<<(QDebug debug, const MVMETemplates &templates);
 
 MVMETemplates read_templates(TemplateLogger logger)
 {
-    QString templatePath = QCoreApplication::applicationDirPath() + QSL("/templates");
+    QString templatePath = get_template_path();
     do_log(QString("Template Path is %1").arg(templatePath), logger);
     return read_templates_from_path(templatePath, logger);
 }
@@ -173,11 +179,25 @@ MVMETemplates read_templates_from_path(const QString &path, TemplateLogger logge
         mm.typeName = json["typeName"].toString();
         mm.displayName = json["displayName"].toString();
         mm.templates = read_module_templates(moduleDir.filePath(QSL("vme")), logger, baseDir);
+        mm.templatePath = moduleDir.path();
 
         result.moduleMetas.push_back(mm);
     }
 
     return result;
+}
+
+QString get_module_path(const QString &moduleTypeName)
+{
+    auto templates = read_templates();
+
+    for (const auto &mm: templates.moduleMetas)
+    {
+        if (mm.typeName == moduleTypeName)
+            return mm.templatePath;
+    }
+
+    return QString();
 }
 
 static QTextStream &do_indent(QTextStream &out, int indent)

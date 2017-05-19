@@ -13,8 +13,21 @@ namespace analysis
 static const char *defaultNewFilter = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
 
 DataExtractionEditor::DataExtractionEditor(QWidget *parent)
+    : DataExtractionEditor(QVector<DataFilter>(), parent)
+{}
+
+DataExtractionEditor::DataExtractionEditor(const QVector<DataFilter> &subFilters, QWidget *parent)
     : QWidget(parent)
+    , m_subFilters(subFilters)
 {
+    if (m_subFilters.isEmpty())
+    {
+        // Ensure we have at least one filter, otherwise the display would be
+        // empty.
+        m_subFilters.push_back(DataFilter(defaultNewFilter));
+    }
+
+
     setWindowTitle(QSL("Data Extraction"));
 
     auto filterGridWidget = new QWidget;
@@ -62,6 +75,12 @@ static QSpinBox *makeWordIndexSpin()
     return result;
 }
 
+void DataExtractionEditor::setSubFilters(const QVector<DataFilter> &subFilters)
+{
+    m_subFilters = subFilters;
+    updateDisplay();
+}
+
 void DataExtractionEditor::updateDisplay()
 {
     {
@@ -77,20 +96,6 @@ void DataExtractionEditor::updateDisplay()
     m_filterEdits.clear();
 
     s32 row = 0;
-
-    // default filter
-    QLineEdit *defaultFilterEdit = makeFilterEdit();
-    defaultFilterEdit->setReadOnly(true);
-    defaultFilterEdit->setFocusPolicy(Qt::NoFocus);
-    QPalette palette;
-    palette.setColor(QPalette::Base, QColor(QSL("#e6e4e1")));
-    defaultFilterEdit->setPalette(palette);
-
-    defaultFilterEdit->setText(m_defaultFilter);
-
-    m_filterGrid->addWidget(new QLabel(QSL("Default Filter")), row, 0);
-    m_filterGrid->addWidget(defaultFilterEdit, row, 1);
-    ++row;
 
     s32 subFilterCount = m_subFilters.size();
     for (s32 filterIndex = 0; filterIndex < subFilterCount; ++filterIndex)

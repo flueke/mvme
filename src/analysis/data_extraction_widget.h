@@ -17,20 +17,13 @@ class DataExtractionEditor: public QWidget
     Q_OBJECT
     public:
         DataExtractionEditor(QWidget *parent = 0);
+        DataExtractionEditor(const QVector<DataFilter> &subFilters, QWidget *parent = 0);
 
+        void setSubFilters(const QVector<DataFilter> &subFilters);
         void updateDisplay();
         void apply();
 
-        QByteArray m_defaultFilter;
         QVector<DataFilter> m_subFilters;
-        QString m_unitString;
-#if 0
-        double m_unitMin;
-        double m_unitMax;
-        bool m_generateRawDisplay;
-        bool m_advancedView;
-#endif
-
         QGridLayout *m_filterGrid;
 
         struct FilterEditElements

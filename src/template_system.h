@@ -42,6 +42,8 @@ struct VMEModuleMeta
     QString typeName;
     QString displayName;
     VMEModuleTemplates templates;
+
+    QString templatePath;
 };
 
 struct MVMETemplates
@@ -52,9 +54,14 @@ struct MVMETemplates
 
 using TemplateLogger = std::function<void (const QString &)>;
 
+// Read templates from the default template path
 MVMETemplates read_templates(TemplateLogger logger = TemplateLogger());
+// Read templates from the given path
 MVMETemplates read_templates_from_path(const QString &path, TemplateLogger logger = TemplateLogger());
 
+QString get_module_path(const QString &moduleTypeName);
+
+// Output diagnostic information about the templates.
 QTextStream &operator<<(QTextStream &out, const MVMETemplates &templates);
 
 }
