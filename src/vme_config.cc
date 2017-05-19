@@ -9,6 +9,8 @@
 #include <QJsonArray>
 #include <QDebug>
 
+using namespace vats;
+
 //
 // ConfigObject
 //

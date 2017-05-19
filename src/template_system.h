@@ -7,6 +7,11 @@
 #include <QVector>
 #include <functional>
 
+// VME/Analysis Template System
+
+namespace vats
+{
+
 struct VMETemplate
 {
     QString contents;
@@ -51,5 +56,8 @@ MVMETemplates read_templates(TemplateLogger logger = TemplateLogger());
 MVMETemplates read_templates_from_path(const QString &path, TemplateLogger logger = TemplateLogger());
 
 QTextStream &operator<<(QTextStream &out, const MVMETemplates &templates);
+
+}
+
 
 #endif /* __TEMPLATE_SYSTEM_H__ */

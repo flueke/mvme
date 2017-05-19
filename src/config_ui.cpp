@@ -21,6 +21,8 @@
 #include <QJsonObject>
 #include <QJsonDocument>
 
+using namespace vats;
+
 //
 // EventConfigDialog
 //

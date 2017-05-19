@@ -40,6 +40,8 @@
 #include <qwt_plot_curve.h>
 #include <quazip/quazipfile.h>
 
+using namespace vats;
+
 static QString make_zip_error(const QString &message, const QuaZip *zip)
 {
   auto m = QString("%1\narchive=%2, code=%3")

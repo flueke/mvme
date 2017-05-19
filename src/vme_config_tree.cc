@@ -18,6 +18,7 @@
 #include <QTreeWidget>
 
 using namespace std::placeholders;
+using namespace vats;
 
 enum NodeType
 {

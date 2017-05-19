@@ -63,7 +63,7 @@ class ModuleConfigDialog: public QDialog
 
         MVMEContext *m_context;
         ModuleConfig *m_module;
-        QVector<VMEModuleMeta> m_moduleMetas;
+        QVector<vats::VMEModuleMeta> m_moduleMetas;
 };
 
 QPair<bool, QString> gui_saveAnalysisConfig(analysis::Analysis *analysis_ng,

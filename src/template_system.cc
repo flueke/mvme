@@ -15,6 +15,7 @@
 
 namespace
 {
+    using namespace vats;
 
     void do_log(const QString &msg, TemplateLogger logger)
     {
@@ -109,6 +110,9 @@ namespace
         return result;
     }
 }
+
+namespace vats
+{
 
 QDebug operator<<(QDebug debug, const MVMETemplates &templates);
 
@@ -278,3 +282,5 @@ QTextStream &operator<<(QTextStream &out, const MVMETemplates &templates)
         out << "<<<<< VME Templates >>>>>" << endl;
     }
 }
+
+} // namespace vats
