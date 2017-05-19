@@ -387,8 +387,7 @@ void mvme::closeEvent(QCloseEvent *event)
 
         if (result == QMessageBox::Save)
         {
-            auto result = saveAnalysisConfig(nullptr,
-                                             m_context->getAnalysisNG(),
+            auto result = saveAnalysisConfig(m_context->getAnalysisNG(),
                                              m_context->getAnalysisConfigFileName(),
                                              m_context->getWorkspaceDirectory(),
                                              DefaultAnalysisFileFilter);

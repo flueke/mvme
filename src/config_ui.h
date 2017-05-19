@@ -10,7 +10,6 @@ class ModuleConfig;
 class DataFilterConfig;
 class DualWordDataFilterConfig;
 class MVMEContext;
-class AnalysisConfig;
 
 namespace analysis
 {
@@ -67,14 +66,12 @@ class ModuleConfigDialog: public QDialog
         QVector<VMEModuleMeta> m_moduleMetas;
 };
 
-QPair<bool, QString> saveAnalysisConfig(AnalysisConfig *config,
-                                        analysis::Analysis *analysis_ng,
+QPair<bool, QString> saveAnalysisConfig(analysis::Analysis *analysis_ng,
                                         const QString &fileName,
                                         QString startPath,
                                         QString fileFilter);
 
-QPair<bool, QString> saveAnalysisConfigAs(AnalysisConfig *config,
-                                          analysis::Analysis *analysis_ng,
+QPair<bool, QString> saveAnalysisConfigAs(analysis::Analysis *analysis_ng,
                                           QString startPath,
                                           QString fileFilter);
 

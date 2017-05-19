@@ -2459,7 +2459,7 @@ QPair<bool, QString> AnalysisWidgetPrivate::actionSave()
     }
     else
     {
-        auto result = saveAnalysisConfig(nullptr, m_context->getAnalysisNG(), fileName,
+        auto result = saveAnalysisConfig(m_context->getAnalysisNG(), fileName,
                                          m_context->getWorkspaceDirectory(), AnalysisFileFilter);
         if (result.first)
         {
@@ -2473,7 +2473,7 @@ QPair<bool, QString> AnalysisWidgetPrivate::actionSave()
 
 QPair<bool, QString> AnalysisWidgetPrivate::actionSaveAs()
 {
-    auto result = saveAnalysisConfigAs(nullptr, m_context->getAnalysisNG(),
+    auto result = saveAnalysisConfigAs(m_context->getAnalysisNG(),
                                        m_context->getWorkspaceDirectory(), AnalysisFileFilter);
 
     if (result.first)

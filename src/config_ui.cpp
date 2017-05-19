@@ -218,7 +218,7 @@ VHS4030pWidget::VHS4030pWidget(MVMEContext *context, ModuleConfig *config, QWidg
 
 namespace
 {
-    bool saveAnalysisConfigImpl(AnalysisConfig *config, analysis::Analysis *analysis_ng, const QString &fileName)
+    bool saveAnalysisConfigImpl(analysis::Analysis *analysis_ng, const QString &fileName)
     {
         QJsonObject json;
         {
@@ -230,19 +230,19 @@ namespace
     }
 }
 
-QPair<bool, QString> saveAnalysisConfig(AnalysisConfig *config, analysis::Analysis *analysis_ng, const QString &fileName, QString startPath, QString fileFilter)
+QPair<bool, QString> saveAnalysisConfig(analysis::Analysis *analysis_ng, const QString &fileName, QString startPath, QString fileFilter)
 {
     if (fileName.isEmpty())
-        return saveAnalysisConfigAs(config, analysis_ng, startPath, fileFilter);
+        return saveAnalysisConfigAs(analysis_ng, startPath, fileFilter);
 
-    if (saveAnalysisConfigImpl(config, analysis_ng, fileName))
+    if (saveAnalysisConfigImpl(analysis_ng, fileName))
     {
         return qMakePair(true, fileName);
     }
     return qMakePair(false, QString());
 }
 
-QPair<bool, QString> saveAnalysisConfigAs(AnalysisConfig *config, analysis::Analysis *analysis_ng, QString path, QString fileFilter)
+QPair<bool, QString> saveAnalysisConfigAs(analysis::Analysis *analysis_ng, QString path, QString fileFilter)
 {
     if (path.isEmpty())
         path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
@@ -256,7 +256,7 @@ QPair<bool, QString> saveAnalysisConfigAs(AnalysisConfig *config, analysis::Anal
     if (fi.completeSuffix().isEmpty())
         fileName += QSL(".analysis");
 
-    if (saveAnalysisConfigImpl(config, analysis_ng, fileName))
+    if (saveAnalysisConfigImpl(analysis_ng, fileName))
     {
         return qMakePair(true, fileName);
     }
