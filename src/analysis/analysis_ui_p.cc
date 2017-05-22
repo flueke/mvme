@@ -137,7 +137,7 @@ AddEditSourceWidget::AddEditSourceWidget(SourceInterface *src, ModuleConfig *mod
         m_templateCombo->addItem(ex->objectName());
     }
 
-    auto applyTemplateButton = new QPushButton(QSL("Apply Template"));
+    auto applyTemplateButton = new QPushButton(QSL("Load Template"));
     applyTemplateButton->setAutoDefault(false);
     applyTemplateButton->setDefault(false);
     auto templateSelectLayout = new QHBoxLayout;
