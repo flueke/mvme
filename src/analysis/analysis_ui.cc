@@ -1578,6 +1578,8 @@ void EventWidgetPrivate::clearAllToDefaultNodeHighlights()
 
 void EventWidgetPrivate::onNodeClicked(TreeNode *node, int column, s32 userLevel)
 {
+    clearTreeSelectionsExcept(node->treeWidget());
+
     switch (m_mode)
     {
         case Default:
