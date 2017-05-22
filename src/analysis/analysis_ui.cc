@@ -15,6 +15,7 @@
 #include <QGuiApplication>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QListWidget>
 #include <QMenu>
 #include <QMessageBox>
 #include <QScrollArea>
@@ -359,6 +360,9 @@ struct EventWidgetPrivate
     std::array<SetOfVoidStar, TreeType_Count> m_expandedObjects;
     QTimer *m_pipeDisplayRefreshTimer;
 
+    // If set the trees for that user level will not be shown
+    QVector<bool> m_hiddenUserLevels;
+
     void createView(const QUuid &eventId);
     DisplayLevelTrees createTrees(const QUuid &eventId, s32 level);
     DisplayLevelTrees createSourceTrees(const QUuid &eventId);
@@ -390,7 +394,11 @@ struct EventWidgetPrivate
     void updateActions();
     void importAnalysisObjects();
 
+    // Actions used in makeToolBar()
     QAction *m_actionImport;
+
+    // Actions and widgets used in makeEventSelectAreaToolBar()
+    QAction *m_actionSelectVisibleLevels;
 };
 
 void EventWidgetPrivate::createView(const QUuid &eventId)
@@ -403,7 +411,10 @@ void EventWidgetPrivate::createView(const QUuid &eventId)
         maxUserLevel = std::max(maxUserLevel, opEntry.userLevel);
     }
 
-    for (s32 userLevel = 0; userLevel <= maxUserLevel; ++userLevel)
+    // Level 0: special case for data sources
+    m_levelTrees.push_back(createSourceTrees(eventId));
+
+    for (s32 userLevel = 1; userLevel <= maxUserLevel; ++userLevel)
     {
         auto trees = createTrees(eventId, userLevel);
         m_levelTrees.push_back(trees);
@@ -426,69 +437,6 @@ DisplayLevelTrees make_displaylevel_trees(const QString &opTitle, const QString 
         tree->setItemDelegate(new HtmlDelegate(tree));
         tree->setSelectionMode(QAbstractItemView::SingleSelection);
     }
-
-    return result;
-}
-
-DisplayLevelTrees EventWidgetPrivate::createTrees(const QUuid &eventId, s32 level)
-{
-    // Level 0: special case for data sources
-    if (level == 0)
-    {
-        return createSourceTrees(eventId);
-    }
-
-    DisplayLevelTrees result = make_displaylevel_trees(
-        QString(QSL("L%1 Processing")).arg(level),
-        QString(QSL("L%1 Data Display")).arg(level),
-        level);
-
-    // Build a list of operators for the current level
-    auto analysis = m_context->getAnalysisNG();
-    QVector<Analysis::OperatorEntry> operators = analysis->getOperators(eventId, level);
-
-    // Populate the OperatorTree
-    for (auto entry: operators)
-    {
-        if(!qobject_cast<SinkInterface *>(entry.op.get()))
-        {
-            auto opNode = makeOperatorNode(entry.op.get());
-            result.operatorTree->addTopLevelItem(opNode);
-        }
-    }
-    result.operatorTree->sortItems(0, Qt::AscendingOrder);
-
-    // Populate the DisplayTree
-    {
-        auto histo1DRoot = new TreeNode({QSL("1D")});
-        auto histo2DRoot = new TreeNode({QSL("2D")});
-        result.displayTree->addTopLevelItem(histo1DRoot);
-        result.displayTree->addTopLevelItem(histo2DRoot);
-        histo1DRoot->setExpanded(true);
-        histo2DRoot->setExpanded(true);
-        result.displayTree->histo1DRoot = histo1DRoot;
-        result.displayTree->histo2DRoot = histo2DRoot;
-
-        for (const auto &entry: operators)
-        {
-            if (auto histoSink = qobject_cast<Histo1DSink *>(entry.op.get()))
-            {
-                auto histoNode = makeHisto1DNode(histoSink);
-                histo1DRoot->addChild(histoNode);
-            }
-            else if (auto histoSink = qobject_cast<Histo2DSink *>(entry.op.get()))
-            {
-                auto histoNode = makeHisto2DNode(histoSink);
-                histo2DRoot->addChild(histoNode);
-            }
-            else if (auto sink = qobject_cast<SinkInterface *>(entry.op.get()))
-            {
-                auto sinkNode = makeSinkNode(sink);
-                result.displayTree->addTopLevelItem(sinkNode);
-            }
-        }
-    }
-    result.displayTree->sortItems(0, Qt::AscendingOrder);
 
     return result;
 }
@@ -579,6 +527,63 @@ DisplayLevelTrees EventWidgetPrivate::createSourceTrees(const QUuid &eventId)
         }
     }
 
+    result.displayTree->sortItems(0, Qt::AscendingOrder);
+
+    return result;
+}
+
+DisplayLevelTrees EventWidgetPrivate::createTrees(const QUuid &eventId, s32 level)
+{
+    DisplayLevelTrees result = make_displaylevel_trees(
+        QString(QSL("L%1 Processing")).arg(level),
+        QString(QSL("L%1 Data Display")).arg(level),
+        level);
+
+    // Build a list of operators for the current level
+    auto analysis = m_context->getAnalysisNG();
+    QVector<Analysis::OperatorEntry> operators = analysis->getOperators(eventId, level);
+
+    // Populate the OperatorTree
+    for (auto entry: operators)
+    {
+        if(!qobject_cast<SinkInterface *>(entry.op.get()))
+        {
+            auto opNode = makeOperatorNode(entry.op.get());
+            result.operatorTree->addTopLevelItem(opNode);
+        }
+    }
+    result.operatorTree->sortItems(0, Qt::AscendingOrder);
+
+    // Populate the DisplayTree
+    {
+        auto histo1DRoot = new TreeNode({QSL("1D")});
+        auto histo2DRoot = new TreeNode({QSL("2D")});
+        result.displayTree->addTopLevelItem(histo1DRoot);
+        result.displayTree->addTopLevelItem(histo2DRoot);
+        histo1DRoot->setExpanded(true);
+        histo2DRoot->setExpanded(true);
+        result.displayTree->histo1DRoot = histo1DRoot;
+        result.displayTree->histo2DRoot = histo2DRoot;
+
+        for (const auto &entry: operators)
+        {
+            if (auto histoSink = qobject_cast<Histo1DSink *>(entry.op.get()))
+            {
+                auto histoNode = makeHisto1DNode(histoSink);
+                histo1DRoot->addChild(histoNode);
+            }
+            else if (auto histoSink = qobject_cast<Histo2DSink *>(entry.op.get()))
+            {
+                auto histoNode = makeHisto2DNode(histoSink);
+                histo2DRoot->addChild(histoNode);
+            }
+            else if (auto sink = qobject_cast<SinkInterface *>(entry.op.get()))
+            {
+                auto sinkNode = makeSinkNode(sink);
+                result.displayTree->addTopLevelItem(sinkNode);
+            }
+        }
+    }
     result.displayTree->sortItems(0, Qt::AscendingOrder);
 
     return result;
@@ -739,6 +744,14 @@ void EventWidgetPrivate::repopulate()
         // splitterMoved() they both had the same sizes before.
         m_operatorFrameSplitter->setSizes(splitterSizes);
         m_displayFrameSplitter->setSizes(splitterSizes);
+    }
+
+    m_hiddenUserLevels.resize(m_levelTrees.size());
+
+    for (s32 idx = 0; idx < m_hiddenUserLevels.size(); ++idx)
+    {
+        m_levelTrees[idx].operatorTree->setVisible(!m_hiddenUserLevels[idx]);
+        m_levelTrees[idx].displayTree->setVisible(!m_hiddenUserLevels[idx]);
     }
 
     expandObjectNodes(m_levelTrees, m_expandedObjects);
@@ -1522,7 +1535,7 @@ void EventWidgetPrivate::highlightInputNodes(OperatorInterface *op)
     for (auto trees: m_levelTrees)
     {
         // Without the namespace prefix the compiler can't find
-        // highlightInputNodes(). C++ surprises me again and again...
+        // highlightInputNodes()...
         analysis::highlightInputNodes(op, trees.operatorTree->invisibleRootItem());
     }
 }
@@ -1957,6 +1970,43 @@ void EventWidgetPrivate::importAnalysisObjects()
 
 static const u32 pipeDisplayRefreshInterval_ms = 1000;
 
+void run_userlevel_visibility_dialog(QVector<bool> &hiddenLevels, QWidget *parent = 0)
+{
+    auto listWidget = new QListWidget;
+
+    for (s32 idx = 0; idx < hiddenLevels.size(); ++idx)
+    {
+        auto item = new QListWidgetItem(QString("Level %1").arg(idx));
+        item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
+        item->setCheckState(hiddenLevels[idx] ? Qt::Unchecked : Qt::Checked);
+        listWidget->addItem(item);
+    }
+
+    auto buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+
+    auto layout = new QVBoxLayout;
+    layout->addWidget(listWidget);
+    layout->addWidget(buttonBox);
+    layout->setStretch(0, 1);
+
+    QDialog dialog(parent);
+    dialog.setWindowTitle(QSL("Select processing levels to show"));
+    dialog.setLayout(layout);
+    add_widget_close_action(&dialog);
+
+    QObject::connect(buttonBox, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    QObject::connect(buttonBox, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+
+    if (dialog.exec() == QDialog::Accepted)
+    {
+        for (s32 idx = 0; idx < listWidget->count(); ++idx)
+        {
+            auto item = listWidget->item(idx);
+            hiddenLevels[idx] = (item->checkState() == Qt::Unchecked);
+        }
+    }
+}
+
 EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, AnalysisWidget *analysisWidget, QWidget *parent)
     : QWidget(parent)
     , m_d(new EventWidgetPrivate)
@@ -2005,9 +2055,11 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, AnalysisWidget 
     // Column frames and splitters:
     // One column for each user level
     m_d->m_operatorFrameSplitter = new QSplitter;
+    m_d->m_operatorFrameSplitter->setChildrenCollapsible(false);
     operatorFrameLayout->addWidget(m_d->m_operatorFrameSplitter);
 
     m_d->m_displayFrameSplitter = new QSplitter;
+    m_d->m_displayFrameSplitter->setChildrenCollapsible(false);
     displayFrameLayout->addWidget(m_d->m_displayFrameSplitter);
 
     auto sync_splitters = [](QSplitter *sa, QSplitter *sb)
@@ -2026,9 +2078,25 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, AnalysisWidget 
     sync_splitters(m_d->m_operatorFrameSplitter, m_d->m_displayFrameSplitter);
 
 
-    // Toolbar actions
+    // Upper ToolBar actions
     m_d->m_actionImport = new QAction("Import Analysis Objects", this);
     connect(m_d->m_actionImport, &QAction::triggered, this, [this] { m_d->importAnalysisObjects(); });
+
+    // Lower ToolBar, to the right of the event selection combo
+    m_d->m_actionSelectVisibleLevels = new QAction(QSL("Level Visiblity"), this);
+
+    connect(m_d->m_actionSelectVisibleLevels, &QAction::triggered, this, [this] {
+
+        m_d->m_hiddenUserLevels.resize(m_d->m_levelTrees.size());
+
+        run_userlevel_visibility_dialog(m_d->m_hiddenUserLevels, this);
+
+        for (s32 idx = 0; idx < m_d->m_hiddenUserLevels.size(); ++idx)
+        {
+            m_d->m_levelTrees[idx].operatorTree->setVisible(!m_d->m_hiddenUserLevels[idx]);
+            m_d->m_levelTrees[idx].displayTree->setVisible(!m_d->m_hiddenUserLevels[idx]);
+        }
+    });
 
     m_d->repopulate();
 }
@@ -2216,6 +2284,15 @@ QToolBar *EventWidget::makeToolBar()
     return tb;
 }
 
+QToolBar *EventWidget::makeEventSelectAreaToolBar()
+{
+    auto tb = make_toolbar();
+
+    tb->addAction(m_d->m_actionSelectVisibleLevels);
+
+    return tb;
+}
+
 MVMEContext *EventWidget::getContext() const
 {
     return m_d->m_context;
@@ -2267,7 +2344,8 @@ struct AnalysisWidgetPrivate
     QToolBar *m_toolbar;
     QComboBox *m_eventSelectCombo;
     QStackedWidget *m_eventWidgetStack;
-    QStackedWidget *m_eventWidgetToolbarStack;
+    QStackedWidget *m_eventWidgetToolBarStack;
+    QStackedWidget *m_eventWidgetEventSelectAreaToolBarStack;
     QToolButton *m_removeUserLevelButton;
     QToolButton *m_addUserLevelButton;
 
@@ -2284,23 +2362,23 @@ struct AnalysisWidgetPrivate
     void updateAddRemoveUserLevelButtons();
 };
 
+// Clears the stacked widget and deletes its child widgets
+static void clear_stacked_widget(QStackedWidget *stackedWidget)
+{
+    while (auto widget = stackedWidget->currentWidget())
+    {
+        stackedWidget->removeWidget(widget);
+        widget->deleteLater();
+    }
+    Q_ASSERT(stackedWidget->count() == 0);
+}
+
 void AnalysisWidgetPrivate::repopulate()
 {
-    // Clear stacked widget and delete existing EventWidgets
-    while (auto widget = m_eventWidgetStack->currentWidget())
-    {
-        m_eventWidgetStack->removeWidget(widget);
-        widget->deleteLater();
-    }
-    Q_ASSERT(m_eventWidgetStack->count() == 0);
+    clear_stacked_widget(m_eventWidgetEventSelectAreaToolBarStack);
+    clear_stacked_widget(m_eventWidgetToolBarStack);
+    clear_stacked_widget(m_eventWidgetStack);
     m_eventWidgetsByEventId.clear();
-
-    while (auto widget = m_eventWidgetToolbarStack->currentWidget())
-    {
-        m_eventWidgetToolbarStack->removeWidget(widget);
-        widget->deleteLater();
-    }
-    Q_ASSERT(m_eventWidgetToolbarStack->count() == 0);
 
     // Repopulate combobox and stacked widget
     auto eventConfigs = m_context->getEventConfigs();
@@ -2320,7 +2398,8 @@ void AnalysisWidgetPrivate::repopulate()
         scrollArea->setWidgetResizable(true);
 
         m_eventWidgetStack->addWidget(scrollArea);
-        m_eventWidgetToolbarStack->addWidget(eventWidget->makeToolBar());
+        m_eventWidgetToolBarStack->addWidget(eventWidget->makeToolBar());
+        m_eventWidgetEventSelectAreaToolBarStack->addWidget(eventWidget->makeEventSelectAreaToolBar());
         m_eventWidgetsByEventId[eventId] = eventWidget;
     }
 
@@ -2556,9 +2635,13 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
 
     // QStackedWidgets for EventWidgets and their toolbars
     m_d->m_eventWidgetStack = new QStackedWidget;
-    m_d->m_eventWidgetToolbarStack = new QStackedWidget;
+    m_d->m_eventWidgetToolBarStack = new QStackedWidget;
     connect(m_d->m_eventWidgetStack, &QStackedWidget::currentChanged,
-            m_d->m_eventWidgetToolbarStack, &QStackedWidget::setCurrentIndex);
+            m_d->m_eventWidgetToolBarStack, &QStackedWidget::setCurrentIndex);
+
+    m_d->m_eventWidgetEventSelectAreaToolBarStack = new QStackedWidget;
+    connect(m_d->m_eventWidgetStack, &QStackedWidget::currentChanged,
+            m_d->m_eventWidgetEventSelectAreaToolBarStack, &QStackedWidget::setCurrentIndex);
 
     // toolbar
     {
@@ -2579,7 +2662,7 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     toolbarFrameLayout->setContentsMargins(0, 0, 0, 0);
     toolbarFrameLayout->setSpacing(0);
     toolbarFrameLayout->addWidget(m_d->m_toolbar);
-    toolbarFrameLayout->addWidget(m_d->m_eventWidgetToolbarStack);
+    toolbarFrameLayout->addWidget(m_d->m_eventWidgetToolBarStack);
     toolbarFrameLayout->addStretch();
 
     // event select combo
@@ -2621,6 +2704,10 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     auto eventSelectLayout = new QHBoxLayout;
     eventSelectLayout->addWidget(new QLabel(QSL("Event:")));
     eventSelectLayout->addWidget(m_d->m_eventSelectCombo);
+    auto separatorFrame = new QFrame;
+    separatorFrame->setFrameStyle(QFrame::VLine | QFrame::Sunken);
+    eventSelectLayout->addWidget(separatorFrame);
+    eventSelectLayout->addWidget(m_d->m_eventWidgetEventSelectAreaToolBarStack);
     eventSelectLayout->addStretch();
     eventSelectLayout->addWidget(m_d->m_removeUserLevelButton);
     eventSelectLayout->addWidget(m_d->m_addUserLevelButton);

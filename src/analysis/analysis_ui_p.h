@@ -61,6 +61,7 @@ class EventWidget: public QWidget
         void removeUserLevel();
         void repopulate();
         QToolBar *makeToolBar();
+        QToolBar *makeEventSelectAreaToolBar();
 
         MVMEContext *getContext() const;
 
