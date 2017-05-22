@@ -10,65 +10,14 @@
 - VMEConfig read error handling.
   * Error if CurrentDAQConfigVersion < get_vmeconfig_version()
     -> The file was created by a newer version of MVME and might not load correctly.
-- Template warnings if duplicate types
+- Add warnings to template loading if there are duplicate module types
 - Parse binary numbers in vme_script
 
 New VME/Analysis Template System (VATS)
 ---------------------------------------
-==== Reqs ====
-- Replaces the current template system. Should do everything it currently does.
-- Goal is to remove most module information from the code. Instead load it from files.
-  It should not be neccessary to edit the code at all to add/edit/remove module types.
-- Plugins/Code paths for certains modules can be loaded into the application to
-  allow module dependent behaviour.
-- New feature: Add custom scripts to modules. For example a script to setup Channel Thresholds.
-  Execution order is important here!
-  Config file format right now is hash based. I think the entries are sorted
-  by interal name (daq_start, daq_stop). An array that can be sorted would be better.
-
-- Current template files for reference:
-    event_daq_start.vme             # Multicast stop acq, reset ctrs, reset fifo, start acq, readout reset
-    event_daq_stop.vme              # multicast stop acq
-
-    readout_cycle_start.vme         # Cycle Start. Empty
-    readout_cycle_end.vme           # Cycle End. Multicast readout reset
-
-    # Scripts for the mesytec "group"
-    mesytec_readout_settings.vme    # Readout settings. Same for all mesytec module
-    mesytec_readout.vme             # Readout loop. mbltfifo read of the module
-    mesytec_reset.vme
-
-    # Module specific scripts. Override group scripts.
-    madc32_parameters.vme
-    mdi2_parameters.vme
-    mdpp16_parameters.vme
-    mdpp32_parameters.vme
-    mqdc32_parameters.vme
-    mtdc32_parameters.vme
-    mesytec_counter_parameters.vme
-    mesytec_counter_readout.vme
-
 - New feature: Module specific filters. (Analysis related, not VME Config related)
   Default filter set. (Add default filters)
   Additional filter sets. (Add filters)
-
-
-==== Plan ====
-* Step 1 - Remove VMEModuleType from the code
-  - Create files containing all of the information that was in the code.
-  - Load these files into some sane structures
-  - Do some checking. Verify no duplicate moduleIds and moduleShortNames, etc.
-  - Change the code to use the loaded information
-  Note: This will break the analysis part of things as default filters are not
-  possible without having VMEModuleType.
-
-* Step 2 - Allow custom scripts to be added to module init.
-  - The user can add new scripts via the gui.
-  - The user can change the execution order of custom scripts.
-  - Custom scripts can be added to the VMMIS so that they're automatically
-    instantiated on module creation.
-  - Make VMUSBReadoutWorker execute the custom scripts.
-
 
 
 #0  0x00007ffff3e36067 in __GI_raise (sig=sig@entry=6) at ../nptl/sysdeps/unix/sysv/linux/raise.c:56
@@ -136,8 +85,6 @@ New VME/Analysis Template System (VATS)
   replaced with a similar one.
 * Histo1DWidget: The curve for the last bin is not drawn. Try to finally find a fix for this.
 
-* Calibration:
-
 * Copy/Paste and Move Operators
   - Moving operators could violate the rule that inputs should come from the
     current user level or the ones below. For consistency keep that rule intact
@@ -149,10 +96,6 @@ New VME/Analysis Template System (VATS)
 
 
 * select input UI: disable other tree highlights while it's active.
-* track down weird scrolling/selection bug when selcting inputs.
-  What happens is that the treeview scrolls up and the wrong input is selected.
-  This happens when clicking a node.
-
 * Fix replay stats display and replay timer. It wasn't designed with pausing
   and stepping in mind.
 * ZIP file support:
@@ -223,9 +166,6 @@ New VME/Analysis Template System (VATS)
   somehow? Better to directly limit the generation of these messages?
 * Fix diagnostics window blocking when there are a lot of error messages being generated.
 
-* workspace
-    * copy templates from app dir to workspace (maybe?)
-
 * Histos:
   * add histogram cuts
   * add histogram fitting
@@ -258,10 +198,8 @@ New VME/Analysis Template System (VATS)
         - resume
   Do this when implementing support for another controller, not before.
 
-* save and restore the position and size of windows
 * save and restore the zoom and pan of histograms
 * save and restore open histograms
-* make use of the "enabled" flag for vme scripts, modules, events, etc
 
 ==========================
 ===== Maybe do these =====
