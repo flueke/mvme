@@ -119,6 +119,9 @@ New VME/Analysis Template System (VATS)
 ==========================
 ==== Do these later! =====
 ==========================
+* Analysis structure:
+  SourceEntry does not really need the eventId as the moduleId implicitly
+  specifies the eventId.
 * H1D: Take the median of the visible left and right edges. Subtract that value
   from the calculated statistics values. This is supposed to remove the noise
   to the left and right of a peak.

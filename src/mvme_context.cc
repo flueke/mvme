@@ -1449,7 +1449,7 @@ AnalysisPauser::~AnalysisPauser()
     }
 }
 
-static void add_context_properties_to_analysis(MVMEContext *context, analysis::Analysis *analysis)
+static void add_vme_properties_to_analysis(MVMEContext *context, analysis::Analysis *analysis)
 {
     // Add mappings of (moduleId -> moduleTypeName) to the analysis properties.
     // This can be used to auto-assign Extractors to module when importing an
@@ -1461,6 +1461,7 @@ static void add_context_properties_to_analysis(MVMEContext *context, analysis::A
         QVariantMap moduleProperties;
         moduleProperties["moduleId"] = module->getId().toString();
         moduleProperties["moduleTypeName"] = module->getModuleMeta().typeName;
+        moduleProperties["moduleName"] = module->objectName();
         modulePropertyList.push_back(moduleProperties);
     }
 
@@ -1473,7 +1474,7 @@ QPair<bool, QString> saveAnalysisConfig(analysis::Analysis *analysis,
                                         QString fileFilter,
                                         MVMEContext *context)
 {
-    add_context_properties_to_analysis(context, analysis);
+    add_vme_properties_to_analysis(context, analysis);
     return gui_saveAnalysisConfig(analysis, fileName, startPath, fileFilter);
 }
 
@@ -1482,6 +1483,6 @@ QPair<bool, QString> saveAnalysisConfigAs(analysis::Analysis *analysis,
                                           QString fileFilter,
                                           MVMEContext *context)
 {
-    add_context_properties_to_analysis(context, analysis);
+    add_vme_properties_to_analysis(context, analysis);
     return gui_saveAnalysisConfigAs(analysis, startPath, fileFilter);
 }
