@@ -26,6 +26,8 @@ QString toString(const ListFileFormat &fmt)
         case ListFileFormat::ZIP:
             return QSL("ZIP");
     }
+
+    return QString();
 }
 
 ListFileFormat fromString(const QString &str)
@@ -293,8 +295,8 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
     , m_mode(GlobalMode::NotSet)
     , m_daqState(DAQState::Idle)
     , m_listFileWorker(new ListFileReader(m_daqStats))
-    , m_analysis_ng(new analysis::Analysis)
     , m_listFileFormat(ListFileFormat::ZIP)
+    , m_analysis_ng(new analysis::Analysis)
 {
     m_d->m_q = this;
 

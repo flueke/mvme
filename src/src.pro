@@ -14,7 +14,8 @@ TEMPLATE = app
 # problem disable warnings via warn_off and then prepend -Wall to
 # QMAKE_CXXFLAGS.
 CONFIG   += warn_off
-warning_flags = -Wall -Wno-unused-variable -Wno-unused-parameter -Wno-unused-function -Wno-format
+warning_flags = -Wall -Wno-unused-parameter -Wno-unused-function -Wno-format -Wno-unused-but-set-parameter
+# Other flags: -Wall -Wno-unused-variable -Wno-unused-parameter -Wno-unused-function -Wno-format
 QMAKE_CXXFLAGS += $$warning_flags
 QMAKE_CFLAGS += $$warning_flags
 

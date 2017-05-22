@@ -222,10 +222,10 @@ struct Slot
     static const s32 NoParamIndex = -1; // special paramIndex value for InputType::Array
 
     Slot(OperatorInterface *parentOp, s32 parentSlotIndex, const QString &name, u32 acceptedInputs = InputType::Both)
-        : parentOperator(parentOp)
+        : acceptedInputTypes(acceptedInputs)
+        , parentOperator(parentOp)
         , parentSlotIndex(parentSlotIndex)
         , name(name)
-        , acceptedInputTypes(acceptedInputs)
     {}
 
     /* Sets inputPipe to be the new input for this Slot. */

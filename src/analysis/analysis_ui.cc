@@ -1917,8 +1917,8 @@ void EventWidgetPrivate::importAnalysisObjects()
     QJsonDocument doc(gui_read_json_file(fileName));
     auto json = doc.object()[QSL("AnalysisNG")].toObject();
 
-    auto analysis_ng = std::make_unique<Analysis>(); // TODO: No need to create it on the heap. Change this!
-    auto readResult = analysis_ng->read(json);
+    Analysis analysis;
+    auto readResult = analysis.read(json);
 
     if (readResult.code != Analysis::ReadResult::NoError)
     {
@@ -1934,14 +1934,14 @@ void EventWidgetPrivate::importAnalysisObjects()
     // TODO: Step 1.1) Verify that there's only one event and one module, verify there's a source // (both kind of the same)
 
     // Step 2) Set new IDs on objects
-    QVector<Analysis::SourceEntry> sources = analysis_ng->getSources();
+    QVector<Analysis::SourceEntry> sources = analysis.getSources();
 
     for (auto &entry: sources)
     {
         entry.source->setId(QUuid::createUuid());
     }
 
-    QVector<Analysis::OperatorEntry> operators = analysis_ng->getOperators();
+    QVector<Analysis::OperatorEntry> operators = analysis.getOperators();
     for (auto &entry: operators)
     {
         entry.op->setId(QUuid::createUuid());

@@ -138,7 +138,7 @@ struct listfile_v0
 struct listfile_v1
 {
     static const int Version = 1;
-    constexpr static char * const FourCC = "MVME";
+    constexpr static const char * const FourCC = "MVME";
 
     static const int FirstSectionOffset = 8;
 
