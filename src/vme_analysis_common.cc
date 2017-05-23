@@ -339,9 +339,8 @@ bool run_vme_analysis_module_assignment_ui(VMEConfig *vmeConfig, analysis::Analy
         result.button    = new QRadioButton;
         auto layout = new QHBoxLayout(result.container);
         layout->setContentsMargins(0, 0, 0, 0);
-        layout->addStretch();
+        layout->setAlignment(Qt::AlignCenter);
         layout->addWidget(result.button);
-        layout->addStretch();
         return result;
     };
 
@@ -355,29 +354,80 @@ bool run_vme_analysis_module_assignment_ui(VMEConfig *vmeConfig, analysis::Analy
 
         for (s32 col = 0; col < vModInfos.size() + 1; ++col)
         {
-            auto radioContainer = make_radio_container();
-            group->addButton(radioContainer.button, col);
-            mainTable->setCellWidget(row, col, radioContainer.container);
+            RadioContainer radioContainer = {};
 
             if (col < vModInfos.size())
             {
                 auto aModInfo = aModInfos[row];
                 auto vModInfo = vModInfos[col];
 
-                radioContainer.button->setEnabled(aModInfo.typeName == vModInfo.typeName);
+                if (aModInfo.typeName == vModInfo.typeName)
+                {
+                    radioContainer = make_radio_container();
+                }
+            }
+            else
+            {
+                // RadioButton for the "discard" action
+                radioContainer = make_radio_container();
+            }
+
+            if (radioContainer.button)
+            {
+                mainTable->setCellWidget(row, col, radioContainer.container);
+                group->addButton(radioContainer.button, col);
+            }
+            else
+            {
+                auto item = new QTableWidgetItem;
+                item->setFlags(Qt::NoItemFlags);
+                item->setBackground(mainTable->palette().mid());
+                mainTable->setItem(row, col, item);
             }
         }
 
-        // Select the "discard" button by default.
-        group->button(vModInfos.size())->setChecked(true);
+        // Select the first button of a group by default. There is always at
+        // least one button, the "discard" button.
+        group->buttons().at(0)->setChecked(true);
     }
 
     mainTable->resizeColumnsToContents();
     mainTable->resizeRowsToContents();
 
+    QObject::connect(mainTable, &QTableWidget::cellPressed, [&radioGroups](int row, int col) {
+        // Check buttons if the user clicks anywhere in the cell. Without this
+        // code the click location has to be right on top of the button for it
+        // to get checked.
+        if (row < radioGroups.size())
+        {
+            if (auto button = radioGroups[row]->button(col))
+            {
+                button->setChecked(true);
+            }
+        }
+    });
+
+    static const s32 LegendFontPointSize = 20;
+
+    auto vmeLabel = new QLabel("VME");
+    {
+        auto font = vmeLabel->font();
+        font.setPointSize(LegendFontPointSize);
+        vmeLabel->setFont(font);
+    }
+
+    auto anaLabel = new VerticalLabel("Analysis");
+    {
+        auto font = anaLabel->font();
+        font.setPointSize(LegendFontPointSize);
+        anaLabel->setFont(font);
+    }
+
     auto mainLayout = new QGridLayout;
     mainLayout->setContentsMargins(0, 0, 0, 0);
-    mainLayout->addWidget(mainTable, 0, 0);
+    mainLayout->addWidget(vmeLabel, 0, 1, Qt::AlignCenter);
+    mainLayout->addWidget(anaLabel, 1, 0, Qt::AlignCenter);
+    mainLayout->addWidget(mainTable, 1, 1);
 
     QDialog dialog;
     dialog.setWindowTitle("Analysis to VME Module assignment");
