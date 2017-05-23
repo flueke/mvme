@@ -1127,10 +1127,8 @@ class Analysis: public QObject
         void processDataWord(const QUuid &eventId, const QUuid &moduleId, u32 data, s32 wordIndex);
         void endEvent(const QUuid &eventId);
 
-        const QVector<SourceEntry> &getSources() const
-        {
-            return m_sources;
-        }
+        const QVector<SourceEntry> &getSources() const { return m_sources; }
+        QVector<SourceEntry> &getSources() { return m_sources; }
 
         QVector<SourceEntry> getSources(const QUuid &eventId, const QUuid &moduleId) const
         {
@@ -1151,10 +1149,8 @@ class Analysis: public QObject
         void removeSource(const SourcePtr &source);
         void removeSource(SourceInterface *source);
 
-        const QVector<OperatorEntry> &getOperators() const
-        {
-            return m_operators;
-        }
+        const QVector<OperatorEntry> &getOperators() const { return m_operators; }
+        QVector<OperatorEntry> &getOperators() { return m_operators; }
 
         const QVector<OperatorEntry> getOperators(const QUuid &eventId) const
         {
@@ -1192,47 +1188,6 @@ class Analysis: public QObject
 
         void clear();
         bool isEmpty() const;
-
-#if 0
-        s32 getModuleIndex(const SourcePtr &src) const { return getModuleIndex(src.get()); }
-        s32 getModuleIndex(const SourceInterface *src) const
-        {
-            for (const auto &sourceEntry: m_sources)
-            {
-                if (sourceEntry.source.get() == src)
-                {
-                    return sourceEntry.moduleIndex;
-                }
-            }
-            return -1 ;
-        }
-
-        s32 getEventIndex(const SourcePtr &src) const { return getEventIndex(src.get()); }
-        s32 getEventIndex(const SourceInterface *src) const
-        {
-            for (const auto &sourceEntry: m_sources)
-            {
-                if (sourceEntry.source.get() == src)
-                {
-                    return sourceEntry.moduleIndex;
-                }
-            }
-            return -1;
-        }
-
-        s32 getEventIndex(const OperatorPtr &op) const { return getEventIndex(op.get()); }
-        s32 getEventIndex(const OperatorInterface *op) const
-        {
-            for (const auto &opEntry: m_operators)
-            {
-                if (opEntry.op.get() == op)
-                {
-                    return opEntry.eventIndex;
-                }
-            }
-            return -1;
-        }
-#endif
 
         void updateRanks();
 
