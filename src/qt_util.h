@@ -4,6 +4,7 @@
 #include <QHash>
 #include <QJsonObject>
 #include <QKeySequence>
+#include <QLabel>
 #include <QObject>
 
 #define QSL(str) QStringLiteral(str)
@@ -36,5 +37,21 @@ QAction *add_widget_close_action(QWidget *widget,
 
 QJsonObject storeDynamicProperties(const QObject *object);
 void loadDynamicProperties(const QJsonObject &json, QObject *dest);
+
+
+// VerticalLabel source: https://stackoverflow.com/a/18515898
+class VerticalLabel : public QLabel
+{
+    Q_OBJECT
+
+public:
+    explicit VerticalLabel(QWidget *parent=0);
+    explicit VerticalLabel(const QString &text, QWidget *parent=0);
+
+protected:
+    void paintEvent(QPaintEvent*);
+    QSize sizeHint() const ;
+    QSize minimumSizeHint() const;
+};
 
 #endif /* __QT_UTIL_H__ */
