@@ -8,6 +8,7 @@
 #include "analysis/analysis.h"
 #include "analysis/analysis_ui.h"
 #include "config_ui.h"
+#include "vme_analysis_common.h"
 
 #include <QtConcurrent>
 #include <QTimer>
@@ -1280,6 +1281,7 @@ bool MVMEContext::loadAnalysisConfig(QIODevice *input)
 bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc)
 {
     using namespace analysis;
+    using namespace vme_analysis_common;
 
     auto json = doc.object()[QSL("AnalysisNG")].toObject();
 
@@ -1301,6 +1303,12 @@ bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc)
                                       "Error: %1")
                               .arg(Analysis::ReadResult::ErrorCodeStrings.value(readResult.code, "Unknown error")));
         return false;
+    }
+
+    if (!auto_assign_vme_modules(getVMEConfig(), analysis_ng.get()))
+    {
+        if (!run_vme_analysis_module_assignment_ui(getVMEConfig(), analysis_ng.get(), getMainWindow()))
+            return false;
     }
 
     try
@@ -1449,32 +1457,13 @@ AnalysisPauser::~AnalysisPauser()
     }
 }
 
-static void add_vme_properties_to_analysis(MVMEContext *context, analysis::Analysis *analysis)
-{
-    // Add mappings of (moduleId -> moduleTypeName) to the analysis properties.
-    // This can be used to auto-assign Extractors to module when importing an
-    // Analysis.
-    QVariantList modulePropertyList;
-
-    for (auto module: context->getVMEConfig()->getAllModuleConfigs())
-    {
-        QVariantMap moduleProperties;
-        moduleProperties["moduleId"] = module->getId().toString();
-        moduleProperties["moduleTypeName"] = module->getModuleMeta().typeName;
-        moduleProperties["moduleName"] = module->objectName();
-        modulePropertyList.push_back(moduleProperties);
-    }
-
-    analysis->setProperty("ModuleProperties", modulePropertyList);
-}
-
 QPair<bool, QString> saveAnalysisConfig(analysis::Analysis *analysis,
                                         const QString &fileName,
                                         QString startPath,
                                         QString fileFilter,
                                         MVMEContext *context)
 {
-    add_vme_properties_to_analysis(context, analysis);
+    vme_analysis_common::add_vme_properties_to_analysis(context->getVMEConfig(), analysis);
     return gui_saveAnalysisConfig(analysis, fileName, startPath, fileFilter);
 }
 
@@ -1483,6 +1472,6 @@ QPair<bool, QString> saveAnalysisConfigAs(analysis::Analysis *analysis,
                                           QString fileFilter,
                                           MVMEContext *context)
 {
-    add_vme_properties_to_analysis(context, analysis);
+    vme_analysis_common::add_vme_properties_to_analysis(context->getVMEConfig(), analysis);
     return gui_saveAnalysisConfigAs(analysis, startPath, fileFilter);
 }

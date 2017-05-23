@@ -38,8 +38,9 @@ HEADERS += \
     $$PWD/vmusb_constants.h \
     $$PWD/vmusb_readout_worker.h \
     $$PWD/vmusb_stack.h \
+    $$PWD/vme_analysis_common.h \
     $$PWD/vme_config.h \
-    $$PWD/vme_config_tree.h
+    $$PWD/vme_config_tree.h \
 
 
 SOURCES += \
@@ -74,8 +75,9 @@ SOURCES += \
     $$PWD/vmusb_buffer_processor.cc \
     $$PWD/vmusb_readout_worker.cc \
     $$PWD/vmusb_stack.cc \
+    $$PWD/vme_analysis_common.cc \
     $$PWD/vme_config.cc \
-    $$PWD/vme_config_tree.cc
+    $$PWD/vme_config_tree.cc \
 
 
 FORMS += \

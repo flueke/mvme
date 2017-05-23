@@ -2,6 +2,8 @@
 ==== Do these first! =====
 ==========================
 
+- New Extractor -> suggested Name does not prepend the current name from the vme config.
+
 - Refactor gui_write_json_file() to write_json_file() and use exceptions to report errors.
   Meaning: implement functionality using exceptions and not caring about if
   it's used from the gui or not. Then build and use gui wrappers which show
