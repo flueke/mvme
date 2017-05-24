@@ -304,6 +304,31 @@ bool run_vme_analysis_module_assignment_ui(VMEConfig *vmeConfig, analysis::Analy
     std::sort(aModInfos.begin(), aModInfos.end(), cmp_typeName);
 
     auto mainTable = new QTableWidget(aModInfos.size(), vModInfos.size() + 1);
+
+    /* Source: https://stackoverflow.com/a/38804129
+     * This fixes the look of the table widget in Windows 10.
+     */
+    if(QSysInfo::windowsVersion() == QSysInfo::WV_WINDOWS10)
+    {
+        mainTable->setStyleSheet(
+            "QHeaderView::section{"
+            "border-top:0px solid #D8D8D8;"
+            "border-left:0px solid #D8D8D8;"
+            "border-right:1px solid #D8D8D8;"
+            "border-bottom: 1px solid #D8D8D8;"
+            "background-color:white;"
+            "padding:4px;"
+            "}"
+            "QTableCornerButton::section{"
+            "border-top:0px solid #D8D8D8;"
+            "border-left:0px solid #D8D8D8;"
+            "border-right:1px solid #D8D8D8;"
+            "border-bottom: 1px solid #D8D8D8;"
+            "background-color:white;"
+            "}"
+            "QHeaderView{background-color:white;}"
+            );
+    }
     mainTable->setSelectionMode(QAbstractItemView::NoSelection);
 
     // Vertical: Analysis modules
