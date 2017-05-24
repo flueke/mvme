@@ -34,15 +34,7 @@ void add_vme_properties_to_analysis(VMEConfig *vmeConfig, analysis::Analysis *an
     analysis->setProperty("ModuleProperties", modulePropertyList);
 }
 
-struct ModuleInfo
-{
-    QUuid id;
-    QString typeName;
-    QString name;
-    QUuid eventId; // only set if the object was obtained from the VMEConfig
-};
-
-static QVector<ModuleInfo> get_module_infos(VMEConfig *vmeConfig)
+QVector<ModuleInfo> get_module_infos(VMEConfig *vmeConfig)
 {
     QVector<ModuleInfo> result;
     for (auto module: vmeConfig->getAllModuleConfigs())
@@ -57,7 +49,7 @@ static QVector<ModuleInfo> get_module_infos(VMEConfig *vmeConfig)
     return result;
 }
 
-static QVector<ModuleInfo> get_module_infos(Analysis *analysis)
+QVector<ModuleInfo> get_module_infos(Analysis *analysis)
 {
     QVector<ModuleInfo> result;
     for (auto propsVariant: analysis->property("ModuleProperties").toList())
@@ -214,6 +206,11 @@ static void apply_changes(Analysis *analysis, const QVector<ChangeInfo> &changes
 bool auto_assign_vme_modules(VMEConfig *vmeConfig, analysis::Analysis *analysis)
 {
     auto vModInfos = get_module_infos(vmeConfig);
+    return auto_assign_vme_modules(vModInfos, analysis);
+}
+
+bool auto_assign_vme_modules(QVector<ModuleInfo> vModInfos, analysis::Analysis *analysis)
+{
     auto aModInfos = get_module_infos(analysis);
 
     QSet<QUuid> vModIds;
@@ -276,24 +273,13 @@ bool auto_assign_vme_modules(VMEConfig *vmeConfig, analysis::Analysis *analysis)
 
 bool run_vme_analysis_module_assignment_ui(VMEConfig *vmeConfig, analysis::Analysis *analysis, QWidget *parent)
 {
-#if 1
     auto vModInfos = get_module_infos(vmeConfig);
-    auto aModInfos = get_module_infos(analysis);
-#else
-    QVector<ModuleInfo> vModInfos =
-    {
-        { QUuid::createUuid(), "mdpp16", "MyMDPP16" },
-        { QUuid::createUuid(), "madc32", "MyMADC-32"},
-        { QUuid::createUuid(), "madc32", "MyMADC-32 2"},
-    };
+    return run_vme_analysis_module_assignment_ui(vModInfos, analysis, parent);
+}
 
-    QVector<ModuleInfo> aModInfos =
-    {
-        { QUuid::createUuid(), "mdpp16", "Another MDPP" },
-        { QUuid::createUuid(), "mdpp16", "2nd Analysis MDPP" },
-        { QUuid::createUuid(), "madc32", "Analysis MADC"},
-    };
-#endif
+bool run_vme_analysis_module_assignment_ui(QVector<ModuleInfo> vModInfos, analysis::Analysis *analysis, QWidget *parent)
+{
+    auto aModInfos = get_module_infos(analysis);
 
     auto cmp_typeName = [](const auto &a, const auto &b)
     {

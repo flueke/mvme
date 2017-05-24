@@ -12,8 +12,22 @@ namespace vme_analysis_common
  */
 void add_vme_properties_to_analysis(VMEConfig *vmeConfig, analysis::Analysis *analysis);
 
+struct ModuleInfo
+{
+    QUuid id;
+    QString typeName;
+    QString name;
+    QUuid eventId; // only set if the object was obtained from the VMEConfig
+};
+
+QVector<ModuleInfo> get_module_infos(VMEConfig *vmeConfig);
+QVector<ModuleInfo> get_module_infos(analysis::Analysis *analysis);
+
 bool auto_assign_vme_modules(VMEConfig *vmeConfig, analysis::Analysis *analysis);
+bool auto_assign_vme_modules(QVector<ModuleInfo> vmeModuleInfos, analysis::Analysis *analysis);
+
 bool run_vme_analysis_module_assignment_ui(VMEConfig *vmeConfig, analysis::Analysis *analysis, QWidget *parent = 0);
+bool run_vme_analysis_module_assignment_ui(QVector<ModuleInfo> vmeModuleInfos, analysis::Analysis *analysis, QWidget *parent = 0);
 
 }
 
