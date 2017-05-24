@@ -7,6 +7,7 @@
 #include "../histo2d_widget.h"
 #include "../treewidget_utils.h"
 #include "../config_ui.h"
+#include "../vme_analysis_common.h"
 
 #include <QApplication>
 #include <QComboBox>
@@ -1872,6 +1873,9 @@ void EventWidgetPrivate::updateActions()
 
     auto node = getCurrentNode();
 
+    // FIXME: Remove this once it's clear that it's not going to be used.
+    // Just keep some of the code around as an example of how to create event specific toolbar entries.
+#if 0
     if (m_mode == Default && node && node->type() == NodeType_Module)
     {
         if (auto module = getPointer<ModuleConfig>(node))
@@ -1879,8 +1883,10 @@ void EventWidgetPrivate::updateActions()
             m_actionImport->setEnabled(true);
         }
     }
+#endif
 }
 
+// FIXME: This code is not used anymore
 void EventWidgetPrivate::importAnalysisObjects()
 {
     auto node = getCurrentNode();
@@ -1911,7 +1917,7 @@ void EventWidgetPrivate::importAnalysisObjects()
     if (fileName.isEmpty())
         return;
 
-    // IMPORTANT: no conversion for formats with MVMEAnalysisVersion < 2!
+    // IMPORTANT FIXME: no conversion for formats with MVMEAnalysisVersion < 2 is done here!
 
     // Step 1) Load Analysis
     QJsonDocument doc(gui_read_json_file(fileName));
@@ -2356,6 +2362,7 @@ struct AnalysisWidgetPrivate
     void actionOpen();
     QPair<bool, QString> actionSave();
     QPair<bool, QString> actionSaveAs();
+    void actionImport();
     void actionClearHistograms();
 
     void updateWindowTitle();
@@ -2542,6 +2549,106 @@ QPair<bool, QString> AnalysisWidgetPrivate::actionSaveAs()
     return result;
 }
 
+void AnalysisWidgetPrivate::actionImport()
+{
+    // Step 0) Let the user pick a file
+    // Step 1) Create Analysis from file contents
+    // Step 2) Generate new IDs for analysis objects
+    // Step 3) Try auto-assignment of modules
+    // Step 4) If auto assignment fails run the assignment gui
+    // Step 5) Add the remaining objects into the existing analysis
+
+    // Step 0) Let the user pick a file
+    auto path = m_context->getWorkspaceDirectory();
+    if (path.isEmpty())
+        path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
+
+    QString fileName = QFileDialog::getOpenFileName(m_q, QSL("Import analysis"), path, AnalysisFileFilter);
+
+    if (fileName.isEmpty())
+        return;
+
+    // IMPORTANT FIXME: no conversion for formats with MVMEAnalysisVersion < 2 is done here!
+
+    // Step 1) Create Analysis from file contents
+    QJsonDocument doc(gui_read_json_file(fileName));
+    auto json = doc.object()[QSL("AnalysisNG")].toObject();
+
+    Analysis analysis;
+    auto readResult = analysis.read(json);
+
+    if (readResult.code != Analysis::ReadResult::NoError)
+    {
+        qDebug() << "!!!!! Error reading analysis ng" << readResult.code << readResult.errorData;
+
+        QMessageBox::critical(m_q, QSL("Error"),
+                              QString("Error loading analysis\n"
+                                      "Error: %1")
+                              .arg(Analysis::ReadResult::ErrorCodeStrings.value(readResult.code, "Unknown error")));
+        return;
+    }
+
+    // Step 2) Generate new IDs for analysis objects
+    generate_new_object_ids(&analysis);
+
+    // Step 3) Try auto-assignment of modules
+    using namespace vme_analysis_common;
+
+    if (!auto_assign_vme_modules(m_context->getVMEConfig(), &analysis))
+    {
+    // Step 4) If auto assignment fails run the assignment gui
+        if (!run_vme_analysis_module_assignment_ui(m_context->getVMEConfig(), &analysis))
+            return;
+    }
+
+    auto sources = analysis.getSources();
+    auto operators = analysis.getOperators();
+
+    if (sources.isEmpty() && operators.isEmpty())
+        return;
+
+
+#ifndef QT_NO_DEBUG
+    QSet<QUuid> vmeEventIds;
+    QSet<QUuid> vmeModuleIds;
+    for (auto ec: m_context->getVMEConfig()->getEventConfigs())
+    {
+        vmeEventIds.insert(ec->getId());
+
+        for (auto mc: ec->getModuleConfigs())
+        {
+            vmeModuleIds.insert(mc->getId());
+        }
+    }
+#endif
+
+    // Step 5) Add the remaining objects into the existing analysis
+    AnalysisPauser pauser(m_context);
+    auto targetAnalysis = m_context->getAnalysisNG();
+
+    for (auto entry: sources)
+    {
+#ifndef QT_NO_DEBUG
+        Q_ASSERT(vmeEventIds.contains(entry.eventId));
+        Q_ASSERT(vmeModuleIds.contains(entry.moduleId));
+#endif
+
+        targetAnalysis->addSource(entry.eventId, entry.moduleId, entry.source);
+    }
+
+    for (auto entry: operators)
+    {
+#ifndef QT_NO_DEBUG
+        Q_ASSERT(vmeEventIds.contains(entry.eventId));
+#endif
+        // FIXME: userLevel handling. Create a new base userlevel for everything that's going to get imported?
+        // TODO:  Fix this once we have the ability to move operators between userlevels easily!
+        targetAnalysis->addOperator(entry.eventId, entry.op, entry.userLevel);
+    }
+
+    repopulate();
+}
+
 void AnalysisWidgetPrivate::actionClearHistograms()
 {
     AnalysisPauser pauser(m_context);
@@ -2647,14 +2754,24 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     {
         m_d->m_toolbar = make_toolbar();
 
+        QAction *action;
+
         m_d->m_toolbar->addAction(QIcon(":/document-new.png"), QSL("New"), this, [this]() { m_d->actionNew(); });
         m_d->m_toolbar->addAction(QIcon(":/document-open.png"), QSL("Open"), this, [this]() { m_d->actionOpen(); });
         m_d->m_toolbar->addAction(QIcon(":/document-save.png"), QSL("Save"), this, [this]() { m_d->actionSave(); });
         m_d->m_toolbar->addAction(QIcon(":/document-save-as.png"), QSL("Save As"), this, [this]() { m_d->actionSaveAs(); });
+
+        action = m_d->m_toolbar->addAction(QIcon(":/folder_import.png"), QSL("Import"), this, [this]() { m_d->actionImport(); });
+        action->setToolTip(QSL("Add items from an existing Analysis"));
+        action->setStatusTip(action->toolTip());
+
         m_d->m_toolbar->addSeparator();
         m_d->m_toolbar->addAction(QIcon(":/clear_histos.png"), QSL("Clear Histograms"), this, [this]() { m_d->actionClearHistograms(); });
         m_d->m_toolbar->addSeparator();
     }
+
+    // After the toolbar entries the EventWidget specific action will be added.
+    // See EventWidget::makeToolBar()
 
     auto toolbarFrame = new QFrame;
     toolbarFrame->setFrameStyle(QFrame::StyledPanel);

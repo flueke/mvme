@@ -1247,6 +1247,9 @@ QString make_unique_operator_name(Analysis *analysis, const QString &prefix);
 bool all_inputs_connected(OperatorInterface *op);
 bool no_input_connected(OperatorInterface *op);
 
+/** Generate new unique IDs for all sources and operators. */
+void generate_new_object_ids(Analysis *analysis);
+
 } // end namespace analysis
 
 #endif /* __ANALYSIS_H__ */

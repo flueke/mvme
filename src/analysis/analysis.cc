@@ -2767,4 +2767,13 @@ bool no_input_connected(OperatorInterface *op)
     return result;
 }
 
+void generate_new_object_ids(Analysis *analysis)
+{
+    for (auto &sourceEntry: analysis->getSources())
+        sourceEntry.source->setId(QUuid::createUuid());
+
+    for (auto &operatorEntry: analysis->getOperators())
+        operatorEntry.op->setId(QUuid::createUuid());
+}
+
 }
