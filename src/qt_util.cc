@@ -118,7 +118,14 @@ void VerticalLabel::paintEvent(QPaintEvent*)
     painter.setPen(Qt::black);
     painter.setBrush(Qt::Dense1Pattern);
 
+#if 0
     painter.rotate(90);
+#else
+    // FIXME: Subtracting 10 is a hack that just works for the single use case
+    // I have right now.
+    painter.translate(sizeHint().width()-10, sizeHint().height());
+    painter.rotate(270);
+#endif
 
     painter.drawText(0,0, text());
 }
