@@ -27,6 +27,7 @@
 #include <QToolBar>
 #include <QToolButton>
 #include <QTreeWidget>
+#include <QWidgetAction>
 
 
 #include <QJsonObject>
@@ -393,10 +394,15 @@ struct EventWidgetPrivate
     // Returns the currentItem() of the tree widget that has focus.
     QTreeWidgetItem *getCurrentNode();
     void updateActions();
-    void importAnalysisObjects();
+
+    void importForModuleFromTemplate();
+    void importForModuleFromFile();
+    void importForModule(ModuleConfig *module, const QString &startPath);
 
     // Actions used in makeToolBar()
-    QAction *m_actionImport;
+    QAction *m_actionImportForModuleFromTemplate;
+    QAction *m_actionImportForModuleFromFile;
+    QWidgetAction *m_actionModuleImport;
 
     // Actions and widgets used in makeEventSelectAreaToolBar()
     QAction *m_actionSelectVisibleLevels;
@@ -1869,57 +1875,77 @@ QTreeWidgetItem *EventWidgetPrivate::getCurrentNode()
 
 void EventWidgetPrivate::updateActions()
 {
-    m_actionImport->setEnabled(false);
-
     auto node = getCurrentNode();
 
-    // FIXME: Remove this once it's clear that it's not going to be used.
-    // Just keep some of the code around as an example of how to create event specific toolbar entries.
-#if 0
+    m_actionModuleImport->setEnabled(false);
+    m_actionImportForModuleFromTemplate->setEnabled(false);
+    m_actionImportForModuleFromFile->setEnabled(false);
+
     if (m_mode == Default && node && node->type() == NodeType_Module)
     {
         if (auto module = getPointer<ModuleConfig>(node))
         {
-            m_actionImport->setEnabled(true);
+            m_actionModuleImport->setEnabled(true);
+            m_actionImportForModuleFromTemplate->setEnabled(true);
+            m_actionImportForModuleFromFile->setEnabled(true);
         }
     }
-#endif
 }
 
-// FIXME: This code is not used anymore
-void EventWidgetPrivate::importAnalysisObjects()
+void EventWidgetPrivate::importForModuleFromTemplate()
 {
     auto node = getCurrentNode();
 
-    if (!node || node->type() != NodeType_Module)
-        return;
+    if (node && node->type() == NodeType_Module)
+    {
+        if (auto module = getPointer<ModuleConfig>(node))
+        {
+            importForModule(module, vats::get_module_path(module->getModuleMeta().typeName));
+        }
+    }
+}
 
-    auto module = getPointer<ModuleConfig>(node);
+void EventWidgetPrivate::importForModuleFromFile()
+{
+    auto node = getCurrentNode();
 
-    if (!module)
-        return;
+    if (node && node->type() == NodeType_Module)
+    {
+        if (auto module = getPointer<ModuleConfig>(node))
+        {
+            importForModule(module, m_context->getWorkspaceDirectory());
+        }
+    }
+}
 
+/* Importing of module specific analysis objects
+ * - Module must be given
+ * - Decide where to start: module template directory or workspace directory
+ * - Let user pick a file
+ * - Load analysis from file
+ * - Generate new IDs for analysis objects
+ * - Try auto assignment but using only the ModuleInfo from the selected module
+ * - If auto assignment fails run the assigment gui also using only info for the selected module.
+ * - Add the remaining objects into the existing analysis
+ *
+ *   FIXME: As auto-assignment does not discard analysis objects this code
+ *   might add unwanted objects to the existing analysis. Think about this and
+ *   fix it!
+ */
+void EventWidgetPrivate::importForModule(ModuleConfig *module, const QString &startPath)
+{
     auto event = qobject_cast<EventConfig *>(module->parent());
 
     if (!event)
         return;
 
-    const auto moduleId = module->getId();
-    const auto eventId  = event->getId();
-
-    auto path = m_context->getWorkspaceDirectory();
-    if (path.isEmpty())
-        path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
-
-    // FIXME: basically copied from MVMEContext
-    QString fileName = QFileDialog::getOpenFileName(m_q, QSL("Import analysis objects"), path, AnalysisFileFilter);
+    QString fileName = QFileDialog::getOpenFileName(m_q, QSL("Import analysis objects"), startPath, AnalysisFileFilter);
 
     if (fileName.isEmpty())
         return;
 
     // IMPORTANT FIXME: no conversion for formats with MVMEAnalysisVersion < 2 is done here!
 
-    // Step 1) Load Analysis
     QJsonDocument doc(gui_read_json_file(fileName));
     auto json = doc.object()[QSL("AnalysisNG")].toObject();
 
@@ -1937,38 +1963,44 @@ void EventWidgetPrivate::importAnalysisObjects()
         return;
     }
 
-    // TODO: Step 1.1) Verify that there's only one event and one module, verify there's a source // (both kind of the same)
+    generate_new_object_ids(&analysis);
 
-    // Step 2) Set new IDs on objects
-    QVector<Analysis::SourceEntry> sources = analysis.getSources();
+    using namespace vme_analysis_common;
 
-    for (auto &entry: sources)
+    ModuleInfo moduleInfo;
+    moduleInfo.id = module->getId();
+    moduleInfo.typeName = module->getModuleMeta().typeName;
+    moduleInfo.name = module->objectName();
+    moduleInfo.eventId = event->getId();
+
+    if (!auto_assign_vme_modules({moduleInfo}, &analysis))
     {
-        entry.source->setId(QUuid::createUuid());
+        if (!run_vme_analysis_module_assignment_ui({moduleInfo}, &analysis))
+            return;
     }
 
-    QVector<Analysis::OperatorEntry> operators = analysis.getOperators();
-    for (auto &entry: operators)
-    {
-        entry.op->setId(QUuid::createUuid());
-    }
+    auto sources = analysis.getSources();
+    auto operators = analysis.getOperators();
 
     if (sources.isEmpty() && operators.isEmpty())
         return;
-
-    // Step 3) Insert elements into target analysis
 
     AnalysisPauser pauser(m_context);
     auto targetAnalysis = m_context->getAnalysisNG();
 
     for (auto entry: sources)
     {
-        targetAnalysis->addSource(eventId, moduleId, entry.source);
+        Q_ASSERT(entry.eventId == moduleInfo.eventId);
+        Q_ASSERT(entry.moduleId == moduleInfo.id);
+        targetAnalysis->addSource(entry.eventId, entry.moduleId, entry.source);
     }
 
     for (auto entry: operators)
     {
-        targetAnalysis->addOperator(eventId, entry.op, entry.userLevel);
+        Q_ASSERT(entry.eventId == moduleInfo.eventId);
+        // FIXME: userLevel handling. Create a new base userlevel for everything that's going to get imported?
+        // TODO:  Fix this once we have the ability to move operators between userlevels easily!
+        targetAnalysis->addOperator(entry.eventId, entry.op, entry.userLevel);
     }
 
     repopulate();
@@ -2085,8 +2117,35 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, AnalysisWidget 
 
 
     // Upper ToolBar actions
-    m_d->m_actionImport = new QAction("Import Analysis Objects", this);
-    connect(m_d->m_actionImport, &QAction::triggered, this, [this] { m_d->importAnalysisObjects(); });
+
+    m_d->m_actionImportForModuleFromTemplate = new QAction("Import Module objects from template");
+    m_d->m_actionImportForModuleFromFile     = new QAction("Import Module objects from file");
+    m_d->m_actionModuleImport = new QWidgetAction(this);
+    {
+        auto menu = new QMenu(this);
+        menu->addAction(m_d->m_actionImportForModuleFromTemplate);
+        menu->addAction(m_d->m_actionImportForModuleFromFile);
+
+        auto toolButton = new QToolButton;
+        toolButton->setMenu(menu);
+        toolButton->setPopupMode(QToolButton::InstantPopup);
+        toolButton->setIcon(QIcon(QSL(":/analysis_module_import.png")));
+        toolButton->setText(QSL("Import module objects"));
+        toolButton->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+        auto font = toolButton->font();
+        font.setPointSize(7);
+        toolButton->setFont(font);
+
+        m_d->m_actionModuleImport->setDefaultWidget(toolButton);
+    }
+
+    connect(m_d->m_actionImportForModuleFromTemplate, &QAction::triggered, this, [this] {
+        m_d->importForModuleFromTemplate();
+    });
+
+    connect(m_d->m_actionImportForModuleFromFile, &QAction::triggered, this, [this] {
+        m_d->importForModuleFromFile();
+    });
 
     // Lower ToolBar, to the right of the event selection combo
     m_d->m_actionSelectVisibleLevels = new QAction(QSL("Level Visiblity"), this);
@@ -2276,7 +2335,8 @@ static QToolBar *make_toolbar()
     tb->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
     tb->setIconSize(QSize(16, 16));
     auto font = tb->font();
-    font.setPointSize(font.pointSize() - 1);
+    //font.setPointSize(font.pointSize() - 1);
+    font.setPointSize(7);
     tb->setFont(font);
     return tb;
 }
@@ -2284,8 +2344,7 @@ static QToolBar *make_toolbar()
 QToolBar *EventWidget::makeToolBar()
 {
     auto tb = make_toolbar();
-
-    tb->addAction(m_d->m_actionImport);
+    tb->addAction(m_d->m_actionModuleImport);
 
     return tb;
 }

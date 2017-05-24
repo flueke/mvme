@@ -2,6 +2,12 @@
 ==== Do these first! =====
 ==========================
 
+- Make Import for Module from Template start in the analysis subdirectory of
+  the module directory.
+- Importing analysis objects sometimes asserts as there are sources left in the
+  analysis after the assignment gui ran and the user selected discard for
+  everything. Fix this!
+- Set analysis modified and/or set an empty filename if vme assignment has changed the analysis.
 - New Extractor -> suggested Name does not prepend the current name from the vme config.
 
 - Refactor gui_write_json_file() to write_json_file() and use exceptions to report errors.
