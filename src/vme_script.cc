@@ -48,8 +48,50 @@ uint32_t parseAddress(const QString &str)
     return ret;
 }
 
+template<typename T>
+T parseBinaryLiteral(const QString &str)
+{
+    QByteArray input = str.toLower().toLocal8Bit();
+
+    s32 inputStart = input.startsWith("0b") ? 2 : 0;
+
+    const size_t maxShift = (sizeof(T) * 8) - 1;
+    size_t shift = 0;
+    T result = 0;
+
+    for (s32 i = input.size() - 1; i >= inputStart; --i)
+    {
+        char c = input.at(i);
+
+        switch (c)
+        {
+            case '0':
+            case '1':
+                if (shift > maxShift)
+                    throw "input value too large";
+
+                result |= ((c - '0') << shift++);
+                break;
+
+            // Skip the digit separator
+            case '\'':
+                break;
+
+            default:
+                throw "invalid character in binary literal";
+        }
+    }
+
+    return result;
+}
+
 uint32_t parseValue(const QString &str)
 {
+    if (str.toLower().startsWith(QSL("0b")))
+    {
+        return parseBinaryLiteral<uint32_t>(str);
+    }
+
     bool ok;
     uint32_t ret = str.toUInt(&ok, 0);
 
@@ -303,13 +345,32 @@ Command parse_line(QString line, int lineNumber)
     if (parts.isEmpty())
         throw ParseError(QSL("Empty command"), lineNumber);
 
+    // TODO: Examine the first part to see if it is a command. Only try to
+    // parse the short form if the first part is not a command. After parsing
+    // the short form do not try to parse the input as a command anymore.  The
+    // reason to do this is that right now if e.g. the second part of a 2 part
+    // line fails to parse as a number any errors thrown by that parse
+    // operation will be swallowed. Then the line is parsed as a command which
+    // might fail and yield a non-usefull error like "No such command: 0x1234".
+    // The original parse error of the 2nd part will never be visible to the
+    // user.
+
     if (parts.size() == 2)
     {
         /* Try to parse two unsigned values which is the short form of a write
          * command. */
         bool ok1, ok2;
         uint32_t v1 = parts[0].toUInt(&ok1, 0);
-        uint32_t v2 = parts[1].toUInt(&ok2, 0);
+        uint32_t v2 = 0;
+        try
+        {
+            v2 = parseValue(parts[1]);
+            ok2 = true;
+        }
+        catch (const char *)
+        {
+            ok2 = false;
+        }
 
         if (ok1 && ok2)
         {

@@ -13,7 +13,9 @@
   * Error if CurrentDAQConfigVersion < get_vmeconfig_version()
     -> The file was created by a newer version of MVME and might not load correctly.
 - Add warnings to template loading if there are duplicate module types
-- Parse binary numbers in vme_script
+- VMEScript: change parsing of the short form to first check if it is a command
+  and only try to parse the short form if it isn't. See the comment in
+  parse_line().
 
 New VME/Analysis Template System (VATS)
 ---------------------------------------
