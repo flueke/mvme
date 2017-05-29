@@ -806,7 +806,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
     auto obj  = getQObject(node);
 
     QMenu menu;
-    auto menuNew = new QMenu;
+    auto menuNew = new QMenu(&menu);
     bool actionNewIsFirst = false;
 
     if (node)
@@ -864,8 +864,8 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
 
                             QMessageBox box(QMessageBox::Question,
                                             QSL("Generate default filters"),
-                                            QSL("This action will generate extraction filters, calibrations and histograms for the selected module."
-                                                " Do you want to continue?"),
+                                            QSL("This action will generate extraction filters, calibrations and histograms"
+                                                "for the selected module. Do you want to continue?"),
                                             QMessageBox::Ok | QMessageBox::No,
                                             m_q
                                            );
@@ -877,6 +877,13 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                             }
                         });
                     }
+
+                    auto menuImport = new QMenu(&menu);
+                    menuImport->setTitle(QSL("Import"));
+                    menuImport->setIcon(QIcon(QSL(":/analysis_module_import.png")));
+                    menuImport->addAction(m_actionImportForModuleFromTemplate);
+                    menuImport->addAction(m_actionImportForModuleFromFile);
+                    menu.addMenu(menuImport);
                 }
 
                 actionNewIsFirst = true;

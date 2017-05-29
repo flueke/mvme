@@ -2,8 +2,7 @@
 ==== Do these first! =====
 ==========================
 
-- Make Import for Module from Template start in the analysis subdirectory of
-  the module directory.
+- Fix MVMEAnalysisVersion handling. Converting from versions < 2 needs access to the VME config...
 - Importing analysis objects sometimes asserts as there are sources left in the
   analysis after the assignment gui ran and the user selected discard for
   everything. Fix this!
