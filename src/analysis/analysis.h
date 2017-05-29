@@ -405,7 +405,7 @@ class Extractor: public SourceInterface
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
 
-        virtual QString getDisplayName() const override { return QSL("Extractor"); }
+        virtual QString getDisplayName() const override { return QSL("Data Extractor"); }
         virtual QString getShortName() const override { return QSL("Ext"); }
 
         // configuration
