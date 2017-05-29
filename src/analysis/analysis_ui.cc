@@ -880,7 +880,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
 
                     auto menuImport = new QMenu(&menu);
                     menuImport->setTitle(QSL("Import"));
-                    menuImport->setIcon(QIcon(QSL(":/analysis_module_import.png")));
+                    //menuImport->setIcon(QIcon(QSL(":/analysis_module_import.png")));
                     menuImport->addAction(m_actionImportForModuleFromTemplate);
                     menuImport->addAction(m_actionImportForModuleFromFile);
                     menu.addMenu(menuImport);
@@ -1929,17 +1929,13 @@ void EventWidgetPrivate::importForModuleFromFile()
 
 /* Importing of module specific analysis objects
  * - Module must be given
- * - Decide where to start: module template directory or workspace directory
- * - Let user pick a file
+ * - Let user pick a file starting in the given startPath
  * - Load analysis from file
  * - Generate new IDs for analysis objects
- * - Try auto assignment but using only the ModuleInfo from the selected module
+ * - Try auto assignment but using only the ModuleInfo from the given target module
  * - If auto assignment fails run the assigment gui also using only info for the selected module.
+ * - Remove analysis objects not related to the target module.
  * - Add the remaining objects into the existing analysis
- *
- *   FIXME: As auto-assignment does not discard analysis objects this code
- *   might add unwanted objects to the existing analysis. Think about this and
- *   fix it!
  */
 void EventWidgetPrivate::importForModule(ModuleConfig *module, const QString &startPath)
 {
@@ -1972,8 +1968,6 @@ void EventWidgetPrivate::importForModule(ModuleConfig *module, const QString &st
         return;
     }
 
-    generate_new_object_ids(&analysis);
-
     using namespace vme_analysis_common;
 
     ModuleInfo moduleInfo;
@@ -1982,11 +1976,15 @@ void EventWidgetPrivate::importForModule(ModuleConfig *module, const QString &st
     moduleInfo.name = module->objectName();
     moduleInfo.eventId = event->getId();
 
+    generate_new_object_ids(&analysis);
+
     if (!auto_assign_vme_modules({moduleInfo}, &analysis))
     {
         if (!run_vme_analysis_module_assignment_ui({moduleInfo}, &analysis))
             return;
     }
+
+    remove_analysis_objects_unless_matching(&analysis, moduleInfo);
 
     auto sources = analysis.getSources();
     auto operators = analysis.getOperators();
