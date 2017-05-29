@@ -631,6 +631,7 @@ void EventWidgetPrivate::appendTreesToView(DisplayLevelTrees trees)
 
         QObject::connect(tree, &QTreeWidget::itemClicked, m_q, [this, levelIndex] (QTreeWidgetItem *node, int column) {
             onNodeClicked(reinterpret_cast<TreeNode *>(node), column, levelIndex);
+            updateActions();
         });
 
         QObject::connect(tree, &QTreeWidget::itemDoubleClicked, m_q, [this, levelIndex] (QTreeWidgetItem *node, int column) {
@@ -1900,7 +1901,8 @@ void EventWidgetPrivate::importForModuleFromTemplate()
     {
         if (auto module = getPointer<ModuleConfig>(node))
         {
-            importForModule(module, vats::get_module_path(module->getModuleMeta().typeName));
+            QString path = vats::get_module_path(module->getModuleMeta().typeName) + QSL("/analysis");
+            importForModule(module, path);
         }
     }
 }
@@ -2118,8 +2120,8 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, AnalysisWidget 
 
     // Upper ToolBar actions
 
-    m_d->m_actionImportForModuleFromTemplate = new QAction("Import Module objects from template");
-    m_d->m_actionImportForModuleFromFile     = new QAction("Import Module objects from file");
+    m_d->m_actionImportForModuleFromTemplate = new QAction("Import from template");
+    m_d->m_actionImportForModuleFromFile     = new QAction("Import from file");
     m_d->m_actionModuleImport = new QWidgetAction(this);
     {
         auto menu = new QMenu(this);
