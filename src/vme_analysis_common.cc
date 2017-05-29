@@ -488,4 +488,27 @@ bool run_vme_analysis_module_assignment_ui(QVector<ModuleInfo> vModInfos, analys
     return true;
 }
 
+void remove_analysis_objects_unless_matching(analysis::Analysis *analysis, const ModuleInfo &moduleInfo)
+{
+    QVector<Analysis::SourceEntry> sources = analysis->getSources();
+
+    for (const auto &source: sources)
+    {
+        if (source.moduleId != moduleInfo.id || source.eventId != moduleInfo.eventId)
+        {
+            analysis->removeSource(source.source);
+        }
+    }
+
+    QVector<Analysis::OperatorEntry> operators = analysis->getOperators();
+
+    for (const auto &op: operators)
+    {
+        if (op.eventId != moduleInfo.eventId)
+        {
+            analysis->removeOperator(op.op);
+        }
+    }
+}
+
 }

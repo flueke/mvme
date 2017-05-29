@@ -1247,7 +1247,8 @@ QString make_unique_operator_name(Analysis *analysis, const QString &prefix);
 bool all_inputs_connected(OperatorInterface *op);
 bool no_input_connected(OperatorInterface *op);
 
-/** Generate new unique IDs for all sources and operators. */
+/** Generate new unique IDs for all sources and operators.
+ * Note: Does not update the ModuleProperties information! */
 void generate_new_object_ids(Analysis *analysis);
 
 } // end namespace analysis

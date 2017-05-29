@@ -6,6 +6,7 @@
 - Importing analysis objects sometimes asserts as there are sources left in the
   analysis after the assignment gui ran and the user selected discard for
   everything. Fix this!
+  Fixed for the "Import for Module" case. Fix it for the "Open" and "Import" cases too!
 - Set analysis modified and/or set an empty filename if vme assignment has changed the analysis.
 - New Extractor -> suggested Name does not prepend the current name from the vme config.
 
