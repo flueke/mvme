@@ -1192,6 +1192,8 @@ class Analysis: public QObject
         bool isEmpty() const;
         s32 getNumberOfSources() const { return m_sources.size(); }
         s32 getNumberOfOperators() const { return m_operators.size(); }
+        s32 getMaxUserLevel() const;
+        s32 getMaxUserLevel(const QUuid &eventId) const;
 
         Registry &getRegistry() { return m_registry; }
 

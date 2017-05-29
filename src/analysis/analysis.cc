@@ -2325,6 +2325,26 @@ bool Analysis::isEmpty() const
     return m_sources.isEmpty() && m_operators.isEmpty();
 }
 
+s32 Analysis::getMaxUserLevel() const
+{
+    auto it = std::max_element(m_operators.begin(), m_operators.end(), [](const auto &a, const auto &b) {
+        return a.userLevel < b.userLevel;
+    });
+
+    return (it != m_operators.end() ? it->userLevel : 0);
+}
+
+s32 Analysis::getMaxUserLevel(const QUuid &eventId) const
+{
+    auto ops = getOperators(eventId);
+
+    auto it = std::max_element(ops.begin(), ops.end(), [](const auto &a, const auto &b) {
+        return a.userLevel < b.userLevel;
+    });
+
+    return (it != ops.end() ? it->userLevel : 0);
+}
+
 Analysis::ReadResult Analysis::read(const QJsonObject &json)
 {
     clear();

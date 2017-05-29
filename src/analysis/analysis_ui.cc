@@ -1997,6 +1997,8 @@ void EventWidgetPrivate::importForModule(ModuleConfig *module, const QString &st
     AnalysisPauser pauser(m_context);
     auto targetAnalysis = m_context->getAnalysisNG();
 
+    s32 baseUserLevel = targetAnalysis->getMaxUserLevel(moduleInfo.eventId);
+
     for (auto entry: sources)
     {
         Q_ASSERT(entry.eventId == moduleInfo.eventId);
@@ -2007,9 +2009,15 @@ void EventWidgetPrivate::importForModule(ModuleConfig *module, const QString &st
     for (auto entry: operators)
     {
         Q_ASSERT(entry.eventId == moduleInfo.eventId);
-        // FIXME: userLevel handling. Create a new base userlevel for everything that's going to get imported?
-        // TODO:  Fix this once we have the ability to move operators between userlevels easily!
-        targetAnalysis->addOperator(entry.eventId, entry.op, entry.userLevel);
+
+        s32 targetUserLevel = baseUserLevel + entry.userLevel;
+
+        if (entry.userLevel == 0 && qobject_cast<SinkInterface *>(entry.op.get()))
+        {
+            targetUserLevel = 0;
+        }
+
+        targetAnalysis->addOperator(entry.eventId, entry.op, targetUserLevel);
     }
 
     repopulate();
@@ -2710,6 +2718,15 @@ void AnalysisWidgetPrivate::actionImport()
     AnalysisPauser pauser(m_context);
     auto targetAnalysis = m_context->getAnalysisNG();
 
+    QHash<QUuid, s32> eventMaxUserLevels;
+    for (auto opEntry: targetAnalysis->getOperators())
+    {
+        if (!eventMaxUserLevels.contains(opEntry.eventId))
+        {
+            eventMaxUserLevels.insert(opEntry.eventId, targetAnalysis->getMaxUserLevel(opEntry.eventId));
+        }
+    }
+
     for (auto entry: sources)
     {
         targetAnalysis->addSource(entry.eventId, entry.moduleId, entry.source);
@@ -2717,9 +2734,13 @@ void AnalysisWidgetPrivate::actionImport()
 
     for (auto entry: operators)
     {
-        // FIXME: userLevel handling. Create a new base userlevel for everything that's going to get imported?
-        // TODO:  Fix this once we have the ability to move operators between userlevels easily!
-        targetAnalysis->addOperator(entry.eventId, entry.op, entry.userLevel);
+        s32 baseUserLevel = eventMaxUserLevels.value(entry.eventId, 0);
+        s32 targetUserLevel = baseUserLevel + entry.userLevel;
+        if (entry.userLevel == 0 && qobject_cast<SinkInterface *>(entry.op.get()))
+        {
+            targetUserLevel = 0;
+        }
+        targetAnalysis->addOperator(entry.eventId, entry.op, targetUserLevel);
     }
 
     repopulate();
