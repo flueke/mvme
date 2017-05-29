@@ -488,13 +488,13 @@ bool run_vme_analysis_module_assignment_ui(QVector<ModuleInfo> vModInfos, analys
     return true;
 }
 
-void remove_analysis_objects_unless_matching(analysis::Analysis *analysis, const ModuleInfo &moduleInfo)
+void remove_analysis_objects_unless_matching(analysis::Analysis *analysis, const QUuid &moduleId, const QUuid &eventId)
 {
     QVector<Analysis::SourceEntry> sources = analysis->getSources();
 
     for (const auto &source: sources)
     {
-        if (source.moduleId != moduleInfo.id || source.eventId != moduleInfo.eventId)
+        if (source.moduleId != moduleId || source.eventId != eventId)
         {
             analysis->removeSource(source.source);
         }
@@ -504,7 +504,48 @@ void remove_analysis_objects_unless_matching(analysis::Analysis *analysis, const
 
     for (const auto &op: operators)
     {
-        if (op.eventId != moduleInfo.eventId)
+        if (op.eventId != eventId)
+        {
+            analysis->removeOperator(op.op);
+        }
+    }
+}
+
+void remove_analysis_objects_unless_matching(analysis::Analysis *analysis, const ModuleInfo &moduleInfo)
+{
+    remove_analysis_objects_unless_matching(analysis, moduleInfo.id, moduleInfo.eventId);
+}
+
+void remove_analysis_objects_unless_matching(analysis::Analysis *analysis, VMEConfig *vmeConfig)
+{
+    QSet<QUuid> vmeEventIds;
+    QSet<QUuid> vmeModuleIds;
+
+    for (auto eventConfig: vmeConfig->getEventConfigs())
+    {
+        vmeEventIds.insert(eventConfig->getId());
+
+        for (auto moduleConfig: eventConfig->getModuleConfigs())
+        {
+            vmeModuleIds.insert(moduleConfig->getId());
+        }
+    }
+
+    QVector<Analysis::SourceEntry> sources = analysis->getSources();
+
+    for (const auto &source: sources)
+    {
+        if (!vmeEventIds.contains(source.eventId) || !vmeModuleIds.contains(source.moduleId))
+        {
+            analysis->removeSource(source.source);
+        }
+    }
+
+    QVector<Analysis::OperatorEntry> operators = analysis->getOperators();
+
+    for (const auto &op: operators)
+    {
+        if (!vmeEventIds.contains(op.eventId))
         {
             analysis->removeOperator(op.op);
         }

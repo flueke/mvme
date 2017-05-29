@@ -236,8 +236,8 @@ class MVMEContext: public QObject
         void loadVMEConfig(const QString &fileName);
 
         bool loadAnalysisConfig(const QString &fileName);
-        bool loadAnalysisConfig(QIODevice *input);
-        bool loadAnalysisConfig(const QJsonDocument &doc);
+        bool loadAnalysisConfig(QIODevice *input, const QString &inputInfo = QString());
+        bool loadAnalysisConfig(const QJsonDocument &doc, const QString &inputInfo = QString());
 
         // listfile output
         void setListFileOutputInfo(const ListFileOutputInfo &info);

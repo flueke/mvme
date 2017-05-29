@@ -1986,11 +1986,13 @@ void EventWidgetPrivate::importForModule(ModuleConfig *module, const QString &st
 
     remove_analysis_objects_unless_matching(&analysis, moduleInfo);
 
+    m_context->logMessage(QString("Importing %1").arg(info_string(&analysis)));
+
+    if (analysis.isEmpty())
+        return;
+
     auto sources = analysis.getSources();
     auto operators = analysis.getOperators();
-
-    if (sources.isEmpty() && operators.isEmpty())
-        return;
 
     AnalysisPauser pauser(m_context);
     auto targetAnalysis = m_context->getAnalysisNG();
@@ -2667,23 +2669,39 @@ void AnalysisWidgetPrivate::actionImport()
             return;
     }
 
+    remove_analysis_objects_unless_matching(&analysis, m_context->getVMEConfig());
+
+    m_context->logMessage(QString("Importing %1").arg(info_string(&analysis)));
+
+    if (analysis.isEmpty())
+        return;
+
     auto sources = analysis.getSources();
     auto operators = analysis.getOperators();
 
-    if (sources.isEmpty() && operators.isEmpty())
-        return;
-
-
 #ifndef QT_NO_DEBUG
-    QSet<QUuid> vmeEventIds;
-    QSet<QUuid> vmeModuleIds;
-    for (auto ec: m_context->getVMEConfig()->getEventConfigs())
     {
-        vmeEventIds.insert(ec->getId());
-
-        for (auto mc: ec->getModuleConfigs())
+        QSet<QUuid> vmeEventIds;
+        QSet<QUuid> vmeModuleIds;
+        for (auto ec: m_context->getVMEConfig()->getEventConfigs())
         {
-            vmeModuleIds.insert(mc->getId());
+            vmeEventIds.insert(ec->getId());
+
+            for (auto mc: ec->getModuleConfigs())
+            {
+                vmeModuleIds.insert(mc->getId());
+            }
+        }
+
+        for (auto entry: sources)
+        {
+            Q_ASSERT(vmeEventIds.contains(entry.eventId));
+            Q_ASSERT(vmeModuleIds.contains(entry.moduleId));
+        }
+
+        for (auto entry: operators)
+        {
+            Q_ASSERT(vmeEventIds.contains(entry.eventId));
         }
     }
 #endif
@@ -2694,19 +2712,11 @@ void AnalysisWidgetPrivate::actionImport()
 
     for (auto entry: sources)
     {
-#ifndef QT_NO_DEBUG
-        Q_ASSERT(vmeEventIds.contains(entry.eventId));
-        Q_ASSERT(vmeModuleIds.contains(entry.moduleId));
-#endif
-
         targetAnalysis->addSource(entry.eventId, entry.moduleId, entry.source);
     }
 
     for (auto entry: operators)
     {
-#ifndef QT_NO_DEBUG
-        Q_ASSERT(vmeEventIds.contains(entry.eventId));
-#endif
         // FIXME: userLevel handling. Create a new base userlevel for everything that's going to get imported?
         // TODO:  Fix this once we have the ability to move operators between userlevels easily!
         targetAnalysis->addOperator(entry.eventId, entry.op, entry.userLevel);

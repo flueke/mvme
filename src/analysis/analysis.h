@@ -1186,10 +1186,12 @@ class Analysis: public QObject
         void removeOperator(const OperatorPtr &op);
         void removeOperator(OperatorInterface *op);
 
+        void updateRanks();
+
         void clear();
         bool isEmpty() const;
-
-        void updateRanks();
+        s32 getNumberOfSources() const { return m_sources.size(); }
+        s32 getNumberOfOperators() const { return m_operators.size(); }
 
         Registry &getRegistry() { return m_registry; }
 
@@ -1250,6 +1252,8 @@ bool no_input_connected(OperatorInterface *op);
 /** Generate new unique IDs for all sources and operators.
  * Note: Does not update the ModuleProperties information! */
 void generate_new_object_ids(Analysis *analysis);
+
+QString info_string(const Analysis *analysis);
 
 } // end namespace analysis
 

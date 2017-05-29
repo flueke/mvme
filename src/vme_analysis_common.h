@@ -29,7 +29,17 @@ bool auto_assign_vme_modules(QVector<ModuleInfo> vmeModuleInfos, analysis::Analy
 bool run_vme_analysis_module_assignment_ui(VMEConfig *vmeConfig, analysis::Analysis *analysis, QWidget *parent = 0);
 bool run_vme_analysis_module_assignment_ui(QVector<ModuleInfo> vmeModuleInfos, analysis::Analysis *analysis, QWidget *parent = 0);
 
+/** Removes sources and operators that are not attached to the module specified
+ * by moduleId and eventId from the given analysis. */
+void remove_analysis_objects_unless_matching(analysis::Analysis *analysis, const QUuid &moduleId, const QUuid &eventId);
+
+/** Removes sources and operators that are not attached to the module specified
+ * by moduleInfo from the given analysis. */
 void remove_analysis_objects_unless_matching(analysis::Analysis *analysis, const ModuleInfo &moduleInfo);
+
+/** Removes sources and operators from the given analysis which reference
+ * modules and events that do not exist in the given vmeConfig. */
+void remove_analysis_objects_unless_matching(analysis::Analysis *analysis, VMEConfig *vmeConfig);
 
 }
 

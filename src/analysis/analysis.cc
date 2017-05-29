@@ -2776,4 +2776,13 @@ void generate_new_object_ids(Analysis *analysis)
         operatorEntry.op->setId(QUuid::createUuid());
 }
 
+QString info_string(const Analysis *analysis)
+{
+    QString result = QString("Analysis: %1 Data Sources, %2 Operators")
+        .arg(analysis->getNumberOfSources())
+        .arg(analysis->getNumberOfOperators());
+
+    return result;
+}
+
 }

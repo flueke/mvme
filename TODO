@@ -2,6 +2,7 @@
 ==== Do these first! =====
 ==========================
 
+- Log a message about how many sources and operators have been imported.
 - Fix MVMEAnalysisVersion handling. Converting from versions < 2 needs access to the VME config...
 - Importing analysis objects sometimes asserts as there are sources left in the
   analysis after the assignment gui ran and the user selected discard for

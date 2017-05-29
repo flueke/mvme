@@ -1256,7 +1256,7 @@ bool MVMEContext::loadAnalysisConfig(const QString &fileName)
 
     QJsonDocument doc(gui_read_json_file(fileName));
 
-    if (loadAnalysisConfig(doc))
+    if (loadAnalysisConfig(doc, QFileInfo(fileName).fileName()))
     {
         setAnalysisConfigFileName(fileName);
         return true;
@@ -1265,11 +1265,11 @@ bool MVMEContext::loadAnalysisConfig(const QString &fileName)
     return false;
 }
 
-bool MVMEContext::loadAnalysisConfig(QIODevice *input)
+bool MVMEContext::loadAnalysisConfig(QIODevice *input, const QString &inputInfo)
 {
     QJsonDocument doc(gui_read_json(input));
 
-    if (loadAnalysisConfig(doc))
+    if (loadAnalysisConfig(doc, inputInfo))
     {
         setAnalysisConfigFileName(QString());
         return true;
@@ -1278,7 +1278,7 @@ bool MVMEContext::loadAnalysisConfig(QIODevice *input)
     return false;
 }
 
-bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc)
+bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc, const QString &inputInfo)
 {
     using namespace analysis;
     using namespace vme_analysis_common;
@@ -1311,6 +1311,8 @@ bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc)
             return false;
     }
 
+    remove_analysis_objects_unless_matching(analysis_ng.get(), getVMEConfig());
+
     try
     {
         bool was_running = isAnalysisRunning();
@@ -1326,6 +1328,11 @@ bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc)
         // Prepares operators, allocates histograms, etc..
         m_eventProcessor->newRun();
         emit analysisNGChanged();
+
+        logMessage(QString("Loaded %1 from %2")
+                   .arg(info_string(m_analysis_ng))
+                   .arg(inputInfo)
+                   );
 
         if (was_running)
         {
