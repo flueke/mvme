@@ -19,6 +19,7 @@
 #include <QListWidget>
 #include <QMenu>
 #include <QMessageBox>
+#include <QMimeData>
 #include <QScrollArea>
 #include <QSplitter>
 #include <QStackedWidget>
@@ -26,7 +27,6 @@
 #include <QTimer>
 #include <QToolBar>
 #include <QToolButton>
-#include <QTreeWidget>
 #include <QWidgetAction>
 
 
@@ -91,6 +91,7 @@ TreeNode *makeNode(T *data, int type = QTreeWidgetItem::Type)
 {
     auto ret = new TreeNode(type);
     ret->setData(0, DataRole_Pointer, QVariant::fromValue(static_cast<void *>(data)));
+    ret->setFlags(ret->flags() & ~(Qt::ItemIsDropEnabled | Qt::ItemIsDragEnabled));
     return ret;
 }
 
@@ -303,20 +304,124 @@ Histo1DWidgetInfo getHisto1DWidgetInfoFromNode(QTreeWidgetItem *node)
     return result;
 }
 
-// Subclass storing pointers to the roots for 1D and 2D histograms. Originally
-// finding those nodes was done via QTreeWidget::topLevelItem() but this would
-// break if anything gets sorted before or in-between the two root nodes.
-struct DisplayTree: public QTreeWidget
-{
-    using QTreeWidget::QTreeWidget;
+//
+// EventWidgetTree
+//
+static const QString OperatorIdListMIMEType = QSL("application/x-mvme-analysis-operator-id-list");
 
-    QTreeWidgetItem *histo1DRoot = nullptr;
-    QTreeWidgetItem *histo2DRoot = nullptr;
-};
+bool EventWidgetTree::dropMimeData(QTreeWidgetItem *parentItem, int parentIndex, const QMimeData *data, Qt::DropAction action)
+{
+    if (action != Qt::MoveAction)
+        return false;
+
+    if (!data->hasFormat(OperatorIdListMIMEType))
+        return false;
+
+    bool isDisplayTree = (qobject_cast<DisplayTree *>(this) != nullptr);
+
+    auto encoded = data->data(OperatorIdListMIMEType);
+    QDataStream stream(&encoded, QIODevice::ReadOnly);
+    QVector<QByteArray> encodedIds;
+    stream >> encodedIds;
+
+    Q_ASSERT(encodedIds.size() == 1);
+
+    if (encodedIds.size() != 1)
+        return false;
+
+    QUuid id(encodedIds.at(0));
+
+    // Find the operator
+    // Figure out if the drop area is Operator or Display tree
+    // Figure out if the operator is a Sink or not and it matches the drop area
+    // Get the target level
+    // Move the operator to the target level
+    // Update dependent operators userlevels. Change their userlevel by the
+    // same amount as this operators userlevel. Does this makes sense when
+    // the userlevel is decremented?
+    // Repopulate the eventwidget
+
+    if (auto opEntry = m_eventWidget->getContext()->getAnalysisNG()->getOperatorEntry(id))
+    {
+        bool isSink = (qobject_cast<SinkInterface *>(opEntry->op.get()) != nullptr);
+
+        if ((isSink && !isDisplayTree)
+            || (!isSink && isDisplayTree))
+        {
+            return false;
+        }
+
+        opEntry->userLevel = m_userLevel;
+
+        m_eventWidget->repopulate();
+
+        return true;
+    }
+
+    return false;
+}
+
+QMimeData *EventWidgetTree::mimeData(const QList<QTreeWidgetItem *> items) const
+{
+    QVector<QByteArray> encodedIds;
+
+    for (auto item: items)
+    {
+        switch (item->type())
+        {
+            case NodeType_Operator:
+            case NodeType_Histo1DSink:
+            case NodeType_Histo2DSink:
+            case NodeType_Sink:
+                {
+                    if (auto op = getPointer<OperatorInterface>(item))
+                    {
+                        encodedIds.push_back(op->getId().toByteArray());
+                    }
+                } break;
+
+            InvalidDefaultCase;
+        }
+    }
+
+    QByteArray encoded;
+    QDataStream stream(&encoded, QIODevice::WriteOnly);
+    stream << encodedIds;
+
+    auto result = new QMimeData;
+    result->setData(OperatorIdListMIMEType, encoded);
+
+    return result;
+}
+
+QStringList EventWidgetTree::mimeTypes() const
+{
+    return { OperatorIdListMIMEType };
+}
+
+Qt::DropActions EventWidgetTree::supportedDropActions() const
+{
+    return Qt::MoveAction;
+}
+
+void EventWidgetTree::dropEvent(QDropEvent *event)
+{
+    if (event->source() == this)
+    {
+        /* Disables the handling of internal move events implemented in
+         * QTreeWidget::dropEvent(). */
+        event->ignore();
+    }
+    else
+    {
+        /* Non-internal events are passed through */
+        QTreeWidget::dropEvent(event);
+    }
+}
 
 struct DisplayLevelTrees
 {
-    QTreeWidget *operatorTree;
+    EventWidgetTree *operatorTree;
     DisplayTree *displayTree;
     s32 userLevel;
 };
@@ -430,7 +535,7 @@ void EventWidgetPrivate::createView(const QUuid &eventId)
 
 DisplayLevelTrees make_displaylevel_trees(const QString &opTitle, const QString &dispTitle, s32 level)
 {
-    DisplayLevelTrees result = { new QTreeWidget, new DisplayTree, level };
+    DisplayLevelTrees result = { new EventWidgetTree, new DisplayTree, level };
 
     result.operatorTree->setObjectName(opTitle);
     result.operatorTree->headerItem()->setText(0, opTitle);
@@ -438,11 +543,18 @@ DisplayLevelTrees make_displaylevel_trees(const QString &opTitle, const QString 
     result.displayTree->setObjectName(dispTitle);
     result.displayTree->headerItem()->setText(0, dispTitle);
 
-    for (auto tree: {result.operatorTree, reinterpret_cast<QTreeWidget *>(result.displayTree)})
+    for (auto tree: {result.operatorTree, reinterpret_cast<EventWidgetTree *>(result.displayTree)})
     {
         tree->setExpandsOnDoubleClick(false);
         tree->setItemDelegate(new HtmlDelegate(tree));
         tree->setSelectionMode(QAbstractItemView::SingleSelection);
+        if (level > 0)
+        {
+            tree->setDragEnabled(true);
+            tree->viewport()->setAcceptDrops(true);
+            tree->setDropIndicatorShown(true);
+            tree->setDragDropMode(QAbstractItemView::DragDrop);
+        }
     }
 
     return result;
@@ -556,6 +668,10 @@ DisplayLevelTrees EventWidgetPrivate::createTrees(const QUuid &eventId, s32 leve
         if(!qobject_cast<SinkInterface *>(entry.op.get()))
         {
             auto opNode = makeOperatorNode(entry.op.get());
+            if (level > 0)
+            {
+                opNode->setFlags(opNode->flags() | Qt::ItemIsDragEnabled);
+            }
             result.operatorTree->addTopLevelItem(opNode);
         }
     }
@@ -574,20 +690,29 @@ DisplayLevelTrees EventWidgetPrivate::createTrees(const QUuid &eventId, s32 leve
 
         for (const auto &entry: operators)
         {
+            TreeNode *theNode = nullptr;
             if (auto histoSink = qobject_cast<Histo1DSink *>(entry.op.get()))
             {
                 auto histoNode = makeHisto1DNode(histoSink);
                 histo1DRoot->addChild(histoNode);
+                theNode = histoNode;
             }
             else if (auto histoSink = qobject_cast<Histo2DSink *>(entry.op.get()))
             {
                 auto histoNode = makeHisto2DNode(histoSink);
                 histo2DRoot->addChild(histoNode);
+                theNode = histoNode;
             }
             else if (auto sink = qobject_cast<SinkInterface *>(entry.op.get()))
             {
                 auto sinkNode = makeSinkNode(sink);
                 result.displayTree->addTopLevelItem(sinkNode);
+                theNode = sinkNode;
+            }
+
+            if (theNode && level > 0)
+            {
+                theNode->setFlags(theNode->flags() | Qt::ItemIsDragEnabled);
             }
         }
     }
@@ -624,10 +749,12 @@ void EventWidgetPrivate::appendTreesToView(DisplayLevelTrees trees)
         doDisplayTreeContextMenu(dispTree, pos, levelIndex);
     });
 
-    for (auto tree: {opTree, reinterpret_cast<QTreeWidget *>(dispTree)})
+    for (auto tree: {opTree, reinterpret_cast<EventWidgetTree *>(dispTree)})
     {
         //tree->installEventFilter(m_q);
 
+        tree->m_eventWidget = m_q;
+        tree->m_userLevel = levelIndex;
 
         QObject::connect(tree, &QTreeWidget::itemClicked, m_q, [this, levelIndex] (QTreeWidgetItem *node, int column) {
             onNodeClicked(reinterpret_cast<TreeNode *>(node), column, levelIndex);
@@ -1812,7 +1939,7 @@ void EventWidgetPrivate::clearAllTreeSelections()
 {
     for (DisplayLevelTrees trees: m_levelTrees)
     {
-        for (auto tree: {trees.operatorTree, reinterpret_cast<QTreeWidget *>(trees.displayTree)})
+        for (auto tree: {trees.operatorTree, reinterpret_cast<EventWidgetTree *>(trees.displayTree)})
         {
             tree->clearSelection();
         }
@@ -1823,7 +1950,7 @@ void EventWidgetPrivate::clearTreeSelectionsExcept(QTreeWidget *treeNotToClear)
 {
     for (DisplayLevelTrees trees: m_levelTrees)
     {
-        for (auto tree: {trees.operatorTree, reinterpret_cast<QTreeWidget *>(trees.displayTree)})
+        for (auto tree: {trees.operatorTree, reinterpret_cast<EventWidgetTree *>(trees.displayTree)})
         {
             if (tree != treeNotToClear)
             {

@@ -37,6 +37,7 @@ const char *getDefaultFilterName(u8 moduleType)
     return "";
 }
 
+// FIXME: this should be somewhere else but I don't know where to put it
 QVector<std::shared_ptr<Extractor>> get_default_data_extractors(const QString &moduleTypeName)
 {
     QVector<std::shared_ptr<Extractor>> result;

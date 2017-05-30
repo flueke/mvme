@@ -1182,6 +1182,17 @@ class Analysis: public QObject
             return result;
         }
 
+        OperatorEntry *getOperatorEntry(const QUuid &operatorId)
+        {
+            for (auto &entry: m_operators)
+            {
+                if (entry.op->getId() == operatorId)
+                    return &entry;
+            }
+
+            return nullptr;
+        }
+
         void addOperator(const QUuid &eventId, const OperatorPtr &op, s32 userLevel);
         void removeOperator(const OperatorPtr &op);
         void removeOperator(OperatorInterface *op);

@@ -19,6 +19,7 @@
 #include <QRadioButton>
 #include <QSpinBox>
 #include <QStyledItemDelegate>
+#include <QTreeWidget>
 #include <QTableWidget>
 #include <QToolBar>
 #include <QWidget>
@@ -229,8 +230,43 @@ class CalibrationItemDelegate: public QStyledItemDelegate
         virtual QWidget* createEditor(QWidget *parent, const QStyleOptionViewItem &option, const QModelIndex &index) const;
 };
 
-// FIXME: this should be somewhere else but I don't know where to put it
 QVector<std::shared_ptr<Extractor>> get_default_data_extractors(const QString &moduleTypeName);
+
+/* Specialized tree for the EventWidget.
+ *
+ * The declaration is here because of MOC, the implementation ins in
+ * analysis_ui.cc because of locally defined types.
+ */
+class EventWidgetTree: public QTreeWidget
+{
+    Q_OBJECT
+    public:
+        using QTreeWidget::QTreeWidget;
+
+        EventWidget *m_eventWidget = nullptr;
+        s32 m_userLevel = 0;
+
+    protected:
+        virtual bool dropMimeData(QTreeWidgetItem *parent, int index, const QMimeData *data, Qt::DropAction action) override;
+        virtual QMimeData *mimeData(const QList<QTreeWidgetItem *> items) const override;
+        virtual QStringList mimeTypes() const override;
+        virtual Qt::DropActions supportedDropActions() const override;
+        virtual void dropEvent(QDropEvent *event) override;
+};
+
+/* Subclass storing pointers to the roots for 1D and 2D histograms. Originally
+ * finding those nodes was done via QTreeWidget::topLevelItem() but this would
+ * break if anything gets sorted before or in-between the two root nodes. */
+class DisplayTree: public EventWidgetTree
+{
+    Q_OBJECT
+    public:
+        using EventWidgetTree::EventWidgetTree;
+
+        QTreeWidgetItem *histo1DRoot = nullptr;
+        QTreeWidgetItem *histo2DRoot = nullptr;
+};
+
 
 }
 
