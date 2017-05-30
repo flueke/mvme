@@ -470,6 +470,9 @@ struct EventWidgetPrivate
     // If set the trees for that user level will not be shown
     QVector<bool> m_hiddenUserLevels;
 
+    // The user level that was manually added via addUserLevel()
+    s32 m_manualUserLevel = 0;
+
     void createView(const QUuid &eventId);
     DisplayLevelTrees createTrees(const QUuid &eventId, s32 level);
     DisplayLevelTrees createSourceTrees(const QUuid &eventId);
@@ -873,6 +876,16 @@ void EventWidgetPrivate::repopulate()
         appendTreesToView(trees);
     }
 
+    s32 levelsToAdd = m_manualUserLevel - m_levelTrees.size();
+
+    for (s32 i = 0; i < levelsToAdd; ++i)
+    {
+        s32 levelIndex = m_levelTrees.size();
+        auto trees = createTrees(m_eventId, levelIndex);
+        m_levelTrees.push_back(trees);
+        appendTreesToView(trees);
+    }
+
     if (splitterSizes.size() == m_operatorFrameSplitter->count())
     {
         // Restore the splitter sizes. As the splitters are synced via
@@ -900,6 +913,7 @@ void EventWidgetPrivate::addUserLevel()
     auto trees = createTrees(m_eventId, levelIndex);
     m_levelTrees.push_back(trees);
     appendTreesToView(trees);
+    m_manualUserLevel = levelIndex + 1;
 }
 
 void EventWidgetPrivate::removeUserLevel()
@@ -909,6 +923,7 @@ void EventWidgetPrivate::removeUserLevel()
     m_levelTrees.pop_back();
     delete trees.operatorTree;
     delete trees.displayTree;
+    m_manualUserLevel = m_levelTrees.size();
 }
 
 s32 EventWidgetPrivate::getUserLevelForTree(QTreeWidget *tree)
