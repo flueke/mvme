@@ -2501,7 +2501,6 @@ static QToolBar *make_toolbar()
 QToolBar *EventWidget::makeToolBar()
 {
     auto tb = make_toolbar();
-    tb->addAction(m_d->m_actionModuleImport);
 
     return tb;
 }
