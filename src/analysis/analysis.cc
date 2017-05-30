@@ -919,7 +919,7 @@ void Difference::beginRun(const RunInfo &)
 
 void Difference::step()
 {
-    if (!(m_inputA.inputPipe && m_inputB.inputPipe))
+    if (!m_inputA.isParamIndexInRange() || !m_inputB.isParamIndexInRange())
         return;
 
     if (m_inputA.paramIndex != Slot::NoParamIndex && m_inputB.paramIndex != Slot::NoParamIndex)
