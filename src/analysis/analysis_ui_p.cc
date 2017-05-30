@@ -202,7 +202,7 @@ void AddEditSourceWidget::applyTemplate(int index)
     {
         auto tmpl = m_defaultExtractors[index];
         m_filterEditor->setSubFilters(tmpl->getFilter().getSubFilters());
-        QString name = m_module->getModuleMeta().typeName + QSL(".") + tmpl->objectName().section('.', 0, -1);
+        QString name = m_module->objectName() + QSL(".") + tmpl->objectName().section('.', 0, -1);
         le_name->setText(name);
         m_spinCompletionCount->setValue(tmpl->getRequiredCompletionCount());
     }
