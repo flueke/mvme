@@ -872,7 +872,7 @@ void Difference::beginRun(const RunInfo &)
     m_output.parameters.name = objectName(); // QSL("A-B");
     m_output.parameters.unit = QString();
 
-    if (!(m_inputA.inputPipe && m_inputB.inputPipe))
+    if (!m_inputA.isParamIndexInRange() || !m_inputB.isParamIndexInRange())
     {
         m_output.parameters.resize(0);
         return;
@@ -1624,7 +1624,7 @@ void Histo1DSink::beginRun(const RunInfo &runInfo)
     // invoked. Otherwise the user would have to reopen histogram windows quite
     // frequently.
 
-    if (m_inputSlot.inputPipe)
+    if (m_inputSlot.isParamIndexInRange())
     {
         s32 minIdx = 0;
         s32 maxIdx = m_inputSlot.inputPipe->parameters.size();
