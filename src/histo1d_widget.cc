@@ -768,12 +768,14 @@ void Histo1DWidget::updateStatistics()
         "</table>"
         );
 
+    double maxBinCenter = (m_stats.entryCount > 0) ? m_histo->getBinCenter(m_stats.maxBin) : 0.0;
+
     static const int fieldWidth = 0;
     QString buffer = textTemplate
         .arg(m_stats.sigma, fieldWidth)
         .arg(m_stats.fwhm)
         .arg(m_stats.mean, fieldWidth)
-        .arg(m_histo->getBinCenter(m_stats.maxBin), fieldWidth)
+        .arg(maxBinCenter, fieldWidth)
         .arg(m_stats.maxValue, fieldWidth)
         .arg(m_stats.entryCount, fieldWidth)
         ;
