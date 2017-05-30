@@ -377,7 +377,8 @@ QMimeData *EventWidgetTree::mimeData(const QList<QTreeWidgetItem *> items) const
                     }
                 } break;
 
-            InvalidDefaultCase;
+            default:
+                break;
         }
     }
 
