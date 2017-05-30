@@ -21,21 +21,6 @@ namespace analysis
 //
 // AddEditSourceWidget
 //
-QByteArray getDefaultFilter(u8 moduleType)
-{
-    // defined in globals.h
-    //return defaultDataFilters.value(moduleType).value(0).filter;
-    // FIXME: implement this
-    return QByteArray();
-}
-
-const char *getDefaultFilterName(u8 moduleType)
-{
-    // defined in globals.h
-    //return defaultDataFilters.value(moduleType).value(0).name;
-    // FIXME: implement this
-    return "";
-}
 
 // FIXME: this should be somewhere else but I don't know where to put it
 QVector<std::shared_ptr<Extractor>> get_default_data_extractors(const QString &moduleTypeName)
@@ -165,10 +150,6 @@ AddEditSourceWidget::AddEditSourceWidget(SourceInterface *src, ModuleConfig *mod
     if (!extractor->objectName().isEmpty())
     {
         le_name->setText(QString("%1").arg(extractor->objectName()));
-    }
-    else
-    {
-        le_name->setText(QString("%1.%2").arg(module->objectName()).arg(getDefaultFilterName(module->getModuleMeta().typeId)));
     }
 
     m_spinCompletionCount->setValue(extractor->getRequiredCompletionCount());
