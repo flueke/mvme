@@ -2805,4 +2805,48 @@ QString info_string(const Analysis *analysis)
     return result;
 }
 
+static void adjust_userlevel_forward(QVector<Analysis::OperatorEntry> &opEntries, OperatorInterface *op, s32 levelDelta,
+                                     QSet<OperatorInterface *> &adjusted)
+{
+    // Note: Could be optimized by searching from the last operators position
+    // forward, as the vector is sorted by operator rank: adjust_userlevel_forward(entryIt, endIt, op, ...)
+
+    if (adjusted.contains(op) || levelDelta == 0)
+        return;
+
+    auto entryIt = std::find_if(opEntries.begin(), opEntries.end(), [op](const auto &opEntry) {
+        return opEntry.op.get() == op;
+    });
+
+    if (entryIt != opEntries.end())
+    {
+        auto &opEntry(*entryIt);
+
+        opEntry.userLevel += levelDelta;
+        adjusted.insert(op);
+
+        for (s32 outputIndex = 0;
+             outputIndex < op->getNumberOfOutputs();
+             ++outputIndex)
+        {
+            auto outputPipe = op->getOutput(outputIndex);
+
+            for (Slot *destSlot: outputPipe->getDestinations())
+            {
+                if (destSlot->parentOperator)
+                {
+                    adjust_userlevel_forward(opEntries, destSlot->parentOperator, levelDelta, adjusted);
+                }
+            }
+        }
+    }
+}
+
+void adjust_userlevel_forward(QVector<Analysis::OperatorEntry> &opEntries, OperatorInterface *op, s32 levelDelta)
+{
+    QSet<OperatorInterface *> adjusted;
+
+    adjust_userlevel_forward(opEntries, op, levelDelta, adjusted);
+}
+
 }

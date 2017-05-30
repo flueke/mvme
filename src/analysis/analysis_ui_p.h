@@ -65,6 +65,7 @@ class EventWidget: public QWidget
         QToolBar *makeEventSelectAreaToolBar();
 
         MVMEContext *getContext() const;
+        AnalysisWidget *getAnalysisWidget() const;
 
         virtual bool eventFilter(QObject *watched, QEvent *event);
 

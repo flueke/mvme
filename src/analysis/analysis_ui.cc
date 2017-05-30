@@ -331,17 +331,9 @@ bool EventWidgetTree::dropMimeData(QTreeWidgetItem *parentItem, int parentIndex,
 
     QUuid id(encodedIds.at(0));
 
-    // Find the operator
-    // Figure out if the drop area is Operator or Display tree
-    // Figure out if the operator is a Sink or not and it matches the drop area
-    // Get the target level
-    // Move the operator to the target level
-    // Update dependent operators userlevels. Change their userlevel by the
-    // same amount as this operators userlevel. Does this makes sense when
-    // the userlevel is decremented?
-    // Repopulate the eventwidget
+    auto analysis = m_eventWidget->getContext()->getAnalysisNG();
 
-    if (auto opEntry = m_eventWidget->getContext()->getAnalysisNG()->getOperatorEntry(id))
+    if (auto opEntry = analysis->getOperatorEntry(id))
     {
         bool isSink = (qobject_cast<SinkInterface *>(opEntry->op.get()) != nullptr);
 
@@ -351,9 +343,14 @@ bool EventWidgetTree::dropMimeData(QTreeWidgetItem *parentItem, int parentIndex,
             return false;
         }
 
-        opEntry->userLevel = m_userLevel;
+        s32 levelDelta = m_userLevel - opEntry->userLevel;
 
+        AnalysisPauser pauser(m_eventWidget->getContext());
+
+        adjust_userlevel_forward(analysis->getOperators(), opEntry->op.get(), levelDelta);
+        analysis->setModified(true);
         m_eventWidget->repopulate();
+        m_eventWidget->getAnalysisWidget()->updateAddRemoveUserLevelButtons();
 
         return true;
     }
@@ -2520,6 +2517,11 @@ QToolBar *EventWidget::makeEventSelectAreaToolBar()
 MVMEContext *EventWidget::getContext() const
 {
     return m_d->m_context;
+}
+
+AnalysisWidget *EventWidget::getAnalysisWidget() const
+{
+    return m_d->m_analysisWidget;
 }
 
 bool EventWidget::eventFilter(QObject *watched, QEvent *event)

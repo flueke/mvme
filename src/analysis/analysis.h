@@ -1268,6 +1268,8 @@ void generate_new_object_ids(Analysis *analysis);
 
 QString info_string(const Analysis *analysis);
 
+void adjust_userlevel_forward(QVector<Analysis::OperatorEntry> &opEntries, OperatorInterface *op, s32 levelDelta);
+
 } // end namespace analysis
 
 #endif /* __ANALYSIS_H__ */
