@@ -413,6 +413,8 @@ void mvme::closeEvent(QCloseEvent *event)
     settings.setValue("mainWindowGeometry", saveGeometry());
     settings.setValue("mainWindowState", saveState());
 
+    m_quitting = true;
+
     QMainWindow::closeEvent(event);
     qApp->closeAllWindows();
 }
@@ -1336,6 +1338,8 @@ bool mvme::createNewOrOpenExistingWorkspace()
 
 void mvme::updateActions()
 {
+    if (m_quitting) return;
+
     auto globalMode = m_context->getMode();
     auto daqState = m_context->getDAQState();
     auto eventProcState = m_context->getEventProcessorState();

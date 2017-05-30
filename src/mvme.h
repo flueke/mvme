@@ -125,6 +125,7 @@ private:
     QMap<QObject *, QList<QWidget *>> m_objectWindows;
 
     WidgetGeometrySaver *m_geometrySaver;
+    bool m_quitting = false;
 };
 
 #endif // MVME_H
