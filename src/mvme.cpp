@@ -788,6 +788,8 @@ void mvme::on_actionCloseListfile_triggered()
 void mvme::on_actionMainWindow_triggered()
 {
     raise();
+    showNormal();
+    show();
 }
 
 void mvme::on_actionAnalysis_UI_triggered()
@@ -809,6 +811,7 @@ void mvme::on_actionAnalysis_UI_triggered()
     }
 
     analysisUi->show();
+    analysisUi->showNormal();
     analysisUi->raise();
 }
 
@@ -828,6 +831,7 @@ void mvme::on_actionVME_Debug_triggered()
     }
 
     m_vmeDebugWidget->show();
+    m_vmeDebugWidget->showNormal();
     m_vmeDebugWidget->raise();
 }
 
@@ -863,6 +867,7 @@ void mvme::on_actionLog_Window_triggered()
     }
 
     m_logView->show();
+    m_logView->showNormal();
     m_logView->raise();
 }
 
