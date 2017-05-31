@@ -642,9 +642,15 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     sb->setVisible(false);
 
     m_d->m_labelCursorInfo = new QLabel;
-    m_d->m_labelCursorInfo->setAlignment(Qt::AlignLeft | Qt::AlignTop);
     m_d->m_labelHistoInfo = new QLabel;
-    m_d->m_labelHistoInfo->setAlignment(Qt::AlignLeft | Qt::AlignTop);
+
+    for (auto label: { m_d->m_labelCursorInfo, m_d->m_labelHistoInfo})
+    {
+        label->setAlignment(Qt::AlignLeft | Qt::AlignTop);
+        auto font = label->font();
+        font.setPointSize(7);
+        label->setFont(font);
+    }
 
     sb->addPermanentWidget(m_d->m_labelCursorInfo);
     sb->addPermanentWidget(m_d->m_labelHistoInfo);
