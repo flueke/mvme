@@ -12,7 +12,6 @@ class QwtPlotPicker;
 class QwtPlotTextLabel;
 class QwtText;
 class ScrollZoomer;
-class CalibUi;
 class MVMEContext;
 
 namespace Ui
@@ -77,6 +76,7 @@ class Histo1DWidget: public QWidget
 
         Ui::Histo1DWidget *ui;
         Histo1DWidgetPrivate *m_d;
+        friend class Histo1DWidgetPrivate;
 
         Histo1D *m_histo;
         Histo1DPtr m_histoPtr;
@@ -90,7 +90,6 @@ class Histo1DWidget: public QWidget
         QPointF m_cursorPosition;
         int m_labelCursorInfoWidth;
 
-        CalibUi *m_calibUi;
         std::shared_ptr<analysis::CalibrationMinMax> m_calib;
         s32 m_histoAddress;
         MVMEContext *m_context;

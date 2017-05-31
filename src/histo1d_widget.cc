@@ -19,16 +19,20 @@
 #include <qwt_scale_widget.h>
 #include <qwt_text.h>
 
+#include <QComboBox>
 #include <QFileInfo>
 #include <QFile>
 #include <QFileDialog>
+#include <QGroupBox>
 #include <QLabel>
 #include <QMessageBox>
+#include <QPushButton>
 #include <QSettings>
 #include <QSpinBox>
 #include <QStandardPaths>
 #include <QTextStream>
 #include <QTimer>
+#include <QToolBar>
 
 static const s32 ReplotPeriod_ms = 1000;
 
@@ -192,7 +196,10 @@ struct CalibUi
                    *lastFocusedActual;
     QPushButton *applyButton,
                 *fillMaxButton,
-                *resetToFilterButton;
+                *resetToFilterButton,
+                *closeButton;
+
+    QDialog *window;
 };
 
 struct RateEstimationData
@@ -210,6 +217,13 @@ struct Histo1DWidgetPrivate
 {
     Histo1DWidget *m_q;
 
+    QToolBar *m_toolBar;
+
+    QAction *m_actionRateEstimation,
+            *m_actionSubRange,
+            *m_actionGaussFit,
+            *m_actionCalibUi;
+
     RateEstimationData m_rateEstimationData;
     QwtPlotPicker *m_ratePointPicker;
     QwtPlotMarker *m_rateX1Marker;
@@ -217,7 +231,49 @@ struct Histo1DWidgetPrivate
     QwtPlotMarker *m_rateFormulaMarker;
 
     QwtPlotCurve *m_gaussCurve = nullptr;
+
+    QComboBox *m_yScaleCombo;
+
+    CalibUi m_calibUi;
+
+    void setCalibUiVisible(bool b)
+    {
+        auto window = m_calibUi.window;
+        window->setVisible(b);
+
+        s32 x = m_q->width() - window->width();
+        s32 y = m_toolBar->height() + 15;
+        m_calibUi.window->move(m_q->mapToGlobal(QPoint(x, y)));
+    }
 };
+
+enum class AxisScaleType
+{
+    Linear,
+    Logarithmic
+};
+
+static QWidget *make_spacer_widget()
+{
+    auto result = new QWidget;
+    result->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    return result;
+}
+
+static QWidget *make_vbox_container(const QString &labelText, QWidget *widget)
+{
+    auto label = new QLabel(labelText);
+    label->setAlignment(Qt::AlignCenter);
+
+    auto container = new QWidget;
+    auto layout = new QVBoxLayout(container);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(0);
+    layout->addWidget(label);
+    layout->addWidget(widget);
+
+    return container;
+}
 
 Histo1DWidget::Histo1DWidget(const Histo1DPtr &histoPtr, QWidget *parent)
     : Histo1DWidget(histoPtr.get(), parent)
@@ -239,18 +295,63 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     m_d->m_q = this;
     ui->setupUi(this);
 
-    ui->tb_info->setEnabled(false);
-    ui->tb_subRange->setEnabled(false);
+    m_d->m_toolBar = new QToolBar();
+    auto tb = m_d->m_toolBar;
+    {
+        tb->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+        tb->setIconSize(QSize(16, 16));
+        auto font = tb->font();
+        font.setPointSize(7);
+        tb->setFont(font);
 
-    connect(ui->pb_export, &QPushButton::clicked, this, &Histo1DWidget::exportPlot);
-    connect(ui->pb_save, &QPushButton::clicked, this, &Histo1DWidget::saveHistogram);
+        auto layout = new QHBoxLayout(ui->toolBarFrame);
+        layout->setContentsMargins(0, 0, 0, 0);
+        layout->setSpacing(0);
+        layout->addWidget(m_d->m_toolBar);
+    }
 
-    connect(ui->pb_clear, &QPushButton::clicked, this, [this] {
+    qDebug() << "toolbar layout:" << tb->layout();
+
+    m_d->m_actionGaussFit       = tb->addAction(QIcon(":/generic_chart_with_pencil.png"), QSL("Gauss"));
+    m_d->m_actionRateEstimation = tb->addAction(QIcon(":/generic_chart_with_pencil.png"), QSL("Rate Est."));
+
+    tb->addAction(QIcon(":/clear_histos.png"), QSL("Clear"), this, [this]() {
         m_histo->clear();
         replot();
     });
 
-    connect(ui->linLogGroup, SIGNAL(buttonClicked(int)), this, SLOT(displayChanged()));
+    tb->addAction(QIcon(":/document-pdf.png"), QSL("Export/Print"), this, &Histo1DWidget::exportPlot);
+    tb->addAction(QIcon(":/document-save.png"), QSL("Save"), this, &Histo1DWidget::saveHistogram);
+    m_d->m_actionSubRange = tb->addAction(QIcon(":/histo_subrange.png"), QSL("Subrange"), this, &Histo1DWidget::on_tb_subRange_clicked);
+
+    m_d->m_actionRateEstimation->setCheckable(true);
+    connect(m_d->m_actionRateEstimation, &QAction::toggled, this, &Histo1DWidget::on_tb_rate_toggled);
+
+    m_d->m_actionGaussFit->setCheckable(true);
+    connect(m_d->m_actionGaussFit, &QAction::toggled, this, &Histo1DWidget::on_tb_gauss_toggled);
+
+    //tb->addAction(QIcon(":/info.png"), QSL("Info")); // TODO: implement Histo1D info screen
+
+    // Y-Scale Selection
+    {
+        m_d->m_yScaleCombo = new QComboBox;
+        auto yScaleCombo = m_d->m_yScaleCombo;
+
+        yScaleCombo->addItem(QSL("Lin"), static_cast<int>(AxisScaleType::Linear));
+        yScaleCombo->addItem(QSL("Log"), static_cast<int>(AxisScaleType::Logarithmic));
+
+        connect(yScaleCombo, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
+                this, &Histo1DWidget::displayChanged);
+
+        tb->addWidget(make_vbox_container(QSL("Y-Scale"), yScaleCombo));
+    }
+
+    m_d->m_actionCalibUi = tb->addAction(QIcon(":/operator_calibration.png"), QSL("Calibration"));
+    m_d->m_actionCalibUi->setCheckable(true);
+    m_d->m_actionCalibUi->setVisible(false);
+    connect(m_d->m_actionCalibUi, &QAction::toggled, this, [this](bool b) { m_d->setCalibUiVisible(b); });
+
+    tb->addWidget(make_spacer_widget());
 
     m_plotCurve->setStyle(QwtPlotCurve::Steps);
     m_plotCurve->setCurveAttribute(QwtPlotCurve::Inverted);
@@ -329,26 +430,27 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     //
     // Calib Ui
     //
-    m_calibUi = new CalibUi;
-    m_calibUi->actual1 = new QDoubleSpinBox;
-    m_calibUi->actual2 = new QDoubleSpinBox;
-    m_calibUi->target1 = new QDoubleSpinBox;
-    m_calibUi->target2 = new QDoubleSpinBox;
-    m_calibUi->applyButton = new QPushButton(QSL("Apply"));
-    m_calibUi->fillMaxButton = new QPushButton(QSL("Vis. Max"));
-    m_calibUi->fillMaxButton->setToolTip(QSL("Fill the last focused actual value with the visible maximum histogram value"));
-    m_calibUi->resetToFilterButton = new QPushButton(QSL("Restore"));
-    m_calibUi->resetToFilterButton->setToolTip(QSL("Restore base unit values from source calibration"));
+    m_d->m_calibUi.actual1 = new QDoubleSpinBox;
+    m_d->m_calibUi.actual2 = new QDoubleSpinBox;
+    m_d->m_calibUi.target1 = new QDoubleSpinBox;
+    m_d->m_calibUi.target2 = new QDoubleSpinBox;
+    m_d->m_calibUi.applyButton = new QPushButton(QSL("Apply"));
+    m_d->m_calibUi.fillMaxButton = new QPushButton(QSL("Vis. Max"));
+    m_d->m_calibUi.fillMaxButton->setToolTip(QSL("Fill the last focused actual value with the visible maximum histogram value"));
+    m_d->m_calibUi.resetToFilterButton = new QPushButton(QSL("Restore"));
+    m_d->m_calibUi.resetToFilterButton->setToolTip(QSL("Restore base unit values from source calibration"));
+    m_d->m_calibUi.closeButton = new QPushButton(QSL("Close"));
 
-    m_calibUi->lastFocusedActual = m_calibUi->actual2;
-    m_calibUi->actual1->installEventFilter(this);
-    m_calibUi->actual2->installEventFilter(this);
+    m_d->m_calibUi.lastFocusedActual = m_d->m_calibUi.actual2;
+    m_d->m_calibUi.actual1->installEventFilter(this);
+    m_d->m_calibUi.actual2->installEventFilter(this);
 
-    connect(m_calibUi->applyButton, &QPushButton::clicked, this, &Histo1DWidget::calibApply);
-    connect(m_calibUi->fillMaxButton, &QPushButton::clicked, this, &Histo1DWidget::calibFillMax);
-    connect(m_calibUi->resetToFilterButton, &QPushButton::clicked, this, &Histo1DWidget::calibResetToFilter);
+    connect(m_d->m_calibUi.applyButton, &QPushButton::clicked, this, &Histo1DWidget::calibApply);
+    connect(m_d->m_calibUi.fillMaxButton, &QPushButton::clicked, this, &Histo1DWidget::calibFillMax);
+    connect(m_d->m_calibUi.resetToFilterButton, &QPushButton::clicked, this, &Histo1DWidget::calibResetToFilter);
+    connect(m_d->m_calibUi.closeButton, &QPushButton::clicked, this, [this]() { m_d->m_calibUi.window->reject(); });
 
-    QVector<QDoubleSpinBox *> spins = { m_calibUi->actual1, m_calibUi->actual2, m_calibUi->target1, m_calibUi->target2 };
+    QVector<QDoubleSpinBox *> spins = { m_d->m_calibUi.actual1, m_d->m_calibUi.actual2, m_d->m_calibUi.target1, m_d->m_calibUi.target2 };
 
     for (auto spin: spins)
     {
@@ -359,30 +461,50 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
         spin->setValue(0.0);
     }
 
-    auto calibLayout = new QGridLayout;
+    m_d->m_calibUi.window = new QDialog(this);
+    connect(m_d->m_calibUi.window, &QDialog::rejected, this, [this]() {
+        m_d->m_actionCalibUi->setChecked(false);
+    });
+
+    {
+        auto font = m_d->m_calibUi.window->font();
+        font.setPointSize(7);
+        m_d->m_calibUi.window->setFont(font);
+    }
+
+    auto calibLayout = new QGridLayout(m_d->m_calibUi.window);
     calibLayout->setContentsMargins(3, 3, 3, 3);
     calibLayout->setSpacing(2);
 
     calibLayout->addWidget(new QLabel(QSL("Actual")), 0, 0, Qt::AlignHCenter);
     calibLayout->addWidget(new QLabel(QSL("Target")), 0, 1, Qt::AlignHCenter);
 
-    calibLayout->addWidget(m_calibUi->actual1, 1, 0);
-    calibLayout->addWidget(m_calibUi->target1, 1, 1);
+    calibLayout->addWidget(m_d->m_calibUi.actual1, 1, 0);
+    calibLayout->addWidget(m_d->m_calibUi.target1, 1, 1);
 
-    calibLayout->addWidget(m_calibUi->actual2, 2, 0);
-    calibLayout->addWidget(m_calibUi->target2, 2, 1);
+    calibLayout->addWidget(m_d->m_calibUi.actual2, 2, 0);
+    calibLayout->addWidget(m_d->m_calibUi.target2, 2, 1);
 
-    calibLayout->addWidget(m_calibUi->fillMaxButton, 3, 0, 1, 1);
-    calibLayout->addWidget(m_calibUi->applyButton, 3, 1, 1, 1);
+    calibLayout->addWidget(m_d->m_calibUi.fillMaxButton, 3, 0, 1, 1);
+    calibLayout->addWidget(m_d->m_calibUi.applyButton, 3, 1, 1, 1);
 
-    calibLayout->addWidget(m_calibUi->resetToFilterButton, 4, 0, 1, 1);
+    calibLayout->addWidget(m_d->m_calibUi.resetToFilterButton, 4, 0, 1, 1);
+    calibLayout->addWidget(m_d->m_calibUi.closeButton, 4, 1, 1, 1);
 
+#if 0
     auto calibSection = new Section(QSL("Calibration"));
     calibSection->setContentLayout(*calibLayout);
 
-    auto calibFrameLayout = new QHBoxLayout(ui->frame_calib);
+    //auto calibFrameLayout = new QHBoxLayout(ui->frame_calib);
+    auto calibFrameLayout = new QHBoxLayout();
     calibFrameLayout->setContentsMargins(0, 0, 0, 0);
     calibFrameLayout->addWidget(calibSection);
+
+    auto testContainer = new QWidget;
+    testContainer->setLayout(calibFrameLayout);
+
+    tb->addWidget(testContainer);
+#endif
 
     // Hide the calibration UI. It will be shown if setCalibrationInfo() is called.
     ui->frame_calib->setVisible(false);
@@ -678,12 +800,14 @@ void Histo1DWidget::replot()
 
 void Histo1DWidget::displayChanged()
 {
-    if (ui->scaleLin->isChecked() && !yAxisIsLin())
+    auto scaleType = static_cast<AxisScaleType>(m_d->m_yScaleCombo->currentData().toInt());
+
+    if (scaleType == AxisScaleType::Linear && !yAxisIsLin())
     {
         ui->plot->setAxisScaleEngine(QwtPlot::yLeft, new QwtLinearScaleEngine);
         ui->plot->setAxisAutoScale(QwtPlot::yLeft, true);
     }
-    else if (ui->scaleLog->isChecked() && !yAxisIsLog())
+    else if (scaleType == AxisScaleType::Logarithmic && !yAxisIsLog())
     {
         auto scaleEngine = new QwtLogScaleEngine;
         scaleEngine->setTransformation(new MinBoundLogTransform);
@@ -924,6 +1048,7 @@ void Histo1DWidget::setCalibrationInfo(const std::shared_ptr<analysis::Calibrati
     m_calib = calib;
     m_histoAddress = histoAddress;
     ui->frame_calib->setVisible(m_calib != nullptr);
+    m_d->m_actionCalibUi->setVisible(m_calib != nullptr);
 }
 
 void Histo1DWidget::calibApply()
@@ -931,10 +1056,10 @@ void Histo1DWidget::calibApply()
     Q_ASSERT(m_calib);
     Q_ASSERT(m_context);
 
-    double a1 = m_calibUi->actual1->value();
-    double a2 = m_calibUi->actual2->value();
-    double t1 = m_calibUi->target1->value();
-    double t2 = m_calibUi->target2->value();
+    double a1 = m_d->m_calibUi.actual1->value();
+    double a2 = m_d->m_calibUi.actual2->value();
+    double t1 = m_d->m_calibUi.target1->value();
+    double t2 = m_d->m_calibUi.target2->value();
 
     if (a1 - a2 == 0.0 || t1 == t2)
         return;
@@ -957,8 +1082,8 @@ void Histo1DWidget::calibApply()
         << "aMinMax" << actualMin << actualMax << endl
         << "tMinMax" << targetMin << targetMax;
 
-    m_calibUi->actual1->setValue(m_calibUi->target1->value());
-    m_calibUi->actual2->setValue(m_calibUi->target2->value());
+    m_d->m_calibUi.actual1->setValue(m_d->m_calibUi.target1->value());
+    m_d->m_calibUi.actual2->setValue(m_d->m_calibUi.target2->value());
 
     AnalysisPauser pauser(m_context);
     m_calib->setCalibration(address, targetMin, targetMax);
@@ -992,15 +1117,15 @@ void Histo1DWidget::calibResetToFilter()
 void Histo1DWidget::calibFillMax()
 {
     double maxAt = m_histo->getAxisBinning(Qt::XAxis).getBinCenter(m_stats.maxBin);
-    m_calibUi->lastFocusedActual->setValue(maxAt);
+    m_d->m_calibUi.lastFocusedActual->setValue(maxAt);
 }
 
 bool Histo1DWidget::eventFilter(QObject *watched, QEvent *event)
 {
-    if ((watched == m_calibUi->actual1 || watched == m_calibUi->actual2)
+    if ((watched == m_d->m_calibUi.actual1 || watched == m_d->m_calibUi.actual2)
         && (event->type() == QEvent::FocusIn))
     {
-        m_calibUi->lastFocusedActual = qobject_cast<QDoubleSpinBox *>(watched);
+        m_d->m_calibUi.lastFocusedActual = qobject_cast<QDoubleSpinBox *>(watched);
     }
     return QWidget::eventFilter(watched, event);
 }
@@ -1015,7 +1140,7 @@ void Histo1DWidget::setSink(const SinkPtr &sink, HistoSinkCallback sinkModifiedC
     Q_ASSERT(sink);
     m_sink = sink;
     m_sinkModifiedCallback = sinkModifiedCallback;
-    ui->tb_subRange->setEnabled(true);
+    m_d->m_actionSubRange->setEnabled(true);
 }
 
 void Histo1DWidget::on_tb_subRange_clicked()
@@ -1080,21 +1205,14 @@ Histo1DListWidget::Histo1DListWidget(const HistoList &histos, QWidget *parent)
 
     connect(m_histoWidget, &QWidget::windowTitleChanged, this, &QWidget::setWindowTitle);
 
-    /* create the controls to switch the current histogram and inject into the
-     * histo widget layout. */
-    auto gb = new QGroupBox(QSL("Histogram"));
-    auto histoSpinLayout = new QHBoxLayout(gb);
-    histoSpinLayout->setContentsMargins(0, 0, 0, 0);
-
+    /* Create a spinbox to cycle through the histograms and add it to the
+     * Histo1DWidgets toolbar. */
     auto histoSpinBox = new QSpinBox;
     histoSpinBox->setMaximum(histos.size() - 1);
     connect(histoSpinBox, static_cast<void (QSpinBox::*)(int)>(&QSpinBox::valueChanged),
             this, &Histo1DListWidget::onHistoSpinBoxValueChanged);
 
-    histoSpinLayout->addWidget(histoSpinBox);
-
-    auto controlsLayout = m_histoWidget->ui->controlsLayout;
-    controlsLayout->insertWidget(0, gb);
+    m_histoWidget->m_d->m_toolBar->addWidget(make_vbox_container(QSL("Histogram #"), histoSpinBox));
 
     auto layout = new QHBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
@@ -1108,9 +1226,7 @@ Histo1DListWidget::Histo1DListWidget(const HistoList &histos, QWidget *parent)
 void Histo1DListWidget::onHistoSpinBoxValueChanged(int index)
 {
     m_currentIndex = index;
-    auto histo = m_histos.value(index);
-
-    if (histo)
+    if (auto histo = m_histos.value(index))
     {
         m_histoWidget->setHistogram(histo.get());
         m_histoWidget->setContext(m_context);

@@ -11,6 +11,7 @@
     <file alias="document-revert.png">resources/document-revert.png</file>
     <file alias="document-save.png">resources/document-save.png</file>
     <file alias="document-save-as.png">resources/document-save-as.png</file>
+    <file alias="document-pdf.png">resources/document-pdf.png</file>
     <file alias="script-run.png">resources/media-playback-start.png</file>
     <file alias="tree-settings.png">resources/view-list-tree.png</file>
     <file alias="data_filter.png">resources/view-filter.png</file>
@@ -30,6 +31,8 @@
     <file alias="mesytec_icon.png">resources/mesytec-window-icon.png</file>
     <file alias="folder_import.png">resources/blue-folder-import.png</file>
     <file alias="analysis_module_import.png">resources/script-import.png</file>
+    <file alias="histo_subrange.png">resources/selection-resize.png</file>
+    <file alias="generic_chart_with_pencil.png">resources/chart--pencil.png</file>
 
     <file alias="operator_calibration.png">resources/measure.png</file>
     <file alias="operator_difference.png">resources/minus-white.png</file>
