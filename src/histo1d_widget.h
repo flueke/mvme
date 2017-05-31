@@ -42,7 +42,8 @@ class Histo1DWidget: public QWidget
         void setHistogram(const Histo1DPtr &histo);
         void setHistogram(Histo1D *histo);
 
-        virtual bool eventFilter(QObject *watched, QEvent *event) override;
+        virtual bool eventFilter(QObject *watched, QEvent *e) override;
+        virtual bool event(QEvent *event) override;
 
         friend class Histo1DListWidget;
 

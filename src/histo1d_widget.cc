@@ -303,7 +303,9 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     m_d->m_q = this;
     ui->setupUi(this);
 
+    // Toolbar and actions
     m_d->m_toolBar = new QToolBar();
+    QAction *action = nullptr;
     auto tb = m_d->m_toolBar;
     {
         tb->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
@@ -320,23 +322,29 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
 
     qDebug() << "toolbar layout:" << tb->layout();
 
-    m_d->m_actionGaussFit       = tb->addAction(QIcon(":/generic_chart_with_pencil.png"), QSL("Gauss"));
+    m_d->m_actionGaussFit = tb->addAction(QIcon(":/generic_chart_with_pencil.png"), QSL("Gauss"));
+    m_d->m_actionGaussFit->setCheckable(true);
+    connect(m_d->m_actionGaussFit, &QAction::toggled, this, &Histo1DWidget::on_tb_gauss_toggled);
+
     m_d->m_actionRateEstimation = tb->addAction(QIcon(":/generic_chart_with_pencil.png"), QSL("Rate Est."));
+    m_d->m_actionRateEstimation->setStatusTip(QSL("Rate Estimation"));
+    m_d->m_actionRateEstimation->setCheckable(true);
+    connect(m_d->m_actionRateEstimation, &QAction::toggled, this, &Histo1DWidget::on_tb_rate_toggled);
 
     tb->addAction(QIcon(":/clear_histos.png"), QSL("Clear"), this, [this]() {
         m_histo->clear();
         replot();
     });
 
-    tb->addAction(QIcon(":/document-pdf.png"), QSL("Export/Print"), this, &Histo1DWidget::exportPlot);
-    tb->addAction(QIcon(":/document-save.png"), QSL("Save"), this, &Histo1DWidget::saveHistogram);
+    action = tb->addAction(QIcon(":/document-pdf.png"), QSL("Export"), this, &Histo1DWidget::exportPlot);
+    action->setStatusTip(QSL("Export plot to a PDF or image file"));
+
+    action = tb->addAction(QIcon(":/document-save.png"), QSL("Save"), this, &Histo1DWidget::saveHistogram);
+    action->setStatusTip(QSL("Save the histogram to a text file"));
+
     m_d->m_actionSubRange = tb->addAction(QIcon(":/histo_subrange.png"), QSL("Subrange"), this, &Histo1DWidget::on_tb_subRange_clicked);
+    m_d->m_actionSubRange->setStatusTip(QSL("Limit the histogram to a specific X-Axis range"));
 
-    m_d->m_actionRateEstimation->setCheckable(true);
-    connect(m_d->m_actionRateEstimation, &QAction::toggled, this, &Histo1DWidget::on_tb_rate_toggled);
-
-    m_d->m_actionGaussFit->setCheckable(true);
-    connect(m_d->m_actionGaussFit, &QAction::toggled, this, &Histo1DWidget::on_tb_gauss_toggled);
 
     // Y-Scale Selection
     {
@@ -355,6 +363,7 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     m_d->m_actionCalibUi = tb->addAction(QIcon(":/operator_calibration.png"), QSL("Calibration"));
     m_d->m_actionCalibUi->setCheckable(true);
     m_d->m_actionCalibUi->setVisible(false);
+    m_d->m_actionCalibUi->setStatusTip(QSL("Edit the histograms input calibration"));
     connect(m_d->m_actionCalibUi, &QAction::toggled, this, [this](bool b) { m_d->setCalibUiVisible(b); });
 
     m_d->m_actionInfo = tb->addAction(QIcon(":/info.png"), QSL("Info"));
@@ -1159,6 +1168,17 @@ bool Histo1DWidget::eventFilter(QObject *watched, QEvent *event)
         m_d->m_calibUi.lastFocusedActual = qobject_cast<QDoubleSpinBox *>(watched);
     }
     return QWidget::eventFilter(watched, event);
+}
+
+bool Histo1DWidget::event(QEvent *e)
+{
+    if (e->type() == QEvent::StatusTip)
+    {
+        m_d->m_statusBar->showMessage(reinterpret_cast<QStatusTipEvent *>(e)->tip());
+        return true;
+    }
+
+    return QWidget::event(e);
 }
 
 void Histo1DWidget::on_tb_info_clicked()
