@@ -2,14 +2,10 @@
 ==== Do these first! =====
 ==========================
 
-- Log a message about how many sources and operators have been imported.
+- Histo1D Calibration UI: Wrong Vis. Max Value for empty histograms
+- Histo1D Calibration UI: "Restore" uses unexpected values. Also there's no way to undo the restore operation. (calibResetToFilter)
 - Fix MVMEAnalysisVersion handling. Converting from versions < 2 needs access to the VME config...
-- Importing analysis objects sometimes asserts as there are sources left in the
-  analysis after the assignment gui ran and the user selected discard for
-  everything. Fix this!
-  Fixed for the "Import for Module" case. Fix it for the "Open" and "Import" cases too!
 - Set analysis modified and/or set an empty filename if vme assignment has changed the analysis.
-- New Extractor -> suggested Name does not prepend the current name from the vme config.
 
 - Refactor gui_write_json_file() to write_json_file() and use exceptions to report errors.
   Meaning: implement functionality using exceptions and not caring about if
@@ -23,43 +19,16 @@
 - VMEScript: change parsing of the short form to first check if it is a command
   and only try to parse the short form if it isn't. See the comment in
   parse_line().
+- Fix diagnosis window hanging and eating system memory when EOE check is
+  active and a lot of errors are occuring
 
 New VME/Analysis Template System (VATS)
 ---------------------------------------
-- New feature: Module specific filters. (Analysis related, not VME Config related)
-  Default filter set. (Add default filters)
-  Additional filter sets. (Add filters)
-
-
-#0  0x00007ffff3e36067 in __GI_raise (sig=sig@entry=6) at ../nptl/sysdeps/unix/sysv/linux/raise.c:56
-#1  0x00007ffff3e37448 in __GI_abort () at abort.c:89
-#2  0x00007ffff4ef0f4e in QMessageLogger::fatal(char const*, ...) const () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
-#3  0x00007ffff4eec821 in qt_assert_x(char const*, char const*, char const*, int) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
-#4  0x00000000005e20bf in QVector<analysis::Parameter>::operator[] (this=0x60e000031a40, i=1) at ../../../Qt/5.7/gcc_64/include/QtCore/qvector.h:429
-#5  0x00000000005cf3be in analysis::Difference::step (this=0x61000000ba40) at ../../mvme2/src/analysis/analysis.cc:915
-#6  0x00000000005d82de in analysis::Analysis::endEvent (this=0x6060000dfd00, eventId=...) at ../../mvme2/src/analysis/analysis.cc:1897
-#7  0x000000000053c6bc in MVMEEventProcessor::processDataBuffer (this=0x60400002ecd0, buffer=0x603000022d50) at ../../mvme2/src/mvme_event_processor.cc:278
-#8  0x000000000053cec7 in MVMEEventProcessor::startProcessing (this=0x60400002ecd0) at ../../mvme2/src/mvme_event_processor.cc:336
-#9  0x000000000066e4d3 in MVMEEventProcessor::qt_static_metacall (_o=0x60400002ecd0, _c=QMetaObject::InvokeMetaMethod, _id=7, _a=0x60200190cad0)
-    at moc_mvme_event_processor.cpp:115
-
-#3  0x00007ffff4eec821 in qt_assert_x(char const*, char const*, char const*, int) ()
-   from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
-#4  0x00000000005eb379 in QVector<analysis::Parameter>::operator[] (this=0x6100000089c0, i=1)
-    at ../../../Qt/5.7/gcc_64/include/QtCore/qvector.h:429
-#5  0x00000000005db4be in analysis::ConditionFilter::step (this=0x610000360240) at ../../mvme2/src/analysis/analysis.cc:1423
-#6  0x00000000005e0590 in analysis::Analysis::endEvent (this=0x6070000901c0, eventId=...) at ../../mvme2/src/analysis/analysis.cc:1916
-#7  0x00000000005440fa in MVMEEventProcessor::processDataBuffer (this=0x604000049150, buffer=0x603000021e20)
-    at ../../mvme2/src/mvme_event_processor.cc:280
-
 * When quitting: if vme script editor asks for confirmation and the user
   presses cancel the mainwindow will still close
 
-
 * AddEditOperatorWidget: highlight selected input on button hover
 * VMUSBReadoutWorker: Add daqconfig consistency checks. Abort if the checks fail.
-* New Extractor for a MesytecCounter module -> no default filter present! Name
-  is only partially filled.
 
 * Clearly document Extractor behaviour:
   - How does it use the individual filters?
