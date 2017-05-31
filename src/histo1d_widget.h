@@ -88,7 +88,6 @@ class Histo1DWidget: public QWidget
         QwtPlotTextLabel *m_statsTextItem;
         QwtText *m_statsText;
         QPointF m_cursorPosition;
-        int m_labelCursorInfoWidth;
 
         std::shared_ptr<analysis::CalibrationMinMax> m_calib;
         s32 m_histoAddress;

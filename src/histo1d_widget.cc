@@ -30,6 +30,7 @@
 #include <QSettings>
 #include <QSpinBox>
 #include <QStandardPaths>
+#include <QStatusBar>
 #include <QTextStream>
 #include <QTimer>
 #include <QToolBar>
@@ -218,11 +219,19 @@ struct Histo1DWidgetPrivate
     Histo1DWidget *m_q;
 
     QToolBar *m_toolBar;
+    QStatusBar *m_statusBar;
+
+    QLabel *m_labelCursorInfo;
+    QLabel *m_labelHistoInfo;
+
+    s32 m_labelCursorInfoMaxWidth  = 0;
+    s32 m_labelCursorInfoMaxHeight = 0;
 
     QAction *m_actionRateEstimation,
             *m_actionSubRange,
             *m_actionGaussFit,
-            *m_actionCalibUi;
+            *m_actionCalibUi,
+            *m_actionInfo;
 
     RateEstimationData m_rateEstimationData;
     QwtPlotPicker *m_ratePointPicker;
@@ -289,7 +298,6 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     , m_plotCurve(new QwtPlotCurve)
     , m_replotTimer(new QTimer(this))
     , m_cursorPosition(make_quiet_nan(), make_quiet_nan())
-    , m_labelCursorInfoWidth(-1)
     , m_context(nullptr)
 {
     m_d->m_q = this;
@@ -330,8 +338,6 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     m_d->m_actionGaussFit->setCheckable(true);
     connect(m_d->m_actionGaussFit, &QAction::toggled, this, &Histo1DWidget::on_tb_gauss_toggled);
 
-    //tb->addAction(QIcon(":/info.png"), QSL("Info")); // TODO: implement Histo1D info screen
-
     // Y-Scale Selection
     {
         m_d->m_yScaleCombo = new QComboBox;
@@ -351,8 +357,14 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     m_d->m_actionCalibUi->setVisible(false);
     connect(m_d->m_actionCalibUi, &QAction::toggled, this, [this](bool b) { m_d->setCalibUiVisible(b); });
 
+    m_d->m_actionInfo = tb->addAction(QIcon(":/info.png"), QSL("Info"));
+    m_d->m_actionInfo->setCheckable(true);
+    connect(m_d->m_actionInfo, &QAction::toggled, this, [this](bool b) { m_d->m_statusBar->setVisible(b); });
+
+
     tb->addWidget(make_spacer_widget());
 
+    // Setup the plot
     m_plotCurve->setStyle(QwtPlotCurve::Steps);
     m_plotCurve->setCurveAttribute(QwtPlotCurve::Inverted);
     m_plotCurve->attach(ui->plot);
@@ -506,9 +518,6 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     tb->addWidget(testContainer);
 #endif
 
-    // Hide the calibration UI. It will be shown if setCalibrationInfo() is called.
-    ui->frame_calib->setVisible(false);
-
     //
     // Rate Estimation
     //
@@ -614,6 +623,22 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
         qDebug() << __PRETTY_FUNCTION__ << "m_ratePointPicker selected" << pa;
     });
 #endif
+
+    //
+    // StatusBar and info widgets
+    //
+    m_d->m_statusBar = new QStatusBar;
+    auto sb = m_d->m_statusBar;
+    ui->mainLayout->addWidget(sb);
+    sb->setVisible(false);
+
+    m_d->m_labelCursorInfo = new QLabel;
+    m_d->m_labelCursorInfo->setAlignment(Qt::AlignLeft | Qt::AlignTop);
+    m_d->m_labelHistoInfo = new QLabel;
+    m_d->m_labelHistoInfo->setAlignment(Qt::AlignLeft | Qt::AlignTop);
+
+    sb->addPermanentWidget(m_d->m_labelCursorInfo);
+    sb->addPermanentWidget(m_d->m_labelHistoInfo);
 
     setHistogram(histo);
 }
@@ -778,7 +803,7 @@ void Histo1DWidget::replot()
         m_d->m_rateFormulaMarker->show();
     }
 
-    ui->label_histoInfo->setText(infoText);
+    m_d->m_labelHistoInfo->setText(infoText);
 
     // window and axis titles
     auto name = m_histo->objectName();
@@ -1037,17 +1062,23 @@ void Histo1DWidget::updateCursorInfoLabel()
     }
 
     // update the label which will calculate a new width
-    ui->label_cursorInfo->setText(text);
-    // use the largest width the label ever had to stop the label from constantly changing its width
-    m_labelCursorInfoWidth = std::max(m_labelCursorInfoWidth, ui->label_cursorInfo->width());
-    ui->label_cursorInfo->setMinimumWidth(m_labelCursorInfoWidth);
+    m_d->m_labelCursorInfo->setText(text);
+
+    // use the largest width and height the label ever had to stop the label from constantly changing its width
+    if (m_d->m_labelCursorInfo->isVisible())
+    {
+        m_d->m_labelCursorInfoMaxWidth = std::max(m_d->m_labelCursorInfoMaxWidth, m_d->m_labelCursorInfo->width());
+        m_d->m_labelCursorInfo->setMinimumWidth(m_d->m_labelCursorInfoMaxWidth);
+
+        m_d->m_labelCursorInfo->setMinimumHeight(m_d->m_labelCursorInfoMaxHeight);
+        m_d->m_labelCursorInfoMaxHeight = std::max(m_d->m_labelCursorInfoMaxHeight, m_d->m_labelCursorInfo->height());
+    }
 }
 
 void Histo1DWidget::setCalibrationInfo(const std::shared_ptr<analysis::CalibrationMinMax> &calib, s32 histoAddress)
 {
     m_calib = calib;
     m_histoAddress = histoAddress;
-    ui->frame_calib->setVisible(m_calib != nullptr);
     m_d->m_actionCalibUi->setVisible(m_calib != nullptr);
 }
 

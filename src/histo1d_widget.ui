@@ -10,7 +10,7 @@
     <height>565</height>
    </rect>
   </property>
-  <layout class="QVBoxLayout" name="verticalLayout">
+  <layout class="QVBoxLayout" name="mainLayout" stretch="0,1">
    <property name="spacing">
     <number>0</number>
    </property>
@@ -41,7 +41,7 @@
      <property name="frameShadow">
       <enum>QFrame::Plain</enum>
      </property>
-     <layout class="QGridLayout" name="gridLayout_3" columnstretch="1,0">
+     <layout class="QGridLayout" name="gridLayout_3" columnstretch="1">
       <item row="0" column="0">
        <widget class="QwtPlot" name="plot">
         <property name="sizePolicy">
@@ -57,40 +57,6 @@
          <enum>QFrame::Raised</enum>
         </property>
        </widget>
-      </item>
-      <item row="0" column="1">
-       <layout class="QVBoxLayout" name="controlsLayout">
-        <item>
-         <widget class="QFrame" name="frame_calib"/>
-        </item>
-        <item>
-         <spacer name="verticalSpacer">
-          <property name="orientation">
-           <enum>Qt::Vertical</enum>
-          </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>20</width>
-            <height>40</height>
-           </size>
-          </property>
-         </spacer>
-        </item>
-        <item>
-         <widget class="QLabel" name="label_histoInfo">
-          <property name="text">
-           <string/>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QLabel" name="label_cursorInfo">
-          <property name="text">
-           <string/>
-          </property>
-         </widget>
-        </item>
-       </layout>
       </item>
      </layout>
     </widget>
