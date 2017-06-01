@@ -245,14 +245,27 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
 
     // Toolbar and actions
     m_d->m_toolBar = new QToolBar();
-    QAction *action = nullptr;
     auto tb = m_d->m_toolBar;
     {
         tb->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
         tb->setIconSize(QSize(16, 16));
-        auto font = tb->font();
-        font.setPointSize(7);
-        tb->setFont(font);
+        set_widget_font_pointsize(tb, 7);
+    }
+
+    QAction *action = nullptr;
+
+    // Y-Scale Selection
+    {
+        m_d->m_yScaleCombo = new QComboBox;
+        auto yScaleCombo = m_d->m_yScaleCombo;
+
+        yScaleCombo->addItem(QSL("Lin"), static_cast<int>(AxisScaleType::Linear));
+        yScaleCombo->addItem(QSL("Log"), static_cast<int>(AxisScaleType::Logarithmic));
+
+        connect(yScaleCombo, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
+                this, &Histo1DWidget::displayChanged);
+
+        tb->addWidget(make_vbox_container(QSL("Y-Scale"), yScaleCombo));
     }
 
     m_d->m_actionGaussFit = tb->addAction(QIcon(":/generic_chart_with_pencil.png"), QSL("Gauss"));
@@ -277,21 +290,8 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
 
     m_d->m_actionSubRange = tb->addAction(QIcon(":/histo_subrange.png"), QSL("Subrange"), this, &Histo1DWidget::on_tb_subRange_clicked);
     m_d->m_actionSubRange->setStatusTip(QSL("Limit the histogram to a specific X-Axis range"));
+    m_d->m_actionSubRange->setEnabled(false);
 
-
-    // Y-Scale Selection
-    {
-        m_d->m_yScaleCombo = new QComboBox;
-        auto yScaleCombo = m_d->m_yScaleCombo;
-
-        yScaleCombo->addItem(QSL("Lin"), static_cast<int>(AxisScaleType::Linear));
-        yScaleCombo->addItem(QSL("Log"), static_cast<int>(AxisScaleType::Logarithmic));
-
-        connect(yScaleCombo, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
-                this, &Histo1DWidget::displayChanged);
-
-        tb->addWidget(make_vbox_container(QSL("Y-Scale"), yScaleCombo));
-    }
 
     m_d->m_actionCalibUi = tb->addAction(QIcon(":/operator_calibration.png"), QSL("Calibration"));
     m_d->m_actionCalibUi->setCheckable(true);
@@ -303,7 +303,6 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     m_d->m_actionInfo->setCheckable(true);
 
     connect(m_d->m_actionInfo, &QAction::toggled, this, [this](bool b) {
-
         /* I did not manage to get statusbar to resize to the smallest possible
          * size after hiding m_infoContainer. I tried
          * - setSizeConstraint(QLayout::SetFixedSize) on the container layout and on the statusbar layout
@@ -311,7 +310,6 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
          *
          * The quick fix is to hide/show the containers children explicitly.
          */
-
         for (auto childWidget: m_d->m_infoContainer->findChildren<QWidget *>())
         {
             childWidget->setVisible(b);
