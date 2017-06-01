@@ -83,7 +83,6 @@ SOURCES += \
 FORMS += \
     $$PWD/daqcontrol_widget.ui \
     $$PWD/event_config_dialog.ui \
-    $$PWD/histo1d_widget.ui \
     $$PWD/histo2d_widget.ui \
     $$PWD/mesytec_diagnostics.ui \
     $$PWD/mvme.ui \

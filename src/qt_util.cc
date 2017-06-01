@@ -141,3 +141,10 @@ QSize VerticalLabel::sizeHint() const
     QSize s = QLabel::sizeHint();
     return QSize(s.height(), s.width());
 }
+
+void set_widget_font_pointsize(QWidget *widget, s32 pointSize)
+{
+    auto font = widget->font();
+    font.setPointSize(pointSize);
+    widget->setFont(font);
+}

@@ -14,11 +14,6 @@ class QwtText;
 class ScrollZoomer;
 class MVMEContext;
 
-namespace Ui
-{
-    class Histo1DWidget;
-}
-
 namespace analysis
 {
     class CalibrationMinMax;
@@ -60,7 +55,6 @@ class Histo1DWidget: public QWidget
         void mouseCursorLeftPlot();
         void updateStatistics();
         void displayChanged();
-        void on_tb_info_clicked();
         void on_tb_subRange_clicked();
         void on_tb_rate_toggled(bool checked);
         void on_tb_gauss_toggled(bool checked);
@@ -75,7 +69,6 @@ class Histo1DWidget: public QWidget
         void calibFillMax();
         void calibResetToFilter();
 
-        Ui::Histo1DWidget *ui;
         Histo1DWidgetPrivate *m_d;
         friend class Histo1DWidgetPrivate;
 

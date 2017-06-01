@@ -1,5 +1,4 @@
 #include "histo1d_widget.h"
-#include "ui_histo1d_widget.h"
 #include "histo1d_widget_p.h"
 #include "scrollzoomer.h"
 #include "util.h"
@@ -84,64 +83,6 @@ static inline double squared(double x)
     return x * x;
 }
 
-#if 0
-class Histo1DGaussCurveData: public QwtSeriesData<QPointF>
-{
-    public:
-        Histo1DGaussCurveData(Histo1D *histo)
-            : m_histo(histo)
-        {
-        }
-
-        virtual size_t size() const override
-        {
-            return m_histo->getNumberOfBins();
-        }
-
-        virtual QPointF sample(size_t i) const override
-        {
-            qDebug() << __PRETTY_FUNCTION__ << "sample index =" << i;
-
-            double x = m_histo->getBinLowEdge(i);
-            double s = m_stats.fwhm / FWHMSigmaFactor;
-            double a = m_histo->getBinLowEdge(m_stats.maxBin);
-
-            double firstTerm  = m_stats.maxValue; // This is (1.0 / (SqrtPI2 * s)) if the resulting area should be 1.
-            double exponent   = -0.5 * ((squared(x - a) / squared(s)));
-            double secondTerm = std::exp(exponent);
-            double yValue     = firstTerm * secondTerm;
-
-            qDebug("i=%d, x=%lf, s=%lf, a=%lf, stats.maxBin=%d",
-                   i, x, s, a, m_stats.maxBin);
-
-            qDebug("firstTerm=%lf, exponent=%lf, secondTerm=%lf, yValue=%lf",
-                   firstTerm, exponent, secondTerm, yValue);
-
-            double y = yValue;
-
-            QPointF result(x, yValue);
-            return result;
-        }
-
-        virtual QRectF boundingRect() const override
-        {
-            auto result = QRectF(
-                m_histo->getXMin(), 0.0,
-                m_histo->getWidth(), m_histo->getMaxValue());
-
-            return result;
-        }
-
-        void setStats(Histo1DStatistics stats)
-        {
-            m_stats = stats;
-        }
-
-    private:
-        Histo1D *m_histo;
-        Histo1DStatistics m_stats;
-};
-#else
 /* Calculates a gauss fit using the currently visible maximum histogram value.
  *
  * Note: The resolution is independent of the underlying histograms resolution.
@@ -188,7 +129,6 @@ class Histo1DGaussCurveData: public QwtSyntheticPointData
         Histo1D *m_histo;
         Histo1DStatistics m_stats;
 };
-#endif
 
 struct CalibUi
 {
@@ -219,10 +159,12 @@ struct Histo1DWidgetPrivate
     Histo1DWidget *m_q;
 
     QToolBar *m_toolBar;
+    QwtPlot *m_plot;
     QStatusBar *m_statusBar;
 
     QLabel *m_labelCursorInfo;
     QLabel *m_labelHistoInfo;
+    QWidget *m_infoContainer;
 
     s32 m_labelCursorInfoMaxWidth  = 0;
     s32 m_labelCursorInfoMaxHeight = 0;
@@ -292,7 +234,6 @@ Histo1DWidget::Histo1DWidget(const Histo1DPtr &histoPtr, QWidget *parent)
 
 Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     : QWidget(parent)
-    , ui(new Ui::Histo1DWidget)
     , m_d(new Histo1DWidgetPrivate)
     , m_histo(histo)
     , m_plotCurve(new QwtPlotCurve)
@@ -301,7 +242,6 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     , m_context(nullptr)
 {
     m_d->m_q = this;
-    ui->setupUi(this);
 
     // Toolbar and actions
     m_d->m_toolBar = new QToolBar();
@@ -313,14 +253,7 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
         auto font = tb->font();
         font.setPointSize(7);
         tb->setFont(font);
-
-        auto layout = new QHBoxLayout(ui->toolBarFrame);
-        layout->setContentsMargins(0, 0, 0, 0);
-        layout->setSpacing(0);
-        layout->addWidget(m_d->m_toolBar);
     }
-
-    qDebug() << "toolbar layout:" << tb->layout();
 
     m_d->m_actionGaussFit = tb->addAction(QIcon(":/generic_chart_with_pencil.png"), QSL("Gauss"));
     m_d->m_actionGaussFit->setCheckable(true);
@@ -368,24 +301,40 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
 
     m_d->m_actionInfo = tb->addAction(QIcon(":/info.png"), QSL("Info"));
     m_d->m_actionInfo->setCheckable(true);
-    connect(m_d->m_actionInfo, &QAction::toggled, this, [this](bool b) { m_d->m_statusBar->setVisible(b); });
+
+    connect(m_d->m_actionInfo, &QAction::toggled, this, [this](bool b) {
+
+        /* I did not manage to get statusbar to resize to the smallest possible
+         * size after hiding m_infoContainer. I tried
+         * - setSizeConstraint(QLayout::SetFixedSize) on the container layout and on the statusbar layout
+         * - calling adjustSize() on container and statusbar
+         *
+         * The quick fix is to hide/show the containers children explicitly.
+         */
+
+        for (auto childWidget: m_d->m_infoContainer->findChildren<QWidget *>())
+        {
+            childWidget->setVisible(b);
+        }
+    });
 
 
     tb->addWidget(make_spacer_widget());
 
     // Setup the plot
+    m_d->m_plot = new QwtPlot;
     m_plotCurve->setStyle(QwtPlotCurve::Steps);
     m_plotCurve->setCurveAttribute(QwtPlotCurve::Inverted);
-    m_plotCurve->attach(ui->plot);
+    m_plotCurve->attach(m_d->m_plot);
 
-    ui->plot->axisWidget(QwtPlot::yLeft)->setTitle("Counts");
+    m_d->m_plot->axisWidget(QwtPlot::yLeft)->setTitle("Counts");
 
     connect(m_replotTimer, SIGNAL(timeout()), this, SLOT(replot()));
     m_replotTimer->start(ReplotPeriod_ms);
 
-    ui->plot->canvas()->setMouseTracking(true);
+    m_d->m_plot->canvas()->setMouseTracking(true);
 
-    m_zoomer = new ScrollZoomer(ui->plot->canvas());
+    m_zoomer = new ScrollZoomer(m_d->m_plot->canvas());
 
     m_zoomer->setVScrollBarMode(Qt::ScrollBarAlwaysOff);
     m_zoomer->setZoomBase();
@@ -403,18 +352,6 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
         m_zoomer->zoom(0);
         replot();
     });
-
-#if 0
-    auto plotPanner = new QwtPlotPanner(ui->plot->canvas());
-    plotPanner->setAxisEnabled(QwtPlot::yLeft, false);
-    plotPanner->setMouseButton(Qt::MiddleButton);
-#endif
-
-#if 0
-    auto plotMagnifier = new QwtPlotMagnifier(ui->plot->canvas());
-    plotMagnifier->setAxisEnabled(QwtPlot::yLeft, false);
-    plotMagnifier->setMouseButton(Qt::NoButton);
-#endif
 
     //
     // Stats text
@@ -445,8 +382,7 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
      * not clip the top scrollbar. */
     m_statsTextItem->setMargin(15);
     m_statsTextItem->setText(*m_statsText);
-    //m_statsTextItem->setZ(42.0); // something > 0 // FIXME
-    m_statsTextItem->attach(ui->plot);
+    m_statsTextItem->attach(m_d->m_plot);
 
     //
     // Calib Ui
@@ -512,21 +448,6 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     calibLayout->addWidget(m_d->m_calibUi.resetToFilterButton, 4, 0, 1, 1);
     calibLayout->addWidget(m_d->m_calibUi.closeButton, 4, 1, 1, 1);
 
-#if 0
-    auto calibSection = new Section(QSL("Calibration"));
-    calibSection->setContentLayout(*calibLayout);
-
-    //auto calibFrameLayout = new QHBoxLayout(ui->frame_calib);
-    auto calibFrameLayout = new QHBoxLayout();
-    calibFrameLayout->setContentsMargins(0, 0, 0, 0);
-    calibFrameLayout->addWidget(calibSection);
-
-    auto testContainer = new QWidget;
-    testContainer->setLayout(calibFrameLayout);
-
-    tb->addWidget(testContainer);
-#endif
-
     //
     // Rate Estimation
     //
@@ -545,18 +466,18 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
         return marker;
     };
 
-    m_d->m_rateX1Marker = make_position_marker(ui->plot);
-    m_d->m_rateX2Marker = make_position_marker(ui->plot);
+    m_d->m_rateX1Marker = make_position_marker(m_d->m_plot);
+    m_d->m_rateX2Marker = make_position_marker(m_d->m_plot);
 
     m_d->m_rateFormulaMarker = new QwtPlotMarker;
     m_d->m_rateFormulaMarker->setLabelAlignment(Qt::AlignRight | Qt::AlignTop);
     m_d->m_rateFormulaMarker->setZ(PlotTextLayerZ);
-    m_d->m_rateFormulaMarker->attach(ui->plot);
+    m_d->m_rateFormulaMarker->attach(m_d->m_plot);
     m_d->m_rateFormulaMarker->hide();
 
     m_d->m_ratePointPicker = new QwtPlotPicker(QwtPlot::xBottom, QwtPlot::yLeft,
                                                QwtPicker::VLineRubberBand, QwtPicker::ActiveOnly,
-                                               ui->plot->canvas());
+                                               m_d->m_plot->canvas());
     QPen pickerPen(Qt::red);
     m_d->m_ratePointPicker->setTrackerPen(pickerPen);
     m_d->m_ratePointPicker->setRubberBandPen(pickerPen);
@@ -607,39 +528,14 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     m_d->m_gaussCurve = new QwtPlotCurve;
     m_d->m_gaussCurve->setZ(PlotGaussLayerZ);
     m_d->m_gaussCurve->setPen(Qt::green, 2.0);
-    m_d->m_gaussCurve->attach(ui->plot);
+    m_d->m_gaussCurve->attach(m_d->m_plot);
     m_d->m_gaussCurve->hide();
-
-#if 0
-    connect(m_d->m_ratePointPicker, &QwtPicker::activated, this, [this](bool on) {
-        qDebug() << __PRETTY_FUNCTION__ << "m_ratePointPicker activated" << on;
-        if (!on)
-        {
-            qDebug() << __PRETTY_FUNCTION__ << "m_ratePointPicker got deactivated, selection =" << m_d->m_ratePointPicker->selection();
-        }
-    });
-
-    connect(m_d->m_ratePointPicker, &QwtPlotPicker::appended, this, [](const QPointF &pos) {
-        qDebug() << __PRETTY_FUNCTION__ << "m_ratePointPicker appended" << pos;
-    });
-
-    //connect(m_ratePointPicker, &QwtPlotPicker::moved, this, [](const QPointF &pos) {
-    //    qDebug() << __PRETTY_FUNCTION__ << "m_ratePointPicker moved" << pos;
-    //});
-
-
-    connect(m_d->m_ratePointPicker, static_cast<void (QwtPlotPicker::*)(const QVector<QPointF> &)>(&QwtPlotPicker::selected), [this](const QVector<QPointF> &pa) {
-        qDebug() << __PRETTY_FUNCTION__ << "m_ratePointPicker selected" << pa;
-    });
-#endif
 
     //
     // StatusBar and info widgets
     //
     m_d->m_statusBar = new QStatusBar;
     auto sb = m_d->m_statusBar;
-    ui->mainLayout->addWidget(sb);
-    sb->setVisible(false);
 
     m_d->m_labelCursorInfo = new QLabel;
     m_d->m_labelHistoInfo = new QLabel;
@@ -647,13 +543,44 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     for (auto label: { m_d->m_labelCursorInfo, m_d->m_labelHistoInfo})
     {
         label->setAlignment(Qt::AlignLeft | Qt::AlignTop);
-        auto font = label->font();
-        font.setPointSize(7);
-        label->setFont(font);
+        set_widget_font_pointsize(label, 7);
     }
 
-    sb->addPermanentWidget(m_d->m_labelCursorInfo);
-    sb->addPermanentWidget(m_d->m_labelHistoInfo);
+    {
+        m_d->m_infoContainer = new QWidget;
+
+        auto layout = new QHBoxLayout(m_d->m_infoContainer);
+        layout->setContentsMargins(0, 0, 0, 0);
+        layout->setSpacing(1);
+        layout->addWidget(m_d->m_labelCursorInfo);
+        layout->addWidget(m_d->m_labelHistoInfo);
+
+        for (auto childWidget: m_d->m_infoContainer->findChildren<QWidget *>())
+        {
+            childWidget->setVisible(false);
+        }
+
+        sb->addPermanentWidget(m_d->m_infoContainer);
+    }
+
+    // Main Widget Layout
+
+    auto toolBarFrame = new QFrame;
+    toolBarFrame->setFrameStyle(QFrame::StyledPanel);
+    {
+        auto layout = new QHBoxLayout(toolBarFrame);
+        layout->setContentsMargins(0, 0, 0, 0);
+        layout->setSpacing(0);
+        layout->addWidget(m_d->m_toolBar);
+    }
+
+    auto mainLayout = new QVBoxLayout(this);
+    mainLayout->setContentsMargins(2, 2, 2, 2);
+    mainLayout->setSpacing(2);
+    mainLayout->addWidget(toolBarFrame);
+    mainLayout->addWidget(m_d->m_plot);
+    mainLayout->addWidget(m_d->m_statusBar);
+    mainLayout->setStretch(1, 1);
 
     setHistogram(histo);
 }
@@ -661,7 +588,6 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
 Histo1DWidget::~Histo1DWidget()
 {
     delete m_plotCurve;
-    delete ui;
     delete m_statsText;
     delete m_d;
 }
@@ -716,17 +642,17 @@ void Histo1DWidget::updateAxisScales()
 
     // This sets a fixed y axis scale effectively overriding any changes made
     // by the scrollzoomer.
-    ui->plot->setAxisScale(QwtPlot::yLeft, base, maxValue);
+    m_d->m_plot->setAxisScale(QwtPlot::yLeft, base, maxValue);
 
     // xAxis
     if (m_zoomer->zoomRectIndex() == 0)
     {
         // fully zoomed out -> set to full resolution
-        ui->plot->setAxisScale(QwtPlot::xBottom, m_histo->getXMin(), m_histo->getXMax());
+        m_d->m_plot->setAxisScale(QwtPlot::xBottom, m_histo->getXMin(), m_histo->getXMax());
         m_zoomer->setZoomBase();
     }
 
-    ui->plot->updateAxes();
+    m_d->m_plot->updateAxes();
 }
 
 void Histo1DWidget::replot()
@@ -809,9 +735,9 @@ void Histo1DWidget::replot()
          * using plot coordinates directly we're using 0.9 of the canvas height
          * and transform that pixel coordinate to a plot coordinate.
          */
-        s32 canvasHeight = ui->plot->canvas()->height();
+        s32 canvasHeight = m_d->m_plot->canvas()->height();
         s32 pixelY = canvasHeight - canvasHeight * 0.9;
-        double plotY = ui->plot->canvasMap(QwtPlot::yLeft).invTransform(pixelY);
+        double plotY = m_d->m_plot->canvasMap(QwtPlot::yLeft).invTransform(pixelY);
 
         m_d->m_rateFormulaMarker->setYValue(plotY);
         m_d->m_rateFormulaMarker->setLabel(rateFormulaText);
@@ -825,13 +751,13 @@ void Histo1DWidget::replot()
     setWindowTitle(QString("Histogram %1").arg(name));
 
     auto axisInfo = m_histo->getAxisInfo(Qt::XAxis);
-    ui->plot->axisWidget(QwtPlot::xBottom)->setTitle(make_title_string(axisInfo));
+    m_d->m_plot->axisWidget(QwtPlot::xBottom)->setTitle(make_title_string(axisInfo));
 
-    ui->plot->replot();
+    m_d->m_plot->replot();
 
 #if 0
     // prints plot item pointers and their z value
-    for (auto item: ui->plot->itemList())
+    for (auto item: m_d->m_plot->itemList())
     {
         qDebug() << __PRETTY_FUNCTION__ << item << item->z();
     }
@@ -844,14 +770,14 @@ void Histo1DWidget::displayChanged()
 
     if (scaleType == AxisScaleType::Linear && !yAxisIsLin())
     {
-        ui->plot->setAxisScaleEngine(QwtPlot::yLeft, new QwtLinearScaleEngine);
-        ui->plot->setAxisAutoScale(QwtPlot::yLeft, true);
+        m_d->m_plot->setAxisScaleEngine(QwtPlot::yLeft, new QwtLinearScaleEngine);
+        m_d->m_plot->setAxisAutoScale(QwtPlot::yLeft, true);
     }
     else if (scaleType == AxisScaleType::Logarithmic && !yAxisIsLog())
     {
         auto scaleEngine = new QwtLogScaleEngine;
         scaleEngine->setTransformation(new MinBoundLogTransform);
-        ui->plot->setAxisScaleEngine(QwtPlot::yLeft, scaleEngine);
+        m_d->m_plot->setAxisScaleEngine(QwtPlot::yLeft, scaleEngine);
     }
 
     replot();
@@ -862,13 +788,13 @@ void Histo1DWidget::zoomerZoomed(const QRectF &zoomRect)
     if (m_zoomer->zoomRectIndex() == 0)
     {
         // fully zoomed out -> set to full resolution
-        ui->plot->setAxisScale(QwtPlot::xBottom, m_histo->getXMin(), m_histo->getXMax());
-        ui->plot->replot();
+        m_d->m_plot->setAxisScale(QwtPlot::xBottom, m_histo->getXMin(), m_histo->getXMax());
+        m_d->m_plot->replot();
         m_zoomer->setZoomBase();
     }
 
     // do not zoom outside the histogram range
-    auto scaleDiv = ui->plot->axisScaleDiv(QwtPlot::xBottom);
+    auto scaleDiv = m_d->m_plot->axisScaleDiv(QwtPlot::xBottom);
     double lowerBound = scaleDiv.lowerBound();
     double upperBound = scaleDiv.upperBound();
 
@@ -897,7 +823,7 @@ void Histo1DWidget::zoomerZoomed(const QRectF &zoomRect)
         }
     }
 
-    ui->plot->setAxisScaleDiv(QwtPlot::xBottom, scaleDiv);
+    m_d->m_plot->setAxisScaleDiv(QwtPlot::xBottom, scaleDiv);
 
     replot();
 }
@@ -916,8 +842,8 @@ void Histo1DWidget::mouseCursorLeftPlot()
 
 void Histo1DWidget::updateStatistics()
 {
-    double lowerBound = qFloor(ui->plot->axisScaleDiv(QwtPlot::xBottom).lowerBound());
-    double upperBound = qCeil(ui->plot->axisScaleDiv(QwtPlot::xBottom).upperBound());
+    double lowerBound = qFloor(m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).lowerBound());
+    double upperBound = qCeil(m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).upperBound());
 
     m_stats = m_histo->calcStatistics(lowerBound, upperBound);
 
@@ -953,12 +879,12 @@ void Histo1DWidget::updateStatistics()
 
 bool Histo1DWidget::yAxisIsLog()
 {
-    return dynamic_cast<QwtLogScaleEngine *>(ui->plot->axisScaleEngine(QwtPlot::yLeft));
+    return dynamic_cast<QwtLogScaleEngine *>(m_d->m_plot->axisScaleEngine(QwtPlot::yLeft));
 }
 
 bool Histo1DWidget::yAxisIsLin()
 {
-    return dynamic_cast<QwtLinearScaleEngine *>(ui->plot->axisScaleEngine(QwtPlot::yLeft));
+    return dynamic_cast<QwtLinearScaleEngine *>(m_d->m_plot->axisScaleEngine(QwtPlot::yLeft));
 }
 
 void Histo1DWidget::exportPlot()
@@ -973,18 +899,18 @@ void Histo1DWidget::exportPlot()
         fileName = QDir(m_context->getWorkspacePath(QSL("PlotsDirectory"))).filePath(fileName);
     }
 
-    ui->plot->setTitle(m_histo->getTitle());
+    m_d->m_plot->setTitle(m_histo->getTitle());
     QwtText footerText(m_histo->getFooter());
     footerText.setRenderFlags(Qt::AlignLeft);
-    ui->plot->setFooter(footerText);
+    m_d->m_plot->setFooter(footerText);
 
     QwtPlotRenderer renderer;
     renderer.setDiscardFlags(QwtPlotRenderer::DiscardBackground | QwtPlotRenderer::DiscardCanvasBackground);
     renderer.setLayoutFlag(QwtPlotRenderer::FrameWithScales);
-    renderer.exportTo(ui->plot, fileName);
+    renderer.exportTo(m_d->m_plot, fileName);
 
-    ui->plot->setTitle(QString());
-    ui->plot->setFooter(QString());
+    m_d->m_plot->setTitle(QString());
+    m_d->m_plot->setFooter(QString());
 }
 
 void Histo1DWidget::saveHistogram()
@@ -1187,11 +1113,6 @@ bool Histo1DWidget::event(QEvent *e)
     return QWidget::event(e);
 }
 
-void Histo1DWidget::on_tb_info_clicked()
-{
-    Q_ASSERT(!"Not implemented");
-}
-
 void Histo1DWidget::setSink(const SinkPtr &sink, HistoSinkCallback sinkModifiedCallback)
 {
     Q_ASSERT(sink);
@@ -1203,8 +1124,8 @@ void Histo1DWidget::setSink(const SinkPtr &sink, HistoSinkCallback sinkModifiedC
 void Histo1DWidget::on_tb_subRange_clicked()
 {
     Q_ASSERT(m_sink);
-    double visibleMinX = ui->plot->axisScaleDiv(QwtPlot::xBottom).lowerBound();
-    double visibleMaxX = ui->plot->axisScaleDiv(QwtPlot::xBottom).upperBound();
+    double visibleMinX = m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).lowerBound();
+    double visibleMaxX = m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).upperBound();
     Histo1DSubRangeDialog dialog(m_sink, m_sinkModifiedCallback, visibleMinX, visibleMaxX, this);
     dialog.exec();
 }

@@ -1,6 +1,8 @@
 #ifndef __QT_UTIL_H__
 #define __QT_UTIL_H__
 
+#include "typedefs.h"
+
 #include <QHash>
 #include <QJsonObject>
 #include <QKeySequence>
@@ -53,5 +55,7 @@ protected:
     QSize sizeHint() const ;
     QSize minimumSizeHint() const;
 };
+
+void set_widget_font_pointsize(QWidget *widget, s32 pointSize);
 
 #endif /* __QT_UTIL_H__ */
