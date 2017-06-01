@@ -506,7 +506,7 @@ void AddEditOperatorWidget::accept()
         // edit mode
         m_eventWidget->operatorEdited(m_op);
     }
-    //close();
+    m_eventWidget->getContext()->getAnalysis()->setModified();
     m_eventWidget->endSelectInput();
     m_eventWidget->uniqueWidgetCloses();
     QDialog::accept();
@@ -556,7 +556,6 @@ void AddEditOperatorWidget::reject()
 
         do_beginRun_forward(m_op);
     }
-    //close();
     m_eventWidget->endSelectInput();
     m_eventWidget->uniqueWidgetCloses();
     QDialog::reject();
