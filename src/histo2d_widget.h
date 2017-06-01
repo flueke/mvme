@@ -13,17 +13,13 @@ class MVMEContext;
 class Histo1DWidget;
 class WidgetGeometrySaver;
 
-namespace Ui
-{
-    class Histo2DWidget;
-}
-
 namespace analysis
 {
     class Histo1DSink;
     class Histo2DSink;
 };
 
+class Histo2DWidgetPrivate;
 
 class Histo2DWidget: public QWidget
 {
@@ -41,6 +37,8 @@ class Histo2DWidget: public QWidget
 
         void setSink(const SinkPtr &sink, HistoSinkCallback addSinkCallback, HistoSinkCallback sinkModifiedCallback,
                      MakeUniqueOperatorNameFunction makeUniqueOperatorNameFunction);
+
+        virtual bool event(QEvent *event) override;
 
     private slots:
         void replot();
@@ -64,7 +62,9 @@ class Histo2DWidget: public QWidget
         void doXProjection();
         void doYProjection();
 
-        Ui::Histo2DWidget *ui;
+        Histo2DWidgetPrivate *m_d;
+        friend class Histo2DWidgetPrivate;
+
         Histo2D *m_histo = nullptr;
         Histo2DPtr m_histoPtr;
         Histo1DSinkPtr m_histo1DSink;
