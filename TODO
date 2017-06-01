@@ -2,7 +2,7 @@
 ==== Do these first! =====
 ==========================
 
-- Histo1D Calibration UI: Wrong Vis. Max Value for empty histograms
+- Histo1D Calibration UI: Wrong Vis. Max Value for empty histogram
 - Histo1D Calibration UI: "Restore" uses unexpected values. Also there's no way to undo the restore operation. (calibResetToFilter)
 - Fix MVMEAnalysisVersion handling. Converting from versions < 2 needs access to the VME config...
 - Set analysis modified and/or set an empty filename if vme assignment has changed the analysis.
@@ -22,8 +22,6 @@
 - Fix diagnosis window hanging and eating system memory when EOE check is
   active and a lot of errors are occuring
 
-New VME/Analysis Template System (VATS)
----------------------------------------
 * When quitting: if vme script editor asks for confirmation and the user
   presses cancel the mainwindow will still close
 
@@ -37,7 +35,6 @@ New VME/Analysis Template System (VATS)
   - What does RequiredCompletionCount do?
 * Close histograms on opening a new analysis config.
 * Bug: H1D does not work when unitMin > unitMax
-* Bug: H1D Print to File is broken. Also check save to file.
 * Histograms:
   - Read up on binning error calculations. See how ROOT does it.
 
@@ -66,9 +63,6 @@ New VME/Analysis Template System (VATS)
 * Histo1DWidget: The curve for the last bin is not drawn. Try to finally find a fix for this.
 
 * Copy/Paste and Move Operators
-  - Moving operators could violate the rule that inputs should come from the
-    current user level or the ones below. For consistency keep that rule intact
-    while moving.
   - Copy needs a clone() operation for analysis elements.
   - On copying an extractor the edit dialog should be opened.
 

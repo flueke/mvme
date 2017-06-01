@@ -82,7 +82,7 @@ void MVMEEventProcessor::newRun()
         m_d->diag->reset();
 
     {
-        m_d->analysis_ng = m_d->context->getAnalysisNG();
+        m_d->analysis_ng = m_d->context->getAnalysis();
         if (m_d->analysis_ng)
         {
             m_d->analysis_ng->beginRun(m_d->context->getRunInfo());

@@ -1327,7 +1327,7 @@ bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc, const QString &in
 
         // Prepares operators, allocates histograms, etc..
         m_eventProcessor->newRun();
-        emit analysisNGChanged();
+        emit analysisChanged();
 
         logMessage(QString("Loaded %1 from %2")
                    .arg(info_string(m_analysis_ng))
@@ -1344,7 +1344,7 @@ bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc, const QString &in
         m_analysis_ng->clear();
         setAnalysisConfigFileName(QString());
         QMessageBox::critical(m_mainwin, QSL("Error"), QString("Out of memory when creating analysis objects."));
-        emit analysisNGChanged();
+        emit analysisChanged();
 
         return false;
     }
@@ -1405,7 +1405,7 @@ void MVMEContext::resumeAnalysis()
 QJsonDocument MVMEContext::getAnalysisJsonDocument() const
 {
     QJsonObject dest, json;
-    getAnalysisNG()->write(dest);
+    getAnalysis()->write(dest);
     json[QSL("AnalysisNG")] = dest;
     QJsonDocument doc(json);
     return doc;
@@ -1417,7 +1417,7 @@ void MVMEContext::addAnalysisOperator(QUuid eventId, const std::shared_ptr<analy
     if (eventConfig)
     {
         AnalysisPauser pauser(this);
-        getAnalysisNG()->addOperator(eventId, op, userLevel);
+        getAnalysis()->addOperator(eventId, op, userLevel);
 
         if (m_analysisUi)
         {

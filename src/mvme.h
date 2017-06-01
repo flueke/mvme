@@ -63,9 +63,6 @@ public slots:
     void displayAboutQt();
     void clearLog();
 
-    void openInNewWindow(QObject *object);
-    QMdiSubWindow *addWidgetWindow(QWidget *widget, QSize windowSize = QSize());
-
     void on_actionNewVMEConfig_triggered();
     void on_actionOpenVMEConfig_triggered();
     bool on_actionSaveVMEConfig_triggered();
@@ -90,10 +87,7 @@ private slots:
     void on_actionVMUSB_Firmware_Update_triggered();
     void on_actionTemplate_Info_triggered();
 
-    void onObjectClicked(QObject *obj);
-    void onObjectDoubleClicked(QObject *obj);
     void onObjectAboutToBeRemoved(QObject *obj);
-
 
     void appendToLog(const QString &);
     void updateWindowTitle();

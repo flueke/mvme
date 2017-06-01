@@ -28,7 +28,6 @@
 #include <QLabel>
 #include <QPlainTextEdit>
 #include <QList>
-#include <QMdiSubWindow>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QScrollBar>
@@ -230,24 +229,6 @@ void mvme::on_actionOpenWorkspace_triggered()
     {
         QMessageBox::critical(this, QSL("Workspace Error"), QString("Error opening workspace: %1").arg(e));
     }
-
-#if 0
-    QFileInfo workspaceFi(dirname + QSL("/mvmeworkspace.ini"));
-
-    if (!workspaceFi.exists())
-    {
-        QMessageBox::critical(this, QSL("Workspace error"),
-                              QSL("Not a valid workspace: mvmeworkspace.ini not found"));
-        return;
-    }
-
-    if (!workspaceFi.isReadable())
-    {
-        QMessageBox::critical(this, QSL("Workspace error"),
-                              QSL("Not a valid workspace: mvmeworkspace.ini not readable"));
-        return;
-    }
-#endif
 }
 
 void mvme::displayAbout()
@@ -287,7 +268,7 @@ void mvme::displayAbout()
     layout->addWidget(new QLabel(QSL("mvme - VME Data Acquisition")));
     layout->addWidget(new QLabel(QString("Version %1").arg(GIT_VERSION)));
     layout->addWidget(new QLabel(QSL("© 2015-2017 mesytec GmbH & Co. KG")));
-    layout->addWidget(new QLabel(QSL("Authors: F. Lüke, G. Montermann")));
+    layout->addWidget(new QLabel(QSL("Authors: F. Lüke, R. Schneider")));
 
     {
         QString text(QSL("<a href=\"mailto:info@mesytec.com\">info@mesytec.com</a> - <a href=\"http://www.mesytec.com\">www.mesytec.com</a>"));
@@ -379,7 +360,7 @@ void mvme::closeEvent(QCloseEvent *event)
     }
 
     // AnalysisConfig
-    auto analysis = m_context->getAnalysisNG();
+    auto analysis = m_context->getAnalysis();
     if (analysis->isModified())
     {
         QMessageBox msgBox(QMessageBox::Question, QSL("Save analysis config?"),
@@ -389,7 +370,7 @@ void mvme::closeEvent(QCloseEvent *event)
 
         if (result == QMessageBox::Save)
         {
-            auto result = saveAnalysisConfig(m_context->getAnalysisNG(),
+            auto result = saveAnalysisConfig(m_context->getAnalysis(),
                                              m_context->getAnalysisConfigFileName(),
                                              m_context->getWorkspaceDirectory(),
                                              DefaultAnalysisFileFilter,
@@ -425,29 +406,6 @@ void mvme::restoreSettings()
     QSettings settings;
     restoreGeometry(settings.value("mainWindowGeometry").toByteArray());
     restoreState(settings.value("mainWindowState").toByteArray());
-
-#if 0 // MDI
-    auto windowList = ui->mdiArea->subWindowList();
-    settings.beginGroup("MdiSubWindows");
-
-    for (auto subwin: windowList)
-    {
-        auto name = subwin->objectName();
-
-        auto size = settings.value(name + "_size").toSize();
-        size = size.expandedTo(subwin->sizeHint());
-        subwin->resize(size);
-
-        QString pstr = name + "_pos";
-
-        if (settings.contains(pstr))
-        {
-            subwin->move(settings.value(pstr).toPoint());
-        }
-    }
-
-    settings.endGroup();
-#endif
 }
 
 void mvme::addObjectWidget(QWidget *widget, QObject *object, const QString &stateKey)
@@ -727,7 +685,7 @@ void mvme::on_actionOpenListfile_triggered()
 
         m_context->setReplayFile(listFile.release());
 
-        if (!m_context->getAnalysisNG()->isModified() && m_context->getAnalysisNG()->isEmpty())
+        if (!m_context->getAnalysis()->isModified() && m_context->getAnalysis()->isEmpty())
         {
             QuaZipFile inFile(fileName, QSL("analysis.analysis"));
 
@@ -904,154 +862,6 @@ void mvme::on_actionTemplate_Info_triggered()
     textEdit->show();
 }
 
-void mvme::openInNewWindow(QObject *object)
-{
-    auto scriptConfig      = qobject_cast<VMEScriptConfig *>(object);
-    // The new histo type
-    auto histo1d = qobject_cast<Histo1D *>(object);
-    auto histo2d = qobject_cast<Histo2D *>(object);
-
-    QWidget *widget = nullptr;
-    QIcon windowIcon;
-    QSize windowSize;
-
-    if (scriptConfig)
-    {
-        widget = new VMEScriptEditor(m_context, scriptConfig);
-        windowIcon = QIcon(QPixmap(":/vme_script.png"));
-        windowSize = QSize(700, 450);
-    }
-    else if (histo1d)
-    {
-        widget = new Histo1DWidget(histo1d);
-        windowSize = QSize(600, 400);
-    }
-    else if (histo2d)
-    {
-        widget = new Histo2DWidget(histo2d);
-        windowSize = QSize(600, 400);
-    }
-
-    if (windowIcon.isNull())
-        windowIcon = QIcon(QPixmap(":/mesytec-window-icon.png"));
-
-    if (widget)
-    {
-        widget->setAttribute(Qt::WA_DeleteOnClose);
-        widget->show();
-        widget->raise();
-#if 0 // MDI
-        auto subwin = new QMdiSubWindow;
-        subwin->setAttribute(Qt::WA_DeleteOnClose);
-        subwin->setWidget(widget);
-
-        if (!windowIcon.isNull())
-            subwin->setWindowIcon(windowIcon);
-
-        ui->mdiArea->addSubWindow(subwin);
-
-        if (windowSize.isValid())
-            subwin->resize(windowSize);
-
-        subwin->show();
-        ui->mdiArea->setActiveSubWindow(subwin);
-
-        qDebug() << "adding window" << subwin << "for object" << object;
-
-        m_objectWindows[object].push_back(subwin);
-
-        if (auto mvmeWidget = qobject_cast<MVMEWidget *>(widget))
-        {
-            connect(mvmeWidget, &MVMEWidget::aboutToClose, this, [this, object, subwin] {
-                qDebug() << "removing window" << subwin << "for object" << object;
-                m_objectWindows[object].removeOne(subwin);
-                subwin->close();
-            });
-        }
-#endif
-    }
-}
-
-QMdiSubWindow *mvme::addWidgetWindow(QWidget *widget, QSize windowSize)
-{
-    auto windowIcon = QIcon(QPixmap(":/mesytec-window-icon.png"));
-    widget->setAttribute(Qt::WA_DeleteOnClose);
-
-    // TODO: restore pos and size. which information to use to store it?
-
-    if (windowSize.isValid())
-    {
-        widget->resize(windowSize);
-    }
-
-    widget->show();
-    widget->raise();
-
-
-#if 0 // MDI
-    auto subwin = new QMdiSubWindow;
-    subwin->setAttribute(Qt::WA_DeleteOnClose);
-    subwin->setWidget(widget);
-
-
-    subwin->setWindowIcon(windowIcon);
-
-    ui->mdiArea->addSubWindow(subwin);
-
-    if (windowSize.isValid())
-    {
-        subwin->resize(windowSize);
-    }
-
-    subwin->show();
-    ui->mdiArea->setActiveSubWindow(subwin);
-
-    auto mvmeWidget = qobject_cast<MVMEWidget *>(widget);
-
-    if (mvmeWidget)
-    {
-        connect(mvmeWidget, &MVMEWidget::aboutToClose, this, [subwin]() {
-            subwin->close();
-        });
-    }
-
-    return subwin;
-#endif
-    return nullptr;
-}
-
-void mvme::onObjectClicked(QObject *object)
-{
-#if 0 // MDI
-    auto &lst = m_objectWindows[object];
-
-    if (!lst.isEmpty())
-    {
-        auto window = lst.last();
-        if (window)
-        {
-            window->show();
-            window->showNormal();
-            window->activateWindow();
-            window->raise();
-            ui->mdiArea->setActiveSubWindow(window);
-        }
-    }
-#endif
-}
-
-void mvme::onObjectDoubleClicked(QObject *object)
-{
-    if (!m_objectWindows[object].isEmpty())
-    {
-        onObjectClicked(object);
-    }
-    else
-    {
-        openInNewWindow(object);
-    }
-}
-
 void mvme::onObjectAboutToBeRemoved(QObject *object)
 {
     auto &windowList = m_objectWindows[object];
@@ -1135,10 +945,6 @@ void mvme::clearLog()
 
 void mvme::resizeEvent(QResizeEvent *event)
 {
-#if 0 // MDI
-    resizeDocks({dock_daqControl, dock_configTree}, {1, 10}, Qt::Vertical);
-    resizeDocks({dock_daqStats, dock_logView}, {1, 10}, Qt::Horizontal);
-#endif
     QMainWindow::resizeEvent(event);
 }
 

@@ -331,7 +331,7 @@ bool EventWidgetTree::dropMimeData(QTreeWidgetItem *parentItem, int parentIndex,
 
     QUuid id(encodedIds.at(0));
 
-    auto analysis = m_eventWidget->getContext()->getAnalysisNG();
+    auto analysis = m_eventWidget->getContext()->getAnalysis();
 
     if (auto opEntry = analysis->getOperatorEntry(id))
     {
@@ -516,7 +516,7 @@ struct EventWidgetPrivate
 
 void EventWidgetPrivate::createView(const QUuid &eventId)
 {
-    auto analysis = m_context->getAnalysisNG();
+    auto analysis = m_context->getAnalysis();
     s32 maxUserLevel = 0;
 
     for (const auto &opEntry: analysis->getOperators(eventId))
@@ -563,7 +563,7 @@ DisplayLevelTrees make_displaylevel_trees(const QString &opTitle, const QString 
 
 DisplayLevelTrees EventWidgetPrivate::createSourceTrees(const QUuid &eventId)
 {
-    auto analysis = m_context->getAnalysisNG();
+    auto analysis = m_context->getAnalysis();
     auto vmeConfig = m_context->getVMEConfig();
 
     auto eventConfig = vmeConfig->getEventConfig(eventId);
@@ -660,7 +660,7 @@ DisplayLevelTrees EventWidgetPrivate::createTrees(const QUuid &eventId, s32 leve
         level);
 
     // Build a list of operators for the current level
-    auto analysis = m_context->getAnalysisNG();
+    auto analysis = m_context->getAnalysis();
     QVector<Analysis::OperatorEntry> operators = analysis->getOperators(eventId, level);
 
     // Populate the OperatorTree
@@ -972,7 +972,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                     });
                 };
 
-                auto analysis = m_context->getAnalysisNG();
+                auto analysis = m_context->getAnalysis();
                 auto &registry(analysis->getRegistry());
 
                 QVector<SourcePtr> sourceInstances;
@@ -1135,7 +1135,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                     });
                 };
 
-                auto analysis = m_context->getAnalysisNG();
+                auto analysis = m_context->getAnalysis();
                 auto &registry(analysis->getRegistry());
                 QVector<OperatorPtr> operatorInstances;
 
@@ -1324,7 +1324,7 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
                                                     },
                                                     // makeUniqueOperatorNameFunction
                                                     [context] (const QString &name) {
-                                                        return make_unique_operator_name(context->getAnalysisNG(), name);
+                                                        return make_unique_operator_name(context->getAnalysis(), name);
                                                     });
 
                                     m_context->addObjectWidget(widget, sinkPtr.get(), sinkPtr->getId().toString());
@@ -1401,7 +1401,7 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
             }
             else
             {
-                auto analysis = m_context->getAnalysisNG();
+                auto analysis = m_context->getAnalysis();
                 auto &registry(analysis->getRegistry());
 
                 for (auto sinkName: registry.getSinkNames())
@@ -1934,7 +1934,7 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                                         },
                                         // makeUniqueOperatorNameFunction
                                         [context] (const QString &name) {
-                                            return make_unique_operator_name(context->getAnalysisNG(), name);
+                                            return make_unique_operator_name(context->getAnalysis(), name);
                                         });
 
                         m_context->addObjectWidget(widget, sinkPtr.get(), sinkPtr->getId().toString());
@@ -1991,7 +1991,7 @@ void EventWidgetPrivate::generateDefaultFilters(ModuleConfig *module)
                                                               ex->objectName().section('.', 0, -1),
                                                               QString());
 
-        add_raw_data_display(m_context->getAnalysisNG(), m_eventId, module->getId(), rawDataDisplay);
+        add_raw_data_display(m_context->getAnalysis(), m_eventId, module->getId(), rawDataDisplay);
     }
 
     repopulate();
@@ -2135,7 +2135,7 @@ void EventWidgetPrivate::importForModule(ModuleConfig *module, const QString &st
     auto operators = analysis.getOperators();
 
     AnalysisPauser pauser(m_context);
-    auto targetAnalysis = m_context->getAnalysisNG();
+    auto targetAnalysis = m_context->getAnalysis();
 
     s32 baseUserLevel = targetAnalysis->getMaxUserLevel(moduleInfo.eventId);
 
@@ -2365,7 +2365,7 @@ void EventWidget::addOperator(OperatorPtr op, s32 userLevel)
     try
     {
         AnalysisPauser pauser(m_d->m_context);
-        m_d->m_context->getAnalysisNG()->addOperator(m_d->m_eventId, op, userLevel);
+        m_d->m_context->getAnalysis()->addOperator(m_d->m_eventId, op, userLevel);
         m_d->repopulate();
         m_d->m_analysisWidget->updateAddRemoveUserLevelButtons();
     }
@@ -2389,7 +2389,7 @@ void EventWidget::operatorEdited(OperatorInterface *op)
     {
         // Not being able to allocate enough memory for the operator is hopefully the rare case.
         // To keep the code simple we just delete the operator in question and show an error message.
-        m_d->m_context->getAnalysisNG()->removeOperator(op);
+        m_d->m_context->getAnalysis()->removeOperator(op);
         QMessageBox::critical(this, QSL("Error"), QString("Out of memory when creating analysis object."));
     }
 
@@ -2399,7 +2399,7 @@ void EventWidget::operatorEdited(OperatorInterface *op)
 void EventWidget::removeOperator(OperatorInterface *op)
 {
     AnalysisPauser pauser(m_d->m_context);
-    m_d->m_context->getAnalysisNG()->removeOperator(op);
+    m_d->m_context->getAnalysis()->removeOperator(op);
     m_d->repopulate();
     m_d->m_analysisWidget->updateAddRemoveUserLevelButtons();
 }
@@ -2410,7 +2410,7 @@ void EventWidget::addSource(SourcePtr src, ModuleConfig *module, bool addHistogr
     if (!src) return;
 
     auto indices = m_d->m_context->getVMEConfig()->getEventAndModuleIndices(module);
-    auto analysis = m_d->m_context->getAnalysisNG();
+    auto analysis = m_d->m_context->getAnalysis();
 
     try
     {
@@ -2452,7 +2452,7 @@ void EventWidget::sourceEdited(SourceInterface *src)
     {
         // Not being able to allocate enough memory here should be the rare case.
         // To keep the code simple we just delete the source in question and show an error message.
-        m_d->m_context->getAnalysisNG()->removeSource(src);
+        m_d->m_context->getAnalysis()->removeSource(src);
         QMessageBox::critical(this, QSL("Error"), QString("Out of memory when editing analysis object."));
     }
     m_d->repopulate();
@@ -2461,7 +2461,7 @@ void EventWidget::sourceEdited(SourceInterface *src)
 void EventWidget::removeSource(SourceInterface *src)
 {
     AnalysisPauser pauser(m_d->m_context);
-    m_d->m_context->getAnalysisNG()->removeSource(src);
+    m_d->m_context->getAnalysis()->removeSource(src);
     m_d->repopulate();
 }
 
@@ -2670,7 +2670,7 @@ void AnalysisWidgetPrivate::repopulateEventSelectCombo()
 
 void AnalysisWidgetPrivate::actionNew()
 {
-    if (m_context->getAnalysisNG()->isModified())
+    if (m_context->getAnalysis()->isModified())
     {
         QMessageBox msgBox(QMessageBox::Question, QSL("Save analysis configuration?"),
                            QSL("The current analysis configuration has modifications. Do you want to save it?"),
@@ -2690,8 +2690,8 @@ void AnalysisWidgetPrivate::actionNew()
     }
 
     AnalysisPauser pauser(m_context);
-    m_context->getAnalysisNG()->clear();
-    m_context->getAnalysisNG()->setModified(false);
+    m_context->getAnalysis()->clear();
+    m_context->getAnalysis()->setModified(false);
     m_context->setAnalysisConfigFileName(QString());
     repopulate();
 }
@@ -2707,7 +2707,7 @@ void AnalysisWidgetPrivate::actionOpen()
     if (fileName.isEmpty())
         return;
 
-    if (m_context->getAnalysisNG()->isModified())
+    if (m_context->getAnalysis()->isModified())
     {
         QMessageBox msgBox(QMessageBox::Question, QSL("Save analysis configuration?"),
                            QSL("The current analysis configuration has modifications. Do you want to save it?"),
@@ -2739,14 +2739,14 @@ QPair<bool, QString> AnalysisWidgetPrivate::actionSave()
     }
     else
     {
-        auto result = saveAnalysisConfig(m_context->getAnalysisNG(), fileName,
+        auto result = saveAnalysisConfig(m_context->getAnalysis(), fileName,
                                          m_context->getWorkspaceDirectory(),
                                          AnalysisFileFilter,
                                          m_context);
         if (result.first)
         {
             m_context->setAnalysisConfigFileName(result.second);
-            m_context->getAnalysisNG()->setModified(false);
+            m_context->getAnalysis()->setModified(false);
         }
 
         return result;
@@ -2755,7 +2755,7 @@ QPair<bool, QString> AnalysisWidgetPrivate::actionSave()
 
 QPair<bool, QString> AnalysisWidgetPrivate::actionSaveAs()
 {
-    auto result = saveAnalysisConfigAs(m_context->getAnalysisNG(),
+    auto result = saveAnalysisConfigAs(m_context->getAnalysis(),
                                        m_context->getWorkspaceDirectory(),
                                        AnalysisFileFilter,
                                        m_context);
@@ -2763,7 +2763,7 @@ QPair<bool, QString> AnalysisWidgetPrivate::actionSaveAs()
     if (result.first)
     {
         m_context->setAnalysisConfigFileName(result.second);
-        m_context->getAnalysisNG()->setModified(false);
+        m_context->getAnalysis()->setModified(false);
     }
 
     return result;
@@ -2860,7 +2860,7 @@ void AnalysisWidgetPrivate::actionImport()
 
     // Step 5) Add the remaining objects into the existing analysis
     AnalysisPauser pauser(m_context);
-    auto targetAnalysis = m_context->getAnalysisNG();
+    auto targetAnalysis = m_context->getAnalysis();
 
     QHash<QUuid, s32> eventMaxUserLevels;
     for (auto opEntry: targetAnalysis->getOperators())
@@ -2894,7 +2894,7 @@ void AnalysisWidgetPrivate::actionClearHistograms()
 {
     AnalysisPauser pauser(m_context);
 
-    for (auto &opEntry: m_context->getAnalysisNG()->getOperators())
+    for (auto &opEntry: m_context->getAnalysis()->getOperators())
     {
         if (auto histoSink = qobject_cast<Histo1DSink *>(opEntry.op.get()))
         {
@@ -2930,7 +2930,7 @@ void AnalysisWidgetPrivate::updateAddRemoveUserLevelButtons()
     qDebug() << __PRETTY_FUNCTION__;
 
     QUuid eventId = m_eventSelectCombo->currentData().toUuid();
-    auto analysis = m_context->getAnalysisNG();
+    auto analysis = m_context->getAnalysis();
     s32 maxUserLevel = 0;
 
     for (const auto &opEntry: analysis->getOperators(eventId))
@@ -2975,7 +2975,7 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     connect(m_d->m_context, &MVMEContext::moduleAboutToBeRemoved, this, do_repopulate_lambda);
 
     // Analysis changes
-    connect(m_d->m_context, &MVMEContext::analysisNGChanged, this, do_repopulate_lambda);
+    connect(m_d->m_context, &MVMEContext::analysisChanged, this, do_repopulate_lambda);
 
     connect(m_d->m_context, &MVMEContext::analysisConfigFileNameChanged, this, [this](const QString &) {
         m_d->updateWindowTitle();
@@ -3078,7 +3078,7 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     layout->addWidget(m_d->m_eventWidgetStack, row++, 0);
     layout->setRowStretch(row-1, 1);
 
-    auto analysis = ctx->getAnalysisNG();
+    auto analysis = ctx->getAnalysis();
     analysis->updateRanks();
     analysis->beginRun(ctx->getRunInfo());
 
@@ -3093,7 +3093,7 @@ AnalysisWidget::~AnalysisWidget()
 
 void AnalysisWidget::operatorAdded(const std::shared_ptr<OperatorInterface> &op)
 {
-    const auto &opEntries(m_d->m_context->getAnalysisNG()->getOperators());
+    const auto &opEntries(m_d->m_context->getAnalysis()->getOperators());
 
     // Find the OperatorEntry for the newly added operator
     auto it = std::find_if(opEntries.begin(), opEntries.end(), [op] (const Analysis::OperatorEntry &entry) {
@@ -3114,7 +3114,7 @@ void AnalysisWidget::operatorAdded(const std::shared_ptr<OperatorInterface> &op)
 
 void AnalysisWidget::operatorEdited(const std::shared_ptr<OperatorInterface> &op)
 {
-    const auto &opEntries(m_d->m_context->getAnalysisNG()->getOperators());
+    const auto &opEntries(m_d->m_context->getAnalysis()->getOperators());
 
     // Find the OperatorEntry for the edited operator
     auto it = std::find_if(opEntries.begin(), opEntries.end(), [op] (const Analysis::OperatorEntry &entry) {

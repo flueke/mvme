@@ -70,7 +70,7 @@ class MVMEContext: public QObject
         void daqConfigFileNameChanged(const QString &fileName);
 
         void analysisConfigFileNameChanged(const QString &name);
-        void analysisNGChanged();
+        void analysisChanged();
 
         void objectAdded(QObject *object);
         void objectAboutToBeRemoved(QObject *object);
@@ -247,7 +247,7 @@ class MVMEContext: public QObject
 
         bool isWorkspaceModified() const;
 
-        analysis::Analysis *getAnalysisNG() const { return m_analysis_ng; }
+        analysis::Analysis *getAnalysis() const { return m_analysis_ng; }
 
         bool isAnalysisRunning();
         void stopAnalysis();
