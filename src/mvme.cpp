@@ -500,7 +500,8 @@ void mvme::activateObjectWidget(QObject *object)
 void mvme::addWidget(QWidget *widget, const QString &stateKey)
 {
     widget->setAttribute(Qt::WA_DeleteOnClose);
-    m_geometrySaver->addAndRestore(widget, QSL("WindowGeometries/") + stateKey);
+    if (!stateKey.isEmpty())
+        m_geometrySaver->addAndRestore(widget, QSL("WindowGeometries/") + stateKey);
     add_widget_close_action(widget);
     widget->show();
 }
@@ -1229,7 +1230,7 @@ void mvme::onShowDiagnostics(ModuleConfig *moduleConfig)
 void mvme::on_actionImport_Histo1D_triggered()
 {
     QSettings settings;
-    QString path = settings.value(QSL("LastHisto1DDirectory")).toString();
+    QString path = settings.value(QSL("Files/LastHistogramExportDirectory")).toString();
 
     if (path.isEmpty())
     {
@@ -1258,6 +1259,8 @@ void mvme::on_actionImport_Histo1D_triggered()
             widget->setAttribute(Qt::WA_DeleteOnClose);
             histo->setParent(widget);
 
+            path = QFileInfo(filename).dir().path();
+
             if (path != m_context->getWorkspaceDirectory())
             {
                 settings.setValue(QSL("Files/LastHistogramExportDirectory"), path);
@@ -1266,6 +1269,8 @@ void mvme::on_actionImport_Histo1D_triggered()
             {
                 settings.remove(QSL("Files/LastHistogramExportDirectory"));
             }
+
+            addWidget(widget);
         }
     }
 }

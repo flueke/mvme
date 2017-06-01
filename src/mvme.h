@@ -56,7 +56,7 @@ public:
     QList<QWidget *> getObjectWidgets(QObject *object) const;
     void activateObjectWidget(QObject *object);
 
-    void addWidget(QWidget *widget, const QString &stateKey);
+    void addWidget(QWidget *widget, const QString &stateKey = QString());
 
 public slots:
     void displayAbout();
