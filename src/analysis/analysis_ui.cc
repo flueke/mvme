@@ -2922,7 +2922,14 @@ void AnalysisWidgetPrivate::updateWindowTitle()
     if (fileName.startsWith(wsDir))
         fileName.remove(wsDir);
 
-    m_q->setWindowTitle(QString(QSL("%1 - [Analysis UI]")).arg(fileName));
+    auto title = QString(QSL("%1 - [Analysis UI]")).arg(fileName);
+
+    if (m_context->getAnalysis()->isModified())
+    {
+        title += " *";
+    }
+
+    m_q->setWindowTitle(title);
 }
 
 void AnalysisWidgetPrivate::updateAddRemoveUserLevelButtons()
@@ -2975,7 +2982,15 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     connect(m_d->m_context, &MVMEContext::moduleAboutToBeRemoved, this, do_repopulate_lambda);
 
     // Analysis changes
-    connect(m_d->m_context, &MVMEContext::analysisChanged, this, do_repopulate_lambda);
+    auto on_analysis_changed = [this]()
+    {
+        connect(m_d->m_context->getAnalysis(), &Analysis::modifiedChanged, this, [this]() {
+            m_d->updateWindowTitle();
+        });
+        m_d->repopulate();
+    };
+
+    connect(m_d->m_context, &MVMEContext::analysisChanged, this, on_analysis_changed);
 
     connect(m_d->m_context, &MVMEContext::analysisConfigFileNameChanged, this, [this](const QString &) {
         m_d->updateWindowTitle();
@@ -3082,7 +3097,7 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     analysis->updateRanks();
     analysis->beginRun(ctx->getRunInfo());
 
-    m_d->repopulate();
+    on_analysis_changed();
 }
 
 AnalysisWidget::~AnalysisWidget()

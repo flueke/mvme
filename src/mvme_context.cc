@@ -1326,7 +1326,9 @@ bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc, const QString &in
         m_analysis_ng = analysis_ng.release();
 
         // Prepares operators, allocates histograms, etc..
+        // This should in reality be the only place to throw a bad_alloc
         m_eventProcessor->newRun();
+
         emit analysisChanged();
 
         logMessage(QString("Loaded %1 from %2")
