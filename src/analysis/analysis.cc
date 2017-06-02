@@ -1843,6 +1843,15 @@ void Histo1DSink::write(QJsonObject &json) const
     json["xLimitMax"]  = m_xLimitMax;
 }
 
+size_t Histo1DSink::getStorageSize() const
+{
+    return std::accumulate(m_histos.begin(), m_histos.end(),
+                           static_cast<size_t>(0u),
+                           [](size_t v, const auto &histoPtr) {
+        return v + histoPtr->getStorageSize();
+    });
+}
+
 //
 // Histo2DSink
 //
@@ -1983,6 +1992,11 @@ void Histo2DSink::write(QJsonObject &json) const
 
     json["xAxisTitle"] = m_xAxisTitle;
     json["yAxisTitle"] = m_yAxisTitle;
+}
+
+size_t Histo2DSink::getStorageSize() const
+{
+    return m_histo ? m_histo->getStorageSize() : 0u;
 }
 
 //
@@ -2423,6 +2437,26 @@ void Analysis::clear()
 bool Analysis::isEmpty() const
 {
     return m_sources.isEmpty() && m_operators.isEmpty();
+}
+
+s32 Analysis::getNumberOfSinks() const
+{
+    return std::count_if(m_operators.begin(), m_operators.end(), [](const OperatorEntry &e) {
+        return qobject_cast<SinkInterface *>(e.op.get()) != nullptr;
+    });
+}
+
+size_t Analysis::getTotalSinkStorageSize() const
+{
+    return std::accumulate(m_operators.begin(), m_operators.end(),
+                           static_cast<size_t>(0),
+                           [](size_t v, const OperatorEntry &e) {
+        if (auto sink = qobject_cast<Histo1DSink *>(e.op.get()))
+            return v + sink->getStorageSize();
+        else if (auto sink = qobject_cast<Histo2DSink *>(e.op.get()))
+            return v + sink->getStorageSize();
+        return v;
+    });
 }
 
 s32 Analysis::getMaxUserLevel() const

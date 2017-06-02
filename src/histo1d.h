@@ -39,6 +39,7 @@ class Histo1D: public QObject
         void clear();
 
         inline u32 getNumberOfBins() const { return m_xAxisBinning.getBins(); }
+        inline size_t getStorageSize() const { return getNumberOfBins() * sizeof(double); }
 
         inline double getBinContent(u32 bin) const { return (bin < getNumberOfBins()) ? m_data[bin] : 0.0; }
         bool setBinContent(u32 bin, double value);

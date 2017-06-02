@@ -871,6 +871,8 @@ class Histo1DSink: public BasicSink
         virtual QString getDisplayName() const override { return QSL("1D Histogram"); }
         virtual QString getShortName() const override { return QSL("H1D"); }
 
+        size_t getStorageSize() const;
+
         QVector<std::shared_ptr<Histo1D>> m_histos;
         s32 m_bins = 0;
         QString m_xAxisTitle;
@@ -907,6 +909,8 @@ class Histo2DSink: public SinkInterface
 
         virtual QString getDisplayName() const override { return QSL("2D Histogram"); }
         virtual QString getShortName() const override { return QSL("H2D"); }
+
+        size_t getStorageSize() const;
 
         Slot m_inputX;
         Slot m_inputY;
@@ -1204,8 +1208,10 @@ class Analysis: public QObject
         bool isEmpty() const;
         s32 getNumberOfSources() const { return m_sources.size(); }
         s32 getNumberOfOperators() const { return m_operators.size(); }
+        s32 getNumberOfSinks() const;
         s32 getMaxUserLevel() const;
         s32 getMaxUserLevel(const QUuid &eventId) const;
+        size_t getTotalSinkStorageSize() const;
 
         Registry &getRegistry() { return m_registry; }
 

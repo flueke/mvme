@@ -40,6 +40,10 @@ class Histo2D: public QObject
 
 
         void debugDump() const;
+        inline size_t getStorageSize() const
+        {
+            return getAxisBinning(Qt::XAxis).getBins() * getAxisBinning(Qt::YAxis).getBins() * sizeof(double);
+        }
 
         AxisBinning getAxisBinning(Qt::Axis axis) const
         {

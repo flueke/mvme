@@ -43,7 +43,6 @@
 
 * Log throttling!!!!
 
-* When closing the main window via the window manager do quit the application.
 * Check for off-by-one errors in the 2D projection code
 * Make listfile-dumper handle the v1 format.
 
@@ -72,7 +71,6 @@
   On close:
   - write some user description text file to the zip. "Run description", "Run notes", "DAQ notes"
  - save/saveas/load error reporting
- - Make the AnalysisUI show consistency errors between vme and analysis configs.
 
 ==========================
 ==== Do these later! =====
@@ -105,7 +103,6 @@
     How to make this better?
 - License info needs Apache License for PCG. Maybe others. Check what is needed here!
   Also use info from resources/README
-- Refactor DAQConfig -> VMEConfig and DAQConfigTree to VMEConfigTree
 - VMUSB: if there are connect/reconnect errors write them to the log view
   Do this when porting to libusb-1.0 as that should also provide better error messages.
 - VMUSB: make the mutex non-recursive!
