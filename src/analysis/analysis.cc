@@ -1988,34 +1988,12 @@ void Histo2DSink::write(QJsonObject &json) const
 //
 // Analysis
 //
-const QMap<Analysis::ReadResult::Code, const char *> Analysis::ReadResult::ErrorCodeStrings =
+template<>
+const QMap<Analysis::ReadResultCodes, const char *> Analysis::ReadResult::ErrorCodeStrings =
 {
-    { NoError, "No Error" },
-    { VersionTooNew, "Version too new" },
+    { analysis::Analysis::NoError, "No Error" },
+    { analysis::Analysis::VersionTooNew, "Version too new" },
 };
-
-QString Analysis::ReadResult::toRichText() const
-{
-    QString result;
-
-    if (code != NoError)
-    {
-        //result += ErrorCodeStrings.value(code, "Unknown error");
-        result += QSL("<table>");
-        result += QString("<tr><td>Error cause:</td><td>%1</td>")
-            .arg(ErrorCodeStrings.value(code, "Unknown error"));
-
-        for (auto it = errorData.begin(); it != errorData.end(); ++it)
-        {
-            result += QString("<tr><td>%1:</td><td>%2</td></tr>")
-                .arg(it.key())
-                .arg(it.value().toString());
-        }
-        result += QSL("</table>");
-    }
-
-    return result;
-}
 
 Analysis::Analysis(QObject *parent)
     : QObject(parent)
@@ -2477,7 +2455,7 @@ Analysis::ReadResult Analysis::read(const QJsonObject &inputJson, VMEConfig *vme
 
     if (version > CurrentAnalysisVersion)
     {
-        result.code = ReadResult::VersionTooNew;
+        result.code = VersionTooNew;
         result.errorData["File version"] = version;
         result.errorData["Max supported version"] = CurrentAnalysisVersion;
         return result;

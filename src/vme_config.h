@@ -225,6 +225,16 @@ class VMEConfig: public ConfigObject
     public:
         VMEConfig(QObject *parent = 0);
 
+        enum ReadResultCodes
+        {
+            NoError = 0,
+            VersionTooNew
+        };
+
+        using ReadResult = ReadResultBase<ReadResultCodes>;
+
+        ReadResult readVMEConfig(const QJsonObject &json);
+
         void addEventConfig(EventConfig *config);
         bool removeEventConfig(EventConfig *config);
         bool contains(EventConfig *config);

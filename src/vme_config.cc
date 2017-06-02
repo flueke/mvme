@@ -11,6 +11,13 @@
 
 using namespace vats;
 
+template<>
+const QMap<VMEConfig::ReadResultCodes, const char *> VMEConfig::ReadResult::ErrorCodeStrings =
+{
+    { VMEConfig::NoError, "No Error" },
+    { VMEConfig::VersionTooNew, "Version too new" },
+};
+
 //
 // ConfigObject
 //
@@ -496,7 +503,7 @@ static QVector<VMEConfigConverter> VMEConfigConverters =
     v1_to_v2
 };
 
-static int get_vmeconfig_version(const QJsonObject &json)
+static int get_version(const QJsonObject &json)
 {
     return json["properties"].toObject()["version"].toInt(1);
 };
@@ -505,7 +512,7 @@ static QJsonObject convert_vmeconfig_to_current_version(QJsonObject json)
 {
     int version;
 
-    while ((version = get_vmeconfig_version(json)) < CurrentDAQConfigVersion)
+    while ((version = get_version(json)) < CurrentDAQConfigVersion)
     {
         auto converter = VMEConfigConverters.value(version);
 
@@ -525,6 +532,25 @@ VMEConfig::VMEConfig(QObject *parent)
     : ConfigObject(parent)
 {
     setProperty("version", CurrentDAQConfigVersion);
+}
+
+VMEConfig::ReadResult VMEConfig::readVMEConfig(const QJsonObject &json)
+{
+    ReadResult result = {};
+
+    int version = get_version(json);
+
+    if (version > CurrentDAQConfigVersion)
+    {
+        result.code = VersionTooNew;
+        result.errorData["File version"] = version;
+        result.errorData["Max supported version"] = CurrentDAQConfigVersion;
+        return result;
+    }
+
+    ConfigObject::read(json); // calls read_impl() on this
+
+    return result;
 }
 
 void VMEConfig::addEventConfig(EventConfig *config)

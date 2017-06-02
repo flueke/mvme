@@ -268,4 +268,44 @@ inline constexpr size_t Gigabytes(size_t x) { return Megabytes(x) * 1024; }
 #define InvalidCodePath Q_ASSERT(!"invalid code path")
 #define InvalidDefaultCase default: { Q_ASSERT(!"invalid default case"); }
 
+template<typename Code>
+struct ReadResultBase
+{
+    typedef Code CodeType;
+
+    static const QMap<Code, const char *> ErrorCodeStrings;
+
+    Code code;
+    QMap<QString, QVariant> errorData;
+
+    QString toRichText() const;
+
+    inline operator bool() const { return code == Code::NoError; }
+};
+
+
+template<typename Code>
+QString ReadResultBase<Code>::toRichText() const
+{
+    QString result;
+
+    if (code != Code::NoError)
+    {
+        //result += ErrorCodeStrings.value(code, "Unknown error");
+        result += QSL("<table>");
+        result += QString("<tr><td>Error cause:</td><td>%1</td>")
+            .arg(ErrorCodeStrings.value(code, "Unknown error"));
+
+        for (auto it = errorData.begin(); it != errorData.end(); ++it)
+        {
+            result += QString("<tr><td>%1:</td><td>%2</td></tr>")
+                .arg(it.key())
+                .arg(it.value().toString());
+        }
+        result += QSL("</table>");
+    }
+
+    return result;
+}
+
 #endif // UTIL_H

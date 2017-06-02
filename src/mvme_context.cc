@@ -586,7 +586,18 @@ void MVMEContext::setReplayFile(ListFile *listFile)
 
     auto configJson = listFile->getDAQConfig();
     auto daqConfig = new VMEConfig;
-    daqConfig->read(configJson);
+    auto readResult = daqConfig->readVMEConfig(configJson);
+
+    if (!readResult)
+    {
+        readResult.errorData["Source file"] = listFile->getFileName();
+        QMessageBox::critical(nullptr,
+                              QSL("Error loading VME config"),
+                              readResult.toRichText());
+        delete listFile;
+        return;
+    }
+
     setVMEConfig(daqConfig);
 
     delete m_listFile;
@@ -1169,7 +1180,17 @@ void MVMEContext::loadVMEConfig(const QString &fileName)
 {
     QJsonDocument doc(gui_read_json_file(fileName));
     auto daqConfig = new VMEConfig;
-    daqConfig->read(doc.object()["DAQConfig"].toObject());
+    auto readResult = daqConfig->readVMEConfig(doc.object()["DAQConfig"].toObject());
+
+    if (!readResult)
+    {
+        readResult.errorData["Source file"] = fileName;
+        QMessageBox::critical(nullptr,
+                              QSL("Error loading VME config"),
+                              readResult.toRichText());
+        return;
+    }
+
     setVMEConfig(daqConfig);
     setConfigFileName(fileName);
     setMode(GlobalMode::DAQ);

@@ -1209,23 +1209,13 @@ class Analysis: public QObject
 
         Registry &getRegistry() { return m_registry; }
 
-        struct ReadResult
+        enum ReadResultCodes
         {
-            enum Code
-            {
-                NoError = 0,
-                VersionTooNew
-            };
-
-            static const QMap<Code, const char *> ErrorCodeStrings;
-
-            Code code;
-            QMap<QString, QVariant> errorData;
-
-            QString toRichText() const;
-
-            inline operator bool() const { return code == NoError; }
+            NoError = 0,
+            VersionTooNew
         };
+
+        using ReadResult = ReadResultBase<ReadResultCodes>;
 
         ReadResult read(const QJsonObject &json, VMEConfig *vmeConfig = nullptr);
         void write(QJsonObject &json) const;
