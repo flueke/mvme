@@ -14,6 +14,7 @@
 #include <QGroupBox>
 #include <QHeaderView>
 #include <QLabel>
+#include <QMessageBox>
 #include <QRadioButton>
 
 namespace analysis
@@ -40,7 +41,7 @@ QVector<std::shared_ptr<Extractor>> get_default_data_extractors(const QString &m
          * not need a VMEConfig to be upconverted). */
         auto readResult = filterAnalysis.read(doc.object()[QSL("AnalysisNG")].toObject());
 
-        if (readResult.code == Analysis::ReadResult::NoError)
+        if (readResult)
         {
             for (auto entry: filterAnalysis.getSources())
             {
@@ -50,12 +51,19 @@ QVector<std::shared_ptr<Extractor>> get_default_data_extractors(const QString &m
                     result.push_back(extractor);
                 }
             }
+
+            qSort(result.begin(), result.end(), [](const auto &a, const auto &b) {
+                return a->objectName() < b->objectName();
+            });
+        }
+        else
+        {
+            readResult.errorData["Source file"] = filtersFile.fileName();
+            QMessageBox::critical(nullptr,
+                                  QSL("Error loading default filters"),
+                                  readResult.toRichText());
         }
     }
-
-    qSort(result.begin(), result.end(), [](const auto &a, const auto &b) {
-        return a->objectName() < b->objectName();
-    });
 
     return result;
 }

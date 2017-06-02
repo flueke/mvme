@@ -1214,13 +1214,17 @@ class Analysis: public QObject
             enum Code
             {
                 NoError = 0,
-                VersionMismatch
+                VersionTooNew
             };
 
             static const QMap<Code, const char *> ErrorCodeStrings;
 
             Code code;
             QMap<QString, QVariant> errorData;
+
+            QString toRichText() const;
+
+            inline operator bool() const { return code == NoError; }
         };
 
         ReadResult read(const QJsonObject &json, VMEConfig *vmeConfig = nullptr);

@@ -2095,14 +2095,12 @@ void EventWidgetPrivate::importForModule(ModuleConfig *module, const QString &st
     Analysis analysis;
     auto readResult = analysis.read(json, m_context->getVMEConfig());
 
-    if (readResult.code != Analysis::ReadResult::NoError)
+    if (!readResult)
     {
-        qDebug() << "!!!!! Error reading analysis ng" << readResult.code << readResult.errorData;
-
-        QMessageBox::critical(m_q, QSL("Error"),
-                              QString("Error loading analysis\n"
-                                      "Error: %1")
-                              .arg(Analysis::ReadResult::ErrorCodeStrings.value(readResult.code, "Unknown error")));
+        readResult.errorData["Source file"] = fileName;
+        QMessageBox::critical(m_q,
+                              QSL("Error importing analysis"),
+                              readResult.toRichText());
         return;
     }
 
@@ -2857,14 +2855,12 @@ void AnalysisWidgetPrivate::actionImport()
     Analysis analysis;
     auto readResult = analysis.read(json, m_context->getVMEConfig());
 
-    if (readResult.code != Analysis::ReadResult::NoError)
+    if (!readResult)
     {
-        qDebug() << "!!!!! Error reading analysis ng" << readResult.code << readResult.errorData;
-
-        QMessageBox::critical(m_q, QSL("Error"),
-                              QString("Error loading analysis\n"
-                                      "Error: %1")
-                              .arg(Analysis::ReadResult::ErrorCodeStrings.value(readResult.code, "Unknown error")));
+        readResult.errorData["Source file"] = fileName;
+        QMessageBox::critical(m_q,
+                              QSL("Error importing analysis"),
+                              readResult.toRichText());
         return;
     }
 

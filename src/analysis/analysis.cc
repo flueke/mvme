@@ -85,6 +85,7 @@ static QJsonObject v1_to_v2(QJsonObject json, VMEConfig *vmeConfig)
 
     if (!couldConvert)
     {
+        // TODO: report this
         qDebug() << "Error converting to v2!!!================================================";
     }
 
@@ -1990,8 +1991,31 @@ void Histo2DSink::write(QJsonObject &json) const
 const QMap<Analysis::ReadResult::Code, const char *> Analysis::ReadResult::ErrorCodeStrings =
 {
     { NoError, "No Error" },
-    { VersionMismatch, "Version Mismatch" },
+    { VersionTooNew, "Version too new" },
 };
+
+QString Analysis::ReadResult::toRichText() const
+{
+    QString result;
+
+    if (code != NoError)
+    {
+        //result += ErrorCodeStrings.value(code, "Unknown error");
+        result += QSL("<table>");
+        result += QString("<tr><td>Error cause:</td><td>%1</td>")
+            .arg(ErrorCodeStrings.value(code, "Unknown error"));
+
+        for (auto it = errorData.begin(); it != errorData.end(); ++it)
+        {
+            result += QString("<tr><td>%1:</td><td>%2</td></tr>")
+                .arg(it.key())
+                .arg(it.value().toString());
+        }
+        result += QSL("</table>");
+    }
+
+    return result;
+}
 
 Analysis::Analysis(QObject *parent)
     : QObject(parent)
@@ -1999,7 +2023,6 @@ Analysis::Analysis(QObject *parent)
 {
     m_registry.registerSource<Extractor>();
 
-    //m_registry.registerOperator<CalibrationFactorOffset>();
     m_registry.registerOperator<CalibrationMinMax>();
     m_registry.registerOperator<IndexSelector>();
     m_registry.registerOperator<PreviousValue>();
@@ -2010,7 +2033,6 @@ Analysis::Analysis(QObject *parent)
     m_registry.registerOperator<RangeFilter1D>();
     m_registry.registerOperator<ConditionFilter>();
     m_registry.registerOperator<RectFilter2D>();
-
 
     m_registry.registerSink<Histo1DSink>();
     m_registry.registerSink<Histo2DSink>();
@@ -2445,33 +2467,25 @@ s32 Analysis::getMaxUserLevel(const QUuid &eventId) const
     return (it != ops.end() ? it->userLevel : 0);
 }
 
-//=========================================================
-
 Analysis::ReadResult Analysis::read(const QJsonObject &inputJson, VMEConfig *vmeConfig)
 {
     clear();
 
+    ReadResult result = {};
+
+    int version = get_version(inputJson);
+
+    if (version > CurrentAnalysisVersion)
+    {
+        result.code = ReadResult::VersionTooNew;
+        result.errorData["File version"] = version;
+        result.errorData["Max supported version"] = CurrentAnalysisVersion;
+        return result;
+    }
+
     QJsonObject json = convert_to_current_version(inputJson, vmeConfig);
 
     QMap<QUuid, PipeSourcePtr> objectsById;
-
-    ReadResult result = {};
-
-    // Bit of a hack: check the version number only if there's a matching key
-    // in the json data. This works around the problem that loading an empty
-    // config led to a version mismatch error.
-    if (json.contains(QSL("MVMEAnalysisVersion")))
-    {
-        int version = json[QSL("MVMEAnalysisVersion")].toInt(0);
-
-        if (version != CurrentAnalysisVersion)
-        {
-            result.code = ReadResult::VersionMismatch;
-            result.errorData["version"] = version;
-            result.errorData["expected version"] = CurrentAnalysisVersion;
-            return result;
-        }
-    }
 
     // Sources
     {

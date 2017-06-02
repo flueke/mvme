@@ -1213,14 +1213,12 @@ bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc, const QString &in
     auto analysis_ng = std::make_unique<Analysis>();
     auto readResult = analysis_ng->read(json, getVMEConfig());
 
-    if (readResult.code != Analysis::ReadResult::NoError)
+    if (!readResult)
     {
-        qDebug() << "!!!!! Error reading analysis ng" << readResult.code << readResult.errorData;
-
-        QMessageBox::critical(m_mainwin, QSL("Error"),
-                              QString("Error loading analysis\n"
-                                      "Error: %1")
-                              .arg(Analysis::ReadResult::ErrorCodeStrings.value(readResult.code, "Unknown error")));
+        readResult.errorData["Source file"] = inputInfo;
+        QMessageBox::critical(nullptr,
+                              QSL("Error loading analysis"),
+                              readResult.toRichText());
         return false;
     }
 
