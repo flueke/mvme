@@ -24,6 +24,7 @@
 #include <QSplitter>
 #include <QStackedWidget>
 #include <QStandardPaths>
+#include <QStatusBar>
 #include <QTimer>
 #include <QToolBar>
 #include <QToolButton>
@@ -2634,6 +2635,9 @@ struct AnalysisWidgetPrivate
     QStackedWidget *m_eventWidgetEventSelectAreaToolBarStack;
     QToolButton *m_removeUserLevelButton;
     QToolButton *m_addUserLevelButton;
+    QStatusBar *m_statusBar;
+    QLabel *m_labelSinkStorageSize;
+    QTimer *m_periodicUpdateTimer;
 
     void repopulate();
     void repopulateEventSelectCombo();
@@ -3015,12 +3019,17 @@ void AnalysisWidgetPrivate::updateAddRemoveUserLevelButtons()
     m_removeUserLevelButton->setEnabled(visibleUserLevels > 1 && visibleUserLevels > numUserLevels);
 }
 
+static const u32 PeriodicUpdateTimerInterval_ms = 1000;
+
 AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     : QWidget(parent)
     , m_d(new AnalysisWidgetPrivate)
 {
     m_d->m_q = this;
     m_d->m_context = ctx;
+
+    m_d->m_periodicUpdateTimer = new QTimer(this);
+    m_d->m_periodicUpdateTimer->start(PeriodicUpdateTimerInterval_ms);
 
     /* Note: This code is not efficient at all. This AnalysisWidget and the
      * EventWidgets are recreated and repopulated more often than is really
@@ -3130,6 +3139,8 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
         }
     });
 
+    // Layout containing event select combo, a 2nd event widget specific
+    // toolbar and the add and remove userlevel buttons
     auto eventSelectLayout = new QHBoxLayout;
     eventSelectLayout->addWidget(new QLabel(QSL("Event:")));
     eventSelectLayout->addWidget(m_d->m_eventSelectCombo);
@@ -3141,19 +3152,51 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     eventSelectLayout->addWidget(m_d->m_removeUserLevelButton);
     eventSelectLayout->addWidget(m_d->m_addUserLevelButton);
 
+    // statusbar
+    m_d->m_statusBar = new QStatusBar;
+    m_d->m_labelSinkStorageSize = new QLabel;
+    m_d->m_statusBar->addPermanentWidget(m_d->m_labelSinkStorageSize);
+
+    // main layout
     auto layout = new QGridLayout(this);
     layout->setContentsMargins(2, 2, 2, 2);
+    layout->setSpacing(2);
     s32 row = 0;
     layout->addWidget(toolbarFrame, row++, 0);
     layout->addLayout(eventSelectLayout, row++, 0);
     layout->addWidget(m_d->m_eventWidgetStack, row++, 0);
     layout->setRowStretch(row-1, 1);
+    layout->addWidget(m_d->m_statusBar, row++, 0);
 
     auto analysis = ctx->getAnalysis();
     analysis->updateRanks();
     analysis->beginRun(ctx->getRunInfo());
 
     on_analysis_changed();
+
+    connect(m_d->m_periodicUpdateTimer, &QTimer::timeout, this, [this]() {
+        double storageSize = m_d->m_context->getAnalysis()->getTotalSinkStorageSize();
+        QString unit("B");
+
+        if (storageSize > Gigabytes(1))
+        {
+            storageSize /= Gigabytes(1);
+            unit = QSL("GiB");
+        }
+        else if (storageSize > Megabytes(1))
+        {
+            storageSize /= Megabytes(1);
+            unit = QSL("MiB");
+        }
+        else if (storageSize == 0.0)
+        {
+            unit = QSL("MiB");
+        }
+
+        m_d->m_labelSinkStorageSize->setText(QString("Histo Storage: %1 %2")
+                                             .arg(storageSize, 0, 'f', 2)
+                                             .arg(unit));
+    });
 }
 
 AnalysisWidget::~AnalysisWidget()
