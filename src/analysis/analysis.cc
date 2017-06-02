@@ -5,6 +5,8 @@
 #include <chrono>
 #include <random>
 
+#include "../vme_config.h"
+
 #define ENABLE_ANALYSIS_DEBUG 0
 
 template<typename T>
@@ -18,11 +20,103 @@ namespace analysis
 {
 /* File versioning. If the format changes this version needs to be incremented
  * and a conversion routine has to be implemented.
- *
- * Note: Conversion from versions prior to version 2 is done in
- * MVMEContext::loadAnalysisConfig().
  */
 static const int CurrentAnalysisVersion = 2;
+
+/* This function converts from analysis config versions prior to V2, which
+ * stored eventIndex and moduleIndex instead of eventId and moduleId.
+ */
+static QJsonObject v1_to_v2(QJsonObject json, VMEConfig *vmeConfig)
+{
+    bool couldConvert = true;
+
+    // sources
+    auto array = json["sources"].toArray();
+
+    for (auto it = array.begin(); it != array.end(); ++it)
+    {
+        auto objectJson = it->toObject();
+        int eventIndex = objectJson["eventIndex"].toInt();
+        int moduleIndex = objectJson["moduleIndex"].toInt();
+
+        auto eventConfig = vmeConfig->getEventConfig(eventIndex);
+        auto moduleConfig = vmeConfig->getModuleConfig(eventIndex, moduleIndex);
+
+        if (eventConfig && moduleConfig)
+        {
+            objectJson["eventId"] = eventConfig->getId().toString();
+            objectJson["moduleId"] = moduleConfig->getId().toString();
+            *it = objectJson;
+        }
+        else
+        {
+            couldConvert = false;
+        }
+    }
+    json["sources"] = array;
+
+    // operators
+    array = json["operators"].toArray();
+
+    for (auto it = array.begin(); it != array.end(); ++it)
+    {
+        auto objectJson = it->toObject();
+        int eventIndex = objectJson["eventIndex"].toInt();
+
+        auto eventConfig = vmeConfig->getEventConfig(eventIndex);
+
+        if (eventConfig)
+        {
+            objectJson["eventId"] = eventConfig->getId().toString();
+            *it = objectJson;
+        }
+        else
+        {
+            couldConvert = false;
+        }
+    }
+    json["operators"] = array;
+
+    if (!couldConvert)
+    {
+        qDebug() << "Error converting to v2!!!================================================";
+    }
+
+    return json;
+}
+
+using VersionConverter = std::function<QJsonObject (QJsonObject, VMEConfig *)>;
+
+static QVector<VersionConverter> VersionConverters =
+{
+    nullptr,
+    v1_to_v2
+};
+
+static int get_version(const QJsonObject &json)
+{
+    return json[QSL("MVMEAnalysisVersion")].toInt(1);
+};
+
+static QJsonObject convert_to_current_version(QJsonObject json, VMEConfig *vmeConfig)
+{
+    int version;
+
+    while ((version = get_version(json)) < CurrentAnalysisVersion)
+    {
+        auto converter = VersionConverters.value(version);
+
+        if (!converter)
+            break;
+
+        json = converter(json, vmeConfig);
+        json[QSL("MVMEAnalysisVersion")] = version + 1;
+
+        qDebug() << __PRETTY_FUNCTION__ << "converted Analysis from version" << version << "to version" << version+1;
+    }
+
+    return json;
+}
 
 template<typename T>
 QString getClassName(T *obj)
@@ -2345,9 +2439,13 @@ s32 Analysis::getMaxUserLevel(const QUuid &eventId) const
     return (it != ops.end() ? it->userLevel : 0);
 }
 
-Analysis::ReadResult Analysis::read(const QJsonObject &json)
+//=========================================================
+
+Analysis::ReadResult Analysis::read(const QJsonObject &inputJson, VMEConfig *vmeConfig)
 {
     clear();
+
+    QJsonObject json = convert_to_current_version(inputJson, vmeConfig);
 
     QMap<QUuid, PipeSourcePtr> objectsById;
 

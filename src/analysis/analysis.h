@@ -13,6 +13,7 @@
 #include <qwt_interval.h>
 
 class QJsonObject;
+class VMEConfig;
 
 /*
  *   Operators vs Sources vs Sinks:
@@ -1221,7 +1222,8 @@ class Analysis: public QObject
             Code code;
             QMap<QString, QVariant> errorData;
         };
-        ReadResult read(const QJsonObject &json);
+
+        ReadResult read(const QJsonObject &json, VMEConfig *vmeConfig = nullptr);
         void write(QJsonObject &json) const;
 
         bool isModified() const { return m_modified; }

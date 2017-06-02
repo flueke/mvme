@@ -292,7 +292,6 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     m_d->m_actionSubRange->setStatusTip(QSL("Limit the histogram to a specific X-Axis range"));
     m_d->m_actionSubRange->setEnabled(false);
 
-
     m_d->m_actionCalibUi = tb->addAction(QIcon(":/operator_calibration.png"), QSL("Calibration"));
     m_d->m_actionCalibUi->setCheckable(true);
     m_d->m_actionCalibUi->setVisible(false);
@@ -303,10 +302,11 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     m_d->m_actionInfo->setCheckable(true);
 
     connect(m_d->m_actionInfo, &QAction::toggled, this, [this](bool b) {
-        /* I did not manage to get statusbar to resize to the smallest possible
-         * size after hiding m_infoContainer. I tried
+        /* I did not manage to get the statusbar to resize to the smallest
+         * possible size after hiding m_infoContainer. I tried
          * - setSizeConstraint(QLayout::SetFixedSize) on the container layout and on the statusbar layout
          * - calling adjustSize() on container and statusbar
+         * but neither did resize the statusbar once the container was hidden.
          *
          * The quick fix is to hide/show the containers children explicitly.
          */
