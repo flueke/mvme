@@ -34,6 +34,10 @@ QVector<std::shared_ptr<Extractor>> get_default_data_extractors(const QString &m
     {
         auto doc = QJsonDocument::fromJson(filtersFile.readAll());
         Analysis filterAnalysis;
+        /* Note: This does not do proper config conversion as no VMEConfig is
+         * passed to Analysis::read().  It is assumed that the default filters
+         * shipped with mvme are in the latest format (or a format that does
+         * not need a VMEConfig to be upconverted). */
         auto readResult = filterAnalysis.read(doc.object()[QSL("AnalysisNG")].toObject());
 
         if (readResult.code == Analysis::ReadResult::NoError)

@@ -2089,13 +2089,11 @@ void EventWidgetPrivate::importForModule(ModuleConfig *module, const QString &st
     if (fileName.isEmpty())
         return;
 
-    // IMPORTANT FIXME: no conversion for formats with MVMEAnalysisVersion < 2 is done here!
-
     QJsonDocument doc(gui_read_json_file(fileName));
     auto json = doc.object()[QSL("AnalysisNG")].toObject();
 
     Analysis analysis;
-    auto readResult = analysis.read(json);
+    auto readResult = analysis.read(json, m_context->getVMEConfig());
 
     if (readResult.code != Analysis::ReadResult::NoError)
     {
@@ -2852,14 +2850,12 @@ void AnalysisWidgetPrivate::actionImport()
     if (fileName.isEmpty())
         return;
 
-    // IMPORTANT FIXME: no conversion for formats with MVMEAnalysisVersion < 2 is done here!
-
     // Step 1) Create Analysis from file contents
     QJsonDocument doc(gui_read_json_file(fileName));
     auto json = doc.object()[QSL("AnalysisNG")].toObject();
 
     Analysis analysis;
-    auto readResult = analysis.read(json);
+    auto readResult = analysis.read(json, m_context->getVMEConfig());
 
     if (readResult.code != Analysis::ReadResult::NoError)
     {

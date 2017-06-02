@@ -30,6 +30,12 @@ static QJsonObject v1_to_v2(QJsonObject json, VMEConfig *vmeConfig)
 {
     bool couldConvert = true;
 
+    if (!vmeConfig)
+    {
+        // TODO: report error here
+        return json;
+    }
+
     // sources
     auto array = json["sources"].toArray();
 
