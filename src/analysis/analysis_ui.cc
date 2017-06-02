@@ -2358,6 +2358,70 @@ void EventWidget::endSelectInput()
     }
 }
 
+void EventWidget::highlightInputOf(Slot *slot, bool doHighlight)
+{
+    if (!slot || !slot->isParamIndexInRange())
+        return;
+
+    QTreeWidgetItem *node = nullptr;
+
+    if (auto source = qobject_cast<SourceInterface *>(slot->inputPipe->getSource()))
+    {
+        // As the input is a SourceInterface we only need to look in the source tree
+        auto tree = m_d->m_levelTrees[0].operatorTree;
+
+        node = findFirstNode(tree->invisibleRootItem(), [source](auto nodeToTest) {
+            return (nodeToTest->type() == NodeType_Source
+                    && getPointer<SourceInterface>(nodeToTest) == source);
+        });
+
+    }
+    else if (qobject_cast<OperatorInterface *>(slot->inputPipe->getSource()))
+    {
+        // The input is another operator
+        for (s32 treeIndex = 1;
+             treeIndex < m_d->m_levelTrees.size() && !node;
+             ++treeIndex)
+        {
+            auto tree = m_d->m_levelTrees[treeIndex].operatorTree;
+
+            node = findFirstNode(tree->invisibleRootItem(), [slot](auto nodeToTest) {
+                return (nodeToTest->type() == NodeType_OutputPipe
+                        && getPointer<Pipe>(nodeToTest) == slot->inputPipe);
+            });
+        }
+    }
+    else
+    {
+        InvalidCodePath;
+    }
+
+    if (node && slot->isParameterConnection() && slot->paramIndex < node->childCount())
+    {
+        node = node->child(slot->paramIndex);
+    }
+
+    if (node)
+    {
+        auto highlight_node = [doHighlight](QTreeWidgetItem *node, const QColor &color)
+        {
+            if (doHighlight)
+                node->setBackground(0, color);
+            else
+                node->setBackground(0, QColor(0, 0, 0, 0));
+        };
+
+        highlight_node(node, InputNodeOfColor);
+
+        for (node = node->parent();
+             node;
+             node = node->parent())
+        {
+            highlight_node(node, ChildIsInputNodeOfColor);
+        }
+    }
+}
+
 void EventWidget::addOperator(OperatorPtr op, s32 userLevel)
 {
     if (!op) return;

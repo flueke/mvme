@@ -75,13 +75,12 @@
 * ZIP file support:
   On close:
   - write some user description text file to the zip. "Run description", "Run notes", "DAQ notes"
-
- - UserLevel hide/show GUI
-
- - "modified" concept for the analysis and it's elements
  - save/saveas/load error reporting
  - Make the AnalysisUI show consistency errors between vme and analysis configs.
 
+==========================
+==== Do these later! =====
+==========================
 * EventWidget and AnalysisWidget repopulate:
   - Restore open PipeDisplays:
     Store (ObjectId, OutputIndex) to get the output pipe and (pos, size) to restore the widget.
@@ -89,10 +88,6 @@
   - Restore node expansion state
     Could store QUuids for expanded object nodes and after repop rebuild the
     VoidStar set of expanded nodes by getting the pointers via the ids.
-
-==========================
-==== Do these later! =====
-==========================
 * Analysis structure:
   SourceEntry does not really need the eventId as the moduleId implicitly
   specifies the eventId.

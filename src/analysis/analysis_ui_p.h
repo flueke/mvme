@@ -47,6 +47,7 @@ class EventWidget: public QWidget
 
         void selectInputFor(Slot *slot, s32 userLevel, SelectInputCallback callback);
         void endSelectInput();
+        void highlightInputOf(Slot *slot, bool doHighlight);
 
         void addSource(SourcePtr src, ModuleConfig *module, bool addHistogramsAndCalibration,
                        const QString &unit = QString(), double unitMin = 0.0, double unitMax = 0.0);
@@ -121,6 +122,7 @@ class AddEditOperatorWidget: public QDialog
         void inputSelected(s32 slotIndex);
         virtual void accept() override;
         virtual void reject() override;
+        virtual bool eventFilter(QObject *watched, QEvent *event) override;
         void repopulateSlotGrid();
 
         OperatorPtr m_opPtr;

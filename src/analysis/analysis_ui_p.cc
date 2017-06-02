@@ -369,6 +369,8 @@ void AddEditOperatorWidget::repopulateSlotGrid()
 
         auto selectButton = new QPushButton(QSL("<select>"));
         selectButton->setCheckable(true);
+        selectButton->setMouseTracking(true);
+        selectButton->installEventFilter(this);
         m_selectButtons.push_back(selectButton);
 
         connect(selectButton, &QPushButton::toggled, this, [this, slot, slotIndex, userLevel](bool checked) {
@@ -559,6 +561,20 @@ void AddEditOperatorWidget::reject()
     m_eventWidget->endSelectInput();
     m_eventWidget->uniqueWidgetCloses();
     QDialog::reject();
+}
+
+bool AddEditOperatorWidget::eventFilter(QObject *watched, QEvent *event)
+{
+    auto button = qobject_cast<QPushButton *>(watched);
+    if (button && (event->type() == QEvent::Enter || event->type() == QEvent::Leave))
+    {
+        // On slot select button mouse enter/leave events highlight/unhighlight
+        // the corresponding nodes in the analysis trees.
+        if (auto slot = m_op->getSlot(m_selectButtons.indexOf(button)))
+        {
+            m_eventWidget->highlightInputOf(slot, event->type() == QEvent::Enter);
+        }
+    }
 }
 
 /* Resizes the widget to have a minimum size when it's first shown.
