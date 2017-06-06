@@ -3158,6 +3158,13 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
 
     // statusbar
     m_d->m_statusBar = new QStatusBar;
+    {
+        m_d->m_statusBar->setSizeGripEnabled(false);
+        auto font = m_d->m_statusBar->font();
+        font.setPointSize(7);
+        m_d->m_statusBar->setFont(font);
+    }
+
     m_d->m_labelSinkStorageSize = new QLabel;
     m_d->m_statusBar->addPermanentWidget(m_d->m_labelSinkStorageSize);
 
@@ -3259,6 +3266,17 @@ void AnalysisWidget::updateAddRemoveUserLevelButtons()
 void AnalysisWidget::eventConfigModified()
 {
     m_d->repopulateEventSelectCombo();
+}
+
+bool AnalysisWidget::event(QEvent *e)
+{
+    if (e->type() == QEvent::StatusTip)
+    {
+        m_d->m_statusBar->showMessage(reinterpret_cast<QStatusTipEvent *>(e)->tip());
+        return true;
+    }
+
+    return QWidget::event(e);
 }
 
 } // end namespace analysis
