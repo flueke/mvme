@@ -2403,9 +2403,13 @@ void EventWidget::highlightInputOf(Slot *slot, bool doHighlight)
         auto highlight_node = [doHighlight](QTreeWidgetItem *node, const QColor &color)
         {
             if (doHighlight)
+            {
                 node->setBackground(0, color);
+            }
             else
+            {
                 node->setBackground(0, QColor(0, 0, 0, 0));
+            }
         };
 
         highlight_node(node, InputNodeOfColor);

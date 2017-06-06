@@ -590,7 +590,8 @@ void AddEditOperatorWidget::reject()
 bool AddEditOperatorWidget::eventFilter(QObject *watched, QEvent *event)
 {
     auto button = qobject_cast<QPushButton *>(watched);
-    if (button && (event->type() == QEvent::Enter || event->type() == QEvent::Leave))
+    if (button && (event->type() == QEvent::Enter || event->type() == QEvent::Leave)
+        && !m_inputSelectActive)
     {
         // On slot select button mouse enter/leave events highlight/unhighlight
         // the corresponding nodes in the analysis trees.
