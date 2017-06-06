@@ -16,6 +16,92 @@ static void processQtEvents(QEventLoop::ProcessEventsFlags flags = QEventLoop::A
     QCoreApplication::processEvents(flags);
 }
 
+namespace
+{
+    struct TriggerData
+    {
+        EventConfig *event;
+        u8 irqLevel;
+        u8 irqVector;
+    };
+
+    struct DuplicateTrigger: public std::runtime_error
+    {
+        DuplicateTrigger(TriggerCondition condition, TriggerData d1, TriggerData d2)
+            : std::runtime_error("Duplicate VME Trigger Condition")
+            , m_condition(condition)
+            , m_data1(d1)
+            , m_data2(d2)
+        {
+            Q_ASSERT(d1.event != d2.event);
+        }
+
+        QString toString() const
+        {
+            QString result(QSL("Duplicate Trigger Condition: "));
+
+            if (m_condition == TriggerCondition::Interrupt)
+            {
+                result += QString("trigger=%1, level=%2, vector=%3, event1=\"%4\", event2=\"%5\"")
+                    .arg(TriggerConditionNames.value(m_condition))
+                    .arg(static_cast<u32>(m_data1.irqLevel))
+                    .arg(static_cast<u32>(m_data1.irqVector))
+                    .arg(m_data1.event->objectName())
+                    .arg(m_data2.event->objectName())
+                    ;
+            }
+            else
+            {
+                result += QString("trigger=%1, event1=\"%4\", event2=\"%5\"")
+                    .arg(TriggerConditionNames.value(m_condition))
+                    .arg(m_data1.event->objectName())
+                    .arg(m_data2.event->objectName())
+                    ;
+            }
+
+            return result;
+        }
+
+        TriggerCondition m_condition;
+        TriggerData m_data1,
+                    m_data2;
+    };
+
+    static void validate_vme_config(VMEConfig *vmeConfig)
+    {
+        QMultiMap<TriggerCondition, TriggerData> triggers;
+
+        for (auto event: vmeConfig->getEventConfigs())
+        {
+            TriggerData data = {event, event->irqLevel, event->irqVector};
+            TriggerCondition condition = event->triggerCondition;
+
+            if (triggers.contains(condition))
+            {
+                auto otherDataList = triggers.values(condition);
+
+                if (condition == TriggerCondition::Interrupt)
+                {
+                    for (auto otherData: otherDataList)
+                    {
+                        if (data.irqLevel == otherData.irqLevel
+                            && data.irqVector == otherData.irqVector)
+                        {
+                            throw DuplicateTrigger(condition, data, otherData);
+                        }
+                    }
+                }
+                else
+                {
+                    throw DuplicateTrigger(condition, data, otherDataList.at(0));
+                }
+            }
+
+            triggers.insert(condition, data);
+        }
+    }
+}
+
 VMUSBReadoutWorker::VMUSBReadoutWorker(MVMEContext *context, QObject *parent)
     : QObject(parent)
     , m_context(context)
@@ -56,6 +142,8 @@ void VMUSBReadoutWorker::start(quint32 cycles)
     try
     {
         logMessage(QSL("VMUSB readout starting"));
+
+        validate_vme_config(daqConfig);
 
         //
         // Reset IRQs
@@ -287,6 +375,11 @@ void VMUSBReadoutWorker::start(quint32 cycles)
     catch (const QString &message)
     {
         logError(message);
+        errorThrown = true;
+    }
+    catch (const DuplicateTrigger &e)
+    {
+        logError(e.toString());
         errorThrown = true;
     }
     catch (const std::runtime_error &e)
