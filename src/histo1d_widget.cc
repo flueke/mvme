@@ -1086,7 +1086,7 @@ void Histo1DWidget::calibResetToFilter()
 
 void Histo1DWidget::calibFillMax()
 {
-    double maxAt = m_histo->getAxisBinning(Qt::XAxis).getBinCenter(m_stats.maxBin);
+    double maxAt = m_histo->getAxisBinning(Qt::XAxis).getBinLowEdge(m_stats.maxBin);
     m_d->m_calibUi.lastFocusedActual->setValue(maxAt);
 }
 

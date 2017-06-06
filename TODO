@@ -3,8 +3,6 @@
 ==========================
 
 - Add error reporting to VMEConfig and Analysis version conversion and read routines
-- Add display of sum of used histo memory to analysis ui statusbar
-- Histo1D Calibration UI: Wrong Vis. Max Value for empty histogram
 - Histo1D Calibration UI: "Restore" uses unexpected values. Also there's no way to undo the restore operation. (calibResetToFilter)
 
 - Refactor gui_write_json_file() to write_json_file() and use exceptions to report errors.
