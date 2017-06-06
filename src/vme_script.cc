@@ -96,7 +96,7 @@ uint32_t parseValue(const QString &str)
     uint32_t ret = str.toUInt(&ok, 0);
 
     if (!ok)
-        throw "invalid value";
+        throw "invalid data value";
 
     return ret;
 }
@@ -345,44 +345,38 @@ Command parse_line(QString line, int lineNumber)
     if (parts.isEmpty())
         throw ParseError(QSL("Empty command"), lineNumber);
 
-    // TODO: Examine the first part to see if it is a command. Only try to
-    // parse the short form if the first part is not a command. After parsing
-    // the short form do not try to parse the input as a command anymore.  The
-    // reason to do this is that right now if e.g. the second part of a 2 part
-    // line fails to parse as a number any errors thrown by that parse
-    // operation will be swallowed. Then the line is parsed as a command which
-    // might fail and yield a non-usefull error like "No such command: 0x1234".
-    // The original parse error of the 2nd part will never be visible to the
-    // user.
-
-    if (parts.size() == 2)
+    if (parts.at(0).at(0).isDigit() && parts.size() == 2)
     {
-        /* Try to parse two unsigned values which is the short form of a write
-         * command. */
-        bool ok1, ok2;
+        /* Try to parse an address followed by a value. This is the short form
+         * of a write command. */
+        bool ok1;
         uint32_t v1 = parts[0].toUInt(&ok1, 0);
         uint32_t v2 = 0;
+
+        if (!ok1)
+        {
+            throw ParseError(QString(QSL("Invalid short-form address \"%1\""))
+                             .arg(parts[0]), lineNumber);
+        }
+
         try
         {
             v2 = parseValue(parts[1]);
-            ok2 = true;
         }
-        catch (const char *)
+        catch (const char *message)
         {
-            ok2 = false;
+            throw ParseError(QString(QSL("Invalid short-form value \"%1\" (%2)"))
+                             .arg(parts[1], message), lineNumber);
         }
 
-        if (ok1 && ok2)
-        {
-            result.type = CommandType::Write;
-            result.addressMode = AddressMode::A32;
-            result.dataWidth = DataWidth::D16;
-            result.address = v1;
-            result.value = v2;
+        result.type = CommandType::Write;
+        result.addressMode = AddressMode::A32;
+        result.dataWidth = DataWidth::D16;
+        result.address = v1;
+        result.value = v2;
 
-            maybe_set_warning(result, lineNumber);
-            return result;
-        }
+        maybe_set_warning(result, lineNumber);
+        return result;
     }
 
     auto parseFun = commandParsers.value(parts[0].toLower(), nullptr);
