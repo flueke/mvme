@@ -7,14 +7,14 @@
 #include <QString>
 #include <QDateTime>
 
-// IMPORTANT: The numeric values are stored in VME config files. Only insert
-// new entries at the bottom!
+/* IMPORTANT: The numeric values of this enum where stored in the VME config
+ * files prior to version 3. To make conversion from older config versions
+ * possible do not change the order of the enum! */
 enum class TriggerCondition
 {
     NIM1,
     Periodic,
     Interrupt,
-    // TODO: add Disabled
 };
 
 enum class DAQState

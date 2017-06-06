@@ -368,7 +368,16 @@ void EventConfig::read_impl(const QJsonObject &json)
     qDeleteAll(modules);
     modules.clear();
 
-    triggerCondition = static_cast<TriggerCondition>(json["triggerCondition"].toInt());
+    // triggerCondition
+    {
+        auto tcName = json["triggerCondition"].toString();
+        auto it = std::find_if(TriggerConditionNames.begin(), TriggerConditionNames.end(), [tcName](const auto &testName) {
+            return tcName == testName;
+        });
+
+        triggerCondition = (it != TriggerConditionNames.end()) ? it.key() : TriggerCondition::NIM1;
+    }
+
     irqLevel = json["irqLevel"].toInt();
     irqVector = json["irqVector"].toInt();
     scalerReadoutPeriod = json["scalerReadoutPeriod"].toInt();
@@ -406,7 +415,7 @@ void EventConfig::read_impl(const QJsonObject &json)
 
 void EventConfig::write_impl(QJsonObject &json) const
 {
-    json["triggerCondition"] = static_cast<int>(triggerCondition);
+    json["triggerCondition"] = TriggerConditionNames.value(triggerCondition);
     json["irqLevel"] = irqLevel;
     json["irqVector"] = irqVector;
     json["scalerReadoutPeriod"] = scalerReadoutPeriod;
@@ -448,7 +457,7 @@ void EventConfig::write_impl(QJsonObject &json) const
 //
 
 // Versioning of the DAQ config in case incompatible changes need to be made.
-static const int CurrentDAQConfigVersion = 2;
+static const int CurrentDAQConfigVersion = 3;
 
 /* Module script storage changed:
  * vme_scripts.readout              -> vmeReadout
@@ -495,12 +504,38 @@ static QJsonObject v1_to_v2(QJsonObject json)
     return json;
 }
 
+/* Instead of numeric TriggerCondition values string representations are stored
+ * now. */
+static QJsonObject v2_to_v3(QJsonObject json)
+{
+    qDebug() << "VME config conversion" << __PRETTY_FUNCTION__;
+
+    auto eventsArray = json["events"].toArray();
+
+    for (int eventIndex = 0;
+         eventIndex < eventsArray.size();
+         ++eventIndex)
+    {
+        QJsonObject eventJson = eventsArray[eventIndex].toObject();
+
+        auto triggerCondition = static_cast<TriggerCondition>(eventJson["triggerCondition"].toInt());
+        eventJson["triggerCondition"] = TriggerConditionNames.value(triggerCondition);
+
+        eventsArray[eventIndex] = eventJson;
+    }
+
+    json["events"] = eventsArray;
+
+    return json;
+}
+
 using VMEConfigConverter = std::function<QJsonObject (QJsonObject)>;
 
 static QVector<VMEConfigConverter> VMEConfigConverters =
 {
     nullptr,
-    v1_to_v2
+    v1_to_v2,
+    v2_to_v3
 };
 
 static int get_version(const QJsonObject &json)
