@@ -43,6 +43,8 @@ enum class GlobalMode
     ListFile
 };
 
+Q_DECLARE_METATYPE(GlobalMode);
+
 static const QMap<TriggerCondition, QString> TriggerConditionNames =
 {
     { TriggerCondition::NIM1,       "NIM1" },
@@ -59,174 +61,8 @@ static const QMap<DAQState, QString> DAQStateStrings =
     { DAQState::Paused,     QSL("Paused") },
 };
 
-#if 0 // TEMPLATES
-enum class VMEModuleType
-{
-    Invalid = 0,
-    MADC32  = 1,
-    MQDC32  = 2,
-    MTDC32  = 3,
-    MDPP16  = 4,
-    MDPP32  = 5,
-    MDI2    = 6,
-
-    MesytecCounter = 16,
-    VHS4030p = 21,
-};
-
-static const QMap<VMEModuleType, QString> VMEModuleTypeNames =
-{
-    { VMEModuleType::MADC32,    "MADC-32" },
-    { VMEModuleType::MQDC32,    "MQDC-32" },
-    { VMEModuleType::MTDC32,    "MTDC-32" },
-    { VMEModuleType::MDPP16,    "MDPP-16" },
-    { VMEModuleType::MDPP32,    "MDPP-32" },
-    { VMEModuleType::MDI2,      "MDI-2" },
-    { VMEModuleType::VHS4030p,  "iseg VHS4030p" },
-    { VMEModuleType::MesytecCounter,  "Mesytec Counter" },
-};
-
-static const QMap<VMEModuleType, QString> VMEModuleShortNames =
-{
-    { VMEModuleType::MADC32,    "madc32" },
-    { VMEModuleType::MQDC32,    "mqdc32" },
-    { VMEModuleType::MTDC32,    "mtdc32" },
-    { VMEModuleType::MDPP16,    "mdpp16" },
-    { VMEModuleType::MDPP32,    "mdpp32" },
-    { VMEModuleType::MDI2,      "mdi2" },
-    { VMEModuleType::VHS4030p,  "vhs4030p" },
-    { VMEModuleType::MesytecCounter,  "mesytec_counter" },
-};
-#endif
-
-//
-// DataFilters
-//
-struct DataFilterDefinition
-{
-    const char *filter ;
-    const char *name;
-    const char *title;
-};
-
-#if 0 // TEMPLATES
-static const QMap<VMEModuleType, QList<DataFilterDefinition>> defaultDataFilters =
-{
-    { VMEModuleType::MDPP16, {
-                                 { "0001XXXXPO00AAAADDDDDDDDDDDDDDDD", "amplitude",     "Amplitude" },
-                                 { "0001XXXXXX01AAAADDDDDDDDDDDDDDDD", "time",          "Time" },
-                                 { "0001XXXXXX10000ADDDDDDDDDDDDDDDD", "trigger_time",  "Trigger time" },
-                             }
-    },
-
-    { VMEModuleType::MADC32, {
-                                 { "00XXX1XX000AAAAA0O0DDDDDDDDDDDDD", "amplitude",     "Amplitude" },
-                             }
-    },
-
-    { VMEModuleType::MQDC32, {
-                                 { "00XXX1XX000AAAAA0O00DDDDDDDDDDDD", "amplitude",     "Amplitude" },
-                             }
-    },
-
-    { VMEModuleType::MTDC32, {
-                                 { "00XXX1XX000AAAAADDDDDDDDDDDDDDDD", "time",          "Time" },
-                                 { "00XXX1XX0010000ADDDDDDDDDDDDDDDD", "trigger_time",  "Trigger time" },
-                             }
-    },
-};
-#endif
-
-//
-// DualWordDataFilters
-//
-struct DualWordDataFilterDefinition
-{
-    const char *name;
-    const char *lowFilter;
-    int lowIndex;
-    const char *highFilter;
-    int highIndex;
-    const char *title;
-};
-
-#if 0 // TEMPLATES
-static const QMap<VMEModuleType, QList<DualWordDataFilterDefinition>> defaultDualWordFilters =
-{
-    { VMEModuleType::MDPP16, {
-                                 {
-                                     "event_counter/ts",
-                                     "11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD", -1,
-                                     "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", -1,
-                                     "Event Counter / TS"
-                                     //"Counter Difference"
-                                 }
-                             }
-    },
-    { VMEModuleType::MADC32, {
-                                 {
-                                     "event_counter/ts",
-                                     "11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD", -1,
-                                     "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", -1,
-                                     "Event Counter / TS"
-                                     //"Counter Difference"
-                                 }
-                             }
-    },
-    { VMEModuleType::MQDC32, {
-                                 {
-                                     "event_counter/ts",
-                                     "11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD", -1,
-                                     "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", -1,
-                                     "Event Counter / TS"
-                                     //"Counter Difference"
-                                 }
-                             }
-    },
-    { VMEModuleType::MTDC32, {
-                                 {
-                                     "event_counter/ts",
-                                     "11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD", -1,
-                                     "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", -1,
-                                     "Event Counter / TS"
-                                     //"Counter Difference"
-                                 }
-                             }
-    },
-    { VMEModuleType::MesytecCounter, {
-                                         {
-                                             "event_counter",
-                                             "XXXXXXXXXXXXXXXXDDDDDDDDDDDDDDDD", 0,
-                                             "XXXXXXXXXXXXXXXXDDDDDDDDDDDDDDDD", 1,
-                                             "Event Counter / TS"
-                                             //"Counter Difference"
-                                         }
-                                     }
-    },
-};
-
-inline bool isMesytecModule(VMEModuleType type)
-{
-    switch (type)
-    {
-        case VMEModuleType::MADC32:
-        case VMEModuleType::MQDC32:
-        case VMEModuleType::MTDC32:
-        case VMEModuleType::MDPP16:
-        case VMEModuleType::MDPP32:
-        case VMEModuleType::MDI2:
-            return true;
-        default:
-            break;
-    }
-    return false;
-}
-#endif
-
 static const u32 EndMarker = 0x87654321;
 static const u32 BerrMarker = 0xffffffff;
-static const int RawHistogramBits = 16;
-static const int RawHistogramResolution = 1 << RawHistogramBits;
 
 struct DAQStats
 {
@@ -323,15 +159,6 @@ struct DAQStats
 
     // maps EventConfig/ModuleConfig to EventCounters
     QHash<QObject *, EventCounters> eventCounters;
-};
-
-
-Q_DECLARE_METATYPE(GlobalMode);
-
-enum class RegisterWidth
-{
-    W16,
-    W32
 };
 
 /* Information about the current DAQ run or the run that's being replayed from
