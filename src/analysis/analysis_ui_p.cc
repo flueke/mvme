@@ -549,10 +549,10 @@ void AddEditOperatorWidget::reject()
         // edit mode
         // Restore previous slot connections.
 
-        if (m_op->hasVariableNumberOfSlots())
+        if (m_op->hasVariableNumberOfSlots()
+            && (m_op->getNumberOfSlots() != m_slotBackups.size()))
         {
             // Restore the original number of inputs.
-
             while (m_op->removeLastSlot());
 
             while (m_op->getNumberOfSlots() < m_slotBackups.size())
@@ -561,14 +561,26 @@ void AddEditOperatorWidget::reject()
             }
         }
 
+        Q_ASSERT(m_op->getNumberOfSlots() == m_slotBackups.size());
+
+        bool wasModified = false;
+
         for (s32 slotIndex = 0; slotIndex < m_op->getNumberOfSlots(); ++slotIndex)
         {
             Slot *slot = m_op->getSlot(slotIndex);
             auto oldConnection = m_slotBackups[slotIndex];
-            slot->connectPipe(oldConnection.inputPipe, oldConnection.paramIndex);
+            if (slot->inputPipe != oldConnection.inputPipe
+                || slot->paramIndex != oldConnection.paramIndex)
+            {
+                wasModified = true;
+                slot->connectPipe(oldConnection.inputPipe, oldConnection.paramIndex);
+            }
         }
 
-        do_beginRun_forward(m_op);
+        if (wasModified)
+        {
+            do_beginRun_forward(m_op);
+        }
     }
     m_eventWidget->endSelectInput();
     m_eventWidget->uniqueWidgetCloses();
