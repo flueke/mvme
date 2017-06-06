@@ -1,6 +1,10 @@
 ==========================
 ==== Do these first! =====
 ==========================
+- Make VMEScriptEdit::loadFromTemplate() use the VATS template path
+- Allow Adding of VME-Init scripts to modules via the gui!
+- Implement Histogram rebinning
+- Allow editing the resolution of 1D and 2D histos directly from the widget
 
 - Add error reporting to VMEConfig and Analysis version conversion and read routines
 - Histo1D Calibration UI: "Restore" uses unexpected values. Also there's no way to undo the restore operation. (calibResetToFilter)
@@ -11,16 +15,11 @@
   messageboxes where needed.
 
 - Add warnings to template loading if there are duplicate module types
-- VMEScript: change parsing of the short form to first check if it is a command
-  and only try to parse the short form if it isn't. See the comment in
-  parse_line().
 - Fix diagnosis window hanging and eating system memory when EOE check is
   active and a lot of errors are occuring
 
 * When quitting: if vme script editor asks for confirmation and the user
   presses cancel the mainwindow will still close
-
-* VMUSBReadoutWorker: Add daqconfig consistency checks. Abort if the checks fail.
 
 * Clearly document Extractor behaviour:
   - How does it use the individual filters?
@@ -32,8 +31,6 @@
 * Histograms:
   - Read up on binning error calculations. See how ROOT does it.
 
-* DAQ Config gui: restore minimized vme script editors on script (double?) click
-* DAQConfig: Add a "disabled" condition to events to allow temporarily disabling them.
 * DAQConfig enh: Global Scripts DAQ Start, DAQ Stop and Manual should have a folder-like icon.
 * DAQConfig: most templates are important as without them the readout does not
   work at all (mcast, start, stop, reset). Display a clear message if any of
@@ -55,7 +52,7 @@
   replaced with a similar one.
 * Histo1DWidget: The curve for the last bin is not drawn. Try to finally find a fix for this.
 
-* Copy/Paste and Move Operators
+* Copy/Paste
   - Copy needs a clone() operation for analysis elements.
   - On copying an extractor the edit dialog should be opened.
 

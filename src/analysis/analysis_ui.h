@@ -24,6 +24,8 @@ class AnalysisWidget: public QWidget
 
         void updateAddRemoveUserLevelButtons();
 
+        virtual bool event(QEvent *event) override;
+
     private:
         friend class AnalysisWidgetPrivate;
         AnalysisWidgetPrivate *m_d;

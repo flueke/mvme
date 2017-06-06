@@ -3,21 +3,23 @@
 
 #include "util.h"
 
+class QCloseEvent;
+
 class MVMEContext;
 class VMEScriptConfig;
-
-class QTextEdit;
-class QToolBar;
-class QCloseEvent;
+class VMEScriptEditorPrivate;
 
 class VMEScriptEditor: public MVMEWidget
 {
     Q_OBJECT
     public:
         VMEScriptEditor(MVMEContext *context, VMEScriptConfig *script, QWidget *parent = 0);
+        ~VMEScriptEditor();
 
         bool isModified() const;
         void applyChanges() { apply(); }
+
+        virtual bool event(QEvent *event) override;
 
     private:
         void updateWindowTitle();
@@ -34,12 +36,8 @@ class VMEScriptEditor: public MVMEWidget
 
         virtual void closeEvent(QCloseEvent *event);
 
-
-        MVMEContext *m_context;
-        VMEScriptConfig *m_scriptConfig;
-
-        QToolBar *m_toolbar;
-        QTextEdit *m_editor;
+        friend class VMEScriptEditorPrivate;
+        VMEScriptEditorPrivate *m_d;
 };
 
 #endif /* __VME_SCRIPT_EDITOR_H__ */
