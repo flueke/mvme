@@ -1,13 +1,42 @@
 ==========================
 ==== Do these first! =====
 ==========================
-- Make VMEScriptEdit::loadFromTemplate() use the VATS template path
-- Allow Adding of VME-Init scripts to modules via the gui!
-- Implement Histogram rebinning
-- Allow editing the resolution of 1D and 2D histos directly from the widget
+* Histo1D and Histo1DWidget
+    * Implement Histogram rebinning
+    * Allow editing the resolution of 1D and 2D histos directly from the widget
+    * Histo1D Calibration UI: "Restore" uses unexpected values. Also there's no way to undo the restore operation. (calibResetToFilter)
+    * Bug: H1D does not work when unitMin > unitMax
+    * Histo1DWidget: zoom out after setHistogram()
+      But not when the usage is the one in x- and y-projections where the histo is
+      replaced with a similar one.
+    * Histo1DWidget: The curve for the last bin is not drawn. Try to finally find a fix for this.
+    * Read up on binning error calculations. See how ROOT does it.
+    * show fwhm only when gauss display is active
+
+* VMEConfig
+    * Make VMEScriptEdit::loadFromTemplate() use the VATS template path
+    * Allow Adding of VME-Init scripts to modules via the gui!
+
+* Analysis and AnalysisUI
+    * Close histograms on opening a new analysis config.
+    * Open new histograms immediately. Do this when creating a sub-histogram.
+    * Copy/Paste
+      - Copy needs a clone() operation for analysis elements.
+      - On copying an extractor the edit dialog should be opened.
+      - Having the ability to clone operators would allow making editing of
+        operators much safer.
+        Right now if the user picks another input or clears any input slots the
+        analysis has to be paused and restarted and dependent operators
+        immediately notice the change. This means even if the user cancels the
+        dialog the analysis can have unexpected modifications.
+        With cloning a copy of the operator would be created. Selecting and
+        clearing inputs would only affect the cloned version of the operator
+        (input pipes would not need to be fully connected so the input sources
+        do not need to change at all during editing -> half connected state!)
+
+* Make listfile-dumper handle the v1 format.
 
 - Add error reporting to VMEConfig and Analysis version conversion and read routines
-- Histo1D Calibration UI: "Restore" uses unexpected values. Also there's no way to undo the restore operation. (calibResetToFilter)
 
 - Refactor gui_write_json_file() to write_json_file() and use exceptions to report errors.
   Meaning: implement functionality using exceptions and not caring about if
@@ -18,28 +47,15 @@
 - Fix diagnosis window hanging and eating system memory when EOE check is
   active and a lot of errors are occuring
 
-* When quitting: if vme script editor asks for confirmation and the user
-  presses cancel the mainwindow will still close
-
 * Clearly document Extractor behaviour:
   - How does it use the individual filters?
   - How are data and address values formed?
   - How does WordIndex behave?
   - What does RequiredCompletionCount do?
-* Close histograms on opening a new analysis config.
-* Bug: H1D does not work when unitMin > unitMax
-* Histograms:
-  - Read up on binning error calculations. See how ROOT does it.
-
-* DAQConfig enh: Global Scripts DAQ Start, DAQ Stop and Manual should have a folder-like icon.
-* DAQConfig: most templates are important as without them the readout does not
-  work at all (mcast, start, stop, reset). Display a clear message if any of
-  the required templates is missing.
 
 * Log throttling!!!!
 
 * Check for off-by-one errors in the 2D projection code
-* Make listfile-dumper handle the v1 format.
 
 * lastlog.log:
   Write every logged message to lastlog.log. Do this in the main thread. Flush
@@ -47,16 +63,6 @@
   At startup move lastlog.log to lastlog.1.log.
   Keep 5 logfiles around. 4 -> 5, 3 -> 4, 2 -> 3, 1 -> 2, 0 -> 1
 
-* Histo1DWidget: zoom out after setHistogram()
-  But not when the usage is the one in x- and y-projections where the histo is
-  replaced with a similar one.
-* Histo1DWidget: The curve for the last bin is not drawn. Try to finally find a fix for this.
-
-* Copy/Paste
-  - Copy needs a clone() operation for analysis elements.
-  - On copying an extractor the edit dialog should be opened.
-
-* Open new histograms immediately. Do this when creating a sub-histogram.
 
 
 * select input UI: disable other tree highlights while it's active.
