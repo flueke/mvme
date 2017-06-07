@@ -235,7 +235,7 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
 
     m_d->m_toolBar = new QToolBar;
     m_d->m_plot = new QwtPlot;
-    m_d->m_statusBar = new QStatusBar;
+    m_d->m_statusBar = make_statusbar();
 
     // Toolbar and actions
     auto tb = m_d->m_toolBar;

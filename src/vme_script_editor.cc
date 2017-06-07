@@ -18,17 +18,6 @@
 
 static const int tabStop = 4;
 
-static QToolBar *make_toolbar(QWidget *parent = nullptr)
-{
-    auto tb = new QToolBar(parent);
-    tb->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
-    tb->setIconSize(QSize(16, 16));
-    auto font = tb->font();
-    font.setPointSize(7);
-    tb->setFont(font);
-    return tb;
-}
-
 struct VMEScriptEditorPrivate
 {
     VMEScriptEditor *m_q;
@@ -52,7 +41,7 @@ VMEScriptEditor::VMEScriptEditor(MVMEContext *context, VMEScriptConfig *script, 
     m_d->m_script = script;
     m_d->m_toolBar = make_toolbar();
     m_d->m_editor = new QPlainTextEdit;
-    m_d->m_statusBar = new QStatusBar;
+    m_d->m_statusBar = make_statusbar();
     m_d->m_labelPosition = new QLabel;
 
     set_widget_font_pointsize(m_d->m_labelPosition, 7);
@@ -72,9 +61,6 @@ VMEScriptEditor::VMEScriptEditor(MVMEContext *context, VMEScriptConfig *script, 
         QFontMetrics metrics(font);
         m_d->m_editor->setTabStopWidth(metrics.width(spaces));
     }
-
-    m_d->m_statusBar->setSizeGripEnabled(false);
-    set_widget_font_pointsize(m_d->m_statusBar, 7);
 
     auto layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);

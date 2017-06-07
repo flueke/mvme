@@ -148,3 +148,20 @@ void set_widget_font_pointsize(QWidget *widget, s32 pointSize)
     font.setPointSize(pointSize);
     widget->setFont(font);
 }
+
+QToolBar *make_toolbar(QWidget *parent)
+{
+    auto tb = new QToolBar(parent);
+    tb->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+    tb->setIconSize(QSize(16, 16));
+    set_widget_font_pointsize(tb, 7);
+    return tb;
+}
+
+QStatusBar *make_statusbar(QWidget *parent)
+{
+    auto result = new QStatusBar;
+    result->setSizeGripEnabled(false);
+    set_widget_font_pointsize(result, 7);
+    return result;
+}

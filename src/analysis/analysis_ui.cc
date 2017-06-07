@@ -2551,18 +2551,6 @@ void EventWidget::repopulate()
     m_d->repopulate();
 }
 
-static QToolBar *make_toolbar()
-{
-    auto tb = new QToolBar;
-    tb->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
-    tb->setIconSize(QSize(16, 16));
-    auto font = tb->font();
-    //font.setPointSize(font.pointSize() - 1);
-    font.setPointSize(7);
-    tb->setFont(font);
-    return tb;
-}
-
 QToolBar *EventWidget::makeToolBar()
 {
     auto tb = make_toolbar();
@@ -3157,13 +3145,7 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     eventSelectLayout->addWidget(m_d->m_addUserLevelButton);
 
     // statusbar
-    m_d->m_statusBar = new QStatusBar;
-    {
-        m_d->m_statusBar->setSizeGripEnabled(false);
-        auto font = m_d->m_statusBar->font();
-        font.setPointSize(7);
-        m_d->m_statusBar->setFont(font);
-    }
+    m_d->m_statusBar = make_statusbar();
 
     m_d->m_labelSinkStorageSize = new QLabel;
     m_d->m_statusBar->addPermanentWidget(m_d->m_labelSinkStorageSize);

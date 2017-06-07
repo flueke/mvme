@@ -532,8 +532,7 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     //
     // StatusBar and info widgets
     //
-    m_d->m_statusBar = new QStatusBar;
-    auto sb = m_d->m_statusBar;
+    m_d->m_statusBar = make_statusbar();
 
     m_d->m_labelCursorInfo = new QLabel;
     m_d->m_labelHistoInfo = new QLabel;
@@ -558,7 +557,7 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
             childWidget->setVisible(false);
         }
 
-        sb->addPermanentWidget(m_d->m_infoContainer);
+        m_d->m_statusBar->addPermanentWidget(m_d->m_infoContainer);
     }
 
     // Main Widget Layout

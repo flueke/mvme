@@ -8,6 +8,8 @@
 #include <QKeySequence>
 #include <QLabel>
 #include <QObject>
+#include <QStatusBar>
+#include <QToolBar>
 
 #define QSL(str) QStringLiteral(str)
 
@@ -57,5 +59,8 @@ protected:
 };
 
 void set_widget_font_pointsize(QWidget *widget, s32 pointSize);
+
+QToolBar *make_toolbar(QWidget *parent = nullptr);
+QStatusBar *make_statusbar(QWidget *parent = nullptr);
 
 #endif /* __QT_UTIL_H__ */
