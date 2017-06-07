@@ -91,10 +91,10 @@ namespace
     {
         QDir dir(path);
         VMEModuleTemplates result;
-        result.readout = read_vme_template(dir.filePath("readout.vme"), QSL("Module Readout"), logger, baseDir);
-        result.reset   = read_vme_template(dir.filePath("reset.vme"), QSL("Module Reset"), logger, baseDir);
+        result.readout = read_vme_template(dir.filePath("readout.vmescript"), QSL("Module Readout"), logger, baseDir);
+        result.reset   = read_vme_template(dir.filePath("reset.vmescript"), QSL("Module Reset"), logger, baseDir);
 
-        auto initEntries = dir.entryList({ QSL("init-*.vme") }, QDir::Files | QDir::Readable, QDir::Name);
+        auto initEntries = dir.entryList({ QSL("init-*.vmescript") }, QDir::Files | QDir::Readable, QDir::Name);
 
         for (const auto &fileName: initEntries)
         {
@@ -104,12 +104,12 @@ namespace
             vmeTemplate.sourceFileName = baseDir.relativeFilePath(entryFilePath); // dir.filePath(fileName);
 
             QRegularExpression re;
-            re.setPattern("^init-\\d\\d-(.*)\.vme$");
+            re.setPattern("^init-\\d\\d-(.*)\.vmescript$");
             auto match = re.match(fileName);
 
             if (!match.hasMatch())
             {
-                re.setPattern("^init-(.*)\.vme$");
+                re.setPattern("^init-(.*)\.vmescript$");
                 match = re.match(fileName);
             }
 
@@ -158,10 +158,10 @@ MVMETemplates read_templates_from_path(const QString &path, TemplateLogger logge
     const QDir baseDir(path);
     MVMETemplates result;
 
-    result.eventTemplates.daqStart          = read_vme_template(baseDir.filePath(QSL("event/event_daq_start.vme")), QSL("DAQ Start"), logger, baseDir);
-    result.eventTemplates.daqStop           = read_vme_template(baseDir.filePath(QSL("event/event_daq_stop.vme")), QSL("DAQ Stop"), logger, baseDir);
-    result.eventTemplates.readoutCycleStart = read_vme_template(baseDir.filePath(QSL("event/readout_cycle_start.vme")), QSL("Cycle Start"), logger, baseDir);
-    result.eventTemplates.readoutCycleEnd   = read_vme_template(baseDir.filePath(QSL("event/readout_cycle_end.vme")), QSL("Cycle End"), logger, baseDir);
+    result.eventTemplates.daqStart          = read_vme_template(baseDir.filePath(QSL("event/event_daq_start.vmescript")), QSL("DAQ Start"), logger, baseDir);
+    result.eventTemplates.daqStop           = read_vme_template(baseDir.filePath(QSL("event/event_daq_stop.vmescript")), QSL("DAQ Stop"), logger, baseDir);
+    result.eventTemplates.readoutCycleStart = read_vme_template(baseDir.filePath(QSL("event/readout_cycle_start.vmescript")), QSL("Cycle Start"), logger, baseDir);
+    result.eventTemplates.readoutCycleEnd   = read_vme_template(baseDir.filePath(QSL("event/readout_cycle_end.vmescript")), QSL("Cycle End"), logger, baseDir);
 
     auto dirEntries = baseDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot | QDir::Readable);
 

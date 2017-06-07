@@ -239,7 +239,7 @@ void VMEScriptEditor::loadFromFile()
     }
 
     QString fileName = QFileDialog::getOpenFileName(this, QSL("Load vme script file"), path,
-                                                    QSL("VME scripts (*.vme);; All Files (*)"));
+                                                    QSL("VME scripts (*.vmescript *.vme);; All Files (*)"));
     if (!fileName.isEmpty())
     {
         QFile file(fileName);
@@ -262,7 +262,7 @@ void VMEScriptEditor::loadFromTemplate()
     if (!path.isEmpty())
     {
         QString fileName = QFileDialog::getOpenFileName(this, QSL("Load vme script file"), path,
-                                                        QSL("VME scripts (*.vme);; All Files (*)"));
+                                                        QSL("VME scripts (*.vmescript *.vme);; All Files (*)"));
         if (!fileName.isEmpty())
         {
             QFile file(fileName);
@@ -285,7 +285,7 @@ void VMEScriptEditor::saveToFile()
     }
 
     QString fileName = QFileDialog::getSaveFileName(this, QSL("Save vme script file"), path,
-                                                    QSL("VME scripts (*.vme);; All Files (*)"));
+                                                    QSL("VME scripts (*.vmescript *.vme);; All Files (*)"));
 
     if (fileName.isEmpty())
         return;
@@ -293,7 +293,7 @@ void VMEScriptEditor::saveToFile()
     QFileInfo fi(fileName);
     if (fi.completeSuffix().isEmpty())
     {
-        fileName += ".vme";
+        fileName += ".vmescript";
     }
 
     QFile file(fileName);

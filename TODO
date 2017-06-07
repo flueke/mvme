@@ -14,7 +14,10 @@
     * show fwhm only when gauss display is active
 
 * VMEConfig
-    * Make VMEScriptEdit::loadFromTemplate() use the VATS template path
+    * .vme is used for VMEScript and VMEConfig files!
+    * Editor: when loading a file the current file is not marked as modified.
+      On close no dialog asks about pending changes.
+    * Make VMEScriptEdit::loadFromTemplate() use the VATS template path!
     * Allow Adding of VME-Init scripts to modules via the gui!
 
 * Analysis and AnalysisUI
