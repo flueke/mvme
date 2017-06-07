@@ -53,6 +53,7 @@ class Histo2DWidget: public QWidget
         Histo2DWidget(const Histo1DSinkPtr &histo1DSink, QWidget *parent = 0);
         ~Histo2DWidget();
 
+        void setContext(MVMEContext *context) { m_context = context; }
         void setSink(const SinkPtr &sink, HistoSinkCallback addSinkCallback, HistoSinkCallback sinkModifiedCallback,
                      MakeUniqueOperatorNameFunction makeUniqueOperatorNameFunction);
 
@@ -101,6 +102,7 @@ class Histo2DWidget: public QWidget
         Histo1DWidget *m_yProjWidget = nullptr;
 
         WidgetGeometrySaver *m_geometrySaver;
+        MVMEContext *m_context;
 };
 
 #endif /* __HISTO2D_WIDGET_H__ */

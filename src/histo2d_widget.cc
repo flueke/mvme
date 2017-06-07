@@ -22,6 +22,7 @@
 #include "util.h"
 #include "analysis/analysis.h"
 #include "histo1d_widget.h"
+#include "mvme_context.h"
 
 #include <qwt_plot_spectrogram.h>
 #include <qwt_color_map.h>
@@ -35,6 +36,7 @@
 #include <QBoxLayout>
 #include <QComboBox>
 #include <QDebug>
+#include <QFormLayout>
 #include <QStatusBar>
 #include <QStatusTipEvent>
 #include <QTimer>
@@ -157,9 +159,47 @@ struct Histo2DWidgetPrivate
 
     QAction *m_actionClear,
             *m_actionSubRange,
+            *m_actionChangeRes,
             *m_actionInfo;
 
     QComboBox *m_zScaleCombo;
+
+    void onActionChangeResolution()
+    {
+        auto combo_xBins = make_resolution_combo(Histo2DMinBits, Histo2DMaxBits, Histo2DDefBits);
+        auto combo_yBins = make_resolution_combo(Histo2DMinBits, Histo2DMaxBits, Histo2DDefBits);
+
+        select_by_resolution(combo_xBins, m_q->m_sink->m_xBins);
+        select_by_resolution(combo_yBins, m_q->m_sink->m_yBins);
+
+        QDialog dialog(m_q);
+        auto buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+        QObject::connect(buttonBox, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+        QObject::connect(buttonBox, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+
+        auto layout = new QFormLayout(&dialog);
+        layout->setContentsMargins(2, 2, 2, 2);
+        layout->addRow(QSL("X Resolution"), combo_xBins);
+        layout->addRow(QSL("Y Resolution"), combo_yBins);
+        layout->addRow(buttonBox);
+
+        if (dialog.exec() == QDialog::Accepted)
+        {
+            auto sink  = m_q->m_sink;
+            auto xBins = combo_xBins->currentData().toInt();
+            auto yBins = combo_yBins->currentData().toInt();
+
+            bool modified = (sink->m_xBins != xBins || sink->m_yBins != yBins);
+
+            sink->m_xBins = xBins;
+            sink->m_yBins = yBins;
+
+            if (modified)
+            {
+                m_q->m_context->analysisOperatorEdited(sink);
+            }
+        }
+    }
 };
 
 enum class AxisScaleType
@@ -289,6 +329,11 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
     m_d->m_actionSubRange = tb->addAction(QIcon(":/histo_subrange.png"), QSL("Subrange"), this, &Histo2DWidget::on_tb_subRange_clicked);
     m_d->m_actionSubRange->setStatusTip(QSL("Limit the histogram to specific X and Y axis ranges"));
     m_d->m_actionSubRange->setEnabled(false);
+
+    m_d->m_actionChangeRes = tb->addAction(QIcon(":/histo_resolution.png"), QSL("Resolution"),
+                                           this, [this]() { m_d->onActionChangeResolution(); });
+    m_d->m_actionChangeRes->setStatusTip(QSL("Change histogram resolution"));
+    m_d->m_actionChangeRes->setEnabled(false);
 
     m_d->m_actionInfo = tb->addAction(QIcon(":/info.png"), QSL("Info"));
     m_d->m_actionInfo->setCheckable(true);
@@ -772,6 +817,7 @@ void Histo2DWidget::setSink(const SinkPtr &sink, HistoSinkCallback addSinkCallba
     m_sinkModifiedCallback = sinkModifiedCallback;
     m_makeUniqueOperatorNameFunction = makeUniqueOperatorNameFunction;
     m_d->m_actionSubRange->setEnabled(true);
+    m_d->m_actionChangeRes->setEnabled(true);
 }
 
 void Histo2DWidget::on_tb_subRange_clicked()

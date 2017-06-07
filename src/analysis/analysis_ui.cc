@@ -1309,6 +1309,7 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
                     {
                         menu.addAction(QSL("Open 2D Combined View"), m_q, [this, widgetInfo]() {
                             auto widget = new Histo2DWidget(widgetInfo.sink);
+                            widget->setContext(m_context);
                             m_context->addWidget(widget, widgetInfo.sink->getId().toString() + QSL("_2dCombined"));
                         });
                     }
@@ -1345,6 +1346,8 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
                                                     [context] (const QString &name) {
                                                         return make_unique_operator_name(context->getAnalysis(), name);
                                                     });
+
+                                    widget->setContext(m_context);
 
                                     m_context->addObjectWidget(widget, sinkPtr.get(), sinkPtr->getId().toString());
                                 }
@@ -1955,6 +1958,8 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                                         [context] (const QString &name) {
                                             return make_unique_operator_name(context->getAnalysis(), name);
                                         });
+
+                        widget->setContext(m_context);
 
                         m_context->addObjectWidget(widget, sinkPtr.get(), sinkPtr->getId().toString());
                     }

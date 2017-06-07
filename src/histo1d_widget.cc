@@ -40,6 +40,7 @@
 #include <QFileInfo>
 #include <QFile>
 #include <QFileDialog>
+#include <QFormLayout>
 #include <QGroupBox>
 #include <QLabel>
 #include <QMessageBox>
@@ -189,6 +190,7 @@ struct Histo1DWidgetPrivate
 
     QAction *m_actionRateEstimation,
             *m_actionSubRange,
+            *m_actionChangeRes,
             *m_actionGaussFit,
             *m_actionCalibUi,
             *m_actionInfo;
@@ -213,6 +215,31 @@ struct Histo1DWidgetPrivate
         s32 x = m_q->width() - window->width();
         s32 y = m_toolBar->height() + 15;
         m_calibUi.window->move(m_q->mapToGlobal(QPoint(x, y)));
+    }
+
+    void onActionChangeResolution()
+    {
+        auto combo_xBins = make_resolution_combo(Histo1DMinBits, Histo1DMaxBits, Histo1DDefBits);
+        select_by_resolution(combo_xBins, m_q->m_sink->m_bins);
+
+        QDialog dialog(m_q);
+        auto buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+        QObject::connect(buttonBox, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+        QObject::connect(buttonBox, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+
+        auto layout = new QFormLayout(&dialog);
+        layout->setContentsMargins(2, 2, 2, 2);
+        layout->addRow(QSL("X Resolution"), combo_xBins);
+        layout->addRow(buttonBox);
+
+        if (dialog.exec() == QDialog::Accepted)
+        {
+            if (m_q->m_sink->m_bins != combo_xBins->currentData().toInt())
+            {
+                m_q->m_sink->m_bins = combo_xBins->currentData().toInt();
+                m_q->m_context->analysisOperatorEdited(m_q->m_sink);
+            }
+        }
     }
 };
 
@@ -309,6 +336,11 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     m_d->m_actionSubRange = tb->addAction(QIcon(":/histo_subrange.png"), QSL("Subrange"), this, &Histo1DWidget::on_tb_subRange_clicked);
     m_d->m_actionSubRange->setStatusTip(QSL("Limit the histogram to a specific X-Axis range"));
     m_d->m_actionSubRange->setEnabled(false);
+
+    m_d->m_actionChangeRes = tb->addAction(QIcon(":/histo_resolution.png"), QSL("Resolution"),
+                                           this, [this]() { m_d->onActionChangeResolution(); });
+    m_d->m_actionChangeRes->setStatusTip(QSL("Change histogram resolution"));
+    m_d->m_actionChangeRes->setEnabled(false);
 
     m_d->m_actionCalibUi = tb->addAction(QIcon(":/operator_calibration.png"), QSL("Calibration"));
     m_d->m_actionCalibUi->setCheckable(true);
@@ -1134,6 +1166,7 @@ void Histo1DWidget::setSink(const SinkPtr &sink, HistoSinkCallback sinkModifiedC
     m_sink = sink;
     m_sinkModifiedCallback = sinkModifiedCallback;
     m_d->m_actionSubRange->setEnabled(true);
+    m_d->m_actionChangeRes->setEnabled(true);
 }
 
 void Histo1DWidget::on_tb_subRange_clicked()

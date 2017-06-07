@@ -13,12 +13,6 @@
     * Read up on binning error calculations. See how ROOT does it.
     * show fwhm only when gauss display is active
 
-* VMEConfig
-    * Editor: when loading a file the current file is not marked as modified.
-      On close no dialog asks about pending changes.
-    * Make VMEScriptEdit::loadFromTemplate() use the VATS template path!
-    * Allow Adding of VME-Init scripts to modules via the gui!
-
 * Analysis and AnalysisUI
     * Close histograms on opening a new analysis config.
     * Open new histograms immediately. Do this when creating a sub-histogram.
@@ -78,6 +72,9 @@
 ==========================
 ==== Do these later! =====
 ==========================
+* VMEConfig
+    * Allow Adding of VME-Init scripts to modules via the gui!
+
 * EventWidget and AnalysisWidget repopulate:
   - Restore open PipeDisplays:
     Store (ObjectId, OutputIndex) to get the output pipe and (pos, size) to restore the widget.
