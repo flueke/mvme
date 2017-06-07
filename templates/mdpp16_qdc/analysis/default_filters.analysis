@@ -8,7 +8,7 @@
         "properties": {
             "ModuleProperties": [
                 {
-                    "moduleId": "{e5176e2a-ca1a-4ad6-b8c0-15c637dc5412}",
+                    "moduleId": "{9c0da466-5610-4c3b-8b31-afc15d305bea}",
                     "moduleName": "mdpp16_qdc",
                     "moduleTypeName": "mdpp16_qdc"
                 }
@@ -22,14 +22,14 @@
                     "rngSeed": "933611a08e18ede3",
                     "subFilters": [
                         {
-                            "filterString": "0001XXXXO0AAAAAA0000DDDDDDDDDDDD",
+                            "filterString": "0001XXXXO000AAAA0000DDDDDDDDDDDD",
                             "wordIndex": -1
                         }
                     ]
                 },
-                "eventId": "{44eaf59f-1169-43d1-af2b-ee722e686089}",
+                "eventId": "{49752b84-433e-4558-bd20-8ffc4c054289}",
                 "id": "{9b371939-3884-4603-ae52-344e00de376c}",
-                "moduleId": "{e5176e2a-ca1a-4ad6-b8c0-15c637dc5412}",
+                "moduleId": "{9c0da466-5610-4c3b-8b31-afc15d305bea}",
                 "name": "adc_long"
             },
             {
@@ -39,14 +39,14 @@
                     "rngSeed": "16ffb56a42788ef2",
                     "subFilters": [
                         {
-                            "filterString": "0001XXXX0OAAAAAA0000DDDDDDDDDDDD",
+                            "filterString": "0001XXXX0O11AAAA0000DDDDDDDDDDDD",
                             "wordIndex": -1
                         }
                     ]
                 },
-                "eventId": "{44eaf59f-1169-43d1-af2b-ee722e686089}",
+                "eventId": "{49752b84-433e-4558-bd20-8ffc4c054289}",
                 "id": "{d594f300-d3ca-4080-bfc3-5350277a3550}",
-                "moduleId": "{e5176e2a-ca1a-4ad6-b8c0-15c637dc5412}",
+                "moduleId": "{9c0da466-5610-4c3b-8b31-afc15d305bea}",
                 "name": "adc_short"
             },
             {
@@ -56,14 +56,14 @@
                     "rngSeed": "dda8801640f57baa",
                     "subFilters": [
                         {
-                            "filterString": "0001XXXXXXAAAAAADDDDDDDDDDDDDDDD",
+                            "filterString": "0001XXXXXX01AAAADDDDDDDDDDDDDDDD",
                             "wordIndex": -1
                         }
                     ]
                 },
-                "eventId": "{44eaf59f-1169-43d1-af2b-ee722e686089}",
+                "eventId": "{49752b84-433e-4558-bd20-8ffc4c054289}",
                 "id": "{c924eb17-e7d7-4ce9-bd88-5fb10f20022b}",
-                "moduleId": "{e5176e2a-ca1a-4ad6-b8c0-15c637dc5412}",
+                "moduleId": "{9c0da466-5610-4c3b-8b31-afc15d305bea}",
                 "name": "tdc_time_difference"
             },
             {
@@ -78,10 +78,27 @@
                         }
                     ]
                 },
-                "eventId": "{44eaf59f-1169-43d1-af2b-ee722e686089}",
+                "eventId": "{49752b84-433e-4558-bd20-8ffc4c054289}",
                 "id": "{e73d544d-9120-4972-967b-edf3b7d9d4fa}",
-                "moduleId": "{e5176e2a-ca1a-4ad6-b8c0-15c637dc5412}",
+                "moduleId": "{9c0da466-5610-4c3b-8b31-afc15d305bea}",
                 "name": "event_counter/ts"
+            },
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "b26028c37396727a",
+                    "subFilters": [
+                        {
+                            "filterString": "0001XXXXXX10000ADDDDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{49752b84-433e-4558-bd20-8ffc4c054289}",
+                "id": "{7b0451dc-ac58-4a30-b26e-257ac8b5ab49}",
+                "moduleId": "{9c0da466-5610-4c3b-8b31-afc15d305bea}",
+                "name": "trigger_time"
             }
         ]
     }
