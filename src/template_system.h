@@ -79,6 +79,9 @@ MVMETemplates read_templates_from_path(const QString &path, TemplateLogger logge
 
 QString get_module_path(const QString &moduleTypeName);
 
+// Returns the base template path
+QString get_template_path();
+
 // Output diagnostic information about the templates.
 QTextStream &operator<<(QTextStream &out, const MVMETemplates &templates);
 

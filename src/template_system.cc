@@ -127,12 +127,6 @@ namespace
 
         return result;
     }
-
-    QString get_template_path()
-    {
-        QString templatePath = QCoreApplication::applicationDirPath() + QSL("/templates");
-        return templatePath;
-    }
 }
 
 namespace vats
@@ -140,6 +134,11 @@ namespace vats
 
 QDebug operator<<(QDebug debug, const MVMETemplates &templates);
 
+QString get_template_path()
+{
+    QString templatePath = QCoreApplication::applicationDirPath() + QSL("/templates");
+    return templatePath;
+}
 
 MVMETemplates read_templates(TemplateLogger logger)
 {

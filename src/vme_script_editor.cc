@@ -255,9 +255,12 @@ void VMEScriptEditor::loadFromFile()
 
 void VMEScriptEditor::loadFromTemplate()
 {
-    TemplateLoader loader;
-    connect(&loader, &TemplateLoader::logMessage, m_d->m_context, &MVMEContext::logMessage);
-    QString path = loader.getTemplatePath();
+    QString path = vats::get_template_path();
+
+    if (auto module = qobject_cast<ModuleConfig *>(m_d->m_script->parent()))
+    {
+        path = vats::get_module_path(module->getModuleMeta().typeName) + QSL("/vme");
+    }
 
     if (!path.isEmpty())
     {
