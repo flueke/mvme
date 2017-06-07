@@ -247,6 +247,7 @@ void VMEScriptEditor::loadFromFile()
         {
             QTextStream stream(&file);
             m_d->m_editor->setPlainText(stream.readAll());
+            m_d->m_editor->document()->setModified(true);
             QFileInfo fi(fileName);
             settings.setValue("Files/LastVMEScriptDirectory", fi.absolutePath());
         }
@@ -273,6 +274,7 @@ void VMEScriptEditor::loadFromTemplate()
             {
                 QTextStream stream(&file);
                 m_d->m_editor->setPlainText(stream.readAll());
+                m_d->m_editor->document()->setModified(true);
             }
         }
     }
