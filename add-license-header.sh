@@ -1,7 +1,7 @@
 #!/bin/bash
 # From: https://stackoverflow.com/a/151690
 
-FILES=(*.h *.cc)
+FILES=(*.h *.cc *.cpp)
 INPUTFILE="`dirname $0`/LICENSE-SHORT.TXT"
 
 for i in ${FILES[@]}
