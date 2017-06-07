@@ -30,6 +30,18 @@ struct VMEScriptEditorPrivate
     QStatusBar *m_statusBar;
 
     QLabel *m_labelPosition;
+
+    void updateCursorPosition()
+    {
+        auto cursor = m_editor->textCursor();
+        int col = cursor.positionInBlock();
+        int line = cursor.blockNumber() + 1;
+
+        m_labelPosition->setText(QString(QSL("L%1 C%2 ")
+                                         .arg(line, 3)
+                                         .arg(col, 3)
+                                        ));
+    }
 };
 
 VMEScriptEditor::VMEScriptEditor(MVMEContext *context, VMEScriptConfig *script, QWidget *parent)
@@ -44,8 +56,7 @@ VMEScriptEditor::VMEScriptEditor(MVMEContext *context, VMEScriptConfig *script, 
     m_d->m_statusBar = make_statusbar();
     m_d->m_labelPosition = new QLabel;
 
-    set_widget_font_pointsize(m_d->m_labelPosition, 7);
-
+    // Editor area
     new vme_script::SyntaxHighlighter(m_d->m_editor->document());
 
     auto font = QFont("Monospace", 8);
@@ -53,21 +64,14 @@ VMEScriptEditor::VMEScriptEditor(MVMEContext *context, VMEScriptConfig *script, 
     font.setFixedPitch(true);
     m_d->m_editor->setFont(font);
 
-    // Tab width calculation
     {
+        // Tab width calculation
         QString spaces;
         for (int i = 0; i < tabStop; ++i)
             spaces += " ";
         QFontMetrics metrics(font);
         m_d->m_editor->setTabStopWidth(metrics.width(spaces));
     }
-
-    auto layout = new QVBoxLayout(this);
-    layout->setContentsMargins(0, 0, 0, 0);
-
-    layout->addWidget(m_d->m_toolBar);
-    layout->addWidget(m_d->m_editor);
-    layout->addWidget(m_d->m_statusBar);
 
     connect(script, &VMEScriptConfig::modified, this, &VMEScriptEditor::onScriptModified);
 
@@ -80,7 +84,9 @@ VMEScriptEditor::VMEScriptEditor(MVMEContext *context, VMEScriptConfig *script, 
     updateWindowTitle();
 
     connect(m_d->m_editor->document(), &QTextDocument::contentsChanged, this, &VMEScriptEditor::onEditorTextChanged);
+    connect(m_d->m_editor, &QPlainTextEdit::cursorPositionChanged, this, [this] { m_d->updateCursorPosition(); });
 
+    // Toolbar actions
     m_d->m_toolBar->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
 
     QAction *action;
@@ -111,8 +117,28 @@ VMEScriptEditor::VMEScriptEditor(MVMEContext *context, VMEScriptConfig *script, 
     m_d->m_toolBar->addAction(QIcon(":/document-revert.png"), "Revert Changes", this, &VMEScriptEditor::revert);
     m_d->m_toolBar->addSeparator();
 
-    // Script Help action from the main window
+    // Add the script Help action from the main window
     m_d->m_toolBar->addAction(m_d->m_context->getMainWindow()->findChild<QAction *>("actionVMEScriptRef"));
+
+    // Statusbar and info widgets
+    m_d->m_statusBar->addPermanentWidget(m_d->m_labelPosition);
+
+    set_widget_font_pointsize(m_d->m_labelPosition, 7);
+    {
+        auto font = m_d->m_labelPosition->font();
+        font.setStyleHint(QFont::Monospace);
+        m_d->m_labelPosition->setFont(font);
+    }
+
+    // Main layout
+    auto layout = new QVBoxLayout(this);
+    layout->setContentsMargins(0, 0, 0, 0);
+
+    layout->addWidget(m_d->m_toolBar);
+    layout->addWidget(m_d->m_editor);
+    layout->addWidget(m_d->m_statusBar);
+
+    m_d->updateCursorPosition();
 }
 
 VMEScriptEditor::~VMEScriptEditor()
