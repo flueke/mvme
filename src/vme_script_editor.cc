@@ -154,7 +154,8 @@ bool VMEScriptEditor::event(QEvent *e)
         return true;
     }
 
-    return QWidget::event(e);
+    // Script Help action from the main window
+    m_d->m_toolBar->addAction(m_d->m_context->getMainWindow()->findChild<QAction *>("actionVMEScriptRef"));
 }
 
 bool VMEScriptEditor::isModified() const
