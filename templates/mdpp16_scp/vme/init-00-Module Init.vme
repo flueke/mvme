@@ -1,4 +1,4 @@
-## Parameters for MDPP-16
+## Parameters for MDPP-16_SCP
 
 ## set window of interest, multiples of 1.56ns
 0x6050 0x3FF8     #Window start: -8 = -12.5ns  before trigger

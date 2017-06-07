@@ -1,2 +1,35 @@
 ## Parameters for MDPP-16_QDC
-0x6070 0    # 3= pulser on , 0=pulser off
+
+0x6044 3        # output_format (default = 3)
+                # 0 = time and long integral
+                # 1 = long integral only (QDC-mode)
+                # 2 = time only (TDC mode)
+                # 3 = long integral, short integral and time
+
+0x6070 0        # internal pulser (default = 0)
+                # 0 = pulser off
+                # 3 = pulser on
+
+## Frontend settings
+
+# Select the channel(s) to apply the following data to.
+0x6100 0x8      # select_chan_pair (default = 8)
+                # 0 = chan 0,1
+                # 1 = chan 2,3
+                # ...
+                # 8 = all channels (set to common values)
+
+0x6110 30       # Signal_width (default = 30) [FWHM, ns]
+0x6112 1000     # Input_Amplitude (default = 1000) [mV], input amplitude 0 to peak in mV
+0x6114 3000     # Jumper_range (default = 3000) [mV], Range printed on jumper top
+0x6116 0        # QDC_Jumper (default = 0), 1 = yes, 0 = no
+0x6118 10       # Integration_long (default = 10) [12.5 ns], 2..128 in clock steps of 12.5ns
+0x611A 1        # Integration_short (default = 1) [12.5 ns], 2..31 in clock steps of 12.5ns
+                # must be < than long integration
+0x611C 0x4FF    # threshold0 (default = 0x4FF) 1...0xFFFF; example: 0.8% = 0x200;
+0x611E 0x4FF    # threshold1 (default = 0x4FF) 1...0xFFFF; for odd channel in pair
+0x6128 20       # reset_time (default = 20) multiple of 12.5ns; default is usually good
+0x612A 1024     # long_gain_correction (default = 1024)
+                # 256: divide by 4, 4096: multiply by 4, 1024: neutral
+0x612C 1024     # tf_gain_correction (default = 1024)
+0x612E 1024     # short_gain_correction (default = 1024)

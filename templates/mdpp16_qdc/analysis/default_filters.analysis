@@ -1,0 +1,88 @@
+{
+    "AnalysisNG": {
+        "MVMEAnalysisVersion": 2,
+        "connections": [
+        ],
+        "operators": [
+        ],
+        "properties": {
+            "ModuleProperties": [
+                {
+                    "moduleId": "{e5176e2a-ca1a-4ad6-b8c0-15c637dc5412}",
+                    "moduleName": "mdpp16_qdc",
+                    "moduleTypeName": "mdpp16_qdc"
+                }
+            ]
+        },
+        "sources": [
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "933611a08e18ede3",
+                    "subFilters": [
+                        {
+                            "filterString": "0001XXXXO0AAAAAA0000DDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{44eaf59f-1169-43d1-af2b-ee722e686089}",
+                "id": "{9b371939-3884-4603-ae52-344e00de376c}",
+                "moduleId": "{e5176e2a-ca1a-4ad6-b8c0-15c637dc5412}",
+                "name": "adc_long"
+            },
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "16ffb56a42788ef2",
+                    "subFilters": [
+                        {
+                            "filterString": "0001XXXX0OAAAAAA0000DDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{44eaf59f-1169-43d1-af2b-ee722e686089}",
+                "id": "{d594f300-d3ca-4080-bfc3-5350277a3550}",
+                "moduleId": "{e5176e2a-ca1a-4ad6-b8c0-15c637dc5412}",
+                "name": "adc_short"
+            },
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "dda8801640f57baa",
+                    "subFilters": [
+                        {
+                            "filterString": "0001XXXXXXAAAAAADDDDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{44eaf59f-1169-43d1-af2b-ee722e686089}",
+                "id": "{c924eb17-e7d7-4ce9-bd88-5fb10f20022b}",
+                "moduleId": "{e5176e2a-ca1a-4ad6-b8c0-15c637dc5412}",
+                "name": "tdc_time_difference"
+            },
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "e1e859112ea5af07",
+                    "subFilters": [
+                        {
+                            "filterString": "11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{44eaf59f-1169-43d1-af2b-ee722e686089}",
+                "id": "{e73d544d-9120-4972-967b-edf3b7d9d4fa}",
+                "moduleId": "{e5176e2a-ca1a-4ad6-b8c0-15c637dc5412}",
+                "name": "event_counter/ts"
+            }
+        ]
+    }
+}
