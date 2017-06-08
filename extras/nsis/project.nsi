@@ -48,7 +48,8 @@
   !endif
 
   ;Set compression
-  SetCompressor lzma
+  SetCompressor lzma	; Better compression but also slow. Use for release builds.
+  ;SetCompressor zlib	; Worse compression but faster. Use this when working on the installer.
 
   ;Require administrator access
   RequestExecutionLevel admin
@@ -559,6 +560,7 @@ FunctionEnd
   !insertmacro MUI_PAGE_WELCOME
 
   !insertmacro MUI_PAGE_LICENSE "LICENSE-SHORT.TXT"
+  !insertmacro MUI_PAGE_COMPONENTS
   Page custom InstallOptionsPage
   !insertmacro MUI_PAGE_DIRECTORY
 
@@ -645,7 +647,8 @@ FunctionEnd
 ;--------------------------------
 ;Installer Sections
 
-Section "-Core installation"
+Section "mvme" SectionMVME
+  SectionIn RO
   ;Use the entire tree produced by the INSTALL target.  Keep the
   ;list of directories here in sync with the RMDir commands below.
   SetOutPath "$INSTDIR"
@@ -661,7 +664,7 @@ Section "-Core installation"
   Push "mvme"
   Call ConditionalAddToRegisty
   Push "DisplayVersion"
-  Push "c85636b"
+  Push "1.0"
   Call ConditionalAddToRegisty
   Push "Publisher"
   Push "mesytec"
@@ -742,6 +745,18 @@ Section "-Add to path"
     Call AddToPath
   doNotAddToPath:
 SectionEnd
+
+Section "WIENER VM-USB Driver" SectionZadig
+  ;MessageBox MB_YESNO "Do you want to install the WIENER VM-USB Driver?" /SD IDYES IDNO endZadig
+    ExecWait "$INSTDIR\zadig_2.2.exe"
+    ;Goto endZadig
+  ;endZadig:
+SectionEnd
+
+!insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
+  !insertmacro MUI_DESCRIPTION_TEXT ${SectionMVME} "The mvme application and its dependencies."
+  !insertmacro MUI_DESCRIPTION_TEXT ${SectionZadig} "Run the Zadig USB Driver installer."
+!insertmacro MUI_FUNCTION_DESCRIPTION_END
 
 ;--------------------------------
 ; Create custom pages
