@@ -558,7 +558,7 @@ FunctionEnd
 ;Pages
   !insertmacro MUI_PAGE_WELCOME
 
-  !insertmacro MUI_PAGE_LICENSE "${INST_DIR}/LICENSE-SHORT.TXT"
+  !insertmacro MUI_PAGE_LICENSE "LICENSE-SHORT.TXT"
   Page custom InstallOptionsPage
   !insertmacro MUI_PAGE_DIRECTORY
 
