@@ -22,11 +22,14 @@
 #include "mvme_context.h"
 #include "mvme.h"
 
-#include <QStandardPaths>
+#include <QDialogButtonBox>
 #include <QFileDialog>
-#include <QProgressDialog>
 #include <QMessageBox>
+#include <QProgressDialog>
+#include <QPushButton>
+#include <QStandardPaths>
 #include <QThread>
+#include <QVBoxLayout>
 
 #include <time.h>
 
@@ -99,9 +102,58 @@ static VMEError reset_toggle(VMUSB *vmusb)
  */
 void vmusb_gui_load_firmware(MVMEContext *context)
 {
+    auto show_critical = [](const QString &text)
+    {
+        return QMessageBox::critical(nullptr,
+                                     QSL("VMUSB Firmware Update"),
+                                     text);
+    };
+
     auto vmusb = qobject_cast<VMUSB *>(context->getController());
     Q_ASSERT(vmusb);
 
+    if (!vmusb)
+    {
+        show_critical(QString("No VMUSB available!"));
+        return;
+    }
+
+
+    if (!vmusb->isOpen())
+    {
+        show_critical(QString("Error: VMUSB controller is not connected."));
+        return;
+    }
+
+    // IntroPage
+    {
+        QDialog dialog;
+        dialog.setWindowTitle(QSL("VMUSB Firmware Update"));
+
+        auto introLabel = new QLabel;
+        introLabel->setText(QSL(
+                "Please make sure the firmware selector dial is in one of the programming\n"
+                "positions P1-P4. Then press the \"Next\" button below and select the firmware\n"
+                "file to load.\n"
+                ));
+
+        auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+        bb->button(QDialogButtonBox::Ok)->setDefault(true);
+        bb->button(QDialogButtonBox::Ok)->setText(QSL("Next"));
+        QObject::connect(bb, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+        QObject::connect(bb, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+
+        auto layout = new QVBoxLayout(&dialog);
+        layout->addWidget(introLabel);
+        layout->addWidget(bb);
+
+        if (dialog.exec() == QDialog::Rejected)
+        {
+            return;
+        }
+    }
+
+    // Select and read firmware file
     auto parentWidget = context->getMainWindow();
     auto startDir = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
 
@@ -112,13 +164,6 @@ void vmusb_gui_load_firmware(MVMEContext *context)
         return;
 
     QFile inFile(fileName);
-
-    auto show_critical = [](const QString &text)
-    {
-        return QMessageBox::critical(nullptr,
-                                     QSL("VMUSB Firmware Update"),
-                                     text);
-    };
 
     if (!inFile.open(QIODevice::ReadOnly))
     {
@@ -154,19 +199,13 @@ void vmusb_gui_load_firmware(MVMEContext *context)
         return;
     }
 
-
-    if (!vmusb->isOpen())
-    {
-        show_critical(QString("Error: VMUSB controller is not connected."));
-        return;
-    }
-
     //
     // write the flash
     //
 
     QProgressDialog progress("Writing VMUSB firmware...",
                              "Abort", 0, FirmwareBlocks, nullptr);
+    progress.setWindowTitle(QSL("VMUSB Firmware Update"));
     progress.setWindowModality(Qt::ApplicationModal);
     progress.setMinimumDuration(1000);
 
@@ -196,6 +235,9 @@ void vmusb_gui_load_firmware(MVMEContext *context)
     }
 
     progress.reset();
+
+    // At this point we either where canceled, got a write error or completed
+    // successfully.
 
     if (canceled)
     {
