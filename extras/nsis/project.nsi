@@ -1,3 +1,4 @@
+; vim:ts=2:sts=2:et
 ; CPack install script designed for a nmake build
 
 ; Note (f.lueke@mesytec.com):
