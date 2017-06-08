@@ -2,7 +2,7 @@
                 Additional code and licences used in MVME
 =============================================================================
 
------------------------------------------------------------------------------
+=============================================================================
     PCG Random Number Generation for C++
     Copyright 2014 Melissa O'Neill <oneill@pcg-random.org>
     [PCG-Random website]: http://www.pcg-random.org
@@ -10,14 +10,14 @@
                                  Apache License
                            Version 2.0, January 2004
                         http://www.apache.org/licenses/
------------------------------------------------------------------------------
 
------------------------------------------------------------------------------
+
+=============================================================================
     Fugue Icons set by Yusuke Kamiyamane (http://p.yusukekamiyamane.com/)
     Licensed under a Creative Commons Attribution 3.0 License.
------------------------------------------------------------------------------
 
------------------------------------------------------------------------------
+
+=============================================================================
     Icons from the Oxygen Project
     https://techbase.kde.org/Projects/Oxygen
 
@@ -27,9 +27,9 @@
     Copyright (C) 2007 Free Software Foundation, Inc. <http://fsf.org/>
     Everyone is permitted to copy and distribute verbatim copies
     of this license document, but changing it is not allowed.
------------------------------------------------------------------------------
 
------------------------------------------------------------------------------
+
+=============================================================================
     QT: Collapsible Section
     https://github.com/Elypson/qt-collapsible-section
 
@@ -39,12 +39,13 @@
     Copyright (C) 2007 Free Software Foundation, Inc. <http://fsf.org/>
     Everyone is permitted to copy and distribute verbatim copies
     of this license document, but changing it is not allowed.
------------------------------------------------------------------------------
 
------------------------------------------------------------------------------
 
------------------------------------------------------------------------------
-    CVMUSBReadoutList.{h,cpp} from NSCLDAQ
+=============================================================================
+    The following files are from NSCLDAQ
+    (https://sourceforge.net/projects/nscldaq/, http://docs.nscl.msu.edu/daq/):
+      CVMUSBReadoutList.{h,cpp}
+      vmusb_skipHeader.{h,cpp}
 
     This software is Copyright by the Board of Trustees of Michigan
     State University (c) Copyright 2005.
@@ -59,4 +60,3 @@
          NSCL
          Michigan State University
          East Lansing, MI 48824-1321
------------------------------------------------------------------------------
