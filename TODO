@@ -15,7 +15,6 @@
     * show fwhm only when gauss display is active
 
 * Analysis and AnalysisUI
-    * Close histograms on opening a new analysis config.
     * Open new histograms immediately. Do this when creating a sub-histogram.
     * Copy/Paste
       - Copy needs a clone() operation for analysis elements.

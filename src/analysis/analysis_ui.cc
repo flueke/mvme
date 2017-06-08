@@ -2658,6 +2658,9 @@ struct AnalysisWidgetPrivate
     void repopulate();
     void repopulateEventSelectCombo();
 
+    void closeAllUniqueWidgets();
+    void closeAllHistogramWidgets();
+
     void actionNew();
     void actionOpen();
     QPair<bool, QString> actionSave();
@@ -2748,6 +2751,45 @@ void AnalysisWidgetPrivate::repopulateEventSelectCombo()
     }
 }
 
+void AnalysisWidgetPrivate::closeAllUniqueWidgets()
+{
+    for (auto eventWidget: m_eventWidgetsByEventId.values())
+    {
+        if (eventWidget->m_d->m_uniqueWidget)
+        {
+                eventWidget->m_d->m_uniqueWidget->close();
+                eventWidget->uniqueWidgetCloses();
+        }
+    }
+}
+
+/* Close any open histograms belonging to the current analysis. */
+void AnalysisWidgetPrivate::closeAllHistogramWidgets()
+{
+    auto close_if_not_null = [](QWidget *widget)
+    {
+        if (widget)
+            widget->close();
+    };
+
+    for (const auto &opEntry: m_context->getAnalysis()->getOperators())
+    {
+        if (auto sink = qobject_cast<Histo1DSink *>(opEntry.op.get()))
+        {
+            close_if_not_null(m_context->getObjectWidget(sink));
+
+            for (const auto &histoPtr: sink->m_histos)
+            {
+                close_if_not_null(m_context->getObjectWidget(histoPtr.get()));
+            }
+        }
+        else if (auto sink = qobject_cast<Histo2DSink *>(opEntry.op.get()))
+        {
+            close_if_not_null(m_context->getObjectWidget(sink));
+        }
+    }
+}
+
 void AnalysisWidgetPrivate::actionNew()
 {
     if (m_context->getAnalysis()->isModified())
@@ -2769,17 +2811,11 @@ void AnalysisWidgetPrivate::actionNew()
         // else discard
     }
 
-    /* Close any active unique widgets _before_ replacing the analysis. The
+    /* Close any active unique widgets _before_ replacing the analysis as the
      * unique widgets might perform actions on the analysis in their reject()
      * code. */
-    for (auto eventWidget: m_eventWidgetsByEventId.values())
-    {
-        if (eventWidget->m_d->m_uniqueWidget)
-        {
-                eventWidget->m_d->m_uniqueWidget->close();
-                eventWidget->uniqueWidgetCloses();
-        }
-    }
+    closeAllUniqueWidgets();
+    closeAllHistogramWidgets();
 
     AnalysisPauser pauser(m_context);
     m_context->getAnalysis()->clear();
@@ -2818,17 +2854,8 @@ void AnalysisWidgetPrivate::actionOpen()
         // else discard
     }
 
-    /* Close any active unique widgets _before_ replacing the analysis. The
-     * unique widgets might perform actions on the analysis in their reject()
-     * code. */
-    for (auto eventWidget: m_eventWidgetsByEventId.values())
-    {
-        if (eventWidget->m_d->m_uniqueWidget)
-        {
-                eventWidget->m_d->m_uniqueWidget->close();
-                eventWidget->uniqueWidgetCloses();
-        }
-    }
+    closeAllUniqueWidgets();
+    closeAllHistogramWidgets();
 
     m_context->loadAnalysisConfig(fileName);
 }
