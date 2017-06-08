@@ -37,25 +37,40 @@ using std::cout;
 using std::cerr;
 using std::endl;
 
-namespace listfile
-{
-    /* Section types in the listfile. */
-    enum SectionType
-    {
-        /* The config section contains the mvmecfg as a json string padded with
-         * spaces to the next 32 bit boundary. If the config data size exceeds
-         * the maximum section size multiple config sections will be written at
-         * the start of the file. */
-        SectionType_Config = 0,
-        /* Section containing event data. */
-        SectionType_Event  = 1,
-        /* End section should occur once at the end of the file. Can be used to
-         * verify that the file was closed properly when writing. Otherwise unused.
-         * Contains no data. */
-        SectionType_End    = 2,
+/*  ===== VERSION 0 =====
+ *
+ *  ------- Section (Event) Header ----------
+ *  33222222222211111111110000000000
+ *  10987654321098765432109876543210
+ * +--------------------------------+
+ * |ttt         eeeessssssssssssssss|
+ * +--------------------------------+
+ *
+ * t =  3 bit section type
+ * e =  4 bit event type (== event number/index) for event sections
+ * s = 16 bit size in units of 32 bit words (fillwords added to data if needed) -> 256k section max size
+ *
+ * Section size is the number of following 32 bit words not including the header word itself.
 
-        SectionType_Max    = 7
-    };
+ * Sections with SectionType_Event contain subevents with the following header:
+
+ *  ------- Subevent (Module) Header --------
+ *  33222222222211111111110000000000
+ *  10987654321098765432109876543210
+ * +--------------------------------+
+ * |              mmmmmm  ssssssssss|
+ * +--------------------------------+
+ *
+ * m =  6 bit module type (VMEModuleType enum from globals.h)
+ * s = 10 bit size in units of 32 bit words
+ *
+ * The last word of each event section is the EndMarker (globals.h)
+ *
+*/
+struct listfile_v0
+{
+    static const int Version = 0;
+    static const int FirstSectionOffset = 0;
 
     static const int SectionMaxWords  = 0xffff;
     static const int SectionMaxSize   = SectionMaxWords * sizeof(u32);
@@ -75,16 +90,98 @@ namespace listfile
     static const int SubEventMaxSize   = SubEventMaxWords * sizeof(u32);
     static const int SubEventSizeMask  = 0x3ff; // 10 bit subevent size in 32 bit words
     static const int SubEventSizeShift = 0;
+};
+
+/*  ===== VERSION 1 =====
+ *
+ * Differences to version 0:
+ * - Starts with the FourCC "MVME" followed by a 32 bit word containing the
+ *   listfile version number.
+ * - Larger section and subevent sizes: 16 -> 20 bits for sections and 10 -> 20
+ *   bits for subevents.
+ * - Module type is now 8 bit instead of 6.
+ *
+ *  ------- Section (Event) Header ----------
+ *  33222222222211111111110000000000
+ *  10987654321098765432109876543210
+ * +--------------------------------+
+ * |ttteeee     ssssssssssssssssssss|
+ * +--------------------------------+
+ *
+ * t =  3 bit section type
+ * e =  4 bit event type (== event number/index) for event sections
+ * s = 20 bit size in units of 32 bit words (fillwords added to data if needed) -> 256k section max size
+ *
+ * Section size is the number of following 32 bit words not including the header word itself.
+
+ * Sections with SectionType_Event contain subevents with the following header:
+
+ *  ------- Subevent (Module) Header --------
+ *  33222222222211111111110000000000
+ *  10987654321098765432109876543210
+ * +--------------------------------+
+ * |mmmmmmmm    ssssssssssssssssssss|
+ * +--------------------------------+
+ *
+ * m =  8 bit module type (VMEModuleType enum from globals.h)
+ * s = 10 bit size in units of 32 bit words
+ *
+ * The last word of each event section is the EndMarker (globals.h)
+ *
+*/
+struct listfile_v1
+{
+    static const int Version = 1;
+    constexpr static const char * const FourCC = "MVME";
+
+    static const int FirstSectionOffset = 8;
+
+    static const int SectionMaxWords  = 0xfffff;
+    static const int SectionMaxSize   = SectionMaxWords * sizeof(u32);
+
+    static const int SectionTypeMask  = 0xe0000000; // 3 bit section type
+    static const int SectionTypeShift = 29;
+    static const int SectionSizeMask  = 0x000fffff; // 20 bit section size in 32 bit words
+    static const int SectionSizeShift = 0;
+    static const int EventTypeMask    = 0x1e000000; // 4 bit event type
+    static const int EventTypeShift   = 25;
+
+    // Subevent containing module data
+    static const int ModuleTypeMask  = 0xff000000;  // 8 bit module type
+    static const int ModuleTypeShift = 24;
+
+    static const int SubEventMaxWords  = 0xfffff;
+    static const int SubEventMaxSize   = SubEventMaxWords * sizeof(u32);
+    static const int SubEventSizeMask  = 0x000fffff; // 20 bit subevent size in 32 bit words
+    static const int SubEventSizeShift = 0;
+};
+
+namespace listfile
+{
+    enum SectionType
+    {
+        /* The config section contains the mvmecfg as a json string padded with
+         * spaces to the next 32 bit boundary. If the config data size exceeds
+         * the maximum section size multiple config sections will be written at
+         * the start of the file. */
+        SectionType_Config = 0,
+        SectionType_Event  = 1,
+        SectionType_End    = 2,
+
+        SectionType_Max    = 7
+    };
 
     enum VMEModuleType
     {
-        Invalid = 0,
-        MADC32  = 1,
-        MQDC32  = 2,
-        MTDC32  = 3,
-        MDPP16  = 4,
-        MDPP32  = 5,
-        MDI2    = 6,
+        Invalid         = 0,
+        MADC32          = 1,
+        MQDC32          = 2,
+        MTDC32          = 3,
+        MDPP16_SCP      = 4,
+        MDPP32          = 5,
+        MDI2            = 6,
+        MDPP16_RCP      = 7,
+        MDPP16_QDC      = 8,
 
         MesytecCounter = 16,
         VHS4030p = 21,
@@ -95,9 +192,11 @@ namespace listfile
         { VMEModuleType::MADC32,            "MADC-32" },
         { VMEModuleType::MQDC32,            "MQDC-32" },
         { VMEModuleType::MTDC32,            "MTDC-32" },
-        { VMEModuleType::MDPP16,            "MDPP-16" },
+        { VMEModuleType::MDPP16_SCP,        "MDPP-16_SCP" },
         { VMEModuleType::MDPP32,            "MDPP-32" },
         { VMEModuleType::MDI2,              "MDI-2" },
+        { VMEModuleType::MDPP16_RCP,        "MDPP-16_RCP" },
+        { VMEModuleType::MDPP16_QDC,        "MDPP-16_QDC" },
         { VMEModuleType::VHS4030p,          "iseg VHS4030p" },
         { VMEModuleType::MesytecCounter,    "Mesytec Counter" },
     };
@@ -115,7 +214,128 @@ namespace listfile
 
 } // end namespace listfile
 
-void process_listfile(std::ifstream &infile);
+template<typename LF>
+void process_listfile(std::ifstream &infile)
+{
+    using namespace listfile;
+
+    bool dumpData = true;
+    bool continueReading = true;
+
+    while (continueReading)
+    {
+        u32 sectionHeader;
+        infile.read((char *)&sectionHeader, sizeof(u32));
+
+        u32 sectionType   = (sectionHeader & LF::SectionTypeMask) >> LF::SectionTypeShift;
+        u32 sectionSize   = (sectionHeader & LF::SectionSizeMask) >> LF::SectionSizeShift;
+
+        switch (sectionType)
+        {
+            case SectionType_Config:
+                {
+                    cout << "Config section of size " << sectionSize << endl;
+                    infile.seekg(sectionSize * sizeof(u32), std::ifstream::cur);
+                } break;
+
+            case SectionType_Event:
+                {
+                    u32 eventType = (sectionHeader & LF::EventTypeMask) >> LF::EventTypeShift;
+                    printf("Event section: eventHeader=0x%08x, eventType=%d, eventSize=%u\n",
+                           sectionHeader, eventType, sectionSize);
+
+                    u32 wordsLeft = sectionSize;
+
+                    while (wordsLeft > 1)
+                    {
+                        u32 subEventHeader;
+                        infile.read((char *)&subEventHeader, sizeof(u32));
+                        --wordsLeft;
+
+                        u32 moduleType = (subEventHeader & LF::ModuleTypeMask) >> LF::ModuleTypeShift;
+                        u32 subEventSize = (subEventHeader & LF::SubEventSizeMask) >> LF::SubEventSizeShift;
+
+                        printf("  subEventHeader=0x%08x, moduleType=%u (%s), subEventSize=%u\n",
+                               subEventHeader, moduleType, get_vme_module_name((VMEModuleType)moduleType),
+                               subEventSize);
+
+                        for (u32 i=0; i<subEventSize; ++i)
+                        {
+                            u32 subEventData;
+                            infile.read((char *)&subEventData, sizeof(u32));
+
+                            if (dumpData)
+                                printf("    %u = 0x%08x\n", i, subEventData);
+                        }
+                        wordsLeft -= subEventSize;
+                    }
+
+                    u32 eventEndMarker;
+                    infile.read((char *)&eventEndMarker, sizeof(u32));
+                    printf("   eventEndMarker=0x%08x\n", eventEndMarker);
+                } break;
+
+            case SectionType_End:
+                {
+                    printf("Found Listfile End section\n");
+                    continueReading = false;
+
+                    auto currentFilePos = infile.tellg();
+                    infile.seekg(0, std::ifstream::end);
+                    auto endFilePos = infile.tellg();
+
+                    if (currentFilePos != endFilePos)
+                    {
+                        cout << "Warning: " << (endFilePos - currentFilePos)
+                            << " bytes left after Listfile End Section" << endl;
+                    }
+
+                    break;
+                }
+
+            default:
+                {
+                    printf("Warning: Unknown section type %u of size %u, skipping...\n",
+                           sectionType, sectionSize);
+                    infile.seekg(sectionSize * sizeof(u32), std::ifstream::cur);
+                } break;
+        }
+    }
+}
+
+void process_listfile(std::ifstream &infile)
+{
+    u32 fileVersion = 0;
+
+    // Read the fourCC that's at the start of listfiles from version 1 and up.
+    const size_t bytesToRead = 4;
+    char fourCC[bytesToRead] = {};
+
+    infile.read(fourCC, bytesToRead);
+
+    if (std::strncmp(fourCC, listfile_v1::FourCC, bytesToRead) == 0)
+    {
+        infile.read(reinterpret_cast<char *>(&fileVersion), sizeof(fileVersion));
+    }
+
+    // Move to the start of the first section
+    auto firstSectionOffset = ((fileVersion == 0)
+                               ? listfile_v0::FirstSectionOffset
+                               : listfile_v1::FirstSectionOffset);
+
+    infile.seekg(firstSectionOffset, std::ifstream::beg);
+
+    cout << "Detected listfile version " << fileVersion << endl;
+
+    if (fileVersion == 0)
+    {
+        process_listfile<listfile_v0>(infile);
+    }
+    else
+    {
+        process_listfile<listfile_v1>(infile);
+    }
+}
 
 int main(int argc, char *argv[])
 {
@@ -147,81 +367,4 @@ int main(int argc, char *argv[])
     }
 
     return 0;
-}
-
-void process_listfile(std::ifstream &infile)
-{
-    using namespace listfile;
-
-    bool dumpData = true;
-    bool continueReading = true;
-
-    while (continueReading)
-    {
-        u32 sectionHeader;
-        infile.read((char *)&sectionHeader, sizeof(u32));
-
-        u32 sectionType   = (sectionHeader & SectionTypeMask) >> SectionTypeShift;
-        u32 sectionSize   = (sectionHeader & SectionSizeMask) >> SectionSizeShift;
-
-        switch (sectionType)
-        {
-            case SectionType_Config:
-                {
-                    cout << "Config section of size " << sectionSize << endl;
-                    infile.seekg(sectionSize * sizeof(u32), std::ifstream::cur);
-                } break;
-
-            case SectionType_Event:
-                {
-                    u32 eventType = (sectionHeader & EventTypeMask) >> EventTypeShift;
-                    printf("Event section: eventHeader=0x%08x, eventType=%d, eventSize=%u\n",
-                           sectionHeader, eventType, sectionSize);
-
-                    u32 wordsLeft = sectionSize;
-
-                    while (wordsLeft > 1)
-                    {
-                        u32 subEventHeader;
-                        infile.read((char *)&subEventHeader, sizeof(u32));
-                        --wordsLeft;
-
-                        u32 moduleType = (subEventHeader & ModuleTypeMask) >> ModuleTypeShift;
-                        u32 subEventSize = (subEventHeader & SubEventSizeMask) >> SubEventSizeShift;
-
-                        printf("  subEventHeader=0x%08x, moduleType=%u (%s), subEventSize=%u\n",
-                               subEventHeader, moduleType, get_vme_module_name((VMEModuleType)moduleType),
-                               subEventSize);
-
-                        for (u32 i=0; i<subEventSize; ++i)
-                        {
-                            u32 subEventData;
-                            infile.read((char *)&subEventData, sizeof(u32));
-
-                            if (dumpData)
-                                printf("    %u = 0x%08x\n", i, subEventData);
-                        }
-                        wordsLeft -= subEventSize;
-                    }
-
-                    u32 eventEndMarker;
-                    infile.read((char *)&eventEndMarker, sizeof(u32));
-                    printf("   eventEndMarker=0x%08x\n", eventEndMarker);
-                } break;
-
-            case SectionType_End:
-                {
-                    printf("Found Listfile End section\n");
-                    continueReading = false;
-                    break;
-                }
-
-            default:
-                {
-                    printf("Warning: Unknown section type %u of size %u, skipping...\n",
-                           sectionType, sectionSize);
-                    infile.seekg(sectionSize * sizeof(u32), std::ifstream::cur);
-                } break;
-        }
-    }
 }
