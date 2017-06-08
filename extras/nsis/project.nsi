@@ -5,6 +5,10 @@
 ; MDPP16 flash tool). I modified it to produce an installer for mvme using
 ; files found in a deploy directory on the build machine.
 
+; Compile via "makensis /DOutDir=c:\src\ mvme2\extras\nsis\project.nsi"
+; The DOutDir is optional. If it's set the installer is written to that
+; directory, otherwise it's written to the directory containing this nsi file.
+
 ;--------------------------------
 ; You must define these values
 
@@ -37,7 +41,11 @@
 
   ;Name and file
   Name "mvme"
-  OutFile "mvme-installer-${VERSION}.exe"
+  !ifdef OutDir
+    OutFile "${OutDir}/mvme-installer-${VERSION}.exe"
+  !else
+    OutFile "mvme-installer-${VERSION}.exe"
+  !endif
 
   ;Set compression
   SetCompressor lzma
@@ -550,7 +558,7 @@ FunctionEnd
 ;Pages
   !insertmacro MUI_PAGE_WELCOME
 
-  !insertmacro MUI_PAGE_LICENSE "${INSTDIR}/LICENSE-SHORT.TXT"
+  !insertmacro MUI_PAGE_LICENSE "${INST_DIR}/LICENSE-SHORT.TXT"
   Page custom InstallOptionsPage
   !insertmacro MUI_PAGE_DIRECTORY
 
