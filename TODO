@@ -1,6 +1,8 @@
 ==========================
 ==== Do these first! =====
 ==========================
+* Add a README to the template directory. Document that the typeNames and
+  typeIds must not be changed!
 * Histo1D and Histo1DWidget
     * Implement Histogram rebinning
     * Histo1D Calibration UI: "Restore" uses unexpected values. Also there's no way to undo the restore operation. (calibResetToFilter)

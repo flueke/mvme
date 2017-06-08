@@ -463,6 +463,7 @@ struct EventWidgetPrivate
     QVector<DisplayLevelTrees> m_levelTrees;
 
     Mode m_mode = Default;
+    // TODO: get rid of m_uniqueWidgetActive and only use m_uniqueWidget instead
     bool m_uniqueWidgetActive = false;
     QWidget *m_uniqueWidget = nullptr;
     Slot *m_selectInputSlot = nullptr;
@@ -2768,6 +2769,18 @@ void AnalysisWidgetPrivate::actionNew()
         // else discard
     }
 
+    /* Close any active unique widgets _before_ replacing the analysis. The
+     * unique widgets might perform actions on the analysis in their reject()
+     * code. */
+    for (auto eventWidget: m_eventWidgetsByEventId.values())
+    {
+        if (eventWidget->m_d->m_uniqueWidget)
+        {
+                eventWidget->m_d->m_uniqueWidget->close();
+                eventWidget->uniqueWidgetCloses();
+        }
+    }
+
     AnalysisPauser pauser(m_context);
     m_context->getAnalysis()->clear();
     m_context->getAnalysis()->setModified(false);
@@ -2803,6 +2816,18 @@ void AnalysisWidgetPrivate::actionOpen()
             return;
         }
         // else discard
+    }
+
+    /* Close any active unique widgets _before_ replacing the analysis. The
+     * unique widgets might perform actions on the analysis in their reject()
+     * code. */
+    for (auto eventWidget: m_eventWidgetsByEventId.values())
+    {
+        if (eventWidget->m_d->m_uniqueWidget)
+        {
+                eventWidget->m_d->m_uniqueWidget->close();
+                eventWidget->uniqueWidgetCloses();
+        }
     }
 
     m_context->loadAnalysisConfig(fileName);
