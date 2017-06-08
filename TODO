@@ -3,7 +3,6 @@
 ==========================
 * Histo1D and Histo1DWidget
     * Implement Histogram rebinning
-    * Allow editing the resolution of 1D and 2D histos directly from the widget
     * Histo1D Calibration UI: "Restore" uses unexpected values. Also there's no way to undo the restore operation. (calibResetToFilter)
     * Bug: H1D does not work when unitMin > unitMax
     * Histo1DWidget: zoom out after setHistogram()
@@ -29,8 +28,6 @@
         clearing inputs would only affect the cloned version of the operator
         (input pipes would not need to be fully connected so the input sources
         do not need to change at all during editing -> half connected state!)
-
-* Make listfile-dumper handle the v1 format.
 
 - Add error reporting to VMEConfig and Analysis version conversion and read routines
 
