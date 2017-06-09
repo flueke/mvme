@@ -712,18 +712,6 @@ Section "-Add to path"
   doNotAddToPath:
 SectionEnd
 
-;Section "WIENER VM-USB Driver" SectionZadig
-;  ;MessageBox MB_YESNO "Do you want to install the WIENER VM-USB Driver?" /SD IDYES IDNO endZadig
-;    ExecWait "$INSTDIR\zadig_2.2.exe"
-;    ;Goto endZadig
-;  ;endZadig:
-;SectionEnd
-;
-;!insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
-;  !insertmacro MUI_DESCRIPTION_TEXT ${SectionMVME} "The mvme application and its dependencies."
-;  !insertmacro MUI_DESCRIPTION_TEXT ${SectionZadig} "Run the Zadig USB Driver installer."
-;!insertmacro MUI_FUNCTION_DESCRIPTION_END
-
 ;--------------------------------
 ; Create custom pages
 Function InstallOptionsPage
