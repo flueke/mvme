@@ -562,8 +562,12 @@ FunctionEnd
 
 
 
-!define MUI_FINISHPAGE_RUN "$INSTDIR\mvme.exe"
-
+; Note (flueke): This does _not_ drop privileges when running the application!
+; Instead I opted for the solution outlined here:
+; https://stackoverflow.com/questions/16555625
+;!define MUI_FINISHPAGE_RUN "$INSTDIR\mvme.exe"
+!define MUI_FINISHPAGE_RUN
+!define MUI_FINISHPAGE_RUN_FUNCTION "LaunchApplication"
 
 ;--------------------------------
 ;Pages
@@ -763,6 +767,11 @@ Function LeaveZadigPage
   ${If} $cb_runZadigState == ${BST_CHECKED}
     ExecWait "$INSTDIR\zadig_2.2.exe"
   ${Endif}
+FunctionEnd
+
+Function LaunchApplication
+  ;SetOutPath $INSTDIR
+  Exec '"$WINDIR\explorer.exe" "$INSTDIR\mvme.exe"'
 FunctionEnd
 
 ;--------------------------------
