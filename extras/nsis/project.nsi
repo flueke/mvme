@@ -990,7 +990,8 @@ Function .onInit
   ; Zadig variable initialization. It's horrible to have to put this here.
   StrCpy $cb_runZadigState ${BST_CHECKED}
 
-  ; Original code from qpack
+  ; Original code from cpack
+
   StrCmp "ON" "ON" 0 inst
 
   ReadRegStr $0 HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\mvme" "UninstallString"
