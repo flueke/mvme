@@ -1,0 +1,7 @@
+To be able to use the Wiener VMUSB VME Controller libusb-win32 needs to be installed on the system and registered as a driver for the VMUSB. The Zadig USB Driver Installer is bundled with mvme and can optionally be launched to handle the driver installation.
+
+In Zadig the correct driver (libusb-win32) will already be selected and a connected VMUSB should appear in the device selection (as "VM-USB VME Crate Controller"). Pressing "Install Driver" will start the driver installation.
+
+If the VMUSB does not appear in the device list it is already managed by a driver. You can view all available devices via 'Options -> List All Devices'. The driver that's currently used is displayed on the left side. You can opt to replace it with libusb-win32.
+
+It is highly recommended to restart your system after driver installation, especially if you replaced an already installed driver. Otherwise USB transfer errors will occur during VME data acquisition!

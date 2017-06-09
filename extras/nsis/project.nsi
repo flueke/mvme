@@ -32,6 +32,12 @@
   Var ADD_TO_PATH_CURRENT_USER
   Var INSTALL_DESKTOP
   Var IS_DEFAULT_INSTALLDIR
+  ; Zadig  stuff
+  Var dialog_zadig
+  Var label_zadigDescription
+  Var cb_runZadig
+  Var cb_runZadigState
+
 ;--------------------------------
 ;Include Modern UI
 
@@ -39,6 +45,8 @@
 
   ;Default installation folder
   InstallDir "$PROGRAMFILES\mvme"
+
+!include nsDialogs.nsh
 
 ;--------------------------------
 ;General
@@ -57,8 +65,6 @@
 
   ;Require administrator access
   RequestExecutionLevel admin
-
-
 
   !include Sections.nsh
 
@@ -564,7 +570,10 @@ FunctionEnd
   !insertmacro MUI_PAGE_WELCOME
 
   !insertmacro MUI_PAGE_LICENSE "LICENSE-SHORT.TXT"
-  !insertmacro MUI_PAGE_COMPONENTS
+
+  ; This displays a component selection page. A component is defined for each
+  ; Section where the section title does not start with a '-' sign.
+  ;!insertmacro MUI_PAGE_COMPONENTS
   Page custom InstallOptionsPage
   !insertmacro MUI_PAGE_DIRECTORY
 
@@ -574,9 +583,13 @@ FunctionEnd
   !define MUI_STARTMENUPAGE_REGISTRY_VALUENAME "Start Menu Folder"
   !insertmacro MUI_PAGE_STARTMENU Application $STARTMENU_FOLDER
 
-  
-
+  ; Copy files, run sections for selected components actions
   !insertmacro MUI_PAGE_INSTFILES
+
+  ; Optionally run Zadig for usb driver installation
+  Page custom RunZadigPage LeaveZadigPage
+
+  ; The finish page with the option to start the program on installer exit.
   !insertmacro MUI_PAGE_FINISH
 
   !insertmacro MUI_UNPAGE_CONFIRM
@@ -770,6 +783,51 @@ Function InstallOptionsPage
 
 FunctionEnd
 
+; Load the label text from file
+!define /file ZADIG_EXPLANATION "vmusb-zadig-explanation.txt"
+
+Function RunZadigPage
+  !insertmacro MUI_HEADER_TEXT "USB Driver Installation" "Optionally install the driver required for VMUSB support"
+
+  nsDialogs::Create 1018
+  Pop $dialog_zadig
+
+  ${If} $dialog_zadig == error
+    Abort
+  ${Endif}
+
+  ; Create function args: x, y, width, height, text
+  ; MUI Pages are 300u wide and 140u high
+
+  ; Using the ` quote so that ' and " do not need to be escaped inside the
+  ; explanation file.
+  ${NSD_CreateLabel} 0 0 100% 127u `${ZADIG_EXPLANATION}`
+
+  Pop $label_zadigDescription
+
+  ${NSD_CreateCheckbox} 50u 127u 100% 10u "Run Zadig USB driver installer"
+  Pop $cb_runZadig
+
+  ; This restores the state on re-entering the page.
+  ${If} $cb_runZadigState == ${BST_CHECKED}
+    ${NSD_Check} $cb_runZadig
+  ${Endif}
+
+  ${NSD_SetFocus} $cb_runZadig
+
+  nsDialogs::Show
+
+FunctionEnd
+
+Function LeaveZadigPage
+  ; Stores the checkbox state
+  ${NSD_GetState} $cb_runZadig $cb_runZadigState
+
+  ${If} $cb_runZadigState == ${BST_CHECKED}
+    ExecWait "$INSTDIR\zadig_2.2.exe"
+  ${Endif}
+FunctionEnd
+
 ;--------------------------------
 ; determine admin versus local install
 Function un.onInit
@@ -929,6 +987,10 @@ SectionEnd
 ; "Program Files" for AllUsers, "My Documents" for JustMe...
 
 Function .onInit
+  ; Zadig variable initialization. It's horrible to have to put this here.
+  StrCpy $cb_runZadigState ${BST_CHECKED}
+
+  ; Original code from qpack
   StrCmp "ON" "ON" 0 inst
 
   ReadRegStr $0 HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\mvme" "UninstallString"
