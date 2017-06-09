@@ -60,8 +60,8 @@
   !endif
 
   ;Set compression
-  ;SetCompressor lzma	; Better compression but also slow. Use for release builds.
-  SetCompressor zlib	; Worse compression but faster. Use this when working on the installer.
+  SetCompressor lzma	; Better compression but also slow. Use for release builds.
+  ;SetCompressor zlib	; Worse compression but faster. Use this when working on the installer.
 
   ;Require administrator access
   RequestExecutionLevel admin
