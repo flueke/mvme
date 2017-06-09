@@ -10,6 +10,9 @@
 ; The DOutDir is optional. If it's set the installer is written to that
 ; directory, otherwise it's written to the directory containing this nsi file.
 
+; MSYS Version of the command line:
+; /c/Program\ Files\ \(x86\)/NSIS/makensis '/DOutDir=c:\src' mvme2/extras/nsis/project.nsi
+
 ;--------------------------------
 ; You must define these values
 
@@ -49,8 +52,8 @@
   !endif
 
   ;Set compression
-  SetCompressor lzma	; Better compression but also slow. Use for release builds.
-  ;SetCompressor zlib	; Worse compression but faster. Use this when working on the installer.
+  ;SetCompressor lzma	; Better compression but also slow. Use for release builds.
+  SetCompressor zlib	; Worse compression but faster. Use this when working on the installer.
 
   ;Require administrator access
   RequestExecutionLevel admin
@@ -648,7 +651,7 @@ FunctionEnd
 ;--------------------------------
 ;Installer Sections
 
-Section "mvme" SectionMVME
+Section "-mvme" SectionMVME
   SectionIn RO
   ;Use the entire tree produced by the INSTALL target.  Keep the
   ;list of directories here in sync with the RMDir commands below.
@@ -747,17 +750,17 @@ Section "-Add to path"
   doNotAddToPath:
 SectionEnd
 
-Section "WIENER VM-USB Driver" SectionZadig
-  ;MessageBox MB_YESNO "Do you want to install the WIENER VM-USB Driver?" /SD IDYES IDNO endZadig
-    ExecWait "$INSTDIR\zadig_2.2.exe"
-    ;Goto endZadig
-  ;endZadig:
-SectionEnd
-
-!insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
-  !insertmacro MUI_DESCRIPTION_TEXT ${SectionMVME} "The mvme application and its dependencies."
-  !insertmacro MUI_DESCRIPTION_TEXT ${SectionZadig} "Run the Zadig USB Driver installer."
-!insertmacro MUI_FUNCTION_DESCRIPTION_END
+;Section "WIENER VM-USB Driver" SectionZadig
+;  ;MessageBox MB_YESNO "Do you want to install the WIENER VM-USB Driver?" /SD IDYES IDNO endZadig
+;    ExecWait "$INSTDIR\zadig_2.2.exe"
+;    ;Goto endZadig
+;  ;endZadig:
+;SectionEnd
+;
+;!insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
+;  !insertmacro MUI_DESCRIPTION_TEXT ${SectionMVME} "The mvme application and its dependencies."
+;  !insertmacro MUI_DESCRIPTION_TEXT ${SectionZadig} "Run the Zadig USB Driver installer."
+;!insertmacro MUI_FUNCTION_DESCRIPTION_END
 
 ;--------------------------------
 ; Create custom pages
