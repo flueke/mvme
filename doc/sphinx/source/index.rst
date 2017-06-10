@@ -3,6 +3,9 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
+.. Note (flueke): Helpful links regarding Sphinx markup
+.. http://www.sphinx-doc.org/en/stable/markup/misc.html#index-generating-markup
+
 Welcome to mvme's documentation!
 ================================
 
@@ -10,16 +13,19 @@ Welcome to mvme's documentation!
    :maxdepth: 2
    :caption: Contents:
 
-..   intro
-..   quickstart
-..   architecture
-..   vme_script
+   intro
+   quickstart
+   architecture
 ..   analysis
+..   vme_script
 
+
+.. index:: ! IndexPage
 
 Introduction
 -------------------------------------------------
 Intro text goes here
+Testing a link here: :any:`architecture`
 
 Features
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
