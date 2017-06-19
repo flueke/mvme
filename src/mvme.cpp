@@ -38,6 +38,9 @@
 #include "histo2d_widget.h"
 #include "analysis/analysis_ui.h"
 #include "qt_util.h"
+#ifdef MVME_USE_GIT_VERSION_FILE
+#include "git_sha1.h"
+#endif
 
 #include <QDockWidget>
 #include <QFileDialog>

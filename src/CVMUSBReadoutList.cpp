@@ -193,6 +193,8 @@ void CVMUSBReadoutList::addScriptCommand(const vme_script::Command &cmd)
     switch (cmd.type)
     {
         case CommandType::Invalid:
+        case CommandType::SetBase:
+        case CommandType::ResetBase:
             break;
 
         case CommandType::Read:

@@ -449,7 +449,7 @@ VMEError VMUSB::writeRegister(u32 address, u32 value)
     CVMUSBReadoutList readoutList;
     readoutList.addRegisterWrite(address, value);
     auto ret =  listExecute(&readoutList, &value, sizeof(value), &bytesRead);
-    qDebug("writeRegister response: value=0x%08x, bytes=%d", value, bytesRead);
+    qDebug("writeRegister response: value=0x%08x, bytes=%lu", value, bytesRead);
     return ret;
 }
 
@@ -1002,7 +1002,7 @@ int VMUSB::setScalerTiming(unsigned int frequency, unsigned char period, unsigne
   }
   else
     qDebug("Write failed");
-  qDebug("timing val = %lx, register: %lx", val, retval);
+  qDebug("timing val = %x, register: %x", val, retval);
   return daqSettings;
 }
 

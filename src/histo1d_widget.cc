@@ -21,7 +21,6 @@
 #include "scrollzoomer.h"
 #include "util.h"
 #include "analysis/analysis.h"
-#include "qt-collapsible-section/Section.h"
 #include "mvme_context.h"
 
 #include <qwt_plot_curve.h>

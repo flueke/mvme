@@ -577,8 +577,6 @@ void VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
     qDebug() << __PRETTY_FUNCTION__;
 #endif
 
-    using LF = listfile_v1;
-
     auto stats = getStats();
     u64 bufferNumber = stats->totalBuffersRead;
     BufferIterator iter(readBuffer->data, readBuffer->used, BufferIterator::Align16);

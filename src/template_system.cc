@@ -104,12 +104,12 @@ namespace
             vmeTemplate.sourceFileName = baseDir.relativeFilePath(entryFilePath); // dir.filePath(fileName);
 
             QRegularExpression re;
-            re.setPattern("^init-\\d\\d-(.*)\.vmescript$");
+            re.setPattern("^init-\\d\\d-(.*)\\.vmescript$");
             auto match = re.match(fileName);
 
             if (!match.hasMatch())
             {
-                re.setPattern("^init-(.*)\.vmescript$");
+                re.setPattern("^init-(.*)\\.vmescript$");
                 match = re.match(fileName);
             }
 
@@ -318,6 +318,8 @@ QTextStream &operator<<(QTextStream &out, const MVMETemplates &templates)
         }
         out << "<<<<< VME Templates >>>>>" << endl;
     }
+
+    return out;
 }
 
 } // namespace vats

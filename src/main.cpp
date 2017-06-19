@@ -20,6 +20,10 @@
 #include "globals.h"
 #include "vme_controller.h"
 
+#ifdef MVME_USE_GIT_VERSION_FILE
+#include "git_sha1.h"
+#endif
+
 #include <QApplication>
 #include <QDebug>
 #include <QLibraryInfo>

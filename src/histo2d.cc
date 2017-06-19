@@ -40,13 +40,16 @@ void Histo2D::resize(s32 xBins, s32 yBins)
 {
     Q_ASSERT(xBins > 0 && yBins > 0);
 
-    if (xBins * yBins != m_axisBinnings[Qt::XAxis].getBins() * m_axisBinnings[Qt::YAxis].getBins())
+    u32 xBinsNew = static_cast<u32>(xBins);
+    u32 yBinsNew = static_cast<u32>(yBins);
+
+    if (xBinsNew * yBinsNew != m_axisBinnings[Qt::XAxis].getBins() * m_axisBinnings[Qt::YAxis].getBins())
     {
         // Reallocate memory for the new size
         delete[] m_data;
         try
         {
-            m_data = new double[xBins * yBins];
+            m_data = new double[xBinsNew * yBinsNew];
         }
         catch (const std::bad_alloc &)
         {
@@ -57,8 +60,8 @@ void Histo2D::resize(s32 xBins, s32 yBins)
 
     // Always update the number of bins on both axes, even if the total number
     // stayed the same, because 10bit:10bit might become 9bit:11bit.
-    m_axisBinnings[Qt::XAxis].setBins(xBins);
-    m_axisBinnings[Qt::YAxis].setBins(yBins);
+    m_axisBinnings[Qt::XAxis].setBins(xBinsNew);
+    m_axisBinnings[Qt::YAxis].setBins(yBinsNew);
     clear();
 }
 

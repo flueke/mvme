@@ -618,6 +618,9 @@ bool AddEditOperatorWidget::eventFilter(QObject *watched, QEvent *event)
             m_eventWidget->highlightInputOf(slot, event->type() == QEvent::Enter);
         }
     }
+
+    // Do not filter the event out.
+    return false;
 }
 
 /* Resizes the widget to have a minimum size when it's first shown.

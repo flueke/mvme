@@ -46,11 +46,6 @@
     <file alias="splash-screen.png">resources/Splash_Screen.png</file>
     <file alias="mesytec-window-icon.png">resources/mesytec-window-icon.png</file>
     <file alias="vme-script-help.html">resources/vme-script-help.html</file>
-
-
-    <!-- Stylesheet to play around with.
-    <file alias="stylesheet.qss">resources/stylesheet.qss</file>
-    -->
 </qresource>
 </RCC>
 <!-- vim:ft=xml

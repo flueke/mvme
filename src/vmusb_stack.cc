@@ -29,7 +29,7 @@ VMEError VMUSBStack::loadStack(VMUSB *vmusb)
 {
     auto contents = getContents();
 
-    qDebug("VMUSBStack::loadStack(): id=%u, loadOffset=%u, length=%u",
+    qDebug("VMUSBStack::loadStack(): id=%u, loadOffset=%lu, length=%d",
            getStackID(), loadOffset, contents.size());
 
     for (u32 line: contents)

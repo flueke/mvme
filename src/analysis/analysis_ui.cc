@@ -2236,19 +2236,6 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, AnalysisWidget 
     m_d->m_pipeDisplayRefreshTimer = new QTimer(this);
     m_d->m_pipeDisplayRefreshTimer->start(pipeDisplayRefreshInterval_ms);
 
-    int eventIndex = -1;
-    auto eventConfigs = m_d->m_context->getEventConfigs();
-    for (int idx = 0; idx < eventConfigs.size(); ++idx)
-    {
-        if (eventConfigs[idx]->getId() == eventId)
-        {
-            eventIndex = idx;
-            break;
-        }
-    }
-
-    m_d->m_eventId = eventId;
-
     auto outerLayout = new QHBoxLayout(this);
     outerLayout->setContentsMargins(0, 0, 0, 0);
 
@@ -2498,7 +2485,6 @@ void EventWidget::addSource(SourcePtr src, ModuleConfig *module, bool addHistogr
 {
     if (!src) return;
 
-    auto indices = m_d->m_context->getVMEConfig()->getEventAndModuleIndices(module);
     auto analysis = m_d->m_context->getAnalysis();
 
     try

@@ -126,7 +126,7 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *modul
     });
 
     typeCombo = new QComboBox;
-    int typeComboIndex = 0;
+    int typeComboIndex = -1;
 
     for (const auto &mm: m_moduleMetas)
     {

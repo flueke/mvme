@@ -149,6 +149,9 @@ void maybe_set_warning(Command &cmd, int lineNumber)
                     cmd.warning = QSL("Given base address has some of the low 16-bits set");
                 }
             } break;
+
+        default:
+            break;
     }
 
     if (cmd.warning.isEmpty())
@@ -165,6 +168,9 @@ void maybe_set_warning(Command &cmd, int lineNumber)
                         cmd.warning = QSL("Given block_address exceeds 0xffff");
                     }
                 } break;
+
+            default:
+                break;
         }
     }
 }
