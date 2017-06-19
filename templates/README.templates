@@ -28,6 +28,9 @@ Other subdirectories represent VME modules. The layout is:
     typeName:       The _unique_ module type name used in VME and analysis configuration files.
     displayName:    User visible name of the module
 
+  Important: typeIds and typeNames must not be changed once they're in use for a module. Doing so
+  would break listfile and config file compatibility!
+
 * vme/
   readout.vmescript     The readout commands for this module. Becomes part of the readout stack for the
                         corresponding event.
