@@ -1,0 +1,49 @@
+Each subdirectory (with the exception of the 'event' directory) contains the
+template data for one VME module.
+
+The special 'event' directory should contain 4 vmescript files:
+
+  event_daq_start.vmescript         Executed at DAQ start time. Used for multicast Counter reset and
+                                    Acq start.
+  event_daq_stop.vmescript          Executed at DAQ stop time. Used for multicast Acq stop.
+  readout_cycle_start.vmescript     Start of the readout commands. Currently empty.
+  readout_cycle_end.vmescript       End of the readout commands. Used for multicast readout reset.
+
+These files are loaded when the user creates a new event via the GUI.
+
+Other subdirectories represent VME modules. The layout is:
+
+  module_dir/
+    module_info.json
+    analysis/
+      default_filters.analysis
+    vme/
+      init-00-Module Init.vmescript
+      init-01-VME Interface Settings.vmescript
+      readout.vmescript
+      reset.vmescript
+
+* module_info.json
+    typeId:         The _unique_ module identifier used in the listfile section header.
+    typeName:       The _unique_ module type name used in VME and analysis configuration files.
+    displayName:    User visible name of the module
+
+* vme/
+  readout.vmescript     The readout commands for this module. Becomes part of the readout stack for the
+                        corresponding event.
+  reset.vmescript       Special module reset script. Used at DAQ start time before configuring the
+                        module. Should leave the module in a clean default state.
+
+  init-00-Module Init.vmescript
+  init-01-VME Interface Settings.vmescript
+  ... More scripts as required by the module. These scripts are loaded in alphabetical order when
+      creating a new module. At DAQ start time the scripts are executed in order to initialize the
+      module. The part after the second '-' and before the filename extension is used in the GUI as
+      the script title.
+
+* analysis/
+  - default_filters.analysis:
+    An analysis file created via the GUI which is used when choosing the 'Generate default filters'
+    action and when adding a new filter: The file is loaded as a standard analysis file and the
+    Extractor (aka data filter) entries contained within are used to generate the filters or
+    populate the filter GUI. Other analysis elements are ignored.
