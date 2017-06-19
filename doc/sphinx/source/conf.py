@@ -88,7 +88,9 @@ html_theme = 'alabaster'
 # further.  For a list of options available for each theme, see the
 # documentation.
 #
-# html_theme_options = {}
+html_theme_options = {
+        'page_width': '90%' # Default: '940px'
+        }
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
@@ -176,10 +178,15 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'mvme.tex', u'mvme Documentation',
+    (master_doc, 'mvme.tex', u'mvme - mesytec VME Data Acquisition',
      u'Florian Lüke \\textless{}f.lueke@mesytec.com\\textgreater{}', 'manual'),
 ]
 
+#latex_logo = 'mesytec-logo-yellow.png'
+
+latex_additional_files = [
+        'mesytec-logo-yellow.png'
+        ]
 
 # -- Options for manual page output ---------------------------------------
 
@@ -198,7 +205,7 @@ man_pages = [
 #  dir menu entry, description, category)
 texinfo_documents = [
     (master_doc, 'mvme', u'mvme Documentation',
-     author, 'mvme', 'Mesytec VME Data Acquisition',
+     author, 'mvme', 'mesytec VME Data Acquisition',
      'Miscellaneous'),
 ]
 

@@ -1,2 +1,5 @@
 = Clang Asan options =
 export ASAN_OPTIONS="detect_leaks=false"
+
+= Can be used for changelog creation =
+git log --no-merges --pretty="format:%aD, %an, * %s [%an - %h] %b"
