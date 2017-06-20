@@ -32,3 +32,55 @@ System Requirements
 
   The windows installer can optionally run a program to handle the driver installation (Zadig).
 * At least 4 GB RAM is recommended.
+
+Installation
+------------
+.. warning::
+    TODO: Write this
+
+Quickstart
+----------
+.. warning::
+    INCOMPLETE
+
+The quickstart guide explains how to create a simple setup using the VMUSB VME
+controller and one mesytec VME module. Data acquisition is triggered by the
+module using IRQ1. The internal pulser is used to generate test data.
+Additionally the modules event counter registers are read out periodically
+using a different trigger.
+
+* Start **mvme** and create a new workspace directory using the file dialog
+  that should open up. This directory will hold all configuration files,
+  recorded listfiles, exported plots, etc.
+
+* Three windows will open:
+  * A main window containing DAQ and listfile controls, the VME configuration
+    tree and a DAQ statistics area.
+  * The analysis window. As there are no VME events and modules defined yet the
+    window will be empty.
+  * A log view where runtime messages will appear.
+
+* Create a VME event:
+  * Right click the *Events* entry in the VME tree and select *Add Event*.
+  * Select *Interrupt* in the *Condition* combobox. Keep the defaults of *IRQ
+    Level = 1* and *IRQ Vector = 0*.
+
+* Create a VME module:
+  * Right click the newly created event (called "event0" by default) and select
+    *Add Module*.
+  * Select your module type and optionally give the module a name. If the
+    modules address encoders are set to anything other than ``0000`` adjust the
+    *Address* value accordingly.
+
+.. ==================================================
+.. Quickstart
+.. ==================================================
+.. .. FIXME: Incomplete and not great
+.. * Create event, select irq 1, vector 0.
+.. * Create module, edit module interface settings. Change irq to 1.
+.. * Edit module settings, enable pulser for testing
+.. * In the analysis window right click the module and select 'generate default filters'
+.. * In the main window press start to enter DAQ mode.
+.. * Check the log for any errors that might have occured during initialization
+.. * Double click the amplitude histograms to verify the pulser is working and
+..   data is being received properly.

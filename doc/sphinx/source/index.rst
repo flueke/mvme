@@ -24,15 +24,14 @@ mvme - mesytec VME Data Acquisition
 ==================================================
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
    :caption: Contents:
 
    intro
-   quickstart
    vme_script
+   analysis
 
 ..   architecture
-..   analysis
 
 
 

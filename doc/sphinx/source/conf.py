@@ -116,14 +116,19 @@ latex_elements = {
     #
     # 'pointsize': '10pt',
 
+    'classoptions': ',openany,oneside',
+
     # Additional stuff for the LaTeX preamble.
     #
     # 'preamble': '',
+
     'preamble': r'''
 % lastpage is used to get the total number of pages
 \usepackage{lastpage}
 %\usepackage[head=36.16432pt,foot=8.39996pt]{geometry}
-\setlength{\footskip}{1.39996pt}
+
+%\setlength{\headheight}{36.16432pt}
+%\setlength{\footskip}{8.39996pt}
 
 \newcommand{\mesyteccontact}{
     \tiny{\textsf{mesytec GmbH \& Co. KG\\
