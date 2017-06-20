@@ -1,5 +1,12 @@
+=====================================
+VME / Analysis Template System (VATS)
+=====================================
+
 Each subdirectory (with the exception of the 'event' directory) contains the
 template data for one VME module.
+
+Event Templates
+---------------
 
 The special 'event' directory should contain 4 vmescript files:
 
@@ -10,6 +17,9 @@ The special 'event' directory should contain 4 vmescript files:
   readout_cycle_end.vmescript       End of the readout commands. Used for multicast readout reset.
 
 These files are loaded when the user creates a new event via the GUI.
+
+Module Templates
+----------------
 
 Other subdirectories represent VME modules. The layout is:
 
@@ -23,8 +33,11 @@ Other subdirectories represent VME modules. The layout is:
       readout.vmescript
       reset.vmescript
 
+Description of the per module files and directories:
+
 * module_info.json
-    typeId:         The _unique_ module identifier used in the listfile section header.
+    typeId:         The _unique_ module identifier used in the listfile event header (8 bit
+                    ModuleTypeMask).
     typeName:       The _unique_ module type name used in VME and analysis configuration files.
     displayName:    User visible name of the module
 
@@ -50,3 +63,22 @@ Other subdirectories represent VME modules. The layout is:
     action and when adding a new filter: The file is loaded as a standard analysis file and the
     Extractor (aka data filter) entries contained within are used to generate the filters or
     populate the filter GUI. Other analysis elements are ignored.
+
+Previous Module Type Enum
+-------------------------
+Before adding the VATS a hardcoded enum was used to hold the module type IDs. The original values
+are included for reference:
+
+enum class VMEModuleType
+{
+    Invalid = 0,
+    MADC32  = 1,
+    MQDC32  = 2,
+    MTDC32  = 3,
+    MDPP16  = 4,
+    MDPP32  = 5,
+    MDI2    = 6,
+
+    MesytecCounter = 16,
+    VHS4030p = 21,
+};
