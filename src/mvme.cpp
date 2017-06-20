@@ -496,9 +496,7 @@ void mvme::activateObjectWidget(QObject *object)
 {
     if (auto widget = getObjectWidget(object))
     {
-        widget->show();
-        widget->showNormal();
-        widget->raise();
+        show_and_activate(widget);
     }
 }
 
@@ -793,9 +791,7 @@ void mvme::on_actionCloseListfile_triggered()
 
 void mvme::on_actionMainWindow_triggered()
 {
-    raise();
-    showNormal();
-    show();
+    show_and_activate(this);
 }
 
 void mvme::on_actionAnalysis_UI_triggered()
@@ -816,9 +812,7 @@ void mvme::on_actionAnalysis_UI_triggered()
         analysisUi->setAttribute(Qt::WA_DeleteOnClose);
     }
 
-    analysisUi->show();
-    analysisUi->showNormal();
-    analysisUi->raise();
+    show_and_activate(analysisUi);
 }
 
 void mvme::on_actionVME_Debug_triggered()
@@ -836,9 +830,7 @@ void mvme::on_actionVME_Debug_triggered()
         m_geometrySaver->addAndRestore(m_vmeDebugWidget, QSL("WindowGeometries/VMEDebug"));
     }
 
-    m_vmeDebugWidget->show();
-    m_vmeDebugWidget->showNormal();
-    m_vmeDebugWidget->raise();
+    show_and_activate(m_vmeDebugWidget);
 }
 
 static const size_t LogViewMaximumBlockCount = Megabytes(1);
@@ -874,9 +866,7 @@ void mvme::on_actionLog_Window_triggered()
         m_geometrySaver->addAndRestore(m_logView, QSL("WindowGeometries/LogView"));
     }
 
-    m_logView->show();
-    m_logView->showNormal();
-    m_logView->raise();
+    show_and_activate(m_logView);
 }
 
 void mvme::on_actionVMUSB_Firmware_Update_triggered()
@@ -1140,9 +1130,7 @@ void mvme::on_actionVMEScriptRef_triggered()
     if (it != widgets.end())
     {
         auto widget = *it;
-        widget->show();
-        widget->showNormal();
-        widget->raise();
+        show_and_activate(widget);
     }
     else
     {

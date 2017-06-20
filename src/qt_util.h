@@ -81,4 +81,6 @@ void set_widget_font_pointsize(QWidget *widget, s32 pointSize);
 QToolBar *make_toolbar(QWidget *parent = nullptr);
 QStatusBar *make_statusbar(QWidget *parent = nullptr);
 
+void show_and_activate(QWidget *widget);
+
 #endif /* __QT_UTIL_H__ */

@@ -183,3 +183,12 @@ QStatusBar *make_statusbar(QWidget *parent)
     set_widget_font_pointsize(result, 7);
     return result;
 }
+
+void show_and_activate(QWidget *widget)
+{
+    widget->show();
+    widget->showNormal();
+    widget->raise();
+    widget->activateWindow();
+    widget->setWindowState(Qt::WindowActive);
+}
