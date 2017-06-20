@@ -841,6 +841,8 @@ void mvme::on_actionVME_Debug_triggered()
     m_vmeDebugWidget->raise();
 }
 
+static const size_t LogViewMaximumBlockCount = Megabytes(1);
+
 void mvme::on_actionLog_Window_triggered()
 {
     if (!m_logView)
@@ -853,7 +855,7 @@ void mvme::on_actionLog_Window_triggered()
         font.setStyleHint(QFont::Monospace);
         m_logView->setFont(font);
         m_logView->setTabChangesFocus(true);
-        m_logView->document()->setMaximumBlockCount(10 * 1024 * 1024);
+        m_logView->document()->setMaximumBlockCount(LogViewMaximumBlockCount);
         m_logView->setContextMenuPolicy(Qt::CustomContextMenu);
         m_logView->setStyleSheet("background-color: rgb(225, 225, 225);");
         add_widget_close_action(m_logView);
