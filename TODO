@@ -1,6 +1,10 @@
 ==========================
 ==== Do these first! =====
 ==========================
+* Logspam still makes the app hang! Fix this!!!
+
+
+* Add Module dialog does not fill in a module name on being shown
 * Diagnostics UI: make sigma text way bigger for andi.
   Nice solution could be to use an instant tooltip with a big font size
 * HDF5 and Root file writing support!
