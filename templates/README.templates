@@ -2,6 +2,12 @@
 VME / Analysis Template System (VATS)
 =====================================
 
+Note: To get a listing of which templates are loaded and which modules are defined start mvme and
+use 'Tools -> VME/Analysis Template System Info'.
+
+Note: User defined module typeIds start at 160. Ids < 160 are reserved!
+
+
 Each subdirectory (with the exception of the 'event' directory) contains the
 template data for one VME module.
 
