@@ -28,6 +28,8 @@ mvme - mesytec VME Data Acquisition
    :caption: Contents:
 
    intro
+   installation
+   quickstart
    vme_script
    analysis
 
@@ -35,30 +37,14 @@ mvme - mesytec VME Data Acquisition
 
 
 
-.. index:: ! IndexPage
+.. .. index:: ! IndexPage
 
-.. Introduction
-.. -------------------------------------------------
-.. Intro text goes here
-.. Testing a link here: :any:`architecture`
-.. 
-.. Features
-.. ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. * F1
-.. * F2
-.. * F42!
-.. 
-.. Quickstart
-.. -------------------------------------------------
-.. 
-.. Another Section that should get a nice tag
-.. -------------------------------------------------
+.. only:: html
 
+  Indices and tables
+  ==================
 
-.. Indices and tables
-.. ==================
-.. 
-.. * :ref:`genindex`
-.. * :ref:`modindex`
-.. * :ref:`search`
+  * :ref:`genindex`
+  * :ref:`modindex`
+  * :ref:`search`
 

@@ -49,9 +49,20 @@ The commands below use the following values for address modifiers and data width
 The combination of amode, dwidth and BLT/MBLT yields a VME address modifier to be sent over the bus.
 Internally these non-privileged (aka user) address modifiers will be used:
 
-* A16: 0x29
-* A24: 0x39, BLT=0x3b
-* A32: 0x09, BLT=0x0b, MBLT=0x08
+.. table:: VME address modifiers used by **mvme**
+  :name: vme-address-modifiers
+
+  +-----------+------------+---------+----------+
+  | **amode** | **single** | **BLT** | **MBLT** |
+  +===========+============+=========+==========+
+  | A16       | 0x29       |         |          |
+  +-----------+------------+---------+----------+
+  | A24       | 0x39       | 0x3b    |          |
+  +-----------+------------+---------+----------+
+  | A32       | 0x09       | 0x0b    | 0x08     |
+  +-----------+------------+---------+----------+
+
+Refer to http://www.struck.de/vmeam.htm for a listing of possible VME address modifiers.
 
 Numbers in the script (addresses, transfer counts, masks) may be specified in decimal, octal or hex
 using the standard C prefixes (``0x`` for hex, ``0`` for octal). Additionally register values may be
@@ -173,8 +184,11 @@ Example
     # until resetbase is used.
     setbase 0xbb000000
 
-    # Results in a a32, d16 write to 0xbb006070.
+    # Results in an a32/d16 write to 0xbb006070.
     0x6070 5
 
     # Restore the original base address.
     resetbase
+
+    # Binary notation for the register value.
+    0x6070 0b0000'0101

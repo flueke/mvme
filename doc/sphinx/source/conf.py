@@ -172,11 +172,14 @@ latex_elements = {
 % Use \pagestyle{normal} as the primary pagestyle for text.
 \pagestyle{normal}
 \thispagestyle{plain}
-'''
+''',
 
     # Latex figure (float) alignment
     #
     # 'figure_align': 'htbp',
+
+    # Use the babel package to generate latex indices
+    'babel': '\\usepackage{babel}',
 }
 
 # Grouping the document tree into LaTeX files. List of tuples
@@ -190,7 +193,7 @@ latex_documents = [
 #latex_logo = 'mesytec-logo-yellow.png'
 
 latex_additional_files = [
-        'mesytec-logo-yellow.png'
+        'images/mesytec-logo-yellow.png'
         ]
 
 # -- Options for manual page output ---------------------------------------

@@ -27,50 +27,21 @@ System Requirements
 
   32 bit builds are possible but not recommended as the limited address space can be quickly used up
   when creating multiple histograms.
-* WIENER VMUSB VME Controller
+* WIENER VM-USB VME Controller
 * libusb-0.1 (Linux) / libusb-win32 (Windows)
 
   The windows installer can optionally run a program to handle the driver installation (Zadig).
+
+  It is also possible to compile builds using libusb-1.0 instead of the old libusb-0.1 API.
+
+.. warning::
+    TODO: Refer to the build instructions
+
+
 * At least 4 GB RAM is recommended.
 
-Installation
-------------
-.. warning::
-    TODO: Write this
 
-Quickstart
-----------
-.. warning::
-    INCOMPLETE
 
-The quickstart guide explains how to create a simple setup using the VMUSB VME
-controller and one mesytec VME module. Data acquisition is triggered by the
-module using IRQ1. The internal pulser is used to generate test data.
-Additionally the modules event counter registers are read out periodically
-using a different trigger.
-
-* Start **mvme** and create a new workspace directory using the file dialog
-  that should open up. This directory will hold all configuration files,
-  recorded listfiles, exported plots, etc.
-
-* Three windows will open:
-  * A main window containing DAQ and listfile controls, the VME configuration
-    tree and a DAQ statistics area.
-  * The analysis window. As there are no VME events and modules defined yet the
-    window will be empty.
-  * A log view where runtime messages will appear.
-
-* Create a VME event:
-  * Right click the *Events* entry in the VME tree and select *Add Event*.
-  * Select *Interrupt* in the *Condition* combobox. Keep the defaults of *IRQ
-    Level = 1* and *IRQ Vector = 0*.
-
-* Create a VME module:
-  * Right click the newly created event (called "event0" by default) and select
-    *Add Module*.
-  * Select your module type and optionally give the module a name. If the
-    modules address encoders are set to anything other than ``0000`` adjust the
-    *Address* value accordingly.
 
 .. ==================================================
 .. Quickstart
