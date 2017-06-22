@@ -1,23 +1,21 @@
 ==================================================
-Quickstart
+Quickstart Tutorial
 ==================================================
 
 The quickstart guide explains how to create a simple setup using the **VM-USB**
 VME controller and one **mesytec** VME module. The internal pulser is used to
 generate test data. Data acquisition is triggered by the module using IRQ1.
 
-.. FIXME
-.. Additionally the modules event counter registers are read out periodically
-.. using a second trigger.
+.. TODO: Add a second, periodic event to read out the event counter
 
 .. note::
   In this example an MDPP-16 with the SCP firmware is used but any **mesytec**
-  VME module should work. What might need to be adapted is the value of the
-  pulser register (0x6070). Refer to the modules manual for details.
+  VME module should work. What might need to be adapted is the value written to
+  the pulser register (0x6070). Refer to the modules manual for details.
 
-* Start **mvme** and create a new workspace directory using the file dialog
-  that should open up. This directory will hold all configuration files,
-  recorded listfiles, exported plots, etc.
+* Start mvme and create a new workspace directory using the file dialog that
+  should open up. This directory will hold all configuration files, recorded
+  listfiles, exported plots, etc.
 
 * Three windows will open:
 
@@ -31,7 +29,7 @@ generate test data. Data acquisition is triggered by the module using IRQ1.
 
 VME Setup
 ---------
-* Select the **mvme** main window.
+* Select the mvme main window.
 
 * Create a VME event:
 
@@ -90,7 +88,7 @@ Analysis Setup
 .. figure:: images/intro_analysis_default_filters.png
    :width: 8cm
 
-   MDPP-16 default filters
+   Analysis UI with MDPP-16 default objects
 
 
 Starting the DAQ
@@ -99,15 +97,29 @@ Activate the main window again (``Ctrl+1``). Make sure the *VME Controller* is
 shown as *Connected* in the top part of the window. Optionally uncheck the box
 titled *Write Listfile* to avoid writing the test data to disk.
 
+.. _intro-daq-control:
+
+.. figure:: images/intro_daq_control.png
+   :width: 8cm
+
+   DAQ control
+
 Press the *Start* button to start the DAQ. Check the *Log View* (``Ctrl+3``)
 for warnings and errors.
 
 In the *Analysis UI* double-click the histogram entry called *amplitude_raw*
-(lower-left corner in the *L0 Data Display* tree) to open a histogram window.
+(bottom-left corner in the *L0 Data Display* tree) to open a histogram window.
 
 If data acquisition and data extraction are working properly you should see new
 data appear in the histogram. Use the spinbox at the top right to cycle through
 the individual channels.
+
+.. _intro-amplitude-histogram:
+
+.. figure:: images/intro_amplitude_histogram.png
+   :width: 12cm
+
+   Amplitude histogram
 
 You can pause and/or stop the DAQ at any time using the corresponding buttons
 at the top of the main window.

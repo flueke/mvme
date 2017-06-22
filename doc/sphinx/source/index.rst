@@ -6,38 +6,18 @@
 .. Note (flueke): Helpful links regarding Sphinx markup
 .. http://www.sphinx-doc.org/en/stable/markup/misc.html#index-generating-markup
 
-.. Generating keywords when using the qthelp system:
-.. .. index:: Something Wicked
-.. Something wicked this way comes
-.. -------------------------------
-.. Nay!
-.. 
-.. .. index:: Pair and Couple
-..    pair: foo; bar
-..    single: coupling
-.. A pair might be a couple
-.. -------------------------------
-.. Yay!
-
-==================================================
+##################################################
 mvme - mesytec VME Data Acquisition
-==================================================
+##################################################
 
 .. toctree::
    :maxdepth: 3
    :caption: Contents:
 
    intro
-   installation
-   quickstart
-   vme_script
-   analysis
-
-..   architecture
+   reference
 
 
-
-.. .. index:: ! IndexPage
 
 .. only:: html
 
@@ -48,3 +28,12 @@ mvme - mesytec VME Data Acquisition
   * :ref:`modindex`
   * :ref:`search`
 
+
+.. architecture
+
+.. Generating keywords for the qthelp system:
+.. .. index:: Something Wicked
+
+.. .. index:: Pair and Couple
+..    pair: foo; bar
+..    single: coupling
