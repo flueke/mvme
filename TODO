@@ -11,12 +11,6 @@
   Nice solution could be to use an instant tooltip with a big font size
 * HDF5 and Root file writing support!
   Also implement read support for HDF5
-* Add a 'custom' vme module type.
-  These custom modules would probably want their own typeId and typeName. This
-  way a user could have multiple different custom modules in a single setup and
-  still be able to distinguish them. => Reserve a portion of the available
-  typeIds for custom modules. At runtime perform checks to make sure the custom
-  typeId and typeName are unique.
 * Templates are not properly installed by the NSIS installer? (Robert)
 * Histo1D and Histo1DWidget
     * Implement Histogram rebinning
