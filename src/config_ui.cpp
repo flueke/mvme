@@ -138,13 +138,25 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *modul
         }
     }
 
+    if (typeComboIndex < 0 && !m_moduleMetas.isEmpty())
+    {
+        typeComboIndex = 0;
+    }
+
     nameEdit = new QLineEdit;
 
     auto onTypeComboIndexChanged = [this](int index)
     {
-        Q_ASSERT(index < m_moduleMetas.size());
-        const auto &mm(m_moduleMetas[index]);
-        QString name = m_context->getUniqueModuleName(mm.typeName);
+        Q_ASSERT(0 <= index && index < m_moduleMetas.size());
+
+        QString name = m_module->objectName();
+
+        if (name.isEmpty())
+        {
+            const auto &mm(m_moduleMetas[index]);
+            name = m_context->getUniqueModuleName(mm.typeName);
+        }
+
         nameEdit->setText(name);
     };
 
@@ -155,11 +167,6 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *modul
     {
         typeCombo->setCurrentIndex(typeComboIndex);
         onTypeComboIndexChanged(typeComboIndex);
-    }
-
-    if (!module->objectName().isEmpty())
-    {
-        nameEdit->setText(module->objectName());
     }
 
     addressEdit = new QLineEdit;
