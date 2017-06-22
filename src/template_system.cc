@@ -143,7 +143,7 @@ QString get_template_path()
 MVMETemplates read_templates(TemplateLogger logger)
 {
     QString templatePath = get_template_path();
-    do_log(QString("Template Path is %1").arg(templatePath), logger);
+    do_log(QString("Loading templates from %1").arg(templatePath), logger);
     return read_templates_from_path(templatePath, logger);
 }
 
@@ -157,10 +157,17 @@ MVMETemplates read_templates_from_path(const QString &path, TemplateLogger logge
     const QDir baseDir(path);
     MVMETemplates result;
 
-    result.eventTemplates.daqStart          = read_vme_template(baseDir.filePath(QSL("event/event_daq_start.vmescript")), QSL("DAQ Start"), logger, baseDir);
-    result.eventTemplates.daqStop           = read_vme_template(baseDir.filePath(QSL("event/event_daq_stop.vmescript")), QSL("DAQ Stop"), logger, baseDir);
-    result.eventTemplates.readoutCycleStart = read_vme_template(baseDir.filePath(QSL("event/readout_cycle_start.vmescript")), QSL("Cycle Start"), logger, baseDir);
-    result.eventTemplates.readoutCycleEnd   = read_vme_template(baseDir.filePath(QSL("event/readout_cycle_end.vmescript")), QSL("Cycle End"), logger, baseDir);
+    result.eventTemplates.daqStart          = read_vme_template(baseDir.filePath(QSL("event/event_daq_start.vmescript")),
+                                                                QSL("DAQ Start"), logger, baseDir);
+
+    result.eventTemplates.daqStop           = read_vme_template(baseDir.filePath(QSL("event/event_daq_stop.vmescript")),
+                                                                QSL("DAQ Stop"), logger, baseDir);
+
+    result.eventTemplates.readoutCycleStart = read_vme_template(baseDir.filePath(QSL("event/readout_cycle_start.vmescript")),
+                                                                QSL("Cycle Start"), logger, baseDir);
+
+    result.eventTemplates.readoutCycleEnd   = read_vme_template(baseDir.filePath(QSL("event/readout_cycle_end.vmescript")),
+                                                                QSL("Cycle End"), logger, baseDir);
 
     auto dirEntries = baseDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot | QDir::Readable);
 

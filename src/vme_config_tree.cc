@@ -670,7 +670,8 @@ void VMEConfigTreeWidget::addEvent()
     {
         if (config->triggerCondition != TriggerCondition::Periodic)
         {
-            VMEEventTemplates templates = read_templates().eventTemplates;
+            auto logger = [this](const QString &msg) { m_context->logMessage(msg); };
+            VMEEventTemplates templates = read_templates(logger).eventTemplates;
 
             config->vmeScripts["daq_start"]->setScriptContents(templates.daqStart.contents);
             config->vmeScripts["daq_stop"]->setScriptContents(templates.daqStop.contents);
