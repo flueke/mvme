@@ -440,6 +440,7 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
     auto node = m_tree->itemAt(pos);
     auto parent = node ? node->parent() : nullptr;
     auto obj = node ? Var2Ptr<ConfigObject>(node->data(0, DataRole_Pointer)) : nullptr;
+    bool isIdle = (m_context->getDAQState() == DAQState::Idle);
 
     QMenu menu;
 
@@ -448,7 +449,8 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
     //
     if (qobject_cast<VMEScriptConfig *>(obj))
     {
-        menu.addAction(QSL("Run Script"), this, &VMEConfigTreeWidget::runScripts);
+        if (isIdle)
+            menu.addAction(QSL("Run Script"), this, &VMEConfigTreeWidget::runScripts);
     }
 
     //
@@ -456,30 +458,48 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
     //
     if (node == m_nodeEvents)
     {
-        menu.addAction(QSL("Add Event"), this, &VMEConfigTreeWidget::addEvent);
+        if (isIdle)
+            menu.addAction(QSL("Add Event"), this, &VMEConfigTreeWidget::addEvent);
     }
 
     if (node && node->type() == NodeType_Event)
     {
-        menu.addAction(QSL("Edit Event"), this, &VMEConfigTreeWidget::editEvent);
-        menu.addAction(QSL("Add Module"), this, &VMEConfigTreeWidget::addModule);
+        if (isIdle)
+            menu.addAction(QSL("Edit Event"), this, &VMEConfigTreeWidget::editEvent);
+
+        if (isIdle)
+            menu.addAction(QSL("Add Module"), this, &VMEConfigTreeWidget::addModule);
+
         menu.addAction(QSL("Rename Event"), this, &VMEConfigTreeWidget::editName);
-        menu.addSeparator();
-        menu.addAction(QSL("Remove Event"), this, &VMEConfigTreeWidget::removeEvent);
+
+        if (isIdle)
+        {
+            menu.addSeparator();
+            menu.addAction(QSL("Remove Event"), this, &VMEConfigTreeWidget::removeEvent);
+        }
     }
 
     if (node && node->type() == NodeType_EventModulesInit)
     {
-        menu.addAction(QSL("Add Module"), this, &VMEConfigTreeWidget::addModule);
+        if (isIdle)
+            menu.addAction(QSL("Add Module"), this, &VMEConfigTreeWidget::addModule);
     }
 
     if (node && node->type() == NodeType_Module)
     {
-        menu.addAction(QSL("Init Module"), this, &VMEConfigTreeWidget::initModule);
-        menu.addAction(QSL("Edit Module"), this, &VMEConfigTreeWidget::editModule);
+        if (isIdle)
+        {
+            menu.addAction(QSL("Init Module"), this, &VMEConfigTreeWidget::initModule);
+            menu.addAction(QSL("Edit Module"), this, &VMEConfigTreeWidget::editModule);
+        }
+
         menu.addAction(QSL("Rename Module"), this, &VMEConfigTreeWidget::editName);
-        menu.addSeparator();
-        menu.addAction(QSL("Remove Module"), this, &VMEConfigTreeWidget::removeModule);
+
+        if (isIdle)
+        {
+            menu.addSeparator();
+            menu.addAction(QSL("Remove Module"), this, &VMEConfigTreeWidget::removeModule);
+        }
 
         if (!m_context->getEventProcessor()->getDiagnostics())
             menu.addAction(QSL("Show Diagnostics"), this, &VMEConfigTreeWidget::handleShowDiagnostics);
@@ -490,8 +510,11 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
     //
     if (node == m_nodeStart || node == m_nodeStop || node == m_nodeManual)
     {
-        if (node->childCount() > 0)
-            menu.addAction(QSL("Run scripts"), this, &VMEConfigTreeWidget::runScripts);
+        if (isIdle)
+        {
+            if (node->childCount() > 0)
+                menu.addAction(QSL("Run scripts"), this, &VMEConfigTreeWidget::runScripts);
+        }
 
         menu.addAction(QSL("Add script"), this, &VMEConfigTreeWidget::addGlobalScript);
 
@@ -500,8 +523,11 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
     if (parent == m_nodeStart || parent == m_nodeStop || parent == m_nodeManual)
     {
         menu.addAction(QSL("Rename Script"), this, &VMEConfigTreeWidget::editName);
-        menu.addSeparator();
-        menu.addAction(QSL("Remove Script"), this, &VMEConfigTreeWidget::removeGlobalScript);
+        if (isIdle)
+        {
+            menu.addSeparator();
+            menu.addAction(QSL("Remove Script"), this, &VMEConfigTreeWidget::removeGlobalScript);
+        }
     }
 
     if (!menu.isEmpty())

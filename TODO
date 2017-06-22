@@ -1,6 +1,11 @@
 ==========================
 ==== Do these first! =====
 ==========================
+* Make MVMEContext::runScript() work like the AnalysisPauser: use a
+  QProgressDialog, a local event loop and signals slots to make pausing
+  reliable and non-hacky.
+* Make template load errors very, very visible!
+
 * Logspam still makes the app hang! Fix this!!!
 
 
