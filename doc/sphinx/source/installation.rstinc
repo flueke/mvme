@@ -54,7 +54,7 @@ in the installer and :ref:`inst-windows-vmusb-driver` for details.
 VM-USB Driver Installation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-To be able to use the VM-USB VME Controller the `libusb-win32`_ driver needs to
+To be able to use the VM-USB VME Controller the *libusb-win32* driver needs to
 be installed and registered with the device. A copy of `Zadig`_ will be
 installed in the mvme installation directory and can be re-run from there.
 
@@ -63,20 +63,22 @@ does not show up there's either a hardware issue or another driver is already
 registered to handle the VM-USB. Use *Options -> List All Devices* to get a
 list of all USB devices and look for the controller again.
 
-Make sure **libusb-win32** is selected as the driver to install and click on
-**Install Driver**. `Zadig`_ will generate a self-signed certificate for the
-driver and start the installation process.
-
-It is highly recommended to restart your system after driver installation,
-especially if you replaced an already installed driver. Otherwise USB transfer
-errors will occur during VME data acquisition!
-
 .. _installation-zadig:
 
 .. figure:: images/installation_zadig.png
    :width: 12cm
 
    Zadig USB driver installer
+
+Make sure **libusb-win32** is selected as the driver to install and click on
+**Install Driver**. `Zadig`_ will generate a self-signed certificate for the
+driver and start the installation process.
+
+It is highly recommended to restart your system after driver installation,
+especially if you replaced an already installed driver. Otherwise USB transfer
+errors can occur during VME data acquisition!
+
+In case you want to manually install the driver a ZIP archive can be found here: `libusb-win32`_.
 
 .. _Zadig: http://zadig.akeo.ie/
 
