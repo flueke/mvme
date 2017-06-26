@@ -33,13 +33,8 @@ include_directories(${QWT_INCLUDE_DIR})
 find_library(LIBUSB_LIBRARY usb)
 find_path(LIBUSB_INCLUDE_PATH usb.h)
 
-# Pull information from git:
-# GIT_SHA1 contains the complete git hash
-# GIT_VERSION contains the name of the latest git tag and the start of the git
-# hash if there have been changes since the tag has been created.
-include(GetGitRevisionDescription)
-get_git_head_revision(GIT_REFSPEC GIT_SHA1)
-git_describe(GIT_VERSION "--always")
+# git version information is contained in its own translation unit. Allows for
+# quick build + relink on version change.
 configure_file("git_sha1.cc.in" "git_sha1.cc" @ONLY)
 add_definitions(-DMVME_USE_GIT_VERSION_FILE)
 
