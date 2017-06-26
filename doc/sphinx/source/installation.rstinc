@@ -1,8 +1,6 @@
 ==================================================
 Installation
 ==================================================
-.. warning::
-    TODO: Write this
 
 Linux
 --------------------------------------------------
@@ -44,17 +42,34 @@ depending on your distribution.
 Windows
 --------------------------------------------------
 
-Run the supplied installer to install **mvme**. All required libraries are
-included in the installer.
+Run the supplied installer and follow the on screen instructions to install
+**mvme**.
 
-After the installation process you are given the option to run Zadig to install
-the drivers required for VM-USB support to work. Refer to the description text
+After the installation process you are given the option to run `Zadig`_ to install
+the driver required for VM-USB support to work. Refer to the description text
 in the installer and :ref:`inst-windows-vmusb-driver` for details.
 
 .. _inst-windows-vmusb-driver:
 
 VM-USB Driver Installation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To be able to use the VM-USB VME Controller the `libusb-win32`_ driver needs to
+be installed and registered with the device. A copy of `Zadig`_ will be
+installed in the mvme installation directory and can be re-run from there.
+
+In the Zadig UI the VM-USB will appear as *VM-USB VME CRATE CONTROLLER*. If it
+does not show up there's either a hardware issue or another driver is already
+registered to handle the VM-USB. Use *Options -> List All Devices* to get a
+list of all USB devices and look for the controller again.
+
+Make sure **libusb-win32** is selected as the driver to install and click on
+**Install Driver**. `Zadig`_ will generate a self-signed certificate for the
+driver and start the installation process.
+
+It is highly recommended to restart your system after driver installation,
+especially if you replaced an already installed driver. Otherwise USB transfer
+errors will occur during VME data acquisition!
 
 .. _installation-zadig:
 
@@ -63,6 +78,8 @@ VM-USB Driver Installation
 
    Zadig USB driver installer
 
-http://zadig.akeo.ie/
+.. _Zadig: http://zadig.akeo.ie/
 
-https://sourceforge.net/projects/libusb-win32/files/libusb-win32-releases/1.2.6.0/
+.. _libusb-win32: https://sourceforge.net/projects/libusb-win32/files/libusb-win32-releases/1.2.6.0/
+
+.. vim:ft=rst

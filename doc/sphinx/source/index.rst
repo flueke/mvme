@@ -15,6 +15,7 @@ mvme - mesytec VME Data Acquisition
    :caption: Contents:
 
    intro
+   architecture
    reference
 
 
@@ -25,9 +26,9 @@ mvme - mesytec VME Data Acquisition
   ==================
 
   * :ref:`genindex`
-  * :ref:`modindex`
   * :ref:`search`
 
+.. * :ref:`modindex`
 
 .. architecture
 

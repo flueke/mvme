@@ -17,6 +17,5 @@ Reference
   analysis. In this case the analysis can be the major factor determining the
   performance of mvme.
 
-.. include:: architecture.rstinc
 .. include:: vme_script.rstinc
 .. include:: analysis.rstinc

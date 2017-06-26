@@ -25,7 +25,7 @@ if (SPHINX_EXECUTABLE)
         COPYONLY
         )
 
-    add_custom_target(html_doc ALL
+    add_custom_target(html_doc
         ${SPHINX_EXECUTABLE}
         -b html
         -c "${SPHINX_BUILD_DIR}"
@@ -35,7 +35,7 @@ if (SPHINX_EXECUTABLE)
         COMMENT "Building HTML documentation with Sphinx"
         )
 
-    add_custom_target(latex_doc ALL
+    add_custom_target(latex_doc
         ${SPHINX_EXECUTABLE}
         -b latex
         -c "${SPHINX_BUILD_DIR}"
@@ -45,7 +45,14 @@ if (SPHINX_EXECUTABLE)
         COMMENT "Building latex documentation with Sphinx"
         )
 
-    add_custom_target(qthelp_doc ALL
+    add_custom_target(latex_doc_pdf
+        ${CMAKE_MAKE_PROGRAM}
+        -C ${SPHINX_LATEX_DIR}
+        COMMENT "Generating PDF from Sphinx latex output"
+        )
+    add_dependencies(latex_doc_pdf latex_doc)
+
+    add_custom_target(qthelp_doc
         ${SPHINX_EXECUTABLE}
         -b qthelp
         -c "${SPHINX_BUILD_DIR}"
@@ -56,7 +63,7 @@ if (SPHINX_EXECUTABLE)
         )
 
     add_custom_target(doc)
-    add_dependencies(doc html_doc latex_doc qthelp_doc)
+    add_dependencies(doc html_doc latex_doc latex_doc_pdf qthelp_doc)
 
 endif()
 
