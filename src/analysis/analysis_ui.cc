@@ -2313,7 +2313,7 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, AnalysisWidget 
     });
 
     // Lower ToolBar, to the right of the event selection combo
-    m_d->m_actionSelectVisibleLevels = new QAction(QSL("Level Visiblity"), this);
+    m_d->m_actionSelectVisibleLevels = new QAction(QIcon(QSL(":/eye_pencil.png")), QSL("Level Visiblity"), this);
 
     connect(m_d->m_actionSelectVisibleLevels, &QAction::triggered, this, [this] {
 
@@ -2572,6 +2572,7 @@ QToolBar *EventWidget::makeEventSelectAreaToolBar()
 {
     auto tb = make_toolbar();
 
+    tb->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
     tb->addAction(m_d->m_actionSelectVisibleLevels);
 
     return tb;
