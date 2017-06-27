@@ -363,7 +363,7 @@
       <dia:attribute name="text">
         <dia:composite type="text">
           <dia:attribute name="string">
-            <dia:string>#Immediate Commands#</dia:string>
+            <dia:string>#Interactive Commands#</dia:string>
           </dia:attribute>
           <dia:attribute name="font">
             <dia:font family="sans" style="0" name="Helvetica"/>
@@ -1122,16 +1122,16 @@ Scripts#</dia:string>
     </dia:object>
     <dia:object type="Flowchart - Magnetic Disk" version="1" id="O28">
       <dia:attribute name="obj_pos">
-        <dia:point val="3.6,18.9"/>
+        <dia:point val="3.2,19"/>
       </dia:attribute>
       <dia:attribute name="obj_bb">
-        <dia:rectangle val="3.55,18.85;6.1725,22.75"/>
+        <dia:rectangle val="3.15,18.95;5.7725,22.85"/>
       </dia:attribute>
       <dia:attribute name="meta">
         <dia:composite type="dict"/>
       </dia:attribute>
       <dia:attribute name="elem_corner">
-        <dia:point val="3.6,18.9"/>
+        <dia:point val="3.2,19"/>
       </dia:attribute>
       <dia:attribute name="elem_width">
         <dia:real val="2.5225000014901164"/>
@@ -1171,7 +1171,7 @@ Output#</dia:string>
             <dia:real val="0.80000000000000004"/>
           </dia:attribute>
           <dia:attribute name="pos">
-            <dia:point val="4.86125,20.9167"/>
+            <dia:point val="4.46125,21.0167"/>
           </dia:attribute>
           <dia:attribute name="color">
             <dia:color val="#000000"/>
@@ -1193,13 +1193,13 @@ Output#</dia:string>
     </dia:object>
     <dia:object type="Flowchart - Box" version="0" id="O29">
       <dia:attribute name="obj_pos">
-        <dia:point val="2.3525,15.5"/>
+        <dia:point val="1.9525,15.6"/>
       </dia:attribute>
       <dia:attribute name="obj_bb">
-        <dia:rectangle val="2.3025,15.45;7.655,16.95"/>
+        <dia:rectangle val="1.9025,15.55;7.255,17.05"/>
       </dia:attribute>
       <dia:attribute name="elem_corner">
-        <dia:point val="2.3525,15.5"/>
+        <dia:point val="1.9525,15.6"/>
       </dia:attribute>
       <dia:attribute name="elem_width">
         <dia:real val="5.252500001490116"/>
@@ -1228,7 +1228,7 @@ Output#</dia:string>
             <dia:real val="0.80000000000000004"/>
           </dia:attribute>
           <dia:attribute name="pos">
-            <dia:point val="4.97875,16.395"/>
+            <dia:point val="4.57875,16.495"/>
           </dia:attribute>
           <dia:attribute name="color">
             <dia:color val="#000000"/>
@@ -1241,16 +1241,16 @@ Output#</dia:string>
     </dia:object>
     <dia:object type="Geometric - Up Arrow" version="1" id="O30">
       <dia:attribute name="obj_pos">
-        <dia:point val="4.4,13.7"/>
+        <dia:point val="4,13.8"/>
       </dia:attribute>
       <dia:attribute name="obj_bb">
-        <dia:rectangle val="4.30657,13.65;5.49343,15.2901"/>
+        <dia:rectangle val="3.90657,13.75;5.09343,15.3901"/>
       </dia:attribute>
       <dia:attribute name="meta">
         <dia:composite type="dict"/>
       </dia:attribute>
       <dia:attribute name="elem_corner">
-        <dia:point val="4.4,13.7"/>
+        <dia:point val="4,13.8"/>
       </dia:attribute>
       <dia:attribute name="elem_width">
         <dia:real val="1"/>
@@ -1286,19 +1286,19 @@ Output#</dia:string>
     </dia:object>
     <dia:object type="Flowchart - Box" version="0" id="O31">
       <dia:attribute name="obj_pos">
-        <dia:point val="2,10.4"/>
+        <dia:point val="1.4,10.6"/>
       </dia:attribute>
       <dia:attribute name="obj_bb">
-        <dia:rectangle val="1.95,10.35;7.85375,13.45"/>
+        <dia:rectangle val="1.35,10.55;7.65,13.45"/>
       </dia:attribute>
       <dia:attribute name="elem_corner">
-        <dia:point val="2,10.4"/>
+        <dia:point val="1.4,10.6"/>
       </dia:attribute>
       <dia:attribute name="elem_width">
-        <dia:real val="5.80375"/>
+        <dia:real val="6.2000000000000002"/>
       </dia:attribute>
       <dia:attribute name="elem_height">
-        <dia:real val="3.0000000014901165"/>
+        <dia:real val="2.7999999999999989"/>
       </dia:attribute>
       <dia:attribute name="border_width">
         <dia:real val="0.10000000149011612"/>
@@ -1312,8 +1312,8 @@ Output#</dia:string>
       <dia:attribute name="text">
         <dia:composite type="text">
           <dia:attribute name="string">
-            <dia:string>#Transform into
-internal format#</dia:string>
+            <dia:string>#Validate and
+augment data#</dia:string>
           </dia:attribute>
           <dia:attribute name="font">
             <dia:font family="sans" style="0" name="Helvetica"/>
@@ -1322,7 +1322,7 @@ internal format#</dia:string>
             <dia:real val="0.80000000000000004"/>
           </dia:attribute>
           <dia:attribute name="pos">
-            <dia:point val="4.90188,11.695"/>
+            <dia:point val="4.5,11.795"/>
           </dia:attribute>
           <dia:attribute name="color">
             <dia:color val="#000000"/>
@@ -1439,16 +1439,16 @@ internal format#</dia:string>
     </dia:object>
     <dia:object type="Geometric - Up Arrow" version="1" id="O35">
       <dia:attribute name="obj_pos">
-        <dia:point val="4.4,17.1"/>
+        <dia:point val="4,17.2"/>
       </dia:attribute>
       <dia:attribute name="obj_bb">
-        <dia:rectangle val="4.30657,17.05;5.49343,18.6901"/>
+        <dia:rectangle val="3.90657,17.15;5.09343,18.7901"/>
       </dia:attribute>
       <dia:attribute name="meta">
         <dia:composite type="dict"/>
       </dia:attribute>
       <dia:attribute name="elem_corner">
-        <dia:point val="4.4,17.1"/>
+        <dia:point val="4,17.2"/>
       </dia:attribute>
       <dia:attribute name="elem_width">
         <dia:real val="1"/>
@@ -1724,16 +1724,16 @@ internal format#</dia:string>
     </dia:object>
     <dia:object type="Flowchart - Magnetic Disk" version="1" id="O41">
       <dia:attribute name="obj_pos">
-        <dia:point val="12.5,16.9"/>
+        <dia:point val="12.6,16.9"/>
       </dia:attribute>
       <dia:attribute name="obj_bb">
-        <dia:rectangle val="12.45,16.85;15.0225,20.75"/>
+        <dia:rectangle val="12.55,16.85;15.1225,20.75"/>
       </dia:attribute>
       <dia:attribute name="meta">
         <dia:composite type="dict"/>
       </dia:attribute>
       <dia:attribute name="elem_corner">
-        <dia:point val="12.5,16.9"/>
+        <dia:point val="12.6,16.9"/>
       </dia:attribute>
       <dia:attribute name="elem_width">
         <dia:real val="2.4725000014901166"/>
@@ -1773,7 +1773,7 @@ Input#</dia:string>
             <dia:real val="0.80000000000000004"/>
           </dia:attribute>
           <dia:attribute name="pos">
-            <dia:point val="13.7363,18.9167"/>
+            <dia:point val="13.8363,18.9167"/>
           </dia:attribute>
           <dia:attribute name="color">
             <dia:color val="#000000"/>

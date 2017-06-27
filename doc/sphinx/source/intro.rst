@@ -1,7 +1,7 @@
 ##################################################
 Introduction
 ##################################################
-**mvme** is a VME Data Acquisition solution by **mesytec** aimed at small scale nuclear physics
+**mvme** is a VME data acquisition solution by **mesytec** aimed at small scale nuclear physics
 experiments involving a single VME controller. The goal of this project is to provide an easy to
 setup, easy to use, cross-platform data acquisition system with basic data visualization and
 analysis capabilities.
@@ -52,6 +52,7 @@ perform the readout. The readout commands of all modules belonging to the same
 event are combined to form the trigger stacks uploaded to the VME controller.
 
 .. figure:: images/vme_two_modules_expanded.png
+   :width: 40%
 
    VME setup with one event containing two modules
 
@@ -70,44 +71,70 @@ steps:
 
   * Read a data buffer from the VME controller
   * Validate the structure of the received data
-  * Transform data into mvme listfile format
-  * Write data to the listfile (with optional compression)
+  * Augment the data with mvme specific meta data
+  * Write data to the listfile (optionally using compression)
   * Pass data to the analysis
+
 * Tell the controller to leave DAQ mode
 * Close the listfile
 
 
 Analysis
 --------
+mvme contains an analysis system that allows parameter extraction (e.g. ADC
+values per channel), calibration, accumulation and visualization of data both
+during a DAQ run and while replaying from file.
 
+.. figure:: images/intro_analysis_default_filters_highlights.png
+   :width: 60%
 
-.. note:: FIXME The analysis does not slow down data acquisition!
+   Analysis UI with MDPP-16 default objects
 
+The structure defined by the VME configuration is also present in the analysis:
+modules which are read out as a result of the same trigger condition are
+grouped together.
 
+The system itself models dataflow from **sources**, through **operators**, into
+**sinks**.
+
+The analysis system provides objects
+
+Core:
+  - data flow between objects
+  - data format: array of double values with length N
+  - objects types:
+      data sources
+      operators: multiple inputs, one output
+      sinks
+
+.. note::
+  Data acquisition and writing the data to file have the highest priority in
+  mvme. If during a DAQ run the analysis system cannot keep up with the
+  incoming data rate some buffers will not be passed on to the analysis.
+
+  When replaying from file *all* buffers are passed to the analysis.
 
 ==================================================
 System Requirements
 ==================================================
 
-* Any recent 64-bit Linux distribution or a 64-bit version of Windows XP or later.
+* Any recent Linux distribution or a version of Windows XP or later.
 
-  32-bit builds are possible but not recommended as the limited address space can be quickly used up
-  when creating multiple histograms.
+  Both 64- and 32-bit systems are supported but 32-bit versions are not
+  recommended as the limited address space can be quickly used up when creating
+  lots of histograms.
+
 * **WIENER VM-USB** VME Controller
-* libusb-0.1 (Linux) / libusb-win32 (Windows)
-
-  The windows installer can optionally run a program to handle the driver installation (Zadig).
-
-.. note::
-  It is also possible to compile builds using libusb-1.0 instead of the old libusb-0.1 API.
-
-.. TODO Refer to the build instructions for 32-bit builds here once those build instructions are written.
 
 * At least 4 GB RAM is recommended.
-* A multicore processor is recommended as mvme itself makes use of three
-  logical cores: readout, analysis and GUI (which includes histogram rendering).
 
+* A multicore processor is recommended as mvme itself can make use of multiple
+  cores: readout, analysis and GUI (which includes histogram rendering).
 
+* libusb-0.1 (Linux) / libusb-win32 (Windows)
+
+  The windows installer can optionally run `Zadig`_ to handle the driver
+  installation.
 
 .. include:: installation.rstinc
 .. include:: quickstart.rstinc

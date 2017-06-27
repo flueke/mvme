@@ -78,7 +78,8 @@ It is highly recommended to restart your system after driver installation,
 especially if you replaced an already installed driver. Otherwise USB transfer
 errors can occur during VME data acquisition!
 
-In case you want to manually install the driver a ZIP archive can be found here: `libusb-win32`_.
+In case you want to manually install the driver a ZIP archive can be found
+here: `libusb-win32`_.
 
 .. _Zadig: http://zadig.akeo.ie/
 
