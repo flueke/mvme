@@ -10,11 +10,20 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 # Pull information from git:
 # GIT_SHA1 contains the complete git hash
-# GIT_VERSION contains the name of the latest git tag and the start of the git
-# hash if there have been changes since the tag has been created.
+#
+# GIT_VERSION contains the name of the latest git tag, the number of commits
+# since that tag was created and the start of the git hash if there have been
+# changes since the tag was created.
+# Example GIT_VERSION: 0.7-371-g12d9678
+
+# GIT_VERSION_SHORT contains the same as GIT_VERSION but without the start of
+# the last commits hash.
+# Example GIT_VERSION_SHORT: 0.7-371
+
 include(GetGitRevisionDescription)
 get_git_head_revision(GIT_REFSPEC GIT_SHA1)
 git_describe(GIT_VERSION "--always")
+string(REGEX MATCH "^[0-9.]+-[0-9]+" GIT_VERSION_SHORT ${GIT_VERSION})
 
 # Subdirectories containing build targets
 add_subdirectory(src)
