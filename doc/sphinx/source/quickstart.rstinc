@@ -48,9 +48,9 @@ VME Setup
     address encoders adjust the *Address* value accordingly (the address
     encoders modify the 4 most significant hex digits).
 
-The VME GUI should now look like shown in :ref:`intro-vme-tree01`.
+The VME GUI should now look like shown in :ref:`quickstart-vme-tree01`.
 
-.. _intro-vme-tree01:
+.. _quickstart-vme-tree01:
 
 .. figure:: images/intro_vme_tree01.png
    :width: 8cm
@@ -84,7 +84,7 @@ Analysis Setup
   the messagebox that pops up. This will generate a set of data extraction
   filters, calibration operators and histograms for the module.
 
-.. _intro-analysis-default-filters:
+.. _quickstart-analysis-default-filters:
 
 .. figure:: images/intro_analysis_default_filters.png
    :width: 8cm
@@ -98,7 +98,7 @@ Activate the main window again (``Ctrl+1``). Make sure the *VME Controller* is
 shown as *Connected* in the top part of the window. Optionally uncheck the box
 titled *Write Listfile* to avoid writing the test data to disk.
 
-.. _intro-daq-control:
+.. _quickstart-daq-control:
 
 .. figure:: images/intro_daq_control.png
    :width: 8cm
@@ -115,7 +115,7 @@ If data acquisition and data extraction are working properly you should see new
 data appear in the histogram. Use the spinbox at the top right to cycle through
 the individual channels.
 
-.. _intro-amplitude-histogram:
+.. _quickstart-amplitude-histogram:
 
 .. figure:: images/intro_amplitude_histogram.png
    :width: 12cm

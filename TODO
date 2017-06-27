@@ -1,6 +1,16 @@
 ==========================
 ==== Do these first! =====
 ==========================
+
+* Take a look at MVMEContext::runScript() and try to fix it. The stuff that's
+  done in stopDAQ() seems to work very well...
+
+
+
+
+
+
+
 #0  0x00007ffff7aa1d75 in RealtimeData::calcData (this=0x18) at /home/florian/src/mvme2/src/realtimedata.cpp:72
 #1  0x00007ffff7a71490 in MesytecDiagnosticsWidget::updateDisplay (this=0x85ac70) at /home/florian/src/mvme2/src/mesytec_diagnostics.cc:724
 #2  0x00007ffff7a747f4 in QtPrivate::FunctorCall<QtPrivate::IndexesList<>, QtPrivate::List<>, void, void (MesytecDiagnosticsWidget::*)()>::call(void (MesytecDiagnosticsWidget::*)(), MesytecDiagnosticsWidget*, void**) (arg=<optimized out>, o=<optimized out>, f=<optimized out>)
