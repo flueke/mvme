@@ -23,8 +23,6 @@
 
 #include <cmath>
 
-#include <cmath>
-
 #include <QDebug>
 #include <QFileDialog>
 #include <QFileInfo>
@@ -271,14 +269,14 @@ void MesytecDiagnostics::handleDataWord(quint32 currentWord)
         u32 low_stamp = (currentWord & 0x3FFFFFFF);
 
         m_currentStamp = low_stamp;
-        
+
     }
 
     //
     // extended timestamp
     //
     bool ext_ts_flag = ((currentWord & 0xFF800000) == 0x04800000);
-    
+
     if (ext_ts_flag)
     {
         // high 16 bits of timestamp
