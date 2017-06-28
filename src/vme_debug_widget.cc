@@ -1,3 +1,21 @@
+/* mvme - Mesytec VME Data Acquisition
+ *
+ * Copyright (C) 2016, 2017  Florian Lüke <f.lueke@mesytec.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ */
 #include "vme_debug_widget.h"
 #include "ui_vme_debug_widget.h"
 #include "mvme_context.h"
@@ -34,7 +52,7 @@ VMEDebugWidget::VMEDebugWidget(MVMEContext *context, QWidget *parent)
 
     auto onControllerStateChanged = [this] (ControllerState state)
     {
-        setEnabled(state == ControllerState::Opened);
+        ui->outerFrame->setEnabled(state == ControllerState::Opened);
     };
 
     connect(m_context, &MVMEContext::controllerStateChanged, this, onControllerStateChanged);
@@ -366,7 +384,7 @@ void VMEDebugWidget::on_saveScript_clicked()
     }
 
     QString fileName = QFileDialog::getSaveFileName(this, QSL("Save vme script"), path,
-                                                    QSL("VME scripts (*.vme);; All Files (*)"));
+                                                    QSL("VME scripts (*.vmescript *.vme);; All Files (*)"));
 
     if (fileName.isEmpty())
         return;
@@ -374,7 +392,7 @@ void VMEDebugWidget::on_saveScript_clicked()
     QFileInfo fi(fileName);
     if (fi.completeSuffix().isEmpty())
     {
-        fileName += ".vme";
+        fileName += ".vmescript";
     }
 
     QFile file(fileName);
@@ -406,7 +424,7 @@ void VMEDebugWidget::on_loadScript_clicked()
     }
 
     QString fileName = QFileDialog::getOpenFileName(this, QSL("Load vme script file"), path,
-                                                    QSL("VME scripts (*.vme);; All Files (*)"));
+                                                    QSL("VME scripts (*.vmescript *.vme);; All Files (*)"));
     if (!fileName.isEmpty())
     {
         QFile file(fileName);

@@ -8,3 +8,5 @@ win32 {
 }
 
 message("Git version" $$GIT_VERSION)
+
+# vim:ft=conf

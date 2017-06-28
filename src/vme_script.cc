@@ -1,3 +1,21 @@
+/* mvme - Mesytec VME Data Acquisition
+ *
+ * Copyright (C) 2016, 2017  Florian Lüke <f.lueke@mesytec.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ */
 #include "vme_script.h"
 #include "util.h"
 #include "vme_controller.h"
@@ -48,15 +66,113 @@ uint32_t parseAddress(const QString &str)
     return ret;
 }
 
+template<typename T>
+T parseBinaryLiteral(const QString &str)
+{
+    QByteArray input = str.toLower().toLocal8Bit();
+
+    s32 inputStart = input.startsWith("0b") ? 2 : 0;
+
+    const size_t maxShift = (sizeof(T) * 8) - 1;
+    size_t shift = 0;
+    T result = 0;
+
+    for (s32 i = input.size() - 1; i >= inputStart; --i)
+    {
+        char c = input.at(i);
+
+        switch (c)
+        {
+            case '0':
+            case '1':
+                if (shift > maxShift)
+                    throw "input value too large";
+
+                result |= ((c - '0') << shift++);
+                break;
+
+            // Skip the digit separator
+            case '\'':
+                break;
+
+            default:
+                throw "invalid character in binary literal";
+        }
+    }
+
+    return result;
+}
+
 uint32_t parseValue(const QString &str)
 {
+    if (str.toLower().startsWith(QSL("0b")))
+    {
+        return parseBinaryLiteral<uint32_t>(str);
+    }
+
     bool ok;
     uint32_t ret = str.toUInt(&ok, 0);
 
     if (!ok)
-        throw "invalid value";
+        throw "invalid data value";
 
     return ret;
+}
+
+void maybe_set_warning(Command &cmd, int lineNumber)
+{
+    cmd.lineNumber = lineNumber;
+
+    switch (cmd.type)
+    {
+        case CommandType::Read:
+        case CommandType::Write:
+        case CommandType::BLT:
+        case CommandType::BLTFifo:
+        case CommandType::MBLT:
+        case CommandType::MBLTFifo:
+        case CommandType::BLTCount:
+        case CommandType::BLTFifoCount:
+        case CommandType::MBLTCount:
+        case CommandType::MBLTFifoCount:
+            {
+                if (cmd.address >= (1 << 16))
+                {
+                    cmd.warning = QSL("Given address exceeds 0xffff");
+                }
+            } break;
+
+        case CommandType::SetBase:
+            {
+                if ((cmd.address & 0xffff) != 0)
+                {
+                    cmd.warning = QSL("Given base address has some of the low 16-bits set");
+                }
+            } break;
+
+        default:
+            break;
+    }
+
+    if (cmd.warning.isEmpty())
+    {
+        switch (cmd.type)
+        {
+            case CommandType::BLTCount:
+            case CommandType::BLTFifoCount:
+            case CommandType::MBLTCount:
+            case CommandType::MBLTFifoCount:
+                {
+                    if (cmd.address >= (1 << 16))
+                    {
+                        cmd.warning = QSL("Given block_address exceeds 0xffff");
+                    }
+                } break;
+
+            default:
+                break;
+        }
+    }
 }
 
 Command parseRead(const QStringList &args, int lineNumber)
@@ -73,6 +189,8 @@ Command parseRead(const QStringList &args, int lineNumber)
     result.addressMode = parseAddressMode(args[1]);
     result.dataWidth = parseDataWidth(args[2]);
     result.address = parseAddress(args[3]);
+
+    result.lineNumber = lineNumber;
 
     return result;
 }
@@ -179,6 +297,35 @@ Command parseBlockTransferCountRead(const QStringList &args, int lineNumber)
     return result;
 }
 
+Command parseSetBase(const QStringList &args, int lineNumber)
+{
+    auto usage = QString("%1 <address>").arg(args[0]);
+
+    if (args.size() != 2)
+        throw ParseError(QString("Invalid number of arguments. Usage: %1").arg(usage), lineNumber);
+
+    Command result;
+
+    result.type = commandType_from_string(args[0]);
+    result.address = parseAddress(args[1]);
+
+    return result;
+}
+
+Command parseResetBase(const QStringList &args, int lineNumber)
+{
+    auto usage = QString("%1").arg(args[0]);
+
+    if (args.size() != 1)
+        throw ParseError(QString("Invalid numer of arguments. Usage: %1").arg(usage), lineNumber);
+
+    Command result;
+
+    result.type = commandType_from_string(args[0]);
+
+    return result;
+}
+
 typedef Command (*CommandParser)(const QStringList &args, int lineNumber);
 
 static const QMap<QString, CommandParser> commandParsers =
@@ -198,6 +345,9 @@ static const QMap<QString, CommandParser> commandParsers =
     { QSL("bltfifocount"),  parseBlockTransferCountRead },
     { QSL("mbltcount"),     parseBlockTransferCountRead },
     { QSL("mbltfifocount"), parseBlockTransferCountRead },
+
+    { QSL("setbase"),       parseSetBase },
+    { QSL("resetbase"),     parseResetBase },
 };
 
 Command parse_line(QString line, int lineNumber)
@@ -219,34 +369,50 @@ Command parse_line(QString line, int lineNumber)
     if (parts.isEmpty())
         throw ParseError(QSL("Empty command"), lineNumber);
 
-    if (parts.size() == 2)
+    if (parts.at(0).at(0).isDigit() && parts.size() == 2)
     {
-        /* Try to parse two unsigned values which is the short form of a write
-         * command. */
-        bool ok1, ok2;
+        /* Try to parse an address followed by a value. This is the short form
+         * of a write command. */
+        bool ok1;
         uint32_t v1 = parts[0].toUInt(&ok1, 0);
-        uint32_t v2 = parts[1].toUInt(&ok2, 0);
+        uint32_t v2 = 0;
 
-        if (ok1 && ok2)
+        if (!ok1)
         {
-            result.type = CommandType::Write;
-            result.addressMode = AddressMode::A32;
-            result.dataWidth = DataWidth::D16;
-            result.address = v1;
-            result.value = v2;
-
-            return result;
+            throw ParseError(QString(QSL("Invalid short-form address \"%1\""))
+                             .arg(parts[0]), lineNumber);
         }
+
+        try
+        {
+            v2 = parseValue(parts[1]);
+        }
+        catch (const char *message)
+        {
+            throw ParseError(QString(QSL("Invalid short-form value \"%1\" (%2)"))
+                             .arg(parts[1], message), lineNumber);
+        }
+
+        result.type = CommandType::Write;
+        result.addressMode = AddressMode::A32;
+        result.dataWidth = DataWidth::D16;
+        result.address = v1;
+        result.value = v2;
+
+        maybe_set_warning(result, lineNumber);
+        return result;
     }
 
-    auto fn = commandParsers.value(parts[0].toLower(), nullptr);
-    
-    if (!fn)
+    auto parseFun = commandParsers.value(parts[0].toLower(), nullptr);
+
+    if (!parseFun)
         throw ParseError(QString(QSL("No such command \"%1\"")).arg(parts[0]), lineNumber);
 
     try
     {
-        return fn(parts, lineNumber);
+        Command result = parseFun(parts, lineNumber);
+        maybe_set_warning(result, lineNumber);
+        return result;
     }
     catch (const char *message)
     {
@@ -270,6 +436,7 @@ VMEScript parse(QTextStream &input, uint32_t baseAddress)
 {
     VMEScript result;
     int lineNumber = 0;
+    const u32 originalBaseAddress = baseAddress;
 
     while (true)
     {
@@ -281,10 +448,39 @@ VMEScript parse(QTextStream &input, uint32_t baseAddress)
 
         auto cmd = parse_line(line, lineNumber);
 
-        if (cmd.type != CommandType::Invalid)
+        /* FIXME: CommandTypes SetBase and ResetBase are handled directly in
+         * here by modifying other commands before they are pushed onto result.
+         * To make warnings generated when parsing any of SetBase/ResetBase
+         * available to the outside I needed to return them in the result
+         * although they have already been handled in here!
+         * This is confusing and will lead to errors...
+         *
+         * An alternative would be to store the original base address inside
+         * VMEScript and implement SetBase/ResetBase in run_script().
+         */
+
+        switch (cmd.type)
         {
-            cmd = add_base_address(cmd, baseAddress);
-            result.push_back(cmd);
+            case CommandType::Invalid:
+                break;
+
+            case CommandType::SetBase:
+                {
+                    baseAddress = cmd.address;
+                    result.push_back(cmd);
+                } break;
+
+            case CommandType::ResetBase:
+                {
+                    baseAddress = originalBaseAddress;
+                    result.push_back(cmd);
+                } break;
+
+            default:
+                {
+                    cmd = add_base_address(cmd, baseAddress);
+                    result.push_back(cmd);
+                } break;
         }
     }
 
@@ -306,6 +502,8 @@ static const QMap<CommandType, QString> commandTypeToString =
     { CommandType::BLTFifoCount,    QSL("bltfifocount") },
     { CommandType::MBLTCount,       QSL("mbltcount") },
     { CommandType::MBLTFifoCount,   QSL("mbltfifocount") },
+    { CommandType::SetBase,         QSL("setbase") },
+    { CommandType::ResetBase,       QSL("resetbase") },
 };
 
 QString to_string(CommandType commandType)
@@ -362,6 +560,7 @@ QString to_string(const Command &cmd)
     switch (cmd.type)
     {
         case CommandType::Invalid:
+        case CommandType::ResetBase:
             return cmdStr;
 
         case CommandType::Read:
@@ -422,6 +621,13 @@ QString to_string(const Command &cmd)
                     .arg(to_string(cmd.blockAddressMode))
                     .arg(format_hex(cmd.blockAddress));
             } break;
+
+        case CommandType::SetBase:
+            {
+                buffer = QString(QSL("%1 %2"))
+                    .arg(cmdStr)
+                    .arg(format_hex(cmd.address));
+            } break;
     }
     return buffer;
 }
@@ -439,6 +645,8 @@ Command add_base_address(Command cmd, uint32_t baseAddress)
         case CommandType::Wait:
         case CommandType::Marker:
         case CommandType::WriteAbs:
+        case CommandType::SetBase:
+        case CommandType::ResetBase:
             break;
 
         case CommandType::Read:
@@ -509,6 +717,15 @@ ResultList run_script(VMEController *controller, const VMEScript &script, Logger
     {
         if (cmd.type != CommandType::Invalid)
         {
+            if (!cmd.warning.isEmpty())
+            {
+                logger(QString("Warning: %1 on line %2 (cmd=%3)")
+                       .arg(cmd.warning)
+                       .arg(cmd.lineNumber)
+                       .arg(to_string(cmd.type))
+                      );
+            }
+
             auto result = run_command(controller, cmd, logger);
             results.push_back(result);
 
@@ -534,6 +751,9 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
     switch (cmd.type)
     {
         case CommandType::Invalid:
+            /* Note: SetBase and ResetBase have already been handled at parse time. */
+        case CommandType::SetBase:
+        case CommandType::ResetBase:
             break;
 
         case CommandType::Read:
@@ -603,6 +823,10 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
             } break;
 
 #if 1
+        /* There was no need to implement these in a generic way using the
+         * VMEController interface yet. VMUSB does have direct support for
+         * these types of commands (see CVMUSBReadoutList::addScriptCommand()).
+         */
         case CommandType::BLTCount:
         case CommandType::BLTFifoCount:
         case CommandType::MBLTCount:
@@ -610,6 +834,7 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
             {
                 if (logger)
                     logger(QSL("Not implemented yet!"));
+                InvalidCodePath;
             } break;
 
 #else
@@ -744,6 +969,8 @@ QString format_result(const Result &result)
         case CommandType::Invalid:
         case CommandType::Wait:
         case CommandType::Marker:
+        case CommandType::SetBase:
+        case CommandType::ResetBase:
             break;
 
         case CommandType::Write:

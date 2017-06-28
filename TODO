@@ -1,12 +1,177 @@
 ==========================
 ==== Do these first! =====
 ==========================
-* Git version is not updated when rebuilding the project! FIX THIS!
+* Sphinx and output dependent image types
+* Take a look at MVMEContext::runScript() and try to fix it. The stuff that's
+  done in stopDAQ() seems to work very well...
 
+#0  0x00007ffff7aa1d75 in RealtimeData::calcData (this=0x18) at /home/florian/src/mvme2/src/realtimedata.cpp:72
+#1  0x00007ffff7a71490 in MesytecDiagnosticsWidget::updateDisplay (this=0x85ac70) at /home/florian/src/mvme2/src/mesytec_diagnostics.cc:724
+#2  0x00007ffff7a747f4 in QtPrivate::FunctorCall<QtPrivate::IndexesList<>, QtPrivate::List<>, void, void (MesytecDiagnosticsWidget::*)()>::call(void (MesytecDiagnosticsWidget::*)(), MesytecDiagnosticsWidget*, void**) (arg=<optimized out>, o=<optimized out>, f=<optimized out>)
+    at /home/florian/Qt/5.7/gcc_64/include/QtCore/qobjectdefs_impl.h:507
+#3  QtPrivate::FunctionPointer<void (MesytecDiagnosticsWidget::*)()>::call<QtPrivate::List<>, void> (arg=<optimized out>, o=<optimized out>, f=<optimized out>)
+    at /home/florian/Qt/5.7/gcc_64/include/QtCore/qobjectdefs_impl.h:526
+#4  QtPrivate::QSlotObject<void (MesytecDiagnosticsWidget::*)(), QtPrivate::List<>, void>::impl(int, QtPrivate::QSlotObjectBase*, QObject*, void**, bool*) (
+    which=<optimized out>, this_=<optimized out>, r=<optimized out>, a=<optimized out>, ret=<optimized out>)
+    at /home/florian/Qt/5.7/gcc_64/include/QtCore/qobject_impl.h:149
+#5  0x00007ffff5b5a77d in QMetaObject::activate(QObject*, int, int, void**) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
+#6  0x00007ffff5b67328 in QTimer::timerEvent(QTimerEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
+#7  0x00007ffff5b5b5db in QObject::event(QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
+#8  0x00007ffff68d852c in QApplicationPrivate::notify_helper(QObject*, QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#9  0x00007ffff68df220 in QApplication::notify(QObject*, QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#10 0x00007ffff5b32ae0 in QCoreApplication::notifyInternal2(QObject*, QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
+#11 0x00007ffff5b7efde in QTimerInfoList::activateTimers() () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
+#12 0x00007ffff5b7f4e1 in ?? () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
+#13 0x00007ffff142a41d in g_main_context_dispatch () from /lib/x86_64-linux-gnu/libglib-2.0.so.0
+#14 0x00007ffff142a700 in ?? () from /lib/x86_64-linux-gnu/libglib-2.0.so.0
+#15 0x00007ffff142a7ac in g_main_context_iteration () from /lib/x86_64-linux-gnu/libglib-2.0.so.0
+#16 0x00007ffff5b80047 in QEventDispatcherGlib::processEvents(QFlags<QEventLoop::ProcessEventsFlag>) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
+#17 0x00007ffff5b30dca in QEventLoop::exec(QFlags<QEventLoop::ProcessEventsFlag>) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
+#18 0x00007ffff6ab75b7 in QDialog::exec() () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#19 0x00007ffff7a94242 in mvme::closeEvent (this=0x7fffffffd2e0, event=0x7fffffffcd00) at /home/florian/src/mvme2/src/mvme.cpp:392
+#20 0x00007ffff691db78 in QWidget::event(QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#21 0x00007ffff6a1664b in QMainWindow::event(QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#22 0x00007ffff68d852c in QApplicationPrivate::notify_helper(QObject*, QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#23 0x00007ffff68df220 in QApplication::notify(QObject*, QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#24 0x00007ffff5b32ae0 in QCoreApplication::notifyInternal2(QObject*, QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
+#25 0x00007ffff6918bb9 in QWidgetPrivate::close_helper(QWidgetPrivate::CloseMode) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#26 0x00007ffff69386a6 in ?? () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#27 0x00007ffff693b4b3 in ?? () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#28 0x00007ffff68d852c in QApplicationPrivate::notify_helper(QObject*, QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#29 0x00007ffff68df220 in QApplication::notify(QObject*, QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#30 0x00007ffff5b32ae0 in QCoreApplication::notifyInternal2(QObject*, QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
+#31 0x00007ffff60d3465 in QGuiApplicationPrivate::processCloseEvent(QWindowSystemInterfacePrivate::CloseEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Gui.so.5
+#32 0x00007ffff60d7775 in QGuiApplicationPrivate::processWindowSystemEvent(QWindowSystemInterfacePrivate::WindowSystemEvent*) ()
+
+* Make MVMEContext::runScript() work like the AnalysisPauser: use a
+  QProgressDialog, a local event loop and signals slots to make pausing
+  reliable and non-hacky.
+
+* Logspam still makes the app hang! Fix this!!!
+
+* Diagnostics UI: make sigma text way bigger for andi.
+  Nice solution could be to use an instant tooltip with a big font size
+* HDF5 and Root file writing support!
+  Also implement read support for HDF5
+* Templates are not properly installed by the NSIS installer? (Robert)
+* Histo1D and Histo1DWidget
+    * Implement Histogram rebinning
+    * Histo1D Calibration UI: "Restore" uses unexpected values. Also there's no way to undo the restore operation. (calibResetToFilter)
+    * Bug: H1D does not work when unitMin > unitMax
+    * Histo1DWidget: zoom out after setHistogram()
+      But not when the usage is the one in x- and y-projections where the histo is
+      replaced with a similar one.
+    * Histo1DWidget: The curve for the last bin is not drawn. Try to finally find a fix for this.
+    * Read up on binning error calculations. See how ROOT does it.
+    * show fwhm only when gauss display is active
+
+* Analysis and AnalysisUI
+    * Introduce parameter naming. It should be possible to name individual
+      channels of a module.
+      Also think about making it very easy to work with Pipes containing only a
+      single element. This would mostly be special cases in the GUI.
+    * Open new histograms immediately. Do this when creating a sub-histogram.
+    * Copy/Paste
+      - Copy needs a clone() operation for analysis elements.
+      - On copying an extractor the edit dialog should be opened.
+      - Having the ability to clone operators would allow making editing of
+        operators much safer.
+        Right now if the user picks another input or clears any input slots the
+        analysis has to be paused and restarted and dependent operators
+        immediately notice the change. This means even if the user cancels the
+        dialog the analysis can have unexpected modifications.
+        With cloning a copy of the operator would be created. Selecting and
+        clearing inputs would only affect the cloned version of the operator
+        (input pipes would not need to be fully connected so the input sources
+        do not need to change at all during editing -> half connected state!)
+
+- Add error reporting to VMEConfig and Analysis version conversion and read routines
+
+- Refactor gui_write_json_file() to write_json_file() and use exceptions to report errors.
+  Meaning: implement functionality using exceptions and not caring about if
+  it's used from the gui or not. Then build and use gui wrappers which show
+  messageboxes where needed.
+
+- Add warnings to template loading if there are duplicate module types
+- Fix diagnosis window hanging and eating system memory when EOE check is
+  active and a lot of errors are occuring
+
+* Clearly document Extractor behaviour:
+  - How does it use the individual filters?
+  - How are data and address values formed?
+  - How does WordIndex behave?
+  - What does RequiredCompletionCount do?
+
+* Log throttling!!!!
+
+* Check for off-by-one errors in the 2D projection code
+
+* lastlog.log:
+  Write every logged message to lastlog.log. Do this in the main thread. Flush
+  to disk frequently.
+  At startup move lastlog.log to lastlog.1.log.
+  Keep 5 logfiles around. 4 -> 5, 3 -> 4, 2 -> 3, 1 -> 2, 0 -> 1
+
+
+
+* select input UI: disable other tree highlights while it's active.
+* Fix replay stats display and replay timer. It wasn't designed with pausing
+  and stepping in mind.
+* ZIP file support:
+  On close:
+  - write some user description text file to the zip. "Run description", "Run notes", "DAQ notes"
+ - save/saveas/load error reporting
 
 ==========================
 ==== Do these later! =====
 ==========================
+* VMEConfig
+    * Allow Adding of VME-Init scripts to modules via the gui!
+
+* EventWidget and AnalysisWidget repopulate:
+  - Restore open PipeDisplays:
+    Store (ObjectId, OutputIndex) to get the output pipe and (pos, size) to restore the widget.
+  - Restore splitter states when recreating event widgets.
+  - Restore node expansion state
+    Could store QUuids for expanded object nodes and after repop rebuild the
+    VoidStar set of expanded nodes by getting the pointers via the ids.
+* Analysis structure:
+  SourceEntry does not really need the eventId as the moduleId implicitly
+  specifies the eventId.
+* H1D: Take the median of the visible left and right edges. Subtract that value
+  from the calculated statistics values. This is supposed to remove the noise
+  to the left and right of a peak.
+* HistoViewer: Ability to save filled Histograms to disk and reload them later.
+  This will allow using histogram tools (fits, etc.) on loaded histos. It also
+  allows comparing histos from different runs etc.
+* Calculated listfile size in stats display and size shown by windows explorer
+  are not the same at all. Why?
+* // FIXME: when using subranges the getBinUnchecked() calculation often yields negative bins. why?
+  Verify this does in fact happen.
+* DAQStats:
+  - add pause/resume
+  - figure out why buffers/s never has a fractional part
+    -> part of the system. addBuffersRead() and addBytesRead() each call maybeUpdateIntervalCounters().
+       If we're reading less than 1 buffer per second the resulting bytesPerSecond will be 0 for that interval.
+    How to make this better?
+- License info needs Apache License for PCG. Maybe others. Check what is needed here!
+  Also use info from resources/README
+- VMUSB: if there are connect/reconnect errors write them to the log view
+  Do this when porting to libusb-1.0 as that should also provide better error messages.
+- VMUSB: make the mutex non-recursive!
+
+>>>>> Begin Analysis NG <<<<<
+ - Add Operator::getDescription()
+ - make sure the UI works with empty vme and event configs
+ - display required memory in Histo2D dialog.
+ - combine "single word" and "dual word" filters. the distinction is not needed
+   anymore as both are MultiWordDataFilters now
+ - Load default filters from templates
+<<<<< End AnalysisNG >>>>>
+
+* Git version is not updated when rebuilding the project! FIX THIS!
+  -> I failed at this. qmake is horrible.
+
 * GUI
   * add versioning to the GUI state saved via QSettings. If the version changes
     use the default layout instead of restoring a possibly incompatible state.
@@ -19,48 +184,24 @@
   somehow? Better to directly limit the generation of these messages?
 * Fix diagnostics window blocking when there are a lot of error messages being generated.
 
-* workspace
-    * copy templates from app dir to workspace (vielleicht?)
-* Listfile format:
-  Implement version 2 of the format as documented in the header file!
-
-* Analysis:
-  * DualWordDataFilters: handle negative difference values when filling the
-    histograms => New histo implementation! Like ROOT histograms.
-
 * Histos:
   * add histogram cuts
   * add histogram fitting
 
-* VMUSB: support continuous mode and partial events!
 * Mesytec Module Firmware Revision & Hardware ID
 * prefix and (maybe) run number for listfiles
 
 * Mesytec Werbung ^^ Hintergrundbilder, Wasserzeichen, etc. (CSS Theme?)
 * Hist2d: look for standard color scales as used in publications, ROOT, etc.
   https://root.cern.ch/doc/master/TColor_8cxx_source.html#l02400
-* Avoiding spinning in processEvents() while waiting for buffers. Instead use
-  something like a semaphore and figure out how to still react to "stop"
-  commands.
-  Could signal the same semaphore when receiving commands and set some
-  variables that are checked once the thread wakes up.
-  (Maybe try WaitForMoreEvents as a quick fix)
-* Hist2d Icon
 * How to handle filters without matching module? Right now they're not
   displayed until a module with the corresponding (eventIndex,moduleIndex) is
   created.
   Related: Remove Hist2d on filter removal?
-
-* add ability to create 2d histograms during DAQ/replay and fill them immediately
+  => would all be fixed when moving from (eventIndex, moduleIndex) to using object ids.
 
 * threading and vme commands
   * run vme scripts in a separate thread when invoked from the gui
-  * FIX the pause, run script, resume implementation. it's very hacky!
-    - run script: Maybe implement a command queue in the context and return
-                  QFuture<VMEResultList> objects to clients.
-    - pause and resume: also return a QFuture or something to be able to wait for
-                        the state change
-    -> look at QFutureInterface
 
 * ReadoutWorker split into generic and controller specific parts:
     Generic part is responsible for:
@@ -73,19 +214,36 @@
         - shutdown
         - pause
         - resume
-  Do this when implementing support for another controller
+  Do this when implementing support for another controller, not before.
 
-* save and restore the position and size of windows
 * save and restore the zoom and pan of histograms
 * save and restore open histograms
-* histograms: look at the storage type used. currently it's u32. should this be double?
-* make use of the "enabled" flag for vme scripts, modules, events, etc
 
 ==========================
 ===== Maybe do these =====
 ==========================
-* Move from MDI to multiple top-level windows (allows making use of multiple monitors)
 
 ======================================
 ==== Done, but kept for reference ====
 ======================================
+>>>>> Begin Analysis NG <<<<<
+* Filter on number of occurence: the filter is considered complete only if it
+  matched N times.
+  Needed for devices that can yield data for the same address in a single
+  event. If the filter does not specify an occurence condition but matches
+  multiple times only the first matched value will be kept.
+  XXX: Impossible to simply accumulate all raw values for a channel into a Hist1D!
+  -> Not an issue according to Robert as multi hits per channel need to be
+     handled explicitly anyways.
+===== Plan to handle array -> single value conversion =====
+- Pipes are only used as output of Operators/Sources
+- Pipes connect to Slots of Operators
+- The slot specifies what kind of inputs it accepts: Array, Value, Both
+- When an output pipe is connected to an input slot and the slot accepts Values
+  the index into the input parameters must be supplied.
+- Slots live in the receiving Operator. They now hold the source Pipe pointers
+- The 'destination' member of Pipes now contains pointers to Slot instead of OperatorInterface
+- Slots need to contain pointers to their owning Operator to be able to traverse the tree forward:
+  sourceOp.outputPipe[i].destinations[j].destOp
+=====
+<<<<< End AnalysisNG >>>>>

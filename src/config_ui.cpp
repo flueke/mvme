@@ -1,10 +1,29 @@
+/* mvme - Mesytec VME Data Acquisition
+ *
+ * Copyright (C) 2016, 2017  Florian Lüke <f.lueke@mesytec.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ */
 #include "config_ui.h"
 #include "ui_event_config_dialog.h"
-#include "ui_datafilter_dialog.h"
-#include "ui_dualword_datafilter_dialog.h"
-#include "mvme_config.h"
+#include "vme_config.h"
 #include "mvme_context.h"
 #include "vme_script.h"
+#include "analysis/analysis.h"
+
+#include <cmath>
 
 #include <QMenu>
 #include <QStandardPaths>
@@ -19,6 +38,8 @@
 #include <QPushButton>
 #include <QJsonObject>
 #include <QJsonDocument>
+
+using namespace vats;
 
 //
 // EventConfigDialog
@@ -98,40 +119,62 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *modul
     , m_context(context)
     , m_module(module)
 {
+    MVMETemplates templates = read_templates();
+    m_moduleMetas = templates.moduleMetas;
+    qSort(m_moduleMetas.begin(), m_moduleMetas.end(), [](const VMEModuleMeta &a, const VMEModuleMeta &b) {
+        return a.displayName < b.displayName;
+    });
+
     typeCombo = new QComboBox;
+    int typeComboIndex = -1;
 
-    int typeComboIndex = 0;
-
-    for (auto type: VMEModuleTypeNames.keys())
+    for (const auto &mm: m_moduleMetas)
     {
-        typeCombo->addItem(VMEModuleTypeNames[type], QVariant::fromValue(static_cast<int>(type)));
-        if (type == module->type)
+        typeCombo->addItem(mm.displayName);
+
+        if (mm.typeId == module->getModuleMeta().typeId)
+        {
             typeComboIndex = typeCombo->count() - 1;
+        }
     }
 
-    typeCombo->setCurrentIndex(typeComboIndex);
+    if (typeComboIndex < 0 && !m_moduleMetas.isEmpty())
+    {
+        typeComboIndex = 0;
+    }
 
     nameEdit = new QLineEdit;
 
-    auto onTypeComboIndexChanged = [=](int index)
+    auto onTypeComboIndexChanged = [this](int index)
     {
-        auto currentType = static_cast<VMEModuleType>(typeCombo->currentData().toInt());
-        QString name = context->getUniqueModuleName(VMEModuleShortNames[currentType]);
+        Q_ASSERT(0 <= index && index < m_moduleMetas.size());
+
+        QString name = m_module->objectName();
+
+        if (name.isEmpty())
+        {
+            const auto &mm(m_moduleMetas[index]);
+            name = m_context->getUniqueModuleName(mm.typeName);
+        }
+
         nameEdit->setText(name);
     };
-
-    onTypeComboIndexChanged(typeComboIndex);
-
-    if (!module->objectName().isEmpty())
-    {
-        nameEdit->setText(module->objectName());
-    }
 
     connect(typeCombo, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
             this, onTypeComboIndexChanged);
 
+    if (typeComboIndex >= 0)
+    {
+        typeCombo->setCurrentIndex(typeComboIndex);
+        onTypeComboIndexChanged(typeComboIndex);
+    }
+
     addressEdit = new QLineEdit;
-    addressEdit->setInputMask("\\0\\xHHHHHHHH");
+    QFont font;
+    font.setFamily(QSL("Monospace"));
+    font.setStyleHint(QFont::Monospace);
+    addressEdit->setFont(font);
+    addressEdit->setInputMask("\\0\\xHHHH\\0\\0\\0\\0");
     addressEdit->setText(QString("0x%1").arg(module->getBaseAddress(), 8, 16, QChar('0')));
 
     auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
@@ -144,15 +187,22 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *modul
     layout->addRow("Address", addressEdit);
     layout->addRow(bb);
 
-    connect(addressEdit, &QLineEdit::textChanged, [=](const QString &) {
-        bb->button(QDialogButtonBox::Ok)->setEnabled(addressEdit->hasAcceptableInput());
-    });
+    auto updateOkButton = [=]()
+    {
+        bool isOk = (addressEdit->hasAcceptableInput() && typeCombo->count() > 0);
+        bb->button(QDialogButtonBox::Ok)->setEnabled(isOk);
+    };
+
+    connect(addressEdit, &QLineEdit::textChanged, updateOkButton);
+    updateOkButton();
 }
 
 void ModuleConfigDialog::accept()
 {
     bool ok;
-    m_module->type = static_cast<VMEModuleType>(typeCombo->currentData().toInt());
+    Q_ASSERT(typeCombo->currentIndex() >= 0 && typeCombo->currentIndex() < m_moduleMetas.size());
+    const auto &mm(m_moduleMetas[typeCombo->currentIndex()]);
+    m_module->setModuleMeta(mm);
     m_module->setObjectName(nameEdit->text());
     m_module->setBaseAddress(addressEdit->text().toUInt(&ok, 16));
     QDialog::accept();
@@ -193,252 +243,33 @@ VHS4030pWidget::VHS4030pWidget(MVMEContext *context, ModuleConfig *config, QWidg
 }
 #endif
 
-//
-// DataFilterDialog
-//
-DataFilterDialog::DataFilterDialog(DataFilterConfig *config, const QString &defaultFilter, QWidget *parent)
-    : QDialog(parent)
-    , ui(new Ui::DataFilterDialog)
-    , m_config(config)
-{
-    ui->setupUi(this);
-
-    QFont font("MonoSpace");
-    font.setStyleHint(QFont::Monospace);
-
-    QFontMetrics metrics(font);
-    int width = metrics.width(ui->le_filter->inputMask());
-
-    ui->le_filterKey->setFont(font);
-    ui->le_filterKey->setMinimumWidth(width);
-    ui->le_filter->setFont(font);
-    ui->le_filter->setMinimumWidth(width);
-
-    ui->le_filterKey->setText(defaultFilter);
-
-    connect(ui->le_filter, &QLineEdit::textChanged, this, &DataFilterDialog::validate);
-    connect(ui->le_name, &QLineEdit::textChanged, this, &DataFilterDialog::validate);
-    connect(ui->le_filter, &QLineEdit::textChanged, this, &DataFilterDialog::updateUnitLimits);
-
-    loadFromConfig();
-    validate();
-}
-
-DataFilterDialog::~DataFilterDialog()
-{
-    delete ui;
-}
-
-void DataFilterDialog::accept()
-{
-    saveToConfig();
-    QDialog::accept();
-}
-
-void DataFilterDialog::loadFromConfig()
-{
-    ui->le_name->setText(m_config->objectName());
-    ui->le_filter->setText(QString::fromLocal8Bit(m_config->getFilter().getFilter()));
-
-    ui->le_axisTitle->setText(m_config->getAxisTitle());
-    ui->le_axisUnit->setText(m_config->getUnitString());
-
-    auto minValue = m_config->getBaseUnitRange().first;
-    auto maxValue = m_config->getBaseUnitRange().second;
-
-    ui->spin_rangeMin->setValue(minValue);
-    ui->spin_rangeMax->setValue(maxValue);
-
-    if (std::abs(maxValue - minValue) == 0.0)
-        updateUnitLimits();
-}
-
-// Converts input to 8 bit, removes spaces, creates filter.
-DataFilter makeFilterFromString(const QString &str, s32 wordIndex = -1)
-{
-    auto filterDataRaw = str.toLocal8Bit();
-
-    QByteArray filterData;
-
-    for (auto c: filterDataRaw)
-    {
-        if (c != ' ')
-            filterData.push_back(c);
-    }
-
-    return DataFilter(filterData, wordIndex);
-}
-
-void DataFilterDialog::saveToConfig()
-{
-    m_config->setObjectName(ui->le_name->text());
-    m_config->setFilter(makeFilterFromString(ui->le_filter->text()));
-    m_config->setAxisTitle(ui->le_axisTitle->text());
-    m_config->setUnitString(ui->le_axisUnit->text());
-
-    double unitMin = ui->spin_rangeMin->value();
-    double unitMax = ui->spin_rangeMax->value();
-
-    m_config->setBaseUnitRange(unitMin, unitMax);
-
-    for (u32 addr = 0; addr < m_config->getAddressCount(); ++addr)
-    {
-        m_config->setUnitRange(addr, unitMin, unitMax);
-    }
-}
-
-void DataFilterDialog::validate()
-{
-    bool isValid = ui->le_filter->hasAcceptableInput()
-        && !ui->le_name->text().isEmpty();
-    ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(isValid);
-}
-
-void DataFilterDialog::updateUnitLimits()
-{
-    try
-    {
-        auto filter = makeFilterFromString(ui->le_filter->text());
-        auto dataBits = filter.getExtractBits('D');
-        ui->spin_rangeMin->setValue(0.0);
-        ui->spin_rangeMax->setValue((1ull << dataBits) - 1);
-    }
-    catch (const std::string &)
-    {}
-}
-
-//
-// DualWordDataFilterDialog
-//
-DualWordDataFilterDialog::DualWordDataFilterDialog(DualWordDataFilterConfig *config, QWidget *parent)
-    : QDialog(parent)
-    , ui(new Ui::DualWordDataFilterDialog)
-    , m_config(config)
-{
-    ui->setupUi(this);
-
-    QFont font("MonoSpace");
-    font.setStyleHint(QFont::Monospace);
-
-    // FIXME(flueke): the lineedit gets way too wide on my machine
-    //QFontMetrics metrics(font);
-    //int width = metrics.width(ui->le_lowFilter->inputMask());
-    //int width = metrics.boundingRect(ui->le_lowFilter->inputMask()).width();
-
-    ui->le_lowFilter->setFont(font);
-    //ui->le_lowFilter->setMinimumWidth(width);
-    ui->le_highFilter->setFont(font);
-    //ui->le_highFilter->setMinimumWidth(width);
-
-    connect(ui->le_lowFilter, &QLineEdit::textChanged, this, &DualWordDataFilterDialog::validate);
-    connect(ui->le_highFilter, &QLineEdit::textChanged, this, &DualWordDataFilterDialog::validate);
-    connect(ui->le_name, &QLineEdit::textChanged, this, &DualWordDataFilterDialog::validate);
-    connect(ui->le_lowFilter, &QLineEdit::textChanged, this, &DualWordDataFilterDialog::updateUnitLimits);
-    connect(ui->le_highFilter, &QLineEdit::textChanged, this, &DualWordDataFilterDialog::updateUnitLimits);
-
-    loadFromConfig();
-    validate();
-}
-
-DualWordDataFilterDialog::~DualWordDataFilterDialog()
-{
-    delete ui;
-}
-
-void DualWordDataFilterDialog::accept()
-{
-    saveToConfig();
-    QDialog::accept();
-}
-
-void DualWordDataFilterDialog::loadFromConfig()
-{
-    ui->le_name->setText(m_config->objectName());
-
-    ui->le_lowFilter->setText(QString::fromLocal8Bit(m_config->getLowWordFilter().getFilter()));
-    ui->le_highFilter->setText(QString::fromLocal8Bit(m_config->getHighWordFilter().getFilter()));
-
-    ui->spin_lowWordIndex->setValue(m_config->getLowWordFilter().getWordIndex());
-    ui->spin_highWordIndex->setValue(m_config->getHighWordFilter().getWordIndex());
-
-    updateUnitLimits();
-    ui->le_axisTitle->setText(m_config->getAxisTitle());
-    ui->le_axisUnit->setText(m_config->getUnitString());
-
-    auto minValue = m_config->getUnitRange().first;
-    auto maxValue = m_config->getUnitRange().second;
-
-    ui->spin_rangeMin->setValue(minValue);
-    ui->spin_rangeMax->setValue(maxValue);
-
-    if (std::abs(maxValue - minValue) == 0.0)
-        updateUnitLimits();
-}
-
-void DualWordDataFilterDialog::saveToConfig()
-{
-    m_config->setObjectName(ui->le_name->text());
-    auto lowFilter = makeFilterFromString(ui->le_lowFilter->text(), ui->spin_lowWordIndex->value());
-    auto highFilter = makeFilterFromString(ui->le_highFilter->text(), ui->spin_highWordIndex->value());
-    m_config->setFilter(DualWordDataFilter(lowFilter, highFilter));
-
-    m_config->setAxisTitle(ui->le_axisTitle->text());
-    m_config->setUnitString(ui->le_axisUnit->text());
-
-    double unitMin = ui->spin_rangeMin->value();
-    double unitMax = ui->spin_rangeMax->value();
-
-    m_config->setUnitRange(unitMin, unitMax);
-}
-
-void DualWordDataFilterDialog::validate()
-{
-    bool isValid = ui->le_lowFilter->hasAcceptableInput()
-        && ui->le_highFilter->hasAcceptableInput()
-        && !ui->le_name->text().isEmpty();
-    ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(isValid);
-}
-
-void DualWordDataFilterDialog::updateUnitLimits()
-{
-    try
-    {
-        auto lowFilter = makeFilterFromString(ui->le_lowFilter->text(), ui->spin_lowWordIndex->value());
-        auto highFilter = makeFilterFromString(ui->le_highFilter->text(), ui->spin_highWordIndex->value());
-        auto dataBits = lowFilter.getExtractBits('D') + highFilter.getExtractBits('D');
-        ui->spin_rangeMin->setValue(0.0);
-        ui->spin_rangeMax->setValue((1ull << dataBits) - 1);
-    }
-    catch (const std::string &)
-    {}
-}
-
 namespace
 {
-    bool saveAnalysisConfigImpl(AnalysisConfig *config, const QString &fileName)
+    bool saveAnalysisConfigImpl(analysis::Analysis *analysis_ng, const QString &fileName)
     {
-        QJsonObject json, configJson;
-        config->write(configJson);
-        json[QSL("AnalysisConfig")] = configJson;
+        QJsonObject json;
+        {
+            QJsonObject destObject;
+            analysis_ng->write(destObject);
+            json[QSL("AnalysisNG")] = destObject;
+        }
         return gui_write_json_file(fileName, QJsonDocument(json));
     }
-
-    static const QString fileFilter = QSL("Config Files (*.json);; All Files (*.*)");
 }
 
-QPair<bool, QString> saveAnalysisConfig(AnalysisConfig *config, const QString &fileName, QString startPath)
+QPair<bool, QString> gui_saveAnalysisConfig(analysis::Analysis *analysis_ng, const QString &fileName, QString startPath, QString fileFilter)
 {
     if (fileName.isEmpty())
-        return saveAnalysisConfigAs(config, startPath);
+        return gui_saveAnalysisConfigAs(analysis_ng, startPath, fileFilter);
 
-    if (saveAnalysisConfigImpl(config, fileName))
+    if (saveAnalysisConfigImpl(analysis_ng, fileName))
     {
         return qMakePair(true, fileName);
     }
     return qMakePair(false, QString());
 }
 
-QPair<bool, QString> saveAnalysisConfigAs(AnalysisConfig *config, QString path)
+QPair<bool, QString> gui_saveAnalysisConfigAs(analysis::Analysis *analysis_ng, QString path, QString fileFilter)
 {
     if (path.isEmpty())
         path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
@@ -450,9 +281,9 @@ QPair<bool, QString> saveAnalysisConfigAs(AnalysisConfig *config, QString path)
 
     QFileInfo fi(fileName);
     if (fi.completeSuffix().isEmpty())
-        fileName += QSL(".json");
+        fileName += QSL(".analysis");
 
-    if (saveAnalysisConfigImpl(config, fileName))
+    if (saveAnalysisConfigImpl(analysis_ng, fileName))
     {
         return qMakePair(true, fileName);
     }

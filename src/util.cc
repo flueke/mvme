@@ -1,4 +1,23 @@
+/* mvme - Mesytec VME Data Acquisition
+ *
+ * Copyright (C) 2016, 2017  Florian Lüke <f.lueke@mesytec.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ */
 #include "util.h"
+#include <cmath>
 #include <QCloseEvent>
 #include <QCoreApplication>
 #include <QDir>
@@ -242,7 +261,12 @@ QJsonDocument gui_read_json_file(const QString &fileName)
         return QJsonDocument();
     }
 
-    auto data = inFile.readAll();
+    return gui_read_json(&inFile);
+}
+
+QJsonDocument gui_read_json(QIODevice *input)
+{
+    auto data = input->readAll();
 
     if (data.isEmpty())
         return QJsonDocument();
@@ -252,8 +276,7 @@ QJsonDocument gui_read_json_file(const QString &fileName)
 
     if (parseError.error != QJsonParseError::NoError)
     {
-        QMessageBox::critical(0, "Error", QString("Error reading from %1: %2 at offset %3")
-                              .arg(fileName)
+        QMessageBox::critical(0, "Error", QString("Error reading JSON: %1 at offset %2")
                               .arg(parseError.errorString())
                               .arg(parseError.offset)
                              );

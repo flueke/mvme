@@ -1,0 +1,4 @@
+#define DEF_GIT_SHA1 "@GIT_SHA1@"
+#define DEF_GIT_VERSION "@GIT_VERSION@"
+extern const char GIT_SHA1[] = DEF_GIT_SHA1;
+extern const char GIT_VERSION[] = DEF_GIT_VERSION;

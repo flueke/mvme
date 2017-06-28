@@ -1,3 +1,21 @@
+/* mvme - Mesytec VME Data Acquisition
+ *
+ * Copyright (C) 2016, 2017  Florian Lüke <f.lueke@mesytec.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ */
 #include "daqcontrol_widget.h"
 #include "mvme_context.h"
 #include "util.h"
@@ -6,6 +24,23 @@
 #include <QTimer>
 
 static const int updateInterval = 500;
+
+static void fill_compression_combo(QComboBox *combo)
+{
+    for (int i=0; i<=9; ++i)
+    {
+        QString label(QString::number(i));
+
+        switch (i)
+        {
+            case 0: label = QSL("No compression"); break;
+            case 6: label = QSL("Default"); break;
+            case 9: label = QSL("Best compression"); break;
+        }
+
+        combo->addItem(label, i);
+    }
+}
 
 DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
     : QWidget(parent)
@@ -29,12 +64,32 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
         }
         else if (globalMode == GlobalMode::ListFile)
         {
-            m_context->startReplay();
+            if (daqState == DAQState::Running)
+                m_context->pauseReplay();
+            else if (daqState == DAQState::Paused)
+                m_context->resumeReplay();
+            else if (daqState == DAQState::Idle)
+                m_context->startReplay();
         }
     });
 
     connect(ui->pb_oneCycle, &QPushButton::clicked, this, [this] {
-        m_context->startDAQ(1);
+        auto globalMode = m_context->getMode();
+        if (globalMode == GlobalMode::DAQ)
+        {
+            m_context->startDAQ(1);
+        } else if (globalMode == GlobalMode::ListFile)
+        {
+            auto daqState = m_context->getDAQState();
+            if (daqState == DAQState::Idle)
+            {
+                m_context->startReplay(1);
+            }
+            else if (daqState == DAQState::Paused)
+            {
+                m_context->resumeReplay(1);
+            }
+        }
     });
 
     connect(ui->pb_stop, &QPushButton::clicked, m_context, &MVMEContext::stopDAQ);
@@ -48,11 +103,29 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
     });
 
     connect(ui->cb_writeListfile, &QCheckBox::stateChanged, this, [this](int state) {
+        auto info = m_context->getListFileOutputInfo();
+        info.enabled = (state != Qt::Unchecked);
+        m_context->setListFileOutputInfo(info);
+    });
+
+    connect(ui->cb_writeZip, &QCheckBox::stateChanged, this, [this](int state) {
+        auto info = m_context->getListFileOutputInfo();
         bool enabled = (state != Qt::Unchecked);
-        m_context->setListFileOutputEnabled(enabled);
+        info.format = (enabled ? ListFileFormat::ZIP : ListFileFormat::Plain);
+        m_context->setListFileOutputInfo(info);
+    });
+
+    fill_compression_combo(ui->combo_compression);
+
+    connect(ui->combo_compression, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged), this, [this] (int index) {
+        int compression = ui->combo_compression->currentData().toInt();
+        auto info = m_context->getListFileOutputInfo();
+        info.compressionLevel = compression;
+        m_context->setListFileOutputInfo(info);
     });
 
     connect(m_context, &MVMEContext::daqStateChanged, this, &DAQControlWidget::updateWidget);
+    connect(m_context, &MVMEContext::eventProcessorStateChanged, this, &DAQControlWidget::updateWidget);
     connect(m_context, &MVMEContext::modeChanged, this, &DAQControlWidget::updateWidget);
     connect(m_context, &MVMEContext::controllerStateChanged, this, &DAQControlWidget::updateWidget);
     connect(m_context, &MVMEContext::daqConfigChanged, this, &DAQControlWidget::updateWidget);
@@ -66,29 +139,73 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
     updateWidget();
 }
 
+DAQControlWidget::~DAQControlWidget()
+{
+    delete ui;
+}
+
 void DAQControlWidget::updateWidget()
 {
     auto globalMode = m_context->getMode();
     auto daqState = m_context->getDAQState();
+    auto eventProcState = m_context->getEventProcessorState();
     auto controllerState = m_context->getController()->getState();
     const auto &stats = m_context->getDAQStats();
 
-    ui->pb_start->setEnabled((globalMode == GlobalMode::DAQ
-                          && controllerState == ControllerState::Opened)
-                         || (globalMode == GlobalMode::ListFile
-                             && daqState == DAQState::Idle)
-                         );
+    //
+    // start/pause/resume button
+    //
+    bool enableStartButton = false;
 
-    ui->pb_stop->setEnabled((globalMode == GlobalMode::DAQ
-                         && daqState != DAQState::Idle
-                         && controllerState == ControllerState::Opened)
-                        || (globalMode == GlobalMode::ListFile
-                            && daqState != DAQState::Idle)
-                       );
+    if (globalMode == GlobalMode::DAQ && controllerState == ControllerState::Opened)
+    {
+        enableStartButton = true;
+    }
+    else if (globalMode == GlobalMode::ListFile) // && daqState == DAQState::Idle && eventProcState == EventProcessorState::Idle)
+    {
+        enableStartButton = true;
+    }
 
-    ui->pb_oneCycle->setEnabled(globalMode == GlobalMode::DAQ
-                            && daqState == DAQState::Idle
-                            && controllerState == ControllerState::Opened);
+    ui->pb_start->setEnabled(enableStartButton);
+
+#if 0
+    ui->pb_start->setEnabled(((globalMode == GlobalMode::DAQ && controllerState == ControllerState::Opened)
+                              || (globalMode == GlobalMode::ListFile && daqState == DAQState::Idle))
+                             && (eventProcState == EventProcessorState::Idle)
+                            );
+#endif
+
+    //
+    // stop button
+    //
+    ui->pb_stop->setEnabled(((globalMode == GlobalMode::DAQ && daqState != DAQState::Idle && controllerState == ControllerState::Opened)
+                             || (globalMode == GlobalMode::ListFile && daqState != DAQState::Idle))
+                           );
+
+    //
+    // one cycle button
+    //
+    bool enableOneCycleButton = false;
+
+    if (globalMode == GlobalMode::DAQ && controllerState == ControllerState::Opened && daqState == DAQState::Idle)
+    {
+        enableOneCycleButton = true;
+    }
+    else if (globalMode == GlobalMode::ListFile && (daqState == DAQState::Idle || daqState == DAQState::Paused))
+    {
+        enableOneCycleButton = true;
+    }
+
+    ui->pb_oneCycle->setEnabled(enableOneCycleButton);
+
+
+#if 0
+    ui->pb_oneCycle->setEnabled(daqState == DAQState::Idle
+                                && ((globalMode == GlobalMode::DAQ && controllerState == ControllerState::Opened)
+                                    || (globalMode == GlobalMode::ListFile))
+                                && (eventProcState == EventProcessorState::Idle)
+                               );
+#endif
 
     ui->gb_listfile->setEnabled(globalMode == GlobalMode::DAQ);
 
@@ -100,28 +217,42 @@ void DAQControlWidget::updateWidget()
             ui->pb_start->setText(QSL("Resume"));
         else
             ui->pb_start->setText(QSL("Pause"));
+
+        ui->pb_oneCycle->setText(QSL("1 Cycle"));
     }
     else if (globalMode == GlobalMode::ListFile)
     {
-        ui->pb_start->setText(QSL("Start Replay"));
+        if (daqState == DAQState::Idle)
+            ui->pb_start->setText(QSL("Start Replay"));
+        else if (daqState == DAQState::Paused)
+            ui->pb_start->setText(QSL("Resume Replay"));
+        else
+            ui->pb_start->setText(QSL("Pause Replay"));
+
+        if (daqState == DAQState::Idle)
+            ui->pb_oneCycle->setText(QSL("1 Event"));
+        else if (daqState == DAQState::Paused)
+            ui->pb_oneCycle->setText(QSL("Next Event"));
     }
 
 
-    auto stateString = DAQStateStrings.value(daqState, QSL("Unknown"));
+    auto daqStateString = DAQStateStrings.value(daqState, QSL("Unknown"));
+    QString eventProcStateString = (eventProcState == EventProcessorState::Idle ? QSL("Idle") : QSL("Running"));
 
     if (daqState == DAQState::Running && globalMode == GlobalMode::ListFile)
-        stateString = QSL("Replay");
+        daqStateString = QSL("Replay");
 
     if (daqState != DAQState::Idle)
     {
         auto duration  = stats.startTime.secsTo(QDateTime::currentDateTime());
         auto durationString = makeDurationString(duration);
 
-        stateString = QString("%1 (%2)").arg(stateString).arg(durationString);
+        daqStateString = QString("%1 (%2)").arg(daqStateString).arg(durationString);
     }
 
 
-    ui->label_daqState->setText(stateString);
+    ui->label_daqState->setText(daqStateString);
+    ui->label_analysisState->setText(eventProcStateString);
 
     ui->label_controllerState->setText(controllerState == ControllerState::Closed
                                        ? QSL("Disconnected")
@@ -129,11 +260,24 @@ void DAQControlWidget::updateWidget()
 
     ui->pb_reconnect->setEnabled(globalMode == GlobalMode::DAQ && daqState == DAQState::Idle);
 
+    auto outputInfo = m_context->getListFileOutputInfo();
+
     {
         QSignalBlocker b(ui->cb_writeListfile);
-        ui->cb_writeListfile->setChecked(m_context->isListFileOutputEnabled());
+        ui->cb_writeListfile->setChecked(outputInfo.enabled);
     }
 
+    {
+        QSignalBlocker b(ui->cb_writeZip);
+        ui->cb_writeZip->setChecked(outputInfo.format == ListFileFormat::ZIP);
+    }
+
+    {
+        QSignalBlocker b(ui->combo_compression);
+        ui->combo_compression->setCurrentIndex(outputInfo.compressionLevel);
+    }
+
+    // FIXME: use listfile directory here?
     auto filename = stats.listfileFilename;
     filename.remove(m_context->getWorkspaceDirectory() + "/listfiles/");
     if (ui->le_listfileFilename->text() != filename)

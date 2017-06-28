@@ -1,9 +1,30 @@
+/* mvme - Mesytec VME Data Acquisition
+ *
+ * Copyright (C) 2016, 2017  Florian Lüke <f.lueke@mesytec.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ */
 #include "mvme_event_processor.h"
 #include "mvme_context.h"
 #include "mvme_listfile.h"
-#include "hist1d.h"
-#include "hist2d.h"
+#include "histo1d.h"
 #include "mesytec_diagnostics.h"
+#include "analysis/analysis.h"
+
+#include <QCoreApplication>
+#include <QElapsedTimer>
 
 //#define MVME_EVENT_PROCESSOR_DEBUGGING
 
@@ -13,47 +34,47 @@
     inline QNoDebug qEPDebug() { return QNoDebug(); }
 #endif
 
-using namespace listfile;
+enum RunAction
+{
+    KeepRunning,
+    StopIfQueueEmpty,
+    StopImmediately
+};
 
 struct MVMEEventProcessorPrivate
 {
     MVMEContext *context = nullptr;
 
-    QMap<int, QMap<int, DataFilterConfigList>> filterConfigs; // eventIdx -> moduleIdx -> filterList
-    QHash<DataFilterConfig *, QHash<int, Hist1D *>> histogramsByFilterConfig; // filter -> address -> histo
-    QHash<DataFilterConfig *, QHash<int, QVector<u32>>> valuesByFilterConfig; // filter -> address -> list of values
-    QHash<Hist2DConfig *, Hist2D *> hist2dByConfig;
-    QHash<QUuid, DataFilterConfig *> filterConfigsById;
-
-    QMap<int, QMap<int, DualWordDataFilterConfigList>> dualWordFilterConfigs; // eventIdx -> moduleIdx -> filterList
-    QHash<DualWordDataFilterConfig *, QPair<Hist1D *, Hist1DConfig *>> histogramsByDualWordDataFilterConfig;
-
-    QHash<DualWordDataFilterConfig *, QPair<u64, bool>> currentDualWordFilterValues;
-    QHash<DualWordDataFilterConfig *, QPair<u64, bool>> lastDualWordFilterValues;
-    QHash<DualWordDataFilterConfig *, QPair<double, bool>> dualWordFilterDiffs;
-    QMutex dualWordFilterValuesLock;
-
     MesytecDiagnostics *diag = nullptr;
-    bool isProcessingBuffer = false;
-    QMutex isProcessingMutex;
+
+    analysis::Analysis *analysis_ng;
+    volatile RunAction m_runAction = KeepRunning;
+    EventProcessorState m_state = EventProcessorState::Idle;
+
+    u32 m_listFileVersion;
+    int SectionTypeMask;
+    int SectionTypeShift;
+    int SectionSizeMask;
+    int SectionSizeShift;
+    int EventTypeMask;
+    int EventTypeShift;
+    int ModuleTypeMask;
+    int ModuleTypeShift;
+    int SubEventSizeMask;
+    int SubEventSizeShift;
 };
 
 MVMEEventProcessor::MVMEEventProcessor(MVMEContext *context)
     : m_d(new MVMEEventProcessorPrivate)
 {
     m_d->context = context;
+    setListFileVersion(1);
 }
 
 MVMEEventProcessor::~MVMEEventProcessor()
 {
     delete m_d->diag;
     delete m_d;
-}
-
-bool MVMEEventProcessor::isProcessingBuffer() const
-{
-    QMutexLocker locker(&m_d->isProcessingMutex);
-    return m_d->isProcessingBuffer;
 }
 
 void MVMEEventProcessor::setDiagnostics(MesytecDiagnostics *diag)
@@ -68,50 +89,6 @@ MesytecDiagnostics *MVMEEventProcessor::getDiagnostics() const
     return m_d->diag;
 }
 
-DualWordFilterValues MVMEEventProcessor::getDualWordFilterValues() const
-{
-    QMutexLocker locker(&m_d->dualWordFilterValuesLock);
-
-    DualWordFilterValues result;
-
-    // create a deep copy of the values hash
-    for (auto it = m_d->currentDualWordFilterValues.begin();
-         it != m_d->currentDualWordFilterValues.end();
-        ++it)
-    {
-        const auto &value(it.value());
-
-        if (value.second)
-        {
-            result[it.key()] = value.first;
-        }
-    }
-
-    return result;
-}
-
-DualWordFilterDiffs MVMEEventProcessor::getDualWordFilterDiffs() const
-{
-    QMutexLocker locker(&m_d->dualWordFilterValuesLock);
-
-    DualWordFilterDiffs result;
-
-    // create a deep copy of the values hash
-    for (auto it = m_d->dualWordFilterDiffs.begin();
-         it != m_d->dualWordFilterDiffs.end();
-        ++it)
-    {
-        const auto &value(it.value());
-
-        if (value.second)
-        {
-            result[it.key()] = value.first;
-        }
-    }
-
-    return result;
-}
-
 void MVMEEventProcessor::removeDiagnostics()
 {
     setDiagnostics(nullptr);
@@ -119,81 +96,14 @@ void MVMEEventProcessor::removeDiagnostics()
 
 void MVMEEventProcessor::newRun()
 {
-    m_d->filterConfigs.clear();
-    m_d->histogramsByFilterConfig.clear();
-    m_d->valuesByFilterConfig.clear();
-    m_d->hist2dByConfig.clear();
-    m_d->filterConfigsById.clear();
-
     if (m_d->diag)
         m_d->diag->reset();
 
-    auto analysisConfig = m_d->context->getAnalysisConfig();
-
-    m_d->filterConfigs = analysisConfig->getFilters();
-
-    for (auto histo: m_d->context->getObjects<Hist1D *>())
     {
-        if (auto histoConfig = qobject_cast<Hist1DConfig *>(m_d->context->getConfigForObject(histo)))
+        m_d->analysis_ng = m_d->context->getAnalysis();
+        if (m_d->analysis_ng)
         {
-            if (auto filterConfig = analysisConfig->findChildById<DataFilterConfig *>(
-                    histoConfig->getFilterId()))
-            {
-                auto address = histoConfig->getFilterAddress();
-
-                qEPDebug() << __PRETTY_FUNCTION__
-                    << "filter:" << filterConfig << address
-                    << "histo:" << histo;
-
-                m_d->histogramsByFilterConfig[filterConfig][address] = histo;
-            }
-        }
-    }
-
-    for (auto histo: m_d->context->getObjects<Hist2D *>())
-    {
-        if (auto histoConfig = qobject_cast<Hist2DConfig *>(m_d->context->getConfigForObject(histo)))
-        {
-            qEPDebug() << __PRETTY_FUNCTION__
-                << "hist2d:" << histoConfig << histo;
-
-            m_d->hist2dByConfig[histoConfig] = histo;
-        }
-    }
-
-    for (auto filterConfig: analysisConfig->findChildren<DataFilterConfig *>())
-    {
-        auto id = filterConfig->getId();
-        qEPDebug() << __PRETTY_FUNCTION__ << "filterById:" << id << filterConfig;
-        m_d->filterConfigsById[id] = filterConfig;
-    }
-
-    {
-        //
-        // DualWordDataFilters
-        //
-
-        QMutexLocker dualWordLocker(&m_d->dualWordFilterValuesLock);
-
-        m_d->dualWordFilterConfigs = analysisConfig->getDualWordFilters();
-        m_d->histogramsByDualWordDataFilterConfig.clear();
-        m_d->currentDualWordFilterValues.clear();
-        m_d->lastDualWordFilterValues.clear();
-        m_d->dualWordFilterDiffs.clear();
-
-        for (auto histoConfig: analysisConfig->findChildren<Hist1DConfig *>())
-        {
-            auto filterConfig = analysisConfig->findChildById<DualWordDataFilterConfig *>(histoConfig->getFilterId());
-
-            if (filterConfig)
-            {
-                auto histo = qobject_cast<Hist1D *>(m_d->context->getObjectForConfig(histoConfig));
-
-                if (histo)
-                {
-                    m_d->histogramsByDualWordDataFilterConfig[filterConfig] = qMakePair(histo, histoConfig);
-                }
-            }
+            m_d->analysis_ng->beginRun(m_d->context->getRunInfo());
         }
     }
 }
@@ -201,11 +111,6 @@ void MVMEEventProcessor::newRun()
 // Process an event buffer containing one or more events.
 void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
 {
-    {
-        QMutexLocker locker(&m_d->isProcessingMutex);
-        m_d->isProcessingBuffer = true;
-    }
-
 #ifdef MVME_EVENT_PROCESSOR_DEBUGGING
     qDebug() << __PRETTY_FUNCTION__ << "begin processing" << buffer;
 #endif
@@ -222,66 +127,44 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
         while (iter.longwordsLeft())
         {
             u32 sectionHeader = iter.extractU32();
-            int sectionType = (sectionHeader & SectionTypeMask) >> SectionTypeShift;
-            u32 sectionSize = (sectionHeader & SectionSizeMask) >> SectionSizeShift;
+            int sectionType = (sectionHeader & m_d->SectionTypeMask) >> m_d->SectionTypeShift;
+            u32 sectionSize = (sectionHeader & m_d->SectionSizeMask) >> m_d->SectionSizeShift;
 
-            if (sectionType != SectionType_Event)
+#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+            qDebug() << __PRETTY_FUNCTION__
+                << "sectionHeader" <<  QString::number(sectionHeader, 16)
+                << "sectionType" << sectionType
+                << "sectionSize" << sectionSize;
+#endif
+
+            if (sectionType != ListfileSections::SectionType_Event)
             {
+#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+                qDebug() << __PRETTY_FUNCTION__ << "skipping non event section";
+#endif
                 iter.skip(sectionSize * sizeof(u32));
                 continue;
             }
 
             stats.addEventsRead(1);
 
-            int eventIndex = (sectionHeader & EventTypeMask) >> EventTypeShift;
+            int eventIndex = (sectionHeader & m_d->EventTypeMask) >> m_d->EventTypeShift;
+
             u32 wordsLeftInSection = sectionSize;
 
             auto eventConfig = m_d->context->getConfig()->getEventConfig(eventIndex);
+
+#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+            qDebug() << __PRETTY_FUNCTION__
+                << "eventIndex" << eventIndex
+                << "eventConfig" << eventConfig;
+#endif
+
             if (eventConfig)
                 ++stats.eventCounters[eventConfig].events;
 
-            {
-                // clears the values for the current eventIndex
-                // FIXME: slow!
-                const auto &filterMap = m_d->filterConfigs.value(eventIndex);
-
-                for (auto it=filterMap.begin(); it!=filterMap.end(); ++it)
-                {
-                    for (const auto filterConfig: it.value())
-                    {
-                        auto &valueHash = m_d->valuesByFilterConfig[filterConfig];
-
-                        for (auto jt=valueHash.begin(); jt!=valueHash.end(); ++jt)
-                        {
-                            jt.value().clear();
-                        }
-                    }
-                }
-            }
-
-#if 0
-            /* Wed Jan 25 14:32:55 CET 2017
-             * Don't do this anymore. Instead keep the values across buffers
-             * and do the swap when calculating the difference. */
-            {
-                /* DualWordDataFilters: swap current and last values for each
-                 * module for the current eventIndex, then clear the new
-                 * current value.  */
-                QMutexLocker locker(&m_d->dualWordFilterValuesLock);
-                const auto &filterMap = m_d->dualWordFilterConfigs.value(eventIndex);
-                for (auto it=filterMap.begin(); it!=filterMap.end(); ++it)
-                {
-                    for (const auto filterConfig: it.value())
-                    {
-                        std::swap(m_d->currentDualWordFilterValues[filterConfig],
-                                  m_d->lastDualWordFilterValues[filterConfig]);
-
-                        m_d->currentDualWordFilterValues[filterConfig].second = false;
-                        m_d->dualWordFilterDiffs[filterConfig].second = false;
-                    }
-                }
-            }
-#endif
+            if (m_d->analysis_ng && eventConfig)
+                m_d->analysis_ng->beginEvent(eventConfig->getId());
 
             int moduleIndex = 0;
 
@@ -291,8 +174,20 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
             {
                 u8 *oldBufferP = iter.buffp;
                 u32 subEventHeader = iter.extractU32();
-                u32 subEventSize = (subEventHeader & SubEventSizeMask) >> SubEventSizeShift;
-                auto moduleType  = static_cast<VMEModuleType>((subEventHeader & ModuleTypeMask) >> ModuleTypeShift);
+                u32 subEventSize = (subEventHeader & m_d->SubEventSizeMask) >> m_d->SubEventSizeShift;
+                u8 moduleType  = static_cast<u8>((subEventHeader & m_d->ModuleTypeMask) >> m_d->ModuleTypeShift);
+                auto moduleConfig = m_d->context->getConfig()->getModuleConfig(eventIndex, moduleIndex);
+
+                // TODO: skip event and report error in the following case:
+                // moduleConfig->getModuleMeta().type != moduleType
+
+#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+                qDebug() << __PRETTY_FUNCTION__
+                    << "moduleSectionHeader" << QString::number(subEventHeader, 16)
+                    << "moduleSectionSize" << subEventSize
+                    << "moduleType" << static_cast<s32>(moduleType)
+                    << "moduleConfig" << moduleConfig;
+#endif
 
 
                 MesytecDiagnostics *diag = nullptr;
@@ -300,14 +195,6 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                 {
                     diag = m_d->diag;
                     diag->beginEvent();
-                }
-
-                const auto filterConfigs = m_d->filterConfigs.value(eventIndex).value(moduleIndex);
-                const auto dualWordfilterConfigs = m_d->dualWordFilterConfigs.value(eventIndex).value(moduleIndex);
-
-                for (auto filterConfig: dualWordfilterConfigs)
-                {
-                    filterConfig->getFilter().clearCompletion();
                 }
 
                 s32 wordIndexInSubEvent = 0;
@@ -345,61 +232,6 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                         && (currentWord == BerrMarker))
                         continue;
 
-                    for (auto filterConfig: filterConfigs)
-                    {
-#if 0 //#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
-                        qEPDebug() << __PRETTY_FUNCTION__ << "trying filter" << filterConfig
-                            << filterConfig->getFilter().toString()
-                            << "current word" << hex << currentWord << dec;
-#endif
-
-                        if (filterConfig->getFilter().matches(currentWord, wordIndexInSubEvent))
-                        {
-                            u32 address = filterConfig->getFilter().extractData(currentWord, 'A');
-                            u32 data    = filterConfig->getFilter().extractData(currentWord, 'D');
-                            auto histo  = m_d->histogramsByFilterConfig[filterConfig].value(address);
-                            if (histo)
-                            {
-#if 0 //#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
-                                qEPDebug() << __PRETTY_FUNCTION__ << "fill" << histo << data;
-#endif
-                                histo->fill(data);
-                            }
-                            else
-                            {
-#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
-                                qEPDebug() << __PRETTY_FUNCTION__ << "filter matched but found no histo!";
-#endif
-                            }
-                            m_d->valuesByFilterConfig[filterConfig][address].push_back(data);
-                        }
-                    }
-
-                    for (auto filterConfig: dualWordfilterConfigs)
-                    {
-                        /* Note: This can break if a dual word filter has one
-                         * of its' filter words consist only of X'es (meaning
-                         * the word does match any input) but the subevent
-                         * consists of only one word, then the filter will
-                         * never be marked as complete. */
-                        auto &filter(filterConfig->getFilter());
-                        filter.handleDataWord(currentWord, wordIndexInSubEvent);
-
-                        if (filter.isComplete())
-                        {
-                            QMutexLocker locker(&m_d->dualWordFilterValuesLock);
-                            auto &pair(m_d->currentDualWordFilterValues[filterConfig]);
-                            pair.first = filter.getResult();
-                            pair.second = true;
-                            filter.clearCompletion();
-                        }
-                    }
-
-                    if (diag)
-                    {
-                        diag->handleDataWord(currentWord);
-                    }
-
 #ifdef MVME_EVENT_PROCESSOR_DEBUGGING
                     if (moduleType == VMEModuleType::MesytecCounter)
                     {
@@ -411,18 +243,17 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                                         );
                     }
 #endif
-                }
-
-
-#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
-                for (auto filterConfig: dualWordfilterConfigs)
-                {
-                    if (m_d->currentDualWordFilterValues.contains(filterConfig))
+                    if (diag)
                     {
-                        qDebug() << filterConfig << m_d->currentDualWordFilterValues[filterConfig];
+                        diag->handleDataWord(currentWord);
+                    }
+
+                    if (m_d->analysis_ng && eventConfig && moduleConfig)
+                    {
+                        m_d->analysis_ng->processDataWord(eventConfig->getId(), moduleConfig->getId(),
+                                                          currentWord, wordIndexInSubEvent);
                     }
                 }
-#endif
 
                 if (diag)
                 {
@@ -441,7 +272,6 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                                     .arg(eventIndex)
                                     .arg(moduleIndex)
                                    );
-                    emit bufferProcessed(buffer);
                     return;
                 }
 
@@ -464,127 +294,13 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                                         "(eventIndex=%1)")
                                 .arg(eventIndex)
                                );
-                emit bufferProcessed(buffer);
                 return;
             }
 
-            //
-            // fill 2D Histograms
-            //
-            for (const auto hist2dConfig: m_d->hist2dByConfig.keys())
-            {
-                auto hist2d    = m_d->hist2dByConfig[hist2dConfig];
-
-                auto xFilterId = hist2dConfig->getFilterId(Qt::XAxis);
-                auto xFilter   = m_d->filterConfigsById.value(xFilterId, nullptr);
-                auto xAddress  = hist2dConfig->getFilterAddress(Qt::XAxis);
-
-                auto yFilterId = hist2dConfig->getFilterId(Qt::YAxis);
-                auto yFilter   = m_d->filterConfigsById.value(yFilterId, nullptr);
-                auto yAddress  = hist2dConfig->getFilterAddress(Qt::YAxis);
-
-                const u32 xOffset     = hist2dConfig->getOffset(Qt::XAxis);
-                const u32 xShift      = hist2dConfig->getShift(Qt::XAxis);
-                const u32 yOffset     = hist2dConfig->getOffset(Qt::YAxis);
-                const u32 yShift      = hist2dConfig->getShift(Qt::YAxis);
-
-                if (hist2d && xFilter && yFilter)
-                {
-                    const auto &xValues = m_d->valuesByFilterConfig[xFilter][xAddress];
-                    const auto &yValues = m_d->valuesByFilterConfig[yFilter][yAddress];
-
-                    if (xValues.size() > 0 && xValues.size() == yValues.size())
-                    {
-                        for (auto i=0; i<xValues.size(); ++i)
-                        {
-                            auto xValue = xValues[i];
-                            auto yValue = yValues[i];
-
-                            if (xValue >= xOffset && yValue >= yOffset)
-                            {
-                                xValue -= xOffset;
-                                yValue -= yOffset;
-
-                                xValue >>= xShift;
-                                yValue >>= yShift;
-
-                                hist2d->fill(xValue, yValue);
-                            }
-                        }
-                    }
-                }
-            }
-
-            //
-            // Calculate dual word filter differences and fill related 1d histograms
-            //
-
-            {
-                QMutexLocker locker(&m_d->dualWordFilterValuesLock);
-
-                const auto &filtersByModule(m_d->dualWordFilterConfigs[eventIndex]);
-
-                for (auto jt = filtersByModule.begin();
-                     jt != filtersByModule.end();
-                     ++jt)
-                {
-                    const auto &filters(jt.value());
-
-                    for (auto filterConfig: filters)
-                    {
-                        auto histoPair = m_d->histogramsByDualWordDataFilterConfig.value(filterConfig);
-                        auto histo = histoPair.first;
-                        auto histoConfig = histoPair.second;
-                        u32  histoShift = histoConfig->getShift();
-
-                        if (histo)
-                        {
-                            auto &currentValue(m_d->currentDualWordFilterValues[filterConfig]);
-                            auto &lastValue(m_d->lastDualWordFilterValues[filterConfig]);
-
-                            if (currentValue.second && lastValue.second)
-                            {
-                                // TODO: add a way to handle negative results here!
-                                // also results that are out of range (double values for histos needed)
-                                s64 diff = currentValue.first - lastValue.first;
-
-                                if (diff >= 0)
-                                {
-                                    if (histoShift != 0)
-                                    {
-                                        diff /= std::pow(2.0, histoShift);
-                                    }
-                                    histo->fill(diff);
-
-#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
-                                    qDebug() << "histo fill value =" << diff
-                                        << ", #values =" << currentValues.size()
-                                        << ", filterConfig =" << filterConfig
-                                        << ", event =" << eventIndex
-                                        << ", module =" << moduleIndex
-                                        ;
-#endif
-                                }
-
-                                double ddiff = static_cast<double>(currentValue.first) - static_cast<double>(lastValue.first);
-
-                                m_d->dualWordFilterDiffs[filterConfig].first = ddiff;
-                                m_d->dualWordFilterDiffs[filterConfig].second = true;
-                            }
-
-                            /* There was a current value. Assign it to the pair
-                             * stored in lastDualWordFilterValues and reset the
-                             * boolean flag for the current pair. */
-                            if (currentValue.second)
-                            {
-                                lastValue = currentValue;
-                                currentValue.second = false;
-                            }
-                        }
-                    }
-                }
-            }
+            if (m_d->analysis_ng && eventConfig)
+                m_d->analysis_ng->endEvent(eventConfig->getId());
         }
+        ++stats.totalBuffersProcessed;
     } catch (const end_of_buffer &)
     {
         emit logMessage(QString("Error: unexpectedly reached end of buffer"));
@@ -594,11 +310,118 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
 #ifdef MVME_EVENT_PROCESSOR_DEBUGGING
     qDebug() << __PRETTY_FUNCTION__ << "end processing" << buffer;
 #endif
+}
 
-    emit bufferProcessed(buffer);
+static const u32 FilledBufferWaitTimeout_ms = 250;
+static const u32 ProcessEventsMinInterval_ms = 500;
 
+void MVMEEventProcessor::startProcessing()
+{
+    qDebug() << __PRETTY_FUNCTION__ << "begin";
+    Q_ASSERT(m_freeBufferQueue);
+    Q_ASSERT(m_filledBufferQueue);
+    Q_ASSERT(m_d->m_state == EventProcessorState::Idle);
+
+    emit started();
+    emit stateChanged(m_d->m_state = EventProcessorState::Running);
+
+    QCoreApplication::processEvents();
+
+    QElapsedTimer timeSinceLastProcessEvents;
+    timeSinceLastProcessEvents.start();
+
+    m_d->m_runAction = KeepRunning;
+
+    while (m_d->m_runAction != StopImmediately)
     {
-        QMutexLocker locker(&m_d->isProcessingMutex);
-        m_d->isProcessingBuffer = false;
+        DataBuffer *buffer = nullptr;
+
+        {
+            QMutexLocker lock(&m_filledBufferQueue->mutex);
+
+            if (m_filledBufferQueue->queue.isEmpty())
+            {
+                if (m_d->m_runAction == StopIfQueueEmpty)
+                    break;
+
+                m_filledBufferQueue->wc.wait(&m_filledBufferQueue->mutex, FilledBufferWaitTimeout_ms);
+            }
+
+            if (!m_filledBufferQueue->queue.isEmpty())
+            {
+                buffer = m_filledBufferQueue->queue.dequeue();
+            }
+        }
+        // The mutex is unlocked again at this point
+
+        if (buffer)
+        {
+            processDataBuffer(buffer);
+
+            // Put the buffer back into the free queue
+            m_freeBufferQueue->mutex.lock();
+            m_freeBufferQueue->queue.enqueue(buffer);
+            m_freeBufferQueue->mutex.unlock();
+            m_freeBufferQueue->wc.wakeOne();
+        }
+
+        // Process Qt events to be able to "receive" queued calls to our slots.
+        if (timeSinceLastProcessEvents.elapsed() > ProcessEventsMinInterval_ms)
+        {
+            QCoreApplication::processEvents();
+            timeSinceLastProcessEvents.restart();
+        }
+    }
+
+    emit stopped();
+    emit stateChanged(m_d->m_state = EventProcessorState::Idle);
+
+    qDebug() << __PRETTY_FUNCTION__ << "end";
+}
+
+void MVMEEventProcessor::stopProcessing(bool whenQueueEmpty)
+{
+    qDebug() << QDateTime::currentDateTime().toString("HH:mm:ss")
+        << __PRETTY_FUNCTION__ << (whenQueueEmpty ? "when empty" : "immediately");
+
+    m_d->m_runAction = whenQueueEmpty ? StopIfQueueEmpty : StopImmediately;
+}
+
+EventProcessorState MVMEEventProcessor::getState() const
+{
+    return m_d->m_state;
+}
+
+void MVMEEventProcessor::setListFileVersion(u32 version)
+{
+    qDebug() << __PRETTY_FUNCTION__ << version;
+
+    m_d->m_listFileVersion = version;
+
+    if (m_d->m_listFileVersion == 0)
+    {
+        m_d->SectionTypeMask    = listfile_v0::SectionTypeMask;
+        m_d->SectionTypeShift   = listfile_v0::SectionTypeShift;
+        m_d->SectionSizeMask    = listfile_v0::SectionSizeMask;
+        m_d->SectionSizeShift   = listfile_v0::SectionSizeShift;
+        m_d->EventTypeMask      = listfile_v0::EventTypeMask;
+        m_d->EventTypeShift     = listfile_v0::EventTypeShift;
+        m_d->ModuleTypeMask     = listfile_v0::ModuleTypeMask;
+        m_d->ModuleTypeShift    = listfile_v0::ModuleTypeShift;
+        m_d->SubEventSizeMask   = listfile_v0::SubEventSizeMask;
+        m_d->SubEventSizeShift  = listfile_v0::SubEventSizeShift;
+    }
+    else
+    {
+        m_d->SectionTypeMask    = listfile_v1::SectionTypeMask;
+        m_d->SectionTypeShift   = listfile_v1::SectionTypeShift;
+        m_d->SectionSizeMask    = listfile_v1::SectionSizeMask;
+        m_d->SectionSizeShift   = listfile_v1::SectionSizeShift;
+        m_d->EventTypeMask      = listfile_v1::EventTypeMask;
+        m_d->EventTypeShift     = listfile_v1::EventTypeShift;
+        m_d->ModuleTypeMask     = listfile_v1::ModuleTypeMask;
+        m_d->ModuleTypeShift    = listfile_v1::ModuleTypeShift;
+        m_d->SubEventSizeMask   = listfile_v1::SubEventSizeMask;
+        m_d->SubEventSizeShift  = listfile_v1::SubEventSizeShift;
     }
 }

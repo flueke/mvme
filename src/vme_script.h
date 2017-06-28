@@ -1,3 +1,21 @@
+/* mvme - Mesytec VME Data Acquisition
+ *
+ * Copyright (C) 2016, 2017  Florian Lüke <f.lueke@mesytec.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ */
 #ifndef __VME_SCRIPT_QT_H__
 #define __VME_SCRIPT_QT_H__
 
@@ -35,6 +53,9 @@ enum class CommandType
     BLTFifoCount,
     MBLTCount,
     MBLTFifoCount,
+
+    SetBase,
+    ResetBase,
 };
 
 enum class AddressMode
@@ -62,6 +83,9 @@ struct Command
     uint32_t countMask = 0;
     AddressMode blockAddressMode = AddressMode::A32;
     uint32_t blockAddress = 0;
+
+    QString warning;
+    s32 lineNumber = 0;
 };
 
 QString to_string(CommandType commandType);
@@ -71,7 +95,7 @@ QString to_string(DataWidth dataWidth);
 QString to_string(const Command &cmd);
 QString format_hex(uint32_t value);
 
-typedef QVector<Command> VMEScript;
+using VMEScript = QVector<Command>;
 
 Command add_base_address(Command cmd, uint32_t baseAddress);
 

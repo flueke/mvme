@@ -32,14 +32,27 @@
 #include <functional>
 
 class CVMUSBReadoutList;
+
+#ifdef WIENER_USE_LIBUSB1
+struct libusb_context;
+struct libusb_device_handle;
+struct libusb_device;
+
+struct VMUSBDeviceInfo
+{
+    libusb_device *device = nullptr;
+    unsigned char serial[7] = {};
+};
+#else
 struct usb_dev_handle;
 struct usb_device;
 
-struct vmusb_device_info
+struct VMUSBDeviceInfo
 {
-    usb_device *usbdev = nullptr;
+    usb_device *device = nullptr;
     char serial[7] = {};
 };
+#endif
 
 /*
  * Opening/closing and error handling:
@@ -68,7 +81,7 @@ class VMUSB: public VMEController
         VMUSB();
         ~VMUSB();
 
-        virtual bool isOpen() const override { return hUsbDevice; }
+        virtual bool isOpen() const override { return m_deviceHandle; }
         virtual QString getIdentifyingString() const override;
 
         VMEError enterDaqMode();
@@ -137,7 +150,8 @@ class VMUSB: public VMEController
         VMEError stackExecute(const QVector<u32> &stackData, size_t resultMaxWords, QVector<u32> *dest);
 
 
-        int bulkRead(void *outBuffer, size_t outBufferSize, int timeout_ms = 1000);
+        VMEError bulkRead(void *destBuffer, size_t destBufferSize, int *transferred, int timeout_ms = 1000);
+        VMEError bulkWrite(void *sourceBuffer, size_t sourceBufferSize, int *transferred, int timeout_ms = 1000);
 
         VMEError tryErrorRecovery();
 
@@ -171,8 +185,13 @@ class VMUSB: public VMEController
 
         void getUsbDevices(void);
 
-        QVector<vmusb_device_info> deviceInfos;
-        usb_dev_handle* hUsbDevice = nullptr;
+        QVector<VMUSBDeviceInfo> m_deviceInfos;
+#ifdef WIENER_USE_LIBUSB1
+        libusb_device_handle* m_deviceHandle = nullptr;
+        libusb_context *m_libusbContext = nullptr;
+#else
+        usb_dev_handle *m_deviceHandle = nullptr;
+#endif
 
         u32 firmwareId;
         u32 globalMode;

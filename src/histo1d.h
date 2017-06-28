@@ -1,0 +1,170 @@
+/* mvme - Mesytec VME Data Acquisition
+ *
+ * Copyright (C) 2016, 2017  Florian Lüke <f.lueke@mesytec.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ */
+#ifndef __HISTO1D_H__
+#define __HISTO1D_H__
+
+#include "histo_util.h"
+#include <memory>
+#include <QObject>
+
+struct Histo1DStatistics
+{
+    u32 maxBin = 0;
+    double maxValue = 0.0;
+    double mean = 0.0;
+    double sigma = 0.0;
+    double entryCount = 0;
+    double fwhm = 0.0;
+    // X coordinate of the center between the fwhm edges
+    double fwhmCenter = 0.0;
+};
+
+class Histo1D: public QObject
+{
+    Q_OBJECT
+
+    Q_PROPERTY(QString title READ getTitle WRITE setTitle)
+    Q_PROPERTY(QString footer READ getFooter WRITE setFooter)
+
+    signals:
+        void axisBinningChanged(Qt::Axis axis);
+
+    public:
+        Histo1D(u32 nBins, double xMin, double xMax, QObject *parent = 0);
+        ~Histo1D();
+
+        void resize(u32 nBins);
+
+        // Returns the bin number or -1 in case of under/overflow.
+        s32 fill(double x, double weight = 1.0);
+        double getValue(double x) const;
+        void clear();
+
+        inline u32 getNumberOfBins() const { return m_xAxisBinning.getBins(); }
+        inline size_t getStorageSize() const { return getNumberOfBins() * sizeof(double); }
+
+        inline double getBinContent(u32 bin) const { return (bin < getNumberOfBins()) ? m_data[bin] : 0.0; }
+        bool setBinContent(u32 bin, double value);
+
+        inline double getXMin() const { return m_xAxisBinning.getMin(); }
+        inline double getXMax() const { return m_xAxisBinning.getMax(); }
+        inline double getWidth() const { return m_xAxisBinning.getWidth(); }
+
+        inline double getBinWidth() const { return m_xAxisBinning.getBinWidth(); }
+        inline double getBinLowEdge(u32 bin) const { return m_xAxisBinning.getBinLowEdge(bin); }
+        inline double getBinCenter(u32 bin) const { return m_xAxisBinning.getBinCenter(bin); }
+
+        AxisBinning getAxisBinning(Qt::Axis axis) const
+        {
+            switch (axis)
+            {
+                case Qt::XAxis:
+                    return m_xAxisBinning;
+                default:
+                    return AxisBinning();
+            }
+        }
+
+        void setAxisBinning(Qt::Axis axis, AxisBinning binning)
+        {
+            if (axis == Qt::XAxis && binning != m_xAxisBinning)
+            {
+                m_xAxisBinning = binning;
+                emit axisBinningChanged(axis);
+            }
+        }
+
+        AxisInfo getAxisInfo(Qt::Axis axis) const
+        {
+            switch (axis)
+            {
+                case Qt::XAxis:
+                    return m_xAxisInfo;
+                default:
+                    return AxisInfo();
+            }
+        }
+
+        void setAxisInfo(Qt::Axis axis, AxisInfo info)
+        {
+            if (axis == Qt::XAxis)
+            {
+                m_xAxisInfo = info;
+            }
+        }
+
+        inline double getEntryCount() const { return m_count; }
+        double getMaxValue() const { return m_maxValue; }
+        u32 getMaxBin() const { return m_maxBin; }
+
+        void debugDump(bool dumpEmptyBins = true) const;
+
+        double getUnderflow() const { return m_underflow; }
+        void setUnderflow(double value) { m_underflow = value; }
+
+        double getOverflow() const { return m_overflow; }
+        void setOverflow(double value) { m_overflow = value; }
+
+        Histo1DStatistics calcStatistics(double minX, double maxX) const;
+        Histo1DStatistics calcBinStatistics(u32 startBin, u32 onePastEndBin) const;
+
+        void setTitle(const QString &title)
+        {
+            m_title = title;
+        }
+
+        QString getTitle() const
+        {
+            return m_title;
+        }
+
+        void setFooter(const QString &footer)
+        {
+            m_footer = footer;
+        }
+
+        QString getFooter() const
+        {
+            return m_footer;
+        }
+
+    private:
+        AxisBinning m_xAxisBinning;
+        AxisInfo m_xAxisInfo;
+
+        double *m_data = nullptr;
+
+        double m_underflow = 0.0;
+        double m_overflow = 0.0;
+
+        double m_count = 0.0;
+        double m_maxValue = 0.0;
+        u32 m_maxBin = 0;
+
+        QString m_title;
+        QString m_footer;
+};
+
+typedef std::shared_ptr<Histo1D> Histo1DPtr;
+
+QTextStream &writeHisto1D(QTextStream &out, Histo1D *histo);
+Histo1D *readHisto1D(QTextStream &in);
+
+
+#endif /* __HISTO1D_H__ */

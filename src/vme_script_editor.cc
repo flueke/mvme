@@ -1,100 +1,190 @@
+/* mvme - Mesytec VME Data Acquisition
+ *
+ * Copyright (C) 2016, 2017  Florian Lüke <f.lueke@mesytec.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ */
 #include "vme_script_editor.h"
 #include "mvme_context.h"
 #include "vme_script.h"
 #include "gui_util.h"
+#include "mvme.h"
 
 #include <QFileDialog>
 #include <QMenu>
 #include <QMessageBox>
+#include <QPlainTextEdit>
 #include <QSettings>
 #include <QStandardPaths>
-#include <QTextEdit>
+#include <QStatusBar>
+#include <QStatusTipEvent>
 #include <QToolBar>
 #include <QToolButton>
 #include <QVBoxLayout>
 
 static const int tabStop = 4;
 
-using namespace std::placeholders;
+struct VMEScriptEditorPrivate
+{
+    VMEScriptEditor *m_q;
+
+    MVMEContext *m_context;
+    VMEScriptConfig *m_script;
+
+    QToolBar *m_toolBar;
+    QPlainTextEdit *m_editor;
+    QStatusBar *m_statusBar;
+
+    QLabel *m_labelPosition;
+
+    void updateCursorPosition()
+    {
+        auto cursor = m_editor->textCursor();
+        int col = cursor.positionInBlock();
+        int line = cursor.blockNumber() + 1;
+
+        m_labelPosition->setText(QString(QSL("L%1 C%2 ")
+                                         .arg(line, 3)
+                                         .arg(col, 3)
+                                        ));
+    }
+};
 
 VMEScriptEditor::VMEScriptEditor(MVMEContext *context, VMEScriptConfig *script, QWidget *parent)
     : MVMEWidget(parent)
-    , m_context(context)
-    , m_scriptConfig(script)
-    , m_toolbar(new QToolBar)
-    , m_editor(new QTextEdit)
+    , m_d(new VMEScriptEditorPrivate)
 {
-    new vme_script::SyntaxHighlighter(m_editor);
+    m_d->m_q = this;
+    m_d->m_context = context;
+    m_d->m_script = script;
+    m_d->m_toolBar = make_toolbar();
+    m_d->m_editor = new QPlainTextEdit;
+    m_d->m_statusBar = make_statusbar();
+    m_d->m_labelPosition = new QLabel;
+
+    // Editor area
+    new vme_script::SyntaxHighlighter(m_d->m_editor->document());
 
     auto font = QFont("Monospace", 8);
     font.setStyleHint(QFont::Monospace);
     font.setFixedPitch(true);
-    m_editor->setFont(font);
+    m_d->m_editor->setFont(font);
 
     {
+        // Tab width calculation
         QString spaces;
         for (int i = 0; i < tabStop; ++i)
             spaces += " ";
         QFontMetrics metrics(font);
-        m_editor->setTabStopWidth(metrics.width(spaces));
+        m_d->m_editor->setTabStopWidth(metrics.width(spaces));
     }
-
-    auto layout = new QVBoxLayout(this);
-    layout->setContentsMargins(0, 0, 0, 0);
-
-    layout->addWidget(m_toolbar);
-    layout->addWidget(m_editor);
 
     connect(script, &VMEScriptConfig::modified, this, &VMEScriptEditor::onScriptModified);
 
-    auto parentConfig = qobject_cast<ConfigObject *>(m_scriptConfig->parent());
+    auto parentConfig = qobject_cast<ConfigObject *>(m_d->m_script->parent());
 
     if (parentConfig)
         connect(parentConfig, &ConfigObject::modified, this, &VMEScriptEditor::updateWindowTitle);
 
-    m_editor->setPlainText(m_scriptConfig->getScriptContents());
+    m_d->m_editor->setPlainText(m_d->m_script->getScriptContents());
     updateWindowTitle();
 
-    connect(m_editor->document(), &QTextDocument::contentsChanged, this, &VMEScriptEditor::onEditorTextChanged);
+    connect(m_d->m_editor->document(), &QTextDocument::contentsChanged, this, &VMEScriptEditor::onEditorTextChanged);
+    connect(m_d->m_editor, &QPlainTextEdit::cursorPositionChanged, this, [this] { m_d->updateCursorPosition(); });
 
-    m_toolbar->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+    // Toolbar actions
+    m_d->m_toolBar->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
 
-    m_toolbar->addAction(QIcon(":/script-run.png"), QSL("Run"), this,  &VMEScriptEditor::runScript);
-    m_toolbar->addAction(QIcon(":/dialog-ok-apply.png"), QSL("Apply"), this, &VMEScriptEditor::apply);
-    m_toolbar->addAction(QIcon(":/dialog-close.png"), QSL("Close"), this, &VMEScriptEditor::close);
+    QAction *action;
 
-    m_toolbar->addSeparator();
+    action = m_d->m_toolBar->addAction(QIcon(":/script-run.png"), QSL("Run"), this,  &VMEScriptEditor::runScript);
+    action->setStatusTip(QSL("Run the VME script"));
+
+    action = m_d->m_toolBar->addAction(QIcon(":/dialog-ok-apply.png"), QSL("Apply"), this, &VMEScriptEditor::apply);
+    action->setStatusTip(QSL("Apply any changes to the active VME configuration"));
+
+    action = m_d->m_toolBar->addAction(QIcon(":/dialog-close.png"), QSL("Close"), this, &VMEScriptEditor::close);
+    action->setStatusTip(QSL("Close this window"));
+
+    m_d->m_toolBar->addSeparator();
 
     auto loadMenu = new QMenu;
     loadMenu->addAction(QSL("from file"), this, &VMEScriptEditor::loadFromFile);
     loadMenu->addAction(QSL("from template"), this, &VMEScriptEditor::loadFromTemplate);
-    auto loadAction = m_toolbar->addAction(QIcon(":/document-open.png"), QSL("Load"));
+    auto loadAction = m_d->m_toolBar->addAction(QIcon(":/document-open.png"), QSL("Load"));
     loadAction->setMenu(loadMenu);
-    
-    auto loadButton = qobject_cast<QToolButton *>(m_toolbar->widgetForAction(loadAction));
+
+    auto loadButton = qobject_cast<QToolButton *>(m_d->m_toolBar->widgetForAction(loadAction));
     if (loadButton)
         loadButton->setPopupMode(QToolButton::InstantPopup);
 
-    m_toolbar->addAction(QIcon(":/document-save-as.png"), "Save to file", this, &VMEScriptEditor::saveToFile);
-    m_toolbar->addSeparator();
-    m_toolbar->addAction(QIcon(":/document-revert.png"), "Revert Changes", this, &VMEScriptEditor::revert); 
-    m_toolbar->addSeparator();
-    m_toolbar->addAction(QIcon(":/help.png"), "Script Help", this, [this]() {
-        auto widget = make_vme_script_ref_widget();
-        m_context->addWidgetWindow(widget);
-    });
+    m_d->m_toolBar->addAction(QIcon(":/document-save-as.png"), "Save to file", this, &VMEScriptEditor::saveToFile);
+    m_d->m_toolBar->addSeparator();
+    m_d->m_toolBar->addAction(QIcon(":/document-revert.png"), "Revert Changes", this, &VMEScriptEditor::revert);
+    m_d->m_toolBar->addSeparator();
+
+    // Add the script Help action from the main window
+    m_d->m_toolBar->addAction(m_d->m_context->getMainWindow()->findChild<QAction *>("actionVMEScriptRef"));
+
+    // Statusbar and info widgets
+    m_d->m_statusBar->addPermanentWidget(m_d->m_labelPosition);
+
+    set_widget_font_pointsize(m_d->m_labelPosition, 7);
+    {
+        auto font = m_d->m_labelPosition->font();
+        font.setStyleHint(QFont::Monospace);
+        m_d->m_labelPosition->setFont(font);
+    }
+
+    // Main layout
+    auto layout = new QVBoxLayout(this);
+    layout->setContentsMargins(0, 0, 0, 0);
+
+    layout->addWidget(m_d->m_toolBar);
+    layout->addWidget(m_d->m_editor);
+    layout->addWidget(m_d->m_statusBar);
+
+    m_d->updateCursorPosition();
+}
+
+VMEScriptEditor::~VMEScriptEditor()
+{
+    delete m_d;
+}
+
+bool VMEScriptEditor::event(QEvent *e)
+{
+    if (e->type() == QEvent::StatusTip)
+    {
+        m_d->m_statusBar->showMessage(reinterpret_cast<QStatusTipEvent *>(e)->tip());
+        return true;
+    }
+
+    return QWidget::event(e);
 }
 
 bool VMEScriptEditor::isModified() const
 {
-    return m_editor->document()->isModified();
+    return m_d->m_editor->document()->isModified();
 }
 
 void VMEScriptEditor::updateWindowTitle()
 {
-    auto title = m_scriptConfig->getVerboseTitle();
+    auto title = m_d->m_script->getVerboseTitle();
 
-    if (m_editor->document()->isModified())
+    if (m_d->m_editor->document()->isModified())
         title += QSL(" *");
 
     setWindowTitle(title);
@@ -107,7 +197,7 @@ void VMEScriptEditor::onScriptModified(bool isModified)
 
     // TODO: ask about reloading from the config or keeping the current text editor content
     // This should not happen unless the config has been modified by something other than this editor.
-    //m_editor->setText(m_scriptConfig->getScriptContents());
+    //m_d->m_editor->setText(m_d->m_script->getScriptContents());
 
     updateWindowTitle();
 }
@@ -121,21 +211,21 @@ void VMEScriptEditor::runScript()
 {
     try
     {
-        auto moduleConfig = qobject_cast<ModuleConfig *>(m_scriptConfig->parent());
-        auto script = vme_script::parse(m_editor->toPlainText(),
+        auto moduleConfig = qobject_cast<ModuleConfig *>(m_d->m_script->parent());
+        auto script = vme_script::parse(m_d->m_editor->toPlainText(),
                                         moduleConfig ? moduleConfig->getBaseAddress() : 0);
 
-        m_context->logMessage(QString("Running script %1:").arg(m_scriptConfig->objectName()));
+        m_d->m_context->logMessage(QString("Running script %1:").arg(m_d->m_script->objectName()));
 
-        auto logger = [this](const QString &str) { m_context->logMessage(QSL("  ") + str); };
-        auto results = m_context->runScript(script, logger);
+        auto logger = [this](const QString &str) { m_d->m_context->logMessage(QSL("  ") + str); };
+        auto results = m_d->m_context->runScript(script, logger);
 
         for (auto result: results)
             logger(format_result(result));
     }
     catch (const vme_script::ParseError &e)
     {
-        m_context->logMessage(QSL("Parse error: ") + e.what());
+        m_d->m_context->logMessage(QSL("Parse error: ") + e.what());
     }
 }
 
@@ -149,14 +239,15 @@ void VMEScriptEditor::loadFromFile()
     }
 
     QString fileName = QFileDialog::getOpenFileName(this, QSL("Load vme script file"), path,
-                                                    QSL("VME scripts (*.vme);; All Files (*)"));
+                                                    QSL("VME scripts (*.vmescript *.vme);; All Files (*)"));
     if (!fileName.isEmpty())
     {
         QFile file(fileName);
         if (file.open(QIODevice::ReadOnly))
         {
             QTextStream stream(&file);
-            m_editor->setPlainText(stream.readAll());
+            m_d->m_editor->setPlainText(stream.readAll());
+            m_d->m_editor->document()->setModified(true);
             QFileInfo fi(fileName);
             settings.setValue("Files/LastVMEScriptDirectory", fi.absolutePath());
         }
@@ -165,21 +256,25 @@ void VMEScriptEditor::loadFromFile()
 
 void VMEScriptEditor::loadFromTemplate()
 {
-    TemplateLoader loader;
-    connect(&loader, &TemplateLoader::logMessage, m_context, &MVMEContext::logMessage);
-    QString path = loader.getTemplatePath();
+    QString path = vats::get_template_path();
+
+    if (auto module = qobject_cast<ModuleConfig *>(m_d->m_script->parent()))
+    {
+        path = vats::get_module_path(module->getModuleMeta().typeName) + QSL("/vme");
+    }
 
     if (!path.isEmpty())
     {
         QString fileName = QFileDialog::getOpenFileName(this, QSL("Load vme script file"), path,
-                                                        QSL("VME scripts (*.vme);; All Files (*)"));
+                                                        QSL("VME scripts (*.vmescript *.vme);; All Files (*)"));
         if (!fileName.isEmpty())
         {
             QFile file(fileName);
             if (file.open(QIODevice::ReadOnly))
             {
                 QTextStream stream(&file);
-                m_editor->setPlainText(stream.readAll());
+                m_d->m_editor->setPlainText(stream.readAll());
+                m_d->m_editor->document()->setModified(true);
             }
         }
     }
@@ -195,7 +290,7 @@ void VMEScriptEditor::saveToFile()
     }
 
     QString fileName = QFileDialog::getSaveFileName(this, QSL("Save vme script file"), path,
-                                                    QSL("VME scripts (*.vme);; All Files (*)"));
+                                                    QSL("VME scripts (*.vmescript *.vme);; All Files (*)"));
 
     if (fileName.isEmpty())
         return;
@@ -203,7 +298,7 @@ void VMEScriptEditor::saveToFile()
     QFileInfo fi(fileName);
     if (fi.completeSuffix().isEmpty())
     {
-        fileName += ".vme";
+        fileName += ".vmescript";
     }
 
     QFile file(fileName);
@@ -214,7 +309,7 @@ void VMEScriptEditor::saveToFile()
     }
 
     QTextStream stream(&file);
-    stream << m_editor->toPlainText();
+    stream << m_d->m_editor->toPlainText();
 
     if (stream.status() != QTextStream::Ok)
     {
@@ -227,24 +322,24 @@ void VMEScriptEditor::saveToFile()
 
 void VMEScriptEditor::apply()
 {
-    auto contents = m_editor->toPlainText();
-    m_scriptConfig->setScriptContents(contents);
-    m_editor->document()->setModified(false);
+    auto contents = m_d->m_editor->toPlainText();
+    m_d->m_script->setScriptContents(contents);
+    m_d->m_editor->document()->setModified(false);
     updateWindowTitle();
 }
 
 void VMEScriptEditor::revert()
 {
-    m_editor->setPlainText(m_scriptConfig->getScriptContents());
-    m_editor->document()->setModified(false);
+    m_d->m_editor->setPlainText(m_d->m_script->getScriptContents());
+    m_d->m_editor->document()->setModified(false);
     updateWindowTitle();
 }
 
 void VMEScriptEditor::closeEvent(QCloseEvent *event)
 {
-    bool doClose = !m_editor->document()->isModified();
+    bool doClose = !m_d->m_editor->document()->isModified();
 
-    if (m_editor->document()->isModified())
+    if (m_d->m_editor->document()->isModified())
     {
         auto response = QMessageBox::question(this, QSL("Apply changes?"),
                                               QSL("The script was modified. Do you want to apply the changes?"),

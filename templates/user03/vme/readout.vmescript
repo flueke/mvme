@@ -1,0 +1,2 @@
+# BLT readout until BERR or number of transfers reached
+# Readout commands go here. For example a BLT read from the module.
