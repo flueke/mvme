@@ -29,9 +29,26 @@ find_path(QWT_INCLUDE_DIR
 find_library(QWT_LIBRARY NAMES qwt qwt-qt5)
 include_directories(${QWT_INCLUDE_DIR})
 
-# libusb
-find_library(LIBUSB_LIBRARY usb)
-find_path(LIBUSB_INCLUDE_PATH usb.h)
+# libusb-0.1
+if (WIN32)
+    find_path(LIBUSB_INCLUDE_PATH lusb0_usb.h
+        PATHS "C:/libusb-win32-bin-1.2.6.0/include")
+
+    if ("${CMAKE_SIZEOF_VOID_P}" EQUAL "8")
+        find_library(LIBUSB_LIBRARY usb0
+            PATHS "C:/libusb-win32-bin-1.2.6.0/bin/amd64")
+        message("64 bit!: ${LIBUSB_LIBRARY}")
+    else()
+        find_library(LIBUSB_LIBRARY usb0_x86
+            PATHS "C:/libusb-win32-bin-1.2.6.0/bin/x86")
+        message("32 bit!: ${LIBUSB_LIBRARY}")
+    endif()
+else()
+    find_library(LIBUSB_LIBRARY usb)
+    find_path(LIBUSB_INCLUDE_PATH usb.h)
+endif()
+
+include_directories(${LIBUSB_INCLUDE_PATH})
 
 # git version information is contained in its own translation unit. Allows for
 # quick build + relink on version change.
@@ -108,6 +125,12 @@ qt5_use_modules(libmvme
   Widgets
   )
 
+target_link_libraries(libmvme
+    ${QUAZIP_QT5}
+    ${QWT_LIBRARY}
+    ${LIBUSB_LIBRARY}
+    )
+
 #
 # mvme
 #
@@ -116,7 +139,7 @@ set(MVME_SOURCES
     mvme.rc
     )
 
-add_executable(mvme ${MVME_SOURCES})
+add_executable(mvme WIN32 ${MVME_SOURCES})
 add_dependencies(mvme libmvme)
 
 qt5_use_modules(mvme
@@ -127,9 +150,6 @@ qt5_use_modules(mvme
 
 target_link_libraries(mvme
     libmvme
-    ${QUAZIP_QT5}
-    ${QWT_LIBRARY}
-    ${LIBUSB_LIBRARY}
     )
 
 # vim:tw=0
