@@ -1,6 +1,6 @@
-==================================================
+##################################################
 Quickstart Tutorial
-==================================================
+##################################################
 
 The quickstart guide explains how to create a simple setup using the **VM-USB**
 VME controller and one **mesytec** VME module. The internal pulser is used to
@@ -28,8 +28,9 @@ generate test data. Data acquisition is triggered by the module using IRQ1.
 
   * A log view where runtime messages will appear.
 
+==================================================
 VME Setup
----------
+==================================================
 * Select the mvme main window.
 
 * Create a VME event:
@@ -75,8 +76,9 @@ The VME GUI should now look like shown in :ref:`quickstart-vme-tree01`.
   buffer. The other parameters can be left at their default values. Click
   *Apply* and close the editor window.
 
+==================================================
 Analysis Setup
---------------
+==================================================
 * Activate the *Analysis UI* window (the shortcut is ``Ctrl+2``). The event
   containing the module just created should be visible in the UI.
 
@@ -92,8 +94,9 @@ Analysis Setup
    Analysis UI with MDPP-16 default objects
 
 
+==================================================
 Starting the DAQ
-----------------
+==================================================
 Activate the main window again (``Ctrl+1``). Make sure the *VME Controller* is
 shown as *Connected* in the top part of the window. Optionally uncheck the box
 titled *Write Listfile* to avoid writing the test data to disk.
@@ -125,8 +128,9 @@ the individual channels.
 You can pause and/or stop the DAQ at any time using the corresponding buttons
 at the top of the main window.
 
+==================================================
 Troubleshooting
----------------
+==================================================
 .. warning::
     TODO: Refer to a global troubleshooting section
 

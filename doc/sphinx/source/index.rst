@@ -15,7 +15,8 @@ mvme - mesytec VME Data Acquisition
    :caption: Contents:
 
    intro
-   architecture
+   installation
+   quickstart
    reference
 
 

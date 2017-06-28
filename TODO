@@ -1,7 +1,9 @@
 ==========================
 ==== Do these first! =====
 ==========================
-* Sphinx and output dependent image types
+* Sphinx Doc
+    - Sphinx and output dependent image types
+    - Add GIT_TAG variable and use it in conf.py as the 'version' setting
 * Take a look at MVMEContext::runScript() and try to fix it. The stuff that's
   done in stopDAQ() seems to work very well...
 

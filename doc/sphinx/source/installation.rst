@@ -1,9 +1,33 @@
-==================================================
+##################################################
 Installation
+##################################################
+
+==================================================
+System Requirements
 ==================================================
 
+* Any recent Linux distribution or a version of Windows 7 or later.
+
+  Both 64- and 32-bit systems are supported but 32-bit versions are not
+  recommended as the limited address space can be quickly used up when creating
+  lots of histograms.
+
+* **WIENER VM-USB** VME Controller
+
+* At least 4 GB RAM is recommended.
+
+* A multicore processor is recommended as mvme itself can make use of multiple
+  cores: readout, analysis and GUI (which includes histogram rendering) run in
+  separate threads.
+
+* libusb-0.1 (Linux) / libusb-win32 (Windows)
+
+  The windows installer can optionally run `Zadig`_ to handle the driver
+  installation.
+
+==================================================
 Linux
---------------------------------------------------
+==================================================
 
 The **mvme** archives for Linux include all required libraries. The only
 external dependency is the GNU C Library glibc. When using a modern Linux
@@ -16,7 +40,7 @@ binary::
     $ ./mvme-x64-1.0/mvme
 
 VM-USB Device Permissions
-~~~~~~~~~~~~~~~~~~~~~~~~~
+--------------------------------------------------
 
 To be able to use the VM-USB controller as a non-root user a udev rule to
 adjust the device permissions needs to be added to the system.
@@ -39,8 +63,9 @@ Reload udev using ``service udev reload`` or ``/etc/init.d/udev reload``
 depending on your distribution.
 
 
+==================================================
 Windows
---------------------------------------------------
+==================================================
 
 Run the supplied installer and follow the on screen instructions to install
 **mvme**.
@@ -52,7 +77,7 @@ in the installer and :ref:`inst-windows-vmusb-driver` for details.
 .. _inst-windows-vmusb-driver:
 
 VM-USB Driver Installation
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+--------------------------------------------------
 
 To be able to use the VM-USB VME Controller the *libusb-win32* driver needs to
 be installed and registered with the device. A copy of `Zadig`_ will be
