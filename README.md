@@ -1,3 +1,9 @@
+# Building mvme2
+## Windows MSYS2
+  cmake -DCMAKE_BUILD_TYPE=Release -G"MSYS Makefiles" ../mvme2
+
+
+
 # mvme2 test version
 
 ## Windows USB drivers
