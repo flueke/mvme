@@ -770,7 +770,7 @@ Function LeaveZadigPage
   ${NSD_GetState} $cb_runZadig $cb_runZadigState
 
   ${If} $cb_runZadigState == ${BST_CHECKED}
-    ExecWait "$INSTDIR\zadig_2.2.exe"
+    ExecWait "$INSTDIR\zadig_2.3.exe"
   ${Endif}
 FunctionEnd
 
