@@ -107,7 +107,7 @@ html_theme = 'alabaster'
 # alabaster theme options.
 html_theme_options = {
         'page_width': '90%', # Default: '940px'
-        'show_related': False,
+        'show_related': True,
         'fixed_sidebar': True,
         #'logo': 'mesytec-logo-yellow.png',
         #'logo_name': True

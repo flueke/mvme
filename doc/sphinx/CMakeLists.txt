@@ -76,9 +76,17 @@ if (SPHINX_EXECUTABLE)
         )
     add_dependencies(doc_qthelp doc_sphinx_copy_ext)
 
+    # qthelp collection
+    add_custom_target(doc_qthelp_collection
+        qcollectiongenerator
+        "${SPHINX_QTHELP_DIR}/mvme.qhcp"
+        COMMENT "Generating qthelp collection"
+        )
+    add_dependencies(doc_qthelp_collection doc_qthelp)
+
     # all formats
     add_custom_target(doc)
-    add_dependencies(doc doc_html doc_latex doc_latex_pdf doc_qthelp)
+    add_dependencies(doc doc_html doc_latex_pdf doc_qthelp_collection)
 
 endif()
 

@@ -2,9 +2,10 @@
 Quickstart Tutorial
 ##################################################
 
-The quickstart guide explains how to create a simple setup using the **VM-USB**
-VME controller and one **mesytec** VME module. The internal pulser is used to
-generate test data. Data readout is triggered by the module using IRQ1.
+The quickstart guide explains how to create a simple setup using the WIENER
+VM-USB VME controller and one mesytec VME module. The modules internal pulser
+is used to generate test data. Data readout is triggered by the module using
+IRQ1.
 
 .. TODO: Add a second, periodic event to read out the event counter
 
@@ -151,5 +152,5 @@ at the top of the main window.
 .. ==================================================
 .. .. warning::
 ..     TODO: Refer to a global troubleshooting section
-.. 
-.. .. vim:ft=rst
+
+.. vim:ft=rst
