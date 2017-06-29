@@ -285,8 +285,22 @@ void mvme::displayAbout()
         layout->addWidget(label);
     }
 
+#ifdef Q_PROCESSOR_X86_64
+    QString bitness(QSL("64-bit"));
+#elif defined Q_PROCESSOR_X86_32
+    QString bitness(QSL("32-bit"));
+#else
+    QString bitness;
+#endif
+
+    QString versionString = QString("Version %1").arg(GIT_VERSION);
+    if (!bitness.isEmpty())
+    {
+        versionString += QString(" (%1)").arg(bitness);
+    }
+
     layout->addWidget(new QLabel(QSL("mvme - VME Data Acquisition")));
-    layout->addWidget(new QLabel(QString("Version %1").arg(GIT_VERSION)));
+    layout->addWidget(new QLabel(versionString));
     layout->addWidget(new QLabel(QSL("© 2015-2017 mesytec GmbH & Co. KG")));
     layout->addWidget(new QLabel(QSL("Authors: F. Lüke, R. Schneider")));
 
