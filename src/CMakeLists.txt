@@ -37,11 +37,11 @@ if (WIN32)
     if ("${CMAKE_SIZEOF_VOID_P}" EQUAL "8")
         find_library(LIBUSB_LIBRARY usb0
             PATHS "C:/libusb-win32-bin-1.2.6.0/bin/amd64")
-        message("64 bit!: ${LIBUSB_LIBRARY}")
+        message("Using 64 bit libusb: ${LIBUSB_LIBRARY}")
     else()
         find_library(LIBUSB_LIBRARY usb0_x86
             PATHS "C:/libusb-win32-bin-1.2.6.0/bin/x86")
-        message("32 bit!: ${LIBUSB_LIBRARY}")
+        message("Using 32 bit libusb: ${LIBUSB_LIBRARY}")
     endif()
 else()
     find_library(LIBUSB_LIBRARY usb)
