@@ -23,15 +23,15 @@ The commands below use the following values for address modifiers and data width
 .. table:: VME Address Modes
   :name: vme-address-modes
 
-  +--------------------------+
-  | Address Mode (*<amode>*) |
-  +==========================+
-  | a16                      |
-  +--------------------------+
-  | a24                      |
-  +--------------------------+
-  | a32                      |
-  +--------------------------+
+  +------------------------------+
+  | **Address Mode** (*<amode>*) |
+  +==============================+
+  | a16                          |
+  +------------------------------+
+  | a24                          |
+  +------------------------------+
+  | a32                          |
+  +------------------------------+
 
 .. only:: html
 
@@ -40,13 +40,13 @@ The commands below use the following values for address modifiers and data width
 .. table:: VME Data Widths
   :name: vme-data-widths
 
-  +-------------------------+
-  | Data Width (*<dwidth>*) |
-  +=========================+
-  | d16                     |
-  +-------------------------+
-  | d32                     |
-  +-------------------------+
+  +-----------------------------+
+  | **Data Width** (*<dwidth>*) |
+  +=============================+
+  | d16                         |
+  +-----------------------------+
+  | d32                         |
+  +-----------------------------+
 
 The combination of amode, dwidth and BLT/MBLT yields a VME address modifier to be sent over the bus.
 Internally these non-privileged (aka user) address modifiers will be used:
