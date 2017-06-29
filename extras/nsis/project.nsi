@@ -939,7 +939,7 @@ SectionEnd
 
 Function .onInit
   ; Zadig variable initialization. It's horrible to have to put this here.
-  StrCpy $cb_runZadigState ${BST_CHECKED}
+  StrCpy $cb_runZadigState ${BST_UNCHECKED}
 
   ; Original code from cpack
 
