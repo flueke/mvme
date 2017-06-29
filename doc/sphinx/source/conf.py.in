@@ -15,10 +15,10 @@
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
-#
-# import os
-# import sys
-# sys.path.insert(0, os.path.abspath('.'))
+import os
+import sys
+print sys.argv
+sys.path.insert(0, os.path.abspath('../ext'))
 
 
 # -- General configuration ------------------------------------------------
@@ -30,7 +30,9 @@
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = []
+# Add 'rst2pdf.pdfbuilder' to enable the direct pdf builder
+# 'autoimage' is a local extension stored in the ext subdirectory.
+extensions = ['autoimage']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -85,6 +87,10 @@ todo_include_todos = False
 # or not.
 numfig = True
 
+# ### Variables added by autoimage / autofigure
+#
+# autoimage/autofigure look for images in this directory.
+#image_dir = ''
 
 # -- Options for HTML output ----------------------------------------------
 
@@ -97,8 +103,14 @@ html_theme = 'alabaster'
 # further.  For a list of options available for each theme, see the
 # documentation.
 #
+# See http://alabaster.readthedocs.io/en/latest/customization.html for
+# alabaster theme options.
 html_theme_options = {
-        'page_width': '90%' # Default: '940px'
+        'page_width': '90%', # Default: '940px'
+        'show_related': False,
+        'fixed_sidebar': True,
+        #'logo': 'mesytec-logo-yellow.png',
+        #'logo_name': True
         }
 
 # Add any paths that contain custom static files (such as style sheets) here,
@@ -203,11 +215,19 @@ latex_documents = [
      u'Florian Lüke \\textless{}f.lueke@mesytec.com\\textgreater{}', 'manual'),
 ]
 
-#latex_logo = 'mesytec-logo-yellow.png'
+#latex_logo = 'images/mesytec-logo-yellow.png'
 
 latex_additional_files = [
         'images/mesytec-logo-yellow.png'
         ]
+
+# -- Options for rst2pdf output -------------------------------------------
+# Tuples of the form
+# (master document, pdf name, title, author)
+pdf_documents = [
+    ('index', 'mvme', u'mvme - mesytec VME Data Acquisition',
+     u'Florian Lüke <f.lueke@mesytec.com>'),
+]
 
 # -- Options for manual page output ---------------------------------------
 

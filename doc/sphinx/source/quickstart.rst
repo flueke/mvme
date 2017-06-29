@@ -4,7 +4,7 @@ Quickstart Tutorial
 
 The quickstart guide explains how to create a simple setup using the **VM-USB**
 VME controller and one **mesytec** VME module. The internal pulser is used to
-generate test data. Data acquisition is triggered by the module using IRQ1.
+generate test data. Data readout is triggered by the module using IRQ1.
 
 .. TODO: Add a second, periodic event to read out the event counter
 
@@ -40,6 +40,11 @@ VME Setup
   * Select *Interrupt* in the *Condition* combobox. Keep the defaults of *IRQ
     Level = 1* and *IRQ Vector = 0*.
 
+.. autofigure:: images/quickstart_event_config.png
+   :scale-latex: 60%
+
+   Event Config Dialog
+
 * Create a VME module:
 
   * Right-click the newly created event (called "event0" by default) and select
@@ -49,12 +54,17 @@ VME Setup
     address encoders adjust the *Address* value accordingly (the address
     encoders modify the 4 most significant hex digits).
 
+.. autofigure:: images/quickstart_module_config.png
+   :scale-latex: 60%
+
+   Module Config Dialog
+
 The VME GUI should now look like shown in :ref:`quickstart-vme-tree01`.
 
 .. _quickstart-vme-tree01:
 
-.. figure:: images/intro_vme_tree01.png
-   :width: 8cm
+.. autofigure:: images/intro_vme_tree01.png
+   :scale-latex: 60%
 
    VME Config Tree
 
@@ -63,6 +73,9 @@ The VME GUI should now look like shown in :ref:`quickstart-vme-tree01`.
   the modules internal pulser:
 
   ``0x6070 3``
+
+  This line tells mvme to write the value ``3`` to register address ``0x6070``.
+  The address is relative to the module base address.
 
 * Click the *Apply* button on the editors toolbar to commit your changes to the
   VME configuration. Close the editor window.
@@ -75,6 +88,11 @@ The VME GUI should now look like shown in :ref:`quickstart-vme-tree01`.
   This makes the module send IRQ 1 if it has data to be read in its internal
   buffer. The other parameters can be left at their default values. Click
   *Apply* and close the editor window.
+
+.. autofigure:: images/quickstart_edit_vme_interface_settings.png
+   :scale-latex: 60%
+
+   VME Interface Settings with IRQ Level set to 1
 
 ==================================================
 Analysis Setup
@@ -128,10 +146,10 @@ the individual channels.
 You can pause and/or stop the DAQ at any time using the corresponding buttons
 at the top of the main window.
 
-==================================================
-Troubleshooting
-==================================================
-.. warning::
-    TODO: Refer to a global troubleshooting section
-
-.. vim:ft=rst
+.. ==================================================
+.. Troubleshooting
+.. ==================================================
+.. .. warning::
+..     TODO: Refer to a global troubleshooting section
+.. 
+.. .. vim:ft=rst

@@ -23,33 +23,35 @@ The commands below use the following values for address modifiers and data width
 .. table:: VME Address Modes
   :name: vme-address-modes
 
-  +-----------+
-  | **amode** |
-  +===========+
-  | a16       |
-  +-----------+
-  | a24       |
-  +-----------+
-  | a32       |
-  +-----------+
+  +--------------------------+
+  | Address Mode (*<amode>*) |
+  +==========================+
+  | a16                      |
+  +--------------------------+
+  | a24                      |
+  +--------------------------+
+  | a32                      |
+  +--------------------------+
 
+.. only:: html
 
+   |
 
 .. table:: VME Data Widths
   :name: vme-data-widths
 
-  +------------+
-  | **dwidth** |
-  +============+
-  | d16        |
-  +------------+
-  | d32        |
-  +------------+
+  +-------------------------+
+  | Data Width (*<dwidth>*) |
+  +=========================+
+  | d16                     |
+  +-------------------------+
+  | d32                     |
+  +-------------------------+
 
 The combination of amode, dwidth and BLT/MBLT yields a VME address modifier to be sent over the bus.
 Internally these non-privileged (aka user) address modifiers will be used:
 
-.. table:: VME address modifiers used by **mvme**
+.. table:: VME address modifiers used by mvme
   :name: vme-address-modifiers
 
   +-----------+------------+---------+----------+
@@ -105,8 +107,10 @@ Reads a single value from the given *<address>*.
 .. _vme-command-mblt:
 .. _vme-command-mbltfifo:
 
-Block Transfers (read-only)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Block Transfers
+~~~~~~~~~~~~~~~
+mvme supports the following read-only block transfer commands:
+
 * **blt** *<amode> <address> <count>*
 * **bltfifo** *<amode> <address> <count>*
 * **mblt** *<amode> <address> <count>*
