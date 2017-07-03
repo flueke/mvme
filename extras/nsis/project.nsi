@@ -20,6 +20,7 @@
   ; These are all architecture dependent. If you change the ARCH remember to
   ; also adjust the InstallDir below
   !define ARCH      "x32"
+  ;!define ARCH      "x64"
   !define DEPLOY_DIR  "C:/src/deploy/mvme-${ARCH}-libusb-0.1"
 
 ; !define PATCH  "0"
@@ -564,6 +565,19 @@ FunctionEnd
 ; Define some macro setting for the gui
 
 
+Function CheckArchitecture
+  !include "x64.nsh"
+
+  ${IfNot} ${RunningX64}
+    ${If} ${ARCH} == "x64"
+      MessageBox MB_OK "Trying to install the 64-bit version on a 32-bit OS! Aborting..." /SD IDOK
+      Abort
+    ${EndIf}
+  ${EndIf}
+FunctionEnd
+
+; CheckArchitecture will be executed once the first page is visible.
+!define MUI_CUSTOMFUNCTION_GUIINIT CheckArchitecture
 
 
 
@@ -576,6 +590,7 @@ FunctionEnd
 
 ;--------------------------------
 ;Pages
+
   !insertmacro MUI_PAGE_WELCOME
 
   !insertmacro MUI_PAGE_LICENSE "LICENSE-SHORT.TXT"
@@ -723,6 +738,7 @@ SectionEnd
 
 ;--------------------------------
 ; Create custom pages
+
 Function InstallOptionsPage
   !insertmacro MUI_HEADER_TEXT "Install Options" "Choose options for installing mvme"
   !insertmacro MUI_INSTALLOPTIONS_DISPLAY "NSIS.InstallOptions.ini"
