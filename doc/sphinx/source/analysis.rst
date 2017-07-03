@@ -80,8 +80,9 @@ Each parameter has the following attributes:
 * *limits* (two doubles)
 
   Two double values forming the interval ``[lowerLimit, upperLimit)`` that the
-  parameters value should fall into. This is used by histogram sinks to
-  determine the parameters range and thus calculate the binning.
+  parameters value should fall into. This is used by histogram sinks and
+  calibration operators to determine the parameters range and thus calculate
+  the binning.
 
 Input types
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -94,7 +95,7 @@ output array of the same size as the input size.
 Other operators can only act on individual values and thus connect directly to
 a specific *index* into the parameter array. An example is the :ref:`2D
 Histogram Sink <analysis-histo2dsink>`: it requires exactly two input values, X
-and Y, neither of which can be a full array.
+and Y, neither of which can be an array.
 
 .. figure:: images/analysis_input_types.png
 
@@ -168,7 +169,10 @@ The following conventions are used in the default filters that come with mvme:
 * ``P`` is used to denote the position of the *pileup* bit.
 
 These characters are merely used to make it easier to identify certain bits
-when editing a filter. Any characters other than ``0`` and ``1`` mean that any
+when editing a filter. With regards to matching any character other than ``0``
+or ``1`` means that any bit value is allowed.
+
+Any characters other than ``0`` and ``1`` mean that any
 bit value is allowed.
 
 .. highlight:: none
@@ -177,14 +181,12 @@ bit value is allowed.
 
   0001 XXXX PO00 AAAA DDDD DDDD DDDD DDDD
 
-The filter contains a 4-bit address and a 16-bit data value. The positions of
-the pileup and overflow bits are marked using ``P`` and ``O`` to allow easily
-adjusting the filter to match for example non-overflow data only.
+The filter above contains a 4-bit address and a 16-bit data value. The
+positions of the pileup and overflow bits are marked using ``P`` and ``O`` to
+allow easily adjusting the filter to match for example non-overflow data only.
 
 The number of address bits (``A``) determine the size of the Filter Extractors
 output array.
-
-.. FIXME: Better and more sane explanation here.
 
 Data extraction from an input data word is done by keeping only the bits
 matching the address or data mask and then right shifting to align with the 0
@@ -193,23 +195,74 @@ bit.
 .. note::
    The filter implementation assumes that address and data bits form
    consecutive sequences.
-
+..
    When extracting values the code looks at the first and last occurence of the
    respective character in the filter line and treats the resulting sequence as
    if it consisted of only that character: ``A0AA`` will produce a 4-bit
    address value with bit 2 always being 0.
 
+Each filter has an optional *word index* attached to it. If the word index is
+set to a value >= 0, then the filter can only produce a match on the module
+data word with the same index.
+
 Multiple filter words
 ^^^^^^^^^^^^^^^^^^^^^
 
+The Filter Extractor implementation allows combining multiple 32-bit filters to
+match and extract data from multiple input words.
+
+Filters are tried in order. If a previously unmatched filter produces a match
+no further filters will be tried for the same data word.
+
+Once all individual filters have been matched the whole combined filter matches
+and address and data values can be extracted.
+
+When extracting values the filters are again used in order: the first filter
+produces the lowest bits of the combined result, the result of the next filter
+is left-shifted by the amount of bits in the previous filter and so on.
+
+.. note::
+   The maximum number of bits that can be extracted for address and data values
+   is limited to 64!
+
+Matching and data extraction
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+During a DAQ run or a replay the Filter Extractor gets passed all the data that
+was produced by a single module readout (*Event Data*). Each data word is
+passed to the internal filter.
+
+Once the filter has completed *Required Completion Count* times address and
+data values will be extracted.
+
+The data value is cast to a double and a uniform random value in the range
+``[0, 1)`` is added. This resulting value is stored in the output parameter
+array at the index specified by the extracted address value.
 
 User Interface
 ^^^^^^^^^^^^^^
+In the Analysis UI right-click a Module and select *New -> Filter Extractor* to
+add a new filter.
 
+.. autofigure:: images/analysis_add_filter_extractor.png
+   :scale-latex: 60%
 
+   Filter Extractor UI
 
+You can load predefined filters into the UI using the *Filter template* combo
+box and the *Load Template into UI* button. This will replace the current
+filter with the one from the template.
 
+Use the *+* and *-* symbols to add/remove filter words. The spinbox right of
+the filter string lets you specify a word index for the corresponding filter.
 
+*Required Completion Count* allows you to specify how many times the filter has
+to match before it produces data. This completion count starts from 0 on every
+module event and is incremented by one each time the filter matches.
+
+If *Generate Histograms* is checked raw and calibrated histograms will be
+created for the filter. *Unit Label*, *Unit Min* and *Unit Max* are parameters
+for the :ref:`Calibration Operator <analysis-calibration>`.
 
 
 .. _analysis-operators:
@@ -219,53 +272,53 @@ Operators
 
 mvme currently implements the following operators:
 
-* :ref:`analysis-Calibration`
-
-  * Calibrate values using a desired minimum and maximum.
-  * Add a unit label.
-
-* :ref:`analysis-IndexSelector`
-
-  * Select a specific index from the input array and copy it to the output.
-
-  Produces an output array of size 1.
-
-* :ref:`analysis-PreviousValue`
-
-  Outputs the input value from the previous event. Optionally outputs the last
-  input that was valid.
-
-* :ref:`analysis-Difference`
-
-  Produces the element-wise difference of its two inputs.
-
-* :ref:`analysis-Sum`
-
-  Calculates the sum (optionally the mean) of the elements of its input array.
-
-  Produces an output array of size 1.
-
-* :ref:`analysis-ArrayMap`
-
-  Allows selecting and reordering arbitrary indices from a variable number of
-  input arrays.
-
-
-* :ref:`analysis-RangeFilter1D`
-
-  Keeps values if they fall inside (optionally outside) a given interval. Input
-  values that do not match the criteria are set to *invalid* in the output.
-
-
-* :ref:`analysis-RectFilter2D`
-
-  Produces a single *valid* output value if both inputs satisfy an interval
-  based condition.
-
-* :ref:`analysis-ConditionFilter`
-
-  Copies data input to output if the corresponding element of the condition
-  input is valid.
+.. * :ref:`analysis-Calibration`
+.. 
+..   * Calibrate values using a desired minimum and maximum.
+..   * Add a unit label.
+.. 
+.. * :ref:`analysis-IndexSelector`
+.. 
+..   * Select a specific index from the input array and copy it to the output.
+.. 
+..   Produces an output array of size 1.
+.. 
+.. * :ref:`analysis-PreviousValue`
+.. 
+..   Outputs the input value from the previous event. Optionally outputs the last
+..   input that was valid.
+.. 
+.. * :ref:`analysis-Difference`
+.. 
+..   Produces the element-wise difference of its two inputs.
+.. 
+.. * :ref:`analysis-Sum`
+.. 
+..   Calculates the sum (optionally the mean) of the elements of its input array.
+.. 
+..   Produces an output array of size 1.
+.. 
+.. * :ref:`analysis-ArrayMap`
+.. 
+..   Allows selecting and reordering arbitrary indices from a variable number of
+..   input arrays.
+.. 
+.. 
+.. * :ref:`analysis-RangeFilter1D`
+.. 
+..   Keeps values if they fall inside (optionally outside) a given interval. Input
+..   values that do not match the criteria are set to *invalid* in the output.
+.. 
+.. 
+.. * :ref:`analysis-RectFilter2D`
+.. 
+..   Produces a single *valid* output value if both inputs satisfy an interval
+..   based condition.
+.. 
+.. * :ref:`analysis-ConditionFilter`
+.. 
+..   Copies data input to output if the corresponding element of the condition
+..   input is valid.
 
 
 .. _analysis-Calibration:
@@ -273,45 +326,92 @@ mvme currently implements the following operators:
 Calibration
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+The calibration operator allows to add a unit label to a parameter array and to
+calibrate input parameters using *unit min* and *unit max* values.
+
+Each input parameters ``[lowerLimit, upperLimit)`` interval is mapped to the
+outputs ``[unitMin, unitMax)`` interval.
+
 .. _analysis-IndexSelector:
 
 Index Selector
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Select a specific index from the input array and copy it to the output.
+
+This operator produces an output array of size 1.
 
 .. _analysis-PreviousValue:
 
 Previous Value
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+Outputs the input value from the previous event. Optionally outputs the last
+input that was valid.
+
 .. _analysis-Difference:
 
 Difference
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Produces the element-wise difference of its two inputs *A* and *B*: ::
+
+  Output[i] = A[i] - B[i]
+
 
 .. _analysis-Sum:
 
 Sum/Mean
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+Calculates the sum (optionally the mean) of the elements of its input array.
+
+This operator produces an output array of size 1.
+
 .. _analysis-ArrayMap:
 
 Array Map
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Allows selecting and reordering arbitrary indices from a variable number of
+input arrays.
+
+.. autofigure:: images/analysis_array_map.png
+   :scale-latex: 60%
+
+   Array Map UI
+
+* Use the *+* and *-* buttons to add/remove inputs.
+* Select elements in the *Input* and *Output* lists and use the arrows to move
+  them from one side to the other.
+
+Multiple items can be selected by control-clicking, ranges of items by
+shift-clicking. Both methods can be combined to select ranges with holes
+in-between them. Focus a list and press ``Ctrl-A`` to select all items.
 
 .. _analysis-RangeFilter1D:
 
 1D Range Filter
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+Keeps values if they fall inside (optionally outside) a given interval. Input
+values that do not match the criteria are set to *invalid* in the output.
+
 .. _analysis-RectFilter2D:
 
 2D Rectangle Filter
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+Produces a single *valid* output value if both inputs satisfy an interval based
+condition.
+
 .. _analysis-ConditionFilter:
 
 Condition Filter
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Copies data input to output if the corresponding element of the condition input
+is valid.
 
 .. _analysis-sinks:
 
