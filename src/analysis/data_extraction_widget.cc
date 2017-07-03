@@ -115,6 +115,24 @@ void DataExtractionEditor::updateDisplay()
 
     s32 row = 0;
 
+
+    // Add column headings
+    auto make_heading_label = [](const QString &text)
+    {
+        auto result = new QLabel(text);
+        auto font = result->font();
+        font.setBold(true);
+        result->setFont(font);
+        result->setAlignment(Qt::AlignHCenter);
+        return result;
+    };
+
+    m_filterGrid->addWidget(make_heading_label(QSL("Filter #")),       row, 0);
+    m_filterGrid->addWidget(make_heading_label(QSL("Filter String")),  row, 1);
+    m_filterGrid->addWidget(make_heading_label(QSL("WordIndex")),      row, 2);
+
+    ++row;
+
     s32 subFilterCount = m_subFilters.size();
     for (s32 filterIndex = 0; filterIndex < subFilterCount; ++filterIndex)
     {
