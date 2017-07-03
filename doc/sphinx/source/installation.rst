@@ -12,7 +12,7 @@ System Requirements
   recommended as the limited address space can be quickly used up when creating
   lots of histograms.
 
-* **WIENER VM-USB** VME Controller
+* `WIENER`_ VM-USB VME Controller
 
 * At least 4 GB RAM is recommended.
 
@@ -24,6 +24,8 @@ System Requirements
 
   The windows installer can optionally run `Zadig`_ to handle the driver
   installation.
+
+.. _WIENER: http://www.wiener-d.com/
 
 ==================================================
 Linux
@@ -70,9 +72,10 @@ Windows
 Run the supplied installer and follow the on screen instructions to install
 **mvme**.
 
-After the installation process you are given the option to run `Zadig`_ to install
-the driver required for VM-USB support to work. Refer to the description text
-in the installer and :ref:`inst-windows-vmusb-driver` for details.
+At the end of the installation process you are given the option to run `Zadig`_
+to install the driver required for VM-USB support to work. Refer to the
+description text in the installer and :ref:`inst-windows-vmusb-driver` for
+details.
 
 .. _inst-windows-vmusb-driver:
 
@@ -80,8 +83,10 @@ VM-USB Driver Installation
 --------------------------------------------------
 
 To be able to use the VM-USB VME Controller the *libusb-win32* driver needs to
-be installed and registered with the device. A copy of `Zadig`_ will be
-installed in the mvme installation directory and can be re-run from there.
+be installed and registered with the device. An easy way to install the driver
+is to use the `Zadig USB Driver Installer <http://zadig.akeo.ie/>`_ which comes
+bundled with mvme. You can run Zadig at the end of the installation process or
+at a later time from the mvme installation directory.
 
 In the Zadig UI the VM-USB will appear as *VM-USB VME CRATE CONTROLLER*. If it
 does not show up there's either a hardware issue or another driver is already
@@ -90,18 +95,18 @@ list of all USB devices and look for the controller again.
 
 .. _installation-zadig:
 
-.. figure:: images/installation_zadig.png
-   :width: 12cm
+.. autofigure:: images/installation_zadig.png
+   :scale-latex: 60%
 
-   Zadig USB driver installer
+   Zadig with VM-USB and libusb-win32 selected
 
-Make sure **libusb-win32** is selected as the driver to install and click on
+Make sure **libusb-win32** is selected as the driver to install, then click on
 **Install Driver**. `Zadig`_ will generate a self-signed certificate for the
 driver and start the installation process.
 
 It is highly recommended to restart your system after driver installation,
-especially if you replaced an already installed driver. Otherwise USB transfer
-errors can occur during VME data acquisition!
+especially if you replaced an existing driver. Otherwise USB transfer errors
+can occur during VME data acquisition!
 
 In case you want to manually install the driver a ZIP archive can be found
 here: `libusb-win32`_.

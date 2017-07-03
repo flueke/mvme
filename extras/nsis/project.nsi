@@ -786,7 +786,7 @@ Function LeaveZadigPage
   ${NSD_GetState} $cb_runZadig $cb_runZadigState
 
   ${If} $cb_runZadigState == ${BST_CHECKED}
-    ExecWait "$INSTDIR\zadig_2.2.exe"
+    ExecWait "$INSTDIR\zadig_2.3.exe"
   ${Endif}
 FunctionEnd
 
@@ -955,7 +955,7 @@ SectionEnd
 
 Function .onInit
   ; Zadig variable initialization. It's horrible to have to put this here.
-  StrCpy $cb_runZadigState ${BST_CHECKED}
+  StrCpy $cb_runZadigState ${BST_UNCHECKED}
 
   ; Original code from cpack
 

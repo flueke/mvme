@@ -25,26 +25,38 @@ if (SPHINX_EXECUTABLE)
         COPYONLY
         )
 
+    # Copy sphinx extension directory to build tree.
+    add_custom_target(doc_sphinx_copy_ext
+        ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_CURRENT_SOURCE_DIR}/ext"
+        "${CMAKE_CURRENT_BINARY_DIR}/ext"
+        )
+
+    # html
     add_custom_target(doc_html
         ${SPHINX_EXECUTABLE}
-        -b html
+        -E -b html
         -c "${SPHINX_BUILD_DIR}"
         -d "${SPHINX_CACHE_DIR}"
         "${SPHINX_SOURCE_DIR}"
         "${SPHINX_HTML_DIR}"
         COMMENT "Building HTML documentation with Sphinx"
         )
+    add_dependencies(doc_html doc_sphinx_copy_ext)
 
+    # latex
     add_custom_target(doc_latex
         ${SPHINX_EXECUTABLE}
-        -b latex
+        -E -b latex
         -c "${SPHINX_BUILD_DIR}"
         -d "${SPHINX_CACHE_DIR}"
         "${SPHINX_SOURCE_DIR}"
         "${SPHINX_LATEX_DIR}"
         COMMENT "Building latex documentation with Sphinx"
         )
+    add_dependencies(doc_latex doc_sphinx_copy_ext)
 
+    # latex -> pdf
     add_custom_target(doc_latex_pdf
         ${CMAKE_MAKE_PROGRAM}
         -C ${SPHINX_LATEX_DIR}
@@ -52,18 +64,29 @@ if (SPHINX_EXECUTABLE)
         )
     add_dependencies(doc_latex_pdf doc_latex)
 
+    # qthelp
     add_custom_target(doc_qthelp
         ${SPHINX_EXECUTABLE}
-        -b qthelp
+        -E -b qthelp
         -c "${SPHINX_BUILD_DIR}"
         -d "${SPHINX_CACHE_DIR}"
         "${SPHINX_SOURCE_DIR}"
         "${SPHINX_QTHELP_DIR}"
         COMMENT "Building qthelp documentation with Sphinx"
         )
+    add_dependencies(doc_qthelp doc_sphinx_copy_ext)
 
+    # qthelp collection
+    add_custom_target(doc_qthelp_collection
+        qcollectiongenerator
+        "${SPHINX_QTHELP_DIR}/mvme.qhcp"
+        COMMENT "Generating qthelp collection"
+        )
+    add_dependencies(doc_qthelp_collection doc_qthelp)
+
+    # all formats
     add_custom_target(doc)
-    add_dependencies(doc doc_html doc_latex doc_latex_pdf doc_qthelp)
+    add_dependencies(doc doc_html doc_latex_pdf doc_qthelp_collection)
 
 endif()
 

@@ -119,6 +119,7 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *modul
     , m_context(context)
     , m_module(module)
 {
+    setWindowTitle(QSL("Module Config"));
     MVMETemplates templates = read_templates();
     m_moduleMetas = templates.moduleMetas;
     qSort(m_moduleMetas.begin(), m_moduleMetas.end(), [](const VMEModuleMeta &a, const VMEModuleMeta &b) {

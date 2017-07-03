@@ -1,6 +1,9 @@
 ==========================
 ==== Do these first! =====
 ==========================
+* BUG: When creating a new vme config, then quitting and restarting the program
+  the filename shows up as "vme.vme" but any existing file with that name is
+  not loaded!
 * Sphinx Doc
     - Sphinx and output dependent image types
     - Add GIT_TAG variable and use it in conf.py as the 'version' setting
@@ -68,6 +71,7 @@
     * show fwhm only when gauss display is active
 
 * Analysis and AnalysisUI
+    * BUG: IndexSelector UI does not initialze the index value properly on being shown.
     * Introduce parameter naming. It should be possible to name individual
       channels of a module.
       Also think about making it very easy to work with Pipes containing only a
