@@ -591,7 +591,7 @@ DisplayLevelTrees EventWidgetPrivate::createSourceTrees(const QUuid &eventId)
 
     DisplayLevelTrees result = make_displaylevel_trees(
         QSL("L0 Parameter Extraction"),
-        QSL("L0 Data Display"),
+        QSL("L0 Raw Data Display"),
         0);
 
     // Populate the OperatorTree
