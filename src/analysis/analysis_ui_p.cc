@@ -714,6 +714,8 @@ void repopulate_arrayMap_tables(ArrayMap *arrayMap, const ArrayMappings &mapping
         item->setData(SlotIndexRole, slotIndex);
         item->setData(ParamIndexRole, paramIndex);
 
+        item->setFlags(item->flags() & ~Qt::ItemIsEditable);
+
         return item;
     };
 
