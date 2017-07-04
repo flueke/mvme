@@ -333,7 +333,9 @@ AddEditOperatorWidget::AddEditOperatorWidget(OperatorInterface *op, s32 userLeve
         connect(m_removeSlotButton, &QPushButton::clicked, this, [this] () {
             if (m_op->getNumberOfSlots() > 1)
             {
+                AnalysisPauser pauser(m_eventWidget->getContext());
                 m_op->removeLastSlot();
+                do_beginRun_forward(m_op);
                 repopulateSlotGrid();
                 inputSelected(-1);
             }
@@ -1500,6 +1502,22 @@ void OperatorConfigurationWidget::configureOperator()
     }
     else if (auto arrayMap = qobject_cast<ArrayMap *>(op))
     {
+        /* Remove mappings that got invalidated due to removing slots from the
+         * ArrayMap, then copy the mappings over. */
+        s32 nSlots = arrayMap->getNumberOfSlots();
+
+        qDebug() << __PRETTY_FUNCTION__ << "local mappings before erase" << m_arrayMappings.size();
+
+        m_arrayMappings.erase(
+            std::remove_if(m_arrayMappings.begin(), m_arrayMappings.end(), [nSlots](const ArrayMap::IndexPair &ip) {
+                bool result = ip.slotIndex >= nSlots;
+                qDebug() << __PRETTY_FUNCTION__ << "nSlots =" << nSlots << "ip.slotIndex =" << ip.slotIndex << "result =" << result;
+                return result;
+            }),
+            m_arrayMappings.end());
+
+        qDebug() << __PRETTY_FUNCTION__ << "local mappings after erase" << m_arrayMappings.size();
+
         arrayMap->m_mappings = m_arrayMappings;
     }
     else if (auto rangeFilter = qobject_cast<RangeFilter1D *>(op))

@@ -1201,7 +1201,11 @@ bool ArrayMap::removeLastSlot()
 {
     if (getNumberOfSlots() > 1)
     {
+        auto slot = m_inputs.back();
+        slot->disconnectPipe();
         m_inputs.pop_back();
+        delete slot;
+
         return true;
     }
 
@@ -1213,6 +1217,8 @@ void ArrayMap::beginRun(const RunInfo &)
     s32 mappingCount = m_mappings.size();
     m_output.parameters.name = objectName();
     m_output.parameters.resize(mappingCount);
+
+    qDebug() << __PRETTY_FUNCTION__ << this << "#mappings =" << mappingCount;
 
     for (s32 mIndex = 0;
          mIndex < mappingCount;
@@ -1240,6 +1246,8 @@ void ArrayMap::beginRun(const RunInfo &)
             m_output.parameters[mIndex].upperLimit = inParam->upperLimit;
         }
     }
+
+    qDebug() << __PRETTY_FUNCTION__ << this << "#output params =" << m_output.parameters.size();
 }
 
 void ArrayMap::step()
