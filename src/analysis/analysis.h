@@ -570,7 +570,7 @@ class IndexSelector: public BasicOperator
         virtual QString getShortName() const override { return QSL("Idx"); }
 
     private:
-        s32 m_index;
+        s32 m_index = 0;
 };
 
 /* This operator has the value array from the previous cycle as its output.
