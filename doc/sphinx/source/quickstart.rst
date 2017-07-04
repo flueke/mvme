@@ -1,5 +1,5 @@
 ##################################################
-Quickstart Tutorial
+Quickstart Guide
 ##################################################
 
 The quickstart guide explains how to create a simple setup using the WIENER

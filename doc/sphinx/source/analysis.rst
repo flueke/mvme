@@ -2,6 +2,48 @@
 Analysis
 ==================================================
 
+.. _analysis-ui:
+.. _analysis-user-guide:
+
+User Guide
+----------------------------------------
+
+.. autofigure:: images/analysis_ui_simple_io_highlights.png
+    :scale-latex: 100%
+
+    Analysis UI
+
+* Horizontal split
+
+  * Top: Data extraction and processing (Source and Operators go here)
+  * Bottom: Data Display. Arrays of 1D Histograms, 2D Histograms
+
+* Vertical splits: *User Levels*
+
+  * Level 0: special level for data extraction and raw data displays
+
+    * Top
+
+      Modules that are read out as part of the current event are shown here.
+      Extraction Filters are attached to the modules to extract relevant data
+      values.
+
+    * Bottom
+
+      Unmodified histograms of the data produced by the Extraction Filters
+
+  * Levels 1-N:
+
+    User defined levels for data processing (top) and data display (bottom).
+
+    Data flows from left to right and from top to bottom. Endpoints not
+    producing any further data are at histogram sinks shown in the bottom
+    trees.
+
+
+* Select an existing operator by left-clicking it. Its inputs will be
+  highlighted in green, dependent operators will be shown in a blueish color.
+
 System Structure
 ----------------------------------------
 
@@ -31,7 +73,7 @@ histogram.
 
 .. figure:: images/analysis_flowchart.png
 
-   Example analysis dataflow
+    Example analysis dataflow
 
 Parameter Arrays
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -108,17 +150,6 @@ their inputs or single values for all their inputs).
 
 The :ref:`Analysis UI <analysis-ui>` will highlight valid input nodes in green
 when selecting an operators input.
-
-Runtime Behaviour
-----------------------------------------
-
-.. _analysis-ui:
-
-User Interface
-----------------------------------------
-
-Importing Objects
-----------------------------------------
 
 .. _analysis-sources:
 
@@ -272,54 +303,6 @@ Operators
 
 mvme currently implements the following operators:
 
-.. * :ref:`analysis-Calibration`
-.. 
-..   * Calibrate values using a desired minimum and maximum.
-..   * Add a unit label.
-.. 
-.. * :ref:`analysis-IndexSelector`
-.. 
-..   * Select a specific index from the input array and copy it to the output.
-.. 
-..   Produces an output array of size 1.
-.. 
-.. * :ref:`analysis-PreviousValue`
-.. 
-..   Outputs the input value from the previous event. Optionally outputs the last
-..   input that was valid.
-.. 
-.. * :ref:`analysis-Difference`
-.. 
-..   Produces the element-wise difference of its two inputs.
-.. 
-.. * :ref:`analysis-Sum`
-.. 
-..   Calculates the sum (optionally the mean) of the elements of its input array.
-.. 
-..   Produces an output array of size 1.
-.. 
-.. * :ref:`analysis-ArrayMap`
-.. 
-..   Allows selecting and reordering arbitrary indices from a variable number of
-..   input arrays.
-.. 
-.. 
-.. * :ref:`analysis-RangeFilter1D`
-.. 
-..   Keeps values if they fall inside (optionally outside) a given interval. Input
-..   values that do not match the criteria are set to *invalid* in the output.
-.. 
-.. 
-.. * :ref:`analysis-RectFilter2D`
-.. 
-..   Produces a single *valid* output value if both inputs satisfy an interval
-..   based condition.
-.. 
-.. * :ref:`analysis-ConditionFilter`
-.. 
-..   Copies data input to output if the corresponding element of the condition
-..   input is valid.
-
 
 .. _analysis-Calibration:
 
@@ -330,7 +313,10 @@ The calibration operator allows to add a unit label to a parameter array and to
 calibrate input parameters using *unit min* and *unit max* values.
 
 Each input parameters ``[lowerLimit, upperLimit)`` interval is mapped to the
-outputs ``[unitMin, unitMax)`` interval.
+outputs ``[unitMin, unitMax)`` interval: ::
+
+  Out = (In - lowerLimit) * (unitMax - unitMin) / (upperLimit - lowerLimit) + unitMin
+
 
 .. _analysis-IndexSelector:
 
@@ -348,6 +334,10 @@ Previous Value
 
 Outputs the input value from the previous event. Optionally outputs the last
 input that was valid.
+
+.. FIXME: Proper explanation here
+
+Combine with the difference operator to calculate the distribution of change of a parameter.
 
 .. _analysis-Difference:
 
@@ -418,12 +408,77 @@ is valid.
 Sinks
 ----------------------------------------
 
+mvme currently implements the following sinks:
+
 .. _analysis-histo1dsink:
 
 1D Histogram
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+.. autofigure:: images/analysis_histo1d_listwidget.png
+   :scale-latex: 60%
+
+   1D Histogram List Widget
+
 .. _analysis-histo2dsink:
 
 2D Histogram
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autofigure:: images/analysis_histo2d_widget.png
+   :scale-latex: 60%
+
+   2D Histogram Widget
+
+
+Importing Objects
+----------------------------------------
+
+
+.. * :ref:`analysis-Calibration`
+.. 
+..   * Calibrate values using a desired minimum and maximum.
+..   * Add a unit label.
+.. 
+.. * :ref:`analysis-IndexSelector`
+.. 
+..   * Select a specific index from the input array and copy it to the output.
+.. 
+..   Produces an output array of size 1.
+.. 
+.. * :ref:`analysis-PreviousValue`
+.. 
+..   Outputs the input value from the previous event. Optionally outputs the last
+..   input that was valid.
+.. 
+.. * :ref:`analysis-Difference`
+.. 
+..   Produces the element-wise difference of its two inputs.
+.. 
+.. * :ref:`analysis-Sum`
+.. 
+..   Calculates the sum (optionally the mean) of the elements of its input array.
+.. 
+..   Produces an output array of size 1.
+.. 
+.. * :ref:`analysis-ArrayMap`
+.. 
+..   Allows selecting and reordering arbitrary indices from a variable number of
+..   input arrays.
+.. 
+.. 
+.. * :ref:`analysis-RangeFilter1D`
+.. 
+..   Keeps values if they fall inside (optionally outside) a given interval. Input
+..   values that do not match the criteria are set to *invalid* in the output.
+.. 
+.. 
+.. * :ref:`analysis-RectFilter2D`
+.. 
+..   Produces a single *valid* output value if both inputs satisfy an interval
+..   based condition.
+.. 
+.. * :ref:`analysis-ConditionFilter`
+.. 
+..   Copies data input to output if the corresponding element of the condition
+..   input is valid.

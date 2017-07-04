@@ -3,11 +3,12 @@ Reference
 ##################################################
 
 .. toctree::
-   :maxdepth: 3
-   :caption: Reference Contents:
+    :maxdepth: 3
+    :caption: Reference Contents:
 
-   vme_script
-   analysis
+    vme_config
+    vme_script
+    analysis
 
 
 .. ==================================================
