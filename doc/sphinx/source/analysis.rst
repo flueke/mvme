@@ -8,43 +8,92 @@ Analysis
 User Guide
 ----------------------------------------
 
+UI Overview
+~~~~~~~~~~~
+
+The Analysis system in mvme is designed to allow
+
+* flexible parameter extraction from raw readout data.
+* calibration and additional processing of extracted parameters.
+* accumulation and visualization of processed data.
+
+The user interface follows the structure of data flow in the system: the
+modules for the selected *Event* are shown in the top-left tree.
+
+The bottom-left tree contains the *raw histograms* used to accumulate the
+unmodified data extracted from the modules.
+
+The next column (*Level 1*) contains calibration operators in the top view and
+calibrated histograms in the bottom view.
+
+.. _analysis-ui-block-diagram:
+
+.. autofigure:: images/analysis_ui_block_diagram.png
+    :scale-latex: 100%
+
+    Analysis UI Block Diagram
+
+
+.. note::
+    To get a set of basic data extraction filters, calibration operators and
+    histograms right-click on a module an select *Generate default filters*.
+
+Levels are used to structure the analysis and it's completely optional to have
+more than two of them. Additional levels can be added/removed using the *+* and
+*-* buttons at the top-right.  Use the *Level Visibility* button to select
+which levels are visible.
+
+The UI enforces the rule that operators can use inputs from levels less-than or
+equal to their own level. This means data should always flow from left to
+right.
+
+Operators can be moved between levels by dragging and dropping them.
+
+
+.. _analysis-ui-screenshot:
+
 .. autofigure:: images/analysis_ui_simple_io_highlights.png
     :scale-latex: 100%
 
-    Analysis UI
+    Analysis UI Screenshot
 
-* Horizontal split
+    The Calibration for *mdpp16.amplitude*  is selected. Its input is shown in
+    green. Operators using the calibrated data are shown in a light blueish
+    color.
 
-  * Top: Data extraction and processing (Source and Operators go here)
-  * Bottom: Data Display. Arrays of 1D Histograms, 2D Histograms
+Selecting an object will highlight its input data sources in green and any
+operators using its output in blue.
 
-* Vertical splits: *User Levels*
+Adding new objects
+~~~~~~~~~~~~~~~~~~
 
-  * Level 0: special level for data extraction and raw data displays
+Right-click in any of the views and select *New* to add new operators and
+histograms. A dialog will pop up with input fields for operator specific
+settings and buttons to select the operators inputs.
 
-    * Top
+Clicking any of the input buttons will make the user interface enter "input
+select mode". In this mode valid outputs for the selected input are
+highlighted.
 
-      Modules that are read out as part of the current event are shown here.
-      Extraction Filters are attached to the modules to extract relevant data
-      values.
+.. autofigure:: images/analysis_ui_add_op_input_select.png
+    :scale-latex: 100%
 
-    * Bottom
+    Input select mode
 
-      Unmodified histograms of the data produced by the Extraction Filters
+    Adding a :ref:`analysis-RangeFilter1D` to Level 2. Valid inputs are
+    highlighted in green.
 
-  * Levels 1-N:
+Click an input node to use it for the new operator. If required fill in any
+additional operator specific data and accept the dialog. The operator will be
+added to the system and will immediately start processing data if a DAQ run or
+replay is active.
 
-    User defined levels for data processing (top) and data display (bottom).
-
-    Data flows from left to right and from top to bottom. Endpoints not
-    producing any further data are at histogram sinks shown in the bottom
-    trees.
+For details about data extraction refer to :ref:`analysis-sources`.
+Descriptions of available operators can be found in :ref:`analysis-operators`.
+For details about 1D and 2D histograms check the :ref:`analysis-sinks` section.
 
 
-* Select an existing operator by left-clicking it. Its inputs will be
-  highlighted in green, dependent operators will be shown in a blueish color.
-
-System Structure
+System Details
 ----------------------------------------
 
 As outlined in the :ref:`introduction <intro-analysis>` the analysis system is
@@ -59,10 +108,10 @@ modules event data (basically an array of 32-bit words). This module event data
 is the input to the analysis system.
 
 When processing data from a live DAQ run or from a listfile replay the analysis
-system is "stepped" by events: in each step all the :ref:`analysis-sources`
-attached to a module get passed the modules event data. The task of each source
-is to extract relevant values from its input data and make these values
-available to subsequent operators and sinks.
+system is "stepped" in terms of events: in each step all the
+:ref:`analysis-sources` attached to a module get passed the modules event data.
+The task of each source is to extract relevant values from its input data and
+make these values available to subsequent operators and sinks.
 
 .. FIXME: What is the correct order?
 
@@ -126,7 +175,7 @@ Each parameter has the following attributes:
   calibration operators to determine the parameters range and thus calculate
   the binning.
 
-Input types
+Connection types
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Different operators have different requirements on their input types. The
@@ -313,9 +362,26 @@ The calibration operator allows to add a unit label to a parameter array and to
 calibrate input parameters using *unit min* and *unit max* values.
 
 Each input parameters ``[lowerLimit, upperLimit)`` interval is mapped to the
-outputs ``[unitMin, unitMax)`` interval: ::
+outputs ``[unitMin, unitMax)`` interval.
+
+.. aafig::
+    :textual:
+    :scale: 120
+
+         +---------------------------+
+         |Calibration                |
+         +===========================+
+         |"Out[i] = calibrate(In[i])"|
+    ---->|"Out.Unit = Unit"          | ---->
+         +---------------------------+
+
+With *calibrate()*: ::
 
   Out = (In - lowerLimit) * (unitMax - unitMin) / (upperLimit - lowerLimit) + unitMin
+
+.. note::
+    Calibration information can also be accessed from adjacent 1D histograms.
+    Refer to :ref:`analysis-histo1dsink` for details.
 
 
 .. _analysis-IndexSelector:
@@ -326,6 +392,16 @@ Index Selector
 Select a specific index from the input array and copy it to the output.
 
 This operator produces an output array of size 1.
+
+.. aafig::
+    :textual:
+    :scale: 120
+
+         +----------------------+
+         |Index Selector        |
+         +======================+
+    ---->|"Out[0] = In[index]"  | ---->
+         +----------------------+
 
 .. _analysis-PreviousValue:
 
@@ -339,6 +415,17 @@ input that was valid.
 
 Combine with the difference operator to calculate the distribution of change of a parameter.
 
+.. aafig::
+    :textual:
+    :scale: 120
+
+         +----------------------+
+         |Previous Value        |
+         +======================+
+         |"Out[i] = Prev[i]"    |
+    ---->|"Prev[i] = In[i]"     | ---->
+         +----------------------+
+
 .. _analysis-Difference:
 
 Difference
@@ -348,15 +435,38 @@ Produces the element-wise difference of its two inputs *A* and *B*: ::
 
   Output[i] = A[i] - B[i]
 
+.. aafig::
+    :textual:
+    :scale: 120
+
+          +----------------------+
+          |Difference            |
+      A   +======================+
+    ----->|                      |
+     "-B" |"Out[i] = A[i] - B[i]"| ---->
+    ----->|                      |
+          +----------------------+
+
 
 .. _analysis-Sum:
 
-Sum/Mean
+Sum / Mean
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Calculates the sum (optionally the mean) of the elements of its input array.
 
 This operator produces an output array of size 1.
+
+.. aafig::
+    :textual:
+    :scale: 120
+
+         +------------------------+
+         |"Sum / Mean"            |
+         +========================+
+         |"Out[0] = Sum(In[0..N])"|
+    ---->|                        | ---->
+         +------------------------+
 
 .. _analysis-ArrayMap:
 
@@ -365,6 +475,20 @@ Array Map
 
 Allows selecting and reordering arbitrary indices from a variable number of
 input arrays.
+
+.. aafig::
+    :textual:
+    :scale: 120
+    :proportional:
+
+    It's so very fugly!
+             +------------------------+
+             |Array Map               |
+             +========================+
+    "In#0"---->|                        |
+    "In#0"---->|                        | ---->
+    "In#0"---->|                        |
+    "In#0"---->|                        |
 
 .. autofigure:: images/analysis_array_map.png
    :scale-latex: 60%
@@ -405,10 +529,10 @@ is valid.
 
 .. _analysis-sinks:
 
-Sinks
+Histograms (Sinks)
 ----------------------------------------
 
-mvme currently implements the following sinks:
+mvme currently implements the following data sinks:
 
 .. _analysis-histo1dsink:
 
@@ -420,6 +544,21 @@ mvme currently implements the following sinks:
 
    1D Histogram List Widget
 
+* Histograms and Histogram Lists
+* 2D combined view of histogram lists!
+* Zoom via drawing a rectangle. Zooms only in X
+* Zoom out via right-click. Keeps a zoomstack
+* UI: Gauss
+* UI: Rate Est. (Refer to a "recipe" section where this is described)
+* UI: Clear
+* UI: Export
+* UI: Save
+* UI: Subrange
+* UI: Resolution
+* UI: Calibration
+* UI: Info
+* UI: Histogram #
+
 .. _analysis-histo2dsink:
 
 2D Histogram
@@ -430,55 +569,63 @@ mvme currently implements the following sinks:
 
    2D Histogram Widget
 
+* UI: X-Proj
+* UI: Y-Proj
+* UI: Clear
+* UI: Export
+* UI: Subrange
+* UI: Resolution
+* UI: Info
+
 
 Importing Objects
 ----------------------------------------
 
 
 .. * :ref:`analysis-Calibration`
-.. 
+..
 ..   * Calibrate values using a desired minimum and maximum.
 ..   * Add a unit label.
-.. 
+..
 .. * :ref:`analysis-IndexSelector`
-.. 
+..
 ..   * Select a specific index from the input array and copy it to the output.
-.. 
+..
 ..   Produces an output array of size 1.
-.. 
+..
 .. * :ref:`analysis-PreviousValue`
-.. 
+..
 ..   Outputs the input value from the previous event. Optionally outputs the last
 ..   input that was valid.
-.. 
+..
 .. * :ref:`analysis-Difference`
-.. 
+..
 ..   Produces the element-wise difference of its two inputs.
-.. 
+..
 .. * :ref:`analysis-Sum`
-.. 
+..
 ..   Calculates the sum (optionally the mean) of the elements of its input array.
-.. 
+..
 ..   Produces an output array of size 1.
-.. 
+..
 .. * :ref:`analysis-ArrayMap`
-.. 
+..
 ..   Allows selecting and reordering arbitrary indices from a variable number of
 ..   input arrays.
-.. 
-.. 
+..
+..
 .. * :ref:`analysis-RangeFilter1D`
-.. 
+..
 ..   Keeps values if they fall inside (optionally outside) a given interval. Input
 ..   values that do not match the criteria are set to *invalid* in the output.
-.. 
-.. 
+..
+..
 .. * :ref:`analysis-RectFilter2D`
-.. 
+..
 ..   Produces a single *valid* output value if both inputs satisfy an interval
 ..   based condition.
-.. 
+..
 .. * :ref:`analysis-ConditionFilter`
-.. 
+..
 ..   Copies data input to output if the corresponding element of the condition
 ..   input is valid.
