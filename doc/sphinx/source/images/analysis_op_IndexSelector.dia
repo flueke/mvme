@@ -134,7 +134,7 @@
         <dia:boolean val="true"/>
       </dia:attribute>
       <dia:attribute name="padding">
-        <dia:real val="0.5"/>
+        <dia:real val="0.25"/>
       </dia:attribute>
       <dia:attribute name="text">
         <dia:composite type="text">
@@ -142,13 +142,13 @@
             <dia:string>#Out[0] = In[index]#</dia:string>
           </dia:attribute>
           <dia:attribute name="font">
-            <dia:font family="sans" style="0" name="Helvetica"/>
+            <dia:font family="monospace" style="0" name="Courier"/>
           </dia:attribute>
           <dia:attribute name="height">
             <dia:real val="0.63499997556209564"/>
           </dia:attribute>
           <dia:attribute name="pos">
-            <dia:point val="17.45,3.6525"/>
+            <dia:point val="17.2,3.6525"/>
           </dia:attribute>
           <dia:attribute name="color">
             <dia:color val="#000000"/>
