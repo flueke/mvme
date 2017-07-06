@@ -122,9 +122,10 @@ class AddEditSourceWidget: public QDialog
         QLineEdit *le_unit = nullptr;
         QDoubleSpinBox *spin_unitMin = nullptr;
         QDoubleSpinBox *spin_unitMax = nullptr;
-        QComboBox *m_templateCombo = nullptr;
+
         QVector<std::shared_ptr<Extractor>> m_defaultExtractors;
 
+        void runLoadTemplateDialog();
         void applyTemplate(int index);
 };
 

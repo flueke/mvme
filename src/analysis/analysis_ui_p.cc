@@ -32,6 +32,7 @@
 #include <QGroupBox>
 #include <QHeaderView>
 #include <QLabel>
+#include <QListWidget>
 #include <QMessageBox>
 #include <QRadioButton>
 
@@ -126,7 +127,7 @@ AddEditSourceWidget::AddEditSourceWidget(SourcePtr srcPtr, ModuleConfig *mod, Ev
         calibInfoFrame->setEnabled(checked);
     });
 
-    m_optionsLayout->addRow(m_gbGenHistograms);
+    m_optionsLayout->insertRow(m_optionsLayout->rowCount() - 1, m_gbGenHistograms);
 
     // Load data from the first template into the gui
     applyTemplate(0);
@@ -146,23 +147,13 @@ AddEditSourceWidget::AddEditSourceWidget(SourceInterface *src, ModuleConfig *mod
 
     m_defaultExtractors = get_default_data_extractors(module->getModuleMeta().typeName);
 
-    // Read filter templates for the given module
-    m_templateCombo = new QComboBox;
-    for (auto &ex: m_defaultExtractors)
-    {
-        m_templateCombo->addItem(ex->objectName());
-    }
+    auto loadTemplateButton = new QPushButton(QIcon(QSL(":/document_import.png")), QSL("Load Filter Template"));
+    auto loadTemplateLayout = new QHBoxLayout;
+    loadTemplateLayout->setContentsMargins(0, 0, 0, 0);
+    loadTemplateLayout->addWidget(loadTemplateButton);
+    loadTemplateLayout->addStretch();
 
-    auto applyTemplateButton = new QPushButton(QSL("Load Template into UI"));
-    applyTemplateButton->setAutoDefault(false);
-    applyTemplateButton->setDefault(false);
-    auto templateSelectLayout = new QHBoxLayout;
-    templateSelectLayout->setContentsMargins(0, 0, 0, 0);
-    templateSelectLayout->addWidget(m_templateCombo);
-    templateSelectLayout->addWidget(applyTemplateButton);
-    templateSelectLayout->setStretch(0, 1);
-
-    connect(applyTemplateButton, &QPushButton::clicked, this, [this]() { applyTemplate(m_templateCombo->currentIndex()); });
+    connect(loadTemplateButton, &QPushButton::clicked, this, &AddEditSourceWidget::runLoadTemplateDialog);
 
     auto extractor = qobject_cast<Extractor *>(src);
     Q_ASSERT(extractor);
@@ -200,13 +191,46 @@ AddEditSourceWidget::AddEditSourceWidget(SourceInterface *src, ModuleConfig *mod
 
     if (m_defaultExtractors.size())
     {
-        layout->addRow(QSL("Filter template"), templateSelectLayout);
+        m_optionsLayout->addRow(loadTemplateLayout);
     }
     layout->addRow(m_filterEditor);
     layout->addRow(m_optionsLayout);
     layout->addRow(buttonBoxLayout);
 }
 
+void AddEditSourceWidget::runLoadTemplateDialog()
+{
+    auto templateList = new QListWidget;
+
+    for (auto &ex: m_defaultExtractors)
+    {
+        templateList->addItem(ex->objectName());
+    }
+
+    QDialog dialog(this);
+    dialog.setWindowTitle(QSL("Load Extraction Filter Template"));
+    auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+    bb->button(QDialogButtonBox::Ok)->setDefault(true);
+    connect(bb, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    connect(bb, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+
+    connect(templateList, &QListWidget::itemDoubleClicked, &dialog, &QDialog::accept);
+
+    auto layout = new QVBoxLayout(&dialog);
+    layout->addWidget(templateList);
+    layout->addWidget(bb);
+
+    if (dialog.exec() == QDialog::Accepted)
+    {
+        applyTemplate(templateList->currentRow());
+    }
+}
+
+/** Loads the template with the given \c index into the GUI.
+ *
+ * The index is an index into a vector of Extractor instances obtained from
+ * get_default_data_extractors() cached in m_defaultExtractors.
+ */
 void AddEditSourceWidget::applyTemplate(int index)
 {
     if (0 <= index && index < m_defaultExtractors.size())

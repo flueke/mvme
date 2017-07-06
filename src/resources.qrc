@@ -35,6 +35,7 @@
     <file alias="generic_chart_with_pencil.png">resources/chart--pencil.png</file>
     <file alias="histo_resolution.png">resources/grid.png</file>
     <file alias="eye_pencil.png">resources/eye--pencil.png</file>
+    <file alias="document_import.png">resources/document-import.png</file>
 
     <file alias="operator_calibration.png">resources/measure.png</file>
     <file alias="operator_difference.png">resources/minus-white.png</file>
