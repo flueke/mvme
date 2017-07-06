@@ -41,7 +41,7 @@ calibrated histograms in the bottom view.
 Levels are used to structure the analysis and it's completely optional to have
 more than two of them. Additional levels can be added/removed using the *+* and
 *-* buttons at the top-right.  Use the *Level Visibility* button to select
-which levels are visible.
+which levels are shown/hidden.
 
 The UI enforces the rule that operators can use inputs from levels less-than or
 equal to their own level. This means data should always flow from left to
@@ -94,11 +94,96 @@ For details about 1D and 2D histograms check the :ref:`analysis-sinks` section.
 
 Working with Histograms
 ~~~~~~~~~~~~~~~~~~~~~~~
-.. warning:: Write me!
+
+1D and 2D histograms are shown in the bottom row of the user interface. Raw 1D
+histograms are grouped by module in the bottom-left *L0 Raw Data Display* area.
+Higher level data displays are grouped by histogram type.
+
+New histograms can be added by right-clicking in one of the data display areas,
+selecting *New* and choosing the histogram type.
+
+1D
+^^
+
+1D histograms can take full arrays as input parameters. Internally an array of
+histograms of the same size as the input array will be created.
+
+Double-click on the *H1D* node to open the histogram array widget:
+
+.. autofigure:: images/analysis_histo1d_listwidget.png
+
+    1D Histogram Array Widget
+
+* The histogram index can be changed using the spinbox in the top-right corner.
+
+* Zooming is achieved by dragging a rectangle using the left mouse button. Zoom
+  levels are stacked. Click the right mouse button to zoom out one level.
+
+* Press the *Info* button to enable an info display at the bottom-right of the window.
+  This will show the current cursor coordinates and the corresponding bin number.
+
+Short description of the toolbar elements:
+
+* Y-Scale
+
+  Toggle between linear and logarithmic scales for the Y-Axis
+
+* Gauss
+
+  Fit a gauss curve through the currently visible maximum value.
+
+* Rate Est.
+
+  FIXME: Explain this. Refer to a detailed section about how to set this up and use it. FIXME
+
+* Clear
+
+  Clears the current histogram.
+
+* Export
+
+  Allows exporting to PDF and various image formats. Use the file type
+  selection in the file dialog to choose the export format.
+
+* Save
+
+  Saves the histogram data to a flat text file.
+
+* Subrange
+
+  Allows limiting the range of data that's accumulated. Only input values
+  falling within the specified interval will be accumulated.
+
+  This does not affect the histogram resolution: the full range of bins is
+  still used with the limits given by the subrange.
+
+* Resolution
+
+  Change the resolution of the histogram in powers of two from 1 bit to 20 bits.
+
+  Currently this will not rebin existing data. Instead the histogram is cleared
+  and new data is accumulated using the newly set resolution.
+
+* Calibration
+
+  This button is enabled if the histograms input is a :ref:`Calibration
+  Operator <analysis-Calibration>` and allows to directly modify the
+  calibration information from within the histogram:
 
 .. autofigure:: images/analysis_histo1d_adjust_calibration.png
 
     Calibration adjustment from within the histogram display
+
+
+2D histograms take two single values as their inputs: the X and Y parameters to
+accumulate. When selecting the inputs you will need to expand other operators
+and select the desired index directly.
+
+
+The :ref:`analysis-histo1dsink`
+
+.. warning:: Write me!
+
 
 System Details
 ----------------------------------------
@@ -157,7 +242,7 @@ The transport container carrying data between objects is the Parameter Array:
 The *size* of parameter arrays is determined at analysis startup time and is
 constant throughout the run. The *unit label* is a string which currently can
 be set through the use of the :ref:`Calibration Operator
-<analysis-calibration>`. The index of a parameter in the array is usually the
+<analysis-Calibration>`. The index of a parameter in the array is usually the
 channel address that was extracted from the modules data.
 
 Each parameter has the following attributes:
@@ -186,7 +271,7 @@ Connection types
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Different operators have different requirements on their input types. The
-:ref:`Calibration Operator <analysis-calibration>` for example can use whole
+:ref:`Calibration Operator <analysis-Calibration>` for example can use whole
 parameter arrays as its input, transforms each data value and produces an
 output array of the same size as the input size.
 
@@ -346,7 +431,7 @@ module event and is incremented by one each time the complete filter matches.
 
 If *Generate Histograms* is checked raw and calibrated histograms will be
 created for the filter. *Unit Label*, *Unit Min* and *Unit Max* are parameters
-for the :ref:`Calibration Operator <analysis-calibration>`.
+for the :ref:`Calibration Operator <analysis-Calibration>`.
 
 Predefined filters can be loaded into the UI using the *Load Filter Template*
 button.
