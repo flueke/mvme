@@ -179,6 +179,11 @@ AddEditSourceWidget::AddEditSourceWidget(SourceInterface *src, ModuleConfig *mod
     m_optionsLayout->addRow(QSL("Name"), le_name);
     m_optionsLayout->addRow(QSL("Required Completion Count"), m_spinCompletionCount);
 
+    if (m_defaultExtractors.size())
+    {
+        m_optionsLayout->addRow(loadTemplateLayout);
+    }
+
     m_buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
     m_buttonBox->button(QDialogButtonBox::Ok)->setDefault(true);
     connect(m_buttonBox, &QDialogButtonBox::accepted, this, &AddEditSourceWidget::accept);
@@ -187,15 +192,13 @@ AddEditSourceWidget::AddEditSourceWidget(SourceInterface *src, ModuleConfig *mod
     buttonBoxLayout->addStretch();
     buttonBoxLayout->addWidget(m_buttonBox);
 
-    auto layout = new QFormLayout(this);
+    auto layout = new QVBoxLayout(this);
 
-    if (m_defaultExtractors.size())
-    {
-        m_optionsLayout->addRow(loadTemplateLayout);
-    }
-    layout->addRow(m_filterEditor);
-    layout->addRow(m_optionsLayout);
-    layout->addRow(buttonBoxLayout);
+    layout->addWidget(m_filterEditor);
+    layout->addLayout(m_optionsLayout);
+    layout->addLayout(buttonBoxLayout);
+
+    layout->setStretch(0, 1);
 }
 
 void AddEditSourceWidget::runLoadTemplateDialog()
@@ -211,6 +214,7 @@ void AddEditSourceWidget::runLoadTemplateDialog()
     dialog.setWindowTitle(QSL("Load Extraction Filter Template"));
     auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
     bb->button(QDialogButtonBox::Ok)->setDefault(true);
+    bb->button(QDialogButtonBox::Ok)->setText(QSL("Load"));
     connect(bb, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
     connect(bb, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
 
