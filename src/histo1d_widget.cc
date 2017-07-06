@@ -441,8 +441,14 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     m_d->m_calibUi.applyButton = new QPushButton(QSL("Apply"));
     m_d->m_calibUi.fillMaxButton = new QPushButton(QSL("Vis. Max"));
     m_d->m_calibUi.fillMaxButton->setToolTip(QSL("Fill the last focused actual value with the visible maximum histogram value"));
+
+    /* FIXME: disabled due to Calibration not storing "global values" anymore
+     * and thus resetting will reset to the input parameters (lowerLimit,
+     * upperLimit[ interval. */
+#if 0
     m_d->m_calibUi.resetToFilterButton = new QPushButton(QSL("Restore"));
     m_d->m_calibUi.resetToFilterButton->setToolTip(QSL("Restore base unit values from source calibration"));
+#endif
     m_d->m_calibUi.closeButton = new QPushButton(QSL("Close"));
 
     m_d->m_calibUi.lastFocusedActual = m_d->m_calibUi.actual2;
@@ -451,7 +457,7 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
 
     connect(m_d->m_calibUi.applyButton, &QPushButton::clicked, this, &Histo1DWidget::calibApply);
     connect(m_d->m_calibUi.fillMaxButton, &QPushButton::clicked, this, &Histo1DWidget::calibFillMax);
-    connect(m_d->m_calibUi.resetToFilterButton, &QPushButton::clicked, this, &Histo1DWidget::calibResetToFilter);
+    //connect(m_d->m_calibUi.resetToFilterButton, &QPushButton::clicked, this, &Histo1DWidget::calibResetToFilter);
     connect(m_d->m_calibUi.closeButton, &QPushButton::clicked, this, [this]() { m_d->m_calibUi.window->reject(); });
 
     QVector<QDoubleSpinBox *> spins = { m_d->m_calibUi.actual1, m_d->m_calibUi.actual2, m_d->m_calibUi.target1, m_d->m_calibUi.target2 };
@@ -466,6 +472,7 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     }
 
     m_d->m_calibUi.window = new QDialog(this);
+    m_d->m_calibUi.window->setWindowTitle(QSL("Adjust Calibration"));
     connect(m_d->m_calibUi.window, &QDialog::rejected, this, [this]() {
         m_d->m_actionCalibUi->setChecked(false);
     });
@@ -492,7 +499,7 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     calibLayout->addWidget(m_d->m_calibUi.fillMaxButton, 3, 0, 1, 1);
     calibLayout->addWidget(m_d->m_calibUi.applyButton, 3, 1, 1, 1);
 
-    calibLayout->addWidget(m_d->m_calibUi.resetToFilterButton, 4, 0, 1, 1);
+    //calibLayout->addWidget(m_d->m_calibUi.resetToFilterButton, 4, 0, 1, 1);
     calibLayout->addWidget(m_d->m_calibUi.closeButton, 4, 1, 1, 1);
 
     //
