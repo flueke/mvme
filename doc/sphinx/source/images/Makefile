@@ -9,11 +9,21 @@
 DIA_IN  = $(wildcard *.dia)
 DIA_OUT = $(DIA_IN:.dia=.png)
 
-.PHONY: all clean dia
+# Pattern rule for gimp xcf to png export
+%.png: %.xcf
+	xcf2png -v -o $@ $<
 
-all: dia
+GIMP_IN  = $(wildcard *.xcf)
+GIMP_OUT = $(GIMP_IN:.xcf=.png)
+
+.PHONY: all clean dia gimp
+
+all: dia gimp
 
 dia: $(DIA_OUT)
 
+gimp: $(GIMP_OUT)
+
 clean:
-	-rm $(DIA_OUT)
+	-rm -f $(DIA_OUT)
+	-rm -f $(GIMP_OUT)
