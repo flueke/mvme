@@ -18,6 +18,7 @@ mvme - mesytec VME Data Acquisition
    installation
    quickstart
    reference
+   howto
 
 
 

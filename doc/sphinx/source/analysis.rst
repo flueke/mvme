@@ -92,6 +92,8 @@ For details about data extraction refer to :ref:`analysis-sources`.
 Descriptions of available operators can be found in :ref:`analysis-operators`.
 For details about 1D and 2D histograms check the :ref:`analysis-sinks` section.
 
+.. _analysis-working-with-histos:
+
 Working with Histograms
 ~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -101,6 +103,8 @@ Higher level data displays are grouped by histogram type.
 
 New histograms can be added by right-clicking in one of the data display areas,
 selecting *New* and choosing the histogram type.
+
+.. _analysis-working-with-1d-histos:
 
 1D
 ^^
@@ -122,11 +126,9 @@ Double-click on the *H1D* node to open the histogram array widget:
 * Press the *Info* button to enable an info display at the bottom-right of the window.
   This will show the current cursor coordinates and the corresponding bin number.
 
-Short description of the toolbar elements:
-
 * Y-Scale
 
-  Toggle between linear and logarithmic scales for the Y-Axis
+  Toggle between linear and logarithmic scales for the Y-Axis.
 
 * Gauss
 
@@ -134,7 +136,7 @@ Short description of the toolbar elements:
 
 * Rate Est.
 
-  FIXME: Explain this. Refer to a detailed section about how to set this up and use it. FIXME
+  .. note:: FIXME: Explain this. Refer to a detailed section about how to set this up and use it.
 
 * Clear
 
@@ -161,8 +163,10 @@ Short description of the toolbar elements:
 
   Change the resolution of the histogram in powers of two from 1 bit to 20 bits.
 
-  Currently this will not rebin existing data. Instead the histogram is cleared
+  This will not rebin existing data. Instead the histogram is cleared
   and new data is accumulated using the newly set resolution.
+
+.. _analysis-working-with-1d-histos-calibration:
 
 * Calibration
 
@@ -170,20 +174,95 @@ Short description of the toolbar elements:
   Operator <analysis-Calibration>` and allows to directly modify the
   calibration information from within the histogram:
 
-.. autofigure:: images/analysis_histo1d_adjust_calibration.png
+    .. autofigure:: images/analysis_histo1d_adjust_calibration.png
+        :scale-latex: 60%
 
-    Calibration adjustment from within the histogram display
+        Calibration adjustment from within the histogram display
 
+  The two inputs in the *Actual* column refer to the current x-axis scale. The
+  inputs in the *Target* column are used to specify the desired x-axis values.
+
+  Click on one of the *Actual* inputs and then press the *Vis. Max* button to
+  fill in the x-coordinate of the currently visible maximum value. Then enter the
+  new x-coordinate value in the *Target* box and press *Apply*.
+
+  In the example above it is known that the peak should be at ``x = 600.0``. The
+  current x-coordinate of the peak was found using the *Vis. Max* button.
+  Pressing *Apply* will modify the calibration for that particular histogram.
+
+  To see a list of calibration values for each channel open the Analysis UI
+  (``Ctrl+2``), right-click the :ref:`Calibration Operator
+  <analysis-Calibration>` and select *Edit*.
+
+.. warning:: FIXME: Mention 2D combined view!
+
+.. _analysis-working-with-2d-histos:
+
+2D
+^^
 
 2D histograms take two single values as their inputs: the X and Y parameters to
 accumulate. When selecting the inputs you will need to expand other operators
 and select the desired index directly.
 
+.. autofigure:: images/analysis_ui_add_histo2d.png
+    :scale-latex: 80
 
-The :ref:`analysis-histo1dsink`
+    Adding a 2D Histogram
 
-.. warning:: Write me!
+    Expand operator outputs and select individual indices for both axes.
 
+Optional range limits can be specified for the axes. If enabled only values
+falling within the given interval will be accumulated.
+
+Double-click on a *H2D* node to open the histogram widget:
+
+.. autofigure:: images/analysis_histo2d_widget.png
+
+    2D Histogram Widget
+
+* Zooming is achieved by dragging a rectangle using the left mouse button. Zoom
+  levels are stacked. Click the right mouse button to zoom out one level.
+
+* Press the *Info* button to show histo and cursor coordinate information at
+  the bottom of the window.
+
+* Z-Scale
+
+  Toggle between linear and logarithmic scales for the Z-Axis.
+
+* X- and Y-Proj
+
+  Create the X/Y-Projection and open it in a new 1D histogram window. The
+  projection will follow any zooming/scrolling done in the 2D histogram.
+
+* Clear
+
+  Clears the histogram.
+
+* Export
+
+  Allows exporting to PDF and various image formats. Use the file type
+  selection in the file dialog to choose the export format.
+
+* Subrange
+
+  Allows limiting the range of data that's accumulated. Only input values
+  falling within the specified interval will be accumulated.
+
+  This does not affect the histogram resolution: the full range of bins is
+  still used with the limits given by the subrange.
+
+  Can optionally create a new histogram with the specified limits instead of
+  modifying the current one. The newly created histogram will be added to the
+  analysis.
+
+* Resolution
+
+  Change the resolution of the histograms axes in powers of two from 1 bit to 13 bits.
+
+  This will not rebin existing data. Instead the histogram is cleared
+  and new data is accumulated using the newly set resolution.
 
 System Details
 ----------------------------------------
@@ -418,9 +497,9 @@ In the Analysis UI right-click a Module and select *New -> Filter Extractor* to
 add a new filter.
 
 .. autofigure:: images/analysis_add_filter_extractor.png
-   :scale-latex: 60%
+    :scale-latex: 60%
 
-   Filter Extractor UI
+    Filter Extractor UI
 
 Use the *+* and *-* symbols to add/remove filter words. The spinbox right of
 the filter string lets you specify a word index for the corresponding filter.
@@ -457,15 +536,24 @@ Each input parameters ``[lowerLimit, upperLimit)`` interval is mapped to the
 outputs ``[unitMin, unitMax)`` interval.
 
 .. autofigure:: images/analysis_op_Calibration.png
-   :scale-latex: 80%
+    :scale-latex: 80%
 
 With *calibrate()*: ::
 
   Out = (In - lowerLimit) * (unitMax - unitMin) / (upperLimit - lowerLimit) + unitMin
 
+Limits can be specified individually for each address in the input array. Use
+the *Apply* button to set all addresses to the global min and max values.
+
+.. autofigure:: images/analysis_calibration_ui.png
+    :scale-latex: 80%
+
+    Calibration UI
+
 .. note::
     Calibration information can also be accessed from adjacent 1D histograms.
-    Refer to :ref:`analysis-histo1dsink` for details.
+    Refer to :ref:`Working with 1D Histograms
+    <analysis-working-with-1d-histos-calibration>` for details.
 
 
 .. _analysis-IndexSelector:
@@ -478,22 +566,30 @@ Select a specific index from the input array and copy it to the output.
 This operator produces an output array of size 1.
 
 .. autofigure:: images/analysis_op_IndexSelector.png
-   :scale-latex: 80%
+    :scale-latex: 80%
 
 .. _analysis-PreviousValue:
 
 Previous Value
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Outputs the input value from the previous event. Optionally outputs the last
+Outputs the input array from the previous event. Optionally outputs the last
 input that was valid.
 
-.. FIXME: Proper explanation here
-
-Combine with the difference operator to calculate the distribution of change of a parameter.
-
 .. autofigure:: images/analysis_op_PreviousValue.png
-   :scale-latex: 80%
+    :scale-latex: 80%
+
+
+.. autofigure:: images/analysis_op_PreviousValue_explanation.png
+
+    Behaviour of Previous Value over time.
+
+If *keepValid* is set the output will always contain the last valid input
+values.
+
+.. FIXME: Proper explanation here
+.. Combine with the difference operator to calculate the distribution of change of a parameter.
+
 
 .. _analysis-Difference:
 
@@ -503,8 +599,15 @@ Difference
 Produces the element-wise difference of its two inputs *A* and *B*:
 
 .. autofigure:: images/analysis_op_Difference.png
-   :scale-latex: 80%
+    :scale-latex: 80%
 
+The output unit label is taken from input *A*. If ``A[i]`` or ``B[i]`` are
+invalid then ``Out[i]`` will be set to invalid: ::
+
+    Out.Unit = A.Unit
+    Out[i].lowerLimit = A[i].lowerLimit - B[i].upperLimit
+    Out[i].upperLimit = A[i].upperLimit - B[i].lowerLimit
+    Out[i].value      = A[i].value - B[i].value
 
 .. _analysis-Sum:
 
@@ -517,7 +620,9 @@ This operator produces an output array of size 1.
 
 
 .. autofigure:: images/analysis_op_Sum.png
-   :scale-latex: 80%
+    :scale-latex: 80%
+
+When calculating the mean the number of *valid* input values is used as the denominator.
 
 .. _analysis-ArrayMap:
 
@@ -528,14 +633,14 @@ Allows selecting and reordering arbitrary indices from a variable number of
 input arrays.
 
 .. autofigure:: images/analysis_op_ArrayMap.png
-   :scale-latex: 80%
+    :scale-latex: 80%
 
 The mappings are created via the user interface:
 
 .. autofigure:: images/analysis_array_map.png
-   :scale-latex: 60%
+    :scale-latex: 60%
 
-   Array Map UI
+    Array Map UI
 
 * Use the *+* and *-* buttons to add/remove inputs. The elements of newly added
   inputs will show up in the left *Input* list.
@@ -552,7 +657,7 @@ in-between them. Focus a list and press ``Ctrl-A`` to select all items.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autofigure:: images/analysis_op_RangeFilter1D.png
-   :scale-latex: 80%
+    :scale-latex: 80%
 
 Keeps values if they fall inside (optionally outside) a given interval. Input
 values that do not match the criteria are set to *invalid* in the output.
@@ -563,7 +668,7 @@ values that do not match the criteria are set to *invalid* in the output.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autofigure:: images/analysis_op_RectFilter2D.png
-   :scale-latex: 80%
+    :scale-latex: 80%
 
 Produces a single *valid* output value if both inputs satisfy an interval based
 condition.
@@ -574,7 +679,7 @@ Condition Filter
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autofigure:: images/analysis_op_ConditionFilter.png
-   :scale-latex: 80%
+    :scale-latex: 80%
 
 Copies data input to output if the corresponding element of the condition input
 is valid.
@@ -592,9 +697,9 @@ mvme currently implements the following data sinks:
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autofigure:: images/analysis_histo1d_listwidget.png
-   :scale-latex: 60%
+    :scale-latex: 60%
 
-   1D Histogram List Widget
+    1D Histogram List Widget
 
 * Histograms and Histogram Lists
 * 2D combined view of histogram lists!
@@ -617,9 +722,9 @@ mvme currently implements the following data sinks:
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autofigure:: images/analysis_histo2d_widget.png
-   :scale-latex: 60%
+    :scale-latex: 60%
 
-   2D Histogram Widget
+    2D Histogram Widget
 
 * UI: X-Proj
 * UI: Y-Proj
