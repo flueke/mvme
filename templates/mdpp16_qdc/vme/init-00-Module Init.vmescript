@@ -8,7 +8,8 @@
 
 0x6070 0        # internal pulser (default = 0)
                 # 0 = pulser off
-                # 3 = pulser on
+                # 1 = pulser on
+0x6072 500
 
 ## Frontend settings
 
@@ -19,11 +20,11 @@
                 # ...
                 # 8 = all channels (set to common values)
 
-0x6110 30       # Signal_width (default = 30) [FWHM, ns]
-0x6112 1000     # Input_Amplitude (default = 1000) [mV], input amplitude 0 to peak in mV
+0x6110 40       # Signal_width (default = 30) [FWHM, ns]
+0x6112 300      # Input_Amplitude (default = 1000) [mV], input amplitude 0 to peak in mV
 0x6114 3000     # Jumper_range (default = 3000) [mV], Range printed on jumper top
 0x6116 0        # QDC_Jumper (default = 0), 1 = yes, 0 = no
-0x6118 10       # Integration_long (default = 10) [12.5 ns], 2..128 in clock steps of 12.5ns
+0x6118 50       # Integration_long (default = 10) [12.5 ns], 2..128 in clock steps of 12.5ns
 0x611A 1        # Integration_short (default = 1) [12.5 ns], 2..31 in clock steps of 12.5ns
                 # must be < than long integration
 0x611C 0x4FF    # threshold0 (default = 0x4FF) 1...0xFFFF; example: 0.8% = 0x200;
