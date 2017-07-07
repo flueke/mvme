@@ -5,12 +5,13 @@ find_package(Sphinx)
 
 if (SPHINX_EXECUTABLE)
 
-    set(SPHINX_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/source")
-    set(SPHINX_BUILD_DIR  "${CMAKE_CURRENT_BINARY_DIR}/_build")
-    set(SPHINX_CACHE_DIR  "${CMAKE_CURRENT_BINARY_DIR}/_doctrees")
-    set(SPHINX_HTML_DIR   "${CMAKE_CURRENT_BINARY_DIR}/html")
-    set(SPHINX_LATEX_DIR  "${CMAKE_CURRENT_BINARY_DIR}/latex")
-    set(SPHINX_QTHELP_DIR  "${CMAKE_CURRENT_BINARY_DIR}/qthelp")
+    set(SPHINX_SOURCE_DIR   "${CMAKE_CURRENT_SOURCE_DIR}/source")
+    set(SPHINX_BUILD_DIR    "${CMAKE_CURRENT_BINARY_DIR}/_build")
+    set(SPHINX_CACHE_DIR    "${CMAKE_CURRENT_BINARY_DIR}/_doctrees")
+    set(SPHINX_HTML_DIR     "${CMAKE_CURRENT_BINARY_DIR}/html")
+    set(SPHINX_LATEX_DIR    "${CMAKE_CURRENT_BINARY_DIR}/latex")
+    set(SPHINX_QTHELP_DIR   "${CMAKE_CURRENT_BINARY_DIR}/qthelp")
+    set(SPHINX_QCH_OUT      "${SPHINX_QTHELP_DIR}/mvme.qch")
 
     configure_file(
         "${SPHINX_SOURCE_DIR}/conf.py.in"
@@ -77,12 +78,22 @@ if (SPHINX_EXECUTABLE)
     add_dependencies(doc_qthelp doc_sphinx_copy_ext)
 
     # qthelp collection
+
+    add_custom_command(
+        OUTPUT "${SPHINX_QCH_OUT}"
+        COMMAND qcollectiongenerator "${SPHINX_QTHELP_DIR}/mvme.qhcp"
+        )
+
+    # The dependency on the QCH_OUT is what makes CMake actually run the command.
+    # See https://cmake.org/Wiki/CustomCommandCustomTargetInstall for details.
     add_custom_target(doc_qthelp_collection
-        qcollectiongenerator
-        "${SPHINX_QTHELP_DIR}/mvme.qhcp"
+        ALL DEPENDS "${SPHINX_QCH_OUT}"
         COMMENT "Generating qthelp collection"
         )
+
     add_dependencies(doc_qthelp_collection doc_qthelp)
+
+    install(FILES "${SPHINX_QCH_OUT}" DESTINATION bin)
 
     # all formats
     add_custom_target(doc)
