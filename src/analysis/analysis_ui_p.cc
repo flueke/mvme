@@ -959,6 +959,17 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
         cb_keepValid->setChecked(previous->m_keepValid);
 
         formLayout->addRow(cb_keepValid);
+
+        auto label = new QLabel(QSL(
+                "If <i>Keep valid parameters</i> is checked the previous valid "
+                "input values will be copied to the output.<br/>"
+                "<br>"
+                "Otherwise the whole input from the previous event will be "
+                "available at the output including invalid parameters."
+                ));
+        label->setWordWrap(true);
+
+        formLayout->addRow(label);
     }
     else if (auto sum = qobject_cast<Sum *>(op))
     {
