@@ -965,7 +965,7 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
                 "input values will be copied to the output.<br/>"
                 "<br>"
                 "Otherwise the whole input from the previous event will be "
-                "available at the output including invalid parameters."
+                "available at the output, including invalid parameters."
                 ));
         label->setWordWrap(true);
 

@@ -28,6 +28,7 @@ string(REGEX MATCH "^[0-9.]+-[0-9]+" GIT_VERSION_SHORT ${GIT_VERSION})
 # Subdirectories containing build targets
 add_subdirectory(src)
 add_subdirectory(doc)
+add_subdirectory(extras)
 
 # Handle the template directory at installation and build time
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/templates" DESTINATION .)
