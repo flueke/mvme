@@ -46,9 +46,10 @@ if (SPHINX_EXECUTABLE)
 
     # html
     # ==================================================
-    add_custom_command(
-        OUTPUT "${SPHINX_HTML_DIR}"
-        COMMAND
+    #add_custom_command(
+    #    OUTPUT "${SPHINX_HTML_DIR}"
+    #    COMMAND
+    add_custom_target(doc_html
             ${SPHINX_EXECUTABLE}
             -E -b html
             -c "${SPHINX_BUILD_DIR}"
@@ -58,9 +59,9 @@ if (SPHINX_EXECUTABLE)
         COMMENT "Building HTML documentation with Sphinx"
         )
 
-    add_custom_target(doc_html
-        ALL DEPENDS "${SPHINX_HTML_DIR}"
-        )
+    #add_custom_target(doc_html
+    #    ALL DEPENDS "${SPHINX_HTML_DIR}"
+    #    )
 
     add_dependencies(doc_html doc_sphinx_copy_ext)
 
@@ -80,15 +81,18 @@ if (SPHINX_EXECUTABLE)
     add_dependencies(doc_latex doc_sphinx_copy_ext)
 
     # latex -> pdf
-    add_custom_command(
-        OUTPUT "${SPHINX_PDF_OUT}"
-        COMMAND ${CMAKE_MAKE_PROGRAM} -C ${SPHINX_LATEX_DIR}
+    #add_custom_command(
+    #    OUTPUT "${SPHINX_PDF_OUT}"
+    #    COMMAND
+    add_custom_target(doc_latex_pdf
+            ${CMAKE_MAKE_PROGRAM} -C ${SPHINX_LATEX_DIR}
         COMMENT "Generating PDF from Sphinx latex output"
         )
 
-    add_custom_target(doc_latex_pdf
-        ALL DEPENDS "${SPHINX_PDF_OUT}"
-        )
+    #add_custom_target(doc_latex_pdf
+    #    ALL DEPENDS "${SPHINX_PDF_OUT}"
+    #    )
+
     add_dependencies(doc_latex_pdf doc_latex)
 
     install(FILES "${SPHINX_PDF_OUT}" DESTINATION doc)
