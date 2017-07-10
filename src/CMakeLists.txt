@@ -131,7 +131,7 @@ target_link_libraries(libmvme
     ${LIBUSB_LIBRARY}
     )
 
-install(TARGETS libmvme DESTINATION bin)
+install(TARGETS libmvme DESTINATION .)
 
 #
 # mvme
@@ -154,6 +154,6 @@ target_link_libraries(mvme
     libmvme
     )
 
-install(TARGETS mvme DESTINATION bin)
+install(TARGETS mvme DESTINATION .)
 
 # vim:tw=0

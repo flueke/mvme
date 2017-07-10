@@ -30,7 +30,7 @@ add_subdirectory(src)
 add_subdirectory(doc)
 
 # Handle the template directory at installation and build time
-install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/templates" DESTINATION bin)
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/templates" DESTINATION .)
 
 file(COPY templates DESTINATION .)
 

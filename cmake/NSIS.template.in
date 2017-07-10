@@ -16,16 +16,10 @@
 ;--------------------------------
 ; You must define these values
 
-  #!define VERSION   "1.0-rc0"
-  !define VERSION   "@PACKAGE_VERSION@"
-  ; These are all architecture dependent. If you change the ARCH remember to
-  ; also adjust the InstallDir below
-  #!define ARCH      "x32"
-  !define ARCH      "@PACKAGE_ARCH_STRING@"
-  ;!define ARCH      "x64"
+  !define VERSION     "@CPACK_PACKAGE_VERSION@"
+  !define INST_DIR    "@CPACK_TEMPORARY_DIRECTORY@"
+  !define ARCH        "@PACKAGE_ARCH_STRING@"
   !define DEPLOY_DIR  "C:/src/deploy/mvme-${ARCH}-libusb-0.1"
-
-; !define PATCH  "0"
 
 ; It seems CPack does not do variable substitution as required here. Instead a
 ; file used with cmakes configure_file() command is used.
@@ -652,6 +646,7 @@ Section "-mvme" SectionMVME
   ;list of directories here in sync with the RMDir commands below.
   SetOutPath "$INSTDIR"
 
+  File /r "${INST_DIR}\*.*"
   File /r "${DEPLOY_DIR}\*.*"
 
   ;Store installation folder
