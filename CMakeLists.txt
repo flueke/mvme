@@ -48,6 +48,20 @@ else()
     set(PACKAGE_ARCH_STRING "x32")
 endif()
 
+if (WIN32)
+    set(CPACK_GENERATOR "NSIS") # "ZIP"
+    set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL "ON")
+    set(CPACK_NSIS_PACKAGE_NAME "mvme")
+    set(CPACK_NSIS_MUI_FINISHPAGE_RUN "mvme.exe")
+    set(CPACK_NSIS_URL_INFO_ABOUT "http://www.mesytec.com")
+    set(CPACK_NSIS_CONTACT "info@mesytec.com")
+    #set(CPACK_NSIS_MENU_LINKS "share/doc/mesycontrol.pdf" "Documentation")
+    set(CPACK_SOURCE_GENERATOR "ZIP")
+else()
+    set(CPACK_GENERATOR "TBZ2")
+    set(CPACK_SOURCE_GENERATOR "TBZ2")
+endif()
+
 configure_file("CPackOptions.cmake.in" "${PROJECT_BINARY_DIR}/CPackOptions.cmake" @ONLY)
 set(CPACK_PROJECT_CONFIG_FILE "${PROJECT_BINARY_DIR}/CPackOptions.cmake")
 

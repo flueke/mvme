@@ -93,7 +93,7 @@ if (SPHINX_EXECUTABLE)
 
     add_dependencies(doc_qthelp_collection doc_qthelp)
 
-    install(FILES "${SPHINX_QCH_OUT}" DESTINATION bin)
+    install(FILES "${SPHINX_QCH_OUT}" DESTINATION .)
 
     # all formats
     add_custom_target(doc)
