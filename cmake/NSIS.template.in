@@ -16,10 +16,12 @@
 ;--------------------------------
 ; You must define these values
 
-  !define VERSION   "1.0-rc0"
+  #!define VERSION   "1.0-rc0"
+  !define VERSION   "@GIT_VERSION_SHORT@"
   ; These are all architecture dependent. If you change the ARCH remember to
   ; also adjust the InstallDir below
-  !define ARCH      "x32"
+  #!define ARCH      "x32"
+  !define ARCH      "@PACKAGE_ARCH_STRING@"
   ;!define ARCH      "x64"
   !define DEPLOY_DIR  "C:/src/deploy/mvme-${ARCH}-libusb-0.1"
 
@@ -642,7 +644,7 @@ Section "-mvme" SectionMVME
   ;Use the entire tree produced by the INSTALL target.  Keep the
   ;list of directories here in sync with the RMDir commands below.
   SetOutPath "$INSTDIR"
-  
+
   File /r "${DEPLOY_DIR}\*.*"
 
   ;Store installation folder
@@ -746,7 +748,7 @@ Function InstallOptionsPage
 FunctionEnd
 
 ; Load the label text from file
-!define /file ZADIG_EXPLANATION "vmusb-zadig-explanation.txt"
+!define /file ZADIG_EXPLANATION "@CMAKE_SOURCE_DIR@/vmusb-zadig-explanation.txt"
 
 Function RunZadigPage
   !insertmacro MUI_HEADER_TEXT "USB Driver Installation" "Optionally install the driver required for VMUSB support"
@@ -1031,3 +1033,5 @@ inst:
 
   noOptionsPage:
 FunctionEnd
+
+; vim:ft=nsis

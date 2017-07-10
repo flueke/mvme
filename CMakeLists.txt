@@ -34,4 +34,39 @@ install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/templates" DESTINATION bin)
 
 file(COPY templates DESTINATION .)
 
+# CPack configuration used for 'make package'
+
+if ("${CMAKE_SIZEOF_VOID_P}" EQUAL "8")
+    set(PACKAGE_ARCH_STRING "x64")
+else()
+    set(PACKAGE_ARCH_STRING "x32")
+endif()
+
+
+set(CPACK_PACKAGE_VERSION "${GIT_VERSION_SHORT}")
+set(CPACK_PACKAGE_FILE_NAME "${CMAKE_PROJECT_NAME}-${CPACK_PACKAGE_VERSION}-${PACKAGE_ARCH_STRING}-${CMAKE_SYSTEM_NAME}")
+set(CPACK_PACKAGE_VENDOR "mesytec")
+set(CPACK_PACKAGE_EXECUTABLES "mvme;mvme")
+set(CPACK_PACKAGE_INSTALL_DIRECTORY "mvme")
+set(CPACK_OUTPUT_FILE_PREFIX "cpack-out")
+#set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/src/client/mesycontrol/resources/gpl-notice.txt")
+set(CPACK_STRIP_FILES TRUE)
+
+if (WIN32)
+    set(CPACK_GENERATOR "NSIS") # "ZIP"
+    set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL "ON")
+    set(CPACK_NSIS_PACKAGE_NAME "mvme")
+    set(CPACK_NSIS_MUI_FINISHPAGE_RUN "mvme.exe")
+    set(CPACK_NSIS_URL_INFO_ABOUT "http://www.mesytec.com")
+    set(CPACK_NSIS_CONTACT "info@mesytec.com")
+    #set(CPACK_NSIS_MENU_LINKS
+    #    "share/doc/mesycontrol.pdf" "Documentation")
+    set(CPACK_SOURCE_GENERATOR "ZIP")
+else(WIN32)
+    set(CPACK_GENERATOR "TBZ2") # "STGZ"
+    set(CPACK_SOURCE_GENERATOR "TBZ2")
+endif(WIN32)
+
+include(CPack)
+
 # vim:tw=0
