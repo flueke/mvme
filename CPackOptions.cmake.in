@@ -8,7 +8,12 @@ set(CPACK_PACKAGE_FILE_NAME "${PROJECT_NAME}-${CPACK_PACKAGE_VERSION}-${CMAKE_SY
 set(CPACK_PACKAGE_VENDOR "mesytec")
 set(CPACK_PACKAGE_EXECUTABLES "mvme;mvme")
 set(CPACK_PACKAGE_INSTALL_DIRECTORY "mvme")
-set(CPACK_OUTPUT_FILE_PREFIX "cpack-out")
+#set(CPACK_OUTPUT_FILE_PREFIX "cpack-out")
+if (WIN32)
+    set(CPACK_OUTPUT_FILE_PREFIX "c:\\src\\mvme-packages")
+else()
+    set(CPACK_OUTPUT_FILE_PREFIX "~/src/mvme-packages")
+endif()
 #set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/src/client/mesycontrol/resources/gpl-notice.txt")
 set(CPACK_STRIP_FILES TRUE)
 
