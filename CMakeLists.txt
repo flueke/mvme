@@ -31,7 +31,6 @@ add_subdirectory(doc)
 
 # Handle the template directory at installation and build time
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/templates" DESTINATION .)
-
 file(COPY templates DESTINATION .)
 
 # CPack configuration used for 'make package'
@@ -58,6 +57,11 @@ if (WIN32)
     #set(CPACK_NSIS_MENU_LINKS "share/doc/mesycontrol.pdf" "Documentation")
     set(CPACK_SOURCE_GENERATOR "ZIP")
 else()
+    # Install additional deployment files: shared objects, qt plugins, etc.
+    install(DIRECTORY "$ENV{HOME}/src/deploy/mvme-${PACKAGE_ARCH_STRING}-libusb-0.1/"
+        DESTINATION .
+        USE_SOURCE_PERMISSIONS)
+
     set(CPACK_GENERATOR "TBZ2")
     set(CPACK_SOURCE_GENERATOR "TBZ2")
 endif()
