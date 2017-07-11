@@ -36,6 +36,8 @@ Features
 High-level overview
 ==================================================
 
+.. _intro-vme:
+
 The VME side
 --------------------------------------------------
 mvme achieves high data rate, low-latency VME readout by using VM-USBs
@@ -62,25 +64,6 @@ event are combined to form the trigger stacks uploaded to the VME controller.
 
 The VME setup also describes the structure of the data that is expected to be
 read out and thus allows the software to validate the received data stream.
-
-The DAQ process
---------------------------------------------------
-When requested to start a data acquisition run mvme performs the following
-steps:
-
-* Setup modules using the module VME scripts
-* Initialize the VME controller using information from the VME configuration
-* Switch the controller into DAQ mode
-* Repeat until DAQ is stopped:
-
-  * Read a data buffer from the VME controller
-  * Validate the structure of the received data
-  * Augment the data with mvme specific meta data
-  * Write data to the listfile (optionally using compression)
-  * Pass data to the :ref:`intro-analysis`
-
-* Tell the controller to leave DAQ mode
-* Close the listfile
 
 .. _intro-analysis:
 
@@ -124,6 +107,28 @@ Currently 1D and 2D histogram sinks are implemented.
 Output parameters of sources and operators can be inspected at runtime.
 Objects can be added, removed and modified even while the DAQ or a replay is
 running. Changes are effective immediately.
+
+.. _intro-daq:
+
+The DAQ process
+--------------------------------------------------
+When requested to start a data acquisition run mvme performs the following
+steps:
+
+* Initialize the VME controller using information from the VME configuration
+* Setup modules using the module VME scripts
+* Switch the controller into DAQ mode
+* Repeat until DAQ is stopped:
+
+  * Read a data buffer from the VME controller
+  * Validate the structure of the received data
+  * Augment the data with mvme specific meta data
+  * Write data to the listfile (optionally using compression)
+  * Pass data to the :ref:`intro-analysis`
+
+* Tell the controller to leave DAQ mode
+* Close the listfile
+
 
 .. note::
   Data acquisition and writing the data to file have the highest priority in

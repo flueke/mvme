@@ -21,18 +21,23 @@ IRQ1.
 
 * Three windows will open:
 
-  * A main window containing DAQ and listfile controls, the VME configuration
-    tree and a DAQ statistics area.
+  * A main window containing DAQ controls, the VME configuration tree and a
+    statistics area.
 
   * The analysis window. As there are no VME events and modules defined yet the
     window will be empty.
 
   * A log view where runtime messages will appear.
 
+.. autofigure:: images/quickstart_gui_overview.png
+    :scale-latex: 75%
+
+    GUI overview
+
 ==================================================
 VME Setup
 ==================================================
-* Select the mvme main window.
+* Select the mvme main window containing the *VME Config* area.
 
 * Create a VME event:
 

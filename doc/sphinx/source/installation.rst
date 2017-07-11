@@ -8,9 +8,8 @@ System Requirements
 
 * Any recent Linux distribution or a version of Windows 7 or later.
 
-  Both 64- and 32-bit systems are supported but 32-bit versions are not
-  recommended as the limited address space can be quickly used up when creating
-  lots of histograms.
+  Both 64- and 32-bit systems are supported but the 64-bit version is
+  recommended due to the larger address space.
 
 * `WIENER`_ VM-USB VME Controller
 
@@ -20,7 +19,7 @@ System Requirements
   cores: readout, analysis and GUI (which includes histogram rendering) run in
   separate threads.
 
-* libusb-0.1 (Linux) / libusb-win32 (Windows)
+* USB Driver: libusb-0.1 (Linux) / libusb-win32 (Windows)
 
   The windows installer can optionally run `Zadig`_ to handle the driver
   installation.
@@ -31,7 +30,7 @@ System Requirements
 Linux
 ==================================================
 
-The **mvme** archives for Linux include all required libraries. The only
+The mvme archives for Linux include all required libraries. The only
 external dependency is the GNU C Library glibc. When using a modern Linux
 distribution no glibc version errors should occur.
 
@@ -70,7 +69,7 @@ Windows
 ==================================================
 
 Run the supplied installer and follow the on screen instructions to install
-**mvme**.
+mvme.
 
 At the end of the installation process you are given the option to run `Zadig`_
 to install the driver required for VM-USB support to work. Refer to the
@@ -100,8 +99,8 @@ list of all USB devices and look for the controller again.
 
    Zadig with VM-USB and libusb-win32 selected
 
-Make sure **libusb-win32** is selected as the driver to install, then click on
-**Install Driver**. `Zadig`_ will generate a self-signed certificate for the
+Make sure *libusb-win32* is selected as the driver to install, then click on
+*Install Driver*. `Zadig`_ will generate a self-signed certificate for the
 driver and start the installation process.
 
 It is highly recommended to restart your system after driver installation,

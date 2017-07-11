@@ -94,7 +94,7 @@ For details about 1D and 2D histograms check the :ref:`analysis-sinks` section.
 
 .. _analysis-working-with-histos:
 
-Working with Histograms
+Working with histograms
 ~~~~~~~~~~~~~~~~~~~~~~~
 
 1D and 2D histograms are shown in the bottom row of the user interface. Raw 1D
@@ -136,7 +136,9 @@ Double-click on the *H1D* node to open the histogram array widget:
 
 * Rate Est.
 
-  .. note:: FIXME: Explain this. Refer to a detailed section about how to set this up and use it.
+  Rate Estimation feature.
+
+  Refer to :ref:`howto-rate-estimation` for a how-to guide.
 
 * Clear
 
@@ -696,93 +698,29 @@ mvme currently implements the following data sinks:
 1D Histogram
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autofigure:: images/analysis_histo1d_listwidget.png
-    :scale-latex: 60%
+Accumulates incoming data into 1D histograms. Accepts a full array or an
+individual value as input. If given a full array the number of histograms that
+will be created is equal to the array size.
 
-    1D Histogram List Widget
-
-* Histograms and Histogram Lists
-* 2D combined view of histogram lists!
-* Zoom via drawing a rectangle. Zooms only in X
-* Zoom out via right-click. Keeps a zoomstack
-* UI: Gauss
-* UI: Rate Est. (Refer to a "recipe" section where this is described)
-* UI: Clear
-* UI: Export
-* UI: Save
-* UI: Subrange
-* UI: Resolution
-* UI: Calibration
-* UI: Info
-* UI: Histogram #
+See :ref:`Working with histograms <analysis-working-with-1d-histos>` for usage details.
 
 .. _analysis-histo2dsink:
 
 2D Histogram
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. autofigure:: images/analysis_histo2d_widget.png
-    :scale-latex: 60%
+Accumulates two incoming parameters into a 2D histogram. On each step of the
+operator data will only be accumulated if both the X- and Y inputs are *valid*.
 
-    2D Histogram Widget
-
-* UI: X-Proj
-* UI: Y-Proj
-* UI: Clear
-* UI: Export
-* UI: Subrange
-* UI: Resolution
-* UI: Info
+See :ref:`Working with histograms <analysis-working-with-2d-histos>` for details.
 
 
-Importing Objects
-----------------------------------------
+Loading an Analysis / Importing Objects
+---------------------------------------
 
+.. warning:: FIXME
 
-.. * :ref:`analysis-Calibration`
-..
-..   * Calibrate values using a desired minimum and maximum.
-..   * Add a unit label.
-..
-.. * :ref:`analysis-IndexSelector`
-..
-..   * Select a specific index from the input array and copy it to the output.
-..
-..   Produces an output array of size 1.
-..
-.. * :ref:`analysis-PreviousValue`
-..
-..   Outputs the input value from the previous event. Optionally outputs the last
-..   input that was valid.
-..
-.. * :ref:`analysis-Difference`
-..
-..   Produces the element-wise difference of its two inputs.
-..
-.. * :ref:`analysis-Sum`
-..
-..   Calculates the sum (optionally the mean) of the elements of its input array.
-..
-..   Produces an output array of size 1.
-..
-.. * :ref:`analysis-ArrayMap`
-..
-..   Allows selecting and reordering arbitrary indices from a variable number of
-..   input arrays.
-..
-..
-.. * :ref:`analysis-RangeFilter1D`
-..
-..   Keeps values if they fall inside (optionally outside) a given interval. Input
-..   values that do not match the criteria are set to *invalid* in the output.
-..
-..
-.. * :ref:`analysis-RectFilter2D`
-..
-..   Produces a single *valid* output value if both inputs satisfy an interval
-..   based condition.
-..
-.. * :ref:`analysis-ConditionFilter`
-..
-..   Copies data input to output if the corresponding element of the condition
-..   input is valid.
+    Explanation about how the VMEConfig and the Analysis are connected.
+    With the above outline why the import dialog is needed.
+    Also mention the difference between loading and importing.
+    Screenshot of the import dialog and what's what
