@@ -765,9 +765,13 @@ void Histo1DWidget::replot()
 
         if (!std::isnan(c) && !std::isnan(tau) && !std::isnan(efficiency))
         {
+            auto unitX = m_histo->getAxisInfo(Qt::XAxis).unit;
+            if (unitX.isEmpty())
+                unitX = QSL("x");
+
             markerText = QString(QSL("freeRate=%1 <sup>1</sup>&frasl;<sub>%2</sub>; eff=%3")
                                  .arg(freeRate, 0, 'g', 4)
-                                 .arg(m_histo->getAxisInfo(Qt::XAxis).unit)
+                                 .arg(unitX)
                                  .arg(efficiency, 0, 'g', 4)
                                 );
         }
