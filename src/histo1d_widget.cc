@@ -166,11 +166,69 @@ struct RateEstimationData
     bool visible = false;
     double x1 = make_quiet_nan();
     double x2 = make_quiet_nan();
+};
 
+class RateEstimationCurveData: public QwtSyntheticPointData
+{
+    static const size_t NumberOfPoints = 1000;
+
+    public:
+    RateEstimationCurveData(Histo1D *histo, RateEstimationData *data)
+        : QwtSyntheticPointData(NumberOfPoints)
+        , m_histo(histo)
+        , m_data(data)
+    {}
+
+        virtual double y(double x) const override
+        {
+            double x1 = m_data->x1;
+            double x2 = m_data->x2;
+
+            if (x1 <= x && x < x2)
+            {
+                qDebug() << x << x1 << x2;
+
+                double y1 = m_histo->getValue(x1);
+                double y2 = m_histo->getValue(x2);
+                double histo_y = m_histo->getValue(x);
+                double tau = (x2 - x1) / log(y1 / y2);
+                double e = exp(1.0);
+
+                return y1 * (pow(e, -x/tau) / pow(e, -x1/tau));
+
+
+
+
+
+
+#if 0
+                double c = pow(e, x1 / tau);
+                c *= histo_y;
+                double c_norm = c / m_histo->getBinWidth(); // norm to x-axis scale
+
+                qDebug()
+                    << "x =" << x
+                    << "histo_y =" << histo_y
+                    << ", tau =" << tau
+                    << ", y1 =" << y1
+                    << ", c =" << c
+                    << ", c_norm =" << c_norm;
+
+                return c_norm;
+#endif
+            }
+
+            return make_quiet_nan();
+        }
+
+    private:
+        Histo1D *m_histo;
+        RateEstimationData *m_data;
 };
 
 static const double PlotTextLayerZ  = 1000.0;
 static const double PlotGaussLayerZ = 1001.0;
+static const double PlotRateEstimationLayerZ = 1002.0;
 
 struct Histo1DWidgetPrivate
 {
@@ -201,6 +259,7 @@ struct Histo1DWidgetPrivate
     QwtPlotMarker *m_rateFormulaMarker;
 
     QwtPlotCurve *m_gaussCurve = nullptr;
+    QwtPlotCurve *m_rateEstimationCurve = nullptr;
 
     QComboBox *m_yScaleCombo;
 
@@ -567,6 +626,10 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
             m_d->m_rateX2Marker->setXValue(m_d->m_rateEstimationData.x2);
             m_d->m_rateX2Marker->setLabel(QString("    x2=%1").arg(m_d->m_rateEstimationData.x2));
             m_d->m_rateX2Marker->show();
+// XXX: leftoff
+#if 0
+            m_d->m_rateEstimationCurve->show();
+#endif
         }
         else
         {
@@ -584,6 +647,15 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     m_d->m_gaussCurve->setPen(Qt::green, 2.0);
     m_d->m_gaussCurve->attach(m_d->m_plot);
     m_d->m_gaussCurve->hide();
+
+    //
+    // Rate Estimation Curve
+    //
+    m_d->m_rateEstimationCurve = new QwtPlotCurve;
+    m_d->m_rateEstimationCurve->setZ(PlotRateEstimationLayerZ);
+    m_d->m_rateEstimationCurve->setPen(Qt::red, 2.0);
+    m_d->m_rateEstimationCurve->attach(m_d->m_plot);
+    m_d->m_rateEstimationCurve->hide();
 
     //
     // StatusBar and info widgets
@@ -657,6 +729,7 @@ void Histo1DWidget::setHistogram(Histo1D *histo)
     m_histo = histo;
     m_plotCurve->setData(new Histo1DPointData(m_histo));
     m_d->m_gaussCurve->setData(new Histo1DGaussCurveData(m_histo));
+    m_d->m_rateEstimationCurve->setData(new RateEstimationCurveData(m_histo, &m_d->m_rateEstimationData));
 
     // Reset the zoom stack and zoom fully zoom out as the scales might be
     // completely different now.
@@ -1207,6 +1280,7 @@ void Histo1DWidget::on_tb_rate_toggled(bool checked)
         m_d->m_rateX1Marker->hide();
         m_d->m_rateX2Marker->hide();
         m_d->m_rateFormulaMarker->hide();
+        m_d->m_rateEstimationCurve->hide();
         replot();
     }
 }
