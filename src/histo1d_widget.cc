@@ -790,6 +790,9 @@ void Histo1DWidget::replot()
          */
         s32 canvasHeight = m_d->m_plot->canvas()->height();
         s32 pixelY = canvasHeight - canvasHeight * 0.9;
+        static const s32 minPixelY = 50;
+        if (pixelY < minPixelY)
+            pixelY = minPixelY;
         double plotY = m_d->m_plot->canvasMap(QwtPlot::yLeft).invTransform(pixelY);
 
         m_d->m_rateFormulaMarker->setYValue(plotY);
