@@ -1,6 +1,12 @@
 ==========================
 ==== Do these first! =====
 ==========================
+* Maybe reload the analysis on opening a listfile.
+  Without the reload the analysis window can become empty if the listfile
+  contains different module uuids than the ones in the analysis. A reload could
+  trigger a simple 1->1 import of the module and all would be good again.
+  The reload could als trigger opening the import dialog if it requires user
+  intervention.
 * BUG: When creating a new vme config, then quitting and restarting the program
   the filename shows up as "vme.vme" but any existing file with that name is
   not loaded!
