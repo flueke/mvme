@@ -265,6 +265,11 @@ struct Histo1DWidgetPrivate
         {
             if (m_q->m_sink->m_bins != combo_xBins->currentData().toInt())
             {
+                /* Note: In the case of the Histo1DSink it's ok to modify
+                 * m_bins without pausing the analysis first. If the
+                 * implementation was different or another operator was to be
+                 * modified the analysis might need to be paused before the
+                 * operator is touched. */
                 m_q->m_sink->m_bins = combo_xBins->currentData().toInt();
                 m_q->m_context->analysisOperatorEdited(m_q->m_sink);
             }

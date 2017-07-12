@@ -1388,6 +1388,7 @@ void MVMEContext::addAnalysisOperator(QUuid eventId, const std::shared_ptr<analy
 void MVMEContext::analysisOperatorEdited(const std::shared_ptr<analysis::OperatorInterface> &op)
 {
     AnalysisPauser pauser(this);
+    m_analysis_ng->setModified();
     analysis::do_beginRun_forward(op.get());
 
     if (m_analysisUi)
