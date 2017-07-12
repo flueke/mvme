@@ -1,53 +1,6 @@
 ==========================
 ==== Do these first! =====
 ==========================
-
-Thread 1 "mvme" received signal SIGSEGV, Segmentation fault.
-0x00007ffff62c6087 in QMetaObject::cast(QObject const*) const () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
-(gdb) bt
-#0  0x00007ffff62c6087 in QMetaObject::cast(QObject const*) const () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
-#1  0x00007ffff7a84428 in qobject_cast<ModuleConfig*> (object=<optimized out>) at /home/florian/Qt/5.7/gcc_64/include/QtCore/qobject.h:516
-#2  MVMEContext::logModuleCounters (this=this@entry=0x67fae0) at /home/florian/src/mvme2/src/mvme_context.cc:506
-#3  0x00007ffff7a846d1 in MVMEContext::onDAQStateChanged (this=0x67fae0, state=state@entry=DAQState::Idle) at /home/florian/src/mvme2/src/mvme_context.cc:534
-#4  0x00007ffff7a849ba in MVMEContextPrivate::stopDAQReplay (this=0x673c00) at /home/florian/src/mvme2/src/mvme_context.cc:152
-#5  0x00007ffff7a84db9 in MVMEContextPrivate::stopDAQ (this=<optimized out>) at /home/florian/src/mvme2/src/mvme_context.cc:105
-#6  0x00007ffff7a84de5 in MVMEContext::stopDAQ (this=this@entry=0x67fae0) at /home/florian/src/mvme2/src/mvme_context.cc:797
-#7  0x00007ffff7a850f8 in MVMEContext::closeReplayFile (this=0x67fae0) at /home/florian/src/mvme2/src/mvme_context.cc:633
-#8  0x00007ffff7a8c1ef in mvme::on_actionCloseListfile_triggered (this=<optimized out>) at /home/florian/src/mvme2/src/mvme.cpp:803
-#9  0x00007ffff7b0262a in mvme::qt_static_metacall (_o=0x8c7280, _o@entry=0x7fffffffd2e0, _c=9204352, _c@entry=QMetaObject::InvokeMetaMethod, _id=-536858816, _id@entry=11, _a=0xc, _a@entry=0x7fffffffc500) at /home/florian/src/build-mvme2-Desktop_Qt_5_7_0_GCC_64bit-Debug/src/moc_mvme.cpp:192
-#10 0x00007ffff7b059df in mvme::qt_metacall (this=0x7fffffffd2e0, _c=QMetaObject::InvokeMetaMethod, _id=11, _a=0x7fffffffc500) at /home/florian/src/build-mvme2-Desktop_Qt_5_7_0_GCC_64bit-Debug/src/moc_mvme.cpp:240
-#11 0x00007ffff62e5700 in QMetaObject::activate(QObject*, int, int, void**) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
-#12 0x00007ffff705c7b2 in QAction::triggered(bool) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
-#13 0x00007ffff705f18d in QAction::activate(QAction::ActionEvent) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
-#14 0x00007ffff71c4faa in ?? () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
-#15 0x00007ffff71c9964 in ?? () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
-#16 0x00007ffff71cd7c6 in QMenu::mouseReleaseEvent(QMouseEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
-#17 0x00007ffff70a8b78 in QWidget::event(QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
-#18 0x00007ffff71ce1cb in QMenu::event(QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
-#19 0x00007ffff706352c in QApplicationPrivate::notify_helper(QObject*, QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
-#20 0x00007ffff706a808 in QApplication::notify(QObject*, QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
-#21 0x00007ffff62bdae0 in QCoreApplication::notifyInternal2(QObject*, QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
-#22 0x00007ffff70697bf in QApplicationPrivate::sendMouseEvent(QWidget*, QMouseEvent*, QWidget*, QWidget*, QWidget**, QPointer<QWidget>&, bool) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
-#23 0x00007ffff70c45fb in ?? () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
-#24 0x00007ffff70c6513 in ?? () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
-#25 0x00007ffff706352c in QApplicationPrivate::notify_helper(QObject*, QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
-#26 0x00007ffff706a220 in QApplication::notify(QObject*, QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
-#27 0x00007ffff62bdae0 in QCoreApplication::notifyInternal2(QObject*, QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
-#28 0x00007ffff68608db in QGuiApplicationPrivate::processMouseEvent(QWindowSystemInterfacePrivate::MouseEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Gui.so.5
-#29 0x00007ffff6862745 in QGuiApplicationPrivate::processWindowSystemEvent(QWindowSystemInterfacePrivate::WindowSystemEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Gui.so.5
-#30 0x00007ffff6843e73 in QWindowSystemInterface::sendWindowSystemEvents(QFlags<QEventLoop::ProcessEventsFlag>) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Gui.so.5
-#31 0x00007fffee697080 in ?? () from /home/florian/Qt/5.7/gcc_64/lib/libQt5XcbQpa.so.5
-#32 0x00007ffff1b3c41d in g_main_context_dispatch () from /lib/x86_64-linux-gnu/libglib-2.0.so.0
-#33 0x00007ffff1b3c700 in ?? () from /lib/x86_64-linux-gnu/libglib-2.0.so.0
-#34 0x00007ffff1b3c7ac in g_main_context_iteration () from /lib/x86_64-linux-gnu/libglib-2.0.so.0
-#35 0x00007ffff630b047 in QEventDispatcherGlib::processEvents(QFlags<QEventLoop::ProcessEventsFlag>) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
-#36 0x00007ffff62bbdca in QEventLoop::exec(QFlags<QEventLoop::ProcessEventsFlag>) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
-#37 0x00007ffff62c3bad in QCoreApplication::exec() () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
-#38 0x00000000004033bc in main (argc=1, argv=0x7fffffffd518) at /home/florian/src/mvme2/src/main.cpp:93
-
-
-
-
 * BUG: When creating a new vme config, then quitting and restarting the program
   the filename shows up as "vme.vme" but any existing file with that name is
   not loaded!
@@ -55,44 +8,6 @@ Thread 1 "mvme" received signal SIGSEGV, Segmentation fault.
     - Sphinx and output dependent image types
 * Take a look at MVMEContext::runScript() and try to fix it. The stuff that's
   done in stopDAQ() seems to work very well...
-
-#0  0x00007ffff7aa1d75 in RealtimeData::calcData (this=0x18) at /home/florian/src/mvme2/src/realtimedata.cpp:72
-#1  0x00007ffff7a71490 in MesytecDiagnosticsWidget::updateDisplay (this=0x85ac70) at /home/florian/src/mvme2/src/mesytec_diagnostics.cc:724
-#2  0x00007ffff7a747f4 in QtPrivate::FunctorCall<QtPrivate::IndexesList<>, QtPrivate::List<>, void, void (MesytecDiagnosticsWidget::*)()>::call(void (MesytecDiagnosticsWidget::*)(), MesytecDiagnosticsWidget*, void**) (arg=<optimized out>, o=<optimized out>, f=<optimized out>)
-    at /home/florian/Qt/5.7/gcc_64/include/QtCore/qobjectdefs_impl.h:507
-#3  QtPrivate::FunctionPointer<void (MesytecDiagnosticsWidget::*)()>::call<QtPrivate::List<>, void> (arg=<optimized out>, o=<optimized out>, f=<optimized out>)
-    at /home/florian/Qt/5.7/gcc_64/include/QtCore/qobjectdefs_impl.h:526
-#4  QtPrivate::QSlotObject<void (MesytecDiagnosticsWidget::*)(), QtPrivate::List<>, void>::impl(int, QtPrivate::QSlotObjectBase*, QObject*, void**, bool*) (
-    which=<optimized out>, this_=<optimized out>, r=<optimized out>, a=<optimized out>, ret=<optimized out>)
-    at /home/florian/Qt/5.7/gcc_64/include/QtCore/qobject_impl.h:149
-#5  0x00007ffff5b5a77d in QMetaObject::activate(QObject*, int, int, void**) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
-#6  0x00007ffff5b67328 in QTimer::timerEvent(QTimerEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
-#7  0x00007ffff5b5b5db in QObject::event(QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
-#8  0x00007ffff68d852c in QApplicationPrivate::notify_helper(QObject*, QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
-#9  0x00007ffff68df220 in QApplication::notify(QObject*, QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
-#10 0x00007ffff5b32ae0 in QCoreApplication::notifyInternal2(QObject*, QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
-#11 0x00007ffff5b7efde in QTimerInfoList::activateTimers() () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
-#12 0x00007ffff5b7f4e1 in ?? () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
-#13 0x00007ffff142a41d in g_main_context_dispatch () from /lib/x86_64-linux-gnu/libglib-2.0.so.0
-#14 0x00007ffff142a700 in ?? () from /lib/x86_64-linux-gnu/libglib-2.0.so.0
-#15 0x00007ffff142a7ac in g_main_context_iteration () from /lib/x86_64-linux-gnu/libglib-2.0.so.0
-#16 0x00007ffff5b80047 in QEventDispatcherGlib::processEvents(QFlags<QEventLoop::ProcessEventsFlag>) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
-#17 0x00007ffff5b30dca in QEventLoop::exec(QFlags<QEventLoop::ProcessEventsFlag>) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
-#18 0x00007ffff6ab75b7 in QDialog::exec() () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
-#19 0x00007ffff7a94242 in mvme::closeEvent (this=0x7fffffffd2e0, event=0x7fffffffcd00) at /home/florian/src/mvme2/src/mvme.cpp:392
-#20 0x00007ffff691db78 in QWidget::event(QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
-#21 0x00007ffff6a1664b in QMainWindow::event(QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
-#22 0x00007ffff68d852c in QApplicationPrivate::notify_helper(QObject*, QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
-#23 0x00007ffff68df220 in QApplication::notify(QObject*, QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
-#24 0x00007ffff5b32ae0 in QCoreApplication::notifyInternal2(QObject*, QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
-#25 0x00007ffff6918bb9 in QWidgetPrivate::close_helper(QWidgetPrivate::CloseMode) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
-#26 0x00007ffff69386a6 in ?? () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
-#27 0x00007ffff693b4b3 in ?? () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
-#28 0x00007ffff68d852c in QApplicationPrivate::notify_helper(QObject*, QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
-#29 0x00007ffff68df220 in QApplication::notify(QObject*, QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
-#30 0x00007ffff5b32ae0 in QCoreApplication::notifyInternal2(QObject*, QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
-#31 0x00007ffff60d3465 in QGuiApplicationPrivate::processCloseEvent(QWindowSystemInterfacePrivate::CloseEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Gui.so.5
-#32 0x00007ffff60d7775 in QGuiApplicationPrivate::processWindowSystemEvent(QWindowSystemInterfacePrivate::WindowSystemEvent*) ()
 
 * Make MVMEContext::runScript() work like the AnalysisPauser: use a
   QProgressDialog, a local event loop and signals slots to make pausing
@@ -274,31 +189,136 @@ Thread 1 "mvme" received signal SIGSEGV, Segmentation fault.
 * save and restore the zoom and pan of histograms
 * save and restore open histograms
 
-==========================
-===== Maybe do these =====
-==========================
+=============================
+==== Faults and Asserts =====
+=============================
+zoomRectIndex() 0
+ASSERT: "getEventProcessorState() == EventProcessorState::Idle" in file /home/florian/src/mvme2/src/mvme_context.cc, line 825
 
-======================================
-==== Done, but kept for reference ====
-======================================
->>>>> Begin Analysis NG <<<<<
-* Filter on number of occurence: the filter is considered complete only if it
-  matched N times.
-  Needed for devices that can yield data for the same address in a single
-  event. If the filter does not specify an occurence condition but matches
-  multiple times only the first matched value will be kept.
-  XXX: Impossible to simply accumulate all raw values for a channel into a Hist1D!
-  -> Not an issue according to Robert as multi hits per channel need to be
-     handled explicitly anyways.
-===== Plan to handle array -> single value conversion =====
-- Pipes are only used as output of Operators/Sources
-- Pipes connect to Slots of Operators
-- The slot specifies what kind of inputs it accepts: Array, Value, Both
-- When an output pipe is connected to an input slot and the slot accepts Values
-  the index into the input parameters must be supplied.
-- Slots live in the receiving Operator. They now hold the source Pipe pointers
-- The 'destination' member of Pipes now contains pointers to Slot instead of OperatorInterface
-- Slots need to contain pointers to their owning Operator to be able to traverse the tree forward:
-  sourceOp.outputPipe[i].destinations[j].destOp
-=====
-<<<<< End AnalysisNG >>>>>
+Thread 1 "mvme" received signal SIGABRT, Aborted.
+0x00007ffff4d25067 in __GI_raise (sig=sig@entry=6) at ../nptl/sysdeps/unix/sysv/linux/raise.c:56
+56      ../nptl/sysdeps/unix/sysv/linux/raise.c: No such file or directory.
+(gdb) bt
+#0  0x00007ffff4d25067 in __GI_raise (sig=sig@entry=6) at ../nptl/sysdeps/unix/sysv/linux/raise.c:56
+#1  0x00007ffff4d26448 in __GI_abort () at abort.c:89
+#2  0x00007ffff60def4e in QMessageLogger::fatal(char const*, ...) const () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
+#3  0x00007ffff60da7ce in qt_assert(char const*, char const*, int) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
+#4  0x00007ffff7a7ff1a in MVMEContext::startReplay (this=0x67faf0, nEvents=nEvents@entry=0) at /home/florian/src/mvme2/src/mvme_context.cc:825
+#5  0x00007ffff7a4f512 in DAQControlWidget::<lambda()>::operator() (__closure=0x7796e0) at /home/florian/src/mvme2/src/daqcontrol_widget.cc:72
+#6  QtPrivate::FunctorCall<QtPrivate::IndexesList<>, QtPrivate::List<>, void, DAQControlWidget::DAQControlWidget(MVMEContext*, QWidget*)::<lambda()> >::call (
+    arg=<optimized out>, f=...) at /home/florian/Qt/5.7/gcc_64/include/QtCore/qobjectdefs_impl.h:501
+#7  QtPrivate::Functor<DAQControlWidget::DAQControlWidget(MVMEContext*, QWidget*)::<lambda()>, 0>::call<QtPrivate::List<>, void> (arg=<optimized out>, f=...)
+    at /home/florian/Qt/5.7/gcc_64/include/QtCore/qobjectdefs_impl.h:558
+#8  QtPrivate::QFunctorSlotObject<DAQControlWidget::DAQControlWidget(MVMEContext*, QWidget*)::<lambda()>, 0, QtPrivate::List<>, void>::impl(int, QtPrivate::QSlotObjectBase *, QObject *, void **, bool *) (which=<optimized out>, this_=0x7796d0, r=<optimized out>, a=<optimized out>, ret=<optimized out>)
+    at /home/florian/Qt/5.7/gcc_64/include/QtCore/qobject_impl.h:198
+#9  0x00007ffff62e577d in QMetaObject::activate(QObject*, int, int, void**) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
+#10 0x00007ffff7146682 in QAbstractButton::clicked(bool) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#11 0x00007ffff7146875 in ?? () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#12 0x00007ffff7147e44 in ?? () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#13 0x00007ffff7147fe4 in QAbstractButton::mouseReleaseEvent(QMouseEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#14 0x00007ffff70a8b78 in QWidget::event(QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#15 0x00007ffff706352c in QApplicationPrivate::notify_helper(QObject*, QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#16 0x00007ffff706a808 in QApplication::notify(QObject*, QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#17 0x00007ffff62bdae0 in QCoreApplication::notifyInternal2(QObject*, QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
+#18 0x00007ffff70697bf in QApplicationPrivate::sendMouseEvent(QWidget*, QMouseEvent*, QWidget*, QWidget*, QWidget**, QPointer<QWidget>&, bool) ()
+   from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#19 0x00007ffff70c4056 in ?? () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#20 0x00007ffff70c6513 in ?? () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#21 0x00007ffff706352c in QApplicationPrivate::notify_helper(QObject*, QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#22 0x00007ffff706a220 in QApplication::notify(QObject*, QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#23 0x00007ffff62bdae0 in QCoreApplication::notifyInternal2(QObject*, QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
+#24 0x00007ffff68608db in QGuiApplicationPrivate::processMouseEvent(QWindowSystemInterfacePrivate::MouseEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Gui.so.5
+#25 0x00007ffff6862745 in QGuiApplicationPrivate::processWindowSystemEvent(QWindowSystemInterfacePrivate::WindowSystemEvent*) ()
+   from /home/florian/Qt/5.7/gcc_64/lib/libQt5Gui.so.5
+#26 0x00007ffff6843e73 in QWindowSystemInterface::sendWindowSystemEvents(QFlags<QEventLoop::ProcessEventsFlag>) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Gui.so.5
+#27 0x00007fffee697080 in ?? () from /home/florian/Qt/5.7/gcc_64/lib/libQt5XcbQpa.so.5
+#28 0x00007ffff1b3c41d in g_main_context_dispatch () from /lib/x86_64-linux-gnu/libglib-2.0.so.0
+#29 0x00007ffff1b3c700 in ?? () from /lib/x86_64-linux-gnu/libglib-2.0.so.0
+#30 0x00007ffff1b3c7ac in g_main_context_iteration () from /lib/x86_64-linux-gnu/libglib-2.0.so.0
+#31 0x00007ffff630b047 in QEventDispatcherGlib::processEvents(QFlags<QEventLoop::ProcessEventsFlag>) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
+#32 0x00007ffff62bbdca in QEventLoop::exec(QFlags<QEventLoop::ProcessEventsFlag>) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
+#33 0x00007ffff62c3bad in QCoreApplication::exec() () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
+#34 0x00000000004033bc in main (argc=1, argv=0x7fffffffd518) at /home/florian/src/mvme2/src/main.cpp:93
+
+
+Thread 1 "mvme" received signal SIGSEGV, Segmentation fault.
+0x00007ffff62c6087 in QMetaObject::cast(QObject const*) const () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
+(gdb) bt
+#0  0x00007ffff62c6087 in QMetaObject::cast(QObject const*) const () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
+#1  0x00007ffff7a84428 in qobject_cast<ModuleConfig*> (object=<optimized out>) at /home/florian/Qt/5.7/gcc_64/include/QtCore/qobject.h:516
+#2  MVMEContext::logModuleCounters (this=this@entry=0x67fae0) at /home/florian/src/mvme2/src/mvme_context.cc:506
+#3  0x00007ffff7a846d1 in MVMEContext::onDAQStateChanged (this=0x67fae0, state=state@entry=DAQState::Idle) at /home/florian/src/mvme2/src/mvme_context.cc:534
+#4  0x00007ffff7a849ba in MVMEContextPrivate::stopDAQReplay (this=0x673c00) at /home/florian/src/mvme2/src/mvme_context.cc:152
+#5  0x00007ffff7a84db9 in MVMEContextPrivate::stopDAQ (this=<optimized out>) at /home/florian/src/mvme2/src/mvme_context.cc:105
+#6  0x00007ffff7a84de5 in MVMEContext::stopDAQ (this=this@entry=0x67fae0) at /home/florian/src/mvme2/src/mvme_context.cc:797
+#7  0x00007ffff7a850f8 in MVMEContext::closeReplayFile (this=0x67fae0) at /home/florian/src/mvme2/src/mvme_context.cc:633
+#8  0x00007ffff7a8c1ef in mvme::on_actionCloseListfile_triggered (this=<optimized out>) at /home/florian/src/mvme2/src/mvme.cpp:803
+#9  0x00007ffff7b0262a in mvme::qt_static_metacall (_o=0x8c7280, _o@entry=0x7fffffffd2e0, _c=9204352, _c@entry=QMetaObject::InvokeMetaMethod, _id=-536858816, _id@entry=11, _a=0xc, _a@entry=0x7fffffffc500) at /home/florian/src/build-mvme2-Desktop_Qt_5_7_0_GCC_64bit-Debug/src/moc_mvme.cpp:192
+#10 0x00007ffff7b059df in mvme::qt_metacall (this=0x7fffffffd2e0, _c=QMetaObject::InvokeMetaMethod, _id=11, _a=0x7fffffffc500) at /home/florian/src/build-mvme2-Desktop_Qt_5_7_0_GCC_64bit-Debug/src/moc_mvme.cpp:240
+#11 0x00007ffff62e5700 in QMetaObject::activate(QObject*, int, int, void**) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
+#12 0x00007ffff705c7b2 in QAction::triggered(bool) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#13 0x00007ffff705f18d in QAction::activate(QAction::ActionEvent) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#14 0x00007ffff71c4faa in ?? () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#15 0x00007ffff71c9964 in ?? () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#16 0x00007ffff71cd7c6 in QMenu::mouseReleaseEvent(QMouseEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#17 0x00007ffff70a8b78 in QWidget::event(QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#18 0x00007ffff71ce1cb in QMenu::event(QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#19 0x00007ffff706352c in QApplicationPrivate::notify_helper(QObject*, QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#20 0x00007ffff706a808 in QApplication::notify(QObject*, QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#21 0x00007ffff62bdae0 in QCoreApplication::notifyInternal2(QObject*, QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
+#22 0x00007ffff70697bf in QApplicationPrivate::sendMouseEvent(QWidget*, QMouseEvent*, QWidget*, QWidget*, QWidget**, QPointer<QWidget>&, bool) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#23 0x00007ffff70c45fb in ?? () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#24 0x00007ffff70c6513 in ?? () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#25 0x00007ffff706352c in QApplicationPrivate::notify_helper(QObject*, QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#26 0x00007ffff706a220 in QApplication::notify(QObject*, QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#27 0x00007ffff62bdae0 in QCoreApplication::notifyInternal2(QObject*, QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
+#28 0x00007ffff68608db in QGuiApplicationPrivate::processMouseEvent(QWindowSystemInterfacePrivate::MouseEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Gui.so.5
+#29 0x00007ffff6862745 in QGuiApplicationPrivate::processWindowSystemEvent(QWindowSystemInterfacePrivate::WindowSystemEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Gui.so.5
+#30 0x00007ffff6843e73 in QWindowSystemInterface::sendWindowSystemEvents(QFlags<QEventLoop::ProcessEventsFlag>) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Gui.so.5
+#31 0x00007fffee697080 in ?? () from /home/florian/Qt/5.7/gcc_64/lib/libQt5XcbQpa.so.5
+#32 0x00007ffff1b3c41d in g_main_context_dispatch () from /lib/x86_64-linux-gnu/libglib-2.0.so.0
+#33 0x00007ffff1b3c700 in ?? () from /lib/x86_64-linux-gnu/libglib-2.0.so.0
+#34 0x00007ffff1b3c7ac in g_main_context_iteration () from /lib/x86_64-linux-gnu/libglib-2.0.so.0
+#35 0x00007ffff630b047 in QEventDispatcherGlib::processEvents(QFlags<QEventLoop::ProcessEventsFlag>) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
+#36 0x00007ffff62bbdca in QEventLoop::exec(QFlags<QEventLoop::ProcessEventsFlag>) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
+#37 0x00007ffff62c3bad in QCoreApplication::exec() () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
+#38 0x00000000004033bc in main (argc=1, argv=0x7fffffffd518) at /home/florian/src/mvme2/src/main.cpp:93
+
+#0  0x00007ffff7aa1d75 in RealtimeData::calcData (this=0x18) at /home/florian/src/mvme2/src/realtimedata.cpp:72
+#1  0x00007ffff7a71490 in MesytecDiagnosticsWidget::updateDisplay (this=0x85ac70) at /home/florian/src/mvme2/src/mesytec_diagnostics.cc:724
+#2  0x00007ffff7a747f4 in QtPrivate::FunctorCall<QtPrivate::IndexesList<>, QtPrivate::List<>, void, void (MesytecDiagnosticsWidget::*)()>::call(void (MesytecDiagnosticsWidget::*)(), MesytecDiagnosticsWidget*, void**) (arg=<optimized out>, o=<optimized out>, f=<optimized out>)
+    at /home/florian/Qt/5.7/gcc_64/include/QtCore/qobjectdefs_impl.h:507
+#3  QtPrivate::FunctionPointer<void (MesytecDiagnosticsWidget::*)()>::call<QtPrivate::List<>, void> (arg=<optimized out>, o=<optimized out>, f=<optimized out>)
+    at /home/florian/Qt/5.7/gcc_64/include/QtCore/qobjectdefs_impl.h:526
+#4  QtPrivate::QSlotObject<void (MesytecDiagnosticsWidget::*)(), QtPrivate::List<>, void>::impl(int, QtPrivate::QSlotObjectBase*, QObject*, void**, bool*) (
+    which=<optimized out>, this_=<optimized out>, r=<optimized out>, a=<optimized out>, ret=<optimized out>)
+    at /home/florian/Qt/5.7/gcc_64/include/QtCore/qobject_impl.h:149
+#5  0x00007ffff5b5a77d in QMetaObject::activate(QObject*, int, int, void**) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
+#6  0x00007ffff5b67328 in QTimer::timerEvent(QTimerEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
+#7  0x00007ffff5b5b5db in QObject::event(QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
+#8  0x00007ffff68d852c in QApplicationPrivate::notify_helper(QObject*, QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#9  0x00007ffff68df220 in QApplication::notify(QObject*, QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#10 0x00007ffff5b32ae0 in QCoreApplication::notifyInternal2(QObject*, QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
+#11 0x00007ffff5b7efde in QTimerInfoList::activateTimers() () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
+#12 0x00007ffff5b7f4e1 in ?? () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
+#13 0x00007ffff142a41d in g_main_context_dispatch () from /lib/x86_64-linux-gnu/libglib-2.0.so.0
+#14 0x00007ffff142a700 in ?? () from /lib/x86_64-linux-gnu/libglib-2.0.so.0
+#15 0x00007ffff142a7ac in g_main_context_iteration () from /lib/x86_64-linux-gnu/libglib-2.0.so.0
+#16 0x00007ffff5b80047 in QEventDispatcherGlib::processEvents(QFlags<QEventLoop::ProcessEventsFlag>) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
+#17 0x00007ffff5b30dca in QEventLoop::exec(QFlags<QEventLoop::ProcessEventsFlag>) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
+#18 0x00007ffff6ab75b7 in QDialog::exec() () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#19 0x00007ffff7a94242 in mvme::closeEvent (this=0x7fffffffd2e0, event=0x7fffffffcd00) at /home/florian/src/mvme2/src/mvme.cpp:392
+#20 0x00007ffff691db78 in QWidget::event(QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#21 0x00007ffff6a1664b in QMainWindow::event(QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#22 0x00007ffff68d852c in QApplicationPrivate::notify_helper(QObject*, QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#23 0x00007ffff68df220 in QApplication::notify(QObject*, QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#24 0x00007ffff5b32ae0 in QCoreApplication::notifyInternal2(QObject*, QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
+#25 0x00007ffff6918bb9 in QWidgetPrivate::close_helper(QWidgetPrivate::CloseMode) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#26 0x00007ffff69386a6 in ?? () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#27 0x00007ffff693b4b3 in ?? () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#28 0x00007ffff68d852c in QApplicationPrivate::notify_helper(QObject*, QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#29 0x00007ffff68df220 in QApplication::notify(QObject*, QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Widgets.so.5
+#30 0x00007ffff5b32ae0 in QCoreApplication::notifyInternal2(QObject*, QEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
+#31 0x00007ffff60d3465 in QGuiApplicationPrivate::processCloseEvent(QWindowSystemInterfacePrivate::CloseEvent*) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Gui.so.5
+#32 0x00007ffff60d7775 in QGuiApplicationPrivate::processWindowSystemEvent(QWindowSystemInterfacePrivate::WindowSystemEvent*) ()
+
