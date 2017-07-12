@@ -17,14 +17,16 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "vmusb_readout_worker.h"
-#include "vmusb_buffer_processor.h"
-#include "vmusb.h"
-#include "CVMUSBReadoutList.h"
+
+#include <functional>
+#include <memory>
 #include <QCoreApplication>
 #include <QElapsedTimer>
 #include <QThread>
-#include <memory>
-#include <functional>
+
+#include "CVMUSBReadoutList.h"
+#include "vmusb_buffer_processor.h"
+#include "vmusb.h"
 
 using namespace vmusb_constants;
 using namespace vme_script;
@@ -159,9 +161,29 @@ void VMUSBReadoutWorker::start(quint32 cycles)
 
     try
     {
-        logMessage(QSL("VMUSB readout starting"));
+        logMessage(QString(QSL("VMUSB readout starting on %1"))
+                   .arg(QDateTime::currentDateTime().toString())
+                   );
 
-        validate_vme_config(daqConfig);
+        validate_vme_config(daqConfig); // throws on error
+
+        //
+        // Read and log firmware version
+        //
+        {
+            u32 fwReg;
+            error = vmusb->readRegister(FIDRegister, &fwReg);
+            if (error.isError())
+                throw QString("Error reading VMUSB firmware version: %1").arg(error.toString());
+
+            u32 fwMajor = (fwReg & 0xFFFF);
+            u32 fwMinor = ((fwReg >> 16) &  0xFFFF);
+
+            logMessage(QString(QSL("VMUSB Firmware Version %1_%2\n"))
+                       .arg(fwMajor, 4, 16, QLatin1Char('0'))
+                       .arg(fwMinor, 4, 16, QLatin1Char('0'))
+                      );
+        }
 
         //
         // Reset IRQs
@@ -298,6 +320,7 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         auto startScripts = daqConfig->vmeScriptLists["daq_start"];
         if (!startScripts.isEmpty())
         {
+            logMessage(QSL(""));
             logMessage(QSL("Global DAQ Start scripts:"));
             for (auto script: startScripts)
             {
@@ -307,7 +330,8 @@ void VMUSBReadoutWorker::start(quint32 cycles)
             }
         }
 
-        logMessage(QSL("\nInitializing Modules:"));
+        logMessage(QSL(""));
+        logMessage(QSL("Initializing Modules:"));
         for (auto event: daqConfig->eventConfigs)
         {
             for (auto module: event->modules)
@@ -356,7 +380,6 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         readoutLoop();
 
         stats.stop();
-        logMessage(QSL(""));
         logMessage(QSL("Leaving readout loop"));
         logMessage(QSL(""));
 
@@ -384,6 +407,10 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         }
 
         m_bufferProcessor->endRun();
+
+        logMessage(QString(QSL("VMUSB readout stopped on %1"))
+                   .arg(QDateTime::currentDateTime().toString())
+                   );
     }
     catch (const char *message)
     {
@@ -525,6 +552,7 @@ void VMUSBReadoutWorker::readoutLoop()
         // stop
         else if (m_desiredState == DAQState::Stopping)
         {
+            logMessage(QSL("VMUSB readout stopping"));
             break;
         }
         // stay in running state

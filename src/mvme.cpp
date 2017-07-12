@@ -275,23 +275,7 @@ void mvme::displayAbout()
         layout->addWidget(label);
     }
 
-    {
-        QString text = QString("mvme - %1").arg(GIT_VERSION);
-        auto label = new QLabel;
-        auto font = label->font();
-        font.setPointSize(15);
-        font.setBold(true);
-        label->setFont(font);
-        layout->addWidget(label);
-    }
-
-#ifdef Q_PROCESSOR_X86_64
-    QString bitness(QSL("64-bit"));
-#elif defined Q_PROCESSOR_X86_32
-    QString bitness(QSL("32-bit"));
-#else
-    QString bitness;
-#endif
+    auto bitness = get_bitness_string();
 
     QString versionString = QString("Version %1").arg(GIT_VERSION);
     if (!bitness.isEmpty())
