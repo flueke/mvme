@@ -75,6 +75,8 @@ static const int TryOpenControllerInterval_ms = 1000;
 static const int PeriodicLoggingInterval_ms = 5000;
 static const QString WorkspaceIniName = "mvmeworkspace.ini";
 static const int ListFileDefaultCompression = 6;
+static const QString DefaultVMEConfigFileName = QSL("vme.vme");
+static const QString DefaultAnalysisConfigFileName  = QSL("analysis.analysis");
 
 static void stop_coordinated(VMUSBReadoutWorker *readoutWorker, MVMEEventProcessor *eventProcessor);
 
@@ -1028,6 +1030,18 @@ MVMEContext::runScript(const vme_script::VMEScript &script,
 //
 // Workspace handling
 //
+
+void make_empty_file(const QString &filePath)
+{
+    QFile file(filePath);
+
+    if (file.exists())
+        throw QString(QSL("File exists"));
+
+    if (!file.open(QIODevice::WriteOnly))
+        throw file.errorString();
+}
+
 void MVMEContext::newWorkspace(const QString &dirName)
 {
     QDir dir(dirName);
@@ -1035,21 +1049,42 @@ void MVMEContext::newWorkspace(const QString &dirName)
     if (!dir.entryList(QDir::AllEntries | QDir::NoDot | QDir::NoDotDot).isEmpty())
         throw QString(QSL("Selected directory is not empty"));
 
-    setWorkspaceDirectory(dirName);
-
-    auto workspaceSettings(makeWorkspaceSettings());
-    //workspaceSettings->setValue(QSL("LastVMEConfig"), QSL("vme.mvmecfg"));
-    //workspaceSettings->setValue(QSL("LastAnalysisConfig"), QSL("analysis.analysis"));
+    auto workspaceSettings(makeWorkspaceSettings(dirName));
+    workspaceSettings->setValue(QSL("LastVMEConfig"), DefaultVMEConfigFileName);
+    workspaceSettings->setValue(QSL("LastAnalysisConfig"), DefaultAnalysisConfigFileName);
     //workspaceSettings->setValue(QSL("ListFileDirectory"), QSL("listfiles"));
     workspaceSettings->setValue(QSL("WriteListFile"), true);
     //workspaceSettings->setValue(QSL("PlotsDirectory"), QSL("plots"));
-    // Creates the mvmeworkspace.ini file
+
+    // Force sync to create the mvmeworkspace.ini file
     workspaceSettings->sync();
 
     if (workspaceSettings->status() != QSettings::NoError)
     {
         throw QString("Error writing workspace settings to %1")
             .arg(workspaceSettings->fileName());
+    }
+
+    try
+    {
+        make_empty_file(QDir(dirName).filePath(DefaultVMEConfigFileName));
+    }
+    catch (const QString &e)
+    {
+        throw QString("Error creating VME config file %1: %2")
+            .arg(DefaultVMEConfigFileName)
+            .arg(e);
+    }
+
+    try
+    {
+        make_empty_file(QDir(dirName).filePath(DefaultAnalysisConfigFileName));
+    }
+    catch (const QString &e)
+    {
+        throw QString("Error creating Analysis config file %1: %2")
+            .arg(DefaultAnalysisConfigFileName)
+            .arg(e);
     }
 
     openWorkspace(dirName);
@@ -1137,6 +1172,11 @@ void MVMEContext::openWorkspace(const QString &dirName)
         }
         else
         {
+            // FIXME: this does not check if a file with the default name
+            // exists. This can lead to the case where the name is set to
+            // "vme.vme", the contents in the GUI are empty and upon saving the
+            // file an existing, possibly non-empty, vme.vme gets overwritten!
+
             qDebug() << __PRETTY_FUNCTION__ << "setting default vme filename";
             // No previous filename is known so use a default name without updating
             // the workspace settings.
@@ -1152,6 +1192,7 @@ void MVMEContext::openWorkspace(const QString &dirName)
         }
         else
         {
+            // FIXME: this does not check if a file with the default name exists
             qDebug() << __PRETTY_FUNCTION__ << "setting default analysis filename";
             setAnalysisConfigFileName(QSL("analysis.analysis"), false);
         }
