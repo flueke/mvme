@@ -59,7 +59,6 @@
 0x6072 4000 # pulser amplitude, 0...4k
 
 # TRIGGER COUNTER
-0x6038 0x3      # EOE marking: 3= extended time stamp, 1=time satmp, 0=event counter;
 
 0x605E 0x100    # output trigger on whole bank (free trigger)
                 # 0x100=whole bank, 0x001 = trig0, 0x002=trig1, 0x084 = chan1;
