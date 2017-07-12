@@ -130,7 +130,7 @@ if (SPHINX_EXECUTABLE)
 
     # 'doc' target for all formats
     # ==================================================
-    add_custom_target(doc)
+    add_custom_target(doc ALL)
     add_dependencies(doc doc_html doc_latex_pdf doc_qthelp_collection)
 
 endif()
