@@ -447,7 +447,7 @@ void VMUSBReadoutWorker::resume()
 }
 
 static const int leaveDaqReadTimeout_ms = 500;
-static const int daqReadTimeout_ms = 500; // This should be higher than the watchdog timeout which is 250ms.
+static const int daqReadTimeout_ms = 500; // This should be higher than the watchdog timeout which is set to 250ms.
 static const int daqModeHackTimeout_ms = leaveDaqReadTimeout_ms;
 
 /* According to Jan we need to wait at least one millisecond
@@ -495,6 +495,7 @@ void VMUSBReadoutWorker::readoutLoop()
 
     DAQStats &stats(m_context->getDAQStats());
     QTime logReadErrorTimer;
+    size_t nReadErrors = 0;
 
     while (true)
     {
@@ -532,19 +533,20 @@ void VMUSBReadoutWorker::readoutLoop()
             auto readResult = readBuffer(daqReadTimeout_ms);
 
             /* XXX: Begin hack:
-             * A timeout here can mean that either there was an error when
-             * communicating with the vmusb or that no data is available. The
-             * second case can happen if the module sends no or very little
-             * data so that the internal buffer of the controller does not fill
-             * up fast enough. To avoid this case a smaller buffer size could
-             * be chosen but that will negatively impact performance for high
-             * data rates. Another method would be to use VMUSBs watchdog
-             * feature but that was never implemented despite what the
-             * documentation says.
+             * A timeout fro readBuffer() here can mean that either there was
+             * an error when communicating with the vmusb or that no data is
+             * available. The second case can happen if the module sends no or
+             * very little data so that the internal buffer of the controller
+             * does not fill up fast enough. To avoid this case a smaller
+             * buffer size could be chosen but that will negatively impact
+             * performance for high data rates. Another method would be to use
+             * VMUSBs watchdog feature but that was never implemented despite
+             * what the documentation says.
              *
              * The workaround: when getting a read timeout is to leave DAQ
              * mode, which forces the controller to dump its buffer, and to
              * then resume DAQ mode.
+             *
              * If we still don't receive data after this there is a
              * communication error, otherwise the data rate was just too low to
              * fill the buffer and we continue on.
@@ -553,9 +555,9 @@ void VMUSBReadoutWorker::readoutLoop()
              * feature, different from the one in the documentation for version
              * 0A00. It does not use the USB Bulk Transfer Setup Register but
              * the Global Mode Register. The workaround here is left active to
-             * work with older firmware versions. As long as the
-             * daqReadTimeout_ms is higher than the watchdog timeout the
-             * watchdog will be activated if it is available. */
+             * work with older firmware versions. As long as daqReadTimeout_ms
+             * is higher than the watchdog timeout the watchdog will be
+             * activated if it is available. */
 #define USE_DAQMODE_HACK
 #ifdef USE_DAQMODE_HACK
             if (readResult.error.isTimeout() && readResult.bytesRead <= 0)
@@ -577,11 +579,13 @@ void VMUSBReadoutWorker::readoutLoop()
             if (readResult.bytesRead <= 0)
             {
                 static const int LogReadErrorTimer_ms = 5000;
+                ++nReadErrors;
                 if (!logReadErrorTimer.isValid() || logReadErrorTimer.elapsed() >= LogReadErrorTimer_ms)
                 {
-                    logMessage(QString("VMUSB Warning: error from bulk read: %1, bytesReceived=%2")
+                    logMessage(QString("VMUSB Warning: error from bulk read: %1, bytesReceived=%2 (total #readErrors=%3)")
                                .arg(readResult.error.toString())
                                .arg(readResult.bytesRead)
+                               .arg(nReadErrors)
                                );
                     logReadErrorTimer.restart();
                 }
