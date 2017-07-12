@@ -762,10 +762,18 @@ void Histo1DWidget::replot()
 
     // update histo info label
     auto infoText = QString("Underflow: %1\n"
-                            "Overflow:  %2")
+                            "Overflow:  %2\n"
+                            "NumBins:   %3\n"
+                            "BinWidth:  %4"
+                            )
         .arg(m_histo->getUnderflow())
-        .arg(m_histo->getOverflow());
+        .arg(m_histo->getOverflow())
+        .arg(m_histo->getAxisBinning(Qt::XAxis).getBins())
+        .arg(m_histo->getAxisBinning(Qt::XAxis).getBinWidth())
+        ;
 
+
+    m_d->m_labelHistoInfo->setText(infoText);
 
     // rate and efficiency estimation
     if (m_d->m_rateEstimationData.visible)
@@ -848,8 +856,6 @@ void Histo1DWidget::replot()
         m_d->m_rateFormulaMarker->setLabel(rateFormulaText);
         m_d->m_rateFormulaMarker->show();
     }
-
-    m_d->m_labelHistoInfo->setText(infoText);
 
     // window and axis titles
     auto name = m_histo->objectName();
