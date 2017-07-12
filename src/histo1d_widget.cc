@@ -168,6 +168,8 @@ struct RateEstimationData
     double x2 = make_quiet_nan();
 };
 
+static const double E1 = std::exp(1.0);
+
 class RateEstimationCurveData: public QwtSyntheticPointData
 {
     static const size_t NumberOfPoints = 1000;
@@ -183,42 +185,11 @@ class RateEstimationCurveData: public QwtSyntheticPointData
         {
             double x1 = m_data->x1;
             double x2 = m_data->x2;
+            double y1 = m_histo->getValue(x1);
+            double y2 = m_histo->getValue(x2);
+            double tau = (x2 - x1) / log(y1 / y2);
 
-            if (x1 <= x && x < x2)
-            {
-                qDebug() << x << x1 << x2;
-
-                double y1 = m_histo->getValue(x1);
-                double y2 = m_histo->getValue(x2);
-                double histo_y = m_histo->getValue(x);
-                double tau = (x2 - x1) / log(y1 / y2);
-                double e = exp(1.0);
-
-                return y1 * (pow(e, -x/tau) / pow(e, -x1/tau));
-
-
-
-
-
-
-#if 0
-                double c = pow(e, x1 / tau);
-                c *= histo_y;
-                double c_norm = c / m_histo->getBinWidth(); // norm to x-axis scale
-
-                qDebug()
-                    << "x =" << x
-                    << "histo_y =" << histo_y
-                    << ", tau =" << tau
-                    << ", y1 =" << y1
-                    << ", c =" << c
-                    << ", c_norm =" << c_norm;
-
-                return c_norm;
-#endif
-            }
-
-            return make_quiet_nan();
+            return y1 * (pow(E1, -x/tau) / pow(E1, -x1/tau));
         }
 
     private:
@@ -626,10 +597,7 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
             m_d->m_rateX2Marker->setXValue(m_d->m_rateEstimationData.x2);
             m_d->m_rateX2Marker->setLabel(QString("    x2=%1").arg(m_d->m_rateEstimationData.x2));
             m_d->m_rateX2Marker->show();
-// XXX: leftoff
-#if 0
             m_d->m_rateEstimationCurve->show();
-#endif
         }
         else
         {
@@ -805,11 +773,10 @@ void Histo1DWidget::replot()
         double y2 = m_histo->getValue(x2);
 
         double tau = (x2 - x1) / log(y1 / y2);
-        double e = exp(1.0);
-        double c = pow(e, x1 / tau) * y1;
+        double c = pow(E1, x1 / tau) * y1;
         double c_norm = c / m_histo->getBinWidth(); // norm to x-axis scale
         double freeRate = 1.0 / tau; // 1/x-axis unit
-        double freeCounts = c_norm * tau * (1 - pow(e, -(x2 / tau))); // for interval 0..x2
+        double freeCounts = c_norm * tau * (1 - pow(E1, -(x2 / tau))); // for interval 0..x2
         double histoCounts = m_histo->calcStatistics(0.0, x2).entryCount;
         double efficiency  = histoCounts / freeCounts;
 
