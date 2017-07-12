@@ -108,7 +108,7 @@ static inline double squared(double x)
  */
 class Histo1DGaussCurveData: public QwtSyntheticPointData
 {
-    static const size_t NumberOfPoints = 1000;
+    static const size_t NumberOfPoints = 500;
 
     public:
         Histo1DGaussCurveData(Histo1D *histo)
@@ -172,7 +172,7 @@ static const double E1 = std::exp(1.0);
 
 class RateEstimationCurveData: public QwtSyntheticPointData
 {
-    static const size_t NumberOfPoints = 1000;
+    static const size_t NumberOfPoints = 500;
 
     public:
     RateEstimationCurveData(Histo1D *histo, RateEstimationData *data)
@@ -198,8 +198,7 @@ class RateEstimationCurveData: public QwtSyntheticPointData
 };
 
 static const double PlotTextLayerZ  = 1000.0;
-static const double PlotGaussLayerZ = 1001.0;
-static const double PlotRateEstimationLayerZ = 1002.0;
+static const double PlotAdditionalCurvesLayerZ = 1010.0;
 
 struct Histo1DWidgetPrivate
 {
@@ -612,23 +611,32 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
         replot();
     });
 
+    auto make_plot_curve = [](QColor penColor, double penWidth, double zLayer, QwtPlot *plot = nullptr, bool hide = true)
+    {
+        auto result = new QwtPlotCurve;
+
+        result->setZ(zLayer);
+        result->setPen(penColor, penWidth);
+        result->setRenderHint(QwtPlotItem::RenderAntialiased, true);
+
+        if (plot)
+            result->attach(plot);
+
+        if (hide)
+            result->hide();
+
+        return result;
+    };
+
     //
     // Gauss Curve
     //
-    m_d->m_gaussCurve = new QwtPlotCurve;
-    m_d->m_gaussCurve->setZ(PlotGaussLayerZ);
-    m_d->m_gaussCurve->setPen(Qt::green, 2.0);
-    m_d->m_gaussCurve->attach(m_d->m_plot);
-    m_d->m_gaussCurve->hide();
+    m_d->m_gaussCurve = make_plot_curve(Qt::green, 2.0, PlotAdditionalCurvesLayerZ, m_d->m_plot);
 
     //
     // Rate Estimation Curve
     //
-    m_d->m_rateEstimationCurve = new QwtPlotCurve;
-    m_d->m_rateEstimationCurve->setZ(PlotRateEstimationLayerZ);
-    m_d->m_rateEstimationCurve->setPen(Qt::red, 2.0);
-    m_d->m_rateEstimationCurve->attach(m_d->m_plot);
-    m_d->m_rateEstimationCurve->hide();
+    m_d->m_rateEstimationCurve = make_plot_curve(Qt::red, 2.0, PlotAdditionalCurvesLayerZ, m_d->m_plot);
 
     //
     // StatusBar and info widgets
