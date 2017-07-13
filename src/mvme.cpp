@@ -344,6 +344,7 @@ static const QString DefaultAnalysisFileFilter = QSL("Config Files (*.json);; Al
 
 void mvme::closeEvent(QCloseEvent *event)
 {
+    // Refuse to exit if DAQ is running.
     if (m_context->getDAQState() != DAQState::Idle && m_context->getMode() == GlobalMode::DAQ)
     {
         QMessageBox msgBox(QMessageBox::Warning, QSL("DAQ is running"),
@@ -354,34 +355,7 @@ void mvme::closeEvent(QCloseEvent *event)
         return;
     }
 
-    /* Try to close all top level windows except our own window. This will
-     * trigger any reimplementations of closeEvent() and thus give widgets a
-     * chance to ask the user about how to handle pending modifications. If the
-     * QCloseEvent is ignored by the widget the QWindow::close() call will
-     * return false. In this case we keep this widget open and ignore our
-     * QCloseEvent aswell.  */
-    bool allWindowsClosed = true;
-
-    for (auto window: QGuiApplication::topLevelWindows())
-    {
-        if (window != this->windowHandle())
-        {
-            if (!window->close())
-            {
-                qDebug() << __PRETTY_FUNCTION__ << "window" << window << "refused to close";
-                allWindowsClosed = false;
-                break;
-            }
-        }
-    }
-
-    if (!allWindowsClosed)
-    {
-        event->ignore();
-        return;
-    }
-
-    // DAQConfig
+    // Handle modified DAQConfig
     if (m_context->getConfig()->isModified())
     {
         QMessageBox msgBox(QMessageBox::Question, QSL("Save DAQ configuration?"),
@@ -404,7 +378,7 @@ void mvme::closeEvent(QCloseEvent *event)
         }
     }
 
-    // AnalysisConfig
+    // Handle modified AnalysisConfig
     auto analysis = m_context->getAnalysis();
     if (analysis->isModified())
     {
@@ -432,6 +406,33 @@ void mvme::closeEvent(QCloseEvent *event)
             event->ignore();
             return;
         }
+    }
+
+    /* Try to close all top level windows except our own window. This will
+     * trigger any reimplementations of closeEvent() and thus give widgets a
+     * chance to ask the user about how to handle pending modifications. If the
+     * QCloseEvent is ignored by the widget the QWindow::close() call will
+     * return false. In this case we keep this widget open and ignore our
+     * QCloseEvent aswell.  */
+    bool allWindowsClosed = true;
+
+    for (auto window: QGuiApplication::topLevelWindows())
+    {
+        if (window != this->windowHandle())
+        {
+            if (!window->close())
+            {
+                qDebug() << __PRETTY_FUNCTION__ << "window" << window << "refused to close";
+                allWindowsClosed = false;
+                break;
+            }
+        }
+    }
+
+    if (!allWindowsClosed)
+    {
+        event->ignore();
+        return;
     }
 
     // window sizes and positions
@@ -1054,7 +1055,7 @@ void mvme::onShowDiagnostics(ModuleConfig *moduleConfig)
     m_geometrySaver->addAndRestore(widget, QSL("WindowGeometries/MesytecDiagnostics"));
 
     connect(widget, &MVMEWidget::aboutToClose, this, [this]() {
-        qDebug() << __PRETTY_FUNCTION__ << "diagnostics about to close";
+        qDebug() << __PRETTY_FUNCTION__ << "diagnostics widget about to close";
         QMetaObject::invokeMethod(m_context->getEventProcessor(), "removeDiagnostics", Qt::QueuedConnection);
     });
 
