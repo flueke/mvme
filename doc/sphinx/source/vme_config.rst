@@ -1,7 +1,7 @@
 .. _vme-config-reference:
 
 ==================================================
-VME Setup
+VME setup and DAQ controls
 ==================================================
 
 .. warning:: Write me!
@@ -61,3 +61,12 @@ DAQ stop procedure
 * Read leftover data from the VME controller
 * Run the *DAQ Stop* script for each Event
 * Execute global *DAQ Stop* scripts
+
+DAQ controls
+------------
+Start
+Stop
+Pause
+One Cycle
+
+DAQ vs replay

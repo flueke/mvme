@@ -589,9 +589,9 @@ input that was valid.
 If *keepValid* is set the output will always contain the last valid input
 values.
 
-.. FIXME: Proper explanation here
-.. Combine with the difference operator to calculate the distribution of change of a parameter.
-
+This operator can be combined with the :ref:`Difference Operator
+<analysis-Difference>` to accumulate the changes of a parameter across events.
+See :ref:`howto-rate-estimation` for an example.
 
 .. _analysis-Difference:
 

@@ -10,18 +10,19 @@ How-To Guides
 Rate Estimation Setup
 ==================================================
 
-.. warning::
-    * FIXME: how to figure out the calibration of the timestamp data?
-    * FIXME: special settings needed for the module? counter vs timestamp?
-    * Missing final screenshot.
-    * Missing explanation about what's being calculated.
-
 This example shows how to use the rate estimation feature built into 1D
 histograms. An MDPP-16_SCP (called *mdpp16*) is used here but any mesytec VME
 module should work. The rate estimation is setup for channel 8 of the MDPP.
 
+.. note::
+
+    For the module to produce timestamps instead of event counter values the
+    register ``0x6038`` needs to be set to ``1``. mvme does this by default for
+    newly created modules in the *VME Interface Settings* script.
+
 To make use of the rate estimation feature a 1D histogram accumulating the
-difference between timestamp values of incoming events needs to be created.
+:ref:`difference <analysis-Difference>` between timestamp values of incoming
+events needs to be created.
 
 Steps for creating the histogram:
 
@@ -46,33 +47,60 @@ Set the name of the filter to *ts_c8* and click *Ok* to create the filter.
 The complete filter will thus match if there was a data word for channel 8 and
 the event contained a timestamp data word.
 
+Timestamp calibration
+---------------------
+By default the timestamp is generated using the 16 MHz VME SYSCLK. This means
+the 19-bit timestamp value is in units of 16 MHz.
+
+The goal is to convert the value to *µs* which is easier to use: :math:`2^{19}
+/ 16 = 2^{19} / 2^{4} = 2^{15} = 32768`.
+
+Thus instead of ranging from :math:`\left[ 0, 2^{19} \right[` the timestamp
+should use the range :math:`\left[ 0, 2^{15} \right[`.
+
+To transform the value create a :ref:`Calibration Operator
+<analysis-Calibration>` by right-clicking inside the *L1 Processing* tree (or
+any higher level processing tree) and selecting *New -> Calibration*. Use the
+green *+* button in the top-right corner to add a new user level if necessary.
+
+As input select the *ts_c8* node created in the previous step. Keep the default
+name *ts_c8.cal*. Type ``µs`` in the *Unit Label* field, set *Unit Max* to
+``32768`` and press the *Apply* button. Accept the dialog by pressing *Ok*.
+
+.. autofigure:: images/guide_rateEstimation_add_calibration.png
+
+    Timestamp calibration
+
 Making the previous timestamp available
 ---------------------------------------
 
 Next right-click in the *L1 Processing* tree (or any higher level processing
-tree) and select *New -> Previous Value*. Use the green *+* button in the
-top-right corner to add a new user level if necessary.
+tree) and select *New -> Previous Value*.
 
-As input select the *ts_c8* node created in the previous step. Make sure the
-*Keep valid parameters* box is checked. Set the name to *ts_c8.prev*.
+As input select the *ts_c8.cal* node created in the previous step. Make sure the
+*Keep valid parameters* box is checked. Set the name to *ts_c8.cal.prev*.
+
+.. autofigure:: images/guide_rateEstimation_add_previousvalue.png
+
+    Adding the PreviousValue operator
 
 Histogramming the timestamp difference
 --------------------------------------
 
 Again right-click in one of the processing trees and choose *New ->
-Difference*. Set input A to *ts_c8* and input B to *ts_c8.prev*. Set the name
-to *ts_c8.diff*.
+Difference*. Set input A to *ts_c8.cal* and input B to *ts_c8.cal.prev*. Set
+the name to *ts_c8.diff*.
 
 .. autofigure:: images/guide_rateEstimation_add_difference.png
 
     Calculating the timestamp difference
 
 
-Right-click in the display tree below and add a new 1D histogram. Select the
-difference *ts_c8_diff* as the input.
+Right-click in the display tree below and add a new 1D histogram using the
+difference *ts_c8.diff* as the input.
 
 Open the newly created histogram click on *Subrange*, select *Limit X-Axis* and
-enter ``(-100.0, 4000.0)`` as the limits. This step limits the large default
+enter ``(0.0, 100.0)`` as the limits. This step limits the large default
 parameter range calculated by the :ref:`Difference operator <analysis-Difference>`.
 
 .. autofigure:: images/guide_rateEstimation_set_histo_limits.png
@@ -84,8 +112,16 @@ points on the x-axis to use for the rate estimation.
 
 .. autofigure:: images/guide_rateEstimation_select_estimation_points.png
 
-    Selecting two x-coordinates for the rate estimation
+    Rate estimation data and curve visible
 
-.. H1D: ts_diff_C8
-.. Diff: ts_diff_C8 = chan8_ts - chan8_ts_prev
-.. chan8_ts_prev.keepValid = true
+The calculation performed is:
+
+.. math::
+
+    \tau     &= (x_{2} - x_{1}) / log(y_{1} / y_{2}) \\
+    y        &= y_{1} * (e^{-x / \tau} / e^{-x_{1} / \tau}) \\
+    freeRate &= 1.0 / \tau
+
+.. warning::
+    * Missing explanation about what's being calculated.
+
