@@ -495,6 +495,7 @@ void ListFileReader::setEventsToRead(u32 eventsToRead)
 {
     Q_ASSERT(m_state != DAQState::Running);
     m_eventsToRead = eventsToRead;
+    m_logBuffers = (eventsToRead == 1);
 }
 
 void ListFileReader::start()
@@ -549,6 +550,8 @@ void ListFileReader::mainLoop()
 
     QElapsedTimer timeSinceLastProcessEvents;
     timeSinceLastProcessEvents.start();
+
+    logMessage(QString("Starting replay from %1").arg(m_listFile->getFileName()));
 
     while (true)
     {
@@ -673,6 +676,13 @@ void ListFileReader::mainLoop()
             }
             else
             {
+                if (m_logBuffers && m_logger)
+                {
+                    logMessage(">>> Begin buffer");
+                    BufferIterator bufferIter(buffer->data, buffer->used, BufferIterator::Align32);
+                    logBuffer(bufferIter, [this](const QString &str) { this->logMessage(str); });
+                    logMessage("<<< End buffer");
+                }
                 // Push the valid buffer onto the output queue.
                 m_filledBufferQueue->mutex.lock();
                 m_filledBufferQueue->queue.enqueue(buffer);
@@ -706,6 +716,12 @@ void ListFileReader::setState(DAQState state)
     m_state = state;
     m_desiredState = state;
     emit stateChanged(state);
+}
+
+void ListFileReader::logMessage(const QString &str)
+{
+    if (m_logger)
+        m_logger(str);
 }
 
 //

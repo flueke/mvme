@@ -264,6 +264,8 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
     m_eventProcessor->m_freeBufferQueue = &m_freeBufferQueue;
     m_eventProcessor->m_filledBufferQueue = &m_filledBufferQueue;
 
+    m_listFileWorker->setLogger([this](const QString &msg) { this->logMessage(msg); });
+
 #if 0
     auto bufferQueueDebugTimer = new QTimer(this);
     bufferQueueDebugTimer->start(5000);

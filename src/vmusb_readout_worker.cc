@@ -157,6 +157,7 @@ void VMUSBReadoutWorker::start(quint32 cycles)
     auto daqConfig = m_context->getVMEConfig();
     VMEError error;
 
+    // Decide whether to log buffer contents.
     m_bufferProcessor->setLogBuffers(cycles == 1);
 
     try
