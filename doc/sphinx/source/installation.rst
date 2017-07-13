@@ -13,18 +13,29 @@ System Requirements
 
 * `WIENER`_ VM-USB VME Controller
 
-* At least 4 GB RAM is recommended.
+* Latest USB chipset driver for your system.
 
-* A multicore processor is recommended as mvme itself can make use of multiple
-  cores: readout, analysis and GUI (which includes histogram rendering) run in
-  separate threads.
+  Updating the driver is especially important for Windows versions prior to
+  Windows 10 in combination with a NEC/Renesas chipset (frequently found in
+  laptops). The driver shipped by Microsoft has a bug that prevents libusb from
+  properly accessing devices. See the `libusb wiki`_ for more information.
 
 * USB Driver: libusb-0.1 (Linux) / libusb-win32 (Windows)
 
   The windows installer can optionally run `Zadig`_ to handle the driver
   installation.
 
+* At least 4 GB RAM is recommended.
+
+* A multicore processor is recommended as mvme itself can make use of multiple
+  cores: readout, analysis and GUI (which includes histogram rendering) run in
+  separate threads.
+
 .. _WIENER: http://www.wiener-d.com/
+
+.. _libusb wiki: https://github.com/libusb/libusb/wiki/Windows
+
+.. note:: Install the latest USB chipset driver for Windows especially if it's a USB-3.0 chipset.
 
 ==================================================
 Linux
