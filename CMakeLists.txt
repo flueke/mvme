@@ -52,6 +52,16 @@ else()
     set(PACKAGE_ARCH_STRING "x32")
 endif()
 
+# Note: To produce stand-alone packages additional files need to be deployed to
+# the target system: shared objects, Qt plugins, Qt configuration, shell
+# scripts, etc.
+#
+# For WIN32 adding those deploy files is handled in the NSIS input file found
+# in cmake/NSIS.template.in (variable DEPLOY_DIR).
+#
+# For other systems an external deploy directory is added via the install()
+# command.
+
 if (WIN32)
     set(CPACK_GENERATOR "NSIS") # "ZIP"
     set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL "ON")
@@ -59,7 +69,14 @@ if (WIN32)
     set(CPACK_NSIS_MUI_FINISHPAGE_RUN "mvme.exe")
     set(CPACK_NSIS_URL_INFO_ABOUT "http://www.mesytec.com")
     set(CPACK_NSIS_CONTACT "info@mesytec.com")
-    #set(CPACK_NSIS_MENU_LINKS "share/doc/mesycontrol.pdf" "Documentation")
+
+    # List of (<link> <link name>) pairs
+    set(CPACK_NSIS_MENU_LINKS
+        "doc/mvme.pdf"                          "PDF Documentation"
+        "doc/html/index.html"                   "HTML Documentation"
+        "extras/vm-usb/Manual_VM-USB_A00.pdf"   "VM-USB Manual"
+        )
+
     set(CPACK_SOURCE_GENERATOR "ZIP")
 else()
     # Install additional deployment files: shared objects, qt plugins, etc.
