@@ -20,10 +20,14 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 # the last commits hash.
 # Example GIT_VERSION_SHORT: 0.7-371
 
+# GIT_VERSION_TAG contains only the tag part of the version
+# Example GIT_VERSION_TAG: 0.7
+
 include(GetGitRevisionDescription)
 get_git_head_revision(GIT_REFSPEC GIT_SHA1)
 git_describe(GIT_VERSION "--always")
 string(REGEX MATCH "^[0-9.]+-[0-9]+" GIT_VERSION_SHORT ${GIT_VERSION})
+string(REGEX MATCH "^[0-9.]+" GIT_VERSION_TAG ${GIT_VERSION})
 
 # Subdirectories containing build targets
 add_subdirectory(src)
