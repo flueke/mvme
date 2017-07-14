@@ -235,6 +235,9 @@ struct Histo1DWidgetPrivate
     QwtPlotCurve *m_gaussCurve = nullptr;
     QwtPlotCurve *m_rateEstimationCurve = nullptr;
 
+    QwtText *m_waterMarkText;
+    QwtPlotTextLabel *m_waterMarkLabel;
+
     QComboBox *m_yScaleCombo;
 
     CalibUi m_calibUi;
@@ -465,7 +468,7 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     //m_statsTextItem->setRenderHint(QwtPlotItem::RenderAntialiased);
     /* Margin added to contentsMargins() of the canvas. This is (mis)used to
      * not clip the top scrollbar. */
-    m_statsTextItem->setMargin(15);
+    m_statsTextItem->setMargin(25);
     m_statsTextItem->setText(*m_statsText);
     m_statsTextItem->attach(m_d->m_plot);
 
@@ -643,6 +646,28 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     m_d->m_rateEstimationCurve = make_plot_curve(Qt::red, 2.0, PlotAdditionalCurvesLayerZ, m_d->m_plot);
 
     //
+    // Watermark text when exporting
+    //
+    {
+        m_d->m_waterMarkText = new QwtText;
+        m_d->m_waterMarkText->setRenderFlags(Qt::AlignRight | Qt::AlignBottom);
+        m_d->m_waterMarkText->setColor(QColor(0x66, 0x66, 0x66, 0x40));
+
+        QFont font;
+        font.setPixelSize(16);
+        font.setBold(true);
+        m_d->m_waterMarkText->setFont(font);
+
+        m_d->m_waterMarkText->setText(QString("mvme-%1").arg(GIT_VERSION_TAG));
+
+        m_d->m_waterMarkLabel = new QwtPlotTextLabel;
+        m_d->m_waterMarkLabel->setMargin(10);
+        m_d->m_waterMarkLabel->setText(*m_d->m_waterMarkText);
+        m_d->m_waterMarkLabel->attach(m_d->m_plot);
+        m_d->m_waterMarkLabel->hide();
+    }
+
+    //
     // StatusBar and info widgets
     //
     m_d->m_statusBar = make_statusbar();
@@ -693,6 +718,7 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     mainLayout->setStretch(1, 1);
 
     setHistogram(histo);
+
 }
 
 Histo1DWidget::~Histo1DWidget()
@@ -1025,15 +1051,10 @@ void Histo1DWidget::exportPlot()
     m_d->m_plot->setTitle(m_histo->getTitle());
 
     QString footerString = m_histo->getFooter();
-
-    if (!footerString.isEmpty())
-        footerString += QSL("<br/>");
-
-    footerString += QString("<small>mvme-%1</small>").arg(GIT_VERSION_SHORT);
-
     QwtText footerText(footerString);
     footerText.setRenderFlags(Qt::AlignLeft);
     m_d->m_plot->setFooter(footerText);
+    m_d->m_waterMarkLabel->show();
 
     QwtPlotRenderer renderer;
     renderer.setDiscardFlags(QwtPlotRenderer::DiscardBackground | QwtPlotRenderer::DiscardCanvasBackground);
@@ -1042,6 +1063,7 @@ void Histo1DWidget::exportPlot()
 
     m_d->m_plot->setTitle(QString());
     m_d->m_plot->setFooter(QString());
+    m_d->m_waterMarkLabel->hide();
 }
 
 void Histo1DWidget::saveHistogram()

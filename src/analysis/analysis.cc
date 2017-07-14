@@ -1803,7 +1803,7 @@ void Histo1DSink::beginRun(const RunInfo &runInfo)
             }
             histo->setObjectName(histoName);
             histo->setAxisInfo(Qt::XAxis, axisInfo);
-            histo->setTitle(QString("<small>%1</small>").arg(histoName));
+            histo->setTitle(histoName);
 
             if (!runInfo.runId.isEmpty())
             {
@@ -1937,7 +1937,7 @@ void Histo2DSink::beginRun(const RunInfo &runInfo)
         }
 
         m_histo->setObjectName(objectName());
-        m_histo->setTitle(QString("<small>%1</small>").arg(objectName()));
+        m_histo->setTitle(objectName());
 
         if (!runInfo.runId.isEmpty())
         {
