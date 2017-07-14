@@ -52,6 +52,10 @@
 #include <QTimer>
 #include <QToolBar>
 
+#ifdef MVME_USE_GIT_VERSION_FILE
+#include "git_sha1.h"
+#endif
+
 static const s32 ReplotPeriod_ms = 1000;
 
 class Histo1DPointData: public QwtSeriesData<QPointF>
@@ -1019,7 +1023,15 @@ void Histo1DWidget::exportPlot()
     }
 
     m_d->m_plot->setTitle(m_histo->getTitle());
-    QwtText footerText(m_histo->getFooter());
+
+    QString footerString = m_histo->getFooter();
+
+    if (!footerString.isEmpty())
+        footerString += QSL("<br/>");
+
+    footerString += QString("<small>mvme-%1</small>").arg(GIT_VERSION_SHORT);
+
+    QwtText footerText(footerString);
     footerText.setRenderFlags(Qt::AlignLeft);
     m_d->m_plot->setFooter(footerText);
 
