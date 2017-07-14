@@ -70,10 +70,11 @@ if (WIN32)
     set(CPACK_NSIS_URL_INFO_ABOUT "http://www.mesytec.com")
     set(CPACK_NSIS_CONTACT "info@mesytec.com")
 
+    #set(CPACK_NSIS_EXECUTABLES_DIRECTORY "")
     # List of (<link> <link name>) pairs
     set(CPACK_NSIS_MENU_LINKS
-        "doc/mvme.pdf"                          "PDF Documentation"
-        "doc/html/index.html"                   "HTML Documentation"
+        "doc/mvme.pdf"                          "mvme Documentation (PDF)"
+        "doc/html/index.html"                   "mvme Documentation (HTML)"
         "extras/vm-usb/Manual_VM-USB_A00.pdf"   "VM-USB Manual"
         )
 
