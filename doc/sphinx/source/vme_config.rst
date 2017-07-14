@@ -1,8 +1,14 @@
 .. _vme-config-reference:
 
 ==================================================
-VME setup and DAQ controls
+VME setup
 ==================================================
+
+DAQ controls
+------------
+
+Replays
+-------
 
 .. warning:: Write me!
 
@@ -48,16 +54,16 @@ DAQ startup procedure
       * Run *Module Reset*
       * Run all *Module Init* scripts
 
-* Run the *Multicast DAQ Start* script for each Event
-* Make the controller enter autonomous DAQ mode
+    * Run the Events *Multicast DAQ Start* script
+* Set the controller to autonomous DAQ mode
 
-  Control is handed to the VME controller. mvme is now reading and
-  interpreting data returned from the controller.
+Control is handed to the VME controller. mvme is now reading and
+interpreting data returned from the controller.
 
 DAQ stop procedure
 ------------------
 
-* Tell the controller to leave autonomous DAQ mode
+* Tell the VME controller to leave autonomous DAQ mode
 * Read leftover data from the VME controller
 * Run the *DAQ Stop* script for each Event
 * Execute global *DAQ Stop* scripts

@@ -11,8 +11,13 @@ Rate Estimation Setup
 ==================================================
 
 This example shows how to use the rate estimation feature built into 1D
-histograms. An MDPP-16_SCP (called *mdpp16*) is used here but any mesytec VME
-module should work. The rate estimation is setup for channel 8 of the MDPP.
+histograms.
+
+.. warning:: Explain what RE is supposed to do and what use it has.
+
+
+In this example and MDPP-16_SCP is used but any mesytec VME module should work.
+The rate estimation is setup for channel 8 of the MDPP.
 
 .. note::
 
@@ -122,6 +127,32 @@ The calculation performed is:
     y        &= y_{1} * (e^{-x / \tau} / e^{-x_{1} / \tau}) \\
     freeRate &= 1.0 / \tau
 
-.. warning::
-    * Missing explanation about what's being calculated.
 
+.. _howto-debugging:
+
+==================================================
+Debugging techniques
+==================================================
+
+.. warning:: TODO:
+
+    * DAQ: 1 Cycle and buffer dump to console
+    * Listfile: 1 Event / Next Event and buffer dump
+    * VME Debug Window (``Ctrl+4``)
+    * Run Script and it's output
+    * Analysis: Show Parameters
+
+
+.. _howto-vmusb-firmware-update:
+
+==================================================
+VM-USB Firmware Update
+==================================================
+
+.. warning:: TODO:
+
+    * Versions we used to test.
+    * Where the latest file we tested with is installed.
+    * Program Dial
+    * Tools -> VM-USB Firmware Update
+    * Reset the dial and power cycle the crate

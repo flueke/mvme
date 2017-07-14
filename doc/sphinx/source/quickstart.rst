@@ -34,6 +34,11 @@ IRQ1.
 
     GUI overview
 
+If a VM-USB VME controller is connected to the PC and powered on mvme should
+automatically find and use it. *VME Controller* in the DAQ Control area should
+show up as *Connected*. Also the VM-USB firmware version will be printed to the
+Log View.
+
 ==================================================
 VME Setup
 ==================================================

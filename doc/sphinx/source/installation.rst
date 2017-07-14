@@ -11,7 +11,10 @@ System Requirements
   Both 64- and 32-bit systems are supported but the 64-bit version is
   recommended due to the larger address space.
 
-* `WIENER`_ VM-USB VME Controller
+* `WIENER`_ VM-USB VME Controller with a recent firmware
+
+  The VM-USB firmware can be updated from within mvme. See
+  :ref:`howto-vmusb-firmware-update` for a guide.
 
 * Latest USB chipset driver for your system.
 
@@ -34,8 +37,6 @@ System Requirements
 .. _WIENER: http://www.wiener-d.com/
 
 .. _libusb wiki: https://github.com/libusb/libusb/wiki/Windows
-
-.. note:: Install the latest USB chipset driver for Windows especially if it's a USB-3.0 chipset.
 
 ==================================================
 Linux

@@ -38,7 +38,7 @@ calibrated histograms in the bottom view.
     To get a set of basic data extraction filters, calibration operators and
     histograms right-click on a module an select *Generate default filters*.
 
-Levels are used to structure the analysis and it's completely optional to have
+User Levels are used to structure the analysis and it's completely optional to have
 more than two of them. Additional levels can be added/removed using the *+* and
 *-* buttons at the top-right.  Use the *Level Visibility* button to select
 which levels are shown/hidden.
@@ -196,7 +196,25 @@ Double-click on the *H1D* node to open the histogram array widget:
   (``Ctrl+2``), right-click the :ref:`Calibration Operator
   <analysis-Calibration>` and select *Edit*.
 
-.. warning:: FIXME: Mention 2D combined view!
+* 2D combined view
+
+  A combined view of the histograms of an array of parameters can be opened by
+  right-clicking a **H1D** node and selecting *Open 2D Combined View*. This
+  option will open a 2D histogram with one column per 1D histogram in the
+  array.
+
+  The X-axes of the 1D histograms are plotted on the combined views Y-axis, the
+  values of the histograms are plotted in Z.
+
+  This view allows to quickly see if any or all channels of a module are
+  responding.
+
+.. autofigure:: images/analysis_histo1d_combined_view.png
+
+    2D Combined View of MDPP-16_SCP amplitude values
+
+    Channels 0 and 8 are producing data with visible peaks at around 0 and 230.
+
 
 .. _analysis-working-with-2d-histos:
 
