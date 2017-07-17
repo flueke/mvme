@@ -132,8 +132,7 @@ titled *Write Listfile* to avoid writing the test data to disk.
 
 .. _quickstart-daq-control:
 
-.. figure:: images/intro_daq_control.png
-   :width: 8cm
+.. autofigure:: images/intro_daq_control.png
 
    DAQ control
 

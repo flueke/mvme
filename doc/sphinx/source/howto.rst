@@ -19,15 +19,15 @@ histograms.
 In this example and MDPP-16_SCP is used but any mesytec VME module should work.
 The rate estimation is setup for channel 8 of the MDPP.
 
+To make use of the rate estimation feature a 1D histogram accumulating the
+:ref:`difference <analysis-Difference>` between timestamp values of incoming
+events needs to be created.
+
 .. note::
 
     For the module to produce timestamps instead of event counter values the
     register ``0x6038`` needs to be set to ``1``. mvme does this by default for
     newly created modules in the *VME Interface Settings* script.
-
-To make use of the rate estimation feature a 1D histogram accumulating the
-:ref:`difference <analysis-Difference>` between timestamp values of incoming
-events needs to be created.
 
 Steps for creating the histogram:
 
@@ -128,31 +128,33 @@ The calculation performed is:
     freeRate &= 1.0 / \tau
 
 
-.. _howto-debugging:
-
-==================================================
-Debugging techniques
-==================================================
-
-.. warning:: TODO:
-
-    * DAQ: 1 Cycle and buffer dump to console
-    * Listfile: 1 Event / Next Event and buffer dump
-    * VME Debug Window (``Ctrl+4``)
-    * Run Script and it's output
-    * Analysis: Show Parameters
-
-
 .. _howto-vmusb-firmware-update:
 
 ==================================================
 VM-USB Firmware Update
 ==================================================
 
-.. warning:: TODO:
+The VM-USB firmware update functionality can be found in the mvme main window
+under *Tools -> VM-USB Firmware Update*. The latest firmware file is included
+in the mvme installation directory under *extras/vm-usb*.
 
-    * Versions we used to test.
-    * Where the latest file we tested with is installed.
-    * Program Dial
-    * Tools -> VM-USB Firmware Update
-    * Reset the dial and power cycle the crate
+Before starting the update set the *Prog* dial on the VM-USB to one of the
+programming positions P1-P4.
+
+The controller will start the newly written firmware immediately after writing
+completes. Reset the *Prog* dial to C1-C4 to make the controller start the
+correct firmware on the next power cycle.
+
+.. .. _howto-debugging:
+.. 
+.. ==================================================
+.. Debugging techniques
+.. ==================================================
+.. 
+.. .. warning:: TODO:
+.. 
+..     * DAQ: 1 Cycle and buffer dump to console
+..     * Listfile: 1 Event / Next Event and buffer dump
+..     * VME Debug Window (``Ctrl+4``)
+..     * Run Script and it's output
+..     * Analysis: Show Parameters

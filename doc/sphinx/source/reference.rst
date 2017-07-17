@@ -9,6 +9,7 @@ Reference
     vme_config
     vme_script
     analysis
+..  listfile
 
 .. ==================================================
 .. Operation Details
@@ -37,8 +38,3 @@ Reference
 ..   * Use the description from the source code.
 ..   * Refer to the listfile-dumper code that should be included in the installation.
 ..     TODO: Install this stuff!
-
-
-==================================================
-Listfile format and example code
-==================================================

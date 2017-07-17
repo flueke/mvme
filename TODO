@@ -8,33 +8,19 @@
   trigger a simple 1->1 import of the module and all would be good again.
   The reload could als trigger opening the import dialog if it requires user
   intervention.
-* BUG: When creating a new vme config, then quitting and restarting the program
-  the filename shows up as "vme.vme" but any existing file with that name is
-  not loaded!
-* Sphinx Doc
-    - Sphinx and output dependent image types
 * Take a look at MVMEContext::runScript() and try to fix it. The stuff that's
   done in stopDAQ() seems to work very well...
-
 * Make MVMEContext::runScript() work like the AnalysisPauser: use a
   QProgressDialog, a local event loop and signals slots to make pausing
   reliable and non-hacky.
 
 * Logspam still makes the app hang! Fix this!!!
 
-* Diagnostics UI: make sigma text way bigger for andi.
-  Nice solution could be to use an instant tooltip with a big font size
 * HDF5 and Root file writing support!
   Also implement read support for HDF5
-* NSIS Installer:
-  * Templates are not properly installed by the NSIS installer? (Robert)
-  * Integrate into cmake
 * Histo1D and Histo1DWidget
-    * With a small window height the FreeRate text is clipped by the horizontal
-      scrollbar! The offset seems to be relative to the windows height or the
-      axis scale or something.
-    * Implement Histogram rebinning
     * Histo1D Calibration UI: "Restore" uses unexpected values. Also there's no way to undo the restore operation. (calibResetToFilter)
+      -> "fixed" by just hiding the "restore" button
     * Bug: H1D does not work when unitMin > unitMax
     * Histo1DWidget: zoom out after setHistogram()
       But not when the usage is the one in x- and y-projections where the histo is
@@ -42,11 +28,9 @@
     * Histo1DWidget: The curve for the last bin is not drawn. Try to finally find a fix for this.
     * Read up on binning error calculations. See how ROOT does it.
     * show fwhm only when gauss display is active
+    * Implement Histogram rebinning
 
 * Analysis and AnalysisUI
-    * Analysis UI: selected element highlight is too dark in windows 7. Robert
-      can't read the label if it's selected.
-    * "Import" only seems to import Filter Extractors. Histograms are missing...
     * Open new histograms immediately. Do this when creating a sub-histogram.
     * Copy/Paste
       - Copy needs a clone() operation for analysis elements.
