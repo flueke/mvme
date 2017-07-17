@@ -256,7 +256,7 @@ QVector<std::shared_ptr<Extractor>> get_default_data_extractors(const QString &m
 
 /* Specialized tree for the EventWidget.
  *
- * The declaration is here because of MOC, the implementation ins in
+ * The declaration is here because of MOC, the implementation is in
  * analysis_ui.cc because of locally defined types.
  */
 class EventWidgetTree: public QTreeWidget
