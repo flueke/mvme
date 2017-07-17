@@ -523,7 +523,8 @@ void VMUSBReadoutWorker::readoutLoop()
 
     DAQStats &stats(m_context->getDAQStats());
     QTime logReadErrorTimer;
-    size_t nReadErrors = 0;
+    u64 nReadErrors = 0;
+    u64 nGoodReads = 0;
 
     while (true)
     {
@@ -562,7 +563,7 @@ void VMUSBReadoutWorker::readoutLoop()
             auto readResult = readBuffer(daqReadTimeout_ms);
 
             /* XXX: Begin hack:
-             * A timeout fro readBuffer() here can mean that either there was
+             * A timeout from readBuffer() here can mean that either there was
              * an error when communicating with the vmusb or that no data is
              * available. The second case can happen if the module sends no or
              * very little data so that the internal buffer of the controller
@@ -572,9 +573,9 @@ void VMUSBReadoutWorker::readoutLoop()
              * VMUSBs watchdog feature but that was never implemented despite
              * what the documentation says.
              *
-             * The workaround: when getting a read timeout is to leave DAQ
-             * mode, which forces the controller to dump its buffer, and to
-             * then resume DAQ mode.
+             * The workaround when getting a read timeout is to leave DAQ mode,
+             * which forces the controller to dump its buffer, and to then
+             * resume DAQ mode.
              *
              * If we still don't receive data after this there is a
              * communication error, otherwise the data rate was just too low to
@@ -605,16 +606,23 @@ void VMUSBReadoutWorker::readoutLoop()
             }
 #endif
 
+            if (!readResult.error.isError())
+            {
+                ++nGoodReads;
+            }
+
             if (readResult.bytesRead <= 0)
             {
                 static const int LogReadErrorTimer_ms = 5000;
                 ++nReadErrors;
                 if (!logReadErrorTimer.isValid() || logReadErrorTimer.elapsed() >= LogReadErrorTimer_ms)
                 {
-                    logMessage(QString("VMUSB Warning: error from bulk read: %1, bytesReceived=%2 (total #readErrors=%3)")
+                    logMessage(QString("VMUSB Warning: error from bulk read: %1, bytesReceived=%2"
+                                       " (total #readErrors=%3, #goodReads=%4)")
                                .arg(readResult.error.toString())
                                .arg(readResult.bytesRead)
                                .arg(nReadErrors)
+                               .arg(nGoodReads)
                                );
                     logReadErrorTimer.restart();
                 }
