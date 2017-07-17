@@ -1165,38 +1165,53 @@ void MVMEContext::openWorkspace(const QString &dirName)
             m_d->m_listFileOutputInfo = info;
         }
 
-        auto lastVMEConfig      = workspaceSettings->value(QSL("LastVMEConfig")).toString();
+        //
+        // VME config
+        //
 
+        auto lastVMEConfig = workspaceSettings->value(QSL("LastVMEConfig")).toString();
+
+        // Load the last used vme config
         if (!lastVMEConfig.isEmpty())
         {
-            qDebug() << __PRETTY_FUNCTION__ << "loading vme config" << lastVMEConfig;
+            qDebug() << __PRETTY_FUNCTION__ << "loading vme config" << lastVMEConfig << " (INI)";
             loadVMEConfig(dir.filePath(lastVMEConfig));
         }
+        // Check if a file with the default name exists and if so load it.
+        else if (QFile::exists(dir.filePath(DefaultVMEConfigFileName)))
+        {
+            qDebug() << __PRETTY_FUNCTION__ << "loading vme config" << lastVMEConfig << " (DefaultName)";
+            loadVMEConfig(dir.filePath(DefaultVMEConfigFileName));
+        }
+        // Neither last nor default files exist => create empty default
         else
         {
-            // FIXME: this does not check if a file with the default name
-            // exists. This can lead to the case where the name is set to
-            // "vme.vme", the contents in the GUI are empty and upon saving the
-            // file an existing, possibly non-empty, vme.vme gets overwritten!
-
             qDebug() << __PRETTY_FUNCTION__ << "setting default vme filename";
             // No previous filename is known so use a default name without updating
             // the workspace settings.
-            setConfigFileName(QSL("vme.vme"), false);
+            setConfigFileName(DefaultVMEConfigFileName, false);
         }
+
+        //
+        // Analysis config
+        //
 
         auto lastAnalysisConfig = workspaceSettings->value(QSL("LastAnalysisConfig")).toString();
 
         if (!lastAnalysisConfig.isEmpty())
         {
-            qDebug() << __PRETTY_FUNCTION__ << "loading analysis config" << lastAnalysisConfig;
+            qDebug() << __PRETTY_FUNCTION__ << "loading analysis config" << lastAnalysisConfig << " (INI)";
             loadAnalysisConfig(dir.filePath(lastAnalysisConfig));
+        }
+        else if (QFile::exists(dir.filePath(DefaultAnalysisConfigFileName)))
+        {
+            qDebug() << __PRETTY_FUNCTION__ << "loading analysis config" << lastAnalysisConfig << " (DefaultName)";
+            loadAnalysisConfig(dir.filePath(DefaultAnalysisConfigFileName));
         }
         else
         {
-            // FIXME: this does not check if a file with the default name exists
             qDebug() << __PRETTY_FUNCTION__ << "setting default analysis filename";
-            setAnalysisConfigFileName(QSL("analysis.analysis"), false);
+            setAnalysisConfigFileName(DefaultAnalysisConfigFileName, false);
         }
 
         // No exceptions thrown -> store workspace directory in global settings
