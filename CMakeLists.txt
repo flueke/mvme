@@ -58,12 +58,14 @@ endif()
 #
 # For WIN32 adding those deploy files is handled in the NSIS input file found
 # in cmake/NSIS.template.in (variable DEPLOY_DIR).
+# FIXME: Using NSIS to handle DEPLOY_DIR is bad as ZIP packages generated here
+# are missing those files...
 #
 # For other systems an external deploy directory is added via the install()
 # command.
 
 if (WIN32)
-    set(CPACK_GENERATOR "NSIS") # "ZIP"
+    set(CPACK_GENERATOR "NSIS") # "NSIS;ZIP"
     set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL "ON")
     set(CPACK_NSIS_PACKAGE_NAME "mvme")
     set(CPACK_NSIS_MUI_FINISHPAGE_RUN "mvme.exe")
