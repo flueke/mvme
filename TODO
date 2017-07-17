@@ -2,13 +2,6 @@
 ==== Do these first! =====
 ==========================
 
-Workspace and file handling
----------------------------
-Issue 1
-^^^^^^^
-
-
-
 * Maybe reload the analysis on opening a listfile.
   Without the reload the analysis window can become empty if the listfile
   contains different module uuids than the ones in the analysis. A reload could
