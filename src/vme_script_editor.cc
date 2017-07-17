@@ -157,6 +157,7 @@ VMEScriptEditor::VMEScriptEditor(MVMEContext *context, VMEScriptConfig *script, 
     layout->addWidget(m_d->m_statusBar);
 
     m_d->updateCursorPosition();
+    resize(650, 400);
 }
 
 VMEScriptEditor::~VMEScriptEditor()
