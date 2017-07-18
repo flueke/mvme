@@ -11,9 +11,11 @@ Rate Estimation Setup
 ==================================================
 
 This example shows how to use the rate estimation feature built into 1D
-histograms.
+histograms. Rate estimation works with statistical data that forms an
+exponential function.
 
 .. warning:: Explain what RE is supposed to do and what use it has.
+    Only works for statistical data which form an exponential function.
 
 
 In this example and MDPP-16_SCP is used but any mesytec VME module should work.
@@ -31,8 +33,12 @@ events needs to be created.
 
 Steps for creating the histogram:
 
+.. _howto-rate-estimation-ts-extraction:
+
 Timestamp extraction
 --------------------
+
+.. highlight:: none
 
 Add a new Extraction Filter with two filter words to the mdpp16: ::
 
@@ -43,7 +49,7 @@ The first filter word matches on the data word for channel 8: the prefix
 ``0001`` identifies a data word, the pattern ``00 1000`` is used to select
 channel 8 specifically.
 
-The second data word is used to extract the timestamp value. The prefix ``11``
+The second filter word is used to extract the timestamp value. The prefix ``11``
 marks an *End of Event* word which contains the 30-bit timestamp. Using the
 ``D`` character 19-bits of the timestamp value are extracted.
 
@@ -105,7 +111,7 @@ Right-click in the display tree below and add a new 1D histogram using the
 difference *ts_c8.diff* as the input.
 
 Open the newly created histogram click on *Subrange*, select *Limit X-Axis* and
-enter ``(0.0, 100.0)`` as the limits. This step limits the large default
+enter ``(0.0, 200.0)`` as the limits. This step limits the large default
 parameter range calculated by the :ref:`Difference operator <analysis-Difference>`.
 
 .. autofigure:: images/guide_rateEstimation_set_histo_limits.png

@@ -495,7 +495,10 @@ is left-shifted by the amount of bits in the previous filter and so on.
 
 .. note::
    The maximum number of bits that can be extracted for address and data values
-   is limited to 64!
+   is limited to 64.
+
+See :ref:`howto-rate-estimation-ts-extraction` for an example of how a
+multiword filter can be used.
 
 Matching and data extraction
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

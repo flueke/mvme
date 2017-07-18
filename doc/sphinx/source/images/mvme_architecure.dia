@@ -62,7 +62,7 @@
       </dia:composite>
     </dia:attribute>
   </dia:diagramdata>
-  <dia:layer name="boxes" visible="true" active="true">
+  <dia:layer name="boxes" visible="true">
     <dia:object type="Standard - Box" version="0" id="O0">
       <dia:attribute name="obj_pos">
         <dia:point val="-17,-1"/>
@@ -248,7 +248,7 @@
       </dia:attribute>
     </dia:object>
   </dia:layer>
-  <dia:layer name="objects" visible="true">
+  <dia:layer name="objects" visible="true" active="true">
     <dia:object type="Standard - Text" version="1" id="O7">
       <dia:attribute name="obj_pos">
         <dia:point val="-13,4"/>
@@ -1174,7 +1174,7 @@ Scripts#</dia:string>
         <dia:point val="-0.846154,5.5"/>
       </dia:attribute>
       <dia:attribute name="obj_bb">
-        <dia:rectangle val="-1.77865,5.1275;0.0863462,5.8725"/>
+        <dia:rectangle val="-1.77865,5.1275;0.086346,5.8725"/>
       </dia:attribute>
       <dia:attribute name="text">
         <dia:composite type="text">
@@ -1210,7 +1210,7 @@ Scripts#</dia:string>
         <dia:point val="-1.15385,12"/>
       </dia:attribute>
       <dia:attribute name="obj_bb">
-        <dia:rectangle val="-2.4851,11.6275;0.177404,12.3725"/>
+        <dia:rectangle val="-2.4851,11.6275;0.1774,12.3725"/>
       </dia:attribute>
       <dia:attribute name="text">
         <dia:composite type="text">
@@ -1848,16 +1848,16 @@ augment data#</dia:string>
     </dia:object>
     <dia:object type="Flowchart - Magnetic Disk" version="1" id="O45">
       <dia:attribute name="obj_pos">
-        <dia:point val="12.6,16.9"/>
+        <dia:point val="10.8729,15.6355"/>
       </dia:attribute>
       <dia:attribute name="obj_bb">
-        <dia:rectangle val="12.55,16.85;15.1225,20.75"/>
+        <dia:rectangle val="10.8229,15.5855;13.3954,19.4855"/>
       </dia:attribute>
       <dia:attribute name="meta">
         <dia:composite type="dict"/>
       </dia:attribute>
       <dia:attribute name="elem_corner">
-        <dia:point val="12.6,16.9"/>
+        <dia:point val="10.8729,15.6355"/>
       </dia:attribute>
       <dia:attribute name="elem_width">
         <dia:real val="2.4725000014901166"/>
@@ -1897,7 +1897,7 @@ Input#</dia:string>
             <dia:real val="0.80000000000000004"/>
           </dia:attribute>
           <dia:attribute name="pos">
-            <dia:point val="13.8363,18.9167"/>
+            <dia:point val="12.1092,17.6522"/>
           </dia:attribute>
           <dia:attribute name="color">
             <dia:color val="#000000"/>
@@ -1917,52 +1917,7 @@ Input#</dia:string>
         <dia:real val="1"/>
       </dia:attribute>
     </dia:object>
-    <dia:object type="Geometric - Up Arrow" version="1" id="O46">
-      <dia:attribute name="obj_pos">
-        <dia:point val="13.3,15.1"/>
-      </dia:attribute>
-      <dia:attribute name="obj_bb">
-        <dia:rectangle val="13.2066,15.0099;14.3934,16.65"/>
-      </dia:attribute>
-      <dia:attribute name="meta">
-        <dia:composite type="dict"/>
-      </dia:attribute>
-      <dia:attribute name="elem_corner">
-        <dia:point val="13.3,15.1"/>
-      </dia:attribute>
-      <dia:attribute name="elem_width">
-        <dia:real val="1"/>
-      </dia:attribute>
-      <dia:attribute name="elem_height">
-        <dia:real val="1.5"/>
-      </dia:attribute>
-      <dia:attribute name="line_width">
-        <dia:real val="0.10000000149011612"/>
-      </dia:attribute>
-      <dia:attribute name="line_colour">
-        <dia:color val="#000000"/>
-      </dia:attribute>
-      <dia:attribute name="fill_colour">
-        <dia:color val="#ffffff"/>
-      </dia:attribute>
-      <dia:attribute name="show_background">
-        <dia:boolean val="true"/>
-      </dia:attribute>
-      <dia:attribute name="line_style">
-        <dia:enum val="0"/>
-        <dia:real val="1"/>
-      </dia:attribute>
-      <dia:attribute name="flip_horizontal">
-        <dia:boolean val="false"/>
-      </dia:attribute>
-      <dia:attribute name="flip_vertical">
-        <dia:boolean val="false"/>
-      </dia:attribute>
-      <dia:attribute name="subscale">
-        <dia:real val="1"/>
-      </dia:attribute>
-    </dia:object>
-    <dia:object type="Standard - BezierLine" version="0" id="O47">
+    <dia:object type="Standard - BezierLine" version="0" id="O46">
       <dia:attribute name="obj_pos">
         <dia:point val="-15.6,5.8"/>
       </dia:attribute>
@@ -1998,7 +1953,7 @@ Input#</dia:string>
         <dia:real val="0.5"/>
       </dia:attribute>
     </dia:object>
-    <dia:object type="Standard - Text" version="1" id="O48">
+    <dia:object type="Standard - Text" version="1" id="O47">
       <dia:attribute name="obj_pos">
         <dia:point val="-16.2,5.6"/>
       </dia:attribute>
@@ -2031,7 +1986,7 @@ Input#</dia:string>
         <dia:enum val="3"/>
       </dia:attribute>
     </dia:object>
-    <dia:object type="Standard - Arc" version="0" id="O49">
+    <dia:object type="Standard - Arc" version="0" id="O48">
       <dia:attribute name="obj_pos">
         <dia:point val="-4,9.6"/>
       </dia:attribute>
@@ -2058,7 +2013,7 @@ Input#</dia:string>
         <dia:real val="0.30000000000000004"/>
       </dia:attribute>
     </dia:object>
-    <dia:object type="Standard - Text" version="1" id="O50">
+    <dia:object type="Standard - Text" version="1" id="O49">
       <dia:attribute name="obj_pos">
         <dia:point val="-16.2,8"/>
       </dia:attribute>
@@ -2091,7 +2046,7 @@ Input#</dia:string>
         <dia:enum val="3"/>
       </dia:attribute>
     </dia:object>
-    <dia:object type="Standard - BezierLine" version="0" id="O51">
+    <dia:object type="Standard - BezierLine" version="0" id="O50">
       <dia:attribute name="obj_pos">
         <dia:point val="-5.4,14.8"/>
       </dia:attribute>
@@ -2127,7 +2082,7 @@ Input#</dia:string>
         <dia:real val="0.5"/>
       </dia:attribute>
     </dia:object>
-    <dia:object type="Standard - Text" version="1" id="O52">
+    <dia:object type="Standard - Text" version="1" id="O51">
       <dia:attribute name="obj_pos">
         <dia:point val="-8.4,15.2"/>
       </dia:attribute>
@@ -2160,7 +2115,7 @@ Input#</dia:string>
         <dia:enum val="3"/>
       </dia:attribute>
     </dia:object>
-    <dia:object type="Standard - BezierLine" version="0" id="O53">
+    <dia:object type="Standard - BezierLine" version="0" id="O52">
       <dia:attribute name="obj_pos">
         <dia:point val="-15.6,8.2"/>
       </dia:attribute>
@@ -2195,6 +2150,87 @@ Input#</dia:string>
       <dia:attribute name="end_arrow_width">
         <dia:real val="0.5"/>
       </dia:attribute>
+    </dia:object>
+    <dia:object type="Assorted - Turn-Up Arrow" version="1" id="O53">
+      <dia:attribute name="obj_pos">
+        <dia:point val="8.08155,15.341"/>
+      </dia:attribute>
+      <dia:attribute name="obj_bb">
+        <dia:rectangle val="7.96084,15.2703;10.3793,18.0883"/>
+      </dia:attribute>
+      <dia:attribute name="meta">
+        <dia:composite type="dict"/>
+      </dia:attribute>
+      <dia:attribute name="elem_corner">
+        <dia:point val="8.08155,15.341"/>
+      </dia:attribute>
+      <dia:attribute name="elem_width">
+        <dia:real val="2.2477171758623218"/>
+      </dia:attribute>
+      <dia:attribute name="elem_height">
+        <dia:real val="2.6972606110347863"/>
+      </dia:attribute>
+      <dia:attribute name="line_width">
+        <dia:real val="0.10000000149011612"/>
+      </dia:attribute>
+      <dia:attribute name="line_colour">
+        <dia:color val="#000000"/>
+      </dia:attribute>
+      <dia:attribute name="fill_colour">
+        <dia:color val="#ffffff"/>
+      </dia:attribute>
+      <dia:attribute name="show_background">
+        <dia:boolean val="true"/>
+      </dia:attribute>
+      <dia:attribute name="line_style">
+        <dia:enum val="0"/>
+        <dia:real val="1"/>
+      </dia:attribute>
+      <dia:attribute name="flip_horizontal">
+        <dia:boolean val="true"/>
+      </dia:attribute>
+      <dia:attribute name="flip_vertical">
+        <dia:boolean val="false"/>
+      </dia:attribute>
+      <dia:attribute name="subscale">
+        <dia:real val="1"/>
+      </dia:attribute>
+    </dia:object>
+    <dia:object type="Standard - Text" version="1" id="O54">
+      <dia:attribute name="obj_pos">
+        <dia:point val="9.43018,18.0383"/>
+      </dia:attribute>
+      <dia:attribute name="obj_bb">
+        <dia:rectangle val="8.34393,18.0383;10.5164,18.7833"/>
+      </dia:attribute>
+      <dia:attribute name="text">
+        <dia:composite type="text">
+          <dia:attribute name="string">
+            <dia:string>#Replay#</dia:string>
+          </dia:attribute>
+          <dia:attribute name="font">
+            <dia:font family="sans" style="0" name="Helvetica"/>
+          </dia:attribute>
+          <dia:attribute name="height">
+            <dia:real val="0.80000000000000004"/>
+          </dia:attribute>
+          <dia:attribute name="pos">
+            <dia:point val="9.43018,18.6333"/>
+          </dia:attribute>
+          <dia:attribute name="color">
+            <dia:color val="#000000"/>
+          </dia:attribute>
+          <dia:attribute name="alignment">
+            <dia:enum val="1"/>
+          </dia:attribute>
+        </dia:composite>
+      </dia:attribute>
+      <dia:attribute name="valign">
+        <dia:enum val="0"/>
+      </dia:attribute>
+      <dia:connections>
+        <dia:connection handle="0" to="O53" connection="16"/>
+      </dia:connections>
     </dia:object>
   </dia:layer>
 </dia:diagram>

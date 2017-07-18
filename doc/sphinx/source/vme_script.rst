@@ -64,8 +64,6 @@ Internally these non-privileged (aka user) address modifiers will be used:
   | A32       | 0x09       | 0x0b    | 0x08     |
   +-----------+------------+---------+----------+
 
-Refer to http://www.struck.de/vmeam.htm for a listing of possible VME address modifiers.
-
 Numbers in the script (addresses, transfer counts, masks) may be specified in decimal, octal or hex
 using the standard C prefixes (``0x`` for hex, ``0`` for octal). Additionally register values may be
 written in binary starting with a prefix of ``0b`` followed by ``0``\ s and ``1``\ s, optionally
