@@ -73,8 +73,10 @@ static const size_t DataBufferSize = Megabytes(1);
 
 static const int TryOpenControllerInterval_ms = 1000;
 static const int PeriodicLoggingInterval_ms = 5000;
+
 static const QString WorkspaceIniName = "mvmeworkspace.ini";
-static const int ListFileDefaultCompression = 6;
+static const ListFileFormat DefaultListFileFormat = ListFileFormat::ZIP;
+static const int DefaultListFileCompression = 1;
 static const QString DefaultVMEConfigFileName = QSL("vme.vme");
 static const QString DefaultAnalysisConfigFileName  = QSL("analysis.analysis");
 
@@ -1044,6 +1046,14 @@ void make_empty_file(const QString &filePath)
         throw file.errorString();
 }
 
+static void writeToSettings(const ListFileOutputInfo &info, QSettings &settings)
+{
+    settings.setValue(QSL("WriteListFile"),             info.enabled);
+    settings.setValue(QSL("ListFileFormat"),            toString(info.format));
+    settings.setValue(QSL("ListFileDirectory"),         info.directory);
+    settings.setValue(QSL("ListFileCompressionLevel"),  info.compressionLevel);
+}
+
 void MVMEContext::newWorkspace(const QString &dirName)
 {
     QDir dir(dirName);
@@ -1145,9 +1155,9 @@ void MVMEContext::openWorkspace(const QString &dirName)
         {
             ListFileOutputInfo info = {};
             info.enabled   = workspaceSettings->value(QSL("WriteListFile"), QSL("true")).toBool();
-            info.format    = fromString(workspaceSettings->value(QSL("ListFileFormat"), QSL("Plain")).toString());
+            info.format    = fromString(workspaceSettings->value(QSL("ListFileFormat"), toString(DefaultListFileFormat)).toString());
             info.directory = workspaceSettings->value(QSL("ListFileDirectory"), QSL("listfiles")).toString();
-            info.compressionLevel = workspaceSettings->value(QSL("ListFileCompressionLevel"), ListFileDefaultCompression).toInt();
+            info.compressionLevel = workspaceSettings->value(QSL("ListFileCompressionLevel"), DefaultListFileCompression).toInt();
 
             QDir listFileOutputDir(info.directory);
 
@@ -1157,12 +1167,12 @@ void MVMEContext::openWorkspace(const QString &dirName)
                  * to the default of "listfiles". */
                 logMessage(QString("Warning: Listfile directory %1 does not exist. Reverting back to default of \"listfiles\".")
                            .arg(info.directory));
-                workspaceSettings->setValue(QSL("ListFileDirectory"), QSL("listfiles"));
-                info.directory = QSL("lisfiles");
+                info.directory = QSL("listfiles");
                 // TODO: create if it does not exist
             }
 
             m_d->m_listFileOutputInfo = info;
+            writeToSettings(info, *workspaceSettings);
         }
 
         //
@@ -1386,10 +1396,8 @@ void MVMEContext::setListFileOutputInfo(const ListFileOutputInfo &info)
     m_d->m_listFileOutputInfo = info;
 
     auto settings = makeWorkspaceSettings();
-    settings->setValue(QSL("WriteListFile"), info.enabled);
-    settings->setValue(QSL("ListFileFormat"), toString(info.format));
-    settings->setValue(QSL("ListFileDirectory"), info.directory);
-    settings->setValue(QSL("ListFileCompressionLevel"), info.compressionLevel);
+
+    writeToSettings(info, *settings);
 }
 
 ListFileOutputInfo MVMEContext::getListFileOutputInfo() const
