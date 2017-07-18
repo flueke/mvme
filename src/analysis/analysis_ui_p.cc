@@ -964,8 +964,8 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
                 "If <i>Keep valid parameters</i> is checked the previous valid "
                 "input values will be copied to the output.<br/>"
                 "<br>"
-                "Otherwise the whole input from the previous event will be "
-                "available at the output, including invalid parameters."
+                "Otherwise the input from the previous event will be "
+                "copied, including invalids."
                 ));
         label->setWordWrap(true);
 
