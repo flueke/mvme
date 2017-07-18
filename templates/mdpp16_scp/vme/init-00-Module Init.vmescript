@@ -55,7 +55,7 @@
 
 
 # PULSER setting; Window of interest has to include 0+- 3ns
-0x6070 1    # 1= pulser on , 0=pulser off
+0x6070 0    # 1= pulser on , 0=pulser off
 0x6072 4000 # pulser amplitude, 0...4k
 
 # TRIGGER COUNTER
