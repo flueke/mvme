@@ -11,6 +11,11 @@
     $ cmake -DCMAKE_BUILD_TYPE=Debug ../mvme2
     $ make -j4
 
+### CMake Options
+* `BUILD_DOCS=ON|OFF`
+  If enabled the doc subdirectory is included. CMake will look for Sphinx, if
+  found the documentation will be built.
+
 ### Windows
 
 I'm currently building both the x32 and x64 windows releases in MSYS2
@@ -33,6 +38,11 @@ installed in the x32 environment.
 Optionally add `python2-pip` to install Sphinx if you want to generate
 documentation. Additionally a latex system is required for PDF generation. I
 successfully compiled the generated latex code using MiKTeX.
+
+#### CMake invocation
+* Debug:
+
+  `cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=./install-prefix -DBUILD_DOCS=OFF -G"MSYS Makefiles" ../mvme2`
 
 
 ## Miscellaneous
