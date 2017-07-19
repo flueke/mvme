@@ -1,1 +1,54 @@
-## Parameters
+## Parameters for MDPP-16_RCP
+
+## set window of interest, multiples of 1.56ns
+0x6050 0x3F00   #Window start: -256 = 400ns  before trigger
+0x6054 0x200    #Window width: 512 = 800ns (with 98ps max range for 8k)
+
+#Timig resolution
+0x6042 2    # = 98ps
+            #5 ? 781 ps = 25 ns / 32
+            #4 ? 391 ps = 25 ns / 64
+            #3 ? 195 ps = 25 ns / 128
+            #2 ? 98   ps = 25 ns / 256
+            #1 ? 49   ps = 25 ns / 512
+            #0 ? 24   ps = 25 ns / 1024
+
+#Amplitude resolution
+0x6046 0    # 16 bits
+
+## Trigger source
+0x6058 0b11'0'00000'00 # = 0x300; whole bank may trigger, reset events produce time stamped reset data
+            # Trigger {reset_ev,whole bank,single channel, chan_address[4:0], trig1, trig0}
+            # 0x100=whole bank, 0x001 = trig0, 0x002=trig1, 0x084 = chan1;
+            # bit9 allows reset events to trigger.
+
+##Frontend setting (filter-parameter, gain, PZ..)
+0x6100 0x8  # 8=send following data to all channels, 0..7 send to crresponding channel pair
+0x6110 20   # TF time, multiples of 12.5ns; 350ns
+0x611A 1000 # gain*100; 1000 -> gain = 10
+0x611C  0x2FF   #= 0.8%; threshold0:  #0 to 64k (65535) .  64 k corresponds to full range.
+0x611E  0x2FF   #        threshold1
+0x6124 320  # Shaping time FWHM, multiples of 12.5ns; 320 -> 4us
+0x6126  1   # BLR strict
+            #BLR: setting,     0 = off,
+            #1 = strict  ( int. time = 4 shaping times),
+            #2 = soft (int. time = 8 shaping times)
+0x6128 4000 #50us = 4000; reset_time, multiple of 12.5ns
+0x612A 80   #signal_rise_ time, multiple of 12.5ns  = 1us
+
+
+# PULSER setting; Window of interest has to include 0+- 3ns
+0x6070 0    # 1= pulser on , 0=pulser off
+0x6072 200  # pulser amplitude, 0...2047
+
+
+0x6038 0x1      # EOE marking:0=event counter, 1= time stamp, 3= extended time stamp
+
+# Trigger counter
+0x6096 0x0      # ts sources: 0x10 =increment counter with trigger output (not resets),
+                # 0x0 = VME clock, 0x1 = ext clock
+                # counter location 0x60A8, 0x60AA, 0x60AC
+
+# TRIGGER output (whole bank)
+0x605E 0x100    # output trigger on whole bank (free trigger)
+                # 0x100=whole bank, 0x001 = trig0, 0x002=trig1, 0x084 = chan1;
