@@ -31,8 +31,13 @@ string(REGEX MATCH "^[0-9.]+" GIT_VERSION_TAG ${GIT_VERSION})
 
 # Subdirectories containing build targets
 add_subdirectory(src)
-add_subdirectory(doc)
 add_subdirectory(extras)
+
+option(BUILD_DOCS "Build the documentation (if Sphinx is found)" ON)
+
+if (BUILD_DOCS)
+    add_subdirectory(doc)
+endif()
 
 # Handle the template directory at installation and build time
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/templates" DESTINATION .)
