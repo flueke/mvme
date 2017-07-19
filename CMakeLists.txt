@@ -61,18 +61,15 @@ endif()
 # the target system: shared objects, Qt plugins, Qt configuration, shell
 # scripts, etc.
 #
-# For WIN32 adding those deploy files is handled in the NSIS input file found
-# in cmake/NSIS.template.in (variable DEPLOY_DIR).
-# FIXME: Using NSIS to handle DEPLOY_DIR is bad as ZIP packages generated here
-# are missing those files...
-#
-# For other systems an external deploy directory is added via the install()
-# command.
+# These files are handled using an external deploy directory which is added via
+# the install() command.
 
 if (WIN32)
-    install(DIRECTORY "c:/src/deploy/mvme-${PACKAGE_ARCH_STRING}-libusb-0.1/"
-        DESTINATION .
-        USE_SOURCE_PERMISSIONS)
+    # C:\src\deploy\mvme-x64-libusb-0.1-Debug
+    # C:\src\deploy\mvme-x64-libusb-0.1-Release
+    set(DEPLOY_DIR "c:/src/deploy/mvme-${PACKAGE_ARCH_STRING}-libusb-0.1-${CMAKE_BUILD_TYPE}/")
+
+    install(DIRECTORY "${DEPLOY_DIR}" DESTINATION . USE_SOURCE_PERMISSIONS)
 
     set(CPACK_GENERATOR "NSIS") # "NSIS;ZIP"
     set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL "ON")
