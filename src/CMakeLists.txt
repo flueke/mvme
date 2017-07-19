@@ -141,7 +141,12 @@ set(MVME_SOURCES
     mvme.rc
     )
 
-add_executable(mvme WIN32 ${MVME_SOURCES})
+if (${CMAKE_BUILD_TYPE} EQUAL "Release")
+    add_executable(mvme WIN32 ${MVME_SOURCES})
+else()
+    add_executable(mvme ${MVME_SOURCES})
+endif()
+
 add_dependencies(mvme libmvme)
 
 qt5_use_modules(mvme
