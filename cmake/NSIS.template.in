@@ -19,7 +19,7 @@
   !define VERSION     "@CPACK_PACKAGE_VERSION@"
   !define INST_DIR    "@CPACK_TEMPORARY_DIRECTORY@"
   !define ARCH        "@PACKAGE_ARCH_STRING@"
-  !define DEPLOY_DIR  "C:/src/deploy/mvme-${ARCH}-libusb-0.1"
+  ;!define DEPLOY_DIR  "C:/src/deploy/mvme-${ARCH}-libusb-0.1"
 
 ; It seems CPack does not do variable substitution as required here. Instead a
 ; file used with cmakes configure_file() command is used.
@@ -660,7 +660,7 @@ Section "-mvme" SectionMVME
   SetOutPath "$INSTDIR"
 
   File /r "${INST_DIR}\*.*"
-  File /r "${DEPLOY_DIR}\*.*"
+  ;File /r "${DEPLOY_DIR}\*.*"
 
   ;Store installation folder
   WriteRegStr SHCTX "Software\@CPACK_PACKAGE_VENDOR@\@CPACK_PACKAGE_INSTALL_REGISTRY_KEY@" "" $INSTDIR

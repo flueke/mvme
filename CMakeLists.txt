@@ -65,6 +65,10 @@ endif()
 # command.
 
 if (WIN32)
+    install(DIRECTORY "c:/src/deploy/mvme-${PACKAGE_ARCH_STRING}-libusb-0.1/"
+        DESTINATION .
+        USE_SOURCE_PERMISSIONS)
+
     set(CPACK_GENERATOR "NSIS") # "NSIS;ZIP"
     set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL "ON")
     set(CPACK_NSIS_PACKAGE_NAME "mvme")
