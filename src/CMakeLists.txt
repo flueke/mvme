@@ -2,6 +2,8 @@
 # asan
 # profiling
 
+include(GenerateExportHeader)
+
 set(WARNING_FLAGS "-Wall -Wno-unused-variable -Wno-unused-function")
 
 set(CMAKE_CXX_FLAGS "-std=c++14 -pipe ${WARNING_FLAGS}")
@@ -117,6 +119,7 @@ qt5_wrap_ui(LIBMVME_UIC_OUT
 qt5_add_resources(LIBMVME_RC_OUT resources.qrc)
 
 add_library(libmvme SHARED ${LIBMVME_SOURCES} ${LIBMVME_UIC_OUT} ${LIBMVME_RC_OUT})
+generate_export_header(libmvme)
 set_target_properties(libmvme PROPERTIES OUTPUT_NAME mvme)
 
 qt5_use_modules(libmvme
@@ -141,7 +144,8 @@ set(MVME_SOURCES
     mvme.rc
     )
 
-if (${CMAKE_BUILD_TYPE} EQUAL "Release")
+
+if (CMAKE_BUILD_TYPE MATCHES "^Release$")
     add_executable(mvme WIN32 ${MVME_SOURCES})
 else()
     add_executable(mvme ${MVME_SOURCES})

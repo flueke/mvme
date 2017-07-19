@@ -428,9 +428,13 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     m_zoomer->setZoomBase();
     qDebug() << "zoomRectIndex()" << m_zoomer->zoomRectIndex();
 
-    connect(m_zoomer, &ScrollZoomer::zoomed, this, &Histo1DWidget::zoomerZoomed);
+    qDebug() << "connect zoomed";
+    connect(m_zoomer, &QwtPlotZoomer::zoomed, this, &Histo1DWidget::zoomerZoomed);
+    qDebug() << "connect mouseCursorMovedTo";
     connect(m_zoomer, &ScrollZoomer::mouseCursorMovedTo, this, &Histo1DWidget::mouseCursorMovedToPlotCoord);
+    qDebug() << "connect mouseCursorLeftPlot";
     connect(m_zoomer, &ScrollZoomer::mouseCursorLeftPlot, this, &Histo1DWidget::mouseCursorLeftPlot);
+    qDebug() << "done connecting m_zoomer";
 
     connect(m_histo, &Histo1D::axisBinningChanged, this, [this] (Qt::Axis) {
         // Handle axis changes by zooming out fully. This will make sure
@@ -579,6 +583,7 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     m_d->m_ratePointPicker->setStateMachine(new AutoBeginClickPointMachine);
     m_d->m_ratePointPicker->setEnabled(false);
 
+    qDebug() << "connecting m_ratePointPicker::selected";
     connect(m_d->m_ratePointPicker, static_cast<void (QwtPlotPicker::*)(const QPointF &)>(&QwtPlotPicker::selected), [this](const QPointF &pos) {
 
         if (std::isnan(m_d->m_rateEstimationData.x1))
@@ -617,6 +622,8 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
 
         replot();
     });
+
+    qDebug() << "done connecting m_ratePointPicker";
 
     auto make_plot_curve = [](QColor penColor, double penWidth, double zLayer, QwtPlot *plot = nullptr, bool hide = true)
     {

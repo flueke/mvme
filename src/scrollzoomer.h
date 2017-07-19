@@ -24,10 +24,12 @@
 #include <qwt_plot.h>
 #include <qwt_scale_map.h>
 
+#include "libmvme_export.h"
+
 class ScrollData;
 class ScrollBar;
 
-class ScrollZoomer: public QwtPlotZoomer
+class LIBMVME_EXPORT ScrollZoomer: public QwtPlotZoomer
 {
     Q_OBJECT
 
