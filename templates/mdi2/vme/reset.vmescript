@@ -2,6 +2,5 @@
 0x6008 1
 wait 500ms
 ## Get Module ids for log file
-read a16 d16 0x6008	# hardware ID
-read a16 d16 0x600E # firmware revision
-
+read a32 d16 0x6008	# hardware ID
+read a32 d16 0x600E # firmware revision
