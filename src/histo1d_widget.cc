@@ -429,7 +429,8 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     qDebug() << "zoomRectIndex()" << m_zoomer->zoomRectIndex();
 
     qDebug() << "connect zoomed";
-    connect(m_zoomer, &QwtPlotZoomer::zoomed, this, &Histo1DWidget::zoomerZoomed);
+    auto conOk = connect(m_zoomer, &ScrollZoomer::zoomed, this, &Histo1DWidget::zoomerZoomed);
+    Q_ASSERT(conOk);
     qDebug() << "connect mouseCursorMovedTo";
     connect(m_zoomer, &ScrollZoomer::mouseCursorMovedTo, this, &Histo1DWidget::mouseCursorMovedToPlotCoord);
     qDebug() << "connect mouseCursorLeftPlot";

@@ -1,0 +1,1 @@
+#define LIBMVME_EXPORT
