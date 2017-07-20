@@ -118,23 +118,23 @@ qt5_wrap_ui(LIBMVME_UIC_OUT
 
 qt5_add_resources(LIBMVME_RC_OUT resources.qrc)
 
-#add_library(libmvme SHARED ${LIBMVME_SOURCES} ${LIBMVME_UIC_OUT} ${LIBMVME_RC_OUT})
-#generate_export_header(libmvme)
-#set_target_properties(libmvme PROPERTIES OUTPUT_NAME mvme)
-#
-#qt5_use_modules(libmvme
-#  Concurrent
-#  Gui
-#  Widgets
-#  )
-#
-#target_link_libraries(libmvme
-#    ${QUAZIP_QT5}
-#    ${QWT_LIBRARY}
-#    ${LIBUSB_LIBRARY}
-#    )
-#
-#install(TARGETS libmvme DESTINATION .)
+add_library(libmvme SHARED ${LIBMVME_SOURCES} ${LIBMVME_UIC_OUT} ${LIBMVME_RC_OUT})
+generate_export_header(libmvme)
+set_target_properties(libmvme PROPERTIES OUTPUT_NAME mvme)
+
+qt5_use_modules(libmvme
+  Concurrent
+  Gui
+  Widgets
+  )
+
+target_link_libraries(libmvme
+    ${QUAZIP_QT5}
+    ${QWT_LIBRARY}
+    ${LIBUSB_LIBRARY}
+    )
+
+install(TARGETS libmvme DESTINATION .)
 
 #
 # mvme
@@ -144,22 +144,14 @@ set(MVME_SOURCES
     mvme.rc
     )
 
-set(MVME_ALL_SOURCES
-    ${MVME_SOURCES}
-    ${LIBMVME_SOURCES}
-    ${LIBMVME_UIC_OUT}
-    ${LIBMVME_RC_OUT}
-    )
 
+if (CMAKE_BUILD_TYPE MATCHES "^Release$")
+    add_executable(mvme WIN32 ${MVME_SOURCES})
+else()
+    add_executable(mvme ${MVME_SOURCES})
+endif()
 
-#if (CMAKE_BUILD_TYPE MATCHES "^Release$")
-#    add_executable(mvme WIN32 ${MVME_ALL_SOURCES})
-#else()
-#    add_executable(mvme ${MVME_ALL_SOURCES})
-#endif()
-add_executable(mvme ${MVME_ALL_SOURCES})
-
-#add_dependencies(mvme libmvme)
+add_dependencies(mvme libmvme)
 
 qt5_use_modules(mvme
   Concurrent
@@ -168,10 +160,7 @@ qt5_use_modules(mvme
   )
 
 target_link_libraries(mvme
-    #libmvme
-    ${QUAZIP_QT5}
-    ${QWT_LIBRARY}
-    ${LIBUSB_LIBRARY}
+    libmvme
     )
 
 install(TARGETS mvme DESTINATION .)
