@@ -286,6 +286,12 @@ inline constexpr size_t Gigabytes(size_t x) { return Megabytes(x) * 1024; }
 #define InvalidCodePath Q_ASSERT(!"invalid code path")
 #define InvalidDefaultCase default: { Q_ASSERT(!"invalid default case"); }
 
+#ifdef QT_NO_DEBUG
+    #define TRY_ASSERT(x) (x)
+#else
+    #define TRY_ASSERT(x) Q_ASSERT(x)
+#endif
+
 template<typename Code>
 struct ReadResultBase
 {

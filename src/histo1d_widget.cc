@@ -411,6 +411,7 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
 
     // Setup the plot
     m_d->m_plot = new QwtPlot;
+
     m_plotCurve->setStyle(QwtPlotCurve::Steps);
     m_plotCurve->setCurveAttribute(QwtPlotCurve::Inverted);
     m_plotCurve->attach(m_d->m_plot);
@@ -426,24 +427,23 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
 
     m_zoomer->setVScrollBarMode(Qt::ScrollBarAlwaysOff);
     m_zoomer->setZoomBase();
-    qDebug() << "zoomRectIndex()" << m_zoomer->zoomRectIndex();
 
-    qDebug() << "connect zoomed";
-    connect(m_zoomer, &QwtPlotZoomer::zoomed, this, &Histo1DWidget::zoomerZoomed);
-    qDebug() << "connect mouseCursorMovedTo";
-    connect(m_zoomer, &ScrollZoomer::mouseCursorMovedTo, this, &Histo1DWidget::mouseCursorMovedToPlotCoord);
-    qDebug() << "connect mouseCursorLeftPlot";
-    connect(m_zoomer, &ScrollZoomer::mouseCursorLeftPlot, this, &Histo1DWidget::mouseCursorLeftPlot);
-    qDebug() << "done connecting m_zoomer";
+    TRY_ASSERT(connect(m_zoomer, SIGNAL(zoomed(const QRectF &)),
+                       this, SLOT(zoomerZoomed(const QRectF &))));
 
-    connect(m_histo, &Histo1D::axisBinningChanged, this, [this] (Qt::Axis) {
+    TRY_ASSERT(connect(m_zoomer, &ScrollZoomer::mouseCursorMovedTo,
+                       this, &Histo1DWidget::mouseCursorMovedToPlotCoord));
+    TRY_ASSERT(connect(m_zoomer, &ScrollZoomer::mouseCursorLeftPlot,
+                       this, &Histo1DWidget::mouseCursorLeftPlot));
+
+    TRY_ASSERT(connect(m_histo, &Histo1D::axisBinningChanged, this, [this] (Qt::Axis) {
         // Handle axis changes by zooming out fully. This will make sure
         // possible axis scale changes are immediately visible and the zoomer
         // is in a clean state.
         m_zoomer->setZoomStack(QStack<QRectF>(), -1);
         m_zoomer->zoom(0);
         replot();
-    });
+    }));
 
     //
     // Stats text
@@ -583,47 +583,8 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     m_d->m_ratePointPicker->setStateMachine(new AutoBeginClickPointMachine);
     m_d->m_ratePointPicker->setEnabled(false);
 
-    qDebug() << "connecting m_ratePointPicker::selected";
-    connect(m_d->m_ratePointPicker, static_cast<void (QwtPlotPicker::*)(const QPointF &)>(&QwtPlotPicker::selected), [this](const QPointF &pos) {
-
-        if (std::isnan(m_d->m_rateEstimationData.x1))
-        {
-            m_d->m_rateEstimationData.x1 = pos.x();
-
-            m_d->m_rateX1Marker->setXValue(m_d->m_rateEstimationData.x1);
-            m_d->m_rateX1Marker->setLabel(QString("    x1=%1").arg(m_d->m_rateEstimationData.x1));
-            m_d->m_rateX1Marker->show();
-        }
-        else if (std::isnan(m_d->m_rateEstimationData.x2))
-        {
-            m_d->m_rateEstimationData.x2 = pos.x();
-
-            if (m_d->m_rateEstimationData.x1 > m_d->m_rateEstimationData.x2)
-            {
-                std::swap(m_d->m_rateEstimationData.x1, m_d->m_rateEstimationData.x2);
-            }
-
-            m_d->m_rateEstimationData.visible = true;
-            m_d->m_ratePointPicker->setEnabled(false);
-            m_zoomer->setEnabled(true);
-
-            // set both x1 and x2 as they might have been swapped above
-            m_d->m_rateX1Marker->setXValue(m_d->m_rateEstimationData.x1);
-            m_d->m_rateX1Marker->setLabel(QString("    x1=%1").arg(m_d->m_rateEstimationData.x1));
-            m_d->m_rateX2Marker->setXValue(m_d->m_rateEstimationData.x2);
-            m_d->m_rateX2Marker->setLabel(QString("    x2=%1").arg(m_d->m_rateEstimationData.x2));
-            m_d->m_rateX2Marker->show();
-            m_d->m_rateEstimationCurve->show();
-        }
-        else
-        {
-            InvalidCodePath;
-        }
-
-        replot();
-    });
-
-    qDebug() << "done connecting m_ratePointPicker";
+    TRY_ASSERT(connect(m_d->m_ratePointPicker, SIGNAL(selected(const QPointF &)),
+                       this, SLOT(on_ratePointerPicker_selected(const QPointF &))));
 
     auto make_plot_curve = [](QColor penColor, double penWidth, double zLayer, QwtPlot *plot = nullptr, bool hide = true)
     {
@@ -1328,6 +1289,45 @@ void Histo1DWidget::on_tb_gauss_toggled(bool checked)
 
 void Histo1DWidget::on_tb_test_clicked()
 {
+}
+
+void Histo1DWidget::on_ratePointerPicker_selected(const QPointF &pos)
+{
+    if (std::isnan(m_d->m_rateEstimationData.x1))
+    {
+        m_d->m_rateEstimationData.x1 = pos.x();
+
+        m_d->m_rateX1Marker->setXValue(m_d->m_rateEstimationData.x1);
+        m_d->m_rateX1Marker->setLabel(QString("    x1=%1").arg(m_d->m_rateEstimationData.x1));
+        m_d->m_rateX1Marker->show();
+    }
+    else if (std::isnan(m_d->m_rateEstimationData.x2))
+    {
+        m_d->m_rateEstimationData.x2 = pos.x();
+
+        if (m_d->m_rateEstimationData.x1 > m_d->m_rateEstimationData.x2)
+        {
+            std::swap(m_d->m_rateEstimationData.x1, m_d->m_rateEstimationData.x2);
+        }
+
+        m_d->m_rateEstimationData.visible = true;
+        m_d->m_ratePointPicker->setEnabled(false);
+        m_zoomer->setEnabled(true);
+
+        // set both x1 and x2 as they might have been swapped above
+        m_d->m_rateX1Marker->setXValue(m_d->m_rateEstimationData.x1);
+        m_d->m_rateX1Marker->setLabel(QString("    x1=%1").arg(m_d->m_rateEstimationData.x1));
+        m_d->m_rateX2Marker->setXValue(m_d->m_rateEstimationData.x2);
+        m_d->m_rateX2Marker->setLabel(QString("    x2=%1").arg(m_d->m_rateEstimationData.x2));
+        m_d->m_rateX2Marker->show();
+        m_d->m_rateEstimationCurve->show();
+    }
+    else
+    {
+        InvalidCodePath;
+    }
+
+    replot();
 }
 
 //
