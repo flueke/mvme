@@ -723,7 +723,7 @@ Accumulates incoming data into 1D histograms. Accepts a full array or an
 individual value as input. If given a full array the number of histograms that
 will be created is equal to the array size.
 
-See :ref:`Working with histograms <analysis-working-with-1d-histos>` for usage details.
+See :ref:`Working with 1D histograms <analysis-working-with-1d-histos>` for usage details.
 
 .. _analysis-histo2dsink:
 
@@ -733,15 +733,42 @@ See :ref:`Working with histograms <analysis-working-with-1d-histos>` for usage d
 Accumulates two incoming parameters into a 2D histogram. On each step of the
 operator data will only be accumulated if both the X- and Y inputs are *valid*.
 
-See :ref:`Working with histograms <analysis-working-with-2d-histos>` for details.
+See :ref:`Working with 2D histograms <analysis-working-with-2d-histos>` for details.
 
 
 Loading an Analysis / Importing Objects
 ---------------------------------------
 
-.. warning:: FIXME
+Internally VME modules are uniquely identified by a UUID and the module type
+name. This information is stored in both the VME and analysis configs.
 
-    Explanation about how the VMEConfig and the Analysis are connected.
-    With the above outline why the import dialog is needed.
-    Also mention the difference between loading and importing.
-    Screenshot of the import dialog and what's what
+When opening (or importing from) a "foreign" analysis file, module UUIDs and
+types may not match. In this case auto-assignment of analysis objects to VME
+modules is tried first. If auto-assignment is not possible the "Module
+assignment" dialog will be shown.
+
+.. autofigure:: images/analysis_import_ui.png
+    :scale-latex: 100%
+
+    Module assignment dialog
+
+Each row contains one module present in the analysis that's being
+opened/imported. The columns contain the modules present in the local VME
+configuration.
+
+Use the radio buttons to assign analysis objects to VME modules. Select
+*discard* to completely remove the corresponding module from the analysis.
+
+If the dialog is accepted the source objects UUIDs will be rewritten to match
+the VME object ids.
+
+In addition to opening an analysis file and thus replacing the current analysis
+objects, it is possible to add objects to the current analysis. Use the
+*Import* action fronm the Analysis UI toolbar to import from another file.
+
+Directly importing for a specific module is possible by right-clicking the
+module in the Analysis UI and selecting *Import*. Only objects matching the
+selected module type will be imported from the selected analysis.
+
+Newly imported operators will be placed in a new User Level in the UI. Use drag
+and drop to reorder them as needed.

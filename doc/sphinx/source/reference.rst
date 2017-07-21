@@ -6,10 +6,10 @@ Reference
     :maxdepth: 2
     :caption: Reference Contents:
 
+    daq_and_replay
     vme_config
     vme_script
     analysis
-..  listfile
 
 .. ==================================================
 .. Operation Details

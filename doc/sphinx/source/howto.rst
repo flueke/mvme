@@ -14,10 +14,6 @@ This example shows how to use the rate estimation feature built into 1D
 histograms. Rate estimation works with statistical data that forms an
 exponential function.
 
-.. warning:: Explain what RE is supposed to do and what use it has.
-    Only works for statistical data which form an exponential function.
-
-
 In this example and MDPP-16_SCP is used but any mesytec VME module should work.
 The rate estimation is setup for channel 8 of the MDPP.
 
@@ -152,13 +148,12 @@ completes. Reset the *Prog* dial to C1-C4 to make the controller start the
 correct firmware on the next power cycle.
 
 .. .. _howto-debugging:
-.. 
+
 .. ==================================================
 .. Debugging techniques
 .. ==================================================
-.. 
-.. .. warning:: TODO:
-.. 
+
+.. TODO:
 ..     * DAQ: 1 Cycle and buffer dump to console
 ..     * Listfile: 1 Event / Next Event and buffer dump
 ..     * VME Debug Window (``Ctrl+4``)

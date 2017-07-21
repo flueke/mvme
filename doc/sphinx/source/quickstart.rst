@@ -7,8 +7,6 @@ VM-USB VME controller and one mesytec VME module. The modules internal pulser
 is used to generate test data. Data readout is triggered by the module using
 IRQ1.
 
-.. TODO: Add a second, periodic event to read out the event counter
-
 .. note::
   In this example an MDPP-16 with the SCP firmware is used but any **mesytec**
   VME module should work. For other modules the value written to the pulser
@@ -127,14 +125,20 @@ Analysis Setup
 Starting the DAQ
 ==================================================
 Activate the main window again (``Ctrl+1``). Make sure the *VME Controller* is
-shown as *Connected* in the top part of the window. Optionally uncheck the box
-titled *Write Listfile* to avoid writing the test data to disk.
+shown as *Connected* in the top part of the window.
 
 .. _quickstart-daq-control:
 
 .. autofigure:: images/intro_daq_control.png
 
    DAQ control
+
+Optionally uncheck the box titled *Write Listfile* to avoid writing the test
+data to disk. If the option is set the raw data will be written to a *.mvmelst*
+file inside the *listfile* subdirectory of the workspace. For each run a new
+filename based on the current timestamp is generated. If writing a ZIP archive
+both the current analysis and the text log file produced during the run will be
+added to the resulting archive.
 
 Press the *Start* button to start the DAQ. Check the *Log View* (``Ctrl+3``)
 for warnings and errors.
@@ -156,10 +160,26 @@ the individual channels.
 You can pause and/or stop the DAQ at any time using the corresponding buttons
 at the top of the main window.
 
+==================================================
+Event Counter readout
+==================================================
+
+.. TODO: Expand on this. Explain some more
+
+
+Optionally a second event used to read out the modules event counter registers
+can be created. This event will be triggered periodically by the VME controller.
+
+* Right-click *Events*, choose *Add Event*
+* Set *Condition* to *Periodic* and the period to ``1.0s``
+* Right-click the newly created event, choose *Add Module*
+* Select *MesytecCounter* as the module type
+* Enter the same address as used for the MDPP-16 above
+
 .. ==================================================
 .. Troubleshooting
 .. ==================================================
-.. .. warning::
-..     TODO: Refer to a global troubleshooting section
+..
+.. TODO: Refer to a global troubleshooting section
 
 .. vim:ft=rst

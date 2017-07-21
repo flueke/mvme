@@ -80,6 +80,8 @@ The event level distinguishes between the following phases:
   default both scripts again use the multicast address of the corresponding
   event.
 
+.. _vme-config-daq-start:
+
 DAQ startup procedure
 ---------------------
 
@@ -113,6 +115,8 @@ DAQ startup procedure
 Control is handed to the VME controller. mvme is now reading and
 interpreting data returned from the controller.
 
+.. _vme-config-daq-stop:
+
 DAQ stop procedure
 ------------------
 
@@ -120,10 +124,3 @@ DAQ stop procedure
 * Read leftover data from the VME controller
 * Run the *DAQ Stop* script for each Event
 * Execute global *DAQ Stop* scripts
-
-DAQ controls
-------------
-
-.. autofigure:: images/intro_daq_control.png
-
-    DAQ controls
