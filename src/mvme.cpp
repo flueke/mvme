@@ -928,8 +928,8 @@ void mvme::appendToLog(const QString &str)
 
 void mvme::updateWindowTitle()
 {
-    QString workspaceDir = m_context->getWorkspaceDirectory();
-    workspaceDir.replace(QDir::homePath(), QSL("~"));
+    QDir wsDir(m_context->getWorkspaceDirectory());
+    QString workspaceDir(wsDir.dirName());
 
     QString title;
     switch (m_context->getMode())
