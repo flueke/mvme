@@ -2,512 +2,13 @@
     "AnalysisNG": {
         "MVMEAnalysisVersion": 2,
         "connections": [
-            {
-                "dstId": "{33a48a1d-aae0-4172-b7e8-18d72a2473cc}",
-                "dstIndex": 0,
-                "dstParamIndex": -1,
-                "srcId": "{3da423fa-78fc-484b-a7cd-5782587a2abd}",
-                "srcIndex": 0
-            },
-            {
-                "dstId": "{b1d05693-14cb-49bd-ba37-6d51faf6f0dc}",
-                "dstIndex": 0,
-                "dstParamIndex": -1,
-                "srcId": "{3da423fa-78fc-484b-a7cd-5782587a2abd}",
-                "srcIndex": 0
-            },
-            {
-                "dstId": "{eb7e6d5b-f455-45f9-b59b-3d1103cb1769}",
-                "dstIndex": 0,
-                "dstParamIndex": -1,
-                "srcId": "{3c53b773-1d0a-4be1-ab3a-c4f68f2610ec}",
-                "srcIndex": 0
-            },
-            {
-                "dstId": "{21491084-1066-4b3a-833c-de151c05f728}",
-                "dstIndex": 0,
-                "dstParamIndex": -1,
-                "srcId": "{3c53b773-1d0a-4be1-ab3a-c4f68f2610ec}",
-                "srcIndex": 0
-            },
-            {
-                "dstId": "{0700fd16-c71f-4a7c-aa57-fa2d3efc169d}",
-                "dstIndex": 0,
-                "dstParamIndex": -1,
-                "srcId": "{ba1a8bb7-c004-4d41-a15d-16e5127b4ff0}",
-                "srcIndex": 0
-            },
-            {
-                "dstId": "{1bbf90c8-ad00-476c-a445-2539e665316b}",
-                "dstIndex": 0,
-                "dstParamIndex": -1,
-                "srcId": "{ba1a8bb7-c004-4d41-a15d-16e5127b4ff0}",
-                "srcIndex": 0
-            },
-            {
-                "dstId": "{5b5df31a-5dd1-48e3-8130-5ae0fe32f63b}",
-                "dstIndex": 0,
-                "dstParamIndex": -1,
-                "srcId": "{539ce813-9571-4ba4-b12b-4ac3c6a684a4}",
-                "srcIndex": 0
-            },
-            {
-                "dstId": "{6e7dc7be-0775-43ae-944a-a6e7184ad1dc}",
-                "dstIndex": 0,
-                "dstParamIndex": -1,
-                "srcId": "{539ce813-9571-4ba4-b12b-4ac3c6a684a4}",
-                "srcIndex": 0
-            },
-            {
-                "dstId": "{526932b1-e42b-40de-8e55-a96c32bdc300}",
-                "dstIndex": 0,
-                "dstParamIndex": -1,
-                "srcId": "{b3e6b50c-6717-41c1-8c4e-19a3c636ecf6}",
-                "srcIndex": 0
-            },
-            {
-                "dstId": "{733ddff3-4b5f-43f6-a07f-e49f733e5a3d}",
-                "dstIndex": 0,
-                "dstParamIndex": -1,
-                "srcId": "{b3e6b50c-6717-41c1-8c4e-19a3c636ecf6}",
-                "srcIndex": 0
-            },
-            {
-                "dstId": "{8e42e2de-5928-438c-a6f8-4e9292a7f213}",
-                "dstIndex": 0,
-                "dstParamIndex": -1,
-                "srcId": "{0700fd16-c71f-4a7c-aa57-fa2d3efc169d}",
-                "srcIndex": 0
-            },
-            {
-                "dstId": "{9fc87d21-186a-4029-aa9f-32fe31fa2836}",
-                "dstIndex": 0,
-                "dstParamIndex": -1,
-                "srcId": "{eb7e6d5b-f455-45f9-b59b-3d1103cb1769}",
-                "srcIndex": 0
-            },
-            {
-                "dstId": "{ba697dba-3448-4e86-bd0b-c74b8ebadae0}",
-                "dstIndex": 0,
-                "dstParamIndex": -1,
-                "srcId": "{33a48a1d-aae0-4172-b7e8-18d72a2473cc}",
-                "srcIndex": 0
-            },
-            {
-                "dstId": "{86720aa7-dfbf-4417-bd40-49d5b8354759}",
-                "dstIndex": 0,
-                "dstParamIndex": -1,
-                "srcId": "{5b5df31a-5dd1-48e3-8130-5ae0fe32f63b}",
-                "srcIndex": 0
-            },
-            {
-                "dstId": "{5b009723-eb10-452f-ae20-c167a326b5de}",
-                "dstIndex": 0,
-                "dstParamIndex": -1,
-                "srcId": "{526932b1-e42b-40de-8e55-a96c32bdc300}",
-                "srcIndex": 0
-            }
         ],
         "operators": [
-            {
-                "class": "analysis::CalibrationMinMax",
-                "data": {
-                    "calibrations": [
-                        {
-                            "unitMax": 1073741824,
-                            "unitMin": 0
-                        }
-                    ],
-                    "unitLabel": ""
-                },
-                "eventId": "{0c217223-35fb-4024-b491-41c93e6439ea}",
-                "id": "{0700fd16-c71f-4a7c-aa57-fa2d3efc169d}",
-                "name": "mdpp16_qdc.event_counter/ts",
-                "userLevel": 1
-            },
-            {
-                "class": "analysis::Histo1DSink",
-                "data": {
-                    "nBins": 4096,
-                    "xAxisTitle": "adc_short",
-                    "xLimitMax": null,
-                    "xLimitMin": null
-                },
-                "eventId": "{0c217223-35fb-4024-b491-41c93e6439ea}",
-                "id": "{21491084-1066-4b3a-833c-de151c05f728}",
-                "name": "mdpp16_qdc.adc_short_raw",
-                "userLevel": 0
-            },
-            {
-                "class": "analysis::CalibrationMinMax",
-                "data": {
-                    "calibrations": [
-                        {
-                            "unitMax": 4096,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 4096,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 4096,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 4096,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 4096,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 4096,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 4096,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 4096,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 4096,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 4096,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 4096,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 4096,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 4096,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 4096,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 4096,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 4096,
-                            "unitMin": 0
-                        }
-                    ],
-                    "unitLabel": ""
-                },
-                "eventId": "{0c217223-35fb-4024-b491-41c93e6439ea}",
-                "id": "{eb7e6d5b-f455-45f9-b59b-3d1103cb1769}",
-                "name": "mdpp16_qdc.adc_short",
-                "userLevel": 1
-            },
-            {
-                "class": "analysis::Histo1DSink",
-                "data": {
-                    "nBins": 4096,
-                    "xAxisTitle": "adc_long",
-                    "xLimitMax": null,
-                    "xLimitMin": null
-                },
-                "eventId": "{0c217223-35fb-4024-b491-41c93e6439ea}",
-                "id": "{b1d05693-14cb-49bd-ba37-6d51faf6f0dc}",
-                "name": "mdpp16_qdc.adc_long_raw",
-                "userLevel": 0
-            },
-            {
-                "class": "analysis::CalibrationMinMax",
-                "data": {
-                    "calibrations": [
-                        {
-                            "unitMax": 4096,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 4096,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 4096,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 4096,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 4096,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 4096,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 4096,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 4096,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 4096,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 4096,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 4096,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 4096,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 4096,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 4096,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 4096,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 4096,
-                            "unitMin": 0
-                        }
-                    ],
-                    "unitLabel": ""
-                },
-                "eventId": "{0c217223-35fb-4024-b491-41c93e6439ea}",
-                "id": "{33a48a1d-aae0-4172-b7e8-18d72a2473cc}",
-                "name": "mdpp16_qdc.adc_long",
-                "userLevel": 1
-            },
-            {
-                "class": "analysis::Histo1DSink",
-                "data": {
-                    "nBins": 65536,
-                    "xAxisTitle": "tdc_time_difference",
-                    "xLimitMax": null,
-                    "xLimitMin": null
-                },
-                "eventId": "{0c217223-35fb-4024-b491-41c93e6439ea}",
-                "id": "{6e7dc7be-0775-43ae-944a-a6e7184ad1dc}",
-                "name": "mdpp16_qdc.tdc_time_difference_raw",
-                "userLevel": 0
-            },
-            {
-                "class": "analysis::Histo1DSink",
-                "data": {
-                    "nBins": 65536,
-                    "xAxisTitle": "event_counter/ts",
-                    "xLimitMax": null,
-                    "xLimitMin": null
-                },
-                "eventId": "{0c217223-35fb-4024-b491-41c93e6439ea}",
-                "id": "{1bbf90c8-ad00-476c-a445-2539e665316b}",
-                "name": "mdpp16_qdc.event_counter/ts_raw",
-                "userLevel": 0
-            },
-            {
-                "class": "analysis::Histo1DSink",
-                "data": {
-                    "nBins": 65536,
-                    "xAxisTitle": "trigger_time",
-                    "xLimitMax": null,
-                    "xLimitMin": null
-                },
-                "eventId": "{0c217223-35fb-4024-b491-41c93e6439ea}",
-                "id": "{733ddff3-4b5f-43f6-a07f-e49f733e5a3d}",
-                "name": "mdpp16_qdc.trigger_time_raw",
-                "userLevel": 0
-            },
-            {
-                "class": "analysis::CalibrationMinMax",
-                "data": {
-                    "calibrations": [
-                        {
-                            "unitMax": 65536,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 65536,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 65536,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 65536,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 65536,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 65536,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 65536,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 65536,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 65536,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 65536,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 65536,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 65536,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 65536,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 65536,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 65536,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 65536,
-                            "unitMin": 0
-                        }
-                    ],
-                    "unitLabel": ""
-                },
-                "eventId": "{0c217223-35fb-4024-b491-41c93e6439ea}",
-                "id": "{5b5df31a-5dd1-48e3-8130-5ae0fe32f63b}",
-                "name": "mdpp16_qdc.tdc_time_difference",
-                "userLevel": 1
-            },
-            {
-                "class": "analysis::CalibrationMinMax",
-                "data": {
-                    "calibrations": [
-                        {
-                            "unitMax": 65536,
-                            "unitMin": 0
-                        },
-                        {
-                            "unitMax": 65536,
-                            "unitMin": 0
-                        }
-                    ],
-                    "unitLabel": ""
-                },
-                "eventId": "{0c217223-35fb-4024-b491-41c93e6439ea}",
-                "id": "{526932b1-e42b-40de-8e55-a96c32bdc300}",
-                "name": "mdpp16_qdc.trigger_time",
-                "userLevel": 1
-            },
-            {
-                "class": "analysis::Histo1DSink",
-                "data": {
-                    "nBins": 65536,
-                    "xAxisTitle": "trigger_time",
-                    "xLimitMax": null,
-                    "xLimitMin": null
-                },
-                "eventId": "{0c217223-35fb-4024-b491-41c93e6439ea}",
-                "id": "{5b009723-eb10-452f-ae20-c167a326b5de}",
-                "name": "mdpp16_qdc.trigger_time",
-                "userLevel": 1
-            },
-            {
-                "class": "analysis::Histo1DSink",
-                "data": {
-                    "nBins": 65536,
-                    "xAxisTitle": "event_counter/ts",
-                    "xLimitMax": null,
-                    "xLimitMin": null
-                },
-                "eventId": "{0c217223-35fb-4024-b491-41c93e6439ea}",
-                "id": "{8e42e2de-5928-438c-a6f8-4e9292a7f213}",
-                "name": "mdpp16_qdc.event_counter/ts",
-                "userLevel": 1
-            },
-            {
-                "class": "analysis::Histo1DSink",
-                "data": {
-                    "nBins": 4096,
-                    "xAxisTitle": "adc_long",
-                    "xLimitMax": null,
-                    "xLimitMin": null
-                },
-                "eventId": "{0c217223-35fb-4024-b491-41c93e6439ea}",
-                "id": "{ba697dba-3448-4e86-bd0b-c74b8ebadae0}",
-                "name": "mdpp16_qdc.adc_long",
-                "userLevel": 1
-            },
-            {
-                "class": "analysis::Histo1DSink",
-                "data": {
-                    "nBins": 65536,
-                    "xAxisTitle": "tdc_time_difference",
-                    "xLimitMax": null,
-                    "xLimitMin": null
-                },
-                "eventId": "{0c217223-35fb-4024-b491-41c93e6439ea}",
-                "id": "{86720aa7-dfbf-4417-bd40-49d5b8354759}",
-                "name": "mdpp16_qdc.tdc_time_difference",
-                "userLevel": 1
-            },
-            {
-                "class": "analysis::Histo1DSink",
-                "data": {
-                    "nBins": 4096,
-                    "xAxisTitle": "adc_short",
-                    "xLimitMax": null,
-                    "xLimitMin": null
-                },
-                "eventId": "{0c217223-35fb-4024-b491-41c93e6439ea}",
-                "id": "{9fc87d21-186a-4029-aa9f-32fe31fa2836}",
-                "name": "mdpp16_qdc.adc_short",
-                "userLevel": 1
-            }
         ],
         "properties": {
             "ModuleProperties": [
                 {
-                    "moduleId": "{5e11cb62-8d08-4dd4-9855-87249ac00a92}",
+                    "moduleId": "{3712e294-69be-42e3-a825-d25522d0df8c}",
                     "moduleName": "mdpp16_qdc",
                     "moduleTypeName": "mdpp16_qdc"
                 }
@@ -521,53 +22,15 @@
                     "rngSeed": "d091bb5c22ae9ef6",
                     "subFilters": [
                         {
-                            "filterString": "0001XX000000AAAADDDDDDDDDDDDDDDD",
-                            "wordIndex": -1
-                        }
-                    ]
-                },
-                "eventId": "{0c217223-35fb-4024-b491-41c93e6439ea}",
-                "id": "{ffd204e4-6408-4403-8dc4-0cc097187bb2}",
-                "moduleId": "{3959921c-6fde-41ec-b514-2f3b285444fc}",
-                "name": "mdpp16.amplitude"
-            },
-            {
-                "class": "analysis::Extractor",
-                "data": {
-                    "requiredCompletionCount": 1,
-                    "rngSeed": "d091bb5c22ae9ef6",
-                    "subFilters": [
-                        {
-                            "filterString": "11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
-                            "wordIndex": -1
-                        },
-                        {
-                            "filterString": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-                            "wordIndex": -1
-                        }
-                    ]
-                },
-                "eventId": "{0c217223-35fb-4024-b491-41c93e6439ea}",
-                "id": "{175bdc23-a297-4f34-8d24-5dce7e2ea765}",
-                "moduleId": "{3959921c-6fde-41ec-b514-2f3b285444fc}",
-                "name": "mdpp16.event_counter/ts"
-            },
-            {
-                "class": "analysis::Extractor",
-                "data": {
-                    "requiredCompletionCount": 1,
-                    "rngSeed": "d091bb5c22ae9ef6",
-                    "subFilters": [
-                        {
                             "filterString": "0001XXXXXX01AAAADDDDDDDDDDDDDDDD",
                             "wordIndex": -1
                         }
                     ]
                 },
-                "eventId": "{0c217223-35fb-4024-b491-41c93e6439ea}",
-                "id": "{b7260a50-9ba9-453c-97db-c6d6409091ea}",
-                "moduleId": "{3959921c-6fde-41ec-b514-2f3b285444fc}",
-                "name": "mdpp16.time"
+                "eventId": "{ef427e89-804d-4cae-a7c1-c6ab54f10f49}",
+                "id": "{b1c292a9-8329-4f0b-b81f-cf4377948fed}",
+                "moduleId": "{3712e294-69be-42e3-a825-d25522d0df8c}",
+                "name": "channel_time"
             },
             {
                 "class": "analysis::Extractor",
@@ -576,32 +39,15 @@
                     "rngSeed": "d091bb5c22ae9ef6",
                     "subFilters": [
                         {
-                            "filterString": "0001XXXXXX10000ADDDDDDDDDDDDDDDD",
+                            "filterString": "0001XXXXXX00AAAA0000DDDDDDDDDDDD",
                             "wordIndex": -1
                         }
                     ]
                 },
-                "eventId": "{0c217223-35fb-4024-b491-41c93e6439ea}",
-                "id": "{a49dc74f-1937-41ba-8e9c-f7956ff69164}",
-                "moduleId": "{3959921c-6fde-41ec-b514-2f3b285444fc}",
-                "name": "mdpp16.trigger_time"
-            },
-            {
-                "class": "analysis::Extractor",
-                "data": {
-                    "requiredCompletionCount": 1,
-                    "rngSeed": "d091bb5c22ae9ef6",
-                    "subFilters": [
-                        {
-                            "filterString": "0001XXXXX000AAAA0000DDDDDDDDDDDD",
-                            "wordIndex": -1
-                        }
-                    ]
-                },
-                "eventId": "{0c217223-35fb-4024-b491-41c93e6439ea}",
-                "id": "{3da423fa-78fc-484b-a7cd-5782587a2abd}",
-                "moduleId": "{5e11cb62-8d08-4dd4-9855-87249ac00a92}",
-                "name": "mdpp16_qdc.adc_long"
+                "eventId": "{ef427e89-804d-4cae-a7c1-c6ab54f10f49}",
+                "id": "{889d0aa3-69d0-4e96-9cdd-7b2828e589f4}",
+                "moduleId": "{3712e294-69be-42e3-a825-d25522d0df8c}",
+                "name": "integration_long"
             },
             {
                 "class": "analysis::Extractor",
@@ -615,44 +61,10 @@
                         }
                     ]
                 },
-                "eventId": "{0c217223-35fb-4024-b491-41c93e6439ea}",
-                "id": "{3c53b773-1d0a-4be1-ab3a-c4f68f2610ec}",
-                "moduleId": "{5e11cb62-8d08-4dd4-9855-87249ac00a92}",
-                "name": "mdpp16_qdc.adc_short"
-            },
-            {
-                "class": "analysis::Extractor",
-                "data": {
-                    "requiredCompletionCount": 1,
-                    "rngSeed": "d091bb5c22ae9ef6",
-                    "subFilters": [
-                        {
-                            "filterString": "11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
-                            "wordIndex": -1
-                        }
-                    ]
-                },
-                "eventId": "{0c217223-35fb-4024-b491-41c93e6439ea}",
-                "id": "{ba1a8bb7-c004-4d41-a15d-16e5127b4ff0}",
-                "moduleId": "{5e11cb62-8d08-4dd4-9855-87249ac00a92}",
-                "name": "mdpp16_qdc.event_counter/ts"
-            },
-            {
-                "class": "analysis::Extractor",
-                "data": {
-                    "requiredCompletionCount": 1,
-                    "rngSeed": "d091bb5c22ae9ef6",
-                    "subFilters": [
-                        {
-                            "filterString": "0001XXXXXX01AAAADDDDDDDDDDDDDDDD",
-                            "wordIndex": -1
-                        }
-                    ]
-                },
-                "eventId": "{0c217223-35fb-4024-b491-41c93e6439ea}",
-                "id": "{539ce813-9571-4ba4-b12b-4ac3c6a684a4}",
-                "moduleId": "{5e11cb62-8d08-4dd4-9855-87249ac00a92}",
-                "name": "mdpp16_qdc.tdc_time_difference"
+                "eventId": "{ef427e89-804d-4cae-a7c1-c6ab54f10f49}",
+                "id": "{cb0ccaee-1095-4bb0-806f-bd47831856ca}",
+                "moduleId": "{3712e294-69be-42e3-a825-d25522d0df8c}",
+                "name": "integration_short"
             },
             {
                 "class": "analysis::Extractor",
@@ -666,10 +78,27 @@
                         }
                     ]
                 },
-                "eventId": "{0c217223-35fb-4024-b491-41c93e6439ea}",
-                "id": "{b3e6b50c-6717-41c1-8c4e-19a3c636ecf6}",
-                "moduleId": "{5e11cb62-8d08-4dd4-9855-87249ac00a92}",
-                "name": "mdpp16_qdc.trigger_time"
+                "eventId": "{ef427e89-804d-4cae-a7c1-c6ab54f10f49}",
+                "id": "{ecf007f7-a00c-4fc8-9a97-d8339c8e0d8d}",
+                "moduleId": "{3712e294-69be-42e3-a825-d25522d0df8c}",
+                "name": "trigger_time"
+            },
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "d091bb5c22ae9ef6",
+                    "subFilters": [
+                        {
+                            "filterString": "11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{ef427e89-804d-4cae-a7c1-c6ab54f10f49}",
+                "id": "{578bb69a-4545-453f-94a7-7eb886f73328}",
+                "moduleId": "{3712e294-69be-42e3-a825-d25522d0df8c}",
+                "name": "event_counter/ts"
             }
         ]
     }
