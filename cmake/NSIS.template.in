@@ -16,13 +16,14 @@
 ;--------------------------------
 ; You must define these values
 
-  !define VERSION   "1.0-rc0"
-  ; These are all architecture dependent. If you change the ARCH remember to
-  ; also adjust the InstallDir below
-  !define ARCH      "x32"
-  !define DEPLOY_DIR  "C:/src/deploy/mvme-${ARCH}-libusb-0.1"
+  !define VERSION     "@CPACK_PACKAGE_VERSION@"
+  !define INST_DIR    "@CPACK_TEMPORARY_DIRECTORY@"
+  !define ARCH        "@PACKAGE_ARCH_STRING@"
+  ;!define DEPLOY_DIR  "C:/src/deploy/mvme-${ARCH}-libusb-0.1"
 
-; !define PATCH  "0"
+; It seems CPack does not do variable substitution as required here. Instead a
+; file used with cmakes configure_file() command is used.
+  ;!include "
 
 ;--------------------------------
 ;Variables
@@ -49,7 +50,8 @@
 
   ;Default installation folder
   ;InstallDir "$PROGRAMFILES64\mvme"
-  InstallDir "$PROGRAMFILES\mvme"
+  ;InstallDir "$PROGRAMFILES\mvme"
+  InstallDir "@CPACK_NSIS_INSTALL_ROOT@\@CPACK_PACKAGE_INSTALL_DIRECTORY@"
 
 !include nsDialogs.nsh
 
@@ -57,19 +59,25 @@
 ;General
 
   ;Name and file
+  ;Name "@CPACK_NSIS_PACKAGE_NAME@"
   Name "mvme"
   !ifdef OutDir
-    OutFile "${OutDir}/mvme-installer-${ARCH}-${VERSION}.exe"
+    OutFile "${OutDir}/@CPACK_PACKAGE_FILE_NAME@.exe"
+    ;OutFile "${OutDir}/mvme-installer-${ARCH}-${VERSION}.exe"
   !else
-    OutFile "mvme-installer-${ARCH}-${VERSION}.exe"
+    OutFile "@CPACK_PACKAGE_FILE_NAME@.exe"
+    ;OutFile "mvme-installer-${ARCH}-${VERSION}.exe"
   !endif
 
   ;Set compression
+  ;SetCompressor @CPACK_NSIS_COMPRESSOR@
   SetCompressor lzma	; Better compression but also slow. Use for release builds.
   ;SetCompressor zlib	; Worse compression but faster. Use this when working on the installer.
 
   ;Require administrator access
   RequestExecutionLevel admin
+
+@CPACK_NSIS_DEFINES@
 
   !include Sections.nsh
 
@@ -80,7 +88,7 @@
 ; inter-component dependencies.
 Var AR_SecFlags
 Var AR_RegFlags
-
+@CPACK_NSIS_SECTION_SELECTED_VARS@
 
 ; Loads the "selected" flag for the section named SecName into the
 ; variable VarName.
@@ -106,7 +114,7 @@ Var AR_RegFlags
 
   ClearErrors
   ;Reading component status from registry
-  ReadRegDWORD $AR_RegFlags HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\mvme\Components\${SecName}" "Installed"
+  ReadRegDWORD $AR_RegFlags HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\@CPACK_PACKAGE_INSTALL_REGISTRY_KEY@\Components\${SecName}" "Installed"
   IfErrors "default_${SecName}"
     ;Status will stay default if registry value not found
     ;(component was never installed)
@@ -139,13 +147,13 @@ Var AR_RegFlags
     ;Section is not selected:
     ;Calling Section uninstall macro and writing zero installed flag
     !insertmacro "Remove_${${SecName}}"
-    WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\mvme\Components\${SecName}" \
+    WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\@CPACK_PACKAGE_INSTALL_REGISTRY_KEY@\Components\${SecName}" \
   "Installed" 0
     Goto "exit_${SecName}"
 
  "leave_${SecName}:"
     ;Section is selected:
-    WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\mvme\Components\${SecName}" \
+    WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\@CPACK_PACKAGE_INSTALL_REGISTRY_KEY@\Components\${SecName}" \
   "Installed" 1
 
  "exit_${SecName}:"
@@ -518,7 +526,7 @@ Function ConditionalAddToRegisty
   Pop $0
   Pop $1
   StrCmp "$0" "" ConditionalAddToRegisty_EmptyString
-    WriteRegStr SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\mvme" \
+    WriteRegStr SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\@CPACK_PACKAGE_INSTALL_REGISTRY_KEY@" \
     "$1" "$0"
     ;MessageBox MB_OK "Set Registry: '$1' to '$0'"
     DetailPrint "Set install registry entry: '$1' to '$0'"
@@ -537,7 +545,7 @@ Function DownloadFile
     IfFileExists $INSTDIR\$0 0 +2
     Return
 
-    StrCpy $1 ""
+    StrCpy $1 "@CPACK_DOWNLOAD_SITE@"
 
   try_again:
     NSISdl::download "$1/$0" "$INSTDIR\$0"
@@ -554,16 +562,34 @@ FunctionEnd
 
 ;--------------------------------
 ; Installation types
-
+@CPACK_NSIS_INSTALLATION_TYPES@
 
 ;--------------------------------
 ; Component sections
-
+@CPACK_NSIS_COMPONENT_SECTIONS@
 
 ;--------------------------------
 ; Define some macro setting for the gui
+@CPACK_NSIS_INSTALLER_MUI_ICON_CODE@
+@CPACK_NSIS_INSTALLER_ICON_CODE@
+@CPACK_NSIS_INSTALLER_MUI_WELCOMEFINISH_CODE@
+@CPACK_NSIS_INSTALLER_MUI_UNWELCOMEFINISH_CODE@
+@CPACK_NSIS_INSTALLER_MUI_COMPONENTS_DESC@
+;@CPACK_NSIS_INSTALLER_MUI_FINISHPAGE_RUN_CODE@
 
+Function CheckArchitecture
+  !include "x64.nsh"
 
+  ${IfNot} ${RunningX64}
+    ${If} ${ARCH} == "x64"
+      MessageBox MB_OK "Trying to install the 64-bit version on a 32-bit OS! Aborting..." /SD IDOK
+      Abort
+    ${EndIf}
+  ${EndIf}
+FunctionEnd
+
+; CheckArchitecture will be executed once the first page is visible.
+!define MUI_CUSTOMFUNCTION_GUIINIT CheckArchitecture
 
 
 
@@ -576,9 +602,12 @@ FunctionEnd
 
 ;--------------------------------
 ;Pages
+
   !insertmacro MUI_PAGE_WELCOME
 
-  !insertmacro MUI_PAGE_LICENSE "LICENSE-SHORT.TXT"
+  ;!insertmacro MUI_PAGE_LICENSE "LICENSE-SHORT.TXT"
+  ;!insertmacro MUI_PAGE_LICENSE "@SOURCE_DIR@/LICENSE-SHORT.TXT"
+  !insertmacro MUI_PAGE_LICENSE "@CPACK_RESOURCE_FILE_LICENSE@"
 
   ; This displays a component selection page. A component is defined for each
   ; Section where the section title does not start with a '-' sign.
@@ -588,9 +617,11 @@ FunctionEnd
 
   ;Start Menu Folder Page Configuration
   !define MUI_STARTMENUPAGE_REGISTRY_ROOT "SHCTX"
-  !define MUI_STARTMENUPAGE_REGISTRY_KEY "Software\mesytec\mvme"
+  !define MUI_STARTMENUPAGE_REGISTRY_KEY "Software\@CPACK_PACKAGE_VENDOR@\@CPACK_PACKAGE_INSTALL_REGISTRY_KEY@"
   !define MUI_STARTMENUPAGE_REGISTRY_VALUENAME "Start Menu Folder"
   !insertmacro MUI_PAGE_STARTMENU Application $STARTMENU_FOLDER
+
+  @CPACK_NSIS_PAGE_COMPONENTS@
 
   ; Copy files, run sections for selected components actions
   !insertmacro MUI_PAGE_INSTFILES
@@ -627,22 +658,23 @@ Section "-mvme" SectionMVME
   ;Use the entire tree produced by the INSTALL target.  Keep the
   ;list of directories here in sync with the RMDir commands below.
   SetOutPath "$INSTDIR"
-  
-  File /r "${DEPLOY_DIR}\*.*"
+
+  File /r "${INST_DIR}\*.*"
+  ;File /r "${DEPLOY_DIR}\*.*"
 
   ;Store installation folder
-  WriteRegStr SHCTX "Software\mesytec\mvme" "" $INSTDIR
+  WriteRegStr SHCTX "Software\@CPACK_PACKAGE_VENDOR@\@CPACK_PACKAGE_INSTALL_REGISTRY_KEY@" "" $INSTDIR
 
   ;Create uninstaller
   WriteUninstaller "$INSTDIR\Uninstall.exe"
   Push "DisplayName"
-  Push "mvme"
+  Push "@CPACK_NSIS_DISPLAY_NAME@"
   Call ConditionalAddToRegisty
   Push "DisplayVersion"
-  Push "1.0"
+  Push "@CPACK_PACKAGE_VERSION@"
   Call ConditionalAddToRegisty
   Push "Publisher"
-  Push "mesytec"
+  Push "@CPACK_PACKAGE_VENDOR@"
   Call ConditionalAddToRegisty
   Push "UninstallString"
   Push "$INSTDIR\Uninstall.exe"
@@ -664,24 +696,31 @@ Section "-mvme" SectionMVME
 
   ; Optional registration
   Push "DisplayIcon"
-  Push "$INSTDIR\"
+  Push "$INSTDIR\@CPACK_NSIS_INSTALLED_ICON_NAME@"
   Call ConditionalAddToRegisty
   Push "HelpLink"
-  Push ""
+  Push "@CPACK_NSIS_HELP_LINK@"
   Call ConditionalAddToRegisty
   Push "URLInfoAbout"
-  Push "http://www.mesytec.com"
+  Push "@CPACK_NSIS_URL_INFO_ABOUT@"
   Call ConditionalAddToRegisty
   Push "Contact"
-  Push "info@mesytec.com"
+  Push "@CPACK_NSIS_CONTACT@"
   Call ConditionalAddToRegisty
   !insertmacro MUI_INSTALLOPTIONS_READ $INSTALL_DESKTOP "NSIS.InstallOptions.ini" "Field 5" "State"
   !insertmacro MUI_STARTMENU_WRITE_BEGIN Application
 
   ;Create shortcuts
   CreateDirectory "$SMPROGRAMS\$STARTMENU_FOLDER"
-  CreateShortCut "$SMPROGRAMS\$STARTMENU_FOLDER\mvme.lnk" "$INSTDIR\mvme.exe"
 
+  ; Using CPACK_NSIS_CREATE_ICONS always creates a broken shortcut to
+  ; bin/mvme.exe I don't know why and I don't want to even try to figure it out
+  ; anymore so I just use a static hardcoded path here and do _NOT_ set
+  ; CPACK_PACKAGE_EXECUTABLES!
+
+  CreateShortCut "$SMPROGRAMS\$STARTMENU_FOLDER\mvme.lnk" "$INSTDIR\mvme.exe"
+@CPACK_NSIS_CREATE_ICONS@
+@CPACK_NSIS_CREATE_ICONS_EXTRA@
 
   CreateShortCut "$SMPROGRAMS\$STARTMENU_FOLDER\Uninstall.lnk" "$INSTDIR\Uninstall.exe"
 
@@ -709,13 +748,13 @@ Section "-mvme" SectionMVME
 
   !insertmacro MUI_STARTMENU_WRITE_END
 
-
+@CPACK_NSIS_EXTRA_INSTALL_COMMANDS@
 
 SectionEnd
 
 Section "-Add to path"
   Push $INSTDIR\bin
-  StrCmp "" "ON" 0 doNotAddToPath
+  StrCmp "@CPACK_NSIS_MODIFY_PATH@" "ON" 0 doNotAddToPath
   StrCmp $DO_NOT_ADD_TO_PATH "1" doNotAddToPath 0
     Call AddToPath
   doNotAddToPath:
@@ -723,14 +762,15 @@ SectionEnd
 
 ;--------------------------------
 ; Create custom pages
+
 Function InstallOptionsPage
-  !insertmacro MUI_HEADER_TEXT "Install Options" "Choose options for installing mvme"
+  !insertmacro MUI_HEADER_TEXT "Install Options" "Choose options for installing @CPACK_NSIS_PACKAGE_NAME@"
   !insertmacro MUI_INSTALLOPTIONS_DISPLAY "NSIS.InstallOptions.ini"
 
 FunctionEnd
 
 ; Load the label text from file
-!define /file ZADIG_EXPLANATION "vmusb-zadig-explanation.txt"
+!define /file ZADIG_EXPLANATION "@SOURCE_DIR@/extras/nsis/vmusb-zadig-explanation.txt"
 
 Function RunZadigPage
   !insertmacro MUI_HEADER_TEXT "USB Driver Installation" "Optionally install the driver required for VMUSB support"
@@ -770,7 +810,7 @@ Function LeaveZadigPage
   ${NSD_GetState} $cb_runZadig $cb_runZadigState
 
   ${If} $cb_runZadigState == ${BST_CHECKED}
-    ExecWait "$INSTDIR\zadig_2.2.exe"
+    ExecWait "$INSTDIR\zadig-2.3.exe"
   ${Endif}
 FunctionEnd
 
@@ -809,7 +849,7 @@ FunctionEnd
 !macro SectionList MacroName
   ;This macro used to perform operation on multiple sections.
   ;List all of your components in following manner here.
-
+@CPACK_NSIS_COMPONENT_SECTION_LIST@
 !macroend
 
 Section -FinishComponents
@@ -846,22 +886,25 @@ FunctionEnd
 
 Section "Uninstall"
   ReadRegStr $START_MENU SHCTX \
-   "Software\Microsoft\Windows\CurrentVersion\Uninstall\mvme" "StartMenu"
+   "Software\Microsoft\Windows\CurrentVersion\Uninstall\@CPACK_PACKAGE_INSTALL_REGISTRY_KEY@" "StartMenu"
   ;MessageBox MB_OK "Start menu is in: $START_MENU"
   ReadRegStr $DO_NOT_ADD_TO_PATH SHCTX \
-    "Software\Microsoft\Windows\CurrentVersion\Uninstall\mvme" "DoNotAddToPath"
+    "Software\Microsoft\Windows\CurrentVersion\Uninstall\@CPACK_PACKAGE_INSTALL_REGISTRY_KEY@" "DoNotAddToPath"
   ReadRegStr $ADD_TO_PATH_ALL_USERS SHCTX \
-    "Software\Microsoft\Windows\CurrentVersion\Uninstall\mvme" "AddToPathAllUsers"
+    "Software\Microsoft\Windows\CurrentVersion\Uninstall\@CPACK_PACKAGE_INSTALL_REGISTRY_KEY@" "AddToPathAllUsers"
   ReadRegStr $ADD_TO_PATH_CURRENT_USER SHCTX \
-    "Software\Microsoft\Windows\CurrentVersion\Uninstall\mvme" "AddToPathCurrentUser"
+    "Software\Microsoft\Windows\CurrentVersion\Uninstall\@CPACK_PACKAGE_INSTALL_REGISTRY_KEY@" "AddToPathCurrentUser"
   ;MessageBox MB_OK "Add to path: $DO_NOT_ADD_TO_PATH all users: $ADD_TO_PATH_ALL_USERS"
   ReadRegStr $INSTALL_DESKTOP SHCTX \
-    "Software\Microsoft\Windows\CurrentVersion\Uninstall\mvme" "InstallToDesktop"
+    "Software\Microsoft\Windows\CurrentVersion\Uninstall\@CPACK_PACKAGE_INSTALL_REGISTRY_KEY@" "InstallToDesktop"
   ;MessageBox MB_OK "Install to desktop: $INSTALL_DESKTOP "
 
+@CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS@
 
   ; Recursively remove the installation directory
   RMDir /r $INSTDIR
+;@CPACK_NSIS_DELETE_FILES@
+;@CPACK_NSIS_DELETE_DIRECTORIES@
 
 !ifdef CPACK_NSIS_ADD_REMOVE
   ;Remove the add/remove program
@@ -869,13 +912,14 @@ Section "Uninstall"
 !endif
 
   ;Remove the uninstaller itself.
-  DeleteRegKey SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\mvme"
+  Delete "$INSTDIR\Uninstall.exe"
+  DeleteRegKey SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\@CPACK_PACKAGE_INSTALL_REGISTRY_KEY@"
 
   ;Remove the installation directory if it is empty.
   RMDir "$INSTDIR"
 
   ; Remove the registry entries.
-  DeleteRegKey SHCTX "Software\mesytec\mvme"
+  DeleteRegKey SHCTX "Software\@CPACK_PACKAGE_VENDOR@\@CPACK_PACKAGE_INSTALL_REGISTRY_KEY@"
 
   ; Removes all optional components
   !insertmacro SectionList "RemoveSection_CPack"
@@ -883,9 +927,8 @@ Section "Uninstall"
   !insertmacro MUI_STARTMENU_GETFOLDER Application $MUI_TEMP
 
   Delete "$SMPROGRAMS\$MUI_TEMP\Uninstall.lnk"
-  Delete "$SMPROGRAMS\$MUI_TEMP\mvme.lnk"
-
-
+@CPACK_NSIS_DELETE_ICONS@
+@CPACK_NSIS_DELETE_ICONS_EXTRA@
 
   ;Delete empty start menu parent diretories
   StrCpy $MUI_TEMP "$SMPROGRAMS\$MUI_TEMP"
@@ -904,7 +947,7 @@ Section "Uninstall"
   ; try to fix it.
   StrCpy $MUI_TEMP "$START_MENU"
   Delete "$SMPROGRAMS\$MUI_TEMP\Uninstall.lnk"
-
+@CPACK_NSIS_DELETE_ICONS_EXTRA@
 
   ;Delete empty start menu parent diretories
   StrCpy $MUI_TEMP "$SMPROGRAMS\$MUI_TEMP"
@@ -919,7 +962,7 @@ Section "Uninstall"
     StrCmp "$MUI_TEMP" "$SMPROGRAMS" secondStartMenuDeleteLoopDone secondStartMenuDeleteLoop
   secondStartMenuDeleteLoopDone:
 
-  DeleteRegKey /ifempty SHCTX "Software\mesytec\mvme"
+  DeleteRegKey /ifempty SHCTX "Software\@CPACK_PACKAGE_VENDOR@\@CPACK_PACKAGE_INSTALL_REGISTRY_KEY@"
 
   Push $INSTDIR\bin
   StrCmp $DO_NOT_ADD_TO_PATH_ "1" doNotRemoveFromPath 0
@@ -939,17 +982,16 @@ SectionEnd
 
 Function .onInit
   ; Zadig variable initialization. It's horrible to have to put this here.
-  StrCpy $cb_runZadigState ${BST_CHECKED}
+  StrCpy $cb_runZadigState ${BST_UNCHECKED}
 
   ; Original code from cpack
 
-  StrCmp "ON" "ON" 0 inst
-
-  ReadRegStr $0 HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\mvme" "UninstallString"
+  StrCmp "@CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL@" "ON" 0 inst
+  ReadRegStr $0 HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\@CPACK_PACKAGE_INSTALL_REGISTRY_KEY@" "UninstallString"
   StrCmp $0 "" inst
 
   MessageBox MB_YESNOCANCEL|MB_ICONEXCLAMATION \
-  "mvme is already installed. $\n$\nDo you want to uninstall the old version before installing the new one?" \
+  "@CPACK_NSIS_PACKAGE_NAME@ is already installed. $\n$\nDo you want to uninstall the old version before installing the new one?" \
   /SD IDYES IDYES uninst IDNO inst
   Abort
 
@@ -975,14 +1017,14 @@ inst:
   ; install directory that is expected to be the
   ; default
   StrCpy $IS_DEFAULT_INSTALLDIR 0
-  StrCmp "$INSTDIR" "$PROGRAMFILES\mvme" 0 +2
+  StrCmp "$INSTDIR" "@CPACK_NSIS_INSTALL_ROOT@\@CPACK_PACKAGE_INSTALL_DIRECTORY@" 0 +2
     StrCpy $IS_DEFAULT_INSTALLDIR 1
 
   StrCpy $SV_ALLUSERS "JustMe"
   ; if default install dir then change the default
   ; if it is installed for JustMe
   StrCmp "$IS_DEFAULT_INSTALLDIR" "1" 0 +2
-    StrCpy $INSTDIR "$DOCUMENTS\mvme"
+    StrCpy $INSTDIR "$DOCUMENTS\@CPACK_PACKAGE_INSTALL_DIRECTORY@"
 
   ClearErrors
   UserInfo::GetName
@@ -1008,10 +1050,12 @@ inst:
   done:
   StrCmp $SV_ALLUSERS "AllUsers" 0 +3
     StrCmp "$IS_DEFAULT_INSTALLDIR" "1" 0 +2
-      StrCpy $INSTDIR "$PROGRAMFILES\mvme"
+      StrCpy $INSTDIR "@CPACK_NSIS_INSTALL_ROOT@\@CPACK_PACKAGE_INSTALL_DIRECTORY@"
 
-  StrCmp "" "ON" 0 noOptionsPage
+  StrCmp "@CPACK_NSIS_MODIFY_PATH@" "ON" 0 noOptionsPage
     !insertmacro MUI_INSTALLOPTIONS_EXTRACT "NSIS.InstallOptions.ini"
 
   noOptionsPage:
 FunctionEnd
+
+; vim:ft=nsis

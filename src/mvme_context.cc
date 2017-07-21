@@ -28,6 +28,10 @@
 #include "config_ui.h"
 #include "vme_analysis_common.h"
 
+#ifdef MVME_USE_GIT_VERSION_FILE
+#include "git_sha1.h"
+#endif
+
 #include <QtConcurrent>
 #include <QTimer>
 #include <QThread>
@@ -69,8 +73,12 @@ static const size_t DataBufferSize = Megabytes(1);
 
 static const int TryOpenControllerInterval_ms = 1000;
 static const int PeriodicLoggingInterval_ms = 5000;
+
 static const QString WorkspaceIniName = "mvmeworkspace.ini";
-static const int ListFileDefaultCompression = 6;
+static const ListFileFormat DefaultListFileFormat = ListFileFormat::ZIP;
+static const int DefaultListFileCompression = 1;
+static const QString DefaultVMEConfigFileName = QSL("vme.vme");
+static const QString DefaultAnalysisConfigFileName  = QSL("analysis.analysis");
 
 static void stop_coordinated(VMUSBReadoutWorker *readoutWorker, MVMEEventProcessor *eventProcessor);
 
@@ -257,6 +265,8 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
     m_bufferProcessor->m_filledBufferQueue = &m_filledBufferQueue;
     m_eventProcessor->m_freeBufferQueue = &m_freeBufferQueue;
     m_eventProcessor->m_filledBufferQueue = &m_filledBufferQueue;
+
+    m_listFileWorker->setLogger([this](const QString &msg) { this->logMessage(msg); });
 
 #if 0
     auto bufferQueueDebugTimer = new QTimer(this);
@@ -786,6 +796,14 @@ void MVMEContext::startDAQ(quint32 nCycles)
     prepareStart();
     m_d->clearLog();
     logMessage(QSL("DAQ starting"));
+
+    // Log mvme version and bitness and runtime cpu architecture
+    logMessage(QString(QSL("mvme %1 (%2) running on %3 (%4)\n"))
+               .arg(GIT_VERSION)
+               .arg(get_bitness_string())
+               .arg(QSysInfo::prettyProductName())
+               .arg(QSysInfo::currentCpuArchitecture()));
+
     QMetaObject::invokeMethod(m_readoutWorker, "start",
                               Qt::QueuedConnection, Q_ARG(quint32, nCycles));
     QMetaObject::invokeMethod(m_eventProcessor, "startProcessing",
@@ -1016,6 +1034,26 @@ MVMEContext::runScript(const vme_script::VMEScript &script,
 //
 // Workspace handling
 //
+
+void make_empty_file(const QString &filePath)
+{
+    QFile file(filePath);
+
+    if (file.exists())
+        throw QString(QSL("File exists"));
+
+    if (!file.open(QIODevice::WriteOnly))
+        throw file.errorString();
+}
+
+static void writeToSettings(const ListFileOutputInfo &info, QSettings &settings)
+{
+    settings.setValue(QSL("WriteListFile"),             info.enabled);
+    settings.setValue(QSL("ListFileFormat"),            toString(info.format));
+    settings.setValue(QSL("ListFileDirectory"),         info.directory);
+    settings.setValue(QSL("ListFileCompressionLevel"),  info.compressionLevel);
+}
+
 void MVMEContext::newWorkspace(const QString &dirName)
 {
     QDir dir(dirName);
@@ -1023,21 +1061,42 @@ void MVMEContext::newWorkspace(const QString &dirName)
     if (!dir.entryList(QDir::AllEntries | QDir::NoDot | QDir::NoDotDot).isEmpty())
         throw QString(QSL("Selected directory is not empty"));
 
-    setWorkspaceDirectory(dirName);
-
-    auto workspaceSettings(makeWorkspaceSettings());
-    //workspaceSettings->setValue(QSL("LastVMEConfig"), QSL("vme.mvmecfg"));
-    //workspaceSettings->setValue(QSL("LastAnalysisConfig"), QSL("analysis.analysis"));
+    auto workspaceSettings(makeWorkspaceSettings(dirName));
+    workspaceSettings->setValue(QSL("LastVMEConfig"), DefaultVMEConfigFileName);
+    workspaceSettings->setValue(QSL("LastAnalysisConfig"), DefaultAnalysisConfigFileName);
     //workspaceSettings->setValue(QSL("ListFileDirectory"), QSL("listfiles"));
     workspaceSettings->setValue(QSL("WriteListFile"), true);
     //workspaceSettings->setValue(QSL("PlotsDirectory"), QSL("plots"));
-    // Creates the mvmeworkspace.ini file
+
+    // Force sync to create the mvmeworkspace.ini file
     workspaceSettings->sync();
 
     if (workspaceSettings->status() != QSettings::NoError)
     {
         throw QString("Error writing workspace settings to %1")
             .arg(workspaceSettings->fileName());
+    }
+
+    try
+    {
+        make_empty_file(QDir(dirName).filePath(DefaultVMEConfigFileName));
+    }
+    catch (const QString &e)
+    {
+        throw QString("Error creating VME config file %1: %2")
+            .arg(DefaultVMEConfigFileName)
+            .arg(e);
+    }
+
+    try
+    {
+        make_empty_file(QDir(dirName).filePath(DefaultAnalysisConfigFileName));
+    }
+    catch (const QString &e)
+    {
+        throw QString("Error creating Analysis config file %1: %2")
+            .arg(DefaultAnalysisConfigFileName)
+            .arg(e);
     }
 
     openWorkspace(dirName);
@@ -1096,9 +1155,9 @@ void MVMEContext::openWorkspace(const QString &dirName)
         {
             ListFileOutputInfo info = {};
             info.enabled   = workspaceSettings->value(QSL("WriteListFile"), QSL("true")).toBool();
-            info.format    = fromString(workspaceSettings->value(QSL("ListFileFormat"), QSL("Plain")).toString());
+            info.format    = fromString(workspaceSettings->value(QSL("ListFileFormat"), toString(DefaultListFileFormat)).toString());
             info.directory = workspaceSettings->value(QSL("ListFileDirectory"), QSL("listfiles")).toString();
-            info.compressionLevel = workspaceSettings->value(QSL("ListFileCompressionLevel"), ListFileDefaultCompression).toInt();
+            info.compressionLevel = workspaceSettings->value(QSL("ListFileCompressionLevel"), DefaultListFileCompression).toInt();
 
             QDir listFileOutputDir(info.directory);
 
@@ -1108,40 +1167,61 @@ void MVMEContext::openWorkspace(const QString &dirName)
                  * to the default of "listfiles". */
                 logMessage(QString("Warning: Listfile directory %1 does not exist. Reverting back to default of \"listfiles\".")
                            .arg(info.directory));
-                workspaceSettings->setValue(QSL("ListFileDirectory"), QSL("listfiles"));
-                info.directory = QSL("lisfiles");
+                info.directory = QSL("listfiles");
                 // TODO: create if it does not exist
             }
 
             m_d->m_listFileOutputInfo = info;
+            writeToSettings(info, *workspaceSettings);
         }
 
-        auto lastVMEConfig      = workspaceSettings->value(QSL("LastVMEConfig")).toString();
+        //
+        // VME config
+        //
 
+        auto lastVMEConfig = workspaceSettings->value(QSL("LastVMEConfig")).toString();
+
+        // Load the last used vme config
         if (!lastVMEConfig.isEmpty())
         {
-            qDebug() << __PRETTY_FUNCTION__ << "loading vme config" << lastVMEConfig;
+            qDebug() << __PRETTY_FUNCTION__ << "loading vme config" << lastVMEConfig << " (INI)";
             loadVMEConfig(dir.filePath(lastVMEConfig));
         }
+        // Check if a file with the default name exists and if so load it.
+        else if (QFile::exists(dir.filePath(DefaultVMEConfigFileName)))
+        {
+            qDebug() << __PRETTY_FUNCTION__ << "loading vme config" << lastVMEConfig << " (DefaultName)";
+            loadVMEConfig(dir.filePath(DefaultVMEConfigFileName));
+        }
+        // Neither last nor default files exist => create empty default
         else
         {
             qDebug() << __PRETTY_FUNCTION__ << "setting default vme filename";
             // No previous filename is known so use a default name without updating
             // the workspace settings.
-            setConfigFileName(QSL("vme.vme"), false);
+            setConfigFileName(DefaultVMEConfigFileName, false);
         }
+
+        //
+        // Analysis config
+        //
 
         auto lastAnalysisConfig = workspaceSettings->value(QSL("LastAnalysisConfig")).toString();
 
         if (!lastAnalysisConfig.isEmpty())
         {
-            qDebug() << __PRETTY_FUNCTION__ << "loading analysis config" << lastAnalysisConfig;
+            qDebug() << __PRETTY_FUNCTION__ << "loading analysis config" << lastAnalysisConfig << " (INI)";
             loadAnalysisConfig(dir.filePath(lastAnalysisConfig));
+        }
+        else if (QFile::exists(dir.filePath(DefaultAnalysisConfigFileName)))
+        {
+            qDebug() << __PRETTY_FUNCTION__ << "loading analysis config" << lastAnalysisConfig << " (DefaultName)";
+            loadAnalysisConfig(dir.filePath(DefaultAnalysisConfigFileName));
         }
         else
         {
             qDebug() << __PRETTY_FUNCTION__ << "setting default analysis filename";
-            setAnalysisConfigFileName(QSL("analysis.analysis"), false);
+            setAnalysisConfigFileName(DefaultAnalysisConfigFileName, false);
         }
 
         // No exceptions thrown -> store workspace directory in global settings
@@ -1316,10 +1396,8 @@ void MVMEContext::setListFileOutputInfo(const ListFileOutputInfo &info)
     m_d->m_listFileOutputInfo = info;
 
     auto settings = makeWorkspaceSettings();
-    settings->setValue(QSL("WriteListFile"), info.enabled);
-    settings->setValue(QSL("ListFileFormat"), toString(info.format));
-    settings->setValue(QSL("ListFileDirectory"), info.directory);
-    settings->setValue(QSL("ListFileCompressionLevel"), info.compressionLevel);
+
+    writeToSettings(info, *settings);
 }
 
 ListFileOutputInfo MVMEContext::getListFileOutputInfo() const
@@ -1388,6 +1466,7 @@ void MVMEContext::addAnalysisOperator(QUuid eventId, const std::shared_ptr<analy
 void MVMEContext::analysisOperatorEdited(const std::shared_ptr<analysis::OperatorInterface> &op)
 {
     AnalysisPauser pauser(this);
+    m_analysis_ng->setModified();
     analysis::do_beginRun_forward(op.get());
 
     if (m_analysisUi)

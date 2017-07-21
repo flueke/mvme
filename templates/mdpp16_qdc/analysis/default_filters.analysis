@@ -8,7 +8,7 @@
         "properties": {
             "ModuleProperties": [
                 {
-                    "moduleId": "{9c0da466-5610-4c3b-8b31-afc15d305bea}",
+                    "moduleId": "{3712e294-69be-42e3-a825-d25522d0df8c}",
                     "moduleName": "mdpp16_qdc",
                     "moduleTypeName": "mdpp16_qdc"
                 }
@@ -19,41 +19,7 @@
                 "class": "analysis::Extractor",
                 "data": {
                     "requiredCompletionCount": 1,
-                    "rngSeed": "933611a08e18ede3",
-                    "subFilters": [
-                        {
-                            "filterString": "0001XXXXO000AAAA0000DDDDDDDDDDDD",
-                            "wordIndex": -1
-                        }
-                    ]
-                },
-                "eventId": "{49752b84-433e-4558-bd20-8ffc4c054289}",
-                "id": "{9b371939-3884-4603-ae52-344e00de376c}",
-                "moduleId": "{9c0da466-5610-4c3b-8b31-afc15d305bea}",
-                "name": "adc_long"
-            },
-            {
-                "class": "analysis::Extractor",
-                "data": {
-                    "requiredCompletionCount": 1,
-                    "rngSeed": "16ffb56a42788ef2",
-                    "subFilters": [
-                        {
-                            "filterString": "0001XXXX0O11AAAA0000DDDDDDDDDDDD",
-                            "wordIndex": -1
-                        }
-                    ]
-                },
-                "eventId": "{49752b84-433e-4558-bd20-8ffc4c054289}",
-                "id": "{d594f300-d3ca-4080-bfc3-5350277a3550}",
-                "moduleId": "{9c0da466-5610-4c3b-8b31-afc15d305bea}",
-                "name": "adc_short"
-            },
-            {
-                "class": "analysis::Extractor",
-                "data": {
-                    "requiredCompletionCount": 1,
-                    "rngSeed": "dda8801640f57baa",
+                    "rngSeed": "d091bb5c22ae9ef6",
                     "subFilters": [
                         {
                             "filterString": "0001XXXXXX01AAAADDDDDDDDDDDDDDDD",
@@ -61,33 +27,50 @@
                         }
                     ]
                 },
-                "eventId": "{49752b84-433e-4558-bd20-8ffc4c054289}",
-                "id": "{c924eb17-e7d7-4ce9-bd88-5fb10f20022b}",
-                "moduleId": "{9c0da466-5610-4c3b-8b31-afc15d305bea}",
-                "name": "tdc_time_difference"
+                "eventId": "{ef427e89-804d-4cae-a7c1-c6ab54f10f49}",
+                "id": "{b1c292a9-8329-4f0b-b81f-cf4377948fed}",
+                "moduleId": "{3712e294-69be-42e3-a825-d25522d0df8c}",
+                "name": "channel_time"
             },
             {
                 "class": "analysis::Extractor",
                 "data": {
                     "requiredCompletionCount": 1,
-                    "rngSeed": "e1e859112ea5af07",
+                    "rngSeed": "d091bb5c22ae9ef6",
                     "subFilters": [
                         {
-                            "filterString": "11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+                            "filterString": "0001XXXXXX00AAAA0000DDDDDDDDDDDD",
                             "wordIndex": -1
                         }
                     ]
                 },
-                "eventId": "{49752b84-433e-4558-bd20-8ffc4c054289}",
-                "id": "{e73d544d-9120-4972-967b-edf3b7d9d4fa}",
-                "moduleId": "{9c0da466-5610-4c3b-8b31-afc15d305bea}",
-                "name": "event_counter/ts"
+                "eventId": "{ef427e89-804d-4cae-a7c1-c6ab54f10f49}",
+                "id": "{889d0aa3-69d0-4e96-9cdd-7b2828e589f4}",
+                "moduleId": "{3712e294-69be-42e3-a825-d25522d0df8c}",
+                "name": "integration_long"
             },
             {
                 "class": "analysis::Extractor",
                 "data": {
                     "requiredCompletionCount": 1,
-                    "rngSeed": "b26028c37396727a",
+                    "rngSeed": "d091bb5c22ae9ef6",
+                    "subFilters": [
+                        {
+                            "filterString": "0001XXXXXX11AAAA0000DDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{ef427e89-804d-4cae-a7c1-c6ab54f10f49}",
+                "id": "{cb0ccaee-1095-4bb0-806f-bd47831856ca}",
+                "moduleId": "{3712e294-69be-42e3-a825-d25522d0df8c}",
+                "name": "integration_short"
+            },
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "d091bb5c22ae9ef6",
                     "subFilters": [
                         {
                             "filterString": "0001XXXXXX10000ADDDDDDDDDDDDDDDD",
@@ -95,10 +78,27 @@
                         }
                     ]
                 },
-                "eventId": "{49752b84-433e-4558-bd20-8ffc4c054289}",
-                "id": "{7b0451dc-ac58-4a30-b26e-257ac8b5ab49}",
-                "moduleId": "{9c0da466-5610-4c3b-8b31-afc15d305bea}",
+                "eventId": "{ef427e89-804d-4cae-a7c1-c6ab54f10f49}",
+                "id": "{ecf007f7-a00c-4fc8-9a97-d8339c8e0d8d}",
+                "moduleId": "{3712e294-69be-42e3-a825-d25522d0df8c}",
                 "name": "trigger_time"
+            },
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "d091bb5c22ae9ef6",
+                    "subFilters": [
+                        {
+                            "filterString": "11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{ef427e89-804d-4cae-a7c1-c6ab54f10f49}",
+                "id": "{578bb69a-4545-453f-94a7-7eb886f73328}",
+                "moduleId": "{3712e294-69be-42e3-a825-d25522d0df8c}",
+                "name": "event_counter/ts"
             }
         ]
     }

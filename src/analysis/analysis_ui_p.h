@@ -122,9 +122,10 @@ class AddEditSourceWidget: public QDialog
         QLineEdit *le_unit = nullptr;
         QDoubleSpinBox *spin_unitMin = nullptr;
         QDoubleSpinBox *spin_unitMax = nullptr;
-        QComboBox *m_templateCombo = nullptr;
+
         QVector<std::shared_ptr<Extractor>> m_defaultExtractors;
 
+        void runLoadTemplateDialog();
         void applyTemplate(int index);
 };
 
@@ -255,7 +256,7 @@ QVector<std::shared_ptr<Extractor>> get_default_data_extractors(const QString &m
 
 /* Specialized tree for the EventWidget.
  *
- * The declaration is here because of MOC, the implementation ins in
+ * The declaration is here because of MOC, the implementation is in
  * analysis_ui.cc because of locally defined types.
  */
 class EventWidgetTree: public QTreeWidget

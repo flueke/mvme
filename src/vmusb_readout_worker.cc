@@ -17,14 +17,16 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "vmusb_readout_worker.h"
-#include "vmusb_buffer_processor.h"
-#include "vmusb.h"
-#include "CVMUSBReadoutList.h"
+
+#include <functional>
+#include <memory>
 #include <QCoreApplication>
 #include <QElapsedTimer>
 #include <QThread>
-#include <memory>
-#include <functional>
+
+#include "CVMUSBReadoutList.h"
+#include "vmusb_buffer_processor.h"
+#include "vmusb.h"
 
 using namespace vmusb_constants;
 using namespace vme_script;
@@ -155,13 +157,34 @@ void VMUSBReadoutWorker::start(quint32 cycles)
     auto daqConfig = m_context->getVMEConfig();
     VMEError error;
 
+    // Decide whether to log buffer contents.
     m_bufferProcessor->setLogBuffers(cycles == 1);
 
     try
     {
-        logMessage(QSL("VMUSB readout starting"));
+        logMessage(QString(QSL("VMUSB readout starting on %1"))
+                   .arg(QDateTime::currentDateTime().toString())
+                   );
 
-        validate_vme_config(daqConfig);
+        validate_vme_config(daqConfig); // throws on error
+
+        //
+        // Read and log firmware version
+        //
+        {
+            u32 fwReg;
+            error = vmusb->readRegister(FIDRegister, &fwReg);
+            if (error.isError())
+                throw QString("Error reading VMUSB firmware version: %1").arg(error.toString());
+
+            u32 fwMajor = (fwReg & 0xFFFF);
+            u32 fwMinor = ((fwReg >> 16) &  0xFFFF);
+
+            logMessage(QString(QSL("VMUSB Firmware Version %1_%2\n"))
+                       .arg(fwMajor, 4, 16, QLatin1Char('0'))
+                       .arg(fwMinor, 4, 16, QLatin1Char('0'))
+                      );
+        }
 
         //
         // Reset IRQs
@@ -298,6 +321,7 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         auto startScripts = daqConfig->vmeScriptLists["daq_start"];
         if (!startScripts.isEmpty())
         {
+            logMessage(QSL(""));
             logMessage(QSL("Global DAQ Start scripts:"));
             for (auto script: startScripts)
             {
@@ -307,7 +331,8 @@ void VMUSBReadoutWorker::start(quint32 cycles)
             }
         }
 
-        logMessage(QSL("\nInitializing Modules:"));
+        logMessage(QSL(""));
+        logMessage(QSL("Initializing Modules:"));
         for (auto event: daqConfig->eventConfigs)
         {
             for (auto module: event->modules)
@@ -356,7 +381,6 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         readoutLoop();
 
         stats.stop();
-        logMessage(QSL(""));
         logMessage(QSL("Leaving readout loop"));
         logMessage(QSL(""));
 
@@ -384,6 +408,10 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         }
 
         m_bufferProcessor->endRun();
+
+        logMessage(QString(QSL("VMUSB readout stopped on %1"))
+                   .arg(QDateTime::currentDateTime().toString())
+                   );
     }
     catch (const char *message)
     {
@@ -447,7 +475,7 @@ void VMUSBReadoutWorker::resume()
 }
 
 static const int leaveDaqReadTimeout_ms = 500;
-static const int daqReadTimeout_ms = 500; // This should be higher than the watchdog timeout which is 250ms.
+static const int daqReadTimeout_ms = 500; // This should be higher than the watchdog timeout which is set to 250ms.
 static const int daqModeHackTimeout_ms = leaveDaqReadTimeout_ms;
 
 /* According to Jan we need to wait at least one millisecond
@@ -495,6 +523,8 @@ void VMUSBReadoutWorker::readoutLoop()
 
     DAQStats &stats(m_context->getDAQStats());
     QTime logReadErrorTimer;
+    u64 nReadErrors = 0;
+    u64 nGoodReads = 0;
 
     while (true)
     {
@@ -524,6 +554,7 @@ void VMUSBReadoutWorker::readoutLoop()
         // stop
         else if (m_desiredState == DAQState::Stopping)
         {
+            logMessage(QSL("VMUSB readout stopping"));
             break;
         }
         // stay in running state
@@ -532,19 +563,20 @@ void VMUSBReadoutWorker::readoutLoop()
             auto readResult = readBuffer(daqReadTimeout_ms);
 
             /* XXX: Begin hack:
-             * A timeout here can mean that either there was an error when
-             * communicating with the vmusb or that no data is available. The
-             * second case can happen if the module sends no or very little
-             * data so that the internal buffer of the controller does not fill
-             * up fast enough. To avoid this case a smaller buffer size could
-             * be chosen but that will negatively impact performance for high
-             * data rates. Another method would be to use VMUSBs watchdog
-             * feature but that was never implemented despite what the
-             * documentation says.
+             * A timeout from readBuffer() here can mean that either there was
+             * an error when communicating with the vmusb or that no data is
+             * available. The second case can happen if the module sends no or
+             * very little data so that the internal buffer of the controller
+             * does not fill up fast enough. To avoid this case a smaller
+             * buffer size could be chosen but that will negatively impact
+             * performance for high data rates. Another method would be to use
+             * VMUSBs watchdog feature but that was never implemented despite
+             * what the documentation says.
              *
-             * The workaround: when getting a read timeout is to leave DAQ
-             * mode, which forces the controller to dump its buffer, and to
-             * then resume DAQ mode.
+             * The workaround when getting a read timeout is to leave DAQ mode,
+             * which forces the controller to dump its buffer, and to then
+             * resume DAQ mode.
+             *
              * If we still don't receive data after this there is a
              * communication error, otherwise the data rate was just too low to
              * fill the buffer and we continue on.
@@ -553,9 +585,9 @@ void VMUSBReadoutWorker::readoutLoop()
              * feature, different from the one in the documentation for version
              * 0A00. It does not use the USB Bulk Transfer Setup Register but
              * the Global Mode Register. The workaround here is left active to
-             * work with older firmware versions. As long as the
-             * daqReadTimeout_ms is higher than the watchdog timeout the
-             * watchdog will be activated if it is available. */
+             * work with older firmware versions. As long as daqReadTimeout_ms
+             * is higher than the watchdog timeout the watchdog will be
+             * activated if it is available. */
 #define USE_DAQMODE_HACK
 #ifdef USE_DAQMODE_HACK
             if (readResult.error.isTimeout() && readResult.bytesRead <= 0)
@@ -574,14 +606,23 @@ void VMUSBReadoutWorker::readoutLoop()
             }
 #endif
 
+            if (!readResult.error.isError())
+            {
+                ++nGoodReads;
+            }
+
             if (readResult.bytesRead <= 0)
             {
                 static const int LogReadErrorTimer_ms = 5000;
+                ++nReadErrors;
                 if (!logReadErrorTimer.isValid() || logReadErrorTimer.elapsed() >= LogReadErrorTimer_ms)
                 {
-                    logMessage(QString("VMUSB Warning: error from bulk read: %1, bytesReceived=%2")
+                    logMessage(QString("VMUSB Warning: error from bulk read: %1, bytesReceived=%2"
+                                       " (total #readErrors=%3, #goodReads=%4)")
                                .arg(readResult.error.toString())
                                .arg(readResult.bytesRead)
+                               .arg(nReadErrors)
+                               .arg(nGoodReads)
                                );
                     logReadErrorTimer.restart();
                 }

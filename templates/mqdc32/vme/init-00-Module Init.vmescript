@@ -1,1 +1,49 @@
-## Parameters
+# Parameters for MQDC-32
+0x6070 5  # set pulser 4= Ampl_0, 5=Ampl_mid, 0=off
+
+0x6044	145	#set bank0 offset Range 0 to 255 (0x00 to 0xFF)
+0x6046	145	#set bank1 offset (also works at joined banks)
+
+# Experiment trigger
+0x6054	1000	#exp_trig_delay0(1) 14 RW 0 delay of experiment gate relative to end of
+				#QDC-gate (ns). Up to 16384 ns (16 k)
+				#For bank0 or both at joined bank
+0x6056 	1000	#exp_trig_delay1, for bank 1 if not joined
+#0x606C 	2		#switches on experiment trigger on NIM input 1 (counted from bottom)
+
+#IO setting
+
+#0x6064 		#ECL_gate1_osc(ECL2)
+			#1 RW 0 0 ? gate1 input,
+			#1 ? oscillator input (also set 0x6096!!)
+#0x6066 		#ECL_FC_Reset(ECL1)
+			#2 RW 1 0 = Fast clear input (= "not Gate")
+			#1 = Reset time stamp counter
+			#2 = input for experiment trigger (1)
+#0x6068 		#Gate_select 1 RW 0 0 ? Gate 0 and 1 from NIM-inputs,
+			#1 ? Gate 0 and 1 from ECL-inputs
+#0x606A 		#NIM_gat1_osc (NIM2)
+			#2 RW 0 0 ? gate1 input,
+			#1 ? oscillator input (also set 0x6096!!)
+#0x606C 		#NIM_FC_Reset(NIM1)
+			#0 = Fast clear input (= "not Gate")
+			#1 = Reset time stamp counter
+			#2 = input for experiment trigger
+#0x606E 		#NIM_busy (NIM0) 4 RW 0 0? as busy
+				#(in independent bank operation:active when both banks are busy)
+			#3? as Cbus output
+			#4? buffer full
+			#8? data in buffer above threshold 0x6018
+			#9? events in buffer above threshold 0x601E(2)
+
+# IO Input termination and coupling
+#0x6060 		#input coupling 3 RW b000 bit[0] bank0: 0 ? AC, 1 ? DC
+			#bit[1] bank1: 0 ? AC, 1 ? DC
+			#bit[2] 0 = BLR on, 1 = BLR off (FW0114)
+#0x6062 		#ECL_term 5 RW b11000 switch ECL/LVDS terminators on (1= on)
+			#bit 0 for: "gate0",
+			#bit 1 for "gate1",
+			#bit 2 for "Res",
+			#bit 3 for bank 0 individual gate input termination,
+			#bit 4 for bank 1 individual gate input termination.
+			#Unconnected inputs will be in a well defined state by internal weak pull up resistors.

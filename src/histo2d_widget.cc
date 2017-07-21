@@ -30,17 +30,23 @@
 #include <qwt_plot_renderer.h>
 #include <qwt_plot_panner.h>
 #include <qwt_plot_magnifier.h>
+#include <qwt_plot_textlabel.h>
 #include <qwt_raster_data.h>
 #include <qwt_scale_engine.h>
 
 #include <QBoxLayout>
 #include <QComboBox>
 #include <QDebug>
+#include <QDir>
 #include <QFormLayout>
 #include <QStatusBar>
 #include <QStatusTipEvent>
 #include <QTimer>
 #include <QToolBar>
+
+#ifdef MVME_USE_GIT_VERSION_FILE
+#include "git_sha1.h"
+#endif
 
 static const s32 ReplotPeriod_ms = 1000;
 
@@ -163,6 +169,9 @@ struct Histo2DWidgetPrivate
             *m_actionInfo;
 
     QComboBox *m_zScaleCombo;
+
+    QwtText *m_waterMarkText;
+    QwtPlotTextLabel *m_waterMarkLabel;
 
     void onActionChangeResolution()
     {
@@ -364,6 +373,28 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
     connect(m_zoomer, &ScrollZoomer::zoomed, this, &Histo2DWidget::zoomerZoomed);
     connect(m_zoomer, &ScrollZoomer::mouseCursorMovedTo, this, &Histo2DWidget::mouseCursorMovedToPlotCoord);
     connect(m_zoomer, &ScrollZoomer::mouseCursorLeftPlot, this, &Histo2DWidget::mouseCursorLeftPlot);
+
+    //
+    // Watermark text when exporting
+    //
+    {
+        m_d->m_waterMarkText = new QwtText;
+        m_d->m_waterMarkText->setRenderFlags(Qt::AlignRight | Qt::AlignBottom);
+        m_d->m_waterMarkText->setColor(QColor(0x66, 0x66, 0x66, 0x40));
+
+        QFont font;
+        font.setPixelSize(16);
+        font.setBold(true);
+        m_d->m_waterMarkText->setFont(font);
+
+        m_d->m_waterMarkText->setText(QString("mvme-%1").arg(GIT_VERSION_TAG));
+
+        m_d->m_waterMarkLabel = new QwtPlotTextLabel;
+        m_d->m_waterMarkLabel->setMargin(10);
+        m_d->m_waterMarkLabel->setText(*m_d->m_waterMarkText);
+        m_d->m_waterMarkLabel->attach(m_d->m_plot);
+        m_d->m_waterMarkLabel->hide();
+    }
 
     // Info widgets
     m_d->m_labelCursorInfo = new QLabel;
@@ -578,10 +609,16 @@ void Histo2DWidget::exportPlot()
     fileName.replace("\\", "_");
     fileName += QSL(".pdf");
 
+    if (m_context)
+    {
+        fileName = QDir(m_context->getWorkspacePath(QSL("PlotsDirectory"))).filePath(fileName);
+    }
+
     m_d->m_plot->setTitle(m_histo->getTitle());
     QwtText footerText(m_histo->getFooter());
     footerText.setRenderFlags(Qt::AlignLeft);
     m_d->m_plot->setFooter(footerText);
+    m_d->m_waterMarkLabel->show();
 
     QwtPlotRenderer renderer;
     renderer.setDiscardFlags(QwtPlotRenderer::DiscardBackground | QwtPlotRenderer::DiscardCanvasBackground);
@@ -590,6 +627,7 @@ void Histo2DWidget::exportPlot()
 
     m_d->m_plot->setTitle(QString());
     m_d->m_plot->setFooter(QString());
+    m_d->m_waterMarkLabel->hide();
 }
 
 bool Histo2DWidget::zAxisIsLog() const

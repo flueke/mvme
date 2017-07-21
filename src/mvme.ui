@@ -281,7 +281,7 @@
   </action>
   <action name="actionVMUSB_Firmware_Update">
    <property name="text">
-    <string>VMUSB Firmware Update</string>
+    <string>VM-USB Firmware Update</string>
    </property>
   </action>
   <action name="actionTemplate_Info">

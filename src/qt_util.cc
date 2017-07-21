@@ -192,3 +192,15 @@ void show_and_activate(QWidget *widget)
     widget->activateWindow();
     widget->setWindowState(Qt::WindowActive);
 }
+
+QString get_bitness_string()
+{
+#ifdef Q_PROCESSOR_X86_64
+    return QSL("64-bit");
+#elif defined Q_PROCESSOR_X86_32
+    return QSL("32-bit");
+#else
+#warning "Unknown processor bitness."
+    return QString();
+#endif
+}

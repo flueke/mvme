@@ -32,6 +32,7 @@
 #include <QGroupBox>
 #include <QHeaderView>
 #include <QLabel>
+#include <QListWidget>
 #include <QMessageBox>
 #include <QRadioButton>
 
@@ -126,7 +127,7 @@ AddEditSourceWidget::AddEditSourceWidget(SourcePtr srcPtr, ModuleConfig *mod, Ev
         calibInfoFrame->setEnabled(checked);
     });
 
-    m_optionsLayout->addRow(m_gbGenHistograms);
+    m_optionsLayout->insertRow(m_optionsLayout->rowCount() - 1, m_gbGenHistograms);
 
     // Load data from the first template into the gui
     applyTemplate(0);
@@ -146,23 +147,13 @@ AddEditSourceWidget::AddEditSourceWidget(SourceInterface *src, ModuleConfig *mod
 
     m_defaultExtractors = get_default_data_extractors(module->getModuleMeta().typeName);
 
-    // Read filter templates for the given module
-    m_templateCombo = new QComboBox;
-    for (auto &ex: m_defaultExtractors)
-    {
-        m_templateCombo->addItem(ex->objectName());
-    }
+    auto loadTemplateButton = new QPushButton(QIcon(QSL(":/document_import.png")), QSL("Load Filter Template"));
+    auto loadTemplateLayout = new QHBoxLayout;
+    loadTemplateLayout->setContentsMargins(0, 0, 0, 0);
+    loadTemplateLayout->addWidget(loadTemplateButton);
+    loadTemplateLayout->addStretch();
 
-    auto applyTemplateButton = new QPushButton(QSL("Load Template"));
-    applyTemplateButton->setAutoDefault(false);
-    applyTemplateButton->setDefault(false);
-    auto templateSelectLayout = new QHBoxLayout;
-    templateSelectLayout->setContentsMargins(0, 0, 0, 0);
-    templateSelectLayout->addWidget(m_templateCombo);
-    templateSelectLayout->addWidget(applyTemplateButton);
-    templateSelectLayout->setStretch(0, 1);
-
-    connect(applyTemplateButton, &QPushButton::clicked, this, [this]() { applyTemplate(m_templateCombo->currentIndex()); });
+    connect(loadTemplateButton, &QPushButton::clicked, this, &AddEditSourceWidget::runLoadTemplateDialog);
 
     auto extractor = qobject_cast<Extractor *>(src);
     Q_ASSERT(extractor);
@@ -188,6 +179,11 @@ AddEditSourceWidget::AddEditSourceWidget(SourceInterface *src, ModuleConfig *mod
     m_optionsLayout->addRow(QSL("Name"), le_name);
     m_optionsLayout->addRow(QSL("Required Completion Count"), m_spinCompletionCount);
 
+    if (m_defaultExtractors.size())
+    {
+        m_optionsLayout->addRow(loadTemplateLayout);
+    }
+
     m_buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
     m_buttonBox->button(QDialogButtonBox::Ok)->setDefault(true);
     connect(m_buttonBox, &QDialogButtonBox::accepted, this, &AddEditSourceWidget::accept);
@@ -196,17 +192,49 @@ AddEditSourceWidget::AddEditSourceWidget(SourceInterface *src, ModuleConfig *mod
     buttonBoxLayout->addStretch();
     buttonBoxLayout->addWidget(m_buttonBox);
 
-    auto layout = new QFormLayout(this);
+    auto layout = new QVBoxLayout(this);
 
-    if (m_defaultExtractors.size())
-    {
-        layout->addRow(QSL("Filter template"), templateSelectLayout);
-    }
-    layout->addRow(m_filterEditor);
-    layout->addRow(m_optionsLayout);
-    layout->addRow(buttonBoxLayout);
+    layout->addWidget(m_filterEditor);
+    layout->addLayout(m_optionsLayout);
+    layout->addLayout(buttonBoxLayout);
+
+    layout->setStretch(0, 1);
 }
 
+void AddEditSourceWidget::runLoadTemplateDialog()
+{
+    auto templateList = new QListWidget;
+
+    for (auto &ex: m_defaultExtractors)
+    {
+        templateList->addItem(ex->objectName());
+    }
+
+    QDialog dialog(this);
+    dialog.setWindowTitle(QSL("Load Extraction Filter Template"));
+    auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+    bb->button(QDialogButtonBox::Ok)->setDefault(true);
+    bb->button(QDialogButtonBox::Ok)->setText(QSL("Load"));
+    connect(bb, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    connect(bb, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+
+    connect(templateList, &QListWidget::itemDoubleClicked, &dialog, &QDialog::accept);
+
+    auto layout = new QVBoxLayout(&dialog);
+    layout->addWidget(templateList);
+    layout->addWidget(bb);
+
+    if (dialog.exec() == QDialog::Accepted)
+    {
+        applyTemplate(templateList->currentRow());
+    }
+}
+
+/** Loads the template with the given \c index into the GUI.
+ *
+ * The index is an index into a vector of Extractor instances obtained from
+ * get_default_data_extractors() cached in m_defaultExtractors.
+ */
 void AddEditSourceWidget::applyTemplate(int index)
 {
     if (0 <= index && index < m_defaultExtractors.size())
@@ -333,7 +361,9 @@ AddEditOperatorWidget::AddEditOperatorWidget(OperatorInterface *op, s32 userLeve
         connect(m_removeSlotButton, &QPushButton::clicked, this, [this] () {
             if (m_op->getNumberOfSlots() > 1)
             {
+                AnalysisPauser pauser(m_eventWidget->getContext());
                 m_op->removeLastSlot();
+                do_beginRun_forward(m_op);
                 repopulateSlotGrid();
                 inputSelected(-1);
             }
@@ -712,6 +742,8 @@ void repopulate_arrayMap_tables(ArrayMap *arrayMap, const ArrayMappings &mapping
         item->setData(SlotIndexRole, slotIndex);
         item->setData(ParamIndexRole, paramIndex);
 
+        item->setFlags(item->flags() & ~Qt::ItemIsEditable);
+
         return item;
     };
 
@@ -927,6 +959,17 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
         cb_keepValid->setChecked(previous->m_keepValid);
 
         formLayout->addRow(cb_keepValid);
+
+        auto label = new QLabel(QSL(
+                "If <i>Keep valid parameters</i> is checked the previous valid "
+                "input values will be copied to the output.<br/>"
+                "<br>"
+                "Otherwise the input from the previous event will be "
+                "copied, including invalids."
+                ));
+        label->setWordWrap(true);
+
+        formLayout->addRow(label);
     }
     else if (auto sum = qobject_cast<Sum *>(op))
     {
@@ -1500,6 +1543,22 @@ void OperatorConfigurationWidget::configureOperator()
     }
     else if (auto arrayMap = qobject_cast<ArrayMap *>(op))
     {
+        /* Remove mappings that got invalidated due to removing slots from the
+         * ArrayMap, then copy the mappings over. */
+        s32 nSlots = arrayMap->getNumberOfSlots();
+
+        qDebug() << __PRETTY_FUNCTION__ << "local mappings before erase" << m_arrayMappings.size();
+
+        m_arrayMappings.erase(
+            std::remove_if(m_arrayMappings.begin(), m_arrayMappings.end(), [nSlots](const ArrayMap::IndexPair &ip) {
+                bool result = ip.slotIndex >= nSlots;
+                qDebug() << __PRETTY_FUNCTION__ << "nSlots =" << nSlots << "ip.slotIndex =" << ip.slotIndex << "result =" << result;
+                return result;
+            }),
+            m_arrayMappings.end());
+
+        qDebug() << __PRETTY_FUNCTION__ << "local mappings after erase" << m_arrayMappings.size();
+
         arrayMap->m_mappings = m_arrayMappings;
     }
     else if (auto rangeFilter = qobject_cast<RangeFilter1D *>(op))

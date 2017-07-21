@@ -99,6 +99,10 @@ struct ChangeInfo
 
 static void rewrite_module(Analysis *analysis, const QUuid &fromModuleId, const QUuid &toModuleId, const QUuid &toEventId)
 {
+    qDebug() << "rewrite_module: fromModuleId =" << fromModuleId
+        << ", toModuleId =" << toModuleId
+        << ", toEventId =" << toEventId;
+
     QUuid fromEventId;
 
     auto &sources(analysis->getSources());
@@ -204,6 +208,15 @@ static void discard_module(Analysis *analysis, const QUuid &moduleId)
     }
 }
 
+static QString to_string(const ModuleInfo &info)
+{
+    return QString("(%1, %2, %3)")
+        .arg(info.id.toString())
+        .arg(info.typeName)
+        .arg(info.name)
+        ;
+}
+
 static void apply_changes(Analysis *analysis, const QVector<ChangeInfo> &changes)
 {
     for (auto ci: changes)
@@ -211,24 +224,28 @@ static void apply_changes(Analysis *analysis, const QVector<ChangeInfo> &changes
         switch (ci.action)
         {
             case ChangeInfo::Rewrite:
-                rewrite_module(analysis, ci.fromModuleId, ci.toModuleId, ci.toEventId);
-                break;
+                {
+                    rewrite_module(analysis, ci.fromModuleId, ci.toModuleId, ci.toEventId);
+                } break;
 
             case ChangeInfo::Discard:
-                discard_module(analysis, ci.fromModuleId);
-                break;
+                {
+                    discard_module(analysis, ci.fromModuleId);
+                } break;
         }
     }
 }
 
-bool auto_assign_vme_modules(VMEConfig *vmeConfig, analysis::Analysis *analysis)
+bool auto_assign_vme_modules(VMEConfig *vmeConfig, analysis::Analysis *analysis, LoggerFun logger)
 {
     auto vModInfos = get_module_infos(vmeConfig);
-    return auto_assign_vme_modules(vModInfos, analysis);
+    return auto_assign_vme_modules(vModInfos, analysis, logger);
 }
 
-bool auto_assign_vme_modules(QVector<ModuleInfo> vModInfos, analysis::Analysis *analysis)
+bool auto_assign_vme_modules(QVector<ModuleInfo> vModInfos, analysis::Analysis *analysis, LoggerFun logger)
 {
+    auto do_log = [logger] (const QString &msg) { if (logger) logger(msg); };
+
     auto aModInfos = get_module_infos(analysis);
 
     QSet<QUuid> vModIds;
@@ -246,7 +263,10 @@ bool auto_assign_vme_modules(QVector<ModuleInfo> vModInfos, analysis::Analysis *
     aModIds.subtract(vModIds);
 
     if (aModIds.isEmpty()) // True if all analysis modules exist in the vme config
+    {
+        qDebug() << "auto_assign: all modules match";
         return true;
+    }
 
     QVector<ChangeInfo> moduleChangeInfos;
 
@@ -277,12 +297,17 @@ bool auto_assign_vme_modules(QVector<ModuleInfo> vModInfos, analysis::Analysis *
             info.toEventId      = targetModInfo.eventId;
             moduleChangeInfos.push_back(info);
 
+            qDebug() << __PRETTY_FUNCTION__ << "pushing rewrite:"
+                << to_string(modInfo) << "->" << to_string(targetModInfo);
         }
     }
 
     // Not all modules can be auto assigned
     if (moduleChangeInfos.size() != aModIds.size())
+    {
+        qDebug() << "auto_assign: could not auto-assign all modules";
         return false;
+    }
 
     apply_changes(analysis, moduleChangeInfos);
 
@@ -422,6 +447,7 @@ bool run_vme_analysis_module_assignment_ui(QVector<ModuleInfo> vModInfos, analys
 
     mainTable->resizeColumnsToContents();
     mainTable->resizeRowsToContents();
+    mainTable->setMinimumHeight(175);
 
     QObject::connect(mainTable, &QTableWidget::cellPressed, [&radioGroups](int row, int col) {
         // Check buttons if the user clicks anywhere in the cell. Without this
@@ -452,14 +478,25 @@ bool run_vme_analysis_module_assignment_ui(QVector<ModuleInfo> vModInfos, analys
         anaLabel->setFont(font);
     }
 
+    static const auto explanation = QSL(
+        "<ul>"
+        "<li>Columns show possible destination modules present in the current VME configuration.</li>"
+        "<li>Rows contain modules from the source analysis.</li>"
+        "<li>Use the discard column to exclude a source module from the resulting analysis.</li>"
+        "</ul>"
+        );
+
+    auto explanationLabel = new QLabel(explanation);
+
     auto mainLayout = new QGridLayout;
     mainLayout->setContentsMargins(0, 0, 0, 0);
     mainLayout->addWidget(vmeLabel, 0, 1, Qt::AlignCenter);
     mainLayout->addWidget(anaLabel, 1, 0, Qt::AlignCenter);
     mainLayout->addWidget(mainTable, 1, 1);
+    mainLayout->addWidget(explanationLabel, 2, 0, 1, 2);
 
     QDialog dialog;
-    dialog.setWindowTitle("Analysis to VME Module assignment");
+    dialog.setWindowTitle("Analysis to VME module assignment");
     add_widget_close_action(&dialog);
 
     auto buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);

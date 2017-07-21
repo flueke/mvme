@@ -1,12 +1,11 @@
-==================================================
-Quickstart Tutorial
-==================================================
+##################################################
+Quickstart Guide
+##################################################
 
-The quickstart guide explains how to create a simple setup using the **VM-USB**
-VME controller and one **mesytec** VME module. The internal pulser is used to
-generate test data. Data acquisition is triggered by the module using IRQ1.
-
-.. TODO: Add a second, periodic event to read out the event counter
+The quickstart guide explains how to create a simple setup using the WIENER
+VM-USB VME controller and one mesytec VME module. The modules internal pulser
+is used to generate test data. Data readout is triggered by the module using
+IRQ1.
 
 .. note::
   In this example an MDPP-16 with the SCP firmware is used but any **mesytec**
@@ -20,17 +19,28 @@ generate test data. Data acquisition is triggered by the module using IRQ1.
 
 * Three windows will open:
 
-  * A main window containing DAQ and listfile controls, the VME configuration
-    tree and a DAQ statistics area.
+  * A main window containing DAQ controls, the VME configuration tree and a
+    statistics area.
 
   * The analysis window. As there are no VME events and modules defined yet the
     window will be empty.
 
   * A log view where runtime messages will appear.
 
+.. autofigure:: images/quickstart_gui_overview.png
+    :scale-latex: 75%
+
+    GUI overview
+
+If a VM-USB VME controller is connected to the PC and powered on mvme should
+automatically find and use it. *VME Controller* in the DAQ Control area should
+show up as *Connected*. Also the VM-USB firmware version will be printed to the
+Log View.
+
+==================================================
 VME Setup
----------
-* Select the mvme main window.
+==================================================
+* Select the mvme main window containing the *VME Config* area.
 
 * Create a VME event:
 
@@ -38,6 +48,11 @@ VME Setup
 
   * Select *Interrupt* in the *Condition* combobox. Keep the defaults of *IRQ
     Level = 1* and *IRQ Vector = 0*.
+
+.. autofigure:: images/quickstart_event_config.png
+   :scale-latex: 60%
+
+   Event Config Dialog
 
 * Create a VME module:
 
@@ -48,12 +63,17 @@ VME Setup
     address encoders adjust the *Address* value accordingly (the address
     encoders modify the 4 most significant hex digits).
 
+.. autofigure:: images/quickstart_module_config.png
+   :scale-latex: 60%
+
+   Module Config Dialog
+
 The VME GUI should now look like shown in :ref:`quickstart-vme-tree01`.
 
 .. _quickstart-vme-tree01:
 
-.. figure:: images/intro_vme_tree01.png
-   :width: 8cm
+.. autofigure:: images/intro_vme_tree01.png
+   :scale-latex: 60%
 
    VME Config Tree
 
@@ -62,6 +82,9 @@ The VME GUI should now look like shown in :ref:`quickstart-vme-tree01`.
   the modules internal pulser:
 
   ``0x6070 3``
+
+  This line tells mvme to write the value ``3`` to register address ``0x6070``.
+  The address is relative to the module base address.
 
 * Click the *Apply* button on the editors toolbar to commit your changes to the
   VME configuration. Close the editor window.
@@ -75,8 +98,14 @@ The VME GUI should now look like shown in :ref:`quickstart-vme-tree01`.
   buffer. The other parameters can be left at their default values. Click
   *Apply* and close the editor window.
 
+.. autofigure:: images/quickstart_edit_vme_interface_settings.png
+   :scale-latex: 60%
+
+   VME Interface Settings with IRQ Level set to 1
+
+==================================================
 Analysis Setup
---------------
+==================================================
 * Activate the *Analysis UI* window (the shortcut is ``Ctrl+2``). The event
   containing the module just created should be visible in the UI.
 
@@ -92,18 +121,24 @@ Analysis Setup
    Analysis UI with MDPP-16 default objects
 
 
+==================================================
 Starting the DAQ
-----------------
+==================================================
 Activate the main window again (``Ctrl+1``). Make sure the *VME Controller* is
-shown as *Connected* in the top part of the window. Optionally uncheck the box
-titled *Write Listfile* to avoid writing the test data to disk.
+shown as *Connected* in the top part of the window.
 
 .. _quickstart-daq-control:
 
-.. figure:: images/intro_daq_control.png
-   :width: 8cm
+.. autofigure:: images/intro_daq_control.png
 
    DAQ control
+
+Optionally uncheck the box titled *Write Listfile* to avoid writing the test
+data to disk. If the option is set the raw data will be written to a *.mvmelst*
+file inside the *listfile* subdirectory of the workspace. For each run a new
+filename based on the current timestamp is generated. If writing a ZIP archive
+both the current analysis and the text log file produced during the run will be
+added to the resulting archive.
 
 Press the *Start* button to start the DAQ. Check the *Log View* (``Ctrl+3``)
 for warnings and errors.
@@ -125,9 +160,26 @@ the individual channels.
 You can pause and/or stop the DAQ at any time using the corresponding buttons
 at the top of the main window.
 
-Troubleshooting
----------------
-.. warning::
-    TODO: Refer to a global troubleshooting section
+==================================================
+Event Counter readout
+==================================================
+
+.. TODO: Expand on this. Explain some more
+
+
+Optionally a second event used to read out the modules event counter registers
+can be created. This event will be triggered periodically by the VME controller.
+
+* Right-click *Events*, choose *Add Event*
+* Set *Condition* to *Periodic* and the period to ``1.0s``
+* Right-click the newly created event, choose *Add Module*
+* Select *MesytecCounter* as the module type
+* Enter the same address as used for the MDPP-16 above
+
+.. ==================================================
+.. Troubleshooting
+.. ==================================================
+..
+.. TODO: Refer to a global troubleshooting section
 
 .. vim:ft=rst

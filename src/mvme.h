@@ -22,6 +22,8 @@
 #include <QMainWindow>
 #include <QMap>
 
+#include "libmvme_export.h"
+
 class ConfigObject;
 class VMEConfig;
 class VMEConfigTreeWidget;
@@ -55,7 +57,7 @@ namespace Ui {
 class mvme;
 }
 
-class mvme : public QMainWindow
+class LIBMVME_EXPORT mvme : public QMainWindow
 {
     Q_OBJECT
 

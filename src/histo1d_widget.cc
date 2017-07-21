@@ -52,6 +52,10 @@
 #include <QTimer>
 #include <QToolBar>
 
+#ifdef MVME_USE_GIT_VERSION_FILE
+#include "git_sha1.h"
+#endif
+
 static const s32 ReplotPeriod_ms = 1000;
 
 class Histo1DPointData: public QwtSeriesData<QPointF>
@@ -108,7 +112,7 @@ static inline double squared(double x)
  */
 class Histo1DGaussCurveData: public QwtSyntheticPointData
 {
-    static const size_t NumberOfPoints = 1000;
+    static const size_t NumberOfPoints = 500;
 
     public:
         Histo1DGaussCurveData(Histo1D *histo)
@@ -166,11 +170,39 @@ struct RateEstimationData
     bool visible = false;
     double x1 = make_quiet_nan();
     double x2 = make_quiet_nan();
+};
 
+static const double E1 = std::exp(1.0);
+
+class RateEstimationCurveData: public QwtSyntheticPointData
+{
+    static const size_t NumberOfPoints = 500;
+
+    public:
+    RateEstimationCurveData(Histo1D *histo, RateEstimationData *data)
+        : QwtSyntheticPointData(NumberOfPoints)
+        , m_histo(histo)
+        , m_data(data)
+    {}
+
+        virtual double y(double x) const override
+        {
+            double x1 = m_data->x1;
+            double x2 = m_data->x2;
+            double y1 = m_histo->getValue(x1);
+            double y2 = m_histo->getValue(x2);
+            double tau = (x2 - x1) / log(y1 / y2);
+
+            return y1 * (pow(E1, -x/tau) / pow(E1, -x1/tau));
+        }
+
+    private:
+        Histo1D *m_histo;
+        RateEstimationData *m_data;
 };
 
 static const double PlotTextLayerZ  = 1000.0;
-static const double PlotGaussLayerZ = 1001.0;
+static const double PlotAdditionalCurvesLayerZ = 1010.0;
 
 struct Histo1DWidgetPrivate
 {
@@ -201,6 +233,10 @@ struct Histo1DWidgetPrivate
     QwtPlotMarker *m_rateFormulaMarker;
 
     QwtPlotCurve *m_gaussCurve = nullptr;
+    QwtPlotCurve *m_rateEstimationCurve = nullptr;
+
+    QwtText *m_waterMarkText;
+    QwtPlotTextLabel *m_waterMarkLabel;
 
     QComboBox *m_yScaleCombo;
 
@@ -235,6 +271,11 @@ struct Histo1DWidgetPrivate
         {
             if (m_q->m_sink->m_bins != combo_xBins->currentData().toInt())
             {
+                /* Note: In the case of the Histo1DSink it's ok to modify
+                 * m_bins without pausing the analysis first. If the
+                 * implementation was different or another operator was to be
+                 * modified the analysis might need to be paused before the
+                 * operator is touched. */
                 m_q->m_sink->m_bins = combo_xBins->currentData().toInt();
                 m_q->m_context->analysisOperatorEdited(m_q->m_sink);
             }
@@ -370,6 +411,7 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
 
     // Setup the plot
     m_d->m_plot = new QwtPlot;
+
     m_plotCurve->setStyle(QwtPlotCurve::Steps);
     m_plotCurve->setCurveAttribute(QwtPlotCurve::Inverted);
     m_plotCurve->attach(m_d->m_plot);
@@ -385,20 +427,23 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
 
     m_zoomer->setVScrollBarMode(Qt::ScrollBarAlwaysOff);
     m_zoomer->setZoomBase();
-    qDebug() << "zoomRectIndex()" << m_zoomer->zoomRectIndex();
 
-    connect(m_zoomer, &ScrollZoomer::zoomed, this, &Histo1DWidget::zoomerZoomed);
-    connect(m_zoomer, &ScrollZoomer::mouseCursorMovedTo, this, &Histo1DWidget::mouseCursorMovedToPlotCoord);
-    connect(m_zoomer, &ScrollZoomer::mouseCursorLeftPlot, this, &Histo1DWidget::mouseCursorLeftPlot);
+    TRY_ASSERT(connect(m_zoomer, SIGNAL(zoomed(const QRectF &)),
+                       this, SLOT(zoomerZoomed(const QRectF &))));
 
-    connect(m_histo, &Histo1D::axisBinningChanged, this, [this] (Qt::Axis) {
+    TRY_ASSERT(connect(m_zoomer, &ScrollZoomer::mouseCursorMovedTo,
+                       this, &Histo1DWidget::mouseCursorMovedToPlotCoord));
+    TRY_ASSERT(connect(m_zoomer, &ScrollZoomer::mouseCursorLeftPlot,
+                       this, &Histo1DWidget::mouseCursorLeftPlot));
+
+    TRY_ASSERT(connect(m_histo, &Histo1D::axisBinningChanged, this, [this] (Qt::Axis) {
         // Handle axis changes by zooming out fully. This will make sure
         // possible axis scale changes are immediately visible and the zoomer
         // is in a clean state.
         m_zoomer->setZoomStack(QStack<QRectF>(), -1);
         m_zoomer->zoom(0);
         replot();
-    });
+    }));
 
     //
     // Stats text
@@ -427,7 +472,7 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     //m_statsTextItem->setRenderHint(QwtPlotItem::RenderAntialiased);
     /* Margin added to contentsMargins() of the canvas. This is (mis)used to
      * not clip the top scrollbar. */
-    m_statsTextItem->setMargin(15);
+    m_statsTextItem->setMargin(25);
     m_statsTextItem->setText(*m_statsText);
     m_statsTextItem->attach(m_d->m_plot);
 
@@ -441,8 +486,14 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     m_d->m_calibUi.applyButton = new QPushButton(QSL("Apply"));
     m_d->m_calibUi.fillMaxButton = new QPushButton(QSL("Vis. Max"));
     m_d->m_calibUi.fillMaxButton->setToolTip(QSL("Fill the last focused actual value with the visible maximum histogram value"));
+
+    /* FIXME: disabled due to Calibration not storing "global values" anymore
+     * and thus resetting will reset to the input parameters (lowerLimit,
+     * upperLimit[ interval. */
+#if 0
     m_d->m_calibUi.resetToFilterButton = new QPushButton(QSL("Restore"));
     m_d->m_calibUi.resetToFilterButton->setToolTip(QSL("Restore base unit values from source calibration"));
+#endif
     m_d->m_calibUi.closeButton = new QPushButton(QSL("Close"));
 
     m_d->m_calibUi.lastFocusedActual = m_d->m_calibUi.actual2;
@@ -451,7 +502,7 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
 
     connect(m_d->m_calibUi.applyButton, &QPushButton::clicked, this, &Histo1DWidget::calibApply);
     connect(m_d->m_calibUi.fillMaxButton, &QPushButton::clicked, this, &Histo1DWidget::calibFillMax);
-    connect(m_d->m_calibUi.resetToFilterButton, &QPushButton::clicked, this, &Histo1DWidget::calibResetToFilter);
+    //connect(m_d->m_calibUi.resetToFilterButton, &QPushButton::clicked, this, &Histo1DWidget::calibResetToFilter);
     connect(m_d->m_calibUi.closeButton, &QPushButton::clicked, this, [this]() { m_d->m_calibUi.window->reject(); });
 
     QVector<QDoubleSpinBox *> spins = { m_d->m_calibUi.actual1, m_d->m_calibUi.actual2, m_d->m_calibUi.target1, m_d->m_calibUi.target2 };
@@ -466,6 +517,7 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     }
 
     m_d->m_calibUi.window = new QDialog(this);
+    m_d->m_calibUi.window->setWindowTitle(QSL("Adjust Calibration"));
     connect(m_d->m_calibUi.window, &QDialog::rejected, this, [this]() {
         m_d->m_actionCalibUi->setChecked(false);
     });
@@ -492,7 +544,7 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     calibLayout->addWidget(m_d->m_calibUi.fillMaxButton, 3, 0, 1, 1);
     calibLayout->addWidget(m_d->m_calibUi.applyButton, 3, 1, 1, 1);
 
-    calibLayout->addWidget(m_d->m_calibUi.resetToFilterButton, 4, 0, 1, 1);
+    //calibLayout->addWidget(m_d->m_calibUi.resetToFilterButton, 4, 0, 1, 1);
     calibLayout->addWidget(m_d->m_calibUi.closeButton, 4, 1, 1, 1);
 
     //
@@ -531,52 +583,57 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     m_d->m_ratePointPicker->setStateMachine(new AutoBeginClickPointMachine);
     m_d->m_ratePointPicker->setEnabled(false);
 
-    connect(m_d->m_ratePointPicker, static_cast<void (QwtPlotPicker::*)(const QPointF &)>(&QwtPlotPicker::selected), [this](const QPointF &pos) {
+    TRY_ASSERT(connect(m_d->m_ratePointPicker, SIGNAL(selected(const QPointF &)),
+                       this, SLOT(on_ratePointerPicker_selected(const QPointF &))));
 
-        if (std::isnan(m_d->m_rateEstimationData.x1))
-        {
-            m_d->m_rateEstimationData.x1 = pos.x();
+    auto make_plot_curve = [](QColor penColor, double penWidth, double zLayer, QwtPlot *plot = nullptr, bool hide = true)
+    {
+        auto result = new QwtPlotCurve;
 
-            m_d->m_rateX1Marker->setXValue(m_d->m_rateEstimationData.x1);
-            m_d->m_rateX1Marker->setLabel(QString("    x1=%1").arg(m_d->m_rateEstimationData.x1));
-            m_d->m_rateX1Marker->show();
-        }
-        else if (std::isnan(m_d->m_rateEstimationData.x2))
-        {
-            m_d->m_rateEstimationData.x2 = pos.x();
+        result->setZ(zLayer);
+        result->setPen(penColor, penWidth);
+        result->setRenderHint(QwtPlotItem::RenderAntialiased, true);
 
-            if (m_d->m_rateEstimationData.x1 > m_d->m_rateEstimationData.x2)
-            {
-                std::swap(m_d->m_rateEstimationData.x1, m_d->m_rateEstimationData.x2);
-            }
+        if (plot)
+            result->attach(plot);
 
-            m_d->m_rateEstimationData.visible = true;
-            m_d->m_ratePointPicker->setEnabled(false);
-            m_zoomer->setEnabled(true);
+        if (hide)
+            result->hide();
 
-            // set both x1 and x2 as they might have been swapped above
-            m_d->m_rateX1Marker->setXValue(m_d->m_rateEstimationData.x1);
-            m_d->m_rateX1Marker->setLabel(QString("    x1=%1").arg(m_d->m_rateEstimationData.x1));
-            m_d->m_rateX2Marker->setXValue(m_d->m_rateEstimationData.x2);
-            m_d->m_rateX2Marker->setLabel(QString("    x2=%1").arg(m_d->m_rateEstimationData.x2));
-            m_d->m_rateX2Marker->show();
-        }
-        else
-        {
-            InvalidCodePath;
-        }
-
-        replot();
-    });
+        return result;
+    };
 
     //
     // Gauss Curve
     //
-    m_d->m_gaussCurve = new QwtPlotCurve;
-    m_d->m_gaussCurve->setZ(PlotGaussLayerZ);
-    m_d->m_gaussCurve->setPen(Qt::green, 2.0);
-    m_d->m_gaussCurve->attach(m_d->m_plot);
-    m_d->m_gaussCurve->hide();
+    m_d->m_gaussCurve = make_plot_curve(Qt::green, 2.0, PlotAdditionalCurvesLayerZ, m_d->m_plot);
+
+    //
+    // Rate Estimation Curve
+    //
+    m_d->m_rateEstimationCurve = make_plot_curve(Qt::red, 2.0, PlotAdditionalCurvesLayerZ, m_d->m_plot);
+
+    //
+    // Watermark text when exporting
+    //
+    {
+        m_d->m_waterMarkText = new QwtText;
+        m_d->m_waterMarkText->setRenderFlags(Qt::AlignRight | Qt::AlignBottom);
+        m_d->m_waterMarkText->setColor(QColor(0x66, 0x66, 0x66, 0x40));
+
+        QFont font;
+        font.setPixelSize(16);
+        font.setBold(true);
+        m_d->m_waterMarkText->setFont(font);
+
+        m_d->m_waterMarkText->setText(QString("mvme-%1").arg(GIT_VERSION_TAG));
+
+        m_d->m_waterMarkLabel = new QwtPlotTextLabel;
+        m_d->m_waterMarkLabel->setMargin(10);
+        m_d->m_waterMarkLabel->setText(*m_d->m_waterMarkText);
+        m_d->m_waterMarkLabel->attach(m_d->m_plot);
+        m_d->m_waterMarkLabel->hide();
+    }
 
     //
     // StatusBar and info widgets
@@ -629,6 +686,7 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     mainLayout->setStretch(1, 1);
 
     setHistogram(histo);
+
 }
 
 Histo1DWidget::~Histo1DWidget()
@@ -650,6 +708,7 @@ void Histo1DWidget::setHistogram(Histo1D *histo)
     m_histo = histo;
     m_plotCurve->setData(new Histo1DPointData(m_histo));
     m_d->m_gaussCurve->setData(new Histo1DGaussCurveData(m_histo));
+    m_d->m_rateEstimationCurve->setData(new RateEstimationCurveData(m_histo, &m_d->m_rateEstimationData));
 
     // Reset the zoom stack and zoom fully zoom out as the scales might be
     // completely different now.
@@ -709,10 +768,18 @@ void Histo1DWidget::replot()
 
     // update histo info label
     auto infoText = QString("Underflow: %1\n"
-                            "Overflow:  %2")
+                            "Overflow:  %2\n"
+                            "NumBins:   %3\n"
+                            "BinWidth:  %4"
+                            )
         .arg(m_histo->getUnderflow())
-        .arg(m_histo->getOverflow());
+        .arg(m_histo->getOverflow())
+        .arg(m_histo->getAxisBinning(Qt::XAxis).getBins())
+        .arg(m_histo->getAxisBinning(Qt::XAxis).getBinWidth())
+        ;
 
+
+    m_d->m_labelHistoInfo->setText(infoText);
 
     // rate and efficiency estimation
     if (m_d->m_rateEstimationData.visible)
@@ -725,11 +792,10 @@ void Histo1DWidget::replot()
         double y2 = m_histo->getValue(x2);
 
         double tau = (x2 - x1) / log(y1 / y2);
-        double e = exp(1.0);
-        double c = pow(e, x1 / tau) * y1;
+        double c = pow(E1, x1 / tau) * y1;
         double c_norm = c / m_histo->getBinWidth(); // norm to x-axis scale
         double freeRate = 1.0 / tau; // 1/x-axis unit
-        double freeCounts = c_norm * tau * (1 - pow(e, -(x2 / tau))); // for interval 0..x2
+        double freeCounts = c_norm * tau * (1 - pow(E1, -(x2 / tau))); // for interval 0..x2
         double histoCounts = m_histo->calcStatistics(0.0, x2).entryCount;
         double efficiency  = histoCounts / freeCounts;
 
@@ -758,9 +824,13 @@ void Histo1DWidget::replot()
 
         if (!std::isnan(c) && !std::isnan(tau) && !std::isnan(efficiency))
         {
+            auto unitX = m_histo->getAxisInfo(Qt::XAxis).unit;
+            if (unitX.isEmpty())
+                unitX = QSL("x");
+
             markerText = QString(QSL("freeRate=%1 <sup>1</sup>&frasl;<sub>%2</sub>; eff=%3")
                                  .arg(freeRate, 0, 'g', 4)
-                                 .arg(m_histo->getAxisInfo(Qt::XAxis).unit)
+                                 .arg(unitX)
                                  .arg(efficiency, 0, 'g', 4)
                                 );
         }
@@ -783,14 +853,15 @@ void Histo1DWidget::replot()
          */
         s32 canvasHeight = m_d->m_plot->canvas()->height();
         s32 pixelY = canvasHeight - canvasHeight * 0.9;
+        static const s32 minPixelY = 50;
+        if (pixelY < minPixelY)
+            pixelY = minPixelY;
         double plotY = m_d->m_plot->canvasMap(QwtPlot::yLeft).invTransform(pixelY);
 
         m_d->m_rateFormulaMarker->setYValue(plotY);
         m_d->m_rateFormulaMarker->setLabel(rateFormulaText);
         m_d->m_rateFormulaMarker->show();
     }
-
-    m_d->m_labelHistoInfo->setText(infoText);
 
     // window and axis titles
     auto name = m_histo->objectName();
@@ -946,9 +1017,12 @@ void Histo1DWidget::exportPlot()
     }
 
     m_d->m_plot->setTitle(m_histo->getTitle());
-    QwtText footerText(m_histo->getFooter());
+
+    QString footerString = m_histo->getFooter();
+    QwtText footerText(footerString);
     footerText.setRenderFlags(Qt::AlignLeft);
     m_d->m_plot->setFooter(footerText);
+    m_d->m_waterMarkLabel->show();
 
     QwtPlotRenderer renderer;
     renderer.setDiscardFlags(QwtPlotRenderer::DiscardBackground | QwtPlotRenderer::DiscardCanvasBackground);
@@ -957,6 +1031,7 @@ void Histo1DWidget::exportPlot()
 
     m_d->m_plot->setTitle(QString());
     m_d->m_plot->setFooter(QString());
+    m_d->m_waterMarkLabel->hide();
 }
 
 void Histo1DWidget::saveHistogram()
@@ -1193,6 +1268,7 @@ void Histo1DWidget::on_tb_rate_toggled(bool checked)
         m_d->m_rateX1Marker->hide();
         m_d->m_rateX2Marker->hide();
         m_d->m_rateFormulaMarker->hide();
+        m_d->m_rateEstimationCurve->hide();
         replot();
     }
 }
@@ -1213,6 +1289,45 @@ void Histo1DWidget::on_tb_gauss_toggled(bool checked)
 
 void Histo1DWidget::on_tb_test_clicked()
 {
+}
+
+void Histo1DWidget::on_ratePointerPicker_selected(const QPointF &pos)
+{
+    if (std::isnan(m_d->m_rateEstimationData.x1))
+    {
+        m_d->m_rateEstimationData.x1 = pos.x();
+
+        m_d->m_rateX1Marker->setXValue(m_d->m_rateEstimationData.x1);
+        m_d->m_rateX1Marker->setLabel(QString("    x1=%1").arg(m_d->m_rateEstimationData.x1));
+        m_d->m_rateX1Marker->show();
+    }
+    else if (std::isnan(m_d->m_rateEstimationData.x2))
+    {
+        m_d->m_rateEstimationData.x2 = pos.x();
+
+        if (m_d->m_rateEstimationData.x1 > m_d->m_rateEstimationData.x2)
+        {
+            std::swap(m_d->m_rateEstimationData.x1, m_d->m_rateEstimationData.x2);
+        }
+
+        m_d->m_rateEstimationData.visible = true;
+        m_d->m_ratePointPicker->setEnabled(false);
+        m_zoomer->setEnabled(true);
+
+        // set both x1 and x2 as they might have been swapped above
+        m_d->m_rateX1Marker->setXValue(m_d->m_rateEstimationData.x1);
+        m_d->m_rateX1Marker->setLabel(QString("    x1=%1").arg(m_d->m_rateEstimationData.x1));
+        m_d->m_rateX2Marker->setXValue(m_d->m_rateEstimationData.x2);
+        m_d->m_rateX2Marker->setLabel(QString("    x2=%1").arg(m_d->m_rateEstimationData.x2));
+        m_d->m_rateX2Marker->show();
+        m_d->m_rateEstimationCurve->show();
+    }
+    else
+    {
+        InvalidCodePath;
+    }
+
+    replot();
 }
 
 //

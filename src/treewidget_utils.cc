@@ -44,7 +44,7 @@ void HtmlDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option, 
 
     // Highlighting text if item is selected
     if (optionV4.state & QStyle::State_Selected)
-        ctx.palette.setColor(QPalette::Text, optionV4.palette.color(QPalette::Active, QPalette::WindowText));
+        ctx.palette.setColor(QPalette::Text, optionV4.palette.color(QPalette::Active, QPalette::HighlightedText));
 
     QRect textRect = style->subElementRect(QStyle::SE_ItemViewItemText, &optionV4);
     painter->save();

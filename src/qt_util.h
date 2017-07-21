@@ -83,4 +83,6 @@ QStatusBar *make_statusbar(QWidget *parent = nullptr);
 
 void show_and_activate(QWidget *widget);
 
+QString get_bitness_string();
+
 #endif /* __QT_UTIL_H__ */

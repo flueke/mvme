@@ -1,4 +1,46 @@
+/* mvme - Mesytec VME Data Acquisition
+ *
+ * Copyright (C) 2016, 2017  Florian Lüke <f.lueke@mesytec.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+ */
+
+/*
+ * GIT_SHA1 contains the complete git hash
+ *
+ * GIT_VERSION contains the name of the latest git tag, the number of commits
+ * since that tag was created and the start of the git hash if there have been
+ * changes since the tag was created.
+ * Example GIT_VERSION: 0.7-371-g12d9678
+ *
+ * GIT_VERSION_SHORT contains the same as GIT_VERSION but without the start of
+ * the last commits hash.
+ * Example GIT_VERSION_SHORT: 0.7-371
+ *
+ * GIT_VERSION_TAG contains only the tag part of the version
+ * Example GIT_VERSION_TAG: 0.7
+ */
+
+#include "libmvme_export.h"
+
 #define DEF_GIT_SHA1 "@GIT_SHA1@"
 #define DEF_GIT_VERSION "@GIT_VERSION@"
-extern const char GIT_SHA1[] = DEF_GIT_SHA1;
-extern const char GIT_VERSION[] = DEF_GIT_VERSION;
+#define DEF_GIT_VERSION_SHORT "@GIT_VERSION_SHORT@"
+#define DEF_GIT_VERSION_TAG "@GIT_VERSION_TAG@"
+
+extern const char LIBMVME_EXPORT GIT_SHA1[]            = DEF_GIT_SHA1;
+extern const char LIBMVME_EXPORT GIT_VERSION[]         = DEF_GIT_VERSION;
+extern const char LIBMVME_EXPORT GIT_VERSION_SHORT[]   = DEF_GIT_VERSION_SHORT;
+extern const char LIBMVME_EXPORT GIT_VERSION_TAG[]     = DEF_GIT_VERSION_TAG;

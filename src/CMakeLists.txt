@@ -2,6 +2,8 @@
 # asan
 # profiling
 
+include(GenerateExportHeader)
+
 set(WARNING_FLAGS "-Wall -Wno-unused-variable -Wno-unused-function")
 
 set(CMAKE_CXX_FLAGS "-std=c++14 -pipe ${WARNING_FLAGS}")
@@ -28,6 +30,11 @@ find_path(QWT_INCLUDE_DIR
 
 find_library(QWT_LIBRARY NAMES qwt qwt-qt5)
 include_directories(${QWT_INCLUDE_DIR})
+#include(FindPackageHandleStandardArgs)
+#find_package_handle_standard_args(Qwt DEFAULT_MSG QWT_LIBRARY QWT_INCLUDE_DIR)
+
+message("Using QWT_INCLUDE_DIR=${QWT_INCLUDE_DIR}")
+message("Using QWT_LIBRARY=${QWT_LIBRARY}")
 
 # libusb-0.1
 if (WIN32)
@@ -37,11 +44,11 @@ if (WIN32)
     if ("${CMAKE_SIZEOF_VOID_P}" EQUAL "8")
         find_library(LIBUSB_LIBRARY usb0
             PATHS "C:/libusb-win32-bin-1.2.6.0/bin/amd64")
-        message("64 bit!: ${LIBUSB_LIBRARY}")
+        message("Using 64 bit libusb: ${LIBUSB_LIBRARY}")
     else()
         find_library(LIBUSB_LIBRARY usb0_x86
             PATHS "C:/libusb-win32-bin-1.2.6.0/bin/x86")
-        message("32 bit!: ${LIBUSB_LIBRARY}")
+        message("Using 32 bit libusb: ${LIBUSB_LIBRARY}")
     endif()
 else()
     find_library(LIBUSB_LIBRARY usb)
@@ -117,6 +124,7 @@ qt5_wrap_ui(LIBMVME_UIC_OUT
 qt5_add_resources(LIBMVME_RC_OUT resources.qrc)
 
 add_library(libmvme SHARED ${LIBMVME_SOURCES} ${LIBMVME_UIC_OUT} ${LIBMVME_RC_OUT})
+generate_export_header(libmvme)
 set_target_properties(libmvme PROPERTIES OUTPUT_NAME mvme)
 
 qt5_use_modules(libmvme
@@ -131,6 +139,8 @@ target_link_libraries(libmvme
     ${LIBUSB_LIBRARY}
     )
 
+install(TARGETS libmvme DESTINATION .)
+
 #
 # mvme
 #
@@ -139,7 +149,13 @@ set(MVME_SOURCES
     mvme.rc
     )
 
-add_executable(mvme WIN32 ${MVME_SOURCES})
+
+if (CMAKE_BUILD_TYPE MATCHES "^Release$")
+    add_executable(mvme WIN32 ${MVME_SOURCES})
+else()
+    add_executable(mvme ${MVME_SOURCES})
+endif()
+
 add_dependencies(mvme libmvme)
 
 qt5_use_modules(mvme
@@ -151,5 +167,7 @@ qt5_use_modules(mvme
 target_link_libraries(mvme
     libmvme
     )
+
+install(TARGETS mvme DESTINATION .)
 
 # vim:tw=0

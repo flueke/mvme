@@ -233,8 +233,8 @@ static void throw_io_device_error(QIODevice *device)
  * flushed and grow indefinitely.
  */
 
-/* To keep track of the current event in case of a partial event spanning
- * multiple buffers.
+/* Structure to keep track of the current event in case of a partial event
+ * spanning multiple buffers.
  * Offsets are used instead of pointers as the buffer might have to be resized
  * which can invalidate pointers into it.
  */

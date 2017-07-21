@@ -25,15 +25,22 @@
 
 static const int updateInterval = 500;
 
+// zlib supports [0,9] with 6 being the default
+static const int compressionMin = 0;
+static const int compressionMax = 1;
+
 static void fill_compression_combo(QComboBox *combo)
 {
-    for (int i=0; i<=9; ++i)
+    for (int i = compressionMin;
+         i <= compressionMax;
+         ++i)
     {
         QString label(QString::number(i));
 
         switch (i)
         {
             case 0: label = QSL("No compression"); break;
+            case 1: label = QSL("Fast compression"); break;
             case 6: label = QSL("Default"); break;
             case 9: label = QSL("Best compression"); break;
         }

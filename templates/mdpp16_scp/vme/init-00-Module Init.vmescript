@@ -1,42 +1,64 @@
 ## Parameters for MDPP-16_SCP
 
 ## set window of interest, multiples of 1.56ns
-0x6050 0x3FF8     #Window start: -8 = -12.5ns  before trigger
-0x6054 0x10 #Window width: 16 = 25ns
+0x6050 0x3E00   #Window start: -512 = 800ns  before trigger
+0x6054 0x400    #Window width: 1024 = 1.6us (with 24ps max range for 64k)
 
 #Timig resolution
 0x6042 0    #5 ? 781 ps = 25 ns / 32
-    #4 ? 391 ps = 25 ns / 64
-    #3 ? 195 ps = 25 ns / 128
-    #2 ? 98   ps = 25 ns / 256
-    #1 ? 49   ps = 25 ns / 512
-    #0 ? 24   ps = 25 ns / 1024
+            #4 ? 391 ps = 25 ns / 64
+            #3 ? 195 ps = 25 ns / 128
+            #2 ? 98   ps = 25 ns / 256
+            #1 ? 49   ps = 25 ns / 512
+            #0 ? 24   ps = 25 ns / 1024
 
 #Amplitude resolution
-0x6046 0    #for mvme2  fixed = 0 (16 bits) at the moment. Do not change
+0x6046 0    # 16 bits; makes no sense to use a lower resolution
 
 ## Trigger source
 0x6058 0x100    # Trigger {whole bank,single channel, chan_address[4:0], trig1, trig0}
-    # 0x100=whole bank, 0x001 = trig0, 0x002=trig1, 0x084 = chan1;
+                # 0x100=whole bank, 0x001 = trig0, 0x002=trig1, 0x084 = chan1, 0x080 = chan0;
 
-##Frontend setting (filter-parameter, gain, PZ..)
+##Frontend setting, Set all Channels (filter-parameter, gain, PZ..)
 0x6100 0x8  # 8=send following data to all channels, 0..7 send to crresponding channel pair
-0x6110 4    # TF time, multiples of 12.5ns;  4: 50ns
-0x611A 500  # gain*100; 500 -> gain = 5
-0x611C  0xFF    #threshold0:  #0 to 64k (65535) .  64 k corresponds to full range.
-0x611E  0xFF    #threshold1
+0x6110 10   # TF time, multiples of 12.5ns;
+0x6112 8000 # even channel, PZ-adjust: decay time in multiples of 12.5ns
+0x6114 8000 # odd channel,  PZ-adjust
+0x611A 200  # gain*100; 200 -> gain = 2.00
+0x611C  2000    #threshold0:  #0 to 64k (65535) .  64 k corresponds to full range.
+0x611E  2000    #threshold1
 0x6124 200  # Shaping time FWHM, multiples of 12.5ns; 200-> 2.5us
-0x6126  2   #BLR: setting,     0 = off,
-        #1 = strict  ( int. time = 4 shaping times),
-        #2 = soft (int. time = 8 shaping times)
-0x6128 100  #reset_time, multiple od 12.5ns,  # common for 2 channels  (min 16 = 200ns)
-0x612A 0    #signal_rise_ time, multiple of 12.5ns
-    #-default = 0,  for Si-detectors, constant rise time detectors
-    #-> shortest dead time
-        #-for germanium detectors with position dependent rise time,
+0x6126  1   #BLR: setting,     0 = off,
+            #1 = strict  ( int. time = 4 shaping times),
+            #2 = soft (int. time = 8 shaping times)
+0x6128 0    #reset_time, multiple od 12.5ns,  12.5us
+0x612A 0    #signal_rise_ time, multiple of 12.5ns  = 1us
+            #-default = 0,  for Si-detectors, constant rise time detectors
+            #-> shortest dead time
+            #-for germanium detectors with position dependent rise time,
             #set to largest signal rise time.
-        #This results in highest resolution and ballistic loss correction.
+            #This results in highest resolution and ballistic loss correction.
 
-# Pulser setting; Window of interest has to include 0+- 3ns
-0x6070 0    # 3= pulser on , 0=pulser off
-0x6072 1000 # pulser amplitude, 0...2047
+##OPTIONAL:  Individual setting overrides common setting
+## setting chan0/1
+0x6100 0x0  # 0 = set channel pair 0 = channel0 and 1
+0x6112 8000 # even channel, PZ-adjust: decay time in multiples of 12.5ns; 8000 = 100us
+0x6114 8000 # odd channel,  PZ-adjust
+
+
+## now precise individual setting chan2/3
+0x6100 0x1  # 1 = set channel pair 1 = channel 2 and 3
+0x6112 8000 # even channel, PZ-adjust: decay time in multiples of 12.5ns
+0x6114 8000 # odd channel,  PZ-adjust
+
+#now initialise up to channel pairs 14/ 15
+
+
+# PULSER setting; Window of interest has to include 0+- 3ns
+0x6070 0    # 1= pulser on , 0=pulser off
+0x6072 4000 # pulser amplitude, 0...4k
+
+# TRIGGER COUNTER
+
+0x605E 0x100    # output trigger on whole bank (free trigger)
+                # 0x100=whole bank, 0x001 = trig0, 0x002=trig1, 0x084 = chan1;

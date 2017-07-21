@@ -217,11 +217,13 @@ class ListFileReader: public QObject
     Q_OBJECT
     signals:
         void stateChanged(DAQState);
-        void logMessage(const QString &);
         void replayStopped();
         void progressChanged(qint64, qint64);
 
     public:
+        using LoggerFun = std::function<void (const QString &)>;
+
+
         ListFileReader(DAQStats &stats, QObject *parent = 0);
         ~ListFileReader();
         void setListFile(ListFile *listFile);
@@ -230,6 +232,8 @@ class ListFileReader: public QObject
         bool isRunning() const { return m_state != DAQState::Idle; }
 
         void setEventsToRead(u32 eventsToRead);
+
+        void setLogger(LoggerFun logger) { m_logger = logger; }
 
         ThreadSafeDataBufferQueue *m_freeBufferQueue = nullptr;
         ThreadSafeDataBufferQueue *m_filledBufferQueue = nullptr;
@@ -243,6 +247,7 @@ class ListFileReader: public QObject
     private:
         void mainLoop();
         void setState(DAQState state);
+        void logMessage(const QString &str);
 
         DAQStats &m_stats;
 
@@ -255,6 +260,8 @@ class ListFileReader: public QObject
         qint64 m_totalBytes = 0;
 
         u32 m_eventsToRead = 0;
+        bool m_logBuffers = false;
+        LoggerFun m_logger;
 };
 
 class ListFileWriter: public QObject
