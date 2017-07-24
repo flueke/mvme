@@ -370,9 +370,15 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
     m_d->m_plot->canvas()->setMouseTracking(true);
 
     m_zoomer = new ScrollZoomer(m_d->m_plot->canvas());
-    connect(m_zoomer, &ScrollZoomer::zoomed, this, &Histo2DWidget::zoomerZoomed);
-    connect(m_zoomer, &ScrollZoomer::mouseCursorMovedTo, this, &Histo2DWidget::mouseCursorMovedToPlotCoord);
-    connect(m_zoomer, &ScrollZoomer::mouseCursorLeftPlot, this, &Histo2DWidget::mouseCursorLeftPlot);
+
+    TRY_ASSERT(connect(m_zoomer, SIGNAL(zoomed(const QRectF &)),
+                       this, SLOT(zoomerZoomed(const QRectF &))));
+
+    TRY_ASSERT(connect(m_zoomer, &ScrollZoomer::mouseCursorMovedTo,
+                       this, &Histo2DWidget::mouseCursorMovedToPlotCoord));
+
+    TRY_ASSERT(connect(m_zoomer, &ScrollZoomer::mouseCursorLeftPlot,
+                       this, &Histo2DWidget::mouseCursorLeftPlot));
 
     //
     // Watermark text when exporting
