@@ -340,7 +340,7 @@ void mvme::displayAboutQt()
     QMessageBox::aboutQt(this, QSL("About Qt"));
 }
 
-static const QString DefaultAnalysisFileFilter = QSL("Config Files (*.json);; All Files (*.*)");
+static const QString DefaultAnalysisFileFilter = QSL("Config Files (*.analysis);; All Files (*.*)");
 
 void mvme::closeEvent(QCloseEvent *event)
 {
