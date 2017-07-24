@@ -1,10 +1,10 @@
 ##################################################
 Introduction
 ##################################################
-**mvme** is a VME data acquisition solution by `mesytec`_ aimed at small scale
-nuclear physics experiments involving a single VME controller. The goal of this
-project is to provide an easy to setup, easy to use, cross-platform data
-acquisition system with basic data visualization and analysis capabilities.
+**mvme** is a VME data acquisition solution by `mesytec`_ aimed at nuclear
+physics experiments involving a single VME controller. The goal of this project
+is to provide an easy to setup, easy to use, cross-platform data acquisition
+system with basic data visualization and analysis capabilities.
 
 .. _mesytec: http://mesytec.com/
 
