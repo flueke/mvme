@@ -2,6 +2,8 @@
 ==== Do these first! =====
 ==========================
 
+* info button does not work 2D combined view
+
 * Maybe reload the analysis on opening a listfile.
   Without the reload the analysis window can become empty if the listfile
   contains different module uuids than the ones in the analysis. A reload could

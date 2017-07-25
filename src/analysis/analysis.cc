@@ -2754,7 +2754,7 @@ void Analysis::setModified(bool b)
     }
 }
 
-static const u32 maxRawHistoBins = (1 << 16);
+static const double maxRawHistoBins = (1 << 16);
 
 RawDataDisplay make_raw_data_display(std::shared_ptr<Extractor> extractor, double unitMin, double unitMax,
                                      const QString &xAxisTitle, const QString &unitLabel)
@@ -2765,9 +2765,9 @@ RawDataDisplay make_raw_data_display(std::shared_ptr<Extractor> extractor, doubl
     auto objectName = extractor->objectName();
     auto extractionFilter = extractor->getFilter();
 
-    double srcMin  = 0.0;
-    double srcMax  = (1 << extractionFilter.getDataBits());
-    u32 histoBins  = std::min(static_cast<u32>(srcMax), maxRawHistoBins);
+    double srcMin = 0.0;
+    double srcMax = std::pow(2.0, extractionFilter.getDataBits());
+    u32 histoBins = static_cast<u32>(std::min(srcMax, maxRawHistoBins));
 
     auto calibration = std::make_shared<CalibrationMinMax>();
     calibration->setObjectName(objectName);
