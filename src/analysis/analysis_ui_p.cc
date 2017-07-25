@@ -184,7 +184,7 @@ AddEditSourceWidget::AddEditSourceWidget(SourceInterface *src, ModuleConfig *mod
         m_optionsLayout->addRow(loadTemplateLayout);
     }
 
-    m_buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+    m_buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
     m_buttonBox->button(QDialogButtonBox::Ok)->setDefault(true);
     connect(m_buttonBox, &QDialogButtonBox::accepted, this, &AddEditSourceWidget::accept);
     connect(m_buttonBox, &QDialogButtonBox::rejected, this, &AddEditSourceWidget::reject);
