@@ -115,13 +115,6 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
         m_context->setListFileOutputInfo(info);
     });
 
-    connect(ui->cb_writeZip, &QCheckBox::stateChanged, this, [this](int state) {
-        auto info = m_context->getListFileOutputInfo();
-        bool enabled = (state != Qt::Unchecked);
-        info.format = (enabled ? ListFileFormat::ZIP : ListFileFormat::Plain);
-        m_context->setListFileOutputInfo(info);
-    });
-
     fill_compression_combo(ui->combo_compression);
 
     connect(ui->combo_compression, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged), this, [this] (int index) {
@@ -275,18 +268,13 @@ void DAQControlWidget::updateWidget()
     }
 
     {
-        QSignalBlocker b(ui->cb_writeZip);
-        ui->cb_writeZip->setChecked(outputInfo.format == ListFileFormat::ZIP);
-    }
-
-    {
         QSignalBlocker b(ui->combo_compression);
         ui->combo_compression->setCurrentIndex(outputInfo.compressionLevel);
     }
 
-    // FIXME: use listfile directory here?
     auto filename = stats.listfileFilename;
-    filename.remove(m_context->getWorkspaceDirectory() + "/listfiles/");
+    filename.remove(m_context->getWorkspacePath(QSL("ListFileDirectory")) + QSL("/"));
+
     if (ui->le_listfileFilename->text() != filename)
         ui->le_listfileFilename->setText(filename);
 

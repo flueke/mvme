@@ -1155,7 +1155,9 @@ void MVMEContext::openWorkspace(const QString &dirName)
         {
             ListFileOutputInfo info = {};
             info.enabled   = workspaceSettings->value(QSL("WriteListFile"), QSL("true")).toBool();
-            info.format    = fromString(workspaceSettings->value(QSL("ListFileFormat"), toString(DefaultListFileFormat)).toString());
+            //info.format    = fromString(workspaceSettings->value(QSL("ListFileFormat"), toString(DefaultListFileFormat)).toString());
+            // XXX: Forcing ListFileFormat::ZIP since 0.9.x
+            info.format    = ListFileFormat::ZIP;
             info.directory = workspaceSettings->value(QSL("ListFileDirectory"), QSL("listfiles")).toString();
             info.compressionLevel = workspaceSettings->value(QSL("ListFileCompressionLevel"), DefaultListFileCompression).toInt();
 
