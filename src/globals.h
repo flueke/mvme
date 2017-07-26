@@ -184,6 +184,12 @@ struct DAQStats
 struct RunInfo
 {
     QString runId;
+
+    /* Set to true to retain histogram contents across replays. Keeping the
+     * contents only works if the number of bins and the binning do not change
+     * between runs. If set to false all histograms will be cleared before the
+     * replay starts. */
+    bool keepHistoContents = false;
 };
 
 #endif

@@ -1782,8 +1782,19 @@ void Histo1DSink::beginRun(const RunInfo &runInfo)
             if (m_histos[histoIndex])
             {
                 auto histo = m_histos[histoIndex];
-                histo->resize(m_bins); // calls clear() even if the size does not change
-                histo->setAxisBinning(Qt::XAxis, AxisBinning(m_bins, xMin, xMax));
+
+                if (histo->getNumberOfBins() != static_cast<u32>(m_bins) || !runInfo.keepHistoContents)
+                {
+                    histo->resize(m_bins); // calls clear() even if the size does not change
+                }
+
+                AxisBinning newBinning(m_bins, xMin, xMax);
+
+                if (newBinning != histo->getAxisBinning(Qt::XAxis))
+                {
+                    histo->setAxisBinning(Qt::XAxis, newBinning);
+                    histo->clear(); // have to clear because the binning changed
+                }
             }
             else
             {
@@ -1930,10 +1941,24 @@ void Histo2DSink::beginRun(const RunInfo &runInfo)
         }
         else
         {
-            m_histo->resize(m_xBins, m_yBins);
+            if (m_histo->getAxisBinning(Qt::XAxis).getBins() != static_cast<u32>(m_xBins)
+                || m_histo->getAxisBinning(Qt::YAxis).getBins() != static_cast<u32>(m_yBins)
+                || !runInfo.keepHistoContents)
+            {
+                // resize always clears the histo
+                m_histo->resize(m_xBins, m_yBins);
+            }
 
-            m_histo->setAxisBinning(Qt::XAxis, AxisBinning(m_xBins, xMin, xMax));
-            m_histo->setAxisBinning(Qt::YAxis, AxisBinning(m_yBins, yMin, yMax));
+            AxisBinning newXBinning(m_xBins, xMin, xMax);
+            AxisBinning newYBinning(m_yBins, yMin, yMax);
+
+            if (m_histo->getAxisBinning(Qt::XAxis) != newXBinning
+                || m_histo->getAxisBinning(Qt::YAxis) != newYBinning)
+            {
+                m_histo->setAxisBinning(Qt::XAxis, newXBinning);
+                m_histo->setAxisBinning(Qt::YAxis, newYBinning);
+                m_histo->clear(); // have to clear because the binning changed
+            }
         }
 
         m_histo->setObjectName(objectName());

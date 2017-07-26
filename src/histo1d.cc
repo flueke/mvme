@@ -246,7 +246,7 @@ Histo1DStatistics Histo1D::calcBinStatistics(u32 startBin, u32 onePastEndBin) co
 QTextStream &writeHisto1D(QTextStream &out, Histo1D *histo)
 {
     out << histo->getNumberOfBins() << " " << histo->getXMin() << " " << histo->getXMax()
-        << " " << histo->getUnderflow() << " " << histo->getOverflow();
+        << " " << histo->getUnderflow() << " " << histo->getOverflow() << endl;
 
     for (u32 bin = 0; bin < histo->getNumberOfBins(); ++bin)
     {
