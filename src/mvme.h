@@ -51,6 +51,7 @@ class QPlainTextEdit;
 class QThread;
 class QTimer;
 class QwtPlotCurve;
+class QNetworkAccessManager;
 
 
 namespace Ui {
@@ -120,6 +121,7 @@ private slots:
     void on_actionImport_Histo1D_triggered();
 
     void on_actionVMEScriptRef_triggered();
+    void on_actionCheck_for_updates_triggered();
 
     void updateActions();
 
@@ -140,6 +142,7 @@ private:
 
     WidgetGeometrySaver *m_geometrySaver;
     bool m_quitting = false;
+    QNetworkAccessManager *m_networkAccessManager = nullptr;
 };
 
 #endif // MVME_H

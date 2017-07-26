@@ -18,6 +18,7 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 find_package(Qt5Concurrent REQUIRED)
 find_package(Qt5Gui REQUIRED)
+find_package(Qt5Network REQUIRED)
 find_package(Qt5Widgets REQUIRED)
 
 # quazip
@@ -130,6 +131,7 @@ set_target_properties(libmvme PROPERTIES OUTPUT_NAME mvme)
 qt5_use_modules(libmvme
   Concurrent
   Gui
+  Network
   Widgets
   )
 

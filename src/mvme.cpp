@@ -54,6 +54,7 @@
 #include <QTextBrowser>
 #include <QTextEdit>
 #include <QtGui>
+#include <QtNetwork>
 #include <QToolBar>
 
 #include <qwt_plot_curve.h>
@@ -88,6 +89,7 @@ mvme::mvme(QWidget *parent) :
     ui(new Ui::mvme)
     , m_context(new MVMEContext(this, this))
     , m_geometrySaver(new WidgetGeometrySaver(this))
+    , m_networkAccessManager(new QNetworkAccessManager(this))
 {
     qDebug() << "main thread: " << QThread::currentThread();
 
@@ -111,6 +113,7 @@ mvme::mvme(QWidget *parent) :
 
     // create and initialize displays
     ui->setupUi(this);
+    ui->actionCheck_for_updates->setVisible(false);
 
     //
     // central widget consisting of DAQControlWidget, DAQConfigTreeWidget and DAQStatsWidget
@@ -1136,6 +1139,71 @@ void mvme::on_actionVMEScriptRef_triggered()
         auto widget = make_vme_script_ref_widget();
         addWidget(widget, widget->objectName());
     }
+}
+
+static const auto UpdateCheckURL = QSL("http://mesytec.com/downloads/mvme/");
+static const QByteArray UpdateCheckUserAgent = "mesytec mvme ";
+
+static const QString get_package_platform_string()
+{
+#ifdef Q_OS_WIN
+    return QSL("Windows");
+#elif defined Q_OS_LINUX
+    return QSL("Linux");
+#else
+    #warning "Unknown platform name."
+    InvalidCodePath;
+    return QString();
+#endif
+}
+
+static const QString get_package_bitness_string()
+{
+#ifdef Q_PROCESSOR_X86_64
+    return QSL("x64");
+#elif defined Q_PROCESSOR_X86_32
+    return QSL("x32");
+#else
+#warning "Unknown processor bitness."
+    InvalidCodePath;
+    return QString();
+#endif
+}
+
+void mvme::on_actionCheck_for_updates_triggered()
+{
+    QNetworkRequest request;
+    request.setUrl(UpdateCheckURL);
+    request.setRawHeader("User-Agent", UpdateCheckUserAgent + GIT_VERSION_TAG);
+
+    auto reply = m_networkAccessManager->get(request);
+
+    //text/html;charset=ISO-8859-1
+    //<a href="mvme-0.9-5-Windows-x32.exe">mvme-0.9-5-Windows-x32.exe</a>   2017-07-24 15:22   28M
+    connect(reply, &QNetworkReply::finished, [this, reply]() {
+        reply->deleteLater();
+
+        if (reply->error() == QNetworkReply::NoError)
+        {
+            static const QString pattern = QString("href=\"(mvme-[0-9.-]+-%1-%2\\.exe)\"")
+                .arg(get_package_platform_string())
+                .arg(get_package_bitness_string())
+                ;
+
+            qDebug() << "update search pattern:" << pattern;
+
+            QRegularExpression re(pattern);
+
+            auto contents = QString::fromLatin1(reply->readAll());
+            auto matchIter = re.globalMatch(contents);
+
+            while (matchIter.hasNext())
+            {
+                auto match = matchIter.next();
+                qDebug() << match.captured(1);
+            }
+        }
+    });
 }
 
 bool mvme::createNewOrOpenExistingWorkspace()
