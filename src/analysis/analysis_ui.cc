@@ -483,7 +483,7 @@ struct EventWidgetPrivate
     // There's two sets, one for the operator trees and one for the display
     // trees, because objects may have nodes in both trees.
     std::array<SetOfVoidStar, TreeType_Count> m_expandedObjects;
-    QTimer *m_pipeDisplayRefreshTimer;
+    QTimer *m_displayRefreshTimer;
 
     // If set the trees for that user level will not be shown
     QVector<bool> m_hiddenUserLevels;
@@ -516,6 +516,7 @@ struct EventWidgetPrivate
     void clearTreeSelectionsExcept(QTreeWidget *tree);
     void generateDefaultFilters(ModuleConfig *module);
     PipeDisplay *makeAndShowPipeDisplay(Pipe *pipe);
+    void doPeriodicUpdate();
 
     // Returns the currentItem() of the tree widget that has focus.
     QTreeWidgetItem *getCurrentNode();
@@ -2025,13 +2026,64 @@ void EventWidgetPrivate::generateDefaultFilters(ModuleConfig *module)
 PipeDisplay *EventWidgetPrivate::makeAndShowPipeDisplay(Pipe *pipe)
 {
     auto widget = new PipeDisplay(pipe, m_q);
-    QObject::connect(m_pipeDisplayRefreshTimer, &QTimer::timeout, widget, &PipeDisplay::refresh);
+    QObject::connect(m_displayRefreshTimer, &QTimer::timeout, widget, &PipeDisplay::refresh);
     QObject::connect(pipe->source, &QObject::destroyed, widget, &QWidget::close);
     add_widget_close_action(widget);
     widget->move(QCursor::pos());
     widget->setAttribute(Qt::WA_DeleteOnClose);
     widget->show();
     return widget;
+}
+
+void EventWidgetPrivate::doPeriodicUpdate()
+{
+    for (auto &trees: m_levelTrees)
+    {
+        QTreeWidgetItemIterator iter(trees.displayTree);
+
+        while (*iter)
+        {
+            auto node(*iter);
+
+            if (node->type() == NodeType_Histo1D)
+            {
+                auto histo = getPointer<Histo1D>(node);
+                s32 address = node->data(0, DataRole_HistoAddress).toInt();
+                double entryCount = histo->getEntryCount();
+                if (entryCount <= 0.0)
+                {
+                    node->setText(0, QString::number(address));
+                }
+                else
+                {
+                    // FIXME: When rendering Qt ignores runs of whitespace inside the QTreeWidgetItems text.
+                    node->setText(0, QString("%1 (entries=%2)")
+                                  .arg(address, 3)
+                                  .arg(entryCount));
+                }
+            }
+            else if (node->type() == NodeType_Histo2DSink)
+            {
+                auto sink = getPointer<Histo2DSink>(node);
+                double entryCount = sink->m_histo->getEntryCount();
+                if (entryCount <= 0.0)
+                {
+                    node->setText(0, QString("<b>%1</b> %2").arg(
+                            sink->getShortName(),
+                            sink->objectName()));
+                }
+                else
+                {
+                    node->setText(0, QString("<b>%1</b> %2 (entries=%3)").arg(
+                            sink->getShortName(),
+                            sink->objectName(),
+                            QString::number(entryCount)));
+                }
+            }
+
+            ++iter;
+        }
+    }
 }
 
 QTreeWidgetItem *EventWidgetPrivate::getCurrentNode()
@@ -2184,7 +2236,7 @@ void EventWidgetPrivate::importForModule(ModuleConfig *module, const QString &st
     repopulate();
 }
 
-static const u32 pipeDisplayRefreshInterval_ms = 1000;
+static const u32 EventWidgetPeriodicRefreshInterval_ms = 1000;
 
 void run_userlevel_visibility_dialog(QVector<bool> &hiddenLevels, QWidget *parent = 0)
 {
@@ -2233,8 +2285,8 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, AnalysisWidget 
     m_d->m_context = ctx;
     m_d->m_eventId = eventId;
     m_d->m_analysisWidget = analysisWidget;
-    m_d->m_pipeDisplayRefreshTimer = new QTimer(this);
-    m_d->m_pipeDisplayRefreshTimer->start(pipeDisplayRefreshInterval_ms);
+    m_d->m_displayRefreshTimer = new QTimer(this);
+    m_d->m_displayRefreshTimer->start(EventWidgetPeriodicRefreshInterval_ms);
 
     auto outerLayout = new QHBoxLayout(this);
     outerLayout->setContentsMargins(0, 0, 0, 0);
@@ -2644,6 +2696,7 @@ struct AnalysisWidgetPrivate
 
     void repopulate();
     void repopulateEventSelectCombo();
+    void doPeriodicUpdate();
 
     void closeAllUniqueWidgets();
     void closeAllHistogramWidgets();
@@ -2735,6 +2788,14 @@ void AnalysisWidgetPrivate::repopulateEventSelectCombo()
     if (!lastSelectedEventId.isNull() && comboIndexToSelect < m_eventSelectCombo->count())
     {
         m_eventSelectCombo->setCurrentIndex(comboIndexToSelect);
+    }
+}
+
+void AnalysisWidgetPrivate::doPeriodicUpdate()
+{
+    for (auto eventWidget: m_eventWidgetsByEventId.values())
+    {
+        eventWidget->m_d->doPeriodicUpdate();
     }
 }
 
@@ -3228,6 +3289,7 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
 
     on_analysis_changed();
 
+    // Update the histo storage size in the statusbar
     connect(m_d->m_periodicUpdateTimer, &QTimer::timeout, this, [this]() {
         double storageSize = m_d->m_context->getAnalysis()->getTotalSinkStorageSize();
         QString unit("B");
@@ -3251,6 +3313,9 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
                                              .arg(storageSize, 0, 'f', 2)
                                              .arg(unit));
     });
+
+    // Run the periodic update
+    connect(m_d->m_periodicUpdateTimer, &QTimer::timeout, this, [this]() { m_d->doPeriodicUpdate(); });
 }
 
 AnalysisWidget::~AnalysisWidget()
