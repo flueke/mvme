@@ -357,7 +357,7 @@ void VMUSBBufferProcessor::beginRun()
 
             case ListFileFormat::ZIP:
                 {
-                    QString outFilename = outPath + '/' + runInfo.runId + ".zip";
+                    QString outFilename = outPath + QSL("/mvmelst_") + runInfo.runId + QSL(".zip");
                     m_d->m_listFileArchive.setZipName(outFilename);
                     m_d->m_listFileArchive.setZip64Enabled(true);
 
