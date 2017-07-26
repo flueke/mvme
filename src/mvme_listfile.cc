@@ -217,7 +217,7 @@ QString ListFile::getFileName() const
     }
     else if (auto inZipFile = qobject_cast<QuaZipFile *>(m_input))
     {
-        return inZipFile->getZipName();
+        return inZipFile->getZipName() + QSL(":") + inZipFile->getFileName();
     }
 
     InvalidCodePath;

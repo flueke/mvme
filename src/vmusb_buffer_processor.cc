@@ -371,7 +371,7 @@ void VMUSBBufferProcessor::beginRun()
                     auto outFile = new QuaZipFile(&m_d->m_listFileArchive);
                     m_d->m_listFileOut = outFile;
 
-                    QuaZipNewInfo zipFileInfo("listfile.mvmelst");
+                    QuaZipNewInfo zipFileInfo(runInfo.runId + QSL(".mvmelst"));
                     zipFileInfo.setPermissions(static_cast<QFile::Permissions>(0x6644));
 
                     bool res = outFile->open(QIODevice::WriteOnly, zipFileInfo,

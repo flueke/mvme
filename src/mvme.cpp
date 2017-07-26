@@ -703,7 +703,36 @@ void mvme::on_actionOpenListfile_triggered()
     // ZIP
     if (fileName.toLower().endsWith(QSL(".zip")))
     {
-        auto inFile = std::make_unique<QuaZipFile>(fileName, QSL("listfile.mvmelst"));
+        QString listfileFileName;
+
+        // find and use the first .mvmelst file inside the archive
+        {
+            QuaZip archive(fileName);
+
+            if (!archive.open(QuaZip::mdUnzip))
+            {
+                QMessageBox::critical(0, "Error", make_zip_error("Could not open archive", &archive));
+            }
+
+            QStringList fileNames = archive.getFileNameList();
+
+            auto it = std::find_if(fileNames.begin(), fileNames.end(), [](const QString &str) {
+                qDebug() << __PRETTY_FUNCTION__ << str;
+                return str.endsWith(QSL(".mvmelst"));
+            });
+
+            if (it == fileNames.end())
+            {
+                QMessageBox::critical(0, "Error", QString("No listfile found inside %1").arg(fileName));
+                return;
+            }
+
+            listfileFileName = *it;
+        }
+
+        Q_ASSERT(!listfileFileName.isEmpty());
+
+        auto inFile = std::make_unique<QuaZipFile>(fileName, listfileFileName);
 
         if (!inFile->open(QIODevice::ReadOnly))
         {
