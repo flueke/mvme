@@ -68,7 +68,7 @@ class MVMEEventProcessor: public QObject
 
     public slots:
         void removeDiagnostics();
-        void newRun();
+        void newRun(const RunInfo &runInfo);
         void processDataBuffer(DataBuffer *buffer);
 
         void startProcessing();

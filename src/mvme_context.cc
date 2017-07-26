@@ -765,7 +765,7 @@ void MVMEContext::prepareStart()
     }
 #endif
 
-    m_eventProcessor->newRun();
+    m_eventProcessor->newRun(getRunInfo());
 
     m_daqStats = DAQStats();
 
@@ -774,7 +774,7 @@ void MVMEContext::prepareStart()
         << "filled buffers:" << m_filledBufferQueue.queue.size();
 }
 
-void MVMEContext::startDAQ(quint32 nCycles)
+void MVMEContext::startDAQ(quint32 nCycles, bool keepHistoContents)
 {
     Q_ASSERT(getDAQState() == DAQState::Idle);
     Q_ASSERT(getEventProcessorState() == EventProcessorState::Idle);
@@ -792,6 +792,7 @@ void MVMEContext::startDAQ(quint32 nCycles)
     // MVMEEventProcessor::newRun()
     auto now = QDateTime::currentDateTime();
     m_d->m_runInfo.runId = now.toString("yyMMdd_HHmmss");
+    m_d->m_runInfo.keepHistoContents = keepHistoContents;
 
     prepareStart();
     m_d->clearLog();
@@ -825,7 +826,7 @@ void MVMEContext::resumeDAQ()
     QMetaObject::invokeMethod(m_readoutWorker, "resume", Qt::QueuedConnection);
 }
 
-void MVMEContext::startReplay(u32 nEvents)
+void MVMEContext::startReplay(u32 nEvents, bool keepHistoContents)
 {
     Q_ASSERT(getDAQState() == DAQState::Idle);
     Q_ASSERT(getEventProcessorState() == EventProcessorState::Idle);
@@ -840,6 +841,7 @@ void MVMEContext::startReplay(u32 nEvents)
     // Extract a runId from the listfile filename.
     QFileInfo fi(m_listFile->getFileName());
     m_d->m_runInfo.runId = fi.completeBaseName();
+    m_d->m_runInfo.keepHistoContents = keepHistoContents;
 
 
     prepareStart();
@@ -1366,7 +1368,7 @@ bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc, const QString &in
 
         // Prepares operators, allocates histograms, etc..
         // This should in reality be the only place to throw a bad_alloc
-        m_eventProcessor->newRun();
+        m_eventProcessor->newRun(getRunInfo());
 
         emit analysisChanged();
 

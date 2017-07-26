@@ -94,16 +94,17 @@ void MVMEEventProcessor::removeDiagnostics()
     setDiagnostics(nullptr);
 }
 
-void MVMEEventProcessor::newRun()
+void MVMEEventProcessor::newRun(const RunInfo &runInfo)
 {
     if (m_d->diag)
         m_d->diag->reset();
 
     {
         m_d->analysis_ng = m_d->context->getAnalysis();
+
         if (m_d->analysis_ng)
         {
-            m_d->analysis_ng->beginRun(m_d->context->getRunInfo());
+            m_d->analysis_ng->beginRun(runInfo);
         }
     }
 }

@@ -53,9 +53,43 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
     : QWidget(parent)
     , ui(new Ui::DAQControlWidget)
     , m_context(context)
+    , m_menuStartButton(new QMenu(this))
+    , m_menuOneCycleButton(new QMenu(this))
 {
     ui->setupUi(this);
 
+    // start button actions
+    auto do_start = [this](u32 nEvents, bool keepHistoContents)
+    {
+        if (m_context->getDAQState() == DAQState::Idle)
+        {
+            auto globalMode = m_context->getMode();
+
+            if (globalMode == GlobalMode::DAQ)
+            {
+                m_context->startDAQ(nEvents, keepHistoContents);
+            }
+            else if (globalMode == GlobalMode::ListFile)
+            {
+                m_context->startReplay(nEvents, keepHistoContents);
+            }
+        }
+    };
+
+    auto actionStartKeepData  = m_menuStartButton->addAction(QSL("Keep histogram contents"));
+    auto actionStartClearData = m_menuStartButton->addAction(QSL("Clear histogram contents"));
+
+    ui->pb_start->setMenu(m_menuStartButton);
+
+    connect(actionStartKeepData, &QAction::triggered, this, [this, do_start]() {
+        do_start(0, true);
+    });
+
+    connect(actionStartClearData, &QAction::triggered, this, [this, do_start]() {
+        do_start(0, false);
+    });
+
+    // start button click if no menu is set
     connect(ui->pb_start, &QPushButton::clicked, m_context, [this] {
         auto globalMode = m_context->getMode();
         auto daqState = m_context->getDAQState();
@@ -66,8 +100,6 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
                 m_context->pauseDAQ();
             else if (daqState == DAQState::Paused)
                 m_context->resumeDAQ();
-            else if (daqState == DAQState::Idle)
-                m_context->startDAQ();
         }
         else if (globalMode == GlobalMode::ListFile)
         {
@@ -75,27 +107,30 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
                 m_context->pauseReplay();
             else if (daqState == DAQState::Paused)
                 m_context->resumeReplay();
-            else if (daqState == DAQState::Idle)
-                m_context->startReplay();
         }
     });
 
+    // one cycle button
+    auto actionOneCycleKeepData = m_menuOneCycleButton->addAction(QSL("Keep histogram contents"));
+    auto actionOneCycleClearData = m_menuOneCycleButton->addAction(QSL("Clear histogram copntents"));
+
+    ui->pb_oneCycle->setMenu(m_menuOneCycleButton);
+
+    connect(actionOneCycleKeepData, &QAction::triggered, this, [this, do_start]() {
+        do_start(1, true);
+    });
+
+    connect(actionOneCycleClearData, &QAction::triggered, this, [this, do_start]() {
+        do_start(1, false);
+    });
+
+    // one cycle button click if no menu is set
     connect(ui->pb_oneCycle, &QPushButton::clicked, this, [this] {
-        auto globalMode = m_context->getMode();
-        if (globalMode == GlobalMode::DAQ)
+
+        if (m_context->getMode() == GlobalMode::ListFile
+            && m_context->getDAQState() == DAQState::Paused)
         {
-            m_context->startDAQ(1);
-        } else if (globalMode == GlobalMode::ListFile)
-        {
-            auto daqState = m_context->getDAQState();
-            if (daqState == DAQState::Idle)
-            {
-                m_context->startReplay(1);
-            }
-            else if (daqState == DAQState::Paused)
-            {
-                m_context->resumeReplay(1);
-            }
+            m_context->resumeReplay(1);
         }
     });
 
@@ -168,13 +203,6 @@ void DAQControlWidget::updateWidget()
 
     ui->pb_start->setEnabled(enableStartButton);
 
-#if 0
-    ui->pb_start->setEnabled(((globalMode == GlobalMode::DAQ && controllerState == ControllerState::Opened)
-                              || (globalMode == GlobalMode::ListFile && daqState == DAQState::Idle))
-                             && (eventProcState == EventProcessorState::Idle)
-                            );
-#endif
-
     //
     // stop button
     //
@@ -199,20 +227,26 @@ void DAQControlWidget::updateWidget()
     ui->pb_oneCycle->setEnabled(enableOneCycleButton);
 
 
-#if 0
-    ui->pb_oneCycle->setEnabled(daqState == DAQState::Idle
-                                && ((globalMode == GlobalMode::DAQ && controllerState == ControllerState::Opened)
-                                    || (globalMode == GlobalMode::ListFile))
-                                && (eventProcState == EventProcessorState::Idle)
-                               );
-#endif
-
+    //
+    // listfile options
+    //
     ui->gb_listfile->setEnabled(globalMode == GlobalMode::DAQ);
+
+    //
+    // button labels and actions
+    //
+    ui->pb_start->setMenu(nullptr);
+    ui->pb_oneCycle->setMenu(nullptr);
+
 
     if (globalMode == GlobalMode::DAQ)
     {
         if (daqState == DAQState::Idle)
+        {
             ui->pb_start->setText(QSL("Start"));
+            ui->pb_start->setMenu(m_menuStartButton);
+            ui->pb_oneCycle->setMenu(m_menuOneCycleButton);
+        }
         else if (daqState == DAQState::Paused)
             ui->pb_start->setText(QSL("Resume"));
         else
@@ -223,7 +257,11 @@ void DAQControlWidget::updateWidget()
     else if (globalMode == GlobalMode::ListFile)
     {
         if (daqState == DAQState::Idle)
+        {
             ui->pb_start->setText(QSL("Start Replay"));
+            ui->pb_start->setMenu(m_menuStartButton);
+            ui->pb_oneCycle->setMenu(m_menuOneCycleButton);
+        }
         else if (daqState == DAQState::Paused)
             ui->pb_start->setText(QSL("Resume Replay"));
         else

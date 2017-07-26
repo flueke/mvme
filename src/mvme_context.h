@@ -293,13 +293,13 @@ class MVMEContext: public QObject
         RunInfo getRunInfo() const;
 
     public slots:
-        void startDAQ(quint32 nCycles=0);
+        void startDAQ(quint32 nCycles = 0, bool keepHistoContents = false);
         // Stops DAQ or replay depending on the current GlobalMode
         void stopDAQ();
         void pauseDAQ();
         void resumeDAQ();
 
-        void startReplay(u32 nEvents = 0);
+        void startReplay(u32 nEvents = 0, bool keepHistoContents = false);
         void pauseReplay();
         void resumeReplay(u32 nEvents = 0);
 

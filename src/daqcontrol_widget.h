@@ -19,6 +19,7 @@
 #ifndef __DAQCONTROL_WIDGET_H__
 #define __DAQCONTROL_WIDGET_H__
 
+#include <QMenu>
 #include <QWidget>
 
 namespace Ui
@@ -40,6 +41,8 @@ class DAQControlWidget: public QWidget
 
         Ui::DAQControlWidget *ui;
         MVMEContext *m_context;
+        QMenu *m_menuStartButton;
+        QMenu *m_menuOneCycleButton;
 };
 
 #endif /* __DAQCONTROL_WIDGET_H__ */
