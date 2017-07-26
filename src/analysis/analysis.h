@@ -427,6 +427,8 @@ class Extractor: public SourceInterface
         virtual QString getDisplayName() const override { return QSL("Filter Extractor"); }
         virtual QString getShortName() const override { return QSL("Ext"); }
 
+        QVector<double> getHitCounts() const { return m_hitCounts; }
+
         // configuration
         MultiWordDataFilter m_filter;
         u32 m_requiredCompletionCount = 1;
@@ -435,6 +437,9 @@ class Extractor: public SourceInterface
 
         // state
         u32 m_currentCompletionCount = 0;
+
+        // number of times the filter yielded data for each address
+        QVector<double> m_hitCounts;
 
         pcg32_fast m_rng;
         Pipe m_output;

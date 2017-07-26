@@ -2037,8 +2037,9 @@ PipeDisplay *EventWidgetPrivate::makeAndShowPipeDisplay(Pipe *pipe)
 
 void EventWidgetPrivate::doPeriodicUpdate()
 {
-    for (auto &trees: m_levelTrees)
+    for (auto trees: m_levelTrees)
     {
+        // display tree (histo counts)
         QTreeWidgetItemIterator iter(trees.displayTree);
 
         while (*iter)
@@ -2078,6 +2079,39 @@ void EventWidgetPrivate::doPeriodicUpdate()
                             sink->getShortName(),
                             sink->objectName(),
                             QString::number(entryCount)));
+                }
+            }
+
+            ++iter;
+        }
+    }
+
+    {
+        // level 0 operator tree (Extractor hitcounts)
+        QTreeWidgetItemIterator iter(m_levelTrees[0].operatorTree);
+
+        while (*iter)
+        {
+            auto node(*iter);
+
+            if (node->type() == NodeType_OutputPipeParameter)
+            {
+                auto outPipe = getPointer<Pipe>(node);
+                if (auto extractor = qobject_cast<Extractor *>(outPipe->getSource()))
+                {
+                    s32 address = node->data(0, DataRole_ParameterIndex).toInt();
+                    double hitCount = extractor->getHitCounts().value(address, 0.0);
+
+                    if (hitCount <= 0.0)
+                    {
+                        node->setText(0, QString::number(address));
+                    }
+                    else
+                    {
+                        node->setText(0, QString("%1 (hits=%2)").arg(
+                                QString::number(address),
+                                QString::number(hitCount)));
+                    }
                 }
             }
 

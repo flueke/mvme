@@ -246,7 +246,7 @@ Extractor::Extractor(QObject *parent)
     m_rngSeed = dist(rd);
 }
 
-void Extractor::beginRun(const RunInfo &)
+void Extractor::beginRun(const RunInfo &runInfo)
 {
     m_currentCompletionCount = 0;
 
@@ -271,6 +271,16 @@ void Extractor::beginRun(const RunInfo &)
     params.name = this->objectName();
 
     m_rng.seed(m_rngSeed);
+
+    m_hitCounts.resize(addressCount);
+
+    if (!runInfo.keepAnalysisState)
+    {
+        for (s32 i=0; i<m_hitCounts.size(); ++i)
+        {
+            m_hitCounts[i] = 0.0;
+        }
+    }
 }
 
 void Extractor::beginEvent()
@@ -306,6 +316,7 @@ void Extractor::processDataWord(u32 data, s32 wordIndex)
             u64 address = m_filter.getResultAddress();
 
             Q_ASSERT(address < static_cast<u64>(m_output.getSize()));
+            Q_ASSERT(address < static_cast<u64>(m_hitCounts.size()));
 
             auto &param = m_output.getParameters()[address];
             // Only fill if not valid yet to keep the first value in case of
@@ -322,6 +333,7 @@ void Extractor::processDataWord(u32 data, s32 wordIndex)
                 qDebug() << this << "setting param valid, addr =" << address << ", value =" << param.value
                     << ", dataWord =" << QString("0x%1").arg(data, 8, 16, QLatin1Char('0'));
 #endif
+                m_hitCounts[address] += 1.0;
             }
         }
 
@@ -1783,7 +1795,7 @@ void Histo1DSink::beginRun(const RunInfo &runInfo)
             {
                 auto histo = m_histos[histoIndex];
 
-                if (histo->getNumberOfBins() != static_cast<u32>(m_bins) || !runInfo.keepHistoContents)
+                if (histo->getNumberOfBins() != static_cast<u32>(m_bins) || !runInfo.keepAnalysisState)
                 {
                     histo->resize(m_bins); // calls clear() even if the size does not change
                 }
@@ -1943,7 +1955,7 @@ void Histo2DSink::beginRun(const RunInfo &runInfo)
         {
             if (m_histo->getAxisBinning(Qt::XAxis).getBins() != static_cast<u32>(m_xBins)
                 || m_histo->getAxisBinning(Qt::YAxis).getBins() != static_cast<u32>(m_yBins)
-                || !runInfo.keepHistoContents)
+                || !runInfo.keepAnalysisState)
             {
                 // resize always clears the histo
                 m_histo->resize(m_xBins, m_yBins);
