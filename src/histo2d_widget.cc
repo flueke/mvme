@@ -905,7 +905,7 @@ void Histo2DWidget::doXProjection()
     if (!m_xProjWidget)
     {
         m_xProjWidget = new Histo1DWidget(histo);
-        m_xProjWidget->setWindowIcon(QIcon(":/mesytec_icon.png"));
+        m_xProjWidget->setWindowIcon(QIcon(":/window_icon.png"));
         m_xProjWidget->setAttribute(Qt::WA_DeleteOnClose);
         connect(m_xProjWidget, &QObject::destroyed, this, [this] (QObject *) {
             m_xProjWidget = nullptr;
@@ -958,7 +958,7 @@ void Histo2DWidget::doYProjection()
     if (!m_yProjWidget)
     {
         m_yProjWidget = new Histo1DWidget(histo);
-        m_yProjWidget->setWindowIcon(QIcon(":/mesytec_icon.png"));
+        m_yProjWidget->setWindowIcon(QIcon(":/window_icon.png"));
         m_yProjWidget->setAttribute(Qt::WA_DeleteOnClose);
         connect(m_yProjWidget, &QObject::destroyed, this, [this] (QObject *) {
             m_yProjWidget = nullptr;

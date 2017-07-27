@@ -1209,6 +1209,7 @@ void mvme::on_actionCheck_for_updates_triggered()
 
     //text/html;charset=ISO-8859-1
     //<a href="mvme-0.9-5-Windows-x32.exe">mvme-0.9-5-Windows-x32.exe</a>   2017-07-24 15:22   28M
+
     connect(reply, &QNetworkReply::finished, [this, reply]() {
         reply->deleteLater();
 

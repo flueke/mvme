@@ -106,7 +106,7 @@
   <action name="actionAbout_mvme">
    <property name="icon">
     <iconset resource="resources.qrc">
-     <normaloff>:/mesytec-window-icon.png</normaloff>:/mesytec-window-icon.png</iconset>
+     <normaloff>:/window_icon.png</normaloff>:/window_icon.png</iconset>
    </property>
    <property name="text">
     <string>&amp;About mvme</string>

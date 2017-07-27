@@ -39,7 +39,7 @@ int main(int argc, char *argv[])
     qRegisterMetaType<ControllerState>("ControllerState");
 
     QApplication app(argc, argv);
-    app.setWindowIcon(QIcon(":/mesytec_icon.png"));
+    app.setWindowIcon(QIcon(":/window_icon.png"));
 
 #if 0
     {
