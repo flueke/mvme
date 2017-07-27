@@ -44,15 +44,14 @@ class VMUSBBufferProcessor: public QObject
         VMUSBBufferProcessor(MVMEContext *context, QObject *parent = 0);
 
         void processBuffer(DataBuffer *buffer);
+        void timetick();
 
         ThreadSafeDataBufferQueue *m_freeBufferQueue;
         ThreadSafeDataBufferQueue *m_filledBufferQueue;
 
-    public slots:
         void setLogBuffers(bool b) { m_logBuffers = b; }
         void beginRun();
         void endRun();
-        void resetRunState(); // call this when a new DAQ run starts
 
     private:
         DataBuffer *getFreeBuffer();
@@ -60,6 +59,7 @@ class VMUSBBufferProcessor: public QObject
                          u64 bufferNumber, u16 eventIndex, u16 numberOfEvents);
         DAQStats *getStats();
         void logMessage(const QString &message);
+        void resetRunState(); // call this when a new DAQ run starts
 
         friend class VMUSBBufferProcessorPrivate;
         VMUSBBufferProcessorPrivate *m_d;

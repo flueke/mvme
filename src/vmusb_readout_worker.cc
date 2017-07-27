@@ -526,9 +526,26 @@ void VMUSBReadoutWorker::readoutLoop()
     u64 nReadErrors = 0;
     u64 nGoodReads = 0;
 
+    QTime elapsedTime;
+    elapsedTime.start();
+    m_bufferProcessor->timetick();
+
     while (true)
     {
+        // Qt event processing to handle queued slots invocations (stop, pause, resume)
         processQtEvents();
+
+        // One timetick for every elapsed second.
+        s32 elapsedSeconds = elapsedTime.elapsed() / 1000;
+
+        if (elapsedSeconds >= 1)
+        {
+            do
+            {
+                m_bufferProcessor->timetick();
+            } while (--elapsedSeconds);
+            elapsedTime.restart();
+        }
 
         // pause
         if (m_state == DAQState::Running && m_desiredState == DAQState::Paused)

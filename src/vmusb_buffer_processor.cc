@@ -251,7 +251,8 @@ struct ProcessorState
 
     /* VMUSB uses 16-bit words internally which means it can split our 32-bit
      * aligned module data words in case of partial events. If this is the case
-     * the partial 16-bits are stored and reused when the next buffer starts.
+     * the partial 16-bits are stored here and reused when the next buffer
+     * starts.
      */
     u16 partialData = 0;
     bool hasPartialData = false;
@@ -283,11 +284,6 @@ struct VMUSBBufferProcessorPrivate
 
     DataBuffer *getOutputBuffer();
 };
-
-static void processQtEvents(QEventLoop::ProcessEventsFlags flags = QEventLoop::AllEvents)
-{
-    QCoreApplication::processEvents(flags);
-}
 
 VMUSBBufferProcessor::VMUSBBufferProcessor(MVMEContext *context, QObject *parent)
     : QObject(parent)
@@ -1223,4 +1219,14 @@ DAQStats *VMUSBBufferProcessor::getStats()
 void VMUSBBufferProcessor::logMessage(const QString &message)
 {
     m_context->logMessage(message);
+}
+
+void VMUSBBufferProcessor::timetick()
+{
+    if (m_d->m_listFileOut
+        && m_d->m_listFileOut->isOpen()
+        && !m_listFileWriter->writeTimetickSection())
+    {
+        throw_io_device_error(m_d->m_listFileOut);
+    }
 }
