@@ -1199,22 +1199,78 @@ static const QString get_package_bitness_string()
 #endif
 }
 
+static u64 extract_package_version(const QString &filename)
+{
+    static const QString pattern = QSL("mvme-(?<major>[0-9]+)\\.(?<minor>[0-9]+)(\\.(?<point>[0-9]+))?(-(?<commits>[0-9]+))?");
+
+    u64 result = 0;
+    QRegularExpression re(pattern);
+    auto match = re.match(filename);
+
+    if (match.hasMatch())
+    {
+        u64 major   = match.captured("major").toUInt();
+        u64 minor   = match.captured("minor").toUInt();
+        u64 point   = match.captured("point").toUInt();
+        u64 commits = match.captured("commits").toUInt();
+
+        result = commits
+            + 1000 * point
+            + 1000 * 1000 * minor
+            + 1000 * 1000 * 1000 * major;
+
+        qDebug() << "filename =" << filename
+            << ", major =" << major
+            << ", minor =" << minor
+            << ", point =" << point
+            << ", commits =" << commits
+            << ", result =" << result;
+            ;
+
+    }
+
+    return result;
+}
+
 void mvme::on_actionCheck_for_updates_triggered()
 {
+#if 1
+    QStringList testFilenames =
+    {
+        "mvme-0.9.exe",
+        "mvme-0.9-42.exe",
+        "mvme-0.9.1.exe",
+        "mvme-0.9.1-42.exe",
+        "mvme-1.1.1-111-Window-x42.zip",
+        "mvme-98.76.54-32-Window-x42.zip",
+        "mvme-987.654.321-666-Window-x42.zip",
+        "mvme-999.999.999-999-Window-x42.zip", // max version possible (except for major which could be larger)
+        "mvme-9999.999.999-999-Window-x42.zip" // exceeding the max with major
+    };
+
+    for (auto name: testFilenames)
+    {
+        u32 version = extract_package_version(name);
+        //qDebug() << __PRETTY_FUNCTION__ << "name =" << name << ", version =" << version;
+    }
+#endif
+
+
     QNetworkRequest request;
     request.setUrl(UpdateCheckURL);
     request.setRawHeader("User-Agent", UpdateCheckUserAgent + GIT_VERSION_TAG);
 
     auto reply = m_networkAccessManager->get(request);
 
-    //text/html;charset=ISO-8859-1
-    //<a href="mvme-0.9-5-Windows-x32.exe">mvme-0.9-5-Windows-x32.exe</a>   2017-07-24 15:22   28M
 
     connect(reply, &QNetworkReply::finished, [this, reply]() {
         reply->deleteLater();
 
         if (reply->error() == QNetworkReply::NoError)
         {
+            // Both the platform and bitness strings are known at compile time.
+            // A download link entry looks like this:
+            // <a href="mvme-0.9-5-Windows-x32.exe">mvme-0.9-5-Windows-x32.exe</a>   2017-07-24 15:22   28M
             static const QString pattern = QString("href=\"(mvme-[0-9.-]+-%1-%2\\.exe)\"")
                 .arg(get_package_platform_string())
                 .arg(get_package_bitness_string())
@@ -1227,11 +1283,32 @@ void mvme::on_actionCheck_for_updates_triggered()
             auto contents = QString::fromLatin1(reply->readAll());
             auto matchIter = re.globalMatch(contents);
 
+            struct PackageInfo
+            {
+                QString filename;
+                u32 version;
+            };
+
+            QVector<PackageInfo> packages;
+
             while (matchIter.hasNext())
             {
                 auto match = matchIter.next();
                 qDebug() << match.captured(1);
+                PackageInfo info;
+                info.filename = match.captured(1);
+                info.version  = extract_package_version(info.filename);
+                packages.push_back(info);
             }
+
+            auto latestPackage = std::accumulate(packages.begin(), packages.end(), PackageInfo{QString(), 0},
+                                               [](const auto &a, const auto &b) {
+                return (a.version > b.version ? a : b);
+            });
+
+            qDebug() << __PRETTY_FUNCTION__ << "latest package version available is" << latestPackage.filename << latestPackage.version;
+
+            // TODO: build version info from the running binary using GIT_VERSION_SHORT
         }
     });
 }
