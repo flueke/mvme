@@ -1489,7 +1489,7 @@ AnalysisPauser::AnalysisPauser(MVMEContext *context)
 {
     was_running = context->isAnalysisRunning();
 
-    qDebug() << __PRETTY_FUNCTION__ << was_running;
+    qDebug() << __PRETTY_FUNCTION__ << "was_running =" << was_running;
 
     if (was_running)
     {
@@ -1499,7 +1499,7 @@ AnalysisPauser::AnalysisPauser(MVMEContext *context)
 
 AnalysisPauser::~AnalysisPauser()
 {
-    qDebug() << __PRETTY_FUNCTION__ << was_running;
+    qDebug() << __PRETTY_FUNCTION__ << "was_running =" << was_running;
     if (was_running)
     {
         context->resumeAnalysis();

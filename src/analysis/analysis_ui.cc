@@ -436,6 +436,7 @@ void EventWidgetTree::dropEvent(QDropEvent *event)
     }
 }
 
+/* Top (operator) and bottom (display) trees for one user level. */
 struct DisplayLevelTrees
 {
     EventWidgetTree *operatorTree;
@@ -2037,13 +2038,15 @@ PipeDisplay *EventWidgetPrivate::makeAndShowPipeDisplay(Pipe *pipe)
 
 void EventWidgetPrivate::doPeriodicUpdate()
 {
+    //
+    // display trees (histo counts)
+    //
     for (auto trees: m_levelTrees)
     {
-        // display tree (histo counts)
-        QTreeWidgetItemIterator iter(trees.displayTree);
-
-        while (*iter)
+        for (auto iter = QTreeWidgetItemIterator(trees.displayTree);
+             *iter; ++iter)
         {
+
             auto node(*iter);
 
             if (node->type() == NodeType_Histo1D)
@@ -2051,15 +2054,17 @@ void EventWidgetPrivate::doPeriodicUpdate()
                 auto histo = getPointer<Histo1D>(node);
                 s32 address = node->data(0, DataRole_HistoAddress).toInt();
                 double entryCount = histo->getEntryCount();
+
+                QString numberString = QString("%1").arg(address, 2).replace(QSL(" "), QSL("&nbsp;"));
+
                 if (entryCount <= 0.0)
                 {
-                    node->setText(0, QString::number(address));
+                    node->setText(0, numberString);
                 }
                 else
                 {
-                    // FIXME: When rendering Qt ignores runs of whitespace inside the QTreeWidgetItems text.
                     node->setText(0, QString("%1 (entries=%2)")
-                                  .arg(address, 3)
+                                  .arg(numberString)
                                   .arg(entryCount));
                 }
             }
@@ -2081,16 +2086,15 @@ void EventWidgetPrivate::doPeriodicUpdate()
                             QString::number(entryCount)));
                 }
             }
-
-            ++iter;
         }
     }
 
+    //
+    // level 0 operator tree (Extractor hitcounts)
+    //
     {
-        // level 0 operator tree (Extractor hitcounts)
-        QTreeWidgetItemIterator iter(m_levelTrees[0].operatorTree);
-
-        while (*iter)
+        for (auto iter = QTreeWidgetItemIterator(m_levelTrees[0].operatorTree);
+             *iter; ++iter)
         {
             auto node(*iter);
 
@@ -2101,21 +2105,20 @@ void EventWidgetPrivate::doPeriodicUpdate()
                 {
                     s32 address = node->data(0, DataRole_ParameterIndex).toInt();
                     double hitCount = extractor->getHitCounts().value(address, 0.0);
+                    QString numberString = QString("%1").arg(address, 2).replace(QSL(" "), QSL("&nbsp;"));
 
                     if (hitCount <= 0.0)
                     {
-                        node->setText(0, QString::number(address));
+                        node->setText(0, numberString);
                     }
                     else
                     {
-                        node->setText(0, QString("%1 (hits=%2)").arg(
-                                QString::number(address),
-                                QString::number(hitCount)));
+                        node->setText(0, QString("%1 (hits=%2)")
+                                      .arg(numberString)
+                                      .arg(hitCount));
                     }
                 }
             }
-
-            ++iter;
         }
     }
 }

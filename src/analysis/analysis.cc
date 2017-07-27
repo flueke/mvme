@@ -250,7 +250,9 @@ void Extractor::beginRun(const RunInfo &runInfo)
 {
     m_currentCompletionCount = 0;
 
-    u32 addressCount = 1 << m_filter.getAddressBits();
+    u32 addressCount = 1u << m_filter.getAddressBits();
+
+    qDebug() << __PRETTY_FUNCTION__ << this << addressCount;
 
     // The highest value the filter will yield is ((2^bits) - 1) but we're
     // adding a random in [0.0, 1.0) so the actual exclusive upper limit is
