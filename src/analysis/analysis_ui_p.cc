@@ -250,6 +250,9 @@ void AddEditSourceWidget::applyTemplate(int index)
 void AddEditSourceWidget::accept()
 {
     qDebug() << __PRETTY_FUNCTION__;
+
+    AnalysisPauser pauser(m_eventWidget->getContext());
+
     auto extractor = qobject_cast<Extractor *>(m_src);
 
     extractor->setObjectName(le_name->text());
