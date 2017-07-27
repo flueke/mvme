@@ -814,11 +814,11 @@ bool ListFileWriter::writeBuffer(const char *buffer, size_t size)
     return false;
 }
 
-bool ListFileWriter::writeEndSection()
+bool ListFileWriter::writeEmptySection(SectionType sectionType)
 {
     using LF = listfile_v1;
 
-    u32 header = (SectionType_End << LF::SectionTypeShift) & LF::SectionTypeMask;
+    u32 header = (sectionType << LF::SectionTypeShift) & LF::SectionTypeMask;
 
     if (m_out->write((const char *)&header, sizeof(header)) != sizeof(header))
         return false;
@@ -826,4 +826,14 @@ bool ListFileWriter::writeEndSection()
     m_bytesWritten += sizeof(header);
 
     return true;
+}
+
+bool ListFileWriter::writeEndSection()
+{
+    return writeEmptySection(SectionType_End);
+}
+
+bool ListFileWriter::writeTimetickSection()
+{
+    return writeEmptySection(SectionType_Timetick);
 }
