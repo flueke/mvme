@@ -1237,7 +1237,9 @@ void VMUSBBufferProcessor::timetick()
 {
     using LF = listfile_v1;
 
+    #ifdef BPDEBUG
     qDebug() << __PRETTY_FUNCTION__ << QTime::currentTime() << "timetick";
+    #endif
 
     DataBuffer *outputBuffer = getFreeBuffer();
 
@@ -1259,7 +1261,9 @@ void VMUSBBufferProcessor::timetick()
             throw_io_device_error(m_d->m_listFileOut);
         }
         getStats()->listFileBytesWritten = m_listFileWriter->bytesWritten();
+        #ifdef BPDEBUG
         qDebug() << "\t timetick written to listfile";
+        #endif
     }
 
     if (outputBuffer != &m_localTimetickBuffer)
@@ -1269,10 +1273,15 @@ void VMUSBBufferProcessor::timetick()
         m_filledBufferQueue->queue.enqueue(outputBuffer);
         m_filledBufferQueue->mutex.unlock();
         m_filledBufferQueue->wc.wakeOne();
+        #ifdef BPDEBUG
         qDebug() << "\t timetick passed to analysis";
+        #endif
     }
     else
     {
+        #ifdef BPDEBUG
+        qDebug() << "\t timetick dropped before analysis";
+        #endif
         getStats()->droppedBuffers++;
     }
 }

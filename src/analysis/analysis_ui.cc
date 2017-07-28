@@ -2729,6 +2729,7 @@ struct AnalysisWidgetPrivate
     QToolButton *m_addUserLevelButton;
     QStatusBar *m_statusBar;
     QLabel *m_labelSinkStorageSize;
+    QLabel *m_labelTimetickCount;
     QTimer *m_periodicUpdateTimer;
 
     void repopulate();
@@ -3306,8 +3307,13 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
 
     // statusbar
     m_d->m_statusBar = make_statusbar();
+    // timeticks label
+    m_d->m_labelTimetickCount = new QLabel;
+    m_d->m_statusBar->addPermanentWidget(m_d->m_labelTimetickCount);
+    // histo storage label
     m_d->m_labelSinkStorageSize = new QLabel;
     m_d->m_statusBar->addPermanentWidget(m_d->m_labelSinkStorageSize);
+
 
     // main layout
     auto layout = new QGridLayout(this);
@@ -3349,6 +3355,13 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
         m_d->m_labelSinkStorageSize->setText(QString("Histo Storage: %1 %2")
                                              .arg(storageSize, 0, 'f', 2)
                                              .arg(unit));
+    });
+
+    // Update statusbar timeticks label
+    connect(m_d->m_periodicUpdateTimer, &QTimer::timeout, this, [this]() {
+        double tickCount = m_d->m_context->getAnalysis()->getTimetickCount();
+        m_d->m_labelTimetickCount->setText(QString("Timeticks: %1")
+                                           .arg(tickCount));
     });
 
     // Run the periodic update

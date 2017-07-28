@@ -1154,6 +1154,8 @@ class Analysis: public QObject
         void beginEvent(const QUuid &eventId);
         void processDataWord(const QUuid &eventId, const QUuid &moduleId, u32 data, s32 wordIndex);
         void endEvent(const QUuid &eventId);
+        // Called once for every SectionType_Timetick section
+        void processTimetick();
 
         const QVector<SourceEntry> &getSources() const { return m_sources; }
         QVector<SourceEntry> &getSources() { return m_sources; }
@@ -1235,6 +1237,7 @@ class Analysis: public QObject
         s32 getMaxUserLevel() const;
         s32 getMaxUserLevel(const QUuid &eventId) const;
         size_t getTotalSinkStorageSize() const;
+        double getTimetickCount() const;
 
         Registry &getRegistry() { return m_registry; }
 
@@ -1262,6 +1265,7 @@ class Analysis: public QObject
 
         bool m_modified;
         RunInfo m_runInfo;
+        double m_timetickCount;
 };
 
 struct RawDataDisplay

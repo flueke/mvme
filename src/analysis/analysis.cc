@@ -2077,6 +2077,7 @@ const QMap<Analysis::ReadResultCodes, const char *> Analysis::ReadResult::ErrorC
 Analysis::Analysis(QObject *parent)
     : QObject(parent)
     , m_modified(false)
+    , m_timetickCount(0.0)
 {
     m_registry.registerSource<Extractor>();
 
@@ -2102,6 +2103,11 @@ Analysis::Analysis(QObject *parent)
 void Analysis::beginRun(const RunInfo &runInfo)
 {
     m_runInfo = runInfo;
+
+    if (!runInfo.keepAnalysisState)
+    {
+        m_timetickCount = 0.0;
+    }
 
     updateRanks();
 
@@ -2286,6 +2292,16 @@ void Analysis::endEvent(const QUuid &eventId)
 #if ENABLE_ANALYSIS_DEBUG
     qDebug() << "end endEvent()" << eventId;
 #endif
+}
+
+void Analysis::processTimetick()
+{
+    m_timetickCount += 1.0;
+}
+
+double Analysis::getTimetickCount() const
+{
+    return m_timetickCount;
 }
 
 void Analysis::updateRanks()
