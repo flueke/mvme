@@ -85,4 +85,6 @@ void show_and_activate(QWidget *widget);
 
 QString get_bitness_string();
 
+QFont make_monospace_font(QFont baseFont = QFont());
+
 #endif /* __QT_UTIL_H__ */

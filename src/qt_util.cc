@@ -204,3 +204,10 @@ QString get_bitness_string()
     return QString();
 #endif
 }
+
+QFont make_monospace_font(QFont baseFont)
+{
+    baseFont.setFamily(QSL("Monospace"));
+    baseFont.setStyleHint(QFont::Monospace);
+    return baseFont;
+}

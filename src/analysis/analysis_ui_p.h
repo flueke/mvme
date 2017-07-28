@@ -230,6 +230,11 @@ class OperatorConfigurationWidget: public QWidget
                        *spin_yMax;
         QRadioButton *rb_opAnd;
         QRadioButton *rb_opOr;
+
+        // BinarySumDiff
+        QComboBox *combo_equation;
+        QDoubleSpinBox *spin_outputLowerLimit;
+        QDoubleSpinBox *spin_outputUpperLimit;
 };
 
 class PipeDisplay: public QWidget

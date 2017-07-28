@@ -876,6 +876,57 @@ class RectFilter2D: public OperatorInterface
         Op m_op = OpAnd;
 };
 
+class BinarySumDiff: public OperatorInterface
+{
+    Q_OBJECT
+    Q_INTERFACES(analysis::OperatorInterface)
+    public:
+        BinarySumDiff(QObject *parent = 0);
+
+        virtual void beginRun(const RunInfo &runInfo) override;
+        virtual void step() override;
+
+        // Inputs
+        virtual s32 getNumberOfSlots() const override;
+        virtual Slot *getSlot(s32 slotIndex) override;
+
+        // Outputs
+        virtual s32 getNumberOfOutputs() const override;
+        virtual QString getOutputName(s32 outputIndex) const override;
+        virtual Pipe *getOutput(s32 index) override;
+
+        // Serialization
+        virtual void read(const QJsonObject &json) override;
+        virtual void write(QJsonObject &json) const override;
+
+        // Info
+        virtual QString getDisplayName() const override { return QSL("Binary Sum/Diff Equations"); }
+        virtual QString getShortName() const override { return QSL("BinSumDiff"); }
+
+        s32 getNumberOfEquations() const;
+        QString getEquationDisplayString(s32 index) const;
+        void setEquation(s32 index) { m_equationIndex = index; }
+        s32 getEquation() const { return m_equationIndex; }
+
+        void setOutputUnitLabel(const QString &label) { m_outputUnitLabel = label; }
+        QString getOutputUnitLabel() const { return m_outputUnitLabel; }
+
+        void setOutputLowerLimit(double limit) { m_outputLowerLimit = limit; }
+        void setOutputUpperLimit(double limit) { m_outputUpperLimit = limit; }
+
+        double getOutputLowerLimit() const { return m_outputLowerLimit; }
+        double getOutputUpperLimit() const { return m_outputUpperLimit; }
+
+    private:
+        Slot m_inputA;
+        Slot m_inputB;
+        Pipe m_output;
+        s32 m_equationIndex;
+        QString m_outputUnitLabel;
+        double m_outputLowerLimit;
+        double m_outputUpperLimit;
+};
+
 //
 // Sinks
 //

@@ -1750,6 +1750,221 @@ void RectFilter2D::write(QJsonObject &json) const
 }
 
 //
+// BinarySumDiff
+//
+struct EquationImpl
+{
+    const QString displayString;
+    // args are (inputA, inputB, output)
+    void (*impl)(const ParameterVector &, const ParameterVector &, ParameterVector &);
+};
+
+// Do not reorder the array as indexes are stored in config files!
+static const QVector<EquationImpl> EquationImpls =
+{
+    { QSL("C = A + B"), [](const ParameterVector &a, const ParameterVector &b, ParameterVector &o)
+        {
+            for (s32 i = 0; i < a.size(); ++i)
+            {
+                o[i].valid = a[i].valid && b[i].valid;
+                o[i].value = a[i].value +  b[i].value;
+            }
+        }
+    },
+
+    { QSL("C = A - B"), [](const ParameterVector &a, const ParameterVector &b, ParameterVector &o)
+        {
+            for (s32 i = 0; i < a.size(); ++i)
+            {
+                o[i].valid = a[i].valid && b[i].valid;
+                o[i].value = a[i].value -  b[i].value;
+            }
+        }
+    },
+
+    { QSL("C = (A + B) / (A - B)"), [](const ParameterVector &a, const ParameterVector &b, ParameterVector &o)
+        {
+            for (s32 i = 0; i < a.size(); ++i)
+            {
+                o[i].valid = (a[i].valid && b[i].valid && (a[i].value - b[i].value != 0.0));
+
+                if (o[i].valid)
+                {
+                    o[i].value = (a[i].value + b[i].value) / (a[i].value - b[i].value);
+                }
+            }
+        }
+    },
+
+    { QSL("C = (A - B) / (A + B)"), [](const ParameterVector &a, const ParameterVector &b, ParameterVector &o)
+        {
+            for (s32 i = 0; i < a.size(); ++i)
+            {
+                o[i].valid = (a[i].valid && b[i].valid && (a[i].value + b[i].value != 0.0));
+
+                if (o[i].valid)
+                {
+                    o[i].value = (a[i].value - b[i].value) / (a[i].value + b[i].value);
+                }
+            }
+        }
+    },
+
+    { QSL("C = A / (A - B)"), [](const ParameterVector &a, const ParameterVector &b, ParameterVector &o)
+        {
+            for (s32 i = 0; i < a.size(); ++i)
+            {
+                o[i].valid = (a[i].valid && b[i].valid && (a[i].value - b[i].value != 0.0));
+
+                if (o[i].valid)
+                {
+                    o[i].value = a[i].value / (a[i].value - b[i].value);
+                }
+            }
+        }
+    },
+
+    { QSL("C = (A - B) / A"), [](const ParameterVector &a, const ParameterVector &b, ParameterVector &o)
+        {
+            for (s32 i = 0; i < a.size(); ++i)
+            {
+                o[i].valid = (a[i].valid && b[i].valid && (a[i].value != 0.0));
+
+                if (o[i].valid)
+                {
+                    o[i].value = (a[i].value - b[i].value) / a[i].value;
+                }
+            }
+        }
+    },
+};
+
+BinarySumDiff::BinarySumDiff(QObject *parent)
+    : OperatorInterface(parent)
+    , m_inputA(this, 0, QSL("A"))
+    , m_inputB(this, 1, QSL("B"))
+    , m_equationIndex(0)
+    , m_outputLowerLimit(0.0)
+    , m_outputUpperLimit(0.0)
+{
+    m_output.setSource(this);
+    m_inputA.acceptedInputTypes = InputType::Array;
+    m_inputB.acceptedInputTypes = InputType::Array;
+}
+
+s32 BinarySumDiff::getNumberOfEquations() const
+{
+    return EquationImpls.size();
+}
+
+QString BinarySumDiff::getEquationDisplayString(s32 index) const
+{
+    if (0 <= index && index < EquationImpls.size())
+    {
+        return EquationImpls.at(index).displayString;
+    }
+
+    return QString();
+}
+
+// FIXME: basic implementation bailing out if input sizes are not equal.
+// Implement it so that the smalles input size is used for calculations and the
+// other output values are filled with invalids.
+void BinarySumDiff::beginRun(const RunInfo &)
+{
+    auto &out(m_output.getParameters());
+
+    if (m_inputA.isConnected()
+        && m_inputB.isConnected()
+        && m_inputA.inputPipe->getSize() == m_inputB.inputPipe->getSize()
+        && 0 <= m_equationIndex && m_equationIndex < EquationImpls.size())
+    {
+        out.resize(m_inputA.inputPipe->getSize());
+        out.name = objectName();
+        out.unit = m_outputUnitLabel;
+
+        for (auto &param: out)
+        {
+            param.valid = false;
+            param.lowerLimit = m_outputLowerLimit;
+            param.upperLimit = m_outputUpperLimit;
+        }
+    }
+    else
+    {
+        out.resize(0);
+        out.name = QString();
+        out.unit = QString();
+    }
+}
+
+void BinarySumDiff::step()
+{
+    auto &o(m_output.getParameters());
+
+    if (!o.isEmpty())
+    {
+        const auto &a(m_inputA.inputPipe->getParameters());
+        const auto &b(m_inputB.inputPipe->getParameters());
+        auto fn = EquationImpls.at(m_equationIndex).impl;
+
+        fn(a, b, o);
+    }
+    else
+    {
+        o.invalidateAll();
+    }
+}
+
+s32 BinarySumDiff::getNumberOfSlots() const
+{
+    return 2;
+}
+
+Slot *BinarySumDiff::getSlot(s32 slotIndex)
+{
+    switch (slotIndex)
+    {
+        case 0:
+            return &m_inputA;
+        case 1:
+            return &m_inputB;
+    }
+    return nullptr;
+}
+
+s32 BinarySumDiff::getNumberOfOutputs() const
+{
+    return 1;
+}
+
+QString BinarySumDiff::getOutputName(s32 outputIndex) const
+{
+    return QSL("Output");
+}
+
+Pipe *BinarySumDiff::getOutput(s32 index)
+{
+    return &m_output;
+}
+
+void BinarySumDiff::read(const QJsonObject &json)
+{
+    m_equationIndex = json["equationIndex"].toInt();
+    m_outputUnitLabel = json["outputUnitLabel"].toString();
+    m_outputLowerLimit = json["outputLowerLimit"].toDouble();
+    m_outputUpperLimit = json["outputUpperLimit"].toDouble();
+}
+
+void BinarySumDiff::write(QJsonObject &json) const
+{
+    json["equationIndex"] = m_equationIndex;
+    json["outputUnitLabel"] = m_outputUnitLabel;
+    json["outputLowerLimit"] = m_outputLowerLimit;
+    json["outputUpperLimit"] = m_outputUpperLimit;
+}
+
+//
 // Histo1DSink
 //
 Histo1DSink::Histo1DSink(QObject *parent)
@@ -2091,6 +2306,7 @@ Analysis::Analysis(QObject *parent)
     m_registry.registerOperator<RangeFilter1D>();
     m_registry.registerOperator<ConditionFilter>();
     m_registry.registerOperator<RectFilter2D>();
+    m_registry.registerOperator<BinarySumDiff>();
 
     m_registry.registerSink<Histo1DSink>();
     m_registry.registerSink<Histo2DSink>();

@@ -1146,6 +1146,39 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
             rb_opOr->setChecked(true);
         }
     }
+    else if (auto binOp = qobject_cast<BinarySumDiff *>(op))
+    {
+        combo_equation = new QComboBox;
+        combo_equation->setFont(make_monospace_font());
+
+        for (s32 idx = 0; idx < binOp->getNumberOfEquations(); ++idx)
+        {
+            combo_equation->addItem(binOp->getEquationDisplayString(idx), idx);
+        }
+
+        combo_equation->setCurrentIndex(binOp->getEquation());
+
+        le_unit = new QLineEdit;
+        le_unit->setText(binOp->getOutputUnitLabel());
+
+        spin_outputLowerLimit = new QDoubleSpinBox;
+        spin_outputUpperLimit = new QDoubleSpinBox;
+
+        for (auto spin: { spin_outputLowerLimit, spin_outputUpperLimit })
+        {
+            spin->setDecimals(8);
+            spin->setMinimum(-1e20);
+            spin->setMaximum(+1e20);
+        }
+
+        spin_outputLowerLimit->setValue(binOp->getOutputLowerLimit());
+        spin_outputUpperLimit->setValue(binOp->getOutputUpperLimit());
+
+        formLayout->addRow(QSL("Output Unit"), le_unit);
+        formLayout->addRow(QSL("Output Lower Limit"), spin_outputLowerLimit);
+        formLayout->addRow(QSL("Output Upper Limit"), spin_outputUpperLimit);
+        formLayout->addRow(QSL("Equation"), combo_equation);
+    }
 }
 
 #if 0
@@ -1591,6 +1624,13 @@ void OperatorConfigurationWidget::configureOperator()
         }
 
         filter->setConditionOp(rb_opAnd->isChecked() ? RectFilter2D::OpAnd : RectFilter2D::OpOr);
+    }
+    else if (auto binOp = qobject_cast<BinarySumDiff *>(op))
+    {
+        binOp->setEquation(combo_equation->currentData().toInt());
+        binOp->setOutputUnitLabel(le_unit->text());
+        binOp->setOutputLowerLimit(spin_outputLowerLimit->value());
+        binOp->setOutputUpperLimit(spin_outputUpperLimit->value());
     }
 }
 
