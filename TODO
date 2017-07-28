@@ -2,6 +2,14 @@
 ==== Do these first! =====
 ==========================
 
+* implement listfile timestamping:
+  Write a timestamp section (without contents) at the start of a run and from
+  then on every second.
+  Do not miss writing those sections. If n seconds have passed since the last
+  timestamp do write n timestamp sections.
+
+  Pass timestamps to the analysis!
+
 * use common start menu folder mesytec, then mvme underneath
 * info button does not work 2D combined view
 
