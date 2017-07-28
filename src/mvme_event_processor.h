@@ -53,12 +53,6 @@ class MVMEEventProcessor: public QObject
         void setDiagnostics(MesytecDiagnostics *diag);
         MesytecDiagnostics *getDiagnostics() const;
 
-        // Returns a deep copy of the hash to avoid threading issues.
-        DualWordFilterValues getDualWordFilterValues() const;
-
-        // Returns a hash of the most recent differences of dual word filter values.
-        DualWordFilterDiffs getDualWordFilterDiffs() const;
-
         EventProcessorState getState() const;
 
         void setListFileVersion(u32 version);
