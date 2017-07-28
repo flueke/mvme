@@ -138,6 +138,13 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                 << "sectionSize" << sectionSize;
 #endif
 
+            if (sectionType == ListfileSections::SectionType_Timetick)
+            {
+                Q_ASSERT(sectionSize == 0);
+                qDebug() << __PRETTY_FUNCTION__ << "got a timetick section";
+                continue;
+            }
+
             if (sectionType != ListfileSections::SectionType_Event)
             {
 #ifdef MVME_EVENT_PROCESSOR_DEBUGGING

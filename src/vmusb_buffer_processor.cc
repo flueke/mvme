@@ -285,11 +285,15 @@ struct VMUSBBufferProcessorPrivate
     DataBuffer *getOutputBuffer();
 };
 
+static const size_t LocalEventBufferSize    = 27 * 1024 * 2;
+static const size_t LocalTimetickBufferSize = sizeof(u32);
+
 VMUSBBufferProcessor::VMUSBBufferProcessor(MVMEContext *context, QObject *parent)
     : QObject(parent)
     , m_d(new VMUSBBufferProcessorPrivate)
     , m_context(context)
     , m_localEventBuffer(27 * 1024 * 2)
+    , m_localTimetickBuffer(LocalTimetickBufferSize)
     , m_listFileWriter(new ListFileWriter(this))
 {
     m_d->m_q = this;
@@ -1221,12 +1225,54 @@ void VMUSBBufferProcessor::logMessage(const QString &message)
     m_context->logMessage(message);
 }
 
+/* Called every second by VMUSBReadoutWorker. Generates a SectionType_Timetick
+ * section and writes it to the listfile. Tries to use a buffer from the free
+ * queue, if none is available the m_localTimetickBuffer will be used instead.
+ *
+ * Note: This must not reuse m_localEventBuffer and it must not use
+ * getOutputBuffer() to obtain a free buffer as partial event handling might be
+ * in the process of building up a complete event using one of those buffers.
+ */
 void VMUSBBufferProcessor::timetick()
 {
-    if (m_d->m_listFileOut
-        && m_d->m_listFileOut->isOpen()
-        && !m_listFileWriter->writeTimetickSection())
+    using LF = listfile_v1;
+
+    qDebug() << __PRETTY_FUNCTION__ << QTime::currentTime() << "timetick";
+
+    DataBuffer *outputBuffer = getFreeBuffer();
+
+    if (!outputBuffer)
     {
-        throw_io_device_error(m_d->m_listFileOut);
+        outputBuffer = &m_localTimetickBuffer;
+    }
+
+    Q_ASSERT(outputBuffer->size >= sizeof(u32));
+
+    *outputBuffer->asU32(0) = (ListfileSections::SectionType_Timetick << LF::SectionTypeShift) & LF::SectionTypeMask;
+    outputBuffer->used = sizeof(u32);
+
+    if (m_d->m_listFileOut && m_d->m_listFileOut->isOpen())
+    {
+        if (!m_listFileWriter->writeBuffer(reinterpret_cast<const char *>(outputBuffer->data),
+                                           outputBuffer->used))
+        {
+            throw_io_device_error(m_d->m_listFileOut);
+        }
+        getStats()->listFileBytesWritten = m_listFileWriter->bytesWritten();
+        qDebug() << "\t timetick written to listfile";
+    }
+
+    if (outputBuffer != &m_localTimetickBuffer)
+    {
+        // It's not the local buffer -> put it into the queue of filled buffers
+        m_filledBufferQueue->mutex.lock();
+        m_filledBufferQueue->queue.enqueue(outputBuffer);
+        m_filledBufferQueue->mutex.unlock();
+        m_filledBufferQueue->wc.wakeOne();
+        qDebug() << "\t timetick passed to analysis";
+    }
+    else
+    {
+        getStats()->droppedBuffers++;
     }
 }

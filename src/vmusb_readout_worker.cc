@@ -36,6 +36,11 @@ static void processQtEvents(QEventLoop::ProcessEventsFlags flags = QEventLoop::A
     QCoreApplication::processEvents(flags);
 }
 
+static void processQtEvents(int maxtime_ms, QEventLoop::ProcessEventsFlags flags = QEventLoop::AllEvents)
+{
+    QCoreApplication::processEvents(flags, maxtime_ms);
+}
+
 namespace
 {
     struct TriggerData
@@ -657,7 +662,9 @@ void VMUSBReadoutWorker::readoutLoop()
         }
         else if (m_state == DAQState::Paused)
         {
-            processQtEvents(QEventLoop::WaitForMoreEvents);
+            // In paused state process Qt events for a maximum of 1s, then run
+            // another iteration of the loop to handle timeticks.
+            processQtEvents(1000);
         }
         else
         {

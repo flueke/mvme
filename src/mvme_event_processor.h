@@ -63,12 +63,12 @@ class MVMEEventProcessor: public QObject
     public slots:
         void removeDiagnostics();
         void newRun(const RunInfo &runInfo);
-        void processDataBuffer(DataBuffer *buffer);
 
         void startProcessing();
         void stopProcessing(bool whenQueueEmpty = true);
 
     private:
+        void processDataBuffer(DataBuffer *buffer);
         MVMEEventProcessorPrivate *m_d;
 };
 
