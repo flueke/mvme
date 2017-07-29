@@ -1,2 +1,0 @@
-# BLT readout until BERR or number of transfers reached
-bltfifo a32 0x0000 10000
