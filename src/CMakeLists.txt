@@ -21,6 +21,9 @@ find_package(Qt5Gui REQUIRED)
 find_package(Qt5Network REQUIRED)
 find_package(Qt5Widgets REQUIRED)
 
+# 3rdparty
+include_directories("${CMAKE_SOURCE_DIR}/3rdparty/pcg-cpp-0.98/include/")
+
 # quazip
 find_library(QUAZIP_QT5 NAMES quazip quazip-qt5)
 

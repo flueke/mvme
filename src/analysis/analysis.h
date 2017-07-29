@@ -24,8 +24,8 @@
 #include "histo1d.h"
 #include "histo2d.h"
 #include "../globals.h"
-#include "../3rdparty/pcg-cpp-0.98/include/pcg_random.hpp"
 
+#include <pcg_random.hpp>
 #include <memory>
 #include <QUuid>
 #include <qwt_interval.h>
