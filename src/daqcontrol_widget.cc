@@ -19,13 +19,19 @@
 #include "daqcontrol_widget.h"
 #include "mvme_context.h"
 #include "util.h"
-#include "ui_daqcontrol_widget.h"
 
+#include <QHBoxLayout>
+#include <QFormLayout>
 #include <QTimer>
 
 static const int updateInterval = 500;
 
-// zlib supports [0,9] with 6 being the default
+// zlib supports [0,9] with 6 being the default.
+//
+// Sample data from an MDPP-16 showed that compression levels > 1 lead to very
+// minor improvements in compressed file size but cause major performance
+// decreases. To not throttle the DAQ with compression we're now limiting the
+// selectable compression levels to 0 (no compression) and 1.
 static const int compressionMin = 0;
 static const int compressionMax = 1;
 
@@ -51,13 +57,23 @@ static void fill_compression_combo(QComboBox *combo)
 
 DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
     : QWidget(parent)
-    , ui(new Ui::DAQControlWidget)
     , m_context(context)
-    , m_menuStartButton(new QMenu(this))
-    , m_menuOneCycleButton(new QMenu(this))
+    , pb_start(new QPushButton)
+    , pb_stop(new QPushButton)
+    , pb_oneCycle(new QPushButton)
+    , pb_reconnect(new QPushButton)
+    , pb_controllerSettings(new QPushButton)
+    , menu_startButton(new QMenu(this))
+    , menu_oneCycleButton(new QMenu(this))
+    , label_controllerState(new QLabel)
+    , label_daqState(new QLabel)
+    , label_analysisState(new QLabel)
+    , label_listfileSize(new QLabel)
+    , cb_writeListfile(new QCheckBox)
+    , combo_compression(new QComboBox)
+    , le_listfileFilename(new QLineEdit)
+    , gb_listfile(new QGroupBox)
 {
-    ui->setupUi(this);
-
     // start button actions
     auto do_start = [this](u32 nEvents, bool keepHistoContents)
     {
@@ -76,10 +92,10 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
         }
     };
 
-    auto actionStartKeepData  = m_menuStartButton->addAction(QSL("Keep histogram contents"));
-    auto actionStartClearData = m_menuStartButton->addAction(QSL("Clear histogram contents"));
+    auto actionStartKeepData  = menu_startButton->addAction(QSL("Keep histogram contents"));
+    auto actionStartClearData = menu_startButton->addAction(QSL("Clear histogram contents"));
 
-    ui->pb_start->setMenu(m_menuStartButton);
+    pb_start->setMenu(menu_startButton);
 
     connect(actionStartKeepData, &QAction::triggered, this, [this, do_start]() {
         do_start(0, true);
@@ -90,7 +106,7 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
     });
 
     // start button click if no menu is set
-    connect(ui->pb_start, &QPushButton::clicked, m_context, [this] {
+    connect(pb_start, &QPushButton::clicked, m_context, [this] {
         auto globalMode = m_context->getMode();
         auto daqState = m_context->getDAQState();
 
@@ -111,10 +127,10 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
     });
 
     // one cycle button
-    auto actionOneCycleKeepData = m_menuOneCycleButton->addAction(QSL("Keep histogram contents"));
-    auto actionOneCycleClearData = m_menuOneCycleButton->addAction(QSL("Clear histogram copntents"));
+    auto actionOneCycleKeepData = menu_oneCycleButton->addAction(QSL("Keep histogram contents"));
+    auto actionOneCycleClearData = menu_oneCycleButton->addAction(QSL("Clear histogram copntents"));
 
-    ui->pb_oneCycle->setMenu(m_menuOneCycleButton);
+    pb_oneCycle->setMenu(menu_oneCycleButton);
 
     connect(actionOneCycleKeepData, &QAction::triggered, this, [this, do_start]() {
         do_start(1, true);
@@ -125,7 +141,7 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
     });
 
     // one cycle button click if no menu is set
-    connect(ui->pb_oneCycle, &QPushButton::clicked, this, [this] {
+    connect(pb_oneCycle, &QPushButton::clicked, this, [this] {
 
         if (m_context->getMode() == GlobalMode::ListFile
             && m_context->getDAQState() == DAQState::Paused)
@@ -134,9 +150,9 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
         }
     });
 
-    connect(ui->pb_stop, &QPushButton::clicked, m_context, &MVMEContext::stopDAQ);
+    connect(pb_stop, &QPushButton::clicked, m_context, &MVMEContext::stopDAQ);
 
-    connect(ui->pb_reconnect, &QPushButton::clicked, this, [this] {
+    connect(pb_reconnect, &QPushButton::clicked, this, [this] {
         /* Just disconnect the controller here. MVMEContext will call
          * tryOpenController() periodically which will connect again. */
         auto ctrl = m_context->getController();
@@ -144,16 +160,16 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
             ctrl->close();
     });
 
-    connect(ui->cb_writeListfile, &QCheckBox::stateChanged, this, [this](int state) {
+    connect(cb_writeListfile, &QCheckBox::stateChanged, this, [this](int state) {
         auto info = m_context->getListFileOutputInfo();
         info.enabled = (state != Qt::Unchecked);
         m_context->setListFileOutputInfo(info);
     });
 
-    fill_compression_combo(ui->combo_compression);
+    fill_compression_combo(combo_compression);
 
-    connect(ui->combo_compression, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged), this, [this] (int index) {
-        int compression = ui->combo_compression->currentData().toInt();
+    connect(combo_compression, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged), this, [this] (int index) {
+        int compression = combo_compression->currentData().toInt();
         auto info = m_context->getListFileOutputInfo();
         info.compressionLevel = compression;
         m_context->setListFileOutputInfo(info);
@@ -165,6 +181,83 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
     connect(m_context, &MVMEContext::controllerStateChanged, this, &DAQControlWidget::updateWidget);
     connect(m_context, &MVMEContext::daqConfigChanged, this, &DAQControlWidget::updateWidget);
 
+
+    //
+    // layout
+    //
+
+    pb_start->setText(QSL("Start"));
+    pb_stop->setText(QSL("Stop"));
+    pb_oneCycle->setText(QSL("1 Cycle"));
+    pb_reconnect->setText(QSL("Reconnect"));
+    pb_controllerSettings->setText(QSL("Settings"));
+
+    {
+        auto pal = le_listfileFilename->palette();
+        pal.setColor(QPalette::Base, QSL("#efebe7"));
+        le_listfileFilename->setPalette(pal);
+        le_listfileFilename->setReadOnly(true);
+    }
+
+    gb_listfile->setTitle(QSL("Listfile Output:"));
+
+    auto daqButtonFrame = new QFrame;
+    auto daqButtonLayout = new QHBoxLayout(daqButtonFrame);
+    daqButtonLayout->setContentsMargins(0, 0, 0, 0);
+    daqButtonLayout->setSpacing(2);
+    daqButtonLayout->addWidget(pb_start);
+    daqButtonLayout->addWidget(pb_stop);
+    daqButtonLayout->addWidget(pb_oneCycle);
+
+    // state frame
+    auto stateFrame = new QFrame;
+    auto stateFrameLayout = new QFormLayout(stateFrame);
+    stateFrameLayout->setContentsMargins(0, 0, 0, 0);
+    stateFrameLayout->setSpacing(2);
+
+    {
+        auto ctrlLayout = new QHBoxLayout;
+        ctrlLayout->setContentsMargins(0, 0, 0, 0);
+        ctrlLayout->setSpacing(2);
+        ctrlLayout->addWidget(label_controllerState);
+        ctrlLayout->addWidget(pb_reconnect);
+        ctrlLayout->addWidget(pb_controllerSettings);
+        stateFrameLayout->addRow(QSL("VME Controller:"), ctrlLayout);
+    }
+
+    stateFrameLayout->addRow(QSL("DAQ State:"), label_daqState);
+    stateFrameLayout->addRow(QSL("Analysis State:"), label_analysisState);
+
+    // listfile groupbox
+    {
+        cb_writeListfile->setText(QSL("Write Listfile"));
+        auto hbox = new QHBoxLayout;
+        hbox->setContentsMargins(0, 0, 0, 0);
+        hbox->setSpacing(2);
+        hbox->addWidget(cb_writeListfile);
+        hbox->addWidget(new QLabel(QSL("Compression:")));
+        hbox->addWidget(combo_compression);
+        hbox->addStretch();
+
+        auto gbLayout = new QFormLayout(gb_listfile);
+        gbLayout->setContentsMargins(0, 0, 0, 0);
+        gbLayout->setSpacing(2);
+        gbLayout->addRow(hbox);
+        gbLayout->addRow(QSL("Current Filename:"), le_listfileFilename);
+        gbLayout->addRow(QSL("Current Size:"), label_listfileSize);
+    }
+
+    // widget layout
+    auto widgetLayout = new QVBoxLayout(this);
+    widgetLayout->setContentsMargins(0, 0, 0, 0);
+    widgetLayout->setSpacing(2);
+    widgetLayout->addWidget(daqButtonFrame);
+    widgetLayout->addWidget(stateFrame);
+    widgetLayout->addWidget(gb_listfile);
+
+    //
+    // widget update timer setup
+    //
     auto timer = new QTimer(this);
     timer->setInterval(updateInterval);
     timer->start();
@@ -176,7 +269,6 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
 
 DAQControlWidget::~DAQControlWidget()
 {
-    delete ui;
 }
 
 void DAQControlWidget::updateWidget()
@@ -201,12 +293,12 @@ void DAQControlWidget::updateWidget()
         enableStartButton = true;
     }
 
-    ui->pb_start->setEnabled(enableStartButton);
+    pb_start->setEnabled(enableStartButton);
 
     //
     // stop button
     //
-    ui->pb_stop->setEnabled(((globalMode == GlobalMode::DAQ && daqState != DAQState::Idle && controllerState == ControllerState::Opened)
+    pb_stop->setEnabled(((globalMode == GlobalMode::DAQ && daqState != DAQState::Idle && controllerState == ControllerState::Opened)
                              || (globalMode == GlobalMode::ListFile && daqState != DAQState::Idle))
                            );
 
@@ -224,53 +316,53 @@ void DAQControlWidget::updateWidget()
         enableOneCycleButton = true;
     }
 
-    ui->pb_oneCycle->setEnabled(enableOneCycleButton);
+    pb_oneCycle->setEnabled(enableOneCycleButton);
 
 
     //
     // listfile options
     //
-    ui->gb_listfile->setEnabled(globalMode == GlobalMode::DAQ);
+    gb_listfile->setEnabled(globalMode == GlobalMode::DAQ);
 
     //
     // button labels and actions
     //
-    ui->pb_start->setMenu(nullptr);
-    ui->pb_oneCycle->setMenu(nullptr);
+    pb_start->setMenu(nullptr);
+    pb_oneCycle->setMenu(nullptr);
 
 
     if (globalMode == GlobalMode::DAQ)
     {
         if (daqState == DAQState::Idle)
         {
-            ui->pb_start->setText(QSL("Start"));
-            ui->pb_start->setMenu(m_menuStartButton);
-            ui->pb_oneCycle->setMenu(m_menuOneCycleButton);
+            pb_start->setText(QSL("Start"));
+            pb_start->setMenu(menu_startButton);
+            pb_oneCycle->setMenu(menu_oneCycleButton);
         }
         else if (daqState == DAQState::Paused)
-            ui->pb_start->setText(QSL("Resume"));
+            pb_start->setText(QSL("Resume"));
         else
-            ui->pb_start->setText(QSL("Pause"));
+            pb_start->setText(QSL("Pause"));
 
-        ui->pb_oneCycle->setText(QSL("1 Cycle"));
+        pb_oneCycle->setText(QSL("1 Cycle"));
     }
     else if (globalMode == GlobalMode::ListFile)
     {
         if (daqState == DAQState::Idle)
         {
-            ui->pb_start->setText(QSL("Start Replay"));
-            ui->pb_start->setMenu(m_menuStartButton);
-            ui->pb_oneCycle->setMenu(m_menuOneCycleButton);
+            pb_start->setText(QSL("Start Replay"));
+            pb_start->setMenu(menu_startButton);
+            pb_oneCycle->setMenu(menu_oneCycleButton);
         }
         else if (daqState == DAQState::Paused)
-            ui->pb_start->setText(QSL("Resume Replay"));
+            pb_start->setText(QSL("Resume Replay"));
         else
-            ui->pb_start->setText(QSL("Pause Replay"));
+            pb_start->setText(QSL("Pause Replay"));
 
         if (daqState == DAQState::Idle)
-            ui->pb_oneCycle->setText(QSL("1 Event"));
+            pb_oneCycle->setText(QSL("1 Event"));
         else if (daqState == DAQState::Paused)
-            ui->pb_oneCycle->setText(QSL("Next Event"));
+            pb_oneCycle->setText(QSL("Next Event"));
     }
 
 
@@ -289,32 +381,33 @@ void DAQControlWidget::updateWidget()
     }
 
 
-    ui->label_daqState->setText(daqStateString);
-    ui->label_analysisState->setText(eventProcStateString);
+    label_daqState->setText(daqStateString);
+    label_analysisState->setText(eventProcStateString);
 
-    ui->label_controllerState->setText(controllerState == ControllerState::Closed
+    label_controllerState->setText(controllerState == ControllerState::Closed
                                        ? QSL("Disconnected")
                                        : QSL("Connected"));
 
-    ui->pb_reconnect->setEnabled(globalMode == GlobalMode::DAQ && daqState == DAQState::Idle);
+    pb_reconnect->setEnabled(globalMode == GlobalMode::DAQ && daqState == DAQState::Idle);
+    pb_controllerSettings->setEnabled(globalMode == GlobalMode::DAQ && daqState == DAQState::Idle);
 
     auto outputInfo = m_context->getListFileOutputInfo();
 
     {
-        QSignalBlocker b(ui->cb_writeListfile);
-        ui->cb_writeListfile->setChecked(outputInfo.enabled);
+        QSignalBlocker b(cb_writeListfile);
+        cb_writeListfile->setChecked(outputInfo.enabled);
     }
 
     {
-        QSignalBlocker b(ui->combo_compression);
-        ui->combo_compression->setCurrentIndex(outputInfo.compressionLevel);
+        QSignalBlocker b(combo_compression);
+        combo_compression->setCurrentIndex(outputInfo.compressionLevel);
     }
 
     auto filename = stats.listfileFilename;
     filename.remove(m_context->getWorkspacePath(QSL("ListFileDirectory")) + QSL("/"));
 
-    if (ui->le_listfileFilename->text() != filename)
-        ui->le_listfileFilename->setText(filename);
+    if (le_listfileFilename->text() != filename)
+        le_listfileFilename->setText(filename);
 
 
     QString sizeString;
@@ -325,5 +418,5 @@ void DAQControlWidget::updateWidget()
         sizeString = QString("%1 MB").arg(mb, 6, 'f', 2);
     }
 
-    ui->label_listfileSize->setText(sizeString);
+    label_listfileSize->setText(sizeString);
 }

@@ -118,7 +118,6 @@ set(LIBMVME_SOURCES
     )
 
 qt5_wrap_ui(LIBMVME_UIC_OUT
-    daqcontrol_widget.ui
     event_config_dialog.ui
     mesytec_diagnostics.ui
     mvme.ui

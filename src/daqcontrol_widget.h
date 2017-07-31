@@ -19,13 +19,14 @@
 #ifndef __DAQCONTROL_WIDGET_H__
 #define __DAQCONTROL_WIDGET_H__
 
+#include <QCheckBox>
+#include <QComboBox>
+#include <QGroupBox>
+#include <QLabel>
+#include <QLineEdit>
 #include <QMenu>
+#include <QPushButton>
 #include <QWidget>
-
-namespace Ui
-{
-    class DAQControlWidget;
-}
 
 class MVMEContext;
 
@@ -39,10 +40,29 @@ class DAQControlWidget: public QWidget
     private:
         void updateWidget();
 
-        Ui::DAQControlWidget *ui;
         MVMEContext *m_context;
-        QMenu *m_menuStartButton;
-        QMenu *m_menuOneCycleButton;
+
+        QPushButton *pb_start,
+                    *pb_stop,
+                    *pb_oneCycle,
+                    *pb_reconnect,
+                    *pb_controllerSettings;
+
+        QMenu *menu_startButton,
+              *menu_oneCycleButton;
+
+        QLabel *label_controllerState,
+               *label_daqState,
+               *label_analysisState,
+               *label_listfileSize;
+
+        QCheckBox *cb_writeListfile;
+
+        QComboBox *combo_compression;
+
+        QLineEdit *le_listfileFilename;
+
+        QGroupBox *gb_listfile;
 };
 
 #endif /* __DAQCONTROL_WIDGET_H__ */
