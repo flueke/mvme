@@ -739,7 +739,11 @@ ListFileWriter::ListFileWriter(QIODevice *outputDevice, QObject *parent)
 
 void ListFileWriter::setOutputDevice(QIODevice *device)
 {
-    m_out = device;
+    if (m_out != device)
+    {
+        m_out = device;
+        m_bytesWritten = 0;
+    }
 }
 
 bool ListFileWriter::writePreamble()
