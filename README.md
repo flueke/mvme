@@ -2,7 +2,8 @@
 ## Dependencies
 * c++14 capable compiler
 * Qt >= 5.7 (might work with earlier releases)
-* libqwt
+* qwt
+* quazip
 * libusb
 * more???
 
