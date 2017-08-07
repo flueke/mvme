@@ -25,7 +25,11 @@ find_package(Qt5Widgets REQUIRED)
 include_directories("${CMAKE_SOURCE_DIR}/3rdparty/pcg-cpp-0.98/include/")
 
 # quazip
-find_library(QUAZIP_QT5 NAMES quazip quazip-qt5)
+find_path(QUAZIP_INCLUDE_DIR
+    NAMES quazip.h
+    PATH_SUFFIXES quazip quazip-qt5 quazip5)
+find_library(QUAZIP_QT5 NAMES quazip quazip-qt5 quazip5)
+include_directories(${QUAZIP_INCLUDE_DIR})
 
 # qwt
 find_path(QWT_INCLUDE_DIR

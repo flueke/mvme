@@ -27,9 +27,8 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QtMath>
-
-#include <quazip/quazip.h>
-#include <quazip/quazipfile.h>
+#include <quazipfile.h>
+#include <quazip.h>
 
 using namespace vmusb_constants;
 

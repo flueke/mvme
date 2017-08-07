@@ -58,7 +58,7 @@
 #include <QToolBar>
 
 #include <qwt_plot_curve.h>
-#include <quazip/quazipfile.h>
+#include <quazipfile.h>
 
 using namespace vats;
 
