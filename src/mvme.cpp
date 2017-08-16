@@ -721,7 +721,6 @@ void mvme::on_actionOpenListfile_triggered()
             QStringList fileNames = archive.getFileNameList();
 
             auto it = std::find_if(fileNames.begin(), fileNames.end(), [](const QString &str) {
-                qDebug() << __PRETTY_FUNCTION__ << str;
                 return str.endsWith(QSL(".mvmelst"));
             });
 
@@ -752,6 +751,7 @@ void mvme::on_actionOpenListfile_triggered()
             return;
         }
 
+        // try reading the DAQ config from inside the listfile
         auto json = listFile->getDAQConfig();
 
         if (json.isEmpty())
@@ -760,22 +760,46 @@ void mvme::on_actionOpenListfile_triggered()
             return;
         }
 
+        // save current replay state and set new listfile on the context object
         bool wasReplaying = (m_context->getMode() == GlobalMode::ListFile
                              && m_context->getDAQState() == DAQState::Running);
 
         m_context->setReplayFile(listFile.release());
 
-        if (!m_context->getAnalysis()->isModified() && m_context->getAnalysis()->isEmpty())
+
+        // Check if there's an analysis file inside the zip archive and ask the
+        // user if it should be loaded.
         {
+            // FIXME: this part does not check if the current analysis is modified!
+
             QuaZipFile inFile(fileName, QSL("analysis.analysis"));
 
-            if (!inFile.open(QIODevice::ReadOnly))
+            if (inFile.open(QIODevice::ReadOnly))
             {
-                QMessageBox::critical(0, "Error", make_zip_error("Could not read analysis file", &inFile));
+                QMessageBox box(QMessageBox::Question, QSL("Load analysis?"),
+                                QSL("Do you want to load the analysis configuration from the ZIP archive?"),
+                                QMessageBox::Yes | QMessageBox::No);
+
+                box.button(QMessageBox::Yes)->setText(QSL("Load analysis"));
+                box.button(QMessageBox::No)->setText(QSL("Keep current analysis"));
+                box.setDefaultButton(QMessageBox::No);
+
+                if (box.exec() == QMessageBox::Yes)
+                {
+                    m_context->loadAnalysisConfig(&inFile, QSL("ZIP Archive"));
+                }
             }
-            else
+        }
+
+        // Try to read the logfile from the archive and append it to the log view
+        {
+            QuaZipFile inFile(fileName, QSL("messages.log"));
+
+            if (inFile.open(QIODevice::ReadOnly))
             {
-                m_context->loadAnalysisConfig(&inFile);
+                appendToLog(QSL(">>>>> Begin listfile log"));
+                appendToLog(inFile.readAll());
+                appendToLog(QSL("<<<<< End listfile log"));
             }
         }
 

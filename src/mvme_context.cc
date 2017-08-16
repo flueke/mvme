@@ -274,7 +274,7 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
         }
         else
         {
-#if 1
+#if 0
             logMessage(QString("Could not open VME controller %1: %2")
                        .arg(to_string(m_controller->getType()))
                        .arg(result.toString())
@@ -885,8 +885,6 @@ void MVMEContext::startReplay(u32 nEvents, bool keepHistoContents)
 
 
     prepareStart();
-    logMessage(QSL("Replay starting"));
-    m_d->clearLog();
 
     m_listFileWorker->setEventsToRead(nEvents);
     m_eventProcessor->setListFileVersion(m_listFile->getFileVersion());
