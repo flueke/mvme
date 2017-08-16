@@ -16,45 +16,32 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
-#ifndef __THREADING_H__
-#define __THREADING_H__
+#include "globals.h"
 
-#include <QQueue>
-#include <QMutex>
-#include <QWaitCondition>
-#include <QMutexLocker>
-
-template<typename T>
-struct ThreadSafeQueue
+QString toString(const ListFileFormat &fmt)
 {
-    QQueue<T> queue;
-    QMutex mutex;
-    QWaitCondition wc;
-};
+    switch (fmt)
+    {
+        case ListFileFormat::Invalid:
+            return QSL("Invalid");
+        case ListFileFormat::Plain:
+            return QSL("Plain");
+        case ListFileFormat::ZIP:
+            return QSL("ZIP");
+    }
 
-template<typename T>
-void enqueue(ThreadSafeQueue<T> *tsq, T obj)
-{
-    QMutexLocker lock(&tsq->mutex);
-    tsq->queue.enqueue(obj);
+    return QString();
 }
 
-template<typename T>
-void enqueue_and_wakeOne(ThreadSafeQueue<T> *tsq, T obj)
+ListFileFormat fromString(const QString &str)
 {
-    tsq->mutex.lock();
-    tsq->queue.enqueue(obj);
-    tsq->mutex.unlock();
-    tsq->wc.wakeOne();
+    if (str == "Plain")
+        return ListFileFormat::Plain;
+
+    if (str == "ZIP")
+        return ListFileFormat::ZIP;
+
+    return ListFileFormat::Invalid;
 }
 
-template<typename T>
-T dequeue(ThreadSafeQueue<T> *tsq)
-{
-    QMutexLocker lock(&tsq->mutex);
-    if (!tsq->queue.isEmpty())
-        return tsq->queue.dequeue();
-    return T();
-}
 
-#endif /* __THREADING_H__ */

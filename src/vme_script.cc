@@ -591,7 +591,7 @@ QString to_string(const Command &cmd)
 
         case CommandType::Marker:
             {
-                buffer = QString("marker %1")
+                buffer = QString("marker 0x%1")
                     .arg(cmd.value, 8, 16, QChar('0'));
             } break;
 
@@ -796,6 +796,7 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
 
         case CommandType::Marker:
             {
+                result.value = cmd.value;
             } break;
 
         case CommandType::BLT:

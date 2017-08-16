@@ -253,6 +253,7 @@ class VMEConfig: public ConfigObject
 
         ReadResult readVMEConfig(const QJsonObject &json);
 
+        // events
         void addEventConfig(EventConfig *config);
         bool removeEventConfig(EventConfig *config);
         bool contains(EventConfig *config);
@@ -261,10 +262,12 @@ class VMEConfig: public ConfigObject
         EventConfig *getEventConfig(const QString &name) const;
         EventConfig *getEventConfig(const QUuid &id) const;
 
+        // modules
         ModuleConfig *getModuleConfig(int eventIndex, int moduleIndex);
         QList<ModuleConfig *> getAllModuleConfigs() const;
         QPair<int, int> getEventAndModuleIndices(ModuleConfig *cfg) const;
 
+        // scripts
         void addGlobalScript(VMEScriptConfig *config, const QString &category);
         bool removeGlobalScript(VMEScriptConfig *config);
 
@@ -274,9 +277,18 @@ class VMEConfig: public ConfigObject
         QMap<QString, QList<VMEScriptConfig *>> vmeScriptLists;
         QList<EventConfig *> eventConfigs;
 
+        // vme controller
+        void setVMEController(VMEControllerType type, const QVariantMap &settings = QVariantMap());
+        VMEControllerType getControllerType() const { return m_controllerType; }
+        QVariantMap getControllerSettings() const { return m_controllerSettings; }
+
     protected:
         virtual void read_impl(const QJsonObject &json) override;
         virtual void write_impl(QJsonObject &json) const override;
+
+    private:
+        VMEControllerType m_controllerType = VMEControllerType::VMUSB;
+        QVariantMap m_controllerSettings;
 };
 
 #endif

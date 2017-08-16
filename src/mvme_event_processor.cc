@@ -330,8 +330,8 @@ static const u32 ProcessEventsMinInterval_ms = 500;
 void MVMEEventProcessor::startProcessing()
 {
     qDebug() << __PRETTY_FUNCTION__ << "begin";
-    Q_ASSERT(m_freeBufferQueue);
-    Q_ASSERT(m_filledBufferQueue);
+    Q_ASSERT(m_freeBuffers);
+    Q_ASSERT(m_fullBuffers);
     Q_ASSERT(m_d->m_state == EventProcessorState::Idle);
 
     emit started();
@@ -349,19 +349,19 @@ void MVMEEventProcessor::startProcessing()
         DataBuffer *buffer = nullptr;
 
         {
-            QMutexLocker lock(&m_filledBufferQueue->mutex);
+            QMutexLocker lock(&m_fullBuffers->mutex);
 
-            if (m_filledBufferQueue->queue.isEmpty())
+            if (m_fullBuffers->queue.isEmpty())
             {
                 if (m_d->m_runAction == StopIfQueueEmpty)
                     break;
 
-                m_filledBufferQueue->wc.wait(&m_filledBufferQueue->mutex, FilledBufferWaitTimeout_ms);
+                m_fullBuffers->wc.wait(&m_fullBuffers->mutex, FilledBufferWaitTimeout_ms);
             }
 
-            if (!m_filledBufferQueue->queue.isEmpty())
+            if (!m_fullBuffers->queue.isEmpty())
             {
-                buffer = m_filledBufferQueue->queue.dequeue();
+                buffer = m_fullBuffers->queue.dequeue();
             }
         }
         // The mutex is unlocked again at this point
@@ -371,10 +371,10 @@ void MVMEEventProcessor::startProcessing()
             processDataBuffer(buffer);
 
             // Put the buffer back into the free queue
-            m_freeBufferQueue->mutex.lock();
-            m_freeBufferQueue->queue.enqueue(buffer);
-            m_freeBufferQueue->mutex.unlock();
-            m_freeBufferQueue->wc.wakeOne();
+            m_freeBuffers->mutex.lock();
+            m_freeBuffers->queue.enqueue(buffer);
+            m_freeBuffers->mutex.unlock();
+            m_freeBuffers->wc.wakeOne();
         }
 
         // Process Qt events to be able to "receive" queued calls to our slots.

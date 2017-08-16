@@ -17,12 +17,14 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "daqcontrol_widget.h"
-#include "mvme_context.h"
-#include "util.h"
 
 #include <QHBoxLayout>
 #include <QFormLayout>
 #include <QTimer>
+
+#include "mvme_context.h"
+#include "util.h"
+#include "vme_controller_ui.h"
 
 static const int updateInterval = 500;
 
@@ -128,7 +130,7 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
 
     // one cycle button
     auto actionOneCycleKeepData = menu_oneCycleButton->addAction(QSL("Keep histogram contents"));
-    auto actionOneCycleClearData = menu_oneCycleButton->addAction(QSL("Clear histogram copntents"));
+    auto actionOneCycleClearData = menu_oneCycleButton->addAction(QSL("Clear histogram contents"));
 
     pb_oneCycle->setMenu(menu_oneCycleButton);
 
@@ -155,9 +157,15 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
     connect(pb_reconnect, &QPushButton::clicked, this, [this] {
         /* Just disconnect the controller here. MVMEContext will call
          * tryOpenController() periodically which will connect again. */
-        auto ctrl = m_context->getController();
+        auto ctrl = m_context->getVMEController();
         if (ctrl)
             ctrl->close();
+    });
+
+    connect(pb_controllerSettings, &QPushButton::clicked, this, [this] {
+        VMEControllerSettingsDialog dialog(m_context);
+        dialog.setWindowModality(Qt::ApplicationModal);
+        dialog.exec();
     });
 
     connect(cb_writeListfile, &QCheckBox::stateChanged, this, [this](int state) {
@@ -276,7 +284,13 @@ void DAQControlWidget::updateWidget()
     auto globalMode = m_context->getMode();
     auto daqState = m_context->getDAQState();
     auto eventProcState = m_context->getEventProcessorState();
-    auto controllerState = m_context->getController()->getState();
+    auto controllerState = ControllerState::Unknown;
+
+    if (auto controller = m_context->getVMEController())
+    {
+        controllerState = m_context->getVMEController()->getState();
+    }
+
     const auto &stats = m_context->getDAQStats();
 
     //
@@ -384,9 +398,9 @@ void DAQControlWidget::updateWidget()
     label_daqState->setText(daqStateString);
     label_analysisState->setText(eventProcStateString);
 
-    label_controllerState->setText(controllerState == ControllerState::Closed
-                                       ? QSL("Disconnected")
-                                       : QSL("Connected"));
+    label_controllerState->setText(controllerState == ControllerState::Opened
+                                       ? QSL("Connected")
+                                       : QSL("Disconnected"));
 
     pb_reconnect->setEnabled(globalMode == GlobalMode::DAQ && daqState == DAQState::Idle);
     pb_controllerSettings->setEnabled(globalMode == GlobalMode::DAQ && daqState == DAQState::Idle);

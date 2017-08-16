@@ -2,16 +2,28 @@
 ==== Do these first! =====
 ==========================
 
-* implement listfile timestamping:
-  Write a timestamp section (without contents) at the start of a run and from
-  then on every second.
-  Do not miss writing those sections. If n seconds have passed since the last
-  timestamp do write n timestamp sections.
+* Do not use signals/slots for the pause/resume/stop implementation in
+  VMEReadoutWorkers. Instead just set the desired state directly (maybe
+  securing the access with QAtomicInt in a tight loop). This would allow not
+  having to call processEvents() in the readoutLoop anymore.
 
-  Pass timestamps to the analysis!
+* Make DataBuffer allocation 32-bit aligned: new u32[size/4 + 1]
 
-* use common start menu folder mesytec, then mvme underneath
-* info button does not work 2D combined view
+* Implement better controller state reporting
+  Should not spam useless info
+  Should allow diagnosing connection issues
+
+sis3153 implementation
+----------------------
+class SIS3153:
+  - vme methods: make use of the amod arg or refactor the interface and get rid of it
+    -> Robert wants to keep amod so implement it
+
+* Check the default timeouts used in the sis3153eth implementation. Tweak if needed to stay responsive.
+
+
+* NSIS installer: use common start menu folder mesytec, then mvme underneath
+* info button does not work in 2D combined view of 1D histograms
 
 * Maybe reload the analysis on opening a listfile.
   Without the reload the analysis window can become empty if the listfile

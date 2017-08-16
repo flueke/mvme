@@ -12,7 +12,7 @@
     $ make -j4
 
 ## Archlinux packages:
-`base-devel cmake qt5-base quazip libusb-compat qwt`
+`cmake qt5-base quazip libusb-compat qwt`
 
 ### CMake Options
 * `BUILD_DOCS=ON|OFF`

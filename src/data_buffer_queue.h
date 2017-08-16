@@ -16,45 +16,11 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
-#ifndef __THREADING_H__
-#define __THREADING_H__
+#ifndef __DATA_BUFFER_QUEUE_H__
+#define __DATA_BUFFER_QUEUE_H__
+#include "databuffer.h"
+#include "threading.h"
 
-#include <QQueue>
-#include <QMutex>
-#include <QWaitCondition>
-#include <QMutexLocker>
+using ThreadSafeDataBufferQueue = ThreadSafeQueue<DataBuffer *>;
 
-template<typename T>
-struct ThreadSafeQueue
-{
-    QQueue<T> queue;
-    QMutex mutex;
-    QWaitCondition wc;
-};
-
-template<typename T>
-void enqueue(ThreadSafeQueue<T> *tsq, T obj)
-{
-    QMutexLocker lock(&tsq->mutex);
-    tsq->queue.enqueue(obj);
-}
-
-template<typename T>
-void enqueue_and_wakeOne(ThreadSafeQueue<T> *tsq, T obj)
-{
-    tsq->mutex.lock();
-    tsq->queue.enqueue(obj);
-    tsq->mutex.unlock();
-    tsq->wc.wakeOne();
-}
-
-template<typename T>
-T dequeue(ThreadSafeQueue<T> *tsq)
-{
-    QMutexLocker lock(&tsq->mutex);
-    if (!tsq->queue.isEmpty())
-        return tsq->queue.dequeue();
-    return T();
-}
-
-#endif /* __THREADING_H__ */
+#endif /* __DATA_BUFFER_QUEUE_H__ */

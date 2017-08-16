@@ -36,9 +36,8 @@
 
 
 #include "globals.h"
-#include "databuffer.h"
+#include "data_buffer_queue.h"
 #include "util.h"
-#include "threading.h"
 
 #include <QTextStream>
 #include <QFile>
@@ -246,8 +245,8 @@ class ListFileReader: public QObject
 
         void setLogger(LoggerFun logger) { m_logger = logger; }
 
-        ThreadSafeDataBufferQueue *m_freeBufferQueue = nullptr;
-        ThreadSafeDataBufferQueue *m_filledBufferQueue = nullptr;
+        ThreadSafeDataBufferQueue *m_freeBuffers = nullptr;
+        ThreadSafeDataBufferQueue *m_fullBuffers = nullptr;
 
     public slots:
         void start();

@@ -25,21 +25,12 @@
 #include <QThread>
 
 #include "CVMUSBReadoutList.h"
+#include "vme_daq.h"
 #include "vmusb_buffer_processor.h"
 #include "vmusb.h"
 
 using namespace vmusb_constants;
 using namespace vme_script;
-
-static void processQtEvents(QEventLoop::ProcessEventsFlags flags = QEventLoop::AllEvents)
-{
-    QCoreApplication::processEvents(flags);
-}
-
-static void processQtEvents(int maxtime_ms, QEventLoop::ProcessEventsFlags flags = QEventLoop::AllEvents)
-{
-    QCoreApplication::processEvents(flags, maxtime_ms);
-}
 
 namespace
 {
@@ -127,10 +118,10 @@ namespace
     }
 }
 
-VMUSBReadoutWorker::VMUSBReadoutWorker(MVMEContext *context, QObject *parent)
-    : QObject(parent)
-    , m_context(context)
+VMUSBReadoutWorker::VMUSBReadoutWorker(QObject *parent)
+    : VMEReadoutWorker(parent)
     , m_readBuffer(new DataBuffer(vmusb_constants::BufferMaxSize))
+    , m_bufferProcessor(new VMUSBBufferProcessor(this))
 {
 }
 
@@ -139,17 +130,21 @@ VMUSBReadoutWorker::~VMUSBReadoutWorker()
     delete m_readBuffer;
 }
 
+void VMUSBReadoutWorker::pre_setContext(VMEReadoutWorkerContext newContext)
+{
+    m_bufferProcessor->m_freeBufferQueue = newContext.freeBuffers;
+    m_bufferProcessor->m_filledBufferQueue = newContext.fullBuffers;
+}
+
 void VMUSBReadoutWorker::start(quint32 cycles)
 {
     if (m_state != DAQState::Idle)
         return;
 
-    clearError();
-
-    auto vmusb = dynamic_cast<VMUSB *>(m_context->getController());
+    auto vmusb = qobject_cast<VMUSB *>(m_workerContext.controller);
     if (!vmusb)
     {
-        logError("VMUSB controller required");
+        logError(QSL("VMUSB controller required"));
         return;
     }
 
@@ -157,9 +152,9 @@ void VMUSBReadoutWorker::start(quint32 cycles)
 
     m_cyclesToRun = cycles;
     setState(DAQState::Starting);
-    DAQStats &stats(m_context->getDAQStats());
+    DAQStats &stats(*m_workerContext.daqStats);
     bool errorThrown = false;
-    auto daqConfig = m_context->getVMEConfig();
+    auto daqConfig = m_workerContext.vmeConfig;
     VMEError error;
 
     // Decide whether to log buffer contents.
@@ -263,21 +258,7 @@ void VMUSBReadoutWorker::start(quint32 cycles)
 
             qDebug() << "event " << event->objectName() << " -> stackID =" << event->stackID;
 
-            VMEScript readoutScript;
-
-            readoutScript += event->vmeScripts["readout_start"]->getScript();
-
-            for (auto module: event->modules)
-            {
-                readoutScript += module->getReadoutScript()->getScript(module->getBaseAddress());
-                Command marker;
-                marker.type = CommandType::Marker;
-                marker.value = EndMarker;
-                readoutScript += marker;
-            }
-
-            readoutScript += event->vmeScripts["readout_end"]->getScript();
-
+            VMEScript readoutScript = build_event_readout_script(event);
             CVMUSBReadoutList readoutList(readoutScript);
             m_vmusbStack.setContents(QVector<u32>::fromStdVector(readoutList.get()));
 
@@ -319,55 +300,7 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         //
         // DAQ Init
         //
-
-        //using namespace std::placeholders;
-        //vme_script::LoggerFun logger = std::bind(&VMUSBReadoutWorker::logMessage, this, _1);
-
-        auto startScripts = daqConfig->vmeScriptLists["daq_start"];
-        if (!startScripts.isEmpty())
-        {
-            logMessage(QSL(""));
-            logMessage(QSL("Global DAQ Start scripts:"));
-            for (auto script: startScripts)
-            {
-                logMessage(QString("  %1").arg(script->objectName()));
-                auto indentingLogger = [this](const QString &str) { this->logMessage(QSL("    ") + str); };
-                run_script(vmusb, script->getScript(), indentingLogger, true);
-            }
-        }
-
-        logMessage(QSL(""));
-        logMessage(QSL("Initializing Modules:"));
-        for (auto event: daqConfig->eventConfigs)
-        {
-            for (auto module: event->modules)
-            {
-                logMessage(QString("  %1.%2")
-                                .arg(event->objectName())
-                                .arg(module->objectName())
-                                );
-
-                QVector<VMEScriptConfig *> scripts;
-                scripts.push_back(module->getResetScript());
-                scripts.append(module->getInitScripts());
-
-                for (auto scriptConfig: scripts)
-                {
-                    logMessage(QSL("    %1").arg(scriptConfig->objectName()));
-                    auto indentingLogger = [this](const QString &str) { this->logMessage(QSL("      ") + str); };
-                    run_script(vmusb, scriptConfig->getScript(module->getBaseAddress()), indentingLogger, true);
-                }
-            }
-        }
-
-        logMessage(QSL("Events DAQ Start"));
-        for (auto event: daqConfig->eventConfigs)
-        {
-            logMessage(QString("  %1").arg(event->objectName()));
-            auto indentingLogger = [this](const QString &str) { this->logMessage(QSL("    ") + str); };
-            run_script(vmusb, event->vmeScripts["daq_start"]->getScript(), indentingLogger, true);
-        }
-
+        vme_daq_init(daqConfig, vmusb, [this] (const QString &msg) { logMessage(msg); });
 
         //
         // Debug Dump of all VMUSB registers
@@ -392,25 +325,7 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         //
         // DAQ Stop
         //
-        logMessage(QSL("Events DAQ Stop"));
-        for (auto event: daqConfig->eventConfigs)
-        {
-            logMessage(QString("  %1").arg(event->objectName()));
-            auto indentingLogger = [this](const QString &str) { this->logMessage(QSL("    ") + str); };
-            run_script(vmusb, event->vmeScripts["daq_stop"]->getScript(), indentingLogger, true);
-        }
-
-        auto stopScripts = daqConfig->vmeScriptLists["daq_stop"];
-        if (!stopScripts.isEmpty())
-        {
-            logMessage(QSL("Global DAQ Stop scripts:"));
-            for (auto script: stopScripts)
-            {
-                logMessage(QString("  %1").arg(script->objectName()));
-                auto indentingLogger = [this](const QString &str) { this->logMessage(QSL("    ") + str); };
-                run_script(vmusb, script->getScript(), indentingLogger, true);
-            }
-        }
+        vme_daq_shutdown(daqConfig, vmusb, [this] (const QString &msg) { logMessage(msg); });
 
         m_bufferProcessor->endRun();
 
@@ -526,7 +441,7 @@ void VMUSBReadoutWorker::readoutLoop()
 
     setState(DAQState::Running);
 
-    DAQStats &stats(m_context->getDAQStats());
+    DAQStats &stats(*m_workerContext.daqStats);
     QTime logReadErrorTimer;
     u64 nReadErrors = 0;
     u64 nGoodReads = 0;
@@ -698,7 +613,7 @@ void VMUSBReadoutWorker::logError(const QString &message)
 
 void VMUSBReadoutWorker::logMessage(const QString &message)
 {
-    m_context->logMessage(message);
+    m_workerContext.logMessage(message);
 }
 
 VMUSBReadoutWorker::ReadBufferResult VMUSBReadoutWorker::readBuffer(int timeout_ms)
@@ -719,7 +634,7 @@ VMUSBReadoutWorker::ReadBufferResult VMUSBReadoutWorker::readBuffer(int timeout_
     if ((!result.error.isError() || result.error.isTimeout()) && result.bytesRead > 0)
     {
         m_readBuffer->used = result.bytesRead;
-        DAQStats &stats(m_context->getDAQStats());
+        DAQStats &stats(*m_workerContext.daqStats);
         stats.addBuffersRead(1);
         stats.addBytesRead(result.bytesRead);
 

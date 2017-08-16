@@ -274,13 +274,16 @@ void Extractor::beginRun(const RunInfo &runInfo)
 
     m_rng.seed(m_rngSeed);
 
-    m_hitCounts.resize(addressCount);
-
-    if (!runInfo.keepAnalysisState)
     {
-        for (s32 i=0; i<m_hitCounts.size(); ++i)
+        QMutexLocker lock(&m_hitCountsMutex);
+        m_hitCounts.resize(addressCount);
+
+        if (!runInfo.keepAnalysisState)
         {
-            m_hitCounts[i] = 0.0;
+            for (s32 i=0; i<m_hitCounts.size(); ++i)
+            {
+                m_hitCounts[i] = 0.0;
+            }
         }
     }
 }
@@ -335,6 +338,7 @@ void Extractor::processDataWord(u32 data, s32 wordIndex)
                 qDebug() << this << "setting param valid, addr =" << address << ", value =" << param.value
                     << ", dataWord =" << QString("0x%1").arg(data, 8, 16, QLatin1Char('0'));
 #endif
+                QMutexLocker lock(&m_hitCountsMutex);
                 m_hitCounts[address] += 1.0;
             }
         }
@@ -430,6 +434,12 @@ void Extractor::write(QJsonObject &json) const
 
     json["subFilters"] = filterArray;
     json["requiredCompletionCount"] = static_cast<qint64>(m_requiredCompletionCount);
+}
+
+QVector<double> Extractor::getHitCounts() const
+{
+    QMutexLocker lock(&m_hitCountsMutex);
+    return m_hitCounts;
 }
 
 //

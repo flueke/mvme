@@ -22,7 +22,7 @@
 #include <QFormLayout>
 #include <QTimer>
 
-static const int updateInterval = 500;
+static const int updateInterval = 1000;
 
 struct DAQStatsWidgetPrivate
 {

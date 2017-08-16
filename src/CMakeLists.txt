@@ -86,6 +86,7 @@ set(LIBMVME_SOURCES
     CVMUSBReadoutList.cpp
     daqcontrol_widget.cc
     daqstats_widget.cc
+    globals.cc
     gui_util.cc
     histo1d.cc
     histo1d_widget.cc
@@ -103,6 +104,10 @@ set(LIBMVME_SOURCES
     realtimedata.cpp
     scrollbar.cpp
     scrollzoomer.cpp
+    sis3153.cc
+    sis3153_readout_worker.cc
+    sis3153/sis3153ETH_vme_class.cpp
+    sis3153_util.cc
     template_system.cc
     treewidget_utils.cc
     util.cc
@@ -110,7 +115,11 @@ set(LIBMVME_SOURCES
     vme_config.cc
     vme_config_tree.cc
     vme_controller.cpp
+    vme_controller_factory.cc
+    vme_controller_ui.cc
     vme_debug_widget.cc
+    vme_daq.cc
+    vme_readout_worker.cc
     vme_script.cc
     vme_script_editor.cc
     vmusb_buffer_processor.cc
@@ -141,10 +150,15 @@ qt5_use_modules(libmvme
   Widgets
   )
 
+if (WIN32)
+    set(LIBMVME_ADDITIONAL_LIBS ws2_32)
+endif()
+
 target_link_libraries(libmvme
     ${QUAZIP_QT5}
     ${QWT_LIBRARY}
     ${LIBUSB_LIBRARY}
+    ${LIBMVME_ADDITIONAL_LIBS}
     )
 
 install(TARGETS libmvme DESTINATION .)

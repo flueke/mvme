@@ -20,8 +20,8 @@
 #define UUID_2aee2ea6_9760_46db_8d90_4dad1e4d019f
 
 #include "typedefs.h"
-#include "threading.h"
 #include "globals.h"
+#include "data_buffer_queue.h"
 #include <QHash>
 #include <QObject>
 #include <QVector>
@@ -57,8 +57,8 @@ class MVMEEventProcessor: public QObject
 
         void setListFileVersion(u32 version);
 
-        ThreadSafeDataBufferQueue *m_freeBufferQueue = nullptr;
-        ThreadSafeDataBufferQueue *m_filledBufferQueue = nullptr;
+        ThreadSafeDataBufferQueue *m_freeBuffers = nullptr;
+        ThreadSafeDataBufferQueue *m_fullBuffers = nullptr;
 
     public slots:
         void removeDiagnostics();

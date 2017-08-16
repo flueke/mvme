@@ -19,18 +19,45 @@
 #include "vme_controller.h"
 #include <QThread>
 
-static const QMap<VMEError::ErrorType, QString> errorNames = 
+QString to_string(VMEControllerType type)
 {
-    { VMEError::NoError,        QSL("No error") },
-    { VMEError::UnknownError,   QSL("Unknown error") },
-    { VMEError::NotOpen,        QSL("Controller not open") },
-    { VMEError::WriteError,     QSL("Write error") },
-    { VMEError::ReadError,      QSL("Read error") },
-    { VMEError::CommError,      QSL("Communication error") },
-    { VMEError::BusError,       QSL("VME Bus Error") },
-    { VMEError::NoDevice,       QSL("No device found") },
-    { VMEError::DeviceIsOpen,   QSL("Device is open") },
-    { VMEError::Timeout,        QSL("Timeout") },
+    switch (type)
+    {
+        case VMEControllerType::VMUSB:
+            return "VMUSB";
+        case VMEControllerType::SIS3153:
+            return "SIS3153";
+    }
+
+    InvalidCodePath;
+    return QString();
+}
+
+VMEControllerType from_string(const QString &str)
+{
+    if (str == QSL("VMUSB"))
+        return VMEControllerType::VMUSB;
+
+    if (str == QSL("SIS3153"))
+        return VMEControllerType::SIS3153;
+
+    return VMEControllerType::VMUSB;
+}
+
+static const QMap<VMEError::ErrorType, QString> errorNames =
+{
+    { VMEError::NoError,            QSL("No error") },
+    { VMEError::UnknownError,       QSL("Unknown error") },
+    { VMEError::NotOpen,            QSL("Controller not open") },
+    { VMEError::WriteError,         QSL("Write error") },
+    { VMEError::ReadError,          QSL("Read error") },
+    { VMEError::CommError,          QSL("Communication error") },
+    { VMEError::BusError,           QSL("VME Bus Error") },
+    { VMEError::NoDevice,           QSL("No device found") },
+    { VMEError::DeviceIsOpen,       QSL("Device is open") },
+    { VMEError::Timeout,            QSL("Timeout") },
+    { VMEError::HostNotFound,       QSL("Host not found") },
+    { VMEError::InvalidIPAddress,   QSL("Invalid IP address") },
 };
 
 QString VMEError::toString() const

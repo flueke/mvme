@@ -915,7 +915,7 @@ void VMEConfigTreeWidget::handleShowDiagnostics()
 
 void VMEConfigTreeWidget::dumpVMUSBRegisters()
 {
-    auto vmusb = dynamic_cast<VMUSB *>(m_context->getController());
+    auto vmusb = dynamic_cast<VMUSB *>(m_context->getVMEController());
 
     if (vmusb && m_context->getDAQState() == DAQState::Idle)
     {

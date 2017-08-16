@@ -25,8 +25,9 @@
 #include "histo2d.h"
 #include "../globals.h"
 
-#include <pcg_random.hpp>
 #include <memory>
+#include <pcg_random.hpp>
+#include <QMutex>
 #include <QUuid>
 #include <qwt_interval.h>
 
@@ -427,7 +428,7 @@ class Extractor: public SourceInterface
         virtual QString getDisplayName() const override { return QSL("Filter Extractor"); }
         virtual QString getShortName() const override { return QSL("Ext"); }
 
-        QVector<double> getHitCounts() const { return m_hitCounts; }
+        QVector<double> getHitCounts() const;
 
         // configuration
         MultiWordDataFilter m_filter;
@@ -440,6 +441,7 @@ class Extractor: public SourceInterface
 
         // number of times the filter yielded data for each address
         QVector<double> m_hitCounts;
+        mutable QMutex m_hitCountsMutex;
 
         pcg32_fast m_rng;
         Pipe m_output;

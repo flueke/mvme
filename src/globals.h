@@ -192,4 +192,24 @@ struct RunInfo
     bool keepAnalysisState = false;
 };
 
+enum class ListFileFormat
+{
+    Invalid,
+    Plain,
+    ZIP
+};
+
+QString toString(const ListFileFormat &fmt);
+ListFileFormat fromString(const QString &str);
+
+struct ListFileOutputInfo
+{
+    bool enabled;               // true if a listfile should be written
+    ListFileFormat format;      // the format to write
+    QString directory;          // Path to the output directory. If it's not a
+                                // full path it's relative to the workspace directory.
+    QString fullDirectory;      // Always the full path to the listfile output directory.
+    int compressionLevel;       // zlib compression level
+};
+
 #endif

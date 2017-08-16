@@ -19,10 +19,8 @@
 #include "mvme.h"
 
 #include "ui_mvme.h"
-#include "vmusb.h"
 #include "vmusb_firmware_loader.h"
 #include "mvme_context.h"
-#include "vmusb_readout_worker.h"
 #include "config_ui.h"
 #include "mvme_listfile.h"
 #include "vme_config_tree.h"
@@ -38,6 +36,8 @@
 #include "histo2d_widget.h"
 #include "analysis/analysis_ui.h"
 #include "qt_util.h"
+#include "sis3153_util.h"
+
 #ifdef MVME_USE_GIT_VERSION_FILE
 #include "git_sha1.h"
 #endif
@@ -107,13 +107,17 @@ mvme::mvme(QWidget *parent) :
     //connect(m_context, &MVMEContext::controllerStateChanged, this, &mvme::updateActions);
     connect(m_context, &MVMEContext::daqConfigChanged, this, &mvme::updateActions);
 
-    // check and initialize VME interface
-    VMEController *controller = new VMUSB;
-    m_context->setController(controller); // The context take ownership
-
     // create and initialize displays
     ui->setupUi(this);
     ui->actionCheck_for_updates->setVisible(false);
+
+    auto sisDebugAction = ui->menu_Tools->addAction(QSL("SIS3153 Debug Widget"));
+    connect(sisDebugAction, &QAction::triggered, this, [this]() {
+        auto widget = new SIS3153DebugWidget(m_context);
+        widget->setAttribute(Qt::WA_DeleteOnClose);
+        add_widget_close_action(widget);
+        widget->show();
+    });
 
     //
     // central widget consisting of DAQControlWidget, DAQConfigTreeWidget and DAQStatsWidget
@@ -687,7 +691,7 @@ void mvme::on_actionOpenListfile_triggered()
         }
     }
 
-    QString path = m_context->getListFileOutputDirectoryFullPath();
+    QString path = m_context->getListFileOutputInfo().fullDirectory;
 
     if (path.isEmpty())
     {
@@ -1370,7 +1374,6 @@ void mvme::updateActions()
     auto globalMode = m_context->getMode();
     auto daqState = m_context->getDAQState();
     auto eventProcState = m_context->getEventProcessorState();
-    auto controllerState = m_context->getController()->getState();
 
     bool isDAQIdle = (daqState == DAQState::Idle);
 

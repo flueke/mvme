@@ -27,6 +27,7 @@
 #include "analysis/analysis_ui.h"
 #include "config_ui.h"
 #include "vme_analysis_common.h"
+#include "vme_controller_factory.h"
 
 #ifdef MVME_USE_GIT_VERSION_FILE
 #include "git_sha1.h"
@@ -37,32 +38,6 @@
 #include <QThread>
 #include <QProgressDialog>
 #include <QMessageBox>
-
-QString toString(const ListFileFormat &fmt)
-{
-    switch (fmt)
-    {
-        case ListFileFormat::Invalid:
-            return QSL("Invalid");
-        case ListFileFormat::Plain:
-            return QSL("Plain");
-        case ListFileFormat::ZIP:
-            return QSL("ZIP");
-    }
-
-    return QString();
-}
-
-ListFileFormat fromString(const QString &str)
-{
-    if (str == "Plain")
-        return ListFileFormat::Plain;
-
-    if (str == "ZIP")
-        return ListFileFormat::ZIP;
-
-    return ListFileFormat::Invalid;
-}
 
 // Buffers to pass between DAQ/replay and the analysis. The buffer size should
 // be at least twice as big as the max VMUSB buffer size (2 * 64k). Just using
@@ -80,19 +55,12 @@ static const int DefaultListFileCompression = 1;
 static const QString DefaultVMEConfigFileName = QSL("vme.vme");
 static const QString DefaultAnalysisConfigFileName  = QSL("analysis.analysis");
 
-static void stop_coordinated(VMUSBReadoutWorker *readoutWorker, MVMEEventProcessor *eventProcessor);
-
-static void processQtEvents(QEventLoop::ProcessEventsFlags flags = QEventLoop::AllEvents)
-{
-    QCoreApplication::processEvents(flags);
-}
-
 struct MVMEContextPrivate
 {
     MVMEContext *m_q;
     QStringList m_logBuffer;
     QMutex m_logBufferMutex;
-    ListFileOutputInfo m_listFileOutputInfo = {};
+    ListFileOutputInfo m_listfileOutputInfo = {};
     RunInfo m_runInfo;
 
     void stopDAQ();
@@ -174,7 +142,7 @@ void MVMEContextPrivate::stopDAQDAQ()
     if (m_q->m_readoutWorker->isRunning())
     {
         QTimer::singleShot(0, [this]() { QMetaObject::invokeMethod(m_q->m_readoutWorker, "stop", Qt::QueuedConnection); });
-        auto con = QObject::connect(m_q->m_readoutWorker, &VMUSBReadoutWorker::daqStopped, &localLoop, &QEventLoop::quit);
+        auto con = QObject::connect(m_q->m_readoutWorker, &VMEReadoutWorker::daqStopped, &localLoop, &QEventLoop::quit);
         localLoop.exec();
         QObject::disconnect(con);
     }
@@ -240,8 +208,6 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
     , m_ctrlOpenTimer(new QTimer(this))
     , m_logTimer(new QTimer(this))
     , m_readoutThread(new QThread(this))
-    , m_readoutWorker(new VMUSBReadoutWorker(this))
-    , m_bufferProcessor(new VMUSBBufferProcessor(this))
     , m_eventThread(new QThread(this))
     , m_eventProcessor(new MVMEEventProcessor(this))
     , m_mainwin(mainwin)
@@ -255,16 +221,14 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
 
     for (size_t i=0; i<DataBufferCount; ++i)
     {
-        m_freeBufferQueue.queue.push_back(new DataBuffer(DataBufferSize));
+        m_freeBuffers.queue.push_back(new DataBuffer(DataBufferSize));
     }
 
     // TODO: maybe hide these things a bit
-    m_listFileWorker->m_freeBufferQueue = &m_freeBufferQueue;
-    m_listFileWorker->m_filledBufferQueue = &m_filledBufferQueue;
-    m_bufferProcessor->m_freeBufferQueue = &m_freeBufferQueue;
-    m_bufferProcessor->m_filledBufferQueue = &m_filledBufferQueue;
-    m_eventProcessor->m_freeBufferQueue = &m_freeBufferQueue;
-    m_eventProcessor->m_filledBufferQueue = &m_filledBufferQueue;
+    m_listFileWorker->m_freeBuffers = &m_freeBuffers;
+    m_listFileWorker->m_fullBuffers = &m_fullBuffers;
+    m_eventProcessor->m_freeBuffers = &m_freeBuffers;
+    m_eventProcessor->m_fullBuffers = &m_fullBuffers;
 
     m_listFileWorker->setLogger([this](const QString &msg) { this->logMessage(msg); });
 
@@ -273,8 +237,8 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
     bufferQueueDebugTimer->start(5000);
     connect(bufferQueueDebugTimer, &QTimer::timeout, this, [this] () {
         qDebug() << "MVMEContext:"
-            << "free buffers:" << m_freeBufferQueue.queue.size()
-            << "filled buffers:" << m_filledBufferQueue.queue.size();
+            << "free buffers:" << m_freeBuffers.queue.size()
+            << "filled buffers:" << m_fullBuffers.queue.size();
     });
 #endif
 
@@ -284,6 +248,7 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
 
     connect(&m_ctrlOpenWatcher, &QFutureWatcher<VMEError>::finished, this, [this] {
         auto result = m_ctrlOpenWatcher.result();
+
         if (!result.isError())
         {
             if (auto vmusb = dynamic_cast<VMUSB *>(m_controller))
@@ -307,6 +272,15 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
                            .arg(m_controller->getIdentifyingString()));
             }
         }
+        else
+        {
+#if 1
+            logMessage(QString("Could not open VME controller %1: %2")
+                       .arg(to_string(m_controller->getType()))
+                       .arg(result.toString())
+                      );
+#endif
+        }
     });
 
     connect(m_logTimer, &QTimer::timeout, this, &MVMEContext::logModuleCounters);
@@ -314,15 +288,9 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
 
 
     m_readoutThread->setObjectName("mvme ReadoutThread");
-    m_readoutWorker->moveToThread(m_readoutThread);
-    m_bufferProcessor->moveToThread(m_readoutThread);
-    m_readoutWorker->setBufferProcessor(m_bufferProcessor); // FIXME: useless
     m_listFileWorker->moveToThread(m_readoutThread);
 
     m_readoutThread->start();
-
-    connect(m_readoutWorker, &VMUSBReadoutWorker::stateChanged, this, &MVMEContext::onDAQStateChanged);
-    connect(m_readoutWorker, &VMUSBReadoutWorker::daqStopped, this, &MVMEContext::onDAQDone);
 
     connect(m_listFileWorker, &ListFileReader::stateChanged, this, &MVMEContext::onDAQStateChanged);
     connect(m_listFileWorker, &ListFileReader::replayStopped, this, &MVMEContext::onReplayDone);
@@ -334,11 +302,14 @@ MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
     connect(m_eventProcessor, &MVMEEventProcessor::logMessage, this, &MVMEContext::logMessage);
     connect(m_eventProcessor, &MVMEEventProcessor::stateChanged, this, &MVMEContext::onEventProcessorStateChanged);
 
+
+    qDebug() << __PRETTY_FUNCTION__ << "startup: setting empty VMEConfig and VMUSB controller";
+
     setMode(GlobalMode::DAQ);
-
     setVMEConfig(new VMEConfig(this));
+    setVMEController(VMEControllerType::VMUSB);
 
-    tryOpenController();
+    qDebug() << __PRETTY_FUNCTION__ << "startup: done";
 }
 
 MVMEContext::~MVMEContext()
@@ -389,21 +360,20 @@ MVMEContext::~MVMEContext()
     // controllerStateChanged anymore.
     disconnect(m_controller, &VMEController::controllerStateChanged, this, &MVMEContext::controllerStateChanged);
     // Same for daqStateChanged() and eventProcessorStateChanged
-    disconnect(m_readoutWorker, &VMUSBReadoutWorker::stateChanged, this, &MVMEContext::onDAQStateChanged);
+    disconnect(m_readoutWorker, &VMEReadoutWorker::stateChanged, this, &MVMEContext::onDAQStateChanged);
     disconnect(m_listFileWorker, &ListFileReader::stateChanged, this, &MVMEContext::onDAQStateChanged);
     disconnect(m_eventProcessor, &MVMEEventProcessor::stateChanged, this, &MVMEContext::onEventProcessorStateChanged);
 
     delete m_controller;
     delete m_analysis_ng;
     delete m_readoutWorker;
-    delete m_bufferProcessor;
     delete m_eventProcessor;
     delete m_listFileWorker;
     delete m_listFile;
 
-    Q_ASSERT(m_freeBufferQueue.queue.size() + m_filledBufferQueue.queue.size() == DataBufferCount);
-    qDeleteAll(m_freeBufferQueue.queue);
-    qDeleteAll(m_filledBufferQueue.queue);
+    Q_ASSERT(m_freeBuffers.queue.size() + m_fullBuffers.queue.size() == DataBufferCount);
+    qDeleteAll(m_freeBuffers.queue);
+    qDeleteAll(m_fullBuffers.queue);
 
     delete m_d;
 
@@ -414,6 +384,7 @@ void MVMEContext::setVMEConfig(VMEConfig *config)
 {
     // TODO: create new vmecontroller and the corresponding readout worker if
     // the controller type changed.
+    // FIXME: old controller is not deleted on newVMEConfig and openVMEConfig!
 
     if (m_vmeConfig)
     {
@@ -441,15 +412,84 @@ void MVMEContext::setVMEConfig(VMEConfig *config)
     connect(m_vmeConfig, &VMEConfig::eventAboutToBeRemoved, this, &MVMEContext::onEventAboutToBeRemoved);
     connect(m_vmeConfig, &VMEConfig::globalScriptAboutToBeRemoved, this, &MVMEContext::onGlobalScriptAboutToBeRemoved);
 
+    // FIXME: handle the case where the controller type changed. Worker context
+    // needs to always be up-to-date otherwise it will contain stale pointers.
+    if (m_readoutWorker)
+    {
+        VMEReadoutWorkerContext workerContext = m_readoutWorker->getContext();
+        workerContext.vmeConfig = m_vmeConfig;
+        m_readoutWorker->setContext(workerContext);
+    }
+
     emit daqConfigChanged(config);
 }
 
-void MVMEContext::setController(VMEController *controller)
+void MVMEContext::setVMEController(VMEController *controller, const QVariantMap &settings)
 {
+    Q_ASSERT(getDAQState() == DAQState::Idle);
+    Q_ASSERT(getEventProcessorState() == EventProcessorState::Idle);
+
+    if (getDAQState() != DAQState::Idle
+        || getEventProcessorState() != EventProcessorState::Idle)
+    {
+        return;
+    }
+
+    qDebug() << __PRETTY_FUNCTION__
+        << "current type =" << (m_controller ? to_string(m_controller->getType()) : QSL("none"))
+        << ", new type   =" << (controller ? to_string(controller->getType()) : QSL("none"))
+        ;
+
+    // Wait for possibly active VMEController::open() to return before deleting
+    // the controller object.
+    m_ctrlOpenFuture.waitForFinished();
+
+    // It should be safe to delete these now
+    delete m_readoutWorker;
+    delete m_controller;
+
     m_controller = controller;
-    connect(m_controller, &VMEController::controllerStateChanged,
+    if (m_vmeConfig->getControllerType() != controller->getType()
+        || m_vmeConfig->getControllerSettings() != settings)
+    {
+        m_vmeConfig->setVMEController(controller->getType(), settings);
+    }
+
+    VMEControllerFactory factory(controller->getType());
+    m_readoutWorker = factory.makeReadoutWorker();
+    m_readoutWorker->moveToThread(m_readoutThread);
+    connect(m_readoutWorker, &VMEReadoutWorker::stateChanged, this, &MVMEContext::onDAQStateChanged);
+    connect(m_readoutWorker, &VMEReadoutWorker::daqStopped, this, &MVMEContext::onDAQDone);
+
+    VMEReadoutWorkerContext readoutWorkerContext =
+    {
+        controller,
+        &m_daqStats,
+        m_vmeConfig,
+        &m_freeBuffers,
+        &m_fullBuffers,
+        &m_d->m_listfileOutputInfo,
+        &m_d->m_runInfo,
+
+        [this](const QString &msg) { logMessage(msg); },
+        [this]() { return getLogBuffer(); },
+        [this]() { return getAnalysisJsonDocument(); }
+    };
+
+    m_readoutWorker->setContext(readoutWorkerContext);
+
+    connect(controller, &VMEController::controllerStateChanged,
             this, &MVMEContext::controllerStateChanged);
+
     emit vmeControllerSet(controller);
+}
+
+void MVMEContext::setVMEController(VMEControllerType type, const QVariantMap &settings)
+{
+    VMEControllerFactory factory(type);
+    auto controller = factory.makeController(settings);
+
+    setVMEController(controller, settings);
 }
 
 ControllerState MVMEContext::getControllerState() const
@@ -486,7 +526,7 @@ void MVMEContext::tryOpenController()
 {
     if (m_controller && !m_controller->isOpen() && !m_ctrlOpenFuture.isRunning())
     {
-        m_ctrlOpenFuture = QtConcurrent::run(m_controller, &VMEController::openFirstDevice);
+        m_ctrlOpenFuture = QtConcurrent::run(m_controller, &VMEController::open);
         m_ctrlOpenWatcher.setFuture(m_ctrlOpenFuture);
     }
 }
@@ -770,8 +810,8 @@ void MVMEContext::prepareStart()
     m_daqStats = DAQStats();
 
     qDebug() << __PRETTY_FUNCTION__
-        << "free buffers:" << m_freeBufferQueue.queue.size()
-        << "filled buffers:" << m_filledBufferQueue.queue.size();
+        << "free buffers:" << m_freeBuffers.queue.size()
+        << "filled buffers:" << m_fullBuffers.queue.size();
 }
 
 void MVMEContext::startDAQ(quint32 nCycles, bool keepHistoContents)
@@ -1175,7 +1215,8 @@ void MVMEContext::openWorkspace(const QString &dirName)
                 // TODO: create if it does not exist
             }
 
-            m_d->m_listFileOutputInfo = info;
+            info.fullDirectory = getListFileOutputDirectoryFullPath(info.directory);
+            m_d->m_listfileOutputInfo = info;
             writeToSettings(info, *workspaceSettings);
         }
 
@@ -1282,8 +1323,8 @@ QString MVMEContext::getWorkspacePath(const QString &settingsKey, const QString 
 void MVMEContext::loadVMEConfig(const QString &fileName)
 {
     QJsonDocument doc(gui_read_json_file(fileName));
-    auto daqConfig = new VMEConfig;
-    auto readResult = daqConfig->readVMEConfig(doc.object()["DAQConfig"].toObject());
+    auto vmeConfig = new VMEConfig;
+    auto readResult = vmeConfig->readVMEConfig(doc.object()["DAQConfig"].toObject());
 
     if (!readResult)
     {
@@ -1294,9 +1335,10 @@ void MVMEContext::loadVMEConfig(const QString &fileName)
         return;
     }
 
-    setVMEConfig(daqConfig);
+    setVMEConfig(vmeConfig);
     setConfigFileName(fileName);
     setMode(GlobalMode::DAQ);
+    setVMEController(vmeConfig->getControllerType(), vmeConfig->getControllerSettings());
 }
 
 bool MVMEContext::loadAnalysisConfig(const QString &fileName)
@@ -1397,7 +1439,7 @@ bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc, const QString &in
 
 void MVMEContext::setListFileOutputInfo(const ListFileOutputInfo &info)
 {
-    m_d->m_listFileOutputInfo = info;
+    m_d->m_listfileOutputInfo = info;
 
     auto settings = makeWorkspaceSettings();
 
@@ -1406,18 +1448,18 @@ void MVMEContext::setListFileOutputInfo(const ListFileOutputInfo &info)
 
 ListFileOutputInfo MVMEContext::getListFileOutputInfo() const
 {
-    return m_d->m_listFileOutputInfo;
+    return m_d->m_listfileOutputInfo;
 }
 
-QString MVMEContext::getListFileOutputDirectoryFullPath() const
+QString MVMEContext::getListFileOutputDirectoryFullPath(const QString &directory) const
 {
-    QDir dir(getListFileOutputInfo().directory);
+    QDir dir(directory);
 
     if (dir.isAbsolute())
         return dir.path();
 
     dir = QDir(getWorkspaceDirectory());
-    return dir.filePath(getListFileOutputInfo().directory);
+    return dir.filePath(directory);
 }
 
 /** True if at least one of VME-config and analysis-config is modified. */
