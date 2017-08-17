@@ -325,6 +325,7 @@ int sis3153eth::set_UdpSocketSIS3153_IpAddress( char* sis3153_ip_addr_string){
 			else{
 				this->sis3153_sock_addr_in.sin_addr.s_addr = inet_addr(temp_ip_addr_string); // invalid IP string will set the IP to 255.255.255.255
 				return_code=-2;
+                return return_code;
 			}
 		}
 		else{

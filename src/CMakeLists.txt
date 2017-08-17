@@ -192,4 +192,11 @@ target_link_libraries(mvme
 
 install(TARGETS mvme DESTINATION .)
 
+#
+# SIS3153 daq stop test
+#
+add_executable(sis3153_test sis3153_test.cc)
+add_dependencies(sis3153_test libmvme)
+target_link_libraries(sis3153_test libmvme)
+
 # vim:tw=0

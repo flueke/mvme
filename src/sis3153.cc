@@ -142,7 +142,7 @@ SIS3153::SIS3153(QObject *parent)
 
 SIS3153::~SIS3153()
 {
-    qDebug() << __PRETTY_FUNCTION__ << "==========================XXXXXxxxxxxxxxxxxXXXXXXXXX====================================";
+    qDebug() << __PRETTY_FUNCTION__ << "==========================XXXXXXxxxxxxxxxxxxXXXXXX==========================";
     close();
     delete m_d;
 }

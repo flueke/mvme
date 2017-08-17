@@ -107,7 +107,23 @@ namespace SIS3153Registers
     static const u32 StackListTimer2Config          = 0x01000015;
 
     static const u32 StackListDynSizedBlockRead     = 0x01000016;
+
+    namespace StackListControlValues
+    {
+        /* Writing a 1 to the low 16 bits of the StackListControl register
+         * enables the setting. Writing a 1 shifted by DisableShift disables
+         * the setting. */
+        static const u32 DisableShift       = 16;
+        static const u32 StackListEnable    = 1 << 0;
+        static const u32 Timer1Enable       = 1 << 1;
+        static const u32 Timer2Enable       = 1 << 2;
+    }
+
+    static const u32 StackListTimerWatchdogEnable   = 1 << 31;
+    static const u32 TriggerSourceTimer1            = 8;
+    static const u32 TriggerSourceTimer2            = 9;
 }
+
 
 void dump_registers(SIS3153 *sis, std::function<void (const QString &)> printer);
 
