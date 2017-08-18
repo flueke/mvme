@@ -1,1 +1,80 @@
-## Parameters
+## Parameters MADC-32
+
+# Operation Mode
+# #####################################
+
+# bank_operation
+0x6040  0b00        # 0b00 -> banks connected
+                    # 0b01 -> operate banks independent
+                    # 0b11 -> toggle mode for zero dead time (use with internal GGs)
+
+# adc_resolution
+0x6042  3           # 0 -> 2k (800 ns conversion time)
+                    # 1 -> 4k (1.6 us)
+                    # 2 -> 4k hires (3.2 us)
+                    # 3 -> 8k (6.4 us)
+                    # 4 -> 8k hires (12.5 us)
+
+# Gate Generators
+# #####################################
+
+# hold_delay bank0
+0x6050  20          # 0 -> 25 ns, 1 -> 150 ns, then multiple of 50 ns
+# hold_delay bank1
+0x6052  20          # 0 -> 25 ns, 1 -> 150 ns, then multiple of 50 ns
+
+# hold_width bank0
+0x6054  50          # multiple of 50 ns
+# hold_width bank1
+0x6056  50          # multiple of 50 ns
+
+# use_gg
+# GG1 can only be activated if banks operate independently (0x6040 != 0)!
+0x6058  0b00        # 0b01 -> use GG0
+                    # 0b10 -> use GG1
+
+# I/O
+# #####################################
+
+# input_range
+0x6060  0           # 0 -> 4 V, 1 -> 10 V, 2 -> 8 V
+
+# ECL_term
+0x6062  0b000       # switch ECL terminators on (1 -> on)
+                    # low bit for "gate0", high bit for "fast clear"
+                    # Switch terminators off when inputs are not used. Then inputs
+                    # will be set to a well defined state by internal weak resistors.
+
+# ECL_gate1_osc (ECL2)
+0x6064  0           # 0 -> gate1 input
+                    # 1 -> oscillator input (also set CTRA.ts_sources (0x6096)!)
+
+# ECL_fc_res (ECL1)
+0x6066  0           # 0 -> fast clear input
+                    # 1 -> reset time stamp oscillator input
+
+# ECL_busy (ECL 0)
+0x6068  0           # 0 -> as busy output
+                    # 1 -> reserved
+
+# NIM_gat1_osc (NIM 2)
+0x606A  0           # 0 -> gate1 input
+                    # 1 -> oscillator input (also set CTRA.ts_sources (0x6096)!)
+
+# NIM_fc_reset (NIM 1)
+0x606C  0           # 0 -> fast clear input
+                    # 1 -> reset time stamp oscillator, hold at value 0
+
+# NIM_busy (NIM 0)
+0x606E  0           # 0 -> as busy (in independent bank operator or toggle mode:
+                    #               active when both banks are busy)
+                    # 1 -> as gate0 output
+                    # 2 -> as gate1 output
+                    # 3 -> as CBus otuput (Needs up to 100 us. Reading the register
+                    #                      returns the correct status.)
+                    # 4 -> buffer full
+                    # 8 -> data in buffer above threshold 0x6018
+                    # 9 -> events in buffer above threshold 0x601E (since firmware FW0220)
+
+# Thresholds
+# #####################################
