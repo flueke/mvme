@@ -2,8 +2,6 @@
 set -e
 # Network TCP/UDP tuning to support high-bandwith applications
 #
-#sysctl -w net.core.rmem_max=33554432
-#
 sysctl -w net.core.rmem_max=8388608
 sysctl -w net.core.wmem_max=8388608
 sysctl -w net.core.rmem_default=65536
@@ -17,4 +15,3 @@ sysctl -w net.ipv4.tcp_mem='8388608 8388608 8388608'
 
 # Apply the above settings now
 sysctl -w net.ipv4.route.flush=1
-
