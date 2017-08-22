@@ -120,8 +120,13 @@ namespace SIS3153Registers
     }
 
     static const u32 StackListTimerWatchdogEnable   = 1 << 31;
+
     static const u32 TriggerSourceTimer1            = 8;
     static const u32 TriggerSourceTimer2            = 9;
+    static const u32 TriggerSourceInput1RisingEdge  = 0xC;
+    static const u32 TriggerSourceInput1FallingEdge = 0xD;
+    static const u32 TriggerSourceInput2RisingEdge  = 0xE;
+    static const u32 TriggerSourceInput2FallingEdge = 0xF;
 }
 
 

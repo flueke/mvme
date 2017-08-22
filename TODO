@@ -2,6 +2,8 @@
 ==== Do these first! =====
 ==========================
 
+* Rewrite EventConfigDialog to not use a UI file anymore. Dynamically populate
+  the TriggerCondition combo box.
 * Do not use signals/slots for the pause/resume/stop implementation in
   VMEReadoutWorkers. Instead just set the desired state directly (maybe
   securing the access with QAtomicInt in a tight loop). This would allow not

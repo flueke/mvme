@@ -573,6 +573,10 @@ void VMEConfigTreeWidget::onEventAdded(EventConfig *eventConfig)
                 {
                     infoText = QSL("Trigger=Periodic");
                 } break;
+            default:
+                {
+                    infoText = QString("Trigger=%1").arg(TriggerConditionNames.value(eventConfig->triggerCondition));
+                } break;
         }
 
         node->setText(1, infoText);

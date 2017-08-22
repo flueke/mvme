@@ -811,6 +811,7 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
         s32 stackIndex = 0;
         u32 stackLoadAddress = SIS3153ETH_STACK_RAM_START_ADDR;
         u32 stackListControlValue = 0;
+        u32 nextTimerTriggerSource = SIS3153Registers::TriggerSourceTimer1;
 
         for (s32 eventIndex = 0;
              eventIndex < m_workerContext.vmeConfig->eventConfigs.size();
@@ -869,6 +870,10 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
             }
             else if (event->triggerCondition == TriggerCondition::Periodic)
             {
+                // TODO: move this check into validate_vme_config()
+                if (nextTimerTriggerSource > SIS3153Registers::TriggerSourceTimer2)
+                    throw QString("SIS3153 supports no more than 2 periodic events!");
+
                 // TODO: implement support for both timers
 
                 double period_secs          = event->scalerReadoutPeriod * 0.5;
@@ -902,22 +907,96 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
                 Q_ASSERT(stackLoadAddress - SIS3153ETH_STACK_RAM_START_ADDR <= (1 << 13));
 
                 u32 configValue = ((stackList.size() - 1) << 16) | (stackLoadAddress - SIS3153ETH_STACK_RAM_START_ADDR);
+                u32 timerConfigRegister = SIS3153Registers::StackListTimer1Config;
+
+#if 0
+// FIXME: TESTING ANOTHER HACK: enable watchdog bit here
+                if (nextTimerTriggerSource == SIS3153Registers::TriggerSourceTimer2)
+                {
+                    // 100 us steps
+                    timerValue = 100 * 500;
+                    timerValue -= 1;
+                    timerValue |= SIS3153Registers::StackListTimerWatchdogEnable;
+                    timerConfigRegister = SIS3153Registers::StackListTimer2Config;
+                }
+#endif
+
                 error = sis->writeRegister(SIS3153ETH_STACK_LIST1_CONFIG + 2 * stackIndex, configValue);
                 if (error.isError()) throw error;
 
                 // stack list trigger source
                 error = sis->writeRegister(SIS3153ETH_STACK_LIST1_TRIGGER_SOURCE + 2 * stackIndex,
-                                           SIS3153Registers::TriggerSourceTimer1);
+                                           nextTimerTriggerSource);
                 if (error.isError()) throw error;
 
                 // timer setup
-                error = sis->writeRegister(SIS3153ETH_STACK_LIST_TIMER1, timerValue);
+                error = sis->writeRegister(timerConfigRegister, timerValue);
                 if (error.isError()) throw error;
 
                 ++stackIndex;
                 stackLoadAddress += stackList.size();
                 stackListControlValue |= SIS3153Registers::StackListControlValues::StackListEnable;
-                stackListControlValue |= SIS3153Registers::StackListControlValues::Timer1Enable;
+
+                if (nextTimerTriggerSource == SIS3153Registers::TriggerSourceTimer1)
+                    stackListControlValue |= SIS3153Registers::StackListControlValues::Timer1Enable;
+
+                if (nextTimerTriggerSource == SIS3153Registers::TriggerSourceTimer2)
+                    stackListControlValue |= SIS3153Registers::StackListControlValues::Timer2Enable;
+
+                ++nextTimerTriggerSource;
+            }
+            else if (event->triggerCondition == TriggerCondition::Input1RisingEdge
+                     || event->triggerCondition == TriggerCondition::Input1FallingEdge
+                     || event->triggerCondition == TriggerCondition::Input2RisingEdge
+                     || event->triggerCondition == TriggerCondition::Input2FallingEdge)
+            {
+                // upload
+                u32 wordsWritten = 0;
+                s32 resultCode = sis->getImpl()->udp_sis3153_register_dma_write(stackLoadAddress, stackList.data(), stackList.size() - 1, &wordsWritten);
+                error = make_sis_error(resultCode);
+                if (error.isError()) throw error;
+
+                qDebug() << __PRETTY_FUNCTION__
+                    << "uploaded stackList to offset 0x" << QString::number(stackLoadAddress, 16)
+                    << ", wordsWritten =" << wordsWritten;
+
+                // stack list config
+
+                // 13 bit stack start address which should be relative to the
+                // stack RAM start address. So it's an offset into the stack
+                // memory area.
+                Q_ASSERT(stackLoadAddress - SIS3153ETH_STACK_RAM_START_ADDR <= (1 << 13));
+
+                u32 configValue = ((stackList.size() - 1) << 16) | (stackLoadAddress - SIS3153ETH_STACK_RAM_START_ADDR);
+                error = sis->writeRegister(SIS3153ETH_STACK_LIST1_CONFIG + 2 * stackIndex, configValue);
+                if (error.isError()) throw error;
+
+                // stack list trigger source
+                u32 triggerSourceValue = 0;
+                switch (event->triggerCondition)
+                {
+                    case TriggerCondition::Input1RisingEdge:
+                        triggerSourceValue = SIS3153Registers::TriggerSourceInput1RisingEdge;
+                        break;
+                    case TriggerCondition::Input1FallingEdge:
+                        triggerSourceValue = SIS3153Registers::TriggerSourceInput1FallingEdge;
+                        break;
+                    case TriggerCondition::Input2RisingEdge:
+                        triggerSourceValue = SIS3153Registers::TriggerSourceInput2RisingEdge;
+                        break;
+                    case TriggerCondition::Input2FallingEdge:
+                        triggerSourceValue = SIS3153Registers::TriggerSourceInput2FallingEdge;
+                        break;
+
+                    InvalidDefaultCase;
+                }
+                error = sis->writeRegister(SIS3153ETH_STACK_LIST1_TRIGGER_SOURCE + 2 * stackIndex,
+                                           triggerSourceValue);
+                if (error.isError()) throw error;
+
+                ++stackIndex;
+                stackLoadAddress += stackList.size();
+                stackListControlValue |= SIS3153Registers::StackListControlValues::StackListEnable;
             }
         }
 
@@ -937,16 +1016,18 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
         m_debugFile->open(QIODevice::WriteOnly);
 #endif
 
+        m_packetCountsByStack.fill(0);
+
+        // enter DAQ mode
+        error = sis->writeRegister(SIS3153ETH_STACK_LIST_CONTROL, stackListControlValue);
+        if (error.isError()) throw error;
+
         //
         // Readout
         //
         logMessage(QSL(""));
         logMessage(QSL("Entering readout loop"));
         m_workerContext.daqStats->start();
-
-        // TODO: enable timer1 and timer2 if required
-        error = sis->writeRegister(SIS3153ETH_STACK_LIST_CONTROL, stackListControlValue);
-        if (error.isError()) throw error;
 
         readoutLoop();
 
@@ -958,6 +1039,7 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
         // DAQ Stop
         //
         vme_daq_shutdown(m_workerContext.vmeConfig, sis, [this] (const QString &msg) { logMessage(msg); });
+
         logMessage(QString(QSL("SIS3153 readout stopped on %1"))
                    .arg(QDateTime::currentDateTime().toString())
                    );
@@ -1018,6 +1100,14 @@ void SIS3153ReadoutWorker::readoutLoop()
                 //m_bufferProcessor->timetick(); // FIXME
             } while (--elapsedSeconds);
             elapsedTime.restart();
+
+            for (size_t i=0; i<m_packetCountsByStack.size(); ++i)
+            {
+                if (m_packetCountsByStack[i])
+                {
+                    qDebug("packetCountsByStack[%lu] = %lu", i, m_packetCountsByStack[i]);
+                }
+            }
         }
 
         // stay in running state
@@ -1055,6 +1145,8 @@ void SIS3153ReadoutWorker::readoutLoop()
                 const double alpha = 0.1;
                 daqStats->avgReadSize = bytesRead; // FIXME: not average, just snapshot of last read
                 //daqStats->avgReadSize = (alpha * bytesRead) + (1.0 - alpha) * daqStats->avgReadSize;
+
+                ++m_packetCountsByStack[packetAck & 0x7];
             }
 
             if (bytesRead < 0)

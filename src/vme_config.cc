@@ -394,6 +394,7 @@ void EventConfig::read_impl(const QJsonObject &json)
             return tcName == testName;
         });
 
+        // FIXME: report error on unknown trigger condition
         triggerCondition = (it != TriggerConditionNames.end()) ? it.key() : TriggerCondition::NIM1;
     }
 
