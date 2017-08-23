@@ -276,7 +276,7 @@ void process_listfile(std::ifstream &infile)
                             infile.read((char *)&subEventData, sizeof(u32));
 
                             if (dumpData)
-                                printf("    %u = 0x%08x\n", i, subEventData);
+                                printf("    %2u = 0x%08x\n", i, subEventData);
                         }
                         wordsLeft -= subEventSize;
                     }
