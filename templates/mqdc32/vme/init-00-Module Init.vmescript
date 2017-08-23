@@ -1,8 +1,52 @@
-# Parameters for MQDC-32
+## Parameters for MQDC-32
+
+# Operation Mode
+# #####################################
+# bank_operation
+0x6040  0b00        # 0b00 -> banks connected
+                    # 0b01 -> operate banks independent
+
+# offset_bank0 (channels 0 to 15)
+#0x6044 130         # Valid range is 0-255. Shifts the 4k spectrum by +-1000 bins.
+#                   # Typical value: 130
+# offset_bank1 (channels 16 to 31)
+#0x6046 130         # Valid range is 0-255. Shifts the 4k spectrum by +-1000 bins
+#                   # Typical value: 130
+
+# Gate Limit
+# #####################################
+# See the lookup table at the bottom for details FIXME: add lookup table
+# limit_bank0
+0x6050  255         # 4 -> 4.5 ns, 255 -> to limitation
+# limit_bank1
+0x6052  255         # same as limit_bank_0
+
+# Experiment Trigger
+# #####################################
+# Delay of experiment gate relative to end of QDC-gate [ns]. Up to 16384 ns (16k).
+#exp_trig_delay0
+0x6054  0           # delay for bank0 or both if joined banks
+#exp_trig_delay1
+0x6065  0           # delay for bank1 if not joined
+
+# I/O
+# #####################################
+
+
+
+
+
+
+
+
+
+
+#================================================ old ====================XXXXXxxxxxxXXXXX
 0x6070 5  # set pulser 4= Ampl_0, 5=Ampl_mid, 0=off
 
 0x6044	145	#set bank0 offset Range 0 to 255 (0x00 to 0xFF)
 0x6046	145	#set bank1 offset (also works at joined banks)
+
 
 # Experiment trigger
 0x6054	1000	#exp_trig_delay0(1) 14 RW 0 delay of experiment gate relative to end of
