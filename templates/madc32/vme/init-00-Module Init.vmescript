@@ -139,7 +139,7 @@
                     # 0b110 -> high amplitude (75%)
                     # 0b111 -> amplitude cycling: 0 -> low -> high -> 0
 
-# Timestamp / Event Counters: CTRA, CTRB
+# Timestamp/Event Counters: CTRA, CTRB
 # #####################################
 # ts_sources
 0x6096  0b00        # bit 0: frequency source (0 -> VME, 1 -> external)
@@ -150,7 +150,6 @@
                     # 0 means division by 65536
 
 # stop_ctr
-# FIXME: verify counter bits
-#0x60AE  0          # bit 0: counter B
-                    # bit 1: counter A
-                    # 0 -> run, 1 -> stop counter
+#0x60AE  0b00       # bit 0: stop CTRB (time_0, time_1, time_2)
+                    # bit 1: stop CTRA (ts_counter_lo, ts_counter_hi)
+                    # with 0 -> run, 1 -> stop counter
