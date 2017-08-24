@@ -1,7 +1,7 @@
 <!DOCTYPE RCC><RCC version="1.0">
 <qresource>
     <!-- icons -->
-    <file alias="vme_script.png">resources/text-x-katefilelist.png</file>
+    <file alias="vme_script.png">resources/document-yellow-32x32.png</file>
     <file alias="config_category.png">resources/folder-orange.png</file>
     <file alias="vme_module.png">resources/audio-card.png</file>
     <file alias="dialog-close.png">resources/dialog-close.png</file>
