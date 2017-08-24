@@ -108,12 +108,15 @@ VMEConfigTreeWidget::VMEConfigTreeWidget(MVMEContext *context, QWidget *parent)
 
     m_nodeStart->setText(0, QSL("DAQ Start"));
     m_nodeStart->setData(0, DataRole_ScriptCategory, "daq_start");
+    m_nodeStart->setIcon(0, QIcon(":/config_category.png"));
 
     m_nodeStop->setText(0, QSL("DAQ Stop"));
     m_nodeStop->setData(0, DataRole_ScriptCategory, "daq_stop");
+    m_nodeStop->setIcon(0, QIcon(":/config_category.png"));
 
     m_nodeManual->setText(0,  QSL("Manual"));
     m_nodeManual->setData(0,  DataRole_ScriptCategory, "manual");
+    m_nodeManual->setIcon(0, QIcon(":/config_category.png"));
 
     m_tree->addTopLevelItem(m_nodeEvents);
     m_tree->addTopLevelItem(m_nodeScripts);
