@@ -1,8 +1,7 @@
 ## Parameters MADC-32
 
 # Operation Mode
-# #####################################
-
+# ############################################################################
 # bank_operation
 0x6040  0b00        # 0b00 -> banks connected
                     # 0b01 -> operate banks independent
@@ -26,8 +25,7 @@
 0x604A  0           # Skip out-of-range values
 
 # Gate Generators
-# #####################################
-
+# ############################################################################
 # hold_delay bank0
 0x6050  20          # 0 -> 25 ns, 1 -> 150 ns, then multiple of 50 ns
 # hold_delay bank1
@@ -44,8 +42,7 @@
                     # 0b10 -> use GG1
 
 # I/O
-# #####################################
-
+# ############################################################################
 # input_range
 0x6060  0           # 0 -> 4 V, 1 -> 10 V, 2 -> 8 V
 
@@ -76,7 +73,7 @@
                     # 1 -> reset time stamp oscillator, hold at value 0
 
 # NIM_busy (NIM 0)
-0x606E  0           # 0 -> as busy (in independent bank operator or toggle mode:
+0x606E  0           # 0 -> as busy (in independent bank operation or toggle mode:
                     #               active when both banks are busy)
                     # 1 -> as gate0 output
                     # 2 -> as gate1 output
@@ -86,11 +83,35 @@
                     # 8 -> data in buffer above threshold 0x6018
                     # 9 -> events in buffer above threshold 0x601E (since firmware FW0220)
 
+# Internal Test Pulser
+# ############################################################################
+# pulser_status
+0x6070  0           # 0b000 -> off
+                    # 0b100 -> amplitude = 0 (input -> 10V range)
+                    # 0b101 -> low amplitude (7%)
+                    # 0b110 -> high amplitude (75%)
+                    # 0b111 -> amplitude cycling: 0 -> low -> high -> 0
+
+# Timestamp/Event Counters: CTRA, CTRB
+# ############################################################################
+# ts_sources
+0x6096  0b00        # bit 0: frequency source (0 -> VME, 1 -> external)
+                    # bit 1: external reset enable
+
+# ts_divisor (16 bit value)
+0x6098  1           # timestamp = time / ts_divisor
+                    # 0 means division by 65536
+
+# stop_ctr
+#0x60AE  0b00       # bit 0: stop CTRB (time_0, time_1, time_2)
+                    # bit 1: stop CTRA (ts_counter_lo, ts_counter_hi)
+                    # with 0 -> run, 1 -> stop counter
+                    #
 # Thresholds
-# #####################################
+# ############################################################################
 # Channel thresholds are referenced to the current data output width (2k, 4k or
 # 8k), see 0x6044 and 0x6046
-# FIXME: 0x6042 instead of 0x6044?
+# FIXME: 0x6042 instead of 0x6044? "relative" instead of "referenced"?
 
 # ignore_thresholds
 0x604C  0           # If set the threshold settings starting a 0x4000 are ignored (0 is assumed).
@@ -129,27 +150,3 @@
 0x403A  0           # channel 29
 0x403C  0           # channel 30
 0x403E  0           # channel 31
-
-# Internal Test Pulser
-# #####################################
-# pulser_status
-0x6070  0           # 0b000 -> off
-                    # 0b100 -> amplitude = 0 (input -> 10V range)
-                    # 0b101 -> low amplitude (7%)
-                    # 0b110 -> high amplitude (75%)
-                    # 0b111 -> amplitude cycling: 0 -> low -> high -> 0
-
-# Timestamp/Event Counters: CTRA, CTRB
-# #####################################
-# ts_sources
-0x6096  0b00        # bit 0: frequency source (0 -> VME, 1 -> external)
-                    # bit 1: external reset enable
-
-# ts_divisor (16 bit value)
-0x6098  1           # timestamp = time / ts_divisor
-                    # 0 means division by 65536
-
-# stop_ctr
-#0x60AE  0b00       # bit 0: stop CTRB (time_0, time_1, time_2)
-                    # bit 1: stop CTRA (ts_counter_lo, ts_counter_hi)
-                    # with 0 -> run, 1 -> stop counter
