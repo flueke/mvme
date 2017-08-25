@@ -1,10 +1,16 @@
 ## Parameters for MQDC-32
 
 # Operation Mode
-# #####################################
+# ############################################################################
 # bank_operation
-0x6040  0b00        # 0b00 -> banks connected
-                    # 0b01 -> operate banks independent
+0x6040  0b000       # bit0: 0 -> banks connected
+                    #       1 -> operate banks independently
+                    # FIXME: explanation for bits 2 and 1 and which bank they effect
+                    # bits 2, 1: if the bit is set switch the weak pull on
+                    #            resistor off for that bank (banks 1, 0)
+                    #
+# adc_resolution
+#0x6042  0           # 0 -> always 4k
 
 # offset_bank0 (channels 0 to 15)
 #0x6044 130         # Valid range is 0-255. Shifts the 4k spectrum by +-1000 bins.
@@ -12,82 +18,142 @@
 # offset_bank1 (channels 16 to 31)
 #0x6046 130         # Valid range is 0-255. Shifts the 4k spectrum by +-1000 bins
 #                   # Typical value: 130
+#                   # offset_bank1 also works for joined banks
+# Note: Setting the offsets may take some milliseconds to take effect in the hardware.
+
+# slc_off
+0x6048  0           # If set to 1 switch of sliding scale
+
+# skip_oorange
+0x604A  0           # Skip out-of-range values
 
 # Gate Limit
-# #####################################
-# See the lookup table at the bottom for details FIXME: add lookup table
+# ############################################################################
+# Refer to the lookup table in the manual for register value to time
+# conversion.
 # limit_bank0
-0x6050  255         # 4 -> 4.5 ns, 255 -> to limitation
+0x6050  255         # 4 -> 4.5 ns, 255 -> no limitation
 # limit_bank1
 0x6052  255         # same as limit_bank_0
 
 # Experiment Trigger
-# #####################################
+# ############################################################################
 # Delay of experiment gate relative to end of QDC-gate [ns]. Up to 16384 ns (16k).
-#exp_trig_delay0
+# exp_trig_delay0
 0x6054  0           # delay for bank0 or both if joined banks
-#exp_trig_delay1
-0x6065  0           # delay for bank1 if not joined
+# exp_trig_delay1
+0x6056  0           # delay for bank1 if not joined
 
 # I/O
-# #####################################
+# ############################################################################
+# input coupling
+0x6060  0b000       # bit0: bank0: 0 -> AC, 1 -> DC
+                    # bit1: bank1: 0 -> AC, 1 -> DC
+                    # bit2: 0 -> BLR on, 1 -> BLR off (since FW0114)
+# ECL_term
+0x6062  0b11000     # switch ECL/LVDS terminators on (1 -> on)
+                    # Unconnected inputs will be in a well defined state by
+                    # internal weak pull up resistors.
+                    # +-----------+-------+-------+-------+-------+-------+
+                    # | Bit       | 4     | 3     | 2     | 1     | 0     |
+                    # +===========+=======+=======+=======+=======+=======+
+                    # | ECL input | gates | gates | reset | gate1 | gate0 |
+                    # | term.     | bank1 | bank0 | ECL2  | ECL1  | ECL0  |
+                    # +-----------+-------+-------+-------+-------+-------+
+
+# ECL_gate1_osc (ECL2)
+0x6064  0           # 0 -> gate1 input
+                    # 1 -> oscillator input (also set CTRA.ts_sources (0x6096)!)
+
+# ECL_fc_res (ECL1)
+0x6066  1           # 0 -> fast clear input (= "not Gate")
+                    # 1 -> reset time stamp counter
+                    # 2 -> input for experiment trigger (since FW0110)
+
+# Gate_select
+0x6068  0           # 0 -> Gate 0 and 1 from NIM inputs
+                    # 1 -> Gate 0 and 1 from ECL inputs
+
+# NIM_gat1_osc (NIM 2)
+0x606A  0           # 0 -> gate1 input
+                    # 1 -> oscillator input (also set CTRA.ts_sources (0x6096)!)
+
+# NIM_fc_reset (NIM 1)
+0x606C  0           # 0 -> fast clear input ( = "not Gate")
+                    # 1 -> reset time stamp counter
+                    # 2 -> input for experiment trigger (since FW0110)
+
+# NIM_busy (NIM 0)
+0x606E  0           # 0 -> as busy (in independent bank operation:
+                    #               active when both banks are busy)
+                    # 3 -> as CBus output
+                    # 4 -> buffer full
+                    # 8 -> data in buffer above threshold 0x6018 (= Data Ready)
+                    # 9 -> events in buffer above threshold 0x601E (since firmware FW0200)
 
 
+# Internal Test Pulser
+# ############################################################################
+# pulser_status
+0x6070  0           # 0b000 -> off
+                    # 0b100 -> amplitude = 0
+                    # 0b101 -> use pulser amplitude with 100 ns gate
 
+# pulser_daq (8 bits)
+0x6072  32          # Pulser amplitude, typ. 32 for bin 2000
 
+# Timestamp/Event Counters: CTRA, CTRB
+# ############################################################################
+# ts_sources
+0x6096  0b00        # bit 0: frequency source (0 -> VME, 1 -> external)
+                    # bit 1: external reset enable
 
+# ts_divisor (16 bit value)
+0x6098  1           # timestamp = time / ts_divisor
+                    # 0 means division by 65536
 
+# stop_ctr
+#0x60AE  0b00       # bit 0: stop CTRB (time_0, time_1, time_2)
+                    # bit 1: stop CTRA (ts_counter_lo, ts_counter_hi)
+                    # with 0 -> run, 1 -> stop counter
 
+# Thresholds
+# ############################################################################
 
+# ignore_thresholds
+0x604C  0           # If set the threshold settings starting a 0x4000 are ignored (0 is assumed).
 
-
-#================================================ old ====================XXXXXxxxxxxXXXXX
-0x6070 5  # set pulser 4= Ampl_0, 5=Ampl_mid, 0=off
-
-0x6044	145	#set bank0 offset Range 0 to 255 (0x00 to 0xFF)
-0x6046	145	#set bank1 offset (also works at joined banks)
-
-
-# Experiment trigger
-0x6054	1000	#exp_trig_delay0(1) 14 RW 0 delay of experiment gate relative to end of
-				#QDC-gate (ns). Up to 16384 ns (16 k)
-				#For bank0 or both at joined bank
-0x6056 	1000	#exp_trig_delay1, for bank 1 if not joined
-#0x606C 	2		#switches on experiment trigger on NIM input 1 (counted from bottom)
-
-#IO setting
-
-#0x6064 		#ECL_gate1_osc(ECL2)
-			#1 RW 0 0 ? gate1 input,
-			#1 ? oscillator input (also set 0x6096!!)
-#0x6066 		#ECL_FC_Reset(ECL1)
-			#2 RW 1 0 = Fast clear input (= "not Gate")
-			#1 = Reset time stamp counter
-			#2 = input for experiment trigger (1)
-#0x6068 		#Gate_select 1 RW 0 0 ? Gate 0 and 1 from NIM-inputs,
-			#1 ? Gate 0 and 1 from ECL-inputs
-#0x606A 		#NIM_gat1_osc (NIM2)
-			#2 RW 0 0 ? gate1 input,
-			#1 ? oscillator input (also set 0x6096!!)
-#0x606C 		#NIM_FC_Reset(NIM1)
-			#0 = Fast clear input (= "not Gate")
-			#1 = Reset time stamp counter
-			#2 = input for experiment trigger
-#0x606E 		#NIM_busy (NIM0) 4 RW 0 0? as busy
-				#(in independent bank operation:active when both banks are busy)
-			#3? as Cbus output
-			#4? buffer full
-			#8? data in buffer above threshold 0x6018
-			#9? events in buffer above threshold 0x601E(2)
-
-# IO Input termination and coupling
-#0x6060 		#input coupling 3 RW b000 bit[0] bank0: 0 ? AC, 1 ? DC
-			#bit[1] bank1: 0 ? AC, 1 ? DC
-			#bit[2] 0 = BLR on, 1 = BLR off (FW0114)
-#0x6062 		#ECL_term 5 RW b11000 switch ECL/LVDS terminators on (1= on)
-			#bit 0 for: "gate0",
-			#bit 1 for "gate1",
-			#bit 2 for "Res",
-			#bit 3 for bank 0 individual gate input termination,
-			#bit 4 for bank 1 individual gate input termination.
-			#Unconnected inputs will be in a well defined state by internal weak pull up resistors.
+# Individual channel thresholds. 12 bit values, 0 means the threshold is not used.
+# 0x1FFF switches the channel off.
+0x4000  0           # channel  0
+0x4002  0           # channel  1
+0x4004  0           # channel  2
+0x4006  0           # channel  3
+0x4008  0           # channel  4
+0x400A  0           # channel  5
+0x400C  0           # channel  6
+0x400E  0           # channel  7
+0x4010  0           # channel  8
+0x4012  0           # channel  9
+0x4014  0           # channel 10
+0x4016  0           # channel 11
+0x4018  0           # channel 12
+0x401A  0           # channel 13
+0x401C  0           # channel 14
+0x401E  0           # channel 15
+0x4020  0           # channel 16
+0x4022  0           # channel 17
+0x4024  0           # channel 18
+0x4026  0           # channel 19
+0x4028  0           # channel 20
+0x402A  0           # channel 21
+0x402C  0           # channel 22
+0x402E  0           # channel 23
+0x4030  0           # channel 24
+0x4032  0           # channel 25
+0x4034  0           # channel 26
+0x4036  0           # channel 27
+0x4038  0           # channel 28
+0x403A  0           # channel 29
+0x403C  0           # channel 30
+0x403E  0           # channel 31

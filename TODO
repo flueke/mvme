@@ -1,6 +1,14 @@
 ==========================
 ==== Do these first! =====
 ==========================
+VME Template Rework
+----------------------
+* MADC-32 done
+* MQDC-32 done
+* MTDC-32
+
+* Make a RCbus example including a delay between switchting NIM to cbus mode!
+
 
 * Rewrite EventConfigDialog to not use a UI file anymore. Dynamically populate
   the TriggerCondition combo box.

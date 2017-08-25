@@ -106,7 +106,7 @@
 #0x60AE  0b00       # bit 0: stop CTRB (time_0, time_1, time_2)
                     # bit 1: stop CTRA (ts_counter_lo, ts_counter_hi)
                     # with 0 -> run, 1 -> stop counter
-                    #
+
 # Thresholds
 # ############################################################################
 # Channel thresholds are referenced to the current data output width (2k, 4k or
@@ -116,7 +116,7 @@
 # ignore_thresholds
 0x604C  0           # If set the threshold settings starting a 0x4000 are ignored (0 is assumed).
 
-# Individual channel thresholds. 13 bit values, 0 means the threshold is not used.
+# Individual channel thresholds. 12 bit values, 0 means the threshold is not used.
 # 0x1FFF switches the channel off.
 0x4000  0           # channel  0
 0x4002  0           # channel  1
