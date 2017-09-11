@@ -86,7 +86,7 @@
 # Internal Test Pulser
 # ############################################################################
 # pulser_status
-0x6070  0           # 0b000 -> off
+0x6070  0b000       # 0b000 -> off
                     # 0b100 -> amplitude = 0
                     # 0b101 -> low amplitude (7%)
                     # 0b110 -> high amplitude (75%)
