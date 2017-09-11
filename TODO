@@ -6,13 +6,11 @@ VME Template Rework
 * MADC-32 done
 * MQDC-32 done
 * MTDC-32 done
-* MDI
-* MDPP SCP RCP
-* MDPP QDC
-* MDPP more?
-
-# FIXME: add CTRA, CTRB setup
-
+* MDI done
+* MDPP SCP  <- done
+* MDPP RCP  <- done
+* MDPP QDC  <- done
+* MDPP CSI  <- does not exist yet
 * Make a RCbus example including a delay between switchting NIM to cbus mode!
 
 

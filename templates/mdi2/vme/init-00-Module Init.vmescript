@@ -87,6 +87,6 @@
 0x6076  17          # 17 counts per MTM-16 needed
 
 # allow_sync_word
-# FIXME: is this implemented
+# FIXME: is this implemented?
 0x6078  0           # allow_sync_words in FIFO buffer. Useful when zero
                     # suppression in front end MTM-16 (future feature).
