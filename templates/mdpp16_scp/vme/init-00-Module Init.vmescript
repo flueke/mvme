@@ -111,6 +111,29 @@
                     # 8 -> data in buffer above threshold 0x6018
                     # 9 -> events in buffer above threshold 0x601E
 
+# Internal Test Pulser
+# ############################################################################
+# pulser_status
+0x6070  0           # 0 -> off, 1 -> on
+
+# pulser_amplitude
+0x6072  400         # maximum amplitude: 0xFFF = 4095
+
+# Timestamp/Event Counters: CTRA, CTRB
+# ############################################################################
+# ts_sources
+0x6096  0b00        # bit 0: frequency source (0 -> VME, 1 -> external)
+                    # bit 1: external reset enable
+
+# ts_divisor (16 bit value)
+0x6098  1           # timestamp = time / ts_divisor
+                    # 0 means division by 65536
+
+# stop_ctr
+#0x60AE  0b00       # bit 0: stop CTRB (time_0, time_1, time_2)
+                    # bit 1: stop CTRA (ts_counter_lo, ts_counter_hi)
+                    # with 0 -> run, 1 -> stop counter
+
 # Front end settings
 # ############################################################################
 # select_chan_pair
@@ -160,25 +183,102 @@
                 # to largest possible signal rise time.
                 # This results in highest resolution and ballistic loss correction.
 
-# Internal Test Pulser
+# Channel / Channel Pair Front end settings
 # ############################################################################
-# pulser_status
-0x6070  0           # 0 -> off, 1 -> on
 
-# pulser_amplitude
-0x6072  400         # maximum amplitude: 0xFFF = 4095
-
-# Timestamp/Event Counters: CTRA, CTRB
-# ############################################################################
-# ts_sources
-0x6096  0b00        # bit 0: frequency source (0 -> VME, 1 -> external)
-                    # bit 1: external reset enable
-
-# ts_divisor (16 bit value)
-0x6098  1           # timestamp = time / ts_divisor
-                    # 0 means division by 65536
-
-# stop_ctr
-#0x60AE  0b00       # bit 0: stop CTRB (time_0, time_1, time_2)
-                    # bit 1: stop CTRA (ts_counter_lo, ts_counter_hi)
-                    # with 0 -> run, 1 -> stop counter
+## channels (0, 1)
+#0x6100       0
+#0x611C  0x00FF    # threshold 0
+#0x611E  0x00FF    # threshold 1
+#0x6112  0xFFFF    # PZ 0
+#0x6114  0xFFFF    # PZ 1
+#0x6110      20    # tf_int_diff
+#0x611A    2000    # gain
+#0x6124     160    # shaping_time
+#0x6126       2    # BLR
+#0x6128    1000    # reset_time
+#0x612A      80    # signal_rise_time
+## channels (2, 3)
+#0x6100       1
+#0x611C  0x00FF    # threshold 2
+#0x611E  0x00FF    # threshold 3
+#0x6112  0xFFFF    # PZ 2
+#0x6114  0xFFFF    # PZ 3
+#0x6110      20    # tf_int_diff
+#0x611A    2000    # gain
+#0x6124     160    # shaping_time
+#0x6126       2    # BLR
+#0x6128    1000    # reset_time
+#0x612A      80    # signal_rise_time
+## channels (4, 5)
+#0x6100       2
+#0x611C  0x00FF    # threshold 4
+#0x611E  0x00FF    # threshold 5
+#0x6112  0xFFFF    # PZ 4
+#0x6114  0xFFFF    # PZ 5
+#0x6110      20    # tf_int_diff
+#0x611A    2000    # gain
+#0x6124     160    # shaping_time
+#0x6126       2    # BLR
+#0x6128    1000    # reset_time
+#0x612A      80    # signal_rise_time
+## channels (6, 7)
+#0x6100       3
+#0x611C  0x00FF    # threshold 6
+#0x611E  0x00FF    # threshold 7
+#0x6112  0xFFFF    # PZ 6
+#0x6114  0xFFFF    # PZ 7
+#0x6110      20    # tf_int_diff
+#0x611A    2000    # gain
+#0x6124     160    # shaping_time
+#0x6126       2    # BLR
+#0x6128    1000    # reset_time
+#0x612A      80    # signal_rise_time
+## channels (8, 9)
+#0x6100       4
+#0x611C  0x00FF    # threshold 8
+#0x611E  0x00FF    # threshold 9
+#0x6112  0xFFFF    # PZ 8
+#0x6114  0xFFFF    # PZ 9
+#0x6110      20    # tf_int_diff
+#0x611A    2000    # gain
+#0x6124     160    # shaping_time
+#0x6126       2    # BLR
+#0x6128    1000    # reset_time
+#0x612A      80    # signal_rise_time
+## channels (10, 11)
+#0x6100       5
+#0x611C  0x00FF    # threshold 10
+#0x611E  0x00FF    # threshold 11
+#0x6112  0xFFFF    # PZ 10
+#0x6114  0xFFFF    # PZ 11
+#0x6110      20    # tf_int_diff
+#0x611A    2000    # gain
+#0x6124     160    # shaping_time
+#0x6126       2    # BLR
+#0x6128    1000    # reset_time
+#0x612A      80    # signal_rise_time
+## channels (12, 13)
+#0x6100       6
+#0x611C  0x00FF    # threshold 12
+#0x611E  0x00FF    # threshold 13
+#0x6112  0xFFFF    # PZ 12
+#0x6114  0xFFFF    # PZ 13
+#0x6110      20    # tf_int_diff
+#0x611A    2000    # gain
+#0x6124     160    # shaping_time
+#0x6126       2    # BLR
+#0x6128    1000    # reset_time
+#0x612A      80    # signal_rise_time
+## channels (14, 15)
+#0x6100       7
+#0x611C  0x00FF    # threshold 14
+#0x611E  0x00FF    # threshold 15
+#0x6112  0xFFFF    # PZ 14
+#0x6114  0xFFFF    # PZ 15
+#0x6110      20    # tf_int_diff
+#0x611A    2000    # gain
+#0x6124     160    # shaping_time
+#0x6126       2    # BLR
+#0x6128    1000    # reset_time
+#0x612A      80    # signal_rise_time

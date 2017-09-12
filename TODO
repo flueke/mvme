@@ -13,6 +13,11 @@ VME Template Rework
 * MDPP CSI  <- does not exist yet
 * Make a RCbus example including a delay between switchting NIM to cbus mode!
 
+* Implement adding of module specific vme init scripts via the GUI.
+  The user should be able to modify the order of init scripts by
+  dragging/dropping, remove existing scripts and add new ones.
+  Optionally copying of an init script to the same or a different module could
+  be implemented.
 
 * Rewrite EventConfigDialog to not use a UI file anymore. Dynamically populate
   the TriggerCondition combo box.
