@@ -112,6 +112,29 @@
                     # 8 -> data in buffer above threshold 0x6018
                     # 9 -> events in buffer above threshold 0x601E
 
+# Internal Test Pulser
+# ############################################################################
+# pulser_status
+0x6070  0           # 0 -> off, 1 -> on
+
+# pulser_amplitude
+0x6072  400         # maximum amplitude: 0xFFF = 4095
+
+# Timestamp/Event Counters: CTRA, CTRB
+# ############################################################################
+# ts_sources
+0x6096  0b00        # bit 0: frequency source (0 -> VME, 1 -> external)
+                    # bit 1: external reset enable
+
+# ts_divisor (16 bit value)
+0x6098  1           # timestamp = time / ts_divisor
+                    # 0 means division by 65536
+
+# stop_ctr
+#0x60AE  0b00       # bit 0: stop CTRB (time_0, time_1, time_2)
+                    # bit 1: stop CTRA (ts_counter_lo, ts_counter_hi)
+                    # with 0 -> run, 1 -> stop counter
+
 # Front end settings
 # ############################################################################
 # select_chan_pair
@@ -167,31 +190,119 @@
 0x6124  200     # FWHM-width in multiples of 12.5ns (200 == 2.5 us)
                 # range 8..2000 (100 ns to 25 us)
 
-# BLR - base line restorer (common for both selected channels)
-# FIXME: 1 soft, 2 strict or the other way around? readout concept and manual contain different values
-0x6126  2       # 0 -> off
-                # 1 -> strict (int. time = 4 shaping times)
-                # 2 -> soft   (int. time = 8 shaping times)
-
-# Internal Test Pulser
+# Channel / Channel Pair Front end settings
 # ############################################################################
-# pulser_status
-0x6070  0           # 0 -> off, 1 -> on
-
-# pulser_amplitude
-0x6072  400         # maximum amplitude: 0xFFF = 4095
-
-# Timestamp/Event Counters: CTRA, CTRB
-# ############################################################################
-# ts_sources
-0x6096  0b00        # bit 0: frequency source (0 -> VME, 1 -> external)
-                    # bit 1: external reset enable
-
-# ts_divisor (16 bit value)
-0x6098  1           # timestamp = time / ts_divisor
-                    # 0 means division by 65536
-
-# stop_ctr
-#0x60AE  0b00       # bit 0: stop CTRB (time_0, time_1, time_2)
-                    # bit 1: stop CTRA (ts_counter_lo, ts_counter_hi)
-                    # with 0 -> run, 1 -> stop counter
+/*
+# channels (0, 1)
+0x6100       0
+0x6110      16    # signal_width
+0x6112    1024    # input_amplitude
+0x6114    3072    # jumper_range
+0x6116       0    # qdc_jumper
+0x6118      16    # integration_long
+0x611A       2    # integration_short
+0x611C  0x00ff    # threshold0
+0x611E  0x00ff    # threshold1
+0x6128      32    # reset_time
+0x612A    1024    # long_gain_correction
+0x612C    1024    # tf_gain_correction
+0x612E    1024    # short_gain_correction
+# channels (2, 3)
+0x6100       1
+0x6110      16    # signal_width
+0x6112    1024    # input_amplitude
+0x6114    3072    # jumper_range
+0x6116       0    # qdc_jumper
+0x6118      16    # integration_long
+0x611A       2    # integration_short
+0x611C  0x00ff    # threshold0
+0x611E  0x00ff    # threshold1
+0x6128      32    # reset_time
+0x612A    1024    # long_gain_correction
+0x612C    1024    # tf_gain_correction
+0x612E    1024    # short_gain_correction
+# channels (4, 5)
+0x6100       2
+0x6110      16    # signal_width
+0x6112    1024    # input_amplitude
+0x6114    3072    # jumper_range
+0x6116       0    # qdc_jumper
+0x6118      16    # integration_long
+0x611A       2    # integration_short
+0x611C  0x00ff    # threshold0
+0x611E  0x00ff    # threshold1
+0x6128      32    # reset_time
+0x612A    1024    # long_gain_correction
+0x612C    1024    # tf_gain_correction
+0x612E    1024    # short_gain_correction
+# channels (6, 7)
+0x6100       3
+0x6110      16    # signal_width
+0x6112    1024    # input_amplitude
+0x6114    3072    # jumper_range
+0x6116       0    # qdc_jumper
+0x6118      16    # integration_long
+0x611A       2    # integration_short
+0x611C  0x00ff    # threshold0
+0x611E  0x00ff    # threshold1
+0x6128      32    # reset_time
+0x612A    1024    # long_gain_correction
+0x612C    1024    # tf_gain_correction
+0x612E    1024    # short_gain_correction
+# channels (8, 9)
+0x6100       4
+0x6110      16    # signal_width
+0x6112    1024    # input_amplitude
+0x6114    3072    # jumper_range
+0x6116       0    # qdc_jumper
+0x6118      16    # integration_long
+0x611A       2    # integration_short
+0x611C  0x00ff    # threshold0
+0x611E  0x00ff    # threshold1
+0x6128      32    # reset_time
+0x612A    1024    # long_gain_correction
+0x612C    1024    # tf_gain_correction
+0x612E    1024    # short_gain_correction
+# channels (10, 11)
+0x6100       5
+0x6110      16    # signal_width
+0x6112    1024    # input_amplitude
+0x6114    3072    # jumper_range
+0x6116       0    # qdc_jumper
+0x6118      16    # integration_long
+0x611A       2    # integration_short
+0x611C  0x00ff    # threshold0
+0x611E  0x00ff    # threshold1
+0x6128      32    # reset_time
+0x612A    1024    # long_gain_correction
+0x612C    1024    # tf_gain_correction
+0x612E    1024    # short_gain_correction
+# channels (12, 13)
+0x6100       6
+0x6110      16    # signal_width
+0x6112    1024    # input_amplitude
+0x6114    3072    # jumper_range
+0x6116       0    # qdc_jumper
+0x6118      16    # integration_long
+0x611A       2    # integration_short
+0x611C  0x00ff    # threshold0
+0x611E  0x00ff    # threshold1
+0x6128      32    # reset_time
+0x612A    1024    # long_gain_correction
+0x612C    1024    # tf_gain_correction
+0x612E    1024    # short_gain_correction
+# channels (14, 15)
+0x6100       7
+0x6110      16    # signal_width
+0x6112    1024    # input_amplitude
+0x6114    3072    # jumper_range
+0x6116       0    # qdc_jumper
+0x6118      16    # integration_long
+0x611A       2    # integration_short
+0x611C  0x00ff    # threshold0
+0x611E  0x00ff    # threshold1
+0x6128      32    # reset_time
+0x612A    1024    # long_gain_correction
+0x612C    1024    # tf_gain_correction
+0x612E    1024    # short_gain_correction
+*/
