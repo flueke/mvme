@@ -60,7 +60,6 @@
     <addaction name="actionMainWindow"/>
     <addaction name="actionAnalysis_UI"/>
     <addaction name="actionLog_Window"/>
-    <addaction name="actionVME_Debug"/>
     <addaction name="separator"/>
     <addaction name="separator"/>
    </widget>
@@ -68,6 +67,7 @@
     <property name="title">
      <string>&amp;Tools</string>
     </property>
+    <addaction name="actionVME_Debug"/>
     <addaction name="actionImport_Histo1D"/>
     <addaction name="actionVMUSB_Firmware_Update"/>
     <addaction name="actionTemplate_Info"/>
@@ -201,7 +201,7 @@
   </action>
   <action name="actionVME_Debug">
    <property name="text">
-    <string>VME Debug</string>
+    <string>VME Debug Window</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+4</string>
