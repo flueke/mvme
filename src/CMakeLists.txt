@@ -164,13 +164,12 @@ target_link_libraries(libmvme
 install(TARGETS libmvme DESTINATION .)
 
 #
-# mvme
+# mvme - the main GUI binary
 #
 set(MVME_SOURCES
     main.cpp
     mvme.rc
     )
-
 
 if (CMAKE_BUILD_TYPE MATCHES "^Release$")
     add_executable(mvme WIN32 ${MVME_SOURCES})
@@ -198,5 +197,19 @@ install(TARGETS mvme DESTINATION .)
 add_executable(sis3153_test sis3153_test.cc)
 add_dependencies(sis3153_test libmvme)
 target_link_libraries(sis3153_test libmvme)
+
+#
+# mvme_register_reader
+#
+add_executable(mvme_register_reader mvme_register_reader.cc)
+add_dependencies(mvme_register_reader libmvme)
+target_link_libraries(mvme_register_reader libmvme)
+
+#
+# vme_script_checker
+#
+add_executable(vme_script_checker vme_script_checker.cc)
+add_dependencies(vme_script_checker libmvme)
+target_link_libraries(vme_script_checker libmvme)
 
 # vim:tw=0

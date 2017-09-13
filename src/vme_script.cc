@@ -1053,8 +1053,10 @@ QString format_result(const Result &result)
             break;
 
         case CommandType::Read:
-            ret += QString(" -> 0x%1")
-                .arg(result.value, 8, 16, QChar('0'));
+            ret += QString(" -> 0x%1, %2")
+                .arg(result.value, 8, 16, QChar('0'))
+                .arg(result.value)
+                ;
             break;
 
         case CommandType::BLT:

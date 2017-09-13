@@ -78,11 +78,11 @@
                     # 0x02 -> trig1, terminated
                     # 0x12 -> trig1, unterminated
 # ECL1 input
-0x6064              # 0x00 -> off
+0x6064  0x00        # 0x00 -> off
                     # 0x01 -> reset, terminated
                     # 0x11 -> reset, unterminated
 # ECL0 output
-0x6066              # 0x0 -> off
+0x6066  0x00        # 0x0 -> off
                     # 0x4 -> busy
                     # 0x8 -> data in buffer above threshold 0x6018 (= Data ready)
                     # 0x9 -> events in buffer above threshold 0x601E
@@ -192,6 +192,7 @@
 
 # Channel / Channel Pair Front end settings
 # ############################################################################
+
 /*
 # channels (0, 1)
 0x6100       0

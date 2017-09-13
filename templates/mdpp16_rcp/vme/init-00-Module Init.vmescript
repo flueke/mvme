@@ -72,11 +72,11 @@
                     # 0x02 -> trig1, terminated
                     # 0x12 -> trig1, unterminated
 # ECL1 input
-0x6064              # 0x00 -> off
+0x6064  0x00        # 0x00 -> off
                     # 0x01 -> reset, terminated
                     # 0x11 -> reset, unterminated
 # ECL0 output
-0x6066              # 0x0 -> off
+0x6066  0x00        # 0x0 -> off
                     # 0x4 -> busy
                     # 0x8 -> data in buffer above threshold 0x6018 (= Data ready)
                     # 0x9 -> events in buffer above threshold 0x601E
@@ -177,83 +177,85 @@
 # Channel / Channel Pair Front end settings
 # ############################################################################
 
-## channels (0, 1)
-#0x6100       0
-#0x611C  0x00FF    # threshold 0
-#0x611E  0x00FF    # threshold 1
-#0x6110      20    # tf_int_diff
-#0x611A    2000    # gain
-#0x6124     160    # shaping_time
-#0x6126       2    # BLR
-#0x6128    1000    # reset_time
-#0x612A      80    # signal_rise_time
-## channels (2, 3)
-#0x6100       1
-#0x611C  0x00FF    # threshold 2
-#0x611E  0x00FF    # threshold 3
-#0x6110      20    # tf_int_diff
-#0x611A    2000    # gain
-#0x6124     160    # shaping_time
-#0x6126       2    # BLR
-#0x6128    1000    # reset_time
-#0x612A      80    # signal_rise_time
-## channels (4, 5)
-#0x6100       2
-#0x611C  0x00FF    # threshold 4
-#0x611E  0x00FF    # threshold 5
-#0x6110      20    # tf_int_diff
-#0x611A    2000    # gain
-#0x6124     160    # shaping_time
-#0x6126       2    # BLR
-#0x6128    1000    # reset_time
-#0x612A      80    # signal_rise_time
-## channels (6, 7)
-#0x6100       3
-#0x611C  0x00FF    # threshold 6
-#0x611E  0x00FF    # threshold 7
-#0x6110      20    # tf_int_diff
-#0x611A    2000    # gain
-#0x6124     160    # shaping_time
-#0x6126       2    # BLR
-#0x6128    1000    # reset_time
-#0x612A      80    # signal_rise_time
-## channels (8, 9)
-#0x6100       4
-#0x611C  0x00FF    # threshold 8
-#0x611E  0x00FF    # threshold 9
-#0x6110      20    # tf_int_diff
-#0x611A    2000    # gain
-#0x6124     160    # shaping_time
-#0x6126       2    # BLR
-#0x6128    1000    # reset_time
-#0x612A      80    # signal_rise_time
-## channels (10, 11)
-#0x6100       5
-#0x611C  0x00FF    # threshold 10
-#0x611E  0x00FF    # threshold 11
-#0x6110      20    # tf_int_diff
-#0x611A    2000    # gain
-#0x6124     160    # shaping_time
-#0x6126       2    # BLR
-#0x6128    1000    # reset_time
-#0x612A      80    # signal_rise_time
-## channels (12, 13)
-#0x6100       6
-#0x611C  0x00FF    # threshold 12
-#0x611E  0x00FF    # threshold 13
-#0x6110      20    # tf_int_diff
-#0x611A    2000    # gain
-#0x6124     160    # shaping_time
-#0x6126       2    # BLR
-#0x6128    1000    # reset_time
-#0x612A      80    # signal_rise_time
-## channels (14, 15)
-#0x6100       7
-#0x611C  0x00FF    # threshold 14
-#0x611E  0x00FF    # threshold 15
-#0x6110      20    # tf_int_diff
-#0x611A    2000    # gain
-#0x6124     160    # shaping_time
-#0x6126       2    # BLR
-#0x6128    1000    # reset_time
-#0x612A      80    # signal_rise_time
+/*
+# channels (0, 1)
+0x6100       0
+0x611C  0x00FF    # threshold 0
+0x611E  0x00FF    # threshold 1
+0x6110      20    # tf_int_diff
+0x611A    2000    # gain
+0x6124     160    # shaping_time
+0x6126       2    # BLR
+0x6128    1000    # reset_time
+0x612A      80    # signal_rise_time
+# channels (2, 3)
+0x6100       1
+0x611C  0x00FF    # threshold 2
+0x611E  0x00FF    # threshold 3
+0x6110      20    # tf_int_diff
+0x611A    2000    # gain
+0x6124     160    # shaping_time
+0x6126       2    # BLR
+0x6128    1000    # reset_time
+0x612A      80    # signal_rise_time
+# channels (4, 5)
+0x6100       2
+0x611C  0x00FF    # threshold 4
+0x611E  0x00FF    # threshold 5
+0x6110      20    # tf_int_diff
+0x611A    2000    # gain
+0x6124     160    # shaping_time
+0x6126       2    # BLR
+0x6128    1000    # reset_time
+0x612A      80    # signal_rise_time
+# channels (6, 7)
+0x6100       3
+0x611C  0x00FF    # threshold 6
+0x611E  0x00FF    # threshold 7
+0x6110      20    # tf_int_diff
+0x611A    2000    # gain
+0x6124     160    # shaping_time
+0x6126       2    # BLR
+0x6128    1000    # reset_time
+0x612A      80    # signal_rise_time
+# channels (8, 9)
+0x6100       4
+0x611C  0x00FF    # threshold 8
+0x611E  0x00FF    # threshold 9
+0x6110      20    # tf_int_diff
+0x611A    2000    # gain
+0x6124     160    # shaping_time
+0x6126       2    # BLR
+0x6128    1000    # reset_time
+0x612A      80    # signal_rise_time
+# channels (10, 11)
+0x6100       5
+0x611C  0x00FF    # threshold 10
+0x611E  0x00FF    # threshold 11
+0x6110      20    # tf_int_diff
+0x611A    2000    # gain
+0x6124     160    # shaping_time
+0x6126       2    # BLR
+0x6128    1000    # reset_time
+0x612A      80    # signal_rise_time
+# channels (12, 13)
+0x6100       6
+0x611C  0x00FF    # threshold 12
+0x611E  0x00FF    # threshold 13
+0x6110      20    # tf_int_diff
+0x611A    2000    # gain
+0x6124     160    # shaping_time
+0x6126       2    # BLR
+0x6128    1000    # reset_time
+0x612A      80    # signal_rise_time
+# channels (14, 15)
+0x6100       7
+0x611C  0x00FF    # threshold 14
+0x611E  0x00FF    # threshold 15
+0x6110      20    # tf_int_diff
+0x611A    2000    # gain
+0x6124     160    # shaping_time
+0x6126       2    # BLR
+0x6128    1000    # reset_time
+0x612A      80    # signal_rise_time
+*/

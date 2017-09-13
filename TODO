@@ -10,7 +10,6 @@ VME Template Rework
 * MDPP SCP  <- done
 * MDPP RCP  <- done
 * MDPP QDC  <- done
-* MDPP CSI  <- does not exist yet
 * Make a RCbus example including a delay between switchting NIM to cbus mode!
 
 * Implement adding of module specific vme init scripts via the GUI.
@@ -31,6 +30,8 @@ VME Template Rework
 * Implement better controller state reporting
   Should not spam useless info
   Should allow diagnosing connection issues
+
+* add multiline c++ style comments to vme scripts
 
 sis3153 implementation
 ----------------------
