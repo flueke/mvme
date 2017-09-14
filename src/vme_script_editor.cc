@@ -180,7 +180,7 @@ VMEScriptEditor::VMEScriptEditor(MVMEContext *context, VMEScriptConfig *script, 
     m_d->m_toolBar->addAction(QIcon(":/document-save-as.png"), "Save to file", this, &VMEScriptEditor::saveToFile);
     m_d->m_toolBar->addSeparator();
     m_d->m_toolBar->addAction(QIcon(":/document-revert.png"), "Revert Changes", this, &VMEScriptEditor::revert);
-    action = m_d->m_toolBar->addAction(QIcon(":/ui_search_field.png"), "Find", this, &VMEScriptEditor::search);
+    action = m_d->m_toolBar->addAction(QIcon(":/ui_search_field.png"), "Search", this, &VMEScriptEditor::search);
     action->setShortcut(QSL("Ctrl+F"));
     m_d->m_toolBar->addSeparator();
 
