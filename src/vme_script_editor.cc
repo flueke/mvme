@@ -23,9 +23,11 @@
 #include "mvme.h"
 
 #include <QFileDialog>
+#include <QLineEdit>
 #include <QMenu>
 #include <QMessageBox>
 #include <QPlainTextEdit>
+#include <QPushButton>
 #include <QSettings>
 #include <QStandardPaths>
 #include <QStatusBar>
@@ -49,7 +51,7 @@ struct VMEScriptEditorPrivate
 
     QLabel *m_labelPosition;
 
-    void updateCursorPosition()
+    void updateCursorPositionLabel()
     {
         auto cursor = m_editor->textCursor();
         int col = cursor.positionInBlock();
@@ -60,6 +62,11 @@ struct VMEScriptEditorPrivate
                                          .arg(col, 3)
                                         ));
     }
+
+    QWidget *searchWindow;
+    QLineEdit *searchInput;
+    QPushButton *findNext;
+    QPushButton *findPrev;
 };
 
 VMEScriptEditor::VMEScriptEditor(MVMEContext *context, VMEScriptConfig *script, QWidget *parent)
@@ -73,6 +80,44 @@ VMEScriptEditor::VMEScriptEditor(MVMEContext *context, VMEScriptConfig *script, 
     m_d->m_editor = new QPlainTextEdit;
     m_d->m_statusBar = make_statusbar();
     m_d->m_labelPosition = new QLabel;
+
+    //
+    // Search Widget
+    //
+    {
+        m_d->searchWindow = new QWidget(this);
+        m_d->searchWindow->setWindowFlags(Qt::Tool
+                                        | Qt::CustomizeWindowHint
+                                        | Qt::WindowTitleHint
+                                        | Qt::WindowCloseButtonHint
+                                        );
+        m_d->searchWindow->setWindowTitle(QSL("Search"));
+
+        auto hideAction = new QAction(QSL("Close"), m_d->searchWindow);
+        hideAction->setShortcut(QKeySequence::Cancel);
+        hideAction->setShortcutContext(Qt::WidgetWithChildrenShortcut);
+        m_d->searchWindow->addAction(hideAction);
+        connect(hideAction, &QAction::triggered, m_d->searchWindow, &QWidget::hide);
+
+        m_d->searchInput = new QLineEdit;
+        m_d->searchInput->setMinimumWidth(200);
+        m_d->findNext = new QPushButton(QSL("&Next"));
+        m_d->findPrev = new QPushButton(QSL("&Prev"));
+        m_d->findPrev->setVisible(false); // FIXME: findPrev() is not working
+
+        connect(m_d->searchInput, &QLineEdit::textEdited, this, &VMEScriptEditor::onSearchTextEdited);
+        connect(m_d->searchInput, &QLineEdit::returnPressed, this, [this] () { findNext(); });
+        connect(m_d->findNext, &QPushButton::clicked, this, &VMEScriptEditor::findNext);
+        connect(m_d->findPrev, &QPushButton::clicked, this, &VMEScriptEditor::findPrev);
+
+        auto layout = new QHBoxLayout(m_d->searchWindow);
+        layout->addWidget(m_d->searchInput);
+        layout->addWidget(m_d->findNext);
+        layout->addWidget(m_d->findPrev);
+        layout->setContentsMargins(2, 2, 2, 2);
+        layout->setSpacing(2);
+        layout->setStretch(0, 1);
+    }
 
     // Editor area
     new vme_script::SyntaxHighlighter(m_d->m_editor->document());
@@ -102,7 +147,7 @@ VMEScriptEditor::VMEScriptEditor(MVMEContext *context, VMEScriptConfig *script, 
     updateWindowTitle();
 
     connect(m_d->m_editor->document(), &QTextDocument::contentsChanged, this, &VMEScriptEditor::onEditorTextChanged);
-    connect(m_d->m_editor, &QPlainTextEdit::cursorPositionChanged, this, [this] { m_d->updateCursorPosition(); });
+    connect(m_d->m_editor, &QPlainTextEdit::cursorPositionChanged, this, [this] { m_d->updateCursorPositionLabel(); });
 
     // Toolbar actions
     m_d->m_toolBar->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
@@ -111,9 +156,11 @@ VMEScriptEditor::VMEScriptEditor(MVMEContext *context, VMEScriptConfig *script, 
 
     action = m_d->m_toolBar->addAction(QIcon(":/script-run.png"), QSL("Run"), this,  &VMEScriptEditor::runScript);
     action->setStatusTip(QSL("Run the VME script"));
+    action->setShortcut(QSL("Ctrl+R"));
 
     action = m_d->m_toolBar->addAction(QIcon(":/dialog-ok-apply.png"), QSL("Apply"), this, &VMEScriptEditor::apply);
     action->setStatusTip(QSL("Apply any changes to the active VME configuration"));
+    action->setShortcut(QSL("Ctrl+S"));
 
     action = m_d->m_toolBar->addAction(QIcon(":/dialog-close.png"), QSL("Close"), this, &VMEScriptEditor::close);
     action->setStatusTip(QSL("Close this window"));
@@ -133,6 +180,8 @@ VMEScriptEditor::VMEScriptEditor(MVMEContext *context, VMEScriptConfig *script, 
     m_d->m_toolBar->addAction(QIcon(":/document-save-as.png"), "Save to file", this, &VMEScriptEditor::saveToFile);
     m_d->m_toolBar->addSeparator();
     m_d->m_toolBar->addAction(QIcon(":/document-revert.png"), "Revert Changes", this, &VMEScriptEditor::revert);
+    action = m_d->m_toolBar->addAction(QIcon(":/ui_search_field.png"), "Find", this, &VMEScriptEditor::search);
+    action->setShortcut(QSL("Ctrl+F"));
     m_d->m_toolBar->addSeparator();
 
     // Add the script Help action from the main window
@@ -156,12 +205,13 @@ VMEScriptEditor::VMEScriptEditor(MVMEContext *context, VMEScriptConfig *script, 
     layout->addWidget(m_d->m_editor);
     layout->addWidget(m_d->m_statusBar);
 
-    m_d->updateCursorPosition();
+    m_d->updateCursorPositionLabel();
     resize(650, 400);
 }
 
 VMEScriptEditor::~VMEScriptEditor()
 {
+    delete m_d->searchWindow;
     delete m_d;
 }
 
@@ -334,6 +384,73 @@ void VMEScriptEditor::revert()
     m_d->m_editor->setPlainText(m_d->m_script->getScriptContents());
     m_d->m_editor->document()->setModified(false);
     updateWindowTitle();
+}
+
+void VMEScriptEditor::search()
+{
+    QPoint pos = this->mapToGlobal(QPoint(0, this->height()));
+    m_d->searchWindow->move(pos);
+    m_d->searchWindow->show();
+    m_d->searchWindow->raise();
+
+    if (m_d->searchInput->hasFocus())
+    {
+        m_d->searchInput->selectAll();
+    }
+    else
+    {
+        m_d->searchInput->setFocus();
+    }
+}
+
+void VMEScriptEditor::onSearchTextEdited(const QString &text)
+{
+    /* Move the cursor to the beginning of the current word, then search
+     * forward from that position. */
+    auto currentCursor = m_d->m_editor->textCursor();
+    currentCursor.movePosition(QTextCursor::StartOfWord);
+    m_d->m_editor->setTextCursor(currentCursor);
+    findNext();
+}
+
+void VMEScriptEditor::findNext(bool hasWrapped)
+{
+    auto searchText = m_d->searchInput->text();
+    bool found      = m_d->m_editor->find(searchText);
+
+    if (!found && !hasWrapped)
+    {
+        auto currentCursor = m_d->m_editor->textCursor();
+        currentCursor.setPosition(0);
+        m_d->m_editor->setTextCursor(currentCursor);
+        findNext(true);
+    }
+}
+
+void VMEScriptEditor::findPrev()
+{
+    // FIXME: findPrev() is not working. Not sure why. Qt has has some bugs
+    // related to backward searching though.
+    auto searchText     = m_d->searchInput->text();
+#if 0
+    auto currentCursor  = m_d->m_editor->textCursor();
+    currentCursor.clearSelection();
+    currentCursor.movePosition(QTextCursor::StartOfWord);
+    m_d->m_editor->setTextCursor(currentCursor);
+
+    auto doc            = m_d->m_editor->document();
+    auto cursor         = doc->find(searchText, currentCursor, QTextDocument::FindBackward);
+
+    if (!cursor.isNull())
+    {
+        bool wasModified = doc->isModified();
+        m_d->m_editor->setTextCursor(cursor);
+        doc->setModified(wasModified);
+        updateWindowTitle();
+    }
+#else
+    m_d->m_editor->find(searchText, QTextDocument::FindBackward);
+#endif
 }
 
 void VMEScriptEditor::closeEvent(QCloseEvent *event)
