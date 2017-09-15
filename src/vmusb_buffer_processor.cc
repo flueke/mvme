@@ -246,7 +246,7 @@ struct ProcessorState
     size_t eventHeaderOffset = 0;       // offset into the output buffer
 
     s32 moduleSize = 0;                 // size of the module section in 32-bit words.
-    ssize_t moduleHeaderOffset = 0;      // offset into the output buffer or -1 if no moduleHeader has been written yet
+    ssize_t moduleHeaderOffset = -1;      // offset into the output buffer or -1 if no moduleHeader has been written yet
     s32 moduleIndex = -1;               // index into the list of eventconfigs or -1 if no module is "in progress"
 
     /* VMUSB uses 16-bit words internally which means it can split our 32-bit
@@ -716,7 +716,7 @@ u32 VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputB
         outputBuffer->used += sizeof(u32);
 
         /* Store the event index in the header. */
-        // FIXME: store the list in Private
+        // FIXME: store the list of event configs in Private and speed up the lookup somehow
         int configEventIndex = m_d->m_readoutWorker->getContext().vmeConfig->getEventConfigs().indexOf(eventConfig);
         *mvmeEventHeader = (ListfileSections::SectionType_Event << LF::SectionTypeShift) & LF::SectionTypeMask;
         *mvmeEventHeader |= (configEventIndex << LF::EventTypeShift) & LF::EventTypeMask;
@@ -757,7 +757,7 @@ u32 VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputB
                 ++state->moduleIndex;
             }
 
-            state->moduleSize  = 0;
+            state->moduleSize = 0;
             state->moduleHeaderOffset = outputBuffer->used;
 
             if (state->moduleIndex >= eventConfig->modules.size())
@@ -793,6 +793,9 @@ u32 VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputB
                 ;
 #endif
         }
+
+        Q_ASSERT(state->moduleIndex >= 0);
+        Q_ASSERT(state->moduleHeaderOffset >= 0);
 
         s32 moduleIndex = state->moduleIndex;
 
