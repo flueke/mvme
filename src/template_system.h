@@ -85,7 +85,8 @@ QString get_template_path();
 // Output diagnostic information about the templates.
 QTextStream &operator<<(QTextStream &out, const MVMETemplates &templates);
 
-}
+VMEModuleMeta get_module_meta_by_typename(const MVMETemplates &templates, const QString &moduleTypename);
 
+}  // namespace vats
 
 #endif /* __TEMPLATE_SYSTEM_H__ */
