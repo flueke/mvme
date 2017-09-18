@@ -26,7 +26,7 @@
 #include <QCoreApplication>
 #include <QElapsedTimer>
 
-#define MVME_EVENT_PROCESSOR_DEBUGGING
+//#define MVME_EVENT_PROCESSOR_DEBUGGING
 
 #ifdef MVME_EVENT_PROCESSOR_DEBUGGING
     inline QDebug qEPDebug() { return QDebug(QtDebugMsg); }
