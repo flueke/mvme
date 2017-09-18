@@ -18,6 +18,7 @@
  */
 #include "analysis_ui.h"
 #include "analysis_ui_p.h"
+#include "analysis_util.h"
 #include "data_extraction_widget.h"
 
 #include "../mvme_context.h"

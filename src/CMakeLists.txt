@@ -80,6 +80,7 @@ set(LIBMVME_SOURCES
     analysis/analysis.cc
     analysis/analysis_ui.cc
     analysis/analysis_ui_p.cc
+    analysis/analysis_util.cc
     analysis/data_extraction_widget.cc
     analysis/data_filter.cc
     config_ui.cpp

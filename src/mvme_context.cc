@@ -1207,10 +1207,20 @@ void MVMEContext::openWorkspace(const QString &dirName)
             {
                 /* A non-existant absolute path was loaded from the INI -> go back
                  * to the default of "listfiles". */
-                logMessage(QString("Warning: Listfile directory %1 does not exist. Reverting back to default of \"listfiles\".")
+                logMessage(QString("Warning: Stored Listfile directory %1 does not exist. "
+                                   "Reverting back to default of \"listfiles\".")
                            .arg(info.directory));
                 info.directory = QSL("listfiles");
-                // TODO: create if it does not exist
+
+                // create the default listfile directory if it does not exist
+                listFileOutputDir = QDir(info.directory);
+                if (!listFileOutputDir.exists())
+                {
+                    if (!QDir::root().mkpath(dir.absolutePath()))
+                    {
+                        throw QString(QSL("Error creating listfiles directory %1.")).arg(dir.path());
+                    }
+                }
             }
 
             info.fullDirectory = getListFileOutputDirectoryFullPath(info.directory);

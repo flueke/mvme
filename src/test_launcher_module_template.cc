@@ -19,6 +19,7 @@
 #include "mvme.h"
 #include "mvme_startup.h"
 #include "vme_controller_factory.h"
+#include "analysis/analysis_util.h"
 
 #include <getopt.h>
 #include <QApplication>
@@ -48,10 +49,30 @@ static QTextStream &print_options(QTextStream &out, struct option *opts)
 
 struct ModuleTemplateTestInfo
 {
+    QString workspacePath;
     VMEControllerType controllerType = VMEControllerType::VMUSB;
     QVariantMap controllerOptions;
     QString moduleType;
     u32 moduleAddress = 0x0;
+};
+
+static const QMap<QString, QString> AdditionalModuleSettings =
+{
+    { "madc32",         "0x6070 0b111\n"
+    },
+    { "mqdc32",         "0x6070 0b101\n"
+                        "0x6072 32\n"
+    },
+    { "mtdc32",         "0x6070 3\n"
+    },
+    { "mdpp16",         "0x6070 1\n"
+    },
+    { "mdpp16_rcp",     "0x6070 1\n"
+                        "0x6072 400\n"
+    },
+    { "mdpp16_qdc",     "0x6070 1\n"
+                        "0x6072 400\n"
+    },
 };
 
 static struct option long_options[] = {
@@ -59,6 +80,7 @@ static struct option long_options[] = {
     { "controller-options",     required_argument,      nullptr,    0 },
     { "module-type",            required_argument,      nullptr,    0 },
     { "module-address",         required_argument,      nullptr,    0 },
+    { "workspace-path",         required_argument,      nullptr,    0 },
     { "help",                   no_argument,            nullptr,    0 },
     { nullptr, 0, nullptr, 0 },
 };
@@ -68,6 +90,8 @@ static QTextStream err(stderr);
 
 int main(int argc, char *argv[])
 {
+    using namespace analysis;
+
     QApplication app(argc, argv);
     app.setWindowIcon(QIcon(":/window_icon.png"));
 
@@ -86,7 +110,12 @@ int main(int argc, char *argv[])
 
         QString opt_name(long_options[option_index].name);
 
-        if (opt_name == "controller-type")
+        if (opt_name == "help")
+        {
+            print_options(out, long_options);
+            return 0;
+        }
+        else if (opt_name == "controller-type")
         {
             testInfo.controllerType = from_string(optarg);
         }
@@ -104,16 +133,15 @@ int main(int argc, char *argv[])
         }
         else if (opt_name == "module-type")
         {
-            testInfo.moduleType = opt_name;
+            testInfo.moduleType = optarg;
         }
         else if (opt_name == "module-address")
         {
             testInfo.moduleAddress = QString(optarg).toUInt(nullptr, 0);
         }
-        else if (opt_name == "help")
+        else if (opt_name == "workspace-path")
         {
-            print_options(out, long_options);
-            return 0;
+            testInfo.workspacePath = optarg;
         }
     }
 
@@ -142,6 +170,11 @@ int main(int argc, char *argv[])
         mvme w;
         auto context = w.getContext();
 
+        if (!testInfo.workspacePath.isEmpty())
+        {
+            context->openWorkspace(testInfo.workspacePath);
+        }
+
         // VME controller
         context->setVMEController(testInfo.controllerType, testInfo.controllerOptions);
         auto ctrl = context->getVMEController();
@@ -155,24 +188,69 @@ int main(int argc, char *argv[])
         auto mvmeTemplates = vats::read_templates();
 
         // module
-        auto moduleMeta    = get_module_meta_by_typename(mvmeTemplates, testInfo.moduleType);
+        auto moduleMeta = get_module_meta_by_typename(mvmeTemplates, testInfo.moduleType);
 
         if (moduleMeta.typeId == vats::VMEModuleMeta::InvalidTypeId)
             throw QString("No templates found for module type %1").arg(testInfo.moduleType);
 
         auto moduleConfig = new ModuleConfig;
+        moduleConfig->setObjectName(testInfo.moduleType);
         moduleConfig->setModuleMeta(moduleMeta);
         moduleConfig->setBaseAddress(testInfo.moduleAddress);
-        module->getReadoutScript()->setObjectName(moduleMeta.templates.readout.name);
-        module->getReadoutScript()->setScriptContents(moduleMeta.templates.readout.contents);
-        module->getResetScript()->setObjectName(moduleMeta.templates.reset.name);
-        module->getResetScript()->setScriptContents(moduleMeta.templates.reset.contents);
+        moduleConfig->getReadoutScript()->setObjectName(moduleMeta.templates.readout.name);
+        moduleConfig->getReadoutScript()->setScriptContents(moduleMeta.templates.readout.contents);
+        moduleConfig->getResetScript()->setObjectName(moduleMeta.templates.reset.name);
+        moduleConfig->getResetScript()->setScriptContents(moduleMeta.templates.reset.contents);
+        for (const auto &vmeTemplate: moduleMeta.templates.init)
+        {
+            moduleConfig->addInitScript(new VMEScriptConfig(vmeTemplate.name, vmeTemplate.contents));
+        }
+
+        /* Instead of modifying the loaded scripts directly an additional init
+         * script is appended which contains the modified settings required for
+         * the test run. */
+        QString moduleSetupScript = QString("0x6010   1 # IRQ\n");
+        moduleSetupScript += AdditionalModuleSettings.value(testInfo.moduleType, QString());
+        moduleConfig->addInitScript(new VMEScriptConfig("Module Test Setup", moduleSetupScript));
 
         // event
+        auto eventTemplates = mvmeTemplates.eventTemplates;
         auto eventConfig = new EventConfig;
+        eventConfig->setObjectName("TestEvent");
+        eventConfig->triggerCondition = TriggerCondition::Interrupt;
+        eventConfig->irqLevel = 1;
+        eventConfig->addModuleConfig(moduleConfig);
+        eventConfig->vmeScripts["daq_start"]->setScriptContents(eventTemplates.daqStart.contents);
+        eventConfig->vmeScripts["daq_stop"]->setScriptContents(eventTemplates.daqStop.contents);
+        eventConfig->vmeScripts["readout_start"]->setScriptContents(eventTemplates.readoutCycleStart.contents);
+        eventConfig->vmeScripts["readout_end"]->setScriptContents(eventTemplates.readoutCycleEnd.contents);
 
         // vme config
         auto vmeConfig = new VMEConfig;
+        vmeConfig->addEventConfig(eventConfig);
+        vmeConfig->setModified(false);
+        context->setVMEConfig(vmeConfig);
+
+        // analysis
+        auto extractors = analysis::get_default_data_extractors(testInfo.moduleType);
+
+        for (auto &ex: extractors)
+        {
+            auto dataFilter = ex->getFilter();
+            double unitMin = 0.0;
+            double unitMax = std::pow(2.0, dataFilter.getDataBits());
+            QString name = moduleConfig->getModuleMeta().typeName + QSL(".") + ex->objectName().section('.', 0, -1);
+
+            RawDataDisplay rawDataDisplay = make_raw_data_display(dataFilter, unitMin, unitMax,
+                                                                  name,
+                                                                  ex->objectName().section('.', 0, -1),
+                                                                  QString());
+
+            add_raw_data_display(context->getAnalysis(), eventConfig->getId(),
+                                 moduleConfig->getId(), rawDataDisplay);
+        }
+
+        context->getAnalysis()->setModified(false);
 
         // show the main window
         w.show();
@@ -186,12 +264,12 @@ int main(int argc, char *argv[])
     }
     catch (const VMEError &e)
     {
-        err << e.toString() << endl;
+        err << "Error: " << e.toString() << endl;
         ret = 1;
     }
     catch (const QString &e)
     {
-        err << e << endl;
+        err << "Error: " << e << endl;
         ret = 1;
     }
 

@@ -257,8 +257,6 @@ class CalibrationItemDelegate: public QStyledItemDelegate
         virtual QWidget* createEditor(QWidget *parent, const QStyleOptionViewItem &option, const QModelIndex &index) const;
 };
 
-QVector<std::shared_ptr<Extractor>> get_default_data_extractors(const QString &moduleTypeName);
-
 /* Specialized tree for the EventWidget.
  *
  * The declaration is here because of MOC, the implementation is in
