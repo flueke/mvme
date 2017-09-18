@@ -176,6 +176,12 @@ void VMEScriptConfig::setScriptContents(const QString &str)
     }
 }
 
+void VMEScriptConfig::addToScript(const QString &str)
+{
+    m_script += str;
+    setModified(true);
+}
+
 vme_script::VMEScript VMEScriptConfig::getScript(u32 baseAddress) const
 {
     auto script = vme_script::parse(m_script, baseAddress);

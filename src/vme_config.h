@@ -127,6 +127,7 @@ class VMEScriptConfig: public ConfigObject
         { return m_script; }
 
         void setScriptContents(const QString &);
+        void addToScript(const QString &str);
 
         vme_script::VMEScript getScript(u32 baseAddress = 0) const;
 
