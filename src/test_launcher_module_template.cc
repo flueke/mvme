@@ -222,6 +222,8 @@ int main(int argc, char *argv[])
         eventConfig->addModuleConfig(moduleConfig);
         eventConfig->vmeScripts["daq_start"]->setScriptContents(eventTemplates.daqStart.contents);
         eventConfig->vmeScripts["daq_stop"]->setScriptContents(eventTemplates.daqStop.contents);
+        eventConfig->vmeScripts["daq_stop"]->addToScript(
+            "writeabs a32 d16 0xbb006070 0\n"); // turn off the pulser using the broadcast address
         eventConfig->vmeScripts["readout_start"]->setScriptContents(eventTemplates.readoutCycleStart.contents);
         eventConfig->vmeScripts["readout_end"]->setScriptContents(eventTemplates.readoutCycleEnd.contents);
 
