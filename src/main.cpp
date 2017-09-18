@@ -17,51 +17,19 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "mvme.h"
-#include "globals.h"
-#include "vme_controller.h"
-
-#ifdef MVME_USE_GIT_VERSION_FILE
-#include "git_sha1.h"
-#endif
+#include "mvme_startup.h"
 
 #include <QApplication>
-#include <QDebug>
-#include <QLibraryInfo>
-#include <QLocale>
+#include <QMessageBox>
 #include <QSplashScreen>
 #include <QTimer>
 
 int main(int argc, char *argv[])
 {
-    qRegisterMetaType<DAQState>("DAQState");
-    qRegisterMetaType<GlobalMode>("GlobalMode");
-    qRegisterMetaType<EventProcessorState>("EventProcessorState");
-    qRegisterMetaType<ControllerState>("ControllerState");
-
     QApplication app(argc, argv);
     app.setWindowIcon(QIcon(":/window_icon.png"));
 
-#if 0
-    {
-        QFile qssFile(":/stylesheet.qss");
-        if (qssFile.open(QIODevice::ReadOnly))
-        {
-            auto qssData = qssFile.readAll();
-            app.setStyleSheet(qssData);
-        }
-    }
-#endif
-
-    QCoreApplication::setOrganizationDomain("www.mesytec.com");
-    QCoreApplication::setOrganizationName("mesytec");
-    QCoreApplication::setApplicationName("mvme");
-    QCoreApplication::setApplicationVersion(GIT_VERSION);
-
-    QLocale::setDefault(QLocale::c());
-
-    qDebug() << "prefixPath = " << QLibraryInfo::location(QLibraryInfo::PrefixPath);
-    qDebug() << "librariesPaths = " << QLibraryInfo::location(QLibraryInfo::LibrariesPath);
-    qDebug() << "pluginsPaths = " << QLibraryInfo::location(QLibraryInfo::PluginsPath);
+    mvme_basic_init();
 
 #ifdef QT_NO_DEBUG
     QSplashScreen splash(QPixmap(":/splash-screen.png"), Qt::CustomizeWindowHint | Qt::Window | Qt::WindowStaysOnTopHint);
@@ -89,6 +57,39 @@ int main(int argc, char *argv[])
 #ifdef QT_NO_DEBUG
     splash.raise();
 #endif
+
+    // Code to run on entering the event loop for the first time.
+
+    QTimer::singleShot(0, [&w]() {
+        QSettings settings;
+
+        // Open the last workspace or create a new one.
+        if (settings.contains(QSL("LastWorkspaceDirectory")))
+        {
+            try
+            {
+                w.getContext()->openWorkspace(settings.value(QSL("LastWorkspaceDirectory")).toString());
+            } catch (const QString &e)
+            {
+                QMessageBox::warning(&w, QSL("Could not open workspace"), QString("Error opening last workspace: %1.").arg(e));
+                settings.remove(QSL("LastWorkspaceDirectory"));
+
+                if (!w.createNewOrOpenExistingWorkspace())
+                {
+                    // canceled by user
+                    w.close();
+                }
+            }
+        }
+        else
+        {
+            if (!w.createNewOrOpenExistingWorkspace())
+            {
+                // canceled by user
+                w.close();
+            }
+        }
+    });
 
     int ret = app.exec();
 

@@ -150,37 +150,8 @@ mvme::mvme(QWidget *parent) :
         // Create and open log and analysis windows.
         on_actionLog_Window_triggered();
         on_actionAnalysis_UI_triggered();
-        this->raise(); // Focus the main window
-
-
-        // Open the last workspace or create a new one.
-
-        QSettings settings;
-        if (settings.contains(QSL("LastWorkspaceDirectory")))
-        {
-            try
-            {
-                m_context->openWorkspace(settings.value(QSL("LastWorkspaceDirectory")).toString());
-            } catch (const QString &e)
-            {
-                QMessageBox::warning(this, QSL("Could not open workspace"), QString("Error opening last workspace: %1.").arg(e));
-                settings.remove(QSL("LastWorkspaceDirectory"));
-
-                if (!createNewOrOpenExistingWorkspace())
-                {
-                    // canceled by user
-                    close();
-                }
-            }
-        }
-        else
-        {
-            if (!createNewOrOpenExistingWorkspace())
-            {
-                // canceled by user
-                close();
-            }
-        }
+        // Focus the main window
+        this->raise();
     });
 }
 

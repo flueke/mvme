@@ -23,6 +23,7 @@
 #include <QMap>
 
 #include "libmvme_export.h"
+#include "mvme_context.h"
 
 class ConfigObject;
 class VMEConfig;
@@ -37,7 +38,6 @@ class Hist2D;
 class HistogramCollection;
 class HistogramTreeWidget;
 class ModuleConfig;
-class MVMEContext;
 class MVMEContextWidget;
 class RealtimeData;
 class VirtualMod;
@@ -94,6 +94,9 @@ public slots:
     void on_actionNewWorkspace_triggered();
     void on_actionOpenWorkspace_triggered();
 
+    bool createNewOrOpenExistingWorkspace();
+
+
 protected:
     void resizeEvent(QResizeEvent *event) override;
 
@@ -127,8 +130,6 @@ private slots:
 
 
 private:
-    bool createNewOrOpenExistingWorkspace();
-
     Ui::mvme *ui;
 
     MVMEContext *m_context;
