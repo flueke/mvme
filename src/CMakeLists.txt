@@ -100,6 +100,7 @@ set(LIBMVME_SOURCES
     mvme.cpp
     mvme_event_processor.cc
     mvme_listfile.cc
+    mvme_startup.cc
     qt_util.cc
     realtimedata.cpp
     scrollbar.cpp
@@ -211,5 +212,12 @@ target_link_libraries(mvme_register_reader libmvme)
 add_executable(vme_script_checker vme_script_checker.cc)
 add_dependencies(vme_script_checker libmvme)
 target_link_libraries(vme_script_checker libmvme)
+
+#
+# test_launcher_vme_module_template
+#
+add_executable(test_launcher_module_template test_launcher_module_template.cc)
+add_dependencies(test_launcher_module_template libmvme)
+target_link_libraries(test_launcher_module_template libmvme)
 
 # vim:tw=0
