@@ -95,7 +95,7 @@ namespace ListfileSections
  * |              mmmmmm  ssssssssss|
  * +--------------------------------+
  *
- * m =  6 bit module type (VMEModuleType enum from globals.h)
+ * m =  6 bit module type (typeId from the module_info.json in the templates directory)
  * s = 10 bit size in units of 32 bit words
  *
  * The last word of each event section is the EndMarker (globals.h)
@@ -157,7 +157,7 @@ struct listfile_v0
  * |mmmmmmmm    ssssssssssssssssssss|
  * +--------------------------------+
  *
- * m =  8 bit module type (VMEModuleType enum from globals.h)
+ * m =  8 bit module type (typeId from the module_info.json in the templates directory)
  * s = 10 bit size in units of 32 bit words
  *
  * The last word of each event section is the EndMarker (globals.h)

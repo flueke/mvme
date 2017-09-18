@@ -26,7 +26,7 @@
 #include <QCoreApplication>
 #include <QElapsedTimer>
 
-//#define MVME_EVENT_PROCESSOR_DEBUGGING
+#define MVME_EVENT_PROCESSOR_DEBUGGING
 
 #ifdef MVME_EVENT_PROCESSOR_DEBUGGING
     inline QDebug qEPDebug() { return QDebug(QtDebugMsg); }
@@ -211,60 +211,78 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
 
                 s32 wordIndexInSubEvent = 0;
 
-                /* Iterate over a subevent. The last word in the subevent is
-                 * the EndMarker so the actual data is in
-                 * subevent[0..subEventSize-2]. */
-                for (u32 i=0; i<subEventSize-1; ++i, ++wordIndexInSubEvent)
+                if (subEventSize > 0)
                 {
-                    u32 currentWord = iter.extractU32();
+                    /* Iterate over a subevent. The last word in the subevent is
+                     * the EndMarker so the actual data is in
+                     * subevent[0..subEventSize-2]. */
+                    for (u32 i=0; i<subEventSize-1; ++i, ++wordIndexInSubEvent)
+                    {
+                        u32 currentWord = iter.extractU32();
 
 #ifdef MVME_EVENT_PROCESSOR_DEBUGGING
-                    qDebug("subEventSize=%u, i=%u, currentWord=0x%08x",
-                           subEventSize, i, currentWord);
+                        qDebug("subEventSize=%u, i=%u, currentWord=0x%08x",
+                               subEventSize, i, currentWord);
 #endif
 
-                    /* Do not pass BerrMarker words to the analysis if and only
-                     * if they are the last words in the subevent.
-                     * Specific to VMUSB: for BLT readouts one BerrMarker is
-                     * written to the output stream, for MBLT readouts two of
-                     * those markers are written!
-                     * There is still the possibilty of missing the actual last
-                     * word of the readout if that last word is the same as
-                     * BerrMarker and the readout did not actually result in a
-                     * BERR on the bus. */
+                        /* Do not pass BerrMarker words to the analysis if and only
+                         * if they are the last words in the subevent.
+                         * Specific to VMUSB: for BLT readouts one BerrMarker is
+                         * written to the output stream, for MBLT readouts two of
+                         * those markers are written!
+                         * There is still the possibilty of missing the actual last
+                         * word of the readout if that last word is the same as
+                         * BerrMarker and the readout did not actually result in a
+                         * BERR on the bus. */
 
-                    // The MBLT case: if the two last words are BerrMarkers skip the current word.
-                    if (subEventSize >= 3 && (i == subEventSize-3)
-                        && (currentWord == BerrMarker)
-                        && (iter.peekU32() == BerrMarker))
-                        continue;
+                        // The MBLT case: if the two last words are BerrMarkers skip the current word.
+                        if (subEventSize >= 3 && (i == subEventSize-3)
+                            && (currentWord == BerrMarker)
+                            && (iter.peekU32() == BerrMarker))
+                            continue;
 
-                    // If the last word is a BerrMarker skip it.
-                    if (subEventSize >= 2 && (i == subEventSize-2)
-                        && (currentWord == BerrMarker))
-                        continue;
+                        // If the last word is a BerrMarker skip it.
+                        if (subEventSize >= 2 && (i == subEventSize-2)
+                            && (currentWord == BerrMarker))
+                            continue;
 
 #ifdef MVME_EVENT_PROCESSOR_DEBUGGING
-                    if (moduleType == VMEModuleType::MesytecCounter)
-                    {
-                        emit logMessage(QString("CounterWord %1: 0x%2, evtIdx=%3, modIdx=%4")
-                                        .arg(wordIndexInSubEvent)
-                                        .arg(currentWord, 8, 16, QLatin1Char('0'))
-                                        .arg(eventIndex)
-                                        .arg(moduleIndex)
-                                        );
-                    }
+                        // XXX: special handling for mesytec_counter modules which have a typeId of 16
+                        if (moduleType == 16)
+                        {
+                            emit logMessage(QString("CounterWord %1: 0x%2, evtIdx=%3, modIdx=%4")
+                                            .arg(wordIndexInSubEvent)
+                                            .arg(currentWord, 8, 16, QLatin1Char('0'))
+                                            .arg(eventIndex)
+                                            .arg(moduleIndex)
+                                           );
+                        }
 #endif
-                    if (diag)
-                    {
-                        diag->handleDataWord(currentWord);
-                    }
+                        if (diag)
+                        {
+                            diag->handleDataWord(currentWord);
+                        }
 
-                    if (m_d->analysis_ng && eventConfig && moduleConfig)
-                    {
-                        m_d->analysis_ng->processDataWord(eventConfig->getId(), moduleConfig->getId(),
-                                                          currentWord, wordIndexInSubEvent);
+                        if (m_d->analysis_ng && eventConfig && moduleConfig)
+                        {
+                            /* TODO: Pass the whole event to the analysis in one
+                             * call, instead of passing each word separately. */
+                            m_d->analysis_ng->processDataWord(eventConfig->getId(), moduleConfig->getId(),
+                                                              currentWord, wordIndexInSubEvent);
+                        }
                     }
+                }
+                else
+                {
+                    QString msg = (QString("Warning (mvme fmt): got a module section of size 0! "
+                                           "moduleSectionHeader=0x%1, moduleType=%2, eventIndex=%3, moduleIndex=%4")
+                                   .arg(subEventHeader, 8, 16, QLatin1Char('0'))
+                                   .arg(static_cast<s32>(moduleType))
+                                   .arg(eventIndex)
+                                   .arg(moduleIndex)
+                                   );
+                    qDebug() << msg;
+                    emit logMessage(msg);
                 }
 
                 if (diag)
@@ -272,6 +290,7 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                     diag->endEvent();
                 }
 
+                // end marker for subevent (aka module section)
                 u32 nextWord = iter.peekU32();
                 if (nextWord == EndMarker)
                 {
@@ -279,11 +298,14 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                 }
                 else
                 {
-                    emit logMessage(QString("Error: did not find marker at end of subevent section "
-                                            "(eventIndex=%1, moduleIndex=%2)")
-                                    .arg(eventIndex)
-                                    .arg(moduleIndex)
-                                   );
+                    QString msg = (QString("Error (mvme fmt): did not find marker at end of subevent section "
+                                           "(eventIndex=%1, moduleIndex=%2, nextWord=0x%3). Skipping rest of buffer.")
+                                   .arg(eventIndex)
+                                   .arg(moduleIndex)
+                                   .arg(nextWord, 8, 16, QLatin1Char('0'))
+                                  );
+                    qDebug() << msg;
+                    emit logMessage(msg);
                     return;
                 }
 
@@ -293,19 +315,20 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
             }
 
             // end of event section
-
             u32 nextWord = iter.peekU32();
-
             if (nextWord == EndMarker)
             {
                 iter.extractU32();
             }
             else
             {
-                emit logMessage(QString("Error: did not find marker at end of event section "
-                                        "(eventIndex=%1)")
-                                .arg(eventIndex)
-                               );
+                QString msg = (QString("Error (mvme fmt): did not find marker at end of event section "
+                                       "(eventIndex=%1, nextWord=0x%2). Skipping rest of buffer.")
+                               .arg(eventIndex)
+                               .arg(nextWord, 8, 16, QLatin1Char('0'))
+                              );
+                qDebug() << msg;
+                emit logMessage(msg);
                 return;
             }
 
@@ -315,7 +338,7 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
         ++stats.totalBuffersProcessed;
     } catch (const end_of_buffer &)
     {
-        emit logMessage(QString("Error: unexpectedly reached end of buffer"));
+        emit logMessage(QString("Error (mvme fmt): unexpectedly reached end of buffer"));
         ++stats.mvmeBuffersWithErrors;
     }
 
