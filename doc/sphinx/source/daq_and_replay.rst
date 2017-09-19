@@ -29,6 +29,12 @@ current state of the system:
     | / Next Event | * Dump received data to log view  | * Dump event data to log view          |
     +--------------+-----------------------------------+----------------------------------------+
 
+The *Start* and *1 Cycle / Next Event* buttons allow to choose what should
+happen with existing histogram data. Selecting *Clear* will clear all
+histograms in the current analysis before accumulating new data. Using *Keep*
+allows to accumulate the data from multiple replays or DAQ runs into the same
+histograms.
+
 The *Reconnect* button will attempt to reconnect to the current VME controller.
 This is needed when using the VM-USB controller and power-cycling the VME crate
 as USB disconnects are currently not detected.

@@ -17,7 +17,6 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "config_ui.h"
-#include "ui_event_config_dialog.h"
 #include "vme_config.h"
 #include "mvme_context.h"
 #include "vme_script.h"
@@ -25,32 +24,144 @@
 
 #include <cmath>
 
-#include <QMenu>
-#include <QStandardPaths>
-#include <QSettings>
+#include <QCloseEvent>
+#include <QComboBox>
+#include <QDialogButtonBox>
+#include <QDoubleSpinBox>
 #include <QFile>
 #include <QFileDialog>
-#include <QMessageBox>
-#include <QThread>
-#include <QStandardItemModel>
-#include <QCloseEvent>
-#include <QScrollBar>
-#include <QPushButton>
-#include <QJsonObject>
+#include <QFormLayout>
+#include <QGroupBox>
 #include <QJsonDocument>
+#include <QJsonObject>
+#include <QLineEdit>
+#include <QMenu>
+#include <QMessageBox>
+#include <QPushButton>
+#include <QScrollBar>
+#include <QSettings>
+#include <QSpinBox>
+#include <QStackedWidget>
+#include <QStandardItemModel>
+#include <QStandardPaths>
+#include <QThread>
 
 using namespace vats;
 
 //
 // EventConfigDialog
 //
-EventConfigDialog::EventConfigDialog(MVMEContext *context, EventConfig *config, QWidget *parent)
+struct EventConfigDialogPrivate
+{
+    QLineEdit *le_name;
+    QComboBox *combo_condition;
+    QStackedWidget *stack_options;
+    QDialogButtonBox *buttonBox;
+
+    QSpinBox *spin_irqLevel,
+             *spin_irqVector,
+             *spin_vmusbTimerFrequency;
+
+    QDoubleSpinBox *spin_vmusbTimerPeriod;
+    // TODO: add SIS3153 timer widgets here
+};
+
+EventConfigDialog::EventConfigDialog(MVMEContext *context, VMEController *controller,
+                                     EventConfig *config, QWidget *parent)
     : QDialog(parent)
-    , ui(new Ui::EventConfigDialog)
+    , m_d(new EventConfigDialogPrivate)
     , m_context(context)
+    , m_controller(controller)
     , m_config(config)
 {
-    ui->setupUi(this);
+    m_d->le_name = new QLineEdit;
+    m_d->combo_condition = new QComboBox;
+    m_d->stack_options = new QStackedWidget;
+    m_d->buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+
+    m_d->spin_irqLevel = new QSpinBox(this);
+    m_d->spin_irqLevel->setMinimum(1);
+    m_d->spin_irqLevel->setMaximum(7);
+
+    m_d->spin_irqVector = new QSpinBox(this);
+    m_d->spin_irqVector->setMaximum(255);
+
+    auto gb_nameAndCond = new QGroupBox;
+    auto gb_layout   = new QFormLayout(gb_nameAndCond);
+    gb_layout->addRow(QSL("Name"), m_d->le_name);
+    gb_layout->addRow(QSL("Condition"), m_d->combo_condition);
+
+    auto layout = new QVBoxLayout(this);
+    layout->addWidget(gb_nameAndCond);
+    layout->addWidget(m_d->stack_options);
+    layout->addWidget(m_d->buttonBox);
+
+    connect(m_d->combo_condition, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
+            m_d->stack_options, &QStackedWidget::setCurrentIndex);
+
+    connect(m_d->buttonBox, &QDialogButtonBox::accepted, this, &EventConfigDialog::accept);
+    connect(m_d->buttonBox, &QDialogButtonBox::rejected, this, &EventConfigDialog::reject);
+
+    // irq widget
+    auto irqWidget = new QWidget(this);
+    auto irqLayout = new QFormLayout(irqWidget);
+    irqLayout->addRow(QSL("IRQ Level"), m_d->spin_irqLevel);
+    irqLayout->addRow(QSL("IRQ Vector"), m_d->spin_irqVector);
+
+    QVector<TriggerCondition> conditions;
+
+    switch (controller->getType())
+    {
+        case VMEControllerType::VMUSB:
+            {
+                m_d->spin_vmusbTimerPeriod = new QDoubleSpinBox;
+                m_d->spin_vmusbTimerPeriod->setPrefix(QSL("Every "));
+                m_d->spin_vmusbTimerPeriod->setSuffix(QSL(" seconds"));
+                m_d->spin_vmusbTimerPeriod->setMaximum(127.5);
+                m_d->spin_vmusbTimerPeriod->setDecimals(1);
+                m_d->spin_vmusbTimerPeriod->setSingleStep(0.5);
+
+                m_d->spin_vmusbTimerFrequency = new QSpinBox;
+                m_d->spin_vmusbTimerFrequency->setPrefix(QSL("Every "));
+                m_d->spin_vmusbTimerFrequency->setSuffix(QSL(" events"));
+                m_d->spin_vmusbTimerFrequency->setMaximum(65535);
+
+                // vmusb timer widget
+                auto vmusbTimerWidget = new QWidget;
+                auto vmusbTimerLayout = new QFormLayout(vmusbTimerWidget);
+                vmusbTimerLayout->addRow(QSL("Period"), m_d->spin_vmusbTimerPeriod);
+                vmusbTimerLayout->addRow(QSL("Frequency"), m_d->spin_vmusbTimerFrequency);
+
+                conditions = { TriggerCondition:: Interrupt, TriggerCondition::NIM1, TriggerCondition::Periodic };
+
+                m_d->stack_options->addWidget(irqWidget);
+                m_d->stack_options->addWidget(new QWidget);
+                m_d->stack_options->addWidget(vmusbTimerWidget);
+            } break;
+
+        case VMEControllerType::SIS3153:
+            {
+                conditions = { TriggerCondition:: Interrupt, TriggerCondition::Periodic,
+                    TriggerCondition::Input1RisingEdge, TriggerCondition::Input1FallingEdge,
+                    TriggerCondition::Input2RisingEdge, TriggerCondition::Input2FallingEdge
+                };
+
+                m_d->stack_options->addWidget(irqWidget);
+                // FIXME
+                m_d->stack_options->addWidget(new QLabel("FIXME: sis periodic options here"));
+                for (s32 i=0; i<4; ++i)
+                {
+                    m_d->stack_options->addWidget(new QWidget);
+                }
+            } break;
+    }
+
+    for (auto cond: conditions)
+    {
+        m_d->combo_condition->addItem(TriggerConditionNames.value(cond, QSL("Unknown")),
+                                      static_cast<s32>(cond));
+    }
+
     loadFromConfig();
 
     auto handleContextStateChange = [this] {
@@ -67,33 +178,58 @@ EventConfigDialog::EventConfigDialog(MVMEContext *context, EventConfig *config, 
 
 EventConfigDialog::~EventConfigDialog()
 {
-    delete ui;
+    delete m_d;
 }
 
 void EventConfigDialog::loadFromConfig()
 {
     auto config = m_config;
 
-    ui->le_name->setText(config->objectName());
-    ui->combo_triggerCondition->setCurrentIndex(
-        static_cast<int>(config->triggerCondition));
+    m_d->le_name->setText(config->objectName());
 
-    ui->spin_period->setValue(config->scalerReadoutPeriod * 0.5);
-    ui->spin_frequency->setValue(config->scalerReadoutFrequency);
-    ui->spin_irqLevel->setValue(config->irqLevel);
-    ui->spin_irqVector->setValue(config->irqVector);
+    int condIndex = m_d->combo_condition->findData(static_cast<s32>(config->triggerCondition));
+    if (condIndex >= 0)
+    {
+        m_d->combo_condition->setCurrentIndex(condIndex);
+    }
+
+    m_d->spin_irqLevel->setValue(config->irqLevel);
+    m_d->spin_irqVector->setValue(config->irqVector);
+
+    switch (m_context->getVMEController()->getType())
+    {
+        case VMEControllerType::VMUSB:
+            {
+                m_d->spin_vmusbTimerPeriod->setValue(config->scalerReadoutPeriod * 0.5);
+                m_d->spin_vmusbTimerFrequency->setValue(config->scalerReadoutFrequency);
+            } break;
+        case VMEControllerType::SIS3153:
+            {
+            } break;
+    }
 }
 
 void EventConfigDialog::saveToConfig()
 {
     auto config = m_config;
 
-    config->setObjectName(ui->le_name->text());
-    config->triggerCondition = static_cast<TriggerCondition>(ui->combo_triggerCondition->currentIndex());
-    config->scalerReadoutPeriod = static_cast<uint8_t>(ui->spin_period->value() * 2.0);
-    config->scalerReadoutFrequency = static_cast<uint16_t>(ui->spin_frequency->value());
-    config->irqLevel = static_cast<uint8_t>(ui->spin_irqLevel->value());
-    config->irqVector = static_cast<uint8_t>(ui->spin_irqVector->value());
+    config->setObjectName(m_d->le_name->text());
+    config->triggerCondition = static_cast<TriggerCondition>(m_d->combo_condition->currentData().toInt());
+    config->irqLevel = static_cast<uint8_t>(m_d->spin_irqLevel->value());
+    config->irqVector = static_cast<uint8_t>(m_d->spin_irqVector->value());
+
+    switch (m_context->getVMEController()->getType())
+    {
+        case VMEControllerType::VMUSB:
+            {
+                config->scalerReadoutPeriod = static_cast<uint8_t>(m_d->spin_vmusbTimerPeriod->value() * 2.0);
+                config->scalerReadoutFrequency = static_cast<uint16_t>(m_d->spin_vmusbTimerFrequency->value());
+            } break;
+
+        case VMEControllerType::SIS3153:
+            {
+            } break;
+    }
     config->setModified(true);
 }
 
@@ -105,10 +241,10 @@ void EventConfigDialog::accept()
 
 void EventConfigDialog::setReadOnly(bool readOnly)
 {
-    ui->le_name->setEnabled(!readOnly);
-    ui->combo_triggerCondition->setEnabled(!readOnly);
-    ui->stackedWidget->setEnabled(!readOnly);
-    ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(!readOnly);
+    m_d->le_name->setEnabled(!readOnly);
+    m_d->combo_condition->setEnabled(!readOnly);
+    m_d->stack_options->setEnabled(!readOnly);
+    m_d->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(!readOnly);
 }
 
 //

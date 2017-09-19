@@ -94,16 +94,17 @@ void MVMEEventProcessor::removeDiagnostics()
     setDiagnostics(nullptr);
 }
 
-void MVMEEventProcessor::newRun()
+void MVMEEventProcessor::newRun(const RunInfo &runInfo)
 {
     if (m_d->diag)
         m_d->diag->reset();
 
     {
         m_d->analysis_ng = m_d->context->getAnalysis();
+
         if (m_d->analysis_ng)
         {
-            m_d->analysis_ng->beginRun(m_d->context->getRunInfo());
+            m_d->analysis_ng->beginRun(runInfo);
         }
     }
 }
@@ -136,6 +137,17 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                 << "sectionType" << sectionType
                 << "sectionSize" << sectionSize;
 #endif
+
+            if (sectionType == ListfileSections::SectionType_Timetick)
+            {
+                Q_ASSERT(sectionSize == 0);
+#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+                qDebug() << __PRETTY_FUNCTION__ << "got a timetick section";
+#endif
+                if (m_d->analysis_ng)
+                    m_d->analysis_ng->processTimetick();
+                continue;
+            }
 
             if (sectionType != ListfileSections::SectionType_Event)
             {
@@ -199,60 +211,78 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
 
                 s32 wordIndexInSubEvent = 0;
 
-                /* Iterate over a subevent. The last word in the subevent is
-                 * the EndMarker so the actual data is in
-                 * subevent[0..subEventSize-2]. */
-                for (u32 i=0; i<subEventSize-1; ++i, ++wordIndexInSubEvent)
+                if (subEventSize > 0)
                 {
-                    u32 currentWord = iter.extractU32();
+                    /* Iterate over a subevent. The last word in the subevent is
+                     * the EndMarker so the actual data is in
+                     * subevent[0..subEventSize-2]. */
+                    for (u32 i=0; i<subEventSize-1; ++i, ++wordIndexInSubEvent)
+                    {
+                        u32 currentWord = iter.extractU32();
 
 #ifdef MVME_EVENT_PROCESSOR_DEBUGGING
-                    qDebug("subEventSize=%u, i=%u, currentWord=0x%08x",
-                           subEventSize, i, currentWord);
+                        qDebug("subEventSize=%u, i=%u, currentWord=0x%08x",
+                               subEventSize, i, currentWord);
 #endif
 
-                    /* Do not pass BerrMarker words to the analysis if and only
-                     * if they are the last words in the subevent.
-                     * Specific to VMUSB: for BLT readouts one BerrMarker is
-                     * written to the output stream, for MBLT readouts two of
-                     * those markers are written!
-                     * There is still the possibilty of missing the actual last
-                     * word of the readout if that last word is the same as
-                     * BerrMarker and the readout did not actually result in a
-                     * BERR on the bus. */
+                        /* Do not pass BerrMarker words to the analysis if and only
+                         * if they are the last words in the subevent.
+                         * Specific to VMUSB: for BLT readouts one BerrMarker is
+                         * written to the output stream, for MBLT readouts two of
+                         * those markers are written!
+                         * There is still the possibilty of missing the actual last
+                         * word of the readout if that last word is the same as
+                         * BerrMarker and the readout did not actually result in a
+                         * BERR on the bus. */
 
-                    // The MBLT case: if the two last words are BerrMarkers skip the current word.
-                    if (subEventSize >= 3 && (i == subEventSize-3)
-                        && (currentWord == BerrMarker)
-                        && (iter.peekU32() == BerrMarker))
-                        continue;
+                        // The MBLT case: if the two last words are BerrMarkers skip the current word.
+                        if (subEventSize >= 3 && (i == subEventSize-3)
+                            && (currentWord == BerrMarker)
+                            && (iter.peekU32() == BerrMarker))
+                            continue;
 
-                    // If the last word is a BerrMarker skip it.
-                    if (subEventSize >= 2 && (i == subEventSize-2)
-                        && (currentWord == BerrMarker))
-                        continue;
+                        // If the last word is a BerrMarker skip it.
+                        if (subEventSize >= 2 && (i == subEventSize-2)
+                            && (currentWord == BerrMarker))
+                            continue;
 
 #ifdef MVME_EVENT_PROCESSOR_DEBUGGING
-                    if (moduleType == VMEModuleType::MesytecCounter)
-                    {
-                        emit logMessage(QString("CounterWord %1: 0x%2, evtIdx=%3, modIdx=%4")
-                                        .arg(wordIndexInSubEvent)
-                                        .arg(currentWord, 8, 16, QLatin1Char('0'))
-                                        .arg(eventIndex)
-                                        .arg(moduleIndex)
-                                        );
-                    }
+                        // XXX: special handling for mesytec_counter modules which have a typeId of 16
+                        if (moduleType == 16)
+                        {
+                            emit logMessage(QString("CounterWord %1: 0x%2, evtIdx=%3, modIdx=%4")
+                                            .arg(wordIndexInSubEvent)
+                                            .arg(currentWord, 8, 16, QLatin1Char('0'))
+                                            .arg(eventIndex)
+                                            .arg(moduleIndex)
+                                           );
+                        }
 #endif
-                    if (diag)
-                    {
-                        diag->handleDataWord(currentWord);
-                    }
+                        if (diag)
+                        {
+                            diag->handleDataWord(currentWord);
+                        }
 
-                    if (m_d->analysis_ng && eventConfig && moduleConfig)
-                    {
-                        m_d->analysis_ng->processDataWord(eventConfig->getId(), moduleConfig->getId(),
-                                                          currentWord, wordIndexInSubEvent);
+                        if (m_d->analysis_ng && eventConfig && moduleConfig)
+                        {
+                            /* TODO: Pass the whole event to the analysis in one
+                             * call, instead of passing each word separately. */
+                            m_d->analysis_ng->processDataWord(eventConfig->getId(), moduleConfig->getId(),
+                                                              currentWord, wordIndexInSubEvent);
+                        }
                     }
+                }
+                else
+                {
+                    QString msg = (QString("Warning (mvme fmt): got a module section of size 0! "
+                                           "moduleSectionHeader=0x%1, moduleType=%2, eventIndex=%3, moduleIndex=%4")
+                                   .arg(subEventHeader, 8, 16, QLatin1Char('0'))
+                                   .arg(static_cast<s32>(moduleType))
+                                   .arg(eventIndex)
+                                   .arg(moduleIndex)
+                                   );
+                    qDebug() << msg;
+                    emit logMessage(msg);
                 }
 
                 if (diag)
@@ -260,6 +290,7 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                     diag->endEvent();
                 }
 
+                // end marker for subevent (aka module section)
                 u32 nextWord = iter.peekU32();
                 if (nextWord == EndMarker)
                 {
@@ -267,11 +298,14 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                 }
                 else
                 {
-                    emit logMessage(QString("Error: did not find marker at end of subevent section "
-                                            "(eventIndex=%1, moduleIndex=%2)")
-                                    .arg(eventIndex)
-                                    .arg(moduleIndex)
-                                   );
+                    QString msg = (QString("Error (mvme fmt): did not find marker at end of subevent section "
+                                           "(eventIndex=%1, moduleIndex=%2, nextWord=0x%3). Skipping rest of buffer.")
+                                   .arg(eventIndex)
+                                   .arg(moduleIndex)
+                                   .arg(nextWord, 8, 16, QLatin1Char('0'))
+                                  );
+                    qDebug() << msg;
+                    emit logMessage(msg);
                     return;
                 }
 
@@ -281,19 +315,20 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
             }
 
             // end of event section
-
             u32 nextWord = iter.peekU32();
-
             if (nextWord == EndMarker)
             {
                 iter.extractU32();
             }
             else
             {
-                emit logMessage(QString("Error: did not find marker at end of event section "
-                                        "(eventIndex=%1)")
-                                .arg(eventIndex)
-                               );
+                QString msg = (QString("Error (mvme fmt): did not find marker at end of event section "
+                                       "(eventIndex=%1, nextWord=0x%2). Skipping rest of buffer.")
+                               .arg(eventIndex)
+                               .arg(nextWord, 8, 16, QLatin1Char('0'))
+                              );
+                qDebug() << msg;
+                emit logMessage(msg);
                 return;
             }
 
@@ -303,7 +338,7 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
         ++stats.totalBuffersProcessed;
     } catch (const end_of_buffer &)
     {
-        emit logMessage(QString("Error: unexpectedly reached end of buffer"));
+        emit logMessage(QString("Error (mvme fmt): unexpectedly reached end of buffer"));
         ++stats.mvmeBuffersWithErrors;
     }
 
@@ -318,8 +353,8 @@ static const u32 ProcessEventsMinInterval_ms = 500;
 void MVMEEventProcessor::startProcessing()
 {
     qDebug() << __PRETTY_FUNCTION__ << "begin";
-    Q_ASSERT(m_freeBufferQueue);
-    Q_ASSERT(m_filledBufferQueue);
+    Q_ASSERT(m_freeBuffers);
+    Q_ASSERT(m_fullBuffers);
     Q_ASSERT(m_d->m_state == EventProcessorState::Idle);
 
     emit started();
@@ -337,19 +372,19 @@ void MVMEEventProcessor::startProcessing()
         DataBuffer *buffer = nullptr;
 
         {
-            QMutexLocker lock(&m_filledBufferQueue->mutex);
+            QMutexLocker lock(&m_fullBuffers->mutex);
 
-            if (m_filledBufferQueue->queue.isEmpty())
+            if (m_fullBuffers->queue.isEmpty())
             {
                 if (m_d->m_runAction == StopIfQueueEmpty)
                     break;
 
-                m_filledBufferQueue->wc.wait(&m_filledBufferQueue->mutex, FilledBufferWaitTimeout_ms);
+                m_fullBuffers->wc.wait(&m_fullBuffers->mutex, FilledBufferWaitTimeout_ms);
             }
 
-            if (!m_filledBufferQueue->queue.isEmpty())
+            if (!m_fullBuffers->queue.isEmpty())
             {
-                buffer = m_filledBufferQueue->queue.dequeue();
+                buffer = m_fullBuffers->queue.dequeue();
             }
         }
         // The mutex is unlocked again at this point
@@ -359,10 +394,10 @@ void MVMEEventProcessor::startProcessing()
             processDataBuffer(buffer);
 
             // Put the buffer back into the free queue
-            m_freeBufferQueue->mutex.lock();
-            m_freeBufferQueue->queue.enqueue(buffer);
-            m_freeBufferQueue->mutex.unlock();
-            m_freeBufferQueue->wc.wakeOne();
+            m_freeBuffers->mutex.lock();
+            m_freeBuffers->queue.enqueue(buffer);
+            m_freeBuffers->mutex.unlock();
+            m_freeBuffers->wc.wakeOne();
         }
 
         // Process Qt events to be able to "receive" queued calls to our slots.

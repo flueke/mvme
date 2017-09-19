@@ -246,11 +246,13 @@ Extractor::Extractor(QObject *parent)
     m_rngSeed = dist(rd);
 }
 
-void Extractor::beginRun(const RunInfo &)
+void Extractor::beginRun(const RunInfo &runInfo)
 {
     m_currentCompletionCount = 0;
 
-    u32 addressCount = 1 << m_filter.getAddressBits();
+    u32 addressCount = 1u << m_filter.getAddressBits();
+
+    qDebug() << __PRETTY_FUNCTION__ << this << addressCount;
 
     // The highest value the filter will yield is ((2^bits) - 1) but we're
     // adding a random in [0.0, 1.0) so the actual exclusive upper limit is
@@ -271,6 +273,19 @@ void Extractor::beginRun(const RunInfo &)
     params.name = this->objectName();
 
     m_rng.seed(m_rngSeed);
+
+    {
+        QMutexLocker lock(&m_hitCountsMutex);
+        m_hitCounts.resize(addressCount);
+
+        if (!runInfo.keepAnalysisState)
+        {
+            for (s32 i=0; i<m_hitCounts.size(); ++i)
+            {
+                m_hitCounts[i] = 0.0;
+            }
+        }
+    }
 }
 
 void Extractor::beginEvent()
@@ -306,6 +321,7 @@ void Extractor::processDataWord(u32 data, s32 wordIndex)
             u64 address = m_filter.getResultAddress();
 
             Q_ASSERT(address < static_cast<u64>(m_output.getSize()));
+            Q_ASSERT(address < static_cast<u64>(m_hitCounts.size()));
 
             auto &param = m_output.getParameters()[address];
             // Only fill if not valid yet to keep the first value in case of
@@ -322,6 +338,8 @@ void Extractor::processDataWord(u32 data, s32 wordIndex)
                 qDebug() << this << "setting param valid, addr =" << address << ", value =" << param.value
                     << ", dataWord =" << QString("0x%1").arg(data, 8, 16, QLatin1Char('0'));
 #endif
+                QMutexLocker lock(&m_hitCountsMutex);
+                m_hitCounts[address] += 1.0;
             }
         }
 
@@ -416,6 +434,12 @@ void Extractor::write(QJsonObject &json) const
 
     json["subFilters"] = filterArray;
     json["requiredCompletionCount"] = static_cast<qint64>(m_requiredCompletionCount);
+}
+
+QVector<double> Extractor::getHitCounts() const
+{
+    QMutexLocker lock(&m_hitCountsMutex);
+    return m_hitCounts;
 }
 
 //
@@ -1736,6 +1760,221 @@ void RectFilter2D::write(QJsonObject &json) const
 }
 
 //
+// BinarySumDiff
+//
+struct EquationImpl
+{
+    const QString displayString;
+    // args are (inputA, inputB, output)
+    void (*impl)(const ParameterVector &, const ParameterVector &, ParameterVector &);
+};
+
+// Do not reorder the array as indexes are stored in config files!
+static const QVector<EquationImpl> EquationImpls =
+{
+    { QSL("C = A + B"), [](const ParameterVector &a, const ParameterVector &b, ParameterVector &o)
+        {
+            for (s32 i = 0; i < a.size(); ++i)
+            {
+                o[i].valid = a[i].valid && b[i].valid;
+                o[i].value = a[i].value +  b[i].value;
+            }
+        }
+    },
+
+    { QSL("C = A - B"), [](const ParameterVector &a, const ParameterVector &b, ParameterVector &o)
+        {
+            for (s32 i = 0; i < a.size(); ++i)
+            {
+                o[i].valid = a[i].valid && b[i].valid;
+                o[i].value = a[i].value -  b[i].value;
+            }
+        }
+    },
+
+    { QSL("C = (A + B) / (A - B)"), [](const ParameterVector &a, const ParameterVector &b, ParameterVector &o)
+        {
+            for (s32 i = 0; i < a.size(); ++i)
+            {
+                o[i].valid = (a[i].valid && b[i].valid && (a[i].value - b[i].value != 0.0));
+
+                if (o[i].valid)
+                {
+                    o[i].value = (a[i].value + b[i].value) / (a[i].value - b[i].value);
+                }
+            }
+        }
+    },
+
+    { QSL("C = (A - B) / (A + B)"), [](const ParameterVector &a, const ParameterVector &b, ParameterVector &o)
+        {
+            for (s32 i = 0; i < a.size(); ++i)
+            {
+                o[i].valid = (a[i].valid && b[i].valid && (a[i].value + b[i].value != 0.0));
+
+                if (o[i].valid)
+                {
+                    o[i].value = (a[i].value - b[i].value) / (a[i].value + b[i].value);
+                }
+            }
+        }
+    },
+
+    { QSL("C = A / (A - B)"), [](const ParameterVector &a, const ParameterVector &b, ParameterVector &o)
+        {
+            for (s32 i = 0; i < a.size(); ++i)
+            {
+                o[i].valid = (a[i].valid && b[i].valid && (a[i].value - b[i].value != 0.0));
+
+                if (o[i].valid)
+                {
+                    o[i].value = a[i].value / (a[i].value - b[i].value);
+                }
+            }
+        }
+    },
+
+    { QSL("C = (A - B) / A"), [](const ParameterVector &a, const ParameterVector &b, ParameterVector &o)
+        {
+            for (s32 i = 0; i < a.size(); ++i)
+            {
+                o[i].valid = (a[i].valid && b[i].valid && (a[i].value != 0.0));
+
+                if (o[i].valid)
+                {
+                    o[i].value = (a[i].value - b[i].value) / a[i].value;
+                }
+            }
+        }
+    },
+};
+
+BinarySumDiff::BinarySumDiff(QObject *parent)
+    : OperatorInterface(parent)
+    , m_inputA(this, 0, QSL("A"))
+    , m_inputB(this, 1, QSL("B"))
+    , m_equationIndex(0)
+    , m_outputLowerLimit(0.0)
+    , m_outputUpperLimit(0.0)
+{
+    m_output.setSource(this);
+    m_inputA.acceptedInputTypes = InputType::Array;
+    m_inputB.acceptedInputTypes = InputType::Array;
+}
+
+s32 BinarySumDiff::getNumberOfEquations() const
+{
+    return EquationImpls.size();
+}
+
+QString BinarySumDiff::getEquationDisplayString(s32 index) const
+{
+    if (0 <= index && index < EquationImpls.size())
+    {
+        return EquationImpls.at(index).displayString;
+    }
+
+    return QString();
+}
+
+// FIXME: basic implementation bailing out if input sizes are not equal.
+// Implement it so that the smalles input size is used for calculations and the
+// other output values are filled with invalids.
+void BinarySumDiff::beginRun(const RunInfo &)
+{
+    auto &out(m_output.getParameters());
+
+    if (m_inputA.isConnected()
+        && m_inputB.isConnected()
+        && m_inputA.inputPipe->getSize() == m_inputB.inputPipe->getSize()
+        && 0 <= m_equationIndex && m_equationIndex < EquationImpls.size())
+    {
+        out.resize(m_inputA.inputPipe->getSize());
+        out.name = objectName();
+        out.unit = m_outputUnitLabel;
+
+        for (auto &param: out)
+        {
+            param.valid = false;
+            param.lowerLimit = m_outputLowerLimit;
+            param.upperLimit = m_outputUpperLimit;
+        }
+    }
+    else
+    {
+        out.resize(0);
+        out.name = QString();
+        out.unit = QString();
+    }
+}
+
+void BinarySumDiff::step()
+{
+    auto &o(m_output.getParameters());
+
+    if (!o.isEmpty())
+    {
+        const auto &a(m_inputA.inputPipe->getParameters());
+        const auto &b(m_inputB.inputPipe->getParameters());
+        auto fn = EquationImpls.at(m_equationIndex).impl;
+
+        fn(a, b, o);
+    }
+    else
+    {
+        o.invalidateAll();
+    }
+}
+
+s32 BinarySumDiff::getNumberOfSlots() const
+{
+    return 2;
+}
+
+Slot *BinarySumDiff::getSlot(s32 slotIndex)
+{
+    switch (slotIndex)
+    {
+        case 0:
+            return &m_inputA;
+        case 1:
+            return &m_inputB;
+    }
+    return nullptr;
+}
+
+s32 BinarySumDiff::getNumberOfOutputs() const
+{
+    return 1;
+}
+
+QString BinarySumDiff::getOutputName(s32 outputIndex) const
+{
+    return QSL("Output");
+}
+
+Pipe *BinarySumDiff::getOutput(s32 index)
+{
+    return &m_output;
+}
+
+void BinarySumDiff::read(const QJsonObject &json)
+{
+    m_equationIndex = json["equationIndex"].toInt();
+    m_outputUnitLabel = json["outputUnitLabel"].toString();
+    m_outputLowerLimit = json["outputLowerLimit"].toDouble();
+    m_outputUpperLimit = json["outputUpperLimit"].toDouble();
+}
+
+void BinarySumDiff::write(QJsonObject &json) const
+{
+    json["equationIndex"] = m_equationIndex;
+    json["outputUnitLabel"] = m_outputUnitLabel;
+    json["outputLowerLimit"] = m_outputLowerLimit;
+    json["outputUpperLimit"] = m_outputUpperLimit;
+}
+
+//
 // Histo1DSink
 //
 Histo1DSink::Histo1DSink(QObject *parent)
@@ -1782,8 +2021,19 @@ void Histo1DSink::beginRun(const RunInfo &runInfo)
             if (m_histos[histoIndex])
             {
                 auto histo = m_histos[histoIndex];
-                histo->resize(m_bins); // calls clear() even if the size does not change
-                histo->setAxisBinning(Qt::XAxis, AxisBinning(m_bins, xMin, xMax));
+
+                if (histo->getNumberOfBins() != static_cast<u32>(m_bins) || !runInfo.keepAnalysisState)
+                {
+                    histo->resize(m_bins); // calls clear() even if the size does not change
+                }
+
+                AxisBinning newBinning(m_bins, xMin, xMax);
+
+                if (newBinning != histo->getAxisBinning(Qt::XAxis))
+                {
+                    histo->setAxisBinning(Qt::XAxis, newBinning);
+                    histo->clear(); // have to clear because the binning changed
+                }
             }
             else
             {
@@ -1930,10 +2180,24 @@ void Histo2DSink::beginRun(const RunInfo &runInfo)
         }
         else
         {
-            m_histo->resize(m_xBins, m_yBins);
+            if (m_histo->getAxisBinning(Qt::XAxis).getBins() != static_cast<u32>(m_xBins)
+                || m_histo->getAxisBinning(Qt::YAxis).getBins() != static_cast<u32>(m_yBins)
+                || !runInfo.keepAnalysisState)
+            {
+                // resize always clears the histo
+                m_histo->resize(m_xBins, m_yBins);
+            }
 
-            m_histo->setAxisBinning(Qt::XAxis, AxisBinning(m_xBins, xMin, xMax));
-            m_histo->setAxisBinning(Qt::YAxis, AxisBinning(m_yBins, yMin, yMax));
+            AxisBinning newXBinning(m_xBins, xMin, xMax);
+            AxisBinning newYBinning(m_yBins, yMin, yMax);
+
+            if (m_histo->getAxisBinning(Qt::XAxis) != newXBinning
+                || m_histo->getAxisBinning(Qt::YAxis) != newYBinning)
+            {
+                m_histo->setAxisBinning(Qt::XAxis, newXBinning);
+                m_histo->setAxisBinning(Qt::YAxis, newYBinning);
+                m_histo->clear(); // have to clear because the binning changed
+            }
         }
 
         m_histo->setObjectName(objectName());
@@ -2038,6 +2302,7 @@ const QMap<Analysis::ReadResultCodes, const char *> Analysis::ReadResult::ErrorC
 Analysis::Analysis(QObject *parent)
     : QObject(parent)
     , m_modified(false)
+    , m_timetickCount(0.0)
 {
     m_registry.registerSource<Extractor>();
 
@@ -2051,6 +2316,7 @@ Analysis::Analysis(QObject *parent)
     m_registry.registerOperator<RangeFilter1D>();
     m_registry.registerOperator<ConditionFilter>();
     m_registry.registerOperator<RectFilter2D>();
+    m_registry.registerOperator<BinarySumDiff>();
 
     m_registry.registerSink<Histo1DSink>();
     m_registry.registerSink<Histo2DSink>();
@@ -2063,6 +2329,11 @@ Analysis::Analysis(QObject *parent)
 void Analysis::beginRun(const RunInfo &runInfo)
 {
     m_runInfo = runInfo;
+
+    if (!runInfo.keepAnalysisState)
+    {
+        m_timetickCount = 0.0;
+    }
 
     updateRanks();
 
@@ -2247,6 +2518,16 @@ void Analysis::endEvent(const QUuid &eventId)
 #if ENABLE_ANALYSIS_DEBUG
     qDebug() << "end endEvent()" << eventId;
 #endif
+}
+
+void Analysis::processTimetick()
+{
+    m_timetickCount += 1.0;
+}
+
+double Analysis::getTimetickCount() const
+{
+    return m_timetickCount;
 }
 
 void Analysis::updateRanks()
@@ -2754,7 +3035,7 @@ void Analysis::setModified(bool b)
     }
 }
 
-static const u32 maxRawHistoBins = (1 << 16);
+static const double maxRawHistoBins = (1 << 16);
 
 RawDataDisplay make_raw_data_display(std::shared_ptr<Extractor> extractor, double unitMin, double unitMax,
                                      const QString &xAxisTitle, const QString &unitLabel)
@@ -2765,9 +3046,9 @@ RawDataDisplay make_raw_data_display(std::shared_ptr<Extractor> extractor, doubl
     auto objectName = extractor->objectName();
     auto extractionFilter = extractor->getFilter();
 
-    double srcMin  = 0.0;
-    double srcMax  = (1 << extractionFilter.getDataBits());
-    u32 histoBins  = std::min(static_cast<u32>(srcMax), maxRawHistoBins);
+    double srcMin = 0.0;
+    double srcMax = std::pow(2.0, extractionFilter.getDataBits());
+    u32 histoBins = static_cast<u32>(std::min(srcMax, maxRawHistoBins));
 
     auto calibration = std::make_shared<CalibrationMinMax>();
     calibration->setObjectName(objectName);

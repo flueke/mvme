@@ -1,2 +1,0 @@
-read a32 d16 0x6092 # CTRA EvCtrLo
-read a32 d16 0x6094 # CTRA EvCtrHi

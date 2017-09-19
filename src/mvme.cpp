@@ -19,10 +19,8 @@
 #include "mvme.h"
 
 #include "ui_mvme.h"
-#include "vmusb.h"
 #include "vmusb_firmware_loader.h"
 #include "mvme_context.h"
-#include "vmusb_readout_worker.h"
 #include "config_ui.h"
 #include "mvme_listfile.h"
 #include "vme_config_tree.h"
@@ -38,6 +36,8 @@
 #include "histo2d_widget.h"
 #include "analysis/analysis_ui.h"
 #include "qt_util.h"
+#include "sis3153_util.h"
+
 #ifdef MVME_USE_GIT_VERSION_FILE
 #include "git_sha1.h"
 #endif
@@ -54,10 +54,11 @@
 #include <QTextBrowser>
 #include <QTextEdit>
 #include <QtGui>
+#include <QtNetwork>
 #include <QToolBar>
 
 #include <qwt_plot_curve.h>
-#include <quazip/quazipfile.h>
+#include <quazipfile.h>
 
 using namespace vats;
 
@@ -88,6 +89,7 @@ mvme::mvme(QWidget *parent) :
     ui(new Ui::mvme)
     , m_context(new MVMEContext(this, this))
     , m_geometrySaver(new WidgetGeometrySaver(this))
+    , m_networkAccessManager(new QNetworkAccessManager(this))
 {
     qDebug() << "main thread: " << QThread::currentThread();
 
@@ -105,12 +107,17 @@ mvme::mvme(QWidget *parent) :
     //connect(m_context, &MVMEContext::controllerStateChanged, this, &mvme::updateActions);
     connect(m_context, &MVMEContext::daqConfigChanged, this, &mvme::updateActions);
 
-    // check and initialize VME interface
-    VMEController *controller = new VMUSB;
-    m_context->setController(controller); // The context take ownership
-
     // create and initialize displays
     ui->setupUi(this);
+    ui->actionCheck_for_updates->setVisible(false);
+
+    auto sisDebugAction = ui->menu_Tools->addAction(QSL("SIS3153 Debug Widget"));
+    connect(sisDebugAction, &QAction::triggered, this, [this]() {
+        auto widget = new SIS3153DebugWidget(m_context);
+        widget->setAttribute(Qt::WA_DeleteOnClose);
+        add_widget_close_action(widget);
+        widget->show();
+    });
 
     //
     // central widget consisting of DAQControlWidget, DAQConfigTreeWidget and DAQStatsWidget
@@ -143,37 +150,8 @@ mvme::mvme(QWidget *parent) :
         // Create and open log and analysis windows.
         on_actionLog_Window_triggered();
         on_actionAnalysis_UI_triggered();
-        this->raise(); // Focus the main window
-
-
-        // Open the last workspace or create a new one.
-
-        QSettings settings;
-        if (settings.contains(QSL("LastWorkspaceDirectory")))
-        {
-            try
-            {
-                m_context->openWorkspace(settings.value(QSL("LastWorkspaceDirectory")).toString());
-            } catch (const QString &e)
-            {
-                QMessageBox::warning(this, QSL("Could not open workspace"), QString("Error opening last workspace: %1.").arg(e));
-                settings.remove(QSL("LastWorkspaceDirectory"));
-
-                if (!createNewOrOpenExistingWorkspace())
-                {
-                    // canceled by user
-                    close();
-                }
-            }
-        }
-        else
-        {
-            if (!createNewOrOpenExistingWorkspace())
-            {
-                // canceled by user
-                close();
-            }
-        }
+        // Focus the main window
+        this->raise();
     });
 }
 
@@ -340,7 +318,7 @@ void mvme::displayAboutQt()
     QMessageBox::aboutQt(this, QSL("About Qt"));
 }
 
-static const QString DefaultAnalysisFileFilter = QSL("Config Files (*.json);; All Files (*.*)");
+static const QString DefaultAnalysisFileFilter = QSL("Config Files (*.analysis);; All Files (*.*)");
 
 void mvme::closeEvent(QCloseEvent *event)
 {
@@ -684,7 +662,7 @@ void mvme::on_actionOpenListfile_triggered()
         }
     }
 
-    QString path = m_context->getListFileOutputDirectoryFullPath();
+    QString path = m_context->getListFileOutputInfo().fullDirectory;
 
     if (path.isEmpty())
     {
@@ -700,7 +678,35 @@ void mvme::on_actionOpenListfile_triggered()
     // ZIP
     if (fileName.toLower().endsWith(QSL(".zip")))
     {
-        auto inFile = std::make_unique<QuaZipFile>(fileName, QSL("listfile.mvmelst"));
+        QString listfileFileName;
+
+        // find and use the first .mvmelst file inside the archive
+        {
+            QuaZip archive(fileName);
+
+            if (!archive.open(QuaZip::mdUnzip))
+            {
+                QMessageBox::critical(0, "Error", make_zip_error("Could not open archive", &archive));
+            }
+
+            QStringList fileNames = archive.getFileNameList();
+
+            auto it = std::find_if(fileNames.begin(), fileNames.end(), [](const QString &str) {
+                return str.endsWith(QSL(".mvmelst"));
+            });
+
+            if (it == fileNames.end())
+            {
+                QMessageBox::critical(0, "Error", QString("No listfile found inside %1").arg(fileName));
+                return;
+            }
+
+            listfileFileName = *it;
+        }
+
+        Q_ASSERT(!listfileFileName.isEmpty());
+
+        auto inFile = std::make_unique<QuaZipFile>(fileName, listfileFileName);
 
         if (!inFile->open(QIODevice::ReadOnly))
         {
@@ -716,6 +722,7 @@ void mvme::on_actionOpenListfile_triggered()
             return;
         }
 
+        // try reading the DAQ config from inside the listfile
         auto json = listFile->getDAQConfig();
 
         if (json.isEmpty())
@@ -724,22 +731,46 @@ void mvme::on_actionOpenListfile_triggered()
             return;
         }
 
+        // save current replay state and set new listfile on the context object
         bool wasReplaying = (m_context->getMode() == GlobalMode::ListFile
                              && m_context->getDAQState() == DAQState::Running);
 
         m_context->setReplayFile(listFile.release());
 
-        if (!m_context->getAnalysis()->isModified() && m_context->getAnalysis()->isEmpty())
+
+        // Check if there's an analysis file inside the zip archive and ask the
+        // user if it should be loaded.
         {
+            // FIXME: this part does not check if the current analysis is modified!
+
             QuaZipFile inFile(fileName, QSL("analysis.analysis"));
 
-            if (!inFile.open(QIODevice::ReadOnly))
+            if (inFile.open(QIODevice::ReadOnly))
             {
-                QMessageBox::critical(0, "Error", make_zip_error("Could not read analysis file", &inFile));
+                QMessageBox box(QMessageBox::Question, QSL("Load analysis?"),
+                                QSL("Do you want to load the analysis configuration from the ZIP archive?"),
+                                QMessageBox::Yes | QMessageBox::No);
+
+                box.button(QMessageBox::Yes)->setText(QSL("Load analysis"));
+                box.button(QMessageBox::No)->setText(QSL("Keep current analysis"));
+                box.setDefaultButton(QMessageBox::No);
+
+                if (box.exec() == QMessageBox::Yes)
+                {
+                    m_context->loadAnalysisConfig(&inFile, QSL("ZIP Archive"));
+                }
             }
-            else
+        }
+
+        // Try to read the logfile from the archive and append it to the log view
+        {
+            QuaZipFile inFile(fileName, QSL("messages.log"));
+
+            if (inFile.open(QIODevice::ReadOnly))
             {
-                m_context->loadAnalysisConfig(&inFile);
+                appendToLog(QSL(">>>>> Begin listfile log"));
+                appendToLog(inFile.readAll());
+                appendToLog(QSL("<<<<< End listfile log"));
             }
         }
 
@@ -1138,6 +1169,149 @@ void mvme::on_actionVMEScriptRef_triggered()
     }
 }
 
+static const auto UpdateCheckURL = QSL("http://mesytec.com/downloads/mvme/");
+static const QByteArray UpdateCheckUserAgent = "mesytec mvme ";
+
+static const QString get_package_platform_string()
+{
+#ifdef Q_OS_WIN
+    return QSL("Windows");
+#elif defined Q_OS_LINUX
+    return QSL("Linux");
+#else
+    #warning "Unknown platform name."
+    InvalidCodePath;
+    return QString();
+#endif
+}
+
+static const QString get_package_bitness_string()
+{
+#ifdef Q_PROCESSOR_X86_64
+    return QSL("x64");
+#elif defined Q_PROCESSOR_X86_32
+    return QSL("x32");
+#else
+#warning "Unknown processor bitness."
+    InvalidCodePath;
+    return QString();
+#endif
+}
+
+static u64 extract_package_version(const QString &filename)
+{
+    static const QString pattern = QSL("mvme-(?<major>[0-9]+)\\.(?<minor>[0-9]+)(\\.(?<point>[0-9]+))?(-(?<commits>[0-9]+))?");
+
+    u64 result = 0;
+    QRegularExpression re(pattern);
+    auto match = re.match(filename);
+
+    if (match.hasMatch())
+    {
+        u64 major   = match.captured("major").toUInt();
+        u64 minor   = match.captured("minor").toUInt();
+        u64 point   = match.captured("point").toUInt();
+        u64 commits = match.captured("commits").toUInt();
+
+        result = commits
+            + 1000 * point
+            + 1000 * 1000 * minor
+            + 1000 * 1000 * 1000 * major;
+
+        qDebug() << "filename =" << filename
+            << ", major =" << major
+            << ", minor =" << minor
+            << ", point =" << point
+            << ", commits =" << commits
+            << ", result =" << result;
+            ;
+
+    }
+
+    return result;
+}
+
+void mvme::on_actionCheck_for_updates_triggered()
+{
+#if 1
+    QStringList testFilenames =
+    {
+        "mvme-0.9.exe",
+        "mvme-0.9-42.exe",
+        "mvme-0.9.1.exe",
+        "mvme-0.9.1-42.exe",
+        "mvme-1.1.1-111-Window-x42.zip",
+        "mvme-98.76.54-32-Window-x42.zip",
+        "mvme-987.654.321-666-Window-x42.zip",
+        "mvme-999.999.999-999-Window-x42.zip", // max version possible (except for major which could be larger)
+        "mvme-9999.999.999-999-Window-x42.zip" // exceeding the max with major
+    };
+
+    for (auto name: testFilenames)
+    {
+        u32 version = extract_package_version(name);
+        //qDebug() << __PRETTY_FUNCTION__ << "name =" << name << ", version =" << version;
+    }
+#endif
+
+
+    QNetworkRequest request;
+    request.setUrl(UpdateCheckURL);
+    request.setRawHeader("User-Agent", UpdateCheckUserAgent + GIT_VERSION_TAG);
+
+    auto reply = m_networkAccessManager->get(request);
+
+
+    connect(reply, &QNetworkReply::finished, [this, reply]() {
+        reply->deleteLater();
+
+        if (reply->error() == QNetworkReply::NoError)
+        {
+            // Both the platform and bitness strings are known at compile time.
+            // A download link entry looks like this:
+            // <a href="mvme-0.9-5-Windows-x32.exe">mvme-0.9-5-Windows-x32.exe</a>   2017-07-24 15:22   28M
+            static const QString pattern = QString("href=\"(mvme-[0-9.-]+-%1-%2\\.exe)\"")
+                .arg(get_package_platform_string())
+                .arg(get_package_bitness_string())
+                ;
+
+            qDebug() << "update search pattern:" << pattern;
+
+            QRegularExpression re(pattern);
+
+            auto contents = QString::fromLatin1(reply->readAll());
+            auto matchIter = re.globalMatch(contents);
+
+            struct PackageInfo
+            {
+                QString filename;
+                u32 version;
+            };
+
+            QVector<PackageInfo> packages;
+
+            while (matchIter.hasNext())
+            {
+                auto match = matchIter.next();
+                qDebug() << match.captured(1);
+                PackageInfo info;
+                info.filename = match.captured(1);
+                info.version  = extract_package_version(info.filename);
+                packages.push_back(info);
+            }
+
+            auto latestPackage = std::accumulate(packages.begin(), packages.end(), PackageInfo{QString(), 0},
+                                               [](const auto &a, const auto &b) {
+                return (a.version > b.version ? a : b);
+            });
+
+            qDebug() << __PRETTY_FUNCTION__ << "latest package version available is" << latestPackage.filename << latestPackage.version;
+
+            // TODO: build version info from the running binary using GIT_VERSION_SHORT
+        }
+    });
+}
+
 bool mvme::createNewOrOpenExistingWorkspace()
 {
     do
@@ -1195,7 +1369,6 @@ void mvme::updateActions()
     auto globalMode = m_context->getMode();
     auto daqState = m_context->getDAQState();
     auto eventProcState = m_context->getEventProcessorState();
-    auto controllerState = m_context->getController()->getState();
 
     bool isDAQIdle = (daqState == DAQState::Idle);
 

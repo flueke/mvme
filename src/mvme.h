@@ -23,6 +23,7 @@
 #include <QMap>
 
 #include "libmvme_export.h"
+#include "mvme_context.h"
 
 class ConfigObject;
 class VMEConfig;
@@ -37,7 +38,6 @@ class Hist2D;
 class HistogramCollection;
 class HistogramTreeWidget;
 class ModuleConfig;
-class MVMEContext;
 class MVMEContextWidget;
 class RealtimeData;
 class VirtualMod;
@@ -51,6 +51,7 @@ class QPlainTextEdit;
 class QThread;
 class QTimer;
 class QwtPlotCurve;
+class QNetworkAccessManager;
 
 
 namespace Ui {
@@ -93,6 +94,9 @@ public slots:
     void on_actionNewWorkspace_triggered();
     void on_actionOpenWorkspace_triggered();
 
+    bool createNewOrOpenExistingWorkspace();
+
+
 protected:
     void resizeEvent(QResizeEvent *event) override;
 
@@ -120,13 +124,12 @@ private slots:
     void on_actionImport_Histo1D_triggered();
 
     void on_actionVMEScriptRef_triggered();
+    void on_actionCheck_for_updates_triggered();
 
     void updateActions();
 
 
 private:
-    bool createNewOrOpenExistingWorkspace();
-
     Ui::mvme *ui;
 
     MVMEContext *m_context;
@@ -140,6 +143,7 @@ private:
 
     WidgetGeometrySaver *m_geometrySaver;
     bool m_quitting = false;
+    QNetworkAccessManager *m_networkAccessManager = nullptr;
 };
 
 #endif // MVME_H

@@ -19,15 +19,16 @@
 #ifndef __CONFIG_WIDGETS_H__
 #define __CONFIG_WIDGETS_H__
 
-#include "util.h"
-#include "template_system.h"
+#include "vme_config.h"
+//#include "util.h"
+//#include "template_system.h"
 #include <QDialog>
+
 
 class EventConfig;
 class ModuleConfig;
-class DataFilterConfig;
-class DualWordDataFilterConfig;
 class MVMEContext;
+struct EventConfigDialogPrivate;
 
 namespace analysis
 {
@@ -36,7 +37,6 @@ namespace analysis
 
 namespace Ui
 {
-    class EventConfigDialog;
     class DataFilterDialog;
     class DualWordDataFilterDialog;
 }
@@ -45,7 +45,8 @@ class EventConfigDialog: public QDialog
 {
     Q_OBJECT
     public:
-        EventConfigDialog(MVMEContext *context, EventConfig *config, QWidget *parent = 0);
+        EventConfigDialog(MVMEContext *context, VMEController *controller,
+                          EventConfig *config, QWidget *parent = 0);
         ~EventConfigDialog();
 
         EventConfig *getConfig() const { return m_config; }
@@ -57,8 +58,9 @@ class EventConfigDialog: public QDialog
         void saveToConfig();
         void setReadOnly(bool readOnly);
 
-        Ui::EventConfigDialog *ui;
+        EventConfigDialogPrivate *m_d;
         MVMEContext *m_context;
+        VMEController *m_controller;
         EventConfig *m_config;
 };
 

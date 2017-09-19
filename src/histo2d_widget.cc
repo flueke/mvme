@@ -370,9 +370,37 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
     m_d->m_plot->canvas()->setMouseTracking(true);
 
     m_zoomer = new ScrollZoomer(m_d->m_plot->canvas());
-    connect(m_zoomer, &ScrollZoomer::zoomed, this, &Histo2DWidget::zoomerZoomed);
-    connect(m_zoomer, &ScrollZoomer::mouseCursorMovedTo, this, &Histo2DWidget::mouseCursorMovedToPlotCoord);
-    connect(m_zoomer, &ScrollZoomer::mouseCursorLeftPlot, this, &Histo2DWidget::mouseCursorLeftPlot);
+
+    TRY_ASSERT(connect(m_zoomer, SIGNAL(zoomed(const QRectF &)),
+                       this, SLOT(zoomerZoomed(const QRectF &))));
+
+    TRY_ASSERT(connect(m_zoomer, &ScrollZoomer::mouseCursorMovedTo,
+                       this, &Histo2DWidget::mouseCursorMovedToPlotCoord));
+
+    TRY_ASSERT(connect(m_zoomer, &ScrollZoomer::mouseCursorLeftPlot,
+                       this, &Histo2DWidget::mouseCursorLeftPlot));
+
+    //
+    // Watermark text when exporting
+    //
+    {
+        m_d->m_waterMarkText = new QwtText;
+        m_d->m_waterMarkText->setRenderFlags(Qt::AlignRight | Qt::AlignBottom);
+        m_d->m_waterMarkText->setColor(QColor(0x66, 0x66, 0x66, 0x40));
+
+        QFont font;
+        font.setPixelSize(16);
+        font.setBold(true);
+        m_d->m_waterMarkText->setFont(font);
+
+        m_d->m_waterMarkText->setText(QString("mvme-%1").arg(GIT_VERSION_TAG));
+
+        m_d->m_waterMarkLabel = new QwtPlotTextLabel;
+        m_d->m_waterMarkLabel->setMargin(10);
+        m_d->m_waterMarkLabel->setText(*m_d->m_waterMarkText);
+        m_d->m_waterMarkLabel->attach(m_d->m_plot);
+        m_d->m_waterMarkLabel->hide();
+    }
 
     //
     // Watermark text when exporting
@@ -899,7 +927,7 @@ void Histo2DWidget::doXProjection()
     if (!m_xProjWidget)
     {
         m_xProjWidget = new Histo1DWidget(histo);
-        m_xProjWidget->setWindowIcon(QIcon(":/mesytec_icon.png"));
+        m_xProjWidget->setWindowIcon(QIcon(":/window_icon.png"));
         m_xProjWidget->setAttribute(Qt::WA_DeleteOnClose);
         connect(m_xProjWidget, &QObject::destroyed, this, [this] (QObject *) {
             m_xProjWidget = nullptr;
@@ -952,7 +980,7 @@ void Histo2DWidget::doYProjection()
     if (!m_yProjWidget)
     {
         m_yProjWidget = new Histo1DWidget(histo);
-        m_yProjWidget->setWindowIcon(QIcon(":/mesytec_icon.png"));
+        m_yProjWidget->setWindowIcon(QIcon(":/window_icon.png"));
         m_yProjWidget->setAttribute(Qt::WA_DeleteOnClose);
         connect(m_yProjWidget, &QObject::destroyed, this, [this] (QObject *) {
             m_yProjWidget = nullptr;

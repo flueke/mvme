@@ -1,7 +1,7 @@
 <!DOCTYPE RCC><RCC version="1.0">
 <qresource>
     <!-- icons -->
-    <file alias="vme_script.png">resources/text-x-katefilelist.png</file>
+    <file alias="vme_script.png">resources/document-yellow-32x32.png</file>
     <file alias="config_category.png">resources/folder-orange.png</file>
     <file alias="vme_module.png">resources/audio-card.png</file>
     <file alias="dialog-close.png">resources/dialog-close.png</file>
@@ -28,7 +28,7 @@
     <file alias="arrow_down.png">resources/arrow-270.png</file>
     <file alias="arrow_right.png">resources/arrow.png</file>
     <file alias="arrow_left.png">resources/arrow-180.png</file>
-    <file alias="mesytec_icon.png">resources/mesytec-window-icon.png</file>
+    <file alias="window_icon.png">resources/mvme_32x32.png</file>
     <file alias="folder_import.png">resources/blue-folder-import.png</file>
     <file alias="analysis_module_import.png">resources/script-import.png</file>
     <file alias="histo_subrange.png">resources/selection-resize.png</file>
@@ -36,6 +36,7 @@
     <file alias="histo_resolution.png">resources/grid.png</file>
     <file alias="eye_pencil.png">resources/eye--pencil.png</file>
     <file alias="document_import.png">resources/document-import.png</file>
+    <file alias="ui_search_field.png">resources/ui-search-field.png</file>
 
     <file alias="operator_calibration.png">resources/measure.png</file>
     <file alias="operator_difference.png">resources/minus-white.png</file>
@@ -46,7 +47,6 @@
     <file alias="gpl-notice.txt">resources/gpl-notice.txt</file>
     <file alias="mesytec-logo.png">resources/mesytec-logo.png</file>
     <file alias="splash-screen.png">resources/Splash_Screen.png</file>
-    <file alias="mesytec-window-icon.png">resources/mesytec-window-icon.png</file>
     <file alias="vme-script-help.html">resources/vme-script-help.html</file>
 </qresource>
 </RCC>

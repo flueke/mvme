@@ -1,6 +1,49 @@
 ==========================
 ==== Do these first! =====
 ==========================
+VME Template Rework
+----------------------
+* MADC-32 done
+* MQDC-32 done
+* MTDC-32 done
+* MDI done
+* MDPP SCP  <- done
+* MDPP RCP  <- done
+* MDPP QDC  <- done
+* Make a RCbus example including a delay between switchting NIM to cbus mode!
+
+* Implement adding of module specific vme init scripts via the GUI.
+  The user should be able to modify the order of init scripts by
+  dragging/dropping, remove existing scripts and add new ones.
+  Optionally copying of an init script to the same or a different module could
+  be implemented.
+
+* Rewrite EventConfigDialog to not use a UI file anymore. Dynamically populate
+  the TriggerCondition combo box.
+* Do not use signals/slots for the pause/resume/stop implementation in
+  VMEReadoutWorkers. Instead just set the desired state directly (maybe
+  securing the access with QAtomicInt in a tight loop). This would allow not
+  having to call processEvents() in the readoutLoop anymore.
+
+* Make DataBuffer allocation 32-bit aligned: new u32[size/4 + 1]
+
+* Implement better controller state reporting
+  Should not spam useless info
+  Should allow diagnosing connection issues
+
+* Make a RCbus example including a delay between switchting NIM to cbus mode!
+
+sis3153 implementation
+----------------------
+class SIS3153:
+  - vme methods: make use of the amod arg or refactor the interface and get rid of it
+    -> Robert wants to keep amod so implement it
+
+* Check the default timeouts used in the sis3153eth implementation. Tweak if needed to stay responsive.
+
+
+* NSIS installer: use common start menu folder mesytec, then mvme underneath
+* info button does not work in 2D combined view of 1D histograms
 
 * Maybe reload the analysis on opening a listfile.
   Without the reload the analysis window can become empty if the listfile

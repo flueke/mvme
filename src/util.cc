@@ -27,12 +27,54 @@
 #include <QJsonDocument>
 #include <QMessageBox>
 
-void debugOutputBuffer(u32 *dataBuffer, u32 bufferCount)
+void debugOutputBuffer(u8 *dataBuffer, size_t bufferSize)
 {
-  for (u32 bufferIndex=0; bufferIndex < bufferCount; ++bufferIndex)
-  {
-    qDebug("%3u: %08x", bufferIndex, dataBuffer[bufferIndex]);
-  }
+    BufferIterator iter(dataBuffer, bufferSize);
+    u32 wordIndex = 0;
+
+    while (iter.longwordsLeft())
+    {
+        qDebug("%3u: %08x", wordIndex++, iter.extractU32());
+    }
+
+    while (iter.shortwordsLeft())
+    {
+        qDebug("%3u: %04x", wordIndex++, iter.extractU16());
+    }
+
+    while (iter.bytesLeft())
+    {
+        qDebug("%3u: %02x", wordIndex++, iter.extractU8());
+    }
+}
+
+QTextStream &debugOutputBuffer(QTextStream &out, u8 *dataBuffer, size_t bufferSize)
+{
+    BufferIterator iter(dataBuffer, bufferSize);
+    u32 wordIndex = 0;
+
+    while (iter.longwordsLeft())
+    {
+        out << QString("%1").arg(wordIndex++, 3)
+            << ": " << QString("%1").arg(iter.extractU32(), 8, 16, QLatin1Char('0'))
+            << endl;
+    }
+
+    while (iter.shortwordsLeft())
+    {
+        out << QString("%1").arg(wordIndex++, 3)
+            << ": " << QString("%1").arg(iter.extractU16(), 4, 16, QLatin1Char('0'))
+            << endl;
+    }
+
+    while (iter.bytesLeft())
+    {
+        out << QString("%1").arg(wordIndex++, 3)
+            << ": " << QString("%1").arg(iter.extractByte(), 2, 16, QLatin1Char('0'))
+            << endl;
+    }
+
+  return out;
 }
 
 QVector<u32> parseStackFile(QTextStream &input)

@@ -329,4 +329,14 @@ QTextStream &operator<<(QTextStream &out, const MVMETemplates &templates)
     return out;
 }
 
+VMEModuleMeta get_module_meta_by_typename(const MVMETemplates &templates, const QString &moduleTypeName)
+{
+    for (auto mm: templates.moduleMetas)
+    {
+        if (mm.typeName == moduleTypeName)
+            return mm;
+    }
+    return {};
+}
+
 } // namespace vats

@@ -109,7 +109,7 @@ void vmusb_gui_load_firmware(MVMEContext *context)
                                      text);
     };
 
-    auto vmusb = qobject_cast<VMUSB *>(context->getController());
+    auto vmusb = qobject_cast<VMUSB *>(context->getVMEController());
     Q_ASSERT(vmusb);
 
     if (!vmusb)

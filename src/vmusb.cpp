@@ -355,7 +355,7 @@ void VMUSB::getUsbDevices(void)
 }
 #endif
 
-VMEError VMUSB::openFirstDevice()
+VMEError VMUSB::open()
 {
     QMutexLocker locker(&m_lock);
 
@@ -975,13 +975,13 @@ VMEError VMUSB::writeActionRegister(uint16_t value)
         m_daqMode = daqMode;
         if (daqMode)
         {
-            emit daqModeEntered();
+            //emit daqModeEntered();
         }
         else
         {
-            emit daqModeLeft();
+            //emit daqModeLeft();
         }
-        emit daqModeChanged(daqMode);
+        //emit daqModeChanged(daqMode);
     }
 
     return VMEError();

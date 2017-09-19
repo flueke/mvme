@@ -103,6 +103,8 @@ VMEError VMUSBStack::enableStack(VMUSB *controller)
                 result = controller->setDaqSettings(daqSettings);
 #endif
             } break;
+
+        InvalidDefaultCase
     };
 
     return result;

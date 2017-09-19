@@ -1,1 +1,92 @@
-## Parameters
+## Parameters MDI-2
+
+# Trigger Setup
+# ############################################################################
+# seq_enable
+0x6040  0b11        # enable sequencer
+                    # bit0: seq0
+                    # bit1: seq1
+
+# trig_source0
+0x6042  0b111       # select trigger to start bus0 sequencer
+                    # bit 0: trigger0
+                    # bit 1: trigger1
+                    # bit 2: common
+
+# trig_source1
+0x6044  0b111       # select trigger to start bus1 sequencer
+                    # same format as trig_source0
+
+# com_trig_source
+0x6046  0b11        # select source for common trigger I/O
+                    # bit 0: trigger0
+                    # bit 1: trigger1
+
+# veto_gate
+0x604C  0           # 0 -> Use "veto" input as veto.
+                    #      Veto is possible from trigger to 25 ns before end of
+                    #      hold-delay.
+                    # 1 -> Use "veto" input as gate (when active triggers are accepted).
+                    #      Veto and gate have to be active at least 25 ns
+                    #      before hold_delay0/1 runs out.
+                    #      If different delays for bus0/1 are used the shorter
+                    #      one is relevant. (Typically 475 ns after trigger for
+                    #      MTM-16 timing.)
+
+# Gate Generators
+# ############################################################################
+# hold_delay0
+0x6050  1000        # multiple of 0.5 ns (default: gate on bus0 starts 0.5 us
+                    # after trigger)
+# hold_delay1
+0x6052  20          # same as hold_delay0 for bus1
+
+# hold_width0
+0x6054  44          # multiple of 25 ns (gate length on bus0 default = 1.1 us)
+# hold_width1
+0x6056  44          # multiple of 25 ns
+
+# Sequencer Timing
+# ############################################################################
+# bus_watchdog
+0x6060  1           # 1 to enable bus watchdog
+                    # If no event trigger for 1s, sends front end reset.
+                    # Protects against deadlocks.
+
+# frontend_reset (for reference only, write-only)
+# 0x6062            # Sends "reset sequencer" to MTM-16, other settings left unchanged.
+
+# seq_clk_freq0
+0x6064  3           # clock frequency bus0
+                    # 0 -> 1.25 MHz
+                    # 1 -> 2.5 MHz
+                    # 2 -> 5   MHz
+                    # 3 -> 10  MHz
+
+# seq_clk_freq1
+0x6064  3           # clock frequency bus1 (same format as seq_cl_freq0)
+
+# sample_delay_reg0 (4 bit value)
+0x606A  3           # One additional count delay for multiple of 2.5 m calbes.
+                    # For standard cable of 3 m set to 4.
+
+# sample_delay_reg1 (4 bit value)
+0x606C  3           # FIXME: do these apply to seq0/1? i guess so
+
+# enable_busy
+0x606E  1           # Enable busy signal at Lemo output. Do not enable when
+                    # used as control bus or for time stamping.
+
+# Sequencer Length
+# ############################################################################
+# FIXME: what is this?
+# seq0_cct
+0x6074  17          # 17 counts per MTM-16 needed
+
+# seq1_cct
+0x6076  17          # 17 counts per MTM-16 needed
+
+# allow_sync_word
+# FIXME: is this implemented?
+0x6078  0           # allow_sync_words in FIFO buffer. Useful when zero
+                    # suppression in front end MTM-16 (future feature).

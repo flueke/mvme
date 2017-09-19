@@ -23,7 +23,7 @@
 #include "databuffer.h"
 #include "vme_config.h"
 #include "vme_controller.h"
-#include "threading.h"
+#include "vme_readout_worker.h"
 #include <memory>
 
 #include <QFuture>
@@ -34,8 +34,6 @@
 #include <QSettings>
 #include <QWidget>
 
-class VMUSBReadoutWorker;
-class VMUSBBufferProcessor;
 class MVMEEventProcessor;
 class mvme;
 class ListFile;
@@ -53,25 +51,6 @@ namespace analysis
 }
 
 struct MVMEContextPrivate;
-
-enum class ListFileFormat
-{
-    Invalid,
-    Plain,
-    ZIP
-};
-
-struct ListFileOutputInfo
-{
-    bool enabled;               // true if a listfile should be written
-    ListFileFormat format;      // the format to write
-    QString directory;          // Path to the output directory. If it's not a
-                                // full path it's relative to the workspace directory.
-    int compressionLevel;       // zlib compression level
-};
-
-QString toString(const ListFileFormat &fmt);
-ListFileFormat fromString(const QString &str);
 
 class MVMEContext: public QObject
 {
@@ -112,18 +91,17 @@ class MVMEContext: public QObject
         MVMEContext(mvme *mainwin, QObject *parent = 0);
         ~MVMEContext();
 
-        void setController(VMEController *controller);
+        void setVMEController(VMEController *controller, const QVariantMap &settings = QVariantMap());
+        void setVMEController(VMEControllerType type, const QVariantMap &settings = QVariantMap());
+        VMEController *getVMEController() const { return m_controller; }
 
-        QString getUniqueModuleName(const QString &prefix) const;
-
-        VMEController *getController() const { return m_controller; }
         ControllerState getControllerState() const;
-        VMUSBReadoutWorker *getReadoutWorker() const { return m_readoutWorker; }
-        VMUSBBufferProcessor *getBufferProcessor() const { return m_bufferProcessor; }
+        VMEReadoutWorker *getReadoutWorker() { return m_readoutWorker; }
         VMEConfig *getConfig() { return m_vmeConfig; }
         VMEConfig *getVMEConfig() { return m_vmeConfig; }
         void setVMEConfig(VMEConfig *config);
         QList<EventConfig *> getEventConfigs() const { return m_vmeConfig->getEventConfigs(); }
+        QString getUniqueModuleName(const QString &prefix) const;
         DAQState getDAQState() const;
         EventProcessorState getEventProcessorState() const;
         const DAQStats &getDAQStats() const { return m_daqStats; }
@@ -260,7 +238,6 @@ class MVMEContext: public QObject
         // listfile output
         void setListFileOutputInfo(const ListFileOutputInfo &info);
         ListFileOutputInfo getListFileOutputInfo() const;
-        QString getListFileOutputDirectoryFullPath() const;
 
 
         bool isWorkspaceModified() const;
@@ -293,13 +270,13 @@ class MVMEContext: public QObject
         RunInfo getRunInfo() const;
 
     public slots:
-        void startDAQ(quint32 nCycles=0);
+        void startDAQ(quint32 nCycles = 0, bool keepHistoContents = false);
         // Stops DAQ or replay depending on the current GlobalMode
         void stopDAQ();
         void pauseDAQ();
         void resumeDAQ();
 
-        void startReplay(u32 nEvents = 0);
+        void startReplay(u32 nEvents = 0, bool keepHistoContents = false);
         void pauseReplay();
         void resumeReplay(u32 nEvents = 0);
 
@@ -327,6 +304,7 @@ class MVMEContext: public QObject
         std::shared_ptr<QSettings> makeWorkspaceSettings(const QString &workspaceDirectory) const;
         void setWorkspaceDirectory(const QString &dirName);
         void prepareStart();
+        QString getListFileOutputDirectoryFullPath(const QString &directory) const;
 
         MVMEContextPrivate *m_d;
 
@@ -345,8 +323,7 @@ class MVMEContext: public QObject
         QFutureWatcher<VMEError> m_ctrlOpenWatcher;
         QThread *m_readoutThread;
 
-        VMUSBReadoutWorker *m_readoutWorker;
-        VMUSBBufferProcessor *m_bufferProcessor;
+        VMEReadoutWorker *m_readoutWorker = nullptr;
 
         QThread *m_eventThread;
         MVMEEventProcessor *m_eventProcessor;
@@ -363,8 +340,8 @@ class MVMEContext: public QObject
 
         analysis::Analysis *m_analysis_ng;
 
-        ThreadSafeDataBufferQueue m_freeBufferQueue;
-        ThreadSafeDataBufferQueue m_filledBufferQueue;
+        ThreadSafeDataBufferQueue m_freeBuffers;
+        ThreadSafeDataBufferQueue m_fullBuffers;
 
         analysis::AnalysisWidget *m_analysisUi = nullptr;
 };

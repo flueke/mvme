@@ -20,6 +20,7 @@
 
 #include <QAction>
 #include <QCloseEvent>
+#include <QCoreApplication>
 #include <QDebug>
 #include <QPainter>
 #include <QSettings>
@@ -203,4 +204,21 @@ QString get_bitness_string()
 #warning "Unknown processor bitness."
     return QString();
 #endif
+}
+
+QFont make_monospace_font(QFont baseFont)
+{
+    baseFont.setFamily(QSL("Monospace"));
+    baseFont.setStyleHint(QFont::Monospace);
+    return baseFont;
+}
+
+void processQtEvents(QEventLoop::ProcessEventsFlags flags)
+{
+    QCoreApplication::processEvents(flags);
+}
+
+void processQtEvents(int maxtime_ms, QEventLoop::ProcessEventsFlags flags)
+{
+    QCoreApplication::processEvents(flags, maxtime_ms);
 }

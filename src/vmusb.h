@@ -72,11 +72,6 @@ represents vm_usb controller
 class VMUSB: public VMEController
 {
     Q_OBJECT
-    signals:
-        void daqModeEntered();
-        void daqModeLeft();
-        void daqModeChanged(bool);
-
     public:
         VMUSB();
         ~VMUSB();
@@ -169,7 +164,7 @@ class VMUSB: public VMEController
 
         virtual VMEError blockRead(u32 address, u32 transfers, QVector<u32> *dest, u8 amod, bool fifo) override;
 
-        virtual VMEError openFirstDevice() override;
+        virtual VMEError open() override;
         virtual VMEError close() override;
         virtual ControllerState getState() const { return m_state; }
 

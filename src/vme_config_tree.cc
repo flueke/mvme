@@ -108,12 +108,15 @@ VMEConfigTreeWidget::VMEConfigTreeWidget(MVMEContext *context, QWidget *parent)
 
     m_nodeStart->setText(0, QSL("DAQ Start"));
     m_nodeStart->setData(0, DataRole_ScriptCategory, "daq_start");
+    m_nodeStart->setIcon(0, QIcon(":/config_category.png"));
 
     m_nodeStop->setText(0, QSL("DAQ Stop"));
     m_nodeStop->setData(0, DataRole_ScriptCategory, "daq_stop");
+    m_nodeStop->setIcon(0, QIcon(":/config_category.png"));
 
     m_nodeManual->setText(0,  QSL("Manual"));
     m_nodeManual->setData(0,  DataRole_ScriptCategory, "manual");
+    m_nodeManual->setIcon(0, QIcon(":/config_category.png"));
 
     m_tree->addTopLevelItem(m_nodeEvents);
     m_tree->addTopLevelItem(m_nodeScripts);
@@ -573,6 +576,10 @@ void VMEConfigTreeWidget::onEventAdded(EventConfig *eventConfig)
                 {
                     infoText = QSL("Trigger=Periodic");
                 } break;
+            default:
+                {
+                    infoText = QString("Trigger=%1").arg(TriggerConditionNames.value(eventConfig->triggerCondition));
+                } break;
         }
 
         node->setText(1, infoText);
@@ -663,7 +670,7 @@ void VMEConfigTreeWidget::addEvent()
 {
     auto config = new EventConfig;
     config->setObjectName(QString("event%1").arg(m_config->getEventConfigs().size()));
-    EventConfigDialog dialog(m_context, config);
+    EventConfigDialog dialog(m_context, m_context->getVMEController(), config);
     int result = dialog.exec();
 
     if (result == QDialog::Accepted)
@@ -709,7 +716,7 @@ void VMEConfigTreeWidget::editEvent()
     if (node && node->type() == NodeType_Event)
     {
         auto eventConfig = Var2Ptr<EventConfig>(node->data(0, DataRole_Pointer));
-        EventConfigDialog dialog(m_context, eventConfig);
+        EventConfigDialog dialog(m_context, m_context->getVMEController(), eventConfig);
         dialog.exec();
     }
 }
@@ -915,7 +922,7 @@ void VMEConfigTreeWidget::handleShowDiagnostics()
 
 void VMEConfigTreeWidget::dumpVMUSBRegisters()
 {
-    auto vmusb = dynamic_cast<VMUSB *>(m_context->getController());
+    auto vmusb = dynamic_cast<VMUSB *>(m_context->getVMEController());
 
     if (vmusb && m_context->getDAQState() == DAQState::Idle)
     {

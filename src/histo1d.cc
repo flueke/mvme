@@ -133,12 +133,8 @@ Histo1DStatistics Histo1D::calcStatistics(double minX, double maxX) const
     s64 minBin = m_xAxisBinning.getBinUnchecked(minX);
     s64 maxBin = m_xAxisBinning.getBinUnchecked(maxX);
 
-    // FIXME: when using subranges the getBinUnchecked() calculation often yields negative bins. why?
     minBin = std::max(static_cast<s64>(0), minBin);
     maxBin = std::max(static_cast<s64>(0), maxBin);
-
-    //qDebug() << __PRETTY_FUNCTION__ << minX << maxX << minBin << maxBin;
-    //qDebug() << __PRETTY_FUNCTION__ << getXMin() << getXMax();
 
     if (minBin >= 0 && maxBin >= 0)
     {
@@ -250,7 +246,7 @@ Histo1DStatistics Histo1D::calcBinStatistics(u32 startBin, u32 onePastEndBin) co
 QTextStream &writeHisto1D(QTextStream &out, Histo1D *histo)
 {
     out << histo->getNumberOfBins() << " " << histo->getXMin() << " " << histo->getXMax()
-        << " " << histo->getUnderflow() << " " << histo->getOverflow();
+        << " " << histo->getUnderflow() << " " << histo->getOverflow() << endl;
 
     for (u32 bin = 0; bin < histo->getNumberOfBins(); ++bin)
     {

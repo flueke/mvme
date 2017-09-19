@@ -20,6 +20,7 @@
 
 #include "qt_util.h"
 #include "CVMUSBReadoutList.h"
+#include "vme_controller.h"
 
 #include <cmath>
 #include <QJsonDocument>
@@ -173,6 +174,12 @@ void VMEScriptConfig::setScriptContents(const QString &str)
         m_script = str;
         setModified(true);
     }
+}
+
+void VMEScriptConfig::addToScript(const QString &str)
+{
+    m_script += str;
+    setModified(true);
 }
 
 vme_script::VMEScript VMEScriptConfig::getScript(u32 baseAddress) const
@@ -386,16 +393,18 @@ void EventConfig::read_impl(const QJsonObject &json)
     qDeleteAll(modules);
     modules.clear();
 
-    // triggerCondition
+    // triggerCondition and options
     {
         auto tcName = json["triggerCondition"].toString();
         auto it = std::find_if(TriggerConditionNames.begin(), TriggerConditionNames.end(), [tcName](const auto &testName) {
             return tcName == testName;
         });
 
+        // FIXME: report error on unknown trigger condition
         triggerCondition = (it != TriggerConditionNames.end()) ? it.key() : TriggerCondition::NIM1;
+        triggerOptions = json["triggerOptions"].toObject().toVariantMap();
     }
-
+    // TODO: move irqLevel and the other settings into triggerOptions
     irqLevel = json["irqLevel"].toInt();
     irqVector = json["irqVector"].toInt();
     scalerReadoutPeriod = json["scalerReadoutPeriod"].toInt();
@@ -409,7 +418,6 @@ void EventConfig::read_impl(const QJsonObject &json)
         moduleConfig->read(moduleObject);
         modules.append(moduleConfig);
     }
-
 
     for (auto scriptConfig: vmeScripts.values())
     {
@@ -434,10 +442,13 @@ void EventConfig::read_impl(const QJsonObject &json)
 void EventConfig::write_impl(QJsonObject &json) const
 {
     json["triggerCondition"] = TriggerConditionNames.value(triggerCondition);
+    json["triggerOptions"]   = QJsonObject::fromVariantMap(triggerOptions);
+    // TODO: move these into triggerOptions
     json["irqLevel"] = irqLevel;
     json["irqVector"] = irqVector;
     json["scalerReadoutPeriod"] = scalerReadoutPeriod;
     json["scalerReadoutFrequency"] = scalerReadoutFrequency;
+
 
     QJsonArray moduleArray;
 
@@ -659,6 +670,13 @@ bool VMEConfig::removeGlobalScript(VMEScriptConfig *config)
     return false;
 }
 
+void VMEConfig::setVMEController(VMEControllerType type, const QVariantMap &settings)
+{
+    m_controllerType = type;
+    m_controllerSettings = settings;
+    setModified();
+}
+
 void VMEConfig::read_impl(const QJsonObject &inputJson)
 {
     qDeleteAll(eventConfigs);
@@ -697,6 +715,11 @@ void VMEConfig::read_impl(const QJsonObject &inputJson)
         }
     }
 
+    // vme controller
+    auto controllerJson = json["vme_controller"].toObject();
+    m_controllerType = from_string(controllerJson["type"].toString());
+    m_controllerSettings = controllerJson["settings"].toObject().toVariantMap();
+
     loadDynamicProperties(json["properties"].toObject(), this);
 }
 
@@ -734,6 +757,14 @@ void VMEConfig::write_impl(QJsonObject &json) const
     }
 
     json["vme_script_lists"] = scriptsObject;
+
+    // vme controller
+    QJsonObject controllerJson;
+    controllerJson["type"] = to_string(m_controllerType);
+    controllerJson["settings"] = QJsonObject::fromVariantMap(m_controllerSettings);
+    json["vme_controller"] = controllerJson;
+
+
     auto props = storeDynamicProperties(this);
     if (!props.isEmpty())
         json["properties"] = props;

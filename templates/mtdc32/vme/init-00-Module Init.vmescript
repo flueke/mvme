@@ -1,1 +1,133 @@
-## Parameters
+## Parameters MTDC-32
+
+# Operation Mode
+# ############################################################################
+# output_format
+0x6044  0           # 0 -> standard (time difference)
+                    # 1 -> time stamper mode
+                    # Note: In time stamper mode further "Operation Mode" and
+                    # "Trigger" registers have no effect.
+
+0x6040  0           # 0 -> banks connected
+                    # 1 -> operate banks independently
+
+# tdc_resolution
+# FIXME: default according to manual is 0. it is 3 for my modules
+#0x6042  3          # 9 -> 500 ps
+                    # 8 -> 250 ps
+                    # 7 -> 125 ps
+                    # 6 -> 62.5 ps (1 ns /  16)
+                    # 5 -> 31.3 ps (1 ns /  32)
+                    # 4 -> 15.6 ps (1 ns /  64)
+                    # 3 ->  7.8 ps (1 ns / 128)
+                    # 2 ->  3.9 ps (1 ns / 256)
+
+
+# first_hit
+0x605C  0b11        # bit0: bank0, bit: bank1
+                    # 1 -> only transmit first hit of a channel
+                    # 0 -> transmit all hits of a channel in the window
+
+# Trigger Setup
+# ############################################################################
+# bank0_win_start
+#0x6050  16368      # Start window of interest from trigger start in ns.
+                    # Offset + 16k = 16384
+                    # Defaults to 16k - 16 = 16368
+                    # = 16k -> no delay
+                    # < 16k -> window starts before trigger
+                    # > 16k -> window is delayed
+
+# bank1_win_start
+#0x6052  16368      # same as for bank0
+
+# bank0_win_width
+0x6054  32          # Unit: ns, max 16k == 16 us, unsigned
+
+# bank1_win_width
+0x6056  32          # Unit: ns, max 16k == 16 us, unsigned
+
+# trigger source
+# FIXME: This explanation or the table from the MTDC manual?
+# Defines the trigger which creates the window of interest. This can be one or
+# both of the trigger inputs, any of the 32 channel inputs or a whole bank.
+#   0x001 -> trigger 0 input
+#   0x002 -> trigger 1 input
+#   0x100 -> bank0
+#   0x200 -> bank1
+#   single channel: trig_source = 128 + (chan * 4)
+#                   with channel in 0..31
+# bank0_trig_source
+0x6058  0x001       # In split bank mode for bank0, otherwise for both banks.
+
+# bank1_trig_source
+0x6058  0x002       # Only in split bank mode. Same as bank0_trig_source.
+
+# Bank Input Configuration
+# ############################################################################
+# negative_edge
+0x6060  0b00        # bit0: bank0, bit1: bank1
+                    # if bit is set:
+                    # * for differential input jumper: channel triggers on
+                    #   negative edge
+                    # * for unipolar input jumper: trigger on rising edge of
+                    #   signal
+
+# bank0_input_thr
+0x6078  105         # Discriminator level for unipolar input bank0.
+                    # For NIM 105 is optimum.
+
+# bank1_input_thr
+0x607A  105         # Discriminator level for bank1.
+
+# I/O
+# ############################################################################
+# ECL_term
+0x6062  0b000       # switch ECL/LVDS terminators on (1 -> on)
+                    # +-----------+-------+-------+-------+
+                    # | Bit       | 2     | 1     | 0     |
+                    # +===========+=======+=======+=======+
+                    # | ECL input | reset | gate1 | gate0 |
+                    # | term.     | ECL2  | ECL1  | ECL0  |
+                    # +-----------+-------+-------+-------+
+
+# ECL_trig1_osc
+0x6064  0           # 0 -> trig1 input
+                    # 1 -> oscillator input (also set CTRA.ts_sources (0x6096)!)
+
+# trig_select
+0x6068  0           # 0 -> trigger 0 and 1 from NIM inputs
+                    # 1 -> trigger 0 and 1 from ECL inputs
+
+# NIM_trig1_osc
+0x606A  0           # 0 -> trig1 input
+                    # 1 -> oscillator input (also set CTRA.ts_sources (0x6096)!)
+                    #
+# NIM_busy (NIM 0)
+0x606E  0           # 0 -> as busy (= FIFO full or ACQ stopped)
+                    # 3 -> as CBus output
+                    # 8 -> data in buffer above threshold 0x6018 (= Data ready)
+
+
+# Internal Test Pulser
+# ############################################################################
+0x6070  0           # 0 -> off
+                    # 3 -> on: always trig0 and one channel from 0 to 31, then
+                    #          trig1 cycling. Time difference from trig0 to
+                    #          channel about 0s +- 2ns.
+
+# Timestamp/Event Counters: CTRA, CTRB
+# ############################################################################
+# ts_sources
+0x6096  0b00        # bit 0: frequency source (0 -> VME, 1 -> external)
+                    # bit 1: external reset enable
+
+# ts_divisor (16 bit value)
+0x6098  1           # timestamp = time / ts_divisor
+                    # 0 means division by 65536
+
+# stop_ctr
+#0x60AE  0b00       # bit 0: stop CTRB (time_0, time_1, time_2)
+                    # bit 1: stop CTRA (ts_counter_lo, ts_counter_hi)
+                    # with 0 -> run, 1 -> stop counter
+

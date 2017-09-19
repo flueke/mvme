@@ -160,7 +160,7 @@ class MultiWordDataFilter
             for (int i=0; i<nFilters; ++i)
             {
 #if 1
-                result |= (m_filters[i].extractData(m_results[i].matchedWord, marker) << shift);
+                result |= (static_cast<u64>(m_filters[i].extractData(m_results[i].matchedWord, marker)) << shift);
                 shift += m_filters[i].getExtractBits(marker);
 #else
                 u64 filterValue = m_filters[i].extractData(m_results[i].matchedWord, marker);

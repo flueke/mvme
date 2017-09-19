@@ -26,8 +26,7 @@
 enum class VMEControllerType
 {
     VMUSB,
-    CAEN,
-    SIS
+    SIS3153
 };
 
 enum class ControllerState
@@ -55,7 +54,6 @@ class VMEError
     public:
         enum ErrorType
         {
-            
             NoError = 0,    // No error occured; the operation succeeded
             UnknownError,
             NotOpen,        // The controller is not open
@@ -66,6 +64,8 @@ class VMEError
             NoDevice,       // No controller-type specific device found
             DeviceIsOpen,   // Tried to open an already opened device
             Timeout,
+            HostNotFound,
+            InvalidIPAddress
         };
 
         VMEError()
@@ -88,7 +88,7 @@ class VMEError
         VMEError(ErrorType error, s32 code)
             : m_error(error)
             , m_errorCode(code)
-        {} 
+        {}
 
         VMEError(ErrorType error, s32 code, const QString &message)
             : m_error(error)
@@ -150,12 +150,15 @@ class VMEController: public QObject
         virtual VMEError blockRead(u32 address, u32 transfers, QVector<u32> *dest, u8 amod, bool fifo) = 0;
 
         virtual bool isOpen() const = 0;
-        virtual VMEError openFirstDevice() = 0;
+        virtual VMEError open() = 0;
         virtual VMEError close() = 0;
 
         virtual ControllerState getState() const = 0;
 
         virtual QString getIdentifyingString() const = 0;
 };
+
+QString to_string(VMEControllerType type);
+VMEControllerType from_string(const QString &str);
 
 #endif // VMECONTROLLER_H

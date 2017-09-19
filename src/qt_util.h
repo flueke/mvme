@@ -21,6 +21,7 @@
 
 #include "typedefs.h"
 
+#include <QEventLoop>
 #include <QHash>
 #include <QJsonObject>
 #include <QKeySequence>
@@ -84,5 +85,10 @@ QStatusBar *make_statusbar(QWidget *parent = nullptr);
 void show_and_activate(QWidget *widget);
 
 QString get_bitness_string();
+
+QFont make_monospace_font(QFont baseFont = QFont());
+
+void processQtEvents(QEventLoop::ProcessEventsFlags flags = QEventLoop::AllEvents);
+void processQtEvents(int maxtime_ms, QEventLoop::ProcessEventsFlags flags = QEventLoop::AllEvents);
 
 #endif /* __QT_UTIL_H__ */

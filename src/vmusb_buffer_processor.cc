@@ -17,19 +17,19 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "vmusb_buffer_processor.h"
-#include "mvme_context.h"
-#include "vmusb.h"
-#include "mvme_listfile.h"
-#include <memory>
 
+#include <memory>
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QtMath>
+#include <quazipfile.h>
+#include <quazip.h>
 
-#include <quazip/quazip.h>
-#include <quazip/quazipfile.h>
+#include "mvme_listfile.h"
+#include "vmusb.h"
+#include "vme_daq.h"
 
 using namespace vmusb_constants;
 
@@ -246,12 +246,13 @@ struct ProcessorState
     size_t eventHeaderOffset = 0;       // offset into the output buffer
 
     s32 moduleSize = 0;                 // size of the module section in 32-bit words.
-    ssize_t moduleHeaderOffset = 0;      // offset into the output buffer or -1 if no moduleHeader has been written yet
+    ssize_t moduleHeaderOffset = -1;      // offset into the output buffer or -1 if no moduleHeader has been written yet
     s32 moduleIndex = -1;               // index into the list of eventconfigs or -1 if no module is "in progress"
 
     /* VMUSB uses 16-bit words internally which means it can split our 32-bit
      * aligned module data words in case of partial events. If this is the case
-     * the partial 16-bits are stored and reused when the next buffer starts.
+     * the partial 16-bits are stored here and reused when the next buffer
+     * starts.
      */
     u16 partialData = 0;
     bool hasPartialData = false;
@@ -272,8 +273,9 @@ struct ProcessorAction
 struct VMUSBBufferProcessorPrivate
 {
     VMUSBBufferProcessor *m_q;
-    QuaZip m_listFileArchive;
-    QIODevice *m_listFileOut = nullptr;
+    VMUSBReadoutWorker *m_readoutWorker = nullptr;
+    DAQReadoutListfileHelper *m_listfileHelper = nullptr;
+
 #ifdef WRITE_BUFFER_LOG
     QFile *m_bufferLogFile = nullptr;
 #endif
@@ -284,19 +286,22 @@ struct VMUSBBufferProcessorPrivate
     DataBuffer *getOutputBuffer();
 };
 
-static void processQtEvents(QEventLoop::ProcessEventsFlags flags = QEventLoop::AllEvents)
-{
-    QCoreApplication::processEvents(flags);
-}
+static const size_t LocalEventBufferSize    = 27 * 1024 * 2;
+static const size_t LocalTimetickBufferSize = sizeof(u32);
 
-VMUSBBufferProcessor::VMUSBBufferProcessor(MVMEContext *context, QObject *parent)
+VMUSBBufferProcessor::VMUSBBufferProcessor(VMUSBReadoutWorker *parent)
     : QObject(parent)
     , m_d(new VMUSBBufferProcessorPrivate)
-    , m_context(context)
     , m_localEventBuffer(27 * 1024 * 2)
-    , m_listFileWriter(new ListFileWriter(this))
+    , m_localTimetickBuffer(LocalTimetickBufferSize)
 {
     m_d->m_q = this;
+    m_d->m_readoutWorker = parent;
+}
+
+VMUSBBufferProcessor::~VMUSBBufferProcessor()
+{
+    delete m_d;
 }
 
 void VMUSBBufferProcessor::beginRun()
@@ -305,7 +310,7 @@ void VMUSBBufferProcessor::beginRun()
     Q_ASSERT(m_filledBufferQueue);
     Q_ASSERT(m_d->m_outputBuffer == nullptr);
 
-    m_vmusb = dynamic_cast<VMUSB *>(m_context->getController());
+    m_vmusb = qobject_cast<VMUSB *>(m_d->m_readoutWorker->getContext().controller);
 
     if (!m_vmusb)
     {
@@ -316,102 +321,9 @@ void VMUSBBufferProcessor::beginRun()
 
     resetRunState();
 
-    auto outputInfo = m_context->getListFileOutputInfo();
-    QString outPath = m_context->getListFileOutputDirectoryFullPath();
-    bool listFileOutputEnabled = outputInfo.enabled;
-    auto runInfo = m_context->getRunInfo();
-
-    // TODO: this needs to move into some generic listfile handler!
-    if (listFileOutputEnabled && !outPath.isEmpty())
-    {
-        delete m_d->m_listFileOut;
-        m_d->m_listFileOut = nullptr;
-
-        switch (outputInfo.format)
-        {
-            case ListFileFormat::Plain:
-                {
-                    QFile *outFile = new QFile;
-                    m_d->m_listFileOut = outFile;
-                    QString outFilename = outPath + '/' + runInfo.runId + ".mvmelst";
-                    outFile->setFileName(outFilename);
-
-                    logMessage(QString("Writing to listfile %1").arg(outFilename));
-
-                    if (outFile->exists())
-                    {
-                        throw QString("Error: listFile %1 exists");
-                    }
-
-                    if (!outFile->open(QIODevice::WriteOnly))
-                    {
-                        throw QString("Error opening listFile %1 for writing: %2")
-                            .arg(outFile->fileName())
-                            .arg(outFile->errorString())
-                            ;
-                    }
-
-                    m_listFileWriter->setOutputDevice(outFile);
-                    getStats()->listfileFilename = outFilename;
-                } break;
-
-            case ListFileFormat::ZIP:
-                {
-                    QString outFilename = outPath + '/' + runInfo.runId + ".zip";
-                    m_d->m_listFileArchive.setZipName(outFilename);
-                    m_d->m_listFileArchive.setZip64Enabled(true);
-
-                    logMessage(QString("Writing listfile into %1").arg(outFilename));
-
-                    if (!m_d->m_listFileArchive.open(QuaZip::mdCreate))
-                    {
-                        throw make_zip_error(m_d->m_listFileArchive.getZipName(), m_d->m_listFileArchive);
-                    }
-
-                    auto outFile = new QuaZipFile(&m_d->m_listFileArchive);
-                    m_d->m_listFileOut = outFile;
-
-                    QuaZipNewInfo zipFileInfo("listfile.mvmelst");
-                    zipFileInfo.setPermissions(static_cast<QFile::Permissions>(0x6644));
-
-                    bool res = outFile->open(QIODevice::WriteOnly, zipFileInfo,
-                                             // password, crc
-                                             nullptr, 0,
-                                             // method (Z_DEFLATED or 0 for no compression)
-                                             Z_DEFLATED,
-                                             // level
-                                             outputInfo.compressionLevel
-                                            );
-
-                    if (!res)
-                    {
-                        delete m_d->m_listFileOut;
-                        m_d->m_listFileOut = nullptr;
-                        throw make_zip_error(m_d->m_listFileArchive.getZipName(), m_d->m_listFileArchive);
-                    }
-
-                    m_listFileWriter->setOutputDevice(m_d->m_listFileOut);
-                    getStats()->listfileFilename = outFilename;
-
-                } break;
-
-            InvalidDefaultCase;
-        }
-
-
-        QJsonObject daqConfigJson;
-        m_context->getVMEConfig()->write(daqConfigJson);
-        QJsonObject configJson;
-        configJson["DAQConfig"] = daqConfigJson;
-        QJsonDocument doc(configJson);
-
-        if (!m_listFileWriter->writePreamble() || !m_listFileWriter->writeConfig(doc.toJson()))
-        {
-            throw_io_device_error(m_d->m_listFileOut);
-        }
-
-        getStats()->listFileBytesWritten = m_listFileWriter->bytesWritten();
-    }
+    delete m_d->m_listfileHelper;
+    m_d->m_listfileHelper = new DAQReadoutListfileHelper(m_d->m_readoutWorker->getContext(), this);
+    m_d->m_listfileHelper->beginRun();
 
 #ifdef WRITE_BUFFER_LOG
     m_d->m_bufferLogFile = new QFile("buffer.log", this);
@@ -424,8 +336,7 @@ void VMUSBBufferProcessor::endRun()
     if (m_d->m_outputBuffer && m_d->m_outputBuffer != &m_localEventBuffer)
     {
         // Return buffer to the free queue
-        QMutexLocker lock(&m_freeBufferQueue->mutex);
-        m_freeBufferQueue->queue.enqueue(m_d->m_outputBuffer);
+        enqueue(m_freeBufferQueue, m_d->m_outputBuffer);
         m_d->m_outputBuffer = nullptr;
     }
 
@@ -434,107 +345,12 @@ void VMUSBBufferProcessor::endRun()
     m_d->m_bufferLogFile = nullptr;
 #endif
 
-    if (m_d->m_listFileOut && m_d->m_listFileOut->isOpen())
-    {
-        if (!m_listFileWriter->writeEndSection())
-        {
-            throw_io_device_error(m_d->m_listFileOut);
-        }
-
-        getStats()->listFileBytesWritten = m_listFileWriter->bytesWritten();
-
-        m_d->m_listFileOut->close();
-
-        auto outputInfo = m_context->getListFileOutputInfo();
-
-        // TODO: more error reporting here (file I/O)
-        switch (outputInfo.format)
-        {
-            case ListFileFormat::Plain:
-                {
-                    // Write a Logfile
-                    QFile *listFileOut = qobject_cast<QFile *>(m_d->m_listFileOut);
-                    Q_ASSERT(listFileOut);
-                    QString logFileName = listFileOut->fileName();
-                    logFileName.replace(".mvmelst", ".log");
-                    QFile logFile(logFileName);
-                    if (logFile.open(QIODevice::WriteOnly))
-                    {
-                        auto messages = m_context->getLogBuffer();
-                        for (const auto &msg: messages)
-                        {
-                            logFile.write(msg.toLocal8Bit());
-                            logFile.write("\n");
-                        }
-                    }
-                } break;
-
-            case ListFileFormat::ZIP:
-                {
-
-                    // Logfile
-                    {
-                        QuaZipNewInfo info("messages.log");
-                        info.setPermissions(static_cast<QFile::Permissions>(0x6644));
-                        QuaZipFile outFile(&m_d->m_listFileArchive);
-
-                        bool res = outFile.open(QIODevice::WriteOnly, info,
-                                                // password, crc
-                                                nullptr, 0,
-                                                // method (Z_DEFLATED or 0 for no compression)
-                                                0,
-                                                // level
-                                                outputInfo.compressionLevel
-                                               );
-
-                        if (res)
-                        {
-                            auto messages = m_context->getLogBuffer();
-                            for (const auto &msg: messages)
-                            {
-                                outFile.write(msg.toLocal8Bit());
-                                outFile.write("\n");
-                            }
-                        }
-                    }
-
-                    // Analysis
-                    {
-                        QuaZipNewInfo info("analysis.analysis");
-                        info.setPermissions(static_cast<QFile::Permissions>(0x6644));
-                        QuaZipFile outFile(&m_d->m_listFileArchive);
-
-                        bool res = outFile.open(QIODevice::WriteOnly, info,
-                                                // password, crc
-                                                nullptr, 0,
-                                                // method (Z_DEFLATED or 0 for no compression)
-                                                0,
-                                                // level
-                                                outputInfo.compressionLevel
-                                               );
-
-                        if (res)
-                        {
-                            outFile.write(m_context->getAnalysisJsonDocument().toJson());
-                        }
-                    }
-
-                    m_d->m_listFileArchive.close();
-
-                    if (m_d->m_listFileArchive.getZipError() != UNZ_OK)
-                    {
-                        throw make_zip_error(m_d->m_listFileArchive.getZipName(), m_d->m_listFileArchive);
-                    }
-                } break;
-
-                InvalidDefaultCase;
-        }
-    }
+    m_d->m_listfileHelper->endRun();
 }
 
 void VMUSBBufferProcessor::resetRunState()
 {
-    auto eventConfigs = m_context->getEventConfigs();
+    auto eventConfigs = m_d->m_readoutWorker->getContext().vmeConfig->getEventConfigs();
     m_eventConfigByStackID.clear();
 
     for (auto config: eventConfigs)
@@ -661,24 +477,13 @@ void VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
                 //
                 // FlushBuffer
                 //
-
-                if (m_d->m_listFileOut && m_d->m_listFileOut->isOpen())
-                {
-                    if (!m_listFileWriter->writeBuffer(reinterpret_cast<const char *>(outputBuffer->data),
-                                                       outputBuffer->used))
-                    {
-                        throw_io_device_error(m_d->m_listFileOut);
-                    }
-                    getStats()->listFileBytesWritten = m_listFileWriter->bytesWritten();
-                }
+                Q_ASSERT(m_d->m_listfileHelper);
+                m_d->m_listfileHelper->writeBuffer(outputBuffer);
 
                 if (outputBuffer != &m_localEventBuffer)
                 {
                     // It's not the local buffer -> put it into the queue of filled buffers
-                    m_filledBufferQueue->mutex.lock();
-                    m_filledBufferQueue->queue.enqueue(outputBuffer);
-                    m_filledBufferQueue->mutex.unlock();
-                    m_filledBufferQueue->wc.wakeOne();
+                    enqueue_and_wakeOne(m_filledBufferQueue, outputBuffer);
                 }
                 else
                 {
@@ -776,8 +581,7 @@ void VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
     if (outputBuffer && outputBuffer != &m_localEventBuffer)
     {
         // Put the buffer back onto the free queue
-        QMutexLocker lock(&m_freeBufferQueue->mutex);
-        m_freeBufferQueue->queue.enqueue(outputBuffer);
+        enqueue(m_freeBufferQueue, outputBuffer);
         m_d->m_outputBuffer = nullptr;
     }
 }
@@ -912,7 +716,8 @@ u32 VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputB
         outputBuffer->used += sizeof(u32);
 
         /* Store the event index in the header. */
-        int configEventIndex = m_context->getEventConfigs().indexOf(eventConfig);
+        // FIXME: store the list of event configs in Private and speed up the lookup somehow
+        int configEventIndex = m_d->m_readoutWorker->getContext().vmeConfig->getEventConfigs().indexOf(eventConfig);
         *mvmeEventHeader = (ListfileSections::SectionType_Event << LF::SectionTypeShift) & LF::SectionTypeMask;
         *mvmeEventHeader |= (configEventIndex << LF::EventTypeShift) & LF::EventTypeMask;
 
@@ -952,7 +757,7 @@ u32 VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputB
                 ++state->moduleIndex;
             }
 
-            state->moduleSize  = 0;
+            state->moduleSize = 0;
             state->moduleHeaderOffset = outputBuffer->used;
 
             if (state->moduleIndex >= eventConfig->modules.size())
@@ -988,6 +793,9 @@ u32 VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputB
                 ;
 #endif
         }
+
+        Q_ASSERT(state->moduleIndex >= 0);
+        Q_ASSERT(state->moduleHeaderOffset >= 0);
 
         s32 moduleIndex = state->moduleIndex;
 
@@ -1206,21 +1014,63 @@ u32 VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputB
 
 DataBuffer* VMUSBBufferProcessor::getFreeBuffer()
 {
-    DataBuffer *result = nullptr;
-
-    QMutexLocker lock(&m_freeBufferQueue->mutex);
-    if (!m_freeBufferQueue->queue.isEmpty())
-        result = m_freeBufferQueue->queue.dequeue();
-
-    return result;
+    return dequeue(m_freeBufferQueue);
 }
 
 DAQStats *VMUSBBufferProcessor::getStats()
 {
-    return &m_context->getDAQStats();
+    return m_d->m_readoutWorker->getContext().daqStats;
 }
 
 void VMUSBBufferProcessor::logMessage(const QString &message)
 {
-    m_context->logMessage(message);
+    m_d->m_readoutWorker->getContext().logMessage(message);
+}
+
+/* Called every second by VMUSBReadoutWorker. Generates a SectionType_Timetick
+ * section and writes it to the listfile. Tries to use a buffer from the free
+ * queue, if none is available the m_localTimetickBuffer will be used instead.
+ *
+ * Note: This must not reuse m_localEventBuffer and it must not use
+ * getOutputBuffer() to obtain a free buffer as partial event handling might be
+ * in the process of building up a complete event using one of those buffers.
+ */
+void VMUSBBufferProcessor::timetick()
+{
+    using LF = listfile_v1;
+
+    #ifdef BPDEBUG
+    qDebug() << __PRETTY_FUNCTION__ << QTime::currentTime() << "timetick";
+    #endif
+
+    DataBuffer *outputBuffer = getFreeBuffer();
+
+    if (!outputBuffer)
+    {
+        outputBuffer = &m_localTimetickBuffer;
+    }
+
+    Q_ASSERT(outputBuffer->size >= sizeof(u32));
+
+    *outputBuffer->asU32(0) = (ListfileSections::SectionType_Timetick << LF::SectionTypeShift) & LF::SectionTypeMask;
+    outputBuffer->used = sizeof(u32);
+
+    Q_ASSERT(m_d->m_listfileHelper);
+    m_d->m_listfileHelper->writeBuffer(outputBuffer);
+
+    if (outputBuffer != &m_localTimetickBuffer)
+    {
+        // It's not the local buffer -> put it into the queue of filled buffers
+        enqueue_and_wakeOne(m_filledBufferQueue, outputBuffer);
+        #ifdef BPDEBUG
+        qDebug() << "\t timetick passed to analysis";
+        #endif
+    }
+    else
+    {
+        #ifdef BPDEBUG
+        qDebug() << "\t timetick dropped before analysis";
+        #endif
+        getStats()->droppedBuffers++;
+    }
 }

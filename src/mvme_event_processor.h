@@ -20,8 +20,8 @@
 #define UUID_2aee2ea6_9760_46db_8d90_4dad1e4d019f
 
 #include "typedefs.h"
-#include "threading.h"
 #include "globals.h"
+#include "data_buffer_queue.h"
 #include <QHash>
 #include <QObject>
 #include <QVector>
@@ -53,28 +53,22 @@ class MVMEEventProcessor: public QObject
         void setDiagnostics(MesytecDiagnostics *diag);
         MesytecDiagnostics *getDiagnostics() const;
 
-        // Returns a deep copy of the hash to avoid threading issues.
-        DualWordFilterValues getDualWordFilterValues() const;
-
-        // Returns a hash of the most recent differences of dual word filter values.
-        DualWordFilterDiffs getDualWordFilterDiffs() const;
-
         EventProcessorState getState() const;
 
         void setListFileVersion(u32 version);
 
-        ThreadSafeDataBufferQueue *m_freeBufferQueue = nullptr;
-        ThreadSafeDataBufferQueue *m_filledBufferQueue = nullptr;
+        ThreadSafeDataBufferQueue *m_freeBuffers = nullptr;
+        ThreadSafeDataBufferQueue *m_fullBuffers = nullptr;
 
     public slots:
         void removeDiagnostics();
-        void newRun();
-        void processDataBuffer(DataBuffer *buffer);
+        void newRun(const RunInfo &runInfo);
 
         void startProcessing();
         void stopProcessing(bool whenQueueEmpty = true);
 
     private:
+        void processDataBuffer(DataBuffer *buffer);
         MVMEEventProcessorPrivate *m_d;
 };
 
