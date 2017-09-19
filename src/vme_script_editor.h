@@ -51,6 +51,10 @@ class VMEScriptEditor: public MVMEWidget
         void saveToFile();
         void apply();
         void revert();
+        void search();
+        void onSearchTextEdited(const QString &text);
+        void findNext(bool hasWrapped = false);
+        void findPrev();
 
         virtual void closeEvent(QCloseEvent *event);
 

@@ -32,8 +32,29 @@ struct ThreadSafeQueue
     QWaitCondition wc;
 };
 
-class DataBuffer;
+template<typename T>
+void enqueue(ThreadSafeQueue<T> *tsq, T obj)
+{
+    QMutexLocker lock(&tsq->mutex);
+    tsq->queue.enqueue(obj);
+}
 
-using ThreadSafeDataBufferQueue = ThreadSafeQueue<DataBuffer *>;
+template<typename T>
+void enqueue_and_wakeOne(ThreadSafeQueue<T> *tsq, T obj)
+{
+    tsq->mutex.lock();
+    tsq->queue.enqueue(obj);
+    tsq->mutex.unlock();
+    tsq->wc.wakeOne();
+}
+
+template<typename T>
+T dequeue(ThreadSafeQueue<T> *tsq)
+{
+    QMutexLocker lock(&tsq->mutex);
+    if (!tsq->queue.isEmpty())
+        return tsq->queue.dequeue();
+    return T();
+}
 
 #endif /* __THREADING_H__ */

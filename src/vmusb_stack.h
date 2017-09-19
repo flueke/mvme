@@ -46,6 +46,8 @@ class VMUSBStack
                     return 1;
                 case TriggerCondition::Interrupt:
                     return m_stackID;
+
+                InvalidDefaultCase
             }
             return 0;
         }

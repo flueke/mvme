@@ -26,8 +26,8 @@
 #include <QtMath>
 #include <QElapsedTimer>
 
-#include <quazip/quazip.h>
-#include <quazip/quazipfile.h>
+#include <quazip.h>
+#include <quazipfile.h>
 
 #include "threading.h"
 
@@ -84,8 +84,9 @@ void dump_mvme_buffer(QTextStream &out, const DataBuffer *eventBuffer, bool dump
         out << "eventBuffer: " << eventBuffer << ", used=" << eventBuffer->used
             << ", size=" << eventBuffer->size
             << endl;
-        out << buf.sprintf("sectionHeader=0x%08x, sectionType=%d, sectionSize=%u\n",
-                           sectionHeader, sectionType, sectionSize);
+        out << buf.sprintf("sectionHeader=0x%08x, sectionType=%d, sectionSize=%u",
+                           sectionHeader, sectionType, sectionSize)
+            << endl;
 
         switch (sectionType)
         {
@@ -98,8 +99,9 @@ void dump_mvme_buffer(QTextStream &out, const DataBuffer *eventBuffer, bool dump
             case SectionType_Event:
                 {
                     u32 eventType = (sectionHeader & LF::EventTypeMask) >> LF::EventTypeShift;
-                    out << buf.sprintf("Event section: eventHeader=0x%08x, eventType=%d, eventSize=%u\n",
-                                       sectionHeader, eventType, sectionSize);
+                    out << buf.sprintf("Event section: eventHeader=0x%08x, eventType=%d, eventSize=%u",
+                                       sectionHeader, eventType, sectionSize)
+                        << endl;
 
                     u32 wordsLeft = sectionSize;
 
@@ -110,20 +112,21 @@ void dump_mvme_buffer(QTextStream &out, const DataBuffer *eventBuffer, bool dump
                         u32 moduleType = (subEventHeader & LF::ModuleTypeMask) >> LF::ModuleTypeShift;
                         u32 subEventSize = (subEventHeader & LF::SubEventSizeMask) >> LF::SubEventSizeShift;
 
-                        out << buf.sprintf("  subEventHeader=0x%08x, moduleType=%u, subEventSize=%u\n",
-                                           subEventHeader, moduleType, subEventSize);
+                        out << buf.sprintf("  subEventHeader=0x%08x, moduleType=%u, subEventSize=%u",
+                                           subEventHeader, moduleType, subEventSize)
+                            << endl;
 
                         for (u32 i=0; i<subEventSize; ++i)
                         {
                             u32 subEventData = iter.extractU32();
                             if (dumpData)
-                                out << buf.sprintf("    %u = 0x%08x\n", i, subEventData);
+                                out << buf.sprintf("    %u = 0x%08x", i, subEventData) << endl;
                         }
                         wordsLeft -= subEventSize;
                     }
 
                     u32 eventEndMarker = iter.extractU32();
-                    out << buf.sprintf("   eventEndMarker=0x%08x\n", eventEndMarker);
+                    out << buf.sprintf("   eventEndMarker=0x%08x", eventEndMarker) << endl;
                 } break;
 
             default:
@@ -217,7 +220,7 @@ QString ListFile::getFileName() const
     }
     else if (auto inZipFile = qobject_cast<QuaZipFile *>(m_input))
     {
-        return inZipFile->getZipName();
+        return inZipFile->getZipName() + QSL(":") + inZipFile->getFileName();
     }
 
     InvalidCodePath;
@@ -500,8 +503,8 @@ void ListFileReader::setEventsToRead(u32 eventsToRead)
 
 void ListFileReader::start()
 {
-    Q_ASSERT(m_freeBufferQueue);
-    Q_ASSERT(m_filledBufferQueue);
+    Q_ASSERT(m_freeBuffers);
+    Q_ASSERT(m_fullBuffers);
     Q_ASSERT(m_state == DAQState::Idle);
 
     if (m_state != DAQState::Idle || !m_listFile)
@@ -579,12 +582,12 @@ void ListFileReader::mainLoop()
             DataBuffer *buffer = nullptr;
 
             {
-                QMutexLocker lock(&m_freeBufferQueue->mutex);
-                while (m_freeBufferQueue->queue.isEmpty())
+                QMutexLocker lock(&m_freeBuffers->mutex);
+                while (m_freeBuffers->queue.isEmpty())
                 {
-                    m_freeBufferQueue->wc.wait(&m_freeBufferQueue->mutex, FreeBufferWaitTimeout_ms);
+                    m_freeBuffers->wc.wait(&m_freeBuffers->mutex, FreeBufferWaitTimeout_ms);
                 }
-                buffer = m_freeBufferQueue->queue.dequeue();
+                buffer = m_freeBuffers->queue.dequeue();
             }
             // The mutex is unlocked again at this point
 
@@ -669,8 +672,8 @@ void ListFileReader::mainLoop()
                 // Reading did not succeed. Put the previously acquired buffer
                 // back into the free queue. No need to notfiy the wait
                 // condition as there's no one else waiting on it.
-                QMutexLocker lock(&m_freeBufferQueue->mutex);
-                m_freeBufferQueue->queue.enqueue(buffer);
+                QMutexLocker lock(&m_freeBuffers->mutex);
+                m_freeBuffers->queue.enqueue(buffer);
 
                 setState(DAQState::Stopping);
             }
@@ -684,10 +687,10 @@ void ListFileReader::mainLoop()
                     logMessage("<<< End buffer");
                 }
                 // Push the valid buffer onto the output queue.
-                m_filledBufferQueue->mutex.lock();
-                m_filledBufferQueue->queue.enqueue(buffer);
-                m_filledBufferQueue->mutex.unlock();
-                m_filledBufferQueue->wc.wakeOne();
+                m_fullBuffers->mutex.lock();
+                m_fullBuffers->queue.enqueue(buffer);
+                m_fullBuffers->mutex.unlock();
+                m_fullBuffers->wc.wakeOne();
             }
         }
         // paused
@@ -739,7 +742,11 @@ ListFileWriter::ListFileWriter(QIODevice *outputDevice, QObject *parent)
 
 void ListFileWriter::setOutputDevice(QIODevice *device)
 {
-    m_out = device;
+    if (m_out != device)
+    {
+        m_out = device;
+        m_bytesWritten = 0;
+    }
 }
 
 bool ListFileWriter::writePreamble()
@@ -814,11 +821,11 @@ bool ListFileWriter::writeBuffer(const char *buffer, size_t size)
     return false;
 }
 
-bool ListFileWriter::writeEndSection()
+bool ListFileWriter::writeEmptySection(SectionType sectionType)
 {
     using LF = listfile_v1;
 
-    u32 header = (SectionType_End << LF::SectionTypeShift) & LF::SectionTypeMask;
+    u32 header = (sectionType << LF::SectionTypeShift) & LF::SectionTypeMask;
 
     if (m_out->write((const char *)&header, sizeof(header)) != sizeof(header))
         return false;
@@ -826,4 +833,14 @@ bool ListFileWriter::writeEndSection()
     m_bytesWritten += sizeof(header);
 
     return true;
+}
+
+bool ListFileWriter::writeEndSection()
+{
+    return writeEmptySection(SectionType_End);
+}
+
+bool ListFileWriter::writeTimetickSection()
+{
+    return writeEmptySection(SectionType_Timetick);
 }

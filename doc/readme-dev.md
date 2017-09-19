@@ -11,6 +11,9 @@
     $ cmake -DCMAKE_BUILD_TYPE=Debug ../mvme2
     $ make -j4
 
+## Archlinux packages:
+`cmake qt5-base quazip libusb-compat qwt`
+
 ### CMake Options
 * `BUILD_DOCS=ON|OFF`
   If enabled the doc subdirectory is included. CMake will look for Sphinx, if

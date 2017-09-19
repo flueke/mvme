@@ -959,8 +959,8 @@ void Histo1DWidget::mouseCursorLeftPlot()
 
 void Histo1DWidget::updateStatistics()
 {
-    double lowerBound = qFloor(m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).lowerBound());
-    double upperBound = qCeil(m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).upperBound());
+    double lowerBound = std::floor(m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).lowerBound());
+    double upperBound = std::ceil(m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).upperBound());
 
     m_stats = m_histo->calcStatistics(lowerBound, upperBound);
 
@@ -976,6 +976,8 @@ void Histo1DWidget::updateStatistics()
         );
 
     double maxBinCenter = (m_stats.entryCount > 0) ? m_histo->getBinCenter(m_stats.maxBin) : 0.0;
+    //double maxBinLo     = (m_stats.entryCount > 0) ? m_histo->getBinLowEdge(m_stats.maxBin) : 0.0;
+    //double maxBinHi     = (m_stats.entryCount > 0) ? maxBinLo + m_histo->getBinWidth() : 0.0;
 
     static const int fieldWidth = 0;
     QString buffer = textTemplate
@@ -985,6 +987,8 @@ void Histo1DWidget::updateStatistics()
         .arg(maxBinCenter, fieldWidth)
         .arg(m_stats.maxValue, fieldWidth)
         .arg(m_stats.entryCount, fieldWidth)
+        //.arg(maxBinLo, fieldWidth)
+        //.arg(maxBinHi, fieldWidth)
         ;
 
     m_statsText->setText(buffer, QwtText::RichText);

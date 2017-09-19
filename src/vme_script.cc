@@ -22,6 +22,7 @@
 
 #include <QFile>
 #include <QTextStream>
+#include <QRegExp>
 #include <QRegularExpression>
 #include <QTextEdit>
 #include <QApplication>
@@ -350,9 +351,52 @@ static const QMap<QString, CommandParser> commandParsers =
     { QSL("resetbase"),     parseResetBase },
 };
 
-Command parse_line(QString line, int lineNumber)
+static QString handle_multiline_comments(QString line, bool &in_multiline_comment)
+{
+    QString result;
+    result.reserve(line.size());
+
+    s32 i = 0;
+
+    while (i < line.size())
+    {
+        auto mid_ref = line.midRef(i, 2);
+
+        if (in_multiline_comment)
+        {
+            if (mid_ref == "*/")
+            {
+                in_multiline_comment = false;
+                i += 2;
+            }
+            else
+            {
+                ++i;
+            }
+        }
+        else
+        {
+            if (mid_ref == "/*")
+            {
+                in_multiline_comment = true;
+                i += 2;
+            }
+            else
+            {
+                result.append(line.at(i));
+                ++i;
+            }
+        }
+    }
+
+    return result;
+}
+
+static Command parse_line(QString line, int lineNumber, bool &in_multiline_comment)
 {
     Command result;
+
+    line = handle_multiline_comments(line, in_multiline_comment);
 
     int startOfComment = line.indexOf('#');
 
@@ -437,6 +481,7 @@ VMEScript parse(QTextStream &input, uint32_t baseAddress)
     VMEScript result;
     int lineNumber = 0;
     const u32 originalBaseAddress = baseAddress;
+    bool in_multiline_comment = false;
 
     while (true)
     {
@@ -446,7 +491,7 @@ VMEScript parse(QTextStream &input, uint32_t baseAddress)
         if (line.isNull())
             break;
 
-        auto cmd = parse_line(line, lineNumber);
+        auto cmd = parse_line(line, lineNumber, in_multiline_comment);
 
         /* FIXME: CommandTypes SetBase and ResetBase are handled directly in
          * here by modifying other commands before they are pushed onto result.
@@ -591,7 +636,7 @@ QString to_string(const Command &cmd)
 
         case CommandType::Marker:
             {
-                buffer = QString("marker %1")
+                buffer = QString("marker 0x%1")
                     .arg(cmd.value, 8, 16, QChar('0'));
             } break;
 
@@ -693,12 +738,40 @@ uint8_t amod_from_AddressMode(AddressMode mode, bool blt, bool mblt)
     return 0;
 }
 
+/* Adapted from the QSyntaxHighlighter documentation. */
 void SyntaxHighlighter::highlightBlock(const QString &text)
 {
     static const QRegularExpression reComment("#.*$");
+    static const QRegExp reMultiStart("/\\*");
+    static const QRegExp reMultiEnd("\\*/");
 
     QTextCharFormat commentFormat;
     commentFormat.setForeground(Qt::blue);
+
+    setCurrentBlockState(0);
+
+    int startIndex = 0;
+    if (previousBlockState() != 1)
+    {
+        startIndex = text.indexOf(reMultiStart);
+    }
+
+    while (startIndex >= 0)
+    {
+        int endIndex = text.indexOf(reMultiEnd, startIndex);
+        int commentLength;
+        if (endIndex == -1)
+        {
+            setCurrentBlockState(1);
+            commentLength = text.length() - startIndex;
+        }
+        else
+        {
+            commentLength = endIndex - startIndex + reMultiEnd.matchedLength() + 3;
+        }
+        setFormat(startIndex, commentLength, commentFormat);
+        startIndex = text.indexOf(reMultiStart, startIndex + commentLength);
+    }
 
     QRegularExpressionMatch match;
     int index = text.indexOf(reComment, 0, &match);
@@ -796,6 +869,7 @@ Result run_command(VMEController *controller, const Command &cmd, LoggerFun logg
 
         case CommandType::Marker:
             {
+                result.value = cmd.value;
             } break;
 
         case CommandType::BLT:
@@ -979,8 +1053,10 @@ QString format_result(const Result &result)
             break;
 
         case CommandType::Read:
-            ret += QString(" -> 0x%1")
-                .arg(result.value, 8, 16, QChar('0'));
+            ret += QString(" -> 0x%1, %2")
+                .arg(result.value, 8, 16, QChar('0'))
+                .arg(result.value)
+                ;
             break;
 
         case CommandType::BLT:

@@ -24,9 +24,10 @@
 #include "histo1d.h"
 #include "histo2d.h"
 #include "../globals.h"
-#include "../3rdparty/pcg-cpp-0.98/include/pcg_random.hpp"
 
 #include <memory>
+#include <pcg_random.hpp>
+#include <QMutex>
 #include <QUuid>
 #include <qwt_interval.h>
 
@@ -427,6 +428,8 @@ class Extractor: public SourceInterface
         virtual QString getDisplayName() const override { return QSL("Filter Extractor"); }
         virtual QString getShortName() const override { return QSL("Ext"); }
 
+        QVector<double> getHitCounts() const;
+
         // configuration
         MultiWordDataFilter m_filter;
         u32 m_requiredCompletionCount = 1;
@@ -435,6 +438,10 @@ class Extractor: public SourceInterface
 
         // state
         u32 m_currentCompletionCount = 0;
+
+        // number of times the filter yielded data for each address
+        QVector<double> m_hitCounts;
+        mutable QMutex m_hitCountsMutex;
 
         pcg32_fast m_rng;
         Pipe m_output;
@@ -871,6 +878,57 @@ class RectFilter2D: public OperatorInterface
         Op m_op = OpAnd;
 };
 
+class BinarySumDiff: public OperatorInterface
+{
+    Q_OBJECT
+    Q_INTERFACES(analysis::OperatorInterface)
+    public:
+        BinarySumDiff(QObject *parent = 0);
+
+        virtual void beginRun(const RunInfo &runInfo) override;
+        virtual void step() override;
+
+        // Inputs
+        virtual s32 getNumberOfSlots() const override;
+        virtual Slot *getSlot(s32 slotIndex) override;
+
+        // Outputs
+        virtual s32 getNumberOfOutputs() const override;
+        virtual QString getOutputName(s32 outputIndex) const override;
+        virtual Pipe *getOutput(s32 index) override;
+
+        // Serialization
+        virtual void read(const QJsonObject &json) override;
+        virtual void write(QJsonObject &json) const override;
+
+        // Info
+        virtual QString getDisplayName() const override { return QSL("Binary Sum/Diff Equations"); }
+        virtual QString getShortName() const override { return QSL("BinSumDiff"); }
+
+        s32 getNumberOfEquations() const;
+        QString getEquationDisplayString(s32 index) const;
+        void setEquation(s32 index) { m_equationIndex = index; }
+        s32 getEquation() const { return m_equationIndex; }
+
+        void setOutputUnitLabel(const QString &label) { m_outputUnitLabel = label; }
+        QString getOutputUnitLabel() const { return m_outputUnitLabel; }
+
+        void setOutputLowerLimit(double limit) { m_outputLowerLimit = limit; }
+        void setOutputUpperLimit(double limit) { m_outputUpperLimit = limit; }
+
+        double getOutputLowerLimit() const { return m_outputLowerLimit; }
+        double getOutputUpperLimit() const { return m_outputUpperLimit; }
+
+    private:
+        Slot m_inputA;
+        Slot m_inputB;
+        Pipe m_output;
+        s32 m_equationIndex;
+        QString m_outputUnitLabel;
+        double m_outputLowerLimit;
+        double m_outputUpperLimit;
+};
+
 //
 // Sinks
 //
@@ -1149,6 +1207,8 @@ class Analysis: public QObject
         void beginEvent(const QUuid &eventId);
         void processDataWord(const QUuid &eventId, const QUuid &moduleId, u32 data, s32 wordIndex);
         void endEvent(const QUuid &eventId);
+        // Called once for every SectionType_Timetick section
+        void processTimetick();
 
         const QVector<SourceEntry> &getSources() const { return m_sources; }
         QVector<SourceEntry> &getSources() { return m_sources; }
@@ -1230,6 +1290,7 @@ class Analysis: public QObject
         s32 getMaxUserLevel() const;
         s32 getMaxUserLevel(const QUuid &eventId) const;
         size_t getTotalSinkStorageSize() const;
+        double getTimetickCount() const;
 
         Registry &getRegistry() { return m_registry; }
 
@@ -1257,6 +1318,7 @@ class Analysis: public QObject
 
         bool m_modified;
         RunInfo m_runInfo;
+        double m_timetickCount;
 };
 
 struct RawDataDisplay

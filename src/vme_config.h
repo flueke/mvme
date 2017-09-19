@@ -127,6 +127,7 @@ class VMEScriptConfig: public ConfigObject
         { return m_script; }
 
         void setScriptContents(const QString &);
+        void addToScript(const QString &str);
 
         vme_script::VMEScript getScript(u32 baseAddress = 0) const;
 
@@ -178,8 +179,8 @@ class EventConfig: public ConfigObject
 {
     Q_OBJECT
     signals:
-    void moduleAdded(ModuleConfig *module);
-    void moduleAboutToBeRemoved(ModuleConfig *module);
+        void moduleAdded(ModuleConfig *module);
+        void moduleAboutToBeRemoved(ModuleConfig *module);
 
     public:
         EventConfig(QObject *parent = nullptr);
@@ -205,12 +206,13 @@ class EventConfig: public ConfigObject
         }
 
         QList<ModuleConfig *> getModuleConfigs() const { return modules; }
+        TriggerCondition triggerCondition = TriggerCondition::Interrupt;
+        QVariantMap triggerOptions = QVariantMap();
 
-        TriggerCondition triggerCondition = TriggerCondition::NIM1;
         uint8_t irqLevel = 0;
         uint8_t irqVector = 0;
         // Maximum time between scaler stack executions in units of 0.5s
-        uint8_t scalerReadoutPeriod = 0;
+        uint8_t scalerReadoutPeriod = 2;
         // Maximum number of events between scaler stack executions
         uint16_t scalerReadoutFrequency = 0;
 
@@ -253,6 +255,7 @@ class VMEConfig: public ConfigObject
 
         ReadResult readVMEConfig(const QJsonObject &json);
 
+        // events
         void addEventConfig(EventConfig *config);
         bool removeEventConfig(EventConfig *config);
         bool contains(EventConfig *config);
@@ -261,10 +264,12 @@ class VMEConfig: public ConfigObject
         EventConfig *getEventConfig(const QString &name) const;
         EventConfig *getEventConfig(const QUuid &id) const;
 
+        // modules
         ModuleConfig *getModuleConfig(int eventIndex, int moduleIndex);
         QList<ModuleConfig *> getAllModuleConfigs() const;
         QPair<int, int> getEventAndModuleIndices(ModuleConfig *cfg) const;
 
+        // scripts
         void addGlobalScript(VMEScriptConfig *config, const QString &category);
         bool removeGlobalScript(VMEScriptConfig *config);
 
@@ -274,9 +279,18 @@ class VMEConfig: public ConfigObject
         QMap<QString, QList<VMEScriptConfig *>> vmeScriptLists;
         QList<EventConfig *> eventConfigs;
 
+        // vme controller
+        void setVMEController(VMEControllerType type, const QVariantMap &settings = QVariantMap());
+        VMEControllerType getControllerType() const { return m_controllerType; }
+        QVariantMap getControllerSettings() const { return m_controllerSettings; }
+
     protected:
         virtual void read_impl(const QJsonObject &json) override;
         virtual void write_impl(QJsonObject &json) const override;
+
+    private:
+        VMEControllerType m_controllerType = VMEControllerType::VMUSB;
+        QVariantMap m_controllerSettings;
 };
 
 #endif

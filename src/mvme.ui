@@ -51,6 +51,7 @@
     <addaction name="separator"/>
     <addaction name="actionAbout_mvme"/>
     <addaction name="actionAbout_Qt"/>
+    <addaction name="actionCheck_for_updates"/>
    </widget>
    <widget class="QMenu" name="menuWindow">
     <property name="title">
@@ -59,7 +60,6 @@
     <addaction name="actionMainWindow"/>
     <addaction name="actionAnalysis_UI"/>
     <addaction name="actionLog_Window"/>
-    <addaction name="actionVME_Debug"/>
     <addaction name="separator"/>
     <addaction name="separator"/>
    </widget>
@@ -67,6 +67,7 @@
     <property name="title">
      <string>&amp;Tools</string>
     </property>
+    <addaction name="actionVME_Debug"/>
     <addaction name="actionImport_Histo1D"/>
     <addaction name="actionVMUSB_Firmware_Update"/>
     <addaction name="actionTemplate_Info"/>
@@ -104,8 +105,8 @@
   </action>
   <action name="actionAbout_mvme">
    <property name="icon">
-    <iconset>
-     <normaloff>:/mesytec-window-icon.png</normaloff>:/mesytec-window-icon.png</iconset>
+    <iconset resource="resources.qrc">
+     <normaloff>:/window_icon.png</normaloff>:/window_icon.png</iconset>
    </property>
    <property name="text">
     <string>&amp;About mvme</string>
@@ -123,7 +124,7 @@
   </action>
   <action name="actionSaveVMEConfig">
    <property name="icon">
-    <iconset>
+    <iconset resource="resources.qrc">
      <normaloff>:/document-save.png</normaloff>:/document-save.png</iconset>
    </property>
    <property name="text">
@@ -135,7 +136,7 @@
   </action>
   <action name="actionOpenVMEConfig">
    <property name="icon">
-    <iconset>
+    <iconset resource="resources.qrc">
      <normaloff>:/document-open.png</normaloff>:/document-open.png</iconset>
    </property>
    <property name="text">
@@ -150,7 +151,7 @@
   </action>
   <action name="actionSaveVMEConfigAs">
    <property name="icon">
-    <iconset>
+    <iconset resource="resources.qrc">
      <normaloff>:/document-save-as.png</normaloff>:/document-save-as.png</iconset>
    </property>
    <property name="text">
@@ -165,7 +166,7 @@
   </action>
   <action name="actionNewVMEConfig">
    <property name="icon">
-    <iconset>
+    <iconset resource="resources.qrc">
      <normaloff>:/document-new.png</normaloff>:/document-new.png</iconset>
    </property>
    <property name="text">
@@ -200,7 +201,7 @@
   </action>
   <action name="actionVME_Debug">
    <property name="text">
-    <string>VME Debug</string>
+    <string>VME Debug Window</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+4</string>
@@ -221,7 +222,7 @@
   </action>
   <action name="actionVMEScriptRef">
    <property name="icon">
-    <iconset>
+    <iconset resource="resources.qrc">
      <normaloff>:/help.png</normaloff>:/help.png</iconset>
    </property>
    <property name="text">
@@ -289,9 +290,16 @@
     <string>VME/Analysis Template Info</string>
    </property>
   </action>
+  <action name="actionCheck_for_updates">
+   <property name="text">
+    <string>Check for updates</string>
+   </property>
+  </action>
  </widget>
  <layoutdefault spacing="6" margin="11"/>
- <resources/>
+ <resources>
+  <include location="resources.qrc"/>
+ </resources>
  <connections>
   <connection>
    <sender>actionAbout_mvme</sender>

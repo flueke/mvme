@@ -30,9 +30,15 @@
  * possible do not change the order of the enum! */
 enum class TriggerCondition
 {
-    NIM1,
-    Periodic,
-    Interrupt,
+    NIM1,               // VMUSB
+    Periodic,           // VMUSB and SIS3153
+    Interrupt,          // VMUSB and SIS3153
+    Input1RisingEdge,   // SIS3153
+    Input1FallingEdge,  // SIS3153
+    Input2RisingEdge,   // SIS3153
+    Input2FallingEdge   // SIS3153
+        // TODO: SIS3153 has Timer1 and Timer2
+        // But Timer2 might have to be used as a watchdog...
 };
 
 enum class DAQState
@@ -68,6 +74,10 @@ static const QMap<TriggerCondition, QString> TriggerConditionNames =
     { TriggerCondition::NIM1,       "NIM1" },
     { TriggerCondition::Periodic,   "Periodic" },
     { TriggerCondition::Interrupt,  "Interrupt" },
+    { TriggerCondition::Input1RisingEdge,   "Input 1 Rising Edge" },
+    { TriggerCondition::Input1FallingEdge,  "Input 1 Falling Edge" },
+    { TriggerCondition::Input2RisingEdge,   "Input 2 Rising Edge" },
+    { TriggerCondition::Input2FallingEdge,  "Input 2 Falling Edge" },
 };
 
 static const QMap<DAQState, QString> DAQStateStrings =
@@ -184,6 +194,32 @@ struct DAQStats
 struct RunInfo
 {
     QString runId;
+
+    /* Set to true to retain histogram contents across replays. Keeping the
+     * contents only works if the number of bins and the binning do not change
+     * between runs. If set to false all histograms will be cleared before the
+     * replay starts. */
+    bool keepAnalysisState = false;
+};
+
+enum class ListFileFormat
+{
+    Invalid,
+    Plain,
+    ZIP
+};
+
+QString toString(const ListFileFormat &fmt);
+ListFileFormat fromString(const QString &str);
+
+struct ListFileOutputInfo
+{
+    bool enabled;               // true if a listfile should be written
+    ListFileFormat format;      // the format to write
+    QString directory;          // Path to the output directory. If it's not a
+                                // full path it's relative to the workspace directory.
+    QString fullDirectory;      // Always the full path to the listfile output directory.
+    int compressionLevel;       // zlib compression level
 };
 
 #endif

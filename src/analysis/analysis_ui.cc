@@ -18,6 +18,7 @@
  */
 #include "analysis_ui.h"
 #include "analysis_ui_p.h"
+#include "analysis_util.h"
 #include "data_extraction_widget.h"
 
 #include "../mvme_context.h"
@@ -436,6 +437,7 @@ void EventWidgetTree::dropEvent(QDropEvent *event)
     }
 }
 
+/* Top (operator) and bottom (display) trees for one user level. */
 struct DisplayLevelTrees
 {
     EventWidgetTree *operatorTree;
@@ -483,7 +485,7 @@ struct EventWidgetPrivate
     // There's two sets, one for the operator trees and one for the display
     // trees, because objects may have nodes in both trees.
     std::array<SetOfVoidStar, TreeType_Count> m_expandedObjects;
-    QTimer *m_pipeDisplayRefreshTimer;
+    QTimer *m_displayRefreshTimer;
 
     // If set the trees for that user level will not be shown
     QVector<bool> m_hiddenUserLevels;
@@ -516,6 +518,7 @@ struct EventWidgetPrivate
     void clearTreeSelectionsExcept(QTreeWidget *tree);
     void generateDefaultFilters(ModuleConfig *module);
     PipeDisplay *makeAndShowPipeDisplay(Pipe *pipe);
+    void doPeriodicUpdate();
 
     // Returns the currentItem() of the tree widget that has focus.
     QTreeWidgetItem *getCurrentNode();
@@ -2025,13 +2028,100 @@ void EventWidgetPrivate::generateDefaultFilters(ModuleConfig *module)
 PipeDisplay *EventWidgetPrivate::makeAndShowPipeDisplay(Pipe *pipe)
 {
     auto widget = new PipeDisplay(pipe, m_q);
-    QObject::connect(m_pipeDisplayRefreshTimer, &QTimer::timeout, widget, &PipeDisplay::refresh);
+    QObject::connect(m_displayRefreshTimer, &QTimer::timeout, widget, &PipeDisplay::refresh);
     QObject::connect(pipe->source, &QObject::destroyed, widget, &QWidget::close);
     add_widget_close_action(widget);
     widget->move(QCursor::pos());
     widget->setAttribute(Qt::WA_DeleteOnClose);
     widget->show();
     return widget;
+}
+
+void EventWidgetPrivate::doPeriodicUpdate()
+{
+    //
+    // display trees (histo counts)
+    //
+    for (auto trees: m_levelTrees)
+    {
+        for (auto iter = QTreeWidgetItemIterator(trees.displayTree);
+             *iter; ++iter)
+        {
+
+            auto node(*iter);
+
+            if (node->type() == NodeType_Histo1D)
+            {
+                auto histo = getPointer<Histo1D>(node);
+                s32 address = node->data(0, DataRole_HistoAddress).toInt();
+                double entryCount = histo->getEntryCount();
+
+                QString numberString = QString("%1").arg(address, 2).replace(QSL(" "), QSL("&nbsp;"));
+
+                if (entryCount <= 0.0)
+                {
+                    node->setText(0, numberString);
+                }
+                else
+                {
+                    node->setText(0, QString("%1 (entries=%2)")
+                                  .arg(numberString)
+                                  .arg(entryCount));
+                }
+            }
+            else if (node->type() == NodeType_Histo2DSink)
+            {
+                auto sink = getPointer<Histo2DSink>(node);
+                double entryCount = sink->m_histo->getEntryCount();
+                if (entryCount <= 0.0)
+                {
+                    node->setText(0, QString("<b>%1</b> %2").arg(
+                            sink->getShortName(),
+                            sink->objectName()));
+                }
+                else
+                {
+                    node->setText(0, QString("<b>%1</b> %2 (entries=%3)").arg(
+                            sink->getShortName(),
+                            sink->objectName(),
+                            QString::number(entryCount)));
+                }
+            }
+        }
+    }
+
+    //
+    // level 0 operator tree (Extractor hitcounts)
+    //
+    {
+        for (auto iter = QTreeWidgetItemIterator(m_levelTrees[0].operatorTree);
+             *iter; ++iter)
+        {
+            auto node(*iter);
+
+            if (node->type() == NodeType_OutputPipeParameter)
+            {
+                auto outPipe = getPointer<Pipe>(node);
+                if (auto extractor = qobject_cast<Extractor *>(outPipe->getSource()))
+                {
+                    s32 address = node->data(0, DataRole_ParameterIndex).toInt();
+                    double hitCount = extractor->getHitCounts().value(address, 0.0);
+                    QString numberString = QString("%1").arg(address, 2).replace(QSL(" "), QSL("&nbsp;"));
+
+                    if (hitCount <= 0.0)
+                    {
+                        node->setText(0, numberString);
+                    }
+                    else
+                    {
+                        node->setText(0, QString("%1 (hits=%2)")
+                                      .arg(numberString)
+                                      .arg(hitCount));
+                    }
+                }
+            }
+        }
+    }
 }
 
 QTreeWidgetItem *EventWidgetPrivate::getCurrentNode()
@@ -2184,7 +2274,7 @@ void EventWidgetPrivate::importForModule(ModuleConfig *module, const QString &st
     repopulate();
 }
 
-static const u32 pipeDisplayRefreshInterval_ms = 1000;
+static const u32 EventWidgetPeriodicRefreshInterval_ms = 1000;
 
 void run_userlevel_visibility_dialog(QVector<bool> &hiddenLevels, QWidget *parent = 0)
 {
@@ -2233,8 +2323,8 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, AnalysisWidget 
     m_d->m_context = ctx;
     m_d->m_eventId = eventId;
     m_d->m_analysisWidget = analysisWidget;
-    m_d->m_pipeDisplayRefreshTimer = new QTimer(this);
-    m_d->m_pipeDisplayRefreshTimer->start(pipeDisplayRefreshInterval_ms);
+    m_d->m_displayRefreshTimer = new QTimer(this);
+    m_d->m_displayRefreshTimer->start(EventWidgetPeriodicRefreshInterval_ms);
 
     auto outerLayout = new QHBoxLayout(this);
     outerLayout->setContentsMargins(0, 0, 0, 0);
@@ -2640,10 +2730,12 @@ struct AnalysisWidgetPrivate
     QToolButton *m_addUserLevelButton;
     QStatusBar *m_statusBar;
     QLabel *m_labelSinkStorageSize;
+    QLabel *m_labelTimetickCount;
     QTimer *m_periodicUpdateTimer;
 
     void repopulate();
     void repopulateEventSelectCombo();
+    void doPeriodicUpdate();
 
     void closeAllUniqueWidgets();
     void closeAllHistogramWidgets();
@@ -2735,6 +2827,14 @@ void AnalysisWidgetPrivate::repopulateEventSelectCombo()
     if (!lastSelectedEventId.isNull() && comboIndexToSelect < m_eventSelectCombo->count())
     {
         m_eventSelectCombo->setCurrentIndex(comboIndexToSelect);
+    }
+}
+
+void AnalysisWidgetPrivate::doPeriodicUpdate()
+{
+    for (auto eventWidget: m_eventWidgetsByEventId.values())
+    {
+        eventWidget->m_d->doPeriodicUpdate();
     }
 }
 
@@ -3208,8 +3308,13 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
 
     // statusbar
     m_d->m_statusBar = make_statusbar();
+    // timeticks label
+    m_d->m_labelTimetickCount = new QLabel;
+    m_d->m_statusBar->addPermanentWidget(m_d->m_labelTimetickCount);
+    // histo storage label
     m_d->m_labelSinkStorageSize = new QLabel;
     m_d->m_statusBar->addPermanentWidget(m_d->m_labelSinkStorageSize);
+
 
     // main layout
     auto layout = new QGridLayout(this);
@@ -3228,6 +3333,7 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
 
     on_analysis_changed();
 
+    // Update the histo storage size in the statusbar
     connect(m_d->m_periodicUpdateTimer, &QTimer::timeout, this, [this]() {
         double storageSize = m_d->m_context->getAnalysis()->getTotalSinkStorageSize();
         QString unit("B");
@@ -3251,6 +3357,16 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
                                              .arg(storageSize, 0, 'f', 2)
                                              .arg(unit));
     });
+
+    // Update statusbar timeticks label
+    connect(m_d->m_periodicUpdateTimer, &QTimer::timeout, this, [this]() {
+        double tickCount = m_d->m_context->getAnalysis()->getTimetickCount();
+        m_d->m_labelTimetickCount->setText(QString("Timeticks: %1")
+                                           .arg(tickCount));
+    });
+
+    // Run the periodic update
+    connect(m_d->m_periodicUpdateTimer, &QTimer::timeout, this, [this]() { m_d->doPeriodicUpdate(); });
 }
 
 AnalysisWidget::~AnalysisWidget()

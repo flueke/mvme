@@ -26,8 +26,12 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 include(GetGitRevisionDescription)
 get_git_head_revision(GIT_REFSPEC GIT_SHA1)
 git_describe(GIT_VERSION "--always")
-string(REGEX MATCH "^[0-9.]+-[0-9]+" GIT_VERSION_SHORT ${GIT_VERSION})
+string(REGEX MATCH "^[0-9.]+(-[0-9]+)?" GIT_VERSION_SHORT ${GIT_VERSION})
 string(REGEX MATCH "^[0-9.]+" GIT_VERSION_TAG ${GIT_VERSION})
+
+message("GIT_VERSION=${GIT_VERSION}")
+message("GIT_VERSION_SHORT=${GIT_VERSION_SHORT}")
+message("GIT_VERSION_TAG=${GIT_VERSION_TAG}")
 
 # Subdirectories containing build targets
 add_subdirectory(src)

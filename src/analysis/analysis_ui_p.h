@@ -230,6 +230,11 @@ class OperatorConfigurationWidget: public QWidget
                        *spin_yMax;
         QRadioButton *rb_opAnd;
         QRadioButton *rb_opOr;
+
+        // BinarySumDiff
+        QComboBox *combo_equation;
+        QDoubleSpinBox *spin_outputLowerLimit;
+        QDoubleSpinBox *spin_outputUpperLimit;
 };
 
 class PipeDisplay: public QWidget
@@ -251,8 +256,6 @@ class CalibrationItemDelegate: public QStyledItemDelegate
         using QStyledItemDelegate::QStyledItemDelegate;
         virtual QWidget* createEditor(QWidget *parent, const QStyleOptionViewItem &option, const QModelIndex &index) const;
 };
-
-QVector<std::shared_ptr<Extractor>> get_default_data_extractors(const QString &moduleTypeName);
 
 /* Specialized tree for the EventWidget.
  *

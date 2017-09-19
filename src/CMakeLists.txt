@@ -18,10 +18,18 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 find_package(Qt5Concurrent REQUIRED)
 find_package(Qt5Gui REQUIRED)
+find_package(Qt5Network REQUIRED)
 find_package(Qt5Widgets REQUIRED)
 
+# 3rdparty
+include_directories("${CMAKE_SOURCE_DIR}/3rdparty/pcg-cpp-0.98/include/")
+
 # quazip
-find_library(QUAZIP_QT5 NAMES quazip quazip-qt5)
+find_path(QUAZIP_INCLUDE_DIR
+    NAMES quazip.h
+    PATH_SUFFIXES quazip quazip-qt5 quazip5)
+find_library(QUAZIP_QT5 NAMES quazip quazip-qt5 quazip5)
+include_directories(${QUAZIP_INCLUDE_DIR})
 
 # qwt
 find_path(QWT_INCLUDE_DIR
@@ -72,12 +80,14 @@ set(LIBMVME_SOURCES
     analysis/analysis.cc
     analysis/analysis_ui.cc
     analysis/analysis_ui_p.cc
+    analysis/analysis_util.cc
     analysis/data_extraction_widget.cc
     analysis/data_filter.cc
     config_ui.cpp
     CVMUSBReadoutList.cpp
     daqcontrol_widget.cc
     daqstats_widget.cc
+    globals.cc
     gui_util.cc
     histo1d.cc
     histo1d_widget.cc
@@ -91,10 +101,15 @@ set(LIBMVME_SOURCES
     mvme.cpp
     mvme_event_processor.cc
     mvme_listfile.cc
+    mvme_startup.cc
     qt_util.cc
     realtimedata.cpp
     scrollbar.cpp
     scrollzoomer.cpp
+    sis3153.cc
+    sis3153_readout_worker.cc
+    sis3153/sis3153ETH_vme_class.cpp
+    sis3153_util.cc
     template_system.cc
     treewidget_utils.cc
     util.cc
@@ -102,7 +117,11 @@ set(LIBMVME_SOURCES
     vme_config.cc
     vme_config_tree.cc
     vme_controller.cpp
+    vme_controller_factory.cc
+    vme_controller_ui.cc
     vme_debug_widget.cc
+    vme_daq.cc
+    vme_readout_worker.cc
     vme_script.cc
     vme_script_editor.cc
     vmusb_buffer_processor.cc
@@ -114,8 +133,6 @@ set(LIBMVME_SOURCES
     )
 
 qt5_wrap_ui(LIBMVME_UIC_OUT
-    daqcontrol_widget.ui
-    event_config_dialog.ui
     mesytec_diagnostics.ui
     mvme.ui
     vme_debug_widget.ui
@@ -130,25 +147,30 @@ set_target_properties(libmvme PROPERTIES OUTPUT_NAME mvme)
 qt5_use_modules(libmvme
   Concurrent
   Gui
+  Network
   Widgets
   )
+
+if (WIN32)
+    set(LIBMVME_ADDITIONAL_LIBS ws2_32)
+endif()
 
 target_link_libraries(libmvme
     ${QUAZIP_QT5}
     ${QWT_LIBRARY}
     ${LIBUSB_LIBRARY}
+    ${LIBMVME_ADDITIONAL_LIBS}
     )
 
 install(TARGETS libmvme DESTINATION .)
 
 #
-# mvme
+# mvme - the main GUI binary
 #
 set(MVME_SOURCES
     main.cpp
     mvme.rc
     )
-
 
 if (CMAKE_BUILD_TYPE MATCHES "^Release$")
     add_executable(mvme WIN32 ${MVME_SOURCES})
@@ -169,5 +191,33 @@ target_link_libraries(mvme
     )
 
 install(TARGETS mvme DESTINATION .)
+
+#
+# SIS3153 daq stop test
+#
+add_executable(sis3153_test sis3153_test.cc)
+add_dependencies(sis3153_test libmvme)
+target_link_libraries(sis3153_test libmvme)
+
+#
+# mvme_register_reader
+#
+add_executable(mvme_register_reader mvme_register_reader.cc)
+add_dependencies(mvme_register_reader libmvme)
+target_link_libraries(mvme_register_reader libmvme)
+
+#
+# vme_script_checker
+#
+add_executable(vme_script_checker vme_script_checker.cc)
+add_dependencies(vme_script_checker libmvme)
+target_link_libraries(vme_script_checker libmvme)
+
+#
+# test_launcher_vme_module_template
+#
+add_executable(test_launcher_module_template test_launcher_module_template.cc)
+add_dependencies(test_launcher_module_template libmvme)
+target_link_libraries(test_launcher_module_template libmvme)
 
 # vim:tw=0

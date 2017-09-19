@@ -43,6 +43,7 @@ mvme - mesytec VME Data Acquisition
    quickstart
    reference
    howto
+   changelog
 
 
 .. only:: html

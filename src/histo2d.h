@@ -105,6 +105,8 @@ class Histo2D: public QObject
         AxisInterval getInterval(Qt::Axis axis) const;
 
         Histo2DStatistics calcStatistics(AxisInterval xInterval, AxisInterval yInterval) const;
+        inline Histo2DStatistics getGlobalStatistics() const { return m_stats; }
+        inline double getEntryCount() const { return m_stats.entryCount; }
 
         double getUnderflow() const { return m_underflow; }
         void setUnderflow(double value) { m_underflow = value; }
