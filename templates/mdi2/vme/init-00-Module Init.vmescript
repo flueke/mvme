@@ -67,11 +67,11 @@
 0x6064  3           # clock frequency bus1 (same format as seq_cl_freq0)
 
 # sample_delay_reg0 (4 bit value)
-0x606A  3           # One additional count delay for multiple of 2.5 m calbes.
-                    # For standard cable of 3 m set to 4.
+0x606A  3           # One additional count delay for multiple of 2.5m cables.
+                    # For standard cable of 3m set to 4.
 
 # sample_delay_reg1 (4 bit value)
-0x606C  3           # FIXME: do these apply to seq0/1? i guess so
+0x606C  3           # Same as sample_delay_reg0
 
 # enable_busy
 0x606E  1           # Enable busy signal at Lemo output. Do not enable when
@@ -79,7 +79,6 @@
 
 # Sequencer Length
 # ############################################################################
-# FIXME: what is this?
 # seq0_cct
 0x6074  17          # 17 counts per MTM-16 needed
 
@@ -87,6 +86,5 @@
 0x6076  17          # 17 counts per MTM-16 needed
 
 # allow_sync_word
-# FIXME: is this implemented?
 0x6078  0           # allow_sync_words in FIFO buffer. Useful when zero
                     # suppression in front end MTM-16 (future feature).

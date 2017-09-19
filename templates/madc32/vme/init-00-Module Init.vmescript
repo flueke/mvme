@@ -109,9 +109,8 @@
 
 # Thresholds
 # ############################################################################
-# Channel thresholds are referenced to the current data output width (2k, 4k or
-# 8k), see 0x6044 and 0x6046
-# FIXME: 0x6042 instead of 0x6044? "relative" instead of "referenced"?
+# Channel thresholds are relative to the current data output width (2k, 4k or
+# 8k), see 0x6042 and 0x6046
 
 # ignore_thresholds
 0x604C  0           # If set the threshold settings starting a 0x4000 are ignored (0 is assumed).

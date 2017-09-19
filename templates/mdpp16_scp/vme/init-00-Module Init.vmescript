@@ -142,8 +142,8 @@
                 # ...
                 # 8 -> all channels (set to common values)
 # tf_int_diff
-0x6110  2       # TF integration/differentiation time common for both selected channels
-                # range 2..125 (25 ns to 1.6 us, in multiples of 12.5 ns)
+0x6110  20      # TF integration/differentiation time common for both selected channels
+                # range 1..127 (12.5 (15) ns to 1.6 us, in multiples of 12.5 ns)
 
 # PZ0 (signal_decay_time0 for selected channel0)
 0x6112  0xffff  # range 64..64k, 0.8 us to 800 us and infinite
@@ -168,7 +168,6 @@
                 # range 8..2000 (100 ns to 25 us)
 
 # BLR - base line restorer (common for both selected channels)
-# FIXME: 1 soft, 2 strict or the other way around? readout concept and manual contain different values
 0x6126  2       # 0 -> off
                 # 1 -> strict (int. time = 4 shaping times)
                 # 2 -> soft   (int. time = 8 shaping times)
