@@ -10,7 +10,6 @@ VME Template Rework
 * MDPP SCP  <- done
 * MDPP RCP  <- done
 * MDPP QDC  <- done
-* Make a RCbus example including a delay between switchting NIM to cbus mode!
 
 * Implement adding of module specific vme init scripts via the GUI.
   The user should be able to modify the order of init scripts by
@@ -20,6 +19,7 @@ VME Template Rework
 
 * Rewrite EventConfigDialog to not use a UI file anymore. Dynamically populate
   the TriggerCondition combo box.
+
 * Do not use signals/slots for the pause/resume/stop implementation in
   VMEReadoutWorkers. Instead just set the desired state directly (maybe
   securing the access with QAtomicInt in a tight loop). This would allow not
@@ -31,7 +31,7 @@ VME Template Rework
   Should not spam useless info
   Should allow diagnosing connection issues
 
-* add multiline c++ style comments to vme scripts
+* Make a RCbus example including a delay between switchting NIM to cbus mode!
 
 sis3153 implementation
 ----------------------
