@@ -670,7 +670,7 @@ void VMEConfigTreeWidget::addEvent()
 {
     auto config = new EventConfig;
     config->setObjectName(QString("event%1").arg(m_config->getEventConfigs().size()));
-    EventConfigDialog dialog(m_context, config);
+    EventConfigDialog dialog(m_context, m_context->getVMEController(), config);
     int result = dialog.exec();
 
     if (result == QDialog::Accepted)
@@ -716,7 +716,7 @@ void VMEConfigTreeWidget::editEvent()
     if (node && node->type() == NodeType_Event)
     {
         auto eventConfig = Var2Ptr<EventConfig>(node->data(0, DataRole_Pointer));
-        EventConfigDialog dialog(m_context, eventConfig);
+        EventConfigDialog dialog(m_context, m_context->getVMEController(), eventConfig);
         dialog.exec();
     }
 }

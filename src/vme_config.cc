@@ -393,7 +393,7 @@ void EventConfig::read_impl(const QJsonObject &json)
     qDeleteAll(modules);
     modules.clear();
 
-    // triggerCondition
+    // triggerCondition and options
     {
         auto tcName = json["triggerCondition"].toString();
         auto it = std::find_if(TriggerConditionNames.begin(), TriggerConditionNames.end(), [tcName](const auto &testName) {
@@ -402,8 +402,9 @@ void EventConfig::read_impl(const QJsonObject &json)
 
         // FIXME: report error on unknown trigger condition
         triggerCondition = (it != TriggerConditionNames.end()) ? it.key() : TriggerCondition::NIM1;
+        triggerOptions = json["triggerOptions"].toObject().toVariantMap();
     }
-
+    // TODO: move irqLevel and the other settings into triggerOptions
     irqLevel = json["irqLevel"].toInt();
     irqVector = json["irqVector"].toInt();
     scalerReadoutPeriod = json["scalerReadoutPeriod"].toInt();
@@ -417,7 +418,6 @@ void EventConfig::read_impl(const QJsonObject &json)
         moduleConfig->read(moduleObject);
         modules.append(moduleConfig);
     }
-
 
     for (auto scriptConfig: vmeScripts.values())
     {
@@ -442,10 +442,13 @@ void EventConfig::read_impl(const QJsonObject &json)
 void EventConfig::write_impl(QJsonObject &json) const
 {
     json["triggerCondition"] = TriggerConditionNames.value(triggerCondition);
+    json["triggerOptions"]   = QJsonObject::fromVariantMap(triggerOptions);
+    // TODO: move these into triggerOptions
     json["irqLevel"] = irqLevel;
     json["irqVector"] = irqVector;
     json["scalerReadoutPeriod"] = scalerReadoutPeriod;
     json["scalerReadoutFrequency"] = scalerReadoutFrequency;
+
 
     QJsonArray moduleArray;
 

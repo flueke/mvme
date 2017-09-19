@@ -38,6 +38,7 @@ enum class TriggerCondition
     Input2RisingEdge,   // SIS3153
     Input2FallingEdge   // SIS3153
         // TODO: SIS3153 has Timer1 and Timer2
+        // But Timer2 might have to be used as a watchdog...
 };
 
 enum class DAQState

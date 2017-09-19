@@ -179,8 +179,8 @@ class EventConfig: public ConfigObject
 {
     Q_OBJECT
     signals:
-    void moduleAdded(ModuleConfig *module);
-    void moduleAboutToBeRemoved(ModuleConfig *module);
+        void moduleAdded(ModuleConfig *module);
+        void moduleAboutToBeRemoved(ModuleConfig *module);
 
     public:
         EventConfig(QObject *parent = nullptr);
@@ -206,12 +206,13 @@ class EventConfig: public ConfigObject
         }
 
         QList<ModuleConfig *> getModuleConfigs() const { return modules; }
+        TriggerCondition triggerCondition = TriggerCondition::Interrupt;
+        QVariantMap triggerOptions = QVariantMap();
 
-        TriggerCondition triggerCondition = TriggerCondition::NIM1;
         uint8_t irqLevel = 0;
         uint8_t irqVector = 0;
         // Maximum time between scaler stack executions in units of 0.5s
-        uint8_t scalerReadoutPeriod = 0;
+        uint8_t scalerReadoutPeriod = 2;
         // Maximum number of events between scaler stack executions
         uint16_t scalerReadoutFrequency = 0;
 
