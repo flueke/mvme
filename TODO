@@ -10,6 +10,7 @@ VME Template Rework
 * MDPP SCP  <- done
 * MDPP RCP  <- done
 * MDPP QDC  <- done
+* Make a RCbus example including a delay between switchting NIM to cbus mode!
 
 * Implement adding of module specific vme init scripts via the GUI.
   The user should be able to modify the order of init scripts by
@@ -19,7 +20,6 @@ VME Template Rework
 
 * Rewrite EventConfigDialog to not use a UI file anymore. Dynamically populate
   the TriggerCondition combo box.
-
 * Do not use signals/slots for the pause/resume/stop implementation in
   VMEReadoutWorkers. Instead just set the desired state directly (maybe
   securing the access with QAtomicInt in a tight loop). This would allow not
@@ -312,3 +312,4 @@ Thread 1 "mvme" received signal SIGSEGV, Segmentation fault.
 #36 0x00007ffff62bbdca in QEventLoop::exec(QFlags<QEventLoop::ProcessEventsFlag>) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
 #37 0x00007ffff62c3bad in QCoreApplication::exec() () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
 #38 0x00000000004033bc in main (argc=1, argv=0x7fffffffd518) at /home/florian/src/mvme2/src/main.cpp:93
+

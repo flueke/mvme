@@ -402,6 +402,28 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
         m_d->m_waterMarkLabel->hide();
     }
 
+    //
+    // Watermark text when exporting
+    //
+    {
+        m_d->m_waterMarkText = new QwtText;
+        m_d->m_waterMarkText->setRenderFlags(Qt::AlignRight | Qt::AlignBottom);
+        m_d->m_waterMarkText->setColor(QColor(0x66, 0x66, 0x66, 0x40));
+
+        QFont font;
+        font.setPixelSize(16);
+        font.setBold(true);
+        m_d->m_waterMarkText->setFont(font);
+
+        m_d->m_waterMarkText->setText(QString("mvme-%1").arg(GIT_VERSION_TAG));
+
+        m_d->m_waterMarkLabel = new QwtPlotTextLabel;
+        m_d->m_waterMarkLabel->setMargin(10);
+        m_d->m_waterMarkLabel->setText(*m_d->m_waterMarkText);
+        m_d->m_waterMarkLabel->attach(m_d->m_plot);
+        m_d->m_waterMarkLabel->hide();
+    }
+
     // Info widgets
     m_d->m_labelCursorInfo = new QLabel;
     m_d->m_labelHistoInfo = new QLabel;
