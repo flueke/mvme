@@ -20,17 +20,19 @@
 #define __VME_CONTROLLER_UI_P_H__
 
 #include "vme_controller_ui.h"
+#include <QCheckBox>
 
 class VMUSBSettingsWidget: public VMEControllerSettingsWidget
 {
     public:
-        VMUSBSettingsWidget(QWidget *parent = 0)
-            : VMEControllerSettingsWidget(parent)
-        {}
+        VMUSBSettingsWidget(QWidget *parent = 0);
 
         virtual void validate() override {}
-        virtual void loadSettings(const QVariantMap &settings) override { }
-        virtual QVariantMap getSettings() override { return QVariantMap(); }
+        virtual void loadSettings(const QVariantMap &settings) override;
+        virtual QVariantMap getSettings() override;
+
+    private:
+        QCheckBox *m_cb_debugRawBuffers;
 };
 
 class SIS3153EthSettingsWidget: public VMEControllerSettingsWidget

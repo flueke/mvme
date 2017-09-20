@@ -37,6 +37,8 @@ class VMUSBReadoutWorker: public VMEReadoutWorker
         virtual void resume() override;
         virtual bool isRunning() const override { return m_state != DAQState::Idle; }
 
+        void enableWriteRawBuffers(bool enabled);
+
 
     protected:
         virtual void pre_setContext(VMEReadoutWorkerContext newContext) override;
@@ -64,6 +66,7 @@ class VMUSBReadoutWorker: public VMEReadoutWorker
         size_t m_nTotalEvents;
         VMUSBBufferProcessor *m_bufferProcessor = 0;
         VMUSB *m_vmusb = nullptr;
+        QFile m_rawBufferOut;
 };
 
 #endif

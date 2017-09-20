@@ -31,13 +31,36 @@
 #include "vme_controller_ui_p.h"
 
 //
+// VMUSBSettingsWidget
+//
+VMUSBSettingsWidget::VMUSBSettingsWidget(QWidget *parent)
+    : VMEControllerSettingsWidget(parent)
+    , m_cb_debugRawBuffers(new QCheckBox)
+{
+    auto l = new QFormLayout(this);
+    l->addRow(QSL("Debug: Write raw buffer file"), m_cb_debugRawBuffers);
+}
+
+void VMUSBSettingsWidget::loadSettings(const QVariantMap &settings)
+{
+    m_cb_debugRawBuffers->setChecked(settings.value("DebugRawBuffers").toBool());
+}
+
+QVariantMap VMUSBSettingsWidget::getSettings()
+{
+    QVariantMap result;
+    result["DebugRawBuffers"] = m_cb_debugRawBuffers->isChecked();
+    return result;
+}
+
+//
 // SIS3153EthSettingsWidget
 //
 SIS3153EthSettingsWidget::SIS3153EthSettingsWidget(QWidget *parent)
     : VMEControllerSettingsWidget(parent)
     , m_le_sisAddress(new QLineEdit)
 {
-    auto l  = new QFormLayout(this);
+    auto l = new QFormLayout(this);
     l->addRow(QSL("Hostname / IP Address"), m_le_sisAddress);
 }
 

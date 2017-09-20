@@ -130,6 +130,7 @@ set(LIBMVME_SOURCES
     vmusb_readout_worker.cc
     vmusb_skipHeader.cpp
     vmusb_stack.cc
+    vmusb_util.cc
     )
 
 qt5_wrap_ui(LIBMVME_UIC_OUT
@@ -192,6 +193,13 @@ target_link_libraries(mvme
 
 install(TARGETS mvme DESTINATION .)
 
+# Helper for additional utility / debug binaries and alternative launchers.
+function(add_mvme_executable exe_name exe_sources)
+    add_executable(${exe_name} ${exe_sources})
+    add_dependencies(${exe_name} libmvme)
+    target_link_libraries(${exe_name} libmvme)
+endfunction(add_mvme_executable)
+
 #
 # SIS3153 daq stop test
 #
@@ -219,5 +227,13 @@ target_link_libraries(vme_script_checker libmvme)
 add_executable(test_launcher_module_template test_launcher_module_template.cc)
 add_dependencies(test_launcher_module_template libmvme)
 target_link_libraries(test_launcher_module_template libmvme)
+
+#
+# vmusb_read_buffers_file
+#
+#add_executable(vmusb_read_buffers_file vmusb_read_buffers_file.cc)
+#add_dependencies(vmusb_read_buffers_file libmvme)
+#target_link_libraries(vmusb_read_buffers_file libmvme)
+add_mvme_executable(vmusb_read_buffers_file "vmusb_read_buffers_file.cc")
 
 # vim:tw=0

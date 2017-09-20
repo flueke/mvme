@@ -28,137 +28,14 @@
 #include <quazip.h>
 
 #include "mvme_listfile.h"
-#include "vmusb.h"
 #include "vme_daq.h"
+#include "vmusb.h"
+#include "vmusb_util.h"
 
 using namespace vmusb_constants;
 
 //#define BPDEBUG
 //#define WRITE_BUFFER_LOG
-
-// Note: Assumption: VMUSBs HeaderOptMask option is not used!
-void format_vmusb_buffer(DataBuffer *buffer, QTextStream &out, u64 bufferNumber)
-{
-    try
-    {
-        out << "buffer #" << bufferNumber
-            << ": bytes=" << buffer->used
-            << ", shortwords=" << buffer->used/sizeof(u16)
-            << ", longwords=" << buffer->used/sizeof(u32)
-            << endl;
-
-        QString tmp;
-        BufferIterator iter(buffer->data, buffer->used, BufferIterator::Align16);
-
-
-        u32 header1 = iter.extractWord();
-        bool lastBuffer     = header1 & Buffer::LastBufferMask;
-        bool scalerBuffer   = header1 & Buffer::IsScalerBufferMask;
-        bool continuousMode = header1 & Buffer::ContinuationMask;
-        bool multiBuffer    = header1 & Buffer::MultiBufferMask;
-        u16 numberOfEvents  = header1 & Buffer::NumberOfEventsMask;
-
-
-        tmp = QString("header1=0x%1, numberOfEvents=%2, lastBuffer=%3, cont=%4, mult=%5, buffer#=%6")
-            .arg(header1, 8, 16, QLatin1Char('0'))
-            .arg(numberOfEvents)
-            .arg(lastBuffer)
-            .arg(continuousMode)
-            .arg(multiBuffer)
-            .arg(bufferNumber)
-            ;
-
-        out << tmp << endl;
-
-        for (u16 eventIndex = 0; eventIndex < numberOfEvents; ++eventIndex)
-        {
-            u32 eventHeader = iter.extractShortword();
-            u8 stackID          = (eventHeader >> Buffer::StackIDShift) & Buffer::StackIDMask;
-            bool partialEvent   = eventHeader & Buffer::ContinuationMask;
-            u32 eventLength     = eventHeader & Buffer::EventLengthMask;
-
-            tmp = QString("event #%5, header=0x%1, stackID=%2, length=%3 shorts, partial=%4, buffer#=%6")
-                .arg(eventHeader, 8, 16, QLatin1Char('0'))
-                .arg(stackID)
-                .arg(eventLength)
-                .arg(partialEvent)
-                .arg(eventIndex)
-                .arg(bufferNumber)
-                ;
-
-            out << tmp << endl << "longwords:" << endl;
-
-            int col = 0;
-            u32 longwordsLeft = eventLength / 2;
-
-            while (longwordsLeft--)
-            {
-                tmp = QString("0x%1").arg(iter.extractU32(), 8, 16, QLatin1Char('0'));
-                out << tmp;
-                ++col;
-                if (col < 8)
-                {
-                    out << " ";
-                }
-                else
-                {
-                    out << endl;
-                    col = 0;
-                }
-            }
-
-            u32 shortwordsLeft = eventLength - ((eventLength / 2) * 2);
-
-            out << endl << "shortwords:" << endl;
-            col = 0;
-            while (shortwordsLeft--)
-            {
-                tmp = QString("0x%1").arg(iter.extractU16(), 4, 16, QLatin1Char('0'));
-                out << tmp;
-                ++col;
-                if (col < 8)
-                {
-                    out << " ";
-                }
-                else
-                {
-                    out << endl;
-                    col = 0;
-                }
-            }
-
-            out << endl << "end of event #" << eventIndex << endl;
-        }
-
-
-        if (iter.bytesLeft())
-        {
-            out << "bytes:" << endl;
-            out << iter.bytesLeft() << " bytes left in buffer:" << endl;
-            int col = 0;
-            while (iter.bytesLeft())
-            {
-                tmp = QString("0x%1").arg(iter.extractU8(), 2, 16, QLatin1Char('0'));
-                out << tmp;
-                ++col;
-                if (col < 8)
-                {
-                    out << " ";
-                }
-                else
-                {
-                    out << endl;
-                    col = 0;
-                }
-            }
-            out << endl;
-        }
-    }
-    catch (const end_of_buffer &)
-    {
-        out << "!!! end of buffer reached unexpectedly !!!" << endl;
-    }
-}
 
 static std::runtime_error make_zip_error(const QString &msg, const QuaZip &zip)
 {

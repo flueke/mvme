@@ -157,6 +157,8 @@ void VMUSBReadoutWorker::start(quint32 cycles)
     auto daqConfig = m_workerContext.vmeConfig;
     VMEError error;
 
+    auto ctrlSettings = daqConfig->getControllerSettings();
+
     // Decide whether to log buffer contents.
     m_bufferProcessor->setLogBuffers(cycles == 1);
 
@@ -309,6 +311,28 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         dump_registers(vmusb, [this] (const QString &line) { this->logMessage(line); });
 
         //
+        // Debug: record raw buffers to file
+        //
+        if (ctrlSettings.value("DebugRawBuffers").toBool())
+        {
+            m_rawBufferOut.setFileName("vmusb_raw_buffers.bin");
+            if (!m_rawBufferOut.open(QIODevice::WriteOnly))
+            {
+                auto msg = (QString("Error opening vmusb raw buffers file for writing: %1")
+                            .arg(m_rawBufferOut.errorString()));
+                logMessage(msg);
+                qDebug() << __PRETTY_FUNCTION__ << msg;
+            }
+            else
+            {
+                auto msg = (QString("Writing raw VMUSB buffers to %1")
+                            .arg(m_rawBufferOut.fileName()));
+                logMessage(msg);
+                qDebug() << __PRETTY_FUNCTION__ << msg;
+            }
+        }
+
+        //
         // Readout
         //
         m_bufferProcessor->beginRun();
@@ -328,6 +352,19 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         vme_daq_shutdown(daqConfig, vmusb, [this] (const QString &msg) { logMessage(msg); });
 
         m_bufferProcessor->endRun();
+
+        //
+        // Debug: close raw buffers file
+        //
+        if (m_rawBufferOut.isOpen())
+        {
+            auto msg = (QString("Closing vmusb raw buffers file %1")
+                        .arg(m_rawBufferOut.fileName()));
+            logMessage(msg);
+            qDebug() << __PRETTY_FUNCTION__ << msg;
+
+            m_rawBufferOut.close();
+        }
 
         logMessage(QString(QSL("VMUSB readout stopped on %1"))
                    .arg(QDateTime::currentDateTime().toString())
@@ -623,6 +660,27 @@ VMUSBReadoutWorker::ReadBufferResult VMUSBReadoutWorker::readBuffer(int timeout_
     m_readBuffer->used = 0;
 
     result.error = m_vmusb->bulkRead(m_readBuffer->data, m_readBuffer->size, &result.bytesRead, timeout_ms);
+
+    /* Raw buffer output for debugging purposes.
+     * The file consists of a sequence of entries with each entry having the following format:
+     *   s32 VMEError::errorType
+     *   s32 VMEError::errorCode
+     *   s32 dataBytes
+     *   u8* data
+     * If dataBytes is 0 the data entry will be of size 0. No byte order
+     * conversion is done so the format is architecture dependent!
+     */
+    if (m_rawBufferOut.isOpen())
+    {
+        s32 errorType = static_cast<s32>(result.error.error());
+        s32 errorCode = result.error.errorCode();
+        s32 bytesRead = result.bytesRead;
+
+        m_rawBufferOut.write(reinterpret_cast<const char *>(&errorType), sizeof(errorType));
+        m_rawBufferOut.write(reinterpret_cast<const char *>(&errorCode), sizeof(errorCode));
+        m_rawBufferOut.write(reinterpret_cast<const char *>(&bytesRead), sizeof(bytesRead));
+        m_rawBufferOut.write(reinterpret_cast<const char *>(m_readBuffer->data), bytesRead);
+    }
 
     if (result.error.isError())
     {
