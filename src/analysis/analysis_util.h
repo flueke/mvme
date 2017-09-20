@@ -2,11 +2,12 @@
 #define __ANALYSIS_UTIL_H__
 
 #include "analysis.h"
+#include "libmvme_export.h"
 
 namespace analysis
 {
 
-QVector<std::shared_ptr<Extractor>> get_default_data_extractors(const QString &moduleTypeName);
+QVector<std::shared_ptr<Extractor>> LIBMVME_EXPORT get_default_data_extractors(const QString &moduleTypeName);
 
 } // namespace analysis
 

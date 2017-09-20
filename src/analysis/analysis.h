@@ -19,11 +19,12 @@
 #ifndef __ANALYSIS_H__
 #define __ANALYSIS_H__
 
-#include "typedefs.h"
+#include "../globals.h"
 #include "data_filter.h"
 #include "histo1d.h"
 #include "histo2d.h"
-#include "../globals.h"
+#include "libmvme_export.h"
+#include "typedefs.h"
 
 #include <memory>
 #include <pcg_random.hpp>
@@ -48,7 +49,7 @@ class VMEConfig;
 namespace analysis
 {
 
-struct Parameter
+struct LIBMVME_EXPORT Parameter
 {
     bool valid = false;
     double value = 0.0;
@@ -71,7 +72,7 @@ inline QString to_string(const Parameter &p)
         ;
 }
 
-struct ParameterVector: public QVector<Parameter>
+struct LIBMVME_EXPORT ParameterVector: public QVector<Parameter>
 {
     void invalidateAll()
     {
@@ -90,7 +91,7 @@ class OperatorInterface;
 class Pipe;
 
 /* Interface to indicate that something can the be source of a Pipe. */
-class PipeSourceInterface: public QObject, public std::enable_shared_from_this<PipeSourceInterface>
+class LIBMVME_EXPORT PipeSourceInterface: public QObject, public std::enable_shared_from_this<PipeSourceInterface>
 {
     Q_OBJECT
     public:
@@ -144,7 +145,7 @@ namespace analysis
 
 struct Slot;
 
-class Pipe
+class LIBMVME_EXPORT Pipe
 {
     public:
         const Parameter *first() const
@@ -228,7 +229,7 @@ class Pipe
         s32 rank = 0;
 };
 
-struct InputType
+struct LIBMVME_EXPORT InputType
 {
     static const u32 Invalid = 0;
     static const u32 Array   = 1u << 0;
@@ -237,7 +238,7 @@ struct InputType
 };
 
 // The destination of a Pipe
-struct Slot
+struct LIBMVME_EXPORT Slot
 {
     static const s32 NoParamIndex = -1; // special paramIndex value for InputType::Array
 
@@ -291,7 +292,7 @@ struct Slot
 
 /* Data source interface. The analysis feeds single data words into this using
  * processDataWord(). */
-class SourceInterface: public PipeSourceInterface
+class LIBMVME_EXPORT SourceInterface: public PipeSourceInterface
 {
     Q_OBJECT
     Q_INTERFACES(analysis::PipeSourceInterface)
@@ -316,7 +317,7 @@ class SourceInterface: public PipeSourceInterface
 
 /* Operator interface. Consumes one or multiple input pipes and produces one or
  * multiple output pipes. */
-class OperatorInterface: public PipeSourceInterface
+class LIBMVME_EXPORT OperatorInterface: public PipeSourceInterface
 {
     Q_OBJECT
     Q_INTERFACES(analysis::PipeSourceInterface)
@@ -367,7 +368,7 @@ namespace analysis
 {
 /* Base class for sinks. Sinks are operators with no output. In the UI these
  * operators are shown in the data display section */
-class SinkInterface: public OperatorInterface
+class LIBMVME_EXPORT SinkInterface: public OperatorInterface
 {
     Q_OBJECT
     Q_INTERFACES(analysis::OperatorInterface)
@@ -399,7 +400,7 @@ typedef std::shared_ptr<SourceInterface> SourcePtr;
 /* A Source using a MultiWordDataFilter for data extraction. Additionally
  * requiredCompletionCount can be set to only produce output for the nth
  * match (in the current event). */
-class Extractor: public SourceInterface
+class LIBMVME_EXPORT Extractor: public SourceInterface
 {
     Q_OBJECT
     Q_INTERFACES(analysis::SourceInterface)
@@ -454,7 +455,7 @@ class Extractor: public SourceInterface
 /* An operator with one input slot and one output pipe. Only step() needs to be
  * implemented in subclasses. The input slot by default accepts both
  * InputType::Array and InputType::Value.  */
-class BasicOperator: public OperatorInterface
+class LIBMVME_EXPORT BasicOperator: public OperatorInterface
 {
     Q_OBJECT
     Q_INTERFACES(analysis::OperatorInterface)
@@ -478,7 +479,7 @@ class BasicOperator: public OperatorInterface
 
 /* An operator with one input and no output. The input slot by default accepts
  * both InputType::Array and InputType::Value. */
-class BasicSink: public SinkInterface
+class LIBMVME_EXPORT BasicSink: public SinkInterface
 {
     Q_OBJECT
     Q_INTERFACES(analysis::SinkInterface)
@@ -494,7 +495,7 @@ class BasicSink: public SinkInterface
         Slot m_inputSlot;
 };
 
-struct CalibrationMinMaxParameters
+struct LIBMVME_EXPORT CalibrationMinMaxParameters
 {
     CalibrationMinMaxParameters()
     {}
@@ -513,7 +514,7 @@ struct CalibrationMinMaxParameters
     double unitMax = make_quiet_nan();
 };
 
-class CalibrationMinMax: public BasicOperator
+class LIBMVME_EXPORT CalibrationMinMax: public BasicOperator
 {
     Q_OBJECT
     public:
@@ -558,7 +559,7 @@ class CalibrationMinMax: public BasicOperator
         double m_oldGlobalUnitMax = make_quiet_nan();
 };
 
-class IndexSelector: public BasicOperator
+class LIBMVME_EXPORT IndexSelector: public BasicOperator
 {
     Q_OBJECT
     public:
@@ -583,7 +584,7 @@ class IndexSelector: public BasicOperator
 /* This operator has the value array from the previous cycle as its output.
  * Optionally if m_keepValid is set values from the array that where valid are
  * kept and not replaced by new invalid input values. */
-class PreviousValue: public BasicOperator
+class LIBMVME_EXPORT PreviousValue: public BasicOperator
 {
     Q_OBJECT
     public:
@@ -604,7 +605,7 @@ class PreviousValue: public BasicOperator
         ParameterVector m_previousInput;
 };
 
-class RetainValid: public BasicOperator
+class LIBMVME_EXPORT RetainValid: public BasicOperator
 {
     Q_OBJECT
     public:
@@ -623,7 +624,7 @@ class RetainValid: public BasicOperator
         ParameterVector m_lastValidInput;
 };
 
-class Difference: public OperatorInterface
+class LIBMVME_EXPORT Difference: public OperatorInterface
 {
     Q_OBJECT
     Q_INTERFACES(analysis::OperatorInterface)
@@ -661,7 +662,7 @@ class Difference: public OperatorInterface
         Pipe m_output;
 };
 
-class Sum: public BasicOperator
+class LIBMVME_EXPORT Sum: public BasicOperator
 {
     Q_OBJECT
     public:
@@ -695,7 +696,7 @@ class Sum: public BasicOperator
  *
  * Can be used to concatenate multiple arrays and/or change the order of array members.
  */
-class ArrayMap: public OperatorInterface
+class LIBMVME_EXPORT ArrayMap: public OperatorInterface
 {
     Q_OBJECT
     Q_INTERFACES(analysis::OperatorInterface)
@@ -755,7 +756,7 @@ class ArrayMap: public OperatorInterface
  * If keepOutside is set, parameters that are outside the range will be kept,
  * others will be passed through.
  */
-class RangeFilter1D: public BasicOperator
+class LIBMVME_EXPORT RangeFilter1D: public BasicOperator
 {
     Q_OBJECT
     public:
@@ -783,7 +784,7 @@ class RangeFilter1D: public BasicOperator
  * Data is only copied to the output if the corresponding condition input
  * parameter is valid.
  */
-class ConditionFilter: public OperatorInterface
+class LIBMVME_EXPORT ConditionFilter: public OperatorInterface
 {
     Q_OBJECT
     Q_INTERFACES(analysis::OperatorInterface)
@@ -815,7 +816,7 @@ class ConditionFilter: public OperatorInterface
         Pipe m_output;
 };
 
-class RectFilter2D: public OperatorInterface
+class LIBMVME_EXPORT RectFilter2D: public OperatorInterface
 {
     Q_OBJECT
     Q_INTERFACES(analysis::OperatorInterface)
@@ -878,7 +879,7 @@ class RectFilter2D: public OperatorInterface
         Op m_op = OpAnd;
 };
 
-class BinarySumDiff: public OperatorInterface
+class LIBMVME_EXPORT BinarySumDiff: public OperatorInterface
 {
     Q_OBJECT
     Q_INTERFACES(analysis::OperatorInterface)
@@ -932,7 +933,7 @@ class BinarySumDiff: public OperatorInterface
 //
 // Sinks
 //
-class Histo1DSink: public BasicSink
+class LIBMVME_EXPORT Histo1DSink: public BasicSink
 {
     Q_OBJECT
     public:
@@ -966,7 +967,7 @@ class Histo1DSink: public BasicSink
         u32 fillsSinceLastDebug = 0;
 };
 
-class Histo2DSink: public SinkInterface
+class LIBMVME_EXPORT Histo2DSink: public SinkInterface
 {
     Q_OBJECT
     Q_INTERFACES(analysis::SinkInterface)
@@ -1046,7 +1047,7 @@ SinkInterface *createSink()
     return result;
 }
 
-class Registry
+class LIBMVME_EXPORT Registry
 {
     public:
         template<typename T>
@@ -1175,7 +1176,7 @@ class Registry
         QMap<QString, SinkInterface *(*)()> m_sinkRegistry;
 };
 
-class Analysis: public QObject
+class LIBMVME_EXPORT Analysis: public QObject
 {
     Q_OBJECT
     signals:
@@ -1321,7 +1322,7 @@ class Analysis: public QObject
         double m_timetickCount;
 };
 
-struct RawDataDisplay
+struct LIBMVME_EXPORT RawDataDisplay
 {
     std::shared_ptr<Extractor> extractor;
     std::shared_ptr<Histo1DSink> rawHistoSink;
@@ -1329,28 +1330,28 @@ struct RawDataDisplay
     std::shared_ptr<Histo1DSink> calibratedHistoSink;
 };
 
-RawDataDisplay make_raw_data_display(std::shared_ptr<Extractor> extractor, double unitMin, double unitMax,
+RawDataDisplay LIBMVME_EXPORT make_raw_data_display(std::shared_ptr<Extractor> extractor, double unitMin, double unitMax,
                                      const QString &xAxisTitle, const QString &unitLabel);
 
-RawDataDisplay make_raw_data_display(const MultiWordDataFilter &extractionFilter, double unitMin, double unitMax,
+RawDataDisplay LIBMVME_EXPORT make_raw_data_display(const MultiWordDataFilter &extractionFilter, double unitMin, double unitMax,
                                      const QString &name, const QString &xAxisTitle, const QString &unitLabel);
 
-void add_raw_data_display(Analysis *analysis, const QUuid &eventId, const QUuid &moduleId, const RawDataDisplay &display);
+void LIBMVME_EXPORT add_raw_data_display(Analysis *analysis, const QUuid &eventId, const QUuid &moduleId, const RawDataDisplay &display);
 
-void do_beginRun_forward(PipeSourceInterface *pipeSource);
+void LIBMVME_EXPORT do_beginRun_forward(PipeSourceInterface *pipeSource);
 
-QString make_unique_operator_name(Analysis *analysis, const QString &prefix);
+QString LIBMVME_EXPORT make_unique_operator_name(Analysis *analysis, const QString &prefix);
 
-bool all_inputs_connected(OperatorInterface *op);
-bool no_input_connected(OperatorInterface *op);
+bool LIBMVME_EXPORT all_inputs_connected(OperatorInterface *op);
+bool LIBMVME_EXPORT no_input_connected(OperatorInterface *op);
 
 /** Generate new unique IDs for all sources and operators.
  * Note: Does not update the ModuleProperties information! */
-void generate_new_object_ids(Analysis *analysis);
+void LIBMVME_EXPORT generate_new_object_ids(Analysis *analysis);
 
-QString info_string(const Analysis *analysis);
+QString LIBMVME_EXPORT info_string(const Analysis *analysis);
 
-void adjust_userlevel_forward(QVector<Analysis::OperatorEntry> &opEntries, OperatorInterface *op, s32 levelDelta);
+void LIBMVME_EXPORT adjust_userlevel_forward(QVector<Analysis::OperatorEntry> &opEntries, OperatorInterface *op, s32 levelDelta);
 
 } // end namespace analysis
 

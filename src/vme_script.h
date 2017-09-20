@@ -19,6 +19,7 @@
 #ifndef __VME_SCRIPT_QT_H__
 #define __VME_SCRIPT_QT_H__
 
+#include "libmvme_export.h"
 #include "vme_controller.h"
 
 #include <cstdint>
@@ -117,11 +118,11 @@ struct ParseError
     int lineNumber;
 };
 
-VMEScript parse(QFile *input, uint32_t baseAddress = 0);
-VMEScript parse(const QString &input, uint32_t baseAddress = 0);
-VMEScript parse(QTextStream &input, uint32_t baseAddress = 0);
+VMEScript LIBMVME_EXPORT parse(QFile *input, uint32_t baseAddress = 0);
+VMEScript LIBMVME_EXPORT parse(const QString &input, uint32_t baseAddress = 0);
+VMEScript LIBMVME_EXPORT parse(QTextStream &input, uint32_t baseAddress = 0);
 
-class SyntaxHighlighter: public QSyntaxHighlighter
+class LIBMVME_EXPORT SyntaxHighlighter: public QSyntaxHighlighter
 {
     using QSyntaxHighlighter::QSyntaxHighlighter;
 
@@ -129,9 +130,9 @@ class SyntaxHighlighter: public QSyntaxHighlighter
         virtual void highlightBlock(const QString &text) override;
 };
 
-uint8_t amod_from_AddressMode(AddressMode mode, bool blt=false, bool mblt=false);
+uint8_t LIBMVME_EXPORT amod_from_AddressMode(AddressMode mode, bool blt=false, bool mblt=false);
 
-struct Result
+struct LIBMVME_EXPORT Result
 {
     VMEError error;
     uint32_t value;
@@ -142,8 +143,8 @@ struct Result
 typedef QVector<Result> ResultList;
 typedef std::function<void (const QString &)> LoggerFun;
 
-ResultList run_script(VMEController *controller, const VMEScript &script, LoggerFun logger = LoggerFun(), bool logEachResult=false);
-Result run_command(VMEController *controller, const Command &cmd, LoggerFun logger = LoggerFun());
+LIBMVME_EXPORT ResultList run_script(VMEController *controller, const VMEScript &script, LoggerFun logger = LoggerFun(), bool logEachResult=false);
+LIBMVME_EXPORT Result run_command(VMEController *controller, const Command &cmd, LoggerFun logger = LoggerFun());
 
 QString format_result(const Result &result);
 

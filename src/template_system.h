@@ -19,6 +19,7 @@
 #ifndef __TEMPLATE_SYSTEM_H__
 #define __TEMPLATE_SYSTEM_H__
 
+#include "libmvme_export.h"
 #include "typedefs.h"
 #include <QString>
 #include <QTextStream>
@@ -30,14 +31,14 @@
 namespace vats
 {
 
-struct VMETemplate
+struct LIBMVME_EXPORT VMETemplate
 {
     QString contents;
     QString name;
     QString sourceFileName;
 };
 
-struct VMEEventTemplates
+struct LIBMVME_EXPORT VMEEventTemplates
 {
     VMETemplate daqStart;
     VMETemplate daqStop;
@@ -45,14 +46,14 @@ struct VMEEventTemplates
     VMETemplate readoutCycleEnd;
 };
 
-struct VMEModuleTemplates
+struct LIBMVME_EXPORT VMEModuleTemplates
 {
     VMETemplate reset;
     VMETemplate readout;
     QVector<VMETemplate> init;
 };
 
-struct VMEModuleMeta
+struct LIBMVME_EXPORT VMEModuleMeta
 {
     static const u8 InvalidTypeId = 0;
 
@@ -64,7 +65,7 @@ struct VMEModuleMeta
     QString templatePath;
 };
 
-struct MVMETemplates
+struct LIBMVME_EXPORT MVMETemplates
 {
     VMEEventTemplates eventTemplates;
     QVector<VMEModuleMeta> moduleMetas;
@@ -73,19 +74,19 @@ struct MVMETemplates
 using TemplateLogger = std::function<void (const QString &)>;
 
 // Read templates from the default template path
-MVMETemplates read_templates(TemplateLogger logger = TemplateLogger());
+MVMETemplates LIBMVME_EXPORT read_templates(TemplateLogger logger = TemplateLogger());
 // Read templates from the given path
-MVMETemplates read_templates_from_path(const QString &path, TemplateLogger logger = TemplateLogger());
+MVMETemplates LIBMVME_EXPORT read_templates_from_path(const QString &path, TemplateLogger logger = TemplateLogger());
 
-QString get_module_path(const QString &moduleTypeName);
+QString LIBMVME_EXPORT get_module_path(const QString &moduleTypeName);
 
 // Returns the base template path
-QString get_template_path();
+QString LIBMVME_EXPORT get_template_path();
 
 // Output diagnostic information about the templates.
-QTextStream &operator<<(QTextStream &out, const MVMETemplates &templates);
+QTextStream & LIBMVME_EXPORT operator<<(QTextStream &out, const MVMETemplates &templates);
 
-VMEModuleMeta get_module_meta_by_typename(const MVMETemplates &templates, const QString &moduleTypename);
+VMEModuleMeta LIBMVME_EXPORT get_module_meta_by_typename(const MVMETemplates &templates, const QString &moduleTypename);
 
 }  // namespace vats
 
