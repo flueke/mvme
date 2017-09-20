@@ -5,10 +5,9 @@
 # bank_operation
 0x6040  0b000       # bit0: 0 -> banks connected
                     #       1 -> operate banks independently
-                    # FIXME: explanation for bits 2 and 1 and which bank they effect
-                    # bits 2, 1: if the bit is set switch the weak pull on
-                    #            resistor off for that bank (banks 1, 0)
-                    #
+                    # bits 2, 1: bank 1, 0 -> switch weak pull on resistor off
+                    #            (usually leave bits at 0, 0)
+
 # adc_resolution
 #0x6042  0           # 0 -> always 4k
 

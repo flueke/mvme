@@ -12,7 +12,6 @@
                     # 1 -> operate banks independently
 
 # tdc_resolution
-# FIXME: default according to manual is 0. it is 3 for my modules
 #0x6042  3          # 9 -> 500 ps
                     # 8 -> 250 ps
                     # 7 -> 125 ps
@@ -48,7 +47,6 @@
 0x6056  32          # Unit: ns, max 16k == 16 us, unsigned
 
 # trigger source
-# FIXME: This explanation or the table from the MTDC manual?
 # Defines the trigger which creates the window of interest. This can be one or
 # both of the trigger inputs, any of the 32 channel inputs or a whole bank.
 #   0x001 -> trigger 0 input
@@ -61,7 +59,7 @@
 0x6058  0x001       # In split bank mode for bank0, otherwise for both banks.
 
 # bank1_trig_source
-0x6058  0x002       # Only in split bank mode. Same as bank0_trig_source.
+0x605A  0x002       # Only in split bank mode. Same as bank0_trig_source.
 
 # Bank Input Configuration
 # ############################################################################

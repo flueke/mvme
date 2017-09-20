@@ -19,12 +19,13 @@
 #ifndef __SIS3153_H__
 #define __SIS3153_H__
 
+#include "libmvme_export.h"
 #include "vme_controller.h"
 
 class SIS3153Private;
 class sis3153eth;
 
-class SIS3153: public VMEController
+class LIBMVME_EXPORT SIS3153: public VMEController
 {
     Q_OBJECT
 
@@ -130,7 +131,7 @@ namespace SIS3153Registers
 }
 
 
-void dump_registers(SIS3153 *sis, std::function<void (const QString &)> printer);
+void LIBMVME_EXPORT dump_registers(SIS3153 *sis, std::function<void (const QString &)> printer);
 
 VMEError make_sis_error(int sisCode);
 

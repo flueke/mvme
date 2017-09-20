@@ -23,6 +23,7 @@
 #include <QDebug>
 #include <QHash>
 #include <QVector>
+#include "libmvme_export.h"
 #include "typedefs.h"
 
 namespace analysis
@@ -45,7 +46,7 @@ namespace analysis
  *
  */
 
-class DataFilter
+class LIBMVME_EXPORT DataFilter
 {
     public:
         DataFilter(const QByteArray &filter = QByteArray(), s32 wordIndex = -1);

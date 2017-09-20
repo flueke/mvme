@@ -20,15 +20,17 @@
 #define UUID_364b82ee_241c_4c09_acbf_f7e36698fb74
 
 #include "globals.h"
-#include "vme_script.h"
+#include "libmvme_export.h"
 #include "template_system.h"
+#include "vme_script.h"
+
 #include <QObject>
 #include <QUuid>
 #include <qwt_scale_map.h>
 
 class QJsonObject;
 
-class ConfigObject: public QObject
+class LIBMVME_EXPORT ConfigObject: public QObject
 {
     Q_OBJECT
     signals:
@@ -116,7 +118,7 @@ class ConfigObject: public QObject
         bool m_eventFilterInstalled = false;
 };
 
-class VMEScriptConfig: public ConfigObject
+class LIBMVME_EXPORT VMEScriptConfig: public ConfigObject
 {
     Q_OBJECT
     public:
@@ -141,7 +143,7 @@ class VMEScriptConfig: public ConfigObject
         QString m_script;
 };
 
-class ModuleConfig: public ConfigObject
+class LIBMVME_EXPORT ModuleConfig: public ConfigObject
 {
     Q_OBJECT
     public:
@@ -175,7 +177,7 @@ class ModuleConfig: public ConfigObject
         vats::VMEModuleMeta m_meta;
 };
 
-class EventConfig: public ConfigObject
+class LIBMVME_EXPORT EventConfig: public ConfigObject
 {
     Q_OBJECT
     signals:
@@ -232,7 +234,7 @@ class EventConfig: public ConfigObject
         virtual void write_impl(QJsonObject &json) const override;
 };
 
-class VMEConfig: public ConfigObject
+class LIBMVME_EXPORT VMEConfig: public ConfigObject
 {
     Q_OBJECT
     signals:

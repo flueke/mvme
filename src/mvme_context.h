@@ -21,6 +21,7 @@
 
 #include "globals.h"
 #include "databuffer.h"
+#include "libmvme_export.h"
 #include "vme_config.h"
 #include "vme_controller.h"
 #include "vme_readout_worker.h"
@@ -52,7 +53,7 @@ namespace analysis
 
 struct MVMEContextPrivate;
 
-class MVMEContext: public QObject
+class LIBMVME_EXPORT MVMEContext: public QObject
 {
     Q_OBJECT
     signals:

@@ -19,9 +19,10 @@
 #ifndef __MVME_STARTUP_H__
 #define __MVME_STARTUP_H__
 
+#include "libmvme_export.h"
 #include "qt_util.h"
 
-void mvme_basic_init(const QString &appName = QSL("mvme"));
+void LIBMVME_EXPORT mvme_basic_init(const QString &appName = QSL("mvme"));
 
 
 #endif /* __MVME_STARTUP_H__ */

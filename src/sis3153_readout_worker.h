@@ -89,9 +89,7 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
         std::array<EventConfig *, 8> m_irqEventConfigs;
         std::array<s32, 8> m_irqEventConfigIndex;
         std::array<u64, 8> m_packetCountsByStack;
-#ifndef QT_NO_DEBUG
         QFile *m_debugFile = nullptr;
-#endif
 };
 
 #endif /* __SIS3153_READOUT_WORKER_H__ */
