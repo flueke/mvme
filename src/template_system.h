@@ -84,7 +84,7 @@ QString LIBMVME_EXPORT get_module_path(const QString &moduleTypeName);
 QString LIBMVME_EXPORT get_template_path();
 
 // Output diagnostic information about the templates.
-QTextStream & LIBMVME_EXPORT operator<<(QTextStream &out, const MVMETemplates &templates);
+LIBMVME_EXPORT QTextStream &operator<<(QTextStream &out, const MVMETemplates &templates);
 
 VMEModuleMeta LIBMVME_EXPORT get_module_meta_by_typename(const MVMETemplates &templates, const QString &moduleTypename);
 
