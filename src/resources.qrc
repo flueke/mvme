@@ -37,6 +37,7 @@
     <file alias="eye_pencil.png">resources/eye--pencil.png</file>
     <file alias="document_import.png">resources/document-import.png</file>
     <file alias="ui_search_field.png">resources/ui-search-field.png</file>
+    <file alias="text-document.png">resources/text-x-katefilelist.png</file>
 
     <file alias="operator_calibration.png">resources/measure.png</file>
     <file alias="operator_difference.png">resources/minus-white.png</file>

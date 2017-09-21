@@ -6,27 +6,30 @@ from __future__ import print_function
 
 import sys
 
-HeaderMask          = 0xC0000000
-HeaderResult        = 0x40000000
-HeaderModuleIdMask  = 0x0F000000
-HeaderModuleIdShift = 24
-HeaderLengthMask    = 0x00000FFF
+HeaderMask                  = 0xC0000000
+HeaderResult                = 0x40000000
+HeaderModuleIdMask          = 0x00FF0000
+HeaderModuleIdShift         = 16
+# XXX: This does not really exist!
+#HeaderModuleSettingMask     = 0x0000FC00;
+#HeaderModuleSettingShift    = 10;
+HeaderLengthMask            = 0x000003FF
 
-DataMaskMDPP        = 0xF0000000 # Data marker bits for MDPP
-DataResultMDPP      = 0x10000000
-DataMaskMxDC        = 0xFF800000 # Data marker bits for MxDC
-DataResultMxDC      = 0x04000000
-ChannelExtractMask  = 0x003F0000 # 6-bit address mask
-ChannelExtractShift = 16
-DataExtractMask     = 0x0000FFFF # 16 bit data mask (MQDC only has 13-bits!)
+DataMaskMDPP                = 0xF0000000 # Data marker bits for MDPP
+DataResultMDPP              = 0x10000000
+DataMaskMxDC                = 0xFF800000 # Data marker bits for MxDC
+DataResultMxDC              = 0x04000000
+ChannelExtractMask          = 0x003F0000 # 6-bit address mask
+ChannelExtractShift         = 16
+DataExtractMask             = 0x0000FFFF # 16 bit data mask (MQDC only has 13-bits!)
 
-ExtTsMask           = 0xFF800000 # extended timestamp
-ExtTsResult         = 0x04800000
-ExtTsStampMask      = 0x0000FFFF
+ExtTsMask                   = 0xFF800000 # extended timestamp
+ExtTsResult                 = 0x04800000
+ExtTsStampMask              = 0x0000FFFF
 
-EoEMask             = 0xC0000000 # End Of Event
-EoEResult           = 0xC0000000
-EoECounterMask      = 0x3FFFFFFF
+EoEMask                     = 0xC0000000 # End Of Event
+EoEResult                   = 0xC0000000
+EoECounterMask              = 0x3FFFFFFF
 
 
 # huh? our fillword is 0x00000000
@@ -50,11 +53,13 @@ def handle_one_word(dataWord, wordIndex):
     extTsFound  = (dataWord & ExtTsMask) == ExtTsResult
 
     if headerFound:
-        moduleId = (dataWord & HeaderModuleIdMask) >> HeaderModuleIdShift
-        dataLength = (dataWord & HeaderLengthMask)
+        moduleId        = (dataWord & HeaderModuleIdMask) >> HeaderModuleIdShift
+        #moduleSetting   = (dataWord & HeaderModuleSettingMask) >> HeaderModuleSettingShift
+        dataLength      = (dataWord & HeaderLengthMask)
         print("%4d: 0x%08X => Header" % (wordIndex, dataWord))
-        print("\tmoduleId   = %d" % moduleId)
-        print("\t#dataWords = %d" % dataLength)
+        print("\tmoduleId      = %d" % moduleId)
+        #print("\tmoduleSetting = %d" % moduleSetting)
+        print("\t#dataWords    = %d" % dataLength)
 
     elif dataFound:
         channel = (dataWord & ChannelExtractMask) >> ChannelExtractShift

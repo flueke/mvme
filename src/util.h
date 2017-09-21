@@ -191,6 +191,8 @@ struct BufferIterator
     }
 
     inline bool atEnd() const { return buffp == endp; }
+
+    inline void rewind() { buffp = data; }
 };
 
 QString readStringFile(const QString &filename);

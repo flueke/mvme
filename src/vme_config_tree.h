@@ -88,6 +88,7 @@ class VMEConfigTreeWidget: public QWidget
         void onActionShowAdvancedChanged();
         void handleShowDiagnostics();
         void dumpVMUSBRegisters();
+        void showEditNotes();
 
         void runScriptConfigs(const QVector<VMEScriptConfig *> &configs);
 
@@ -104,7 +105,7 @@ class VMEConfigTreeWidget: public QWidget
 
         QAction *action_showAdvanced;
 
-        QToolButton *pb_new, *pb_load, *pb_save, *pb_saveAs;
+        QToolButton *pb_new, *pb_load, *pb_save, *pb_saveAs, *pb_notes;
         QLineEdit *le_fileName;
 };
 

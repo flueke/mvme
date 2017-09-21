@@ -235,5 +235,6 @@ target_link_libraries(test_launcher_module_template libmvme)
 #add_dependencies(vmusb_read_buffers_file libmvme)
 #target_link_libraries(vmusb_read_buffers_file libmvme)
 add_mvme_executable(vmusb_read_buffers_file "vmusb_read_buffers_file.cc")
+add_mvme_executable(mvme-listfile-dumper-multievent "listfile-multievent-dumper.cpp")
 
 # vim:tw=0

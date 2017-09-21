@@ -162,6 +162,8 @@ VMEConfigTreeWidget::VMEConfigTreeWidget(MVMEContext *context, QWidget *parent)
     pb_load   = makeActionToolButton(mainwin->findChild<QAction *>("actionOpenVMEConfig"));
     pb_save   = makeActionToolButton(mainwin->findChild<QAction *>("actionSaveVMEConfig"));
     pb_saveAs = makeActionToolButton(mainwin->findChild<QAction *>("actionSaveVMEConfigAs"));
+    pb_notes  = makeToolButton(QSL(":/text-document.png"), QSL("Notes"));
+    connect(pb_notes, &QPushButton::clicked, this, &VMEConfigTreeWidget::showEditNotes);
 
     QToolButton *pb_treeSettings = nullptr;
 
@@ -191,6 +193,7 @@ VMEConfigTreeWidget::VMEConfigTreeWidget(MVMEContext *context, QWidget *parent)
     buttonLayout->addWidget(pb_save);
     buttonLayout->addWidget(pb_saveAs);
     buttonLayout->addWidget(pb_treeSettings);
+    //buttonLayout->addWidget(pb_notes); TODO: implement this
     buttonLayout->addStretch(1);
 
     // filename label
@@ -932,6 +935,10 @@ void VMEConfigTreeWidget::dumpVMUSBRegisters()
     {
         dump_registers(vmusb, [this] (const QString &line) { m_context->logMessage(line); });
     }
+}
+
+void VMEConfigTreeWidget::showEditNotes()
+{
 }
 
 void VMEConfigTreeWidget::updateConfigLabel()
