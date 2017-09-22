@@ -162,8 +162,11 @@ QString MultiWordDataFilter::toString() const
 
 DataFilter makeFilterFromString(const QString &str, s32 wordIndex)
 {
-    auto filterDataRaw = str.toLocal8Bit();
+    return makeFilterFromBytes(str.toLocal8Bit(), wordIndex);
+}
 
+DataFilter makeFilterFromBytes(const QByteArray &filterDataRaw, s32 wordIndex)
+{
     QByteArray filterData;
 
     for (auto c: filterDataRaw)

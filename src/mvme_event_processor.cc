@@ -41,6 +41,22 @@ enum RunAction
     StopImmediately
 };
 
+// Maximum number of possible events in the vme config. Basically IRQ1-7 +
+// external inputs + timers + some room to grow.
+static const u32 MaxEvents = 12;
+static const u32 MaxModulesPerEvent = 20;
+
+struct MultiEventModuleInfo
+{
+    u32 *subEventHeader = nullptr;  // Points to the mvme header preceeding the module data.
+                                    // Null if the entry is not used.
+    u32 *moduleHeader   = nullptr;  // Points to the current module data header.
+                                    // Null if no header has been read yet.
+    DataFilter moduleHeaderFilter;
+};
+
+using ModuleInfoArray = std::array<MultiEventModuleInfo, MaxModulesPerEvent>;
+
 struct MVMEEventProcessorPrivate
 {
     MVMEContext *context = nullptr;
@@ -62,6 +78,8 @@ struct MVMEEventProcessorPrivate
     int ModuleTypeShift;
     int SubEventSizeMask;
     int SubEventSizeShift;
+
+    std::array<ModuleInfoArray, MaxEvents> eventInfos;
 };
 
 MVMEEventProcessor::MVMEEventProcessor(MVMEContext *context)
@@ -96,17 +114,36 @@ void MVMEEventProcessor::removeDiagnostics()
 
 void MVMEEventProcessor::newRun(const RunInfo &runInfo)
 {
-    if (m_d->diag)
-        m_d->diag->reset();
+    m_d->eventInfos.fill({}); // Full clear of the eventInfo cache
 
+    auto eventConfigs = m_d->context->getEventConfigs();
+
+    for (s32 eventIndex = 0;
+         eventIndex < eventConfigs.size();
+         ++eventIndex)
     {
-        m_d->analysis_ng = m_d->context->getAnalysis();
+        auto eventConfig = eventConfigs[eventIndex];
+        auto moduleConfigs = eventConfig->getModuleConfigs();
 
-        if (m_d->analysis_ng)
+        for (s32 moduleIndex = 0;
+             moduleIndex < moduleConfigs.size();
+             ++moduleIndex)
         {
-            m_d->analysis_ng->beginRun(runInfo);
+            auto moduleConfig = moduleConfigs[moduleIndex];
+            MultiEventModuleInfo &modInfo(m_d->eventInfos[eventIndex][moduleIndex]);
+            modInfo.moduleHeaderFilter = makeFilterFromBytes(moduleConfig->getEventHeaderFilter());
         }
     }
+
+    m_d->analysis_ng = m_d->context->getAnalysis();
+
+    if (m_d->analysis_ng)
+    {
+        m_d->analysis_ng->beginRun(runInfo);
+    }
+
+    if (m_d->diag)
+        m_d->diag->reset();
 }
 
 // Process an event buffer containing one or more events.
@@ -363,14 +400,123 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
 
 void MVMEEventProcessor::processDataBuffer2(DataBuffer *buffer)
 {
-    // New implementation which should be able to handle multi event readout
-    // module data. Otherwise the same functionality as in the old version must
-    // be implemented.
+    auto &stats = m_d->context->getDAQStats();
 
-    // Required Information:
-    // - for each event: is it a multievent event? XXX: is this even needed?
-    // could the code just handle any event as multievent which contains just
-    // one block of module data?
+    try
+    {
+        ++stats.mvmeBuffersSeen;
+        BufferIterator iter(buffer->data, buffer->used, BufferIterator::Align32);
+
+        while (iter.longwordsLeft())
+        {
+            u32 sectionHeader = iter.extractU32();
+            int sectionType = (sectionHeader & m_d->SectionTypeMask) >> m_d->SectionTypeShift;
+            u32 sectionSize = (sectionHeader & m_d->SectionSizeMask) >> m_d->SectionSizeShift;
+
+            if (sectionSize > iter.longwordsLeft())
+                throw end_of_buffer();
+
+            if (sectionType == ListfileSections::SectionType_Event)
+            {
+                processEventSection(sectionHeader, iter.asU32(), sectionSize);
+                iter.skip(sectionSize * sizeof(u32));
+            }
+            if (sectionType == ListfileSections::SectionType_Timetick
+                && m_d->analysis_ng)
+            {
+                // pass timeticks to the analysis
+                Q_ASSERT(sectionSize == 0);
+                m_d->analysis_ng->processTimetick();
+            }
+            else
+            {
+                // skip non-event sections
+                iter.skip(sectionSize * sizeof(u32));
+            }
+        }
+    }
+    catch (const end_of_buffer &)
+    {
+        emit logMessage(QString("Error (mvme fmt): unexpectedly reached end of buffer"));
+        ++stats.mvmeBuffersWithErrors;
+    }
+}
+
+void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 size)
+{
+    int eventIndex = (sectionHeader & m_d->EventTypeMask) >> m_d->EventTypeShift;
+    auto &moduleInfos(m_d->eventInfos[eventIndex]);
+
+    // Clear modInfo pointers for the current eventIndex.
+    for (auto &modInfo: moduleInfos)
+    {
+        modInfo.subEventHeader = nullptr;
+        modInfo.moduleHeader   = nullptr;
+    }
+
+    BufferIterator eventIter(reinterpret_cast<u8 *>(data), size * sizeof(u32));
+
+    // Step1: collect all subevent headers and store them in the modinfo structures
+    for (u32 moduleIndex = 0;
+         moduleIndex < MaxModulesPerEvent;
+         ++moduleIndex)
+    {
+        if (eventIter.atEnd() || eventIter.peekU32() == EndMarker)
+            break;
+
+        moduleInfos[moduleIndex].subEventHeader = eventIter.asU32();
+        moduleInfos[moduleIndex].moduleHeader   = eventIter.asU32() + 1;
+        // moduleHeader now points to the first module header in the event section
+
+        u32 subEventHeader = eventIter.extractU32();
+        u32 subEventSize   = (subEventHeader & m_d->SubEventSizeMask) >> m_d->SubEventSizeShift;
+        // skip to the next subevent
+        eventIter.skip(sizeof(u32), subEventSize);
+    }
+
+    // Step2: yield events in the correct order:
+    // (mod0, ev0), (mod1, ev0), .., (mod0, ev1), (mod1, ev1), ..
+    bool done = false;
+    while (!done)
+    {
+        for (u32 moduleIndex = 0;
+             moduleInfos[moduleIndex].subEventHeader;
+             ++moduleIndex)
+        {
+            auto &mi(moduleInfos[moduleIndex]);
+            Q_ASSERT(mi.moduleHeader);
+
+            if (mi.moduleHeaderFilter.matches(*mi.moduleHeader))
+            {
+                u32 moduleEventSize = mi.moduleHeaderFilter.extractData(
+                    *mi.moduleHeader, 'S');
+#error "Continue working on this piece of code please!"
+                /* TODO:
+                    if (m_d->analysis_ng && eventConfig)
+                        m_d->analysis_ng->beginEvent(eventConfig->getId());
+
+                    m_d->analysis_ng->processModuleData(eventConfig->getId(),
+                                                        moduleConfig->getId(),
+                                                        firstWord,
+                                                        moduleDataSize);
+
+                    if (m_d->analysis_ng && eventConfig)
+                        m_d->analysis_ng->endEvent(eventConfig->getId());
+                */
+
+                // advance the moduleHeader by the event size
+                mi.moduleHeader += moduleEventSize + 1;
+            }
+            else
+            {
+                // The data word did not match the module header filter. If the
+                // data structure is in intact this just means that we're at
+                // the end of the event section.
+                done = true;
+                break;
+            }
+        }
+    }
 }
 
 static const u32 FilledBufferWaitTimeout_ms = 250;
