@@ -22,12 +22,10 @@
 #include <QByteArray>
 #include <QDebug>
 #include <QHash>
+#include <QLineEdit>
 #include <QVector>
 #include "libmvme_export.h"
 #include "typedefs.h"
-
-namespace analysis
-{
 
 /*
  * Identifying:
@@ -244,6 +242,7 @@ class MultiWordDataFilter
 // Converts input to 8 bit, removes spaces, creates filter.
 DataFilter makeFilterFromString(const QString &str, s32 wordIndex = -1);
 
-}
+// Create a QLineEdit setup for convenient filter editing and display.
+QLineEdit *makeFilterEdit();
 
 #endif /* __DATA_FILTER_H__ */

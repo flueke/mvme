@@ -264,6 +264,15 @@ void ModuleConfig::addInitScript(VMEScriptConfig *script)
     setModified(true);
 }
 
+void ModuleConfig::setEventHeaderFilter(const QByteArray &filter)
+{
+    if (filter != m_eventHeaderFilter)
+    {
+        m_eventHeaderFilter = filter;
+        setModified(true);
+    }
+}
+
 VMEScriptConfig *ModuleConfig::getInitScript(const QString &scriptName) const
 {
     auto it = std::find_if(m_initScripts.begin(), m_initScripts.end(),
@@ -311,6 +320,8 @@ void ModuleConfig::read_impl(const QJsonObject &json)
         m_initScripts.push_back(cfg);
     }
 
+    m_eventHeaderFilter = json["eventHeaderFilter"].toString().toLocal8Bit();
+
     loadDynamicProperties(json["properties"].toObject(), this);
 }
 
@@ -344,6 +355,9 @@ void ModuleConfig::write_impl(QJsonObject &json) const
         }
         json["initScripts"] = dstArray;
     }
+
+    // event header filter
+    json["eventHeaderFilter"] = QString::fromLocal8Bit(m_eventHeaderFilter);
 
 #if 0
     QJsonObject scriptsObject;

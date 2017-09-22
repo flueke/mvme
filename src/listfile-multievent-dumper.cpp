@@ -24,7 +24,7 @@
 #include <map>
 #include "databuffer.h"
 #include "globals.h"
-#include "analysis/data_filter.h"
+#include "data_filter.h"
 
 typedef uint8_t  u8;
 typedef uint16_t u16;
@@ -39,8 +39,6 @@ typedef int64_t s64;
 using std::cout;
 using std::cerr;
 using std::endl;
-
-using analysis::DataFilter;
 
 /*  ===== VERSION 0 =====
  *

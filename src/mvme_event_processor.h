@@ -69,6 +69,7 @@ class MVMEEventProcessor: public QObject
 
     private:
         void processDataBuffer(DataBuffer *buffer);
+        void processDataBuffer2(DataBuffer *buffer);
         MVMEEventProcessorPrivate *m_d;
 };
 

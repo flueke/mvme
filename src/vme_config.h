@@ -164,6 +164,9 @@ class LIBMVME_EXPORT ModuleConfig: public ConfigObject
 
         void addInitScript(VMEScriptConfig *script);
 
+        void setEventHeaderFilter(const QByteArray &filter);
+        QByteArray getEventHeaderFilter() const { return m_eventHeaderFilter; }
+
     protected:
         virtual void read_impl(const QJsonObject &json) override;
         virtual void write_impl(QJsonObject &json) const override;
@@ -173,7 +176,7 @@ class LIBMVME_EXPORT ModuleConfig: public ConfigObject
         VMEScriptConfig *m_resetScript;
         VMEScriptConfig *m_readoutScript;
         QVector<VMEScriptConfig *> m_initScripts;
-
+        QByteArray m_eventHeaderFilter;
         vats::VMEModuleMeta m_meta;
 };
 

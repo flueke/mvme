@@ -1,5 +1,6 @@
 {
     "typeId"        : 7,
     "typeName"      : "mdpp16_rcp",
-    "displayName"   : "MDPP-16_RCP"
+    "displayName"   : "MDPP-16_RCP",
+    "eventHeaderFilter" : "0100XXXXMMMMMMMMXXXXXXSSSSSSSSSS"
 }

@@ -1,5 +1,6 @@
 {
     "typeId"        : 6,
     "typeName"      : "mdi2",
-    "displayName"   : "MDI-2"
+    "displayName"   : "MDI-2",
+    "eventHeaderFilter" : "01000000MMMMMMMMXXXXSSSSSSSSSSSS"
 }

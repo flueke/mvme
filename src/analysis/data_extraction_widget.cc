@@ -64,25 +64,6 @@ DataExtractionEditor::DataExtractionEditor(const QVector<DataFilter> &subFilters
     updateDisplay();
 }
 
-static QLineEdit *makeFilterEdit()
-{
-    QFont font;
-    font.setFamily(QSL("Monospace"));
-    font.setStyleHint(QFont::Monospace);
-    font.setPointSize(9);
-
-    QLineEdit *result = new QLineEdit;
-    result->setFont(font);
-    result->setInputMask("NNNN NNNN NNNN NNNN NNNN NNNN NNNN NNNN");
-
-    QFontMetrics fm(font);
-    s32 padding = 6;
-    s32 width = fm.width(result->inputMask()) + padding;
-    result->setMinimumWidth(width);
-
-    return result;
-}
-
 static QSpinBox *makeWordIndexSpin()
 {
     auto result = new QSpinBox;

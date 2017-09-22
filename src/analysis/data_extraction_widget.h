@@ -19,7 +19,7 @@
 #ifndef __DATA_EXTRACTION_WIDGET_H__
 #define __DATA_EXTRACTION_WIDGET_H__
 
-#include "data_filter.h"
+#include "../data_filter.h"
 
 #include <QDialogButtonBox>
 #include <QGridLayout>

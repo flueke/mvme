@@ -80,6 +80,7 @@ class ModuleConfigDialog: public QDialog
         QComboBox *typeCombo;
         QLineEdit *nameEdit;
         QLineEdit *addressEdit;
+        QLineEdit *eventHeaderFilterEdit;
 
         MVMEContext *m_context;
         ModuleConfig *m_module;

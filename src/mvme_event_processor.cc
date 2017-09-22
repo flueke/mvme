@@ -361,6 +361,18 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
 #endif
 }
 
+void MVMEEventProcessor::processDataBuffer2(DataBuffer *buffer)
+{
+    // New implementation which should be able to handle multi event readout
+    // module data. Otherwise the same functionality as in the old version must
+    // be implemented.
+
+    // Required Information:
+    // - for each event: is it a multievent event? XXX: is this even needed?
+    // could the code just handle any event as multievent which contains just
+    // one block of module data?
+}
+
 static const u32 FilledBufferWaitTimeout_ms = 250;
 static const u32 ProcessEventsMinInterval_ms = 500;
 

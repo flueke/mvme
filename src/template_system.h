@@ -61,6 +61,7 @@ struct LIBMVME_EXPORT VMEModuleMeta
     QString typeName;
     QString displayName;
     VMEModuleTemplates templates;
+    QByteArray eventHeaderFilter;
 
     QString templatePath;
 };

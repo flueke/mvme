@@ -282,19 +282,50 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *modul
 
     nameEdit = new QLineEdit;
 
+    addressEdit = new QLineEdit;
+    QFont font;
+    font.setFamily(QSL("Monospace"));
+    font.setStyleHint(QFont::Monospace);
+    addressEdit->setFont(font);
+    addressEdit->setInputMask("\\0\\xHHHH\\0\\0\\0\\0");
+    addressEdit->setText(QString("0x%1").arg(module->getBaseAddress(), 8, 16, QChar('0')));
+
+    eventHeaderFilterEdit = makeFilterEdit();
+
+    auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+    connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
+    connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
+
+    auto layout = new QFormLayout(this);
+    layout->addRow("Type", typeCombo);
+    layout->addRow("Name", nameEdit);
+    layout->addRow("Address", addressEdit);
+    layout->addRow("Multi Event Header Filter", eventHeaderFilterEdit);
+    layout->addRow(bb);
+
     auto onTypeComboIndexChanged = [this](int index)
     {
         Q_ASSERT(0 <= index && index < m_moduleMetas.size());
 
+        const auto &mm(m_moduleMetas[index]);
         QString name = m_module->objectName();
 
         if (name.isEmpty())
         {
-            const auto &mm(m_moduleMetas[index]);
             name = m_context->getUniqueModuleName(mm.typeName);
         }
 
         nameEdit->setText(name);
+
+        if (m_module->getEventHeaderFilter().isEmpty()
+            || m_module->getModuleMeta().typeId != mm.typeId)
+        {
+            eventHeaderFilterEdit->setText(mm.eventHeaderFilter);
+        }
+        else
+        {
+            eventHeaderFilterEdit->setText(m_module->getEventHeaderFilter());
+        }
     };
 
     connect(typeCombo, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
@@ -306,23 +337,6 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *modul
         onTypeComboIndexChanged(typeComboIndex);
     }
 
-    addressEdit = new QLineEdit;
-    QFont font;
-    font.setFamily(QSL("Monospace"));
-    font.setStyleHint(QFont::Monospace);
-    addressEdit->setFont(font);
-    addressEdit->setInputMask("\\0\\xHHHH\\0\\0\\0\\0");
-    addressEdit->setText(QString("0x%1").arg(module->getBaseAddress(), 8, 16, QChar('0')));
-
-    auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
-    connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
-    connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
-
-    auto layout = new QFormLayout(this);
-    layout->addRow("Type", typeCombo);
-    layout->addRow("Name", nameEdit);
-    layout->addRow("Address", addressEdit);
-    layout->addRow(bb);
 
     auto updateOkButton = [=]()
     {
@@ -342,6 +356,14 @@ void ModuleConfigDialog::accept()
     m_module->setModuleMeta(mm);
     m_module->setObjectName(nameEdit->text());
     m_module->setBaseAddress(addressEdit->text().toUInt(&ok, 16));
+
+    QByteArray filterNoSpaces;
+    for (auto c: eventHeaderFilterEdit->text().toLocal8Bit())
+    {
+        if (c != ' ')
+            filterNoSpaces.push_back(c);
+    }
+    m_module->setEventHeaderFilter(filterNoSpaces);
     QDialog::accept();
 }
 

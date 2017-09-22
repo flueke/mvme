@@ -1,5 +1,6 @@
 {
     "typeId"        : 2,
     "typeName"      : "mqdc32",
-    "displayName"   : "MQDC-32"
+    "displayName"   : "MQDC-32",
+    "eventHeaderFilter" : "01000000MMMMMMMMXXXXSSSSSSSSSSSS"
 }

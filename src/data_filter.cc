@@ -17,12 +17,10 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "data_filter.h"
+#include "qt_util.h"
 
 #include <cctype>
 #include <stdexcept>
-
-namespace analysis
-{
 
 // Source: http://stackoverflow.com/a/757266
 static inline int trailing_zeroes(uint32_t v)
@@ -177,4 +175,22 @@ DataFilter makeFilterFromString(const QString &str, s32 wordIndex)
     return DataFilter(filterData, wordIndex);
 }
 
+QLineEdit *makeFilterEdit()
+{
+    QFont font;
+    font.setFamily(QSL("Monospace"));
+    font.setStyleHint(QFont::Monospace);
+    font.setPointSize(9);
+
+    QLineEdit *result = new QLineEdit;
+    result->setFont(font);
+    result->setInputMask("NNNN NNNN NNNN NNNN NNNN NNNN NNNN NNNN");
+
+    QFontMetrics fm(font);
+    s32 padding = 6;
+    s32 width = fm.width(result->inputMask()) + padding;
+    result->setMinimumWidth(width);
+
+    return result;
 }
+
