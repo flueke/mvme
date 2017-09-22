@@ -26,11 +26,20 @@
 struct DataBuffer
 {
     DataBuffer(size_t size, int type=0)
-        : data(new u8[size])
+        : data(nullptr)
         , size(size)
         , used(0)
         , type(type)
-    {}
+    {
+        if (size > 0)
+        {
+            // Allocate in terms of u32 to get the alignment right for 32-bit access.
+            size_t sizeu32 = size/sizeof(u32) + 1;
+            data = reinterpret_cast<u8 *>(new u32[sizeu32]);
+            // Size is still stored in bytes.
+            size = sizeu32 * sizeof(u32);
+        }
+    }
 
     ~DataBuffer()
     {
@@ -39,14 +48,17 @@ struct DataBuffer
 
     void reserve(size_t newSize)
     {
+        // never shrink
         if (newSize <= size)
             return;
 
-        u8 *newData = new u8[newSize];
+        size_t sizeu32 = newSize/sizeof(u32) + 1;
+
+        u8 *newData = reinterpret_cast<u8 *>(new u32[sizeu32]);
         memcpy(newData, data, used);
         delete[] data;
         data = newData;
-        size = newSize;
+        size = sizeu32 * sizeof(u32);
     }
 
     size_t free() const { return size - used; }
