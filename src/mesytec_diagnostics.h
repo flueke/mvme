@@ -38,7 +38,7 @@ public:
     inline int getModuleIndex() const { return m_moduleIndex; }
     void beginEvent();
     void endEvent();
-    void handleDataWord(quint32 data);
+    void processModuleData(u32 *data, u32 size);
     RealtimeData *getRealtimeData() const { return m_rtd; }
     void setLogNextEvent() { m_logNextEvent = true; }
 
@@ -62,6 +62,8 @@ public:
     enum StampMode { TimeStamp, Counter};
 
 private:
+    void handleDataWord(quint32 data);
+
     double mean[50];
     double sigma[50];
     quint32 meanchannel[50];

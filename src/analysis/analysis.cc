@@ -299,66 +299,51 @@ void Extractor::beginEvent()
     m_output.getParameters().invalidateAll();
 }
 
-void Extractor::processDataWord(u32 data, s32 wordIndex)
+void Extractor::processModuleData(u32 *data, u32 size)
 {
-#if ENABLE_ANALYSIS_DEBUG
-    qDebug() << __PRETTY_FUNCTION__ << this << objectName()
-        << "data =" << QString("0x%1").arg(data, 8, 16, QLatin1Char('0'))
-        << "wordIndex =" << wordIndex;
-#endif
-
-    m_filter.handleDataWord(data, wordIndex);
-
-    if (m_filter.isComplete())
+    for (u32 wordIndex = 0;
+         wordIndex < size;
+         ++wordIndex)
     {
-        ++m_currentCompletionCount;
+        m_filter.handleDataWord(*(data + wordIndex), wordIndex);
 
-        if (m_requiredCompletionCount == m_currentCompletionCount)
+        if (m_filter.isComplete())
         {
-            m_currentCompletionCount = 0;
+            ++m_currentCompletionCount;
 
-            u64 value   = m_filter.getResultValue();
-            u64 address = m_filter.getResultAddress();
-
-            Q_ASSERT(address < static_cast<u64>(m_output.getSize()));
-            Q_ASSERT(address < static_cast<u64>(m_hitCounts.size()));
-
-            auto &param = m_output.getParameters()[address];
-            // Only fill if not valid yet to keep the first value in case of
-            // multiple hits in this event.
-            if (!param.valid)
+            if (m_requiredCompletionCount == m_currentCompletionCount)
             {
-                double dValue = value + RealDist01(m_rng);
+                m_currentCompletionCount = 0;
 
-                param.valid = true;
-                param.value = dValue;
+                u64 value   = m_filter.getResultValue();
+                u64 address = m_filter.getResultAddress();
+
+                Q_ASSERT(address < static_cast<u64>(m_output.getSize()));
+                Q_ASSERT(address < static_cast<u64>(m_hitCounts.size()));
+
+                auto &param = m_output.getParameters()[address];
+                // Only fill if not valid yet to keep the first value in case of
+                // multiple hits in this event.
+                if (!param.valid)
+                {
+                    double dValue = value + RealDist01(m_rng);
+
+                    param.valid = true;
+                    param.value = dValue;
 
 
 #if ENABLE_ANALYSIS_DEBUG
-                qDebug() << this << "setting param valid, addr =" << address << ", value =" << param.value
-                    << ", dataWord =" << QString("0x%1").arg(data, 8, 16, QLatin1Char('0'));
+                    qDebug() << this << "setting param valid, addr =" << address << ", value =" << param.value
+                        << ", dataWord =" << QString("0x%1").arg(data, 8, 16, QLatin1Char('0'));
 #endif
-                QMutexLocker lock(&m_hitCountsMutex);
-                m_hitCounts[address] += 1.0;
+                    QMutexLocker lock(&m_hitCountsMutex);
+                    m_hitCounts[address] += 1.0;
+                }
             }
+
+            m_filter.clearCompletion();
         }
-
-        m_filter.clearCompletion();
     }
-
-#if 0
-    qDebug() << this << "output:";
-    auto &params(m_output.getParameters());
-
-    for (s32 ip=0; ip<params.size(); ++ip)
-    {
-        auto &param(params[ip]);
-        if (param.valid)
-            qDebug() << "        " << ip << "=" << to_string(param);
-        else
-            qDebug() << "        " << ip << "=" << "<not valid>";
-    }
-#endif
 }
 
 s32 Extractor::getNumberOfOutputs() const
@@ -2418,10 +2403,8 @@ struct TimedBlock
     HighResClock::time_point end;
 };
 
-void Analysis::processDataWord(const QUuid &eventId, const QUuid &moduleId, u32 data, s32 wordIndex)
+void Analysis::processModuleData(const QUuid &eventId, const QUuid &moduleId, u32 *data, u32 size)
 {
-    //TimedBlock tb(__PRETTY_FUNCTION__);
-
     for (auto &sourceEntry: m_sources)
     {
         if (sourceEntry.eventId == eventId && sourceEntry.moduleId == moduleId)
@@ -2429,7 +2412,7 @@ void Analysis::processDataWord(const QUuid &eventId, const QUuid &moduleId, u32 
             Q_ASSERT(sourceEntry.sourceRaw);
             Q_ASSERT(sourceEntry.sourceRaw == sourceEntry.source.get());
 
-            sourceEntry.sourceRaw->processDataWord(data, wordIndex);
+            sourceEntry.sourceRaw->processModuleData(data, size);
         }
     }
 }

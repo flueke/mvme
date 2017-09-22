@@ -40,7 +40,7 @@ class VMEConfig;
  *   - Sources have no input but are directly attached to a module.
  *     -> They have eventIndex and moduleIndex whereas operators are only
  *        associated with an event.
- *   - Source have a processDataWord() method, Operators have a step() method
+ *   - Source have a processModuleData() method, Operators have a step() method
  *   - Sinks usually don't have any output but consume input. Histograms could
  *     have output but outputting whole histograms into ParameterVectors doubles
  *     the storage required for historams.
@@ -290,8 +290,8 @@ struct LIBMVME_EXPORT Slot
     QString name;
 };
 
-/* Data source interface. The analysis feeds single data words into this using
- * processDataWord(). */
+/* Data source interface. The analysis feeds complete module event data into
+ * this using processModuleData(). */
 class LIBMVME_EXPORT SourceInterface: public PipeSourceInterface
 {
     Q_OBJECT
@@ -307,7 +307,8 @@ class LIBMVME_EXPORT SourceInterface: public PipeSourceInterface
         /* Use beginEvent() to invalidate output parameters if needed. */
         virtual void beginEvent() {}
 
-        virtual void processDataWord(u32 data, s32 wordIndex) = 0;
+        /* Used to feed a full block of module event data to the source. */
+        virtual void processModuleData(u32 *firstWord, u32 size) = 0;
 
         virtual void read(const QJsonObject &json) = 0;
         virtual void write(QJsonObject &json) const = 0;
@@ -417,7 +418,7 @@ class LIBMVME_EXPORT Extractor: public SourceInterface
 
         virtual void beginRun(const RunInfo &runInfo) override;
         virtual void beginEvent() override;
-        virtual void processDataWord(u32 data, s32 wordIndex) override;
+        virtual void processModuleData(u32 *firstWord, u32 size) override;
 
         virtual s32 getNumberOfOutputs() const override;
         virtual QString getOutputName(s32 outputIndex) const override;
@@ -1206,7 +1207,7 @@ class LIBMVME_EXPORT Analysis: public QObject
 
         void beginRun(const RunInfo &runInfo);
         void beginEvent(const QUuid &eventId);
-        void processDataWord(const QUuid &eventId, const QUuid &moduleId, u32 data, s32 wordIndex);
+        void processModuleData(const QUuid &eventId, const QUuid &moduleId, u32 *data, u32 size);
         void endEvent(const QUuid &eventId);
         // Called once for every SectionType_Timetick section
         void processTimetick();

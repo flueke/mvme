@@ -190,8 +190,37 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                 u8 moduleType  = static_cast<u8>((subEventHeader & m_d->ModuleTypeMask) >> m_d->ModuleTypeShift);
                 auto moduleConfig = m_d->context->getConfig()->getModuleConfig(eventIndex, moduleIndex);
 
-                // TODO: skip event and report error in the following case:
-                // moduleConfig->getModuleMeta().type != moduleType
+                // Ensure the extracted module type and the module type from
+                // the vme configuration are the same.
+                if (moduleConfig->getModuleMeta().typeId != moduleType)
+                {
+                    QString msg = (QString("Error (mvme fmt): subEvent module type %1 "
+                                           "does not match expected module type %3."
+                                           "Skipping rest of buffer.")
+                                   .arg(static_cast<u32>(moduleType))
+                                   .arg(static_cast<u32>(moduleConfig->getModuleMeta().typeId))
+                                  );
+                    qDebug() << msg;
+                    emit logMessage(msg);
+                    return;
+                }
+
+                // Make sure the subevent size does not exceed the event
+                // section size.
+                if (wordsLeftInSection - 1 < subEventSize)
+                {
+                    QString msg = (QString("Error (mvme fmt): subevent size exceeds section size "
+                                           "(subEventHeader=0x%1, subEventSize=%2, wordsLeftInSection=%3). "
+                                           "Skipping rest of buffer.")
+                                   .arg(subEventHeader, 8, 16, QLatin1Char('0'))
+                                   .arg(subEventSize)
+                                   .arg(wordsLeftInSection - 1)
+                                  );
+                    qDebug() << msg;
+                    emit logMessage(msg);
+                    return;
+
+                }
 
 #ifdef MVME_EVENT_PROCESSOR_DEBUGGING
                 qDebug() << __PRETTY_FUNCTION__
@@ -201,75 +230,61 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                     << "moduleConfig" << moduleConfig;
 #endif
 
-
                 MesytecDiagnostics *diag = nullptr;
+
                 if (m_d->diag && m_d->diag->getEventIndex() == eventIndex && m_d->diag->getModuleIndex() == moduleIndex)
                 {
                     diag = m_d->diag;
                     diag->beginEvent();
                 }
 
-                s32 wordIndexInSubEvent = 0;
-
                 if (subEventSize > 0)
                 {
-                    /* Iterate over a subevent. The last word in the subevent is
-                     * the EndMarker so the actual data is in
-                     * subevent[0..subEventSize-2]. */
-                    for (u32 i=0; i<subEventSize-1; ++i, ++wordIndexInSubEvent)
+                    u32 *firstWord = iter.asU32();
+                    u32 *lastWord  = firstWord + subEventSize - 1;
+
+                    if (*lastWord == EndMarker)
                     {
-                        u32 currentWord = iter.extractU32();
+#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+                        qDebug() << __PRETTY_FUNCTION__ << "did find EndMarker";
+#endif
+                        --lastWord;
+                    }
+
+                    if (subEventSize > 1 && *lastWord == BerrMarker)
+                    {
+#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+                        qDebug() << __PRETTY_FUNCTION__ << "did find BerrMarker1";
+#endif
+                        --lastWord;
+                    }
+
+                    if (subEventSize > 2 && *lastWord == BerrMarker)
+                    {
+#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+                        qDebug() << __PRETTY_FUNCTION__ << "did find BerrMarker2";
+#endif
+                        --lastWord;
+                    }
+
+                    u32 moduleDataSize = lastWord - firstWord + 1;
 
 #ifdef MVME_EVENT_PROCESSOR_DEBUGGING
-                        qDebug("subEventSize=%u, i=%u, currentWord=0x%08x",
-                               subEventSize, i, currentWord);
+                    qDebug() << __PRETTY_FUNCTION__ << "full module data dump:";
+                    for (u32 i = 0; i < moduleDataSize; ++i)
+                    {
+                        qDebug("%s 0x%08x", __PRETTY_FUNCTION__, *(firstWord + i));
+                    }
 #endif
 
-                        /* Do not pass BerrMarker words to the analysis if and only
-                         * if they are the last words in the subevent.
-                         * Specific to VMUSB: for BLT readouts one BerrMarker is
-                         * written to the output stream, for MBLT readouts two of
-                         * those markers are written!
-                         * There is still the possibilty of missing the actual last
-                         * word of the readout if that last word is the same as
-                         * BerrMarker and the readout did not actually result in a
-                         * BERR on the bus. */
+                    m_d->analysis_ng->processModuleData(eventConfig->getId(),
+                                                        moduleConfig->getId(),
+                                                        firstWord,
+                                                        moduleDataSize);
 
-                        // The MBLT case: if the two last words are BerrMarkers skip the current word.
-                        if (subEventSize >= 3 && (i == subEventSize-3)
-                            && (currentWord == BerrMarker)
-                            && (iter.peekU32() == BerrMarker))
-                            continue;
-
-                        // If the last word is a BerrMarker skip it.
-                        if (subEventSize >= 2 && (i == subEventSize-2)
-                            && (currentWord == BerrMarker))
-                            continue;
-
-#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
-                        // XXX: special handling for mesytec_counter modules which have a typeId of 16
-                        if (moduleType == 16)
-                        {
-                            emit logMessage(QString("CounterWord %1: 0x%2, evtIdx=%3, modIdx=%4")
-                                            .arg(wordIndexInSubEvent)
-                                            .arg(currentWord, 8, 16, QLatin1Char('0'))
-                                            .arg(eventIndex)
-                                            .arg(moduleIndex)
-                                           );
-                        }
-#endif
-                        if (diag)
-                        {
-                            diag->handleDataWord(currentWord);
-                        }
-
-                        if (m_d->analysis_ng && eventConfig && moduleConfig)
-                        {
-                            /* TODO: Pass the whole event to the analysis in one
-                             * call, instead of passing each word separately. */
-                            m_d->analysis_ng->processDataWord(eventConfig->getId(), moduleConfig->getId(),
-                                                              currentWord, wordIndexInSubEvent);
-                        }
+                    if (diag)
+                    {
+                        diag->processModuleData(firstWord, moduleDataSize);
                     }
                 }
                 else
@@ -291,26 +306,25 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                 }
 
                 // end marker for subevent (aka module section)
-                u32 nextWord = iter.peekU32();
-                if (nextWord == EndMarker)
-                {
-                    iter.extractU32();
-                }
-                else
+                u32 *sectionLastWordPtr = iter.asU32() + subEventSize - 1;
+
+                if (*sectionLastWordPtr != EndMarker)
                 {
                     QString msg = (QString("Error (mvme fmt): did not find marker at end of subevent section "
                                            "(eventIndex=%1, moduleIndex=%2, nextWord=0x%3). Skipping rest of buffer.")
                                    .arg(eventIndex)
                                    .arg(moduleIndex)
-                                   .arg(nextWord, 8, 16, QLatin1Char('0'))
+                                   .arg(*sectionLastWordPtr, 8, 16, QLatin1Char('0'))
                                   );
                     qDebug() << msg;
                     emit logMessage(msg);
                     return;
                 }
+                ++sectionLastWordPtr;
 
-                u8 *newBufferP = iter.buffp;
+                u8 *newBufferP = reinterpret_cast<u8 *>(sectionLastWordPtr);
                 wordsLeftInSection -= (newBufferP - oldBufferP) / sizeof(u32);
+                iter.buffp = newBufferP; // advance the iterator
                 ++moduleIndex;
             }
 

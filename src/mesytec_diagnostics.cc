@@ -284,6 +284,14 @@ void MesytecDiagnostics::handleDataWord(quint32 currentWord)
     }
 }
 
+void MesytecDiagnostics::processModuleData(u32 *data, u32 size)
+{
+    for (u32 i = 0; i < size; ++i)
+    {
+        handleDataWord(data[i]);
+    }
+}
+
 void MesytecDiagnostics::clearChannelStats(void)
 {
     quint16 i;
