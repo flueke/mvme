@@ -94,7 +94,7 @@ struct MVMEEventProcessorPrivate
     std::array<u32, MaxModulesPerEvent> eventCountsByModule;
 #endif
 
-    MVMEEventProcessorStats m_localStats;
+    MVMEEventProcessorCounters m_localStats;
 };
 
 MVMEEventProcessor::MVMEEventProcessor(MVMEContext *context)
@@ -172,7 +172,7 @@ void MVMEEventProcessor::newRun(const RunInfo &runInfo)
     }
 
 
-    m_d->m_localStats = MVMEEventProcessorStats();
+    m_d->m_localStats = MVMEEventProcessorCounters();
     m_d->m_localStats.startTime = QDateTime::currentDateTime();
 }
 
@@ -519,7 +519,7 @@ EventProcessorState MVMEEventProcessor::getState() const
     return m_d->m_state;
 }
 
-const MVMEEventProcessorStats &MVMEEventProcessor::getStats() const
+const MVMEEventProcessorCounters &MVMEEventProcessor::getCounters() const
 {
     return m_d->m_localStats;
 }

@@ -202,7 +202,7 @@ int main(int argc, char *argv[])
             process_listfile(infile);
         }
 
-        auto stats = g_eventProcessor->getStats();
+        auto stats = g_eventProcessor->getCounters();
         double secsElapsed = stats.startTime.msecsTo(QDateTime::currentDateTime()) / 1000.0;
         double mbRead = stats.bytesProcessed / (1024.0 * 1024.0);
         double mbPerSec = mbRead / secsElapsed;
@@ -214,9 +214,9 @@ int main(int argc, char *argv[])
         cout << stats.buffersWithErrors << " buffers with errors" << endl;
         cout << stats.eventSections << " event section seen" << endl;
         cout << stats.invalidEventIndices << " invalid event indices" << endl;
-        for (u32 ei = 0; ei < MVMEEventProcessorStats::MaxEvents; ++ei)
+        for (u32 ei = 0; ei < MVMEEventProcessorCounters::MaxEvents; ++ei)
         {
-            for (u32 mi = 0; mi < MVMEEventProcessorStats::MaxModulesPerEvent; ++mi)
+            for (u32 mi = 0; mi < MVMEEventProcessorCounters::MaxModulesPerEvent; ++mi)
             {
                 u32 count = stats.moduleCounters[ei][mi];
                 if (count)
@@ -226,7 +226,7 @@ int main(int argc, char *argv[])
             }
         }
 
-        for (u32 ei = 0; ei < MVMEEventProcessorStats::MaxEvents; ++ei)
+        for (u32 ei = 0; ei < MVMEEventProcessorCounters::MaxEvents; ++ei)
         {
             u32 count = stats.eventCounters[ei];
             if (count)

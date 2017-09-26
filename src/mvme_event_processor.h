@@ -36,7 +36,7 @@ class MVMEEventProcessorPrivate;
 using DualWordFilterValues = QHash<DualWordDataFilterConfig *, u64>;
 using DualWordFilterDiffs  = QHash<DualWordDataFilterConfig *, double>;
 
-struct MVMEEventProcessorStats
+struct MVMEEventProcessorCounters
 {
     static const u32 MaxEvents = 12;
     static const u32 MaxModulesPerEvent = 20;
@@ -70,7 +70,7 @@ class MVMEEventProcessor: public QObject
         MesytecDiagnostics *getDiagnostics() const;
 
         EventProcessorState getState() const;
-        const MVMEEventProcessorStats &getStats() const;
+        const MVMEEventProcessorCounters &getCounters() const;
 
         void setListFileVersion(u32 version);
 

@@ -20,6 +20,7 @@
 
 #include "analysis/analysis.h"
 #include "analysis/analysis_ui.h"
+#include "analysis_info_widget.h"
 #include "config_ui.h"
 #include "daqcontrol_widget.h"
 #include "daqstats_widget.h"
@@ -674,8 +675,8 @@ void MVMEMainWindow::onActionNewVMEConfig_triggered()
     m_d->m_context->setMode(GlobalMode::DAQ);
 }
 
-// Note: .MVMEWindowcfg was the old extension when vme and analysis config where not separated yet.
-static const QString VMEConfigFileFilter = QSL("Config Files (*.vme *.MVMEWindowcfg);; All Files (*.*)");
+// Note: .mvmecfg was the old extension when vme and analysis config where not separated yet.
+static const QString VMEConfigFileFilter = QSL("Config Files (*.vme *.mvmecfg);; All Files (*.*)");
 
 void MVMEMainWindow::onActionOpenVMEConfig_triggered()
 {
@@ -830,7 +831,7 @@ void MVMEMainWindow::onActionOpenListfile_triggered()
 
     QString fileName = QFileDialog::getOpenFileName(this, "Load Listfile",
                                                     path,
-                                                    "MVME Listfiles (*.MVMEWindowlst *.zip);; All Files (*.*)");
+                                                    "MVME Listfiles (*.mvmelst *.zip);; All Files (*.*)");
     if (fileName.isEmpty())
         return;
 
@@ -839,7 +840,7 @@ void MVMEMainWindow::onActionOpenListfile_triggered()
     {
         QString listfileFileName;
 
-        // find and use the first .MVMEWindowlst file inside the archive
+        // find and use the first .mvmelst file inside the archive
         {
             QuaZip archive(fileName);
 
@@ -851,7 +852,7 @@ void MVMEMainWindow::onActionOpenListfile_triggered()
             QStringList fileNames = archive.getFileNameList();
 
             auto it = std::find_if(fileNames.begin(), fileNames.end(), [](const QString &str) {
-                return str.endsWith(QSL(".MVMEWindowlst"));
+                return str.endsWith(QSL(".mvmelst"));
             });
 
             if (it == fileNames.end())
@@ -1473,8 +1474,11 @@ void MVMEMainWindow::onActionCheck_for_updates_triggered()
 
 void MVMEMainWindow::onActionToolAnalysisInfo_triggered()
 {
-    auto eventProcessor = m_d->m_context->getEventProcessor();
-    const auto &stats(eventProcessor->getStats());
+    auto widget = new AnalysisInfoWidget(m_d->m_context);
+    widget->setAttribute(Qt::WA_DeleteOnClose);
+    add_widget_close_action(widget);
+    m_d->m_geometrySaver->addAndRestore(widget, QSL("WindowGeometries/AnalysisInfo"));
+    widget->show();
 }
 
 bool MVMEMainWindow::createNewOrOpenExistingWorkspace()

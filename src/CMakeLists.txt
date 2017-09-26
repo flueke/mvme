@@ -82,6 +82,7 @@ set(LIBMVME_SOURCES
     analysis/analysis_ui_p.cc
     analysis/analysis_util.cc
     analysis/data_extraction_widget.cc
+    analysis_info_widget.cc
     config_ui.cpp
     CVMUSBReadoutList.cpp
     daqcontrol_widget.cc
