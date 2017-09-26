@@ -241,5 +241,8 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    delete g_eventProcessor;
+    delete g_context;
+
     return 0;
 }
