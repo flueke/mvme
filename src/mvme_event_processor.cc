@@ -50,9 +50,17 @@ struct MultiEventModuleInfo
 {
     u32 *subEventHeader = nullptr;  // Points to the mvme header preceeding the module data.
                                     // Null if the entry is not used.
+
     u32 *moduleHeader   = nullptr;  // Points to the current module data header.
-                                    // Null if no header has been read yet.
+
+
+    // The filter used to identify module headers and extract the module
+    // section size. Comes from the module config but is cached here for
+    // efficiency.
     DataFilter moduleHeaderFilter;
+
+    // Cache pointers to the corresponding module config.
+    ModuleConfig *moduleConfig = nullptr;
 };
 
 using ModuleInfoArray = std::array<MultiEventModuleInfo, MaxModulesPerEvent>;
@@ -63,7 +71,7 @@ struct MVMEEventProcessorPrivate
 
     MesytecDiagnostics *diag = nullptr;
 
-    analysis::Analysis *analysis_ng;
+    analysis::Analysis *analysis_ng = nullptr;
     volatile RunAction m_runAction = KeepRunning;
     EventProcessorState m_state = EventProcessorState::Idle;
 
@@ -80,6 +88,9 @@ struct MVMEEventProcessorPrivate
     int SubEventSizeShift;
 
     std::array<ModuleInfoArray, MaxEvents> eventInfos;
+    std::array<EventConfig *, MaxEvents> eventConfigs;
+    std::array<bool, MaxEvents> eventHasModuleHeaderFilters;
+    std::array<u32, MaxModulesPerEvent> eventCountsByModule;
 };
 
 MVMEEventProcessor::MVMEEventProcessor(MVMEContext *context)
@@ -114,7 +125,11 @@ void MVMEEventProcessor::removeDiagnostics()
 
 void MVMEEventProcessor::newRun(const RunInfo &runInfo)
 {
+    m_d->analysis_ng = m_d->context->getAnalysis();
+
     m_d->eventInfos.fill({}); // Full clear of the eventInfo cache
+    m_d->eventConfigs.fill(nullptr);
+    m_d->eventHasModuleHeaderFilters.fill(true);
 
     auto eventConfigs = m_d->context->getEventConfigs();
 
@@ -132,10 +147,15 @@ void MVMEEventProcessor::newRun(const RunInfo &runInfo)
             auto moduleConfig = moduleConfigs[moduleIndex];
             MultiEventModuleInfo &modInfo(m_d->eventInfos[eventIndex][moduleIndex]);
             modInfo.moduleHeaderFilter = makeFilterFromBytes(moduleConfig->getEventHeaderFilter());
-        }
-    }
+            modInfo.moduleConfig = moduleConfig;
+            m_d->eventHasModuleHeaderFilters[eventIndex] = (
+                m_d->eventHasModuleHeaderFilters[eventIndex] && !modInfo.moduleHeaderFilter.getFilter().isEmpty());
 
-    m_d->analysis_ng = m_d->context->getAnalysis();
+            qDebug() << __PRETTY_FUNCTION__ << moduleConfig->objectName() << modInfo.moduleHeaderFilter.toString();
+        }
+
+        m_d->eventConfigs[eventIndex] = eventConfig;
+    }
 
     if (m_d->analysis_ng)
     {
@@ -143,262 +163,12 @@ void MVMEEventProcessor::newRun(const RunInfo &runInfo)
     }
 
     if (m_d->diag)
+    {
         m_d->diag->reset();
-}
-
-// Process an event buffer containing one or more events.
-void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
-{
-#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
-    qDebug() << __PRETTY_FUNCTION__ << "begin processing" << buffer;
-#endif
-
-    auto &stats = m_d->context->getDAQStats();
-
-    try
-    {
-        //qEPDebug() << __PRETTY_FUNCTION__ << buffer;
-        ++stats.mvmeBuffersSeen;
-
-        BufferIterator iter(buffer->data, buffer->used, BufferIterator::Align32);
-
-        while (iter.longwordsLeft())
-        {
-            u32 sectionHeader = iter.extractU32();
-            int sectionType = (sectionHeader & m_d->SectionTypeMask) >> m_d->SectionTypeShift;
-            u32 sectionSize = (sectionHeader & m_d->SectionSizeMask) >> m_d->SectionSizeShift;
-
-#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
-            qDebug() << __PRETTY_FUNCTION__
-                << "sectionHeader" <<  QString::number(sectionHeader, 16)
-                << "sectionType" << sectionType
-                << "sectionSize" << sectionSize;
-#endif
-
-            if (sectionType == ListfileSections::SectionType_Timetick)
-            {
-                Q_ASSERT(sectionSize == 0);
-#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
-                qDebug() << __PRETTY_FUNCTION__ << "got a timetick section";
-#endif
-                if (m_d->analysis_ng)
-                    m_d->analysis_ng->processTimetick();
-                continue;
-            }
-
-            if (sectionType != ListfileSections::SectionType_Event)
-            {
-#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
-                qDebug() << __PRETTY_FUNCTION__ << "skipping non event section";
-#endif
-                iter.skip(sectionSize * sizeof(u32));
-                continue;
-            }
-
-            stats.addEventsRead(1);
-
-            int eventIndex = (sectionHeader & m_d->EventTypeMask) >> m_d->EventTypeShift;
-
-            u32 wordsLeftInSection = sectionSize;
-
-            auto eventConfig = m_d->context->getConfig()->getEventConfig(eventIndex);
-
-#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
-            qDebug() << __PRETTY_FUNCTION__
-                << "eventIndex" << eventIndex
-                << "eventConfig" << eventConfig;
-#endif
-
-            if (eventConfig)
-                ++stats.eventCounters[eventConfig].events;
-
-            if (m_d->analysis_ng && eventConfig)
-                m_d->analysis_ng->beginEvent(eventConfig->getId());
-
-            int moduleIndex = 0;
-
-            // start of event section
-
-            while (wordsLeftInSection > 1)
-            {
-                u8 *oldBufferP = iter.buffp;
-                u32 subEventHeader = iter.extractU32();
-                u32 subEventSize = (subEventHeader & m_d->SubEventSizeMask) >> m_d->SubEventSizeShift;
-                u8 moduleType  = static_cast<u8>((subEventHeader & m_d->ModuleTypeMask) >> m_d->ModuleTypeShift);
-                auto moduleConfig = m_d->context->getConfig()->getModuleConfig(eventIndex, moduleIndex);
-
-                // Ensure the extracted module type and the module type from
-                // the vme configuration are the same.
-                if (moduleConfig->getModuleMeta().typeId != moduleType)
-                {
-                    QString msg = (QString("Error (mvme fmt): subEvent module type %1 "
-                                           "does not match expected module type %3."
-                                           "Skipping rest of buffer.")
-                                   .arg(static_cast<u32>(moduleType))
-                                   .arg(static_cast<u32>(moduleConfig->getModuleMeta().typeId))
-                                  );
-                    qDebug() << msg;
-                    emit logMessage(msg);
-                    return;
-                }
-
-                // Make sure the subevent size does not exceed the event
-                // section size.
-                if (wordsLeftInSection - 1 < subEventSize)
-                {
-                    QString msg = (QString("Error (mvme fmt): subevent size exceeds section size "
-                                           "(subEventHeader=0x%1, subEventSize=%2, wordsLeftInSection=%3). "
-                                           "Skipping rest of buffer.")
-                                   .arg(subEventHeader, 8, 16, QLatin1Char('0'))
-                                   .arg(subEventSize)
-                                   .arg(wordsLeftInSection - 1)
-                                  );
-                    qDebug() << msg;
-                    emit logMessage(msg);
-                    return;
-
-                }
-
-#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
-                qDebug() << __PRETTY_FUNCTION__
-                    << "moduleSectionHeader" << QString::number(subEventHeader, 16)
-                    << "moduleSectionSize" << subEventSize
-                    << "moduleType" << static_cast<s32>(moduleType)
-                    << "moduleConfig" << moduleConfig;
-#endif
-
-                MesytecDiagnostics *diag = nullptr;
-
-                if (m_d->diag && m_d->diag->getEventIndex() == eventIndex && m_d->diag->getModuleIndex() == moduleIndex)
-                {
-                    diag = m_d->diag;
-                    diag->beginEvent();
-                }
-
-                if (subEventSize > 0)
-                {
-                    u32 *firstWord = iter.asU32();
-                    u32 *lastWord  = firstWord + subEventSize - 1;
-
-                    if (*lastWord == EndMarker)
-                    {
-#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
-                        qDebug() << __PRETTY_FUNCTION__ << "did find EndMarker";
-#endif
-                        --lastWord;
-                    }
-
-                    if (subEventSize > 1 && *lastWord == BerrMarker)
-                    {
-#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
-                        qDebug() << __PRETTY_FUNCTION__ << "did find BerrMarker1";
-#endif
-                        --lastWord;
-                    }
-
-                    if (subEventSize > 2 && *lastWord == BerrMarker)
-                    {
-#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
-                        qDebug() << __PRETTY_FUNCTION__ << "did find BerrMarker2";
-#endif
-                        --lastWord;
-                    }
-
-                    u32 moduleDataSize = lastWord - firstWord + 1;
-
-#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
-                    qDebug() << __PRETTY_FUNCTION__ << "full module data dump:";
-                    for (u32 i = 0; i < moduleDataSize; ++i)
-                    {
-                        qDebug("%s 0x%08x", __PRETTY_FUNCTION__, *(firstWord + i));
-                    }
-#endif
-
-                    m_d->analysis_ng->processModuleData(eventConfig->getId(),
-                                                        moduleConfig->getId(),
-                                                        firstWord,
-                                                        moduleDataSize);
-
-                    if (diag)
-                    {
-                        diag->processModuleData(firstWord, moduleDataSize);
-                    }
-                }
-                else
-                {
-                    QString msg = (QString("Warning (mvme fmt): got a module section of size 0! "
-                                           "moduleSectionHeader=0x%1, moduleType=%2, eventIndex=%3, moduleIndex=%4")
-                                   .arg(subEventHeader, 8, 16, QLatin1Char('0'))
-                                   .arg(static_cast<s32>(moduleType))
-                                   .arg(eventIndex)
-                                   .arg(moduleIndex)
-                                   );
-                    qDebug() << msg;
-                    emit logMessage(msg);
-                }
-
-                if (diag)
-                {
-                    diag->endEvent();
-                }
-
-                // end marker for subevent (aka module section)
-                u32 *sectionLastWordPtr = iter.asU32() + subEventSize - 1;
-
-                if (*sectionLastWordPtr != EndMarker)
-                {
-                    QString msg = (QString("Error (mvme fmt): did not find marker at end of subevent section "
-                                           "(eventIndex=%1, moduleIndex=%2, nextWord=0x%3). Skipping rest of buffer.")
-                                   .arg(eventIndex)
-                                   .arg(moduleIndex)
-                                   .arg(*sectionLastWordPtr, 8, 16, QLatin1Char('0'))
-                                  );
-                    qDebug() << msg;
-                    emit logMessage(msg);
-                    return;
-                }
-                ++sectionLastWordPtr;
-
-                u8 *newBufferP = reinterpret_cast<u8 *>(sectionLastWordPtr);
-                wordsLeftInSection -= (newBufferP - oldBufferP) / sizeof(u32);
-                iter.buffp = newBufferP; // advance the iterator
-                ++moduleIndex;
-            }
-
-            // end of event section
-            u32 nextWord = iter.peekU32();
-            if (nextWord == EndMarker)
-            {
-                iter.extractU32();
-            }
-            else
-            {
-                QString msg = (QString("Error (mvme fmt): did not find marker at end of event section "
-                                       "(eventIndex=%1, nextWord=0x%2). Skipping rest of buffer.")
-                               .arg(eventIndex)
-                               .arg(nextWord, 8, 16, QLatin1Char('0'))
-                              );
-                qDebug() << msg;
-                emit logMessage(msg);
-                return;
-            }
-
-            if (m_d->analysis_ng && eventConfig)
-                m_d->analysis_ng->endEvent(eventConfig->getId());
-        }
-        ++stats.totalBuffersProcessed;
-    } catch (const end_of_buffer &)
-    {
-        emit logMessage(QString("Error (mvme fmt): unexpectedly reached end of buffer"));
-        ++stats.mvmeBuffersWithErrors;
     }
-
-#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
-    qDebug() << __PRETTY_FUNCTION__ << "end processing" << buffer;
-#endif
 }
 
-void MVMEEventProcessor::processDataBuffer2(DataBuffer *buffer)
+void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
 {
     auto &stats = m_d->context->getDAQStats();
 
@@ -416,13 +186,14 @@ void MVMEEventProcessor::processDataBuffer2(DataBuffer *buffer)
             if (sectionSize > iter.longwordsLeft())
                 throw end_of_buffer();
 
-            if (sectionType == ListfileSections::SectionType_Event)
+            if (sectionType == ListfileSections::SectionType_Event) //&& m_d->analysis_ng)
             {
                 processEventSection(sectionHeader, iter.asU32(), sectionSize);
                 iter.skip(sectionSize * sizeof(u32));
+                stats.addEventsRead(1);
             }
-            if (sectionType == ListfileSections::SectionType_Timetick
-                && m_d->analysis_ng)
+            else if (sectionType == ListfileSections::SectionType_Timetick
+                     && m_d->analysis_ng)
             {
                 // pass timeticks to the analysis
                 Q_ASSERT(sectionSize == 0);
@@ -430,22 +201,35 @@ void MVMEEventProcessor::processDataBuffer2(DataBuffer *buffer)
             }
             else
             {
-                // skip non-event sections
+                // skip other section types
                 iter.skip(sectionSize * sizeof(u32));
             }
         }
     }
     catch (const end_of_buffer &)
     {
-        emit logMessage(QString("Error (mvme fmt): unexpectedly reached end of buffer"));
+        QString msg = QSL("Error (mvme fmt): unexpectedly reached end of buffer");
+        qDebug() << msg;
+        emit logMessage(msg);
         ++stats.mvmeBuffersWithErrors;
     }
 }
 
 void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 size)
 {
-    int eventIndex = (sectionHeader & m_d->EventTypeMask) >> m_d->EventTypeShift;
+    auto &stats = m_d->context->getDAQStats();
+    u32 eventIndex = (sectionHeader & m_d->EventTypeMask) >> m_d->EventTypeShift;
+
+    if (eventIndex >= m_d->eventConfigs.size())
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "no event config for eventIndex = " << eventIndex
+            << ", skipping input buffer";
+        return;
+    }
+
     auto &moduleInfos(m_d->eventInfos[eventIndex]);
+    auto eventConfig = m_d->eventConfigs[eventIndex];
+    m_d->eventCountsByModule.fill(0);
 
     // Clear modInfo pointers for the current eventIndex.
     for (auto &modInfo: moduleInfos)
@@ -456,7 +240,10 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
 
     BufferIterator eventIter(reinterpret_cast<u8 *>(data), size * sizeof(u32));
 
+    //
     // Step1: collect all subevent headers and store them in the modinfo structures
+    //
+
     for (u32 moduleIndex = 0;
          moduleIndex < MaxModulesPerEvent;
          ++moduleIndex)
@@ -474,9 +261,39 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
         eventIter.skip(sizeof(u32), subEventSize);
     }
 
+#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+    qDebug() << __PRETTY_FUNCTION__ << "Step 1 complete: ";
+
+    for (u32 moduleIndex = 0; moduleIndex < MaxModulesPerEvent; ++moduleIndex)
+    {
+        const auto &mi(moduleInfos[moduleIndex]);
+
+        if (!mi.subEventHeader)
+            break;
+
+        const auto &filter = mi.moduleHeaderFilter;
+
+        qDebug("  eventIndex=%d, moduleIndex=%d, subEventHeader=0x%08x, moduleHeader=0x%08x, filter=%s, moduleConfig=%s",
+               eventIndex, moduleIndex, *mi.subEventHeader, *mi.moduleHeader,
+               filter.toString().toLocal8Bit().constData(),
+               mi.moduleConfig->objectName().toLocal8Bit().constData()
+              );
+
+    }
+#endif
+
+    //
     // Step2: yield events in the correct order:
     // (mod0, ev0), (mod1, ev0), .., (mod0, ev1), (mod1, ev1), ..
+    //
+
     bool done = false;
+    const u32 *ptrToLastWord = data + size;
+    if (m_d->analysis_ng)
+    {
+        m_d->analysis_ng->beginEvent(eventConfig->getId());
+    }
+
     while (!done)
     {
         for (u32 moduleIndex = 0;
@@ -486,29 +303,85 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
             auto &mi(moduleInfos[moduleIndex]);
             Q_ASSERT(mi.moduleHeader);
 
-            if (mi.moduleHeaderFilter.matches(*mi.moduleHeader))
+
+            if (!m_d->eventHasModuleHeaderFilters[eventIndex])
             {
-                u32 moduleEventSize = mi.moduleHeaderFilter.extractData(
-                    *mi.moduleHeader, 'S');
-#error "Continue working on this piece of code please!"
-                /* TODO:
-                    if (m_d->analysis_ng && eventConfig)
-                        m_d->analysis_ng->beginEvent(eventConfig->getId());
+                // Do single event processing as multi event splitting is not
+                // possible for this event.
+#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+                qDebug("%s eventIndex=%u, moduleIndex=%u: no module header filter -> doing single event processing only",
+                       __PRETTY_FUNCTION__, eventIndex, moduleIndex);
+#endif
 
+                u32 subEventSize = (*mi.subEventHeader & m_d->SubEventSizeMask) >> m_d->SubEventSizeShift;
+
+                if (m_d->analysis_ng)
+                {
                     m_d->analysis_ng->processModuleData(eventConfig->getId(),
-                                                        moduleConfig->getId(),
-                                                        firstWord,
-                                                        moduleDataSize);
+                                                        mi.moduleConfig->getId(),
+                                                        mi.moduleHeader,
+                                                        subEventSize);
+                }
+            }
+            // Multievent splitting is possible. Check for a header match and extract the data size.
+            else if (mi.moduleHeaderFilter.matches(*mi.moduleHeader))
+            {
 
-                    if (m_d->analysis_ng && eventConfig)
-                        m_d->analysis_ng->endEvent(eventConfig->getId());
-                */
+                u32 moduleEventSize = mi.moduleHeaderFilter.extractData(*mi.moduleHeader, 'S');
 
-                // advance the moduleHeader by the event size
-                mi.moduleHeader += moduleEventSize + 1;
+                if (mi.moduleHeader + moduleEventSize + 1 > ptrToLastWord)
+                {
+                    QString msg = (QString("Error (mvme fmt): extracted module event size (%1) exceeds buffer size!"
+                                           " eventIndex=%2, moduleIndex=%3, moduleHeader=0x%4, skipping event")
+                                   .arg(moduleEventSize)
+                                   .arg(eventIndex)
+                                   .arg(moduleIndex)
+                                   .arg(*mi.moduleHeader, 8, 16, QLatin1Char('0'))
+                                  );
+                    qDebug() << msg;
+                    emit logMessage(msg);
+
+                    done = true;
+                    break;
+                }
+                else
+                {
+#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+                    qDebug("%s moduleIndex=%u, moduleHeader=0x%08x, moduleEventSize=%u",
+                           __PRETTY_FUNCTION__, moduleIndex, *mi.moduleHeader, moduleEventSize);
+#endif
+
+                    if (m_d->analysis_ng)
+                    {
+                        m_d->analysis_ng->processModuleData(eventConfig->getId(),
+                                                            mi.moduleConfig->getId(),
+                                                            mi.moduleHeader,
+                                                            moduleEventSize + 1);
+                    }
+
+                    // advance the moduleHeader by the event size
+                    mi.moduleHeader += moduleEventSize + 1;
+                    ++m_d->eventCountsByModule[moduleIndex];
+                }
             }
             else
             {
+                // We're at a data word inside the first module for which the
+                // header filter did not match. If the data is intact this
+                // should happen for the first module, meaning moduleIndex==0.
+                // At this point the same number of events have been processed
+                // for all modules in this event section. Checks could be done
+                // to make sure that all of the module header pointers now
+                // point to either BerrMarker or EndMarker. Also starting from
+                // the last modules pointer there should be optional
+                // BerrMarkers and an EndMarker followed by another EndMarker
+                // for the end of the event section we're in.
+
+#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+                qDebug("%s moduleHeader=0x%08x did not match header filter -> done processing event section.",
+                       __PRETTY_FUNCTION__, *mi.moduleHeader);
+#endif
+
                 // The data word did not match the module header filter. If the
                 // data structure is in intact this just means that we're at
                 // the end of the event section.
@@ -516,7 +389,27 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
                 break;
             }
         }
+
+        // Single event processing: terminate after one loop through the modules.
+        if (!m_d->eventHasModuleHeaderFilters[eventIndex])
+        {
+            break;
+        }
     }
+
+    if (m_d->analysis_ng)
+    {
+        m_d->analysis_ng->endEvent(eventConfig->getId());
+    }
+
+#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+    qDebug() << __PRETTY_FUNCTION__ << "eventCountsByModule";
+    for (u32 moduleIndex = 0; moduleIndex < MaxModulesPerEvent; ++moduleIndex)
+    {
+        if (m_d->eventCountsByModule[moduleIndex])
+            qDebug() << __PRETTY_FUNCTION__ << moduleIndex << ": " << m_d->eventCountsByModule[moduleIndex];
+    }
+#endif
 }
 
 static const u32 FilledBufferWaitTimeout_ms = 250;

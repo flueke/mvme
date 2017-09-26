@@ -320,7 +320,14 @@ void ModuleConfig::read_impl(const QJsonObject &json)
         m_initScripts.push_back(cfg);
     }
 
-    m_eventHeaderFilter = json["eventHeaderFilter"].toString().toLocal8Bit();
+    if (json.contains(QSL("eventHeaderFilter")))
+    {
+        m_eventHeaderFilter = json["eventHeaderFilter"].toString().toLocal8Bit();
+    }
+    else
+    {
+        m_eventHeaderFilter = m_meta.eventHeaderFilter;
+    }
 
     loadDynamicProperties(json["properties"].toObject(), this);
 }

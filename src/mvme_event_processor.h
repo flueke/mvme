@@ -60,6 +60,9 @@ class MVMEEventProcessor: public QObject
         ThreadSafeDataBufferQueue *m_freeBuffers = nullptr;
         ThreadSafeDataBufferQueue *m_fullBuffers = nullptr;
 
+        void processDataBuffer(DataBuffer *buffer);
+        void processEventSection(u32 sectionHeader, u32 *data, u32 size);
+
     public slots:
         void removeDiagnostics();
         void newRun(const RunInfo &runInfo);
@@ -68,9 +71,6 @@ class MVMEEventProcessor: public QObject
         void stopProcessing(bool whenQueueEmpty = true);
 
     private:
-        void processDataBuffer(DataBuffer *buffer);
-        void processDataBuffer2(DataBuffer *buffer);
-        void processEventSection(u32 sectionHeader, u32 *data, u32 size);
         MVMEEventProcessorPrivate *m_d;
 };
 

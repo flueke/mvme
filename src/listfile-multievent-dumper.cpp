@@ -310,7 +310,7 @@ void process_listfile(std::ifstream &infile)
                         eventIter.skip(sizeof(u32), subEventSize);
                     }
 
-#if 0
+#if 1
                     cout << "Step 1 complete: " << endl;
                     for (u32 moduleIndex = 0; moduleIndex < MaxModulesPerEvent; ++moduleIndex)
                     {
