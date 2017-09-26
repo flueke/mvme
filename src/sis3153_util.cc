@@ -11,20 +11,20 @@ static const QVector<const char *> LabelTexts =
 {
     "recv_timeout_sec",
     "recv_timeout_usec",
-	"info_udp_receive_timeout_counter",
-	"info_wrong_cmd_ack_counter",
-	"info_wrong_received_nof_bytes_counter",
-	"info_wrong_received_packet_id_counter",
-	"info_clear_UdpReceiveBuffer_counter",
-	"info_read_dma_packet_reorder_counter",
-	"udp_single_read_receive_ack_retry_counter",
-	"udp_single_read_req_retry_counter",
-	"udp_single_write_receive_ack_retry_counter",
-	"udp_single_write_req_retry_counter",
-	"udp_dma_read_receive_ack_retry_counter",
-	"udp_dma_read_req_retry_counter",
-	"udp_dma_write_receive_ack_retry_counter",
-	"udp_dma_write_req_retry_counter",
+    "info_udp_receive_timeout_counter",
+    "info_wrong_cmd_ack_counter",
+    "info_wrong_received_nof_bytes_counter",
+    "info_wrong_received_packet_id_counter",
+    "info_clear_UdpReceiveBuffer_counter",
+    "info_read_dma_packet_reorder_counter",
+    "udp_single_read_receive_ack_retry_counter",
+    "udp_single_read_req_retry_counter",
+    "udp_single_write_receive_ack_retry_counter",
+    "udp_single_write_req_retry_counter",
+    "udp_dma_read_receive_ack_retry_counter",
+    "udp_dma_read_req_retry_counter",
+    "udp_dma_write_receive_ack_retry_counter",
+    "udp_dma_write_req_retry_counter",
 };
 
 SIS3153DebugWidget::SIS3153DebugWidget(MVMEContext *context, QWidget *parent)
@@ -65,26 +65,26 @@ void SIS3153DebugWidget::refresh()
     m_labels[i++]->setText(QString::number(sisImpl->recv_timeout_sec));
     m_labels[i++]->setText(QString::number(sisImpl->recv_timeout_usec));
 
-	m_labels[i++]->setText(QString::number(sisImpl->info_udp_receive_timeout_counter));
-	m_labels[i++]->setText(QString::number(sisImpl->info_wrong_cmd_ack_counter));
-	m_labels[i++]->setText(QString::number(sisImpl->info_wrong_received_nof_bytes_counter));
-	m_labels[i++]->setText(QString::number(sisImpl->info_wrong_received_packet_id_counter));
+    m_labels[i++]->setText(QString::number(sisImpl->info_udp_receive_timeout_counter));
+    m_labels[i++]->setText(QString::number(sisImpl->info_wrong_cmd_ack_counter));
+    m_labels[i++]->setText(QString::number(sisImpl->info_wrong_received_nof_bytes_counter));
+    m_labels[i++]->setText(QString::number(sisImpl->info_wrong_received_packet_id_counter));
 
 
-	m_labels[i++]->setText(QString::number(sisImpl->info_clear_UdpReceiveBuffer_counter));
-	m_labels[i++]->setText(QString::number(sisImpl->info_read_dma_packet_reorder_counter));
+    m_labels[i++]->setText(QString::number(sisImpl->info_clear_UdpReceiveBuffer_counter));
+    m_labels[i++]->setText(QString::number(sisImpl->info_read_dma_packet_reorder_counter));
 
-	m_labels[i++]->setText(QString::number((u32) sisImpl->udp_single_read_receive_ack_retry_counter));
-	m_labels[i++]->setText(QString::number((u32) sisImpl->udp_single_read_req_retry_counter));
+    m_labels[i++]->setText(QString::number((u32) sisImpl->udp_single_read_receive_ack_retry_counter));
+    m_labels[i++]->setText(QString::number((u32) sisImpl->udp_single_read_req_retry_counter));
 
-	m_labels[i++]->setText(QString::number((u32) sisImpl->udp_single_write_receive_ack_retry_counter));
-	m_labels[i++]->setText(QString::number((u32) sisImpl->udp_single_write_req_retry_counter));
+    m_labels[i++]->setText(QString::number((u32) sisImpl->udp_single_write_receive_ack_retry_counter));
+    m_labels[i++]->setText(QString::number((u32) sisImpl->udp_single_write_req_retry_counter));
 
-	m_labels[i++]->setText(QString::number((u32) sisImpl->udp_dma_read_receive_ack_retry_counter));
-	m_labels[i++]->setText(QString::number((u32) sisImpl->udp_dma_read_req_retry_counter));
+    m_labels[i++]->setText(QString::number((u32) sisImpl->udp_dma_read_receive_ack_retry_counter));
+    m_labels[i++]->setText(QString::number((u32) sisImpl->udp_dma_read_req_retry_counter));
 
-	m_labels[i++]->setText(QString::number((u32) sisImpl->udp_dma_write_receive_ack_retry_counter));
-	m_labels[i++]->setText(QString::number((u32) sisImpl->udp_dma_write_req_retry_counter));
+    m_labels[i++]->setText(QString::number((u32) sisImpl->udp_dma_write_receive_ack_retry_counter));
+    m_labels[i++]->setText(QString::number((u32) sisImpl->udp_dma_write_req_retry_counter));
 }
 
 void SIS3153DebugWidget::resetCounters()
@@ -94,26 +94,26 @@ void SIS3153DebugWidget::resetCounters()
 
     auto sisImpl = sis->getImpl();
 
-	sisImpl->info_udp_receive_timeout_counter = 0;
-	sisImpl->info_wrong_cmd_ack_counter = 0;
-	sisImpl->info_wrong_received_nof_bytes_counter = 0;
-	sisImpl->info_wrong_received_packet_id_counter = 0;
+    sisImpl->info_udp_receive_timeout_counter = 0;
+    sisImpl->info_wrong_cmd_ack_counter = 0;
+    sisImpl->info_wrong_received_nof_bytes_counter = 0;
+    sisImpl->info_wrong_received_packet_id_counter = 0;
 
 
-	sisImpl->info_clear_UdpReceiveBuffer_counter = 0;
-	sisImpl->info_read_dma_packet_reorder_counter = 0;
+    sisImpl->info_clear_UdpReceiveBuffer_counter = 0;
+    sisImpl->info_read_dma_packet_reorder_counter = 0;
 
-	sisImpl->udp_single_read_receive_ack_retry_counter = 0;
-	sisImpl->udp_single_read_req_retry_counter = 0;
+    sisImpl->udp_single_read_receive_ack_retry_counter = 0;
+    sisImpl->udp_single_read_req_retry_counter = 0;
 
-	sisImpl->udp_single_write_receive_ack_retry_counter = 0;
-	sisImpl->udp_single_write_req_retry_counter = 0;
+    sisImpl->udp_single_write_receive_ack_retry_counter = 0;
+    sisImpl->udp_single_write_req_retry_counter = 0;
 
-	sisImpl->udp_dma_read_receive_ack_retry_counter = 0;
-	sisImpl->udp_dma_read_req_retry_counter = 0;
+    sisImpl->udp_dma_read_receive_ack_retry_counter = 0;
+    sisImpl->udp_dma_read_req_retry_counter = 0;
 
-	sisImpl->udp_dma_write_receive_ack_retry_counter = 0;
-	sisImpl->udp_dma_write_req_retry_counter = 0;
+    sisImpl->udp_dma_write_receive_ack_retry_counter = 0;
+    sisImpl->udp_dma_write_req_retry_counter = 0;
 
     refresh();
 }
