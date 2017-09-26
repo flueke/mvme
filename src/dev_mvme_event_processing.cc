@@ -168,6 +168,7 @@ void process_listfile(std::ifstream &infile)
 
 int main(int argc, char *argv[])
 {
+    s32 nRuns = 10;
     QCoreApplication app(argc, argv);
 
     if (argc != 2)
@@ -192,10 +193,47 @@ int main(int argc, char *argv[])
         auto vmeConfig = read_config_from_listfile(infile);
         g_context = new MVMEContext(nullptr);
         g_context->setVMEConfig(vmeConfig);
-        infile.seekg(0, std::ifstream::beg);
         g_eventProcessor = new MVMEEventProcessor(g_context);
         g_eventProcessor->newRun({});
-        process_listfile(infile);
+
+        while (nRuns-- > 0)
+        {
+            infile.seekg(0, std::ifstream::beg);
+            process_listfile(infile);
+        }
+
+        auto stats = g_eventProcessor->getStats();
+        double secsElapsed = stats.startTime.msecsTo(QDateTime::currentDateTime()) / 1000.0;
+        double mbRead = stats.bytesProcessed / (1024.0 * 1024.0);
+        double mbPerSec = mbRead / secsElapsed;
+
+        cout << secsElapsed << " seconds elapsed" << endl;
+        cout << mbRead << " MB read" << endl;
+        cout << mbPerSec << " MB/s" << endl;
+        cout << stats.buffersProcessed << " buffers processed" << endl;
+        cout << stats.buffersWithErrors << " buffers with errors" << endl;
+        cout << stats.eventSections << " event section seen" << endl;
+        cout << stats.invalidEventIndices << " invalid event indices" << endl;
+        for (u32 ei = 0; ei < MVMEEventProcessorStats::MaxEvents; ++ei)
+        {
+            for (u32 mi = 0; mi < MVMEEventProcessorStats::MaxModulesPerEvent; ++mi)
+            {
+                u32 count = stats.moduleCounters[ei][mi];
+                if (count)
+                {
+                    cout << "event=" << ei << ", module=" << mi << ", count=" << count << endl;
+                }
+            }
+        }
+
+        for (u32 ei = 0; ei < MVMEEventProcessorStats::MaxEvents; ++ei)
+        {
+            u32 count = stats.eventCounters[ei];
+            if (count)
+            {
+                cout << "event=" << ei << ", count=" << count << endl;
+            }
+        }
     }
     catch (const std::exception &e)
     {

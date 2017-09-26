@@ -90,7 +90,11 @@ struct MVMEEventProcessorPrivate
     std::array<ModuleInfoArray, MaxEvents> eventInfos;
     std::array<EventConfig *, MaxEvents> eventConfigs;
     std::array<bool, MaxEvents> eventHasModuleHeaderFilters;
+#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
     std::array<u32, MaxModulesPerEvent> eventCountsByModule;
+#endif
+
+    MVMEEventProcessorStats m_localStats;
 };
 
 MVMEEventProcessor::MVMEEventProcessor(MVMEContext *context)
@@ -166,6 +170,10 @@ void MVMEEventProcessor::newRun(const RunInfo &runInfo)
     {
         m_d->diag->reset();
     }
+
+
+    m_d->m_localStats = MVMEEventProcessorStats();
+    m_d->m_localStats.startTime = QDateTime::currentDateTime();
 }
 
 void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
@@ -204,7 +212,11 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                 // skip other section types
                 iter.skip(sectionSize * sizeof(u32));
             }
+
+            m_d->m_localStats.bytesProcessed += sectionSize * sizeof(u32) + sizeof(u32);
         }
+
+        ++m_d->m_localStats.buffersProcessed;
     }
     catch (const end_of_buffer &)
     {
@@ -212,24 +224,31 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
         qDebug() << msg;
         emit logMessage(msg);
         ++stats.mvmeBuffersWithErrors;
+        ++m_d->m_localStats.buffersWithErrors;
     }
 }
 
 void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 size)
 {
+    ++m_d->m_localStats.eventSections;
     auto &stats = m_d->context->getDAQStats();
     u32 eventIndex = (sectionHeader & m_d->EventTypeMask) >> m_d->EventTypeShift;
 
     if (eventIndex >= m_d->eventConfigs.size())
     {
+        ++m_d->m_localStats.invalidEventIndices;
         qDebug() << __PRETTY_FUNCTION__ << "no event config for eventIndex = " << eventIndex
             << ", skipping input buffer";
         return;
     }
 
+    ++m_d->m_localStats.eventCounters[eventIndex];
+
     auto &moduleInfos(m_d->eventInfos[eventIndex]);
     auto eventConfig = m_d->eventConfigs[eventIndex];
+#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
     m_d->eventCountsByModule.fill(0);
+#endif
 
     // Clear modInfo pointers for the current eventIndex.
     for (auto &modInfo: moduleInfos)
@@ -313,6 +332,8 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
                        __PRETTY_FUNCTION__, eventIndex, moduleIndex);
 #endif
 
+                ++m_d->m_localStats.moduleCounters[eventIndex][moduleIndex];
+
                 u32 subEventSize = (*mi.subEventHeader & m_d->SubEventSizeMask) >> m_d->SubEventSizeShift;
 
                 if (m_d->analysis_ng)
@@ -331,6 +352,8 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
 
                 if (mi.moduleHeader + moduleEventSize + 1 > ptrToLastWord)
                 {
+                    ++m_d->m_localStats.buffersWithErrors;
+
                     QString msg = (QString("Error (mvme fmt): extracted module event size (%1) exceeds buffer size!"
                                            " eventIndex=%2, moduleIndex=%3, moduleHeader=0x%4, skipping event")
                                    .arg(moduleEventSize)
@@ -351,6 +374,8 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
                            __PRETTY_FUNCTION__, moduleIndex, *mi.moduleHeader, moduleEventSize);
 #endif
 
+                    ++m_d->m_localStats.moduleCounters[eventIndex][moduleIndex];
+
                     if (m_d->analysis_ng)
                     {
                         m_d->analysis_ng->processModuleData(eventConfig->getId(),
@@ -361,7 +386,9 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
 
                     // advance the moduleHeader by the event size
                     mi.moduleHeader += moduleEventSize + 1;
+#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
                     ++m_d->eventCountsByModule[moduleIndex];
+#endif
                 }
             }
             else
@@ -490,6 +517,11 @@ void MVMEEventProcessor::stopProcessing(bool whenQueueEmpty)
 EventProcessorState MVMEEventProcessor::getState() const
 {
     return m_d->m_state;
+}
+
+MVMEEventProcessorStats MVMEEventProcessor::getStats() const
+{
+    return m_d->m_localStats;
 }
 
 void MVMEEventProcessor::setListFileVersion(u32 version)
