@@ -236,5 +236,6 @@ add_mvme_executable(vmusb_read_buffers_file "vmusb_read_buffers_file.cc")
 
 add_mvme_executable(mvme-listfile-dumper-multievent "listfile-multievent-dumper.cpp")
 add_mvme_executable(dev_mvme_event_processing "dev_mvme_event_processing.cc")
+add_mvme_executable(dev_datagen "dev_datagen.cc")
 
 # vim:tw=0
