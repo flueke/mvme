@@ -519,7 +519,7 @@ EventProcessorState MVMEEventProcessor::getState() const
     return m_d->m_state;
 }
 
-MVMEEventProcessorStats MVMEEventProcessor::getStats() const
+const MVMEEventProcessorStats &MVMEEventProcessor::getStats() const
 {
     return m_d->m_localStats;
 }

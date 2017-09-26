@@ -387,11 +387,11 @@ void MVMEMainWindow::onActionOpenWorkspace_triggered()
 void MVMEMainWindow::displayAbout()
 {
     auto dialog = new QDialog(this);
-    dialog->setWindowTitle(QSL("About MVMEMainWindow"));
+    dialog->setWindowTitle(QSL("About mvme"));
 
     auto tb_license = new QTextBrowser(dialog);
     tb_license->setWindowFlags(Qt::Window);
-    tb_license->setWindowTitle(QSL("MVMEMainWindow license"));
+    tb_license->setWindowTitle(QSL("mvme license"));
 
     {
         QFile licenseFile(":/gpl-notice.txt");
@@ -416,7 +416,7 @@ void MVMEMainWindow::displayAbout()
         versionString += QString(" (%1)").arg(bitness);
     }
 
-    layout->addWidget(new QLabel(QSL("MVMEMainWindow - VME Data Acquisition")));
+    layout->addWidget(new QLabel(QSL("mvme - VME Data Acquisition")));
     layout->addWidget(new QLabel(versionString));
     layout->addWidget(new QLabel(QSL("© 2015-2017 mesytec GmbH & Co. KG")));
     layout->addWidget(new QLabel(QSL("Authors: F. Lüke, R. Schneider")));
@@ -1126,7 +1126,7 @@ void MVMEMainWindow::updateWindowTitle()
     {
         case GlobalMode::DAQ:
             {
-                title = QString("%1 - [DAQ mode] - MVMEMainWindow")
+                title = QString("%1 - [DAQ mode] - mvme")
                     .arg(workspaceDir);
             } break;
 
@@ -1140,7 +1140,7 @@ void MVMEMainWindow::updateWindowTitle()
                     fileName =  QFileInfo(filePath).fileName();
                 }
 
-                title = QString("%1 - %2 - [ListFile mode] - MVMEMainWindow")
+                title = QString("%1 - %2 - [ListFile mode] - mvme")
                     .arg(workspaceDir)
                     .arg(fileName);
             } break;
@@ -1328,8 +1328,8 @@ void MVMEMainWindow::onActionVMEScriptRef_triggered()
     }
 }
 
-static const auto UpdateCheckURL = QSL("http://mesytec.com/downloads/MVMEMainWindow/");
-static const QByteArray UpdateCheckUserAgent = "mesytec MVMEMainWindow ";
+static const auto UpdateCheckURL = QSL("http://mesytec.com/downloads/mvme/");
+static const QByteArray UpdateCheckUserAgent = "mesytec mvme ";
 
 static const QString get_package_platform_string()
 {
@@ -1359,7 +1359,7 @@ static const QString get_package_bitness_string()
 
 static u64 extract_package_version(const QString &filename)
 {
-    static const QString pattern = QSL("MVMEMainWindow-(?<major>[0-9]+)\\.(?<minor>[0-9]+)(\\.(?<point>[0-9]+))?(-(?<commits>[0-9]+))?");
+    static const QString pattern = QSL("mvme-(?<major>[0-9]+)\\.(?<minor>[0-9]+)(\\.(?<point>[0-9]+))?(-(?<commits>[0-9]+))?");
 
     u64 result = 0;
     QRegularExpression re(pattern);
@@ -1395,15 +1395,15 @@ void MVMEMainWindow::onActionCheck_for_updates_triggered()
 #if 1
     QStringList testFilenames =
     {
-        "MVMEMainWindow-0.9.exe",
-        "MVMEMainWindow-0.9-42.exe",
-        "MVMEMainWindow-0.9.1.exe",
-        "MVMEMainWindow-0.9.1-42.exe",
-        "MVMEMainWindow-1.1.1-111-Window-x42.zip",
-        "MVMEMainWindow-98.76.54-32-Window-x42.zip",
-        "MVMEMainWindow-987.654.321-666-Window-x42.zip",
-        "MVMEMainWindow-999.999.999-999-Window-x42.zip", // max version possible (except for major which could be larger)
-        "MVMEMainWindow-9999.999.999-999-Window-x42.zip" // exceeding the max with major
+        "mvme-0.9.exe",
+        "mvme-0.9-42.exe",
+        "mvme-0.9.1.exe",
+        "mvme-0.9.1-42.exe",
+        "mvme-1.1.1-111-Window-x42.zip",
+        "mvme-98.76.54-32-Window-x42.zip",
+        "mvme-987.654.321-666-Window-x42.zip",
+        "mvme-999.999.999-999-Window-x42.zip", // max version possible (except for major which could be larger)
+        "mvme-9999.999.999-999-Window-x42.zip" // exceeding the max with major
     };
 
     for (auto name: testFilenames)
@@ -1428,8 +1428,8 @@ void MVMEMainWindow::onActionCheck_for_updates_triggered()
         {
             // Both the platform and bitness strings are known at compile time.
             // A download link entry looks like this:
-            // <a href="MVMEMainWindow-0.9-5-Windows-x32.exe">MVMEMainWindow-0.9-5-Windows-x32.exe</a>   2017-07-24 15:22   28M
-            static const QString pattern = QString("href=\"(MVMEMainWindow-[0-9.-]+-%1-%2\\.exe)\"")
+            // <a href="mvme-0.9-5-Windows-x32.exe">mvme-0.9-5-Windows-x32.exe</a>   2017-07-24 15:22   28M
+            static const QString pattern = QString("href=\"(mvme-[0-9.-]+-%1-%2\\.exe)\"")
                 .arg(get_package_platform_string())
                 .arg(get_package_bitness_string())
                 ;
@@ -1473,6 +1473,8 @@ void MVMEMainWindow::onActionCheck_for_updates_triggered()
 
 void MVMEMainWindow::onActionToolAnalysisInfo_triggered()
 {
+    auto eventProcessor = m_d->m_context->getEventProcessor();
+    const auto &stats(eventProcessor->getStats());
 }
 
 bool MVMEMainWindow::createNewOrOpenExistingWorkspace()

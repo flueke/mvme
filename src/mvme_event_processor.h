@@ -70,7 +70,7 @@ class MVMEEventProcessor: public QObject
         MesytecDiagnostics *getDiagnostics() const;
 
         EventProcessorState getState() const;
-        MVMEEventProcessorStats getStats() const;
+        const MVMEEventProcessorStats &getStats() const;
 
         void setListFileVersion(u32 version);
 
