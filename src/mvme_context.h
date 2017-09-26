@@ -36,7 +36,7 @@
 #include <QWidget>
 
 class MVMEEventProcessor;
-class mvme;
+class MVMEMainWindow;
 class ListFile;
 class ListFileReader;
 class QJsonObject;
@@ -89,7 +89,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void moduleAboutToBeRemoved(ModuleConfig *module);
 
     public:
-        MVMEContext(mvme *mainwin, QObject *parent = 0);
+        MVMEContext(MVMEMainWindow *mainwin, QObject *parent = 0);
         ~MVMEContext();
 
         void setVMEController(VMEController *controller, const QVariantMap &settings = QVariantMap());
@@ -211,7 +211,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void logMessage(const QString &msg);
         QStringList getLogBuffer() const;
 
-        friend class mvme;
+        friend class MVMEMainWindow;
 
         //QFuture<vme_script::ResultList>
         vme_script::ResultList
@@ -219,7 +219,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
                       vme_script::LoggerFun logger = vme_script::LoggerFun(),
                       bool logEachResult = false);
 
-        mvme *getMainWindow() const { return m_mainwin; }
+        MVMEMainWindow *getMainWindow() const { return m_mainwin; }
 
         // Workspace handling
         void newWorkspace(const QString &dirName);
@@ -331,7 +331,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
 
         QSet<QObject *> m_objects;
         QMap<QString, QMap<QObject *, QObject *>> m_objectMappings;
-        mvme *m_mainwin;
+        MVMEMainWindow *m_mainwin;
         DAQStats m_daqStats;
         ListFile *m_listFile = nullptr;
         GlobalMode m_mode;

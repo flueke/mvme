@@ -50,7 +50,7 @@ int main(int argc, char *argv[])
     QObject::connect(&splashTimer, &QTimer::timeout, &splash, &QWidget::close);
 #endif
 
-    mvme w;
+    MVMEMainWindow w;
     w.show();
     w.restoreSettings();
 

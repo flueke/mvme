@@ -201,7 +201,7 @@ void MVMEContextPrivate::clearLog()
     }
 }
 
-MVMEContext::MVMEContext(mvme *mainwin, QObject *parent)
+MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent)
     : QObject(parent)
     , m_d(new MVMEContextPrivate)
     , m_listFileFormat(ListFileFormat::ZIP)

@@ -167,7 +167,7 @@ int main(int argc, char *argv[])
     {
         // init mvme using a non-default app name to not mess with the standard mvme.conf
         mvme_basic_init("mvme_test_launcher_module_template");
-        mvme w;
+        MVMEMainWindow w;
         auto context = w.getContext();
 
         if (!testInfo.workspacePath.isEmpty())

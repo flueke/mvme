@@ -113,6 +113,7 @@ set(LIBMVME_SOURCES
     template_system.cc
     treewidget_utils.cc
     util.cc
+    util_zip.cc
     vme_analysis_common.cc
     vme_config.cc
     vme_config_tree.cc
@@ -135,7 +136,6 @@ set(LIBMVME_SOURCES
 
 qt5_wrap_ui(LIBMVME_UIC_OUT
     mesytec_diagnostics.ui
-    mvme.ui
     vme_debug_widget.ui
     )
 

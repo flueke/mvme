@@ -53,23 +53,21 @@ class QTimer;
 class QwtPlotCurve;
 class QNetworkAccessManager;
 
+class MVMEWindowPrivate;
 
-namespace Ui {
-class mvme;
-}
-
-class LIBMVME_EXPORT mvme : public QMainWindow
+class LIBMVME_EXPORT MVMEMainWindow : public QMainWindow
 {
     Q_OBJECT
 
 public:
-    explicit mvme(QWidget *parent = 0);
-    ~mvme();
+    //explicit MVMEMainWindow(MVMEContext *context, QWidget *parent = 0);
+    explicit MVMEMainWindow(QWidget *parent = 0);
+    ~MVMEMainWindow();
 
     virtual void closeEvent(QCloseEvent *event);
     void restoreSettings();
 
-    MVMEContext *getContext() { return m_context; }
+    MVMEContext *getContext();
 
     void addObjectWidget(QWidget *widget, QObject *object, const QString &stateKey);
     bool hasObjectWidget(QObject *object) const;
@@ -84,15 +82,15 @@ public slots:
     void displayAboutQt();
     void clearLog();
 
-    void on_actionNewVMEConfig_triggered();
-    void on_actionOpenVMEConfig_triggered();
-    bool on_actionSaveVMEConfig_triggered();
-    bool on_actionSaveVMEConfigAs_triggered();
+    void onActionNewVMEConfig_triggered();
+    void onActionOpenVMEConfig_triggered();
+    bool onActionSaveVMEConfig_triggered();
+    bool onActionSaveVMEConfigAs_triggered();
 
     void loadConfig(const QString &fileName);
 
-    void on_actionNewWorkspace_triggered();
-    void on_actionOpenWorkspace_triggered();
+    void onActionNewWorkspace_triggered();
+    void onActionOpenWorkspace_triggered();
 
     bool createNewOrOpenExistingWorkspace();
 
@@ -101,15 +99,15 @@ protected:
     void resizeEvent(QResizeEvent *event) override;
 
 private slots:
-    void on_actionOpenListfile_triggered();
-    void on_actionCloseListfile_triggered();
+    void onActionOpenListfile_triggered();
+    void onActionCloseListfile_triggered();
 
-    void on_actionMainWindow_triggered();
-    void on_actionAnalysis_UI_triggered();
-    void on_actionVME_Debug_triggered();
-    void on_actionLog_Window_triggered();
-    void on_actionVMUSB_Firmware_Update_triggered();
-    void on_actionTemplate_Info_triggered();
+    void onActionMainWindow_triggered();
+    void onActionAnalysis_UI_triggered();
+    void onActionVME_Debug_triggered();
+    void onActionLog_Window_triggered();
+    void onActionVMUSB_Firmware_Update_triggered();
+    void onActionTemplate_Info_triggered();
 
     void onObjectAboutToBeRemoved(QObject *obj);
 
@@ -121,29 +119,17 @@ private slots:
     void onDAQStateChanged(const DAQState &);
 
     void onShowDiagnostics(ModuleConfig *config);
-    void on_actionImport_Histo1D_triggered();
+    void onActionImport_Histo1D_triggered();
 
-    void on_actionVMEScriptRef_triggered();
-    void on_actionCheck_for_updates_triggered();
+    void onActionVMEScriptRef_triggered();
+    void onActionCheck_for_updates_triggered();
+    void onActionToolAnalysisInfo_triggered();
 
     void updateActions();
 
 
 private:
-    Ui::mvme *ui;
-
-    MVMEContext *m_context;
-    QPlainTextEdit *m_logView = nullptr;
-    DAQControlWidget *m_daqControlWidget = nullptr;
-    VMEConfigTreeWidget *m_vmeConfigTreeWidget = nullptr;
-    DAQStatsWidget *m_daqStatsWidget = nullptr;
-    VMEDebugWidget *m_vmeDebugWidget = nullptr;
-
-    QMap<QObject *, QList<QWidget *>> m_objectWindows;
-
-    WidgetGeometrySaver *m_geometrySaver;
-    bool m_quitting = false;
-    QNetworkAccessManager *m_networkAccessManager = nullptr;
+    MVMEWindowPrivate *m_d;
 };
 
 #endif // MVME_H

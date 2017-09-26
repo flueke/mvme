@@ -1,4 +1,4 @@
-/* mvme - Mesytec VME Data Acquisition
+/* MVMEMainWindow - Mesytec VME Data Acquisition
  *
  * Copyright (C) 2016, 2017  Florian Lüke <f.lueke@mesytec.com>
  *
@@ -18,25 +18,25 @@
  */
 #include "mvme.h"
 
-#include "ui_mvme.h"
-#include "vmusb_firmware_loader.h"
-#include "mvme_context.h"
+#include "analysis/analysis.h"
+#include "analysis/analysis_ui.h"
 #include "config_ui.h"
-#include "mvme_listfile.h"
-#include "vme_config_tree.h"
-#include "vme_script_editor.h"
-#include "vme_debug_widget.h"
 #include "daqcontrol_widget.h"
 #include "daqstats_widget.h"
-#include "mesytec_diagnostics.h"
-#include "mvme_event_processor.h"
 #include "gui_util.h"
-#include "analysis/analysis.h"
 #include "histo1d_widget.h"
 #include "histo2d_widget.h"
-#include "analysis/analysis_ui.h"
+#include "mesytec_diagnostics.h"
+#include "mvme_context.h"
+#include "mvme_event_processor.h"
+#include "mvme_listfile.h"
 #include "qt_util.h"
 #include "sis3153_util.h"
+#include "util_zip.h"
+#include "vme_config_tree.h"
+#include "vme_debug_widget.h"
+#include "vme_script_editor.h"
+#include "vmusb_firmware_loader.h"
 
 #ifdef MVME_USE_GIT_VERSION_FILE
 #include "git_sha1.h"
@@ -46,9 +46,9 @@
 #include <QFileDialog>
 #include <QFont>
 #include <QLabel>
-#include <QPlainTextEdit>
 #include <QList>
 #include <QMessageBox>
+#include <QPlainTextEdit>
 #include <QPushButton>
 #include <QScrollBar>
 #include <QTextBrowser>
@@ -56,89 +56,239 @@
 #include <QtGui>
 #include <QtNetwork>
 #include <QToolBar>
-
 #include <qwt_plot_curve.h>
-#include <quazipfile.h>
+#include <QVBoxLayout>
+#include <QMenuBar>
+#include <QApplication>
 
 using namespace vats;
 
-static QString make_zip_error(const QString &message, const QuaZip *zip)
+struct MVMEWindowPrivate
 {
-  auto m = QString("%1\narchive=%2, code=%3")
-      .arg(message)
-      .arg(zip->getZipName())
-      .arg(zip->getZipError());
+    MVMEContext *m_context;
+    QWidget *centralWidget = nullptr;
+    QVBoxLayout *centralLayout = nullptr;
+    QPlainTextEdit *m_logView = nullptr;
+    DAQControlWidget *m_daqControlWidget = nullptr;
+    VMEConfigTreeWidget *m_vmeConfigTreeWidget = nullptr;
+    DAQStatsWidget *m_daqStatsWidget = nullptr;
+    VMEDebugWidget *m_vmeDebugWidget = nullptr;
+    QMap<QObject *, QList<QWidget *>> m_objectWindows;
+    WidgetGeometrySaver *m_geometrySaver;
+    bool m_quitting = false;
+    QNetworkAccessManager *m_networkAccessManager = nullptr;
 
-  return m;
-}
+    QStatusBar *statusBar;
+    QMenuBar *menuBar;
 
-static QString make_zip_error(const QString &message, QuaZipFile *zipFile)
+    QAction *actionNewWorkspace, *actionOpenWorkspace,
+            *actionNewVMEConfig, *actionOpenVMEConfig, *actionSaveVMEConfig, *actionSaveVMEConfigAs,
+            *actionOpenListfile, *actionCloseListfile,
+            *actionQuit,
+            *actionShowMainWindow, *actionShowAnalysis, *actionShowLog,
+
+            *actionToolVMEDebug, *actionToolImportHisto1D, *actionToolVMUSBFirmwareUpdate,
+            *actionToolTemplateInfo, *actionToolSIS3153Debug, *actionToolAnalysisInfo,
+
+            *actionHelpVMEScript, *actionHelpAbout, *actionHelpAboutQt, *actionHelpUpdateCheck
+            ;
+
+    QMenu *menuFile, *menuWindow, *menuTools, *menuHelp;
+};
+
+MVMEMainWindow::MVMEMainWindow(QWidget *parent)
+    : QMainWindow(parent)
+    , m_d(new MVMEWindowPrivate)
 {
-    auto m = QString("%1\narchive=%2, file=%3, code=%4")
-        .arg(message)
-        .arg(zipFile->getZipName())
-        .arg(zipFile->getFileName())
-        .arg(zipFile->getZipError())
-        ;
+    setObjectName(QSL("mvme"));
+    setWindowTitle(QSL("mvme"));
 
-    return m;
-}
+    m_d->m_context = new MVMEContext(this, this);
+    m_d->centralWidget          = new QWidget(this);
+    m_d->centralLayout          = new QVBoxLayout(m_d->centralWidget);
+    m_d->statusBar              = new QStatusBar(this);
+    m_d->statusBar->setSizeGripEnabled(false);
+    m_d->menuBar                = new QMenuBar(this);
+    m_d->m_geometrySaver        = new WidgetGeometrySaver(this);
+    m_d->m_networkAccessManager = new QNetworkAccessManager(this);
 
-mvme::mvme(QWidget *parent) :
-    QMainWindow(parent),
-    ui(new Ui::mvme)
-    , m_context(new MVMEContext(this, this))
-    , m_geometrySaver(new WidgetGeometrySaver(this))
-    , m_networkAccessManager(new QNetworkAccessManager(this))
-{
-    qDebug() << "main thread: " << QThread::currentThread();
+    setCentralWidget(m_d->centralWidget);
+    setStatusBar(m_d->statusBar);
+    setMenuBar(m_d->menuBar);
 
-    connect(m_context, &MVMEContext::daqConfigFileNameChanged, this, &mvme::updateWindowTitle);
-    connect(m_context, &MVMEContext::modeChanged, this, &mvme::updateWindowTitle);
-    connect(m_context, &MVMEContext::daqConfigChanged, this, &mvme::onConfigChanged);
-    connect(m_context, &MVMEContext::objectAboutToBeRemoved, this, &mvme::onObjectAboutToBeRemoved);
-    connect(m_context, &MVMEContext::daqAboutToStart, this, &mvme::onDAQAboutToStart);
-    connect(m_context, &MVMEContext::daqStateChanged, this, &mvme::onDAQStateChanged);
-    connect(m_context, &MVMEContext::sigLogMessage, this, &mvme::appendToLog);
+    //
+    // create actions
+    //
 
-    connect(m_context, &MVMEContext::daqStateChanged, this, &mvme::updateActions);
-    connect(m_context, &MVMEContext::eventProcessorStateChanged, this, &mvme::updateActions);
-    connect(m_context, &MVMEContext::modeChanged, this, &mvme::updateActions);
-    //connect(m_context, &MVMEContext::controllerStateChanged, this, &mvme::updateActions);
-    connect(m_context, &MVMEContext::daqConfigChanged, this, &mvme::updateActions);
+    m_d->actionNewWorkspace     = new QAction(QSL("New Workspace"), this);
+    m_d->actionNewWorkspace->setObjectName(QSL("actionNewWorkspace"));
+    m_d->actionOpenWorkspace    = new QAction(QSL("Open Workspace"), this);
+    m_d->actionOpenWorkspace->setObjectName(QSL("actionOpenWorkspac"));
 
-    // create and initialize displays
-    ui->setupUi(this);
-    ui->actionCheck_for_updates->setVisible(false);
+    m_d->actionNewVMEConfig     = new QAction(QIcon(QSL(":/document-new.png")), QSL("New VME Config"), this);
+    m_d->actionNewVMEConfig->setToolTip(QSL("New VME Config"));
+    m_d->actionNewVMEConfig->setIconText(QSL("New"));
+    m_d->actionNewVMEConfig->setObjectName(QSL("actionNewVMEConfig"));
 
-    auto sisDebugAction = ui->menu_Tools->addAction(QSL("SIS3153 Debug Widget"));
-    connect(sisDebugAction, &QAction::triggered, this, [this]() {
-        auto widget = new SIS3153DebugWidget(m_context);
+    m_d->actionOpenVMEConfig    = new QAction(QIcon(QSL(":/document-open.png")), QSL("Open VME Config"), this);
+    m_d->actionOpenVMEConfig->setObjectName(QSL("actionOpenVMEConfig"));
+    m_d->actionOpenVMEConfig->setToolTip(QSL("Open VME Config"));
+    m_d->actionOpenVMEConfig->setIconText(QSL("Open"));
+
+    m_d->actionSaveVMEConfig    = new QAction(QIcon(QSL(":/document-save.png")), QSL("Save VME Config"), this);
+    m_d->actionSaveVMEConfig->setObjectName(QSL("actionSaveVMEConfig"));
+    m_d->actionSaveVMEConfig->setToolTip(QSL("Save VME Config"));
+    m_d->actionSaveVMEConfig->setIconText(QSL("Save"));
+
+    m_d->actionSaveVMEConfigAs  = new QAction(QIcon(QSL(":/document-save-as.png")), QSL("Save VME Config As"), this);
+    m_d->actionSaveVMEConfigAs->setObjectName(QSL("actionSaveVMEConfigAs"));
+    m_d->actionSaveVMEConfigAs->setToolTip(QSL("Save VME Config As"));
+    m_d->actionSaveVMEConfigAs->setIconText(QSL("Save As"));
+
+    m_d->actionOpenListfile     = new QAction(QSL("Open Listfile"), this);
+    m_d->actionCloseListfile    = new QAction(QSL("Close Listfile"), this);
+
+    m_d->actionQuit             = new QAction(QSL("&Quit"), this);
+    m_d->actionQuit->setShortcut(QSL("Ctrl+Q"));
+    m_d->actionQuit->setShortcutContext(Qt::ApplicationShortcut);
+
+    m_d->actionShowMainWindow   = new QAction(QSL("Main Window"), this);
+    m_d->actionShowMainWindow->setShortcut(QSL("Ctrl+1"));
+    m_d->actionShowMainWindow->setShortcutContext(Qt::ApplicationShortcut);
+
+    m_d->actionShowAnalysis     = new QAction(QSL("Analysis"), this);
+    m_d->actionShowAnalysis->setShortcut(QSL("Ctrl+2"));
+    m_d->actionShowAnalysis->setShortcutContext(Qt::ApplicationShortcut);
+
+    m_d->actionShowLog          = new QAction(QSL("Log Window"), this);
+    m_d->actionShowLog->setShortcut(QSL("Ctrl+3"));
+    m_d->actionShowLog->setShortcutContext(Qt::ApplicationShortcut);
+
+    m_d->actionToolVMEDebug             = new QAction(QSL("VME Debug"), this);
+    m_d->actionToolImportHisto1D        = new QAction(QSL("Import Histo1D"), this);
+    m_d->actionToolVMUSBFirmwareUpdate  = new QAction(QSL("VM-USB Firmware Update"), this);
+    m_d->actionToolTemplateInfo         = new QAction(QSL("Template System Info"), this);
+    m_d->actionToolSIS3153Debug         = new QAction(QSL("SIS3153 Debug Widget"), this);
+    m_d->actionToolAnalysisInfo         = new QAction(QSL("Analysis Info"), this);
+
+    m_d->actionHelpVMEScript   = new QAction(QIcon(QSL("help.png")), QSL("&VME Script Reference"), this);
+    m_d->actionHelpAbout       = new QAction(QIcon(QSL("window_icon.png")), QSL("&About mvme"), this);
+    m_d->actionHelpAboutQt     = new QAction(QSL("About &Qt"), this);
+    m_d->actionHelpUpdateCheck = new QAction(QSL("Check for updates"), this);
+    m_d->actionHelpUpdateCheck->setVisible(false); // TODO: enable update check at some point
+
+    //
+    // connect actions
+    //
+
+    connect(m_d->actionNewWorkspace,            &QAction::triggered, this, &MVMEMainWindow::onActionNewWorkspace_triggered);
+    connect(m_d->actionOpenWorkspace,           &QAction::triggered, this, &MVMEMainWindow::onActionOpenWorkspace_triggered);
+    connect(m_d->actionNewVMEConfig,            &QAction::triggered, this, &MVMEMainWindow::onActionNewVMEConfig_triggered);
+    connect(m_d->actionOpenVMEConfig,           &QAction::triggered, this, &MVMEMainWindow::onActionOpenVMEConfig_triggered);
+    connect(m_d->actionSaveVMEConfig,           &QAction::triggered, this, &MVMEMainWindow::onActionSaveVMEConfig_triggered);
+    connect(m_d->actionSaveVMEConfigAs,         &QAction::triggered, this, &MVMEMainWindow::onActionSaveVMEConfigAs_triggered);
+    connect(m_d->actionOpenListfile,            &QAction::triggered, this, &MVMEMainWindow::onActionOpenListfile_triggered);
+    connect(m_d->actionCloseListfile,           &QAction::triggered, this, &MVMEMainWindow::onActionCloseListfile_triggered);
+    connect(m_d->actionQuit,                    &QAction::triggered, this, &MVMEMainWindow::close);
+
+    connect(m_d->actionShowMainWindow,          &QAction::triggered, this, &MVMEMainWindow::onActionMainWindow_triggered);
+    connect(m_d->actionShowAnalysis,            &QAction::triggered, this, &MVMEMainWindow::onActionAnalysis_UI_triggered);
+    connect(m_d->actionShowLog,                 &QAction::triggered, this, &MVMEMainWindow::onActionLog_Window_triggered);
+
+    connect(m_d->actionToolVMEDebug,            &QAction::triggered, this, &MVMEMainWindow::onActionVME_Debug_triggered);
+    connect(m_d->actionToolImportHisto1D,       &QAction::triggered, this, &MVMEMainWindow::onActionImport_Histo1D_triggered);
+    connect(m_d->actionToolVMUSBFirmwareUpdate, &QAction::triggered, this, &MVMEMainWindow::onActionVMUSB_Firmware_Update_triggered);
+    connect(m_d->actionToolTemplateInfo,        &QAction::triggered, this, &MVMEMainWindow::onActionTemplate_Info_triggered);
+    connect(m_d->actionToolSIS3153Debug,        &QAction::triggered, this, [this]() {
+        auto widget = new SIS3153DebugWidget(m_d->m_context);
         widget->setAttribute(Qt::WA_DeleteOnClose);
         add_widget_close_action(widget);
         widget->show();
     });
+    connect(m_d->actionToolAnalysisInfo,        &QAction::triggered, this, &MVMEMainWindow::onActionToolAnalysisInfo_triggered);
+
+    connect(m_d->actionHelpVMEScript,           &QAction::triggered, this, &MVMEMainWindow::onActionVMEScriptRef_triggered);
+    connect(m_d->actionHelpAbout,               &QAction::triggered, this, &MVMEMainWindow::displayAbout);
+    connect(m_d->actionHelpAboutQt,             &QAction::triggered, this, &MVMEMainWindow::displayAboutQt);
+    connect(m_d->actionHelpUpdateCheck,         &QAction::triggered, this, &MVMEMainWindow::onActionCheck_for_updates_triggered);
+
+
+    //
+    // populate menus
+    //
+
+    m_d->menuFile   = new QMenu(QSL("&File"), this);
+    m_d->menuWindow = new QMenu(QSL("&Window"), this);
+    m_d->menuTools  = new QMenu(QSL("&Tools"), this);
+    m_d->menuHelp   = new QMenu(QSL("&Help"), this);
+
+    m_d->menuFile->addAction(m_d->actionNewWorkspace);
+    m_d->menuFile->addAction(m_d->actionOpenWorkspace);
+    m_d->menuFile->addSeparator();
+    m_d->menuFile->addAction(m_d->actionNewVMEConfig);
+    m_d->menuFile->addAction(m_d->actionOpenVMEConfig);
+    m_d->menuFile->addAction(m_d->actionSaveVMEConfig);
+    m_d->menuFile->addAction(m_d->actionSaveVMEConfigAs);
+    m_d->menuFile->addSeparator();
+    m_d->menuFile->addAction(m_d->actionOpenListfile);
+    m_d->menuFile->addAction(m_d->actionCloseListfile);
+    m_d->menuFile->addSeparator();
+    m_d->menuFile->addAction(m_d->actionQuit);
+
+    m_d->menuWindow->addAction(m_d->actionShowMainWindow);
+    m_d->menuWindow->addAction(m_d->actionShowAnalysis);
+    m_d->menuWindow->addAction(m_d->actionShowLog);
+
+    m_d->menuTools->addAction(m_d->actionToolVMEDebug);
+    m_d->menuTools->addAction(m_d->actionToolImportHisto1D);
+    m_d->menuTools->addAction(m_d->actionToolVMUSBFirmwareUpdate);
+    m_d->menuTools->addAction(m_d->actionToolTemplateInfo);
+    m_d->menuTools->addAction(m_d->actionToolSIS3153Debug);
+    m_d->menuTools->addAction(m_d->actionToolVMEDebug);
+    m_d->menuTools->addAction(m_d->actionToolAnalysisInfo);
+
+    m_d->menuHelp->addAction(m_d->actionHelpVMEScript);
+    m_d->menuHelp->addSeparator();
+    m_d->menuHelp->addAction(m_d->actionHelpAbout);
+    m_d->menuHelp->addAction(m_d->actionHelpAboutQt);
+    m_d->menuHelp->addAction(m_d->actionHelpUpdateCheck);
+
+    m_d->menuBar->addMenu(m_d->menuFile);
+    m_d->menuBar->addMenu(m_d->menuWindow);
+    m_d->menuBar->addMenu(m_d->menuTools);
+    m_d->menuBar->addMenu(m_d->menuHelp);
+
+    connect(m_d->m_context, &MVMEContext::daqConfigFileNameChanged, this, &MVMEMainWindow::updateWindowTitle);
+    connect(m_d->m_context, &MVMEContext::modeChanged, this, &MVMEMainWindow::updateWindowTitle);
+    connect(m_d->m_context, &MVMEContext::daqConfigChanged, this, &MVMEMainWindow::onConfigChanged);
+    connect(m_d->m_context, &MVMEContext::objectAboutToBeRemoved, this, &MVMEMainWindow::onObjectAboutToBeRemoved);
+    connect(m_d->m_context, &MVMEContext::daqAboutToStart, this, &MVMEMainWindow::onDAQAboutToStart);
+    connect(m_d->m_context, &MVMEContext::daqStateChanged, this, &MVMEMainWindow::onDAQStateChanged);
+    connect(m_d->m_context, &MVMEContext::sigLogMessage, this, &MVMEMainWindow::appendToLog);
+    connect(m_d->m_context, &MVMEContext::daqStateChanged, this, &MVMEMainWindow::updateActions);
+    connect(m_d->m_context, &MVMEContext::eventProcessorStateChanged, this, &MVMEMainWindow::updateActions);
+    connect(m_d->m_context, &MVMEContext::modeChanged, this, &MVMEMainWindow::updateActions);
+    connect(m_d->m_context, &MVMEContext::daqConfigChanged, this, &MVMEMainWindow::updateActions);
 
     //
     // central widget consisting of DAQControlWidget, DAQConfigTreeWidget and DAQStatsWidget
     //
     {
-        m_daqControlWidget = new DAQControlWidget(m_context);
-        m_vmeConfigTreeWidget = new VMEConfigTreeWidget(m_context);
-        m_daqStatsWidget = new DAQStatsWidget(m_context);
+        m_d->m_daqControlWidget = new DAQControlWidget(m_d->m_context);
+        m_d->m_vmeConfigTreeWidget = new VMEConfigTreeWidget(m_d->m_context);
+        m_d->m_daqStatsWidget = new DAQStatsWidget(m_d->m_context);
 
-        auto centralLayout = qobject_cast<QVBoxLayout *>(ui->centralWidget->layout());
-        Q_ASSERT(centralLayout);
+        auto centralLayout = m_d->centralLayout;
 
         centralLayout->setContentsMargins(6, 6, 6, 0); // l, t, r, b
-        centralLayout->addWidget(m_daqControlWidget);
-        centralLayout->addWidget(m_vmeConfigTreeWidget);
-        centralLayout->addWidget(m_daqStatsWidget);
+        centralLayout->addWidget(m_d->m_daqControlWidget);
+        centralLayout->addWidget(m_d->m_vmeConfigTreeWidget);
+        centralLayout->addWidget(m_d->m_daqStatsWidget);
 
         centralLayout->setStretch(1, 1);
 
-        connect(m_vmeConfigTreeWidget, &VMEConfigTreeWidget::showDiagnostics,
-                this, &mvme::onShowDiagnostics);
+        connect(m_d->m_vmeConfigTreeWidget, &VMEConfigTreeWidget::showDiagnostics,
+                this, &MVMEMainWindow::onShowDiagnostics);
     }
 
     updateWindowTitle();
@@ -148,19 +298,19 @@ mvme::mvme(QWidget *parent) :
         updateActions();
 
         // Create and open log and analysis windows.
-        on_actionLog_Window_triggered();
-        on_actionAnalysis_UI_triggered();
+        onActionLog_Window_triggered();
+        onActionAnalysis_UI_triggered();
         // Focus the main window
         this->raise();
     });
 }
 
-mvme::~mvme()
+MVMEMainWindow::~MVMEMainWindow()
 {
     // To avoid a crash on exit if replay is running
-    disconnect(m_context, &MVMEContext::daqStateChanged, this, &mvme::onDAQStateChanged);
+    disconnect(m_d->m_context, &MVMEContext::daqStateChanged, this, &MVMEMainWindow::onDAQStateChanged);
 
-    auto workspaceDir = m_context->getWorkspaceDirectory();
+    auto workspaceDir = m_d->m_context->getWorkspaceDirectory();
 
     if (!workspaceDir.isEmpty())
     {
@@ -168,17 +318,22 @@ mvme::~mvme()
         settings.setValue("LastWorkspaceDirectory", workspaceDir);
     }
 
-    delete ui;
+    qDebug() << __PRETTY_FUNCTION__ << "MVMEMainWindow instance being destroyed";
 
-    qDebug() << __PRETTY_FUNCTION__ << "mvme instance being destroyed";
+    delete m_d;
 }
 
-void mvme::loadConfig(const QString &fileName)
+MVMEContext *MVMEMainWindow::getContext()
 {
-    m_context->loadVMEConfig(fileName);
+    return m_d->m_context;
 }
 
-void mvme::on_actionNewWorkspace_triggered()
+void MVMEMainWindow::loadConfig(const QString &fileName)
+{
+    m_d->m_context->loadVMEConfig(fileName);
+}
+
+void MVMEMainWindow::onActionNewWorkspace_triggered()
 {
     auto startDir = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
     auto dirName  = QFileDialog::getExistingDirectory(this, QSL("Create new workspace directory"), startDir);
@@ -191,14 +346,14 @@ void mvme::on_actionNewWorkspace_triggered()
 
     try
     {
-        m_context->newWorkspace(dirName);
+        m_d->m_context->newWorkspace(dirName);
     } catch (const QString &e)
     {
         QMessageBox::critical(this, QSL("Workspace Error"), QString("Error creating workspace: %1").arg(e));
     }
 }
 
-void mvme::on_actionOpenWorkspace_triggered()
+void MVMEMainWindow::onActionOpenWorkspace_triggered()
 {
    /* Use the parent directory of last opened workspace as the start directory
     * for browsing. */
@@ -222,21 +377,21 @@ void mvme::on_actionOpenWorkspace_triggered()
 
     try
     {
-        m_context->openWorkspace(dirName);
+        m_d->m_context->openWorkspace(dirName);
     } catch (const QString &e)
     {
         QMessageBox::critical(this, QSL("Workspace Error"), QString("Error opening workspace: %1").arg(e));
     }
 }
 
-void mvme::displayAbout()
+void MVMEMainWindow::displayAbout()
 {
     auto dialog = new QDialog(this);
-    dialog->setWindowTitle(QSL("About mvme"));
+    dialog->setWindowTitle(QSL("About MVMEMainWindow"));
 
     auto tb_license = new QTextBrowser(dialog);
     tb_license->setWindowFlags(Qt::Window);
-    tb_license->setWindowTitle(QSL("mvme license"));
+    tb_license->setWindowTitle(QSL("MVMEMainWindow license"));
 
     {
         QFile licenseFile(":/gpl-notice.txt");
@@ -261,7 +416,7 @@ void mvme::displayAbout()
         versionString += QString(" (%1)").arg(bitness);
     }
 
-    layout->addWidget(new QLabel(QSL("mvme - VME Data Acquisition")));
+    layout->addWidget(new QLabel(QSL("MVMEMainWindow - VME Data Acquisition")));
     layout->addWidget(new QLabel(versionString));
     layout->addWidget(new QLabel(QSL("© 2015-2017 mesytec GmbH & Co. KG")));
     layout->addWidget(new QLabel(QSL("Authors: F. Lüke, R. Schneider")));
@@ -313,17 +468,17 @@ void mvme::displayAbout()
     dialog->exec();
 }
 
-void mvme::displayAboutQt()
+void MVMEMainWindow::displayAboutQt()
 {
     QMessageBox::aboutQt(this, QSL("About Qt"));
 }
 
 static const QString DefaultAnalysisFileFilter = QSL("Config Files (*.analysis);; All Files (*.*)");
 
-void mvme::closeEvent(QCloseEvent *event)
+void MVMEMainWindow::closeEvent(QCloseEvent *event)
 {
     // Refuse to exit if DAQ is running.
-    if (m_context->getDAQState() != DAQState::Idle && m_context->getMode() == GlobalMode::DAQ)
+    if (m_d->m_context->getDAQState() != DAQState::Idle && m_d->m_context->getMode() == GlobalMode::DAQ)
     {
         QMessageBox msgBox(QMessageBox::Warning, QSL("DAQ is running"),
                            QSL("Data acquisition is currently active. Ignoring request to exit."),
@@ -334,7 +489,7 @@ void mvme::closeEvent(QCloseEvent *event)
     }
 
     // Handle modified DAQConfig
-    if (m_context->getConfig()->isModified())
+    if (m_d->m_context->getConfig()->isModified())
     {
         QMessageBox msgBox(QMessageBox::Question, QSL("Save DAQ configuration?"),
                            QSL("The current DAQ configuration has modifications. Do you want to save it?"),
@@ -343,7 +498,7 @@ void mvme::closeEvent(QCloseEvent *event)
 
         if (result == QMessageBox::Save)
         {
-            if (!on_actionSaveVMEConfig_triggered())
+            if (!onActionSaveVMEConfig_triggered())
             {
                 event->ignore();
                 return;
@@ -357,7 +512,7 @@ void mvme::closeEvent(QCloseEvent *event)
     }
 
     // Handle modified AnalysisConfig
-    auto analysis = m_context->getAnalysis();
+    auto analysis = m_d->m_context->getAnalysis();
     if (analysis->isModified())
     {
         QMessageBox msgBox(QMessageBox::Question, QSL("Save analysis config?"),
@@ -367,17 +522,17 @@ void mvme::closeEvent(QCloseEvent *event)
 
         if (result == QMessageBox::Save)
         {
-            auto result = saveAnalysisConfig(m_context->getAnalysis(),
-                                             m_context->getAnalysisConfigFileName(),
-                                             m_context->getWorkspaceDirectory(),
+            auto result = saveAnalysisConfig(m_d->m_context->getAnalysis(),
+                                             m_d->m_context->getAnalysisConfigFileName(),
+                                             m_d->m_context->getWorkspaceDirectory(),
                                              DefaultAnalysisFileFilter,
-                                             m_context);
+                                             m_d->m_context);
             if (!result.first)
             {
                 event->ignore();
                 return;
             }
-            m_context->setAnalysisConfigFileName(result.second);
+            m_d->m_context->setAnalysisConfigFileName(result.second);
         }
         else if (result == QMessageBox::Cancel)
         {
@@ -418,13 +573,17 @@ void mvme::closeEvent(QCloseEvent *event)
     settings.setValue("mainWindowGeometry", saveGeometry());
     settings.setValue("mainWindowState", saveState());
 
-    m_quitting = true;
+    m_d->m_quitting = true;
 
     QMainWindow::closeEvent(event);
-    qApp->closeAllWindows();
+    auto app = qobject_cast<QApplication *>(qApp);
+    if (app)
+    {
+        app->closeAllWindows();
+    }
 }
 
-void mvme::restoreSettings()
+void MVMEMainWindow::restoreSettings()
 {
     qDebug("restoreSettings");
     QSettings settings;
@@ -432,29 +591,29 @@ void mvme::restoreSettings()
     restoreState(settings.value("mainWindowState").toByteArray());
 }
 
-void mvme::addObjectWidget(QWidget *widget, QObject *object, const QString &stateKey)
+void MVMEMainWindow::addObjectWidget(QWidget *widget, QObject *object, const QString &stateKey)
 {
     connect(widget, &QObject::destroyed, this, [this, object, widget] (QObject *) {
-        m_objectWindows[object].removeOne(widget);
+        m_d->m_objectWindows[object].removeOne(widget);
     });
 
     widget->setAttribute(Qt::WA_DeleteOnClose);
-    m_geometrySaver->addAndRestore(widget, QSL("WindowGeometries/") + stateKey);
+    m_d->m_geometrySaver->addAndRestore(widget, QSL("WindowGeometries/") + stateKey);
     add_widget_close_action(widget);
 
-    m_objectWindows[object].push_back(widget);
+    m_d->m_objectWindows[object].push_back(widget);
     widget->show();
 }
 
-bool mvme::hasObjectWidget(QObject *object) const
+bool MVMEMainWindow::hasObjectWidget(QObject *object) const
 {
-    return !m_objectWindows[object].isEmpty();
+    return !m_d->m_objectWindows[object].isEmpty();
 }
 
-QWidget *mvme::getObjectWidget(QObject *object) const
+QWidget *MVMEMainWindow::getObjectWidget(QObject *object) const
 {
     QWidget *result = nullptr;
-    const auto &l(m_objectWindows[object]);
+    const auto &l(m_d->m_objectWindows[object]);
 
     if (!l.isEmpty())
     {
@@ -464,12 +623,12 @@ QWidget *mvme::getObjectWidget(QObject *object) const
     return result;
 }
 
-QList<QWidget *> mvme::getObjectWidgets(QObject *object) const
+QList<QWidget *> MVMEMainWindow::getObjectWidgets(QObject *object) const
 {
-    return m_objectWindows[object];
+    return m_d->m_objectWindows[object];
 }
 
-void mvme::activateObjectWidget(QObject *object)
+void MVMEMainWindow::activateObjectWidget(QObject *object)
 {
     if (auto widget = getObjectWidget(object))
     {
@@ -477,18 +636,18 @@ void mvme::activateObjectWidget(QObject *object)
     }
 }
 
-void mvme::addWidget(QWidget *widget, const QString &stateKey)
+void MVMEMainWindow::addWidget(QWidget *widget, const QString &stateKey)
 {
     widget->setAttribute(Qt::WA_DeleteOnClose);
     if (!stateKey.isEmpty())
-        m_geometrySaver->addAndRestore(widget, QSL("WindowGeometries/") + stateKey);
+        m_d->m_geometrySaver->addAndRestore(widget, QSL("WindowGeometries/") + stateKey);
     add_widget_close_action(widget);
     widget->show();
 }
 
-void mvme::on_actionNewVMEConfig_triggered()
+void MVMEMainWindow::onActionNewVMEConfig_triggered()
 {
-    if (m_context->getConfig()->isModified())
+    if (m_d->m_context->getConfig()->isModified())
     {
         QMessageBox msgBox(QMessageBox::Question, "Save configuration?",
                            "The current configuration has modifications. Do you want to save it?",
@@ -497,7 +656,7 @@ void mvme::on_actionNewVMEConfig_triggered()
 
         if (result == QMessageBox::Save)
         {
-            if (!on_actionSaveVMEConfig_triggered())
+            if (!onActionSaveVMEConfig_triggered())
             {
                 return;
             }
@@ -510,17 +669,17 @@ void mvme::on_actionNewVMEConfig_triggered()
 
     // TODO: run a dialog to set-up config basics: controller type, working directory, etc...
 
-    m_context->setVMEConfig(new VMEConfig);
-    m_context->setConfigFileName(QString());
-    m_context->setMode(GlobalMode::DAQ);
+    m_d->m_context->setVMEConfig(new VMEConfig);
+    m_d->m_context->setConfigFileName(QString());
+    m_d->m_context->setMode(GlobalMode::DAQ);
 }
 
-// Note: .mvmecfg was the old extension when vme and analysis config where not separated yet.
-static const QString VMEConfigFileFilter = QSL("Config Files (*.vme *.mvmecfg);; All Files (*.*)");
+// Note: .MVMEWindowcfg was the old extension when vme and analysis config where not separated yet.
+static const QString VMEConfigFileFilter = QSL("Config Files (*.vme *.MVMEWindowcfg);; All Files (*.*)");
 
-void mvme::on_actionOpenVMEConfig_triggered()
+void MVMEMainWindow::onActionOpenVMEConfig_triggered()
 {
-    if (m_context->getConfig()->isModified())
+    if (m_d->m_context->getConfig()->isModified())
     {
         QMessageBox msgBox(QMessageBox::Question, "Save VME configuration?",
                            "The current VME configuration has modifications. Do you want to save it?",
@@ -529,7 +688,7 @@ void mvme::on_actionOpenVMEConfig_triggered()
 
         if (result == QMessageBox::Save)
         {
-            if (!on_actionSaveVMEConfig_triggered())
+            if (!onActionSaveVMEConfig_triggered())
             {
                 return;
             }
@@ -540,7 +699,7 @@ void mvme::on_actionOpenVMEConfig_triggered()
         }
     }
 
-    auto path = m_context->getWorkspaceDirectory();
+    auto path = m_d->m_context->getWorkspaceDirectory();
 
     if (path.isEmpty())
     {
@@ -555,14 +714,14 @@ void mvme::on_actionOpenVMEConfig_triggered()
     loadConfig(fileName);
 }
 
-bool mvme::on_actionSaveVMEConfig_triggered()
+bool MVMEMainWindow::onActionSaveVMEConfig_triggered()
 {
-    if (m_context->getConfigFileName().isEmpty())
+    if (m_d->m_context->getConfigFileName().isEmpty())
     {
-        return on_actionSaveVMEConfigAs_triggered();
+        return onActionSaveVMEConfigAs_triggered();
     }
 
-    QString fileName = m_context->getConfigFileName();
+    QString fileName = m_d->m_context->getConfigFileName();
     QFile outFile(fileName);
     if (!outFile.open(QIODevice::WriteOnly))
     {
@@ -571,7 +730,7 @@ bool mvme::on_actionSaveVMEConfig_triggered()
     }
 
     QJsonObject daqConfigJson;
-    m_context->getVMEConfig()->write(daqConfigJson);
+    m_d->m_context->getVMEConfig()->write(daqConfigJson);
     QJsonObject configObject;
     configObject["DAQConfig"] = daqConfigJson;
     QJsonDocument doc(configObject);
@@ -582,7 +741,7 @@ bool mvme::on_actionSaveVMEConfig_triggered()
         return false;
     }
 
-    auto config = m_context->getConfig();
+    auto config = m_d->m_context->getConfig();
     config->setModified(false);
     auto configObjects = config->findChildren<ConfigObject *>();
     for (auto obj: configObjects)
@@ -594,12 +753,12 @@ bool mvme::on_actionSaveVMEConfig_triggered()
     return true;
 }
 
-bool mvme::on_actionSaveVMEConfigAs_triggered()
+bool MVMEMainWindow::onActionSaveVMEConfigAs_triggered()
 {
-    QString path = QFileInfo(m_context->getConfigFileName()).absolutePath();
+    QString path = QFileInfo(m_d->m_context->getConfigFileName()).absolutePath();
 
     if (path.isEmpty())
-        path = m_context->getWorkspaceDirectory();
+        path = m_d->m_context->getWorkspaceDirectory();
 
     if (path.isEmpty())
         path = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
@@ -623,7 +782,7 @@ bool mvme::on_actionSaveVMEConfigAs_triggered()
     }
 
     QJsonObject daqConfigJson;
-    m_context->getVMEConfig()->write(daqConfigJson);
+    m_d->m_context->getVMEConfig()->write(daqConfigJson);
     QJsonObject configObject;
     configObject["DAQConfig"] = daqConfigJson;
     QJsonDocument doc(configObject);
@@ -634,15 +793,15 @@ bool mvme::on_actionSaveVMEConfigAs_triggered()
         return false;
     }
 
-    m_context->setConfigFileName(fileName);
-    m_context->getConfig()->setModified(false);
+    m_d->m_context->setConfigFileName(fileName);
+    m_d->m_context->getConfig()->setModified(false);
     updateWindowTitle();
     return true;
 }
 
-void mvme::on_actionOpenListfile_triggered()
+void MVMEMainWindow::onActionOpenListfile_triggered()
 {
-    if (m_context->getConfig()->isModified())
+    if (m_d->m_context->getConfig()->isModified())
     {
         QMessageBox msgBox(QMessageBox::Question, "Save configuration?",
                            "The current VME configuration has modifications. Do you want to save it?",
@@ -651,7 +810,7 @@ void mvme::on_actionOpenListfile_triggered()
 
         if (result == QMessageBox::Save)
         {
-            if (!on_actionSaveVMEConfig_triggered())
+            if (!onActionSaveVMEConfig_triggered())
             {
                 return;
             }
@@ -662,7 +821,7 @@ void mvme::on_actionOpenListfile_triggered()
         }
     }
 
-    QString path = m_context->getListFileOutputInfo().fullDirectory;
+    QString path = m_d->m_context->getListFileOutputInfo().fullDirectory;
 
     if (path.isEmpty())
     {
@@ -671,7 +830,7 @@ void mvme::on_actionOpenListfile_triggered()
 
     QString fileName = QFileDialog::getOpenFileName(this, "Load Listfile",
                                                     path,
-                                                    "MVME Listfiles (*.mvmelst *.zip);; All Files (*.*)");
+                                                    "MVME Listfiles (*.MVMEWindowlst *.zip);; All Files (*.*)");
     if (fileName.isEmpty())
         return;
 
@@ -680,7 +839,7 @@ void mvme::on_actionOpenListfile_triggered()
     {
         QString listfileFileName;
 
-        // find and use the first .mvmelst file inside the archive
+        // find and use the first .MVMEWindowlst file inside the archive
         {
             QuaZip archive(fileName);
 
@@ -692,7 +851,7 @@ void mvme::on_actionOpenListfile_triggered()
             QStringList fileNames = archive.getFileNameList();
 
             auto it = std::find_if(fileNames.begin(), fileNames.end(), [](const QString &str) {
-                return str.endsWith(QSL(".mvmelst"));
+                return str.endsWith(QSL(".MVMEWindowlst"));
             });
 
             if (it == fileNames.end())
@@ -732,10 +891,10 @@ void mvme::on_actionOpenListfile_triggered()
         }
 
         // save current replay state and set new listfile on the context object
-        bool wasReplaying = (m_context->getMode() == GlobalMode::ListFile
-                             && m_context->getDAQState() == DAQState::Running);
+        bool wasReplaying = (m_d->m_context->getMode() == GlobalMode::ListFile
+                             && m_d->m_context->getDAQState() == DAQState::Running);
 
-        m_context->setReplayFile(listFile.release());
+        m_d->m_context->setReplayFile(listFile.release());
 
 
         // Check if there's an analysis file inside the zip archive and ask the
@@ -757,7 +916,7 @@ void mvme::on_actionOpenListfile_triggered()
 
                 if (box.exec() == QMessageBox::Yes)
                 {
-                    m_context->loadAnalysisConfig(&inFile, QSL("ZIP Archive"));
+                    m_d->m_context->loadAnalysisConfig(&inFile, QSL("ZIP Archive"));
                 }
             }
         }
@@ -776,7 +935,7 @@ void mvme::on_actionOpenListfile_triggered()
 
         if (wasReplaying)
         {
-            m_context->startReplay();
+            m_d->m_context->startReplay();
         }
     }
     // Plain
@@ -800,111 +959,111 @@ void mvme::on_actionOpenListfile_triggered()
             return;
         }
 
-        bool wasReplaying = (m_context->getMode() == GlobalMode::ListFile
-                             && m_context->getDAQState() == DAQState::Running);
+        bool wasReplaying = (m_d->m_context->getMode() == GlobalMode::ListFile
+                             && m_d->m_context->getDAQState() == DAQState::Running);
 
-        m_context->setReplayFile(listFile);
+        m_d->m_context->setReplayFile(listFile);
 
         if (wasReplaying)
         {
-            m_context->startReplay();
+            m_d->m_context->startReplay();
         }
     }
 
     updateWindowTitle();
 }
 
-void mvme::on_actionCloseListfile_triggered()
+void MVMEMainWindow::onActionCloseListfile_triggered()
 {
-    m_context->closeReplayFile();
+    m_d->m_context->closeReplayFile();
 }
 
-void mvme::on_actionMainWindow_triggered()
+void MVMEMainWindow::onActionMainWindow_triggered()
 {
     show_and_activate(this);
 }
 
-void mvme::on_actionAnalysis_UI_triggered()
+void MVMEMainWindow::onActionAnalysis_UI_triggered()
 {
-    auto analysisUi = m_context->getAnalysisUi();
+    auto analysisUi = m_d->m_context->getAnalysisUi();
 
     if (!analysisUi)
     {
-        analysisUi = new analysis::AnalysisWidget(m_context);
-        m_context->setAnalysisUi(analysisUi);
+        analysisUi = new analysis::AnalysisWidget(m_d->m_context);
+        m_d->m_context->setAnalysisUi(analysisUi);
 
         connect(analysisUi, &QObject::destroyed, this, [this] (QObject *) {
-            this->m_context->setAnalysisUi(nullptr);
+            this->m_d->m_context->setAnalysisUi(nullptr);
         });
 
         add_widget_close_action(analysisUi);
-        m_geometrySaver->addAndRestore(analysisUi, QSL("WindowGeometries/AnalysisUI"));
+        m_d->m_geometrySaver->addAndRestore(analysisUi, QSL("WindowGeometries/AnalysisUI"));
         analysisUi->setAttribute(Qt::WA_DeleteOnClose);
     }
 
     show_and_activate(analysisUi);
 }
 
-void mvme::on_actionVME_Debug_triggered()
+void MVMEMainWindow::onActionVME_Debug_triggered()
 {
-    if (!m_vmeDebugWidget)
+    if (!m_d->m_vmeDebugWidget)
     {
-        m_vmeDebugWidget = new VMEDebugWidget(m_context);
-        m_vmeDebugWidget->setAttribute(Qt::WA_DeleteOnClose);
+        m_d->m_vmeDebugWidget = new VMEDebugWidget(m_d->m_context);
+        m_d->m_vmeDebugWidget->setAttribute(Qt::WA_DeleteOnClose);
 
-        connect(m_vmeDebugWidget, &QObject::destroyed, this, [this] (QObject *) {
-            this->m_vmeDebugWidget = nullptr;
+        connect(m_d->m_vmeDebugWidget, &QObject::destroyed, this, [this] (QObject *) {
+            this->m_d->m_vmeDebugWidget = nullptr;
         });
 
-        add_widget_close_action(m_vmeDebugWidget);
-        m_geometrySaver->addAndRestore(m_vmeDebugWidget, QSL("WindowGeometries/VMEDebug"));
+        add_widget_close_action(m_d->m_vmeDebugWidget);
+        m_d->m_geometrySaver->addAndRestore(m_d->m_vmeDebugWidget, QSL("WindowGeometries/VMEDebug"));
     }
 
-    show_and_activate(m_vmeDebugWidget);
+    show_and_activate(m_d->m_vmeDebugWidget);
 }
 
 static const size_t LogViewMaximumBlockCount = Megabytes(1);
 
-void mvme::on_actionLog_Window_triggered()
+void MVMEMainWindow::onActionLog_Window_triggered()
 {
-    if (!m_logView)
+    if (!m_d->m_logView)
     {
-        m_logView = new QPlainTextEdit;
-        m_logView->setAttribute(Qt::WA_DeleteOnClose);
-        m_logView->setReadOnly(true);
-        m_logView->setWindowTitle("Log View");
+        m_d->m_logView = new QPlainTextEdit;
+        m_d->m_logView->setAttribute(Qt::WA_DeleteOnClose);
+        m_d->m_logView->setReadOnly(true);
+        m_d->m_logView->setWindowTitle("Log View");
         QFont font("MonoSpace");
         font.setStyleHint(QFont::Monospace);
-        m_logView->setFont(font);
-        m_logView->setTabChangesFocus(true);
-        m_logView->document()->setMaximumBlockCount(LogViewMaximumBlockCount);
-        m_logView->setContextMenuPolicy(Qt::CustomContextMenu);
-        m_logView->setStyleSheet("background-color: rgb(225, 225, 225);");
-        add_widget_close_action(m_logView);
+        m_d->m_logView->setFont(font);
+        m_d->m_logView->setTabChangesFocus(true);
+        m_d->m_logView->document()->setMaximumBlockCount(LogViewMaximumBlockCount);
+        m_d->m_logView->setContextMenuPolicy(Qt::CustomContextMenu);
+        m_d->m_logView->setStyleSheet("background-color: rgb(225, 225, 225);");
+        add_widget_close_action(m_d->m_logView);
 
-        connect(m_logView, &QWidget::customContextMenuRequested, this, [=](const QPoint &pos) {
-            auto menu = m_logView->createStandardContextMenu(pos);
+        connect(m_d->m_logView, &QWidget::customContextMenuRequested, this, [=](const QPoint &pos) {
+            auto menu = m_d->m_logView->createStandardContextMenu(pos);
             auto action = menu->addAction("Clear");
-            connect(action, &QAction::triggered, m_logView, &QPlainTextEdit::clear);
-            menu->exec(m_logView->mapToGlobal(pos));
+            connect(action, &QAction::triggered, m_d->m_logView, &QPlainTextEdit::clear);
+            menu->exec(m_d->m_logView->mapToGlobal(pos));
             menu->deleteLater();
         });
-        connect(m_logView, &QObject::destroyed, this, [this] (QObject *) {
-            this->m_logView = nullptr;
+        connect(m_d->m_logView, &QObject::destroyed, this, [this] (QObject *) {
+            this->m_d->m_logView = nullptr;
         });
 
-        m_geometrySaver->addAndRestore(m_logView, QSL("WindowGeometries/LogView"));
+        m_d->m_geometrySaver->addAndRestore(m_d->m_logView, QSL("WindowGeometries/LogView"));
     }
 
-    show_and_activate(m_logView);
+    show_and_activate(m_d->m_logView);
 }
 
-void mvme::on_actionVMUSB_Firmware_Update_triggered()
+void MVMEMainWindow::onActionVMUSB_Firmware_Update_triggered()
 {
-    vmusb_gui_load_firmware(m_context);
+    vmusb_gui_load_firmware(m_d->m_context);
 }
 
-void mvme::on_actionTemplate_Info_triggered()
+void MVMEMainWindow::onActionTemplate_Info_triggered()
 {
     QString buffer;
     QTextStream logStream(&buffer);
@@ -927,53 +1086,53 @@ void mvme::on_actionTemplate_Info_triggered()
     textEdit->resize(600, 500);
     textEdit->setPlainText(buffer);
     add_widget_close_action(textEdit);
-    m_geometrySaver->addAndRestore(textEdit, QSL("WindowGeometries/VATSInfo"));
+    m_d->m_geometrySaver->addAndRestore(textEdit, QSL("WindowGeometries/VATSInfo"));
     textEdit->show();
 }
 
-void mvme::onObjectAboutToBeRemoved(QObject *object)
+void MVMEMainWindow::onObjectAboutToBeRemoved(QObject *object)
 {
-    auto &windowList = m_objectWindows[object];
+    auto &windowList = m_d->m_objectWindows[object];
 
     qDebug() << __PRETTY_FUNCTION__ << object << windowList;
 
     for (auto subwin: windowList)
         subwin->close();
 
-    m_objectWindows.remove(object);
+    m_d->m_objectWindows.remove(object);
 }
 
-void mvme::appendToLog(const QString &str)
+void MVMEMainWindow::appendToLog(const QString &str)
 {
     auto debug(qDebug());
     debug.noquote();
     debug << __PRETTY_FUNCTION__ << str;
 
-    if (m_logView)
+    if (m_d->m_logView)
     {
-        m_logView->appendPlainText(str);
-        auto bar = m_logView->verticalScrollBar();
+        m_d->m_logView->appendPlainText(str);
+        auto bar = m_d->m_logView->verticalScrollBar();
         bar->setValue(bar->maximum());
     }
 }
 
-void mvme::updateWindowTitle()
+void MVMEMainWindow::updateWindowTitle()
 {
-    QDir wsDir(m_context->getWorkspaceDirectory());
+    QDir wsDir(m_d->m_context->getWorkspaceDirectory());
     QString workspaceDir(wsDir.dirName());
 
     QString title;
-    switch (m_context->getMode())
+    switch (m_d->m_context->getMode())
     {
         case GlobalMode::DAQ:
             {
-                title = QString("%1 - [DAQ mode] - mvme")
+                title = QString("%1 - [DAQ mode] - MVMEMainWindow")
                     .arg(workspaceDir);
             } break;
 
         case GlobalMode::ListFile:
             {
-                auto listFile = m_context->getReplayFile();
+                auto listFile = m_d->m_context->getReplayFile();
                 QString fileName(QSL("<no listfile>"));
                 if (listFile)
                 {
@@ -981,7 +1140,7 @@ void mvme::updateWindowTitle()
                     fileName =  QFileInfo(filePath).fileName();
                 }
 
-                title = QString("%1 - %2 - [ListFile mode] - mvme")
+                title = QString("%1 - %2 - [ListFile mode] - MVMEMainWindow")
                     .arg(workspaceDir)
                     .arg(fileName);
             } break;
@@ -990,7 +1149,7 @@ void mvme::updateWindowTitle()
             break;
     }
 
-    if (m_context->getMode() == GlobalMode::DAQ && m_context->isWorkspaceModified())
+    if (m_d->m_context->getMode() == GlobalMode::DAQ && m_d->m_context->isWorkspaceModified())
     {
         title += " *";
     }
@@ -998,30 +1157,30 @@ void mvme::updateWindowTitle()
     setWindowTitle(title);
 }
 
-void mvme::onConfigChanged(VMEConfig *config)
+void MVMEMainWindow::onConfigChanged(VMEConfig *config)
 {
-    connect(config, &VMEConfig::modifiedChanged, this, &mvme::updateWindowTitle);
+    connect(config, &VMEConfig::modifiedChanged, this, &MVMEMainWindow::updateWindowTitle);
     updateWindowTitle();
 }
 
-void mvme::clearLog()
+void MVMEMainWindow::clearLog()
 {
-    if (m_logView)
+    if (m_d->m_logView)
     {
-        m_logView->clear();
+        m_d->m_logView->clear();
     }
 }
 
-void mvme::resizeEvent(QResizeEvent *event)
+void MVMEMainWindow::resizeEvent(QResizeEvent *event)
 {
     QMainWindow::resizeEvent(event);
 }
 
-void mvme::onDAQAboutToStart(quint32 nCycles)
+void MVMEMainWindow::onDAQAboutToStart(quint32 nCycles)
 {
     QList<VMEScriptEditor *> scriptEditors;
 
-    for (auto widgetList: m_objectWindows.values())
+    for (auto widgetList: m_d->m_objectWindows.values())
     {
         for (auto widget: widgetList)
         {
@@ -1053,10 +1212,10 @@ void mvme::onDAQAboutToStart(quint32 nCycles)
     }
 }
 
-void mvme::onDAQStateChanged(const DAQState &)
+void MVMEMainWindow::onDAQStateChanged(const DAQState &)
 {
-    auto globalMode = m_context->getMode();
-    auto daqState = m_context->getDAQState();
+    auto globalMode = m_d->m_context->getMode();
+    auto daqState = m_d->m_context->getDAQState();
 
     {
         bool enable = true;
@@ -1066,31 +1225,31 @@ void mvme::onDAQStateChanged(const DAQState &)
             enable = false;
         }
 
-        ui->actionOpenListfile->setEnabled(enable);
+        m_d->actionOpenListfile->setEnabled(enable);
     }
 }
 
-void mvme::onShowDiagnostics(ModuleConfig *moduleConfig)
+void MVMEMainWindow::onShowDiagnostics(ModuleConfig *moduleConfig)
 {
-    if (m_context->getEventProcessor()->getDiagnostics())
+    if (m_d->m_context->getEventProcessor()->getDiagnostics())
         return;
 
     auto diag   = new MesytecDiagnostics;
-    diag->setEventAndModuleIndices(m_context->getVMEConfig()->getEventAndModuleIndices(moduleConfig));
-    auto eventProcessor = m_context->getEventProcessor();
+    diag->setEventAndModuleIndices(m_d->m_context->getVMEConfig()->getEventAndModuleIndices(moduleConfig));
+    auto eventProcessor = m_d->m_context->getEventProcessor();
     eventProcessor->setDiagnostics(diag);
 
     auto widget = new MesytecDiagnosticsWidget(diag);
     widget->setAttribute(Qt::WA_DeleteOnClose);
     add_widget_close_action(widget);
-    m_geometrySaver->addAndRestore(widget, QSL("WindowGeometries/MesytecDiagnostics"));
+    m_d->m_geometrySaver->addAndRestore(widget, QSL("WindowGeometries/MesytecDiagnostics"));
 
     connect(widget, &MVMEWidget::aboutToClose, this, [this]() {
         qDebug() << __PRETTY_FUNCTION__ << "diagnostics widget about to close";
-        QMetaObject::invokeMethod(m_context->getEventProcessor(), "removeDiagnostics", Qt::QueuedConnection);
+        QMetaObject::invokeMethod(m_d->m_context->getEventProcessor(), "removeDiagnostics", Qt::QueuedConnection);
     });
 
-    connect(m_context, &MVMEContext::daqStateChanged, widget, [this, widget] (const DAQState &state) {
+    connect(m_d->m_context, &MVMEContext::daqStateChanged, widget, [this, widget] (const DAQState &state) {
         if (state == DAQState::Running)
         {
             widget->clearResultsDisplay();
@@ -1102,14 +1261,14 @@ void mvme::onShowDiagnostics(ModuleConfig *moduleConfig)
     widget->raise();
 }
 
-void mvme::on_actionImport_Histo1D_triggered()
+void MVMEMainWindow::onActionImport_Histo1D_triggered()
 {
     QSettings settings;
     QString path = settings.value(QSL("Files/LastHistogramExportDirectory")).toString();
 
     if (path.isEmpty())
     {
-        path = m_context->getWorkspaceDirectory();
+        path = m_d->m_context->getWorkspaceDirectory();
     }
 
     QString filename = QFileDialog::getOpenFileName(
@@ -1136,7 +1295,7 @@ void mvme::on_actionImport_Histo1D_triggered()
 
             path = QFileInfo(filename).dir().path();
 
-            if (path != m_context->getWorkspaceDirectory())
+            if (path != m_d->m_context->getWorkspaceDirectory())
             {
                 settings.setValue(QSL("Files/LastHistogramExportDirectory"), path);
             }
@@ -1150,7 +1309,7 @@ void mvme::on_actionImport_Histo1D_triggered()
     }
 }
 
-void mvme::on_actionVMEScriptRef_triggered()
+void MVMEMainWindow::onActionVMEScriptRef_triggered()
 {
     auto widgets = QApplication::topLevelWidgets();
     auto it = std::find_if(widgets.begin(), widgets.end(), [](const QWidget *widget) {
@@ -1169,8 +1328,8 @@ void mvme::on_actionVMEScriptRef_triggered()
     }
 }
 
-static const auto UpdateCheckURL = QSL("http://mesytec.com/downloads/mvme/");
-static const QByteArray UpdateCheckUserAgent = "mesytec mvme ";
+static const auto UpdateCheckURL = QSL("http://mesytec.com/downloads/MVMEMainWindow/");
+static const QByteArray UpdateCheckUserAgent = "mesytec MVMEMainWindow ";
 
 static const QString get_package_platform_string()
 {
@@ -1200,7 +1359,7 @@ static const QString get_package_bitness_string()
 
 static u64 extract_package_version(const QString &filename)
 {
-    static const QString pattern = QSL("mvme-(?<major>[0-9]+)\\.(?<minor>[0-9]+)(\\.(?<point>[0-9]+))?(-(?<commits>[0-9]+))?");
+    static const QString pattern = QSL("MVMEMainWindow-(?<major>[0-9]+)\\.(?<minor>[0-9]+)(\\.(?<point>[0-9]+))?(-(?<commits>[0-9]+))?");
 
     u64 result = 0;
     QRegularExpression re(pattern);
@@ -1231,20 +1390,20 @@ static u64 extract_package_version(const QString &filename)
     return result;
 }
 
-void mvme::on_actionCheck_for_updates_triggered()
+void MVMEMainWindow::onActionCheck_for_updates_triggered()
 {
 #if 1
     QStringList testFilenames =
     {
-        "mvme-0.9.exe",
-        "mvme-0.9-42.exe",
-        "mvme-0.9.1.exe",
-        "mvme-0.9.1-42.exe",
-        "mvme-1.1.1-111-Window-x42.zip",
-        "mvme-98.76.54-32-Window-x42.zip",
-        "mvme-987.654.321-666-Window-x42.zip",
-        "mvme-999.999.999-999-Window-x42.zip", // max version possible (except for major which could be larger)
-        "mvme-9999.999.999-999-Window-x42.zip" // exceeding the max with major
+        "MVMEMainWindow-0.9.exe",
+        "MVMEMainWindow-0.9-42.exe",
+        "MVMEMainWindow-0.9.1.exe",
+        "MVMEMainWindow-0.9.1-42.exe",
+        "MVMEMainWindow-1.1.1-111-Window-x42.zip",
+        "MVMEMainWindow-98.76.54-32-Window-x42.zip",
+        "MVMEMainWindow-987.654.321-666-Window-x42.zip",
+        "MVMEMainWindow-999.999.999-999-Window-x42.zip", // max version possible (except for major which could be larger)
+        "MVMEMainWindow-9999.999.999-999-Window-x42.zip" // exceeding the max with major
     };
 
     for (auto name: testFilenames)
@@ -1259,7 +1418,7 @@ void mvme::on_actionCheck_for_updates_triggered()
     request.setUrl(UpdateCheckURL);
     request.setRawHeader("User-Agent", UpdateCheckUserAgent + GIT_VERSION_TAG);
 
-    auto reply = m_networkAccessManager->get(request);
+    auto reply = m_d->m_networkAccessManager->get(request);
 
 
     connect(reply, &QNetworkReply::finished, [this, reply]() {
@@ -1269,8 +1428,8 @@ void mvme::on_actionCheck_for_updates_triggered()
         {
             // Both the platform and bitness strings are known at compile time.
             // A download link entry looks like this:
-            // <a href="mvme-0.9-5-Windows-x32.exe">mvme-0.9-5-Windows-x32.exe</a>   2017-07-24 15:22   28M
-            static const QString pattern = QString("href=\"(mvme-[0-9.-]+-%1-%2\\.exe)\"")
+            // <a href="MVMEMainWindow-0.9-5-Windows-x32.exe">MVMEMainWindow-0.9-5-Windows-x32.exe</a>   2017-07-24 15:22   28M
+            static const QString pattern = QString("href=\"(MVMEMainWindow-[0-9.-]+-%1-%2\\.exe)\"")
                 .arg(get_package_platform_string())
                 .arg(get_package_bitness_string())
                 ;
@@ -1312,7 +1471,11 @@ void mvme::on_actionCheck_for_updates_triggered()
     });
 }
 
-bool mvme::createNewOrOpenExistingWorkspace()
+void MVMEMainWindow::onActionToolAnalysisInfo_triggered()
+{
+}
+
+bool MVMEMainWindow::createNewOrOpenExistingWorkspace()
 {
     do
     {
@@ -1334,16 +1497,16 @@ bool mvme::createNewOrOpenExistingWorkspace()
             if (dir.entryList(QDir::AllEntries | QDir::NoDot | QDir::NoDotDot).isEmpty())
             {
                 triedToOpenExisting = false;
-                m_context->newWorkspace(dirName);
+                m_d->m_context->newWorkspace(dirName);
             }
             else
             {
                 triedToOpenExisting = true;
-                m_context->openWorkspace(dirName);
+                m_d->m_context->openWorkspace(dirName);
             }
         } catch (const QString &e)
         {
-            Q_ASSERT(!m_context->isWorkspaceOpen());
+            Q_ASSERT(!m_d->m_context->isWorkspaceOpen());
 
             QString title;
             if (triedToOpenExisting)
@@ -1357,30 +1520,30 @@ bool mvme::createNewOrOpenExistingWorkspace()
 
             QMessageBox::warning(this, title, e);
         }
-    } while (!m_context->isWorkspaceOpen());
+    } while (!m_d->m_context->isWorkspaceOpen());
 
     return true;
 }
 
-void mvme::updateActions()
+void MVMEMainWindow::updateActions()
 {
-    if (m_quitting) return;
+    if (m_d->m_quitting) return;
 
-    auto globalMode = m_context->getMode();
-    auto daqState = m_context->getDAQState();
-    auto eventProcState = m_context->getEventProcessorState();
+    auto globalMode = m_d->m_context->getMode();
+    auto daqState = m_d->m_context->getDAQState();
+    auto eventProcState = m_d->m_context->getEventProcessorState();
 
     bool isDAQIdle = (daqState == DAQState::Idle);
 
     // Workspaces
-    ui->actionNewWorkspace->setEnabled(isDAQIdle);
-    ui->actionOpenWorkspace->setEnabled(isDAQIdle);
+    m_d->actionNewWorkspace->setEnabled(isDAQIdle);
+    m_d->actionOpenWorkspace->setEnabled(isDAQIdle);
 
     // VME Config
-    ui->actionNewVMEConfig->setEnabled(isDAQIdle);
-    ui->actionOpenVMEConfig->setEnabled(isDAQIdle);
+    m_d->actionNewVMEConfig->setEnabled(isDAQIdle);
+    m_d->actionOpenVMEConfig->setEnabled(isDAQIdle);
 
     // Listfiles
-    ui->actionOpenListfile->setEnabled(isDAQIdle);
-    ui->actionCloseListfile->setEnabled(isDAQIdle);
+    m_d->actionOpenListfile->setEnabled(isDAQIdle);
+    m_d->actionCloseListfile->setEnabled(isDAQIdle);
 }
