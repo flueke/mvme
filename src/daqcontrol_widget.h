@@ -19,6 +19,7 @@
 #ifndef __DAQCONTROL_WIDGET_H__
 #define __DAQCONTROL_WIDGET_H__
 
+#include <QButtonGroup>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QGroupBox>
@@ -26,6 +27,7 @@
 #include <QLineEdit>
 #include <QMenu>
 #include <QPushButton>
+#include <QRadioButton>
 #include <QWidget>
 
 class MVMEContext;
@@ -48,9 +50,6 @@ class DAQControlWidget: public QWidget
                     *pb_reconnect,
                     *pb_controllerSettings;
 
-        QMenu *menu_startButton,
-              *menu_oneCycleButton;
-
         QLabel *label_controllerState,
                *label_daqState,
                *label_analysisState,
@@ -63,6 +62,9 @@ class DAQControlWidget: public QWidget
         QLineEdit *le_listfileFilename;
 
         QGroupBox *gb_listfile;
+
+        QRadioButton *rb_keepData, *rb_clearData;
+        QButtonGroup *bg_daqData;
 };
 
 #endif /* __DAQCONTROL_WIDGET_H__ */
