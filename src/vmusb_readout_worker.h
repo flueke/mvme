@@ -67,6 +67,13 @@ class VMUSBReadoutWorker: public VMEReadoutWorker
         VMUSBBufferProcessor *m_bufferProcessor = 0;
         VMUSB *m_vmusb = nullptr;
         QFile m_rawBufferOut;
+
+        // Values to be set for LEDSrcRegister and DEVSrcRegister before
+        // entering daq mode. After leaving DAQ mode (pause, stop) and any
+        // remaining data has been read both registers will be reset to 0.
+        // Use case: activate a LED / one of the NIM outputs during DAQ mode.
+        u32 m_daqLedSources = 0;
+        u32 m_daqDevSources = 0;
 };
 
 #endif

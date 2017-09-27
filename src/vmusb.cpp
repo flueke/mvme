@@ -449,7 +449,7 @@ VMEError VMUSB::writeRegister(u32 address, u32 value)
     CVMUSBReadoutList readoutList;
     readoutList.addRegisterWrite(address, value);
     auto ret =  listExecute(&readoutList, &value, sizeof(value), &bytesRead);
-    qDebug("writeRegister response: value=0x%08x, bytes=%lu", value, bytesRead);
+    qDebug("writeRegister response: reg=0x%04x, value=0x%08x, bytes=%lu", address, value, bytesRead);
     return ret;
 }
 
@@ -655,7 +655,7 @@ int VMUSB::setFirmwareId(int val)
 /*!
     \fn vmUsb::setMode()
  */
-VMEError VMUSB::setMode(int val)
+VMEError VMUSB::setMode(u32 val)
 {
     auto result = writeRegister(4, val);
 
@@ -672,7 +672,7 @@ VMEError VMUSB::setMode(int val)
 /*!
   \fn vmUsb::setDaqSettings()
  */
-VMEError VMUSB::setDaqSettings(int val)
+VMEError VMUSB::setDaqSettings(u32 val)
 {
     VMEError result;
 
@@ -693,28 +693,35 @@ VMEError VMUSB::setDaqSettings(int val)
 /*!
   \fn vmUsb::setLedSources()
  */
-int VMUSB::setLedSources(int val)
+VMEError VMUSB::setLedSources(u32 val)
 {
-    u32 retval;
-    if(!writeRegister(12, val).isError()){
-        readRegister(12, &retval);
-        ledSources = retval;
+    auto result = writeRegister(LEDSrcRegister, val);
+
+    if (!result.isError())
+    {
+        u32 regVal;
+        result = readRegister(LEDSrcRegister, &regVal);
+        if (!result.isError())
+            ledSources = regVal;
     }
-    qDebug("set value: %x", ledSources);
-    return ledSources;
+    return result;
 }
 
 /*!
   \fn vmUsb::setDeviceSources()
  */
-int VMUSB::setDeviceSources(int val)
+VMEError VMUSB::setDeviceSources(u32 val)
 {
-    u32 retval;
-  if(!writeRegister(16, val).isError()){
-    readRegister(16, &retval);
-    deviceSources = retval;
-  }
-  return deviceSources;
+    auto result = writeRegister(DEVSrcRegister, val);
+
+    if (!result.isError())
+    {
+        u32 regVal;
+        result = readRegister(DEVSrcRegister, &regVal);
+        if (!result.isError())
+            deviceSources = regVal;
+    }
+    return result;
 }
 
 /*!
@@ -1451,14 +1458,16 @@ VMEError VMUSB::blockRead(u32 address, u32 transfers, QVector<u32> *dest, u8 amo
     return result;
 }
 
-VMEError VMUSB::enterDaqMode()
+VMEError VMUSB::enterDaqMode(u32 additionalBits)
 {
-    return writeActionRegister(1);
+    additionalBits |= 1u;
+    return writeActionRegister(additionalBits);
 }
 
-VMEError VMUSB::leaveDaqMode()
+VMEError VMUSB::leaveDaqMode(u32 additionalBits)
 {
-    return writeActionRegister(0);
+    additionalBits &= ~1u; // unset DAQ mode bit
+    return writeActionRegister(additionalBits);
 }
 
 static const s32 ErrorRecoveryReadTimeout_ms = 250;

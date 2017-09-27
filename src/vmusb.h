@@ -79,8 +79,8 @@ class VMUSB: public VMEController
         virtual bool isOpen() const override { return m_deviceHandle; }
         virtual QString getIdentifyingString() const override;
 
-        VMEError enterDaqMode();
-        VMEError leaveDaqMode();
+        VMEError enterDaqMode(u32 additionalBits = 0);
+        VMEError leaveDaqMode(u32 additionalBits = 0);
         bool isInDaqMode() const { return m_daqMode; }
 
         VMEError readRegister(u32 address, u32 *outValue);
@@ -109,10 +109,10 @@ class VMUSB: public VMEController
         VMEError readIrq(int vec, u16 *value);
 
         int setFirmwareId(int val);
-        VMEError setMode(int val);
-        VMEError setDaqSettings(int val);
-        int setLedSources(int val);
-        int setDeviceSources(int val);
+        VMEError setMode(u32 val);
+        VMEError setDaqSettings(u32 val);
+        VMEError setLedSources(u32 val);
+        VMEError setDeviceSources(u32 val);
         int setDggA(int val);
         int setDggB(int val);
         int setScalerAdata(int val);
