@@ -22,6 +22,7 @@
 #include "typedefs.h"
 #include "globals.h"
 #include "data_buffer_queue.h"
+#include "libmvme_export.h"
 #include <QHash>
 #include <QObject>
 #include <QVector>
@@ -36,7 +37,7 @@ class MVMEEventProcessorPrivate;
 using DualWordFilterValues = QHash<DualWordDataFilterConfig *, u64>;
 using DualWordFilterDiffs  = QHash<DualWordDataFilterConfig *, double>;
 
-struct MVMEEventProcessorCounters
+struct LIBMVME_EXPORT MVMEEventProcessorCounters
 {
     static const u32 MaxEvents = 12;
     static const u32 MaxModulesPerEvent = 20;
@@ -53,7 +54,7 @@ struct MVMEEventProcessorCounters
     std::array<u32, MaxEvents> eventCounters;
 };
 
-class MVMEEventProcessor: public QObject
+class LIBMVME_EXPORT MVMEEventProcessor: public QObject
 {
     Q_OBJECT
     signals:
