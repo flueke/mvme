@@ -42,6 +42,7 @@ struct MVMEEventProcessorCounters
     static const u32 MaxModulesPerEvent = 20;
 
     QDateTime startTime;
+    QDateTime stopTime;
     u64 bytesProcessed = 0;
     u32 buffersProcessed = 0;
     u32 buffersWithErrors = 0;

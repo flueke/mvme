@@ -16,15 +16,16 @@ static const QVector<const char *> LabelTexts =
 {
     "state",
     "started",
+    "stopped",
     "elapsed",
     "throughput",
     "bytesProcessed",
     "buffersProcessed",
     "buffersWithErrors",
     "eventSections",
-    "invalidEventIndices",
-    "eventCounters",
-    "moduleCounters"
+    "invalid event index",
+    "counts by event",
+    "counts by module"
 };
 
 AnalysisInfoWidget::AnalysisInfoWidget(MVMEContext *context, QWidget *parent)
@@ -60,20 +61,22 @@ void AnalysisInfoWidget::update()
     const auto &counters(m_d->context->getEventProcessor()->getCounters());
 
     QString stateString;
+    double secsElapsed = 0.0;
 
     switch (state)
     {
         case EventProcessorState::Idle:
             stateString = QSL("Idle");
+            secsElapsed = counters.startTime.msecsTo(counters.stopTime) / 1000.0;
             break;
         case EventProcessorState::Running:
             stateString = QSL("Running");
+            secsElapsed = counters.startTime.msecsTo(QDateTime::currentDateTime()) / 1000.0;
             break;
     }
 
-    double secsElapsed = counters.startTime.msecsTo(QDateTime::currentDateTime()) / 1000.0;
     double mbRead = counters.bytesProcessed / (1024.0 * 1024.0);
-    double mbPerSec = mbRead / secsElapsed;
+    double mbPerSec = secsElapsed != 0.0 ? mbRead / secsElapsed : 0.0;
 
     QString ecText;
     QString mcText;
@@ -103,13 +106,14 @@ void AnalysisInfoWidget::update()
 
     m_d->labels[ii++]->setText(stateString);
     m_d->labels[ii++]->setText(counters.startTime.time().toString());
+    m_d->labels[ii++]->setText(counters.stopTime.time().toString());
     m_d->labels[ii++]->setText(QString("%1 s").arg(secsElapsed));
     m_d->labels[ii++]->setText(QString("%1 MB/s").arg(mbPerSec));
     m_d->labels[ii++]->setText(QString("%1 MB").arg(mbRead));
     m_d->labels[ii++]->setText(QString("%1 buffers").arg(counters.buffersProcessed));
     m_d->labels[ii++]->setText(QString("%1 buffers").arg(counters.buffersWithErrors));
     m_d->labels[ii++]->setText(QString("%1 sections").arg(counters.eventSections));
-    m_d->labels[ii++]->setText(QString("%1 invalid events").arg(counters.invalidEventIndices));
+    m_d->labels[ii++]->setText(QString("%1").arg(counters.invalidEventIndices));
     m_d->labels[ii++]->setText(ecText);
     m_d->labels[ii++]->setText(mcText);
 }

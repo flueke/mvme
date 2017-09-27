@@ -173,7 +173,6 @@ void MVMEEventProcessor::newRun(const RunInfo &runInfo)
 
 
     m_d->m_localStats = MVMEEventProcessorCounters();
-    m_d->m_localStats.startTime = QDateTime::currentDateTime();
 }
 
 void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
@@ -449,6 +448,9 @@ void MVMEEventProcessor::startProcessing()
     Q_ASSERT(m_fullBuffers);
     Q_ASSERT(m_d->m_state == EventProcessorState::Idle);
 
+    m_d->m_localStats.startTime = QDateTime::currentDateTime();
+    m_d->m_localStats.stopTime  = QDateTime();
+
     emit started();
     emit stateChanged(m_d->m_state = EventProcessorState::Running);
 
@@ -499,6 +501,8 @@ void MVMEEventProcessor::startProcessing()
             timeSinceLastProcessEvents.restart();
         }
     }
+
+    m_d->m_localStats.stopTime = QDateTime::currentDateTime();
 
     emit stopped();
     emit stateChanged(m_d->m_state = EventProcessorState::Idle);
