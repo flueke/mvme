@@ -20,7 +20,6 @@
 #include <QJsonArray>
 #include <QJsonObject>
 
-#include <chrono>
 #include <random>
 
 #include "../vme_config.h"
@@ -2380,28 +2379,6 @@ void Analysis::addOperator(const QUuid &eventId, const OperatorPtr &op, s32 user
     updateRanks();
     setModified();
 }
-
-using HighResClock = std::chrono::high_resolution_clock;
-
-struct TimedBlock
-{
-    TimedBlock(const char *name_)
-        : name(name_)
-        , start(HighResClock::now())
-    {
-    }
-
-    ~TimedBlock()
-    {
-        end = HighResClock::now();
-        std::chrono::duration<double, std::nano> diff = end - start;
-        qDebug() << "end timed block" << name << diff.count() << "ns";
-    }
-
-    const char *name;
-    HighResClock::time_point start;
-    HighResClock::time_point end;
-};
 
 void Analysis::processModuleData(const QUuid &eventId, const QUuid &moduleId, u32 *data, u32 size)
 {

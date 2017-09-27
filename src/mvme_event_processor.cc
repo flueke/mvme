@@ -22,6 +22,7 @@
 #include "histo1d.h"
 #include "mesytec_diagnostics.h"
 #include "analysis/analysis.h"
+#include "timed_block.h"
 
 #include <QCoreApplication>
 #include <QElapsedTimer>
@@ -306,122 +307,128 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
 
     while (!done)
     {
-        if (m_d->analysis_ng)
         {
-            m_d->analysis_ng->beginEvent(eventConfig->getId());
-        }
+            TimedBlock timed_block(TimedBlockId_MEP_Analysis_Loop);
 
-        for (u32 moduleIndex = 0;
-             moduleInfos[moduleIndex].subEventHeader;
-             ++moduleIndex)
-        {
-            auto &mi(moduleInfos[moduleIndex]);
-            Q_ASSERT(mi.moduleHeader);
-
-
-            if (!m_d->eventHasModuleHeaderFilters[eventIndex])
+            if (m_d->analysis_ng)
             {
-                // Do single event processing as multi event splitting is not
-                // possible for this event.
-#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
-                qDebug("%s eventIndex=%u, moduleIndex=%u: no module header filter -> doing single event processing only",
-                       __PRETTY_FUNCTION__, eventIndex, moduleIndex);
-#endif
-
-                ++m_d->m_localStats.moduleCounters[eventIndex][moduleIndex];
-                ++eventCountsByModule[moduleIndex];
-
-                u32 subEventSize = (*mi.subEventHeader & m_d->SubEventSizeMask) >> m_d->SubEventSizeShift;
-
-                if (m_d->analysis_ng)
-                {
-                    m_d->analysis_ng->processModuleData(eventConfig->getId(),
-                                                        mi.moduleConfig->getId(),
-                                                        mi.moduleHeader,
-                                                        subEventSize);
-                }
+                TimedBlock timed_block(TimedBlockId_MEP_Analysis_BeginEvent);
+                m_d->analysis_ng->beginEvent(eventConfig->getId());
             }
-            // Multievent splitting is possible. Check for a header match and extract the data size.
-            else if (mi.moduleHeaderFilter.matches(*mi.moduleHeader))
+
+            for (u32 moduleIndex = 0;
+                 moduleInfos[moduleIndex].subEventHeader;
+                 ++moduleIndex)
             {
+                auto &mi(moduleInfos[moduleIndex]);
+                Q_ASSERT(mi.moduleHeader);
 
-                u32 moduleEventSize = mi.moduleHeaderFilter.extractData(*mi.moduleHeader, 'S');
 
-                if (mi.moduleHeader + moduleEventSize + 1 > ptrToLastWord)
+                if (!m_d->eventHasModuleHeaderFilters[eventIndex])
                 {
-                    ++m_d->m_localStats.buffersWithErrors;
-
-                    QString msg = (QString("Error (mvme fmt): extracted module event size (%1) exceeds buffer size!"
-                                           " eventIndex=%2, moduleIndex=%3, moduleHeader=0x%4, skipping event")
-                                   .arg(moduleEventSize)
-                                   .arg(eventIndex)
-                                   .arg(moduleIndex)
-                                   .arg(*mi.moduleHeader, 8, 16, QLatin1Char('0'))
-                                  );
-                    qDebug() << msg;
-                    emit logMessage(msg);
-
-                    done = true;
-                    break;
-                }
-                else
-                {
+                    // Do single event processing as multi event splitting is not
+                    // possible for this event.
 #ifdef MVME_EVENT_PROCESSOR_DEBUGGING
-                    qDebug("%s moduleIndex=%u, moduleHeader=0x%08x, moduleEventSize=%u",
-                           __PRETTY_FUNCTION__, moduleIndex, *mi.moduleHeader, moduleEventSize);
+                    qDebug("%s eventIndex=%u, moduleIndex=%u: no module header filter -> doing single event processing only",
+                           __PRETTY_FUNCTION__, eventIndex, moduleIndex);
 #endif
 
                     ++m_d->m_localStats.moduleCounters[eventIndex][moduleIndex];
+                    ++eventCountsByModule[moduleIndex];
+
+                    u32 subEventSize = (*mi.subEventHeader & m_d->SubEventSizeMask) >> m_d->SubEventSizeShift;
 
                     if (m_d->analysis_ng)
                     {
                         m_d->analysis_ng->processModuleData(eventConfig->getId(),
                                                             mi.moduleConfig->getId(),
                                                             mi.moduleHeader,
-                                                            moduleEventSize + 1);
+                                                            subEventSize);
                     }
-
-                    // advance the moduleHeader by the event size
-                    mi.moduleHeader += moduleEventSize + 1;
-                    ++eventCountsByModule[moduleIndex];
                 }
-            }
-            else
-            {
-                // We're at a data word inside the first module for which the
-                // header filter did not match. If the data is intact this
-                // should happen for the first module, meaning moduleIndex==0.
-                // At this point the same number of events have been processed
-                // for all modules in this event section. Checks could be done
-                // to make sure that all of the module header pointers now
-                // point to either BerrMarker or EndMarker. Also starting from
-                // the last modules pointer there should be optional
-                // BerrMarkers and an EndMarker followed by another EndMarker
-                // for the end of the event section we're in.
+                // Multievent splitting is possible. Check for a header match and extract the data size.
+                else if (mi.moduleHeaderFilter.matches(*mi.moduleHeader))
+                {
 
+                    u32 moduleEventSize = mi.moduleHeaderFilter.extractData(*mi.moduleHeader, 'S');
+
+                    if (mi.moduleHeader + moduleEventSize + 1 > ptrToLastWord)
+                    {
+                        ++m_d->m_localStats.buffersWithErrors;
+
+                        QString msg = (QString("Error (mvme fmt): extracted module event size (%1) exceeds buffer size!"
+                                               " eventIndex=%2, moduleIndex=%3, moduleHeader=0x%4, skipping event")
+                                       .arg(moduleEventSize)
+                                       .arg(eventIndex)
+                                       .arg(moduleIndex)
+                                       .arg(*mi.moduleHeader, 8, 16, QLatin1Char('0'))
+                                      );
+                        qDebug() << msg;
+                        emit logMessage(msg);
+
+                        done = true;
+                        break;
+                    }
+                    else
+                    {
 #ifdef MVME_EVENT_PROCESSOR_DEBUGGING
-                qDebug("%s moduleHeader=0x%08x did not match header filter -> done processing event section.",
-                       __PRETTY_FUNCTION__, *mi.moduleHeader);
+                        qDebug("%s moduleIndex=%u, moduleHeader=0x%08x, moduleEventSize=%u",
+                               __PRETTY_FUNCTION__, moduleIndex, *mi.moduleHeader, moduleEventSize);
 #endif
 
-                // The data word did not match the module header filter. If the
-                // data structure is in intact this just means that we're at
-                // the end of the event section.
-                done = true;
+                        ++m_d->m_localStats.moduleCounters[eventIndex][moduleIndex];
+
+                        if (m_d->analysis_ng)
+                        {
+                            m_d->analysis_ng->processModuleData(eventConfig->getId(),
+                                                                mi.moduleConfig->getId(),
+                                                                mi.moduleHeader,
+                                                                moduleEventSize + 1);
+                        }
+
+                        // advance the moduleHeader by the event size
+                        mi.moduleHeader += moduleEventSize + 1;
+                        ++eventCountsByModule[moduleIndex];
+                    }
+                }
+                else
+                {
+                    // We're at a data word inside the first module for which the
+                    // header filter did not match. If the data is intact this
+                    // should happen for the first module, meaning moduleIndex==0.
+                    // At this point the same number of events have been processed
+                    // for all modules in this event section. Checks could be done
+                    // to make sure that all of the module header pointers now
+                    // point to either BerrMarker or EndMarker. Also starting from
+                    // the last modules pointer there should be optional
+                    // BerrMarkers and an EndMarker followed by another EndMarker
+                    // for the end of the event section we're in.
+
+#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+                    qDebug("%s moduleHeader=0x%08x did not match header filter -> done processing event section.",
+                           __PRETTY_FUNCTION__, *mi.moduleHeader);
+#endif
+
+                    // The data word did not match the module header filter. If the
+                    // data structure is in intact this just means that we're at
+                    // the end of the event section.
+                    done = true;
+                    break;
+                }
+            }
+
+            if (m_d->analysis_ng)
+            {
+                TimedBlock timed_block(TimedBlockId_MEP_Analysis_EndEvent);
+                m_d->analysis_ng->endEvent(eventConfig->getId());
+            }
+
+            // Single event processing: terminate after one loop through the modules.
+            if (!m_d->eventHasModuleHeaderFilters[eventIndex])
+            {
                 break;
             }
-        }
-
-        if (m_d->analysis_ng)
-        {
-            m_d->analysis_ng->endEvent(eventConfig->getId());
-        }
-
-        // Single event processing: terminate after one loop through the modules.
-        if (!m_d->eventHasModuleHeaderFilters[eventIndex])
-        {
-            break;
-        }
+        } // end TimedBlockId_MEP_Analysis_Loop
     }
 
     u32 firstModuleCount = eventCountsByModule[0];
