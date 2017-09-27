@@ -3361,7 +3361,7 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     // Update statusbar timeticks label
     connect(m_d->m_periodicUpdateTimer, &QTimer::timeout, this, [this]() {
         double tickCount = m_d->m_context->getAnalysis()->getTimetickCount();
-        m_d->m_labelTimetickCount->setText(QString("Timeticks: %1")
+        m_d->m_labelTimetickCount->setText(QString("Timeticks: %1 s")
                                            .arg(tickCount));
     });
 
