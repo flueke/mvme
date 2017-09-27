@@ -90,9 +90,6 @@ struct MVMEEventProcessorPrivate
     std::array<ModuleInfoArray, MaxEvents> eventInfos;
     std::array<EventConfig *, MaxEvents> eventConfigs;
     std::array<bool, MaxEvents> eventHasModuleHeaderFilters;
-#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
-    std::array<u32, MaxModulesPerEvent> eventCountsByModule;
-#endif
 
     MVMEEventProcessorCounters m_localStats;
 };
@@ -245,9 +242,6 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
 
     auto &moduleInfos(m_d->eventInfos[eventIndex]);
     auto eventConfig = m_d->eventConfigs[eventIndex];
-#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
-    m_d->eventCountsByModule.fill(0);
-#endif
 
     // Clear modInfo pointers for the current eventIndex.
     for (auto &modInfo: moduleInfos)
@@ -312,6 +306,9 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
         m_d->analysis_ng->beginEvent(eventConfig->getId());
     }
 
+    std::array<u32, MaxModulesPerEvent> eventCountsByModule;
+    eventCountsByModule.fill(0);
+
     while (!done)
     {
         for (u32 moduleIndex = 0;
@@ -332,6 +329,7 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
 #endif
 
                 ++m_d->m_localStats.moduleCounters[eventIndex][moduleIndex];
+                ++eventCountsByModule[moduleIndex];
 
                 u32 subEventSize = (*mi.subEventHeader & m_d->SubEventSizeMask) >> m_d->SubEventSizeShift;
 
@@ -385,9 +383,7 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
 
                     // advance the moduleHeader by the event size
                     mi.moduleHeader += moduleEventSize + 1;
-#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
-                    ++m_d->eventCountsByModule[moduleIndex];
-#endif
+                    ++eventCountsByModule[moduleIndex];
                 }
             }
             else
@@ -428,14 +424,26 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
         m_d->analysis_ng->endEvent(eventConfig->getId());
     }
 
-#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
-    qDebug() << __PRETTY_FUNCTION__ << "eventCountsByModule";
+    u32 firstModuleCount = eventCountsByModule[0];
+
     for (u32 moduleIndex = 0; moduleIndex < MaxModulesPerEvent; ++moduleIndex)
     {
-        if (m_d->eventCountsByModule[moduleIndex])
-            qDebug() << __PRETTY_FUNCTION__ << moduleIndex << ": " << m_d->eventCountsByModule[moduleIndex];
+        if (m_d->eventInfos[eventIndex][moduleIndex].subEventHeader)
+        {
+            if (eventCountsByModule[moduleIndex] != firstModuleCount)
+            {
+                QString msg = (QString("Error (mvme multievent): Unequal number of subevents!"
+                                       " eventIndex=%1, moduleIndex=%2, firstModuleCount=%3, thisModuleCount=%4")
+                               .arg(eventIndex)
+                               .arg(moduleIndex)
+                               .arg(firstModuleCount)
+                               .arg(eventCountsByModule[moduleIndex])
+                              );
+                qDebug() << msg;
+                emit logMessage(msg);
+            }
+        }
     }
-#endif
 }
 
 static const u32 FilledBufferWaitTimeout_ms = 250;
