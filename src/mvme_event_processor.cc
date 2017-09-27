@@ -301,16 +301,16 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
 
     bool done = false;
     const u32 *ptrToLastWord = data + size;
-    if (m_d->analysis_ng)
-    {
-        m_d->analysis_ng->beginEvent(eventConfig->getId());
-    }
-
     std::array<u32, MaxModulesPerEvent> eventCountsByModule;
     eventCountsByModule.fill(0);
 
     while (!done)
     {
+        if (m_d->analysis_ng)
+        {
+            m_d->analysis_ng->beginEvent(eventConfig->getId());
+        }
+
         for (u32 moduleIndex = 0;
              moduleInfos[moduleIndex].subEventHeader;
              ++moduleIndex)
@@ -412,16 +412,16 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
             }
         }
 
+        if (m_d->analysis_ng)
+        {
+            m_d->analysis_ng->endEvent(eventConfig->getId());
+        }
+
         // Single event processing: terminate after one loop through the modules.
         if (!m_d->eventHasModuleHeaderFilters[eventIndex])
         {
             break;
         }
-    }
-
-    if (m_d->analysis_ng)
-    {
-        m_d->analysis_ng->endEvent(eventConfig->getId());
     }
 
     u32 firstModuleCount = eventCountsByModule[0];
