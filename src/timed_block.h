@@ -1,6 +1,8 @@
 #ifndef __TIMED_BLOCK_H__
 #define __TIMED_BLOCK_H__
 
+#include "typedefs.h"
+
 #include <chrono>
 #include <QDebug>
 
@@ -14,28 +16,59 @@ enum TimedBlockId
     TimedBlockId_Max
 };
 
-extern double gTimedBlockData[];
+extern float gTimedBlockDurations[];
+extern u64 gTimedBlockHitCounts[];
 
 struct TimedBlock
 {
     using HighResClock = std::chrono::high_resolution_clock;
 
-    TimedBlock(TimedBlockId id)
-        : id(id)
-        , start(HighResClock::now())
+    enum Mode
+    {
+        Mode_RecordDuration,
+        Mode_SumDuration
+    };
+
+    TimedBlock(TimedBlockId id, Mode mode)
+        : start(HighResClock::now())
+        , id(id)
+        , mode(mode)
     { }
 
     ~TimedBlock()
     {
-        end = HighResClock::now();
-        std::chrono::duration<double, std::nano> diff = end - start;
-        gTimedBlockData[id] = diff.count();
-        qDebug() << "end timed block" << id << gTimedBlockData[id] << "ns";
+        auto end = HighResClock::now();
+        std::chrono::duration<float, std::nano> diff = end - start;
+
+        switch (mode)
+        {
+            case Mode_RecordDuration:
+                gTimedBlockDurations[id] = diff.count();
+                gTimedBlockHitCounts[id] = 1;
+                break;
+
+            case Mode_SumDuration:
+                gTimedBlockDurations[id] += diff.count();
+                ++gTimedBlockHitCounts[id];
+                break;
+        }
+
+        qDebug() << __PRETTY_FUNCTION__ << id
+            << gTimedBlockDurations[id]
+            << gTimedBlockHitCounts[id];
     }
 
-    TimedBlockId id;
     HighResClock::time_point start;
-    HighResClock::time_point end;
+    TimedBlockId id;
+    Mode mode;
 };
+
+#ifdef MVME_ENABLE_TIMED_BLOCKS
+#define TIMED_BLOCK(id)     TimedBlock timed_block_##id(id, TimedBlock::Mode_RecordDuration)
+#define TIMED_BLOCK_SUM(id) TimedBlock timed_block_##id(id, TimedBlock::Mode_SumDuration)
+#else
+#define TIMED_BLOCK(id)
+#define TIMED_BLOCK_SUM(id)
+#endif
 
 #endif /* __TIMED_BLOCK_H__ */
