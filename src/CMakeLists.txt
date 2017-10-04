@@ -208,30 +208,22 @@ endfunction(add_mvme_executable)
 #
 # SIS3153 daq stop test
 #
-add_executable(sis3153_test sis3153_test.cc)
-add_dependencies(sis3153_test libmvme)
-target_link_libraries(sis3153_test libmvme)
+add_mvme_executable(sis3153_test sis3153_test.cc)
 
 #
 # mvme_register_reader
 #
-add_executable(mvme_register_reader mvme_register_reader.cc)
-add_dependencies(mvme_register_reader libmvme)
-target_link_libraries(mvme_register_reader libmvme)
+add_mvme_executable(mvme_register_reader mvme_register_reader.cc)
 
 #
 # vme_script_checker
 #
-add_executable(vme_script_checker vme_script_checker.cc)
-add_dependencies(vme_script_checker libmvme)
-target_link_libraries(vme_script_checker libmvme)
+add_mvme_executable(vme_script_checker vme_script_checker.cc)
 
 #
 # test_launcher_vme_module_template
 #
-add_executable(test_launcher_module_template test_launcher_module_template.cc)
-add_dependencies(test_launcher_module_template libmvme)
-target_link_libraries(test_launcher_module_template libmvme)
+add_mvme_executable(test_launcher_module_template "test_launcher_module_template.cc")
 
 #
 # vmusb_read_buffers_file

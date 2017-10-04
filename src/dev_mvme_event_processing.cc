@@ -168,7 +168,7 @@ void process_listfile(std::ifstream &infile)
 
 int main(int argc, char *argv[])
 {
-    s32 nRuns = 10;
+    s32 nRuns = 3;
     QCoreApplication app(argc, argv);
 
     if (argc != 2)
@@ -207,6 +207,9 @@ int main(int argc, char *argv[])
         double mbRead = stats.bytesProcessed / (1024.0 * 1024.0);
         double mbPerSec = mbRead / secsElapsed;
 
+        qDebug() << stats.startTime.toString();
+
+        cout << "startTime: " << stats.startTime.toString().toLocal8Bit().constData() << endl;
         cout << secsElapsed << " seconds elapsed" << endl;
         cout << mbRead << " MB read" << endl;
         cout << mbPerSec << " MB/s" << endl;

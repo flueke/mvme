@@ -171,6 +171,8 @@ void MVMEEventProcessor::newRun(const RunInfo &runInfo)
 
 
     m_d->m_localStats = MVMEEventProcessorCounters();
+    m_d->m_localStats.startTime = QDateTime::currentDateTime();
+    m_d->m_localStats.stopTime  = QDateTime();
 }
 
 void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
