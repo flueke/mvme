@@ -24,7 +24,7 @@
 
 #include "../vme_config.h"
 
-#define ENABLE_ANALYSIS_DEBUG 0
+#define ENABLE_ANALYSIS_DEBUG 1
 
 template<typename T>
 QDebug &operator<< (QDebug &dbg, const std::shared_ptr<T> &ptr)
@@ -304,7 +304,8 @@ void Extractor::processModuleData(u32 *data, u32 size)
          wordIndex < size;
          ++wordIndex)
     {
-        m_filter.handleDataWord(*(data + wordIndex), wordIndex);
+        u32 dataWord = *(data + wordIndex);
+        m_filter.handleDataWord(dataWord, wordIndex);
 
         if (m_filter.isComplete())
         {
@@ -316,6 +317,13 @@ void Extractor::processModuleData(u32 *data, u32 size)
 
                 u64 value   = m_filter.getResultValue();
                 u64 address = m_filter.getResultAddress();
+
+#if ENABLE_ANALYSIS_DEBUG
+                qDebug() << this
+                    << "extracted address =" << address
+                    << ", extracted value =" << value
+                    << ", dataWord =" << QString("0x%1").arg(dataWord, 8, 16, QLatin1Char('0'));
+#endif
 
                 Q_ASSERT(address < static_cast<u64>(m_output.getSize()));
                 Q_ASSERT(address < static_cast<u64>(m_hitCounts.size()));
@@ -333,7 +341,7 @@ void Extractor::processModuleData(u32 *data, u32 size)
 
 #if ENABLE_ANALYSIS_DEBUG
                     qDebug() << this << "setting param valid, addr =" << address << ", value =" << param.value
-                        << ", dataWord =" << QString("0x%1").arg(data, 8, 16, QLatin1Char('0'));
+                        << ", dataWord =" << QString("0x%1").arg(dataWord, 8, 16, QLatin1Char('0'));
 #endif
                     QMutexLocker lock(&m_hitCountsMutex);
                     m_hitCounts[address] += 1.0;
