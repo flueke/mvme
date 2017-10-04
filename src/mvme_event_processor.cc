@@ -191,7 +191,7 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
             if (sectionSize > iter.longwordsLeft())
                 throw end_of_buffer();
 
-            if (sectionType == ListfileSections::SectionType_Event) //&& m_d->analysis_ng)
+            if (sectionType == ListfileSections::SectionType_Event)
             {
                 processEventSection(sectionHeader, iter.asU32(), sectionSize);
                 iter.skip(sectionSize * sizeof(u32));
@@ -308,11 +308,11 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
     while (!done)
     {
         {
-            TimedBlock timed_block(TimedBlockId_MEP_Analysis_Loop);
+            TIMED_BLOCK(TimedBlockId_MEP_Analysis_Loop);
 
             if (m_d->analysis_ng)
             {
-                TimedBlock timed_block(TimedBlockId_MEP_Analysis_BeginEvent);
+                //TimedBlock timed_block(TimedBlockId_MEP_Analysis_BeginEvent);
                 m_d->analysis_ng->beginEvent(eventConfig->getId());
             }
 
@@ -419,7 +419,7 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
 
             if (m_d->analysis_ng)
             {
-                TimedBlock timed_block(TimedBlockId_MEP_Analysis_EndEvent);
+                //TimedBlock timed_block(TimedBlockId_MEP_Analysis_EndEvent);
                 m_d->analysis_ng->endEvent(eventConfig->getId());
             }
 

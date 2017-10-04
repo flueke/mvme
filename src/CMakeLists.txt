@@ -7,8 +7,10 @@ include(GenerateExportHeader)
 set(WARNING_FLAGS "-Wall -Wno-unused-variable -Wno-unused-function")
 
 set(CMAKE_CXX_FLAGS "-std=c++14 -pipe ${WARNING_FLAGS}")
-set(CMAKE_CXX_FLAGS_DEBUG "-g -Og")
+
+set(CMAKE_CXX_FLAGS_DEBUG   "-g -Og")
 set(CMAKE_CXX_FLAGS_RELEASE "-DNDEBUG -O3 -march=nocona -mtune=core2")
+set(CMAKE_CXX_FLAGS_PROFILE "-DNDEBUG -O3 -march=nocona -mtune=core2 -pg -fno-omit-frame-pointer")
 # Explicitly set the required c++ standard (CMake >= 3.1)
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -178,6 +180,7 @@ set(MVME_SOURCES
 if (CMAKE_BUILD_TYPE MATCHES "^Release$")
     add_executable(mvme WIN32 ${MVME_SOURCES})
 else()
+    #add_definitions(-DMVME_ENABLE_TIMED_BLOCKS)
     add_executable(mvme ${MVME_SOURCES})
 endif()
 

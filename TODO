@@ -2,7 +2,6 @@
 ==== Do these first! =====
 ==========================
 
-* Make keep/clear histos at DAQ start selectable via radio buttons.
 * Add more ways to specify how the listfile filenames should look like.
   run number, prefix, etc
 * Add a scaler display somewhere. What does this show? Hz?
