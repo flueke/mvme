@@ -90,7 +90,7 @@ struct MVMEEventProcessorPrivate
 
     std::array<ModuleInfoArray, MaxEvents> eventInfos;
     std::array<EventConfig *, MaxEvents> eventConfigs;
-    std::array<bool, MaxEvents> eventHasModuleHeaderFilters;
+    std::array<bool, MaxEvents> doMultiEventProcessing;
 
     MVMEEventProcessorCounters m_localStats;
 };
@@ -131,7 +131,7 @@ void MVMEEventProcessor::newRun(const RunInfo &runInfo)
 
     m_d->eventInfos.fill({}); // Full clear of the eventInfo cache
     m_d->eventConfigs.fill(nullptr);
-    m_d->eventHasModuleHeaderFilters.fill(true);
+    m_d->doMultiEventProcessing.fill(false);
 
     auto eventConfigs = m_d->context->getEventConfigs();
 
@@ -150,13 +150,12 @@ void MVMEEventProcessor::newRun(const RunInfo &runInfo)
             MultiEventModuleInfo &modInfo(m_d->eventInfos[eventIndex][moduleIndex]);
             modInfo.moduleHeaderFilter = makeFilterFromBytes(moduleConfig->getEventHeaderFilter());
             modInfo.moduleConfig = moduleConfig;
-            m_d->eventHasModuleHeaderFilters[eventIndex] = (
-                m_d->eventHasModuleHeaderFilters[eventIndex] && !modInfo.moduleHeaderFilter.getFilter().isEmpty());
 
             qDebug() << __PRETTY_FUNCTION__ << moduleConfig->objectName() << modInfo.moduleHeaderFilter.toString();
         }
 
         m_d->eventConfigs[eventIndex] = eventConfig;
+        m_d->doMultiEventProcessing[eventIndex] = eventConfig->isMultiEventProcessingEnabled();
     }
 
     if (m_d->analysis_ng)
@@ -326,12 +325,12 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
                 Q_ASSERT(mi.moduleHeader);
 
 
-                if (!m_d->eventHasModuleHeaderFilters[eventIndex])
+                if (!m_d->doMultiEventProcessing[eventIndex])
                 {
                     // Do single event processing as multi event splitting is not
-                    // possible for this event.
+                    // enabled for this event.
 #ifdef MVME_EVENT_PROCESSOR_DEBUGGING
-                    qDebug("%s eventIndex=%u, moduleIndex=%u: no module header filter -> doing single event processing only",
+                    qDebug("%s eventIndex=%u, moduleIndex=%u: multi event disabled for event -> doing single event processing only",
                            __PRETTY_FUNCTION__, eventIndex, moduleIndex);
 #endif
 
@@ -426,7 +425,7 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
             }
 
             // Single event processing: terminate after one loop through the modules.
-            if (!m_d->eventHasModuleHeaderFilters[eventIndex])
+            if (!m_d->doMultiEventProcessing[eventIndex])
             {
                 break;
             }

@@ -232,9 +232,22 @@ class LIBMVME_EXPORT EventConfig: public ConfigObject
         // Maybe should move this elsewhere as it is vmusb specific
         uint8_t stackID;
 
+        bool isMultiEventProcessingEnabled() const { return m_multiEventProcessingEnabled; }
+        void setMultiEventProcessingEnabled(bool b)
+        {
+            if (m_multiEventProcessingEnabled != b)
+            {
+                m_multiEventProcessingEnabled = b;
+                setModified();
+            }
+        }
+
     protected:
         virtual void read_impl(const QJsonObject &json) override;
         virtual void write_impl(QJsonObject &json) const override;
+
+    private:
+        bool m_multiEventProcessingEnabled = false;
 };
 
 class LIBMVME_EXPORT VMEConfig: public ConfigObject

@@ -8,6 +8,9 @@ set(WARNING_FLAGS "-Wall -Wno-unused-variable -Wno-unused-function")
 
 set(CMAKE_CXX_FLAGS "-std=c++14 -pipe ${WARNING_FLAGS}")
 
+# XXX: testing mbmi2 for pext_u32() in data_filter.cc
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mbmi2")
+
 set(CMAKE_CXX_FLAGS_DEBUG   "-g -Og")
 set(CMAKE_CXX_FLAGS_RELEASE "-DNDEBUG -O3 -march=nocona -mtune=core2")
 set(CMAKE_CXX_FLAGS_PROFILE "-DNDEBUG -O3 -march=nocona -mtune=core2 -pg -fno-omit-frame-pointer")
@@ -24,6 +27,7 @@ find_package(Qt5Network REQUIRED)
 find_package(Qt5Widgets REQUIRED)
 
 # 3rdparty
+include_directories("${CMAKE_SOURCE_DIR}/3rdparty")
 include_directories("${CMAKE_SOURCE_DIR}/3rdparty/pcg-cpp-0.98/include/")
 
 # quazip
@@ -79,6 +83,7 @@ add_definitions(-DVME_CONTROLLER_WIENER -DWIENER_USE_LIBUSB0)
 
 set(LIBMVME_SOURCES
     "${CMAKE_CURRENT_BINARY_DIR}/git_sha1.cc"
+    "${CMAKE_SOURCE_DIR}/3rdparty/qt-collapsible-section/Section.cpp"
     analysis/analysis.cc
     analysis/analysis_ui.cc
     analysis/analysis_ui_p.cc
