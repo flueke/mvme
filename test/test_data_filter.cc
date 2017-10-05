@@ -150,8 +150,8 @@ void TestDataFilter::test_extract_data_()
         // mask for A:                          0000 0001 0000 0011 1111 0000 0000 0000
         // sample dataWord:   0x010006fe  ->    0000 0001 0000 0000 0000 0110 1111 1110
 
-        QCOMPARE(filter.needGather('d'), false);
-        QCOMPARE(filter.needGather('a'), true);
+        //QCOMPARE(filter.needGather('d'), false);
+        //QCOMPARE(filter.needGather('a'), true);
 
         u32 dataWord = 0x010006fe;
         QCOMPARE(filter.extractData(dataWord, 'a'), 1u << 6);
@@ -172,8 +172,8 @@ void TestDataFilter::test_extract_data_()
         mwf.handleDataWord(dataWord);
 
         QCOMPARE(mwf.isComplete(), true);
-        QCOMPARE(mwf.extractData('A'), 1ul << 6);
-        QCOMPARE(mwf.getResultAddress(), 1ul << 6);
+        QCOMPARE(mwf.extractData('A'), (u64)(1u << 6));
+        QCOMPARE(mwf.getResultAddress(), (u64)(1u << 6));
     }
 }
 

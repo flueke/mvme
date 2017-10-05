@@ -98,7 +98,7 @@ class LIBMVME_EXPORT DataFilter
  * filter[0] fills the lowest bits, filter[1] the ones after and so on.
  *
  */
-class MultiWordDataFilter
+class LIBMVME_EXPORT MultiWordDataFilter
 {
     public:
         MultiWordDataFilter(const QVector<DataFilter> &filters = QVector<DataFilter>());
@@ -247,12 +247,12 @@ class MultiWordDataFilter
 };
 
 // Converts input to 8 bit, removes spaces, creates filter.
-DataFilter makeFilterFromString(const QString &str, s32 wordIndex = -1);
+LIBMVME_EXPORT DataFilter makeFilterFromString(const QString &str, s32 wordIndex = -1);
 
 // Removes spaces, creates filter.
-DataFilter makeFilterFromBytes(const QByteArray &bytes, s32 wordIndex = -1);
+LIBMVME_EXPORT DataFilter makeFilterFromBytes(const QByteArray &bytes, s32 wordIndex = -1);
 
 // Create a QLineEdit setup for convenient filter editing and display.
-QLineEdit *makeFilterEdit();
+LIBMVME_EXPORT QLineEdit *makeFilterEdit();
 
 #endif /* __DATA_FILTER_H__ */
