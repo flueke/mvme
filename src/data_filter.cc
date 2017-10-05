@@ -248,3 +248,104 @@ QLineEdit *makeFilterEdit()
     return result;
 }
 
+//
+// DataFilterExternalCache
+//
+static inline QByteArray remove_spaces(const QByteArray input)
+{
+    QByteArray result;
+
+    for (auto c: input)
+    {
+        if (c != ' ')
+            result.push_back(c);
+    }
+
+    return result;
+}
+
+DataFilterExternalCache::DataFilterExternalCache(const QByteArray &filterRaw, s32 wordIndex)
+    : m_matchWordIndex(wordIndex)
+{
+    qDebug() << __PRETTY_FUNCTION__ << filterRaw << "begin";
+    QByteArray filter = remove_spaces(filterRaw);
+
+    if (filter.size() > FilterSize)
+        throw std::length_error("maximum filter size of 32 exceeded");
+
+    m_filter.fill('X');
+
+    // FIXME: need to fix the ordering
+
+    for (s32 i=0; i<filter.size(); ++i)
+    {
+        m_filter[i] = filter[i];
+    }
+
+    compile();
+    qDebug() << __PRETTY_FUNCTION__ << filterRaw << "end";
+}
+
+void DataFilterExternalCache::compile()
+{
+    qDebug() << __PRETTY_FUNCTION__ << "begin";
+    m_matchMask  = 0;
+    m_matchValue = 0;
+
+    for (s32 i=0; i<FilterSize; ++i)
+    {
+        char c = m_filter[i];
+
+        if (c == '0' || c == '1' || c == 0 || c == 1)
+            m_matchMask |= 1 << i;
+
+        if (c == '1' || c == 1)
+            m_matchValue |= 1 << i;
+
+        qDebug() << __PRETTY_FUNCTION__ << "c" << c;
+        qDebug() << __PRETTY_FUNCTION__ << "mask" << m_matchMask;
+        qDebug() << __PRETTY_FUNCTION__ << "value" << m_matchValue;
+    }
+    qDebug() << __PRETTY_FUNCTION__ << "end";
+}
+
+QByteArray DataFilterExternalCache::getFilterString() const
+{
+    return QByteArray(m_filter.data(), m_filter.size());
+}
+
+DataFilterExternalCache::CacheEntry DataFilterExternalCache::makeCacheEntry(char marker) const
+{
+    marker = std::tolower(marker);
+
+    CacheEntry result;
+
+    bool markerSeen = false;
+    bool gapSeen = false;
+
+    for (s32 i=0; i<FilterSize; ++i)
+    {
+        char c = std::tolower(m_filter[m_filter.size() - i - 1]);
+
+        if (c == marker)
+        {
+            if (markerSeen && gapSeen)
+            {
+                // Had marker and a gap, now on marker again -> need gather step
+                result.needGather = true;
+            }
+
+            result.extractMask |= 1 << i;
+            markerSeen = true;
+        }
+        else if (markerSeen)
+        {
+            gapSeen = true;
+        }
+    }
+
+    result.extractShift = trailing_zeroes(result.extractMask);
+    result.extractBits  = number_of_set_bits(result.extractMask);
+
+    return result;
+}

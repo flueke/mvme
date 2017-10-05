@@ -56,11 +56,13 @@ int main(int argc, char *argv[])
     std::uniform_int_distribution<u64> dist;
     rng.seed(dist(rd));
 
+    /*
     QFile fout("generated.mvmelst");
 
     if (!fout.open(QIODevice::ReadOnly))
     {
     }
+    */
 
 
     return 0;
