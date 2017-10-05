@@ -55,3 +55,32 @@ successfully compiled the generated latex code using MiKTeX.
 
 ### Can be used for changelog creation
 `git log --no-merges --pretty="format:%aD, %an, * %s [%an - %h] %b"`
+
+## Profiling
+
+Use `cmake -DCMAKE_BUILD_TYPE=Profile -DBUILD_DOCS=OFF  ../mvme2` to build.
+This enables optimizations,  profiling (-pg) and keeps the frame pointer
+around.
+
+Install the correct perf package for your kernel, e.g. `apt-get install linux-perf-4.9`.
+
+Run mvme using `perf record -g ./mvme`.
+
+### Reporting:
+* `perf stat`
+* `perf report -g`
+* `perf report -g 'graph,0.5,caller'`
+
+### Keeping the compiler from optimizing away code you want to benchmark
+
+```
+static void escape(void *p)
+{
+    asm volatile("" : : "g"(p) : "memory");
+}
+
+static void clobber()
+{
+    asm volatile("" : : : "memory");
+}
+```

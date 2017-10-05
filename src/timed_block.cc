@@ -1,3 +1,4 @@
 #include "timed_block.h"
 
-double gTimedBlockData[TimedBlockId_Max];
+float gTimedBlockDurations[TimedBlockId_Max];
+u64 gTimedBlockHitCounts[TimedBlockId_Max];

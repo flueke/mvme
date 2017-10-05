@@ -1,4 +1,5 @@
 #include "typedefs.h"
+#include "databuffer.h"
 #include <random>
 #include <pcg_random.hpp>
 
@@ -55,7 +56,15 @@ int main(int argc, char *argv[])
     std::uniform_int_distribution<u64> dist;
     rng.seed(dist(rd));
 
+    QFile fout("generated.mvmelst");
 
+    if (!fout.open(QIODevice::ReadOnly))
+    {
+    }
+
+
+    return 0;
+#if 0
     u64 wordsGenerated = 0;
     u64 bytesGenerated = 0;
     u32 buffer[1024];
@@ -81,4 +90,5 @@ int main(int argc, char *argv[])
     printf("%lu\n", bytesGenerated);
 
     return 0;
+#endif
 }

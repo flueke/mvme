@@ -18,9 +18,12 @@
  */
 #include "data_filter.h"
 #include "qt_util.h"
+#include "util/bits.h"
 
 #include <cctype>
 #include <stdexcept>
+
+#define DATA_FILTER_DEBUG 0
 
 // Source: http://stackoverflow.com/a/757266
 static inline int trailing_zeroes(uint32_t v)
@@ -84,18 +87,36 @@ u32 DataFilter::getExtractMask(char marker) const
 
     if (m_extractCache.contains(marker))
     {
-        result = m_extractCache.value(marker);
+        result = m_extractCache.value(marker).mask;
     }
     else
     {
+        bool markerSeen = false;
+        bool gapSeen = false;
+        bool needGather = false;
+
         for (int i=0; i<m_filter.size(); ++i)
         {
             char c = std::tolower(m_filter[m_filter.size() - i - 1]);
 
             if (c == marker)
+            {
+                if (markerSeen && gapSeen)
+                {
+                    // Had marker and a gap, now on marker again -> need gather step
+                    needGather = true;
+                }
+
                 result |= 1 << i;
+                markerSeen = true;
+            }
+            else if (markerSeen)
+            {
+                gapSeen = true;
+            }
         }
-        m_extractCache[marker] = result;
+
+        m_extractCache[marker] = { result, needGather };
     }
 
     return result;
@@ -111,9 +132,39 @@ u32 DataFilter::getExtractBits(char marker) const
     return number_of_set_bits(getExtractMask(marker));
 }
 
+bool DataFilter::needGather(char marker) const
+{
+    marker = std::tolower(marker);
+    getExtractMask(marker); // force cache update
+    return m_extractCache.value(marker).needGather;
+}
+
+//#include <x86intrin.h>
+
 u32 DataFilter::extractData(u32 value, char marker) const
 {
-    u32 result = (value & getExtractMask(marker)) >> getExtractShift(marker);
+    marker = std::tolower(marker);
+    u32 mask   = getExtractMask(marker);
+    u32 shift  = getExtractShift(marker);
+    u32 result = (value & mask) >> shift;
+    bool needGather = m_extractCache.value(marker).needGather;
+
+#if DATA_FILTER_DEBUG
+    qDebug("%s: marker=%c, mask=0x%08X, shift=%u, result before gather =0x%08X, needGather=%d",
+           __PRETTY_FUNCTION__, marker, mask, shift, result, needGather);
+#endif
+
+    if (needGather)
+    {
+        result = bit_gather(result, mask >> shift);
+
+        //result = _pext_u32(result, mask >> shift);
+
+#if DATA_FILTER_DEBUG
+        qDebug("%s: marker=%c, mask=0x%08X, shift=%u, result after gather =0x%08X",
+           __PRETTY_FUNCTION__, marker, mask, shift, result);
+#endif
+    }
 
     return result;
 }

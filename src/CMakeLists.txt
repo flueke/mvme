@@ -7,8 +7,13 @@ include(GenerateExportHeader)
 set(WARNING_FLAGS "-Wall -Wno-unused-variable -Wno-unused-function")
 
 set(CMAKE_CXX_FLAGS "-std=c++14 -pipe ${WARNING_FLAGS}")
-set(CMAKE_CXX_FLAGS_DEBUG "-g -Og")
+
+# XXX: testing mbmi2 for pext_u32() in data_filter.cc
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mbmi2")
+
+set(CMAKE_CXX_FLAGS_DEBUG   "-g -Og")
 set(CMAKE_CXX_FLAGS_RELEASE "-DNDEBUG -O3 -march=nocona -mtune=core2")
+set(CMAKE_CXX_FLAGS_PROFILE "-DNDEBUG -O3 -march=nocona -mtune=core2 -pg -fno-omit-frame-pointer")
 # Explicitly set the required c++ standard (CMake >= 3.1)
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -22,6 +27,7 @@ find_package(Qt5Network REQUIRED)
 find_package(Qt5Widgets REQUIRED)
 
 # 3rdparty
+include_directories("${CMAKE_SOURCE_DIR}/3rdparty")
 include_directories("${CMAKE_SOURCE_DIR}/3rdparty/pcg-cpp-0.98/include/")
 
 # quazip
@@ -77,6 +83,7 @@ add_definitions(-DVME_CONTROLLER_WIENER -DWIENER_USE_LIBUSB0)
 
 set(LIBMVME_SOURCES
     "${CMAKE_CURRENT_BINARY_DIR}/git_sha1.cc"
+    "${CMAKE_SOURCE_DIR}/3rdparty/qt-collapsible-section/Section.cpp"
     analysis/analysis.cc
     analysis/analysis_ui.cc
     analysis/analysis_ui_p.cc
@@ -178,6 +185,7 @@ set(MVME_SOURCES
 if (CMAKE_BUILD_TYPE MATCHES "^Release$")
     add_executable(mvme WIN32 ${MVME_SOURCES})
 else()
+    #add_definitions(-DMVME_ENABLE_TIMED_BLOCKS)
     add_executable(mvme ${MVME_SOURCES})
 endif()
 
@@ -205,30 +213,22 @@ endfunction(add_mvme_executable)
 #
 # SIS3153 daq stop test
 #
-add_executable(sis3153_test sis3153_test.cc)
-add_dependencies(sis3153_test libmvme)
-target_link_libraries(sis3153_test libmvme)
+add_mvme_executable(sis3153_test sis3153_test.cc)
 
 #
 # mvme_register_reader
 #
-add_executable(mvme_register_reader mvme_register_reader.cc)
-add_dependencies(mvme_register_reader libmvme)
-target_link_libraries(mvme_register_reader libmvme)
+add_mvme_executable(mvme_register_reader mvme_register_reader.cc)
 
 #
 # vme_script_checker
 #
-add_executable(vme_script_checker vme_script_checker.cc)
-add_dependencies(vme_script_checker libmvme)
-target_link_libraries(vme_script_checker libmvme)
+add_mvme_executable(vme_script_checker vme_script_checker.cc)
 
 #
 # test_launcher_vme_module_template
 #
-add_executable(test_launcher_module_template test_launcher_module_template.cc)
-add_dependencies(test_launcher_module_template libmvme)
-target_link_libraries(test_launcher_module_template libmvme)
+add_mvme_executable(test_launcher_module_template "test_launcher_module_template.cc")
 
 #
 # vmusb_read_buffers_file
@@ -238,5 +238,6 @@ add_mvme_executable(vmusb_read_buffers_file "vmusb_read_buffers_file.cc")
 add_mvme_executable(mvme-listfile-dumper-multievent "listfile-multievent-dumper.cpp")
 add_mvme_executable(dev_mvme_event_processing "dev_mvme_event_processing.cc")
 add_mvme_executable(dev_datagen "dev_datagen.cc")
+add_mvme_executable(dev_data_filter_runner "dev_data_filter_runner.cc")
 
 # vim:tw=0

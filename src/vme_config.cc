@@ -430,6 +430,7 @@ void EventConfig::read_impl(const QJsonObject &json)
     irqVector = json["irqVector"].toInt();
     scalerReadoutPeriod = json["scalerReadoutPeriod"].toInt();
     scalerReadoutFrequency = json["scalerReadoutFrequency"].toInt();
+    m_multiEventProcessingEnabled = json["multiEventProcessingEnabled"].toBool();
 
     QJsonArray moduleArray = json["modules"].toArray();
     for (int i=0; i<moduleArray.size(); ++i)
@@ -469,6 +470,7 @@ void EventConfig::write_impl(QJsonObject &json) const
     json["irqVector"] = irqVector;
     json["scalerReadoutPeriod"] = scalerReadoutPeriod;
     json["scalerReadoutFrequency"] = scalerReadoutFrequency;
+    json["multiEventProcessingEnabled"] = m_multiEventProcessingEnabled;
 
 
     QJsonArray moduleArray;

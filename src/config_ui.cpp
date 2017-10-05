@@ -21,9 +21,11 @@
 #include "mvme_context.h"
 #include "vme_script.h"
 #include "analysis/analysis.h"
+#include "qt-collapsible-section/Section.h"
 
 #include <cmath>
 
+#include <QCheckBox>
 #include <QCloseEvent>
 #include <QComboBox>
 #include <QDialogButtonBox>
@@ -55,6 +57,7 @@ struct EventConfigDialogPrivate
 {
     QLineEdit *le_name;
     QComboBox *combo_condition;
+    QCheckBox *cb_multiEvent;
     QStackedWidget *stack_options;
     QDialogButtonBox *buttonBox;
 
@@ -76,6 +79,7 @@ EventConfigDialog::EventConfigDialog(MVMEContext *context, VMEController *contro
 {
     m_d->le_name = new QLineEdit;
     m_d->combo_condition = new QComboBox;
+    m_d->cb_multiEvent = new QCheckBox;
     m_d->stack_options = new QStackedWidget;
     m_d->buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
 
@@ -86,12 +90,22 @@ EventConfigDialog::EventConfigDialog(MVMEContext *context, VMEController *contro
     m_d->spin_irqVector = new QSpinBox(this);
     m_d->spin_irqVector->setMaximum(255);
 
+    auto layout_adv = new QFormLayout;
+    layout_adv->addRow(QSL("Multi Event Processing"), m_d->cb_multiEvent);
+
+    auto sec_advanced = new Section(QSL("Advanced"));
+    sec_advanced->setContentLayout(*layout_adv);
+
     auto gb_nameAndCond = new QGroupBox;
     auto gb_layout   = new QFormLayout(gb_nameAndCond);
+    gb_layout->setContentsMargins(2, 2, 2, 2);
     gb_layout->addRow(QSL("Name"), m_d->le_name);
     gb_layout->addRow(QSL("Condition"), m_d->combo_condition);
+    gb_layout->addRow(sec_advanced);
+
 
     auto layout = new QVBoxLayout(this);
+    layout->setContentsMargins(2, 2, 2, 2);
     layout->addWidget(gb_nameAndCond);
     layout->addWidget(m_d->stack_options);
     layout->addWidget(m_d->buttonBox);
@@ -193,6 +207,8 @@ void EventConfigDialog::loadFromConfig()
         m_d->combo_condition->setCurrentIndex(condIndex);
     }
 
+    m_d->cb_multiEvent->setChecked(config->isMultiEventProcessingEnabled());
+
     m_d->spin_irqLevel->setValue(config->irqLevel);
     m_d->spin_irqVector->setValue(config->irqVector);
 
@@ -215,6 +231,7 @@ void EventConfigDialog::saveToConfig()
 
     config->setObjectName(m_d->le_name->text());
     config->triggerCondition = static_cast<TriggerCondition>(m_d->combo_condition->currentData().toInt());
+    config->setMultiEventProcessingEnabled(m_d->cb_multiEvent->isChecked());
     config->irqLevel = static_cast<uint8_t>(m_d->spin_irqLevel->value());
     config->irqVector = static_cast<uint8_t>(m_d->spin_irqVector->value());
 
@@ -292,6 +309,14 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *modul
 
     eventHeaderFilterEdit = makeFilterEdit();
 
+    auto layout_advanced = new QFormLayout(this); // XXX: Width is only calculated correctly if there is a parent.
+    layout_advanced->setContentsMargins(2, 2, 2, 2);
+    layout_advanced->addRow("Multi Event Header Filter", eventHeaderFilterEdit);
+
+    auto sec_advanced = new Section(QSL("Advanced"));
+    sec_advanced->setMinimumWidth(layout_advanced->sizeHint().width());
+    sec_advanced->setContentLayout(*layout_advanced);
+
     auto bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
     connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
@@ -300,7 +325,7 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *modul
     layout->addRow("Type", typeCombo);
     layout->addRow("Name", nameEdit);
     layout->addRow("Address", addressEdit);
-    layout->addRow("Multi Event Header Filter", eventHeaderFilterEdit);
+    layout->addRow(sec_advanced);
     layout->addRow(bb);
 
     auto onTypeComboIndexChanged = [this](int index)

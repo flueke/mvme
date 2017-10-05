@@ -63,6 +63,7 @@ class LIBMVME_EXPORT DataFilter
         u32 getExtractMask(char marker) const;
         u32 getExtractShift(char marker) const;
         u32 getExtractBits(char marker) const;
+        bool needGather(char marker) const;
         u32 extractData(u32 value, char marker) const;
         s32 getWordIndex() const { return m_matchWordIndex; }
 
@@ -75,7 +76,13 @@ class LIBMVME_EXPORT DataFilter
         void compile();
 
         QByteArray m_filter;
-        mutable QHash<char, u32> m_extractCache;
+        struct CacheEntry
+        {
+            u32 mask = 0;
+            bool needGather = false;
+        };
+
+        mutable QHash<char, CacheEntry> m_extractCache;
 
         u32 m_matchMask  = 0;
         u32 m_matchValue = 0;
@@ -91,7 +98,7 @@ class LIBMVME_EXPORT DataFilter
  * filter[0] fills the lowest bits, filter[1] the ones after and so on.
  *
  */
-class MultiWordDataFilter
+class LIBMVME_EXPORT MultiWordDataFilter
 {
     public:
         MultiWordDataFilter(const QVector<DataFilter> &filters = QVector<DataFilter>());
@@ -240,12 +247,12 @@ class MultiWordDataFilter
 };
 
 // Converts input to 8 bit, removes spaces, creates filter.
-DataFilter makeFilterFromString(const QString &str, s32 wordIndex = -1);
+LIBMVME_EXPORT DataFilter makeFilterFromString(const QString &str, s32 wordIndex = -1);
 
 // Removes spaces, creates filter.
-DataFilter makeFilterFromBytes(const QByteArray &bytes, s32 wordIndex = -1);
+LIBMVME_EXPORT DataFilter makeFilterFromBytes(const QByteArray &bytes, s32 wordIndex = -1);
 
 // Create a QLineEdit setup for convenient filter editing and display.
-QLineEdit *makeFilterEdit();
+LIBMVME_EXPORT QLineEdit *makeFilterEdit();
 
 #endif /* __DATA_FILTER_H__ */
