@@ -63,6 +63,7 @@ class LIBMVME_EXPORT DataFilter
         u32 getExtractMask(char marker) const;
         u32 getExtractShift(char marker) const;
         u32 getExtractBits(char marker) const;
+        bool needGather(char marker) const;
         u32 extractData(u32 value, char marker) const;
         s32 getWordIndex() const { return m_matchWordIndex; }
 
@@ -75,7 +76,13 @@ class LIBMVME_EXPORT DataFilter
         void compile();
 
         QByteArray m_filter;
-        mutable QHash<char, u32> m_extractCache;
+        struct CacheEntry
+        {
+            u32 mask = 0;
+            bool needGather = false;
+        };
+
+        mutable QHash<char, CacheEntry> m_extractCache;
 
         u32 m_matchMask  = 0;
         u32 m_matchValue = 0;

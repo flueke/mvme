@@ -1,4 +1,4 @@
-#include "tests.h"
+#include "test_data_filter.h"
 #include "data_filter.h"
 
 void TestDataFilter::test_match_mask_and_value()
@@ -126,4 +126,24 @@ void TestDataFilter::test_extract_data_()
         QCOMPARE(filter.extractData(0xf0, 'd'), 0x0u);
         QCOMPARE(filter.extractData(0x0f, 'd'), 0xfu);
     }
+
+    //
+    // gather tests
+    //
+    {
+        DataFilter filter("11XXDDDX");
+        QCOMPARE(filter.needGather('d'), false);
+    }
+
+    {
+        DataFilter filter("11XXDXDX");
+        QCOMPARE(filter.needGather('d'), true);
+        QCOMPARE(filter.getExtractBits('d'), 2u);
+        QCOMPARE(filter.extractData(0b00000000u, 'd'), 0u);
+        QCOMPARE(filter.extractData(0b11001010u, 'd'), 3u);
+        QCOMPARE(filter.extractData(0b11111111u, 'd'), 3u);
+        QCOMPARE(filter.extractData(0b11111000u, 'd'), 2u);
+    }
 }
+
+QTEST_MAIN(TestDataFilter)

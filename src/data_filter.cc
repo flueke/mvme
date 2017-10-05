@@ -18,6 +18,7 @@
  */
 #include "data_filter.h"
 #include "qt_util.h"
+#include "util/bits.h"
 
 #include <cctype>
 #include <stdexcept>
@@ -84,18 +85,36 @@ u32 DataFilter::getExtractMask(char marker) const
 
     if (m_extractCache.contains(marker))
     {
-        result = m_extractCache.value(marker);
+        result = m_extractCache.value(marker).mask;
     }
     else
     {
+        bool markerSeen = false;
+        bool gapSeen = false;
+        bool needGather = false;
+
         for (int i=0; i<m_filter.size(); ++i)
         {
             char c = std::tolower(m_filter[m_filter.size() - i - 1]);
 
             if (c == marker)
+            {
+                if (markerSeen && gapSeen)
+                {
+                    // Had marker and a gap, now on marker again -> need gather step
+                    needGather = true;
+                }
+
                 result |= 1 << i;
+                markerSeen = true;
+            }
+            else if (markerSeen)
+            {
+                gapSeen = true;
+            }
         }
-        m_extractCache[marker] = result;
+
+        m_extractCache[marker] = { result, needGather };
     }
 
     return result;
@@ -111,9 +130,23 @@ u32 DataFilter::getExtractBits(char marker) const
     return number_of_set_bits(getExtractMask(marker));
 }
 
+bool DataFilter::needGather(char marker) const
+{
+    getExtractMask(marker); // force cache update
+    return m_extractCache.value(marker).needGather;
+}
+
 u32 DataFilter::extractData(u32 value, char marker) const
 {
-    u32 result = (value & getExtractMask(marker)) >> getExtractShift(marker);
+    u32 mask   = getExtractMask(marker);
+    u32 shift  = getExtractShift(marker);
+
+    u32 result = (value & mask) >> shift;
+
+    if (m_extractCache.value(marker).needGather)
+    {
+        result = bit_gather(result, mask >> shift);
+    }
 
     return result;
 }
