@@ -12,10 +12,24 @@ function(add_mvme_test exe_name exe_sources)
     add_test(NAME ${exe_name} COMMAND $<TARGET_FILE:${exe_name}>)
 endfunction(add_mvme_test)
 
-
 # IMPORTANT: When creating a new test you do need to create a new header file
 # for that test too. Using a combined header file for all test classes does
 # not work as automoc/cmake/something else fails to generate any actual MOC
 # code and we end up with undefined references to the vtable.
 
 add_mvme_test(test_data_filter test_data_filter.cc)
+
+
+
+find_library(GOOGLE_BENCHMARK benchmark)
+find_package(Threads)
+
+function(add_mvme_bench exe_name exe_sources)
+    add_executable(${exe_name} ${exe_sources})
+    add_dependencies(${exe_name} libmvme)
+    target_link_libraries(${exe_name} libmvme ${GOOGLE_BENCHMARK} Threads::Threads)
+    add_test(NAME ${exe_name} COMMAND $<TARGET_FILE:${exe_name}>)
+endfunction(add_mvme_bench)
+
+
+add_mvme_bench(bench_data_filter bench_data_filter.cc)
