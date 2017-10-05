@@ -128,7 +128,7 @@ void TestDataFilter::test_extract_data_()
     }
 
     //
-    // gather tests
+    // gather tests - DataFilter
     //
     {
         DataFilter filter("11XXDDDX");
@@ -143,6 +143,37 @@ void TestDataFilter::test_extract_data_()
         QCOMPARE(filter.extractData(0b11001010u, 'd'), 3u);
         QCOMPARE(filter.extractData(0b11111111u, 'd'), 3u);
         QCOMPARE(filter.extractData(0b11111000u, 'd'), 2u);
+    }
+
+    {
+        DataFilter filter(makeFilterFromString("0000 XXXA XXXX XXAA AAAA DDDD DDDD DDDD"));
+        // mask for A:                          0000 0001 0000 0011 1111 0000 0000 0000
+        // sample dataWord:   0x010006fe  ->    0000 0001 0000 0000 0000 0110 1111 1110
+
+        QCOMPARE(filter.needGather('d'), false);
+        QCOMPARE(filter.needGather('a'), true);
+
+        u32 dataWord = 0x010006fe;
+        QCOMPARE(filter.extractData(dataWord, 'a'), 1u << 6);
+        QCOMPARE(filter.extractData(dataWord, 'a'), 1u << 6);
+    }
+
+    //
+    // gather tests - MultiWordDataFilter
+    //
+    {
+        MultiWordDataFilter mwf({ makeFilterFromString("0000 XXXA XXXX XXAA AAAA DDDD DDDD DDDD") });
+
+        QCOMPARE(mwf.getSubFilters()[0].needGather('d'), false);
+        QCOMPARE(mwf.getSubFilters()[0].needGather('a'), true);
+
+        u32 dataWord = 0x010006fe;
+
+        mwf.handleDataWord(dataWord);
+
+        QCOMPARE(mwf.isComplete(), true);
+        QCOMPARE(mwf.extractData('A'), 1ul << 6);
+        QCOMPARE(mwf.getResultAddress(), 1ul << 6);
     }
 }
 

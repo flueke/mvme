@@ -23,6 +23,8 @@
 #include <cctype>
 #include <stdexcept>
 
+#define DATA_FILTER_DEBUG 0
+
 // Source: http://stackoverflow.com/a/757266
 static inline int trailing_zeroes(uint32_t v)
 {
@@ -132,20 +134,32 @@ u32 DataFilter::getExtractBits(char marker) const
 
 bool DataFilter::needGather(char marker) const
 {
+    marker = std::tolower(marker);
     getExtractMask(marker); // force cache update
     return m_extractCache.value(marker).needGather;
 }
 
 u32 DataFilter::extractData(u32 value, char marker) const
 {
+    marker = std::tolower(marker);
     u32 mask   = getExtractMask(marker);
     u32 shift  = getExtractShift(marker);
-
     u32 result = (value & mask) >> shift;
+    bool needGather = m_extractCache.value(marker).needGather;
 
-    if (m_extractCache.value(marker).needGather)
+#if DATA_FILTER_DEBUG
+    qDebug("%s: marker=%c, mask=0x%08X, shift=%u, result before gather =0x%08X, needGather=%d",
+           __PRETTY_FUNCTION__, marker, mask, shift, result, needGather);
+#endif
+
+    if (needGather)
     {
         result = bit_gather(result, mask >> shift);
+
+#if DATA_FILTER_DEBUG
+        qDebug("%s: marker=%c, mask=0x%08X, shift=%u, result after gather =0x%08X",
+           __PRETTY_FUNCTION__, marker, mask, shift, result);
+#endif
     }
 
     return result;
