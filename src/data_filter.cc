@@ -139,6 +139,8 @@ bool DataFilter::needGather(char marker) const
     return m_extractCache.value(marker).needGather;
 }
 
+//#include <x86intrin.h>
+
 u32 DataFilter::extractData(u32 value, char marker) const
 {
     marker = std::tolower(marker);
@@ -155,6 +157,8 @@ u32 DataFilter::extractData(u32 value, char marker) const
     if (needGather)
     {
         result = bit_gather(result, mask >> shift);
+
+        //result = _pext_u32(result, mask >> shift);
 
 #if DATA_FILTER_DEBUG
         qDebug("%s: marker=%c, mask=0x%08X, shift=%u, result after gather =0x%08X",
