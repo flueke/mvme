@@ -473,6 +473,7 @@ void EventConfig::write_impl(QJsonObject &json) const
     json["multiEventProcessingEnabled"] = m_multiEventProcessingEnabled;
 
 
+
     QJsonArray moduleArray;
 
     for (auto module: modules)

@@ -61,6 +61,7 @@
 #include <QVBoxLayout>
 #include <QMenuBar>
 #include <QApplication>
+#include <quazipfile.h>
 
 using namespace vats;
 
