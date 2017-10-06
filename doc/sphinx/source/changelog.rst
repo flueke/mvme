@@ -2,7 +2,7 @@
 Changelog
 ##################################################
 
-0.9.3
+0.9.2
 
 * New experimental feature: multi event readout support to achieve higher data
   rates.
