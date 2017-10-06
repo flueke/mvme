@@ -1,3 +1,5 @@
+if (BUILD_TESTS)
+
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 find_package(Qt5Test REQUIRED)
@@ -21,7 +23,6 @@ add_mvme_test(test_data_filter test_data_filter.cc)
 add_mvme_test(test_data_filter_external_cache test_data_filter_external_cache.cc)
 
 
-
 find_library(GOOGLE_BENCHMARK benchmark)
 find_package(Threads)
 
@@ -32,5 +33,6 @@ function(add_mvme_bench exe_name exe_sources)
     add_test(NAME ${exe_name} COMMAND $<TARGET_FILE:${exe_name}>)
 endfunction(add_mvme_bench)
 
-
 add_mvme_bench(bench_data_filter bench_data_filter.cc)
+
+endif(BUILD_TESTS)

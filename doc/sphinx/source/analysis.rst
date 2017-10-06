@@ -465,13 +465,9 @@ matching the address or data mask and then right shifting to align with the 0
 bit.
 
 .. note::
-   The filter implementation assumes that address and data bits form
-   consecutive sequences.
-..
-   When extracting values the code looks at the first and last occurence of the
-   respective character in the filter line and treats the resulting sequence as
-   if it consisted of only that character: ``A0AA`` will produce a 4-bit
-   address value with bit 2 always being 0.
+   Address and data bit masks do not need to be consecutive. ``A0AA`` will
+   produce 3-bit address values by gathering all extracted ``A`` bits on the
+   right: ``0AAA``.
 
 Each filter has an optional *word index* attached to it. If the word index is
 set to a value >= 0, then the filter can only produce a match on the module

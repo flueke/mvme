@@ -33,14 +33,18 @@ message("GIT_VERSION=${GIT_VERSION}")
 message("GIT_VERSION_SHORT=${GIT_VERSION_SHORT}")
 message("GIT_VERSION_TAG=${GIT_VERSION_TAG}")
 
-# To get a 'make test' target. If this is not in the top level CMakeLists.txt
-# no test target is generated :(
-enable_testing()
-
 # Subdirectories containing build targets
 add_subdirectory(src)
 add_subdirectory(extras)
-add_subdirectory(test)
+
+# To get a 'make test' target. If this is not in the top level CMakeLists.txt
+# no test target is generated :(
+option(BUILD_TESTS "Build test binaries" OFF)
+
+if (BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(test)
+endif()
 
 option(BUILD_DOCS "Build the documentation (if Sphinx is found)" ON)
 
