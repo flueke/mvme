@@ -7,6 +7,12 @@
 * qt >= 5.6 (?)
 * qwt >= 6.1
 * quazip
+* libusb-0.1 (the old deprecated version of libusb)
+* Optional: sphinx and a latex installation to build the documentation.
+  On debian I needed to install `texlive` and `texlive-latex-extra`.
+  Sphinx was intalled in a virtualenv using `pip install sphinx`.
+
+* Run CMake and make like this to build:
 
     $ cmake -DCMAKE_BUILD_TYPE=Debug ../mvme2
     $ make -j4
