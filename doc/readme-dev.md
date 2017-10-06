@@ -9,8 +9,9 @@
 * quazip
 * libusb-0.1 (the old deprecated version of libusb)
 * Optional: sphinx and a latex installation to build the documentation.
-  On debian I needed to install `texlive` and `texlive-latex-extra`.
   Sphinx was intalled in a virtualenv using `pip install sphinx`.
+  Additional debian packages required: texlive, texlive-latex-extra, dvipng,
+  latexmk, qttools5-dev-tools
 
 * Run CMake and make like this to build:
 
