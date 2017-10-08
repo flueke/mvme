@@ -3,7 +3,6 @@
 
 void TestDataFilterExternalCache::test_match_mask_and_value()
 {
-#if 0
     {
         DataFilterExternalCache filter("1111");
 
@@ -17,7 +16,6 @@ void TestDataFilterExternalCache::test_match_mask_and_value()
         QCOMPARE(filter.getMatchMask(), 0xfu);
         QCOMPARE(filter.getMatchValue(), 0x0u);
     }
-#endif
 
     {
         DataFilterExternalCache filter("0101");
@@ -66,69 +64,73 @@ void TestDataFilterExternalCache::test_extract_data_()
 {
     {
         DataFilterExternalCache filter("1XDDDD11");
-        auto cache = filter.makeCacheEntry('D');
+        auto fc = filter.makeCacheEntry('D');
 
-        QCOMPARE(cache.extractMask, 0x3cu);
-        QCOMPARE(cache.extractShift, static_cast<u8>(2));
-        QCOMPARE(cache.extractBits, static_cast<u8>(4u));
-        QCOMPARE(filter.extractData(0xff, cache), 0xfu);
-        QCOMPARE(filter.extractData(0xf0, cache), 0xcu);
-        QCOMPARE(filter.extractData(0x0f, cache), 0x3u);
+        QCOMPARE(fc.extractMask, 0x3cu);
+        QCOMPARE(fc.extractShift, static_cast<u8>(2u));
+        QCOMPARE(fc.extractBits, static_cast<u8>(4u));
+        QCOMPARE(filter.extractData(0xff, fc), 0xfu);
+        QCOMPARE(filter.extractData(0xf0, fc), 0xcu);
+        QCOMPARE(filter.extractData(0x0f, fc), 0x3u);
     }
 
-#if 0
     {
         DataFilterExternalCache filter("11XXDDDD");
+        auto fc = filter.makeCacheEntry('D');
 
-        QCOMPARE(filter.getExtractMask('D'), 0xfu);
-        QCOMPARE(filter.getExtractShift('D'), 0u);
-        QCOMPARE(filter.getExtractBits('D'), 4u);
-        QCOMPARE(filter.extractData(0xff, 'D'), 0xfu);
-        QCOMPARE(filter.extractData(0xf0, 'D'), 0x0u);
-        QCOMPARE(filter.extractData(0x0f, 'D'), 0xfu);
+        QCOMPARE(fc.extractMask, 0xfu);
+        QCOMPARE(fc.extractShift, static_cast<u8>(0u));
+        QCOMPARE(fc.extractBits, static_cast<u8>(4u));
+        QCOMPARE(filter.extractData(0xff, fc), 0xfu);
+        QCOMPARE(filter.extractData(0xf0, fc), 0x0u);
+        QCOMPARE(filter.extractData(0x0f, fc), 0xfu);
     }
 
     {
         DataFilterExternalCache filter("DDDD100110011001");
+        auto fc = filter.makeCacheEntry('D');
 
-        QCOMPARE(filter.getExtractMask('D'), 0xf000u);
-        QCOMPARE(filter.getExtractShift('D'), 12u);
-        QCOMPARE(filter.getExtractBits('D'), 4u);
-        QCOMPARE(filter.extractData(0x7abc, 'D'), 0x7u);
-        QCOMPARE(filter.extractData(0x0abc, 'D'), 0x0u);
+        QCOMPARE(fc.extractMask, 0xf000u);
+        QCOMPARE(fc.extractShift, static_cast<u8>(12u));
+        QCOMPARE(fc.extractBits,  static_cast<u8>(4u));
+        QCOMPARE(filter.extractData(0x7abc, fc), 0x7u);
+        QCOMPARE(filter.extractData(0x0abc, fc), 0x0u);
     }
 
     {
         DataFilterExternalCache filter("D0001001100110011001100110011001");
+        auto fc = filter.makeCacheEntry('D');
 
-        QCOMPARE(filter.getExtractMask('D'), 0x80000000u);
-        QCOMPARE(filter.getExtractShift('D'), 31u);
-        QCOMPARE(filter.getExtractBits('D'), 1u);
-        QCOMPARE(filter.extractData(0x0, 'D'), 0x0u);
-        QCOMPARE(filter.extractData(0xf0123456, 'D'), 0x1u);
-        QCOMPARE(filter.extractData(0x70123456, 'D'), 0x0u);
+        QCOMPARE(fc.extractMask, 0x80000000u);
+        QCOMPARE(fc.extractShift, static_cast<u8>(31u));
+        QCOMPARE(fc.extractBits,  static_cast<u8>(1u));
+        QCOMPARE(filter.extractData(0x0, fc), 0x0u);
+        QCOMPARE(filter.extractData(0xf0123456, fc), 0x1u);
+        QCOMPARE(filter.extractData(0x70123456, fc), 0x0u);
     }
 
     {
         DataFilterExternalCache filter("0000100110011001100110011001100D");
+        auto fc = filter.makeCacheEntry('D');
 
-        QCOMPARE(filter.getExtractMask('D'), 0x00000001u);
-        QCOMPARE(filter.getExtractShift('D'), 0u);
-        QCOMPARE(filter.getExtractBits('D'), 1u);
-        QCOMPARE(filter.extractData(0x0, 'D'), 0x0u);
-        QCOMPARE(filter.extractData(0xf012345f, 'D'), 0x1u);
+        QCOMPARE(fc.extractMask, 0x00000001u);
+        QCOMPARE(fc.extractShift, static_cast<u8>(0u));
+        QCOMPARE(fc.extractBits,  static_cast<u8>(1u));
+        QCOMPARE(filter.extractData(0x0, fc), 0x0u);
+        QCOMPARE(filter.extractData(0xf012345f, fc), 0x1u);
     }
 
     // should be case insensitive
     {
         DataFilterExternalCache filter("11XXDDDD");
+        auto fc = filter.makeCacheEntry('D');
 
-        QCOMPARE(filter.getExtractMask('d'), 0xfu);
-        QCOMPARE(filter.getExtractShift('d'), 0u);
-        QCOMPARE(filter.getExtractBits('d'), 4u);
-        QCOMPARE(filter.extractData(0xff, 'd'), 0xfu);
-        QCOMPARE(filter.extractData(0xf0, 'd'), 0x0u);
-        QCOMPARE(filter.extractData(0x0f, 'd'), 0xfu);
+        QCOMPARE(fc.extractMask, 0xfu);
+        QCOMPARE(fc.extractShift, static_cast<u8>(0u));
+        QCOMPARE(fc.extractBits,  static_cast<u8>(4u));
+        QCOMPARE(filter.extractData(0xff, fc), 0xfu);
+        QCOMPARE(filter.extractData(0xf0, fc), 0x0u);
+        QCOMPARE(filter.extractData(0x0f, fc), 0xfu);
     }
 
     //
@@ -136,32 +138,40 @@ void TestDataFilterExternalCache::test_extract_data_()
     //
     {
         DataFilterExternalCache filter("11XXDDDX");
-        QCOMPARE(filter.needGather('d'), false);
+        auto fc = filter.makeCacheEntry('D');
+        QCOMPARE(fc.needGather, false);
     }
 
     {
         DataFilterExternalCache filter("11XXDXDX");
-        QCOMPARE(filter.needGather('d'), true);
-        QCOMPARE(filter.getExtractBits('d'), 2u);
-        QCOMPARE(filter.extractData(0b00000000u, 'd'), 0u);
-        QCOMPARE(filter.extractData(0b11001010u, 'd'), 3u);
-        QCOMPARE(filter.extractData(0b11111111u, 'd'), 3u);
-        QCOMPARE(filter.extractData(0b11111000u, 'd'), 2u);
+        auto fc = filter.makeCacheEntry('D');
+        QCOMPARE(fc.needGather, true);
+        QCOMPARE(fc.extractBits, static_cast<u8>(2u));
+        QCOMPARE(filter.extractData(0b00000000u, fc), 0u);
+        QCOMPARE(filter.extractData(0b11001010u, fc), 3u);
+        QCOMPARE(filter.extractData(0b11111111u, fc), 3u);
+        QCOMPARE(filter.extractData(0b11111000u, fc), 2u);
     }
 
     {
-        DataFilterExternalCache filter(makeFilterFromString("0000 XXXA XXXX XXAA AAAA DDDD DDDD DDDD"));
+        DataFilterExternalCache filter("0000 XXXA XXXX XXAA AAAA DDDD DDDD DDDD");
         // mask for A:                          0000 0001 0000 0011 1111 0000 0000 0000
         // sample dataWord:   0x010006fe  ->    0000 0001 0000 0000 0000 0110 1111 1110
+        // masked:                                      1
+        // after shift down and gather:                                        100 0000
 
-        //QCOMPARE(filter.needGather('d'), false);
-        //QCOMPARE(filter.needGather('a'), true);
+        auto fcD = filter.makeCacheEntry('D');
+        auto fcA = filter.makeCacheEntry('A');
+
+        QCOMPARE(fcD.needGather, false);
+        QCOMPARE(fcA.needGather, true);
 
         u32 dataWord = 0x010006fe;
-        QCOMPARE(filter.extractData(dataWord, 'a'), 1u << 6);
-        QCOMPARE(filter.extractData(dataWord, 'a'), 1u << 6);
+        QCOMPARE(filter.extractData(dataWord, fcA), 1u << 6);
+        QCOMPARE(filter.extractData(dataWord, fcA), 1u << 6);
     }
 
+#if 0
     //
     // gather tests - MultiWordDataFilter
     //

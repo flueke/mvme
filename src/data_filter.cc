@@ -267,7 +267,10 @@ static inline QByteArray remove_spaces(const QByteArray input)
 DataFilterExternalCache::DataFilterExternalCache(const QByteArray &filterRaw, s32 wordIndex)
     : m_matchWordIndex(wordIndex)
 {
+#if DATA_FILTER_DEBUG
     qDebug() << __PRETTY_FUNCTION__ << filterRaw << "begin";
+#endif
+
     QByteArray filter = remove_spaces(filterRaw);
 
     if (filter.size() > FilterSize)
@@ -275,20 +278,25 @@ DataFilterExternalCache::DataFilterExternalCache(const QByteArray &filterRaw, s3
 
     m_filter.fill('X');
 
-    // FIXME: need to fix the ordering
-
-    for (s32 i=0; i<filter.size(); ++i)
+    for (s32 is=filter.size()-1, id=0;
+         is >= 0;
+         --is, ++id)
     {
-        m_filter[i] = filter[i];
+        m_filter[id] = filter[is];
     }
 
     compile();
+#if DATA_FILTER_DEBUG
     qDebug() << __PRETTY_FUNCTION__ << filterRaw << "end";
+#endif
 }
 
 void DataFilterExternalCache::compile()
 {
+#if DATA_FILTER_DEBUG
     qDebug() << __PRETTY_FUNCTION__ << "begin";
+#endif
+
     m_matchMask  = 0;
     m_matchValue = 0;
 
@@ -302,11 +310,16 @@ void DataFilterExternalCache::compile()
         if (c == '1' || c == 1)
             m_matchValue |= 1 << i;
 
+#if DATA_FILTER_DEBUG
         qDebug() << __PRETTY_FUNCTION__ << "c" << c;
         qDebug() << __PRETTY_FUNCTION__ << "mask" << m_matchMask;
         qDebug() << __PRETTY_FUNCTION__ << "value" << m_matchValue;
+#endif
     }
+
+#if DATA_FILTER_DEBUG
     qDebug() << __PRETTY_FUNCTION__ << "end";
+#endif
 }
 
 QByteArray DataFilterExternalCache::getFilterString() const
@@ -325,7 +338,7 @@ DataFilterExternalCache::CacheEntry DataFilterExternalCache::makeCacheEntry(char
 
     for (s32 i=0; i<FilterSize; ++i)
     {
-        char c = std::tolower(m_filter[m_filter.size() - i - 1]);
+        char c = std::tolower(m_filter[i]);
 
         if (c == marker)
         {
