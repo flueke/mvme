@@ -33,6 +33,30 @@ message("GIT_VERSION=${GIT_VERSION}")
 message("GIT_VERSION_SHORT=${GIT_VERSION_SHORT}")
 message("GIT_VERSION_TAG=${GIT_VERSION_TAG}")
 
+# External libraries.
+# Note: This was moved up from the src/ subdirectory so that the
+# include_directories() commands have effect both in the src/ and test/
+# subdirectories. Otherwise the find_path() commands would have to be repeated
+# inside test/.
+
+# 3rdparty
+include_directories("${CMAKE_SOURCE_DIR}/3rdparty")
+include_directories("${CMAKE_SOURCE_DIR}/3rdparty/pcg-cpp-0.98/include/")
+
+# qwt
+find_path(QWT_INCLUDE_DIR
+    NAMES qwt_plot.h
+    PATH_SUFFIXES qwt qwt-qt5 qwt-6.1.3)
+
+find_library(QWT_LIBRARY NAMES qwt qwt-qt5)
+include_directories(${QWT_INCLUDE_DIR})
+#include(FindPackageHandleStandardArgs)
+#find_package_handle_standard_args(Qwt DEFAULT_MSG QWT_LIBRARY QWT_INCLUDE_DIR)
+
+message("Using QWT_INCLUDE_DIR=${QWT_INCLUDE_DIR}")
+message("Using QWT_LIBRARY=${QWT_LIBRARY}")
+
+
 # Subdirectories containing build targets
 add_subdirectory(src)
 add_subdirectory(extras)

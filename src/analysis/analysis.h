@@ -692,6 +692,48 @@ class LIBMVME_EXPORT Sum: public BasicOperator
         bool m_calculateMean = false;
 };
 
+class LIBMVME_EXPORT AggregateOps: public BasicOperator
+{
+    Q_OBJECT
+    public:
+        enum Operation
+        {
+            Op_Sum,
+            Op_Mean,
+            Op_Sigma,
+            Op_Min,
+            Op_Max,
+            Op_Multiplicity,
+
+            NumOps
+        };
+
+        AggregateOps(QObject *parent = 0);
+
+        virtual void beginRun(const RunInfo &runInfo) override;
+        virtual void step() override;
+
+        virtual void read(const QJsonObject &json) override;
+        virtual void write(QJsonObject &json) const override;
+
+        virtual QString getDisplayName() const override;
+        virtual QString getShortName() const override;
+
+        void setOperation(Operation op);
+        Operation getOperation() const;
+
+        void setMinThreshold(double t);
+        double getMinThreshold() const;
+
+        void setMaxThreshold(double t);
+        double getMaxThreshold() const;
+
+    private:
+        Operation m_op = Op_Sum;
+        double m_minThreshold = make_quiet_nan();
+        double m_maxThreshold = make_quiet_nan();
+};
+
 /**
  * Map elements of one or more input arrays to an output array.
  *

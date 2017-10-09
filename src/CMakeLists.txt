@@ -26,29 +26,12 @@ find_package(Qt5Gui REQUIRED)
 find_package(Qt5Network REQUIRED)
 find_package(Qt5Widgets REQUIRED)
 
-# 3rdparty
-include_directories("${CMAKE_SOURCE_DIR}/3rdparty")
-include_directories("${CMAKE_SOURCE_DIR}/3rdparty/pcg-cpp-0.98/include/")
-
 # quazip
 find_path(QUAZIP_INCLUDE_DIR
     NAMES quazip.h
     PATH_SUFFIXES quazip quazip-qt5 quazip5)
 find_library(QUAZIP_QT5 NAMES quazip quazip-qt5 quazip5)
 include_directories(${QUAZIP_INCLUDE_DIR})
-
-# qwt
-find_path(QWT_INCLUDE_DIR
-    NAMES qwt_plot.h
-    PATH_SUFFIXES qwt qwt-qt5 qwt-6.1.3)
-
-find_library(QWT_LIBRARY NAMES qwt qwt-qt5)
-include_directories(${QWT_INCLUDE_DIR})
-#include(FindPackageHandleStandardArgs)
-#find_package_handle_standard_args(Qwt DEFAULT_MSG QWT_LIBRARY QWT_INCLUDE_DIR)
-
-message("Using QWT_INCLUDE_DIR=${QWT_INCLUDE_DIR}")
-message("Using QWT_LIBRARY=${QWT_LIBRARY}")
 
 # libusb-0.1
 if (WIN32)

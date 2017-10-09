@@ -1197,6 +1197,318 @@ void Sum::write(QJsonObject &json) const
 }
 
 //
+// AggregateOperations
+//
+
+static QString aggregateOp_to_string(AggregateOps::Operation op)
+{
+    switch (op)
+    {
+        case AggregateOps::Op_Sum:
+            return QSL("sum");
+        case AggregateOps::Op_Mean:
+            return QSL("mean");
+        case AggregateOps::Op_Sigma:
+            return QSL("sigma");
+        case AggregateOps::Op_Min:
+            return QSL("min");
+        case AggregateOps::Op_Max:
+            return QSL("max");
+        case AggregateOps::Op_Multiplicity:
+            return QSL("multiplicity");
+        case AggregateOps::NumOps:
+            break;
+    }
+    return {};
+}
+
+static AggregateOps::Operation aggregateOp_from_string(const QString &str)
+{
+    if (str == QSL("sum"))
+        return AggregateOps::Op_Sum;
+
+    if (str == QSL("mean"))
+        return AggregateOps::Op_Mean;
+
+    if (str == QSL("sigma"))
+        return AggregateOps::Op_Sigma;
+
+    if (str == QSL("min"))
+        return AggregateOps::Op_Min;
+
+    if (str == QSL("max"))
+        return AggregateOps::Op_Max;
+
+    if (str == QSL("multiplicity"))
+        return AggregateOps::Op_Multiplicity;
+
+    return AggregateOps::Op_Sum;
+}
+
+AggregateOps::AggregateOps(QObject *parent)
+    : BasicOperator(parent)
+{
+    m_inputSlot.acceptedInputTypes = InputType::Array;
+}
+
+void AggregateOps::beginRun(const RunInfo &runInfo)
+{
+    auto &out(m_output.getParameters());
+
+    if (m_inputSlot.inputPipe)
+    {
+        const auto &in(m_inputSlot.inputPipe->getParameters());
+
+        out.resize(1);
+        out.name = objectName();
+        out.unit = in.unit;
+
+        double lowerBound = 0.0;
+        double upperBound = 0.0;
+
+        if (m_op == Op_Multiplicity)
+        {
+            lowerBound = 0.0;
+            upperBound = in.size();
+        }
+        else if (m_op == Op_Sigma || m_op == Op_Min || m_op == Op_Max)
+        {
+            double llMin = std::numeric_limits<double>::max();
+            double ulMax = std::numeric_limits<double>::lowest();
+
+            for (s32 i = 0; i < in.size(); ++i)
+            {
+                const auto &param(in[i]);
+
+                llMin = std::min(llMin, std::min(param.lowerLimit, param.upperLimit));
+                ulMax = std::max(ulMax, std::max(param.lowerLimit, param.upperLimit));
+            }
+
+            if (m_op == Op_Sigma)
+            {
+                lowerBound = 0.0;
+                upperBound = std::sqrt(ulMax - llMin);
+            }
+            else
+            {
+                lowerBound = llMin;
+                upperBound = ulMax;
+            }
+        }
+        else // sum and mean
+        {
+            for (s32 i = 0; i < in.size(); ++i)
+            {
+                const auto &param(in[i]);
+
+                lowerBound += std::min(param.lowerLimit, param.upperLimit);
+                upperBound += std::max(param.lowerLimit, param.upperLimit);
+            }
+
+            if (m_op == Op_Mean)
+            {
+                lowerBound /= in.size();
+                upperBound /= in.size();
+            }
+        }
+
+        out[0].lowerLimit = std::min(lowerBound, upperBound);
+        out[0].upperLimit = std::max(lowerBound, upperBound);
+    }
+    else
+    {
+        out.resize(0);
+        out.name = QString();
+        out.unit = QString();
+    }
+}
+
+void AggregateOps::step()
+{
+    auto is_valid = [](const auto param, double tmin, double tmax)
+    {
+        if (!param.valid)
+            return false;
+
+        if (!std::isnan(tmin) && param.value < tmin)
+            return false;
+
+        if (!std::isnan(tmax) && param.value > tmax)
+            return false;
+
+        return true;
+    };
+
+    if (!m_inputSlot.inputPipe)
+        return;
+
+    auto &outParam(m_output.getParameters()[0]);
+    const auto &in(m_inputSlot.inputPipe->getParameters());
+
+    if (m_op == Op_Min)
+    {
+        outParam.value = std::numeric_limits<double>::max();
+    }
+    else if (m_op == Op_Max)
+    {
+        outParam.value = std::numeric_limits<double>::lowest();
+    }
+    else
+    {
+        outParam.value = 0.0;
+    }
+
+    outParam.valid = false;
+    u32 validCount = 0;
+
+    for (s32 i = 0; i < in.size(); ++i)
+    {
+        const auto &inParam(in[i]);
+
+        if (is_valid(inParam, m_minThreshold, m_maxThreshold))
+        {
+            ++validCount;
+
+            if (m_op == Op_Sum || m_op == Op_Mean || m_op == Op_Sigma)
+            {
+                outParam.value += inParam.value;
+            }
+            else if (m_op == Op_Min)
+            {
+                outParam.value = std::min(outParam.value, inParam.value);
+            }
+            else if (m_op == Op_Max)
+            {
+                outParam.value = std::max(outParam.value, inParam.value);
+            }
+        }
+    }
+
+    outParam.valid = (validCount > 0);
+
+    if ((m_op == Op_Mean || m_op == Op_Sigma) && outParam.valid)
+    {
+        outParam.value /= validCount; // mean
+
+        if (m_op == Op_Sigma && outParam.value != 0.0)
+        {
+            double mu = outParam.value;
+            double sigma = 0.0;
+
+            for (s32 i = 0; i < in.size(); ++i)
+            {
+                const auto &inParam(in[i]);
+                if (is_valid(inParam, m_minThreshold, m_maxThreshold))
+                {
+                    double d = inParam.value - mu;
+                    d *= d;
+                    sigma += d;
+                }
+            }
+            sigma = std::sqrt(sigma / validCount);
+            outParam.value = sigma;
+        }
+    }
+    else if (m_op == Op_Multiplicity)
+    {
+        outParam.value = validCount;
+        outParam.valid = true;
+    }
+}
+
+void AggregateOps::read(const QJsonObject &json)
+{
+    m_op = aggregateOp_from_string(json["operation"].toString());
+    m_minThreshold = json["minThreshold"].toDouble(make_quiet_nan());
+    m_maxThreshold = json["maxThreshold"].toDouble(make_quiet_nan());
+}
+
+void AggregateOps::write(QJsonObject &json) const
+{
+    json["operation"] = aggregateOp_to_string(m_op);
+    json["minThreshold"] = m_minThreshold;
+    json["maxThreshold"] = m_maxThreshold;
+}
+
+QString AggregateOps::getDisplayName() const
+{
+#if 0
+    switch (m_op)
+    {
+        case Op_Sum:
+            return QSL("Aggregate Sum");
+        case Op_Mean:
+            return QSL("Aggregate Mean");
+        case Op_Sigma:
+            return QSL("Aggregate Sigma");
+        case Op_Min:
+            return QSL("Aggregate Min");
+        case Op_Max:
+            return QSL("Aggregate Max");
+        case Op_Multiplicity:
+            return QSL("Aggregate Multiplicity");
+        case AggregateOps::NumOps:
+            break;
+    }
+    return QString();
+#else
+    return QSL("Aggregate Operations");
+#endif
+}
+
+QString AggregateOps::getShortName() const
+{
+    switch (m_op)
+    {
+        case Op_Sum:
+            return QSL("Sum");
+        case Op_Mean:
+            return QSL("Mean");
+        case Op_Sigma:
+            return QSL("Sigma");
+        case Op_Min:
+            return QSL("Min");
+        case Op_Max:
+            return QSL("Max");
+        case Op_Multiplicity:
+            return QSL("Multi");
+        case AggregateOps::NumOps:
+            break;
+    }
+    return QString();
+}
+
+void AggregateOps::setOperation(Operation op)
+{
+    m_op = op;
+}
+
+AggregateOps::Operation AggregateOps::getOperation() const
+{
+    return m_op;
+}
+
+void AggregateOps::setMinThreshold(double t)
+{
+    m_minThreshold = t;
+}
+
+double AggregateOps::getMinThreshold() const
+{
+    return m_minThreshold;
+}
+
+void AggregateOps::setMaxThreshold(double t)
+{
+    m_maxThreshold = t;
+}
+
+double AggregateOps::getMaxThreshold() const
+{
+    return m_maxThreshold;
+}
+
+//
 // ArrayMap
 //
 ArrayMap::ArrayMap(QObject *parent)
@@ -2309,6 +2621,7 @@ Analysis::Analysis(QObject *parent)
     m_registry.registerOperator<ConditionFilter>();
     m_registry.registerOperator<RectFilter2D>();
     m_registry.registerOperator<BinarySumDiff>();
+    m_registry.registerOperator<AggregateOps>();
 
     m_registry.registerSink<Histo1DSink>();
     m_registry.registerSink<Histo2DSink>();

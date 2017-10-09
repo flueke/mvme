@@ -1,12 +1,15 @@
 ==========================
 ==== Do these first! =====
 ==========================
-* DataFilters and Robert's new module:
-  Marker sequences with holes are not allowed right now. What happens is that
-  getDataBits() is used to determine the size of the Extractor's output array.
-  getDataBits() returns the number of set bits in the extractionMask for the
-  given marker. This logic assumes that there are no holes in the marker
-  sequence!
+
+* Analysis: getDisplayName() and getShortName() are not that great. For the
+  AggregateOps operator I'd like to display "Aggregate Operations" in the "add
+  operator" context menu instead of "sum". Where else is getDisplayName() used?
+
+
+
+
+
 
 
 * Add more ways to specify how the listfile filenames should look like.
