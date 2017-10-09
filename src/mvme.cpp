@@ -173,7 +173,9 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     m_d->actionToolSIS3153Debug         = new QAction(QSL("SIS3153 Debug Widget"), this);
     m_d->actionToolAnalysisInfo         = new QAction(QSL("Analysis Info"), this);
 
-    m_d->actionHelpVMEScript   = new QAction(QIcon(QSL("help.png")), QSL("&VME Script Reference"), this);
+    m_d->actionHelpVMEScript   = new QAction(QIcon(QSL(":/help.png")), QSL("&VME Script Reference"), this);
+    m_d->actionHelpVMEScript->setObjectName(QSL("actionVMEScriptRef"));
+    m_d->actionHelpVMEScript->setIconText(QSL("Script Help"));
     m_d->actionHelpAbout       = new QAction(QIcon(QSL("window_icon.png")), QSL("&About mvme"), this);
     m_d->actionHelpAboutQt     = new QAction(QSL("About &Qt"), this);
     m_d->actionHelpUpdateCheck = new QAction(QSL("Check for updates"), this);
