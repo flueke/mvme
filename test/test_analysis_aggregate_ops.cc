@@ -3,8 +3,12 @@
 #include "analysis/analysis.h"
 
 using namespace analysis;
+using DVec  = QVector<double>;
+using DPair = QPair<double, double>;
 
-static ParameterVector make_parameter_vector(const QVector<double> &values, const QPair<double, double> limits)
+Q_DECLARE_METATYPE(AggregateOps::Operation);
+
+static ParameterVector make_parameter_vector(const DVec &values, DPair limits)
 {
     ParameterVector result;
 
@@ -22,46 +26,84 @@ static ParameterVector make_parameter_vector(const QVector<double> &values, cons
     return result;
 }
 
-void TestAggregateOps::test_sum()
+void TestAggregateOps::test_all_ops_data()
 {
-    const QVector<double> values = { 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0 };
-    const QPair<double, double> limits(qMakePair(0.0, 10.0));
+    QTest::addColumn<AggregateOps::Operation>("in_operation");
+    QTest::addColumn<DVec>("in_values");
+    QTest::addColumn<DPair>("in_limits");
+    QTest::addColumn<bool>("out_valid");
+    QTest::addColumn<DPair>("out_limits");
+    QTest::addColumn<double>("out_value");
 
-    Pipe inputPipe;
-    inputPipe.parameters = make_parameter_vector(values, limits);
+    DVec values { 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0 };
 
-    AggregateOps op;
-    op.setOperation(AggregateOps::Op_Sum);
+    QTest::newRow("sum: 1..10 no thresholds")
+        << AggregateOps::Op_Sum
+        << values
+        << qMakePair(0.0, 10.0)
+        << true
+        << qMakePair(0.0, 100.0)  // 10 times max value of 10.0
+        << std::accumulate(values.begin(), values.end(), 0.0)
+    ;
 
-    Slot *inputSlot = op.getSlot(0);
-    inputSlot->connectPipe(&inputPipe, Slot::NoParamIndex);
+    QTest::newRow("mean: 1..10 no thresholds")
+        << AggregateOps::Op_Mean
+        << values
+        << qMakePair(0.0, 10.0)
+        << true
+        << qMakePair(0.0, 10.0)
+        << std::accumulate(values.begin(), values.end(), 0.0) / values.size()
+    ;
 
-    op.beginRun({});
+    QTest::newRow("sigma: 1..10 no thresholds")
+        << AggregateOps::Op_Sigma
+        << values
+        << qMakePair(0.0, 10.0)
+        << true
+        << qMakePair(0.0, std::sqrt(10.0))
+        << 2.872281323269
+    ;
 
-    Pipe *output = op.getOutput(0);
-    QCOMPARE(output->getSize(), 1);
+    QTest::newRow("min: 1..10 no thresholds")
+        << AggregateOps::Op_Min
+        << values
+        << qMakePair(0.0, 10.0)
+        << true
+        << qMakePair(0.0, 10.0)
+        << 1.0
+    ;
 
-    op.step();
-    auto p = output->parameters[0];
-    QVERIFY(p.valid);
-    QCOMPARE(p.lowerLimit, limits.first);
-    QCOMPARE(p.upperLimit, 100.0); // 10 times max value of 10.0
-    QCOMPARE(p.value, std::accumulate(values.begin(), values.end(), 0.0));
+    QTest::newRow("max: 1..10 no thresholds")
+        << AggregateOps::Op_Max
+        << values
+        << qMakePair(0.0, 10.0)
+        << true
+        << qMakePair(0.0, 10.0)
+        << 10.0
+    ;
+
+    QTest::newRow("mult: 1..10 no thresholds")
+        << AggregateOps::Op_Multiplicity
+        << values
+        << qMakePair(0.0, 10.0)
+        << true
+        << qMakePair(0.0, 10.0)
+        << 10.0
+    ;
 }
 
-void TestAggregateOps::test_mean()
+void TestAggregateOps::test_all_ops()
 {
-    const QVector<double> values = { 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0 };
-    const QPair<double, double> limits(qMakePair(0.0, 10.0));
+    QFETCH(AggregateOps::Operation, in_operation);
+    QFETCH(DVec, in_values);
+    QFETCH(DPair, in_limits);
 
     Pipe inputPipe;
-    inputPipe.parameters = make_parameter_vector(values, limits);
+    inputPipe.parameters = make_parameter_vector(in_values, in_limits);
 
     AggregateOps op;
-    op.setOperation(AggregateOps::Op_Mean);
-
-    Slot *inputSlot = op.getSlot(0);
-    inputSlot->connectPipe(&inputPipe, Slot::NoParamIndex);
+    op.setOperation(in_operation);
+    op.getSlot(0)->connectPipe(&inputPipe, Slot::NoParamIndex);
 
     op.beginRun({});
 
@@ -69,120 +111,11 @@ void TestAggregateOps::test_mean()
     QCOMPARE(output->getSize(), 1);
 
     op.step();
+
     auto p = output->parameters[0];
-    QVERIFY(p.valid);
-    QCOMPARE(p.lowerLimit, limits.first);
-    QCOMPARE(p.upperLimit, limits.second);
-    QCOMPARE(p.value, std::accumulate(values.begin(), values.end(), 0.0) / values.size());
-}
-
-void TestAggregateOps::test_sigma()
-{
-    const QVector<double> values = { 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0 };
-    const QPair<double, double> limits(qMakePair(0.0, 10.0));
-    const double sigma = 2.872281323269;
-
-    Pipe inputPipe;
-    inputPipe.parameters = make_parameter_vector(values, limits);
-
-    AggregateOps op;
-    op.setOperation(AggregateOps::Op_Sigma);
-
-    Slot *inputSlot = op.getSlot(0);
-    inputSlot->connectPipe(&inputPipe, Slot::NoParamIndex);
-
-    op.beginRun({});
-
-    Pipe *output = op.getOutput(0);
-    QCOMPARE(output->getSize(), 1);
-
-    op.step();
-    auto p = output->parameters[0];
-    QVERIFY(p.valid);
-    QCOMPARE(p.lowerLimit, 0.0);
-    QCOMPARE(p.upperLimit, std::sqrt(10.0));
-    QCOMPARE(p.value, sigma);
-}
-
-void TestAggregateOps::test_min()
-{
-    const QVector<double> values = { 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0 };
-    const QPair<double, double> limits(qMakePair(0.0, 10.0));
-
-    Pipe inputPipe;
-    inputPipe.parameters = make_parameter_vector(values, limits);
-
-    AggregateOps op;
-    op.setOperation(AggregateOps::Op_Min);
-
-    Slot *inputSlot = op.getSlot(0);
-    inputSlot->connectPipe(&inputPipe, Slot::NoParamIndex);
-
-    op.beginRun({});
-
-    Pipe *output = op.getOutput(0);
-    QCOMPARE(output->getSize(), 1);
-
-    op.step();
-    auto p = output->parameters[0];
-    QVERIFY(p.valid);
-    QCOMPARE(p.lowerLimit, 0.0);
-    QCOMPARE(p.upperLimit, 10.0);
-    QCOMPARE(p.value, 1.0);
-}
-
-void TestAggregateOps::test_max()
-{
-    const QVector<double> values = { 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0 };
-    const QPair<double, double> limits(qMakePair(0.0, 10.0));
-
-    Pipe inputPipe;
-    inputPipe.parameters = make_parameter_vector(values, limits);
-
-    AggregateOps op;
-    op.setOperation(AggregateOps::Op_Max);
-
-    Slot *inputSlot = op.getSlot(0);
-    inputSlot->connectPipe(&inputPipe, Slot::NoParamIndex);
-
-    op.beginRun({});
-
-    Pipe *output = op.getOutput(0);
-    QCOMPARE(output->getSize(), 1);
-
-    op.step();
-    auto p = output->parameters[0];
-    QVERIFY(p.valid);
-    QCOMPARE(p.lowerLimit, 0.0);
-    QCOMPARE(p.upperLimit, 10.0);
-    QCOMPARE(p.value, 10.0);
-}
-
-void TestAggregateOps::test_multiplicity()
-{
-    const QVector<double> values = { 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0 };
-    const QPair<double, double> limits(qMakePair(0.0, 10.0));
-
-    Pipe inputPipe;
-    inputPipe.parameters = make_parameter_vector(values, limits);
-
-    AggregateOps op;
-    op.setOperation(AggregateOps::Op_Multiplicity);
-
-    Slot *inputSlot = op.getSlot(0);
-    inputSlot->connectPipe(&inputPipe, Slot::NoParamIndex);
-
-    op.beginRun({});
-
-    Pipe *output = op.getOutput(0);
-    QCOMPARE(output->getSize(), 1);
-
-    op.step();
-    auto p = output->parameters[0];
-    QVERIFY(p.valid);
-    QCOMPARE(p.lowerLimit, 0.0);
-    QCOMPARE(p.upperLimit, 10.0);
-    QCOMPARE(p.value, 10.0);
+    QTEST(p.valid, "out_valid");
+    QTEST(qMakePair(p.lowerLimit, p.upperLimit), "out_limits");
+    QTEST(p.value, "out_value");
 }
 
 QTEST_MAIN(TestAggregateOps)

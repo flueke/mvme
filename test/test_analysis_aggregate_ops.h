@@ -10,12 +10,8 @@ class TestAggregateOps: public QObject
         virtual ~TestAggregateOps() {}
 
     private slots:
-        void test_sum();
-        void test_mean();
-        void test_sigma();
-        void test_min();
-        void test_max();
-        void test_multiplicity();
+        void test_all_ops_data();
+        void test_all_ops();
 };
 
 #endif /* __TEST_ANALYSIS_AGGREGATE_OPS_H__ */
