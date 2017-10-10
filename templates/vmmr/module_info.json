@@ -1,0 +1,6 @@
+{
+    "typeId"        : 9,
+    "typeName"      : "vmmr",
+    "displayName"   : "VMMR",
+    "eventHeaderFilter" : "0100XFIXMEFIXMEFIXMEXXSSSSSSSSSS"
+}
