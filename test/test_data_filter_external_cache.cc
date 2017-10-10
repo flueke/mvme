@@ -192,4 +192,11 @@ void TestDataFilterExternalCache::test_extract_data_()
 #endif
 }
 
+void TestDataFilterExternalCache::test_get_filter_string()
+{
+    DataFilterExternalCache filter("1111XXXX0000XXXX");
+    QCOMPARE(filter.getFilterString(), QByteArray("XXXXXXXXXXXXXXXX1111XXXX0000XXXX"));
+
+}
+
 QTEST_MAIN(TestDataFilterExternalCache)

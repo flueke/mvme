@@ -12,6 +12,7 @@ class TestDataFilterExternalCache: public QObject
     private slots:
         void test_match_mask_and_value();
         void test_extract_data_();
+        void test_get_filter_string();
 };
 
 #endif /* __TEST_DATA_FILTER_EXTERNAL_CACHE_H__ */
