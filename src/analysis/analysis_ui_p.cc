@@ -1311,8 +1311,9 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
 
     if (!le_name->text().isEmpty() && op->getNumberOfOutputs() > 0 && all_inputs_connected(op) && !wasNameEdited)
     {
+        // XXX: leftoff here TODO: use the currently selected operations name
+        // as the suffix (currently it always says 'sum')
 #if 0
-        // XXX: leftoff here
         if (auto aggOp = qobject_cast<AggregateOps *>(op))
         {
 
@@ -1660,6 +1661,15 @@ void OperatorConfigurationWidget::configureOperator()
         binOp->setOutputUnitLabel(le_unit->text());
         binOp->setOutputLowerLimit(spin_outputLowerLimit->value());
         binOp->setOutputUpperLimit(spin_outputUpperLimit->value());
+    }
+    else if (auto aggOp = qobject_cast<AggregateOps *>(op))
+    {
+        aggOp->setOperation(static_cast<AggregateOps::Operation>(combo_aggOp->currentData().toInt()));
+        double minT = spin_minThreshold->value();
+        aggOp->setMinThreshold(minT == spin_minThreshold->minimum() ? make_quiet_nan() : minT);
+        double maxT = spin_maxThreshold->value();
+        aggOp->setMaxThreshold(maxT == spin_maxThreshold->minimum() ? make_quiet_nan() : maxT);
+        aggOp->setOutputUnitLabel(le_unit->text());
     }
 }
 
