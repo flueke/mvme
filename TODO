@@ -6,11 +6,8 @@
   AggregateOps operator I'd like to display "Aggregate Operations" in the "add
   operator" context menu instead of "sum". Where else is getDisplayName() used?
 
-
-
-
-
-
+* Print CFLAGS and build type on CMake run
+* Include CFLAGS and build type and git branch name in binary
 
 * Add more ways to specify how the listfile filenames should look like.
   run number, prefix, etc
