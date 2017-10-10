@@ -1135,6 +1135,69 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
         formLayout->addRow(QSL("Output Upper Limit"), spin_outputUpperLimit);
         formLayout->addRow(QSL("Equation"), combo_equation);
     }
+    else if (auto aggOp = qobject_cast<AggregateOps *>(op))
+    {
+        combo_aggOp = new QComboBox();
+        for (s32 i = 0; i < AggregateOps::NumOps; ++i)
+        {
+            combo_aggOp->addItem(AggregateOps::getOperationName(
+                    static_cast<AggregateOps::Operation>(i)), i);
+        }
+        combo_aggOp->setCurrentIndex(static_cast<s32>(aggOp->getOperation()));
+
+        le_unit = new QLineEdit;
+        le_unit->setText(aggOp->getOutputUnitLabel());
+
+        spin_minThreshold = new QDoubleSpinBox;
+        spin_maxThreshold = new QDoubleSpinBox;
+
+        for (auto spin: { spin_minThreshold, spin_maxThreshold })
+        {
+            spin->setDecimals(8);
+            spin->setMinimum(-1e20);
+            spin->setMaximum(+1e20);
+            spin->setValue(spin->minimum());
+            spin->setSpecialValueText(QSL("none"));
+        }
+
+        double minT = aggOp->getMinThreshold();
+        if (!std::isnan(minT))
+            spin_minThreshold->setValue(minT);
+
+        double maxT = aggOp->getMaxThreshold();
+        if (!std::isnan(maxT))
+            spin_minThreshold->setValue(maxT);
+
+        auto pb_clearMinT = new QPushButton(QIcon(":/text_field_clear.png"), QSL(""));
+        pb_clearMinT->setToolTip(QSL("Reset"));
+        connect(pb_clearMinT, &QPushButton::clicked, this, [this] {
+            spin_minThreshold->setValue(spin_minThreshold->minimum());
+        });
+
+        auto pb_clearMaxT = new QPushButton(QIcon(":/text_field_clear.png"), QSL(""));
+        pb_clearMaxT->setToolTip(QSL("Reset"));
+        connect(pb_clearMaxT, &QPushButton::clicked, this, [this] {
+            spin_maxThreshold->setValue(spin_maxThreshold->minimum());
+        });
+
+        auto minTLayout = new QHBoxLayout;
+        minTLayout->setContentsMargins(0, 0, 0, 0);
+        minTLayout->setSpacing(2);
+        minTLayout->addWidget(spin_minThreshold);
+        minTLayout->addWidget(pb_clearMinT);
+
+        auto maxTLayout = new QHBoxLayout;
+        maxTLayout->setContentsMargins(0, 0, 0, 0);
+        maxTLayout->setSpacing(2);
+        maxTLayout->addWidget(spin_maxThreshold);
+        maxTLayout->addWidget(pb_clearMaxT);
+
+        formLayout->addRow(QSL("Operation"), combo_aggOp);
+        formLayout->addRow(QSL("Threshold Min"), minTLayout);
+        formLayout->addRow(QSL("Threshold Max"), maxTLayout);
+        formLayout->addRow(QSL("Output Unit"), le_unit);
+        formLayout->addRow(new QLabel(QSL("Leave output unit blank to copy from input.")));
+    }
 }
 
 #if 0
@@ -1248,13 +1311,23 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
 
     if (!le_name->text().isEmpty() && op->getNumberOfOutputs() > 0 && all_inputs_connected(op) && !wasNameEdited)
     {
-        // Append the lowercase short name for non sinks
-        auto suffix = QSL(".") + op->getShortName().toLower();
-        auto name = le_name->text();
-        if (!name.endsWith(suffix))
+#if 0
+        // XXX: leftoff here
+        if (auto aggOp = qobject_cast<AggregateOps *>(op))
         {
-            name += suffix;
-            le_name->setText(name);
+
+        }
+        else
+#endif
+        {
+            // Append the lowercase short name for non sinks
+            auto suffix = QSL(".") + op->getShortName().toLower();
+            auto name = le_name->text();
+            if (!name.endsWith(suffix))
+            {
+                name += suffix;
+                le_name->setText(name);
+            }
         }
     }
 

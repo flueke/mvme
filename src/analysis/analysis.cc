@@ -1421,6 +1421,7 @@ void AggregateOps::read(const QJsonObject &json)
     m_op = aggregateOp_from_string(json["operation"].toString());
     m_minThreshold = json["minThreshold"].toDouble(make_quiet_nan());
     m_maxThreshold = json["maxThreshold"].toDouble(make_quiet_nan());
+    m_outputUnitLabel = json["outputUnitLabel"].toString();
 }
 
 void AggregateOps::write(QJsonObject &json) const
@@ -1428,6 +1429,7 @@ void AggregateOps::write(QJsonObject &json) const
     json["operation"] = aggregateOp_to_string(m_op);
     json["minThreshold"] = m_minThreshold;
     json["maxThreshold"] = m_maxThreshold;
+    json["outputUnitLabel"] = m_outputUnitLabel;
 }
 
 QString AggregateOps::getDisplayName() const
@@ -1506,6 +1508,28 @@ void AggregateOps::setMaxThreshold(double t)
 double AggregateOps::getMaxThreshold() const
 {
     return m_maxThreshold;
+}
+
+QString AggregateOps::getOperationName(Operation op)
+{
+    switch (op)
+    {
+        case Op_Sum:
+            return QSL("Sum");
+        case Op_Mean:
+            return QSL("Mean");
+        case Op_Sigma:
+            return QSL("Sigma");
+        case Op_Min:
+            return QSL("Min");
+        case Op_Max:
+            return QSL("Max");
+        case Op_Multiplicity:
+            return QSL("Multiplicity");
+        case AggregateOps::NumOps:
+            break;
+    }
+    return QString();
 }
 
 //

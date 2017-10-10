@@ -235,6 +235,11 @@ class OperatorConfigurationWidget: public QWidget
         QComboBox *combo_equation;
         QDoubleSpinBox *spin_outputLowerLimit;
         QDoubleSpinBox *spin_outputUpperLimit;
+
+        // AggregateOps
+        QComboBox *combo_aggOp;
+        QDoubleSpinBox *spin_minThreshold,
+                       *spin_maxThreshold;
 };
 
 class PipeDisplay: public QWidget

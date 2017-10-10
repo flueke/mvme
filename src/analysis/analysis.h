@@ -708,6 +708,8 @@ class LIBMVME_EXPORT AggregateOps: public BasicOperator
             NumOps
         };
 
+        static QString getOperationName(Operation op);
+
         AggregateOps(QObject *parent = 0);
 
         virtual void beginRun(const RunInfo &runInfo) override;
@@ -728,10 +730,16 @@ class LIBMVME_EXPORT AggregateOps: public BasicOperator
         void setMaxThreshold(double t);
         double getMaxThreshold() const;
 
+        // The unit label to set on the output. If it's a null string the input
+        // unit label is passed through.
+        void setOutputUnitLabel(const QString &label) { m_outputUnitLabel = label; }
+        QString getOutputUnitLabel() const { return m_outputUnitLabel; }
+
     private:
         Operation m_op = Op_Sum;
         double m_minThreshold = make_quiet_nan();
         double m_maxThreshold = make_quiet_nan();
+        QString m_outputUnitLabel;
 };
 
 /**
