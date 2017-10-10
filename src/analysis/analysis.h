@@ -724,14 +724,16 @@ class LIBMVME_EXPORT AggregateOps: public BasicOperator
         void setOperation(Operation op);
         Operation getOperation() const;
 
+        /* Thresholds to check each input parameter against. If the parameter
+         * is not inside [min_threshold, max_threshold] it is considered
+         * invalid. */
         void setMinThreshold(double t);
         double getMinThreshold() const;
-
         void setMaxThreshold(double t);
         double getMaxThreshold() const;
 
-        // The unit label to set on the output. If it's a null string the input
-        // unit label is passed through.
+        // The unit label to set on the output. If it's an empty string the
+        // input unit label is passed through.
         void setOutputUnitLabel(const QString &label) { m_outputUnitLabel = label; }
         QString getOutputUnitLabel() const { return m_outputUnitLabel; }
 

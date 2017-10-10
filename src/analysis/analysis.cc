@@ -1251,6 +1251,8 @@ AggregateOps::AggregateOps(QObject *parent)
     m_inputSlot.acceptedInputTypes = InputType::Array;
 }
 
+// FIXME: min and max thresholds are not taken into account when calculating
+// the output lower and upper limits!
 void AggregateOps::beginRun(const RunInfo &runInfo)
 {
     auto &out(m_output.getParameters());
@@ -1261,7 +1263,7 @@ void AggregateOps::beginRun(const RunInfo &runInfo)
 
         out.resize(1);
         out.name = objectName();
-        out.unit = in.unit;
+        out.unit = m_outputUnitLabel.isEmpty() ? in.unit : m_outputUnitLabel;
 
         double lowerBound = 0.0;
         double upperBound = 0.0;
