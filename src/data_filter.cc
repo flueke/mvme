@@ -324,7 +324,9 @@ void DataFilterExternalCache::compile()
 
 QByteArray DataFilterExternalCache::getFilterString() const
 {
-    return QByteArray(m_filter.data(), m_filter.size());
+    QByteArray result(m_filter.data(), m_filter.size());
+    std::reverse(result.begin(), result.end());
+    return result;
 }
 
 DataFilterExternalCache::CacheEntry DataFilterExternalCache::makeCacheEntry(char marker) const

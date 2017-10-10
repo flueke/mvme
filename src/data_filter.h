@@ -24,6 +24,7 @@
 #include <QHash>
 #include <QLineEdit>
 #include <QVector>
+#include <x86intrin.h>
 #include "libmvme_export.h"
 #include "typedefs.h"
 #include "util/bits.h"
@@ -269,7 +270,15 @@ class LIBMVME_EXPORT DataFilterExternalCache
             u8 extractBits  = 0;
         };
 
+        /* Construct a filter from the passed in byte array. The filter array
+         * may contain spaces. */
         DataFilterExternalCache(const QByteArray &filter = QByteArray(), s32 wordIndex = -1);
+
+        /* Returns the filter as a QByteArray. Note that this does not return a
+         * copy of the original QByteArray that was passed in but a version
+         * that's padded to 32 characters using the padding character 'X'.
+         * Reason: internally the filter always stored 32 characters no matter
+         * the length of the original filter string and the original length is lost. */
         QByteArray getFilterString() const;
 
         inline u32 getMatchMask() const { return m_matchMask; }
@@ -288,7 +297,8 @@ class LIBMVME_EXPORT DataFilterExternalCache
 
             if (cache.needGather)
             {
-                result = bit_gather(result, cache.extractMask >> cache.extractShift);
+                //result = bit_gather(result, cache.extractMask >> cache.extractShift);
+                result = _pext_u32(result, cache.extractMask >> cache.extractShift);
             }
 
             return result;
