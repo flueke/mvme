@@ -297,8 +297,11 @@ class LIBMVME_EXPORT DataFilterExternalCache
 
             if (cache.needGather)
             {
-                //result = bit_gather(result, cache.extractMask >> cache.extractShift);
+#ifdef __BMI2__
                 result = _pext_u32(result, cache.extractMask >> cache.extractShift);
+#else
+                result = bit_gather(result, cache.extractMask >> cache.extractShift);
+#endif
             }
 
             return result;
