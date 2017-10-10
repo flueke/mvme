@@ -1327,8 +1327,14 @@ void AggregateOps::beginRun(const RunInfo &runInfo)
 
 void AggregateOps::step()
 {
+    // validity check and threshold tests
     auto is_valid = [](const auto param, double tmin, double tmax)
     {
+#if 1
+        return (param.valid
+                && (std::isnan(tmin) || param.value >= tmin)
+                && (std::isnan(tmax) || param.value <= tmax));
+#else
         if (!param.valid)
             return false;
 
@@ -1339,6 +1345,7 @@ void AggregateOps::step()
             return false;
 
         return true;
+#endif
     };
 
     if (!m_inputSlot.inputPipe)
