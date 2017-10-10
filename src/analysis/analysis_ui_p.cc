@@ -508,6 +508,7 @@ void AddEditOperatorWidget::inputSelected(s32 slotIndex)
     }
 
     m_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(enableOkButton);
+    m_buttonBox->button(QDialogButtonBox::Ok)->setFocus();
     m_inputSelectActive = false;
 }
 
