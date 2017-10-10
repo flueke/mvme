@@ -619,14 +619,24 @@ void Histo2DWidget::displayChanged()
 void Histo2DWidget::exportPlot()
 {
     QString fileName;
+    QString title;
+    QString footer;
 
     if (m_histo)
     {
         fileName = m_histo->objectName();
+        title = m_histo->getTitle();
+        footer = m_histo->getFooter();
     }
     else if (m_histo1DSink)
     {
         fileName = m_histo1DSink->objectName();
+        title = windowTitle();
+        // just use the first histograms footer
+        if (auto h1d = m_histo1DSink->m_histos.value(0))
+        {
+            footer = h1d->getFooter();
+        }
     }
     else
     {
@@ -642,8 +652,10 @@ void Histo2DWidget::exportPlot()
         fileName = QDir(m_context->getWorkspacePath(QSL("PlotsDirectory"))).filePath(fileName);
     }
 
-    m_d->m_plot->setTitle(m_histo->getTitle());
-    QwtText footerText(m_histo->getFooter());
+    m_d->m_plot->setTitle(title);
+
+
+    QwtText footerText(footer);
     footerText.setRenderFlags(Qt::AlignLeft);
     m_d->m_plot->setFooter(footerText);
     m_d->m_waterMarkLabel->show();
