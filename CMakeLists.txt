@@ -1,6 +1,21 @@
 cmake_minimum_required(VERSION 3.0.0)
 project(mvme)
 
+set(WARNING_FLAGS "-Wall -Wno-unused-variable -Wno-unused-function")
+
+set(CMAKE_CXX_FLAGS "-std=c++14 -pipe ${WARNING_FLAGS}")
+
+# XXX: testing mbmi2 for pext_u32() in data_filter.cc
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mbmi2")
+
+set(CMAKE_CXX_FLAGS_DEBUG   "-g -Og")
+set(CMAKE_CXX_FLAGS_RELEASE "-DNDEBUG -O3 -march=nocona -mtune=core2")
+set(CMAKE_CXX_FLAGS_PROFILE "-DNDEBUG -O3 -march=nocona -mtune=core2 -pg -fno-omit-frame-pointer")
+# Explicitly set the required c++ standard (CMake >= 3.1)
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+
 ## Create binaries in the root of the build directory
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})

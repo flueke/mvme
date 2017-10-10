@@ -4,20 +4,6 @@
 
 include(GenerateExportHeader)
 
-set(WARNING_FLAGS "-Wall -Wno-unused-variable -Wno-unused-function")
-
-set(CMAKE_CXX_FLAGS "-std=c++14 -pipe ${WARNING_FLAGS}")
-
-# XXX: testing mbmi2 for pext_u32() in data_filter.cc
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mbmi2")
-
-set(CMAKE_CXX_FLAGS_DEBUG   "-g -Og")
-set(CMAKE_CXX_FLAGS_RELEASE "-DNDEBUG -O3 -march=nocona -mtune=core2")
-set(CMAKE_CXX_FLAGS_PROFILE "-DNDEBUG -O3 -march=nocona -mtune=core2 -pg -fno-omit-frame-pointer")
-# Explicitly set the required c++ standard (CMake >= 3.1)
-set(CMAKE_CXX_STANDARD 14)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
