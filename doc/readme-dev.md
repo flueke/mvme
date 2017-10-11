@@ -18,6 +18,12 @@
     $ cmake -DCMAKE_BUILD_TYPE=Debug ../mvme2
     $ make -j4
 
+* To build with Clang use
+    $ export CC=/usr/bin/clang
+    $ export CXX=/usr/bin/clang++
+
+  Then compile as usual.
+
 ## Archlinux packages:
 `cmake qt5-base quazip libusb-compat qwt`
 
@@ -78,7 +84,7 @@ Run mvme using `perf record -g ./mvme`.
 * `perf report -g`
 * `perf report -g 'graph,0.5,caller'`
 
-### Keeping the compiler from optimizing away code you want to benchmark
+## Keeping the compiler from optimizing away code you want to benchmark
 
 ```
 static void escape(void *p)
