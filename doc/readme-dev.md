@@ -79,12 +79,15 @@ Install the correct perf package for your kernel, e.g. `apt-get install linux-pe
 
 Run mvme using `perf record -g ./mvme`.
 
+* Clearing filesystem caches on linux:
+    `sync; echo 3 >| /proc/sys/vm/drop_caches`
+
 ### Reporting:
 * `perf stat`
 * `perf report -g`
 * `perf report -g 'graph,0.5,caller'`
 
-## Keeping the compiler from optimizing away code you want to benchmark
+### Keeping the compiler from optimizing away code you want to benchmark
 
 ```
 static void escape(void *p)

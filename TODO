@@ -6,7 +6,6 @@
   AggregateOps operator I'd like to display "Aggregate Operations" in the "add
   operator" context menu instead of "sum". Where else is getDisplayName() used?
 
-* Include  git branch name in binary
 
 * Add more ways to specify how the listfile filenames should look like.
   run number, prefix, etc
@@ -28,6 +27,9 @@
   Should allow diagnosing connection issues
 
 * Make a RCbus example including a delay between switchting NIM to cbus mode!
+* Include  git branch name in binary
+* Maybe take a look at stopping the analysis mid-buffer on user request. This
+  would allow to use larger buffer sizes without increasing the time-to-stop.
 
 sis3153 implementation
 ----------------------

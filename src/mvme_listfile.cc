@@ -19,6 +19,7 @@
 #include "mvme_listfile.h"
 #include "globals.h"
 #include "vme_config.h"
+#include "util/perf.h"
 
 #include <QCoreApplication>
 #include <QDebug>
@@ -596,9 +597,13 @@ void ListFileReader::mainLoop()
             buffer->used = 0;
             bool isBufferValid = false;
 
-            if (m_eventsToRead > 0)
+            if (unlikely(m_eventsToRead > 0))
             {
-                // Read single events
+                /* Read single events.
+                 * Note: This is the unlikely case! This case only happens if
+                 * the user pressed the "1 cycle / next event" button!
+                 */
+
                 bool readMore = true;
 
                 // Skip non event sections

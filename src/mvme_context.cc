@@ -39,10 +39,14 @@
 #include <QProgressDialog>
 #include <QMessageBox>
 
-// Buffers to pass between DAQ/replay and the analysis. The buffer size should
-// be at least twice as big as the max VMUSB buffer size (2 * 64k). Just using
-// 1MB buffers for now as that's a good value for the listfile readout and
-// doesn't affect the VMUSB readout negatively.
+/* Buffers to pass between DAQ/replay and the analysis. The buffer size should
+ * be at least twice as big as the max VMUSB buffer size (2 * 64k).
+ *
+ * Note that increasing the size will make stopping a replay/daq session
+ * mid-run take longer. This is because in the current implementation the
+ * analysis system has to fully process the last buffer it pulled from the
+ * shared queue.
+ */
 static const size_t DataBufferCount = 10;
 static const size_t DataBufferSize = Megabytes(1);
 
