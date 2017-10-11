@@ -42,6 +42,7 @@
 #ifdef MVME_USE_GIT_VERSION_FILE
 #include "git_sha1.h"
 #endif
+#include "build_info.h"
 
 #include <QDockWidget>
 #include <QFileDialog>
@@ -436,6 +437,7 @@ void MVMEMainWindow::displayAbout()
 
     auto buttonLayout = new QHBoxLayout;
 
+    // license
     {
         auto button = new QPushButton(QSL("&License"));
         connect(button, &QPushButton::clicked, this, [this, tb_license]() {
@@ -449,6 +451,31 @@ void MVMEMainWindow::displayAbout()
         buttonLayout->addWidget(button);
     }
 
+    // build info
+    {
+        QStringList build_infos;
+        build_infos << versionString;
+        build_infos << QSL("Build Type: ") + BUILD_TYPE;
+        build_infos << QSL("Build Flags:") + BUILD_CXX_FLAGS;
+
+        auto tb_info = new QTextBrowser(dialog);
+        tb_info->setWindowFlags(Qt::Window);
+        tb_info->setWindowTitle(QSL("mvme build info"));
+        tb_info->setText(build_infos.join('\n'));
+
+        auto button = new QPushButton(QSL("&Info"));
+        connect(button, &QPushButton::clicked, this, [this, tb_info]() {
+            auto sz = tb_info->size();
+            sz = sz.expandedTo(QSize(500, 300));
+            tb_info->resize(sz);
+            tb_info->show();
+            tb_info->raise();
+        });
+
+        buttonLayout->addWidget(button);
+    }
+
+    // close
     {
         auto button = new QPushButton(QSL("&Close"));
         connect(button, &QPushButton::clicked, dialog, &QDialog::close);

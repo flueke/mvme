@@ -1,6 +1,4 @@
-# TODO:
-# asan
-# profiling
+# TODO: asan
 
 include(GenerateExportHeader)
 
@@ -36,6 +34,7 @@ if (WIN32)
 else()
     find_library(LIBUSB_LIBRARY usb)
     find_path(LIBUSB_INCLUDE_PATH usb.h)
+    message("-- Using LIBUSB_LIBRARY=${LIBUSB_LIBRARY}")
 endif()
 
 include_directories(${LIBUSB_INCLUDE_PATH})
@@ -45,6 +44,14 @@ include_directories(${LIBUSB_INCLUDE_PATH})
 configure_file("git_sha1.cc.in" "git_sha1.cc" @ONLY)
 add_definitions(-DMVME_USE_GIT_VERSION_FILE)
 
+# make build info available to the program
+set(BUILD_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+if (NOT "${CMAKE_BUILD_TYPE}" STREQUAL "")
+    string(TOUPPER ${CMAKE_BUILD_TYPE} build_type_upper)
+    set(BUILD_CXX_FLAGS "${BUILD_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${build_type_upper}}")
+endif()
+configure_file("build_info.cc.in" "build_info.cc" @ONLY)
+
 #
 # libmvme
 #
@@ -52,6 +59,7 @@ add_definitions(-DVME_CONTROLLER_WIENER -DWIENER_USE_LIBUSB0)
 
 set(LIBMVME_SOURCES
     "${CMAKE_CURRENT_BINARY_DIR}/git_sha1.cc"
+    "${CMAKE_CURRENT_BINARY_DIR}/build_info.cc"
     "${CMAKE_SOURCE_DIR}/3rdparty/qt-collapsible-section/Section.cpp"
     analysis/analysis.cc
     analysis/analysis_ui.cc

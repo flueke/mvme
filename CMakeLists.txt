@@ -15,6 +15,13 @@ set(CMAKE_CXX_FLAGS_PROFILE "-DNDEBUG -O3 -march=nocona -mtune=core2 -pg -fno-om
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+message("-- CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
+message("-- CMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}")
+if (NOT "${CMAKE_BUILD_TYPE}" STREQUAL "")
+    string(TOUPPER ${CMAKE_BUILD_TYPE} build_type_upper)
+    message("-- CMAKE_CXX_FLAGS_${build_type_upper}=${CMAKE_CXX_FLAGS_${build_type_upper}}")
+endif()
+
 
 ## Create binaries in the root of the build directory
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
@@ -44,9 +51,9 @@ git_describe(GIT_VERSION "--always")
 string(REGEX MATCH "^[0-9.]+(-[0-9]+)?" GIT_VERSION_SHORT ${GIT_VERSION})
 string(REGEX MATCH "^[0-9.]+" GIT_VERSION_TAG ${GIT_VERSION})
 
-message("GIT_VERSION=${GIT_VERSION}")
-message("GIT_VERSION_SHORT=${GIT_VERSION_SHORT}")
-message("GIT_VERSION_TAG=${GIT_VERSION_TAG}")
+message("-- GIT_VERSION=${GIT_VERSION}")
+message("-- GIT_VERSION_SHORT=${GIT_VERSION_SHORT}")
+message("-- GIT_VERSION_TAG=${GIT_VERSION_TAG}")
 
 # External libraries.
 # Note: This was moved up from the src/ subdirectory so that the
@@ -68,9 +75,8 @@ include_directories(${QWT_INCLUDE_DIR})
 #include(FindPackageHandleStandardArgs)
 #find_package_handle_standard_args(Qwt DEFAULT_MSG QWT_LIBRARY QWT_INCLUDE_DIR)
 
-message("Using QWT_INCLUDE_DIR=${QWT_INCLUDE_DIR}")
-message("Using QWT_LIBRARY=${QWT_LIBRARY}")
-
+message("-- Using QWT_INCLUDE_DIR=${QWT_INCLUDE_DIR}")
+message("-- Using QWT_LIBRARY=${QWT_LIBRARY}")
 
 # Subdirectories containing build targets
 add_subdirectory(src)
