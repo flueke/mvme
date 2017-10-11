@@ -33,6 +33,13 @@ QDebug &operator<< (QDebug &dbg, const std::shared_ptr<T> &ptr)
     return dbg;
 }
 
+template<>
+const QMap<analysis::Analysis::ReadResultCodes, const char *> analysis::Analysis::ReadResult::ErrorCodeStrings =
+{
+    { analysis::Analysis::NoError, "No Error" },
+    { analysis::Analysis::VersionTooNew, "Version too new" },
+};
+
 namespace analysis
 {
 /* File versioning. If the format changes this version needs to be incremented
@@ -2629,13 +2636,6 @@ size_t Histo2DSink::getStorageSize() const
 //
 // Analysis
 //
-template<>
-const QMap<Analysis::ReadResultCodes, const char *> Analysis::ReadResult::ErrorCodeStrings =
-{
-    { analysis::Analysis::NoError, "No Error" },
-    { analysis::Analysis::VersionTooNew, "Version too new" },
-};
-
 Analysis::Analysis(QObject *parent)
     : QObject(parent)
     , m_modified(false)
