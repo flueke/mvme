@@ -6,10 +6,10 @@
 /*                                                                         */
 /*  Autor:                CT/TH                                            */
 /*  date:                 26.06.2014                                       */
-/*  last modification:    31.07.2017                                       */
+/*  last modification:    31.08.2017                                       */
 /*                                                                         */
 /* ----------------------------------------------------------------------- */
-/*   class_lib_version: 2.0                                                */
+/*   class_lib_version: 2.1                                                */
 /*                                                                         */
 /* ----------------------------------------------------------------------- */
 /*                                                                         */
@@ -1151,6 +1151,7 @@ int sis3153eth::udp_DMA_read ( unsigned int nof_read_words, UINT addr, UINT* dat
 		else {
 			req_nof_words = rest_length_words ;
 		}
+		//printf("rest_length_words: 0x%08X  \treq_nof_words: 0x%08X     \tthis->max_nof_read_lwords: 0x%08X \n", rest_length_words,req_nof_words, this->max_nof_read_lwords);
 		//printf("* New_Addr: 0x%08X\t req_nof_words: 0x%08X\n", new_addr,req_nof_words);
 
 		int request_retry = 0;
@@ -1724,6 +1725,82 @@ int sis3153eth::vme_A16D32_read(UINT addr, UINT* data)
 	return return_code;
 }
 
+
+
+/**************************************************************************************/
+
+
+int sis3153eth::vme_A16supervisoryD8_read(UINT addr, UCHAR* data)  //  
+{
+	int return_code;
+	unsigned int udp_address;
+	UINT data_32;
+
+	udp_address = addr;
+
+	this->vmeHead.Space = 4;
+	this->vmeHead.W = 0;
+	this->vmeHead.F = 0;
+	this->vmeHead.Size = 0;
+	this->vmeHead.Mode = 0x002D;
+
+	return_code = this->udp_single_read(1, &udp_address, &data_32);
+	//printf("vme_A32D8_read: addr = 0x%08X    data = 0x%08X    return_code = 0x%08X \n", addr, data_32 ,return_code);
+	if ((addr & 0x1) == 0x0) {
+		*data = (UCHAR)(data_32 >> 8) & 0xff;
+	}
+	else {
+		*data = (UCHAR)(data_32) & 0xff;
+	}
+	return return_code;
+}
+/**************************************************************************************/
+
+int sis3153eth::vme_A16supervisoryD16_read(UINT addr, USHORT* data)   // new 04.09.2015
+{
+	int return_code;
+	unsigned int udp_address;
+	UINT data_32;
+
+	udp_address = addr;
+
+	this->vmeHead.Space = 4;
+	this->vmeHead.W = 0;
+	this->vmeHead.F = 0;
+	this->vmeHead.Size = 1;
+	this->vmeHead.Mode = 0x002D;
+
+	return_code = this->udp_single_read(1, &udp_address, &data_32);
+	//printf("vme_A32D16_read: addr = 0x%08X    data = 0x%08X    return_code = 0x%08X \n", addr, data_32 ,return_code);
+	*data = (USHORT)(data_32) & 0xffff;
+
+	return return_code;
+}
+
+/**************************************************************************************/
+
+int sis3153eth::vme_A16supervisoryD32_read(UINT addr, UINT* data)
+{
+	int return_code;
+	unsigned int udp_address;
+
+	udp_address = addr;
+
+	this->vmeHead.Space = 4;
+	this->vmeHead.W = 0;
+	this->vmeHead.F = 0;
+	this->vmeHead.Size = 2;
+	this->vmeHead.Mode = 0x002D;
+
+	return_code = this->udp_single_read(1, &udp_address, data);
+
+	return return_code;
+}
+
+
+
+
+
 /**************************************************************************************/
 /**************************************************************************************/
 
@@ -1827,6 +1904,8 @@ int sis3153eth::vme_A32D8_read (UINT addr, UCHAR* data)  // modified 04.09.2015
 	}
 	return return_code;
 }
+
+
 
 /**************************************************************************************/
 
@@ -2350,6 +2429,74 @@ int sis3153eth::vme_A16D32_write(UINT addr, UINT data)
 	return return_code;
 }
 
+/**************************************************************************************/
+/**************************************************************************************/
+
+int sis3153eth::vme_A16supervisoryD8_write(UINT addr, UCHAR data)  // new 04.09.2015
+{
+	int return_code;
+	unsigned int udp_address;
+	UINT data_32 = (UINT)(data & 0xff);
+	data_32 = data_32 + (data_32 << 8) + (data_32 << 16) + (data_32 << 24);
+
+	udp_address = addr;
+
+	this->vmeHead.Space = 4;
+	this->vmeHead.W = 1;
+	this->vmeHead.F = 0;
+	this->vmeHead.Size = 0;
+	this->vmeHead.Mode = 0x002D;
+
+	return_code = this->udp_single_write(1, &udp_address, &data_32);
+
+	return return_code;
+}
+
+/**************************************************************************************/
+
+int sis3153eth::vme_A16supervisoryD16_write(UINT addr, USHORT data)  // new 04.09.2015
+{
+	int return_code;
+	unsigned int udp_address;
+	UINT data_32 = (UINT)(data & 0xffff);
+	data_32 = data_32 + (data_32 << 16);
+
+	udp_address = addr;
+
+	this->vmeHead.Space = 4;
+	this->vmeHead.W = 1;
+	this->vmeHead.F = 0;
+	this->vmeHead.Size = 1;
+	this->vmeHead.Mode = 0x002D;
+
+	return_code = this->udp_single_write(1, &udp_address, &data_32);
+
+	return return_code;
+}
+/**************************************************************************************/
+
+int sis3153eth::vme_A16supervisoryD32_write(UINT addr, UINT data)
+{
+	int return_code;
+	unsigned int udp_address;
+
+	udp_address = addr;
+
+	this->vmeHead.Space = 4;
+	this->vmeHead.W = 1;
+	this->vmeHead.F = 0;
+	this->vmeHead.Size = 2;
+	this->vmeHead.Mode = 0x002D;
+
+	return_code = this->udp_single_write(1, &udp_address, &data);
+
+	return return_code;
+}
+
+
+
+
+
 
 /**************************************************************************************/
 /**************************************************************************************/
@@ -2628,7 +2775,7 @@ int sis3153eth::vme_IRQ_Status_read( UINT* data )
 /**************************************************************************************************************************/
 /**************************************************************************************************************************/
 /*                                                                                                                        */
-/*    vme_A16D8/16_sgl_random_burst_write     and   vme_A16D8/16_sgl_random_burst_read                                    */
+/*    vme_A16D8/16/32_sgl_random_burst_write     and   vme_A16D8/16/D32_sgl_random_burst_read                             */
 /*                                                                                                                        */
 /**************************************************************************************************************************/
 
@@ -2682,6 +2829,31 @@ int sis3153eth::vme_A16D16_sgl_random_burst_write(UINT nof_writes, UINT* addr_pt
 
 	return return_code;
 }
+
+
+
+
+int sis3153eth::vme_A16D32_sgl_random_burst_write(UINT nof_writes, UINT* addr_ptr, UINT* data_ptr)
+{
+	int return_code;
+	if (nof_writes == 0) { nof_writes = 1; }
+	if (nof_writes > 63) { nof_writes = 64; }
+
+	this->vmeHead.Space = 4;
+	this->vmeHead.W = 1;
+	this->vmeHead.F = 0;
+	this->vmeHead.Size = 2;
+	this->vmeHead.Mode = 0x0829;
+
+	return_code = this->udp_single_write(nof_writes, addr_ptr, data_ptr);
+
+	return return_code;
+}
+
+
+
+
+
 
 
 
@@ -2751,6 +2923,203 @@ int sis3153eth::vme_A16D16_sgl_random_burst_read(UINT nof_reads, UINT* addr_ptr,
 	return return_code; // 
 }
 
+
+/**************************************************************************************/
+
+int sis3153eth::vme_A16D32_sgl_random_burst_read(UINT nof_reads, UINT* addr_ptr, UINT* data_ptr)
+{
+
+	int return_code;
+
+	if (nof_reads == 0) { nof_reads = 1; }
+	if (nof_reads > 63) { nof_reads = 64; }
+
+	this->vmeHead.Space = 4;
+	this->vmeHead.W = 0;
+	this->vmeHead.F = 0;
+	this->vmeHead.Size = 2;
+	this->vmeHead.Mode = 0x0829;
+
+	return_code = this->udp_single_read(nof_reads, addr_ptr, data_ptr);
+
+	return return_code; // 
+}
+
+
+
+
+/**************************************************************************************************************************/
+/*                                                                                                                        */
+/*    vme_A16supervisoryD8/16/32_sgl_random_burst_write     and   vme_A16supervisoryD8/16/D32_sgl_random_burst_read       */
+/*                                                                                                                        */
+/**************************************************************************************************************************/
+
+
+int sis3153eth::vme_A16supervisoryD8_sgl_random_burst_write(UINT nof_writes, UINT* addr_ptr, UCHAR* data_ptr)
+{
+	unsigned int i;
+	int return_code;
+	if (nof_writes == 0) { nof_writes = 1; }
+	if (nof_writes > 63) { nof_writes = 64; }
+
+	for (i = 0; i<nof_writes; i++) {
+		addr_ptr[i] = addr_ptr[i]; //  
+	}
+	for (i = 0; i<nof_writes; i++) {
+		sgl_random_addr_write_data[i] = (unsigned int)(data_ptr[i] << 8) + (unsigned int)data_ptr[i]; //  
+	}
+
+	this->vmeHead.Space = 4;
+	this->vmeHead.W = 1;
+	this->vmeHead.F = 0;
+	this->vmeHead.Size = 0;
+	this->vmeHead.Mode = 0x082D;
+
+	return_code = this->udp_single_write(nof_writes, addr_ptr, sgl_random_addr_write_data);
+
+	return return_code;
+}
+
+
+int sis3153eth::vme_A16supervisoryD16_sgl_random_burst_write(UINT nof_writes, UINT* addr_ptr, USHORT* data_ptr)
+{
+	unsigned int i;
+	int return_code;
+	if (nof_writes == 0) { nof_writes = 1; }
+	if (nof_writes > 63) { nof_writes = 64; }
+
+	for (i = 0; i<nof_writes; i++) {
+		addr_ptr[i] = addr_ptr[i] | 1; // Lword = 1
+	}
+	for (i = 0; i<nof_writes; i++) {
+		sgl_random_addr_write_data[i] = (unsigned int)data_ptr[i]; //  
+	}
+
+	this->vmeHead.Space = 4;
+	this->vmeHead.W = 1;
+	this->vmeHead.F = 0;
+	this->vmeHead.Size = 1;
+	this->vmeHead.Mode = 0x082D;
+
+	return_code = this->udp_single_write(nof_writes, addr_ptr, sgl_random_addr_write_data);
+
+	return return_code;
+}
+
+
+
+
+int sis3153eth::vme_A16supervisoryD32_sgl_random_burst_write(UINT nof_writes, UINT* addr_ptr, UINT* data_ptr)
+{
+	int return_code;
+	if (nof_writes == 0) { nof_writes = 1; }
+	if (nof_writes > 63) { nof_writes = 64; }
+
+	this->vmeHead.Space = 4;
+	this->vmeHead.W = 1;
+	this->vmeHead.F = 0;
+	this->vmeHead.Size = 2;
+	this->vmeHead.Mode = 0x082D;
+
+	return_code = this->udp_single_write(nof_writes, addr_ptr, data_ptr);
+
+	return return_code;
+}
+
+
+
+
+
+
+
+
+
+/**************************************************************************************/
+int sis3153eth::vme_A16supervisoryD8_sgl_random_burst_read(UINT nof_reads, UINT* addr_ptr, UCHAR* data_ptr)
+{
+
+	unsigned int i;
+	int return_code;
+
+	if (nof_reads == 0) { nof_reads = 1; }
+	if (nof_reads > 63) { nof_reads = 64; }
+
+	for (i = 0; i<nof_reads; i++) {
+		//addr_ptr[i] = addr_ptr[i] | 1 ; // Lword = 1
+		addr_ptr[i] = addr_ptr[i] | 0; // Lword = 1
+	}
+
+	this->vmeHead.Space = 4;
+	this->vmeHead.W = 0;
+	this->vmeHead.F = 0;
+	this->vmeHead.Size = 0;
+	this->vmeHead.Mode = 0x082D;
+
+	return_code = this->udp_single_read(nof_reads, addr_ptr, this->sgl_random_addr_read_data);
+
+	for (i = 0; i<nof_reads; i++) {
+		if ((addr_ptr[i] & 0x1) == 0x0) {
+			data_ptr[i] = (UCHAR)((sgl_random_addr_read_data[i] >> 8) & 0xff); //  
+		}
+		else {
+			data_ptr[i] = (UCHAR)(sgl_random_addr_read_data[i] & 0xff); //  
+		}
+	}
+
+	return return_code; // 
+}
+
+/**************************************************************************************/
+int sis3153eth::vme_A16supervisoryD16_sgl_random_burst_read(UINT nof_reads, UINT* addr_ptr, USHORT* data_ptr)
+{
+
+	unsigned int i;
+	int return_code;
+
+	if (nof_reads == 0) { nof_reads = 1; }
+	if (nof_reads > 63) { nof_reads = 64; }
+
+	for (i = 0; i<nof_reads; i++) {
+		//addr_ptr[i] = addr_ptr[i] | 1 ; // Lword = 1
+		addr_ptr[i] = addr_ptr[i] | 0; // Lword = 1
+	}
+
+	this->vmeHead.Space = 4;
+	this->vmeHead.W = 0;
+	this->vmeHead.F = 0;
+	this->vmeHead.Size = 1;
+	this->vmeHead.Mode = 0x082D;
+
+	return_code = this->udp_single_read(nof_reads, addr_ptr, this->sgl_random_addr_read_data);
+
+	for (i = 0; i<nof_reads; i++) {
+		data_ptr[i] = (USHORT)(sgl_random_addr_read_data[i] & 0xffff); //  
+	}
+
+	return return_code; // 
+}
+
+
+/**************************************************************************************/
+
+int sis3153eth::vme_A16supervisoryD32_sgl_random_burst_read(UINT nof_reads, UINT* addr_ptr, UINT* data_ptr)
+{
+
+	int return_code;
+
+	if (nof_reads == 0) { nof_reads = 1; }
+	if (nof_reads > 63) { nof_reads = 64; }
+
+	this->vmeHead.Space = 4;
+	this->vmeHead.W = 0;
+	this->vmeHead.F = 0;
+	this->vmeHead.Size = 2;
+	this->vmeHead.Mode = 0x082D;
+
+	return_code = this->udp_single_read(nof_reads, addr_ptr, data_ptr);
+
+	return return_code; // 
+}
 
 
 
@@ -3210,7 +3579,6 @@ int sis3153eth::list_read_event(UCHAR* packet_ack, UCHAR* packet_ident, UCHAR* p
 	addr_len = sizeof(struct sockaddr);
 
 	return_code = recvfrom(this->udp_socket, this->udp_recv_data, 9000, 0, (struct sockaddr *)&this->sis3153_sock_addr_in, &addr_len);
-
 	if (return_code < 0) { return return_code; }
 	if (return_code < 3) { return return_code; } // no packet header
 
@@ -3337,5 +3705,79 @@ int sis3153eth::list_generate_add_vmeA32D32_read(UINT* list_ptr, UINT* list_buff
 	*list_ptr = *list_ptr + 3;
 	return return_code;
 }
+
+
+int sis3153eth::list_generate_add_vmeA32BLT32_read(UINT* list_ptr, UINT* list_buffer, UINT vme_addr, UINT request_nof_words)
+{
+	int return_code = 0;
+	unsigned int vme_write_flag;
+	unsigned int vme_fifo_mode;
+	unsigned int vme_access_size;
+	unsigned int vme_am_mode;
+	unsigned int vme_nof_bytes;
+
+	// VME read: A32 BLT32
+	vme_write_flag = 0;
+	vme_fifo_mode = 0;
+	vme_access_size = 2; // (0: 1-byte; 1: 2-byte; 2: 4-byte; 3: 8-byte)
+	vme_am_mode = 0x000B;
+	vme_nof_bytes = 4 * request_nof_words;
+
+	list_buffer[*list_ptr + 0] = 0xAAAA4000 | (vme_write_flag << 11) | (vme_fifo_mode << 10) | (vme_access_size << 8) | ((vme_nof_bytes >> 16) & 0xFF);
+	list_buffer[*list_ptr + 1] = ((vme_am_mode & 0xFFFF) << 16) | (vme_nof_bytes & 0xFFFF); // 4 Bytes
+	list_buffer[*list_ptr + 2] = (vme_addr & 0xfffffffc); // force 4-byte boundary addressing
+	*list_ptr = *list_ptr + 3;
+	return return_code;
+}
+
+
+int sis3153eth::list_generate_add_vmeA32MBLT64_read(UINT* list_ptr, UINT* list_buffer, UINT vme_addr, UINT request_nof_words)
+{
+	int return_code = 0;
+	unsigned int vme_write_flag;
+	unsigned int vme_fifo_mode;
+	unsigned int vme_access_size;
+	unsigned int vme_am_mode;
+	unsigned int vme_nof_bytes;
+
+	// VME read: A32 BLT32
+	vme_write_flag = 0;
+	vme_fifo_mode = 0;
+	vme_access_size = 3; // (0: 1-byte; 1: 2-byte; 2: 4-byte; 3: 8-byte)
+	vme_am_mode = 0x0008;
+	vme_nof_bytes = 4 * request_nof_words;
+
+	list_buffer[*list_ptr + 0] = 0xAAAA4000 | (vme_write_flag << 11) | (vme_fifo_mode << 10) | (vme_access_size << 8) | ((vme_nof_bytes >> 16) & 0xFF);
+	list_buffer[*list_ptr + 1] = ((vme_am_mode & 0xFFFF) << 16) | (vme_nof_bytes & 0xFFFF); // 4 Bytes
+	list_buffer[*list_ptr + 2] = (vme_addr & 0xfffffffc); // force 4-byte boundary addressing
+	*list_ptr = *list_ptr + 3;
+	return return_code;
+}
+
+int sis3153eth::list_generate_add_vmeA32MBLT64_swapDWord_read(UINT* list_ptr, UINT* list_buffer, UINT vme_addr, UINT request_nof_words)
+{
+	int return_code = 0;
+	unsigned int vme_write_flag;
+	unsigned int vme_fifo_mode;
+	unsigned int vme_access_size;
+	unsigned int vme_am_mode;
+	unsigned int vme_nof_bytes;
+
+	// VME read: A32 BLT32
+	vme_write_flag = 0;
+	vme_fifo_mode = 0;
+	vme_access_size = 3; // (0: 1-byte; 1: 2-byte; 2: 4-byte; 3: 8-byte)
+	vme_am_mode = 0x0408;  // bit 10 is set -> Swap 32-bit words  of 64-bit word
+	vme_nof_bytes = 4 * request_nof_words;
+
+	list_buffer[*list_ptr + 0] = 0xAAAA4000 | (vme_write_flag << 11) | (vme_fifo_mode << 10) | (vme_access_size << 8) | ((vme_nof_bytes >> 16) & 0xFF);
+	list_buffer[*list_ptr + 1] = ((vme_am_mode & 0xFFFF) << 16) | (vme_nof_bytes & 0xFFFF); // 4 Bytes
+	list_buffer[*list_ptr + 2] = (vme_addr & 0xfffffffc); // force 4-byte boundary addressing
+	*list_ptr = *list_ptr + 3;
+	return return_code;
+}
+
+
+
 
 #endif // ETHERNET_VME_INTERFACE

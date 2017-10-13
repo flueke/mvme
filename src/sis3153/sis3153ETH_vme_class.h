@@ -6,10 +6,10 @@
 /*                                                                         */
 /*  Autor:                CT/TH                                            */
 /*  date:                 26.06.2014                                       */
-/*  last modification:    02.08.2017                                       */
+/*  last modification:    31.08.2017                                       */
 /*                                                                         */
 /* ----------------------------------------------------------------------- */
-/*   class_lib_version: 2.0                                                */
+/*   class_lib_version: 2.1                                                */
 /*                                                                         */
 /* ----------------------------------------------------------------------- */
 /*                                                                         */
@@ -31,7 +31,7 @@
 #define _SIS3153ETH_VME_CLASS_
 
 #define SIS3153ETH_VERSION_MAJOR 0x02   
-#define SIS3153ETH_VERSION_MINOR 0x00
+#define SIS3153ETH_VERSION_MINOR 0x01
 
 
 
@@ -70,7 +70,8 @@
 //#define UDP_NORMAL_READ_PACKET_32bitSIZE    256           //  packet size = 1024 Bytes + 44/45 Bytes =  
 
 #define UDP_NORMAL_READ_PACKET_32bitSIZE    360           //  packet size = 1440 Bytes + 44/45 Bytes = 1484/1485 Bytes
-#define UDP_JUMBO_READ_PACKET_32bitSIZE     800           //  packet size = 3072 Bytes + 44/45 Bytes = 3116/3117 Bytes
+//#define UDP_JUMBO_READ_PACKET_32bitSIZE     800           //  packet size = 3072 Bytes + 44/45 Bytes = 3116/3117 Bytes            --> support with version v_1604
+#define UDP_JUMBO_READ_PACKET_32bitSIZE     1792           //  packet size = 7168 (0x700*4) Bytes  + 44/45 Bytes = 7212/7213 Bytes  --> support with version v_1605
 
 /**************************************************************************************/
 
@@ -267,6 +268,8 @@ public:
 	int udp_sis3153_register_dma_read (UINT addr, UINT* data, UINT request_nof_words, UINT* got_nof_words );
 	int udp_sis3153_register_dma_write (UINT addr, UINT *data, UINT request_nof_words, UINT* written_nof_words);
 
+
+
 	int vmeopen ( void );
 	int vmeclose( void );
 	int get_vmeopen_messages( CHAR* messages, UINT* nof_found_devices );
@@ -287,6 +290,13 @@ public:
 	int vme_A16D8_read(UINT addr, UCHAR* data);			// new 04.09.2015
 	int vme_A16D16_read(UINT addr, USHORT* data);		// new 04.09.2015
 	int vme_A16D32_read(UINT addr, UINT* data);			// new 28.07.2017
+
+	int vme_A16supervisoryD8_read(UINT addr, UCHAR* data);			// new 22.08.2017
+	int vme_A16supervisoryD16_read(UINT addr, USHORT* data);		// new 22.08.2017
+	int vme_A16supervisoryD32_read(UINT addr, UINT* data);			// new 22.08.2017
+
+
+	
 
 	int vme_A24D8_read (UINT addr, UCHAR* data);		// new 04.09.2015
 	int vme_A24D16_read (UINT addr, USHORT* data);      // new 04.09.2015
@@ -323,6 +333,14 @@ public:
 	int vme_A16D16_write(UINT addr, USHORT data);    // new 04.09.2015
 	int vme_A16D32_write(UINT addr, UINT data);      // new 28.07.2017
 
+	int vme_A16supervisoryD8_write(UINT addr, UCHAR data);      // new 22.08.2017
+	int vme_A16supervisoryD16_write(UINT addr, USHORT data);    // new 22.08.2017
+	int vme_A16supervisoryD32_write(UINT addr, UINT data);      // new 22.08.2017
+
+
+	
+
+
 	int vme_A24D8_write (UINT addr, UCHAR data);      // new 04.09.2015
 	int vme_A24D16_write (UINT addr, USHORT data);    // new 04.09.2015
 	int vme_A24D32_write (UINT addr, UINT data);      // new 04.09.2015
@@ -341,12 +359,30 @@ public:
 	int vme_IRQ_Status_read( UINT* data ) ;
 
 
-
-	/* new 28.7.2017  */
+	/**********************************************************************************************************/
+	 
 	int vme_A16D8_sgl_random_burst_write(UINT nof_writes, UINT* addr_ptr, UCHAR* data_ptr);		// new 28.7.2017
 	int vme_A16D16_sgl_random_burst_write(UINT nof_writes, UINT* addr_ptr, USHORT* data_ptr);	// new 28.7.2017
+	int vme_A16D32_sgl_random_burst_write(UINT nof_writes, UINT* addr_ptr, UINT* data_ptr);  	// new 31.8.2017
+
 	int vme_A16D8_sgl_random_burst_read(UINT nof_reads, UINT* addr_ptr, UCHAR* data_ptr);		// new 28.7.2017
 	int vme_A16D16_sgl_random_burst_read(UINT nof_reads, UINT* addr_ptr, USHORT* data_ptr);		// new 28.7.2017
+	int vme_A16D32_sgl_random_burst_read(UINT nof_reads, UINT* addr_ptr, UINT* data_ptr);		// new 31.8.2017
+
+	/*******************/
+
+	int vme_A16supervisoryD8_sgl_random_burst_write(UINT nof_writes, UINT* addr_ptr, UCHAR* data_ptr);		// new 31.8.2017
+	int vme_A16supervisoryD16_sgl_random_burst_write(UINT nof_writes, UINT* addr_ptr, USHORT* data_ptr);	// new 31.8.2017
+	int vme_A16supervisoryD32_sgl_random_burst_write(UINT nof_writes, UINT* addr_ptr, UINT* data_ptr);  	// new 31.8.2017
+
+	int vme_A16supervisoryD8_sgl_random_burst_read(UINT nof_reads, UINT* addr_ptr, UCHAR* data_ptr);		// new 31.8.2017
+	int vme_A16supervisoryD16_sgl_random_burst_read(UINT nof_reads, UINT* addr_ptr, USHORT* data_ptr);		// new 31.8.2017
+	int vme_A16supervisoryD32_sgl_random_burst_read(UINT nof_reads, UINT* addr_ptr, UINT* data_ptr);		// new 31.8.2017
+
+
+	/**********************************************************************************************************/
+
+
 
 	int vme_A24D8_sgl_random_burst_write(UINT nof_writes, UINT* addr_ptr, UCHAR* data_ptr);		// new 28.7.2017
 	int vme_A24D16_sgl_random_burst_write(UINT nof_writes, UINT* addr_ptr, USHORT* data_ptr);	// new 28.7.2017
@@ -394,8 +430,12 @@ public:
 
 	int list_generate_add_vmeA32D32_write(UINT* list_ptr, UINT* list_buffer, UINT vme_addr, UINT vme_data);
 	int list_generate_add_vmeA32D32_read(UINT* list_ptr, UINT* list_buffer, UINT vme_addr);
+	int list_generate_add_vmeA32BLT32_read(UINT* list_ptr, UINT* list_buffer, UINT vme_addr, UINT request_nof_words);
+	int list_generate_add_vmeA32MBLT64_read(UINT* list_ptr, UINT* list_buffer, UINT vme_addr, UINT request_nof_words);
+	int list_generate_add_vmeA32MBLT64_swapDWord_read(UINT* list_ptr, UINT* list_buffer, UINT vme_addr, UINT request_nof_words);
 
-
+	
+	 
 
 };
 
