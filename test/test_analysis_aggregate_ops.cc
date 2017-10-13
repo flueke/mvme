@@ -90,6 +90,56 @@ void TestAggregateOps::test_all_ops_data()
         << qMakePair(0.0, 10.0)
         << 10.0
     ;
+
+    // minx
+    values = { 1.0, 2.0, 0.0, 2.0, 1.0 };
+
+    QTest::newRow("minx: no thresholds")
+        << AggregateOps::Op_MinX
+        << values
+        << qMakePair(0.0, 10.0)
+        << true
+        << qMakePair(0.0, static_cast<double>(values.size() - 1))
+        << 2.0
+    ;
+
+    // maxx
+    values = { 1.0, 2.0, 8.0, 2.0, 1.0 };
+
+    QTest::newRow("maxx: no thresholds")
+        << AggregateOps::Op_MaxX
+        << values
+        << qMakePair(0.0, 10.0)
+        << true
+        << qMakePair(0.0, static_cast<double>(values.size() - 1))
+        << 2.0
+    ;
+
+    // meanx
+    values = { 1.0, 2.0, 3.0, 2.0, 1.0 };
+
+    QTest::newRow("meanx 1: no thresholds")
+        << AggregateOps::Op_MeanX
+        << values
+        << qMakePair(0.0, 10.0)
+        << true
+        << qMakePair(0.0, static_cast<double>(values.size() - 1))
+        << 2.0
+    ;
+
+    // meanx
+    values = { 1.0, 2.0, 3.0, 5.0, 2.0, 1.0 };
+
+    QTest::newRow("meanx 2: no thresholds")
+        << AggregateOps::Op_MeanX
+        << values
+        << qMakePair(0.0, 10.0)
+        << true
+        << qMakePair(0.0, static_cast<double>(values.size() - 1))
+        << 2.5714285714285716
+    ;
+
+    // TODO: add sigmaX test
 }
 
 void TestAggregateOps::test_all_ops()

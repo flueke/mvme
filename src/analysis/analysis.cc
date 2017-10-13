@@ -1204,8 +1204,10 @@ void Sum::write(QJsonObject &json) const
 }
 
 //
-// AggregateOperations
+// AggregateOps
 //
+
+// FIXME: AggregateOps implementation is horrible
 
 static QString aggregateOp_to_string(AggregateOps::Operation op)
 {
@@ -1223,6 +1225,15 @@ static QString aggregateOp_to_string(AggregateOps::Operation op)
             return QSL("max");
         case AggregateOps::Op_Multiplicity:
             return QSL("multiplicity");
+        case AggregateOps::Op_MinX:
+            return QSL("maxx");
+        case AggregateOps::Op_MaxX:
+            return QSL("maxy");
+        case AggregateOps::Op_MeanX:
+            return QSL("meanx");
+        case AggregateOps::Op_SigmaX:
+            return QSL("sigmax");
+
         case AggregateOps::NumOps:
             break;
     }
@@ -1248,6 +1259,18 @@ static AggregateOps::Operation aggregateOp_from_string(const QString &str)
 
     if (str == QSL("multiplicity"))
         return AggregateOps::Op_Multiplicity;
+
+    if (str == QSL("maxx"))
+        return AggregateOps::Op_MinX;
+
+    if (str == QSL("maxy"))
+        return AggregateOps::Op_MaxX;
+
+    if (str == QSL("meanx"))
+        return AggregateOps::Op_MeanX;
+
+    if (str == QSL("sigmax"))
+        return AggregateOps::Op_SigmaX;
 
     return AggregateOps::Op_Sum;
 }
@@ -1275,50 +1298,70 @@ void AggregateOps::beginRun(const RunInfo &runInfo)
         double lowerBound = 0.0;
         double upperBound = 0.0;
 
-        if (m_op == Op_Multiplicity)
+        switch (m_op)
         {
-            lowerBound = 0.0;
-            upperBound = in.size();
-        }
-        else if (m_op == Op_Sigma || m_op == Op_Min || m_op == Op_Max)
-        {
-            double llMin = std::numeric_limits<double>::max();
-            double ulMax = std::numeric_limits<double>::lowest();
+            case Op_Multiplicity:
+                {
+                    lowerBound = 0.0;
+                    upperBound = in.size();
+                } break;
 
-            for (s32 i = 0; i < in.size(); ++i)
-            {
-                const auto &param(in[i]);
+            case Op_Sigma: // FIXME: sigma bounds
+            case Op_Min:
+            case Op_Max:
+                {
+                    double llMin = std::numeric_limits<double>::max();
+                    double ulMax = std::numeric_limits<double>::lowest();
 
-                llMin = std::min(llMin, std::min(param.lowerLimit, param.upperLimit));
-                ulMax = std::max(ulMax, std::max(param.lowerLimit, param.upperLimit));
-            }
+                    for (s32 i = 0; i < in.size(); ++i)
+                    {
+                        const auto &param(in[i]);
 
-            if (m_op == Op_Sigma)
-            {
-                lowerBound = 0.0;
-                upperBound = std::sqrt(ulMax - llMin);
-            }
-            else
-            {
-                lowerBound = llMin;
-                upperBound = ulMax;
-            }
-        }
-        else // sum and mean
-        {
-            for (s32 i = 0; i < in.size(); ++i)
-            {
-                const auto &param(in[i]);
+                        llMin = std::min(llMin, std::min(param.lowerLimit, param.upperLimit));
+                        ulMax = std::max(ulMax, std::max(param.lowerLimit, param.upperLimit));
+                    }
 
-                lowerBound += std::min(param.lowerLimit, param.upperLimit);
-                upperBound += std::max(param.lowerLimit, param.upperLimit);
-            }
+                    if (m_op == Op_Sigma)
+                    {
+                        lowerBound = 0.0;
+                        upperBound = std::sqrt(ulMax - llMin);
+                    }
+                    else
+                    {
+                        lowerBound = llMin;
+                        upperBound = ulMax;
+                    }
+                } break;
 
-            if (m_op == Op_Mean)
-            {
-                lowerBound /= in.size();
-                upperBound /= in.size();
-            }
+            case Op_Sum:
+            case Op_Mean:
+                {
+                    for (s32 i = 0; i < in.size(); ++i)
+                    {
+                        const auto &param(in[i]);
+
+                        lowerBound += std::min(param.lowerLimit, param.upperLimit);
+                        upperBound += std::max(param.lowerLimit, param.upperLimit);
+                    }
+
+                    if (m_op == Op_Mean)
+                    {
+                        lowerBound /= in.size();
+                        upperBound /= in.size();
+                    }
+                } break;
+
+            case Op_MinX:
+            case Op_MaxX:
+            case Op_MeanX:
+            case Op_SigmaX: // FIXME: sigma bounds
+                {
+                    lowerBound = 0.0;
+                    upperBound = in.size() - 1;
+                } break;
+
+            case NumOps:
+                break;
         }
 
         out[0].lowerLimit = std::min(lowerBound, upperBound);
@@ -1337,22 +1380,9 @@ void AggregateOps::step()
     // validity check and threshold tests
     auto is_valid = [](const auto param, double tmin, double tmax)
     {
-#if 1
         return (param.valid
                 && (std::isnan(tmin) || param.value >= tmin)
                 && (std::isnan(tmax) || param.value <= tmax));
-#else
-        if (!param.valid)
-            return false;
-
-        if (!std::isnan(tmin) && param.value < tmin)
-            return false;
-
-        if (!std::isnan(tmax) && param.value > tmax)
-            return false;
-
-        return true;
-#endif
     };
 
     if (!m_inputSlot.inputPipe)
@@ -1377,6 +1407,10 @@ void AggregateOps::step()
     outParam.valid = false;
     u32 validCount = 0;
 
+    s32 minMaxIndex = 0; // stores index of min/max value for Op_MinX/Op_MaxX
+    double meanX = 0.0;
+    double meanXEntryCount = 0.0;
+
     for (s32 i = 0; i < in.size(); ++i)
     {
         const auto &inParam(in[i]);
@@ -1396,6 +1430,25 @@ void AggregateOps::step()
             else if (m_op == Op_Max)
             {
                 outParam.value = std::max(outParam.value, inParam.value);
+            }
+            else if (m_op == Op_MinX)
+            {
+                if (inParam.value < in[minMaxIndex].value)
+                {
+                    minMaxIndex = i;
+                }
+            }
+            else if (m_op == Op_MaxX)
+            {
+                if (inParam.value > in[minMaxIndex].value)
+                {
+                    minMaxIndex = i;
+                }
+            }
+            else if (m_op == Op_MeanX || m_op == Op_SigmaX)
+            {
+                meanX += inParam.value * i;
+                meanXEntryCount += inParam.value;
             }
         }
     }
@@ -1430,6 +1483,53 @@ void AggregateOps::step()
         outParam.value = validCount;
         outParam.valid = true;
     }
+    else if (m_op == Op_MinX || m_op == Op_MaxX)
+    {
+        outParam.value = minMaxIndex;
+    }
+    else if (m_op == Op_MeanX || m_op == Op_SigmaX)
+    {
+        outParam.valid = true;
+
+        if (meanXEntryCount != 0.0)
+        {
+            meanX /= meanXEntryCount;
+
+            if (m_op == Op_MeanX)
+            {
+                outParam.value = meanX;
+            }
+            else if (m_op == Op_SigmaX)
+            {
+                double sigma = 0.0;
+
+                if (meanX != 0.0)
+                {
+                    for (s32 i = 0; i < in.size(); ++i)
+                    {
+                        const auto &inParam(in[i]);
+                        if (is_valid(inParam, m_minThreshold, m_maxThreshold))
+                        {
+                            double v = inParam.value;
+                            if (v != 0.0)
+                            {
+                                double d = i - meanX;
+                                d *= d;
+                                sigma += d * v;
+                            }
+                        }
+                    }
+                    sigma = sqrt(sigma / meanXEntryCount);
+                }
+
+                outParam.value = sigma;
+            }
+        }
+        else
+        {
+            outParam.value = 0.0;
+        }
+    }
 }
 
 void AggregateOps::read(const QJsonObject &json)
@@ -1450,50 +1550,15 @@ void AggregateOps::write(QJsonObject &json) const
 
 QString AggregateOps::getDisplayName() const
 {
-#if 0
-    switch (m_op)
-    {
-        case Op_Sum:
-            return QSL("Aggregate Sum");
-        case Op_Mean:
-            return QSL("Aggregate Mean");
-        case Op_Sigma:
-            return QSL("Aggregate Sigma");
-        case Op_Min:
-            return QSL("Aggregate Min");
-        case Op_Max:
-            return QSL("Aggregate Max");
-        case Op_Multiplicity:
-            return QSL("Aggregate Multiplicity");
-        case AggregateOps::NumOps:
-            break;
-    }
-    return QString();
-#else
     return QSL("Aggregate Operations");
-#endif
 }
 
 QString AggregateOps::getShortName() const
 {
-    switch (m_op)
-    {
-        case Op_Sum:
-            return QSL("Sum");
-        case Op_Mean:
-            return QSL("Mean");
-        case Op_Sigma:
-            return QSL("Sigma");
-        case Op_Min:
-            return QSL("Min");
-        case Op_Max:
-            return QSL("Max");
-        case Op_Multiplicity:
-            return QSL("Multi");
-        case AggregateOps::NumOps:
-            break;
-    }
-    return QString();
+    if (m_op == AggregateOps::Op_Multiplicity)
+        return QSL("Mult");
+
+    return getOperationName(m_op);
 }
 
 void AggregateOps::setOperation(Operation op)
@@ -1542,6 +1607,15 @@ QString AggregateOps::getOperationName(Operation op)
             return QSL("Max");
         case Op_Multiplicity:
             return QSL("Multiplicity");
+        case AggregateOps::Op_MinX:
+            return QSL("MinX");
+        case AggregateOps::Op_MaxX:
+            return QSL("MaxX");
+        case AggregateOps::Op_MeanX:
+            return QSL("MeanX");
+        case AggregateOps::Op_SigmaX:
+            return QSL("SigmaX");
+
         case AggregateOps::NumOps:
             break;
     }

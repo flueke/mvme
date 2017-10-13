@@ -704,6 +704,10 @@ class LIBMVME_EXPORT AggregateOps: public BasicOperator
             Op_Min,
             Op_Max,
             Op_Multiplicity,
+            Op_MinX,
+            Op_MaxX,
+            Op_MeanX,
+            Op_SigmaX,
 
             NumOps
         };
