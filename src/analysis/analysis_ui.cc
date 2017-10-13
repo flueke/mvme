@@ -2072,19 +2072,24 @@ void EventWidgetPrivate::doPeriodicUpdate()
             else if (node->type() == NodeType_Histo2DSink)
             {
                 auto sink = getPointer<Histo2DSink>(node);
-                double entryCount = sink->m_histo->getEntryCount();
-                if (entryCount <= 0.0)
+                auto histo = sink->m_histo;
+
+                if (histo)
                 {
-                    node->setText(0, QString("<b>%1</b> %2").arg(
-                            sink->getShortName(),
-                            sink->objectName()));
-                }
-                else
-                {
-                    node->setText(0, QString("<b>%1</b> %2 (entries=%3)").arg(
-                            sink->getShortName(),
-                            sink->objectName(),
-                            QString::number(entryCount)));
+                    double entryCount = histo->getEntryCount();
+                    if (entryCount <= 0.0)
+                    {
+                        node->setText(0, QString("<b>%1</b> %2").arg(
+                                sink->getShortName(),
+                                sink->objectName()));
+                    }
+                    else
+                    {
+                        node->setText(0, QString("<b>%1</b> %2 (entries=%3)").arg(
+                                sink->getShortName(),
+                                sink->objectName(),
+                                QString::number(entryCount)));
+                    }
                 }
             }
         }
