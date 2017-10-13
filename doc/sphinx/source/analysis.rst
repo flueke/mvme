@@ -443,9 +443,6 @@ These characters are merely used to make it easier to identify certain bits
 when editing a filter. With regards to matching any character other than ``0``
 or ``1`` means that any bit value is allowed.
 
-Any characters other than ``0`` and ``1`` mean that any
-bit value is allowed.
-
 .. highlight:: none
 
 **Example**: The default *Amplitude* filter for the MDPP-16_SCP: ::

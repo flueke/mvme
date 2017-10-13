@@ -35,7 +35,7 @@ mvme - mesytec VME Data Acquisition
 ##################################################
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
    :caption: Contents:
 
    intro
