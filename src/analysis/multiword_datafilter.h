@@ -1,0 +1,4 @@
+#ifndef __MULTIWORD_DATAFILTER_H__
+#define __MULTIWORD_DATAFILTER_H__
+
+#endif /* __MULTIWORD_DATAFILTER_H__ */

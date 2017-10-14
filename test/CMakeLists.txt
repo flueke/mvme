@@ -35,5 +35,6 @@ function(add_mvme_bench exe_name exe_sources)
 endfunction(add_mvme_bench)
 
 add_mvme_bench(bench_data_filter bench_data_filter.cc)
+add_mvme_bench(test_misc test_misc.cc)
 
 endif(BUILD_TESTS)
