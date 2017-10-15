@@ -24,7 +24,6 @@
 #include <QHash>
 #include <QLineEdit>
 #include <QVector>
-#include <x86intrin.h>
 #include "libmvme_export.h"
 #include "typedefs.h"
 #include "util/bits.h"
@@ -297,11 +296,7 @@ class LIBMVME_EXPORT DataFilterExternalCache
 
             if (cache.needGather)
             {
-#ifdef __BMI2__
-                result = _pext_u32(result, cache.extractMask >> cache.extractShift);
-#else
                 result = bit_gather(result, cache.extractMask >> cache.extractShift);
-#endif
             }
 
             return result;

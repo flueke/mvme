@@ -53,7 +53,7 @@ static void BM_DataFilterExternalCache_no_gather(benchmark::State &state)
 
 static void BM_DataFilterCStyle_gather(benchmark::State &state)
 {
-    using namespace data_filter_c_style;
+    using namespace data_filter;
     auto filter = make_filter("0000 XXXA XXXX XXAA AAAA DDDD DDDD DDDD");
     auto fcA = make_cache_entry(filter, 'a');
 
