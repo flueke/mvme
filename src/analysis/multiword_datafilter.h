@@ -18,6 +18,7 @@ struct MultiWordFilter
     s32 filterCount = 0;
     u16 completionMask = 0;
 
+    // FIXME: This static_assert() doesn't actually work (g++ 6.3.0)
     static_assert(sizeof(completionMask) * 8 >= MaxFilters, "completionMask type too small");
 };
 
