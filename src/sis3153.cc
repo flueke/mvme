@@ -27,6 +27,30 @@
 
 #define SIS3153_DEBUG
 
+/* SIS3153 implementation notes
+ * ===========================================================================
+ * Ansonsten sind die Listen Ackn. folgendermaßen definert
+    0x50:	Not Last packet List 1
+    0x58:	Last packet List 1
+    Oder umgehrt
+
+    0x51:	Not Last packet List 2
+    0x59:	Last packet List 2
+    ...
+    0x57:	Not Last packet List 8
+    0x5F:	Last packet List 8
+
+
+ * Receive errors und queue schaue ich mit folgendem Befehl an:
+    watch -n1 'netstat -anup; echo; netstat -anus'
+
+ * Die Events werden in einem Multievent-packet folgender maßen "eingepackt":
+    3 Bytes Multievent Header:
+	  0x60 0x00 0x00
+    Dann 4 Bytes Single Event Header (anstelle von 3Byte):
+	  0x5x   "upper-length-byte"   "lower-length-byte"   "status"
+ */
+
 static const QMap<u32, const char *> RegisterNames =
 {
     { SIS3153Registers::USBControlAndStatus,    "USB Control/Status" },

@@ -118,6 +118,7 @@ namespace SIS3153Registers
         static const u32 StackListEnable    = 1 << 0;
         static const u32 Timer1Enable       = 1 << 1;
         static const u32 Timer2Enable       = 1 << 2;
+        static const u32 ListBufferEnable   = 1 << 15;
     }
 
     static const u32 StackListTimerWatchdogEnable   = 1 << 31;
@@ -128,7 +129,16 @@ namespace SIS3153Registers
     static const u32 TriggerSourceInput1FallingEdge = 0xD;
     static const u32 TriggerSourceInput2RisingEdge  = 0xE;
     static const u32 TriggerSourceInput2FallingEdge = 0xF;
-}
+
+} // namespace SIS3153Registers
+
+namespace SIS3153Constants
+{
+    // The packetAck byte in the case of a buffered multievent packet.
+    static const u8 MultiEventPacketAck = 0x60;
+
+} // namespace SIS3153Constants
+
 
 
 void LIBMVME_EXPORT dump_registers(SIS3153 *sis, std::function<void (const QString &)> printer);

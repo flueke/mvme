@@ -23,40 +23,8 @@
 #include "sis3153.h"
 #include "vme_script.h"
 
-/* FIXME: both readout workers currently only handle IRQ triggers. Fix this at
+/* FIXME: the readout worker currently only handles IRQ triggers. Fix this at
  * some later point (at least for the non-polling case). */
-
-/* IRQ only, polling based SIS3153 readout worker implementation. */
-class SIS3153ReadoutWorkerIRQPolling: public VMEReadoutWorker
-{
-    Q_OBJECT
-    public:
-        SIS3153ReadoutWorkerIRQPolling(QObject *parent = 0);
-        ~SIS3153ReadoutWorkerIRQPolling();
-
-        virtual void start(quint32 cycles) override;
-        virtual void stop() override;
-        virtual void pause() override;
-        virtual void resume() override;
-        virtual bool isRunning() const override;
-
-    private:
-        void setState(DAQState state);
-        void readoutLoop();
-        void logMessage(const QString &message);
-        void logError(const QString &);
-
-        void processReadoutResults(EventConfig *event, s32 eventConfigIndex,  const vme_script::ResultList &results);
-
-        DAQState m_state = DAQState::Idle;
-        DAQState m_desiredState = DAQState::Idle;
-        quint32 m_cyclesToRun = 0;
-        DataBuffer m_localEventBuffer = 0;
-        SIS3153 *m_sis = nullptr;
-        std::array<vme_script::VMEScript, 8> m_irqReadoutScripts;
-        std::array<EventConfig *, 8> m_irqEventConfigs;
-        std::array<s32, 8> m_irqEventConfigIndex;
-};
 
 /* Stacklist based, IRQ only SIS3153 readout worker implementation. */
 class SIS3153ReadoutWorker: public VMEReadoutWorker
@@ -79,6 +47,23 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
         void logError(const QString &);
 
         void processReadoutResults(EventConfig *event, s32 eventConfigIndex,  const vme_script::ResultList &results);
+
+        struct ReadBufferResult
+        {
+            int bytesRead;
+            VMEError error;
+        };
+
+        void readoutLoop_cleanup();
+        void timetick();
+        ReadBufferResult readBuffer();
+
+        void processSingleEventBuffer(
+            u8 packetAck, u8 packetIdent, u8 packetStatus, u8 *data, size_t size);
+
+        void processMultiEventBuffer(
+            u8 packetAck, u8 packetIdent, u8 packetStatus, u8 *data, size_t size);
+
 
         DAQState m_state = DAQState::Idle;
         DAQState m_desiredState = DAQState::Idle;
