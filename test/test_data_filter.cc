@@ -1,6 +1,7 @@
 #include "test_data_filter.h"
 #include "data_filter.h"
 #include "data_filter_c_style.h"
+#include "analysis/multiword_datafilter.h"
 
 void TestDataFilter::test_match_mask_and_value()
 {
@@ -345,26 +346,35 @@ void TestDataFilter::test_data_filter_c_style_extract_data_()
         QCOMPARE(extract(cacheA, dataWord), 1u << 6);
     }
 
-#if 0
     //
     // gather tests - MultiWordDataFilter
     //
     {
-        MultiWordDataFilter mwf({ makeFilterFromString("0000 XXXA XXXX XXAA AAAA DDDD DDDD DDDD") });
+        MultiWordFilter mf;
+        add_subfilter(&mf, make_filter("0000 XXXA XXXX XXAA AAAA DDDD DDDD DDDD"));
 
-        QCOMPARE(mwf.getSubFilters()[0].needGather('d'), false);
-        QCOMPARE(mwf.getSubFilters()[0].needGather('a'), true);
-
-        auto cacheA = make_cache_entry(filter, 'a');
         u32 dataWord = 0x010006fe;
 
-        mwf.handleDataWord(dataWord);
-
-        QCOMPARE(mwf.isComplete(), true);
-        QCOMPARE(mwf.extractData('A'), (u64)(1u << 6));
-        QCOMPARE(mwf.getResultAddress(), (u64)(1u << 6));
+        QVERIFY(process_data(&mf, dataWord));
+        QCOMPARE(extract(&mf, MultiWordFilter::CacheA), (u64)(1u << 6));
+        QCOMPARE(extract(&mf, MultiWordFilter::CacheD), (u64)(0x6fe));
     }
-#endif
+}
+
+void TestDataFilter::test_multiwordfilter()
+{
+    using namespace data_filter;
+
+    {
+        MultiWordFilter mf;
+        add_subfilter(&mf, make_filter("AAAADDDD"));
+        add_subfilter(&mf, make_filter("DDDDAAAA"));
+
+        QVERIFY(!process_data(&mf, 0xab));
+        QVERIFY(process_data(&mf, 0xcd));
+        QCOMPARE(extract(&mf, MultiWordFilter::CacheA), (u64)(0xda));
+        QCOMPARE(extract(&mf, MultiWordFilter::CacheD), (u64)(0xcb));
+    }
 }
 
 QTEST_MAIN(TestDataFilter)
