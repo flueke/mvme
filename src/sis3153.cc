@@ -105,16 +105,19 @@ struct SIS3153Private
     SIS3153Private(SIS3153 *q)
         : q(q)
         , sis(new sis3153eth)
+        , sis_ctrl(new sis3153eth)
     {
     }
 
     ~SIS3153Private()
     {
         delete sis;
+        delete sis_ctrl;
     }
 
     SIS3153 *q;
-    sis3153eth *sis;
+    sis3153eth *sis,
+               *sis_ctrl;
     QMutex lock;
 
     // ip address or hostname of the SIS
@@ -152,21 +155,10 @@ SIS3153::SIS3153(QObject *parent)
     : VMEController(parent)
     , m_d(new SIS3153Private(this))
 {
-#if 0
-    m_d->sis->recv_timeout_sec = 1;
-    m_d->sis->recv_timeout_usec = 0;
-    int result = m_d->sis->set_UdpSocketOptionTimeout();
-
-    if (result != 0)
-    {
-        qDebug() << __PRETTY_FUNCTION__ << "set_UdpSocketOptionTimeout() failed";
-    }
-#endif
 }
 
 SIS3153::~SIS3153()
 {
-    qDebug() << __PRETTY_FUNCTION__ << "==========================XXXXXXxxxxxxxxxxxxXXXXXX==========================";
     close();
     delete m_d;
 }
@@ -216,6 +208,21 @@ VMEError SIS3153::open()
             return VMEError(VMEError::UnknownError);
     }
 
+    // create a second socket for issuing control requests while in daq mode
+    resultCode = m_d->sis_ctrl->set_UdpSocketSIS3153_IpAddress(const_cast<char *>(addressData.constData()));
+    switch (resultCode)
+    {
+        case 0:
+            break;
+        case -1:
+        case -3:
+            return VMEError(VMEError::InvalidIPAddress);
+        case -2:
+            return VMEError(VMEError::HostNotFound);
+        default:
+            return VMEError(VMEError::UnknownError);
+    }
+
 #ifdef SIS3153_DEBUG
     qDebug() << __PRETTY_FUNCTION__ << "set_UdpSocketSIS3153_IpAddress() ok:" << m_d->address;
 #endif
@@ -225,8 +232,8 @@ VMEError SIS3153::open()
     {
         char msgBuf[1024];
         u32 numDevices = 0;
-        // call the overload of get_vmeopen_messages() which reads registers
-        // ModuleIdAndFirmware internally.
+        // call the overload of get_vmeopen_messages() which reads the
+        // ModuleIdAndFirmware register internally.
         resultCode = m_d->sis->get_vmeopen_messages(msgBuf, sizeof(msgBuf), &numDevices);
         result = make_sis_error(resultCode);
 
@@ -277,7 +284,6 @@ VMEError SIS3153::open()
 #endif
         return result;
     }
-
 
     m_d->isOpen = true;
 
@@ -426,6 +432,11 @@ VMEError SIS3153::blockRead(u32 address, u32 transfers, QVector<u32> *dest, u8 a
 sis3153eth *SIS3153::getImpl()
 {
     return m_d->sis;
+}
+
+sis3153eth *SIS3153::getCtrlImpl()
+{
+    return m_d->sis_ctrl;
 }
 
 void SIS3153::setAddress(const QString &address)

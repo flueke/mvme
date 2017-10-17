@@ -22,11 +22,8 @@
 #include "vme_readout_worker.h"
 #include "sis3153.h"
 #include "vme_script.h"
+#include "vme_daq.h"
 
-/* FIXME: the readout worker currently only handles IRQ triggers. Fix this at
- * some later point (at least for the non-polling case). */
-
-/* Stacklist based, IRQ only SIS3153 readout worker implementation. */
 class SIS3153ReadoutWorker: public VMEReadoutWorker
 {
     Q_OBJECT
@@ -54,27 +51,36 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
             VMEError error;
         };
 
+        // sis3153 readout
         void readoutLoop_cleanup();
+        ReadBufferResult readAndProcessBuffer();
+
+        // mvme event processing
         void timetick();
-        ReadBufferResult readBuffer();
-
-        void processSingleEventBuffer(
+        void processSingleEventData(
             u8 packetAck, u8 packetIdent, u8 packetStatus, u8 *data, size_t size);
 
-        void processMultiEventBuffer(
+        void processMultiEventData(
             u8 packetAck, u8 packetIdent, u8 packetStatus, u8 *data, size_t size);
+
+        DataBuffer *getOutputBuffer();
 
 
         DAQState m_state = DAQState::Idle;
         DAQState m_desiredState = DAQState::Idle;
         quint32 m_cyclesToRun = 0;
-        DataBuffer m_localEventBuffer;
         DataBuffer m_readBuffer;
         SIS3153 *m_sis = nullptr;
-        std::array<EventConfig *, 8> m_irqEventConfigs;
-        std::array<s32, 8> m_irqEventConfigIndex;
+        std::array<EventConfig *, SIS3153Constants::NumberOfStackLists> m_eventConfigsByStackList;
+        std::array<int, SIS3153Constants::NumberOfStackLists> m_eventIndexByStackList;
         std::array<u64, 8> m_packetCountsByStack;
+        u64 m_multiEventPacketCount = 0;
         QFile *m_debugFile = nullptr;
+        u32 m_stackListControlRegisterValue = 0;
+        DataBuffer m_localEventBuffer;
+        DataBuffer m_localTimetickBuffer;
+        std::unique_ptr<DAQReadoutListfileHelper> m_listfileHelper;
+        DataBuffer *m_outputBuffer = nullptr;
 };
 
 #endif /* __SIS3153_READOUT_WORKER_H__ */

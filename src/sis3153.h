@@ -56,6 +56,7 @@ class LIBMVME_EXPORT SIS3153: public VMEController
         //
 
         sis3153eth *getImpl();
+        sis3153eth *getCtrlImpl();
 
         // Set IP address or hostname to connect to. Takes effect after closing
         // and reopening the device.
@@ -136,6 +137,8 @@ namespace SIS3153Constants
 {
     // The packetAck byte in the case of a buffered multievent packet.
     static const u8 MultiEventPacketAck = 0x60;
+
+    static const int NumberOfStackLists = 8;
 
 } // namespace SIS3153Constants
 
