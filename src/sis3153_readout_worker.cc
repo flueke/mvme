@@ -1161,10 +1161,7 @@ void SIS3153ReadoutWorker::readoutLoop()
                 daqStats->addBuffersRead(1);
                 daqStats->addBytesRead(bytesRead);
                 const double alpha = 0.1;
-                daqStats->avgReadSize = bytesRead; // FIXME: not average, just snapshot of last read
-                //daqStats->avgReadSize = (alpha * bytesRead) + (1.0 - alpha) * daqStats->avgReadSize;
 
-                // 0x60 is the header for multievent packages
                 if (packetAck != SIS3153Constants::MultiEventPacketAck)
                 {
                     ++m_packetCountsByStack[packetAck & 0x7];

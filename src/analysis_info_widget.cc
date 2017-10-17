@@ -81,9 +81,9 @@ void AnalysisInfoWidget::update()
     QString ecText;
     QString mcText;
 
-    for (u32 ei = 0; ei < MVMEEventProcessorCounters::MaxEvents; ++ei)
+    for (u32 ei = 0; ei < MaxVMEEvents; ++ei)
     {
-        for (u32 mi = 0; mi < MVMEEventProcessorCounters::MaxModulesPerEvent; ++mi)
+        for (u32 mi = 0; mi < MaxVMEModules; ++mi)
         {
             u32 count = counters.moduleCounters[ei][mi];
             if (count)

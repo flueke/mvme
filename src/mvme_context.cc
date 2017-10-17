@@ -537,7 +537,7 @@ void MVMEContext::tryOpenController()
 
 void MVMEContext::logModuleCounters()
 {
-#if 1
+#if 0 // TODO: rebuild this once stats tracks these numbers again
 
     QString buffer;
     QTextStream stream(&buffer);

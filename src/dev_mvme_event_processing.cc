@@ -217,9 +217,9 @@ int main(int argc, char *argv[])
         cout << stats.buffersWithErrors << " buffers with errors" << endl;
         cout << stats.eventSections << " event section seen" << endl;
         cout << stats.invalidEventIndices << " invalid event indices" << endl;
-        for (u32 ei = 0; ei < MVMEEventProcessorCounters::MaxEvents; ++ei)
+        for (u32 ei = 0; ei < MaxVMEEvents; ++ei)
         {
-            for (u32 mi = 0; mi < MVMEEventProcessorCounters::MaxModulesPerEvent; ++mi)
+            for (u32 mi = 0; mi < MaxVMEModules; ++mi)
             {
                 u32 count = stats.moduleCounters[ei][mi];
                 if (count)
@@ -229,7 +229,7 @@ int main(int argc, char *argv[])
             }
         }
 
-        for (u32 ei = 0; ei < MVMEEventProcessorCounters::MaxEvents; ++ei)
+        for (u32 ei = 0; ei < MaxVMEEvents; ++ei)
         {
             u32 count = stats.eventCounters[ei];
             if (count)

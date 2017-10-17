@@ -39,7 +39,6 @@ using DualWordFilterDiffs  = QHash<DualWordDataFilterConfig *, double>;
 
 struct LIBMVME_EXPORT MVMEEventProcessorCounters
 {
-    static const u32 MaxEvents = 12;
     static const u32 MaxModulesPerEvent = 20;
 
     QDateTime startTime;
@@ -49,9 +48,9 @@ struct LIBMVME_EXPORT MVMEEventProcessorCounters
     u32 buffersWithErrors = 0;
     u32 eventSections = 0;
     u32 invalidEventIndices = 0;
-    using ModuleCounters = std::array<u32, MaxModulesPerEvent>;
-    std::array<ModuleCounters, MaxEvents> moduleCounters;
-    std::array<u32, MaxEvents> eventCounters;
+    using ModuleCounters = std::array<u32, MaxVMEModules>;
+    std::array<ModuleCounters, MaxVMEEvents> moduleCounters;
+    std::array<u32, MaxVMEEvents> eventCounters;
 };
 
 class LIBMVME_EXPORT MVMEEventProcessor: public QObject
