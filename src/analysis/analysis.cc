@@ -350,6 +350,7 @@ void Extractor::processModuleData(u32 *data, u32 size)
                     qDebug() << this << "setting param valid, addr =" << address << ", value =" << param.value
                         << ", dataWord =" << QString("0x%1").arg(dataWord, 8, 16, QLatin1Char('0'));
 #endif
+                    // FIXME: try to get rid of this lock
                     QMutexLocker lock(&m_hitCountsMutex);
                     m_hitCounts[address] += 1.0;
                 }
