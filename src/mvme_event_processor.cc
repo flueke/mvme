@@ -42,11 +42,6 @@ enum RunAction
     StopImmediately
 };
 
-// Maximum number of possible events in the vme config. Basically IRQ1-7 +
-// external inputs + timers + some room to grow.
-static const u32 MaxEvents = 12;
-static const u32 MaxModulesPerEvent = 20;
-
 struct MultiEventModuleInfo
 {
     u32 *subEventHeader = nullptr;  // Points to the mvme header preceeding the module data.
@@ -56,15 +51,14 @@ struct MultiEventModuleInfo
 
 
     // The filter used to identify module headers and extract the module
-    // section size. Comes from the module config but is cached here for
-    // efficiency.
+    // section size.
     DataFilter moduleHeaderFilter;
 
     // Cache pointers to the corresponding module config.
     ModuleConfig *moduleConfig = nullptr;
 };
 
-using ModuleInfoArray = std::array<MultiEventModuleInfo, MaxModulesPerEvent>;
+using ModuleInfoArray = std::array<MultiEventModuleInfo, MaxVMEModules>;
 
 struct MVMEEventProcessorPrivate
 {
@@ -88,9 +82,9 @@ struct MVMEEventProcessorPrivate
     int SubEventSizeMask;
     int SubEventSizeShift;
 
-    std::array<ModuleInfoArray, MaxEvents> eventInfos;
-    std::array<EventConfig *, MaxEvents> eventConfigs;
-    std::array<bool, MaxEvents> doMultiEventProcessing;
+    std::array<ModuleInfoArray, MaxVMEEvents> eventInfos;
+    std::array<EventConfig *, MaxVMEEvents> eventConfigs;
+    std::array<bool, MaxVMEEvents> doMultiEventProcessing;
 
     MVMEEventProcessorCounters m_localStats;
 };
@@ -259,7 +253,7 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
     //
 
     for (u32 moduleIndex = 0;
-         moduleIndex < MaxModulesPerEvent;
+         moduleIndex < MaxVMEModules;
          ++moduleIndex)
     {
         if (eventIter.atEnd() || eventIter.peekU32() == EndMarker)
@@ -278,7 +272,7 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
 #ifdef MVME_EVENT_PROCESSOR_DEBUGGING
     qDebug() << __PRETTY_FUNCTION__ << "Step 1 complete: ";
 
-    for (u32 moduleIndex = 0; moduleIndex < MaxModulesPerEvent; ++moduleIndex)
+    for (u32 moduleIndex = 0; moduleIndex < MaxVMEModules; ++moduleIndex)
     {
         const auto &mi(moduleInfos[moduleIndex]);
 
@@ -303,7 +297,7 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
 
     bool done = false;
     const u32 *ptrToLastWord = data + size;
-    std::array<u32, MaxModulesPerEvent> eventCountsByModule;
+    std::array<u32, MaxVMEModules> eventCountsByModule;
     eventCountsByModule.fill(0);
 
     while (!done)
@@ -434,7 +428,7 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
 
     u32 firstModuleCount = eventCountsByModule[0];
 
-    for (u32 moduleIndex = 0; moduleIndex < MaxModulesPerEvent; ++moduleIndex)
+    for (u32 moduleIndex = 0; moduleIndex < MaxVMEModules; ++moduleIndex)
     {
         if (m_d->eventInfos[eventIndex][moduleIndex].subEventHeader)
         {
