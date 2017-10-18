@@ -121,7 +121,7 @@ void DAQStatsWidget::updateWidget()
 
     double bytesPerSecond = stats.totalBytesRead / static_cast<double>(duration_s);
     double mbPerSecond = bytesPerSecond / Megabytes(1);
-    double buffersPerSecond = stats.totalBytesRead / static_cast<double>(duration_s);
+    double buffersPerSecond = stats.totalBuffersRead / static_cast<double>(duration_s);
     double eventsPerSecond = stats.totalEventsRead / static_cast<double>(duration_s);
     double avgReadSize = stats.totalBytesRead / static_cast<double>(stats.totalBuffersRead);
 
