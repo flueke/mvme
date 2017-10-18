@@ -29,7 +29,7 @@
 
 #define SIS_READOUT_DEBUG               0   // enable debugging code
 #define SIS_READOUT_BUFFER_DEBUG_PRINT  0   // print buffers to console
-#define SIS_READOUT_BUFFER_DEBUG_FILE   1   // print buffers to buffer.log
+#define SIS_READOUT_BUFFER_DEBUG_FILE   0   // print buffers to buffer.log
 
 using namespace vme_script;
 
@@ -383,8 +383,8 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
 
         s32 stackListIndex = 0;
         u32 stackLoadAddress = SIS3153ETH_STACK_RAM_START_ADDR;
-        u32 stackListControlValue = SIS3153Registers::StackListControlValues::ListBufferEnable;
-        //u32 stackListControlValue = 0;
+        //u32 stackListControlValue = SIS3153Registers::StackListControlValues::ListBufferEnable;
+        u32 stackListControlValue = 0;
         u32 nextTimerTriggerSource = SIS3153Registers::TriggerSourceTimer1;
 
         for (s32 eventIndex = 0;
@@ -781,11 +781,13 @@ SIS3153ReadoutWorker::ReadBufferResult SIS3153ReadoutWorker::readBuffer()
 
     /* SIS3153 sends 3 status bytes. To have the rest of the data be 32-bit
      * aligned use an offset of 1 byte into the buffer as the destination
-     * address. */
+     * address.
+     * Note: udp_read_list_packet() is just a thin wrapper around recvfrom().
+     */
     result.bytesRead = m_sis->getImpl()->udp_read_list_packet(
         reinterpret_cast<char *>(m_readBuffer.data + 1));
 
-#if 0
+#if SIS_READOUT_DEBUG
     qDebug() << __PRETTY_FUNCTION__ << "bytesRead =" << result.bytesRead
         << ", errno =" << errno << ", strerror =" << std::strerror(errno)
         << ", EAGAIN=" << EAGAIN;
@@ -798,7 +800,9 @@ SIS3153ReadoutWorker::ReadBufferResult SIS3153ReadoutWorker::readBuffer()
         {
             result.error = VMEError(VMEError::ReadError, errno, std::strerror(errno));
             m_workerContext.daqStats->vmeCtrlReadErrors++;
+#if SIS_READOUT_DEBUG
             qDebug() << __PRETTY_FUNCTION__ << "error from recvfrom(): " << result.error.toString();
+#endif
         }
         return result;
     }
@@ -810,8 +814,10 @@ SIS3153ReadoutWorker::ReadBufferResult SIS3153ReadoutWorker::readBuffer()
     {
         result.error = VMEError(VMEError::CommError, -1,
                                 QSL("sis3153 read returned < packetHeaderSize (3 bytes)!"));
+#if SIS_READOUT_DEBUG
         qDebug() << __PRETTY_FUNCTION__ << "got < 3 bytes; returning " << result.error.toString()
             << result.bytesRead << std::strerror(errno);
+#endif
         m_workerContext.daqStats->buffersWithErrors++;
         return result;
     }
@@ -823,8 +829,10 @@ SIS3153ReadoutWorker::ReadBufferResult SIS3153ReadoutWorker::readBuffer()
     packetIdent  = m_readBuffer.data[2];
     packetStatus = m_readBuffer.data[3];
 
+#if SIS_READOUT_DEBUG
     qDebug("ack=0x%x, ident=0x%x, status=0x%x, bytesRead=%d, wordsRead=%ld",
            (u32)packetAck, (u32)packetIdent, (u32)packetStatus, result.bytesRead, result.bytesRead / sizeof(u32));
+#endif
 
     processBuffer(packetAck, packetIdent, packetStatus,
                   m_readBuffer.data + sizeof(u32),
@@ -836,7 +844,7 @@ SIS3153ReadoutWorker::ReadBufferResult SIS3153ReadoutWorker::readBuffer()
 void SIS3153ReadoutWorker::processBuffer(
     u8 packetAck, u8 packetIdent, u8 packetStatus, u8 *data, size_t size)
 {
-#if 0
+#if SIS_READOUT_DEBUG
     qDebug() << __PRETTY_FUNCTION__ << "buffer size =" << m_readBuffer.used << ", contents:";
     debugOutputBuffer(m_readBuffer.data, m_readBuffer.used);
     qDebug() << __PRETTY_FUNCTION__ << "end buffer contents";
@@ -873,13 +881,17 @@ void SIS3153ReadoutWorker::processBuffer(
         // action handling
         if (!(action & ProcessorAction::KeepState) || (action & ProcessorAction::SkipInput))
         {
+#if SIS_READOUT_DEBUG
             qDebug() << __PRETTY_FUNCTION__ << "resetting ProcessingState";
+#endif
             m_processingState = ProcessingState();
         }
 
         if (action & ProcessorAction::FlushBuffer)
         {
+#if SIS_READOUT_DEBUG
             qDebug() << __PRETTY_FUNCTION__ << "flushing current output buffer";
+#endif
             flushCurrentOutputBuffer();
         }
     }
@@ -888,7 +900,9 @@ void SIS3153ReadoutWorker::processBuffer(
         auto msg = QString(QSL("SIS3153 Warning: (buffer #%1) end of input reached unexpectedly!"))
             .arg(m_workerContext.daqStats->totalBuffersRead);
         logMessage(msg);
+#if SIS_READOUT_DEBUG
         qDebug() << __PRETTY_FUNCTION__ << msg << "skipping input buffer";
+#endif
         m_workerContext.daqStats->buffersWithErrors++;
     }
 }
@@ -896,11 +910,14 @@ void SIS3153ReadoutWorker::processBuffer(
 u32 SIS3153ReadoutWorker::processMultiEventData(
     u8 packetAck, u8 packetIdent, u8 packetStatus, u8 *data, size_t size)
 {
+#if SIS_READOUT_DEBUG
     qDebug() << __PRETTY_FUNCTION__;
+#endif
     Q_ASSERT(packetAck == SIS3153Constants::MultiEventPacketAck);
     Q_ASSERT(m_processingState.stackList < 0);
 
-#if 0 // TODO: check and log
+// TODO: check and log
+#if 0
     if (m_processingState.stackList >= 0)
     {
         qDebug() << __PRETTY_FUNCTION__ << "error: got a multi event packet while a partial event is in progress! skipping input buffer";
@@ -911,7 +928,9 @@ u32 SIS3153ReadoutWorker::processMultiEventData(
     u32 action = ProcessorAction::NoneSet;
     BufferIterator iter(data, size);
 
+#if SIS_READOUT_DEBUG
     qDebug() << __PRETTY_FUNCTION__ << "begin processing internal events";
+#endif
 
     while (iter.longwordsLeft())
     {
@@ -921,10 +940,12 @@ u32 SIS3153ReadoutWorker::processMultiEventData(
         u8  internalPacketStatus = 0; // FIXME: what's up with this?
         u16 length = ((eventHeader & 0xff0000) >> 16) | (eventHeader & 0xff00); // length in 32-bit words
 
+#if SIS_READOUT_DEBUG
         char sbuf[256];
         snprintf(sbuf, sizeof(sbuf), "%s: embedded single event: header=0x%08x, internalIdent=0x%x, length=%u, internalAck=0x%x",
                  __PRETTY_FUNCTION__, eventHeader, (u32)internalIdent, (u32)length, (u32)internalAck);
         qDebug("%s", sbuf);
+#endif
 
         m_packetCountsByStack[internalAck & SIS3153Constants::AckStackListMask]++;
 
@@ -935,7 +956,9 @@ u32 SIS3153ReadoutWorker::processMultiEventData(
         {
             /* Processing the internal event did not succeed. Skip the rest of
              * the data and throw away the partially generated output buffer. */
+#if SIS_READOUT_DEBUG
             qDebug() << __PRETTY_FUNCTION__ << "processSingleEventData returned SkipInput!";
+#endif
             break;
         }
         else
@@ -946,11 +969,15 @@ u32 SIS3153ReadoutWorker::processMultiEventData(
 
     if (!(action & ProcessorAction::SkipInput) && iter.bytesLeft())
     {
+#if SIS_READOUT_DEBUG
         qDebug() << __PRETTY_FUNCTION__ << "Warning: bytes left at end of multievent iteration!";
-        // TODO: nice log message
+        // TODO: nice log message with formatted bytes or at least the number of bytes that's left
+#endif
     }
 
+#if SIS_READOUT_DEBUG
     qDebug("%s: end processing. returning 0x%x", __PRETTY_FUNCTION__, action);
+#endif
 
     return action;
 }
@@ -960,7 +987,9 @@ u32 SIS3153ReadoutWorker::processMultiEventData(
 u32 SIS3153ReadoutWorker::processSingleEventData(
     u8 packetAck, u8 packetIdent, u8 packetStatus, u8 *data, size_t size)
 {
+#if SIS_READOUT_DEBUG
     qDebug() << __PRETTY_FUNCTION__;
+#endif
     Q_ASSERT(packetAck != SIS3153Constants::MultiEventPacketAck);
     Q_ASSERT(packetAck & SIS3153Constants::AckIsLastPacketMask);
     Q_ASSERT(m_processingState.stackList < 0);
@@ -974,7 +1003,9 @@ u32 SIS3153ReadoutWorker::processSingleEventData(
 
         if ((beginHeader & SIS3153Constants::BeginEventMask) != SIS3153Constants::BeginEventResult)
         {
+#if SIS_READOUT_DEBUG
             qDebug() << "invalid beginHeader"; // TODO: log message
+#endif
             return ProcessorAction::SkipInput;
         }
     }
@@ -983,7 +1014,9 @@ u32 SIS3153ReadoutWorker::processSingleEventData(
     int eventIndex = m_eventIndexByStackList[stacklist];
     if (!eventConfig)
     {
+#if SIS_READOUT_DEBUG
         qDebug() << "no event config for stacklist" << stacklist; // TODO: log message
+#endif
         return ProcessorAction::SkipInput;
     }
 
@@ -1003,7 +1036,9 @@ u32 SIS3153ReadoutWorker::processSingleEventData(
 
     for (s32 moduleIndex = 0; moduleIndex < moduleCount; moduleIndex++)
     {
+#if SIS_READOUT_DEBUG
         qDebug() << __PRETTY_FUNCTION__ << "moduleIndex =" << moduleIndex << ", moduleCount =" << moduleCount;
+#endif
         u32 moduleSectionSize = 0;
         eventSectionSize++;
         u32 *moduleHeader = outputBuffer->asU32();
@@ -1034,7 +1069,9 @@ u32 SIS3153ReadoutWorker::processSingleEventData(
 
         if ((endHeader & SIS3153Constants::EndEventMask) != SIS3153Constants::EndEventResult)
         {
+#if SIS_READOUT_DEBUG
             qDebug() << "invalid endHeader"; // TODO: log message
+#endif
             return ProcessorAction::SkipInput;
         }
     }
@@ -1053,7 +1090,9 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
     u8 packetAck, u8 packetIdent, u8 packetStatus, u8 *data, size_t size)
 {
     using LF = listfile_v1;
+#if SIS_READOUT_DEBUG
     qDebug() << __PRETTY_FUNCTION__;
+#endif
     Q_ASSERT(packetAck != SIS3153Constants::MultiEventPacketAck);
 
     int stacklist = packetAck & SIS3153Constants::AckStackListMask;
@@ -1073,7 +1112,9 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
 
         if ((beginHeader & SIS3153Constants::BeginEventMask) != SIS3153Constants::BeginEventResult)
         {
+#if SIS_READOUT_DEBUG
             qDebug() << __PRETTY_FUNCTION__ << "invalid beginHeader"; // TODO: log message
+#endif
             return ProcessorAction::SkipInput;
         }
 
@@ -1082,7 +1123,9 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
 
         if (!eventConfig)
         {
+#if SIS_READOUT_DEBUG
             qDebug() << __PRETTY_FUNCTION__ << "no event config for stacklist" << stacklist; // TODO: log message
+#endif
             return ProcessorAction::SkipInput;
         }
 
@@ -1103,7 +1146,9 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
 
     if (stacklist != m_processingState.stackList)
     {
+#if SIS_READOUT_DEBUG
         qDebug() << __PRETTY_FUNCTION__ << "stackList mismatch during partial data processing, skipping input";
+#endif
         return ProcessorAction::SkipInput;
     }
 
@@ -1118,7 +1163,9 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
     EventConfig *eventConfig = m_eventConfigsByStackList[stacklist];
     if (!eventConfig)
     {
+#if SIS_READOUT_DEBUG
         qDebug() << __PRETTY_FUNCTION__ << "no event config for stacklist" << stacklist; // TODO: log message
+#endif
         return ProcessorAction::SkipInput;
     }
     const s32 moduleCount = eventConfig->modules.size();
@@ -1132,7 +1179,9 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
 
         if (m_processingState.moduleIndex >= moduleCount)
         {
+#if SIS_READOUT_DEBUG
             qDebug() << __PRETTY_FUNCTION__ << "module index out of range during partial event processing";
+#endif
             return ProcessorAction::SkipInput;
         }
 
@@ -1148,7 +1197,9 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
 
             if (!moduleConfig)
             {
+#if SIS_READOUT_DEBUG
                 qDebug() << __PRETTY_FUNCTION__ << "no module config for subevent"; // TODO: log message
+#endif
                 return ProcessorAction::SkipInput;
             }
 
@@ -1184,7 +1235,9 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
         u32 endHeader = iter.extractU32();
         if ((endHeader & SIS3153Constants::EndEventMask) != SIS3153Constants::EndEventResult)
         {
+#if SIS_READOUT_DEBUG
             qDebug() << __PRETTY_FUNCTION__ << "invalid endHeader"; // TODO: log message
+#endif
             return ProcessorAction::SkipInput;
         }
 
