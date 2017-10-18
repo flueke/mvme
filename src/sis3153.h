@@ -135,8 +135,19 @@ namespace SIS3153Registers
 
 namespace SIS3153Constants
 {
-    // The packetAck byte in the case of a buffered multievent packet.
+    // The packetAck byte value in the case of a buffered multievent packet.
     static const u8 MultiEventPacketAck = 0x60;
+    // Mask the Ack with this to obtain the stacklist number.
+    static const u8 AckStackListMask    = 0x7;
+    // Extract the lastPacket bit from an Ack
+    static const u8 AckIsLastPacketMask = 0x8;
+
+    // Masks and results for the two special words added by SIS3153 at the
+    // beginning and end of module data.
+    static const u32 BeginEventMask   = 0xff000000;
+    static const u32 BeginEventResult = 0xbb000000;
+    static const u32 EndEventMask     = 0xff000000;
+    static const u32 EndEventResult   = 0xee000000;
 
     static const int NumberOfStackLists = 8;
 

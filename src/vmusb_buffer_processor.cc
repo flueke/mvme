@@ -96,7 +96,7 @@ static void throw_io_device_error(QIODevice *device)
  * sections.
  *
  * The code below tries to transform incoming data from the VMUSB format into
- * our MVME format (see mvme_listfile.h) for details. Partial events are
+ * our MVME format (see mvme_listfile.h for details). Partial events are
  * reassembled, event data is parsed and split into individual module sections
  * and VMUSB stackIDs are mapped to EventConfigs. Error and consistency checks
  * are done and invalid data is discarded.

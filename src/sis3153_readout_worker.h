@@ -53,18 +53,55 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
 
         // sis3153 readout
         void readoutLoop_cleanup();
-        ReadBufferResult readAndProcessBuffer();
+        ReadBufferResult readBuffer();
 
         // mvme event processing
-        void timetick();
-        void processSingleEventData(
+
+        /* Entry point for buffer processing. Called by readBuffer() which then
+         * dispatches to one of the process*Data() methods below. */
+        void processBuffer(
             u8 packetAck, u8 packetIdent, u8 packetStatus, u8 *data, size_t size);
 
-        void processMultiEventData(
+        /* Handles the case where a multi event packet is received. The
+         * assumption is that multi events and partials are never mixed. */
+        u32 processMultiEventData(
             u8 packetAck, u8 packetIdent, u8 packetStatus, u8 *data, size_t size);
+
+        /* Handles the case where no partial event assembly is in progress and
+         * the buffer contains a single complete event. */
+        u32 processSingleEventData(
+            u8 packetAck, u8 packetIdent, u8 packetStatus, u8 *data, size_t size);
+
+        /* Handles the case where partial event assembly is in progress or
+         * should be started. */
+        u32 processPartialEventData(
+            u8 packetAck, u8 packetIdent, u8 packetStatus, u8 *data, size_t size);
+
+        void timetick();
 
         DataBuffer *getOutputBuffer();
 
+        struct ProcessingState
+        {
+            s32 stackList = -1;
+            s32 eventSize = 0;
+            s32 eventHeaderOffset = -1;
+            s32 moduleSize = 0;
+            s32 moduleHeaderOffset = -1;
+            s32 moduleIndex = -1;
+        };
+
+        struct ProcessorAction
+        {
+            static const u32 NoneSet     = 0;
+            static const u32 KeepState   = 1u << 0; // Keep the ProcessorState. If unset resets the state.
+            static const u32 FlushBuffer = 1u << 1; // Flush the current output buffer and acquire a new one
+            static const u32 SkipInput   = 1u << 2; // Skip the current input buffer.
+                                                    // Implies state reset and reuses the output buffer without
+                                                    // flusing it.
+        };
+
+        void flushCurrentOutputBuffer();
 
         DAQState m_state = DAQState::Idle;
         DAQState m_desiredState = DAQState::Idle;
@@ -81,6 +118,7 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
         DataBuffer m_localTimetickBuffer;
         std::unique_ptr<DAQReadoutListfileHelper> m_listfileHelper;
         DataBuffer *m_outputBuffer = nullptr;
+        ProcessingState m_processingState;
 };
 
 #endif /* __SIS3153_READOUT_WORKER_H__ */

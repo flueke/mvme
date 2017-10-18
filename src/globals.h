@@ -126,9 +126,10 @@ struct DAQStats
 
     u64 totalBytesRead = 0;
     u64 totalBuffersRead = 0;
-    u64 buffersWithErrors = 0;
-    u64 droppedBuffers = 0; // number of buffers not passed to the analysis
+    u64 buffersWithErrors = 0;  // buffers for which processing did not succeeed (structure not intact, etc)
+    u64 droppedBuffers = 0;     // number of buffers not passed to the analysis
     u64 totalEventsRead = 0;
+    u64 vmeCtrlReadErrors = 0;
 
     int freeBuffers = 0;
 
