@@ -7,7 +7,6 @@
 
 #include <QByteArray>
 #include <array>
-#include <x86intrin.h>
 
 namespace data_filter
 {
@@ -46,11 +45,7 @@ inline u32 extract(CacheEntry cache, u32 value)
 
     if (cache.needGather)
     {
-#ifdef __BMI2__
-        result = _pext_u32(result, cache.extractMask >> cache.extractShift);
-#else
         result = bit_gather(result, cache.extractMask >> cache.extractShift);
-#endif
     }
 
     return result;

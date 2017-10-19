@@ -6,7 +6,7 @@
 namespace data_filter
 {
 
-static const s32 MaxFilters = 16;
+static const int MaxFilters = 16;
 
 struct MultiWordFilter
 {
@@ -15,7 +15,7 @@ struct MultiWordFilter
     std::array<DataFilter, MaxFilters> filters;
     std::array<u32, MaxFilters> results;
     std::array<std::array<CacheEntry, MaxFilters>, CacheCount> caches;
-    s32 filterCount = 0;
+    s16 filterCount = 0;
     u16 completionMask = 0;
 
     // FIXME: This static_assert() doesn't actually work (g++ 6.3.0)
@@ -27,7 +27,7 @@ inline void clear_completion(MultiWordFilter *filter)
     filter->completionMask = 0;
 }
 
-u32 add_subfilter(MultiWordFilter *filter, DataFilter subfilter)
+inline u32 add_subfilter(MultiWordFilter *filter, DataFilter subfilter)
 {
     if (filter->filterCount >= MaxFilters)
         throw std::out_of_range("filter count exceeded");
@@ -73,6 +73,18 @@ inline u64 extract(MultiWordFilter *filter, MultiWordFilter::CacheType cacheType
         u32 value = extract(filter->caches[cacheType][i], filter->results[i]);
         result |= static_cast<u64>(value) << shift;
         shift += filter->caches[cacheType][i].extractBits;
+    }
+
+    return result;
+}
+
+inline u8 get_extract_bits(MultiWordFilter *filter, MultiWordFilter::CacheType cacheType)
+{
+    u8 result = 0;
+
+    for (int i = 0; i < filter->filterCount; i++)
+    {
+        result += filter->caches[cacheType][i].extractBits;
     }
 
     return result;

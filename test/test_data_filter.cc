@@ -374,6 +374,7 @@ void TestDataFilter::test_multiwordfilter()
         QVERIFY(process_data(&mf, 0xcd));
         QCOMPARE(extract(&mf, MultiWordFilter::CacheA), (u64)(0xda));
         QCOMPARE(extract(&mf, MultiWordFilter::CacheD), (u64)(0xcb));
+        QCOMPARE(get_extract_bits(&mf, MultiWordFilter::CacheA), (u8)8);
     }
 }
 
