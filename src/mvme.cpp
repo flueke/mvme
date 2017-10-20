@@ -208,6 +208,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
         auto widget = new SIS3153DebugWidget(m_d->m_context);
         widget->setAttribute(Qt::WA_DeleteOnClose);
         add_widget_close_action(widget);
+        m_d->m_geometrySaver->addAndRestore(widget, QSL("WindowGeometries/SIS3153DebugWidget"));
         widget->show();
     });
     connect(m_d->actionToolAnalysisInfo,        &QAction::triggered, this, &MVMEMainWindow::onActionToolAnalysisInfo_triggered);

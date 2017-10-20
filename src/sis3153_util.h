@@ -17,6 +17,7 @@ class SIS3153DebugWidget: public QWidget
 
         MVMEContext *m_context;
         QVector<QLabel *> m_labels;
+        QVector<QLabel *> m_rdoCounterLabels;
 };
 
 #endif /* __SIS3153_UTIL_H__ */

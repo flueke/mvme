@@ -37,9 +37,19 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
         virtual void resume() override;
         virtual bool isRunning() const override;
 
+        struct Counters
+        {
+            std::array<u64, SIS3153Constants::NumberOfStackLists> packetsPerStackList;
+            u64 multiEventPackets = 0;
+        };
+
+        inline const Counters &getCounters() const
+        {
+            return m_counters;
+        }
+
     private:
         void setState(DAQState state);
-        void readoutLoop();
         void logMessage(const QString &message);
         void logError(const QString &);
 
@@ -51,8 +61,8 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
             VMEError error;
         };
 
-        // sis3153 readout
-        void readoutLoop_cleanup();
+        // readout stuff
+        void readoutLoop();
         ReadBufferResult readBuffer();
 
         // mvme event processing
@@ -110,8 +120,7 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
         SIS3153 *m_sis = nullptr;
         std::array<EventConfig *, SIS3153Constants::NumberOfStackLists> m_eventConfigsByStackList;
         std::array<int, SIS3153Constants::NumberOfStackLists> m_eventIndexByStackList;
-        std::array<u64, 8> m_packetCountsByStack;
-        u64 m_multiEventPacketCount = 0;
+        Counters m_counters;
         QFile *m_debugFile = nullptr;
         u32 m_stackListControlRegisterValue = 0;
         DataBuffer m_localEventBuffer;
@@ -119,6 +128,7 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
         std::unique_ptr<DAQReadoutListfileHelper> m_listfileHelper;
         DataBuffer *m_outputBuffer = nullptr;
         ProcessingState m_processingState;
+
 };
 
 #endif /* __SIS3153_READOUT_WORKER_H__ */

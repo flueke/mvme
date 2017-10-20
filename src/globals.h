@@ -116,20 +116,18 @@ struct DAQStats
         totalBuffersRead += count;
     }
 
-    inline void addEventsRead(u64 count)
-    {
-        totalEventsRead += count;
-    }
-
     QDateTime startTime;
     QDateTime endTime;
 
-    u64 totalBytesRead = 0;
-    u64 totalBuffersRead = 0;
+    u64 totalBytesRead = 0;     // bytes read from the controller including protocol overhead
+    u64 totalBuffersRead = 0;   // number of buffers received from the controller
     u64 buffersWithErrors = 0;  // buffers for which processing did not succeeed (structure not intact, etc)
     u64 droppedBuffers = 0;     // number of buffers not passed to the analysis
-    u64 totalEventsRead = 0;
+    u64 totalEventsRead = 0;    // FIXME: describe what this actually counts!
     u64 vmeCtrlReadErrors = 0;
+    u64 totalNetBytesRead = 0;  // The number of bytes read excluding protocol
+                                // overhead. This should be a measure for the
+                                // amount of data the VME bus transferred.
 
     int freeBuffers = 0;
 
@@ -137,8 +135,6 @@ struct DAQStats
     u64 listFileTotalBytes = 0; // For replay mode: the size of the replay file
     QString listfileFilename;
 
-    u64 totalBuffersProcessed = 0;
-    //u64 eventsProcessed = 0;
     u64 mvmeBuffersSeen = 0;
     u64 mvmeBuffersWithErrors = 0;
 

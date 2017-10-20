@@ -190,7 +190,7 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
             {
                 processEventSection(sectionHeader, iter.asU32(), sectionSize);
                 iter.skip(sectionSize * sizeof(u32));
-                stats.addEventsRead(1);
+                //stats.addEventsRead(1);
             }
             else if (sectionType == ListfileSections::SectionType_Timetick
                      && m_d->analysis_ng)
