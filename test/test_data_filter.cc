@@ -376,6 +376,22 @@ void TestDataFilter::test_multiwordfilter()
         QCOMPARE(extract(&mf, MultiWordFilter::CacheD), (u64)(0xcb));
         QCOMPARE(get_extract_bits(&mf, MultiWordFilter::CacheA), (u8)8);
     }
+
+    {
+        MultiWordFilter mf;
+        add_subfilter(&mf, make_filter("11DD DDDD DDDD DDDD DDDD DDDD DDDD DDDD"));
+        add_subfilter(&mf, make_filter("XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX"));
+
+        u32 dataWord1 = 0xc0affe00;
+        u32 dataWord2 = 0xbeafbeaf;
+
+        QVERIFY(!process_data(&mf, dataWord1));
+        QVERIFY(process_data(&mf, dataWord2));
+        QCOMPARE(extract(&mf, MultiWordFilter::CacheA), (u64)(0x0));
+        QCOMPARE(extract(&mf, MultiWordFilter::CacheD), (u64)(dataWord1 & ~0xc0000000));
+        QCOMPARE(get_extract_bits(&mf, MultiWordFilter::CacheA), (u8)0);
+        QCOMPARE(get_extract_bits(&mf, MultiWordFilter::CacheD), (u8)30);
+    }
 }
 
 QTEST_MAIN(TestDataFilter)
