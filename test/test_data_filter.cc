@@ -377,6 +377,73 @@ void TestDataFilter::test_multiwordfilter()
         QCOMPARE(get_extract_bits(&mf, MultiWordFilter::CacheA), (u8)8);
     }
 
+    // slow MultiWordDataFilter
+    {
+        MultiWordDataFilter mwf({
+            makeFilterFromString("11DD DDDD DDDD DDDD DDDD DDDD DDDD DDDD"),
+            makeFilterFromString("XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX"),
+        });
+
+        u32 dataWord = 0xc0001536;
+        u32 wordIndex = 5;
+
+        mwf.handleDataWord(dataWord, wordIndex);
+
+        QVERIFY(!mwf.isComplete());
+
+        dataWord = 0xaffeaffe;
+        wordIndex = 0;
+
+        mwf.handleDataWord(dataWord, wordIndex);
+
+        QVERIFY(mwf.isComplete());
+        QCOMPARE(mwf.getResultAddress(), (u64)(0));
+        QCOMPARE(mwf.getResultValue(), (u64)(5430));
+    }
+
+    // fast MultiWordFilter
+    {
+        MultiWordFilter mf;
+        add_subfilter(&mf, make_filter("11DD DDDD DDDD DDDD DDDD DDDD DDDD DDDD"));
+        add_subfilter(&mf, make_filter("XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX"));
+
+        u32 dataWord = 0xc0001536;
+        u32 wordIndex = 5;
+
+        QVERIFY(!process_data(&mf, dataWord, wordIndex));
+        QVERIFY(!is_complete(&mf));
+
+        dataWord = 0xaffeaffe;
+        wordIndex = 0;
+
+        QVERIFY(process_data(&mf, dataWord, wordIndex));
+        QVERIFY(is_complete(&mf));
+        QCOMPARE(extract(&mf, MultiWordFilter::CacheA), (u64)(0));
+        QCOMPARE(extract(&mf, MultiWordFilter::CacheD), (u64)(5430));
+    }
+
+    // fast MultiWordFilter
+    {
+        MultiWordFilter mf;
+        add_subfilter(&mf, make_filter("11DD DDDD DDDD DDDD DDDD DDDD DDDD DDDD"));
+        add_subfilter(&mf, make_filter("XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX"));
+
+        u32 dataWord = 0xaffeaffe;
+        u32 wordIndex = 0;
+
+        QVERIFY(!process_data(&mf, dataWord, wordIndex));
+        QVERIFY(!is_complete(&mf));
+
+        dataWord = 0xc0001536;
+        wordIndex = 5;
+
+        QVERIFY(process_data(&mf, dataWord, wordIndex));
+        QVERIFY(is_complete(&mf));
+        QCOMPARE(extract(&mf, MultiWordFilter::CacheA), (u64)(0));
+        QCOMPARE(extract(&mf, MultiWordFilter::CacheD), (u64)(5430));
+    }
+
+#if 0
     {
         MultiWordFilter mf;
         add_subfilter(&mf, make_filter("11DD DDDD DDDD DDDD DDDD DDDD DDDD DDDD"));
@@ -392,6 +459,7 @@ void TestDataFilter::test_multiwordfilter()
         QCOMPARE(get_extract_bits(&mf, MultiWordFilter::CacheA), (u8)0);
         QCOMPARE(get_extract_bits(&mf, MultiWordFilter::CacheD), (u8)30);
     }
+#endif
 }
 
 QTEST_MAIN(TestDataFilter)

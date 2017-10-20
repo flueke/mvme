@@ -2,6 +2,7 @@
 #define __MULTIWORD_DATAFILTER_H__
 
 #include "../data_filter_c_style.h"
+#include <cassert>
 
 namespace data_filter
 {
@@ -48,14 +49,16 @@ inline bool is_complete(MultiWordFilter *filter)
 
 inline bool process_data(MultiWordFilter *filter, u32 dataWord, s32 wordIndex = -1)
 {
-    for (int i = number_of_set_bits(filter->completionMask);
-         i < filter->filterCount;
-         i++)
+    for (int i = 0; i < filter->filterCount; i++)
     {
-        if (matches(filter->filters[i], dataWord, wordIndex))
+        u16 partMask = 1u << i;
+        assert(sizeof(partMask) >= sizeof(filter->filterCount));
+
+        if (!(filter->completionMask & partMask)
+            && matches(filter->filters[i], dataWord, wordIndex))
         {
             filter->results[i] = dataWord;
-            filter->completionMask |= 1 << i;
+            filter->completionMask |= partMask;
             break;
         }
     }

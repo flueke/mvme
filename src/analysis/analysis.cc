@@ -324,6 +324,13 @@ void Extractor::processModuleData(u32 *data, u32 size)
         u32 dataWord = *(data + wordIndex);
         process_data(&m_fastFilter, dataWord, wordIndex);
 
+#if ENABLE_ANALYSIS_DEBUG
+        qDebug("************************************************");
+        qDebug("%s: %s, dataWord=0x%08x, wordIndex=%u, complete=%d",
+               __PRETTY_FUNCTION__, this->objectName().toLocal8Bit().constData(),
+               dataWord, wordIndex, is_complete(&m_fastFilter));
+#endif
+
         if (is_complete(&m_fastFilter))
         {
             ++m_currentCompletionCount;
