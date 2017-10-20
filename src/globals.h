@@ -129,8 +129,6 @@ struct DAQStats
                                 // overhead. This should be a measure for the
                                 // amount of data the VME bus transferred.
 
-    int freeBuffers = 0;
-
     u64 listFileBytesWritten = 0;
     u64 listFileTotalBytes = 0; // For replay mode: the size of the replay file
     QString listfileFilename;

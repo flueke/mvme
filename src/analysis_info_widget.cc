@@ -8,6 +8,8 @@
 struct AnalysisInfoWidgetPrivate
 {
     MVMEContext *context;
+    MVMEEventProcessorCounters prevCounters;
+    QDateTime lastUpdateTime;
     QVector<QLabel *> labels;
     QTimer updateTimer;
 };
@@ -44,10 +46,19 @@ AnalysisInfoWidget::AnalysisInfoWidget(MVMEContext *context, QWidget *parent)
         m_d->labels.push_back(label);
     }
 
-    connect(&m_d->updateTimer, &QTimer::timeout, this, &AnalysisInfoWidget::update);
+    update();
+
     m_d->updateTimer.setInterval(1000);
     m_d->updateTimer.start();
-    update();
+
+    connect(&m_d->updateTimer, &QTimer::timeout, this, &AnalysisInfoWidget::update);
+    connect(context, &MVMEContext::eventProcessorStateChanged, this, [this](EventProcessorState state) {
+        if (state == EventProcessorState::Running)
+        {
+            m_d->prevCounters = {};
+            m_d->lastUpdateTime = {};
+        }
+    });
 }
 
 AnalysisInfoWidget::~AnalysisInfoWidget()
@@ -60,23 +71,39 @@ void AnalysisInfoWidget::update()
     EventProcessorState state = m_d->context->getEventProcessor()->getState();
     const auto &counters(m_d->context->getEventProcessor()->getCounters());
 
-    QString stateString;
-    double secsElapsed = 0.0;
+    auto startTime = counters.startTime;
+    auto endTime   = state == EventProcessorState::Idle ? counters.stopTime : QDateTime::currentDateTime();
+    auto totalDuration_s = startTime.secsTo(endTime);
+    auto totalDurationString = makeDurationString(totalDuration_s);
 
-    switch (state)
+    double dt;
+
+    if (m_d->lastUpdateTime.isValid())
     {
-        case EventProcessorState::Idle:
-            stateString = QSL("Idle");
-            secsElapsed = counters.startTime.msecsTo(counters.stopTime) / 1000.0;
-            break;
-        case EventProcessorState::Running:
-            stateString = QSL("Running");
-            secsElapsed = counters.startTime.msecsTo(QDateTime::currentDateTime()) / 1000.0;
-            break;
+        dt = m_d->lastUpdateTime.msecsTo(endTime);
+    }
+    else
+    {
+        dt = startTime.msecsTo(endTime);
     }
 
-    double mbRead = counters.bytesProcessed / (1024.0 * 1024.0);
-    double mbPerSec = secsElapsed != 0.0 ? mbRead / secsElapsed : 0.0;
+    dt /= 1000.0;
+
+    auto calc_delta = [](u64 cur, u64 prev)
+    {
+        if (cur < prev)
+            return (u64)0;
+        return cur - prev;
+    };
+
+    u64 deltaBytesProcessed = calc_delta(counters.bytesProcessed, m_d->prevCounters.bytesProcessed);
+    u64 deltaBuffersProcessed = calc_delta(counters.buffersProcessed, m_d->prevCounters.buffersProcessed);
+
+    double bytesPerSecond   = deltaBytesProcessed / dt;
+    double mbPerSecond      = bytesPerSecond / Megabytes(1);
+    double buffersPerSecond = deltaBuffersProcessed / dt;
+
+    QString stateString = state == EventProcessorState::Idle ? QSL("Idle") : QSL("Running");
 
     QString ecText;
     QString mcText;
@@ -89,7 +116,7 @@ void AnalysisInfoWidget::update()
             if (count)
             {
                 if (!mcText.isEmpty()) mcText += "\n";
-                mcText += (QString("(event=%1, module=%2, count=%3)")
+                mcText += (QString("event=%1, module=%2, count=%3")
                            .arg(ei).arg(mi).arg(count));
             }
         }
@@ -97,23 +124,48 @@ void AnalysisInfoWidget::update()
         u32 count = counters.eventCounters[ei];
         if (count)
         {
-            if (!ecText.isEmpty()) ecText += ", ";
-            ecText += QString("(event=%1, count=%2)").arg(ei).arg(count);
+            if (!ecText.isEmpty()) ecText += "\n";
+            ecText += QString("event=%1, count=%2").arg(ei).arg(count);
         }
     }
 
     s32 ii = 0;
 
+    // state
     m_d->labels[ii++]->setText(stateString);
-    m_d->labels[ii++]->setText(counters.startTime.time().toString());
-    m_d->labels[ii++]->setText(counters.stopTime.time().toString());
-    m_d->labels[ii++]->setText(QString("%1 s").arg(secsElapsed));
-    m_d->labels[ii++]->setText(QString("%1 MB/s").arg(mbPerSec));
-    m_d->labels[ii++]->setText(QString("%1 MB").arg(mbRead));
+    // started
+    m_d->labels[ii++]->setText(startTime.time().toString());
+    // stopped
+    if (state == EventProcessorState::Idle)
+    {
+        m_d->labels[ii++]->setText(endTime.time().toString());
+    }
+    else
+    {
+        m_d->labels[ii++]->setText(QString());
+    }
+
+    // elapsed
+    m_d->labels[ii++]->setText(totalDurationString);
+
+    // throughput
+    m_d->labels[ii++]->setText(QString("%1 MB/s").arg(mbPerSecond));
+    // bytesProcessed
+    m_d->labels[ii++]->setText(QString("%1 MB")
+                               .arg((double)counters.bytesProcessed / Megabytes(1), 6, 'f', 2));
+    // buffersProcessed
     m_d->labels[ii++]->setText(QString("%1 buffers").arg(counters.buffersProcessed));
+    // buffersWithErrors
     m_d->labels[ii++]->setText(QString("%1 buffers").arg(counters.buffersWithErrors));
+    // eventSections
     m_d->labels[ii++]->setText(QString("%1 sections").arg(counters.eventSections));
+    // invalid event index
     m_d->labels[ii++]->setText(QString("%1").arg(counters.invalidEventIndices));
+    // counts by event
     m_d->labels[ii++]->setText(ecText);
+    // counts by module
     m_d->labels[ii++]->setText(mcText);
+
+    m_d->prevCounters = counters;
+    m_d->lastUpdateTime = QDateTime::currentDateTime();
 }

@@ -31,7 +31,6 @@ struct DAQStatsWidgetPrivate
     QDateTime lastUpdateTime;
 
     QLabel *label_daqDuration,
-           *label_freeBuffers,
            *label_buffersRead,
            *label_buffersDropped,
            *label_buffersErrors,
@@ -51,7 +50,6 @@ DAQStatsWidget::DAQStatsWidget(MVMEContext *context, QWidget *parent)
     m_d->context = context;
 
     m_d->label_daqDuration = new QLabel;
-    m_d->label_freeBuffers = new QLabel;
     m_d->label_buffersRead = new QLabel;
     m_d->label_buffersDropped = new QLabel;
     m_d->label_buffersErrors = new QLabel;
@@ -65,7 +63,6 @@ DAQStatsWidget::DAQStatsWidget(MVMEContext *context, QWidget *parent)
 
     QList<QWidget *> labels = {
         m_d->label_daqDuration,
-        m_d->label_freeBuffers,
         m_d->label_buffersRead,
         m_d->label_buffersDropped,
         m_d->label_buffersErrors,
@@ -86,7 +83,6 @@ DAQStatsWidget::DAQStatsWidget(MVMEContext *context, QWidget *parent)
     auto formLayout = new QFormLayout(this);
 
     formLayout->addRow("Running time:", m_d->label_daqDuration);
-    formLayout->addRow("Free event buffers:", m_d->label_freeBuffers);
     formLayout->addRow("Buffers read:", m_d->label_buffersRead);
     formLayout->addRow("Buffers with errors:", m_d->label_buffersErrors);
     formLayout->addRow("Buffers dropped:", m_d->label_buffersDropped);
@@ -173,7 +169,6 @@ void DAQStatsWidget::updateWidget()
     m_d->label_buffersDropped->setText(QString::number(stats.droppedBuffers));
     m_d->label_buffersErrors->setText(QString::number(stats.buffersWithErrors));
 
-    m_d->label_freeBuffers->setText(QString::number(stats.freeBuffers));
     m_d->label_readSize->setText(QString::number(avgReadSize));
     m_d->label_mbPerSecond->setText(QString("%1 / %2")
                                     .arg(buffersPerSecond, 6, 'f', 2)

@@ -2,6 +2,10 @@
 ==== Do these first! =====
 ==========================
 
+* vme templates:
+  - remove the second line from the counter/ts filter
+  - add a new filter for extended timestamps
+
 * use likely/unlikely in VMUSBReadoutWorker
 
 * Analysis: getDisplayName() and getShortName() are not that great. For the
