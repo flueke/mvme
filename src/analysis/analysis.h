@@ -25,6 +25,7 @@
 #include "histo2d.h"
 #include "libmvme_export.h"
 #include "typedefs.h"
+#include "multiword_datafilter.h"
 
 #include <memory>
 #include <pcg_random.hpp>
@@ -434,9 +435,9 @@ class LIBMVME_EXPORT Extractor: public SourceInterface
 
         // configuration
         MultiWordDataFilter m_filter;
+        data_filter::MultiWordFilter m_fastFilter;
         u32 m_requiredCompletionCount = 1;
         u64 m_rngSeed;
-
 
         // state
         u32 m_currentCompletionCount = 0;

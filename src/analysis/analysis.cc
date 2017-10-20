@@ -254,11 +254,19 @@ Extractor::Extractor(QObject *parent)
 
 void Extractor::beginRun(const RunInfo &runInfo)
 {
+    using namespace data_filter;
+
     m_currentCompletionCount = 0;
 
-    u32 addressCount = 1u << m_filter.getAddressBits();
+    m_fastFilter = {};
+    for (auto slowFilter: m_filter.getSubFilters())
+    {
+        add_subfilter(&m_fastFilter, make_filter(slowFilter.getFilter(), slowFilter.getWordIndex()));
+    }
 
-    qDebug() << __PRETTY_FUNCTION__ << this << addressCount;
+    u32 addressCount = 1u << get_extract_bits(&m_fastFilter, MultiWordFilter::CacheA);
+
+    qDebug() << __PRETTY_FUNCTION__ << this << "addressCount" << addressCount;
 
     // The highest value the filter will yield is ((2^bits) - 1) but we're
     // adding a random in [0.0, 1.0) so the actual exclusive upper limit is
@@ -300,21 +308,30 @@ void Extractor::beginEvent()
     qDebug() << __PRETTY_FUNCTION__ << this << objectName();
 #endif
 
-    m_filter.clearCompletion();
+    clear_completion(&m_fastFilter);
     m_currentCompletionCount = 0;
     m_output.getParameters().invalidateAll();
 }
 
 void Extractor::processModuleData(u32 *data, u32 size)
 {
+    using namespace data_filter;
+
     for (u32 wordIndex = 0;
          wordIndex < size;
          ++wordIndex)
     {
         u32 dataWord = *(data + wordIndex);
-        m_filter.handleDataWord(dataWord, wordIndex);
+        process_data(&m_fastFilter, dataWord, wordIndex);
 
-        if (m_filter.isComplete())
+#if ENABLE_ANALYSIS_DEBUG
+        qDebug("************************************************");
+        qDebug("%s: %s, dataWord=0x%08x, wordIndex=%u, complete=%d",
+               __PRETTY_FUNCTION__, this->objectName().toLocal8Bit().constData(),
+               dataWord, wordIndex, is_complete(&m_fastFilter));
+#endif
+
+        if (is_complete(&m_fastFilter))
         {
             ++m_currentCompletionCount;
 
@@ -322,8 +339,8 @@ void Extractor::processModuleData(u32 *data, u32 size)
             {
                 m_currentCompletionCount = 0;
 
-                u64 value   = m_filter.getResultValue();
-                u64 address = m_filter.getResultAddress();
+                u64 address = extract(&m_fastFilter, MultiWordFilter::CacheA);
+                u64 value   = extract(&m_fastFilter, MultiWordFilter::CacheD);
 
 #if ENABLE_ANALYSIS_DEBUG
                 qDebug() << this
@@ -350,13 +367,12 @@ void Extractor::processModuleData(u32 *data, u32 size)
                     qDebug() << this << "setting param valid, addr =" << address << ", value =" << param.value
                         << ", dataWord =" << QString("0x%1").arg(dataWord, 8, 16, QLatin1Char('0'));
 #endif
-                    // FIXME: try to get rid of this lock
-                    QMutexLocker lock(&m_hitCountsMutex);
+                    QMutexLocker lock(&m_hitCountsMutex); // FIXME: get rid of this lock
                     m_hitCounts[address] += 1.0;
                 }
             }
 
-            m_filter.clearCompletion();
+            clear_completion(&m_fastFilter);
         }
     }
 }

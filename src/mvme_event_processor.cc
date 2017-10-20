@@ -375,10 +375,11 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
 
                         if (m_d->analysis_ng)
                         {
-                            m_d->analysis_ng->processModuleData(eventConfig->getId(),
-                                                                mi.moduleConfig->getId(),
-                                                                mi.moduleHeader,
-                                                                moduleEventSize + 1);
+                            m_d->analysis_ng->processModuleData(
+                                eventConfig->getId(),
+                                mi.moduleConfig->getId(),
+                                mi.moduleHeader,
+                                moduleEventSize + 1);
                         }
 
                         // advance the moduleHeader by the event size
@@ -398,6 +399,7 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
                     // the last modules pointer there should be optional
                     // BerrMarkers and an EndMarker followed by another EndMarker
                     // for the end of the event section we're in.
+                    // TODO: implement the EndMarker checks
 
 #ifdef MVME_EVENT_PROCESSOR_DEBUGGING
                     qDebug("%s moduleHeader=0x%08x did not match header filter -> done processing event section.",
