@@ -20,6 +20,7 @@
 #include "analysis_ui_p.h"
 #include "analysis_util.h"
 #include "data_extraction_widget.h"
+#include "analysis_info_widget.h"
 
 #include "../mvme_context.h"
 #include "../histo1d_widget.h"
@@ -2737,6 +2738,7 @@ struct AnalysisWidgetPrivate
     QLabel *m_labelSinkStorageSize;
     QLabel *m_labelTimetickCount;
     QTimer *m_periodicUpdateTimer;
+    WidgetGeometrySaver *m_geometrySaver;
 
     void repopulate();
     void repopulateEventSelectCombo();
@@ -3189,6 +3191,7 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
 
     m_d->m_periodicUpdateTimer = new QTimer(this);
     m_d->m_periodicUpdateTimer->start(PeriodicUpdateTimerInterval_ms);
+    m_d->m_geometrySaver = new WidgetGeometrySaver(this);
 
     /* Note: This code is not efficient at all. This AnalysisWidget and the
      * EventWidgets are recreated and repopulated more often than is really
@@ -3248,6 +3251,14 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
         m_d->m_toolbar->addSeparator();
         m_d->m_toolbar->addAction(QIcon(":/clear_histos.png"), QSL("Clear Histograms"), this, [this]() { m_d->actionClearHistograms(); });
         m_d->m_toolbar->addSeparator();
+        m_d->m_toolbar->addAction(QIcon(":/info.png"), QSL("Info && Stats"), this, [this]() {
+
+            auto widget = new AnalysisInfoWidget(m_d->m_context);
+            widget->setAttribute(Qt::WA_DeleteOnClose);
+            add_widget_close_action(widget);
+            m_d->m_geometrySaver->addAndRestore(widget, QSL("WindowGeometries/AnalysisInfo"));
+            widget->show();
+        });
     }
 
     // After the toolbar entries the EventWidget specific action will be added.

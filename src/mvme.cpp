@@ -20,7 +20,7 @@
 
 #include "analysis/analysis.h"
 #include "analysis/analysis_ui.h"
-#include "analysis_info_widget.h"
+#include "analysis/analysis_info_widget.h"
 #include "config_ui.h"
 #include "daqcontrol_widget.h"
 #include "daqstats_widget.h"
