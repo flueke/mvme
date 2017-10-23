@@ -11,6 +11,8 @@ set(CMAKE_CXX_FLAGS "-std=c++14 -pipe ${WARNING_FLAGS}")
 
 set(MARCH_FLAG "nocona")
 set(MTUNE_FLAG "core2")
+#set(MARCH_FLAG "haswell")
+#set(MTUNE_FLAG "haswell")
 #set(MARCH_FLAG "skylake")
 #set(MTUNE_FLAG "skylake")
 
