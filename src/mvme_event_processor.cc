@@ -251,13 +251,29 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
     //
     // Step1: collect all subevent headers and store them in the modinfo structures
     //
+#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+    qDebug() << __PRETTY_FUNCTION__ << "Begin Step 1";
+#endif
 
     for (u32 moduleIndex = 0;
          moduleIndex < MaxVMEModules;
          ++moduleIndex)
     {
-        if (eventIter.atEnd() || eventIter.peekU32() == EndMarker)
+        if (eventIter.atEnd())
+        {
+#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+            qDebug() << __PRETTY_FUNCTION__ << "  break because eventIter.atEnd()";
+#endif
             break;
+        }
+
+        if (eventIter.peekU32() == EndMarker)
+        {
+#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+            qDebug() << __PRETTY_FUNCTION__ << "  break because EndMarker found";
+#endif
+            break;
+        }
 
         moduleInfos[moduleIndex].subEventHeader = eventIter.asU32();
         moduleInfos[moduleIndex].moduleHeader   = eventIter.asU32() + 1;
@@ -265,6 +281,10 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
 
         u32 subEventHeader = eventIter.extractU32();
         u32 subEventSize   = (subEventHeader & m_d->SubEventSizeMask) >> m_d->SubEventSizeShift;
+#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+        qDebug("%s   eventIndex=%d, moduleIndex=%d, subEventSize=%u",
+               __PRETTY_FUNCTION__, eventIndex, moduleIndex, subEventSize);
+#endif
         // skip to the next subevent
         eventIter.skip(sizeof(u32), subEventSize);
     }
@@ -288,6 +308,7 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
               );
 
     }
+    qDebug() << __PRETTY_FUNCTION__ << "End Step 1 reporting";
 #endif
 
     //
@@ -295,13 +316,18 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
     // (mod0, ev0), (mod1, ev0), .., (mod0, ev1), (mod1, ev1), ..
     //
 
-    bool done = false;
+    // Avoid hanging in the loop below if the did not get a single subEventHeader in step 1
+    bool done = (moduleInfos[0].subEventHeader == nullptr);
     const u32 *ptrToLastWord = data + size;
     std::array<u32, MaxVMEModules> eventCountsByModule;
     eventCountsByModule.fill(0);
 
     while (!done)
     {
+#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+        qDebug("%s eventIndex=%u: begin step 2 loop", __PRETTY_FUNCTION__, eventIndex);
+#endif
+
         {
             TIMED_BLOCK(TimedBlockId_MEP_Analysis_Loop);
 
