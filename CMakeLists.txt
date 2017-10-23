@@ -5,13 +5,18 @@ set(WARNING_FLAGS "-Wall -Wno-unused-variable -Wno-unused-function")
 
 set(CMAKE_CXX_FLAGS "-std=c++14 -pipe ${WARNING_FLAGS}")
 
-# XXX: testing mbmi2 for pext_u32() in data_filter.cc
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mbmi2")
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4.2")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx")
+
+set(MARCH_FLAG "nocona")
+set(MTUNE_FLAG "core2")
+#set(MARCH_FLAG "skylake")
+#set(MTUNE_FLAG "skylake")
 
 set(CMAKE_CXX_FLAGS_DEBUG   "-g -Og")
-set(CMAKE_CXX_FLAGS_RELEASE "-DNDEBUG -O3 -march=nocona -mtune=core2")
-set(CMAKE_CXX_FLAGS_PROFILE "-DNDEBUG -O3 -march=nocona -mtune=core2 -pg -fno-omit-frame-pointer")
+set(CMAKE_CXX_FLAGS_RELEASE "-DNDEBUG -O3 -march=${MARCH_FLAG} -mtune=${MTUNE_FLAG}")
+set(CMAKE_CXX_FLAGS_PROFILE "-DNDEBUG -O3 -march=${MARCH_FLAG} -mtune=${MTUNE_FLAG} -pg -fno-omit-frame-pointer")
 # Explicitly set the required c++ standard (CMake >= 3.1)
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

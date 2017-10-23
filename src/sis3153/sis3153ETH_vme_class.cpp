@@ -32,6 +32,7 @@
 
 #define ETHERNET_VME_INTERFACE
 #ifdef ETHERNET_VME_INTERFACE
+//#define DEBUG_PRINTS
 
 #include "sis3153ETH_vme_class.h"
 
@@ -39,9 +40,26 @@
 
 using namespace std;
 
+static void init_socket_system()
+{
+#ifdef WINDOWS
+    WORD wVersionRequested;
+    WSADATA wsaData;
+    wVersionRequested = MAKEWORD(2, 1);
+    WSAStartup( wVersionRequested, &wsaData );
+#endif
+}
+
+static void shutdown_socket_system()
+{
+#ifdef WINDOWS
+    WSACleanup();
+#endif
+}
 
 sis3153eth::sis3153eth (void)
 {
+    init_socket_system();
     //int i;
     int status;
 
@@ -113,12 +131,9 @@ sis3153eth::sis3153eth (sis3153eth **eth_interface, char *device_ip)
 {
     unsigned int i_socket ;
     char pc_ip_addr_string[32] ;
-#ifdef WINDOWS
-    WORD wVersionRequested;
-    WSADATA wsaData;
-    wVersionRequested = MAKEWORD(2, 1);
-    WSAStartup( wVersionRequested, &wsaData );
-#endif
+
+    init_socket_system();
+
     i_socket = 0;
 //  for(i_socket=0; i_socket < MAX_SOCKETS; i_socket++){
     eth_interface[i_socket] = new sis3153eth;
@@ -139,9 +154,10 @@ sis3153eth::sis3153eth (sis3153eth **eth_interface, char *device_ip)
 }
 
 
-
-
-
+sis3153eth::~sis3153eth()
+{
+    shutdown_socket_system();
+}
 
 /*************************************************************************************/
 
@@ -198,7 +214,9 @@ int sis3153eth::get_vmeopen_messages(CHAR* messages, size_t size_of_messages, UI
 #endif
 
     return_code = this->udp_sis3153_register_read(0x1, &data);
-    //printf("vme_crate->vmeopen udp_sis3153_register_read: \treturn_code = 0x%08X    \tdata = 0x%08X      \n", return_code, data );
+#ifdef DEBUG_PRINTS
+    printf("vme_crate->vmeopen udp_sis3153_register_read: \treturn_code = 0x%08X    \tdata = 0x%08X      \n", return_code, data );
+#endif
     if ((return_code == 0) && ((data & 0xFFFF0000) == 0x31530000)) {
         *nof_found_devices = 1;
     }
@@ -689,7 +707,23 @@ int sis3153eth::udp_single_read ( unsigned int nof_read_words, UINT* addr_ptr, U
             this->udp_send_data[(4*i)+14] = (unsigned char) ((reg_addr >> 16) & 0xff) ; // address(23 dwonto 16)
             this->udp_send_data[(4*i)+15] = (unsigned char) ((reg_addr >> 24) & 0xff) ; // address(31 dwonto 24)
         }
-        return_code = sendto(this->udp_socket, udp_send_data, 12 + (4*nof_read_words), 0,(struct sockaddr *)&this->sis3153_sock_addr_in, sizeof(struct sockaddr));
+        errno = 0;
+        size_t len = 12 + (4*nof_read_words);
+        return_code = sendto(this->udp_socket, udp_send_data, len, 0,(struct sockaddr *)&this->sis3153_sock_addr_in, sizeof(struct sockaddr));
+#ifdef DEBUG_PRINTS
+        printf("udp_single_read: first sendto: len=%lu, result=%d, strerror(errno)=%s\n",
+                len, return_code, strerror(errno));
+#endif
+#if 0
+#ifdef WINDOWS
+        if (return_code < 0)
+        {
+            // TODO (flueke): might want to handle this case
+            int wsaError = WSAGetLastError();
+            printf("udp_single_read: WSAGetLastError: %d\n", wsaError);
+        }
+#endif // WINDOWS
+#endif
 
         int retransmit_retry_counter;
         retransmit_retry_counter = 0 ;
@@ -706,7 +740,7 @@ int sis3153eth::udp_single_read ( unsigned int nof_read_words, UINT* addr_ptr, U
             }
         } while ((return_code == -1) && (retransmit_retry_counter <= UDP_RETRANSMIT_RETRY)) ; // retry up to N times
 #ifdef DEBUG_PRINTS
-            printf("udp_single_read:  \tudp_recv_data[0] = 0x%02X    \treturn_code = 0x%08X \n", (unsigned char)udp_recv_data[0], return_code);
+            printf("udp_single_read:  \tudp_recv_data[0] = 0x%02X    \treturn_code = 0x%08X (%d) \n", (unsigned char)udp_recv_data[0], return_code, return_code);
             printf("udp_single_read:  \t0x%02X  0x%02X \n", (unsigned char)udp_recv_data[1], (unsigned char)udp_recv_data[2]);
             printf("udp_single_read:  \t0x%02X  0x%02X 0x%02X 0x%02X \n", (unsigned char)udp_recv_data[6], (unsigned char)udp_recv_data[5], (unsigned char)udp_recv_data[4], (unsigned char)udp_recv_data[3]);
 #endif

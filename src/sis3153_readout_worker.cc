@@ -791,10 +791,18 @@ SIS3153ReadoutWorker::ReadBufferResult SIS3153ReadoutWorker::readBuffer()
     result.bytesRead = m_sis->getImpl()->udp_read_list_packet(
         reinterpret_cast<char *>(m_readBuffer.data + 1));
 
+#ifdef Q_OS_WIN
+    int wsaError = WSAGetLastError();
+#endif // Q_OS_WIN
+
 #if SIS_READOUT_DEBUG
     qDebug() << __PRETTY_FUNCTION__ << "bytesRead =" << result.bytesRead
         << ", errno =" << errno << ", strerror =" << std::strerror(errno)
-        << ", EAGAIN=" << EAGAIN;
+        << ", EAGAIN=" << EAGAIN
+#ifdef Q_OS_WIN
+        << ", WSAGetLastError()=" << wsaError
+#endif
+        ;
 #endif
 
     if (result.bytesRead < 0)

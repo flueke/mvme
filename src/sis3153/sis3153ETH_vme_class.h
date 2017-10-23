@@ -228,7 +228,7 @@ public: // info counter
 public:
 	sis3153eth (void);
 	sis3153eth (sis3153eth **eth_interface, char *device_ip);
-    virtual ~sis3153eth() {}
+    virtual ~sis3153eth();
 
 	int udp_reset_cmd(void);
 	int get_UdpSocketStatus( void );
