@@ -53,7 +53,7 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
         void logMessage(const QString &message);
         void logError(const QString &);
 
-        void processReadoutResults(EventConfig *event, s32 eventConfigIndex,  const vme_script::ResultList &results);
+        VMEError uploadStackList(u32 stackLoadAddress, QVector<u32> stackList);
 
         struct ReadBufferResult
         {
