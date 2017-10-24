@@ -21,6 +21,7 @@
 
 #include <QDebug>
 #include <QMutex>
+#include <QThread>
 
 #include "sis3153/sis3153ETH_vme_class.h"
 #include "vme.h"
@@ -236,16 +237,25 @@ VMEError SIS3153::open()
 #endif
 
     VMEError result;
-
     {
-        char msgBuf[1024];
-        u32 numDevices = 0;
-        // call the overload of get_vmeopen_messages() which reads the
-        // ModuleIdAndFirmware register internally.
-        resultCode = m_d->sis->get_vmeopen_messages(msgBuf, sizeof(msgBuf), &numDevices);
-        result = make_sis_error(resultCode);
+        static const int PostResetDelay_ms = 250;
+        static const int ReconnectRetryLimit = 3;
+        int retryCount = 0;
+        do
+        {
+            char msgBuf[1024];
+            u32 numDevices = 0;
+            result = make_sis_error(m_d->sis->get_vmeopen_messages(msgBuf, sizeof(msgBuf), &numDevices));
 
-        qDebug() << __PRETTY_FUNCTION__ << "get_vmeopen_messages: numDevices =" << numDevices;
+            if (result.isTimeout())
+            {
+#ifdef SIS3153_DEBUG
+                qDebug() << "sis connect timed out. sending udp_reset_cmd and delaying for" << PostResetDelay_ms << "ms";
+#endif
+                m_d->sis->udp_reset_cmd();
+                QThread::msleep(PostResetDelay_ms);
+            }
+        } while (result.isTimeout() && ++retryCount < ReconnectRetryLimit);
 
         if (result.isError())
         {
@@ -254,7 +264,6 @@ VMEError SIS3153::open()
 #endif
             return result;
         }
-
     }
 
     // read module id and firmware
