@@ -505,6 +505,22 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
 
             if (!stackList.isEmpty())
             {
+                auto msg = (QString("Loading stackList for event \"%1\""
+                                    ", stackListIndex=%2, size=%3, loadAddress=0x%4")
+                            .arg(event->objectName())
+                            .arg(stackListIndex)
+                            .arg(stackList.size())
+                            .arg(stackLoadAddress, 4, 16, QLatin1Char('0'))
+                           );
+
+                logMessage(msg);
+
+                for (u32 line: stackList)
+                {
+                    logMessage(msg.sprintf("  0x%08x", line));
+                }
+                logMessage("");
+
                 // 13 bit stack start address which should be relative to the
                 // stack RAM start address. So it's an offset into the stack
                 // memory area.
