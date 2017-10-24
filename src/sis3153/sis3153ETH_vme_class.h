@@ -30,7 +30,7 @@
 #ifndef _SIS3153ETH_VME_CLASS_
 #define _SIS3153ETH_VME_CLASS_
 
-#define SIS3153ETH_VERSION_MAJOR 0x02   
+#define SIS3153ETH_VERSION_MAJOR 0x02
 #define SIS3153ETH_VERSION_MINOR 0x01
 
 
@@ -67,7 +67,7 @@
 // in future
 //#define UDP_JUMBO_READ_PACKET_32bitSIZE     2048          //  packet size = 8192 Bytes + 44/45 Bytes = 8236/8237 Bytes
 //#define UDP_JUMBO_READ_PACKET_32bitSIZE     768           //  packet size = 3072 Bytes + 44/45 Bytes = 3116/3117 Bytes
-//#define UDP_NORMAL_READ_PACKET_32bitSIZE    256           //  packet size = 1024 Bytes + 44/45 Bytes =  
+//#define UDP_NORMAL_READ_PACKET_32bitSIZE    256           //  packet size = 1024 Bytes + 44/45 Bytes =
 
 #define UDP_NORMAL_READ_PACKET_32bitSIZE    360           //  packet size = 1440 Bytes + 44/45 Bytes = 1484/1485 Bytes
 //#define UDP_JUMBO_READ_PACKET_32bitSIZE     800           //  packet size = 3072 Bytes + 44/45 Bytes = 3116/3117 Bytes            --> support with version v_1604
@@ -185,10 +185,10 @@ private:
 	/* Subroutiens/Methods */
 	int udp_single_read( unsigned int nof_read_words, UINT* addr_ptr, UINT* data_ptr);
 	int udp_single_write( unsigned int nof_write_words, UINT* addr_ptr, UINT* data_ptr);
-	
+
 	int udp_DMA_read ( unsigned int nof_read_words, UINT  addr, UINT* data_ptr, UINT* got_nof_words );
 	int udp_sub_DMA_read ( unsigned int nof_read_words, UINT  addr, UINT* data_ptr, UINT* nof_got_words);
-	
+
 	int udp_DMA_write ( unsigned int nof_write_words, UINT addr, UINT* data_ptr, UINT* written_nof_words );
 	int udp_sub_DMA_write ( unsigned int nof_write_words, UINT  addr, UINT* data_ptr, UINT* nof_written_words);
 
@@ -281,7 +281,7 @@ public:
 	int vme_IACK_D8_read (UINT vme_irq_level, UCHAR* data);		// new 19.01.2016
 
 
-	
+
 
 	int vme_CRCSR_D8_read(UINT addr, UCHAR* data);		// new 28.07.2017
 	int vme_CRCSR_D16_read(UINT addr, USHORT* data);    // new 28.07.2017
@@ -296,7 +296,7 @@ public:
 	int vme_A16supervisoryD32_read(UINT addr, UINT* data);			// new 22.08.2017
 
 
-	
+
 
 	int vme_A24D8_read (UINT addr, UCHAR* data);		// new 04.09.2015
 	int vme_A24D16_read (UINT addr, USHORT* data);      // new 04.09.2015
@@ -321,9 +321,9 @@ public:
 	int vme_A32_2ESST160FIFO_read (UINT addr, UINT* data, UINT request_nof_words, UINT* got_nof_words );
 	int vme_A32_2ESST267FIFO_read (UINT addr, UINT* data, UINT request_nof_words, UINT* got_nof_words );
 	int vme_A32_2ESST320FIFO_read (UINT addr, UINT* data, UINT request_nof_words, UINT* got_nof_words );
-	
 
-	
+
+
 
 	int vme_CRCSR_D8_write(UINT addr, UCHAR data);      // new 28.07.2017
 	int vme_CRCSR_D16_write(UINT addr, USHORT data);    // new 28.07.2017
@@ -338,7 +338,7 @@ public:
 	int vme_A16supervisoryD32_write(UINT addr, UINT data);      // new 22.08.2017
 
 
-	
+
 
 
 	int vme_A24D8_write (UINT addr, UCHAR data);      // new 04.09.2015
@@ -360,7 +360,7 @@ public:
 
 
 	/**********************************************************************************************************/
-	 
+
 	int vme_A16D8_sgl_random_burst_write(UINT nof_writes, UINT* addr_ptr, UCHAR* data_ptr);		// new 28.7.2017
 	int vme_A16D16_sgl_random_burst_write(UINT nof_writes, UINT* addr_ptr, USHORT* data_ptr);	// new 28.7.2017
 	int vme_A16D32_sgl_random_burst_write(UINT nof_writes, UINT* addr_ptr, UINT* data_ptr);  	// new 31.8.2017
@@ -434,8 +434,8 @@ public:
 	int list_generate_add_vmeA32MBLT64_read(UINT* list_ptr, UINT* list_buffer, UINT vme_addr, UINT request_nof_words);
 	int list_generate_add_vmeA32MBLT64_swapDWord_read(UINT* list_ptr, UINT* list_buffer, UINT vme_addr, UINT request_nof_words);
 
-	
-	 
+
+
 
 };
 
@@ -443,20 +443,20 @@ public:
 // Return Codes
 /**************************************************************************************/
 /* udp_single_read                                                                    */
-/* possible ReturnCodes:                                                              */     
+/* possible ReturnCodes:                                                              */
 /*       0     : OK                                                                   */
 /*       0x111 : PROTOCOL_ERROR_CODE_TIMEOUT                                          */
 /*       0x121 : wrong Packet Length after N Retransmit and M Request commands        */
-/*       0x122 : wrong received Packet ID after N Retransmit and M Request commands   */ 
+/*       0x122 : wrong received Packet ID after N Retransmit and M Request commands   */
 /*       0x211 : PROTOCOL_VME_CODE_BUS_ERROR                                          */
 /**************************************************************************************/
 
 /**************************************************************************************/
 /* udp_single_write                                                                   */
-/* possible ReturnCodes:                                                              */     
+/* possible ReturnCodes:                                                              */
 /*       0     : OK                                                                   */
 /*       0x111 : PROTOCOL_ERROR_CODE_TIMEOUT                                          */
-/*       0x122 : wrong received Packet ID after N Retransmit and M Request commands   */ 
+/*       0x122 : wrong received Packet ID after N Retransmit and M Request commands   */
 /*       0x211 : PROTOCOL_VME_CODE_BUS_ERROR                                          */
 /*       0x2xx : PROTOCOL_VME_CODES                                                   */
 /**************************************************************************************/
@@ -464,8 +464,8 @@ public:
 /**************************************************************************************/
 
 /*******************************************************************************************/
-/* udp_DMA_read, udp_sub_DMA_read                                                          */ 
-/* possible ReturnCodes:                                                                   */  
+/* udp_DMA_read, udp_sub_DMA_read                                                          */
+/* possible ReturnCodes:                                                                   */
 /*       0     : OK                                                                        */
 /*       0x111 : PROTOCOL_ERROR_CODE_TIMEOUT                                               */
 /*       0x120 : wrong received Packet CMD after N Retransmit                              */

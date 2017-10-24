@@ -111,14 +111,12 @@ struct SIS3153Private
 
     ~SIS3153Private()
     {
-        delete sis;
-        delete sis_ctrl;
     }
 
     SIS3153 *q;
-    sis3153eth *sis,
-               *sis_ctrl;
     QMutex lock;
+    std::unique_ptr<sis3153eth> sis;            // socket used for readout and non DAQ mode communication
+    std::unique_ptr<sis3153eth> sis_ctrl;       // socket used to leave DAQ mode
 
     // ip address or hostname of the SIS
     QString address;
@@ -184,12 +182,22 @@ VMEError SIS3153::open()
     if (isOpen())
         return VMEError(VMEError::DeviceIsOpen);
 
+    /* This is a bit of a hack but the easiest thing to do right now: Once a
+     * sis3153eth instance is disconnected it never sets the socket parameters
+     * correctly again. Instead of touching that code I'll just recreate new
+     * sis3153eth instances here and this way I'll always have properly setup
+     * sockets to work with. */
+
+    m_d->sis.reset(new sis3153eth);
+    m_d->sis_ctrl.reset(new sis3153eth);
 
     // set ip address / hostname
 
     auto addressData = m_d->address.toLocal8Bit();
 
+#ifdef SIS3153_DEBUG
     qDebug() << __PRETTY_FUNCTION__ << "addressData =" << addressData;
+#endif
 
     int resultCode = m_d->sis->set_UdpSocketSIS3153_IpAddress(const_cast<char *>(addressData.constData()));
     // -2: gethostbyname() returned nullptr
@@ -288,7 +296,7 @@ VMEError SIS3153::open()
     m_d->isOpen = true;
 
 
-    qDebug("%s: opened SIS3153 %u, moduleIdAndFirmware=0x%08x",
+    qDebug("%s: opened SIS3153 %04u, moduleIdAndFirmware=0x%08x",
            __PRETTY_FUNCTION__, m_d->serialNumber, m_d->moduleIdAndFirmware);
 
     emit controllerOpened();
@@ -302,7 +310,9 @@ VMEError SIS3153::close()
     QMutexLocker locker(&m_d->lock);
     if (isOpen())
     {
-        m_d->sis->vmeclose(); // close the socket
+        // close the sockets
+        m_d->sis->vmeclose();
+        m_d->sis_ctrl->vmeclose();
         m_d->isOpen = false;
         emit controllerClosed();
         emit controllerStateChanged(ControllerState::Closed);
@@ -431,12 +441,12 @@ VMEError SIS3153::blockRead(u32 address, u32 transfers, QVector<u32> *dest, u8 a
 
 sis3153eth *SIS3153::getImpl()
 {
-    return m_d->sis;
+    return m_d->sis.get();
 }
 
 sis3153eth *SIS3153::getCtrlImpl()
 {
-    return m_d->sis_ctrl;
+    return m_d->sis_ctrl.get();
 }
 
 void SIS3153::setAddress(const QString &address)

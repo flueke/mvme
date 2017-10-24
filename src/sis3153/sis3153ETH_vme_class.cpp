@@ -59,15 +59,15 @@ static void shutdown_socket_system()
 
 sis3153eth::sis3153eth (void)
 {
-    init_socket_system();
+    init_socket_system(); // paired with a call to shutdown_socket_system() in the desctructor
     //int i;
-    int status;
 
 #ifdef WINDOWS
     strcpy_s(this->char_messages, sizeof(this->char_messages), "no valid UDP socket");
 #else
     strcpy(this->char_messages, "no valid UDP socket");
 #endif
+
     this->udp_socket_status = -1 ;
     this->udp_port = 0xE000 ; // default
 
@@ -92,7 +92,7 @@ sis3153eth::sis3153eth (void)
     // Set  Receive Timeout
     this->recv_timeout_sec  = 0 ;
     this->recv_timeout_usec = 50000; // default 50ms
-    status = this->set_UdpSocketOptionTimeout( ) ;
+    this->set_UdpSocketOptionTimeout( ) ;
 
     this->jumbo_frame_enable        = 0 ;
     this->max_nofPacketsPerRequest  = 1;
@@ -189,7 +189,8 @@ int sis3153eth::vmeclose( void ){
 
 /*************************************************************************************/
 
-int sis3153eth::get_vmeopen_messages(CHAR* messages, UINT* nof_found_devices){ // use in case of VC10
+int sis3153eth::get_vmeopen_messages(CHAR* messages, UINT* nof_found_devices)
+{ // use in case of VC10
 
 #ifdef WINDOWS
     strcpy_s(messages, sizeof(this->char_messages), this->char_messages); //  sizeof (source) is a fix to work with VC12  and higher
@@ -202,18 +203,19 @@ int sis3153eth::get_vmeopen_messages(CHAR* messages, UINT* nof_found_devices){ /
     return 0;
 }
 
-int sis3153eth::get_vmeopen_messages(CHAR* messages, size_t size_of_messages, UINT* nof_found_devices){ // use with VC12 and higher
+int sis3153eth::get_vmeopen_messages(CHAR* messages, size_t size_of_messages, UINT* nof_found_devices)
+{ // use with VC12 and higher
     UINT data=0;
     INT return_code=0;
 
 #ifdef WINDOWS
     strcpy_s(messages, size_of_messages, this->char_messages);
-    //strcpy_s(messages, sizeof(messages), this->char_messages);
 #else
-    strcpy(messages, this->char_messages);
+    strncpy(messages, this->char_messages, size_of_messages);
 #endif
 
     return_code = this->udp_sis3153_register_read(0x1, &data);
+
 #ifdef DEBUG_PRINTS
     printf("vme_crate->vmeopen udp_sis3153_register_read: \treturn_code = 0x%08X    \tdata = 0x%08X      \n", return_code, data );
 #endif
@@ -554,8 +556,6 @@ int sis3153eth::clear_UdpReceiveBuffer(void){
 
 
 int sis3153eth::udp_retransmit_cmd( int* receive_bytes, char* data_byte_ptr){
-    int return_code;
-
 #ifdef LINUX
     socklen_t addr_len;
 #endif
@@ -565,7 +565,7 @@ int sis3153eth::udp_retransmit_cmd( int* receive_bytes, char* data_byte_ptr){
     addr_len = sizeof(struct sockaddr);
     // write Cmd
     this->udp_send_data[0] = (char) 0xEE ; // transmit
-    return_code = sendto(this->udp_socket, udp_send_data, 1, 0, (struct sockaddr *)&this->sis3153_sock_addr_in, sizeof(struct sockaddr));
+    sendto(this->udp_socket, udp_send_data, 1, 0, (struct sockaddr *)&this->sis3153_sock_addr_in, sizeof(struct sockaddr));
     *receive_bytes = recvfrom(this->udp_socket, this->udp_recv_data, 9000, 0,   (struct sockaddr *)&this->sis3153_sock_addr_in, &addr_len);
     if (*receive_bytes == -1) { // Timeout
         return -1 ;
@@ -601,7 +601,7 @@ void sis3153eth::reorderLutInit(reorder_lut_t *lut, size_t len, size_t packetLen
     if (lut != NULL) {
         // clear
         for (int i = 0; i < 32; i++) {
-            lut[i].offs = NULL;
+            lut[i].offs = 0;
             lut[i].outstanding = false;
         }
         // fill offsets
@@ -972,7 +972,7 @@ int sis3153eth::udp_sub_DMA_read ( unsigned int nof_read_words, UINT  addr, UINT
 
     unsigned int udp_data_copy_to_buffer_index ;
     unsigned int nof_got_data_bytes_per_packet ;
-    int rest_length_byte ;
+    size_t rest_length_byte ;
     unsigned int packet_legh = 3;
     unsigned char* uchar_ptr;
     int receive_bytes;
@@ -1180,7 +1180,6 @@ int sis3153eth::udp_sub_DMA_read ( unsigned int nof_read_words, UINT  addr, UINT
 
 int sis3153eth::udp_DMA_read ( unsigned int nof_read_words, UINT addr, UINT* data_ptr, UINT* got_nof_words )
 {
-    int error;
     int return_code;
     UINT new_addr;
     unsigned int rest_length_words;
@@ -1201,7 +1200,6 @@ int sis3153eth::udp_DMA_read ( unsigned int nof_read_words, UINT addr, UINT* dat
         if (nof_read_words == 0)    return 3;
     }
 #endif
-    error = 0 ;
     rest_length_words = nof_read_words;
     data_buffer_index = 0 ;
     new_addr = addr;
@@ -1419,7 +1417,6 @@ int sis3153eth::udp_sub_DMA_write ( unsigned int nof_write_words, UINT  addr, UI
 
 int sis3153eth::udp_DMA_write ( unsigned int nof_write_words, UINT addr, UINT* data_ptr, UINT* written_nof_words )
 {
-    int error;
     int return_code;
     unsigned int rest_length_words;
     unsigned int req_nof_words;
@@ -1440,7 +1437,6 @@ int sis3153eth::udp_DMA_write ( unsigned int nof_write_words, UINT addr, UINT* d
         if(nof_write_words == 0)    return -3;
     }
 #endif
-    error = 0 ;
     rest_length_words = nof_write_words ;
     data_buffer_index = 0 ;
 
@@ -3554,15 +3550,7 @@ int sis3153eth::udp_send_direct_list(unsigned int list_length, UINT* list_buffer
     unsigned int i_offset;
 
     int return_code;
-#ifdef LINUX
-    socklen_t addr_len;
-#endif
-#ifdef WIN
-    int addr_len;
-#endif
     unsigned int nof_words;
-
-    addr_len = sizeof(struct sockaddr);
 
     if (list_length == 0) {
         return PROTOCOL_WRONG_PARAMETER;

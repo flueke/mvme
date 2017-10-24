@@ -55,6 +55,8 @@ class LIBMVME_EXPORT SIS3153: public VMEController
         // SIS3153 specific
         //
 
+        /* Note: do not keep copies of these pointers around. They will be
+         * invalidated when reconnecting!. */
         sis3153eth *getImpl();
         sis3153eth *getCtrlImpl();
 
