@@ -18,6 +18,7 @@
  */
 #include "mvme_context.h"
 #include "mvme.h"
+#include "sis3153.h"
 #include "vmusb.h"
 #include "vmusb_readout_worker.h"
 #include "vmusb_buffer_processor.h"
@@ -270,7 +271,27 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent)
                            .arg(fwMinor, 4, 16, QLatin1Char('0'))
                            );
             }
-            else
+            else if (auto sis = dynamic_cast<SIS3153 *>(m_controller))
+            {
+                u32 moduleIdAndFirmware;
+                auto error = sis->readRegister(SIS3153Registers::ModuleIdAndFirmware, &moduleIdAndFirmware);
+
+                if (!error.isError())
+                {
+                    logMessage(QString("Opened VME controller %1 - Firmware 0x%2")
+                               .arg(m_controller->getIdentifyingString())
+                               .arg(moduleIdAndFirmware & 0xffff, 4, 16, QLatin1Char('0'))
+                               );
+                }
+                else
+                {
+                    logMessage(QString("Error reading firmware from VME controller %1: %2")
+                               .arg(m_controller->getIdentifyingString())
+                               .arg(error.toString())
+                              );
+                }
+            }
+            else // generic case
             {
                 logMessage(QString("Opened VME controller %1")
                            .arg(m_controller->getIdentifyingString()));
