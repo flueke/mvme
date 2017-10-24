@@ -95,6 +95,7 @@ add_subdirectory(extras)
 option(BUILD_TESTS "Build test binaries" OFF)
 
 if (BUILD_TESTS)
+    message("-- Building test binaries")
     enable_testing()
     add_subdirectory(test)
 endif()
