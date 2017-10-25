@@ -1,0 +1,2 @@
+unset CC
+unset CXX
