@@ -437,14 +437,14 @@ void MVMEContext::setVMEConfig(VMEConfig *config)
     connect(m_vmeConfig, &VMEConfig::eventAboutToBeRemoved, this, &MVMEContext::onEventAboutToBeRemoved);
     connect(m_vmeConfig, &VMEConfig::globalScriptAboutToBeRemoved, this, &MVMEContext::onGlobalScriptAboutToBeRemoved);
 
-    // FIXME: handle the case where the controller type changed. Worker context
-    // needs to always be up-to-date otherwise it will contain stale pointers.
     if (m_readoutWorker)
     {
         VMEReadoutWorkerContext workerContext = m_readoutWorker->getContext();
         workerContext.vmeConfig = m_vmeConfig;
         m_readoutWorker->setContext(workerContext);
     }
+
+    setVMEController(config->getControllerType(), config->getControllerSettings());
 
     emit daqConfigChanged(config);
 }
