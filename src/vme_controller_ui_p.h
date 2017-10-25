@@ -46,5 +46,7 @@ class SIS3153EthSettingsWidget: public VMEControllerSettingsWidget
 
     private:
         QLineEdit *m_le_sisAddress;
+        QCheckBox *m_cb_jumboFrames;
+        QCheckBox *m_cb_debugRawBuffers;
 };
 #endif /* __VME_CONTROLLER_UI_P_H__ */
