@@ -405,7 +405,8 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
 
         s32 stackListIndex = 0;
         u32 stackLoadAddress = SIS3153ETH_STACK_RAM_START_ADDR;
-        u32 stackListControlValue = SIS3153Registers::StackListControlValues::ListBufferEnable;
+        //u32 stackListControlValue = SIS3153Registers::StackListControlValues::ListBufferEnable;
+        u32 stackListControlValue = 0;
         u32 nextTimerTriggerSource = SIS3153Registers::TriggerSourceTimer1;
 
         for (s32 eventIndex = 0;
@@ -433,8 +434,11 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
             else if (event->triggerCondition == TriggerCondition::Periodic)
             {
                 // TODO: move this check into validate_vme_config()
-                if (nextTimerTriggerSource > SIS3153Registers::TriggerSourceTimer2)
-                    throw QString("SIS3153 supports no more than 2 periodic events!");
+                //if (nextTimerTriggerSource > SIS3153Registers::TriggerSourceTimer2)
+                //    throw QString("SIS3153 supports no more than 2 periodic events!");
+
+                if (nextTimerTriggerSource > SIS3153Registers::TriggerSourceTimer1)
+                    throw QString("SIS3153 readout supports no more than 1 periodic events!");
 
                 double period_secs = event->triggerOptions.value(QSL("sis3153.timer_period"), 0.0).toDouble();
 
@@ -452,12 +456,17 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
                     throw QString("Maximum timer period exceeded for event %1").arg(event->objectName());
                 }
 
-                stackListTriggerValue = nextTimerTriggerSource;
-
                 u32 timerConfigRegister = SIS3153Registers::StackListTimer1Config;
+
+                logMessage(QString(QSL("Setting up timer for event \"%1\": timerValue=%2"))
+                           .arg(event->objectName())
+                           .arg(timerValue)
+                           );
 
                 if (nextTimerTriggerSource == SIS3153Registers::TriggerSourceTimer2)
                     timerConfigRegister = SIS3153Registers::StackListTimer2Config;
+
+                stackListTriggerValue = nextTimerTriggerSource;
 
                 // timer setup
                 error = sis->writeRegister(timerConfigRegister, timerValue);
@@ -556,6 +565,7 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
                     SIS3153ETH_STACK_LIST1_TRIGGER_SOURCE + 2 * stackListIndex,
                     stackListTriggerValue);
 
+
                 if (error.isError())
                 {
                     throw QString("Error writing stackListTriggerSource[%1]: %2")
@@ -569,6 +579,53 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
                 stackLoadAddress += stackList.size();
             }
         }
+
+#if 0 // FIXME: make this dog be a good dog
+        // setup timer2 as a watchdog
+        {
+            static const double period_secs      = 0.050;
+            static const double period_usecs     = period_secs * 1e6;
+            static const double period_100usecs  = period_usecs / 100.0;
+            u32 timerValue                       = period_100usecs - 1.0;
+            u32 timerConfigRegister = SIS3153Registers::StackListTimer2Config;
+
+            logMessage(QString(QSL("Setting up watchdog using timer 2: period=%1 s, timerValue=%2"))
+                       .arg(period_secs)
+                       .arg(timerValue)
+                       );;
+
+            timerValue |= SIS3153Registers::StackListTimerWatchdogEnable;
+
+            error = sis->writeRegister(timerConfigRegister, timerValue);
+
+            if (error.isError())
+            {
+                throw QString("Error writing timerConfigRegister for watchdog (%1): %2")
+                    .arg(timerConfigRegister)
+                    .arg(error.toString());
+            }
+
+            stackListControlValue |= SIS3153Registers::StackListControlValues::StackListEnable;
+            stackListControlValue |= SIS3153Registers::StackListControlValues::Timer2Enable;
+
+            // XXX: testing watchdog behaviour
+            // write stack list trigger source register
+            error = sis->writeRegister(
+                SIS3153ETH_STACK_LIST1_TRIGGER_SOURCE + 2 * stackListIndex,
+                SIS3153Registers::TriggerSourceTimer2);
+
+            //s32 watchdogStackListIndex = stackListIndex;
+
+            if (error.isError())
+            {
+                throw QString("Error writing stackListTriggerSource[%1]: %2")
+                    .arg(stackListIndex)
+                    .arg(error.toString());
+            }
+        }
+#endif
+
+        // all event stacks have been uploaded. stackLoadAddress and stackListControlValue have been set
 
         //
         // DAQ Init
@@ -674,6 +731,7 @@ void SIS3153ReadoutWorker::readoutLoop()
 
 
     elapsedTime.start();
+    logReadErrorTimer.start();
     timetick(); // initial timetick
 
     while (true)
@@ -700,7 +758,7 @@ void SIS3153ReadoutWorker::readoutLoop()
 
                 readErrorCount++;
 
-                if (!logReadErrorTimer.isValid() || logReadErrorTimer.elapsed() >= LogInterval_ReadError_ms)
+                if (logReadErrorTimer.elapsed() >= LogInterval_ReadError_ms)
                 {
                     auto msg = (QString("SIS313 Warning: received no data for the past %1 reads")
                                 .arg(readErrorCount)
@@ -942,6 +1000,15 @@ void SIS3153ReadoutWorker::processBuffer(
             .arg(m_workerContext.daqStats->totalBuffersRead);
         logMessage(msg);
         qDebug() << __PRETTY_FUNCTION__ << msg;
+    }
+
+    if (m_outputBuffer && m_outputBuffer != &m_localEventBuffer)
+    {
+        // We still hold onto one of the buffers from obtained from the free
+        // queue. This can happen for the SkipInput case. Put the buffer back
+        // into the free queue.
+        enqueue(m_workerContext.freeBuffers, m_outputBuffer);
+        m_outputBuffer = nullptr;
     }
 }
 

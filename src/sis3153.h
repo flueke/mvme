@@ -124,7 +124,7 @@ namespace SIS3153Registers
         static const u32 ListBufferEnable   = 1 << 15;
     }
 
-    static const u32 StackListTimerWatchdogEnable   = 1 << 31;
+    static const u32 StackListTimerWatchdogEnable   = 1u << 31;
 
     static const u32 TriggerSourceTimer1            = 8;
     static const u32 TriggerSourceTimer2            = 9;
