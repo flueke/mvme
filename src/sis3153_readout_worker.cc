@@ -286,18 +286,6 @@ SIS3153ReadoutWorker::~SIS3153ReadoutWorker()
 {
 }
 
-#if 0
-// FIXME: TESTING ANOTHER HACK: enable watchdog bit here
-                if (nextTimerTriggerSource == SIS3153Registers::TriggerSourceTimer2)
-                {
-                    // 100 us steps
-                    timerValue = 100 * 500;
-                    timerValue -= 1;
-                    timerValue |= SIS3153Registers::StackListTimerWatchdogEnable;
-                    timerConfigRegister = SIS3153Registers::StackListTimer2Config;
-                }
-#endif
-
 void SIS3153ReadoutWorker::start(quint32 cycles)
 {
     qDebug() << __PRETTY_FUNCTION__ << "cycles to run =" << cycles;
@@ -402,11 +390,11 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
 
         m_eventConfigsByStackList.fill(nullptr);
         m_eventIndexByStackList.fill(-1);
+        m_watchdogStackListIndex = -1;
 
         s32 stackListIndex = 0;
         u32 stackLoadAddress = SIS3153ETH_STACK_RAM_START_ADDR;
-        //u32 stackListControlValue = SIS3153Registers::StackListControlValues::ListBufferEnable;
-        u32 stackListControlValue = 0;
+        u32 stackListControlValue = SIS3153Registers::StackListControlValues::ListBufferEnable;
         u32 nextTimerTriggerSource = SIS3153Registers::TriggerSourceTimer1;
 
         for (s32 eventIndex = 0;
@@ -458,10 +446,12 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
 
                 u32 timerConfigRegister = SIS3153Registers::StackListTimer1Config;
 
-                logMessage(QString(QSL("Setting up timer for event \"%1\": timerValue=%2"))
+                logMessage(QString(QSL("Setting up timer for event \"%1\": period=%2 s, timerValue=%3"))
                            .arg(event->objectName())
+                           .arg(period_secs)
                            .arg(timerValue)
                            );
+                logMessage("");
 
                 if (nextTimerTriggerSource == SIS3153Registers::TriggerSourceTimer2)
                     timerConfigRegister = SIS3153Registers::StackListTimer2Config;
@@ -580,19 +570,86 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
             }
         }
 
-#if 0 // FIXME: make this dog be a good dog
-        // setup timer2 as a watchdog
+        /* Use timer2 as a watchdog.
+         *
+         * Each timer has a watchdog bit. If the bit is set the timer is
+         * restarted with every packet that the controller sends out.
+         *
+         * Just setting up the timer configuration register and enabling the
+         * timer in the stackList control is not enough though: to actually
+         * produce packets the watchdog timer needs to be associated with a
+         * stackList (just like for periodic events above).
+         *
+         * If we still have an unused (and thus empty) stackList we can use it
+         * for the watchdog.
+         *
+         */
+        if (stackListIndex <= SIS3153Constants::NumberOfStackLists)
         {
+            // Actually have to upload a stacklist for things to work. This
+            // list consists of a single marker command.
+            vme_script::Command cmd;
+            cmd.type = vme_script::CommandType::Marker;
+            cmd.value = 0xbeefbeef;
+            vme_script::VMEScript watchdogScript = { cmd };
+
+            auto stackList = build_stackList(sis, watchdogScript);
+
+            // upload stacklist
+            auto msg = (QString("Loading stackList for internal watchdog event"
+                                ", stackListIndex=%2, size=%3, loadAddress=0x%4")
+                        .arg(stackListIndex)
+                        .arg(stackList.size())
+                        .arg(stackLoadAddress, 4, 16, QLatin1Char('0'))
+                       );
+
+            logMessage(msg);
+            for (u32 line: stackList)
+            {
+                logMessage(msg.sprintf("  0x%08x", line));
+            }
+            logMessage("");
+
+            Q_ASSERT(stackLoadAddress - SIS3153ETH_STACK_RAM_START_ADDR <= (1 << 13));
+
+            error = uploadStackList(stackLoadAddress, stackList);
+
+            if (error.isError())
+            {
+                throw QString("Error uploading stackList for watchdog event: %1")
+                    .arg(error.toString());
+            }
+
+            u32 stackListConfigValue = ((stackList.size() - 1) << 16) | (stackLoadAddress - SIS3153ETH_STACK_RAM_START_ADDR);
+
+            error = sis->writeRegister(
+                SIS3153ETH_STACK_LIST1_CONFIG + 2 * stackListIndex,
+                stackListConfigValue);
+
+            if (error.isError())
+            {
+                throw QString("Error writing stackListConfig[%1]: %2")
+                    .arg(stackListIndex)
+                    .arg(error.toString());
+            }
+
+            // watchdogPeriod - This has to work together with the udp socket read timeout.
+            // If it's higher than the read timeout warnings about not
+            // receiving any data will appear in the log.
+            // The period should also not be too short as that creates lots of
+            // useless packets.
+
             static const double period_secs      = 0.050;
             static const double period_usecs     = period_secs * 1e6;
             static const double period_100usecs  = period_usecs / 100.0;
             u32 timerValue                       = period_100usecs - 1.0;
             u32 timerConfigRegister = SIS3153Registers::StackListTimer2Config;
 
-            logMessage(QString(QSL("Setting up watchdog using timer 2: period=%1 s, timerValue=%2"))
+            logMessage(QString(QSL("Setting up watchdog using timer2: period=%1 s, timerValue=%2, stackList=%3"))
                        .arg(period_secs)
                        .arg(timerValue)
-                       );;
+                       .arg(stackListIndex)
+                       );
 
             timerValue |= SIS3153Registers::StackListTimerWatchdogEnable;
 
@@ -605,16 +662,9 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
                     .arg(error.toString());
             }
 
-            stackListControlValue |= SIS3153Registers::StackListControlValues::StackListEnable;
-            stackListControlValue |= SIS3153Registers::StackListControlValues::Timer2Enable;
-
-            // XXX: testing watchdog behaviour
-            // write stack list trigger source register
             error = sis->writeRegister(
                 SIS3153ETH_STACK_LIST1_TRIGGER_SOURCE + 2 * stackListIndex,
                 SIS3153Registers::TriggerSourceTimer2);
-
-            //s32 watchdogStackListIndex = stackListIndex;
 
             if (error.isError())
             {
@@ -622,8 +672,15 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
                     .arg(stackListIndex)
                     .arg(error.toString());
             }
+
+            m_watchdogStackListIndex = stackListIndex;
+            stackListControlValue |= SIS3153Registers::StackListControlValues::StackListEnable;
+            stackListControlValue |= SIS3153Registers::StackListControlValues::Timer2Enable;
         }
-#endif
+        else
+        {
+            logMessage(QString("SIS3153 warning: No stackList available for use as a watchdog. Disabling watchdog."));
+        }
 
         // all event stacks have been uploaded. stackLoadAddress and stackListControlValue have been set
 
@@ -661,7 +718,6 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
         m_workerContext.daqStats->start();
         m_listfileHelper->beginRun();
 
-        //readoutLoop();
         readoutLoop();
 
         m_listfileHelper->endRun();
@@ -760,7 +816,7 @@ void SIS3153ReadoutWorker::readoutLoop()
 
                 if (logReadErrorTimer.elapsed() >= LogInterval_ReadError_ms)
                 {
-                    auto msg = (QString("SIS313 Warning: received no data for the past %1 reads")
+                    auto msg = (QString("SIS313 Warning: received no data with the past %1 reads")
                                 .arg(readErrorCount)
                                );
                     logMessage(msg);
@@ -921,9 +977,38 @@ SIS3153ReadoutWorker::ReadBufferResult SIS3153ReadoutWorker::readBuffer()
            (u32)packetAck, (u32)packetIdent, (u32)packetStatus, result.bytesRead, result.bytesRead / sizeof(u32));
 #endif
 
-    processBuffer(packetAck, packetIdent, packetStatus,
-                  m_readBuffer.data + sizeof(u32),
-                  m_readBuffer.used - sizeof(u32));
+
+
+    // Compensate for the first word which contains the ack, ident and status
+    // bytes and a fillbyte.
+    u8 *dataPtr = m_readBuffer.data + sizeof(u32);
+    size_t dataSize = m_readBuffer.used - sizeof(u32);
+
+    /* Special handling for the watchdog stackList (for which there exists no
+     * event config). */
+    if ((packetAck & SIS3153Constants::AckStackListMask) == m_watchdogStackListIndex)
+    {
+        Q_ASSERT(m_eventConfigsByStackList[packetAck & SIS3153Constants::AckStackListMask] == nullptr);
+        m_counters.packetsPerStackList[packetAck & SIS3153Constants::AckStackListMask]++;
+
+#if SIS_READOUT_DEBUG
+        u32 *data = reinterpret_cast<u32 *>(dataPtr);
+        size_t dataWords = dataSize/sizeof(u32);
+        Q_ASSERT(dataWords == 3);
+        Q_ASSERT((data[0] & SIS3153Constants::BeginEventMask) == SIS3153Constants::BeginEventResult);
+        Q_ASSERT(data[1] == 0xbeefbeef);
+        Q_ASSERT((data[2] & SIS3153Constants::EndEventMask) == SIS3153Constants::EndEventResult);
+
+        for (size_t i=0; i<dataSize/sizeof(u32); i++)
+        {
+            qDebug("watchdog brought something home: 0x%08x", data[i]);
+        }
+#endif
+    }
+    else
+    {
+        processBuffer(packetAck, packetIdent, packetStatus, dataPtr, dataSize);
+    }
 
     return result;
 }

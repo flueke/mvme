@@ -41,8 +41,11 @@ sis3153 implementation
 class SIS3153:
   - vme methods: make use of the amod arg or refactor the interface and get rid of it
     -> Robert wants to keep amod so implement it
-
 * Check the default timeouts used in the sis3153eth implementation. Tweak if needed to stay responsive.
+* DNS lookups can currently freeze the whole application
+* Figure out if watchdog packets can be part of multievent packets.
+* Extract and make use of the counter
+* Add Debug Buffer Fil implementation
 
 
 * NSIS installer: use common start menu folder mesytec, then mvme underneath

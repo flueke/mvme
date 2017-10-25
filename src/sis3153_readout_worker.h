@@ -41,6 +41,7 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
         {
             std::array<u64, SIS3153Constants::NumberOfStackLists> packetsPerStackList;
             u64 multiEventPackets = 0;
+            u64 watchdogPackets = 0;
         };
 
         inline const Counters &getCounters() const
@@ -123,6 +124,7 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
         Counters m_counters;
         QFile *m_debugFile = nullptr;
         u32 m_stackListControlRegisterValue = 0;
+        int m_watchdogStackListIndex = -1;
         DataBuffer m_localEventBuffer;
         DataBuffer m_localTimetickBuffer;
         std::unique_ptr<DAQReadoutListfileHelper> m_listfileHelper;

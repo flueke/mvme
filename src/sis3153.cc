@@ -172,6 +172,8 @@ bool SIS3153::isOpen() const
     return m_d->isOpen;
 }
 
+static const int ReceiveTimeout_ms = 100;
+
 VMEError SIS3153::open()
 {
     /* As UDP is stateless this code tries to connect to the currently set
@@ -192,8 +194,15 @@ VMEError SIS3153::open()
     m_d->sis.reset(new sis3153eth);
     m_d->sis_ctrl.reset(new sis3153eth);
 
-    // set ip address / hostname
+    // set custom timeout
+    for (auto sis: { m_d->sis.get(), m_d->sis_ctrl.get()})
+    {
+        sis->recv_timeout_sec = 0;
+        sis->recv_timeout_usec = ReceiveTimeout_ms * 1000;
+        sis->set_UdpSocketOptionTimeout();
+    }
 
+    // set ip address / hostname
     auto addressData = m_d->address.toLocal8Bit();
 
 #ifdef SIS3153_DEBUG
