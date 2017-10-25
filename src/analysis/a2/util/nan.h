@@ -10,6 +10,9 @@
 
 #include "typedefs.h"
 
+namespace a2
+{
+
 inline double make_quiet_nan()
 {
     double result = std::numeric_limits<double>::quiet_NaN();
@@ -32,6 +35,8 @@ inline u32 get_payload(double d)
            reinterpret_cast<char *>(&d),
            sizeof(result));
     return result;
+}
+
 }
 
 #if 0

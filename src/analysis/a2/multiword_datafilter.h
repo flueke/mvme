@@ -1,5 +1,5 @@
-#ifndef __MULTIWORD_DATAFILTER_H__
-#define __MULTIWORD_DATAFILTER_H__
+#ifndef __A2_MULTIWORD_DATAFILTER_H__
+#define __A2_MULTIWORD_DATAFILTER_H__
 
 #include "data_filter.h"
 #include <cassert>
@@ -114,4 +114,4 @@ inline u8 get_extract_bits(MultiWordFilter *filter, MultiWordFilter::CacheType c
 } // namespace data_filter
 } // namespace a2
 
-#endif /* __MULTIWORD_DATAFILTER_H__ */
+#endif /* __A2_MULTIWORD_DATAFILTER_H__ */

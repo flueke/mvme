@@ -67,6 +67,7 @@ set(LIBMVME_SOURCES
     "${CMAKE_CURRENT_BINARY_DIR}/git_sha1.cc"
     "${CMAKE_CURRENT_BINARY_DIR}/build_info.cc"
     "${CMAKE_SOURCE_DIR}/3rdparty/qt-collapsible-section/Section.cpp"
+    analysis/a2_adapter.cc
     analysis/analysis.cc
     analysis/analysis_ui.cc
     analysis/analysis_ui_p.cc

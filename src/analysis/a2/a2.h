@@ -1,7 +1,9 @@
 #ifndef __MVME_A2_H__
 #define __MVME_A2_H__
 
+#ifdef liba2_shared_EXPORTS
 #include "a2_export.h"
+#endif
 #include "memory.h"
 #include "multiword_datafilter.h"
 #include "util/nan.h"
@@ -109,7 +111,11 @@ struct Extractor
     u8 moduleIndex;
 };
 
-Extractor make_extractor(memory::Arena *arena, data_filter::MultiWordFilter filter, u32 requiredCompletions, u64 rngSeed);
+Extractor make_extractor(
+    memory::Arena *arena,
+    data_filter::MultiWordFilter filter,
+    u32 requiredCompletions,
+    u64 rngSeed);
 
 struct Operator
 {
@@ -241,6 +247,23 @@ void write_histo_list(Out &out, TypedBlock<H1D, s32> histos)
         write_histo(out, histos[i]);
     }
 }
+
+static const int MaxVMEEvents  = 12;
+static const int MaxVMEModules = 20;
+
+struct A2
+{
+    std::array<u8, MaxVMEEvents> extractorCounts;
+    std::array<Extractor *, MaxVMEEvents> extractors;
+
+    std::array<u8, MaxVMEEvents> operatorCounts;
+    std::array<Operator *, MaxVMEEvents> operators;
+    std::array<u8 *, MaxVMEEvents> operatorRanks;
+};
+
+void a2_begin_event(A2 *a2, int eventIndex);
+void a2_process_module_data(A2 *a2, int eventIndex, int moduleIndex, const u32 *data, u32 dataSize);
+void a2_end_event(A2 *a2, int eventIndex);
 
 } // namespace a2
 

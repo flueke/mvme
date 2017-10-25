@@ -40,18 +40,20 @@ include_directories(pcg-cpp-0.98/include/)
 
 set(liba2_SOURCES
     a2.cc
-    data_filter.cc
-    )
+    data_filter.cc)
 
 add_library(liba2_shared SHARED ${liba2_SOURCES})
 set_target_properties(liba2_shared PROPERTIES OUTPUT_NAME a2)
+target_include_directories(liba2_shared PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
 include(GenerateExportHeader)
 generate_export_header(liba2_shared
     EXPORT_MACRO_NAME "LIBA2_EXPORT"
     EXPORT_FILE_NAME "a2_export.h")
 
 add_library(liba2_static STATIC ${liba2_SOURCES})
-set_target_properties(liba2_static PROPERTIES OUTPUT_NAME a2)
+set_target_properties(liba2_static PROPERTIES
+    OUTPUT_NAME a2
+    POSITION_INDEPENDENT_CODE ON)
 
 function(add_a2_test exe_name exe_sources)
     add_executable(${exe_name} ${exe_sources})

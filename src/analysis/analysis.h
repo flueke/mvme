@@ -36,6 +36,16 @@
 class QJsonObject;
 class VMEConfig;
 
+namespace a2
+{
+struct A2;
+}
+
+namespace memory
+{
+struct Arena;
+};
+
 /*
  *   Operators vs Sources vs Sinks:
  *   - Sources have no input but are directly attached to a module.
@@ -1261,7 +1271,14 @@ class LIBMVME_EXPORT Analysis: public QObject
         };
 
         Analysis(QObject *parent = nullptr);
+        virtual ~Analysis();
 
+        /* FIXME: only the overload taking the hash of index pairs prepares
+         * the a2 system!
+         * Fix this by having this class keep an instance of the hash around and pass that internally.
+         * Remember to update the hash on every vme config change!
+         */
+        void beginRun(const RunInfo &runInfo, const QHash<QUuid, QPair<int, int>> &vmeConfigUuIdToIndexes);
         void beginRun(const RunInfo &runInfo);
         void beginEvent(const QUuid &eventId);
         void processModuleData(const QUuid &eventId, const QUuid &moduleId, u32 *data, u32 size);
@@ -1378,6 +1395,10 @@ class LIBMVME_EXPORT Analysis: public QObject
         bool m_modified;
         RunInfo m_runInfo;
         double m_timetickCount;
+
+        std::unique_ptr<memory::Arena> m_a2Arena;
+        a2::A2 *m_a2 = nullptr;
+        QHash<QUuid, QPair<int, int>> m_vmeConfigUuIdToIndexes;
 };
 
 struct LIBMVME_EXPORT RawDataDisplay

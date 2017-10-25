@@ -734,19 +734,6 @@ inline void step_operator(Operator *op)
     OperatorFunctionTable[op->type].step(op);
 }
 
-static const int MaxVMEEvents  = 12;
-static const int MaxVMEModules = 20;
-
-struct A2
-{
-    std::array<u8, MaxVMEEvents> extractorCounts;
-    std::array<Extractor *, MaxVMEEvents> extractors;
-
-    std::array<u8, MaxVMEEvents> operatorCounts;
-    std::array<Operator *, MaxVMEEvents> operators;
-    std::array<u8 *, MaxVMEEvents> operatorRanks;
-};
-
 A2 make_a2(
     Arena *arena,
     std::initializer_list<u8> extractorCounts,

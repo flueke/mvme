@@ -22,9 +22,11 @@
 
 #include <random>
 
+#include "a2_adapter.h"
 #include "../vme_config.h"
 
 #define ENABLE_ANALYSIS_DEBUG 0
+#define ANALYSIS_USE_A2 1
 
 template<typename T>
 QDebug &operator<< (QDebug &dbg, const std::shared_ptr<T> &ptr)
@@ -2755,6 +2757,10 @@ Analysis::Analysis(QObject *parent)
     qDebug() << "Registered Sinks:     " << m_registry.getSinkNames();
 }
 
+Analysis::~Analysis()
+{
+}
+
 void Analysis::beginRun(const RunInfo &runInfo)
 {
     m_runInfo = runInfo;
@@ -2798,8 +2804,29 @@ void Analysis::beginRun(const RunInfo &runInfo)
         << m_operators.size() << " operators";
 }
 
+void Analysis::beginRun(const RunInfo &runInfo, const QHash<QUuid, QPair<int, int>> &vmeConfigUuIdToIndexes)
+{
+    beginRun(runInfo);
+
+    if (!m_a2Arena)
+    {
+        static const size_t A2InitialMem = Megabytes(1);
+        m_a2Arena = std::make_unique<memory::Arena>(A2InitialMem);
+    }
+    else
+    {
+        m_a2Arena->reset();
+    }
+
+#if ANALYSIS_USE_A2
+    m_vmeConfigUuIdToIndexes = vmeConfigUuIdToIndexes;
+    m_a2 = a2_adapter_build(m_a2Arena.get(), m_sources, m_operators, vmeConfigUuIdToIndexes);
+#endif
+}
+
 void Analysis::beginEvent(const QUuid &eventId)
 {
+#if not ANALYSIS_USE_A2
     for (auto &sourceEntry: m_sources)
     {
         if (sourceEntry.eventId == eventId)
@@ -2807,22 +2834,9 @@ void Analysis::beginEvent(const QUuid &eventId)
             sourceEntry.sourceRaw->beginEvent();
         }
     }
-}
-
-void Analysis::addSource(const QUuid &eventId, const QUuid &moduleId, const SourcePtr &source)
-{
-    source->beginRun(m_runInfo);
-    m_sources.push_back({eventId, moduleId, source, source.get()});
-    updateRanks();
-    setModified();
-}
-
-void Analysis::addOperator(const QUuid &eventId, const OperatorPtr &op, s32 userLevel)
-{
-    op->beginRun(m_runInfo);
-    m_operators.push_back({eventId, op, op.get(), userLevel});
-    updateRanks();
-    setModified();
+#else
+    a2_begin_event(m_a2, m_vmeConfigUuIdToIndexes[eventId].first);
+#endif
 }
 
 void Analysis::processModuleData(const QUuid &eventId, const QUuid &moduleId, u32 *data, u32 size)
@@ -2837,8 +2851,19 @@ void Analysis::processModuleData(const QUuid &eventId, const QUuid &moduleId, u3
             sourceEntry.sourceRaw->processModuleData(data, size);
         }
     }
+
+#if ANALYSIS_USE_A2
+    auto indexes = m_vmeConfigUuIdToIndexes[moduleId];
+    a2_process_module_data(m_a2, indexes.first, indexes.second, data, size);
+#endif
 }
 
+#if ANALYSIS_USE_A2
+void Analysis::endEvent(const QUuid &eventId)
+{
+    a2_end_event(m_a2, m_vmeConfigUuIdToIndexes[eventId].first);
+}
+#else // ANALYSIS_USE_A2
 void Analysis::endEvent(const QUuid &eventId)
 {
     //TimedBlock tb(__PRETTY_FUNCTION__);
@@ -2918,16 +2943,30 @@ void Analysis::endEvent(const QUuid &eventId)
         }
     }
     qDebug() << " <<< End Operators >>>";
-#endif
-
-#if ENABLE_ANALYSIS_DEBUG
     qDebug() << "end endEvent()" << eventId;
 #endif
 }
+#endif // ANALYSIS_USE_A2
 
 void Analysis::processTimetick()
 {
     m_timetickCount += 1.0;
+}
+
+void Analysis::addSource(const QUuid &eventId, const QUuid &moduleId, const SourcePtr &source)
+{
+    source->beginRun(m_runInfo);
+    m_sources.push_back({eventId, moduleId, source, source.get()});
+    updateRanks();
+    setModified();
+}
+
+void Analysis::addOperator(const QUuid &eventId, const OperatorPtr &op, s32 userLevel)
+{
+    op->beginRun(m_runInfo);
+    m_operators.push_back({eventId, op, op.get(), userLevel});
+    updateRanks();
+    setModified();
 }
 
 double Analysis::getTimetickCount() const
