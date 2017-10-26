@@ -6,6 +6,16 @@
 
 #define ArrayCount(x) (sizeof(x) / sizeof(*x))
 
+#ifndef NDEBUG
+#define a2_trace(fmt, ...)\
+do\
+{\
+    fprintf(stderr, "%s " fmt, __func__, ##__VA_ARGS__);\
+} while (0);
+#else
+#define a2_trace(...)
+#endif
+
 namespace a2
 {
 
@@ -29,9 +39,6 @@ using namespace memory;
  * AVX wants 32 bytes (256 bit registers).
  */
 static const size_t ParamVecAlignment = 32;
-
-
-
 
 
 void print_param_vector(ParamVec pv)
@@ -71,7 +78,12 @@ ParamVec push_param_vector(Arena *arena, u32 size, double value)
     return result;
 };
 
-Extractor make_extractor(Arena *arena, MultiWordFilter filter, u32 requiredCompletions, u64 rngSeed)
+Extractor make_extractor(
+    Arena *arena,
+    MultiWordFilter filter,
+    u32 requiredCompletions,
+    u64 rngSeed,
+    int moduleIndex)
 {
     Extractor result = {};
 
@@ -79,6 +91,7 @@ Extractor make_extractor(Arena *arena, MultiWordFilter filter, u32 requiredCompl
     result.requiredCompletions = requiredCompletions;
     result.currentCompletions = 0;
     result.rng.seed(rngSeed);
+    result.moduleIndex = moduleIndex;
     size_t addrCount = 1u << get_extract_bits(&result.filter, MultiWordFilter::CacheA);
     result.output = push_param_vector(arena, addrCount);
 
@@ -414,19 +427,6 @@ void difference_step(Operator *op)
 
     for (auto idx = 0; idx < maxIdx; idx++)
     {
-#if 0
-        double a = inputA[idx];
-        double b = inputB[idx];
-
-        if (is_param_valid(a) && is_param_valid(b))
-        {
-            op->outputs[0][idx] = a - b;
-        }
-        else
-        {
-            op->outputs[0][idx] = invalid_param();
-        }
-#else
         if (is_param_valid(inputA[idx]) && is_param_valid(inputB[idx]))
         {
             op->outputs[0][idx] = inputA[idx] - inputB[idx];
@@ -435,7 +435,6 @@ void difference_step(Operator *op)
         {
             op->outputs[0][idx] = invalid_param();
         }
-#endif
     }
 }
 
@@ -716,22 +715,27 @@ struct H2D: public ParamVec
     Binning binnings[2];
 };
 
-static OperatorFunctions OperatorFunctionTable[OperatorTypeMax] =
+static const OperatorFunctions OperatorTable[OperatorTypeMax] =
 {
     [Operator_Calibration] = { calibration_step },
     [Operator_Calibration_sse] = { calibration_step_sse },
     [Operator_KeepPrevious] = { keep_previous_step },
     [Operator_Difference] = { difference_step },
+    [Operator_Difference_idx] = { nullptr },
     [Operator_ArrayMap] = { array_map_step },
     [Operator_BinaryEquation] = { binary_equation_step },
-    [Operator_AggregateOps] = { nullptr },
     [Operator_H1DSink] = { h1d_sink_step },
     [Operator_H2DSink] = { nullptr },
+    [Operator_RangeFilter] = { nullptr },
+
+    [Operator_Sum] = { nullptr },
+    [Operator_Multiplicity] = { nullptr },
+    [Operator_Max] = { nullptr },
 };
 
 inline void step_operator(Operator *op)
 {
-    OperatorFunctionTable[op->type].step(op);
+    OperatorTable[op->type].step(op);
 }
 
 A2 make_a2(
@@ -771,7 +775,11 @@ A2 make_a2(
 void a2_begin_event(A2 *a2, int eventIndex)
 {
     assert(eventIndex < MaxVMEEvents);
+
     int exCount = a2->extractorCounts[eventIndex];
+
+    a2_trace("ei=%d, extractors=%d\n", eventIndex, exCount);
+
     for (int exIdx = 0; exIdx < exCount; exIdx++)
     {
         Extractor *ex = a2->extractors[eventIndex] + exIdx;
@@ -786,6 +794,9 @@ void a2_process_module_data(A2 *a2, int eventIndex, int moduleIndex, const u32 *
     assert(moduleIndex < MaxVMEModules);
 
     int exCount = a2->extractorCounts[eventIndex];
+#ifndef NDEBUG
+    int nprocessed = 0;
+#endif
 
     for (int exIdx = 0; exIdx < exCount; exIdx++)
     {
@@ -793,12 +804,17 @@ void a2_process_module_data(A2 *a2, int eventIndex, int moduleIndex, const u32 *
         if (ex->moduleIndex == moduleIndex)
         {
             extractor_process_module_data(ex, data, dataSize);
+#ifndef NDEBUG
+            nprocessed++;
+#endif
         }
         else if (ex->moduleIndex > moduleIndex)
         {
             break;
         }
     }
+
+    a2_trace("ei=%d, mi=%d, processed %d extractors\n", eventIndex, moduleIndex, nprocessed);
 }
 
 // step operators for the eventIndex
@@ -810,10 +826,12 @@ void a2_end_event(A2 *a2, int eventIndex)
     int opCount = a2->operatorCounts[eventIndex];
     Operator *operators = a2->operators[eventIndex];
 
+    a2_trace("ei=%d, operators=%d\n", eventIndex, opCount);
+
     for (int opIdx = 0; opIdx < opCount; opIdx++)
     {
         Operator *op = operators + opIdx;
-        OperatorFunctionTable[op->type].step(op);
+        OperatorTable[op->type].step(op);
     }
 }
 

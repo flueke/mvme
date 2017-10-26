@@ -28,7 +28,7 @@ static void BM_extractor_begin_event(benchmark::State &state)
 
     add_subfilter(&filter, make_filter("xxxx aaaa xxxx dddd"));
 
-    auto ex = arena.push(make_extractor(&arena, filter, 1, 1234));
+    auto ex = arena.push(make_extractor(&arena, filter, 1, 1234, 0));
 
     assert(ex->output.size == (1u << 4));
 
@@ -67,7 +67,7 @@ static void BM_extractor_process_module_data(benchmark::State &state)
 
     add_subfilter(&filter, make_filter("xxxx aaaa xxxx dddd"));
 
-    auto ex = arena.push(make_extractor(&arena, filter, 1, 1234));
+    auto ex = arena.push(make_extractor(&arena, filter, 1, 1234, 0));
 
     assert(ex->output.size == (1u << 4));
 

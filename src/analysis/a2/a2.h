@@ -115,7 +115,8 @@ Extractor make_extractor(
     memory::Arena *arena,
     data_filter::MultiWordFilter filter,
     u32 requiredCompletions,
-    u64 rngSeed);
+    u64 rngSeed,
+    int moduleIndex);
 
 struct Operator
 {

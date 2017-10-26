@@ -12,11 +12,15 @@ enum OperatorType
     Operator_Calibration_sse,
     Operator_KeepPrevious,
     Operator_Difference,
+    Operator_Difference_idx,
     Operator_ArrayMap,
     Operator_BinaryEquation,
-    Operator_AggregateOps,
     Operator_H1DSink,
     Operator_H2DSink,
+    Operator_RangeFilter,
+    Operator_Sum,
+    Operator_Multiplicity,
+    Operator_Max,
 
     OperatorTypeMax
 };
