@@ -42,6 +42,7 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
             std::array<u64, SIS3153Constants::NumberOfStackLists> packetsPerStackList;
             u64 multiEventPackets = 0;
             u64 watchdogPackets = 0;
+            int watchdogStackList = -1;
         };
 
         inline const Counters &getCounters() const
