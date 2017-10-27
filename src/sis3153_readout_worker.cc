@@ -724,6 +724,29 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
         m_debugFile->open(QIODevice::WriteOnly);
 #endif
 
+        //
+        // Debug: record raw buffers to file
+        //
+        auto ctrlSettings = m_workerContext.vmeConfig->getControllerSettings();;
+        if (ctrlSettings.value("DebugRawBuffers").toBool())
+        {
+            m_rawBufferOut.setFileName("sis3153_raw_buffers.bin");
+            if (!m_rawBufferOut.open(QIODevice::WriteOnly))
+            {
+                auto msg = (QString("Error opening SIS3153 raw buffers file for writing: %1")
+                            .arg(m_rawBufferOut.errorString()));
+                logMessage(msg);
+                qDebug() << __PRETTY_FUNCTION__ << msg;
+            }
+            else
+            {
+                auto msg = (QString("Writing raw SIS3153 buffers to %1")
+                            .arg(m_rawBufferOut.fileName()));
+                logMessage(msg);
+                qDebug() << __PRETTY_FUNCTION__ << msg;
+            }
+        }
+
         m_counters = {};
         m_counters.packetsPerStackList.fill(0);
         m_counters.watchdogStackList = m_watchdogStackListIndex;
@@ -757,6 +780,19 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
         // DAQ Stop
         //
         vme_daq_shutdown(m_workerContext.vmeConfig, sis, [this] (const QString &msg) { logMessage(msg); });
+
+        //
+        // Debug: close raw buffers file
+        //
+        if (m_rawBufferOut.isOpen())
+        {
+            auto msg = (QString("Closing SIS3153 raw buffers file %1")
+                        .arg(m_rawBufferOut.fileName()));
+            logMessage(msg);
+            qDebug() << __PRETTY_FUNCTION__ << msg;
+
+            m_rawBufferOut.close();
+        }
 
         logMessage(QString(QSL("SIS3153 readout stopped on %1"))
                    .arg(QDateTime::currentDateTime().toString())
@@ -970,9 +1006,13 @@ SIS3153ReadoutWorker::ReadBufferResult SIS3153ReadoutWorker::readBuffer()
     result.bytesRead = m_sis->getImpl()->udp_read_list_packet(
         reinterpret_cast<char *>(m_readBuffer.data + 1));
 
+    int readErrno = errno;
+
 #ifdef Q_OS_WIN
     int wsaError = WSAGetLastError();
-#endif // Q_OS_WIN
+#else
+    int wsaError = 0;
+#endif
 
 #if SIS_READOUT_DEBUG
     qDebug() << __PRETTY_FUNCTION__ << "bytesRead =" << result.bytesRead
@@ -982,6 +1022,30 @@ SIS3153ReadoutWorker::ReadBufferResult SIS3153ReadoutWorker::readBuffer()
 #endif
         ;
 #endif
+
+    /* Raw buffer output for debugging purposes.
+     * The file consists of a sequence of entries with each entry having the following format:
+     *   s32 VMEError::errorCode (== errno)
+     *   s32 wsaError from WSAGetLastError(). 0 on linux
+     *   s32 dataBytes
+     *   u8 data[dataBytes]
+     *
+     * If dataBytes is <= 0 the data entry will be of size 0. No byte order
+     * conversion is done so the format is architecture dependent!
+     *
+     */
+    if (m_rawBufferOut.isOpen())
+    {
+        s32 bytesRead = result.bytesRead;
+
+        m_rawBufferOut.write(reinterpret_cast<const char *>(&readErrno), sizeof(readErrno));
+        m_rawBufferOut.write(reinterpret_cast<const char *>(&wsaError), sizeof(wsaError));
+        m_rawBufferOut.write(reinterpret_cast<const char *>(&bytesRead), sizeof(bytesRead));
+        if (bytesRead > 0)
+        {
+            m_rawBufferOut.write(reinterpret_cast<const char *>(m_readBuffer.data), bytesRead);
+        }
+    }
 
     if (result.bytesRead < 0)
     {

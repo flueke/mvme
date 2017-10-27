@@ -131,7 +131,7 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
         std::unique_ptr<DAQReadoutListfileHelper> m_listfileHelper;
         DataBuffer *m_outputBuffer = nullptr;
         ProcessingState m_processingState;
-
+        QFile m_rawBufferOut;
 };
 
 #endif /* __SIS3153_READOUT_WORKER_H__ */
