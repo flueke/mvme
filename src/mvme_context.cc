@@ -60,6 +60,10 @@ static const int DefaultListFileCompression = 1;
 static const QString DefaultVMEConfigFileName = QSL("vme.vme");
 static const QString DefaultAnalysisConfigFileName  = QSL("analysis.analysis");
 
+/* Maximum number of connection attempts to the current VMEController before
+ * giving up. */
+static const int VMECtrlConnectMaxRetryCount = 3;
+
 struct MVMEContextPrivate
 {
     MVMEContext *m_q;
@@ -409,10 +413,6 @@ MVMEContext::~MVMEContext()
 
 void MVMEContext::setVMEConfig(VMEConfig *config)
 {
-    // TODO: create new vmecontroller and the corresponding readout worker if
-    // the controller type changed.
-    // FIXME: old controller is not deleted on newVMEConfig and openVMEConfig!
-
     if (m_vmeConfig)
     {
         for (auto eventConfig: m_vmeConfig->getEventConfigs())
@@ -575,7 +575,7 @@ void MVMEContext::tryOpenController()
     if (m_controller
         && !m_controller->isOpen()
         && !m_ctrlOpenFuture.isRunning()
-        && m_d->m_ctrlOpenRetryCount < 3)
+        && m_d->m_ctrlOpenRetryCount < VMECtrlConnectMaxRetryCount)
     {
         m_ctrlOpenFuture = QtConcurrent::run(m_controller, &VMEController::open);
         m_ctrlOpenWatcher.setFuture(m_ctrlOpenFuture);
