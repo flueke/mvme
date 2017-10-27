@@ -52,7 +52,7 @@ VMEDebugWidget::VMEDebugWidget(MVMEContext *context, QWidget *parent)
 
     auto onControllerStateChanged = [this] (ControllerState state)
     {
-        ui->outerFrame->setEnabled(state == ControllerState::Opened);
+        ui->outerFrame->setEnabled(state == ControllerState::Connected);
     };
 
     connect(m_context, &MVMEContext::controllerStateChanged, this, onControllerStateChanged);

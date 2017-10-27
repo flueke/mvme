@@ -95,6 +95,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void setVMEController(VMEController *controller, const QVariantMap &settings = QVariantMap());
         void setVMEController(VMEControllerType type, const QVariantMap &settings = QVariantMap());
         VMEController *getVMEController() const { return m_controller; }
+        void reconnectVMEController();
 
         ControllerState getControllerState() const;
         VMEReadoutWorker *getReadoutWorker() { return m_readoutWorker; }
@@ -298,6 +299,8 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void onModuleAdded(ModuleConfig *module);
         void onModuleAboutToBeRemoved(ModuleConfig *config);
         void onGlobalScriptAboutToBeRemoved(VMEScriptConfig *config);
+
+        void onControllerStateChanged(ControllerState state);
 
         friend class MVMEContextPrivate;
 

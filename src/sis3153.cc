@@ -121,7 +121,7 @@ struct SIS3153Private
 
     // ip address or hostname of the SIS
     QString address;
-    bool isOpen = false;
+    ControllerState ctrlState = ControllerState::Disconnected;
 
     // shadow registers
     u32 moduleIdAndFirmware;
@@ -169,7 +169,7 @@ VMEControllerType SIS3153::getType() const
 
 bool SIS3153::isOpen() const
 {
-    return m_d->isOpen;
+    return m_d->ctrlState == ControllerState::Connected;
 }
 
 static const int ReceiveTimeout_ms = 100;
@@ -184,6 +184,9 @@ VMEError SIS3153::open()
 
     if (isOpen())
         return VMEError(VMEError::DeviceIsOpen);
+
+    m_d->ctrlState = ControllerState::Connecting;
+    emit controllerStateChanged(m_d->ctrlState);
 
     /* This is a bit of a hack but the easiest thing to do right now: Once a
      * sis3153eth instance is disconnected it never sets the socket parameters
@@ -209,43 +212,65 @@ VMEError SIS3153::open()
     qDebug() << __PRETTY_FUNCTION__ << "addressData =" << addressData;
 #endif
 
-    int resultCode = m_d->sis->set_UdpSocketSIS3153_IpAddress(const_cast<char *>(addressData.constData()));
-    // -2: gethostbyname() returned nullptr
-    // -1: empty ip address string or broadcast address (0xf..f) given
-    // -3: 0.0.0.0 or 255.255.255.255 given
-    switch (resultCode)
+
+    auto sis_setAddress_result_to_error = [](int resultCode)
     {
-        case 0:
-            break;
-        case -1:
-        case -3:
-            return VMEError(VMEError::InvalidIPAddress);
-        case -2:
-            return VMEError(VMEError::HostNotFound);
-        default:
-            return VMEError(VMEError::UnknownError);
+        VMEError result;
+
+        // -2: gethostbyname() returned nullptr
+        // -1: empty ip address string or broadcast address (0xf..f) given
+        // -3: 0.0.0.0 or 255.255.255.255 given
+        switch (resultCode)
+        {
+            case 0:
+                break;
+            case -1:
+            case -3:
+                result = VMEError(VMEError::InvalidIPAddress);
+                break;
+            case -2:
+                result = VMEError(VMEError::HostNotFound);
+                break;
+            default:
+                result = VMEError(VMEError::UnknownError);
+                break;
+        }
+
+        return result;
+    };
+
+    VMEError result;
+
+    int resultCode = m_d->sis->set_UdpSocketSIS3153_IpAddress(const_cast<char *>(addressData.constData()));
+
+#ifdef SIS3153_DEBUG
+    qDebug() << __PRETTY_FUNCTION__ << "result from set_UdpSocketSIS3153_IpAddress" << resultCode;
+#endif
+
+    result = sis_setAddress_result_to_error(resultCode);
+
+    if (result.isError())
+    {
+        m_d->ctrlState = ControllerState::Disconnected;
+        emit controllerStateChanged(m_d->ctrlState);
+        return result;
     }
 
     // create a second socket for issuing control requests while in daq mode
     resultCode = m_d->sis_ctrl->set_UdpSocketSIS3153_IpAddress(const_cast<char *>(addressData.constData()));
-    switch (resultCode)
+    result = sis_setAddress_result_to_error(resultCode);
+
+    if (result.isError())
     {
-        case 0:
-            break;
-        case -1:
-        case -3:
-            return VMEError(VMEError::InvalidIPAddress);
-        case -2:
-            return VMEError(VMEError::HostNotFound);
-        default:
-            return VMEError(VMEError::UnknownError);
+        m_d->ctrlState = ControllerState::Disconnected;
+        emit controllerStateChanged(m_d->ctrlState);
+        return result;
     }
 
 #ifdef SIS3153_DEBUG
     qDebug() << __PRETTY_FUNCTION__ << "set_UdpSocketSIS3153_IpAddress() ok:" << m_d->address;
 #endif
 
-    VMEError result;
     {
         static const int PostResetDelay_ms = 250;
         static const int ReconnectRetryLimit = 3;
@@ -271,6 +296,8 @@ VMEError SIS3153::open()
 #ifdef SIS3153_DEBUG
             qDebug() << __PRETTY_FUNCTION__ << "get_vmeopen_messages:" << result.toString();
 #endif
+            m_d->ctrlState = ControllerState::Disconnected;
+            emit controllerStateChanged(m_d->ctrlState);
             return result;
         }
     }
@@ -285,6 +312,8 @@ VMEError SIS3153::open()
 #ifdef SIS3153_DEBUG
         qDebug() << __PRETTY_FUNCTION__ << "read ModuleIdAndFirmware:" << result.toString();
 #endif
+        m_d->ctrlState = ControllerState::Disconnected;
+        emit controllerStateChanged(m_d->ctrlState);
         return result;
     }
 
@@ -298,6 +327,8 @@ VMEError SIS3153::open()
 #ifdef SIS3153_DEBUG
         qDebug() << __PRETTY_FUNCTION__ << "read SerialNumber:" << result.toString();
 #endif
+        m_d->ctrlState = ControllerState::Disconnected;
+        emit controllerStateChanged(m_d->ctrlState);
         return result;
     }
 
@@ -308,17 +339,17 @@ VMEError SIS3153::open()
 #ifdef SIS3153_DEBUG
         qDebug() << __PRETTY_FUNCTION__ << "write KeyResetAll:" << result.toString();
 #endif
+        m_d->ctrlState = ControllerState::Disconnected;
+        emit controllerStateChanged(m_d->ctrlState);
         return result;
     }
-
-    m_d->isOpen = true;
-
 
     qDebug("%s: opened SIS3153 %04u, moduleIdAndFirmware=0x%08x",
            __PRETTY_FUNCTION__, m_d->serialNumber, m_d->moduleIdAndFirmware);
 
+    m_d->ctrlState = ControllerState::Connected;
     emit controllerOpened();
-    emit controllerStateChanged(ControllerState::Opened);
+    emit controllerStateChanged(ControllerState::Connected);
 
     return result;
 }
@@ -331,16 +362,16 @@ VMEError SIS3153::close()
         // close the sockets
         m_d->sis->vmeclose();
         m_d->sis_ctrl->vmeclose();
-        m_d->isOpen = false;
+        m_d->ctrlState = ControllerState::Disconnected;
         emit controllerClosed();
-        emit controllerStateChanged(ControllerState::Closed);
+        emit controllerStateChanged(m_d->ctrlState);
     }
     return VMEError();
 }
 
 ControllerState SIS3153::getState() const
 {
-    return (m_d->isOpen ? ControllerState::Opened : ControllerState::Closed);
+    return m_d->ctrlState;
 }
 
 QString SIS3153::getIdentifyingString() const
@@ -353,7 +384,9 @@ QString SIS3153::getIdentifyingString() const
             ;
     }
 
-    return QString();
+    return QString("SIS3153 (address=%1)")
+        .arg(m_d->address)
+        ;
 }
 
 VMEError SIS3153::write32(u32 address, u32 value, u8 amod)
