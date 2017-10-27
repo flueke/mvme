@@ -223,6 +223,10 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
         emit logMessage(msg);
         ++stats.mvmeBuffersWithErrors;
         ++m_d->m_localStats.buffersWithErrors;
+        if (m_d->diag)
+        {
+            m_d->diag->reset();
+        }
     }
 }
 
@@ -324,6 +328,15 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
                 auto &mi(moduleInfos[moduleIndex]);
                 Q_ASSERT(mi.moduleHeader);
 
+                MesytecDiagnostics *diag = nullptr;
+
+                if (m_d->diag
+                    && m_d->diag->getEventIndex() == (s32)eventIndex
+                    && m_d->diag->getModuleIndex() == (s32)moduleIndex)
+                {
+                    diag = m_d->diag;
+                    diag->beginEvent();
+                }
 
                 if (!m_d->doMultiEventProcessing[eventIndex])
                 {
@@ -345,6 +358,11 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
                                                             mi.moduleConfig->getId(),
                                                             mi.moduleHeader,
                                                             subEventSize);
+                    }
+
+                    if (diag)
+                    {
+                        diag->processModuleData(mi.moduleHeader, subEventSize);
                     }
                 }
                 // Multievent splitting is possible. Check for a header match and extract the data size.
@@ -388,6 +406,11 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
                                 moduleEventSize + 1);
                         }
 
+                        if (diag)
+                        {
+                            diag->processModuleData(mi.moduleHeader, moduleEventSize + 1);
+                        }
+
                         // advance the moduleHeader by the event size
                         mi.moduleHeader += moduleEventSize + 1;
                         ++eventCountsByModule[moduleIndex];
@@ -417,6 +440,11 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
                     // the end of the event section.
                     done = true;
                     break;
+                }
+
+                if (diag)
+                {
+                    diag->endEvent();
                 }
             }
 
