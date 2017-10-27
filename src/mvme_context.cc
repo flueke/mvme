@@ -60,6 +60,10 @@ static const int DefaultListFileCompression = 1;
 static const QString DefaultVMEConfigFileName = QSL("vme.vme");
 static const QString DefaultAnalysisConfigFileName  = QSL("analysis.analysis");
 
+/* Maximum number of connection attempts to the current VMEController before
+ * giving up. */
+static const int VMECtrlConnectMaxRetryCount = 3;
+
 struct MVMEContextPrivate
 {
     MVMEContext *m_q;
@@ -67,6 +71,7 @@ struct MVMEContextPrivate
     QMutex m_logBufferMutex;
     ListFileOutputInfo m_listfileOutputInfo = {};
     RunInfo m_runInfo;
+    u32 m_ctrlOpenRetryCount = 0;
 
     void stopDAQ();
     void stopDAQReplay();
@@ -299,12 +304,13 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent)
         }
         else
         {
-#if 0
+            /* Could not connect. Inc retry count and log a hopefully user
+             * friendly message about what went wrong. */
+            m_d->m_ctrlOpenRetryCount++;
             logMessage(QString("Could not open VME controller %1: %2")
-                       .arg(to_string(m_controller->getType()))
+                       .arg(m_controller->getIdentifyingString())
                        .arg(result.toString())
                       );
-#endif
         }
     });
 
@@ -407,10 +413,6 @@ MVMEContext::~MVMEContext()
 
 void MVMEContext::setVMEConfig(VMEConfig *config)
 {
-    // TODO: create new vmecontroller and the corresponding readout worker if
-    // the controller type changed.
-    // FIXME: old controller is not deleted on newVMEConfig and openVMEConfig!
-
     if (m_vmeConfig)
     {
         for (auto eventConfig: m_vmeConfig->getEventConfigs())
@@ -502,9 +504,12 @@ void MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
     };
 
     m_readoutWorker->setContext(readoutWorkerContext);
+    m_d->m_ctrlOpenRetryCount = 0;
 
     connect(controller, &VMEController::controllerStateChanged,
             this, &MVMEContext::controllerStateChanged);
+    connect(controller, &VMEController::controllerStateChanged,
+            this, &MVMEContext::onControllerStateChanged);
 
     emit vmeControllerSet(controller);
 }
@@ -519,10 +524,28 @@ void MVMEContext::setVMEController(VMEControllerType type, const QVariantMap &se
 
 ControllerState MVMEContext::getControllerState() const
 {
-    auto result = ControllerState::Unknown;
+    auto result = ControllerState::Disconnected;
     if (m_controller)
         result = m_controller->getState();
     return result;
+}
+
+void MVMEContext::onControllerStateChanged(ControllerState state)
+{
+    qDebug() << __PRETTY_FUNCTION__ << (u32) state;
+    if (state == ControllerState::Connected)
+    {
+        m_d->m_ctrlOpenRetryCount = 0;
+    }
+}
+
+void MVMEContext::reconnectVMEController()
+{
+    if (m_controller)
+    {
+        m_controller->close();
+        m_d->m_ctrlOpenRetryCount = 0;
+    }
 }
 
 QString MVMEContext::getUniqueModuleName(const QString &prefix) const
@@ -549,7 +572,10 @@ QString MVMEContext::getUniqueModuleName(const QString &prefix) const
 
 void MVMEContext::tryOpenController()
 {
-    if (m_controller && !m_controller->isOpen() && !m_ctrlOpenFuture.isRunning())
+    if (m_controller
+        && !m_controller->isOpen()
+        && !m_ctrlOpenFuture.isRunning()
+        && m_d->m_ctrlOpenRetryCount < VMECtrlConnectMaxRetryCount)
     {
         m_ctrlOpenFuture = QtConcurrent::run(m_controller, &VMEController::open);
         m_ctrlOpenWatcher.setFuture(m_ctrlOpenFuture);

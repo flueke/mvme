@@ -32,9 +32,9 @@ enum class VMEControllerType
 
 enum class ControllerState
 {
-    Unknown,
-    Closed,
-    Opened
+    Disconnected,
+    Connecting,
+    Connected,
 };
 
 Q_DECLARE_METATYPE(ControllerState);

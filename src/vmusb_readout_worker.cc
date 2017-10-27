@@ -726,7 +726,7 @@ VMUSBReadoutWorker::ReadBufferResult VMUSBReadoutWorker::readBuffer(int timeout_
      *   s32 VMEError::errorType
      *   s32 VMEError::errorCode
      *   s32 dataBytes
-     *   u8* data
+     *   u8 data[dataBytes]
      * If dataBytes is 0 the data entry will be of size 0. No byte order
      * conversion is done so the format is architecture dependent!
      */

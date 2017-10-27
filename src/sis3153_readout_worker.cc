@@ -28,7 +28,7 @@
 #include "util/perf.h"
 
 #define SIS_READOUT_DEBUG               1   // enable debugging code
-#define SIS_READOUT_BUFFER_DEBUG_PRINT  0   // print buffers to console
+#define SIS_READOUT_BUFFER_DEBUG_PRINT  1   // print buffers to console
 #define SIS_READOUT_BUFFER_DEBUG_FILE   0   // print buffers to buffer.log
 
 using namespace vme_script;
@@ -267,7 +267,38 @@ namespace
 
         return result;
     }
+
+    u32 timer_value_from_seconds(double s)
+    {
+        const double period_usecs    = s * 1e6;
+        const double period_100usecs = period_usecs / 100.0;
+        u32 timerValue               = period_100usecs - 1.0;
+        return timerValue;
+    }
 }
+
+static const u32 WatchdogPayload = 0xbeefbeef;
+static const double WatchdogTimeout_s = 0.050;
+
+#define sis_log(msg)\
+do\
+{\
+    logMessage(msg);\
+    auto dbg(qDebug());\
+    dbg.nospace().noquote() << __PRETTY_FUNCTION__ << " " << __FILE__ << ":" << __LINE__ << " " << msg;\
+} while (0)
+
+#ifndef NDEBUG
+#define sis_trace(msg)\
+do\
+{\
+    auto dbg(qDebug());\
+    dbg.nospace().noquote() << __PRETTY_FUNCTION__ << " " << __FILE__ << ":" << __LINE__ << " " << msg;\
+} while (0)
+#else
+#define sis_trace(msg) (void)
+#endif
+
 
 //
 // SIS3153ReadoutWorker
@@ -394,7 +425,8 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
 
         s32 stackListIndex = 0;
         u32 stackLoadAddress = SIS3153ETH_STACK_RAM_START_ADDR;
-        u32 stackListControlValue = SIS3153Registers::StackListControlValues::ListBufferEnable;
+        //u32 stackListControlValue = SIS3153Registers::StackListControlValues::ListBufferEnable;
+        u32 stackListControlValue = 0;
         u32 nextTimerTriggerSource = SIS3153Registers::TriggerSourceTimer1;
 
         for (s32 eventIndex = 0;
@@ -422,9 +454,6 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
             else if (event->triggerCondition == TriggerCondition::Periodic)
             {
                 // TODO: move this check into validate_vme_config()
-                //if (nextTimerTriggerSource > SIS3153Registers::TriggerSourceTimer2)
-                //    throw QString("SIS3153 supports no more than 2 periodic events!");
-
                 if (nextTimerTriggerSource > SIS3153Registers::TriggerSourceTimer1)
                     throw QString("SIS3153 readout supports no more than 1 periodic events!");
 
@@ -435,9 +464,7 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
                     throw QString("Invalid timer period for event %1").arg(event->objectName());
                 }
 
-                double period_usecs     = period_secs * 1e6;
-                double period_100usecs  = period_usecs / 100.0;
-                u32 timerValue          = period_100usecs - 1.0;
+                u32 timerValue = timer_value_from_seconds(period_secs);
 
                 if (timerValue > 0xffff)
                 {
@@ -590,7 +617,7 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
             // list consists of a single marker command.
             vme_script::Command cmd;
             cmd.type = vme_script::CommandType::Marker;
-            cmd.value = 0xbeefbeef;
+            cmd.value = WatchdogPayload;
             vme_script::VMEScript watchdogScript = { cmd };
 
             auto stackList = build_stackList(sis, watchdogScript);
@@ -639,14 +666,11 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
             // The period should also not be too short as that creates lots of
             // useless packets.
 
-            static const double period_secs      = 0.050;
-            static const double period_usecs     = period_secs * 1e6;
-            static const double period_100usecs  = period_usecs / 100.0;
-            u32 timerValue                       = period_100usecs - 1.0;
+            u32 timerValue = timer_value_from_seconds(WatchdogTimeout_s);
             u32 timerConfigRegister = SIS3153Registers::StackListTimer2Config;
 
-            logMessage(QString(QSL("Setting up watchdog using timer2: period=%1 s, timerValue=%2, stackList=%3"))
-                       .arg(period_secs)
+            logMessage(QString(QSL("Setting up watchdog using timer2: timeout=%1 s, timerValue=%2, stackList=%3"))
+                       .arg(WatchdogTimeout_s)
                        .arg(timerValue)
                        .arg(stackListIndex)
                        );
@@ -679,10 +703,10 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
         }
         else
         {
-            logMessage(QString("SIS3153 warning: No stackList available for use as a watchdog. Disabling watchdog."));
+            sis_log(QString("SIS3153 warning: No stackList available for use as a watchdog. Disabling watchdog."));
         }
 
-        // all event stacks have been uploaded. stackLoadAddress and stackListControlValue have been set
+        // All event stacks have been uploaded. stackListControlValue has been set.
 
         //
         // DAQ Init
@@ -700,11 +724,38 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
         m_debugFile->open(QIODevice::WriteOnly);
 #endif
 
+        //
+        // Debug: record raw buffers to file
+        //
+        auto ctrlSettings = m_workerContext.vmeConfig->getControllerSettings();;
+        if (ctrlSettings.value("DebugRawBuffers").toBool())
+        {
+            m_rawBufferOut.setFileName("sis3153_raw_buffers.bin");
+            if (!m_rawBufferOut.open(QIODevice::WriteOnly))
+            {
+                auto msg = (QString("Error opening SIS3153 raw buffers file for writing: %1")
+                            .arg(m_rawBufferOut.errorString()));
+                logMessage(msg);
+                qDebug() << __PRETTY_FUNCTION__ << msg;
+            }
+            else
+            {
+                auto msg = (QString("Writing raw SIS3153 buffers to %1")
+                            .arg(m_rawBufferOut.fileName()));
+                logMessage(msg);
+                qDebug() << __PRETTY_FUNCTION__ << msg;
+            }
+        }
+
         m_counters = {};
         m_counters.packetsPerStackList.fill(0);
+        m_counters.watchdogStackList = m_watchdogStackListIndex;
+
+        /* Save the current state of stackListControlValue for
+         * leaving/re-entering DAQ mode later on. */
+        m_stackListControlRegisterValue = stackListControlValue;
 
         // enter DAQ mode
-        m_stackListControlRegisterValue = stackListControlValue;
         error = sis->writeRegister(SIS3153ETH_STACK_LIST_CONTROL, stackListControlValue);
         if (error.isError()) throw error;
 
@@ -729,6 +780,19 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
         // DAQ Stop
         //
         vme_daq_shutdown(m_workerContext.vmeConfig, sis, [this] (const QString &msg) { logMessage(msg); });
+
+        //
+        // Debug: close raw buffers file
+        //
+        if (m_rawBufferOut.isOpen())
+        {
+            auto msg = (QString("Closing SIS3153 raw buffers file %1")
+                        .arg(m_rawBufferOut.fileName()));
+            logMessage(msg);
+            qDebug() << __PRETTY_FUNCTION__ << msg;
+
+            m_rawBufferOut.close();
+        }
 
         logMessage(QString(QSL("SIS3153 readout stopped on %1"))
                    .arg(QDateTime::currentDateTime().toString())
@@ -839,6 +903,8 @@ void SIS3153ReadoutWorker::readoutLoop()
         // pause
         else if (m_state == DAQState::Running && m_desiredState == DAQState::Paused)
         {
+            // This is a send/receive operation. The method internally retries
+            // UDP_REQUEST_RETRY times (3 by default).
             int res = sis->getCtrlImpl()->udp_sis3153_register_write(
                 SIS3153ETH_STACK_LIST_CONTROL,
                 m_stackListControlRegisterValue << SIS3153Registers::StackListControlValues::DisableShift);
@@ -848,29 +914,49 @@ void SIS3153ReadoutWorker::readoutLoop()
                 throw QString("Error leaving SIS3153 DAQ mode: %1").arg(error.toString());
 
             // read remaining buffers
-            while(readBuffer().bytesRead > 0);
+            u32 packetCount = 0;
+            while(readBuffer().bytesRead > 0) packetCount++;
+
+            sis_log(QString(QSL("SIS3153 readout left DAQ mode (%1 remaining packets received)"))
+                       .arg(packetCount));
+
+            // XXX: testing if reading from the ctrl socket yields any more data
+            {
+                char testBuffer[10240];
+                auto res = sis->getCtrlImpl()->udp_read_list_packet(testBuffer);
+                auto error = make_sis_error(res);
+                sis_trace(QString("running -> pause: ctrl_socket read result: %1, %2")
+                          .arg(res)
+                          .arg(error.toString()));
+            }
 
             setState(DAQState::Paused);
-            logMessage(QSL("SIS3153 readout paused"));
+            sis_log(QString(QSL("SIS3153 readout paused")));
         }
         // resume
         else if (m_state == DAQState::Paused && m_desiredState == DAQState::Running)
         {
-            int res = sis->getCtrlImpl()->udp_sis3153_register_write(
+            // TODO: probably have to reset m_processingState state here
+#if 0
+            int res = sis->getImpl()->udp_sis3153_register_write(
                 SIS3153ETH_STACK_LIST_CONTROL,
                 m_stackListControlRegisterValue);
 
             auto error = make_sis_error(res);
+#else
+            // This uses the main socket again
+            auto error = sis->writeRegister(SIS3153ETH_STACK_LIST_CONTROL, m_stackListControlRegisterValue);
+#endif
             if (error.isError())
                 throw QString("Error entering SIS3153 DAQ mode: %1").arg(error.toString());
 
             setState(DAQState::Running);
-            logMessage(QSL("SIS3153 readout resumed"));
+            sis_log(QSL("SIS3153 readout resumed"));
         }
         // stop
         else if (m_desiredState == DAQState::Stopping)
         {
-            logMessage(QSL("SIS3153 readout stopping"));
+            sis_log(QSL("SIS3153 readout stopping"));
             break;
         }
         // paused
@@ -899,7 +985,11 @@ void SIS3153ReadoutWorker::readoutLoop()
         if (error.isError())
             throw QString("Error leaving SIS3153 DAQ mode: %1").arg(error.toString());
 
-        while(readBuffer().bytesRead > 0);
+        u32 packetCount = 0;
+        while(readBuffer().bytesRead > 0) packetCount++;
+
+        logMessage(QString(QSL("SIS3153 readout left DAQ mode (%1 remaining packets received)"))
+                   .arg(packetCount));
     }
 }
 
@@ -916,9 +1006,13 @@ SIS3153ReadoutWorker::ReadBufferResult SIS3153ReadoutWorker::readBuffer()
     result.bytesRead = m_sis->getImpl()->udp_read_list_packet(
         reinterpret_cast<char *>(m_readBuffer.data + 1));
 
+    int readErrno = errno;
+
 #ifdef Q_OS_WIN
     int wsaError = WSAGetLastError();
-#endif // Q_OS_WIN
+#else
+    int wsaError = 0;
+#endif
 
 #if SIS_READOUT_DEBUG
     qDebug() << __PRETTY_FUNCTION__ << "bytesRead =" << result.bytesRead
@@ -928,6 +1022,30 @@ SIS3153ReadoutWorker::ReadBufferResult SIS3153ReadoutWorker::readBuffer()
 #endif
         ;
 #endif
+
+    /* Raw buffer output for debugging purposes.
+     * The file consists of a sequence of entries with each entry having the following format:
+     *   s32 VMEError::errorCode (== errno)
+     *   s32 wsaError from WSAGetLastError(). 0 on linux
+     *   s32 dataBytes
+     *   u8 data[dataBytes]
+     *
+     * If dataBytes is <= 0 the data entry will be of size 0. No byte order
+     * conversion is done so the format is architecture dependent!
+     *
+     */
+    if (m_rawBufferOut.isOpen())
+    {
+        s32 bytesRead = result.bytesRead;
+
+        m_rawBufferOut.write(reinterpret_cast<const char *>(&readErrno), sizeof(readErrno));
+        m_rawBufferOut.write(reinterpret_cast<const char *>(&wsaError), sizeof(wsaError));
+        m_rawBufferOut.write(reinterpret_cast<const char *>(&bytesRead), sizeof(bytesRead));
+        if (bytesRead > 0)
+        {
+            m_rawBufferOut.write(reinterpret_cast<const char *>(m_readBuffer.data), bytesRead);
+        }
+    }
 
     if (result.bytesRead < 0)
     {
@@ -965,25 +1083,29 @@ SIS3153ReadoutWorker::ReadBufferResult SIS3153ReadoutWorker::readBuffer()
         return result;
     }
 
-    m_readBuffer.used = result.bytesRead + 1;
+    m_readBuffer.used = result.bytesRead + 1; // account for the padding byte
 
     u8 packetAck, packetIdent, packetStatus;
     packetAck    = m_readBuffer.data[1];
     packetIdent  = m_readBuffer.data[2];
     packetStatus = m_readBuffer.data[3];
 
-#if SIS_READOUT_DEBUG
-    qDebug("ack=0x%x, ident=0x%x, status=0x%x, bytesRead=%d, wordsRead=%ld",
-           (u32)packetAck, (u32)packetIdent, (u32)packetStatus, result.bytesRead, result.bytesRead / sizeof(u32));
-#endif
+    const auto bufferNumber = m_workerContext.daqStats->totalBuffersRead;
 
-
+    sis_trace(QString("buffer #%1: ack=0x%2, ident=0x%3, status=0x%4, bytesRead=%5, wordsRead=%6")
+              .arg(bufferNumber)
+              .arg((u32)packetAck, 2, 16, QLatin1Char('0'))
+              .arg((u32)packetIdent, 2, 16, QLatin1Char('0'))
+              .arg((u32)packetStatus, 2, 16, QLatin1Char('0'))
+              .arg(result.bytesRead)
+              .arg(result.bytesRead / sizeof(u32)));
 
     // Compensate for the first word which contains the ack, ident and status
     // bytes and a fillbyte.
-    u8 *dataPtr = m_readBuffer.data + sizeof(u32);
+    u8 *dataPtr     = m_readBuffer.data + sizeof(u32);
     size_t dataSize = m_readBuffer.used - sizeof(u32);
 
+#if 0
     /* Special handling for the watchdog stackList (for which there exists no
      * event config). */
     if ((packetAck & SIS3153Constants::AckStackListMask) == m_watchdogStackListIndex)
@@ -1009,6 +1131,9 @@ SIS3153ReadoutWorker::ReadBufferResult SIS3153ReadoutWorker::readBuffer()
     {
         processBuffer(packetAck, packetIdent, packetStatus, dataPtr, dataSize);
     }
+#else
+    processBuffer(packetAck, packetIdent, packetStatus, dataPtr, dataSize);
+#endif
 
     return result;
 }
@@ -1016,10 +1141,22 @@ SIS3153ReadoutWorker::ReadBufferResult SIS3153ReadoutWorker::readBuffer()
 void SIS3153ReadoutWorker::processBuffer(
     u8 packetAck, u8 packetIdent, u8 packetStatus, u8 *data, size_t size)
 {
-#if SIS_READOUT_DEBUG
-    qDebug() << __PRETTY_FUNCTION__ << "buffer size =" << m_readBuffer.used << ", contents:";
+    const auto bufferNumber = m_workerContext.daqStats->totalBuffersRead;
+
+
+#if SIS_READOUT_BUFFER_DEBUG_PRINT
+    sis_trace(QString("buffer #%1, buffer_size=%2, contents:")
+              .arg(bufferNumber)
+              .arg(size));
+
     debugOutputBuffer(m_readBuffer.data, m_readBuffer.used);
-    qDebug() << __PRETTY_FUNCTION__ << "end buffer contents";
+
+    sis_trace(QString("end of buffer contents (buffer #%1)")
+              .arg(bufferNumber));
+#else
+    sis_trace(QString("buffer #%1, buffer_size=%2")
+              .arg(bufferNumber)
+              .arg(size));
 #endif
 
     u32 action = 0;
@@ -1032,22 +1169,25 @@ void SIS3153ReadoutWorker::processBuffer(
         // multiple events per packet
         if (packetAck == SIS3153Constants::MultiEventPacketAck)
         {
+            sis_trace(QString("buffer #%1 -> multi event buffer").arg(bufferNumber));
             m_counters.multiEventPackets++;
+            /* Asserts that no partial event assembly is in progress. */
             Q_ASSERT(m_processingState.stackList < 0);
             action = processMultiEventData(packetAck, packetIdent, packetStatus, data, size);
         }
         else
         {
-            m_counters.packetsPerStackList[packetAck & SIS3153Constants::AckStackListMask]++;
             bool isLastPacket = packetAck & SIS3153Constants::AckIsLastPacketMask;
 
             // start or continue partial event processing
             if (m_processingState.stackList >= 0 || !isLastPacket)
             {
+                sis_trace(QString("buffer #%1 -> partial event buffer").arg(bufferNumber));
                 action = processPartialEventData(packetAck, packetIdent, packetStatus, data, size);
             }
             else // the single event per packet case
             {
+                sis_trace(QString("buffer #%1 -> single event buffer").arg(bufferNumber));
                 Q_ASSERT(isLastPacket);
                 Q_ASSERT(m_processingState.stackList < 0);
                 action = processSingleEventData(packetAck, packetIdent, packetStatus, data, size);
@@ -1106,12 +1246,13 @@ u32 SIS3153ReadoutWorker::processMultiEventData(
     Q_ASSERT(packetAck == SIS3153Constants::MultiEventPacketAck);
     Q_ASSERT(m_processingState.stackList < 0);
 
+    const auto bufferNumber = m_workerContext.daqStats->totalBuffersRead;
+
     if (m_processingState.stackList >= 0)
     {
-        m_workerContext.daqStats->buffersWithErrors++;
-        auto msg = QString(QSL("SIS3153 Warning: (buffer #%1) got multievent packet while partial event processing is in progress!"
-                               " Skipping buffer."))
-            .arg(m_workerContext.daqStats->totalBuffersRead);
+        auto msg = (QString(QSL("SIS3153 Warning: (buffer #%1) got multievent packet while partial event processing is in progress!"
+                                " Skipping buffer."))
+                    .arg(bufferNumber));
         logMessage(msg);
         qDebug() << __PRETTY_FUNCTION__ << msg;
         return ProcessorAction::SkipInput;
@@ -1126,23 +1267,31 @@ u32 SIS3153ReadoutWorker::processMultiEventData(
 
     while (iter.longwordsLeft())
     {
-        u32 eventHeader = iter.extractU32();
-        u8  internalAck = eventHeader & 0xff;    // same as packetAck in non-buffered mode
-        u8  internalIdent = (eventHeader >> 24) & 0xff; // Not sure about this byte
-        u8  internalPacketStatus = 0; // FIXME: what's up with this?
+        /*
+    Dann 4 Bytes Single Event Header (anstelle von 3Byte):
+	  0x5x   "upper-length-byte"   "lower-length-byte"   "status"
+    seems to be: header=0x00250058
+    -> 0x00 len[0] len[1] ack
+    -> 0x00 0x25   0x00   0x58
+      */
+        u32 eventHeader    = iter.extractU32();
+        u8  internalAck    = eventHeader & 0xff;    // same as packetAck in non-buffered mode
+        u8  internalIdent  = (eventHeader >> 24) & 0xff; // Not sure about this byte
+        u8  internalStatus = 0; // FIXME: what's up with this?
         u16 length = ((eventHeader & 0xff0000) >> 16) | (eventHeader & 0xff00); // length in 32-bit words
 
-#if SIS_READOUT_DEBUG
-        char sbuf[256];
-        snprintf(sbuf, sizeof(sbuf), "%s: embedded single event: header=0x%08x, internalIdent=0x%x, length=%u, internalAck=0x%x",
-                 __PRETTY_FUNCTION__, eventHeader, (u32)internalIdent, (u32)length, (u32)internalAck);
-        qDebug("%s", sbuf);
-#endif
+        sis_trace(QString("buffer #%1: embedded ack=0x%2, ident=0x%3, status=0x%4, length=%5 (%6 bytes), header=0x%7")
+                  .arg(bufferNumber)
+                  .arg((u32)internalAck, 2, 16, QLatin1Char('0'))
+                  .arg((u32)internalIdent, 2, 16, QLatin1Char('0'))
+                  .arg((u32)internalStatus, 2, 16, QLatin1Char('0'))
+                  .arg(length)
+                  .arg(length * sizeof(u32))
+                  .arg(eventHeader, 8, 16, QLatin1Char('0')));
 
-        m_counters.packetsPerStackList[internalAck & SIS3153Constants::AckStackListMask]++;
+        // Forward the embedded event to processSingleEventData
 
-        action = processSingleEventData(internalAck, internalIdent, internalPacketStatus, iter.buffp, length * sizeof(u32));
-        iter.skip(sizeof(u32), length); // advance the local iterator by the subevent length
+        action = processSingleEventData(internalAck, internalIdent, internalStatus, iter.buffp, length * sizeof(u32));
 
         if (action & ProcessorAction::SkipInput)
         {
@@ -1155,6 +1304,7 @@ u32 SIS3153ReadoutWorker::processMultiEventData(
         }
         else
         {
+            iter.skip(sizeof(u32), length); // advance the local iterator by the embedded events length
             action = ProcessorAction::FlushBuffer;
         }
     }
@@ -1162,7 +1312,7 @@ u32 SIS3153ReadoutWorker::processMultiEventData(
     if (!(action & ProcessorAction::SkipInput) && iter.bytesLeft())
     {
         auto msg = QString(QSL("SIS3153 Warning: (buffer #%1) %2 bytes left at end of multievent iteration!"))
-            .arg(m_workerContext.daqStats->totalBuffersRead)
+            .arg(bufferNumber)
             .arg(iter.bytesLeft());
         logMessage(msg);
         qDebug() << __PRETTY_FUNCTION__ << msg;
@@ -1189,6 +1339,8 @@ u32 SIS3153ReadoutWorker::processSingleEventData(
     Q_ASSERT(m_processingState.stackList < 0);
 
     int stacklist = packetAck & SIS3153Constants::AckStackListMask;
+    m_counters.packetsPerStackList[stacklist]++;
+    const auto bufferNumber = m_workerContext.daqStats->totalBuffersRead;
 
     BufferIterator iter(data, size);
 
@@ -1198,7 +1350,7 @@ u32 SIS3153ReadoutWorker::processSingleEventData(
         if ((beginHeader & SIS3153Constants::BeginEventMask) != SIS3153Constants::BeginEventResult)
         {
             auto msg = QString(QSL("SIS3153 Warning: (buffer #%1) Invalid beginHeader 0x%2 (singleEvent). Skipping buffer."))
-                .arg(m_workerContext.daqStats->totalBuffersRead)
+                .arg(bufferNumber)
                 .arg(beginHeader, 8, 16, QLatin1Char('0'));
             logMessage(msg);
             qDebug() << __PRETTY_FUNCTION__ << msg;
@@ -1207,15 +1359,59 @@ u32 SIS3153ReadoutWorker::processSingleEventData(
         }
     }
 
+    // Watchdog packet handling
+    if (stacklist == m_watchdogStackListIndex)
+    {
+        Q_ASSERT(m_eventConfigsByStackList[packetAck & SIS3153Constants::AckStackListMask] == nullptr);
+        u32 watchdogPayload = iter.extractU32();
+        if (watchdogPayload != WatchdogPayload)
+        {
+            auto msg = (QString(QSL("SIS3153 Warning: (buffer #%1) Unexpected watchdog payload: 0x%2"))
+                        .arg(bufferNumber)
+                        .arg(watchdogPayload, 8, 16, QLatin1Char('0')));
+            logMessage(msg);
+            qDebug() << __PRETTY_FUNCTION__ << msg;
+            return ProcessorAction::SkipInput;
+        }
+
+        u32 endHeader = iter.extractU32();
+        if ((endHeader & SIS3153Constants::EndEventMask) != SIS3153Constants::EndEventResult)
+        {
+            auto msg = (QString(QSL("SIS3153 Warning: (buffer #%1) Invalid watchdog endHeader: 0x%2"))
+                        .arg(bufferNumber)
+                        .arg(endHeader, 8, 16, QLatin1Char('0')));
+            logMessage(msg);
+            qDebug() << __PRETTY_FUNCTION__ << msg;
+            return ProcessorAction::SkipInput;
+        }
+
+        if (iter.bytesLeft() > 0)
+        {
+            auto msg = (QString(QSL("SIS3153 Warning: (buffer #%1) %2 bytes left at end of watchdog packet"))
+                        .arg(bufferNumber)
+                        .arg(iter.bytesLeft()));
+            logMessage(msg);
+            qDebug() << __PRETTY_FUNCTION__ << msg;
+            return ProcessorAction::SkipInput;
+        }
+
+        /* The watchdog packet was well formed. As we did not acquire an output.
+         */
+        return ProcessorAction::KeepState;
+    }
+
+
+    // Normal single event processing
+
     EventConfig *eventConfig = m_eventConfigsByStackList[stacklist];
     int eventIndex = m_eventIndexByStackList[stacklist];
     if (!eventConfig)
     {
-        auto msg = QString(QSL("SIS3153 Warning: (buffer #%1) No eventConfig for stackList=%2 -> eventIndex=%3 (singleEvent)."
+        auto msg = (QString(QSL("SIS3153 Warning: (buffer #%1) No eventConfig for stackList=%2 -> eventIndex=%3 (singleEvent)."
                                " Skipping buffer."))
-            .arg(m_workerContext.daqStats->totalBuffersRead)
-            .arg(stacklist)
-            .arg(eventIndex);
+                    .arg(bufferNumber)
+                    .arg(stacklist)
+                    .arg(eventIndex));
         logMessage(msg);
         qDebug() << __PRETTY_FUNCTION__ << msg;
 
@@ -1271,9 +1467,12 @@ u32 SIS3153ReadoutWorker::processSingleEventData(
 
         if ((endHeader & SIS3153Constants::EndEventMask) != SIS3153Constants::EndEventResult)
         {
-#if SIS_READOUT_DEBUG
-            qDebug() << "invalid endHeader"; // TODO: log message
-#endif
+            auto msg = (QString(QSL("SIS3153 Warning: (buffer #%1) Invalid endHeader: 0x%2"))
+                        .arg(bufferNumber)
+                        .arg(endHeader, 8, 16, QLatin1Char('0')));
+            logMessage(msg);
+            qDebug() << __PRETTY_FUNCTION__ << msg;
+
             return ProcessorAction::SkipInput;
         }
     }
@@ -1300,8 +1499,11 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
     int stacklist = packetAck & SIS3153Constants::AckStackListMask;
     bool isLastPacket = packetAck & SIS3153Constants::AckIsLastPacketMask;
     bool partialInProgress = m_processingState.stackList >= 0;
+    m_counters.packetsPerStackList[stacklist]++;
+    const auto bufferNumber = m_workerContext.daqStats->totalBuffersRead;
 
     Q_ASSERT(partialInProgress || !isLastPacket);
+    Q_ASSERT(stacklist != m_watchdogStackListIndex);
 
     BufferIterator iter(data, size);
 
@@ -1314,9 +1516,9 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
 
         if ((beginHeader & SIS3153Constants::BeginEventMask) != SIS3153Constants::BeginEventResult)
         {
-            auto msg = QString(QSL("SIS3153 Warning: (buffer #%1) Invalid beginHeader 0x%2 (partialEvent). Skipping buffer."))
-                .arg(m_workerContext.daqStats->totalBuffersRead)
-                .arg(beginHeader, 8, 16, QLatin1Char('0'));
+            auto msg = (QString(QSL("SIS3153 Warning: (buffer #%1) Invalid beginHeader 0x%2 (partialEvent). Skipping buffer."))
+                        .arg(bufferNumber)
+                        .arg(beginHeader, 8, 16, QLatin1Char('0')));
             logMessage(msg);
             qDebug() << __PRETTY_FUNCTION__ << msg;
             return ProcessorAction::SkipInput;
@@ -1327,17 +1529,17 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
 
         if (!eventConfig)
         {
-            auto msg = QString(QSL("SIS3153 Warning: (buffer #%1) No eventConfig for stackList=%2 -> eventIndex=%3 (partialEvent)."
-                                   " Skipping buffer."))
-                .arg(m_workerContext.daqStats->totalBuffersRead)
-                .arg(stacklist)
-                .arg(eventIndex);
+            auto msg = (QString(QSL("SIS3153 Warning: (buffer #%1) No eventConfig for stackList=%2 -> eventIndex=%3 (partialEvent)."
+                                    " Skipping buffer."))
+                        .arg(bufferNumber)
+                        .arg(stacklist)
+                        .arg(eventIndex));
             logMessage(msg);
             qDebug() << __PRETTY_FUNCTION__ << msg;
             return ProcessorAction::SkipInput;
         }
 
-        m_processingState.stackList = packetAck & SIS3153Constants::AckStackListMask;
+        m_processingState.stackList = stacklist;
         m_processingState.eventSize = 0;
         m_processingState.eventHeaderOffset = outputBuffer->used;
         u32 *mvmeEventHeader = outputBuffer->asU32();
@@ -1354,11 +1556,11 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
 
     if (stacklist != m_processingState.stackList)
     {
-        QString msg = QString(QSL("SIS3153 Warning: (buffer #%1) stackList mismatch during partialEvent processing"
+        QString msg = (QString(QSL("SIS3153 Warning: (buffer #%1) stackList mismatch during partialEvent processing"
                                   " (stackList=%2, expected=%3). Skipping buffer."))
-                .arg(m_workerContext.daqStats->totalBuffersRead)
-                .arg(stacklist)
-                .arg(m_processingState.stackList);
+                       .arg(bufferNumber)
+                       .arg(stacklist)
+                       .arg(m_processingState.stackList));
         logMessage(msg);
         qDebug() << __PRETTY_FUNCTION__ << msg;
         return ProcessorAction::SkipInput;
@@ -1376,11 +1578,11 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
     EventConfig *eventConfig = m_eventConfigsByStackList[stacklist];
     if (!eventConfig)
     {
-        auto msg = QString(QSL("SIS3153 Warning: (buffer #%1) No eventConfig for stackList=%2 -> eventIndex=%3 (partialEvent)."
-                               " Skipping buffer."))
-            .arg(m_workerContext.daqStats->totalBuffersRead)
-            .arg(stacklist)
-            .arg(eventIndex);
+        auto msg = (QString(QSL("SIS3153 Warning: (buffer #%1) No eventConfig for stackList=%2 -> eventIndex=%3 (partialEvent)."
+                                " Skipping buffer."))
+                    .arg(bufferNumber)
+                    .arg(stacklist)
+                    .arg(eventIndex));
         logMessage(msg);
         qDebug() << __PRETTY_FUNCTION__ << msg;
 
@@ -1398,12 +1600,12 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
 
         if (m_processingState.moduleIndex >= moduleCount)
         {
-            auto msg = QString(QSL("SIS3153 Warning: (buffer #%1) moduleIndex out of range"
+            auto msg = (QString(QSL("SIS3153 Warning: (buffer #%1) moduleIndex out of range"
                                    " (eventIndex=%2, moduleIndex=%3, moduleCount=%4). Skipping buffer."))
-                .arg(m_workerContext.daqStats->totalBuffersRead)
-                .arg(eventIndex)
-                .arg(m_processingState.moduleIndex)
-                .arg(moduleCount);
+                        .arg(bufferNumber)
+                        .arg(eventIndex)
+                        .arg(m_processingState.moduleIndex)
+                        .arg(moduleCount));
             logMessage(msg);
             qDebug() << __PRETTY_FUNCTION__ << msg;
 
@@ -1422,11 +1624,11 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
 
             if (!moduleConfig)
             {
-                auto msg = QString(QSL("SIS3153 Warning: (buffer #%1) no moduleConfig for eventIndex=%2, moduleIndex=%3."
-                                       " Skipping buffer."))
-                    .arg(m_workerContext.daqStats->totalBuffersRead)
-                    .arg(eventIndex)
-                    .arg(m_processingState.moduleIndex);
+                auto msg = (QString(QSL("SIS3153 Warning: (buffer #%1) no moduleConfig for eventIndex=%2, moduleIndex=%3."
+                                        " Skipping buffer."))
+                            .arg(bufferNumber)
+                            .arg(eventIndex)
+                            .arg(m_processingState.moduleIndex));
                 logMessage(msg);
                 qDebug() << __PRETTY_FUNCTION__ << msg;
 
@@ -1466,9 +1668,9 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
         u32 endHeader = iter.extractU32();
         if ((endHeader & SIS3153Constants::EndEventMask) != SIS3153Constants::EndEventResult)
         {
-            auto msg = QString(QSL("SIS3153 Warning: (buffer #%1) Invalid endHeader 0x%2 (partialEvent). Skipping buffer."))
-                .arg(m_workerContext.daqStats->totalBuffersRead)
-                .arg(endHeader, 8, 16, QLatin1Char('0'));
+            auto msg = (QString(QSL("SIS3153 Warning: (buffer #%1) Invalid endHeader 0x%2 (partialEvent). Skipping buffer."))
+                        .arg(bufferNumber)
+                        .arg(endHeader, 8, 16, QLatin1Char('0')));
             logMessage(msg);
             qDebug() << __PRETTY_FUNCTION__ << msg;
             return ProcessorAction::SkipInput;

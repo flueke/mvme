@@ -122,13 +122,15 @@ void SIS3153DebugWidget::refresh()
 
         QString pcText; // packet count text
 
-        for (u32 si = 0; si < SIS3153Constants::NumberOfStackLists; si++)
+        for (s32 si = 0; si < SIS3153Constants::NumberOfStackLists; si++)
         {
             auto count = counters.packetsPerStackList[si];
             if (count)
             {
                 if (!pcText.isEmpty()) pcText += QSL("\n");
                 pcText += QString(QSL("stackList=%1, count=%2")).arg(si).arg(count);
+                if (si == counters.watchdogStackList)
+                    pcText += QSL(" (watchdog)");
             }
         }
 
