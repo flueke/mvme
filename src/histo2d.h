@@ -55,7 +55,7 @@ class Histo2D: public QObject
         double getValue(double x, double y) const;
         double getBinContent(u32 xBin, u32 yBin) const;
         void clear();
-
+        inline double *data() { return m_data; }
 
         void debugDump() const;
         inline size_t getStorageSize() const

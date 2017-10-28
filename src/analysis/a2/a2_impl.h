@@ -22,7 +22,7 @@ enum OperatorType
     Operator_Multiplicity,
     Operator_Max,
 
-    OperatorTypeMax
+    OperatorTypeCount
 };
 
 void calibration_step(Operator *op);

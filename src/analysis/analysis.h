@@ -36,11 +36,6 @@
 class QJsonObject;
 class VMEConfig;
 
-namespace a2
-{
-struct A2;
-}
-
 namespace memory
 {
 struct Arena;
@@ -59,6 +54,7 @@ struct Arena;
 
 namespace analysis
 {
+struct A2AdapterState;
 
 struct LIBMVME_EXPORT Parameter
 {
@@ -1396,9 +1392,9 @@ class LIBMVME_EXPORT Analysis: public QObject
         RunInfo m_runInfo;
         double m_timetickCount;
 
-        std::unique_ptr<memory::Arena> m_a2Arena;
-        a2::A2 *m_a2 = nullptr;
         QHash<QUuid, QPair<int, int>> m_vmeConfigUuIdToIndexes;
+        std::unique_ptr<memory::Arena> m_a2Arena;
+        std::unique_ptr<A2AdapterState> m_a2State;
 };
 
 struct LIBMVME_EXPORT RawDataDisplay

@@ -701,18 +701,26 @@ void CalibrationMinMax::read(const QJsonObject &json)
     {
         auto paramJson = it->toObject();
 
-        CalibrationMinMaxParameters param;
 
-        param.unitMin = paramJson["unitMin"].toDouble(make_quiet_nan());
-        param.unitMax = paramJson["unitMax"].toDouble(make_quiet_nan());
-
-        if (!param.isValid())
+        /* TODO: There's a bug in the write code and/or the code that should
+         * resize m_calibrations on changes to the input: Empty entries appear
+         * at the end of the list of calibration parameters inside the
+         * generated json. The test here skips those. */
+        if (paramJson.contains("unitMin"))
         {
-            param.unitMin = m_oldGlobalUnitMin;
-            param.unitMax = m_oldGlobalUnitMax;
-        }
+            CalibrationMinMaxParameters param;
 
-        m_calibrations.push_back(param);
+            param.unitMin = paramJson["unitMin"].toDouble(make_quiet_nan());
+            param.unitMax = paramJson["unitMax"].toDouble(make_quiet_nan());
+
+            if (!param.isValid())
+            {
+                param.unitMin = m_oldGlobalUnitMin;
+                param.unitMax = m_oldGlobalUnitMax;
+            }
+
+            m_calibrations.push_back(param);
+        }
     }
 }
 
@@ -2819,8 +2827,17 @@ void Analysis::beginRun(const RunInfo &runInfo, const QHash<QUuid, QPair<int, in
     }
 
 #if ANALYSIS_USE_A2
+    qDebug() << __FUNCTION__ << "########## a2 active ##########";
+
     m_vmeConfigUuIdToIndexes = vmeConfigUuIdToIndexes;
-    m_a2 = a2_adapter_build(m_a2Arena.get(), m_sources, m_operators, vmeConfigUuIdToIndexes);
+
+    auto a2State = a2_adapter_build(
+        m_a2Arena.get(),
+        m_sources,
+        m_operators,
+        vmeConfigUuIdToIndexes);
+
+    m_a2State = std::make_unique<A2AdapterState>(a2State);
 #endif
 }
 
@@ -2835,12 +2852,13 @@ void Analysis::beginEvent(const QUuid &eventId)
         }
     }
 #else
-    a2_begin_event(m_a2, m_vmeConfigUuIdToIndexes[eventId].first);
+    a2_begin_event(m_a2State->a2, m_vmeConfigUuIdToIndexes[eventId].first);
 #endif
 }
 
 void Analysis::processModuleData(const QUuid &eventId, const QUuid &moduleId, u32 *data, u32 size)
 {
+#if not ANALYSIS_USE_A2
     for (auto &sourceEntry: m_sources)
     {
         if (sourceEntry.eventId == eventId && sourceEntry.moduleId == moduleId)
@@ -2852,16 +2870,16 @@ void Analysis::processModuleData(const QUuid &eventId, const QUuid &moduleId, u3
         }
     }
 
-#if ANALYSIS_USE_A2
+#else
     auto indexes = m_vmeConfigUuIdToIndexes[moduleId];
-    a2_process_module_data(m_a2, indexes.first, indexes.second, data, size);
+    a2_process_module_data(m_a2State->a2, indexes.first, indexes.second, data, size);
 #endif
 }
 
 #if ANALYSIS_USE_A2
 void Analysis::endEvent(const QUuid &eventId)
 {
-    a2_end_event(m_a2, m_vmeConfigUuIdToIndexes[eventId].first);
+    a2_end_event(m_a2State->a2, m_vmeConfigUuIdToIndexes[eventId].first);
 }
 #else // ANALYSIS_USE_A2
 void Analysis::endEvent(const QUuid &eventId)

@@ -296,7 +296,7 @@ do\
     dbg.nospace().noquote() << __PRETTY_FUNCTION__ << " " << __FILE__ << ":" << __LINE__ << " " << msg;\
 } while (0)
 #else
-#define sis_trace(msg) (void)
+#define sis_trace(msg)
 #endif
 
 

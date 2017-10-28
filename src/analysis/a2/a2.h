@@ -35,6 +35,7 @@ template<typename T, typename SizeType = size_t>
 struct TypedBlock
 {
     typedef SizeType size_type;
+    static constexpr auto size_max = std::numeric_limits<SizeType>::max();
 
     T *data;
     size_type size;
@@ -98,14 +99,21 @@ inline void invalidate_all(double *params, s32 count)
     invalidate_all({params, count});
 }
 
-ParamVec push_param_vector(memory::Arena *arena, u32 size);
-ParamVec push_param_vector(memory::Arena *arena, u32 size, double value);
+ParamVec push_param_vector(memory::Arena *arena, s32 size);
+ParamVec push_param_vector(memory::Arena *arena, s32 size, double value);
+
+struct PipeVectors
+{
+    ParamVec data;
+    ParamVec lowerLimits;
+    ParamVec upperLimits;
+};
 
 struct Extractor
 {
     data_filter::MultiWordFilter filter;
     pcg32_fast rng;
-    ParamVec output;
+    PipeVectors output;
     u32 requiredCompletions;
     u32 currentCompletions;
     u8 moduleIndex;
@@ -120,6 +128,11 @@ Extractor make_extractor(
 
 struct Operator
 {
+    using count_type = u8;
+
+    static const auto MaxInputCount = std::numeric_limits<count_type>::max();
+    static const auto MaxOutputCount = std::numeric_limits<count_type>::max();
+
     ParamVec *inputs;
     ParamVec *inputLowerLimits;
     ParamVec *inputUpperLimits;
@@ -132,13 +145,6 @@ struct Operator
     u8 type;
 };
 
-struct PipeVectors
-{
-    ParamVec data;
-    ParamVec lowerLimits;
-    ParamVec upperLimits;
-};
-
 void assign_input(Operator *op, PipeVectors input, s32 inputIndex);
 void extractor_begin_event(Extractor *ex);
 void extractor_process_module_data(Extractor *ex, const u32 *data, u32 size);
@@ -148,11 +154,28 @@ Operator make_calibration(
     PipeVectors input,
     double unitMin, double unitMax);
 
+Operator make_calibration(
+    memory::Arena *arena,
+    PipeVectors input,
+    ParamVec calibMinimums,
+    ParamVec calibMaximums);
+
 Operator make_keep_previous(
-    memory::Arena *arena, PipeVectors inPipe, bool keepValid);
+    memory::Arena *arena,
+    PipeVectors inPipe,
+    bool keepValid);
 
 Operator make_difference(
-    memory::Arena *arena, PipeVectors inPipeA, PipeVectors inPipeB);
+    memory::Arena *arena,
+    PipeVectors inPipeA,
+    PipeVectors inPipeB);
+
+Operator make_difference_idx(
+    memory::Arena *arena,
+    PipeVectors inPipeA,
+    PipeVectors inPipeB,
+    s32 indexA,
+    s32 indexB);
 
 struct ArrayMapData
 {

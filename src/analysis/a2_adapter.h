@@ -7,6 +7,14 @@
 namespace analysis
 {
 
+struct A2AdapterState
+{
+    a2::A2 *a2;
+    QMap<PipeSourcePtr, a2::Extractor *> sourceMappings;
+    QMap<PipeSourcePtr, a2::Operator *> operatorMappings;
+};
+
+
 /*
  * operators must be sorted by rank and their beginRun() must have been called.
  *
@@ -15,10 +23,11 @@ namespace analysis
  * For EventConfigs only the eventIndex is set. For ModuleConfigs both indexes
  * are set.
  */
-a2::A2 *a2_adapter_build(memory::Arena *arena,
-                         const QVector<Analysis::SourceEntry> &sources,
-                         const QVector<Analysis::OperatorEntry> &operators,
-                         const QHash<QUuid, QPair<int, int>> &vmeConfigUuIdToIndexes);
+A2AdapterState a2_adapter_build(
+    memory::Arena *arena,
+    const QVector<Analysis::SourceEntry> &sources,
+    const QVector<Analysis::OperatorEntry> &operators,
+    const QHash<QUuid, QPair<int, int>> &vmeConfigUuIdToIndexes);
 
 } // namespace analysis
 

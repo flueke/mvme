@@ -10,7 +10,7 @@
 #define a2_trace(fmt, ...)\
 do\
 {\
-    fprintf(stderr, "%s " fmt, __func__, ##__VA_ARGS__);\
+    fprintf(stderr, "a2::%s() " fmt, __FUNCTION__, ##__VA_ARGS__);\
 } while (0);
 #else
 #define a2_trace(...)
@@ -60,8 +60,10 @@ void print_param_vector(ParamVec pv)
     }
 }
 
-ParamVec push_param_vector(Arena *arena, u32 size)
+ParamVec push_param_vector(Arena *arena, s32 size)
 {
+    assert(size >= 0);
+
     ParamVec result;
 
     result.data = arena->pushArray<double>(size, ParamVecAlignment);
@@ -69,14 +71,15 @@ ParamVec push_param_vector(Arena *arena, u32 size)
     assert(is_aligned(result.data, ParamVecAlignment));
 
     return result;
-};
+}
 
-ParamVec push_param_vector(Arena *arena, u32 size, double value)
+ParamVec push_param_vector(Arena *arena, s32 size, double value)
 {
+    assert(size >= 0);
     ParamVec result = push_param_vector(arena, size);
     fill(result, value);
     return result;
-};
+}
 
 Extractor make_extractor(
     Arena *arena,
@@ -92,8 +95,17 @@ Extractor make_extractor(
     result.currentCompletions = 0;
     result.rng.seed(rngSeed);
     result.moduleIndex = moduleIndex;
+
     size_t addrCount = 1u << get_extract_bits(&result.filter, MultiWordFilter::CacheA);
-    result.output = push_param_vector(arena, addrCount);
+
+    // The highest value the filter will yield is ((2^bits) - 1) but we're
+    // adding a random in [0.0, 1.0) so the actual exclusive upper limit is
+    // (2^bits).
+    double upperLimit = std::pow(2.0, get_extract_bits(&result.filter, MultiWordFilter::CacheD));
+
+    result.output.data = push_param_vector(arena, addrCount, invalid_param());
+    result.output.lowerLimits = push_param_vector(arena, addrCount, 0.0);
+    result.output.upperLimits = push_param_vector(arena, addrCount, upperLimit);
 
     return  result;
 }
@@ -102,7 +114,7 @@ void extractor_begin_event(Extractor *ex)
 {
     clear_completion(&ex->filter);
     ex->currentCompletions = 0;
-    invalidate_all(ex->output);
+    invalidate_all(ex->output.data);
 }
 
 static std::uniform_real_distribution<double> RealDist01(0.0, 1.0);
@@ -125,7 +137,7 @@ void extractor_process_module_data(Extractor *ex, const u32 *data, u32 size)
                 u64 address = extract(&ex->filter, MultiWordFilter::CacheA);
                 u64 value   = extract(&ex->filter, MultiWordFilter::CacheD);
 
-                assert(address < static_cast<u64>(ex->output.size));
+                assert(address < static_cast<u64>(ex->output.data.size));
 
                 if (!is_param_valid(ex->output.data[address]))
                 {
@@ -216,6 +228,7 @@ struct CalibrationData
 
 void calibration_step(Operator *op)
 {
+    a2_trace("\n");
     assert(op->inputCount == 1);
     assert(op->outputCount == 1);
     assert(op->inputs[0].size == op->outputs[0].size);
@@ -342,6 +355,46 @@ Operator make_calibration(
     return result;
 }
 
+Operator make_calibration(
+    Arena *arena,
+    PipeVectors input,
+    ParamVec calibMinimums,
+    ParamVec calibMaximums)
+{
+    a2_trace("input.lowerLimits.size=%d, input.data.size=%d\n",
+             input.lowerLimits.size, input.data.size);
+
+    a2_trace("calibMinimums.size=%d, input.data.size=%d\n",
+             calibMinimums.size, input.data.size);
+
+    assert(input.data.size == input.lowerLimits.size);
+    assert(input.data.size == input.upperLimits.size);
+    assert(calibMinimums.size == input.data.size);
+    assert(calibMaximums.size == input.data.size);
+
+    auto result = make_operator(arena, Operator_Calibration, 1, 1);
+
+    assign_input(&result, input, 0);
+    push_output_vectors(arena, &result, 0, input.data.size);
+
+    auto cdata = arena->pushStruct<CalibrationData>();
+    cdata->calibFactors = push_param_vector(arena, input.data.size);
+
+    for (s32 i = 0; i < input.data.size; i++)
+    {
+        double calibRange = calibMaximums[i] - calibMinimums[i];
+        double paramRange = input.upperLimits[i] - input.lowerLimits[i];
+        cdata->calibFactors[i] = calibRange / paramRange;
+
+        result.outputLowerLimits[0][i] = calibMinimums[i];
+        result.outputUpperLimits[0][i] = calibMinimums[i];
+    }
+
+    result.d = cdata;
+
+    return result;
+}
+
 struct KeepPreviousData
 {
     ParamVec previousInput;
@@ -392,7 +445,9 @@ Operator make_keep_previous(
 }
 
 Operator make_difference(
-    Arena *arena, PipeVectors inPipeA, PipeVectors inPipeB)
+    Arena *arena,
+    PipeVectors inPipeA,
+    PipeVectors inPipeB)
 {
     assert(inPipeA.data.size == inPipeB.data.size);
 
@@ -408,6 +463,37 @@ Operator make_difference(
         result.outputLowerLimits[0][idx] = inPipeA.lowerLimits[idx] - inPipeB.upperLimits[idx];
         result.outputUpperLimits[0][idx] = inPipeA.upperLimits[idx] - inPipeB.lowerLimits[idx];
     }
+
+    return result;
+}
+
+struct Difference_idxData
+{
+    s32 indexA;
+    s32 indexB;
+};
+
+Operator make_difference_idx(
+    Arena *arena,
+    PipeVectors inPipeA,
+    PipeVectors inPipeB,
+    s32 indexA,
+    s32 indexB)
+{
+    assert(indexA < inPipeA.data.size);
+    assert(indexB < inPipeB.data.size);
+
+    auto result = make_operator(arena, Operator_Difference_idx, 2, 1);
+
+    result.d = arena->push<Difference_idxData>({indexA, indexB});
+
+    assign_input(&result, inPipeA, 0);
+    assign_input(&result, inPipeB, 1);
+
+    push_output_vectors(arena, &result, 0, 1);
+
+    result.outputLowerLimits[0][0] = inPipeA.lowerLimits[indexA] - inPipeB.upperLimits[indexB];
+    result.outputUpperLimits[0][0] = inPipeA.upperLimits[indexA] - inPipeB.lowerLimits[indexB];
 
     return result;
 }
@@ -435,6 +521,27 @@ void difference_step(Operator *op)
         {
             op->outputs[0][idx] = invalid_param();
         }
+    }
+}
+
+void difference_step_idx(Operator *op)
+{
+    assert(op->inputCount == 2);
+    assert(op->outputCount == 1);
+    assert(op->type == Operator_Difference_idx);
+
+    auto inputA = op->inputs[0];
+    auto inputB = op->inputs[1];
+
+    auto d = reinterpret_cast<Difference_idxData *>(op->d);
+
+    if (is_param_valid(inputA[d->indexA]) && is_param_valid(inputB[d->indexB]))
+    {
+        op->outputs[0][0] = inputA[d->indexA] - inputB[d->indexB];
+    }
+    else
+    {
+        op->outputs[0][0] = invalid_param();
     }
 }
 
@@ -506,7 +613,7 @@ using BinaryEquationFunction = void (*)(ParamVec a, ParamVec b, ParamVec out);
     }\
 }
 
-static BinaryEquationFunction BinaryEquationFunctionTable[] =
+static BinaryEquationFunction BinaryEquationTable[] =
 {
     add_binary_equation(o[i] = a[i] + b[i]),
 
@@ -522,14 +629,14 @@ static BinaryEquationFunction BinaryEquationFunctionTable[] =
 };
 #undef add_binary_equation
 
-static const size_t BinaryEquationCount = ArrayCount(BinaryEquationFunctionTable);
+static const size_t BinaryEquationCount = ArrayCount(BinaryEquationTable);
 
 void binary_equation_step(Operator *op)
 {
     // The equationIndex is stored directly in the d pointer.
     u32 equationIndex = (uintptr_t)op->d;
 
-    BinaryEquationFunctionTable[equationIndex](
+    BinaryEquationTable[equationIndex](
         op->inputs[0], op->inputs[1], op->outputs[0]);
 }
 
@@ -694,6 +801,7 @@ Operator make_h1d_sink(
 
 void h1d_sink_step(Operator *op)
 {
+    a2_trace("\n");
     auto d = reinterpret_cast<H1DSinkData *>(op->d);
     s32 maxIdx = op->inputs[0].size;
 
@@ -715,13 +823,13 @@ struct H2D: public ParamVec
     Binning binnings[2];
 };
 
-static const OperatorFunctions OperatorTable[OperatorTypeMax] =
+static const OperatorFunctions OperatorTable[OperatorTypeCount] =
 {
     [Operator_Calibration] = { calibration_step },
     [Operator_Calibration_sse] = { calibration_step_sse },
     [Operator_KeepPrevious] = { keep_previous_step },
     [Operator_Difference] = { difference_step },
-    [Operator_Difference_idx] = { nullptr },
+    [Operator_Difference_idx] = { difference_step_idx },
     [Operator_ArrayMap] = { array_map_step },
     [Operator_BinaryEquation] = { binary_equation_step },
     [Operator_H1DSink] = { h1d_sink_step },
@@ -826,13 +934,15 @@ void a2_end_event(A2 *a2, int eventIndex)
     int opCount = a2->operatorCounts[eventIndex];
     Operator *operators = a2->operators[eventIndex];
 
-    a2_trace("ei=%d, operators=%d\n", eventIndex, opCount);
+    a2_trace("ei=%d, stepping %d operators\n", eventIndex, opCount);
 
     for (int opIdx = 0; opIdx < opCount; opIdx++)
     {
         Operator *op = operators + opIdx;
         OperatorTable[op->type].step(op);
     }
+
+    a2_trace("ei=%d, %d operators stepped\n", eventIndex, opCount);
 }
 
 } // namespace a2
