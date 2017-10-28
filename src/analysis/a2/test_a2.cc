@@ -61,11 +61,7 @@ static void BM_a2(benchmark::State &state)
 
     auto calib = make_calibration(
         &arena,
-        {
-            ex.output,
-            push_param_vector(&arena, dataSize, 0.0),
-            push_param_vector(&arena, dataSize, 10.0),
-        },
+        ex.output,
         0.0,
         100.0);
     calib.type = Operator_Calibration;

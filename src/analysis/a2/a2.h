@@ -49,6 +49,16 @@ struct TypedBlock
     {
         return data[index];
     }
+
+    inline T *begin()
+    {
+        return data;
+    }
+
+    inline T *end()
+    {
+        return data + size;
+    }
 };
 
 template<typename T, typename SizeType = size_t>
@@ -197,9 +207,37 @@ Operator make_binary_equation(
     memory::Arena *arena,
     PipeVectors inputA,
     PipeVectors inputB,
-    u32 equationIndex,
+    u32 equationIndex, // stored right inside the d pointer so it can be at least u32 in size
     double outputLowerLimit,
     double outputUpperLimit);
+
+/* ===============================================
+ * AggregateOps
+ * =============================================== */
+
+/* Thresholds to check each input parameter against. If the parameter is not
+ * inside [min_threshold, max_threshold] it is not considered for the result.
+ */
+struct Thresholds
+{
+    double tMin;
+    double tMax;
+};
+
+Operator make_aggregate_sum(
+    memory::Arena *arena,
+    PipeVectors input,
+    Thresholds thresholds);
+
+Operator make_aggregate_multiplicity(
+    memory::Arena *arena,
+    PipeVectors input,
+    Thresholds thresholds);
+
+Operator make_aggregate_max(
+    memory::Arena *arena,
+    PipeVectors input,
+    Thresholds thresholds);
 
 struct Binning
 {

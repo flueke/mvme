@@ -41,7 +41,7 @@ using OutputPipes = QVector<analysis::Pipe *>;
     A2AdapterState &adapterState,\
     analysis::OperatorPtr op,\
     InputSlots inputSlots,\
-    OutputPipes outputsPipes)
+    OutputPipes outputPipes)
 
 typedef DEF_OP_MAGIC(OperatorMagic);
 
@@ -213,13 +213,62 @@ DEF_OP_MAGIC(aggregate_ops_magic)
 {
     LOG("");
 
-    auto agOps = qobject_cast<analysis::AggregateOps *>(op.get());
+    using analysis::AggregateOps;
+    auto agOps = qobject_cast<AggregateOps *>(op.get());
     assert(agOps);
 
-#if 0
-#else
+    a2::Thresholds thresholds =
+    {
+        agOps->getMinThreshold(),
+        agOps->getMaxThreshold()
+    };
+
+    auto a2_input = find_output_pipe(adapterState, inputSlots[0]);
+
     a2::Operator result = {};
-#endif
+
+    switch (agOps->getOperation())
+    {
+        case AggregateOps::Op_Sum:
+            result = make_aggregate_sum(arena, a2_input, thresholds);
+            break;
+
+        case AggregateOps::Op_Max:
+            result = make_aggregate_max(arena, a2_input, thresholds);
+            break;
+
+        case AggregateOps::Op_Multiplicity:
+            result = make_aggregate_multiplicity(arena, a2_input, thresholds);
+            break;
+
+        default:
+            assert(!"unsupported AggregateOps::Operation");
+    }
+
+    return result;
+}
+
+DEF_OP_MAGIC(binary_equation_magic)
+{
+    LOG("");
+
+    auto binSumDiff = qobject_cast<analysis::BinarySumDiff *>(op.get());
+    assert(binSumDiff);
+
+    auto a2_inputA = find_output_pipe(adapterState, inputSlots[0]);
+    auto a2_inputB = find_output_pipe(adapterState, inputSlots[1]);
+
+    /* Copy user set output limits from the analysis::BinarySumDiff output. */
+    double outputLowerLimit = outputPipes[0]->parameters[0].lowerLimit;
+    double outputUpperLimit = outputPipes[0]->parameters[0].upperLimit;
+
+    a2::Operator result = make_binary_equation(
+        arena,
+        a2_inputA,
+        a2_inputB,
+        binSumDiff->getEquation(),
+        outputLowerLimit,
+        outputUpperLimit);
 
     return result;
 }
@@ -271,6 +320,8 @@ static const QHash<const QMetaObject *, OperatorMagic *> OperatorMagicTable =
     { &analysis::Histo1DSink::staticMetaObject, histo1d_sink_magic },
     { &analysis::Difference::staticMetaObject, difference_magic },
     { &analysis::ArrayMap::staticMetaObject, array_map_magic },
+    { &analysis::AggregateOps::staticMetaObject, aggregate_ops_magic },
+    { &analysis::BinarySumDiff::staticMetaObject, binary_equation_magic },
 };
 
 a2::Operator a2_adapter_magic(memory::Arena *arena, A2AdapterState &state, analysis::OperatorPtr op)

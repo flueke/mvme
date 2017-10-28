@@ -37,6 +37,11 @@ inline u32 get_payload(double d)
     return result;
 }
 
+inline constexpr double inf()
+{
+    return std::numeric_limits<double>::infinity();
+}
+
 }
 
 #if 0

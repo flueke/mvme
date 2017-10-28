@@ -2,6 +2,8 @@
 ==== Do these first! =====
 ==========================
 
+* Histo1D: fix NaN mapped to bin 0 bug!
+
 * vme templates:
   - add a new filter for extended timestamps
 

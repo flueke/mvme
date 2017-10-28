@@ -30,7 +30,7 @@ static void BM_extractor_begin_event(benchmark::State &state)
 
     auto ex = arena.push(make_extractor(&arena, filter, 1, 1234, 0));
 
-    assert(ex->output.size == (1u << 4));
+    assert(ex->output.data.size == (1u << 4));
 
     double eventsProcessed = 0;
 
@@ -69,7 +69,7 @@ static void BM_extractor_process_module_data(benchmark::State &state)
 
     auto ex = arena.push(make_extractor(&arena, filter, 1, 1234, 0));
 
-    assert(ex->output.size == (1u << 4));
+    assert(ex->output.data.size == (1u << 4));
 
     extractor_begin_event(ex);
 
@@ -181,7 +181,7 @@ static void BM_calibration_SSE2_step(benchmark::State &state)
 
     while (state.KeepRunning())
     {
-        calibration_step_sse(&calib);
+        calibration_sse_step(&calib);
         bytesProcessed += sizeof(inputData);
         moduleCounter++;
 
@@ -405,6 +405,167 @@ static void BM_keep_previous_step(benchmark::State &state)
 }
 BENCHMARK(BM_keep_previous_step);
 
+static void BM_aggregate_sum_step(benchmark::State &state)
+{
+    Arena arena(Kilobytes(256));
+
+    static double inputData[] =
+    {
+        0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0,
+        8.0, 9.0, 10.0, 11.0, 12.0, invalid_param() /* @[13] */, 14.0, 15.0,
+    };
+    static const s32 inputSize = ArrayCount(inputData);
+    static const s32 invalidIndex = 13;
+    double bytesProcessed = 0;
+    double moduleCounter = 0;
+
+    PipeVectors input;
+    input.data = { inputData, inputSize };
+    input.lowerLimits = push_param_vector(&arena, inputSize, 0.0);
+    input.upperLimits = push_param_vector(&arena, inputSize, 20.0);
+
+    Thresholds thresholds = { 0.0, 20.0 };
+
+    auto op = make_aggregate_sum(
+        &arena,
+        input,
+        thresholds);
+
+    assert(op.outputCount == 1);
+    assert(op.outputs[0].size == 1);
+
+    double expectedResult = 0.0;
+
+    for (s32 i = 0; i < inputSize; i++)
+    {
+        if (!std::isnan(inputData[i]))
+        {
+            expectedResult += inputData[i];
+        }
+    }
+
+    assert(op.outputLowerLimits[0][0] == 0.0);
+    assert(op.outputUpperLimits[0][0] == inputSize * 20.0);
+
+    while (state.KeepRunning())
+    {
+        aggregate_sum_step(&op);
+        bytesProcessed += sizeof(inputData);
+        moduleCounter++;
+
+        assert(op.outputs[0][0] == expectedResult);
+
+        //print_param_vector(op.outputs[0]);
+    }
+
+    state.counters["mem"] = Counter(arena.used());
+    state.counters["bR"] = Counter(bytesProcessed, Counter::kIsRate);
+    state.counters["mR"] = Counter(moduleCounter, Counter::kIsRate);
+}
+BENCHMARK(BM_aggregate_sum_step);
+
+static void BM_aggregate_multiplicity_step(benchmark::State &state)
+{
+    Arena arena(Kilobytes(256));
+
+    static double inputData[] =
+    {
+        0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0,
+        8.0, 9.0, 10.0, 11.0, 12.0, invalid_param() /* @[13] */, 14.0, 15.0,
+    };
+    static const s32 inputSize = ArrayCount(inputData);
+    static const s32 invalidIndex = 13;
+    double bytesProcessed = 0;
+    double moduleCounter = 0;
+
+    PipeVectors input;
+    input.data = { inputData, inputSize };
+    input.lowerLimits = push_param_vector(&arena, inputSize, 0.0);
+    input.upperLimits = push_param_vector(&arena, inputSize, 20.0);
+
+    Thresholds thresholds = { 0.0, 20.0 };
+
+    auto op = make_aggregate_multiplicity(
+        &arena,
+        input,
+        thresholds);
+
+    assert(op.outputCount == 1);
+    assert(op.outputs[0].size == 1);
+
+    double expectedResult = inputSize - 1;
+
+    assert(op.outputLowerLimits[0][0] == 0.0);
+    assert(op.outputUpperLimits[0][0] == inputSize);
+
+    while (state.KeepRunning())
+    {
+        aggregate_multiplicity_step(&op);
+        bytesProcessed += sizeof(inputData);
+        moduleCounter++;
+
+        assert(op.outputs[0][0] == expectedResult);
+
+        //print_param_vector(op.outputs[0]);
+    }
+
+    state.counters["mem"] = Counter(arena.used());
+    state.counters["bR"] = Counter(bytesProcessed, Counter::kIsRate);
+    state.counters["mR"] = Counter(moduleCounter, Counter::kIsRate);
+}
+BENCHMARK(BM_aggregate_multiplicity_step);
+
+static void BM_aggregate_max_step(benchmark::State &state)
+{
+    Arena arena(Kilobytes(256));
+
+    static double inputData[] =
+    {
+        0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0,
+        8.0, 9.0, 10.0, 11.0, 12.0, invalid_param() /* @[13] */, 14.0, 15.0,
+    };
+    static const s32 inputSize = ArrayCount(inputData);
+    static const s32 invalidIndex = 13;
+    double bytesProcessed = 0;
+    double moduleCounter = 0;
+
+    PipeVectors input;
+    input.data = { inputData, inputSize };
+    input.lowerLimits = push_param_vector(&arena, inputSize, 0.0);
+    input.upperLimits = push_param_vector(&arena, inputSize, 20.0);
+
+    Thresholds thresholds = { 0.0, 20.0 };
+
+    auto op = make_aggregate_max(
+        &arena,
+        input,
+        thresholds);
+
+    assert(op.outputCount == 1);
+    assert(op.outputs[0].size == 1);
+
+    double expectedResult = 15;
+
+    assert(op.outputLowerLimits[0][0] == 0.0);
+    assert(op.outputUpperLimits[0][0] == 20.0);
+
+    while (state.KeepRunning())
+    {
+        aggregate_max_step(&op);
+        bytesProcessed += sizeof(inputData);
+        moduleCounter++;
+
+        assert(op.outputs[0][0] == expectedResult);
+
+        //print_param_vector(op.outputs[0]);
+    }
+
+    state.counters["mem"] = Counter(arena.used());
+    state.counters["bR"] = Counter(bytesProcessed, Counter::kIsRate);
+    state.counters["mR"] = Counter(moduleCounter, Counter::kIsRate);
+}
+BENCHMARK(BM_aggregate_max_step);
+
 static void BM_h1d_sink_step(benchmark::State &state)
 {
     static double inputData[] =
@@ -483,5 +644,71 @@ static void BM_h1d_sink_step(benchmark::State &state)
     }
 }
 BENCHMARK(BM_h1d_sink_step);
+
+#if 0
+static void BM_binary_equation_step(benchmark::State &state)
+{
+    Arena arena(Kilobytes(256));
+
+    static double inputDataA[] =
+    {
+        0.0, 1.0, 5.0, 10.0, 4.0, 5.0, 6.0, 7.0,
+        8.0, 9.0, 10.0, 11.0, 12.0, invalid_param() /* @[13] */, 14.0, 15.0,
+    };
+    static const s32 inputSize = ArrayCount(inputDataA);
+    static const s32 invalidIndex = 13;
+    double bytesProcessed = 0;
+    double moduleCounter = 0;
+
+    static double inputDataB[inputSize];
+#ifndef NDEBUG
+    static double resultData[inputSize];
+#endif
+
+    for (s32 i = 0; i < inputSize; ++i)
+    {
+        inputDataB[i] = inputDataA[i] * 2 * (i % 2 == 0 ? 1 : -1);
+#ifndef NDEBUG
+        resultData[i] = inputDataA[i] - inputDataB[i];
+#endif
+    }
+
+    PipeVectors inputA;
+    inputA.data = ParamVec{inputDataA, inputSize};
+    inputA.lowerLimits = push_param_vector(&arena, inputSize, 0.0);
+    inputA.upperLimits = push_param_vector(&arena, inputSize, 20.0);
+
+    PipeVectors inputB;
+    inputB.data = ParamVec{inputDataB, inputSize};
+    inputB.lowerLimits = inputA.lowerLimits;
+    inputB.upperLimits = inputA.upperLimits;
+
+    auto diff = make_difference(&arena, inputA, inputB);
+
+    auto op make_binary_equation(
+        memory::Arena *arena,
+        PipeVectors inputA,
+        PipeVectors inputB,
+        u32 equationIndex, // stored right inside the d pointer so it can be at least u32 in size
+        double outputLowerLimit,
+        double outputUpperLimit);
+
+    while (state.KeepRunning())
+    {
+        difference_step(&diff);
+        bytesProcessed += sizeof(inputDataA);
+        moduleCounter++;
+    }
+
+    state.counters["mem"] = Counter(arena.used());
+    state.counters["bR"] = Counter(bytesProcessed, Counter::kIsRate);
+    state.counters["mR"] = Counter(moduleCounter, Counter::kIsRate);
+
+    //print_param_vector(diff.outputs[0]);
+}
+BENCHMARK(BM_binary_equation_step);
+#endif
+
+#warning "missing test for binary_equation_step"
 
 BENCHMARK_MAIN();

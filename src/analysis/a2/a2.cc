@@ -1,12 +1,15 @@
 #include "a2_impl.h"
 
+#include <algorithm>
 #include <cstdlib>
 #include <random>
 #include <cstdio>
+#include "util/perf.h"
 
 #define ArrayCount(x) (sizeof(x) / sizeof(*x))
 
-#ifndef NDEBUG
+//#ifndef NDEBUG
+#if 0
 #define a2_trace(fmt, ...)\
 do\
 {\
@@ -250,7 +253,7 @@ void calibration_step(Operator *op)
     }
 }
 
-void calibration_step_sse(Operator *op)
+void calibration_sse_step(Operator *op)
 {
     /* Note: The partially transformed code below is slower than
      * calibration_step(). With the right compiler flags gcc seems to auto
@@ -648,6 +651,8 @@ Operator make_binary_equation(
     double outputLowerLimit,
     double outputUpperLimit)
 {
+    assert(equationIndex < ArrayCount(BinaryEquationTable));
+
     auto result = make_operator(arena, Operator_BinaryEquation, 2, 1);
 
     assign_input(&result, inputA, 0);
@@ -661,28 +666,161 @@ Operator make_binary_equation(
     return result;
 }
 
-/* Implementing AggregateOps
- * ===============================================
- *      enum Operation
- *      {
- *          Op_Sum,
- *          Op_Mean,
- *          Op_Sigma,
- *          Op_Min,
- *          Op_Max,
- *          Op_Multiplicity,
- *          Op_MinX,
- *          Op_MaxX,
- *          Op_MeanX,
- *          Op_SigmaX,
- *          NumOps
- *      };
- *
- */
+/* ===============================================
+ * AggregateOps
+ * =============================================== */
+inline bool is_valid_and_inside(double param, Thresholds thresholds)
+{
+    return (is_param_valid(param)
+            && thresholds.tMin <= param
+            && thresholds.tMax >= param);
+}
 
-//
-// Histograms
-//
+static Operator make_aggregate_op(
+    Arena *arena,
+    PipeVectors input,
+    u8 operatorType,
+    Thresholds thresholds)
+{
+    auto result = make_operator(arena, operatorType, 1, 1);
+    auto d = arena->push(thresholds);
+    result.d = d;
+
+    /* The min and max values must be set to the inputs lowest/highest limits if no
+     * threshold filtering is wanted. This way a isnan() test can be saved. */
+    if (std::isnan(thresholds.tMin))
+    {
+        thresholds.tMin = *std::min_element(std::begin(input.data), std::end(input.data));
+    }
+
+    if (std::isnan(thresholds.tMax))
+    {
+        thresholds.tMin = *std::max_element(std::begin(input.data), std::end(input.data));
+    }
+
+    assign_input(&result, input, 0);
+
+    /* Note: output lower/upper limits are not set here. That's left to the
+     * specific operatorType make_aggregate_X() implementation. */
+    push_output_vectors(arena, &result, 0, 1);
+
+    return result;
+}
+
+Operator make_aggregate_sum(
+    Arena *arena,
+    PipeVectors input,
+    Thresholds thresholds)
+{
+    auto result = make_aggregate_op(arena, input, Operator_Sum, thresholds);
+
+    double outputLowerLimit = 0.0;
+    double outputUpperLimit = 0.0;
+
+    for (s32 i = 0; i < input.data.size; i++)
+    {
+        outputLowerLimit += std::min(input.lowerLimits[i], input.upperLimits[i]);
+        outputUpperLimit += std::max(input.lowerLimits[i], input.upperLimits[i]);
+    }
+
+    result.outputLowerLimits[0][0] = outputLowerLimit;
+    result.outputUpperLimits[0][0] = outputUpperLimit;
+
+    return result;
+}
+
+void aggregate_sum_step(Operator *op)
+{
+    a2_trace("\n");
+    auto input = op->inputs[0];
+    auto thresholds = *reinterpret_cast<Thresholds *>(op->d);
+
+    double theSum = 0.0;
+
+    for (s32 i = 0; i < input.size; i++)
+    {
+        if (is_valid_and_inside(input[i], thresholds))
+        {
+            theSum += input[i];
+        }
+    }
+
+    op->outputs[0][0] = theSum;
+}
+
+Operator make_aggregate_multiplicity(
+    Arena *arena,
+    PipeVectors input,
+    Thresholds thresholds)
+{
+    auto result = make_aggregate_op(arena, input, Operator_Multiplicity, thresholds);
+
+    result.outputLowerLimits[0][0] = 0.0;
+    result.outputUpperLimits[0][0] = input.data.size;
+
+    return result;
+}
+
+void aggregate_multiplicity_step(Operator *op)
+{
+    auto input = op->inputs[0];
+    auto thresholds = *reinterpret_cast<Thresholds *>(op->d);
+
+    s32 result = 0;
+
+    for (s32 i = 0; i < input.size; i++)
+    {
+        if (is_valid_and_inside(input[i], thresholds))
+        {
+            result++;
+        }
+    }
+
+    op->outputs[0][0] = result;
+}
+
+Operator make_aggregate_max(
+    Arena *arena,
+    PipeVectors input,
+    Thresholds thresholds)
+{
+    auto result = make_aggregate_op(arena, input, Operator_Max, thresholds);
+
+    double llMin = std::min(
+        *std::min_element(std::begin(input.lowerLimits), std::end(input.lowerLimits)),
+        *std::min_element(std::begin(input.upperLimits), std::end(input.upperLimits)));
+
+    double llMax = std::max(
+        *std::max_element(std::begin(input.lowerLimits), std::end(input.lowerLimits)),
+        *std::max_element(std::begin(input.upperLimits), std::end(input.upperLimits)));
+
+    result.outputLowerLimits[0][0] = llMin;
+    result.outputUpperLimits[0][0] = llMax;
+
+    return result;
+}
+
+void aggregate_max_step(Operator *op)
+{
+    auto input = op->inputs[0];
+    auto thresholds = *reinterpret_cast<Thresholds *>(op->d);
+
+    double result = std::numeric_limits<double>::lowest();
+
+    for (s32 i = 0; i < input.size; i++)
+    {
+        if (is_valid_and_inside(input[i], thresholds))
+        {
+            result = std::max(result, input[i]);
+        }
+    }
+
+    op->outputs[0][0] = result;
+}
+
+/* ===============================================
+ * Histograms
+ * =============================================== */
 
 enum class Axis
 {
@@ -735,7 +873,11 @@ inline void fill_h1d(H1D *histo, double x)
         assert(get_bin(*histo, x) == Binning::Overflow);
         histo->overflow++;
     }
-    else
+    else if (std::isnan(x))
+    {
+        // pass for now
+    }
+    else if (likely(1))
     {
         assert(0 <= get_bin(*histo, x) && get_bin(*histo, x) < histo->size);
 
@@ -826,7 +968,7 @@ struct H2D: public ParamVec
 static const OperatorFunctions OperatorTable[OperatorTypeCount] =
 {
     [Operator_Calibration] = { calibration_step },
-    [Operator_Calibration_sse] = { calibration_step_sse },
+    [Operator_Calibration_sse] = { calibration_sse_step },
     [Operator_KeepPrevious] = { keep_previous_step },
     [Operator_Difference] = { difference_step },
     [Operator_Difference_idx] = { difference_step_idx },
@@ -836,9 +978,9 @@ static const OperatorFunctions OperatorTable[OperatorTypeCount] =
     [Operator_H2DSink] = { nullptr },
     [Operator_RangeFilter] = { nullptr },
 
-    [Operator_Sum] = { nullptr },
-    [Operator_Multiplicity] = { nullptr },
-    [Operator_Max] = { nullptr },
+    [Operator_Sum] = { aggregate_sum_step },
+    [Operator_Multiplicity] = { aggregate_multiplicity_step },
+    [Operator_Max] = { aggregate_max_step },
 };
 
 inline void step_operator(Operator *op)
