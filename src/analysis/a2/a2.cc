@@ -390,7 +390,7 @@ Operator make_calibration(
         cdata->calibFactors[i] = calibRange / paramRange;
 
         result.outputLowerLimits[0][i] = calibMinimums[i];
-        result.outputUpperLimits[0][i] = calibMinimums[i];
+        result.outputUpperLimits[0][i] = calibMaximums[i];
     }
 
     result.d = cdata;
