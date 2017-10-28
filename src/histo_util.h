@@ -179,6 +179,7 @@ class AxisBinning
 
         /* Returns the bin number for the value x. Returns Underflow/Overflow
          * if x is out of range. */
+        // FIXME: I think this returns 0 for NaNs!
         inline s64 getBin(double x) const
         {
             double bin = getBinUnchecked(x);
