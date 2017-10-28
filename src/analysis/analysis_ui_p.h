@@ -246,12 +246,14 @@ class PipeDisplay: public QWidget
 {
     Q_OBJECT
     public:
-        PipeDisplay(Pipe *pipe, QWidget *parent = 0);
+        PipeDisplay(Analysis *analysis, Pipe *pipe, QWidget *parent = 0);
 
         void refresh();
 
+        Analysis *m_analysis;
         Pipe *m_pipe;
 
+        QLabel *m_infoLabel;
         QTableWidget *m_parameterTable;
 };
 

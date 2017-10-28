@@ -47,7 +47,7 @@ typedef DEF_OP_MAGIC(OperatorMagic);
 
 inline a2::PipeVectors find_output_pipe(const A2AdapterState &state, const analysis::PipeSourcePtr &pipeSource, u8 outputIndex)
 {
-    QLOG("pipeSource to find:" << pipeSource.get());
+    //QLOG("pipeSource to find:" << pipeSource.get() << ", outputIndex=" << (u32)outputIndex);
 
     a2::PipeVectors result = {};
 
@@ -72,7 +72,7 @@ inline a2::PipeVectors find_output_pipe(const A2AdapterState &state, const analy
     return result;
 }
 
-inline a2::PipeVectors find_output_pipe(const A2AdapterState &state, analysis::Slot * &slot)
+inline a2::PipeVectors find_output_pipe(const A2AdapterState &state, analysis::Slot *slot)
 {
     // This should be the path to get the correct 
     return find_output_pipe(
@@ -366,6 +366,17 @@ a2::Operator a2_adapter_magic(memory::Arena *arena, A2AdapterState &state, analy
 
 namespace analysis
 {
+
+a2::PipeVectors find_output_pipe(const A2AdapterState *state, analysis::Pipe *pipe)
+{
+    assert(pipe);
+    assert(pipe->source);
+
+    return ::find_output_pipe(
+        *state,
+        pipe->source->getSharedPointer(),
+        pipe->sourceOutputIndex);
+}
 
 A2AdapterState a2_adapter_build(
     memory::Arena *arena,

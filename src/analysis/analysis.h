@@ -1380,6 +1380,8 @@ class LIBMVME_EXPORT Analysis: public QObject
         bool isModified() const { return m_modified; }
         void setModified(bool b = true);
 
+        A2AdapterState *getA2AdapterState() { return m_a2State.get(); }
+
     private:
         void updateRank(OperatorInterface *op, QSet<OperatorInterface *> &updated);
 

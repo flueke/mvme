@@ -29,6 +29,8 @@ A2AdapterState a2_adapter_build(
     const QVector<Analysis::OperatorEntry> &operators,
     const QHash<QUuid, QPair<int, int>> &vmeConfigUuIdToIndexes);
 
+a2::PipeVectors find_output_pipe(const A2AdapterState *state, analysis::Pipe *pipe);
+
 } // namespace analysis
 
 #endif /* __A2_ADAPTER_H__ */
