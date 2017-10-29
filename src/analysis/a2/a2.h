@@ -220,8 +220,8 @@ Operator make_binary_equation(
  */
 struct Thresholds
 {
-    double tMin;
-    double tMax;
+    double min;
+    double max;
 };
 
 Operator make_aggregate_sum(

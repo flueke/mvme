@@ -672,8 +672,8 @@ Operator make_binary_equation(
 inline bool is_valid_and_inside(double param, Thresholds thresholds)
 {
     return (is_param_valid(param)
-            && thresholds.tMin <= param
-            && thresholds.tMax >= param);
+            && thresholds.min <= param
+            && thresholds.max >= param);
 }
 
 static Operator make_aggregate_op(
@@ -683,20 +683,29 @@ static Operator make_aggregate_op(
     Thresholds thresholds)
 {
     auto result = make_operator(arena, operatorType, 1, 1);
-    auto d = arena->push(thresholds);
-    result.d = d;
+
+    a2_trace("input thresholds: %lf, %lf\n", thresholds.min, thresholds.max);
 
     /* The min and max values must be set to the inputs lowest/highest limits if no
      * threshold filtering is wanted. This way a isnan() test can be saved. */
-    if (std::isnan(thresholds.tMin))
+    if (std::isnan(thresholds.min))
     {
-        thresholds.tMin = *std::min_element(std::begin(input.data), std::end(input.data));
+        thresholds.min = *std::min_element(std::begin(input.lowerLimits), std::end(input.lowerLimits));
     }
 
-    if (std::isnan(thresholds.tMax))
+    if (std::isnan(thresholds.max))
     {
-        thresholds.tMin = *std::max_element(std::begin(input.data), std::end(input.data));
+        thresholds.max = *std::max_element(std::begin(input.upperLimits), std::end(input.upperLimits));
     }
+
+    a2_trace("resulting thresholds: %lf, %lf\n", thresholds.min, thresholds.max);
+
+    assert(!std::isnan(thresholds.min)); // XXX: can be nan if input limits are nan
+    assert(!std::isnan(thresholds.max));
+
+    auto d = arena->push(thresholds);
+    result.d = d;
+    *d = thresholds;
 
     assign_input(&result, input, 0);
 
@@ -712,6 +721,8 @@ Operator make_aggregate_sum(
     PipeVectors input,
     Thresholds thresholds)
 {
+    a2_trace("thresholds: %lf, %lf\n", thresholds.min, thresholds.max);
+
     auto result = make_aggregate_op(arena, input, Operator_Sum, thresholds);
 
     double outputLowerLimit = 0.0;
@@ -739,6 +750,9 @@ void aggregate_sum_step(Operator *op)
 
     for (s32 i = 0; i < input.size; i++)
     {
+        //a2_trace("i=%d, input[i]=%lf, thresholds.min=%lf, thresholds.max=%lf, is_valid_and_inside()=%d\n",
+        //         i, input[i], thresholds.min, thresholds.max, is_valid_and_inside(input[i], thresholds));
+
         if (is_valid_and_inside(input[i], thresholds))
         {
             theSum += input[i];
@@ -753,6 +767,7 @@ Operator make_aggregate_multiplicity(
     PipeVectors input,
     Thresholds thresholds)
 {
+    a2_trace("thresholds: %lf, %lf\n", thresholds.min, thresholds.max);
     auto result = make_aggregate_op(arena, input, Operator_Multiplicity, thresholds);
 
     result.outputLowerLimits[0][0] = 0.0;
@@ -784,6 +799,7 @@ Operator make_aggregate_max(
     PipeVectors input,
     Thresholds thresholds)
 {
+    a2_trace("thresholds: %lf, %lf\n", thresholds.min, thresholds.max);
     auto result = make_aggregate_op(arena, input, Operator_Max, thresholds);
 
     double llMin = std::min(
