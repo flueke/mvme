@@ -239,6 +239,9 @@ Operator make_aggregate_max(
     PipeVectors input,
     Thresholds thresholds);
 
+/* ===============================================
+ * Histograms
+ * =============================================== */
 struct Binning
 {
     static const s8 Underflow = -1;
@@ -267,6 +270,27 @@ Operator make_h1d_sink(
 struct H1DSinkData
 {
     TypedBlock<H1D, s32> histos;
+};
+
+struct H2D: public ParamVec
+{
+    enum Axis
+    {
+        XAxis,
+        YAxis,
+        AxisCount
+    };
+
+    s32 binCounts[AxisCount];
+    Binning binnings[AxisCount];
+    double binningFactors[AxisCount];
+    double entryCount;
+    double underflow;
+    double overflow;
+    // TODO: maybe add stats here: maxBinX, maxBinY, maxX, maxY, maxValue
+    // FIXME: Histo2D needs to get to those stats. This is different from
+    // Histo1D where the starts are updated when requested. Histo2D updates the
+    // stats in each call to fill().
 };
 
 template<typename Out, typename T>

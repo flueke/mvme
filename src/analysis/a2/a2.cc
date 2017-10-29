@@ -838,12 +838,6 @@ void aggregate_max_step(Operator *op)
  * Histograms
  * =============================================== */
 
-enum class Axis
-{
-    X,
-    Y,
-};
-
 inline double get_bin_unchecked(Binning binning, s32 binCount, double x)
 {
     return (x - binning.min) * binCount / binning.range;
@@ -911,6 +905,64 @@ inline void fill_h1d(H1D *histo, double x)
     }
 }
 
+inline s32 get_bin(H2D histo, H2D::Axis axis, double v)
+{
+    return get_bin(histo.binnings[axis], histo.binCounts[axis], v);
+}
+
+inline void fill_h2d(H2D *histo, double x, double y)
+{
+    if (x < histo->binnings[H2D::XAxis].min)
+    {
+        assert(get_bin(*histo, H2D::XAxis, x) == Binning::Underflow);
+        histo->underflow++;
+    }
+    else if (x >= histo->binnings[H2D::XAxis].min + histo->binnings[H2D::XAxis].range)
+    {
+        assert(get_bin(*histo, H2D::XAxis, x) == Binning::Overflow);
+        histo->overflow++;
+    }
+    else if (y < histo->binnings[H2D::YAxis].min)
+    {
+        assert(get_bin(*histo, H2D::YAxis, y) == Binning::Underflow);
+        histo->underflow++;
+    }
+    else if (y >= histo->binnings[H2D::YAxis].min + histo->binnings[H2D::YAxis].range)
+    {
+        assert(get_bin(*histo, H2D::YAxis, y) == Binning::Overflow);
+        histo->overflow++;
+    }
+    else if (std::isnan(x) || std::isnan(y))
+    {
+        // pass for now
+    }
+    else if (likely(1))
+    {
+        assert(0 <= get_bin(*histo, H2D::XAxis, x)
+               && get_bin(*histo, H2D::XAxis, x) < histo->binCounts[H2D::XAxis]);
+
+        assert(0 <= get_bin(*histo, H2D::YAxis, y)
+               && get_bin(*histo, H2D::YAxis, y) < histo->binCounts[H2D::YAxis]);
+
+        s32 xBin = static_cast<s32>(get_bin_unchecked(
+                x,
+                histo->binnings[H2D::XAxis].min,
+                histo->binningFactors[H2D::XAxis]));
+
+        s32 yBin = static_cast<s32>(get_bin_unchecked(
+                y,
+                histo->binnings[H2D::YAxis].min,
+                histo->binningFactors[H2D::YAxis]));
+
+        s32 linearBin = yBin * histo->binCounts[H2D::XAxis] + xBin;
+
+        assert(0 <= linearBin && linearBin < histo->size);
+
+        histo->data[linearBin]++;
+        // TODO: stats
+    }
+}
+
 inline double get_value(H1D histo, double x)
 {
     s32 bin = get_bin(histo, x);
@@ -947,12 +999,12 @@ Operator make_h1d_sink(
     assign_input(&result, inPipe, 0);
 
     auto d = arena->pushStruct<H1DSinkData>();
+    result.d = d;
     d->histos = push_typed_block<H1D, s32>(arena, histos.size);
     for (s32 i = 0; i < histos.size; i++)
     {
         d->histos[i] = histos[i];
     }
-    result.d = d;
 
     return result;
 }
@@ -976,10 +1028,36 @@ void h1d_sink_step(Operator *op)
     }
 }
 
-struct H2D: public ParamVec
+Operator make_h2d_sink(
+    Arena *arena,
+    PipeVectors inputX,
+    PipeVectors inputY,
+    H2D histo)
 {
-    Binning binnings[2];
+    assert(inputX.data.size == 1);
+    assert(inputY.data.size == 1);
+
+    auto result = make_operator(arena, Operator_H2DSink, 2, 0);
+
+    assign_input(&result, inputX, 0);
+    assign_input(&result, inputY, 1);
+
+    auto d = arena->push<H2D>(histo);
+    result.d = d;
+
+    return result;
 };
+
+void h2d_sink_step(Operator *op)
+{
+    a2_trace("\n");
+    auto d = reinterpret_cast<H2D *>(op->d);
+    fill_h2d(d, op->inputs[0][0], op->inputs[1][0]);
+}
+
+/* ===============================================
+ * A2 implementation
+ * =============================================== */
 
 static const OperatorFunctions OperatorTable[OperatorTypeCount] =
 {
