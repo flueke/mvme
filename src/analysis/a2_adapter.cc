@@ -312,16 +312,77 @@ DEF_OP_MAGIC(histo1d_sink_magic)
     return result;
 };
 
+DEF_OP_MAGIC(histo2d_sink_magic)
+{
+    LOG("");
+    assert(inputSlots.size() == 2);
+    assert_slot(inputSlots[0]);
+    assert_slot(inputSlots[1]);
+
+    auto histoSink = qobject_cast<analysis::Histo2DSink *>(op.get());
+
+    assert(histoSink);
+
+    auto a2_xInput = find_output_pipe(adapterState, inputSlots[0]);
+    auto a2_yInput = find_output_pipe(adapterState, inputSlots[1]);
+
+    assert(inputSlots[0]->paramIndex != analysis::Slot::NoParamIndex);
+    assert(inputSlots[1]->paramIndex != analysis::Slot::NoParamIndex);
+
+    assert(inputSlots[0]->paramIndex < a2_xInput.data.size);
+    assert(inputSlots[1]->paramIndex < a2_yInput.data.size);
+
+    s32 xIndex = inputSlots[0]->paramIndex;
+    s32 yIndex = inputSlots[1]->paramIndex;
+
+    auto histo = histoSink->m_histo;
+
+    using a2::H2D;
+
+    AxisBinning binnings[H2D::AxisCount] =
+    {
+        histo->getAxisBinning(Qt::XAxis),
+        histo->getAxisBinning(Qt::YAxis)
+    };
+
+    assert(binnings[H2D::XAxis].getBins() * binnings[H2D::YAxis].getBins() < a2::H2D::size_max);
+
+    a2::H2D a2_histo = {};
+
+    a2_histo.data = histo->data();
+    a2_histo.size = binnings[H2D::XAxis].getBins() * binnings[H2D::YAxis].getBins();
+
+    for (s32 axis = 0; axis < H2D::AxisCount; axis++)
+    {
+        a2_histo.binCounts[axis] = binnings[axis].getBins();
+        a2_histo.binnings[axis].min = binnings[axis].getMin();
+        a2_histo.binnings[axis].range = binnings[axis].getMax() - binnings[axis].getMin();
+        a2_histo.binningFactors[axis] = a2_histo.binCounts[axis] / a2_histo.binnings[axis].range;
+    }
+
+    a2::Operator result = a2::make_h2d_sink(
+        arena,
+        a2_xInput,
+        a2_yInput,
+        xIndex,
+        yIndex,
+        a2_histo);
+
+    return result;
+}
+
 //using OperatorAdapterTable = QHash<const QMetaObject *, OperatorMagic *>;
 
 static const QHash<const QMetaObject *, OperatorMagic *> OperatorMagicTable =
 {
     { &analysis::CalibrationMinMax::staticMetaObject, calibration_magic },
-    { &analysis::Histo1DSink::staticMetaObject, histo1d_sink_magic },
     { &analysis::Difference::staticMetaObject, difference_magic },
     { &analysis::ArrayMap::staticMetaObject, array_map_magic },
     { &analysis::AggregateOps::staticMetaObject, aggregate_ops_magic },
     { &analysis::BinarySumDiff::staticMetaObject, binary_equation_magic },
+
+    { &analysis::Histo1DSink::staticMetaObject, histo1d_sink_magic },
+    { &analysis::Histo2DSink::staticMetaObject, histo2d_sink_magic },
 };
 
 a2::Operator a2_adapter_magic(memory::Arena *arena, A2AdapterState &state, analysis::OperatorPtr op)

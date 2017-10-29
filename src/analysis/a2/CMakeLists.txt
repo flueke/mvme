@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.0.0)
 project(mvme-a2)
 
-option(BUILD_TESTS "Build test binaries" ON)
-
-if (BUILD_TESTS)
-    enable_testing()
-endif()
+#option(BUILD_TESTS "Build test binaries" ON)
+#
+#if (BUILD_TESTS)
+#    enable_testing()
+#endif()
 
 set(WARNING_FLAGS "-Wall -Wno-unused-variable -Wno-unused-function")
 

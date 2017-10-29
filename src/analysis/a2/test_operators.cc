@@ -645,6 +645,96 @@ static void BM_h1d_sink_step(benchmark::State &state)
 }
 BENCHMARK(BM_h1d_sink_step);
 
+// FIXME: BM_h2d_sink_step() is bad
+static void BM_h2d_sink_step(benchmark::State &state)
+{
+    static double xValues[] =
+    {
+        0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0,
+        8.0, 9.0, 10.0, 11.0, 12.0, invalid_param() /* @[13] */, 14.0, 15.0,
+    };
+
+    static double yValues[] =
+    {
+        0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0,
+        8.0, 9.0, 10.0, 11.0, 12.0, invalid_param() /* @[13] */, 14.0, 15.0,
+    };
+
+    static const s32 inputSize = ArrayCount(xValues);
+    static const s32 invalidIndex = 13;
+    double bytesProcessed = 0;
+    double moduleCounter = 0;
+
+    static const s32 histoBins = 20;
+    H2D histo;
+
+    Arena histArena(Kilobytes(256));
+
+    auto storage = push_param_vector(&histArena, histoBins * histoBins, 0.0);
+
+    histo.data = storage.data;
+    histo.size = storage.size;
+
+    histo.binCounts[H2D::XAxis] = histoBins;
+    histo.binnings[H2D::XAxis].min = 0.0;
+    histo.binnings[H2D::XAxis].range = 20.0;
+    histo.binningFactors[H2D::XAxis] = histoBins / 20.0;
+
+    histo.binCounts[H2D::YAxis] = histoBins;
+    histo.binnings[H2D::YAxis].min = 0.0;
+    histo.binnings[H2D::YAxis].range = 20.0;
+    histo.binningFactors[H2D::YAxis] = histoBins / 20.0;
+
+    Arena arena(Kilobytes(256));
+
+    // one value per iteration
+
+    PipeVectors xInput;
+    xInput.data = { xValues, 1 };
+    xInput.lowerLimits = push_param_vector(&arena, inputSize, 0.0);
+    xInput.upperLimits = push_param_vector(&arena, inputSize, 20.0);
+
+    PipeVectors yInput;
+    yInput.data = { yValues, 1 };
+    yInput.lowerLimits = push_param_vector(&arena, inputSize, 0.0);
+    yInput.upperLimits = push_param_vector(&arena, inputSize, 20.0);
+
+    auto sink = make_h2d_sink(
+        &arena,
+        xInput,
+        yInput,
+        0, // xIndex
+        0, // yIndex
+        histo);
+
+    auto d = reinterpret_cast<H2DSinkData *>(sink.d);
+
+    while (state.KeepRunning())
+    {
+        h2d_sink_step(&sink);
+        bytesProcessed += sizeof(double) * 2;
+        moduleCounter++;
+
+        // next x/y values
+        sink.inputs[0].data++;
+        sink.inputs[1].data++;
+
+        if (sink.inputs[0].data >= xValues + inputSize)
+            sink.inputs[0].data = xValues;
+
+        if (sink.inputs[1].data >= yValues + inputSize)
+            sink.inputs[1].data = yValues;
+
+        //print_param_vector(d->histo);
+    }
+
+    state.counters["mem"] = Counter(arena.used());
+    state.counters["hMem"] = Counter(histArena.used());
+    state.counters["bR"] = Counter(bytesProcessed, Counter::kIsRate);
+    state.counters["mR"] = Counter(moduleCounter, Counter::kIsRate);
+}
+BENCHMARK(BM_h2d_sink_step);
+
 #if 0
 static void BM_binary_equation_step(benchmark::State &state)
 {
@@ -709,6 +799,6 @@ static void BM_binary_equation_step(benchmark::State &state)
 BENCHMARK(BM_binary_equation_step);
 #endif
 
-#warning "missing test for binary_equation_step"
+//#warning "missing test for binary_equation_step"
 
 BENCHMARK_MAIN();

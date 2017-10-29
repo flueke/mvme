@@ -105,7 +105,8 @@ class Histo2D: public QObject
         AxisInterval getInterval(Qt::Axis axis) const;
 
         Histo2DStatistics calcStatistics(AxisInterval xInterval, AxisInterval yInterval) const;
-        inline Histo2DStatistics getGlobalStatistics() const { return m_stats; }
+        //inline Histo2DStatistics getGlobalStatistics() const { return m_stats; }
+        inline Histo2DStatistics getGlobalStatistics() const;
         inline double getEntryCount() const { return m_stats.entryCount; }
 
         double getUnderflow() const { return m_underflow; }
@@ -144,6 +145,8 @@ class Histo2D: public QObject
         double m_overflow = 0.0;
 
         Histo2DStatistics m_stats;
+        // FIXME: hack for a2
+        mutable double m_lastCalculatedMaxValue = 0.0;
 
         QString m_title;
         QString m_footer;

@@ -7,7 +7,7 @@
 #include <array>
 
 // Huge speedup if bmi2 is enabled. Huge penalty otherwise.
-#define A2_DATA_FILTER_ALWAYS_GATHER
+//#define A2_DATA_FILTER_ALWAYS_GATHER
 
 namespace a2
 {

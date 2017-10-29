@@ -172,20 +172,30 @@ AxisInterval Histo2D::getInterval(Qt::Axis axis) const
     else if (axis == Qt::ZAxis)
     {
         result.minValue = 0.0;
-        result.maxValue = m_stats.maxValue;
+        // FIXME: hack for a2
+        //result.maxValue = m_stats.maxValue;
+        result.maxValue = m_lastCalculatedMaxValue;
     }
 
     return result;
 }
 
+Histo2DStatistics Histo2D::getGlobalStatistics() const
+{
+    return calcStatistics(getInterval(Qt::XAxis), getInterval(Qt::YAxis));
+}
+
 Histo2DStatistics Histo2D::calcStatistics(AxisInterval xInterval, AxisInterval yInterval) const
 {
+    // always calculate due to a2 filling the histogram without updating the local stats here
+#if 0
     if (xInterval == getInterval(Qt::XAxis)
         && yInterval == getInterval(Qt::YAxis))
     {
         // global range for both intervals, return global stats
         return m_stats;
     }
+#endif
 
     Histo2DStatistics result;
 
@@ -235,6 +245,9 @@ Histo2DStatistics Histo2D::calcStatistics(AxisInterval xInterval, AxisInterval y
 
     result.maxX = m_axisBinnings[Qt::XAxis].getBinLowEdge(result.maxBinX);
     result.maxY = m_axisBinnings[Qt::YAxis].getBinLowEdge(result.maxBinY);
+
+    // FIXME: hack for a2
+    m_lastCalculatedMaxValue = result.maxValue;
 
     return result;
 }

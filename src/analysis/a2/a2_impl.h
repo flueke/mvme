@@ -36,6 +36,7 @@ void aggregate_multiplicity_step(Operator *op);
 void aggregate_max_step(Operator *op);
 
 void h1d_sink_step(Operator *op);
+void h2d_sink_step(Operator *op);
 
 } // namespace a2
 

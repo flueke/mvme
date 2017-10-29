@@ -8,8 +8,7 @@
 
 #define ArrayCount(x) (sizeof(x) / sizeof(*x))
 
-//#ifndef NDEBUG
-#if 0
+#ifndef NDEBUG
 #define a2_trace(fmt, ...)\
 do\
 {\
@@ -30,11 +29,13 @@ using namespace memory;
  *   specific power of 2. This is needed to efficiently use vector instructions
  *   in the _step() loops I think.
  *
- * - Write a test for keep_previous_step().
  * - Try an extractor for single word filters. Use the same system as for
  *   operators: a global function table. This means that
  *   a2_process_module_data() has to do a lookup and dispatch instead of
  *   passing directly to the extractor.
+ * - Better tests. Test edge cases using nan, inf, -inf. Document the behaviour.
+ * - Test and document the behaviour for invalids.
+ * - Support negative axis values.
  */
 
 /* Alignment in bytes of all double vectors created by the system.
@@ -42,7 +43,6 @@ using namespace memory;
  * AVX wants 32 bytes (256 bit registers).
  */
 static const size_t ParamVecAlignment = 32;
-
 
 void print_param_vector(ParamVec pv)
 {
@@ -896,12 +896,6 @@ inline void fill_h1d(H1D *histo, double x)
 
         double value = ++histo->data[bin];
         histo->entryCount++;
-
-        if (value > histo->maxValue)
-        {
-            histo->maxValue = value;
-            histo->maxBin = bin;
-        }
     }
 }
 
@@ -956,6 +950,10 @@ inline void fill_h2d(H2D *histo, double x, double y)
 
         s32 linearBin = yBin * histo->binCounts[H2D::XAxis] + xBin;
 
+        a2_trace("x=%lf, y=%lf, xBin=%d, yBin=%d, linearBin=%d\n",
+                 x, y, xBin, yBin, linearBin);
+
+
         assert(0 <= linearBin && linearBin < histo->size);
 
         histo->data[linearBin]++;
@@ -973,8 +971,6 @@ void clear_histo(H1D *histo)
 {
     histo->binningFactor = 0.0;
     histo->entryCount = 0.0;
-    histo->maxValue = 0.0;
-    histo->maxBin = 0.0;
     histo->underflow = 0.0;
     histo->overflow = 0.0;
     for (s32 i = 0; i < histo->size; i++)
@@ -1000,7 +996,9 @@ Operator make_h1d_sink(
 
     auto d = arena->pushStruct<H1DSinkData>();
     result.d = d;
+
     d->histos = push_typed_block<H1D, s32>(arena, histos.size);
+
     for (s32 i = 0; i < histos.size; i++)
     {
         d->histos[i] = histos[i];
@@ -1017,32 +1015,27 @@ void h1d_sink_step(Operator *op)
 
     for (s32 idx = 0; idx < maxIdx; idx++)
     {
-        if (is_param_valid(op->inputs[0][idx]))
-        {
-            fill_h1d(&d->histos[idx], op->inputs[0][idx]);
-        }
-        else
-        {
-            // could keep track of the invalid count here if needed
-        }
+        fill_h1d(&d->histos[idx], op->inputs[0][idx]);
     }
 }
 
 Operator make_h2d_sink(
     Arena *arena,
-    PipeVectors inputX,
-    PipeVectors inputY,
+    PipeVectors xInput,
+    PipeVectors yInput,
+    s32 xIndex,
+    s32 yIndex,
     H2D histo)
 {
-    assert(inputX.data.size == 1);
-    assert(inputY.data.size == 1);
+    assert(0 <= xIndex && xIndex < xInput.data.size);
+    assert(0 <= yIndex && yIndex < yInput.data.size);
 
     auto result = make_operator(arena, Operator_H2DSink, 2, 0);
 
-    assign_input(&result, inputX, 0);
-    assign_input(&result, inputY, 1);
+    assign_input(&result, xInput, 0);
+    assign_input(&result, yInput, 1);
 
-    auto d = arena->push<H2D>(histo);
+    auto d = arena->push<H2DSinkData>({ histo, xIndex, yIndex });
     result.d = d;
 
     return result;
@@ -1051,8 +1044,13 @@ Operator make_h2d_sink(
 void h2d_sink_step(Operator *op)
 {
     a2_trace("\n");
-    auto d = reinterpret_cast<H2D *>(op->d);
-    fill_h2d(d, op->inputs[0][0], op->inputs[1][0]);
+
+    auto d = reinterpret_cast<H2DSinkData *>(op->d);
+
+    fill_h2d(
+        &d->histo,
+        op->inputs[0][d->xIndex],
+        op->inputs[1][d->yIndex]);
 }
 
 /* ===============================================
@@ -1069,7 +1067,7 @@ static const OperatorFunctions OperatorTable[OperatorTypeCount] =
     [Operator_ArrayMap] = { array_map_step },
     [Operator_BinaryEquation] = { binary_equation_step },
     [Operator_H1DSink] = { h1d_sink_step },
-    [Operator_H2DSink] = { nullptr },
+    [Operator_H2DSink] = { h2d_sink_step },
     [Operator_RangeFilter] = { nullptr },
 
     [Operator_Sum] = { aggregate_sum_step },
@@ -1175,6 +1173,11 @@ void a2_end_event(A2 *a2, int eventIndex)
     for (int opIdx = 0; opIdx < opCount; opIdx++)
     {
         Operator *op = operators + opIdx;
+
+        assert(op);
+        assert(op->type < ArrayCount(OperatorTable));
+        assert(OperatorTable[op->type].step);
+
         OperatorTable[op->type].step(op);
     }
 

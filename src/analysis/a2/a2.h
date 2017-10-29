@@ -258,8 +258,6 @@ struct H1D: public ParamVec
     double entryCount;
     double underflow;
     double overflow;
-    double maxValue;
-    s32 maxBin;
 };
 
 Operator make_h1d_sink(
@@ -287,11 +285,22 @@ struct H2D: public ParamVec
     double entryCount;
     double underflow;
     double overflow;
-    // TODO: maybe add stats here: maxBinX, maxBinY, maxX, maxY, maxValue
-    // FIXME: Histo2D needs to get to those stats. This is different from
-    // Histo1D where the starts are updated when requested. Histo2D updates the
-    // stats in each call to fill().
 };
+
+struct H2DSinkData
+{
+    H2D histo;
+    s32 xIndex;
+    s32 yIndex;
+};
+
+Operator make_h2d_sink(
+    memory::Arena *arena,
+    PipeVectors xInput,
+    PipeVectors yInput,
+    s32 xIndex,
+    s32 yIndex,
+    H2D histo);
 
 template<typename Out, typename T>
 void write_value(Out &out, T value)
