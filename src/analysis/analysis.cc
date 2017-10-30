@@ -22,9 +22,11 @@
 
 #include <random>
 
+#include "a2_adapter.h"
 #include "../vme_config.h"
 
 #define ENABLE_ANALYSIS_DEBUG 0
+#define ANALYSIS_USE_A2 1
 
 template<typename T>
 QDebug &operator<< (QDebug &dbg, const std::shared_ptr<T> &ptr)
@@ -699,18 +701,26 @@ void CalibrationMinMax::read(const QJsonObject &json)
     {
         auto paramJson = it->toObject();
 
-        CalibrationMinMaxParameters param;
 
-        param.unitMin = paramJson["unitMin"].toDouble(make_quiet_nan());
-        param.unitMax = paramJson["unitMax"].toDouble(make_quiet_nan());
-
-        if (!param.isValid())
+        /* TODO: There's a bug in the write code and/or the code that should
+         * resize m_calibrations on changes to the input: Empty entries appear
+         * at the end of the list of calibration parameters inside the
+         * generated json. The test here skips those. */
+        if (paramJson.contains("unitMin"))
         {
-            param.unitMin = m_oldGlobalUnitMin;
-            param.unitMax = m_oldGlobalUnitMax;
-        }
+            CalibrationMinMaxParameters param;
 
-        m_calibrations.push_back(param);
+            param.unitMin = paramJson["unitMin"].toDouble(make_quiet_nan());
+            param.unitMax = paramJson["unitMax"].toDouble(make_quiet_nan());
+
+            if (!param.isValid())
+            {
+                param.unitMin = m_oldGlobalUnitMin;
+                param.unitMax = m_oldGlobalUnitMax;
+            }
+
+            m_calibrations.push_back(param);
+        }
     }
 }
 
@@ -2755,6 +2765,10 @@ Analysis::Analysis(QObject *parent)
     qDebug() << "Registered Sinks:     " << m_registry.getSinkNames();
 }
 
+Analysis::~Analysis()
+{
+}
+
 void Analysis::beginRun(const RunInfo &runInfo)
 {
     m_runInfo = runInfo;
@@ -2798,8 +2812,38 @@ void Analysis::beginRun(const RunInfo &runInfo)
         << m_operators.size() << " operators";
 }
 
+void Analysis::beginRun(const RunInfo &runInfo, const QHash<QUuid, QPair<int, int>> &vmeConfigUuIdToIndexes)
+{
+    beginRun(runInfo);
+
+    if (!m_a2Arena)
+    {
+        static const size_t A2InitialMem = Megabytes(1);
+        m_a2Arena = std::make_unique<memory::Arena>(A2InitialMem);
+    }
+    else
+    {
+        m_a2Arena->reset();
+    }
+
+#if ANALYSIS_USE_A2
+    qDebug() << __FUNCTION__ << "########## a2 active ##########";
+
+    m_vmeConfigUuIdToIndexes = vmeConfigUuIdToIndexes;
+
+    auto a2State = a2_adapter_build(
+        m_a2Arena.get(),
+        m_sources,
+        m_operators,
+        vmeConfigUuIdToIndexes);
+
+    m_a2State = std::make_unique<A2AdapterState>(a2State);
+#endif
+}
+
 void Analysis::beginEvent(const QUuid &eventId)
 {
+#if not ANALYSIS_USE_A2
     for (auto &sourceEntry: m_sources)
     {
         if (sourceEntry.eventId == eventId)
@@ -2807,26 +2851,14 @@ void Analysis::beginEvent(const QUuid &eventId)
             sourceEntry.sourceRaw->beginEvent();
         }
     }
-}
-
-void Analysis::addSource(const QUuid &eventId, const QUuid &moduleId, const SourcePtr &source)
-{
-    source->beginRun(m_runInfo);
-    m_sources.push_back({eventId, moduleId, source, source.get()});
-    updateRanks();
-    setModified();
-}
-
-void Analysis::addOperator(const QUuid &eventId, const OperatorPtr &op, s32 userLevel)
-{
-    op->beginRun(m_runInfo);
-    m_operators.push_back({eventId, op, op.get(), userLevel});
-    updateRanks();
-    setModified();
+#else
+    a2_begin_event(m_a2State->a2, m_vmeConfigUuIdToIndexes[eventId].first);
+#endif
 }
 
 void Analysis::processModuleData(const QUuid &eventId, const QUuid &moduleId, u32 *data, u32 size)
 {
+#if not ANALYSIS_USE_A2
     for (auto &sourceEntry: m_sources)
     {
         if (sourceEntry.eventId == eventId && sourceEntry.moduleId == moduleId)
@@ -2837,8 +2869,19 @@ void Analysis::processModuleData(const QUuid &eventId, const QUuid &moduleId, u3
             sourceEntry.sourceRaw->processModuleData(data, size);
         }
     }
+
+#else
+    auto indexes = m_vmeConfigUuIdToIndexes[moduleId];
+    a2_process_module_data(m_a2State->a2, indexes.first, indexes.second, data, size);
+#endif
 }
 
+#if ANALYSIS_USE_A2
+void Analysis::endEvent(const QUuid &eventId)
+{
+    a2_end_event(m_a2State->a2, m_vmeConfigUuIdToIndexes[eventId].first);
+}
+#else // ANALYSIS_USE_A2
 void Analysis::endEvent(const QUuid &eventId)
 {
     //TimedBlock tb(__PRETTY_FUNCTION__);
@@ -2918,16 +2961,30 @@ void Analysis::endEvent(const QUuid &eventId)
         }
     }
     qDebug() << " <<< End Operators >>>";
-#endif
-
-#if ENABLE_ANALYSIS_DEBUG
     qDebug() << "end endEvent()" << eventId;
 #endif
 }
+#endif // ANALYSIS_USE_A2
 
 void Analysis::processTimetick()
 {
     m_timetickCount += 1.0;
+}
+
+void Analysis::addSource(const QUuid &eventId, const QUuid &moduleId, const SourcePtr &source)
+{
+    source->beginRun(m_runInfo);
+    m_sources.push_back({eventId, moduleId, source, source.get()});
+    updateRanks();
+    setModified();
+}
+
+void Analysis::addOperator(const QUuid &eventId, const OperatorPtr &op, s32 userLevel)
+{
+    op->beginRun(m_runInfo);
+    m_operators.push_back({eventId, op, op.get(), userLevel});
+    updateRanks();
+    setModified();
 }
 
 double Analysis::getTimetickCount() const

@@ -8,6 +8,7 @@ set(CMAKE_CXX_FLAGS "-std=c++14 -pipe ${WARNING_FLAGS}")
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mbmi2")
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4.2")
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer")
 
 set(MARCH_FLAG "nocona")
 set(MTUNE_FLAG "core2")
@@ -92,7 +93,7 @@ add_subdirectory(extras)
 
 # To get a 'make test' target. If this is not in the top level CMakeLists.txt
 # no test target is generated :(
-option(BUILD_TESTS "Build test binaries" OFF)
+option(BUILD_TESTS "Build test binaries" ON)
 
 if (BUILD_TESTS)
     message("-- Building test binaries")

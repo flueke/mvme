@@ -55,6 +55,7 @@ class Histo1D: public QObject
         s32 fill(double x, double weight = 1.0);
         double getValue(double x) const;
         void clear();
+        inline double *data() { return m_data; }
 
         inline u32 getNumberOfBins() const { return m_xAxisBinning.getBins(); }
         inline size_t getStorageSize() const { return getNumberOfBins() * sizeof(double); }

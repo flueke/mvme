@@ -16,6 +16,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
+#include "a2_adapter.h"
 #include "analysis_ui_p.h"
 #include "analysis_util.h"
 #include "data_extraction_widget.h"
@@ -1714,9 +1715,11 @@ void OperatorConfigurationWidget::fillCalibrationTable(CalibrationMinMax *calib,
 // PipeDisplay
 //
 
-PipeDisplay::PipeDisplay(Pipe *pipe, QWidget *parent)
+PipeDisplay::PipeDisplay(Analysis *analysis, Pipe *pipe, QWidget *parent)
     : QWidget(parent, Qt::Tool)
+    , m_analysis(analysis)
     , m_pipe(pipe)
+    , m_infoLabel(new QLabel)
     , m_parameterTable(new QTableWidget)
 {
     auto layout = new QGridLayout(this);
@@ -1729,51 +1732,100 @@ PipeDisplay::PipeDisplay(Pipe *pipe, QWidget *parent)
     auto closeButton = new QPushButton(QSL("Close"));
     connect(closeButton, &QPushButton::clicked, this, &QWidget::close);
 
+    layout->addWidget(m_infoLabel, row++, 0);
     layout->addWidget(refreshButton, row++, 0);
     layout->addWidget(m_parameterTable, row++, 0);
     layout->addWidget(closeButton, row++, 0, 1, 1);
 
     layout->setRowStretch(1, 1);
 
+    // columns:
+    // Valid, Value, lower Limit, upper Limit
+    m_parameterTable->setColumnCount(4);
+    m_parameterTable->setHorizontalHeaderLabels({"Valid", "Value", "Lower Limit", "Upper Limit"});
+
     refresh();
 }
 
 void PipeDisplay::refresh()
 {
-    m_parameterTable->clear();
-    m_parameterTable->setColumnCount(4);
-    m_parameterTable->setRowCount(m_pipe->parameters.size());
+    setWindowTitle(m_pipe->parameters.name);
 
-    // columns:
-    // Valid, Value, lower Limit, upper Limit
-    m_parameterTable->setHorizontalHeaderLabels({"Valid", "Value", "Lower Limit", "Upper Limit"});
-
-    for (s32 paramIndex = 0; paramIndex < m_pipe->parameters.size(); ++paramIndex)
+    if (auto a2State = m_analysis->getA2AdapterState())
     {
-        const auto &param(m_pipe->parameters[paramIndex]);
-        auto item = new QTableWidgetItem(param.valid ? "Y" : "N");
-        item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
-        m_parameterTable->setItem(paramIndex, 0, item);
+        a2::PipeVectors pipe = find_output_pipe(a2State, m_pipe);
 
-        item = new QTableWidgetItem(param.valid ? QString::number(param.value) : "");
-        item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
-        m_parameterTable->setItem(paramIndex, 1, item);
+        m_parameterTable->setRowCount(pipe.data.size);
 
-        item = new QTableWidgetItem(QString::number(param.lowerLimit));
-        item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
-        m_parameterTable->setItem(paramIndex, 2, item);
+        for (s32 pi = 0; pi < pipe.data.size; pi++)
+        {
+            double param = pipe.data[pi];
+            double lowerLimit = pipe.lowerLimits[pi];
+            double upperLimit = pipe.upperLimits[pi];
 
-        item = new QTableWidgetItem(QString::number(param.upperLimit));
-        item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
-        m_parameterTable->setItem(paramIndex, 3, item);
+            QStringList columns =
+            {
+                a2::is_param_valid(param) ? QSL("Y") : QSL("N"),
+                a2::is_param_valid(param) ? QString::number(param) : QSL(""),
+                QString::number(lowerLimit),
+                QString::number(upperLimit),
+            };
 
-        m_parameterTable->setVerticalHeaderItem(paramIndex, new QTableWidgetItem(QString::number(paramIndex)));
+            for (s32 ci = 0; ci < columns.size(); ci++)
+            {
+                auto item = m_parameterTable->item(pi, ci);
+                if (!item)
+                {
+                    item = new QTableWidgetItem;
+                    m_parameterTable->setItem(pi, ci, item);
+                }
+
+                item->setText(columns[ci]);
+                item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
+            }
+
+            //m_parameterTable->setVerticalHeaderItem(pi, new QTableWidgetItem(QString::number(pi)));
+        }
+
+        m_infoLabel->setText("a2::PipeVectors");
+    }
+    else
+    {
+        m_parameterTable->setRowCount(m_pipe->parameters.size());
+
+        for (s32 pi = 0; pi < m_pipe->parameters.size(); ++pi)
+        {
+            const auto &param(m_pipe->parameters[pi]);
+
+            QStringList columns =
+            {
+                param.valid ? QSL("Y") : QSL("N"),
+                param.valid ? QString::number(param.value) : QSL(""),
+                QString::number(param.lowerLimit),
+                QString::number(param.upperLimit),
+            };
+
+            for (s32 ci = 0; ci < columns.size(); ci++)
+            {
+                auto item = m_parameterTable->item(pi, ci);
+                if (!item)
+                {
+                    item = new QTableWidgetItem;
+                    m_parameterTable->setItem(pi, ci, item);
+                }
+
+                item->setText(columns[ci]);
+                item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
+            }
+
+            //m_parameterTable->setVerticalHeaderItem(pi, new QTableWidgetItem(QString::number(pi)));
+        }
+
+        m_infoLabel->setText("analysis::Pipe");
     }
 
     m_parameterTable->resizeColumnsToContents();
     m_parameterTable->resizeRowsToContents();
-
-    setWindowTitle(m_pipe->parameters.name);
 }
 
 

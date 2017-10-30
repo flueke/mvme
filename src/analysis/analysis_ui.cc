@@ -2028,7 +2028,7 @@ void EventWidgetPrivate::generateDefaultFilters(ModuleConfig *module)
 
 PipeDisplay *EventWidgetPrivate::makeAndShowPipeDisplay(Pipe *pipe)
 {
-    auto widget = new PipeDisplay(pipe, m_q);
+    auto widget = new PipeDisplay(m_context->getAnalysis(), pipe, m_q);
     QObject::connect(m_displayRefreshTimer, &QTimer::timeout, widget, &PipeDisplay::refresh);
     QObject::connect(pipe->source, &QObject::destroyed, widget, &QWidget::close);
     add_widget_close_action(widget);

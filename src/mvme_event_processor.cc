@@ -128,6 +128,7 @@ void MVMEEventProcessor::newRun(const RunInfo &runInfo)
     m_d->doMultiEventProcessing.fill(false);
 
     auto eventConfigs = m_d->context->getEventConfigs();
+    QHash<QUuid, QPair<int, int>> vmeConfigUuIdToIndexes;
 
     for (s32 eventIndex = 0;
          eventIndex < eventConfigs.size();
@@ -135,6 +136,8 @@ void MVMEEventProcessor::newRun(const RunInfo &runInfo)
     {
         auto eventConfig = eventConfigs[eventIndex];
         auto moduleConfigs = eventConfig->getModuleConfigs();
+
+        vmeConfigUuIdToIndexes[eventConfig->getId()] = qMakePair(eventIndex, -1);
 
         for (s32 moduleIndex = 0;
              moduleIndex < moduleConfigs.size();
@@ -145,6 +148,8 @@ void MVMEEventProcessor::newRun(const RunInfo &runInfo)
             modInfo.moduleHeaderFilter = makeFilterFromBytes(moduleConfig->getEventHeaderFilter());
             modInfo.moduleConfig = moduleConfig;
 
+        vmeConfigUuIdToIndexes[moduleConfig->getId()] = qMakePair(eventIndex, moduleIndex);
+
             qDebug() << __PRETTY_FUNCTION__ << moduleConfig->objectName() << modInfo.moduleHeaderFilter.toString();
         }
 
@@ -154,7 +159,7 @@ void MVMEEventProcessor::newRun(const RunInfo &runInfo)
 
     if (m_d->analysis_ng)
     {
-        m_d->analysis_ng->beginRun(runInfo);
+        m_d->analysis_ng->beginRun(runInfo, vmeConfigUuIdToIndexes);
     }
 
     if (m_d->diag)
