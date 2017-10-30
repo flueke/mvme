@@ -291,3 +291,33 @@ void format_sis3153_buffer(DataBuffer *buffer, QTextStream &out, u64 bufferNumbe
         out << "!!! end of buffer reached unexpectedly !!!" << endl;
     }
 }
+
+/* Note: this takes a 16-bit part of a StackListControlValue. If you want to
+ * print out the "disable" part shift the original 32-bit value down by 16
+ * first. */
+QString format_sis3153_stacklist_control_value(u16 value)
+{
+    using namespace SIS3153Registers::StackListControlValues;
+
+    QStringList strings;
+
+    if (value & StackListEnable)
+        strings << QSL("StackListEnable");
+
+    if (value & Timer1Enable)
+        strings << QSL("Timer1");
+
+    if (value & Timer2Enable)
+        strings << QSL("Timer2");
+
+    if (value & ListBufferEnable)
+        strings << QSL("Buffering");
+
+    auto valueText = strings.join(QSL(" | "));
+
+    QString result = (QString(QSL("StackListControl: 0x%1 -> (%2)"))
+                      .arg(value, 4, 16, QLatin1Char('0'))
+                      .arg(valueText));
+
+    return result;
+}

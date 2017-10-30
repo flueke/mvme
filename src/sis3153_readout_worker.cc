@@ -21,15 +21,34 @@
 
 #include <QCoreApplication>
 
-#include "sis3153/sis3153ETH_vme_class.h"
-#include "sis3153/sis3153eth.h"
-#include "vme_daq.h"
 #include "mvme_listfile.h"
+#include "sis3153/sis3153eth.h"
+#include "sis3153/sis3153ETH_vme_class.h"
+#include "sis3153_util.h"
 #include "util/perf.h"
+#include "vme_daq.h"
 
 #define SIS_READOUT_DEBUG               1   // enable debugging code
 #define SIS_READOUT_BUFFER_DEBUG_PRINT  1   // print buffers to console
-#define SIS_READOUT_BUFFER_DEBUG_FILE   0   // print buffers to buffer.log
+
+#ifndef NDEBUG
+#define sis_trace(msg)\
+do\
+{\
+    auto dbg(qDebug());\
+    dbg.nospace().noquote() << __PRETTY_FUNCTION__ << " " << __FILE__ << ":" << __LINE__ << " " << msg;\
+} while (0)
+#else
+#define sis_trace(msg)
+#endif
+
+#define sis_log(msg)\
+do\
+{\
+    logMessage(msg);\
+    auto dbg(qDebug());\
+    dbg.nospace().noquote() << __PRETTY_FUNCTION__ << " " << __FILE__ << ":" << __LINE__ << " " << msg;\
+} while (0)
 
 using namespace vme_script;
 
@@ -280,26 +299,6 @@ namespace
 static const u32 WatchdogPayload = 0xbeefbeef;
 static const double WatchdogTimeout_s = 0.050;
 
-#define sis_log(msg)\
-do\
-{\
-    logMessage(msg);\
-    auto dbg(qDebug());\
-    dbg.nospace().noquote() << __PRETTY_FUNCTION__ << " " << __FILE__ << ":" << __LINE__ << " " << msg;\
-} while (0)
-
-#ifndef NDEBUG
-#define sis_trace(msg)\
-do\
-{\
-    auto dbg(qDebug());\
-    dbg.nospace().noquote() << __PRETTY_FUNCTION__ << " " << __FILE__ << ":" << __LINE__ << " " << msg;\
-} while (0)
-#else
-#define sis_trace(msg)
-#endif
-
-
 //
 // SIS3153ReadoutWorker
 //
@@ -333,6 +332,7 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
 
     m_sis = sis;
     m_cyclesToRun = cycles;
+    m_logBuffers = (cycles > 0); // log buffers to GUI if number of cycles has been passed in
     VMEError error;
     setState(DAQState::Starting);
 
@@ -719,10 +719,9 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
         logMessage(QSL(""));
         dump_registers(sis, [this] (const QString &line) { this->logMessage(line); });
 
-#if SIS_READOUT_DEBUG && SIS_READOUT_BUFFER_DEBUG_FILE
-        m_debugFile = new QFile("buffer.log", this);
-        m_debugFile->open(QIODevice::WriteOnly);
-#endif
+        logMessage(QSL(""));
+        sis_log(QString("StackListControl: %1")
+                .arg(format_sis3153_stacklist_control_value(stackListControlValue & 0xffff)));
 
         //
         // Debug: record raw buffers to file
@@ -796,13 +795,7 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
 
         logMessage(QString(QSL("SIS3153 readout stopped on %1"))
                    .arg(QDateTime::currentDateTime().toString())
-                   );
-
-#if SIS_READOUT_DEBUG && SIS_READOUT_BUFFER_DEBUG_FILE
-        delete m_debugFile;
-        m_debugFile = nullptr;
-#endif
-
+                  );
     }
     catch (const std::runtime_error &e)
     {
@@ -1160,6 +1153,15 @@ void SIS3153ReadoutWorker::processBuffer(
               .arg(bufferNumber)
               .arg(size));
 #endif
+
+    if (m_logBuffers)
+    {
+        sis_log(QString(">>> Begin buffer #%1").arg(bufferNumber));
+
+        logBuffer(BufferIterator(data, size), [this](const QString &str) { logMessage(str); });
+
+        sis_log(QString("<<< End buffer #%1") .arg(bufferNumber));
+    }
 
     u32 action = 0;
 

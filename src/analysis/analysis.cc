@@ -26,7 +26,7 @@
 #include "../vme_config.h"
 
 #define ENABLE_ANALYSIS_DEBUG 0
-#define ANALYSIS_USE_A2 1
+#define ANALYSIS_USE_A2 0
 
 template<typename T>
 QDebug &operator<< (QDebug &dbg, const std::shared_ptr<T> &ptr)
