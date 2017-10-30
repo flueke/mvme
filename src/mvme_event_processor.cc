@@ -42,11 +42,6 @@ enum RunAction
     StopImmediately
 };
 
-// Maximum number of possible events in the vme config. Basically IRQ1-7 +
-// external inputs + timers + some room to grow.
-static const u32 MaxEvents = 12;
-static const u32 MaxModulesPerEvent = 20;
-
 struct MultiEventModuleInfo
 {
     u32 *subEventHeader = nullptr;  // Points to the mvme header preceeding the module data.
@@ -56,15 +51,14 @@ struct MultiEventModuleInfo
 
 
     // The filter used to identify module headers and extract the module
-    // section size. Comes from the module config but is cached here for
-    // efficiency.
+    // section size.
     DataFilter moduleHeaderFilter;
 
     // Cache pointers to the corresponding module config.
     ModuleConfig *moduleConfig = nullptr;
 };
 
-using ModuleInfoArray = std::array<MultiEventModuleInfo, MaxModulesPerEvent>;
+using ModuleInfoArray = std::array<MultiEventModuleInfo, MaxVMEModules>;
 
 struct MVMEEventProcessorPrivate
 {
@@ -88,9 +82,9 @@ struct MVMEEventProcessorPrivate
     int SubEventSizeMask;
     int SubEventSizeShift;
 
-    std::array<ModuleInfoArray, MaxEvents> eventInfos;
-    std::array<EventConfig *, MaxEvents> eventConfigs;
-    std::array<bool, MaxEvents> doMultiEventProcessing;
+    std::array<ModuleInfoArray, MaxVMEEvents> eventInfos;
+    std::array<EventConfig *, MaxVMEEvents> eventConfigs;
+    std::array<bool, MaxVMEEvents> doMultiEventProcessing;
 
     MVMEEventProcessorCounters m_localStats;
 };
@@ -134,6 +128,7 @@ void MVMEEventProcessor::newRun(const RunInfo &runInfo)
     m_d->doMultiEventProcessing.fill(false);
 
     auto eventConfigs = m_d->context->getEventConfigs();
+    QHash<QUuid, QPair<int, int>> vmeConfigUuIdToIndexes;
 
     for (s32 eventIndex = 0;
          eventIndex < eventConfigs.size();
@@ -141,6 +136,8 @@ void MVMEEventProcessor::newRun(const RunInfo &runInfo)
     {
         auto eventConfig = eventConfigs[eventIndex];
         auto moduleConfigs = eventConfig->getModuleConfigs();
+
+        vmeConfigUuIdToIndexes[eventConfig->getId()] = qMakePair(eventIndex, -1);
 
         for (s32 moduleIndex = 0;
              moduleIndex < moduleConfigs.size();
@@ -151,6 +148,8 @@ void MVMEEventProcessor::newRun(const RunInfo &runInfo)
             modInfo.moduleHeaderFilter = makeFilterFromBytes(moduleConfig->getEventHeaderFilter());
             modInfo.moduleConfig = moduleConfig;
 
+        vmeConfigUuIdToIndexes[moduleConfig->getId()] = qMakePair(eventIndex, moduleIndex);
+
             qDebug() << __PRETTY_FUNCTION__ << moduleConfig->objectName() << modInfo.moduleHeaderFilter.toString();
         }
 
@@ -160,7 +159,7 @@ void MVMEEventProcessor::newRun(const RunInfo &runInfo)
 
     if (m_d->analysis_ng)
     {
-        m_d->analysis_ng->beginRun(runInfo);
+        m_d->analysis_ng->beginRun(runInfo, vmeConfigUuIdToIndexes);
     }
 
     if (m_d->diag)
@@ -261,13 +260,29 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
     //
     // Step1: collect all subevent headers and store them in the modinfo structures
     //
+#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+    qDebug() << __PRETTY_FUNCTION__ << "Begin Step 1";
+#endif
 
     for (u32 moduleIndex = 0;
-         moduleIndex < MaxModulesPerEvent;
+         moduleIndex < MaxVMEModules;
          ++moduleIndex)
     {
-        if (eventIter.atEnd() || eventIter.peekU32() == EndMarker)
+        if (eventIter.atEnd())
+        {
+#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+            qDebug() << __PRETTY_FUNCTION__ << "  break because eventIter.atEnd()";
+#endif
             break;
+        }
+
+        if (eventIter.peekU32() == EndMarker)
+        {
+#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+            qDebug() << __PRETTY_FUNCTION__ << "  break because EndMarker found";
+#endif
+            break;
+        }
 
         moduleInfos[moduleIndex].subEventHeader = eventIter.asU32();
         moduleInfos[moduleIndex].moduleHeader   = eventIter.asU32() + 1;
@@ -275,6 +290,10 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
 
         u32 subEventHeader = eventIter.extractU32();
         u32 subEventSize   = (subEventHeader & m_d->SubEventSizeMask) >> m_d->SubEventSizeShift;
+#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+        qDebug("%s   eventIndex=%d, moduleIndex=%d, subEventSize=%u",
+               __PRETTY_FUNCTION__, eventIndex, moduleIndex, subEventSize);
+#endif
         // skip to the next subevent
         eventIter.skip(sizeof(u32), subEventSize);
     }
@@ -282,7 +301,7 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
 #ifdef MVME_EVENT_PROCESSOR_DEBUGGING
     qDebug() << __PRETTY_FUNCTION__ << "Step 1 complete: ";
 
-    for (u32 moduleIndex = 0; moduleIndex < MaxModulesPerEvent; ++moduleIndex)
+    for (u32 moduleIndex = 0; moduleIndex < MaxVMEModules; ++moduleIndex)
     {
         const auto &mi(moduleInfos[moduleIndex]);
 
@@ -298,6 +317,7 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
               );
 
     }
+    qDebug() << __PRETTY_FUNCTION__ << "End Step 1 reporting";
 #endif
 
     //
@@ -305,13 +325,18 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
     // (mod0, ev0), (mod1, ev0), .., (mod0, ev1), (mod1, ev1), ..
     //
 
-    bool done = false;
+    // Avoid hanging in the loop below if the did not get a single subEventHeader in step 1
+    bool done = (moduleInfos[0].subEventHeader == nullptr);
     const u32 *ptrToLastWord = data + size;
-    std::array<u32, MaxModulesPerEvent> eventCountsByModule;
+    std::array<u32, MaxVMEModules> eventCountsByModule;
     eventCountsByModule.fill(0);
 
     while (!done)
     {
+#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+        qDebug("%s eventIndex=%u: begin step 2 loop", __PRETTY_FUNCTION__, eventIndex);
+#endif
+
         {
             TIMED_BLOCK(TimedBlockId_MEP_Analysis_Loop);
 
@@ -464,7 +489,7 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
 
     u32 firstModuleCount = eventCountsByModule[0];
 
-    for (u32 moduleIndex = 0; moduleIndex < MaxModulesPerEvent; ++moduleIndex)
+    for (u32 moduleIndex = 0; moduleIndex < MaxVMEModules; ++moduleIndex)
     {
         if (m_d->eventInfos[eventIndex][moduleIndex].subEventHeader)
         {

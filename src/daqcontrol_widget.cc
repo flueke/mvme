@@ -136,11 +136,12 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
     connect(pb_stop, &QPushButton::clicked, m_context, &MVMEContext::stopDAQ);
 
     connect(pb_reconnect, &QPushButton::clicked, this, [this] {
-        /* Just disconnect the controller here. MVMEContext will call
-         * tryOpenController() periodically which will connect again. */
-        auto ctrl = m_context->getVMEController();
-        if (ctrl)
-            ctrl->close();
+        /* Do not disconnect the controller directly but do it via the context.
+         * This way the context can reset the connect-retry-count and attempt
+         * to connect again. */
+
+        m_context->reconnectVMEController();
+
     });
 
     connect(pb_controllerSettings, &QPushButton::clicked, this, [this] {
@@ -277,7 +278,7 @@ void DAQControlWidget::updateWidget()
     auto globalMode = m_context->getMode();
     auto daqState = m_context->getDAQState();
     auto eventProcState = m_context->getEventProcessorState();
-    auto controllerState = ControllerState::Unknown;
+    auto controllerState = ControllerState::Disconnected;
 
     if (auto controller = m_context->getVMEController())
     {
@@ -291,7 +292,7 @@ void DAQControlWidget::updateWidget()
     //
     bool enableStartButton = false;
 
-    if (globalMode == GlobalMode::DAQ && controllerState == ControllerState::Opened)
+    if (globalMode == GlobalMode::DAQ && controllerState == ControllerState::Connected)
     {
         enableStartButton = true;
     }
@@ -305,7 +306,7 @@ void DAQControlWidget::updateWidget()
     //
     // stop button
     //
-    pb_stop->setEnabled(((globalMode == GlobalMode::DAQ && daqState != DAQState::Idle && controllerState == ControllerState::Opened)
+    pb_stop->setEnabled(((globalMode == GlobalMode::DAQ && daqState != DAQState::Idle && controllerState == ControllerState::Connected)
                              || (globalMode == GlobalMode::ListFile && daqState != DAQState::Idle))
                            );
 
@@ -314,7 +315,7 @@ void DAQControlWidget::updateWidget()
     //
     bool enableOneCycleButton = false;
 
-    if (globalMode == GlobalMode::DAQ && controllerState == ControllerState::Opened && daqState == DAQState::Idle)
+    if (globalMode == GlobalMode::DAQ && controllerState == ControllerState::Connected && daqState == DAQState::Idle)
     {
         enableOneCycleButton = true;
     }
@@ -390,9 +391,24 @@ void DAQControlWidget::updateWidget()
     rb_keepData->setEnabled(daqState == DAQState::Idle);
     rb_clearData->setEnabled(daqState == DAQState::Idle);
 
-    label_controllerState->setText(controllerState == ControllerState::Opened
-                                       ? QSL("Connected")
-                                       : QSL("Disconnected"));
+    QString stateString;
+
+    switch (controllerState)
+    {
+        case ControllerState::Disconnected:
+            stateString = QSL("Disconnected");
+            break;
+
+        case ControllerState::Connecting:
+            stateString = QSL("Connecting");
+            break;
+
+        case ControllerState::Connected:
+            stateString = QSL("Connected");
+            break;
+    }
+
+    label_controllerState->setText(stateString);
 
     pb_reconnect->setEnabled(globalMode == GlobalMode::DAQ && daqState == DAQState::Idle);
     pb_controllerSettings->setEnabled(globalMode == GlobalMode::DAQ && daqState == DAQState::Idle);

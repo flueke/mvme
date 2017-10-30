@@ -22,43 +22,8 @@
 #include "vme_readout_worker.h"
 #include "sis3153.h"
 #include "vme_script.h"
+#include "vme_daq.h"
 
-/* FIXME: both readout workers currently only handle IRQ triggers. Fix this at
- * some later point (at least for the non-polling case). */
-
-/* IRQ only, polling based SIS3153 readout worker implementation. */
-class SIS3153ReadoutWorkerIRQPolling: public VMEReadoutWorker
-{
-    Q_OBJECT
-    public:
-        SIS3153ReadoutWorkerIRQPolling(QObject *parent = 0);
-        ~SIS3153ReadoutWorkerIRQPolling();
-
-        virtual void start(quint32 cycles) override;
-        virtual void stop() override;
-        virtual void pause() override;
-        virtual void resume() override;
-        virtual bool isRunning() const override;
-
-    private:
-        void setState(DAQState state);
-        void readoutLoop();
-        void logMessage(const QString &message);
-        void logError(const QString &);
-
-        void processReadoutResults(EventConfig *event, s32 eventConfigIndex,  const vme_script::ResultList &results);
-
-        DAQState m_state = DAQState::Idle;
-        DAQState m_desiredState = DAQState::Idle;
-        quint32 m_cyclesToRun = 0;
-        DataBuffer m_localEventBuffer = 0;
-        SIS3153 *m_sis = nullptr;
-        std::array<vme_script::VMEScript, 8> m_irqReadoutScripts;
-        std::array<EventConfig *, 8> m_irqEventConfigs;
-        std::array<s32, 8> m_irqEventConfigIndex;
-};
-
-/* Stacklist based, IRQ only SIS3153 readout worker implementation. */
 class SIS3153ReadoutWorker: public VMEReadoutWorker
 {
     Q_OBJECT
@@ -72,24 +37,101 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
         virtual void resume() override;
         virtual bool isRunning() const override;
 
+        struct Counters
+        {
+            std::array<u64, SIS3153Constants::NumberOfStackLists> packetsPerStackList;
+            u64 multiEventPackets = 0;
+            u64 watchdogPackets = 0;
+            int watchdogStackList = -1;
+        };
+
+        inline const Counters &getCounters() const
+        {
+            return m_counters;
+        }
+
     private:
         void setState(DAQState state);
-        void readoutLoop();
         void logMessage(const QString &message);
         void logError(const QString &);
 
-        void processReadoutResults(EventConfig *event, s32 eventConfigIndex,  const vme_script::ResultList &results);
+        VMEError uploadStackList(u32 stackLoadAddress, QVector<u32> stackList);
+
+        struct ReadBufferResult
+        {
+            int bytesRead;
+            VMEError error;
+        };
+
+        // readout stuff
+        void readoutLoop();
+        ReadBufferResult readBuffer();
+
+        // mvme event processing
+
+        /* Entry point for buffer processing. Called by readBuffer() which then
+         * dispatches to one of the process*Data() methods below. */
+        void processBuffer(
+            u8 packetAck, u8 packetIdent, u8 packetStatus, u8 *data, size_t size);
+
+        /* Handles the case where a multi event packet is received. The
+         * assumption is that multi events and partials are never mixed. */
+        u32 processMultiEventData(
+            u8 packetAck, u8 packetIdent, u8 packetStatus, u8 *data, size_t size);
+
+        /* Handles the case where no partial event assembly is in progress and
+         * the buffer contains a single complete event. */
+        u32 processSingleEventData(
+            u8 packetAck, u8 packetIdent, u8 packetStatus, u8 *data, size_t size);
+
+        /* Handles the case where partial event assembly is in progress or
+         * should be started. */
+        u32 processPartialEventData(
+            u8 packetAck, u8 packetIdent, u8 packetStatus, u8 *data, size_t size);
+
+        void timetick();
+
+        DataBuffer *getOutputBuffer();
+
+        struct ProcessingState
+        {
+            s32 stackList = -1;
+            s32 eventSize = 0;
+            s32 eventHeaderOffset = -1;
+            s32 moduleSize = 0;
+            s32 moduleHeaderOffset = -1;
+            s32 moduleIndex = -1;
+        };
+
+        struct ProcessorAction
+        {
+            static const u32 NoneSet     = 0;
+            static const u32 KeepState   = 1u << 0; // Keep the ProcessorState. If unset resets the state.
+            static const u32 FlushBuffer = 1u << 1; // Flush the current output buffer and acquire a new one
+            static const u32 SkipInput   = 1u << 2; // Skip the current input buffer.
+                                                    // Implies state reset and reuses the output buffer without
+                                                    // flusing it.
+        };
+
+        void flushCurrentOutputBuffer();
 
         DAQState m_state = DAQState::Idle;
         DAQState m_desiredState = DAQState::Idle;
         quint32 m_cyclesToRun = 0;
-        DataBuffer m_localEventBuffer;
         DataBuffer m_readBuffer;
         SIS3153 *m_sis = nullptr;
-        std::array<EventConfig *, 8> m_irqEventConfigs;
-        std::array<s32, 8> m_irqEventConfigIndex;
-        std::array<u64, 8> m_packetCountsByStack;
-        QFile *m_debugFile = nullptr;
+        std::array<EventConfig *, SIS3153Constants::NumberOfStackLists> m_eventConfigsByStackList;
+        std::array<int, SIS3153Constants::NumberOfStackLists> m_eventIndexByStackList;
+        Counters m_counters;
+        u32 m_stackListControlRegisterValue = 0;
+        int m_watchdogStackListIndex = -1;
+        DataBuffer m_localEventBuffer;
+        DataBuffer m_localTimetickBuffer;
+        std::unique_ptr<DAQReadoutListfileHelper> m_listfileHelper;
+        DataBuffer *m_outputBuffer = nullptr;
+        ProcessingState m_processingState;
+        QFile m_rawBufferOut;
+        bool m_logBuffers = false;
 };
 
 #endif /* __SIS3153_READOUT_WORKER_H__ */

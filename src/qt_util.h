@@ -22,6 +22,7 @@
 #include "typedefs.h"
 
 #include <QEventLoop>
+#include <QFrame>
 #include <QHash>
 #include <QJsonObject>
 #include <QKeySequence>
@@ -90,5 +91,19 @@ QFont make_monospace_font(QFont baseFont = QFont());
 
 void processQtEvents(QEventLoop::ProcessEventsFlags flags = QEventLoop::AllEvents);
 void processQtEvents(int maxtime_ms, QEventLoop::ProcessEventsFlags flags = QEventLoop::AllEvents);
+
+inline QFrame *make_separator_frame(Qt::Orientation orientation = Qt::Horizontal)
+{
+    auto frame = new QFrame;
+    frame->setFrameStyle((orientation == Qt::Horizontal ? QFrame::HLine : QFrame::VLine) | QFrame::Plain);
+    return frame;
+}
+
+inline QLabel *make_aligned_label(const QString &text, Qt::Alignment alignment = (Qt::AlignLeft | Qt::AlignVCenter))
+{
+    auto label = new QLabel(text);
+    label->setAlignment(alignment);
+    return label;
+}
 
 #endif /* __QT_UTIL_H__ */

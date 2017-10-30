@@ -100,3 +100,16 @@ static void clobber()
     asm volatile("" : : : "memory");
 }
 ```
+
+## SIS3153
+MAC Address: 00-00-56-15-3X-XX
+
+With XXX being the serial number in hex.
+`040 -> 0x028 -> 0-28`
+`044 -> 0x02c -> 0-2c`
+
+### Windows
+`arp -s 192.168.178.44 00-00-56-15-30-2c`
+`arp -s 192.168.178.44 00-00-56-15-30-28`
+
+# vim:ft=markdown

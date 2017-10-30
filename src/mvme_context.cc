@@ -18,6 +18,7 @@
  */
 #include "mvme_context.h"
 #include "mvme.h"
+#include "sis3153.h"
 #include "vmusb.h"
 #include "vmusb_readout_worker.h"
 #include "vmusb_buffer_processor.h"
@@ -59,6 +60,10 @@ static const int DefaultListFileCompression = 1;
 static const QString DefaultVMEConfigFileName = QSL("vme.vme");
 static const QString DefaultAnalysisConfigFileName  = QSL("analysis.analysis");
 
+/* Maximum number of connection attempts to the current VMEController before
+ * giving up. */
+static const int VMECtrlConnectMaxRetryCount = 3;
+
 struct MVMEContextPrivate
 {
     MVMEContext *m_q;
@@ -66,6 +71,7 @@ struct MVMEContextPrivate
     QMutex m_logBufferMutex;
     ListFileOutputInfo m_listfileOutputInfo = {};
     RunInfo m_runInfo;
+    u32 m_ctrlOpenRetryCount = 0;
 
     void stopDAQ();
     void stopDAQReplay();
@@ -270,7 +276,27 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent)
                            .arg(fwMinor, 4, 16, QLatin1Char('0'))
                            );
             }
-            else
+            else if (auto sis = dynamic_cast<SIS3153 *>(m_controller))
+            {
+                u32 moduleIdAndFirmware;
+                auto error = sis->readRegister(SIS3153Registers::ModuleIdAndFirmware, &moduleIdAndFirmware);
+
+                if (!error.isError())
+                {
+                    logMessage(QString("Opened VME controller %1 - Firmware 0x%2")
+                               .arg(m_controller->getIdentifyingString())
+                               .arg(moduleIdAndFirmware & 0xffff, 4, 16, QLatin1Char('0'))
+                               );
+                }
+                else
+                {
+                    logMessage(QString("Error reading firmware from VME controller %1: %2")
+                               .arg(m_controller->getIdentifyingString())
+                               .arg(error.toString())
+                              );
+                }
+            }
+            else // generic case
             {
                 logMessage(QString("Opened VME controller %1")
                            .arg(m_controller->getIdentifyingString()));
@@ -278,12 +304,18 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent)
         }
         else
         {
-#if 0
-            logMessage(QString("Could not open VME controller %1: %2")
-                       .arg(to_string(m_controller->getType()))
-                       .arg(result.toString())
-                      );
-#endif
+            /* Could not connect. Inc retry count and log a hopefully user
+             * friendly message about what went wrong. */
+
+            m_d->m_ctrlOpenRetryCount++;
+
+            if (m_d->m_ctrlOpenRetryCount >= VMECtrlConnectMaxRetryCount)
+            {
+                logMessage(QString("Could not open VME controller %1: %2")
+                           .arg(m_controller->getIdentifyingString())
+                           .arg(result.toString())
+                          );
+            }
         }
     });
 
@@ -386,10 +418,6 @@ MVMEContext::~MVMEContext()
 
 void MVMEContext::setVMEConfig(VMEConfig *config)
 {
-    // TODO: create new vmecontroller and the corresponding readout worker if
-    // the controller type changed.
-    // FIXME: old controller is not deleted on newVMEConfig and openVMEConfig!
-
     if (m_vmeConfig)
     {
         for (auto eventConfig: m_vmeConfig->getEventConfigs())
@@ -416,8 +444,6 @@ void MVMEContext::setVMEConfig(VMEConfig *config)
     connect(m_vmeConfig, &VMEConfig::eventAboutToBeRemoved, this, &MVMEContext::onEventAboutToBeRemoved);
     connect(m_vmeConfig, &VMEConfig::globalScriptAboutToBeRemoved, this, &MVMEContext::onGlobalScriptAboutToBeRemoved);
 
-    // FIXME: handle the case where the controller type changed. Worker context
-    // needs to always be up-to-date otherwise it will contain stale pointers.
     if (m_readoutWorker)
     {
         VMEReadoutWorkerContext workerContext = m_readoutWorker->getContext();
@@ -425,11 +451,14 @@ void MVMEContext::setVMEConfig(VMEConfig *config)
         m_readoutWorker->setContext(workerContext);
     }
 
+    setVMEController(config->getControllerType(), config->getControllerSettings());
+
     emit daqConfigChanged(config);
 }
 
 void MVMEContext::setVMEController(VMEController *controller, const QVariantMap &settings)
 {
+    qDebug() << __PRETTY_FUNCTION__;
     Q_ASSERT(getDAQState() == DAQState::Idle);
     Q_ASSERT(getEventProcessorState() == EventProcessorState::Idle);
 
@@ -444,9 +473,24 @@ void MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
         << ", new type   =" << (controller ? to_string(controller->getType()) : QSL("none"))
         ;
 
-    // Wait for possibly active VMEController::open() to return before deleting
-    // the controller object.
-    m_ctrlOpenFuture.waitForFinished();
+    /* Wait for possibly active VMEController::open() to return before deleting
+     * the controller object. This can take a long time if e.g. DNS lookups are
+     * performed when trying to open the current controller. This is the reason
+     * for using an event loop instead of directly calling
+     * m_ctrlOpenFuture.waitForFinished(). */
+    qDebug() << __PRETTY_FUNCTION__ << "before waitForFinished";
+    if (m_ctrlOpenFuture.isRunning())
+    {
+        QProgressDialog progressDialog("Changing VME Controller", QString(), 0, 0);
+        progressDialog.setWindowModality(Qt::ApplicationModal);
+        progressDialog.setCancelButton(nullptr);
+        progressDialog.show();
+
+        QEventLoop localLoop;
+        connect(&m_ctrlOpenWatcher, &QFutureWatcher<VMEError>::finished, &localLoop, &QEventLoop::quit);
+        localLoop.exec();
+    }
+    qDebug() << __PRETTY_FUNCTION__ << "after waitForFinished";
 
     // It should be safe to delete these now
     delete m_readoutWorker;
@@ -481,9 +525,12 @@ void MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
     };
 
     m_readoutWorker->setContext(readoutWorkerContext);
+    m_d->m_ctrlOpenRetryCount = 0;
 
     connect(controller, &VMEController::controllerStateChanged,
             this, &MVMEContext::controllerStateChanged);
+    connect(controller, &VMEController::controllerStateChanged,
+            this, &MVMEContext::onControllerStateChanged);
 
     emit vmeControllerSet(controller);
 }
@@ -498,10 +545,51 @@ void MVMEContext::setVMEController(VMEControllerType type, const QVariantMap &se
 
 ControllerState MVMEContext::getControllerState() const
 {
-    auto result = ControllerState::Unknown;
+    auto result = ControllerState::Disconnected;
     if (m_controller)
         result = m_controller->getState();
     return result;
+}
+
+void MVMEContext::onControllerStateChanged(ControllerState state)
+{
+    qDebug() << __PRETTY_FUNCTION__ << (u32) state;
+    if (state == ControllerState::Connected)
+    {
+        m_d->m_ctrlOpenRetryCount = 0;
+    }
+}
+
+void MVMEContext::reconnectVMEController()
+{
+    if (!m_controller)
+    {
+        return;
+    }
+
+    /* VMEController::close() should lock the controllers mutex just as
+     * VMEController::open() should. This means if a long lasting open()
+     * operation is in progress (e.g. due to DNS lookup) the call will block.
+     * Solution: wait for any open() calls to finish, then call close on the
+     * controller. */
+
+    qDebug() << __PRETTY_FUNCTION__ << "before m_controller->close()";
+    if (m_ctrlOpenFuture.isRunning())
+    {
+        QProgressDialog progressDialog("Reconnecting to VME Controller", QString(), 0, 0);
+        progressDialog.setWindowModality(Qt::ApplicationModal);
+        progressDialog.setCancelButton(nullptr);
+        progressDialog.show();
+
+        QEventLoop localLoop;
+        connect(&m_ctrlOpenWatcher, &QFutureWatcher<VMEError>::finished, &localLoop, &QEventLoop::quit);
+        localLoop.exec();
+    }
+
+    m_controller->close();
+    m_d->m_ctrlOpenRetryCount = 0;
+
+    qDebug() << __PRETTY_FUNCTION__ << "after m_controller->close()";
 }
 
 QString MVMEContext::getUniqueModuleName(const QString &prefix) const
@@ -528,7 +616,10 @@ QString MVMEContext::getUniqueModuleName(const QString &prefix) const
 
 void MVMEContext::tryOpenController()
 {
-    if (m_controller && !m_controller->isOpen() && !m_ctrlOpenFuture.isRunning())
+    if (m_controller
+        && !m_controller->isOpen()
+        && !m_ctrlOpenFuture.isRunning()
+        && m_d->m_ctrlOpenRetryCount < VMECtrlConnectMaxRetryCount)
     {
         m_ctrlOpenFuture = QtConcurrent::run(m_controller, &VMEController::open);
         m_ctrlOpenWatcher.setFuture(m_ctrlOpenFuture);
@@ -537,7 +628,7 @@ void MVMEContext::tryOpenController()
 
 void MVMEContext::logModuleCounters()
 {
-#if 1
+#if 0 // TODO: rebuild this once stats tracks these numbers again
 
     QString buffer;
     QTextStream stream(&buffer);
@@ -1066,6 +1157,7 @@ MVMEContext::runScript(const vme_script::VMEScript &script,
     {
         processQtEvents(QEventLoop::ExcludeUserInputEvents | QEventLoop::WaitForMoreEvents);
     }
+    processQtEvents();
 
     auto result = vme_script::run_script(m_controller, script, logger, logEachResult);
 

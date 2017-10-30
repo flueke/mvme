@@ -204,7 +204,7 @@ static int close_usb_device(usb_dev_handle *deviceHandle)
 #endif
 
 VMUSB::VMUSB()
-    : m_state(ControllerState::Closed)
+    : m_state(ControllerState::Disconnected)
     , m_lock(QMutex::Recursive) // FIXME: make this non-recursive!
 {
 }
@@ -364,10 +364,15 @@ VMEError VMUSB::open()
         return VMEError(VMEError::DeviceIsOpen);
     }
 
+    m_state = ControllerState::Connecting;
+    emit controllerStateChanged(m_state);
+
     getUsbDevices();
 
     if (m_deviceInfos.isEmpty())
     {
+        m_state = ControllerState::Disconnected;
+        emit controllerStateChanged(m_state);
         return VMEError(VMEError::NoDevice);
     }
 
@@ -389,7 +394,7 @@ VMEError VMUSB::open()
         auto error = tryErrorRecovery();
         if (!error.isError())
         {
-            m_state = ControllerState::Opened;
+            m_state = ControllerState::Connected;
             emit controllerOpened();
             emit controllerStateChanged(m_state);
         }
@@ -419,7 +424,7 @@ VMEError VMUSB::close()
         close_usb_device(m_deviceHandle);
         m_deviceHandle = nullptr;
         m_currentSerialNumber = QString();
-        m_state = ControllerState::Closed;
+        m_state = ControllerState::Disconnected;
         emit controllerClosed();
         emit controllerStateChanged(m_state);
     }
@@ -432,7 +437,8 @@ QString VMUSB::getIdentifyingString() const
     {
         return QSL("VMUSB ") + m_currentSerialNumber;
     }
-    return {};
+
+    return QSL("VMUSB");
 }
 
 VMEError VMUSB::readRegister(u32 address, u32 *value)

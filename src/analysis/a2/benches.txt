@@ -1,0 +1,38 @@
+GCC
+------------------------------------------------------------------
+Benchmark           Time           CPU Iterations UserCounters...
+------------------------------------------------------------------
+BM_a2             211 ns        212 ns    3300813 arena=2.688k byteRate=302.539M/s eC=3.30081M eR=4.72718M/s mC=3.30081M mR=4.72718M/s totalBytes=211.252M
+florian@debian-dev:~/src/scratchpad/build-mvme-a2(master)$ ./test_operators 
+Run on (4 X 3504 MHz CPU s)
+2017-10-21 23:27:31
+----------------------------------------------------------------------------------------
+Benchmark                                 Time           CPU Iterations UserCounters...
+----------------------------------------------------------------------------------------
+BM_calibration_step                      14 ns         14 ns   51133400 arena=1024
+BM_calibration_SSE2_step                 27 ns         27 ns   26175718 arena=1024
+BM_extractor_begin_event                  5 ns          5 ns  149313346 arena=1.2k
+BM_extractor_process_module_data         33 ns         33 ns   21188108 arena=1.2k
+BM_difference_step                       26 ns         26 ns   26563015 arena=784
+BM_array_map_step                         0 ns          0 ns 1000000000
+
+
+Clang 5.0
+------------------------------------------------------------------
+Benchmark           Time           CPU Iterations UserCounters...
+------------------------------------------------------------------
+BM_a2            1218 ns       1217 ns     575638 arena=2.688k byteRate=52.5746M/s eC=575.638k eR=821.478k/s mC=575.638k mR=821.478k/s totalBytes=36.8408M
+florian@debian-dev:~/src/scratchpad/build-mvme-a2(master)$ ./test_operators 
+Run on (4 X 3504 MHz CPU s)
+2017-10-21 23:30:49
+----------------------------------------------------------------------------------------
+Benchmark                                 Time           CPU Iterations UserCounters...
+----------------------------------------------------------------------------------------
+BM_calibration_step                      18 ns         18 ns   39950099 arena=1024
+BM_calibration_SSE2_step                 25 ns         25 ns   27930464 arena=1024
+BM_extractor_begin_event                  3 ns          3 ns  224254483 arena=1.2k
+BM_extractor_process_module_data         43 ns         43 ns   16180401 arena=1.2k
+BM_difference_step                       28 ns         27 ns   25623149 arena=784
+BM_array_map_step                         0 ns          0 ns 1000000000
+
+Clang 3.8.1

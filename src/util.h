@@ -175,6 +175,7 @@ struct BufferIterator
         return bytesLeft() / sizeof(u32);
     }
 
+    inline u8  *asU8()  { return reinterpret_cast<u8 *>(buffp); }
     inline u16 *asU16() { return reinterpret_cast<u16 *>(buffp); }
     inline u32 *asU32() { return reinterpret_cast<u32 *>(buffp); }
 

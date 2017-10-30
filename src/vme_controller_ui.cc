@@ -59,9 +59,13 @@ QVariantMap VMUSBSettingsWidget::getSettings()
 SIS3153EthSettingsWidget::SIS3153EthSettingsWidget(QWidget *parent)
     : VMEControllerSettingsWidget(parent)
     , m_le_sisAddress(new QLineEdit)
+    , m_cb_jumboFrames(new QCheckBox)
+    , m_cb_debugRawBuffers(new QCheckBox)
 {
     auto l = new QFormLayout(this);
     l->addRow(QSL("Hostname / IP Address"), m_le_sisAddress);
+    l->addRow(QSL("Enable UDP Jumbo Frames"), m_cb_jumboFrames);
+    l->addRow(QSL("Debug: Write raw buffer file"), m_cb_debugRawBuffers);
 }
 
 void SIS3153EthSettingsWidget::validate()
@@ -78,12 +82,16 @@ void SIS3153EthSettingsWidget::validate()
 void SIS3153EthSettingsWidget::loadSettings(const QVariantMap &settings)
 {
     m_le_sisAddress->setText(settings["hostname"].toString());
+    m_cb_jumboFrames->setChecked(settings["JumboFrames"].toBool());
+    m_cb_debugRawBuffers->setChecked(settings.value("DebugRawBuffers").toBool());
 }
 
 QVariantMap SIS3153EthSettingsWidget::getSettings()
 {
     QVariantMap result;
     result["hostname"] = m_le_sisAddress->text();
+    result["JumboFrames"] = m_cb_jumboFrames->isChecked();
+    result["DebugRawBuffers"] = m_cb_debugRawBuffers->isChecked();
     return result;
 }
 
@@ -184,7 +192,6 @@ void VMEControllerSettingsDialog::onButtonBoxClicked(QAbstractButton *button)
     // delete old controller
     // set new controller
     auto selectedType = static_cast<VMEControllerType>(m_comboType->currentData().toInt());
-    VMEControllerFactory f(selectedType);
 
     auto settingsWidget = qobject_cast<VMEControllerSettingsWidget *>(
         m_settingsWidgets.value(m_comboType->currentIndex()));
@@ -202,8 +209,11 @@ void VMEControllerSettingsDialog::onButtonBoxClicked(QAbstractButton *button)
     }
 
     auto settings = settingsWidget->getSettings();
+    VMEControllerFactory f(selectedType);
     auto controller = f.makeController(settings);
+    qDebug() << "before m_context->setVMEController()";
     m_context->setVMEController(controller, settings);
+    qDebug() << "after m_context->setVMEController()";
 
     if (buttonRole == QDialogButtonBox::AcceptRole)
     {

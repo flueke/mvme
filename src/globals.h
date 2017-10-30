@@ -91,102 +91,54 @@ static const QMap<DAQState, QString> DAQStateStrings =
 
 static const u32 EndMarker = 0x87654321;
 static const u32 BerrMarker = 0xffffffff;
+static const int MaxVMEEvents  = 12;
+static const int MaxVMEModules = 20;
 
 struct DAQStats
 {
-    void start()
+    inline void start()
     {
         startTime = QDateTime::currentDateTime();
-        intervalUpdateTime.restart();
     }
 
-    void stop()
+    inline void stop()
     {
         endTime = QDateTime::currentDateTime();
     }
 
-    void addBytesRead(u64 count)
+    inline void addBytesRead(u64 count)
     {
         totalBytesRead += count;
-        intervalBytesRead += count;
-        maybeUpdateIntervalCounters();
     }
 
-    void addBuffersRead(u64 count)
+    inline void addBuffersRead(u64 count)
     {
         totalBuffersRead += count;
-        intervalBuffersRead += count;
-        maybeUpdateIntervalCounters();
-    }
-
-    void addEventsRead(u64 count)
-    {
-        totalEventsRead += count;
-        intervalEventsRead += count;
-        maybeUpdateIntervalCounters();
-    }
-
-    void maybeUpdateIntervalCounters()
-    {
-        int msecs = intervalUpdateTime.elapsed();
-        if (msecs >= 1000)
-        {
-            double seconds = msecs / 1000.0;
-            bytesPerSecond = intervalBytesRead / seconds;
-            buffersPerSecond = intervalBuffersRead / seconds;
-            eventsPerSecond = intervalEventsRead / seconds;
-            intervalBytesRead = 0;
-            intervalBuffersRead = 0;
-            intervalEventsRead = 0;
-            intervalUpdateTime.restart();
-        }
     }
 
     QDateTime startTime;
     QDateTime endTime;
 
-    u64 totalBytesRead = 0;
-    u64 totalBuffersRead = 0;
-    u64 buffersWithErrors = 0;
-    u64 droppedBuffers = 0;
-    u64 totalEventsRead = 0;
-
-    QTime intervalUpdateTime;
-    u64 intervalBytesRead = 0;
-    u64 intervalBuffersRead = 0;
-    u64 intervalEventsRead = 0;
-
-    double bytesPerSecond = 0.0;
-    double buffersPerSecond = 0.0;
-    double eventsPerSecond = 0.0;
-
-
-    u32 vmusbAvgEventsPerBuffer = 0;
-
-    u32 avgEventsPerBuffer = 0;
-    u32 avgReadSize = 0;
-
-    int freeBuffers = 0;
+    u64 totalBytesRead = 0;     // bytes read from the controller including protocol overhead
+    u64 totalBuffersRead = 0;   // number of buffers received from the controller
+    u64 buffersWithErrors = 0;  // buffers for which processing did not succeeed (structure not intact, etc)
+    u64 droppedBuffers = 0;     // number of buffers not passed to the analysis
+    u64 totalEventsRead = 0;    // FIXME: describe what this actually counts!
+    u64 vmeCtrlReadErrors = 0;
+    u64 totalNetBytesRead = 0;  // The number of bytes read excluding protocol
+                                // overhead. This should be a measure for the
+                                // amount of data the VME bus transferred.
 
     u64 listFileBytesWritten = 0;
     u64 listFileTotalBytes = 0; // For replay mode: the size of the replay file
     QString listfileFilename;
 
-    u64 totalBuffersProcessed = 0;
-    //u64 eventsProcessed = 0;
     u64 mvmeBuffersSeen = 0;
     u64 mvmeBuffersWithErrors = 0;
 
-    struct EventCounters
-    {
-        u64 events = 0;
-        u64 headerWords = 0;
-        u64 dataWords = 0;
-        u64 eoeWords = 0;
-    };
-
-    // maps EventConfig/ModuleConfig to EventCounters
-    QHash<QObject *, EventCounters> eventCounters;
+    using ModuleCounters = std::array<u32, MaxVMEModules>;
+    std::array<ModuleCounters, MaxVMEEvents> moduleCounters;
+    std::array<u32, MaxVMEEvents> eventCounters;
 };
 
 /* Information about the current DAQ run or the run that's being replayed from

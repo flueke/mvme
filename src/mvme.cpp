@@ -20,7 +20,7 @@
 
 #include "analysis/analysis.h"
 #include "analysis/analysis_ui.h"
-#include "analysis_info_widget.h"
+#include "analysis/analysis_info_widget.h"
 #include "config_ui.h"
 #include "daqcontrol_widget.h"
 #include "daqstats_widget.h"
@@ -208,6 +208,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
         auto widget = new SIS3153DebugWidget(m_d->m_context);
         widget->setAttribute(Qt::WA_DeleteOnClose);
         add_widget_close_action(widget);
+        m_d->m_geometrySaver->addAndRestore(widget, QSL("WindowGeometries/SIS3153DebugWidget"));
         widget->show();
     });
     connect(m_d->actionToolAnalysisInfo,        &QAction::triggered, this, &MVMEMainWindow::onActionToolAnalysisInfo_triggered);
@@ -698,9 +699,15 @@ void MVMEMainWindow::onActionNewVMEConfig_triggered()
         }
     }
 
-    // TODO: run a dialog to set-up config basics: controller type, working directory, etc...
+    // copy the previous controller settings into the new VMEConfig
+    auto vmeConfig = m_d->m_context->getVMEConfig();
+    auto ctrlType = vmeConfig->getControllerType();
+    auto ctrlSettings = vmeConfig->getControllerSettings();
 
-    m_d->m_context->setVMEConfig(new VMEConfig);
+    vmeConfig = new VMEConfig;
+    vmeConfig->setVMEController(ctrlType, ctrlSettings);
+
+    m_d->m_context->setVMEConfig(vmeConfig);
     m_d->m_context->setConfigFileName(QString());
     m_d->m_context->setMode(GlobalMode::DAQ);
 }

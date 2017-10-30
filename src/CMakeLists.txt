@@ -53,6 +53,12 @@ endif()
 configure_file("build_info.cc.in" "build_info.cc" @ONLY)
 
 #
+# liba2
+#
+add_subdirectory(analysis/a2)
+include_directories(analysis/a2)
+
+#
 # libmvme
 #
 add_definitions(-DVME_CONTROLLER_WIENER -DWIENER_USE_LIBUSB0)
@@ -61,12 +67,13 @@ set(LIBMVME_SOURCES
     "${CMAKE_CURRENT_BINARY_DIR}/git_sha1.cc"
     "${CMAKE_CURRENT_BINARY_DIR}/build_info.cc"
     "${CMAKE_SOURCE_DIR}/3rdparty/qt-collapsible-section/Section.cpp"
+    analysis/a2_adapter.cc
     analysis/analysis.cc
     analysis/analysis_ui.cc
     analysis/analysis_ui_p.cc
     analysis/analysis_util.cc
     analysis/data_extraction_widget.cc
-    analysis_info_widget.cc
+    analysis/analysis_info_widget.cc
     config_ui.cpp
     CVMUSBReadoutList.cpp
     daqcontrol_widget.cc
@@ -129,6 +136,7 @@ qt5_wrap_ui(LIBMVME_UIC_OUT
 qt5_add_resources(LIBMVME_RC_OUT resources.qrc)
 
 add_library(libmvme SHARED ${LIBMVME_SOURCES} ${LIBMVME_UIC_OUT} ${LIBMVME_RC_OUT})
+add_dependencies(libmvme liba2_static)
 generate_export_header(libmvme)
 set_target_properties(libmvme PROPERTIES OUTPUT_NAME mvme)
 
@@ -148,6 +156,7 @@ target_link_libraries(libmvme
     ${QWT_LIBRARY}
     ${LIBUSB_LIBRARY}
     ${LIBMVME_ADDITIONAL_LIBS}
+    liba2_static
     )
 
 install(TARGETS libmvme DESTINATION .)
@@ -217,5 +226,6 @@ add_mvme_executable(mvme-listfile-dumper-multievent "listfile-multievent-dumper.
 add_mvme_executable(dev_mvme_event_processing "dev_mvme_event_processing.cc")
 add_mvme_executable(dev_datagen "dev_datagen.cc")
 add_mvme_executable(dev_data_filter_runner "dev_data_filter_runner.cc")
+add_mvme_executable(dev_sis3153_read_raw_buffers_file "dev_sis3153_read_raw_buffers_file.cc")
 
 # vim:tw=0

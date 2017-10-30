@@ -22,24 +22,25 @@
 #include <QFormLayout>
 #include <QTimer>
 
-static const int updateInterval = 1000;
+static const int UpdateInterval_ms = 1000;
 
 struct DAQStatsWidgetPrivate
 {
     MVMEContext *context;
+    DAQStats prevStats;
+    QDateTime lastUpdateTime;
 
     QLabel *label_daqDuration,
-           *label_freeBuffers,
            *label_buffersRead,
            *label_buffersDropped,
            *label_buffersErrors,
-           *label_buffersProcessed,
            *label_mbPerSecond,
            *label_events,
            *label_readSize,
-           *label_vmusbAvgEventsPerBuffer,
            *label_bytesRead,
-           *label_listFileSize;
+           *label_listFileSize,
+           *label_netBytesRead,
+           *label_netBytesPerSecond;
 };
 
 DAQStatsWidget::DAQStatsWidget(MVMEContext *context, QWidget *parent)
@@ -49,31 +50,29 @@ DAQStatsWidget::DAQStatsWidget(MVMEContext *context, QWidget *parent)
     m_d->context = context;
 
     m_d->label_daqDuration = new QLabel;
-    m_d->label_freeBuffers = new QLabel;
     m_d->label_buffersRead = new QLabel;
     m_d->label_buffersDropped = new QLabel;
     m_d->label_buffersErrors = new QLabel;
-    m_d->label_buffersProcessed = new QLabel;
     m_d->label_mbPerSecond = new QLabel;
     m_d->label_events = new QLabel;
     m_d->label_readSize = new QLabel;
-    m_d->label_vmusbAvgEventsPerBuffer = new QLabel;
     m_d->label_bytesRead = new QLabel;
     m_d->label_listFileSize = new QLabel;
+    m_d->label_netBytesRead = new QLabel;
+    m_d->label_netBytesPerSecond = new QLabel;
 
     QList<QWidget *> labels = {
         m_d->label_daqDuration,
-        m_d->label_freeBuffers,
         m_d->label_buffersRead,
         m_d->label_buffersDropped,
         m_d->label_buffersErrors,
-        m_d->label_buffersProcessed,
         m_d->label_mbPerSecond,
         m_d->label_events,
         m_d->label_readSize,
-        m_d->label_vmusbAvgEventsPerBuffer,
         m_d->label_bytesRead,
         m_d->label_listFileSize,
+        m_d->label_netBytesRead,
+        m_d->label_netBytesPerSecond,
     };
 
     for (auto label: labels)
@@ -84,16 +83,15 @@ DAQStatsWidget::DAQStatsWidget(MVMEContext *context, QWidget *parent)
     auto formLayout = new QFormLayout(this);
 
     formLayout->addRow("Running time:", m_d->label_daqDuration);
-    formLayout->addRow("Free event buffers:", m_d->label_freeBuffers);
     formLayout->addRow("Buffers read:", m_d->label_buffersRead);
-    formLayout->addRow("Buffers processed:", m_d->label_buffersProcessed);
+    formLayout->addRow("Buffers with errors:", m_d->label_buffersErrors);
     formLayout->addRow("Buffers dropped:", m_d->label_buffersDropped);
-    formLayout->addRow("Buffers errors:", m_d->label_buffersErrors);
     formLayout->addRow("Buffers/s / MB/s:", m_d->label_mbPerSecond);
-    formLayout->addRow("Events:", m_d->label_events);
+    //formLayout->addRow("Events:", m_d->label_events);
     formLayout->addRow("Avg. read size:", m_d->label_readSize);
-    formLayout->addRow("vmusb avg. events per buffer:", m_d->label_vmusbAvgEventsPerBuffer);
     formLayout->addRow("Bytes read:", m_d->label_bytesRead);
+    formLayout->addRow("Net Bytes read:", m_d->label_netBytesRead);
+    formLayout->addRow("Net Bytes/s:", m_d->label_netBytesPerSecond);
     formLayout->addRow("ListFile size:", m_d->label_listFileSize);
 
     //formLayout->setFieldGrowthPolicy(QFormLayout::FieldsStayAtSizeHint);
@@ -103,10 +101,17 @@ DAQStatsWidget::DAQStatsWidget(MVMEContext *context, QWidget *parent)
     updateWidget();
 
     auto timer = new QTimer(this);
-    timer->setInterval(updateInterval);
+    timer->setInterval(UpdateInterval_ms);
     timer->start();
 
     connect(timer, &QTimer::timeout, this, &DAQStatsWidget::updateWidget);
+    connect(context, &MVMEContext::daqStateChanged, this, [this](const DAQState &state) {
+        if (state == DAQState::Running)
+        {
+            m_d->prevStats = {};
+            m_d->lastUpdateTime = {};
+        }
+    });
 }
 
 DAQStatsWidget::~DAQStatsWidget()
@@ -120,35 +125,72 @@ void DAQStatsWidget::updateWidget()
 
     auto startTime = stats.startTime;
     auto endTime   = m_d->context->getDAQState() == DAQState::Idle ? stats.endTime : QDateTime::currentDateTime();
-    auto duration  = startTime.secsTo(endTime);
-    auto durationString = makeDurationString(duration);
+    auto totalDuration_s = startTime.secsTo(endTime);
+    auto totalDurationString = makeDurationString(totalDuration_s);
 
-    double mbPerSecond = stats.bytesPerSecond / (1024.0 * 1024.0);
-    double buffersPerSecond = stats.buffersPerSecond;
+    double dt;
 
-    m_d->label_daqDuration->setText(durationString);
+    if (m_d->lastUpdateTime.isValid())
+    {
+        dt = m_d->lastUpdateTime.msecsTo(endTime);
+    }
+    else
+    {
+        dt = startTime.msecsTo(endTime);
+    }
+
+    dt /= 1000.0;
+
+    auto calc_delta = [](u64 cur, u64 prev)
+    {
+        if (cur < prev)
+            return (u64)0;
+        return cur - prev;
+    };
+
+    u64 deltaBytesRead = calc_delta(stats.totalBytesRead, m_d->prevStats.totalBytesRead);
+    u64 deltaBuffersRead = calc_delta(stats.totalBuffersRead, m_d->prevStats.totalBuffersRead);
+    u64 deltaEventsRead = calc_delta(stats.totalEventsRead, m_d->prevStats.totalEventsRead);
+    u64 deltaNetBytesRead = calc_delta(stats.totalNetBytesRead, m_d->prevStats.totalNetBytesRead);
+
+    double bytesPerSecond   = deltaBytesRead / dt;
+    double mbPerSecond      = bytesPerSecond / Megabytes(1);
+    double buffersPerSecond = deltaBuffersRead / dt;
+    double eventsPerSecond  = deltaEventsRead / dt;
+    double avgReadSize      = deltaBytesRead / static_cast<double>(deltaBuffersRead);
+    double netBytesPerSecond = deltaNetBytesRead / dt;
+    double netMbPerSecond   = netBytesPerSecond / Megabytes(1);
+
+
+
+    m_d->label_daqDuration->setText(totalDurationString);
 
     m_d->label_buffersRead->setText(QString::number(stats.totalBuffersRead));
     m_d->label_buffersDropped->setText(QString::number(stats.droppedBuffers));
     m_d->label_buffersErrors->setText(QString::number(stats.buffersWithErrors));
-    m_d->label_buffersProcessed->setText(QString::number(stats.totalBuffersProcessed));
 
-    m_d->label_freeBuffers->setText(QString::number(stats.freeBuffers));
-    m_d->label_readSize->setText(QString::number(stats.avgReadSize));
+    m_d->label_readSize->setText(QString::number(avgReadSize));
     m_d->label_mbPerSecond->setText(QString("%1 / %2")
                                     .arg(buffersPerSecond, 6, 'f', 2)
                                     .arg(mbPerSecond, 6, 'f', 2)
                                     );
+
+    m_d->label_netBytesRead->setText(QString("%1 MB").arg(
+            ((double)stats.totalNetBytesRead) / Megabytes(1), 6, 'f', 2));
+    m_d->label_netBytesPerSecond->setText(QString("%1 MB/s").arg(
+            netMbPerSecond, 6, 'f', 2));
 
     m_d->label_bytesRead->setText(
             QString("%1 MB")
             .arg((double)stats.totalBytesRead / (1024.0*1024.0), 6, 'f', 2)
             );
 
+    /*
     m_d->label_events->setText(
         QString("%1 Events/s")
-        .arg(stats.eventsPerSecond, 6, 'f', 2)
+        .arg(eventsPerSecond, 6, 'f', 2)
         );
+    */
 
     switch (m_d->context->getMode())
     {
@@ -171,5 +213,6 @@ void DAQStatsWidget::updateWidget()
             break;
     }
 
-    m_d->label_vmusbAvgEventsPerBuffer->setText(QString::number(stats.vmusbAvgEventsPerBuffer));
+    m_d->prevStats = stats;
+    m_d->lastUpdateTime = QDateTime::currentDateTime();
 }
