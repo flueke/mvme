@@ -287,7 +287,8 @@ void VMEDebugWidget::doWrite(u32 address, u32 value)
 
     VMEScript script = { cmd };
 
-    auto results = m_context->runScript(script);
+    auto logger = [this](const QString &str) { m_context->logMessage(QSL("  ") + str); };
+    auto results = m_context->runScript(script, logger);
 
     if (!results.isEmpty())
     {
@@ -321,7 +322,8 @@ u16 VMEDebugWidget::doRead(u32 address)
 
     VMEScript script = { cmd };
 
-    auto results = m_context->runScript(script);
+    auto logger = [this](const QString &str) { m_context->logMessage(QSL("  ") + str); };
+    auto results = m_context->runScript(script, logger);
 
     if (!results.isEmpty())
     {

@@ -192,7 +192,6 @@ void VMEControllerSettingsDialog::onButtonBoxClicked(QAbstractButton *button)
     // delete old controller
     // set new controller
     auto selectedType = static_cast<VMEControllerType>(m_comboType->currentData().toInt());
-    VMEControllerFactory f(selectedType);
 
     auto settingsWidget = qobject_cast<VMEControllerSettingsWidget *>(
         m_settingsWidgets.value(m_comboType->currentIndex()));
@@ -210,8 +209,11 @@ void VMEControllerSettingsDialog::onButtonBoxClicked(QAbstractButton *button)
     }
 
     auto settings = settingsWidget->getSettings();
+    VMEControllerFactory f(selectedType);
     auto controller = f.makeController(settings);
+    qDebug() << "before m_context->setVMEController()";
     m_context->setVMEController(controller, settings);
+    qDebug() << "after m_context->setVMEController()";
 
     if (buttonRole == QDialogButtonBox::AcceptRole)
     {
