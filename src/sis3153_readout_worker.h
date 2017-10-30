@@ -123,7 +123,6 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
         std::array<EventConfig *, SIS3153Constants::NumberOfStackLists> m_eventConfigsByStackList;
         std::array<int, SIS3153Constants::NumberOfStackLists> m_eventIndexByStackList;
         Counters m_counters;
-        QFile *m_debugFile = nullptr;
         u32 m_stackListControlRegisterValue = 0;
         int m_watchdogStackListIndex = -1;
         DataBuffer m_localEventBuffer;
@@ -132,6 +131,7 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
         DataBuffer *m_outputBuffer = nullptr;
         ProcessingState m_processingState;
         QFile m_rawBufferOut;
+        bool m_logBuffers = false;
 };
 
 #endif /* __SIS3153_READOUT_WORKER_H__ */

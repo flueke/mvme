@@ -23,7 +23,7 @@
 
 #include "databuffer.h"
 #include "vme_controller.h"
-#include "vmusb_util.h"
+#include "sis3153_util.h"
 
 static QTextStream &print_options(QTextStream &out, struct option *opts)
 {
@@ -105,6 +105,8 @@ int main(int argc, char *argv[])
                 << inFile.errorString() << endl;
             return 1;
         }
+
+        err << "Reading from" << inFile.fileName() << endl;
     }
     else
     {
@@ -113,6 +115,8 @@ int main(int argc, char *argv[])
             err << "Error reading from standard input" << endl;
             return 1;
         }
+
+        err << "Reading from stdin" << endl;
     }
 
     int ret = 0;
@@ -126,30 +130,31 @@ int main(int argc, char *argv[])
 
         while (!inFile.atEnd())
         {
-            s32 errorType   = 0;
             s32 errorCode   = 0;
+            s32 wsaError    = 0;
             s32 bytesToRead = 0;
 
-            checked_read(&inFile, reinterpret_cast<char *>(&errorType), sizeof(errorType));
             checked_read(&inFile, reinterpret_cast<char *>(&errorCode), sizeof(errorCode));
+            checked_read(&inFile, reinterpret_cast<char *>(&wsaError), sizeof(wsaError));
             checked_read(&inFile, reinterpret_cast<char *>(&bytesToRead), sizeof(bytesToRead));
 
-            if (errorType == 0)
+            if (bytesToRead > 0)
             {
                 readBuffer.used = 0;
                 readBuffer.ensureCapacity(bytesToRead);
                 readBuffer.used = checked_read(&inFile, reinterpret_cast<char *>(readBuffer.data), bytesToRead);
                 nDataBytesRead += readBuffer.used;
 
-                format_vmusb_buffer(&readBuffer, out, nEntriesRead);
+                format_sis3153_buffer(&readBuffer, out, nEntriesRead);
             }
             else
             {
-                Q_ASSERT(bytesToRead == 0);
                 ++nErrorEntries;
-                VMEError error(static_cast<VMEError::ErrorType>(errorType), errorCode);
+                VMEError error(VMEError::UnknownError, errorCode);
                 out << "Entry #" << nEntriesRead << ": Error was \""
-                    << error.toString() << "\" (" << error.errorCode() << ")" << endl;
+                    << error.toString() << "\" (" << error.errorCode() << ")"
+                    << ", wsaError=" << wsaError
+                    << endl;
             }
 
             ++nEntriesRead;

@@ -306,11 +306,16 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent)
         {
             /* Could not connect. Inc retry count and log a hopefully user
              * friendly message about what went wrong. */
+
             m_d->m_ctrlOpenRetryCount++;
-            logMessage(QString("Could not open VME controller %1: %2")
-                       .arg(m_controller->getIdentifyingString())
-                       .arg(result.toString())
-                      );
+
+            if (m_d->m_ctrlOpenRetryCount >= VMECtrlConnectMaxRetryCount)
+            {
+                logMessage(QString("Could not open VME controller %1: %2")
+                           .arg(m_controller->getIdentifyingString())
+                           .arg(result.toString())
+                          );
+            }
         }
     });
 
@@ -453,6 +458,7 @@ void MVMEContext::setVMEConfig(VMEConfig *config)
 
 void MVMEContext::setVMEController(VMEController *controller, const QVariantMap &settings)
 {
+    qDebug() << __PRETTY_FUNCTION__;
     Q_ASSERT(getDAQState() == DAQState::Idle);
     Q_ASSERT(getEventProcessorState() == EventProcessorState::Idle);
 
@@ -467,9 +473,24 @@ void MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
         << ", new type   =" << (controller ? to_string(controller->getType()) : QSL("none"))
         ;
 
-    // Wait for possibly active VMEController::open() to return before deleting
-    // the controller object.
-    m_ctrlOpenFuture.waitForFinished();
+    /* Wait for possibly active VMEController::open() to return before deleting
+     * the controller object. This can take a long time if e.g. DNS lookups are
+     * performed when trying to open the current controller. This is the reason
+     * for using an event loop instead of directly calling
+     * m_ctrlOpenFuture.waitForFinished(). */
+    qDebug() << __PRETTY_FUNCTION__ << "before waitForFinished";
+    if (m_ctrlOpenFuture.isRunning())
+    {
+        QProgressDialog progressDialog("Changing VME Controller", QString(), 0, 0);
+        progressDialog.setWindowModality(Qt::ApplicationModal);
+        progressDialog.setCancelButton(nullptr);
+        progressDialog.show();
+
+        QEventLoop localLoop;
+        connect(&m_ctrlOpenWatcher, &QFutureWatcher<VMEError>::finished, &localLoop, &QEventLoop::quit);
+        localLoop.exec();
+    }
+    qDebug() << __PRETTY_FUNCTION__ << "after waitForFinished";
 
     // It should be safe to delete these now
     delete m_readoutWorker;
@@ -541,11 +562,34 @@ void MVMEContext::onControllerStateChanged(ControllerState state)
 
 void MVMEContext::reconnectVMEController()
 {
-    if (m_controller)
+    if (!m_controller)
     {
-        m_controller->close();
-        m_d->m_ctrlOpenRetryCount = 0;
+        return;
     }
+
+    /* VMEController::close() should lock the controllers mutex just as
+     * VMEController::open() should. This means if a long lasting open()
+     * operation is in progress (e.g. due to DNS lookup) the call will block.
+     * Solution: wait for any open() calls to finish, then call close on the
+     * controller. */
+
+    qDebug() << __PRETTY_FUNCTION__ << "before m_controller->close()";
+    if (m_ctrlOpenFuture.isRunning())
+    {
+        QProgressDialog progressDialog("Reconnecting to VME Controller", QString(), 0, 0);
+        progressDialog.setWindowModality(Qt::ApplicationModal);
+        progressDialog.setCancelButton(nullptr);
+        progressDialog.show();
+
+        QEventLoop localLoop;
+        connect(&m_ctrlOpenWatcher, &QFutureWatcher<VMEError>::finished, &localLoop, &QEventLoop::quit);
+        localLoop.exec();
+    }
+
+    m_controller->close();
+    m_d->m_ctrlOpenRetryCount = 0;
+
+    qDebug() << __PRETTY_FUNCTION__ << "after m_controller->close()";
 }
 
 QString MVMEContext::getUniqueModuleName(const QString &prefix) const
@@ -1113,6 +1157,7 @@ MVMEContext::runScript(const vme_script::VMEScript &script,
     {
         processQtEvents(QEventLoop::ExcludeUserInputEvents | QEventLoop::WaitForMoreEvents);
     }
+    processQtEvents();
 
     auto result = vme_script::run_script(m_controller, script, logger, logEachResult);
 
