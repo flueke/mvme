@@ -29,7 +29,7 @@
 #include "vme_daq.h"
 
 #define SIS_READOUT_DEBUG               1   // enable debugging code
-#define SIS_READOUT_BUFFER_DEBUG_PRINT  1   // print buffers to console
+#define SIS_READOUT_BUFFER_DEBUG_PRINT  0   // print buffers to console
 
 #ifndef NDEBUG
 #define sis_trace(msg)\
@@ -54,50 +54,23 @@ using namespace vme_script;
 
 namespace
 {
+#if 0 // TODO: implement validate_vme_config() for sis3153
     void validate_vme_config(VMEConfig *vmeConfig)
     {
     }
+#endif
 
+    /* Size of the read buffer in bytes. This is where the data from recvfrom()
+     * ends up. The maximum possible size should be 1500 or 8000 bytes
+     * depending on the jumbo frame setting.
+     */
+    static const size_t ReadBufferSize  = Kilobytes(16);
+
+    /* Size of the local event assembly buffer. Used in case there are no free
+     * buffers available from the shared queue. */
     static const size_t LocalBufferSize = Megabytes(1);
-    static const size_t ReadBufferSize  = Megabytes(1);
+
     static const size_t TimetickBufferSize = sizeof(u32);
-
-    /* Returns the size of the result list in bytes when written to an mvme
-     * format buffer. */
-    size_t calculate_result_size(const vme_script::ResultList &results)
-    {
-        size_t size = 0;
-
-        for (const auto &result: results)
-        {
-            if (result.error.isError())
-                continue;
-
-            switch (result.command.type)
-            {
-                // FIXME: not correct for d16 read
-                case CommandType::Read:
-                    size += sizeof(u32);
-                    break;
-
-                case CommandType::BLT:
-                case CommandType::BLTFifo:
-                case CommandType::MBLT:
-                case CommandType::MBLTFifo:
-                    size += result.valueVector.size() * sizeof(u32);
-                    break;
-
-                case CommandType::Marker:
-                    size += sizeof(u32);
-                    break;
-
-                default:
-                    break;
-            }
-        }
-
-        return size;
-    }
 
     size_t calculate_stackList_size(const vme_script::VMEScript &commands)
     {
@@ -342,7 +315,7 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
                    .arg(QDateTime::currentDateTime().toString())
                    );
 
-        validate_vme_config(m_workerContext.vmeConfig); // throws on error
+        //validate_vme_config(m_workerContext.vmeConfig); // throws on error
 
         //
         // Read and log firmware version
