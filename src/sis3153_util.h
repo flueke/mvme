@@ -20,4 +20,6 @@ class SIS3153DebugWidget: public QWidget
         QVector<QLabel *> m_rdoCounterLabels;
 };
 
+LIBMVME_EXPORT void format_sis3153_buffer(DataBuffer *buffer, QTextStream &out, u64 bufferNumber);
+
 #endif /* __SIS3153_UTIL_H__ */

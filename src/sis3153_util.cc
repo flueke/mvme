@@ -169,3 +169,125 @@ void SIS3153DebugWidget::resetCounters()
 
     refresh();
 }
+
+void format_sis3153_single_event(
+    QTextStream &out,
+    u64 bufferNumber,
+    u8 packetAck, u8 packetIdent, u8 packetStatus,
+    u8 *data, size_t size)
+{
+    QString tmp("0x%1");
+
+    int stackList = packetAck & SIS3153Constants::AckStackListMask;
+
+#if 0
+    BufferIterator iter(data, size);
+
+    while (iter.longwordsLeft())
+    {
+        out << "  " << tmp.arg(iter.extractU32(), 8, 16, QLatin1Char('0')) << endl;
+    }
+#endif
+
+    debugOutputBuffer(out, data, size);
+}
+
+void format_sis3153_buffer(DataBuffer *buffer, QTextStream &out, u64 bufferNumber)
+{
+    try
+    {
+        out << "buffer #" << bufferNumber
+            << ": bytes=" << buffer->used
+            << ", shortwords=" << buffer->used/sizeof(u16)
+            << ", longwords=" << buffer->used/sizeof(u32)
+            << endl;
+
+        QString tmp;
+        BufferIterator iter(buffer->data, buffer->used, BufferIterator::Align32);
+
+        u8 padding      = buffer->data[0];
+        u8 packetAck    = buffer->data[1];
+        u8 packetIdent  = buffer->data[2];
+        u8 packetStatus = buffer->data[3];
+        u32 header      = iter.extractU32();
+        int stackList   = packetAck & SIS3153Constants::AckStackListMask;
+
+        bool isMultiEventPacket = SIS3153Constants::MultiEventPacketAck;
+
+        tmp = (QString("buffer #%1: header=0x%2, padding=0x%3"
+                       ", packetAck=0x%4, packetIdent=0x%5, packetStatus=0x%6, stackList=%7")
+               .arg(bufferNumber)
+               .arg(header, 8, 16, QLatin1Char('0'))
+               .arg(padding, 2, 16, QLatin1Char('0'))
+               .arg(packetAck, 2, 16, QLatin1Char('0'))
+               .arg(packetIdent, 2, 16, QLatin1Char('0'))
+               .arg(packetStatus, 2, 16, QLatin1Char('0'))
+               .arg(isMultiEventPacket ? QSL("multiEvent") : QString::number(stackList))
+              );
+
+        out << tmp << endl;
+
+        if (packetAck == SIS3153Constants::MultiEventPacketAck)
+        {
+            out << "buffer #" << bufferNumber << ": multi event packet" << endl;
+
+            while (iter.longwordsLeft())
+            {
+                u32 eventHeader    = iter.extractU32();
+                u8  internalAck    = eventHeader & 0xff;    // same as packetAck in non-buffered mode
+                u8  internalIdent  = (eventHeader >> 24) & 0xff; // Not sure about this byte
+                u8  internalStatus = 0; // FIXME: what's up with this?
+
+                u16 length = ((eventHeader & 0xff0000) >> 16) | (eventHeader & 0xff00); // length in 32-bit words
+                int stackList = internalAck & SIS3153Constants::AckStackListMask;
+
+                tmp = (QString("buffer #%1: embedded ack=0x%2, ident=0x%3, status=0x%4"
+                               ", length=%5 (%6 bytes), header=0x%7, stackList=%8")
+                       .arg(bufferNumber)
+                       .arg((u32)internalAck, 2, 16, QLatin1Char('0'))
+                       .arg((u32)internalIdent, 2, 16, QLatin1Char('0'))
+                       .arg((u32)internalStatus, 2, 16, QLatin1Char('0'))
+                       .arg(length)
+                       .arg(length * sizeof(u32))
+                       .arg(eventHeader, 8, 16, QLatin1Char('0'))
+                       .arg(stackList)
+                       );
+
+                out << tmp << endl;
+
+                format_sis3153_single_event(
+                    out,
+                    bufferNumber,
+                    internalAck, internalIdent, internalStatus,
+                    iter.buffp, length * sizeof(u32));
+
+                iter.skip(sizeof(u32), length); // advance the local iterator by the embedded events length
+            }
+        }
+        else
+        {
+            //debugOutputBuffer(out, buffer->data, buffer->used);
+
+            bool isLastPacket = (packetAck & SIS3153Constants::AckIsLastPacketMask);
+            if (!isLastPacket)
+            {
+                out << "buffer #" << bufferNumber << ": middle part of a partial event" << endl;
+            }
+            else
+            {
+                out << "buffer #" << bufferNumber << ": single event or end of a partial event" << endl;
+            }
+
+            format_sis3153_single_event(
+                out,
+                bufferNumber,
+                packetAck, packetIdent, packetStatus,
+                buffer->data + sizeof(u32), buffer->used);
+        }
+
+    }
+    catch (const end_of_buffer &)
+    {
+        out << "!!! end of buffer reached unexpectedly !!!" << endl;
+    }
+}

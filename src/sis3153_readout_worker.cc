@@ -425,8 +425,8 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
 
         s32 stackListIndex = 0;
         u32 stackLoadAddress = SIS3153ETH_STACK_RAM_START_ADDR;
-        //u32 stackListControlValue = SIS3153Registers::StackListControlValues::ListBufferEnable;
-        u32 stackListControlValue = 0;
+        u32 stackListControlValue = SIS3153Registers::StackListControlValues::ListBufferEnable;
+        //u32 stackListControlValue = 0;
         u32 nextTimerTriggerSource = SIS3153Registers::TriggerSourceTimer1;
 
         for (s32 eventIndex = 0;
@@ -1003,6 +1003,7 @@ SIS3153ReadoutWorker::ReadBufferResult SIS3153ReadoutWorker::readBuffer()
      * address.
      * Note: udp_read_list_packet() is just a thin wrapper around recvfrom().
      */
+    m_readBuffer.data[0] = 0;
     result.bytesRead = m_sis->getImpl()->udp_read_list_packet(
         reinterpret_cast<char *>(m_readBuffer.data + 1));
 
@@ -1036,7 +1037,8 @@ SIS3153ReadoutWorker::ReadBufferResult SIS3153ReadoutWorker::readBuffer()
      */
     if (m_rawBufferOut.isOpen())
     {
-        s32 bytesRead = result.bytesRead;
+        // adjust for the padding byte
+        s32 bytesRead = result.bytesRead + 1;
 
         m_rawBufferOut.write(reinterpret_cast<const char *>(&readErrno), sizeof(readErrno));
         m_rawBufferOut.write(reinterpret_cast<const char *>(&wsaError), sizeof(wsaError));
