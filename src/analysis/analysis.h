@@ -1396,6 +1396,7 @@ class LIBMVME_EXPORT Analysis: public QObject
 
         QHash<QUuid, QPair<int, int>> m_vmeConfigUuIdToIndexes;
         std::unique_ptr<memory::Arena> m_a2Arena;
+        std::unique_ptr<memory::Arena> m_a2TempArena;
         std::unique_ptr<A2AdapterState> m_a2State;
 };
 

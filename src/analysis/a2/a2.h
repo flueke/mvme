@@ -265,9 +265,21 @@ Operator make_h1d_sink(
     PipeVectors inPipe,
     TypedBlock<H1D, s32> histos);
 
+Operator make_h1d_sink_idx(
+    memory::Arena *arena,
+    PipeVectors inPipe,
+    TypedBlock<H1D, s32> histos,
+    s32 inputIndex);
+
 struct H1DSinkData
 {
     TypedBlock<H1D, s32> histos;
+};
+
+struct H1DSinkData_idx
+{
+    TypedBlock<H1D, s32> histos;
+    s32 inputIndex;
 };
 
 struct H2D: public ParamVec

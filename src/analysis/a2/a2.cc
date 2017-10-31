@@ -8,7 +8,8 @@
 
 #define ArrayCount(x) (sizeof(x) / sizeof(*x))
 
-#ifndef NDEBUG
+//#ifndef NDEBUG
+#if 0
 #define a2_trace(fmt, ...)\
 do\
 {\
@@ -36,6 +37,7 @@ using namespace memory;
  * - Better tests. Test edge cases using nan, inf, -inf. Document the behaviour.
  * - Test and document the behaviour for invalids.
  * - Support negative axis values.
+ * - Figure out why those range assertions in fill_h2d() are triggering.
  */
 
 /* Alignment in bytes of all double vectors created by the system.
@@ -908,6 +910,8 @@ inline void fill_h2d(H2D *histo, double x, double y)
 {
     if (x < histo->binnings[H2D::XAxis].min)
     {
+        auto bin = get_bin(*histo, H2D::XAxis, x);
+        assert(bin || true);
         assert(get_bin(*histo, H2D::XAxis, x) == Binning::Underflow);
         histo->underflow++;
     }
@@ -1019,6 +1023,43 @@ void h1d_sink_step(Operator *op)
     }
 }
 
+void h1d_sink_step_idx(Operator *op)
+{
+    a2_trace("\n");
+    auto d = reinterpret_cast<H1DSinkData_idx *>(op->d);
+
+    assert(d->histos.size == 1);
+    assert(d->inputIndex < op->inputs[0].size);
+
+    fill_h1d(&d->histos[0], op->inputs[0][d->inputIndex]);
+}
+
+Operator make_h1d_sink_idx(
+    Arena *arena,
+    PipeVectors inPipe,
+    TypedBlock<H1D, s32> histos,
+    s32 inputIndex)
+{
+    assert(histos.size == 1);
+    assert(inputIndex < inPipe.data.size);
+
+    auto result = make_operator(arena, Operator_H1DSink_idx, 1, 0);
+    assign_input(&result, inPipe, 0);
+
+    auto d = arena->pushStruct<H1DSinkData_idx>();
+    result.d = d;
+
+    d->histos = push_typed_block<H1D, s32>(arena, histos.size);
+    d->inputIndex = inputIndex;
+
+    for (s32 i = 0; i < histos.size; i++)
+    {
+        d->histos[i] = histos[i];
+    }
+
+    return result;
+}
+
 Operator make_h2d_sink(
     Arena *arena,
     PipeVectors xInput,
@@ -1067,6 +1108,7 @@ static const OperatorFunctions OperatorTable[OperatorTypeCount] =
     [Operator_ArrayMap] = { array_map_step },
     [Operator_BinaryEquation] = { binary_equation_step },
     [Operator_H1DSink] = { h1d_sink_step },
+    [Operator_H1DSink_idx] = { h1d_sink_step_idx },
     [Operator_H2DSink] = { h2d_sink_step },
     [Operator_RangeFilter] = { nullptr },
 
@@ -1074,6 +1116,27 @@ static const OperatorFunctions OperatorTable[OperatorTypeCount] =
     [Operator_Multiplicity] = { aggregate_multiplicity_step },
     [Operator_Max] = { aggregate_max_step },
 };
+
+#if 0
+static const char *OperatorTypeNames[OperatorTypeCount] =
+{
+    [Operator_Calibration]          =
+    [Operator_Calibration_sse]      =
+    [Operator_KeepPrevious]         =
+    [Operator_Difference]           =
+    [Operator_Difference_idx]       = { difference_step_idx },
+    [Operator_ArrayMap]             = { array_map_step },
+    [Operator_BinaryEquation]       = { binary_equation_step },
+    [Operator_H1DSink]              = { h1d_sink_step },
+    [Operator_H1DSink_idx]          = { h1d_sink_step_idx },
+    [Operator_H2DSink] = { h2d_sink_step },
+    [Operator_RangeFilter] = { nullptr },
+
+    [Operator_Sum] = { aggregate_sum_step },
+    [Operator_Multiplicity] = { aggregate_multiplicity_step },
+    [Operator_Max] = { aggregate_max_step },
+};
+#endif
 
 inline void step_operator(Operator *op)
 {
