@@ -368,9 +368,11 @@ struct A2
     std::array<u8 *, MaxVMEEvents> operatorRanks;
 };
 
+void a2_begin_run(A2 *a2);
 void a2_begin_event(A2 *a2, int eventIndex);
 void a2_process_module_data(A2 *a2, int eventIndex, int moduleIndex, const u32 *data, u32 dataSize);
 void a2_end_event(A2 *a2, int eventIndex);
+void a2_end_run(A2 *a2);
 
 } // namespace a2
 

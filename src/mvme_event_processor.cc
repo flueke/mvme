@@ -17,11 +17,14 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "mvme_event_processor.h"
-#include "mvme_context.h"
-#include "mvme_listfile.h"
+
+#include "analysis/a2_adapter.h"
+#include "analysis/analysis.h"
+#include "analysis/analysis_impl_switch.h"
 #include "histo1d.h"
 #include "mesytec_diagnostics.h"
-#include "analysis/analysis.h"
+#include "mvme_context.h"
+#include "mvme_listfile.h"
 #include "timed_block.h"
 
 #include <QCoreApplication>
@@ -532,6 +535,14 @@ void MVMEEventProcessor::startProcessing()
 
     m_d->m_runAction = KeepRunning;
 
+    if (m_d->analysis_ng)
+    {
+        if (auto a2State = m_d->analysis_ng->getA2AdapterState())
+        {
+            a2::a2_begin_run(a2State->a2);
+        }
+    }
+
     while (m_d->m_runAction != StopImmediately)
     {
         DataBuffer *buffer = nullptr;
@@ -574,6 +585,14 @@ void MVMEEventProcessor::startProcessing()
     }
 
     m_d->m_localStats.stopTime = QDateTime::currentDateTime();
+
+    if (m_d->analysis_ng)
+    {
+        if (auto a2State = m_d->analysis_ng->getA2AdapterState())
+        {
+            a2::a2_end_run(a2State->a2);
+        }
+    }
 
     emit stopped();
     emit stateChanged(m_d->m_state = EventProcessorState::Idle);

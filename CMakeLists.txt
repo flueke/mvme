@@ -74,6 +74,7 @@ message("-- GIT_VERSION_TAG=${GIT_VERSION_TAG}")
 # 3rdparty
 include_directories("${CMAKE_SOURCE_DIR}/3rdparty")
 include_directories("${CMAKE_SOURCE_DIR}/3rdparty/pcg-cpp-0.98/include/")
+include_directories("${CMAKE_SOURCE_DIR}/3rdparty/cpp11-on-multicore/common/")
 
 # qwt
 find_path(QWT_INCLUDE_DIR
