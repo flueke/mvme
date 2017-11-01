@@ -50,8 +50,15 @@ using namespace memory;
 /* Alignment in bytes of all double vectors created by the system.
  * SSE requires 16 byte alignment (128 bit registers).
  * AVX wants 32 bytes (256 bit registers).
+ *
+ * I've seen people pad the pointer in their queue implementations to 64/128
+ * bytes as that's the cache line size. Padding this way makes false-sharing
+ * less of an issue.
  */
-static const size_t ParamVecAlignment = 128;
+static const size_t ParamVecAlignment = 64;
+
+static const int A2AdditionalThreads = 0;
+static const int OperatorsPerThreadTask = 6;
 
 void print_param_vector(ParamVec pv)
 {
@@ -1257,7 +1264,7 @@ static const s32 WorkQueueSize = 32;
 
 struct WorkQueue
 {
-    mpmc_bounded_queue<Work> queue;//(WorkQueueSize);
+    mpmc_bounded_queue<Work> queue;
     //NonRecursiveBenaphore mutex;
     LightweightSemaphore taskSem;
     LightweightSemaphore tasksDoneSem;
@@ -1355,9 +1362,6 @@ void a2_worker_loop(WorkQueue *queue, ThreadInfo threadInfo)
              threadInfo.id);
 }
 
-static const int A2ThreadCount = 0;
-static const int OperatorsPerTask = 6;
-
 u32 step_operator_range_threaded(WorkQueue *queue, Operator *first, Operator *last)
 {
 
@@ -1380,7 +1384,7 @@ u32 step_operator_range_threaded(WorkQueue *queue, Operator *first, Operator *la
 
         while (op < last)
         {
-            s32 opsToQueue = std::min(OperatorsPerTask, (s32)(last - op));
+            s32 opsToQueue = std::min(OperatorsPerThreadTask, (s32)(last - op));
 
             a2_trace("about to enqueue a task of %d operators\n",
                      opsToQueue);
@@ -1477,61 +1481,67 @@ static std::vector<std::thread> A2Threads = {};
 
 void a2_begin_run(A2 *a2)
 {
-    A2Threads.clear();
-
-    a2_trace("starting %d workers\n", A2ThreadCount);
-
-    for (int threadId = 0; threadId < A2ThreadCount; threadId++)
+    if (A2AdditionalThreads > 0)
     {
-        A2Threads.emplace_back(a2_worker_loop, &A2WorkQueue, ThreadInfo{ threadId });
+        A2Threads.clear();
+
+        a2_trace("starting %d workers\n", A2AdditionalThreads);
+
+        for (int threadId = 0; threadId < A2AdditionalThreads; threadId++)
+        {
+            A2Threads.emplace_back(a2_worker_loop, &A2WorkQueue, ThreadInfo{ threadId });
+        }
     }
 }
 
 void a2_end_run(A2 *a2)
 {
-    a2_trace("about to queue nullptr work\n");
-
-    auto queue = &A2WorkQueue;
-    const s32 threadCount = (s32)A2Threads.size();
-
+    if (A2AdditionalThreads > 0)
     {
-        //WorkQueue::Guard guard(queue->mutex);
-        //queue->tasksDone = 0;
-        assert(queue->tasksDoneSem.count() == 0);
+        a2_trace("about to queue nullptr work\n");
+
+        auto queue = &A2WorkQueue;
+        const s32 threadCount = (s32)A2Threads.size();
+
+        {
+            //WorkQueue::Guard guard(queue->mutex);
+            //queue->tasksDone = 0;
+            assert(queue->tasksDoneSem.count() == 0);
+
+            for (s32 i = 0; i < threadCount; i++)
+            {
+                //queue->queue.push({ nullptr, nullptr });
+                queue->queue.enqueue({ nullptr, nullptr });
+            }
+        }
+
+        a2_trace("notifying workers: taskSem.signal(%d)\n",
+                 threadCount);
+
+        queue->taskSem.signal(threadCount);
+
+        a2_trace("waiting for workers to quit\n");
+
+        //while (queue->tasksDone.load() < threadCount) /* spin */;
 
         for (s32 i = 0; i < threadCount; i++)
         {
-            //queue->queue.push({ nullptr, nullptr });
-            queue->queue.enqueue({ nullptr, nullptr });
+            queue->tasksDoneSem.wait();
         }
-    }
 
-    a2_trace("notifying workers: taskSem.signal(%d)\n",
-             threadCount);
+        a2_trace("workers have quit, joining threads\n");
 
-    queue->taskSem.signal(threadCount);
-
-    a2_trace("waiting for workers to quit\n");
-
-    //while (queue->tasksDone.load() < threadCount) /* spin */;
-
-    for (s32 i = 0; i < threadCount; i++)
-    {
-        queue->tasksDoneSem.wait();
-    }
-
-    a2_trace("workers have quit, joining threads\n");
-
-    for (s32 threadId = 0; threadId < threadCount; threadId++)
-    {
-        if (A2Threads[threadId].joinable())
+        for (s32 threadId = 0; threadId < threadCount; threadId++)
         {
-            a2_trace("thread %d is joinable\n", threadId);
-            A2Threads[threadId].join();
-        }
-        else
-        {
-            a2_trace("thread %d was not joinable\n", threadId);
+            if (A2Threads[threadId].joinable())
+            {
+                a2_trace("thread %d is joinable\n", threadId);
+                A2Threads[threadId].join();
+            }
+            else
+            {
+                a2_trace("thread %d was not joinable\n", threadId);
+            }
         }
     }
 
@@ -1551,62 +1561,66 @@ void a2_end_event(A2 *a2, int eventIndex)
 
     a2_trace("ei=%d, stepping %d operators\n", eventIndex, opCount);
 
-    if (A2ThreadCount == 0)
+    if (opCount)
     {
-        for (int opIdx = 0; opIdx < opCount; opIdx++)
+        if (A2AdditionalThreads == 0)
         {
-            Operator *op = operators + opIdx;
-
-            a2_trace("  op@%p\n", op);
-
-            assert(op);
-            assert(op->type < ArrayCount(OperatorTable));
-            assert(OperatorTable[op->type].step);
-
-            OperatorTable[op->type].step(op);
-            opSteppedCount++;
-        }
-    } else
-    {
-        if (opCount)
-        {
-            const Operator *opEnd = operators + opCount;
-
-            u8* rankBegin = ranks;
-            Operator *opRankBegin = operators;
-
-            while (opRankBegin < opEnd)
+            for (int opIdx = 0; opIdx < opCount; opIdx++)
             {
-                u8* rankEnd = rankBegin;
-                Operator *opRankEnd = opRankBegin;
+                Operator *op = operators + opIdx;
 
-                while (opRankEnd < opEnd)
+                a2_trace("  op@%p\n", op);
+
+                assert(op);
+                assert(op->type < ArrayCount(OperatorTable));
+                assert(OperatorTable[op->type].step);
+
+                OperatorTable[op->type].step(op);
+                opSteppedCount++;
+            }
+        }
+        else
+        {
+            if (opCount)
+            {
+                const Operator *opEnd = operators + opCount;
+
+                u8* rankBegin = ranks;
+                Operator *opRankBegin = operators;
+
+                while (opRankBegin < opEnd)
                 {
-                    if (*rankEnd > *rankBegin)
+                    u8* rankEnd = rankBegin;
+                    Operator *opRankEnd = opRankBegin;
+
+                    while (opRankEnd < opEnd)
                     {
-                        break;
+                        if (*rankEnd > *rankBegin)
+                        {
+                            break;
+                        }
+
+                        rankEnd++;
+                        opRankEnd++;
                     }
 
-                    rankEnd++;
-                    opRankEnd++;
+                    a2_trace("  stepping rank %d, %u operators\n",
+                             (s32)*rankBegin,
+                             (u32)(opRankEnd - opRankBegin));
+
+                    auto prevCount = opSteppedCount;
+
+                    // step the operators in [opRankBegin, opRankEnd)
+                    opSteppedCount += step_operator_range_threaded(&A2WorkQueue, opRankBegin, opRankEnd);
+
+                    a2_trace("  stepped rank %d, %u operators\n",
+                             (s32)*rankBegin,
+                             opSteppedCount - prevCount);
+
+                    // advance
+                    rankBegin = rankEnd;
+                    opRankBegin = opRankEnd;
                 }
-
-                a2_trace("  stepping rank %d, %u operators\n",
-                         (s32)*rankBegin,
-                         (u32)(opRankEnd - opRankBegin));
-
-                auto prevCount = opSteppedCount;
-
-                // step the operators in [opRankBegin, opRankEnd)
-                opSteppedCount += step_operator_range_threaded(&A2WorkQueue, opRankBegin, opRankEnd);
-
-                a2_trace("  stepped rank %d, %u operators\n",
-                         (s32)*rankBegin,
-                         opSteppedCount - prevCount);
-
-                // advance
-                rankBegin = rankEnd;
-                opRankBegin = opRankEnd;
             }
         }
     }
