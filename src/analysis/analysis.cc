@@ -2747,6 +2747,7 @@ Analysis::Analysis(QObject *parent)
     : QObject(parent)
     , m_modified(false)
     , m_timetickCount(0.0)
+    , m_a2ArenaIndex(0)
 {
     m_registry.registerSource<Extractor>();
 
@@ -2775,6 +2776,8 @@ Analysis::~Analysis()
 {
 }
 
+/* This overload updates operator ranks and sorts operators by rank,
+ * then calls beginRun() on sources and operators. */
 void Analysis::beginRun(const RunInfo &runInfo)
 {
     m_runInfo = runInfo;
@@ -2818,33 +2821,44 @@ void Analysis::beginRun(const RunInfo &runInfo)
         << m_operators.size() << " operators";
 }
 
-void Analysis::beginRun(const RunInfo &runInfo, const QHash<QUuid, QPair<int, int>> &vmeConfigUuIdToIndexes)
+static const size_t A2ArenaSize = Kilobytes(256);
+
+/* Calls the overloaded beginRun() to prepare the analysis::* stuff,
+ * then used a2_adapter_build() to build the a2 system. */
+void Analysis::beginRun(
+    const RunInfo &runInfo,
+    const vme_analysis_common::VMEIdToIndex &vmeMap)
 {
+    m_vmeMap = vmeMap;
+
     beginRun(runInfo);
 
-    if (!m_a2Arena)
+    if (!m_a2Arenas[0])
     {
-        static const size_t A2InitialMem = Megabytes(1);
-        m_a2Arena = std::make_unique<memory::Arena>(A2InitialMem);
-        m_a2TempArena = std::make_unique<memory::Arena>(A2InitialMem);
+        for (size_t i = 0; i < m_a2Arenas.size(); i++)
+        {
+            m_a2Arenas[i] = std::make_unique<memory::Arena>(A2ArenaSize);
+        }
+        m_a2TempArena = std::make_unique<memory::Arena>(A2ArenaSize);
+        m_a2ArenaIndex = 0;
     }
     else
     {
-        m_a2Arena->reset();
+        m_a2ArenaIndex = (m_a2ArenaIndex + 1) % m_a2Arenas.size();
+        m_a2Arenas[m_a2ArenaIndex]->reset();
         m_a2TempArena->reset();
     }
 
 #if ANALYSIS_USE_A2
     qDebug() << __FUNCTION__ << "########## a2 active ##########";
-
-    m_vmeConfigUuIdToIndexes = vmeConfigUuIdToIndexes;
+    qDebug() << __FUNCTION__ << "using a2 arena" << (u32)m_a2ArenaIndex;
 
     auto a2State = a2_adapter_build(
-        m_a2Arena.get(),
+        m_a2Arenas[m_a2ArenaIndex].get(),
         m_a2TempArena.get(),
         m_sources,
         m_operators,
-        vmeConfigUuIdToIndexes);
+        m_vmeMap);
 
     m_a2State = std::make_unique<A2AdapterState>(a2State);
 #endif
@@ -2861,7 +2875,7 @@ void Analysis::beginEvent(const QUuid &eventId)
         }
     }
 #else
-    a2_begin_event(m_a2State->a2, m_vmeConfigUuIdToIndexes[eventId].first);
+    a2_begin_event(m_a2State->a2, m_vmeMap.value(eventId).eventIndex);
 #endif
 }
 
@@ -2880,15 +2894,15 @@ void Analysis::processModuleData(const QUuid &eventId, const QUuid &moduleId, u3
     }
 
 #else
-    auto indexes = m_vmeConfigUuIdToIndexes[moduleId];
-    a2_process_module_data(m_a2State->a2, indexes.first, indexes.second, data, size);
+    auto index = m_vmeMap.value(moduleId);
+    a2_process_module_data(m_a2State->a2, index.eventIndex, index.moduleIndex, data, size);
 #endif
 }
 
 #if ANALYSIS_USE_A2
 void Analysis::endEvent(const QUuid &eventId)
 {
-    a2_end_event(m_a2State->a2, m_vmeConfigUuIdToIndexes[eventId].first);
+    a2_end_event(m_a2State->a2, m_vmeMap.value(eventId).eventIndex);
 }
 #else // ANALYSIS_USE_A2
 void Analysis::endEvent(const QUuid &eventId)
