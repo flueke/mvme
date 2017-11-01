@@ -423,6 +423,8 @@ static const QHash<const QMetaObject *, OperatorMagic *> OperatorMagicTable =
 
 a2::Operator a2_adapter_magic(memory::Arena *arena, A2AdapterState *state, analysis::OperatorPtr op)
 {
+    // TODO: check that the operator is fully connected and in a state that can be adapted to a2
+    // allInputsConnected()?
     a2::Operator result = {};
     result.type = a2::OperatorTypeCount;
 
@@ -479,7 +481,7 @@ void a2_adapter_build_extractors(
     memory::Arena *arena,
     A2AdapterState *state,
     const QVector<Analysis::SourceEntry> &sourceEntries,
-    const QHash<QUuid, QPair<int, int>> &vmeConfigUuIdToIndexes)
+    const vme_analysis_common::VMEIdToIndex &vmeMap)
 {
     struct SourceInfo
     {
@@ -491,15 +493,13 @@ void a2_adapter_build_extractors(
 
     for (auto se: sourceEntries)
     {
-        auto p = vmeConfigUuIdToIndexes[se.moduleId];
-        int eventIndex = p.first;
-        int moduleIndex = p.second;
+        auto index = vmeMap.value(se.moduleId);
 
-        Q_ASSERT(eventIndex < a2::MaxVMEEvents);
-        Q_ASSERT(moduleIndex < a2::MaxVMEModules);
+        Q_ASSERT(index.eventIndex < a2::MaxVMEEvents);
+        Q_ASSERT(index.moduleIndex < a2::MaxVMEModules);
 
-        sources[eventIndex].push_back({ se.source, moduleIndex });
-        qSort(sources[eventIndex].begin(), sources[eventIndex].end(), [](auto a, auto b) {
+        sources[index.eventIndex].push_back({ se.source, index.moduleIndex });
+        qSort(sources[index.eventIndex].begin(), sources[index.eventIndex].end(), [](auto a, auto b) {
             return a.moduleIndex < b.moduleIndex;
         });
     }
@@ -560,14 +560,13 @@ using OperatorsByEventIndex = std::array<QVector<OperatorInfo>, a2::MaxVMEEvents
 
 OperatorsByEventIndex group_operators_by_event(
     const QVector<Analysis::OperatorEntry> &operatorEntries,
-    const QHash<QUuid, QPair<int, int>> &vmeConfigUuIdToIndexes)
+    const vme_analysis_common::VMEIdToIndex &vmeMap)
 {
     std::array<QVector<OperatorInfo>, a2::MaxVMEEvents> operators;
 
     for (auto oe: operatorEntries)
     {
-        auto p = vmeConfigUuIdToIndexes[oe.eventId];
-        int eventIndex = p.first;
+        int eventIndex = vmeMap.value(oe.eventId).eventIndex;
 
         Q_ASSERT(eventIndex < a2::MaxVMEEvents);
 
@@ -608,15 +607,79 @@ void a2_adapter_build_operators(
     }
 }
 
+using OperatorEntryVector = QVector<Analysis::OperatorEntry>;
+
+void set_null_if_input_is(OperatorEntryVector &operators, OperatorInterface *inputOp, s32 startIndex)
+{
+    s32 operatorCount = operators.size();
+
+    for (s32 i = startIndex;
+         i < operatorCount;
+         i++)
+    {
+        auto &entry = operators[i];
+
+        if (entry.op)
+        {
+            for (s32 slotIndex = 0;
+                 slotIndex < entry.op->getNumberOfSlots();
+                 slotIndex++)
+            {
+                auto slot = entry.op->getSlot(slotIndex);
+
+                if (slot->inputPipe && slot->inputPipe->source == inputOp)
+                {
+                    entry.op.reset();
+                    break;
+                }
+            }
+        }
+    }
+}
+
+auto a2_adapter_filter_operators(QVector<Analysis::OperatorEntry> operators)
+{
+    QVector<Analysis::OperatorEntry> result;
+
+    s32 operatorCount = operators.size();
+
+    for (s32 opIndex = 0;
+         opIndex < operatorCount;
+         opIndex++)
+    {
+        auto &entry = operators[opIndex];
+
+        if (entry.op && !all_inputs_connected(entry.op.get()))
+        {
+            QLOG("filtering out" << entry.op.get() << " and direct children");
+            set_null_if_input_is(operators, entry.op.get(), opIndex + 1);
+            entry.op.reset();
+        }
+    }
+
+    for (s32 opIndex = 0;
+         opIndex < operatorCount;
+         opIndex++)
+    {
+        if (operators[opIndex].op)
+        {
+            result.push_back(operators[opIndex]);
+        }
+    }
+
+    QLOG("filtered out" << operators.size() - result.size()
+         << " of" << operators.size() << " operators");
+
+    return result;
+}
+
 A2AdapterState a2_adapter_build(
     memory::Arena *arena,
     memory::Arena *tempArena,
     const QVector<Analysis::SourceEntry> &sourceEntries,
-    const QVector<Analysis::OperatorEntry> &operatorEntries,
-    const QHash<QUuid, QPair<int, int>> &vmeConfigUuIdToIndexes)
+    const QVector<Analysis::OperatorEntry> &allOperatorEntries,
+    const vme_analysis_common::VMEIdToIndex &vmeMap)
 {
-    qDebug() << vmeConfigUuIdToIndexes;
-
     A2AdapterState result = {};
     result.a2 = arena->push<a2::A2>({});
 
@@ -634,11 +697,14 @@ A2AdapterState a2_adapter_build(
         arena,
         &result,
         sourceEntries,
-        vmeConfigUuIdToIndexes);
+        vmeMap);
 
     // -------------------------------------------
     // Operator -> Operator
     // -------------------------------------------
+
+    /* Filter out operators that are not fully connected. */
+    auto operatorEntries = a2_adapter_filter_operators(allOperatorEntries);
 
     /* The problem: I want the operators for each event be sorted by rank _and_
      * by a2::OperatorType.
@@ -654,7 +720,7 @@ A2AdapterState a2_adapter_build(
 
     OperatorsByEventIndex operators = group_operators_by_event(
         operatorEntries,
-        vmeConfigUuIdToIndexes);
+        vmeMap);
 
     /* Build in temp arena. Fills out result and operators. */
     a2_adapter_build_operators(

@@ -64,7 +64,7 @@ A2AdapterState a2_adapter_build(
     memory::Arena *tempArena,
     const QVector<Analysis::SourceEntry> &sources,
     const QVector<Analysis::OperatorEntry> &operators,
-    const QHash<QUuid, QPair<int, int>> &vmeConfigUuIdToIndexes);
+    const vme_analysis_common::VMEIdToIndex &vmeMap);
 
 a2::PipeVectors find_output_pipe(const A2AdapterState *state, analysis::Pipe *pipe);
 

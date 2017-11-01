@@ -43,8 +43,10 @@ using namespace memory;
  *   passing directly to the extractor.
  * - Better tests. Test edge cases using nan, inf, -inf. Document the behaviour.
  * - Test and document the behaviour for invalids.
- * - Support negative axis values.
- * - Figure out why those range assertions in fill_h2d() are triggering.
+ * - Support negative axis values (works for h2d)
+ * - Think about aligning operators to cache lines (in addition to the double
+ *   arrays).
+ * - Arena overflow strategy.
  */
 
 /* Alignment in bytes of all double vectors created by the system.
