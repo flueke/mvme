@@ -402,11 +402,13 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
         //u32 stackListControlValue = 0;
         u32 nextTimerTriggerSource = SIS3153Registers::TriggerSourceTimer1;
 
+        auto eventConfigs = m_workerContext.vmeConfig->getEventConfigs();
+
         for (s32 eventIndex = 0;
-             eventIndex < m_workerContext.vmeConfig->eventConfigs.size();
+             eventIndex < eventConfigs.size();
              ++eventIndex)
         {
-            auto event = m_workerContext.vmeConfig->eventConfigs[eventIndex];
+            auto event = eventConfigs[eventIndex];
 
             // build the command stack list
             auto readoutCommands = build_event_readout_script(event);

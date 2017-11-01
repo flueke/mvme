@@ -239,7 +239,7 @@ void VMEConfigTreeWidget::setConfig(VMEConfig *cfg)
             for (auto script: cfg->vmeScriptLists[category])
                 onScriptAdded(script, category);
 
-        for (auto event: cfg->eventConfigs)
+        for (auto event: cfg->getEventConfigs())
             onEventAdded(event);
 
         connect(cfg, &VMEConfig::eventAdded, this, &VMEConfigTreeWidget::onEventAdded);
