@@ -1274,6 +1274,7 @@ class LIBMVME_EXPORT Analysis: public QObject
          * Fix this by having this class keep an instance of the hash around and pass that internally.
          * Remember to update the hash on every vme config change!
          */
+        void beginRun(const RunInfo &runInfo, const vme_analysis_common::VMEIdToIndex &vmeMap);
         void beginRun(const RunInfo &runInfo, const QHash<QUuid, QPair<int, int>> &vmeConfigUuIdToIndexes);
         void beginRun(const RunInfo &runInfo);
         void beginEvent(const QUuid &eventId);
@@ -1383,6 +1384,7 @@ class LIBMVME_EXPORT Analysis: public QObject
         A2AdapterState *getA2AdapterState() { return m_a2State.get(); }
 
     private:
+        void beginRun(const RunInfo &runInfo);
         void updateRank(OperatorInterface *op, QSet<OperatorInterface *> &updated);
 
         QVector<SourceEntry> m_sources;

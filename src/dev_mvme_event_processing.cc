@@ -194,7 +194,7 @@ int main(int argc, char *argv[])
         g_context = new MVMEContext(nullptr);
         g_context->setVMEConfig(vmeConfig);
         g_eventProcessor = new MVMEEventProcessor(g_context);
-        g_eventProcessor->newRun({});
+        g_eventProcessor->newRun({}, {});
 
         while (nRuns-- > 0)
         {
