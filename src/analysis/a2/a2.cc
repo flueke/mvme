@@ -1,3 +1,4 @@
+#include "mpmc_queue.cc"
 #include "a2_impl.h"
 
 #include <algorithm>
@@ -10,11 +11,12 @@
 #include <random>
 #include <thread>
 #include "util/perf.h"
+#include "benaphore.h" // cpp11-on-multicore
 
 #define ArrayCount(x) (sizeof(x) / sizeof(*x))
 
-//#ifndef NDEBUG
-#if 0
+#ifndef NDEBUG
+//#if 0
 #define a2_trace(fmt, ...)\
 do\
 {\
@@ -49,7 +51,7 @@ using namespace memory;
  * SSE requires 16 byte alignment (128 bit registers).
  * AVX wants 32 bytes (256 bit registers).
  */
-static const size_t ParamVecAlignment = 32;
+static const size_t ParamVecAlignment = 128;
 
 void print_param_vector(ParamVec pv)
 {
@@ -1251,15 +1253,31 @@ struct Work
     Operator *end = nullptr;
 };
 
+static const s32 WorkQueueSize = 32;
+
 struct WorkQueue
 {
-    std::queue<Work> queue;
-    std::mutex mutex;
-    std::condition_variable cv_notEmpty;
+    mpmc_bounded_queue<Work> queue;//(WorkQueueSize);
+    //NonRecursiveBenaphore mutex;
+    LightweightSemaphore taskSem;
+    LightweightSemaphore tasksDoneSem;
+    //std::atomic<int> tasksDone;
+
+    using Guard = std::lock_guard<NonRecursiveBenaphore>;
+
+    explicit WorkQueue(size_t size)
+        : queue(size)
+    {}
 };
 
-Work dequeue(WorkQueue *queue)
+struct ThreadInfo
 {
+    int id = 0;
+};
+
+Work dequeue(WorkQueue *queue, ThreadInfo threadInfo)
+{
+#if 0
     std::unique_lock<std::mutex> lock(queue->mutex);
 
     while (queue->queue.empty())
@@ -1269,21 +1287,94 @@ Work dequeue(WorkQueue *queue)
 
     Work result = queue->queue.front();
     queue->queue.pop();
+#else
+    Work result = {};
+
+    for (;;)
+    {
+        a2_trace("a2 worker %d waiting for taskSem\n",
+                 threadInfo.id);
+
+        // block here and try the queue until we get an item
+        queue->taskSem.wait();
+
+        a2_trace("a2 worker %d taking the lock\n",
+                 threadInfo.id);
+
+        //WorkQueue::Guard guard(queue->mutex);
+        if (queue->queue.dequeue(result))
+        {
+            break;
+        }
+
+        //if (!queue->queue.empty())
+        //{
+        //    result = queue->queue.front();
+        //    queue->queue.pop();
+        //    break;
+        //}
+    }
+
+    a2_trace("a2 worker %d got a task\n",
+             threadInfo.id);
+#endif
 
     return result;
 }
 
+void a2_worker_loop(WorkQueue *queue, ThreadInfo threadInfo)
+{
+    a2_trace("worker %d starting up\n", threadInfo.id);
+
+    for (;;)
+    {
+        // the deqeue() call blocks until we get an item
+        auto work = dequeue(queue, threadInfo);
+
+        if (work.begin)
+        {
+            a2_trace("worker %d got %d operators to step\n",
+                     threadInfo.id,
+                     (s32)(work.end - work.begin));
+
+            step_operator_range(work.begin, work.end);
+            //queue->tasksDone++;
+            queue->tasksDoneSem.signal();
+        }
+        else // nullptr is the "quit message"
+        {
+            a2_trace("worker %d got nullptr work\n",
+                     threadInfo.id);
+            //queue->tasksDone++;
+            queue->tasksDoneSem.signal();
+            break;
+        }
+    }
+
+    a2_trace("worker %d about to quit\n",
+             threadInfo.id);
+}
+
+static const int A2ThreadCount = 0;
+static const int OperatorsPerTask = 6;
+
 u32 step_operator_range_threaded(WorkQueue *queue, Operator *first, Operator *last)
 {
-    static const int OperatorsPerTask = 8;
 
-    s32 workSize = (s32)(last - first);
-    s32 workQueued = 0;
+    const s32 opCount = (s32)(last - first);
+    s32 tasksQueued = 0;
+    s32 opsQueued = 0;
 
-    a2_trace("about to step %d operators\n", workSize);
+    a2_trace("about to step %d operators\n", opCount);
 
     {
-        std::unique_lock<std::mutex> lock(queue->mutex);
+        // Workers should spin or wait in queue->taskSem.wait() so the rwLock
+        // should always be uncontested.
+        a2_trace("main a2 worker taking lock before enqueueing work\n");
+        //WorkQueue::Guard guard(queue->mutex);
+
+        //queue->tasksDone = 0;
+        assert(queue->tasksDoneSem.count() == 0);
 
         auto op = first;
 
@@ -1294,95 +1385,103 @@ u32 step_operator_range_threaded(WorkQueue *queue, Operator *first, Operator *la
             a2_trace("about to enqueue a task of %d operators\n",
                      opsToQueue);
 
-            queue->queue.push({ op, op + opsToQueue});
-            op += opsToQueue;
-
-            workQueued += opsToQueue;
+            //queue->queue.push({ op, op + opsToQueue});
+            if (queue->queue.enqueue({ op, op + opsToQueue }))
+            {
+                op += opsToQueue;
+                tasksQueued++;
+                opsQueued += opsToQueue;
+            }
         }
+
+        // workers are still in queue->taskSem.wait()
     }
 
-    assert(workQueued == workSize);
+    assert(opsQueued == opCount);
 
-    a2_trace("work prepared, notifying workers\n");
+    a2_trace("work prepared, notifying workers: taskSem.signal(%d)\n",
+             tasksQueued);
+    queue->taskSem.signal(tasksQueued);
 
-    queue->cv_notEmpty.notify_all();
+    // Workers should wake up and hit the rwLock now
 
     a2_trace("main a2 worker starting work\n");
 
-    for (;;)
+    // This must atomically fetch queue->tasksDone every time through the loop.
+    //while (queue->tasksDone.load() < tasksQueued)
+    while (true)
     {
         Work task = {};
         {
-            std::unique_lock<std::mutex> lock(queue->mutex);
+            a2_trace("main a2 worker taking the lock\n");
+            // Contend with the workers for the rwLock
+            //WorkQueue::Guard guard(queue->mutex);
 
-            if (queue->queue.empty())
+            a2_trace("main a2 worker got the lock, tasksQueued=%d, tasksDone=%d", //, queue.size()=%u\n|",
+                     tasksQueued,
+                     queue->tasksDoneSem.count());
+                     //queue->tasksDone.load());
+                     //(u32)queue->queue.size());
+
+            if (!queue->queue.dequeue(task))
+            {
                 break;
+            }
 
-            task = queue->queue.front();
-            queue->queue.pop();
+            //if (!queue->queue.empty())
+            //{
+            //    task = queue->queue.front();
+            //    queue->queue.pop();
+            //}
         }
 
-        assert(task.begin);
+        if (task.begin)
+        {
+            a2_trace("main a2 worker got %d operators to step\n",
+                     (s32)(task.end - task.begin));
 
-        a2_trace("main a2 worker got %d operators to step\n",
-                 (s32)(task.end - task.begin));
+            step_operator_range(task.begin, task.end);
 
-        step_operator_range(task.begin, task.end);
+            //queue->tasksDone++;
+            queue->tasksDoneSem.signal();
+        }
     }
+
+    //while (queue->tasksDone < tasksQueued);
+
+    a2_trace("tasksQueued=%d, tasksDone=%d\n",
+             tasksQueued,
+             queue->tasksDoneSem.count());
+             //queue->tasksDone.load());
+
+    for (s32 i = 0; i < tasksQueued; i++)
+    {
+        queue->tasksDoneSem.wait();
+    }
+
+    //assert(queue->tasksDone == tasksQueued);
+    assert(queue->tasksDoneSem.count() == 0);
 
     a2_trace("main a2 worker done\n");
 
-    a2_trace("work was done on %d items\n", workSize);
+    a2_trace("work was done on %d operators in %d tasks\n",
+             opCount,
+             tasksQueued);
 
-    return workSize;
+    return opCount;
 }
 
-static WorkQueue A2WorkQueue;
-
-struct ThreadInfo
-{
-    int id = 0;
-};
-
-void a2_worker_loop(WorkQueue *queue, ThreadInfo threadInfo)
-{
-    a2_trace("worker %d starting up\n", threadInfo.id);
-
-    for (;;)
-    {
-        auto work = dequeue(queue);
-
-        if (work.begin)
-        {
-            a2_trace("worker %d got %d operators to step\n",
-                     threadInfo.id,
-                     (s32)(work.end - work.begin));
-
-            step_operator_range(work.begin, work.end);
-        }
-        else
-        {
-            a2_trace("worker %d got nullptr work\n",
-                     threadInfo.id);
-            break;
-        }
-    }
-
-    a2_trace("worker %d about to quit\n",
-             threadInfo.id);
-}
+static WorkQueue A2WorkQueue(WorkQueueSize);
 
 static std::vector<std::thread> A2Threads = {};
 
 void a2_begin_run(A2 *a2)
 {
-    static const int threadCount = 2;
-
     A2Threads.clear();
 
-    a2_trace("starting %d workers\n", threadCount);
+    a2_trace("starting %d workers\n", A2ThreadCount);
 
-    for (int threadId = 0; threadId < threadCount; threadId++)
+    for (int threadId = 0; threadId < A2ThreadCount; threadId++)
     {
         A2Threads.emplace_back(a2_worker_loop, &A2WorkQueue, ThreadInfo{ threadId });
     }
@@ -1392,20 +1491,38 @@ void a2_end_run(A2 *a2)
 {
     a2_trace("about to queue nullptr work\n");
 
-    {
-        std::unique_lock<std::mutex> lock(A2WorkQueue.mutex);
+    auto queue = &A2WorkQueue;
+    const s32 threadCount = (s32)A2Threads.size();
 
-        for (u32 i = 0; i < A2Threads.size(); i++)
+    {
+        //WorkQueue::Guard guard(queue->mutex);
+        //queue->tasksDone = 0;
+        assert(queue->tasksDoneSem.count() == 0);
+
+        for (s32 i = 0; i < threadCount; i++)
         {
-            A2WorkQueue.queue.push({ nullptr, nullptr });
+            //queue->queue.push({ nullptr, nullptr });
+            queue->queue.enqueue({ nullptr, nullptr });
         }
     }
 
-    a2_trace("notifying workers: cv_notEmpty.notify_all()\n");
+    a2_trace("notifying workers: taskSem.signal(%d)\n",
+             threadCount);
 
-    A2WorkQueue.cv_notEmpty.notify_all();
+    queue->taskSem.signal(threadCount);
 
-    for (u32 threadId = 0; threadId < A2Threads.size(); threadId++)
+    a2_trace("waiting for workers to quit\n");
+
+    //while (queue->tasksDone.load() < threadCount) /* spin */;
+
+    for (s32 i = 0; i < threadCount; i++)
+    {
+        queue->tasksDoneSem.wait();
+    }
+
+    a2_trace("workers have quit, joining threads\n");
+
+    for (s32 threadId = 0; threadId < threadCount; threadId++)
     {
         if (A2Threads[threadId].joinable())
         {
@@ -1414,7 +1531,7 @@ void a2_end_run(A2 *a2)
         }
         else
         {
-            a2_trace("thread %d not joinable\n", threadId);
+            a2_trace("thread %d was not joinable\n", threadId);
         }
     }
 
@@ -1434,63 +1551,66 @@ void a2_end_event(A2 *a2, int eventIndex)
 
     a2_trace("ei=%d, stepping %d operators\n", eventIndex, opCount);
 
-#if 0
-    for (int opIdx = 0; opIdx < opCount; opIdx++)
+    if (A2ThreadCount == 0)
     {
-        Operator *op = operators + opIdx;
-
-        a2_trace("  op@%p\n", op);
-
-        assert(op);
-        assert(op->type < ArrayCount(OperatorTable));
-        assert(OperatorTable[op->type].step);
-
-        OperatorTable[op->type].step(op);
-        opSteppedCount++;
-    }
-#else
-    if (opCount)
-    {
-        const Operator *opEnd = operators + opCount;
-
-        u8* rankBegin = ranks;
-        Operator *opRankBegin = operators;
-
-        while (opRankBegin < opEnd)
+        for (int opIdx = 0; opIdx < opCount; opIdx++)
         {
-            u8* rankEnd = rankBegin;
-            Operator *opRankEnd = opRankBegin;
+            Operator *op = operators + opIdx;
 
-            while (opRankEnd < opEnd)
+            a2_trace("  op@%p\n", op);
+
+            assert(op);
+            assert(op->type < ArrayCount(OperatorTable));
+            assert(OperatorTable[op->type].step);
+
+            OperatorTable[op->type].step(op);
+            opSteppedCount++;
+        }
+    } else
+    {
+        if (opCount)
+        {
+            const Operator *opEnd = operators + opCount;
+
+            u8* rankBegin = ranks;
+            Operator *opRankBegin = operators;
+
+            while (opRankBegin < opEnd)
             {
-                if (*rankEnd > *rankBegin)
+                u8* rankEnd = rankBegin;
+                Operator *opRankEnd = opRankBegin;
+
+                while (opRankEnd < opEnd)
                 {
-                    break;
+                    if (*rankEnd > *rankBegin)
+                    {
+                        break;
+                    }
+
+                    rankEnd++;
+                    opRankEnd++;
                 }
 
-                rankEnd++;
-                opRankEnd++;
+                a2_trace("  stepping rank %d, %u operators\n",
+                         (s32)*rankBegin,
+                         (u32)(opRankEnd - opRankBegin));
+
+                auto prevCount = opSteppedCount;
+
+                // step the operators in [opRankBegin, opRankEnd)
+                opSteppedCount += step_operator_range_threaded(&A2WorkQueue, opRankBegin, opRankEnd);
+
+                a2_trace("  stepped rank %d, %u operators\n",
+                         (s32)*rankBegin,
+                         opSteppedCount - prevCount);
+
+                // advance
+                rankBegin = rankEnd;
+                opRankBegin = opRankEnd;
             }
-
-            a2_trace("  stepping rank %d, %u operators\n",
-                     (s32)*rankBegin,
-                     (u32)(opRankEnd - opRankBegin));
-
-            auto prevCount = opSteppedCount;
-
-            // step the operators in [opRankBegin, opRankEnd)
-            opSteppedCount += step_operator_range_threaded(&A2WorkQueue, opRankBegin, opRankEnd);
-
-            a2_trace("  stepped rank %d, %u operators\n",
-                     (s32)*rankBegin,
-                     opSteppedCount - prevCount);
-
-            // advance
-            rankBegin = rankEnd;
-            opRankBegin = opRankEnd;
         }
     }
-#endif
+
     assert(opSteppedCount == opCount);
 
     a2_trace("ei=%d, %d operators stepped\n", eventIndex, opSteppedCount);
