@@ -20,7 +20,11 @@
 #define __VME_ANALYSIS_COMMON_H__
 
 #include "vme_config.h"
-#include "analysis/analysis.h"
+
+namespace analysis
+{
+class Analysis;
+}
 
 namespace vme_analysis_common
 {
@@ -60,6 +64,16 @@ void remove_analysis_objects_unless_matching(analysis::Analysis *analysis, const
 /** Removes sources and operators from the given analysis which reference
  * modules and events that do not exist in the given vmeConfig. */
 void remove_analysis_objects_unless_matching(analysis::Analysis *analysis, VMEConfig *vmeConfig);
+
+struct VMEConfigIndex
+{
+    s32 eventIndex;
+    s32 moduleIndex;
+};
+
+using VMEIdToIndex = QHash<QUuid, VMEConfigIndex>;
+
+VMEIdToIndex build_id_to_index_mapping(const VMEConfig *vmeConfig);
 
 }
 
