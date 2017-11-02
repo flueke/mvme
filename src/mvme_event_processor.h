@@ -23,6 +23,7 @@
 #include "globals.h"
 #include "data_buffer_queue.h"
 #include "libmvme_export.h"
+#include "vme_analysis_common.h"
 #include <QHash>
 #include <QObject>
 #include <QVector>
@@ -83,7 +84,7 @@ class LIBMVME_EXPORT MVMEEventProcessor: public QObject
 
     public slots:
         void removeDiagnostics();
-        void newRun(const RunInfo &runInfo);
+        void newRun(const RunInfo &runInfo, const vme_analysis_common::VMEIdToIndex &vmeMap);
 
         void startProcessing();
         void stopProcessing(bool whenQueueEmpty = true);

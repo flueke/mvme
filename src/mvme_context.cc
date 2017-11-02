@@ -26,6 +26,7 @@
 #include "mvme_listfile.h"
 #include "analysis/analysis.h"
 #include "analysis/analysis_ui.h"
+#include "analysis/a2/memory.h"
 #include "config_ui.h"
 #include "vme_analysis_common.h"
 #include "vme_controller_factory.h"
@@ -437,7 +438,7 @@ void MVMEContext::setVMEConfig(VMEConfig *config)
     m_vmeConfig = config;
     config->setParent(this);
 
-    for (auto event: config->eventConfigs)
+    for (auto event: config->getEventConfigs())
         onEventAdded(event);
 
     connect(m_vmeConfig, &VMEConfig::eventAdded, this, &MVMEContext::onEventAdded);
@@ -900,7 +901,11 @@ void MVMEContext::prepareStart()
     }
 #endif
 
-    m_eventProcessor->newRun(getRunInfo());
+    m_eventProcessor->newRun(
+        getRunInfo(),
+        vme_analysis_common::build_id_to_index_mapping(
+            getVMEConfig())
+        );
 
     m_daqStats = DAQStats();
 
@@ -1514,7 +1519,11 @@ bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc, const QString &in
 
         // Prepares operators, allocates histograms, etc..
         // This should in reality be the only place to throw a bad_alloc
-        m_eventProcessor->newRun(getRunInfo());
+        m_eventProcessor->newRun(
+            getRunInfo(),
+            vme_analysis_common::build_id_to_index_mapping(
+                getVMEConfig())
+            );
 
         emit analysisChanged();
 
@@ -1533,6 +1542,15 @@ bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc, const QString &in
         m_analysis_ng->clear();
         setAnalysisConfigFileName(QString());
         QMessageBox::critical(m_mainwin, QSL("Error"), QString("Out of memory when creating analysis objects."));
+        emit analysisChanged();
+
+        return false;
+    }
+    catch (const memory::out_of_memory &e)
+    {
+        m_analysis_ng->clear();
+        setAnalysisConfigFileName(QString());
+        QMessageBox::critical(m_mainwin, QSL("Error"), QString("Out of memory when creating analysis a2 objects."));
         emit analysisChanged();
 
         return false;
