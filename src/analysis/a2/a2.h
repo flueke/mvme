@@ -112,6 +112,17 @@ inline void invalidate_all(double *params, s32 count)
 ParamVec push_param_vector(memory::Arena *arena, s32 size);
 ParamVec push_param_vector(memory::Arena *arena, s32 size, double value);
 
+struct Thresholds
+{
+    double min;
+    double max;
+};
+
+inline bool in_range(Thresholds t, double v)
+{
+    return (t.min <= v && v < t.max);
+}
+
 struct PipeVectors
 {
     ParamVec data;
@@ -211,6 +222,19 @@ Operator make_binary_equation(
     double outputLowerLimit,
     double outputUpperLimit);
 
+Operator make_range_filter(
+    memory::Arena *arena,
+    PipeVectors input,
+    Thresholds thresholds,
+    bool invert);
+
+Operator make_range_filter_idx(
+    memory::Arena *arena,
+    PipeVectors input,
+    s32 inputIndex,
+    Thresholds thresholds,
+    bool invert);
+
 /* ===============================================
  * AggregateOps
  * =============================================== */
@@ -218,11 +242,6 @@ Operator make_binary_equation(
 /* Thresholds to check each input parameter against. If the parameter is not
  * inside [min_threshold, max_threshold] it is not considered for the result.
  */
-struct Thresholds
-{
-    double min;
-    double max;
-};
 
 Operator make_aggregate_sum(
     memory::Arena *arena,
@@ -276,9 +295,8 @@ struct H1DSinkData
     TypedBlock<H1D, s32> histos;
 };
 
-struct H1DSinkData_idx
+struct H1DSinkData_idx: public H1DSinkData
 {
-    TypedBlock<H1D, s32> histos;
     s32 inputIndex;
 };
 

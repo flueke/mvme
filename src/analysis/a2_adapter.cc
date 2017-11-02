@@ -292,6 +292,41 @@ DEF_OP_MAGIC(binary_equation_magic)
     return result;
 }
 
+DEF_OP_MAGIC(range_filter_magic)
+{
+    LOG("");
+    assert(inputSlots.size() == 1);
+    assert_slot(inputSlots[0]);
+
+    auto rangeFilter = qobject_cast<analysis::RangeFilter1D *>(op.get());
+
+    assert(rangeFilter);
+
+    auto a2_input = find_output_pipe(adapterState, inputSlots[0]);
+
+    a2::Operator result = {};
+
+    if (inputSlots[0]->paramIndex == analysis::Slot::NoParamIndex)
+    {
+        result = a2::make_range_filter(
+            arena,
+            a2_input,
+            { rangeFilter->m_minValue, rangeFilter->m_maxValue },
+            rangeFilter->m_keepOutside);
+    }
+    else
+    {
+        result = a2::make_range_filter_idx(
+            arena,
+            a2_input,
+            inputSlots[0]->paramIndex,
+            { rangeFilter->m_minValue, rangeFilter->m_maxValue },
+            rangeFilter->m_keepOutside);
+    }
+
+    return result;
+}
+
 DEF_OP_MAGIC(histo1d_sink_magic)
 {
     LOG("");
@@ -416,6 +451,7 @@ static const QHash<const QMetaObject *, OperatorMagic *> OperatorMagicTable =
     { &analysis::ArrayMap::staticMetaObject, array_map_magic },
     { &analysis::AggregateOps::staticMetaObject, aggregate_ops_magic },
     { &analysis::BinarySumDiff::staticMetaObject, binary_equation_magic },
+    { &analysis::RangeFilter1D::staticMetaObject, range_filter_magic },
 
     { &analysis::Histo1DSink::staticMetaObject, histo1d_sink_magic },
     { &analysis::Histo2DSink::staticMetaObject, histo2d_sink_magic },

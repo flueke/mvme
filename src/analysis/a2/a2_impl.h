@@ -19,6 +19,7 @@ enum OperatorType
     Operator_H1DSink_idx,
     Operator_H2DSink,
     Operator_RangeFilter,
+    Operator_RangeFilter_idx,
     Operator_Sum,
     Operator_Multiplicity,
     Operator_Max,

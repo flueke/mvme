@@ -33,6 +33,7 @@ using namespace data_filter;
 using namespace memory;
 
 /* TODO list
+ * - Add tests for range_filter_step(). Test it in mvme.
  * - Add logic to force internal input/output vectors to be rounded up to a
  *   specific power of 2. This is needed to efficiently use vector instructions
  *   in the _step() loops I think.
@@ -102,6 +103,30 @@ ParamVec push_param_vector(Arena *arena, s32 size, double value)
     return result;
 }
 
+void assign_input(Operator *op, PipeVectors input, s32 inputIndex)
+{
+    assert(inputIndex < op->inputCount);
+    op->inputs[inputIndex] = input.data;
+    op->inputLowerLimits[inputIndex] = input.lowerLimits;
+    op->inputUpperLimits[inputIndex] = input.upperLimits;
+}
+
+void push_output_vectors(
+    Arena *arena,
+    Operator *op,
+    s32 outputIndex,
+    s32 size,
+    double lowerLimit = 0.0,
+    double upperLimit = 0.0)
+{
+    op->outputs[outputIndex] = push_param_vector(arena, size, invalid_param());
+    op->outputLowerLimits[outputIndex] = push_param_vector(arena, size, lowerLimit);
+    op->outputUpperLimits[outputIndex] = push_param_vector(arena, size, upperLimit);
+}
+
+/* ===============================================
+ * Operators
+ * =============================================== */
 Extractor make_extractor(
     Arena *arena,
     MultiWordFilter filter,
@@ -127,6 +152,7 @@ Extractor make_extractor(
     result.output.data = push_param_vector(arena, addrCount, invalid_param());
     result.output.lowerLimits = push_param_vector(arena, addrCount, 0.0);
     result.output.upperLimits = push_param_vector(arena, addrCount, upperLimit);
+
 
     return  result;
 }
@@ -169,27 +195,6 @@ void extractor_process_module_data(Extractor *ex, const u32 *data, u32 size)
             clear_completion(&ex->filter);
         }
     }
-}
-
-void assign_input(Operator *op, PipeVectors input, s32 inputIndex)
-{
-    assert(inputIndex < op->inputCount);
-    op->inputs[inputIndex] = input.data;
-    op->inputLowerLimits[inputIndex] = input.lowerLimits;
-    op->inputUpperLimits[inputIndex] = input.upperLimits;
-}
-
-void push_output_vectors(
-    Arena *arena,
-    Operator *op,
-    s32 outputIndex,
-    s32 size,
-    double lowerLimit = 0.0,
-    double upperLimit = 0.0)
-{
-    op->outputs[outputIndex] = push_param_vector(arena, size);
-    op->outputLowerLimits[outputIndex] = push_param_vector(arena, size, lowerLimit);
-    op->outputUpperLimits[outputIndex] = push_param_vector(arena, size, upperLimit);
 }
 
 Operator make_operator(Arena *arena, u8 type, u8 inputCount, u8 outputCount)
@@ -488,7 +493,7 @@ Operator make_difference(
     return result;
 }
 
-struct Difference_idxData
+struct DifferenceData_idx
 {
     s32 indexA;
     s32 indexB;
@@ -506,7 +511,7 @@ Operator make_difference_idx(
 
     auto result = make_operator(arena, Operator_Difference_idx, 2, 1);
 
-    result.d = arena->push<Difference_idxData>({indexA, indexB});
+    result.d = arena->push<DifferenceData_idx>({indexA, indexB});
 
     assign_input(&result, inPipeA, 0);
     assign_input(&result, inPipeB, 1);
@@ -554,7 +559,7 @@ void difference_step_idx(Operator *op)
     auto inputA = op->inputs[0];
     auto inputB = op->inputs[1];
 
-    auto d = reinterpret_cast<Difference_idxData *>(op->d);
+    auto d = reinterpret_cast<DifferenceData_idx *>(op->d);
 
     if (is_param_valid(inputA[d->indexA]) && is_param_valid(inputB[d->indexB]))
     {
@@ -852,6 +857,164 @@ void aggregate_max_step(Operator *op)
     op->outputs[0][0] = result;
 }
 
+struct RangeFilterData
+{
+    Thresholds thresholds;
+    bool invert;
+};
+
+
+struct RangeFilterData_idx
+{
+    Thresholds thresholds;
+    bool invert;
+    s32 inputIndex;
+};
+
+Operator make_range_filter(
+    Arena *arena,
+    PipeVectors input,
+    Thresholds thresholds,
+    bool invert)
+{
+    auto result = make_operator(arena, Operator_RangeFilter, 1, 1);
+
+    auto d = arena->push<RangeFilterData>({ thresholds, invert });
+    result.d = d;
+
+    assign_input(&result, input, 0);
+
+    push_output_vectors(arena, &result, 0, input.data.size);
+
+
+    for (s32 pi = 0; pi < input.data.size; pi++)
+    {
+        if (invert)
+        {
+            result.outputLowerLimits[0][pi] = input.lowerLimits[pi];
+            result.outputUpperLimits[0][pi] = input.upperLimits[pi];
+        }
+        else
+        {
+            result.outputLowerLimits[0][pi] = thresholds.min;
+            result.outputUpperLimits[0][pi] = thresholds.max;
+        }
+    }
+
+    return result;
+}
+
+Operator make_range_filter_idx(
+    Arena *arena,
+    PipeVectors input,
+    s32 inputIndex,
+    Thresholds thresholds,
+    bool invert)
+{
+    assert(0 <= inputIndex && inputIndex < input.data.size);
+
+    auto result = make_operator(arena, Operator_RangeFilter_idx, 1, 1);
+
+    auto d = arena->push<RangeFilterData_idx>({ thresholds, invert, inputIndex });
+    result.d = d;
+
+    assign_input(&result, input, 0);
+
+    push_output_vectors(arena, &result, 0, 1);
+
+    if (invert)
+    {
+        result.outputLowerLimits[0][0] = input.lowerLimits[inputIndex];
+        result.outputUpperLimits[0][0] = input.upperLimits[inputIndex];
+    }
+    else
+    {
+        result.outputLowerLimits[0][0] = thresholds.min;
+        result.outputUpperLimits[0][0] = thresholds.max;
+    }
+
+    return result;
+}
+
+void range_filter_step(Operator *op)
+{
+    a2_trace("\n");
+    assert(op->inputCount == 1);
+    assert(op->outputCount == 1);
+    assert(op->inputs[0].size == op->outputs[0].size);
+    assert(op->type == Operator_RangeFilter);
+
+    const double invalid_p = invalid_param();
+    auto input = op->inputs[0];
+    auto output = op->outputs[0];
+    auto data = *reinterpret_cast<RangeFilterData *>(op->d);
+
+    if (data.invert)
+    {
+        for (s32 pi = 0; pi < input.size; pi++)
+        {
+            if (!in_range(data.thresholds, input[pi]))
+            {
+                output[pi] = input[pi];
+            }
+            else
+            {
+                output[pi] = invalid_p;
+            }
+        }
+    }
+    else
+    {
+        for (s32 pi = 0; pi < input.size; pi++)
+        {
+            if (in_range(data.thresholds, input[pi]))
+            {
+                output[pi] = input[pi];
+            }
+            else
+            {
+                output[pi] = invalid_p;
+            }
+        }
+    }
+}
+
+void range_filter_step_idx(Operator *op)
+{
+    a2_trace("\n");
+    assert(op->inputCount == 1);
+    assert(op->outputCount == 1);
+    assert(op->outputs[0].size == 1);
+    assert(op->type == Operator_RangeFilter_idx);
+
+    auto input = op->inputs[0];
+    auto output = op->outputs[0];
+    auto data = *reinterpret_cast<RangeFilterData_idx *>(op->d);
+
+    if (data.invert)
+    {
+        if (!in_range(data.thresholds, input[data.inputIndex]))
+        {
+            output[0] = input[data.inputIndex];
+        }
+        else
+        {
+            output[0] = invalid_param();
+        }
+    }
+    else
+    {
+        if (in_range(data.thresholds, input[data.inputIndex]))
+        {
+            output[0] = input[data.inputIndex];
+        }
+        else
+        {
+            output[0] = invalid_param();
+        }
+    }
+}
+
 /* ===============================================
  * Histograms
  * =============================================== */
@@ -1123,7 +1286,8 @@ static const OperatorFunctions OperatorTable[OperatorTypeCount] =
     [Operator_H1DSink] = { h1d_sink_step },
     [Operator_H1DSink_idx] = { h1d_sink_step_idx },
     [Operator_H2DSink] = { h2d_sink_step },
-    [Operator_RangeFilter] = { nullptr },
+    [Operator_RangeFilter] = { range_filter_step },
+    [Operator_RangeFilter_idx] = { range_filter_step_idx },
 
     [Operator_Sum] = { aggregate_sum_step },
     [Operator_Multiplicity] = { aggregate_multiplicity_step },

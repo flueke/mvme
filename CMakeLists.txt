@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.0.0)
 project(mvme)
 
 set(WARNING_FLAGS "-Wall -Wno-unused-variable -Wno-unused-function")
+#set(WARNING_FLAGS "${WARNING_FLAGS} -Wno-mismatched-tags")
 
 set(CMAKE_CXX_FLAGS "-std=c++14 -pipe ${WARNING_FLAGS}")
 
