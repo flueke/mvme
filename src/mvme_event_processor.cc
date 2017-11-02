@@ -208,6 +208,7 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                 iter.skip(sectionSize * sizeof(u32));
             }
 
+            // sectionSize + header in bytes
             m_d->m_localStats.bytesProcessed += sectionSize * sizeof(u32) + sizeof(u32);
         }
 

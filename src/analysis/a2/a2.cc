@@ -15,8 +15,8 @@
 
 #define ArrayCount(x) (sizeof(x) / sizeof(*x))
 
-#ifndef NDEBUG
-//#if 0
+//#ifndef NDEBUG
+#if 0
 #define a2_trace(fmt, ...)\
 do\
 {\

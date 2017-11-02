@@ -24,6 +24,7 @@ static const QVector<const char *> LabelTexts =
     "bytesProcessed",
     "buffersProcessed",
     "buffersWithErrors",
+    "avgBufferSize",
     "eventSections",
     "invalid event index",
     "counts by event",
@@ -102,6 +103,7 @@ void AnalysisInfoWidget::update()
     double bytesPerSecond   = deltaBytesProcessed / dt;
     double mbPerSecond      = bytesPerSecond / Megabytes(1);
     double buffersPerSecond = deltaBuffersProcessed / dt;
+    double avgBufferSize    = deltaBytesProcessed / static_cast<double>(deltaBuffersProcessed);
 
     QString stateString = state == EventProcessorState::Idle ? QSL("Idle") : QSL("Running");
 
@@ -150,19 +152,28 @@ void AnalysisInfoWidget::update()
 
     // throughput
     m_d->labels[ii++]->setText(QString("%1 MB/s").arg(mbPerSecond));
+
     // bytesProcessed
     m_d->labels[ii++]->setText(QString("%1 MB")
                                .arg((double)counters.bytesProcessed / Megabytes(1), 6, 'f', 2));
     // buffersProcessed
     m_d->labels[ii++]->setText(QString("%1 buffers").arg(counters.buffersProcessed));
+
     // buffersWithErrors
     m_d->labels[ii++]->setText(QString("%1 buffers").arg(counters.buffersWithErrors));
+
+    // avgBufferSize
+    m_d->labels[ii++]->setText(QString("%1 bytes").arg(avgBufferSize));
+
     // eventSections
     m_d->labels[ii++]->setText(QString("%1 sections").arg(counters.eventSections));
+
     // invalid event index
     m_d->labels[ii++]->setText(QString("%1").arg(counters.invalidEventIndices));
+
     // counts by event
     m_d->labels[ii++]->setText(ecText);
+
     // counts by module
     m_d->labels[ii++]->setText(mcText);
 
