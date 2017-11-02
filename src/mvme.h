@@ -112,6 +112,7 @@ private slots:
     void onObjectAboutToBeRemoved(QObject *obj);
 
     void appendToLog(const QString &);
+    void appendToLogNoDebugOut(const QString &);
     void updateWindowTitle();
     void onConfigChanged(VMEConfig *config);
 

@@ -72,6 +72,7 @@ struct MVMEContextPrivate
     QMutex m_logBufferMutex;
     ListFileOutputInfo m_listfileOutputInfo = {};
     RunInfo m_runInfo;
+    QByteArray m_replayFileAnalysisConfigData;
     u32 m_ctrlOpenRetryCount = 0;
 
     void stopDAQ();
@@ -799,6 +800,16 @@ void MVMEContext::closeReplayFile()
             setMode(GlobalMode::DAQ);
         }
     }
+}
+
+void MVMEContext::setReplayFileAnalysisConfigData(const QByteArray &analysisConfigData)
+{
+    m_d->m_replayFileAnalysisConfigData = analysisConfigData;
+}
+
+QByteArray MVMEContext::getReplayFileAnalysisConfigData() const
+{
+    return m_d->m_replayFileAnalysisConfigData;
 }
 
 void MVMEContext::setMode(GlobalMode mode)

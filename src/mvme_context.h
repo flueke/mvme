@@ -111,6 +111,9 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void setReplayFile(ListFile *listFile);
         void closeReplayFile();
         ListFile *getReplayFile() const { return m_listFile; }
+        void setReplayFileAnalysisConfigData(const QByteArray &analysisConfigData);
+        QByteArray getReplayFileAnalysisConfigData() const;
+
         void setMode(GlobalMode mode);
         GlobalMode getMode() const;
         MVMEEventProcessor *getEventProcessor() const { return m_eventProcessor; }

@@ -3457,35 +3457,3 @@ bool AnalysisWidget::event(QEvent *e)
 }
 
 } // end namespace analysis
-
-#if 0
-// Was playing around with storing shared_ptr<T> in QVariants. Getting the
-// value out of the variant involves having to know the exact type T with which
-// it was added. I prefer just storing raw pointers and qobject_cast()'ing or
-// reinterpret_cast()'ing those.
-
-template<typename T, typename U>
-std::shared_ptr<T> qobject_pointer_cast(const std::shared_ptr<U> &src)
-{
-    if (auto rawT = qobject_cast<T *>(src.get()))
-    {
-        return std::shared_ptr<T>(src, rawT);
-    }
-
-    return std::shared_ptr<T>();
-}
-
-template<typename T>
-TreeNode *makeNode(const std::shared_ptr<T> &data, int type = QTreeWidgetItem::Type)
-{
-    auto ret = new TreeNode(type);
-    ret->setData(0, DataRole_SharedPointer, QVariant::fromValue(data));
-    return ret;
-}
-
-template<typename T>
-std::shared_ptr<T> getSharedPointer(QTreeWidgetItem *node, s32 dataRole = DataRole_SharedPointer)
-{
-    return node ? node->data(0, dataRole).value<std::shared_ptr<T>>() : std::shared_ptr<T>();
-}
-#endif

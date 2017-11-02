@@ -939,11 +939,21 @@ void MVMEMainWindow::onActionOpenListfile_triggered()
         // user if it should be loaded.
         {
             // FIXME: this part does not check if the current analysis is modified!
+            //
+            // TODO: Instead of loading the config directly do read it and
+            // store it somewhere so that the analysis ui can decide if and
+            // when to load it.
 
             QuaZipFile inFile(fileName, QSL("analysis.analysis"));
 
             if (inFile.open(QIODevice::ReadOnly))
             {
+                // TODO: tell the analysis ui that a listfile has been opened.
+                // it can then decide if it wants to load the analysis config
+                // from the listfile or keep the current one.
+                m_d->m_context->setReplayFileAnalysisConfigData(inFile.readAll());
+
+#if 1
                 QMessageBox box(QMessageBox::Question, QSL("Load analysis?"),
                                 QSL("Do you want to load the analysis configuration from the ZIP archive?"),
                                 QMessageBox::Yes | QMessageBox::No);
@@ -956,6 +966,11 @@ void MVMEMainWindow::onActionOpenListfile_triggered()
                 {
                     m_d->m_context->loadAnalysisConfig(&inFile, QSL("ZIP Archive"));
                 }
+#endif
+            }
+            else
+            {
+                m_d->m_context->setReplayFileAnalysisConfigData(QByteArray());
             }
         }
 
@@ -965,9 +980,9 @@ void MVMEMainWindow::onActionOpenListfile_triggered()
 
             if (inFile.open(QIODevice::ReadOnly))
             {
-                appendToLog(QSL(">>>>> Begin listfile log"));
-                appendToLog(inFile.readAll());
-                appendToLog(QSL("<<<<< End listfile log"));
+                appendToLogNoDebugOut(QSL(">>>>> Begin listfile log"));
+                appendToLogNoDebugOut(inFile.readAll());
+                appendToLogNoDebugOut(QSL("<<<<< End listfile log"));
             }
         }
 
@@ -1140,11 +1155,19 @@ void MVMEMainWindow::onObjectAboutToBeRemoved(QObject *object)
     m_d->m_objectWindows.remove(object);
 }
 
+void MVMEMainWindow::appendToLogNoDebugOut(const QString &str)
+{
+    if (m_d->m_logView)
+    {
+        m_d->m_logView->appendPlainText(str);
+        auto bar = m_d->m_logView->verticalScrollBar();
+        bar->setValue(bar->maximum());
+    }
+}
+
 void MVMEMainWindow::appendToLog(const QString &str)
 {
-    auto debug(qDebug());
-    debug.noquote();
-    debug << __PRETTY_FUNCTION__ << str;
+    qDebug().noquote() << __PRETTY_FUNCTION__ << str;
 
     if (m_d->m_logView)
     {
