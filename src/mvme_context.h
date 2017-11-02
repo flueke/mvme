@@ -313,7 +313,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
 
         void onControllerStateChanged(ControllerState state);
 
-        friend class MVMEContextPrivate;
+        friend struct MVMEContextPrivate;
 
     private:
         std::shared_ptr<QSettings> makeWorkspaceSettings(const QString &workspaceDirectory) const;

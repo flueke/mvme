@@ -248,7 +248,9 @@ void TestDataFilter::test_data_filter_c_style_extract_data_()
         auto cacheD = make_cache_entry(filter, 'd');
 
         QCOMPARE(cacheD.extractMask, 0x3cu);
+#ifndef A2_DATA_FILTER_ALWAYS_GATHER
         QCOMPARE(cacheD.extractShift, static_cast<u8>(2u));
+#endif
         QCOMPARE(cacheD.extractBits, static_cast<u8>(4u));
         QCOMPARE(extract(cacheD, 0xff), 0xfu);
         QCOMPARE(extract(cacheD, 0xf0), 0xcu);
@@ -260,7 +262,9 @@ void TestDataFilter::test_data_filter_c_style_extract_data_()
         auto cacheD = make_cache_entry(filter, 'd');
 
         QCOMPARE(cacheD.extractMask, 0xfu);
+#ifndef A2_DATA_FILTER_ALWAYS_GATHER
         QCOMPARE(cacheD.extractShift, static_cast<u8>(0u));
+#endif
         QCOMPARE(cacheD.extractBits, static_cast<u8>(4u));
         QCOMPARE(extract(cacheD, 0xff), 0xfu);
         QCOMPARE(extract(cacheD, 0xf0), 0x0u);
@@ -272,7 +276,9 @@ void TestDataFilter::test_data_filter_c_style_extract_data_()
         auto cacheD = make_cache_entry(filter, 'd');
 
         QCOMPARE(cacheD.extractMask, 0xf000u);
+#ifndef A2_DATA_FILTER_ALWAYS_GATHER
         QCOMPARE(cacheD.extractShift, static_cast<u8>(12u));
+#endif
         QCOMPARE(cacheD.extractBits, static_cast<u8>(4u));
         QCOMPARE(extract(cacheD, 0x7abc), 0x7u);
         QCOMPARE(extract(cacheD, 0x0abc), 0x0u);
@@ -283,7 +289,9 @@ void TestDataFilter::test_data_filter_c_style_extract_data_()
         auto cacheD = make_cache_entry(filter, 'd');
 
         QCOMPARE(cacheD.extractMask, 0x80000000u);
+#ifndef A2_DATA_FILTER_ALWAYS_GATHER
         QCOMPARE(cacheD.extractShift, static_cast<u8>(31u));
+#endif
         QCOMPARE(cacheD.extractBits, static_cast<u8>(1u));
         QCOMPARE(extract(cacheD, 0x0), 0x0u);
         QCOMPARE(extract(cacheD, 0xf0123456), 0x1u);
@@ -295,7 +303,9 @@ void TestDataFilter::test_data_filter_c_style_extract_data_()
         auto cacheD = make_cache_entry(filter, 'd');
 
         QCOMPARE(cacheD.extractMask, 0x00000001u);
+#ifndef A2_DATA_FILTER_ALWAYS_GATHER
         QCOMPARE(cacheD.extractShift, static_cast<u8>(0u));
+#endif
         QCOMPARE(cacheD.extractBits, static_cast<u8>(1u));
         QCOMPARE(extract(cacheD, 0x0), 0x0u);
         QCOMPARE(extract(cacheD, 0xf012345f), 0x1u);
@@ -307,7 +317,9 @@ void TestDataFilter::test_data_filter_c_style_extract_data_()
         auto cacheD = make_cache_entry(filter, 'd');
 
         QCOMPARE(cacheD.extractMask, 0xfu);
+#ifndef A2_DATA_FILTER_ALWAYS_GATHER
         QCOMPARE(cacheD.extractShift, static_cast<u8>(0u));
+#endif
         QCOMPARE(cacheD.extractBits, static_cast<u8>(4u));
         QCOMPARE(extract(cacheD, 0xff), 0xfu);
         QCOMPARE(extract(cacheD, 0xf0), 0x0u);
@@ -317,16 +329,20 @@ void TestDataFilter::test_data_filter_c_style_extract_data_()
     //
     // gather tests - DataFilter
     //
+#ifndef A2_DATA_FILTER_ALWAYS_GATHER
     {
         auto filter = make_filter("11XXDDDX");
         auto cacheD = make_cache_entry(filter, 'd');
         QCOMPARE(cacheD.needGather, false);
     }
+#endif
 
     {
         auto filter = make_filter("11XXDXDX");
         auto cacheD = make_cache_entry(filter, 'd');
+#ifndef A2_DATA_FILTER_ALWAYS_GATHER
         QCOMPARE(cacheD.needGather, true);
+#endif
         QCOMPARE(cacheD.extractBits, static_cast<u8>(2u));
         QCOMPARE(extract(cacheD, 0b00000000u), 0u);
         QCOMPARE(extract(cacheD, 0b11001010u), 3u);
