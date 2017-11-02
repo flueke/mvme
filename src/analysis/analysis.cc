@@ -22,11 +22,11 @@
 
 #include <random>
 
+#include "analysis_impl_switch.h"
 #include "a2_adapter.h"
 #include "../vme_config.h"
 
 #define ENABLE_ANALYSIS_DEBUG 0
-#define ANALYSIS_USE_A2 0
 
 template<typename T>
 QDebug &operator<< (QDebug &dbg, const std::shared_ptr<T> &ptr)
@@ -576,10 +576,15 @@ void CalibrationMinMax::beginRun(const RunInfo &)
             out.resize(in.size());
         }
 
+        // shrink
+        if (m_calibrations.size() > out.size())
+        {
+            m_calibrations.resize(out.size());
+        }
+
         s32 outIdx = 0;
         for (s32 idx = idxMin; idx < idxMax; ++idx)
         {
-            const Parameter &inParam(in[idx]);
             Parameter &outParam(out[outIdx++]);
 
             // Hack to make things compatible with old configs. This forces
@@ -591,6 +596,7 @@ void CalibrationMinMax::beginRun(const RunInfo &)
                 setCalibration(idx, {m_oldGlobalUnitMin, m_oldGlobalUnitMax});
             }
 
+            // assign output limits
             auto calib = getCalibration(idx);
 
             outParam.lowerLimit = calib.unitMin;
@@ -2741,6 +2747,7 @@ Analysis::Analysis(QObject *parent)
     : QObject(parent)
     , m_modified(false)
     , m_timetickCount(0.0)
+    , m_a2ArenaIndex(0)
 {
     m_registry.registerSource<Extractor>();
 
@@ -2769,6 +2776,8 @@ Analysis::~Analysis()
 {
 }
 
+/* This overload updates operator ranks and sorts operators by rank,
+ * then calls beginRun() on sources and operators. */
 void Analysis::beginRun(const RunInfo &runInfo)
 {
     m_runInfo = runInfo;
@@ -2789,10 +2798,10 @@ void Analysis::beginRun(const RunInfo &runInfo)
     for (const auto &opEntry: m_operators)
     {
         qDebug() << "  "
-            << opEntry.op->getMaximumInputRank()
+            << "max input rank =" << opEntry.op->getMaximumInputRank()
             << getClassName(opEntry.op.get())
             << opEntry.op->objectName()
-            << "max output rank" << opEntry.op->getMaximumOutputRank();
+            << ", max output rank =" << opEntry.op->getMaximumOutputRank();
     }
     qDebug() << __PRETTY_FUNCTION__ << ">>>>> operators sorted by maximum input rank";
 #endif
@@ -2812,30 +2821,44 @@ void Analysis::beginRun(const RunInfo &runInfo)
         << m_operators.size() << " operators";
 }
 
-void Analysis::beginRun(const RunInfo &runInfo, const QHash<QUuid, QPair<int, int>> &vmeConfigUuIdToIndexes)
+static const size_t A2ArenaSize = Kilobytes(256);
+
+/* Calls the overloaded beginRun() to prepare the analysis::* stuff,
+ * then used a2_adapter_build() to build the a2 system. */
+void Analysis::beginRun(
+    const RunInfo &runInfo,
+    const vme_analysis_common::VMEIdToIndex &vmeMap)
 {
+    m_vmeMap = vmeMap;
+
     beginRun(runInfo);
 
-    if (!m_a2Arena)
+    if (!m_a2Arenas[0])
     {
-        static const size_t A2InitialMem = Megabytes(1);
-        m_a2Arena = std::make_unique<memory::Arena>(A2InitialMem);
+        for (size_t i = 0; i < m_a2Arenas.size(); i++)
+        {
+            m_a2Arenas[i] = std::make_unique<memory::Arena>(A2ArenaSize);
+        }
+        m_a2TempArena = std::make_unique<memory::Arena>(A2ArenaSize);
+        m_a2ArenaIndex = 0;
     }
     else
     {
-        m_a2Arena->reset();
+        m_a2ArenaIndex = (m_a2ArenaIndex + 1) % m_a2Arenas.size();
+        m_a2Arenas[m_a2ArenaIndex]->reset();
+        m_a2TempArena->reset();
     }
 
 #if ANALYSIS_USE_A2
     qDebug() << __FUNCTION__ << "########## a2 active ##########";
-
-    m_vmeConfigUuIdToIndexes = vmeConfigUuIdToIndexes;
+    qDebug() << __FUNCTION__ << "using a2 arena" << (u32)m_a2ArenaIndex;
 
     auto a2State = a2_adapter_build(
-        m_a2Arena.get(),
+        m_a2Arenas[m_a2ArenaIndex].get(),
+        m_a2TempArena.get(),
         m_sources,
         m_operators,
-        vmeConfigUuIdToIndexes);
+        m_vmeMap);
 
     m_a2State = std::make_unique<A2AdapterState>(a2State);
 #endif
@@ -2852,7 +2875,7 @@ void Analysis::beginEvent(const QUuid &eventId)
         }
     }
 #else
-    a2_begin_event(m_a2State->a2, m_vmeConfigUuIdToIndexes[eventId].first);
+    a2_begin_event(m_a2State->a2, m_vmeMap.value(eventId).eventIndex);
 #endif
 }
 
@@ -2871,15 +2894,15 @@ void Analysis::processModuleData(const QUuid &eventId, const QUuid &moduleId, u3
     }
 
 #else
-    auto indexes = m_vmeConfigUuIdToIndexes[moduleId];
-    a2_process_module_data(m_a2State->a2, indexes.first, indexes.second, data, size);
+    auto index = m_vmeMap.value(moduleId);
+    a2_process_module_data(m_a2State->a2, index.eventIndex, index.moduleIndex, data, size);
 #endif
 }
 
 #if ANALYSIS_USE_A2
 void Analysis::endEvent(const QUuid &eventId)
 {
-    a2_end_event(m_a2State->a2, m_vmeConfigUuIdToIndexes[eventId].first);
+    a2_end_event(m_a2State->a2, m_vmeMap.value(eventId).eventIndex);
 }
 #else // ANALYSIS_USE_A2
 void Analysis::endEvent(const QUuid &eventId)
@@ -3084,7 +3107,7 @@ void Analysis::updateRank(OperatorInterface *op, QSet<OperatorInterface *> &upda
 
 #if ENABLE_ANALYSIS_DEBUG
         qDebug() << __PRETTY_FUNCTION__ << "output"
-            << outputIndex << "now has a rank"
+            << outputIndex << "now has rank"
             << op->getOutput(outputIndex)->getRank();
 #endif
     }

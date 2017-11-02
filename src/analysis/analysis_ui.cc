@@ -3344,8 +3344,10 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     layout->addWidget(m_d->m_statusBar, row++, 0);
 
     auto analysis = ctx->getAnalysis();
-    analysis->updateRanks();
-    analysis->beginRun(ctx->getRunInfo());
+
+    analysis->beginRun(ctx->getRunInfo(),
+                       vme_analysis_common::build_id_to_index_mapping(
+                           ctx->getVMEConfig()));
 
     on_analysis_changed();
 

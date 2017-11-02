@@ -112,4 +112,16 @@ With XXX being the serial number in hex.
 `arp -s 192.168.178.44 00-00-56-15-30-2c`
 `arp -s 192.168.178.44 00-00-56-15-30-28`
 
+# ROOT
+
+## Building ROOT
+
+* Packages required:
+
+  dpkg-dev      (not sure if needed with the cmake method
+  libxft-dev
+  clang         (I guess)
+
+cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/home/florian/local/root-6.10.08/ ../root-6.10.08/
+
 # vim:ft=markdown

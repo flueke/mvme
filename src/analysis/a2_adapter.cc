@@ -6,15 +6,29 @@
 #include <QMetaClassInfo>
 
 #ifndef NDEBUG
+
 #define LOG(fmt, ...)\
 do\
 {\
     fprintf(stderr, "a2_adapter::%s() " fmt, __FUNCTION__, ##__VA_ARGS__);\
     fprintf(stderr, "\n");\
 } while (0)
+
+#define LOGNN(fmt, ...)\
+do\
+{\
+    fprintf(stderr, "a2_adapter::%s() " fmt, __FUNCTION__, ##__VA_ARGS__);\
+} while (0)
+
 #else
+
 #define LOG(...)
+#define LOGNN(...)
+
 #endif
+
+namespace
+{
 
 #ifndef NDEBUG
 inline QDebug a2_adapter_qlog(const char *func)
@@ -27,57 +41,50 @@ inline QDebug a2_adapter_qlog(const char *func)
 #define QLOG(x)
 #endif
 
-namespace
-{
-using a2::ParamVec;
-//using a2::PipeVectors;
 using analysis::A2AdapterState;
 
-using InputSlots = QVector<analysis::Slot *>;
-using OutputPipes = QVector<analysis::Pipe *>;
-
-#define DEF_OP_MAGIC(name) a2::Operator name(\
-    memory::Arena *arena,\
-    A2AdapterState &adapterState,\
-    analysis::OperatorPtr op,\
-    InputSlots inputSlots,\
-    OutputPipes outputPipes)
-
-typedef DEF_OP_MAGIC(OperatorMagic);
-
-inline a2::PipeVectors find_output_pipe(const A2AdapterState &state, const analysis::PipeSourcePtr &pipeSource, u8 outputIndex)
+inline a2::PipeVectors find_output_pipe(
+    const A2AdapterState *state,
+    const analysis::PipeSourceInterface *pipeSource,
+    u8 outputIndex)
 {
     //QLOG("pipeSource to find:" << pipeSource.get() << ", outputIndex=" << (u32)outputIndex);
 
     a2::PipeVectors result = {};
 
-    if (a2::Extractor *ex_a2 = state.sourceMappings.value(pipeSource, nullptr))
+    if (a2::Extractor *ex_a2 = state->sourceMap.value(
+            qobject_cast<analysis::SourceInterface *>(pipeSource),
+            nullptr))
     {
         assert(outputIndex == 0);
+
         result = ex_a2->output;
     }
-    else if (a2::Operator *op_a2 = state.operatorMappings.value(pipeSource, nullptr))
+    else if (a2::Operator *op_a2 = state->operatorMap.value(
+            qobject_cast<analysis::OperatorInterface *>(pipeSource),
+            nullptr))
     {
         assert(outputIndex < op_a2->outputCount);
+
         result.data = op_a2->outputs[outputIndex];
         result.lowerLimits = op_a2->outputLowerLimits[outputIndex];
         result.upperLimits = op_a2->outputUpperLimits[outputIndex];
     }
     else
     {
-        QLOG(pipeSource.get() << pipeSource->getId());
+        QLOG(pipeSource << pipeSource->getId());
         assert(!"no source mapping");
     }
 
     return result;
 }
 
-inline a2::PipeVectors find_output_pipe(const A2AdapterState &state, analysis::Slot *slot)
+inline a2::PipeVectors find_output_pipe(const A2AdapterState *state, analysis::Slot *slot)
 {
     // This should be the path to get the correct 
     return find_output_pipe(
         state,
-        slot->inputPipe->source->getSharedPointer(),
+        slot->inputPipe->source,
         slot->inputPipe->sourceOutputIndex);
 }
 
@@ -88,6 +95,18 @@ do\
     assert(slot->inputPipe->source);\
     assert(slot->inputPipe->source->getSharedPointer());\
 } while (0)
+
+using InputSlots = QVector<analysis::Slot *>;
+using OutputPipes = QVector<analysis::Pipe *>;
+
+#define DEF_OP_MAGIC(name) a2::Operator name(\
+    memory::Arena *arena,\
+    A2AdapterState *adapterState,\
+    analysis::OperatorPtr op,\
+    InputSlots inputSlots,\
+    OutputPipes outputPipes)
+
+typedef DEF_OP_MAGIC(OperatorMagic);
 
 DEF_OP_MAGIC(calibration_magic)
 {
@@ -304,10 +323,23 @@ DEF_OP_MAGIC(histo1d_sink_magic)
         histos[i] = a2_histo;
     }
 
-    a2::Operator result = a2::make_h1d_sink(
-        arena,
-        a2_input,
-        { histos.data(), histos.size()});
+    a2::Operator result = {};
+
+    if (inputSlots[0]->paramIndex == analysis::Slot::NoParamIndex)
+    {
+        result = a2::make_h1d_sink(
+            arena,
+            a2_input,
+            { histos.data(), histos.size()});
+    }
+    else
+    {
+        result = a2::make_h1d_sink_idx(
+            arena,
+            a2_input,
+            { histos.data(), histos.size()},
+            inputSlots[0]->paramIndex);
+    }
 
     return result;
 };
@@ -354,9 +386,13 @@ DEF_OP_MAGIC(histo2d_sink_magic)
 
     for (s32 axis = 0; axis < H2D::AxisCount; axis++)
     {
+        double absMin = std::min(binnings[axis].getMin(), binnings[axis].getMax());
+        double absMax = std::max(binnings[axis].getMin(), binnings[axis].getMax());
+        double absRange = std::abs(absMax - absMin);
+
         a2_histo.binCounts[axis] = binnings[axis].getBins();
-        a2_histo.binnings[axis].min = binnings[axis].getMin();
-        a2_histo.binnings[axis].range = binnings[axis].getMax() - binnings[axis].getMin();
+        a2_histo.binnings[axis].min = absMin;
+        a2_histo.binnings[axis].range = absRange;
         a2_histo.binningFactors[axis] = a2_histo.binCounts[axis] / a2_histo.binnings[axis].range;
     }
 
@@ -385,8 +421,10 @@ static const QHash<const QMetaObject *, OperatorMagic *> OperatorMagicTable =
     { &analysis::Histo2DSink::staticMetaObject, histo2d_sink_magic },
 };
 
-a2::Operator a2_adapter_magic(memory::Arena *arena, A2AdapterState &state, analysis::OperatorPtr op)
+a2::Operator a2_adapter_magic(memory::Arena *arena, A2AdapterState *state, analysis::OperatorPtr op)
 {
+    // TODO: check that the operator is fully connected and in a state that can be adapted to a2
+    // allInputsConnected()?
     a2::Operator result = {};
     result.type = a2::OperatorTypeCount;
 
@@ -434,32 +472,17 @@ a2::PipeVectors find_output_pipe(const A2AdapterState *state, analysis::Pipe *pi
     assert(pipe->source);
 
     return ::find_output_pipe(
-        *state,
-        pipe->source->getSharedPointer(),
+        state,
+        pipe->source,
         pipe->sourceOutputIndex);
 }
 
-A2AdapterState a2_adapter_build(
+void a2_adapter_build_extractors(
     memory::Arena *arena,
+    A2AdapterState *state,
     const QVector<Analysis::SourceEntry> &sourceEntries,
-    const QVector<Analysis::OperatorEntry> &operatorEntries,
-    const QHash<QUuid, QPair<int, int>> &vmeConfigUuIdToIndexes)
+    const vme_analysis_common::VMEIdToIndex &vmeMap)
 {
-    qDebug() << vmeConfigUuIdToIndexes;
-
-    A2AdapterState result = {};
-    result.a2 = arena->push<a2::A2>({});
-
-    for (u32 i = 0; i < result.a2->extractorCounts.size(); i++)
-    {
-        assert(result.a2->extractorCounts[i] == 0);
-        assert(result.a2->operatorCounts[i] == 0);
-    }
-
-    // -------------------------------------------
-    // Source -> Extractor
-    // -------------------------------------------
-
     struct SourceInfo
     {
         SourcePtr source;
@@ -470,15 +493,13 @@ A2AdapterState a2_adapter_build(
 
     for (auto se: sourceEntries)
     {
-        auto p = vmeConfigUuIdToIndexes[se.moduleId];
-        int eventIndex = p.first;
-        int moduleIndex = p.second;
+        auto index = vmeMap.value(se.moduleId);
 
-        Q_ASSERT(eventIndex < a2::MaxVMEEvents);
-        Q_ASSERT(moduleIndex < a2::MaxVMEModules);
+        Q_ASSERT(index.eventIndex < a2::MaxVMEEvents);
+        Q_ASSERT(index.moduleIndex < a2::MaxVMEModules);
 
-        sources[eventIndex].push_back({ se.source, moduleIndex });
-        qSort(sources[eventIndex].begin(), sources[eventIndex].end(), [](auto a, auto b) {
+        sources[index.eventIndex].push_back({ se.source, index.moduleIndex });
+        qSort(sources[index.eventIndex].begin(), sources[index.eventIndex].end(), [](auto a, auto b) {
             return a.moduleIndex < b.moduleIndex;
         });
     }
@@ -496,7 +517,7 @@ A2AdapterState a2_adapter_build(
         Q_ASSERT(sources[ei].size() <= std::numeric_limits<u8>::max());
 
         // space for the extractor pointers
-        result.a2->extractors[ei] = arena->pushArray<a2::Extractor>(sources[ei].size());
+        state->a2->extractors[ei] = arena->pushArray<a2::Extractor>(sources[ei].size());
 
         for (auto src: sources[ei])
         {
@@ -520,78 +541,313 @@ A2AdapterState a2_adapter_build(
                 ex->m_rngSeed,
                 src.moduleIndex);
 
-            u8 &ex_cnt = result.a2->extractorCounts[ei];
-            result.a2->extractors[ei][ex_cnt] = ex_a2;
-            result.sourceMappings[src.source] = result.a2->extractors[ei] + ex_cnt;
+            u8 &ex_cnt = state->a2->extractorCounts[ei];
+            state->a2->extractors[ei][ex_cnt] = ex_a2;
+            state->sourceMap.insert(src.source.get(), state->a2->extractors[ei] + ex_cnt);
             ex_cnt++;
         }
     }
+}
 
-    // -------------------------------------------
-    // Operator -> Operator
-    // -------------------------------------------
+struct OperatorInfo
+{
+    OperatorPtr op;
+    int rank;
+    s32 a2OperatorType = -1;
+};
 
-    struct OperatorInfo
-    {
-        OperatorPtr op;
-        int eventIndex;
-        int rank;
-    };
+using OperatorsByEventIndex = std::array<QVector<OperatorInfo>, a2::MaxVMEEvents>;
 
+OperatorsByEventIndex group_operators_by_event(
+    const QVector<Analysis::OperatorEntry> &operatorEntries,
+    const vme_analysis_common::VMEIdToIndex &vmeMap)
+{
     std::array<QVector<OperatorInfo>, a2::MaxVMEEvents> operators;
 
     for (auto oe: operatorEntries)
     {
-        auto p = vmeConfigUuIdToIndexes[oe.eventId];
-        int eventIndex = p.first;
+        int eventIndex = vmeMap.value(oe.eventId).eventIndex;
 
         Q_ASSERT(eventIndex < a2::MaxVMEEvents);
 
-        operators[eventIndex].push_back({ oe.op, eventIndex, oe.op->getMaximumOutputRank() });
+        operators[eventIndex].push_back({ oe.op, oe.op->getMaximumInputRank(), -1 });
     }
 
+    return operators;
+}
+
+/* Fills in state and operators. */
+void a2_adapter_build_operators(
+    memory::Arena *arena,
+    A2AdapterState *state,
+    OperatorsByEventIndex &operators)
+{
     for (s32 ei = 0; ei < a2::MaxVMEEvents; ei++)
     {
         Q_ASSERT(operators[ei].size() <= std::numeric_limits<u8>::max());
 
-        result.a2->operators[ei] = arena->pushArray<a2::Operator>(operators[ei].size());
-        result.a2->operatorRanks[ei] = arena->pushArray<u8>(operators[ei].size());
+        state->a2->operators[ei] = arena->pushArray<a2::Operator>(operators[ei].size());
+        state->a2->operatorRanks[ei] = arena->pushArray<u8>(operators[ei].size());
 
-        for (auto opInfo: operators[ei])
+        for (auto &opInfo: operators[ei])
         {
-            auto a2_op = a2_adapter_magic(arena, result, opInfo.op);
+            auto a2_op = a2_adapter_magic(arena, state, opInfo.op);
 
             if (a2_op.type < a2::OperatorTypeCount)
             {
-                u8 &op_cnt = result.a2->operatorCounts[ei];
-                result.a2->operators[ei][op_cnt] = a2_op;
-                result.a2->operatorRanks[ei][op_cnt] = opInfo.rank;
-                result.operatorMappings[opInfo.op] = result.a2->operators[ei] + op_cnt;
+                opInfo.a2OperatorType = a2_op.type;
+                u8 &op_cnt = state->a2->operatorCounts[ei];
+                state->a2->operators[ei][op_cnt] = a2_op;
+                state->a2->operatorRanks[ei][op_cnt] = opInfo.rank;
+                state->operatorMap.insert(opInfo.op.get(), state->a2->operators[ei] + op_cnt);
                 op_cnt++;
                 LOG("a2_op.type=%d", (s32)(a2_op.type));
             }
         }
     }
+}
+
+using OperatorEntryVector = QVector<Analysis::OperatorEntry>;
+
+void set_null_if_input_is(OperatorEntryVector &operators, OperatorInterface *inputOp, s32 startIndex)
+{
+    s32 operatorCount = operators.size();
+
+    for (s32 i = startIndex;
+         i < operatorCount;
+         i++)
+    {
+        auto &entry = operators[i];
+
+        if (entry.op)
+        {
+            for (s32 slotIndex = 0;
+                 slotIndex < entry.op->getNumberOfSlots();
+                 slotIndex++)
+            {
+                auto slot = entry.op->getSlot(slotIndex);
+
+                if (slot->inputPipe && slot->inputPipe->source == inputOp)
+                {
+                    entry.op.reset();
+                    break;
+                }
+            }
+        }
+    }
+}
+
+auto a2_adapter_filter_operators(QVector<Analysis::OperatorEntry> operators)
+{
+    QVector<Analysis::OperatorEntry> result;
+
+    s32 operatorCount = operators.size();
+
+    for (s32 opIndex = 0;
+         opIndex < operatorCount;
+         opIndex++)
+    {
+        auto &entry = operators[opIndex];
+
+        if (entry.op && !all_inputs_connected(entry.op.get()))
+        {
+            QLOG("filtering out" << entry.op.get() << " and direct children");
+            set_null_if_input_is(operators, entry.op.get(), opIndex + 1);
+            entry.op.reset();
+        }
+    }
+
+    for (s32 opIndex = 0;
+         opIndex < operatorCount;
+         opIndex++)
+    {
+        if (operators[opIndex].op)
+        {
+            result.push_back(operators[opIndex]);
+        }
+    }
+
+    QLOG("filtered out" << operators.size() - result.size()
+         << " of" << operators.size() << " operators");
+
+    return result;
+}
+
+A2AdapterState a2_adapter_build(
+    memory::Arena *arena,
+    memory::Arena *tempArena,
+    const QVector<Analysis::SourceEntry> &sourceEntries,
+    const QVector<Analysis::OperatorEntry> &allOperatorEntries,
+    const vme_analysis_common::VMEIdToIndex &vmeMap)
+{
+    A2AdapterState result = {};
+    result.a2 = arena->push<a2::A2>({});
+
+    for (u32 i = 0; i < result.a2->extractorCounts.size(); i++)
+    {
+        assert(result.a2->extractorCounts[i] == 0);
+        assert(result.a2->operatorCounts[i] == 0);
+    }
+
+    // -------------------------------------------
+    // Source -> Extractor
+    // -------------------------------------------
+
+    a2_adapter_build_extractors(
+        arena,
+        &result,
+        sourceEntries,
+        vmeMap);
+
+    // -------------------------------------------
+    // Operator -> Operator
+    // -------------------------------------------
+
+    /* Filter out operators that are not fully connected. */
+    auto operatorEntries = a2_adapter_filter_operators(allOperatorEntries);
+
+    /* The problem: I want the operators for each event be sorted by rank _and_
+     * by a2::OperatorType.
+     *
+     * The a2::OperatorType resulting from converting an analysis operator is
+     * not known without actually doing the conversion.
+     *
+     * Step 1: Use the tempArena to fill the A2 structure.
+     * Step 2: Sort the operators by a2::OperatorType, preserving rank order.
+     * Step 3: Clear the operator part of A2.
+     * Step 4: Build again using the sorted operators information and the non-temp arena.
+     */
+
+    OperatorsByEventIndex operators = group_operators_by_event(
+        operatorEntries,
+        vmeMap);
+
+    /* Build in temp arena. Fills out result and operators. */
+    a2_adapter_build_operators(
+        tempArena,
+        &result,
+        operators);
 
     LOG("extractors:");
 
     for (s32 ei = 0; ei < a2::MaxVMEEvents; ei++)
     {
         if (!result.a2->extractorCounts[ei])
-            break;
+            continue;
         LOG("  ei=%d, #ex=%d", ei, (u32)result.a2->extractorCounts[ei]);
+    }
+
+    LOG("operators before type sort:");
+
+    for (s32 ei = 0; ei < a2::MaxVMEEvents; ei++)
+    {
+        if (!result.a2->operatorCounts[ei])
+            continue;
+        LOG("  ei=%d, #op=%d", ei, (u32)result.a2->operatorCounts[ei]);
+    }
+
+    /* Sort the operator arrays. */
+    for (s32 ei = 0; ei < a2::MaxVMEEvents; ei++)
+    {
+        qSort(
+            operators[ei].begin(),
+            operators[ei].end(),
+            [] (const OperatorInfo &oi1, const OperatorInfo &oi2) {
+                if (oi1.rank == oi2.rank)
+                {
+                    return oi1.a2OperatorType < oi2.a2OperatorType;
+                }
+                return oi1.rank < oi2.rank;
+            });
+    }
+
+    /* Clear the operator part. */
+    result.a2->operatorCounts.fill(0);
+    result.a2->operators.fill(nullptr);
+    result.a2->operatorRanks.fill(nullptr);
+    result.operatorMap.clear();
+
+    /* Second build using the non-temp arena. */
+    a2_adapter_build_operators(
+        arena,
+        &result,
+        operators);
+
+    LOG("operators after type sort:");
+
+    for (s32 ei = 0; ei < a2::MaxVMEEvents; ei++)
+    {
+        if (!result.a2->operatorCounts[ei])
+            continue;
+        LOG("  ei=%d, #op=%d", ei, (u32)result.a2->operatorCounts[ei]);
+    }
+
+    LOG("mem=%lu, start@%p", arena->used(), arena->mem);
+
+
+
+#define qcstr(str) (str.toLocal8Bit().constData())
+
+    LOG(">>>>>>>> result <<<<<<<<");
+
+    LOG("extractors:");
+
+    for (s32 ei = 0; ei < a2::MaxVMEEvents; ei++)
+    {
+        auto exCount = result.a2->extractorCounts[ei];
+
+        if (exCount)
+        {
+            LOG("  ei=%d", ei);
+
+            auto extractors = result.a2->extractors[ei];
+
+            for (auto ex = extractors; ex < extractors + exCount; ex++)
+            {
+                analysis::SourceInterface *a1_ex = result.sourceMap.value(ex, nullptr);
+
+                LOG("    [%u] extractor@%p, moduleIndex=%d, a1_type=%s, a1_name=%s",
+                    (u32)(ex - extractors),
+                    ex,
+                    (s32)ex->moduleIndex,
+                    a1_ex ? a1_ex->metaObject()->className() : "nullptr",
+                    a1_ex ? qcstr(a1_ex->objectName()) : "nullptr");
+            }
+        }
     }
 
     LOG("operators:");
 
     for (s32 ei = 0; ei < a2::MaxVMEEvents; ei++)
     {
-        if (!result.a2->operatorCounts[ei])
-            break;
-        LOG("  ei=%d, #op=%d", ei, (u32)result.a2->operatorCounts[ei]);
+        auto opCount = result.a2->operatorCounts[ei];
+
+        if (opCount)
+        {
+            LOG("  ei=%d", ei);
+
+            auto operators = result.a2->operators[ei];
+            auto ranks = result.a2->operatorRanks[ei];
+
+            s32 opIndex = 0;
+            for (auto op = operators; op < operators + opCount; op++, opIndex++)
+            {
+                s32 rank = ranks[opIndex];
+
+                analysis::OperatorInterface *a1_op = result.operatorMap.value(op, nullptr);
+
+                LOG("    [%d] operator@%p, rank=%d, type=%d, a1_type=%s, a1_name=%s",
+                    opIndex,
+                    op,
+                    rank,
+                    (s32)op->type,
+                    a1_op ? a1_op->metaObject()->className() : "nullptr",
+                    a1_op ? qcstr(a1_op->objectName()) : "nullptr");
+            }
+        }
     }
 
-    LOG("mem=%lu, start@%p", arena->used(), arena->mem);
+    LOG("<<<<<<<< end result >>>>>>>>");
 
     return result;
 }

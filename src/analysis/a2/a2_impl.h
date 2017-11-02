@@ -16,6 +16,7 @@ enum OperatorType
     Operator_ArrayMap,
     Operator_BinaryEquation,
     Operator_H1DSink,
+    Operator_H1DSink_idx,
     Operator_H2DSink,
     Operator_RangeFilter,
     Operator_Sum,
@@ -36,6 +37,7 @@ void aggregate_multiplicity_step(Operator *op);
 void aggregate_max_step(Operator *op);
 
 void h1d_sink_step(Operator *op);
+void h1d_sink_step_idx(Operator *op);
 void h2d_sink_step(Operator *op);
 
 } // namespace a2

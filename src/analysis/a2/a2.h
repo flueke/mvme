@@ -265,9 +265,21 @@ Operator make_h1d_sink(
     PipeVectors inPipe,
     TypedBlock<H1D, s32> histos);
 
+Operator make_h1d_sink_idx(
+    memory::Arena *arena,
+    PipeVectors inPipe,
+    TypedBlock<H1D, s32> histos,
+    s32 inputIndex);
+
 struct H1DSinkData
 {
     TypedBlock<H1D, s32> histos;
+};
+
+struct H1DSinkData_idx
+{
+    TypedBlock<H1D, s32> histos;
+    s32 inputIndex;
 };
 
 struct H2D: public ParamVec
@@ -356,9 +368,11 @@ struct A2
     std::array<u8 *, MaxVMEEvents> operatorRanks;
 };
 
+void a2_begin_run(A2 *a2);
 void a2_begin_event(A2 *a2, int eventIndex);
 void a2_process_module_data(A2 *a2, int eventIndex, int moduleIndex, const u32 *data, u32 dataSize);
 void a2_end_event(A2 *a2, int eventIndex);
+void a2_end_run(A2 *a2);
 
 } // namespace a2
 

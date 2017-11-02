@@ -17,11 +17,14 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "mvme_event_processor.h"
-#include "mvme_context.h"
-#include "mvme_listfile.h"
+
+#include "analysis/a2_adapter.h"
+#include "analysis/analysis.h"
+#include "analysis/analysis_impl_switch.h"
 #include "histo1d.h"
 #include "mesytec_diagnostics.h"
-#include "analysis/analysis.h"
+#include "mvme_context.h"
+#include "mvme_listfile.h"
 #include "timed_block.h"
 
 #include <QCoreApplication>
@@ -119,16 +122,15 @@ void MVMEEventProcessor::removeDiagnostics()
     setDiagnostics(nullptr);
 }
 
-void MVMEEventProcessor::newRun(const RunInfo &runInfo)
+void MVMEEventProcessor::newRun(const RunInfo &runInfo, const vme_analysis_common::VMEIdToIndex &vmeMap)
 {
     m_d->analysis_ng = m_d->context->getAnalysis();
 
     m_d->eventInfos.fill({}); // Full clear of the eventInfo cache
     m_d->eventConfigs.fill(nullptr);
-    m_d->doMultiEventProcessing.fill(false);
+    m_d->doMultiEventProcessing.fill(false); // FIXME: change default to true some point
 
     auto eventConfigs = m_d->context->getEventConfigs();
-    QHash<QUuid, QPair<int, int>> vmeConfigUuIdToIndexes;
 
     for (s32 eventIndex = 0;
          eventIndex < eventConfigs.size();
@@ -136,8 +138,6 @@ void MVMEEventProcessor::newRun(const RunInfo &runInfo)
     {
         auto eventConfig = eventConfigs[eventIndex];
         auto moduleConfigs = eventConfig->getModuleConfigs();
-
-        vmeConfigUuIdToIndexes[eventConfig->getId()] = qMakePair(eventIndex, -1);
 
         for (s32 moduleIndex = 0;
              moduleIndex < moduleConfigs.size();
@@ -148,8 +148,6 @@ void MVMEEventProcessor::newRun(const RunInfo &runInfo)
             modInfo.moduleHeaderFilter = makeFilterFromBytes(moduleConfig->getEventHeaderFilter());
             modInfo.moduleConfig = moduleConfig;
 
-        vmeConfigUuIdToIndexes[moduleConfig->getId()] = qMakePair(eventIndex, moduleIndex);
-
             qDebug() << __PRETTY_FUNCTION__ << moduleConfig->objectName() << modInfo.moduleHeaderFilter.toString();
         }
 
@@ -159,7 +157,7 @@ void MVMEEventProcessor::newRun(const RunInfo &runInfo)
 
     if (m_d->analysis_ng)
     {
-        m_d->analysis_ng->beginRun(runInfo, vmeConfigUuIdToIndexes);
+        m_d->analysis_ng->beginRun(runInfo, vmeMap);
     }
 
     if (m_d->diag)
@@ -512,6 +510,9 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
 static const u32 FilledBufferWaitTimeout_ms = 250;
 static const u32 ProcessEventsMinInterval_ms = 500;
 
+/* Used at the start of a run after newRun() has been called and to resume from
+ * paused state.
+ * Does a2_begin_run() and a2_end_run() (threading stuff if enabled). */
 void MVMEEventProcessor::startProcessing()
 {
     qDebug() << __PRETTY_FUNCTION__ << "begin";
@@ -531,6 +532,14 @@ void MVMEEventProcessor::startProcessing()
     timeSinceLastProcessEvents.start();
 
     m_d->m_runAction = KeepRunning;
+
+    if (m_d->analysis_ng)
+    {
+        if (auto a2State = m_d->analysis_ng->getA2AdapterState())
+        {
+            a2::a2_begin_run(a2State->a2);
+        }
+    }
 
     while (m_d->m_runAction != StopImmediately)
     {
@@ -574,6 +583,14 @@ void MVMEEventProcessor::startProcessing()
     }
 
     m_d->m_localStats.stopTime = QDateTime::currentDateTime();
+
+    if (m_d->analysis_ng)
+    {
+        if (auto a2State = m_d->analysis_ng->getA2AdapterState())
+        {
+            a2::a2_end_run(a2State->a2);
+        }
+    }
 
     emit stopped();
     emit stateChanged(m_d->m_state = EventProcessorState::Idle);

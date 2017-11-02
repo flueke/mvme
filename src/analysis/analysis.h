@@ -20,6 +20,7 @@
 #define __ANALYSIS_H__
 
 #include "../globals.h"
+#include "../vme_analysis_common.h"
 #include "data_filter.h"
 #include "histo1d.h"
 #include "histo2d.h"
@@ -1274,8 +1275,7 @@ class LIBMVME_EXPORT Analysis: public QObject
          * Fix this by having this class keep an instance of the hash around and pass that internally.
          * Remember to update the hash on every vme config change!
          */
-        void beginRun(const RunInfo &runInfo, const QHash<QUuid, QPair<int, int>> &vmeConfigUuIdToIndexes);
-        void beginRun(const RunInfo &runInfo);
+        void beginRun(const RunInfo &runInfo, const vme_analysis_common::VMEIdToIndex &vmeMap);
         void beginEvent(const QUuid &eventId);
         void processModuleData(const QUuid &eventId, const QUuid &moduleId, u32 *data, u32 size);
         void endEvent(const QUuid &eventId);
@@ -1383,6 +1383,7 @@ class LIBMVME_EXPORT Analysis: public QObject
         A2AdapterState *getA2AdapterState() { return m_a2State.get(); }
 
     private:
+        void beginRun(const RunInfo &runInfo);
         void updateRank(OperatorInterface *op, QSet<OperatorInterface *> &updated);
 
         QVector<SourceEntry> m_sources;
@@ -1394,8 +1395,10 @@ class LIBMVME_EXPORT Analysis: public QObject
         RunInfo m_runInfo;
         double m_timetickCount;
 
-        QHash<QUuid, QPair<int, int>> m_vmeConfigUuIdToIndexes;
-        std::unique_ptr<memory::Arena> m_a2Arena;
+        vme_analysis_common::VMEIdToIndex m_vmeMap;
+        std::array<std::unique_ptr<memory::Arena>, 2> m_a2Arenas;
+        u8 m_a2ArenaIndex;
+        std::unique_ptr<memory::Arena> m_a2TempArena;
         std::unique_ptr<A2AdapterState> m_a2State;
 };
 

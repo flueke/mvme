@@ -49,7 +49,7 @@ void vme_daq_init(
 
     logger(QSL(""));
     logger(QSL("Initializing Modules:"));
-    for (auto eventConfig: config->eventConfigs)
+    for (auto eventConfig: config->getEventConfigs())
     {
         for (auto module: eventConfig->modules)
         {
@@ -72,7 +72,7 @@ void vme_daq_init(
     }
 
     logger(QSL("Events DAQ Start"));
-    for (auto eventConfig: config->eventConfigs)
+    for (auto eventConfig: config->getEventConfigs())
     {
         logger(QString("  %1").arg(eventConfig->objectName()));
         auto indentingLogger = [logger](const QString &str) { logger(QSL("    ") + str); };
@@ -89,7 +89,7 @@ void vme_daq_shutdown(
     std::function<void (const QString &)> logger)
 {
     logger(QSL("Events DAQ Stop"));
-    for (auto eventConfig: config->eventConfigs)
+    for (auto eventConfig: config->getEventConfigs())
     {
         logger(QString("  %1").arg(eventConfig->objectName()));
         auto indentingLogger = [logger](const QString &str) { logger(QSL("    ") + str); };

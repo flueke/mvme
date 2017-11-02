@@ -8,6 +8,7 @@ set(CMAKE_CXX_FLAGS "-std=c++14 -pipe ${WARNING_FLAGS}")
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mbmi2")
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4.2")
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx")
+
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer")
 
 set(MARCH_FLAG "nocona")
@@ -17,7 +18,7 @@ set(MTUNE_FLAG "core2")
 #set(MARCH_FLAG "skylake")
 #set(MTUNE_FLAG "skylake")
 
-set(CMAKE_CXX_FLAGS_DEBUG   "-g -Og")
+set(CMAKE_CXX_FLAGS_DEBUG   "-g -O0")
 set(CMAKE_CXX_FLAGS_RELEASE "-DNDEBUG -O3 -march=${MARCH_FLAG} -mtune=${MTUNE_FLAG}")
 set(CMAKE_CXX_FLAGS_PROFILE "-DNDEBUG -O3 -march=${MARCH_FLAG} -mtune=${MTUNE_FLAG} -pg -fno-omit-frame-pointer")
 # Explicitly set the required c++ standard (CMake >= 3.1)
@@ -73,6 +74,7 @@ message("-- GIT_VERSION_TAG=${GIT_VERSION_TAG}")
 # 3rdparty
 include_directories("${CMAKE_SOURCE_DIR}/3rdparty")
 include_directories("${CMAKE_SOURCE_DIR}/3rdparty/pcg-cpp-0.98/include/")
+include_directories("${CMAKE_SOURCE_DIR}/3rdparty/cpp11-on-multicore/common/")
 
 # qwt
 find_path(QWT_INCLUDE_DIR
