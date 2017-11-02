@@ -423,8 +423,6 @@ static const QHash<const QMetaObject *, OperatorMagic *> OperatorMagicTable =
 
 a2::Operator a2_adapter_magic(memory::Arena *arena, A2AdapterState *state, analysis::OperatorPtr op)
 {
-    // TODO: check that the operator is fully connected and in a state that can be adapted to a2
-    // allInputsConnected()?
     a2::Operator result = {};
     result.type = a2::OperatorTypeCount;
 
