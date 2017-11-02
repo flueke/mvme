@@ -256,17 +256,16 @@ Extractor::Extractor(QObject *parent)
 
 void Extractor::beginRun(const RunInfo &runInfo)
 {
-    using namespace data_filter;
-
     m_currentCompletionCount = 0;
 
     m_fastFilter = {};
     for (auto slowFilter: m_filter.getSubFilters())
     {
-        add_subfilter(&m_fastFilter, make_filter(slowFilter.getFilter(), slowFilter.getWordIndex()));
+        auto subfilter = a2::data_filter::make_filter(slowFilter.getFilter().toStdString(), slowFilter.getWordIndex());
+        add_subfilter(&m_fastFilter, subfilter);
     }
 
-    u32 addressCount = 1u << get_extract_bits(&m_fastFilter, MultiWordFilter::CacheA);
+    u32 addressCount = 1u << get_extract_bits(&m_fastFilter, a2::data_filter::MultiWordFilter::CacheA);
 
     qDebug() << __PRETTY_FUNCTION__ << this << "addressCount" << addressCount;
 
@@ -317,8 +316,6 @@ void Extractor::beginEvent()
 
 void Extractor::processModuleData(u32 *data, u32 size)
 {
-    using namespace data_filter;
-
     for (u32 wordIndex = 0;
          wordIndex < size;
          ++wordIndex)
@@ -341,8 +338,8 @@ void Extractor::processModuleData(u32 *data, u32 size)
             {
                 m_currentCompletionCount = 0;
 
-                u64 address = extract(&m_fastFilter, MultiWordFilter::CacheA);
-                u64 value   = extract(&m_fastFilter, MultiWordFilter::CacheD);
+                u64 address = extract(&m_fastFilter, a2::data_filter::MultiWordFilter::CacheA);
+                u64 value   = extract(&m_fastFilter, a2::data_filter::MultiWordFilter::CacheD);
 
 #if ENABLE_ANALYSIS_DEBUG
                 qDebug() << this

@@ -1,7 +1,6 @@
 #include "test_data_filter.h"
 #include "data_filter.h"
-#include "data_filter_c_style.h"
-#include "analysis/multiword_datafilter.h"
+#include "analysis/a2/multiword_datafilter.h"
 
 void TestDataFilter::test_match_mask_and_value()
 {
@@ -181,7 +180,7 @@ void TestDataFilter::test_extract_data_()
 
 void TestDataFilter::test_data_filter_c_style_match_mask_and_value()
 {
-    using namespace data_filter;
+    using namespace a2::data_filter;
 
     {
         auto filter = make_filter("1111");
@@ -242,7 +241,7 @@ void TestDataFilter::test_data_filter_c_style_match_mask_and_value()
 
 void TestDataFilter::test_data_filter_c_style_extract_data_()
 {
-    using namespace data_filter;
+    using namespace a2::data_filter;
 
     {
         auto filter = make_filter("1XDDDD11");
@@ -363,7 +362,7 @@ void TestDataFilter::test_data_filter_c_style_extract_data_()
 
 void TestDataFilter::test_multiwordfilter()
 {
-    using namespace data_filter;
+    using namespace a2::data_filter;
 
     {
         MultiWordFilter mf;

@@ -79,7 +79,6 @@ set(LIBMVME_SOURCES
     daqcontrol_widget.cc
     daqstats_widget.cc
     data_filter.cc
-    data_filter_c_style.cc
     globals.cc
     gui_util.cc
     histo1d.cc
