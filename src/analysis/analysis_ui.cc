@@ -3211,6 +3211,8 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     // Analysis changes
     auto on_analysis_changed = [this]()
     {
+        /* Assuming the old analysis has been deleted, thus no
+         * QObject::disconnect() is needed. */
         connect(m_d->m_context->getAnalysis(), &Analysis::modifiedChanged, this, [this]() {
             m_d->updateWindowTitle();
         });

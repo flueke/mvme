@@ -108,11 +108,19 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         EventProcessorState getEventProcessorState() const;
         const DAQStats &getDAQStats() const { return m_daqStats; }
         DAQStats &getDAQStats() { return m_daqStats; }
+
+        struct ReplayFileAnalysisInfo
+        {
+            QString filename;
+            QString analysisFilename;
+            QByteArray analysisConfigData;
+        };
+
         void setReplayFile(ListFile *listFile);
         void closeReplayFile();
         ListFile *getReplayFile() const { return m_listFile; }
-        void setReplayFileAnalysisConfigData(const QByteArray &analysisConfigData);
-        QByteArray getReplayFileAnalysisConfigData() const;
+        void setReplayFileAnalysisInfo(ReplayFileAnalysisInfo info);
+        ReplayFileAnalysisInfo getReplayFileAnalysisInfo() const;
 
         void setMode(GlobalMode mode);
         GlobalMode getMode() const;

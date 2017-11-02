@@ -951,7 +951,14 @@ void MVMEMainWindow::onActionOpenListfile_triggered()
                 // TODO: tell the analysis ui that a listfile has been opened.
                 // it can then decide if it wants to load the analysis config
                 // from the listfile or keep the current one.
-                m_d->m_context->setReplayFileAnalysisConfigData(inFile.readAll());
+
+                m_d->m_context->setReplayFileAnalysisInfo(
+                    {
+                        fileName,
+                        QSL("analysis.analysis"),
+                        //inFile.readAll()
+                        {}
+                    });
 
 #if 1
                 QMessageBox box(QMessageBox::Question, QSL("Load analysis?"),
@@ -970,7 +977,7 @@ void MVMEMainWindow::onActionOpenListfile_triggered()
             }
             else
             {
-                m_d->m_context->setReplayFileAnalysisConfigData(QByteArray());
+                m_d->m_context->setReplayFileAnalysisInfo({});
             }
         }
 
