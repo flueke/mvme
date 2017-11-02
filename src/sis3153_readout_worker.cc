@@ -820,7 +820,6 @@ void SIS3153ReadoutWorker::readoutLoop()
 
     elapsedTime.start();
     logReadErrorTimer.start();
-    timetick(); // initial timetick
 
     while (true)
     {
