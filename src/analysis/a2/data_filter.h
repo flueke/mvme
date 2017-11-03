@@ -61,6 +61,8 @@ inline u32 extract(CacheEntry cache, u32 value)
     return result;
 }
 
+std::string to_string(DataFilter filter);
+
 } // namespace data_filter
 } // namespace a2
 

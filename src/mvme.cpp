@@ -1174,7 +1174,7 @@ void MVMEMainWindow::appendToLogNoDebugOut(const QString &str)
 
 void MVMEMainWindow::appendToLog(const QString &str)
 {
-    qDebug().noquote() << __PRETTY_FUNCTION__ << str;
+    //qDebug().noquote() << __PRETTY_FUNCTION__ << str;
 
     if (m_d->m_logView)
     {

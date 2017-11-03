@@ -28,16 +28,16 @@
 #include "util/perf.h"
 #include "vme_daq.h"
 
-#define SIS_READOUT_DEBUG               0   // enable debugging code
+#define SIS_READOUT_DEBUG               1   // enable debugging code
 #define SIS_READOUT_BUFFER_DEBUG_PRINT  0   // print buffers to console
 
 //#ifndef NDEBUG
-#if 0
+#if 1
 #define sis_trace(msg)\
 do\
 {\
     auto dbg(qDebug());\
-    dbg.nospace().noquote() << __PRETTY_FUNCTION__ << " " << __FILE__ << ":" << __LINE__ << " " << msg;\
+    dbg.nospace().noquote() << __PRETTY_FUNCTION__ << " " << msg;\
 } while (0)
 #else
 #define sis_trace(msg)
@@ -48,7 +48,7 @@ do\
 {\
     logMessage(msg);\
     auto dbg(qDebug());\
-    dbg.nospace().noquote() << __PRETTY_FUNCTION__ << " " << __FILE__ << ":" << __LINE__ << " " << msg;\
+    dbg.nospace().noquote() << __PRETTY_FUNCTION__ << " " << msg;\
 } while (0)
 
 using namespace vme_script;
@@ -1131,11 +1131,14 @@ void SIS3153ReadoutWorker::processBuffer(
 
     if (m_logBuffers)
     {
-        sis_log(QString(">>> Begin buffer #%1").arg(bufferNumber));
+        sis_log(QString(">>> Begin sis3153 buffer #%1").arg(bufferNumber));
 
-        logBuffer(BufferIterator(data, size), [this](const QString &str) { logMessage(str); });
+        logBuffer(BufferIterator(data, size), [this](const QString &str) {
+            logMessage(str);
+            qDebug().noquote() << str;
+        });
 
-        sis_log(QString("<<< End buffer #%1") .arg(bufferNumber));
+        sis_log(QString("<<< End sis3153 buffer #%1") .arg(bufferNumber));
     }
 
     u32 action = 0;
@@ -1212,8 +1215,12 @@ void SIS3153ReadoutWorker::processBuffer(
         // queue. This can happen for the SkipInput case. Put the buffer back
         // into the free queue.
         enqueue(m_workerContext.freeBuffers, m_outputBuffer);
+        sis_trace("resetting current output buffer");
         m_outputBuffer = nullptr;
     }
+
+    sis_trace(QString("sis3153 buffer #%1 done")
+              .arg(bufferNumber));
 }
 
 u32 SIS3153ReadoutWorker::processMultiEventData(
@@ -1375,7 +1382,7 @@ u32 SIS3153ReadoutWorker::processSingleEventData(
         }
 
         /* The watchdog packet was well formed. As we did not acquire an output.
-         */
+         * FIXME: this comment is broken!  */
         return ProcessorAction::KeepState;
     }
 
@@ -1469,20 +1476,34 @@ u32 SIS3153ReadoutWorker::processSingleEventData(
 u32 SIS3153ReadoutWorker::processPartialEventData(
     u8 packetAck, u8 packetIdent, u8 packetStatus, u8 *data, size_t size)
 {
+    const auto bufferNumber = m_workerContext.daqStats->totalBuffersRead;
+
+    sis_trace(QString("sis3153 buffer #%1, packetAck=0x%2, packetIdent=0x%3, packetStatus=0x%4, data@0x%6, size=%7")
+              .arg(bufferNumber)
+              .arg((s32)packetAck, 2, 16, QLatin1Char('0'))
+              .arg((s32)packetIdent, 2, 16, QLatin1Char('0'))
+              .arg((s32)packetStatus, 2, 16, QLatin1Char('0'))
+              .arg((uintptr_t)data, 8, 16, QLatin1Char('0'))
+              .arg(size));
+
     using LF = listfile_v1;
-#if SIS_READOUT_DEBUG
-    qDebug() << __PRETTY_FUNCTION__;
-#endif
+
     Q_ASSERT(packetAck != SIS3153Constants::MultiEventPacketAck);
 
     int stacklist = packetAck & SIS3153Constants::AckStackListMask;
     bool isLastPacket = packetAck & SIS3153Constants::AckIsLastPacketMask;
     bool partialInProgress = m_processingState.stackList >= 0;
     m_counters.packetsPerStackList[stacklist]++;
-    const auto bufferNumber = m_workerContext.daqStats->totalBuffersRead;
 
     Q_ASSERT(partialInProgress || !isLastPacket);
     Q_ASSERT(stacklist != m_watchdogStackListIndex);
+
+    if (partialInProgress)
+    {
+        /* We should still have an output buffer around from processing the
+         * previous partial input buffers. */
+        Q_ASSERT(m_outputBuffer);
+    }
 
     BufferIterator iter(data, size);
 
@@ -1526,6 +1547,17 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
 
         *mvmeEventHeader = ((ListfileSections::SectionType_Event << LF::SectionTypeShift) & LF::SectionTypeMask)
             | ((eventIndex << LF::EventTypeShift) & LF::EventTypeMask);
+
+        sis_trace(QString("setting mvmeEventHeader@0x%1 to 0x%2"
+                          ", buffer@0x%3, buffer->used=%4 (%5 words)"
+                          ", eventHeaderOffset=%6")
+                  .arg((uintptr_t)mvmeEventHeader, 8, 16, QLatin1Char('0'))
+                  .arg(*mvmeEventHeader, 8, 16, QLatin1Char('0'))
+                  .arg((uintptr_t) outputBuffer->data, 8, 16, QLatin1Char('0'))
+                  .arg(outputBuffer->used)
+                  .arg(outputBuffer->used / sizeof(u32))
+                  .arg(m_processingState.eventHeaderOffset);
+                  );
 
         m_processingState.moduleIndex = 0;
     }
@@ -1667,6 +1699,20 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
         u32 *mvmeEventHeader = outputBuffer->asU32(m_processingState.eventHeaderOffset);
         *mvmeEventHeader |= (m_processingState.eventSize << LF::SectionSizeShift) & LF::SectionSizeMask;
 
+        sis_trace(QString("sis3153 buffer #%1, flushing mvme output buffer:"
+                          " mvmeEventHeader@0x%2, mvmeEventHeader=0x%3, mvmeEventSize=%4"
+                          ", buffer@0x%5, buffer->used=%6 (%7 words)"
+                          ", eventHeaderOffset=%8")
+                  .arg(bufferNumber)
+                  .arg((uintptr_t) mvmeEventHeader, 8, 16, QLatin1Char('0'))
+                  .arg(*mvmeEventHeader, 8, 16, QLatin1Char('0'))
+                  .arg(m_processingState.eventSize)
+                  .arg((uintptr_t)outputBuffer->data, 8, 16, QLatin1Char('0'))
+                  .arg(outputBuffer->used)
+                  .arg(outputBuffer->used / sizeof(u32))
+                  .arg(m_processingState.eventHeaderOffset)
+                  );
+
         return ProcessorAction::FlushBuffer;
     }
 
@@ -1718,7 +1764,12 @@ void SIS3153ReadoutWorker::flushCurrentOutputBuffer()
         {
             m_workerContext.daqStats->droppedBuffers++;
         }
+        sis_trace("resetting current output buffer");
         m_outputBuffer = nullptr;
+    }
+    else
+    {
+        sis_trace("no output buffer to flush!");
     }
 }
 

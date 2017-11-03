@@ -31,12 +31,8 @@
 class DataBuffer;
 class MVMEContext;
 class MesytecDiagnostics;
-class DualWordDataFilterConfig;
 
 class MVMEEventProcessorPrivate;
-
-using DualWordFilterValues = QHash<DualWordDataFilterConfig *, u64>;
-using DualWordFilterDiffs  = QHash<DualWordDataFilterConfig *, double>;
 
 struct LIBMVME_EXPORT MVMEEventProcessorCounters
 {

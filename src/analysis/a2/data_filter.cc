@@ -98,5 +98,20 @@ namespace data_filter
 
         return result;
     }
+
+    std::string to_string(DataFilter filter)
+    {
+        std::string result(filter.filter.size(), 'X');
+
+        for (s32 isrc = filter.filter.size() - 1, idst = 0;
+             isrc >= 0;
+             --isrc, ++idst)
+        {
+            result[idst] = filter.filter[isrc];
+        }
+
+        return result;
+    }
+
 } // namespace data_filter
 } // namespace a2
