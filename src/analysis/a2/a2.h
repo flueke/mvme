@@ -258,6 +258,16 @@ Operator make_aggregate_max(
     PipeVectors input,
     Thresholds thresholds);
 
+Operator make_aggregate_mean(
+    memory::Arena *arena,
+    PipeVectors input,
+    Thresholds thresholds);
+
+Operator make_aggregate_meanx(
+    memory::Arena *arena,
+    PipeVectors input,
+    Thresholds thresholds);
+
 /* ===============================================
  * Histograms
  * =============================================== */

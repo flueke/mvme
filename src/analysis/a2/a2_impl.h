@@ -23,6 +23,8 @@ enum OperatorType
     Operator_Sum,
     Operator_Multiplicity,
     Operator_Max,
+    Operator_Mean,
+    Operator_MeanX,
 
     OperatorTypeCount
 };

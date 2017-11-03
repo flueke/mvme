@@ -34,6 +34,7 @@ using namespace memory;
 
 /* TODO list
  * - Add tests for range_filter_step(). Test it in mvme.
+ * - Test aggregate mean and meanx
  * - Add logic to force internal input/output vectors to be rounded up to a
  *   specific power of 2. This is needed to efficiently use vector instructions
  *   in the _step() loops I think.
@@ -739,6 +740,9 @@ static Operator make_aggregate_op(
     return result;
 }
 
+//
+// aggregate_sum
+//
 Operator make_aggregate_sum(
     Arena *arena,
     PipeVectors input,
@@ -785,6 +789,9 @@ void aggregate_sum_step(Operator *op)
     op->outputs[0][0] = theSum;
 }
 
+//
+// aggregate_multiplicity
+//
 Operator make_aggregate_multiplicity(
     Arena *arena,
     PipeVectors input,
@@ -817,6 +824,9 @@ void aggregate_multiplicity_step(Operator *op)
     op->outputs[0][0] = result;
 }
 
+//
+// aggregate_max
+//
 Operator make_aggregate_max(
     Arena *arena,
     PipeVectors input,
@@ -855,6 +865,114 @@ void aggregate_max_step(Operator *op)
     }
 
     op->outputs[0][0] = result;
+}
+
+//
+// aggregate_mean
+//
+// mean = (sum(x for x in input) / validCount)
+Operator make_aggregate_mean(
+    Arena *arena,
+    PipeVectors input,
+    Thresholds thresholds)
+{
+    a2_trace("thresholds: %lf, %lf\n", thresholds.min, thresholds.max);
+    auto result = make_aggregate_op(arena, input, Operator_Mean, thresholds);
+
+    double outputLowerLimit = 0.0;
+    double outputUpperLimit = 0.0;
+
+    for (s32 i = 0; i < input.data.size; i++)
+    {
+        auto mm = std::minmax(input.lowerLimits[i], input.upperLimits[i]);
+
+        outputLowerLimit += mm.first;
+        outputUpperLimit += mm.second;
+    }
+
+    outputLowerLimit /= input.data.size;
+    outputUpperLimit /= input.data.size;
+
+    result.outputLowerLimits[0][0] = outputLowerLimit;
+    result.outputUpperLimits[0][0] = outputUpperLimit;
+
+    return result;
+}
+
+void aggregate_mean_step(Operator *op)
+{
+    auto input = op->inputs[0];
+    auto thresholds = *reinterpret_cast<Thresholds *>(op->d);
+
+    double result = 0.0;
+    u32 validCount = 0;
+
+    for (s32 i = 0; i < input.size; i++)
+    {
+        if (is_valid_and_inside(input[i], thresholds))
+        {
+            result += input[i];
+            validCount++;
+        }
+    }
+
+    op->outputs[0][0] = (result / validCount);
+}
+
+//
+// aggregate_meanx
+//
+Operator make_aggregate_meanx(
+    Arena *arena,
+    PipeVectors input,
+    Thresholds thresholds)
+{
+    a2_trace("thresholds: %lf, %lf\n", thresholds.min, thresholds.max);
+    auto result = make_aggregate_op(arena, input, Operator_MeanX, thresholds);
+
+    double lowerNumerator = 0.0;
+    double upperNumerator = 0.0;
+    double lowerDenominator = 0.0;
+    double upperDenominator = 0.0;
+
+    for (s32 x = 0; x < input.data.size; x++)
+    {
+        lowerNumerator += input.lowerLimits[x] * x;
+        upperNumerator += input.upperLimits[x] * x;
+        lowerDenominator += input.lowerLimits[x];
+        upperDenominator += input.upperLimits[x];
+    }
+
+    result.outputLowerLimits[0][0] = lowerNumerator / lowerDenominator;
+    result.outputUpperLimits[0][0] = upperNumerator / upperDenominator;
+
+    return result;
+}
+
+/*
+ * meanx = sum(A * x) / sum(A)
+ * meanx = sum(input[i] * i) / sum(input[i])
+ */
+void aggregate_meanx_step(Operator *op)
+{
+    auto input = op->inputs[0];
+    auto thresholds = *reinterpret_cast<Thresholds *>(op->d);
+
+    double numerator   = 0.0;
+    double denominator = 0.0;
+
+    for (s32 x = 0; x < input.size; x++)
+    {
+        double A = input[x];
+
+        if (is_valid_and_inside(A, thresholds))
+        {
+            numerator += A * x;
+            denominator += A;
+        }
+    }
+
+    op->outputs[0][0] = numerator / denominator;
 }
 
 struct RangeFilterData
@@ -1292,6 +1410,8 @@ static const OperatorFunctions OperatorTable[OperatorTypeCount] =
     [Operator_Sum] = { aggregate_sum_step },
     [Operator_Multiplicity] = { aggregate_multiplicity_step },
     [Operator_Max] = { aggregate_max_step },
+    [Operator_Mean] = { aggregate_mean_step },
+    [Operator_MeanX] = { aggregate_meanx_step },
 };
 
 #if 0
