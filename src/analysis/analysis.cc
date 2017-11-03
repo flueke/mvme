@@ -1383,11 +1383,38 @@ void AggregateOps::beginRun(const RunInfo &runInfo)
 
             case Op_MinX:
             case Op_MaxX:
-            case Op_MeanX:
             case Op_SigmaX: // FIXME: sigma bounds
                 {
                     lowerBound = 0.0;
                     upperBound = in.size() - 1;
+                } break;
+
+            case Op_MeanX:
+                {
+                    double lowerNumerator = 0.0;
+                    double upperNumerator = 0.0;
+                    double lowerDenominator = 0.0;
+                    double upperDenominator = 0.0;
+
+                    for (s32 x = 0; x < in.size(); x++)
+                    {
+                        const auto &p(in[x]);
+
+                        lowerNumerator += p.lowerLimit * x;
+                        upperNumerator += p.upperLimit * x;
+                        lowerDenominator += p.lowerLimit;
+                        upperDenominator += p.upperLimit;
+                    }
+
+                    lowerBound = lowerNumerator / lowerDenominator;
+
+                    if (std::isnan(lowerBound))
+                        lowerBound = 0.0;
+
+                    upperBound = upperNumerator / upperDenominator;
+
+                    if (std::isnan(upperBound))
+                        upperBound = 0.0;
                 } break;
 
             case NumOps:
