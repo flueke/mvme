@@ -81,7 +81,6 @@ inline a2::PipeVectors find_output_pipe(
 
 inline a2::PipeVectors find_output_pipe(const A2AdapterState *state, analysis::Slot *slot)
 {
-    // This should be the path to get the correct 
     return find_output_pipe(
         state,
         slot->inputPipe->source,
@@ -252,12 +251,24 @@ DEF_OP_MAGIC(aggregate_ops_magic)
             result = make_aggregate_sum(arena, a2_input, thresholds);
             break;
 
+        case AggregateOps::Op_Mean:
+            result = make_aggregate_mean(arena, a2_input, thresholds);
+            break;
+
+        // TODO: sigma, min
+
         case AggregateOps::Op_Max:
             result = make_aggregate_max(arena, a2_input, thresholds);
             break;
 
         case AggregateOps::Op_Multiplicity:
             result = make_aggregate_multiplicity(arena, a2_input, thresholds);
+            break;
+
+        // TODO: minX, maxX, sigmaX
+
+        case AggregateOps::Op_MeanX:
+            result = make_aggregate_meanx(arena, a2_input, thresholds);
             break;
 
         default:
@@ -542,7 +553,7 @@ void a2_adapter_build_extractors(
     {
         for (auto src: sources[ei])
         {
-            qDebug() 
+            qDebug()
                 << "eventIndex =" << ei
                 << ", moduleIndex =" << src.moduleIndex
                 << ", source =" << src.source.get();
