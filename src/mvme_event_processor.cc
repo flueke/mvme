@@ -30,7 +30,7 @@
 #include <QCoreApplication>
 #include <QElapsedTimer>
 
-//#define MVME_EVENT_PROCESSOR_DEBUGGING
+#define MVME_EVENT_PROCESSOR_DEBUGGING
 
 #ifdef MVME_EVENT_PROCESSOR_DEBUGGING
     inline QDebug qEPDebug() { return QDebug(QtDebugMsg); }
@@ -338,6 +338,17 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
 
         {
             TIMED_BLOCK(TimedBlockId_MEP_Analysis_Loop);
+
+            if (m_d->doMultiEventProcessing[eventIndex]
+                && !moduleInfos[0].moduleHeaderFilter.matches(*moduleInfos[0].moduleHeader))
+            {
+#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+                    qDebug("%s moduleHeader=0x%08x did not match header filter -> done processing event section.",
+                           __PRETTY_FUNCTION__, *moduleInfos[0].moduleHeader);
+#endif
+                done = true;
+                break;
+            }
 
             if (m_d->analysis_ng)
             {
