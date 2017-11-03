@@ -930,21 +930,8 @@ Operator make_aggregate_meanx(
     a2_trace("thresholds: %lf, %lf\n", thresholds.min, thresholds.max);
     auto result = make_aggregate_op(arena, input, Operator_MeanX, thresholds);
 
-    double lowerNumerator = 0.0;
-    double upperNumerator = 0.0;
-    double lowerDenominator = 0.0;
-    double upperDenominator = 0.0;
-
-    for (s32 x = 0; x < input.data.size; x++)
-    {
-        lowerNumerator += input.lowerLimits[x] * x;
-        upperNumerator += input.upperLimits[x] * x;
-        lowerDenominator += input.lowerLimits[x];
-        upperDenominator += input.upperLimits[x];
-    }
-
-    result.outputLowerLimits[0][0] = lowerNumerator / lowerDenominator;
-    result.outputUpperLimits[0][0] = upperNumerator / upperDenominator;
+    result.outputLowerLimits[0][0] = 0.0;
+    result.outputUpperLimits[0][0] = input.data.size - 1.0;
 
     return result;
 }
