@@ -371,8 +371,8 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
                            __PRETTY_FUNCTION__, eventIndex, moduleIndex);
 #endif
 
-                    ++m_d->m_localStats.moduleCounters[eventIndex][moduleIndex];
-                    ++eventCountsByModule[moduleIndex];
+                    m_d->m_localStats.moduleCounters[eventIndex][moduleIndex]++;
+                    eventCountsByModule[moduleIndex]++;
 
                     u32 subEventSize = (*mi.subEventHeader & m_d->SubEventSizeMask) >> m_d->SubEventSizeShift;
 
@@ -397,7 +397,7 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
 
                     if (mi.moduleHeader + moduleEventSize + 1 > ptrToLastWord)
                     {
-                        ++m_d->m_localStats.buffersWithErrors;
+                        m_d->m_localStats.buffersWithErrors++;
 
                         QString msg = (QString("Error (mvme fmt): extracted module event size (%1) exceeds buffer size!"
                                                " eventIndex=%2, moduleIndex=%3, moduleHeader=0x%4, skipping event")
@@ -419,7 +419,7 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
                                __PRETTY_FUNCTION__, moduleIndex, *mi.moduleHeader, moduleEventSize);
 #endif
 
-                        ++m_d->m_localStats.moduleCounters[eventIndex][moduleIndex];
+                        m_d->m_localStats.moduleCounters[eventIndex][moduleIndex]++;
 
                         if (m_d->analysis_ng)
                         {
