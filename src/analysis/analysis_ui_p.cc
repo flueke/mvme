@@ -1784,7 +1784,12 @@ void PipeDisplay::refresh()
                 item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
             }
 
-            //m_parameterTable->setVerticalHeaderItem(pi, new QTableWidgetItem(QString::number(pi)));
+            if (!m_parameterTable->verticalHeaderItem(pi))
+            {
+                m_parameterTable->setVerticalHeaderItem(pi, new QTableWidgetItem);
+            }
+
+            m_parameterTable->verticalHeaderItem(pi)->setText(QString::number(pi));
         }
 
         m_infoLabel->setText("a2::PipeVectors");
@@ -1818,7 +1823,12 @@ void PipeDisplay::refresh()
                 item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
             }
 
-            //m_parameterTable->setVerticalHeaderItem(pi, new QTableWidgetItem(QString::number(pi)));
+            if (!m_parameterTable->verticalHeaderItem(pi))
+            {
+                m_parameterTable->setVerticalHeaderItem(pi, new QTableWidgetItem);
+            }
+
+            m_parameterTable->verticalHeaderItem(pi)->setText(QString::number(pi));
         }
 
         m_infoLabel->setText("analysis::Pipe");
