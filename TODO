@@ -2,8 +2,17 @@
 ==== Do these first! =====
 ==========================
 
+======================
+sis3153 implementation
+======================
+    class SIS3153:
+      - vme methods: make use of the amod arg or refactor the interface and get rid of it
+        -> Robert wants to keep amod so implement it
+    * Extract and make use of the counter in beginHeaders (0xbb...)
+
 * vme templates:
   - add a new filter for extended timestamps
+  - VMMR
 
 * use likely/unlikely in VMUSBReadoutWorker
 
@@ -15,33 +24,16 @@
   run number, prefix, etc
 * Add a scaler display somewhere. What does this show? Hz?
 
-* Implement adding of module specific vme init scripts via the GUI.
-  The user should be able to modify the order of init scripts by
-  dragging/dropping, remove existing scripts and add new ones.
-  Optionally copying of an init script to the same or a different module could
-  be implemented.
-
 * Do not use signals/slots for the pause/resume/stop implementation in
   VMEReadoutWorkers. Instead just set the desired state directly (maybe
   securing the access with QAtomicInt in a tight loop). This would allow not
   having to call processEvents() in the readoutLoop anymore.
 
-* Implement better controller state reporting
-  Should not spam useless info
-  Should allow diagnosing connection issues
-
-* Make a RCbus example including a delay between switchting NIM to cbus mode!
 * Include  git branch name in binary
 * Maybe take a look at stopping the analysis mid-buffer on user request. This
   would allow to use larger buffer sizes without increasing the time-to-stop.
-
-sis3153 implementation
-----------------------
-class SIS3153:
-  - vme methods: make use of the amod arg or refactor the interface and get rid of it
-    -> Robert wants to keep amod so implement it
-* Extract and make use of the counter
-
+  XXX: I do not even know why it takes time to stop. Does StopImmediately not
+  work?
 
 * NSIS installer: use common start menu folder mesytec, then mvme underneath
 * info button does not work in 2D combined view of 1D histograms
@@ -54,18 +46,7 @@ class SIS3153:
   Optionally copying of an init script to the same or a different module could
   be implemented.
 
-* Do not use signals/slots for the pause/resume/stop implementation in
-  VMEReadoutWorkers. Instead just set the desired state directly (maybe
-  securing the access with QAtomicInt in a tight loop). This would allow not
-  having to call processEvents() in the readoutLoop anymore.
-
 * Make DataBuffer allocation 32-bit aligned: new u32[size/4 + 1]
-
-* Implement better controller state reporting
-  Should not spam useless info
-  Should allow diagnosing connection issues
-
-* Make a RCbus example including a delay between switchting NIM to cbus mode!
 
 * Maybe reload the analysis on opening a listfile.
   Without the reload the analysis window can become empty if the listfile
@@ -189,9 +170,6 @@ class SIS3153:
    anymore as both are MultiWordDataFilters now
  - Load default filters from templates
 <<<<< End AnalysisNG >>>>>
-
-* Git version is not updated when rebuilding the project! FIX THIS!
-  -> I failed at this. qmake is horrible.
 
 * GUI
   * add versioning to the GUI state saved via QSettings. If the version changes
