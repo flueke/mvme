@@ -1726,14 +1726,10 @@ PipeDisplay::PipeDisplay(Analysis *analysis, Pipe *pipe, QWidget *parent)
     s32 row = 0;
     s32 nCols = 1;
 
-    auto refreshButton = new QPushButton(QSL("Refresh"));
-    connect(refreshButton, &QPushButton::clicked, this, &PipeDisplay::refresh);
-
     auto closeButton = new QPushButton(QSL("Close"));
     connect(closeButton, &QPushButton::clicked, this, &QWidget::close);
 
     layout->addWidget(m_infoLabel, row++, 0);
-    layout->addWidget(refreshButton, row++, 0);
     layout->addWidget(m_parameterTable, row++, 0);
     layout->addWidget(closeButton, row++, 0, 1, 1);
 
