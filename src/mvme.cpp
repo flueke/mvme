@@ -20,7 +20,6 @@
 
 #include "analysis/analysis.h"
 #include "analysis/analysis_ui.h"
-#include "analysis/analysis_info_widget.h"
 #include "config_ui.h"
 #include "daqcontrol_widget.h"
 #include "daqstats_widget.h"
@@ -90,7 +89,7 @@ struct MVMEWindowPrivate
             *actionShowMainWindow, *actionShowAnalysis, *actionShowLog,
 
             *actionToolVMEDebug, *actionToolImportHisto1D, *actionToolVMUSBFirmwareUpdate,
-            *actionToolTemplateInfo, *actionToolSIS3153Debug, *actionToolAnalysisInfo,
+            *actionToolTemplateInfo, *actionToolSIS3153Debug,
 
             *actionHelpVMEScript, *actionHelpAbout, *actionHelpAboutQt, *actionHelpUpdateCheck
             ;
@@ -171,7 +170,6 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     m_d->actionToolVMUSBFirmwareUpdate  = new QAction(QSL("VM-USB Firmware Update"), this);
     m_d->actionToolTemplateInfo         = new QAction(QSL("Template System Info"), this);
     m_d->actionToolSIS3153Debug         = new QAction(QSL("SIS3153 Debug Widget"), this);
-    m_d->actionToolAnalysisInfo         = new QAction(QSL("Analysis Info"), this);
 
     m_d->actionHelpVMEScript   = new QAction(QIcon(QSL(":/help.png")), QSL("&VME Script Reference"), this);
     m_d->actionHelpVMEScript->setObjectName(QSL("actionVMEScriptRef"));
@@ -210,7 +208,6 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
         m_d->m_geometrySaver->addAndRestore(widget, QSL("WindowGeometries/SIS3153DebugWidget"));
         widget->show();
     });
-    connect(m_d->actionToolAnalysisInfo,        &QAction::triggered, this, &MVMEMainWindow::onActionToolAnalysisInfo_triggered);
 
     connect(m_d->actionHelpVMEScript,           &QAction::triggered, this, &MVMEMainWindow::onActionVMEScriptRef_triggered);
     connect(m_d->actionHelpAbout,               &QAction::triggered, this, &MVMEMainWindow::displayAbout);
@@ -250,7 +247,6 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     m_d->menuTools->addAction(m_d->actionToolTemplateInfo);
     m_d->menuTools->addAction(m_d->actionToolSIS3153Debug);
     m_d->menuTools->addAction(m_d->actionToolVMEDebug);
-    m_d->menuTools->addAction(m_d->actionToolAnalysisInfo);
 
     m_d->menuHelp->addAction(m_d->actionHelpVMEScript);
     m_d->menuHelp->addSeparator();
@@ -1536,15 +1532,6 @@ void MVMEMainWindow::onActionCheck_for_updates_triggered()
             // TODO: build version info from the running binary using GIT_VERSION_SHORT
         }
     });
-}
-
-void MVMEMainWindow::onActionToolAnalysisInfo_triggered()
-{
-    auto widget = new AnalysisInfoWidget(m_d->m_context);
-    widget->setAttribute(Qt::WA_DeleteOnClose);
-    add_widget_close_action(widget);
-    m_d->m_geometrySaver->addAndRestore(widget, QSL("WindowGeometries/AnalysisInfo"));
-    widget->show();
 }
 
 bool MVMEMainWindow::createNewOrOpenExistingWorkspace()

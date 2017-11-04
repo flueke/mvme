@@ -124,7 +124,6 @@ private slots:
 
     void onActionVMEScriptRef_triggered();
     void onActionCheck_for_updates_triggered();
-    void onActionToolAnalysisInfo_triggered();
 
     void updateActions();
 

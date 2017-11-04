@@ -2739,6 +2739,7 @@ struct AnalysisWidgetPrivate
     QLabel *m_labelTimetickCount;
     QTimer *m_periodicUpdateTimer;
     WidgetGeometrySaver *m_geometrySaver;
+    AnalysisInfoWidget *m_infoWidget = nullptr;
 
     void repopulate();
     void repopulateEventSelectCombo();
@@ -3255,11 +3256,27 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
         m_d->m_toolbar->addSeparator();
         m_d->m_toolbar->addAction(QIcon(":/info.png"), QSL("Info && Stats"), this, [this]() {
 
-            auto widget = new AnalysisInfoWidget(m_d->m_context);
-            widget->setAttribute(Qt::WA_DeleteOnClose);
-            add_widget_close_action(widget);
-            m_d->m_geometrySaver->addAndRestore(widget, QSL("WindowGeometries/AnalysisInfo"));
-            widget->show();
+            AnalysisInfoWidget *widget = nullptr;
+
+            if (m_d->m_infoWidget)
+            {
+                widget = m_d->m_infoWidget;
+            }
+            else
+            {
+                widget = new AnalysisInfoWidget(m_d->m_context);
+                widget->setAttribute(Qt::WA_DeleteOnClose);
+                add_widget_close_action(widget);
+                m_d->m_geometrySaver->addAndRestore(widget, QSL("WindowGeometries/AnalysisInfo"));
+
+                connect(widget, &QObject::destroyed, this, [this]() {
+                    m_d->m_infoWidget = nullptr;
+                });
+
+                m_d->m_infoWidget = widget;
+            }
+
+            show_and_activate(widget);
         });
     }
 
@@ -3391,6 +3408,11 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
 
 AnalysisWidget::~AnalysisWidget()
 {
+    if (m_d->m_infoWidget)
+    {
+        m_d->m_infoWidget->close();
+    }
+
     delete m_d;
     qDebug() << __PRETTY_FUNCTION__;
 }

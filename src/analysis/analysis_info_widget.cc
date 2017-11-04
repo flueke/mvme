@@ -35,6 +35,7 @@ AnalysisInfoWidget::AnalysisInfoWidget(MVMEContext *context, QWidget *parent)
     : QWidget(parent)
     , m_d(new AnalysisInfoWidgetPrivate)
 {
+    setFocusPolicy(Qt::StrongFocus);
     m_d->context = context;
 
     setWindowTitle(QSL("Analysis Info"));
