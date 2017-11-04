@@ -83,6 +83,7 @@ if(BUILD_TESTS)
 
     add_a2_bench(test_operators test_operators.cc)
     add_a2_bench(test_a2 test_a2.cc)
+    add_a2_bench(test_a2_param test_a2_param.cc)
 
 endif(BUILD_TESTS)
 
