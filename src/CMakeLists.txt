@@ -88,6 +88,7 @@ set(LIBMVME_SOURCES
     histo2d_widget.cc
     histo2d_widget_p.cc
     histo_util.cc
+    listfile_browser.cc
     mesytec_diagnostics.cc
     mvme_context.cc
     mvme.cpp

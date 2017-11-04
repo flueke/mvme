@@ -26,6 +26,7 @@
 #include "gui_util.h"
 #include "histo1d_widget.h"
 #include "histo2d_widget.h"
+#include "listfile_browser.h"
 #include "mesytec_diagnostics.h"
 #include "mvme_context.h"
 #include "mvme_event_processor.h"
@@ -43,11 +44,13 @@
 #endif
 #include "build_info.h"
 
+#include <QApplication>
 #include <QDockWidget>
 #include <QFileDialog>
 #include <QFont>
 #include <QLabel>
 #include <QList>
+#include <QMenuBar>
 #include <QMessageBox>
 #include <QPlainTextEdit>
 #include <QPushButton>
@@ -57,11 +60,9 @@
 #include <QtGui>
 #include <QtNetwork>
 #include <QToolBar>
-#include <qwt_plot_curve.h>
-#include <QVBoxLayout>
-#include <QMenuBar>
-#include <QApplication>
 #include <quazipfile.h>
+#include <QVBoxLayout>
+#include <qwt_plot_curve.h>
 
 using namespace vats;
 
@@ -78,6 +79,7 @@ struct MVMEWindowPrivate
     QMap<QObject *, QList<QWidget *>> m_objectWindows;
     WidgetGeometrySaver *m_geometrySaver;
     QNetworkAccessManager *m_networkAccessManager = nullptr;
+    ListfileBrowser *m_listfileBrowser = nullptr;
 
     QStatusBar *statusBar;
     QMenuBar *menuBar;
@@ -86,7 +88,7 @@ struct MVMEWindowPrivate
             *actionNewVMEConfig, *actionOpenVMEConfig, *actionSaveVMEConfig, *actionSaveVMEConfigAs,
             *actionOpenListfile, *actionCloseListfile,
             *actionQuit,
-            *actionShowMainWindow, *actionShowAnalysis, *actionShowLog,
+            *actionShowMainWindow, *actionShowAnalysis, *actionShowLog, *actionShowListfileBrowser,
 
             *actionToolVMEDebug, *actionToolImportHisto1D, *actionToolVMUSBFirmwareUpdate,
             *actionToolTemplateInfo, *actionToolSIS3153Debug,
@@ -165,6 +167,10 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     m_d->actionShowLog->setShortcut(QSL("Ctrl+3"));
     m_d->actionShowLog->setShortcutContext(Qt::ApplicationShortcut);
 
+    m_d->actionShowListfileBrowser = new QAction(QSL("Listfile Browser"), this);
+    m_d->actionShowListfileBrowser->setShortcut(QSL("Ctrl+4"));
+    m_d->actionShowListfileBrowser->setShortcutContext(Qt::ApplicationShortcut);
+
     m_d->actionToolVMEDebug             = new QAction(QSL("VME Debug"), this);
     m_d->actionToolImportHisto1D        = new QAction(QSL("Import Histo1D"), this);
     m_d->actionToolVMUSBFirmwareUpdate  = new QAction(QSL("VM-USB Firmware Update"), this);
@@ -196,6 +202,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     connect(m_d->actionShowMainWindow,          &QAction::triggered, this, &MVMEMainWindow::onActionMainWindow_triggered);
     connect(m_d->actionShowAnalysis,            &QAction::triggered, this, &MVMEMainWindow::onActionAnalysis_UI_triggered);
     connect(m_d->actionShowLog,                 &QAction::triggered, this, &MVMEMainWindow::onActionLog_Window_triggered);
+    connect(m_d->actionShowListfileBrowser,     &QAction::triggered, this, &MVMEMainWindow::onActionListfileBrowser_triggered);
 
     connect(m_d->actionToolVMEDebug,            &QAction::triggered, this, &MVMEMainWindow::onActionVME_Debug_triggered);
     connect(m_d->actionToolImportHisto1D,       &QAction::triggered, this, &MVMEMainWindow::onActionImport_Histo1D_triggered);
@@ -240,6 +247,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     m_d->menuWindow->addAction(m_d->actionShowMainWindow);
     m_d->menuWindow->addAction(m_d->actionShowAnalysis);
     m_d->menuWindow->addAction(m_d->actionShowLog);
+    m_d->menuWindow->addAction(m_d->actionShowListfileBrowser);
 
     m_d->menuTools->addAction(m_d->actionToolVMEDebug);
     m_d->menuTools->addAction(m_d->actionToolImportHisto1D);
@@ -301,6 +309,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
         // Create and open log and analysis windows.
         onActionLog_Window_triggered();
         onActionAnalysis_UI_triggered();
+        onActionListfileBrowser_triggered();
         // Focus the main window
         this->raise();
     });
@@ -1111,6 +1120,24 @@ void MVMEMainWindow::onActionLog_Window_triggered()
     }
 
     show_and_activate(m_d->m_logView);
+}
+
+void MVMEMainWindow::onActionListfileBrowser_triggered()
+{
+    if (!m_d->m_listfileBrowser)
+    {
+        m_d->m_listfileBrowser = new ListfileBrowser(m_d->m_context);
+        m_d->m_listfileBrowser->setAttribute(Qt::WA_DeleteOnClose);
+        add_widget_close_action(m_d->m_listfileBrowser);
+
+        connect(m_d->m_listfileBrowser, &QObject::destroyed, this, [this] (QObject *) {
+            this->m_d->m_listfileBrowser = nullptr;
+        });
+
+        m_d->m_geometrySaver->addAndRestore(m_d->m_listfileBrowser, QSL("WindowGeometries/ListfileBrowser"));
+    }
+
+    show_and_activate(m_d->m_listfileBrowser);
 }
 
 void MVMEMainWindow::onActionVMUSB_Firmware_Update_triggered()
