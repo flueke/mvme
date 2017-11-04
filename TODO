@@ -1,24 +1,31 @@
-==========================
-==== Do these first! =====
-==========================
+==================================================
+Do these first!
+==================================================
 
-======================
+* Make DataBuffer allocation 32-bit aligned: new u32[size/4 + 1]
+
+--------------------------------------------------
 sis3153 implementation
-======================
-    class SIS3153:
-      - vme methods: make use of the amod arg or refactor the interface and get rid of it
-        -> Robert wants to keep amod so implement it
-    * Extract and make use of the counter in beginHeaders (0xbb...)
+--------------------------------------------------
+* fix the state buffer handling bug in sis3153 readout worker
+* class SIS3153:
+  - vme methods: make use of the amod arg or refactor the interface and get rid of it
+    -> Robert wants to keep amod so implement it
+* Extract and make use of the counter in beginHeaders (0xbb...)
+  Count the number of lost packets
 
 * vme templates:
   - add a new filter for extended timestamps
   - VMMR
-
-* use likely/unlikely in VMUSBReadoutWorker
+--------------------------------------------------
+end sis3153 implementation
+--------------------------------------------------
 
 * Analysis: getDisplayName() and getShortName() are not that great. For the
   AggregateOps operator I'd like to display "Aggregate Operations" in the "add
   operator" context menu instead of "sum". Where else is getDisplayName() used?
+  -> The above works. What I need now is to change the suggested operator name
+  of selecting a different aggregate op. Right now it always appends ".sum".
 
 * Add more ways to specify how the listfile filenames should look like.
   run number, prefix, etc
@@ -34,9 +41,10 @@ sis3153 implementation
   would allow to use larger buffer sizes without increasing the time-to-stop.
   XXX: I do not even know why it takes time to stop. Does StopImmediately not
   work?
+  -> Make MVMEEventProcessor support pause/resume directly.
 
-* NSIS installer: use common start menu folder mesytec, then mvme underneath
 * info button does not work in 2D combined view of 1D histograms
+* Resolution change for 2D combined histograms?
 
 * Make a RCbus example including a delay between switchting NIM to cbus mode!
 
@@ -45,8 +53,6 @@ sis3153 implementation
   dragging/dropping, remove existing scripts and add new ones.
   Optionally copying of an init script to the same or a different module could
   be implemented.
-
-* Make DataBuffer allocation 32-bit aligned: new u32[size/4 + 1]
 
 * Maybe reload the analysis on opening a listfile.
   Without the reload the analysis window can become empty if the listfile

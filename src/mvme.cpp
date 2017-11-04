@@ -78,7 +78,6 @@ struct MVMEWindowPrivate
     VMEDebugWidget *m_vmeDebugWidget = nullptr;
     QMap<QObject *, QList<QWidget *>> m_objectWindows;
     WidgetGeometrySaver *m_geometrySaver;
-    bool m_quitting = false;
     QNetworkAccessManager *m_networkAccessManager = nullptr;
 
     QStatusBar *statusBar;
@@ -605,7 +604,7 @@ void MVMEMainWindow::closeEvent(QCloseEvent *event)
     settings.setValue("mainWindowGeometry", saveGeometry());
     settings.setValue("mainWindowState", saveState());
 
-    m_d->m_quitting = true;
+    m_quitting = true;
 
     QMainWindow::closeEvent(event);
     auto app = qobject_cast<QApplication *>(qApp);
@@ -1600,7 +1599,7 @@ bool MVMEMainWindow::createNewOrOpenExistingWorkspace()
 
 void MVMEMainWindow::updateActions()
 {
-    if (m_d->m_quitting) return;
+    if (m_quitting) return;
 
     auto globalMode = m_d->m_context->getMode();
     auto daqState = m_d->m_context->getDAQState();

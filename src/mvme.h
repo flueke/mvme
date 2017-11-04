@@ -131,6 +131,7 @@ private slots:
 
 private:
     MVMEWindowPrivate *m_d;
+    bool m_quitting = false;
 };
 
 #endif // MVME_H

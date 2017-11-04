@@ -530,8 +530,8 @@ struct EventWidgetPrivate
     void importForModule(ModuleConfig *module, const QString &startPath);
 
     // Actions used in makeToolBar()
-    QAction *m_actionImportForModuleFromTemplate;
-    QAction *m_actionImportForModuleFromFile;
+    std::unique_ptr<QAction> m_actionImportForModuleFromTemplate;
+    std::unique_ptr<QAction> m_actionImportForModuleFromFile;
     QWidgetAction *m_actionModuleImport;
 
     // Actions and widgets used in makeEventSelectAreaToolBar()
@@ -1045,8 +1045,8 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                     auto menuImport = new QMenu(&menu);
                     menuImport->setTitle(QSL("Import"));
                     //menuImport->setIcon(QIcon(QSL(":/analysis_module_import.png")));
-                    menuImport->addAction(m_actionImportForModuleFromTemplate);
-                    menuImport->addAction(m_actionImportForModuleFromFile);
+                    menuImport->addAction(m_actionImportForModuleFromTemplate.get());
+                    menuImport->addAction(m_actionImportForModuleFromFile.get());
                     menu.addMenu(menuImport);
                 }
 
@@ -2379,13 +2379,13 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, AnalysisWidget 
 
     // Upper ToolBar actions
 
-    m_d->m_actionImportForModuleFromTemplate = new QAction("Import from template");
-    m_d->m_actionImportForModuleFromFile     = new QAction("Import from file");
+    m_d->m_actionImportForModuleFromTemplate = std::make_unique<QAction>("Import from template");
+    m_d->m_actionImportForModuleFromFile     = std::make_unique<QAction>("Import from file");
     m_d->m_actionModuleImport = new QWidgetAction(this);
     {
         auto menu = new QMenu(this);
-        menu->addAction(m_d->m_actionImportForModuleFromTemplate);
-        menu->addAction(m_d->m_actionImportForModuleFromFile);
+        menu->addAction(m_d->m_actionImportForModuleFromTemplate.get());
+        menu->addAction(m_d->m_actionImportForModuleFromFile.get());
 
         auto toolButton = new QToolButton;
         toolButton->setMenu(menu);
@@ -2400,11 +2400,11 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, AnalysisWidget 
         m_d->m_actionModuleImport->setDefaultWidget(toolButton);
     }
 
-    connect(m_d->m_actionImportForModuleFromTemplate, &QAction::triggered, this, [this] {
+    connect(m_d->m_actionImportForModuleFromTemplate.get(), &QAction::triggered, this, [this] {
         m_d->importForModuleFromTemplate();
     });
 
-    connect(m_d->m_actionImportForModuleFromFile, &QAction::triggered, this, [this] {
+    connect(m_d->m_actionImportForModuleFromFile.get(), &QAction::triggered, this, [this] {
         m_d->importForModuleFromFile();
     });
 

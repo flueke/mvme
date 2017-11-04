@@ -55,11 +55,12 @@ using namespace memory;
  * SSE requires 16 byte alignment (128 bit registers).
  * AVX wants 32 bytes (256 bit registers).
  *
- * I've seen people pad the pointer in their queue implementations to 64/128
- * bytes as that's the cache line size. Padding this way makes false-sharing
- * less of an issue.
+ * Another factor is the cache line size. On Skylake it's 64 bytes.
  */
 static const size_t ParamVecAlignment = 64;
+
+/* Asserted in extractor_process_module_data(). */
+static const size_t ModuleDataAlignment = alignof(u32);
 
 static const int A2AdditionalThreads = 0;
 static const int OperatorsPerThreadTask = 6;
@@ -169,6 +170,8 @@ static std::uniform_real_distribution<double> RealDist01(0.0, 1.0);
 
 void extractor_process_module_data(Extractor *ex, const u32 *data, u32 size)
 {
+    assert(memory::is_aligned(data, ModuleDataAlignment));
+
     for (u32 wordIndex = 0;
          wordIndex < size;
          wordIndex++)

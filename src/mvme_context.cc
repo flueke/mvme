@@ -722,13 +722,14 @@ void MVMEContext::onReplayDone()
         mbPerSecond = replayMB / secondsElapsed;
     }
 
-    QString str = QString("Replay finished: Read %1 MB in %2 s, %3 MB/s\n")
+    QString msg = QString("Replay finished: Read %1 MB in %2 s, %3 MB/s\n")
         .arg(replayMB)
         .arg(secondsElapsed)
         .arg(mbPerSecond)
         ;
 
-    logMessage(str);
+    logMessage(msg);
+    qDebug().noquote() << msg;
 }
 
 DAQState MVMEContext::getDAQState() const

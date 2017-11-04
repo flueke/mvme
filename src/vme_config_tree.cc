@@ -162,8 +162,8 @@ VMEConfigTreeWidget::VMEConfigTreeWidget(MVMEContext *context, QWidget *parent)
     pb_load   = makeActionToolButton(mainwin->findChild<QAction *>("actionOpenVMEConfig"));
     pb_save   = makeActionToolButton(mainwin->findChild<QAction *>("actionSaveVMEConfig"));
     pb_saveAs = makeActionToolButton(mainwin->findChild<QAction *>("actionSaveVMEConfigAs"));
-    pb_notes  = makeToolButton(QSL(":/text-document.png"), QSL("Notes"));
-    connect(pb_notes, &QPushButton::clicked, this, &VMEConfigTreeWidget::showEditNotes);
+    //pb_notes  = makeToolButton(QSL(":/text-document.png"), QSL("Notes"));
+    //connect(pb_notes, &QPushButton::clicked, this, &VMEConfigTreeWidget::showEditNotes);
 
     QToolButton *pb_treeSettings = nullptr;
 

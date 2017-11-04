@@ -77,6 +77,7 @@ DAQStatsWidget::DAQStatsWidget(MVMEContext *context, QWidget *parent)
 
     for (auto label: labels)
     {
+        label->setParent(this);
         label->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Minimum);
     }
 

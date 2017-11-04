@@ -1664,8 +1664,16 @@ ArrayMap::ArrayMap(QObject *parent)
 
 bool ArrayMap::addSlot()
 {
-    auto slot = new Slot(this, getNumberOfSlots(), QSL("Input#") + QString::number(getNumberOfSlots()), InputType::Array);
+    /* If InputType::Array is passed directly inside make_shared() call I get
+     * an "undefined reference to InputType::Array. */
+    auto inputType = InputType::Array;
+
+    auto slot = std::make_shared<Slot>(
+        this, getNumberOfSlots(),
+        QSL("Input#") + QString::number(getNumberOfSlots()), inputType);
+
     m_inputs.push_back(slot);
+
     return true;
 }
 
@@ -1673,10 +1681,8 @@ bool ArrayMap::removeLastSlot()
 {
     if (getNumberOfSlots() > 1)
     {
-        auto slot = m_inputs.back();
-        slot->disconnectPipe();
+        m_inputs.back()->disconnectPipe();
         m_inputs.pop_back();
-        delete slot;
 
         return true;
     }
@@ -1698,7 +1704,7 @@ void ArrayMap::beginRun(const RunInfo &)
     {
         IndexPair ip(m_mappings.at(mIndex));
         Parameter *inParam = nullptr;
-        Slot *inputSlot = m_inputs.value(ip.slotIndex, nullptr);
+        Slot *inputSlot = ip.slotIndex < m_inputs.size() ? m_inputs[ip.slotIndex].get() : nullptr;
 
         if (inputSlot && inputSlot->inputPipe)
         {
@@ -1732,7 +1738,7 @@ void ArrayMap::step()
     {
         IndexPair ip(m_mappings.at(mIndex));
         Parameter *inParam = nullptr;
-        Slot *inputSlot = m_inputs.value(ip.slotIndex, nullptr);
+        Slot *inputSlot = ip.slotIndex < m_inputs.size() ? m_inputs[ip.slotIndex].get() : nullptr;
 
         if (inputSlot && inputSlot->inputPipe)
         {
@@ -1761,7 +1767,7 @@ Slot *ArrayMap::getSlot(s32 slotIndex)
 
     if (slotIndex < getNumberOfSlots())
     {
-        result = m_inputs[slotIndex];
+        result = m_inputs[slotIndex].get();
     }
 
     return result;

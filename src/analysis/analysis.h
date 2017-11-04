@@ -809,7 +809,7 @@ class LIBMVME_EXPORT ArrayMap: public OperatorInterface
     private:
         // Using pointer to Slot here to avoid having to deal with changing
         // Slot addresses on resizing the inputs vector.
-        QVector<Slot *> m_inputs;
+        QVector<std::shared_ptr<Slot>> m_inputs;
         Pipe m_output;
 };
 
