@@ -20,11 +20,20 @@ enum OperatorType
     Operator_H2DSink,
     Operator_RangeFilter,
     Operator_RangeFilter_idx,
-    Operator_Sum,
-    Operator_Multiplicity,
-    Operator_Max,
-    Operator_Mean,
-    Operator_MeanX,
+
+    /* Aggregate Operations: produce one output value from an input array.
+     * Can make use of thresholds to filter input values. */
+    Operator_Aggregate_Sum,
+    Operator_Aggregate_Multiplicity,
+    Operator_Aggregate_Min,
+    Operator_Aggregate_Max,
+    Operator_Aggregate_Mean,
+    Operator_Aggregate_Sigma,
+
+    Operator_Aggregate_MinX,
+    Operator_Aggregate_MaxX,
+    Operator_Aggregate_MeanX,
+    Operator_Aggregate_SigmaX,
 
     OperatorTypeCount
 };

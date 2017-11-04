@@ -253,7 +253,17 @@ Operator make_aggregate_multiplicity(
     PipeVectors input,
     Thresholds thresholds);
 
+Operator make_aggregate_min(
+    memory::Arena *arena,
+    PipeVectors input,
+    Thresholds thresholds);
+
 Operator make_aggregate_max(
+    memory::Arena *arena,
+    PipeVectors input,
+    Thresholds thresholds);
+
+Operator make_aggregate_sigma(
     memory::Arena *arena,
     PipeVectors input,
     Thresholds thresholds);
@@ -263,7 +273,22 @@ Operator make_aggregate_mean(
     PipeVectors input,
     Thresholds thresholds);
 
+Operator make_aggregate_minx(
+    memory::Arena *arena,
+    PipeVectors input,
+    Thresholds thresholds);
+
+Operator make_aggregate_maxx(
+    memory::Arena *arena,
+    PipeVectors input,
+    Thresholds thresholds);
+
 Operator make_aggregate_meanx(
+    memory::Arena *arena,
+    PipeVectors input,
+    Thresholds thresholds);
+
+Operator make_aggregate_sigmax(
     memory::Arena *arena,
     PipeVectors input,
     Thresholds thresholds);
