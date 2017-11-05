@@ -228,6 +228,7 @@ add_mvme_executable(dev_datagen "dev_datagen.cc")
 add_mvme_executable(dev_data_filter_runner "dev_data_filter_runner.cc")
 add_mvme_executable(dev_sis3153_read_raw_buffers_file "dev_sis3153_read_raw_buffers_file.cc")
 add_mvme_executable(dev_udp_sender "dev_udp_sender.cc")
+add_mvme_executable(dev_udp_receiver "dev_udp_receiver.cc")
 
 add_subdirectory(root)
 
