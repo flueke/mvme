@@ -3283,35 +3283,6 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
 
             show_and_activate(widget);
         });
-
-#if 0
-        // on listfile load
-        m_d->m_toolbar->addSeparator();
-        // On Listfile load: combo[no action, load from listfile]
-        // button: switch to listfile / switch to last workspace config
-        {
-            auto label = new QLabel(QSL("On listfile load"));
-            auto combo = new QComboBox();
-            combo->addItem(QSL("keep current analysis"),        QSL("KeepCurrentAnalysis"));
-            combo->addItem(QSL("load analysis from listfile"),  QSL("LoadAnalysisFromListfile"));
-
-            auto switchConfigButton = new QPushButton(QSL("Switch to listfile"));
-
-            auto layout = new QGridLayout;
-            layout->setContentsMargins(1, 1, 1, 1);
-            layout->setVerticalSpacing(2);
-            int row = 0;
-            layout->addWidget(label, row,   0, 1, 1);
-            layout->addWidget(combo, row++, 1, 1, 1);
-
-            layout->addWidget(switchConfigButton, row++, 0, 1, 2, Qt::AlignCenter);
-
-            auto tbWidget = new QWidget;
-            tbWidget->setLayout(layout);
-
-            m_d->m_toolbar->addWidget(tbWidget);
-        }
-#endif
     }
 
     // After the toolbar entries the EventWidget specific action will be added.

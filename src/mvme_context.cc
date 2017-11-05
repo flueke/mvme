@@ -1490,6 +1490,13 @@ bool MVMEContext::loadAnalysisConfig(QIODevice *input, const QString &inputInfo)
     return false;
 }
 
+bool MVMEContext::loadAnalysisConfig(const QByteArray &blob, const QString &inputInfo)
+{
+    auto doc = QJsonDocument::fromJson(blob);
+
+    return loadAnalysisConfig(doc, inputInfo);
+}
+
 bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc, const QString &inputInfo)
 {
     using namespace analysis;

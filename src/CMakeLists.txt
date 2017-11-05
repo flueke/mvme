@@ -91,6 +91,7 @@ set(LIBMVME_SOURCES
     listfile_browser.cc
     mesytec_diagnostics.cc
     mvme_context.cc
+    mvme_context_lib.cc
     mvme.cpp
     mvme_event_processor.cc
     mvme_listfile.cc

@@ -31,6 +31,7 @@
 #include "mvme_context.h"
 #include "mvme_event_processor.h"
 #include "mvme_listfile.h"
+#include "mvme_context_lib.h"
 #include "qt_util.h"
 #include "sis3153_util.h"
 #include "util_zip.h"
@@ -874,164 +875,21 @@ void MVMEMainWindow::onActionOpenListfile_triggered()
                                                     path,
                                                     "MVME Listfiles (*.mvmelst *.zip);; All Files (*.*)");
     if (fileName.isEmpty())
+    {
         return;
-
-    // ZIP
-    if (fileName.toLower().endsWith(QSL(".zip")))
-    {
-        QString listfileFileName;
-
-        // find and use the first .mvmelst file inside the archive
-        {
-            QuaZip archive(fileName);
-
-            if (!archive.open(QuaZip::mdUnzip))
-            {
-                QMessageBox::critical(0, "Error", make_zip_error("Could not open archive", &archive));
-            }
-
-            QStringList fileNames = archive.getFileNameList();
-
-            auto it = std::find_if(fileNames.begin(), fileNames.end(), [](const QString &str) {
-                return str.endsWith(QSL(".mvmelst"));
-            });
-
-            if (it == fileNames.end())
-            {
-                QMessageBox::critical(0, "Error", QString("No listfile found inside %1").arg(fileName));
-                return;
-            }
-
-            listfileFileName = *it;
-        }
-
-        Q_ASSERT(!listfileFileName.isEmpty());
-
-        auto inFile = std::make_unique<QuaZipFile>(fileName, listfileFileName);
-
-        if (!inFile->open(QIODevice::ReadOnly))
-        {
-            QMessageBox::critical(0, "Error", make_zip_error("Could not open listfile", inFile.get()));
-            return;
-        }
-
-        auto listFile = std::make_unique<ListFile>(inFile.release());
-
-        if (!listFile->open())
-        {
-            QMessageBox::critical(0, "Error", QString("Error opening listfile inside %1 for reading").arg(fileName));
-            return;
-        }
-
-        // try reading the DAQ config from inside the listfile
-        auto json = listFile->getDAQConfig();
-
-        if (json.isEmpty())
-        {
-            QMessageBox::critical(0, "Error", QString("Listfile does not contain a valid DAQ configuration"));
-            return;
-        }
-
-        // save current replay state and set new listfile on the context object
-        bool wasReplaying = (m_d->m_context->getMode() == GlobalMode::ListFile
-                             && m_d->m_context->getDAQState() == DAQState::Running);
-
-        m_d->m_context->setReplayFile(listFile.release());
-
-
-        // Check if there's an analysis file inside the zip archive and ask the
-        // user if it should be loaded.
-        {
-            // FIXME: this part does not check if the current analysis is modified!
-            //
-            // TODO: Instead of loading the config directly do read it and
-            // store it somewhere so that the analysis ui can decide if and
-            // when to load it.
-
-            QuaZipFile inFile(fileName, QSL("analysis.analysis"));
-
-            if (inFile.open(QIODevice::ReadOnly))
-            {
-                // TODO: tell the analysis ui that a listfile has been opened.
-                // it can then decide if it wants to load the analysis config
-                // from the listfile or keep the current one.
-
-                m_d->m_context->setReplayFileAnalysisInfo(
-                    {
-                        fileName,
-                        QSL("analysis.analysis"),
-                        //inFile.readAll()
-                        {}
-                    });
-
-#if 1
-                QMessageBox box(QMessageBox::Question, QSL("Load analysis?"),
-                                QSL("Do you want to load the analysis configuration from the ZIP archive?"),
-                                QMessageBox::Yes | QMessageBox::No);
-
-                box.button(QMessageBox::Yes)->setText(QSL("Load analysis"));
-                box.button(QMessageBox::No)->setText(QSL("Keep current analysis"));
-                box.setDefaultButton(QMessageBox::No);
-
-                if (box.exec() == QMessageBox::Yes)
-                {
-                    m_d->m_context->loadAnalysisConfig(&inFile, QSL("ZIP Archive"));
-                }
-#endif
-            }
-            else
-            {
-                m_d->m_context->setReplayFileAnalysisInfo({});
-            }
-        }
-
-        // Try to read the logfile from the archive and append it to the log view
-        {
-            QuaZipFile inFile(fileName, QSL("messages.log"));
-
-            if (inFile.open(QIODevice::ReadOnly))
-            {
-                appendToLogNoDebugOut(QSL(">>>>> Begin listfile log"));
-                appendToLogNoDebugOut(inFile.readAll());
-                appendToLogNoDebugOut(QSL("<<<<< End listfile log"));
-            }
-        }
-
-        if (wasReplaying)
-        {
-            m_d->m_context->startReplay();
-        }
     }
-    // Plain
-    else
+
+    try
     {
-        ListFile *listFile = new ListFile(fileName);
+        auto openResult = open_listfile(m_d->m_context, fileName, OpenListfileFlags::LoadAnalysis);
 
-        if (!listFile->open())
-        {
-            QMessageBox::critical(0, "Error", QString("Error opening %1 for reading").arg(fileName));
-            delete listFile;
-            return;
-        }
-
-        auto json = listFile->getDAQConfig();
-
-        if (json.isEmpty())
-        {
-            QMessageBox::critical(0, "Error", QString("Listfile does not contain a valid DAQ configuration"));
-            delete listFile;
-            return;
-        }
-
-        bool wasReplaying = (m_d->m_context->getMode() == GlobalMode::ListFile
-                             && m_d->m_context->getDAQState() == DAQState::Running);
-
-        m_d->m_context->setReplayFile(listFile);
-
-        if (wasReplaying)
-        {
-            m_d->m_context->startReplay();
-        }
+        appendToLogNoDebugOut(QSL(">>>>> Begin listfile log"));
+        appendToLogNoDebugOut(openResult.messages);
+        appendToLogNoDebugOut(QSL("<<<<< End listfile log"));
+    }
+    catch (const QString &err)
+    {
+        QMessageBox::critical(0, "Error", err);
     }
 
     updateWindowTitle();
