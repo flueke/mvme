@@ -6,10 +6,10 @@
 /*                                                                         */
 /*  Autor:                CT/TH                                            */
 /*  date:                 26.06.2014                                       */
-/*  last modification:    31.08.2017                                       */
+/*  last modification:    19.10.2017                                       */
 /*                                                                         */
 /* ----------------------------------------------------------------------- */
-/*   class_lib_version: 2.1                                                */
+/*   class_lib_version: 2.2                                                */
 /*                                                                         */
 /* ----------------------------------------------------------------------- */
 /*                                                                         */
@@ -31,7 +31,7 @@
 #define _SIS3153ETH_VME_CLASS_
 
 #define SIS3153ETH_VERSION_MAJOR 0x02
-#define SIS3153ETH_VERSION_MINOR 0x01
+#define SIS3153ETH_VERSION_MINOR 0x02
 
 
 
@@ -182,7 +182,7 @@ private:
 
 
 
-	/* Subroutiens/Methods */
+	/* Methods */
 	int udp_single_read( unsigned int nof_read_words, UINT* addr_ptr, UINT* data_ptr);
 	int udp_single_write( unsigned int nof_write_words, UINT* addr_ptr, UINT* data_ptr);
 
@@ -434,6 +434,10 @@ public:
 	int list_generate_add_vmeA32MBLT64_read(UINT* list_ptr, UINT* list_buffer, UINT vme_addr, UINT request_nof_words);
 	int list_generate_add_vmeA32MBLT64_swapDWord_read(UINT* list_ptr, UINT* list_buffer, UINT vme_addr, UINT request_nof_words);
 
+	int list_generate_add_vmeA32D32_read_saveDynBlkSizingLength(UINT* list_ptr, UINT* list_buffer, UINT vme_addr);
+	int list_generate_add_vmeA32BLT32_read_withDynBlkSizingLength(UINT* list_ptr, UINT* list_buffer, UINT vme_addr, UINT request_nof_words);
+	int list_generate_add_vmeA32MBLT64_read_withDynBlkSizingLength(UINT* list_ptr, UINT* list_buffer, UINT vme_addr, UINT request_nof_words);
+	int list_generate_add_vmeA32MBLT64_swapDWord_read_withDynBlkSizingLength(UINT* list_ptr, UINT* list_buffer, UINT vme_addr, UINT request_nof_words);
 
 
 
