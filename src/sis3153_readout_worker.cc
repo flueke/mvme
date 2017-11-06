@@ -176,10 +176,11 @@ namespace
         unsigned int vme_fifo_mode   = fifo ? 1 : 0;
         unsigned int vme_access_size = mblt ? AccessSize64 : AccessSize32;
 
-        // TODO: maybe make MBLT word swap optional
         /* The MBLT address modifier would be 0x8. Setting bit 10 (-> 0x0408)
          * makes the SIS3153 swap the two 32-bit words of the 64-bit word read
-         * via MBLT. */
+         * via MBLT.
+         * See sis3153eth::list_generate_add_vmeA32MBLT64_swapDWord_read() for
+         * Tinos implementation. */
         unsigned int vme_am_mode     = mblt ? 0x0408 : 0xB;
 
         list_buffer[*list_ptr + 0] = 0xAAAA4000 | (vme_write_flag << 11) | (vme_fifo_mode << 10) | (vme_access_size << 8) | ((vme_nof_bytes >> 16) & 0xFF);
