@@ -21,6 +21,8 @@
 #include "analysis_util.h"
 #include "data_extraction_widget.h"
 #include "analysis_info_widget.h"
+#include "a2_adapter.h"
+#include "analysis_impl_switch.h"
 
 #include "../mvme_context.h"
 #include "../histo1d_widget.h"
@@ -2100,6 +2102,10 @@ void EventWidgetPrivate::doPeriodicUpdate()
     // level 0 operator tree (Extractor hitcounts)
     //
     {
+#if ANALYSIS_USE_A2
+        auto a2State = m_context->getAnalysis()->getA2AdapterState();
+#endif
+
         for (auto iter = QTreeWidgetItemIterator(m_levelTrees[0].operatorTree);
              *iter; ++iter)
         {
@@ -2111,7 +2117,19 @@ void EventWidgetPrivate::doPeriodicUpdate()
                 if (auto extractor = qobject_cast<Extractor *>(outPipe->getSource()))
                 {
                     s32 address = node->data(0, DataRole_ParameterIndex).toInt();
+#if ANALYSIS_USE_A2
+                    double hitCount = 0.0;
+
+                    if (a2State)
+                    {
+                        if (auto ex_a2 = a2State->sourceMap.value(extractor, nullptr))
+                        {
+                            hitCount = ex_a2->hitCounts[address];
+                        }
+                    }
+#else
                     double hitCount = extractor->getHitCounts().value(address, 0.0);
+#endif
                     QString numberString = QString("%1").arg(address, 2).replace(QSL(" "), QSL("&nbsp;"));
 
                     if (hitCount <= 0.0)
