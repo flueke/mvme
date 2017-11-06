@@ -940,8 +940,6 @@ void SIS3153ReadoutWorker::readoutLoop()
         }
     }
 
-    maybePutBackBuffer();
-
     setState(DAQState::Stopping);
     processQtEvents();
 
@@ -961,6 +959,8 @@ void SIS3153ReadoutWorker::readoutLoop()
         logMessage(QString(QSL("SIS3153 readout left DAQ mode (%1 remaining packets received)"))
                    .arg(packetCount));
     }
+
+    maybePutBackBuffer();
 }
 
 SIS3153ReadoutWorker::ReadBufferResult SIS3153ReadoutWorker::readBuffer()
@@ -1166,7 +1166,12 @@ void SIS3153ReadoutWorker::processBuffer(
             // start or continue partial event processing
             if (m_processingState.stackList >= 0 || !isLastPacket)
             {
-                sis_trace(QString("buffer #%1 -> partial event buffer").arg(bufferNumber));
+                bool isLastPacket = packetAck & SIS3153Constants::AckIsLastPacketMask;
+
+                sis_trace(QString("buffer #%1 -> partial event buffer (isLastPacket=%2)")
+                          .arg(bufferNumber)
+                          .arg(isLastPacket));
+
                 action = processPartialEventData(packetAck, packetIdent, packetStatus, data, size);
             }
             else // the single event per packet case
@@ -1721,6 +1726,10 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
 
         return ProcessorAction::FlushBuffer;
     }
+
+    sis_trace(QString("sis3153 buffer #%1, returning KeepState")
+              .arg(bufferNumber)
+             );
 
     return ProcessorAction::KeepState;
 }
