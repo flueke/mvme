@@ -2781,7 +2781,7 @@ Analysis::~Analysis()
 
 /* This overload updates operator ranks and sorts operators by rank,
  * then calls beginRun() on sources and operators. */
-void Analysis::beginRun(const RunInfo &runInfo)
+void Analysis::beginRun_internal_only(const RunInfo &runInfo)
 {
     m_runInfo = runInfo;
 
@@ -2834,7 +2834,7 @@ void Analysis::beginRun(
 {
     m_vmeMap = vmeMap;
 
-    beginRun(runInfo);
+    beginRun_internal_only(runInfo);
 
     if (!m_a2Arenas[0])
     {
@@ -2999,17 +2999,15 @@ void Analysis::processTimetick()
 
 void Analysis::addSource(const QUuid &eventId, const QUuid &moduleId, const SourcePtr &source)
 {
-    source->beginRun(m_runInfo);
     m_sources.push_back({eventId, moduleId, source, source.get()});
-    updateRanks();
+    beginRun(m_runInfo, m_vmeMap);
     setModified();
 }
 
 void Analysis::addOperator(const QUuid &eventId, const OperatorPtr &op, s32 userLevel)
 {
-    op->beginRun(m_runInfo);
     m_operators.push_back({eventId, op, op.get(), userLevel});
-    updateRanks();
+    beginRun(m_runInfo, m_vmeMap);
     setModified();
 }
 
@@ -3161,7 +3159,7 @@ void Analysis::removeSource(SourceInterface *source)
         m_sources.remove(entryIndex);
 
         // Update ranks and recalculate output sizes for all analysis elements.
-        beginRun(m_runInfo);
+        beginRun(m_runInfo, m_vmeMap);
 
         setModified();
     }
@@ -3216,7 +3214,7 @@ void Analysis::removeOperator(OperatorInterface *op)
         m_operators.remove(entryIndex);
 
         // Update ranks and recalculate output sizes for all analysis elements.
-        beginRun(m_runInfo);
+        beginRun(m_runInfo, m_vmeMap);
 
         setModified();
     }

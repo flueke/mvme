@@ -1383,7 +1383,7 @@ class LIBMVME_EXPORT Analysis: public QObject
         A2AdapterState *getA2AdapterState() { return m_a2State.get(); }
 
     private:
-        void beginRun(const RunInfo &runInfo);
+        void beginRun_internal_only(const RunInfo &runInfo);
         void updateRank(OperatorInterface *op, QSet<OperatorInterface *> &updated);
 
         QVector<SourceEntry> m_sources;
