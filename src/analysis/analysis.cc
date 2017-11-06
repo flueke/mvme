@@ -2826,8 +2826,8 @@ void Analysis::beginRun_internal_only(const RunInfo &runInfo)
 
 static const size_t A2ArenaSize = Kilobytes(256);
 
-/* Calls the overloaded beginRun() to prepare the analysis::* stuff,
- * then used a2_adapter_build() to build the a2 system. */
+/* Calls beginRun_internal_only() to prepare the analysis::* stuff, then uses
+ * a2_adapter_build() to build the a2 system. */
 void Analysis::beginRun(
     const RunInfo &runInfo,
     const vme_analysis_common::VMEIdToIndex &vmeMap)
@@ -2865,6 +2865,11 @@ void Analysis::beginRun(
 
     m_a2State = std::make_unique<A2AdapterState>(a2State);
 #endif
+}
+
+void Analysis::beginRun()
+{
+    beginRun(m_runInfo, m_vmeMap);
 }
 
 void Analysis::beginEvent(const QUuid &eventId)

@@ -162,7 +162,7 @@ Histo1DStatistics Histo1D::calcBinStatistics(u32 startBin, u32 onePastEndBin) co
     {
         double v = getBinContent(bin);
         result.mean += v * getBinLowEdge(bin);
-        result.entryCount += v;
+        result.entryCount += v; // This assumes weights of 1.0!!
 
         if (v > result.maxValue)
         {

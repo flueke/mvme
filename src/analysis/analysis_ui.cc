@@ -2042,6 +2042,10 @@ PipeDisplay *EventWidgetPrivate::makeAndShowPipeDisplay(Pipe *pipe)
 
 void EventWidgetPrivate::doPeriodicUpdate()
 {
+#if ANALYSIS_USE_A2
+    auto a2State = m_context->getAnalysis()->getA2AdapterState();
+#endif
+
     //
     // display trees (histo counts)
     //
@@ -2055,9 +2059,28 @@ void EventWidgetPrivate::doPeriodicUpdate()
 
             if (node->type() == NodeType_Histo1D)
             {
-                auto histo = getPointer<Histo1D>(node);
                 s32 address = node->data(0, DataRole_HistoAddress).toInt();
+
+#if ANALYSIS_USE_A2
+                double entryCount = 0.0;
+
+                if (a2State && node->parent() && node->parent()->type() == NodeType_Histo1DSink)
+                {
+                    auto sink = getPointer<Histo1DSink>(node->parent());
+
+                    if (auto sink_a2 = a2State->operatorMap.value(sink, nullptr))
+                    {
+                        auto sinkData = reinterpret_cast<a2::H1DSinkData *>(sink_a2->d);
+                        if (address < sinkData->histos.size)
+                        {
+                            entryCount = sinkData->histos[address].entryCount;
+                        }
+                    }
+                }
+#else
+                auto histo = getPointer<Histo1D>(node);
                 double entryCount = histo->getEntryCount();
+#endif
 
                 QString numberString = QString("%1").arg(address, 2).replace(QSL(" "), QSL("&nbsp;"));
 
@@ -2102,10 +2125,6 @@ void EventWidgetPrivate::doPeriodicUpdate()
     // level 0 operator tree (Extractor hitcounts)
     //
     {
-#if ANALYSIS_USE_A2
-        auto a2State = m_context->getAnalysis()->getA2AdapterState();
-#endif
-
         for (auto iter = QTreeWidgetItemIterator(m_levelTrees[0].operatorTree);
              *iter; ++iter)
         {

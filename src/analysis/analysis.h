@@ -1276,6 +1276,7 @@ class LIBMVME_EXPORT Analysis: public QObject
          * Remember to update the hash on every vme config change!
          */
         void beginRun(const RunInfo &runInfo, const vme_analysis_common::VMEIdToIndex &vmeMap);
+        void beginRun();
         void beginEvent(const QUuid &eventId);
         void processModuleData(const QUuid &eventId, const QUuid &moduleId, u32 *data, u32 size);
         void endEvent(const QUuid &eventId);

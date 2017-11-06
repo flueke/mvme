@@ -1654,7 +1654,7 @@ void MVMEContext::analysisOperatorEdited(const std::shared_ptr<analysis::Operato
 {
     AnalysisPauser pauser(this);
     m_analysis_ng->setModified();
-    analysis::do_beginRun_forward(op.get());
+    m_analysis_ng->beginRun();
 
     if (m_analysisUi)
     {
