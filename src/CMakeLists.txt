@@ -37,8 +37,6 @@ else()
     message("-- Using LIBUSB_LIBRARY=${LIBUSB_LIBRARY}")
 endif()
 
-include_directories(${LIBUSB_INCLUDE_PATH})
-
 # git version information is contained in its own translation unit. Allows for
 # quick build + relink on version change.
 configure_file("git_sha1.cc.in" "git_sha1.cc" @ONLY)
@@ -136,6 +134,11 @@ qt5_wrap_ui(LIBMVME_UIC_OUT
 
 qt5_add_resources(LIBMVME_RC_OUT resources.qrc)
 
+if (ENABLE_HDF5)
+    list(APPEND LIBMVME_ADDITIONAL_LIBS ${HDF5_C_LIBRARIES})
+    list(APPEND LIBMVME_SOURCES analysis/analysis_session.cc)
+endif()
+
 add_library(libmvme SHARED ${LIBMVME_SOURCES} ${LIBMVME_UIC_OUT} ${LIBMVME_RC_OUT})
 add_dependencies(libmvme liba2_static)
 generate_export_header(libmvme)
@@ -149,8 +152,11 @@ qt5_use_modules(libmvme
   )
 
 if (WIN32)
-    set(LIBMVME_ADDITIONAL_LIBS ws2_32)
+    list(append LIBMVME_ADDITIONAL_LIBS ws2_32)
 endif()
+
+include_directories(${LIBUSB_INCLUDE_PATH})
+
 
 target_link_libraries(libmvme
     ${QUAZIP_QT5}

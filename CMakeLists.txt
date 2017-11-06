@@ -84,6 +84,15 @@ find_path(QWT_INCLUDE_DIR
     NAMES qwt_plot.h
     PATH_SUFFIXES qwt qwt-qt5 qwt-6.1.3)
 
+# hdf5
+option(ENABLE_HDF5 "Enable HDF5 support" ON)
+find_package(HDF5)
+if (HDF5_FOUND)
+    include_directories(${HDF5_INCLUDE_DIRS})
+    #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${HDF5_DEFINITIONS}")
+    add_definitions(-DMVME_ENABLE_HDF5)
+endif(HDF5_FOUND)
+
 find_library(QWT_LIBRARY NAMES qwt qwt-qt5)
 include_directories(${QWT_INCLUDE_DIR})
 #include(FindPackageHandleStandardArgs)

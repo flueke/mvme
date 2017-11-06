@@ -23,6 +23,9 @@
 #include "analysis_info_widget.h"
 #include "a2_adapter.h"
 #include "analysis_impl_switch.h"
+#ifdef MVME_ENABLE_HDF5
+#include "analysis_session.h"
+#endif
 
 #include "../mvme_context.h"
 #include "../histo1d_widget.h"
@@ -2791,6 +2794,7 @@ struct AnalysisWidgetPrivate
     QPair<bool, QString> actionSaveAs();
     void actionImport();
     void actionClearHistograms();
+    void actionSaveSession();
 
     void updateWindowTitle();
     void updateAddRemoveUserLevelButtons();
@@ -3169,6 +3173,14 @@ void AnalysisWidgetPrivate::actionClearHistograms()
     }
 }
 
+void AnalysisWidgetPrivate::actionSaveSession()
+{
+    AnalysisPauser pauser(m_context);
+    QString filename = "test.hdf5";
+
+    save_analysis_session(filename, m_context->getAnalysis());
+}
+
 void AnalysisWidgetPrivate::updateWindowTitle()
 {
     QString fileName = m_context->getAnalysisConfigFileName();
@@ -3320,6 +3332,11 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
 
             show_and_activate(widget);
         });
+
+#ifdef MVME_ENABLE_HDF5
+        m_d->m_toolbar->addSeparator();
+        m_d->m_toolbar->addAction(QIcon(":/document-save.png"), QSL("DEV Save Session"), this, [this]() { m_d->actionSaveSession(); });
+#endif
     }
 
     // After the toolbar entries the EventWidget specific action will be added.
