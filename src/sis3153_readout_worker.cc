@@ -270,7 +270,6 @@ namespace
     }
 }
 
-static const u32 WatchdogPayload = 0xbeefbeef;
 static const double WatchdogTimeout_s = 0.050;
 
 //
@@ -589,14 +588,21 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
          */
         if (stackListIndex <= SIS3153Constants::NumberOfStackLists)
         {
-            // Actually have to upload a stacklist for things to work. This
-            // list consists of a single marker command.
-            vme_script::Command cmd;
-            cmd.type = vme_script::CommandType::Marker;
-            cmd.value = WatchdogPayload;
-            vme_script::VMEScript watchdogScript = { cmd };
+            auto sisImpl = sis->getImpl();
 
-            auto stackList = build_stackList(sis, watchdogScript);
+            // [ header, reg_write, trailer ]
+            QVector<u32> stackList(2 + 4 + 2);
+            u32 stackListOffset = 0;
+
+            sisImpl->list_generate_add_header(&stackListOffset, stackList.data());
+
+            sisImpl->list_generate_add_register_write(&stackListOffset, stackList.data(),
+                                                      SIS3153ETH_STACK_LIST_TRIGGER_CMD,
+                                                      SIS3153Registers::StackListTriggerCommandFlushBuffer);
+
+            sisImpl->list_generate_add_trailer(&stackListOffset, stackList.data());
+
+            Q_ASSERT(stackListOffset == (u32)(stackList.size()));
 
             // upload stacklist
             auto msg = (QString("Loading stackList for internal watchdog event"
@@ -1351,17 +1357,9 @@ u32 SIS3153ReadoutWorker::processSingleEventData(
     // Watchdog packet handling
     if (stacklist == m_watchdogStackListIndex)
     {
+        // Check to make sure there's no event config for this stacklist. If
+        // there was a config the stacklist can not be used for the watchdog.
         Q_ASSERT(m_eventConfigsByStackList[packetAck & SIS3153Constants::AckStackListMask] == nullptr);
-        u32 watchdogPayload = iter.extractU32();
-        if (watchdogPayload != WatchdogPayload)
-        {
-            auto msg = (QString(QSL("SIS3153 Warning: (buffer #%1) Unexpected watchdog payload: 0x%2"))
-                        .arg(bufferNumber)
-                        .arg(watchdogPayload, 8, 16, QLatin1Char('0')));
-            logMessage(msg);
-            qDebug() << __PRETTY_FUNCTION__ << msg;
-            return ProcessorAction::SkipInput;
-        }
 
         u32 endHeader = iter.extractU32();
         if ((endHeader & SIS3153Constants::EndEventMask) != SIS3153Constants::EndEventResult)

@@ -133,6 +133,8 @@ namespace SIS3153Registers
     static const u32 TriggerSourceInput2RisingEdge  = 0xE;
     static const u32 TriggerSourceInput2FallingEdge = 0xF;
 
+    static const u32 StackListTriggerCommandFlushBuffer = 15;
+
 } // namespace SIS3153Registers
 
 namespace SIS3153Constants
