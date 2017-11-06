@@ -155,6 +155,7 @@ Extractor make_extractor(
     result.output.lowerLimits = push_param_vector(arena, addrCount, 0.0);
     result.output.upperLimits = push_param_vector(arena, addrCount, upperLimit);
 
+    result.hitCounts = push_param_vector(arena, addrCount, 0.0);
 
     return  result;
 }
@@ -193,6 +194,7 @@ void extractor_process_module_data(Extractor *ex, const u32 *data, u32 size)
                 if (!is_param_valid(ex->output.data[address]))
                 {
                     ex->output.data[address] = value + RealDist01(ex->rng);
+                    ex->hitCounts[address]++;
                 }
             }
 

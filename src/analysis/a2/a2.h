@@ -135,6 +135,7 @@ struct Extractor
     data_filter::MultiWordFilter filter;
     pcg32_fast rng;
     PipeVectors output;
+    ParamVec hitCounts;
     u32 requiredCompletions;
     u32 currentCompletions;
     u8 moduleIndex;
