@@ -674,6 +674,8 @@ void set_null_if_input_is(OperatorEntryVector &operators, OperatorInterface *inp
 
                 if (slot->inputPipe && slot->inputPipe->source == inputOp)
                 {
+                    set_null_if_input_is(operators, entry.op.get(), i);
+
                     entry.op.reset();
                     break;
                 }
@@ -696,7 +698,7 @@ auto a2_adapter_filter_operators(QVector<Analysis::OperatorEntry> operators)
 
         if (entry.op && !all_inputs_connected(entry.op.get()))
         {
-            QLOG("filtering out" << entry.op.get() << " and direct children");
+            QLOG("filtering out" << entry.op.get() << "and children");
             set_null_if_input_is(operators, entry.op.get(), opIndex + 1);
             entry.op.reset();
         }
@@ -713,7 +715,7 @@ auto a2_adapter_filter_operators(QVector<Analysis::OperatorEntry> operators)
     }
 
     QLOG("filtered out" << operators.size() - result.size()
-         << " of" << operators.size() << " operators");
+         << "of" << operators.size() << "operators");
 
     return result;
 }
