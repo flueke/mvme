@@ -940,6 +940,8 @@ void SIS3153ReadoutWorker::readoutLoop()
         }
     }
 
+    maybePutBackBuffer();
+
     setState(DAQState::Stopping);
     processQtEvents();
 
@@ -1207,16 +1209,8 @@ void SIS3153ReadoutWorker::processBuffer(
             .arg(m_workerContext.daqStats->totalBuffersRead);
         logMessage(msg);
         qDebug() << __PRETTY_FUNCTION__ << msg;
-    }
 
-    if (m_outputBuffer && m_outputBuffer != &m_localEventBuffer)
-    {
-        // We still hold onto one of the buffers from obtained from the free
-        // queue. This can happen for the SkipInput case. Put the buffer back
-        // into the free queue.
-        enqueue(m_workerContext.freeBuffers, m_outputBuffer);
-        sis_trace("resetting current output buffer");
-        m_outputBuffer = nullptr;
+        maybePutBackBuffer();
     }
 
     sis_trace(QString("sis3153 buffer #%1 done")
@@ -1286,6 +1280,9 @@ u32 SIS3153ReadoutWorker::processMultiEventData(
 #if SIS_READOUT_DEBUG
             qDebug() << __PRETTY_FUNCTION__ << "processSingleEventData returned SkipInput!";
 #endif
+
+            maybePutBackBuffer();
+
             break;
         }
         else
@@ -1330,6 +1327,7 @@ u32 SIS3153ReadoutWorker::processSingleEventData(
 
     BufferIterator iter(data, size);
 
+    // check beginHeader (0xbb...)
     {
         u32 beginHeader = iter.extractU32();
 
@@ -1381,8 +1379,6 @@ u32 SIS3153ReadoutWorker::processSingleEventData(
             return ProcessorAction::SkipInput;
         }
 
-        /* The watchdog packet was well formed. As we did not acquire an output.
-         * FIXME: this comment is broken!  */
         return ProcessorAction::KeepState;
     }
 
@@ -1448,6 +1444,7 @@ u32 SIS3153ReadoutWorker::processSingleEventData(
         m_workerContext.daqStats->totalNetBytesRead += moduleSectionSize * sizeof(u32);
     }
 
+    // check endHeader (0xee...)
     {
         u32 endHeader = iter.extractU32();
 
@@ -1458,6 +1455,8 @@ u32 SIS3153ReadoutWorker::processSingleEventData(
                         .arg(endHeader, 8, 16, QLatin1Char('0')));
             logMessage(msg);
             qDebug() << __PRETTY_FUNCTION__ << msg;
+
+            maybePutBackBuffer();
 
             return ProcessorAction::SkipInput;
         }
@@ -1521,6 +1520,7 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
                         .arg(beginHeader, 8, 16, QLatin1Char('0')));
             logMessage(msg);
             qDebug() << __PRETTY_FUNCTION__ << msg;
+            maybePutBackBuffer();
             return ProcessorAction::SkipInput;
         }
 
@@ -1536,6 +1536,7 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
                         .arg(eventIndex));
             logMessage(msg);
             qDebug() << __PRETTY_FUNCTION__ << msg;
+            maybePutBackBuffer();
             return ProcessorAction::SkipInput;
         }
 
@@ -1574,6 +1575,7 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
                        .arg(m_processingState.stackList));
         logMessage(msg);
         qDebug() << __PRETTY_FUNCTION__ << msg;
+        maybePutBackBuffer();
         return ProcessorAction::SkipInput;
     }
 
@@ -1597,6 +1599,7 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
         logMessage(msg);
         qDebug() << __PRETTY_FUNCTION__ << msg;
 
+        maybePutBackBuffer();
         return ProcessorAction::SkipInput;
     }
 
@@ -1620,6 +1623,7 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
             logMessage(msg);
             qDebug() << __PRETTY_FUNCTION__ << msg;
 
+        maybePutBackBuffer();
             return ProcessorAction::SkipInput;
         }
 
@@ -1643,6 +1647,7 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
                 logMessage(msg);
                 qDebug() << __PRETTY_FUNCTION__ << msg;
 
+                maybePutBackBuffer();
                 return ProcessorAction::SkipInput;
             }
 
@@ -1684,6 +1689,7 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
                         .arg(endHeader, 8, 16, QLatin1Char('0')));
             logMessage(msg);
             qDebug() << __PRETTY_FUNCTION__ << msg;
+            maybePutBackBuffer();
             return ProcessorAction::SkipInput;
         }
 
@@ -1836,4 +1842,18 @@ DataBuffer *SIS3153ReadoutWorker::getOutputBuffer()
     }
 
     return outputBuffer;
+}
+
+void SIS3153ReadoutWorker::maybePutBackBuffer()
+{
+    if (m_outputBuffer && m_outputBuffer != &m_localEventBuffer)
+    {
+        // We still hold onto one of the buffers from obtained from the free
+        // queue. This can happen for the SkipInput case. Put the buffer back
+        // into the free queue.
+        enqueue(m_workerContext.freeBuffers, m_outputBuffer);
+        sis_trace("resetting current output buffer");
+    }
+
+    m_outputBuffer = nullptr;
 }
