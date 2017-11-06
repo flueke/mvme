@@ -28,11 +28,11 @@
 #include "util/perf.h"
 #include "vme_daq.h"
 
-#define SIS_READOUT_DEBUG               1   // enable debugging code
+#define SIS_READOUT_DEBUG               0   // enable debugging code
 #define SIS_READOUT_BUFFER_DEBUG_PRINT  0   // print buffers to console
 
-//#ifndef NDEBUG
-#if 1
+#ifndef NDEBUG
+//#if 1
 #define sis_trace(msg)\
 do\
 {\
@@ -346,7 +346,7 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
         //
         QVariantMap controllerSettings = m_workerContext.vmeConfig->getControllerSettings();
 
-        if (controllerSettings.value("useJumboFrames").toBool())
+        if (controllerSettings.value(QSL("JumboFrames")).toBool())
         {
             logMessage("Enabling Jumbo Frame Support");
             error = make_sis_error(sis->getImpl()->set_UdpSocketEnableJumboFrame());
