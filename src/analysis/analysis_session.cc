@@ -5,9 +5,20 @@
 
 using namespace analysis;
 
+template<size_t Size>
+struct Slab
+{
+    std::array<hsize_t, Size> start;
+    std::array<hsize_t, Size> stride;
+    std::array<hsize_t, Size> count;
+    std::array<hsize_t, Size> block;
+};
+
 void save_analysis_session(const QString &filename, analysis::Analysis *analysis)
 {
     qDebug() << __PRETTY_FUNCTION__ << filename;
+
+    herr_t err;
 
     auto outfile = H5Fcreate(filename.toLocal8Bit().constData(), H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
 
@@ -28,16 +39,33 @@ void save_analysis_session(const QString &filename, analysis::Analysis *analysis
                 (hsize_t)histoSink->m_bins
             };
 
-            auto memspace  = H5Screate_simple(1, mem_dimensions, NULL);
-            auto filespace = H5Screate_simple(2, dimensions, NULL);
-            auto datatype  = H5Tcopy(H5T_NATIVE_DOUBLE);
-            herr_t err = H5Tset_order(datatype, H5T_ORDER_LE);
+            auto memspace  = H5Screate_simple(2, dimensions, NULL);
+
+            Slab<2> memSlab;
+            memSlab.start   = { 0, 0 };
+            memSlab.stride  = { 1, 1, };
+            memSlab.count   = { 1, (hsize_t)histoSink->m_bins };
+            memSlab.block   = { 1, 1 };
+
+            err = H5Sselect_hyperslab(
+                memspace, H5S_SELECT_SET, memSlab.start.data(),
+                memSlab.stride.data(), memSlab.count.data(),
+                memSlab.block.data());
+
             assert(err >= 0);
 
-            auto histoName = histoSink->objectName();
+            auto filespace = H5Screate_simple(2, dimensions, NULL);
+            auto datatype  = H5Tcopy(H5T_NATIVE_DOUBLE);
+            err = H5Tset_order(datatype, H5T_ORDER_LE);
+            assert(err >= 0);
+
+            auto histoName = (QString("R%1.%2")
+                              .arg(histoSink->getMaximumInputRank())
+                              .arg(histoSink->objectName())
+                              );
             histoName.replace('/', '_');
 
-            qDebug() << "histoName =" << histoName;
+            qDebug() << "histoName =" << histoName << histoSink;
 
             auto dataset = H5Dcreate(
                 outfile,
@@ -54,10 +82,16 @@ void save_analysis_session(const QString &filename, analysis::Analysis *analysis
             {
                 const auto histo = histoSink->m_histos[histoIndex];
 
-                hssize_t offsets[] = { histoIndex, 0 };
+                Slab<2> fileSlab;
+                fileSlab.start  = { (hsize_t)histoIndex, 0 };
+                fileSlab.stride = { 1, 1 };
+                fileSlab.count  = { 1, (hsize_t)histoSink->m_bins };
+                fileSlab.block  = { 1, 1 };
 
-                err = H5Soffset_simple(filespace, offsets);
+                err = H5Sselect_hyperslab(
+                    filespace, H5S_SELECT_SET, fileSlab.start.data(), fileSlab.stride.data(), fileSlab.count.data(), fileSlab.block.data());
                 assert(err >= 0);
+
 
                 /*
                 herr_t H5Dwrite(
@@ -73,21 +107,6 @@ void save_analysis_session(const QString &filename, analysis::Analysis *analysis
                     histo->data());
 
                 assert(err >= 0);
-#if 0
-                const hsize_t slabStart[]  = { (hsize_t)histoIndex, 0 };
-                const hsize_t slabStride[] = { 1, 1 };
-                const hsize_t slabCount[]  = { 1, (hsize_t)histoSink->m_bins };
-                const hsize_t slabBlock[]  = { 1, (hsize_t)histoSink->m_bins };
-
-                err = H5Sselect_hyperslab(
-                    memspace, H5S_SELECT_SET, slabStart, slabStride, slabCount, slabBlock);
-                assert(err >= 0);
-
-                err = H5Sselect_hyperslab(
-                    filespace, H5S_SELECT_SET, slabStart, slabStride, slabCount, slabBlock);
-                assert(err >= 0);
-
-#endif
             }
 
             H5Tclose(datatype);
@@ -97,5 +116,5 @@ void save_analysis_session(const QString &filename, analysis::Analysis *analysis
         }
     }
 
-    auto err = H5Fclose(outfile);
+    err = H5Fclose(outfile);
 }
