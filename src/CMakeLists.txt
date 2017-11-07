@@ -152,7 +152,7 @@ qt5_use_modules(libmvme
   )
 
 if (WIN32)
-    list(append LIBMVME_ADDITIONAL_LIBS ws2_32)
+    list(APPEND LIBMVME_ADDITIONAL_LIBS ws2_32)
 endif()
 
 include_directories(${LIBUSB_INCLUDE_PATH})
