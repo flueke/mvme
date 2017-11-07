@@ -69,6 +69,13 @@ s32 Histo1D::fill(double x, double weight)
         }
         else
         {
+            /* If clear to nan
+            if (std::isnan(m_data[bin]))
+            {
+                m_data[bin] = 0.0;
+            }
+            */
+
             m_data[bin] += weight;
             m_count += weight;
             double value = m_data[bin];

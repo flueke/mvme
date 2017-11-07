@@ -135,7 +135,7 @@ qt5_wrap_ui(LIBMVME_UIC_OUT
 qt5_add_resources(LIBMVME_RC_OUT resources.qrc)
 
 if (ENABLE_HDF5)
-    list(APPEND LIBMVME_ADDITIONAL_LIBS ${HDF5_C_LIBRARIES})
+    list(APPEND LIBMVME_ADDITIONAL_LIBS ${HDF5_CXX_LIBRARIES})
     list(APPEND LIBMVME_SOURCES analysis/analysis_session.cc)
 endif()
 

@@ -3179,7 +3179,13 @@ void AnalysisWidgetPrivate::actionSaveSession()
     AnalysisPauser pauser(m_context);
     QString filename = "test.hdf5";
 
-    save_analysis_session(filename, m_context->getAnalysis());
+    auto result = save_analysis_session(filename, m_context->getAnalysis());
+
+    if (!result.first)
+    {
+        m_context->logMessage(QString("Error saving session:"));
+        m_context->logMessageRaw(result.second);
+    }
 #endif
 }
 

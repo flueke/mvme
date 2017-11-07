@@ -135,9 +135,15 @@ class Histo2D: public QObject
             return m_footer;
         }
 
+        using AxisBinnings = std::array<AxisBinning, 2>;
+        using AxisInfos = std::array<AxisInfo, 2>;
+
+        AxisBinnings getAxisBinnings() const { return m_axisBinnings; }
+        AxisInfos getAxisInfos() const { return m_axisInfos; }
+
     private:
-        std::array<AxisBinning, 2> m_axisBinnings;
-        std::array<AxisInfo, 2> m_axisInfos;
+        AxisBinnings m_axisBinnings;
+        AxisInfos m_axisInfos;
 
         double *m_data = nullptr;
 

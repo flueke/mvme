@@ -6,9 +6,9 @@ set(WARNING_FLAGS "-Wall -Wno-unused-variable -Wno-unused-function")
 
 set(CMAKE_CXX_FLAGS "-std=c++14 -pipe ${WARNING_FLAGS}")
 
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mbmi2")
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4.2")
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mbmi2")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4.2")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx")
 
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer")
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
@@ -21,7 +21,7 @@ set(MTUNE_FLAG "core2")
 #set(MARCH_FLAG "skylake")
 #set(MTUNE_FLAG "skylake")
 
-set(CMAKE_CXX_FLAGS_DEBUG   "-g -O0")
+set(CMAKE_CXX_FLAGS_DEBUG   "-g -Og")
 set(CMAKE_CXX_FLAGS_RELEASE "-DNDEBUG -O3 -march=${MARCH_FLAG} -mtune=${MTUNE_FLAG}")
 set(CMAKE_CXX_FLAGS_PROFILE "-DNDEBUG -O3 -march=${MARCH_FLAG} -mtune=${MTUNE_FLAG} -pg -fno-omit-frame-pointer")
 # Explicitly set the required c++ standard (CMake >= 3.1)
@@ -84,14 +84,15 @@ find_path(QWT_INCLUDE_DIR
     NAMES qwt_plot.h
     PATH_SUFFIXES qwt qwt-qt5 qwt-6.1.3)
 
-# hdf5
+# HDF5
 option(ENABLE_HDF5 "Enable HDF5 support" ON)
+set(HDF5_USE_STATIC_LIBRARIES Off)
 
 if (ENABLE_HDF5)
-    find_package(HDF5)
+    find_package(HDF5 COMPONENTS CXX)
     if (HDF5_FOUND)
         include_directories(${HDF5_INCLUDE_DIRS})
-        #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${HDF5_DEFINITIONS}")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${HDF5_DEFINITIONS}")
         add_definitions(-DMVME_ENABLE_HDF5)
     endif(HDF5_FOUND)
 endif(ENABLE_HDF5)
