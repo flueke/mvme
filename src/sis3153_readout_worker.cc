@@ -28,11 +28,10 @@
 #include "util/perf.h"
 #include "vme_daq.h"
 
-#define SIS_READOUT_DEBUG               1   // enable debugging code
-#define SIS_READOUT_BUFFER_DEBUG_PRINT  1   // print buffers to console
+#define SIS_READOUT_DEBUG               0   // enable debugging code
+#define SIS_READOUT_BUFFER_DEBUG_PRINT  0   // print buffers to console
 
 #ifndef NDEBUG
-//#if 1
 #define sis_trace(msg)\
 do\
 {\
