@@ -28,8 +28,8 @@
 #include "util/perf.h"
 #include "vme_daq.h"
 
-#define SIS_READOUT_DEBUG               0   // enable debugging code
-#define SIS_READOUT_BUFFER_DEBUG_PRINT  0   // print buffers to console
+#define SIS_READOUT_DEBUG               1   // enable debugging code
+#define SIS_READOUT_BUFFER_DEBUG_PRINT  1   // print buffers to console
 
 #ifndef NDEBUG
 //#if 1
@@ -109,7 +109,9 @@ namespace
                 case  CommandType::BLTFifoCount:
                 case  CommandType::MBLTCount:
                 case  CommandType::MBLTFifoCount:
-                    InvalidCodePath;
+                    // read register and save length
+                    // + blt read using saved length
+                    size += 3 + 3;
                     break;
 
                 case  CommandType::SetBase:
@@ -129,6 +131,13 @@ namespace
     static const u32 AccessSize16 = 1;
     static const u32 AccessSize32 = 2;
     static const u32 AccessSize64 = 3;
+
+    struct BlockFlags
+    {
+        static const u8 FIFO            = 1u << 0;
+        static const u8 MBLT            = 1u << 1;
+        static const u8 MBLTWordSwap    = 1u << 2;
+    };
 
     inline u32 get_access_size(DataWidth dw)
     {
@@ -170,23 +179,118 @@ namespace
         *list_ptr = *list_ptr + 4;
     }
 
-    void stackList_add_block_read(u32 *list_ptr, u32 *list_buffer, u32 vme_addr, u32 vme_nof_bytes, bool mblt, bool fifo)
+    void stackList_add_block_read(u32 *list_ptr, u32 *list_buffer, u32 vme_addr, u32 vme_nof_bytes, u8 flags)
     {
         unsigned int vme_write_flag  = 0;
-        unsigned int vme_fifo_mode   = fifo ? 1 : 0;
-        unsigned int vme_access_size = mblt ? AccessSize64 : AccessSize32;
+        unsigned int vme_fifo_mode   = (flags & BlockFlags::FIFO) ? 1 : 0;
+        unsigned int vme_access_size = (flags & BlockFlags::MBLT) ? AccessSize64 : AccessSize32;
+        unsigned int vme_am_mode     = (flags & BlockFlags::MBLT) ? 0x8 : 0xb;
 
         /* The MBLT address modifier would be 0x8. Setting bit 10 (-> 0x0408)
          * makes the SIS3153 swap the two 32-bit words of the 64-bit word read
          * via MBLT.
          * See sis3153eth::list_generate_add_vmeA32MBLT64_swapDWord_read() for
          * Tinos implementation. */
-        unsigned int vme_am_mode     = mblt ? 0x0408 : 0xB;
+        if (flags & BlockFlags::MBLTWordSwap)
+        {
+            vme_am_mode |= 1u << 10;
+        }
 
         list_buffer[*list_ptr + 0] = 0xAAAA4000 | (vme_write_flag << 11) | (vme_fifo_mode << 10) | (vme_access_size << 8) | ((vme_nof_bytes >> 16) & 0xFF);
         list_buffer[*list_ptr + 1] = ((vme_am_mode & 0xFFFF) << 16) | (vme_nof_bytes & 0xFFFF);
         list_buffer[*list_ptr + 2] = vme_addr;
         *list_ptr = *list_ptr + 3;
+    }
+
+    void stackList_add_save_count_read(u32 *list_ptr, u32 *list_buffer, u32 vme_addr, u32 vme_access_size, u32 vme_am_mode)
+    {
+        unsigned int vme_write_flag = 0;
+        unsigned int vme_fifo_mode  = 0;
+        unsigned int vme_nof_bytes  = (1u << vme_access_size);
+
+        // set bit 13 to make the controller save the value that was read
+        vme_am_mode |= (1u << 13);
+
+        list_buffer[*list_ptr + 0] = 0xAAAA4000 | (vme_write_flag << 11) | (vme_fifo_mode << 10) | (vme_access_size << 8) | ((vme_nof_bytes >> 16) & 0xFF);
+        list_buffer[*list_ptr + 1] = ((vme_am_mode & 0xFFFF) << 16) | (vme_nof_bytes & 0xFFFF);
+        list_buffer[*list_ptr + 2] = vme_addr;
+        *list_ptr = *list_ptr + 3;
+
+        sis_trace(QString("vme_addr=0x%1, vme_nof_bytes=%2, vme_am_mode=0x%3")
+                  .arg(vme_addr, 8, 16, QLatin1Char('0'))
+                  .arg(vme_nof_bytes)
+                  .arg(vme_am_mode, 4, 16, QLatin1Char('0'))
+                 );
+    }
+
+    void stackList_add_count_block_read(u32 *list_ptr, u32 *list_buffer, u32 vme_addr, u8 flags)
+    {
+        unsigned int vme_write_flag  = 0;
+        unsigned int vme_fifo_mode   = (flags & BlockFlags::FIFO) ? 1 : 0;
+        unsigned int vme_access_size = (flags & BlockFlags::MBLT) ? AccessSize64 : AccessSize32;
+        unsigned int vme_am_mode     = (flags & BlockFlags::MBLT) ? 0x8 : 0xb;
+        unsigned int vme_nof_bytes   = 0x10; // XXX dummy value XXX
+
+        if (flags & BlockFlags::MBLTWordSwap)
+        {
+            vme_am_mode |= 1u << 10;
+        }
+
+        vme_am_mode |= (1u << 12);  // bit 12=1 dynamically blockread length;
+
+        list_buffer[*list_ptr + 0] = 0xAAAA4000 | (vme_write_flag << 11) | (vme_fifo_mode << 10) | (vme_access_size << 8) | ((vme_nof_bytes >> 16) & 0xFF);
+        list_buffer[*list_ptr + 1] = ((vme_am_mode & 0xFFFF) << 16) | (vme_nof_bytes & 0xFFFF); // 4 Bytes
+        list_buffer[*list_ptr + 2] = (vme_addr & 0xfffffffc); // force 4-byte boundary addressing
+        *list_ptr = *list_ptr + 3;
+
+        sis_trace(QString("vme_addr=0x%1, vme_nof_bytes=%2, vme_am_mode=0x%3")
+                  .arg(vme_addr, 8, 16, QLatin1Char('0'))
+                  .arg(vme_nof_bytes)
+                  .arg(vme_am_mode, 4, 16, QLatin1Char('0'))
+                 );
+    }
+
+    /* Note: SIS3153 does not support the Command.countMask masking operation
+     * when doing dynamically sized block reads! */
+    void stackList_add_counted_block_read_command(vme_script::Command cmd, u32 *list_ptr, u32 *list_buffer)
+    {
+        sis_trace(QString("cmd=%1")
+                  .arg(to_string(cmd));
+                 );
+
+        u8 flags = 0;
+
+        switch (cmd.type)
+        {
+            case  CommandType::BLTCount:
+                flags = 0;
+                break;
+
+            case  CommandType::BLTFifoCount:
+                flags = BlockFlags::FIFO;
+                break;
+
+            case  CommandType::MBLTCount:
+                flags = (BlockFlags::MBLT | BlockFlags::MBLTWordSwap);
+                break;
+
+            case  CommandType::MBLTFifoCount:
+                flags = (BlockFlags::FIFO | BlockFlags::MBLT | BlockFlags::MBLTWordSwap);
+                break;
+
+            InvalidDefaultCase;
+        }
+
+        stackList_add_save_count_read(
+            list_ptr, list_buffer,
+            cmd.address,
+            get_access_size(cmd.dataWidth),
+            vme_script::amod_from_AddressMode(cmd.addressMode));
+
+        stackList_add_count_block_read(
+            list_ptr, list_buffer,
+            cmd.blockAddress,
+            flags);
     }
 
     QVector<u32> build_stackList(SIS3153 *sis, const vme_script::VMEScript &commands)
@@ -198,40 +302,56 @@ namespace
         auto impl = sis->getImpl();
         impl->list_generate_add_header(&resultOffset, result.data());
 
-        // FIXME: hardcoding data widths and stuff for now
-        // TODO: support other address modes than a32
-
         for (const auto &command: commands)
         {
             switch (command.type)
             {
                 case  CommandType::Read:
-                    stackList_add_single_read(&resultOffset, result.data(), command.address,
-                                              get_access_size(command.dataWidth), 0x9);
+
+                    stackList_add_single_read(
+                        &resultOffset, result.data(),
+                        command.address,
+                        get_access_size(command.dataWidth),
+                        amod_from_AddressMode(command.addressMode));
+
                     break;
 
                 case  CommandType::Write:
                 case  CommandType::WriteAbs:
-                    stackList_add_single_write(&resultOffset, result.data(), command.address, command.value,
-                                               get_access_size(command.dataWidth), 0x9);
+
+                    stackList_add_single_write(
+                        &resultOffset, result.data(),
+                        command.address, command.value,
+                        get_access_size(command.dataWidth),
+                        amod_from_AddressMode(command.addressMode));
+
                     break;
 
                 case  CommandType::Marker:
-                    impl->list_generate_add_marker(&resultOffset, result.data(), command.value);
+                    impl->list_generate_add_marker(&resultOffset, result.data(),
+                                                   command.value);
                     break;
 
                 case  CommandType::BLT:
-                    stackList_add_block_read(&resultOffset, result.data(), command.address, command.transfers, false, false);
+                    stackList_add_block_read(&resultOffset, result.data(),
+                                             command.address, command.transfers, 0);
                     break;
 
                 case  CommandType::BLTFifo:
-                    stackList_add_block_read(&resultOffset, result.data(), command.address, command.transfers, false, true);
+                    stackList_add_block_read(&resultOffset, result.data(),
+                                             command.address, command.transfers, BlockFlags::FIFO);
                     break;
+
                 case  CommandType::MBLT:
-                    stackList_add_block_read(&resultOffset, result.data(), command.address, command.transfers, true, false);
+                    stackList_add_block_read(&resultOffset, result.data(),
+                                             command.address, command.transfers,
+                                             BlockFlags::MBLT | BlockFlags::MBLTWordSwap);
                     break;
+
                 case  CommandType::MBLTFifo:
-                    stackList_add_block_read(&resultOffset, result.data(), command.address, command.transfers, true, true);
+                    stackList_add_block_read(&resultOffset, result.data(),
+                                             command.address, command.transfers,
+                                             BlockFlags::FIFO | BlockFlags::MBLT | BlockFlags::MBLTWordSwap);
                     break;
 
                 case  CommandType::Wait:
@@ -242,7 +362,10 @@ namespace
                 case  CommandType::BLTFifoCount:
                 case  CommandType::MBLTCount:
                 case  CommandType::MBLTFifoCount:
-                    InvalidCodePath;
+                    {
+                        Q_ASSERT(command.blockAddressMode == AddressMode::A32);
+                        stackList_add_counted_block_read_command(command, &resultOffset, result.data());
+                    }
                     break;
 
                 case  CommandType::SetBase:
@@ -364,7 +487,7 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
         }
 
         //
-        // Reset StackList configuration registers
+        // Reset StackList and other configuration registers
         //
         for (s32 stackIndex = 0;
              stackIndex < SIS3153Constants::NumberOfStackLists;
@@ -385,6 +508,18 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
             {
                 throw QString("Error clearing stackListTriggerSource[%1]: %2")
                     .arg(stackIndex)
+                    .arg(error.toString());
+            }
+        }
+
+        for (u32 reg: { SIS3153Registers::StackListTimer1Config, SIS3153Registers::StackListTimer2Config })
+        {
+            error = sis->writeRegister(reg, 0);
+
+            if (error.isError())
+            {
+                throw QString("Error clearing StackListTimerConfig (0x%1): %2")
+                    .arg(reg, 8, 16, QLatin1Char('0'))
                     .arg(error.toString());
             }
         }
@@ -806,9 +941,10 @@ VMEError SIS3153ReadoutWorker::uploadStackList(u32 stackLoadAddress, QVector<u32
     auto error = make_sis_error(sis->getImpl()->udp_sis3153_register_dma_write(
             stackLoadAddress, stackList.data(), stackList.size() - 1, &wordsWritten));
 
-    qDebug() << __PRETTY_FUNCTION__
-        << "uploaded stackList to offset 0x" << QString::number(stackLoadAddress, 16)
-        << ", wordsWritten =" << wordsWritten;
+    sis_trace(QString("uploaded stackList to offset 0x%1, wordsWritten=%2")
+              .arg(stackLoadAddress, 8, 16, QLatin1Char('0'))
+              .arg(wordsWritten)
+             );
 
     return error;
 }
@@ -911,7 +1047,6 @@ void SIS3153ReadoutWorker::readoutLoop()
         // resume
         else if (m_state == DAQState::Paused && m_desiredState == DAQState::Running)
         {
-            // TODO: probably have to reset m_processingState state here
 #if 0
             int res = sis->getImpl()->udp_sis3153_register_write(
                 SIS3153ETH_STACK_LIST_CONTROL,
