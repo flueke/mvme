@@ -3175,10 +3175,12 @@ void AnalysisWidgetPrivate::actionClearHistograms()
 
 void AnalysisWidgetPrivate::actionSaveSession()
 {
+#ifdef MVME_ENABLE_HDF5
     AnalysisPauser pauser(m_context);
     QString filename = "test.hdf5";
 
     save_analysis_session(filename, m_context->getAnalysis());
+#endif
 }
 
 void AnalysisWidgetPrivate::updateWindowTitle()
