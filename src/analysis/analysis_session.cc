@@ -160,21 +160,8 @@ void save_analysis_session_(const QString &filename, analysis::Analysis *analysi
 
 } // anon namespace
 
-/* Error stack traversal callback function pointers */
-/*
-typedef herr_t (*H5E_walk2_t)(unsigned n, const H5E_error2_t *err_desc,
-    void *client_data);
-
-typedef herr_t (*H5E_auto2_t)(hid_t estack, void *client_data);
-*/
-
 QPair<bool, QString> save_analysis_session(const QString &filename, analysis::Analysis *analysis)
 {
-    //H5E_auto2_t func(reinterpret_cast<H5E_auto2_t>(H5Eprint2));
-    //H5::Exception::setAutoPrint(func, stderr);
-
-    //H5::Exception::dontPrint();
-
     try
     {
         save_analysis_session_(filename, analysis);
@@ -187,11 +174,9 @@ QPair<bool, QString> save_analysis_session(const QString &filename, analysis::An
 
         if (FILE *errorStream = fmemopen(errorBuffer, sizeof(errorBuffer), "w"))
         {
-            fprintf(errorStream, "Hello, World!\n");
-
             Exception::printErrorStack(errorStream);
 
-            fclose(errorStream); // "Hello, World!\n" shows up in the debugger at this point
+            fclose(errorStream);
 
             return qMakePair(false, QString(errorBuffer));
         }

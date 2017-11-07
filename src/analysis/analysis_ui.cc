@@ -45,11 +45,13 @@
 #include <QMenu>
 #include <QMessageBox>
 #include <QMimeData>
+#include <QProgressDialog>
 #include <QScrollArea>
 #include <QSplitter>
 #include <QStackedWidget>
 #include <QStandardPaths>
 #include <QStatusBar>
+#include <QtConcurrent>
 #include <QTimer>
 #include <QToolBar>
 #include <QToolButton>
@@ -3179,7 +3181,22 @@ void AnalysisWidgetPrivate::actionSaveSession()
     AnalysisPauser pauser(m_context);
     QString filename = "test.hdf5";
 
-    auto result = save_analysis_session(filename, m_context->getAnalysis());
+    using ResultType = QPair<bool, QString>;
+
+    QProgressDialog progressDialog;
+    progressDialog.setLabelText(QSL("Saving session..."));
+    progressDialog.setMinimum(0);
+    progressDialog.setMaximum(0);
+
+    QFutureWatcher<ResultType> watcher;
+    QObject::connect(&watcher, &QFutureWatcher<ResultType>::finished, &progressDialog, &QDialog::close);
+
+    QFuture<ResultType> future = QtConcurrent::run(save_analysis_session, filename, m_context->getAnalysis());
+    watcher.setFuture(future);
+
+    progressDialog.exec();
+
+    auto result = future.result();
 
     if (!result.first)
     {
