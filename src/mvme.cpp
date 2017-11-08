@@ -310,7 +310,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
         // Create and open log and analysis windows.
         onActionLog_Window_triggered();
         onActionAnalysis_UI_triggered();
-        onActionListfileBrowser_triggered();
+        //onActionListfileBrowser_triggered();
         // Focus the main window
         this->raise();
     });
