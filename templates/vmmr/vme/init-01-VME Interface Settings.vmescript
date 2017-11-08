@@ -26,6 +26,9 @@
                     # multi event mode == 0xb -> Berr is emitted when the specified number
                     #   of events has been transmitted.
 
+# fifo_reset        # FIXME: values? also this register appears in DAQ Start!
+0x603C  2
+
 # MCST - Multicast Setup
 # #####################################
 0x6020 0x80         # Enable multicast
