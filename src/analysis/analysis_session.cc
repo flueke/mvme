@@ -31,6 +31,8 @@ DataType make_datatype_native_double()
 
 void save_Histo1DSink(H5File &outfile, Histo1DSink *histoSink)
 {
+    assert(histoSink);
+
     auto histoName = (QString("H1D.R%1.%2")
                       .arg(histoSink->getMaximumInputRank())
                       .arg(histoSink->objectName())
@@ -95,6 +97,9 @@ void save_Histo1DSink(H5File &outfile, Histo1DSink *histoSink)
 
 void save_Histo2DSink(H5File &outfile, Histo2DSink *histoSink)
 {
+    assert(histoSink);
+    assert(histoSink->m_histo);
+
     auto histoName = (QString("H2D.R%1.%2")
                       .arg(histoSink->getMaximumInputRank())
                       .arg(histoSink->objectName())
@@ -153,7 +158,10 @@ void save_analysis_session_(const QString &filename, analysis::Analysis *analysi
         }
         else if (auto histoSink = qobject_cast<Histo2DSink *>(oe.op.get()))
         {
-            save_Histo2DSink(outfile, histoSink);
+            if (histoSink->m_histo)
+            {
+                save_Histo2DSink(outfile, histoSink);
+            }
         }
     }
 }
@@ -162,6 +170,8 @@ void save_analysis_session_(const QString &filename, analysis::Analysis *analysi
 
 QPair<bool, QString> save_analysis_session(const QString &filename, analysis::Analysis *analysis)
 {
+    //Exception::dontPrint();
+
     try
     {
         save_analysis_session_(filename, analysis);
