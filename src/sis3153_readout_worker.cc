@@ -527,14 +527,21 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
         // Build IRQ Readout Scripts
         //
 
+        auto ctrlSettings = m_workerContext.vmeConfig->getControllerSettings();;
+
         m_eventConfigsByStackList.fill(nullptr);
         m_eventIndexByStackList.fill(-1);
         m_watchdogStackListIndex = -1;
 
         s32 stackListIndex = 0;
         u32 stackLoadAddress = SIS3153ETH_STACK_RAM_START_ADDR;
-        u32 stackListControlValue = SIS3153Registers::StackListControlValues::ListBufferEnable;
-        //u32 stackListControlValue = 0;
+        u32 stackListControlValue = 0;
+
+        if (!ctrlSettings.value("DisableBuffering").toBool())
+        {
+            stackListControlValue = SIS3153Registers::StackListControlValues::ListBufferEnable;
+        }
+
         u32 nextTimerTriggerSource = SIS3153Registers::TriggerSourceTimer1;
 
         auto eventConfigs = m_workerContext.vmeConfig->getEventConfigs();
@@ -843,7 +850,6 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
         //
         // Debug: record raw buffers to file
         //
-        auto ctrlSettings = m_workerContext.vmeConfig->getControllerSettings();;
         if (ctrlSettings.value("DebugRawBuffers").toBool())
         {
             m_rawBufferOut.setFileName("sis3153_raw_buffers.bin");
