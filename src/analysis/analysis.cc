@@ -1408,7 +1408,7 @@ void AggregateOps::beginRun(const RunInfo &runInfo)
 void AggregateOps::step()
 {
     // validity check and threshold tests
-    auto is_valid = [](const auto param, double tmin, double tmax)
+    auto is_valid_and_inside = [](const auto param, double tmin, double tmax)
     {
         return (param.valid
                 && (std::isnan(tmin) || param.value >= tmin)
@@ -1445,7 +1445,7 @@ void AggregateOps::step()
     {
         const auto &inParam(in[i]);
 
-        if (is_valid(inParam, m_minThreshold, m_maxThreshold))
+        if (is_valid_and_inside(inParam, m_minThreshold, m_maxThreshold))
         {
             ++validCount;
 
@@ -1497,7 +1497,7 @@ void AggregateOps::step()
             for (s32 i = 0; i < in.size(); ++i)
             {
                 const auto &inParam(in[i]);
-                if (is_valid(inParam, m_minThreshold, m_maxThreshold))
+                if (is_valid_and_inside(inParam, m_minThreshold, m_maxThreshold))
                 {
                     double d = inParam.value - mu;
                     d *= d;
@@ -1538,7 +1538,7 @@ void AggregateOps::step()
                     for (s32 i = 0; i < in.size(); ++i)
                     {
                         const auto &inParam(in[i]);
-                        if (is_valid(inParam, m_minThreshold, m_maxThreshold))
+                        if (is_valid_and_inside(inParam, m_minThreshold, m_maxThreshold))
                         {
                             double v = inParam.value;
                             if (v != 0.0)

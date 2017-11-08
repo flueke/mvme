@@ -238,6 +238,10 @@ class OperatorConfigurationWidget: public QWidget
 
         // AggregateOps
         QComboBox *combo_aggOp;
+
+        QCheckBox *cb_useMinThreshold,
+                  *cb_useMaxThreshold;
+
         QDoubleSpinBox *spin_minThreshold,
                        *spin_maxThreshold;
 };

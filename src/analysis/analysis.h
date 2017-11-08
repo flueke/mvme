@@ -738,7 +738,7 @@ class LIBMVME_EXPORT AggregateOps: public BasicOperator
 
         /* Thresholds to check each input parameter against. If the parameter
          * is not inside [min_threshold, max_threshold] it is considered
-         * invalid. */
+         * invalid. If set to NaN the threshold is not used. */
         void setMinThreshold(double t);
         double getMinThreshold() const;
         void setMaxThreshold(double t);
