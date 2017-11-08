@@ -2797,6 +2797,7 @@ struct AnalysisWidgetPrivate
     void actionImport();
     void actionClearHistograms();
     void actionSaveSession();
+    void actionLoadSession();
 
     void updateWindowTitle();
     void updateAddRemoveUserLevelButtons();
@@ -3181,6 +3182,10 @@ void AnalysisWidgetPrivate::actionSaveSession()
     AnalysisPauser pauser(m_context);
     QString filename = "test.hdf5";
 
+#if 0
+    save_analysis_session(filename, m_context->getAnalysis());
+#else
+
     using ResultType = QPair<bool, QString>;
 
     QProgressDialog progressDialog;
@@ -3202,6 +3207,76 @@ void AnalysisWidgetPrivate::actionSaveSession()
     {
         m_context->logMessage(QString("Error saving session:"));
         m_context->logMessageRaw(result.second);
+    }
+#endif
+
+#endif
+}
+
+void AnalysisWidgetPrivate::actionLoadSession()
+{
+#ifdef MVME_ENABLE_HDF5
+    AnalysisPauser pauser(m_context);
+    QString filename = "test.hdf5";
+
+    QProgressDialog progressDialog;
+    progressDialog.setLabelText(QSL("Loading session..."));
+    progressDialog.setMinimum(0);
+    progressDialog.setMaximum(0);
+    progressDialog.show();
+
+    QEventLoop loop;
+
+    QJsonDocument analysisJson;
+
+    //auto result = load_analysis_config_from_session_file(filename);
+    {
+        using ResultType = QPair<QJsonDocument, QString>;
+
+        QFutureWatcher<ResultType> watcher;
+        QObject::connect(&watcher, &QFutureWatcher<ResultType>::finished, &loop, &QEventLoop::quit);
+
+        QFuture<ResultType> future = QtConcurrent::run(load_analysis_config_from_session_file, filename);
+        watcher.setFuture(future);
+
+        loop.exec();
+
+        auto result = future.result();
+
+        if (result.first.isNull())
+        {
+            m_context->logMessage(QString("Error loading session:"));
+            m_context->logMessageRaw(result.second);
+            return;
+        }
+
+        analysisJson = QJsonDocument(result.first);
+    }
+
+    closeAllUniqueWidgets();
+    closeAllHistogramWidgets();
+
+    if (m_context->loadAnalysisConfig(analysisJson, filename, { .NoAutoResume = true }))
+    {
+        using ResultType = QPair<bool, QString>;
+        //load_analysis_session(filename, m_context->getAnalysis());
+
+        QFutureWatcher<ResultType> watcher;
+        QObject::connect(&watcher, &QFutureWatcher<ResultType>::finished, &loop, &QEventLoop::quit);
+
+        QFuture<ResultType> future = QtConcurrent::run(load_analysis_session, filename, m_context->getAnalysis());
+        watcher.setFuture(future);
+
+        loop.exec();
+
+        auto result = future.result();
+
+        if (!result.first)
+        {
+            m_context->logMessage(QString("Error saving session:"));
+            m_context->logMessageRaw(result.second);
+            return;
+        }
     }
 #endif
 }
@@ -3360,6 +3435,7 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
 
 #ifdef MVME_ENABLE_HDF5
         m_d->m_toolbar->addSeparator();
+        m_d->m_toolbar->addAction(QIcon(":/document-open.png"), QSL("DEV Load Session"), this, [this]() { m_d->actionLoadSession(); });
         m_d->m_toolbar->addAction(QIcon(":/document-save.png"), QSL("DEV Save Session"), this, [this]() { m_d->actionSaveSession(); });
 #endif
     }

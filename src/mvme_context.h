@@ -244,9 +244,14 @@ class LIBMVME_EXPORT MVMEContext: public QObject
 
         void loadVMEConfig(const QString &fileName);
 
+        struct AnalysisLoadFlags
+        {
+            bool NoAutoResume: 1;
+        };
+
         bool loadAnalysisConfig(const QString &fileName);
         bool loadAnalysisConfig(QIODevice *input, const QString &inputInfo = QString());
-        bool loadAnalysisConfig(const QJsonDocument &doc, const QString &inputInfo = QString());
+        bool loadAnalysisConfig(const QJsonDocument &doc, const QString &inputInfo = QString(), AnalysisLoadFlags flags = {});
         bool loadAnalysisConfig(const QByteArray &blob, const QString &inputInfo = QString());
 
         // listfile output

@@ -1497,12 +1497,17 @@ bool MVMEContext::loadAnalysisConfig(const QByteArray &blob, const QString &inpu
     return loadAnalysisConfig(doc, inputInfo);
 }
 
-bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc, const QString &inputInfo)
+bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc, const QString &inputInfo, AnalysisLoadFlags flags)
 {
     using namespace analysis;
     using namespace vme_analysis_common;
 
-    auto json = doc.object()[QSL("AnalysisNG")].toObject();
+    QJsonObject json = doc.object();
+
+    if (json.contains("AnalysisNG"))
+    {
+        json = json["AnalysisNG"].toObject();
+    }
 
     auto analysis_ng = std::make_unique<Analysis>();
     auto readResult = analysis_ng->read(json, getVMEConfig());
@@ -1551,7 +1556,7 @@ bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc, const QString &in
                    .arg(inputInfo)
                    );
 
-        if (was_running)
+        if (was_running && !flags.NoAutoResume)
         {
             resumeAnalysis();
         }

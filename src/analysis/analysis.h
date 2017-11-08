@@ -1349,6 +1349,18 @@ class LIBMVME_EXPORT Analysis: public QObject
             return nullptr;
         }
 
+        OperatorPtr getOperator(const QUuid &operatorId)
+        {
+            OperatorPtr result;
+
+            auto entryPtr = getOperatorEntry(operatorId);
+            if (entryPtr)
+            {
+                result = entryPtr->op;
+            }
+            return result;
+        }
+
         void addOperator(const QUuid &eventId, const OperatorPtr &op, s32 userLevel);
         void removeOperator(const OperatorPtr &op);
         void removeOperator(OperatorInterface *op);
@@ -1382,6 +1394,8 @@ class LIBMVME_EXPORT Analysis: public QObject
         void setModified(bool b = true);
 
         A2AdapterState *getA2AdapterState() { return m_a2State.get(); }
+
+        RunInfo getRunInfo() const { return m_runInfo; }
 
     private:
         void beginRun_internal_only(const RunInfo &runInfo);
