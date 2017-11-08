@@ -60,6 +60,7 @@ struct LIBMVME_EXPORT VMEModuleMeta
     u8 typeId = InvalidTypeId;
     QString typeName;
     QString displayName;
+    QString vendorName;
     VMEModuleTemplates templates;
     QByteArray eventHeaderFilter;
 

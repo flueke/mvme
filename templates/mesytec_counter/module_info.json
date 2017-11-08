@@ -1,5 +1,6 @@
 {
     "typeId"        : 16,
     "typeName"      : "mesytec_counter",
-    "displayName"   : "MesytecCounter"
+    "displayName"   : "MesytecCounter",
+    "vendorName"    : "mesytec"
 }
