@@ -3,5 +3,5 @@
     "typeName"      : "vmmr",
     "displayName"   : "VMMR",
     "vendorName"    : "mesytec",
-    "eventHeaderFilter" : "0100XFIXMEFIXMEFIXMEXXSSSSSSSSSS"
+    "eventHeaderFilter" : "0100 XXXX MMMM MMMM XXXX SSSS SSSS SSSS"
 }
