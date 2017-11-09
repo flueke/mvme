@@ -2052,7 +2052,64 @@ void EventWidgetPrivate::doPeriodicUpdate()
 #endif
 
     //
-    // display trees (histo counts)
+    // level 0: operator tree (Extractor hitcounts)
+    //
+    for (auto iter = QTreeWidgetItemIterator(m_levelTrees[0].operatorTree);
+         *iter; ++iter)
+    {
+        auto node(*iter);
+
+        if (node->type() == NodeType_Source)
+        {
+            auto extractor = qobject_cast<Extractor *>(getPointer<PipeSourceInterface>(node));
+
+            if (!extractor)
+                continue;
+
+            if (extractor->getOutput(0)->getSize() != node->childCount())
+                continue;
+
+#if ANALYSIS_USE_A2
+            if (!a2State)
+                continue;
+
+            auto ex_a2 = a2State->sourceMap.value(extractor, nullptr);
+
+            if (!ex_a2)
+                continue;
+
+            auto hitCounts = ex_a2->hitCounts;
+            Q_ASSERT(hitCounts.size == node->childCount());
+
+#else
+            auto hitCounts = extractor->getHitCounts();
+            Q_ASSERT(hitCounts.size() == node->childCount());
+#endif
+
+            for (s32 addr = 0; addr < node->childCount(); ++addr)
+            {
+                Q_ASSERT(node->child(addr)->type() == NodeType_OutputPipeParameter);
+
+                QString addrString = QString("%1").arg(addr, 2).replace(QSL(" "), QSL("&nbsp;"));
+
+                double hitCount = hitCounts[addr];
+
+                if (hitCount <= 0.0)
+                {
+                    node->child(addr)->setText(0, addrString);
+                }
+                else
+                {
+                    node->child(addr)->setText(0, QString("%1 (hits=%2)")
+                                               .arg(addrString)
+                                               .arg(hitCount));
+                }
+            }
+        }
+    }
+
+    //
+    // level > 0: display trees (histo counts)
     //
     for (auto trees: m_levelTrees)
     {
@@ -2120,51 +2177,6 @@ void EventWidgetPrivate::doPeriodicUpdate()
                                 sink->getShortName(),
                                 sink->objectName(),
                                 QString::number(entryCount)));
-                    }
-                }
-            }
-        }
-    }
-
-    //
-    // level 0 operator tree (Extractor hitcounts)
-    //
-    {
-        for (auto iter = QTreeWidgetItemIterator(m_levelTrees[0].operatorTree);
-             *iter; ++iter)
-        {
-            auto node(*iter);
-
-            if (node->type() == NodeType_OutputPipeParameter)
-            {
-                auto outPipe = getPointer<Pipe>(node);
-                if (auto extractor = qobject_cast<Extractor *>(outPipe->getSource()))
-                {
-                    s32 address = node->data(0, DataRole_ParameterIndex).toInt();
-#if ANALYSIS_USE_A2
-                    double hitCount = 0.0;
-
-                    if (a2State)
-                    {
-                        if (auto ex_a2 = a2State->sourceMap.value(extractor, nullptr))
-                        {
-                            hitCount = ex_a2->hitCounts[address];
-                        }
-                    }
-#else
-                    double hitCount = extractor->getHitCounts().value(address, 0.0);
-#endif
-                    QString numberString = QString("%1").arg(address, 2).replace(QSL(" "), QSL("&nbsp;"));
-
-                    if (hitCount <= 0.0)
-                    {
-                        node->setText(0, numberString);
-                    }
-                    else
-                    {
-                        node->setText(0, QString("%1 (hits=%2)")
-                                      .arg(numberString)
-                                      .arg(hitCount));
                     }
                 }
             }
