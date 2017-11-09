@@ -268,7 +268,7 @@ QString make_title_string(const AxisInfo &axisInfo)
 
 static const s32 Histo1DMinBits = 1;
 static const s32 Histo1DMaxBits = 20;
-static const s32 Histo1DDefBits = 16;
+static const s32 Histo1DDefBits = 13;
 
 static const s32 Histo2DMinBits = 1;
 static const s32 Histo2DMaxBits = 13;

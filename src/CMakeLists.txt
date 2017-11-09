@@ -37,8 +37,6 @@ else()
     message("-- Using LIBUSB_LIBRARY=${LIBUSB_LIBRARY}")
 endif()
 
-include_directories(${LIBUSB_INCLUDE_PATH})
-
 # git version information is contained in its own translation unit. Allows for
 # quick build + relink on version change.
 configure_file("git_sha1.cc.in" "git_sha1.cc" @ONLY)
@@ -79,7 +77,6 @@ set(LIBMVME_SOURCES
     daqcontrol_widget.cc
     daqstats_widget.cc
     data_filter.cc
-    data_filter_c_style.cc
     globals.cc
     gui_util.cc
     histo1d.cc
@@ -89,8 +86,10 @@ set(LIBMVME_SOURCES
     histo2d_widget.cc
     histo2d_widget_p.cc
     histo_util.cc
+    listfile_browser.cc
     mesytec_diagnostics.cc
     mvme_context.cc
+    mvme_context_lib.cc
     mvme.cpp
     mvme_event_processor.cc
     mvme_listfile.cc
@@ -135,6 +134,11 @@ qt5_wrap_ui(LIBMVME_UIC_OUT
 
 qt5_add_resources(LIBMVME_RC_OUT resources.qrc)
 
+if (ENABLE_HDF5)
+    list(APPEND LIBMVME_ADDITIONAL_LIBS ${HDF5_CXX_LIBRARIES})
+    list(APPEND LIBMVME_SOURCES analysis/analysis_session.cc)
+endif()
+
 add_library(libmvme SHARED ${LIBMVME_SOURCES} ${LIBMVME_UIC_OUT} ${LIBMVME_RC_OUT})
 add_dependencies(libmvme liba2_static)
 generate_export_header(libmvme)
@@ -148,8 +152,11 @@ qt5_use_modules(libmvme
   )
 
 if (WIN32)
-    set(LIBMVME_ADDITIONAL_LIBS ws2_32)
+    list(APPEND LIBMVME_ADDITIONAL_LIBS ws2_32)
 endif()
+
+include_directories(${LIBUSB_INCLUDE_PATH})
+
 
 target_link_libraries(libmvme
     ${QUAZIP_QT5}
@@ -227,7 +234,12 @@ add_mvme_executable(dev_mvme_event_processing "dev_mvme_event_processing.cc")
 add_mvme_executable(dev_datagen "dev_datagen.cc")
 add_mvme_executable(dev_data_filter_runner "dev_data_filter_runner.cc")
 add_mvme_executable(dev_sis3153_read_raw_buffers_file "dev_sis3153_read_raw_buffers_file.cc")
+add_mvme_executable(dev_udp_sender "dev_udp_sender.cc")
+add_mvme_executable(dev_udp_receiver "dev_udp_receiver.cc")
 
-add_subdirectory(root)
+# root subdir if ROOT support is enabled
+if (ENABLE_ROOT)
+    add_subdirectory(root)
+endif (ENABLE_ROOT)
 
 # vim:tw=0

@@ -55,29 +55,41 @@ void Histo1D::resize(u32 nBins)
 
 s32 Histo1D::fill(double x, double weight)
 {
-    s64 bin = m_xAxisBinning.getBin(x);
+    if (!std::isnan(x))
+    {
+        s64 bin = m_xAxisBinning.getBin(x);
 
-    if (bin == AxisBinning::Underflow)
-    {
-        m_underflow += weight;
-    }
-    else if (bin == AxisBinning::Overflow)
-    {
-        m_overflow += weight;
-    }
-    else
-    {
-        m_data[bin] += weight;
-        m_count += weight;
-        double value = m_data[bin];
-        if (value >= m_maxValue)
+        if (bin == AxisBinning::Underflow)
         {
-            m_maxValue = value;
-            m_maxBin = bin;
+            m_underflow += weight;
         }
+        else if (bin == AxisBinning::Overflow)
+        {
+            m_overflow += weight;
+        }
+        else
+        {
+            /* If clear to nan
+            if (std::isnan(m_data[bin]))
+            {
+                m_data[bin] = 0.0;
+            }
+            */
+
+            m_data[bin] += weight;
+            m_count += weight;
+            double value = m_data[bin];
+            if (value >= m_maxValue)
+            {
+                m_maxValue = value;
+                m_maxBin = bin;
+            }
+        }
+
+        return static_cast<s32>(bin);
     }
 
-    return static_cast<s32>(bin);
+    return -1; // nan
 }
 
 double Histo1D::getValue(double x) const
@@ -157,7 +169,7 @@ Histo1DStatistics Histo1D::calcBinStatistics(u32 startBin, u32 onePastEndBin) co
     {
         double v = getBinContent(bin);
         result.mean += v * getBinLowEdge(bin);
-        result.entryCount += v;
+        result.entryCount += v; // This assumes weights of 1.0!!
 
         if (v > result.maxValue)
         {

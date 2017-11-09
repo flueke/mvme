@@ -37,6 +37,7 @@
 #include <QListWidget>
 #include <QMessageBox>
 #include <QRadioButton>
+#include <QTextBrowser>
 
 namespace analysis
 {
@@ -1139,6 +1140,7 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
     }
     else if (auto aggOp = qobject_cast<AggregateOps *>(op))
     {
+        // operation select combo
         combo_aggOp = new QComboBox();
         for (s32 i = 0; i < AggregateOps::NumOps; ++i)
         {
@@ -1147,52 +1149,71 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
         }
         combo_aggOp->setCurrentIndex(static_cast<s32>(aggOp->getOperation()));
 
+        // unit label
         le_unit = new QLineEdit;
         le_unit->setText(aggOp->getOutputUnitLabel());
 
+        // thresholds
+        cb_useMinThreshold = new QCheckBox;
+        cb_useMaxThreshold = new QCheckBox;
         spin_minThreshold = new QDoubleSpinBox;
         spin_maxThreshold = new QDoubleSpinBox;
+
+        connect(cb_useMinThreshold, &QCheckBox::stateChanged,
+                this, [this] (int cbState) {
+                    spin_minThreshold->setEnabled(cbState == Qt::Checked);
+                });
+
+        connect(cb_useMaxThreshold, &QCheckBox::stateChanged,
+                this, [this] (int cbState) {
+                    spin_maxThreshold->setEnabled(cbState == Qt::Checked);
+                });
 
         for (auto spin: { spin_minThreshold, spin_maxThreshold })
         {
             spin->setDecimals(8);
             spin->setMinimum(-1e20);
             spin->setMaximum(+1e20);
-            spin->setValue(spin->minimum());
-            spin->setSpecialValueText(QSL("none"));
+            spin->setValue(0.0);
+            spin->setEnabled(false);
         }
 
         double minT = aggOp->getMinThreshold();
-        if (!std::isnan(minT))
-            spin_minThreshold->setValue(minT);
-
         double maxT = aggOp->getMaxThreshold();
+
+        if (!std::isnan(minT))
+        {
+            spin_minThreshold->setValue(minT);
+            cb_useMinThreshold->setChecked(true);
+        }
+        else
+        {
+            cb_useMinThreshold->setChecked(false);
+        }
+
         if (!std::isnan(maxT))
-            spin_minThreshold->setValue(maxT);
-
-        auto pb_clearMinT = new QPushButton(QIcon(":/text_field_clear.png"), QSL(""));
-        pb_clearMinT->setToolTip(QSL("Reset"));
-        connect(pb_clearMinT, &QPushButton::clicked, this, [this] {
-            spin_minThreshold->setValue(spin_minThreshold->minimum());
-        });
-
-        auto pb_clearMaxT = new QPushButton(QIcon(":/text_field_clear.png"), QSL(""));
-        pb_clearMaxT->setToolTip(QSL("Reset"));
-        connect(pb_clearMaxT, &QPushButton::clicked, this, [this] {
-            spin_maxThreshold->setValue(spin_maxThreshold->minimum());
-        });
+        {
+            spin_maxThreshold->setValue(maxT);
+            cb_useMaxThreshold->setChecked(true);
+        }
+        else
+        {
+            cb_useMaxThreshold->setChecked(false);
+        }
 
         auto minTLayout = new QHBoxLayout;
         minTLayout->setContentsMargins(0, 0, 0, 0);
         minTLayout->setSpacing(2);
+
+        minTLayout->addWidget(cb_useMinThreshold);
         minTLayout->addWidget(spin_minThreshold);
-        minTLayout->addWidget(pb_clearMinT);
 
         auto maxTLayout = new QHBoxLayout;
         maxTLayout->setContentsMargins(0, 0, 0, 0);
         maxTLayout->setSpacing(2);
+
+        maxTLayout->addWidget(cb_useMaxThreshold);
         maxTLayout->addWidget(spin_maxThreshold);
-        maxTLayout->addWidget(pb_clearMaxT);
 
         formLayout->addRow(QSL("Operation"), combo_aggOp);
         formLayout->addRow(QSL("Threshold Min"), minTLayout);
@@ -1667,10 +1688,13 @@ void OperatorConfigurationWidget::configureOperator()
     else if (auto aggOp = qobject_cast<AggregateOps *>(op))
     {
         aggOp->setOperation(static_cast<AggregateOps::Operation>(combo_aggOp->currentData().toInt()));
+
         double minT = spin_minThreshold->value();
-        aggOp->setMinThreshold(minT == spin_minThreshold->minimum() ? make_quiet_nan() : minT);
         double maxT = spin_maxThreshold->value();
-        aggOp->setMaxThreshold(maxT == spin_maxThreshold->minimum() ? make_quiet_nan() : maxT);
+
+        aggOp->setMinThreshold(cb_useMinThreshold->isChecked() ? minT : make_quiet_nan());
+        aggOp->setMaxThreshold(cb_useMaxThreshold->isChecked() ? maxT : make_quiet_nan());
+
         aggOp->setOutputUnitLabel(le_unit->text());
     }
 }
@@ -1726,14 +1750,10 @@ PipeDisplay::PipeDisplay(Analysis *analysis, Pipe *pipe, QWidget *parent)
     s32 row = 0;
     s32 nCols = 1;
 
-    auto refreshButton = new QPushButton(QSL("Refresh"));
-    connect(refreshButton, &QPushButton::clicked, this, &PipeDisplay::refresh);
-
     auto closeButton = new QPushButton(QSL("Close"));
     connect(closeButton, &QPushButton::clicked, this, &QWidget::close);
 
     layout->addWidget(m_infoLabel, row++, 0);
-    layout->addWidget(refreshButton, row++, 0);
     layout->addWidget(m_parameterTable, row++, 0);
     layout->addWidget(closeButton, row++, 0, 1, 1);
 
@@ -1784,7 +1804,12 @@ void PipeDisplay::refresh()
                 item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
             }
 
-            //m_parameterTable->setVerticalHeaderItem(pi, new QTableWidgetItem(QString::number(pi)));
+            if (!m_parameterTable->verticalHeaderItem(pi))
+            {
+                m_parameterTable->setVerticalHeaderItem(pi, new QTableWidgetItem);
+            }
+
+            m_parameterTable->verticalHeaderItem(pi)->setText(QString::number(pi));
         }
 
         m_infoLabel->setText("a2::PipeVectors");
@@ -1818,7 +1843,12 @@ void PipeDisplay::refresh()
                 item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
             }
 
-            //m_parameterTable->setVerticalHeaderItem(pi, new QTableWidgetItem(QString::number(pi)));
+            if (!m_parameterTable->verticalHeaderItem(pi))
+            {
+                m_parameterTable->setVerticalHeaderItem(pi, new QTableWidgetItem);
+            }
+
+            m_parameterTable->verticalHeaderItem(pi)->setText(QString::number(pi));
         }
 
         m_infoLabel->setText("analysis::Pipe");
@@ -1843,6 +1873,35 @@ QWidget* CalibrationItemDelegate::createEditor(QWidget *parent, const QStyleOpti
     }
 
     return result;
+}
+
+SessionErrorDialog::SessionErrorDialog(const QString &message, const QString &title, QWidget *parent)
+    : QDialog(parent)
+{
+    if (!title.isEmpty())
+    {
+        setWindowTitle(title);
+    }
+    auto tb = new QTextBrowser(this);
+    tb->setText(message);
+    tb->setReadOnly(true);
+
+    auto bb = new QDialogButtonBox(QDialogButtonBox::Close, this);
+
+    auto bbLayout = new QHBoxLayout;
+    bbLayout->addStretch(1);
+    bbLayout->addWidget(bb);
+    bbLayout->addStretch(1);
+
+    auto mainLayout = new QVBoxLayout(this);
+    mainLayout->addWidget(tb);
+    mainLayout->addLayout(bbLayout);
+
+    QObject::connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
+    QObject::connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
+
+    resize(600, 300);
+    bb->button(QDialogButtonBox::Close)->setFocus();
 }
 
 }

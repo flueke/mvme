@@ -256,17 +256,16 @@ Extractor::Extractor(QObject *parent)
 
 void Extractor::beginRun(const RunInfo &runInfo)
 {
-    using namespace data_filter;
-
     m_currentCompletionCount = 0;
 
     m_fastFilter = {};
     for (auto slowFilter: m_filter.getSubFilters())
     {
-        add_subfilter(&m_fastFilter, make_filter(slowFilter.getFilter(), slowFilter.getWordIndex()));
+        auto subfilter = a2::data_filter::make_filter(slowFilter.getFilter().toStdString(), slowFilter.getWordIndex());
+        add_subfilter(&m_fastFilter, subfilter);
     }
 
-    u32 addressCount = 1u << get_extract_bits(&m_fastFilter, MultiWordFilter::CacheA);
+    u32 addressCount = 1u << get_extract_bits(&m_fastFilter, a2::data_filter::MultiWordFilter::CacheA);
 
     qDebug() << __PRETTY_FUNCTION__ << this << "addressCount" << addressCount;
 
@@ -317,8 +316,6 @@ void Extractor::beginEvent()
 
 void Extractor::processModuleData(u32 *data, u32 size)
 {
-    using namespace data_filter;
-
     for (u32 wordIndex = 0;
          wordIndex < size;
          ++wordIndex)
@@ -341,8 +338,8 @@ void Extractor::processModuleData(u32 *data, u32 size)
             {
                 m_currentCompletionCount = 0;
 
-                u64 address = extract(&m_fastFilter, MultiWordFilter::CacheA);
-                u64 value   = extract(&m_fastFilter, MultiWordFilter::CacheD);
+                u64 address = extract(&m_fastFilter, a2::data_filter::MultiWordFilter::CacheA);
+                u64 value   = extract(&m_fastFilter, a2::data_filter::MultiWordFilter::CacheD);
 
 #if ENABLE_ANALYSIS_DEBUG
                 qDebug() << this
@@ -1386,8 +1383,8 @@ void AggregateOps::beginRun(const RunInfo &runInfo)
 
             case Op_MinX:
             case Op_MaxX:
-            case Op_MeanX:
             case Op_SigmaX: // FIXME: sigma bounds
+            case Op_MeanX:
                 {
                     lowerBound = 0.0;
                     upperBound = in.size() - 1;
@@ -1411,7 +1408,7 @@ void AggregateOps::beginRun(const RunInfo &runInfo)
 void AggregateOps::step()
 {
     // validity check and threshold tests
-    auto is_valid = [](const auto param, double tmin, double tmax)
+    auto is_valid_and_inside = [](const auto param, double tmin, double tmax)
     {
         return (param.valid
                 && (std::isnan(tmin) || param.value >= tmin)
@@ -1448,7 +1445,7 @@ void AggregateOps::step()
     {
         const auto &inParam(in[i]);
 
-        if (is_valid(inParam, m_minThreshold, m_maxThreshold))
+        if (is_valid_and_inside(inParam, m_minThreshold, m_maxThreshold))
         {
             ++validCount;
 
@@ -1500,7 +1497,7 @@ void AggregateOps::step()
             for (s32 i = 0; i < in.size(); ++i)
             {
                 const auto &inParam(in[i]);
-                if (is_valid(inParam, m_minThreshold, m_maxThreshold))
+                if (is_valid_and_inside(inParam, m_minThreshold, m_maxThreshold))
                 {
                     double d = inParam.value - mu;
                     d *= d;
@@ -1541,7 +1538,7 @@ void AggregateOps::step()
                     for (s32 i = 0; i < in.size(); ++i)
                     {
                         const auto &inParam(in[i]);
-                        if (is_valid(inParam, m_minThreshold, m_maxThreshold))
+                        if (is_valid_and_inside(inParam, m_minThreshold, m_maxThreshold))
                         {
                             double v = inParam.value;
                             if (v != 0.0)
@@ -1667,8 +1664,16 @@ ArrayMap::ArrayMap(QObject *parent)
 
 bool ArrayMap::addSlot()
 {
-    auto slot = new Slot(this, getNumberOfSlots(), QSL("Input#") + QString::number(getNumberOfSlots()), InputType::Array);
+    /* If InputType::Array is passed directly inside make_shared() call I get
+     * an "undefined reference to InputType::Array. */
+    auto inputType = InputType::Array;
+
+    auto slot = std::make_shared<Slot>(
+        this, getNumberOfSlots(),
+        QSL("Input#") + QString::number(getNumberOfSlots()), inputType);
+
     m_inputs.push_back(slot);
+
     return true;
 }
 
@@ -1676,10 +1681,8 @@ bool ArrayMap::removeLastSlot()
 {
     if (getNumberOfSlots() > 1)
     {
-        auto slot = m_inputs.back();
-        slot->disconnectPipe();
+        m_inputs.back()->disconnectPipe();
         m_inputs.pop_back();
-        delete slot;
 
         return true;
     }
@@ -1701,7 +1704,7 @@ void ArrayMap::beginRun(const RunInfo &)
     {
         IndexPair ip(m_mappings.at(mIndex));
         Parameter *inParam = nullptr;
-        Slot *inputSlot = m_inputs.value(ip.slotIndex, nullptr);
+        Slot *inputSlot = ip.slotIndex < m_inputs.size() ? m_inputs[ip.slotIndex].get() : nullptr;
 
         if (inputSlot && inputSlot->inputPipe)
         {
@@ -1735,7 +1738,7 @@ void ArrayMap::step()
     {
         IndexPair ip(m_mappings.at(mIndex));
         Parameter *inParam = nullptr;
-        Slot *inputSlot = m_inputs.value(ip.slotIndex, nullptr);
+        Slot *inputSlot = ip.slotIndex < m_inputs.size() ? m_inputs[ip.slotIndex].get() : nullptr;
 
         if (inputSlot && inputSlot->inputPipe)
         {
@@ -1764,7 +1767,7 @@ Slot *ArrayMap::getSlot(s32 slotIndex)
 
     if (slotIndex < getNumberOfSlots())
     {
-        result = m_inputs[slotIndex];
+        result = m_inputs[slotIndex].get();
     }
 
     return result;
@@ -2778,7 +2781,7 @@ Analysis::~Analysis()
 
 /* This overload updates operator ranks and sorts operators by rank,
  * then calls beginRun() on sources and operators. */
-void Analysis::beginRun(const RunInfo &runInfo)
+void Analysis::beginRun_internal_only(const RunInfo &runInfo)
 {
     m_runInfo = runInfo;
 
@@ -2823,15 +2826,15 @@ void Analysis::beginRun(const RunInfo &runInfo)
 
 static const size_t A2ArenaSize = Kilobytes(256);
 
-/* Calls the overloaded beginRun() to prepare the analysis::* stuff,
- * then used a2_adapter_build() to build the a2 system. */
+/* Calls beginRun_internal_only() to prepare the analysis::* stuff, then uses
+ * a2_adapter_build() to build the a2 system. */
 void Analysis::beginRun(
     const RunInfo &runInfo,
     const vme_analysis_common::VMEIdToIndex &vmeMap)
 {
     m_vmeMap = vmeMap;
 
-    beginRun(runInfo);
+    beginRun_internal_only(runInfo);
 
     if (!m_a2Arenas[0])
     {
@@ -2862,6 +2865,11 @@ void Analysis::beginRun(
 
     m_a2State = std::make_unique<A2AdapterState>(a2State);
 #endif
+}
+
+void Analysis::beginRun()
+{
+    beginRun(m_runInfo, m_vmeMap);
 }
 
 void Analysis::beginEvent(const QUuid &eventId)
@@ -2996,17 +3004,15 @@ void Analysis::processTimetick()
 
 void Analysis::addSource(const QUuid &eventId, const QUuid &moduleId, const SourcePtr &source)
 {
-    source->beginRun(m_runInfo);
     m_sources.push_back({eventId, moduleId, source, source.get()});
-    updateRanks();
+    beginRun(m_runInfo, m_vmeMap);
     setModified();
 }
 
 void Analysis::addOperator(const QUuid &eventId, const OperatorPtr &op, s32 userLevel)
 {
-    op->beginRun(m_runInfo);
     m_operators.push_back({eventId, op, op.get(), userLevel});
-    updateRanks();
+    beginRun(m_runInfo, m_vmeMap);
     setModified();
 }
 
@@ -3158,7 +3164,7 @@ void Analysis::removeSource(SourceInterface *source)
         m_sources.remove(entryIndex);
 
         // Update ranks and recalculate output sizes for all analysis elements.
-        beginRun(m_runInfo);
+        beginRun(m_runInfo, m_vmeMap);
 
         setModified();
     }
@@ -3213,7 +3219,7 @@ void Analysis::removeOperator(OperatorInterface *op)
         m_operators.remove(entryIndex);
 
         // Update ranks and recalculate output sizes for all analysis elements.
-        beginRun(m_runInfo);
+        beginRun(m_runInfo, m_vmeMap);
 
         setModified();
     }

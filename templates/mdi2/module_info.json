@@ -2,5 +2,6 @@
     "typeId"        : 6,
     "typeName"      : "mdi2",
     "displayName"   : "MDI-2",
+    "vendorName"    : "mesytec",
     "eventHeaderFilter" : "01000000MMMMMMMMXXXXSSSSSSSSSSSS"
 }

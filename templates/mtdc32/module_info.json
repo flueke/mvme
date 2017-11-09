@@ -2,5 +2,6 @@
     "typeId"        : 3,
     "typeName"      : "mtdc32",
     "displayName"   : "MTDC-32",
+    "vendorName"    : "mesytec",
     "eventHeaderFilter" : "01000000MMMMMMMMXXXXSSSSSSSSSSSS"
 }

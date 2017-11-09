@@ -1,5 +1,6 @@
 #include "analysis_info_widget.h"
 
+#include <cmath>
 #include <QFormLayout>
 #include <QTimer>
 
@@ -24,16 +25,20 @@ static const QVector<const char *> LabelTexts =
     "bytesProcessed",
     "buffersProcessed",
     "buffersWithErrors",
+    "avgBufferSize",
     "eventSections",
     "invalid event index",
     "counts by event",
-    "counts by module"
+    "counts by module",
+    "rate by event  [hits/s]",
+    "rate by module [hits/s]",
 };
 
 AnalysisInfoWidget::AnalysisInfoWidget(MVMEContext *context, QWidget *parent)
     : QWidget(parent)
     , m_d(new AnalysisInfoWidgetPrivate)
 {
+    setFocusPolicy(Qt::StrongFocus);
     m_d->context = context;
 
     setWindowTitle(QSL("Analysis Info"));
@@ -102,15 +107,17 @@ void AnalysisInfoWidget::update()
     double bytesPerSecond   = deltaBytesProcessed / dt;
     double mbPerSecond      = bytesPerSecond / Megabytes(1);
     double buffersPerSecond = deltaBuffersProcessed / dt;
+    double avgBufferSize    = deltaBytesProcessed / static_cast<double>(deltaBuffersProcessed);
 
     QString stateString = state == EventProcessorState::Idle ? QSL("Idle") : QSL("Running");
 
     QString ecText;
     QString mcText;
 
-    for (u32 ei = 0; ei < MaxVMEEvents; ++ei)
+    // absolute counts per event and per module
+    for (u32 ei = 0; ei < MaxVMEEvents; ei++)
     {
-        for (u32 mi = 0; mi < MaxVMEModules; ++mi)
+        for (u32 mi = 0; mi < MaxVMEModules; mi++)
         {
             u32 count = counters.moduleCounters[ei][mi];
             if (count)
@@ -126,6 +133,49 @@ void AnalysisInfoWidget::update()
         {
             if (!ecText.isEmpty()) ecText += "\n";
             ecText += QString("event=%1, count=%2").arg(ei).arg(count);
+        }
+    }
+
+    // calculate deltas for events and modules
+    std::array<double, MaxVMEEvents> eventRates;
+    std::array<std::array<double, MaxVMEModules>, MaxVMEEvents> moduleRates;
+
+    for (u32 ei = 0; ei < MaxVMEEvents; ei++)
+    {
+        u64 eventDelta = calc_delta(counters.eventCounters[ei], m_d->prevCounters.eventCounters[ei]);
+        eventRates[ei] = eventDelta / dt;
+
+        for (u32 mi = 0; mi < MaxVMEModules; mi++)
+        {
+            u64 moduleDelta = calc_delta(counters.moduleCounters[ei][mi],
+                                         m_d->prevCounters.moduleCounters[ei][mi]);
+            moduleRates[ei][mi] = moduleDelta / dt;
+        }
+    }
+
+    // format the deltas
+    QString erText;
+    QString mrText;
+
+    for (u32 ei = 0; ei < MaxVMEEvents; ei++)
+    {
+        for (u32 mi = 0; mi < MaxVMEModules; mi++)
+        {
+            double rate = moduleRates[ei][mi];
+
+            if (rate > 0.0)
+            {
+                if (!mrText.isEmpty()) mrText += "\n";
+                mrText += (QString("event=%1, module=%2, rate=%3")
+                           .arg(ei).arg(mi).arg(rate));
+            }
+        }
+
+        double rate = eventRates[ei];
+        if (rate > 0.0)
+        {
+            if (!erText.isEmpty()) erText += "\n";
+            erText += QString("event=%1, rate=%2").arg(ei).arg(rate);
         }
     }
 
@@ -150,21 +200,36 @@ void AnalysisInfoWidget::update()
 
     // throughput
     m_d->labels[ii++]->setText(QString("%1 MB/s").arg(mbPerSecond));
+
     // bytesProcessed
     m_d->labels[ii++]->setText(QString("%1 MB")
                                .arg((double)counters.bytesProcessed / Megabytes(1), 6, 'f', 2));
     // buffersProcessed
     m_d->labels[ii++]->setText(QString("%1 buffers").arg(counters.buffersProcessed));
+
     // buffersWithErrors
     m_d->labels[ii++]->setText(QString("%1 buffers").arg(counters.buffersWithErrors));
+
+    // avgBufferSize
+    m_d->labels[ii++]->setText(QString("%1 bytes").arg(avgBufferSize));
+
     // eventSections
     m_d->labels[ii++]->setText(QString("%1 sections").arg(counters.eventSections));
+
     // invalid event index
     m_d->labels[ii++]->setText(QString("%1").arg(counters.invalidEventIndices));
+
     // counts by event
     m_d->labels[ii++]->setText(ecText);
+
     // counts by module
     m_d->labels[ii++]->setText(mcText);
+
+    // rate by event
+    m_d->labels[ii++]->setText(erText);
+
+    // rate by module
+    m_d->labels[ii++]->setText(mrText);
 
     m_d->prevCounters = counters;
     m_d->lastUpdateTime = QDateTime::currentDateTime();

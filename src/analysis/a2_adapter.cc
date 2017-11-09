@@ -81,7 +81,6 @@ inline a2::PipeVectors find_output_pipe(
 
 inline a2::PipeVectors find_output_pipe(const A2AdapterState *state, analysis::Slot *slot)
 {
-    // This should be the path to get the correct 
     return find_output_pipe(
         state,
         slot->inputPipe->source,
@@ -252,6 +251,14 @@ DEF_OP_MAGIC(aggregate_ops_magic)
             result = make_aggregate_sum(arena, a2_input, thresholds);
             break;
 
+        case AggregateOps::Op_Mean:
+            result = make_aggregate_mean(arena, a2_input, thresholds);
+            break;
+
+        case AggregateOps::Op_Min:
+            result = make_aggregate_min(arena, a2_input, thresholds);
+            break;
+
         case AggregateOps::Op_Max:
             result = make_aggregate_max(arena, a2_input, thresholds);
             break;
@@ -260,7 +267,26 @@ DEF_OP_MAGIC(aggregate_ops_magic)
             result = make_aggregate_multiplicity(arena, a2_input, thresholds);
             break;
 
+        case AggregateOps::Op_Sigma:
+            result = make_aggregate_sigma(arena, a2_input, thresholds);
+            break;
+
+        case AggregateOps::Op_MinX:
+            result = make_aggregate_minx(arena, a2_input, thresholds);
+            break;
+
+        case AggregateOps::Op_MaxX:
+            result = make_aggregate_maxx(arena, a2_input, thresholds);
+            break;
+
+        case AggregateOps::Op_MeanX:
+            result = make_aggregate_meanx(arena, a2_input, thresholds);
+            break;
+
+        // TODO: sigmaX
+
         default:
+            qDebug() << "analysis::AggregateOps::Operation =" << agOps->getOperation();
             assert(!"unsupported AggregateOps::Operation");
     }
 
@@ -288,6 +314,41 @@ DEF_OP_MAGIC(binary_equation_magic)
         binSumDiff->getEquation(),
         outputLowerLimit,
         outputUpperLimit);
+
+    return result;
+}
+
+DEF_OP_MAGIC(range_filter_magic)
+{
+    LOG("");
+    assert(inputSlots.size() == 1);
+    assert_slot(inputSlots[0]);
+
+    auto rangeFilter = qobject_cast<analysis::RangeFilter1D *>(op.get());
+
+    assert(rangeFilter);
+
+    auto a2_input = find_output_pipe(adapterState, inputSlots[0]);
+
+    a2::Operator result = {};
+
+    if (inputSlots[0]->paramIndex == analysis::Slot::NoParamIndex)
+    {
+        result = a2::make_range_filter(
+            arena,
+            a2_input,
+            { rangeFilter->m_minValue, rangeFilter->m_maxValue },
+            rangeFilter->m_keepOutside);
+    }
+    else
+    {
+        result = a2::make_range_filter_idx(
+            arena,
+            a2_input,
+            inputSlots[0]->paramIndex,
+            { rangeFilter->m_minValue, rangeFilter->m_maxValue },
+            rangeFilter->m_keepOutside);
+    }
 
     return result;
 }
@@ -416,6 +477,7 @@ static const QHash<const QMetaObject *, OperatorMagic *> OperatorMagicTable =
     { &analysis::ArrayMap::staticMetaObject, array_map_magic },
     { &analysis::AggregateOps::staticMetaObject, aggregate_ops_magic },
     { &analysis::BinarySumDiff::staticMetaObject, binary_equation_magic },
+    { &analysis::RangeFilter1D::staticMetaObject, range_filter_magic },
 
     { &analysis::Histo1DSink::staticMetaObject, histo1d_sink_magic },
     { &analysis::Histo2DSink::staticMetaObject, histo2d_sink_magic },
@@ -423,8 +485,6 @@ static const QHash<const QMetaObject *, OperatorMagic *> OperatorMagicTable =
 
 a2::Operator a2_adapter_magic(memory::Arena *arena, A2AdapterState *state, analysis::OperatorPtr op)
 {
-    // TODO: check that the operator is fully connected and in a state that can be adapted to a2
-    // allInputsConnected()?
     a2::Operator result = {};
     result.type = a2::OperatorTypeCount;
 
@@ -508,7 +568,7 @@ void a2_adapter_build_extractors(
     {
         for (auto src: sources[ei])
         {
-            qDebug() 
+            qDebug()
                 << "eventIndex =" << ei
                 << ", moduleIndex =" << src.moduleIndex
                 << ", source =" << src.source.get();
@@ -629,6 +689,8 @@ void set_null_if_input_is(OperatorEntryVector &operators, OperatorInterface *inp
 
                 if (slot->inputPipe && slot->inputPipe->source == inputOp)
                 {
+                    set_null_if_input_is(operators, entry.op.get(), i);
+
                     entry.op.reset();
                     break;
                 }
@@ -651,7 +713,7 @@ auto a2_adapter_filter_operators(QVector<Analysis::OperatorEntry> operators)
 
         if (entry.op && !all_inputs_connected(entry.op.get()))
         {
-            QLOG("filtering out" << entry.op.get() << " and direct children");
+            QLOG("filtering out" << entry.op.get() << "and children");
             set_null_if_input_is(operators, entry.op.get(), opIndex + 1);
             entry.op.reset();
         }
@@ -668,7 +730,7 @@ auto a2_adapter_filter_operators(QVector<Analysis::OperatorEntry> operators)
     }
 
     QLOG("filtered out" << operators.size() - result.size()
-         << " of" << operators.size() << " operators");
+         << "of" << operators.size() << "operators");
 
     return result;
 }

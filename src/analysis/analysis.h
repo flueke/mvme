@@ -26,7 +26,7 @@
 #include "histo2d.h"
 #include "libmvme_export.h"
 #include "typedefs.h"
-#include "multiword_datafilter.h"
+#include "a2/multiword_datafilter.h"
 
 #include <memory>
 #include <pcg_random.hpp>
@@ -442,7 +442,7 @@ class LIBMVME_EXPORT Extractor: public SourceInterface
 
         // configuration
         MultiWordDataFilter m_filter;
-        data_filter::MultiWordFilter m_fastFilter;
+        a2::data_filter::MultiWordFilter m_fastFilter;
         u32 m_requiredCompletionCount = 1;
         u64 m_rngSeed;
 
@@ -738,7 +738,7 @@ class LIBMVME_EXPORT AggregateOps: public BasicOperator
 
         /* Thresholds to check each input parameter against. If the parameter
          * is not inside [min_threshold, max_threshold] it is considered
-         * invalid. */
+         * invalid. If set to NaN the threshold is not used. */
         void setMinThreshold(double t);
         double getMinThreshold() const;
         void setMaxThreshold(double t);
@@ -809,7 +809,7 @@ class LIBMVME_EXPORT ArrayMap: public OperatorInterface
     private:
         // Using pointer to Slot here to avoid having to deal with changing
         // Slot addresses on resizing the inputs vector.
-        QVector<Slot *> m_inputs;
+        QVector<std::shared_ptr<Slot>> m_inputs;
         Pipe m_output;
 };
 
@@ -1276,6 +1276,7 @@ class LIBMVME_EXPORT Analysis: public QObject
          * Remember to update the hash on every vme config change!
          */
         void beginRun(const RunInfo &runInfo, const vme_analysis_common::VMEIdToIndex &vmeMap);
+        void beginRun();
         void beginEvent(const QUuid &eventId);
         void processModuleData(const QUuid &eventId, const QUuid &moduleId, u32 *data, u32 size);
         void endEvent(const QUuid &eventId);
@@ -1348,6 +1349,18 @@ class LIBMVME_EXPORT Analysis: public QObject
             return nullptr;
         }
 
+        OperatorPtr getOperator(const QUuid &operatorId)
+        {
+            OperatorPtr result;
+
+            auto entryPtr = getOperatorEntry(operatorId);
+            if (entryPtr)
+            {
+                result = entryPtr->op;
+            }
+            return result;
+        }
+
         void addOperator(const QUuid &eventId, const OperatorPtr &op, s32 userLevel);
         void removeOperator(const OperatorPtr &op);
         void removeOperator(OperatorInterface *op);
@@ -1382,8 +1395,10 @@ class LIBMVME_EXPORT Analysis: public QObject
 
         A2AdapterState *getA2AdapterState() { return m_a2State.get(); }
 
+        RunInfo getRunInfo() const { return m_runInfo; }
+
     private:
-        void beginRun(const RunInfo &runInfo);
+        void beginRun_internal_only(const RunInfo &runInfo);
         void updateRank(OperatorInterface *op, QSet<OperatorInterface *> &updated);
 
         QVector<SourceEntry> m_sources;

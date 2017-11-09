@@ -301,17 +301,17 @@ QString format_sis3153_stacklist_control_value(u16 value)
 
     QStringList strings;
 
-    if (value & StackListEnable)
-        strings << QSL("StackListEnable");
-
-    if (value & Timer1Enable)
-        strings << QSL("Timer1");
+    if (value & ListBufferEnable)
+        strings << QSL("Buffering");
 
     if (value & Timer2Enable)
         strings << QSL("Timer2");
 
-    if (value & ListBufferEnable)
-        strings << QSL("Buffering");
+    if (value & Timer1Enable)
+        strings << QSL("Timer1");
+
+    if (value & StackListEnable)
+        strings << QSL("StackListEnable");
 
     auto valueText = strings.join(QSL(" | "));
 

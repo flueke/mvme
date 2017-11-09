@@ -26,7 +26,7 @@
 #include <QVector>
 #include "libmvme_export.h"
 #include "typedefs.h"
-#include "util/bits.h"
+#include "analysis/a2/util/bits.h"
 
 /*
  * Identifying:
@@ -255,60 +255,5 @@ LIBMVME_EXPORT DataFilter makeFilterFromBytes(const QByteArray &bytes, s32 wordI
 
 // Create a QLineEdit setup for convenient filter editing and display.
 LIBMVME_EXPORT QLineEdit *makeFilterEdit();
-
-class LIBMVME_EXPORT DataFilterExternalCache
-{
-    public:
-        static const s32 FilterSize = 32;
-
-        struct CacheEntry
-        {
-            u32 extractMask = 0;
-            bool needGather = false;
-            u8 extractShift = 0;
-            u8 extractBits  = 0;
-        };
-
-        /* Construct a filter from the passed in byte array. The filter array
-         * may contain spaces. */
-        DataFilterExternalCache(const QByteArray &filter = QByteArray(), s32 wordIndex = -1);
-
-        /* Returns the filter as a QByteArray. Note that this does not return a
-         * copy of the original QByteArray that was passed in but a version
-         * that's padded to 32 characters using the padding character 'X'.
-         * Reason: internally the filter always stored 32 characters no matter
-         * the length of the original filter string and the original length is lost. */
-        QByteArray getFilterString() const;
-
-        inline u32 getMatchMask() const { return m_matchMask; }
-        inline u32 getMatchValue() const { return m_matchValue; }
-        CacheEntry makeCacheEntry(char marker) const;
-
-        inline bool matches(u32 value, s32 wordIndex = -1) const
-        {
-            return ((m_matchWordIndex < 0) || (m_matchWordIndex == wordIndex))
-                && ((value & getMatchMask()) == getMatchValue());
-        }
-
-        inline u32 extractData(u32 value, CacheEntry &cache) const
-        {
-            u32 result = ((value & cache.extractMask) >> cache.extractShift);
-
-            if (cache.needGather)
-            {
-                result = bit_gather(result, cache.extractMask >> cache.extractShift);
-            }
-
-            return result;
-        }
-
-    private:
-        void compile();
-
-        std::array<char, FilterSize> m_filter;
-        u32 m_matchMask  = 0;
-        u32 m_matchValue = 0;
-        s32 m_matchWordIndex = -1;
-};
 
 #endif /* __DATA_FILTER_H__ */

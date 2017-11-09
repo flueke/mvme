@@ -21,6 +21,11 @@
 #include "analysis_util.h"
 #include "data_extraction_widget.h"
 #include "analysis_info_widget.h"
+#include "a2_adapter.h"
+#include "analysis_impl_switch.h"
+#ifdef MVME_ENABLE_HDF5
+#include "analysis_session.h"
+#endif
 
 #include "../mvme_context.h"
 #include "../histo1d_widget.h"
@@ -40,11 +45,13 @@
 #include <QMenu>
 #include <QMessageBox>
 #include <QMimeData>
+#include <QProgressDialog>
 #include <QScrollArea>
 #include <QSplitter>
 #include <QStackedWidget>
 #include <QStandardPaths>
 #include <QStatusBar>
+#include <QtConcurrent>
 #include <QTimer>
 #include <QToolBar>
 #include <QToolButton>
@@ -530,8 +537,8 @@ struct EventWidgetPrivate
     void importForModule(ModuleConfig *module, const QString &startPath);
 
     // Actions used in makeToolBar()
-    QAction *m_actionImportForModuleFromTemplate;
-    QAction *m_actionImportForModuleFromFile;
+    std::unique_ptr<QAction> m_actionImportForModuleFromTemplate;
+    std::unique_ptr<QAction> m_actionImportForModuleFromFile;
     QWidgetAction *m_actionModuleImport;
 
     // Actions and widgets used in makeEventSelectAreaToolBar()
@@ -1045,8 +1052,8 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                     auto menuImport = new QMenu(&menu);
                     menuImport->setTitle(QSL("Import"));
                     //menuImport->setIcon(QIcon(QSL(":/analysis_module_import.png")));
-                    menuImport->addAction(m_actionImportForModuleFromTemplate);
-                    menuImport->addAction(m_actionImportForModuleFromFile);
+                    menuImport->addAction(m_actionImportForModuleFromTemplate.get());
+                    menuImport->addAction(m_actionImportForModuleFromFile.get());
                     menu.addMenu(menuImport);
                 }
 
@@ -2040,8 +2047,69 @@ PipeDisplay *EventWidgetPrivate::makeAndShowPipeDisplay(Pipe *pipe)
 
 void EventWidgetPrivate::doPeriodicUpdate()
 {
+#if ANALYSIS_USE_A2
+    auto a2State = m_context->getAnalysis()->getA2AdapterState();
+#endif
+
     //
-    // display trees (histo counts)
+    // level 0: operator tree (Extractor hitcounts)
+    //
+    for (auto iter = QTreeWidgetItemIterator(m_levelTrees[0].operatorTree);
+         *iter; ++iter)
+    {
+        auto node(*iter);
+
+        if (node->type() == NodeType_Source)
+        {
+            auto extractor = qobject_cast<Extractor *>(getPointer<PipeSourceInterface>(node));
+
+            if (!extractor)
+                continue;
+
+            if (extractor->getOutput(0)->getSize() != node->childCount())
+                continue;
+
+#if ANALYSIS_USE_A2
+            if (!a2State)
+                continue;
+
+            auto ex_a2 = a2State->sourceMap.value(extractor, nullptr);
+
+            if (!ex_a2)
+                continue;
+
+            auto hitCounts = ex_a2->hitCounts;
+            Q_ASSERT(hitCounts.size == node->childCount());
+
+#else
+            auto hitCounts = extractor->getHitCounts();
+            Q_ASSERT(hitCounts.size() == node->childCount());
+#endif
+
+            for (s32 addr = 0; addr < node->childCount(); ++addr)
+            {
+                Q_ASSERT(node->child(addr)->type() == NodeType_OutputPipeParameter);
+
+                QString addrString = QString("%1").arg(addr, 2).replace(QSL(" "), QSL("&nbsp;"));
+
+                double hitCount = hitCounts[addr];
+
+                if (hitCount <= 0.0)
+                {
+                    node->child(addr)->setText(0, addrString);
+                }
+                else
+                {
+                    node->child(addr)->setText(0, QString("%1 (hits=%2)")
+                                               .arg(addrString)
+                                               .arg(hitCount));
+                }
+            }
+        }
+    }
+
+    //
+    // level > 0: display trees (histo counts)
     //
     for (auto trees: m_levelTrees)
     {
@@ -2053,9 +2121,28 @@ void EventWidgetPrivate::doPeriodicUpdate()
 
             if (node->type() == NodeType_Histo1D)
             {
-                auto histo = getPointer<Histo1D>(node);
                 s32 address = node->data(0, DataRole_HistoAddress).toInt();
+
+#if ANALYSIS_USE_A2
+                double entryCount = 0.0;
+
+                if (a2State && node->parent() && node->parent()->type() == NodeType_Histo1DSink)
+                {
+                    auto sink = getPointer<Histo1DSink>(node->parent());
+
+                    if (auto sink_a2 = a2State->operatorMap.value(sink, nullptr))
+                    {
+                        auto sinkData = reinterpret_cast<a2::H1DSinkData *>(sink_a2->d);
+                        if (address < sinkData->histos.size)
+                        {
+                            entryCount = sinkData->histos[address].entryCount;
+                        }
+                    }
+                }
+#else
+                auto histo = getPointer<Histo1D>(node);
                 double entryCount = histo->getEntryCount();
+#endif
 
                 QString numberString = QString("%1").arg(address, 2).replace(QSL(" "), QSL("&nbsp;"));
 
@@ -2090,39 +2177,6 @@ void EventWidgetPrivate::doPeriodicUpdate()
                                 sink->getShortName(),
                                 sink->objectName(),
                                 QString::number(entryCount)));
-                    }
-                }
-            }
-        }
-    }
-
-    //
-    // level 0 operator tree (Extractor hitcounts)
-    //
-    {
-        for (auto iter = QTreeWidgetItemIterator(m_levelTrees[0].operatorTree);
-             *iter; ++iter)
-        {
-            auto node(*iter);
-
-            if (node->type() == NodeType_OutputPipeParameter)
-            {
-                auto outPipe = getPointer<Pipe>(node);
-                if (auto extractor = qobject_cast<Extractor *>(outPipe->getSource()))
-                {
-                    s32 address = node->data(0, DataRole_ParameterIndex).toInt();
-                    double hitCount = extractor->getHitCounts().value(address, 0.0);
-                    QString numberString = QString("%1").arg(address, 2).replace(QSL(" "), QSL("&nbsp;"));
-
-                    if (hitCount <= 0.0)
-                    {
-                        node->setText(0, numberString);
-                    }
-                    else
-                    {
-                        node->setText(0, QString("%1 (hits=%2)")
-                                      .arg(numberString)
-                                      .arg(hitCount));
                     }
                 }
             }
@@ -2379,13 +2433,13 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, AnalysisWidget 
 
     // Upper ToolBar actions
 
-    m_d->m_actionImportForModuleFromTemplate = new QAction("Import from template");
-    m_d->m_actionImportForModuleFromFile     = new QAction("Import from file");
+    m_d->m_actionImportForModuleFromTemplate = std::make_unique<QAction>("Import from template");
+    m_d->m_actionImportForModuleFromFile     = std::make_unique<QAction>("Import from file");
     m_d->m_actionModuleImport = new QWidgetAction(this);
     {
         auto menu = new QMenu(this);
-        menu->addAction(m_d->m_actionImportForModuleFromTemplate);
-        menu->addAction(m_d->m_actionImportForModuleFromFile);
+        menu->addAction(m_d->m_actionImportForModuleFromTemplate.get());
+        menu->addAction(m_d->m_actionImportForModuleFromFile.get());
 
         auto toolButton = new QToolButton;
         toolButton->setMenu(menu);
@@ -2400,11 +2454,11 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, AnalysisWidget 
         m_d->m_actionModuleImport->setDefaultWidget(toolButton);
     }
 
-    connect(m_d->m_actionImportForModuleFromTemplate, &QAction::triggered, this, [this] {
+    connect(m_d->m_actionImportForModuleFromTemplate.get(), &QAction::triggered, this, [this] {
         m_d->importForModuleFromTemplate();
     });
 
-    connect(m_d->m_actionImportForModuleFromFile, &QAction::triggered, this, [this] {
+    connect(m_d->m_actionImportForModuleFromFile.get(), &QAction::triggered, this, [this] {
         m_d->importForModuleFromFile();
     });
 
@@ -2739,6 +2793,7 @@ struct AnalysisWidgetPrivate
     QLabel *m_labelTimetickCount;
     QTimer *m_periodicUpdateTimer;
     WidgetGeometrySaver *m_geometrySaver;
+    AnalysisInfoWidget *m_infoWidget = nullptr;
 
     void repopulate();
     void repopulateEventSelectCombo();
@@ -2753,6 +2808,10 @@ struct AnalysisWidgetPrivate
     QPair<bool, QString> actionSaveAs();
     void actionImport();
     void actionClearHistograms();
+#ifdef MVME_ENABLE_HDF5
+    void actionSaveSession();
+    void actionLoadSession();
+#endif
 
     void updateWindowTitle();
     void updateAddRemoveUserLevelButtons();
@@ -3126,10 +3185,175 @@ void AnalysisWidgetPrivate::actionClearHistograms()
         }
         else if (auto histoSink = qobject_cast<Histo2DSink *>(opEntry.op.get()))
         {
-            histoSink->m_histo->clear();
+            if (histoSink->m_histo)
+            {
+                histoSink->m_histo->clear();
+            }
         }
     }
 }
+
+#ifdef MVME_ENABLE_HDF5
+
+static const QString SessionFileFilter = QSL("MVME Sessions (*.hdf5);; All Files (*.*)");
+static const QString SessionFileExtension = QSL(".hdf5");
+
+void handle_session_error(const QString &title, const QString &message)
+{
+    SessionErrorDialog dialog(title, message);
+    dialog.exec();
+
+    //m_context->logMessage(QString("Error saving session:"));
+    //m_context->logMessageRaw(result.second);
+}
+
+void AnalysisWidgetPrivate::actionSaveSession()
+{
+    qDebug() << __PRETTY_FUNCTION__;
+
+    using ResultType = QPair<bool, QString>;
+
+    ResultType result;
+
+    auto sessionPath = m_context->getWorkspacePath(QSL("SessionDirectory"));
+
+    if (sessionPath.isEmpty())
+    {
+        sessionPath = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
+    }
+
+    QString filename = QFileDialog::getSaveFileName(
+        m_q, QSL("Save session"), sessionPath, SessionFileFilter);
+
+    if (filename.isEmpty())
+        return;
+
+    QFileInfo fileInfo(filename);
+
+    if (fileInfo.completeSuffix().isEmpty())
+    {
+        filename += SessionFileExtension;
+    }
+
+    AnalysisPauser pauser(m_context);
+
+#if 1 // The QtConcurrent path
+    QProgressDialog progressDialog;
+    progressDialog.setLabelText(QSL("Saving session..."));
+    progressDialog.setMinimum(0);
+    progressDialog.setMaximum(0);
+
+    QFutureWatcher<ResultType> watcher;
+    QObject::connect(&watcher, &QFutureWatcher<ResultType>::finished, &progressDialog, &QDialog::close);
+
+    QFuture<ResultType> future = QtConcurrent::run(save_analysis_session, filename, m_context->getAnalysis());
+    watcher.setFuture(future);
+
+    progressDialog.exec();
+
+    result = future.result();
+#else // The blocking path
+    result = save_analysis_session(filename, m_context->getAnalysis());
+#endif
+
+    if (!result.first)
+    {
+        handle_session_error(result.second, "Error saving session");
+    }
+}
+
+void AnalysisWidgetPrivate::actionLoadSession()
+{
+    auto sessionPath = m_context->getWorkspacePath(QSL("SessionDirectory"));
+
+    if (sessionPath.isEmpty())
+    {
+        sessionPath = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
+    }
+
+    QString filename = QFileDialog::getOpenFileName(
+        m_q, QSL("Load session"), sessionPath, SessionFileFilter);
+
+    if (filename.isEmpty())
+        return;
+
+    AnalysisPauser pauser(m_context);
+
+    QProgressDialog progressDialog;
+    progressDialog.setLabelText(QSL("Loading session config..."));
+    progressDialog.setMinimum(0);
+    progressDialog.setMaximum(0);
+    progressDialog.show();
+
+    QEventLoop loop;
+
+    QJsonDocument analysisJson;
+
+    // load the config first
+    {
+#if 1 // The QtConcurrent path
+        using ResultType = QPair<QJsonDocument, QString>;
+
+        QFutureWatcher<ResultType> watcher;
+        QObject::connect(&watcher, &QFutureWatcher<ResultType>::finished, &loop, &QEventLoop::quit);
+
+        QFuture<ResultType> future = QtConcurrent::run(load_analysis_config_from_session_file, filename);
+        watcher.setFuture(future);
+
+        loop.exec();
+
+        auto result = future.result();
+#else // The blocking path
+        auto result = load_analysis_config_from_session_file(filename);
+#endif
+
+        if (result.first.isNull())
+        {
+            progressDialog.hide();
+
+            handle_session_error(result.second, "Error loading session config");
+
+            //m_context->logMessage(QString("Error loading session:"));
+            //m_context->logMessageRaw(result.second);
+            return;
+        }
+
+        analysisJson = QJsonDocument(result.first);
+    }
+
+    // This is the standard procedure when loading an analysis config
+    closeAllUniqueWidgets();
+    closeAllHistogramWidgets();
+
+    if (m_context->loadAnalysisConfig(analysisJson, filename, { .NoAutoResume = true }))
+    {
+        progressDialog.setLabelText(QSL("Loading session data..."));
+
+
+#if 1 // The QtConcurrent path
+        using ResultType = QPair<bool, QString>;
+
+        QFutureWatcher<ResultType> watcher;
+        QObject::connect(&watcher, &QFutureWatcher<ResultType>::finished, &loop, &QEventLoop::quit);
+
+        QFuture<ResultType> future = QtConcurrent::run(load_analysis_session, filename, m_context->getAnalysis());
+        watcher.setFuture(future);
+
+        loop.exec();
+
+        auto result = future.result();
+#else // The blocking path
+        auto result = load_analysis_session(filename, m_context->getAnalysis());
+#endif
+
+        if (!result.first)
+        {
+            handle_session_error(result.second, "Error loading session data");
+            return;
+        }
+    }
+}
+#endif
 
 void AnalysisWidgetPrivate::updateWindowTitle()
 {
@@ -3211,6 +3435,8 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     // Analysis changes
     auto on_analysis_changed = [this]()
     {
+        /* Assuming the old analysis has been deleted, thus no
+         * QObject::disconnect() is needed. */
         connect(m_d->m_context->getAnalysis(), &Analysis::modifiedChanged, this, [this]() {
             m_d->updateWindowTitle();
         });
@@ -3239,26 +3465,53 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
 
         QAction *action;
 
+        // new, open, save, save as
         m_d->m_toolbar->addAction(QIcon(":/document-new.png"), QSL("New"), this, [this]() { m_d->actionNew(); });
         m_d->m_toolbar->addAction(QIcon(":/document-open.png"), QSL("Open"), this, [this]() { m_d->actionOpen(); });
         m_d->m_toolbar->addAction(QIcon(":/document-save.png"), QSL("Save"), this, [this]() { m_d->actionSave(); });
         m_d->m_toolbar->addAction(QIcon(":/document-save-as.png"), QSL("Save As"), this, [this]() { m_d->actionSaveAs(); });
 
+        // import
         action = m_d->m_toolbar->addAction(QIcon(":/folder_import.png"), QSL("Import"), this, [this]() { m_d->actionImport(); });
         action->setToolTip(QSL("Add items from an existing Analysis"));
         action->setStatusTip(action->toolTip());
 
+        // clear histograms
         m_d->m_toolbar->addSeparator();
-        m_d->m_toolbar->addAction(QIcon(":/clear_histos.png"), QSL("Clear Histograms"), this, [this]() { m_d->actionClearHistograms(); });
+        m_d->m_toolbar->addAction(QIcon(":/clear_histos.png"), QSL("Clear Histos"), this, [this]() { m_d->actionClearHistograms(); });
+
+        // info window
         m_d->m_toolbar->addSeparator();
         m_d->m_toolbar->addAction(QIcon(":/info.png"), QSL("Info && Stats"), this, [this]() {
 
-            auto widget = new AnalysisInfoWidget(m_d->m_context);
-            widget->setAttribute(Qt::WA_DeleteOnClose);
-            add_widget_close_action(widget);
-            m_d->m_geometrySaver->addAndRestore(widget, QSL("WindowGeometries/AnalysisInfo"));
-            widget->show();
+            AnalysisInfoWidget *widget = nullptr;
+
+            if (m_d->m_infoWidget)
+            {
+                widget = m_d->m_infoWidget;
+            }
+            else
+            {
+                widget = new AnalysisInfoWidget(m_d->m_context);
+                widget->setAttribute(Qt::WA_DeleteOnClose);
+                add_widget_close_action(widget);
+                m_d->m_geometrySaver->addAndRestore(widget, QSL("WindowGeometries/AnalysisInfo"));
+
+                connect(widget, &QObject::destroyed, this, [this]() {
+                    m_d->m_infoWidget = nullptr;
+                });
+
+                m_d->m_infoWidget = widget;
+            }
+
+            show_and_activate(widget);
         });
+
+#ifdef MVME_ENABLE_HDF5
+        m_d->m_toolbar->addSeparator();
+        m_d->m_toolbar->addAction(QIcon(":/document-open.png"), QSL("DEV Load Session"), this, [this]() { m_d->actionLoadSession(); });
+        m_d->m_toolbar->addAction(QIcon(":/document-save.png"), QSL("DEV Save Session"), this, [this]() { m_d->actionSaveSession(); });
+#endif
     }
 
     // After the toolbar entries the EventWidget specific action will be added.
@@ -3389,6 +3642,11 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
 
 AnalysisWidget::~AnalysisWidget()
 {
+    if (m_d->m_infoWidget)
+    {
+        m_d->m_infoWidget->close();
+    }
+
     delete m_d;
     qDebug() << __PRETTY_FUNCTION__;
 }
@@ -3457,35 +3715,3 @@ bool AnalysisWidget::event(QEvent *e)
 }
 
 } // end namespace analysis
-
-#if 0
-// Was playing around with storing shared_ptr<T> in QVariants. Getting the
-// value out of the variant involves having to know the exact type T with which
-// it was added. I prefer just storing raw pointers and qobject_cast()'ing or
-// reinterpret_cast()'ing those.
-
-template<typename T, typename U>
-std::shared_ptr<T> qobject_pointer_cast(const std::shared_ptr<U> &src)
-{
-    if (auto rawT = qobject_cast<T *>(src.get()))
-    {
-        return std::shared_ptr<T>(src, rawT);
-    }
-
-    return std::shared_ptr<T>();
-}
-
-template<typename T>
-TreeNode *makeNode(const std::shared_ptr<T> &data, int type = QTreeWidgetItem::Type)
-{
-    auto ret = new TreeNode(type);
-    ret->setData(0, DataRole_SharedPointer, QVariant::fromValue(data));
-    return ret;
-}
-
-template<typename T>
-std::shared_ptr<T> getSharedPointer(QTreeWidgetItem *node, s32 dataRole = DataRole_SharedPointer)
-{
-    return node ? node->data(0, dataRole).value<std::shared_ptr<T>>() : std::shared_ptr<T>();
-}
-#endif

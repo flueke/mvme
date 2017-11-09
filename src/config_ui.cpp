@@ -293,15 +293,37 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *modul
     setWindowTitle(QSL("Module Config"));
     MVMETemplates templates = read_templates();
     m_moduleMetas = templates.moduleMetas;
+
+    /* Sort by vendorName and then displayName, giving the vendorName "mesytec"
+     * the highest priority. */
     qSort(m_moduleMetas.begin(), m_moduleMetas.end(), [](const VMEModuleMeta &a, const VMEModuleMeta &b) {
-        return a.displayName < b.displayName;
+        if (a.vendorName == b.vendorName)
+            return a.displayName < b.displayName;
+
+        if (a.vendorName == QSL("mesytec"))
+            return true;
+
+        if (b.vendorName == QSL("mesytec"))
+            return false;
+
+        return a.vendorName < b.vendorName;
     });
 
     typeCombo = new QComboBox;
     int typeComboIndex = -1;
+    QString currentVendor;
 
     for (const auto &mm: m_moduleMetas)
     {
+        if (currentVendor.isNull())
+            currentVendor = mm.vendorName;
+
+        if (mm.vendorName != currentVendor)
+        {
+            typeCombo->insertSeparator(typeCombo->count());
+            currentVendor = mm.vendorName;
+        }
+
         typeCombo->addItem(mm.displayName);
 
         if (mm.typeId == module->getModuleMeta().typeId)

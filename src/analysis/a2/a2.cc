@@ -15,8 +15,8 @@
 
 #define ArrayCount(x) (sizeof(x) / sizeof(*x))
 
-#ifndef NDEBUG
-//#if 0
+//#ifndef NDEBUG
+#if 0
 #define a2_trace(fmt, ...)\
 do\
 {\
@@ -33,6 +33,8 @@ using namespace data_filter;
 using namespace memory;
 
 /* TODO list
+ * - Add tests for range_filter_step(). Test it in mvme.
+ * - Test aggregate mean and meanx
  * - Add logic to force internal input/output vectors to be rounded up to a
  *   specific power of 2. This is needed to efficiently use vector instructions
  *   in the _step() loops I think.
@@ -53,11 +55,12 @@ using namespace memory;
  * SSE requires 16 byte alignment (128 bit registers).
  * AVX wants 32 bytes (256 bit registers).
  *
- * I've seen people pad the pointer in their queue implementations to 64/128
- * bytes as that's the cache line size. Padding this way makes false-sharing
- * less of an issue.
+ * Another factor is the cache line size. On Skylake it's 64 bytes.
  */
 static const size_t ParamVecAlignment = 64;
+
+/* Asserted in extractor_process_module_data(). */
+static const size_t ModuleDataAlignment = alignof(u32);
 
 static const int A2AdditionalThreads = 0;
 static const int OperatorsPerThreadTask = 6;
@@ -102,6 +105,30 @@ ParamVec push_param_vector(Arena *arena, s32 size, double value)
     return result;
 }
 
+void assign_input(Operator *op, PipeVectors input, s32 inputIndex)
+{
+    assert(inputIndex < op->inputCount);
+    op->inputs[inputIndex] = input.data;
+    op->inputLowerLimits[inputIndex] = input.lowerLimits;
+    op->inputUpperLimits[inputIndex] = input.upperLimits;
+}
+
+void push_output_vectors(
+    Arena *arena,
+    Operator *op,
+    s32 outputIndex,
+    s32 size,
+    double lowerLimit = 0.0,
+    double upperLimit = 0.0)
+{
+    op->outputs[outputIndex] = push_param_vector(arena, size, invalid_param());
+    op->outputLowerLimits[outputIndex] = push_param_vector(arena, size, lowerLimit);
+    op->outputUpperLimits[outputIndex] = push_param_vector(arena, size, upperLimit);
+}
+
+/* ===============================================
+ * Operators
+ * =============================================== */
 Extractor make_extractor(
     Arena *arena,
     MultiWordFilter filter,
@@ -128,6 +155,8 @@ Extractor make_extractor(
     result.output.lowerLimits = push_param_vector(arena, addrCount, 0.0);
     result.output.upperLimits = push_param_vector(arena, addrCount, upperLimit);
 
+    result.hitCounts = push_param_vector(arena, addrCount, 0.0);
+
     return  result;
 }
 
@@ -142,6 +171,8 @@ static std::uniform_real_distribution<double> RealDist01(0.0, 1.0);
 
 void extractor_process_module_data(Extractor *ex, const u32 *data, u32 size)
 {
+    assert(memory::is_aligned(data, ModuleDataAlignment));
+
     for (u32 wordIndex = 0;
          wordIndex < size;
          wordIndex++)
@@ -163,33 +194,13 @@ void extractor_process_module_data(Extractor *ex, const u32 *data, u32 size)
                 if (!is_param_valid(ex->output.data[address]))
                 {
                     ex->output.data[address] = value + RealDist01(ex->rng);
+                    ex->hitCounts[address]++;
                 }
             }
 
             clear_completion(&ex->filter);
         }
     }
-}
-
-void assign_input(Operator *op, PipeVectors input, s32 inputIndex)
-{
-    assert(inputIndex < op->inputCount);
-    op->inputs[inputIndex] = input.data;
-    op->inputLowerLimits[inputIndex] = input.lowerLimits;
-    op->inputUpperLimits[inputIndex] = input.upperLimits;
-}
-
-void push_output_vectors(
-    Arena *arena,
-    Operator *op,
-    s32 outputIndex,
-    s32 size,
-    double lowerLimit = 0.0,
-    double upperLimit = 0.0)
-{
-    op->outputs[outputIndex] = push_param_vector(arena, size);
-    op->outputLowerLimits[outputIndex] = push_param_vector(arena, size, lowerLimit);
-    op->outputUpperLimits[outputIndex] = push_param_vector(arena, size, upperLimit);
 }
 
 Operator make_operator(Arena *arena, u8 type, u8 inputCount, u8 outputCount)
@@ -488,7 +499,7 @@ Operator make_difference(
     return result;
 }
 
-struct Difference_idxData
+struct DifferenceData_idx
 {
     s32 indexA;
     s32 indexB;
@@ -506,7 +517,7 @@ Operator make_difference_idx(
 
     auto result = make_operator(arena, Operator_Difference_idx, 2, 1);
 
-    result.d = arena->push<Difference_idxData>({indexA, indexB});
+    result.d = arena->push<DifferenceData_idx>({indexA, indexB});
 
     assign_input(&result, inPipeA, 0);
     assign_input(&result, inPipeB, 1);
@@ -554,7 +565,7 @@ void difference_step_idx(Operator *op)
     auto inputA = op->inputs[0];
     auto inputB = op->inputs[1];
 
-    auto d = reinterpret_cast<Difference_idxData *>(op->d);
+    auto d = reinterpret_cast<DifferenceData_idx *>(op->d);
 
     if (is_param_valid(inputA[d->indexA]) && is_param_valid(inputB[d->indexB]))
     {
@@ -734,6 +745,9 @@ static Operator make_aggregate_op(
     return result;
 }
 
+//
+// aggregate_sum
+//
 Operator make_aggregate_sum(
     Arena *arena,
     PipeVectors input,
@@ -741,7 +755,7 @@ Operator make_aggregate_sum(
 {
     a2_trace("thresholds: %lf, %lf\n", thresholds.min, thresholds.max);
 
-    auto result = make_aggregate_op(arena, input, Operator_Sum, thresholds);
+    auto result = make_aggregate_op(arena, input, Operator_Aggregate_Sum, thresholds);
 
     double outputLowerLimit = 0.0;
     double outputUpperLimit = 0.0;
@@ -780,13 +794,16 @@ void aggregate_sum_step(Operator *op)
     op->outputs[0][0] = theSum;
 }
 
+//
+// aggregate_multiplicity
+//
 Operator make_aggregate_multiplicity(
     Arena *arena,
     PipeVectors input,
     Thresholds thresholds)
 {
     a2_trace("thresholds: %lf, %lf\n", thresholds.min, thresholds.max);
-    auto result = make_aggregate_op(arena, input, Operator_Multiplicity, thresholds);
+    auto result = make_aggregate_op(arena, input, Operator_Aggregate_Multiplicity, thresholds);
 
     result.outputLowerLimits[0][0] = 0.0;
     result.outputUpperLimits[0][0] = input.data.size;
@@ -812,13 +829,63 @@ void aggregate_multiplicity_step(Operator *op)
     op->outputs[0][0] = result;
 }
 
+//
+// aggregate_min
+//
+Operator make_aggregate_min(
+    memory::Arena *arena,
+    PipeVectors input,
+    Thresholds thresholds)
+{
+    a2_trace("thresholds: %lf, %lf\n", thresholds.min, thresholds.max);
+
+    auto result = make_aggregate_op(arena, input, Operator_Aggregate_Min, thresholds);
+
+    double llMin = std::min(
+        *std::min_element(std::begin(input.lowerLimits), std::end(input.lowerLimits)),
+        *std::min_element(std::begin(input.upperLimits), std::end(input.upperLimits)));
+
+    double llMax = std::max(
+        *std::max_element(std::begin(input.lowerLimits), std::end(input.lowerLimits)),
+        *std::max_element(std::begin(input.upperLimits), std::end(input.upperLimits)));
+
+    result.outputLowerLimits[0][0] = llMin;
+    result.outputUpperLimits[0][0] = llMax;
+
+    return result;
+}
+
+void aggregate_min_step(Operator *op)
+{
+    a2_trace("\n");
+    auto input = op->inputs[0];
+    auto output = op->outputs[0];
+    auto thresholds = *reinterpret_cast<Thresholds *>(op->d);
+
+    double result = std::numeric_limits<double>::lowest();
+
+    for (s32 i = 0; i < input.size; i++)
+    {
+        if (is_valid_and_inside(input[i], thresholds))
+        {
+            result = std::min(result, input[i]);
+        }
+    }
+
+    op->outputs[0][0] = result;
+}
+
+
+//
+// aggregate_max
+//
 Operator make_aggregate_max(
     Arena *arena,
     PipeVectors input,
     Thresholds thresholds)
 {
     a2_trace("thresholds: %lf, %lf\n", thresholds.min, thresholds.max);
-    auto result = make_aggregate_op(arena, input, Operator_Max, thresholds);
+    auto result = make_aggregate_op(arena, input, Operator_Aggregate_Max, thresholds);
 
     double llMin = std::min(
         *std::min_element(std::begin(input.lowerLimits), std::end(input.lowerLimits)),
@@ -850,6 +917,436 @@ void aggregate_max_step(Operator *op)
     }
 
     op->outputs[0][0] = result;
+}
+
+//
+// aggregate_mean
+//
+
+struct SumAndValidCount
+{
+    double sum;
+    u32 validCount;
+
+    inline double mean()
+    {
+        return sum / static_cast<double>(validCount);
+    }
+};
+
+inline SumAndValidCount calculate_sum_and_valid_count(ParamVec input, Thresholds thresholds)
+{
+    SumAndValidCount result = {};
+
+    for (s32 i = 0; i < input.size; i++)
+    {
+        if (is_valid_and_inside(input[i], thresholds))
+        {
+            result.sum += input[i];
+            result.validCount++;
+        }
+    }
+
+    return result;
+}
+
+// mean = (sum(x for x in input) / validCount)
+Operator make_aggregate_mean(
+    Arena *arena,
+    PipeVectors input,
+    Thresholds thresholds)
+{
+    a2_trace("thresholds: %lf, %lf\n", thresholds.min, thresholds.max);
+    auto result = make_aggregate_op(arena, input, Operator_Aggregate_Mean, thresholds);
+
+    double outputLowerLimit = 0.0;
+    double outputUpperLimit = 0.0;
+
+    for (s32 i = 0; i < input.data.size; i++)
+    {
+        auto mm = std::minmax(input.lowerLimits[i], input.upperLimits[i]);
+
+        outputLowerLimit += mm.first;
+        outputUpperLimit += mm.second;
+    }
+
+    outputLowerLimit /= input.data.size;
+    outputUpperLimit /= input.data.size;
+
+    result.outputLowerLimits[0][0] = outputLowerLimit;
+    result.outputUpperLimits[0][0] = outputUpperLimit;
+
+    return result;
+}
+
+void aggregate_mean_step(Operator *op)
+{
+    auto input = op->inputs[0];
+    auto output = op->outputs[0];
+    auto thresholds = *reinterpret_cast<Thresholds *>(op->d);
+
+    auto sv = calculate_sum_and_valid_count(input, thresholds);
+
+    output[0] = sv.mean();
+}
+
+//
+// aggregate_sigma
+//
+Operator make_aggregate_sigma(
+    memory::Arena *arena,
+    PipeVectors input,
+    Thresholds thresholds)
+{
+    a2_trace("thresholds: %lf, %lf\n", thresholds.min, thresholds.max);
+
+    auto result = make_aggregate_op(arena, input, Operator_Aggregate_Sigma, thresholds);
+
+    // FIXME: limits
+
+    return result;
+}
+
+void aggregate_sigma_step(Operator *op)
+{
+    a2_trace("\n");
+    auto input = op->inputs[0];
+    auto output = op->outputs[0];
+    auto thresholds = *reinterpret_cast<Thresholds *>(op->d);
+
+    auto sv = calculate_sum_and_valid_count(input, thresholds);
+    double mean = sv.mean();
+    double sigma = 0.0;
+
+    for (s32 i = 0; i < input.size; i++)
+    {
+        if (is_valid_and_inside(input[i], thresholds))
+        {
+            double d = input[i] - mean;
+            sigma += d * d;
+        }
+    }
+
+    sigma = std::sqrt(sigma / static_cast<double>(sv.validCount));
+
+    output[0] = sigma;
+}
+
+//
+// aggregate_minx
+//
+Operator make_aggregate_minx(
+    memory::Arena *arena,
+    PipeVectors input,
+    Thresholds thresholds)
+{
+    a2_trace("thresholds: %lf, %lf\n", thresholds.min, thresholds.max);
+
+    auto result = make_aggregate_op(arena, input, Operator_Aggregate_MinX, thresholds);
+
+    result.outputLowerLimits[0][0] = 0.0;
+    result.outputUpperLimits[0][0] = input.data.size - 1.0;
+
+    return result;
+}
+
+void aggregate_minx_step(Operator *op)
+{
+    a2_trace("\n");
+    auto input = op->inputs[0];
+    auto output = op->outputs[0];
+    auto thresholds = *reinterpret_cast<Thresholds *>(op->d);
+
+    s32 minIndex = 0;
+
+    for (s32 i = 0; i < input.size; i++)
+    {
+        if (is_valid_and_inside(input[i], thresholds))
+        {
+            if (input[i] < input[minIndex])
+            {
+                minIndex = i;
+            }
+        }
+    }
+
+    output[0] = minIndex;
+}
+
+//
+// aggregate_maxx
+//
+Operator make_aggregate_maxx(
+    memory::Arena *arena,
+    PipeVectors input,
+    Thresholds thresholds)
+{
+    a2_trace("thresholds: %lf, %lf\n", thresholds.min, thresholds.max);
+
+    auto result = make_aggregate_op(arena, input, Operator_Aggregate_MaxX, thresholds);
+
+    result.outputLowerLimits[0][0] = 0.0;
+    result.outputUpperLimits[0][0] = input.data.size - 1.0;
+
+    return result;
+}
+
+void aggregate_maxx_step(Operator *op)
+{
+    a2_trace("\n");
+    auto input = op->inputs[0];
+    auto output = op->outputs[0];
+    auto thresholds = *reinterpret_cast<Thresholds *>(op->d);
+
+    s32 maxIndex = 0;
+
+    for (s32 i = 0; i < input.size; i++)
+    {
+        if (is_valid_and_inside(input[i], thresholds))
+        {
+            if (input[i] > input[maxIndex])
+            {
+                maxIndex = i;
+            }
+        }
+    }
+
+    output[0] = maxIndex;
+}
+
+//
+// aggregate_meanx
+//
+Operator make_aggregate_meanx(
+    Arena *arena,
+    PipeVectors input,
+    Thresholds thresholds)
+{
+    a2_trace("thresholds: %lf, %lf\n", thresholds.min, thresholds.max);
+    auto result = make_aggregate_op(arena, input, Operator_Aggregate_MeanX, thresholds);
+
+    result.outputLowerLimits[0][0] = 0.0;
+    result.outputUpperLimits[0][0] = input.data.size - 1.0;
+
+    return result;
+}
+
+/*
+ * meanx = sum(A * x) / sum(A)
+ * meanx = sum(input[i] * i) / sum(input[i])
+ */
+void aggregate_meanx_step(Operator *op)
+{
+    a2_trace("\n");
+    auto input = op->inputs[0];
+    auto output = op->outputs[0];
+    auto thresholds = *reinterpret_cast<Thresholds *>(op->d);
+
+    double numerator   = 0.0;
+    double denominator = 0.0;
+
+    for (s32 x = 0; x < input.size; x++)
+    {
+        double A = input[x];
+
+        if (is_valid_and_inside(A, thresholds))
+        {
+            numerator += A * x;
+            denominator += A;
+        }
+    }
+
+    output[0] = numerator / denominator;
+}
+
+//
+// aggregate_sigmax
+//
+Operator make_aggregate_sigmax(
+    memory::Arena *arena,
+    PipeVectors input,
+    Thresholds thresholds)
+{
+    a2_trace("thresholds: %lf, %lf\n", thresholds.min, thresholds.max);
+
+    auto result = make_aggregate_op(arena, input, Operator_Aggregate_SigmaX, thresholds);
+
+    // FIXME: limits
+    result.outputLowerLimits[0][0] = 0.0;
+    result.outputUpperLimits[0][0] = input.data.size - 1.0;
+
+    return result;
+}
+
+void aggregate_sigmax_step(Operator *op)
+{
+    a2_trace("\n");
+    auto input = op->inputs[0];
+    auto output = op->outputs[0];
+    auto thresholds = *reinterpret_cast<Thresholds *>(op->d);
+
+    assert(false); // FIXME: implementation
+}
+
+//
+// range_filter
+//
+struct RangeFilterData
+{
+    Thresholds thresholds;
+    bool invert;
+};
+
+
+struct RangeFilterData_idx
+{
+    Thresholds thresholds;
+    bool invert;
+    s32 inputIndex;
+};
+
+Operator make_range_filter(
+    Arena *arena,
+    PipeVectors input,
+    Thresholds thresholds,
+    bool invert)
+{
+    auto result = make_operator(arena, Operator_RangeFilter, 1, 1);
+
+    auto d = arena->push<RangeFilterData>({ thresholds, invert });
+    result.d = d;
+
+    assign_input(&result, input, 0);
+
+    push_output_vectors(arena, &result, 0, input.data.size);
+
+
+    for (s32 pi = 0; pi < input.data.size; pi++)
+    {
+        if (invert)
+        {
+            result.outputLowerLimits[0][pi] = input.lowerLimits[pi];
+            result.outputUpperLimits[0][pi] = input.upperLimits[pi];
+        }
+        else
+        {
+            result.outputLowerLimits[0][pi] = thresholds.min;
+            result.outputUpperLimits[0][pi] = thresholds.max;
+        }
+    }
+
+    return result;
+}
+
+Operator make_range_filter_idx(
+    Arena *arena,
+    PipeVectors input,
+    s32 inputIndex,
+    Thresholds thresholds,
+    bool invert)
+{
+    assert(0 <= inputIndex && inputIndex < input.data.size);
+
+    auto result = make_operator(arena, Operator_RangeFilter_idx, 1, 1);
+
+    auto d = arena->push<RangeFilterData_idx>({ thresholds, invert, inputIndex });
+    result.d = d;
+
+    assign_input(&result, input, 0);
+
+    push_output_vectors(arena, &result, 0, 1);
+
+    if (invert)
+    {
+        result.outputLowerLimits[0][0] = input.lowerLimits[inputIndex];
+        result.outputUpperLimits[0][0] = input.upperLimits[inputIndex];
+    }
+    else
+    {
+        result.outputLowerLimits[0][0] = thresholds.min;
+        result.outputUpperLimits[0][0] = thresholds.max;
+    }
+
+    return result;
+}
+
+void range_filter_step(Operator *op)
+{
+    a2_trace("\n");
+    assert(op->inputCount == 1);
+    assert(op->outputCount == 1);
+    assert(op->inputs[0].size == op->outputs[0].size);
+    assert(op->type == Operator_RangeFilter);
+
+    const double invalid_p = invalid_param();
+    auto input = op->inputs[0];
+    auto output = op->outputs[0];
+    auto data = *reinterpret_cast<RangeFilterData *>(op->d);
+
+    if (data.invert)
+    {
+        for (s32 pi = 0; pi < input.size; pi++)
+        {
+            if (!in_range(data.thresholds, input[pi]))
+            {
+                output[pi] = input[pi];
+            }
+            else
+            {
+                output[pi] = invalid_p;
+            }
+        }
+    }
+    else
+    {
+        for (s32 pi = 0; pi < input.size; pi++)
+        {
+            if (in_range(data.thresholds, input[pi]))
+            {
+                output[pi] = input[pi];
+            }
+            else
+            {
+                output[pi] = invalid_p;
+            }
+        }
+    }
+}
+
+void range_filter_step_idx(Operator *op)
+{
+    a2_trace("\n");
+    assert(op->inputCount == 1);
+    assert(op->outputCount == 1);
+    assert(op->outputs[0].size == 1);
+    assert(op->type == Operator_RangeFilter_idx);
+
+    auto input = op->inputs[0];
+    auto output = op->outputs[0];
+    auto data = *reinterpret_cast<RangeFilterData_idx *>(op->d);
+
+    if (data.invert)
+    {
+        if (!in_range(data.thresholds, input[data.inputIndex]))
+        {
+            output[0] = input[data.inputIndex];
+        }
+        else
+        {
+            output[0] = invalid_param();
+        }
+    }
+    else
+    {
+        if (in_range(data.thresholds, input[data.inputIndex]))
+        {
+            output[0] = input[data.inputIndex];
+        }
+        else
+        {
+            output[0] = invalid_param();
+        }
+    }
 }
 
 /* ===============================================
@@ -1123,11 +1620,21 @@ static const OperatorFunctions OperatorTable[OperatorTypeCount] =
     [Operator_H1DSink] = { h1d_sink_step },
     [Operator_H1DSink_idx] = { h1d_sink_step_idx },
     [Operator_H2DSink] = { h2d_sink_step },
-    [Operator_RangeFilter] = { nullptr },
+    [Operator_RangeFilter] = { range_filter_step },
+    [Operator_RangeFilter_idx] = { range_filter_step_idx },
 
-    [Operator_Sum] = { aggregate_sum_step },
-    [Operator_Multiplicity] = { aggregate_multiplicity_step },
-    [Operator_Max] = { aggregate_max_step },
+    [Operator_Aggregate_Sum] = { aggregate_sum_step },
+    [Operator_Aggregate_Multiplicity] = { aggregate_multiplicity_step },
+
+    [Operator_Aggregate_Min] = { aggregate_min_step },
+    [Operator_Aggregate_Max] = { aggregate_max_step },
+    [Operator_Aggregate_Mean] = { aggregate_mean_step },
+    [Operator_Aggregate_Sigma] = { aggregate_sigma_step },
+
+    [Operator_Aggregate_MinX] = { aggregate_minx_step },
+    [Operator_Aggregate_MaxX] = { aggregate_maxx_step },
+    [Operator_Aggregate_MeanX] = { aggregate_meanx_step },
+    [Operator_Aggregate_SigmaX] = { aggregate_sigmax_step },
 };
 
 #if 0
@@ -1145,9 +1652,9 @@ static const char *OperatorTypeNames[OperatorTypeCount] =
     [Operator_H2DSink] = { h2d_sink_step },
     [Operator_RangeFilter] = { nullptr },
 
-    [Operator_Sum] = { aggregate_sum_step },
-    [Operator_Multiplicity] = { aggregate_multiplicity_step },
-    [Operator_Max] = { aggregate_max_step },
+    [Operator_Aggregate_Sum] = { aggregate_sum_step },
+    [Operator_Aggregate_Multiplicity] = { aggregate_multiplicity_step },
+    [Operator_Aggregate_Max] = { aggregate_max_step },
 };
 #endif
 

@@ -108,9 +108,20 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         EventProcessorState getEventProcessorState() const;
         const DAQStats &getDAQStats() const { return m_daqStats; }
         DAQStats &getDAQStats() { return m_daqStats; }
+
+        struct ReplayFileAnalysisInfo
+        {
+            QString filename;
+            QString analysisFilename;
+            QByteArray analysisConfigData;
+        };
+
         void setReplayFile(ListFile *listFile);
         void closeReplayFile();
         ListFile *getReplayFile() const { return m_listFile; }
+        void setReplayFileAnalysisInfo(ReplayFileAnalysisInfo info);
+        ReplayFileAnalysisInfo getReplayFileAnalysisInfo() const;
+
         void setMode(GlobalMode mode);
         GlobalMode getMode() const;
         MVMEEventProcessor *getEventProcessor() const { return m_eventProcessor; }
@@ -233,9 +244,15 @@ class LIBMVME_EXPORT MVMEContext: public QObject
 
         void loadVMEConfig(const QString &fileName);
 
+        struct AnalysisLoadFlags
+        {
+            bool NoAutoResume: 1;
+        };
+
         bool loadAnalysisConfig(const QString &fileName);
         bool loadAnalysisConfig(QIODevice *input, const QString &inputInfo = QString());
-        bool loadAnalysisConfig(const QJsonDocument &doc, const QString &inputInfo = QString());
+        bool loadAnalysisConfig(const QJsonDocument &doc, const QString &inputInfo = QString(), AnalysisLoadFlags flags = {});
+        bool loadAnalysisConfig(const QByteArray &blob, const QString &inputInfo = QString());
 
         // listfile output
         void setListFileOutputInfo(const ListFileOutputInfo &info);
@@ -302,7 +319,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
 
         void onControllerStateChanged(ControllerState state);
 
-        friend class MVMEContextPrivate;
+        friend struct MVMEContextPrivate;
 
     private:
         std::shared_ptr<QSettings> makeWorkspaceSettings(const QString &workspaceDirectory) const;

@@ -2,5 +2,6 @@
     "typeId"        : 7,
     "typeName"      : "mdpp16_rcp",
     "displayName"   : "MDPP-16_RCP",
+    "vendorName"    : "mesytec",
     "eventHeaderFilter" : "0100XXXXMMMMMMMMXXXXXXSSSSSSSSSS"
 }

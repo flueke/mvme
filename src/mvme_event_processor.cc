@@ -31,6 +31,7 @@
 #include <QElapsedTimer>
 
 //#define MVME_EVENT_PROCESSOR_DEBUGGING
+//#define MVME_EVENT_PROCESSOR_DEBUG_BUFFERS
 
 #ifdef MVME_EVENT_PROCESSOR_DEBUGGING
     inline QDebug qEPDebug() { return QDebug(QtDebugMsg); }
@@ -55,7 +56,8 @@ struct MultiEventModuleInfo
 
     // The filter used to identify module headers and extract the module
     // section size.
-    DataFilter moduleHeaderFilter;
+    a2::data_filter::DataFilter moduleHeaderFilter;
+    a2::data_filter::CacheEntry filterCacheModuleSectionSize;
 
     // Cache pointers to the corresponding module config.
     ModuleConfig *moduleConfig = nullptr;
@@ -145,10 +147,17 @@ void MVMEEventProcessor::newRun(const RunInfo &runInfo, const vme_analysis_commo
         {
             auto moduleConfig = moduleConfigs[moduleIndex];
             MultiEventModuleInfo &modInfo(m_d->eventInfos[eventIndex][moduleIndex]);
-            modInfo.moduleHeaderFilter = makeFilterFromBytes(moduleConfig->getEventHeaderFilter());
+
+            modInfo.moduleHeaderFilter = a2::data_filter::make_filter(
+                moduleConfig->getEventHeaderFilter().toStdString());
+
+            modInfo.filterCacheModuleSectionSize = a2::data_filter::make_cache_entry(
+                modInfo.moduleHeaderFilter, 'S');
+
             modInfo.moduleConfig = moduleConfig;
 
-            qDebug() << __PRETTY_FUNCTION__ << moduleConfig->objectName() << modInfo.moduleHeaderFilter.toString();
+            qDebug() << __PRETTY_FUNCTION__ << moduleConfig->objectName() <<
+                a2::data_filter::to_string(modInfo.moduleHeaderFilter).c_str();
         }
 
         m_d->eventConfigs[eventIndex] = eventConfig;
@@ -175,10 +184,22 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
 {
     auto &stats = m_d->context->getDAQStats();
 
+#if 1
     try
     {
-        ++stats.mvmeBuffersSeen;
+#endif
+        const auto bufferNumber = stats.mvmeBuffersSeen;
+
+        stats.mvmeBuffersSeen++;
         BufferIterator iter(buffer->data, buffer->used, BufferIterator::Align32);
+
+#ifdef MVME_EVENT_PROCESSOR_DEBUG_BUFFERS
+        logMessage(QString(">>> Begin mvme buffer #%1").arg(bufferNumber));
+
+        logBuffer(iter, [this](const QString &str) { logMessage(str); });
+
+        logMessage(QString("<<< End mvme buffer #%1") .arg(bufferNumber));
+#endif
 
         while (iter.longwordsLeft())
         {
@@ -187,7 +208,19 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
             u32 sectionSize = (sectionHeader & m_d->SectionSizeMask) >> m_d->SectionSizeShift;
 
             if (sectionSize > iter.longwordsLeft())
+            {
+#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+                QString msg = (QString("Error (mvme fmt): extracted section size exceeds buffer size!"
+                                       " mvme buffer #%1, sectionHeader=0x%2, sectionSize=%3, wordsLeftInBuffer=%4")
+                               .arg(bufferNumber)
+                               .arg(sectionHeader, 8, 16, QLatin1Char('0'))
+                               .arg(sectionSize)
+                               .arg(iter.longwordsLeft()));
+                qDebug() << msg;
+                emit logMessage(msg);
+#endif
                 throw end_of_buffer();
+            }
 
             if (sectionType == ListfileSections::SectionType_Event)
             {
@@ -208,10 +241,12 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
                 iter.skip(sectionSize * sizeof(u32));
             }
 
+            // sectionSize + header in bytes
             m_d->m_localStats.bytesProcessed += sectionSize * sizeof(u32) + sizeof(u32);
         }
 
         ++m_d->m_localStats.buffersProcessed;
+#if 1
     }
     catch (const end_of_buffer &)
     {
@@ -225,6 +260,7 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
             m_d->diag->reset();
         }
     }
+#endif
 }
 
 void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 size)
@@ -310,7 +346,7 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
 
         qDebug("  eventIndex=%d, moduleIndex=%d, subEventHeader=0x%08x, moduleHeader=0x%08x, filter=%s, moduleConfig=%s",
                eventIndex, moduleIndex, *mi.subEventHeader, *mi.moduleHeader,
-               filter.toString().toLocal8Bit().constData(),
+               a2::data_filter::to_string(filter).c_str(),
                mi.moduleConfig->objectName().toLocal8Bit().constData()
               );
 
@@ -332,15 +368,32 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
     while (!done)
     {
 #ifdef MVME_EVENT_PROCESSOR_DEBUGGING
-        qDebug("%s eventIndex=%u: begin step 2 loop", __PRETTY_FUNCTION__, eventIndex);
+        qDebug("%s eventIndex=%u: Begin Step 2 loop", __PRETTY_FUNCTION__, eventIndex);
 #endif
 
         {
             TIMED_BLOCK(TimedBlockId_MEP_Analysis_Loop);
 
+            /* Early test to see if the first module still has a matching
+             * header. This is done to avoid looping one additional time and
+             * calling beginEvent()/endEvent() without any valid data available
+             * for extractors to process. */
+            if (m_d->doMultiEventProcessing[eventIndex]
+                && !a2::data_filter::matches(moduleInfos[0].moduleHeaderFilter, *moduleInfos[0].moduleHeader))
+            {
+#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+                    qDebug("%s (early check): moduleHeader=0x%08x did not match header filter -> done processing event section.",
+                           __PRETTY_FUNCTION__, *moduleInfos[0].moduleHeader);
+#endif
+                done = true;
+                break;
+            }
+
             if (m_d->analysis_ng)
             {
-                //TimedBlock timed_block(TimedBlockId_MEP_Analysis_BeginEvent);
+#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+                qDebug("%s analysis::beginEvent()", __PRETTY_FUNCTION__);
+#endif
                 m_d->analysis_ng->beginEvent(eventConfig->getId());
             }
 
@@ -370,8 +423,8 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
                            __PRETTY_FUNCTION__, eventIndex, moduleIndex);
 #endif
 
-                    ++m_d->m_localStats.moduleCounters[eventIndex][moduleIndex];
-                    ++eventCountsByModule[moduleIndex];
+                    m_d->m_localStats.moduleCounters[eventIndex][moduleIndex]++;
+                    eventCountsByModule[moduleIndex]++;
 
                     u32 subEventSize = (*mi.subEventHeader & m_d->SubEventSizeMask) >> m_d->SubEventSizeShift;
 
@@ -389,14 +442,17 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
                     }
                 }
                 // Multievent splitting is possible. Check for a header match and extract the data size.
-                else if (mi.moduleHeaderFilter.matches(*mi.moduleHeader))
+                else if (a2::data_filter::matches(
+                        mi.moduleHeaderFilter, *mi.moduleHeader))
                 {
 
-                    u32 moduleEventSize = mi.moduleHeaderFilter.extractData(*mi.moduleHeader, 'S');
+                    u32 moduleEventSize = a2::data_filter::extract(
+                        mi.filterCacheModuleSectionSize, *mi.moduleHeader);
+
 
                     if (mi.moduleHeader + moduleEventSize + 1 > ptrToLastWord)
                     {
-                        ++m_d->m_localStats.buffersWithErrors;
+                        m_d->m_localStats.buffersWithErrors++;
 
                         QString msg = (QString("Error (mvme fmt): extracted module event size (%1) exceeds buffer size!"
                                                " eventIndex=%2, moduleIndex=%3, moduleHeader=0x%4, skipping event")
@@ -414,11 +470,11 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
                     else
                     {
 #ifdef MVME_EVENT_PROCESSOR_DEBUGGING
-                        qDebug("%s moduleIndex=%u, moduleHeader=0x%08x, moduleEventSize=%u",
-                               __PRETTY_FUNCTION__, moduleIndex, *mi.moduleHeader, moduleEventSize);
+                        qDebug("%s moduleIndex=%u, moduleHeader=0x%08x @%p, moduleEventSize=%u",
+                               __PRETTY_FUNCTION__, moduleIndex, *mi.moduleHeader, mi.moduleHeader, moduleEventSize);
 #endif
 
-                        ++m_d->m_localStats.moduleCounters[eventIndex][moduleIndex];
+                        m_d->m_localStats.moduleCounters[eventIndex][moduleIndex]++;
 
                         if (m_d->analysis_ng)
                         {
@@ -473,7 +529,9 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
 
             if (m_d->analysis_ng)
             {
-                //TimedBlock timed_block(TimedBlockId_MEP_Analysis_EndEvent);
+#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+                qDebug("%s analysis::endEvent()", __PRETTY_FUNCTION__);
+#endif
                 m_d->analysis_ng->endEvent(eventConfig->getId());
             }
 

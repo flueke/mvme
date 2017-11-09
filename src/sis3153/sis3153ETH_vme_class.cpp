@@ -397,9 +397,9 @@ int sis3153eth::set_UdpSocketReceiveNofPackagesPerRequest(unsigned int nofPacket
 unsigned int nof_packets ;
 unsigned int data ;
 
-    this->udp_sis3153_register_read(0x4, &data);
-    data |= 0x4; // 4 us gap
-    this->udp_sis3153_register_write(0x4, data);
+//  this->udp_sis3153_register_read(0x4, &data);
+//  data |= 0x4; // 4 us gap
+//  this->udp_sis3153_register_write(0x4, data);
 
     nof_packets = nofPacketsPerRequest ;
     if(nofPacketsPerRequest == 0){
@@ -3828,6 +3828,109 @@ int sis3153eth::list_generate_add_vmeA32MBLT64_swapDWord_read(UINT* list_ptr, UI
 }
 
 
+
+
+
+
+
+/**************************************************************************************************/
+
+int sis3153eth::list_generate_add_vmeA32D32_read_saveDynBlkSizingLength(UINT* list_ptr, UINT* list_buffer, UINT vme_addr)
+{
+    int return_code = 0;
+    unsigned int vme_write_flag;
+    unsigned int vme_fifo_mode;
+    unsigned int vme_access_size;
+    unsigned int vme_am_mode;
+    unsigned int vme_nof_bytes;
+
+    // VME read: A32 D32
+    vme_write_flag = 0;
+    vme_fifo_mode = 0;
+    vme_access_size = 2; // (0: 1-byte; 1: 2-byte; 2: 4-byte; 3: 8-byte)
+    vme_am_mode = 0x9 + 0x2000; // bit 13 is set ;
+    vme_nof_bytes = 4;
+
+    list_buffer[*list_ptr + 0] = 0xAAAA4000 | (vme_write_flag << 11) | (vme_fifo_mode << 10) | (vme_access_size << 8) | ((vme_nof_bytes >> 16) & 0xFF);
+    list_buffer[*list_ptr + 1] = ((vme_am_mode & 0xFFFF) << 16) | (vme_nof_bytes & 0xFFFF); // 4 Bytes
+    list_buffer[*list_ptr + 2] = (vme_addr & 0xfffffffc); // force 4-byte boundary addressing
+    *list_ptr = *list_ptr + 3;
+    return return_code;
+}
+
+
+int sis3153eth::list_generate_add_vmeA32BLT32_read_withDynBlkSizingLength(UINT* list_ptr, UINT* list_buffer, UINT vme_addr, UINT request_nof_words)
+{
+    int return_code = 0;
+    unsigned int vme_write_flag;
+    unsigned int vme_fifo_mode;
+    unsigned int vme_access_size;
+    unsigned int vme_am_mode;
+    unsigned int vme_nof_bytes;
+
+    // VME read: A32 BLT32
+    vme_write_flag = 0;
+    vme_fifo_mode = 0;
+    vme_access_size = 2; // (0: 1-byte; 1: 2-byte; 2: 4-byte; 3: 8-byte)
+    vme_am_mode = 0x000B;
+    vme_am_mode = vme_am_mode + 0x1000; // bit 12=1 dynamically blockread length;
+    vme_nof_bytes = 4 * request_nof_words;
+
+    list_buffer[*list_ptr + 0] = 0xAAAA4000 | (vme_write_flag << 11) | (vme_fifo_mode << 10) | (vme_access_size << 8) | ((vme_nof_bytes >> 16) & 0xFF);
+    list_buffer[*list_ptr + 1] = ((vme_am_mode & 0xFFFF) << 16) | (vme_nof_bytes & 0xFFFF); // 4 Bytes
+    list_buffer[*list_ptr + 2] = (vme_addr & 0xfffffffc); // force 4-byte boundary addressing
+    *list_ptr = *list_ptr + 3;
+    return return_code;
+}
+
+
+int sis3153eth::list_generate_add_vmeA32MBLT64_read_withDynBlkSizingLength(UINT* list_ptr, UINT* list_buffer, UINT vme_addr, UINT request_nof_words)
+{
+    int return_code = 0;
+    unsigned int vme_write_flag;
+    unsigned int vme_fifo_mode;
+    unsigned int vme_access_size;
+    unsigned int vme_am_mode;
+    unsigned int vme_nof_bytes;
+
+    // VME read: A32 BLT32
+    vme_write_flag = 0;
+    vme_fifo_mode = 0;
+    vme_access_size = 3; // (0: 1-byte; 1: 2-byte; 2: 4-byte; 3: 8-byte)
+    vme_am_mode = 0x0008;
+    vme_am_mode = vme_am_mode + 0x1000; // bit 12=1 dynamically blockread length;
+    vme_nof_bytes = 4 * request_nof_words;
+
+    list_buffer[*list_ptr + 0] = 0xAAAA4000 | (vme_write_flag << 11) | (vme_fifo_mode << 10) | (vme_access_size << 8) | ((vme_nof_bytes >> 16) & 0xFF);
+    list_buffer[*list_ptr + 1] = ((vme_am_mode & 0xFFFF) << 16) | (vme_nof_bytes & 0xFFFF); // 4 Bytes
+    list_buffer[*list_ptr + 2] = (vme_addr & 0xfffffffc); // force 4-byte boundary addressing
+    *list_ptr = *list_ptr + 3;
+    return return_code;
+}
+
+int sis3153eth::list_generate_add_vmeA32MBLT64_swapDWord_read_withDynBlkSizingLength(UINT* list_ptr, UINT* list_buffer, UINT vme_addr, UINT request_nof_words)
+{
+    int return_code = 0;
+    unsigned int vme_write_flag;
+    unsigned int vme_fifo_mode;
+    unsigned int vme_access_size;
+    unsigned int vme_am_mode;
+    unsigned int vme_nof_bytes;
+
+    // VME read: A32 BLT32
+    vme_write_flag = 0;
+    vme_fifo_mode = 0;
+    vme_access_size = 3; // (0: 1-byte; 1: 2-byte; 2: 4-byte; 3: 8-byte)
+    vme_am_mode = 0x0408;  // bit 10 is set -> Swap 32-bit words  of 64-bit word
+    vme_am_mode = vme_am_mode + 0x1000; // bit 12=1 dynamically blockread length;
+    vme_nof_bytes = 4 * request_nof_words;
+
+    list_buffer[*list_ptr + 0] = 0xAAAA4000 | (vme_write_flag << 11) | (vme_fifo_mode << 10) | (vme_access_size << 8) | ((vme_nof_bytes >> 16) & 0xFF);
+    list_buffer[*list_ptr + 1] = ((vme_am_mode & 0xFFFF) << 16) | (vme_nof_bytes & 0xFFFF); // 4 Bytes
+    list_buffer[*list_ptr + 2] = (vme_addr & 0xfffffffc); // force 4-byte boundary addressing
+    *list_ptr = *list_ptr + 3;
+    return return_code;
+}
 
 
 #endif // ETHERNET_VME_INTERFACE

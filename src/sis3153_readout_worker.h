@@ -114,6 +114,7 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
         };
 
         void flushCurrentOutputBuffer();
+        void maybePutBackBuffer();
 
         DAQState m_state = DAQState::Idle;
         DAQState m_desiredState = DAQState::Idle;

@@ -81,6 +81,13 @@ void Histo2D::fill(double x, double y, double weight)
     else
     {
         u32 linearBin = yBin * m_axisBinnings[Qt::XAxis].getBins() + xBin;
+        /* If clear to nan
+        if (std::isnan(m_data[linearBin]))
+        {
+            m_data[linearBin] = 0.0;
+        }
+        */
+
         m_data[linearBin] += weight;
         double newValue = m_data[linearBin];
 
@@ -124,11 +131,9 @@ double Histo2D::getBinContent(u32 xBin, u32 yBin) const
 
 void Histo2D::clear()
 {
-    size_t maxBin = m_axisBinnings[Qt::XAxis].getBins() * m_axisBinnings[Qt::YAxis].getBins();
-    for (size_t bin = 0; bin < maxBin; ++bin)
-    {
-        m_data[bin] = 0.0;
-    }
+    size_t binCount = m_axisBinnings[Qt::XAxis].getBins() * m_axisBinnings[Qt::YAxis].getBins();
+    //std::fill(m_data, m_data + binCount, make_quiet_nan());
+    std::fill(m_data, m_data + binCount, 0.0);
 
     m_underflow = 0.0;
     m_overflow = 0.0;

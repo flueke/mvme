@@ -238,6 +238,10 @@ class OperatorConfigurationWidget: public QWidget
 
         // AggregateOps
         QComboBox *combo_aggOp;
+
+        QCheckBox *cb_useMinThreshold,
+                  *cb_useMaxThreshold;
+
         QDoubleSpinBox *spin_minThreshold,
                        *spin_maxThreshold;
 };
@@ -299,6 +303,12 @@ class DisplayTree: public EventWidgetTree
         QTreeWidgetItem *histo2DRoot = nullptr;
 };
 
+class SessionErrorDialog: public QDialog
+{
+    Q_OBJECT
+    public:
+        SessionErrorDialog(const QString &message, const QString &title = QString(), QWidget *parent = nullptr);
+};
 
 }
 

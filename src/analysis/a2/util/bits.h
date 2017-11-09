@@ -16,8 +16,8 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
-#ifndef __BITS_H__
-#define __BITS_H__
+#ifndef __A2_BITS_H__
+#define __A2_BITS_H__
 
 /* bit_gather() and bit_scatter() are from the FXT library by Joerg Arndt.
  * See http://www.jjj.de/fxt/ for details on the FXT library.
@@ -118,4 +118,4 @@ inline uint8_t *align_upwards_b(uint8_t *stack, uintptr_t align)
     return (uint8_t *)addr;
 }
 
-#endif /* __BITS_H__ */
+#endif /* __A2_BITS_H__ */

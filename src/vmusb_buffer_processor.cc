@@ -933,6 +933,7 @@ void VMUSBBufferProcessor::timetick()
     outputBuffer->used = sizeof(u32);
 
     Q_ASSERT(m_d->m_listfileHelper);
+
     m_d->m_listfileHelper->writeBuffer(outputBuffer);
 
     if (outputBuffer != &m_localTimetickBuffer)

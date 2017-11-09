@@ -18,8 +18,8 @@ struct BiHash
 
     inline void insert(const T1 &t1,  const T2 &t2)
     {
-        map[t1] = t2;
-        reverse_map[t2] = t1;
+        map.insert(t1, t2);
+        reverse_map.insert(t2, t1);
     }
 
     inline T2 value(const T1 &t1, const T2 &t2 = T2()) const

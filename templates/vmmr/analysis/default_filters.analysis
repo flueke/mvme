@@ -30,7 +30,7 @@
                 "eventId": "{bf67b925-0ec8-48ec-801d-b7abd4d296b9}",
                 "id": "{99ee6e7a-9203-4ab4-bb43-3921132b3563}",
                 "moduleId": "{4a9c0c35-260d-41d2-8005-9b87756b6d4c}",
-                "name": "vmmr.amplitude"
+                "name": "amplitude"
             }
         ]
     }

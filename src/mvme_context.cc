@@ -72,6 +72,7 @@ struct MVMEContextPrivate
     QMutex m_logBufferMutex;
     ListFileOutputInfo m_listfileOutputInfo = {};
     RunInfo m_runInfo;
+    MVMEContext::ReplayFileAnalysisInfo m_replayFileAnalysisInfo;
     u32 m_ctrlOpenRetryCount = 0;
 
     void stopDAQ();
@@ -288,6 +289,9 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent)
                                .arg(m_controller->getIdentifyingString())
                                .arg(moduleIdAndFirmware & 0xffff, 4, 16, QLatin1Char('0'))
                                );
+
+                    QSettings appSettings;
+                    appSettings.setValue("VME/LastConnectedSIS3153", sis->getAddress());
                 }
                 else
                 {
@@ -721,13 +725,14 @@ void MVMEContext::onReplayDone()
         mbPerSecond = replayMB / secondsElapsed;
     }
 
-    QString str = QString("Replay finished: Read %1 MB in %2 s, %3 MB/s\n")
+    QString msg = QString("Replay finished: Read %1 MB in %2 s, %3 MB/s\n")
         .arg(replayMB)
         .arg(secondsElapsed)
         .arg(mbPerSecond)
         ;
 
-    logMessage(str);
+    logMessage(msg);
+    qDebug().noquote() << msg;
 }
 
 DAQState MVMEContext::getDAQState() const
@@ -799,6 +804,16 @@ void MVMEContext::closeReplayFile()
             setMode(GlobalMode::DAQ);
         }
     }
+}
+
+void MVMEContext::setReplayFileAnalysisInfo(ReplayFileAnalysisInfo info)
+{
+    m_d->m_replayFileAnalysisInfo = info;
+}
+
+MVMEContext::ReplayFileAnalysisInfo MVMEContext::getReplayFileAnalysisInfo() const
+{
+    return m_d->m_replayFileAnalysisInfo;
 }
 
 void MVMEContext::setMode(GlobalMode mode)
@@ -1293,6 +1308,16 @@ void MVMEContext::openWorkspace(const QString &dirName)
             }
         }
 
+        // sessions subdir
+        {
+            QDir dir(getWorkspacePath(QSL("SessionDirectory"), QSL("sessions")));
+
+            if (!QDir::root().mkpath(dir.absolutePath()))
+            {
+                throw QString(QSL("Error creating sessions directory %1.")).arg(dir.path());
+            }
+        }
+
         {
             ListFileOutputInfo info = {};
             info.enabled   = workspaceSettings->value(QSL("WriteListFile"), QSL("true")).toBool();
@@ -1478,12 +1503,24 @@ bool MVMEContext::loadAnalysisConfig(QIODevice *input, const QString &inputInfo)
     return false;
 }
 
-bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc, const QString &inputInfo)
+bool MVMEContext::loadAnalysisConfig(const QByteArray &blob, const QString &inputInfo)
+{
+    auto doc = QJsonDocument::fromJson(blob);
+
+    return loadAnalysisConfig(doc, inputInfo);
+}
+
+bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc, const QString &inputInfo, AnalysisLoadFlags flags)
 {
     using namespace analysis;
     using namespace vme_analysis_common;
 
-    auto json = doc.object()[QSL("AnalysisNG")].toObject();
+    QJsonObject json = doc.object();
+
+    if (json.contains("AnalysisNG"))
+    {
+        json = json["AnalysisNG"].toObject();
+    }
 
     auto analysis_ng = std::make_unique<Analysis>();
     auto readResult = analysis_ng->read(json, getVMEConfig());
@@ -1532,7 +1569,7 @@ bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc, const QString &in
                    .arg(inputInfo)
                    );
 
-        if (was_running)
+        if (was_running && !flags.NoAutoResume)
         {
             resumeAnalysis();
         }
@@ -1635,7 +1672,7 @@ void MVMEContext::analysisOperatorEdited(const std::shared_ptr<analysis::Operato
 {
     AnalysisPauser pauser(this);
     m_analysis_ng->setModified();
-    analysis::do_beginRun_forward(op.get());
+    m_analysis_ng->beginRun();
 
     if (m_analysisUi)
     {

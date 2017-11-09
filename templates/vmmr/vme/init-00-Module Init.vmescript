@@ -1,2 +1,188 @@
 ## Parameters for VMMR
 
+# Operation Mode
+# ############################################################################
+# active_buses
+0x6042  0xffff      # A '1' bit means bus active. Reading returns the buses
+                    # that where activated at DAQ start time.
+
+# output_format
+0x6044  0           # FIXME: description
+
+
+# adc_resolution
+0x6046  4           # FIXME: values and description
+                    # number of valid output bits for maximum amplitude
+                    # 0 -> 16 bits
+                    # 1 -> 15 bits
+                    # 2 -> 14 bits
+                    # 3 -> 13 bits
+                    # 4 -> 12 bits
+                    #
+# Trigger Setup
+# ############################################################################
+# win_start
+#0x6050  16368      # Unit: 5 ns
+                    # 0x0000 -> start at -20.48 us
+                    # 0x1FFF -> start at +20.48 us
+                    # 0x1000 -> 4k, no delay
+                    # < 4k -> window starts before trigger
+                    # > 4k -> window is delayed
+
+# win_width (12 bit value)
+0x6054  64          # Unit: 5 ns, max 4k -> 20.48 us
+
+# ext_trig_source FIXME
+0x6058  3
+
+# trig_source
+# Allows selecting which channels create a trigger.
+# Bit 0 corresponds to channel 0, bit 15 to channel 15.
+# A '1' value means the channel is a trigger source.
+0x605A  0b0000'0000'0000'0000
+
+# out_trigger_source
+0x605C  0           # 0 -> free trigger to trigger output
+                    # 1 -> accepted trigger to trig output (FIXME)
+
+# trigger_output
+0x605E  0x100       # If 0x605C = 0 (free trigger):
+                    # Bit 0 corresponds to channel 0, bit 15 to channel 15.
+                    # A '1' value means the channel is a trigger source.
+                    # FIXME: what does it do? default correct?
+
+# I/O
+# ############################################################################
+# Sorted from top to bottom, as on the front panel.
+
+# ECL3 input
+0x6060  0x00        # lower 4 bits:
+                    #   0 -> Off, 1 -> trig0_in
+                    # upper 4 bits:
+                    #   0 -> terminated, 1 -> unterminated
+
+0x6062  0x00        # lower 4 bits:
+                    #   0 -> Off, 1 -> sync_in, 2 -> trig1_in
+                    # upper 4 bits:
+                    #   0 -> terminated, 1 -> unterminated
+                    # When sync_in is selected also set reg 0x6096!
+
+# ECL0 output
+0x6066  0           # 0 -> off
+                    # 0 -> busy
+                    # 0 -> data in buffer above threshold 0x6018 (= Data ready)
+                    # 0 -> events in buffer above threshold 0x601E
+
+# NIM3 input
+0x6068  1           # 0 -> off
+                    # 1 -> trig0_in
+
+# NIM2 input
+0x606A  1           # 0 -> off
+                    # 1 -> trig1_in
+                    # 2 -> sync_in
+                    # When sync_in is selected also set reg 0x6096!
+
+# NIM1 is always trigger output
+
+# NIM0 output
+0x606E  1           # 0 -> off
+                    # 1 -> CBus
+                    # 4 -> busy_out (== FIFO full or ACQ stopped)
+                    # 8 -> data in buffer above threshold 0x6018
+                    # 9 -> events in buffer above threshold 0x601E
+
+# Internal Test Pulser
+# ############################################################################
+# pulser_status
+0x6070  0           # 0 -> off, 1 -> on, 3 -> trigger
+
+# pulser_amplitude
+0x6072  400         # maximum amplitude: 0xFFF = 4095
+
+# Timestamp/Event Counters: CTRA, CTRB
+# ############################################################################
+# ts_sources
+0x6096  0b00        # bit 0: frequency source (0 -> VME, 1 -> external)
+                    # bit 1: external reset enable
+                    # For RCP, QDC: bit4 -> CTRB counts trigger outputs (= free
+                    # triggers, selected by 0x605E
+
+# ts_divisor (16 bit value)
+0x6098  1           # timestamp = time / ts_divisor
+                    # 0 means division by 65536
+
+# stop_ctr
+#0x60AE  0b00       # bit 0: stop CTRB (time_0, time_1, time_2)
+                    # bit 1: stop CTRA (ts_counter_lo, ts_counter_hi)
+                    # with 0 -> run, 1 -> stop counter
+
+# Multiplicity Filter
+# ############################################################################
+
+# Events are accepted when low_limit <= responding channels <= high_limit.
+
+# high_limit0
+0x60B0  255         # upper limit of responding channels
+
+# low_limit0
+0x60B2  0           # lower limit of responding channels
+
+
+# FIXME: everything below needs FIXING! :)
+
+# Front end settings (Channel Addressing)
+# ############################################################################
+
+# select_bus
+0x6100  0           # 0..15 selects individual buses,
+                    # 16 selects all (only write to bus is possible)
+
+# fe_bus_address (8 bits)
+0x6110  0           # Subaddress in frontend
+
+# fe_addr (16 bits)
+#0x6112  0           # Write access: Data write register
+#                    # Read access: request data
+
+# 0x6116 read_address:  requested data: Frontend: Address[7:0]
+# 0x6118 read_data:     requested data: Frontend: Data[15:0]
+# 0x611A bus_delay:     bus delay + bus latencies
+
+
+# Frontend module registers
+# ############################################################################
+#
+#  +---------+------------------+-------+----------+---------------------------------------------------+
+#  | Address | Function         | Width | R/W      | Description                                       |
+#  +=========+==================+=======+==========+===================================================+
+#  | 0x01    | reset            | 0     | W        | resets frontend data                              |
+#  +---------+------------------+-------+----------+---------------------------------------------------+
+#  | 0x03    | LEDs_on          | 1     | W        | activate onboard LEDs                             |
+#  +---------+------------------+-------+----------+---------------------------------------------------+
+#  | 0x04    | start            | 1     | R/W(XXX) | accept trigger, stop also clears buffers          |
+#  +---------+------------------+-------+----------+---------------------------------------------------+
+#  | 0x05    | temp             | 9     | R        | temperature in Kelvin                             |
+#  +---------+------------------+-------+----------+---------------------------------------------------+
+#  | 0x06    | voltage          | 10    | R        | primary voltage in mV                             |
+#  +---------+------------------+-------+----------+---------------------------------------------------+
+#  | 0x07    | receiver_power - | R     | ...      | DACB, bank0                                       |
+#  +---------+------------------+-------+----------+---------------------------------------------------+
+#  | 0x08    | pulser_ampl -    | -     | DACA     | DACC, bank1                                       |
+#  +---------+------------------+-------+----------+---------------------------------------------------+
+#  | 0x09    | com_thr0         | -     | -        |                                                   |
+#  +---------+------------------+-------+----------+---------------------------------------------------+
+#  | 0x0A    | com_thr1         | -     | -        |                                                   |
+#  +---------+------------------+-------+----------+---------------------------------------------------+
+#  | 0x0C    | pulser_ping      | -     | -        | Bit1: 1 -> periodic, 0 -> one                     |
+#  |         |                  |       |          | Bit2: 1 -> trigger, 0 -> tailpulse                |
+#  |         |                  |       |          | Data: ping time[15:0],                            |
+#  |         |                  |       |          |  High bit: 1 -> time controlled, 0 -> immediately |
+#  +---------+------------------+-------+----------+---------------------------------------------------+
+#  | 0x10    | data_threshold   | -     | -        | data below are supressed[11:0]                    |
+#  +---------+------------------+-------+----------+---------------------------------------------------+
+#  | 0x21    | peak_delay       | -     | -        | maximum possible delay between trigger and shaper |
+#  |         |                  |       |          | peak                                              |
+#  +---------+------------------+-------+----------+---------------------------------------------------+
+#  | 0x22    | active_bank      | 16    | -        | XXX: write me                                     |
+#  +---------+------------------+-------+----------+---------------------------------------------------+

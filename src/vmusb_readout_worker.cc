@@ -524,7 +524,6 @@ void VMUSBReadoutWorker::readoutLoop()
 
     QTime elapsedTime;
     elapsedTime.start();
-    m_bufferProcessor->timetick();
 
     while (true)
     {
