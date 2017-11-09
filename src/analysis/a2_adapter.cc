@@ -255,7 +255,9 @@ DEF_OP_MAGIC(aggregate_ops_magic)
             result = make_aggregate_mean(arena, a2_input, thresholds);
             break;
 
-        // TODO: sigma, min
+        case AggregateOps::Op_Min:
+            result = make_aggregate_min(arena, a2_input, thresholds);
+            break;
 
         case AggregateOps::Op_Max:
             result = make_aggregate_max(arena, a2_input, thresholds);
@@ -265,13 +267,26 @@ DEF_OP_MAGIC(aggregate_ops_magic)
             result = make_aggregate_multiplicity(arena, a2_input, thresholds);
             break;
 
-        // TODO: minX, maxX, sigmaX
+        case AggregateOps::Op_Sigma:
+            result = make_aggregate_sigma(arena, a2_input, thresholds);
+            break;
+
+        case AggregateOps::Op_MinX:
+            result = make_aggregate_minx(arena, a2_input, thresholds);
+            break;
+
+        case AggregateOps::Op_MaxX:
+            result = make_aggregate_maxx(arena, a2_input, thresholds);
+            break;
 
         case AggregateOps::Op_MeanX:
             result = make_aggregate_meanx(arena, a2_input, thresholds);
             break;
 
+        // TODO: sigmaX
+
         default:
+            qDebug() << "analysis::AggregateOps::Operation =" << agOps->getOperation();
             assert(!"unsupported AggregateOps::Operation");
     }
 
