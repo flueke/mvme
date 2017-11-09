@@ -353,6 +353,27 @@ DEF_OP_MAGIC(range_filter_magic)
     return result;
 }
 
+DEF_OP_MAGIC(keep_previous_magic)
+{
+    LOG("");
+    assert(inputSlots.size() == 1);
+    assert_slot(inputSlots[0]);
+    assert(inputSlots[0]->paramIndex == analysis::Slot::NoParamIndex);
+
+    auto prevValue = qobject_cast<analysis::PreviousValue *>(op.get());
+
+    assert(prevValue);
+
+    auto a2_input = find_output_pipe(adapterState, inputSlots[0]);
+
+    auto result = a2::make_keep_previous(
+        arena,
+        a2_input,
+        prevValue->m_keepValid);
+
+    return result;
+}
+
 DEF_OP_MAGIC(histo1d_sink_magic)
 {
     LOG("");
@@ -478,6 +499,7 @@ static const QHash<const QMetaObject *, OperatorMagic *> OperatorMagicTable =
     { &analysis::AggregateOps::staticMetaObject, aggregate_ops_magic },
     { &analysis::BinarySumDiff::staticMetaObject, binary_equation_magic },
     { &analysis::RangeFilter1D::staticMetaObject, range_filter_magic },
+    { &analysis::PreviousValue::staticMetaObject, keep_previous_magic },
 
     { &analysis::Histo1DSink::staticMetaObject, histo1d_sink_magic },
     { &analysis::Histo2DSink::staticMetaObject, histo2d_sink_magic },
