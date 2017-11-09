@@ -97,6 +97,7 @@ if (ENABLE_HDF5)
     endif(HDF5_FOUND)
 endif(ENABLE_HDF5)
 
+# Qwt
 find_library(QWT_LIBRARY NAMES qwt qwt-qt5)
 include_directories(${QWT_INCLUDE_DIR})
 #include(FindPackageHandleStandardArgs)
@@ -104,6 +105,9 @@ include_directories(${QWT_INCLUDE_DIR})
 
 message("-- Using QWT_INCLUDE_DIR=${QWT_INCLUDE_DIR}")
 message("-- Using QWT_LIBRARY=${QWT_LIBRARY}")
+
+# ROOT
+option(ENABLE_ROOT "Enable ROOT support" OFF)
 
 # Subdirectories containing build targets
 add_subdirectory(src)

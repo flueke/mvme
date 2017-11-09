@@ -237,6 +237,9 @@ add_mvme_executable(dev_sis3153_read_raw_buffers_file "dev_sis3153_read_raw_buff
 add_mvme_executable(dev_udp_sender "dev_udp_sender.cc")
 add_mvme_executable(dev_udp_receiver "dev_udp_receiver.cc")
 
-add_subdirectory(root)
+# root subdir if ROOT support is enabled
+if (ENABLE_ROOT)
+    add_subdirectory(root)
+endif (ENABLE_ROOT)
 
 # vim:tw=0
