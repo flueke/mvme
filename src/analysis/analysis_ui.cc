@@ -3176,15 +3176,33 @@ void AnalysisWidgetPrivate::actionClearHistograms()
     }
 }
 
+static const QString SessionFileFilter = QSL("MVME Sessions (*.hdf5);; All Files (*.*)");
+static const QString SessionFileExtension = QSL(".hdf5");
+
 void AnalysisWidgetPrivate::actionSaveSession()
 {
 #ifdef MVME_ENABLE_HDF5
-    AnalysisPauser pauser(m_context);
-    QString filename = "test.hdf5";
+    auto sessionPath = m_context->getWorkspacePath(QSL("SessionDirectory"));
 
-#if 0
-    save_analysis_session(filename, m_context->getAnalysis());
-#else
+    if (sessionPath.isEmpty())
+    {
+        sessionPath = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
+    }
+
+    QString filename = QFileDialog::getSaveFileName(
+        m_q, QSL("Save session"), sessionPath, SessionFileFilter);
+
+    if (filename.isEmpty())
+        return;
+
+    QFileInfo fileInfo(filename);
+
+    if (fileInfo.completeSuffix().isEmpty())
+    {
+        filename += SessionFileExtension;
+    }
+
+    AnalysisPauser pauser(m_context);
 
     using ResultType = QPair<bool, QString>;
 
@@ -3209,15 +3227,25 @@ void AnalysisWidgetPrivate::actionSaveSession()
         m_context->logMessageRaw(result.second);
     }
 #endif
-
-#endif
 }
 
 void AnalysisWidgetPrivate::actionLoadSession()
 {
 #ifdef MVME_ENABLE_HDF5
+    auto sessionPath = m_context->getWorkspacePath(QSL("SessionDirectory"));
+
+    if (sessionPath.isEmpty())
+    {
+        sessionPath = QStandardPaths::standardLocations(QStandardPaths::DocumentsLocation).at(0);
+    }
+
+    QString filename = QFileDialog::getOpenFileName(
+        m_q, QSL("Load session"), sessionPath, SessionFileFilter);
+
+    if (filename.isEmpty())
+        return;
+
     AnalysisPauser pauser(m_context);
-    QString filename = "test.hdf5";
 
     QProgressDialog progressDialog;
     progressDialog.setLabelText(QSL("Loading session..."));
@@ -3229,7 +3257,9 @@ void AnalysisWidgetPrivate::actionLoadSession()
 
     QJsonDocument analysisJson;
 
-    //auto result = load_analysis_config_from_session_file(filename);
+    /* Non-blocking way of saying:
+     * auto result = load_analysis_config_from_session_file(filename);
+     */
     {
         using ResultType = QPair<QJsonDocument, QString>;
 
@@ -3258,8 +3288,10 @@ void AnalysisWidgetPrivate::actionLoadSession()
 
     if (m_context->loadAnalysisConfig(analysisJson, filename, { .NoAutoResume = true }))
     {
+        /* Non-blocking way of saying:
+         * load_analysis_session(filename, m_context->getAnalysis());
+         */
         using ResultType = QPair<bool, QString>;
-        //load_analysis_session(filename, m_context->getAnalysis());
 
         QFutureWatcher<ResultType> watcher;
         QObject::connect(&watcher, &QFutureWatcher<ResultType>::finished, &loop, &QEventLoop::quit);

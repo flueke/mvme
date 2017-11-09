@@ -1305,6 +1305,16 @@ void MVMEContext::openWorkspace(const QString &dirName)
             }
         }
 
+        // sessions subdir
+        {
+            QDir dir(getWorkspacePath(QSL("SessionDirectory"), QSL("sessions")));
+
+            if (!QDir::root().mkpath(dir.absolutePath()))
+            {
+                throw QString(QSL("Error creating sessions directory %1.")).arg(dir.path());
+            }
+        }
+
         {
             ListFileOutputInfo info = {};
             info.enabled   = workspaceSettings->value(QSL("WriteListFile"), QSL("true")).toBool();
