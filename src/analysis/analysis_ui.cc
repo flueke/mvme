@@ -3171,7 +3171,10 @@ void AnalysisWidgetPrivate::actionClearHistograms()
         }
         else if (auto histoSink = qobject_cast<Histo2DSink *>(opEntry.op.get()))
         {
-            histoSink->m_histo->clear();
+            if (histoSink->m_histo)
+            {
+                histoSink->m_histo->clear();
+            }
         }
     }
 }
