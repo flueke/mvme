@@ -2808,8 +2808,10 @@ struct AnalysisWidgetPrivate
     QPair<bool, QString> actionSaveAs();
     void actionImport();
     void actionClearHistograms();
+#ifdef MVME_ENABLE_HDF5
     void actionSaveSession();
     void actionLoadSession();
+#endif
 
     void updateWindowTitle();
     void updateAddRemoveUserLevelButtons();
@@ -3191,12 +3193,28 @@ void AnalysisWidgetPrivate::actionClearHistograms()
     }
 }
 
+#ifdef MVME_ENABLE_HDF5
+
 static const QString SessionFileFilter = QSL("MVME Sessions (*.hdf5);; All Files (*.*)");
 static const QString SessionFileExtension = QSL(".hdf5");
 
+void handle_session_error(const QString &title, const QString &message)
+{
+    SessionErrorDialog dialog(title, message);
+    dialog.exec();
+
+    //m_context->logMessage(QString("Error saving session:"));
+    //m_context->logMessageRaw(result.second);
+}
+
 void AnalysisWidgetPrivate::actionSaveSession()
 {
-#ifdef MVME_ENABLE_HDF5
+    qDebug() << __PRETTY_FUNCTION__;
+
+    using ResultType = QPair<bool, QString>;
+
+    ResultType result;
+
     auto sessionPath = m_context->getWorkspacePath(QSL("SessionDirectory"));
 
     if (sessionPath.isEmpty())
@@ -3219,8 +3237,7 @@ void AnalysisWidgetPrivate::actionSaveSession()
 
     AnalysisPauser pauser(m_context);
 
-    using ResultType = QPair<bool, QString>;
-
+#if 1 // The QtConcurrent path
     QProgressDialog progressDialog;
     progressDialog.setLabelText(QSL("Saving session..."));
     progressDialog.setMinimum(0);
@@ -3234,19 +3251,19 @@ void AnalysisWidgetPrivate::actionSaveSession()
 
     progressDialog.exec();
 
-    auto result = future.result();
+    result = future.result();
+#else // The blocking path
+    result = save_analysis_session(filename, m_context->getAnalysis());
+#endif
 
     if (!result.first)
     {
-        m_context->logMessage(QString("Error saving session:"));
-        m_context->logMessageRaw(result.second);
+        handle_session_error(result.second, "Error saving session");
     }
-#endif
 }
 
 void AnalysisWidgetPrivate::actionLoadSession()
 {
-#ifdef MVME_ENABLE_HDF5
     auto sessionPath = m_context->getWorkspacePath(QSL("SessionDirectory"));
 
     if (sessionPath.isEmpty())
@@ -3263,7 +3280,7 @@ void AnalysisWidgetPrivate::actionLoadSession()
     AnalysisPauser pauser(m_context);
 
     QProgressDialog progressDialog;
-    progressDialog.setLabelText(QSL("Loading session..."));
+    progressDialog.setLabelText(QSL("Loading session config..."));
     progressDialog.setMinimum(0);
     progressDialog.setMaximum(0);
     progressDialog.show();
@@ -3272,10 +3289,9 @@ void AnalysisWidgetPrivate::actionLoadSession()
 
     QJsonDocument analysisJson;
 
-    /* Non-blocking way of saying:
-     * auto result = load_analysis_config_from_session_file(filename);
-     */
+    // load the config first
     {
+#if 1 // The QtConcurrent path
         using ResultType = QPair<QJsonDocument, QString>;
 
         QFutureWatcher<ResultType> watcher;
@@ -3287,25 +3303,34 @@ void AnalysisWidgetPrivate::actionLoadSession()
         loop.exec();
 
         auto result = future.result();
+#else // The blocking path
+        auto result = load_analysis_config_from_session_file(filename);
+#endif
 
         if (result.first.isNull())
         {
-            m_context->logMessage(QString("Error loading session:"));
-            m_context->logMessageRaw(result.second);
+            progressDialog.hide();
+
+            handle_session_error(result.second, "Error loading session config");
+
+            //m_context->logMessage(QString("Error loading session:"));
+            //m_context->logMessageRaw(result.second);
             return;
         }
 
         analysisJson = QJsonDocument(result.first);
     }
 
+    // This is the standard procedure when loading an analysis config
     closeAllUniqueWidgets();
     closeAllHistogramWidgets();
 
     if (m_context->loadAnalysisConfig(analysisJson, filename, { .NoAutoResume = true }))
     {
-        /* Non-blocking way of saying:
-         * load_analysis_session(filename, m_context->getAnalysis());
-         */
+        progressDialog.setLabelText(QSL("Loading session data..."));
+
+
+#if 1 // The QtConcurrent path
         using ResultType = QPair<bool, QString>;
 
         QFutureWatcher<ResultType> watcher;
@@ -3317,16 +3342,18 @@ void AnalysisWidgetPrivate::actionLoadSession()
         loop.exec();
 
         auto result = future.result();
+#else // The blocking path
+        auto result = load_analysis_session(filename, m_context->getAnalysis());
+#endif
 
         if (!result.first)
         {
-            m_context->logMessage(QString("Error saving session:"));
-            m_context->logMessageRaw(result.second);
+            handle_session_error(result.second, "Error loading session data");
             return;
         }
     }
-#endif
 }
+#endif
 
 void AnalysisWidgetPrivate::updateWindowTitle()
 {

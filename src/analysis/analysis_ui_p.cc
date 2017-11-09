@@ -37,6 +37,7 @@
 #include <QListWidget>
 #include <QMessageBox>
 #include <QRadioButton>
+#include <QTextBrowser>
 
 namespace analysis
 {
@@ -1872,6 +1873,35 @@ QWidget* CalibrationItemDelegate::createEditor(QWidget *parent, const QStyleOpti
     }
 
     return result;
+}
+
+SessionErrorDialog::SessionErrorDialog(const QString &message, const QString &title, QWidget *parent)
+    : QDialog(parent)
+{
+    if (!title.isEmpty())
+    {
+        setWindowTitle(title);
+    }
+    auto tb = new QTextBrowser(this);
+    tb->setText(message);
+    tb->setReadOnly(true);
+
+    auto bb = new QDialogButtonBox(QDialogButtonBox::Close, this);
+
+    auto bbLayout = new QHBoxLayout;
+    bbLayout->addStretch(1);
+    bbLayout->addWidget(bb);
+    bbLayout->addStretch(1);
+
+    auto mainLayout = new QVBoxLayout(this);
+    mainLayout->addWidget(tb);
+    mainLayout->addLayout(bbLayout);
+
+    QObject::connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
+    QObject::connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
+
+    resize(600, 300);
+    bb->button(QDialogButtonBox::Close)->setFocus();
 }
 
 }

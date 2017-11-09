@@ -83,6 +83,7 @@ QString make_operator_name(OperatorInterface *op)
     QString objectName = op->objectName();
 
     objectName.replace('/', '_');
+    objectName.replace("..", "__");
 
     // "className.rank.objectName.uuid"
     QString result(QString("%1.%2.%3.%4")
@@ -403,60 +404,122 @@ QJsonDocument load_analysis_config_from_session_file_(const QString &filename)
     return result;
 }
 
+struct WalkerData
+{
+    QStringList buffer;
+    u8 flags = 0;
+
+    static const u8 Abort = 1u << 0;
+};
+
+/* Note: H5E_error2_t is defined in /usr/include/hdf5/serial/H5Epublic.h */
+herr_t error_stack_walker(unsigned n, const H5E_error2_t *err, void *client_data)
+{
+    auto d = reinterpret_cast<WalkerData *>(client_data);
+
+    if (d->flags & WalkerData::Abort)
+        return 0;
+
+#if 0
+    qDebug() << __PRETTY_FUNCTION__ << n;
+    qDebug() << "\t" << err->cls_id << err->maj_num << err->min_num << err->line
+             << err->func_name << err->file_name << err->desc;
+#endif
+
+    auto msg = (QString("%1(): %2")
+                .arg(err->func_name)
+                .arg(err->desc)
+               );
+
+    d->buffer.push_back(msg);
+
+    if (err->func_name && strcmp(err->func_name, "H5FD_sec2_open") == 0)
+        d->flags |= WalkerData::Abort;
+
+    return 0; // -1 causes a "can not walk error"
+}
+
+QString get_h5_error_message(const H5::Exception &e)
+{
+    //qDebug() << __PRETTY_FUNCTION__;
+    //qDebug() << e.getCDetailMsg();
+    //qDebug() << e.getCFuncName();
+
+    WalkerData walkerData = {};
+
+    Exception::walkErrorStack(H5E_WALK_UPWARD, error_stack_walker, reinterpret_cast<void *>(&walkerData));
+
+    auto result = walkerData.buffer.join('\n');
+
+    qDebug() << __PRETTY_FUNCTION__ << result;
+
+    return result;
+
+#if 0
+    // Note: No fmemopen() under Windows.
+    char errorBuffer[1u << 16];
+    std::fill(errorBuffer, errorBuffer + sizeof(errorBuffer), '\0');
+
+    if (FILE *errorStream = fmemopen(errorBuffer, sizeof(errorBuffer), "w"))
+    {
+        Exception::printErrorStack(errorStream);
+
+        fclose(errorStream);
+
+        return QString(errorBuffer);
+    }
+
+    return QString();
+#endif
+}
+
 } /* end anon namespace */
+
+namespace analysis
+{
 
 QPair<bool, QString> save_analysis_session(const QString &filename, analysis::Analysis *analysis)
 {
+    qDebug() << __PRETTY_FUNCTION__;
+
+    auto result = qMakePair(true, QString());
+
     try
     {
         save_analysis_session_(filename, analysis);
-        return qMakePair(true, QString());
     }
     catch (const H5::Exception &e)
     {
-        char errorBuffer[1u << 16];
-        std::fill(errorBuffer, errorBuffer + sizeof(errorBuffer), '\0');
-
-        if (FILE *errorStream = fmemopen(errorBuffer, sizeof(errorBuffer), "w"))
-        {
-            Exception::printErrorStack(errorStream);
-
-            fclose(errorStream);
-
-            return qMakePair(false, QString(errorBuffer));
-        }
+        result.first = false;
+        result.second = get_h5_error_message(e);
     }
 
-    return qMakePair(false, QString(QSL("Unknown Error")));
+    return result;
 }
 
 QPair<bool, QString> load_analysis_session(const QString &filename, analysis::Analysis *analysis)
 {
+    qDebug() << __PRETTY_FUNCTION__;
+
+    auto result = qMakePair(true, QString());
+
     try
     {
         load_analysis_session_(filename, analysis);
-        return qMakePair(true, QString());
     }
     catch (const H5::Exception &e)
     {
-        char errorBuffer[1u << 16];
-        std::fill(errorBuffer, errorBuffer + sizeof(errorBuffer), '\0');
-
-        if (FILE *errorStream = fmemopen(errorBuffer, sizeof(errorBuffer), "w"))
-        {
-            Exception::printErrorStack(errorStream);
-
-            fclose(errorStream);
-
-            return qMakePair(false, QString(errorBuffer));
-        }
+        result.first = false;
+        result.second = get_h5_error_message(e);
     }
 
-    return qMakePair(false, QString(QSL("Unknown Error")));
+    return result;
 }
 
 QPair<QJsonDocument, QString> load_analysis_config_from_session_file(const QString &filename)
 {
+    qDebug() << __PRETTY_FUNCTION__;
+
     QPair<QJsonDocument, QString> result;
 
     try
@@ -465,18 +528,54 @@ QPair<QJsonDocument, QString> load_analysis_config_from_session_file(const QStri
     }
     catch (const H5::Exception &e)
     {
-        char errorBuffer[1u << 16];
-        std::fill(errorBuffer, errorBuffer + sizeof(errorBuffer), '\0');
-
-        if (FILE *errorStream = fmemopen(errorBuffer, sizeof(errorBuffer), "w"))
-        {
-            Exception::printErrorStack(errorStream);
-
-            fclose(errorStream);
-
-            result.second = QString(errorBuffer);
-        }
+        result.second = get_h5_error_message(e);
     }
 
     return result;
 }
+
+QPair<bool, QString> analysis_session_system_init()
+{
+    qDebug() << __PRETTY_FUNCTION__;
+
+    auto result = qMakePair(true, QString());
+
+#if 0
+    try
+    {
+        H5Library::open();
+        H5Library::initH5cpp();
+    }
+    catch (const H5::Exception &e)
+    {
+        result.first = false;
+        result.second = get_h5_error_message(e);
+    }
+#endif
+
+    return result;
+}
+
+QPair<bool, QString> analysis_session_system_destroy()
+{
+    qDebug() << __PRETTY_FUNCTION__;
+
+    auto result = qMakePair(true, QString());
+
+#if 0
+    try
+    {
+        H5Library::termH5cpp();
+        H5Library::close();
+    }
+    catch (const H5::Exception &e)
+    {
+        result.first = false;
+        result.second = get_h5_error_message(e);
+    }
+#endif
+
+    return result;
+}
+
+} // end namespace analysis

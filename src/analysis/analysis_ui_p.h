@@ -303,6 +303,12 @@ class DisplayTree: public EventWidgetTree
         QTreeWidgetItem *histo2DRoot = nullptr;
 };
 
+class SessionErrorDialog: public QDialog
+{
+    Q_OBJECT
+    public:
+        SessionErrorDialog(const QString &message, const QString &title = QString(), QWidget *parent = nullptr);
+};
 
 }
 
