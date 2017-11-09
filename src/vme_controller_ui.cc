@@ -82,10 +82,24 @@ void SIS3153EthSettingsWidget::validate()
 
 void SIS3153EthSettingsWidget::loadSettings(const QVariantMap &settings)
 {
-    m_le_sisAddress->setText(settings["hostname"].toString());
+    auto hostname = settings["hostname"].toString();
+
     m_cb_jumboFrames->setChecked(settings["JumboFrames"].toBool());
     m_cb_debugRawBuffers->setChecked(settings.value("DebugRawBuffers").toBool());
     m_cb_disableBuffering->setChecked(settings.value("DisableBuffering").toBool());
+
+    if (hostname.isEmpty())
+    {
+        QSettings appSettings;
+        hostname = appSettings.value("VME/LastConnectedSIS3153").toString();
+    }
+
+    if (hostname.isEmpty())
+    {
+        hostname = QSL("sis3153-0040");
+    }
+
+    m_le_sisAddress->setText(hostname);
 }
 
 QVariantMap SIS3153EthSettingsWidget::getSettings()

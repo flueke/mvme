@@ -289,6 +289,9 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent)
                                .arg(m_controller->getIdentifyingString())
                                .arg(moduleIdAndFirmware & 0xffff, 4, 16, QLatin1Char('0'))
                                );
+
+                    QSettings appSettings;
+                    appSettings.setValue("VME/LastConnectedSIS3153", sis->getAddress());
                 }
                 else
                 {
