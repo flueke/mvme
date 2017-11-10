@@ -2,6 +2,9 @@
 Do these first!
 ==================================================
 
+* Fix crash in analysis ui when moving an operator. Happens with the PMT test
+  setup when moving one of the rightmost 2d histos.
+
 * Checks what's up with the size limit of the log view. It never seems to stop
   growing and that's part of why there's such a major slowdown when being
   spammed by controller errors.
