@@ -457,6 +457,8 @@ static const QString AnalysisFileFilter = QSL("MVME Analysis Files (*.analysis);
 
 using SetOfVoidStar = QSet<void *>;
 
+static const u32 PeriodicUpdateTimerInterval_ms = 1000;
+
 struct EventWidgetPrivate
 {
     enum Mode
@@ -501,6 +503,28 @@ struct EventWidgetPrivate
     // The user level that was manually added via addUserLevel()
     s32 m_manualUserLevel = 0;
 
+    // Actions used in makeToolBar()
+    std::unique_ptr<QAction> m_actionImportForModuleFromTemplate;
+    std::unique_ptr<QAction> m_actionImportForModuleFromFile;
+    QWidgetAction *m_actionModuleImport;
+
+    // Actions and widgets used in makeEventSelectAreaToolBar()
+    QAction *m_actionSelectVisibleLevels;
+    QAction *m_actionShowWalltimeRates;
+
+    // Periodically updated extractor hit counts and histo sink entry counts.
+    struct ObjectCounters
+    {
+        QVector<double> hitCounts;
+    };
+
+    QHash<Extractor *, ObjectCounters> m_extractorCounters;
+    QHash<Histo1DSink *, ObjectCounters> m_histo1DSinkCounters;
+    QHash<Histo2DSink *, ObjectCounters> m_histo2DSinkCounters;
+
+    double m_prevAnalysisTimeticks = 0.0;;
+    bool m_showWalltimeRates = false;
+
     void createView(const QUuid &eventId);
     DisplayLevelTrees createTrees(const QUuid &eventId, s32 level);
     DisplayLevelTrees createSourceTrees(const QUuid &eventId);
@@ -527,6 +551,8 @@ struct EventWidgetPrivate
     void generateDefaultFilters(ModuleConfig *module);
     PipeDisplay *makeAndShowPipeDisplay(Pipe *pipe);
     void doPeriodicUpdate();
+    void periodicUpdateExtractorCounters(double dt_s);
+    void periodicUpdateHistoCounters(double dt_s);
 
     // Returns the currentItem() of the tree widget that has focus.
     QTreeWidgetItem *getCurrentNode();
@@ -535,14 +561,6 @@ struct EventWidgetPrivate
     void importForModuleFromTemplate();
     void importForModuleFromFile();
     void importForModule(ModuleConfig *module, const QString &startPath);
-
-    // Actions used in makeToolBar()
-    std::unique_ptr<QAction> m_actionImportForModuleFromTemplate;
-    std::unique_ptr<QAction> m_actionImportForModuleFromFile;
-    QWidgetAction *m_actionModuleImport;
-
-    // Actions and widgets used in makeEventSelectAreaToolBar()
-    QAction *m_actionSelectVisibleLevels;
 };
 
 void EventWidgetPrivate::createView(const QUuid &eventId)
@@ -2045,10 +2063,51 @@ PipeDisplay *EventWidgetPrivate::makeAndShowPipeDisplay(Pipe *pipe)
     return widget;
 }
 
+template<typename T>
+T calc_delta0(T cur, T prev)
+{
+    if (cur < prev)
+        return T(0);
+    return cur - prev;
+}
+
+template<typename T>
+T calc_deltas(const T &cur, const T &prev)
+{
+    assert(cur.size() == prev.size());
+
+    T result;
+    result.reserve(cur.size());
+
+    std::transform(cur.begin(), cur.end(), prev.begin(), std::back_inserter(result),
+                   calc_delta0<typename T::value_type>);
+
+    return result;
+}
+
 void EventWidgetPrivate::doPeriodicUpdate()
 {
+    auto analysis = m_context->getAnalysis();
+
+    double currentAnalysisTimeticks = analysis->getTimetickCount();
+    double dt_s = calc_delta0(currentAnalysisTimeticks, m_prevAnalysisTimeticks);
+
+    if (m_showWalltimeRates)
+    {
+        dt_s = PeriodicUpdateTimerInterval_ms / 1000.0;
+    }
+
+    periodicUpdateExtractorCounters(dt_s);
+    periodicUpdateHistoCounters(dt_s);
+
+    m_prevAnalysisTimeticks = currentAnalysisTimeticks;
+}
+
+void EventWidgetPrivate::periodicUpdateExtractorCounters(double dt_s)
+{
 #if ANALYSIS_USE_A2
-    auto a2State = m_context->getAnalysis()->getA2AdapterState();
+    auto analysis = m_context->getAnalysis();
+    auto a2State = analysis->getA2AdapterState();
 #endif
 
     //
@@ -2078,13 +2137,20 @@ void EventWidgetPrivate::doPeriodicUpdate()
             if (!ex_a2)
                 continue;
 
-            auto hitCounts = ex_a2->hitCounts;
-            Q_ASSERT(hitCounts.size == node->childCount());
-
+            auto hitCounts = to_qvector(ex_a2->hitCounts);
 #else
             auto hitCounts = extractor->getHitCounts();
-            Q_ASSERT(hitCounts.size() == node->childCount());
 #endif
+
+            auto &prevHitCounts = m_extractorCounters[extractor].hitCounts;
+
+            prevHitCounts.resize(hitCounts.size());
+
+            auto hitCountDeltas = calc_deltas(hitCounts, prevHitCounts);
+            auto hitCountRates = hitCountDeltas;
+            std::for_each(hitCountRates.begin(), hitCountRates.end(), [dt_s](double &d) { d /= dt_s; });
+
+            Q_ASSERT(hitCounts.size() == node->childCount());
 
             for (s32 addr = 0; addr < node->childCount(); ++addr)
             {
@@ -2093,20 +2159,37 @@ void EventWidgetPrivate::doPeriodicUpdate()
                 QString addrString = QString("%1").arg(addr, 2).replace(QSL(" "), QSL("&nbsp;"));
 
                 double hitCount = hitCounts[addr];
+                auto childNode = node->child(addr);
 
                 if (hitCount <= 0.0)
                 {
-                    node->child(addr)->setText(0, addrString);
+                    childNode->setText(0, addrString);
                 }
                 else
                 {
-                    node->child(addr)->setText(0, QString("%1 (hits=%2)")
-                                               .arg(addrString)
-                                               .arg(hitCount));
+                    auto rateString = format_number(hitCountRates[addr], QSL("Hz"), UnitScaling::Decimal,
+                                                    0, 'g', 3);
+
+                    childNode->setText(0, QString("%1 (hits=%2, rate=%3, dt=%4 s)")
+                                       .arg(addrString)
+                                       .arg(hitCount, 0, 'g', 3)
+                                       .arg(rateString)
+                                       .arg(dt_s)
+                                      );
                 }
             }
+
+            prevHitCounts = hitCounts;
         }
     }
+}
+
+void EventWidgetPrivate::periodicUpdateHistoCounters(double dt_s)
+{
+#if ANALYSIS_USE_A2
+    auto analysis = m_context->getAnalysis();
+    auto a2State = analysis->getA2AdapterState();
+#endif
 
     //
     // level > 0: display trees (histo counts)
@@ -2116,46 +2199,82 @@ void EventWidgetPrivate::doPeriodicUpdate()
         for (auto iter = QTreeWidgetItemIterator(trees.displayTree);
              *iter; ++iter)
         {
-
             auto node(*iter);
 
-            if (node->type() == NodeType_Histo1D)
+            if (node->type() == NodeType_Histo1DSink)
             {
-                s32 address = node->data(0, DataRole_HistoAddress).toInt();
+                auto histoSink = qobject_cast<Histo1DSink *>(getPointer<OperatorInterface>(node));
+
+                if (!histoSink)
+                    continue;
+
+                if (histoSink->m_histos.size() != node->childCount())
+                    continue;
+
+                QVector<double> entryCounts;
 
 #if ANALYSIS_USE_A2
-                double entryCount = 0.0;
-
-                if (a2State && node->parent() && node->parent()->type() == NodeType_Histo1DSink)
+                if (a2State)
                 {
-                    auto sink = getPointer<Histo1DSink>(node->parent());
-
-                    if (auto sink_a2 = a2State->operatorMap.value(sink, nullptr))
+                    if (auto a2_sink = a2State->operatorMap.value(histoSink, nullptr))
                     {
-                        auto sinkData = reinterpret_cast<a2::H1DSinkData *>(sink_a2->d);
-                        if (address < sinkData->histos.size)
+                        auto sinkData = reinterpret_cast<a2::H1DSinkData *>(a2_sink->d);
+
+                        entryCounts.reserve(sinkData->histos.size);
+
+                        for (s32 i = 0; i < sinkData->histos.size; i++)
                         {
-                            entryCount = sinkData->histos[address].entryCount;
+                            entryCounts.push_back(sinkData->histos[i].entryCount);
                         }
                     }
                 }
 #else
-                auto histo = getPointer<Histo1D>(node);
-                double entryCount = histo->getEntryCount();
+                entryCounts.reserve(histoSink->m_histos.size());
+
+                for (const auto &histo: histoSink->m_histos)
+                {
+                    entryCounts.push_back(histo->getEntryCount());
+                }
 #endif
 
-                QString numberString = QString("%1").arg(address, 2).replace(QSL(" "), QSL("&nbsp;"));
+                auto &prevEntryCounts = m_histo1DSinkCounters[histoSink].hitCounts;
 
-                if (entryCount <= 0.0)
+                prevEntryCounts.resize(entryCounts.size());
+
+                auto entryCountDeltas = calc_deltas(entryCounts, prevEntryCounts);
+                auto entryCountRates = entryCountDeltas;
+                std::for_each(entryCountRates.begin(), entryCountRates.end(), [dt_s](double &d) { d /= dt_s; });
+
+                Q_ASSERT(entryCounts.size() == node->childCount());
+
+                for (s32 addr = 0; addr < node->childCount(); ++addr)
                 {
-                    node->setText(0, numberString);
+                    Q_ASSERT(node->child(addr)->type() == NodeType_Histo1D);
+
+                    QString numberString = QString("%1").arg(addr, 2).replace(QSL(" "), QSL("&nbsp;"));
+
+                    double entryCount = entryCounts[addr];
+                    auto childNode = node->child(addr);
+
+                    if (entryCount <= 0.0)
+                    {
+                        childNode->setText(0, numberString);
+                    }
+                    else
+                    {
+                        auto rateString = format_number(entryCountRates[addr], QSL("Hz"), UnitScaling::Decimal,
+                                                        0, 'g', 3);
+
+                        childNode->setText(0, QString("%1 (entries=%2, rate=%3, dt=%4 s)")
+                                           .arg(numberString)
+                                           .arg(entryCount, 0, 'g', 3)
+                                           .arg(rateString)
+                                           .arg(dt_s)
+                                          );
+                    }
                 }
-                else
-                {
-                    node->setText(0, QString("%1 (entries=%2)")
-                                  .arg(numberString)
-                                  .arg(entryCount));
-                }
+
+                prevEntryCounts = entryCounts;
             }
             else if (node->type() == NodeType_Histo2DSink)
             {
@@ -2164,24 +2283,52 @@ void EventWidgetPrivate::doPeriodicUpdate()
 
                 if (histo)
                 {
-                    double entryCount = histo->getEntryCount();
+                    double entryCount = 0.0;
+#if ANALYSIS_USE_A2
+                    if (auto a2_sink = a2State->operatorMap.value(sink, nullptr))
+                    {
+                        auto sinkData = reinterpret_cast<a2::H2DSinkData *>(a2_sink->d);
+
+                        entryCount = sinkData->histo.entryCount;
+                    }
+#else
+                    entryCount = histo->getEntryCount();
+#endif
+                    auto &prevEntryCounts = m_histo2DSinkCounters[sink].hitCounts;
+                    prevEntryCounts.resize(1);
+
+                    double prevEntryCount = prevEntryCounts[0];
+
+                    double countDelta = calc_delta0(entryCount, prevEntryCount);
+                    double countRate = countDelta / dt_s;
+
                     if (entryCount <= 0.0)
                     {
-                        node->setText(0, QString("<b>%1</b> %2").arg(
-                                sink->getShortName(),
-                                sink->objectName()));
+                        node->setText(0, QString("<b>%1</b> %2")
+                                      .arg(sink->getShortName())
+                                      .arg(sink->objectName())
+                                     );
                     }
                     else
                     {
-                        node->setText(0, QString("<b>%1</b> %2 (entries=%3)").arg(
-                                sink->getShortName(),
-                                sink->objectName(),
-                                QString::number(entryCount)));
+                        auto rateString = format_number(countRate, QSL("Hz"), UnitScaling::Decimal,
+                                                        0, 'g', 3);
+
+                        node->setText(0, QString("<b>%1</b> %2 (entries=%3, rate=%4, dt=%5)")
+                                      .arg(sink->getShortName())
+                                      .arg(sink->objectName())
+                                      .arg(entryCount, 0, 'g', 3)
+                                      .arg(rateString)
+                                      .arg(dt_s)
+                                     );
                     }
+
+                    prevEntryCounts[0] = entryCount;
                 }
             }
         }
     }
+
 }
 
 QTreeWidgetItem *EventWidgetPrivate::getCurrentNode()
@@ -2478,6 +2625,14 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, AnalysisWidget 
         }
     });
 
+    auto action = new QAction(QSL("Show walltime Rates"), this);
+    m_d->m_actionShowWalltimeRates = action;
+    action->setCheckable(true);
+
+    connect(action, &QAction::triggered, this, [this, action] {
+        m_d->m_showWalltimeRates = action->isChecked();
+    });
+
     m_d->repopulate();
 }
 
@@ -2724,6 +2879,7 @@ QToolBar *EventWidget::makeEventSelectAreaToolBar()
 
     tb->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
     tb->addAction(m_d->m_actionSelectVisibleLevels);
+    tb->addAction(m_d->m_actionShowWalltimeRates);
 
     return tb;
 }
@@ -3403,8 +3559,6 @@ void AnalysisWidgetPrivate::updateAddRemoveUserLevelButtons()
 
     m_removeUserLevelButton->setEnabled(visibleUserLevels > 1 && visibleUserLevels > numUserLevels);
 }
-
-static const u32 PeriodicUpdateTimerInterval_ms = 1000;
 
 AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     : QWidget(parent)
