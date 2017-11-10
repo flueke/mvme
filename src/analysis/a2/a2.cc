@@ -1409,7 +1409,7 @@ inline void fill_h1d(H1D *histo, double x)
         //s32 bin = static_cast<s32>(get_bin_unchecked(histo->binning, histo->size, x));
         s32 bin = static_cast<s32>(get_bin_unchecked(x, histo->binning.min, histo->binningFactor));
 
-        double value = ++histo->data[bin];
+        histo->data[bin]++;
         histo->entryCount++;
     }
 }
@@ -1472,6 +1472,7 @@ inline void fill_h2d(H2D *histo, double x, double y)
         assert(0 <= linearBin && linearBin < histo->size);
 
         histo->data[linearBin]++;
+        histo->entryCount++;
     }
 }
 
