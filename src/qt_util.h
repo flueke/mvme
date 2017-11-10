@@ -106,4 +106,15 @@ inline QLabel *make_aligned_label(const QString &text, Qt::Alignment alignment =
     return label;
 }
 
+enum class UnitScaling
+{
+    Binary,
+    Decimal,
+};
+
+QString format_number(double value, const QString &unit,  UnitScaling scaling,
+                      int fieldWidth = 0, char format = 'g', int precision = -1,
+                      QChar fillChar = QLatin1Char(' ')
+                     );
+
 #endif /* __QT_UTIL_H__ */
