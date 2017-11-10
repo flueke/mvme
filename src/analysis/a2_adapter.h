@@ -4,6 +4,8 @@
 #include "analysis.h"
 #include "a2/a2.h"
 
+#include <iterator>
+
 namespace analysis
 {
 
@@ -67,6 +69,18 @@ A2AdapterState a2_adapter_build(
     const vme_analysis_common::VMEIdToIndex &vmeMap);
 
 a2::PipeVectors find_output_pipe(const A2AdapterState *state, analysis::Pipe *pipe);
+
+template<typename T, typename SizeType>
+QVector<T> to_qvector(a2::TypedBlock<T, SizeType> block)
+{
+    QVector<T> result;
+
+    result.reserve(block.size);
+
+    std::copy(block.begin(), block.end(), std::back_inserter(result));
+
+    return result;
+}
 
 } // namespace analysis
 
