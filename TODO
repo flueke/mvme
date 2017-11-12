@@ -36,7 +36,7 @@ Do these first!
   not readable anymore.
 
 * Improve VMEScriptEditor search:
-  Make it get focus under windows.
+  Make it get focus under windows and unity
   Make it get focus when hitting ctrl+f again
   Bind "find next" to F3.
   Maybe add "highlight" all.

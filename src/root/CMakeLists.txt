@@ -3,7 +3,7 @@
 list(APPEND CMAKE_PREFIX_PATH $ENV{ROOTSYS})
 
 find_package(
-    ROOT
+    ROOT#)
     COMPONENTS Core RIO Tree Hist)
 
 if (ROOT_FOUND)
@@ -19,13 +19,22 @@ if (ROOT_FOUND)
 
     message("-- Found ROOT in ROOTSYS=${ROOTSYS}")
 
-    set(root_test_LIBRARIES
+    include_directories(${CMAKE_CURRENT_SOURCE_DIR})
+
+    set(mvme_root_LIBS
+        ${ROOT_LIBRARIES}
         ${ROOT_Core_LIBRARY}
         ${ROOT_RIO_LIBRARY}
         ${ROOT_Tree_LIBRARY}
         ${ROOT_Hist_LIBRARY}
         )
 
+    ROOT_GENERATE_DICTIONARY(G__mvme_root mvme_root.h LINKDEF mvme_linkdef.h OPTIONS NOINSTALL)
+
+    add_library(mvme_root SHARED mvme_root.cc G__mvme_root.cxx)
+    target_link_libraries(mvme_root ${mvme_root_LIBS})
+
+
     add_executable(root_test root_test.cc)
-    target_link_libraries(root_test ${root_test_LIBRARIES})
+    target_link_libraries(root_test mvme_root)
 endif(ROOT_FOUND)
