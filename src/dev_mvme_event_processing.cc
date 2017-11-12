@@ -4,6 +4,7 @@
 #include "mvme_context.h"
 #include "mvme_stream_processor.h"
 #include "analysis/analysis.h"
+#include "analysis/analysis_session.h"
 #include "util/strings.h"
 #include "util/counters.h"
 
@@ -229,12 +230,14 @@ int main(int argc, char *argv[])
 
     QString listfileFilename;
     QString analysisFilename;
+    QString sessionOutFilename;
 
     while (true)
     {
         static struct option long_options[] = {
-            { "listfile",                 required_argument,      nullptr,    0 },
-            { "analysis",                 required_argument,      nullptr,    0 },
+            { "listfile",               required_argument,      nullptr,    0 },
+            { "analysis",               required_argument,      nullptr,    0 },
+            { "session-out",            required_argument,      nullptr,    0 },
             { nullptr, 0, nullptr, 0 },
         };
 
@@ -246,15 +249,9 @@ int main(int argc, char *argv[])
 
         QString opt_name(long_options[option_index].name);
 
-        if (opt_name == "listfile")
-        {
-            listfileFilename = QString(optarg);
-        }
-
-        if (opt_name == "analysis")
-        {
-            analysisFilename = QString(optarg);
-        }
+        if (opt_name == "listfile") { listfileFilename = QString(optarg); }
+        if (opt_name == "analysis") { analysisFilename = QString(optarg); }
+        if (opt_name == "session-out") { sessionOutFilename = QString(optarg); }
     }
 
     if (listfileFilename.isEmpty())
@@ -293,6 +290,8 @@ int main(int argc, char *argv[])
         context.vmeConfig = vmeConfig.get();
         context.listfileVersion = read_listfile_version(infile);
         context.logger = logger;
+
+        qDebug() << "processing listfile" << listfileFilename << "...";
 
         process_listfile(context, infile);
 
@@ -339,11 +338,27 @@ int main(int argc, char *argv[])
                 }
             }
         }
+
+        if (!sessionOutFilename.isEmpty())
+        {
+            qDebug() << "saving session to" << sessionOutFilename << "...";
+            auto result = save_analysis_session(sessionOutFilename, analysis.get());
+
+            if (!result.first)
+            {
+                throw result.second;
+            }
+        }
 #if 1
     }
     catch (const std::exception &e)
     {
         cerr << e.what() << endl;
+        return 1;
+    }
+    catch (const QString &e)
+    {
+        qDebug() << e << endl;
         return 1;
     }
 #endif
