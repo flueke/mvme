@@ -19,36 +19,21 @@
 #ifndef UUID_2aee2ea6_9760_46db_8d90_4dad1e4d019f
 #define UUID_2aee2ea6_9760_46db_8d90_4dad1e4d019f
 
-#include "typedefs.h"
-#include "globals.h"
 #include "data_buffer_queue.h"
+#include "globals.h"
 #include "libmvme_export.h"
-#include "vme_analysis_common.h"
+#include "mvme_stream_processor.h"
+#include "typedefs.h"
+
 #include <QHash>
 #include <QObject>
 #include <QVector>
 
-class DataBuffer;
-class MVMEContext;
 class MesytecDiagnostics;
+class MVMEContext;
+class VMEConfig;
 
 class MVMEEventProcessorPrivate;
-
-struct LIBMVME_EXPORT MVMEEventProcessorCounters
-{
-    static const u32 MaxModulesPerEvent = 20;
-
-    QDateTime startTime;
-    QDateTime stopTime;
-    u64 bytesProcessed = 0;
-    u32 buffersProcessed = 0;
-    u32 buffersWithErrors = 0;
-    u32 eventSections = 0;
-    u32 invalidEventIndices = 0;
-    using ModuleCounters = std::array<u32, MaxVMEModules>;
-    std::array<ModuleCounters, MaxVMEEvents> moduleCounters;
-    std::array<u32, MaxVMEEvents> eventCounters;
-};
 
 class LIBMVME_EXPORT MVMEEventProcessor: public QObject
 {
@@ -68,7 +53,7 @@ class LIBMVME_EXPORT MVMEEventProcessor: public QObject
         MesytecDiagnostics *getDiagnostics() const;
 
         EventProcessorState getState() const;
-        const MVMEEventProcessorCounters &getCounters() const;
+        const MVMEStreamProcessorCounters &getCounters() const;
 
         void setListFileVersion(u32 version);
 
@@ -78,14 +63,12 @@ class LIBMVME_EXPORT MVMEEventProcessor: public QObject
 
     public slots:
         void removeDiagnostics();
-        void beginRun(const RunInfo &runInfo, const vme_analysis_common::VMEIdToIndex &vmeMap);
+        void beginRun(const RunInfo &runInfo, VMEConfig *vmeConfig);
 
         void startProcessing();
         void stopProcessing(bool whenQueueEmpty = true);
 
     private:
-        void processDataBuffer(DataBuffer *buffer);
-        void processEventSection(u32 sectionHeader, u32 *data, u32 size);
         MVMEEventProcessorPrivate *m_d;
 };
 

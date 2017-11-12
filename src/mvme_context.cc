@@ -916,11 +916,7 @@ void MVMEContext::prepareStart()
     }
 #endif
 
-    m_eventProcessor->beginRun(
-        getRunInfo(),
-        vme_analysis_common::build_id_to_index_mapping(
-            getVMEConfig())
-        );
+    m_eventProcessor->beginRun(getRunInfo(), getVMEConfig());
 
     m_daqStats = DAQStats();
 
@@ -1556,11 +1552,7 @@ bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc, const QString &in
 
         // Prepares operators, allocates histograms, etc..
         // This should in reality be the only place to throw a bad_alloc
-        m_eventProcessor->beginRun(
-            getRunInfo(),
-            vme_analysis_common::build_id_to_index_mapping(
-                getVMEConfig())
-            );
+        m_eventProcessor->beginRun(getRunInfo(), getVMEConfig());
 
         emit analysisChanged();
 

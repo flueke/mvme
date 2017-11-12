@@ -9,7 +9,7 @@
 struct AnalysisInfoWidgetPrivate
 {
     MVMEContext *context;
-    MVMEEventProcessorCounters prevCounters;
+    MVMEStreamProcessorCounters prevCounters;
     QDateTime lastUpdateTime;
     QVector<QLabel *> labels;
     QTimer updateTimer;
