@@ -49,8 +49,8 @@ class LIBMVME_EXPORT MVMEEventProcessor: public QObject
         MVMEEventProcessor(MVMEContext *context);
         ~MVMEEventProcessor();
 
-        void setDiagnostics(MesytecDiagnostics *diag);
-        MesytecDiagnostics *getDiagnostics() const;
+        void setDiagnostics(std::shared_ptr<MesytecDiagnostics> diag);
+        bool hasDiagnostics() const;
 
         EventProcessorState getState() const;
         const MVMEStreamProcessorCounters &getCounters() const;

@@ -535,7 +535,7 @@ quint32 MesytecDiagnostics::getChannel(quint16 chan, quint32 bin)
 static const int updateInterval = 500;
 static const int resultMaxBlockCount = 10000;
 
-MesytecDiagnosticsWidget::MesytecDiagnosticsWidget(MesytecDiagnostics *diag, QWidget *parent)
+MesytecDiagnosticsWidget::MesytecDiagnosticsWidget(std::shared_ptr<MesytecDiagnostics> diag, QWidget *parent)
     : MVMEWidget(parent)
     , ui(new Ui::DiagnosticsWidget)
     , m_diag(diag)
@@ -543,7 +543,7 @@ MesytecDiagnosticsWidget::MesytecDiagnosticsWidget(MesytecDiagnostics *diag, QWi
     ui->setupUi(this);
     ui->diagResult->setMaximumBlockCount(10000);
 
-    connect(diag, &MesytecDiagnostics::logMessage,
+    connect(diag.get(), &MesytecDiagnostics::logMessage,
             this, &MesytecDiagnosticsWidget::onLogMessage);
 
     connect(ui->tb_dumpNextEvent, &QAbstractButton::clicked, this, [this]() { m_diag->setLogNextEvent(); });

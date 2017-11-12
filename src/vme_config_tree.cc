@@ -507,7 +507,7 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
             menu.addAction(QSL("Remove Module"), this, &VMEConfigTreeWidget::removeModule);
         }
 
-        if (!m_context->getEventProcessor()->getDiagnostics())
+        if (!m_context->getEventProcessor()->hasDiagnostics())
             menu.addAction(QSL("Show Diagnostics"), this, &VMEConfigTreeWidget::handleShowDiagnostics);
     }
 

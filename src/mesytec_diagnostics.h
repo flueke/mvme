@@ -103,7 +103,7 @@ class MesytecDiagnosticsWidget: public MVMEWidget
 {
     Q_OBJECT
     public:
-        MesytecDiagnosticsWidget(MesytecDiagnostics *diag, QWidget *parent = 0);
+        MesytecDiagnosticsWidget(std::shared_ptr<MesytecDiagnostics> diag, QWidget *parent = 0);
         ~MesytecDiagnosticsWidget();
 
         void clearResultsDisplay();
@@ -131,7 +131,7 @@ class MesytecDiagnosticsWidget: public MVMEWidget
         void updateDisplay();
 
         Ui::DiagnosticsWidget *ui;
-        MesytecDiagnostics *m_diag;
+        std::shared_ptr<MesytecDiagnostics> m_diag;
 };
 
 #endif /* __MESYTEC_DIAGNOSTICS_H__ */

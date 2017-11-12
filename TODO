@@ -46,6 +46,7 @@ Do these first!
 --------------------------------------------------
 sis3153 implementation TODO
 --------------------------------------------------
+* Running "Init Module" when disconnected blocks the UI
 * Extract and make use of the counter in beginHeaders (0xbb...)
   Count the number of lost packets
 * Debug the (m)bltfifocount reads

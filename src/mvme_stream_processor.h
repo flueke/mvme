@@ -50,9 +50,9 @@ class MVMEStreamProcessor
         const MVMEStreamProcessorCounters &getCounters() const;
         MVMEStreamProcessorCounters &getCounters();
 
-        void attachDiagnostics(MesytecDiagnostics *diag);
+        void attachDiagnostics(std::shared_ptr<MesytecDiagnostics> diag);
         void removeDiagnostics();
-        MesytecDiagnostics *getDiagnostics() const;
+        bool hasDiagnostics() const;
 
     private:
         void processEventSection(u32 sectionHeader, u32 *data, u32 size);

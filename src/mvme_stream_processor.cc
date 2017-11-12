@@ -32,7 +32,7 @@ struct MVMEStreamProcessorPrivate
     MVMEStreamProcessorCounters counters = {};
     analysis::Analysis *analysis = nullptr;
     VMEConfig *vmeConfig = nullptr;
-    MesytecDiagnostics *diag = nullptr;
+    std::shared_ptr<MesytecDiagnostics> diag;
     MVMEStreamProcessor::Logger logger = nullptr;
 
     int SectionTypeMask;
@@ -526,7 +526,7 @@ void MVMEStreamProcessor::logMessage(const QString &msg)
     }
 }
 
-void MVMEStreamProcessor::attachDiagnostics(MesytecDiagnostics *diag)
+void MVMEStreamProcessor::attachDiagnostics(std::shared_ptr<MesytecDiagnostics> diag)
 {
     assert(!m_d->diag);
     m_d->diag = diag;
@@ -535,12 +535,12 @@ void MVMEStreamProcessor::attachDiagnostics(MesytecDiagnostics *diag)
 void MVMEStreamProcessor::removeDiagnostics()
 {
     assert(m_d->diag);
-    m_d->diag = nullptr;
+    m_d->diag.reset();
 }
 
-MesytecDiagnostics *MVMEStreamProcessor::getDiagnostics() const
+bool MVMEStreamProcessor::hasDiagnostics() const
 {
-    return m_d->diag;
+    return (bool)m_d->diag;
 }
 
 const MVMEStreamProcessorCounters &MVMEStreamProcessor::getCounters() const

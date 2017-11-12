@@ -1179,13 +1179,13 @@ void MVMEMainWindow::onDAQStateChanged(const DAQState &)
 
 void MVMEMainWindow::onShowDiagnostics(ModuleConfig *moduleConfig)
 {
-    if (m_d->m_context->getEventProcessor()->getDiagnostics())
+    if (m_d->m_context->getEventProcessor()->hasDiagnostics())
         return;
 
-    auto diag   = new MesytecDiagnostics;
+    auto diag = std::make_shared<MesytecDiagnostics>();
+
     diag->setEventAndModuleIndices(m_d->m_context->getVMEConfig()->getEventAndModuleIndices(moduleConfig));
     auto eventProcessor = m_d->m_context->getEventProcessor();
-    eventProcessor->setDiagnostics(diag);
 
     auto widget = new MesytecDiagnosticsWidget(diag);
     widget->setAttribute(Qt::WA_DeleteOnClose);
@@ -1204,6 +1204,8 @@ void MVMEMainWindow::onShowDiagnostics(ModuleConfig *moduleConfig)
         }
 
     });
+
+    eventProcessor->setDiagnostics(diag);
 
     widget->show();
     widget->raise();

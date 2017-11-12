@@ -47,8 +47,7 @@ struct MVMEEventProcessorPrivate
     MVMEContext *context = nullptr;
     u32 m_listFileVersion = 1;
 
-    //std::atomic<RunAction> m_runAction;
-    volatile RunAction m_runAction;
+    std::atomic<RunAction> m_runAction;
     EventProcessorState m_state = EventProcessorState::Idle;
 };
 
@@ -73,10 +72,6 @@ void MVMEEventProcessor::beginRun(const RunInfo &runInfo, VMEConfig *vmeConfig)
         m_d->context->getVMEConfig(),
         m_d->m_listFileVersion,
         [this](const QString &msg) { m_d->context->logMessage(msg); });
-
-    auto &counters = m_d->streamProcessor.getCounters();
-    counters.startTime = QDateTime::currentDateTime();
-    counters.stopTime  = QDateTime();
 }
 
 /* Used at the start of a run after beginRun() has been called and to resume from
@@ -195,21 +190,18 @@ void MVMEEventProcessor::setListFileVersion(u32 version)
     m_d->m_listFileVersion = version;
 }
 
-void MVMEEventProcessor::setDiagnostics(MesytecDiagnostics *diag)
+void MVMEEventProcessor::setDiagnostics(std::shared_ptr<MesytecDiagnostics> diag)
 {
-    qDebug() << __PRETTY_FUNCTION__ << diag;
-    // FIXME: owernship? maybe make it shared?
-    delete m_d->streamProcessor.getDiagnostics();
+    qDebug() << __PRETTY_FUNCTION__ << diag.get();
     m_d->streamProcessor.attachDiagnostics(diag);
 }
 
-MesytecDiagnostics *MVMEEventProcessor::getDiagnostics() const
+bool MVMEEventProcessor::hasDiagnostics() const
 {
-    return m_d->streamProcessor.getDiagnostics();
+    return m_d->streamProcessor.hasDiagnostics();
 }
 
 void MVMEEventProcessor::removeDiagnostics()
 {
     m_d->streamProcessor.removeDiagnostics();
 }
-
