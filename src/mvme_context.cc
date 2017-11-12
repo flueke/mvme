@@ -916,7 +916,7 @@ void MVMEContext::prepareStart()
     }
 #endif
 
-    m_eventProcessor->newRun(
+    m_eventProcessor->beginRun(
         getRunInfo(),
         vme_analysis_common::build_id_to_index_mapping(
             getVMEConfig())
@@ -944,7 +944,7 @@ void MVMEContext::startDAQ(quint32 nCycles, bool keepHistoContents)
     emit daqAboutToStart(nCycles);
 
     // Generate new RunInfo here. Has to happen before prepareStart() calls
-    // MVMEEventProcessor::newRun()
+    // MVMEEventProcessor::beginRun()
     auto now = QDateTime::currentDateTime();
     m_d->m_runInfo.runId = now.toString("yyMMdd_HHmmss");
     m_d->m_runInfo.keepAnalysisState = keepHistoContents;
@@ -1556,7 +1556,7 @@ bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc, const QString &in
 
         // Prepares operators, allocates histograms, etc..
         // This should in reality be the only place to throw a bad_alloc
-        m_eventProcessor->newRun(
+        m_eventProcessor->beginRun(
             getRunInfo(),
             vme_analysis_common::build_id_to_index_mapping(
                 getVMEConfig())

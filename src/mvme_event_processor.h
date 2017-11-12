@@ -75,17 +75,17 @@ class LIBMVME_EXPORT MVMEEventProcessor: public QObject
         ThreadSafeDataBufferQueue *m_freeBuffers = nullptr;
         ThreadSafeDataBufferQueue *m_fullBuffers = nullptr;
 
-        void processDataBuffer(DataBuffer *buffer);
-        void processEventSection(u32 sectionHeader, u32 *data, u32 size);
 
     public slots:
         void removeDiagnostics();
-        void newRun(const RunInfo &runInfo, const vme_analysis_common::VMEIdToIndex &vmeMap);
+        void beginRun(const RunInfo &runInfo, const vme_analysis_common::VMEIdToIndex &vmeMap);
 
         void startProcessing();
         void stopProcessing(bool whenQueueEmpty = true);
 
     private:
+        void processDataBuffer(DataBuffer *buffer);
+        void processEventSection(u32 sectionHeader, u32 *data, u32 size);
         MVMEEventProcessorPrivate *m_d;
 };
 

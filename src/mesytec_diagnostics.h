@@ -36,15 +36,15 @@ public:
     void setEventAndModuleIndices(const QPair<int, int> &indices);
     inline int getEventIndex() const { return m_eventIndex; }
     inline int getModuleIndex() const { return m_moduleIndex; }
-    void beginEvent();
-    void endEvent();
-    void processModuleData(u32 *data, u32 size);
+    void beginEvent(int eventIndex);
+    void endEvent(int eventIndex);
+    void processModuleData(int eventIndex, int moduleIndex, u32 *data, u32 size);
     RealtimeData *getRealtimeData() const { return m_rtd; }
     void setLogNextEvent() { m_logNextEvent = true; }
 
     void clearChannelStats(void);
     // resets all internal data. to be called when a new run/replay starts
-    void reset();
+    void beginRun();
     void calcAll(quint16 lo, quint16 hi, quint16 lo2, quint16 hi2, quint16 binLo, quint16 binHi);
     double getMean(quint16 chan);
     double getSigma(quint16 chan);

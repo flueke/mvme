@@ -124,7 +124,7 @@ void MVMEEventProcessor::removeDiagnostics()
     setDiagnostics(nullptr);
 }
 
-void MVMEEventProcessor::newRun(const RunInfo &runInfo, const vme_analysis_common::VMEIdToIndex &vmeMap)
+void MVMEEventProcessor::beginRun(const RunInfo &runInfo, const vme_analysis_common::VMEIdToIndex &vmeMap)
 {
     m_d->analysis_ng = m_d->context->getAnalysis();
 
@@ -171,7 +171,7 @@ void MVMEEventProcessor::newRun(const RunInfo &runInfo, const vme_analysis_commo
 
     if (m_d->diag)
     {
-        m_d->diag->reset();
+        m_d->diag->beginRun();
     }
 
 
@@ -182,15 +182,10 @@ void MVMEEventProcessor::newRun(const RunInfo &runInfo, const vme_analysis_commo
 
 void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
 {
-    auto &stats = m_d->context->getDAQStats();
-
-#if 1
     try
     {
-#endif
-        const auto bufferNumber = stats.mvmeBuffersSeen;
+        const auto bufferNumber = m_d->m_localStats.buffersProcessed;
 
-        stats.mvmeBuffersSeen++;
         BufferIterator iter(buffer->data, buffer->used, BufferIterator::Align32);
 
 #ifdef MVME_EVENT_PROCESSOR_DEBUG_BUFFERS
@@ -226,7 +221,6 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
             {
                 processEventSection(sectionHeader, iter.asU32(), sectionSize);
                 iter.skip(sectionSize * sizeof(u32));
-                //stats.addEventsRead(1);
             }
             else if (sectionType == ListfileSections::SectionType_Timetick
                      && m_d->analysis_ng)
@@ -245,28 +239,24 @@ void MVMEEventProcessor::processDataBuffer(DataBuffer *buffer)
             m_d->m_localStats.bytesProcessed += sectionSize * sizeof(u32) + sizeof(u32);
         }
 
-        ++m_d->m_localStats.buffersProcessed;
-#if 1
+        m_d->m_localStats.buffersProcessed++;
     }
     catch (const end_of_buffer &)
     {
         QString msg = QSL("Error (mvme fmt): unexpectedly reached end of buffer");
         qDebug() << msg;
         emit logMessage(msg);
-        ++stats.mvmeBuffersWithErrors;
         ++m_d->m_localStats.buffersWithErrors;
         if (m_d->diag)
         {
-            m_d->diag->reset();
+            m_d->diag->beginRun();
         }
     }
-#endif
 }
 
 void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 size)
 {
     ++m_d->m_localStats.eventSections;
-    auto &stats = m_d->context->getDAQStats();
     u32 eventIndex = (sectionHeader & m_d->EventTypeMask) >> m_d->EventTypeShift;
 
     if (eventIndex >= m_d->eventConfigs.size())
@@ -394,7 +384,7 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
 #ifdef MVME_EVENT_PROCESSOR_DEBUGGING
                 qDebug("%s analysis::beginEvent()", __PRETTY_FUNCTION__);
 #endif
-                m_d->analysis_ng->beginEvent(eventConfig->getId());
+                m_d->analysis_ng->beginEvent(eventIndex, eventConfig->getId());
             }
 
             for (u32 moduleIndex = 0;
@@ -406,12 +396,9 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
 
                 MesytecDiagnostics *diag = nullptr;
 
-                if (m_d->diag
-                    && m_d->diag->getEventIndex() == (s32)eventIndex
-                    && m_d->diag->getModuleIndex() == (s32)moduleIndex)
+                if (m_d->diag)
                 {
-                    diag = m_d->diag;
-                    diag->beginEvent();
+                    m_d->diag->beginEvent(eventIndex);
                 }
 
                 if (!m_d->doMultiEventProcessing[eventIndex])
@@ -430,15 +417,18 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
 
                     if (m_d->analysis_ng)
                     {
-                        m_d->analysis_ng->processModuleData(eventConfig->getId(),
-                                                            mi.moduleConfig->getId(),
-                                                            mi.moduleHeader,
-                                                            subEventSize);
+                        m_d->analysis_ng->processModuleData(
+                            eventIndex,
+                            moduleIndex,
+                            eventConfig->getId(),
+                            mi.moduleConfig->getId(),
+                            mi.moduleHeader,
+                            subEventSize);
                     }
 
                     if (diag)
                     {
-                        diag->processModuleData(mi.moduleHeader, subEventSize);
+                        diag->processModuleData(eventIndex, moduleIndex, mi.moduleHeader, subEventSize);
                     }
                 }
                 // Multievent splitting is possible. Check for a header match and extract the data size.
@@ -479,6 +469,8 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
                         if (m_d->analysis_ng)
                         {
                             m_d->analysis_ng->processModuleData(
+                                eventIndex,
+                                moduleIndex,
                                 eventConfig->getId(),
                                 mi.moduleConfig->getId(),
                                 mi.moduleHeader,
@@ -487,7 +479,7 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
 
                         if (diag)
                         {
-                            diag->processModuleData(mi.moduleHeader, moduleEventSize + 1);
+                            diag->processModuleData(eventIndex, moduleIndex, mi.moduleHeader, moduleEventSize + 1);
                         }
 
                         // advance the moduleHeader by the event size
@@ -523,7 +515,7 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
 
                 if (diag)
                 {
-                    diag->endEvent();
+                    diag->endEvent(eventIndex);
                 }
             }
 
@@ -532,7 +524,7 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
 #ifdef MVME_EVENT_PROCESSOR_DEBUGGING
                 qDebug("%s analysis::endEvent()", __PRETTY_FUNCTION__);
 #endif
-                m_d->analysis_ng->endEvent(eventConfig->getId());
+                m_d->analysis_ng->endEvent(eventIndex, eventConfig->getId());
             }
 
             // Single event processing: terminate after one loop through the modules.
@@ -568,7 +560,7 @@ void MVMEEventProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 s
 static const u32 FilledBufferWaitTimeout_ms = 250;
 static const u32 ProcessEventsMinInterval_ms = 500;
 
-/* Used at the start of a run after newRun() has been called and to resume from
+/* Used at the start of a run after beginRun() has been called and to resume from
  * paused state.
  * Does a2_begin_run() and a2_end_run() (threading stuff if enabled). */
 void MVMEEventProcessor::startProcessing()

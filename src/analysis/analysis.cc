@@ -2872,7 +2872,7 @@ void Analysis::beginRun()
     beginRun(m_runInfo, m_vmeMap);
 }
 
-void Analysis::beginEvent(const QUuid &eventId)
+void Analysis::beginEvent(int eventIndex, const QUuid &eventId)
 {
 #if not ANALYSIS_USE_A2
     for (auto &sourceEntry: m_sources)
@@ -2883,11 +2883,12 @@ void Analysis::beginEvent(const QUuid &eventId)
         }
     }
 #else
-    a2_begin_event(m_a2State->a2, m_vmeMap.value(eventId).eventIndex);
+    a2_begin_event(m_a2State->a2, eventIndex);
 #endif
 }
 
-void Analysis::processModuleData(const QUuid &eventId, const QUuid &moduleId, u32 *data, u32 size)
+void Analysis::processModuleData(int eventIndex, int moduleIndex,
+                                 const QUuid &eventId, const QUuid &moduleId, u32 *data, u32 size)
 {
 #if not ANALYSIS_USE_A2
     for (auto &sourceEntry: m_sources)
@@ -2902,18 +2903,17 @@ void Analysis::processModuleData(const QUuid &eventId, const QUuid &moduleId, u3
     }
 
 #else
-    auto index = m_vmeMap.value(moduleId);
-    a2_process_module_data(m_a2State->a2, index.eventIndex, index.moduleIndex, data, size);
+    a2_process_module_data(m_a2State->a2, eventIndex, moduleIndex, data, size);
 #endif
 }
 
 #if ANALYSIS_USE_A2
-void Analysis::endEvent(const QUuid &eventId)
+void Analysis::endEvent(int eventIndex, const QUuid &eventId)
 {
-    a2_end_event(m_a2State->a2, m_vmeMap.value(eventId).eventIndex);
+    a2_end_event(m_a2State->a2, eventIndex);
 }
 #else // ANALYSIS_USE_A2
-void Analysis::endEvent(const QUuid &eventId)
+void Analysis::endEvent(int eventIndex, const QUuid &eventId)
 {
     //TimedBlock tb(__PRETTY_FUNCTION__);
     /* In beginRun() operators are sorted by rank. This way step()'ing

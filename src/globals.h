@@ -123,8 +123,7 @@ struct DAQStats
     u64 totalBuffersRead = 0;   // number of buffers received from the controller
     u64 buffersWithErrors = 0;  // buffers for which processing did not succeeed (structure not intact, etc)
     u64 droppedBuffers = 0;     // number of buffers not passed to the analysis
-    u64 totalEventsRead = 0;    // FIXME: describe what this actually counts!
-    u64 vmeCtrlReadErrors = 0;
+    //u64 totalEventsRead = 0;    // FIXME: count controller side events here ("triggers / subevents?")
     u64 totalNetBytesRead = 0;  // The number of bytes read excluding protocol
                                 // overhead. This should be a measure for the
                                 // amount of data the VME bus transferred.
@@ -133,8 +132,8 @@ struct DAQStats
     u64 listFileTotalBytes = 0; // For replay mode: the size of the replay file
     QString listfileFilename;
 
-    u64 mvmeBuffersSeen = 0;
-    u64 mvmeBuffersWithErrors = 0;
+    //u64 mvmeBuffersSeen = 0;
+    //u64 mvmeBuffersWithErrors = 0;
 
     using ModuleCounters = std::array<u32, MaxVMEModules>;
     std::array<ModuleCounters, MaxVMEEvents> moduleCounters;
