@@ -101,8 +101,6 @@ void save_Histo1DSink(H5File &outfile, Histo1DSink *histoSink)
 
     auto histoName = make_operator_name(histoSink);
 
-    qDebug() << "histoName =" << histoName;
-
     const hsize_t dimensions[] =
     {
         (hsize_t)histoSink->m_histos.size(),
@@ -166,8 +164,6 @@ void save_Histo2DSink(H5File &outfile, Histo2DSink *histoSink)
     assert(histoSink->m_histo);
 
     auto histoName = make_operator_name(histoSink);
-
-    qDebug() << "histoName =" << histoName;
 
     auto histo = histoSink->m_histo;
     auto binnings = histo->getAxisBinnings();

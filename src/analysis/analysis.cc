@@ -3315,9 +3315,10 @@ Analysis::ReadResult Analysis::read(const QJsonObject &inputJson, VMEConfig *vme
                 source->setObjectName(objectJson["name"].toString());
                 source->read(objectJson["data"].toObject());
 
-                addSource(QUuid(objectJson["eventId"].toString()),
-                          QUuid(objectJson["moduleId"].toString()),
-                          source);
+                auto eventId  = QUuid(objectJson["eventId"].toString());
+                auto moduleId = QUuid(objectJson["moduleId"].toString());
+
+                m_sources.push_back({eventId, moduleId, source, source.get()});
 
                 objectsById.insert(source->getId(), source);
             }
@@ -3347,15 +3348,18 @@ Analysis::ReadResult Analysis::read(const QJsonObject &inputJson, VMEConfig *vme
                 op->setObjectName(objectJson["name"].toString());
                 op->read(objectJson["data"].toObject());
 
-                addOperator(QUuid(objectJson["eventId"].toString()),
-                            op,
-                            objectJson["userLevel"].toInt()
-                           );
+                auto eventId = QUuid(objectJson["eventId"].toString());
+                auto userLevel = objectJson["userLevel"].toInt();
+
+                m_operators.push_back({eventId, op, op.get(), userLevel});
 
                 objectsById.insert(op->getId(), op);
             }
         }
     }
+
+    beginRun(m_runInfo, m_vmeMap);
+    setModified();
 
     // Connections
     {
@@ -3492,7 +3496,7 @@ void Analysis::write(QJsonObject &json) const
                     auto dstOp = dstSlot->parentOperator;
                     if (dstOp)
                     {
-                        qDebug() << "Connection:" << srcObject << outputIndex << "->" << dstOp << dstSlot << dstSlot->parentSlotIndex;
+                        //qDebug() << "Connection:" << srcObject << outputIndex << "->" << dstOp << dstSlot << dstSlot->parentSlotIndex;
                         QJsonObject conJson;
                         conJson["srcId"] = srcObject->getId().toString();
                         conJson["srcIndex"] = outputIndex;
