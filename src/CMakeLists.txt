@@ -108,6 +108,7 @@ set(LIBMVME_SOURCES
     treewidget_utils.cc
     util.cc
     util_zip.cc
+    util/strings.cc
     vme_analysis_common.cc
     vme_config.cc
     vme_config_tree.cc
