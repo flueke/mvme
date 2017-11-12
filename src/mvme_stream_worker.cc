@@ -159,6 +159,8 @@ void MVMEStreamWorker::startProcessing()
         }
     }
 
+    m_d->streamProcessor.endRun();
+
     emit stopped();
     emit stateChanged(m_d->m_state = EventProcessorState::Idle);
 

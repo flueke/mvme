@@ -4,6 +4,7 @@
 #include "databuffer.h"
 #include "mesytec_diagnostics.h"
 #include "mvme_listfile.h"
+#include "util/perf.h"
 
 //#define MVME_STREAM_PROCESSOR_DEBUG
 //#define MVME_STREAM_PROCESSOR_DEBUG_BUFFERS
@@ -49,6 +50,8 @@ struct MVMEStreamProcessorPrivate
     std::array<ModuleInfoArray, MaxVMEEvents> eventInfos;
     std::array<EventConfig *, MaxVMEEvents> eventConfigs;
     std::array<bool, MaxVMEEvents> doMultiEventProcessing;
+
+    QVector<IMVMEStreamConsumer *> consumers;
 };
 
 MVMEStreamProcessor::MVMEStreamProcessor()
@@ -64,6 +67,33 @@ void MVMEStreamProcessor::MVMEStreamProcessor::beginRun(
     const RunInfo &runInfo, analysis::Analysis *analysis, VMEConfig *vmeConfig,
     u32 listfileVersion, Logger logger)
 {
+    if (listfileVersion == 0)
+    {
+        m_d->SectionTypeMask    = listfile_v0::SectionTypeMask;
+        m_d->SectionTypeShift   = listfile_v0::SectionTypeShift;
+        m_d->SectionSizeMask    = listfile_v0::SectionSizeMask;
+        m_d->SectionSizeShift   = listfile_v0::SectionSizeShift;
+        m_d->EventTypeMask      = listfile_v0::EventTypeMask;
+        m_d->EventTypeShift     = listfile_v0::EventTypeShift;
+        m_d->ModuleTypeMask     = listfile_v0::ModuleTypeMask;
+        m_d->ModuleTypeShift    = listfile_v0::ModuleTypeShift;
+        m_d->SubEventSizeMask   = listfile_v0::SubEventSizeMask;
+        m_d->SubEventSizeShift  = listfile_v0::SubEventSizeShift;
+    }
+    else
+    {
+        m_d->SectionTypeMask    = listfile_v1::SectionTypeMask;
+        m_d->SectionTypeShift   = listfile_v1::SectionTypeShift;
+        m_d->SectionSizeMask    = listfile_v1::SectionSizeMask;
+        m_d->SectionSizeShift   = listfile_v1::SectionSizeShift;
+        m_d->EventTypeMask      = listfile_v1::EventTypeMask;
+        m_d->EventTypeShift     = listfile_v1::EventTypeShift;
+        m_d->ModuleTypeMask     = listfile_v1::ModuleTypeMask;
+        m_d->ModuleTypeShift    = listfile_v1::ModuleTypeShift;
+        m_d->SubEventSizeMask   = listfile_v1::SubEventSizeMask;
+        m_d->SubEventSizeShift  = listfile_v1::SubEventSizeShift;
+    }
+
     m_d->counters = {};
     m_d->analysis = analysis;
     m_d->vmeConfig = vmeConfig;
@@ -73,6 +103,7 @@ void MVMEStreamProcessor::MVMEStreamProcessor::beginRun(
     m_d->eventConfigs.fill(nullptr);
     m_d->doMultiEventProcessing.fill(false); // FIXME: change default to true some point
 
+    // build info for multievent processing
     auto eventConfigs = vmeConfig->getEventConfigs();
 
     for (s32 eventIndex = 0;
@@ -105,10 +136,12 @@ void MVMEStreamProcessor::MVMEStreamProcessor::beginRun(
         m_d->doMultiEventProcessing[eventIndex] = eventConfig->isMultiEventProcessingEnabled();
     }
 
+    // beginRun for consumers
+
+
     if (m_d->analysis)
     {
         const auto vmeMap = vme_analysis_common::build_id_to_index_mapping(vmeConfig);
-
         m_d->analysis->beginRun(runInfo, vmeMap);
     }
 
@@ -117,31 +150,17 @@ void MVMEStreamProcessor::MVMEStreamProcessor::beginRun(
         m_d->diag->beginRun();
     }
 
-    if (listfileVersion == 0)
+    for (auto c: m_d->consumers)
     {
-        m_d->SectionTypeMask    = listfile_v0::SectionTypeMask;
-        m_d->SectionTypeShift   = listfile_v0::SectionTypeShift;
-        m_d->SectionSizeMask    = listfile_v0::SectionSizeMask;
-        m_d->SectionSizeShift   = listfile_v0::SectionSizeShift;
-        m_d->EventTypeMask      = listfile_v0::EventTypeMask;
-        m_d->EventTypeShift     = listfile_v0::EventTypeShift;
-        m_d->ModuleTypeMask     = listfile_v0::ModuleTypeMask;
-        m_d->ModuleTypeShift    = listfile_v0::ModuleTypeShift;
-        m_d->SubEventSizeMask   = listfile_v0::SubEventSizeMask;
-        m_d->SubEventSizeShift  = listfile_v0::SubEventSizeShift;
+        c->beginRun(runInfo, vmeConfig);
     }
-    else
+}
+
+void MVMEStreamProcessor::endRun()
+{
+    for (auto c: m_d->consumers)
     {
-        m_d->SectionTypeMask    = listfile_v1::SectionTypeMask;
-        m_d->SectionTypeShift   = listfile_v1::SectionTypeShift;
-        m_d->SectionSizeMask    = listfile_v1::SectionSizeMask;
-        m_d->SectionSizeShift   = listfile_v1::SectionSizeShift;
-        m_d->EventTypeMask      = listfile_v1::EventTypeMask;
-        m_d->EventTypeShift     = listfile_v1::EventTypeShift;
-        m_d->ModuleTypeMask     = listfile_v1::ModuleTypeMask;
-        m_d->ModuleTypeShift    = listfile_v1::ModuleTypeShift;
-        m_d->SubEventSizeMask   = listfile_v1::SubEventSizeMask;
-        m_d->SubEventSizeShift  = listfile_v1::SubEventSizeShift;
+        c->endRun();
     }
 }
 
@@ -167,7 +186,7 @@ void MVMEStreamProcessor::processDataBuffer(DataBuffer *buffer)
             int sectionType = (sectionHeader & m_d->SectionTypeMask) >> m_d->SectionTypeShift;
             u32 sectionSize = (sectionHeader & m_d->SectionSizeMask) >> m_d->SectionSizeShift;
 
-            if (sectionSize > iter.longwordsLeft())
+            if (unlikely(sectionSize > iter.longwordsLeft()))
             {
 #ifdef MVME_STREAM_PROCESSOR_DEBUG
                 QString msg = (QString("Error (mvme fmt): extracted section size exceeds buffer size!"
@@ -182,7 +201,7 @@ void MVMEStreamProcessor::processDataBuffer(DataBuffer *buffer)
                 throw end_of_buffer();
             }
 
-            if (sectionType == ListfileSections::SectionType_Event)
+            if (likely(sectionType == ListfileSections::SectionType_Event))
             {
                 processEventSection(sectionHeader, iter.asU32(), sectionSize);
                 iter.skip(sectionSize * sizeof(u32));
@@ -208,6 +227,8 @@ void MVMEStreamProcessor::processDataBuffer(DataBuffer *buffer)
     }
     catch (const end_of_buffer &)
     {
+        // TODO: call endRun() for consumers here? pass error information to them?
+
         QString msg = QSL("Error (mvme fmt): unexpectedly reached end of buffer");
         qDebug() << msg;
         logMessage(msg);
@@ -224,7 +245,7 @@ void MVMEStreamProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 
     ++m_d->counters.eventSections;
     u32 eventIndex = (sectionHeader & m_d->EventTypeMask) >> m_d->EventTypeShift;
 
-    if (eventIndex >= m_d->eventConfigs.size())
+    if (unlikely(eventIndex >= m_d->eventConfigs.size()))
     {
         ++m_d->counters.invalidEventIndices;
         qDebug() << __PRETTY_FUNCTION__ << "no event config for eventIndex = " << eventIndex
@@ -349,6 +370,11 @@ void MVMEStreamProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 
             m_d->analysis->beginEvent(eventIndex, eventConfig->getId());
         }
 
+        for (auto c: m_d->consumers)
+        {
+            c->beginEvent(eventIndex);
+        }
+
         for (u32 moduleIndex = 0;
              moduleInfos[moduleIndex].subEventHeader;
              ++moduleIndex)
@@ -358,6 +384,7 @@ void MVMEStreamProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 
 
             MesytecDiagnostics *diag = nullptr;
 
+            // FIXME: why is this in here instead of one level up?
             if (m_d->diag)
             {
                 m_d->diag->beginEvent(eventIndex);
@@ -392,6 +419,11 @@ void MVMEStreamProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 
                 {
                     diag->processModuleData(eventIndex, moduleIndex, mi.moduleHeader, subEventSize);
                 }
+
+                for (auto c: m_d->consumers)
+                {
+                    c->processModuleData(eventIndex, moduleIndex, mi.moduleHeader, subEventSize);
+                }
             }
             // Multievent splitting is possible. Check for a header match and extract the data size.
             else if (a2::data_filter::matches(
@@ -402,7 +434,7 @@ void MVMEStreamProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 
                     mi.filterCacheModuleSectionSize, *mi.moduleHeader);
 
 
-                if (mi.moduleHeader + moduleEventSize + 1 > ptrToLastWord)
+                if (unlikely(mi.moduleHeader + moduleEventSize + 1 > ptrToLastWord))
                 {
                     m_d->counters.buffersWithErrors++;
 
@@ -442,6 +474,11 @@ void MVMEStreamProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 
                     if (diag)
                     {
                         diag->processModuleData(eventIndex, moduleIndex, mi.moduleHeader, moduleEventSize + 1);
+                    }
+
+                    for (auto c: m_d->consumers)
+                    {
+                        c->processModuleData(eventIndex, moduleIndex, mi.moduleHeader, moduleEventSize + 1);
                     }
 
                     // advance the moduleHeader by the event size
@@ -489,6 +526,11 @@ void MVMEStreamProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 
             m_d->analysis->endEvent(eventIndex, eventConfig->getId());
         }
 
+        for (auto c: m_d->consumers)
+        {
+            c->endEvent(eventIndex);
+        }
+
         // Single event processing: terminate after one loop through the modules.
         if (!m_d->doMultiEventProcessing[eventIndex])
         {
@@ -526,6 +568,16 @@ void MVMEStreamProcessor::logMessage(const QString &msg)
     }
 }
 
+const MVMEStreamProcessorCounters &MVMEStreamProcessor::getCounters() const
+{
+    return m_d->counters;
+}
+
+MVMEStreamProcessorCounters &MVMEStreamProcessor::getCounters()
+{
+    return m_d->counters;
+}
+
 void MVMEStreamProcessor::attachDiagnostics(std::shared_ptr<MesytecDiagnostics> diag)
 {
     assert(!m_d->diag);
@@ -543,13 +595,12 @@ bool MVMEStreamProcessor::hasDiagnostics() const
     return (bool)m_d->diag;
 }
 
-const MVMEStreamProcessorCounters &MVMEStreamProcessor::getCounters() const
+void MVMEStreamProcessor::attachConsumer(IMVMEStreamConsumer *c)
 {
-    return m_d->counters;
+    m_d->consumers.push_back(c);
 }
 
-MVMEStreamProcessorCounters &MVMEStreamProcessor::getCounters()
+void MVMEStreamProcessor::removeConsumer(IMVMEStreamConsumer *c)
 {
-    return m_d->counters;
+    m_d->consumers.removeAll(c);
 }
-
