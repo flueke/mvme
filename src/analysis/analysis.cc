@@ -2819,7 +2819,7 @@ void Analysis::beginRun_internal_only(const RunInfo &runInfo)
         operatorEntry.op->beginRun(runInfo);
     }
 
-    qDebug() << "Analysis NG:"
+    qDebug() << __PRETTY_FUNCTION__ << "analysis::Analysis:"
         << m_sources.size() << " sources,"
         << m_operators.size() << " operators";
 }
@@ -2853,17 +2853,21 @@ void Analysis::beginRun(
     }
 
 #if ANALYSIS_USE_A2
-    qDebug() << __FUNCTION__ << "########## a2 active ##########";
-    qDebug() << __FUNCTION__ << "using a2 arena" << (u32)m_a2ArenaIndex;
+    qDebug() << __PRETTY_FUNCTION__ << "########## a2 active ##########";
+    qDebug() << __PRETTY_FUNCTION__ << "a2: using a2 arena" << (u32)m_a2ArenaIndex;
+
+    auto arena = m_a2Arenas[m_a2ArenaIndex].get();
 
     auto a2State = a2_adapter_build(
-        m_a2Arenas[m_a2ArenaIndex].get(),
+        arena,
         m_a2TempArena.get(),
         m_sources,
         m_operators,
         m_vmeMap);
 
     m_a2State = std::make_unique<A2AdapterState>(a2State);
+
+    qDebug("%s a2: mem=%lf, start@%p", __PRETTY_FUNCTION__, (double)arena->used(), arena->mem);
 #endif
 }
 
@@ -3358,9 +3362,6 @@ Analysis::ReadResult Analysis::read(const QJsonObject &inputJson, VMEConfig *vme
         }
     }
 
-    beginRun(m_runInfo, m_vmeMap);
-    setModified();
-
     // Connections
     {
         /* Connections are defined by a structure looking like this:
@@ -3421,6 +3422,7 @@ Analysis::ReadResult Analysis::read(const QJsonObject &inputJson, VMEConfig *vme
     // Dynamic QObject Properties
     loadDynamicProperties(json["properties"].toObject(), this);
 
+    //beginRun(m_runInfo, m_vmeMap);
     setModified(false);
 
     return result;
