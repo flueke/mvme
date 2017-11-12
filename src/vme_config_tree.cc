@@ -22,7 +22,7 @@
 #include "mvme_context.h"
 #include "config_ui.h"
 #include "treewidget_utils.h"
-#include "mvme_event_processor.h"
+#include "mvme_stream_worker.h"
 #include "vmusb.h"
 #include "vme_script_editor.h"
 

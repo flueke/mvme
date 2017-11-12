@@ -4,7 +4,7 @@
 #include <QFormLayout>
 #include <QTimer>
 
-#include "mvme_event_processor.h"
+#include "mvme_stream_worker.h"
 
 struct AnalysisInfoWidgetPrivate
 {

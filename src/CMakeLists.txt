@@ -91,10 +91,10 @@ set(LIBMVME_SOURCES
     mvme_context.cc
     mvme_context_lib.cc
     mvme.cpp
-    mvme_event_processor.cc
     mvme_listfile.cc
     mvme_startup.cc
     mvme_stream_processor.cc
+    mvme_stream_worker.cc
     qt_util.cc
     realtimedata.cpp
     scrollbar.cpp

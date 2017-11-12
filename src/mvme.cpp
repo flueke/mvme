@@ -29,7 +29,7 @@
 #include "listfile_browser.h"
 #include "mesytec_diagnostics.h"
 #include "mvme_context.h"
-#include "mvme_event_processor.h"
+#include "mvme_stream_worker.h"
 #include "mvme_listfile.h"
 #include "mvme_context_lib.h"
 #include "qt_util.h"
