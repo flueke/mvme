@@ -33,9 +33,9 @@ class MesytecDiagnostics;
 class MVMEContext;
 class VMEConfig;
 
-class MVMEEventProcessorPrivate;
+class MVMEStreamWorkerPrivate;
 
-class LIBMVME_EXPORT MVMEEventProcessor: public QObject
+class LIBMVME_EXPORT MVMEStreamWorker: public QObject
 {
     Q_OBJECT
     signals:
@@ -46,8 +46,8 @@ class LIBMVME_EXPORT MVMEEventProcessor: public QObject
         void logMessage(const QString &);
 
     public:
-        MVMEEventProcessor(MVMEContext *context);
-        ~MVMEEventProcessor();
+        MVMEStreamWorker(MVMEContext *context);
+        ~MVMEStreamWorker();
 
         void setDiagnostics(std::shared_ptr<MesytecDiagnostics> diag);
         bool hasDiagnostics() const;
@@ -69,7 +69,7 @@ class LIBMVME_EXPORT MVMEEventProcessor: public QObject
         void stopProcessing(bool whenQueueEmpty = true);
 
     private:
-        MVMEEventProcessorPrivate *m_d;
+        MVMEStreamWorkerPrivate *m_d;
 };
 
 #endif

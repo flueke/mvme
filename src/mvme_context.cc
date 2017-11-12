@@ -22,7 +22,7 @@
 #include "vmusb.h"
 #include "vmusb_readout_worker.h"
 #include "vmusb_buffer_processor.h"
-#include "mvme_event_processor.h"
+#include "mvme_stream_worker.h"
 #include "mvme_listfile.h"
 #include "analysis/analysis.h"
 #include "analysis/analysis_ui.h"
@@ -121,7 +121,7 @@ void MVMEContextPrivate::stopDAQReplay()
     }
 
     // At this point the ListFileReader is stopped and will not produce any
-    // more buffers. Now tell the MVMEEventProcessor to stop after finishing
+    // more buffers. Now tell the MVMEStreamWorker to stop after finishing
     // the current queue.
 
     // There should be no race here. If the analysis is running we will stop it
@@ -131,7 +131,7 @@ void MVMEContextPrivate::stopDAQReplay()
     if (m_q->m_eventProcessor->getState() != EventProcessorState::Idle)
     {
         QTimer::singleShot(0, [this]() { QMetaObject::invokeMethod(m_q->m_eventProcessor, "stopProcessing", Qt::QueuedConnection); });
-        auto con = QObject::connect(m_q->m_eventProcessor, &MVMEEventProcessor::stopped, &localLoop, &QEventLoop::quit);
+        auto con = QObject::connect(m_q->m_eventProcessor, &MVMEStreamWorker::stopped, &localLoop, &QEventLoop::quit);
         localLoop.exec();
         QObject::disconnect(con);
     }
@@ -162,7 +162,7 @@ void MVMEContextPrivate::stopDAQDAQ()
     if (m_q->m_eventProcessor->getState() != EventProcessorState::Idle)
     {
         QTimer::singleShot(0, [this]() { QMetaObject::invokeMethod(m_q->m_eventProcessor, "stopProcessing", Qt::QueuedConnection); });
-        auto con = QObject::connect(m_q->m_eventProcessor, &MVMEEventProcessor::stopped, &localLoop, &QEventLoop::quit);
+        auto con = QObject::connect(m_q->m_eventProcessor, &MVMEStreamWorker::stopped, &localLoop, &QEventLoop::quit);
         localLoop.exec();
         QObject::disconnect(con);
     }
@@ -184,7 +184,7 @@ void MVMEContextPrivate::stopAnalysis()
         // Tell the analysis top stop immediately
         QTimer::singleShot(0, [this]() { QMetaObject::invokeMethod(m_q->m_eventProcessor, "stopProcessing",
                                                                    Qt::QueuedConnection, Q_ARG(bool, false)); });
-        QObject::connect(m_q->m_eventProcessor, &MVMEEventProcessor::stopped, &localLoop, &QEventLoop::quit);
+        QObject::connect(m_q->m_eventProcessor, &MVMEStreamWorker::stopped, &localLoop, &QEventLoop::quit);
         localLoop.exec();
     }
 
@@ -221,7 +221,7 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent)
     , m_logTimer(new QTimer(this))
     , m_readoutThread(new QThread(this))
     , m_eventThread(new QThread(this))
-    , m_eventProcessor(new MVMEEventProcessor(this))
+    , m_eventProcessor(new MVMEStreamWorker(this))
     , m_mainwin(mainwin)
 
     , m_mode(GlobalMode::NotSet)
@@ -340,8 +340,8 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent)
     m_eventThread->setObjectName("mvme AnalysisThread");
     m_eventProcessor->moveToThread(m_eventThread);
     m_eventThread->start();
-    connect(m_eventProcessor, &MVMEEventProcessor::logMessage, this, &MVMEContext::logMessage);
-    connect(m_eventProcessor, &MVMEEventProcessor::stateChanged, this, &MVMEContext::onEventProcessorStateChanged);
+    connect(m_eventProcessor, &MVMEStreamWorker::logMessage, this, &MVMEContext::logMessage);
+    connect(m_eventProcessor, &MVMEStreamWorker::stateChanged, this, &MVMEContext::onEventProcessorStateChanged);
 
 
     qDebug() << __PRETTY_FUNCTION__ << "startup: setting empty VMEConfig and VMUSB controller";
@@ -403,7 +403,7 @@ MVMEContext::~MVMEContext()
     // Same for daqStateChanged() and eventProcessorStateChanged
     disconnect(m_readoutWorker, &VMEReadoutWorker::stateChanged, this, &MVMEContext::onDAQStateChanged);
     disconnect(m_listFileWorker, &ListFileReader::stateChanged, this, &MVMEContext::onDAQStateChanged);
-    disconnect(m_eventProcessor, &MVMEEventProcessor::stateChanged, this, &MVMEContext::onEventProcessorStateChanged);
+    disconnect(m_eventProcessor, &MVMEStreamWorker::stateChanged, this, &MVMEContext::onEventProcessorStateChanged);
 
     delete m_controller;
     delete m_analysis_ng;
@@ -903,7 +903,7 @@ void MVMEContext::setAnalysisConfigFileName(QString name, bool updateWorkspace)
     }
 }
 
-/* Notifies MVMEEventProcessor and the analysis that a new run is going to start.
+/* Notifies MVMEStreamWorker and the analysis that a new run is going to start.
  * Reset DAQ stats. */
 void MVMEContext::prepareStart()
 {
@@ -940,7 +940,7 @@ void MVMEContext::startDAQ(quint32 nCycles, bool keepHistoContents)
     emit daqAboutToStart(nCycles);
 
     // Generate new RunInfo here. Has to happen before prepareStart() calls
-    // MVMEEventProcessor::beginRun()
+    // MVMEStreamWorker::beginRun()
     auto now = QDateTime::currentDateTime();
     m_d->m_runInfo.runId = now.toString("yyMMdd_HHmmss");
     m_d->m_runInfo.keepAnalysisState = keepHistoContents;

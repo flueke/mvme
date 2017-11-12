@@ -37,7 +37,7 @@ struct LIBMVME_EXPORT MVMEStreamProcessorCounters
 
 struct MVMEStreamProcessorPrivate;
 
-class MVMEStreamProcessor
+class LIBMVME_EXPORT MVMEStreamProcessor
 {
     public:
         using Logger = std::function<void (const QString &)>;

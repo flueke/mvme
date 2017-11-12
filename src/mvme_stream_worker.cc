@@ -16,7 +16,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
-#include "mvme_event_processor.h"
+#include "mvme_stream_worker.h"
 
 #include "analysis/a2_adapter.h"
 #include "analysis/analysis.h"
@@ -41,7 +41,7 @@ enum RunAction
 static const u32 FilledBufferWaitTimeout_ms = 250;
 static const u32 ProcessEventsMinInterval_ms = 500;
 
-struct MVMEEventProcessorPrivate
+struct MVMEStreamWorkerPrivate
 {
     MVMEStreamProcessor streamProcessor;
     MVMEContext *context = nullptr;
@@ -51,20 +51,20 @@ struct MVMEEventProcessorPrivate
     EventProcessorState m_state = EventProcessorState::Idle;
 };
 
-MVMEEventProcessor::MVMEEventProcessor(MVMEContext *context)
-    : m_d(new MVMEEventProcessorPrivate)
+MVMEStreamWorker::MVMEStreamWorker(MVMEContext *context)
+    : m_d(new MVMEStreamWorkerPrivate)
 {
     m_d->m_runAction = KeepRunning;
     m_d->context = context;
 }
 
-MVMEEventProcessor::~MVMEEventProcessor()
+MVMEStreamWorker::~MVMEStreamWorker()
 {
     //delete m_d->diag; // FIXME: why? what?
     delete m_d;
 }
 
-void MVMEEventProcessor::beginRun(const RunInfo &runInfo, VMEConfig *vmeConfig)
+void MVMEStreamWorker::beginRun(const RunInfo &runInfo, VMEConfig *vmeConfig)
 {
     m_d->streamProcessor.beginRun(
         runInfo,
@@ -77,7 +77,7 @@ void MVMEEventProcessor::beginRun(const RunInfo &runInfo, VMEConfig *vmeConfig)
 /* Used at the start of a run after beginRun() has been called and to resume from
  * paused state.
  * Does a2_begin_run() and a2_end_run() (threading stuff if enabled). */
-void MVMEEventProcessor::startProcessing()
+void MVMEStreamWorker::startProcessing()
 {
     qDebug() << __PRETTY_FUNCTION__ << "begin";
     Q_ASSERT(m_freeBuffers);
@@ -165,7 +165,7 @@ void MVMEEventProcessor::startProcessing()
     qDebug() << __PRETTY_FUNCTION__ << "end";
 }
 
-void MVMEEventProcessor::stopProcessing(bool whenQueueEmpty)
+void MVMEStreamWorker::stopProcessing(bool whenQueueEmpty)
 {
     qDebug() << QDateTime::currentDateTime().toString("HH:mm:ss")
         << __PRETTY_FUNCTION__ << (whenQueueEmpty ? "when empty" : "immediately");
@@ -173,35 +173,35 @@ void MVMEEventProcessor::stopProcessing(bool whenQueueEmpty)
     m_d->m_runAction = whenQueueEmpty ? StopIfQueueEmpty : StopImmediately;
 }
 
-EventProcessorState MVMEEventProcessor::getState() const
+EventProcessorState MVMEStreamWorker::getState() const
 {
     return m_d->m_state;
 }
 
-const MVMEStreamProcessorCounters &MVMEEventProcessor::getCounters() const
+const MVMEStreamProcessorCounters &MVMEStreamWorker::getCounters() const
 {
     return m_d->streamProcessor.getCounters();
 }
 
-void MVMEEventProcessor::setListFileVersion(u32 version)
+void MVMEStreamWorker::setListFileVersion(u32 version)
 {
     qDebug() << __PRETTY_FUNCTION__ << version;
 
     m_d->m_listFileVersion = version;
 }
 
-void MVMEEventProcessor::setDiagnostics(std::shared_ptr<MesytecDiagnostics> diag)
+void MVMEStreamWorker::setDiagnostics(std::shared_ptr<MesytecDiagnostics> diag)
 {
     qDebug() << __PRETTY_FUNCTION__ << diag.get();
     m_d->streamProcessor.attachDiagnostics(diag);
 }
 
-bool MVMEEventProcessor::hasDiagnostics() const
+bool MVMEStreamWorker::hasDiagnostics() const
 {
     return m_d->streamProcessor.hasDiagnostics();
 }
 
-void MVMEEventProcessor::removeDiagnostics()
+void MVMEStreamWorker::removeDiagnostics()
 {
     m_d->streamProcessor.removeDiagnostics();
 }

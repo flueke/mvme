@@ -5,8 +5,8 @@
 #include "mesytec_diagnostics.h"
 #include "mvme_listfile.h"
 
-//#define MVME_EVENT_PROCESSOR_DEBUGGING
-//#define MVME_EVENT_PROCESSOR_DEBUG_BUFFERS
+//#define MVME_STREAM_PROCESSOR_DEBUG
+//#define MVME_STREAM_PROCESSOR_DEBUG_BUFFERS
 
 struct MultiEventModuleInfo
 {
@@ -153,7 +153,7 @@ void MVMEStreamProcessor::processDataBuffer(DataBuffer *buffer)
 
         BufferIterator iter(buffer->data, buffer->used, BufferIterator::Align32);
 
-#ifdef MVME_EVENT_PROCESSOR_DEBUG_BUFFERS
+#ifdef MVME_STREAM_PROCESSOR_DEBUG_BUFFERS
         logMessage(QString(">>> Begin mvme buffer #%1").arg(bufferNumber));
 
         logBuffer(iter, [this](const QString &str) { logMessage(str); });
@@ -169,7 +169,7 @@ void MVMEStreamProcessor::processDataBuffer(DataBuffer *buffer)
 
             if (sectionSize > iter.longwordsLeft())
             {
-#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+#ifdef MVME_STREAM_PROCESSOR_DEBUG
                 QString msg = (QString("Error (mvme fmt): extracted section size exceeds buffer size!"
                                        " mvme buffer #%1, sectionHeader=0x%2, sectionSize=%3, wordsLeftInBuffer=%4")
                                .arg(bufferNumber)
@@ -249,7 +249,7 @@ void MVMEStreamProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 
     //
     // Step1: collect all subevent headers and store them in the modinfo structures
     //
-#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+#ifdef MVME_STREAM_PROCESSOR_DEBUG
     qDebug() << __PRETTY_FUNCTION__ << "Begin Step 1";
 #endif
 
@@ -259,7 +259,7 @@ void MVMEStreamProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 
     {
         if (eventIter.atEnd())
         {
-#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+#ifdef MVME_STREAM_PROCESSOR_DEBUG
             qDebug() << __PRETTY_FUNCTION__ << "  break because eventIter.atEnd()";
 #endif
             break;
@@ -267,7 +267,7 @@ void MVMEStreamProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 
 
         if (eventIter.peekU32() == EndMarker)
         {
-#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+#ifdef MVME_STREAM_PROCESSOR_DEBUG
             qDebug() << __PRETTY_FUNCTION__ << "  break because EndMarker found";
 #endif
             break;
@@ -279,7 +279,7 @@ void MVMEStreamProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 
 
         u32 subEventHeader = eventIter.extractU32();
         u32 subEventSize   = (subEventHeader & m_d->SubEventSizeMask) >> m_d->SubEventSizeShift;
-#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+#ifdef MVME_STREAM_PROCESSOR_DEBUG
         qDebug("%s   eventIndex=%d, moduleIndex=%d, subEventSize=%u",
                __PRETTY_FUNCTION__, eventIndex, moduleIndex, subEventSize);
 #endif
@@ -287,7 +287,7 @@ void MVMEStreamProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 
         eventIter.skip(sizeof(u32), subEventSize);
     }
 
-#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+#ifdef MVME_STREAM_PROCESSOR_DEBUG
     qDebug() << __PRETTY_FUNCTION__ << "Step 1 complete: ";
 
     for (u32 moduleIndex = 0; moduleIndex < MaxVMEModules; ++moduleIndex)
@@ -322,7 +322,7 @@ void MVMEStreamProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 
 
     while (!done)
     {
-#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+#ifdef MVME_STREAM_PROCESSOR_DEBUG
         qDebug("%s eventIndex=%u: Begin Step 2 loop", __PRETTY_FUNCTION__, eventIndex);
 #endif
 
@@ -333,7 +333,7 @@ void MVMEStreamProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 
         if (m_d->doMultiEventProcessing[eventIndex]
             && !a2::data_filter::matches(moduleInfos[0].moduleHeaderFilter, *moduleInfos[0].moduleHeader))
         {
-#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+#ifdef MVME_STREAM_PROCESSOR_DEBUG
             qDebug("%s (early check): moduleHeader=0x%08x did not match header filter -> done processing event section.",
                    __PRETTY_FUNCTION__, *moduleInfos[0].moduleHeader);
 #endif
@@ -343,7 +343,7 @@ void MVMEStreamProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 
 
         if (m_d->analysis)
         {
-#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+#ifdef MVME_STREAM_PROCESSOR_DEBUG
             qDebug("%s analysis::beginEvent()", __PRETTY_FUNCTION__);
 #endif
             m_d->analysis->beginEvent(eventIndex, eventConfig->getId());
@@ -367,7 +367,7 @@ void MVMEStreamProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 
             {
                 // Do single event processing as multi event splitting is not
                 // enabled for this event.
-#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+#ifdef MVME_STREAM_PROCESSOR_DEBUG
                 qDebug("%s eventIndex=%u, moduleIndex=%u: multi event disabled for event -> doing single event processing only",
                        __PRETTY_FUNCTION__, eventIndex, moduleIndex);
 #endif
@@ -421,7 +421,7 @@ void MVMEStreamProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 
                 }
                 else
                 {
-#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+#ifdef MVME_STREAM_PROCESSOR_DEBUG
                     qDebug("%s moduleIndex=%u, moduleHeader=0x%08x @%p, moduleEventSize=%u",
                            __PRETTY_FUNCTION__, moduleIndex, *mi.moduleHeader, mi.moduleHeader, moduleEventSize);
 #endif
@@ -463,7 +463,7 @@ void MVMEStreamProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 
                 // for the end of the event section we're in.
                 // TODO: implement the EndMarker checks
 
-#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+#ifdef MVME_STREAM_PROCESSOR_DEBUG
                 qDebug("%s moduleHeader=0x%08x did not match header filter -> done processing event section.",
                        __PRETTY_FUNCTION__, *mi.moduleHeader);
 #endif
@@ -483,7 +483,7 @@ void MVMEStreamProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 
 
         if (m_d->analysis)
         {
-#ifdef MVME_EVENT_PROCESSOR_DEBUGGING
+#ifdef MVME_STREAM_PROCESSOR_DEBUG
             qDebug("%s analysis::endEvent()", __PRETTY_FUNCTION__);
 #endif
             m_d->analysis->endEvent(eventIndex, eventConfig->getId());
