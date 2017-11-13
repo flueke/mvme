@@ -232,7 +232,6 @@ add_mvme_executable(test_launcher_module_template "test_launcher_module_template
 add_mvme_executable(vmusb_read_buffers_file "vmusb_read_buffers_file.cc")
 
 add_mvme_executable(mvme-listfile-dumper-multievent "listfile-multievent-dumper.cpp")
-add_mvme_executable(dev_mvme_event_processing "dev_mvme_event_processing.cc")
 add_mvme_executable(dev_datagen "dev_datagen.cc")
 add_mvme_executable(dev_data_filter_runner "dev_data_filter_runner.cc")
 add_mvme_executable(dev_sis3153_read_raw_buffers_file "dev_sis3153_read_raw_buffers_file.cc")
@@ -241,6 +240,7 @@ add_mvme_executable(dev_udp_receiver "dev_udp_receiver.cc")
 
 # root subdir if ROOT support is enabled
 if (ENABLE_ROOT)
+    add_mvme_executable(dev_mvme_event_processing "dev_mvme_event_processing.cc")
     add_subdirectory(root)
 endif (ENABLE_ROOT)
 
