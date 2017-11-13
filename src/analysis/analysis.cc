@@ -1935,6 +1935,14 @@ void RangeFilter1D::step()
                     outParam.value = inParam.value;
                     outParam.valid = true;
                 }
+                else
+                {
+                    outParam.valid = false;
+                }
+            }
+            else
+            {
+                outParam.valid = false;
             }
         }
     }
