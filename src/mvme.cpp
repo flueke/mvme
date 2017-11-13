@@ -881,7 +881,28 @@ void MVMEMainWindow::onActionOpenListfile_triggered()
 
     try
     {
-        auto openResult = open_listfile(m_d->m_context, fileName, OpenListfileFlags::LoadAnalysis);
+        // TODO: Get rid of this incredibly annoying messagebox once the
+        // listfile browser is in better shape!
+
+        u16 openFlags = 0;
+
+        if (fileName.endsWith(".zip"))
+        {
+            QMessageBox box(QMessageBox::Question, QSL("Load analysis?"),
+                            QSL("Do you want to load the analysis configuration from the ZIP archive?"),
+                            QMessageBox::Yes | QMessageBox::No);
+
+            box.button(QMessageBox::Yes)->setText(QSL("Load analysis"));
+            box.button(QMessageBox::No)->setText(QSL("Keep current analysis"));
+            box.setDefaultButton(QMessageBox::No);
+
+            if (box.exec() == QMessageBox::Yes)
+            {
+                openFlags |= OpenListfileFlags::LoadAnalysis;
+            }
+        }
+
+        auto openResult = open_listfile(m_d->m_context, fileName, openFlags);
 
         appendToLogNoDebugOut(QSL(">>>>> Begin listfile log"));
         appendToLogNoDebugOut(openResult.messages);
