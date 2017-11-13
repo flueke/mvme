@@ -2927,6 +2927,7 @@ struct AnalysisWidgetPrivate
     QStatusBar *m_statusBar;
     QLabel *m_labelSinkStorageSize;
     QLabel *m_labelTimetickCount;
+    QLabel *m_statusLabelA2;
     QTimer *m_periodicUpdateTimer;
     WidgetGeometrySaver *m_geometrySaver;
     AnalysisInfoWidget *m_infoWidget = nullptr;
@@ -3717,7 +3718,13 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     // histo storage label
     m_d->m_labelSinkStorageSize = new QLabel;
     m_d->m_statusBar->addPermanentWidget(m_d->m_labelSinkStorageSize);
+    // a2 label
+    m_d->m_statusLabelA2 = new QLabel;
+    m_d->m_statusBar->addPermanentWidget(m_d->m_statusLabelA2);
 
+#if ANALYSIS_USE_A2
+    m_d->m_statusLabelA2->setText(QSL("::a2::"));
+#endif
 
     // main layout
     auto layout = new QGridLayout(this);
