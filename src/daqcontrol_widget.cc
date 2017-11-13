@@ -189,8 +189,6 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
         le_listfileFilename->setReadOnly(true);
     }
 
-    gb_listfile->setTitle(QSL("Listfile Output:"));
-
     auto daqButtonFrame = new QFrame;
     auto daqButtonLayout = new QHBoxLayout(daqButtonFrame);
     daqButtonLayout->setContentsMargins(0, 0, 0, 0);
@@ -232,6 +230,8 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
 
     // listfile groupbox
     {
+        gb_listfile->setTitle(QSL("Listfile Output:"));
+
         cb_writeListfile->setText(QSL("Write Listfile"));
         auto hbox = new QHBoxLayout;
         hbox->setContentsMargins(0, 0, 0, 0);
@@ -285,6 +285,12 @@ void DAQControlWidget::updateWidget()
         controllerState = m_context->getVMEController()->getState();
     }
 
+    const bool isReplay  = (globalMode == GlobalMode::ListFile);
+    const bool isRun     = (globalMode == GlobalMode::DAQ);
+    const bool isDAQIdle = (daqState == DAQState::Idle);
+    const bool isControllerConnected = (controllerState == ControllerState::Connected);
+
+
     const auto &stats = m_context->getDAQStats();
 
     //
@@ -326,11 +332,6 @@ void DAQControlWidget::updateWidget()
 
     pb_oneCycle->setEnabled(enableOneCycleButton);
 
-
-    //
-    // listfile options
-    //
-    gb_listfile->setEnabled(globalMode == GlobalMode::DAQ);
 
     //
     // button labels and actions
@@ -413,6 +414,12 @@ void DAQControlWidget::updateWidget()
     pb_reconnect->setEnabled(globalMode == GlobalMode::DAQ && daqState == DAQState::Idle);
     pb_controllerSettings->setEnabled(globalMode == GlobalMode::DAQ && daqState == DAQState::Idle);
 
+    //
+    // listfile options
+    //
+    gb_listfile->setEnabled(globalMode == GlobalMode::DAQ);
+
+
     auto outputInfo = m_context->getListFileOutputInfo();
 
     {
@@ -441,4 +448,7 @@ void DAQControlWidget::updateWidget()
     }
 
     label_listfileSize->setText(sizeString);
+
+    cb_writeListfile->setEnabled(isDAQIdle);
+    combo_compression->setEnabled(isDAQIdle);
 }
