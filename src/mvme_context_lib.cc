@@ -71,8 +71,6 @@ OpenListfileResult open_listfile(MVMEContext *context, const QString &filename, 
          * store contents in state and decide of whether to directly load it.
          * */
         {
-            // FIXME: this part does not check if the current analysis is modified!
-
             QuaZipFile inFile(filename, QSL("analysis.analysis"));
 
             if (inFile.open(QIODevice::ReadOnly))
@@ -90,6 +88,7 @@ OpenListfileResult open_listfile(MVMEContext *context, const QString &filename, 
                 if (flags & OpenListfileFlags::LoadAnalysis)
                 {
                     context->loadAnalysisConfig(result.analysisBlob, QSL("ZIP Archive"));
+                    context->setAnalysisConfigFileName(QString());
                 }
             }
             else
@@ -98,7 +97,7 @@ OpenListfileResult open_listfile(MVMEContext *context, const QString &filename, 
             }
         }
 
-        // Try to read the logfile from the archive and append it to the log view
+        // Try to read the logfile from the archive
         {
             QuaZipFile inFile(filename, QSL("messages.log"));
 

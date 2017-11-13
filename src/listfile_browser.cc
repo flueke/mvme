@@ -1,13 +1,18 @@
 #include "listfile_browser.h"
-#include "mvme_context.h"
-#include "mvme_context_lib.h"
 
 #include <QHeaderView>
 #include <QBoxLayout>
+#include <QMessageBox>
 
-ListfileBrowser::ListfileBrowser(MVMEContext *context, QWidget *parent)
+#include "analysis/analysis.h"
+#include "mvme_context.h"
+#include "mvme_context_lib.h"
+#include "mvme.h"
+
+ListfileBrowser::ListfileBrowser(MVMEContext *context, MVMEMainWindow *mainWindow, QWidget *parent)
     : QWidget(parent)
     , m_context(context)
+    , m_mainWindow(mainWindow)
     , m_fsModel(new QFileSystemModel(this))
     , m_fsView(new QTableView(this))
     , m_analysisLoadActionCombo(new QComboBox(this))
@@ -70,10 +75,80 @@ void ListfileBrowser::updateWidget()
     m_fsView->setRootIndex(m_fsModel->index(listfileDirectory));
 }
 
+static const QString AnalysisFileFilter = QSL("MVME Analysis Files (*.analysis);; All Files (*.*)");
+
 void ListfileBrowser::onItemDoubleClicked(const QModelIndex &mi)
 {
-    auto filename = m_fsModel->filePath(mi);
+    if (m_context->getConfig()->isModified())
+    {
+        QMessageBox msgBox(QMessageBox::Question, "Save configuration?",
+                           "The current VME configuration has modifications. Do you want to save it?",
+                           QMessageBox::Save | QMessageBox::Cancel | QMessageBox::Discard);
+        int result = msgBox.exec();
+
+        if (result == QMessageBox::Save)
+        {
+            if (!m_mainWindow->onActionSaveVMEConfig_triggered())
+            {
+                return;
+            }
+        }
+        else if (result == QMessageBox::Cancel)
+        {
+            return;
+        }
+    }
+
+
     u16 flags = m_analysisLoadActionCombo->currentData().toUInt(0);
 
-    auto openResult = open_listfile(m_context, filename, flags);
+    if ((flags & OpenListfileFlags::LoadAnalysis) && m_context->getAnalysis()->isModified())
+    {
+        QMessageBox msgBox(QMessageBox::Question, QSL("Save analysis configuration?"),
+                           QSL("The current analysis configuration has modifications. Do you want to save it?"),
+                           QMessageBox::Save | QMessageBox::Cancel | QMessageBox::Discard);
+
+        int result = msgBox.exec();
+
+        if (result == QMessageBox::Save)
+        {
+            auto result = saveAnalysisConfig(
+                m_context->getAnalysis(),
+                m_context->getAnalysisConfigFileName(),
+                m_context->getWorkspaceDirectory(),
+                AnalysisFileFilter,
+                m_context);
+
+            if (!result.first)
+            {
+                m_context->logMessage(QSL("Error: ") + result.second);
+                return;
+            }
+        }
+        else if (result == QMessageBox::Cancel)
+        {
+            return;
+        }
+    }
+
+    auto filename = m_fsModel->filePath(mi);
+
+    try
+    {
+        auto openResult = open_listfile(m_context, filename, flags);
+
+        if (openResult.listfile)
+        {
+            m_context->logMessageRaw(QSL(">>>>> Begin listfile log"));
+            m_context->logMessageRaw(openResult.messages);
+            m_context->logMessageRaw(QSL("<<<<< End listfile log"));
+        }
+    }
+    catch (const QString &e)
+    {
+        QMessageBox::critical(this, QSL("Error opening listfile"),
+                              QString("Error opening listfile %1: %2")
+                              .arg(filename)
+                              .arg(e));
+    }
 }

@@ -504,6 +504,7 @@ QPair<bool, QString> gui_saveAnalysisConfigAs(analysis::Analysis *analysis_ng, Q
         return qMakePair(false, QString());
 
     QFileInfo fi(fileName);
+
     if (fi.completeSuffix().isEmpty())
         fileName += QSL(".analysis");
 

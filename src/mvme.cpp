@@ -1005,7 +1005,7 @@ void MVMEMainWindow::onActionListfileBrowser_triggered()
 {
     if (!m_d->m_listfileBrowser)
     {
-        m_d->m_listfileBrowser = new ListfileBrowser(m_d->m_context);
+        m_d->m_listfileBrowser = new ListfileBrowser(m_d->m_context, this);
         m_d->m_listfileBrowser->setAttribute(Qt::WA_DeleteOnClose);
         add_widget_close_action(m_d->m_listfileBrowser);
 

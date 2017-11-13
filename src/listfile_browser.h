@@ -6,12 +6,13 @@
 #include <QTableView>
 
 class MVMEContext;
+class MVMEMainWindow;
 
 class ListfileBrowser: public QWidget
 {
     Q_OBJECT
     public:
-        ListfileBrowser(MVMEContext *context, QWidget *parent = nullptr);
+        ListfileBrowser(MVMEContext *context, MVMEMainWindow *mainWindow, QWidget *parent = nullptr);
 
     private:
         void updateWidget();
@@ -19,6 +20,7 @@ class ListfileBrowser: public QWidget
         void onItemDoubleClicked(const QModelIndex &mi);
 
         MVMEContext *m_context;
+        MVMEMainWindow *m_mainWindow;
         QFileSystemModel *m_fsModel;
         QTableView *m_fsView;
         QComboBox *m_analysisLoadActionCombo;
