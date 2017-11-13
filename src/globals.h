@@ -191,7 +191,9 @@ struct ListFileOutputInfo
     u32 flags = UseTimestamp;
 };
 
+// without extensions
 QString generate_output_basename(const ListFileOutputInfo &info);
+// with .zip or .mvmelst extension
 QString generate_output_filename(const ListFileOutputInfo &info);
 
 #endif

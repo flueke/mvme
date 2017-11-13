@@ -166,25 +166,30 @@ namespace
                 .arg(device->errorString());
         }
     }
+
+    static void throw_io_device_error(std::unique_ptr<QIODevice> &device)
+    {
+        throw_io_device_error(device.get());
+    }
 }
 
 struct DAQReadoutListfileHelperPrivate
 {
-    QuaZip m_listFileArchive;
-    QIODevice *m_listFileOut = nullptr;
-    ListFileWriter *m_listfileWriter = nullptr;
+    QuaZip listfileArchive;
+    std::unique_ptr<QIODevice> listfileOut;
+    std::unique_ptr<ListFileWriter> listfileWriter;
 };
 
 //
 // DAQReadoutListfileHelper
 //
-DAQReadoutListfileHelper::DAQReadoutListfileHelper(VMEReadoutWorkerContext readoutContext,
-                                                   QObject *parent)
-: QObject(parent)
-, m_d(new DAQReadoutListfileHelperPrivate)
-, m_readoutContext(readoutContext)
+DAQReadoutListfileHelper::DAQReadoutListfileHelper(
+    VMEReadoutWorkerContext readoutContext, QObject *parent)
+    : QObject(parent)
+    , m_d(new DAQReadoutListfileHelperPrivate)
+    , m_readoutContext(readoutContext)
 {
-    m_d->m_listfileWriter = new ListFileWriter(this);
+    m_d->listfileWriter = std::make_unique<ListFileWriter>();
 }
 
 DAQReadoutListfileHelper::~DAQReadoutListfileHelper()
@@ -192,212 +197,242 @@ DAQReadoutListfileHelper::~DAQReadoutListfileHelper()
     delete m_d;
 }
 
+namespace
+{
+/* Throws if neither UseRunNumber nor UseTimestamp is set and the file already
+ * exists. Otherwise tries until it hits a non-existant filename. In the odd
+ * case where a timestamped filename exists and only UseTimestamp is set this
+ * process will take 1s!
+ *
+ * Also note that the file handling code does not in any way guard against race
+ * conditions when someone else is also creating files.
+ */
+QString make_new_listfile_name(ListFileOutputInfo *outInfo)
+{
+    auto testFlags = (ListFileOutputInfo::UseRunNumber | ListFileOutputInfo::UseTimestamp);
+    const bool canModifyName = (outInfo->flags & testFlags);
+    QFileInfo fi;
+    QString result;
+
+    do
+    {
+        result = outInfo->fullDirectory + generate_output_filename(*outInfo);
+
+        fi.setFile(result);
+
+        if (fi.exists())
+        {
+            if (!canModifyName)
+            {
+                throw (QString("Listfile output file '%1' exists.")
+                       .arg(result));
+            }
+
+            if (outInfo->flags & ListFileOutputInfo::UseRunNumber)
+            {
+                outInfo->runNumber++;
+            }
+            // otherwise the timestamp will change once one second has passed
+        }
+    } while (fi.exists());
+
+    return result;
+}
+
+} // end anon namespace
+
 void DAQReadoutListfileHelper::beginRun()
 {
-    QString outPath = m_readoutContext.listfileOutputInfo->fullDirectory;
-    bool listFileOutputEnabled = m_readoutContext.listfileOutputInfo->enabled;
+    if (!m_readoutContext.listfileOutputInfo->enabled)
+        return;
 
-    if (listFileOutputEnabled && !outPath.isEmpty())
+    // empty output path
+    if (m_readoutContext.listfileOutputInfo->fullDirectory.isEmpty())
+        return;
+
+    switch (m_readoutContext.listfileOutputInfo->format)
     {
-        delete m_d->m_listFileOut;
-        m_d->m_listFileOut = nullptr;
+        case ListFileFormat::Plain:
+            {
+                QString outFilename = make_new_listfile_name(m_readoutContext.listfileOutputInfo);
 
-        const QString outputFilename = generate_output_filename(*m_readoutContext.listfileOutputInfo);
-        const QString outFilename = outPath + '/' + outputFilename;
+                m_d->listfileOut = std::make_unique<QFile>(outFilename);
+                auto outFile = reinterpret_cast<QFile *>(m_d->listfileOut.get());
 
-        switch (m_readoutContext.listfileOutputInfo->format)
-        {
-            case ListFileFormat::Plain:
+                m_readoutContext.logMessage(QString("Writing to listfile %1").arg(outFilename));
+
+                if (!outFile->open(QIODevice::WriteOnly))
                 {
-                    QFile *outFile = new QFile(this);
-                    outFile->setFileName(outFilename);
-                    m_d->m_listFileOut = outFile;
+                    throw QString("Error opening listFile %1 for writing: %2")
+                        .arg(outFile->fileName())
+                        .arg(outFile->errorString())
+                        ;
+                }
 
-                    m_readoutContext.logMessage(QString("Writing to listfile %1").arg(outFilename));
+                m_d->listfileWriter->setOutputDevice(outFile);
+                m_readoutContext.daqStats->listfileFilename = outFilename;
+            } break;
 
-                    // TODO: increment run number if it is used in the filename
-                    if (outFile->exists())
-                    {
-                        throw QString("Error: listFile %1 exists").arg(outFilename);
-                    }
+        case ListFileFormat::ZIP:
+            {
+                QString outFilename = make_new_listfile_name(m_readoutContext.listfileOutputInfo);
 
-                    if (!outFile->open(QIODevice::WriteOnly))
-                    {
-                        throw QString("Error opening listFile %1 for writing: %2")
-                            .arg(outFile->fileName())
-                            .arg(outFile->errorString())
-                            ;
-                    }
+                m_d->listfileArchive.setZipName(outFilename);
+                m_d->listfileArchive.setZip64Enabled(true);
 
-                    m_d->m_listfileWriter->setOutputDevice(outFile);
-                    m_readoutContext.daqStats->listfileFilename = outFilename;
-                } break;
+                m_readoutContext.logMessage(QString("Writing listfile into %1").arg(outFilename));
 
-            case ListFileFormat::ZIP:
+                if (!m_d->listfileArchive.open(QuaZip::mdCreate))
                 {
-                    QFileInfo fi(outFilename);
-                    if (fi.exists())
-                    {
-                        throw QString("Error: listFile %1 exists").arg(outFilename);
-                    }
+                    throw make_zip_error(m_d->listfileArchive.getZipName(), m_d->listfileArchive);
+                }
 
-                    m_d->m_listFileArchive.setZipName(outFilename);
-                    m_d->m_listFileArchive.setZip64Enabled(true);
+                m_d->listfileOut = std::make_unique<QuaZipFile>(&m_d->listfileArchive);
+                auto outFile = reinterpret_cast<QuaZipFile *>(m_d->listfileOut.get());
 
-                    m_readoutContext.logMessage(QString("Writing listfile into %1").arg(outFilename));
+                QuaZipNewInfo zipFileInfo(m_readoutContext.runInfo->runId + QSL(".mvmelst"));
+                zipFileInfo.setPermissions(static_cast<QFile::Permissions>(0x6644));
 
-                    if (!m_d->m_listFileArchive.open(QuaZip::mdCreate))
-                    {
-                        throw make_zip_error(m_d->m_listFileArchive.getZipName(), m_d->m_listFileArchive);
-                    }
+                bool res = outFile->open(QIODevice::WriteOnly, zipFileInfo,
+                                         // password, crc
+                                         nullptr, 0,
+                                         // method (Z_DEFLATED or 0 for no compression)
+                                         Z_DEFLATED,
+                                         // level
+                                         m_readoutContext.listfileOutputInfo->compressionLevel
+                                        );
 
-                    auto outFile = new QuaZipFile(&m_d->m_listFileArchive, this);
-                    m_d->m_listFileOut = outFile;
+                if (!res)
+                {
+                    m_d->listfileOut.reset();
+                    throw make_zip_error(m_d->listfileArchive.getZipName(), m_d->listfileArchive);
+                }
 
-                    QuaZipNewInfo zipFileInfo(m_readoutContext.runInfo->runId + QSL(".mvmelst"));
-                    zipFileInfo.setPermissions(static_cast<QFile::Permissions>(0x6644));
+                m_d->listfileWriter->setOutputDevice(m_d->listfileOut.get());
+                m_readoutContext.daqStats->listfileFilename = outFilename;
 
-                    bool res = outFile->open(QIODevice::WriteOnly, zipFileInfo,
-                                             // password, crc
-                                             nullptr, 0,
-                                             // method (Z_DEFLATED or 0 for no compression)
-                                             Z_DEFLATED,
-                                             // level
-                                             m_readoutContext.listfileOutputInfo->compressionLevel
-                                            );
+            } break;
 
-                    if (!res)
-                    {
-                        delete m_d->m_listFileOut;
-                        m_d->m_listFileOut = nullptr;
-                        throw make_zip_error(m_d->m_listFileArchive.getZipName(), m_d->m_listFileArchive);
-                    }
-
-                    m_d->m_listfileWriter->setOutputDevice(m_d->m_listFileOut);
-                    m_readoutContext.daqStats->listfileFilename = outFilename;
-
-                } break;
-
-                InvalidDefaultCase;
-        }
-
-        QJsonObject daqConfigJson;
-        m_readoutContext.vmeConfig->write(daqConfigJson);
-        QJsonObject configJson;
-        configJson["DAQConfig"] = daqConfigJson;
-        QJsonDocument doc(configJson);
-
-        if (!m_d->m_listfileWriter->writePreamble() || !m_d->m_listfileWriter->writeConfig(doc.toJson()))
-        {
-            throw_io_device_error(m_d->m_listFileOut);
-        }
-
-        m_readoutContext.daqStats->listFileBytesWritten = m_d->m_listfileWriter->bytesWritten();
+            InvalidDefaultCase;
     }
+
+    QJsonObject daqConfigJson;
+    m_readoutContext.vmeConfig->write(daqConfigJson);
+    QJsonObject configJson;
+    configJson["DAQConfig"] = daqConfigJson;
+    QJsonDocument doc(configJson);
+
+    if (!m_d->listfileWriter->writePreamble() || !m_d->listfileWriter->writeConfig(doc.toJson()))
+    {
+        throw_io_device_error(m_d->listfileOut);
+    }
+
+    m_readoutContext.daqStats->listFileBytesWritten = m_d->listfileWriter->bytesWritten();
 }
 
 void DAQReadoutListfileHelper::endRun()
 {
-    if (m_d->m_listFileOut && m_d->m_listFileOut->isOpen())
+    if (!(m_d->listfileOut && m_d->listfileOut->isOpen()))
+        return;
+
+
+    if (!m_d->listfileWriter->writeEndSection())
     {
-        if (!m_d->m_listfileWriter->writeEndSection())
-        {
-            throw_io_device_error(m_d->m_listFileOut);
-        }
+        throw_io_device_error(m_d->listfileOut);
+    }
 
-        m_readoutContext.daqStats->listFileBytesWritten = m_d->m_listfileWriter->bytesWritten();
+    m_readoutContext.daqStats->listFileBytesWritten = m_d->listfileWriter->bytesWritten();
 
-        m_d->m_listFileOut->close();
+    m_d->listfileOut->close();
 
-        // TODO: more error reporting here (file I/O)
-        switch (m_readoutContext.listfileOutputInfo->format)
-        {
-            case ListFileFormat::Plain:
+    // TODO: more error reporting here (file I/O)
+    switch (m_readoutContext.listfileOutputInfo->format)
+    {
+        case ListFileFormat::Plain:
+            {
+                // Write a Logfile
+                QFile *listFileOut = qobject_cast<QFile *>(m_d->listfileOut.get());
+                Q_ASSERT(listFileOut);
+                QString logFileName = listFileOut->fileName();
+                logFileName.replace(".mvmelst", ".log");
+                QFile logFile(logFileName);
+                if (logFile.open(QIODevice::WriteOnly))
                 {
-                    // Write a Logfile
-                    QFile *listFileOut = qobject_cast<QFile *>(m_d->m_listFileOut);
-                    Q_ASSERT(listFileOut);
-                    QString logFileName = listFileOut->fileName();
-                    logFileName.replace(".mvmelst", ".log");
-                    QFile logFile(logFileName);
-                    if (logFile.open(QIODevice::WriteOnly))
+                    auto messages = m_readoutContext.getLogBuffer();
+                    for (const auto &msg: messages)
+                    {
+                        logFile.write(msg.toLocal8Bit());
+                        logFile.write("\n");
+                    }
+                }
+            } break;
+
+        case ListFileFormat::ZIP:
+            {
+
+                // Logfile
+                {
+                    QuaZipNewInfo info("messages.log");
+                    info.setPermissions(static_cast<QFile::Permissions>(0x6644));
+                    QuaZipFile outFile(&m_d->listfileArchive);
+
+                    bool res = outFile.open(QIODevice::WriteOnly, info,
+                                            // password, crc
+                                            nullptr, 0,
+                                            // method (Z_DEFLATED or 0 for no compression)
+                                            0,
+                                            // level
+                                            m_readoutContext.listfileOutputInfo->compressionLevel
+                                           );
+
+                    if (res)
                     {
                         auto messages = m_readoutContext.getLogBuffer();
                         for (const auto &msg: messages)
                         {
-                            logFile.write(msg.toLocal8Bit());
-                            logFile.write("\n");
+                            outFile.write(msg.toLocal8Bit());
+                            outFile.write("\n");
                         }
                     }
-                } break;
+                }
 
-            case ListFileFormat::ZIP:
+                // Analysis
                 {
+                    // TODO: might want to replace this with generate_output_basename() + ".analysis"
+                    QuaZipNewInfo info("analysis.analysis");
+                    info.setPermissions(static_cast<QFile::Permissions>(0x6644));
+                    QuaZipFile outFile(&m_d->listfileArchive);
 
-                    // Logfile
+                    bool res = outFile.open(QIODevice::WriteOnly, info,
+                                            // password, crc
+                                            nullptr, 0,
+                                            // method (Z_DEFLATED or 0 for no compression)
+                                            0,
+                                            // level
+                                            m_readoutContext.listfileOutputInfo->compressionLevel
+                                           );
+
+                    if (res)
                     {
-                        QuaZipNewInfo info("messages.log");
-                        info.setPermissions(static_cast<QFile::Permissions>(0x6644));
-                        QuaZipFile outFile(&m_d->m_listFileArchive);
-
-                        bool res = outFile.open(QIODevice::WriteOnly, info,
-                                                // password, crc
-                                                nullptr, 0,
-                                                // method (Z_DEFLATED or 0 for no compression)
-                                                0,
-                                                // level
-                                                m_readoutContext.listfileOutputInfo->compressionLevel
-                                               );
-
-                        if (res)
-                        {
-                            auto messages = m_readoutContext.getLogBuffer();
-                            for (const auto &msg: messages)
-                            {
-                                outFile.write(msg.toLocal8Bit());
-                                outFile.write("\n");
-                            }
-                        }
+                        outFile.write(m_readoutContext.getAnalysisJson().toJson());
                     }
+                }
 
-                    // Analysis
-                    {
-                        // TODO: might want to replace this with generate_output_basename() + ".analysis"
-                        QuaZipNewInfo info("analysis.analysis");
-                        info.setPermissions(static_cast<QFile::Permissions>(0x6644));
-                        QuaZipFile outFile(&m_d->m_listFileArchive);
+                m_d->listfileArchive.close();
 
-                        bool res = outFile.open(QIODevice::WriteOnly, info,
-                                                // password, crc
-                                                nullptr, 0,
-                                                // method (Z_DEFLATED or 0 for no compression)
-                                                0,
-                                                // level
-                                                m_readoutContext.listfileOutputInfo->compressionLevel
-                                               );
+                if (m_d->listfileArchive.getZipError() != UNZ_OK)
+                {
+                    throw make_zip_error(m_d->listfileArchive.getZipName(), m_d->listfileArchive);
+                }
+            } break;
 
-                        if (res)
-                        {
-                            outFile.write(m_readoutContext.getAnalysisJson().toJson());
-                        }
-                    }
+            InvalidDefaultCase;
+    }
 
-                    m_d->m_listFileArchive.close();
-
-                    if (m_d->m_listFileArchive.getZipError() != UNZ_OK)
-                    {
-                        throw make_zip_error(m_d->m_listFileArchive.getZipName(), m_d->m_listFileArchive);
-                    }
-                } break;
-
-                InvalidDefaultCase;
-        }
-
+    if (m_readoutContext.listfileOutputInfo->flags & ListFileOutputInfo::UseRunNumber)
+    {
         // increment the run number here so that it represents the _next_ run number
-        if (m_readoutContext.listfileOutputInfo->flags & ListFileOutputInfo::UseRunNumber)
-        {
-            m_readoutContext.listfileOutputInfo->runNumber++;
-        }
+        m_readoutContext.listfileOutputInfo->runNumber++;
     }
 }
 
@@ -408,12 +443,12 @@ void DAQReadoutListfileHelper::writeBuffer(DataBuffer *buffer)
 
 void DAQReadoutListfileHelper::writeBuffer(const u8 *buffer, size_t size)
 {
-    if (m_d->m_listFileOut && m_d->m_listFileOut->isOpen())
+    if (m_d->listfileOut && m_d->listfileOut->isOpen())
     {
-        if (!m_d->m_listfileWriter->writeBuffer(reinterpret_cast<const char *>(buffer), size))
+        if (!m_d->listfileWriter->writeBuffer(reinterpret_cast<const char *>(buffer), size))
         {
-            throw_io_device_error(m_d->m_listFileOut);
+            throw_io_device_error(m_d->listfileOut);
         }
-        m_readoutContext.daqStats->listFileBytesWritten = m_d->m_listfileWriter->bytesWritten();
+        m_readoutContext.daqStats->listFileBytesWritten = m_d->listfileWriter->bytesWritten();
     }
 }
