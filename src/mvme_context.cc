@@ -213,6 +213,31 @@ void MVMEContextPrivate::clearLog()
     }
 }
 
+static void writeToSettings(const ListFileOutputInfo &info, QSettings &settings)
+{
+    settings.setValue(QSL("WriteListFile"),             info.enabled);
+    settings.setValue(QSL("ListFileFormat"),            toString(info.format));
+    settings.setValue(QSL("ListFileDirectory"),         info.directory);
+    settings.setValue(QSL("ListFileCompressionLevel"),  info.compressionLevel);
+    settings.setValue(QSL("ListFilePrefix"),            info.prefix);
+    settings.setValue(QSL("ListFileRunNumber"),         info.runNumber);
+    settings.setValue(QSL("ListFileOutputFlags"),       info.flags);
+}
+
+static ListFileOutputInfo readFromSettings(QSettings &settings)
+{
+    ListFileOutputInfo result;
+    result.enabled          = settings.value(QSL("WriteListFile"), QSL("true")).toBool();
+    result.format           = ListFileFormat::ZIP; // XXX: Forcing ListFileFormat::ZIP since 0.9.x
+    result.directory        = settings.value(QSL("ListFileDirectory"), QSL("listfiles")).toString();
+    result.compressionLevel = settings.value(QSL("ListFileCompressionLevel"), DefaultListFileCompression).toInt();
+    result.prefix           = settings.value(QSL("ListFilePrefix"), QSL("mvmelst")).toString();
+    result.runNumber        = settings.value(QSL("ListFileRunNumber"), 1u).toUInt();
+    result.flags            = settings.value(QSL("ListFileOutputFlags"), ListFileOutputInfo::UseTimestamp).toUInt();
+
+    return result;
+}
+
 MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent)
     : QObject(parent)
     , m_d(new MVMEContextPrivate)
@@ -708,7 +733,12 @@ void MVMEContext::onEventProcessorStateChanged(EventProcessorState state)
 // Called on VMUSBReadoutWorker::daqStopped()
 void MVMEContext::onDAQDone()
 {
+    // stops the analysis side thread
     QMetaObject::invokeMethod(m_eventProcessor, "stopProcessing", Qt::QueuedConnection);
+
+    // The readout worker might have modified the ListFileOutputInfo structure. Write it out to the workspace.
+    qDebug() << __PRETTY_FUNCTION__ << "writing listfile output info to workspace";
+    writeToSettings(m_d->m_listfileOutputInfo, *makeWorkspaceSettings());
 }
 
 // Called on ListFileReader::replayStopped()
@@ -944,6 +974,10 @@ void MVMEContext::startDAQ(quint32 nCycles, bool keepHistoContents)
     auto now = QDateTime::currentDateTime();
     m_d->m_runInfo.runId = now.toString("yyMMdd_HHmmss");
     m_d->m_runInfo.keepAnalysisState = keepHistoContents;
+
+    // TODO: use ListFileOutputInfo to generate the runId for the analysis
+    // FIXME: we don't actually know the runId before the listfile is successfully opened.
+    // E.g. the runNumber might be incremented due to run files already existing.
 
     prepareStart();
     m_d->clearLog();
@@ -1198,14 +1232,6 @@ void make_empty_file(const QString &filePath)
         throw file.errorString();
 }
 
-static void writeToSettings(const ListFileOutputInfo &info, QSettings &settings)
-{
-    settings.setValue(QSL("WriteListFile"),             info.enabled);
-    settings.setValue(QSL("ListFileFormat"),            toString(info.format));
-    settings.setValue(QSL("ListFileDirectory"),         info.directory);
-    settings.setValue(QSL("ListFileCompressionLevel"),  info.compressionLevel);
-}
-
 void MVMEContext::newWorkspace(const QString &dirName)
 {
     QDir dir(dirName);
@@ -1315,13 +1341,8 @@ void MVMEContext::openWorkspace(const QString &dirName)
         }
 
         {
-            ListFileOutputInfo info = {};
-            info.enabled   = workspaceSettings->value(QSL("WriteListFile"), QSL("true")).toBool();
-            //info.format    = fromString(workspaceSettings->value(QSL("ListFileFormat"), toString(DefaultListFileFormat)).toString());
-            // XXX: Forcing ListFileFormat::ZIP since 0.9.x
-            info.format    = ListFileFormat::ZIP;
-            info.directory = workspaceSettings->value(QSL("ListFileDirectory"), QSL("listfiles")).toString();
-            info.compressionLevel = workspaceSettings->value(QSL("ListFileCompressionLevel"), DefaultListFileCompression).toInt();
+            ListFileOutputInfo info = readFromSettings(*workspaceSettings);
+
 
             QDir listFileOutputDir(info.directory);
 

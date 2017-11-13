@@ -19,6 +19,7 @@
 
 #include "vme_daq.h"
 
+#include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <quazipfile.h>
@@ -201,20 +202,23 @@ void DAQReadoutListfileHelper::beginRun()
         delete m_d->m_listFileOut;
         m_d->m_listFileOut = nullptr;
 
+        const QString outputFilename = generate_output_filename(*m_readoutContext.listfileOutputInfo);
+        const QString outFilename = outPath + '/' + outputFilename;
+
         switch (m_readoutContext.listfileOutputInfo->format)
         {
             case ListFileFormat::Plain:
                 {
                     QFile *outFile = new QFile(this);
-                    m_d->m_listFileOut = outFile;
-                    QString outFilename = outPath + '/' + m_readoutContext.runInfo->runId + ".mvmelst";
                     outFile->setFileName(outFilename);
+                    m_d->m_listFileOut = outFile;
 
                     m_readoutContext.logMessage(QString("Writing to listfile %1").arg(outFilename));
 
+                    // TODO: increment run number if it is used in the filename
                     if (outFile->exists())
                     {
-                        throw QString("Error: listFile %1 exists");
+                        throw QString("Error: listFile %1 exists").arg(outFilename);
                     }
 
                     if (!outFile->open(QIODevice::WriteOnly))
@@ -231,7 +235,12 @@ void DAQReadoutListfileHelper::beginRun()
 
             case ListFileFormat::ZIP:
                 {
-                    QString outFilename = outPath + QSL("/mvmelst_") + m_readoutContext.runInfo->runId + QSL(".zip");
+                    QFileInfo fi(outFilename);
+                    if (fi.exists())
+                    {
+                        throw QString("Error: listFile %1 exists").arg(outFilename);
+                    }
+
                     m_d->m_listFileArchive.setZipName(outFilename);
                     m_d->m_listFileArchive.setZip64Enabled(true);
 
@@ -353,6 +362,7 @@ void DAQReadoutListfileHelper::endRun()
 
                     // Analysis
                     {
+                        // TODO: might want to replace this with generate_output_basename() + ".analysis"
                         QuaZipNewInfo info("analysis.analysis");
                         info.setPermissions(static_cast<QFile::Permissions>(0x6644));
                         QuaZipFile outFile(&m_d->m_listFileArchive);
@@ -381,6 +391,12 @@ void DAQReadoutListfileHelper::endRun()
                 } break;
 
                 InvalidDefaultCase;
+        }
+
+        // increment the run number here so that it represents the _next_ run number
+        if (m_readoutContext.listfileOutputInfo->flags & ListFileOutputInfo::UseRunNumber)
+        {
+            m_readoutContext.listfileOutputInfo->runNumber++;
         }
     }
 }

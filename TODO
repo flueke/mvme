@@ -2,6 +2,14 @@
 Do these first!
 ==================================================
 
+* readout workers: try to find an unused output filename by incrementing the runNumber
+* check the case where listfile creation throws an exception. right now this
+  results in a communication error with the sis controller when trying to start
+  another run after a failed one.
+
+* a2: Editing an operator during replay does not rebuild the a2 system. The
+  system is only updated when stopping and restarting the replay. Fix this!
+
 * Fix crash in analysis ui when moving an operator. Happens with the PMT test
   setup when moving one of the rightmost 2d histos.
 

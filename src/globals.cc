@@ -44,4 +44,40 @@ ListFileFormat fromString(const QString &str)
     return ListFileFormat::Invalid;
 }
 
+QString generate_output_basename(const ListFileOutputInfo &info)
+{
+    QString result(info.prefix);
 
+    if (info.flags & ListFileOutputInfo::UseRunNumber)
+    {
+        result += QString("_%1").arg(info.runNumber, 3, 10, QLatin1Char('0'));
+    }
+
+    if (info.flags & ListFileOutputInfo::UseTimestamp)
+    {
+        auto now = QDateTime::currentDateTime();
+        result += QSL("_") + now.toString("yyMMdd_HHmmss");
+    }
+
+    return result;
+}
+
+QString generate_output_filename(const ListFileOutputInfo &info)
+{
+    QString result = generate_output_basename(info);
+
+    switch (info.format)
+    {
+        case ListFileFormat::Plain:
+            result += QSL(".mvmelst");
+            break;
+
+        case ListFileFormat::ZIP:
+            result += QSL(".zip");
+            break;
+
+        InvalidDefaultCase;
+    }
+
+    return result;
+}

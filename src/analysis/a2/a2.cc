@@ -33,6 +33,7 @@ using namespace data_filter;
 using namespace memory;
 
 /* TODO list
+ * - Add RectFilter2D
  * - Add tests for range_filter_step(). Test it in mvme.
  * - Test aggregate mean and meanx
  * - Add logic to force internal input/output vectors to be rounded up to a

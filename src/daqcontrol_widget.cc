@@ -65,6 +65,7 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
     , pb_oneCycle(new QPushButton)
     , pb_reconnect(new QPushButton)
     , pb_controllerSettings(new QPushButton)
+    , pb_runSettings(new QPushButton)
     , label_controllerState(new QLabel)
     , label_daqState(new QLabel)
     , label_analysisState(new QLabel)
@@ -156,6 +157,15 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
         m_context->setListFileOutputInfo(info);
     });
 
+    connect(pb_runSettings, &QPushButton::clicked, this, [this] {
+        DAQRunSettingsDialog dialog(m_context->getListFileOutputInfo());
+        dialog.setWindowModality(Qt::ApplicationModal);
+        if (dialog.exec() == QDialog::Accepted)
+        {
+            m_context->setListFileOutputInfo(dialog.getSettings());
+        }
+    });
+
     fill_compression_combo(combo_compression);
 
     connect(combo_compression, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged), this, [this] (int index) {
@@ -181,6 +191,7 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
     pb_oneCycle->setText(QSL("1 Cycle"));
     pb_reconnect->setText(QSL("Reconnect"));
     pb_controllerSettings->setText(QSL("Settings"));
+    pb_runSettings->setText(QSL("Run Settings"));
 
     {
         auto pal = le_listfileFilename->palette();
@@ -232,19 +243,32 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
     {
         gb_listfile->setTitle(QSL("Listfile Output:"));
 
-        cb_writeListfile->setText(QSL("Write Listfile"));
-        auto hbox = new QHBoxLayout;
-        hbox->setContentsMargins(0, 0, 0, 0);
-        hbox->setSpacing(2);
-        hbox->addWidget(cb_writeListfile);
-        hbox->addWidget(new QLabel(QSL("Compression:")));
-        hbox->addWidget(combo_compression);
-        hbox->addStretch();
 
         auto gbLayout = new QFormLayout(gb_listfile);
         gbLayout->setContentsMargins(0, 0, 0, 0);
         gbLayout->setSpacing(2);
-        gbLayout->addRow(hbox);
+
+        {
+            cb_writeListfile->setText(QSL("Write Listfile"));
+            auto hbox = new QHBoxLayout;
+            hbox->setContentsMargins(0, 0, 0, 0);
+            hbox->setSpacing(2);
+            hbox->addWidget(cb_writeListfile);
+            hbox->addWidget(new QLabel(QSL("Compression:")));
+            hbox->addWidget(combo_compression);
+            hbox->addStretch();
+            gbLayout->addRow(hbox);
+        }
+
+        {
+            auto hbox = new QHBoxLayout;
+            hbox->setContentsMargins(0, 0, 0, 0);
+            hbox->setSpacing(2);
+            hbox->addWidget(pb_runSettings);
+            hbox->addStretch();
+            gbLayout->addRow(hbox);
+        }
+
         gbLayout->addRow(QSL("Current Filename:"), le_listfileFilename);
         gbLayout->addRow(QSL("Current Size:"), label_listfileSize);
     }
@@ -451,4 +475,82 @@ void DAQControlWidget::updateWidget()
 
     cb_writeListfile->setEnabled(isDAQIdle);
     combo_compression->setEnabled(isDAQIdle);
+}
+
+DAQRunSettingsDialog::DAQRunSettingsDialog(const ListFileOutputInfo &settings, QWidget *parent)
+    : QDialog(parent)
+    , m_settings(settings)
+    , le_prefix(new QLineEdit(this))
+    , spin_runNumber(new QSpinBox(this))
+    , cb_useRunNumber(new QCheckBox(this))
+    , cb_useTimestamp(new QCheckBox(this))
+    , le_exampleName(new QLineEdit(this))
+    , m_bb(new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this))
+{
+    setWindowTitle(QSL("DAQ Run Settings"));
+    setMinimumWidth(400);
+
+    le_exampleName->setReadOnly(true);
+    spin_runNumber->setMinimum(1);
+
+    // populate
+    le_prefix->setText(settings.prefix);
+    spin_runNumber->setValue(settings.runNumber);
+    cb_useRunNumber->setChecked(settings.flags & ListFileOutputInfo::UseRunNumber);
+    cb_useTimestamp->setChecked(settings.flags & ListFileOutputInfo::UseTimestamp);
+
+    connect(le_prefix, &QLineEdit::textEdited, this, [this](const QString &text) {
+        m_settings.prefix = text;
+        updateExample();
+    });
+
+    connect(spin_runNumber, static_cast<void (QSpinBox::*)(int num)>(&QSpinBox::valueChanged),
+            this, [this] (int num) {
+                m_settings.runNumber = num;
+                updateExample();
+            });
+
+    connect(cb_useRunNumber, &QCheckBox::stateChanged, this, [this](int) {
+        if (cb_useRunNumber->isChecked())
+        {
+            m_settings.flags |= ListFileOutputInfo::UseRunNumber;
+        }
+        else
+        {
+            m_settings.flags &= ~ListFileOutputInfo::UseRunNumber;
+        }
+        updateExample();
+    });
+
+    connect(cb_useTimestamp, &QCheckBox::stateChanged, this, [this](int) {
+        if (cb_useTimestamp->isChecked())
+        {
+            m_settings.flags |= ListFileOutputInfo::UseTimestamp;
+        }
+        else
+        {
+            m_settings.flags &= ~ListFileOutputInfo::UseTimestamp;
+        }
+        updateExample();
+    });
+
+    QObject::connect(m_bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
+    QObject::connect(m_bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
+
+    auto widgetLayout = new QFormLayout(this);
+
+    widgetLayout->addRow(QSL("Prefix"), le_prefix);
+    widgetLayout->addRow(QSL("Use Run Number"), cb_useRunNumber);
+    widgetLayout->addRow(QSL("Next Run Number"), spin_runNumber);
+    widgetLayout->addRow(QSL("Use Timestamp"), cb_useTimestamp);
+    widgetLayout->addRow(make_separator_frame());
+    widgetLayout->addRow(QSL("Example filename"), le_exampleName);
+    widgetLayout->addRow(m_bb);
+
+    updateExample();
+}
+
+void DAQRunSettingsDialog::updateExample()
+{
+    le_exampleName->setText(generate_output_filename(m_settings));
 }

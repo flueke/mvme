@@ -144,6 +144,8 @@ struct DAQStats
  * a listfile. */
 struct RunInfo
 {
+    /* This is the full runId string. It is used to generate the listfile
+     * archive name and the listfile filename inside the archive. */
     QString runId;
 
     /* Set to true to retain histogram contents across replays. Keeping the
@@ -165,12 +167,31 @@ ListFileFormat fromString(const QString &str);
 
 struct ListFileOutputInfo
 {
-    bool enabled;               // true if a listfile should be written
+    // Flags available for the flags member below.
+    static const u32 UseRunNumber = 1u << 0;
+    static const u32 UseTimestamp = 1u << 1;
+
+    // TODO: move enabled into flags
+    bool enabled = true;        // true if a listfile should be written
+
     ListFileFormat format;      // the format to write
+
     QString directory;          // Path to the output directory. If it's not a
                                 // full path it's relative to the workspace directory.
+                                //
     QString fullDirectory;      // Always the full path to the listfile output directory.
-    int compressionLevel;       // zlib compression level
+                                // This is transient and not stored in the workspace settings.
+
+    int compressionLevel = 1;   // zlib compression level
+
+    QString prefix = QSL("mvmelst");
+
+    u32 runNumber = 1;          // Incremented on endRun and if output filename already exists.
+
+    u32 flags = UseTimestamp;
 };
+
+QString generate_output_basename(const ListFileOutputInfo &info);
+QString generate_output_filename(const ListFileOutputInfo &info);
 
 #endif
