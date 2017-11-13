@@ -2850,6 +2850,8 @@ QToolBar *EventWidget::makeToolBar()
 {
     auto tb = make_toolbar();
 
+    //tb->addWidget(new QLabel(QString("Hello, event! %1").arg((uintptr_t)this)));
+
     return tb;
 }
 
@@ -3644,8 +3646,8 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
 
 #ifdef MVME_ENABLE_HDF5
         m_d->m_toolbar->addSeparator();
-        m_d->m_toolbar->addAction(QIcon(":/document-open.png"), QSL("DEV Load Session"), this, [this]() { m_d->actionLoadSession(); });
-        m_d->m_toolbar->addAction(QIcon(":/document-save.png"), QSL("DEV Save Session"), this, [this]() { m_d->actionSaveSession(); });
+        m_d->m_toolbar->addAction(QIcon(":/document-open.png"), QSL("Load Session"), this, [this]() { m_d->actionLoadSession(); });
+        m_d->m_toolbar->addAction(QIcon(":/document-save.png"), QSL("Save Session"), this, [this]() { m_d->actionSaveSession(); });
 #endif
     }
 
@@ -3723,7 +3725,7 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     m_d->m_statusBar->addPermanentWidget(m_d->m_statusLabelA2);
 
 #if ANALYSIS_USE_A2
-    m_d->m_statusLabelA2->setText(QSL("::a2::"));
+    m_d->m_statusLabelA2->setText(QSL("a2::"));
 #endif
 
     // main layout
