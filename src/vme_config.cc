@@ -66,7 +66,7 @@ void ConfigObject::setModified(bool b)
 
     if (m_modified != b)
     {
-        qDebug() << __PRETTY_FUNCTION__ << this << m_modified << "->" << b;
+        //qDebug() << __PRETTY_FUNCTION__ << this << m_modified << "->" << b;
         m_modified = b;
         emit modifiedChanged(b);
 

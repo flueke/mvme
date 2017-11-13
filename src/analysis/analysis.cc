@@ -2819,7 +2819,7 @@ void Analysis::beginRun_internal_only(const RunInfo &runInfo)
         operatorEntry.op->beginRun(runInfo);
     }
 
-    qDebug() << "Analysis NG:"
+    qDebug() << __PRETTY_FUNCTION__ << "analysis::Analysis:"
         << m_sources.size() << " sources,"
         << m_operators.size() << " operators";
 }
@@ -2853,17 +2853,21 @@ void Analysis::beginRun(
     }
 
 #if ANALYSIS_USE_A2
-    qDebug() << __FUNCTION__ << "########## a2 active ##########";
-    qDebug() << __FUNCTION__ << "using a2 arena" << (u32)m_a2ArenaIndex;
+    qDebug() << __PRETTY_FUNCTION__ << "########## a2 active ##########";
+    qDebug() << __PRETTY_FUNCTION__ << "a2: using a2 arena" << (u32)m_a2ArenaIndex;
+
+    auto arena = m_a2Arenas[m_a2ArenaIndex].get();
 
     auto a2State = a2_adapter_build(
-        m_a2Arenas[m_a2ArenaIndex].get(),
+        arena,
         m_a2TempArena.get(),
         m_sources,
         m_operators,
         m_vmeMap);
 
     m_a2State = std::make_unique<A2AdapterState>(a2State);
+
+    qDebug("%s a2: mem=%lf, start@%p", __PRETTY_FUNCTION__, (double)arena->used(), arena->mem);
 #endif
 }
 
@@ -2872,7 +2876,7 @@ void Analysis::beginRun()
     beginRun(m_runInfo, m_vmeMap);
 }
 
-void Analysis::beginEvent(const QUuid &eventId)
+void Analysis::beginEvent(int eventIndex, const QUuid &eventId)
 {
 #if not ANALYSIS_USE_A2
     for (auto &sourceEntry: m_sources)
@@ -2883,11 +2887,12 @@ void Analysis::beginEvent(const QUuid &eventId)
         }
     }
 #else
-    a2_begin_event(m_a2State->a2, m_vmeMap.value(eventId).eventIndex);
+    a2_begin_event(m_a2State->a2, eventIndex);
 #endif
 }
 
-void Analysis::processModuleData(const QUuid &eventId, const QUuid &moduleId, u32 *data, u32 size)
+void Analysis::processModuleData(int eventIndex, int moduleIndex,
+                                 const QUuid &eventId, const QUuid &moduleId, u32 *data, u32 size)
 {
 #if not ANALYSIS_USE_A2
     for (auto &sourceEntry: m_sources)
@@ -2902,18 +2907,17 @@ void Analysis::processModuleData(const QUuid &eventId, const QUuid &moduleId, u3
     }
 
 #else
-    auto index = m_vmeMap.value(moduleId);
-    a2_process_module_data(m_a2State->a2, index.eventIndex, index.moduleIndex, data, size);
+    a2_process_module_data(m_a2State->a2, eventIndex, moduleIndex, data, size);
 #endif
 }
 
 #if ANALYSIS_USE_A2
-void Analysis::endEvent(const QUuid &eventId)
+void Analysis::endEvent(int eventIndex, const QUuid &eventId)
 {
-    a2_end_event(m_a2State->a2, m_vmeMap.value(eventId).eventIndex);
+    a2_end_event(m_a2State->a2, eventIndex);
 }
 #else // ANALYSIS_USE_A2
-void Analysis::endEvent(const QUuid &eventId)
+void Analysis::endEvent(int eventIndex, const QUuid &eventId)
 {
     //TimedBlock tb(__PRETTY_FUNCTION__);
     /* In beginRun() operators are sorted by rank. This way step()'ing
@@ -3315,9 +3319,10 @@ Analysis::ReadResult Analysis::read(const QJsonObject &inputJson, VMEConfig *vme
                 source->setObjectName(objectJson["name"].toString());
                 source->read(objectJson["data"].toObject());
 
-                addSource(QUuid(objectJson["eventId"].toString()),
-                          QUuid(objectJson["moduleId"].toString()),
-                          source);
+                auto eventId  = QUuid(objectJson["eventId"].toString());
+                auto moduleId = QUuid(objectJson["moduleId"].toString());
+
+                m_sources.push_back({eventId, moduleId, source, source.get()});
 
                 objectsById.insert(source->getId(), source);
             }
@@ -3347,10 +3352,10 @@ Analysis::ReadResult Analysis::read(const QJsonObject &inputJson, VMEConfig *vme
                 op->setObjectName(objectJson["name"].toString());
                 op->read(objectJson["data"].toObject());
 
-                addOperator(QUuid(objectJson["eventId"].toString()),
-                            op,
-                            objectJson["userLevel"].toInt()
-                           );
+                auto eventId = QUuid(objectJson["eventId"].toString());
+                auto userLevel = objectJson["userLevel"].toInt();
+
+                m_operators.push_back({eventId, op, op.get(), userLevel});
 
                 objectsById.insert(op->getId(), op);
             }
@@ -3417,6 +3422,7 @@ Analysis::ReadResult Analysis::read(const QJsonObject &inputJson, VMEConfig *vme
     // Dynamic QObject Properties
     loadDynamicProperties(json["properties"].toObject(), this);
 
+    //beginRun(m_runInfo, m_vmeMap);
     setModified(false);
 
     return result;
@@ -3492,7 +3498,7 @@ void Analysis::write(QJsonObject &json) const
                     auto dstOp = dstSlot->parentOperator;
                     if (dstOp)
                     {
-                        qDebug() << "Connection:" << srcObject << outputIndex << "->" << dstOp << dstSlot << dstSlot->parentSlotIndex;
+                        //qDebug() << "Connection:" << srcObject << outputIndex << "->" << dstOp << dstSlot << dstSlot->parentSlotIndex;
                         QJsonObject conJson;
                         conJson["srcId"] = srcObject->getId().toString();
                         conJson["srcIndex"] = outputIndex;

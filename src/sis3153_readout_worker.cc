@@ -1175,7 +1175,6 @@ SIS3153ReadoutWorker::ReadBufferResult SIS3153ReadoutWorker::readBuffer()
             auto msg = QString(QSL("SIS3153 Warning: %1").arg(result.error.toString()));
             logMessage(msg);
             qDebug() << __PRETTY_FUNCTION__ << msg;
-            m_workerContext.daqStats->vmeCtrlReadErrors++;
 #if SIS_READOUT_DEBUG
             qDebug() << __PRETTY_FUNCTION__ << "error from recvfrom(): " << result.error.toString();
 #endif

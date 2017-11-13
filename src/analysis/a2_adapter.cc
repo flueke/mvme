@@ -5,8 +5,8 @@
 #include <QMetaObject>
 #include <QMetaClassInfo>
 
-#ifndef NDEBUG
-
+//#ifndef NDEBUG
+#if 0
 #define LOG(fmt, ...)\
 do\
 {\
@@ -30,7 +30,8 @@ do\
 namespace
 {
 
-#ifndef NDEBUG
+//#ifndef NDEBUG
+#if 0
 inline QDebug a2_adapter_qlog(const char *func)
 {
     return (qDebug().nospace() << "a2_adapter::" << func << "()").space();

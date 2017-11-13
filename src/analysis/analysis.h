@@ -1270,16 +1270,14 @@ class LIBMVME_EXPORT Analysis: public QObject
         Analysis(QObject *parent = nullptr);
         virtual ~Analysis();
 
-        /* FIXME: only the overload taking the hash of index pairs prepares
+        /* Important: only the overload taking the hash of index pairs prepares
          * the a2 system!
-         * Fix this by having this class keep an instance of the hash around and pass that internally.
-         * Remember to update the hash on every vme config change!
          */
         void beginRun(const RunInfo &runInfo, const vme_analysis_common::VMEIdToIndex &vmeMap);
         void beginRun();
-        void beginEvent(const QUuid &eventId);
-        void processModuleData(const QUuid &eventId, const QUuid &moduleId, u32 *data, u32 size);
-        void endEvent(const QUuid &eventId);
+        void beginEvent(int eventIndex, const QUuid &eventId);
+        void processModuleData(int eventIndex, int moduleIndex, const QUuid &eventId, const QUuid &moduleId, u32 *data, u32 size);
+        void endEvent(int eventIndex, const QUuid &eventId);
         // Called once for every SectionType_Timetick section
         void processTimetick();
 

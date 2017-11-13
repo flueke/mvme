@@ -22,7 +22,7 @@
 #include "mvme_context.h"
 #include "config_ui.h"
 #include "treewidget_utils.h"
-#include "mvme_event_processor.h"
+#include "mvme_stream_worker.h"
 #include "vmusb.h"
 #include "vme_script_editor.h"
 
@@ -507,7 +507,7 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
             menu.addAction(QSL("Remove Module"), this, &VMEConfigTreeWidget::removeModule);
         }
 
-        if (!m_context->getEventProcessor()->getDiagnostics())
+        if (!m_context->getEventProcessor()->hasDiagnostics())
             menu.addAction(QSL("Show Diagnostics"), this, &VMEConfigTreeWidget::handleShowDiagnostics);
     }
 

@@ -151,13 +151,13 @@ void DAQStatsWidget::updateWidget()
 
     u64 deltaBytesRead = calc_delta(stats.totalBytesRead, m_d->prevStats.totalBytesRead);
     u64 deltaBuffersRead = calc_delta(stats.totalBuffersRead, m_d->prevStats.totalBuffersRead);
-    u64 deltaEventsRead = calc_delta(stats.totalEventsRead, m_d->prevStats.totalEventsRead);
+    //u64 deltaEventsRead = calc_delta(stats.totalEventsRead, m_d->prevStats.totalEventsRead);
     u64 deltaNetBytesRead = calc_delta(stats.totalNetBytesRead, m_d->prevStats.totalNetBytesRead);
 
     double bytesPerSecond   = deltaBytesRead / dt;
     double mbPerSecond      = bytesPerSecond / Megabytes(1);
     double buffersPerSecond = deltaBuffersRead / dt;
-    double eventsPerSecond  = deltaEventsRead / dt;
+    //double eventsPerSecond  = deltaEventsRead / dt;
     double avgReadSize      = deltaBytesRead / static_cast<double>(deltaBuffersRead);
     double netBytesPerSecond = deltaNetBytesRead / dt;
     double netMbPerSecond   = netBytesPerSecond / Megabytes(1);

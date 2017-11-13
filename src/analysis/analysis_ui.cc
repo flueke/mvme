@@ -33,6 +33,8 @@
 #include "../treewidget_utils.h"
 #include "../config_ui.h"
 #include "../vme_analysis_common.h"
+#include "util/counters.h"
+#include "util/strings.h"
 
 #include <QApplication>
 #include <QComboBox>
@@ -2063,28 +2065,6 @@ PipeDisplay *EventWidgetPrivate::makeAndShowPipeDisplay(Pipe *pipe)
     return widget;
 }
 
-template<typename T>
-T calc_delta0(T cur, T prev)
-{
-    if (cur < prev)
-        return T(0);
-    return cur - prev;
-}
-
-template<typename T>
-T calc_deltas(const T &cur, const T &prev)
-{
-    assert(cur.size() == prev.size());
-
-    T result;
-    result.reserve(cur.size());
-
-    std::transform(cur.begin(), cur.end(), prev.begin(), std::back_inserter(result),
-                   calc_delta0<typename T::value_type>);
-
-    return result;
-}
-
 void EventWidgetPrivate::doPeriodicUpdate()
 {
     auto analysis = m_context->getAnalysis();
@@ -2146,7 +2126,7 @@ void EventWidgetPrivate::periodicUpdateExtractorCounters(double dt_s)
 
             prevHitCounts.resize(hitCounts.size());
 
-            auto hitCountDeltas = calc_deltas(hitCounts, prevHitCounts);
+            auto hitCountDeltas = calc_deltas0(hitCounts, prevHitCounts);
             auto hitCountRates = hitCountDeltas;
             std::for_each(hitCountRates.begin(), hitCountRates.end(), [dt_s](double &d) { d /= dt_s; });
 
@@ -2241,7 +2221,7 @@ void EventWidgetPrivate::periodicUpdateHistoCounters(double dt_s)
 
                 prevEntryCounts.resize(entryCounts.size());
 
-                auto entryCountDeltas = calc_deltas(entryCounts, prevEntryCounts);
+                auto entryCountDeltas = calc_deltas0(entryCounts, prevEntryCounts);
                 auto entryCountRates = entryCountDeltas;
                 std::for_each(entryCountRates.begin(), entryCountRates.end(), [dt_s](double &d) { d /= dt_s; });
 
