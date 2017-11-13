@@ -873,9 +873,8 @@ void aggregate_min_step(Operator *op)
         }
     }
 
-    op->outputs[0][0] = result;
+    output[0] = result;
 }
-
 
 //
 // aggregate_max
@@ -1350,6 +1349,185 @@ void range_filter_step_idx(Operator *op)
     }
 }
 
+//
+// RectFilter
+//
+
+struct RectFilterData
+{
+    Thresholds xThresholds;
+    Thresholds yThresholds;
+    s32 xIndex;
+    s32 yIndex;
+    RectFilterOperation filterOp;
+};
+
+Operator make_rect_filter(
+    memory::Arena *arena,
+    PipeVectors xInput,
+    PipeVectors yInput,
+    s32 xIndex,
+    s32 yIndex,
+    Thresholds xThresholds,
+    Thresholds yThresholds,
+    RectFilterOperation filterOp)
+{
+    assert(0 <= xIndex && xIndex < xInput.data.size);
+    assert(0 <= yIndex && yIndex < yInput.data.size);
+
+    auto result = make_operator(arena, Operator_RectFilter, 2, 1);
+
+    auto d = arena->push<RectFilterData>({ xThresholds, yThresholds, xIndex, yIndex, filterOp });
+    result.d = d;
+
+    assign_input(&result, xInput, 0);
+    assign_input(&result, yInput, 1);
+
+    push_output_vectors(arena, &result, 0, 1);
+
+    return result;
+}
+
+void rect_filter_step(Operator *op)
+{
+    a2_trace("\n");
+    assert(op->inputCount == 2);
+    assert(op->outputCount == 1);
+    assert(op->type == Operator_RectFilter);
+
+    auto xInput = op->inputs[0];
+    auto yInput = op->inputs[1];
+    auto output = op->outputs[0];
+    auto d = reinterpret_cast<RectFilterData *>(op->d);
+
+    double x = xInput[d->xIndex];
+    double y = yInput[d->yIndex];
+
+    bool xInside = in_range(d->xThresholds, x);
+    bool yInside = in_range(d->yThresholds, y);
+
+    bool valid = (d->filterOp == RectFilterOperation::And
+                  ? (xInside && yInside)
+                  : (xInside || yInside));
+
+    output[0] = valid ? 0.0 : invalid_param();
+}
+
+//
+// ConditionFilter
+//
+
+struct ConditionFilterData
+{
+    s32 dataIndex;
+    s32 condIndex;
+};
+
+Operator make_condition_filter(
+    memory::Arena *arena,
+    PipeVectors dataInput,
+    PipeVectors condInput,
+    s32 dataIndex,
+    s32 condIndex)
+{
+    assert(dataIndex < 0 || dataIndex < dataInput.data.size);
+    assert(condIndex < 0 || condIndex < condInput.data.size);
+
+    if (dataIndex >= 0 && condIndex < 0)
+    {
+        /* Data is a single element, condition an array. Multiple things could
+         * be done:
+         * 1) Use the dataIndex to index into the condition array if the
+         *    condition array is big enough. Otherwise error out.
+         * 2) Use the first parameter of the condition array.
+         * 3) Error out.
+         * This code implements the second version.  */
+        assert(condInput.data.size >= 1);
+        condIndex = 0;
+    }
+
+    auto result = make_operator(arena, Operator_ConditionFilter, 2, 1);
+
+    auto d = arena->push<ConditionFilterData>({ dataIndex, condIndex, });
+    result.d = d;
+
+    assign_input(&result, dataInput, 0);
+    assign_input(&result, condInput, 1);
+
+    // either the whole input or the selected element
+    s32 outSize = (dataIndex < 0 ? dataInput.data.size : 1);
+
+    push_output_vectors(arena, &result, 0, outSize);
+
+    if (dataIndex < 0)
+    {
+        for (s32 i = 0; i < outSize; i++)
+        {
+            result.outputLowerLimits[0][i] = dataInput.lowerLimits[i];
+            result.outputUpperLimits[0][i] = dataInput.upperLimits[i];
+        }
+    }
+    else
+    {
+        result.outputLowerLimits[0][0] = dataInput.lowerLimits[dataIndex];
+        result.outputUpperLimits[0][0] = dataInput.upperLimits[dataIndex];
+    }
+
+    return result;
+}
+
+void condition_filter_step(Operator *op)
+{
+    a2_trace("\n");
+    assert(op->inputCount == 2);
+    assert(op->outputCount == 1);
+    assert(op->type == Operator_ConditionFilter);
+
+    auto dataInput = op->inputs[0];
+    auto condInput = op->inputs[1];
+    auto output = op->outputs[0];
+    auto d = reinterpret_cast<ConditionFilterData *>(op->d);
+
+    if (d->dataIndex < 0)
+    {
+        // data input is an array
+        assert(output.size == dataInput.size);
+
+        for (s32 pi = 0; pi < dataInput.size; pi++)
+        {
+            /* The index into the condition array can be out of range if the
+             * condition array is smaller than the data array. In that case an
+             * invalid_param() is used. */
+            double condParam = invalid_param();
+
+            if (d->condIndex < 0 && pi < condInput.size)
+            {
+                condParam = condInput[pi];
+            }
+            else if (d->condIndex >= 0)
+            {
+                assert(d->condIndex < condInput.size);
+                condParam = condInput[d->condIndex];
+            }
+
+            output[pi] = (is_param_valid(condParam) ? dataInput[pi] : invalid_param());
+        }
+    }
+    else
+    {
+        /* Data input is a single value. Condition can be a single value or an
+         * array. If it was an array d->condIndex will have been set to 0 in
+         * make_condition_filter(). */
+        assert(d->dataIndex < dataInput.size);
+        assert(d->condIndex < condInput.size);
+        assert(output.size == 1);
+
+        double condParam = condInput[d->condIndex];
+
+        output[0] = (is_param_valid(condParam) ? dataInput[d->dataIndex] : invalid_param());
+    }
+}
+
 /* ===============================================
  * Histograms
  * =============================================== */
@@ -1624,6 +1802,8 @@ static const OperatorFunctions OperatorTable[OperatorTypeCount] =
     [Operator_H2DSink] = { h2d_sink_step },
     [Operator_RangeFilter] = { range_filter_step },
     [Operator_RangeFilter_idx] = { range_filter_step_idx },
+    [Operator_RectFilter] = { rect_filter_step },
+    [Operator_ConditionFilter] = { condition_filter_step },
 
     [Operator_Aggregate_Sum] = { aggregate_sum_step },
     [Operator_Aggregate_Multiplicity] = { aggregate_multiplicity_step },

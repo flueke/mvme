@@ -319,6 +319,27 @@ DEF_OP_MAGIC(binary_equation_magic)
     return result;
 }
 
+DEF_OP_MAGIC(keep_previous_magic)
+{
+    LOG("");
+    assert(inputSlots.size() == 1);
+    assert_slot(inputSlots[0]);
+    assert(inputSlots[0]->paramIndex == analysis::Slot::NoParamIndex);
+
+    auto prevValue = qobject_cast<analysis::PreviousValue *>(op.get());
+
+    assert(prevValue);
+
+    auto a2_input = find_output_pipe(adapterState, inputSlots[0]);
+
+    auto result = a2::make_keep_previous(
+        arena,
+        a2_input,
+        prevValue->m_keepValid);
+
+    return result;
+}
+
 DEF_OP_MAGIC(range_filter_magic)
 {
     LOG("");
@@ -354,23 +375,80 @@ DEF_OP_MAGIC(range_filter_magic)
     return result;
 }
 
-DEF_OP_MAGIC(keep_previous_magic)
+DEF_OP_MAGIC(rect_filter_magic)
 {
     LOG("");
-    assert(inputSlots.size() == 1);
+    assert(inputSlots.size() == 2);
     assert_slot(inputSlots[0]);
-    assert(inputSlots[0]->paramIndex == analysis::Slot::NoParamIndex);
+    assert_slot(inputSlots[1]);
+    assert(inputSlots[0]->paramIndex != analysis::Slot::NoParamIndex);
+    assert(inputSlots[1]->paramIndex != analysis::Slot::NoParamIndex);
 
-    auto prevValue = qobject_cast<analysis::PreviousValue *>(op.get());
+    auto rectFilter = qobject_cast<analysis::RectFilter2D *>(op.get());
 
-    assert(prevValue);
+    assert(rectFilter);
 
-    auto a2_input = find_output_pipe(adapterState, inputSlots[0]);
+    auto a2_xInput = find_output_pipe(adapterState, inputSlots[0]);
+    auto a2_yInput = find_output_pipe(adapterState, inputSlots[1]);
 
-    auto result = a2::make_keep_previous(
+    assert(inputSlots[0]->paramIndex < a2_xInput.data.size);
+    assert(inputSlots[1]->paramIndex < a2_yInput.data.size);
+
+    s32 xIndex = inputSlots[0]->paramIndex;
+    s32 yIndex = inputSlots[1]->paramIndex;
+
+    a2::Thresholds xThresholds =
+    {
+        rectFilter->getXInterval().minValue(),
+        rectFilter->getXInterval().maxValue()
+    };
+
+    a2::Thresholds yThresholds =
+    {
+        rectFilter->getYInterval().minValue(),
+        rectFilter->getYInterval().maxValue()
+    };
+
+    a2::RectFilterOperation filterOp = (rectFilter->getConditionOp() == analysis::RectFilter2D::OpAnd
+                                    ? a2::RectFilterOperation::And
+                                    : a2::RectFilterOperation::Or);
+
+    a2::Operator result = make_rect_filter(
         arena,
-        a2_input,
-        prevValue->m_keepValid);
+        a2_xInput,
+        a2_yInput,
+        xIndex,
+        yIndex,
+        xThresholds,
+        yThresholds,
+        filterOp);
+
+    return result;
+}
+
+DEF_OP_MAGIC(condition_filter_magic)
+{
+    LOG("");
+    assert(inputSlots.size() == 2);
+    assert_slot(inputSlots[0]);
+    assert_slot(inputSlots[1]);
+
+    auto condFilter = qobject_cast<analysis::ConditionFilter *>(op.get());
+
+    assert(condFilter);
+
+    auto a2_dataInput = find_output_pipe(adapterState, inputSlots[0]);
+    auto a2_condInput = find_output_pipe(adapterState, inputSlots[1]);
+
+    s32 dataIndex = inputSlots[0]->paramIndex;
+    s32 condIndex = inputSlots[1]->paramIndex;
+
+    a2::Operator result = make_condition_filter(
+        arena,
+        a2_dataInput,
+        a2_condInput,
+        dataIndex,
+        condIndex);
 
     return result;
 }
@@ -499,8 +577,10 @@ static const QHash<const QMetaObject *, OperatorMagic *> OperatorMagicTable =
     { &analysis::ArrayMap::staticMetaObject, array_map_magic },
     { &analysis::AggregateOps::staticMetaObject, aggregate_ops_magic },
     { &analysis::BinarySumDiff::staticMetaObject, binary_equation_magic },
-    { &analysis::RangeFilter1D::staticMetaObject, range_filter_magic },
     { &analysis::PreviousValue::staticMetaObject, keep_previous_magic },
+    { &analysis::RangeFilter1D::staticMetaObject, range_filter_magic },
+    { &analysis::RectFilter2D::staticMetaObject, rect_filter_magic },
+    { &analysis::ConditionFilter::staticMetaObject, condition_filter_magic },
 
     { &analysis::Histo1DSink::staticMetaObject, histo1d_sink_magic },
     { &analysis::Histo2DSink::staticMetaObject, histo2d_sink_magic },

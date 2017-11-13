@@ -20,6 +20,8 @@ enum OperatorType
     Operator_H2DSink,
     Operator_RangeFilter,
     Operator_RangeFilter_idx,
+    Operator_RectFilter,
+    Operator_ConditionFilter,
 
     /* Aggregate Operations: produce one output value from an input array.
      * Can make use of thresholds to filter input values. */

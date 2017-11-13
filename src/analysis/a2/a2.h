@@ -236,6 +236,30 @@ Operator make_range_filter_idx(
     Thresholds thresholds,
     bool invert);
 
+
+enum class RectFilterOperation
+{
+    And,
+    Or
+};
+
+Operator make_rect_filter(
+    memory::Arena *arena,
+    PipeVectors xInput,
+    PipeVectors yInput,
+    s32 xIndex,
+    s32 yIndex,
+    Thresholds xThresholds,
+    Thresholds yThresholds,
+    RectFilterOperation filterOp);
+
+Operator make_condition_filter(
+    memory::Arena *arena,
+    PipeVectors dataInput,
+    PipeVectors condInput,
+    s32 dataIndex = -1,
+    s32 condIndex = -1);
+
 /* ===============================================
  * AggregateOps
  * =============================================== */
