@@ -2156,7 +2156,7 @@ void EventWidgetPrivate::periodicUpdateExtractorCounters(double dt_s)
                 }
                 else
                 {
-                    auto rateString = format_number(hitCountRates[addr], QSL("Hz"), UnitScaling::Decimal,
+                    auto rateString = format_number(hitCountRates[addr], QSL("cps"), UnitScaling::Decimal,
                                                     0, 'g', 3);
 
                     childNode->setText(0, QString("%1 (hits=%2, rate=%3, dt=%4 s)")
@@ -2251,7 +2251,7 @@ void EventWidgetPrivate::periodicUpdateHistoCounters(double dt_s)
                     }
                     else
                     {
-                        auto rateString = format_number(entryCountRates[addr], QSL("Hz"), UnitScaling::Decimal,
+                        auto rateString = format_number(entryCountRates[addr], QSL("cps"), UnitScaling::Decimal,
                                                         0, 'g', 3);
 
                         childNode->setText(0, QString("%1 (entries=%2, rate=%3, dt=%4 s)")
@@ -2300,7 +2300,7 @@ void EventWidgetPrivate::periodicUpdateHistoCounters(double dt_s)
                     }
                     else
                     {
-                        auto rateString = format_number(countRate, QSL("Hz"), UnitScaling::Decimal,
+                        auto rateString = format_number(countRate, QSL("cps"), UnitScaling::Decimal,
                                                         0, 'g', 3);
 
                         node->setText(0, QString("<b>%1</b> %2 (entries=%3, rate=%4, dt=%5)")
