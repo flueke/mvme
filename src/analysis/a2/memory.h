@@ -36,6 +36,14 @@ struct Arena
         delete[] mem;
     }
 
+    // can't copy
+    Arena(Arena &other) = delete;
+    Arena &operator=(Arena &other) = delete;
+
+    // can move
+    Arena(Arena &&other) = default;
+    Arena &operator=(Arena &&other) = default;
+
     inline size_t free() const
     {
         return (mem + size) - reinterpret_cast<u8 *>(cur);
