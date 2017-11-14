@@ -19,6 +19,7 @@
 #ifndef __HISTO1D_H__
 #define __HISTO1D_H__
 
+#include "analysis/a2/memory.h"
 #include "histo_util.h"
 #include <memory>
 #include <QObject>
@@ -35,6 +36,20 @@ struct Histo1DStatistics
     double fwhmCenter = 0.0;
 };
 
+struct HistoLogicError: public std::runtime_error
+{
+    HistoLogicError(const char *s): std::runtime_error(s) {}
+};
+
+struct SharedHistoMem
+{
+    // Shared pointer to arena to keep the memory  alive.
+    std::shared_ptr<memory::Arena> arena;
+
+    // Pointer into the arena where this Histograms data starts.
+    double *data;
+};
+
 class Histo1D: public QObject
 {
     Q_OBJECT
@@ -46,10 +61,26 @@ class Histo1D: public QObject
         void axisBinningChanged(Qt::Axis axis);
 
     public:
+        /* This constructor will make the histo allocate memory internally.
+         * resize() will be available. */
         Histo1D(u32 nBins, double xMin, double xMax, QObject *parent = 0);
+
+        /* Uses the memory passed in with the data pointer. resize() will not
+         * be available. */
+        Histo1D(u32 nBins, double xMin, double xMax, const SharedHistoMem &mem, QObject *parent = 0);
+
         ~Histo1D();
 
+        bool ownsMemory() const { return !m_externalMemory.arena; }
+        bool canResize() const { return !m_externalMemory.arena; }
+
+        /* Throws HistoLogicError if external memory is used. */
         void resize(u32 nBins);
+
+        /* Throws HistoLogicError if internal memory is used. It could
+         * deallocate and switch to being a histo with external memory but it
+         * doesn't right now. */
+        void setData(const SharedHistoMem &mem, AxisBinning newBinning);
 
         // Returns the bin number or -1 in case of under/overflow.
         s32 fill(double x, double weight = 1.0);
@@ -150,6 +181,7 @@ class Histo1D: public QObject
         AxisInfo m_xAxisInfo;
 
         double *m_data = nullptr;
+        SharedHistoMem m_externalMemory;
 
         double m_underflow = 0.0;
         double m_overflow = 0.0;

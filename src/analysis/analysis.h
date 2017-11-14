@@ -19,14 +19,15 @@
 #ifndef __ANALYSIS_H__
 #define __ANALYSIS_H__
 
-#include "../globals.h"
-#include "../vme_analysis_common.h"
+#include "a2/memory.h"
+#include "a2/multiword_datafilter.h"
 #include "data_filter.h"
+#include "../globals.h"
 #include "histo1d.h"
 #include "histo2d.h"
 #include "libmvme_export.h"
 #include "typedefs.h"
-#include "a2/multiword_datafilter.h"
+#include "../vme_analysis_common.h"
 
 #include <memory>
 #include <pcg_random.hpp>
@@ -1030,6 +1031,7 @@ class LIBMVME_EXPORT Histo1DSink: public BasicSink
 
     private:
         u32 fillsSinceLastDebug = 0;
+        std::shared_ptr<memory::Arena> m_histoArena;
 };
 
 class LIBMVME_EXPORT Histo2DSink: public SinkInterface

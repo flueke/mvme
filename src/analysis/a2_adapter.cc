@@ -469,7 +469,7 @@ DEF_OP_MAGIC(histo1d_sink_magic)
 
     for (s32 i = 0; i < histos.size(); i++)
     {
-        auto histo = histoSink->m_histos[i];
+        auto histo = histoSink->m_histos[i].get();
 
         assert(histo->getNumberOfBins() < a2::H1D::size_max);
 
