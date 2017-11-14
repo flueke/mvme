@@ -157,7 +157,7 @@ endif()
 if (WIN32)
     # C:\src\deploy\mvme-x64-libusb-0.1-Debug
     # C:\src\deploy\mvme-x64-libusb-0.1-Release
-    set(DEPLOY_DIR "c:/src/deploy/mvme-${PACKAGE_ARCH_STRING}-libusb-0.1-${CMAKE_BUILD_TYPE}/")
+    set(DEPLOY_DIR "c:/src/mvme2-deploy/windows/mvme-${PACKAGE_ARCH_STRING}-libusb-0.1-${CMAKE_BUILD_TYPE}/")
 
     install(DIRECTORY "${DEPLOY_DIR}" DESTINATION . USE_SOURCE_PERMISSIONS)
 
@@ -179,7 +179,7 @@ if (WIN32)
     set(CPACK_SOURCE_GENERATOR "ZIP")
 else()
     # Install additional deployment files: shared objects, qt plugins, etc.
-    install(DIRECTORY "$ENV{HOME}/src/deploy/mvme-${PACKAGE_ARCH_STRING}-libusb-0.1/"
+    install(DIRECTORY "$ENV{HOME}/src/mvme2-deploy/linux/mvme-${PACKAGE_ARCH_STRING}-libusb-0.1/"
         DESTINATION .
         USE_SOURCE_PERMISSIONS)
 
