@@ -2,7 +2,6 @@
 Do these first!
 ==================================================
 
-* readout workers: try to find an unused output filename by incrementing the runNumber
 * check the case where listfile creation throws an exception. right now this
   results in a communication error with the sis controller when trying to start
   another run after a failed one.
@@ -23,22 +22,10 @@ Do these first!
   - add a new filter for extended timestamps
   - complete VMMR: extraction filters and bus/channel settings.
 
-* analysis: optionally display rates instead of hitcounts for extractors and
-  histos.
-
-* analysis: during a replay also display rates based on the original timeticks
-  used during recording. This should average out to be the same rate that was
-  observed during recording.
-
 * vme: allow disabling of events and modules.
   This is very useful for testing. Without disabling modules multi-event
   processing will report errors and if the module is not even present in the
   vme crate the readout will slow down due to timeouts on the VME bus.
-
-* session saving (HDF5):
-  Fix error reporting: fmemopen() is not available on windows! Also errors are
-  sometimes swallowed (I'm guessing inside the library during error handling).
-  This means the user can get empty error messages.
 
 * Fix anaylsis object selection color under win7. It's horrible and the text is
   not readable anymore.

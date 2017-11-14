@@ -65,10 +65,15 @@ OpenListfileResult open_listfile(MVMEContext *context, const QString &filename, 
         bool wasReplaying = (context->getMode() == GlobalMode::ListFile
                              && context->getDAQState() == DAQState::Running);
 
-        context->setReplayFile(listFile.release());
+        if (!context->setReplayFile(listFile.release()))
+        {
+            return result;
+        }
+
+        result.listfile = context->getReplayFile();
 
         /* Check if there's an analysis file inside the zip archive, read it,
-         * store contents in state and decide of whether to directly load it.
+         * store contents in state and decide on whether to directly load it.
          * */
         {
             QuaZipFile inFile(filename, QSL("analysis.analysis"));
@@ -132,7 +137,12 @@ OpenListfileResult open_listfile(MVMEContext *context, const QString &filename, 
         bool wasReplaying = (context->getMode() == GlobalMode::ListFile
                              && context->getDAQState() == DAQState::Running);
 
-        context->setReplayFile(listFile.release());
+        if (!context->setReplayFile(listFile.release()))
+        {
+            return result;
+        }
+
+        result.listfile = context->getReplayFile();
 
         if (wasReplaying)
         {

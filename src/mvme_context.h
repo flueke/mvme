@@ -116,7 +116,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
             QByteArray analysisConfigData;
         };
 
-        void setReplayFile(ListFile *listFile);
+        bool setReplayFile(ListFile *listFile);
         void closeReplayFile();
         ListFile *getReplayFile() const { return m_listFile; }
         void setReplayFileAnalysisInfo(ReplayFileAnalysisInfo info);

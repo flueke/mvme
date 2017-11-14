@@ -2884,7 +2884,8 @@ void Analysis::beginRun(
         }
         catch (const memory::out_of_memory &)
         {
-            // Double the size and try again
+            /* Double the size and try again. std::bad_alloc() will be thrown
+             * if we run OOM. This will be handled further up. */
             auto newSize = 2 * m_a2Arenas[m_a2ArenaIndex]->size;
             m_a2TempArena = std::make_unique<memory::Arena>(newSize);
             m_a2Arenas[m_a2ArenaIndex] = std::make_unique<memory::Arena>(newSize);

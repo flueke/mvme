@@ -904,9 +904,12 @@ void MVMEMainWindow::onActionOpenListfile_triggered()
 
         auto openResult = open_listfile(m_d->m_context, fileName, openFlags);
 
-        appendToLogNoDebugOut(QSL(">>>>> Begin listfile log"));
-        appendToLogNoDebugOut(openResult.messages);
-        appendToLogNoDebugOut(QSL("<<<<< End listfile log"));
+        if (openResult.listfile)
+        {
+            appendToLogNoDebugOut(QSL(">>>>> Begin listfile log"));
+            appendToLogNoDebugOut(openResult.messages);
+            appendToLogNoDebugOut(QSL("<<<<< End listfile log"));
+        }
     }
     catch (const QString &err)
     {

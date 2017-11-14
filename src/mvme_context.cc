@@ -777,7 +777,7 @@ EventProcessorState MVMEContext::getEventProcessorState() const
     return m_eventProcessor->getState();
 }
 
-void MVMEContext::setReplayFile(ListFile *listFile)
+bool MVMEContext::setReplayFile(ListFile *listFile)
 {
     if (getDAQState() != DAQState::Idle)
     {
@@ -790,12 +790,12 @@ void MVMEContext::setReplayFile(ListFile *listFile)
 
     if (!readResult)
     {
-        readResult.errorData["Source file"] = listFile->getFileName();
+        readResult.errorData["Source file"] = listFile->getFullName();
         QMessageBox::critical(nullptr,
                               QSL("Error loading VME config"),
                               readResult.toRichText());
         delete listFile;
-        return;
+        return false;
     }
 
     setVMEConfig(daqConfig);
@@ -803,8 +803,10 @@ void MVMEContext::setReplayFile(ListFile *listFile)
     delete m_listFile;
     m_listFile = listFile;
     m_listFileWorker->setListFile(listFile);
+    m_daqStats.listfileFilename = listFile->getFileName();
     setConfigFileName(QString(), false);
     setMode(GlobalMode::ListFile);
+    return true;
 }
 
 void MVMEContext::closeReplayFile()

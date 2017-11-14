@@ -143,6 +143,7 @@ void ListfileBrowser::onItemDoubleClicked(const QModelIndex &mi)
             m_context->logMessageRaw(openResult.messages);
             m_context->logMessageRaw(QSL("<<<<< End listfile log"));
         }
+        m_mainWindow->updateWindowTitle();
     }
     catch (const QString &e)
     {

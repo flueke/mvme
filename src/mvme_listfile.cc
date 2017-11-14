@@ -221,7 +221,23 @@ QString ListFile::getFileName() const
     }
     else if (auto inZipFile = qobject_cast<QuaZipFile *>(m_input))
     {
-        return inZipFile->getZipName() + QSL(":") + inZipFile->getFileName();
+        return inZipFile->getZipName();
+    }
+
+    InvalidCodePath;
+
+    return QString();
+}
+
+QString ListFile::getFullName() const
+{
+    if (auto inFile = qobject_cast<QFile *>(m_input))
+    {
+        return inFile->fileName();
+    }
+    else if (auto inZipFile = qobject_cast<QuaZipFile *>(m_input))
+    {
+        return inZipFile->getZipName() + QSL(":/") + inZipFile->getFileName();
     }
 
     InvalidCodePath;

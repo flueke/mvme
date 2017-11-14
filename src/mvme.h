@@ -94,6 +94,7 @@ public slots:
 
     bool createNewOrOpenExistingWorkspace();
 
+    void updateWindowTitle();
 
 protected:
     void resizeEvent(QResizeEvent *event) override;
@@ -115,7 +116,6 @@ private slots:
 
     void appendToLog(const QString &);
     void appendToLogNoDebugOut(const QString &);
-    void updateWindowTitle();
     void onConfigChanged(VMEConfig *config);
 
     void onDAQAboutToStart(quint32 nCycles);
