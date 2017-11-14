@@ -2234,9 +2234,9 @@ void EventWidgetPrivate::periodicUpdateHistoCounters(double dt_s)
                 auto entryCountRates = entryCountDeltas;
                 std::for_each(entryCountRates.begin(), entryCountRates.end(), [dt_s](double &d) { d /= dt_s; });
 
-                Q_ASSERT(entryCounts.size() == node->childCount());
+                auto maxCount = std::min(entryCounts.size(), node->childCount());
 
-                for (s32 addr = 0; addr < node->childCount(); ++addr)
+                for (s32 addr = 0; addr < maxCount; ++addr)
                 {
                     Q_ASSERT(node->child(addr)->type() == NodeType_Histo1D);
 

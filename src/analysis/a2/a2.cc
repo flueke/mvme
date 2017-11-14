@@ -26,6 +26,11 @@ do\
 #define a2_trace(...)
 #endif
 
+#include <iostream>
+
+using std::cerr;
+using std::endl;
+
 namespace a2
 {
 
@@ -1567,16 +1572,28 @@ inline s32 get_bin(H1D histo, double x)
 
 inline void fill_h1d(H1D *histo, double x)
 {
+    assert(histo);
+
     /* Instead of calculating the bin and then checking if it under/overflows
      * this code decides by comparing x to the binnings min and max values.
      * This is faster. */
     if (x < histo->binning.min)
     {
+#if 0
+        cerr << __PRETTY_FUNCTION__
+            << " histo=" << histo << ", x < min, x=" << x << ", get_bin=" << get_bin(*histo, x) << endl;
+#endif
+
         assert(get_bin(*histo, x) == Binning::Underflow);
         histo->underflow++;
     }
     else if (x >= histo->binning.min + histo->binning.range)
     {
+#if 0
+        cerr << __PRETTY_FUNCTION__
+            << " histo=" << histo << ", x >= max, x=" << x << ", get_bin=" << get_bin(*histo, x) << endl;
+#endif
+
         assert(get_bin(*histo, x) == Binning::Overflow);
         histo->overflow++;
     }
