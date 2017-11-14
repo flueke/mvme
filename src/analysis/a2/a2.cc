@@ -701,6 +701,9 @@ Operator make_binary_equation(
  * =============================================== */
 inline bool is_valid_and_inside(double param, Thresholds thresholds)
 {
+    assert(!std::isnan(thresholds.min));
+    assert(!std::isnan(thresholds.max));
+
     return (is_param_valid(param)
             && thresholds.min <= param
             && thresholds.max >= param);
@@ -1063,7 +1066,7 @@ void aggregate_minx_step(Operator *op)
     {
         if (is_valid_and_inside(input[i], thresholds))
         {
-            if (input[i] < input[minIndex])
+            if (input[i] < input[minIndex] || std::isnan(input[minIndex]))
             {
                 minIndex = i;
             }
@@ -1104,7 +1107,7 @@ void aggregate_maxx_step(Operator *op)
     {
         if (is_valid_and_inside(input[i], thresholds))
         {
-            if (input[i] > input[maxIndex])
+            if (input[i] > input[maxIndex] || std::isnan(input[maxIndex]))
             {
                 maxIndex = i;
             }
