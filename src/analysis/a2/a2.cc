@@ -1965,7 +1965,7 @@ inline u32 step_operator_range(Operator *first, Operator *last)
     return opSteppedCount;
 }
 
-struct Work
+struct OperatorRangeWork
 {
     Operator *begin = nullptr;
     Operator *end = nullptr;
@@ -1973,9 +1973,9 @@ struct Work
 
 static const s32 WorkQueueSize = 32;
 
-struct WorkQueue
+struct OperatorRangeWorkQueue
 {
-    mpmc_bounded_queue<Work> queue;
+    mpmc_bounded_queue<OperatorRangeWork> queue;
     //NonRecursiveBenaphore mutex;
     LightweightSemaphore taskSem;
     LightweightSemaphore tasksDoneSem;
@@ -1983,7 +1983,7 @@ struct WorkQueue
 
     using Guard = std::lock_guard<NonRecursiveBenaphore>;
 
-    explicit WorkQueue(size_t size)
+    explicit OperatorRangeWorkQueue(size_t size)
         : queue(size)
     {}
 };
@@ -1993,7 +1993,7 @@ struct ThreadInfo
     int id = 0;
 };
 
-Work dequeue(WorkQueue *queue, ThreadInfo threadInfo)
+OperatorRangeWork dequeue(OperatorRangeWorkQueue *queue, ThreadInfo threadInfo)
 {
 #if 0
     std::unique_lock<std::mutex> lock(queue->mutex);
@@ -2003,10 +2003,10 @@ Work dequeue(WorkQueue *queue, ThreadInfo threadInfo)
         queue->cv_notEmpty.wait(lock);
     }
 
-    Work result = queue->queue.front();
+    OperatorRangeWork result = queue->queue.front();
     queue->queue.pop();
 #else
-    Work result = {};
+    OperatorRangeWork result = {};
 
     for (;;)
     {
@@ -2019,7 +2019,7 @@ Work dequeue(WorkQueue *queue, ThreadInfo threadInfo)
         a2_trace("a2 worker %d taking the lock\n",
                  threadInfo.id);
 
-        //WorkQueue::Guard guard(queue->mutex);
+        //OperatorRangeWorkQueue::Guard guard(queue->mutex);
         if (queue->queue.dequeue(result))
         {
             break;
@@ -2040,7 +2040,7 @@ Work dequeue(WorkQueue *queue, ThreadInfo threadInfo)
     return result;
 }
 
-void a2_worker_loop(WorkQueue *queue, ThreadInfo threadInfo)
+void a2_worker_loop(OperatorRangeWorkQueue *queue, ThreadInfo threadInfo)
 {
     a2_trace("worker %d starting up\n", threadInfo.id);
 
@@ -2073,7 +2073,7 @@ void a2_worker_loop(WorkQueue *queue, ThreadInfo threadInfo)
              threadInfo.id);
 }
 
-u32 step_operator_range_threaded(WorkQueue *queue, Operator *first, Operator *last)
+u32 step_operator_range_threaded(OperatorRangeWorkQueue *queue, Operator *first, Operator *last)
 {
 
     const s32 opCount = (s32)(last - first);
@@ -2086,7 +2086,7 @@ u32 step_operator_range_threaded(WorkQueue *queue, Operator *first, Operator *la
         // Workers should spin or wait in queue->taskSem.wait() so the rwLock
         // should always be uncontested.
         a2_trace("main a2 worker taking lock before enqueueing work\n");
-        //WorkQueue::Guard guard(queue->mutex);
+        //OperatorRangeWorkQueue::Guard guard(queue->mutex);
 
         //queue->tasksDone = 0;
         assert(queue->tasksDoneSem.count() == 0);
@@ -2126,11 +2126,11 @@ u32 step_operator_range_threaded(WorkQueue *queue, Operator *first, Operator *la
     //while (queue->tasksDone.load() < tasksQueued)
     while (true)
     {
-        Work task = {};
+        OperatorRangeWork task = {};
         {
             a2_trace("main a2 worker taking the lock\n");
             // Contend with the workers for the rwLock
-            //WorkQueue::Guard guard(queue->mutex);
+            //OperatorRangeWorkQueue::Guard guard(queue->mutex);
 
             a2_trace("main a2 worker got the lock, tasksQueued=%d, tasksDone=%d", //, queue.size()=%u\n|",
                      tasksQueued,
@@ -2186,7 +2186,7 @@ u32 step_operator_range_threaded(WorkQueue *queue, Operator *first, Operator *la
     return opCount;
 }
 
-static WorkQueue A2WorkQueue(WorkQueueSize);
+static OperatorRangeWorkQueue A2WorkQueue(WorkQueueSize);
 
 static std::vector<std::thread> A2Threads = {};
 
@@ -2215,7 +2215,7 @@ void a2_end_run(A2 *a2)
         const s32 threadCount = (s32)A2Threads.size();
 
         {
-            //WorkQueue::Guard guard(queue->mutex);
+            //OperatorRangeWorkQueue::Guard guard(queue->mutex);
             //queue->tasksDone = 0;
             assert(queue->tasksDoneSem.count() == 0);
 
@@ -2340,5 +2340,68 @@ void a2_end_event(A2 *a2, int eventIndex)
 
     a2_trace("ei=%d, %d operators stepped\n", eventIndex, opSteppedCount);
 }
+
+/* Threaded histosink implementation.
+-----------------------------------------------------------------------------
+
+Push Histo1DSink or Histo2DSink work on a bounded queue. If the enqueue
+blocks it means histo filling is slowing us down.
+
+Somehow bundle more insert work together.
+
+Then try to sort by increasing memory address of insertions.
+Sort by histo address, then by bin number.
+Start inserting.
+
+Bundling.
+-----------------------------
+
+Collect lots of values to insert into the same sink (meaning array of H1D or a
+single H2D).  Values are consecutive steps of the sinks input. Always the same
+size.
+
+Buffering is always bad in the case of low rates. Could introduce a clock to
+the a2 system which would have to be periodically triggered between calls to
+a2_begin_event() and a2_end_event(). On clock tick buffers would be flushed.
+
+The clock tick could be set to 1.0s. We'd buffer up data in the system until
+the buffers are capped and thus handed off to the workers, or the clock tick
+interval has passed and the buffers are flushed.
+
+In single step mode a clock tick would be generated after each step, not
+periodically.
+
+For a batch run no ticks would need to be generated until the very end. A
+final tick is needed to flush the remaining buffer contents out.
+This final tick should probably be done in Analysis::endRun().
+
+If the analysis system takes longer than the set clock interval to process
+one event, a single "late" tick is enough to make the event visible in the
+histograms. No additional ticks need to be performed.
+
+More bundling and buffering.
+-----------------------------
+
+Just collect all the work from all the sinks in a step.
+
+Known at build time, fixed size at runtime:
+
+The number of sinks. The histo addresses. The numbers of histos and their sizes.
+
+Have space for N times the input size of a sink. Reserve that space for all the sinks.
+Sort sinks by histo address and assign pointers into the sink buffer in that order.
+-> Fails here as a Histo1DSink doesn't have a single address. Histo1Ds are
+ placed randomly in memory!
+
+So for each sink there's a begin pointer, a current pointer, the sinks size
+and the constant N.
+
+Sink buffer sizes:
+- Histo1DSink: input.size * sizeof(double) * N
+- Histo2DSink: 2 * sizeof(double) * N
+
+On a2_end_event() 
+
+ */
 
 } // namespace a2
