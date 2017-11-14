@@ -3460,12 +3460,42 @@ void AnalysisWidgetPrivate::actionLoadSession()
         analysisJson = QJsonDocument(result.first);
     }
 
+    if (m_context->getAnalysis()->isModified())
+    {
+        QMessageBox msgBox(QMessageBox::Question, QSL("Save analysis configuration?"),
+                           QSL("The current analysis configuration has modifications. Do you want to save it?"),
+                           QMessageBox::Save | QMessageBox::Cancel | QMessageBox::Discard);
+
+        int result = msgBox.exec();
+
+        if (result == QMessageBox::Save)
+        {
+            auto result = saveAnalysisConfig(
+                m_context->getAnalysis(),
+                m_context->getAnalysisConfigFileName(),
+                m_context->getWorkspaceDirectory(),
+                AnalysisFileFilter,
+                m_context);
+
+            if (!result.first)
+            {
+                m_context->logMessage(QSL("Error: ") + result.second);
+                return;
+            }
+        }
+        else if (result == QMessageBox::Cancel)
+        {
+            return;
+        }
+    }
+
     // This is the standard procedure when loading an analysis config
     closeAllUniqueWidgets();
     closeAllHistogramWidgets();
 
     if (m_context->loadAnalysisConfig(analysisJson, filename, { .NoAutoResume = true }))
     {
+        m_context->setAnalysisConfigFileName(QString());
         progressDialog.setLabelText(QSL("Loading session data..."));
 
 
