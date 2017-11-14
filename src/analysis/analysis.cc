@@ -2864,18 +2864,37 @@ void Analysis::beginRun(
     qDebug() << __PRETTY_FUNCTION__ << "########## a2 active ##########";
     qDebug() << __PRETTY_FUNCTION__ << "a2: using a2 arena" << (u32)m_a2ArenaIndex;
 
-    auto arena = m_a2Arenas[m_a2ArenaIndex].get();
+    A2AdapterState a2State;
+    memory::Arena *arena = nullptr;
 
-    auto a2State = a2_adapter_build(
-        arena,
-        m_a2TempArena.get(),
-        m_sources,
-        m_operators,
-        m_vmeMap);
+    while (true)
+    {
+        try
+        {
+            arena = m_a2Arenas[m_a2ArenaIndex].get();
+
+            a2State = a2_adapter_build(
+                arena,
+                m_a2TempArena.get(),
+                m_sources,
+                m_operators,
+                m_vmeMap);
+
+            break;
+        }
+        catch (const memory::out_of_memory &)
+        {
+            // Double the size and try again
+            auto newSize = 2 * m_a2Arenas[m_a2ArenaIndex]->size;
+            m_a2TempArena = std::make_unique<memory::Arena>(newSize);
+            m_a2Arenas[m_a2ArenaIndex] = std::make_unique<memory::Arena>(newSize);
+        }
+    }
 
     m_a2State = std::make_unique<A2AdapterState>(a2State);
 
-    qDebug("%s a2: mem=%lf, start@%p", __PRETTY_FUNCTION__, (double)arena->used(), arena->mem);
+    qDebug("%s a2: mem=%u sz=%u, start@%p",
+           __PRETTY_FUNCTION__, (u32)arena->used(), (u32)arena->size, arena->mem);
 #endif
 }
 
