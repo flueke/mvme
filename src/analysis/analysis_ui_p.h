@@ -60,7 +60,8 @@ class EventWidget: public QWidget
 
         using SelectInputCallback = std::function<void ()>;
 
-        EventWidget(MVMEContext *ctx, const QUuid &eventId, AnalysisWidget *analysisWidget, QWidget *parent = 0);
+        EventWidget(MVMEContext *ctx, const QUuid &eventId, int eventIndex,
+                    AnalysisWidget *analysisWidget, QWidget *parent = 0);
         ~EventWidget();
 
         void selectInputFor(Slot *slot, s32 userLevel, SelectInputCallback callback);
@@ -80,8 +81,8 @@ class EventWidget: public QWidget
         void addUserLevel();
         void removeUserLevel();
         void repopulate();
-        QToolBar *makeToolBar();
-        QToolBar *makeEventSelectAreaToolBar();
+        QToolBar *getToolBar();
+        QToolBar *getEventSelectAreaToolBar();
 
         MVMEContext *getContext() const;
         AnalysisWidget *getAnalysisWidget() const;

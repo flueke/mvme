@@ -27,14 +27,15 @@
 #include "analysis_session.h"
 #endif
 
-#include "../mvme_context.h"
+#include "../config_ui.h"
 #include "../histo1d_widget.h"
 #include "../histo2d_widget.h"
+#include "../mvme_context.h"
+#include "../mvme_stream_worker.h"
 #include "../treewidget_utils.h"
-#include "../config_ui.h"
-#include "../vme_analysis_common.h"
 #include "util/counters.h"
 #include "util/strings.h"
+#include "../vme_analysis_common.h"
 
 #include <QApplication>
 #include <QComboBox>
@@ -472,6 +473,7 @@ struct EventWidgetPrivate
     EventWidget *m_q;
     MVMEContext *m_context;
     QUuid m_eventId;
+    int m_eventIndex;
     AnalysisWidget *m_analysisWidget;
 
     QVector<DisplayLevelTrees> m_levelTrees;
@@ -512,7 +514,11 @@ struct EventWidgetPrivate
 
     // Actions and widgets used in makeEventSelectAreaToolBar()
     QAction *m_actionSelectVisibleLevels;
+    QLabel *m_eventRateLabel;
     QAction *m_actionShowWalltimeRates;
+
+    QToolBar* m_upperToolBar;
+    QToolBar* m_eventSelectAreaToolBar;
 
     // Periodically updated extractor hit counts and histo sink entry counts.
     struct ObjectCounters
@@ -523,6 +529,7 @@ struct EventWidgetPrivate
     QHash<Extractor *, ObjectCounters> m_extractorCounters;
     QHash<Histo1DSink *, ObjectCounters> m_histo1DSinkCounters;
     QHash<Histo2DSink *, ObjectCounters> m_histo2DSinkCounters;
+    MVMEStreamProcessorCounters m_prevStreamProcessorCounters;
 
     double m_prevAnalysisTimeticks = 0.0;;
     bool m_showWalltimeRates = false;
@@ -555,6 +562,7 @@ struct EventWidgetPrivate
     void doPeriodicUpdate();
     void periodicUpdateExtractorCounters(double dt_s);
     void periodicUpdateHistoCounters(double dt_s);
+    void periodicUpdateEventRate(double dt_s);
 
     // Returns the currentItem() of the tree widget that has focus.
     QTreeWidgetItem *getCurrentNode();
@@ -2079,6 +2087,7 @@ void EventWidgetPrivate::doPeriodicUpdate()
 
     periodicUpdateExtractorCounters(dt_s);
     periodicUpdateHistoCounters(dt_s);
+    periodicUpdateEventRate(dt_s);
 
     m_prevAnalysisTimeticks = currentAnalysisTimeticks;
 }
@@ -2311,6 +2320,30 @@ void EventWidgetPrivate::periodicUpdateHistoCounters(double dt_s)
 
 }
 
+void EventWidgetPrivate::periodicUpdateEventRate(double dt_s)
+{
+    auto &prevCounters(m_prevStreamProcessorCounters);
+    const auto &counters(m_context->getEventProcessor()->getCounters());
+    Q_ASSERT(0 <= m_eventIndex && m_eventIndex < (s32)counters.eventCounters.size());
+
+    double deltaEvents = calc_delta0(
+        counters.eventCounters[m_eventIndex],
+        prevCounters.eventCounters[m_eventIndex]);
+
+    double eventCount = counters.eventCounters[m_eventIndex];
+    double eventRate = deltaEvents / dt_s;
+
+    auto labelText = (QString("count=%2\nrate=%3")
+                      .arg(format_number(eventCount, QSL(""), UnitScaling::Decimal))
+                      .arg(format_number(eventRate, QSL("cps"), UnitScaling::Decimal, 0, 'g', 3))
+                     );
+
+    m_eventRateLabel->setText(labelText);
+
+    prevCounters = counters;
+}
+
+
 QTreeWidgetItem *EventWidgetPrivate::getCurrentNode()
 {
     QTreeWidgetItem *result = nullptr;
@@ -2500,7 +2533,8 @@ void run_userlevel_visibility_dialog(QVector<bool> &hiddenLevels, QWidget *paren
     }
 }
 
-EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, AnalysisWidget *analysisWidget, QWidget *parent)
+EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, int eventIndex,
+                         AnalysisWidget *analysisWidget, QWidget *parent)
     : QWidget(parent)
     , m_d(new EventWidgetPrivate)
 {
@@ -2509,6 +2543,7 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, AnalysisWidget 
     m_d->m_q = this;
     m_d->m_context = ctx;
     m_d->m_eventId = eventId;
+    m_d->m_eventIndex = eventIndex;
     m_d->m_analysisWidget = analysisWidget;
     m_d->m_displayRefreshTimer = new QTimer(this);
     m_d->m_displayRefreshTimer->start(EventWidgetPeriodicRefreshInterval_ms);
@@ -2558,6 +2593,10 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, AnalysisWidget 
     sync_splitters(m_d->m_operatorFrameSplitter, m_d->m_displayFrameSplitter);
 
 
+    /* ToolBar creation. Note that these toolbars are not directly added to the
+     * widget but instead they're handled by AnalysisWidget via getToolBar()
+     * and getEventSelectAreaToolBar(). */
+
     // Upper ToolBar actions
 
     m_d->m_actionImportForModuleFromTemplate = std::make_unique<QAction>("Import from template");
@@ -2589,6 +2628,14 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, AnalysisWidget 
         m_d->importForModuleFromFile();
     });
 
+    // create the upper toolbar
+    {
+        m_d->m_upperToolBar = make_toolbar();
+        auto tb = m_d->m_upperToolBar;
+
+        //tb->addWidget(new QLabel(QString("Hello, event! %1").arg((uintptr_t)this)));
+    }
+
     // Lower ToolBar, to the right of the event selection combo
     m_d->m_actionSelectVisibleLevels = new QAction(QIcon(QSL(":/eye_pencil.png")), QSL("Level Visiblity"), this);
 
@@ -2605,6 +2652,8 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, AnalysisWidget 
         }
     });
 
+    m_d->m_eventRateLabel = new QLabel("Event Rate goes here");
+
     auto action = new QAction(QSL("Show walltime Rates"), this);
     m_d->m_actionShowWalltimeRates = action;
     action->setCheckable(true);
@@ -2612,6 +2661,18 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, AnalysisWidget 
     connect(action, &QAction::triggered, this, [this, action] {
         m_d->m_showWalltimeRates = action->isChecked();
     });
+
+    // create the lower toolbar
+    {
+        m_d->m_eventSelectAreaToolBar = make_toolbar();
+        auto tb = m_d->m_eventSelectAreaToolBar;
+
+        tb->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+        tb->addAction(m_d->m_actionSelectVisibleLevels);
+        tb->addSeparator();
+        tb->addWidget(m_d->m_eventRateLabel);
+        tb->addAction(m_d->m_actionShowWalltimeRates);
+    }
 
     m_d->repopulate();
 }
@@ -2846,24 +2907,14 @@ void EventWidget::repopulate()
     m_d->repopulate();
 }
 
-QToolBar *EventWidget::makeToolBar()
+QToolBar *EventWidget::getToolBar()
 {
-    auto tb = make_toolbar();
-
-    //tb->addWidget(new QLabel(QString("Hello, event! %1").arg((uintptr_t)this)));
-
-    return tb;
+    return m_d->m_upperToolBar;
 }
 
-QToolBar *EventWidget::makeEventSelectAreaToolBar()
+QToolBar *EventWidget::getEventSelectAreaToolBar()
 {
-    auto tb = make_toolbar();
-
-    tb->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
-    tb->addAction(m_d->m_actionSelectVisibleLevels);
-    tb->addAction(m_d->m_actionShowWalltimeRates);
-
-    return tb;
+    return m_d->m_eventSelectAreaToolBar;
 }
 
 MVMEContext *EventWidget::getContext() const
@@ -2985,15 +3036,15 @@ void AnalysisWidgetPrivate::repopulate()
     {
         auto eventConfig = eventConfigs[eventIndex];
         auto eventId = eventConfig->getId();
-        auto eventWidget = new EventWidget(m_context, eventId, m_q);
+        auto eventWidget = new EventWidget(m_context, eventId, eventIndex, m_q);
 
         auto scrollArea = new QScrollArea;
         scrollArea->setWidget(eventWidget);
         scrollArea->setWidgetResizable(true);
 
         m_eventWidgetStack->addWidget(scrollArea);
-        m_eventWidgetToolBarStack->addWidget(eventWidget->makeToolBar());
-        m_eventWidgetEventSelectAreaToolBarStack->addWidget(eventWidget->makeEventSelectAreaToolBar());
+        m_eventWidgetToolBarStack->addWidget(eventWidget->getToolBar());
+        m_eventWidgetEventSelectAreaToolBarStack->addWidget(eventWidget->getEventSelectAreaToolBar());
         m_eventWidgetsByEventId[eventId] = eventWidget;
     }
 
