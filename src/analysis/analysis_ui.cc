@@ -2805,7 +2805,7 @@ void EventWidget::operatorEdited(OperatorInterface *op)
 
     try
     {
-        do_beginRun_forward(op);
+        m_d->m_context->getAnalysis()->beginRun();
     }
     catch (const std::bad_alloc &)
     {
@@ -2865,9 +2865,7 @@ void EventWidget::sourceEdited(SourceInterface *src)
 
     try
     {
-        // Updates the edited SourceInterface and recursively all the operators
-        // depending on it.
-        do_beginRun_forward(src);
+        m_d->m_context->getAnalysis()->beginRun();
     }
     catch (const std::bad_alloc &)
     {
