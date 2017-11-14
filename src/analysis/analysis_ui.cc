@@ -2161,7 +2161,7 @@ void EventWidgetPrivate::periodicUpdateExtractorCounters(double dt_s)
 
                     childNode->setText(0, QString("%1 (hits=%2, rate=%3, dt=%4 s)")
                                        .arg(addrString)
-                                       .arg(hitCount, 0, 'g', 3)
+                                       .arg(hitCount)
                                        .arg(rateString)
                                        .arg(dt_s)
                                       );

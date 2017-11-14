@@ -4,6 +4,8 @@
 #include <QFormLayout>
 #include <QTimer>
 
+#include "util/counters.h"
+#include "util/strings.h"
 #include "mvme_stream_worker.h"
 
 struct AnalysisInfoWidgetPrivate
@@ -30,8 +32,8 @@ static const QVector<const char *> LabelTexts =
     "invalid event index",
     "counts by event",
     "counts by module",
-    "rate by event  [hits/s]",
-    "rate by module [hits/s]",
+    "rate by event ",
+    "rate by module",
 };
 
 AnalysisInfoWidget::AnalysisInfoWidget(MVMEContext *context, QWidget *parent)
@@ -94,15 +96,8 @@ void AnalysisInfoWidget::update()
 
     dt /= 1000.0;
 
-    auto calc_delta = [](u64 cur, u64 prev)
-    {
-        if (cur < prev)
-            return (u64)0;
-        return cur - prev;
-    };
-
-    u64 deltaBytesProcessed = calc_delta(counters.bytesProcessed, m_d->prevCounters.bytesProcessed);
-    u64 deltaBuffersProcessed = calc_delta(counters.buffersProcessed, m_d->prevCounters.buffersProcessed);
+    u64 deltaBytesProcessed = calc_delta0(counters.bytesProcessed, m_d->prevCounters.bytesProcessed);
+    u64 deltaBuffersProcessed = calc_delta0(counters.buffersProcessed, m_d->prevCounters.buffersProcessed);
 
     double bytesPerSecond   = deltaBytesProcessed / dt;
     double mbPerSecond      = bytesPerSecond / Megabytes(1);
@@ -119,8 +114,9 @@ void AnalysisInfoWidget::update()
     {
         for (u32 mi = 0; mi < MaxVMEModules; mi++)
         {
-            u32 count = counters.moduleCounters[ei][mi];
-            if (count)
+            double count = counters.moduleCounters[ei][mi];
+
+            if (count > 0.0)
             {
                 if (!mcText.isEmpty()) mcText += "\n";
                 mcText += (QString("event=%1, module=%2, count=%3")
@@ -142,12 +138,12 @@ void AnalysisInfoWidget::update()
 
     for (u32 ei = 0; ei < MaxVMEEvents; ei++)
     {
-        u64 eventDelta = calc_delta(counters.eventCounters[ei], m_d->prevCounters.eventCounters[ei]);
+        double eventDelta = calc_delta0(counters.eventCounters[ei], m_d->prevCounters.eventCounters[ei]);
         eventRates[ei] = eventDelta / dt;
 
         for (u32 mi = 0; mi < MaxVMEModules; mi++)
         {
-            u64 moduleDelta = calc_delta(counters.moduleCounters[ei][mi],
+            double moduleDelta = calc_delta0(counters.moduleCounters[ei][mi],
                                          m_d->prevCounters.moduleCounters[ei][mi]);
             moduleRates[ei][mi] = moduleDelta / dt;
         }
@@ -165,17 +161,24 @@ void AnalysisInfoWidget::update()
 
             if (rate > 0.0)
             {
+                auto rateString =format_number(rate, QSL("cps"), UnitScaling::Decimal);
+
                 if (!mrText.isEmpty()) mrText += "\n";
+
                 mrText += (QString("event=%1, module=%2, rate=%3")
-                           .arg(ei).arg(mi).arg(rate));
+                           .arg(ei).arg(mi).arg(rateString));
             }
         }
 
         double rate = eventRates[ei];
+
         if (rate > 0.0)
         {
+            auto rateString =format_number(rate, QSL("cps"), UnitScaling::Decimal);
+
             if (!erText.isEmpty()) erText += "\n";
-            erText += QString("event=%1, rate=%2").arg(ei).arg(rate);
+
+            erText += QString("event=%1, rate=%2").arg(ei).arg(rateString);
         }
     }
 
