@@ -22,18 +22,36 @@ Histo1D::Histo1D(u32 nBins, double xMin, double xMax, QObject *parent)
     : QObject(parent)
     , m_xAxisBinning(nBins, xMin, xMax)
     , m_data(new double[nBins])
+    , m_externalMemory(false)
+{
+    clear();
+}
+
+Histo1D::Histo1D(u32 nBins, double xMin, double xMax, double *data, QObject *parent)
+    : QObject(parent)
+    , m_xAxisBinning(nBins, xMin, xMax)
+    , m_data(data)
+    , m_externalMemory(true)
 {
     clear();
 }
 
 Histo1D::~Histo1D()
 {
-    delete[] m_data;
+    if (ownsMemory())
+    {
+        delete[] m_data;
+    }
 }
 
 void Histo1D::resize(u32 nBins)
 {
     Q_ASSERT(nBins > 0);
+
+    if (!canResize())
+    {
+        throw HistoLogicError("resize() not available when using external memory");
+    }
 
     if (nBins != m_xAxisBinning.getBins())
     {

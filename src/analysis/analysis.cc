@@ -2439,13 +2439,61 @@ void BinarySumDiff::write(QJsonObject &json) const
 //
 // Histo1DSink
 //
+
+static const size_t HistoAlignment = 64;
+
 Histo1DSink::Histo1DSink(QObject *parent)
     : BasicSink(parent)
+    , m_histoArena(0)
 {
 }
 
 void Histo1DSink::beginRun(const RunInfo &runInfo)
 {
+#if 0
+    /* Single memory block allocation strategy:
+     * Don't shrink.
+     * If resizing to a larger size. Recreate the arena. This will invalidate
+     * all pointers into the histograms. Recreate pointers into arena, clear
+     * memory. Update pointers for existing Histo1D instances.
+     */
+    if (!m_inputSlot.isParamIndexInRange())
+    {
+        m_histos.resize(0);
+        m_histoArena = memory::Arena(0);
+        return;
+    }
+
+    size_t requiredMemory = 0;
+    size_t histoCount = 0;
+
+    if (m_inputSlot.paramIndex != Slot::NoParamIndex)
+    {
+        histoCount = 1;
+    }
+    else
+    {
+        histoCount = m_inputSlot.inputPipe->parameters.size();
+    }
+
+    size_t requiredMemory = histoCount * m_bins * sizeof(double) + HistoAlignment;
+
+    // FIXME: This will destroy the shared_ptrs. I hope that no one has copies. Should
+    // make them unique_ptrs or so? Idk. Or keep the old arena alive until all
+    // the Histo1D instances are destroyed?
+    m_histos.resize(maxIdx - minIdx);
+
+    if (m_histoArena.size < requiredMemory)
+    {
+        // grow
+        m_histoArena = memory::Arena(requiredMemory);
+    }
+    else
+    {
+    }
+
+
+#else
     // Instead of just clearing the histos vector and recreating it this code
     // tries to reuse existing histograms. This is done so that open histogram
     // windows still reference the correct histogram after beginRun() is
@@ -2482,7 +2530,7 @@ void Histo1DSink::beginRun(const RunInfo &runInfo)
 
             if (m_histos[histoIndex])
             {
-                auto histo = m_histos[histoIndex];
+                auto histo = m_histos[histoIndex].get();
 
                 if (histo->getNumberOfBins() != static_cast<u32>(m_bins) || !runInfo.keepAnalysisState)
                 {
@@ -2499,10 +2547,10 @@ void Histo1DSink::beginRun(const RunInfo &runInfo)
             }
             else
             {
-                m_histos[histoIndex] = std::make_shared<Histo1D>(m_bins, xMin, xMax);
+                m_histos[histoIndex] = std::make_unique<Histo1D>(m_bins, xMin, xMax);
             }
 
-            auto histo = m_histos[histoIndex];
+            auto histo = m_histos[histoIndex].get();
             auto histoName = this->objectName();
             AxisInfo axisInfo;
             axisInfo.title = this->m_xAxisTitle;
@@ -2527,11 +2575,12 @@ void Histo1DSink::beginRun(const RunInfo &runInfo)
     {
         m_histos.resize(0);
     }
+#endif
 }
 
 void Histo1DSink::step()
 {
-    if (m_inputSlot.inputPipe && !m_histos.isEmpty())
+    if (m_inputSlot.inputPipe && !m_histos.empty())
     {
         s32 paramIndex = m_inputSlot.paramIndex;
 
