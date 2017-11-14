@@ -38,7 +38,6 @@ using namespace data_filter;
 using namespace memory;
 
 /* TODO list
- * - Add RectFilter2D
  * - Add tests for range_filter_step(). Test it in mvme.
  * - Test aggregate mean and meanx
  * - Add logic to force internal input/output vectors to be rounded up to a
@@ -54,7 +53,6 @@ using namespace memory;
  * - Support negative axis values (works for h2d)
  * - Think about aligning operators to cache lines (in addition to the double
  *   arrays).
- * - Arena overflow strategy.
  */
 
 /* Alignment in bytes of all double vectors created by the system.
@@ -1193,7 +1191,7 @@ void aggregate_sigmax_step(Operator *op)
     auto output = op->outputs[0];
     auto thresholds = *reinterpret_cast<Thresholds *>(op->d);
 
-    assert(false); // FIXME: implementation
+    assert(false && input.size && output.size && thresholds.min); // FIXME: implementation
 }
 
 //
@@ -1838,27 +1836,6 @@ static const OperatorFunctions OperatorTable[OperatorTypeCount] =
     [Operator_Aggregate_MeanX] = { aggregate_meanx_step },
     [Operator_Aggregate_SigmaX] = { aggregate_sigmax_step },
 };
-
-#if 0
-static const char *OperatorTypeNames[OperatorTypeCount] =
-{
-    [Operator_Calibration]          =
-    [Operator_Calibration_sse]      =
-    [Operator_KeepPrevious]         =
-    [Operator_Difference]           =
-    [Operator_Difference_idx]       = { difference_step_idx },
-    [Operator_ArrayMap]             = { array_map_step },
-    [Operator_BinaryEquation]       = { binary_equation_step },
-    [Operator_H1DSink]              = { h1d_sink_step },
-    [Operator_H1DSink_idx]          = { h1d_sink_step_idx },
-    [Operator_H2DSink] = { h2d_sink_step },
-    [Operator_RangeFilter] = { nullptr },
-
-    [Operator_Aggregate_Sum] = { aggregate_sum_step },
-    [Operator_Aggregate_Multiplicity] = { aggregate_multiplicity_step },
-    [Operator_Aggregate_Max] = { aggregate_max_step },
-};
-#endif
 
 inline void step_operator(Operator *op)
 {

@@ -13,6 +13,9 @@
 
 namespace a2
 {
+/* Note: a2 passes out_of_memory() from memory::Arena through. Use an external
+ * mechanism to catch this, increase the memory size and try again. */
+
 
 /* Bit used as payload of NaN values to identify an invalid parameter.
  * If the bit is not set the NaN was generated as the result of a calculation
@@ -392,6 +395,29 @@ Operator make_h2d_sink(
     s32 yIndex,
     H2D histo);
 
+static const int MaxVMEEvents  = 12;
+static const int MaxVMEModules = 20;
+
+struct A2
+{
+    std::array<u8, MaxVMEEvents> extractorCounts;
+    std::array<Extractor *, MaxVMEEvents> extractors;
+
+    std::array<u8, MaxVMEEvents> operatorCounts;
+    std::array<Operator *, MaxVMEEvents> operators;
+    std::array<u8 *, MaxVMEEvents> operatorRanks;
+};
+
+void a2_begin_run(A2 *a2);
+void a2_begin_event(A2 *a2, int eventIndex);
+void a2_process_module_data(A2 *a2, int eventIndex, int moduleIndex, const u32 *data, u32 dataSize);
+void a2_end_event(A2 *a2, int eventIndex);
+void a2_end_run(A2 *a2);
+
+//
+// Stuff used for debugging and tests
+//
+
 template<typename Out, typename T>
 void write_value(Out &out, T value)
 {
@@ -432,25 +458,6 @@ void write_histo_list(Out &out, TypedBlock<H1D, s32> histos)
         write_histo(out, histos[i]);
     }
 }
-
-static const int MaxVMEEvents  = 12;
-static const int MaxVMEModules = 20;
-
-struct A2
-{
-    std::array<u8, MaxVMEEvents> extractorCounts;
-    std::array<Extractor *, MaxVMEEvents> extractors;
-
-    std::array<u8, MaxVMEEvents> operatorCounts;
-    std::array<Operator *, MaxVMEEvents> operators;
-    std::array<u8 *, MaxVMEEvents> operatorRanks;
-};
-
-void a2_begin_run(A2 *a2);
-void a2_begin_event(A2 *a2, int eventIndex);
-void a2_process_module_data(A2 *a2, int eventIndex, int moduleIndex, const u32 *data, u32 dataSize);
-void a2_end_event(A2 *a2, int eventIndex);
-void a2_end_run(A2 *a2);
 
 } // namespace a2
 
