@@ -22,23 +22,13 @@ Histo1D::Histo1D(u32 nBins, double xMin, double xMax, QObject *parent)
     : QObject(parent)
     , m_xAxisBinning(nBins, xMin, xMax)
     , m_data(new double[nBins])
-    , m_externalMemory(false)
 {
     clear();
 }
 
-Histo1D::Histo1D(u32 nBins, double xMin, double xMax, double *data, QObject *parent)
+Histo1D::Histo1D(AxisBinning binning, const SharedHistoMem &mem, QObject *parent)
     : QObject(parent)
-    , m_xAxisBinning(nBins, xMin, xMax)
-    , m_data(data)
-    , m_externalMemory(true)
-{
-    clear();
-}
-
-Histo1D::Histo1D(u32 nBins, double xMin, double xMax, const SharedHistoMem &mem, QObject *parent)
-    : QObject(parent)
-    , m_xAxisBinning(nBins, xMin, xMax)
+    , m_xAxisBinning(binning)
     , m_data(mem.data)
     , m_externalMemory(mem)
 {
@@ -78,6 +68,17 @@ void Histo1D::resize(u32 nBins)
         m_xAxisBinning.setBins(nBins);
     }
     clear();
+}
+
+void Histo1D::setData(const SharedHistoMem &mem, AxisBinning newBinning)
+{
+    if (ownsMemory())
+    {
+        throw HistoLogicError("setData() not available when using internal memory");
+    }
+
+    m_externalMemory = mem;
+    setAxisBinning(Qt::XAxis, newBinning);
 }
 
 s32 Histo1D::fill(double x, double weight)

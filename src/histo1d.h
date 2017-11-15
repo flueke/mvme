@@ -47,7 +47,7 @@ struct SharedHistoMem
     std::shared_ptr<memory::Arena> arena;
 
     // Pointer into the arena where this Histograms data starts.
-    double *data;
+    double *data = nullptr;
 };
 
 class Histo1D: public QObject
@@ -67,7 +67,7 @@ class Histo1D: public QObject
 
         /* Uses the memory passed in with the data pointer. resize() will not
          * be available. */
-        Histo1D(u32 nBins, double xMin, double xMax, const SharedHistoMem &mem, QObject *parent = 0);
+        Histo1D(AxisBinning binning, const SharedHistoMem &mem, QObject *parent = 0);
 
         ~Histo1D();
 
@@ -118,6 +118,7 @@ class Histo1D: public QObject
             if (axis == Qt::XAxis && binning != m_xAxisBinning)
             {
                 m_xAxisBinning = binning;
+                clear();
                 emit axisBinningChanged(axis);
             }
         }

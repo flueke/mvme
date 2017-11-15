@@ -2440,7 +2440,7 @@ void BinarySumDiff::write(QJsonObject &json) const
 // Histo1DSink
 //
 
-static const size_t HistoAlignment = 64;
+static const size_t HistoMemAlignment = 64;
 
 Histo1DSink::Histo1DSink(QObject *parent)
     : BasicSink(parent)
@@ -2463,7 +2463,6 @@ void Histo1DSink::beginRun(const RunInfo &runInfo)
         return;
     }
 
-    size_t requiredMemory = 0;
     size_t histoCount = 0;
     s32 minIdx = 0;
     s32 maxIdx = 0;
@@ -2472,7 +2471,7 @@ void Histo1DSink::beginRun(const RunInfo &runInfo)
     {
         histoCount = 1;
         minIdx = m_inputSlot.paramIndex;
-        maxIdx = minIdx = 1;
+        maxIdx = minIdx + 1;
     }
     else
     {
@@ -2483,13 +2482,15 @@ void Histo1DSink::beginRun(const RunInfo &runInfo)
 
     m_histos.resize(histoCount);
 
-    size_t requiredMemory = histoCount * m_bins * sizeof(double) + HistoAlignment;
-    bool didGrow = false;
+    size_t requiredMemory = histoCount * m_bins * sizeof(double) + histoCount * HistoMemAlignment;
 
     if (!m_histoArena || m_histoArena->size < requiredMemory)
     {
         m_histoArena = std::make_shared<memory::Arena>(requiredMemory);
-        didGrow = true;
+    }
+    else
+    {
+        m_histoArena->reset();
     }
 
     for (s32 idx = minIdx, histoIndex = 0; idx < maxIdx; idx++, histoIndex++)
@@ -2507,39 +2508,24 @@ void Histo1DSink::beginRun(const RunInfo &runInfo)
             xMax = m_inputSlot.inputPipe->parameters[idx].upperLimit;
         }
 
+        AxisBinning binning(m_bins, xMin, xMax);
+        SharedHistoMem histoMem = { m_histoArena, m_histoArena->pushArray<double>(m_bins, HistoMemAlignment) };
+
         if (m_histos[histoIndex])
         {
-            SharedHistoMem = { m_histoArena, m_histoArena->pushArray<double>(m_bins) };
+            m_histos[histoIndex]->setData(histoMem, binning);
 
-            auto histo = m_histos[histoIndex];
-
-            // XXX: leftoff
-            
-
-
-
-
-
-
-            if (histo->getNumberOfBins() != static_cast<u32>(m_bins) || !runInfo.keepAnalysisState)
+            if (!runInfo.keepAnalysisState)
             {
-                histo->resize(m_bins); // calls clear() even if the size does not change
-            }
-
-            AxisBinning newBinning(m_bins, xMin, xMax);
-
-            if (newBinning != histo->getAxisBinning(Qt::XAxis))
-            {
-                histo->setAxisBinning(Qt::XAxis, newBinning);
-                histo->clear(); // have to clear because the binning changed
+                m_histos[histoIndex]->clear();
             }
         }
         else
         {
-            m_histos[histoIndex] = std::make_unique<Histo1D>(m_bins, xMin, xMax);
+            m_histos[histoIndex] = std::make_shared<Histo1D>(binning, histoMem);
         }
 
-        auto histo = m_histos[histoIndex].get();
+        auto histo = m_histos[histoIndex];
         auto histoName = this->objectName();
         AxisInfo axisInfo;
         axisInfo.title = this->m_xAxisTitle;
