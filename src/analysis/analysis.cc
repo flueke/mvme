@@ -28,6 +28,8 @@
 
 #define ENABLE_ANALYSIS_DEBUG 0
 
+#define ANALYSIS_USE_SHARED_HISTO1D_MEM 1
+
 template<typename T>
 QDebug &operator<< (QDebug &dbg, const std::shared_ptr<T> &ptr)
 {
@@ -2449,7 +2451,7 @@ Histo1DSink::Histo1DSink(QObject *parent)
 
 void Histo1DSink::beginRun(const RunInfo &runInfo)
 {
-#if 1
+#if ANALYSIS_USE_SHARED_HISTO1D_MEM
     /* Single memory block allocation strategy:
      * Don't shrink.
      * If resizing to a larger size. Recreate the arena. This will invalidate
@@ -2685,11 +2687,15 @@ void Histo1DSink::write(QJsonObject &json) const
 
 size_t Histo1DSink::getStorageSize() const
 {
+#if ANALYSIS_USE_SHARED_HISTO1D_MEM
+    return m_histoArena ? m_histoArena->size : 0;
+#else
     return std::accumulate(m_histos.begin(), m_histos.end(),
                            static_cast<size_t>(0u),
                            [](size_t v, const auto &histoPtr) {
         return v + histoPtr->getStorageSize();
     });
+#endif
 }
 
 //
