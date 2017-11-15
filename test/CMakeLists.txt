@@ -24,12 +24,18 @@ add_mvme_test(test_analysis_aggregate_ops test_analysis_aggregate_ops.cc)
 
 
 find_library(GOOGLE_BENCHMARK benchmark)
+find_path(GOOGLE_BENCHMARK_INCLUDE_DIR "benchmark/benchmark.h")
+include_directories(${GOOGLE_BENCHMARK_INCLUDE_DIR})
 find_package(Threads)
 
 function(add_mvme_bench exe_name exe_sources)
     add_executable(${exe_name} ${exe_sources})
     add_dependencies(${exe_name} libmvme)
-    target_link_libraries(${exe_name} libmvme ${GOOGLE_BENCHMARK} Threads::Threads)
+    if (WIN32)
+        target_link_libraries(${exe_name} libmvme ${GOOGLE_BENCHMARK} Threads::Threads shlwapi.lib)
+    else(WIN32)
+        target_link_libraries(${exe_name} libmvme ${GOOGLE_BENCHMARK} Threads::Threads)
+    endif(WIN32)
     add_test(NAME ${exe_name} COMMAND $<TARGET_FILE:${exe_name}>)
 endfunction(add_mvme_bench)
 
