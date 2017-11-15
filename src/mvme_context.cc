@@ -1025,13 +1025,18 @@ void MVMEContext::startReplay(u32 nEvents, bool keepHistoContents)
         return;
     }
 
+
+
     // Extract a runId from the listfile filename.
     QFileInfo fi(m_listFile->getFileName());
     m_d->m_runInfo.runId = fi.completeBaseName();
     m_d->m_runInfo.keepAnalysisState = keepHistoContents;
 
+    qDebug() << __PRETTY_FUNCTION__ << m_listFile->getFileName() << fi.completeBaseName();
 
+    auto hack = m_daqStats.listfileFilename;
     prepareStart();
+    m_daqStats.listfileFilename = hack;
 
     m_listFileWorker->setEventsToRead(nEvents);
     m_eventProcessor->setListFileVersion(m_listFile->getFileVersion());
