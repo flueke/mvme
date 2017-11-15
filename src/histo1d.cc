@@ -22,6 +22,16 @@ Histo1D::Histo1D(u32 nBins, double xMin, double xMax, QObject *parent)
     : QObject(parent)
     , m_xAxisBinning(nBins, xMin, xMax)
     , m_data(new double[nBins])
+    , m_externalMemory(false)
+{
+    clear();
+}
+
+Histo1D::Histo1D(u32 nBins, double xMin, double xMax, double *data, QObject *parent)
+    : QObject(parent)
+    , m_xAxisBinning(nBins, xMin, xMax)
+    , m_data(data)
+    , m_externalMemory(true)
 {
     clear();
 }

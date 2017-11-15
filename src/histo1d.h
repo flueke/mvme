@@ -201,3 +201,4 @@ Histo1D *readHisto1D(QTextStream &in);
 
 
 #endif /* __HISTO1D_H__ */
+
