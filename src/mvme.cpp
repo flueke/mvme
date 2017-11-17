@@ -525,6 +525,33 @@ void MVMEMainWindow::closeEvent(QCloseEvent *event)
         return;
     }
 
+    /* Try to close all top level windows except our own window. This will
+     * trigger any reimplementations of closeEvent() and thus give widgets a
+     * chance to ask the user about how to handle pending modifications. If the
+     * QCloseEvent is ignored by the widget the QWindow::close() call will
+     * return false. In this case we keep this widget open and ignore our
+     * QCloseEvent aswell.  */
+    bool allWindowsClosed = true;
+
+    for (auto window: QGuiApplication::topLevelWindows())
+    {
+        if (window != this->windowHandle())
+        {
+            if (!window->close())
+            {
+                qDebug() << __PRETTY_FUNCTION__ << "window" << window << "refused to close";
+                allWindowsClosed = false;
+                break;
+            }
+        }
+    }
+
+    if (!allWindowsClosed)
+    {
+        event->ignore();
+        return;
+    }
+
     // Handle modified DAQConfig
     if (m_d->m_context->getConfig()->isModified())
     {
@@ -576,33 +603,6 @@ void MVMEMainWindow::closeEvent(QCloseEvent *event)
             event->ignore();
             return;
         }
-    }
-
-    /* Try to close all top level windows except our own window. This will
-     * trigger any reimplementations of closeEvent() and thus give widgets a
-     * chance to ask the user about how to handle pending modifications. If the
-     * QCloseEvent is ignored by the widget the QWindow::close() call will
-     * return false. In this case we keep this widget open and ignore our
-     * QCloseEvent aswell.  */
-    bool allWindowsClosed = true;
-
-    for (auto window: QGuiApplication::topLevelWindows())
-    {
-        if (window != this->windowHandle())
-        {
-            if (!window->close())
-            {
-                qDebug() << __PRETTY_FUNCTION__ << "window" << window << "refused to close";
-                allWindowsClosed = false;
-                break;
-            }
-        }
-    }
-
-    if (!allWindowsClosed)
-    {
-        event->ignore();
-        return;
     }
 
     // window sizes and positions
@@ -881,9 +881,6 @@ void MVMEMainWindow::onActionOpenListfile_triggered()
 
     try
     {
-        // TODO: Get rid of this incredibly annoying messagebox once the
-        // listfile browser is in better shape!
-
         u16 openFlags = 0;
 
         if (fileName.endsWith(".zip"))
