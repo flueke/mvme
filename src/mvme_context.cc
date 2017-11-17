@@ -1455,6 +1455,11 @@ std::shared_ptr<QSettings> MVMEContext::makeWorkspaceSettings() const
 
 std::shared_ptr<QSettings> MVMEContext::makeWorkspaceSettings(const QString &workspaceDirectory) const
 {
+    if (workspaceDirectory.isEmpty())
+    {
+        return {};
+    }
+
     QDir dir(workspaceDirectory);
     return std::make_shared<QSettings>(dir.filePath(WorkspaceIniName), QSettings::IniFormat);
 }
@@ -1462,6 +1467,12 @@ std::shared_ptr<QSettings> MVMEContext::makeWorkspaceSettings(const QString &wor
 QString MVMEContext::getWorkspacePath(const QString &settingsKey, const QString &defaultValue, bool setIfDefaulted) const
 {
     auto settings = makeWorkspaceSettings();
+
+    if (!settings)
+    {
+        return QSL("");
+    }
+
     if (!settings->contains(settingsKey) && setIfDefaulted)
     {
         settings->setValue(settingsKey, defaultValue);

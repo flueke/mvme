@@ -239,7 +239,9 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         bool isWorkspaceOpen() const { return !m_workspaceDir.isEmpty(); }
 
         QString getWorkspaceDirectory() const { return m_workspaceDir; }
+        // Returns an empty shared_Ptr if getWorkspaceDirectory() returns an empty string
         std::shared_ptr<QSettings> makeWorkspaceSettings() const;
+        // Returns an empty string if not workspace is open
         QString getWorkspacePath(const QString &settingsKey, const QString &defaultValue = QString(), bool setIfDefaulted = true) const;
 
         void loadVMEConfig(const QString &fileName);
