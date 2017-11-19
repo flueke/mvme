@@ -2367,8 +2367,6 @@ The number of sinks. The histo addresses. The numbers of histos and their sizes.
 
 Have space for N times the input size of a sink. Reserve that space for all the sinks.
 Sort sinks by histo address and assign pointers into the sink buffer in that order.
--> Fails here as a Histo1DSink doesn't have a single address. Histo1Ds are
- placed randomly in memory!
 
 So for each sink there's a begin pointer, a current pointer, the sinks size
 and the constant N.

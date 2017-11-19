@@ -200,6 +200,9 @@ class ListFile
 {
     public:
         ListFile(const QString &fileName);
+
+        /* For ZIP file input it is assumed that the file has been opened before
+         * being passed to our constructor. */
         ListFile(QuaZipFile *inFile);
         ~ListFile();
 

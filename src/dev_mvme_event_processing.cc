@@ -1,12 +1,12 @@
 #include <QCoreApplication>
 #include "mvme_listfile.h"
 #include "vme_config.h"
-#include "mvme_context.h"
 #include "mvme_stream_processor.h"
 #include "analysis/analysis.h"
 #include "analysis/analysis_session.h"
 #include "util/strings.h"
 #include "util/counters.h"
+#include "mvme_context_lib.h"
 
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -45,74 +45,13 @@ u32 read_listfile_version(std::ifstream &infile)
 
 }
 
-template<typename LF>
-VMEConfig *read_config_from_listfile(std::ifstream &infile)
+VMEConfig *read_config_from_listfile(ListFile *listfile)
 {
-    DataBuffer sectionBuffer(Megabytes(1));
-    QByteArray vmeConfigBuffer;
-
-    while (true)
-    {
-        sectionBuffer.used = 0;
-        u32 *sectionHeaderPtr = sectionBuffer.asU32();
-        infile.read((char *)sectionHeaderPtr, sizeof(u32));
-        u32 sectionType   = (*sectionHeaderPtr & LF::SectionTypeMask) >> LF::SectionTypeShift;
-        u32 sectionSize   = (*sectionHeaderPtr & LF::SectionSizeMask) >> LF::SectionSizeShift;
-
-        ssize_t bytesToRead = sectionSize * sizeof(u32);
-        sectionBuffer.ensureCapacity(bytesToRead + sizeof(u32));
-
-        infile.read(reinterpret_cast<char *>(sectionBuffer.asU32(sizeof(u32))), bytesToRead);
-
-        if (infile.gcount() != bytesToRead)
-        {
-            throw std::runtime_error("Error reading full section");
-        }
-
-        sectionBuffer.used = bytesToRead + sizeof(u32);
-
-        if (sectionType == ListfileSections::SectionType_Config)
-        {
-            vmeConfigBuffer.append(reinterpret_cast<const char *>(sectionBuffer.data + sizeof(u32)),
-                                   sectionBuffer.used - sizeof(u32));
-        }
-        else
-        {
-            break;
-        }
-    }
-
-    infile.seekg(0, std::ifstream::beg);
-
-    auto configJson = QJsonDocument::fromJson(vmeConfigBuffer);
-    auto vmeConfig = new VMEConfig;
-    vmeConfig->read(configJson.object()["DAQConfig"].toObject());
-    return vmeConfig;
+    auto configJson = listfile->getDAQConfig();
+    auto result = new VMEConfig;
+    result->read(configJson);
+    return result;
 }
-
-VMEConfig *read_config_from_listfile(std::ifstream &infile)
-{
-    u32 fileVersion = read_listfile_version(infile);
-
-    // Move to the start of the first section
-    auto firstSectionOffset = ((fileVersion == 0)
-                               ? listfile_v0::FirstSectionOffset
-                               : listfile_v1::FirstSectionOffset);
-
-    infile.seekg(firstSectionOffset, std::ifstream::beg);
-
-    cout << "Detected listfile version " << fileVersion << endl;
-
-    if (fileVersion == 0)
-    {
-        return read_config_from_listfile<listfile_v0>(infile);
-    }
-    else
-    {
-        return read_config_from_listfile<listfile_v1>(infile);
-    }
-}
-
 
 //
 // process_listfile
@@ -128,9 +67,10 @@ struct Context
     MVMEStreamProcessor streamProcessor;
 };
 
-template<typename LF>
-void process_listfile(Context &context, std::ifstream &infile)
+void process_listfile(Context &context, ListFile *listfile)
 {
+    assert(listfile);
+
     DataBuffer sectionBuffer(Megabytes(1));
 
     context.streamProcessor.beginRun(
@@ -147,55 +87,16 @@ void process_listfile(Context &context, std::ifstream &infile)
     while (true)
     {
         sectionBuffer.used = 0;
-        u32 *sectionHeaderPtr = sectionBuffer.asU32();
-        infile.read((char *)sectionHeaderPtr, sizeof(u32));
-        u32 sectionType   = (*sectionHeaderPtr & LF::SectionTypeMask) >> LF::SectionTypeShift;
-        u32 sectionSize   = (*sectionHeaderPtr & LF::SectionSizeMask) >> LF::SectionSizeShift;
 
-        ssize_t bytesToRead = sectionSize * sizeof(u32);
-        sectionBuffer.ensureCapacity(bytesToRead + sizeof(u32));
+        s32 numSections = listfile->readSectionsIntoBuffer(&sectionBuffer);
 
-        infile.read(reinterpret_cast<char *>(sectionBuffer.asU32(sizeof(u32))), bytesToRead);
-
-        if (infile.gcount() != bytesToRead)
-        {
-            throw std::runtime_error("Error reading full section");
-        }
-
-        sectionBuffer.used = bytesToRead + sizeof(u32);
-
-        if (sectionType == ListfileSections::SectionType_End)
-        {
+        if (numSections <= 0)
             break;
-        }
 
         context.streamProcessor.processDataBuffer(&sectionBuffer);
     }
 
     counters.stopTime = QDateTime::currentDateTime();
-}
-
-void process_listfile(Context &context, std::ifstream &infile)
-{
-    u32 fileVersion = read_listfile_version(infile);
-
-    // Move to the start of the first section
-    auto firstSectionOffset = ((fileVersion == 0)
-                               ? listfile_v0::FirstSectionOffset
-                               : listfile_v1::FirstSectionOffset);
-
-    infile.seekg(firstSectionOffset, std::ifstream::beg);
-
-    cout << "Detected listfile version " << fileVersion << endl;
-
-    if (fileVersion == 0)
-    {
-        process_listfile<listfile_v0>(context, infile);
-    }
-    else
-    {
-        process_listfile<listfile_v1>(context, infile);
-    }
 }
 
 void load_analysis_config(const QString &filename, Analysis *analysis, VMEConfig *vmeConfig = nullptr)
@@ -231,6 +132,7 @@ int main(int argc, char *argv[])
     QString listfileFilename;
     QString analysisFilename;
     QString sessionOutFilename;
+    bool showHelp = false;
 
     while (true)
     {
@@ -238,6 +140,7 @@ int main(int argc, char *argv[])
             { "listfile",               required_argument,      nullptr,    0 },
             { "analysis",               required_argument,      nullptr,    0 },
             { "session-out",            required_argument,      nullptr,    0 },
+            { "help",                   no_argument,            nullptr,    0 },
             { nullptr, 0, nullptr, 0 },
         };
 
@@ -252,6 +155,15 @@ int main(int argc, char *argv[])
         if (opt_name == "listfile") { listfileFilename = QString(optarg); }
         if (opt_name == "analysis") { analysisFilename = QString(optarg); }
         if (opt_name == "session-out") { sessionOutFilename = QString(optarg); }
+        if (opt_name == "help") { showHelp = true; }
+    }
+
+    if (showHelp)
+    {
+        cout << "Usage: " << argv[0] << " --listfile <filename> [--analysis <filename>] [--session-out <filename>]" << endl;
+        cout << "Example: " << argv[0] << " --listfile myfile.mvmelst --analysis example.analysis --session-out mysession.hdf5" << endl;
+
+        return 0;
     }
 
     if (listfileFilename.isEmpty())
@@ -260,22 +172,16 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    std::ifstream infile(listfileFilename.toStdString(), std::ios::binary);
-
-    if (!infile.is_open())
-    {
-        cerr << "Error opening " << argv[1] << " for reading: " << std::strerror(errno) << endl;
-        return 1;
-    }
-
-    infile.exceptions(std::ifstream::badbit | std::ifstream::failbit | std::ifstream::eofbit);
-
 #if 1
     try
     {
 #endif
+        auto openResult = open_listfile(listfileFilename);
 
-        std::unique_ptr<VMEConfig> vmeConfig(read_config_from_listfile(infile));
+        if (!openResult.listfile)
+            return 1;
+
+        std::unique_ptr<VMEConfig> vmeConfig(read_config_from_listfile(openResult.listfile.get()));
         std::unique_ptr<Analysis> analysis = std::make_unique<Analysis>();
 
         if (!analysisFilename.isEmpty())
@@ -288,12 +194,12 @@ int main(int argc, char *argv[])
         Context context = {};
         context.analysis = analysis.get();
         context.vmeConfig = vmeConfig.get();
-        context.listfileVersion = read_listfile_version(infile);
+        context.listfileVersion = openResult.listfile->getFileVersion();
         context.logger = logger;
 
         qDebug() << "processing listfile" << listfileFilename << "...";
 
-        process_listfile(context, infile);
+        process_listfile(context, openResult.listfile.get());
 
         auto counters = context.streamProcessor.getCounters();
 

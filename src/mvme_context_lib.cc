@@ -2,9 +2,9 @@
 #include "mvme_context.h"
 #include "util_zip.h"
 
-OpenListfileResult open_listfile(MVMEContext *context, const QString &filename, u16 flags)
+OpenListfileResultLowLevel open_listfile(const QString &filename)
 {
-    OpenListfileResult result = {};
+    OpenListfileResultLowLevel result;
 
     if (filename.isEmpty())
         return result;
@@ -46,31 +46,20 @@ OpenListfileResult open_listfile(MVMEContext *context, const QString &filename, 
             throw make_zip_error("Could not open listfile", inFile.get());
         }
 
-        auto listFile = std::make_unique<ListFile>(inFile.release());
+        result.listfile = std::make_unique<ListFile>(inFile.release()); 
 
-        if (!listFile->open())
+        if (!result.listfile->open())
         {
             throw QString("Error opening listfile inside %1 for reading").arg(filename);
         }
 
         // try reading the VME config from inside the listfile
-        auto json = listFile->getDAQConfig();
+        auto json = result.listfile->getDAQConfig();
 
         if (json.isEmpty())
         {
             throw QString("Listfile does not contain a valid VME configuration");
         }
-
-        // save current replay state and set new listfile on the context object
-        bool wasReplaying = (context->getMode() == GlobalMode::ListFile
-                             && context->getDAQState() == DAQState::Running);
-
-        if (!context->setReplayFile(listFile.release()))
-        {
-            return result;
-        }
-
-        result.listfile = context->getReplayFile();
 
         /* Check if there's an analysis file inside the zip archive, read it,
          * store contents in state and decide on whether to directly load it.
@@ -82,23 +71,6 @@ OpenListfileResult open_listfile(MVMEContext *context, const QString &filename, 
             {
                 result.analysisBlob = inFile.readAll();
                 result.analysisFilename = QSL("analysis.analysis");
-
-                context->setReplayFileAnalysisInfo(
-                    {
-                        filename,
-                        QSL("analysis.analysis"),
-                        result.analysisBlob
-                    });
-
-                if (flags & OpenListfileFlags::LoadAnalysis)
-                {
-                    context->loadAnalysisConfig(result.analysisBlob, QSL("ZIP Archive"));
-                    context->setAnalysisConfigFileName(QString());
-                }
-            }
-            else
-            {
-                context->setReplayFileAnalysisInfo({});
             }
         }
 
@@ -111,43 +83,76 @@ OpenListfileResult open_listfile(MVMEContext *context, const QString &filename, 
                 result.messages = inFile.readAll();
             }
         }
-
-        if (wasReplaying)
-        {
-            context->startReplay();
-        }
     }
     // Plain
     else
     {
-        auto listFile = std::make_unique<ListFile>(filename);
+        result.listfile = std::make_unique<ListFile>(filename);
 
-        if (!listFile->open())
+        if (!result.listfile->open())
         {
             throw QString("Error opening %1 for reading").arg(filename);
         }
 
-        auto json = listFile->getDAQConfig();
+        auto json = result.listfile->getDAQConfig();
 
         if (json.isEmpty())
         {
             throw QString("Listfile does not contain a valid VME configuration");
         }
+    }
 
-        bool wasReplaying = (context->getMode() == GlobalMode::ListFile
-                             && context->getDAQState() == DAQState::Running);
+    return result;
+}
 
-        if (!context->setReplayFile(listFile.release()))
+OpenListfileResult open_listfile(MVMEContext *context, const QString &filename, u16 flags)
+{
+    OpenListfileResult result = {};
+
+    // Copy stuff over from the low level result.
+    {
+        auto lowLevelResult = open_listfile(filename);
+
+        result.listfile = lowLevelResult.listfile.release();
+        result.messages = lowLevelResult.messages;
+        result.analysisBlob = lowLevelResult.analysisBlob;
+        result.analysisFilename = lowLevelResult.analysisFilename;
+    }
+
+    // save current replay state and set new listfile on the context object
+    bool wasReplaying = (context->getMode() == GlobalMode::ListFile
+                         && context->getDAQState() == DAQState::Running);
+
+    // Transfers ownership to the context.
+    if (!context->setReplayFile(result.listfile))
+    {
+        result.listfile = nullptr;
+        return result;
+    }
+
+    if (!result.analysisBlob.isEmpty())
+    {
+        context->setReplayFileAnalysisInfo(
+            {
+                filename,
+                QSL("analysis.analysis"),
+                result.analysisBlob
+            });
+
+        if (flags & OpenListfileFlags::LoadAnalysis)
         {
-            return result;
+            context->loadAnalysisConfig(result.analysisBlob, QSL("ZIP Archive"));
+            context->setAnalysisConfigFileName(QString());
         }
+    }
+    else
+    {
+        context->setReplayFileAnalysisInfo({});
+    }
 
-        result.listfile = context->getReplayFile();
-
-        if (wasReplaying)
-        {
-            context->startReplay();
-        }
+    if (wasReplaying)
+    {
+        context->startReplay();
     }
 
     return result;

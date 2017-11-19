@@ -2484,6 +2484,7 @@ void Histo1DSink::beginRun(const RunInfo &runInfo)
 
     m_histos.resize(histoCount);
 
+    // Space for the histos plus space to allow proper alignment
     size_t requiredMemory = histoCount * m_bins * sizeof(double) + histoCount * HistoMemAlignment;
 
     if (!m_histoArena || m_histoArena->size < requiredMemory)

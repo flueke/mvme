@@ -51,7 +51,8 @@ struct MVMEStreamProcessorPrivate
     std::array<EventConfig *, MaxVMEEvents> eventConfigs;
     std::array<bool, MaxVMEEvents> doMultiEventProcessing;
 
-    QVector<IMVMEStreamConsumer *> consumers;
+    QVector<IMVMEStreamBufferConsumer *> bufferConsumers;
+    QVector<IMVMEStreamModuleConsumer *> moduleConsumers;
 };
 
 MVMEStreamProcessor::MVMEStreamProcessor()
@@ -136,9 +137,6 @@ void MVMEStreamProcessor::MVMEStreamProcessor::beginRun(
         m_d->doMultiEventProcessing[eventIndex] = eventConfig->isMultiEventProcessingEnabled();
     }
 
-    // beginRun for consumers
-
-
     if (m_d->analysis)
     {
         const auto vmeMap = vme_analysis_common::build_id_to_index_mapping(vmeConfig);
@@ -150,7 +148,12 @@ void MVMEStreamProcessor::MVMEStreamProcessor::beginRun(
         m_d->diag->beginRun();
     }
 
-    for (auto c: m_d->consumers)
+    for (auto c: m_d->bufferConsumers)
+    {
+        c->beginRun(runInfo, vmeConfig);
+    }
+
+    for (auto c: m_d->moduleConsumers)
     {
         c->beginRun(runInfo, vmeConfig);
     }
@@ -158,7 +161,12 @@ void MVMEStreamProcessor::MVMEStreamProcessor::beginRun(
 
 void MVMEStreamProcessor::endRun()
 {
-    for (auto c: m_d->consumers)
+    for (auto c: m_d->bufferConsumers)
+    {
+        c->endRun();
+    }
+
+    for (auto c: m_d->moduleConsumers)
     {
         c->endRun();
     }
@@ -171,6 +179,11 @@ void MVMEStreamProcessor::processDataBuffer(DataBuffer *buffer)
         const auto bufferNumber = m_d->counters.buffersProcessed;
 
         BufferIterator iter(buffer->data, buffer->used, BufferIterator::Align32);
+
+        for (auto c: m_d->bufferConsumers)
+        {
+            c->processDataBuffer(buffer);
+        }
 
 #ifdef MVME_STREAM_PROCESSOR_DEBUG_BUFFERS
         logMessage(QString(">>> Begin mvme buffer #%1").arg(bufferNumber));
@@ -370,7 +383,7 @@ void MVMEStreamProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 
             m_d->analysis->beginEvent(eventIndex, eventConfig->getId());
         }
 
-        for (auto c: m_d->consumers)
+        for (auto c: m_d->moduleConsumers)
         {
             c->beginEvent(eventIndex);
         }
@@ -420,7 +433,7 @@ void MVMEStreamProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 
                     diag->processModuleData(eventIndex, moduleIndex, mi.moduleHeader, subEventSize);
                 }
 
-                for (auto c: m_d->consumers)
+                for (auto c: m_d->moduleConsumers)
                 {
                     c->processModuleData(eventIndex, moduleIndex, mi.moduleHeader, subEventSize);
                 }
@@ -476,7 +489,7 @@ void MVMEStreamProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 
                         diag->processModuleData(eventIndex, moduleIndex, mi.moduleHeader, moduleEventSize + 1);
                     }
 
-                    for (auto c: m_d->consumers)
+                    for (auto c: m_d->moduleConsumers)
                     {
                         c->processModuleData(eventIndex, moduleIndex, mi.moduleHeader, moduleEventSize + 1);
                     }
@@ -526,7 +539,7 @@ void MVMEStreamProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 
             m_d->analysis->endEvent(eventIndex, eventConfig->getId());
         }
 
-        for (auto c: m_d->consumers)
+        for (auto c: m_d->moduleConsumers)
         {
             c->endEvent(eventIndex);
         }
@@ -595,12 +608,22 @@ bool MVMEStreamProcessor::hasDiagnostics() const
     return (bool)m_d->diag;
 }
 
-void MVMEStreamProcessor::attachConsumer(IMVMEStreamConsumer *c)
+void MVMEStreamProcessor::attachBufferConsumer(IMVMEStreamBufferConsumer *c)
 {
-    m_d->consumers.push_back(c);
+    m_d->bufferConsumers.push_back(c);
 }
 
-void MVMEStreamProcessor::removeConsumer(IMVMEStreamConsumer *c)
+void MVMEStreamProcessor::removeBufferConsumer(IMVMEStreamBufferConsumer *c)
 {
-    m_d->consumers.removeAll(c);
+    m_d->bufferConsumers.removeAll(c);
+}
+
+void MVMEStreamProcessor::attachModuleConsumer(IMVMEStreamModuleConsumer *c)
+{
+    m_d->moduleConsumers.push_back(c);
+}
+
+void MVMEStreamProcessor::removeModuleConsumer(IMVMEStreamModuleConsumer *c)
+{
+    m_d->moduleConsumers.removeAll(c);
 }

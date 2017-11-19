@@ -22,4 +22,22 @@ struct OpenListfileFlags
  * one from the listfile. Perform this check before calling this function! */
 OpenListfileResult open_listfile(MVMEContext *context, const QString &filename, u16 flags = 0);
 
+struct OpenListfileResultLowLevel
+{
+    std::unique_ptr<ListFile> listfile;
+    QByteArray messages;                    // messages.log if found
+    QByteArray analysisBlob;                // analysis config contents
+    QString analysisFilename;               // analysis filename inside the archive
+
+    OpenListfileResultLowLevel() = default;
+
+    OpenListfileResultLowLevel(OpenListfileResultLowLevel &&) = default;
+    OpenListfileResultLowLevel &operator=(OpenListfileResultLowLevel &&) = default;
+
+    OpenListfileResultLowLevel(const OpenListfileResultLowLevel &) = delete;
+    OpenListfileResultLowLevel &operator=(const OpenListfileResultLowLevel &) = delete;
+};
+
+OpenListfileResultLowLevel open_listfile(const QString &filename);
+
 #endif /* __MVME_CONTEXT_LIB_H__ */

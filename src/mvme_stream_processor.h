@@ -35,10 +35,10 @@ struct LIBMVME_EXPORT MVMEStreamProcessorCounters
     std::array<u32, MaxVMEEvents> eventCounters;
 };
 
-class LIBMVME_EXPORT IMVMEStreamConsumer
+class LIBMVME_EXPORT IMVMEStreamModuleConsumer
 {
     public:
-        virtual ~IMVMEStreamConsumer() {};
+        virtual ~IMVMEStreamModuleConsumer() {};
 
         virtual void beginRun(const RunInfo &runInfo, const VMEConfig *vmeConfig) = 0;
         virtual void endRun() = 0;
@@ -46,10 +46,21 @@ class LIBMVME_EXPORT IMVMEStreamConsumer
         virtual void beginEvent(s32 eventIndex) = 0;
         virtual void endEvent(s32 eventIndex) = 0;
 
-        virtual void processModuleData(s32 eventIndex, s32 moduleIndex, u32 *data, u32 size) = 0;
+        virtual void processModuleData(s32 eventIndex, s32 moduleIndex, const u32 *data, u32 size) = 0;
 
         // TODO: figure out how timeticks should be done in the future and add
         // an api to pass them here.
+};
+
+class LIBMVME_EXPORT IMVMEStreamBufferConsumer
+{
+    public:
+        virtual ~IMVMEStreamBufferConsumer() {};
+
+        virtual void beginRun(const RunInfo &runInfo, const VMEConfig *vmeConfig) = 0;
+        virtual void endRun() = 0;
+
+        virtual void processDataBuffer(const DataBuffer *buffer) = 0;
 };
 
 struct MVMEStreamProcessorPrivate;
@@ -75,8 +86,11 @@ class LIBMVME_EXPORT MVMEStreamProcessor
         void removeDiagnostics();
         bool hasDiagnostics() const;
 
-        void attachConsumer(IMVMEStreamConsumer *consumer);
-        void removeConsumer(IMVMEStreamConsumer *consumer);
+        void attachBufferConsumer(IMVMEStreamBufferConsumer *consumer);
+        void removeBufferConsumer(IMVMEStreamBufferConsumer *consumer);
+
+        void attachModuleConsumer(IMVMEStreamModuleConsumer *consumer);
+        void removeModuleConsumer(IMVMEStreamModuleConsumer *consumer);
 
     private:
         void processEventSection(u32 sectionHeader, u32 *data, u32 size);
