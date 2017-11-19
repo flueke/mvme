@@ -2323,7 +2323,7 @@ void EventWidgetPrivate::periodicUpdateHistoCounters(double dt_s)
 void EventWidgetPrivate::periodicUpdateEventRate(double dt_s)
 {
     auto &prevCounters(m_prevStreamProcessorCounters);
-    const auto &counters(m_context->getEventProcessor()->getCounters());
+    const auto &counters(m_context->getMVMEStreamWorker()->getCounters());
     Q_ASSERT(0 <= m_eventIndex && m_eventIndex < (s32)counters.eventCounters.size());
 
     double deltaEvents = calc_delta0(

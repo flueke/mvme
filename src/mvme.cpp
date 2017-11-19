@@ -276,7 +276,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     connect(m_d->m_context, &MVMEContext::daqStateChanged, this, &MVMEMainWindow::onDAQStateChanged);
     connect(m_d->m_context, &MVMEContext::sigLogMessage, this, &MVMEMainWindow::appendToLog);
     connect(m_d->m_context, &MVMEContext::daqStateChanged, this, &MVMEMainWindow::updateActions);
-    connect(m_d->m_context, &MVMEContext::eventProcessorStateChanged, this, &MVMEMainWindow::updateActions);
+    connect(m_d->m_context, &MVMEContext::mvmeStreamWorkerStateChanged, this, &MVMEMainWindow::updateActions);
     connect(m_d->m_context, &MVMEContext::modeChanged, this, &MVMEMainWindow::updateActions);
     connect(m_d->m_context, &MVMEContext::daqConfigChanged, this, &MVMEMainWindow::updateActions);
 
@@ -1200,13 +1200,13 @@ void MVMEMainWindow::onDAQStateChanged(const DAQState &)
 
 void MVMEMainWindow::onShowDiagnostics(ModuleConfig *moduleConfig)
 {
-    if (m_d->m_context->getEventProcessor()->hasDiagnostics())
+    if (m_d->m_context->getMVMEStreamWorker()->hasDiagnostics())
         return;
 
     auto diag = std::make_shared<MesytecDiagnostics>();
 
     diag->setEventAndModuleIndices(m_d->m_context->getVMEConfig()->getEventAndModuleIndices(moduleConfig));
-    auto eventProcessor = m_d->m_context->getEventProcessor();
+    auto streamWorker = m_d->m_context->getMVMEStreamWorker();
 
     auto widget = new MesytecDiagnosticsWidget(diag);
     widget->setAttribute(Qt::WA_DeleteOnClose);
@@ -1215,7 +1215,7 @@ void MVMEMainWindow::onShowDiagnostics(ModuleConfig *moduleConfig)
 
     connect(widget, &MVMEWidget::aboutToClose, this, [this]() {
         qDebug() << __PRETTY_FUNCTION__ << "diagnostics widget about to close";
-        QMetaObject::invokeMethod(m_d->m_context->getEventProcessor(), "removeDiagnostics", Qt::QueuedConnection);
+        QMetaObject::invokeMethod(m_d->m_context->getMVMEStreamWorker(), "removeDiagnostics", Qt::QueuedConnection);
     });
 
     connect(m_d->m_context, &MVMEContext::daqStateChanged, widget, [this, widget] (const DAQState &state) {
@@ -1226,7 +1226,7 @@ void MVMEMainWindow::onShowDiagnostics(ModuleConfig *moduleConfig)
 
     });
 
-    eventProcessor->setDiagnostics(diag);
+    streamWorker->setDiagnostics(diag);
 
     widget->show();
     widget->raise();
@@ -1498,7 +1498,7 @@ void MVMEMainWindow::updateActions()
 
     auto globalMode = m_d->m_context->getMode();
     auto daqState = m_d->m_context->getDAQState();
-    auto eventProcState = m_d->m_context->getEventProcessorState();
+    auto eventProcState = m_d->m_context->getMVMEStreamProcessorState();
 
     bool isDAQIdle = (daqState == DAQState::Idle);
 

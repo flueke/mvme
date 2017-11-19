@@ -22,6 +22,7 @@
 #include "globals.h"
 #include "databuffer.h"
 #include "libmvme_export.h"
+#include "mvme_stream_worker.h"
 #include "vme_config.h"
 #include "vme_controller.h"
 #include "vme_readout_worker.h"
@@ -35,7 +36,6 @@
 #include <QSettings>
 #include <QWidget>
 
-class MVMEStreamWorker;
 class MVMEMainWindow;
 class ListFile;
 class ListFileReader;
@@ -59,7 +59,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
     signals:
         void modeChanged(GlobalMode mode);
         void daqStateChanged(const DAQState &state);
-        void eventProcessorStateChanged(EventProcessorState);
+        void mvmeStreamWorkerStateChanged(MVMEStreamWorkerState);
         void controllerStateChanged(ControllerState state);
 
         void vmeControllerSet(VMEController *controller);
@@ -105,7 +105,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         QList<EventConfig *> getEventConfigs() const { return m_vmeConfig->getEventConfigs(); }
         QString getUniqueModuleName(const QString &prefix) const;
         DAQState getDAQState() const;
-        EventProcessorState getEventProcessorState() const;
+        MVMEStreamWorkerState getMVMEStreamProcessorState() const;
         const DAQStats &getDAQStats() const { return m_daqStats; }
         DAQStats &getDAQStats() { return m_daqStats; }
 
@@ -124,7 +124,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
 
         void setMode(GlobalMode mode);
         GlobalMode getMode() const;
-        MVMEStreamWorker *getEventProcessor() const { return m_streamWorker; }
+        MVMEStreamWorker *getMVMEStreamWorker() const { return m_streamWorker; }
 
         //
         // Object registry
@@ -308,7 +308,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void tryOpenController();
         void logModuleCounters();
         void onDAQStateChanged(DAQState state);
-        void onEventProcessorStateChanged(EventProcessorState state);
+        void onMVMEStreamWorkerStateChanged(MVMEStreamWorkerState state);
         void onDAQDone();
         void onReplayDone();
 

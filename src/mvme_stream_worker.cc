@@ -48,7 +48,7 @@ struct MVMEStreamWorkerPrivate
     u32 m_listFileVersion = 1;
 
     std::atomic<RunAction> runAction;
-    EventProcessorState state = EventProcessorState::Idle;
+    MVMEStreamWorkerState state = MVMEStreamWorkerState::Idle;
 
     ThreadSafeDataBufferQueue *freeBuffers,
                               *fullBuffers;
@@ -94,14 +94,14 @@ void MVMEStreamWorker::startProcessing()
     qDebug() << __PRETTY_FUNCTION__ << "begin";
     Q_ASSERT(m_d->freeBuffers);
     Q_ASSERT(m_d->fullBuffers);
-    Q_ASSERT(m_d->state == EventProcessorState::Idle);
+    Q_ASSERT(m_d->state == MVMEStreamWorkerState::Idle);
 
     auto &counters = m_d->streamProcessor.getCounters();
     counters.startTime = QDateTime::currentDateTime();
     counters.stopTime  = QDateTime();
 
     emit started();
-    emit stateChanged(m_d->state = EventProcessorState::Running);
+    emit stateChanged(m_d->state = MVMEStreamWorkerState::Running);
 
     QCoreApplication::processEvents();
 
@@ -174,7 +174,7 @@ void MVMEStreamWorker::startProcessing()
     m_d->streamProcessor.endRun();
 
     emit stopped();
-    emit stateChanged(m_d->state = EventProcessorState::Idle);
+    emit stateChanged(m_d->state = MVMEStreamWorkerState::Idle);
 
     qDebug() << __PRETTY_FUNCTION__ << "end";
 }
@@ -187,7 +187,7 @@ void MVMEStreamWorker::stopProcessing(bool whenQueueEmpty)
     m_d->runAction = whenQueueEmpty ? StopIfQueueEmpty : StopImmediately;
 }
 
-EventProcessorState MVMEStreamWorker::getState() const
+MVMEStreamWorkerState MVMEStreamWorker::getState() const
 {
     return m_d->state;
 }

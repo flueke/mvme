@@ -5,7 +5,7 @@
 #include <QLibraryInfo>
 #include <QLocale>
 
-#include "globals.h"
+#include "mvme_stream_worker.h"
 #include "vme_controller.h"
 
 #ifdef MVME_USE_GIT_VERSION_FILE
@@ -17,7 +17,7 @@ void mvme_basic_init(const QString &appName)
 {
     qRegisterMetaType<DAQState>("DAQState");
     qRegisterMetaType<GlobalMode>("GlobalMode");
-    qRegisterMetaType<EventProcessorState>("EventProcessorState");
+    qRegisterMetaType<MVMEStreamWorkerState>("MVMEStreamWorkerState");
     qRegisterMetaType<ControllerState>("ControllerState");
 
     QCoreApplication::setOrganizationDomain("www.mesytec.com");

@@ -70,7 +70,7 @@ int main(int argc, char *argv[])
 {
     qRegisterMetaType<DAQState>("DAQState");
     qRegisterMetaType<GlobalMode>("GlobalMode");
-    qRegisterMetaType<EventProcessorState>("EventProcessorState");
+    qRegisterMetaType<MVMEStreamWorkerState>("MVMEStreamWorkerState");
     qRegisterMetaType<ControllerState>("ControllerState");
 
     QApplication app(argc, argv);

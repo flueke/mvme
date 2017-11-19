@@ -128,7 +128,7 @@ void MVMEContextPrivate::stopDAQReplay()
     // and receive the stopped() signal.  If it just now stopped on its own
     // (e.g. end of replay) the signal is pending and will be delivered as soon
     // as we enter the event loop.
-    if (m_q->m_streamWorker->getState() != EventProcessorState::Idle)
+    if (m_q->m_streamWorker->getState() != MVMEStreamWorkerState::Idle)
     {
         QTimer::singleShot(0, [this]() { QMetaObject::invokeMethod(m_q->m_streamWorker, "stopProcessing", Qt::QueuedConnection); });
         auto con = QObject::connect(m_q->m_streamWorker, &MVMEStreamWorker::stopped, &localLoop, &QEventLoop::quit);
@@ -159,7 +159,7 @@ void MVMEContextPrivate::stopDAQDAQ()
         QObject::disconnect(con);
     }
 
-    if (m_q->m_streamWorker->getState() != EventProcessorState::Idle)
+    if (m_q->m_streamWorker->getState() != MVMEStreamWorkerState::Idle)
     {
         QTimer::singleShot(0, [this]() { QMetaObject::invokeMethod(m_q->m_streamWorker, "stopProcessing", Qt::QueuedConnection); });
         auto con = QObject::connect(m_q->m_streamWorker, &MVMEStreamWorker::stopped, &localLoop, &QEventLoop::quit);
@@ -179,7 +179,7 @@ void MVMEContextPrivate::stopAnalysis()
 
     QEventLoop localLoop;
 
-    if (m_q->m_streamWorker->getState() != EventProcessorState::Idle)
+    if (m_q->m_streamWorker->getState() != MVMEStreamWorkerState::Idle)
     {
         // Tell the analysis top stop immediately
         QTimer::singleShot(0, [this]() { QMetaObject::invokeMethod(m_q->m_streamWorker, "stopProcessing",
@@ -193,7 +193,7 @@ void MVMEContextPrivate::stopAnalysis()
 
 void MVMEContextPrivate::resumeAnalysis()
 {
-    if (m_q->m_streamWorker->getState() == EventProcessorState::Idle)
+    if (m_q->m_streamWorker->getState() == MVMEStreamWorkerState::Idle)
     {
         QMetaObject::invokeMethod(m_q->m_streamWorker, "startProcessing",
                                   Qt::QueuedConnection);
@@ -365,7 +365,7 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent)
     m_streamWorker->moveToThread(m_eventThread);
     m_eventThread->start();
     connect(m_streamWorker, &MVMEStreamWorker::logMessage, this, &MVMEContext::logMessage);
-    connect(m_streamWorker, &MVMEStreamWorker::stateChanged, this, &MVMEContext::onEventProcessorStateChanged);
+    connect(m_streamWorker, &MVMEStreamWorker::stateChanged, this, &MVMEContext::onMVMEStreamWorkerStateChanged);
 
 
     qDebug() << __PRETTY_FUNCTION__ << "startup: setting empty VMEConfig and VMUSB controller";
@@ -399,13 +399,13 @@ MVMEContext::~MVMEContext()
         }
     }
 
-    if (getEventProcessorState() != EventProcessorState::Idle)
+    if (getMVMEStreamProcessorState() != MVMEStreamWorkerState::Idle)
     {
         qDebug() << __PRETTY_FUNCTION__ << "waiting for event processing to stop";
 
         QMetaObject::invokeMethod(m_streamWorker, "stopProcessing", Qt::QueuedConnection, Q_ARG(bool, false));
 
-        while (getEventProcessorState() != EventProcessorState::Idle)
+        while (getMVMEStreamProcessorState() != MVMEStreamWorkerState::Idle)
         {
             processQtEvents();
             QThread::msleep(50);
@@ -424,10 +424,10 @@ MVMEContext::~MVMEContext()
     // Disconnect controller signals so that we're not emitting our own
     // controllerStateChanged anymore.
     disconnect(m_controller, &VMEController::controllerStateChanged, this, &MVMEContext::controllerStateChanged);
-    // Same for daqStateChanged() and eventProcessorStateChanged
+    // Same for daqStateChanged() and mvmeStreamWorkerStateChanged
     disconnect(m_readoutWorker, &VMEReadoutWorker::stateChanged, this, &MVMEContext::onDAQStateChanged);
     disconnect(m_listFileWorker, &ListFileReader::stateChanged, this, &MVMEContext::onDAQStateChanged);
-    disconnect(m_streamWorker, &MVMEStreamWorker::stateChanged, this, &MVMEContext::onEventProcessorStateChanged);
+    disconnect(m_streamWorker, &MVMEStreamWorker::stateChanged, this, &MVMEContext::onMVMEStreamWorkerStateChanged);
 
     delete m_controller;
     delete m_analysis_ng;
@@ -489,10 +489,10 @@ void MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
 {
     qDebug() << __PRETTY_FUNCTION__;
     Q_ASSERT(getDAQState() == DAQState::Idle);
-    Q_ASSERT(getEventProcessorState() == EventProcessorState::Idle);
+    Q_ASSERT(getMVMEStreamProcessorState() == MVMEStreamWorkerState::Idle);
 
     if (getDAQState() != DAQState::Idle
-        || getEventProcessorState() != EventProcessorState::Idle)
+        || getMVMEStreamProcessorState() != MVMEStreamWorkerState::Idle)
     {
         return;
     }
@@ -724,9 +724,9 @@ void MVMEContext::onDAQStateChanged(DAQState state)
     }
 }
 
-void MVMEContext::onEventProcessorStateChanged(EventProcessorState state)
+void MVMEContext::onMVMEStreamWorkerStateChanged(MVMEStreamWorkerState state)
 {
-    emit eventProcessorStateChanged(state);
+    emit mvmeStreamWorkerStateChanged(state);
 }
 
 // Called on VMUSBReadoutWorker::daqStopped()
@@ -769,7 +769,7 @@ DAQState MVMEContext::getDAQState() const
     return m_daqState;
 }
 
-EventProcessorState MVMEContext::getEventProcessorState() const
+MVMEStreamWorkerState MVMEContext::getMVMEStreamProcessorState() const
 {
     // FIXME: might be better to keep a local copy which is _only_ updated
     // through the signal/slot mechanism. That way it's thread safe.
@@ -959,11 +959,11 @@ void MVMEContext::prepareStart()
 void MVMEContext::startDAQ(quint32 nCycles, bool keepHistoContents)
 {
     Q_ASSERT(getDAQState() == DAQState::Idle);
-    Q_ASSERT(getEventProcessorState() == EventProcessorState::Idle);
+    Q_ASSERT(getMVMEStreamProcessorState() == MVMEStreamWorkerState::Idle);
 
     if (m_mode != GlobalMode::DAQ
         || getDAQState() != DAQState::Idle
-        || getEventProcessorState() != EventProcessorState::Idle)
+        || getMVMEStreamProcessorState() != MVMEStreamWorkerState::Idle)
     {
         return;
     }
@@ -1015,11 +1015,11 @@ void MVMEContext::resumeDAQ()
 void MVMEContext::startReplay(u32 nEvents, bool keepHistoContents)
 {
     Q_ASSERT(getDAQState() == DAQState::Idle);
-    Q_ASSERT(getEventProcessorState() == EventProcessorState::Idle);
+    Q_ASSERT(getMVMEStreamProcessorState() == MVMEStreamWorkerState::Idle);
 
     if (m_mode != GlobalMode::ListFile || !m_listFile
         || getDAQState() != DAQState::Idle
-        || getEventProcessorState() != EventProcessorState::Idle)
+        || getMVMEStreamProcessorState() != MVMEStreamWorkerState::Idle)
     {
         return;
     }
@@ -1661,7 +1661,7 @@ bool MVMEContext::isWorkspaceModified() const
 
 bool MVMEContext::isAnalysisRunning()
 {
-    return (getEventProcessorState() != EventProcessorState::Idle);
+    return (getMVMEStreamProcessorState() != MVMEStreamWorkerState::Idle);
 }
 
 void MVMEContext::stopAnalysis()

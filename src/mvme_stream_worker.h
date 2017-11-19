@@ -32,8 +32,15 @@
 class MesytecDiagnostics;
 class MVMEContext;
 class VMEConfig;
-
 class MVMEStreamWorkerPrivate;
+
+enum class MVMEStreamWorkerState
+{
+    Idle,
+    Running
+};
+
+Q_DECLARE_METATYPE(MVMEStreamWorkerState);
 
 class LIBMVME_EXPORT MVMEStreamWorker: public QObject
 {
@@ -41,7 +48,7 @@ class LIBMVME_EXPORT MVMEStreamWorker: public QObject
     signals:
         void started();
         void stopped();
-        void stateChanged(EventProcessorState);
+        void stateChanged(MVMEStreamWorkerState);
 
         void logMessage(const QString &);
 
@@ -57,14 +64,15 @@ class LIBMVME_EXPORT MVMEStreamWorker: public QObject
         void setDiagnostics(std::shared_ptr<MesytecDiagnostics> diag);
         bool hasDiagnostics() const;
 
-        EventProcessorState getState() const;
+        MVMEStreamWorkerState getState() const;
         const MVMEStreamProcessorCounters &getCounters() const;
 
         void setListFileVersion(u32 version);
 
+        void beginRun(const RunInfo &runInfo, VMEConfig *vmeConfig);
+
     public slots:
         void removeDiagnostics();
-        void beginRun(const RunInfo &runInfo, VMEConfig *vmeConfig);
 
         void startProcessing();
         void stopProcessing(bool whenQueueEmpty = true);

@@ -59,8 +59,8 @@ AnalysisInfoWidget::AnalysisInfoWidget(MVMEContext *context, QWidget *parent)
     m_d->updateTimer.start();
 
     connect(&m_d->updateTimer, &QTimer::timeout, this, &AnalysisInfoWidget::update);
-    connect(context, &MVMEContext::eventProcessorStateChanged, this, [this](EventProcessorState state) {
-        if (state == EventProcessorState::Running)
+    connect(context, &MVMEContext::mvmeStreamWorkerStateChanged, this, [this](MVMEStreamWorkerState state) {
+        if (state == MVMEStreamWorkerState::Running)
         {
             m_d->prevCounters = {};
             m_d->lastUpdateTime = {};
@@ -75,11 +75,11 @@ AnalysisInfoWidget::~AnalysisInfoWidget()
 
 void AnalysisInfoWidget::update()
 {
-    EventProcessorState state = m_d->context->getEventProcessor()->getState();
-    const auto &counters(m_d->context->getEventProcessor()->getCounters());
+    MVMEStreamWorkerState state = m_d->context->getMVMEStreamWorker()->getState();
+    const auto &counters(m_d->context->getMVMEStreamWorker()->getCounters());
 
     auto startTime = counters.startTime;
-    auto endTime   = state == EventProcessorState::Idle ? counters.stopTime : QDateTime::currentDateTime();
+    auto endTime   = state == MVMEStreamWorkerState::Idle ? counters.stopTime : QDateTime::currentDateTime();
     auto totalDuration_s = startTime.secsTo(endTime);
     auto totalDurationString = makeDurationString(totalDuration_s);
 
@@ -104,7 +104,7 @@ void AnalysisInfoWidget::update()
     double buffersPerSecond = deltaBuffersProcessed / dt;
     double avgBufferSize    = deltaBytesProcessed / static_cast<double>(deltaBuffersProcessed);
 
-    QString stateString = state == EventProcessorState::Idle ? QSL("Idle") : QSL("Running");
+    QString stateString = state == MVMEStreamWorkerState::Idle ? QSL("Idle") : QSL("Running");
 
     QString ecText;
     QString mcText;
@@ -189,7 +189,7 @@ void AnalysisInfoWidget::update()
     // started
     m_d->labels[ii++]->setText(startTime.time().toString());
     // stopped
-    if (state == EventProcessorState::Idle)
+    if (state == MVMEStreamWorkerState::Idle)
     {
         m_d->labels[ii++]->setText(endTime.time().toString());
     }

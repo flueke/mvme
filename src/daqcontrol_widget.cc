@@ -176,7 +176,7 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
     });
 
     connect(m_context, &MVMEContext::daqStateChanged, this, &DAQControlWidget::updateWidget);
-    connect(m_context, &MVMEContext::eventProcessorStateChanged, this, &DAQControlWidget::updateWidget);
+    connect(m_context, &MVMEContext::mvmeStreamWorkerStateChanged, this, &DAQControlWidget::updateWidget);
     connect(m_context, &MVMEContext::modeChanged, this, &DAQControlWidget::updateWidget);
     connect(m_context, &MVMEContext::controllerStateChanged, this, &DAQControlWidget::updateWidget);
     connect(m_context, &MVMEContext::daqConfigChanged, this, &DAQControlWidget::updateWidget);
@@ -301,7 +301,7 @@ void DAQControlWidget::updateWidget()
 {
     auto globalMode = m_context->getMode();
     auto daqState = m_context->getDAQState();
-    auto eventProcState = m_context->getEventProcessorState();
+    auto eventProcState = m_context->getMVMEStreamProcessorState();
     auto controllerState = ControllerState::Disconnected;
 
     if (auto controller = m_context->getVMEController())
@@ -326,7 +326,7 @@ void DAQControlWidget::updateWidget()
     {
         enableStartButton = true;
     }
-    else if (globalMode == GlobalMode::ListFile) // && daqState == DAQState::Idle && eventProcState == EventProcessorState::Idle)
+    else if (globalMode == GlobalMode::ListFile) // && daqState == DAQState::Idle && eventProcState == MVMEStreamWorkerState::Idle)
     {
         enableStartButton = true;
     }
@@ -396,7 +396,7 @@ void DAQControlWidget::updateWidget()
 
 
     auto daqStateString = DAQStateStrings.value(daqState, QSL("Unknown"));
-    QString eventProcStateString = (eventProcState == EventProcessorState::Idle ? QSL("Idle") : QSL("Running"));
+    QString eventProcStateString = (eventProcState == MVMEStreamWorkerState::Idle ? QSL("Idle") : QSL("Running"));
 
     if (daqState == DAQState::Running && globalMode == GlobalMode::ListFile)
         daqStateString = QSL("Replay");

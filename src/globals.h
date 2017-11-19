@@ -52,14 +52,6 @@ enum class DAQState
 
 Q_DECLARE_METATYPE(DAQState);
 
-enum class EventProcessorState
-{
-    Idle,
-    Running
-};
-
-Q_DECLARE_METATYPE(EventProcessorState);
-
 enum class GlobalMode
 {
     NotSet,
