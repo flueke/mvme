@@ -47,21 +47,33 @@ struct MVMEStreamWorkerPrivate
     MVMEContext *context = nullptr;
     u32 m_listFileVersion = 1;
 
-    std::atomic<RunAction> m_runAction;
-    EventProcessorState m_state = EventProcessorState::Idle;
+    std::atomic<RunAction> runAction;
+    EventProcessorState state = EventProcessorState::Idle;
+
+    ThreadSafeDataBufferQueue *freeBuffers,
+                              *fullBuffers;
 };
 
-MVMEStreamWorker::MVMEStreamWorker(MVMEContext *context)
+MVMEStreamWorker::MVMEStreamWorker(MVMEContext *context,
+                                   ThreadSafeDataBufferQueue *freeBuffers,
+                                   ThreadSafeDataBufferQueue *fullBuffers)
     : m_d(new MVMEStreamWorkerPrivate)
 {
-    m_d->m_runAction = KeepRunning;
+    m_d->runAction = KeepRunning;
     m_d->context = context;
+    m_d->freeBuffers = freeBuffers;
+    m_d->fullBuffers = fullBuffers;
 }
 
 MVMEStreamWorker::~MVMEStreamWorker()
 {
     //delete m_d->diag; // FIXME: why? what?
     delete m_d;
+}
+
+MVMEStreamProcessor *MVMEStreamWorker::getStreamProcessor() const
+{
+    return &m_d->streamProcessor;
 }
 
 void MVMEStreamWorker::beginRun(const RunInfo &runInfo, VMEConfig *vmeConfig)
@@ -80,23 +92,23 @@ void MVMEStreamWorker::beginRun(const RunInfo &runInfo, VMEConfig *vmeConfig)
 void MVMEStreamWorker::startProcessing()
 {
     qDebug() << __PRETTY_FUNCTION__ << "begin";
-    Q_ASSERT(m_freeBuffers);
-    Q_ASSERT(m_fullBuffers);
-    Q_ASSERT(m_d->m_state == EventProcessorState::Idle);
+    Q_ASSERT(m_d->freeBuffers);
+    Q_ASSERT(m_d->fullBuffers);
+    Q_ASSERT(m_d->state == EventProcessorState::Idle);
 
     auto &counters = m_d->streamProcessor.getCounters();
     counters.startTime = QDateTime::currentDateTime();
     counters.stopTime  = QDateTime();
 
     emit started();
-    emit stateChanged(m_d->m_state = EventProcessorState::Running);
+    emit stateChanged(m_d->state = EventProcessorState::Running);
 
     QCoreApplication::processEvents();
 
     QElapsedTimer timeSinceLastProcessEvents;
     timeSinceLastProcessEvents.start();
 
-    m_d->m_runAction = KeepRunning;
+    m_d->runAction = KeepRunning;
 
     auto analysis = m_d->context->getAnalysis();
 
@@ -111,24 +123,24 @@ void MVMEStreamWorker::startProcessing()
         }
     }
 
-    while (m_d->m_runAction != StopImmediately)
+    while (m_d->runAction != StopImmediately)
     {
         DataBuffer *buffer = nullptr;
 
         {
-            QMutexLocker lock(&m_fullBuffers->mutex);
+            QMutexLocker lock(&m_d->fullBuffers->mutex);
 
-            if (m_fullBuffers->queue.isEmpty())
+            if (m_d->fullBuffers->queue.isEmpty())
             {
-                if (m_d->m_runAction == StopIfQueueEmpty)
+                if (m_d->runAction == StopIfQueueEmpty)
                     break;
 
-                m_fullBuffers->wc.wait(&m_fullBuffers->mutex, FilledBufferWaitTimeout_ms);
+                m_d->fullBuffers->wc.wait(&m_d->fullBuffers->mutex, FilledBufferWaitTimeout_ms);
             }
 
-            if (!m_fullBuffers->queue.isEmpty())
+            if (!m_d->fullBuffers->queue.isEmpty())
             {
-                buffer = m_fullBuffers->queue.dequeue();
+                buffer = m_d->fullBuffers->queue.dequeue();
             }
         }
         // The mutex is unlocked again at this point
@@ -138,7 +150,7 @@ void MVMEStreamWorker::startProcessing()
             m_d->streamProcessor.processDataBuffer(buffer);
 
             // Put the buffer back into the free queue
-            enqueue(m_freeBuffers, buffer);
+            enqueue(m_d->freeBuffers, buffer);
         }
 
         // Process Qt events to be able to "receive" queued calls to our slots.
@@ -162,7 +174,7 @@ void MVMEStreamWorker::startProcessing()
     m_d->streamProcessor.endRun();
 
     emit stopped();
-    emit stateChanged(m_d->m_state = EventProcessorState::Idle);
+    emit stateChanged(m_d->state = EventProcessorState::Idle);
 
     qDebug() << __PRETTY_FUNCTION__ << "end";
 }
@@ -172,12 +184,12 @@ void MVMEStreamWorker::stopProcessing(bool whenQueueEmpty)
     qDebug() << QDateTime::currentDateTime().toString("HH:mm:ss")
         << __PRETTY_FUNCTION__ << (whenQueueEmpty ? "when empty" : "immediately");
 
-    m_d->m_runAction = whenQueueEmpty ? StopIfQueueEmpty : StopImmediately;
+    m_d->runAction = whenQueueEmpty ? StopIfQueueEmpty : StopImmediately;
 }
 
 EventProcessorState MVMEStreamWorker::getState() const
 {
-    return m_d->m_state;
+    return m_d->state;
 }
 
 const MVMEStreamProcessorCounters &MVMEStreamWorker::getCounters() const

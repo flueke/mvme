@@ -124,7 +124,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
 
         void setMode(GlobalMode mode);
         GlobalMode getMode() const;
-        MVMEStreamWorker *getEventProcessor() const { return m_eventProcessor; }
+        MVMEStreamWorker *getEventProcessor() const { return m_streamWorker; }
 
         //
         // Object registry
@@ -349,7 +349,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         VMEReadoutWorker *m_readoutWorker = nullptr;
 
         QThread *m_eventThread;
-        MVMEStreamWorker *m_eventProcessor;
+        MVMEStreamWorker *m_streamWorker;
 
         QSet<QObject *> m_objects;
         QMap<QString, QMap<QObject *, QObject *>> m_objectMappings;

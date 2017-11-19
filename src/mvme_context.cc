@@ -128,15 +128,15 @@ void MVMEContextPrivate::stopDAQReplay()
     // and receive the stopped() signal.  If it just now stopped on its own
     // (e.g. end of replay) the signal is pending and will be delivered as soon
     // as we enter the event loop.
-    if (m_q->m_eventProcessor->getState() != EventProcessorState::Idle)
+    if (m_q->m_streamWorker->getState() != EventProcessorState::Idle)
     {
-        QTimer::singleShot(0, [this]() { QMetaObject::invokeMethod(m_q->m_eventProcessor, "stopProcessing", Qt::QueuedConnection); });
-        auto con = QObject::connect(m_q->m_eventProcessor, &MVMEStreamWorker::stopped, &localLoop, &QEventLoop::quit);
+        QTimer::singleShot(0, [this]() { QMetaObject::invokeMethod(m_q->m_streamWorker, "stopProcessing", Qt::QueuedConnection); });
+        auto con = QObject::connect(m_q->m_streamWorker, &MVMEStreamWorker::stopped, &localLoop, &QEventLoop::quit);
         localLoop.exec();
         QObject::disconnect(con);
     }
 
-    m_q->m_eventProcessor->setListFileVersion(1);
+    m_q->m_streamWorker->setListFileVersion(1);
     m_q->onDAQStateChanged(DAQState::Idle);
 }
 
@@ -159,10 +159,10 @@ void MVMEContextPrivate::stopDAQDAQ()
         QObject::disconnect(con);
     }
 
-    if (m_q->m_eventProcessor->getState() != EventProcessorState::Idle)
+    if (m_q->m_streamWorker->getState() != EventProcessorState::Idle)
     {
-        QTimer::singleShot(0, [this]() { QMetaObject::invokeMethod(m_q->m_eventProcessor, "stopProcessing", Qt::QueuedConnection); });
-        auto con = QObject::connect(m_q->m_eventProcessor, &MVMEStreamWorker::stopped, &localLoop, &QEventLoop::quit);
+        QTimer::singleShot(0, [this]() { QMetaObject::invokeMethod(m_q->m_streamWorker, "stopProcessing", Qt::QueuedConnection); });
+        auto con = QObject::connect(m_q->m_streamWorker, &MVMEStreamWorker::stopped, &localLoop, &QEventLoop::quit);
         localLoop.exec();
         QObject::disconnect(con);
     }
@@ -179,12 +179,12 @@ void MVMEContextPrivate::stopAnalysis()
 
     QEventLoop localLoop;
 
-    if (m_q->m_eventProcessor->getState() != EventProcessorState::Idle)
+    if (m_q->m_streamWorker->getState() != EventProcessorState::Idle)
     {
         // Tell the analysis top stop immediately
-        QTimer::singleShot(0, [this]() { QMetaObject::invokeMethod(m_q->m_eventProcessor, "stopProcessing",
+        QTimer::singleShot(0, [this]() { QMetaObject::invokeMethod(m_q->m_streamWorker, "stopProcessing",
                                                                    Qt::QueuedConnection, Q_ARG(bool, false)); });
-        QObject::connect(m_q->m_eventProcessor, &MVMEStreamWorker::stopped, &localLoop, &QEventLoop::quit);
+        QObject::connect(m_q->m_streamWorker, &MVMEStreamWorker::stopped, &localLoop, &QEventLoop::quit);
         localLoop.exec();
     }
 
@@ -193,9 +193,9 @@ void MVMEContextPrivate::stopAnalysis()
 
 void MVMEContextPrivate::resumeAnalysis()
 {
-    if (m_q->m_eventProcessor->getState() == EventProcessorState::Idle)
+    if (m_q->m_streamWorker->getState() == EventProcessorState::Idle)
     {
-        QMetaObject::invokeMethod(m_q->m_eventProcessor, "startProcessing",
+        QMetaObject::invokeMethod(m_q->m_streamWorker, "startProcessing",
                                   Qt::QueuedConnection);
 
         qDebug() << __PRETTY_FUNCTION__ << "analysis resumed";
@@ -246,7 +246,6 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent)
     , m_logTimer(new QTimer(this))
     , m_readoutThread(new QThread(this))
     , m_eventThread(new QThread(this))
-    , m_eventProcessor(new MVMEStreamWorker(this))
     , m_mainwin(mainwin)
 
     , m_mode(GlobalMode::NotSet)
@@ -261,11 +260,11 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent)
         m_freeBuffers.queue.push_back(new DataBuffer(DataBufferSize));
     }
 
+    m_streamWorker = new MVMEStreamWorker(this, &m_freeBuffers, &m_fullBuffers);
+
     // TODO: maybe hide these things a bit
     m_listFileWorker->m_freeBuffers = &m_freeBuffers;
     m_listFileWorker->m_fullBuffers = &m_fullBuffers;
-    m_eventProcessor->m_freeBuffers = &m_freeBuffers;
-    m_eventProcessor->m_fullBuffers = &m_fullBuffers;
 
     m_listFileWorker->setLogger([this](const QString &msg) { this->logMessage(msg); });
 
@@ -363,10 +362,10 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent)
 
 
     m_eventThread->setObjectName("mvme AnalysisThread");
-    m_eventProcessor->moveToThread(m_eventThread);
+    m_streamWorker->moveToThread(m_eventThread);
     m_eventThread->start();
-    connect(m_eventProcessor, &MVMEStreamWorker::logMessage, this, &MVMEContext::logMessage);
-    connect(m_eventProcessor, &MVMEStreamWorker::stateChanged, this, &MVMEContext::onEventProcessorStateChanged);
+    connect(m_streamWorker, &MVMEStreamWorker::logMessage, this, &MVMEContext::logMessage);
+    connect(m_streamWorker, &MVMEStreamWorker::stateChanged, this, &MVMEContext::onEventProcessorStateChanged);
 
 
     qDebug() << __PRETTY_FUNCTION__ << "startup: setting empty VMEConfig and VMUSB controller";
@@ -404,7 +403,7 @@ MVMEContext::~MVMEContext()
     {
         qDebug() << __PRETTY_FUNCTION__ << "waiting for event processing to stop";
 
-        QMetaObject::invokeMethod(m_eventProcessor, "stopProcessing", Qt::QueuedConnection, Q_ARG(bool, false));
+        QMetaObject::invokeMethod(m_streamWorker, "stopProcessing", Qt::QueuedConnection, Q_ARG(bool, false));
 
         while (getEventProcessorState() != EventProcessorState::Idle)
         {
@@ -428,12 +427,12 @@ MVMEContext::~MVMEContext()
     // Same for daqStateChanged() and eventProcessorStateChanged
     disconnect(m_readoutWorker, &VMEReadoutWorker::stateChanged, this, &MVMEContext::onDAQStateChanged);
     disconnect(m_listFileWorker, &ListFileReader::stateChanged, this, &MVMEContext::onDAQStateChanged);
-    disconnect(m_eventProcessor, &MVMEStreamWorker::stateChanged, this, &MVMEContext::onEventProcessorStateChanged);
+    disconnect(m_streamWorker, &MVMEStreamWorker::stateChanged, this, &MVMEContext::onEventProcessorStateChanged);
 
     delete m_controller;
     delete m_analysis_ng;
     delete m_readoutWorker;
-    delete m_eventProcessor;
+    delete m_streamWorker;
     delete m_listFileWorker;
     delete m_listFile;
 
@@ -734,7 +733,7 @@ void MVMEContext::onEventProcessorStateChanged(EventProcessorState state)
 void MVMEContext::onDAQDone()
 {
     // stops the analysis side thread
-    QMetaObject::invokeMethod(m_eventProcessor, "stopProcessing", Qt::QueuedConnection);
+    QMetaObject::invokeMethod(m_streamWorker, "stopProcessing", Qt::QueuedConnection);
 
     // The readout worker might have modified the ListFileOutputInfo structure. Write it out to the workspace.
     qDebug() << __PRETTY_FUNCTION__ << "writing listfile output info to workspace";
@@ -744,7 +743,7 @@ void MVMEContext::onDAQDone()
 // Called on ListFileReader::replayStopped()
 void MVMEContext::onReplayDone()
 {
-    QMetaObject::invokeMethod(m_eventProcessor, "stopProcessing", Qt::QueuedConnection);
+    QMetaObject::invokeMethod(m_streamWorker, "stopProcessing", Qt::QueuedConnection);
 
     double secondsElapsed = m_replayTime.elapsed() / 1000.0;
     u64 replayBytes = m_daqStats.totalBytesRead;
@@ -774,7 +773,7 @@ EventProcessorState MVMEContext::getEventProcessorState() const
 {
     // FIXME: might be better to keep a local copy which is _only_ updated
     // through the signal/slot mechanism. That way it's thread safe.
-    return m_eventProcessor->getState();
+    return m_streamWorker->getState();
 }
 
 bool MVMEContext::setReplayFile(ListFile *listFile)
@@ -948,7 +947,7 @@ void MVMEContext::prepareStart()
     }
 #endif
 
-    m_eventProcessor->beginRun(getRunInfo(), getVMEConfig());
+    m_streamWorker->beginRun(getRunInfo(), getVMEConfig());
 
     m_daqStats = DAQStats();
 
@@ -994,7 +993,7 @@ void MVMEContext::startDAQ(quint32 nCycles, bool keepHistoContents)
 
     QMetaObject::invokeMethod(m_readoutWorker, "start",
                               Qt::QueuedConnection, Q_ARG(quint32, nCycles));
-    QMetaObject::invokeMethod(m_eventProcessor, "startProcessing",
+    QMetaObject::invokeMethod(m_streamWorker, "startProcessing",
                               Qt::QueuedConnection);
 }
 
@@ -1039,10 +1038,10 @@ void MVMEContext::startReplay(u32 nEvents, bool keepHistoContents)
     m_daqStats.listfileFilename = hack;
 
     m_listFileWorker->setEventsToRead(nEvents);
-    m_eventProcessor->setListFileVersion(m_listFile->getFileVersion());
+    m_streamWorker->setListFileVersion(m_listFile->getFileVersion());
 
     QMetaObject::invokeMethod(m_listFileWorker, "start", Qt::QueuedConnection);
-    QMetaObject::invokeMethod(m_eventProcessor, "startProcessing", Qt::QueuedConnection);
+    QMetaObject::invokeMethod(m_streamWorker, "startProcessing", Qt::QueuedConnection);
 
     m_replayTime.restart();
 }
@@ -1591,7 +1590,7 @@ bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc, const QString &in
 
         // Prepares operators, allocates histograms, etc..
         // This should in reality be the only place to throw a bad_alloc
-        m_eventProcessor->beginRun(getRunInfo(), getVMEConfig());
+        m_streamWorker->beginRun(getRunInfo(), getVMEConfig());
 
         emit analysisChanged();
 

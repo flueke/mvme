@@ -46,8 +46,13 @@ class LIBMVME_EXPORT MVMEStreamWorker: public QObject
         void logMessage(const QString &);
 
     public:
-        MVMEStreamWorker(MVMEContext *context);
+        MVMEStreamWorker(MVMEContext *context,
+                         ThreadSafeDataBufferQueue *freeBuffers,
+                         ThreadSafeDataBufferQueue *fullBuffers);
+
         ~MVMEStreamWorker();
+
+        MVMEStreamProcessor *getStreamProcessor() const;
 
         void setDiagnostics(std::shared_ptr<MesytecDiagnostics> diag);
         bool hasDiagnostics() const;
@@ -56,10 +61,6 @@ class LIBMVME_EXPORT MVMEStreamWorker: public QObject
         const MVMEStreamProcessorCounters &getCounters() const;
 
         void setListFileVersion(u32 version);
-
-        ThreadSafeDataBufferQueue *m_freeBuffers = nullptr;
-        ThreadSafeDataBufferQueue *m_fullBuffers = nullptr;
-
 
     public slots:
         void removeDiagnostics();
