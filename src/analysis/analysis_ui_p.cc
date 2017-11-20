@@ -1137,6 +1137,11 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
         formLayout->addRow(QSL("Output Lower Limit"), spin_outputLowerLimit);
         formLayout->addRow(QSL("Output Upper Limit"), spin_outputUpperLimit);
         formLayout->addRow(QSL("Equation"), combo_equation);
+
+        connect(combo_equation, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
+                this, [this, binOp] (int idx) {
+                    this->updateOutputLimits(binOp);
+        });
     }
     else if (auto aggOp = qobject_cast<AggregateOps *>(op))
     {
@@ -1517,6 +1522,10 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
             }
         }
     }
+    else if (auto binOp = qobject_cast<BinarySumDiff *>(op))
+    {
+        updateOutputLimits(binOp);
+    }
 }
 
 void OperatorConfigurationWidget::configureOperator()
@@ -1733,6 +1742,64 @@ void OperatorConfigurationWidget::fillCalibrationTable(CalibrationMinMax *calib,
     }
 
     m_calibrationTable->resizeRowsToContents();
+}
+
+void OperatorConfigurationWidget::updateOutputLimits(BinarySumDiff *op)
+{
+    if (!all_inputs_connected(op))
+        return;
+
+    int equationIndex = combo_equation->currentData().toInt();
+    double llA = op->getSlot(0)->inputPipe->parameters.value(0).lowerLimit;
+    double ulA = op->getSlot(0)->inputPipe->parameters.value(0).upperLimit;
+
+    double llB = op->getSlot(1)->inputPipe->parameters.value(0).lowerLimit;
+    double ulB = op->getSlot(1)->inputPipe->parameters.value(0).upperLimit;
+
+    double llO = 0.0;
+    double ulO = 0.0;
+
+    switch (equationIndex)
+    {
+        case 0: // C = A + B
+            {
+                llO = llA + llB;
+                ulO = ulA + ulB;
+            } break;
+
+        case 1: // C = A - B
+            {
+                llO = llA - ulB;
+                ulO = ulA - llB;
+            } break;
+
+        case 2: // C = (A + B) / (A - B)
+            {
+                llO = (ulA + llB) / (ulA - llB);
+                ulO = (llA + ulB) / (llA - ulB);
+            } break;
+
+        case 3: // C = (A - B) / (A + B)
+            {
+                llO = (ulA - ulB) / (ulA + ulB);
+                ulO = (llA - llB) / (llA + llB);
+            } break;
+
+        case 4: // C = A / (A - B)
+            {
+                llO = ulA / (ulA - llB);
+                ulO = llA / (llA - ulB);
+            } break;
+
+        case 5: // C = (A - B) / A
+            {
+                llO = (ulA - llB) / ulA;
+                ulO = (llA - ulB) / llA;
+            } break;
+    }
+
+    spin_outputLowerLimit->setValue(llO);
+    spin_outputUpperLimit->setValue(ulO);
 }
 
 //
