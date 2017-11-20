@@ -1,3 +1,5 @@
+.. _quickstart:
+
 ##################################################
 Quickstart Guide
 ##################################################
@@ -10,8 +12,8 @@ IRQ1.
 .. note::
   In this example an MDPP-16 with the SCP firmware is used but any **mesytec**
   VME module should work. For other modules the value written to the pulser
-  register (0x6070) might need to be adjusted. Refer to the modules manual for
-  details.
+  register (0x6070) might need to be adjusted. Refer to the modules manual and
+  the VME templates for details.
 
 * Start mvme and create a new workspace directory using the file dialog that
   should open up. This directory will hold all configuration files, recorded

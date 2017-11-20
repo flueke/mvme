@@ -71,9 +71,6 @@ static qint64 checked_read(QIODevice *in, char *dest, ssize_t size)
 
 int main(int argc, char *argv[])
 {
-    //
-    // fill testInfo from command line args
-    //
     QString inputFilename;
 
     while (true)

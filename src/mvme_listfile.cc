@@ -19,6 +19,7 @@
 #include "mvme_listfile.h"
 #include "globals.h"
 #include "vme_config.h"
+#include "util/perf.h"
 
 #include <QCoreApplication>
 #include <QDebug>
@@ -220,7 +221,23 @@ QString ListFile::getFileName() const
     }
     else if (auto inZipFile = qobject_cast<QuaZipFile *>(m_input))
     {
-        return inZipFile->getZipName() + QSL(":") + inZipFile->getFileName();
+        return inZipFile->getZipName();
+    }
+
+    InvalidCodePath;
+
+    return QString();
+}
+
+QString ListFile::getFullName() const
+{
+    if (auto inFile = qobject_cast<QFile *>(m_input))
+    {
+        return inFile->fileName();
+    }
+    else if (auto inZipFile = qobject_cast<QuaZipFile *>(m_input))
+    {
+        return inZipFile->getZipName() + QSL(":/") + inZipFile->getFileName();
     }
 
     InvalidCodePath;
@@ -596,9 +613,13 @@ void ListFileReader::mainLoop()
             buffer->used = 0;
             bool isBufferValid = false;
 
-            if (m_eventsToRead > 0)
+            if (unlikely(m_eventsToRead > 0))
             {
-                // Read single events
+                /* Read single events.
+                 * Note: This is the unlikely case! This case only happens if
+                 * the user pressed the "1 cycle / next event" button!
+                 */
+
                 bool readMore = true;
 
                 // Skip non event sections

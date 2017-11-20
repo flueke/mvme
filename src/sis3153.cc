@@ -21,39 +21,65 @@
 
 #include <QDebug>
 #include <QMutex>
+#include <QThread>
 
 #include "sis3153/sis3153ETH_vme_class.h"
 #include "vme.h"
 
 #define SIS3153_DEBUG
 
+/* SIS3153 implementation notes
+ * ===========================================================================
+ * Ansonsten sind die Listen Ackn. folgendermaßen definert
+    0x50:	Not Last packet List 1
+    0x58:	Last packet List 1
+    Oder umgehrt
+
+    0x51:	Not Last packet List 2
+    0x59:	Last packet List 2
+    ...
+    0x57:	Not Last packet List 8
+    0x5F:	Last packet List 8
+
+
+ * Receive errors und queue schaue ich mit folgendem Befehl an:
+    watch -n1 'netstat -anup; echo; netstat -anus'
+
+ * Die Events werden in einem Multievent-packet folgender maßen "eingepackt":
+    3 Bytes Multievent Header:
+	  0x60 0x00 0x00
+    Dann 4 Bytes Single Event Header (anstelle von 3Byte):
+	  0x5x   "upper-length-byte"   "lower-length-byte"   "status"
+ */
+
 static const QMap<u32, const char *> RegisterNames =
 {
-    { SIS3153Registers::USBControlAndStatus,    "USB Control/Status" },
-    { SIS3153Registers::ModuleIdAndFirmware,    "Module ID/Firmware Version" },
-    { SIS3153Registers::SerialNumber,           "Serial Number" },
-    { SIS3153Registers::LemoIOControl,          "LEMO IO Control" },
-    { SIS3153Registers::UDPConfiguration,       "UDP Configuration" },
+    { SIS3153Registers::USBControlAndStatus,        "USB Control/Status" },
+    { SIS3153Registers::ModuleIdAndFirmware,        "Module ID/Firmware Version" },
+    { SIS3153Registers::SerialNumber,               "Serial Number" },
+    { SIS3153Registers::LemoIOControl,              "LEMO IO Control" },
+    { SIS3153Registers::UDPConfiguration,           "UDP Configuration" },
 
-    { SIS3153Registers::StackListConfig1,       "StackListConfig1" },
-    { SIS3153Registers::StackListTrigger1,      "StackListTrigger1" },
-    { SIS3153Registers::StackListConfig2,       "StackListConfig2" },
-    { SIS3153Registers::StackListTrigger2,      "StackListTrigger2" },
-    { SIS3153Registers::StackListConfig3,       "StackListConfig3" },
-    { SIS3153Registers::StackListTrigger3,      "StackListTrigger3" },
-    { SIS3153Registers::StackListConfig4,       "StackListConfig4" },
-    { SIS3153Registers::StackListTrigger4,      "StackListTrigger4" },
-    { SIS3153Registers::StackListConfig5,       "StackListConfig5" },
-    { SIS3153Registers::StackListTrigger5,      "StackListTrigger5" },
-    { SIS3153Registers::StackListConfig6,       "StackListConfig6" },
-    { SIS3153Registers::StackListTrigger6,      "StackListTrigger6" },
-    { SIS3153Registers::StackListConfig7,       "StackListConfig7" },
-    { SIS3153Registers::StackListTrigger7,      "StackListTrigger7" },
-    { SIS3153Registers::StackListConfig8,       "StackListConfig8" },
-    { SIS3153Registers::StackListTrigger8,      "StackListTrigger8" },
+    { SIS3153Registers::StackListConfig1,           "StackListConfig1" },
+    { SIS3153Registers::StackListTrigger1,          "StackListTrigger1" },
+    { SIS3153Registers::StackListConfig2,           "StackListConfig2" },
+    { SIS3153Registers::StackListTrigger2,          "StackListTrigger2" },
+    { SIS3153Registers::StackListConfig3,           "StackListConfig3" },
+    { SIS3153Registers::StackListTrigger3,          "StackListTrigger3" },
+    { SIS3153Registers::StackListConfig4,           "StackListConfig4" },
+    { SIS3153Registers::StackListTrigger4,          "StackListTrigger4" },
+    { SIS3153Registers::StackListConfig5,           "StackListConfig5" },
+    { SIS3153Registers::StackListTrigger5,          "StackListTrigger5" },
+    { SIS3153Registers::StackListConfig6,           "StackListConfig6" },
+    { SIS3153Registers::StackListTrigger6,          "StackListTrigger6" },
+    { SIS3153Registers::StackListConfig7,           "StackListConfig7" },
+    { SIS3153Registers::StackListTrigger7,          "StackListTrigger7" },
+    { SIS3153Registers::StackListConfig8,           "StackListConfig8" },
+    { SIS3153Registers::StackListTrigger8,          "StackListTrigger8" },
 
-    { SIS3153Registers::StackListTimer1Config,  "StackListTimer1Config" },
-    { SIS3153Registers::StackListTimer2Config,  "StackListTimer2Config" },
+    { SIS3153Registers::StackListTimer1Config,      "StackListTimer1Config" },
+    { SIS3153Registers::StackListTimer2Config,      "StackListTimer2Config" },
+    { SIS3153Registers::StackListDynSizedBlockRead, "StackListDynSizedBlockRead" }
 };
 
 VMEError make_sis_error(int sisCode)
@@ -81,21 +107,22 @@ struct SIS3153Private
     SIS3153Private(SIS3153 *q)
         : q(q)
         , sis(new sis3153eth)
+        , sis_ctrl(new sis3153eth)
     {
     }
 
     ~SIS3153Private()
     {
-        delete sis;
     }
 
     SIS3153 *q;
-    sis3153eth *sis;
     QMutex lock;
+    std::unique_ptr<sis3153eth> sis;            // socket used for readout and non DAQ mode communication
+    std::unique_ptr<sis3153eth> sis_ctrl;       // socket used to leave DAQ mode
 
     // ip address or hostname of the SIS
     QString address;
-    bool isOpen = false;
+    ControllerState ctrlState = ControllerState::Disconnected;
 
     // shadow registers
     u32 moduleIdAndFirmware;
@@ -128,21 +155,10 @@ SIS3153::SIS3153(QObject *parent)
     : VMEController(parent)
     , m_d(new SIS3153Private(this))
 {
-#if 0
-    m_d->sis->recv_timeout_sec = 1;
-    m_d->sis->recv_timeout_usec = 0;
-    int result = m_d->sis->set_UdpSocketOptionTimeout();
-
-    if (result != 0)
-    {
-        qDebug() << __PRETTY_FUNCTION__ << "set_UdpSocketOptionTimeout() failed";
-    }
-#endif
 }
 
 SIS3153::~SIS3153()
 {
-    qDebug() << __PRETTY_FUNCTION__ << "==========================XXXXXXxxxxxxxxxxxxXXXXXX==========================";
     close();
     delete m_d;
 }
@@ -154,8 +170,10 @@ VMEControllerType SIS3153::getType() const
 
 bool SIS3153::isOpen() const
 {
-    return m_d->isOpen;
+    return m_d->ctrlState == ControllerState::Connected;
 }
+
+static const int ReceiveTimeout_ms = 100;
 
 VMEError SIS3153::open()
 {
@@ -168,54 +186,121 @@ VMEError SIS3153::open()
     if (isOpen())
         return VMEError(VMEError::DeviceIsOpen);
 
+    m_d->ctrlState = ControllerState::Connecting;
+    emit controllerStateChanged(m_d->ctrlState);
+
+    /* This is a bit of a hack but the easiest thing to do right now: Once a
+     * sis3153eth instance is disconnected it never sets the socket parameters
+     * correctly again. Instead of touching that code I'll just recreate new
+     * sis3153eth instances here and this way I'll always have properly setup
+     * sockets to work with. */
+
+    m_d->sis.reset(new sis3153eth);
+    m_d->sis_ctrl.reset(new sis3153eth);
+
+    // set custom timeout
+    for (auto sis: { m_d->sis.get(), m_d->sis_ctrl.get()})
+    {
+        sis->recv_timeout_sec = 0;
+        sis->recv_timeout_usec = ReceiveTimeout_ms * 1000;
+        sis->set_UdpSocketOptionTimeout();
+    }
 
     // set ip address / hostname
-
     auto addressData = m_d->address.toLocal8Bit();
 
+#ifdef SIS3153_DEBUG
     qDebug() << __PRETTY_FUNCTION__ << "addressData =" << addressData;
+#endif
+
+
+    auto sis_setAddress_result_to_error = [](int resultCode)
+    {
+        VMEError result;
+
+        // -2: gethostbyname() returned nullptr
+        // -1: empty ip address string or broadcast address (0xf..f) given
+        // -3: 0.0.0.0 or 255.255.255.255 given
+        switch (resultCode)
+        {
+            case 0:
+                break;
+            case -1:
+            case -3:
+                result = VMEError(VMEError::InvalidIPAddress);
+                break;
+            case -2:
+                result = VMEError(VMEError::HostNotFound);
+                break;
+            default:
+                result = VMEError(VMEError::UnknownError);
+                break;
+        }
+
+        return result;
+    };
+
+    VMEError result;
 
     int resultCode = m_d->sis->set_UdpSocketSIS3153_IpAddress(const_cast<char *>(addressData.constData()));
-    // -2: gethostbyname() returned nullptr
-    // -1: empty ip address string or broadcast address (0xf..f) given
-    // -3: 0.0.0.0 or 255.255.255.255 given
-    switch (resultCode)
+
+#ifdef SIS3153_DEBUG
+    qDebug() << __PRETTY_FUNCTION__ << "result from set_UdpSocketSIS3153_IpAddress" << resultCode;
+#endif
+
+    result = sis_setAddress_result_to_error(resultCode);
+
+    if (result.isError())
     {
-        case 0:
-            break;
-        case -1:
-        case -3:
-            return VMEError(VMEError::InvalidIPAddress);
-        case -2:
-            return VMEError(VMEError::HostNotFound);
-        default:
-            return VMEError(VMEError::UnknownError);
+        m_d->ctrlState = ControllerState::Disconnected;
+        emit controllerStateChanged(m_d->ctrlState);
+        return result;
+    }
+
+    // create a second socket for issuing control requests while in daq mode
+    resultCode = m_d->sis_ctrl->set_UdpSocketSIS3153_IpAddress(const_cast<char *>(addressData.constData()));
+    result = sis_setAddress_result_to_error(resultCode);
+
+    if (result.isError())
+    {
+        m_d->ctrlState = ControllerState::Disconnected;
+        emit controllerStateChanged(m_d->ctrlState);
+        return result;
     }
 
 #ifdef SIS3153_DEBUG
     qDebug() << __PRETTY_FUNCTION__ << "set_UdpSocketSIS3153_IpAddress() ok:" << m_d->address;
 #endif
 
-    VMEError result;
-
     {
-        char msgBuf[1024];
-        u32 numDevices = 0;
-        // call the overload of get_vmeopen_messages() which reads registers
-        // ModuleIdAndFirmware internally.
-        resultCode = m_d->sis->get_vmeopen_messages(msgBuf, sizeof(msgBuf), &numDevices);
-        result = make_sis_error(resultCode);
+        static const int PostResetDelay_ms = 250;
+        static const int ReconnectRetryLimit = 3;
+        int retryCount = 0;
+        do
+        {
+            char msgBuf[1024];
+            u32 numDevices = 0;
+            result = make_sis_error(m_d->sis->get_vmeopen_messages(msgBuf, sizeof(msgBuf), &numDevices));
 
-        qDebug() << __PRETTY_FUNCTION__ << "get_vmeopen_messages: numDevices =" << numDevices;
+            if (result.isTimeout())
+            {
+#ifdef SIS3153_DEBUG
+                qDebug() << "sis connect timed out. sending udp_reset_cmd and delaying for" << PostResetDelay_ms << "ms";
+#endif
+                m_d->sis->udp_reset_cmd();
+                QThread::msleep(PostResetDelay_ms);
+            }
+        } while (result.isTimeout() && ++retryCount < ReconnectRetryLimit);
 
         if (result.isError())
         {
 #ifdef SIS3153_DEBUG
             qDebug() << __PRETTY_FUNCTION__ << "get_vmeopen_messages:" << result.toString();
 #endif
+            m_d->ctrlState = ControllerState::Disconnected;
+            emit controllerStateChanged(m_d->ctrlState);
             return result;
         }
-
     }
 
     // read module id and firmware
@@ -228,6 +313,8 @@ VMEError SIS3153::open()
 #ifdef SIS3153_DEBUG
         qDebug() << __PRETTY_FUNCTION__ << "read ModuleIdAndFirmware:" << result.toString();
 #endif
+        m_d->ctrlState = ControllerState::Disconnected;
+        emit controllerStateChanged(m_d->ctrlState);
         return result;
     }
 
@@ -241,6 +328,8 @@ VMEError SIS3153::open()
 #ifdef SIS3153_DEBUG
         qDebug() << __PRETTY_FUNCTION__ << "read SerialNumber:" << result.toString();
 #endif
+        m_d->ctrlState = ControllerState::Disconnected;
+        emit controllerStateChanged(m_d->ctrlState);
         return result;
     }
 
@@ -251,18 +340,17 @@ VMEError SIS3153::open()
 #ifdef SIS3153_DEBUG
         qDebug() << __PRETTY_FUNCTION__ << "write KeyResetAll:" << result.toString();
 #endif
+        m_d->ctrlState = ControllerState::Disconnected;
+        emit controllerStateChanged(m_d->ctrlState);
         return result;
     }
 
-
-    m_d->isOpen = true;
-
-
-    qDebug("%s: opened SIS3153 %u, moduleIdAndFirmware=0x%08x",
+    qDebug("%s: opened SIS3153 %04u, moduleIdAndFirmware=0x%08x",
            __PRETTY_FUNCTION__, m_d->serialNumber, m_d->moduleIdAndFirmware);
 
+    m_d->ctrlState = ControllerState::Connected;
     emit controllerOpened();
-    emit controllerStateChanged(ControllerState::Opened);
+    emit controllerStateChanged(ControllerState::Connected);
 
     return result;
 }
@@ -272,17 +360,19 @@ VMEError SIS3153::close()
     QMutexLocker locker(&m_d->lock);
     if (isOpen())
     {
-        m_d->sis->vmeclose(); // close the socket
-        m_d->isOpen = false;
+        // close the sockets
+        m_d->sis->vmeclose();
+        m_d->sis_ctrl->vmeclose();
+        m_d->ctrlState = ControllerState::Disconnected;
         emit controllerClosed();
-        emit controllerStateChanged(ControllerState::Closed);
+        emit controllerStateChanged(m_d->ctrlState);
     }
     return VMEError();
 }
 
 ControllerState SIS3153::getState() const
 {
-    return (m_d->isOpen ? ControllerState::Opened : ControllerState::Closed);
+    return m_d->ctrlState;
 }
 
 QString SIS3153::getIdentifyingString() const
@@ -295,7 +385,9 @@ QString SIS3153::getIdentifyingString() const
             ;
     }
 
-    return QString();
+    return QString("SIS3153 (address=%1)")
+        .arg(m_d->address)
+        ;
 }
 
 VMEError SIS3153::write32(u32 address, u32 value, u8 amod)
@@ -401,7 +493,12 @@ VMEError SIS3153::blockRead(u32 address, u32 transfers, QVector<u32> *dest, u8 a
 
 sis3153eth *SIS3153::getImpl()
 {
-    return m_d->sis;
+    return m_d->sis.get();
+}
+
+sis3153eth *SIS3153::getCtrlImpl()
+{
+    return m_d->sis_ctrl.get();
 }
 
 void SIS3153::setAddress(const QString &address)

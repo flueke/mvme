@@ -65,6 +65,7 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
     , pb_oneCycle(new QPushButton)
     , pb_reconnect(new QPushButton)
     , pb_controllerSettings(new QPushButton)
+    , pb_runSettings(new QPushButton)
     , label_controllerState(new QLabel)
     , label_daqState(new QLabel)
     , label_analysisState(new QLabel)
@@ -136,11 +137,12 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
     connect(pb_stop, &QPushButton::clicked, m_context, &MVMEContext::stopDAQ);
 
     connect(pb_reconnect, &QPushButton::clicked, this, [this] {
-        /* Just disconnect the controller here. MVMEContext will call
-         * tryOpenController() periodically which will connect again. */
-        auto ctrl = m_context->getVMEController();
-        if (ctrl)
-            ctrl->close();
+        /* Do not disconnect the controller directly but do it via the context.
+         * This way the context can reset the connect-retry-count and attempt
+         * to connect again. */
+
+        m_context->reconnectVMEController();
+
     });
 
     connect(pb_controllerSettings, &QPushButton::clicked, this, [this] {
@@ -155,6 +157,15 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
         m_context->setListFileOutputInfo(info);
     });
 
+    connect(pb_runSettings, &QPushButton::clicked, this, [this] {
+        DAQRunSettingsDialog dialog(m_context->getListFileOutputInfo());
+        dialog.setWindowModality(Qt::ApplicationModal);
+        if (dialog.exec() == QDialog::Accepted)
+        {
+            m_context->setListFileOutputInfo(dialog.getSettings());
+        }
+    });
+
     fill_compression_combo(combo_compression);
 
     connect(combo_compression, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged), this, [this] (int index) {
@@ -165,7 +176,7 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
     });
 
     connect(m_context, &MVMEContext::daqStateChanged, this, &DAQControlWidget::updateWidget);
-    connect(m_context, &MVMEContext::eventProcessorStateChanged, this, &DAQControlWidget::updateWidget);
+    connect(m_context, &MVMEContext::mvmeStreamWorkerStateChanged, this, &DAQControlWidget::updateWidget);
     connect(m_context, &MVMEContext::modeChanged, this, &DAQControlWidget::updateWidget);
     connect(m_context, &MVMEContext::controllerStateChanged, this, &DAQControlWidget::updateWidget);
     connect(m_context, &MVMEContext::daqConfigChanged, this, &DAQControlWidget::updateWidget);
@@ -180,6 +191,7 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
     pb_oneCycle->setText(QSL("1 Cycle"));
     pb_reconnect->setText(QSL("Reconnect"));
     pb_controllerSettings->setText(QSL("Settings"));
+    pb_runSettings->setText(QSL("Run Settings"));
 
     {
         auto pal = le_listfileFilename->palette();
@@ -187,8 +199,6 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
         le_listfileFilename->setPalette(pal);
         le_listfileFilename->setReadOnly(true);
     }
-
-    gb_listfile->setTitle(QSL("Listfile Output:"));
 
     auto daqButtonFrame = new QFrame;
     auto daqButtonLayout = new QHBoxLayout(daqButtonFrame);
@@ -231,19 +241,34 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
 
     // listfile groupbox
     {
-        cb_writeListfile->setText(QSL("Write Listfile"));
-        auto hbox = new QHBoxLayout;
-        hbox->setContentsMargins(0, 0, 0, 0);
-        hbox->setSpacing(2);
-        hbox->addWidget(cb_writeListfile);
-        hbox->addWidget(new QLabel(QSL("Compression:")));
-        hbox->addWidget(combo_compression);
-        hbox->addStretch();
+        gb_listfile->setTitle(QSL("Listfile Output:"));
+
 
         auto gbLayout = new QFormLayout(gb_listfile);
         gbLayout->setContentsMargins(0, 0, 0, 0);
         gbLayout->setSpacing(2);
-        gbLayout->addRow(hbox);
+
+        {
+            cb_writeListfile->setText(QSL("Write Listfile"));
+            auto hbox = new QHBoxLayout;
+            hbox->setContentsMargins(0, 0, 0, 0);
+            hbox->setSpacing(2);
+            hbox->addWidget(cb_writeListfile);
+            hbox->addWidget(new QLabel(QSL("Compression:")));
+            hbox->addWidget(combo_compression);
+            hbox->addStretch();
+            gbLayout->addRow(hbox);
+        }
+
+        {
+            auto hbox = new QHBoxLayout;
+            hbox->setContentsMargins(0, 0, 0, 0);
+            hbox->setSpacing(2);
+            hbox->addWidget(pb_runSettings);
+            hbox->addStretch();
+            gbLayout->addRow(hbox);
+        }
+
         gbLayout->addRow(QSL("Current Filename:"), le_listfileFilename);
         gbLayout->addRow(QSL("Current Size:"), label_listfileSize);
     }
@@ -276,13 +301,19 @@ void DAQControlWidget::updateWidget()
 {
     auto globalMode = m_context->getMode();
     auto daqState = m_context->getDAQState();
-    auto eventProcState = m_context->getEventProcessorState();
-    auto controllerState = ControllerState::Unknown;
+    auto eventProcState = m_context->getMVMEStreamProcessorState();
+    auto controllerState = ControllerState::Disconnected;
 
     if (auto controller = m_context->getVMEController())
     {
         controllerState = m_context->getVMEController()->getState();
     }
+
+    const bool isReplay  = (globalMode == GlobalMode::ListFile);
+    const bool isRun     = (globalMode == GlobalMode::DAQ);
+    const bool isDAQIdle = (daqState == DAQState::Idle);
+    const bool isControllerConnected = (controllerState == ControllerState::Connected);
+
 
     const auto &stats = m_context->getDAQStats();
 
@@ -291,11 +322,11 @@ void DAQControlWidget::updateWidget()
     //
     bool enableStartButton = false;
 
-    if (globalMode == GlobalMode::DAQ && controllerState == ControllerState::Opened)
+    if (globalMode == GlobalMode::DAQ && controllerState == ControllerState::Connected)
     {
         enableStartButton = true;
     }
-    else if (globalMode == GlobalMode::ListFile) // && daqState == DAQState::Idle && eventProcState == EventProcessorState::Idle)
+    else if (globalMode == GlobalMode::ListFile) // && daqState == DAQState::Idle && eventProcState == MVMEStreamWorkerState::Idle)
     {
         enableStartButton = true;
     }
@@ -305,7 +336,7 @@ void DAQControlWidget::updateWidget()
     //
     // stop button
     //
-    pb_stop->setEnabled(((globalMode == GlobalMode::DAQ && daqState != DAQState::Idle && controllerState == ControllerState::Opened)
+    pb_stop->setEnabled(((globalMode == GlobalMode::DAQ && daqState != DAQState::Idle && controllerState == ControllerState::Connected)
                              || (globalMode == GlobalMode::ListFile && daqState != DAQState::Idle))
                            );
 
@@ -314,7 +345,7 @@ void DAQControlWidget::updateWidget()
     //
     bool enableOneCycleButton = false;
 
-    if (globalMode == GlobalMode::DAQ && controllerState == ControllerState::Opened && daqState == DAQState::Idle)
+    if (globalMode == GlobalMode::DAQ && controllerState == ControllerState::Connected && daqState == DAQState::Idle)
     {
         enableOneCycleButton = true;
     }
@@ -325,11 +356,6 @@ void DAQControlWidget::updateWidget()
 
     pb_oneCycle->setEnabled(enableOneCycleButton);
 
-
-    //
-    // listfile options
-    //
-    gb_listfile->setEnabled(globalMode == GlobalMode::DAQ);
 
     //
     // button labels and actions
@@ -370,7 +396,7 @@ void DAQControlWidget::updateWidget()
 
 
     auto daqStateString = DAQStateStrings.value(daqState, QSL("Unknown"));
-    QString eventProcStateString = (eventProcState == EventProcessorState::Idle ? QSL("Idle") : QSL("Running"));
+    QString eventProcStateString = (eventProcState == MVMEStreamWorkerState::Idle ? QSL("Idle") : QSL("Running"));
 
     if (daqState == DAQState::Running && globalMode == GlobalMode::ListFile)
         daqStateString = QSL("Replay");
@@ -390,12 +416,33 @@ void DAQControlWidget::updateWidget()
     rb_keepData->setEnabled(daqState == DAQState::Idle);
     rb_clearData->setEnabled(daqState == DAQState::Idle);
 
-    label_controllerState->setText(controllerState == ControllerState::Opened
-                                       ? QSL("Connected")
-                                       : QSL("Disconnected"));
+    QString stateString;
+
+    switch (controllerState)
+    {
+        case ControllerState::Disconnected:
+            stateString = QSL("Disconnected");
+            break;
+
+        case ControllerState::Connecting:
+            stateString = QSL("Connecting");
+            break;
+
+        case ControllerState::Connected:
+            stateString = QSL("Connected");
+            break;
+    }
+
+    label_controllerState->setText(stateString);
 
     pb_reconnect->setEnabled(globalMode == GlobalMode::DAQ && daqState == DAQState::Idle);
     pb_controllerSettings->setEnabled(globalMode == GlobalMode::DAQ && daqState == DAQState::Idle);
+
+    //
+    // listfile options
+    //
+    gb_listfile->setEnabled(globalMode == GlobalMode::DAQ);
+
 
     auto outputInfo = m_context->getListFileOutputInfo();
 
@@ -425,4 +472,85 @@ void DAQControlWidget::updateWidget()
     }
 
     label_listfileSize->setText(sizeString);
+
+    cb_writeListfile->setEnabled(isDAQIdle);
+    combo_compression->setEnabled(isDAQIdle);
+}
+
+DAQRunSettingsDialog::DAQRunSettingsDialog(const ListFileOutputInfo &settings, QWidget *parent)
+    : QDialog(parent)
+    , m_settings(settings)
+    , le_prefix(new QLineEdit(this))
+    , spin_runNumber(new QSpinBox(this))
+    , cb_useRunNumber(new QCheckBox(this))
+    , cb_useTimestamp(new QCheckBox(this))
+    , le_exampleName(new QLineEdit(this))
+    , m_bb(new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this))
+{
+    setWindowTitle(QSL("DAQ Run Settings"));
+    setMinimumWidth(400);
+
+    le_exampleName->setReadOnly(true);
+    spin_runNumber->setMinimum(1);
+
+    // populate
+    le_prefix->setText(settings.prefix);
+    spin_runNumber->setValue(settings.runNumber);
+    cb_useRunNumber->setChecked(settings.flags & ListFileOutputInfo::UseRunNumber);
+    cb_useTimestamp->setChecked(settings.flags & ListFileOutputInfo::UseTimestamp);
+
+    connect(le_prefix, &QLineEdit::textEdited, this, [this](const QString &text) {
+        m_settings.prefix = text;
+        updateExample();
+    });
+
+    connect(spin_runNumber, static_cast<void (QSpinBox::*)(int num)>(&QSpinBox::valueChanged),
+            this, [this] (int num) {
+                m_settings.runNumber = num;
+                updateExample();
+            });
+
+    connect(cb_useRunNumber, &QCheckBox::stateChanged, this, [this](int) {
+        if (cb_useRunNumber->isChecked())
+        {
+            m_settings.flags |= ListFileOutputInfo::UseRunNumber;
+        }
+        else
+        {
+            m_settings.flags &= ~ListFileOutputInfo::UseRunNumber;
+        }
+        updateExample();
+    });
+
+    connect(cb_useTimestamp, &QCheckBox::stateChanged, this, [this](int) {
+        if (cb_useTimestamp->isChecked())
+        {
+            m_settings.flags |= ListFileOutputInfo::UseTimestamp;
+        }
+        else
+        {
+            m_settings.flags &= ~ListFileOutputInfo::UseTimestamp;
+        }
+        updateExample();
+    });
+
+    QObject::connect(m_bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
+    QObject::connect(m_bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
+
+    auto widgetLayout = new QFormLayout(this);
+
+    widgetLayout->addRow(QSL("Prefix"), le_prefix);
+    widgetLayout->addRow(QSL("Use Run Number"), cb_useRunNumber);
+    widgetLayout->addRow(QSL("Next Run Number"), spin_runNumber);
+    widgetLayout->addRow(QSL("Use Timestamp"), cb_useTimestamp);
+    widgetLayout->addRow(make_separator_frame());
+    widgetLayout->addRow(QSL("Example filename"), le_exampleName);
+    widgetLayout->addRow(m_bb);
+
+    updateExample();
+}
+
+void DAQRunSettingsDialog::updateExample()
+{
+    le_exampleName->setText(generate_output_filename(m_settings));
 }

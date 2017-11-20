@@ -22,6 +22,7 @@
 #include "globals.h"
 #include "databuffer.h"
 #include "libmvme_export.h"
+#include "mvme_stream_worker.h"
 #include "vme_config.h"
 #include "vme_controller.h"
 #include "vme_readout_worker.h"
@@ -35,7 +36,6 @@
 #include <QSettings>
 #include <QWidget>
 
-class MVMEEventProcessor;
 class MVMEMainWindow;
 class ListFile;
 class ListFileReader;
@@ -59,7 +59,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
     signals:
         void modeChanged(GlobalMode mode);
         void daqStateChanged(const DAQState &state);
-        void eventProcessorStateChanged(EventProcessorState);
+        void mvmeStreamWorkerStateChanged(MVMEStreamWorkerState);
         void controllerStateChanged(ControllerState state);
 
         void vmeControllerSet(VMEController *controller);
@@ -95,6 +95,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void setVMEController(VMEController *controller, const QVariantMap &settings = QVariantMap());
         void setVMEController(VMEControllerType type, const QVariantMap &settings = QVariantMap());
         VMEController *getVMEController() const { return m_controller; }
+        void reconnectVMEController();
 
         ControllerState getControllerState() const;
         VMEReadoutWorker *getReadoutWorker() { return m_readoutWorker; }
@@ -104,15 +105,26 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         QList<EventConfig *> getEventConfigs() const { return m_vmeConfig->getEventConfigs(); }
         QString getUniqueModuleName(const QString &prefix) const;
         DAQState getDAQState() const;
-        EventProcessorState getEventProcessorState() const;
+        MVMEStreamWorkerState getMVMEStreamProcessorState() const;
         const DAQStats &getDAQStats() const { return m_daqStats; }
         DAQStats &getDAQStats() { return m_daqStats; }
-        void setReplayFile(ListFile *listFile);
+
+        struct ReplayFileAnalysisInfo
+        {
+            QString filename;
+            QString analysisFilename;
+            QByteArray analysisConfigData;
+        };
+
+        bool setReplayFile(ListFile *listFile);
         void closeReplayFile();
         ListFile *getReplayFile() const { return m_listFile; }
+        void setReplayFileAnalysisInfo(ReplayFileAnalysisInfo info);
+        ReplayFileAnalysisInfo getReplayFileAnalysisInfo() const;
+
         void setMode(GlobalMode mode);
         GlobalMode getMode() const;
-        MVMEEventProcessor *getEventProcessor() const { return m_eventProcessor; }
+        MVMEStreamWorker *getMVMEStreamWorker() const { return m_streamWorker; }
 
         //
         // Object registry
@@ -227,14 +239,22 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         bool isWorkspaceOpen() const { return !m_workspaceDir.isEmpty(); }
 
         QString getWorkspaceDirectory() const { return m_workspaceDir; }
+        // Returns an empty shared_Ptr if getWorkspaceDirectory() returns an empty string
         std::shared_ptr<QSettings> makeWorkspaceSettings() const;
+        // Returns an empty string if not workspace is open
         QString getWorkspacePath(const QString &settingsKey, const QString &defaultValue = QString(), bool setIfDefaulted = true) const;
 
         void loadVMEConfig(const QString &fileName);
 
+        struct AnalysisLoadFlags
+        {
+            bool NoAutoResume: 1;
+        };
+
         bool loadAnalysisConfig(const QString &fileName);
         bool loadAnalysisConfig(QIODevice *input, const QString &inputInfo = QString());
-        bool loadAnalysisConfig(const QJsonDocument &doc, const QString &inputInfo = QString());
+        bool loadAnalysisConfig(const QJsonDocument &doc, const QString &inputInfo = QString(), AnalysisLoadFlags flags = {});
+        bool loadAnalysisConfig(const QByteArray &blob, const QString &inputInfo = QString());
 
         // listfile output
         void setListFileOutputInfo(const ListFileOutputInfo &info);
@@ -288,7 +308,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void tryOpenController();
         void logModuleCounters();
         void onDAQStateChanged(DAQState state);
-        void onEventProcessorStateChanged(EventProcessorState state);
+        void onMVMEStreamWorkerStateChanged(MVMEStreamWorkerState state);
         void onDAQDone();
         void onReplayDone();
 
@@ -299,7 +319,9 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void onModuleAboutToBeRemoved(ModuleConfig *config);
         void onGlobalScriptAboutToBeRemoved(VMEScriptConfig *config);
 
-        friend class MVMEContextPrivate;
+        void onControllerStateChanged(ControllerState state);
+
+        friend struct MVMEContextPrivate;
 
     private:
         std::shared_ptr<QSettings> makeWorkspaceSettings(const QString &workspaceDirectory) const;
@@ -327,7 +349,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         VMEReadoutWorker *m_readoutWorker = nullptr;
 
         QThread *m_eventThread;
-        MVMEEventProcessor *m_eventProcessor;
+        MVMEStreamWorker *m_streamWorker;
 
         QSet<QObject *> m_objects;
         QMap<QString, QMap<QObject *, QObject *>> m_objectMappings;

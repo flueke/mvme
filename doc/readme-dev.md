@@ -18,6 +18,12 @@
     $ cmake -DCMAKE_BUILD_TYPE=Debug ../mvme2
     $ make -j4
 
+* To build with Clang use
+    $ export CC=/usr/bin/clang
+    $ export CXX=/usr/bin/clang++
+
+  Then compile as usual.
+
 ## Archlinux packages:
 `cmake qt5-base quazip libusb-compat qwt`
 
@@ -73,6 +79,9 @@ Install the correct perf package for your kernel, e.g. `apt-get install linux-pe
 
 Run mvme using `perf record -g ./mvme`.
 
+* Clearing filesystem caches on linux:
+    `sync; echo 3 >| /proc/sys/vm/drop_caches`
+
 ### Reporting:
 * `perf stat`
 * `perf report -g`
@@ -91,3 +100,28 @@ static void clobber()
     asm volatile("" : : : "memory");
 }
 ```
+
+## SIS3153
+MAC Address: 00-00-56-15-3X-XX
+
+With XXX being the serial number in hex.
+`040 -> 0x028 -> 0-28`
+`044 -> 0x02c -> 0-2c`
+
+### Windows
+`arp -s 192.168.178.44 00-00-56-15-30-2c`
+`arp -s 192.168.178.44 00-00-56-15-30-28`
+
+# ROOT
+
+## Building ROOT
+
+* Packages required:
+
+  dpkg-dev      (not sure if needed with the cmake method
+  libxft-dev
+  clang         (I guess)
+
+cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/home/florian/local/root-6.10.08/ ../root-6.10.08/
+
+# vim:ft=markdown

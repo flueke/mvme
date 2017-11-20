@@ -65,8 +65,8 @@ struct EventConfigDialogPrivate
              *spin_irqVector,
              *spin_vmusbTimerFrequency;
 
-    QDoubleSpinBox *spin_vmusbTimerPeriod;
-    // TODO: add SIS3153 timer widgets here
+    QDoubleSpinBox *spin_vmusbTimerPeriod,
+                   *spin_sis3153TimerPeriod;
 };
 
 EventConfigDialog::EventConfigDialog(MVMEContext *context, VMEController *controller,
@@ -149,7 +149,7 @@ EventConfigDialog::EventConfigDialog(MVMEContext *context, VMEController *contro
                 conditions = { TriggerCondition:: Interrupt, TriggerCondition::NIM1, TriggerCondition::Periodic };
 
                 m_d->stack_options->addWidget(irqWidget);
-                m_d->stack_options->addWidget(new QWidget);
+                m_d->stack_options->addWidget(new QWidget);         // nim has no special gui
                 m_d->stack_options->addWidget(vmusbTimerWidget);
             } break;
 
@@ -160,12 +160,26 @@ EventConfigDialog::EventConfigDialog(MVMEContext *context, VMEController *contro
                     TriggerCondition::Input2RisingEdge, TriggerCondition::Input2FallingEdge
                 };
 
+                m_d->spin_sis3153TimerPeriod = new QDoubleSpinBox;
+                m_d->spin_sis3153TimerPeriod->setPrefix(QSL("Every "));
+                m_d->spin_sis3153TimerPeriod->setSuffix(QSL(" seconds"));
+                m_d->spin_sis3153TimerPeriod->setMinimum(0.0);
+                m_d->spin_sis3153TimerPeriod->setMaximum(6.5);
+                m_d->spin_sis3153TimerPeriod->setDecimals(1);
+                m_d->spin_sis3153TimerPeriod->setSingleStep(0.5);
+                m_d->spin_sis3153TimerPeriod->setValue(1.0);
+
+                auto timerWidget = new QWidget;
+                auto timerLayout = new QFormLayout(timerWidget);
+                timerLayout->addRow(QSL("Period"), m_d->spin_sis3153TimerPeriod);
+
                 m_d->stack_options->addWidget(irqWidget);
-                // FIXME
-                m_d->stack_options->addWidget(new QLabel("FIXME: sis periodic options here"));
-                for (s32 i=0; i<4; ++i)
+                m_d->stack_options->addWidget(timerWidget);
+                for (int i=(int)TriggerCondition::Input1RisingEdge;
+                     i<=(int)TriggerCondition::Input2FallingEdge;
+                     ++i)
                 {
-                    m_d->stack_options->addWidget(new QWidget);
+                    m_d->stack_options->addWidget(new QWidget); // no special gui for external triggers
                 }
             } break;
     }
@@ -221,6 +235,9 @@ void EventConfigDialog::loadFromConfig()
             } break;
         case VMEControllerType::SIS3153:
             {
+                m_d->spin_sis3153TimerPeriod->setValue(
+                    config->triggerOptions.value(QSL("sis3153.timer_period"), 0.0).toDouble());
+
             } break;
     }
 }
@@ -245,6 +262,7 @@ void EventConfigDialog::saveToConfig()
 
         case VMEControllerType::SIS3153:
             {
+                config->triggerOptions[QSL("sis3153.timer_period")] = m_d->spin_sis3153TimerPeriod->value();
             } break;
     }
     config->setModified(true);
@@ -275,15 +293,37 @@ ModuleConfigDialog::ModuleConfigDialog(MVMEContext *context, ModuleConfig *modul
     setWindowTitle(QSL("Module Config"));
     MVMETemplates templates = read_templates();
     m_moduleMetas = templates.moduleMetas;
+
+    /* Sort by vendorName and then displayName, giving the vendorName "mesytec"
+     * the highest priority. */
     qSort(m_moduleMetas.begin(), m_moduleMetas.end(), [](const VMEModuleMeta &a, const VMEModuleMeta &b) {
-        return a.displayName < b.displayName;
+        if (a.vendorName == b.vendorName)
+            return a.displayName < b.displayName;
+
+        if (a.vendorName == QSL("mesytec"))
+            return true;
+
+        if (b.vendorName == QSL("mesytec"))
+            return false;
+
+        return a.vendorName < b.vendorName;
     });
 
     typeCombo = new QComboBox;
     int typeComboIndex = -1;
+    QString currentVendor;
 
     for (const auto &mm: m_moduleMetas)
     {
+        if (currentVendor.isNull())
+            currentVendor = mm.vendorName;
+
+        if (mm.vendorName != currentVendor)
+        {
+            typeCombo->insertSeparator(typeCombo->count());
+            currentVendor = mm.vendorName;
+        }
+
         typeCombo->addItem(mm.displayName);
 
         if (mm.typeId == module->getModuleMeta().typeId)
@@ -464,6 +504,7 @@ QPair<bool, QString> gui_saveAnalysisConfigAs(analysis::Analysis *analysis_ng, Q
         return qMakePair(false, QString());
 
     QFileInfo fi(fileName);
+
     if (fi.completeSuffix().isEmpty())
         fileName += QSL(".analysis");
 

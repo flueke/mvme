@@ -295,7 +295,6 @@ class LIBMVME_EXPORT VMEConfig: public ConfigObject
          * "daq_start", "daq_stop", "manual"
          */
         QMap<QString, QList<VMEScriptConfig *>> vmeScriptLists;
-        QList<EventConfig *> eventConfigs;
 
         // vme controller
         void setVMEController(VMEControllerType type, const QVariantMap &settings = QVariantMap());
@@ -307,6 +306,7 @@ class LIBMVME_EXPORT VMEConfig: public ConfigObject
         virtual void write_impl(QJsonObject &json) const override;
 
     private:
+        QList<EventConfig *> eventConfigs;
         VMEControllerType m_controllerType = VMEControllerType::VMUSB;
         QVariantMap m_controllerSettings;
 };

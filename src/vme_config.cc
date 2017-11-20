@@ -66,7 +66,7 @@ void ConfigObject::setModified(bool b)
 
     if (m_modified != b)
     {
-        qDebug() << __PRETTY_FUNCTION__ << this << m_modified << "->" << b;
+        //qDebug() << __PRETTY_FUNCTION__ << this << m_modified << "->" << b;
         m_modified = b;
         emit modifiedChanged(b);
 
@@ -407,6 +407,8 @@ EventConfig::EventConfig(QObject *parent)
 
     vmeScripts[QSL("readout_end")] = new VMEScriptConfig(this);
     vmeScripts[QSL("readout_end")]->setObjectName(QSL("Cycle End"));
+
+    triggerOptions[QSL("sis3153.timer_period")] = 1.0;
 }
 
 void EventConfig::read_impl(const QJsonObject &json)

@@ -1,22 +1,6 @@
-# TODO:
-# asan
-# profiling
+# TODO: asan
 
 include(GenerateExportHeader)
-
-set(WARNING_FLAGS "-Wall -Wno-unused-variable -Wno-unused-function")
-
-set(CMAKE_CXX_FLAGS "-std=c++14 -pipe ${WARNING_FLAGS}")
-
-# XXX: testing mbmi2 for pext_u32() in data_filter.cc
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mbmi2")
-
-set(CMAKE_CXX_FLAGS_DEBUG   "-g -Og")
-set(CMAKE_CXX_FLAGS_RELEASE "-DNDEBUG -O3 -march=nocona -mtune=core2")
-set(CMAKE_CXX_FLAGS_PROFILE "-DNDEBUG -O3 -march=nocona -mtune=core2 -pg -fno-omit-frame-pointer")
-# Explicitly set the required c++ standard (CMake >= 3.1)
-set(CMAKE_CXX_STANDARD 14)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
@@ -26,29 +10,12 @@ find_package(Qt5Gui REQUIRED)
 find_package(Qt5Network REQUIRED)
 find_package(Qt5Widgets REQUIRED)
 
-# 3rdparty
-include_directories("${CMAKE_SOURCE_DIR}/3rdparty")
-include_directories("${CMAKE_SOURCE_DIR}/3rdparty/pcg-cpp-0.98/include/")
-
 # quazip
 find_path(QUAZIP_INCLUDE_DIR
     NAMES quazip.h
     PATH_SUFFIXES quazip quazip-qt5 quazip5)
 find_library(QUAZIP_QT5 NAMES quazip quazip-qt5 quazip5)
 include_directories(${QUAZIP_INCLUDE_DIR})
-
-# qwt
-find_path(QWT_INCLUDE_DIR
-    NAMES qwt_plot.h
-    PATH_SUFFIXES qwt qwt-qt5 qwt-6.1.3)
-
-find_library(QWT_LIBRARY NAMES qwt qwt-qt5)
-include_directories(${QWT_INCLUDE_DIR})
-#include(FindPackageHandleStandardArgs)
-#find_package_handle_standard_args(Qwt DEFAULT_MSG QWT_LIBRARY QWT_INCLUDE_DIR)
-
-message("Using QWT_INCLUDE_DIR=${QWT_INCLUDE_DIR}")
-message("Using QWT_LIBRARY=${QWT_LIBRARY}")
 
 # libusb-0.1
 if (WIN32)
@@ -67,14 +34,27 @@ if (WIN32)
 else()
     find_library(LIBUSB_LIBRARY usb)
     find_path(LIBUSB_INCLUDE_PATH usb.h)
+    message("-- Using LIBUSB_LIBRARY=${LIBUSB_LIBRARY}")
 endif()
-
-include_directories(${LIBUSB_INCLUDE_PATH})
 
 # git version information is contained in its own translation unit. Allows for
 # quick build + relink on version change.
 configure_file("git_sha1.cc.in" "git_sha1.cc" @ONLY)
 add_definitions(-DMVME_USE_GIT_VERSION_FILE)
+
+# make build info available to the program
+set(BUILD_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+if (NOT "${CMAKE_BUILD_TYPE}" STREQUAL "")
+    string(TOUPPER ${CMAKE_BUILD_TYPE} build_type_upper)
+    set(BUILD_CXX_FLAGS "${BUILD_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${build_type_upper}}")
+endif()
+configure_file("build_info.cc.in" "build_info.cc" @ONLY)
+
+#
+# liba2
+#
+add_subdirectory(analysis/a2)
+include_directories(analysis/a2)
 
 #
 # libmvme
@@ -83,13 +63,15 @@ add_definitions(-DVME_CONTROLLER_WIENER -DWIENER_USE_LIBUSB0)
 
 set(LIBMVME_SOURCES
     "${CMAKE_CURRENT_BINARY_DIR}/git_sha1.cc"
+    "${CMAKE_CURRENT_BINARY_DIR}/build_info.cc"
     "${CMAKE_SOURCE_DIR}/3rdparty/qt-collapsible-section/Section.cpp"
+    analysis/a2_adapter.cc
     analysis/analysis.cc
     analysis/analysis_ui.cc
     analysis/analysis_ui_p.cc
     analysis/analysis_util.cc
     analysis/data_extraction_widget.cc
-    analysis_info_widget.cc
+    analysis/analysis_info_widget.cc
     config_ui.cpp
     CVMUSBReadoutList.cpp
     daqcontrol_widget.cc
@@ -104,12 +86,15 @@ set(LIBMVME_SOURCES
     histo2d_widget.cc
     histo2d_widget_p.cc
     histo_util.cc
+    listfile_browser.cc
     mesytec_diagnostics.cc
     mvme_context.cc
+    mvme_context_lib.cc
     mvme.cpp
-    mvme_event_processor.cc
     mvme_listfile.cc
     mvme_startup.cc
+    mvme_stream_processor.cc
+    mvme_stream_worker.cc
     qt_util.cc
     realtimedata.cpp
     scrollbar.cpp
@@ -123,6 +108,7 @@ set(LIBMVME_SOURCES
     treewidget_utils.cc
     util.cc
     util_zip.cc
+    util/strings.cc
     vme_analysis_common.cc
     vme_config.cc
     vme_config_tree.cc
@@ -150,7 +136,13 @@ qt5_wrap_ui(LIBMVME_UIC_OUT
 
 qt5_add_resources(LIBMVME_RC_OUT resources.qrc)
 
+if (ENABLE_HDF5)
+    list(APPEND LIBMVME_ADDITIONAL_LIBS ${HDF5_CXX_LIBRARIES})
+    list(APPEND LIBMVME_SOURCES analysis/analysis_session.cc)
+endif()
+
 add_library(libmvme SHARED ${LIBMVME_SOURCES} ${LIBMVME_UIC_OUT} ${LIBMVME_RC_OUT})
+add_dependencies(libmvme liba2_static)
 generate_export_header(libmvme)
 set_target_properties(libmvme PROPERTIES OUTPUT_NAME mvme)
 
@@ -162,14 +154,18 @@ qt5_use_modules(libmvme
   )
 
 if (WIN32)
-    set(LIBMVME_ADDITIONAL_LIBS ws2_32)
+    list(APPEND LIBMVME_ADDITIONAL_LIBS ws2_32)
 endif()
+
+include_directories(${LIBUSB_INCLUDE_PATH})
+
 
 target_link_libraries(libmvme
     ${QUAZIP_QT5}
     ${QWT_LIBRARY}
     ${LIBUSB_LIBRARY}
     ${LIBMVME_ADDITIONAL_LIBS}
+    liba2_static
     )
 
 install(TARGETS libmvme DESTINATION .)
@@ -236,8 +232,16 @@ add_mvme_executable(test_launcher_module_template "test_launcher_module_template
 add_mvme_executable(vmusb_read_buffers_file "vmusb_read_buffers_file.cc")
 
 add_mvme_executable(mvme-listfile-dumper-multievent "listfile-multievent-dumper.cpp")
-add_mvme_executable(dev_mvme_event_processing "dev_mvme_event_processing.cc")
 add_mvme_executable(dev_datagen "dev_datagen.cc")
 add_mvme_executable(dev_data_filter_runner "dev_data_filter_runner.cc")
+add_mvme_executable(dev_sis3153_read_raw_buffers_file "dev_sis3153_read_raw_buffers_file.cc")
+add_mvme_executable(dev_udp_sender "dev_udp_sender.cc")
+add_mvme_executable(dev_udp_receiver "dev_udp_receiver.cc")
+
+# root subdir if ROOT support is enabled
+if (ENABLE_ROOT)
+    add_mvme_executable(dev_mvme_event_processing "dev_mvme_event_processing.cc")
+    add_subdirectory(root)
+endif (ENABLE_ROOT)
 
 # vim:tw=0

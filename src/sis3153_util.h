@@ -17,6 +17,11 @@ class SIS3153DebugWidget: public QWidget
 
         MVMEContext *m_context;
         QVector<QLabel *> m_labels;
+        QVector<QLabel *> m_rdoCounterLabels;
 };
+
+LIBMVME_EXPORT void format_sis3153_buffer(DataBuffer *buffer, QTextStream &out, u64 bufferNumber);
+
+LIBMVME_EXPORT QString format_sis3153_stacklist_control_value(u16 value);
 
 #endif /* __SIS3153_UTIL_H__ */

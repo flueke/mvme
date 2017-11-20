@@ -60,7 +60,8 @@ class EventWidget: public QWidget
 
         using SelectInputCallback = std::function<void ()>;
 
-        EventWidget(MVMEContext *ctx, const QUuid &eventId, AnalysisWidget *analysisWidget, QWidget *parent = 0);
+        EventWidget(MVMEContext *ctx, const QUuid &eventId, int eventIndex,
+                    AnalysisWidget *analysisWidget, QWidget *parent = 0);
         ~EventWidget();
 
         void selectInputFor(Slot *slot, s32 userLevel, SelectInputCallback callback);
@@ -80,8 +81,8 @@ class EventWidget: public QWidget
         void addUserLevel();
         void removeUserLevel();
         void repopulate();
-        QToolBar *makeToolBar();
-        QToolBar *makeEventSelectAreaToolBar();
+        QToolBar *getToolBar();
+        QToolBar *getEventSelectAreaToolBar();
 
         MVMEContext *getContext() const;
         AnalysisWidget *getAnalysisWidget() const;
@@ -235,18 +236,31 @@ class OperatorConfigurationWidget: public QWidget
         QComboBox *combo_equation;
         QDoubleSpinBox *spin_outputLowerLimit;
         QDoubleSpinBox *spin_outputUpperLimit;
+
+        void updateOutputLimits(BinarySumDiff *binOp);
+
+        // AggregateOps
+        QComboBox *combo_aggOp;
+
+        QCheckBox *cb_useMinThreshold,
+                  *cb_useMaxThreshold;
+
+        QDoubleSpinBox *spin_minThreshold,
+                       *spin_maxThreshold;
 };
 
 class PipeDisplay: public QWidget
 {
     Q_OBJECT
     public:
-        PipeDisplay(Pipe *pipe, QWidget *parent = 0);
+        PipeDisplay(Analysis *analysis, Pipe *pipe, QWidget *parent = 0);
 
         void refresh();
 
+        Analysis *m_analysis;
         Pipe *m_pipe;
 
+        QLabel *m_infoLabel;
         QTableWidget *m_parameterTable;
 };
 
@@ -292,6 +306,12 @@ class DisplayTree: public EventWidgetTree
         QTreeWidgetItem *histo2DRoot = nullptr;
 };
 
+class SessionErrorDialog: public QDialog
+{
+    Q_OBJECT
+    public:
+        SessionErrorDialog(const QString &message, const QString &title = QString(), QWidget *parent = nullptr);
+};
 
 }
 

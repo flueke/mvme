@@ -186,10 +186,6 @@
                 # 4096 -> multiply by 4
                 # 1024 -> neutral
 
-# shaping_time (common for both selected channels)
-0x6124  200     # FWHM-width in multiples of 12.5ns (200 == 2.5 us)
-                # range 8..2000 (100 ns to 25 us)
-
 # Channel / Channel Pair Front end settings
 # ############################################################################
 

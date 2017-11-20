@@ -22,13 +22,18 @@
 #include <QButtonGroup>
 #include <QCheckBox>
 #include <QComboBox>
+#include <QDialog>
+#include <QDialogButtonBox>
 #include <QGroupBox>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMenu>
 #include <QPushButton>
 #include <QRadioButton>
+#include <QSpinBox>
 #include <QWidget>
+
+#include "globals.h"
 
 class MVMEContext;
 
@@ -48,7 +53,8 @@ class DAQControlWidget: public QWidget
                     *pb_stop,
                     *pb_oneCycle,
                     *pb_reconnect,
-                    *pb_controllerSettings;
+                    *pb_controllerSettings,
+                    *pb_runSettings;
 
         QLabel *label_controllerState,
                *label_daqState,
@@ -65,6 +71,26 @@ class DAQControlWidget: public QWidget
 
         QRadioButton *rb_keepData, *rb_clearData;
         QButtonGroup *bg_daqData;
+};
+
+class DAQRunSettingsDialog: public QDialog
+{
+    Q_OBJECT
+    public:
+        DAQRunSettingsDialog(const ListFileOutputInfo &settings, QWidget *parent = 0);
+
+        ListFileOutputInfo getSettings() const { return m_settings; }
+
+    private:
+        void updateExample();
+
+        ListFileOutputInfo m_settings;
+        QLineEdit *le_prefix;
+        QSpinBox *spin_runNumber;
+        QCheckBox *cb_useRunNumber;
+        QCheckBox *cb_useTimestamp;
+        QLineEdit *le_exampleName;
+        QDialogButtonBox *m_bb;
 };
 
 #endif /* __DAQCONTROL_WIDGET_H__ */

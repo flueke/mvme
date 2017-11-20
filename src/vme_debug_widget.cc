@@ -52,7 +52,7 @@ VMEDebugWidget::VMEDebugWidget(MVMEContext *context, QWidget *parent)
 
     auto onControllerStateChanged = [this] (ControllerState state)
     {
-        ui->outerFrame->setEnabled(state == ControllerState::Opened);
+        ui->outerFrame->setEnabled(state == ControllerState::Connected);
     };
 
     connect(m_context, &MVMEContext::controllerStateChanged, this, onControllerStateChanged);
@@ -287,7 +287,8 @@ void VMEDebugWidget::doWrite(u32 address, u32 value)
 
     VMEScript script = { cmd };
 
-    auto results = m_context->runScript(script);
+    auto logger = [this](const QString &str) { m_context->logMessage(QSL("  ") + str); };
+    auto results = m_context->runScript(script, logger);
 
     if (!results.isEmpty())
     {
@@ -321,7 +322,8 @@ u16 VMEDebugWidget::doRead(u32 address)
 
     VMEScript script = { cmd };
 
-    auto results = m_context->runScript(script);
+    auto logger = [this](const QString &str) { m_context->logMessage(QSL("  ") + str); };
+    auto results = m_context->runScript(script, logger);
 
     if (!results.isEmpty())
     {

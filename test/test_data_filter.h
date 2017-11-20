@@ -12,6 +12,9 @@ class TestDataFilter: public QObject
     private slots:
         void test_match_mask_and_value();
         void test_extract_data_();
+        void test_data_filter_c_style_match_mask_and_value();
+        void test_data_filter_c_style_extract_data_();
+        void test_multiwordfilter();
 };
 
 #endif /* __TEST_DATA_FILTER_H__ */

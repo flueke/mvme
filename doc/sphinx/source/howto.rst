@@ -130,6 +130,27 @@ The calculation performed is:
     freeRate &= 1.0 / \tau
 
 
+.. _howto_extended_timestamps:
+
+.. ==================================================
+.. Extended Timestamp Handling
+.. ==================================================
+.. 
+.. This guide shows how to extract and use the 46-bit extended timestamps produced
+.. by mesytec modules. An MDPP-16_SCP is used but any mesytec VME module should
+.. work.
+.. 
+.. * Follow the :ref:`quickstart` to get a working IRQ-triggered setup using the
+..   mdpp pulser to generate data.
+.. * Open ``VME Interface Settings``, set ``marking type 0x6038 to 0x3`` to enable
+..   extended timestamp generation.
+.. * Analysis: Add a new :ref:`Filter Extractor <analysis-extractor>` to the
+..   mdpp16 with the following two filter words:
+.. 
+..   ``11DD DDDD DDDD DDDD DDDD DDDD DDDD DDDD``
+..   ``0010 XXXX XXXX XXXX DDDD DDDD DDDD DDDD``
+
+
 .. _howto-vmusb-firmware-update:
 
 ==================================================

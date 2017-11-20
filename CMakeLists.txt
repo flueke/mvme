@@ -1,6 +1,41 @@
 cmake_minimum_required(VERSION 3.0.0)
 project(mvme)
 
+set(WARNING_FLAGS "-Wall -Wno-unused-variable -Wno-unused-function")
+#set(WARNING_FLAGS "${WARNING_FLAGS} -Wno-mismatched-tags")
+
+set(CMAKE_CXX_FLAGS "-std=c++14 -pipe ${WARNING_FLAGS}")
+
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mbmi2")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4.2")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mavx")
+
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=thread")
+
+set(MARCH_FLAG "nocona")
+set(MTUNE_FLAG "core2")
+#set(MARCH_FLAG "haswell")
+#set(MTUNE_FLAG "haswell")
+#set(MARCH_FLAG "skylake")
+#set(MTUNE_FLAG "skylake")
+
+set(CMAKE_CXX_FLAGS_DEBUG   "-g -Og")
+set(CMAKE_CXX_FLAGS_RELEASE "-DNDEBUG -O3 -march=${MARCH_FLAG} -mtune=${MTUNE_FLAG}")
+set(CMAKE_CXX_FLAGS_PROFILE "-DNDEBUG -O3 -march=${MARCH_FLAG} -mtune=${MTUNE_FLAG} -pg -fno-omit-frame-pointer")
+# Explicitly set the required c++ standard (CMake >= 3.1)
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+message("-- CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
+message("-- CMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}")
+if (NOT "${CMAKE_BUILD_TYPE}" STREQUAL "")
+    string(TOUPPER ${CMAKE_BUILD_TYPE} build_type_upper)
+    message("-- CMAKE_CXX_FLAGS_${build_type_upper}=${CMAKE_CXX_FLAGS_${build_type_upper}}")
+endif()
+
+
 ## Create binaries in the root of the build directory
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
@@ -29,9 +64,50 @@ git_describe(GIT_VERSION "--always")
 string(REGEX MATCH "^[0-9.]+(-[0-9]+)?" GIT_VERSION_SHORT ${GIT_VERSION})
 string(REGEX MATCH "^[0-9.]+" GIT_VERSION_TAG ${GIT_VERSION})
 
-message("GIT_VERSION=${GIT_VERSION}")
-message("GIT_VERSION_SHORT=${GIT_VERSION_SHORT}")
-message("GIT_VERSION_TAG=${GIT_VERSION_TAG}")
+message("-- GIT_VERSION=${GIT_VERSION}")
+message("-- GIT_VERSION_SHORT=${GIT_VERSION_SHORT}")
+message("-- GIT_VERSION_TAG=${GIT_VERSION_TAG}")
+
+# External libraries.
+# Note: This was moved up from the src/ subdirectory so that the
+# include_directories() commands have effect both in the src/ and test/
+# subdirectories. Otherwise the find_path() commands would have to be repeated
+# inside test/.
+
+# 3rdparty
+include_directories("${CMAKE_SOURCE_DIR}/3rdparty")
+include_directories("${CMAKE_SOURCE_DIR}/3rdparty/pcg-cpp-0.98/include/")
+include_directories("${CMAKE_SOURCE_DIR}/3rdparty/cpp11-on-multicore/common/")
+
+# qwt
+find_path(QWT_INCLUDE_DIR
+    NAMES qwt_plot.h
+    PATH_SUFFIXES qwt qwt-qt5 qwt-6.1.3)
+
+# HDF5
+option(ENABLE_HDF5 "Enable HDF5 support" ON)
+set(HDF5_USE_STATIC_LIBRARIES Off)
+
+if (ENABLE_HDF5)
+    find_package(HDF5 COMPONENTS CXX)
+    if (HDF5_FOUND)
+        include_directories(${HDF5_INCLUDE_DIRS})
+        #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${HDF5_DEFINITIONS}")
+        add_definitions(-DMVME_ENABLE_HDF5)
+    endif(HDF5_FOUND)
+endif(ENABLE_HDF5)
+
+# Qwt
+find_library(QWT_LIBRARY NAMES qwt qwt-qt5)
+include_directories(${QWT_INCLUDE_DIR})
+#include(FindPackageHandleStandardArgs)
+#find_package_handle_standard_args(Qwt DEFAULT_MSG QWT_LIBRARY QWT_INCLUDE_DIR)
+
+message("-- Using QWT_INCLUDE_DIR=${QWT_INCLUDE_DIR}")
+message("-- Using QWT_LIBRARY=${QWT_LIBRARY}")
+
+# ROOT
+option(ENABLE_ROOT "Enable ROOT support" OFF)
 
 # Subdirectories containing build targets
 add_subdirectory(src)
@@ -39,9 +115,10 @@ add_subdirectory(extras)
 
 # To get a 'make test' target. If this is not in the top level CMakeLists.txt
 # no test target is generated :(
-option(BUILD_TESTS "Build test binaries" OFF)
+option(BUILD_TESTS "Build test binaries" ON)
 
 if (BUILD_TESTS)
+    message("-- Building test binaries")
     enable_testing()
     add_subdirectory(test)
 endif()
@@ -80,7 +157,7 @@ endif()
 if (WIN32)
     # C:\src\deploy\mvme-x64-libusb-0.1-Debug
     # C:\src\deploy\mvme-x64-libusb-0.1-Release
-    set(DEPLOY_DIR "c:/src/deploy/mvme-${PACKAGE_ARCH_STRING}-libusb-0.1-${CMAKE_BUILD_TYPE}/")
+    set(DEPLOY_DIR "c:/src/mvme2-deploy/windows/mvme-${PACKAGE_ARCH_STRING}-libusb-0.1-${CMAKE_BUILD_TYPE}/")
 
     install(DIRECTORY "${DEPLOY_DIR}" DESTINATION . USE_SOURCE_PERMISSIONS)
 
@@ -102,7 +179,7 @@ if (WIN32)
     set(CPACK_SOURCE_GENERATOR "ZIP")
 else()
     # Install additional deployment files: shared objects, qt plugins, etc.
-    install(DIRECTORY "$ENV{HOME}/src/deploy/mvme-${PACKAGE_ARCH_STRING}-libusb-0.1/"
+    install(DIRECTORY "$ENV{HOME}/src/mvme2-deploy/linux/mvme-${PACKAGE_ARCH_STRING}-libusb-0.1/"
         DESTINATION .
         USE_SOURCE_PERMISSIONS)
 

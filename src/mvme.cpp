@@ -20,17 +20,18 @@
 
 #include "analysis/analysis.h"
 #include "analysis/analysis_ui.h"
-#include "analysis_info_widget.h"
 #include "config_ui.h"
 #include "daqcontrol_widget.h"
 #include "daqstats_widget.h"
 #include "gui_util.h"
 #include "histo1d_widget.h"
 #include "histo2d_widget.h"
+#include "listfile_browser.h"
 #include "mesytec_diagnostics.h"
 #include "mvme_context.h"
-#include "mvme_event_processor.h"
+#include "mvme_stream_worker.h"
 #include "mvme_listfile.h"
+#include "mvme_context_lib.h"
 #include "qt_util.h"
 #include "sis3153_util.h"
 #include "util_zip.h"
@@ -42,12 +43,15 @@
 #ifdef MVME_USE_GIT_VERSION_FILE
 #include "git_sha1.h"
 #endif
+#include "build_info.h"
 
+#include <QApplication>
 #include <QDockWidget>
 #include <QFileDialog>
 #include <QFont>
 #include <QLabel>
 #include <QList>
+#include <QMenuBar>
 #include <QMessageBox>
 #include <QPlainTextEdit>
 #include <QPushButton>
@@ -57,11 +61,9 @@
 #include <QtGui>
 #include <QtNetwork>
 #include <QToolBar>
-#include <qwt_plot_curve.h>
-#include <QVBoxLayout>
-#include <QMenuBar>
-#include <QApplication>
 #include <quazipfile.h>
+#include <QVBoxLayout>
+#include <qwt_plot_curve.h>
 
 using namespace vats;
 
@@ -77,8 +79,8 @@ struct MVMEWindowPrivate
     VMEDebugWidget *m_vmeDebugWidget = nullptr;
     QMap<QObject *, QList<QWidget *>> m_objectWindows;
     WidgetGeometrySaver *m_geometrySaver;
-    bool m_quitting = false;
     QNetworkAccessManager *m_networkAccessManager = nullptr;
+    ListfileBrowser *m_listfileBrowser = nullptr;
 
     QStatusBar *statusBar;
     QMenuBar *menuBar;
@@ -87,10 +89,10 @@ struct MVMEWindowPrivate
             *actionNewVMEConfig, *actionOpenVMEConfig, *actionSaveVMEConfig, *actionSaveVMEConfigAs,
             *actionOpenListfile, *actionCloseListfile,
             *actionQuit,
-            *actionShowMainWindow, *actionShowAnalysis, *actionShowLog,
+            *actionShowMainWindow, *actionShowAnalysis, *actionShowLog, *actionShowListfileBrowser,
 
             *actionToolVMEDebug, *actionToolImportHisto1D, *actionToolVMUSBFirmwareUpdate,
-            *actionToolTemplateInfo, *actionToolSIS3153Debug, *actionToolAnalysisInfo,
+            *actionToolTemplateInfo, *actionToolSIS3153Debug,
 
             *actionHelpVMEScript, *actionHelpAbout, *actionHelpAboutQt, *actionHelpUpdateCheck
             ;
@@ -166,14 +168,19 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     m_d->actionShowLog->setShortcut(QSL("Ctrl+3"));
     m_d->actionShowLog->setShortcutContext(Qt::ApplicationShortcut);
 
+    m_d->actionShowListfileBrowser = new QAction(QSL("Listfile Browser"), this);
+    m_d->actionShowListfileBrowser->setShortcut(QSL("Ctrl+4"));
+    m_d->actionShowListfileBrowser->setShortcutContext(Qt::ApplicationShortcut);
+
     m_d->actionToolVMEDebug             = new QAction(QSL("VME Debug"), this);
     m_d->actionToolImportHisto1D        = new QAction(QSL("Import Histo1D"), this);
     m_d->actionToolVMUSBFirmwareUpdate  = new QAction(QSL("VM-USB Firmware Update"), this);
     m_d->actionToolTemplateInfo         = new QAction(QSL("Template System Info"), this);
     m_d->actionToolSIS3153Debug         = new QAction(QSL("SIS3153 Debug Widget"), this);
-    m_d->actionToolAnalysisInfo         = new QAction(QSL("Analysis Info"), this);
 
-    m_d->actionHelpVMEScript   = new QAction(QIcon(QSL("help.png")), QSL("&VME Script Reference"), this);
+    m_d->actionHelpVMEScript   = new QAction(QIcon(QSL(":/help.png")), QSL("&VME Script Reference"), this);
+    m_d->actionHelpVMEScript->setObjectName(QSL("actionVMEScriptRef"));
+    m_d->actionHelpVMEScript->setIconText(QSL("Script Help"));
     m_d->actionHelpAbout       = new QAction(QIcon(QSL("window_icon.png")), QSL("&About mvme"), this);
     m_d->actionHelpAboutQt     = new QAction(QSL("About &Qt"), this);
     m_d->actionHelpUpdateCheck = new QAction(QSL("Check for updates"), this);
@@ -196,6 +203,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     connect(m_d->actionShowMainWindow,          &QAction::triggered, this, &MVMEMainWindow::onActionMainWindow_triggered);
     connect(m_d->actionShowAnalysis,            &QAction::triggered, this, &MVMEMainWindow::onActionAnalysis_UI_triggered);
     connect(m_d->actionShowLog,                 &QAction::triggered, this, &MVMEMainWindow::onActionLog_Window_triggered);
+    connect(m_d->actionShowListfileBrowser,     &QAction::triggered, this, &MVMEMainWindow::onActionListfileBrowser_triggered);
 
     connect(m_d->actionToolVMEDebug,            &QAction::triggered, this, &MVMEMainWindow::onActionVME_Debug_triggered);
     connect(m_d->actionToolImportHisto1D,       &QAction::triggered, this, &MVMEMainWindow::onActionImport_Histo1D_triggered);
@@ -205,9 +213,9 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
         auto widget = new SIS3153DebugWidget(m_d->m_context);
         widget->setAttribute(Qt::WA_DeleteOnClose);
         add_widget_close_action(widget);
+        m_d->m_geometrySaver->addAndRestore(widget, QSL("WindowGeometries/SIS3153DebugWidget"));
         widget->show();
     });
-    connect(m_d->actionToolAnalysisInfo,        &QAction::triggered, this, &MVMEMainWindow::onActionToolAnalysisInfo_triggered);
 
     connect(m_d->actionHelpVMEScript,           &QAction::triggered, this, &MVMEMainWindow::onActionVMEScriptRef_triggered);
     connect(m_d->actionHelpAbout,               &QAction::triggered, this, &MVMEMainWindow::displayAbout);
@@ -240,6 +248,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     m_d->menuWindow->addAction(m_d->actionShowMainWindow);
     m_d->menuWindow->addAction(m_d->actionShowAnalysis);
     m_d->menuWindow->addAction(m_d->actionShowLog);
+    m_d->menuWindow->addAction(m_d->actionShowListfileBrowser);
 
     m_d->menuTools->addAction(m_d->actionToolVMEDebug);
     m_d->menuTools->addAction(m_d->actionToolImportHisto1D);
@@ -247,7 +256,6 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     m_d->menuTools->addAction(m_d->actionToolTemplateInfo);
     m_d->menuTools->addAction(m_d->actionToolSIS3153Debug);
     m_d->menuTools->addAction(m_d->actionToolVMEDebug);
-    m_d->menuTools->addAction(m_d->actionToolAnalysisInfo);
 
     m_d->menuHelp->addAction(m_d->actionHelpVMEScript);
     m_d->menuHelp->addSeparator();
@@ -268,7 +276,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     connect(m_d->m_context, &MVMEContext::daqStateChanged, this, &MVMEMainWindow::onDAQStateChanged);
     connect(m_d->m_context, &MVMEContext::sigLogMessage, this, &MVMEMainWindow::appendToLog);
     connect(m_d->m_context, &MVMEContext::daqStateChanged, this, &MVMEMainWindow::updateActions);
-    connect(m_d->m_context, &MVMEContext::eventProcessorStateChanged, this, &MVMEMainWindow::updateActions);
+    connect(m_d->m_context, &MVMEContext::mvmeStreamWorkerStateChanged, this, &MVMEMainWindow::updateActions);
     connect(m_d->m_context, &MVMEContext::modeChanged, this, &MVMEMainWindow::updateActions);
     connect(m_d->m_context, &MVMEContext::daqConfigChanged, this, &MVMEMainWindow::updateActions);
 
@@ -302,6 +310,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
         // Create and open log and analysis windows.
         onActionLog_Window_triggered();
         onActionAnalysis_UI_triggered();
+        //onActionListfileBrowser_triggered();
         // Focus the main window
         this->raise();
     });
@@ -434,6 +443,7 @@ void MVMEMainWindow::displayAbout()
 
     auto buttonLayout = new QHBoxLayout;
 
+    // license
     {
         auto button = new QPushButton(QSL("&License"));
         connect(button, &QPushButton::clicked, this, [this, tb_license]() {
@@ -447,6 +457,31 @@ void MVMEMainWindow::displayAbout()
         buttonLayout->addWidget(button);
     }
 
+    // build info
+    {
+        QStringList build_infos;
+        build_infos << versionString;
+        build_infos << QSL("Build Type: ") + BUILD_TYPE;
+        build_infos << QSL("Build Flags:") + BUILD_CXX_FLAGS;
+
+        auto tb_info = new QTextBrowser(dialog);
+        tb_info->setWindowFlags(Qt::Window);
+        tb_info->setWindowTitle(QSL("mvme build info"));
+        tb_info->setText(build_infos.join('\n'));
+
+        auto button = new QPushButton(QSL("&Info"));
+        connect(button, &QPushButton::clicked, this, [this, tb_info]() {
+            auto sz = tb_info->size();
+            sz = sz.expandedTo(QSize(500, 300));
+            tb_info->resize(sz);
+            tb_info->show();
+            tb_info->raise();
+        });
+
+        buttonLayout->addWidget(button);
+    }
+
+    // close
     {
         auto button = new QPushButton(QSL("&Close"));
         connect(button, &QPushButton::clicked, dialog, &QDialog::close);
@@ -486,6 +521,33 @@ void MVMEMainWindow::closeEvent(QCloseEvent *event)
                            QSL("Data acquisition is currently active. Ignoring request to exit."),
                            QMessageBox::Ok);
         msgBox.exec();
+        event->ignore();
+        return;
+    }
+
+    /* Try to close all top level windows except our own window. This will
+     * trigger any reimplementations of closeEvent() and thus give widgets a
+     * chance to ask the user about how to handle pending modifications. If the
+     * QCloseEvent is ignored by the widget the QWindow::close() call will
+     * return false. In this case we keep this widget open and ignore our
+     * QCloseEvent aswell.  */
+    bool allWindowsClosed = true;
+
+    for (auto window: QGuiApplication::topLevelWindows())
+    {
+        if (window != this->windowHandle())
+        {
+            if (!window->close())
+            {
+                qDebug() << __PRETTY_FUNCTION__ << "window" << window << "refused to close";
+                allWindowsClosed = false;
+                break;
+            }
+        }
+    }
+
+    if (!allWindowsClosed)
+    {
         event->ignore();
         return;
     }
@@ -543,39 +605,12 @@ void MVMEMainWindow::closeEvent(QCloseEvent *event)
         }
     }
 
-    /* Try to close all top level windows except our own window. This will
-     * trigger any reimplementations of closeEvent() and thus give widgets a
-     * chance to ask the user about how to handle pending modifications. If the
-     * QCloseEvent is ignored by the widget the QWindow::close() call will
-     * return false. In this case we keep this widget open and ignore our
-     * QCloseEvent aswell.  */
-    bool allWindowsClosed = true;
-
-    for (auto window: QGuiApplication::topLevelWindows())
-    {
-        if (window != this->windowHandle())
-        {
-            if (!window->close())
-            {
-                qDebug() << __PRETTY_FUNCTION__ << "window" << window << "refused to close";
-                allWindowsClosed = false;
-                break;
-            }
-        }
-    }
-
-    if (!allWindowsClosed)
-    {
-        event->ignore();
-        return;
-    }
-
     // window sizes and positions
     QSettings settings;
     settings.setValue("mainWindowGeometry", saveGeometry());
     settings.setValue("mainWindowState", saveState());
 
-    m_d->m_quitting = true;
+    m_quitting = true;
 
     QMainWindow::closeEvent(event);
     auto app = qobject_cast<QApplication *>(qApp);
@@ -669,9 +704,15 @@ void MVMEMainWindow::onActionNewVMEConfig_triggered()
         }
     }
 
-    // TODO: run a dialog to set-up config basics: controller type, working directory, etc...
+    // copy the previous controller settings into the new VMEConfig
+    auto vmeConfig = m_d->m_context->getVMEConfig();
+    auto ctrlType = vmeConfig->getControllerType();
+    auto ctrlSettings = vmeConfig->getControllerSettings();
 
-    m_d->m_context->setVMEConfig(new VMEConfig);
+    vmeConfig = new VMEConfig;
+    vmeConfig->setVMEController(ctrlType, ctrlSettings);
+
+    m_d->m_context->setVMEConfig(vmeConfig);
     m_d->m_context->setConfigFileName(QString());
     m_d->m_context->setMode(GlobalMode::DAQ);
 }
@@ -834,142 +875,42 @@ void MVMEMainWindow::onActionOpenListfile_triggered()
                                                     path,
                                                     "MVME Listfiles (*.mvmelst *.zip);; All Files (*.*)");
     if (fileName.isEmpty())
-        return;
-
-    // ZIP
-    if (fileName.toLower().endsWith(QSL(".zip")))
     {
-        QString listfileFileName;
+        return;
+    }
 
-        // find and use the first .mvmelst file inside the archive
+    try
+    {
+        u16 openFlags = 0;
+
+        if (fileName.endsWith(".zip"))
         {
-            QuaZip archive(fileName);
+            QMessageBox box(QMessageBox::Question, QSL("Load analysis?"),
+                            QSL("Do you want to load the analysis configuration from the ZIP archive?"),
+                            QMessageBox::Yes | QMessageBox::No);
 
-            if (!archive.open(QuaZip::mdUnzip))
+            box.button(QMessageBox::Yes)->setText(QSL("Load analysis"));
+            box.button(QMessageBox::No)->setText(QSL("Keep current analysis"));
+            box.setDefaultButton(QMessageBox::No);
+
+            if (box.exec() == QMessageBox::Yes)
             {
-                QMessageBox::critical(0, "Error", make_zip_error("Could not open archive", &archive));
-            }
-
-            QStringList fileNames = archive.getFileNameList();
-
-            auto it = std::find_if(fileNames.begin(), fileNames.end(), [](const QString &str) {
-                return str.endsWith(QSL(".mvmelst"));
-            });
-
-            if (it == fileNames.end())
-            {
-                QMessageBox::critical(0, "Error", QString("No listfile found inside %1").arg(fileName));
-                return;
-            }
-
-            listfileFileName = *it;
-        }
-
-        Q_ASSERT(!listfileFileName.isEmpty());
-
-        auto inFile = std::make_unique<QuaZipFile>(fileName, listfileFileName);
-
-        if (!inFile->open(QIODevice::ReadOnly))
-        {
-            QMessageBox::critical(0, "Error", make_zip_error("Could not open listfile", inFile.get()));
-            return;
-        }
-
-        auto listFile = std::make_unique<ListFile>(inFile.release());
-
-        if (!listFile->open())
-        {
-            QMessageBox::critical(0, "Error", QString("Error opening listfile inside %1 for reading").arg(fileName));
-            return;
-        }
-
-        // try reading the DAQ config from inside the listfile
-        auto json = listFile->getDAQConfig();
-
-        if (json.isEmpty())
-        {
-            QMessageBox::critical(0, "Error", QString("Listfile does not contain a valid DAQ configuration"));
-            return;
-        }
-
-        // save current replay state and set new listfile on the context object
-        bool wasReplaying = (m_d->m_context->getMode() == GlobalMode::ListFile
-                             && m_d->m_context->getDAQState() == DAQState::Running);
-
-        m_d->m_context->setReplayFile(listFile.release());
-
-
-        // Check if there's an analysis file inside the zip archive and ask the
-        // user if it should be loaded.
-        {
-            // FIXME: this part does not check if the current analysis is modified!
-
-            QuaZipFile inFile(fileName, QSL("analysis.analysis"));
-
-            if (inFile.open(QIODevice::ReadOnly))
-            {
-                QMessageBox box(QMessageBox::Question, QSL("Load analysis?"),
-                                QSL("Do you want to load the analysis configuration from the ZIP archive?"),
-                                QMessageBox::Yes | QMessageBox::No);
-
-                box.button(QMessageBox::Yes)->setText(QSL("Load analysis"));
-                box.button(QMessageBox::No)->setText(QSL("Keep current analysis"));
-                box.setDefaultButton(QMessageBox::No);
-
-                if (box.exec() == QMessageBox::Yes)
-                {
-                    m_d->m_context->loadAnalysisConfig(&inFile, QSL("ZIP Archive"));
-                }
+                openFlags |= OpenListfileFlags::LoadAnalysis;
             }
         }
 
-        // Try to read the logfile from the archive and append it to the log view
-        {
-            QuaZipFile inFile(fileName, QSL("messages.log"));
+        auto openResult = open_listfile(m_d->m_context, fileName, openFlags);
 
-            if (inFile.open(QIODevice::ReadOnly))
-            {
-                appendToLog(QSL(">>>>> Begin listfile log"));
-                appendToLog(inFile.readAll());
-                appendToLog(QSL("<<<<< End listfile log"));
-            }
-        }
-
-        if (wasReplaying)
+        if (openResult.listfile)
         {
-            m_d->m_context->startReplay();
+            appendToLogNoDebugOut(QSL(">>>>> Begin listfile log"));
+            appendToLogNoDebugOut(openResult.messages);
+            appendToLogNoDebugOut(QSL("<<<<< End listfile log"));
         }
     }
-    // Plain
-    else
+    catch (const QString &err)
     {
-        ListFile *listFile = new ListFile(fileName);
-
-        if (!listFile->open())
-        {
-            QMessageBox::critical(0, "Error", QString("Error opening %1 for reading").arg(fileName));
-            delete listFile;
-            return;
-        }
-
-        auto json = listFile->getDAQConfig();
-
-        if (json.isEmpty())
-        {
-            QMessageBox::critical(0, "Error", QString("Listfile does not contain a valid DAQ configuration"));
-            delete listFile;
-            return;
-        }
-
-        bool wasReplaying = (m_d->m_context->getMode() == GlobalMode::ListFile
-                             && m_d->m_context->getDAQState() == DAQState::Running);
-
-        m_d->m_context->setReplayFile(listFile);
-
-        if (wasReplaying)
-        {
-            m_d->m_context->startReplay();
-        }
+        QMessageBox::critical(0, "Error", err);
     }
 
     updateWindowTitle();
@@ -1060,6 +1001,24 @@ void MVMEMainWindow::onActionLog_Window_triggered()
     show_and_activate(m_d->m_logView);
 }
 
+void MVMEMainWindow::onActionListfileBrowser_triggered()
+{
+    if (!m_d->m_listfileBrowser)
+    {
+        m_d->m_listfileBrowser = new ListfileBrowser(m_d->m_context, this);
+        m_d->m_listfileBrowser->setAttribute(Qt::WA_DeleteOnClose);
+        add_widget_close_action(m_d->m_listfileBrowser);
+
+        connect(m_d->m_listfileBrowser, &QObject::destroyed, this, [this] (QObject *) {
+            this->m_d->m_listfileBrowser = nullptr;
+        });
+
+        m_d->m_geometrySaver->addAndRestore(m_d->m_listfileBrowser, QSL("WindowGeometries/ListfileBrowser"));
+    }
+
+    show_and_activate(m_d->m_listfileBrowser);
+}
+
 void MVMEMainWindow::onActionVMUSB_Firmware_Update_triggered()
 {
     vmusb_gui_load_firmware(m_d->m_context);
@@ -1104,11 +1063,19 @@ void MVMEMainWindow::onObjectAboutToBeRemoved(QObject *object)
     m_d->m_objectWindows.remove(object);
 }
 
+void MVMEMainWindow::appendToLogNoDebugOut(const QString &str)
+{
+    if (m_d->m_logView)
+    {
+        m_d->m_logView->appendPlainText(str);
+        auto bar = m_d->m_logView->verticalScrollBar();
+        bar->setValue(bar->maximum());
+    }
+}
+
 void MVMEMainWindow::appendToLog(const QString &str)
 {
-    auto debug(qDebug());
-    debug.noquote();
-    debug << __PRETTY_FUNCTION__ << str;
+    //qDebug().noquote() << __PRETTY_FUNCTION__ << str;
 
     if (m_d->m_logView)
     {
@@ -1233,13 +1200,13 @@ void MVMEMainWindow::onDAQStateChanged(const DAQState &)
 
 void MVMEMainWindow::onShowDiagnostics(ModuleConfig *moduleConfig)
 {
-    if (m_d->m_context->getEventProcessor()->getDiagnostics())
+    if (m_d->m_context->getMVMEStreamWorker()->hasDiagnostics())
         return;
 
-    auto diag   = new MesytecDiagnostics;
+    auto diag = std::make_shared<MesytecDiagnostics>();
+
     diag->setEventAndModuleIndices(m_d->m_context->getVMEConfig()->getEventAndModuleIndices(moduleConfig));
-    auto eventProcessor = m_d->m_context->getEventProcessor();
-    eventProcessor->setDiagnostics(diag);
+    auto streamWorker = m_d->m_context->getMVMEStreamWorker();
 
     auto widget = new MesytecDiagnosticsWidget(diag);
     widget->setAttribute(Qt::WA_DeleteOnClose);
@@ -1248,7 +1215,7 @@ void MVMEMainWindow::onShowDiagnostics(ModuleConfig *moduleConfig)
 
     connect(widget, &MVMEWidget::aboutToClose, this, [this]() {
         qDebug() << __PRETTY_FUNCTION__ << "diagnostics widget about to close";
-        QMetaObject::invokeMethod(m_d->m_context->getEventProcessor(), "removeDiagnostics", Qt::QueuedConnection);
+        QMetaObject::invokeMethod(m_d->m_context->getMVMEStreamWorker(), "removeDiagnostics", Qt::QueuedConnection);
     });
 
     connect(m_d->m_context, &MVMEContext::daqStateChanged, widget, [this, widget] (const DAQState &state) {
@@ -1258,6 +1225,8 @@ void MVMEMainWindow::onShowDiagnostics(ModuleConfig *moduleConfig)
         }
 
     });
+
+    streamWorker->setDiagnostics(diag);
 
     widget->show();
     widget->raise();
@@ -1473,15 +1442,6 @@ void MVMEMainWindow::onActionCheck_for_updates_triggered()
     });
 }
 
-void MVMEMainWindow::onActionToolAnalysisInfo_triggered()
-{
-    auto widget = new AnalysisInfoWidget(m_d->m_context);
-    widget->setAttribute(Qt::WA_DeleteOnClose);
-    add_widget_close_action(widget);
-    m_d->m_geometrySaver->addAndRestore(widget, QSL("WindowGeometries/AnalysisInfo"));
-    widget->show();
-}
-
 bool MVMEMainWindow::createNewOrOpenExistingWorkspace()
 {
     do
@@ -1534,11 +1494,11 @@ bool MVMEMainWindow::createNewOrOpenExistingWorkspace()
 
 void MVMEMainWindow::updateActions()
 {
-    if (m_d->m_quitting) return;
+    if (m_quitting) return;
 
     auto globalMode = m_d->m_context->getMode();
     auto daqState = m_d->m_context->getDAQState();
-    auto eventProcState = m_d->m_context->getEventProcessorState();
+    auto eventProcState = m_d->m_context->getMVMEStreamProcessorState();
 
     bool isDAQIdle = (daqState == DAQState::Idle);
 

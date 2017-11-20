@@ -57,10 +57,6 @@
                         {
                             "filterString": "11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
                             "wordIndex": -1
-                        },
-                        {
-                            "filterString": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-                            "wordIndex": -1
                         }
                     ]
                 },

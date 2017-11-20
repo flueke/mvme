@@ -2,5 +2,6 @@
     "typeId"        : 8,
     "typeName"      : "mdpp16_qdc",
     "displayName"   : "MDPP-16_QDC",
+    "vendorName"    : "mesytec",
     "eventHeaderFilter" : "0100XXXXMMMMMMMMXXXXXXSSSSSSSSSS"
 }

@@ -306,7 +306,7 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         m_vmusbStack.resetLoadOffset(); // reset the static load offset
         int nextStackID = 2; // start at ID=2 as NIM=0 and scaler=1 (fixed)
 
-        for (auto event: daqConfig->eventConfigs)
+        for (auto event: daqConfig->getEventConfigs())
         {
             qDebug() << "daq event" << event->objectName();
 
@@ -524,7 +524,6 @@ void VMUSBReadoutWorker::readoutLoop()
 
     QTime elapsedTime;
     elapsedTime.start();
-    m_bufferProcessor->timetick();
 
     while (true)
     {
@@ -726,7 +725,7 @@ VMUSBReadoutWorker::ReadBufferResult VMUSBReadoutWorker::readBuffer(int timeout_
      *   s32 VMEError::errorType
      *   s32 VMEError::errorCode
      *   s32 dataBytes
-     *   u8* data
+     *   u8 data[dataBytes]
      * If dataBytes is 0 the data entry will be of size 0. No byte order
      * conversion is done so the format is architecture dependent!
      */
@@ -755,9 +754,6 @@ VMUSBReadoutWorker::ReadBufferResult VMUSBReadoutWorker::readBuffer(int timeout_
         DAQStats &stats(*m_workerContext.daqStats);
         stats.addBuffersRead(1);
         stats.addBytesRead(result.bytesRead);
-
-        const double alpha = 0.1;
-        stats.avgReadSize = (alpha * result.bytesRead) + (1.0 - alpha) * stats.avgReadSize;
 
         if (m_bufferProcessor)
             m_bufferProcessor->processBuffer(m_readBuffer);

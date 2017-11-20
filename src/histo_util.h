@@ -179,6 +179,7 @@ class AxisBinning
 
         /* Returns the bin number for the value x. Returns Underflow/Overflow
          * if x is out of range. */
+        // FIXME: I think this returns 0 for NaNs!
         inline s64 getBin(double x) const
         {
             double bin = getBinUnchecked(x);
@@ -267,7 +268,7 @@ QString make_title_string(const AxisInfo &axisInfo)
 
 static const s32 Histo1DMinBits = 1;
 static const s32 Histo1DMaxBits = 20;
-static const s32 Histo1DDefBits = 16;
+static const s32 Histo1DDefBits = 13;
 
 static const s32 Histo2DMinBits = 1;
 static const s32 Histo2DMaxBits = 13;

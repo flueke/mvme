@@ -81,6 +81,13 @@ void Histo2D::fill(double x, double y, double weight)
     else
     {
         u32 linearBin = yBin * m_axisBinnings[Qt::XAxis].getBins() + xBin;
+        /* If clear to nan
+        if (std::isnan(m_data[linearBin]))
+        {
+            m_data[linearBin] = 0.0;
+        }
+        */
+
         m_data[linearBin] += weight;
         double newValue = m_data[linearBin];
 
@@ -124,11 +131,9 @@ double Histo2D::getBinContent(u32 xBin, u32 yBin) const
 
 void Histo2D::clear()
 {
-    size_t maxBin = m_axisBinnings[Qt::XAxis].getBins() * m_axisBinnings[Qt::YAxis].getBins();
-    for (size_t bin = 0; bin < maxBin; ++bin)
-    {
-        m_data[bin] = 0.0;
-    }
+    size_t binCount = m_axisBinnings[Qt::XAxis].getBins() * m_axisBinnings[Qt::YAxis].getBins();
+    //std::fill(m_data, m_data + binCount, make_quiet_nan());
+    std::fill(m_data, m_data + binCount, 0.0);
 
     m_underflow = 0.0;
     m_overflow = 0.0;
@@ -172,20 +177,30 @@ AxisInterval Histo2D::getInterval(Qt::Axis axis) const
     else if (axis == Qt::ZAxis)
     {
         result.minValue = 0.0;
-        result.maxValue = m_stats.maxValue;
+        // FIXME: hack for a2
+        //result.maxValue = m_stats.maxValue;
+        result.maxValue = m_lastCalculatedMaxValue;
     }
 
     return result;
 }
 
+Histo2DStatistics Histo2D::getGlobalStatistics() const
+{
+    return calcStatistics(getInterval(Qt::XAxis), getInterval(Qt::YAxis));
+}
+
 Histo2DStatistics Histo2D::calcStatistics(AxisInterval xInterval, AxisInterval yInterval) const
 {
+    // always calculate due to a2 filling the histogram without updating the local stats here
+#if 0
     if (xInterval == getInterval(Qt::XAxis)
         && yInterval == getInterval(Qt::YAxis))
     {
         // global range for both intervals, return global stats
         return m_stats;
     }
+#endif
 
     Histo2DStatistics result;
 
@@ -235,6 +250,9 @@ Histo2DStatistics Histo2D::calcStatistics(AxisInterval xInterval, AxisInterval y
 
     result.maxX = m_axisBinnings[Qt::XAxis].getBinLowEdge(result.maxBinX);
     result.maxY = m_axisBinnings[Qt::YAxis].getBinLowEdge(result.maxBinY);
+
+    // FIXME: hack for a2
+    m_lastCalculatedMaxValue = result.maxValue;
 
     return result;
 }

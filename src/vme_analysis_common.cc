@@ -29,6 +29,7 @@
 #include <QTableWidget>
 #include <QVBoxLayout>
 
+#include "analysis/analysis.h"
 #include "qt_util.h"
 
 using namespace analysis;
@@ -605,6 +606,34 @@ void remove_analysis_objects_unless_matching(analysis::Analysis *analysis, VMECo
             analysis->removeOperator(op.op);
         }
     }
+}
+
+VMEIdToIndex build_id_to_index_mapping(const VMEConfig *vmeConfig)
+{
+    VMEIdToIndex result;
+
+    auto eventConfigs = vmeConfig->getEventConfigs();
+
+    for (s32 eventIndex = 0;
+         eventIndex < eventConfigs.size();
+         eventIndex++)
+    {
+        auto eventConfig = eventConfigs.at(eventIndex);
+        auto moduleConfigs = eventConfig->getModuleConfigs();
+
+        result.insert(eventConfig->getId(), { eventIndex, -1 });
+
+        for (s32 moduleIndex = 0;
+             moduleIndex < moduleConfigs.size();
+             ++moduleIndex)
+        {
+            auto moduleConfig = moduleConfigs.at(moduleIndex);
+
+            result.insert(moduleConfig->getId(), { eventIndex, moduleIndex });
+        }
+    }
+
+    return result;
 }
 
 }

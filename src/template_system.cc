@@ -202,6 +202,7 @@ MVMETemplates read_templates_from_path(const QString &path, TemplateLogger logge
         mm.typeId = static_cast<u8>(moduleType);
         mm.typeName = json["typeName"].toString();
         mm.displayName = json["displayName"].toString();
+        mm.vendorName = json["vendorName"].toString();
         mm.eventHeaderFilter = json["eventHeaderFilter"].toString().toLocal8Bit();
         mm.templates = read_module_templates(moduleDir.filePath(QSL("vme")), logger, baseDir);
         mm.templatePath = moduleDir.path();

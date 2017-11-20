@@ -21,7 +21,7 @@
                     "rngSeed": "b6ec9aad546ba33e",
                     "subFilters": [
                         {
-                            "filterString": "00XXX1XX000AAAAA0O0DDDDDDDDDDDDD",
+                            "filterString": "00XX X1XX 000A AAAA 0O0D DDDD DDDD DDDD",
                             "wordIndex": -1
                         }
                     ]
@@ -39,10 +39,6 @@
                     "subFilters": [
                         {
                             "filterString": "11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
-                            "wordIndex": -1
-                        },
-                        {
-                            "filterString": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
                             "wordIndex": -1
                         }
                     ]

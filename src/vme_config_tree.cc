@@ -22,7 +22,7 @@
 #include "mvme_context.h"
 #include "config_ui.h"
 #include "treewidget_utils.h"
-#include "mvme_event_processor.h"
+#include "mvme_stream_worker.h"
 #include "vmusb.h"
 #include "vme_script_editor.h"
 
@@ -162,8 +162,8 @@ VMEConfigTreeWidget::VMEConfigTreeWidget(MVMEContext *context, QWidget *parent)
     pb_load   = makeActionToolButton(mainwin->findChild<QAction *>("actionOpenVMEConfig"));
     pb_save   = makeActionToolButton(mainwin->findChild<QAction *>("actionSaveVMEConfig"));
     pb_saveAs = makeActionToolButton(mainwin->findChild<QAction *>("actionSaveVMEConfigAs"));
-    pb_notes  = makeToolButton(QSL(":/text-document.png"), QSL("Notes"));
-    connect(pb_notes, &QPushButton::clicked, this, &VMEConfigTreeWidget::showEditNotes);
+    //pb_notes  = makeToolButton(QSL(":/text-document.png"), QSL("Notes"));
+    //connect(pb_notes, &QPushButton::clicked, this, &VMEConfigTreeWidget::showEditNotes);
 
     QToolButton *pb_treeSettings = nullptr;
 
@@ -239,7 +239,7 @@ void VMEConfigTreeWidget::setConfig(VMEConfig *cfg)
             for (auto script: cfg->vmeScriptLists[category])
                 onScriptAdded(script, category);
 
-        for (auto event: cfg->eventConfigs)
+        for (auto event: cfg->getEventConfigs())
             onEventAdded(event);
 
         connect(cfg, &VMEConfig::eventAdded, this, &VMEConfigTreeWidget::onEventAdded);
@@ -507,7 +507,7 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
             menu.addAction(QSL("Remove Module"), this, &VMEConfigTreeWidget::removeModule);
         }
 
-        if (!m_context->getEventProcessor()->getDiagnostics())
+        if (!m_context->getMVMEStreamWorker()->hasDiagnostics())
             menu.addAction(QSL("Show Diagnostics"), this, &VMEConfigTreeWidget::handleShowDiagnostics);
     }
 

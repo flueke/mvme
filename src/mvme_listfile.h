@@ -200,6 +200,9 @@ class ListFile
 {
     public:
         ListFile(const QString &fileName);
+
+        /* For ZIP file input it is assumed that the file has been opened before
+         * being passed to our constructor. */
         ListFile(QuaZipFile *inFile);
         ~ListFile();
 
@@ -211,6 +214,7 @@ class ListFile
         const QIODevice *getInputDevice() const { return m_input; }
         qint64 size() const;
         QString getFileName() const;
+        QString getFullName() const; // filename or zipname:/filename
         u32 getFileVersion() const { return m_fileVersion; }
 
     private:

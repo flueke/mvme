@@ -55,7 +55,7 @@ class Histo2D: public QObject
         double getValue(double x, double y) const;
         double getBinContent(u32 xBin, u32 yBin) const;
         void clear();
-
+        inline double *data() { return m_data; }
 
         void debugDump() const;
         inline size_t getStorageSize() const
@@ -105,7 +105,8 @@ class Histo2D: public QObject
         AxisInterval getInterval(Qt::Axis axis) const;
 
         Histo2DStatistics calcStatistics(AxisInterval xInterval, AxisInterval yInterval) const;
-        inline Histo2DStatistics getGlobalStatistics() const { return m_stats; }
+        //inline Histo2DStatistics getGlobalStatistics() const { return m_stats; }
+        inline Histo2DStatistics getGlobalStatistics() const;
         inline double getEntryCount() const { return m_stats.entryCount; }
 
         double getUnderflow() const { return m_underflow; }
@@ -134,9 +135,15 @@ class Histo2D: public QObject
             return m_footer;
         }
 
+        using AxisBinnings = std::array<AxisBinning, 2>;
+        using AxisInfos = std::array<AxisInfo, 2>;
+
+        AxisBinnings getAxisBinnings() const { return m_axisBinnings; }
+        AxisInfos getAxisInfos() const { return m_axisInfos; }
+
     private:
-        std::array<AxisBinning, 2> m_axisBinnings;
-        std::array<AxisInfo, 2> m_axisInfos;
+        AxisBinnings m_axisBinnings;
+        AxisInfos m_axisInfos;
 
         double *m_data = nullptr;
 
@@ -144,6 +151,8 @@ class Histo2D: public QObject
         double m_overflow = 0.0;
 
         Histo2DStatistics m_stats;
+        // FIXME: hack for a2
+        mutable double m_lastCalculatedMaxValue = 0.0;
 
         QString m_title;
         QString m_footer;

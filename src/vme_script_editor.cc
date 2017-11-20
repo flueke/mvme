@@ -388,8 +388,14 @@ void VMEScriptEditor::revert()
 
 void VMEScriptEditor::search()
 {
-    QPoint pos = this->mapToGlobal(QPoint(0, this->height()));
-    m_d->searchWindow->move(pos);
+    if (!m_d->searchWindow->isVisible())
+    {
+        // move the search window close to the top-right corner
+        QPoint pos = this->mapToGlobal(
+            QPoint(this->width() - m_d->searchWindow->sizeHint().width(),
+                   75));
+        m_d->searchWindow->move(pos);
+    }
     m_d->searchWindow->show();
     m_d->searchWindow->raise();
 

@@ -19,12 +19,15 @@
 #ifndef __ANALYSIS_H__
 #define __ANALYSIS_H__
 
-#include "../globals.h"
+#include "a2/memory.h"
+#include "a2/multiword_datafilter.h"
 #include "data_filter.h"
+#include "../globals.h"
 #include "histo1d.h"
 #include "histo2d.h"
 #include "libmvme_export.h"
 #include "typedefs.h"
+#include "../vme_analysis_common.h"
 
 #include <memory>
 #include <pcg_random.hpp>
@@ -34,6 +37,11 @@
 
 class QJsonObject;
 class VMEConfig;
+
+namespace memory
+{
+struct Arena;
+};
 
 /*
  *   Operators vs Sources vs Sinks:
@@ -48,6 +56,7 @@ class VMEConfig;
 
 namespace analysis
 {
+struct A2AdapterState;
 
 struct LIBMVME_EXPORT Parameter
 {
@@ -434,9 +443,9 @@ class LIBMVME_EXPORT Extractor: public SourceInterface
 
         // configuration
         MultiWordDataFilter m_filter;
+        a2::data_filter::MultiWordFilter m_fastFilter;
         u32 m_requiredCompletionCount = 1;
         u64 m_rngSeed;
-
 
         // state
         u32 m_currentCompletionCount = 0;
@@ -692,6 +701,62 @@ class LIBMVME_EXPORT Sum: public BasicOperator
         bool m_calculateMean = false;
 };
 
+class LIBMVME_EXPORT AggregateOps: public BasicOperator
+{
+    Q_OBJECT
+    public:
+        enum Operation
+        {
+            Op_Sum,
+            Op_Mean,
+            Op_Sigma,
+            Op_Min,
+            Op_Max,
+            Op_Multiplicity,
+            Op_MinX,
+            Op_MaxX,
+            Op_MeanX,
+            Op_SigmaX,
+
+            NumOps
+        };
+
+        static QString getOperationName(Operation op);
+
+        AggregateOps(QObject *parent = 0);
+
+        virtual void beginRun(const RunInfo &runInfo) override;
+        virtual void step() override;
+
+        virtual void read(const QJsonObject &json) override;
+        virtual void write(QJsonObject &json) const override;
+
+        virtual QString getDisplayName() const override;
+        virtual QString getShortName() const override;
+
+        void setOperation(Operation op);
+        Operation getOperation() const;
+
+        /* Thresholds to check each input parameter against. If the parameter
+         * is not inside [min_threshold, max_threshold] it is considered
+         * invalid. If set to NaN the threshold is not used. */
+        void setMinThreshold(double t);
+        double getMinThreshold() const;
+        void setMaxThreshold(double t);
+        double getMaxThreshold() const;
+
+        // The unit label to set on the output. If it's an empty string the
+        // input unit label is passed through.
+        void setOutputUnitLabel(const QString &label) { m_outputUnitLabel = label; }
+        QString getOutputUnitLabel() const { return m_outputUnitLabel; }
+
+    private:
+        Operation m_op = Op_Sum;
+        double m_minThreshold = make_quiet_nan();
+        double m_maxThreshold = make_quiet_nan();
+        QString m_outputUnitLabel;
+};
+
 /**
  * Map elements of one or more input arrays to an output array.
  *
@@ -745,7 +810,7 @@ class LIBMVME_EXPORT ArrayMap: public OperatorInterface
     private:
         // Using pointer to Slot here to avoid having to deal with changing
         // Slot addresses on resizing the inputs vector.
-        QVector<Slot *> m_inputs;
+        QVector<std::shared_ptr<Slot>> m_inputs;
         Pipe m_output;
 };
 
@@ -966,6 +1031,7 @@ class LIBMVME_EXPORT Histo1DSink: public BasicSink
 
     private:
         u32 fillsSinceLastDebug = 0;
+        std::shared_ptr<memory::Arena> m_histoArena;
 };
 
 class LIBMVME_EXPORT Histo2DSink: public SinkInterface
@@ -1204,11 +1270,16 @@ class LIBMVME_EXPORT Analysis: public QObject
         };
 
         Analysis(QObject *parent = nullptr);
+        virtual ~Analysis();
 
-        void beginRun(const RunInfo &runInfo);
-        void beginEvent(const QUuid &eventId);
-        void processModuleData(const QUuid &eventId, const QUuid &moduleId, u32 *data, u32 size);
-        void endEvent(const QUuid &eventId);
+        /* Important: only the overload taking the hash of index pairs prepares
+         * the a2 system!
+         */
+        void beginRun(const RunInfo &runInfo, const vme_analysis_common::VMEIdToIndex &vmeMap);
+        void beginRun();
+        void beginEvent(int eventIndex, const QUuid &eventId);
+        void processModuleData(int eventIndex, int moduleIndex, const QUuid &eventId, const QUuid &moduleId, u32 *data, u32 size);
+        void endEvent(int eventIndex, const QUuid &eventId);
         // Called once for every SectionType_Timetick section
         void processTimetick();
 
@@ -1278,6 +1349,18 @@ class LIBMVME_EXPORT Analysis: public QObject
             return nullptr;
         }
 
+        OperatorPtr getOperator(const QUuid &operatorId)
+        {
+            OperatorPtr result;
+
+            auto entryPtr = getOperatorEntry(operatorId);
+            if (entryPtr)
+            {
+                result = entryPtr->op;
+            }
+            return result;
+        }
+
         void addOperator(const QUuid &eventId, const OperatorPtr &op, s32 userLevel);
         void removeOperator(const OperatorPtr &op);
         void removeOperator(OperatorInterface *op);
@@ -1310,7 +1393,12 @@ class LIBMVME_EXPORT Analysis: public QObject
         bool isModified() const { return m_modified; }
         void setModified(bool b = true);
 
+        A2AdapterState *getA2AdapterState() { return m_a2State.get(); }
+
+        RunInfo getRunInfo() const { return m_runInfo; }
+
     private:
+        void beginRun_internal_only(const RunInfo &runInfo);
         void updateRank(OperatorInterface *op, QSet<OperatorInterface *> &updated);
 
         QVector<SourceEntry> m_sources;
@@ -1321,6 +1409,12 @@ class LIBMVME_EXPORT Analysis: public QObject
         bool m_modified;
         RunInfo m_runInfo;
         double m_timetickCount;
+
+        vme_analysis_common::VMEIdToIndex m_vmeMap;
+        std::array<std::unique_ptr<memory::Arena>, 2> m_a2Arenas;
+        u8 m_a2ArenaIndex;
+        std::unique_ptr<memory::Arena> m_a2TempArena;
+        std::unique_ptr<A2AdapterState> m_a2State;
 };
 
 struct LIBMVME_EXPORT RawDataDisplay

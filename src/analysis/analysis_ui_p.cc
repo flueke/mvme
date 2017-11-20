@@ -16,6 +16,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
+#include "a2_adapter.h"
 #include "analysis_ui_p.h"
 #include "analysis_util.h"
 #include "data_extraction_widget.h"
@@ -36,6 +37,7 @@
 #include <QListWidget>
 #include <QMessageBox>
 #include <QRadioButton>
+#include <QTextBrowser>
 
 namespace analysis
 {
@@ -508,6 +510,7 @@ void AddEditOperatorWidget::inputSelected(s32 slotIndex)
     }
 
     m_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(enableOkButton);
+    m_buttonBox->button(QDialogButtonBox::Ok)->setFocus();
     m_inputSelectActive = false;
 }
 
@@ -1134,6 +1137,94 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
         formLayout->addRow(QSL("Output Lower Limit"), spin_outputLowerLimit);
         formLayout->addRow(QSL("Output Upper Limit"), spin_outputUpperLimit);
         formLayout->addRow(QSL("Equation"), combo_equation);
+
+        connect(combo_equation, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
+                this, [this, binOp] (int idx) {
+                    this->updateOutputLimits(binOp);
+        });
+    }
+    else if (auto aggOp = qobject_cast<AggregateOps *>(op))
+    {
+        // operation select combo
+        combo_aggOp = new QComboBox();
+        for (s32 i = 0; i < AggregateOps::NumOps; ++i)
+        {
+            combo_aggOp->addItem(AggregateOps::getOperationName(
+                    static_cast<AggregateOps::Operation>(i)), i);
+        }
+        combo_aggOp->setCurrentIndex(static_cast<s32>(aggOp->getOperation()));
+
+        // unit label
+        le_unit = new QLineEdit;
+        le_unit->setText(aggOp->getOutputUnitLabel());
+
+        // thresholds
+        cb_useMinThreshold = new QCheckBox;
+        cb_useMaxThreshold = new QCheckBox;
+        spin_minThreshold = new QDoubleSpinBox;
+        spin_maxThreshold = new QDoubleSpinBox;
+
+        connect(cb_useMinThreshold, &QCheckBox::stateChanged,
+                this, [this] (int cbState) {
+                    spin_minThreshold->setEnabled(cbState == Qt::Checked);
+                });
+
+        connect(cb_useMaxThreshold, &QCheckBox::stateChanged,
+                this, [this] (int cbState) {
+                    spin_maxThreshold->setEnabled(cbState == Qt::Checked);
+                });
+
+        for (auto spin: { spin_minThreshold, spin_maxThreshold })
+        {
+            spin->setDecimals(8);
+            spin->setMinimum(-1e20);
+            spin->setMaximum(+1e20);
+            spin->setValue(0.0);
+            spin->setEnabled(false);
+        }
+
+        double minT = aggOp->getMinThreshold();
+        double maxT = aggOp->getMaxThreshold();
+
+        if (!std::isnan(minT))
+        {
+            spin_minThreshold->setValue(minT);
+            cb_useMinThreshold->setChecked(true);
+        }
+        else
+        {
+            cb_useMinThreshold->setChecked(false);
+        }
+
+        if (!std::isnan(maxT))
+        {
+            spin_maxThreshold->setValue(maxT);
+            cb_useMaxThreshold->setChecked(true);
+        }
+        else
+        {
+            cb_useMaxThreshold->setChecked(false);
+        }
+
+        auto minTLayout = new QHBoxLayout;
+        minTLayout->setContentsMargins(0, 0, 0, 0);
+        minTLayout->setSpacing(2);
+
+        minTLayout->addWidget(cb_useMinThreshold);
+        minTLayout->addWidget(spin_minThreshold);
+
+        auto maxTLayout = new QHBoxLayout;
+        maxTLayout->setContentsMargins(0, 0, 0, 0);
+        maxTLayout->setSpacing(2);
+
+        maxTLayout->addWidget(cb_useMaxThreshold);
+        maxTLayout->addWidget(spin_maxThreshold);
+
+        formLayout->addRow(QSL("Operation"), combo_aggOp);
+        formLayout->addRow(QSL("Threshold Min"), minTLayout);
+        formLayout->addRow(QSL("Threshold Max"), maxTLayout);
+        formLayout->addRow(QSL("Output Unit"), le_unit);
+        formLayout->addRow(new QLabel(QSL("Leave output unit blank to copy from input.")));
     }
 }
 
@@ -1248,13 +1339,24 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
 
     if (!le_name->text().isEmpty() && op->getNumberOfOutputs() > 0 && all_inputs_connected(op) && !wasNameEdited)
     {
-        // Append the lowercase short name for non sinks
-        auto suffix = QSL(".") + op->getShortName().toLower();
-        auto name = le_name->text();
-        if (!name.endsWith(suffix))
+        // XXX: leftoff here TODO: use the currently selected operations name
+        // as the suffix (currently it always says 'sum')
+#if 0
+        if (auto aggOp = qobject_cast<AggregateOps *>(op))
         {
-            name += suffix;
-            le_name->setText(name);
+
+        }
+        else
+#endif
+        {
+            // Append the lowercase short name for non sinks
+            auto suffix = QSL(".") + op->getShortName().toLower();
+            auto name = le_name->text();
+            if (!name.endsWith(suffix))
+            {
+                name += suffix;
+                le_name->setText(name);
+            }
         }
     }
 
@@ -1419,6 +1521,10 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
                 spin_yMax->setValue(slot->inputPipe->getParameter(slot->paramIndex)->upperLimit);
             }
         }
+    }
+    else if (auto binOp = qobject_cast<BinarySumDiff *>(op))
+    {
+        updateOutputLimits(binOp);
     }
 }
 
@@ -1588,6 +1694,18 @@ void OperatorConfigurationWidget::configureOperator()
         binOp->setOutputLowerLimit(spin_outputLowerLimit->value());
         binOp->setOutputUpperLimit(spin_outputUpperLimit->value());
     }
+    else if (auto aggOp = qobject_cast<AggregateOps *>(op))
+    {
+        aggOp->setOperation(static_cast<AggregateOps::Operation>(combo_aggOp->currentData().toInt()));
+
+        double minT = spin_minThreshold->value();
+        double maxT = spin_maxThreshold->value();
+
+        aggOp->setMinThreshold(cb_useMinThreshold->isChecked() ? minT : make_quiet_nan());
+        aggOp->setMaxThreshold(cb_useMaxThreshold->isChecked() ? maxT : make_quiet_nan());
+
+        aggOp->setOutputUnitLabel(le_unit->text());
+    }
 }
 
 void OperatorConfigurationWidget::fillCalibrationTable(CalibrationMinMax *calib, double proposedMin, double proposedMax)
@@ -1626,70 +1744,185 @@ void OperatorConfigurationWidget::fillCalibrationTable(CalibrationMinMax *calib,
     m_calibrationTable->resizeRowsToContents();
 }
 
+void OperatorConfigurationWidget::updateOutputLimits(BinarySumDiff *op)
+{
+    if (!all_inputs_connected(op))
+        return;
+
+    int equationIndex = combo_equation->currentData().toInt();
+    double llA = op->getSlot(0)->inputPipe->parameters.value(0).lowerLimit;
+    double ulA = op->getSlot(0)->inputPipe->parameters.value(0).upperLimit;
+
+    double llB = op->getSlot(1)->inputPipe->parameters.value(0).lowerLimit;
+    double ulB = op->getSlot(1)->inputPipe->parameters.value(0).upperLimit;
+
+    double llO = 0.0;
+    double ulO = 0.0;
+
+    switch (equationIndex)
+    {
+        case 0: // C = A + B
+            {
+                llO = llA + llB;
+                ulO = ulA + ulB;
+            } break;
+
+        case 1: // C = A - B
+            {
+                llO = llA - ulB;
+                ulO = ulA - llB;
+            } break;
+
+        case 2: // C = (A + B) / (A - B)
+            {
+                llO = (ulA + llB) / (ulA - llB);
+                ulO = (llA + ulB) / (llA - ulB);
+            } break;
+
+        case 3: // C = (A - B) / (A + B)
+            {
+                llO = (ulA - ulB) / (ulA + ulB);
+                ulO = (llA - llB) / (llA + llB);
+            } break;
+
+        case 4: // C = A / (A - B)
+            {
+                llO = ulA / (ulA - llB);
+                ulO = llA / (llA - ulB);
+            } break;
+
+        case 5: // C = (A - B) / A
+            {
+                llO = (ulA - llB) / ulA;
+                ulO = (llA - ulB) / llA;
+            } break;
+    }
+
+    spin_outputLowerLimit->setValue(llO);
+    spin_outputUpperLimit->setValue(ulO);
+}
+
 //
 // PipeDisplay
 //
 
-PipeDisplay::PipeDisplay(Pipe *pipe, QWidget *parent)
+PipeDisplay::PipeDisplay(Analysis *analysis, Pipe *pipe, QWidget *parent)
     : QWidget(parent, Qt::Tool)
+    , m_analysis(analysis)
     , m_pipe(pipe)
+    , m_infoLabel(new QLabel)
     , m_parameterTable(new QTableWidget)
 {
     auto layout = new QGridLayout(this);
     s32 row = 0;
     s32 nCols = 1;
 
-    auto refreshButton = new QPushButton(QSL("Refresh"));
-    connect(refreshButton, &QPushButton::clicked, this, &PipeDisplay::refresh);
-
     auto closeButton = new QPushButton(QSL("Close"));
     connect(closeButton, &QPushButton::clicked, this, &QWidget::close);
 
-    layout->addWidget(refreshButton, row++, 0);
+    layout->addWidget(m_infoLabel, row++, 0);
     layout->addWidget(m_parameterTable, row++, 0);
     layout->addWidget(closeButton, row++, 0, 1, 1);
 
     layout->setRowStretch(1, 1);
+
+    // columns:
+    // Valid, Value, lower Limit, upper Limit
+    m_parameterTable->setColumnCount(4);
+    m_parameterTable->setHorizontalHeaderLabels({"Valid", "Value", "Lower Limit", "Upper Limit"});
 
     refresh();
 }
 
 void PipeDisplay::refresh()
 {
-    m_parameterTable->clear();
-    m_parameterTable->setColumnCount(4);
-    m_parameterTable->setRowCount(m_pipe->parameters.size());
+    setWindowTitle(m_pipe->parameters.name);
 
-    // columns:
-    // Valid, Value, lower Limit, upper Limit
-    m_parameterTable->setHorizontalHeaderLabels({"Valid", "Value", "Lower Limit", "Upper Limit"});
-
-    for (s32 paramIndex = 0; paramIndex < m_pipe->parameters.size(); ++paramIndex)
+    if (auto a2State = m_analysis->getA2AdapterState())
     {
-        const auto &param(m_pipe->parameters[paramIndex]);
-        auto item = new QTableWidgetItem(param.valid ? "Y" : "N");
-        item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
-        m_parameterTable->setItem(paramIndex, 0, item);
+        a2::PipeVectors pipe = find_output_pipe(a2State, m_pipe);
 
-        item = new QTableWidgetItem(param.valid ? QString::number(param.value) : "");
-        item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
-        m_parameterTable->setItem(paramIndex, 1, item);
+        m_parameterTable->setRowCount(pipe.data.size);
 
-        item = new QTableWidgetItem(QString::number(param.lowerLimit));
-        item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
-        m_parameterTable->setItem(paramIndex, 2, item);
+        for (s32 pi = 0; pi < pipe.data.size; pi++)
+        {
+            double param = pipe.data[pi];
+            double lowerLimit = pipe.lowerLimits[pi];
+            double upperLimit = pipe.upperLimits[pi];
 
-        item = new QTableWidgetItem(QString::number(param.upperLimit));
-        item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
-        m_parameterTable->setItem(paramIndex, 3, item);
+            QStringList columns =
+            {
+                a2::is_param_valid(param) ? QSL("Y") : QSL("N"),
+                a2::is_param_valid(param) ? QString::number(param) : QSL(""),
+                QString::number(lowerLimit),
+                QString::number(upperLimit),
+            };
 
-        m_parameterTable->setVerticalHeaderItem(paramIndex, new QTableWidgetItem(QString::number(paramIndex)));
+            for (s32 ci = 0; ci < columns.size(); ci++)
+            {
+                auto item = m_parameterTable->item(pi, ci);
+                if (!item)
+                {
+                    item = new QTableWidgetItem;
+                    m_parameterTable->setItem(pi, ci, item);
+                }
+
+                item->setText(columns[ci]);
+                item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
+            }
+
+            if (!m_parameterTable->verticalHeaderItem(pi))
+            {
+                m_parameterTable->setVerticalHeaderItem(pi, new QTableWidgetItem);
+            }
+
+            m_parameterTable->verticalHeaderItem(pi)->setText(QString::number(pi));
+        }
+
+        m_infoLabel->setText("a2::PipeVectors");
+    }
+    else
+    {
+        m_parameterTable->setRowCount(m_pipe->parameters.size());
+
+        for (s32 pi = 0; pi < m_pipe->parameters.size(); ++pi)
+        {
+            const auto &param(m_pipe->parameters[pi]);
+
+            QStringList columns =
+            {
+                param.valid ? QSL("Y") : QSL("N"),
+                param.valid ? QString::number(param.value) : QSL(""),
+                QString::number(param.lowerLimit),
+                QString::number(param.upperLimit),
+            };
+
+            for (s32 ci = 0; ci < columns.size(); ci++)
+            {
+                auto item = m_parameterTable->item(pi, ci);
+                if (!item)
+                {
+                    item = new QTableWidgetItem;
+                    m_parameterTable->setItem(pi, ci, item);
+                }
+
+                item->setText(columns[ci]);
+                item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
+            }
+
+            if (!m_parameterTable->verticalHeaderItem(pi))
+            {
+                m_parameterTable->setVerticalHeaderItem(pi, new QTableWidgetItem);
+            }
+
+            m_parameterTable->verticalHeaderItem(pi)->setText(QString::number(pi));
+        }
+
+        m_infoLabel->setText("analysis::Pipe");
     }
 
     m_parameterTable->resizeColumnsToContents();
     m_parameterTable->resizeRowsToContents();
-
-    setWindowTitle(m_pipe->parameters.name);
 }
 
 
@@ -1707,6 +1940,35 @@ QWidget* CalibrationItemDelegate::createEditor(QWidget *parent, const QStyleOpti
     }
 
     return result;
+}
+
+SessionErrorDialog::SessionErrorDialog(const QString &message, const QString &title, QWidget *parent)
+    : QDialog(parent)
+{
+    if (!title.isEmpty())
+    {
+        setWindowTitle(title);
+    }
+    auto tb = new QTextBrowser(this);
+    tb->setText(message);
+    tb->setReadOnly(true);
+
+    auto bb = new QDialogButtonBox(QDialogButtonBox::Close, this);
+
+    auto bbLayout = new QHBoxLayout;
+    bbLayout->addStretch(1);
+    bbLayout->addWidget(bb);
+    bbLayout->addStretch(1);
+
+    auto mainLayout = new QVBoxLayout(this);
+    mainLayout->addWidget(tb);
+    mainLayout->addLayout(bbLayout);
+
+    QObject::connect(bb, &QDialogButtonBox::accepted, this, &QDialog::accept);
+    QObject::connect(bb, &QDialogButtonBox::rejected, this, &QDialog::reject);
+
+    resize(600, 300);
+    bb->button(QDialogButtonBox::Close)->setFocus();
 }
 
 }

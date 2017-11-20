@@ -22,9 +22,13 @@
 
 #include <random>
 
+#include "analysis_impl_switch.h"
+#include "a2_adapter.h"
 #include "../vme_config.h"
 
 #define ENABLE_ANALYSIS_DEBUG 0
+
+#define ANALYSIS_USE_SHARED_HISTO1D_MEM 0
 
 template<typename T>
 QDebug &operator<< (QDebug &dbg, const std::shared_ptr<T> &ptr)
@@ -32,6 +36,13 @@ QDebug &operator<< (QDebug &dbg, const std::shared_ptr<T> &ptr)
     dbg << ptr.get();
     return dbg;
 }
+
+template<>
+const QMap<analysis::Analysis::ReadResultCodes, const char *> analysis::Analysis::ReadResult::ErrorCodeStrings =
+{
+    { analysis::Analysis::NoError, "No Error" },
+    { analysis::Analysis::VersionTooNew, "Version too new" },
+};
 
 namespace analysis
 {
@@ -249,9 +260,16 @@ void Extractor::beginRun(const RunInfo &runInfo)
 {
     m_currentCompletionCount = 0;
 
-    u32 addressCount = 1u << m_filter.getAddressBits();
+    m_fastFilter = {};
+    for (auto slowFilter: m_filter.getSubFilters())
+    {
+        auto subfilter = a2::data_filter::make_filter(slowFilter.getFilter().toStdString(), slowFilter.getWordIndex());
+        add_subfilter(&m_fastFilter, subfilter);
+    }
 
-    qDebug() << __PRETTY_FUNCTION__ << this << addressCount;
+    u32 addressCount = 1u << get_extract_bits(&m_fastFilter, a2::data_filter::MultiWordFilter::CacheA);
+
+    qDebug() << __PRETTY_FUNCTION__ << this << "addressCount" << addressCount;
 
     // The highest value the filter will yield is ((2^bits) - 1) but we're
     // adding a random in [0.0, 1.0) so the actual exclusive upper limit is
@@ -293,7 +311,7 @@ void Extractor::beginEvent()
     qDebug() << __PRETTY_FUNCTION__ << this << objectName();
 #endif
 
-    m_filter.clearCompletion();
+    clear_completion(&m_fastFilter);
     m_currentCompletionCount = 0;
     m_output.getParameters().invalidateAll();
 }
@@ -305,9 +323,16 @@ void Extractor::processModuleData(u32 *data, u32 size)
          ++wordIndex)
     {
         u32 dataWord = *(data + wordIndex);
-        m_filter.handleDataWord(dataWord, wordIndex);
+        process_data(&m_fastFilter, dataWord, wordIndex);
 
-        if (m_filter.isComplete())
+#if ENABLE_ANALYSIS_DEBUG
+        qDebug("************************************************");
+        qDebug("%s: %s, dataWord=0x%08x, wordIndex=%u, complete=%d",
+               __PRETTY_FUNCTION__, this->objectName().toLocal8Bit().constData(),
+               dataWord, wordIndex, is_complete(&m_fastFilter));
+#endif
+
+        if (is_complete(&m_fastFilter))
         {
             ++m_currentCompletionCount;
 
@@ -315,8 +340,8 @@ void Extractor::processModuleData(u32 *data, u32 size)
             {
                 m_currentCompletionCount = 0;
 
-                u64 value   = m_filter.getResultValue();
-                u64 address = m_filter.getResultAddress();
+                u64 address = extract(&m_fastFilter, a2::data_filter::MultiWordFilter::CacheA);
+                u64 value   = extract(&m_fastFilter, a2::data_filter::MultiWordFilter::CacheD);
 
 #if ENABLE_ANALYSIS_DEBUG
                 qDebug() << this
@@ -343,12 +368,12 @@ void Extractor::processModuleData(u32 *data, u32 size)
                     qDebug() << this << "setting param valid, addr =" << address << ", value =" << param.value
                         << ", dataWord =" << QString("0x%1").arg(dataWord, 8, 16, QLatin1Char('0'));
 #endif
-                    QMutexLocker lock(&m_hitCountsMutex);
+                    QMutexLocker lock(&m_hitCountsMutex); // FIXME: get rid of this lock
                     m_hitCounts[address] += 1.0;
                 }
             }
 
-            m_filter.clearCompletion();
+            clear_completion(&m_fastFilter);
         }
     }
 }
@@ -403,7 +428,7 @@ void Extractor::read(const QJsonObject &json)
         auto filterJson = it->toObject();
         auto filterString = filterJson["filterString"].toString().toLocal8Bit();
         auto wordIndex    = filterJson["wordIndex"].toInt(-1);
-        DataFilter filter(filterString, wordIndex);
+        DataFilter filter = makeFilterFromBytes(filterString, wordIndex);
         m_filter.addSubFilter(filter);
     }
 
@@ -550,10 +575,15 @@ void CalibrationMinMax::beginRun(const RunInfo &)
             out.resize(in.size());
         }
 
+        // shrink
+        if (m_calibrations.size() > out.size())
+        {
+            m_calibrations.resize(out.size());
+        }
+
         s32 outIdx = 0;
         for (s32 idx = idxMin; idx < idxMax; ++idx)
         {
-            const Parameter &inParam(in[idx]);
             Parameter &outParam(out[outIdx++]);
 
             // Hack to make things compatible with old configs. This forces
@@ -565,6 +595,7 @@ void CalibrationMinMax::beginRun(const RunInfo &)
                 setCalibration(idx, {m_oldGlobalUnitMin, m_oldGlobalUnitMax});
             }
 
+            // assign output limits
             auto calib = getCalibration(idx);
 
             outParam.lowerLimit = calib.unitMin;
@@ -675,18 +706,26 @@ void CalibrationMinMax::read(const QJsonObject &json)
     {
         auto paramJson = it->toObject();
 
-        CalibrationMinMaxParameters param;
 
-        param.unitMin = paramJson["unitMin"].toDouble(make_quiet_nan());
-        param.unitMax = paramJson["unitMax"].toDouble(make_quiet_nan());
-
-        if (!param.isValid())
+        /* TODO: There's a bug in the write code and/or the code that should
+         * resize m_calibrations on changes to the input: Empty entries appear
+         * at the end of the list of calibration parameters inside the
+         * generated json. The test here skips those. */
+        if (paramJson.contains("unitMin"))
         {
-            param.unitMin = m_oldGlobalUnitMin;
-            param.unitMax = m_oldGlobalUnitMax;
-        }
+            CalibrationMinMaxParameters param;
 
-        m_calibrations.push_back(param);
+            param.unitMin = paramJson["unitMin"].toDouble(make_quiet_nan());
+            param.unitMax = paramJson["unitMax"].toDouble(make_quiet_nan());
+
+            if (!param.isValid())
+            {
+                param.unitMin = m_oldGlobalUnitMin;
+                param.unitMax = m_oldGlobalUnitMax;
+            }
+
+            m_calibrations.push_back(param);
+        }
     }
 }
 
@@ -1197,6 +1236,425 @@ void Sum::write(QJsonObject &json) const
 }
 
 //
+// AggregateOps
+//
+
+// FIXME: AggregateOps implementation is horrible
+
+static QString aggregateOp_to_string(AggregateOps::Operation op)
+{
+    switch (op)
+    {
+        case AggregateOps::Op_Sum:
+            return QSL("sum");
+        case AggregateOps::Op_Mean:
+            return QSL("mean");
+        case AggregateOps::Op_Sigma:
+            return QSL("sigma");
+        case AggregateOps::Op_Min:
+            return QSL("min");
+        case AggregateOps::Op_Max:
+            return QSL("max");
+        case AggregateOps::Op_Multiplicity:
+            return QSL("multiplicity");
+        case AggregateOps::Op_MinX:
+            return QSL("maxx");
+        case AggregateOps::Op_MaxX:
+            return QSL("maxy");
+        case AggregateOps::Op_MeanX:
+            return QSL("meanx");
+        case AggregateOps::Op_SigmaX:
+            return QSL("sigmax");
+
+        case AggregateOps::NumOps:
+            break;
+    }
+    return {};
+}
+
+static AggregateOps::Operation aggregateOp_from_string(const QString &str)
+{
+    if (str == QSL("sum"))
+        return AggregateOps::Op_Sum;
+
+    if (str == QSL("mean"))
+        return AggregateOps::Op_Mean;
+
+    if (str == QSL("sigma"))
+        return AggregateOps::Op_Sigma;
+
+    if (str == QSL("min"))
+        return AggregateOps::Op_Min;
+
+    if (str == QSL("max"))
+        return AggregateOps::Op_Max;
+
+    if (str == QSL("multiplicity"))
+        return AggregateOps::Op_Multiplicity;
+
+    if (str == QSL("maxx"))
+        return AggregateOps::Op_MinX;
+
+    if (str == QSL("maxy"))
+        return AggregateOps::Op_MaxX;
+
+    if (str == QSL("meanx"))
+        return AggregateOps::Op_MeanX;
+
+    if (str == QSL("sigmax"))
+        return AggregateOps::Op_SigmaX;
+
+    return AggregateOps::Op_Sum;
+}
+
+AggregateOps::AggregateOps(QObject *parent)
+    : BasicOperator(parent)
+{
+    m_inputSlot.acceptedInputTypes = InputType::Array;
+}
+
+// FIXME: min and max thresholds are not taken into account when calculating
+// the output lower and upper limits!
+void AggregateOps::beginRun(const RunInfo &runInfo)
+{
+    auto &out(m_output.getParameters());
+
+    if (m_inputSlot.inputPipe)
+    {
+        const auto &in(m_inputSlot.inputPipe->getParameters());
+
+        out.resize(1);
+        out.name = objectName();
+        out.unit = m_outputUnitLabel.isEmpty() ? in.unit : m_outputUnitLabel;
+
+        double lowerBound = 0.0;
+        double upperBound = 0.0;
+
+        switch (m_op)
+        {
+            case Op_Multiplicity:
+                {
+                    lowerBound = 0.0;
+                    upperBound = in.size();
+                } break;
+
+            case Op_Sigma: // FIXME: sigma bounds
+            case Op_Min:
+            case Op_Max:
+                {
+                    double llMin = std::numeric_limits<double>::max();
+                    double ulMax = std::numeric_limits<double>::lowest();
+
+                    for (s32 i = 0; i < in.size(); ++i)
+                    {
+                        const auto &param(in[i]);
+
+                        llMin = std::min(llMin, std::min(param.lowerLimit, param.upperLimit));
+                        ulMax = std::max(ulMax, std::max(param.lowerLimit, param.upperLimit));
+                    }
+
+                    if (m_op == Op_Sigma)
+                    {
+                        lowerBound = 0.0;
+                        upperBound = std::sqrt(ulMax - llMin);
+                    }
+                    else
+                    {
+                        lowerBound = llMin;
+                        upperBound = ulMax;
+                    }
+                } break;
+
+            case Op_Sum:
+            case Op_Mean:
+                {
+                    for (s32 i = 0; i < in.size(); ++i)
+                    {
+                        const auto &param(in[i]);
+
+                        lowerBound += std::min(param.lowerLimit, param.upperLimit);
+                        upperBound += std::max(param.lowerLimit, param.upperLimit);
+                    }
+
+                    if (m_op == Op_Mean)
+                    {
+                        lowerBound /= in.size();
+                        upperBound /= in.size();
+                    }
+                } break;
+
+            case Op_MinX:
+            case Op_MaxX:
+            case Op_SigmaX: // FIXME: sigma bounds
+            case Op_MeanX:
+                {
+                    lowerBound = 0.0;
+                    upperBound = in.size() - 1;
+                } break;
+
+            case NumOps:
+                break;
+        }
+
+        out[0].lowerLimit = std::min(lowerBound, upperBound);
+        out[0].upperLimit = std::max(lowerBound, upperBound);
+    }
+    else
+    {
+        out.resize(0);
+        out.name = QString();
+        out.unit = QString();
+    }
+}
+
+void AggregateOps::step()
+{
+    // validity check and threshold tests
+    auto is_valid_and_inside = [](const auto param, double tmin, double tmax)
+    {
+        return (param.valid
+                && (std::isnan(tmin) || param.value >= tmin)
+                && (std::isnan(tmax) || param.value <= tmax));
+    };
+
+    if (!m_inputSlot.inputPipe)
+        return;
+
+    auto &outParam(m_output.getParameters()[0]);
+    const auto &in(m_inputSlot.inputPipe->getParameters());
+
+    if (m_op == Op_Min)
+    {
+        outParam.value = std::numeric_limits<double>::max();
+    }
+    else if (m_op == Op_Max)
+    {
+        outParam.value = std::numeric_limits<double>::lowest();
+    }
+    else
+    {
+        outParam.value = 0.0;
+    }
+
+    outParam.valid = false;
+    u32 validCount = 0;
+
+    s32 minMaxIndex = 0; // stores index of min/max value for Op_MinX/Op_MaxX
+    double meanX = 0.0;
+    double meanXEntryCount = 0.0;
+
+    for (s32 i = 0; i < in.size(); ++i)
+    {
+        const auto &inParam(in[i]);
+
+        if (is_valid_and_inside(inParam, m_minThreshold, m_maxThreshold))
+        {
+            ++validCount;
+
+            if (m_op == Op_Sum || m_op == Op_Mean || m_op == Op_Sigma)
+            {
+                outParam.value += inParam.value;
+            }
+            else if (m_op == Op_Min)
+            {
+                outParam.value = std::min(outParam.value, inParam.value);
+            }
+            else if (m_op == Op_Max)
+            {
+                outParam.value = std::max(outParam.value, inParam.value);
+            }
+            else if (m_op == Op_MinX)
+            {
+                if (inParam.value < in[minMaxIndex].value)
+                {
+                    minMaxIndex = i;
+                }
+            }
+            else if (m_op == Op_MaxX)
+            {
+                if (inParam.value > in[minMaxIndex].value)
+                {
+                    minMaxIndex = i;
+                }
+            }
+            else if (m_op == Op_MeanX || m_op == Op_SigmaX)
+            {
+                meanX += inParam.value * i;
+                meanXEntryCount += inParam.value;
+            }
+        }
+    }
+
+    outParam.valid = (validCount > 0);
+
+    if ((m_op == Op_Mean || m_op == Op_Sigma) && outParam.valid)
+    {
+        outParam.value /= validCount; // mean
+
+        if (m_op == Op_Sigma && outParam.value != 0.0)
+        {
+            double mu = outParam.value;
+            double sigma = 0.0;
+
+            for (s32 i = 0; i < in.size(); ++i)
+            {
+                const auto &inParam(in[i]);
+                if (is_valid_and_inside(inParam, m_minThreshold, m_maxThreshold))
+                {
+                    double d = inParam.value - mu;
+                    d *= d;
+                    sigma += d;
+                }
+            }
+            sigma = std::sqrt(sigma / validCount);
+            outParam.value = sigma;
+        }
+    }
+    else if (m_op == Op_Multiplicity)
+    {
+        outParam.value = validCount;
+        outParam.valid = true;
+    }
+    else if (m_op == Op_MinX || m_op == Op_MaxX)
+    {
+        outParam.value = minMaxIndex;
+    }
+    else if (m_op == Op_MeanX || m_op == Op_SigmaX)
+    {
+        outParam.valid = true;
+
+        if (meanXEntryCount != 0.0)
+        {
+            meanX /= meanXEntryCount;
+
+            if (m_op == Op_MeanX)
+            {
+                outParam.value = meanX;
+            }
+            else if (m_op == Op_SigmaX)
+            {
+                double sigma = 0.0;
+
+                if (meanX != 0.0)
+                {
+                    for (s32 i = 0; i < in.size(); ++i)
+                    {
+                        const auto &inParam(in[i]);
+                        if (is_valid_and_inside(inParam, m_minThreshold, m_maxThreshold))
+                        {
+                            double v = inParam.value;
+                            if (v != 0.0)
+                            {
+                                double d = i - meanX;
+                                d *= d;
+                                sigma += d * v;
+                            }
+                        }
+                    }
+                    sigma = sqrt(sigma / meanXEntryCount);
+                }
+
+                outParam.value = sigma;
+            }
+        }
+        else
+        {
+            outParam.value = 0.0;
+        }
+    }
+}
+
+void AggregateOps::read(const QJsonObject &json)
+{
+    m_op = aggregateOp_from_string(json["operation"].toString());
+    m_minThreshold = json["minThreshold"].toDouble(make_quiet_nan());
+    m_maxThreshold = json["maxThreshold"].toDouble(make_quiet_nan());
+    m_outputUnitLabel = json["outputUnitLabel"].toString();
+}
+
+void AggregateOps::write(QJsonObject &json) const
+{
+    json["operation"] = aggregateOp_to_string(m_op);
+    json["minThreshold"] = m_minThreshold;
+    json["maxThreshold"] = m_maxThreshold;
+    json["outputUnitLabel"] = m_outputUnitLabel;
+}
+
+QString AggregateOps::getDisplayName() const
+{
+    return QSL("Aggregate Operations");
+}
+
+QString AggregateOps::getShortName() const
+{
+    if (m_op == AggregateOps::Op_Multiplicity)
+        return QSL("Mult");
+
+    return getOperationName(m_op);
+}
+
+void AggregateOps::setOperation(Operation op)
+{
+    m_op = op;
+}
+
+AggregateOps::Operation AggregateOps::getOperation() const
+{
+    return m_op;
+}
+
+void AggregateOps::setMinThreshold(double t)
+{
+    m_minThreshold = t;
+}
+
+double AggregateOps::getMinThreshold() const
+{
+    return m_minThreshold;
+}
+
+void AggregateOps::setMaxThreshold(double t)
+{
+    m_maxThreshold = t;
+}
+
+double AggregateOps::getMaxThreshold() const
+{
+    return m_maxThreshold;
+}
+
+QString AggregateOps::getOperationName(Operation op)
+{
+    switch (op)
+    {
+        case Op_Sum:
+            return QSL("Sum");
+        case Op_Mean:
+            return QSL("Mean");
+        case Op_Sigma:
+            return QSL("Sigma");
+        case Op_Min:
+            return QSL("Min");
+        case Op_Max:
+            return QSL("Max");
+        case Op_Multiplicity:
+            return QSL("Multiplicity");
+        case AggregateOps::Op_MinX:
+            return QSL("MinX");
+        case AggregateOps::Op_MaxX:
+            return QSL("MaxX");
+        case AggregateOps::Op_MeanX:
+            return QSL("MeanX");
+        case AggregateOps::Op_SigmaX:
+            return QSL("SigmaX");
+
+        case AggregateOps::NumOps:
+            break;
+    }
+    return QString();
+}
+
+//
 // ArrayMap
 //
 ArrayMap::ArrayMap(QObject *parent)
@@ -1208,8 +1666,16 @@ ArrayMap::ArrayMap(QObject *parent)
 
 bool ArrayMap::addSlot()
 {
-    auto slot = new Slot(this, getNumberOfSlots(), QSL("Input#") + QString::number(getNumberOfSlots()), InputType::Array);
+    /* If InputType::Array is passed directly inside make_shared() call I get
+     * an "undefined reference to InputType::Array. */
+    auto inputType = InputType::Array;
+
+    auto slot = std::make_shared<Slot>(
+        this, getNumberOfSlots(),
+        QSL("Input#") + QString::number(getNumberOfSlots()), inputType);
+
     m_inputs.push_back(slot);
+
     return true;
 }
 
@@ -1217,10 +1683,8 @@ bool ArrayMap::removeLastSlot()
 {
     if (getNumberOfSlots() > 1)
     {
-        auto slot = m_inputs.back();
-        slot->disconnectPipe();
+        m_inputs.back()->disconnectPipe();
         m_inputs.pop_back();
-        delete slot;
 
         return true;
     }
@@ -1242,7 +1706,7 @@ void ArrayMap::beginRun(const RunInfo &)
     {
         IndexPair ip(m_mappings.at(mIndex));
         Parameter *inParam = nullptr;
-        Slot *inputSlot = m_inputs.value(ip.slotIndex, nullptr);
+        Slot *inputSlot = ip.slotIndex < m_inputs.size() ? m_inputs[ip.slotIndex].get() : nullptr;
 
         if (inputSlot && inputSlot->inputPipe)
         {
@@ -1276,7 +1740,7 @@ void ArrayMap::step()
     {
         IndexPair ip(m_mappings.at(mIndex));
         Parameter *inParam = nullptr;
-        Slot *inputSlot = m_inputs.value(ip.slotIndex, nullptr);
+        Slot *inputSlot = ip.slotIndex < m_inputs.size() ? m_inputs[ip.slotIndex].get() : nullptr;
 
         if (inputSlot && inputSlot->inputPipe)
         {
@@ -1305,7 +1769,7 @@ Slot *ArrayMap::getSlot(s32 slotIndex)
 
     if (slotIndex < getNumberOfSlots())
     {
-        result = m_inputs[slotIndex];
+        result = m_inputs[slotIndex].get();
     }
 
     return result;
@@ -1473,6 +1937,14 @@ void RangeFilter1D::step()
                     outParam.value = inParam.value;
                     outParam.valid = true;
                 }
+                else
+                {
+                    outParam.valid = false;
+                }
+            }
+            else
+            {
+                outParam.valid = false;
             }
         }
     }
@@ -1969,6 +2441,9 @@ void BinarySumDiff::write(QJsonObject &json) const
 //
 // Histo1DSink
 //
+
+static const size_t HistoMemAlignment = 64;
+
 Histo1DSink::Histo1DSink(QObject *parent)
     : BasicSink(parent)
 {
@@ -1976,6 +2451,105 @@ Histo1DSink::Histo1DSink(QObject *parent)
 
 void Histo1DSink::beginRun(const RunInfo &runInfo)
 {
+#if ANALYSIS_USE_SHARED_HISTO1D_MEM
+    /* Single memory block allocation strategy:
+     * Don't shrink.
+     * If resizing to a larger size. Recreate the arena. This will invalidate
+     * all pointers into the histograms. Recreate pointers into arena, clear
+     * memory. Update pointers for existing Histo1D instances.
+     */
+    if (!m_inputSlot.isParamIndexInRange())
+    {
+        m_histos.resize(0);
+        m_histoArena.reset();
+        return;
+    }
+
+    size_t histoCount = 0;
+    s32 minIdx = 0;
+    s32 maxIdx = 0;
+
+    if (m_inputSlot.paramIndex != Slot::NoParamIndex)
+    {
+        histoCount = 1;
+        minIdx = m_inputSlot.paramIndex;
+        maxIdx = minIdx + 1;
+    }
+    else
+    {
+        histoCount = m_inputSlot.inputPipe->parameters.size();
+        minIdx = 0;
+        maxIdx = (s32)histoCount;
+    }
+
+    m_histos.resize(histoCount);
+
+    // Space for the histos plus space to allow proper alignment
+    size_t requiredMemory = histoCount * m_bins * sizeof(double) + histoCount * HistoMemAlignment;
+
+    if (!m_histoArena || m_histoArena->size < requiredMemory)
+    {
+        m_histoArena = std::make_shared<memory::Arena>(requiredMemory);
+    }
+    else
+    {
+        m_histoArena->reset();
+    }
+
+    for (s32 idx = minIdx, histoIndex = 0; idx < maxIdx; idx++, histoIndex++)
+    {
+        double xMin = m_xLimitMin;
+        double xMax = m_xLimitMax;
+
+        if (std::isnan(xMin))
+        {
+            xMin = m_inputSlot.inputPipe->parameters[idx].lowerLimit;
+        }
+
+        if (std::isnan(xMax))
+        {
+            xMax = m_inputSlot.inputPipe->parameters[idx].upperLimit;
+        }
+
+        AxisBinning binning(m_bins, xMin, xMax);
+        SharedHistoMem histoMem = { m_histoArena, m_histoArena->pushArray<double>(m_bins, HistoMemAlignment) };
+
+        if (m_histos[histoIndex])
+        {
+            m_histos[histoIndex]->setData(histoMem, binning);
+
+            if (!runInfo.keepAnalysisState)
+            {
+                m_histos[histoIndex]->clear();
+            }
+        }
+        else
+        {
+            m_histos[histoIndex] = std::make_shared<Histo1D>(binning, histoMem);
+        }
+
+        auto histo = m_histos[histoIndex];
+        auto histoName = this->objectName();
+        AxisInfo axisInfo;
+        axisInfo.title = this->m_xAxisTitle;
+        axisInfo.unit  = m_inputSlot.inputPipe->parameters.unit;
+
+        if (maxIdx - minIdx > 1)
+        {
+            histoName = QString("%1[%2]").arg(histoName).arg(idx);
+            axisInfo.title = QString("%1[%2]").arg(axisInfo.title).arg(idx);
+        }
+        histo->setObjectName(histoName);
+        histo->setAxisInfo(Qt::XAxis, axisInfo);
+        histo->setTitle(histoName);
+
+        if (!runInfo.runId.isEmpty())
+        {
+            histo->setFooter(QString("<small>runId=%1</small>").arg(runInfo.runId));
+        }
+    }
+
+#else
     // Instead of just clearing the histos vector and recreating it this code
     // tries to reuse existing histograms. This is done so that open histogram
     // windows still reference the correct histogram after beginRun() is
@@ -2012,7 +2586,7 @@ void Histo1DSink::beginRun(const RunInfo &runInfo)
 
             if (m_histos[histoIndex])
             {
-                auto histo = m_histos[histoIndex];
+                auto histo = m_histos[histoIndex].get();
 
                 if (histo->getNumberOfBins() != static_cast<u32>(m_bins) || !runInfo.keepAnalysisState)
                 {
@@ -2029,10 +2603,10 @@ void Histo1DSink::beginRun(const RunInfo &runInfo)
             }
             else
             {
-                m_histos[histoIndex] = std::make_shared<Histo1D>(m_bins, xMin, xMax);
+                m_histos[histoIndex] = std::make_unique<Histo1D>(m_bins, xMin, xMax);
             }
 
-            auto histo = m_histos[histoIndex];
+            auto histo = m_histos[histoIndex].get();
             auto histoName = this->objectName();
             AxisInfo axisInfo;
             axisInfo.title = this->m_xAxisTitle;
@@ -2057,11 +2631,12 @@ void Histo1DSink::beginRun(const RunInfo &runInfo)
     {
         m_histos.resize(0);
     }
+#endif
 }
 
 void Histo1DSink::step()
 {
-    if (m_inputSlot.inputPipe && !m_histos.isEmpty())
+    if (m_inputSlot.inputPipe && !m_histos.empty())
     {
         s32 paramIndex = m_inputSlot.paramIndex;
 
@@ -2113,11 +2688,15 @@ void Histo1DSink::write(QJsonObject &json) const
 
 size_t Histo1DSink::getStorageSize() const
 {
+#if ANALYSIS_USE_SHARED_HISTO1D_MEM
+    return m_histoArena ? m_histoArena->size : 0;
+#else
     return std::accumulate(m_histos.begin(), m_histos.end(),
                            static_cast<size_t>(0u),
                            [](size_t v, const auto &histoPtr) {
         return v + histoPtr->getStorageSize();
     });
+#endif
 }
 
 //
@@ -2284,17 +2863,11 @@ size_t Histo2DSink::getStorageSize() const
 //
 // Analysis
 //
-template<>
-const QMap<Analysis::ReadResultCodes, const char *> Analysis::ReadResult::ErrorCodeStrings =
-{
-    { analysis::Analysis::NoError, "No Error" },
-    { analysis::Analysis::VersionTooNew, "Version too new" },
-};
-
 Analysis::Analysis(QObject *parent)
     : QObject(parent)
     , m_modified(false)
     , m_timetickCount(0.0)
+    , m_a2ArenaIndex(0)
 {
     m_registry.registerSource<Extractor>();
 
@@ -2309,6 +2882,7 @@ Analysis::Analysis(QObject *parent)
     m_registry.registerOperator<ConditionFilter>();
     m_registry.registerOperator<RectFilter2D>();
     m_registry.registerOperator<BinarySumDiff>();
+    m_registry.registerOperator<AggregateOps>();
 
     m_registry.registerSink<Histo1DSink>();
     m_registry.registerSink<Histo2DSink>();
@@ -2318,7 +2892,13 @@ Analysis::Analysis(QObject *parent)
     qDebug() << "Registered Sinks:     " << m_registry.getSinkNames();
 }
 
-void Analysis::beginRun(const RunInfo &runInfo)
+Analysis::~Analysis()
+{
+}
+
+/* This overload updates operator ranks and sorts operators by rank,
+ * then calls beginRun() on sources and operators. */
+void Analysis::beginRun_internal_only(const RunInfo &runInfo)
 {
     m_runInfo = runInfo;
 
@@ -2338,10 +2918,10 @@ void Analysis::beginRun(const RunInfo &runInfo)
     for (const auto &opEntry: m_operators)
     {
         qDebug() << "  "
-            << opEntry.op->getMaximumInputRank()
+            << "max input rank =" << opEntry.op->getMaximumInputRank()
             << getClassName(opEntry.op.get())
             << opEntry.op->objectName()
-            << "max output rank" << opEntry.op->getMaximumOutputRank();
+            << ", max output rank =" << opEntry.op->getMaximumOutputRank();
     }
     qDebug() << __PRETTY_FUNCTION__ << ">>>>> operators sorted by maximum input rank";
 #endif
@@ -2356,13 +2936,86 @@ void Analysis::beginRun(const RunInfo &runInfo)
         operatorEntry.op->beginRun(runInfo);
     }
 
-    qDebug() << "Analysis NG:"
+    qDebug() << __PRETTY_FUNCTION__ << "analysis::Analysis:"
         << m_sources.size() << " sources,"
         << m_operators.size() << " operators";
 }
 
-void Analysis::beginEvent(const QUuid &eventId)
+static const size_t A2ArenaSize = Kilobytes(256);
+
+/* Calls beginRun_internal_only() to prepare the analysis::* stuff, then uses
+ * a2_adapter_build() to build the a2 system. */
+void Analysis::beginRun(
+    const RunInfo &runInfo,
+    const vme_analysis_common::VMEIdToIndex &vmeMap)
 {
+    m_vmeMap = vmeMap;
+
+    beginRun_internal_only(runInfo);
+
+    if (!m_a2Arenas[0])
+    {
+        for (size_t i = 0; i < m_a2Arenas.size(); i++)
+        {
+            m_a2Arenas[i] = std::make_unique<memory::Arena>(A2ArenaSize);
+        }
+        m_a2TempArena = std::make_unique<memory::Arena>(A2ArenaSize);
+        m_a2ArenaIndex = 0;
+    }
+    else
+    {
+        m_a2ArenaIndex = (m_a2ArenaIndex + 1) % m_a2Arenas.size();
+        m_a2Arenas[m_a2ArenaIndex]->reset();
+        m_a2TempArena->reset();
+    }
+
+#if ANALYSIS_USE_A2
+    qDebug() << __PRETTY_FUNCTION__ << "########## a2 active ##########";
+    qDebug() << __PRETTY_FUNCTION__ << "a2: using a2 arena" << (u32)m_a2ArenaIndex;
+
+    A2AdapterState a2State;
+    memory::Arena *arena = nullptr;
+
+    while (true)
+    {
+        try
+        {
+            arena = m_a2Arenas[m_a2ArenaIndex].get();
+
+            a2State = a2_adapter_build(
+                arena,
+                m_a2TempArena.get(),
+                m_sources,
+                m_operators,
+                m_vmeMap);
+
+            break;
+        }
+        catch (const memory::out_of_memory &)
+        {
+            /* Double the size and try again. std::bad_alloc() will be thrown
+             * if we run OOM. This will be handled further up. */
+            auto newSize = 2 * m_a2Arenas[m_a2ArenaIndex]->size;
+            m_a2TempArena = std::make_unique<memory::Arena>(newSize);
+            m_a2Arenas[m_a2ArenaIndex] = std::make_unique<memory::Arena>(newSize);
+        }
+    }
+
+    m_a2State = std::make_unique<A2AdapterState>(a2State);
+
+    qDebug("%s a2: mem=%u sz=%u, start@%p",
+           __PRETTY_FUNCTION__, (u32)arena->used(), (u32)arena->size, arena->mem);
+#endif
+}
+
+void Analysis::beginRun()
+{
+    beginRun(m_runInfo, m_vmeMap);
+}
+
+void Analysis::beginEvent(int eventIndex, const QUuid &eventId)
+{
+#if not ANALYSIS_USE_A2
     for (auto &sourceEntry: m_sources)
     {
         if (sourceEntry.eventId == eventId)
@@ -2370,26 +3023,15 @@ void Analysis::beginEvent(const QUuid &eventId)
             sourceEntry.sourceRaw->beginEvent();
         }
     }
+#else
+    a2_begin_event(m_a2State->a2, eventIndex);
+#endif
 }
 
-void Analysis::addSource(const QUuid &eventId, const QUuid &moduleId, const SourcePtr &source)
+void Analysis::processModuleData(int eventIndex, int moduleIndex,
+                                 const QUuid &eventId, const QUuid &moduleId, u32 *data, u32 size)
 {
-    source->beginRun(m_runInfo);
-    m_sources.push_back({eventId, moduleId, source, source.get()});
-    updateRanks();
-    setModified();
-}
-
-void Analysis::addOperator(const QUuid &eventId, const OperatorPtr &op, s32 userLevel)
-{
-    op->beginRun(m_runInfo);
-    m_operators.push_back({eventId, op, op.get(), userLevel});
-    updateRanks();
-    setModified();
-}
-
-void Analysis::processModuleData(const QUuid &eventId, const QUuid &moduleId, u32 *data, u32 size)
-{
+#if not ANALYSIS_USE_A2
     for (auto &sourceEntry: m_sources)
     {
         if (sourceEntry.eventId == eventId && sourceEntry.moduleId == moduleId)
@@ -2400,9 +3042,19 @@ void Analysis::processModuleData(const QUuid &eventId, const QUuid &moduleId, u3
             sourceEntry.sourceRaw->processModuleData(data, size);
         }
     }
+
+#else
+    a2_process_module_data(m_a2State->a2, eventIndex, moduleIndex, data, size);
+#endif
 }
 
-void Analysis::endEvent(const QUuid &eventId)
+#if ANALYSIS_USE_A2
+void Analysis::endEvent(int eventIndex, const QUuid &eventId)
+{
+    a2_end_event(m_a2State->a2, eventIndex);
+}
+#else // ANALYSIS_USE_A2
+void Analysis::endEvent(int eventIndex, const QUuid &eventId)
 {
     //TimedBlock tb(__PRETTY_FUNCTION__);
     /* In beginRun() operators are sorted by rank. This way step()'ing
@@ -2481,16 +3133,28 @@ void Analysis::endEvent(const QUuid &eventId)
         }
     }
     qDebug() << " <<< End Operators >>>";
-#endif
-
-#if ENABLE_ANALYSIS_DEBUG
     qDebug() << "end endEvent()" << eventId;
 #endif
 }
+#endif // ANALYSIS_USE_A2
 
 void Analysis::processTimetick()
 {
     m_timetickCount += 1.0;
+}
+
+void Analysis::addSource(const QUuid &eventId, const QUuid &moduleId, const SourcePtr &source)
+{
+    m_sources.push_back({eventId, moduleId, source, source.get()});
+    beginRun(m_runInfo, m_vmeMap);
+    setModified();
+}
+
+void Analysis::addOperator(const QUuid &eventId, const OperatorPtr &op, s32 userLevel)
+{
+    m_operators.push_back({eventId, op, op.get(), userLevel});
+    beginRun(m_runInfo, m_vmeMap);
+    setModified();
 }
 
 double Analysis::getTimetickCount() const
@@ -2590,7 +3254,7 @@ void Analysis::updateRank(OperatorInterface *op, QSet<OperatorInterface *> &upda
 
 #if ENABLE_ANALYSIS_DEBUG
         qDebug() << __PRETTY_FUNCTION__ << "output"
-            << outputIndex << "now has a rank"
+            << outputIndex << "now has rank"
             << op->getOutput(outputIndex)->getRank();
 #endif
     }
@@ -2641,7 +3305,7 @@ void Analysis::removeSource(SourceInterface *source)
         m_sources.remove(entryIndex);
 
         // Update ranks and recalculate output sizes for all analysis elements.
-        beginRun(m_runInfo);
+        beginRun(m_runInfo, m_vmeMap);
 
         setModified();
     }
@@ -2696,7 +3360,7 @@ void Analysis::removeOperator(OperatorInterface *op)
         m_operators.remove(entryIndex);
 
         // Update ranks and recalculate output sizes for all analysis elements.
-        beginRun(m_runInfo);
+        beginRun(m_runInfo, m_vmeMap);
 
         setModified();
     }
@@ -2792,9 +3456,10 @@ Analysis::ReadResult Analysis::read(const QJsonObject &inputJson, VMEConfig *vme
                 source->setObjectName(objectJson["name"].toString());
                 source->read(objectJson["data"].toObject());
 
-                addSource(QUuid(objectJson["eventId"].toString()),
-                          QUuid(objectJson["moduleId"].toString()),
-                          source);
+                auto eventId  = QUuid(objectJson["eventId"].toString());
+                auto moduleId = QUuid(objectJson["moduleId"].toString());
+
+                m_sources.push_back({eventId, moduleId, source, source.get()});
 
                 objectsById.insert(source->getId(), source);
             }
@@ -2824,10 +3489,10 @@ Analysis::ReadResult Analysis::read(const QJsonObject &inputJson, VMEConfig *vme
                 op->setObjectName(objectJson["name"].toString());
                 op->read(objectJson["data"].toObject());
 
-                addOperator(QUuid(objectJson["eventId"].toString()),
-                            op,
-                            objectJson["userLevel"].toInt()
-                           );
+                auto eventId = QUuid(objectJson["eventId"].toString());
+                auto userLevel = objectJson["userLevel"].toInt();
+
+                m_operators.push_back({eventId, op, op.get(), userLevel});
 
                 objectsById.insert(op->getId(), op);
             }
@@ -2894,6 +3559,7 @@ Analysis::ReadResult Analysis::read(const QJsonObject &inputJson, VMEConfig *vme
     // Dynamic QObject Properties
     loadDynamicProperties(json["properties"].toObject(), this);
 
+    //beginRun(m_runInfo, m_vmeMap);
     setModified(false);
 
     return result;
@@ -2969,7 +3635,7 @@ void Analysis::write(QJsonObject &json) const
                     auto dstOp = dstSlot->parentOperator;
                     if (dstOp)
                     {
-                        qDebug() << "Connection:" << srcObject << outputIndex << "->" << dstOp << dstSlot << dstSlot->parentSlotIndex;
+                        //qDebug() << "Connection:" << srcObject << outputIndex << "->" << dstOp << dstSlot << dstSlot->parentSlotIndex;
                         QJsonObject conJson;
                         conJson["srcId"] = srcObject->getId().toString();
                         conJson["srcIndex"] = outputIndex;
@@ -3256,3 +3922,4 @@ void adjust_userlevel_forward(QVector<Analysis::OperatorEntry> &opEntries, Opera
 }
 
 }
+

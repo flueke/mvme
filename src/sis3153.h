@@ -55,7 +55,10 @@ class LIBMVME_EXPORT SIS3153: public VMEController
         // SIS3153 specific
         //
 
+        /* Note: do not keep copies of these pointers around. They will be
+         * invalidated when reconnecting!. */
         sis3153eth *getImpl();
+        sis3153eth *getCtrlImpl();
 
         // Set IP address or hostname to connect to. Takes effect after closing
         // and reopening the device.
@@ -118,9 +121,10 @@ namespace SIS3153Registers
         static const u32 StackListEnable    = 1 << 0;
         static const u32 Timer1Enable       = 1 << 1;
         static const u32 Timer2Enable       = 1 << 2;
+        static const u32 ListBufferEnable   = 1 << 15;
     }
 
-    static const u32 StackListTimerWatchdogEnable   = 1 << 31;
+    static const u32 StackListTimerWatchdogEnable   = 1u << 31;
 
     static const u32 TriggerSourceTimer1            = 8;
     static const u32 TriggerSourceTimer2            = 9;
@@ -128,7 +132,31 @@ namespace SIS3153Registers
     static const u32 TriggerSourceInput1FallingEdge = 0xD;
     static const u32 TriggerSourceInput2RisingEdge  = 0xE;
     static const u32 TriggerSourceInput2FallingEdge = 0xF;
-}
+
+    static const u32 StackListTriggerCommandFlushBuffer = 15;
+
+} // namespace SIS3153Registers
+
+namespace SIS3153Constants
+{
+    // The packetAck byte value in the case of a buffered multievent packet.
+    static const u8 MultiEventPacketAck = 0x60;
+    // Mask the Ack with this to obtain the stacklist number.
+    static const u8 AckStackListMask    = 0x7;
+    // Extract the lastPacket bit from an Ack
+    static const u8 AckIsLastPacketMask = 0x8;
+
+    // Masks and results for the two special words added by SIS3153 at the
+    // beginning and end of module data.
+    static const u32 BeginEventMask   = 0xff000000;
+    static const u32 BeginEventResult = 0xbb000000;
+    static const u32 EndEventMask     = 0xff000000;
+    static const u32 EndEventResult   = 0xee000000;
+
+    static const int NumberOfStackLists = 8;
+
+} // namespace SIS3153Constants
+
 
 
 void LIBMVME_EXPORT dump_registers(SIS3153 *sis, std::function<void (const QString &)> printer);

@@ -65,10 +65,10 @@ MesytecDiagnostics::MesytecDiagnostics(QObject *parent)
     m_currentEventBuffer = &m_eventBuffers[0];
     m_lastEventBuffer = &m_eventBuffers[1];
 
-    reset();
+    beginRun();
 }
 
-void MesytecDiagnostics::reset()
+void MesytecDiagnostics::beginRun()
 {
     clearChannelStats();
     m_nHeaders = 0;
@@ -98,15 +98,21 @@ void MesytecDiagnostics::setEventAndModuleIndices(const QPair<int, int> &indices
     m_moduleIndex = indices.second;
 }
 
-void MesytecDiagnostics::beginEvent()
+void MesytecDiagnostics::beginEvent(int eventIndex)
 {
+    if (m_eventIndex != eventIndex)
+        return;
+
     ++m_nEvents;
     m_nHeadersInEvent = 0;
     m_nEOEsInEvent = 0;
 }
 
-void MesytecDiagnostics::endEvent()
+void MesytecDiagnostics::endEvent(int eventIndex)
 {
+    if (eventIndex != m_eventIndex)
+        return;
+
     bool doLog = false;
     QVector<QString> messages;
 
@@ -284,8 +290,11 @@ void MesytecDiagnostics::handleDataWord(quint32 currentWord)
     }
 }
 
-void MesytecDiagnostics::processModuleData(u32 *data, u32 size)
+void MesytecDiagnostics::processModuleData(int eventIndex, int moduleIndex, u32 *data, u32 size)
 {
+    if (!(eventIndex == m_eventIndex && moduleIndex == m_moduleIndex))
+        return;
+
     for (u32 i = 0; i < size; ++i)
     {
         handleDataWord(data[i]);
@@ -526,7 +535,7 @@ quint32 MesytecDiagnostics::getChannel(quint16 chan, quint32 bin)
 static const int updateInterval = 500;
 static const int resultMaxBlockCount = 10000;
 
-MesytecDiagnosticsWidget::MesytecDiagnosticsWidget(MesytecDiagnostics *diag, QWidget *parent)
+MesytecDiagnosticsWidget::MesytecDiagnosticsWidget(std::shared_ptr<MesytecDiagnostics> diag, QWidget *parent)
     : MVMEWidget(parent)
     , ui(new Ui::DiagnosticsWidget)
     , m_diag(diag)
@@ -534,7 +543,7 @@ MesytecDiagnosticsWidget::MesytecDiagnosticsWidget(MesytecDiagnostics *diag, QWi
     ui->setupUi(this);
     ui->diagResult->setMaximumBlockCount(10000);
 
-    connect(diag, &MesytecDiagnostics::logMessage,
+    connect(diag.get(), &MesytecDiagnostics::logMessage,
             this, &MesytecDiagnosticsWidget::onLogMessage);
 
     connect(ui->tb_dumpNextEvent, &QAbstractButton::clicked, this, [this]() { m_diag->setLogNextEvent(); });
@@ -587,7 +596,7 @@ void MesytecDiagnosticsWidget::on_calcAll_clicked()
 
 void MesytecDiagnosticsWidget::on_pb_reset_clicked()
 {
-    m_diag->reset();
+    m_diag->beginRun();
     dispAll();
 }
 

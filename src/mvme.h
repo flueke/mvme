@@ -94,6 +94,7 @@ public slots:
 
     bool createNewOrOpenExistingWorkspace();
 
+    void updateWindowTitle();
 
 protected:
     void resizeEvent(QResizeEvent *event) override;
@@ -104,15 +105,17 @@ private slots:
 
     void onActionMainWindow_triggered();
     void onActionAnalysis_UI_triggered();
-    void onActionVME_Debug_triggered();
     void onActionLog_Window_triggered();
+    void onActionListfileBrowser_triggered();
+
+    void onActionVME_Debug_triggered();
     void onActionVMUSB_Firmware_Update_triggered();
     void onActionTemplate_Info_triggered();
 
     void onObjectAboutToBeRemoved(QObject *obj);
 
     void appendToLog(const QString &);
-    void updateWindowTitle();
+    void appendToLogNoDebugOut(const QString &);
     void onConfigChanged(VMEConfig *config);
 
     void onDAQAboutToStart(quint32 nCycles);
@@ -123,13 +126,13 @@ private slots:
 
     void onActionVMEScriptRef_triggered();
     void onActionCheck_for_updates_triggered();
-    void onActionToolAnalysisInfo_triggered();
 
     void updateActions();
 
 
 private:
     MVMEWindowPrivate *m_d;
+    bool m_quitting = false;
 };
 
 #endif // MVME_H
