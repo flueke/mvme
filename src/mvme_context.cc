@@ -233,7 +233,7 @@ static ListFileOutputInfo readFromSettings(QSettings &settings)
     result.compressionLevel = settings.value(QSL("ListFileCompressionLevel"), DefaultListFileCompression).toInt();
     result.prefix           = settings.value(QSL("ListFilePrefix"), QSL("mvmelst")).toString();
     result.runNumber        = settings.value(QSL("ListFileRunNumber"), 1u).toUInt();
-    result.flags            = settings.value(QSL("ListFileOutputFlags"), ListFileOutputInfo::UseTimestamp).toUInt();
+    result.flags            = settings.value(QSL("ListFileOutputFlags"), ListFileOutputInfo::UseRunNumber).toUInt();
 
     return result;
 }
