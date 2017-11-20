@@ -216,7 +216,7 @@ QString make_new_listfile_name(ListFileOutputInfo *outInfo)
 
     do
     {
-        result = outInfo->fullDirectory + generate_output_filename(*outInfo);
+        result = outInfo->fullDirectory + '/' + generate_output_filename(*outInfo);
 
         fi.setFile(result);
 
