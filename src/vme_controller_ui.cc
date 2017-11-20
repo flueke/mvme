@@ -82,11 +82,11 @@ void SIS3153EthSettingsWidget::validate()
 
 void SIS3153EthSettingsWidget::loadSettings(const QVariantMap &settings)
 {
-    auto hostname = settings["hostname"].toString();
-
     m_cb_jumboFrames->setChecked(settings["JumboFrames"].toBool());
     m_cb_debugRawBuffers->setChecked(settings.value("DebugRawBuffers").toBool());
     m_cb_disableBuffering->setChecked(settings.value("DisableBuffering").toBool());
+
+    auto hostname = settings["hostname"].toString();
 
     if (hostname.isEmpty())
     {
@@ -166,6 +166,10 @@ VMEControllerSettingsDialog::VMEControllerSettingsDialog(MVMEContext *context, Q
         {
             settingsWidget->loadSettings(m_context->getVMEConfig()->getControllerSettings());
             currentControllerIndex = i;
+        }
+        else
+        {
+            settingsWidget->loadSettings(QVariantMap());
         }
 
         auto gb = new QGroupBox(QSL("Controller Settings"));
