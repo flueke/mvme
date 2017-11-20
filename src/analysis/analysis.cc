@@ -428,7 +428,7 @@ void Extractor::read(const QJsonObject &json)
         auto filterJson = it->toObject();
         auto filterString = filterJson["filterString"].toString().toLocal8Bit();
         auto wordIndex    = filterJson["wordIndex"].toInt(-1);
-        DataFilter filter(filterString, wordIndex);
+        DataFilter filter = makeFilterFromBytes(filterString, wordIndex);
         m_filter.addSubFilter(filter);
     }
 
