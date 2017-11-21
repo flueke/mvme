@@ -2,10 +2,23 @@
 Do these first!
 ==================================================
 
+* Fix readout workers eating 100% cpu in paused state. I don't know why
+  processEvents() returns immediately for both readout workers.  This only
+  happens if the maxtime arg is used. I probably misunderstood the
+  documentation.
+  Fix? local event loop with a 1s timer which makes it quit?
+  That fix would work if the timetick handling code would be smarter. As it is
+  done right now the code does not store the remaining fractions of a second
+  after a timetick has been sent to the analysis. This means after a while a
+  full second will be lost, then another and so on.
+  => Remember the fractional part of the elapsed time and add it to the elapsed
+  time of the next iteration until a full second is accumulated.
+
 * check the case where listfile creation throws an exception. right now this
   results in a communication error with the sis controller when trying to start
   another run after a failed one.
 
+FIXED?
 * a2: Editing an operator during replay does not rebuild the a2 system. The
   system is only updated when stopping and restarting the replay. Fix this!
 

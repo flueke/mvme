@@ -110,7 +110,12 @@ namespace SIS3153Registers
     static const u32 StackListTimer1Config          = 0x01000014;
     static const u32 StackListTimer2Config          = 0x01000015;
 
+    // Configuration register for dynamically sized block reads.
     static const u32 StackListDynSizedBlockRead     = 0x01000016;
+
+    // Test readback register for dynamic block reads. Will contain the last
+    // dynamic block size in bytes.
+    static const u32 StackListDynSizeReadback       = 0x01000017;
 
     namespace StackListControlValues
     {

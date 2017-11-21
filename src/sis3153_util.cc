@@ -1,7 +1,9 @@
 #include "sis3153_util.h"
 
 #include <QFormLayout>
+#include <QLineEdit>
 #include <QPushButton>
+#include <QTabWidget>
 #include <QTimer>
 
 #include "sis3153.h"
@@ -39,30 +41,47 @@ SIS3153DebugWidget::SIS3153DebugWidget(MVMEContext *context, QWidget *parent)
     , m_context(context)
 {
     setWindowTitle(QSL("SIS3153 Debug Widget"));
-    auto layout = new QFormLayout(this);
+
+    auto widgetLayout = new QHBoxLayout(this);
+    widgetLayout->setContentsMargins(0, 0, 0, 0);
+    widgetLayout->setSpacing(0);
+
+    auto tabWidget = new QTabWidget;
+    widgetLayout->addWidget(tabWidget);
+
+    auto countersWidget = new QWidget;
+    auto toolsWidget  = new QWidget;
+
+    tabWidget->addTab(countersWidget, QSL("&Counters"));
+    tabWidget->addTab(toolsWidget, QSL("&Tools"));
+
+    //
+    // counters
+    //
+    auto countersLayout = new QFormLayout(countersWidget);
 
     // sis library internal counters
-    layout->addRow(make_aligned_label(QSL("<b>sis3153 lib</b>"), Qt::AlignCenter));
+    countersLayout->addRow(make_aligned_label(QSL("<b>sis3153 lib</b>"), Qt::AlignCenter));
 
     for (const char *text: LabelTexts)
     {
         auto label = new QLabel;
-        layout->addRow(text, label);
+        countersLayout->addRow(text, label);
         m_labels.push_back(label);
     }
 
     auto resetButton = new QPushButton(QSL("Reset Counters"));
-    layout->addRow(resetButton);
+    countersLayout->addRow(resetButton);
     connect(resetButton, &QPushButton::clicked, this, &SIS3153DebugWidget::resetCounters);
 
     // sis readout worker counters
-    layout->addRow(make_separator_frame());
-    layout->addRow(make_aligned_label(QSL("<b>sis3153 readout</b>"), Qt::AlignCenter));
+    countersLayout->addRow(make_separator_frame());
+    countersLayout->addRow(make_aligned_label(QSL("<b>sis3153 readout</b>"), Qt::AlignCenter));
 
     for (const char *text: RdoCounterLabels)
     {
         auto label = new QLabel;
-        layout->addRow(text, label);
+        countersLayout->addRow(text, label);
         m_rdoCounterLabels.push_back(label);
     }
 
@@ -71,6 +90,47 @@ SIS3153DebugWidget::SIS3153DebugWidget(MVMEContext *context, QWidget *parent)
     connect(refreshTimer, &QTimer::timeout, this, &SIS3153DebugWidget::refresh);
     refreshTimer->setInterval(1000);
     refreshTimer->start();
+
+
+    //
+    // tools
+    //
+    auto toolsLayout = new QGridLayout(toolsWidget);
+
+    auto le_regAddress = new QLineEdit;
+    le_regAddress->setText(QSL("0x01000017"));
+    auto le_regResult  = new QLineEdit;
+    auto pb_readRegister = new QPushButton(QSL("Read"));
+
+    connect(pb_readRegister, &QPushButton::clicked, this, [=]() {
+
+        if (auto sis = qobject_cast<SIS3153 *>(m_context->getVMEController()))
+        {
+            u32 addr  = le_regAddress->text().toUInt(nullptr, 0);
+            u32 value = 0;
+
+            auto err = sis->readRegister(addr, &value);
+
+            if (err.isError())
+            {
+                le_regResult->setText(err.toString());
+            }
+            else
+            {
+                le_regResult->setText(QString("0x%1 / %2")
+                                      .arg(value, 8, 16, QLatin1Char('0'))
+                                      .arg(value)
+                                     );
+            }
+
+        }
+    });
+
+    s32 row = 0;
+    toolsLayout->addWidget(le_regAddress, row, 0);
+    toolsLayout->addWidget(le_regResult, row, 1);
+    toolsLayout->addWidget(pb_readRegister, row, 2);
+    row++;
 
     refresh();
 }

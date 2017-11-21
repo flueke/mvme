@@ -109,9 +109,10 @@ namespace
                 case  CommandType::BLTFifoCount:
                 case  CommandType::MBLTCount:
                 case  CommandType::MBLTFifoCount:
-                    // read register and save length
+                    // write DYN_BLK_SIZING_CONFIG
+                    // + read register and save length
                     // + blt read using saved length
-                    size += 3 + 3;
+                    size += 4 + 3 + 3;
                     break;
 
                 case  CommandType::SetBase:
@@ -202,6 +203,15 @@ namespace
         *list_ptr = *list_ptr + 3;
     }
 
+    void stackList_add_register_write(u32 *list_ptr, u32 *list_buffer, u32 reg_addr, u32 reg_data)
+    {
+        list_buffer[*list_ptr + 0] = 0xAAAA1A00; // internal register / write / 4byte-size
+        list_buffer[*list_ptr + 1] = 0x00000001; // 4 Bytes
+        list_buffer[*list_ptr + 2] = reg_addr; //
+        list_buffer[*list_ptr + 3] = reg_data; // data
+        *list_ptr = *list_ptr + 4;
+    }
+
     void stackList_add_save_count_read(u32 *list_ptr, u32 *list_buffer, u32 vme_addr, u32 vme_access_size, u32 vme_am_mode)
     {
         unsigned int vme_write_flag = 0;
@@ -280,6 +290,11 @@ namespace
 
             InvalidDefaultCase;
         }
+
+        stackList_add_register_write(
+            list_ptr, list_buffer,
+            SIS3153Registers::StackListDynSizedBlockRead,
+            cmd.countMask);
 
         stackList_add_save_count_read(
             list_ptr, list_buffer,
@@ -1080,7 +1095,14 @@ void SIS3153ReadoutWorker::readoutLoop()
         {
             // In paused state process Qt events for a maximum of 1s, then run
             // another iteration of the loop to handle timeticks.
-            processQtEvents(1000);
+
+            // FIXME: this returns immediately which makes the loop eat the CPU.
+            // Using a local event loop and a timer fixes this but the timetick
+            // handling code at the top of the loop is horrible and loses the
+            // fractional part of a second. This means after a while the
+            // timeticks will be behind the walltime clock by a full second.
+            // This will increase continually.
+            qApp->processEvents(QEventLoop::WaitForMoreEvents, 1000);
         }
         else
         {

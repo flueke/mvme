@@ -667,7 +667,14 @@ void VMUSBReadoutWorker::readoutLoop()
         {
             // In paused state process Qt events for a maximum of 1s, then run
             // another iteration of the loop to handle timeticks.
-            processQtEvents(1000);
+
+            // FIXME: this returns immediately which makes the loop eat the CPU.
+            // Using a local event loop and a timer fixes this but the timetick
+            // handling code at the top of the loop is horrible and loses the
+            // fractional part of a second. This means after a while the
+            // timeticks will be behind the walltime clock by a full second.
+            // This will increase continually.
+            qApp->processEvents(QEventLoop::WaitForMoreEvents, 1000);
         }
         else
         {
