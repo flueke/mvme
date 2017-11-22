@@ -6,7 +6,6 @@
 #include "analysis/analysis_session.h"
 #include "util/strings.h"
 #include "util/counters.h"
-#include "mvme_context_lib.h"
 
 #include <QJsonDocument>
 #include <QJsonObject>

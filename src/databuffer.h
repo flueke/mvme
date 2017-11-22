@@ -63,6 +63,7 @@ struct DataBuffer
 
     size_t free() const { return size - used; }
 
+    u8 *asU8() { return data + used; }
     u16 *asU16() { return reinterpret_cast<u16 *>(data + used); }
     u32 *asU32() { return reinterpret_cast<u32 *>(data + used); }
 

@@ -217,6 +217,10 @@ class ListFile
         QString getFullName() const; // filename or zipname:/filename
         u32 getFileVersion() const { return m_fileVersion; }
 
+        // Will be empty vector for version 0 or contain "MVME<version>" with
+        // version being an u32.
+        QVector<u8> getPreambleBuffer() const { return m_preambleBuffer; }
+
     private:
         bool seek(qint64 pos);
 
@@ -224,6 +228,7 @@ class ListFile
         QJsonObject m_configJson;
         u32 m_fileVersion = 0;
         u32 m_sectionHeaderBuffer = 0;
+        QVector<u8> m_preambleBuffer;
 };
 
 class ListFileReader: public QObject

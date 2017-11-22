@@ -199,6 +199,22 @@ bool ListFile::open()
         {
             m_fileVersion = version;
         }
+
+        u8 *firstByte = reinterpret_cast<u8 *>(fourCC);
+        u8 *lastByte = reinterpret_cast<u8 *>(fourCC) + bytesToRead;
+
+        for (u8 *c = firstByte; c < lastByte; c++)
+        {
+            m_preambleBuffer.push_back(*c);
+        }
+
+        firstByte = reinterpret_cast<u8 *>(&version);
+        lastByte = reinterpret_cast<u8 *>(&version) + sizeof(version);
+
+        for (u8 *c = firstByte; c < lastByte; c++)
+        {
+            m_preambleBuffer.push_back(*c);
+        }
     }
 
     seekToFirstSection();
