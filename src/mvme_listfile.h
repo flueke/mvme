@@ -302,4 +302,22 @@ class ListFileWriter: public QObject
         u64 m_bytesWritten = 0;
 };
 
+struct OpenListfileResult
+{
+    std::unique_ptr<ListFile> listfile;
+    QByteArray messages;                    // messages.log if found
+    QByteArray analysisBlob;                // analysis config contents
+    QString analysisFilename;               // analysis filename inside the archive
+
+    OpenListfileResult() = default;
+
+    OpenListfileResult(OpenListfileResult &&) = default;
+    OpenListfileResult &operator=(OpenListfileResult &&) = default;
+
+    OpenListfileResult(const OpenListfileResult &) = delete;
+    OpenListfileResult &operator=(const OpenListfileResult &) = delete;
+};
+
+OpenListfileResult open_listfile(const QString &filename);
+
 #endif

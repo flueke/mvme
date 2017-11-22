@@ -135,7 +135,7 @@ void ListfileBrowser::onItemDoubleClicked(const QModelIndex &mi)
 
     try
     {
-        auto openResult = open_listfile(m_context, filename, flags);
+        auto openResult = context_open_listfile(m_context, filename, flags);
 
         if (openResult.listfile)
         {

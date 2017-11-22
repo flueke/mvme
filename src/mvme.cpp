@@ -899,7 +899,7 @@ void MVMEMainWindow::onActionOpenListfile_triggered()
             }
         }
 
-        auto openResult = open_listfile(m_d->m_context, fileName, openFlags);
+        auto openResult = context_open_listfile(m_d->m_context, fileName, openFlags);
 
         if (openResult.listfile)
         {

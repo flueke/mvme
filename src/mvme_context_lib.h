@@ -5,9 +5,9 @@
 
 class MVMEContext;
 
-struct OpenListfileResult
+struct ContextOpenListfileResult
 {
-    ListFile *listfile;             // Owned by the context object
+    ListFile *listfile;             // Owned by the MVMEContext object passed to context_open_listfile()
     QByteArray messages;            // messages.log if found
     QByteArray analysisBlob;        // analysis config contents
     QString analysisFilename;       // analysis filename inside the archive
@@ -20,24 +20,6 @@ struct OpenListfileFlags
 
 /* Important: Does not check if the current analysis is modified before loading
  * one from the listfile. Perform this check before calling this function! */
-OpenListfileResult open_listfile(MVMEContext *context, const QString &filename, u16 flags = 0);
-
-struct OpenListfileResultLowLevel
-{
-    std::unique_ptr<ListFile> listfile;
-    QByteArray messages;                    // messages.log if found
-    QByteArray analysisBlob;                // analysis config contents
-    QString analysisFilename;               // analysis filename inside the archive
-
-    OpenListfileResultLowLevel() = default;
-
-    OpenListfileResultLowLevel(OpenListfileResultLowLevel &&) = default;
-    OpenListfileResultLowLevel &operator=(OpenListfileResultLowLevel &&) = default;
-
-    OpenListfileResultLowLevel(const OpenListfileResultLowLevel &) = delete;
-    OpenListfileResultLowLevel &operator=(const OpenListfileResultLowLevel &) = delete;
-};
-
-OpenListfileResultLowLevel open_listfile(const QString &filename);
+ContextOpenListfileResult context_open_listfile(MVMEContext *context, const QString &filename, u16 flags = 0);
 
 #endif /* __MVME_CONTEXT_LIB_H__ */
