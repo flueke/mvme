@@ -36,8 +36,6 @@
 
 #include "sis3153ETH_vme_class.h"
 
-#include <QDebug>
-
 using namespace std;
 
 static void init_socket_system()
