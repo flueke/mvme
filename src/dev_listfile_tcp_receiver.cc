@@ -52,6 +52,7 @@ void receive_one_buffer(Context &context, const u32 size, DataBuffer &destBuffer
                    .arg(context.socket->errorString()));
         }
 
+        destBuffer.used += bytesReceived;
         context.bytesRead += bytesReceived;
         context.readCount++;
     }
