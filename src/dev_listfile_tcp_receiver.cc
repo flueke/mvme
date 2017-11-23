@@ -1,4 +1,5 @@
 #include <cassert>
+#include <chrono>
 #include <getopt.h>
 #include <iostream>
 #include <QCoreApplication>
@@ -16,47 +17,50 @@ using std::endl;
 
 namespace
 {
+static const size_t ReadBufferSize = Megabytes(1);
+
 struct Context
 {
+    using ClockType = std::chrono::high_resolution_clock;
+
     QTcpSocket *socket;
     QFile *outfile;
+    u64 bytesRead = 0;
+    u64 readCount = 0;
+    ClockType::time_point startTime;
+    ClockType::time_point endTime;
 };
 
-static u64 g_socketReadCount = 0;
-
-void receive_one_buffer(QTcpSocket *socket, const u32 size, DataBuffer &destBuffer)
+void receive_one_buffer(Context &context, const u32 size, DataBuffer &destBuffer)
 {
     destBuffer.ensureCapacity(size);
     destBuffer.used = 0;
 
     while (destBuffer.used < size)
     {
-        if (socket->bytesAvailable() <= 0 && !socket->waitForReadyRead())
+        if (context.socket->bytesAvailable() <= 0 && !context.socket->waitForReadyRead())
         {
             throw (QString("waitForReadyRead (data) failed"));
         }
 
-        // XXX: read() returns 0 if no more data is available. could maybe also use that instead of testing for <= 0
-        qint64 bytesReceived = socket->read(reinterpret_cast<char *>(destBuffer.asU8()), size - destBuffer.used);
-        ++g_socketReadCount;
+        // Note: read() returns 0 if no more data is available. could maybe also use that instead of testing for <= 0
+        qint64 bytesReceived = context.socket->read(reinterpret_cast<char *>(destBuffer.asU8()), size - destBuffer.used);
 
         if (bytesReceived <= 0)
         {
             throw (QString("read data failed: %1")
-                   .arg(socket->errorString()));
+                   .arg(context.socket->errorString()));
         }
 
-        destBuffer.used += bytesReceived;
+        context.bytesRead += bytesReceived;
+        context.readCount++;
     }
 }
 
-static const size_t ReadBufferSize = Megabytes(1);
-
-void receive_and_write_listfile(Context context)
+void receive_and_write_listfile(Context &context)
 {
     DataBuffer mvmeBuffer(ReadBufferSize);
     bool done = false;
-    size_t totalBytesReceived = 0;
 
     while (true)
     {
@@ -85,14 +89,14 @@ void receive_and_write_listfile(Context context)
             throw (QString("read bufferSize failed: %1")
                    .arg(context.socket->errorString()));
         }
-        ++g_socketReadCount;
+        context.bytesRead += sizeof(bufferSize);
+        context.readCount++;
 
         bufferSize = qFromBigEndian(bufferSize);
 
         //qDebug() << __PRETTY_FUNCTION__ << "incoming buffer size: " << bufferSize;
 
-        receive_one_buffer(context.socket, bufferSize, mvmeBuffer);
-        totalBytesReceived += mvmeBuffer.used;
+        receive_one_buffer(context, bufferSize, mvmeBuffer);
 
         if (context.outfile->write(
                 reinterpret_cast<const char *>(mvmeBuffer.data),
@@ -103,8 +107,6 @@ void receive_and_write_listfile(Context context)
                    .arg(context.outfile->errorString()));
         }
     }
-
-    qDebug() << "total payload bytes received =" << totalBytesReceived;
 }
 
 } // end anon namespace
@@ -176,15 +178,26 @@ int main(int argc, char *argv[])
         context.socket = server.nextPendingConnection(); // note: socket is a qobject child of server
         context.outfile = &outfile;
 
+        context.startTime = Context::ClockType::now();
+
         receive_and_write_listfile(context);
+
+        context.endTime = Context::ClockType::now();
+
+        std::chrono::duration<double> secondsElapsed = context.endTime - context.startTime;
+        double mbRead = context.bytesRead / Megabytes(1);
+        double mbPerSecond = mbRead / secondsElapsed.count();
+
+        cout << "Number of socket reads: " << context.readCount << endl;
+        cout << "MB read: " << mbRead << endl;
+        cout << "Rate: " << mbPerSecond << " MB/s" << endl;
+        cout << "Elapsed seconds: " << secondsElapsed.count() << endl;
     }
     catch (const QString &e)
     {
         qDebug() << e << endl;
         return 1;
     }
-
-    cout << "Number of socket reads: " << g_socketReadCount << endl;
 
     return 0;
 }

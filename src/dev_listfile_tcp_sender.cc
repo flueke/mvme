@@ -1,4 +1,5 @@
 #include <cassert>
+#include <chrono>
 #include <getopt.h>
 #include <iostream>
 #include <QCoreApplication>
@@ -16,48 +17,52 @@ using std::endl;
 namespace
 {
 
-static u64 g_socketWriteCount = 0;
+static const size_t ReadBufferSize = Megabytes(1);
 
-void send_data(QTcpSocket &socket, const u8 *data, size_t size)
+struct Context
 {
-    auto bytesWritten = socket.write(
+    using ClockType = std::chrono::high_resolution_clock;
+
+    QTcpSocket socket;
+    u64 bytesWritten = 0;
+    u64 writeCount = 0;
+    ClockType::time_point startTime;
+    ClockType::time_point endTime;
+};
+
+void send_data(Context &context, const u8 *data, size_t size)
+{
+    auto bytesWritten = context.socket.write(
         reinterpret_cast<const char *>(data),
         static_cast<qint64>(size));
 
-    ++g_socketWriteCount;
-
     if (bytesWritten != (qint64) size)
     {
-        throw QString("socket.write failed: %1").arg(socket.errorString());
+        throw QString("socket.write failed: %1").arg(context.socket.errorString());
     }
 
-    if (!socket.waitForBytesWritten())
+    if (!context.socket.waitForBytesWritten())
     {
-        throw QString("socket.waitForBytesWritten failed: %1").arg(socket.errorString());
+        throw QString("context.socket.waitForBytesWritten failed: %1").arg(context.socket.errorString());
     }
+
+    context.bytesWritten += bytesWritten;
+    context.writeCount++;
 }
 
-void send_data_with_size_prefix(QTcpSocket &socket, const u8 *data, size_t size)
+void send_data_with_size_prefix(Context &context, const u8 *data, size_t size)
 {
     assert(size <= std::numeric_limits<u32>::max());
 
     u32 sizeBigEndian = qToBigEndian(static_cast<u32>(size));
 
-    send_data(socket, reinterpret_cast<const u8 *>(&sizeBigEndian), sizeof(sizeBigEndian));
-    send_data(socket, data, size);
+    send_data(context, reinterpret_cast<const u8 *>(&sizeBigEndian), sizeof(sizeBigEndian));
+    send_data(context, data, size);
 }
-
-static const size_t ReadBufferSize = Megabytes(1);
-//static const size_t ReadBufferSize = Kilobytes(128);
-
-struct Context
-{
-    QTcpSocket socket;
-};
 
 void send_mvme_buffer(Context &context, DataBuffer &buffer)
 {
-    send_data_with_size_prefix(context.socket, buffer.data, buffer.used);
+    send_data_with_size_prefix(context, buffer.data, buffer.used);
 }
 
 void process_listfile(Context &context, ListFile *listfile)
@@ -66,7 +71,7 @@ void process_listfile(Context &context, ListFile *listfile)
 
     if (!preamble.isEmpty())
     {
-        send_data_with_size_prefix(context.socket, preamble.data(), preamble.size());
+        send_data_with_size_prefix(context, preamble.data(), preamble.size());
     }
 
 
@@ -151,16 +156,26 @@ int main(int argc, char *argv[])
                    .arg(context.socket.errorString()));
         }
 
+        context.startTime = Context::ClockType::now();
 
         process_listfile(context, openResult.listfile.get());
+
+        context.endTime = Context::ClockType::now();
+
+        std::chrono::duration<double> secondsElapsed = context.endTime - context.startTime;
+        double mbWritten = context.bytesWritten / Megabytes(1);
+        double mbPerSecond = mbWritten / secondsElapsed.count();
+
+        cout << "Number of socket writes: " << context.writeCount << endl;
+        cout << "MB written: " << mbWritten << endl;
+        cout << "Rate: " << mbPerSecond << " MB/s" << endl;
+        cout << "Elapsed seconds: " << secondsElapsed.count() << endl;
     }
     catch (const QString &e)
     {
         qDebug() << e << endl;
         return 1;
     }
-
-    cout << "Number of socket writes: " << g_socketWriteCount << endl;
 
     return 0;
 }
