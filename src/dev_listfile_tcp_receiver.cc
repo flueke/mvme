@@ -93,7 +93,15 @@ void receive_and_write_listfile(Context context)
 
         receive_one_buffer(context.socket, bufferSize, mvmeBuffer);
         totalBytesReceived += mvmeBuffer.used;
-        // TODO: write buffer to outfile here
+
+        if (context.outfile->write(
+                reinterpret_cast<const char *>(mvmeBuffer.data),
+                mvmeBuffer.used) != static_cast<qint64>(mvmeBuffer.used))
+        {
+            throw (QString("error writing to outfile %1: %2")
+                   .arg(context.outfile->fileName())
+                   .arg(context.outfile->errorString()));
+        }
     }
 
     qDebug() << "total payload bytes received =" << totalBytesReceived;
