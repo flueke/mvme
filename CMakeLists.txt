@@ -79,11 +79,6 @@ include_directories("${CMAKE_SOURCE_DIR}/3rdparty")
 include_directories("${CMAKE_SOURCE_DIR}/3rdparty/pcg-cpp-0.98/include/")
 include_directories("${CMAKE_SOURCE_DIR}/3rdparty/cpp11-on-multicore/common/")
 
-# qwt
-find_path(QWT_INCLUDE_DIR
-    NAMES qwt_plot.h
-    PATH_SUFFIXES qwt qwt-qt5 qwt-6.1.3)
-
 # HDF5
 option(ENABLE_HDF5 "Enable HDF5 support" ON)
 set(HDF5_USE_STATIC_LIBRARIES Off)
@@ -97,8 +92,12 @@ if (ENABLE_HDF5)
     endif(HDF5_FOUND)
 endif(ENABLE_HDF5)
 
-# Qwt
-find_library(QWT_LIBRARY NAMES qwt qwt-qt5)
+# qwt
+find_path(QWT_INCLUDE_DIR
+    NAMES qwt_plot.h
+    PATH_SUFFIXES qwt qwt-qt5 qwt-6.1.3 qt5/qwt6)
+
+find_library(QWT_LIBRARY NAMES qwt qwt-qt5 qwt6)
 include_directories(${QWT_INCLUDE_DIR})
 #include(FindPackageHandleStandardArgs)
 #find_package_handle_standard_args(Qwt DEFAULT_MSG QWT_LIBRARY QWT_INCLUDE_DIR)
