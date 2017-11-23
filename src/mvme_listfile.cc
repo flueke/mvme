@@ -170,7 +170,8 @@ ListFile::~ListFile()
 
 bool ListFile::open()
 {
-    m_fileVersion = 0;
+    // For ZIP file input it is assumed that the file has been opened before
+    // being passed to our constructor. QFiles are opened here.
 
     if (auto inFile = qobject_cast<QFile *>(m_input))
     {
@@ -180,9 +181,15 @@ bool ListFile::open()
         }
     }
 
-    // For ZIP file input it is assumed that the file has been opened before
-    // being passed to our constructor.
 
+    /* Tries to read the FourCC ("MVME") and the 4-byte version number. The
+     * very first listfiles did not have this preamble so it's not an error if
+     * the FourCC does not match.
+     *
+     * In both cases (version 0 or version > 0) a complete preamble is stored
+     * in m_preambleBuffer. */
+
+    m_fileVersion = 0;
     const char *toCompare = listfile_v1::FourCC;
     const size_t bytesToRead = 4;
     char fourCC[bytesToRead + 1] = {};
@@ -215,6 +222,10 @@ bool ListFile::open()
         {
             m_preambleBuffer.push_back(*c);
         }
+    }
+    else
+    {
+        m_preambleBuffer = { 'M', 'V', 'M', 'E', 0, 0, 0, 0 };
     }
 
     seekToFirstSection();

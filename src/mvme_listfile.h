@@ -129,8 +129,8 @@ struct listfile_v0
 /*  ===== VERSION 1 =====
  *
  * Differences to version 0:
- * - Starts with the FourCC "MVME" followed by a 32 bit word containing the
- *   listfile version number.
+ * - Starts with the FourCC "MVME" (without a terminating '\0') followed by a
+ *   32 bit word containing the listfile version number.
  * - Larger section and subevent sizes: 16 -> 20 bits for sections and 10 -> 20
  *   bits for subevents.
  * - Module type is now 8 bit instead of 6.
