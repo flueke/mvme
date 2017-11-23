@@ -1,4 +1,4 @@
-/* mvme-listfile-tool - dump mvme listfiles
+/* mvme-listfile-dumper - format mvme listfile content and print it to stdout
  *
  * Copyright (C) 2017  Florian Lüke <f.lueke@mesytec.com>
  *
@@ -193,6 +193,7 @@ namespace listfile
         MDI2            = 6,
         MDPP16_RCP      = 7,
         MDPP16_QDC      = 8,
+        VMMR            = 9,
 
         MesytecCounter = 16,
         VHS4030p = 21,
@@ -208,6 +209,7 @@ namespace listfile
         { VMEModuleType::MDI2,              "MDI-2" },
         { VMEModuleType::MDPP16_RCP,        "MDPP-16_RCP" },
         { VMEModuleType::MDPP16_QDC,        "MDPP-16_QDC" },
+        { VMEModuleType::VMMR,              "VMMR" },
         { VMEModuleType::VHS4030p,          "iseg VHS4030p" },
         { VMEModuleType::MesytecCounter,    "Mesytec Counter" },
     };
