@@ -975,6 +975,7 @@ void MVMEContext::startDAQ(quint32 nCycles, bool keepHistoContents)
     auto now = QDateTime::currentDateTime();
     m_d->m_runInfo.runId = now.toString("yyMMdd_HHmmss");
     m_d->m_runInfo.keepAnalysisState = keepHistoContents;
+    m_d->m_runInfo.isReplay = false;
 
     // TODO: use ListFileOutputInfo to generate the runId for the analysis
     // FIXME: we don't actually know the runId before the listfile is successfully opened.
@@ -1030,6 +1031,7 @@ void MVMEContext::startReplay(u32 nEvents, bool keepHistoContents)
     QFileInfo fi(m_listFile->getFileName());
     m_d->m_runInfo.runId = fi.completeBaseName();
     m_d->m_runInfo.keepAnalysisState = keepHistoContents;
+    m_d->m_runInfo.isReplay = true;
 
     qDebug() << __PRETTY_FUNCTION__ << m_listFile->getFileName() << fi.completeBaseName();
 

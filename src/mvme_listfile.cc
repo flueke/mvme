@@ -499,6 +499,11 @@ s32 read_sections_into_buffer(QIODevice &m_file, DataBuffer *buffer, u32 *savedS
             *savedSectionHeader = 0;
         }
 
+        if (((sectionHeader & LF::SectionTypeMask) >> LF::SectionTypeShift) == ListfileSections::SectionType_End)
+        {
+            qDebug() << __PRETTY_FUNCTION__ << "read End section into buffer";
+        }
+
         *(buffer->asU32()) = sectionHeader;
         buffer->used += sizeof(sectionHeader);
 

@@ -159,6 +159,7 @@ int main(int argc, char *argv[])
         context.startTime = Context::ClockType::now();
 
         process_listfile(context, openResult.listfile.get());
+        context.socket.close();
 
         context.endTime = Context::ClockType::now();
 

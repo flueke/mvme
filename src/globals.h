@@ -145,6 +145,8 @@ struct RunInfo
      * between runs. If set to false all histograms will be cleared before the
      * replay starts. */
     bool keepAnalysisState = false;
+
+    bool isReplay = false;
 };
 
 enum class ListFileFormat

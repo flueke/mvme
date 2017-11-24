@@ -515,7 +515,6 @@ struct EventWidgetPrivate
     // Actions and widgets used in makeEventSelectAreaToolBar()
     QAction *m_actionSelectVisibleLevels;
     QLabel *m_eventRateLabel;
-    QAction *m_actionShowWalltimeRates;
 
     QToolBar* m_upperToolBar;
     QToolBar* m_eventSelectAreaToolBar;
@@ -532,7 +531,6 @@ struct EventWidgetPrivate
     MVMEStreamProcessorCounters m_prevStreamProcessorCounters;
 
     double m_prevAnalysisTimeticks = 0.0;;
-    bool m_showWalltimeRates = false;
 
     void createView(const QUuid &eventId);
     DisplayLevelTrees createTrees(const QUuid &eventId, s32 level);
@@ -2075,12 +2073,23 @@ PipeDisplay *EventWidgetPrivate::makeAndShowPipeDisplay(Pipe *pipe)
 
 void EventWidgetPrivate::doPeriodicUpdate()
 {
+    /* If it's a replay: use timeticks
+     * If it's DAQ: use elapsed walltime
+     * Reason: if analysis efficiency is < 1.0 timeticks will be lost. Thus
+     * using timeticks with a DAQ run may lead to very confusing numbers as
+     * sometimes ticks will be lost, at other times they'll appear.
+     */
+
     auto analysis = m_context->getAnalysis();
-
+    bool isReplay = analysis->getRunInfo().isReplay;
+    double dt_s = 0.0;
     double currentAnalysisTimeticks = analysis->getTimetickCount();
-    double dt_s = calc_delta0(currentAnalysisTimeticks, m_prevAnalysisTimeticks);
 
-    if (m_showWalltimeRates)
+    if (isReplay)
+    {
+        dt_s = calc_delta0(currentAnalysisTimeticks, m_prevAnalysisTimeticks);
+    }
+    else
     {
         dt_s = PeriodicUpdateTimerInterval_ms / 1000.0;
     }
@@ -2333,10 +2342,19 @@ void EventWidgetPrivate::periodicUpdateEventRate(double dt_s)
     double eventCount = counters.eventCounters[m_eventIndex];
     double eventRate = deltaEvents / dt_s;
 
-    auto labelText = (QString("count=%2\nrate=%3")
+    auto labelText = (QString("count=%1\nrate=%2")
                       .arg(format_number(eventCount, QSL(""), UnitScaling::Decimal))
                       .arg(format_number(eventRate, QSL("cps"), UnitScaling::Decimal, 0, 'g', 3))
                      );
+
+    if (m_context->getAnalysis()->getRunInfo().isReplay)
+    {
+        double walltimeRate = deltaEvents / (PeriodicUpdateTimerInterval_ms / 1000.0);
+
+        labelText += (QString("\nreplayRate=%1")
+                      .arg(format_number(walltimeRate, QSL("cps"), UnitScaling::Decimal, 0, 'g', 3))
+                      );
+    }
 
     m_eventRateLabel->setText(labelText);
 
@@ -2652,15 +2670,7 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, int eventIndex,
         }
     });
 
-    m_d->m_eventRateLabel = new QLabel("Event Rate goes here");
-
-    auto action = new QAction(QSL("Show walltime Rates"), this);
-    m_d->m_actionShowWalltimeRates = action;
-    action->setCheckable(true);
-
-    connect(action, &QAction::triggered, this, [this, action] {
-        m_d->m_showWalltimeRates = action->isChecked();
-    });
+    m_d->m_eventRateLabel = new QLabel;
 
     // create the lower toolbar
     {
@@ -2671,7 +2681,6 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, int eventIndex,
         tb->addAction(m_d->m_actionSelectVisibleLevels);
         tb->addSeparator();
         tb->addWidget(m_d->m_eventRateLabel);
-        tb->addAction(m_d->m_actionShowWalltimeRates);
     }
 
     m_d->repopulate();
@@ -2979,6 +2988,7 @@ struct AnalysisWidgetPrivate
     QLabel *m_labelSinkStorageSize;
     QLabel *m_labelTimetickCount;
     QLabel *m_statusLabelA2;
+    QLabel *m_labelEfficiency;
     QTimer *m_periodicUpdateTimer;
     WidgetGeometrySaver *m_geometrySaver;
     AnalysisInfoWidget *m_infoWidget = nullptr;
@@ -3793,6 +3803,9 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
 
     // statusbar
     m_d->m_statusBar = make_statusbar();
+    // efficiency
+    m_d->m_labelEfficiency = new QLabel;
+    m_d->m_statusBar->addPermanentWidget(m_d->m_labelEfficiency);
     // timeticks label
     m_d->m_labelTimetickCount = new QLabel;
     m_d->m_statusBar->addPermanentWidget(m_d->m_labelTimetickCount);
@@ -3854,8 +3867,23 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     // Update statusbar timeticks label
     connect(m_d->m_periodicUpdateTimer, &QTimer::timeout, this, [this]() {
         double tickCount = m_d->m_context->getAnalysis()->getTimetickCount();
+
         m_d->m_labelTimetickCount->setText(QString("Timeticks: %1 s")
                                            .arg(tickCount));
+
+
+        if (!m_d->m_context->getAnalysis()->getRunInfo().isReplay)
+        {
+
+            auto daqStats = m_d->m_context->getDAQStats();
+
+            double totalBuffers = daqStats.totalBuffersRead;
+            double analyzedBuffers = totalBuffers - daqStats.droppedBuffers;
+            double efficiency = analyzedBuffers / totalBuffers;
+
+            m_d->m_labelEfficiency->setText(QString("Efficiency: %1")
+                                            .arg(efficiency, 0, 'f', 2));
+        }
     });
 
     // Run the periodic update
