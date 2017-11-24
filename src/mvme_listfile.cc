@@ -350,7 +350,7 @@ QJsonObject get_daq_config(QIODevice &m_file)
 
     if (!m_configJson.isEmpty())
     {
-        qDebug() << "listfile config json:" << m_configJson.toJson();
+        //qDebug() << "listfile config json:" << m_configJson.toJson();
         auto result = m_configJson.object();
         // Note: This check is for compatibilty with older listfiles.
         if (result.contains(QSL("DAQConfig")))

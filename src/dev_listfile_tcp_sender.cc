@@ -163,7 +163,7 @@ int main(int argc, char *argv[])
         context.endTime = Context::ClockType::now();
 
         std::chrono::duration<double> secondsElapsed = context.endTime - context.startTime;
-        double mbWritten = context.bytesWritten / Megabytes(1);
+        double mbWritten = static_cast<double>(context.bytesWritten) / Megabytes(1);
         double mbPerSecond = mbWritten / secondsElapsed.count();
 
         cout << "Number of socket writes: " << context.writeCount << endl;

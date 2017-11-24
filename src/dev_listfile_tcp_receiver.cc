@@ -40,7 +40,8 @@ void receive_one_buffer(Context &context, const u32 size, DataBuffer &destBuffer
     {
         if (context.socket->bytesAvailable() <= 0 && !context.socket->waitForReadyRead())
         {
-            throw (QString("waitForReadyRead (data) failed"));
+            throw (QString("waitForReadyRead (data) failed: %1")
+                   .arg(context.socket->errorString()));
         }
 
         // Note: read() returns 0 if no more data is available. could maybe also use that instead of testing for <= 0
@@ -188,7 +189,7 @@ int main(int argc, char *argv[])
         context.endTime = Context::ClockType::now();
 
         std::chrono::duration<double> secondsElapsed = context.endTime - context.startTime;
-        double mbRead = context.bytesRead / Megabytes(1);
+        double mbRead = static_cast<double>(context.bytesRead) / Megabytes(1);
         double mbPerSecond = mbRead / secondsElapsed.count();
 
         cout << "Number of socket reads: " << context.readCount << endl;
