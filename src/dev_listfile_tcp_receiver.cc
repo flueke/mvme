@@ -44,7 +44,9 @@ void receive_one_buffer(Context &context, const u32 size, DataBuffer &destBuffer
         }
 
         // Note: read() returns 0 if no more data is available. could maybe also use that instead of testing for <= 0
-        qint64 bytesReceived = context.socket->read(reinterpret_cast<char *>(destBuffer.asU8()), size - destBuffer.used);
+        qint64 bytesReceived = context.socket->read(
+            reinterpret_cast<char *>(destBuffer.asU8()),
+            size - destBuffer.used);
 
         if (bytesReceived <= 0)
         {
@@ -151,7 +153,7 @@ int main(int argc, char *argv[])
         || listenPort == 0)
     {
         cout << "Usage: " << argv[0] << " --listfile <filename> --host <listehost> --port <listport>" << endl;
-        cout << "The program will listen on the given host and port and write received data to the given listfile." << endl;
+        cout << "The program will listen on the given host and port and write received data to the given listfile filename." << endl;
         cout << "Example: " << argv[0] << " --listfile myfile.mvmelst --host example.com --port 1234" << endl;
 
         return showHelp ? 0 : 1;
