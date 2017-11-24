@@ -206,6 +206,9 @@ namespace
  *
  * Also note that the file handling code does not in any way guard against race
  * conditions when someone else is also creating files.
+ *
+ * Note: Increments the runNumer of outInfo if UseRunNumber is set in the
+ * output flags.
  */
 QString make_new_listfile_name(ListFileOutputInfo *outInfo)
 {
@@ -277,6 +280,11 @@ void DAQReadoutListfileHelper::beginRun()
             {
                 QString outFilename = make_new_listfile_name(m_readoutContext.listfileOutputInfo);
 
+                /* The name of the listfile inside the zip archive. */
+                QFileInfo fi(outFilename);
+                QString listfileFilename(QFileInfo(outFilename).completeBaseName());
+                listfileFilename += QSL(".mvmelst");
+
                 m_d->listfileArchive.setZipName(outFilename);
                 m_d->listfileArchive.setZip64Enabled(true);
 
@@ -290,7 +298,7 @@ void DAQReadoutListfileHelper::beginRun()
                 m_d->listfileOut = std::make_unique<QuaZipFile>(&m_d->listfileArchive);
                 auto outFile = reinterpret_cast<QuaZipFile *>(m_d->listfileOut.get());
 
-                QuaZipNewInfo zipFileInfo(m_readoutContext.runInfo->runId + QSL(".mvmelst"));
+                QuaZipNewInfo zipFileInfo(listfileFilename);
                 zipFileInfo.setPermissions(static_cast<QFile::Permissions>(0x6644));
 
                 bool res = outFile->open(QIODevice::WriteOnly, zipFileInfo,
