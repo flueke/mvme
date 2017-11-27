@@ -86,6 +86,8 @@ void process_listfile(Context &context, ListFile *listfile)
         if (numSections <= 0)
             break;
 
+        assert(sectionBuffer.used >= sizeof(u32)); // expecting at least the section header
+
         send_mvme_buffer(context, sectionBuffer);
     }
 }
@@ -159,7 +161,7 @@ int main(int argc, char *argv[])
         context.startTime = Context::ClockType::now();
 
         process_listfile(context, openResult.listfile.get());
-        context.socket.close();
+        context.socket.disconnectFromHost();
 
         context.endTime = Context::ClockType::now();
 
@@ -168,7 +170,7 @@ int main(int argc, char *argv[])
         double mbPerSecond = mbWritten / secondsElapsed.count();
 
         cout << "Number of socket writes: " << context.writeCount << endl;
-        cout << "MB written: " << mbWritten << endl;
+        cout << "MB written: " << mbWritten << ", " << context.bytesWritten << " bytes" << endl;
         cout << "Rate: " << mbPerSecond << " MB/s" << endl;
         cout << "Elapsed seconds: " << secondsElapsed.count() << endl;
     }
