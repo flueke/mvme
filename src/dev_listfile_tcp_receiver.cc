@@ -74,9 +74,9 @@ void receive_and_write_listfile(Context &context)
         {
             if (!context.socket->waitForReadyRead())
             {
-                //throw (QString("waitForReadyRead (bufferSize) failed"));
-                done = true;
-                break;
+                throw (QString("waitForReadyRead (bufferSize) failed"));
+                //done = true;
+                //break;
             }
         }
 
@@ -98,6 +98,12 @@ void receive_and_write_listfile(Context &context)
 
         bufferSize = qFromBigEndian(bufferSize);
 
+        if (bufferSize == 0)
+        {
+            qDebug() << __PRETTY_FUNCTION__ << "received 0 buffer size => breaking out of receive loop";
+            break;
+        }
+
         //qDebug() << __PRETTY_FUNCTION__ << "incoming buffer size: " << bufferSize;
 
         receive_one_buffer(context, bufferSize, mvmeBuffer);
@@ -110,6 +116,22 @@ void receive_and_write_listfile(Context &context)
                    .arg(context.outfile->fileName())
                    .arg(context.outfile->errorString()));
         }
+    }
+
+    u32 zero = 0u;
+
+    auto bytesWritten = context.socket->write(
+        reinterpret_cast<const char *>(&zero),
+        sizeof(zero));
+
+    if (bytesWritten != static_cast<qint64>(sizeof(zero)))
+    {
+        throw QString("final socket write failed: %1").arg(context.socket->errorString());
+    }
+
+    if (!context.socket->waitForBytesWritten())
+    {
+        throw QString("final .socket waitForBytesWritten failed: %1").arg(context.socket->errorString());
     }
 }
 

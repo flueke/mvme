@@ -32,6 +32,8 @@ struct Context
 
 void send_data(Context &context, const u8 *data, size_t size)
 {
+    assert(size > 0);
+
     auto bytesWritten = context.socket.write(
         reinterpret_cast<const char *>(data),
         static_cast<qint64>(size));
@@ -53,6 +55,7 @@ void send_data(Context &context, const u8 *data, size_t size)
 void send_data_with_size_prefix(Context &context, const u8 *data, size_t size)
 {
     assert(size <= std::numeric_limits<u32>::max());
+    assert(size > 0);
 
     u32 sizeBigEndian = qToBigEndian(static_cast<u32>(size));
 
@@ -89,6 +92,29 @@ void process_listfile(Context &context, ListFile *listfile)
         assert(sectionBuffer.used >= sizeof(u32)); // expecting at least the section header
 
         send_mvme_buffer(context, sectionBuffer);
+    }
+
+    /* Send a zero length prefix to indicate end of listfile, then wait for a reply. */
+    qDebug() << __PRETTY_FUNCTION__ << "sending zero length and waiting for final reply";
+
+    u32 zero = 0u;
+    send_data(context, reinterpret_cast<const u8 *>(&zero), sizeof(zero));
+
+    while (context.socket.bytesAvailable() < static_cast<qint64>(sizeof(zero)))
+    {
+        if (!context.socket.waitForReadyRead())
+        {
+            throw (QString("waitForReadyRead (final acknowledge) failed: %1")
+                   .arg(context.socket.errorString()));
+        }
+    }
+
+    qint64 bytesReceived = context.socket.read(reinterpret_cast<char *>(&zero), sizeof(zero));
+
+    if (bytesReceived != static_cast<qint64>(sizeof(zero)))
+    {
+        throw (QString("final read failed: failed: %1")
+               .arg(context.socket.errorString()));
     }
 }
 
