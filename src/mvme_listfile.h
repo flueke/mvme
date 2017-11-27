@@ -237,6 +237,7 @@ class ListFileReader: public QObject
     signals:
         void stateChanged(DAQState);
         void replayStopped();
+        void replayPaused();
         void progressChanged(qint64, qint64);
 
     public:
@@ -249,6 +250,7 @@ class ListFileReader: public QObject
         ListFile *getListFile() const { return m_listFile; }
 
         bool isRunning() const { return m_state != DAQState::Idle; }
+        DAQState getState() const { return m_state; }
 
         void setEventsToRead(u32 eventsToRead);
 

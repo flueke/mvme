@@ -54,7 +54,6 @@ Q_DECLARE_METATYPE(DAQState);
 
 enum class GlobalMode
 {
-    NotSet,
     DAQ,
     ListFile
 };

@@ -34,8 +34,9 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
         virtual void start(quint32 cycles) override;
         virtual void stop() override;
         virtual void pause() override;
-        virtual void resume() override;
+        virtual void resume(quint32 cycles) override;
         virtual bool isRunning() const override;
+        virtual DAQState getState() const override { return m_state; }
 
         struct Counters
         {

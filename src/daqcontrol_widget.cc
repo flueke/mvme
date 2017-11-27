@@ -88,23 +88,34 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
         auto daqState = m_context->getDAQState();
         bool keepHistoContents = rb_keepData->isChecked();
 
-        if (globalMode == GlobalMode::DAQ)
+        switch (daqState)
         {
-            if (daqState == DAQState::Idle)
-                m_context->startDAQ(0, keepHistoContents);
-            else if (daqState == DAQState::Running)
-                m_context->pauseDAQ();
-            else if (daqState == DAQState::Paused)
-                m_context->resumeDAQ();
-        }
-        else if (globalMode == GlobalMode::ListFile)
-        {
-            if (daqState == DAQState::Idle)
-                m_context->startReplay(0, keepHistoContents);
-            else if (daqState == DAQState::Running)
-                m_context->pauseReplay();
-            else if (daqState == DAQState::Paused)
-                m_context->resumeReplay();
+            case DAQState::Idle:
+                {
+                    switch (globalMode)
+                    {
+                        case GlobalMode::DAQ:
+                            m_context->startDAQReadout(0, keepHistoContents);
+                            break;
+                        case GlobalMode::ListFile:
+                            m_context->startDAQReplay(0, keepHistoContents);
+                            break;
+                    }
+                } break;
+
+            case DAQState::Running:
+                {
+                    m_context->pauseDAQ();
+                } break;
+
+            case DAQState::Paused:
+                {
+                    m_context->resumeDAQ();
+                } break;
+
+            case DAQState::Starting:
+            case DAQState::Stopping:
+                break;
         }
     });
 
@@ -114,23 +125,34 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
         auto daqState = m_context->getDAQState();
         bool keepHistoContents = rb_keepData->isChecked();
 
-        if (globalMode == GlobalMode::DAQ)
+        switch (daqState)
         {
-            if (daqState == DAQState::Idle)
-                m_context->startDAQ(1, keepHistoContents);
-            else if (daqState == DAQState::Running)
-                m_context->pauseDAQ();
-            else if (daqState == DAQState::Paused)
-                m_context->resumeDAQ(); // TODO: add cycle count to resumeDAQ()
-        }
-        else if (globalMode == GlobalMode::ListFile)
-        {
-            if (daqState == DAQState::Idle)
-                m_context->startReplay(1, keepHistoContents);
-            else if (daqState == DAQState::Running)
-                m_context->pauseReplay();
-            else if (daqState == DAQState::Paused)
-                m_context->resumeReplay(1);
+            case DAQState::Idle:
+                {
+                    switch (globalMode)
+                    {
+                        case GlobalMode::DAQ:
+                            m_context->startDAQReadout(1, keepHistoContents);
+                            break;
+                        case GlobalMode::ListFile:
+                            m_context->startDAQReplay(1, keepHistoContents);
+                            break;
+                    }
+                } break;
+
+            case DAQState::Running:
+                {
+                    m_context->pauseDAQ();
+                } break;
+
+            case DAQState::Paused:
+                {
+                    m_context->resumeDAQ(1);
+                } break;
+
+            case DAQState::Starting:
+            case DAQState::Stopping:
+                break;
         }
     });
 

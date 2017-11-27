@@ -1063,6 +1063,7 @@ void SIS3153ReadoutWorker::readoutLoop()
             }
 
             setState(DAQState::Paused);
+            emit daqPaused();
             sis_log(QString(QSL("SIS3153 readout paused")));
         }
         // resume
@@ -1963,11 +1964,15 @@ void SIS3153ReadoutWorker::pause()
         m_desiredState = DAQState::Paused;
 }
 
-void SIS3153ReadoutWorker::resume()
+void SIS3153ReadoutWorker::resume(quint32 cycles)
 {
     qDebug() << __PRETTY_FUNCTION__;
     if (m_state == DAQState::Paused)
+    {
+        m_cyclesToRun = cycles;
+        m_logBuffers = (cycles > 0); // log buffers to GUI if number of cycles has been passed in
         m_desiredState = DAQState::Running;
+    }
 }
 
 bool SIS3153ReadoutWorker::isRunning() const

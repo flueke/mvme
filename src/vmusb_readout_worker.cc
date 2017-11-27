@@ -496,10 +496,13 @@ void VMUSBReadoutWorker::pause()
         m_desiredState = DAQState::Paused;
 }
 
-void VMUSBReadoutWorker::resume()
+void VMUSBReadoutWorker::resume(quint32 nCycles)
 {
     if (m_state == DAQState::Paused)
+    {
+        m_cyclesToRun = nCycles;
         m_desiredState = DAQState::Running;
+    }
 }
 
 static const int leaveDaqReadTimeout_ms = 500;
@@ -560,6 +563,7 @@ void VMUSBReadoutWorker::readoutLoop()
                 throw QString("Error leaving VMUSB DAQ mode: setDeviceSources() failed: %1").arg(error.toString());
 
             setState(DAQState::Paused);
+            emit daqPaused();
             logMessage(QSL("VMUSB readout paused"));
         }
         // resume

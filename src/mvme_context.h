@@ -291,15 +291,14 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         RunInfo getRunInfo() const;
 
     public slots:
-        void startDAQ(quint32 nCycles = 0, bool keepHistoContents = false);
-        // Stops DAQ or replay depending on the current GlobalMode
+        void startDAQReadout(u32 nCycles = 0, bool keepHistoContents = false);
+        void startDAQReplay(u32 nEvents = 0, bool keepHistoContents = false);
+
+        /* These methods act on DAQ readout or replay depending on the current
+         * GlobalMode. */
         void stopDAQ();
         void pauseDAQ();
-        void resumeDAQ();
-
-        void startReplay(u32 nEvents = 0, bool keepHistoContents = false);
-        void pauseReplay();
-        void resumeReplay(u32 nEvents = 0);
+        void resumeDAQ(u32 nCycles = 0);
 
         void addAnalysisOperator(QUuid eventId, const std::shared_ptr<analysis::OperatorInterface> &op, s32 userLevel);
         void analysisOperatorEdited(const std::shared_ptr<analysis::OperatorInterface> &op);
@@ -373,6 +372,15 @@ struct AnalysisPauser
 {
     AnalysisPauser(MVMEContext *context);
     ~AnalysisPauser();
+
+    MVMEContext *context;
+    bool was_running;
+};
+
+struct DAQPauser
+{
+    DAQPauser(MVMEContext *context);
+    ~DAQPauser();
 
     MVMEContext *context;
     bool was_running;

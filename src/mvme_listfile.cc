@@ -612,13 +612,12 @@ void ListFileReader::mainLoop()
         if (m_state == DAQState::Running && m_desiredState == DAQState::Paused)
         {
             setState(DAQState::Paused);
-            // TODO: pause stats
+            emit replayPaused();
         }
         // resume
         else if (m_state == DAQState::Paused && m_desiredState == DAQState::Running)
         {
             setState(DAQState::Running);
-            // TODO: resume stats
         }
         // stop
         else if (m_desiredState == DAQState::Stopping)

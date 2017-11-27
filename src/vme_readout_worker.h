@@ -45,6 +45,7 @@ class VMEReadoutWorker: public QObject
     signals:
         void stateChanged(DAQState);
         void daqStopped();
+        void daqPaused();
 
     public:
         VMEReadoutWorker(QObject *parent = 0);
@@ -61,12 +62,13 @@ class VMEReadoutWorker: public QObject
 
         inline void start() { start(0); }
         virtual bool isRunning() const = 0;
+        virtual DAQState getState() const = 0;
 
     public slots:
         virtual void start(quint32 cycles) = 0;
         virtual void stop() = 0;
         virtual void pause() = 0;
-        virtual void resume() = 0;
+        virtual void resume(quint32 cycles) = 0;
 
     protected:
         virtual void pre_setContext(VMEReadoutWorkerContext newContext) {}

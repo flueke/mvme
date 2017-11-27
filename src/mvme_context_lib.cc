@@ -49,7 +49,7 @@ ContextOpenListfileResult context_open_listfile(MVMEContext *context, const QStr
 
     if (wasReplaying)
     {
-        context->startReplay();
+        context->startDAQReplay();
     }
 
     return result;

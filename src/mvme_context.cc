@@ -76,9 +76,20 @@ struct MVMEContextPrivate
     u32 m_ctrlOpenRetryCount = 0;
 
     void stopDAQ();
-    void stopDAQReplay();
-    void stopDAQDAQ();
+    void pauseDAQ();
+    void resumeDAQ(u32 nEvents);
 
+    // DAQ - Readout
+    void stopDAQReadout();
+    void pauseDAQReadout();
+    void resumeDAQReadout(u32 nEvents);
+
+    // DAQ - Replay
+    void stopDAQReplay();
+    void pauseDAQReplay();
+    void resumeDAQReplay(u32 nEvents);
+
+    // Analysis
     void stopAnalysis();
     void resumeAnalysis();
 
@@ -89,61 +100,32 @@ void MVMEContextPrivate::stopDAQ()
 {
     switch (m_q->m_mode)
     {
-        case GlobalMode::DAQ: stopDAQDAQ(); break;
-        case GlobalMode::ListFile: stopDAQReplay(); break;
-        InvalidDefaultCase;
+        case GlobalMode::DAQ:       stopDAQReadout(); break;
+        case GlobalMode::ListFile:  stopDAQReplay(); break;
     }
 }
 
-void MVMEContextPrivate::stopDAQReplay()
+void MVMEContextPrivate::pauseDAQ()
 {
-    // FIXME: This is dangerous as there's no way to cancel and if one of the
-    // signals below does not get emitted we're stuck here.
-    QProgressDialog progressDialog("Stopping Replay", QString(), 0, 0);
-    progressDialog.setWindowModality(Qt::ApplicationModal);
-    progressDialog.setCancelButton(nullptr);
-    progressDialog.show();
-
-    QEventLoop localLoop;
-
-    // First stop the ListFileReader
-
-    // The timer is used to avoid a race between the worker stopping and the
-    // progress dialog entering its eventloop. (Probably not needed, see the
-    // explanation about not having a race condition below.)
-
-    if (m_q->m_listFileWorker->isRunning())
+    switch (m_q->m_mode)
     {
-        QTimer::singleShot(0, [this]() { QMetaObject::invokeMethod(m_q->m_listFileWorker, "stop", Qt::QueuedConnection); });
-        auto con = QObject::connect(m_q->m_listFileWorker, &ListFileReader::replayStopped, &localLoop, &QEventLoop::quit);
-        localLoop.exec();
-        QObject::disconnect(con);
+        case GlobalMode::DAQ:       pauseDAQReadout(); break;
+        case GlobalMode::ListFile:  pauseDAQReplay(); break;
     }
-
-    // At this point the ListFileReader is stopped and will not produce any
-    // more buffers. Now tell the MVMEStreamWorker to stop after finishing
-    // the current queue.
-
-    // There should be no race here. If the analysis is running we will stop it
-    // and receive the stopped() signal.  If it just now stopped on its own
-    // (e.g. end of replay) the signal is pending and will be delivered as soon
-    // as we enter the event loop.
-    if (m_q->m_streamWorker->getState() != MVMEStreamWorkerState::Idle)
-    {
-        QTimer::singleShot(0, [this]() { QMetaObject::invokeMethod(m_q->m_streamWorker, "stopProcessing", Qt::QueuedConnection); });
-        auto con = QObject::connect(m_q->m_streamWorker, &MVMEStreamWorker::stopped, &localLoop, &QEventLoop::quit);
-        localLoop.exec();
-        QObject::disconnect(con);
-    }
-
-    m_q->m_streamWorker->setListFileVersion(1);
-    m_q->onDAQStateChanged(DAQState::Idle);
 }
 
-void MVMEContextPrivate::stopDAQDAQ()
+void MVMEContextPrivate::resumeDAQ(u32 nEvents)
 {
-    // FIXME: This is dangerous as there's no way to cancel and if one of the
-    // signals below does not get emitted we're stuck here.
+    switch (m_q->m_mode)
+    {
+        case GlobalMode::DAQ:       resumeDAQReadout(nEvents); break;
+        case GlobalMode::ListFile:  resumeDAQReplay(nEvents); break;
+    }
+}
+
+/* Stops both the readout and the analysis workers. */
+void MVMEContextPrivate::stopDAQReadout()
+{
     QProgressDialog progressDialog("Stopping Data Acquisition", QString(), 0, 0);
     progressDialog.setWindowModality(Qt::ApplicationModal);
     progressDialog.setCancelButton(nullptr);
@@ -167,7 +149,108 @@ void MVMEContextPrivate::stopDAQDAQ()
         QObject::disconnect(con);
     }
 
+    Q_ASSERT(m_q->m_readoutWorker->getState() == DAQState::Idle);
     m_q->onDAQStateChanged(DAQState::Idle);
+}
+
+void MVMEContextPrivate::pauseDAQReadout()
+{
+    QProgressDialog progressDialog("Pausing Data Acquisition", QString(), 0, 0);
+    progressDialog.setWindowModality(Qt::ApplicationModal);
+    progressDialog.setCancelButton(nullptr);
+    progressDialog.show();
+
+    QEventLoop localLoop;
+
+    if (m_q->m_readoutWorker->getState() == DAQState::Running)
+    {
+        QTimer::singleShot(0, [this]() { QMetaObject::invokeMethod(m_q->m_readoutWorker, "pause", Qt::QueuedConnection); });
+        auto con = QObject::connect(m_q->m_readoutWorker, &VMEReadoutWorker::daqPaused, &localLoop, &QEventLoop::quit);
+        localLoop.exec();
+        QObject::disconnect(con);
+    }
+
+    Q_ASSERT(m_q->m_readoutWorker->getState() == DAQState::Paused
+             || m_q->m_readoutWorker->getState() == DAQState::Idle);
+}
+
+void MVMEContextPrivate::resumeDAQReadout(u32 nEvents)
+{
+    QMetaObject::invokeMethod(m_q->m_readoutWorker, "resume", Qt::QueuedConnection, Q_ARG(quint32, nEvents));
+}
+
+void MVMEContextPrivate::stopDAQReplay()
+{
+    QProgressDialog progressDialog("Stopping Replay", QString(), 0, 0);
+    progressDialog.setWindowModality(Qt::ApplicationModal);
+    progressDialog.setCancelButton(nullptr);
+    progressDialog.show();
+
+    QEventLoop localLoop;
+
+    // First stop the ListFileReader
+
+    // The timer is used to avoid a race between the worker stopping and the
+    // progress dialog entering its eventloop. (Probably not needed, see the
+    // explanation about not having a race condition below.)
+
+    if (m_q->m_listFileWorker->getState() == DAQState::Running || m_q->m_listFileWorker->getState() == DAQState::Paused)
+    {
+        QTimer::singleShot(0, [this]() { QMetaObject::invokeMethod(m_q->m_listFileWorker, "stop", Qt::QueuedConnection); });
+        auto con = QObject::connect(m_q->m_listFileWorker, &ListFileReader::replayStopped, &localLoop, &QEventLoop::quit);
+        localLoop.exec();
+        QObject::disconnect(con);
+    }
+
+    // At this point the ListFileReader is stopped and will not produce any
+    // more buffers. Now tell the MVMEStreamWorker to stop after finishing
+    // the current queue.
+
+    // There should be no race here. If the analysis is running we will stop it
+    // and receive the stopped() signal.  If it just now stopped on its own
+    // (e.g. end of replay) the signal is pending and will be delivered as soon
+    // as we enter the event loop.
+    if (m_q->m_streamWorker->getState() != MVMEStreamWorkerState::Idle)
+    {
+        QTimer::singleShot(0, [this]() { QMetaObject::invokeMethod(m_q->m_streamWorker, "stopProcessing", Qt::QueuedConnection); });
+        auto con = QObject::connect(m_q->m_streamWorker, &MVMEStreamWorker::stopped, &localLoop, &QEventLoop::quit);
+        localLoop.exec();
+        QObject::disconnect(con);
+    }
+
+    Q_ASSERT(m_q->m_readoutWorker->getState() == DAQState::Idle);
+
+    m_q->m_streamWorker->setListFileVersion(1);
+    m_q->onDAQStateChanged(DAQState::Idle);
+}
+
+void MVMEContextPrivate::pauseDAQReplay()
+{
+    QProgressDialog progressDialog("Stopping Replay", QString(), 0, 0);
+    progressDialog.setWindowModality(Qt::ApplicationModal);
+    progressDialog.setCancelButton(nullptr);
+    progressDialog.show();
+
+    QEventLoop localLoop;
+
+    if (m_q->m_listFileWorker->getState() == DAQState::Running)
+    {
+        QTimer::singleShot(0, [this]() { QMetaObject::invokeMethod(m_q->m_listFileWorker, "pause", Qt::QueuedConnection); });
+        auto con = QObject::connect(m_q->m_listFileWorker, &ListFileReader::replayPaused, &localLoop, &QEventLoop::quit);
+        localLoop.exec();
+        QObject::disconnect(con);
+
+        Q_ASSERT(m_q->m_listFileWorker->getState() == DAQState::Paused);
+    }
+
+    Q_ASSERT(m_q->m_readoutWorker->getState() == DAQState::Paused
+             || m_q->m_readoutWorker->getState() == DAQState::Idle);
+}
+
+void MVMEContextPrivate::resumeDAQReplay(u32 nEvents)
+{
+    m_q->m_listFileWorker->setEventsToRead(nEvents);
+    QMetaObject::invokeMethod(m_q->m_listFileWorker, "resume", Qt::QueuedConnection);
 }
 
 void MVMEContextPrivate::stopAnalysis()
@@ -248,7 +331,7 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent)
     , m_eventThread(new QThread(this))
     , m_mainwin(mainwin)
 
-    , m_mode(GlobalMode::NotSet)
+    , m_mode(GlobalMode::DAQ)
     , m_daqState(DAQState::Idle)
     , m_listFileWorker(new ListFileReader(m_daqStats))
     , m_analysis_ng(new analysis::Analysis)
@@ -956,7 +1039,7 @@ void MVMEContext::prepareStart()
         << "filled buffers:" << m_fullBuffers.queue.size();
 }
 
-void MVMEContext::startDAQ(quint32 nCycles, bool keepHistoContents)
+void MVMEContext::startDAQReadout(quint32 nCycles, bool keepHistoContents)
 {
     Q_ASSERT(getDAQState() == DAQState::Idle);
     Q_ASSERT(getMVMEStreamProcessorState() == MVMEStreamWorkerState::Idle);
@@ -1005,15 +1088,15 @@ void MVMEContext::stopDAQ()
 
 void MVMEContext::pauseDAQ()
 {
-    QMetaObject::invokeMethod(m_readoutWorker, "pause", Qt::QueuedConnection);
+    m_d->pauseDAQ();
 }
 
-void MVMEContext::resumeDAQ()
+void MVMEContext::resumeDAQ(u32 nCycles)
 {
-    QMetaObject::invokeMethod(m_readoutWorker, "resume", Qt::QueuedConnection);
+    m_d->resumeDAQ(nCycles);
 }
 
-void MVMEContext::startReplay(u32 nEvents, bool keepHistoContents)
+void MVMEContext::startDAQReplay(quint32 nEvents, bool keepHistoContents)
 {
     Q_ASSERT(getDAQState() == DAQState::Idle);
     Q_ASSERT(getMVMEStreamProcessorState() == MVMEStreamWorkerState::Idle);
@@ -1024,8 +1107,6 @@ void MVMEContext::startReplay(u32 nEvents, bool keepHistoContents)
     {
         return;
     }
-
-
 
     // Extract a runId from the listfile filename.
     QFileInfo fi(m_listFile->getFileName());
@@ -1046,18 +1127,6 @@ void MVMEContext::startReplay(u32 nEvents, bool keepHistoContents)
     QMetaObject::invokeMethod(m_streamWorker, "startProcessing", Qt::QueuedConnection);
 
     m_replayTime.restart();
-}
-
-void MVMEContext::pauseReplay()
-{
-    QMetaObject::invokeMethod(m_listFileWorker, "pause", Qt::QueuedConnection);
-}
-
-void MVMEContext::resumeReplay(u32 nEvents)
-{
-    Q_ASSERT(getDAQState() == DAQState::Idle || getDAQState() == DAQState::Paused);
-    m_listFileWorker->setEventsToRead(nEvents);
-    QMetaObject::invokeMethod(m_listFileWorker, "resume", Qt::QueuedConnection);
 }
 
 void MVMEContext::addObjectWidget(QWidget *widget, QObject *object, const QString &stateKey)
@@ -1188,39 +1257,14 @@ void MVMEContext::onModuleAboutToBeRemoved(ModuleConfig *module)
     emit moduleAboutToBeRemoved(module);
 }
 
-//QFuture<vme_script::ResultList>
-/* FIXME: this is a bad hack
- * ExcludeUserInputEvents is used to "freeze" the GUI in case the transition to
- * Paused state takes some time. This prevents the user from clicking "run"
- * multiple times (or invoking run via different gui elements)
- * What if the transition to Paused never happens? We're stuck here...
- *
- * It would probably be better to use a QProgressDialog here. Maybe the same
- * approach as in stopDAQ() works here?
- */
 vme_script::ResultList
 MVMEContext::runScript(const vme_script::VMEScript &script,
                        vme_script::LoggerFun logger,
                        bool logEachResult)
 {
-    auto may_run_script = [this]()
-    {
-        auto daqState = this->getDAQState();
-        return (daqState == DAQState::Idle || daqState == DAQState::Paused);
-    };
-
-    bool wasPaused = (getDAQState() == DAQState::Paused);
-    pauseDAQ();
-    while (!may_run_script())
-    {
-        processQtEvents(QEventLoop::ExcludeUserInputEvents | QEventLoop::WaitForMoreEvents);
-    }
-    processQtEvents();
+    DAQPauser pauser(this);
 
     auto result = vme_script::run_script(m_controller, script, logger, logEachResult);
-
-    if (!wasPaused)
-        resumeDAQ();
 
     return result;
 }
@@ -1717,6 +1761,9 @@ RunInfo MVMEContext::getRunInfo() const
     return m_d->m_runInfo;
 }
 
+//
+// AnalysisPauser
+//
 AnalysisPauser::AnalysisPauser(MVMEContext *context)
     : context(context)
 {
@@ -1736,6 +1783,29 @@ AnalysisPauser::~AnalysisPauser()
     if (was_running)
     {
         context->resumeAnalysis();
+    }
+}
+
+// DAQPauser
+DAQPauser::DAQPauser(MVMEContext *context)
+    : context(context)
+{
+    was_running = (context->getDAQState() == DAQState::Running);
+
+    qDebug() << __PRETTY_FUNCTION__ << "was_running =" << was_running;
+
+    if (was_running)
+    {
+        context->pauseDAQ();
+    }
+}
+
+DAQPauser::~DAQPauser()
+{
+    qDebug() << __PRETTY_FUNCTION__ << "was_running =" << was_running;
+    if (was_running)
+    {
+        context->resumeDAQ();
     }
 }
 

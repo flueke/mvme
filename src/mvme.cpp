@@ -1113,9 +1113,6 @@ void MVMEMainWindow::updateWindowTitle()
                     .arg(workspaceDir)
                     .arg(fileName);
             } break;
-
-        case GlobalMode::NotSet:
-            break;
     }
 
     if (m_d->m_context->getMode() == GlobalMode::DAQ && m_d->m_context->isWorkspaceModified())

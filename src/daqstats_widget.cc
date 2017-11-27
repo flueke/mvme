@@ -209,9 +209,6 @@ void DAQStatsWidget::updateWidget()
                         .arg((double)stats.listFileTotalBytes / (1024.0*1024.0), 6, 'f', 2)
                         );
             } break;
-
-        case GlobalMode::NotSet:
-            break;
     }
 
     m_d->prevStats = stats;
