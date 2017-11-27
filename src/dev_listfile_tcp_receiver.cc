@@ -100,7 +100,7 @@ void receive_and_write_listfile(Context &context)
 
         if (bufferSize == 0)
         {
-            qDebug() << __PRETTY_FUNCTION__ << "received 0 buffer size => breaking out of receive loop";
+            //qDebug() << __PRETTY_FUNCTION__ << "received 0 buffer size => breaking out of receive loop";
             break;
         }
 
@@ -131,7 +131,7 @@ void receive_and_write_listfile(Context &context)
 
     if (!context.socket->waitForBytesWritten())
     {
-        throw QString("final .socket waitForBytesWritten failed: %1").arg(context.socket->errorString());
+        throw QString("final socket waitForBytesWritten failed: %1").arg(context.socket->errorString());
     }
 }
 
@@ -185,7 +185,14 @@ int main(int argc, char *argv[])
     try
     {
         QTcpServer server;
-        server.listen(QHostAddress(listenHost), listenPort);
+
+        if (!server.listen(QHostAddress(listenHost), listenPort))
+        {
+            throw (QString("Error listening for incoming connection: %1")
+                   .arg(server.errorString()));
+        }
+
+        cout << "Waiting for incoming connection..." << endl;
 
         if (!server.waitForNewConnection(-1))
         {
@@ -203,6 +210,11 @@ int main(int argc, char *argv[])
         Context context;
         context.socket = server.nextPendingConnection(); // note: socket is a qobject child of server
         context.outfile = &outfile;
+
+        cout << "New client connection from "
+            << context.socket->peerAddress().toString().toStdString()
+            << ":" << context.socket->peerPort()
+            << endl;
 
         context.startTime = Context::ClockType::now();
 

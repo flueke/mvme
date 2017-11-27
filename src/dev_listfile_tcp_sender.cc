@@ -95,7 +95,7 @@ void process_listfile(Context &context, ListFile *listfile)
     }
 
     /* Send a zero length prefix to indicate end of listfile, then wait for a reply. */
-    qDebug() << __PRETTY_FUNCTION__ << "sending zero length and waiting for final reply";
+    //qDebug() << __PRETTY_FUNCTION__ << "sending zero length and waiting for final reply";
 
     u32 zero = 0u;
     send_data(context, reinterpret_cast<const u8 *>(&zero), sizeof(zero));
