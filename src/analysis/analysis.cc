@@ -3370,6 +3370,7 @@ void Analysis::clear()
 {
     m_sources.clear();
     m_operators.clear();
+    beginRun(m_runInfo, m_vmeMap);
     setModified();
 }
 
