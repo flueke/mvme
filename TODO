@@ -2,7 +2,7 @@
 TODO list somewhat sorted by priority
 ==================================================
 
-* Display analysis efficiency somewher:
+* Display analysis efficiency somewhere:
   This is the number of events/bytes processed by the analysis over the number
   of total events/bytes.
 * Display actual size of the listfile on the disk. Avoids having to pull

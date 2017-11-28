@@ -64,9 +64,16 @@ git_describe(GIT_VERSION "--always")
 string(REGEX MATCH "^[0-9.]+(-[0-9]+)?" GIT_VERSION_SHORT ${GIT_VERSION})
 string(REGEX MATCH "^[0-9.]+" GIT_VERSION_TAG ${GIT_VERSION})
 
+execute_process(
+    COMMAND ${GIT_EXECUTABLE} rev-parse --abbrev-ref HEAD
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    OUTPUT_VARIABLE GIT_BRANCH
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
+
 message("-- GIT_VERSION=${GIT_VERSION}")
 message("-- GIT_VERSION_SHORT=${GIT_VERSION_SHORT}")
 message("-- GIT_VERSION_TAG=${GIT_VERSION_TAG}")
+message("-- GIT_BRANCH=${GIT_BRANCH}")
 
 # External libraries.
 # Note: This was moved up from the src/ subdirectory so that the
