@@ -460,3 +460,15 @@ void DAQReadoutListfileHelper::writeBuffer(const u8 *buffer, size_t size)
         m_readoutContext.daqStats->listFileBytesWritten = m_d->listfileWriter->bytesWritten();
     }
 }
+
+void DAQReadoutListfileHelper::writeTimetickSection()
+{
+    if (m_d->listfileOut && m_d->listfileOut->isOpen())
+    {
+        if (!m_d->listfileWriter->writeTimetickSection())
+        {
+            throw_io_device_error(m_d->listfileOut);
+        }
+        m_readoutContext.daqStats->listFileBytesWritten = m_d->listfileWriter->bytesWritten();
+    }
+}

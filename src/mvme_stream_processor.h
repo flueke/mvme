@@ -76,11 +76,17 @@ class LIBMVME_EXPORT MVMEStreamProcessor
         void beginRun(const RunInfo &runInfo, analysis::Analysis *analysis,
                       VMEConfig *vmeConfig, u32 listfileVersion, Logger logger);
         void endRun();
-
         void processDataBuffer(DataBuffer *buffer);
+        /* Used in DAQ Readout mode to generate timeticks for the analysis
+         * independent of the readout data rate or analysis efficiency. */
+        void processExternalTimetick();
 
         const MVMEStreamProcessorCounters &getCounters() const;
         MVMEStreamProcessorCounters &getCounters();
+
+        //
+        // Additional data consumers
+        //
 
         void attachDiagnostics(std::shared_ptr<MesytecDiagnostics> diag);
         void removeDiagnostics();

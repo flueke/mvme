@@ -128,7 +128,6 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
         u32 m_stackListControlRegisterValue = 0;
         int m_watchdogStackListIndex = -1;
         DataBuffer m_localEventBuffer;
-        DataBuffer m_localTimetickBuffer;
         std::unique_ptr<DAQReadoutListfileHelper> m_listfileHelper;
         DataBuffer *m_outputBuffer = nullptr;
         ProcessingState m_processingState;

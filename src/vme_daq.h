@@ -53,6 +53,7 @@ class DAQReadoutListfileHelper: public QObject
         void endRun();
         void writeBuffer(DataBuffer *buffer);
         void writeBuffer(const u8 *buffer, size_t size);
+        void writeTimetickSection();
 
     private:
         DAQReadoutListfileHelperPrivate *m_d;

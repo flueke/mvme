@@ -71,8 +71,6 @@ namespace
      * buffers available from the shared queue. */
     static const size_t LocalBufferSize = Megabytes(1);
 
-    static const size_t TimetickBufferSize = sizeof(u32);
-
     size_t calculate_stackList_size(const vme_script::VMEScript &commands)
     {
         size_t size = 2 + 2; // header and trailer
@@ -418,7 +416,6 @@ SIS3153ReadoutWorker::SIS3153ReadoutWorker(QObject *parent)
     : VMEReadoutWorker(parent)
     , m_readBuffer(ReadBufferSize)
     , m_localEventBuffer(LocalBufferSize)
-    , m_localTimetickBuffer(TimetickBufferSize)
     , m_listfileHelper(nullptr)
 {
     m_counters.packetsPerStackList.fill(0);
@@ -1898,31 +1895,8 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
 
 void SIS3153ReadoutWorker::timetick()
 {
-    using LF = listfile_v1;
-    DataBuffer *outputBuffer = dequeue(m_workerContext.freeBuffers);
-
-    if (!outputBuffer)
-    {
-        outputBuffer = &m_localTimetickBuffer;
-    }
-
     Q_ASSERT(m_listfileHelper);
-    Q_ASSERT(outputBuffer->size >= sizeof(u32));
-
-    *outputBuffer->asU32(0) = (ListfileSections::SectionType_Timetick << LF::SectionTypeShift) & LF::SectionTypeMask;
-    outputBuffer->used = sizeof(u32);
-
-    m_listfileHelper->writeBuffer(outputBuffer);
-
-    if (outputBuffer != &m_localTimetickBuffer)
-    {
-        enqueue_and_wakeOne(m_workerContext.fullBuffers, outputBuffer);
-    }
-    else
-    {
-        // dropping timetick before analysis as we had to use the local buffer
-        m_workerContext.daqStats->droppedBuffers++;
-    }
+    m_listfileHelper->writeTimetickSection();
 }
 
 void SIS3153ReadoutWorker::flushCurrentOutputBuffer()

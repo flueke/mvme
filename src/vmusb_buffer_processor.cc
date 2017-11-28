@@ -164,13 +164,11 @@ struct VMUSBBufferProcessorPrivate
 };
 
 static const size_t LocalEventBufferSize    = 27 * 1024 * 2;
-static const size_t LocalTimetickBufferSize = sizeof(u32);
 
 VMUSBBufferProcessor::VMUSBBufferProcessor(VMUSBReadoutWorker *parent)
     : QObject(parent)
     , m_d(new VMUSBBufferProcessorPrivate)
     , m_localEventBuffer(27 * 1024 * 2)
-    , m_localTimetickBuffer(LocalTimetickBufferSize)
 {
     m_d->m_q = this;
     m_d->m_readoutWorker = parent;
@@ -914,41 +912,10 @@ void VMUSBBufferProcessor::logMessage(const QString &message)
  */
 void VMUSBBufferProcessor::timetick()
 {
-    using LF = listfile_v1;
-
     #ifdef BPDEBUG
     qDebug() << __PRETTY_FUNCTION__ << QTime::currentTime() << "timetick";
     #endif
 
-    DataBuffer *outputBuffer = getFreeBuffer();
-
-    if (!outputBuffer)
-    {
-        outputBuffer = &m_localTimetickBuffer;
-    }
-
-    Q_ASSERT(outputBuffer->size >= sizeof(u32));
-
-    *outputBuffer->asU32(0) = (ListfileSections::SectionType_Timetick << LF::SectionTypeShift) & LF::SectionTypeMask;
-    outputBuffer->used = sizeof(u32);
-
     Q_ASSERT(m_d->m_listfileHelper);
-
-    m_d->m_listfileHelper->writeBuffer(outputBuffer);
-
-    if (outputBuffer != &m_localTimetickBuffer)
-    {
-        // It's not the local buffer -> put it into the queue of filled buffers
-        enqueue_and_wakeOne(m_filledBufferQueue, outputBuffer);
-        #ifdef BPDEBUG
-        qDebug() << "\t timetick passed to analysis";
-        #endif
-    }
-    else
-    {
-        #ifdef BPDEBUG
-        qDebug() << "\t timetick dropped before analysis";
-        #endif
-        getStats()->droppedBuffers++;
-    }
+    m_d->m_listfileHelper->writeTimetickSection();
 }

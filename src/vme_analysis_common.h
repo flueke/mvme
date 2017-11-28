@@ -20,6 +20,9 @@
 #define __VME_ANALYSIS_COMMON_H__
 
 #include "vme_config.h"
+#include <chrono>
+#include <cmath>
+
 
 namespace analysis
 {
@@ -74,6 +77,37 @@ struct VMEConfigIndex
 using VMEIdToIndex = QHash<QUuid, VMEConfigIndex>;
 
 VMEIdToIndex build_id_to_index_mapping(const VMEConfig *vmeConfig);
+
+class TimetickGenerator
+{
+    public:
+        using ClockType = std::chrono::steady_clock;
+
+        TimetickGenerator()
+            : t_start(ClockType::now())
+        {}
+
+        int generateElapsedSeconds()
+        {
+            auto t_end = ClockType::now();
+            std::chrono::duration<double, std::milli> diff = t_end - t_start;
+            elapsed_ms += diff.count();
+            int result = std::floor(elapsed_ms / 1000.0);
+            elapsed_ms -= (result * 1000.0);
+            t_start = t_end;
+            return result;
+        }
+
+        double getElapsedMilliseconds() const
+        {
+            return elapsed_ms;
+        }
+
+    private:
+        ClockType::time_point t_start;
+        double elapsed_ms = 0.0;
+
+};
 
 }
 

@@ -26,10 +26,13 @@
 #include "mvme_context.h"
 #include "mvme_listfile.h"
 #include "timed_block.h"
+#include "vme_analysis_common.h"
 
 #include <atomic>
 #include <QCoreApplication>
 #include <QElapsedTimer>
+
+using vme_analysis_common::TimetickGenerator;
 
 enum RunAction
 {
@@ -50,6 +53,8 @@ struct MVMEStreamWorkerPrivate
     std::atomic<RunAction> runAction;
     MVMEStreamWorkerState state = MVMEStreamWorkerState::Idle;
 
+    RunInfo runInfo;
+
     ThreadSafeDataBufferQueue *freeBuffers,
                               *fullBuffers;
 };
@@ -67,7 +72,6 @@ MVMEStreamWorker::MVMEStreamWorker(MVMEContext *context,
 
 MVMEStreamWorker::~MVMEStreamWorker()
 {
-    //delete m_d->diag; // FIXME: why? what?
     delete m_d;
 }
 
@@ -78,6 +82,8 @@ MVMEStreamProcessor *MVMEStreamWorker::getStreamProcessor() const
 
 void MVMEStreamWorker::beginRun(const RunInfo &runInfo, VMEConfig *vmeConfig)
 {
+    m_d->runInfo = runInfo;
+
     m_d->streamProcessor.beginRun(
         runInfo,
         m_d->context->getAnalysis(),
@@ -95,6 +101,7 @@ void MVMEStreamWorker::startProcessing()
     Q_ASSERT(m_d->freeBuffers);
     Q_ASSERT(m_d->fullBuffers);
     Q_ASSERT(m_d->state == MVMEStreamWorkerState::Idle);
+    Q_ASSERT(m_d->context->getAnalysis());
 
     auto &counters = m_d->streamProcessor.getCounters();
     counters.startTime = QDateTime::currentDateTime();
@@ -112,16 +119,15 @@ void MVMEStreamWorker::startProcessing()
 
     auto analysis = m_d->context->getAnalysis();
 
-    if (analysis)
+    if (auto a2State = analysis->getA2AdapterState())
     {
-        if (auto a2State = analysis->getA2AdapterState())
-        {
-            // This is here instead of in Analysis::beginRun() because the
-            // latter is called way too much from everywhere and I don't want
-            // to rebuild the a2 system all the time.
-            a2::a2_begin_run(a2State->a2);
-        }
+        // This is here instead of in Analysis::beginRun() because the
+        // latter is called way too much from everywhere and I don't want
+        // to rebuild the a2 system all the time.
+        a2::a2_begin_run(a2State->a2);
     }
+
+    TimetickGenerator timetickGen;
 
     while (m_d->runAction != StopImmediately)
     {
@@ -153,22 +159,25 @@ void MVMEStreamWorker::startProcessing()
             enqueue(m_d->freeBuffers, buffer);
         }
 
-        // Process Qt events to be able to "receive" queued calls to our slots.
-        if (timeSinceLastProcessEvents.elapsed() > ProcessEventsMinInterval_ms)
+        if (!m_d->runInfo.isReplay)
         {
-            QCoreApplication::processEvents();
-            timeSinceLastProcessEvents.restart();
+            int elapsedSeconds = timetickGen.generateElapsedSeconds();
+
+            while (elapsedSeconds >= 1)
+            {
+                m_d->streamProcessor.processExternalTimetick();
+                elapsedSeconds--;
+            }
         }
+
+        QCoreApplication::processEvents();
     }
 
     counters.stopTime = QDateTime::currentDateTime();
 
-    if (analysis)
+    if (auto a2State = analysis->getA2AdapterState())
     {
-        if (auto a2State = analysis->getA2AdapterState())
-        {
-            a2::a2_end_run(a2State->a2);
-        }
+        a2::a2_end_run(a2State->a2);
     }
 
     m_d->streamProcessor.endRun();

@@ -31,6 +31,7 @@ using ModuleInfoArray = std::array<MultiEventModuleInfo, MaxVMEModules>;
 struct MVMEStreamProcessorPrivate
 {
     MVMEStreamProcessorCounters counters = {};
+    RunInfo runInfo = {};
     analysis::Analysis *analysis = nullptr;
     VMEConfig *vmeConfig = nullptr;
     std::shared_ptr<MesytecDiagnostics> diag;
@@ -95,7 +96,11 @@ void MVMEStreamProcessor::MVMEStreamProcessor::beginRun(
         m_d->SubEventSizeShift  = listfile_v1::SubEventSizeShift;
     }
 
+    Q_ASSERT(analysis);
+    Q_ASSERT(vmeConfig);
+
     m_d->counters = {};
+    m_d->runInfo = runInfo;
     m_d->analysis = analysis;
     m_d->vmeConfig = vmeConfig;
     m_d->logger = logger;
@@ -137,11 +142,8 @@ void MVMEStreamProcessor::MVMEStreamProcessor::beginRun(
         m_d->doMultiEventProcessing[eventIndex] = eventConfig->isMultiEventProcessingEnabled();
     }
 
-    if (m_d->analysis)
-    {
-        const auto vmeMap = vme_analysis_common::build_id_to_index_mapping(vmeConfig);
-        m_d->analysis->beginRun(runInfo, vmeMap);
-    }
+    const auto vmeMap = vme_analysis_common::build_id_to_index_mapping(vmeConfig);
+    m_d->analysis->beginRun(runInfo, vmeMap);
 
     if (m_d->diag)
     {
@@ -214,15 +216,24 @@ void MVMEStreamProcessor::processDataBuffer(DataBuffer *buffer)
                 throw end_of_buffer();
             }
 
+            /* Assert the behaviour of the readout workers here: they should
+             * not enqueue timetick buffers as it's handled via
+             * processExternalTimetick(). This means timetick sections should
+             * only be encountered during replay. */
+            if (sectionType == ListfileSections::SectionType_Timetick)
+            {
+                Q_ASSERT(m_d->runInfo.isReplay);
+            }
+
             if (likely(sectionType == ListfileSections::SectionType_Event))
             {
                 processEventSection(sectionHeader, iter.asU32(), sectionSize);
                 iter.skip(sectionSize * sizeof(u32));
             }
             else if (sectionType == ListfileSections::SectionType_Timetick
-                     && m_d->analysis)
+                     && m_d->runInfo.isReplay)
             {
-                // pass timeticks to the analysis
+                // If it's a replay pass timetick sections to the analysis.
                 Q_ASSERT(sectionSize == 0);
                 m_d->analysis->processTimetick();
             }
@@ -240,7 +251,8 @@ void MVMEStreamProcessor::processDataBuffer(DataBuffer *buffer)
     }
     catch (const end_of_buffer &)
     {
-        // TODO: call endRun() for consumers here? pass error information to them?
+        // TODO: call endRun() for consumers here? pass error information to
+        // them? They might want to do cleanup on error.
 
         QString msg = QSL("Error (mvme fmt): unexpectedly reached end of buffer");
         qDebug() << msg;
@@ -250,6 +262,16 @@ void MVMEStreamProcessor::processDataBuffer(DataBuffer *buffer)
         {
             m_d->diag->beginRun();
         }
+    }
+}
+
+void MVMEStreamProcessor::processExternalTimetick()
+{
+    Q_ASSERT(!m_d->runInfo.isReplay);
+
+    if (!m_d->runInfo.isReplay)
+    {
+        m_d->analysis->processTimetick();
     }
 }
 

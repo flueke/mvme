@@ -3866,6 +3866,7 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
 
     // Update statusbar timeticks label
     connect(m_d->m_periodicUpdateTimer, &QTimer::timeout, this, [this]() {
+
         double tickCount = m_d->m_context->getAnalysis()->getTimetickCount();
 
         m_d->m_labelTimetickCount->setText(QString("Timeticks: %1 s")
@@ -3881,8 +3882,17 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
             double analyzedBuffers = totalBuffers - daqStats.droppedBuffers;
             double efficiency = analyzedBuffers / totalBuffers;
 
+            if (std::isnan(efficiency))
+            {
+                efficiency = 0.0;
+            }
+
             m_d->m_labelEfficiency->setText(QString("Efficiency: %1")
                                             .arg(efficiency, 0, 'f', 2));
+        }
+        else
+        {
+            m_d->m_labelEfficiency->setText(QSL("Replay"));
         }
     });
 

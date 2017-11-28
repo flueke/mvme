@@ -62,7 +62,6 @@ class VMUSBBufferProcessor: public QObject
 
         QMap<int, EventConfig *> m_eventConfigByStackID;
         DataBuffer m_localEventBuffer;
-        DataBuffer m_localTimetickBuffer;
         ListFileWriter *m_listFileWriter = nullptr;
         bool m_logBuffers = false;
         VMUSB *m_vmusb = nullptr;

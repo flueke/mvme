@@ -5,7 +5,9 @@ TODO list somewhat sorted by priority
 * Display analysis efficiency somewhere:
   This is the number of events/bytes processed by the analysis over the number
   of total events/bytes.
+
 * Display actual size of the listfile on the disk. Avoids having to pull
+
 * information from the quazip/zlib libs.
 
 * Fix readout workers eating 100% cpu in paused state. I don't know why
@@ -42,8 +44,6 @@ TODO list somewhat sorted by priority
 * vme templates:
   - complete VMMR: extraction filters and bus/channel settings.
     Use the VMMR init file from the VMMR_ESS_Readout workspace.
-
-
 
 * check the case where listfile creation throws an exception. right now this
   results in a communication error with the sis controller when trying to start
