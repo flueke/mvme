@@ -38,6 +38,7 @@
 #include "globals.h"
 #include "data_buffer_queue.h"
 #include "util.h"
+#include "libmvme_export.h"
 
 #include <QTextStream>
 #include <QFile>
@@ -196,7 +197,7 @@ void dump_mvme_buffer(QTextStream &out, const DataBuffer *eventBuffer, bool dump
 class VMEConfig;
 class QuaZipFile;
 
-class ListFile
+class LIBMVME_EXPORT ListFile
 {
     public:
         ListFile(const QString &fileName);
@@ -231,7 +232,7 @@ class ListFile
         QVector<u8> m_preambleBuffer;
 };
 
-class ListFileReader: public QObject
+class LIBMVME_EXPORT ListFileReader: public QObject
 {
     Q_OBJECT
     signals:
@@ -285,7 +286,7 @@ class ListFileReader: public QObject
         LoggerFun m_logger;
 };
 
-class ListFileWriter: public QObject
+class LIBMVME_EXPORT ListFileWriter: public QObject
 {
     Q_OBJECT
     public:
@@ -309,7 +310,7 @@ class ListFileWriter: public QObject
         u64 m_bytesWritten = 0;
 };
 
-struct OpenListfileResult
+struct LIBMVME_EXPORT OpenListfileResult
 {
     std::unique_ptr<ListFile> listfile;
     QByteArray messages;                    // messages.log if found
@@ -325,6 +326,6 @@ struct OpenListfileResult
     OpenListfileResult &operator=(const OpenListfileResult &) = delete;
 };
 
-OpenListfileResult open_listfile(const QString &filename);
+OpenListfileResult LIBMVME_EXPORT open_listfile(const QString &filename);
 
 #endif
