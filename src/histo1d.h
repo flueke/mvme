@@ -142,9 +142,21 @@ class Histo1D: public QObject
             }
         }
 
+        // FIXME: not updated when a2 is in use
         inline double getEntryCount() const { return m_count; }
+        /*
         double getMaxValue() const { return m_maxValue; }
         u32 getMaxBin() const { return m_maxBin; }
+        */
+        struct ValueAndBin
+        {
+            double value;
+            u32 bin;
+        };
+
+        ValueAndBin getMaxValueAndBin() const;
+        double getMaxValue() const { return getMaxValueAndBin().value; }
+        u32 getMaxBin() const { return getMaxValueAndBin().bin; }
 
         void debugDump(bool dumpEmptyBins = true) const;
 

@@ -1346,7 +1346,7 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
                     if (widgetInfo.histos.size())
                     {
                         menu.addAction(QSL("Open 2D Combined View"), m_q, [this, widgetInfo]() {
-                            auto widget = new Histo2DWidget(widgetInfo.sink);
+                            auto widget = new Histo2DWidget(widgetInfo.sink, m_context);
                             widget->setContext(m_context);
                             m_context->addWidget(widget, widgetInfo.sink->getId().toString() + QSL("_2dCombined"));
                         });

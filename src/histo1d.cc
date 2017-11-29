@@ -323,3 +323,25 @@ Histo1D *readHisto1D(QTextStream &in)
 
     return result;
 }
+
+Histo1D::ValueAndBin Histo1D::getMaxValueAndBin() const
+{
+    ValueAndBin result = {};
+    const u32 binCount = getNumberOfBins();
+
+    if (binCount > 0)
+    {
+        result.value = m_data[0];
+
+        for (u32 bin = 1; bin < binCount; bin++)
+        {
+            if (m_data[bin] >= result.value)
+            {
+                result.value = m_data[bin];
+                result.bin   = bin;
+            }
+        }
+    }
+
+    return result;
+}
