@@ -284,7 +284,9 @@ DEF_OP_MAGIC(aggregate_ops_magic)
             result = make_aggregate_meanx(arena, a2_input, thresholds);
             break;
 
-        // TODO: sigmaX
+        case AggregateOps::Op_SigmaX:
+            result = make_aggregate_sigmax(arena, a2_input, thresholds);
+            break;
 
         default:
             qDebug() << "analysis::AggregateOps::Operation =" << agOps->getOperation();

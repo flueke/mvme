@@ -1008,7 +1008,17 @@ Operator make_aggregate_sigma(
 
     auto result = make_aggregate_op(arena, input, Operator_Aggregate_Sigma, thresholds);
 
-    // FIXME: limits
+    double llMin = std::numeric_limits<double>::max();
+    double ulMax = std::numeric_limits<double>::lowest();
+
+    for (s32 i = 0; i < input.data.size; i++)
+    {
+        llMin = std::min(llMin, std::min(input.lowerLimits[i], input.upperLimits[i]));
+        ulMax = std::max(ulMax, std::max(input.lowerLimits[i], input.upperLimits[i]));
+    }
+
+    result.outputLowerLimits[0][0] = 0.0;
+    result.outputUpperLimits[0][0] = std::sqrt(ulMax - llMin);
 
     return result;
 }
@@ -1141,12 +1151,15 @@ Operator make_aggregate_meanx(
  * meanx = sum(A * x) / sum(A)
  * meanx = sum(input[i] * i) / sum(input[i])
  */
-void aggregate_meanx_step(Operator *op)
+struct MeanXResult
 {
-    a2_trace("\n");
-    auto input = op->inputs[0];
-    auto output = op->outputs[0];
-    auto thresholds = *reinterpret_cast<Thresholds *>(op->d);
+    double meanx;
+    double sumx;
+};
+
+inline MeanXResult calculate_meanx(ParamVec input, Thresholds thresholds)
+{
+    MeanXResult result = {};
 
     double numerator   = 0.0;
     double denominator = 0.0;
@@ -1162,7 +1175,20 @@ void aggregate_meanx_step(Operator *op)
         }
     }
 
-    output[0] = numerator / denominator;
+    result.meanx = numerator / denominator;
+    result.sumx  = denominator;
+
+    return result;
+}
+
+void aggregate_meanx_step(Operator *op)
+{
+    a2_trace("\n");
+    auto input = op->inputs[0];
+    auto output = op->outputs[0];
+    auto thresholds = *reinterpret_cast<Thresholds *>(op->d);
+
+    output[0] = calculate_meanx(input, thresholds).meanx;
 }
 
 //
@@ -1177,7 +1203,6 @@ Operator make_aggregate_sigmax(
 
     auto result = make_aggregate_op(arena, input, Operator_Aggregate_SigmaX, thresholds);
 
-    // FIXME: limits
     result.outputLowerLimits[0][0] = 0.0;
     result.outputUpperLimits[0][0] = input.data.size - 1.0;
 
@@ -1191,7 +1216,29 @@ void aggregate_sigmax_step(Operator *op)
     auto output = op->outputs[0];
     auto thresholds = *reinterpret_cast<Thresholds *>(op->d);
 
-    assert(false && input.size && output.size && thresholds.min); // FIXME: implementation
+    assert(input.size);
+    assert(output.size);
+    assert(!std::isnan(thresholds.min));
+    assert(!std::isnan(thresholds.max));
+
+    auto meanxResult = calculate_meanx(input, thresholds);
+    double sigmax = 0.0;
+
+    for (s32 x = 0; x < input.size; x++)
+    {
+        double A = input[x];
+
+        if (is_valid_and_inside(A, thresholds))
+        {
+            double d = x - meanxResult.meanx;
+            d *= d;
+            sigmax += d * A;
+        }
+    }
+
+    sigmax = std::sqrt(sigmax / meanxResult.sumx);
+
+    output[0]= sigmax;
 }
 
 //
@@ -2375,7 +2422,7 @@ Sink buffer sizes:
 - Histo1DSink: input.size * sizeof(double) * N
 - Histo2DSink: 2 * sizeof(double) * N
 
-On a2_end_event() 
+On a2_end_event()
 
  */
 
