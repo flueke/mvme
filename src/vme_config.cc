@@ -506,9 +506,8 @@ void EventConfig::write_impl(QJsonObject &json) const
         json["properties"] = props;
 }
 
-
 //
-// DAQConfig
+// VMEConfig
 //
 
 // Versioning of the DAQ config in case incompatible changes need to be made.
@@ -803,7 +802,7 @@ ModuleConfig *VMEConfig::getModuleConfig(int eventIndex, int moduleIndex)
 
     if (eventConfig)
     {
-        result = eventConfig->modules.value(moduleIndex);
+        result = eventConfig->getModuleConfigs().value(moduleIndex);
     }
 
     return result;
@@ -835,7 +834,7 @@ QList<ModuleConfig *> VMEConfig::getAllModuleConfigs() const
 
     for (auto eventConfig: eventConfigs)
     {
-        for (auto moduleConfig: eventConfig->modules)
+        for (auto moduleConfig: eventConfig->getModuleConfigs())
         {
             result.push_back(moduleConfig);
         }

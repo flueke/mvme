@@ -564,6 +564,8 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
              ++eventIndex)
         {
             auto event = eventConfigs[eventIndex];
+            // XXX: VMEEnable
+            //Q_ASSERT(event->isEnabled());
 
             // build the command stack list
             auto readoutCommands = build_event_readout_script(event);
@@ -1576,7 +1578,8 @@ u32 SIS3153ReadoutWorker::processSingleEventData(
         | ((eventIndex << LF::EventTypeShift) & LF::EventTypeMask);
     u32 eventSectionSize = 0;
 
-    s32 moduleCount = eventConfig->modules.size();
+    auto moduleConfigs = eventConfig->getModuleConfigs();
+    s32 moduleCount = moduleConfigs.size();
 
     for (s32 moduleIndex = 0; moduleIndex < moduleCount; moduleIndex++)
     {
@@ -1586,7 +1589,7 @@ u32 SIS3153ReadoutWorker::processSingleEventData(
         eventSectionSize++;
         u32 *moduleHeader = outputBuffer->asU32();
         outputBuffer->used += sizeof(u32);
-        auto moduleConfig = eventConfig->modules[moduleIndex];
+        auto moduleConfig = moduleConfigs[moduleIndex];
         *moduleHeader = (((u32)moduleConfig->getModuleMeta().typeId) << LF::ModuleTypeShift) & LF::ModuleTypeMask;
         u32 moduleSectionSize = 0;
         u32 *outp = outputBuffer->asU32();
@@ -1767,7 +1770,8 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
         return ProcessorAction::SkipInput;
     }
 
-    const s32 moduleCount = eventConfig->modules.size();
+    auto moduleConfigs = eventConfig->getModuleConfigs();
+    const s32 moduleCount = moduleConfigs.size();
 
     while (true)
     {
@@ -1799,7 +1803,7 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
             u32 *moduleHeader = outputBuffer->asU32();
             outputBuffer->used += sizeof(u32);
 
-            auto moduleConfig = eventConfig->modules[m_processingState.moduleIndex];
+            auto moduleConfig = moduleConfigs[m_processingState.moduleIndex];
 
             if (!moduleConfig)
             {

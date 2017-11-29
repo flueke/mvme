@@ -46,6 +46,7 @@ enum NodeType
     NodeType_EventModulesInit,
     NodeType_EventReadoutLoop,
     NodeType_EventStartStop,
+    NodeType_VMEScript,
 };
 
 enum DataRole
@@ -266,17 +267,13 @@ TreeNode *makeNode(T *data, int type = QTreeWidgetItem::Type)
     return ret;
 }
 
-TreeNode *VMEConfigTreeWidget::addScriptNode(TreeNode *parent, VMEScriptConfig* script, bool canDisable)
+TreeNode *VMEConfigTreeWidget::addScriptNode(TreeNode *parent, VMEScriptConfig* script)
 {
-    auto node = new TreeNode;
+    auto node = new TreeNode(NodeType_VMEScript);
     node->setData(0, DataRole_Pointer, Ptr2Var(script));
     node->setText(0, script->objectName());
     node->setIcon(0, QIcon(":/vme_script.png"));
     node->setFlags(node->flags() | Qt::ItemIsEditable);
-    if (canDisable)
-    {
-        //node->setCheckState(0, script->isEnabled() ? Qt::Checked : Qt::Unchecked);
-    }
     m_treeMap[script] = node;
     parent->addChild(node);
 
@@ -470,6 +467,8 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
 
     if (node && node->type() == NodeType_Event)
     {
+        Q_ASSERT(obj);
+
         if (isIdle)
             menu.addAction(QSL("Edit Event"), this, &VMEConfigTreeWidget::editEvent);
 
@@ -481,6 +480,9 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
         if (isIdle)
         {
             menu.addSeparator();
+            // XXX: VMEEnable
+            //menu.addAction(obj->isEnabled() ? QSL("Disable Event") : QSL("Enable Event"),
+            //               this, [this, node]() { toggleObjectEnabled(node, NodeType_Event); });
             menu.addAction(QSL("Remove Event"), this, &VMEConfigTreeWidget::removeEvent);
         }
     }
@@ -493,6 +495,8 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
 
     if (node && node->type() == NodeType_Module)
     {
+        Q_ASSERT(obj);
+
         if (isIdle)
         {
             menu.addAction(QSL("Init Module"), this, &VMEConfigTreeWidget::initModule);
@@ -504,6 +508,9 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
         if (isIdle)
         {
             menu.addSeparator();
+            // XXX: VMEEnable
+            //menu.addAction(obj->isEnabled() ? QSL("Disable Module") : QSL("Enable Module"),
+            //               this, [this, node]() { toggleObjectEnabled(node, NodeType_Module); });
             menu.addAction(QSL("Remove Module"), this, &VMEConfigTreeWidget::removeModule);
         }
 
@@ -528,10 +535,21 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
 
     if (parent == m_nodeStart || parent == m_nodeStop || parent == m_nodeManual)
     {
+        Q_ASSERT(obj);
+
         menu.addAction(QSL("Rename Script"), this, &VMEConfigTreeWidget::editName);
+
         if (isIdle)
         {
             menu.addSeparator();
+            // disabling manual scripts doesn't make any sense
+            if (parent == m_nodeStart || parent == m_nodeStop)
+            {
+                menu.addAction(obj->isEnabled() ? QSL("Disable Script") : QSL("Enable Script"),
+                               this, [this, node]() { toggleObjectEnabled(node, NodeType_VMEScript); });
+
+            }
+
             menu.addAction(QSL("Remove Script"), this, &VMEConfigTreeWidget::removeGlobalScript);
         }
     }
@@ -546,7 +564,7 @@ void VMEConfigTreeWidget::onEventAdded(EventConfig *eventConfig)
 {
     addEventNode(m_nodeEvents, eventConfig);
 
-    for (auto module: eventConfig->modules)
+    for (auto module: eventConfig->getModuleConfigs())
         onModuleAdded(module);
 
     connect(eventConfig, &EventConfig::moduleAdded, this, &VMEConfigTreeWidget::onModuleAdded);
@@ -596,7 +614,7 @@ void VMEConfigTreeWidget::onEventAdded(EventConfig *eventConfig)
 
 void VMEConfigTreeWidget::onEventAboutToBeRemoved(EventConfig *config)
 {
-    for (auto module: config->modules)
+    for (auto module: config->getModuleConfigs())
     {
         onModuleAboutToBeRemoved(module);
     }
@@ -642,21 +660,17 @@ void VMEConfigTreeWidget::onModuleAboutToBeRemoved(ModuleConfig *module)
 void VMEConfigTreeWidget::onScriptAdded(VMEScriptConfig *script, const QString &category)
 {
     TreeNode *parentNode = nullptr;
-    bool canDisable = true;
 
     if (category == QSL("daq_start"))
         parentNode = m_nodeStart;
     else if (category == QSL("daq_stop"))
         parentNode = m_nodeStop;
     else if (category == QSL("manual"))
-    {
         parentNode = m_nodeManual;
-        canDisable = false;
-    }
 
     if (parentNode)
     {
-        addScriptNode(parentNode, script, canDisable);
+        addScriptNode(parentNode, script);
         m_tree->resizeColumnToContents(0);
     }
 }
@@ -713,6 +727,30 @@ void VMEConfigTreeWidget::removeEvent()
     }
 }
 
+void VMEConfigTreeWidget::toggleObjectEnabled(QTreeWidgetItem *node, int expectedNodeType)
+{
+    if (node)
+    {
+        Q_ASSERT(node->type() == expectedNodeType);
+    }
+
+    if (node && node->type() == expectedNodeType)
+    {
+        auto obj = Var2Ptr<ConfigObject>(node->data(0, DataRole_Pointer));
+        bool doEnable = !obj->isEnabled();
+        obj->setEnabled(doEnable);
+
+        if (doEnable)
+        {
+            node->setFlags(node->flags() | Qt::ItemIsEnabled);
+        }
+        else
+        {
+            node->setFlags(node->flags() & ~Qt::ItemIsEnabled);
+        }
+    }
+}
+
 void VMEConfigTreeWidget::editEvent()
 {
     auto node = m_tree->currentItem();
@@ -738,7 +776,7 @@ void VMEConfigTreeWidget::addModule()
     if (node)
     {
         auto event = Var2Ptr<EventConfig>(node->data(0, DataRole_Pointer));
-        bool doExpand = (event->modules.size() == 0);
+        bool doExpand = (event->getModuleConfigs().size() == 0);
 
         auto module = std::make_unique<ModuleConfig>();
         ModuleConfigDialog dialog(m_context, module.get(), this);

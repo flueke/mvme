@@ -52,7 +52,7 @@ class VMEConfigTreeWidget: public QWidget
         VMEConfig *getConfig() const;
 
     private:
-        TreeNode *addScriptNode(TreeNode *parent, VMEScriptConfig *script, bool canDisable = false);
+        TreeNode *addScriptNode(TreeNode *parent, VMEScriptConfig *script);
         TreeNode *addEventNode(TreeNode *parent, EventConfig *event);
         TreeNode *addModuleNodes(EventNode *parent, ModuleConfig *module);
 
@@ -89,6 +89,7 @@ class VMEConfigTreeWidget: public QWidget
         void handleShowDiagnostics();
         void dumpVMUSBRegisters();
         void showEditNotes();
+        void toggleObjectEnabled(QTreeWidgetItem *node, int expectedNodeType);
 
         void runScriptConfigs(const QVector<VMEScriptConfig *> &configs);
 

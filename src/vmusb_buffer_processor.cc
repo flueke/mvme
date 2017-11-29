@@ -565,7 +565,8 @@ u32 VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputB
                    .arg(bufferNumber));
     }
 
-    s32 moduleCount = eventConfig->modules.size();
+    auto moduleConfigs = eventConfig->getModuleConfigs();
+    const s32 moduleCount = moduleConfigs.size();
 
     if (moduleCount == 0)
     {
@@ -635,7 +636,7 @@ u32 VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputB
             state->moduleSize = 0;
             state->moduleHeaderOffset = outputBuffer->used;
 
-            if (state->moduleIndex >= eventConfig->modules.size())
+            if (state->moduleIndex >= moduleCount)
             {
                 logMessage(QString(QSL("VMUSB: (buffer #%1) Module index %2 is out of range while parsing input. Skipping buffer"))
                     .arg(bufferNumber)
@@ -652,7 +653,7 @@ u32 VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputB
                 return ProcessorAction::SkipInput;
             }
 
-            auto moduleConfig = eventConfig->modules[state->moduleIndex];
+            auto moduleConfig = moduleConfigs[state->moduleIndex];
             u32 *moduleHeader = outputBuffer->asU32();
             *moduleHeader = (((u32)moduleConfig->getModuleMeta().typeId) << LF::ModuleTypeShift) & LF::ModuleTypeMask;
             outputBuffer->used += sizeof(u32);

@@ -221,7 +221,6 @@ class LIBMVME_EXPORT EventConfig: public ConfigObject
         // Maximum number of events between scaler stack executions
         uint16_t scalerReadoutFrequency = 0;
 
-        QList<ModuleConfig *> modules;
         /** Known keys for an event:
          * "daq_start", "daq_stop", "readout_start", "readout_end"
          */
@@ -248,6 +247,7 @@ class LIBMVME_EXPORT EventConfig: public ConfigObject
 
     private:
         bool m_multiEventProcessingEnabled = false;
+        QList<ModuleConfig *> modules;
 };
 
 class LIBMVME_EXPORT VMEConfig: public ConfigObject

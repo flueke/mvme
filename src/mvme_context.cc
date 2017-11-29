@@ -1214,7 +1214,7 @@ QStringList MVMEContext::getLogBuffer() const
 void MVMEContext::onEventAdded(EventConfig *event)
 {
     emit eventAdded(event);
-    for (auto module: event->modules)
+    for (auto module: event->getModuleConfigs())
         onModuleAdded(module);
 
     connect(event, &EventConfig::moduleAdded, this, &MVMEContext::onModuleAdded);
@@ -1223,7 +1223,7 @@ void MVMEContext::onEventAdded(EventConfig *event)
 
 void MVMEContext::onEventAboutToBeRemoved(EventConfig *config)
 {
-    for (auto module: config->modules)
+    for (auto module: config->getModuleConfigs())
     {
         onModuleAboutToBeRemoved(module);
         emit objectAboutToBeRemoved(module);
