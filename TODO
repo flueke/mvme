@@ -2,13 +2,8 @@
 TODO list somewhat sorted by priority
 ==================================================
 
-* Display analysis efficiency somewhere:
-  This is the number of events/bytes processed by the analysis over the number
-  of total events/bytes.
-
 * Display actual size of the listfile on the disk. Avoids having to pull
-
-* information from the quazip/zlib libs.
+  information from the quazip/zlib libs.
 
 * Fix readout workers eating 100% cpu in paused state. I don't know why
   processEvents() returns immediately for both readout workers.  This only
@@ -21,11 +16,6 @@ TODO list somewhat sorted by priority
   full second will be lost, then another and so on.
   => Remember the fractional part of the elapsed time and add it to the elapsed
   time of the next iteration until a full second is accumulated.
-
-* Debug the dev_listfile_tcp_sender/receiver code. Somehow sometimes the
-  receiver does not get all the data after the sender closes the connection.
-  Sample file for this is the ess_pulser_test_001.mvmelst in the
-  VMMR_ESS_Readout workspace.
 
 * sis3153 implementation
   * Running "Init Module" when disconnected blocks the UI
@@ -41,20 +31,13 @@ TODO list somewhat sorted by priority
   processing will report errors and if the module is not even present in the
   vme crate the readout will slow down due to timeouts on the VME bus.
 
-* vme templates:
-  - complete VMMR: extraction filters and bus/channel settings.
-    Use the VMMR init file from the VMMR_ESS_Readout workspace.
-
 * check the case where listfile creation throws an exception. right now this
   results in a communication error with the sis controller when trying to start
   another run after a failed one.
 
-FIXED?
-* a2: Editing an operator during replay does not rebuild the a2 system. The
-  system is only updated when stopping and restarting the replay. Fix this!
-
 * Fix crash in analysis ui when moving an operator. Happens with the PMT test
   setup when moving one of the rightmost 2d histos.
+  -> Cannot reproduce anymore...
 
 * Checks what's up with the size limit of the log view. It never seems to stop
   growing and that's part of why there's such a major slowdown when being
@@ -94,8 +77,10 @@ FIXED?
   work?
   -> Make MVMEEventProcessor support pause/resume directly.
 
-* info button does not work in 2D combined view of 1D histograms
 * Resolution change for 2D combined histograms?
+  -> Would have to implement this in a different way: Instead of just looking
+  up the data in the corresponding H1D instances I'd have to create a new H2D
+  with the desired resolution and insert the source values into that histogram.
 
 * Make a RCbus example including a delay between switchting NIM to cbus mode!
 
@@ -111,17 +96,10 @@ FIXED?
   trigger a simple 1->1 import of the module and all would be good again.
   The reload could als trigger opening the import dialog if it requires user
   intervention.
-* Take a look at MVMEContext::runScript() and try to fix it. The stuff that's
-  done in stopDAQ() seems to work very well...
-* Make MVMEContext::runScript() work like the AnalysisPauser: use a
-  QProgressDialog, a local event loop and signals slots to make pausing
-  reliable and non-hacky.
 
 * Logspam still makes the app hang! Fix this!!!
 
 * Histo1D and Histo1DWidget
-    * Histo1D Calibration UI: "Restore" uses unexpected values. Also there's no way to undo the restore operation. (calibResetToFilter)
-      -> "fixed" by just hiding the "restore" button
     * Bug: H1D does not work when unitMin > unitMax
     * Histo1DWidget: zoom out after setHistogram()
       But not when the usage is the one in x- and y-projections where the histo is
@@ -129,7 +107,6 @@ FIXED?
     * Histo1DWidget: The curve for the last bin is not drawn. Try to finally find a fix for this.
     * Read up on binning error calculations. See how ROOT does it.
     * show fwhm only when gauss display is active
-    * Implement Histogram rebinning
 
 * Analysis and AnalysisUI
     * Open new histograms immediately. Do this when creating a sub-histogram.
@@ -172,8 +149,6 @@ FIXED?
 
 
 * select input UI: disable other tree highlights while it's active.
-* Fix replay stats display and replay timer. It wasn't designed with pausing
-  and stepping in mind.
 * ZIP file support:
   On close:
   - write some user description text file to the zip. "Run description", "Run notes", "DAQ notes"
