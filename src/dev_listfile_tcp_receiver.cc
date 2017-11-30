@@ -64,7 +64,6 @@ void receive_one_buffer(Context &context, const u32 size, DataBuffer &destBuffer
 void receive_and_write_listfile(Context &context)
 {
     DataBuffer mvmeBuffer(ReadBufferSize);
-    bool done = false;
 
     while (true)
     {
@@ -75,14 +74,7 @@ void receive_and_write_listfile(Context &context)
             if (!context.socket->waitForReadyRead())
             {
                 throw (QString("waitForReadyRead (bufferSize) failed"));
-                //done = true;
-                //break;
             }
-        }
-
-        if (done)
-        {
-            break;
         }
 
         assert(context.socket->bytesAvailable() >= static_cast<qint64>(sizeof(bufferSize)));
@@ -117,6 +109,9 @@ void receive_and_write_listfile(Context &context)
                    .arg(context.outfile->errorString()));
         }
     }
+
+    /* Write a single reply containing a zero word (32 bit). This tells the
+     * sender that we've received all the data and it may close the connection. */
 
     u32 zero = 0u;
 
@@ -176,8 +171,8 @@ int main(int argc, char *argv[])
         || listenPort == 0)
     {
         cout << "Usage: " << argv[0] << " --listfile <filename> --host <listehost> --port <listport>" << endl;
-        cout << "The program will listen on the given host and port and write received data to the given listfile filename." << endl;
-        cout << "Example: " << argv[0] << " --listfile myfile.mvmelst --host example.com --port 1234" << endl;
+        cout << "Example: " << argv[0] << " --listfile outfile.mvmelst --host example.com --port 1234" << endl;
+        cout << "The program will listen on the given host and port and write received data to the specified listfile filename." << endl;
 
         return showHelp ? 0 : 1;
     }
@@ -208,7 +203,7 @@ int main(int argc, char *argv[])
         }
 
         Context context;
-        context.socket = server.nextPendingConnection(); // note: socket is a qobject child of server
+        context.socket = server.nextPendingConnection(); // note: socket is a QObject child of server
         context.outfile = &outfile;
 
         cout << "New client connection from "

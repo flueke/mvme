@@ -324,7 +324,7 @@ QJsonObject get_daq_config(QIODevice &m_file)
         int sectionType  = (sectionHeader & LF::SectionTypeMask) >> LF::SectionTypeShift;
         u32 sectionWords = (sectionHeader & LF::SectionSizeMask) >> LF::SectionSizeShift;
 
-        qDebug() << "sectionType" << sectionType << ", sectionWords" << sectionWords;
+        //qDebug() << "sectionType" << sectionType << ", sectionWords" << sectionWords;
 
         if (sectionType != SectionType_Config)
             break;

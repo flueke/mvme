@@ -159,8 +159,9 @@ int main(int argc, char *argv[])
         || destPort == 0)
     {
         cout << "Usage: " << argv[0] << " --listfile <filename> --host <desthost> --port <destport>" << endl;
-        cout << "The program will connect to given host and port and send the given listfile over the connected socket." << endl;
-        cout << "Example: " << argv[0] << " --listfile myfile.mvmelst --host example.com --port 1234" << endl;
+        cout << "Example: " << argv[0] << " --listfile infile.mvmelst --host example.com --port 1234" << endl;
+        cout << "The program will connect to given host and port and send the specified listfile over the connected socket." << endl;
+        cout << "Listfile may be a flat mvmelst file or a zip produced by mvme." << endl;
 
         return showHelp ? 0 : 1;
     }

@@ -239,6 +239,7 @@ add_mvme_executable(dev_udp_sender "dev_udp_sender.cc")
 add_mvme_executable(dev_udp_receiver "dev_udp_receiver.cc")
 add_mvme_executable(dev_listfile_tcp_sender "dev_listfile_tcp_sender.cc")
 add_mvme_executable(dev_listfile_tcp_receiver "dev_listfile_tcp_receiver.cc")
+install(TARGETS dev_listfile_tcp_sender dev_listfile_tcp_receiver DESTINATION .)
 
 # root subdir if ROOT support is enabled
 if (ENABLE_ROOT)
