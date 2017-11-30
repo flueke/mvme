@@ -112,6 +112,15 @@ With XXX being the serial number in hex.
 `arp -s 192.168.178.44 00-00-56-15-30-2c`
 `arp -s 192.168.178.44 00-00-56-15-30-28`
 
+## Creating a source archive:
+
+```
+git archive -v  -o ~/src/mvme-packages/mvme-`git describe`-src.tar.gz --prefix=mvme-`git describe`-src/ dev
+```
+
+The "dev" at the very end is the branch name I wanted to package. It would be
+nice to be able to just use the current branch/tip of tree.
+
 # ROOT
 
 ## Building ROOT
@@ -123,5 +132,3 @@ With XXX being the serial number in hex.
   clang         (I guess)
 
 cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/home/florian/local/root-6.10.08/ ../root-6.10.08/
-
-# vim:ft=markdown

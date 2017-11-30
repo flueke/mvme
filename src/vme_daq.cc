@@ -42,12 +42,12 @@ void vme_daq_init(
         logger(QSL("Global DAQ Start scripts:"));
         for (auto script: startScripts)
         {
-            if (script->isEnabled())
-            {
-                logger(QString("  %1").arg(script->objectName()));
-                auto indentingLogger = [logger](const QString &str) { logger(QSL("    ") + str); };
-                run_script(controller, script->getScript(), indentingLogger, true);
-            }
+            if (!script->isEnabled())
+                continue;
+
+            logger(QString("  %1").arg(script->objectName()));
+            auto indentingLogger = [logger](const QString &str) { logger(QSL("    ") + str); };
+            run_script(controller, script->getScript(), indentingLogger, true);
         }
     }
 
@@ -55,15 +55,16 @@ void vme_daq_init(
     logger(QSL("Initializing Modules:"));
     for (auto eventConfig: config->getEventConfigs())
     {
-        // XXX: VMEEnable
-        //if (!eventConfig->isEnabled())
-        //    continue;
-
         for (auto module: eventConfig->getModuleConfigs())
         {
-            // XXX: VMEEnable
-            //if (!module->isEnabled())
-            //    continue;
+            if (!module->isEnabled())
+            {
+                logger(QString("  %1.%2: Disabled in VME configuration")
+                           .arg(eventConfig->objectName())
+                           .arg(module->objectName())
+                          );
+                continue;
+            }
 
             logger(QString("  %1.%2")
                        .arg(eventConfig->objectName())
@@ -86,10 +87,6 @@ void vme_daq_init(
     logger(QSL("Events DAQ Start"));
     for (auto eventConfig: config->getEventConfigs())
     {
-        // XXX: VMEEnable
-        //if (!eventConfig->isEnabled())
-        //    continue;
-
         logger(QString("  %1").arg(eventConfig->objectName()));
         auto indentingLogger = [logger](const QString &str) { logger(QSL("    ") + str); };
         run_script(controller, eventConfig->vmeScripts["daq_start"]->getScript(), indentingLogger, true);
@@ -107,10 +104,6 @@ void vme_daq_shutdown(
     logger(QSL("Events DAQ Stop"));
     for (auto eventConfig: config->getEventConfigs())
     {
-        // XXX: VMEEnable
-        //if (!eventConfig->isEnabled())
-        //    continue;
-
         logger(QString("  %1").arg(eventConfig->objectName()));
         auto indentingLogger = [logger](const QString &str) { logger(QSL("    ") + str); };
         run_script(controller, eventConfig->vmeScripts["daq_stop"]->getScript(), indentingLogger, true);
@@ -122,9 +115,8 @@ void vme_daq_shutdown(
         logger(QSL("Global DAQ Stop scripts:"));
         for (auto script: stopScripts)
         {
-            // XXX: VMEEnable
-            //if (!script->isEnabled())
-            //    continue;
+            if (!script->isEnabled())
+                continue;
 
             logger(QString("  %1").arg(script->objectName()));
             auto indentingLogger = [logger](const QString &str) { logger(QSL("    ") + str); };
@@ -138,9 +130,6 @@ void vme_daq_shutdown(
 //
 vme_script::VMEScript build_event_readout_script(EventConfig *eventConfig)
 {
-    // XXX: VMEEnable
-    //Q_ASSERT(eventConfig->isEnabled());
-
     using namespace vme_script;
 
     VMEScript result;
@@ -149,7 +138,14 @@ vme_script::VMEScript build_event_readout_script(EventConfig *eventConfig)
 
     for (auto module: eventConfig->getModuleConfigs())
     {
-        result += module->getReadoutScript()->getScript(module->getBaseAddress());
+        if (module->isEnabled())
+        {
+            result += module->getReadoutScript()->getScript(module->getBaseAddress());
+        }
+        /* If the module is disabled only the EndMarker will be present in the
+         * readout data. This looks the same as if the module readout did not
+         * yield any data at all. */
+
         Command marker;
         marker.type = CommandType::Marker;
         marker.value = EndMarker;

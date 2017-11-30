@@ -1698,7 +1698,9 @@ void ArrayMap::beginRun(const RunInfo &)
     m_output.parameters.name = objectName();
     m_output.parameters.resize(mappingCount);
 
+#if ENABLE_ANALYSIS_DEBUG
     qDebug() << __PRETTY_FUNCTION__ << this << "#mappings =" << mappingCount;
+#endif
 
     for (s32 mIndex = 0;
          mIndex < mappingCount;
@@ -1727,7 +1729,9 @@ void ArrayMap::beginRun(const RunInfo &)
         }
     }
 
+#if ENABLE_ANALYSIS_DEBUG
     qDebug() << __PRETTY_FUNCTION__ << this << "#output params =" << m_output.parameters.size();
+#endif
 }
 
 void ArrayMap::step()

@@ -83,6 +83,67 @@ class ModuleNode: public TreeNode
         TreeNode *readoutNode = nullptr;
 };
 
+bool is_parent_disabled(ConfigObject *obj)
+{
+    Q_ASSERT(obj);
+
+    if (auto parentConfigObject = qobject_cast<ConfigObject *>(obj->parent()))
+    {
+        if (!parentConfigObject->isEnabled())
+            return true;
+
+        return is_parent_disabled(parentConfigObject);
+    }
+
+    return false;
+}
+
+bool should_draw_node_disabled(QTreeWidgetItem *node)
+{
+    if (auto obj = Var2Ptr<ConfigObject>(node->data(0, DataRole_Pointer)))
+    {
+        if (!obj->isEnabled())
+            return true;
+
+        return is_parent_disabled(obj);
+    }
+
+    return false;
+}
+
+
+class VMEConfigTreeItemDelegate: public QStyledItemDelegate
+{
+    public:
+        VMEConfigTreeItemDelegate(QObject* parent=0): QStyledItemDelegate(parent) {}
+
+        virtual QWidget* createEditor(QWidget *parent,
+                                      const QStyleOptionViewItem &option,
+                                      const QModelIndex &index) const override
+        {
+            if (index.column() == 0)
+            {
+                return QStyledItemDelegate::createEditor(parent, option, index);
+            }
+
+            return nullptr;
+        }
+
+    protected:
+        virtual void initStyleOption(QStyleOptionViewItem *option, const QModelIndex &index) const override
+        {
+            QStyledItemDelegate::initStyleOption(option, index);
+
+            if (auto node = reinterpret_cast<QTreeWidgetItem *>(index.internalPointer()))
+            {
+                if (should_draw_node_disabled(node))
+                {
+                    option->state &= ~QStyle::State_Enabled;
+                }
+            }
+        }
+};
+
 VMEConfigTreeWidget::VMEConfigTreeWidget(MVMEContext *context, QWidget *parent)
     : QWidget(parent)
     , m_context(context)
@@ -97,15 +158,15 @@ VMEConfigTreeWidget::VMEConfigTreeWidget(MVMEContext *context, QWidget *parent)
     m_tree->setExpandsOnDoubleClick(true);
     m_tree->setContextMenuPolicy(Qt::CustomContextMenu);
     m_tree->setIndentation(10);
-    m_tree->setItemDelegateForColumn(1, new NoEditDelegate(this));
+    m_tree->setItemDelegate(new VMEConfigTreeItemDelegate(this));
     m_tree->setEditTriggers(QAbstractItemView::EditKeyPressed);
 
     auto headerItem = m_tree->headerItem();
     headerItem->setText(0, QSL("Object"));
     headerItem->setText(1, QSL("Info"));
 
-    m_nodeEvents->setText(0,        QSL("Events"));
-    m_nodeScripts->setText(0,       QSL("Global Scripts"));
+    m_nodeEvents->setText(0,  QSL("Events"));
+    m_nodeScripts->setText(0, QSL("Global Scripts"));
 
     m_nodeStart->setText(0, QSL("DAQ Start"));
     m_nodeStart->setData(0, DataRole_ScriptCategory, "daq_start");
@@ -115,8 +176,8 @@ VMEConfigTreeWidget::VMEConfigTreeWidget(MVMEContext *context, QWidget *parent)
     m_nodeStop->setData(0, DataRole_ScriptCategory, "daq_stop");
     m_nodeStop->setIcon(0, QIcon(":/config_category.png"));
 
-    m_nodeManual->setText(0,  QSL("Manual"));
-    m_nodeManual->setData(0,  DataRole_ScriptCategory, "manual");
+    m_nodeManual->setText(0, QSL("Manual"));
+    m_nodeManual->setData(0, DataRole_ScriptCategory, "manual");
     m_nodeManual->setIcon(0, QIcon(":/config_category.png"));
 
     m_tree->addTopLevelItem(m_nodeEvents);
@@ -415,15 +476,14 @@ void VMEConfigTreeWidget::onItemDoubleClicked(QTreeWidgetItem *item, int column)
     }
 }
 
+/* Called when the contents in the column of the item change.
+ * Used to implement item renaming. */
 void VMEConfigTreeWidget::onItemChanged(QTreeWidgetItem *item, int column)
 {
     auto obj = Var2Ptr<ConfigObject>(item->data(0, DataRole_Pointer));
 
-    if (obj)
+    if (obj && column == 0)
     {
-        //if (item->flags() & Qt::ItemIsUserCheckable)
-        //    obj->setEnabled(item->checkState(0) != Qt::Unchecked);
-
         if (item->flags() & Qt::ItemIsEditable)
         {
             obj->setObjectName(item->text(0));
@@ -480,9 +540,6 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
         if (isIdle)
         {
             menu.addSeparator();
-            // XXX: VMEEnable
-            //menu.addAction(obj->isEnabled() ? QSL("Disable Event") : QSL("Enable Event"),
-            //               this, [this, node]() { toggleObjectEnabled(node, NodeType_Event); });
             menu.addAction(QSL("Remove Event"), this, &VMEConfigTreeWidget::removeEvent);
         }
     }
@@ -499,8 +556,11 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
 
         if (isIdle)
         {
-            menu.addAction(QSL("Init Module"), this, &VMEConfigTreeWidget::initModule);
-            menu.addAction(QSL("Edit Module"), this, &VMEConfigTreeWidget::editModule);
+            if (obj->isEnabled())
+            {
+                menu.addAction(QSL("Init Module"), this, &VMEConfigTreeWidget::initModule);
+                menu.addAction(QSL("Edit Module"), this, &VMEConfigTreeWidget::editModule);
+            }
         }
 
         menu.addAction(QSL("Rename Module"), this, &VMEConfigTreeWidget::editName);
@@ -508,13 +568,12 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
         if (isIdle)
         {
             menu.addSeparator();
-            // XXX: VMEEnable
-            //menu.addAction(obj->isEnabled() ? QSL("Disable Module") : QSL("Enable Module"),
-            //               this, [this, node]() { toggleObjectEnabled(node, NodeType_Module); });
+            menu.addAction(obj->isEnabled() ? QSL("Disable Module") : QSL("Enable Module"),
+                           this, [this, node]() { toggleObjectEnabled(node, NodeType_Module); });
             menu.addAction(QSL("Remove Module"), this, &VMEConfigTreeWidget::removeModule);
         }
 
-        if (!m_context->getMVMEStreamWorker()->hasDiagnostics())
+        if (!m_context->getMVMEStreamWorker()->hasDiagnostics() && obj->isEnabled())
             menu.addAction(QSL("Show Diagnostics"), this, &VMEConfigTreeWidget::handleShowDiagnostics);
     }
 
@@ -547,7 +606,6 @@ void VMEConfigTreeWidget::treeContextMenu(const QPoint &pos)
             {
                 menu.addAction(obj->isEnabled() ? QSL("Disable Script") : QSL("Enable Script"),
                                this, [this, node]() { toggleObjectEnabled(node, NodeType_VMEScript); });
-
             }
 
             menu.addAction(QSL("Remove Script"), this, &VMEConfigTreeWidget::removeGlobalScript);
@@ -736,17 +794,9 @@ void VMEConfigTreeWidget::toggleObjectEnabled(QTreeWidgetItem *node, int expecte
 
     if (node && node->type() == expectedNodeType)
     {
-        auto obj = Var2Ptr<ConfigObject>(node->data(0, DataRole_Pointer));
-        bool doEnable = !obj->isEnabled();
-        obj->setEnabled(doEnable);
-
-        if (doEnable)
+        if (auto obj = Var2Ptr<ConfigObject>(node->data(0, DataRole_Pointer)))
         {
-            node->setFlags(node->flags() | Qt::ItemIsEnabled);
-        }
-        else
-        {
-            node->setFlags(node->flags() & ~Qt::ItemIsEnabled);
+            obj->setEnabled(!obj->isEnabled());
         }
     }
 }
