@@ -763,8 +763,8 @@ VMUSBReadoutWorker::ReadBufferResult VMUSBReadoutWorker::readBuffer(int timeout_
     {
         m_readBuffer->used = result.bytesRead;
         DAQStats &stats(*m_workerContext.daqStats);
-        stats.addBuffersRead(1);
-        stats.addBytesRead(result.bytesRead);
+        stats.totalBytesRead += result.bytesRead;
+        stats.totalBuffersRead++;
 
         if (m_bufferProcessor)
             m_bufferProcessor->processBuffer(m_readBuffer);

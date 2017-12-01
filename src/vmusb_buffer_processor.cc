@@ -718,6 +718,7 @@ u32 VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputB
                 // The EndMarker for the module data was found. Update the moduleHeader to contain the correct size.
                 u32 *moduleHeader = outputBuffer->asU32(state->moduleHeaderOffset);
                 *moduleHeader |= (state->moduleSize << LF::SubEventSizeShift) & LF::SubEventSizeMask;
+                m_d->m_readoutWorker->getContext().daqStats->totalNetBytesRead += state->moduleSize * sizeof(u32);
 
 #ifdef BPDEBUG
                 qDebug() << __PRETTY_FUNCTION__

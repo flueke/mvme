@@ -74,6 +74,7 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
     , combo_compression(new QComboBox)
     , le_listfileFilename(new QLineEdit)
     , gb_listfile(new QGroupBox)
+    , gb_listfileLayout(nullptr)
     , rb_keepData(new QRadioButton("Keep"))
     , rb_clearData(new QRadioButton("Clear"))
     , bg_daqData(new QButtonGroup(this))
@@ -267,6 +268,7 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
 
 
         auto gbLayout = new QFormLayout(gb_listfile);
+        gb_listfileLayout = gbLayout;
         gbLayout->setContentsMargins(0, 0, 0, 0);
         gbLayout->setSpacing(2);
 
@@ -463,8 +465,17 @@ void DAQControlWidget::updateWidget()
     //
     // listfile options
     //
-    gb_listfile->setEnabled(globalMode == GlobalMode::DAQ);
 
+    switch (globalMode)
+    {
+        case GlobalMode::DAQ:
+            gb_listfile->setTitle(QSL("Listfile Output:"));
+            break;
+
+        case GlobalMode::ListFile:
+            gb_listfile->setTitle(QSL("Listfile Info:"));
+            break;
+    };
 
     auto outputInfo = m_context->getListFileOutputInfo();
 
@@ -485,18 +496,31 @@ void DAQControlWidget::updateWidget()
         le_listfileFilename->setText(filename);
 
 
-    QString sizeString;
+    double mb = 0.0;
 
-    if (globalMode == GlobalMode::DAQ)
+    auto sizeLabel = qobject_cast<QLabel *>(gb_listfileLayout->labelForField(label_listfileSize));
+
+    switch (globalMode)
     {
-        double mb = static_cast<double>(stats.listFileBytesWritten) / (1024.0*1024.0);
-        sizeString = QString("%1 MB").arg(mb, 6, 'f', 2);
+        case GlobalMode::DAQ:
+            // FIXME: use the actual size of the file on disk as compression is a thing...
+            mb = static_cast<double>(stats.listFileBytesWritten) / (1024.0*1024.0);
+            sizeLabel->setText(QSL("Current Size:"));
+            break;
+
+        case GlobalMode::ListFile:
+            mb = static_cast<double>(stats.listFileTotalBytes) / (1024.0*1024.0);
+            sizeLabel->setText(QSL("Replay Size:"));
+            break;
     }
+
+    auto sizeString = QString("%1 MB").arg(mb, 6, 'f', 2);
 
     label_listfileSize->setText(sizeString);
 
-    cb_writeListfile->setEnabled(isDAQIdle);
-    combo_compression->setEnabled(isDAQIdle);
+    cb_writeListfile->setEnabled(isDAQIdle && !isReplay);
+    combo_compression->setEnabled(isDAQIdle && !isReplay);
+    pb_runSettings->setEnabled(isDAQIdle && !isReplay);
 }
 
 DAQRunSettingsDialog::DAQRunSettingsDialog(const ListFileOutputInfo &settings, QWidget *parent)

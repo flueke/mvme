@@ -661,8 +661,8 @@ void ListFileReader::mainLoop()
 
                     if (isBufferValid)
                     {
-                        m_stats.addBuffersRead(1);
-                        m_stats.addBytesRead(buffer->used);
+                        m_stats.totalBuffersRead++;
+                        m_stats.totalBytesRead += buffer->used;
                     }
 
                     if (isBufferValid && buffer->used >= sizeof(u32))
@@ -715,8 +715,8 @@ void ListFileReader::mainLoop()
 
                 if (isBufferValid)
                 {
-                    m_stats.addBuffersRead(1);
-                    m_stats.addBytesRead(buffer->used);
+                    m_stats.totalBuffersRead++;
+                    m_stats.totalBytesRead += buffer->used;
                 }
             }
 

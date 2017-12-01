@@ -56,6 +56,7 @@ class VMEReadoutWorker: public QObject
             m_workerContext = context;
         }
         inline const VMEReadoutWorkerContext &getContext() const { return m_workerContext; }
+        inline VMEReadoutWorkerContext &getContext() { return m_workerContext; }
 
         inline ThreadSafeDataBufferQueue *getFreeQueue() { return m_workerContext.freeBuffers; }
         inline ThreadSafeDataBufferQueue *getFullQueue() { return m_workerContext.fullBuffers; }

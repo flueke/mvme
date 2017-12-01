@@ -36,6 +36,7 @@
 #include "globals.h"
 
 class MVMEContext;
+class QFormLayout;
 
 class DAQControlWidget: public QWidget
 {
@@ -68,6 +69,7 @@ class DAQControlWidget: public QWidget
         QLineEdit *le_listfileFilename;
 
         QGroupBox *gb_listfile;
+        QFormLayout *gb_listfileLayout;
 
         QRadioButton *rb_keepData, *rb_clearData;
         QButtonGroup *bg_daqData;

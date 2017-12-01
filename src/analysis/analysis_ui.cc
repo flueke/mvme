@@ -3879,7 +3879,8 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
             auto daqStats = m_d->m_context->getDAQStats();
 
             double totalBuffers = daqStats.totalBuffersRead;
-            double analyzedBuffers = totalBuffers - daqStats.droppedBuffers;
+            double droppedBuffers = daqStats.droppedBuffers;
+            double analyzedBuffers = totalBuffers - droppedBuffers;
             double efficiency = analyzedBuffers / totalBuffers;
 
             if (std::isnan(efficiency))
@@ -3889,10 +3890,21 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
 
             m_d->m_labelEfficiency->setText(QString("Efficiency: %1")
                                             .arg(efficiency, 0, 'f', 2));
+
+            auto tt = (QString("Analyzed Buffers:\t%1\n"
+                               "Skipped Buffers:\t%2\n"
+                               "Total Buffers:\t%3")
+                       .arg(analyzedBuffers)
+                       .arg(droppedBuffers)
+                       .arg(totalBuffers)
+                      );
+
+            m_d->m_labelEfficiency->setToolTip(tt);
         }
         else
         {
             m_d->m_labelEfficiency->setText(QSL("Replay"));
+            m_d->m_labelEfficiency->setToolTip(QSL(""));
         }
     });
 
