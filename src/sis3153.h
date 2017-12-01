@@ -157,6 +157,7 @@ namespace SIS3153Constants
     static const u32 BeginEventResult = 0xbb000000;
     static const u32 EndEventMask     = 0xff000000;
     static const u32 EndEventResult   = 0xee000000;
+    static const u32 PacketNumberMask = 0x00ffffff;
 
     static const int NumberOfStackLists = 8;
 

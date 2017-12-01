@@ -41,6 +41,7 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
         struct Counters
         {
             std::array<u64, SIS3153Constants::NumberOfStackLists> packetsPerStackList;
+            u64 lostPackets = 0;
             u64 multiEventPackets = 0;
             u64 watchdogPackets = 0;
             int watchdogStackList = -1;
@@ -96,6 +97,8 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
 
         struct ProcessingState
         {
+            /* If stackList is < 0 no partial event processing is in progress.
+             * Otherwise a partial event for the stackList has been started. */
             s32 stackList = -1;
             s32 eventSize = 0;
             s32 eventHeaderOffset = -1;
@@ -112,6 +115,16 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
             static const u32 SkipInput   = 1u << 2; // Skip the current input buffer.
                                                     // Implies state reset and reuses the output buffer without
                                                     // flusing it.
+        };
+
+        struct PacketLossCounter
+        {
+            PacketLossCounter(Counters *counters = nullptr);
+
+            inline void handlePacketNumber(s32 packetNumber, u64 bufferNumber);
+
+            s32 m_lastReceivedPacketNumber;
+            Counters *m_counters;
         };
 
         void flushCurrentOutputBuffer();
@@ -131,6 +144,7 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
         std::unique_ptr<DAQReadoutListfileHelper> m_listfileHelper;
         DataBuffer *m_outputBuffer = nullptr;
         ProcessingState m_processingState;
+        PacketLossCounter m_lossCounter;
         QFile m_rawBufferOut;
         bool m_logBuffers = false;
 };

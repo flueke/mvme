@@ -237,14 +237,16 @@ namespace
         unsigned int vme_fifo_mode   = (flags & BlockFlags::FIFO) ? 1 : 0;
         unsigned int vme_access_size = (flags & BlockFlags::MBLT) ? AccessSize64 : AccessSize32;
         unsigned int vme_am_mode     = (flags & BlockFlags::MBLT) ? 0x8 : 0xb;
-        unsigned int vme_nof_bytes   = 0x10; // XXX dummy value XXX
+        /* The dummy value here was taken from Tinos
+         * stack_list_buffer_example.cpp. The value should not matter. */
+        unsigned int vme_nof_bytes   = 0x10;
 
         if (flags & BlockFlags::MBLTWordSwap)
         {
             vme_am_mode |= 1u << 10;
         }
 
-        vme_am_mode |= (1u << 12);  // bit 12=1 dynamically blockread length;
+        vme_am_mode |= (1u << 12);  // bit 12=1 -> use saved blockread length
 
         list_buffer[*list_ptr + 0] = 0xAAAA4000 | (vme_write_flag << 11) | (vme_fifo_mode << 10) | (vme_access_size << 8) | ((vme_nof_bytes >> 16) & 0xFF);
         list_buffer[*list_ptr + 1] = ((vme_am_mode & 0xFFFF) << 16) | (vme_nof_bytes & 0xFFFF); // 4 Bytes
@@ -405,9 +407,85 @@ namespace
         u32 timerValue               = period_100usecs - 1.0;
         return timerValue;
     }
-}
+} // end anon namespace
 
 static const double WatchdogTimeout_s = 0.050;
+
+SIS3153ReadoutWorker::PacketLossCounter::PacketLossCounter(Counters *counters)
+    : m_lastReceivedPacketNumber(-2)
+    , m_counters(counters)
+{
+    Q_ASSERT(counters);
+}
+
+void SIS3153ReadoutWorker::PacketLossCounter::handlePacketNumber(s32 packetNumber, u64 bufferNumber)
+{
+    /* SIS3153 packetNumber handling: the first packet number sent will be
+     * the old packetNumber from before resetting the controller
+     * incremented by 1. After that the packet numbers are correctly
+     * increasing from 1, e.g: 258, 1, 2, 3... where 257 was the last
+     * packet number from the previous run.
+     * packetNumber maximum value is 0x00ffffff. The first number after
+     * overflow is 0.
+     */
+
+    if (likely(m_lastReceivedPacketNumber >= 0))
+    {
+        s32 diff = packetNumber - m_lastReceivedPacketNumber;
+
+        if (likely(diff == 1))
+        {
+            // all good, nothing lost
+        }
+        else if (diff > 1)
+        {
+            // increment lost count
+            //qDebug() << __PRETTY_FUNCTION__ << "buffer #" << bufferNumber << ", lost" << diff - 1 << "packets";
+            m_counters->lostPackets += diff - 1;
+        }
+        else if (diff < 0)
+        {
+            // packetNumber < lastReceivedPacketNumber which should only
+            // happen once the packetNumber has overflowed.
+            // Perfect overflow without loss:
+            // old: 0x00ffffff, new: 0 -> will yield an adjustedDiff of 0
+
+            s32 adjustedDiff = (SIS3153Constants::PacketNumberMask + diff);
+
+            qDebug() << __PRETTY_FUNCTION__ << "buffer #" << bufferNumber << ", packetNumber diff is < 0:" << diff
+                << ", lastReceivedPacketNumber =" << m_lastReceivedPacketNumber
+                << ", current packetNumber =" << packetNumber
+                << ", adjustedDiff =" << adjustedDiff;
+
+            Q_ASSERT(adjustedDiff >= 0);
+
+            if (adjustedDiff > 0)
+            {
+                m_counters->lostPackets += adjustedDiff - 1;
+            }
+        }
+        else
+        {
+            // The difference is 0. This should never happen. Either the
+            // controller sends duplicate packet numbers or we lost so many
+            // that an overflow occured and we ended up at exactly the same
+            // packet number as before.
+            qDebug() << __PRETTY_FUNCTION__ << "buffer #" << bufferNumber << ", packetNumber diff is 0!";
+            Q_ASSERT(false);
+        }
+    }
+
+    if (unlikely(m_lastReceivedPacketNumber == -2))
+    {
+        // ignores the very first packet number
+        m_lastReceivedPacketNumber = -1;
+        qDebug() << __PRETTY_FUNCTION__ << "first packetNumber:" << packetNumber;
+    }
+    else
+    {
+        m_lastReceivedPacketNumber = packetNumber;
+    }
+}
 
 //
 // SIS3153ReadoutWorker
@@ -417,6 +495,7 @@ SIS3153ReadoutWorker::SIS3153ReadoutWorker(QObject *parent)
     , m_readBuffer(ReadBufferSize)
     , m_localEventBuffer(LocalBufferSize)
     , m_listfileHelper(nullptr)
+    , m_lossCounter(&m_counters)
 {
     m_counters.packetsPerStackList.fill(0);
 }
@@ -452,6 +531,16 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
                    );
 
         //validate_vme_config(m_workerContext.vmeConfig); // throws on error
+
+
+        //
+        // Reset controller state by writing KeyResetAll register
+        //
+        {
+            error = sis->writeRegister(SIS3153Registers::KeyResetAll, 1);
+            if (error.isError())
+                throw QString("Error writing SIS3153 KeyResetAll register: %1").arg(error.toString());
+        }
 
         //
         // Read and log firmware version
@@ -564,8 +653,6 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
              ++eventIndex)
         {
             auto event = eventConfigs[eventIndex];
-            // XXX: VMEEnable
-            //Q_ASSERT(event->isEnabled());
 
             // build the command stack list
             auto readoutCommands = build_event_readout_script(event);
@@ -884,9 +971,11 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
             }
         }
 
+        m_processingState = {};
         m_counters = {};
         m_counters.packetsPerStackList.fill(0);
         m_counters.watchdogStackList = m_watchdogStackListIndex;
+        m_lossCounter = PacketLossCounter(&m_counters);
 
         /* Save the current state of stackListControlValue for
          * leaving/re-entering DAQ mode later on. */
@@ -1034,8 +1123,12 @@ void SIS3153ReadoutWorker::readoutLoop()
         // pause
         else if (m_state == DAQState::Running && m_desiredState == DAQState::Paused)
         {
-            // This is a send/receive operation. The method internally retries
-            // UDP_REQUEST_RETRY times (3 by default).
+            /* This is a send/receive operation. The method internally retries
+             * UDP_REQUEST_RETRY times (set to 3 by default) before giving up.
+             *
+             * Pausing uses the control socket instead of the main socket so
+             * that DAQ mode packets and the write packets do not get mixed up.
+             * */
             int res = sis->getCtrlImpl()->udp_sis3153_register_write(
                 SIS3153ETH_STACK_LIST_CONTROL,
                 m_stackListControlRegisterValue << SIS3153Registers::StackListControlValues::DisableShift);
@@ -1051,16 +1144,6 @@ void SIS3153ReadoutWorker::readoutLoop()
             sis_log(QString(QSL("SIS3153 readout left DAQ mode (%1 remaining packets received)"))
                        .arg(packetCount));
 
-            // XXX: testing if reading from the ctrl socket yields any more data
-            {
-                char testBuffer[10240];
-                auto res = sis->getCtrlImpl()->udp_read_list_packet(testBuffer);
-                auto error = make_sis_error(res);
-                sis_trace(QString("running -> pause: ctrl_socket read result: %1, %2")
-                          .arg(res)
-                          .arg(error.toString()));
-            }
-
             setState(DAQState::Paused);
             emit daqPaused();
             sis_log(QString(QSL("SIS3153 readout paused")));
@@ -1068,16 +1151,10 @@ void SIS3153ReadoutWorker::readoutLoop()
         // resume
         else if (m_state == DAQState::Paused && m_desiredState == DAQState::Running)
         {
-#if 0
-            int res = sis->getImpl()->udp_sis3153_register_write(
-                SIS3153ETH_STACK_LIST_CONTROL,
-                m_stackListControlRegisterValue);
-
-            auto error = make_sis_error(res);
-#else
-            // This uses the main socket again
+            /* Resume uses the main socket again as that's where SIS will send
+             * it's data. */
             auto error = sis->writeRegister(SIS3153ETH_STACK_LIST_CONTROL, m_stackListControlRegisterValue);
-#endif
+
             if (error.isError())
                 throw QString("Error entering SIS3153 DAQ mode: %1").arg(error.toString());
 
@@ -1246,35 +1323,7 @@ SIS3153ReadoutWorker::ReadBufferResult SIS3153ReadoutWorker::readBuffer()
     u8 *dataPtr     = m_readBuffer.data + sizeof(u32);
     size_t dataSize = m_readBuffer.used - sizeof(u32);
 
-#if 0
-    /* Special handling for the watchdog stackList (for which there exists no
-     * event config). */
-    if ((packetAck & SIS3153Constants::AckStackListMask) == m_watchdogStackListIndex)
-    {
-        Q_ASSERT(m_eventConfigsByStackList[packetAck & SIS3153Constants::AckStackListMask] == nullptr);
-        m_counters.packetsPerStackList[packetAck & SIS3153Constants::AckStackListMask]++;
-
-#if SIS_READOUT_DEBUG
-        u32 *data = reinterpret_cast<u32 *>(dataPtr);
-        size_t dataWords = dataSize/sizeof(u32);
-        Q_ASSERT(dataWords == 3);
-        Q_ASSERT((data[0] & SIS3153Constants::BeginEventMask) == SIS3153Constants::BeginEventResult);
-        Q_ASSERT(data[1] == 0xbeefbeef);
-        Q_ASSERT((data[2] & SIS3153Constants::EndEventMask) == SIS3153Constants::EndEventResult);
-
-        for (size_t i=0; i<dataSize/sizeof(u32); i++)
-        {
-            qDebug("watchdog brought something home: 0x%08x", data[i]);
-        }
-#endif
-    }
-    else
-    {
-        processBuffer(packetAck, packetIdent, packetStatus, dataPtr, dataSize);
-    }
-#else
     processBuffer(packetAck, packetIdent, packetStatus, dataPtr, dataSize);
-#endif
 
     return result;
 }
@@ -1316,8 +1365,7 @@ void SIS3153ReadoutWorker::processBuffer(
 
     try
     {
-        // dispatch
-
+        // Dispatch depending on the Ack byte and the current processing state.
 
         // multiple events per packet
         if (packetAck == SIS3153Constants::MultiEventPacketAck)
@@ -1424,28 +1472,25 @@ u32 SIS3153ReadoutWorker::processMultiEventData(
         /*
     Dann 4 Bytes Single Event Header (anstelle von 3Byte):
 	  0x5x   "upper-length-byte"   "lower-length-byte"   "status"
-    seems to be: header=0x00250058
-    -> 0x00 len[0] len[1] ack
-    -> 0x00 0x25   0x00   0x58
+    seems to be reversed: header=0x00250058
+    -> [status] len[0] len[1] ack
+    -> 0x00     0x25   0x00   0x58
       */
         u32 eventHeader    = iter.extractU32();
+        u8  internalStatus = (eventHeader & 0xff000000) >> 24;
+        u16 length         = ((eventHeader & 0x00ff0000) >> 16) | (eventHeader & 0x0000ff00); // length in 32-bit words
         u8  internalAck    = eventHeader & 0xff;    // same as packetAck in non-buffered mode
-        u8  internalIdent  = (eventHeader >> 24) & 0xff; // Not sure about this byte
-        u8  internalStatus = 0; // FIXME: what's up with this?
-        u16 length = ((eventHeader & 0xff0000) >> 16) | (eventHeader & 0xff00); // length in 32-bit words
 
-        sis_trace(QString("buffer #%1: embedded ack=0x%2, ident=0x%3, status=0x%4, length=%5 (%6 bytes), header=0x%7")
+        sis_trace(QString("buffer #%1: embedded ack=0x%2, status=0x%3, length=%4 (%5 bytes), header=0x%6")
                   .arg(bufferNumber)
                   .arg((u32)internalAck, 2, 16, QLatin1Char('0'))
-                  .arg((u32)internalIdent, 2, 16, QLatin1Char('0'))
                   .arg((u32)internalStatus, 2, 16, QLatin1Char('0'))
                   .arg(length)
                   .arg(length * sizeof(u32))
                   .arg(eventHeader, 8, 16, QLatin1Char('0')));
 
         // Forward the embedded event to processSingleEventData
-
-        action = processSingleEventData(internalAck, internalIdent, internalStatus, iter.buffp, length * sizeof(u32));
+        action = processSingleEventData(internalAck, 0, internalStatus, iter.buffp, length * sizeof(u32));
 
         if (action & ProcessorAction::SkipInput)
         {
@@ -1515,6 +1560,12 @@ u32 SIS3153ReadoutWorker::processSingleEventData(
 
             return ProcessorAction::SkipInput;
         }
+
+        // The packetNumber will fit into an s32 as the top 8 bits are always
+        // zero.
+        s32 packetNumber = (beginHeader & SIS3153Constants::PacketNumberMask);
+
+        m_lossCounter.handlePacketNumber(packetNumber, bufferNumber);
     }
 
     // Watchdog packet handling
@@ -1678,17 +1729,26 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
 
     if (!partialInProgress)
     {
-        u32 beginHeader = iter.extractU32();
-
-        if ((beginHeader & SIS3153Constants::BeginEventMask) != SIS3153Constants::BeginEventResult)
+        // check beginHeader (0xbb...)
         {
-            auto msg = (QString(QSL("SIS3153 Warning: (buffer #%1) Invalid beginHeader 0x%2 (partialEvent). Skipping buffer."))
-                        .arg(bufferNumber)
-                        .arg(beginHeader, 8, 16, QLatin1Char('0')));
-            logMessage(msg);
-            qDebug() << __PRETTY_FUNCTION__ << msg;
-            maybePutBackBuffer();
-            return ProcessorAction::SkipInput;
+            u32 beginHeader = iter.extractU32();
+
+            if ((beginHeader & SIS3153Constants::BeginEventMask) != SIS3153Constants::BeginEventResult)
+            {
+                auto msg = (QString(QSL("SIS3153 Warning: (buffer #%1) Invalid beginHeader 0x%2 (partialEvent). Skipping buffer."))
+                            .arg(bufferNumber)
+                            .arg(beginHeader, 8, 16, QLatin1Char('0')));
+                logMessage(msg);
+                qDebug() << __PRETTY_FUNCTION__ << msg;
+                maybePutBackBuffer();
+                return ProcessorAction::SkipInput;
+            }
+
+            // The packetNumber will fit into an s32 as the top 8 bits are always
+            // zero.
+            s32 packetNumber = (beginHeader & SIS3153Constants::PacketNumberMask);
+
+            m_lossCounter.handlePacketNumber(packetNumber, bufferNumber);
         }
 
         EventConfig *eventConfig = m_eventConfigsByStackList[stacklist];

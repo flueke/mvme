@@ -3,7 +3,12 @@ TODO list somewhat sorted by priority
 ==================================================
 
 * Display actual size of the listfile on the disk. Avoids having to pull
-  information from the quazip/zlib libs.
+  information from the quazip/zlib libs. Display the size after the listfile
+  has been loaded, not after the replay has started
+
+* Think about the sis3153 counted block read commands. Maybe add a "dialect" to
+  vmescript so that the fact that sis3153 does not have a mask operation is
+  clear.
 
 * Fix readout workers eating 100% cpu in paused state. I don't know why
   processEvents() returns immediately for both readout workers.  This only
