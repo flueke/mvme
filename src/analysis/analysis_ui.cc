@@ -3598,18 +3598,21 @@ void AnalysisWidgetPrivate::updateActions()
     {
         case MVMEStreamWorkerState::Idle:
             m_actionPause->setIcon(QIcon(":/control_pause.png"));
+            m_actionPause->setText(QSL("Pause"));
             m_actionPause->setEnabled(false);
             m_actionStepNextEvent->setEnabled(false);
             break;
 
         case MVMEStreamWorkerState::Running:
             m_actionPause->setIcon(QIcon(":/control_pause.png"));
+            m_actionPause->setText(QSL("Pause"));
             m_actionPause->setEnabled(true);
             m_actionStepNextEvent->setEnabled(false);
             break;
 
         case MVMEStreamWorkerState::Paused:
             m_actionPause->setIcon(QIcon(":/control_play.png"));
+            m_actionPause->setText(QSL("Resume"));
             m_actionPause->setEnabled(true);
             m_actionStepNextEvent->setEnabled(true);
             break;
