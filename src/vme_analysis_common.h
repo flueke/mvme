@@ -64,8 +64,8 @@ void remove_analysis_objects_unless_matching(analysis::Analysis *analysis, const
  * by moduleInfo from the given analysis. */
 void remove_analysis_objects_unless_matching(analysis::Analysis *analysis, const ModuleInfo &moduleInfo);
 
-/** Removes sources and operators from the given analysis which reference
- * modules and events that do not exist in the given vmeConfig. */
+/** Removes sources and operators from the analysis which reference modules and
+ * events that do not exist in vmeConfig. */
 void remove_analysis_objects_unless_matching(analysis::Analysis *analysis, VMEConfig *vmeConfig);
 
 struct VMEConfigIndex
@@ -89,23 +89,29 @@ class TimetickGenerator
 
         int generateElapsedSeconds()
         {
+            int result = 0;
             auto t_end = ClockType::now();
             std::chrono::duration<double, std::milli> diff = t_end - t_start;
-            elapsed_ms += diff.count();
-            int result = std::floor(elapsed_ms / 1000.0);
-            elapsed_ms -= (result * 1000.0);
-            t_start = t_end;
+            double elapsed_ms = diff.count() + remainder_ms;
+
+            if (elapsed_ms >= 1000.0)
+            {
+                result = std::floor(elapsed_ms / 1000.0);
+                remainder_ms = std::fmod(elapsed_ms, 1000.0);
+                t_start = t_end;
+            }
+
             return result;
         }
 
-        double getElapsedMilliseconds() const
+        double getTimeToNextTick() const
         {
-            return elapsed_ms;
+            return 1000.0 - remainder_ms;
         }
 
     private:
         ClockType::time_point t_start;
-        double elapsed_ms = 0.0;
+        double remainder_ms = 0.0;
 
 };
 

@@ -239,7 +239,6 @@ class LIBMVME_EXPORT ListFileReader: public QObject
         void stateChanged(DAQState);
         void replayStopped();
         void replayPaused();
-        void progressChanged(qint64, qint64);
 
     public:
         using LoggerFun = std::function<void (const QString &)>;
@@ -273,8 +272,8 @@ class LIBMVME_EXPORT ListFileReader: public QObject
 
         DAQStats &m_stats;
 
-        DAQState m_state = DAQState::Idle;
-        DAQState m_desiredState = DAQState::Idle;
+        DAQState m_state;
+        std::atomic<DAQState> m_desiredState;
 
         ListFile *m_listFile = 0;
 

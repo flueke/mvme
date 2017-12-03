@@ -1495,7 +1495,7 @@ void MVMEMainWindow::updateActions()
 
     auto globalMode = m_d->m_context->getMode();
     auto daqState = m_d->m_context->getDAQState();
-    auto eventProcState = m_d->m_context->getMVMEStreamProcessorState();
+    auto eventProcState = m_d->m_context->getMVMEStreamWorkerState();
 
     bool isDAQIdle = (daqState == DAQState::Idle);
 

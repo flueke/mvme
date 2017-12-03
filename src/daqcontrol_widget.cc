@@ -325,7 +325,7 @@ void DAQControlWidget::updateWidget()
 {
     auto globalMode = m_context->getMode();
     auto daqState = m_context->getDAQState();
-    auto eventProcState = m_context->getMVMEStreamProcessorState();
+    auto eventProcState = m_context->getMVMEStreamWorkerState();
     auto controllerState = ControllerState::Disconnected;
 
     if (auto controller = m_context->getVMEController())

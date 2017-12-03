@@ -2992,6 +2992,8 @@ struct AnalysisWidgetPrivate
     QTimer *m_periodicUpdateTimer;
     WidgetGeometrySaver *m_geometrySaver;
     AnalysisInfoWidget *m_infoWidget = nullptr;
+    QAction *m_actionPause;
+    QAction *m_actionStepNextEvent;
 
     void repopulate();
     void repopulateEventSelectCombo();
@@ -2999,6 +3001,8 @@ struct AnalysisWidgetPrivate
 
     void closeAllUniqueWidgets();
     void closeAllHistogramWidgets();
+
+    void updateActions();
 
     void actionNew();
     void actionOpen();
@@ -3010,6 +3014,8 @@ struct AnalysisWidgetPrivate
     void actionSaveSession();
     void actionLoadSession();
 #endif
+    void actionPause();
+    void actionStepNextEvent();
 
     void updateWindowTitle();
     void updateAddRemoveUserLevelButtons();
@@ -3583,6 +3589,58 @@ void AnalysisWidgetPrivate::actionLoadSession()
 }
 #endif
 
+void AnalysisWidgetPrivate::updateActions()
+{
+    auto streamWorker = m_context->getMVMEStreamWorker();
+    auto workerState = streamWorker->getState();
+
+    switch (workerState)
+    {
+        case MVMEStreamWorkerState::Idle:
+            m_actionPause->setIcon(QIcon(":/control_pause.png"));
+            m_actionPause->setEnabled(false);
+            m_actionStepNextEvent->setEnabled(false);
+            break;
+
+        case MVMEStreamWorkerState::Running:
+            m_actionPause->setIcon(QIcon(":/control_pause.png"));
+            m_actionPause->setEnabled(true);
+            m_actionStepNextEvent->setEnabled(false);
+            break;
+
+        case MVMEStreamWorkerState::Paused:
+            m_actionPause->setIcon(QIcon(":/control_play.png"));
+            m_actionPause->setEnabled(true);
+            m_actionStepNextEvent->setEnabled(true);
+            break;
+    }
+}
+
+void AnalysisWidgetPrivate::actionPause()
+{
+    auto streamWorker = m_context->getMVMEStreamWorker();
+    auto workerState = streamWorker->getState();
+
+    switch (workerState)
+    {
+        case MVMEStreamWorkerState::Idle:
+            Q_ASSERT(false);
+            break;
+
+        case MVMEStreamWorkerState::Running:
+            streamWorker->pause();
+            break;
+
+        case MVMEStreamWorkerState::Paused:
+            streamWorker->resume();
+            break;
+    }
+}
+
+void AnalysisWidgetPrivate::actionStepNextEvent()
+{
+}
+
 void AnalysisWidgetPrivate::updateWindowTitle()
 {
     QString fileName = m_context->getAnalysisConfigFileName();
@@ -3732,6 +3790,17 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
 
             show_and_activate(widget);
         });
+
+        // pause, resume, step
+        connect(m_d->m_context->getMVMEStreamWorker(), &MVMEStreamWorker::stateChanged,
+                this, [this](MVMEStreamWorkerState) { m_d->updateActions(); });
+
+        m_d->m_toolbar->addSeparator();
+        m_d->m_actionPause = m_d->m_toolbar->addAction(
+            QIcon(":/control_pause.png"), QSL("Pause"), this, [this] { m_d->actionPause(); });
+
+        m_d->m_actionStepNextEvent = m_d->m_toolbar->addAction(
+            QIcon(":/control_play_stop.png"), QSL("Next Event"), this, [this] { m_d->actionStepNextEvent(); });
 
 #ifdef MVME_ENABLE_HDF5
         m_d->m_toolbar->addSeparator();
@@ -3910,6 +3979,8 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
 
     // Run the periodic update
     connect(m_d->m_periodicUpdateTimer, &QTimer::timeout, this, [this]() { m_d->doPeriodicUpdate(); });
+
+    m_d->updateActions();
 }
 
 AnalysisWidget::~AnalysisWidget()

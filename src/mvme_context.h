@@ -105,7 +105,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         QList<EventConfig *> getEventConfigs() const { return m_vmeConfig->getEventConfigs(); }
         QString getUniqueModuleName(const QString &prefix) const;
         DAQState getDAQState() const;
-        MVMEStreamWorkerState getMVMEStreamProcessorState() const;
+        MVMEStreamWorkerState getMVMEStreamWorkerState() const;
         const DAQStats &getDAQStats() const { return m_daqStats; }
         DAQStats &getDAQStats() { return m_daqStats; }
 
@@ -124,7 +124,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
 
         void setMode(GlobalMode mode);
         GlobalMode getMode() const;
-        MVMEStreamWorker *getMVMEStreamWorker() const { return m_streamWorker; }
+        MVMEStreamWorker *getMVMEStreamWorker() const { return m_streamWorker.get(); }
 
         //
         // Object registry
@@ -348,7 +348,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         VMEReadoutWorker *m_readoutWorker = nullptr;
 
         QThread *m_eventThread;
-        MVMEStreamWorker *m_streamWorker;
+        std::unique_ptr<MVMEStreamWorker> m_streamWorker;
 
         QSet<QObject *> m_objects;
         QMap<QString, QMap<QObject *, QObject *>> m_objectMappings;
