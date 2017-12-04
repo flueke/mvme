@@ -107,7 +107,7 @@ void MVMEStreamProcessor::MVMEStreamProcessor::beginRun(
 
     m_d->eventInfos.fill({}); // Full clear of the eventInfo cache
     m_d->eventConfigs.fill(nullptr);
-    m_d->doMultiEventProcessing.fill(false); // FIXME: change default to true some point
+    m_d->doMultiEventProcessing.fill(false);
 
     // build info for multievent processing
     auto eventConfigs = vmeConfig->getEventConfigs();

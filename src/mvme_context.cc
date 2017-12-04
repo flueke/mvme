@@ -143,7 +143,7 @@ void MVMEContextPrivate::stopDAQReadout()
 
     if (m_q->m_streamWorker->getState() != MVMEStreamWorkerState::Idle)
     {
-        m_q->m_streamWorker->stopProcessing();
+        m_q->m_streamWorker->stop();
         auto con = QObject::connect(m_q->m_streamWorker.get(), &MVMEStreamWorker::stopped, &localLoop, &QEventLoop::quit);
         localLoop.exec();
         QObject::disconnect(con);
@@ -212,7 +212,7 @@ void MVMEContextPrivate::stopDAQReplay()
     // as we enter the event loop.
     if (m_q->m_streamWorker->getState() != MVMEStreamWorkerState::Idle)
     {
-        m_q->m_streamWorker->stopProcessing();
+        m_q->m_streamWorker->stop();
         auto con = QObject::connect(m_q->m_streamWorker.get(), &MVMEStreamWorker::stopped, &localLoop, &QEventLoop::quit);
         localLoop.exec();
         QObject::disconnect(con);
@@ -265,7 +265,7 @@ void MVMEContextPrivate::stopAnalysis()
     if (m_q->m_streamWorker->getState() != MVMEStreamWorkerState::Idle)
     {
         // Tell the analysis top stop immediately
-        m_q->m_streamWorker->stopProcessing(false);
+        m_q->m_streamWorker->stop(false);
         QObject::connect(m_q->m_streamWorker.get(), &MVMEStreamWorker::stopped, &localLoop, &QEventLoop::quit);
         localLoop.exec();
     }
@@ -277,7 +277,7 @@ void MVMEContextPrivate::resumeAnalysis()
 {
     if (m_q->m_streamWorker->getState() == MVMEStreamWorkerState::Idle)
     {
-        QMetaObject::invokeMethod(m_q->m_streamWorker.get(), "startProcessing",
+        QMetaObject::invokeMethod(m_q->m_streamWorker.get(), "start",
                                   Qt::QueuedConnection);
 
         qDebug() << __PRETTY_FUNCTION__ << "analysis resumed";
@@ -446,7 +446,6 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent)
     m_eventThread->setObjectName("mvme AnalysisThread");
     m_streamWorker->moveToThread(m_eventThread);
     m_eventThread->start();
-    connect(m_streamWorker.get(), &MVMEStreamWorker::logMessage, this, &MVMEContext::logMessage);
     connect(m_streamWorker.get(), &MVMEStreamWorker::stateChanged, this, &MVMEContext::onMVMEStreamWorkerStateChanged);
 
 
@@ -485,7 +484,7 @@ MVMEContext::~MVMEContext()
     {
         qDebug() << __PRETTY_FUNCTION__ << "waiting for event processing to stop";
 
-        m_streamWorker->stopProcessing(false);
+        m_streamWorker->stop(false);
 
         while (getMVMEStreamWorkerState() != MVMEStreamWorkerState::Idle)
         {
@@ -814,7 +813,7 @@ void MVMEContext::onMVMEStreamWorkerStateChanged(MVMEStreamWorkerState state)
 void MVMEContext::onDAQDone()
 {
     // stops the analysis side thread
-    m_streamWorker->stopProcessing();
+    m_streamWorker->stop();
 
     // The readout worker might have modified the ListFileOutputInfo structure. Write it out to the workspace.
     qDebug() << __PRETTY_FUNCTION__ << "writing listfile output info to workspace";
@@ -824,7 +823,7 @@ void MVMEContext::onDAQDone()
 // Called on ListFileReader::replayStopped()
 void MVMEContext::onReplayDone()
 {
-    m_streamWorker->stopProcessing();
+    m_streamWorker->stop();
 
     double secondsElapsed = m_replayTime.elapsed() / 1000.0;
     u64 replayBytes = m_daqStats.totalBytesRead;
@@ -1075,7 +1074,7 @@ void MVMEContext::startDAQReadout(quint32 nCycles, bool keepHistoContents)
 
     QMetaObject::invokeMethod(m_readoutWorker, "start",
                               Qt::QueuedConnection, Q_ARG(quint32, nCycles));
-    QMetaObject::invokeMethod(m_streamWorker.get(), "startProcessing",
+    QMetaObject::invokeMethod(m_streamWorker.get(), "start",
                               Qt::QueuedConnection);
 }
 
@@ -1122,7 +1121,7 @@ void MVMEContext::startDAQReplay(quint32 nEvents, bool keepHistoContents)
     m_streamWorker->setListFileVersion(m_listFile->getFileVersion());
 
     QMetaObject::invokeMethod(m_listFileWorker, "start", Qt::QueuedConnection);
-    QMetaObject::invokeMethod(m_streamWorker.get(), "startProcessing", Qt::QueuedConnection);
+    QMetaObject::invokeMethod(m_streamWorker.get(), "start", Qt::QueuedConnection);
 
     m_replayTime.restart();
 }

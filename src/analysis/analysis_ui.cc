@@ -3618,6 +3618,11 @@ void AnalysisWidgetPrivate::updateActions()
             m_actionPause->setEnabled(true);
             m_actionStepNextEvent->setEnabled(true);
             break;
+
+        case MVMEStreamWorkerState::SingleStepping:
+            m_actionPause->setEnabled(false);
+            m_actionStepNextEvent->setEnabled(false);
+            break;
     }
 }
 
@@ -3629,7 +3634,8 @@ void AnalysisWidgetPrivate::actionPause()
     switch (workerState)
     {
         case MVMEStreamWorkerState::Idle:
-            Q_ASSERT(false);
+        case MVMEStreamWorkerState::SingleStepping:
+            InvalidCodePath;
             break;
 
         case MVMEStreamWorkerState::Running:
@@ -3645,6 +3651,22 @@ void AnalysisWidgetPrivate::actionPause()
 void AnalysisWidgetPrivate::actionStepNextEvent()
 {
     m_context->logMessage(QSL("Single stepping not yet implement! :("));
+
+    auto streamWorker = m_context->getMVMEStreamWorker();
+    auto workerState = streamWorker->getState();
+
+    switch (workerState)
+    {
+        case MVMEStreamWorkerState::Idle:
+        case MVMEStreamWorkerState::Running:
+        case MVMEStreamWorkerState::SingleStepping:
+            InvalidCodePath;
+            break;
+
+        case MVMEStreamWorkerState::Paused:
+            streamWorker->singleStep();
+            break;
+    }
 }
 
 void AnalysisWidgetPrivate::updateWindowTitle()

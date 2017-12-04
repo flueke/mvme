@@ -39,6 +39,7 @@ enum class MVMEStreamWorkerState
     Idle,
     Running,
     Paused,
+    SingleStepping,
 };
 
 Q_DECLARE_METATYPE(MVMEStreamWorkerState);
@@ -52,8 +53,6 @@ class LIBMVME_EXPORT MVMEStreamWorker: public QObject
         void started();
         void stopped();
         void stateChanged(MVMEStreamWorkerState);
-
-        void logMessage(const QString &);
 
     public:
         MVMEStreamWorker(MVMEContext *context,
@@ -74,14 +73,13 @@ class LIBMVME_EXPORT MVMEStreamWorker: public QObject
 
         void beginRun(const RunInfo &runInfo, VMEConfig *vmeConfig);
 
-    public slots:
-        void startProcessing();
-        void stopProcessing(bool whenQueueEmpty = true);
-        //void start();
-        //void stop(bool whenQueueEmpty = true);
-
+        void stop(bool whenQueueEmpty = true);
         void pause();
         void resume();
+        void singleStep();
+
+    public slots:
+        void start();
 
         /* Is invoked from MVMEMainWindow via QMetaObject::invokeMethod so that
          * it runs in our thread. */
@@ -89,9 +87,9 @@ class LIBMVME_EXPORT MVMEStreamWorker: public QObject
 
     private:
         void setState(MVMEStreamWorkerState newState);
+        void logMessage(const QString &msg);
 
         friend struct MVMEStreamWorkerPrivate;
-
         MVMEStreamWorkerPrivate *m_d;
 };
 

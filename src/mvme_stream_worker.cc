@@ -43,7 +43,8 @@ enum InternalState
     KeepRunning,
     StopIfQueueEmpty,
     StopImmediately,
-    Pause
+    Pause,
+    SingleStep
 };
 
 static const u32 FilledBufferWaitTimeout_ms = 125;
@@ -54,9 +55,10 @@ static const double PauseMaxSleep_ms = 125.0;
 
 const QMap<MVMEStreamWorkerState, QString> MVMEStreamWorkerState_StringTable =
 {
-    { MVMEStreamWorkerState::Idle,      QSL("Idle") },
-    { MVMEStreamWorkerState::Paused,    QSL("Paused") },
-    { MVMEStreamWorkerState::Running,   QSL("Running") },
+    { MVMEStreamWorkerState::Idle,              QSL("Idle") },
+    { MVMEStreamWorkerState::Paused,            QSL("Paused") },
+    { MVMEStreamWorkerState::Running,           QSL("Running") },
+    { MVMEStreamWorkerState::SingleStepping,    QSL("Stepping") },
 };
 
 struct MVMEStreamWorkerPrivate
@@ -149,10 +151,17 @@ void MVMEStreamWorker::setState(MVMEStreamWorkerState newState)
             emit stopped();
             break;
         case MVMEStreamWorkerState::Paused:
+        case MVMEStreamWorkerState::SingleStepping:
             break;
     }
 
+    // for signals to cross thread boundaries
     QCoreApplication::processEvents();
+}
+
+void MVMEStreamWorker::logMessage(const QString &msg)
+{
+    m_d->context->logMessage(msg);
 }
 
 void MVMEStreamWorker::beginRun(const RunInfo &runInfo, VMEConfig *vmeConfig)
@@ -167,10 +176,9 @@ void MVMEStreamWorker::beginRun(const RunInfo &runInfo, VMEConfig *vmeConfig)
         [this](const QString &msg) { m_d->context->logMessage(msg); });
 }
 
-/* Used at the start of a run after beginRun() has been called and to resume from
- * paused state.
- * Does a2_begin_run() and a2_end_run() (threading stuff if enabled). */
-void MVMEStreamWorker::startProcessing()
+/* Used at the start of a run after beginRun() has been called. Does
+ * a2_begin_run() and a2_end_run() (threading stuff if enabled). */
+void MVMEStreamWorker::start()
 {
     qDebug() << __PRETTY_FUNCTION__ << "begin";
     Q_ASSERT(m_d->freeBuffers);
@@ -178,9 +186,9 @@ void MVMEStreamWorker::startProcessing()
     Q_ASSERT(m_d->state == MVMEStreamWorkerState::Idle);
     Q_ASSERT(m_d->context->getAnalysis());
 
-    auto analysis = m_d->context->getAnalysis();
+    setState(MVMEStreamWorkerState::Running);
 
-    if (auto a2State = analysis->getA2AdapterState())
+    if (auto a2State = m_d->context->getAnalysis()->getA2AdapterState())
     {
         // Move this into Analysis::beginRun()?
         a2::a2_begin_run(a2State->a2);
@@ -192,10 +200,7 @@ void MVMEStreamWorker::startProcessing()
 
     TimetickGenerator timetickGen;
 
-    setState(MVMEStreamWorkerState::Running);
-
     m_d->internalState = KeepRunning;
-
     InternalState internalState = m_d->internalState;
 
     while (internalState != StopImmediately)
@@ -206,14 +211,22 @@ void MVMEStreamWorker::startProcessing()
             {
                 case KeepRunning:
                 case StopIfQueueEmpty:
+                    // keep running and process full buffers
                     m_d->processNextBuffer();
                     break;
 
                 case Pause:
+                    // transition to paused
                     setState(MVMEStreamWorkerState::Paused);
                     break;
 
                 case StopImmediately:
+                    // noop. loop will exit
+                    break;
+
+                case SingleStep:
+                    // logic error: processNextEvent has been called while state was not paused
+                    InvalidCodePath;
                     break;
             }
         }
@@ -224,11 +237,25 @@ void MVMEStreamWorker::startProcessing()
                 case KeepRunning:
                 case StopIfQueueEmpty:
                 case StopImmediately:
+                    // resume
                     setState(MVMEStreamWorkerState::Running);
                     break;
 
                 case Pause:
+                    // stay paused
                     QThread::msleep(std::min(PauseMaxSleep_ms, timetickGen.getTimeToNextTick()));
+                    break;
+
+                case SingleStep:
+                    /* TODO Process the first event from a new buffer or
+                     * continue with the current buffer.
+                     * Once the event has been processed go back to paused state. */
+                    setState(MVMEStreamWorkerState::SingleStepping);
+
+                    //m_d->streamProcessor.somethingGreat();
+
+                    setState(MVMEStreamWorkerState::Paused);
+                    m_d->internalState = Pause;
                     break;
             }
         }
@@ -248,12 +275,13 @@ void MVMEStreamWorker::startProcessing()
             }
         }
 
+        // reload the possibly modified atomic
         internalState = m_d->internalState;
     }
 
     counters.stopTime = QDateTime::currentDateTime();
 
-    if (auto a2State = analysis->getA2AdapterState())
+    if (auto a2State = m_d->context->getAnalysis()->getA2AdapterState())
     {
         a2::a2_end_run(a2State->a2);
     }
@@ -265,7 +293,7 @@ void MVMEStreamWorker::startProcessing()
     qDebug() << __PRETTY_FUNCTION__ << "end";
 }
 
-void MVMEStreamWorker::stopProcessing(bool whenQueueEmpty)
+void MVMEStreamWorker::stop(bool whenQueueEmpty)
 {
     qDebug() << QDateTime::currentDateTime().toString("HH:mm:ss")
         << __PRETTY_FUNCTION__ << (whenQueueEmpty ? "when empty" : "immediately");
@@ -275,14 +303,26 @@ void MVMEStreamWorker::stopProcessing(bool whenQueueEmpty)
 
 void MVMEStreamWorker::pause()
 {
-    m_d->internalState = InternalState::Pause;
     qDebug() << __PRETTY_FUNCTION__;
+
+    Q_ASSERT(m_d->internalState != InternalState::Pause);
+    m_d->internalState = InternalState::Pause;
 }
 
 void MVMEStreamWorker::resume()
 {
     qDebug() << __PRETTY_FUNCTION__;
+
+    Q_ASSERT(m_d->internalState == InternalState::Pause);
     m_d->internalState = InternalState::KeepRunning;
+}
+
+void MVMEStreamWorker::singleStep()
+{
+    qDebug() << __PRETTY_FUNCTION__;
+
+    Q_ASSERT(m_d->internalState == InternalState::Pause);
+    m_d->internalState = SingleStep;
 }
 
 MVMEStreamWorkerState MVMEStreamWorker::getState() const
