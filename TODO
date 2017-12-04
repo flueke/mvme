@@ -1,6 +1,7 @@
 ==================================================
 TODO list somewhat sorted by priority
 ==================================================
+* Disallow opening listfiles via the listfile browser while DAQ readout is running
 
 * Fix sis lost packet count. On robert's windows machine it's still bugged and
   jumps to 1.6e7 or so instantly!

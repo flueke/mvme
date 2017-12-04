@@ -3,11 +3,14 @@
 #include <QHeaderView>
 #include <QBoxLayout>
 #include <QMessageBox>
+#include <QTimer>
 
 #include "analysis/analysis.h"
 #include "mvme_context.h"
 #include "mvme_context_lib.h"
 #include "mvme.h"
+
+static const int PeriodicRefreshInterval_ms = 1000.0;
 
 ListfileBrowser::ListfileBrowser(MVMEContext *context, MVMEMainWindow *mainWindow, QWidget *parent)
     : QWidget(parent)
@@ -60,6 +63,11 @@ ListfileBrowser::ListfileBrowser(MVMEContext *context, MVMEMainWindow *mainWindo
             this, &ListfileBrowser::onItemDoubleClicked);
 
     updateWidget();
+
+    auto refreshTimer = new QTimer(this);
+    connect(refreshTimer, &QTimer::timeout, this, &ListfileBrowser::periodicUpdate);
+    refreshTimer->setInterval(PeriodicRefreshInterval_ms);
+    refreshTimer->start();
 }
 
 void ListfileBrowser::updateWidget()
@@ -73,6 +81,20 @@ void ListfileBrowser::updateWidget()
 
     m_fsModel->setRootPath(listfileDirectory);
     m_fsView->setRootIndex(m_fsModel->index(listfileDirectory));
+}
+
+void ListfileBrowser::periodicUpdate()
+{
+    // FIXME: does not update file sizes reliably. calling reset() on the view
+    // doesn't fix the size problem and also makes selections and stuff go
+    // away, which is not desired at all.
+    // Why is there no easy way to force a refresh for the current root index
+    // of the view? Why is this stuff always difficult and never easy?
+    auto rootPath = m_fsModel->rootPath();
+    //qDebug() << __PRETTY_FUNCTION__ << "epicly failing to fail!!1111 rootPath=" << rootPath;
+    m_fsModel->setRootPath(QSL(""));
+    m_fsModel->setRootPath(rootPath);
+    m_fsView->setRootIndex(m_fsModel->index(rootPath));
 }
 
 static const QString AnalysisFileFilter = QSL("MVME Analysis Files (*.analysis);; All Files (*.*)");
