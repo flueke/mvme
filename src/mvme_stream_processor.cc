@@ -468,17 +468,19 @@ void MVMEStreamProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 
                 u32 moduleEventSize = a2::data_filter::extract(
                     mi.filterCacheModuleSectionSize, *mi.moduleHeader);
 
-
                 if (unlikely(mi.moduleHeader + moduleEventSize + 1 > ptrToLastWord))
                 {
                     m_d->counters.buffersWithErrors++;
 
                     QString msg = (QString("Error (mvme fmt): extracted module event size (%1) exceeds buffer size!"
-                                           " eventIndex=%2, moduleIndex=%3, moduleHeader=0x%4, skipping event")
+                                           " eventIndex=%2, moduleIndex=%3, moduleHeader=0x%4, skipping event"
+                                           " (header+size=0x%5, ptrToLastWord=0x%6)")
                                    .arg(moduleEventSize)
                                    .arg(eventIndex)
                                    .arg(moduleIndex)
                                    .arg(*mi.moduleHeader, 8, 16, QLatin1Char('0'))
+                                   .arg(reinterpret_cast<uintptr_t>(mi.moduleHeader + moduleEventSize), 8, 16, QLatin1Char('0'))
+                                   .arg(reinterpret_cast<uintptr_t>(ptrToLastWord), 8, 16, QLatin1Char('0'))
                                   );
                     qDebug() << msg;
                     emit logMessage(msg);

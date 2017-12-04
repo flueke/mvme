@@ -178,6 +178,7 @@ void DAQStatsWidget::updateWidget()
     m_d->label_bufferErrors->setToolTip(QString("parseErrors: %1, lost: %2")
                                           .arg(bufferParseErrors)
                                           .arg(lostBuffers));
+    m_d->label_bufferErrors->setStatusTip(m_d->label_bufferErrors->toolTip());
 
     m_d->label_readSize->setText(QString::number(avgReadSize));
     m_d->label_bufferRates->setText(QString("%1 buffers/s, %2 MB/s")

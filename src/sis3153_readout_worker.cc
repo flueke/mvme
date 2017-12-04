@@ -411,11 +411,14 @@ namespace
 
 static const double WatchdogTimeout_s = 0.050;
 
-SIS3153ReadoutWorker::PacketLossCounter::PacketLossCounter(Counters *counters)
+SIS3153ReadoutWorker::PacketLossCounter::PacketLossCounter(Counters *counters,
+                                                           VMEReadoutWorkerContext *rdoContext)
     : m_lastReceivedPacketNumber(-2)
     , m_counters(counters)
+    , m_rdoContext(rdoContext)
 {
     Q_ASSERT(counters);
+    Q_ASSERT(rdoContext);
 }
 
 void SIS3153ReadoutWorker::PacketLossCounter::handlePacketNumber(s32 packetNumber, u64 bufferNumber)
@@ -479,10 +482,21 @@ void SIS3153ReadoutWorker::PacketLossCounter::handlePacketNumber(s32 packetNumbe
     {
         // ignores the very first packet number
         m_lastReceivedPacketNumber = -1;
-        qDebug() << __PRETTY_FUNCTION__ << "first packetNumber:" << packetNumber;
+
+        qDebug() << __PRETTY_FUNCTION__ << "first ignored packetNumber:" << packetNumber;
+
+        m_rdoContext->logMessage(QString("SIS3153: first ignored packetNumber: %1")
+                                 .arg(packetNumber));
     }
     else
     {
+        if (m_lastReceivedPacketNumber == -1)
+        {
+            m_rdoContext->logMessage(QString("SIS3153: first actual packetNumber: %1")
+                                     .arg(packetNumber));
+
+            qDebug() << __PRETTY_FUNCTION__ << "first actual packetNumber:" << packetNumber;
+        }
         m_lastReceivedPacketNumber = packetNumber;
     }
 }
@@ -495,7 +509,7 @@ SIS3153ReadoutWorker::SIS3153ReadoutWorker(QObject *parent)
     , m_readBuffer(ReadBufferSize)
     , m_localEventBuffer(LocalBufferSize)
     , m_listfileHelper(nullptr)
-    , m_lossCounter(&m_counters)
+    , m_lossCounter(&m_counters, &m_workerContext)
 {
     m_counters.packetsPerStackList.fill(0);
 }
@@ -975,7 +989,7 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
         m_counters = {};
         m_counters.packetsPerStackList.fill(0);
         m_counters.watchdogStackList = m_watchdogStackListIndex;
-        m_lossCounter = PacketLossCounter(&m_counters);
+        m_lossCounter = PacketLossCounter(&m_counters, &m_workerContext);
 
         /* Save the current state of stackListControlValue for
          * leaving/re-entering DAQ mode later on. */

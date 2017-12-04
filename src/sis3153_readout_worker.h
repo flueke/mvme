@@ -119,12 +119,13 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
 
         struct PacketLossCounter
         {
-            PacketLossCounter(Counters *counters = nullptr);
+            PacketLossCounter(Counters *counters, VMEReadoutWorkerContext *rdoContext);
 
             inline void handlePacketNumber(s32 packetNumber, u64 bufferNumber);
 
             s32 m_lastReceivedPacketNumber;
             Counters *m_counters;
+            VMEReadoutWorkerContext *m_rdoContext;
         };
 
         void flushCurrentOutputBuffer();
