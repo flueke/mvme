@@ -325,7 +325,7 @@ void DAQControlWidget::updateWidget()
 {
     auto globalMode = m_context->getMode();
     auto daqState = m_context->getDAQState();
-    auto eventProcState = m_context->getMVMEStreamWorkerState();
+    auto streamWorkerState = m_context->getMVMEStreamWorkerState();
     auto controllerState = ControllerState::Disconnected;
 
     if (auto controller = m_context->getVMEController())
@@ -350,7 +350,7 @@ void DAQControlWidget::updateWidget()
     {
         enableStartButton = true;
     }
-    else if (globalMode == GlobalMode::ListFile) // && daqState == DAQState::Idle && eventProcState == MVMEStreamWorkerState::Idle)
+    else if (globalMode == GlobalMode::ListFile) // && daqState == DAQState::Idle && streamWorkerState == MVMEStreamWorkerState::Idle)
     {
         enableStartButton = true;
     }
@@ -420,7 +420,6 @@ void DAQControlWidget::updateWidget()
 
 
     auto daqStateString = DAQStateStrings.value(daqState, QSL("Unknown"));
-    QString eventProcStateString = (eventProcState == MVMEStreamWorkerState::Idle ? QSL("Idle") : QSL("Running"));
 
     if (daqState == DAQState::Running && globalMode == GlobalMode::ListFile)
         daqStateString = QSL("Replay");
@@ -433,9 +432,8 @@ void DAQControlWidget::updateWidget()
         daqStateString = QString("%1 (%2)").arg(daqStateString).arg(durationString);
     }
 
-
     label_daqState->setText(daqStateString);
-    label_analysisState->setText(eventProcStateString);
+    label_analysisState->setText(MVMEStreamWorkerState_StringTable.value(streamWorkerState, QSL("unknown")));
 
     rb_keepData->setEnabled(daqState == DAQState::Idle);
     rb_clearData->setEnabled(daqState == DAQState::Idle);

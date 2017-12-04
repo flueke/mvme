@@ -52,6 +52,13 @@ static const double PauseMaxSleep_ms = 125.0;
 
 } // end anon namespace
 
+const QMap<MVMEStreamWorkerState, QString> MVMEStreamWorkerState_StringTable =
+{
+    { MVMEStreamWorkerState::Idle,      QSL("Idle") },
+    { MVMEStreamWorkerState::Paused,    QSL("Paused") },
+    { MVMEStreamWorkerState::Running,   QSL("Running") },
+};
+
 struct MVMEStreamWorkerPrivate
 {
     MVMEStreamProcessor streamProcessor;
