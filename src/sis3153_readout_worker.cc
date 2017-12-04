@@ -28,11 +28,11 @@
 #include "util/perf.h"
 #include "vme_daq.h"
 
-#define SIS_READOUT_DEBUG               0   // enable debugging code
-#define SIS_READOUT_BUFFER_DEBUG_PRINT  0   // print buffers to console
+#define SIS_READOUT_DEBUG               1   // enable debugging code
+#define SIS_READOUT_BUFFER_DEBUG_PRINT  1   // print buffers to console
 
 //#ifndef NDEBUG
-#if 0
+#if 1
 #define sis_trace(msg)\
 do\
 {\
@@ -421,7 +421,9 @@ SIS3153ReadoutWorker::PacketLossCounter::PacketLossCounter(Counters *counters,
     Q_ASSERT(rdoContext);
 }
 
-void SIS3153ReadoutWorker::PacketLossCounter::handlePacketNumber(s32 packetNumber, u64 bufferNumber)
+/* Returns the number of packets that where lost in between the previous and
+ * the current packetNumber. */
+u32 SIS3153ReadoutWorker::PacketLossCounter::handlePacketNumber(s32 packetNumber, u64 bufferNumber)
 {
     /* SIS3153 packetNumber handling: the first packet number sent will be
      * the old packetNumber from before resetting the controller
@@ -431,6 +433,8 @@ void SIS3153ReadoutWorker::PacketLossCounter::handlePacketNumber(s32 packetNumbe
      * packetNumber maximum value is 0x00ffffff. The first number after
      * overflow is 0.
      */
+
+    u32 result = 0;
 
     if (likely(m_lastReceivedPacketNumber >= 0))
     {
@@ -444,7 +448,8 @@ void SIS3153ReadoutWorker::PacketLossCounter::handlePacketNumber(s32 packetNumbe
         {
             // increment lost count
             //qDebug() << __PRETTY_FUNCTION__ << "buffer #" << bufferNumber << ", lost" << diff - 1 << "packets";
-            m_counters->lostPackets += diff - 1;
+            result = diff - 1;
+            m_counters->lostPackets += result;
         }
         else if (diff < 0)
         {
@@ -464,7 +469,8 @@ void SIS3153ReadoutWorker::PacketLossCounter::handlePacketNumber(s32 packetNumbe
 
             if (adjustedDiff > 0)
             {
-                m_counters->lostPackets += adjustedDiff - 1;
+                result = adjustedDiff - 1;
+                m_counters->lostPackets += result;
             }
         }
         else
@@ -499,6 +505,8 @@ void SIS3153ReadoutWorker::PacketLossCounter::handlePacketNumber(s32 packetNumbe
         }
         m_lastReceivedPacketNumber = packetNumber;
     }
+
+    return result;
 }
 
 //
@@ -1286,7 +1294,7 @@ SIS3153ReadoutWorker::ReadBufferResult SIS3153ReadoutWorker::readBuffer()
         // EAGAIN is not an error as it's used for the timeout case
         if (errno != EAGAIN)
         {
-            auto msg = QString(QSL("SIS3153 Warning: %1").arg(result.error.toString()));
+            auto msg = QString(QSL("SIS3153 Warning: read packet failed: %1").arg(result.error.toString()));
             logMessage(msg);
             qDebug() << __PRETTY_FUNCTION__ << msg;
 #if SIS_READOUT_DEBUG
@@ -1346,7 +1354,6 @@ void SIS3153ReadoutWorker::processBuffer(
     u8 packetAck, u8 packetIdent, u8 packetStatus, u8 *data, size_t size)
 {
     const auto bufferNumber = m_workerContext.daqStats->totalBuffersRead;
-
 
 #if SIS_READOUT_BUFFER_DEBUG_PRINT
     sis_trace(QString("buffer #%1, buffer_size=%2, contents:")
@@ -1711,9 +1718,9 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
 
     sis_trace(QString("sis3153 buffer #%1, packetAck=0x%2, packetIdent=0x%3, packetStatus=0x%4, data@0x%6, size=%7")
               .arg(bufferNumber)
-              .arg((s32)packetAck, 2, 16, QLatin1Char('0'))
-              .arg((s32)packetIdent, 2, 16, QLatin1Char('0'))
-              .arg((s32)packetStatus, 2, 16, QLatin1Char('0'))
+              .arg((u32)packetAck, 2, 16, QLatin1Char('0'))
+              .arg((u32)packetIdent, 2, 16, QLatin1Char('0'))
+              .arg((u32)packetStatus, 2, 16, QLatin1Char('0'))
               .arg((uintptr_t)data, 8, 16, QLatin1Char('0'))
               .arg(size));
 
@@ -1764,6 +1771,10 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
 
             m_lossCounter.handlePacketNumber(packetNumber, bufferNumber);
         }
+
+        // initial value is 0x00 or 0x80. the low nibble will then be
+        // incremented by 1 for each partial packet (Manual 5.1.4).
+        m_processingState.expectedPacketStatus = (packetStatus & 0x80);
 
         EventConfig *eventConfig = m_eventConfigsByStackList[stacklist];
         int eventIndex = m_eventIndexByStackList[stacklist];
@@ -1818,6 +1829,27 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
         qDebug() << __PRETTY_FUNCTION__ << msg;
         maybePutBackBuffer();
         return ProcessorAction::SkipInput;
+    }
+
+    if ((packetStatus != m_processingState.expectedPacketStatus))
+    {
+        auto msg = (QString(QSL("SIS3153 Warning: (buffer #%1) (partialEvent) Unexpected packetStatus: "
+                                "0x%1, expected 0x%2. Skipping buffer."))
+                    .arg(bufferNumber)
+                    .arg((u32)packetStatus, 2, 16, QLatin1Char('0'))
+                    .arg((u32)m_processingState.expectedPacketStatus)
+                   );
+        logMessage(msg);
+        qDebug() << __PRETTY_FUNCTION__ << msg;
+        maybePutBackBuffer();
+        return ProcessorAction::SkipInput;
+    }
+    else
+    {
+        u8 seqNum = (m_processingState.expectedPacketStatus & 0xf) + 1; // increment
+        if (seqNum > 0xf) seqNum = 0; // and wrap
+        m_processingState.expectedPacketStatus &= 0xf0; // keep upper bits
+        m_processingState.expectedPacketStatus |= (seqNum & 0xf); // replace lower bits
     }
 
     // multiple constraints:
@@ -2005,6 +2037,7 @@ void SIS3153ReadoutWorker::flushCurrentOutputBuffer()
 void SIS3153ReadoutWorker::stop()
 {
     qDebug() << __PRETTY_FUNCTION__;
+
     if (m_state == DAQState::Running || m_state == DAQState::Paused)
         m_desiredState = DAQState::Stopping;
 }
@@ -2012,6 +2045,7 @@ void SIS3153ReadoutWorker::stop()
 void SIS3153ReadoutWorker::pause()
 {
     qDebug() << __PRETTY_FUNCTION__;
+
     if (m_state == DAQState::Running)
         m_desiredState = DAQState::Paused;
 }
@@ -2019,6 +2053,7 @@ void SIS3153ReadoutWorker::pause()
 void SIS3153ReadoutWorker::resume(quint32 cycles)
 {
     qDebug() << __PRETTY_FUNCTION__;
+
     if (m_state == DAQState::Paused)
     {
         m_cyclesToRun = cycles;

@@ -105,6 +105,7 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
             s32 moduleSize = 0;
             s32 moduleHeaderOffset = -1;
             s32 moduleIndex = -1;
+            u8 expectedPacketStatus = 0u;
         };
 
         struct ProcessorAction
@@ -121,7 +122,7 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
         {
             PacketLossCounter(Counters *counters, VMEReadoutWorkerContext *rdoContext);
 
-            inline void handlePacketNumber(s32 packetNumber, u64 bufferNumber);
+            inline u32 handlePacketNumber(s32 packetNumber, u64 bufferNumber);
 
             s32 m_lastReceivedPacketNumber;
             Counters *m_counters;
