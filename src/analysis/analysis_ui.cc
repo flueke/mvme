@@ -2335,11 +2335,13 @@ void EventWidgetPrivate::periodicUpdateEventRate(double dt_s)
     const auto &counters(m_context->getMVMEStreamWorker()->getCounters());
     Q_ASSERT(0 <= m_eventIndex && m_eventIndex < (s32)counters.eventCounters.size());
 
+    /* Use the counters of the first module in this event as that represents
+     * the event rate after multi-event splitting. */
     double deltaEvents = calc_delta0(
-        counters.eventCounters[m_eventIndex],
-        prevCounters.eventCounters[m_eventIndex]);
+        counters.moduleCounters[m_eventIndex][0],
+        prevCounters.moduleCounters[m_eventIndex][0]);
 
-    double eventCount = counters.eventCounters[m_eventIndex];
+    double eventCount = counters.moduleCounters[m_eventIndex][0];
     double eventRate = deltaEvents / dt_s;
 
     auto labelText = (QString("count=%1\nrate=%2")
@@ -3642,6 +3644,7 @@ void AnalysisWidgetPrivate::actionPause()
 
 void AnalysisWidgetPrivate::actionStepNextEvent()
 {
+    m_context->logMessage(QSL("Single stepping not yet implement! :("));
 }
 
 void AnalysisWidgetPrivate::updateWindowTitle()
