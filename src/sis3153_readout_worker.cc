@@ -349,23 +349,23 @@ namespace
 
                 case  CommandType::BLT:
                     stackList_add_block_read(&resultOffset, result.data(),
-                                             command.address, command.transfers, 0);
+                                             command.address, command.transfers * sizeof(u32), 0);
                     break;
 
                 case  CommandType::BLTFifo:
                     stackList_add_block_read(&resultOffset, result.data(),
-                                             command.address, command.transfers, BlockFlags::FIFO);
+                                             command.address, command.transfers * sizeof(u32), BlockFlags::FIFO);
                     break;
 
                 case  CommandType::MBLT:
                     stackList_add_block_read(&resultOffset, result.data(),
-                                             command.address, command.transfers,
+                                             command.address, command.transfers * sizeof(u64),
                                              BlockFlags::MBLT | BlockFlags::MBLTWordSwap);
                     break;
 
                 case  CommandType::MBLTFifo:
                     stackList_add_block_read(&resultOffset, result.data(),
-                                             command.address, command.transfers,
+                                             command.address, command.transfers * sizeof(u64),
                                              BlockFlags::FIFO | BlockFlags::MBLT | BlockFlags::MBLTWordSwap);
                     break;
 
