@@ -407,6 +407,24 @@ namespace
         u32 timerValue               = period_100usecs - 1.0;
         return timerValue;
     }
+
+    struct ProcessorAction
+    {
+        static const u32 NoneSet     = 0;
+        static const u32 KeepState   = 1u << 0; // Keep the ProcessorState. If unset resets the state.
+        static const u32 FlushBuffer = 1u << 1; // Flush the current output buffer and acquire a new one
+        static const u32 SkipInput   = 1u << 2; // Skip the current input buffer.
+        // Implies state reset and reuses the output buffer without
+        // flusing it.
+    };
+
+    static const QHash<u32, QString> ProcessorActionStrings =
+    {
+        { ProcessorAction::NoneSet,     QSL("NoneSet") },
+        { ProcessorAction::KeepState,   QSL("KeepState") },
+        { ProcessorAction::FlushBuffer, QSL("FlushBuffer") },
+        { ProcessorAction::SkipInput,   QSL("SkipInput") },
+    };
 } // end anon namespace
 
 static const double WatchdogTimeout_s = 0.050;

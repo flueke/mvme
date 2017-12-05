@@ -108,16 +108,6 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
             u8 expectedPacketStatus = 0u;
         };
 
-        struct ProcessorAction
-        {
-            static const u32 NoneSet     = 0;
-            static const u32 KeepState   = 1u << 0; // Keep the ProcessorState. If unset resets the state.
-            static const u32 FlushBuffer = 1u << 1; // Flush the current output buffer and acquire a new one
-            static const u32 SkipInput   = 1u << 2; // Skip the current input buffer.
-                                                    // Implies state reset and reuses the output buffer without
-                                                    // flusing it.
-        };
-
         struct PacketLossCounter
         {
             PacketLossCounter(Counters *counters, VMEReadoutWorkerContext *rdoContext);
