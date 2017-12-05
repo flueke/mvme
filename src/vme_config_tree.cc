@@ -27,6 +27,7 @@
 #include "vme_script_editor.h"
 
 #include <QDebug>
+#include <QDesktopServices>
 #include <QHBoxLayout>
 #include <QLineEdit>
 #include <QMenu>
@@ -237,6 +238,9 @@ VMEConfigTreeWidget::VMEConfigTreeWidget(MVMEContext *context, QWidget *parent)
 
         auto action_dumpVMUSBRegisters = menu->addAction(QSL("Dump VMUSB Registers"));
         connect(action_dumpVMUSBRegisters, &QAction::triggered, this, &VMEConfigTreeWidget::dumpVMUSBRegisters);
+
+        auto action_exploreWorkspace = menu->addAction(QIcon(":/folder_orange.png"), QSL("Explore Workspace"));
+        connect(action_exploreWorkspace, &QAction::triggered, this, &VMEConfigTreeWidget::exploreWorkspace);
 
         pb_treeSettings = makeToolButton(QSL(":/tree-settings.png"), QSL("More"));
         pb_treeSettings->setMenu(menu);
@@ -1023,6 +1027,11 @@ void VMEConfigTreeWidget::dumpVMUSBRegisters()
     {
         dump_registers(vmusb, [this] (const QString &line) { m_context->logMessage(line); });
     }
+}
+
+void VMEConfigTreeWidget::exploreWorkspace()
+{
+    QDesktopServices::openUrl(m_context->getWorkspaceDirectory());
 }
 
 void VMEConfigTreeWidget::showEditNotes()

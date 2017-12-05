@@ -3,6 +3,7 @@
     <!-- icons -->
     <file alias="vme_script.png">resources/document-yellow-32x32.png</file>
     <file alias="config_category.png">resources/folder-orange.png</file>
+    <file alias="folder_orange.png">resources/folder-orange.png</file>
     <file alias="vme_module.png">resources/audio-card.png</file>
     <file alias="dialog-close.png">resources/dialog-close.png</file>
     <file alias="dialog-ok-apply.png">resources/dialog-ok-apply.png</file>

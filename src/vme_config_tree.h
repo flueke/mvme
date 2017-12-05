@@ -88,6 +88,7 @@ class VMEConfigTreeWidget: public QWidget
         void onActionShowAdvancedChanged();
         void handleShowDiagnostics();
         void dumpVMUSBRegisters();
+        void exploreWorkspace();
         void showEditNotes();
         void toggleObjectEnabled(QTreeWidgetItem *node, int expectedNodeType);
 
