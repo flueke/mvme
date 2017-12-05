@@ -32,8 +32,9 @@ static const QVector<const char *> LabelTexts =
 
 static const QVector<const char *> RdoCounterLabels =
 {
+    "stackListCounts",
+    "BERR Counters",
     "multiEventPackets",
-    "packetsPerStackList",
     "lostPackets",
 };
 
@@ -50,41 +51,45 @@ SIS3153DebugWidget::SIS3153DebugWidget(MVMEContext *context, QWidget *parent)
     auto tabWidget = new QTabWidget;
     widgetLayout->addWidget(tabWidget);
 
-    auto countersWidget = new QWidget;
+    auto readoutCountersWidget = new QWidget;
+    auto libCountersWidget = new QWidget;
     auto toolsWidget  = new QWidget;
 
-    tabWidget->addTab(countersWidget, QSL("&Counters"));
+    tabWidget->addTab(readoutCountersWidget, QSL("&Readout Counters"));
+    tabWidget->addTab(libCountersWidget, QSL("&Lib Counters"));
     tabWidget->addTab(toolsWidget, QSL("&Tools"));
 
     //
-    // counters
+    // readout counters
     //
-    auto countersLayout = new QFormLayout(countersWidget);
+    auto readoutCountersLayout = new QFormLayout(readoutCountersWidget);
 
-    // sis library internal counters
-    countersLayout->addRow(make_aligned_label(QSL("<b>sis3153 lib</b>"), Qt::AlignCenter));
-
-    for (const char *text: LabelTexts)
-    {
-        auto label = new QLabel;
-        countersLayout->addRow(text, label);
-        m_labels.push_back(label);
-    }
-
-    auto resetButton = new QPushButton(QSL("Reset Counters"));
-    countersLayout->addRow(resetButton);
-    connect(resetButton, &QPushButton::clicked, this, &SIS3153DebugWidget::resetCounters);
-
-    // sis readout worker counters
-    countersLayout->addRow(make_separator_frame());
-    countersLayout->addRow(make_aligned_label(QSL("<b>sis3153 readout</b>"), Qt::AlignCenter));
+    readoutCountersLayout->addRow(make_aligned_label(QSL("<b>sis3153 readout</b>"), Qt::AlignCenter));
 
     for (const char *text: RdoCounterLabels)
     {
         auto label = new QLabel;
-        countersLayout->addRow(text, label);
+        readoutCountersLayout->addRow(text, label);
         m_rdoCounterLabels.push_back(label);
     }
+
+    //
+    // sis library internal counters
+    //
+    auto libCountersLayout = new QFormLayout(libCountersWidget);
+
+    libCountersLayout->addRow(make_aligned_label(QSL("<b>sis3153 lib</b>"), Qt::AlignCenter));
+
+    for (const char *text: LabelTexts)
+    {
+        auto label = new QLabel;
+        libCountersLayout->addRow(text, label);
+        m_labels.push_back(label);
+    }
+
+    auto resetButton = new QPushButton(QSL("Reset Counters"));
+    libCountersLayout->addRow(resetButton);
+    connect(resetButton, &QPushButton::clicked, this, &SIS3153DebugWidget::resetCounters);
 
     // refresh every second
     auto refreshTimer = new QTimer(this);
@@ -185,7 +190,7 @@ void SIS3153DebugWidget::refresh()
 
         for (s32 si = 0; si < SIS3153Constants::NumberOfStackLists; si++)
         {
-            auto count = counters.packetsPerStackList[si];
+            auto count = counters.stackListCounts[si];
             if (count)
             {
                 if (!pcText.isEmpty()) pcText += QSL("\n");
@@ -195,9 +200,30 @@ void SIS3153DebugWidget::refresh()
             }
         }
 
+        QString berrText;
+
+        for (s32 si = 0; si < SIS3153Constants::NumberOfStackLists; si++)
+        {
+            auto berrBlock = counters.stackListBerrCounts_Block[si];
+            auto berrRead  = counters.stackListBerrCounts_Read[si];
+            auto berrWrite = counters.stackListBerrCounts_Write[si];
+
+            if (berrBlock || berrRead || berrWrite)
+            {
+                if (!berrText.isEmpty()) berrText += QSL("\n");
+
+                berrText += (QString(QSL("stackList=%1, blt=%2, read=%3, write=%4"))
+                             .arg(si).arg(berrBlock).arg(berrRead).arg(berrWrite));
+
+                if (si == counters.watchdogStackList)
+                    berrText += QSL(" (watchdog)");
+            }
+        }
+
         s32 i = 0;
-        m_rdoCounterLabels[i++]->setText(QString::number(counters.multiEventPackets));
         m_rdoCounterLabels[i++]->setText(pcText);
+        m_rdoCounterLabels[i++]->setText(berrText);
+        m_rdoCounterLabels[i++]->setText(QString::number(counters.multiEventPackets));
         m_rdoCounterLabels[i++]->setText(QString::number(counters.lostPackets));
     }
 }

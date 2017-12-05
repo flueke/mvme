@@ -28,8 +28,8 @@
 #include "util/perf.h"
 #include "vme_daq.h"
 
-#define SIS_READOUT_DEBUG               1   // enable debugging code
-#define SIS_READOUT_BUFFER_DEBUG_PRINT  1   // print buffers to console
+#define SIS_READOUT_DEBUG               0   // enable debugging code (uses sis_trace())
+#define SIS_READOUT_BUFFER_DEBUG_PRINT  0   // print buffers to console
 
 //#ifndef NDEBUG
 #if 1
@@ -425,6 +425,18 @@ namespace
         { ProcessorAction::FlushBuffer, QSL("FlushBuffer") },
         { ProcessorAction::SkipInput,   QSL("SkipInput") },
     };
+
+    void update_endHeader_counters(SIS3153ReadoutWorker::Counters &counters, u32 endHeader, int stacklist)
+    {
+        counters.stackListBerrCounts_Block[stacklist] +=
+            (endHeader & SIS3153Constants::EndEventBerrBlockMask) >> SIS3153Constants::EndEventBerrBlockShift;
+
+        counters.stackListBerrCounts_Read[stacklist] +=
+            (endHeader & SIS3153Constants::EndEventBerrReadMask) >> SIS3153Constants::EndEventBerrReadShift;
+
+        counters.stackListBerrCounts_Write[stacklist] +=
+            (endHeader & SIS3153Constants::EndEventBerrWriteMask) >> SIS3153Constants::EndEventBerrWriteShift;
+    }
 } // end anon namespace
 
 static const double WatchdogTimeout_s = 0.050;
@@ -476,7 +488,7 @@ u32 SIS3153ReadoutWorker::PacketLossCounter::handlePacketNumber(s32 packetNumber
             // Perfect overflow without loss:
             // old: 0x00ffffff, new: 0 -> will yield an adjustedDiff of 0
 
-            s32 adjustedDiff = (SIS3153Constants::PacketNumberMask + diff);
+            s32 adjustedDiff = (SIS3153Constants::BeginEventPacketNumberMask + diff);
 
             qDebug() << __PRETTY_FUNCTION__ << "buffer #" << bufferNumber << ", packetNumber diff is < 0:" << diff
                 << ", lastReceivedPacketNumber =" << m_lastReceivedPacketNumber
@@ -537,7 +549,6 @@ SIS3153ReadoutWorker::SIS3153ReadoutWorker(QObject *parent)
     , m_listfileHelper(nullptr)
     , m_lossCounter(&m_counters, &m_workerContext)
 {
-    m_counters.packetsPerStackList.fill(0);
 }
 
 SIS3153ReadoutWorker::~SIS3153ReadoutWorker()
@@ -1020,7 +1031,6 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
 
         m_processingState = {};
         m_counters = {};
-        m_counters.packetsPerStackList.fill(0);
         m_counters.watchdogStackList = m_watchdogStackListIndex;
         m_lossCounter = PacketLossCounter(&m_counters, &m_workerContext);
 
@@ -1418,8 +1428,6 @@ void SIS3153ReadoutWorker::processBuffer(
         {
             sis_trace(QString("buffer #%1 -> multi event buffer").arg(bufferNumber));
             m_counters.multiEventPackets++;
-            /* Asserts that no partial event assembly is in progress. */
-            Q_ASSERT(m_processingState.stackList < 0);
             action = processMultiEventData(packetAck, packetIdent, packetStatus, data, size);
         }
         else
@@ -1492,7 +1500,6 @@ u32 SIS3153ReadoutWorker::processMultiEventData(
     qDebug() << __PRETTY_FUNCTION__;
 #endif
     Q_ASSERT(packetAck == SIS3153Constants::MultiEventPacketAck);
-    Q_ASSERT(m_processingState.stackList < 0);
 
     const auto bufferNumber = m_workerContext.daqStats->totalBuffersRead;
 
@@ -1567,7 +1574,9 @@ u32 SIS3153ReadoutWorker::processMultiEventData(
     }
 
 #if SIS_READOUT_DEBUG
-    qDebug("%s: end processing. returning 0x%x", __PRETTY_FUNCTION__, action);
+    sis_trace(QString("end processing. returning 0x%1 (%2)")
+              .arg(action, 0, 16)
+              .arg(ProcessorActionStrings.value(action)));
 #endif
 
     return action;
@@ -1587,7 +1596,7 @@ u32 SIS3153ReadoutWorker::processSingleEventData(
     Q_ASSERT(m_processingState.stackList < 0);
 
     int stacklist = packetAck & SIS3153Constants::AckStackListMask;
-    m_counters.packetsPerStackList[stacklist]++;
+    m_counters.stackListCounts[stacklist]++;
     const auto bufferNumber = m_workerContext.daqStats->totalBuffersRead;
 
     BufferIterator iter(data, size);
@@ -1609,7 +1618,7 @@ u32 SIS3153ReadoutWorker::processSingleEventData(
 
         // The packetNumber will fit into an s32 as the top 8 bits are always
         // zero.
-        s32 packetNumber = (beginHeader & SIS3153Constants::PacketNumberMask);
+        s32 packetNumber = (beginHeader & SIS3153Constants::BeginEventPacketNumberMask);
 
         m_lossCounter.handlePacketNumber(packetNumber, bufferNumber);
     }
@@ -1632,6 +1641,8 @@ u32 SIS3153ReadoutWorker::processSingleEventData(
             return ProcessorAction::SkipInput;
         }
 
+        update_endHeader_counters(m_counters, endHeader, stacklist);
+
         if (iter.bytesLeft() > 0)
         {
             auto msg = (QString(QSL("SIS3153 Warning: (buffer #%1) %2 bytes left at end of watchdog packet"))
@@ -1642,7 +1653,15 @@ u32 SIS3153ReadoutWorker::processSingleEventData(
             return ProcessorAction::SkipInput;
         }
 
-        return ProcessorAction::KeepState;
+        u32 ret = ProcessorAction::KeepState;
+
+#if SIS_READOUT_DEBUG
+        sis_trace(QString("got watchdog event, endHeader=0x%1, returning %2")
+                  .arg(endHeader, 8, 16, QLatin1Char('0'))
+                  .arg(ProcessorActionStrings.value(ret)));
+#endif
+
+        return ret;
     }
 
 
@@ -1724,6 +1743,12 @@ u32 SIS3153ReadoutWorker::processSingleEventData(
 
             return ProcessorAction::SkipInput;
         }
+
+        update_endHeader_counters(m_counters, endHeader, stacklist);
+
+        sis_trace(QString("sis3153 buffer #%1, endHeader=0x%2")
+                  .arg(bufferNumber)
+                  .arg(endHeader, 8, 16, QLatin1Char('0')));
     }
 
     // Finish the event section in the output buffer: write an EndMarker
@@ -1756,7 +1781,7 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
     int stacklist = packetAck & SIS3153Constants::AckStackListMask;
     bool isLastPacket = packetAck & SIS3153Constants::AckIsLastPacketMask;
     bool partialInProgress = m_processingState.stackList >= 0;
-    m_counters.packetsPerStackList[stacklist]++;
+    m_counters.stackListCounts[stacklist]++;
 
     Q_ASSERT(partialInProgress || !isLastPacket);
     Q_ASSERT(stacklist != m_watchdogStackListIndex);
@@ -1792,7 +1817,7 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
 
             // The packetNumber will fit into an s32 as the top 8 bits are always
             // zero.
-            s32 packetNumber = (beginHeader & SIS3153Constants::PacketNumberMask);
+            s32 packetNumber = (beginHeader & SIS3153Constants::BeginEventPacketNumberMask);
 
             m_lossCounter.handlePacketNumber(packetNumber, bufferNumber);
         }
@@ -1859,7 +1884,7 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
     if ((packetStatus != m_processingState.expectedPacketStatus))
     {
         auto msg = (QString(QSL("SIS3153 Warning: (buffer #%1) (partialEvent) Unexpected packetStatus: "
-                                "0x%1, expected 0x%2. Skipping buffer."))
+                                "0x%2, expected 0x%3. Skipping buffer."))
                     .arg(bufferNumber)
                     .arg((u32)packetStatus, 2, 16, QLatin1Char('0'))
                     .arg((u32)m_processingState.expectedPacketStatus)
@@ -1922,7 +1947,7 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
             logMessage(msg);
             qDebug() << __PRETTY_FUNCTION__ << msg;
 
-        maybePutBackBuffer();
+            maybePutBackBuffer();
             return ProcessorAction::SkipInput;
         }
 
@@ -1992,6 +2017,8 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
             return ProcessorAction::SkipInput;
         }
 
+        update_endHeader_counters(m_counters, endHeader, stacklist);
+
         Q_ASSERT(m_processingState.moduleHeaderOffset < 0);
         Q_ASSERT(m_processingState.eventHeaderOffset >= 0);
 
@@ -2007,7 +2034,7 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
         sis_trace(QString("sis3153 buffer #%1, flushing mvme output buffer:"
                           " mvmeEventHeader@0x%2, mvmeEventHeader=0x%3, mvmeEventSize=%4"
                           ", buffer@0x%5, buffer->used=%6 (%7 words)"
-                          ", eventHeaderOffset=%8")
+                          ", eventHeaderOffset=%8, endHeader=0x%9")
                   .arg(bufferNumber)
                   .arg((uintptr_t) mvmeEventHeader, 8, 16, QLatin1Char('0'))
                   .arg(*mvmeEventHeader, 8, 16, QLatin1Char('0'))
@@ -2016,6 +2043,7 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
                   .arg(outputBuffer->used)
                   .arg(outputBuffer->used / sizeof(u32))
                   .arg(m_processingState.eventHeaderOffset)
+                  .arg(endHeader, 8, 16, QLatin1Char('0'))
                   );
 
         return ProcessorAction::FlushBuffer;

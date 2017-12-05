@@ -40,11 +40,22 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
 
         struct Counters
         {
-            std::array<u64, SIS3153Constants::NumberOfStackLists> packetsPerStackList;
+            std::array<u64, SIS3153Constants::NumberOfStackLists> stackListCounts;
+            std::array<u64, SIS3153Constants::NumberOfStackLists> stackListBerrCounts_Block;
+            std::array<u64, SIS3153Constants::NumberOfStackLists> stackListBerrCounts_Read;
+            std::array<u64, SIS3153Constants::NumberOfStackLists> stackListBerrCounts_Write;
+
             u64 lostPackets = 0;
             u64 multiEventPackets = 0;
-            u64 watchdogPackets = 0;
             int watchdogStackList = -1;
+
+            Counters()
+            {
+                stackListCounts.fill(0);
+                stackListBerrCounts_Block.fill(0);
+                stackListBerrCounts_Read.fill(0);
+                stackListBerrCounts_Write.fill(0);
+            }
         };
 
         inline const Counters &getCounters() const
