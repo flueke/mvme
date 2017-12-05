@@ -62,12 +62,14 @@ SIS3153EthSettingsWidget::SIS3153EthSettingsWidget(QWidget *parent)
     , m_cb_jumboFrames(new QCheckBox)
     , m_cb_debugRawBuffers(new QCheckBox)
     , m_cb_disableBuffering(new QCheckBox)
+    , m_cb_enableWatchdog(new QCheckBox)
 {
     auto l = new QFormLayout(this);
     l->addRow(QSL("Hostname / IP Address"), m_le_sisAddress);
     l->addRow(QSL("Enable UDP Jumbo Frames"), m_cb_jumboFrames);
     l->addRow(QSL("Debug: Write raw buffer file"), m_cb_debugRawBuffers);
     l->addRow(QSL("Debug: Disable Buffering"), m_cb_disableBuffering);
+    l->addRow(QSL("Enable Watchdog"), m_cb_enableWatchdog);
 }
 
 void SIS3153EthSettingsWidget::validate()
@@ -85,6 +87,7 @@ void SIS3153EthSettingsWidget::loadSettings(const QVariantMap &settings)
     m_cb_jumboFrames->setChecked(settings["JumboFrames"].toBool());
     m_cb_debugRawBuffers->setChecked(settings.value("DebugRawBuffers").toBool());
     m_cb_disableBuffering->setChecked(settings.value("DisableBuffering").toBool());
+    m_cb_enableWatchdog->setChecked(settings.value("EnableWatchdog", true).toBool());
 
     auto hostname = settings["hostname"].toString();
 
@@ -109,6 +112,7 @@ QVariantMap SIS3153EthSettingsWidget::getSettings()
     result["JumboFrames"] = m_cb_jumboFrames->isChecked();
     result["DebugRawBuffers"] = m_cb_debugRawBuffers->isChecked();
     result["DisableBuffering"] = m_cb_disableBuffering->isChecked();
+    result["EnableWatchdog"] = m_cb_enableWatchdog->isChecked();
     return result;
 }
 

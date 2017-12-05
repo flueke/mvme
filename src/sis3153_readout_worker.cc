@@ -852,106 +852,113 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
          * for the watchdog.
          *
          */
-        if (stackListIndex <= SIS3153Constants::NumberOfStackLists)
+        if (controllerSettings.value(QSL("EnableWatchdog")).toBool())
         {
-            auto sisImpl = sis->getImpl();
+            if (stackListIndex <= SIS3153Constants::NumberOfStackLists)
+            {
+                auto sisImpl = sis->getImpl();
 
-            // [ header, reg_write, trailer ]
-            QVector<u32> stackList(2 + 4 + 2);
-            u32 stackListOffset = 0;
+                // [ header, reg_write, trailer ]
+                QVector<u32> stackList(2 + 4 + 2);
+                u32 stackListOffset = 0;
 
-            sisImpl->list_generate_add_header(&stackListOffset, stackList.data());
+                sisImpl->list_generate_add_header(&stackListOffset, stackList.data());
 
-            sisImpl->list_generate_add_register_write(&stackListOffset, stackList.data(),
-                                                      SIS3153ETH_STACK_LIST_TRIGGER_CMD,
-                                                      SIS3153Registers::StackListTriggerCommandFlushBuffer);
+                sisImpl->list_generate_add_register_write(&stackListOffset, stackList.data(),
+                                                          SIS3153ETH_STACK_LIST_TRIGGER_CMD,
+                                                          SIS3153Registers::StackListTriggerCommandFlushBuffer);
 
-            sisImpl->list_generate_add_trailer(&stackListOffset, stackList.data());
+                sisImpl->list_generate_add_trailer(&stackListOffset, stackList.data());
 
-            Q_ASSERT(stackListOffset == (u32)(stackList.size()));
+                Q_ASSERT(stackListOffset == (u32)(stackList.size()));
 
-            // upload stacklist
-            auto msg = (QString("Loading stackList for internal watchdog event"
-                                ", stackListIndex=%2, size=%3, loadAddress=0x%4")
+                // upload stacklist
+                auto msg = (QString("Loading stackList for internal watchdog event"
+                                    ", stackListIndex=%2, size=%3, loadAddress=0x%4")
+                            .arg(stackListIndex)
+                            .arg(stackList.size())
+                            .arg(stackLoadAddress, 4, 16, QLatin1Char('0'))
+                           );
+
+                logMessage(msg);
+                for (u32 line: stackList)
+                {
+                    logMessage(msg.sprintf("  0x%08x", line));
+                }
+                logMessage("");
+
+                Q_ASSERT(stackLoadAddress - SIS3153ETH_STACK_RAM_START_ADDR <= (1 << 13));
+
+                error = uploadStackList(stackLoadAddress, stackList);
+
+                if (error.isError())
+                {
+                    throw QString("Error uploading stackList for watchdog event: %1")
+                        .arg(error.toString());
+                }
+
+                u32 stackListConfigValue = ((stackList.size() - 1) << 16) | (stackLoadAddress - SIS3153ETH_STACK_RAM_START_ADDR);
+
+                error = sis->writeRegister(
+                    SIS3153ETH_STACK_LIST1_CONFIG + 2 * stackListIndex,
+                    stackListConfigValue);
+
+                if (error.isError())
+                {
+                    throw QString("Error writing stackListConfig[%1]: %2")
                         .arg(stackListIndex)
-                        .arg(stackList.size())
-                        .arg(stackLoadAddress, 4, 16, QLatin1Char('0'))
-                       );
+                        .arg(error.toString());
+                }
 
-            logMessage(msg);
-            for (u32 line: stackList)
-            {
-                logMessage(msg.sprintf("  0x%08x", line));
+                // watchdogPeriod - This has to work together with the udp socket read timeout.
+                // If it's higher than the read timeout warnings about not
+                // receiving any data will appear in the log.
+                // The period should also not be too short as that creates lots of
+                // useless packets.
+
+                u32 timerValue = timer_value_from_seconds(WatchdogTimeout_s);
+                u32 timerConfigRegister = SIS3153Registers::StackListTimer2Config;
+
+                logMessage(QString(QSL("Setting up watchdog using timer2: timeout=%1 s, timerValue=%2, stackList=%3"))
+                           .arg(WatchdogTimeout_s)
+                           .arg(timerValue)
+                           .arg(stackListIndex)
+                          );
+
+                timerValue |= SIS3153Registers::StackListTimerWatchdogEnable;
+
+                error = sis->writeRegister(timerConfigRegister, timerValue);
+
+                if (error.isError())
+                {
+                    throw QString("Error writing timerConfigRegister for watchdog (%1): %2")
+                        .arg(timerConfigRegister)
+                        .arg(error.toString());
+                }
+
+                error = sis->writeRegister(
+                    SIS3153ETH_STACK_LIST1_TRIGGER_SOURCE + 2 * stackListIndex,
+                    SIS3153Registers::TriggerSourceTimer2);
+
+                if (error.isError())
+                {
+                    throw QString("Error writing stackListTriggerSource[%1]: %2")
+                        .arg(stackListIndex)
+                        .arg(error.toString());
+                }
+
+                m_watchdogStackListIndex = stackListIndex;
+                stackListControlValue |= SIS3153Registers::StackListControlValues::StackListEnable;
+                stackListControlValue |= SIS3153Registers::StackListControlValues::Timer2Enable;
             }
-            logMessage("");
-
-            Q_ASSERT(stackLoadAddress - SIS3153ETH_STACK_RAM_START_ADDR <= (1 << 13));
-
-            error = uploadStackList(stackLoadAddress, stackList);
-
-            if (error.isError())
+            else
             {
-                throw QString("Error uploading stackList for watchdog event: %1")
-                    .arg(error.toString());
+                sis_log(QString("SIS3153 warning: No stackList available for use as a watchdog. Disabling watchdog."));
             }
-
-            u32 stackListConfigValue = ((stackList.size() - 1) << 16) | (stackLoadAddress - SIS3153ETH_STACK_RAM_START_ADDR);
-
-            error = sis->writeRegister(
-                SIS3153ETH_STACK_LIST1_CONFIG + 2 * stackListIndex,
-                stackListConfigValue);
-
-            if (error.isError())
-            {
-                throw QString("Error writing stackListConfig[%1]: %2")
-                    .arg(stackListIndex)
-                    .arg(error.toString());
-            }
-
-            // watchdogPeriod - This has to work together with the udp socket read timeout.
-            // If it's higher than the read timeout warnings about not
-            // receiving any data will appear in the log.
-            // The period should also not be too short as that creates lots of
-            // useless packets.
-
-            u32 timerValue = timer_value_from_seconds(WatchdogTimeout_s);
-            u32 timerConfigRegister = SIS3153Registers::StackListTimer2Config;
-
-            logMessage(QString(QSL("Setting up watchdog using timer2: timeout=%1 s, timerValue=%2, stackList=%3"))
-                       .arg(WatchdogTimeout_s)
-                       .arg(timerValue)
-                       .arg(stackListIndex)
-                       );
-
-            timerValue |= SIS3153Registers::StackListTimerWatchdogEnable;
-
-            error = sis->writeRegister(timerConfigRegister, timerValue);
-
-            if (error.isError())
-            {
-                throw QString("Error writing timerConfigRegister for watchdog (%1): %2")
-                    .arg(timerConfigRegister)
-                    .arg(error.toString());
-            }
-
-            error = sis->writeRegister(
-                SIS3153ETH_STACK_LIST1_TRIGGER_SOURCE + 2 * stackListIndex,
-                SIS3153Registers::TriggerSourceTimer2);
-
-            if (error.isError())
-            {
-                throw QString("Error writing stackListTriggerSource[%1]: %2")
-                    .arg(stackListIndex)
-                    .arg(error.toString());
-            }
-
-            m_watchdogStackListIndex = stackListIndex;
-            stackListControlValue |= SIS3153Registers::StackListControlValues::StackListEnable;
-            stackListControlValue |= SIS3153Registers::StackListControlValues::Timer2Enable;
         }
         else
         {
-            sis_log(QString("SIS3153 warning: No stackList available for use as a watchdog. Disabling watchdog."));
+            sis_log(QString("SIS3153 watchdog disabled by user settings."));
         }
 
         // All event stacks have been uploaded. stackListControlValue has been set.
