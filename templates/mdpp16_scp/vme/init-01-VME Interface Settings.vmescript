@@ -1,6 +1,6 @@
 # Settings related to the readout loop
 # #####################################
-0x6010  1           # irq level
+0x6010  0           # irq level
 0x6012  0           # irq vector
 
 # IRQ_source and thresholds
