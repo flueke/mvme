@@ -32,7 +32,7 @@
 #define SIS_READOUT_BUFFER_DEBUG_PRINT  0   // print buffers to console
 
 //#ifndef NDEBUG
-#if 1
+#if 0
 #define sis_trace(msg)\
 do\
 {\
