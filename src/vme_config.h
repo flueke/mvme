@@ -26,7 +26,6 @@
 
 #include <QObject>
 #include <QUuid>
-#include <qwt_scale_map.h>
 
 class QJsonObject;
 

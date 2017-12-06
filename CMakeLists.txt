@@ -113,7 +113,26 @@ message("-- Using QWT_INCLUDE_DIR=${QWT_INCLUDE_DIR}")
 message("-- Using QWT_LIBRARY=${QWT_LIBRARY}")
 
 # ROOT
+# https://root.cern.ch/how/integrate-root-my-project-cmake
 option(ENABLE_ROOT "Enable ROOT support" OFF)
+
+if (ENABLE_ROOT)
+    list(APPEND CMAKE_PREFIX_PATH $ENV{ROOTSYS})
+
+    find_package(ROOT
+        COMPONENTS Core RIO Tree Hist)
+
+    if (ROOT_FOUND)
+        include(${ROOT_USE_FILE})
+
+        find_program(ROOT_CONFIG_EXECUTABLE root-config
+            HINTS $ENV{ROOTSYS}/bin)
+
+        add_definitions(-DMVME_ENABLE_ROOT)
+
+        message("-- Found ROOT in ${ROOT_USE_FILE}")
+    endif(ROOT_FOUND)
+endif(ENABLE_ROOT)
 
 # Subdirectories containing build targets
 add_subdirectory(src)

@@ -30,6 +30,7 @@
 #include "config_ui.h"
 #include "vme_analysis_common.h"
 #include "vme_controller_factory.h"
+#include "root/mvme_stream_consumers.h"
 
 #ifdef MVME_USE_GIT_VERSION_FILE
 #include "git_sha1.h"
@@ -74,6 +75,9 @@ struct MVMEContextPrivate
     RunInfo m_runInfo;
     MVMEContext::ReplayFileAnalysisInfo m_replayFileAnalysisInfo;
     u32 m_ctrlOpenRetryCount = 0;
+#ifdef MVME_ENABLE_ROOT
+    std::unique_ptr<mvme_root::AnalysisDataWriter> m_rootWriter;
+#endif
 
     void stopDAQ();
     void pauseDAQ();
@@ -807,6 +811,19 @@ void MVMEContext::onDAQStateChanged(DAQState state)
 void MVMEContext::onMVMEStreamWorkerStateChanged(MVMEStreamWorkerState state)
 {
     emit mvmeStreamWorkerStateChanged(state);
+
+    switch (state)
+    {
+        case MVMEStreamWorkerState::Idle:
+#ifdef MVME_ENABLE_ROOT
+            m_streamWorker->getStreamProcessor()->removeModuleConsumer(m_d->m_rootWriter.get());
+            m_d->m_rootWriter.reset();
+#endif
+            break;
+
+        default:
+            break;
+    }
 }
 
 // Called on VMUSBReadoutWorker::daqStopped()
@@ -1027,7 +1044,16 @@ void MVMEContext::prepareStart()
     }
 #endif
 
-    m_streamWorker->beginRun(getRunInfo(), getVMEConfig());
+#ifdef MVME_ENABLE_ROOT // FIXME: fix the threading
+    m_d->m_rootWriter = std::make_unique<mvme_root::AnalysisDataWriter>();
+    m_streamWorker->getStreamProcessor()->attachModuleConsumer(m_d->m_rootWriter.get());
+#endif
+
+    m_streamWorker->beginRun();
+
+#ifdef MVME_ENABLE_ROOT // FIXME: fix the threading
+    m_d->m_rootWriter->moveToThread(m_eventThread);
+#endif
 
     m_daqStats = DAQStats();
 
@@ -1052,6 +1078,7 @@ void MVMEContext::startDAQReadout(quint32 nCycles, bool keepHistoContents)
 
     // Generate new RunInfo here. Has to happen before prepareStart() calls
     // MVMEStreamWorker::beginRun()
+    // FIXME: does this still do anything? runId is still used in histo1d_widget?
     auto now = QDateTime::currentDateTime();
     m_d->m_runInfo.runId = now.toString("yyMMdd_HHmmss");
     m_d->m_runInfo.keepAnalysisState = keepHistoContents;
@@ -1113,7 +1140,7 @@ void MVMEContext::startDAQReplay(quint32 nEvents, bool keepHistoContents)
 
     qDebug() << __PRETTY_FUNCTION__ << m_listFile->getFileName() << fi.completeBaseName();
 
-    auto hack = m_daqStats.listfileFilename;
+    auto hack = m_daqStats.listfileFilename; // FIXME: FIXME!
     prepareStart();
     m_daqStats.listfileFilename = hack;
 
@@ -1633,7 +1660,7 @@ bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc, const QString &in
 
         // Prepares operators, allocates histograms, etc..
         // This should in reality be the only place to throw a bad_alloc
-        m_streamWorker->beginRun(getRunInfo(), getVMEConfig());
+        m_streamWorker->beginRun();
 
         emit analysisChanged();
 

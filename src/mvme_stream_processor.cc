@@ -6,6 +6,8 @@
 #include "mvme_listfile.h"
 #include "util/perf.h"
 
+#include "root/mvme_stream_consumers.h"
+
 //#define MVME_STREAM_PROCESSOR_DEBUG
 //#define MVME_STREAM_PROCESSOR_DEBUG_BUFFERS
 
@@ -36,6 +38,7 @@ struct MVMEStreamProcessorPrivate
     VMEConfig *vmeConfig = nullptr;
     std::shared_ptr<MesytecDiagnostics> diag;
     MVMEStreamProcessor::Logger logger = nullptr;
+    std::unique_ptr<mvme_root::AnalysisDataWriter> m_rootWriter;
 
     int SectionTypeMask;
     int SectionTypeShift;
@@ -149,20 +152,30 @@ void MVMEStreamProcessor::MVMEStreamProcessor::beginRun(
     {
         m_d->diag->beginRun();
     }
+}
+
+void MVMEStreamProcessor::startConsumers()
+{
+#if 0//def MVME_ENABLE_ROOT // FIXME: this should not be here but in MVMEContext. Fix the threading.
+    m_d->m_rootWriter = std::make_unique<mvme_root::AnalysisDataWriter>();
+    attachModuleConsumer(m_d->m_rootWriter.get());
+#endif
 
     for (auto c: m_d->bufferConsumers)
     {
-        c->beginRun(runInfo, vmeConfig);
+        c->beginRun(m_d->runInfo, m_d->vmeConfig, m_d->analysis, m_d->logger);
     }
 
     for (auto c: m_d->moduleConsumers)
     {
-        c->beginRun(runInfo, vmeConfig);
+        c->beginRun(m_d->runInfo, m_d->vmeConfig, m_d->analysis, m_d->logger);
     }
 }
 
 void MVMEStreamProcessor::endRun()
 {
+    qDebug() << __PRETTY_FUNCTION__ << "begin";
+
     for (auto c: m_d->bufferConsumers)
     {
         c->endRun();
@@ -172,6 +185,12 @@ void MVMEStreamProcessor::endRun()
     {
         c->endRun();
     }
+
+#if 0//def MVME_ENABLE_ROOT
+    removeModuleConsumer(m_d->m_rootWriter.get());
+    m_d->m_rootWriter.reset();
+#endif
+    qDebug() << __PRETTY_FUNCTION__ << "end";
 }
 
 void MVMEStreamProcessor::processDataBuffer(DataBuffer *buffer)
@@ -204,7 +223,7 @@ void MVMEStreamProcessor::processDataBuffer(DataBuffer *buffer)
             if (unlikely(sectionSize > iter.longwordsLeft()))
             {
 #ifdef MVME_STREAM_PROCESSOR_DEBUG
-                QString msg = (QString("Error (mvme fmt): extracted section size exceeds buffer size!"
+                QString msg = (QString("Error (mvme stream): extracted section size exceeds buffer size!"
                                        " mvme buffer #%1, sectionHeader=0x%2, sectionSize=%3, wordsLeftInBuffer=%4")
                                .arg(bufferNumber)
                                .arg(sectionHeader, 8, 16, QLatin1Char('0'))
@@ -216,13 +235,23 @@ void MVMEStreamProcessor::processDataBuffer(DataBuffer *buffer)
                 throw end_of_buffer();
             }
 
-            /* Assert the behaviour of the readout workers here: they should
-             * not enqueue timetick buffers as it's handled via
-             * processExternalTimetick(). This means timetick sections should
-             * only be encountered during replay. */
             if (sectionType == ListfileSections::SectionType_Timetick)
             {
+                /* Assert the behaviour of the readout workers here: they should
+                 * not enqueue timetick buffers as it's handled via
+                 * processExternalTimetick(). Timetick sections should only be
+                 * encountered during replay. */
                 Q_ASSERT(m_d->runInfo.isReplay);
+
+                for (auto c: m_d->bufferConsumers)
+                {
+                    c->processTimetick();
+                }
+
+                for (auto c: m_d->moduleConsumers)
+                {
+                    c->processTimetick();
+                }
             }
 
             if (likely(sectionType == ListfileSections::SectionType_Event))
@@ -249,18 +278,26 @@ void MVMEStreamProcessor::processDataBuffer(DataBuffer *buffer)
 
         m_d->counters.buffersProcessed++;
     }
-    catch (const end_of_buffer &)
+    catch (const end_of_buffer &e)
     {
-        // TODO: call endRun() for consumers here? pass error information to
-        // them? They might want to do cleanup on error.
-
-        QString msg = QSL("Error (mvme fmt): unexpectedly reached end of buffer");
+        QString msg = QSL("Error (mvme stream): unexpectedly reached end of buffer");
         qDebug() << msg;
         logMessage(msg);
-        ++m_d->counters.buffersWithErrors;
+        m_d->counters.buffersWithErrors++;
+
+        for (auto c: m_d->bufferConsumers)
+        {
+            c->endRun(&e);
+        }
+
+        for (auto c: m_d->moduleConsumers)
+        {
+            c->endRun(&e);
+        }
+
         if (m_d->diag)
         {
-            m_d->diag->beginRun();
+            m_d->diag->beginRun(); // FIXME: why is this here?
         }
     }
 }
@@ -269,9 +306,16 @@ void MVMEStreamProcessor::processExternalTimetick()
 {
     Q_ASSERT(!m_d->runInfo.isReplay);
 
-    if (!m_d->runInfo.isReplay)
+    m_d->analysis->processTimetick();
+
+    for (auto c: m_d->bufferConsumers)
     {
-        m_d->analysis->processTimetick();
+        c->processTimetick();
+    }
+
+    for (auto c: m_d->moduleConsumers)
+    {
+        c->processTimetick();
     }
 }
 
@@ -472,7 +516,7 @@ void MVMEStreamProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 
                 {
                     m_d->counters.buffersWithErrors++;
 
-                    QString msg = (QString("Error (mvme fmt): extracted module event size (%1) exceeds buffer size!"
+                    QString msg = (QString("Error (mvme stream): extracted module event size (%1) exceeds buffer size!"
                                            " eventIndex=%2, moduleIndex=%3, moduleHeader=0x%4, skipping event"
                                            " (header+size=0x%5, ptrToLastWord=0x%6)")
                                    .arg(moduleEventSize)

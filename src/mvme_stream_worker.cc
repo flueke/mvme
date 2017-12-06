@@ -164,12 +164,12 @@ void MVMEStreamWorker::logMessage(const QString &msg)
     m_d->context->logMessage(msg);
 }
 
-void MVMEStreamWorker::beginRun(const RunInfo &runInfo, VMEConfig *vmeConfig)
+void MVMEStreamWorker::beginRun()
 {
-    m_d->runInfo = runInfo;
+    m_d->runInfo = m_d->context->getRunInfo();
 
     m_d->streamProcessor.beginRun(
-        runInfo,
+        m_d->runInfo,
         m_d->context->getAnalysis(),
         m_d->context->getVMEConfig(),
         m_d->m_listFileVersion,
@@ -193,6 +193,8 @@ void MVMEStreamWorker::start()
         // Move this into Analysis::beginRun()?
         a2::a2_begin_run(a2State->a2);
     }
+
+    m_d->streamProcessor.startConsumers();
 
     auto &counters = m_d->streamProcessor.getCounters();
     counters.startTime = QDateTime::currentDateTime();

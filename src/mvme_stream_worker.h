@@ -71,7 +71,7 @@ class LIBMVME_EXPORT MVMEStreamWorker: public QObject
 
         void setListFileVersion(u32 version);
 
-        void beginRun(const RunInfo &runInfo, VMEConfig *vmeConfig);
+        void beginRun();
 
         void stop(bool whenQueueEmpty = true);
         void pause();

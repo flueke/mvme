@@ -23,6 +23,7 @@
 #include <QCoreApplication>
 #include <QElapsedTimer>
 #include <QThread>
+#include <QDebug>
 
 #include "CVMUSBReadoutList.h"
 #include "vme_daq.h"

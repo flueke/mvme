@@ -141,6 +141,10 @@ if (ENABLE_HDF5)
     list(APPEND LIBMVME_SOURCES analysis/analysis_session.cc)
 endif()
 
+if (ENABLE_ROOT AND ROOT_FOUND)
+    list(APPEND LIBMVME_SOURCES root/mvme_stream_consumers.cc)
+endif(ENABLE_ROOT AND ROOT_FOUND)
+
 add_library(libmvme SHARED ${LIBMVME_SOURCES} ${LIBMVME_UIC_OUT} ${LIBMVME_RC_OUT})
 add_dependencies(libmvme liba2_static)
 generate_export_header(libmvme)
@@ -241,10 +245,8 @@ add_mvme_executable(dev_listfile_tcp_sender "dev_listfile_tcp_sender.cc")
 add_mvme_executable(dev_listfile_tcp_receiver "dev_listfile_tcp_receiver.cc")
 install(TARGETS dev_listfile_tcp_sender dev_listfile_tcp_receiver DESTINATION .)
 
-# root subdir if ROOT support is enabled
-if (ENABLE_ROOT)
-    add_mvme_executable(dev_mvme_event_processing "dev_mvme_event_processing.cc")
-    add_subdirectory(root)
-endif (ENABLE_ROOT)
+add_mvme_executable(dev_mvme_event_processing "dev_mvme_event_processing.cc")
+
+add_subdirectory(root)
 
 # vim:tw=0
