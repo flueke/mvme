@@ -19,6 +19,7 @@
 #ifndef UTIL_H
 #define UTIL_H
 
+#include "libmvme_export.h"
 #include "typedefs.h"
 #include "qt_util.h"
 
@@ -275,7 +276,7 @@ inline constexpr size_t Gigabytes(size_t x) { return Megabytes(x) * 1024; }
 #endif
 
 template<typename Code>
-struct ReadResultBase
+struct LIBMVME_EXPORT ReadResultBase
 {
     typedef Code CodeType;
 
@@ -291,7 +292,7 @@ struct ReadResultBase
 
 
 template<typename Code>
-QString ReadResultBase<Code>::toRichText() const
+QString LIBMVME_EXPORT ReadResultBase<Code>::toRichText() const
 {
     QString result;
 
