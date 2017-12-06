@@ -2,7 +2,7 @@
 #define __MVME_ROOT_H__
 
 #include <TObject.h>
-#include "../typedefs.h"
+#include "typedefs.h"
 
 struct ModuleEvent: public TObject
 {

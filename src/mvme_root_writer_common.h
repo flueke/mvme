@@ -1,7 +1,7 @@
 #ifndef __MVME_ROOT_WRITER_PROCESS_H__
 #define __MVME_ROOT_WRITER_PROCESS_H__
 
-#include "../typedefs.h"
+#include "typedefs.h"
 
 namespace mvme_root
 {

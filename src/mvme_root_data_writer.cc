@@ -1,4 +1,4 @@
-#include "mvme_stream_consumers.h"
+#include "mvme_root_data_writer.h"
 
 #include <QCoreApplication>
 #include <QDataStream>
@@ -6,9 +6,9 @@
 #include <QJsonDocument>
 #include <QThread>
 
-#include "../analysis/analysis.h"
-#include "../vme_config.h"
-#include "writer_process.h"
+#include "analysis/analysis.h"
+#include "vme_config.h"
+#include "mvme_root_writer_common.h"
 
 namespace
 {
@@ -26,14 +26,14 @@ QByteArray to_json(T *obj)
 namespace mvme_root
 {
 
-AnalysisDataWriter::AnalysisDataWriter(QObject *parent)
+RootDataWriter::RootDataWriter(QObject *parent)
     : QObject(parent)
 {}
 
-AnalysisDataWriter::~AnalysisDataWriter()
+RootDataWriter::~RootDataWriter()
 {}
 
-void AnalysisDataWriter::beginRun(const RunInfo &runInfo, const VMEConfig *vmeConfig, const analysis::Analysis *analysis, Logger logger)
+void RootDataWriter::beginRun(const RunInfo &runInfo, const VMEConfig *vmeConfig, const analysis::Analysis *analysis, Logger logger)
 {
     qDebug() << __PRETTY_FUNCTION__ << QThread::currentThread();
 
@@ -59,11 +59,12 @@ void AnalysisDataWriter::beginRun(const RunInfo &runInfo, const VMEConfig *vmeCo
         << to_json(analysis);
 }
 
-void AnalysisDataWriter::endRun(const std::exception *e)
+void RootDataWriter::endRun(const std::exception *e)
 {
     qDebug() << __PRETTY_FUNCTION__ << QThread::currentThread();
 
     m_writerOut << WriterMessageType::EndRun;
+    m_writerOut.setDevice(nullptr);
 
     qDebug() << __PRETTY_FUNCTION__ << "waitForFinished";
 
@@ -76,25 +77,24 @@ void AnalysisDataWriter::endRun(const std::exception *e)
 
     qDebug() << __PRETTY_FUNCTION__ << "after waitForFinished";
 
-    m_writerOut.setDevice(nullptr);
     m_writerProcess->kill();
     delete m_writerProcess;
     m_writerProcess = nullptr;
 }
 
-void AnalysisDataWriter::beginEvent(s32 eventIndex)
+void RootDataWriter::beginEvent(s32 eventIndex)
 {
     m_writerOut << WriterMessageType::BeginEvent
         << eventIndex;
 }
 
-void AnalysisDataWriter::endEvent(s32 eventIndex)
+void RootDataWriter::endEvent(s32 eventIndex)
 {
     m_writerOut << WriterMessageType::EndEvent
         << eventIndex;
 }
 
-void AnalysisDataWriter::processModuleData(s32 eventIndex, s32 moduleIndex, const u32 *data, u32 size)
+void RootDataWriter::processModuleData(s32 eventIndex, s32 moduleIndex, const u32 *data, u32 size)
 {
     m_writerOut << WriterMessageType::ModuleData
         << eventIndex
@@ -103,7 +103,7 @@ void AnalysisDataWriter::processModuleData(s32 eventIndex, s32 moduleIndex, cons
     m_writerOut.writeBytes(reinterpret_cast<const char *>(data), size * sizeof(u32));
 }
 
-void AnalysisDataWriter::processTimetick()
+void RootDataWriter::processTimetick()
 {
     m_writerOut << WriterMessageType::Timetick;
 }

@@ -30,7 +30,7 @@
 #include "config_ui.h"
 #include "vme_analysis_common.h"
 #include "vme_controller_factory.h"
-#include "root/mvme_stream_consumers.h"
+#include "mvme_root_data_writer.h"
 
 #ifdef MVME_USE_GIT_VERSION_FILE
 #include "git_sha1.h"
@@ -75,9 +75,9 @@ struct MVMEContextPrivate
     RunInfo m_runInfo;
     MVMEContext::ReplayFileAnalysisInfo m_replayFileAnalysisInfo;
     u32 m_ctrlOpenRetryCount = 0;
-//#ifdef MVME_ENABLE_ROOT
+//#ifdef MVME_ENABLE_ROOT // FIXME: fix SIGPIPE on child process exit
 #if 0
-    std::unique_ptr<mvme_root::AnalysisDataWriter> m_rootWriter;
+    std::unique_ptr<mvme_root::RootDataWriter> m_rootWriter;
 #endif
 
     void stopDAQ();
@@ -816,7 +816,7 @@ void MVMEContext::onMVMEStreamWorkerStateChanged(MVMEStreamWorkerState state)
     switch (state)
     {
         case MVMEStreamWorkerState::Idle:
-//#ifdef MVME_ENABLE_ROOT
+//#ifdef MVME_ENABLE_ROOT // FIXME: fix SIGPIPE on child process exit
 #if 0
             m_streamWorker->getStreamProcessor()->removeModuleConsumer(m_d->m_rootWriter.get());
             m_d->m_rootWriter.reset();
@@ -1046,15 +1046,15 @@ void MVMEContext::prepareStart()
     }
 #endif
 
-//#ifdef MVME_ENABLE_ROOT // FIXME: fix the threading
+//#ifdef MVME_ENABLE_ROOT // FIXME: fix SIGPIPE on child process exit
 #if 0
-    m_d->m_rootWriter = std::make_unique<mvme_root::AnalysisDataWriter>();
+    m_d->m_rootWriter = std::make_unique<mvme_root::RootDataWriter>();
     m_streamWorker->getStreamProcessor()->attachModuleConsumer(m_d->m_rootWriter.get());
 #endif
 
     m_streamWorker->beginRun();
 
-//#ifdef MVME_ENABLE_ROOT // FIXME: fix the threading
+//#ifdef MVME_ENABLE_ROOT // FIXME: fix SIGPIPE on child process exit
 #if 0
     m_d->m_rootWriter->moveToThread(m_eventThread);
 #endif
