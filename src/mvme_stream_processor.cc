@@ -6,8 +6,6 @@
 #include "mvme_listfile.h"
 #include "util/perf.h"
 
-#include "root/mvme_stream_consumers.h"
-
 //#define MVME_STREAM_PROCESSOR_DEBUG
 //#define MVME_STREAM_PROCESSOR_DEBUG_BUFFERS
 
@@ -38,7 +36,6 @@ struct MVMEStreamProcessorPrivate
     VMEConfig *vmeConfig = nullptr;
     std::shared_ptr<MesytecDiagnostics> diag;
     MVMEStreamProcessor::Logger logger = nullptr;
-    std::unique_ptr<mvme_root::AnalysisDataWriter> m_rootWriter;
 
     int SectionTypeMask;
     int SectionTypeShift;
@@ -156,10 +153,7 @@ void MVMEStreamProcessor::MVMEStreamProcessor::beginRun(
 
 void MVMEStreamProcessor::startConsumers()
 {
-#if 0//def MVME_ENABLE_ROOT // FIXME: this should not be here but in MVMEContext. Fix the threading.
-    m_d->m_rootWriter = std::make_unique<mvme_root::AnalysisDataWriter>();
-    attachModuleConsumer(m_d->m_rootWriter.get());
-#endif
+    qDebug() << __PRETTY_FUNCTION__ << "starting stream consumers";
 
     for (auto c: m_d->bufferConsumers)
     {
@@ -186,10 +180,6 @@ void MVMEStreamProcessor::endRun()
         c->endRun();
     }
 
-#if 0//def MVME_ENABLE_ROOT
-    removeModuleConsumer(m_d->m_rootWriter.get());
-    m_d->m_rootWriter.reset();
-#endif
     qDebug() << __PRETTY_FUNCTION__ << "end";
 }
 

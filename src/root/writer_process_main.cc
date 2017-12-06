@@ -84,14 +84,15 @@ int main(int argc, char *argv[])
         s32 msgType;
         writerIn >> msgType;
 
-        if (0 <= msgType && msgType < WriterMessageType::Count)
-        {
-            if (MessageHandlerTable[msgType](writerIn, msgType, logger) != 0)
-                break;
-        }
-        else
+        if (writerIn.status() != QDataStream::Ok
+            || !(0 <= msgType && msgType < WriterMessageType::Count))
         {
             ret = 1;
+            break;
+        }
+
+        if (MessageHandlerTable[msgType](writerIn, msgType, logger) != 0)
+        {
             break;
         }
     }
