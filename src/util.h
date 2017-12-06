@@ -292,7 +292,7 @@ struct LIBMVME_EXPORT ReadResultBase
 
 
 template<typename Code>
-QString LIBMVME_EXPORT ReadResultBase<Code>::toRichText() const
+QString ReadResultBase<Code>::toRichText() const
 {
     QString result;
 

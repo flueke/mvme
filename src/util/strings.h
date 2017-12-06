@@ -4,7 +4,7 @@
 #include <QString>
 #include "libmvme_export.h"
 
-enum class LIBMVME_EXPORT UnitScaling
+enum class UnitScaling
 {
     Binary,
     Decimal,
