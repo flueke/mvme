@@ -27,18 +27,30 @@ class MVMEStreamWriterHelper
     public:
         using LF = listfile_v1;
 
-        MVMEStreamWriterHelper(DataBuffer *outputBuffer)
+        MVMEStreamWriterHelper(DataBuffer *outputBuffer = nullptr)
             : m_outputBuffer(outputBuffer)
             , m_eventSize(0)
             , m_moduleSize(0)
             , m_eventHeaderOffset(-1)
             , m_moduleHeaderOffset(-1)
+        { }
+
+        void setOutputBuffer(DataBuffer *outputBuffer)
         {
-            assert(outputBuffer);
+            m_outputBuffer = outputBuffer;
         }
+
+        DataBuffer *outputBuffer() const { return m_outputBuffer; }
+
+        inline u32 eventSize() const { return m_eventSize; }
+        inline u32 moduleSize() const { return m_moduleSize; }
+        inline s32 eventHeaderOffset() const { return m_eventHeaderOffset; }
+        inline s32 moduleHeaderOffset() const { return m_moduleHeaderOffset; }
 
         inline u32 *openEventSection(int eventIndex)
         {
+            assert(m_outputBuffer);
+
             if (hasOpenEventSection())
                 throw MVMEStreamWriterLogicError("Cannot open new event section while event section is open");
 
@@ -58,6 +70,8 @@ class MVMEStreamWriterHelper
 
         inline u32 closeEventSection()
         {
+            assert(m_outputBuffer);
+
             if (!hasOpenEventSection())
                 throw MVMEStreamWriterLogicError("Cannot close event section: no event section open");
 
@@ -72,6 +86,8 @@ class MVMEStreamWriterHelper
 
         inline u32 *openModuleSection(u32 moduleType)
         {
+            assert(m_outputBuffer);
+
             if (!hasOpenEventSection())
                 throw MVMEStreamWriterLogicError("Cannot open module section without open event section");
 
@@ -94,6 +110,8 @@ class MVMEStreamWriterHelper
 
         inline u32 closeModuleSection()
         {
+            assert(m_outputBuffer);
+
             if (!hasOpenEventSection())
                 throw MVMEStreamWriterLogicError("Cannot close module section: no event section open");
 
@@ -108,6 +126,8 @@ class MVMEStreamWriterHelper
 
         inline void writeEventData(u32 dataWord)
         {
+            assert(m_outputBuffer);
+
             if (!hasOpenEventSection())
                 throw MVMEStreamWriterLogicError("Cannot write event data: no event section open");
 
@@ -124,6 +144,8 @@ class MVMEStreamWriterHelper
 
         inline void writeModuleData(u32 dataWord)
         {
+            assert(m_outputBuffer);
+
             if (!hasOpenEventSection())
                 throw MVMEStreamWriterLogicError("Cannot write module data: no event section open");
 

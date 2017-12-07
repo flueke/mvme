@@ -19,10 +19,11 @@
 #ifndef __SIS3153_READOUT_WORKER_H__
 #define __SIS3153_READOUT_WORKER_H__
 
-#include "vme_readout_worker.h"
+#include "mvme_stream_util.h"
 #include "sis3153.h"
-#include "vme_script.h"
 #include "vme_daq.h"
+#include "vme_readout_worker.h"
+#include "vme_script.h"
 
 class SIS3153ReadoutWorker: public VMEReadoutWorker
 {
@@ -108,13 +109,10 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
 
         struct ProcessingState
         {
+            MVMEStreamWriterHelper streamWriter;
             /* If stackList is < 0 no partial event processing is in progress.
              * Otherwise a partial event for the stackList has been started. */
             s32 stackList = -1;
-            s32 eventSize = 0;
-            s32 eventHeaderOffset = -1;
-            s32 moduleSize = 0;
-            s32 moduleHeaderOffset = -1;
             s32 moduleIndex = -1;
             u8 expectedPacketStatus = 0u;
         };
