@@ -1100,7 +1100,6 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
     }
 
     setState(DAQState::Idle);
-    emit daqStopped();
 }
 
 VMEError SIS3153ReadoutWorker::uploadStackList(u32 stackLoadAddress, QVector<u32> stackList)
@@ -1208,7 +1207,6 @@ void SIS3153ReadoutWorker::readoutLoop()
                        .arg(packetCount));
 
             setState(DAQState::Paused);
-            emit daqPaused();
             sis_log(QString(QSL("SIS3153 readout paused")));
         }
         // resume
@@ -2208,6 +2206,23 @@ void SIS3153ReadoutWorker::setState(DAQState state)
     m_state = state;
     m_desiredState = state;
     emit stateChanged(state);
+
+    switch (state)
+    {
+        case DAQState::Idle:
+            emit daqStopped();
+            break;
+
+        case DAQState::Paused:
+            emit daqPaused();
+            break;
+
+        case DAQState::Starting:
+        case DAQState::Running:
+        case DAQState::Stopping:
+            break;
+    }
+
     QCoreApplication::processEvents();
 }
 
