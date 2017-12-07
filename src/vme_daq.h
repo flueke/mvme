@@ -41,12 +41,10 @@ vme_script::VMEScript build_event_readout_script(EventConfig *eventConfig);
 
 struct DAQReadoutListfileHelperPrivate;
 
-class DAQReadoutListfileHelper: public QObject
+class DAQReadoutListfileHelper
 {
-    Q_OBJECT
     public:
-        DAQReadoutListfileHelper(VMEReadoutWorkerContext readoutContext,
-                                 QObject *parent = 0);
+        DAQReadoutListfileHelper(VMEReadoutWorkerContext readoutContext);
         ~DAQReadoutListfileHelper();
 
         void beginRun();
@@ -56,7 +54,7 @@ class DAQReadoutListfileHelper: public QObject
         void writeTimetickSection();
 
     private:
-        DAQReadoutListfileHelperPrivate *m_d;
+        std::unique_ptr<DAQReadoutListfileHelperPrivate> m_d;
         VMEReadoutWorkerContext m_readoutContext;
 };
 

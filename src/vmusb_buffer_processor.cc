@@ -151,7 +151,7 @@ struct VMUSBBufferProcessorPrivate
 {
     VMUSBBufferProcessor *m_q;
     VMUSBReadoutWorker *m_readoutWorker = nullptr;
-    DAQReadoutListfileHelper *m_listfileHelper = nullptr;
+    std::unique_ptr<DAQReadoutListfileHelper> m_listfileHelper;
 
 #ifdef WRITE_BUFFER_LOG
     QFile *m_bufferLogFile = nullptr;
@@ -196,8 +196,8 @@ void VMUSBBufferProcessor::beginRun()
 
     resetRunState();
 
-    delete m_d->m_listfileHelper;
-    m_d->m_listfileHelper = new DAQReadoutListfileHelper(m_d->m_readoutWorker->getContext(), this);
+    m_d->m_listfileHelper = std::make_unique<DAQReadoutListfileHelper>(
+        m_d->m_readoutWorker->getContext());
     m_d->m_listfileHelper->beginRun();
 
 #ifdef WRITE_BUFFER_LOG

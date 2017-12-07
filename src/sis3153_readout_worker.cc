@@ -22,6 +22,7 @@
 #include <QCoreApplication>
 
 #include "mvme_listfile.h"
+#include "mvme_stream_util.h"
 #include "sis3153/sis3153eth.h"
 #include "sis3153/sis3153ETH_vme_class.h"
 #include "sis3153_util.h"
@@ -1682,81 +1683,122 @@ u32 SIS3153ReadoutWorker::processSingleEventData(
         return ProcessorAction::SkipInput;
     }
 
-    using LF = listfile_v1;
-
     DataBuffer *outputBuffer = getOutputBuffer();
     outputBuffer->ensureCapacity(size * 2);
+    MVMEStreamWriterHelper streamWriter(outputBuffer);
 
-    u32 *mvmeEventHeader = outputBuffer->asU32();
-    outputBuffer->used += sizeof(u32);
-
-    *mvmeEventHeader = ((ListfileSections::SectionType_Event << LF::SectionTypeShift) & LF::SectionTypeMask)
-        | ((eventIndex << LF::EventTypeShift) & LF::EventTypeMask);
-    u32 eventSectionSize = 0;
+    streamWriter.openEventSection(eventIndex);
+    bool eventSectionSizeExceeded = false;
 
     auto moduleConfigs = eventConfig->getModuleConfigs();
-    s32 moduleCount = moduleConfigs.size();
+    const s32 moduleCount = moduleConfigs.size();
 
     for (s32 moduleIndex = 0; moduleIndex < moduleCount; moduleIndex++)
     {
 #if SIS_READOUT_DEBUG
         qDebug() << __PRETTY_FUNCTION__ << "moduleIndex =" << moduleIndex << ", moduleCount =" << moduleCount;
 #endif
-        eventSectionSize++;
-        u32 *moduleHeader = outputBuffer->asU32();
-        outputBuffer->used += sizeof(u32);
-        auto moduleConfig = moduleConfigs[moduleIndex];
-        *moduleHeader = (((u32)moduleConfig->getModuleMeta().typeId) << LF::ModuleTypeShift) & LF::ModuleTypeMask;
-        u32 moduleSectionSize = 0;
-        u32 *outp = outputBuffer->asU32();
+        try
+        {
+            auto moduleConfig = moduleConfigs.at(moduleIndex);
+            streamWriter.openModuleSection((u32)moduleConfig->getModuleMeta().typeId);
+        }
+        catch (const MVMEStreamWriterSizeError &)
+        {
+            eventSectionSizeExceeded = true;
+        }
+
+        bool moduleSectionSizeExceeded = false;
 
         while (true)
         {
-            u32 data = iter.extractU32();
-            *outp++ = data;
-            moduleSectionSize++;
-
-            if (data == EndMarker)
+            try
             {
-                break;
+                u32 data = iter.extractU32();
+                streamWriter.writeModuleData(data);
+
+                if (data == EndMarker)
+                {
+                    break;
+                }
+            }
+            catch (const MVMEStreamWriterSizeError &)
+            {
+                // The error could also be caused by the event section size
+                // being exceeded but that's handled after the loop.
+                moduleSectionSizeExceeded = true;
+            }
+            catch (const MVMEStreamWriterLogicError &)
+            {
+                // can happen if the call to openModuleSection() above failed
             }
         }
-        *moduleHeader |= (moduleSectionSize << LF::SubEventSizeShift) & LF::SubEventSizeMask;
-        outputBuffer->used += moduleSectionSize * sizeof(u32);
-        eventSectionSize += moduleSectionSize;
-        m_workerContext.daqStats->totalNetBytesRead += moduleSectionSize * sizeof(u32);
+
+        try
+        {
+            u32 moduleSectionBytes = streamWriter.closeModuleSection();
+            m_workerContext.daqStats->totalNetBytesRead += moduleSectionBytes;
+        }
+        catch (const MVMEStreamWriterLogicError &)
+        {
+                // can happen if the call to openModuleSection() above failed
+        }
+
+        if (moduleSectionSizeExceeded)
+        {
+            auto msg = (QString(QSL("SIS3153 Warning: (buffer #%1) module data size exceeds maximum subevent size. "
+                                    "Data will be truncated! (eventIndex=%2, moduleIndex=%3)"))
+                        .arg(bufferNumber)
+                        .arg(eventIndex)
+                        .arg(moduleIndex));
+            logMessage(msg);
+            qDebug() << __PRETTY_FUNCTION__ << msg;
+        }
+    }
+
+    try
+    {
+        // Finish the event section in the output buffer: write an EndMarker and
+        // update the mvmeEventHeader with the correct size.
+        streamWriter.writeEventData(EndMarker);
+        streamWriter.closeEventSection();
+    }
+    catch (const MVMEStreamWriterSizeError)
+    {
+        eventSectionSizeExceeded = true;
+    }
+
+    if (eventSectionSizeExceeded)
+    {
+        auto msg = (QString(QSL("SIS3153 Warning: (buffer #%1) event section size exceeded. "
+                                "Data will be truncated! (eventIndex=%2)"))
+                    .arg(bufferNumber)
+                    .arg(eventIndex));
+        logMessage(msg);
+        qDebug() << __PRETTY_FUNCTION__ << msg;
     }
 
     // check endHeader (0xee...)
+    u32 endHeader = iter.extractU32();
+
+    if ((endHeader & SIS3153Constants::EndEventMask) != SIS3153Constants::EndEventResult)
     {
-        u32 endHeader = iter.extractU32();
+        auto msg = (QString(QSL("SIS3153 Warning: (buffer #%1) Invalid endHeader: 0x%2"))
+                    .arg(bufferNumber)
+                    .arg(endHeader, 8, 16, QLatin1Char('0')));
+        logMessage(msg);
+        qDebug() << __PRETTY_FUNCTION__ << msg;
 
-        if ((endHeader & SIS3153Constants::EndEventMask) != SIS3153Constants::EndEventResult)
-        {
-            auto msg = (QString(QSL("SIS3153 Warning: (buffer #%1) Invalid endHeader: 0x%2"))
-                        .arg(bufferNumber)
-                        .arg(endHeader, 8, 16, QLatin1Char('0')));
-            logMessage(msg);
-            qDebug() << __PRETTY_FUNCTION__ << msg;
+        maybePutBackBuffer();
 
-            maybePutBackBuffer();
-
-            return ProcessorAction::SkipInput;
-        }
-
-        update_endHeader_counters(m_counters, endHeader, stacklist);
-
-        sis_trace(QString("sis3153 buffer #%1, endHeader=0x%2")
-                  .arg(bufferNumber)
-                  .arg(endHeader, 8, 16, QLatin1Char('0')));
+        return ProcessorAction::SkipInput;
     }
 
-    // Finish the event section in the output buffer: write an EndMarker
-    // and update the mvmeEventHeader with the correct size.
-    *(outputBuffer->asU32()) = EndMarker;
-    outputBuffer->used += sizeof(u32);
-    eventSectionSize++;
-    *mvmeEventHeader |= (eventSectionSize << LF::SectionSizeShift) & LF::SectionSizeMask;
+    update_endHeader_counters(m_counters, endHeader, stacklist);
+
+    sis_trace(QString("sis3153 buffer #%1, endHeader=0x%2")
+              .arg(bufferNumber)
+              .arg(endHeader, 8, 16, QLatin1Char('0')));
 
     return ProcessorAction::FlushBuffer;
 }

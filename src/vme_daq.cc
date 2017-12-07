@@ -205,10 +205,8 @@ struct DAQReadoutListfileHelperPrivate
 //
 // DAQReadoutListfileHelper
 //
-DAQReadoutListfileHelper::DAQReadoutListfileHelper(
-    VMEReadoutWorkerContext readoutContext, QObject *parent)
-    : QObject(parent)
-    , m_d(new DAQReadoutListfileHelperPrivate)
+DAQReadoutListfileHelper::DAQReadoutListfileHelper(VMEReadoutWorkerContext readoutContext)
+    : m_d(std::make_unique<DAQReadoutListfileHelperPrivate>())
     , m_readoutContext(readoutContext)
 {
     m_d->listfileWriter = std::make_unique<ListFileWriter>();
@@ -216,7 +214,6 @@ DAQReadoutListfileHelper::DAQReadoutListfileHelper(
 
 DAQReadoutListfileHelper::~DAQReadoutListfileHelper()
 {
-    delete m_d;
 }
 
 namespace
