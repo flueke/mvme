@@ -11,18 +11,20 @@
 
 struct MultiEventModuleInfo
 {
-    u32 *subEventHeader = nullptr;  // Points to the mvme header preceeding the module data.
-                                    // Null if the entry is not used.
+    /* Points to the mvme header preceeding the module data. nullptr if the
+     * entry is not used. */
+    u32 *subEventHeader = nullptr;
 
-    u32 *moduleHeader   = nullptr;  // Points to the current module data header.
+    /* Points to the current module data header. This is part of the readout
+     * data, not part of the mvme format structure. */
+    u32 *moduleHeader   = nullptr;
 
-
-    // The filter used to identify module headers and extract the module
-    // section size.
+    /* The filter used to identify module headers and extract the module
+     * section size. */
     a2::data_filter::DataFilter moduleHeaderFilter;
     a2::data_filter::CacheEntry filterCacheModuleSectionSize;
 
-    // Cache pointers to the corresponding module config.
+    /* Cache pointers to the corresponding module config. */
     ModuleConfig *moduleConfig = nullptr;
 };
 
@@ -119,6 +121,9 @@ void MVMEStreamProcessor::MVMEStreamProcessor::beginRun(
         auto eventConfig = eventConfigs[eventIndex];
         auto moduleConfigs = eventConfig->getModuleConfigs();
 
+        // multievent enable: start out with the setting for the EventConfig
+        m_d->doMultiEventProcessing[eventIndex] = eventConfig->isMultiEventProcessingEnabled();
+
         for (s32 moduleIndex = 0;
              moduleIndex < moduleConfigs.size();
              ++moduleIndex)
@@ -126,11 +131,22 @@ void MVMEStreamProcessor::MVMEStreamProcessor::beginRun(
             auto moduleConfig = moduleConfigs[moduleIndex];
             MultiEventModuleInfo &modInfo(m_d->eventInfos[eventIndex][moduleIndex]);
 
-            modInfo.moduleHeaderFilter = a2::data_filter::make_filter(
-                moduleConfig->getEventHeaderFilter().toStdString());
+            auto moduleEventHeaderFilter = moduleConfig->getEventHeaderFilter();
 
-            modInfo.filterCacheModuleSectionSize = a2::data_filter::make_cache_entry(
-                modInfo.moduleHeaderFilter, 'S');
+            if (moduleEventHeaderFilter.isEmpty())
+            {
+                // multievent enalbe: override the event setting as we don't
+                // have a filter for splitting the event data
+                m_d->doMultiEventProcessing[eventIndex] = false;
+            }
+            else
+            {
+                modInfo.moduleHeaderFilter = a2::data_filter::make_filter(
+                    moduleEventHeaderFilter.toStdString());
+
+                modInfo.filterCacheModuleSectionSize = a2::data_filter::make_cache_entry(
+                    modInfo.moduleHeaderFilter, 'S');
+            }
 
             modInfo.moduleConfig = moduleConfig;
 
@@ -139,7 +155,6 @@ void MVMEStreamProcessor::MVMEStreamProcessor::beginRun(
         }
 
         m_d->eventConfigs[eventIndex] = eventConfig;
-        m_d->doMultiEventProcessing[eventIndex] = eventConfig->isMultiEventProcessingEnabled();
     }
 
     const auto vmeMap = vme_analysis_common::build_id_to_index_mapping(vmeConfig);
@@ -185,10 +200,10 @@ void MVMEStreamProcessor::endRun()
 
 void MVMEStreamProcessor::processDataBuffer(DataBuffer *buffer)
 {
+    const auto bufferNumber = m_d->counters.buffersProcessed;
+
     try
     {
-        const auto bufferNumber = m_d->counters.buffersProcessed;
-
         BufferIterator iter(buffer->data, buffer->used, BufferIterator::Align32);
 
         for (auto c: m_d->bufferConsumers)
@@ -213,8 +228,8 @@ void MVMEStreamProcessor::processDataBuffer(DataBuffer *buffer)
             if (unlikely(sectionSize > iter.longwordsLeft()))
             {
 #ifdef MVME_STREAM_PROCESSOR_DEBUG
-                QString msg = (QString("Error (mvme stream): extracted section size exceeds buffer size!"
-                                       " mvme buffer #%1, sectionHeader=0x%2, sectionSize=%3, wordsLeftInBuffer=%4")
+                QString msg = (QString("Error (mvme stream, buffer#%1): extracted section size exceeds buffer size!"
+                                       " sectionHeader=0x%2, sectionSize=%3, wordsLeftInBuffer=%4")
                                .arg(bufferNumber)
                                .arg(sectionHeader, 8, 16, QLatin1Char('0'))
                                .arg(sectionSize)
@@ -270,11 +285,12 @@ void MVMEStreamProcessor::processDataBuffer(DataBuffer *buffer)
     }
     catch (const end_of_buffer &e)
     {
-        QString msg = QSL("Error (mvme stream): unexpectedly reached end of buffer");
+        QString msg = QSL("Error (mvme stream, buffer#%1): unexpectedly reached end of buffer").arg(bufferNumber);
         qDebug() << msg;
         logMessage(msg);
         m_d->counters.buffersWithErrors++;
 
+#if 0 // FIXME: I don't think calling endRun() on consumers here should be done
         for (auto c: m_d->bufferConsumers)
         {
             c->endRun(&e);
@@ -284,6 +300,7 @@ void MVMEStreamProcessor::processDataBuffer(DataBuffer *buffer)
         {
             c->endRun(&e);
         }
+#endif
 
         if (m_d->diag)
         {
@@ -311,8 +328,9 @@ void MVMEStreamProcessor::processExternalTimetick()
 
 void MVMEStreamProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 size)
 {
-    ++m_d->counters.eventSections;
-    u32 eventIndex = (sectionHeader & m_d->EventTypeMask) >> m_d->EventTypeShift;
+    m_d->counters.eventSections++;
+    const auto bufferNumber = m_d->counters.buffersProcessed;
+    const u32 eventIndex = (sectionHeader & m_d->EventTypeMask) >> m_d->EventTypeShift;
 
     if (unlikely(eventIndex >= m_d->eventConfigs.size()))
     {
@@ -404,7 +422,7 @@ void MVMEStreamProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 
     // (mod0, ev0), (mod1, ev0), .., (mod0, ev1), (mod1, ev1), ..
     //
 
-    // Avoid hanging in the loop below if the did not get a single subEventHeader in step 1
+    // Avoids hanging in the loop below if the did not get a single subEventHeader in step 1
     bool done = (moduleInfos[0].subEventHeader == nullptr);
     const u32 *ptrToLastWord = data + size;
     std::array<u32, MaxVMEModules> eventCountsByModule;
@@ -495,8 +513,7 @@ void MVMEStreamProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 
                 }
             }
             // Multievent splitting is possible. Check for a header match and extract the data size.
-            else if (a2::data_filter::matches(
-                    mi.moduleHeaderFilter, *mi.moduleHeader))
+            else if (a2::data_filter::matches(mi.moduleHeaderFilter, *mi.moduleHeader))
             {
 
                 u32 moduleEventSize = a2::data_filter::extract(
@@ -506,15 +523,13 @@ void MVMEStreamProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 
                 {
                     m_d->counters.buffersWithErrors++;
 
-                    QString msg = (QString("Error (mvme stream): extracted module event size (%1) exceeds buffer size!"
-                                           " eventIndex=%2, moduleIndex=%3, moduleHeader=0x%4, skipping event"
-                                           " (header+size=0x%5, ptrToLastWord=0x%6)")
+                    QString msg = (QString("Error (mvme stream, buffer#%1): extracted module event size (%2) exceeds buffer size!"
+                                           " eventIndex=%3, moduleIndex=%4, moduleHeader=0x%5, skipping event")
+                                   .arg(bufferNumber)
                                    .arg(moduleEventSize)
                                    .arg(eventIndex)
                                    .arg(moduleIndex)
                                    .arg(*mi.moduleHeader, 8, 16, QLatin1Char('0'))
-                                   .arg(reinterpret_cast<uintptr_t>(mi.moduleHeader + moduleEventSize), 8, 16, QLatin1Char('0'))
-                                   .arg(reinterpret_cast<uintptr_t>(ptrToLastWord), 8, 16, QLatin1Char('0'))
                                   );
                     qDebug() << msg;
                     emit logMessage(msg);
@@ -559,26 +574,22 @@ void MVMEStreamProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 
             }
             else
             {
+#ifdef MVME_STREAM_PROCESSOR_DEBUG
+                qDebug("%s moduleHeader=0x%08x did not match header filter -> done processing event section.",
+                       __PRETTY_FUNCTION__, *mi.moduleHeader);
+#endif
                 // We're at a data word inside the first module for which the
                 // header filter did not match. If the data is intact this
                 // should happen for the first module, meaning moduleIndex==0.
                 // At this point the same number of events have been processed
                 // for all modules in this event section. Checks could be done
                 // to make sure that all of the module header pointers now
-                // point to either BerrMarker or EndMarker. Also starting from
-                // the last modules pointer there should be optional
-                // BerrMarkers and an EndMarker followed by another EndMarker
-                // for the end of the event section we're in.
-                // TODO: implement the EndMarker checks
+                // point to either BerrMarker (in the case of vmusb) or
+                // EndMarker. Also starting from the last modules pointer there
+                // should be optional BerrMarkers and an EndMarker followed by
+                // another EndMarker for the end of the event section we're in.
+                // => Some checks are done below, outside the outer loop.
 
-#ifdef MVME_STREAM_PROCESSOR_DEBUG
-                qDebug("%s moduleHeader=0x%08x did not match header filter -> done processing event section.",
-                       __PRETTY_FUNCTION__, *mi.moduleHeader);
-#endif
-
-                // The data word did not match the module header filter. If the
-                // data structure is in intact this just means that we're at
-                // the end of the event section.
                 done = true;
                 break;
             }
@@ -609,24 +620,71 @@ void MVMEStreamProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 
         }
     }
 
-    u32 firstModuleCount = eventCountsByModule[0];
+    // Some final integrity checks
 
-    for (u32 moduleIndex = 0; moduleIndex < MaxVMEModules; ++moduleIndex)
+    if (m_d->doMultiEventProcessing[eventIndex])
     {
-        if (m_d->eventInfos[eventIndex][moduleIndex].subEventHeader)
+        bool err = false;
+
+        for (u32 moduleIndex = 0; moduleIndex < MaxVMEModules; ++moduleIndex)
         {
-            if (eventCountsByModule[moduleIndex] != firstModuleCount)
+            const auto &mi(m_d->eventInfos[eventIndex][moduleIndex]);
+
+            if (!mi.moduleHeader)
+                break;
+
+            u32 *endMarkerPtr = mi.moduleHeader;
+
+            // Skip over BerrMarkers inserted by VMUSB. One marker for BLT, two for
+            // MBLT but only if the readout actually hit Berr.
+            while (*endMarkerPtr == BerrMarker && endMarkerPtr <= ptrToLastWord) endMarkerPtr++;
+
+            if (*endMarkerPtr != EndMarker)
             {
-                QString msg = (QString("Error (mvme multievent): Unequal number of subevents!"
-                                       " eventIndex=%1, moduleIndex=%2, firstModuleCount=%3, thisModuleCount=%4")
-                               .arg(eventIndex)
-                               .arg(moduleIndex)
-                               .arg(firstModuleCount)
-                               .arg(eventCountsByModule[moduleIndex])
-                              );
+                QString msg = (QString(
+                        "Error (mvme stream, buffer#%1, multievent): "
+                        "module header filter did not match -> expected EndMarker but found "
+                        "0x%2, module data structure might be corrupt."
+                        " (eventIndex=%3, moduleIndex=%4)")
+                    .arg(bufferNumber)
+                    .arg(*endMarkerPtr, 8, 16, QLatin1Char('0'))
+                    .arg(eventIndex)
+                    .arg(moduleIndex)
+                    );
                 qDebug() << msg;
                 emit logMessage(msg);
+                err = true;
+                break; // reporting one error is enough
             }
+        }
+
+        u32 firstModuleCount = eventCountsByModule[0];
+
+        for (u32 moduleIndex = 0; moduleIndex < MaxVMEModules; ++moduleIndex)
+        {
+            if (m_d->eventInfos[eventIndex][moduleIndex].subEventHeader)
+            {
+                if (eventCountsByModule[moduleIndex] != firstModuleCount)
+                {
+                    QString msg = (QString("Error (mvme stream, buffer#%1, multievent): Unequal number of subevents!"
+                                           " eventIndex=%2, moduleIndex=%3, firstModuleCount=%4, thisModuleCount=%5")
+                                   .arg(bufferNumber)
+                                   .arg(eventIndex)
+                                   .arg(moduleIndex)
+                                   .arg(firstModuleCount)
+                                   .arg(eventCountsByModule[moduleIndex])
+                                  );
+                    qDebug() << msg;
+                    emit logMessage(msg);
+                    err = true;
+                    break; // reporting one error is enough
+                }
+            }
+        }
+
+        if (err)
+        {
+            m_d->counters.buffersWithErrors++;
         }
     }
 }
