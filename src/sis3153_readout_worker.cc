@@ -20,12 +20,14 @@
 #include "sis3153_readout_worker.h"
 
 #include <QCoreApplication>
+#include <QThread>
 
 #include "mvme_listfile.h"
 #include "sis3153/sis3153eth.h"
 #include "sis3153/sis3153ETH_vme_class.h"
 #include "sis3153_util.h"
 #include "util/perf.h"
+#include "vme_analysis_common.h"
 #include "vme_daq.h"
 
 #define SIS_READOUT_DEBUG               0   // enable debugging code (uses sis_trace())
@@ -440,6 +442,7 @@ namespace
 } // end anon namespace
 
 static const double WatchdogTimeout_s = 0.050;
+static const double PauseMaxSleep_ms = 125.0;
 
 SIS3153ReadoutWorker::PacketLossCounter::PacketLossCounter(Counters *counters,
                                                            VMEReadoutWorkerContext *rdoContext)
@@ -544,6 +547,8 @@ u32 SIS3153ReadoutWorker::PacketLossCounter::handlePacketNumber(s32 packetNumber
 //
 SIS3153ReadoutWorker::SIS3153ReadoutWorker(QObject *parent)
     : VMEReadoutWorker(parent)
+    , m_state(DAQState::Idle)
+    , m_desiredState(DAQState::Idle)
     , m_readBuffer(ReadBufferSize)
     , m_localEventBuffer(LocalBufferSize)
     , m_listfileHelper(nullptr)
@@ -1131,17 +1136,18 @@ void SIS3153ReadoutWorker::readoutLoop()
     elapsedTime.start();
     logReadErrorTimer.start();
 
+    using vme_analysis_common::TimetickGenerator;
+
+    TimetickGenerator timetickGen;
+
     while (true)
     {
-        processQtEvents();
-        s32 elapsedSeconds = elapsedTime.elapsed() / 1000;
-        if (elapsedSeconds >= 1)
+        int elapsedSeconds = timetickGen.generateElapsedSeconds();
+
+        while (elapsedSeconds >= 1)
         {
-            do
-            {
-                timetick();
-            } while (--elapsedSeconds);
-            elapsedTime.restart();
+            timetick();
+            elapsedSeconds--;
         }
 
         // stay in running state
@@ -1209,7 +1215,7 @@ void SIS3153ReadoutWorker::readoutLoop()
         else if (m_state == DAQState::Paused && m_desiredState == DAQState::Running)
         {
             /* Resume uses the main socket again as that's where SIS will send
-             * it's data. */
+             * its data. */
             auto error = sis->writeRegister(SIS3153ETH_STACK_LIST_CONTROL, m_stackListControlRegisterValue);
 
             if (error.isError())
@@ -1227,16 +1233,7 @@ void SIS3153ReadoutWorker::readoutLoop()
         // paused
         else if (m_state == DAQState::Paused)
         {
-            // In paused state process Qt events for a maximum of 1s, then run
-            // another iteration of the loop to handle timeticks.
-
-            // FIXME: this returns immediately which makes the loop eat the CPU.
-            // Using a local event loop and a timer fixes this but the timetick
-            // handling code at the top of the loop is horrible and loses the
-            // fractional part of a second. This means after a while the
-            // timeticks will be behind the walltime clock by a full second.
-            // This will increase continually.
-            qApp->processEvents(QEventLoop::WaitForMoreEvents, 1000);
+            QThread::msleep(std::min(PauseMaxSleep_ms, timetickGen.getTimeToNextTick()));
         }
         else
         {
@@ -1245,7 +1242,6 @@ void SIS3153ReadoutWorker::readoutLoop()
     }
 
     setState(DAQState::Stopping);
-    processQtEvents();
 
     // leave daq mode and read remaining data
     {
@@ -2212,6 +2208,7 @@ void SIS3153ReadoutWorker::setState(DAQState state)
     m_state = state;
     m_desiredState = state;
     emit stateChanged(state);
+    QCoreApplication::processEvents();
 }
 
 void SIS3153ReadoutWorker::logError(const QString &message)

@@ -131,8 +131,8 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
         void flushCurrentOutputBuffer();
         void maybePutBackBuffer();
 
-        DAQState m_state = DAQState::Idle;
-        DAQState m_desiredState = DAQState::Idle;
+        std::atomic<DAQState> m_state;
+        std::atomic<DAQState> m_desiredState;
         quint32 m_cyclesToRun = 0;
         DataBuffer m_readBuffer;
         SIS3153 *m_sis = nullptr;
