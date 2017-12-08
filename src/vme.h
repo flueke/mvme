@@ -2,7 +2,9 @@
 #define UUID_ac4de271_77a8_495e_b37b_999535689192
 /* VME constants
 
- * Copyright (C) 2016-2017  Florian Lüke <f.lueke@mesytec.com>
+ * Copyright (C) 2016-2017 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
