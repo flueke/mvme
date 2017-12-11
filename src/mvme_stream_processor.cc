@@ -135,7 +135,7 @@ void MVMEStreamProcessor::MVMEStreamProcessor::beginRun(
 
             if (moduleEventHeaderFilter.isEmpty())
             {
-                // multievent enalbe: override the event setting as we don't
+                // multievent enable: override the event setting as we don't
                 // have a filter for splitting the event data
                 m_d->doMultiEventProcessing[eventIndex] = false;
             }

@@ -33,10 +33,10 @@ class VMUSBReadoutWorker: public VMEReadoutWorker
         VMUSBReadoutWorker(QObject *parent = 0);
         ~VMUSBReadoutWorker();
 
-        virtual void start(quint32 cycles) override;
+        virtual void start(quint32 cycles = 0) override;
         virtual void stop() override;
         virtual void pause() override;
-        virtual void resume(quint32 cycles) override;
+        virtual void resume(quint32 cycles = 0) override;
         virtual bool isRunning() const override { return m_state != DAQState::Idle; }
         virtual DAQState getState() const override { return m_state; }
 

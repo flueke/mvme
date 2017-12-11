@@ -34,6 +34,8 @@
 #include "vme_controller_factory.h"
 #include "mvme_root_data_writer.h"
 
+#include "sis3153_readout_worker.h" // FIXME: remove once VMUSBReadoutWorker has been upated
+
 #ifdef MVME_USE_GIT_VERSION_FILE
 #include "git_sha1.h"
 #endif
@@ -142,7 +144,15 @@ void MVMEContextPrivate::stopDAQReadout()
 
     if (m_q->m_readoutWorker->isRunning())
     {
-        QTimer::singleShot(0, [this]() { QMetaObject::invokeMethod(m_q->m_readoutWorker, "stop", Qt::QueuedConnection); });
+        if (qobject_cast<SIS3153ReadoutWorker *>(m_q->m_readoutWorker))
+        {
+            m_q->m_readoutWorker->stop();
+        }
+        else
+        {
+            // TODO: invoke directly once vmusb readout worker has been updated
+            QTimer::singleShot(0, [this]() { QMetaObject::invokeMethod(m_q->m_readoutWorker, "stop", Qt::QueuedConnection); });
+        }
         auto con = QObject::connect(m_q->m_readoutWorker, &VMEReadoutWorker::daqStopped, &localLoop, &QEventLoop::quit);
         localLoop.exec();
         QObject::disconnect(con);
@@ -171,7 +181,15 @@ void MVMEContextPrivate::pauseDAQReadout()
 
     if (m_q->m_readoutWorker->getState() == DAQState::Running)
     {
-        QTimer::singleShot(0, [this]() { QMetaObject::invokeMethod(m_q->m_readoutWorker, "pause", Qt::QueuedConnection); });
+        if (qobject_cast<SIS3153ReadoutWorker *>(m_q->m_readoutWorker))
+        {
+            m_q->m_readoutWorker->pause();
+        }
+        else
+        {
+            QTimer::singleShot(0, [this]() { QMetaObject::invokeMethod(m_q->m_readoutWorker, "pause", Qt::QueuedConnection); });
+        }
+
         auto con = QObject::connect(m_q->m_readoutWorker, &VMEReadoutWorker::daqPaused, &localLoop, &QEventLoop::quit);
         localLoop.exec();
         QObject::disconnect(con);
@@ -183,7 +201,14 @@ void MVMEContextPrivate::pauseDAQReadout()
 
 void MVMEContextPrivate::resumeDAQReadout(u32 nEvents)
 {
-    QMetaObject::invokeMethod(m_q->m_readoutWorker, "resume", Qt::QueuedConnection, Q_ARG(quint32, nEvents));
+    if (qobject_cast<SIS3153ReadoutWorker *>(m_q->m_readoutWorker))
+    {
+        m_q->m_readoutWorker->resume();
+    }
+    else
+    {
+        QMetaObject::invokeMethod(m_q->m_readoutWorker, "resume", Qt::QueuedConnection, Q_ARG(quint32, nEvents));
+    }
 }
 
 void MVMEContextPrivate::stopDAQReplay()
@@ -473,7 +498,14 @@ MVMEContext::~MVMEContext()
 
         if (getMode() == GlobalMode::DAQ)
         {
-            QMetaObject::invokeMethod(m_readoutWorker, "stop", Qt::QueuedConnection);
+            if (qobject_cast<SIS3153ReadoutWorker *>(m_readoutWorker))
+            {
+                m_readoutWorker->stop();
+            }
+            else
+            {
+                QMetaObject::invokeMethod(m_readoutWorker, "stop", Qt::QueuedConnection);
+            }
         }
         else if (getMode() == GlobalMode::ListFile)
         {

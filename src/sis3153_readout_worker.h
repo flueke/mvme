@@ -34,10 +34,10 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
         SIS3153ReadoutWorker(QObject *parent = 0);
         ~SIS3153ReadoutWorker();
 
-        virtual void start(quint32 cycles) override;
+        virtual void start(quint32 cycles = 0) override;
         virtual void stop() override;
         virtual void pause() override;
-        virtual void resume(quint32 cycles) override;
+        virtual void resume(quint32 cycles = 0) override;
         virtual bool isRunning() const override;
         virtual DAQState getState() const override { return m_state; }
 

@@ -63,15 +63,14 @@ class VMEReadoutWorker: public QObject
         inline ThreadSafeDataBufferQueue *getFreeQueue() { return m_workerContext.freeBuffers; }
         inline ThreadSafeDataBufferQueue *getFullQueue() { return m_workerContext.fullBuffers; }
 
-        inline void start() { start(0); }
         virtual bool isRunning() const = 0;
         virtual DAQState getState() const = 0;
 
     public slots:
-        virtual void start(quint32 cycles) = 0;
+        virtual void start(quint32 cycles = 0) = 0;
         virtual void stop() = 0;
         virtual void pause() = 0;
-        virtual void resume(quint32 cycles) = 0;
+        virtual void resume(quint32 cycles = 0) = 0;
 
     protected:
         virtual void pre_setContext(VMEReadoutWorkerContext newContext) {}
