@@ -28,8 +28,10 @@
 #include <QDebug>
 
 #include "CVMUSBReadoutList.h"
+#include "util/perf.h"
 #include "vme_daq.h"
 #include "vmusb_buffer_processor.h"
+#include "vme_analysis_common.h"
 #include "vmusb.h"
 
 using namespace vmusb_constants;
@@ -123,6 +125,8 @@ namespace
 
 VMUSBReadoutWorker::VMUSBReadoutWorker(QObject *parent)
     : VMEReadoutWorker(parent)
+    , m_state(DAQState::Idle)
+    , m_desiredState(DAQState::Idle)
     , m_readBuffer(new DataBuffer(vmusb_constants::BufferMaxSize))
     , m_bufferProcessor(new VMUSBBufferProcessor(this))
 {
@@ -155,6 +159,8 @@ void VMUSBReadoutWorker::pre_setContext(VMEReadoutWorkerContext newContext)
  * controller. */
 static const int PostEnterDaqModeDelay_ms = 100;
 static const int PostLeaveDaqModeDelay_ms = 100;
+
+static const double PauseMaxSleep_ms = 125.0;
 
 static VMEError enter_daq_mode(VMUSB *vmusb, u32 additionalBits = 0, u32 ledSources = 0, u32 devSources = 0)
 {
@@ -482,25 +488,28 @@ void VMUSBReadoutWorker::start(quint32 cycles)
     }
 
     setState(DAQState::Idle);
-    emit daqStopped();
 }
 
 void VMUSBReadoutWorker::stop()
 {
-    if (!(m_state == DAQState::Running || m_state == DAQState::Paused))
-        return;
+    qDebug() << __PRETTY_FUNCTION__;
 
-    m_desiredState = DAQState::Stopping;
+    if (m_state == DAQState::Running || m_state == DAQState::Paused)
+        m_desiredState = DAQState::Stopping;
 }
 
 void VMUSBReadoutWorker::pause()
 {
+    qDebug() << __PRETTY_FUNCTION__;
+
     if (m_state == DAQState::Running)
         m_desiredState = DAQState::Paused;
 }
 
 void VMUSBReadoutWorker::resume(quint32 nCycles)
 {
+    qDebug() << __PRETTY_FUNCTION__ << nCycles;
+
     if (m_state == DAQState::Paused)
     {
         m_cyclesToRun = nCycles;
@@ -528,24 +537,18 @@ void VMUSBReadoutWorker::readoutLoop()
     u64 nReadErrors = 0;
     u64 nGoodReads = 0;
 
-    QTime elapsedTime;
-    elapsedTime.start();
+    using vme_analysis_common::TimetickGenerator;
+
+    TimetickGenerator timetickGen;
 
     while (true)
     {
-        // Qt event processing to handle queued slots invocations (stop, pause, resume)
-        processQtEvents();
+        int elapsedSeconds = timetickGen.generateElapsedSeconds();
 
-        // One timetick for every elapsed second.
-        s32 elapsedSeconds = elapsedTime.elapsed() / 1000;
-
-        if (elapsedSeconds >= 1)
+        while (elapsedSeconds >= 1)
         {
-            do
-            {
-                m_bufferProcessor->timetick();
-            } while (--elapsedSeconds);
-            elapsedTime.restart();
+            m_bufferProcessor->timetick();
+            elapsedSeconds--;
         }
 
         // pause
@@ -566,7 +569,6 @@ void VMUSBReadoutWorker::readoutLoop()
                 throw QString("Error leaving VMUSB DAQ mode: setDeviceSources() failed: %1").arg(error.toString());
 
             setState(DAQState::Paused);
-            emit daqPaused();
             logMessage(QSL("VMUSB readout paused"));
         }
         // resume
@@ -586,7 +588,7 @@ void VMUSBReadoutWorker::readoutLoop()
             break;
         }
         // stay in running state
-        else if (m_state == DAQState::Running)
+        else if (likely(m_state == DAQState::Running))
         {
             auto readResult = readBuffer(daqReadTimeout_ms);
 
@@ -672,25 +674,15 @@ void VMUSBReadoutWorker::readoutLoop()
         }
         else if (m_state == DAQState::Paused)
         {
-            // In paused state process Qt events for a maximum of 1s, then run
-            // another iteration of the loop to handle timeticks.
-
-            // FIXME: this returns immediately which makes the loop eat the CPU.
-            // Using a local event loop and a timer fixes this but the timetick
-            // handling code at the top of the loop is horrible and loses the
-            // fractional part of a second. This means after a while the
-            // timeticks will be behind the walltime clock by a full second.
-            // This will increase continually.
-            qApp->processEvents(QEventLoop::WaitForMoreEvents, 1000);
+            QThread::msleep(std::min(PauseMaxSleep_ms, timetickGen.getTimeToNextTick()));
         }
         else
         {
-            Q_ASSERT(!"Unhandled case in vmusb readoutLoop");
+            InvalidCodePath;
         }
     }
 
     setState(DAQState::Stopping);
-    processQtEvents();
 
     qDebug() << __PRETTY_FUNCTION__ << "left readoutLoop, reading remaining data";
     error = leave_daq_mode(vmusb);
@@ -714,6 +706,24 @@ void VMUSBReadoutWorker::setState(DAQState state)
     m_state = state;
     m_desiredState = state;
     emit stateChanged(state);
+
+    switch (state)
+    {
+        case DAQState::Idle:
+            emit daqStopped();
+            break;
+
+        case DAQState::Paused:
+            emit daqPaused();
+            break;
+
+        case DAQState::Starting:
+        case DAQState::Running:
+        case DAQState::Stopping:
+            break;
+    }
+
+    QCoreApplication::processEvents();
 }
 
 void VMUSBReadoutWorker::logError(const QString &message)

@@ -144,15 +144,7 @@ void MVMEContextPrivate::stopDAQReadout()
 
     if (m_q->m_readoutWorker->isRunning())
     {
-        if (qobject_cast<SIS3153ReadoutWorker *>(m_q->m_readoutWorker))
-        {
-            m_q->m_readoutWorker->stop();
-        }
-        else
-        {
-            // TODO: invoke directly once vmusb readout worker has been updated
-            QTimer::singleShot(0, [this]() { QMetaObject::invokeMethod(m_q->m_readoutWorker, "stop", Qt::QueuedConnection); });
-        }
+        m_q->m_readoutWorker->stop();
         auto con = QObject::connect(m_q->m_readoutWorker, &VMEReadoutWorker::daqStopped, &localLoop, &QEventLoop::quit);
         localLoop.exec();
         QObject::disconnect(con);
@@ -181,15 +173,7 @@ void MVMEContextPrivate::pauseDAQReadout()
 
     if (m_q->m_readoutWorker->getState() == DAQState::Running)
     {
-        if (qobject_cast<SIS3153ReadoutWorker *>(m_q->m_readoutWorker))
-        {
-            m_q->m_readoutWorker->pause();
-        }
-        else
-        {
-            QTimer::singleShot(0, [this]() { QMetaObject::invokeMethod(m_q->m_readoutWorker, "pause", Qt::QueuedConnection); });
-        }
-
+        m_q->m_readoutWorker->pause();
         auto con = QObject::connect(m_q->m_readoutWorker, &VMEReadoutWorker::daqPaused, &localLoop, &QEventLoop::quit);
         localLoop.exec();
         QObject::disconnect(con);
@@ -201,14 +185,7 @@ void MVMEContextPrivate::pauseDAQReadout()
 
 void MVMEContextPrivate::resumeDAQReadout(u32 nEvents)
 {
-    if (qobject_cast<SIS3153ReadoutWorker *>(m_q->m_readoutWorker))
-    {
-        m_q->m_readoutWorker->resume();
-    }
-    else
-    {
-        QMetaObject::invokeMethod(m_q->m_readoutWorker, "resume", Qt::QueuedConnection, Q_ARG(quint32, nEvents));
-    }
+    m_q->m_readoutWorker->resume();
 }
 
 void MVMEContextPrivate::stopDAQReplay()
@@ -498,14 +475,7 @@ MVMEContext::~MVMEContext()
 
         if (getMode() == GlobalMode::DAQ)
         {
-            if (qobject_cast<SIS3153ReadoutWorker *>(m_readoutWorker))
-            {
-                m_readoutWorker->stop();
-            }
-            else
-            {
-                QMetaObject::invokeMethod(m_readoutWorker, "stop", Qt::QueuedConnection);
-            }
+            m_readoutWorker->stop();
         }
         else if (getMode() == GlobalMode::ListFile)
         {

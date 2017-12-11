@@ -60,8 +60,8 @@ class VMUSBReadoutWorker: public VMEReadoutWorker
 
         ReadBufferResult readBuffer(int timeout_ms);
 
-        DAQState m_state = DAQState::Idle;
-        DAQState m_desiredState = DAQState::Idle;
+        std::atomic<DAQState> m_state;
+        std::atomic<DAQState> m_desiredState;
         quint32 m_cyclesToRun = 0;
         VMUSBStack m_vmusbStack;
         DataBuffer *m_readBuffer = 0;

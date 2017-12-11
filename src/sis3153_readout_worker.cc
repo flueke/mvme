@@ -2187,7 +2187,7 @@ void SIS3153ReadoutWorker::pause()
 
 void SIS3153ReadoutWorker::resume(quint32 cycles)
 {
-    qDebug() << __PRETTY_FUNCTION__;
+    qDebug() << __PRETTY_FUNCTION__ << cycles;
 
     if (m_state == DAQState::Paused)
     {
