@@ -332,7 +332,8 @@ void MVMEStreamProcessor::processEventSection(u32 sectionHeader, u32 *data, u32 
     const auto bufferNumber = m_d->counters.buffersProcessed;
     const u32 eventIndex = (sectionHeader & m_d->EventTypeMask) >> m_d->EventTypeShift;
 
-    if (unlikely(eventIndex >= m_d->eventConfigs.size()))
+    if (unlikely(eventIndex >= m_d->eventConfigs.size()
+                 || !m_d->eventConfigs[eventIndex]))
     {
         ++m_d->counters.invalidEventIndices;
         qDebug() << __PRETTY_FUNCTION__ << "no event config for eventIndex = " << eventIndex
