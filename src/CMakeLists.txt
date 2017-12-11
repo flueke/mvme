@@ -247,7 +247,9 @@ add_mvme_executable(dev_listfile_tcp_sender "dev_listfile_tcp_sender.cc")
 add_mvme_executable(dev_listfile_tcp_receiver "dev_listfile_tcp_receiver.cc")
 install(TARGETS dev_listfile_tcp_sender dev_listfile_tcp_receiver DESTINATION .)
 
+if (ENABLE_HDF5)
 add_mvme_executable(dev_mvme_event_processing "dev_mvme_event_processing.cc")
+endif(ENABLE_HDF5)
 
 if (ENABLE_ROOT AND ROOT_FOUND)
     set(mvme_root_LIBS
