@@ -888,7 +888,7 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
          * for the watchdog.
          *
          */
-        if (controllerSettings.value(QSL("EnableWatchdog"), true).toBool())
+        if (!controllerSettings.value(QSL("DisableWatchdog")).toBool())
         {
             if (stackListIndex <= SIS3153Constants::NumberOfStackLists)
             {

@@ -51,6 +51,6 @@ class SIS3153EthSettingsWidget: public VMEControllerSettingsWidget
         QCheckBox *m_cb_jumboFrames;
         QCheckBox *m_cb_debugRawBuffers;
         QCheckBox *m_cb_disableBuffering;
-        QCheckBox *m_cb_enableWatchdog;
+        QCheckBox *m_cb_disableWatchdog;
 };
 #endif /* __VME_CONTROLLER_UI_P_H__ */
