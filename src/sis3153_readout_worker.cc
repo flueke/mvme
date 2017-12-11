@@ -1681,10 +1681,9 @@ u32 SIS3153ReadoutWorker::processSingleEventData(
     DataBuffer *outputBuffer = getOutputBuffer();
     outputBuffer->ensureCapacity(size * 2);
     MVMEStreamWriterHelper streamWriter(outputBuffer);
+    int writerFlags = 0;
 
     streamWriter.openEventSection(eventIndex);
-    bool eventSectionSizeExceeded = false;
-    bool moduleSectionSizeExceeded = false;
 
     auto moduleConfigs = eventConfig->getModuleConfigs();
     const s32 moduleCount = moduleConfigs.size();
@@ -1694,63 +1693,35 @@ u32 SIS3153ReadoutWorker::processSingleEventData(
 #if SIS_READOUT_DEBUG
         qDebug() << __PRETTY_FUNCTION__ << "moduleIndex =" << moduleIndex << ", moduleCount =" << moduleCount;
 #endif
-        try
-        {
-            auto moduleConfig = moduleConfigs.at(moduleIndex);
-            streamWriter.openModuleSection((u32)moduleConfig->getModuleMeta().typeId);
-        }
-        catch (const MVMEStreamWriterSizeError &)
-        {
-            eventSectionSizeExceeded = true;
-        }
+        auto moduleConfig = moduleConfigs.at(moduleIndex);
+        writerFlags |= streamWriter.openModuleSection((u32)moduleConfig->getModuleMeta().typeId);
 
         // copy module data to output
         while (true)
         {
-            try
-            {
-                u32 data = iter.extractU32();
-                streamWriter.writeModuleData(data);
+            u32 data = iter.extractU32();
 
-                if (data == EndMarker)
-                {
-                    break;
-                }
-            }
-            catch (const MVMEStreamWriterSizeError &)
+            if (streamWriter.hasOpenModuleSection())
             {
-                moduleSectionSizeExceeded = true;
-                // The error could also be caused by the event section size
-                // being exceeded but that's handled after the loop.
+                writerFlags |= streamWriter.writeModuleData(data);
             }
-            catch (const MVMEStreamWriterLogicError &)
+
+            if (data == EndMarker)
             {
-                // can happen if the call to openModuleSection() above failed
+                break;
             }
         }
 
-        try
+        if (streamWriter.hasOpenModuleSection())
         {
-            u32 moduleSectionBytes = streamWriter.closeModuleSection();
+            u32 moduleSectionBytes = streamWriter.closeModuleSection().sectionSize;
             m_workerContext.daqStats->totalNetBytesRead += moduleSectionBytes;
         }
-        catch (const MVMEStreamWriterLogicError &)
-        {
-            // can happen if the call to openModuleSection() above failed
-        }
     }
 
-    try
-    {
-        // Write the final EndMarker into the current event section
-        streamWriter.writeEventData(EndMarker);
-    }
-    catch (const MVMEStreamWriterSizeError)
-    {
-        eventSectionSizeExceeded = true;
-    }
+    writerFlags |= streamWriter.writeEventData(EndMarker);
 
-    // Close the event section. This should not throw.
+    // Close the event section. This should not throw/cause an error.
     streamWriter.closeEventSection();
 
     // check endHeader (0xee...)
@@ -1769,7 +1740,7 @@ u32 SIS3153ReadoutWorker::processSingleEventData(
         return ProcessorAction::SkipInput;
     }
 
-    if (moduleSectionSizeExceeded)
+    if (writerFlags & MVMEStreamWriterHelper::ModuleSizeExceeded)
     {
         auto msg = (QString(QSL("SIS3153 Warning: (buffer #%1) maximum module data size exceeded. "
                                 "Data will be truncated! (eventIndex=%2)"))
@@ -1779,7 +1750,7 @@ u32 SIS3153ReadoutWorker::processSingleEventData(
         qDebug() << __PRETTY_FUNCTION__ << msg;
     }
 
-    if (eventSectionSizeExceeded)
+    if (writerFlags & MVMEStreamWriterHelper::EventSizeExceeded)
     {
         auto msg = (QString(QSL("SIS3153 Warning: (buffer #%1) maximum event section size exceeded. "
                                 "Data will be truncated! (eventIndex=%2)"))
@@ -1959,8 +1930,7 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
 
     auto moduleConfigs = eventConfig->getModuleConfigs();
     const s32 moduleCount = moduleConfigs.size();
-    bool eventSectionSizeExceeded = false;
-    bool moduleSectionSizeExceeded = false;
+    int writerFlags = 0;
 
     while (true)
     {
@@ -2002,14 +1972,7 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
                 return ProcessorAction::SkipInput;
             }
 
-            try
-            {
-                m_processingState.streamWriter.openModuleSection((u32)moduleConfig->getModuleMeta().typeId);
-            }
-            catch (const MVMEStreamWriterSizeError &)
-            {
-                eventSectionSizeExceeded = true;
-            }
+            writerFlags |= m_processingState.streamWriter.openModuleSection((u32)moduleConfig->getModuleMeta().typeId);
         }
 
         // copy module data to output
@@ -2017,42 +1980,24 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
 
         while (iter.longwordsLeft() > minwords)
         {
-            try
-            {
-                u32 data = iter.extractU32();
-                m_processingState.streamWriter.writeModuleData(data);
+            u32 data = iter.extractU32();
 
-                if (data == EndMarker)
+            writerFlags |= m_processingState.streamWriter.writeModuleData(data);
+
+            if (data == EndMarker)
+            {
+                if (m_processingState.streamWriter.hasOpenModuleSection())
                 {
-                    if (m_processingState.streamWriter.hasOpenModuleSection())
-                    {
-                        try
-                        {
-                            u32 moduleSectionBytes = m_processingState.streamWriter.closeModuleSection();
-                            m_workerContext.daqStats->totalNetBytesRead += moduleSectionBytes;
-                        }
-                        catch (const MVMEStreamWriterLogicError &)
-                        {
-                            // can happen if the call to openModuleSection() above failed
-                        }
-
-                        m_processingState.moduleIndex++;
-                    }
-                    break;
+                    u32 moduleSectionBytes = m_processingState.streamWriter.closeModuleSection().sectionSize;
+                    m_workerContext.daqStats->totalNetBytesRead += moduleSectionBytes;
+                    m_processingState.moduleIndex++;
                 }
-            }
-            catch (const MVMEStreamWriterSizeError &)
-            {
-                moduleSectionSizeExceeded = true;
-            }
-            catch (const MVMEStreamWriterLogicError &)
-            {
-                // can happen if the call to openModuleSection() above failed
+                break;
             }
         }
     }
 
-    if (moduleSectionSizeExceeded)
+    if (writerFlags & MVMEStreamWriterHelper::ModuleSizeExceeded)
     {
         auto msg = (QString(QSL("SIS3153 Warning: (buffer #%1) maximum module data size exceeded. "
                                 "Data will be truncated! (eventIndex=%2)"))
@@ -2062,7 +2007,7 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
         qDebug() << __PRETTY_FUNCTION__ << msg;
     }
 
-    if (eventSectionSizeExceeded)
+    if (writerFlags & MVMEStreamWriterHelper::EventSizeExceeded)
     {
         auto msg = (QString(QSL("SIS3153 Warning: (buffer #%1) maximum event section size exceeded. "
                                 "Data will be truncated! (eventIndex=%2)"))
@@ -2089,20 +2034,13 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
 
         update_endHeader_counters(m_counters, endHeader, stacklist);
 
-        try
-        {
-            // Write the final EndMarker into the current event section
-            m_processingState.streamWriter.writeEventData(EndMarker);
-        }
-        catch (const MVMEStreamWriterSizeError)
-        {
-            eventSectionSizeExceeded = true;
-        }
+        // Write the final EndMarker into the current event section
+        writerFlags |= m_processingState.streamWriter.writeEventData(EndMarker);
 
         // Close the event section. This should not throw.
         m_processingState.streamWriter.closeEventSection();
 
-        if (eventSectionSizeExceeded)
+        if (writerFlags & MVMEStreamWriterHelper::EventSizeExceeded)
         {
             auto msg = (QString(QSL("SIS3153 Warning: (buffer #%1) maximum event section size exceeded. "
                                     "Data will be truncated! (eventIndex=%2)"))

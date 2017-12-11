@@ -29,7 +29,7 @@
 #include <quazipfile.h>
 #include <quazip.h>
 
-#include "mvme_listfile.h"
+#include "mvme_stream_util.h"
 #include "vme_daq.h"
 #include "vmusb.h"
 #include "vmusb_util.h"
@@ -119,13 +119,9 @@ static void throw_io_device_error(QIODevice *device)
  */
 struct ProcessorState
 {
+    MVMEStreamWriterHelper streamWriter;
+
     s32 stackID = -1;                   // stack id of the current event or -1 if no event is "in progress".
-
-    s32 eventSize = 0;                  // size of the event section in 32-bit words.
-    size_t eventHeaderOffset = 0;       // offset into the output buffer
-
-    s32 moduleSize = 0;                 // size of the module section in 32-bit words.
-    ssize_t moduleHeaderOffset = -1;      // offset into the output buffer or -1 if no moduleHeader has been written yet
     s32 moduleIndex = -1;               // index into the list of eventconfigs or -1 if no module is "in progress"
 
     /* VMUSB uses 16-bit words internally which means it can split our 32-bit
@@ -479,8 +475,6 @@ void VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
 u32 VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputBuffer, ProcessorState *state, u64 bufferNumber,
                                        u16 eventIndex, u16 numberOfEvents)
 {
-    using LF = listfile_v1;
-
     if (iter.shortwordsLeft() < 1)
     {
         auto msg = QString(QSL("VMUSB Error: (buffer #%1) processEvent(): end of buffer when extracting event header"))
@@ -585,19 +579,13 @@ u32 VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputB
 
     if (state->stackID < 0)
     {
+        int configEventIndex = m_d->m_readoutWorker->getContext().vmeConfig->getEventConfigs().indexOf(eventConfig);
+
         *state = ProcessorState();
         state->stackID = stackID;;
         state->wasPartial = partialEvent;
-
-        state->eventHeaderOffset = outputBuffer->used;
-        u32 *mvmeEventHeader = outputBuffer->asU32();
-        outputBuffer->used += sizeof(u32);
-
-        /* Store the event index in the header. */
-        // FIXME: store the list of event configs in Private and speed up the lookup somehow
-        int configEventIndex = m_d->m_readoutWorker->getContext().vmeConfig->getEventConfigs().indexOf(eventConfig);
-        *mvmeEventHeader = (ListfileSections::SectionType_Event << LF::SectionTypeShift) & LF::SectionTypeMask;
-        *mvmeEventHeader |= (configEventIndex << LF::EventTypeShift) & LF::EventTypeMask;
+        state->streamWriter.setOutputBuffer(outputBuffer);
+        state->streamWriter.openEventSection(configEventIndex);
 
 #ifdef BPDEBUG
         qDebug() << __PRETTY_FUNCTION__
@@ -622,7 +610,7 @@ u32 VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputB
 
     while (true)
     {
-        if (state->moduleIndex < 0 || state->moduleHeaderOffset < 0)
+        if (!state->streamWriter.hasOpenModuleSection())
         {
             // Have to write a new module header
 
@@ -632,11 +620,8 @@ u32 VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputB
             }
             else
             {
-                ++state->moduleIndex;
+                state->moduleIndex++;
             }
-
-            state->moduleSize = 0;
-            state->moduleHeaderOffset = outputBuffer->used;
 
             if (state->moduleIndex >= moduleCount)
             {
@@ -656,24 +641,11 @@ u32 VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputB
             }
 
             auto moduleConfig = moduleConfigs[state->moduleIndex];
-            u32 *moduleHeader = outputBuffer->asU32();
-            *moduleHeader = (((u32)moduleConfig->getModuleMeta().typeId) << LF::ModuleTypeShift) & LF::ModuleTypeMask;
-            outputBuffer->used += sizeof(u32);
-            ++state->eventSize; // increment for the moduleHeader
-
-#ifdef BPDEBUG
-            qDebug() << __PRETTY_FUNCTION__
-                << "buffer #" << bufferNumber
-                << "eventIndex =" << eventIndex
-                << "moduleIndex =" << state->moduleIndex
-                << "writing moduleHeader @" << moduleHeader
-                << "moduleHeader =" << QString::number(*moduleHeader, 16)
-                ;
-#endif
+            state->streamWriter.openModuleSection((u32)moduleConfig->getModuleMeta().typeId);
         }
 
         Q_ASSERT(state->moduleIndex >= 0);
-        Q_ASSERT(state->moduleHeaderOffset >= 0);
+        Q_ASSERT(state->streamWriter.moduleHeaderOffset() >= 0);
 
         s32 moduleIndex = state->moduleIndex;
 
@@ -709,32 +681,17 @@ u32 VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputB
                 break;
             }
 
-            // copy data and increment pointers and sizes
-            *(outputBuffer->asU32()) = data;
-            outputBuffer->used += sizeof(u32);
-            ++state->moduleSize;
-            ++state->eventSize;
+            // copy module data to output
+            state->streamWriter.writeModuleData(data);
 
             if (data == EndMarker)
             {
-                // The EndMarker for the module data was found. Update the moduleHeader to contain the correct size.
-                u32 *moduleHeader = outputBuffer->asU32(state->moduleHeaderOffset);
-                *moduleHeader |= (state->moduleSize << LF::SubEventSizeShift) & LF::SubEventSizeMask;
-                m_d->m_readoutWorker->getContext().daqStats->totalNetBytesRead += state->moduleSize * sizeof(u32);
+                if (state->streamWriter.hasOpenModuleSection())
+                {
+                    u32 moduleSectionBytes = state->streamWriter.closeModuleSection().sectionSize;
+                    m_d->m_readoutWorker->getContext().daqStats->totalNetBytesRead += moduleSectionBytes;
+                }
 
-#ifdef BPDEBUG
-                qDebug() << __PRETTY_FUNCTION__
-                    << "buffer #" << bufferNumber
-                    << "eventIndex =" << eventIndex
-                    << "moduleIndex =" << state->moduleIndex
-                    << "updated moduleHeader @" << moduleHeader
-                    << "with size =" << state->moduleSize
-                    << "moduleHeader =" << QString::number(*moduleHeader, 16)
-                    ;
-#endif
-
-                // Update state so that a new module section will be started but keep the moduleIndex.
-                state->moduleHeaderOffset = -1;
                 break;
             }
         }
@@ -815,24 +772,8 @@ u32 VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputB
     {
         // Finish the event section in the output buffer: write an EndMarker
         // and update the mvmeEventHeader with the correct size.
-
-        *(outputBuffer->asU32()) = EndMarker;
-        outputBuffer->used += sizeof(u32);
-        ++state->eventSize;
-
-        u32 *mvmeEventHeader = outputBuffer->asU32(state->eventHeaderOffset);
-        u32 backupEventHeader = *mvmeEventHeader;
-        *mvmeEventHeader |= (state->eventSize << LF::SectionSizeShift) & LF::SectionSizeMask;
-
-#ifdef BPDEBUG
-        qDebug() << __PRETTY_FUNCTION__
-            << "buffer #" << bufferNumber
-            << "updated mvmeEventHeader @" << mvmeEventHeader
-            << "with size =" << state->eventSize
-            << "mvmeEventHeader =" << QString::number(*mvmeEventHeader, 16)
-            << "backupEventHeader =" << QString::number(backupEventHeader, 16)
-            ;
-#endif
+        state->streamWriter.writeEventData(EndMarker);
+        state->streamWriter.closeEventSection();
 
         if (state->wasPartial)
         {

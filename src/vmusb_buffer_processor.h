@@ -26,6 +26,8 @@
 #include <QObject>
 #include <QMap>
 
+#include "vme_daq.h"
+
 class EventConfig;
 class BufferIterator;
 class ListFileWriter;
@@ -64,7 +66,7 @@ class VMUSBBufferProcessor: public QObject
 
         QMap<int, EventConfig *> m_eventConfigByStackID;
         DataBuffer m_localEventBuffer;
-        ListFileWriter *m_listFileWriter = nullptr;
+        std::unique_ptr<DAQReadoutListfileHelper> m_listfileHelper;
         bool m_logBuffers = false;
         VMUSB *m_vmusb = nullptr;
 };
