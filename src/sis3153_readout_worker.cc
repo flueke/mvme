@@ -1740,25 +1740,7 @@ u32 SIS3153ReadoutWorker::processSingleEventData(
         return ProcessorAction::SkipInput;
     }
 
-    if (writerFlags & MVMEStreamWriterHelper::ModuleSizeExceeded)
-    {
-        auto msg = (QString(QSL("SIS3153 Warning: (buffer #%1) maximum module data size exceeded. "
-                                "Data will be truncated! (eventIndex=%2)"))
-                    .arg(bufferNumber)
-                    .arg(eventIndex));
-        logMessage(msg);
-        qDebug() << __PRETTY_FUNCTION__ << msg;
-    }
-
-    if (writerFlags & MVMEStreamWriterHelper::EventSizeExceeded)
-    {
-        auto msg = (QString(QSL("SIS3153 Warning: (buffer #%1) maximum event section size exceeded. "
-                                "Data will be truncated! (eventIndex=%2)"))
-                    .arg(bufferNumber)
-                    .arg(eventIndex));
-        logMessage(msg);
-        qDebug() << __PRETTY_FUNCTION__ << msg;
-    }
+    warnIfStreamWriterError(bufferNumber, writerFlags, eventIndex);
 
     update_endHeader_counters(m_counters, endHeader, stacklist);
 
@@ -1997,25 +1979,7 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
         }
     }
 
-    if (writerFlags & MVMEStreamWriterHelper::ModuleSizeExceeded)
-    {
-        auto msg = (QString(QSL("SIS3153 Warning: (buffer #%1) maximum module data size exceeded. "
-                                "Data will be truncated! (eventIndex=%2)"))
-                    .arg(bufferNumber)
-                    .arg(eventIndex));
-        logMessage(msg);
-        qDebug() << __PRETTY_FUNCTION__ << msg;
-    }
-
-    if (writerFlags & MVMEStreamWriterHelper::EventSizeExceeded)
-    {
-        auto msg = (QString(QSL("SIS3153 Warning: (buffer #%1) maximum event section size exceeded. "
-                                "Data will be truncated! (eventIndex=%2)"))
-                    .arg(bufferNumber)
-                    .arg(eventIndex));
-        logMessage(msg);
-        qDebug() << __PRETTY_FUNCTION__ << msg;
-    }
+    warnIfStreamWriterError(bufferNumber, writerFlags, eventIndex);
 
     if (isLastPacket)
     {
@@ -2209,4 +2173,27 @@ void SIS3153ReadoutWorker::maybePutBackBuffer()
     }
 
     m_outputBuffer = nullptr;
+}
+
+void SIS3153ReadoutWorker::warnIfStreamWriterError(u64 bufferNumber, int writerFlags, u16 eventIndex)
+{
+    if (writerFlags & MVMEStreamWriterHelper::ModuleSizeExceeded)
+    {
+        auto msg = (QString(QSL("SIS3153 Warning: (buffer #%1) maximum module data size exceeded. "
+                                "Data will be truncated! (eventIndex=%2)"))
+                    .arg(bufferNumber)
+                    .arg(eventIndex));
+        logMessage(msg);
+        qDebug() << __PRETTY_FUNCTION__ << msg;
+    }
+
+    if (writerFlags & MVMEStreamWriterHelper::EventSizeExceeded)
+    {
+        auto msg = (QString(QSL("SIS3153 Warning: (buffer #%1) maximum event section size exceeded. "
+                                "Data will be truncated! (eventIndex=%2)"))
+                    .arg(bufferNumber)
+                    .arg(eventIndex));
+        logMessage(msg);
+        qDebug() << __PRETTY_FUNCTION__ << msg;
+    }
 }
