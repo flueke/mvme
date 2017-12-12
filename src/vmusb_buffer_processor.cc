@@ -234,6 +234,29 @@ void VMUSBBufferProcessor::resetRunState()
     m_d->m_state = ProcessorState();
 }
 
+void VMUSBBufferProcessor::warnIfStreamWriterError(u64 bufferNumber, int writerFlags, u16 eventIndex)
+{
+    if (writerFlags & MVMEStreamWriterHelper::ModuleSizeExceeded)
+    {
+        auto msg = (QString(QSL("VMUSB Warning: (buffer #%1) maximum module data size exceeded. "
+                                "Data will be truncated! (eventIndex=%2)"))
+                    .arg(bufferNumber)
+                    .arg(eventIndex));
+        logMessage(msg);
+        qDebug() << __PRETTY_FUNCTION__ << msg;
+    }
+
+    if (writerFlags & MVMEStreamWriterHelper::EventSizeExceeded)
+    {
+        auto msg = (QString(QSL("VMUSB Warning: (buffer #%1) maximum event section size exceeded. "
+                                "Data will be truncated! (eventIndex=%2)"))
+                    .arg(bufferNumber)
+                    .arg(eventIndex));
+        logMessage(msg);
+        qDebug() << __PRETTY_FUNCTION__ << msg;
+    }
+}
+
 // Returns the current output buffer if one is set. Otherwise sets and returns
 // a new output buffer.
 //
@@ -295,10 +318,10 @@ void VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
         u16 numberOfEvents  = header1 & Buffer::NumberOfEventsMask;
 
 #ifdef BPDEBUG
-        qDebug("%s buffer #%llu, buffer_size=%u, header1: 0x%08x, lastBuffer=%d"
+        qDebug("%s buffer #%lu, buffer_size=%lu, header1: 0x%08x, lastBuffer=%d"
                ", scalerBuffer=%d, continuousMode=%d, multiBuffer=%d, numberOfEvents=%u",
                __PRETTY_FUNCTION__,
-               bufferNumber, readBuffer->used, header1, lastBuffer, scalerBuffer,
+               (long unsigned) bufferNumber, readBuffer->used, header1, lastBuffer, scalerBuffer,
                continuousMode, multiBuffer, numberOfEvents);
 #endif
 
@@ -364,6 +387,7 @@ void VMUSBBufferProcessor::processBuffer(DataBuffer *readBuffer)
                 }
 
                 m_d->m_outputBuffer = outputBuffer = nullptr;
+                state->streamWriter.setOutputBuffer(nullptr);
             }
         }
 
@@ -563,6 +587,7 @@ u32 VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputB
 
     auto moduleConfigs = eventConfig->getModuleConfigs();
     const s32 moduleCount = moduleConfigs.size();
+    int writerFlags = 0;
 
     if (moduleCount == 0)
     {
@@ -586,14 +611,6 @@ u32 VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputB
         state->wasPartial = partialEvent;
         state->streamWriter.setOutputBuffer(outputBuffer);
         state->streamWriter.openEventSection(configEventIndex);
-
-#ifdef BPDEBUG
-        qDebug() << __PRETTY_FUNCTION__
-            << "buffer #" << bufferNumber
-            << "writing mvmeEventHeader @" << mvmeEventHeader
-            << "mvmeEventHeader =" << QString::number(*mvmeEventHeader, 16)
-            ;
-#endif
     }
     else
     {
@@ -641,7 +658,7 @@ u32 VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputB
             }
 
             auto moduleConfig = moduleConfigs[state->moduleIndex];
-            state->streamWriter.openModuleSection((u32)moduleConfig->getModuleMeta().typeId);
+            writerFlags |= state->streamWriter.openModuleSection((u32)moduleConfig->getModuleMeta().typeId);
         }
 
         Q_ASSERT(state->moduleIndex >= 0);
@@ -682,7 +699,10 @@ u32 VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputB
             }
 
             // copy module data to output
-            state->streamWriter.writeModuleData(data);
+            if (state->streamWriter.hasOpenModuleSection())
+            {
+                writerFlags |= state->streamWriter.writeModuleData(data);
+            }
 
             if (data == EndMarker)
             {
@@ -718,7 +738,6 @@ u32 VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputB
             << "buffer #" << bufferNumber
             << "eventIndex =" << eventIndex
             << "moduleIndex =" << state->moduleIndex
-            << "moduleHeaderOffset =" << state->moduleHeaderOffset
             << "partialEvent and shortword left in buffer: storing data in state"
             ;
 #endif
@@ -732,7 +751,6 @@ u32 VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputB
         << "buffer #" << bufferNumber
         << "eventIndex =" << eventIndex
         << "moduleIndex =" << state->moduleIndex
-        << "moduleHeaderOffset =" << state->moduleHeaderOffset
         << "after reading data:"
         << eventIter.bytesLeft() << "bytes left in event iterator"
         ;
@@ -772,8 +790,9 @@ u32 VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputB
     {
         // Finish the event section in the output buffer: write an EndMarker
         // and update the mvmeEventHeader with the correct size.
-        state->streamWriter.writeEventData(EndMarker);
+        writerFlags |= state->streamWriter.writeEventData(EndMarker);
         state->streamWriter.closeEventSection();
+        warnIfStreamWriterError(bufferNumber, writerFlags, eventIndex);
 
         if (state->wasPartial)
         {

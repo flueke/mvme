@@ -60,6 +60,7 @@ class VMUSBBufferProcessor: public QObject
         DAQStats *getStats();
         void logMessage(const QString &message);
         void resetRunState(); // call this when a new DAQ run starts
+        void warnIfStreamWriterError(u64 bufferNumber, int writerFlags, u16 eventIndex);
 
         friend class VMUSBBufferProcessorPrivate;
         VMUSBBufferProcessorPrivate *m_d;
