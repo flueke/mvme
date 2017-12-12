@@ -23,7 +23,7 @@ class MVMEStreamWriterHelper
         struct CloseResult
         {
             Flags flags = ResultOk;
-            u32 sectionSize = 0;
+            u32 sectionBytes = 0;
         };
 
         MVMEStreamWriterHelper(DataBuffer *outputBuffer = nullptr)
@@ -75,7 +75,7 @@ class MVMEStreamWriterHelper
             *eventHeader |= (m_eventSize << LF::SectionSizeShift) & LF::SectionSizeMask;
             m_eventHeaderOffset = -1;
 
-            return { ResultOk, m_eventSize };
+            return { ResultOk, static_cast<u32>(m_eventSize * sizeof(u32)) };
         }
 
         inline Flags openModuleSection(u32 moduleType)
@@ -110,7 +110,7 @@ class MVMEStreamWriterHelper
             *moduleHeader |= (m_moduleSize << LF::SubEventSizeShift) & LF::SubEventSizeMask;
             m_moduleHeaderOffset = -1;
 
-            return { ResultOk, m_moduleSize };
+            return { ResultOk, static_cast<u32>(m_moduleSize * sizeof(u32)) };
         }
 
         inline Flags writeEventData(u32 dataWord)
