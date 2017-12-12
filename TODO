@@ -1,6 +1,31 @@
 ==================================================
 TODO list somewhat sorted by priority
 ==================================================
+
+Crash related to ANALYSIS_USE_SHARED_HISTO1D_MEM on adding a new H1D.
+
+Thread 1 "mvme" received signal SIGSEGV, Segmentation fault.
+0x00007ffff79c4902 in QVector<std::shared_ptr<Histo1D> >::detach() () from libmvme.so
+(gdb) bt
+#0  0x00007ffff79c4902 in QVector<std::shared_ptr<Histo1D> >::detach() () from libmvme.so
+#1  0x00007ffff79ba4ac in analysis::Histo1DSink::beginRun(RunInfo const&) () from libmvme.so
+#2  0x00007ffff79bd174 in analysis::Analysis::beginRun_internal_only(RunInfo const&) () from libmvme.so
+#3  0x00007ffff79bd2ee in analysis::Analysis::beginRun(RunInfo const&, QHash<QUuid, vme_analysis_common::VMEConfigIndex> const&) () from libmvme.so
+#4  0x00007ffff79bdc44 in analysis::Analysis::addOperator(QUuid const&, std::shared_ptr<analysis::OperatorInterface> const&, int) () from libmvme.so
+#5  0x00007ffff79d7af6 in analysis::EventWidget::addOperator(std::shared_ptr<analysis::OperatorInterface>, int) () from libmvme.so
+#6  0x00007ffff79ee692 in analysis::AddEditOperatorWidget::accept() () from libmvme.so
+#7  0x00007ffff5f0f77d in QMetaObject::activate(QObject*, int, int, void**) () from /home/florian/Qt/5.7/gcc_64/lib/libQt5Core.so.5
+
+
+
+
+
+
+
+
+
+
+
 * Disallow opening listfiles via the listfile browser while DAQ readout is running
 
 * Fix sis lost packet count. On robert's windows machine it's still bugged and

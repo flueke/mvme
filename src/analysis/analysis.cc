@@ -30,7 +30,7 @@
 
 #define ENABLE_ANALYSIS_DEBUG 0
 
-#define ANALYSIS_USE_SHARED_HISTO1D_MEM 1
+#define ANALYSIS_USE_SHARED_HISTO1D_MEM 0
 
 template<typename T>
 QDebug &operator<< (QDebug &dbg, const std::shared_ptr<T> &ptr)
