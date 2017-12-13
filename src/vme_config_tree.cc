@@ -69,7 +69,9 @@ class EventNode: public TreeNode
     public:
         EventNode()
             : TreeNode(NodeType_Event)
-        {}
+        {
+            setIcon(0, QIcon(":/vme_event.png"));
+        }
 
         TreeNode *modulesNode = nullptr;
         TreeNode *readoutLoopNode = nullptr;
@@ -169,7 +171,9 @@ VMEConfigTreeWidget::VMEConfigTreeWidget(MVMEContext *context, QWidget *parent)
     headerItem->setText(1, QSL("Info"));
 
     m_nodeEvents->setText(0,  QSL("Events"));
+
     m_nodeScripts->setText(0, QSL("Global Scripts"));
+    m_nodeScripts->setIcon(0, QIcon(":/vme_global_scripts.png"));
 
     m_nodeStart->setText(0, QSL("DAQ Start"));
     m_nodeStart->setData(0, DataRole_ScriptCategory, "daq_start");
