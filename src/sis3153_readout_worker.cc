@@ -436,13 +436,21 @@ namespace
 
     struct ProcessorAction
     {
-        static const u32 NoneSet     = 0;
+        static const u32 NoneSet     = 0u;
         static const u32 KeepState   = 1u << 0; // Keep the ProcessorState. If unset resets the state.
         static const u32 FlushBuffer = 1u << 1; // Flush the current output buffer and acquire a new one
         static const u32 SkipInput   = 1u << 2; // Skip the current input buffer.
-        // Implies state reset and reuses the output buffer without
-        // flusing it.
+                                                // Implies state reset and reuses the output buffer without
+                                                // flusing it.
     };
+
+    /* Repeating the flags here is required when compiling debug builds without
+     * any optimization. If not set the build will fail with undefined
+     * references to the flags. */
+    const u32 ProcessorAction::NoneSet;
+    const u32 ProcessorAction::KeepState;
+    const u32 ProcessorAction::FlushBuffer;
+    const u32 ProcessorAction::SkipInput;
 
     static const QHash<u32, QString> ProcessorActionStrings =
     {
@@ -451,6 +459,7 @@ namespace
         { ProcessorAction::FlushBuffer, QSL("FlushBuffer") },
         { ProcessorAction::SkipInput,   QSL("SkipInput") },
     };
+
 
     void update_endHeader_counters(SIS3153ReadoutWorker::Counters &counters, u32 endHeader, int stacklist)
     {
@@ -463,10 +472,11 @@ namespace
         counters.stackListBerrCounts_Write[stacklist] +=
             (endHeader & SIS3153Constants::EndEventBerrWriteMask) >> SIS3153Constants::EndEventBerrWriteShift;
     }
-} // end anon namespace
 
-static const double WatchdogTimeout_s = 0.050;
-static const double PauseMaxSleep_ms = 125.0;
+    static const double WatchdogTimeout_s = 0.050;
+    static const double PauseMaxSleep_ms = 125.0;
+
+} // end anon namespace
 
 SIS3153ReadoutWorker::PacketLossCounter::PacketLossCounter(Counters *counters,
                                                            VMEReadoutWorkerContext *rdoContext)
