@@ -1622,6 +1622,7 @@ inline void fill_h1d(H1D *histo, double x)
     /* Instead of calculating the bin and then checking if it under/overflows
      * this code decides by comparing x to the binnings min and max values.
      * This is faster. */
+
     if (x < histo->binning.min)
     {
 #if 0
@@ -1635,11 +1636,18 @@ inline void fill_h1d(H1D *histo, double x)
     else if (x >= histo->binning.min + histo->binning.range)
     {
 #if 0
-        cerr << __PRETTY_FUNCTION__
-            << " histo=" << histo << ", x >= max, x=" << x << ", get_bin=" << get_bin(*histo, x) << endl;
+        if (get_bin(*histo, x) != Binning::Overflow)
+        {
+            cerr << __PRETTY_FUNCTION__
+                << " histo=" << histo << ", x >= max, x=" << x << ", get_bin=" << get_bin(*histo, x)
+                << ", binning.min=" << histo->binning.min
+                << ", binning.range=" << histo->binning.range
+                << " => binning.max=" << histo->binning.min + histo->binning.range
+                << endl;
+        }
 #endif
 
-        assert(get_bin(*histo, x) == Binning::Overflow);
+        assert(histo->binning.range == 0.0 || get_bin(*histo, x) == Binning::Overflow);
         histo->overflow++;
     }
     else if (std::isnan(x))
