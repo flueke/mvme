@@ -63,8 +63,17 @@ successfully compiled the generated latex code using MiKTeX.
 
 ## Miscellaneous
 
-### Clang Asan options
+### Clang/GCC Asan options
 `export ASAN_OPTIONS="detect_leaks=false"`
+
+To get line numbers in address sanitizer stack traces make sure libmvme.so can
+be found in LD_LIBRARY_PATH. When running from the build directory do something like
+`LD_LIBRARY_PATH=`pwd` gdb -ex r ./mvme`
+
+I've also found these mentioned on some blog. They might be useful when using ASAN with gcc.
+export ASAN_SYMBOLIZER=`which llvm-symbolizer`
+export ASAN_OPTIONS="symbolize=1"
+
 
 ### Can be used for changelog creation
 `git log --no-merges --pretty="format:%aD, %an, * %s [%an - %h] %b"`

@@ -28,14 +28,6 @@ set(CMAKE_CXX_FLAGS_PROFILE "-DNDEBUG -O3 -march=${MARCH_FLAG} -mtune=${MTUNE_FL
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-message("-- CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
-message("-- CMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}")
-if (NOT "${CMAKE_BUILD_TYPE}" STREQUAL "")
-    string(TOUPPER ${CMAKE_BUILD_TYPE} build_type_upper)
-    message("-- CMAKE_CXX_FLAGS_${build_type_upper}=${CMAKE_CXX_FLAGS_${build_type_upper}}")
-endif()
-
-
 ## Create binaries in the root of the build directory
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
@@ -152,6 +144,16 @@ option(BUILD_DOCS "Build the documentation (if Sphinx is found)" ON)
 
 if (BUILD_DOCS)
     add_subdirectory(doc)
+endif()
+
+
+# Log build type and flags. Keep this below the commands that might change the
+# flags.
+message("-- CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
+message("-- CMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}")
+if (NOT "${CMAKE_BUILD_TYPE}" STREQUAL "")
+    string(TOUPPER ${CMAKE_BUILD_TYPE} build_type_upper)
+    message("-- CMAKE_CXX_FLAGS_${build_type_upper}=${CMAKE_CXX_FLAGS_${build_type_upper}}")
 endif()
 
 # Handle the template directory at installation and build time
