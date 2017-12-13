@@ -171,6 +171,10 @@ namespace SIS3153Constants
 
     static const int NumberOfStackLists = 8;
 
+    static const u32 BlockTransferMaxBytes = 0xffffff;
+    static const u32 BLTMaxTransferCount   = BlockTransferMaxBytes / sizeof(u32);
+    static const u32 MBLTMaxTransferCount  = BlockTransferMaxBytes / sizeof(u64);
+
 } // namespace SIS3153Constants
 
 

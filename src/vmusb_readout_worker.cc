@@ -121,6 +121,30 @@ namespace
             triggers.insert(condition, data);
         }
     }
+
+    static void validate_event_readout_script(const VMEScript &script)
+    {
+        for (auto cmd: script)
+        {
+            switch (cmd.type)
+            {
+                case CommandType::BLT:
+                case CommandType::BLTFifo:
+                    if (cmd.transfers > vmusb_constants::BLTMaxTransferCount)
+                        throw (QString("Maximum number of BLT transfers exceeded in '%1'").arg(to_string(cmd)));
+                    break;
+
+                case CommandType::MBLT:
+                case CommandType::MBLTFifo:
+                    if (cmd.transfers > vmusb_constants::MBLTMaxTransferCount)
+                        throw (QString("Maximum number of MBLT transfers exceeded in '%1'").arg(to_string(cmd)));
+                    break;
+
+                default:
+                    break;
+            }
+        }
+    }
 }
 
 VMUSBReadoutWorker::VMUSBReadoutWorker(QObject *parent)
@@ -341,6 +365,7 @@ void VMUSBReadoutWorker::start(quint32 cycles)
             qDebug() << "event " << event->objectName() << " -> stackID =" << event->stackID;
 
             VMEScript readoutScript = build_event_readout_script(event);
+            validate_event_readout_script(readoutScript);
             CVMUSBReadoutList readoutList(readoutScript);
             m_vmusbStack.setContents(QVector<u32>::fromStdVector(readoutList.get()));
 

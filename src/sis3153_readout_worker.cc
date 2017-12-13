@@ -59,11 +59,33 @@ using namespace vme_script;
 
 namespace
 {
-#if 0 // TODO: implement validate_vme_config() for sis3153
     void validate_vme_config(VMEConfig *vmeConfig)
     {
     }
-#endif
+
+    static void validate_event_readout_script(const VMEScript &script)
+    {
+        for (auto cmd: script)
+        {
+            switch (cmd.type)
+            {
+                case CommandType::BLT:
+                case CommandType::BLTFifo:
+                    if (cmd.transfers > SIS3153Constants::BLTMaxTransferCount)
+                        throw (QString("Maximum number of BLT transfers exceeded in '%1'").arg(to_string(cmd)));
+                    break;
+
+                case CommandType::MBLT:
+                case CommandType::MBLTFifo:
+                    if (cmd.transfers > SIS3153Constants::MBLTMaxTransferCount)
+                        throw (QString("Maximum number of MBLT transfers exceeded in '%1'").arg(to_string(cmd)));
+                    break;
+
+                default:
+                    break;
+            }
+        }
+    }
 
     /* Size of the read buffer in bytes. This is where the data from recvfrom()
      * ends up. The maximum possible size should be 1500 or 8000 bytes
@@ -714,6 +736,7 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
 
             // build the command stack list
             auto readoutCommands = build_event_readout_script(event);
+            validate_event_readout_script(readoutCommands);
             QVector<u32> stackList = build_stackList(sis, readoutCommands);
             u32 stackListConfigValue = 0;   // SIS3153ETH_STACK_LISTn_CONFIG
             u32 stackListTriggerValue = 0;  // SIS3153ETH_STACK_LISTn_TRIGGER_SOURCE
