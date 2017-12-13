@@ -45,7 +45,7 @@ struct HistoLogicError: public std::runtime_error
 
 struct SharedHistoMem
 {
-    // Shared pointer to arena to keep the memory  alive.
+    // Shared pointer to arena to keep the memory alive.
     std::shared_ptr<memory::Arena> arena;
 
     // Pointer into the arena where this Histograms data starts.

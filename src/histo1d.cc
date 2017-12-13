@@ -80,6 +80,7 @@ void Histo1D::setData(const SharedHistoMem &mem, AxisBinning newBinning)
     }
 
     m_externalMemory = mem;
+    m_data = mem.data;
     setAxisBinning(Qt::XAxis, newBinning);
 }
 

@@ -30,7 +30,7 @@
 
 #define ENABLE_ANALYSIS_DEBUG 0
 
-#define ANALYSIS_USE_SHARED_HISTO1D_MEM 0
+#define ANALYSIS_USE_SHARED_HISTO1D_MEM 1
 
 template<typename T>
 QDebug &operator<< (QDebug &dbg, const std::shared_ptr<T> &ptr)
@@ -2460,7 +2460,7 @@ void Histo1DSink::beginRun(const RunInfo &runInfo)
 #if ANALYSIS_USE_SHARED_HISTO1D_MEM
     /* Single memory block allocation strategy:
      * Don't shrink.
-     * If resizing to a larger size. Recreate the arena. This will invalidate
+     * If resizing to a larger size, recreate the arena. This will invalidate
      * all pointers into the histograms. Recreate pointers into arena, clear
      * memory. Update pointers for existing Histo1D instances.
      */
@@ -2520,21 +2520,27 @@ void Histo1DSink::beginRun(const RunInfo &runInfo)
         AxisBinning binning(m_bins, xMin, xMax);
         SharedHistoMem histoMem = { m_histoArena, m_histoArena->pushArray<double>(m_bins, HistoMemAlignment) };
 
-        if (m_histos[histoIndex])
+        assert(histoMem.data);
+
+        auto histo = m_histos[histoIndex];
+
+        if (histo)
         {
-            m_histos[histoIndex]->setData(histoMem, binning);
+            assert(!histo->ownsMemory());
+            histo->setData(histoMem, binning);
 
             if (!runInfo.keepAnalysisState)
             {
-                m_histos[histoIndex]->clear();
+                histo->clear();
             }
         }
         else
         {
-            m_histos[histoIndex] = std::make_shared<Histo1D>(binning, histoMem);
+            m_histos[histoIndex] = histo = std::make_shared<Histo1D>(binning, histoMem);
         }
 
-        auto histo = m_histos[histoIndex];
+        assert(histo);
+
         auto histoName = this->objectName();
         AxisInfo axisInfo;
         axisInfo.title = this->m_xAxisTitle;
