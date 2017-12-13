@@ -754,8 +754,8 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
             else if (event->triggerCondition == TriggerCondition::Periodic)
             {
                 // TODO: move this check into validate_vme_config()
-                if (nextTimerTriggerSource > SIS3153Registers::TriggerSourceTimer1)
-                    throw QString("SIS3153 readout supports no more than 1 periodic events!");
+                if (nextTimerTriggerSource > SIS3153Registers::TriggerSourceTimer2)
+                    throw QString("SIS3153 readout supports no more than 2 periodic events!");
 
                 double period_secs = event->triggerOptions.value(QSL("sis3153.timer_period"), 0.0).toDouble();
 
@@ -913,7 +913,15 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
          */
         if (!controllerSettings.value(QSL("DisableWatchdog")).toBool())
         {
-            if (stackListIndex <= SIS3153Constants::NumberOfStackLists)
+            if (stackListIndex >= SIS3153Constants::NumberOfStackLists)
+            {
+                sis_log(QString("SIS3153 warning: No stackList available for use as a watchdog. Disabling watchdog."));
+            }
+            else if (nextTimerTriggerSource > SIS3153Registers::TriggerSourceTimer2)
+            {
+                sis_log(QString("SIS3153 warning: No timer available for use as a watchdog. Disabling watchdog."));
+            }
+            else
             {
                 auto sisImpl = sis->getImpl();
 
@@ -956,7 +964,8 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
                         .arg(error.toString());
                 }
 
-                u32 stackListConfigValue = ((stackList.size() - 1) << 16) | (stackLoadAddress - SIS3153ETH_STACK_RAM_START_ADDR);
+                u32 stackListConfigValue = (((stackList.size() - 1) << 16)
+                                            | (stackLoadAddress - SIS3153ETH_STACK_RAM_START_ADDR));
 
                 error = sis->writeRegister(
                     SIS3153ETH_STACK_LIST1_CONFIG + 2 * stackListIndex,
@@ -1010,14 +1019,10 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
                 stackListControlValue |= SIS3153Registers::StackListControlValues::StackListEnable;
                 stackListControlValue |= SIS3153Registers::StackListControlValues::Timer2Enable;
             }
-            else
-            {
-                sis_log(QString("SIS3153 warning: No stackList available for use as a watchdog. Disabling watchdog."));
-            }
         }
         else
         {
-            sis_log(QString("SIS3153 watchdog disabled by user settings."));
+            sis_log(QString("SIS3153 watchdog disabled by user setting."));
         }
 
         // All event stacks have been uploaded. stackListControlValue has been set.
