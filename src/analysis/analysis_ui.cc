@@ -1907,36 +1907,39 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                     Histo1DWidgetInfo widgetInfo = getHisto1DWidgetInfoFromNode(node);
                     Q_ASSERT(widgetInfo.sink);
 
-                    if (widgetInfo.histoAddress < widgetInfo.histos.size())
+                    if (widgetInfo.histoAddress >= widgetInfo.histos.size())
+                        break;
+
+                    if (!widgetInfo.histos[widgetInfo.histoAddress])
+                        break;
+
+                    Histo1D *histo = widgetInfo.histos[widgetInfo.histoAddress].get();
+
+                    if (!m_context->hasObjectWidget(histo) || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
                     {
-                        Histo1D *histo = widgetInfo.histos[widgetInfo.histoAddress].get();
+                        auto widget = new Histo1DWidget(widgetInfo.histos[widgetInfo.histoAddress]);
+                        widget->setContext(m_context);
 
-                        if (!m_context->hasObjectWidget(histo) || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
+                        if (widgetInfo.calib)
                         {
-                            auto widget = new Histo1DWidget(widgetInfo.histos[widgetInfo.histoAddress]);
-                            widget->setContext(m_context);
-
-                            if (widgetInfo.calib)
-                            {
-                                widget->setCalibrationInfo(widgetInfo.calib, widgetInfo.histoAddress);
-                            }
-
-                            {
-                                auto context = m_context;
-                                widget->setSink(widgetInfo.sink, [context] (const std::shared_ptr<Histo1DSink> &sink) {
-                                    context->analysisOperatorEdited(sink);
-                                });
-                            }
-
-                            m_context->addObjectWidget(widget, histo,
-                                                       widgetInfo.sink->getId().toString()
-                                                       + QSL("_")
-                                                       + QString::number(widgetInfo.histoAddress));
+                            widget->setCalibrationInfo(widgetInfo.calib, widgetInfo.histoAddress);
                         }
-                        else
+
                         {
-                            m_context->activateObjectWidget(histo);
+                            auto context = m_context;
+                            widget->setSink(widgetInfo.sink, [context] (const std::shared_ptr<Histo1DSink> &sink) {
+                                context->analysisOperatorEdited(sink);
+                            });
                         }
+
+                        m_context->addObjectWidget(widget, histo,
+                                                   widgetInfo.sink->getId().toString()
+                                                   + QSL("_")
+                                                   + QString::number(widgetInfo.histoAddress));
+                    }
+                    else
+                    {
+                        m_context->activateObjectWidget(histo);
                     }
                 } break;
 
@@ -1976,6 +1979,9 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
             case NodeType_Histo2DSink:
                 {
                     auto sinkPtr = std::dynamic_pointer_cast<Histo2DSink>(getPointer<Histo2DSink>(node)->getSharedPointer());
+
+                    if (!sinkPtr->m_histo)
+                        break;
 
                     if (!m_context->hasObjectWidget(sinkPtr.get()) || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
                     {
