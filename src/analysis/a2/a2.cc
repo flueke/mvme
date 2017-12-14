@@ -1086,7 +1086,7 @@ Operator make_aggregate_minx(
     auto result = make_aggregate_op(arena, input, Operator_Aggregate_MinX, thresholds);
 
     result.outputLowerLimits[0][0] = 0.0;
-    result.outputUpperLimits[0][0] = input.data.size - 1.0;
+    result.outputUpperLimits[0][0] = input.data.size;
 
     return result;
 }
@@ -1129,7 +1129,7 @@ Operator make_aggregate_maxx(
     auto result = make_aggregate_op(arena, input, Operator_Aggregate_MaxX, thresholds);
 
     result.outputLowerLimits[0][0] = 0.0;
-    result.outputUpperLimits[0][0] = input.data.size - 1.0;
+    result.outputUpperLimits[0][0] = input.data.size;
 
     return result;
 }
@@ -1156,7 +1156,9 @@ void aggregate_maxx_step(Operator *op)
     }
 
     if (is_valid_and_inside(input[maxIndex], thresholds))
+    {
         output[0] = maxIndex;
+    }
 }
 
 //
@@ -1171,7 +1173,7 @@ Operator make_aggregate_meanx(
     auto result = make_aggregate_op(arena, input, Operator_Aggregate_MeanX, thresholds);
 
     result.outputLowerLimits[0][0] = 0.0;
-    result.outputUpperLimits[0][0] = input.data.size - 1.0;
+    result.outputUpperLimits[0][0] = input.data.size;
 
     return result;
 }
@@ -1242,7 +1244,7 @@ Operator make_aggregate_sigmax(
     auto result = make_aggregate_op(arena, input, Operator_Aggregate_SigmaX, thresholds);
 
     result.outputLowerLimits[0][0] = 0.0;
-    result.outputUpperLimits[0][0] = input.data.size - 1.0;
+    result.outputUpperLimits[0][0] = input.data.size;
 
     return result;
 }

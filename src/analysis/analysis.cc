@@ -1391,7 +1391,7 @@ void AggregateOps::beginRun(const RunInfo &runInfo)
             case Op_MeanX:
                 {
                     lowerBound = 0.0;
-                    upperBound = in.size() - 1;
+                    upperBound = in.size();
                 } break;
 
             case NumOps:
