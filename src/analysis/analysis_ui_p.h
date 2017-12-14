@@ -238,6 +238,7 @@ class OperatorConfigurationWidget: public QWidget
         QComboBox *combo_equation;
         QDoubleSpinBox *spin_outputLowerLimit;
         QDoubleSpinBox *spin_outputUpperLimit;
+        QPushButton *pb_autoLimits;
 
         void updateOutputLimits(BinarySumDiff *binOp);
 

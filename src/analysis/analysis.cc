@@ -2347,7 +2347,9 @@ QString BinarySumDiff::getEquationDisplayString(s32 index) const
     return QString();
 }
 
-// FIXME: basic implementation bailing out if input sizes are not equal.
+// FIXME: basic implementation bailing out if input sizes are not equal. Check
+// what a2 does and maybe not fix it but document the behaviour and do not
+// crash!
 // Implement it so that the smalles input size is used for calculations and the
 // other output values are filled with invalids.
 void BinarySumDiff::beginRun(const RunInfo &)

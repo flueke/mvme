@@ -2,8 +2,7 @@
 TODO list somewhat sorted by priority
 ==================================================
 
-* Editing BinSumDiff loses previous custom limits setting
-* Crash on opening an unconnected H2D
+* Crash in a2_adapter when BinSumDiff inputs don't have the same length
 
 * Disallow opening listfiles via the listfile browser while DAQ readout is running
 
@@ -56,12 +55,6 @@ TODO list somewhat sorted by priority
   of selecting a different aggregate op. Right now it always appends ".sum".
 
 * Add a scaler display somewhere. What does this show? Hz?
-
-* Maybe take a look at stopping the analysis mid-buffer on user request. This
-  would allow to use larger buffer sizes without increasing the time-to-stop.
-  XXX: I do not even know why it takes time to stop. Does StopImmediately not
-  work?
-  -> Make MVMEEventProcessor support pause/resume directly.
 
 * Resolution change for 2D combined histograms?
   -> Would have to implement this in a different way: Instead of just looking
