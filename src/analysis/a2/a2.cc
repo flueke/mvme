@@ -783,9 +783,11 @@ void aggregate_sum_step(Operator *op)
 {
     a2_trace("\n");
     auto input = op->inputs[0];
+    auto output = op->outputs[0];
     auto thresholds = *reinterpret_cast<Thresholds *>(op->d);
 
     double theSum = 0.0;
+    bool validSeen = false;
 
     for (s32 i = 0; i < input.size; i++)
     {
@@ -795,10 +797,11 @@ void aggregate_sum_step(Operator *op)
         if (is_valid_and_inside(input[i], thresholds))
         {
             theSum += input[i];
+            validSeen = true;
         }
     }
 
-    op->outputs[0][0] = theSum;
+    output[0] = validSeen ? theSum : invalid_param();
 }
 
 //
@@ -821,9 +824,11 @@ Operator make_aggregate_multiplicity(
 void aggregate_multiplicity_step(Operator *op)
 {
     auto input = op->inputs[0];
+    auto output = op->outputs[0];
     auto thresholds = *reinterpret_cast<Thresholds *>(op->d);
 
-    s32 result = 0;
+    output[0] = invalid_param();
+    s32 result = -1;
 
     for (s32 i = 0; i < input.size; i++)
     {
@@ -833,7 +838,10 @@ void aggregate_multiplicity_step(Operator *op)
         }
     }
 
-    op->outputs[0][0] = result;
+    if (result >= 0) // got at least one valid
+    {
+        output[0] = result + 1; // adjust for the initial -1
+    }
 }
 
 //
@@ -869,12 +877,17 @@ void aggregate_min_step(Operator *op)
     auto output = op->outputs[0];
     auto thresholds = *reinterpret_cast<Thresholds *>(op->d);
 
-    double result = std::numeric_limits<double>::lowest();
+    double result = invalid_param();
 
     for (s32 i = 0; i < input.size; i++)
     {
         if (is_valid_and_inside(input[i], thresholds))
         {
+            if (!is_param_valid(result))
+            {
+                double result = std::numeric_limits<double>::max();
+            }
+
             result = std::min(result, input[i]);
         }
     }
@@ -910,19 +923,25 @@ Operator make_aggregate_max(
 void aggregate_max_step(Operator *op)
 {
     auto input = op->inputs[0];
+    auto output = op->outputs[0];
     auto thresholds = *reinterpret_cast<Thresholds *>(op->d);
 
-    double result = std::numeric_limits<double>::lowest();
+    double result = invalid_param();
 
     for (s32 i = 0; i < input.size; i++)
     {
         if (is_valid_and_inside(input[i], thresholds))
         {
+            if (!is_param_valid(result))
+            {
+                result = std::numeric_limits<double>::lowest();
+            }
+
             result = std::max(result, input[i]);
         }
     }
 
-    op->outputs[0][0] = result;
+    output[0] = result;
 }
 
 //
@@ -993,7 +1012,7 @@ void aggregate_mean_step(Operator *op)
 
     auto sv = calculate_sum_and_valid_count(input, thresholds);
 
-    output[0] = sv.mean();
+    output[0] = sv.validCount ? sv.mean() : invalid_param();
 }
 
 //
@@ -1043,9 +1062,15 @@ void aggregate_sigma_step(Operator *op)
         }
     }
 
-    sigma = std::sqrt(sigma / static_cast<double>(sv.validCount));
-
-    output[0] = sigma;
+    if (sv.validCount)
+    {
+        sigma = std::sqrt(sigma / static_cast<double>(sv.validCount));
+        output[0] = sigma;
+    }
+    else
+    {
+        output[0] = invalid_param();
+    }
 }
 
 //
@@ -1073,6 +1098,7 @@ void aggregate_minx_step(Operator *op)
     auto output = op->outputs[0];
     auto thresholds = *reinterpret_cast<Thresholds *>(op->d);
 
+    output[0] = invalid_param();
     s32 minIndex = 0;
 
     for (s32 i = 0; i < input.size; i++)
@@ -1086,7 +1112,8 @@ void aggregate_minx_step(Operator *op)
         }
     }
 
-    output[0] = minIndex;
+    if (is_valid_and_inside(input[minIndex], thresholds))
+        output[0] = minIndex;
 }
 
 //
@@ -1114,6 +1141,7 @@ void aggregate_maxx_step(Operator *op)
     auto output = op->outputs[0];
     auto thresholds = *reinterpret_cast<Thresholds *>(op->d);
 
+    output[0] = invalid_param();
     s32 maxIndex = 0;
 
     for (s32 i = 0; i < input.size; i++)
@@ -1127,7 +1155,8 @@ void aggregate_maxx_step(Operator *op)
         }
     }
 
-    output[0] = maxIndex;
+    if (is_valid_and_inside(input[maxIndex], thresholds))
+        output[0] = maxIndex;
 }
 
 //
@@ -1163,6 +1192,7 @@ inline MeanXResult calculate_meanx(ParamVec input, Thresholds thresholds)
 
     double numerator   = 0.0;
     double denominator = 0.0;
+    bool validSeen = false;
 
     for (s32 x = 0; x < input.size; x++)
     {
@@ -1172,11 +1202,19 @@ inline MeanXResult calculate_meanx(ParamVec input, Thresholds thresholds)
         {
             numerator += A * x;
             denominator += A;
+            validSeen = true;
         }
     }
 
-    result.meanx = numerator / denominator;
-    result.sumx  = denominator;
+    if (validSeen)
+    {
+        result.meanx = numerator / denominator;
+        result.sumx  = denominator;
+    }
+    else
+    {
+        result.meanx = result.sumx = invalid_param();
+    }
 
     return result;
 }
@@ -1221,24 +1259,29 @@ void aggregate_sigmax_step(Operator *op)
     assert(!std::isnan(thresholds.min));
     assert(!std::isnan(thresholds.max));
 
+    double sigmax = invalid_param();
     auto meanxResult = calculate_meanx(input, thresholds);
-    double sigmax = 0.0;
 
-    for (s32 x = 0; x < input.size; x++)
+    if (is_param_valid(meanxResult.meanx))
     {
-        double A = input[x];
+        sigmax = 0.0;
 
-        if (is_valid_and_inside(A, thresholds))
+        for (s32 x = 0; x < input.size; x++)
         {
-            double d = x - meanxResult.meanx;
-            d *= d;
-            sigmax += d * A;
+            double A = input[x];
+
+            if (is_valid_and_inside(A, thresholds))
+            {
+                double d = x - meanxResult.meanx;
+                d *= d;
+                sigmax += d * A;
+            }
         }
+
+        sigmax = std::sqrt(sigmax / meanxResult.sumx);
     }
 
-    sigmax = std::sqrt(sigmax / meanxResult.sumx);
-
-    output[0]= sigmax;
+    output[0] = sigmax;
 }
 
 //
