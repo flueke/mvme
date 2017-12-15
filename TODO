@@ -2,6 +2,9 @@
 TODO list somewhat sorted by priority
 ==================================================
 
+* Setup controller outputs (NIM, etc) to be active when DAQ is active and maybe
+  more. Do this for both controllers and document and/or log what's being setup.
+
 * Crash in a2_adapter when BinSumDiff inputs don't have the same length
 
 * Disallow opening listfiles via the listfile browser while DAQ readout is running

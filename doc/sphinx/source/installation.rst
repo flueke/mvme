@@ -64,7 +64,7 @@ following contents: ::
     # WIENER VM_USB
     SUBSYSTEM=="usb", ATTRS{idVendor}=="16dc", ATTRS{idProduct}=="000b", MODE="0666"
 
-This will make the VM-USB useable by *any* user of the system. A more secure
+This will make the VM-USB usable by *any* user of the system. A more secure
 version would be: ::
 
     # WIENER VM_USB
@@ -72,8 +72,9 @@ version would be: ::
 
 which requires the user to be a member of the *usb* group.
 
-Reload udev using ``service udev reload`` or ``/etc/init.d/udev reload``
-depending on your distribution.
+Reload udev using ``service udev reload`` or ``/etc/init.d/udev reload`` or
+``service systemd-udev reload`` depending on your distribution or simply reboot
+the machine.
 
 
 ==================================================
