@@ -8,6 +8,7 @@
 
 #include "vme_config.h"
 #include "analysis/analysis.h"
+#include "mvme_stream_processor.h" // for the counters
 
 template<typename T>
 std::unique_ptr<T> from_json(const QByteArray &data)
@@ -20,11 +21,17 @@ std::unique_ptr<T> from_json(const QByteArray &data)
 
 using namespace mvme_root;
 
+struct Counters
+{
+    u64 events = 0;
+};
+
 struct RootWriterContext
 {
     QString runId;
     std::unique_ptr<VMEConfig> vmeConfig;
     std::unique_ptr<analysis::Analysis> analysis;
+    MVMEStreamProcessorCounters counters = {};
 };
 
 #define DEF_MESSAGE_HANDLER(name) u32 name(QDataStream &in,\
@@ -46,7 +53,7 @@ DEF_MESSAGE_HANDLER(begin_run)
     context.analysis  = from_json<analysis::Analysis>(analysisData);
 
     logger << __PRETTY_FUNCTION__
-        << "runId = " << context.runId
+        << " runId = " << context.runId
         << ", vmeConfig = " << context.vmeConfig.get()
         << ", analysis = " << context.analysis.get()
         << endl;
@@ -57,35 +64,45 @@ DEF_MESSAGE_HANDLER(begin_run)
 DEF_MESSAGE_HANDLER(end_run)
 {
     qDebug() << __PRETTY_FUNCTION__;
+    logger << __PRETTY_FUNCTION__ << endl;
     return 1u;
 }
 
 DEF_MESSAGE_HANDLER(begin_event)
 {
-    qDebug() << __PRETTY_FUNCTION__;
+    //qDebug() << __PRETTY_FUNCTION__;
 
     s32 eventIndex;
     in >> eventIndex;
 
-    logger << __PRETTY_FUNCTION__ << "eventIndex = " << eventIndex << endl;
+    //logger << __PRETTY_FUNCTION__ << " eventIndex = " << eventIndex << endl;
 
     return 0u;
 }
 
 DEF_MESSAGE_HANDLER(end_event)
 {
-    qDebug() << __PRETTY_FUNCTION__;
+    //qDebug() << __PRETTY_FUNCTION__;
 
     s32 eventIndex;
     in >> eventIndex;
 
-    logger << __PRETTY_FUNCTION__ << "eventIndex = " << eventIndex << endl;
+    if (0 <= eventIndex && eventIndex < MaxVMEEvents)
+    {
+        context.counters.eventCounters[eventIndex]++;
+    }
+    else
+    {
+        context.counters.invalidEventIndices++;
+    }
+
+    //logger << __PRETTY_FUNCTION__ << " eventIndex = " << eventIndex << endl;
     return 0u;
 }
 
 DEF_MESSAGE_HANDLER(module_data)
 {
-    qDebug() << __PRETTY_FUNCTION__;
+    //qDebug() << __PRETTY_FUNCTION__;
 
     s32 eventIndex, moduleIndex;
     char *rawData;
@@ -94,11 +111,19 @@ DEF_MESSAGE_HANDLER(module_data)
     in >> eventIndex >> moduleIndex;
     in.readBytes(rawData, dataSize);
 
+    if (0 <= eventIndex && eventIndex < MaxVMEEvents
+        && 0 <= moduleIndex && moduleIndex < MaxVMEModules)
+    {
+        context.counters.moduleCounters[eventIndex][moduleIndex]++;
+    }
+
+    /*
     logger << __PRETTY_FUNCTION__
-        << "eventIndex = " << eventIndex
+        << " eventIndex = " << eventIndex
         << ", moduleIndex = " << moduleIndex
         << ", received " << dataSize << " bytes of module data"
         << endl;
+        */
 
     delete[] rawData;
 
@@ -108,7 +133,7 @@ DEF_MESSAGE_HANDLER(module_data)
 DEF_MESSAGE_HANDLER(timetick)
 {
     qDebug() << __PRETTY_FUNCTION__;
-    logger << __PRETTY_FUNCTION__ << endl;
+    //logger << __PRETTY_FUNCTION__ << endl;
     return 0u;
 }
 
@@ -133,6 +158,7 @@ int main(int argc, char *argv[])
     QFile logFile("mvme-root-writer.log");
     logFile.open(QIODevice::WriteOnly);
     QTextStream logger(&logFile);
+    bool firstMessage = true;
 
     RootWriterContext context;
 
@@ -143,20 +169,57 @@ int main(int argc, char *argv[])
         s32 msgType;
         writerIn >> msgType;
 
-        if (writerIn.status() != QDataStream::Ok
-            || !(0 <= msgType && msgType < WriterMessageType::Count))
+        if (firstMessage)
         {
+            firstMessage = false;
+            logger << "read first message from stdin: " << msgType << endl;
+            logger.flush();
+        }
+
+        if (writerIn.status() != QDataStream::Ok)
+        {
+            logger << "read from input failed: " << writerIn.status() << endl;
             ret = 1;
             break;
         }
 
-        if (MessageHandlerTable[msgType](writerIn, msgType, logger, context) != 0)
+        if (!(0 <= msgType && msgType < WriterMessageType::Count))
         {
+            logger << "input message type out of range: " << msgType << endl;
+            ret = 1;
+            break;
+        }
+
+        auto handlerResult = MessageHandlerTable[msgType](writerIn, msgType, logger, context);
+
+        if (handlerResult != 0)
+        {
+            logger << "message handler for message type " << msgType << " returned " << handlerResult << endl;
             break;
         }
     }
 
     logger << "left read loop, return code = " << ret << endl;
+
+    logger << "counters:" << endl;
+
+    for (u32 eventIndex = 0; eventIndex < MaxVMEEvents; eventIndex++)
+    {
+        if (context.counters.eventCounters[eventIndex])
+        {
+            logger << "ei=" << eventIndex
+                << ", count=" << context.counters.eventCounters[eventIndex] << endl;
+
+            for (u32 moduleIndex = 0; moduleIndex < MaxVMEModules; moduleIndex++)
+            {
+                if (context.counters.moduleCounters[eventIndex][moduleIndex])
+                {
+                    logger << "  mi=" << moduleIndex
+                        << ", count=" << context.counters.moduleCounters[eventIndex][moduleIndex] << endl;
+                }
+            }
+        }
+    }
 
     return ret;
 }

@@ -41,6 +41,7 @@ void RootDataWriter::beginRun(const RunInfo &runInfo, const VMEConfig *vmeConfig
 
     m_writerProcess = new QProcess(this);
     m_writerProcess->start(QCoreApplication::applicationDirPath() + "/mvme-root-writer");
+                           //QIODevice::ReadWrite | QIODevice::Unbuffered);
 
     logger("ROOT Writer: starting writer process");
 
@@ -66,16 +67,19 @@ void RootDataWriter::endRun(const std::exception *e)
     m_writerOut << WriterMessageType::EndRun;
     m_writerOut.setDevice(nullptr);
 
-    qDebug() << __PRETTY_FUNCTION__ << "waitForFinished";
+    qDebug() << __PRETTY_FUNCTION__ << "closeWriteChannel()";
+    m_writerProcess->closeWriteChannel();
 
-    if (!m_writerProcess->waitForFinished())
+    qDebug() << __PRETTY_FUNCTION__ << "waitForFinished()";
+
+    if (!m_writerProcess->waitForFinished(-1))
     {
         m_logger(QString("ROOT Writer: writer process did not exit cleanly: %1")
                .arg(m_writerProcess->error()));
         return;
     }
 
-    qDebug() << __PRETTY_FUNCTION__ << "after waitForFinished";
+    qDebug() << __PRETTY_FUNCTION__ << "after waitForFinished()";
 
     m_writerProcess->kill();
     delete m_writerProcess;
