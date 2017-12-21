@@ -2,6 +2,8 @@
 TODO list somewhat sorted by priority
 ==================================================
 
+* Fix sphinx doc build when using the cmake ninja generator.
+
 * Setup controller outputs (NIM, etc) to be active when DAQ is active and maybe
   more. Do this for both controllers and document and/or log what's being setup.
 
