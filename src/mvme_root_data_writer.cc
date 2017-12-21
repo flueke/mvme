@@ -21,6 +21,8 @@ QByteArray to_json(T *obj)
     return QJsonDocument(json).toBinaryData();
 }
 
+static const s64 FlushOutputThreshold_bytes = static_cast<s64>(Megabytes(1));
+
 } // end anon namespace
 
 namespace mvme_root
@@ -96,6 +98,12 @@ void RootDataWriter::endEvent(s32 eventIndex)
 {
     m_writerOut << WriterMessageType::EndEvent
         << eventIndex;
+
+    if (m_writerProcess->bytesToWrite() >= FlushOutputThreshold_bytes)
+    {
+        // Should succeed or timeout eventually.
+        !m_writerProcess->waitForBytesWritten();
+    }
 }
 
 void RootDataWriter::processModuleData(s32 eventIndex, s32 moduleIndex, const u32 *data, u32 size)
