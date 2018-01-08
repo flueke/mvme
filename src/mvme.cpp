@@ -1,6 +1,6 @@
 /* MVMEMainWindow - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016, 2017 mesytec GmbH & Co. KG <info@mesytec.com>
+ * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
  *
  * Author: Florian Lüke <f.lueke@mesytec.com>
  *
