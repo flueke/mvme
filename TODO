@@ -13,9 +13,6 @@ TODO list somewhat sorted by priority
 
 * Disallow opening listfiles via the listfile browser while DAQ readout is running
 
-* Fix sis lost packet count. On robert's windows machine it's still bugged and
-  jumps to 1.6e7 or so instantly!
-
 * Display actual size of the listfile on the disk. Avoids having to pull
   information from the quazip/zlib libs. Display the size after the listfile
   has been loaded, not after the replay has started
@@ -29,6 +26,19 @@ TODO list somewhat sorted by priority
   * Think about the sis3153 counted block read commands. Maybe add a "dialect" to
     vmescript so that the fact that sis3153 does not have a mask operation is
     clear.
+  * Fix sis lost packet count. On robert's windows machine it's still bugged and
+    jumps to 1.6e7 or so instantly!
+
+virtual void SIS3153ReadoutWorker::start(quint32) StackListControl: StackListControl: 0x8005 -> (Buffering | Timer2 | StackListEnable)
+void SIS3153ReadoutWorker::setState(DAQState) "Starting" -> "Running"
+u32 SIS3153ReadoutWorker::PacketLossCounter::handlePacketNumber(s32, u64) first ignored packetNumber: 3428387
+u32 SIS3153ReadoutWorker::PacketLossCounter::handlePacketNumber(s32, u64) first actual packetNumber: 3428388
+u32 SIS3153ReadoutWorker::PacketLossCounter::handlePacketNumber(s32, u64) buffer # 1 , packetNumber diff is < 0: -3428407 , lastReceivedPacketNumber = 3428408 , current packetNumber = 1 , adjustedDiff = 13348808
+virtual void SIS3153ReadoutWorker::stop()
+
+  * Performance tweaks: test sysctl busy_read and busy_poll stuff on the
+    receive socket or at least read up on it.
+
 
 * check the case where listfile creation throws an exception. right now this
   results in a communication error with the sis controller when trying to start

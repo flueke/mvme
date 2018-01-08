@@ -1,0 +1,34 @@
+* Default sysctl values on buildbot (4.9.0-5-amd64, 32 GB RAM) after boot:
+
+  net.core.rmem_default = 212992
+  net.core.rmem_max = 212992
+  net.core.netdev_max_backlog = 1000
+  net.ipv4.udp_mem = 764844       1019795 1529688
+  net.ipv4.udp_rmem_min = 4096
+
+Tests where done using an Intel PCI Network Card directly connected to the
+SIS3153 over a CAT7 cable.
+
+* Network adapter details:
+  $ lspci -vs05:00.0
+  05:00.0 Ethernet controller: Intel Corporation 82574L Gigabit Network Connection
+  ...
+
+  $ ethtool -i enp5s0
+  driver: e1000e
+  version: 3.2.6-k
+  firmware-version: 1.8-0
+  expansion-rom-version:
+  bus-info: 0000:05:00.0
+  supports-statistics: yes
+  supports-test: yes
+  supports-eeprom-access: yes
+  supports-register-dump: yes
+  supports-priv-flags: no
+
+* Useful commands:
+  # Device statistics
+  ethtool -S enp5s0
+
+  # Kernel network statistics
+  watch -n1 'netstat -anup; echo; netstat -anus'
