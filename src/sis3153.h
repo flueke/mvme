@@ -77,6 +77,13 @@ class LIBMVME_EXPORT SIS3153: public VMEController
 namespace SIS3153Registers
 {
     static const u32 USBControlAndStatus        = 0x0;
+
+    namespace USBControlAndStatusValues
+    {
+        static const u32 DisableShift           = 16;
+        static const u32 LED_A                  = 1 << 0;
+    }
+
     static const u32 ModuleIdAndFirmware        = 0x1;
     static const u32 SerialNumber               = 0x2;
     static const u32 LemoIOControl              = 0x3;
@@ -123,12 +130,19 @@ namespace SIS3153Registers
     {
         /* Writing a 1 to the low 16 bits of the StackListControl register
          * enables the setting. Writing a 1 shifted by DisableShift disables
-         * the setting. */
+         * the setting. Doing both at the same time is invalid. */
         static const u32 DisableShift       = 16;
+
         static const u32 StackListEnable    = 1 << 0;
         static const u32 Timer1Enable       = 1 << 1;
         static const u32 Timer2Enable       = 1 << 2;
-        static const u32 ListBufferEnable   = 1 << 15;
+        static const u32 FlushBufferEnable  = 1 << 12; // "Force to send rest of buffer enable" in the manual
+        static const u32 ListBufferEnable   = 1 << 15; // "List Multi Event Buffering Enable" in the manual
+
+        /* When reading the register bits 16 to 27 contain the buffer word count.
+         * FIXME: figure out what this actually contains. */
+        static const u32 BufferWordCountShift = 16;
+        static const u32 BufferWordCountMask  = 0xfff;
     }
 
     static const u32 StackListTimerWatchdogEnable   = 1u << 31;

@@ -36,8 +36,7 @@ u32 SIS3153ReadoutWorker::PacketLossCounter::handlePacketNumber(s32, u64) first 
 u32 SIS3153ReadoutWorker::PacketLossCounter::handlePacketNumber(s32, u64) buffer # 1 , packetNumber diff is < 0: -3428407 , lastReceivedPacketNumber = 3428408 , current packetNumber = 1 , adjustedDiff = 13348808
 virtual void SIS3153ReadoutWorker::stop()
 
-  * Performance tweaks: test sysctl busy_read and busy_poll stuff on the
-    receive socket or at least read up on it.
+  * Fix socket error messages under windows. Use and test the WSA stuff.
 
 
 * check the case where listfile creation throws an exception. right now this

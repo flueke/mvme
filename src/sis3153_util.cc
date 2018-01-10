@@ -265,9 +265,21 @@ void format_sis3153_single_event(
     u8 packetAck, u8 packetIdent, u8 packetStatus,
     u8 *data, size_t size)
 {
-    QString tmp("0x%1");
-
     int stackList = packetAck & SIS3153Constants::AckStackListMask;
+
+    if (size)
+    {
+        BufferIterator iter(data, size);
+        u32 beginHeader = iter.extractU32();
+        s32 packetNumber = (beginHeader & SIS3153Constants::BeginEventPacketNumberMask);
+
+        out << (QString("beginHeader=0x%1, packetNumber=%2 (0x%3)")
+                .arg(beginHeader, 8, 16, QLatin1Char('0'))
+                .arg(packetNumber)
+                .arg(packetNumber, 6, 16, QLatin1Char('0'))
+               )
+            << endl;
+    }
 
 #if 0
     BufferIterator iter(data, size);

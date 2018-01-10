@@ -81,11 +81,12 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
 
         // readout stuff
         void readoutLoop();
-        ReadBufferResult readBuffer();
+        void leaveDAQMode();
+        ReadBufferResult readAndProcessBuffer();
 
         // mvme event processing
 
-        /* Entry point for buffer processing. Called by readBuffer() which then
+        /* Entry point for buffer processing. Called by readAndProcessBuffer() which then
          * dispatches to one of the process*Data() methods below. */
         void processBuffer(
             u8 packetAck, u8 packetIdent, u8 packetStatus, u8 *data, size_t size);
@@ -128,6 +129,7 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
             s32 m_lastReceivedPacketNumber;
             Counters *m_counters;
             VMEReadoutWorkerContext *m_rdoContext;
+            bool m_leavingDAQ;
         };
 
         void flushCurrentOutputBuffer();

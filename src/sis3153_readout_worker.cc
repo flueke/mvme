@@ -480,9 +480,11 @@ namespace
 
 SIS3153ReadoutWorker::PacketLossCounter::PacketLossCounter(Counters *counters,
                                                            VMEReadoutWorkerContext *rdoContext)
-    : m_lastReceivedPacketNumber(-2)
+    //: m_lastReceivedPacketNumber(-2)
+    : m_lastReceivedPacketNumber(0)
     , m_counters(counters)
     , m_rdoContext(rdoContext)
+    , m_leavingDAQ(false)
 {
     Q_ASSERT(counters);
     Q_ASSERT(rdoContext);
@@ -492,6 +494,7 @@ SIS3153ReadoutWorker::PacketLossCounter::PacketLossCounter(Counters *counters,
  * the current packetNumber. */
 u32 SIS3153ReadoutWorker::PacketLossCounter::handlePacketNumber(s32 packetNumber, u64 bufferNumber)
 {
+#if 0
     /* SIS3153 packetNumber handling: the first packet number sent will be
      * the old packetNumber from before resetting the controller
      * incremented by 1. After that the packet numbers are correctly
@@ -514,7 +517,7 @@ u32 SIS3153ReadoutWorker::PacketLossCounter::handlePacketNumber(s32 packetNumber
         else if (diff > 1)
         {
             // increment lost count
-            //qDebug() << __PRETTY_FUNCTION__ << "buffer #" << bufferNumber << ", lost" << diff - 1 << "packets";
+            qDebug() << __PRETTY_FUNCTION__ << "buffer #" << bufferNumber << ", lost" << diff - 1 << "packets";
             result = diff - 1;
             m_counters->lostPackets += result;
         }
@@ -574,6 +577,77 @@ u32 SIS3153ReadoutWorker::PacketLossCounter::handlePacketNumber(s32 packetNumber
     }
 
     return result;
+#else
+    // FIXME: move the m_leavingDAQ test to the top
+
+    u32 result = 0;
+
+    s32 diff = packetNumber - m_lastReceivedPacketNumber;
+
+    if (likely(diff == 1))
+    {
+        // all good, nothing lost, nothing to do
+    }
+    else if (diff > 1 && !m_leavingDAQ)
+    {
+        // increment lost count
+        qDebug() << __PRETTY_FUNCTION__ << "buffer #" << bufferNumber << ", lost" << diff - 1 << "packets"
+            << ", lastReceivedPacketNumber =" << m_lastReceivedPacketNumber
+            << ", current packetNumber =" << packetNumber;
+
+        result = diff - 1;
+        m_counters->lostPackets += result;
+    }
+    else if (diff < 0 && !m_leavingDAQ)
+    {
+        // packetNumber < lastReceivedPacketNumber which should only
+        // happen once the packetNumber has overflowed.
+        // Perfect overflow without loss:
+        // old: 0x00ffffff, new: 0 -> will yield an adjustedDiff of 0
+
+        s32 adjustedDiff = (SIS3153Constants::BeginEventPacketNumberMask + diff);
+
+        qDebug() << __PRETTY_FUNCTION__ << "buffer #" << bufferNumber << ", packetNumber diff is < 0:" << diff
+            << ", lastReceivedPacketNumber =" << m_lastReceivedPacketNumber
+            << ", current packetNumber =" << packetNumber
+            << ", adjustedDiff =" << adjustedDiff;
+
+        Q_ASSERT(adjustedDiff >= 0);
+
+        if (adjustedDiff > 0)
+        {
+            result = adjustedDiff - 1;
+            m_counters->lostPackets += result;
+        }
+    }
+    else if (!m_leavingDAQ)
+    {
+        // The difference is 0. This should never happen. Either the
+        // controller sends duplicate packet numbers or we lost so many
+        // that an overflow occured and we ended up at exactly the same
+        // packet number as before.
+        qDebug() << __PRETTY_FUNCTION__ << "buffer #" << bufferNumber << ", packetNumber diff is 0!";
+        Q_ASSERT(false);
+    }
+
+    if (unlikely(m_leavingDAQ))
+    {
+        // HACK: during shutdown remembers the max packet number received so
+        // far. This works around the single out-of-order packet the controller
+        // sends out during shutdown.
+        m_lastReceivedPacketNumber = std::max(m_lastReceivedPacketNumber, packetNumber);
+
+        qDebug() << __PRETTY_FUNCTION__
+            << "stored max packet num =" << m_lastReceivedPacketNumber;
+    }
+    else
+    {
+        // record the current packet number
+        m_lastReceivedPacketNumber = packetNumber;
+    }
+
+    return result;
+#endif
 }
 
 //
@@ -621,7 +695,6 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
                    );
 
         //validate_vme_config(m_workerContext.vmeConfig); // throws on error
-
 
         //
         // Reset controller state by writing KeyResetAll register
@@ -907,19 +980,14 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
             }
         }
 
-        /* Use timer2 as a watchdog.
+        /* Use timer2 as a watchdog if it is still available.
          *
          * Each timer has a watchdog bit. If the bit is set the timer is
          * restarted with every packet that the controller sends out.
          *
-         * Just setting up the timer configuration register and enabling the
-         * timer in the stackList control is not enough though: to actually
-         * produce packets the watchdog timer needs to be associated with a
-         * stackList (just like for periodic events above).
-         *
-         * If we still have an unused (and thus empty) stackList we can use it
-         * for the watchdog.
-         *
+         * To force the controller to send out a packet the
+         * StackListTriggerCommandFlushBuffer command is used in the stackList
+         * that's associated with the watchdog.
          */
         if (!controllerSettings.value(QSL("DisableWatchdog")).toBool())
         {
@@ -1074,6 +1142,12 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
             }
         }
 
+        // Light up LED_A right before entering DAQ mode
+        error = sis->writeRegister(
+            SIS3153Registers::USBControlAndStatus,
+            SIS3153Registers::USBControlAndStatusValues::LED_A);
+        if (error.isError()) throw error;
+
         m_processingState = {};
         m_counters = {};
         m_counters.watchdogStackList = m_watchdogStackListIndex;
@@ -1171,7 +1245,6 @@ void SIS3153ReadoutWorker::readoutLoop()
     static const int LogInterval_ReadError_ms = 5000;
     u32 readErrorCount = 0;
 
-
     elapsedTime.start();
     logReadErrorTimer.start();
 
@@ -1192,7 +1265,7 @@ void SIS3153ReadoutWorker::readoutLoop()
         // stay in running state
         if (likely(m_state == DAQState::Running && m_desiredState == DAQState::Running))
         {
-            auto readResult = readBuffer();
+            auto readResult = readAndProcessBuffer();
 
             if (readResult.bytesRead <= 0)
             {
@@ -1225,27 +1298,7 @@ void SIS3153ReadoutWorker::readoutLoop()
         // pause
         else if (m_state == DAQState::Running && m_desiredState == DAQState::Paused)
         {
-            /* This is a send/receive operation. The method internally retries
-             * UDP_REQUEST_RETRY times (set to 3 by default) before giving up.
-             *
-             * Pausing uses the control socket instead of the main socket so
-             * that DAQ mode packets and the write packets do not get mixed up.
-             * */
-            int res = sis->getCtrlImpl()->udp_sis3153_register_write(
-                SIS3153ETH_STACK_LIST_CONTROL,
-                m_stackListControlRegisterValue << SIS3153Registers::StackListControlValues::DisableShift);
-
-            auto error = make_sis_error(res);
-            if (error.isError())
-                throw QString("Error leaving SIS3153 DAQ mode: %1").arg(error.toString());
-
-            // read remaining buffers
-            u32 packetCount = 0;
-            while(readBuffer().bytesRead > 0) packetCount++;
-
-            sis_log(QString(QSL("SIS3153 readout left DAQ mode (%1 remaining packets received)"))
-                       .arg(packetCount));
-
+            leaveDAQMode();
             setState(DAQState::Paused);
             sis_log(QString(QSL("SIS3153 readout paused")));
         }
@@ -1280,28 +1333,103 @@ void SIS3153ReadoutWorker::readoutLoop()
     }
 
     setState(DAQState::Stopping);
-
-    // leave daq mode and read remaining data
-    {
-        int res = sis->getCtrlImpl()->udp_sis3153_register_write(
-            SIS3153ETH_STACK_LIST_CONTROL,
-            m_stackListControlRegisterValue << SIS3153Registers::StackListControlValues::DisableShift);
-
-        auto error = make_sis_error(res);
-        if (error.isError())
-            throw QString("Error leaving SIS3153 DAQ mode: %1").arg(error.toString());
-
-        u32 packetCount = 0;
-        while(readBuffer().bytesRead > 0) packetCount++;
-
-        logMessage(QString(QSL("SIS3153 readout left DAQ mode (%1 remaining packets received)"))
-                   .arg(packetCount));
-    }
-
+    leaveDAQMode();
     maybePutBackBuffer();
 }
 
-SIS3153ReadoutWorker::ReadBufferResult SIS3153ReadoutWorker::readBuffer()
+namespace
+{
+    void err_wrap(int sis_return_code, const QString &fmt = QString())
+    {
+        auto error = make_sis_error(sis_return_code);
+
+        if (error.isError())
+        {
+            if (fmt.isNull() || fmt.isEmpty())
+                throw error.toString();
+
+            throw fmt.arg(error.toString());
+        }
+    }
+} // end anon namespace
+
+void SIS3153ReadoutWorker::leaveDAQMode()
+{
+    /* Note: These operations use the control socket instead of the main socket
+     * so that DAQ data packets and the register read/write packets do not get
+     * mixed up. */
+
+    using namespace SIS3153Registers;
+
+    // sis3153eth instance using the control socket.
+    auto ctrl = m_sis->getCtrlImpl();
+
+    // Turn off all DAQ mode features that where enabled in start()
+    err_wrap(ctrl->udp_sis3153_register_write(
+            SIS3153ETH_STACK_LIST_CONTROL,
+            m_stackListControlRegisterValue << SIS3153Registers::StackListControlValues::DisableShift),
+        QSL("Error leaving SIS3153 DAQ mode: %1"));
+
+    u32 leaveDAQPacketCount = 0;
+
+    if (m_stackListControlRegisterValue & StackListControlValues::ListBufferEnable)
+    {
+        u32 wordsLeftInBuffer = 0;
+        err_wrap(ctrl->udp_sis3153_register_read(
+                SIS3153ETH_STACK_LIST_CONTROL, &wordsLeftInBuffer));
+        wordsLeftInBuffer = ((wordsLeftInBuffer >> 16) & 0xffff);
+
+        qDebug() << __PRETTY_FUNCTION__ << "initial wordsLeftInBuffer=" << wordsLeftInBuffer;
+
+        qDebug() << "using the force to push the words!";
+        err_wrap(ctrl->udp_sis3153_register_write(
+                SIS3153ETH_STACK_LIST_CONTROL,
+                StackListControlValues::FlushBufferEnable));
+
+        m_lossCounter.m_leavingDAQ = true;
+
+        while (wordsLeftInBuffer)
+        {
+            qDebug() << ">>>> begin reading final buffers";
+            while(readAndProcessBuffer().bytesRead > 0) leaveDAQPacketCount++;
+            qDebug() << "<<<< end reading final buffers";
+
+            // update the wordcount
+            err_wrap(ctrl->udp_sis3153_register_read(
+                    SIS3153ETH_STACK_LIST_CONTROL, &wordsLeftInBuffer));
+            wordsLeftInBuffer = ((wordsLeftInBuffer >> 16) & 0xffff);
+            qDebug() << __PRETTY_FUNCTION__ << "loop wordsLeftInBuffer=" << wordsLeftInBuffer;
+        }
+
+        m_lossCounter.m_leavingDAQ = false;
+    }
+    else
+    {
+        qDebug() << ">>>> begin reading final buffers";
+        while(readAndProcessBuffer().bytesRead > 0) leaveDAQPacketCount++;
+        qDebug() << "<<<< end reading final buffers";
+    }
+
+    if (m_stackListControlRegisterValue & StackListControlValues::ListBufferEnable)
+    {
+        qDebug() << "the force was with us and pushed all the words. letting go of the force";
+        err_wrap(ctrl->udp_sis3153_register_write(
+                SIS3153ETH_STACK_LIST_CONTROL,
+                StackListControlValues::FlushBufferEnable << StackListControlValues::DisableShift));
+    }
+
+    // Turn off LED_A
+    err_wrap(ctrl->udp_sis3153_register_write(
+            USBControlAndStatus,
+            USBControlAndStatusValues::LED_A << USBControlAndStatusValues::DisableShift));
+
+    logMessage(QString(QSL("SIS3153 readout left DAQ mode (%1 remaining packets received, last packetNumber=%2)"))
+               .arg(leaveDAQPacketCount)
+               .arg(m_lossCounter.m_lastReceivedPacketNumber)
+              );
+}
+
+SIS3153ReadoutWorker::ReadBufferResult SIS3153ReadoutWorker::readAndProcessBuffer()
 {
     ReadBufferResult result = {};
     m_readBuffer.used = 0;
