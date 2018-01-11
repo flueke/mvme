@@ -1,6 +1,8 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016, 2017  Florian Lüke <f.lueke@mesytec.com>
+ * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -36,6 +38,7 @@
 #include "globals.h"
 
 class MVMEContext;
+class QFormLayout;
 
 class DAQControlWidget: public QWidget
 {
@@ -68,6 +71,7 @@ class DAQControlWidget: public QWidget
         QLineEdit *le_listfileFilename;
 
         QGroupBox *gb_listfile;
+        QFormLayout *gb_listfileLayout;
 
         QRadioButton *rb_keepData, *rb_clearData;
         QButtonGroup *bg_daqData;

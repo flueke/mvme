@@ -1,6 +1,8 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016, 2017  Florian Lüke <f.lueke@mesytec.com>
+ * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -50,7 +52,7 @@ class Histo2DWidget: public QWidget
 
         Histo2DWidget(const Histo2DPtr histoPtr, QWidget *parent = 0);
         Histo2DWidget(Histo2D *histo, QWidget *parent = 0);
-        Histo2DWidget(const Histo1DSinkPtr &histo1DSink, QWidget *parent = 0);
+        Histo2DWidget(const Histo1DSinkPtr &histo1DSink, MVMEContext *context, QWidget *parent = 0);
         ~Histo2DWidget();
 
         void setContext(MVMEContext *context) { m_context = context; }
@@ -102,7 +104,7 @@ class Histo2DWidget: public QWidget
         Histo1DWidget *m_yProjWidget = nullptr;
 
         WidgetGeometrySaver *m_geometrySaver;
-        MVMEContext *m_context;
+        MVMEContext *m_context = nullptr;
 };
 
 #endif /* __HISTO2D_WIDGET_H__ */

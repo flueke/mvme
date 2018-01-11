@@ -8,8 +8,8 @@
         "properties": {
             "ModuleProperties": [
                 {
-                    "moduleId": "{4a9c0c35-260d-41d2-8005-9b87756b6d4c}",
-                    "moduleName": "vmmr",
+                    "moduleId": "{55b3d47a-42f9-41e1-89b2-695356a8d22e}",
+                    "moduleName": "VMMR-16",
                     "moduleTypeName": "vmmr"
                 }
             ]
@@ -19,18 +19,52 @@
                 "class": "analysis::Extractor",
                 "data": {
                     "requiredCompletionCount": 1,
-                    "rngSeed": "63e9c2a0cec9d8c3",
+                    "rngSeed": "e4604ffa3eee2049",
                     "subFilters": [
                         {
-                            "filterString": "0001FIXMEFIXMEFIXMEDDDDDDDDDDDDD",
+                            "filterString": "001XAAAA00000000DDDDDDDDDDDDDDDD",
                             "wordIndex": -1
                         }
                     ]
                 },
-                "eventId": "{bf67b925-0ec8-48ec-801d-b7abd4d296b9}",
-                "id": "{99ee6e7a-9203-4ab4-bb43-3921132b3563}",
-                "moduleId": "{4a9c0c35-260d-41d2-8005-9b87756b6d4c}",
-                "name": "amplitude"
+                "eventId": "{ee10db9d-aa4b-4b0e-8695-24713fccc773}",
+                "id": "{37319aae-99f1-4131-8c0e-a2cc8225bdac}",
+                "moduleId": "{55b3d47a-42f9-41e1-89b2-695356a8d22e}",
+                "name": "bus_time"
+            },
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "b5d9c07e5027b9ac",
+                    "subFilters": [
+                        {
+                            "filterString": "00010000XXXXXAAAAAAADDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{ee10db9d-aa4b-4b0e-8695-24713fccc773}",
+                "id": "{cfcdeb75-f3c9-4fbf-883f-7a460e8c9e60}",
+                "moduleId": "{55b3d47a-42f9-41e1-89b2-695356a8d22e}",
+                "name": "amplitude_bus0"
+            },
+            {
+                "class": "analysis::Extractor",
+                "data": {
+                    "requiredCompletionCount": 1,
+                    "rngSeed": "908cd3745a851049",
+                    "subFilters": [
+                        {
+                            "filterString": "11DDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+                            "wordIndex": -1
+                        }
+                    ]
+                },
+                "eventId": "{ee10db9d-aa4b-4b0e-8695-24713fccc773}",
+                "id": "{19817e95-c436-45af-8613-a29873f2d0e5}",
+                "moduleId": "{55b3d47a-42f9-41e1-89b2-695356a8d22e}",
+                "name": "event_counters/ts"
             }
         ]
     }

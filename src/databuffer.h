@@ -1,6 +1,8 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016, 2017  Florian Lüke <f.lueke@mesytec.com>
+ * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -63,6 +65,7 @@ struct DataBuffer
 
     size_t free() const { return size - used; }
 
+    u8 *asU8() { return data + used; }
     u16 *asU16() { return reinterpret_cast<u16 *>(data + used); }
     u32 *asU32() { return reinterpret_cast<u32 *>(data + used); }
 

@@ -1,12 +1,12 @@
 #include <QCoreApplication>
 #include "mvme_listfile.h"
 #include "vme_config.h"
+#include "mvme_root_data_writer.h"
 #include "mvme_stream_processor.h"
 #include "analysis/analysis.h"
 #include "analysis/analysis_session.h"
 #include "util/strings.h"
 #include "util/counters.h"
-#include "mvme_context_lib.h"
 
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -15,6 +15,7 @@
 #include <array>
 #include <iostream>
 #include <getopt.h>
+#include <signal.h>
 
 using std::cout;
 using std::cerr;
@@ -65,6 +66,9 @@ struct Context
     u32 listfileVersion;
     MVMEStreamProcessor::Logger logger;
     MVMEStreamProcessor streamProcessor;
+#ifdef MVME_ENABLE_ROOT
+    mvme_root::RootDataWriter rootWriter;
+#endif
 };
 
 void process_listfile(Context &context, ListFile *listfile)
@@ -73,12 +77,18 @@ void process_listfile(Context &context, ListFile *listfile)
 
     DataBuffer sectionBuffer(Megabytes(1));
 
+#ifdef MVME_ENABLE_ROOT
+    context.streamProcessor.attachModuleConsumer(&context.rootWriter);
+#endif
+
     context.streamProcessor.beginRun(
         context.runInfo,
         context.analysis,
         context.vmeConfig,
         context.listfileVersion,
         context.logger);
+
+    context.streamProcessor.startConsumers();
 
     auto &counters = context.streamProcessor.getCounters();
     counters.startTime = QDateTime::currentDateTime();
@@ -95,6 +105,8 @@ void process_listfile(Context &context, ListFile *listfile)
 
         context.streamProcessor.processDataBuffer(&sectionBuffer);
     }
+
+    context.streamProcessor.endRun();
 
     counters.stopTime = QDateTime::currentDateTime();
 }
@@ -127,6 +139,9 @@ void load_analysis_config(const QString &filename, Analysis *analysis, VMEConfig
 
 int main(int argc, char *argv[])
 {
+    signal(SIGPIPE, SIG_IGN);
+
+
     QCoreApplication app(argc, argv);
 
     QString listfileFilename;
@@ -192,6 +207,7 @@ int main(int argc, char *argv[])
         auto logger = [] (const QString &msg) { qDebug() << msg; };
 
         Context context = {};
+        context.runInfo.isReplay = true;
         context.analysis = analysis.get();
         context.vmeConfig = vmeConfig.get();
         context.listfileVersion = openResult.listfile->getFileVersion();
@@ -200,6 +216,8 @@ int main(int argc, char *argv[])
         qDebug() << "processing listfile" << listfileFilename << "...";
 
         process_listfile(context, openResult.listfile.get());
+
+        qDebug() << "process_listfile() returned";
 
         auto counters = context.streamProcessor.getCounters();
 

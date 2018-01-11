@@ -141,6 +141,12 @@ if (ENABLE_HDF5)
     list(APPEND LIBMVME_SOURCES analysis/analysis_session.cc)
 endif()
 
+if (ENABLE_ROOT AND ROOT_FOUND)
+    # The code that's starting and managing the mvme-root-writer. Does not
+    # include/link with ROOT but is part of libmvme.
+    list(APPEND LIBMVME_SOURCES mvme_root_data_writer.cc)
+endif(ENABLE_ROOT AND ROOT_FOUND)
+
 add_library(libmvme SHARED ${LIBMVME_SOURCES} ${LIBMVME_UIC_OUT} ${LIBMVME_RC_OUT})
 add_dependencies(libmvme liba2_static)
 generate_export_header(libmvme)
@@ -237,11 +243,35 @@ add_mvme_executable(dev_data_filter_runner "dev_data_filter_runner.cc")
 add_mvme_executable(dev_sis3153_read_raw_buffers_file "dev_sis3153_read_raw_buffers_file.cc")
 add_mvme_executable(dev_udp_sender "dev_udp_sender.cc")
 add_mvme_executable(dev_udp_receiver "dev_udp_receiver.cc")
+add_mvme_executable(dev_listfile_tcp_sender "dev_listfile_tcp_sender.cc")
+add_mvme_executable(dev_listfile_tcp_receiver "dev_listfile_tcp_receiver.cc")
+install(TARGETS dev_listfile_tcp_sender dev_listfile_tcp_receiver DESTINATION .)
 
-# root subdir if ROOT support is enabled
-if (ENABLE_ROOT)
-    add_mvme_executable(dev_mvme_event_processing "dev_mvme_event_processing.cc")
-    add_subdirectory(root)
-endif (ENABLE_ROOT)
+if (ENABLE_HDF5)
+add_mvme_executable(dev_mvme_event_processing "dev_mvme_event_processing.cc")
+endif(ENABLE_HDF5)
+
+if (ENABLE_ROOT AND ROOT_FOUND)
+    set(mvme_root_LIBS
+        ${ROOT_LIBRARIES}
+        ${ROOT_Core_LIBRARY}
+        ${ROOT_RIO_LIBRARY}
+        ${ROOT_Tree_LIBRARY}
+        ${ROOT_Hist_LIBRARY}
+        )
+
+    include_directories(${CMAKE_CURRENT_SOURCE_DIR})
+    ROOT_GENERATE_DICTIONARY(G__mvme_root mvme_root.h LINKDEF mvme_linkdef.h OPTIONS NOINSTALL)
+
+    add_library(mvme_root SHARED mvme_root.cc G__mvme_root.cxx)
+    target_link_libraries(mvme_root ${mvme_root_LIBS})
+
+    add_executable(dev_root_test dev_root_test.cc)
+    target_link_libraries(dev_root_test mvme_root)
+
+    add_executable(mvme-root-writer root_writer_process_main.cc)
+    add_dependencies(mvme-root-writer libmvme mvme_root)
+    target_link_libraries(mvme-root-writer libmvme mvme_root)
+endif(ENABLE_ROOT AND ROOT_FOUND)
 
 # vim:tw=0

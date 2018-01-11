@@ -1,6 +1,8 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016, 2017  Florian Lüke <f.lueke@mesytec.com>
+ * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -506,9 +508,8 @@ void EventConfig::write_impl(QJsonObject &json) const
         json["properties"] = props;
 }
 
-
 //
-// DAQConfig
+// VMEConfig
 //
 
 // Versioning of the DAQ config in case incompatible changes need to be made.
@@ -803,7 +804,7 @@ ModuleConfig *VMEConfig::getModuleConfig(int eventIndex, int moduleIndex)
 
     if (eventConfig)
     {
-        result = eventConfig->modules.value(moduleIndex);
+        result = eventConfig->getModuleConfigs().value(moduleIndex);
     }
 
     return result;
@@ -835,7 +836,7 @@ QList<ModuleConfig *> VMEConfig::getAllModuleConfigs() const
 
     for (auto eventConfig: eventConfigs)
     {
-        for (auto moduleConfig: eventConfig->modules)
+        for (auto moduleConfig: eventConfig->getModuleConfigs())
         {
             result.push_back(moduleConfig);
         }

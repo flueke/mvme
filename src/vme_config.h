@@ -1,6 +1,8 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016, 2017  Florian Lüke <f.lueke@mesytec.com>
+ * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -26,7 +28,6 @@
 
 #include <QObject>
 #include <QUuid>
-#include <qwt_scale_map.h>
 
 class QJsonObject;
 
@@ -221,7 +222,6 @@ class LIBMVME_EXPORT EventConfig: public ConfigObject
         // Maximum number of events between scaler stack executions
         uint16_t scalerReadoutFrequency = 0;
 
-        QList<ModuleConfig *> modules;
         /** Known keys for an event:
          * "daq_start", "daq_stop", "readout_start", "readout_end"
          */
@@ -248,6 +248,7 @@ class LIBMVME_EXPORT EventConfig: public ConfigObject
 
     private:
         bool m_multiEventProcessingEnabled = false;
+        QList<ModuleConfig *> modules;
 };
 
 class LIBMVME_EXPORT VMEConfig: public ConfigObject

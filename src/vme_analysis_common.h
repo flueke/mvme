@@ -1,6 +1,8 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016, 2017  Florian Lüke <f.lueke@mesytec.com>
+ * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,6 +22,9 @@
 #define __VME_ANALYSIS_COMMON_H__
 
 #include "vme_config.h"
+#include <chrono>
+#include <cmath>
+
 
 namespace analysis
 {
@@ -61,8 +66,8 @@ void remove_analysis_objects_unless_matching(analysis::Analysis *analysis, const
  * by moduleInfo from the given analysis. */
 void remove_analysis_objects_unless_matching(analysis::Analysis *analysis, const ModuleInfo &moduleInfo);
 
-/** Removes sources and operators from the given analysis which reference
- * modules and events that do not exist in the given vmeConfig. */
+/** Removes sources and operators from the analysis which reference modules and
+ * events that do not exist in vmeConfig. */
 void remove_analysis_objects_unless_matching(analysis::Analysis *analysis, VMEConfig *vmeConfig);
 
 struct VMEConfigIndex
@@ -74,6 +79,43 @@ struct VMEConfigIndex
 using VMEIdToIndex = QHash<QUuid, VMEConfigIndex>;
 
 VMEIdToIndex build_id_to_index_mapping(const VMEConfig *vmeConfig);
+
+class TimetickGenerator
+{
+    public:
+        using ClockType = std::chrono::steady_clock;
+
+        TimetickGenerator()
+            : t_start(ClockType::now())
+        {}
+
+        int generateElapsedSeconds()
+        {
+            int result = 0;
+            auto t_end = ClockType::now();
+            std::chrono::duration<double, std::milli> diff = t_end - t_start;
+            double elapsed_ms = diff.count() + remainder_ms;
+
+            if (elapsed_ms >= 1000.0)
+            {
+                result = std::floor(elapsed_ms / 1000.0);
+                remainder_ms = std::fmod(elapsed_ms, 1000.0);
+                t_start = t_end;
+            }
+
+            return result;
+        }
+
+        double getTimeToNextTick() const
+        {
+            return 1000.0 - remainder_ms;
+        }
+
+    private:
+        ClockType::time_point t_start;
+        double remainder_ms = 0.0;
+
+};
 
 }
 

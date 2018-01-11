@@ -1,6 +1,8 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016, 2017  Florian Lüke <f.lueke@mesytec.com>
+ * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -1015,6 +1017,13 @@ class LIBMVME_EXPORT Histo1DSink: public BasicSink
         virtual QString getShortName() const override { return QSL("H1D"); }
 
         size_t getStorageSize() const;
+
+        std::shared_ptr<Histo1D> getHisto(s32 index) const
+        {
+            return m_histos.value(index, {});
+        }
+
+        s32 getNumberOfHistos() const { return m_histos.size(); }
 
         QVector<std::shared_ptr<Histo1D>> m_histos;
         s32 m_bins = 0;

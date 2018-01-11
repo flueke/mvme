@@ -8,7 +8,7 @@
 
 #define ArrayCount(x) (sizeof(x) / sizeof(*x))
 
-#if 1
+#if 0
 int main(int argc, char *argv[])
 {
     TRandom rng;
@@ -78,7 +78,7 @@ int main(int argc, char *argv[])
 }
 #endif
 
-#if 0
+#if 1
 int main(int argc, char *argv[])
 {
     TFile f("test.root", "recreate");

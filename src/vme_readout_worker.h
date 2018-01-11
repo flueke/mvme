@@ -1,6 +1,8 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016, 2017  Florian Lüke <f.lueke@mesytec.com>
+ * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -45,6 +47,7 @@ class VMEReadoutWorker: public QObject
     signals:
         void stateChanged(DAQState);
         void daqStopped();
+        void daqPaused();
 
     public:
         VMEReadoutWorker(QObject *parent = 0);
@@ -55,18 +58,19 @@ class VMEReadoutWorker: public QObject
             m_workerContext = context;
         }
         inline const VMEReadoutWorkerContext &getContext() const { return m_workerContext; }
+        inline VMEReadoutWorkerContext &getContext() { return m_workerContext; }
 
         inline ThreadSafeDataBufferQueue *getFreeQueue() { return m_workerContext.freeBuffers; }
         inline ThreadSafeDataBufferQueue *getFullQueue() { return m_workerContext.fullBuffers; }
 
-        inline void start() { start(0); }
         virtual bool isRunning() const = 0;
+        virtual DAQState getState() const = 0;
 
     public slots:
-        virtual void start(quint32 cycles) = 0;
+        virtual void start(quint32 cycles = 0) = 0;
         virtual void stop() = 0;
         virtual void pause() = 0;
-        virtual void resume() = 0;
+        virtual void resume(quint32 cycles = 0) = 0;
 
     protected:
         virtual void pre_setContext(VMEReadoutWorkerContext newContext) {}

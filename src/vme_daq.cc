@@ -1,6 +1,8 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016, 2017  Florian Lüke <f.lueke@mesytec.com>
+ * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -42,6 +44,9 @@ void vme_daq_init(
         logger(QSL("Global DAQ Start scripts:"));
         for (auto script: startScripts)
         {
+            if (!script->isEnabled())
+                continue;
+
             logger(QString("  %1").arg(script->objectName()));
             auto indentingLogger = [logger](const QString &str) { logger(QSL("    ") + str); };
             run_script(controller, script->getScript(), indentingLogger, true);
@@ -52,8 +57,17 @@ void vme_daq_init(
     logger(QSL("Initializing Modules:"));
     for (auto eventConfig: config->getEventConfigs())
     {
-        for (auto module: eventConfig->modules)
+        for (auto module: eventConfig->getModuleConfigs())
         {
+            if (!module->isEnabled())
+            {
+                logger(QString("  %1.%2: Disabled in VME configuration")
+                           .arg(eventConfig->objectName())
+                           .arg(module->objectName())
+                          );
+                continue;
+            }
+
             logger(QString("  %1.%2")
                        .arg(eventConfig->objectName())
                        .arg(module->objectName())
@@ -103,6 +117,9 @@ void vme_daq_shutdown(
         logger(QSL("Global DAQ Stop scripts:"));
         for (auto script: stopScripts)
         {
+            if (!script->isEnabled())
+                continue;
+
             logger(QString("  %1").arg(script->objectName()));
             auto indentingLogger = [logger](const QString &str) { logger(QSL("    ") + str); };
             run_script(controller, script->getScript(), indentingLogger, true);
@@ -121,9 +138,16 @@ vme_script::VMEScript build_event_readout_script(EventConfig *eventConfig)
 
     result += eventConfig->vmeScripts["readout_start"]->getScript();
 
-    for (auto module: eventConfig->modules)
+    for (auto module: eventConfig->getModuleConfigs())
     {
-        result += module->getReadoutScript()->getScript(module->getBaseAddress());
+        if (module->isEnabled())
+        {
+            result += module->getReadoutScript()->getScript(module->getBaseAddress());
+        }
+        /* If the module is disabled only the EndMarker will be present in the
+         * readout data. This looks the same as if the module readout did not
+         * yield any data at all. */
+
         Command marker;
         marker.type = CommandType::Marker;
         marker.value = EndMarker;
@@ -183,10 +207,8 @@ struct DAQReadoutListfileHelperPrivate
 //
 // DAQReadoutListfileHelper
 //
-DAQReadoutListfileHelper::DAQReadoutListfileHelper(
-    VMEReadoutWorkerContext readoutContext, QObject *parent)
-    : QObject(parent)
-    , m_d(new DAQReadoutListfileHelperPrivate)
+DAQReadoutListfileHelper::DAQReadoutListfileHelper(VMEReadoutWorkerContext readoutContext)
+    : m_d(std::make_unique<DAQReadoutListfileHelperPrivate>())
     , m_readoutContext(readoutContext)
 {
     m_d->listfileWriter = std::make_unique<ListFileWriter>();
@@ -194,7 +216,6 @@ DAQReadoutListfileHelper::DAQReadoutListfileHelper(
 
 DAQReadoutListfileHelper::~DAQReadoutListfileHelper()
 {
-    delete m_d;
 }
 
 namespace
@@ -206,6 +227,9 @@ namespace
  *
  * Also note that the file handling code does not in any way guard against race
  * conditions when someone else is also creating files.
+ *
+ * Note: Increments the runNumer of outInfo if UseRunNumber is set in the
+ * output flags.
  */
 QString make_new_listfile_name(ListFileOutputInfo *outInfo)
 {
@@ -277,6 +301,11 @@ void DAQReadoutListfileHelper::beginRun()
             {
                 QString outFilename = make_new_listfile_name(m_readoutContext.listfileOutputInfo);
 
+                /* The name of the listfile inside the zip archive. */
+                QFileInfo fi(outFilename);
+                QString listfileFilename(QFileInfo(outFilename).completeBaseName());
+                listfileFilename += QSL(".mvmelst");
+
                 m_d->listfileArchive.setZipName(outFilename);
                 m_d->listfileArchive.setZip64Enabled(true);
 
@@ -290,7 +319,7 @@ void DAQReadoutListfileHelper::beginRun()
                 m_d->listfileOut = std::make_unique<QuaZipFile>(&m_d->listfileArchive);
                 auto outFile = reinterpret_cast<QuaZipFile *>(m_d->listfileOut.get());
 
-                QuaZipNewInfo zipFileInfo(m_readoutContext.runInfo->runId + QSL(".mvmelst"));
+                QuaZipNewInfo zipFileInfo(listfileFilename);
                 zipFileInfo.setPermissions(static_cast<QFile::Permissions>(0x6644));
 
                 bool res = outFile->open(QIODevice::WriteOnly, zipFileInfo,
@@ -446,6 +475,18 @@ void DAQReadoutListfileHelper::writeBuffer(const u8 *buffer, size_t size)
     if (m_d->listfileOut && m_d->listfileOut->isOpen())
     {
         if (!m_d->listfileWriter->writeBuffer(reinterpret_cast<const char *>(buffer), size))
+        {
+            throw_io_device_error(m_d->listfileOut);
+        }
+        m_readoutContext.daqStats->listFileBytesWritten = m_d->listfileWriter->bytesWritten();
+    }
+}
+
+void DAQReadoutListfileHelper::writeTimetickSection()
+{
+    if (m_d->listfileOut && m_d->listfileOut->isOpen())
+    {
+        if (!m_d->listfileWriter->writeTimetickSection())
         {
             throw_io_device_error(m_d->listfileOut);
         }

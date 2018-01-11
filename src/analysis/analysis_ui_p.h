@@ -1,6 +1,8 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016, 2017  Florian Lüke <f.lueke@mesytec.com>
+ * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -236,6 +238,7 @@ class OperatorConfigurationWidget: public QWidget
         QComboBox *combo_equation;
         QDoubleSpinBox *spin_outputLowerLimit;
         QDoubleSpinBox *spin_outputUpperLimit;
+        QPushButton *pb_autoLimits;
 
         void updateOutputLimits(BinarySumDiff *binOp);
 

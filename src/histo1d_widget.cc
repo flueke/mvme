@@ -1,6 +1,8 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016, 2017  Florian Lüke <f.lueke@mesytec.com>
+ * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -271,11 +273,7 @@ struct Histo1DWidgetPrivate
         {
             if (m_q->m_sink->m_bins != combo_xBins->currentData().toInt())
             {
-                /* Note: In the case of the Histo1DSink it's ok to modify
-                 * m_bins without pausing the analysis first. If the
-                 * implementation was different or another operator was to be
-                 * modified the analysis might need to be paused before the
-                 * operator is touched. */
+                AnalysisPauser pauser(m_q->m_context);
                 m_q->m_sink->m_bins = combo_xBins->currentData().toInt();
                 m_q->m_context->analysisOperatorEdited(m_q->m_sink);
             }

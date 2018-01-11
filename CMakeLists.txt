@@ -28,14 +28,6 @@ set(CMAKE_CXX_FLAGS_PROFILE "-DNDEBUG -O3 -march=${MARCH_FLAG} -mtune=${MTUNE_FL
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-message("-- CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
-message("-- CMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}")
-if (NOT "${CMAKE_BUILD_TYPE}" STREQUAL "")
-    string(TOUPPER ${CMAKE_BUILD_TYPE} build_type_upper)
-    message("-- CMAKE_CXX_FLAGS_${build_type_upper}=${CMAKE_CXX_FLAGS_${build_type_upper}}")
-endif()
-
-
 ## Create binaries in the root of the build directory
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
@@ -64,9 +56,16 @@ git_describe(GIT_VERSION "--always")
 string(REGEX MATCH "^[0-9.]+(-[0-9]+)?" GIT_VERSION_SHORT ${GIT_VERSION})
 string(REGEX MATCH "^[0-9.]+" GIT_VERSION_TAG ${GIT_VERSION})
 
+execute_process(
+    COMMAND ${GIT_EXECUTABLE} rev-parse --abbrev-ref HEAD
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    OUTPUT_VARIABLE GIT_BRANCH
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
+
 message("-- GIT_VERSION=${GIT_VERSION}")
 message("-- GIT_VERSION_SHORT=${GIT_VERSION_SHORT}")
 message("-- GIT_VERSION_TAG=${GIT_VERSION_TAG}")
+message("-- GIT_BRANCH=${GIT_BRANCH}")
 
 # External libraries.
 # Note: This was moved up from the src/ subdirectory so that the
@@ -78,11 +77,6 @@ message("-- GIT_VERSION_TAG=${GIT_VERSION_TAG}")
 include_directories("${CMAKE_SOURCE_DIR}/3rdparty")
 include_directories("${CMAKE_SOURCE_DIR}/3rdparty/pcg-cpp-0.98/include/")
 include_directories("${CMAKE_SOURCE_DIR}/3rdparty/cpp11-on-multicore/common/")
-
-# qwt
-find_path(QWT_INCLUDE_DIR
-    NAMES qwt_plot.h
-    PATH_SUFFIXES qwt qwt-qt5 qwt-6.1.3)
 
 # HDF5
 option(ENABLE_HDF5 "Enable HDF5 support" ON)
@@ -97,8 +91,12 @@ if (ENABLE_HDF5)
     endif(HDF5_FOUND)
 endif(ENABLE_HDF5)
 
-# Qwt
-find_library(QWT_LIBRARY NAMES qwt qwt-qt5)
+# qwt
+find_path(QWT_INCLUDE_DIR
+    NAMES qwt_plot.h
+    PATH_SUFFIXES qwt qwt-qt5 qwt-6.1.3 qt5/qwt6)
+
+find_library(QWT_LIBRARY NAMES qwt qwt-qt5 qwt6)
 include_directories(${QWT_INCLUDE_DIR})
 #include(FindPackageHandleStandardArgs)
 #find_package_handle_standard_args(Qwt DEFAULT_MSG QWT_LIBRARY QWT_INCLUDE_DIR)
@@ -107,7 +105,26 @@ message("-- Using QWT_INCLUDE_DIR=${QWT_INCLUDE_DIR}")
 message("-- Using QWT_LIBRARY=${QWT_LIBRARY}")
 
 # ROOT
+# https://root.cern.ch/how/integrate-root-my-project-cmake
 option(ENABLE_ROOT "Enable ROOT support" OFF)
+
+if (ENABLE_ROOT)
+    list(APPEND CMAKE_PREFIX_PATH $ENV{ROOTSYS})
+
+    find_package(ROOT
+        COMPONENTS Core RIO Tree Hist)
+
+    if (ROOT_FOUND)
+        include(${ROOT_USE_FILE})
+
+        find_program(ROOT_CONFIG_EXECUTABLE root-config
+            HINTS $ENV{ROOTSYS}/bin)
+
+        add_definitions(-DMVME_ENABLE_ROOT)
+
+        message("-- Found ROOT in ${ROOT_USE_FILE}")
+    endif(ROOT_FOUND)
+endif(ENABLE_ROOT)
 
 # Subdirectories containing build targets
 add_subdirectory(src)
@@ -127,6 +144,16 @@ option(BUILD_DOCS "Build the documentation (if Sphinx is found)" ON)
 
 if (BUILD_DOCS)
     add_subdirectory(doc)
+endif()
+
+
+# Log build type and flags. Keep this below the commands that might change the
+# flags.
+message("-- CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
+message("-- CMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}")
+if (NOT "${CMAKE_BUILD_TYPE}" STREQUAL "")
+    string(TOUPPER ${CMAKE_BUILD_TYPE} build_type_upper)
+    message("-- CMAKE_CXX_FLAGS_${build_type_upper}=${CMAKE_CXX_FLAGS_${build_type_upper}}")
 endif()
 
 # Handle the template directory at installation and build time

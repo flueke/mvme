@@ -1,6 +1,8 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016, 2017  Florian Lüke <f.lueke@mesytec.com>
+ * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -38,6 +40,7 @@
 #include "globals.h"
 #include "data_buffer_queue.h"
 #include "util.h"
+#include "libmvme_export.h"
 
 #include <QTextStream>
 #include <QFile>
@@ -129,8 +132,8 @@ struct listfile_v0
 /*  ===== VERSION 1 =====
  *
  * Differences to version 0:
- * - Starts with the FourCC "MVME" followed by a 32 bit word containing the
- *   listfile version number.
+ * - Starts with the FourCC "MVME" (without a terminating '\0') followed by a
+ *   32 bit word containing the listfile version number.
  * - Larger section and subevent sizes: 16 -> 20 bits for sections and 10 -> 20
  *   bits for subevents.
  * - Module type is now 8 bit instead of 6.
@@ -196,7 +199,7 @@ void dump_mvme_buffer(QTextStream &out, const DataBuffer *eventBuffer, bool dump
 class VMEConfig;
 class QuaZipFile;
 
-class ListFile
+class LIBMVME_EXPORT ListFile
 {
     public:
         ListFile(const QString &fileName);
@@ -217,6 +220,10 @@ class ListFile
         QString getFullName() const; // filename or zipname:/filename
         u32 getFileVersion() const { return m_fileVersion; }
 
+        // Will be empty vector for version 0 or contain "MVME<version>" with
+        // version being an u32.
+        QVector<u8> getPreambleBuffer() const { return m_preambleBuffer; }
+
     private:
         bool seek(qint64 pos);
 
@@ -224,15 +231,16 @@ class ListFile
         QJsonObject m_configJson;
         u32 m_fileVersion = 0;
         u32 m_sectionHeaderBuffer = 0;
+        QVector<u8> m_preambleBuffer;
 };
 
-class ListFileReader: public QObject
+class LIBMVME_EXPORT ListFileReader: public QObject
 {
     Q_OBJECT
     signals:
         void stateChanged(DAQState);
         void replayStopped();
-        void progressChanged(qint64, qint64);
+        void replayPaused();
 
     public:
         using LoggerFun = std::function<void (const QString &)>;
@@ -244,6 +252,7 @@ class ListFileReader: public QObject
         ListFile *getListFile() const { return m_listFile; }
 
         bool isRunning() const { return m_state != DAQState::Idle; }
+        DAQState getState() const { return m_state; }
 
         void setEventsToRead(u32 eventsToRead);
 
@@ -265,8 +274,8 @@ class ListFileReader: public QObject
 
         DAQStats &m_stats;
 
-        DAQState m_state = DAQState::Idle;
-        DAQState m_desiredState = DAQState::Idle;
+        DAQState m_state;
+        std::atomic<DAQState> m_desiredState;
 
         ListFile *m_listFile = 0;
 
@@ -278,7 +287,7 @@ class ListFileReader: public QObject
         LoggerFun m_logger;
 };
 
-class ListFileWriter: public QObject
+class LIBMVME_EXPORT ListFileWriter: public QObject
 {
     Q_OBJECT
     public:
@@ -301,5 +310,23 @@ class ListFileWriter: public QObject
         QIODevice *m_out = nullptr;
         u64 m_bytesWritten = 0;
 };
+
+struct LIBMVME_EXPORT OpenListfileResult
+{
+    std::unique_ptr<ListFile> listfile;
+    QByteArray messages;                    // messages.log if found
+    QByteArray analysisBlob;                // analysis config contents
+    QString analysisFilename;               // analysis filename inside the archive
+
+    OpenListfileResult() = default;
+
+    OpenListfileResult(OpenListfileResult &&) = default;
+    OpenListfileResult &operator=(OpenListfileResult &&) = default;
+
+    OpenListfileResult(const OpenListfileResult &) = delete;
+    OpenListfileResult &operator=(const OpenListfileResult &) = delete;
+};
+
+OpenListfileResult LIBMVME_EXPORT open_listfile(const QString &filename);
 
 #endif

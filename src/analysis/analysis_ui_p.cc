@@ -1,6 +1,8 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016, 2017  Florian Lüke <f.lueke@mesytec.com>
+ * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -1133,15 +1135,15 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
         spin_outputLowerLimit->setValue(binOp->getOutputLowerLimit());
         spin_outputUpperLimit->setValue(binOp->getOutputUpperLimit());
 
+        pb_autoLimits = new QPushButton(QSL("Auto Limits"));
+        connect(pb_autoLimits, &QPushButton::clicked, this,
+                [this, binOp]() { this->updateOutputLimits(binOp); });
+
+        formLayout->addRow(QSL("Equation"), combo_equation);
         formLayout->addRow(QSL("Output Unit"), le_unit);
         formLayout->addRow(QSL("Output Lower Limit"), spin_outputLowerLimit);
         formLayout->addRow(QSL("Output Upper Limit"), spin_outputUpperLimit);
-        formLayout->addRow(QSL("Equation"), combo_equation);
-
-        connect(combo_equation, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
-                this, [this, binOp] (int idx) {
-                    this->updateOutputLimits(binOp);
-        });
+        formLayout->addRow(QSL(""), pb_autoLimits);
     }
     else if (auto aggOp = qobject_cast<AggregateOps *>(op))
     {
@@ -1521,10 +1523,6 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
                 spin_yMax->setValue(slot->inputPipe->getParameter(slot->paramIndex)->upperLimit);
             }
         }
-    }
-    else if (auto binOp = qobject_cast<BinarySumDiff *>(op))
-    {
-        updateOutputLimits(binOp);
     }
 }
 

@@ -1,6 +1,8 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016, 2017  Florian Lüke <f.lueke@mesytec.com>
+ * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,10 +21,11 @@
 #ifndef __SIS3153_READOUT_WORKER_H__
 #define __SIS3153_READOUT_WORKER_H__
 
-#include "vme_readout_worker.h"
+#include "mvme_stream_util.h"
 #include "sis3153.h"
-#include "vme_script.h"
 #include "vme_daq.h"
+#include "vme_readout_worker.h"
+#include "vme_script.h"
 
 class SIS3153ReadoutWorker: public VMEReadoutWorker
 {
@@ -31,18 +34,31 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
         SIS3153ReadoutWorker(QObject *parent = 0);
         ~SIS3153ReadoutWorker();
 
-        virtual void start(quint32 cycles) override;
+        virtual void start(quint32 cycles = 0) override;
         virtual void stop() override;
         virtual void pause() override;
-        virtual void resume() override;
+        virtual void resume(quint32 cycles = 0) override;
         virtual bool isRunning() const override;
+        virtual DAQState getState() const override { return m_state; }
 
         struct Counters
         {
-            std::array<u64, SIS3153Constants::NumberOfStackLists> packetsPerStackList;
+            std::array<u64, SIS3153Constants::NumberOfStackLists> stackListCounts;
+            std::array<u64, SIS3153Constants::NumberOfStackLists> stackListBerrCounts_Block;
+            std::array<u64, SIS3153Constants::NumberOfStackLists> stackListBerrCounts_Read;
+            std::array<u64, SIS3153Constants::NumberOfStackLists> stackListBerrCounts_Write;
+
+            u64 lostPackets = 0;
             u64 multiEventPackets = 0;
-            u64 watchdogPackets = 0;
             int watchdogStackList = -1;
+
+            Counters()
+            {
+                stackListCounts.fill(0);
+                stackListBerrCounts_Block.fill(0);
+                stackListBerrCounts_Read.fill(0);
+                stackListBerrCounts_Write.fill(0);
+            }
         };
 
         inline const Counters &getCounters() const
@@ -65,11 +81,12 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
 
         // readout stuff
         void readoutLoop();
-        ReadBufferResult readBuffer();
+        void leaveDAQMode();
+        ReadBufferResult readAndProcessBuffer();
 
         // mvme event processing
 
-        /* Entry point for buffer processing. Called by readBuffer() which then
+        /* Entry point for buffer processing. Called by readAndProcessBuffer() which then
          * dispatches to one of the process*Data() methods below. */
         void processBuffer(
             u8 packetAck, u8 packetIdent, u8 packetStatus, u8 *data, size_t size);
@@ -95,29 +112,32 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
 
         struct ProcessingState
         {
+            MVMEStreamWriterHelper streamWriter;
+            /* If stackList is < 0 no partial event processing is in progress.
+             * Otherwise a partial event for the stackList has been started. */
             s32 stackList = -1;
-            s32 eventSize = 0;
-            s32 eventHeaderOffset = -1;
-            s32 moduleSize = 0;
-            s32 moduleHeaderOffset = -1;
             s32 moduleIndex = -1;
+            u8 expectedPacketStatus = 0u;
         };
 
-        struct ProcessorAction
+        struct PacketLossCounter
         {
-            static const u32 NoneSet     = 0;
-            static const u32 KeepState   = 1u << 0; // Keep the ProcessorState. If unset resets the state.
-            static const u32 FlushBuffer = 1u << 1; // Flush the current output buffer and acquire a new one
-            static const u32 SkipInput   = 1u << 2; // Skip the current input buffer.
-                                                    // Implies state reset and reuses the output buffer without
-                                                    // flusing it.
+            PacketLossCounter(Counters *counters, VMEReadoutWorkerContext *rdoContext);
+
+            inline u32 handlePacketNumber(s32 packetNumber, u64 bufferNumber);
+
+            s32 m_lastReceivedPacketNumber;
+            Counters *m_counters;
+            VMEReadoutWorkerContext *m_rdoContext;
+            bool m_leavingDAQ;
         };
 
         void flushCurrentOutputBuffer();
         void maybePutBackBuffer();
+        void warnIfStreamWriterError(u64 bufferNumber, int writerFlags, u16 eventIndex);
 
-        DAQState m_state = DAQState::Idle;
-        DAQState m_desiredState = DAQState::Idle;
+        std::atomic<DAQState> m_state;
+        std::atomic<DAQState> m_desiredState;
         quint32 m_cyclesToRun = 0;
         DataBuffer m_readBuffer;
         SIS3153 *m_sis = nullptr;
@@ -127,10 +147,10 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
         u32 m_stackListControlRegisterValue = 0;
         int m_watchdogStackListIndex = -1;
         DataBuffer m_localEventBuffer;
-        DataBuffer m_localTimetickBuffer;
         std::unique_ptr<DAQReadoutListfileHelper> m_listfileHelper;
         DataBuffer *m_outputBuffer = nullptr;
         ProcessingState m_processingState;
+        PacketLossCounter m_lossCounter;
         QFile m_rawBufferOut;
         bool m_logBuffers = false;
 };

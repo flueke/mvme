@@ -1,6 +1,8 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016, 2017  Florian Lüke <f.lueke@mesytec.com>
+ * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -78,6 +80,7 @@ void Histo1D::setData(const SharedHistoMem &mem, AxisBinning newBinning)
     }
 
     m_externalMemory = mem;
+    m_data = mem.data;
     setAxisBinning(Qt::XAxis, newBinning);
 }
 
@@ -319,6 +322,28 @@ Histo1D *readHisto1D(QTextStream &in)
             break;
 
         result->setBinContent(bin, value);
+    }
+
+    return result;
+}
+
+Histo1D::ValueAndBin Histo1D::getMaxValueAndBin() const
+{
+    ValueAndBin result = {};
+    const u32 binCount = getNumberOfBins();
+
+    if (binCount > 0)
+    {
+        result.value = m_data[0];
+
+        for (u32 bin = 1; bin < binCount; bin++)
+        {
+            if (m_data[bin] >= result.value)
+            {
+                result.value = m_data[bin];
+                result.bin   = bin;
+            }
+        }
     }
 
     return result;

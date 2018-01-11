@@ -1,0 +1,2 @@
+find . -type f -print0 | xargs -0n1 sed -n 's/^\(.*Copyright (C)\) 2016, 2017 \(mesytec.*\)$/\1 2016-2018 \2/p'
+find . -type f -print0 | xargs -0n1 sed -i -e 's/^\(.*Copyright (C)\) 2016, 2017 \(mesytec.*\)$/\1 2016-2018 \2/'

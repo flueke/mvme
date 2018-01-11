@@ -1,6 +1,8 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016, 2017  Florian Lüke <f.lueke@mesytec.com>
+ * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -34,8 +36,9 @@ class VMUSBReadoutWorker: public VMEReadoutWorker
         virtual void start(quint32 cycles = 0) override;
         virtual void stop() override;
         virtual void pause() override;
-        virtual void resume() override;
+        virtual void resume(quint32 cycles = 0) override;
         virtual bool isRunning() const override { return m_state != DAQState::Idle; }
+        virtual DAQState getState() const override { return m_state; }
 
         void enableWriteRawBuffers(bool enabled);
 
@@ -57,8 +60,8 @@ class VMUSBReadoutWorker: public VMEReadoutWorker
 
         ReadBufferResult readBuffer(int timeout_ms);
 
-        DAQState m_state = DAQState::Idle;
-        DAQState m_desiredState = DAQState::Idle;
+        std::atomic<DAQState> m_state;
+        std::atomic<DAQState> m_desiredState;
         quint32 m_cyclesToRun = 0;
         VMUSBStack m_vmusbStack;
         DataBuffer *m_readBuffer = 0;

@@ -1,7 +1,9 @@
 #include "sis3153_util.h"
 
 #include <QFormLayout>
+#include <QLineEdit>
 #include <QPushButton>
+#include <QTabWidget>
 #include <QTimer>
 
 #include "sis3153.h"
@@ -30,8 +32,10 @@ static const QVector<const char *> LabelTexts =
 
 static const QVector<const char *> RdoCounterLabels =
 {
+    "stackListCounts",
+    "BERR Counters",
     "multiEventPackets",
-    "packetsPerStackList",
+    "lostPackets",
 };
 
 SIS3153DebugWidget::SIS3153DebugWidget(MVMEContext *context, QWidget *parent)
@@ -39,38 +43,100 @@ SIS3153DebugWidget::SIS3153DebugWidget(MVMEContext *context, QWidget *parent)
     , m_context(context)
 {
     setWindowTitle(QSL("SIS3153 Debug Widget"));
-    auto layout = new QFormLayout(this);
 
-    // sis library internal counters
-    layout->addRow(make_aligned_label(QSL("<b>sis3153 lib</b>"), Qt::AlignCenter));
+    auto widgetLayout = new QHBoxLayout(this);
+    widgetLayout->setContentsMargins(0, 0, 0, 0);
+    widgetLayout->setSpacing(0);
 
-    for (const char *text: LabelTexts)
-    {
-        auto label = new QLabel;
-        layout->addRow(text, label);
-        m_labels.push_back(label);
-    }
+    auto tabWidget = new QTabWidget;
+    widgetLayout->addWidget(tabWidget);
 
-    auto resetButton = new QPushButton(QSL("Reset Counters"));
-    layout->addRow(resetButton);
-    connect(resetButton, &QPushButton::clicked, this, &SIS3153DebugWidget::resetCounters);
+    auto readoutCountersWidget = new QWidget;
+    auto libCountersWidget = new QWidget;
+    auto toolsWidget  = new QWidget;
 
-    // sis readout worker counters
-    layout->addRow(make_separator_frame());
-    layout->addRow(make_aligned_label(QSL("<b>sis3153 readout</b>"), Qt::AlignCenter));
+    tabWidget->addTab(readoutCountersWidget, QSL("&Readout Counters"));
+    tabWidget->addTab(libCountersWidget, QSL("&Lib Counters"));
+    tabWidget->addTab(toolsWidget, QSL("&Tools"));
+
+    //
+    // readout counters
+    //
+    auto readoutCountersLayout = new QFormLayout(readoutCountersWidget);
+
+    readoutCountersLayout->addRow(make_aligned_label(QSL("<b>sis3153 readout</b>"), Qt::AlignCenter));
 
     for (const char *text: RdoCounterLabels)
     {
         auto label = new QLabel;
-        layout->addRow(text, label);
+        readoutCountersLayout->addRow(text, label);
         m_rdoCounterLabels.push_back(label);
     }
+
+    //
+    // sis library internal counters
+    //
+    auto libCountersLayout = new QFormLayout(libCountersWidget);
+
+    libCountersLayout->addRow(make_aligned_label(QSL("<b>sis3153 lib</b>"), Qt::AlignCenter));
+
+    for (const char *text: LabelTexts)
+    {
+        auto label = new QLabel;
+        libCountersLayout->addRow(text, label);
+        m_labels.push_back(label);
+    }
+
+    auto resetButton = new QPushButton(QSL("Reset Counters"));
+    libCountersLayout->addRow(resetButton);
+    connect(resetButton, &QPushButton::clicked, this, &SIS3153DebugWidget::resetCounters);
 
     // refresh every second
     auto refreshTimer = new QTimer(this);
     connect(refreshTimer, &QTimer::timeout, this, &SIS3153DebugWidget::refresh);
     refreshTimer->setInterval(1000);
     refreshTimer->start();
+
+
+    //
+    // tools
+    //
+    auto toolsLayout = new QGridLayout(toolsWidget);
+
+    auto le_regAddress = new QLineEdit;
+    le_regAddress->setText(QSL("0x01000017"));
+    auto le_regResult  = new QLineEdit;
+    auto pb_readRegister = new QPushButton(QSL("Read"));
+
+    connect(pb_readRegister, &QPushButton::clicked, this, [=]() {
+
+        if (auto sis = qobject_cast<SIS3153 *>(m_context->getVMEController()))
+        {
+            u32 addr  = le_regAddress->text().toUInt(nullptr, 0);
+            u32 value = 0;
+
+            auto err = sis->readRegister(addr, &value);
+
+            if (err.isError())
+            {
+                le_regResult->setText(err.toString());
+            }
+            else
+            {
+                le_regResult->setText(QString("0x%1 / %2")
+                                      .arg(value, 8, 16, QLatin1Char('0'))
+                                      .arg(value)
+                                     );
+            }
+
+        }
+    });
+
+    s32 row = 0;
+    toolsLayout->addWidget(le_regAddress, row, 0);
+    toolsLayout->addWidget(le_regResult, row, 1);
+    toolsLayout->addWidget(pb_readRegister, row, 2);
+    row++;
 
     refresh();
 }
@@ -124,7 +190,7 @@ void SIS3153DebugWidget::refresh()
 
         for (s32 si = 0; si < SIS3153Constants::NumberOfStackLists; si++)
         {
-            auto count = counters.packetsPerStackList[si];
+            auto count = counters.stackListCounts[si];
             if (count)
             {
                 if (!pcText.isEmpty()) pcText += QSL("\n");
@@ -134,8 +200,31 @@ void SIS3153DebugWidget::refresh()
             }
         }
 
-        m_rdoCounterLabels[0]->setText(QString::number(counters.multiEventPackets));
-        m_rdoCounterLabels[1]->setText(pcText);
+        QString berrText;
+
+        for (s32 si = 0; si < SIS3153Constants::NumberOfStackLists; si++)
+        {
+            auto berrBlock = counters.stackListBerrCounts_Block[si];
+            auto berrRead  = counters.stackListBerrCounts_Read[si];
+            auto berrWrite = counters.stackListBerrCounts_Write[si];
+
+            if (berrBlock || berrRead || berrWrite)
+            {
+                if (!berrText.isEmpty()) berrText += QSL("\n");
+
+                berrText += (QString(QSL("stackList=%1, blt=%2, read=%3, write=%4"))
+                             .arg(si).arg(berrBlock).arg(berrRead).arg(berrWrite));
+
+                if (si == counters.watchdogStackList)
+                    berrText += QSL(" (watchdog)");
+            }
+        }
+
+        s32 i = 0;
+        m_rdoCounterLabels[i++]->setText(pcText);
+        m_rdoCounterLabels[i++]->setText(berrText);
+        m_rdoCounterLabels[i++]->setText(QString::number(counters.multiEventPackets));
+        m_rdoCounterLabels[i++]->setText(QString::number(counters.lostPackets));
     }
 }
 
@@ -176,9 +265,21 @@ void format_sis3153_single_event(
     u8 packetAck, u8 packetIdent, u8 packetStatus,
     u8 *data, size_t size)
 {
-    QString tmp("0x%1");
-
     int stackList = packetAck & SIS3153Constants::AckStackListMask;
+
+    if (size)
+    {
+        BufferIterator iter(data, size);
+        u32 beginHeader = iter.extractU32();
+        s32 packetNumber = (beginHeader & SIS3153Constants::BeginEventPacketNumberMask);
+
+        out << (QString("beginHeader=0x%1, packetNumber=%2 (0x%3)")
+                .arg(beginHeader, 8, 16, QLatin1Char('0'))
+                .arg(packetNumber)
+                .arg(packetNumber, 6, 16, QLatin1Char('0'))
+               )
+            << endl;
+    }
 
 #if 0
     BufferIterator iter(data, size);

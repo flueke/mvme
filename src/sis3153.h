@@ -1,6 +1,8 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016, 2017  Florian Lüke <f.lueke@mesytec.com>
+ * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -75,6 +77,13 @@ class LIBMVME_EXPORT SIS3153: public VMEController
 namespace SIS3153Registers
 {
     static const u32 USBControlAndStatus        = 0x0;
+
+    namespace USBControlAndStatusValues
+    {
+        static const u32 DisableShift           = 16;
+        static const u32 LED_A                  = 1 << 0;
+    }
+
     static const u32 ModuleIdAndFirmware        = 0x1;
     static const u32 SerialNumber               = 0x2;
     static const u32 LemoIOControl              = 0x3;
@@ -110,18 +119,30 @@ namespace SIS3153Registers
     static const u32 StackListTimer1Config          = 0x01000014;
     static const u32 StackListTimer2Config          = 0x01000015;
 
+    // Configuration register for dynamically sized block reads.
     static const u32 StackListDynSizedBlockRead     = 0x01000016;
+
+    // Test readback register for dynamic block reads. Will contain the last
+    // dynamic block size in bytes.
+    static const u32 StackListDynSizeReadback       = 0x01000017;
 
     namespace StackListControlValues
     {
         /* Writing a 1 to the low 16 bits of the StackListControl register
          * enables the setting. Writing a 1 shifted by DisableShift disables
-         * the setting. */
+         * the setting. Doing both at the same time is invalid. */
         static const u32 DisableShift       = 16;
+
         static const u32 StackListEnable    = 1 << 0;
         static const u32 Timer1Enable       = 1 << 1;
         static const u32 Timer2Enable       = 1 << 2;
-        static const u32 ListBufferEnable   = 1 << 15;
+        static const u32 FlushBufferEnable  = 1 << 12; // "Force to send rest of buffer enable" in the manual
+        static const u32 ListBufferEnable   = 1 << 15; // "List Multi Event Buffering Enable" in the manual
+
+        /* When reading the register bits 16 to 27 contain the buffer word count.
+         * FIXME: figure out what this actually contains. */
+        static const u32 BufferWordCountShift = 16;
+        static const u32 BufferWordCountMask  = 0xfff;
     }
 
     static const u32 StackListTimerWatchdogEnable   = 1u << 31;
@@ -152,8 +173,21 @@ namespace SIS3153Constants
     static const u32 BeginEventResult = 0xbb000000;
     static const u32 EndEventMask     = 0xff000000;
     static const u32 EndEventResult   = 0xee000000;
+    static const u32 BeginEventPacketNumberMask = 0x00ffffff;
+
+    static const u32 EndEventBerrBlockMask = 0x00ff0000;
+    static const u32 EndEventBerrReadMask  = 0x0000ff00;
+    static const u32 EndEventBerrWriteMask = 0x000000ff;
+
+    static const u32 EndEventBerrBlockShift = 16u;
+    static const u32 EndEventBerrReadShift  = 8u;
+    static const u32 EndEventBerrWriteShift = 0u;
 
     static const int NumberOfStackLists = 8;
+
+    static const u32 BlockTransferMaxBytes = 0xffffff;
+    static const u32 BLTMaxTransferCount   = BlockTransferMaxBytes / sizeof(u32);
+    static const u32 MBLTMaxTransferCount  = BlockTransferMaxBytes / sizeof(u64);
 
 } // namespace SIS3153Constants
 

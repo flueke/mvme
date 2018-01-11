@@ -38,29 +38,31 @@ struct LIBMVME_EXPORT MVMEStreamProcessorCounters
 class LIBMVME_EXPORT IMVMEStreamModuleConsumer
 {
     public:
+        using Logger = std::function<void (const QString &)>;
+
         virtual ~IMVMEStreamModuleConsumer() {};
 
-        virtual void beginRun(const RunInfo &runInfo, const VMEConfig *vmeConfig) = 0;
-        virtual void endRun() = 0;
+        virtual void beginRun(const RunInfo &runInfo, const VMEConfig *vmeConfig, const analysis::Analysis *analysis, Logger logger) = 0;
+        virtual void endRun(const std::exception *e = nullptr) = 0;
 
         virtual void beginEvent(s32 eventIndex) = 0;
         virtual void endEvent(s32 eventIndex) = 0;
-
         virtual void processModuleData(s32 eventIndex, s32 moduleIndex, const u32 *data, u32 size) = 0;
-
-        // TODO: figure out how timeticks should be done in the future and add
-        // an api to pass them here.
+        virtual void processTimetick() = 0;
 };
 
 class LIBMVME_EXPORT IMVMEStreamBufferConsumer
 {
     public:
+        using Logger = std::function<void (const QString &)>;
+
         virtual ~IMVMEStreamBufferConsumer() {};
 
-        virtual void beginRun(const RunInfo &runInfo, const VMEConfig *vmeConfig) = 0;
-        virtual void endRun() = 0;
+        virtual void beginRun(const RunInfo &runInfo, const VMEConfig *vmeConfig, const analysis::Analysis *analysis, Logger logger) = 0;
+        virtual void endRun(const std::exception *e = nullptr) = 0;
 
         virtual void processDataBuffer(const DataBuffer *buffer) = 0;
+        virtual void processTimetick() = 0;
 };
 
 struct MVMEStreamProcessorPrivate;
@@ -75,12 +77,19 @@ class LIBMVME_EXPORT MVMEStreamProcessor
 
         void beginRun(const RunInfo &runInfo, analysis::Analysis *analysis,
                       VMEConfig *vmeConfig, u32 listfileVersion, Logger logger);
+        void startConsumers();
         void endRun();
-
         void processDataBuffer(DataBuffer *buffer);
+        /* Used in DAQ Readout mode to generate timeticks for the analysis
+         * independent of the readout data rate or analysis efficiency. */
+        void processExternalTimetick();
 
         const MVMEStreamProcessorCounters &getCounters() const;
         MVMEStreamProcessorCounters &getCounters();
+
+        //
+        // Additional data consumers
+        //
 
         void attachDiagnostics(std::shared_ptr<MesytecDiagnostics> diag);
         void removeDiagnostics();

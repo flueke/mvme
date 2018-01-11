@@ -1,6 +1,8 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016, 2017  Florian Lüke <f.lueke@mesytec.com>
+ * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -52,7 +54,7 @@ class VMEConfigTreeWidget: public QWidget
         VMEConfig *getConfig() const;
 
     private:
-        TreeNode *addScriptNode(TreeNode *parent, VMEScriptConfig *script, bool canDisable = false);
+        TreeNode *addScriptNode(TreeNode *parent, VMEScriptConfig *script);
         TreeNode *addEventNode(TreeNode *parent, EventConfig *event);
         TreeNode *addModuleNodes(EventNode *parent, ModuleConfig *module);
 
@@ -88,7 +90,9 @@ class VMEConfigTreeWidget: public QWidget
         void onActionShowAdvancedChanged();
         void handleShowDiagnostics();
         void dumpVMUSBRegisters();
+        void exploreWorkspace();
         void showEditNotes();
+        void toggleObjectEnabled(QTreeWidgetItem *node, int expectedNodeType);
 
         void runScriptConfigs(const QVector<VMEScriptConfig *> &configs);
 

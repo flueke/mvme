@@ -1,0 +1,17 @@
+#!/bin/sh
+# Based on https://stackoverflow.com/a/14986195 by CharlesB
+# Modified to use the repository path and the output from `git describe' in the
+# archive filename. Also sets a prefix path for files in the resulting archive.
+# (flueke)
+
+branch=`git symbolic-ref -q --short HEAD`
+revstring=`git describe --always`
+repopath=`git rev-parse --show-toplevel`
+reponame="${repopath##*/}"
+archiveext="tar.gz"
+
+prefix="${reponame}-${branch}-${revstring}"
+archivename="${prefix}.${archiveext}"
+
+set -x
+git archive --prefix="${prefix}/" -o "${archivename}" HEAD

@@ -1,6 +1,8 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016, 2017  Florian Lüke <f.lueke@mesytec.com>
+ * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -62,12 +64,14 @@ SIS3153EthSettingsWidget::SIS3153EthSettingsWidget(QWidget *parent)
     , m_cb_jumboFrames(new QCheckBox)
     , m_cb_debugRawBuffers(new QCheckBox)
     , m_cb_disableBuffering(new QCheckBox)
+    , m_cb_disableWatchdog(new QCheckBox)
 {
     auto l = new QFormLayout(this);
     l->addRow(QSL("Hostname / IP Address"), m_le_sisAddress);
     l->addRow(QSL("Enable UDP Jumbo Frames"), m_cb_jumboFrames);
     l->addRow(QSL("Debug: Write raw buffer file"), m_cb_debugRawBuffers);
     l->addRow(QSL("Debug: Disable Buffering"), m_cb_disableBuffering);
+    l->addRow(QSL("Debug: Disable Watchdog"), m_cb_disableWatchdog);
 }
 
 void SIS3153EthSettingsWidget::validate()
@@ -85,6 +89,7 @@ void SIS3153EthSettingsWidget::loadSettings(const QVariantMap &settings)
     m_cb_jumboFrames->setChecked(settings["JumboFrames"].toBool());
     m_cb_debugRawBuffers->setChecked(settings.value("DebugRawBuffers").toBool());
     m_cb_disableBuffering->setChecked(settings.value("DisableBuffering").toBool());
+    m_cb_disableWatchdog->setChecked(settings.value("DisableWatchdog").toBool());
 
     auto hostname = settings["hostname"].toString();
 
@@ -109,6 +114,7 @@ QVariantMap SIS3153EthSettingsWidget::getSettings()
     result["JumboFrames"] = m_cb_jumboFrames->isChecked();
     result["DebugRawBuffers"] = m_cb_debugRawBuffers->isChecked();
     result["DisableBuffering"] = m_cb_disableBuffering->isChecked();
+    result["DisableWatchdog"] = m_cb_disableWatchdog->isChecked();
     return result;
 }
 

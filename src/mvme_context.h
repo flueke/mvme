@@ -1,6 +1,8 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016, 2017  Florian Lüke <f.lueke@mesytec.com>
+ * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -105,7 +107,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         QList<EventConfig *> getEventConfigs() const { return m_vmeConfig->getEventConfigs(); }
         QString getUniqueModuleName(const QString &prefix) const;
         DAQState getDAQState() const;
-        MVMEStreamWorkerState getMVMEStreamProcessorState() const;
+        MVMEStreamWorkerState getMVMEStreamWorkerState() const;
         const DAQStats &getDAQStats() const { return m_daqStats; }
         DAQStats &getDAQStats() { return m_daqStats; }
 
@@ -124,7 +126,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
 
         void setMode(GlobalMode mode);
         GlobalMode getMode() const;
-        MVMEStreamWorker *getMVMEStreamWorker() const { return m_streamWorker; }
+        MVMEStreamWorker *getMVMEStreamWorker() const { return m_streamWorker.get(); }
 
         //
         // Object registry
@@ -291,15 +293,14 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         RunInfo getRunInfo() const;
 
     public slots:
-        void startDAQ(quint32 nCycles = 0, bool keepHistoContents = false);
-        // Stops DAQ or replay depending on the current GlobalMode
+        void startDAQReadout(u32 nCycles = 0, bool keepHistoContents = false);
+        void startDAQReplay(u32 nEvents = 0, bool keepHistoContents = false);
+
+        /* These methods act on DAQ readout or replay depending on the current
+         * GlobalMode. */
         void stopDAQ();
         void pauseDAQ();
-        void resumeDAQ();
-
-        void startReplay(u32 nEvents = 0, bool keepHistoContents = false);
-        void pauseReplay();
-        void resumeReplay(u32 nEvents = 0);
+        void resumeDAQ(u32 nCycles = 0);
 
         void addAnalysisOperator(QUuid eventId, const std::shared_ptr<analysis::OperatorInterface> &op, s32 userLevel);
         void analysisOperatorEdited(const std::shared_ptr<analysis::OperatorInterface> &op);
@@ -349,7 +350,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         VMEReadoutWorker *m_readoutWorker = nullptr;
 
         QThread *m_eventThread;
-        MVMEStreamWorker *m_streamWorker;
+        std::unique_ptr<MVMEStreamWorker> m_streamWorker;
 
         QSet<QObject *> m_objects;
         QMap<QString, QMap<QObject *, QObject *>> m_objectMappings;
@@ -373,6 +374,15 @@ struct AnalysisPauser
 {
     AnalysisPauser(MVMEContext *context);
     ~AnalysisPauser();
+
+    MVMEContext *context;
+    bool was_running;
+};
+
+struct DAQPauser
+{
+    DAQPauser(MVMEContext *context);
+    ~DAQPauser();
 
     MVMEContext *context;
     bool was_running;

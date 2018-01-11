@@ -1,6 +1,8 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016, 2017  Florian Lüke <f.lueke@mesytec.com>
+ * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -43,7 +45,7 @@ struct HistoLogicError: public std::runtime_error
 
 struct SharedHistoMem
 {
-    // Shared pointer to arena to keep the memory  alive.
+    // Shared pointer to arena to keep the memory alive.
     std::shared_ptr<memory::Arena> arena;
 
     // Pointer into the arena where this Histograms data starts.
@@ -142,9 +144,21 @@ class Histo1D: public QObject
             }
         }
 
+        // FIXME: not updated when a2 is in use
         inline double getEntryCount() const { return m_count; }
+        /*
         double getMaxValue() const { return m_maxValue; }
         u32 getMaxBin() const { return m_maxBin; }
+        */
+        struct ValueAndBin
+        {
+            double value;
+            u32 bin;
+        };
+
+        ValueAndBin getMaxValueAndBin() const;
+        double getMaxValue() const { return getMaxValueAndBin().value; }
+        u32 getMaxBin() const { return getMaxValueAndBin().bin; }
 
         void debugDump(bool dumpEmptyBins = true) const;
 

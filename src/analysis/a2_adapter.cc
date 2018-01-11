@@ -284,11 +284,46 @@ DEF_OP_MAGIC(aggregate_ops_magic)
             result = make_aggregate_meanx(arena, a2_input, thresholds);
             break;
 
-        // TODO: sigmaX
+        case AggregateOps::Op_SigmaX:
+            result = make_aggregate_sigmax(arena, a2_input, thresholds);
+            break;
 
         default:
             qDebug() << "analysis::AggregateOps::Operation =" << agOps->getOperation();
             assert(!"unsupported AggregateOps::Operation");
+    }
+
+    return result;
+}
+
+/* Maps analysis::Sum to a2::Operator_Aggregate_Sum or
+ * a2::Operator_Aggregate_Mean depending on the setting of
+ * analysis::Sum::m_calculateMean. The thresholds are set to NaN as the Sum
+ * operator doesn't have thresholds. */
+DEF_OP_MAGIC(sum_magic)
+{
+    LOG("");
+
+    auto sumOp = qobject_cast<analysis::Sum *>(op.get());
+    assert(sumOp);
+
+    a2::Thresholds thresholds =
+    {
+        make_quiet_nan(),
+        make_quiet_nan()
+    };
+
+    auto a2_input = find_output_pipe(adapterState, inputSlots[0]);
+
+    a2::Operator result = {};
+
+    if (sumOp->m_calculateMean)
+    {
+        result = make_aggregate_mean(arena, a2_input, thresholds);
+    }
+    else
+    {
+        result = make_aggregate_sum(arena, a2_input, thresholds);
     }
 
     return result;
@@ -568,8 +603,6 @@ DEF_OP_MAGIC(histo2d_sink_magic)
     return result;
 }
 
-//using OperatorAdapterTable = QHash<const QMetaObject *, OperatorMagic *>;
-
 static const QHash<const QMetaObject *, OperatorMagic *> OperatorMagicTable =
 {
     { &analysis::CalibrationMinMax::staticMetaObject, calibration_magic },
@@ -581,6 +614,7 @@ static const QHash<const QMetaObject *, OperatorMagic *> OperatorMagicTable =
     { &analysis::RangeFilter1D::staticMetaObject, range_filter_magic },
     { &analysis::RectFilter2D::staticMetaObject, rect_filter_magic },
     { &analysis::ConditionFilter::staticMetaObject, condition_filter_magic },
+    { &analysis::Sum::staticMetaObject, sum_magic },
 
     { &analysis::Histo1DSink::staticMetaObject, histo1d_sink_magic },
     { &analysis::Histo2DSink::staticMetaObject, histo2d_sink_magic },

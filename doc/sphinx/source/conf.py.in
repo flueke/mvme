@@ -213,7 +213,8 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
     (master_doc, 'mvme.tex', u'mvme - mesytec VME Data Acquisition',
-     u'Florian Lüke \\textless{}f.lueke@mesytec.com\\textgreater{}', 'manual'),
+     u'mesytec GmbH \\& Co. KG \\textless{}info@mesytec.com\\textgreater{}',
+     'manual'),
 ]
 
 #latex_logo = 'images/mesytec-logo-yellow.png'

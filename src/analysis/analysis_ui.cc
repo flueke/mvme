@@ -1,6 +1,8 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016, 2017  Florian Lüke <f.lueke@mesytec.com>
+ * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -515,7 +517,6 @@ struct EventWidgetPrivate
     // Actions and widgets used in makeEventSelectAreaToolBar()
     QAction *m_actionSelectVisibleLevels;
     QLabel *m_eventRateLabel;
-    QAction *m_actionShowWalltimeRates;
 
     QToolBar* m_upperToolBar;
     QToolBar* m_eventSelectAreaToolBar;
@@ -532,7 +533,6 @@ struct EventWidgetPrivate
     MVMEStreamProcessorCounters m_prevStreamProcessorCounters;
 
     double m_prevAnalysisTimeticks = 0.0;;
-    bool m_showWalltimeRates = false;
 
     void createView(const QUuid &eventId);
     DisplayLevelTrees createTrees(const QUuid &eventId, s32 level);
@@ -1348,7 +1348,7 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
                     if (widgetInfo.histos.size())
                     {
                         menu.addAction(QSL("Open 2D Combined View"), m_q, [this, widgetInfo]() {
-                            auto widget = new Histo2DWidget(widgetInfo.sink);
+                            auto widget = new Histo2DWidget(widgetInfo.sink, m_context);
                             widget->setContext(m_context);
                             m_context->addWidget(widget, widgetInfo.sink->getId().toString() + QSL("_2dCombined"));
                         });
@@ -1907,36 +1907,39 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                     Histo1DWidgetInfo widgetInfo = getHisto1DWidgetInfoFromNode(node);
                     Q_ASSERT(widgetInfo.sink);
 
-                    if (widgetInfo.histoAddress < widgetInfo.histos.size())
+                    if (widgetInfo.histoAddress >= widgetInfo.histos.size())
+                        break;
+
+                    if (!widgetInfo.histos[widgetInfo.histoAddress])
+                        break;
+
+                    Histo1D *histo = widgetInfo.histos[widgetInfo.histoAddress].get();
+
+                    if (!m_context->hasObjectWidget(histo) || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
                     {
-                        Histo1D *histo = widgetInfo.histos[widgetInfo.histoAddress].get();
+                        auto widget = new Histo1DWidget(widgetInfo.histos[widgetInfo.histoAddress]);
+                        widget->setContext(m_context);
 
-                        if (!m_context->hasObjectWidget(histo) || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
+                        if (widgetInfo.calib)
                         {
-                            auto widget = new Histo1DWidget(widgetInfo.histos[widgetInfo.histoAddress]);
-                            widget->setContext(m_context);
-
-                            if (widgetInfo.calib)
-                            {
-                                widget->setCalibrationInfo(widgetInfo.calib, widgetInfo.histoAddress);
-                            }
-
-                            {
-                                auto context = m_context;
-                                widget->setSink(widgetInfo.sink, [context] (const std::shared_ptr<Histo1DSink> &sink) {
-                                    context->analysisOperatorEdited(sink);
-                                });
-                            }
-
-                            m_context->addObjectWidget(widget, histo,
-                                                       widgetInfo.sink->getId().toString()
-                                                       + QSL("_")
-                                                       + QString::number(widgetInfo.histoAddress));
+                            widget->setCalibrationInfo(widgetInfo.calib, widgetInfo.histoAddress);
                         }
-                        else
+
                         {
-                            m_context->activateObjectWidget(histo);
+                            auto context = m_context;
+                            widget->setSink(widgetInfo.sink, [context] (const std::shared_ptr<Histo1DSink> &sink) {
+                                context->analysisOperatorEdited(sink);
+                            });
                         }
+
+                        m_context->addObjectWidget(widget, histo,
+                                                   widgetInfo.sink->getId().toString()
+                                                   + QSL("_")
+                                                   + QString::number(widgetInfo.histoAddress));
+                    }
+                    else
+                    {
+                        m_context->activateObjectWidget(histo);
                     }
                 } break;
 
@@ -1976,6 +1979,9 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
             case NodeType_Histo2DSink:
                 {
                     auto sinkPtr = std::dynamic_pointer_cast<Histo2DSink>(getPointer<Histo2DSink>(node)->getSharedPointer());
+
+                    if (!sinkPtr->m_histo)
+                        break;
 
                     if (!m_context->hasObjectWidget(sinkPtr.get()) || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
                     {
@@ -2075,12 +2081,23 @@ PipeDisplay *EventWidgetPrivate::makeAndShowPipeDisplay(Pipe *pipe)
 
 void EventWidgetPrivate::doPeriodicUpdate()
 {
+    /* If it's a replay: use timeticks
+     * If it's DAQ: use elapsed walltime
+     * Reason: if analysis efficiency is < 1.0 timeticks will be lost. Thus
+     * using timeticks with a DAQ run may lead to very confusing numbers as
+     * sometimes ticks will be lost, at other times they'll appear.
+     */
+
     auto analysis = m_context->getAnalysis();
-
+    bool isReplay = analysis->getRunInfo().isReplay;
+    double dt_s = 0.0;
     double currentAnalysisTimeticks = analysis->getTimetickCount();
-    double dt_s = calc_delta0(currentAnalysisTimeticks, m_prevAnalysisTimeticks);
 
-    if (m_showWalltimeRates)
+    if (isReplay)
+    {
+        dt_s = calc_delta0(currentAnalysisTimeticks, m_prevAnalysisTimeticks);
+    }
+    else
     {
         dt_s = PeriodicUpdateTimerInterval_ms / 1000.0;
     }
@@ -2326,17 +2343,28 @@ void EventWidgetPrivate::periodicUpdateEventRate(double dt_s)
     const auto &counters(m_context->getMVMEStreamWorker()->getCounters());
     Q_ASSERT(0 <= m_eventIndex && m_eventIndex < (s32)counters.eventCounters.size());
 
+    /* Use the counters of the first module in this event as that represents
+     * the event rate after multi-event splitting. */
     double deltaEvents = calc_delta0(
-        counters.eventCounters[m_eventIndex],
-        prevCounters.eventCounters[m_eventIndex]);
+        counters.moduleCounters[m_eventIndex][0],
+        prevCounters.moduleCounters[m_eventIndex][0]);
 
-    double eventCount = counters.eventCounters[m_eventIndex];
+    double eventCount = counters.moduleCounters[m_eventIndex][0];
     double eventRate = deltaEvents / dt_s;
 
-    auto labelText = (QString("count=%2\nrate=%3")
+    auto labelText = (QString("count=%1\nrate=%2")
                       .arg(format_number(eventCount, QSL(""), UnitScaling::Decimal))
                       .arg(format_number(eventRate, QSL("cps"), UnitScaling::Decimal, 0, 'g', 3))
                      );
+
+    if (m_context->getAnalysis()->getRunInfo().isReplay)
+    {
+        double walltimeRate = deltaEvents / (PeriodicUpdateTimerInterval_ms / 1000.0);
+
+        labelText += (QString("\nreplayRate=%1")
+                      .arg(format_number(walltimeRate, QSL("cps"), UnitScaling::Decimal, 0, 'g', 3))
+                      );
+    }
 
     m_eventRateLabel->setText(labelText);
 
@@ -2652,15 +2680,7 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, int eventIndex,
         }
     });
 
-    m_d->m_eventRateLabel = new QLabel("Event Rate goes here");
-
-    auto action = new QAction(QSL("Show walltime Rates"), this);
-    m_d->m_actionShowWalltimeRates = action;
-    action->setCheckable(true);
-
-    connect(action, &QAction::triggered, this, [this, action] {
-        m_d->m_showWalltimeRates = action->isChecked();
-    });
+    m_d->m_eventRateLabel = new QLabel;
 
     // create the lower toolbar
     {
@@ -2671,7 +2691,6 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, int eventIndex,
         tb->addAction(m_d->m_actionSelectVisibleLevels);
         tb->addSeparator();
         tb->addWidget(m_d->m_eventRateLabel);
-        tb->addAction(m_d->m_actionShowWalltimeRates);
     }
 
     m_d->repopulate();
@@ -2979,9 +2998,12 @@ struct AnalysisWidgetPrivate
     QLabel *m_labelSinkStorageSize;
     QLabel *m_labelTimetickCount;
     QLabel *m_statusLabelA2;
+    QLabel *m_labelEfficiency;
     QTimer *m_periodicUpdateTimer;
     WidgetGeometrySaver *m_geometrySaver;
     AnalysisInfoWidget *m_infoWidget = nullptr;
+    QAction *m_actionPause;
+    QAction *m_actionStepNextEvent;
 
     void repopulate();
     void repopulateEventSelectCombo();
@@ -2989,6 +3011,8 @@ struct AnalysisWidgetPrivate
 
     void closeAllUniqueWidgets();
     void closeAllHistogramWidgets();
+
+    void updateActions();
 
     void actionNew();
     void actionOpen();
@@ -3000,6 +3024,8 @@ struct AnalysisWidgetPrivate
     void actionSaveSession();
     void actionLoadSession();
 #endif
+    void actionPause();
+    void actionStepNextEvent();
 
     void updateWindowTitle();
     void updateAddRemoveUserLevelButtons();
@@ -3573,6 +3599,84 @@ void AnalysisWidgetPrivate::actionLoadSession()
 }
 #endif
 
+void AnalysisWidgetPrivate::updateActions()
+{
+    auto streamWorker = m_context->getMVMEStreamWorker();
+    auto workerState = streamWorker->getState();
+
+    switch (workerState)
+    {
+        case MVMEStreamWorkerState::Idle:
+            m_actionPause->setIcon(QIcon(":/control_pause.png"));
+            m_actionPause->setText(QSL("Pause"));
+            m_actionPause->setEnabled(false);
+            m_actionStepNextEvent->setEnabled(false);
+            break;
+
+        case MVMEStreamWorkerState::Running:
+            m_actionPause->setIcon(QIcon(":/control_pause.png"));
+            m_actionPause->setText(QSL("Pause"));
+            m_actionPause->setEnabled(true);
+            m_actionStepNextEvent->setEnabled(false);
+            break;
+
+        case MVMEStreamWorkerState::Paused:
+            m_actionPause->setIcon(QIcon(":/control_play.png"));
+            m_actionPause->setText(QSL("Resume"));
+            m_actionPause->setEnabled(true);
+            m_actionStepNextEvent->setEnabled(true);
+            break;
+
+        case MVMEStreamWorkerState::SingleStepping:
+            m_actionPause->setEnabled(false);
+            m_actionStepNextEvent->setEnabled(false);
+            break;
+    }
+}
+
+void AnalysisWidgetPrivate::actionPause()
+{
+    auto streamWorker = m_context->getMVMEStreamWorker();
+    auto workerState = streamWorker->getState();
+
+    switch (workerState)
+    {
+        case MVMEStreamWorkerState::Idle:
+        case MVMEStreamWorkerState::SingleStepping:
+            InvalidCodePath;
+            break;
+
+        case MVMEStreamWorkerState::Running:
+            streamWorker->pause();
+            break;
+
+        case MVMEStreamWorkerState::Paused:
+            streamWorker->resume();
+            break;
+    }
+}
+
+void AnalysisWidgetPrivate::actionStepNextEvent()
+{
+    m_context->logMessage(QSL("Single stepping not yet implement! :("));
+
+    auto streamWorker = m_context->getMVMEStreamWorker();
+    auto workerState = streamWorker->getState();
+
+    switch (workerState)
+    {
+        case MVMEStreamWorkerState::Idle:
+        case MVMEStreamWorkerState::Running:
+        case MVMEStreamWorkerState::SingleStepping:
+            InvalidCodePath;
+            break;
+
+        case MVMEStreamWorkerState::Paused:
+            streamWorker->singleStep();
+            break;
+    }
+}
+
 void AnalysisWidgetPrivate::updateWindowTitle()
 {
     QString fileName = m_context->getAnalysisConfigFileName();
@@ -3723,6 +3827,17 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
             show_and_activate(widget);
         });
 
+        // pause, resume, step
+        connect(m_d->m_context->getMVMEStreamWorker(), &MVMEStreamWorker::stateChanged,
+                this, [this](MVMEStreamWorkerState) { m_d->updateActions(); });
+
+        m_d->m_toolbar->addSeparator();
+        m_d->m_actionPause = m_d->m_toolbar->addAction(
+            QIcon(":/control_pause.png"), QSL("Pause"), this, [this] { m_d->actionPause(); });
+
+        m_d->m_actionStepNextEvent = m_d->m_toolbar->addAction(
+            QIcon(":/control_play_stop.png"), QSL("Next Event"), this, [this] { m_d->actionStepNextEvent(); });
+
 #ifdef MVME_ENABLE_HDF5
         m_d->m_toolbar->addSeparator();
         m_d->m_toolbar->addAction(QIcon(":/document-open.png"), QSL("Load Session"), this, [this]() { m_d->actionLoadSession(); });
@@ -3793,6 +3908,9 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
 
     // statusbar
     m_d->m_statusBar = make_statusbar();
+    // efficiency
+    m_d->m_labelEfficiency = new QLabel;
+    m_d->m_statusBar->addPermanentWidget(m_d->m_labelEfficiency);
     // timeticks label
     m_d->m_labelTimetickCount = new QLabel;
     m_d->m_statusBar->addPermanentWidget(m_d->m_labelTimetickCount);
@@ -3853,13 +3971,52 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
 
     // Update statusbar timeticks label
     connect(m_d->m_periodicUpdateTimer, &QTimer::timeout, this, [this]() {
+
         double tickCount = m_d->m_context->getAnalysis()->getTimetickCount();
+
         m_d->m_labelTimetickCount->setText(QString("Timeticks: %1 s")
                                            .arg(tickCount));
+
+
+        if (!m_d->m_context->getAnalysis()->getRunInfo().isReplay)
+        {
+
+            auto daqStats = m_d->m_context->getDAQStats();
+
+            double totalBuffers = daqStats.totalBuffersRead;
+            double droppedBuffers = daqStats.droppedBuffers;
+            double analyzedBuffers = totalBuffers - droppedBuffers;
+            double efficiency = analyzedBuffers / totalBuffers;
+
+            if (std::isnan(efficiency))
+            {
+                efficiency = 0.0;
+            }
+
+            m_d->m_labelEfficiency->setText(QString("Efficiency: %1")
+                                            .arg(efficiency, 0, 'f', 2));
+
+            auto tt = (QString("Analyzed Buffers:\t%1\n"
+                               "Skipped Buffers:\t%2\n"
+                               "Total Buffers:\t%3")
+                       .arg(analyzedBuffers)
+                       .arg(droppedBuffers)
+                       .arg(totalBuffers)
+                      );
+
+            m_d->m_labelEfficiency->setToolTip(tt);
+        }
+        else
+        {
+            m_d->m_labelEfficiency->setText(QSL("Replay"));
+            m_d->m_labelEfficiency->setToolTip(QSL(""));
+        }
     });
 
     // Run the periodic update
     connect(m_d->m_periodicUpdateTimer, &QTimer::timeout, this, [this]() { m_d->doPeriodicUpdate(); });
+
+    m_d->updateActions();
 }
 
 AnalysisWidget::~AnalysisWidget()

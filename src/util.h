@@ -1,6 +1,8 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016, 2017  Florian Lüke <f.lueke@mesytec.com>
+ * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,6 +21,7 @@
 #ifndef UTIL_H
 #define UTIL_H
 
+#include "libmvme_export.h"
 #include "typedefs.h"
 #include "qt_util.h"
 
@@ -275,7 +278,7 @@ inline constexpr size_t Gigabytes(size_t x) { return Megabytes(x) * 1024; }
 #endif
 
 template<typename Code>
-struct ReadResultBase
+struct LIBMVME_EXPORT ReadResultBase
 {
     typedef Code CodeType;
 

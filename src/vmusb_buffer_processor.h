@@ -1,6 +1,8 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016, 2017  Florian Lüke <f.lueke@mesytec.com>
+ * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,6 +25,8 @@
 
 #include <QObject>
 #include <QMap>
+
+#include "vme_daq.h"
 
 class EventConfig;
 class BufferIterator;
@@ -56,14 +60,14 @@ class VMUSBBufferProcessor: public QObject
         DAQStats *getStats();
         void logMessage(const QString &message);
         void resetRunState(); // call this when a new DAQ run starts
+        void warnIfStreamWriterError(u64 bufferNumber, int writerFlags, u16 eventIndex);
 
         friend class VMUSBBufferProcessorPrivate;
         VMUSBBufferProcessorPrivate *m_d;
 
         QMap<int, EventConfig *> m_eventConfigByStackID;
         DataBuffer m_localEventBuffer;
-        DataBuffer m_localTimetickBuffer;
-        ListFileWriter *m_listFileWriter = nullptr;
+        std::unique_ptr<DAQReadoutListfileHelper> m_listfileHelper;
         bool m_logBuffers = false;
         VMUSB *m_vmusb = nullptr;
 };

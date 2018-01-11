@@ -16,6 +16,7 @@ class ListfileBrowser: public QWidget
 
     private:
         void updateWidget();
+        void periodicUpdate();
 
         void onItemDoubleClicked(const QModelIndex &mi);
 

@@ -1,6 +1,8 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016, 2017  Florian Lüke <f.lueke@mesytec.com>
+ * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -54,7 +56,6 @@ Q_DECLARE_METATYPE(DAQState);
 
 enum class GlobalMode
 {
-    NotSet,
     DAQ,
     ListFile
 };
@@ -98,16 +99,6 @@ struct DAQStats
         endTime = QDateTime::currentDateTime();
     }
 
-    inline void addBytesRead(u64 count)
-    {
-        totalBytesRead += count;
-    }
-
-    inline void addBuffersRead(u64 count)
-    {
-        totalBuffersRead += count;
-    }
-
     QDateTime startTime;
     QDateTime endTime;
 
@@ -115,17 +106,13 @@ struct DAQStats
     u64 totalBuffersRead = 0;   // number of buffers received from the controller
     u64 buffersWithErrors = 0;  // buffers for which processing did not succeeed (structure not intact, etc)
     u64 droppedBuffers = 0;     // number of buffers not passed to the analysis
-    //u64 totalEventsRead = 0;    // FIXME: count controller side events here ("triggers / subevents?")
     u64 totalNetBytesRead = 0;  // The number of bytes read excluding protocol
                                 // overhead. This should be a measure for the
                                 // amount of data the VME bus transferred.
 
     u64 listFileBytesWritten = 0;
     u64 listFileTotalBytes = 0; // For replay mode: the size of the replay file
-    QString listfileFilename;
-
-    //u64 mvmeBuffersSeen = 0;
-    //u64 mvmeBuffersWithErrors = 0;
+    QString listfileFilename; // For replay mode: the current replay filename
 
     using ModuleCounters = std::array<u32, MaxVMEModules>;
     std::array<ModuleCounters, MaxVMEEvents> moduleCounters;
@@ -145,6 +132,8 @@ struct RunInfo
      * between runs. If set to false all histograms will be cleared before the
      * replay starts. */
     bool keepAnalysisState = false;
+
+    bool isReplay = false;
 };
 
 enum class ListFileFormat

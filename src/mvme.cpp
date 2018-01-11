@@ -1,6 +1,8 @@
 /* MVMEMainWindow - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016, 2017  Florian Lüke <f.lueke@mesytec.com>
+ * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -899,7 +901,7 @@ void MVMEMainWindow::onActionOpenListfile_triggered()
             }
         }
 
-        auto openResult = open_listfile(m_d->m_context, fileName, openFlags);
+        auto openResult = context_open_listfile(m_d->m_context, fileName, openFlags);
 
         if (openResult.listfile)
         {
@@ -1113,9 +1115,6 @@ void MVMEMainWindow::updateWindowTitle()
                     .arg(workspaceDir)
                     .arg(fileName);
             } break;
-
-        case GlobalMode::NotSet:
-            break;
     }
 
     if (m_d->m_context->getMode() == GlobalMode::DAQ && m_d->m_context->isWorkspaceModified())
@@ -1498,7 +1497,7 @@ void MVMEMainWindow::updateActions()
 
     auto globalMode = m_d->m_context->getMode();
     auto daqState = m_d->m_context->getDAQState();
-    auto eventProcState = m_d->m_context->getMVMEStreamProcessorState();
+    auto eventProcState = m_d->m_context->getMVMEStreamWorkerState();
 
     bool isDAQIdle = (daqState == DAQState::Idle);
 

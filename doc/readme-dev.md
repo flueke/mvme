@@ -63,8 +63,17 @@ successfully compiled the generated latex code using MiKTeX.
 
 ## Miscellaneous
 
-### Clang Asan options
+### Clang/GCC Asan options
 `export ASAN_OPTIONS="detect_leaks=false"`
+
+To get line numbers in address sanitizer stack traces make sure libmvme.so can
+be found in LD_LIBRARY_PATH. When running from the build directory do something like
+`LD_LIBRARY_PATH=`pwd` gdb -ex r ./mvme`
+
+I've also found these mentioned on some blog. They might be useful when using ASAN with gcc.
+export ASAN_SYMBOLIZER=`which llvm-symbolizer`
+export ASAN_OPTIONS="symbolize=1"
+
 
 ### Can be used for changelog creation
 `git log --no-merges --pretty="format:%aD, %an, * %s [%an - %h] %b"`
@@ -112,6 +121,15 @@ With XXX being the serial number in hex.
 `arp -s 192.168.178.44 00-00-56-15-30-2c`
 `arp -s 192.168.178.44 00-00-56-15-30-28`
 
+## Creating a source archive:
+
+```
+git archive -v  -o ~/src/mvme-packages/mvme-`git describe`-src.tar.gz --prefix=mvme-`git describe`-src/ dev
+```
+
+The "dev" at the very end is the branch name I wanted to package. It would be
+nice to be able to just use the current branch/tip of tree.
+
 # ROOT
 
 ## Building ROOT
@@ -123,5 +141,3 @@ With XXX being the serial number in hex.
   clang         (I guess)
 
 cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/home/florian/local/root-6.10.08/ ../root-6.10.08/
-
-# vim:ft=markdown

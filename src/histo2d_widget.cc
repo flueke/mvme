@@ -1,6 +1,8 @@
 /* mvme - Mesytec VME Data Acquisition
  *
- * Copyright (C) 2016, 2017  Florian Lüke <f.lueke@mesytec.com>
+ * Copyright (C) 2016-2018 mesytec GmbH & Co. KG <info@mesytec.com>
+ *
+ * Author: Florian Lüke <f.lueke@mesytec.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,11 +20,14 @@
  */
 #include "histo2d_widget.h"
 #include "histo2d_widget_p.h"
-#include "scrollzoomer.h"
-#include "util.h"
+
+#include "analysis/a2_adapter.h"
 #include "analysis/analysis.h"
+#include "analysis/analysis_impl_switch.h"
 #include "histo1d_widget.h"
 #include "mvme_context.h"
+#include "scrollzoomer.h"
+#include "util.h"
 
 #include <qwt_plot_spectrogram.h>
 #include <qwt_color_map.h>
@@ -269,11 +274,13 @@ Histo2DWidget::Histo2DWidget(Histo2D *histo, QWidget *parent)
     displayChanged();
 }
 
-Histo2DWidget::Histo2DWidget(const Histo1DSinkPtr &histo1DSink, QWidget *parent)
+Histo2DWidget::Histo2DWidget(const Histo1DSinkPtr &histo1DSink, MVMEContext *context, QWidget *parent)
     : Histo2DWidget(parent)
 {
     Q_ASSERT(histo1DSink);
+    Q_ASSERT(context);
 
+    m_context = context;
     m_histo1DSink = histo1DSink;
     auto histData = new Histo1DListRasterData(m_histo1DSink->m_histos);
     m_plotItem->setData(histData);
@@ -379,28 +386,6 @@ Histo2DWidget::Histo2DWidget(QWidget *parent)
 
     TRY_ASSERT(connect(m_zoomer, &ScrollZoomer::mouseCursorLeftPlot,
                        this, &Histo2DWidget::mouseCursorLeftPlot));
-
-    //
-    // Watermark text when exporting
-    //
-    {
-        m_d->m_waterMarkText = new QwtText;
-        m_d->m_waterMarkText->setRenderFlags(Qt::AlignRight | Qt::AlignBottom);
-        m_d->m_waterMarkText->setColor(QColor(0x66, 0x66, 0x66, 0x40));
-
-        QFont font;
-        font.setPixelSize(16);
-        font.setBold(true);
-        m_d->m_waterMarkText->setFont(font);
-
-        m_d->m_waterMarkText->setText(QString("mvme-%1").arg(GIT_VERSION_TAG));
-
-        m_d->m_waterMarkLabel = new QwtPlotTextLabel;
-        m_d->m_waterMarkLabel->setMargin(10);
-        m_d->m_waterMarkLabel->setText(*m_d->m_waterMarkText);
-        m_d->m_waterMarkLabel->attach(m_d->m_plot);
-        m_d->m_waterMarkLabel->hide();
-    }
 
     //
     // Watermark text when exporting
@@ -538,20 +523,26 @@ void Histo2DWidget::replot()
 
     setWindowTitle(windowTitle);
 
+    // axis titles
     if (m_histo)
     {
         auto axisInfo = m_histo->getAxisInfo(Qt::XAxis);
         m_d->m_plot->axisWidget(QwtPlot::xBottom)->setTitle(make_title_string(axisInfo));
-    }
-    // TODO: implement for Histo1DSink case
 
-    if (m_histo)
-    {
-        auto axisInfo = m_histo->getAxisInfo(Qt::YAxis);
+        axisInfo = m_histo->getAxisInfo(Qt::YAxis);
         m_d->m_plot->axisWidget(QwtPlot::yLeft)->setTitle(make_title_string(axisInfo));
     }
-    // TODO: implement for Histo1DSink case
+    else if (m_histo1DSink)
+    {
+        m_d->m_plot->axisWidget(QwtPlot::xBottom)->setTitle(QSL("Histogram #"));
 
+        // Use the first histograms x axis as the title for the combined y axis
+        if (auto histo = m_histo1DSink->getHisto(0))
+        {
+            auto axisInfo = histo->getAxisInfo(Qt::XAxis);
+            m_d->m_plot->axisWidget(QwtPlot::yLeft)->setTitle(make_title_string(axisInfo));
+        }
+    }
 
     // stats display
     QwtInterval xInterval = m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).interval();
@@ -559,7 +550,6 @@ void Histo2DWidget::replot()
 
     QString infoText;
 
-    // TODO: implement for Histo1DSink case
     if (m_histo)
     {
         auto stats = m_histo->calcStatistics(
@@ -576,6 +566,71 @@ void Histo2DWidget::replot()
             .arg(stats.maxValue)
             .arg(maxX, 0, 'g', 6)
             .arg(maxY, 0, 'g', 6)
+            ;
+    }
+    else if (m_histo1DSink && m_histo1DSink->getNumberOfHistos() > 0)
+    {
+        /* Counts: sum of all histo counts
+         * Max Z: absolute max value of the histos
+         * Coordinates: x = histo#, y = x coordinate of the max value in the histo
+         *
+         * Note: this solution is not perfect. The zoom level is not taken into
+         * account. Also histo counts remain after the histos have been cleared
+         * via "Clear Histograms". Upon starting a new run the counts are ok
+         * again.
+         */
+
+        double entryCountSum = 0.0;
+        Histo1D::ValueAndBin maxValueAndBin = {};
+        u32 maxHistoIndex = 0;
+
+        const s32 histoCount = m_histo1DSink->getNumberOfHistos();
+
+#if ANALYSIS_USE_A2
+        Q_ASSERT(m_context);
+        Q_ASSERT(m_context->getAnalysis());
+
+        if (auto a2State = m_context->getAnalysis()->getA2AdapterState())
+        {
+            if (auto a2_sink = a2State->operatorMap.value(m_histo1DSink.get(), nullptr))
+            {
+                for (s32 histoIndex = 0; histoIndex < histoCount; histoIndex++)
+                {
+                    entryCountSum += reinterpret_cast<a2::H1DSinkData *>(a2_sink->d)->histos[histoIndex].entryCount;
+
+                    const auto &histo(m_histo1DSink->m_histos.at(histoIndex));
+                    auto histoMax = histo->getMaxValueAndBin();
+                    if (histoMax.value > maxValueAndBin.value)
+                    {
+                        maxValueAndBin = histoMax;
+                        maxHistoIndex = histoIndex;
+                    }
+                }
+            }
+        }
+#else
+        for (s32 histoIndex = 0; histoIndex < histoCount; histoIndex++)
+        {
+            const auto &histo(m_histo1DSink->m_histos.at(histoIndex));
+            entryCountSum += histo->getEntryCount();
+            auto histoMax = histo->getMaxValueAndBin();
+            if (histoMax.value > maxValueAndBin.value)
+            {
+                maxValueAndBin = histoMax;
+                maxHistoIndex = histoIndex;
+            }
+        }
+#endif
+
+        auto firstHisto = m_histo1DSink->getHisto(0);
+
+        infoText = QString("Counts: %1\n"
+                           "Max Z:  %2 @ (%3, %4)\n"
+                          )
+            .arg(entryCountSum)
+            .arg(maxValueAndBin.value)
+            .arg(static_cast<double>(maxHistoIndex), 0, 'g', 6)
+            .arg(firstHisto->getBinCenter(maxValueAndBin.bin), 0, 'g', 6)
             ;
     }
 
@@ -761,49 +816,61 @@ void Histo2DWidget::zoomerZoomed(const QRectF &zoomRect)
 
 void Histo2DWidget::updateCursorInfoLabel()
 {
-    // TODO: implement for Histo1DListRasterData
+    double plotX = m_cursorPosition.x();
+    double plotY = m_cursorPosition.y();
+    s64 binX = -1;
+    s64 binY = -1;
+    double value = 0.0;
+
     if (m_histo)
     {
-        double plotX = m_cursorPosition.x();
-        double plotY = m_cursorPosition.y();
-        s64 binX = m_histo->getAxisBinning(Qt::XAxis).getBin(plotX);
-        s64 binY = m_histo->getAxisBinning(Qt::YAxis).getBin(plotY);
+        binX = m_histo->getAxisBinning(Qt::XAxis).getBin(plotX);
+        binY = m_histo->getAxisBinning(Qt::YAxis).getBin(plotY);
 
-        QString text;
+        value = m_histo->getValue(plotX, plotY);
+    }
+    else if (m_histo1DSink && m_histo1DSink->getNumberOfHistos() > 0)
+    {
+        /* x goes from 0 to #histos.
+         * For y the x binning of the first histo is used. */
 
-        if (!qIsNaN(plotX) && !qIsNaN(plotY) && binX >= 0 && binY >= 0)
-        {
-            double value = m_histo->getValue(plotX, plotY);
+        auto xBinning = AxisBinning(m_histo1DSink->getNumberOfHistos(), 0.0, m_histo1DSink->getNumberOfHistos());
+        binX = xBinning.getBin(plotX);
+        binY = m_histo1DSink->getHisto(0)->getAxisBinning(Qt::XAxis).getBin(plotY);
 
-            if (qIsNaN(value))
-                value = 0.0;
+        auto histData = reinterpret_cast<Histo1DListRasterData *>(m_plotItem->data());
+        value = histData->value(plotX, plotY);
+    }
 
-            text = QString("x=%1, "
-                           "y=%2, "
-                           "z=%3\n"
-                           "xbin=%4, "
-                           "ybin=%5"
-                          )
-                .arg(plotX, 0, 'g', 6)
-                .arg(plotY, 0, 'g', 6)
-                .arg(value)
-                .arg(binX)
-                .arg(binY)
-                ;
+    if (binX >= 0 && binY >= 0)
+    {
+        if (std::isnan(value))
+            value = 0.0;
 
-        }
+        auto text = (QString("x=%1, "
+                             "y=%2, "
+                             "z=%3\n"
+                             "xbin=%4, "
+                             "ybin=%5"
+                            )
+                     .arg(plotX, 0, 'g', 6)
+                     .arg(plotY, 0, 'g', 6)
+                     .arg(value)
+                     .arg(binX)
+                     .arg(binY));
 
         // update the label which will calculate a new width
         m_d->m_labelCursorInfo->setText(text);
-        // use the largest width the label ever had to stop the label from constantly changing its width
-        if (m_d->m_labelCursorInfo->isVisible())
-        {
-            m_d->m_labelCursorInfoMaxWidth = std::max(m_d->m_labelCursorInfoMaxWidth, m_d->m_labelCursorInfo->width());
-            m_d->m_labelCursorInfo->setMinimumWidth(m_d->m_labelCursorInfoMaxWidth);
+    }
 
-            m_d->m_labelCursorInfo->setMinimumHeight(m_d->m_labelCursorInfoMaxHeight);
-            m_d->m_labelCursorInfoMaxHeight = std::max(m_d->m_labelCursorInfoMaxHeight, m_d->m_labelCursorInfo->height());
-        }
+    // use the largest width the label ever had to stop the label from constantly changing its width
+    if (m_d->m_labelCursorInfo->isVisible())
+    {
+        m_d->m_labelCursorInfoMaxWidth = std::max(m_d->m_labelCursorInfoMaxWidth, m_d->m_labelCursorInfo->width());
+        m_d->m_labelCursorInfo->setMinimumWidth(m_d->m_labelCursorInfoMaxWidth);
+
+        m_d->m_labelCursorInfo->setMinimumHeight(m_d->m_labelCursorInfoMaxHeight);
+        m_d->m_labelCursorInfoMaxHeight = std::max(m_d->m_labelCursorInfoMaxHeight, m_d->m_labelCursorInfo->height());
     }
 }
 
