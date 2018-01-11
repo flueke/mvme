@@ -1,4 +1,4 @@
-* Default sysctl values on buildbot (4.9.0-5-amd64, 32 GB RAM) after boot:
+* Default sysctl values on my dev machine (4.9.0-5-amd64, 32 GB RAM) after boot:
 
   net.core.rmem_default = 212992
   net.core.rmem_max = 212992
@@ -32,3 +32,10 @@ SIS3153 over a CAT7 cable.
 
   # Kernel network statistics
   watch -n1 'netstat -anup; echo; netstat -anus'
+
+
+Refer to the sysctl-tuning.sh tuning script for the current values I settled
+on. These settings allowed nearly loss-free transfers of 52 MB/s. The VME
+data was generated using the interal pulsers of two MTDC-32 modules.
+
+# Florian Lueke <f.lueke@mesytec.com>
