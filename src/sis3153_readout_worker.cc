@@ -1348,7 +1348,10 @@ namespace
             if (fmt.isNull() || fmt.isEmpty())
                 throw error.toString();
 
-            throw fmt.arg(error.toString());
+            auto str = fmt.arg(error.toString());
+
+            qDebug() << ">>>> SIS Error: " << str;
+            throw str;
         }
     }
 } // end anon namespace
@@ -1372,6 +1375,7 @@ void SIS3153ReadoutWorker::leaveDAQMode()
 
     u32 leaveDAQPacketCount = 0;
 
+#if 1
     if (m_stackListControlRegisterValue & StackListControlValues::ListBufferEnable)
     {
         u32 wordsLeftInBuffer = 0;
@@ -1381,11 +1385,21 @@ void SIS3153ReadoutWorker::leaveDAQMode()
 
         qDebug() << __PRETTY_FUNCTION__ << "initial wordsLeftInBuffer=" << wordsLeftInBuffer;
 
-        qDebug() << "using the force to push the words!";
-        err_wrap(ctrl->udp_sis3153_register_write(
-                SIS3153ETH_STACK_LIST_CONTROL,
-                StackListControlValues::FlushBufferEnable));
+        if (wordsLeftInBuffer)
+        {
+            qDebug() << "sis3153: setting FlushBufferEnable bit";
+            err_wrap(ctrl->udp_sis3153_register_write(
+                    SIS3153ETH_STACK_LIST_CONTROL,
+                    StackListControlValues::FlushBufferEnable));
 
+            qDebug() << "sis3153: clearing FlushBufferEnable bit";
+            err_wrap(ctrl->udp_sis3153_register_write(
+                    SIS3153ETH_STACK_LIST_CONTROL,
+                    StackListControlValues::FlushBufferEnable << StackListControlValues::DisableShift));
+        }
+
+        // FIXME: This is a hack to work around buffer ordering issues I
+        // encountered when trying to cleanly leave SIS3153 DAQ mode.
         m_lossCounter.m_leavingDAQ = true;
 
         while (wordsLeftInBuffer)
@@ -1404,18 +1418,11 @@ void SIS3153ReadoutWorker::leaveDAQMode()
         m_lossCounter.m_leavingDAQ = false;
     }
     else
+#endif
     {
-        qDebug() << ">>>> begin reading final buffers";
+        qDebug() << ">>>> begin reading final buffers (buffering not enabled)";
         while(readAndProcessBuffer().bytesRead > 0) leaveDAQPacketCount++;
-        qDebug() << "<<<< end reading final buffers";
-    }
-
-    if (m_stackListControlRegisterValue & StackListControlValues::ListBufferEnable)
-    {
-        qDebug() << "the force was with us and pushed all the words. letting go of the force";
-        err_wrap(ctrl->udp_sis3153_register_write(
-                SIS3153ETH_STACK_LIST_CONTROL,
-                StackListControlValues::FlushBufferEnable << StackListControlValues::DisableShift));
+        qDebug() << "<<<< end reading final buffers (buffering not enabled)";
     }
 
     // Turn off LED_A
