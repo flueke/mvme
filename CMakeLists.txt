@@ -79,7 +79,7 @@ include_directories("${CMAKE_SOURCE_DIR}/3rdparty/pcg-cpp-0.98/include/")
 include_directories("${CMAKE_SOURCE_DIR}/3rdparty/cpp11-on-multicore/common/")
 
 # HDF5
-option(ENABLE_HDF5 "Enable HDF5 support" ON)
+option(ENABLE_HDF5 "Enable HDF5 support" Off)
 set(HDF5_USE_STATIC_LIBRARIES Off)
 
 if (ENABLE_HDF5)
@@ -106,6 +106,8 @@ message("-- Using QWT_LIBRARY=${QWT_LIBRARY}")
 
 # ROOT
 # https://root.cern.ch/how/integrate-root-my-project-cmake
+
+# FIXME: This interferes with our own CFLAGS and does not respect CMAKE_BUILD_TYPE at all!
 option(ENABLE_ROOT "Enable ROOT support" OFF)
 
 if (ENABLE_ROOT)
