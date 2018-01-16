@@ -103,9 +103,12 @@ struct DAQStats
     QDateTime endTime;
 
     u64 totalBytesRead = 0;     // bytes read from the controller including protocol overhead
-    u64 totalBuffersRead = 0;   // number of buffers received from the controller
+    u64 totalBuffersRead = 0;   // number of buffers received from the
+                                // controller. This includes buffers that can
+                                // later on lead to a parse error, thus it does
+                                // not represent the number of "good" buffers.
     u64 buffersWithErrors = 0;  // buffers for which processing did not succeeed (structure not intact, etc)
-    u64 droppedBuffers = 0;     // number of buffers not passed to the analysis
+    u64 droppedBuffers = 0;     // number of buffers not passed to the analysis due to the queue being full
     u64 totalNetBytesRead = 0;  // The number of bytes read excluding protocol
                                 // overhead. This should be a measure for the
                                 // amount of data the VME bus transferred.
