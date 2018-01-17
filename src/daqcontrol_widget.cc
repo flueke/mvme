@@ -457,6 +457,11 @@ void DAQControlWidget::updateWidget()
             break;
     }
 
+    if (auto controller = m_context->getVMEController())
+    {
+        stateString += " (" + to_string(controller->getType()) + ")";
+    }
+
     label_controllerState->setText(stateString);
 
     pb_reconnect->setEnabled(globalMode == GlobalMode::DAQ && daqState == DAQState::Idle);
