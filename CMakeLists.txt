@@ -134,7 +134,7 @@ add_subdirectory(extras)
 
 # To get a 'make test' target. If this is not in the top level CMakeLists.txt
 # no test target is generated :(
-option(BUILD_TESTS "Build test binaries" ON)
+option(BUILD_TESTS "Build test binaries" OFF)
 
 if (BUILD_TESTS)
     message("-- Building test binaries")
