@@ -136,10 +136,10 @@ qt5_wrap_ui(LIBMVME_UIC_OUT
 
 qt5_add_resources(LIBMVME_RC_OUT resources.qrc)
 
-if (ENABLE_HDF5)
+if (HDF5_FOUND)
     list(APPEND LIBMVME_ADDITIONAL_LIBS ${HDF5_CXX_LIBRARIES})
     list(APPEND LIBMVME_SOURCES analysis/analysis_session.cc)
-endif()
+endif(HDF5_FOUND)
 
 if (ENABLE_ROOT AND ROOT_FOUND)
     # The code that's starting and managing the mvme-root-writer. Does not
@@ -247,9 +247,9 @@ add_mvme_executable(dev_listfile_tcp_sender "dev_listfile_tcp_sender.cc")
 add_mvme_executable(dev_listfile_tcp_receiver "dev_listfile_tcp_receiver.cc")
 install(TARGETS dev_listfile_tcp_sender dev_listfile_tcp_receiver DESTINATION .)
 
-if (ENABLE_HDF5)
+if (HDF5_FOUND)
 add_mvme_executable(dev_mvme_event_processing "dev_mvme_event_processing.cc")
-endif(ENABLE_HDF5)
+endif(HDF5_FOUND)
 
 if (ENABLE_ROOT AND ROOT_FOUND)
     set(mvme_root_LIBS
