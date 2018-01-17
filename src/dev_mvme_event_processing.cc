@@ -139,7 +139,9 @@ void load_analysis_config(const QString &filename, Analysis *analysis, VMEConfig
 
 int main(int argc, char *argv[])
 {
+#ifndef Q_OS_WIN
     signal(SIGPIPE, SIG_IGN);
+#endif
 
 
     QCoreApplication app(argc, argv);
