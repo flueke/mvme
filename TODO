@@ -2,6 +2,13 @@
 TODO list somewhat sorted by priority
 ==================================================
 
+* analysis session: errors out when saving and empty analysis session
+  - enable the save action only if the analysis is non-empty
+  - change the session code to be able to handle empty analyses
+
+* cmake: Fix the issue with FindROOT adding to the global cflags. Might be
+  fixed by moving everything ROOT related into a subdirectory.
+
 * Get rid of automoc and as it mocs stuff that doesn't need mocing.
 
 * Fix sphinx doc build when using the cmake ninja generator.
@@ -11,13 +18,18 @@ TODO list somewhat sorted by priority
 
 * Crash in a2_adapter when BinSumDiff inputs don't have the same length
 
-* Disallow opening listfiles via the listfile browser while DAQ readout is running
-
 * Display actual size of the listfile on the disk. Avoids having to pull
   information from the quazip/zlib libs. Display the size after the listfile
   has been loaded, not after the replay has started
 
 * sis3153 implementation
+  * On connect read the stacklist control register to figure out if the sis is
+    in autonomous mode. If it is and a controller option "Reset SIS3153 on
+    connect" is not set then consider the connection attempt to have failed.
+    Reasoning: currently when accidentially connecting to a sis that's in use,
+    a reset command will be sent and thus the running DAQ will be stopped. This
+    can be quite bad if it happens during a real experiment.
+
   * Running "Init Module" when disconnected blocks the UI
   * Make the mblt count read commands work with the default data_len_format
     setting. Use the leftshift value of the sis register for this.
