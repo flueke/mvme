@@ -35,7 +35,8 @@ static const QVector<const char *> RdoCounterLabels =
     "stackListCounts",
     "BERR Counters",
     "multiEventPackets",
-    "lostPackets",
+    "embeddedEventCount",
+    "lostEvents",
 };
 
 SIS3153DebugWidget::SIS3153DebugWidget(MVMEContext *context, QWidget *parent)
@@ -224,6 +225,7 @@ void SIS3153DebugWidget::refresh()
         m_rdoCounterLabels[i++]->setText(pcText);
         m_rdoCounterLabels[i++]->setText(berrText);
         m_rdoCounterLabels[i++]->setText(QString::number(counters.multiEventPackets));
+        m_rdoCounterLabels[i++]->setText(QString::number(counters.embeddedEvents));
         m_rdoCounterLabels[i++]->setText(QString::number(counters.lostPackets));
     }
 }

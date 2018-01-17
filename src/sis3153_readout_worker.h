@@ -49,7 +49,8 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
             std::array<u64, SIS3153Constants::NumberOfStackLists> stackListBerrCounts_Write;
 
             u64 lostPackets = 0;
-            u64 multiEventPackets = 0;
+            u64 multiEventPackets = 0;          // total number of multievent packets received
+            u64 embeddedEvents    = 0;          // total number of subevents extracted from multievent packets
             int watchdogStackList = -1;
 
             Counters()

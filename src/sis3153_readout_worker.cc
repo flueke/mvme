@@ -1275,7 +1275,7 @@ void SIS3153ReadoutWorker::readoutLoop()
 
                 if (logReadErrorTimer.elapsed() >= LogInterval_ReadError_ms)
                 {
-                    auto msg = (QString("SIS313 Warning: received no data with the past %1 reads")
+                    auto msg = (QString("SIS313 Warning: received no data with the past %1 socket read operations")
                                 .arg(readErrorCount)
                                );
                     logMessage(msg);
@@ -1710,6 +1710,8 @@ u32 SIS3153ReadoutWorker::processMultiEventData(
                   .arg(length)
                   .arg(length * sizeof(u32))
                   .arg(eventHeader, 8, 16, QLatin1Char('0')));
+
+        m_counters.embeddedEvents++;
 
         // Forward the embedded event to processSingleEventData
         action = processSingleEventData(internalAck, 0, internalStatus, iter.buffp, length * sizeof(u32));
