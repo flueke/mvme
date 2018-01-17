@@ -12,6 +12,8 @@
 
 static const int PeriodicRefreshInterval_ms = 1000.0;
 
+static const QStringList NameFilters = { QSL("*.mvmelst"), QSL("*.zip") };
+
 ListfileBrowser::ListfileBrowser(MVMEContext *context, MVMEMainWindow *mainWindow, QWidget *parent)
     : QWidget(parent)
     , m_context(context)
@@ -26,6 +28,8 @@ ListfileBrowser::ListfileBrowser(MVMEContext *context, MVMEMainWindow *mainWindo
 
     m_fsModel->setReadOnly(true);
     m_fsModel->setFilter(QDir::NoDotAndDotDot | QDir::Files | QDir::Dirs);
+    m_fsModel->setNameFilters(NameFilters);
+    m_fsModel->setNameFilterDisables(false);
 
     m_fsView->setModel(m_fsModel);
     m_fsView->verticalHeader()->hide();
@@ -52,7 +56,13 @@ ListfileBrowser::ListfileBrowser(MVMEContext *context, MVMEMainWindow *mainWindo
     widgetLayout->addWidget(m_fsView);
 
     connect(m_context, &MVMEContext::workspaceDirectoryChanged,
-            this, [this](const QString &) { updateWidget(); });
+            this, [this](const QString &) { onWorkspacePathChanged(); });
+
+    connect(m_context, &MVMEContext::daqStateChanged,
+            this, &ListfileBrowser::onGlobalStateChanged);
+
+    connect(m_context, &MVMEContext::modeChanged,
+            this, &ListfileBrowser::onGlobalStateChanged);
 
     connect(m_fsModel, &QFileSystemModel::directoryLoaded, this, [this](const QString &) {
         m_fsView->resizeColumnsToContents();
@@ -62,7 +72,8 @@ ListfileBrowser::ListfileBrowser(MVMEContext *context, MVMEMainWindow *mainWindo
     connect(m_fsView, &QAbstractItemView::doubleClicked,
             this, &ListfileBrowser::onItemDoubleClicked);
 
-    updateWidget();
+    onWorkspacePathChanged();
+    onGlobalStateChanged();
 
     auto refreshTimer = new QTimer(this);
     connect(refreshTimer, &QTimer::timeout, this, &ListfileBrowser::periodicUpdate);
@@ -70,7 +81,7 @@ ListfileBrowser::ListfileBrowser(MVMEContext *context, MVMEMainWindow *mainWindo
     refreshTimer->start();
 }
 
-void ListfileBrowser::updateWidget()
+void ListfileBrowser::onWorkspacePathChanged()
 {
     auto workspaceDirectory = m_context->getWorkspaceDirectory();
     auto workspaceSettings  = m_context->makeWorkspaceSettings();
@@ -81,6 +92,17 @@ void ListfileBrowser::updateWidget()
 
     m_fsModel->setRootPath(listfileDirectory);
     m_fsView->setRootIndex(m_fsModel->index(listfileDirectory));
+}
+
+void ListfileBrowser::onGlobalStateChanged()
+{
+    qDebug() << __PRETTY_FUNCTION__;
+    auto globalMode = m_context->getMode();
+    auto daqState   = m_context->getDAQState();
+
+    bool disableBrowser = (globalMode == GlobalMode::DAQ && daqState != DAQState::Idle);
+
+    m_fsView->setEnabled(!disableBrowser);
 }
 
 void ListfileBrowser::periodicUpdate()
@@ -101,6 +123,12 @@ static const QString AnalysisFileFilter = QSL("MVME Analysis Files (*.analysis);
 
 void ListfileBrowser::onItemDoubleClicked(const QModelIndex &mi)
 {
+    if (m_context->getMode() == GlobalMode::DAQ
+        && m_context->getDAQState() != DAQState::Idle)
+    {
+        return;
+    }
+
     if (m_context->getConfig()->isModified())
     {
         QMessageBox msgBox(QMessageBox::Question, "Save configuration?",

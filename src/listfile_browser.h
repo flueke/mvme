@@ -15,7 +15,8 @@ class ListfileBrowser: public QWidget
         ListfileBrowser(MVMEContext *context, MVMEMainWindow *mainWindow, QWidget *parent = nullptr);
 
     private:
-        void updateWidget();
+        void onWorkspacePathChanged();
+        void onGlobalStateChanged();
         void periodicUpdate();
 
         void onItemDoubleClicked(const QModelIndex &mi);
