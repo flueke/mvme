@@ -2173,6 +2173,10 @@ void EventWidgetPrivate::periodicUpdateExtractorCounters(double dt_s)
                 }
                 else
                 {
+                    double rate = hitCountRates[addr];
+
+                    if (std::isnan(rate)) rate = 0.0;
+
                     auto rateString = format_number(hitCountRates[addr], QSL("cps"), UnitScaling::Decimal,
                                                     0, 'g', 3);
 
@@ -4008,7 +4012,7 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
         }
         else
         {
-            m_d->m_labelEfficiency->setText(QSL("Replay"));
+            m_d->m_labelEfficiency->setText(QSL("Replay  |"));
             m_d->m_labelEfficiency->setToolTip(QSL(""));
         }
     });

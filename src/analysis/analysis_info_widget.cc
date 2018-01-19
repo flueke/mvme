@@ -103,6 +103,7 @@ void AnalysisInfoWidget::update()
     double mbPerSecond      = bytesPerSecond / Megabytes(1);
     double buffersPerSecond = deltaBuffersProcessed / dt;
     double avgBufferSize    = deltaBytesProcessed / static_cast<double>(deltaBuffersProcessed);
+    if (std::isnan(avgBufferSize)) avgBufferSize = 0.0;
 
     QString stateString = state == MVMEStreamWorkerState::Idle ? QSL("Idle") : QSL("Running");
 

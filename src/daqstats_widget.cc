@@ -207,6 +207,9 @@ void DAQStatsWidget::updateWidget()
         u64 deltaLostEvents   = calc_delta0(sisCounters.lostEvents, m_d->prevSISCounters.lostEvents);
         double eventLossRate  = deltaLostEvents / dt;
 
+        if (std::isnan(eventLossRatio)) eventLossRatio = 0.0;
+        if (std::isnan(eventLossRate)) eventLossRate = 0.0;
+
         QString lossText = (QString("lost=%1, rcvd=%2\n"
                                     "lossRatio=%3, lossRate=%4 events/s"
                                     )
