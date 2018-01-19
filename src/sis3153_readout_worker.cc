@@ -442,6 +442,7 @@ namespace
         static const u32 SkipInput   = 1u << 2; // Skip the current input buffer.
                                                 // Implies state reset and reuses the output buffer without
                                                 // flusing it.
+
     };
 
     /* Repeating the flags here is required when compiling debug builds without
@@ -478,176 +479,126 @@ namespace
 
 } // end anon namespace
 
-SIS3153ReadoutWorker::PacketLossCounter::PacketLossCounter(Counters *counters,
-                                                           VMEReadoutWorkerContext *rdoContext)
-    //: m_lastReceivedPacketNumber(-2)
-    : m_lastReceivedPacketNumber(0)
-    , m_counters(counters)
-    , m_rdoContext(rdoContext)
-    , m_leavingDAQ(false)
+
+/* FIXME 18.1.2018
+ * ==========================================================================
+ * There are problems when doing the full "leave daq mode sequence" which
+ * includes using the FlushBufferEnable bit under high data rates. The
+ * workaround for now is to just stop the daq and read any udp packets that are
+ * in-flight. This means parts of a buffer (<= 1500 bytes) can still be queued
+ * up inside the controller. This stale data will be the first data to be sent
+ * out when starting the daq again. That's the reason why the 0xbb-header
+ * sequence numbers often start at a high number instead of at 1 and then later
+ * on drops to 1.
+ * Until I find a clean and reliable way to flush the SIS buffer I'm just
+ * going to implemented a workaround: throw away all data packets at the start of
+ * a run until the packet number 1 appears.
+ *
+ * related code: leaveDAQMode() and EventLossCounter
+ */
+
+SIS3153ReadoutWorker::EventLossCounter::EventLossCounter(Counters *counters,
+                                                         VMEReadoutWorkerContext *rdoContext)
+    : counters(counters)
+    , rdoContext(rdoContext)
+    , lastReceivedSequenceNumber(0)
+    , currentFlags(Flag_IsStaleData)
 {
     Q_ASSERT(counters);
     Q_ASSERT(rdoContext);
 }
 
-/* Returns the number of packets that where lost in between the previous and
- * the current packetNumber. */
-u32 SIS3153ReadoutWorker::PacketLossCounter::handlePacketNumber(s32 packetNumber, u64 bufferNumber)
+SIS3153ReadoutWorker::EventLossCounter::Flags
+SIS3153ReadoutWorker::EventLossCounter::handleEventSequenceNumber(s32 seqNum, u64 bufferNumber)
 {
-#if 0
-    /* SIS3153 packetNumber handling: the first packet number sent will be
-     * the old packetNumber from before resetting the controller
-     * incremented by 1. After that the packet numbers are correctly
-     * increasing from 1, e.g: 258, 1, 2, 3... where 257 was the last
-     * packet number from the previous run.
-     * packetNumber maximum value is 0x00ffffff. The first number after
-     * overflow is 0.
-     */
-
-    u32 result = 0;
-
-    if (likely(m_lastReceivedPacketNumber >= 0))
+    if (unlikely(currentFlags & Flag_IsStaleData))
     {
-        s32 diff = packetNumber - m_lastReceivedPacketNumber;
-
-        if (likely(diff == 1))
+        if (seqNum == 1)
         {
-            // all good, nothing lost
+            qDebug() << __PRETTY_FUNCTION__ << "buffer #" << bufferNumber
+                << ", first non-stale seqNum =" << seqNum;
+            currentFlags &= ~Flag_IsStaleData;
         }
-        else if (diff > 1)
-        {
-            // increment lost count
-            qDebug() << __PRETTY_FUNCTION__ << "buffer #" << bufferNumber << ", lost" << diff - 1 << "packets";
-            result = diff - 1;
-            m_counters->lostPackets += result;
-        }
-        else if (diff < 0)
-        {
-            // packetNumber < lastReceivedPacketNumber which should only
-            // happen once the packetNumber has overflowed.
-            // Perfect overflow without loss:
-            // old: 0x00ffffff, new: 0 -> will yield an adjustedDiff of 0
-
-            s32 adjustedDiff = (SIS3153Constants::BeginEventPacketNumberMask + diff);
-
-            qDebug() << __PRETTY_FUNCTION__ << "buffer #" << bufferNumber << ", packetNumber diff is < 0:" << diff
-                << ", lastReceivedPacketNumber =" << m_lastReceivedPacketNumber
-                << ", current packetNumber =" << packetNumber
-                << ", adjustedDiff =" << adjustedDiff;
-
-            Q_ASSERT(adjustedDiff >= 0);
-
-            if (adjustedDiff > 0)
-            {
-                result = adjustedDiff - 1;
-                m_counters->lostPackets += result;
-            }
-        }
-        else
-        {
-            // The difference is 0. This should never happen. Either the
-            // controller sends duplicate packet numbers or we lost so many
-            // that an overflow occured and we ended up at exactly the same
-            // packet number as before.
-            qDebug() << __PRETTY_FUNCTION__ << "buffer #" << bufferNumber << ", packetNumber diff is 0!";
-            Q_ASSERT(false);
-        }
+        lastReceivedSequenceNumber = seqNum;
+        return currentFlags;
     }
 
-    if (unlikely(m_lastReceivedPacketNumber == -2))
-    {
-        // ignores the very first packet number
-        m_lastReceivedPacketNumber = -1;
-
-        qDebug() << __PRETTY_FUNCTION__ << "first ignored packetNumber:" << packetNumber;
-
-        m_rdoContext->logMessage(QString("SIS3153: first ignored packetNumber: %1")
-                                 .arg(packetNumber));
-    }
-    else
-    {
-        if (m_lastReceivedPacketNumber == -1)
-        {
-            m_rdoContext->logMessage(QString("SIS3153: first actual packetNumber: %1")
-                                     .arg(packetNumber));
-
-            qDebug() << __PRETTY_FUNCTION__ << "first actual packetNumber:" << packetNumber;
-        }
-        m_lastReceivedPacketNumber = packetNumber;
-    }
-
-    return result;
-#else
-    // FIXME: move the m_leavingDAQ test to the top
-
-    u32 result = 0;
-
-    s32 diff = packetNumber - m_lastReceivedPacketNumber;
+    s32 diff = seqNum - lastReceivedSequenceNumber;
 
     if (likely(diff == 1))
     {
-        // all good, nothing lost, nothing to do
+        // all good, nothing lost
     }
-    else if (diff > 1 && !m_leavingDAQ)
+    else if (diff > 1 && !isLeavingDAQ())
     {
         // increment lost count
-        qDebug() << __PRETTY_FUNCTION__ << "buffer #" << bufferNumber << ", lost" << diff - 1 << "packets"
-            << ", lastReceivedPacketNumber =" << m_lastReceivedPacketNumber
-            << ", current packetNumber =" << packetNumber;
-
-        result = diff - 1;
-        m_counters->lostPackets += result;
+        s32 lost = diff - 1;
+        qDebug() << __PRETTY_FUNCTION__ << "buffer #" << bufferNumber << ", lost" << lost << "events";
+        counters->lostEvents += lost;
     }
-    else if (diff < 0 && !m_leavingDAQ)
+    else if (diff < 0 && !isLeavingDAQ())
     {
-        // packetNumber < lastReceivedPacketNumber which should only
-        // happen once the packetNumber has overflowed.
+        // seqNum < lastReceivedSequenceNumber which should only
+        // happen once the seqNum has overflowed.
         // Perfect overflow without loss:
         // old: 0x00ffffff, new: 0 -> will yield an adjustedDiff of 0
 
-        s32 adjustedDiff = (SIS3153Constants::BeginEventPacketNumberMask + diff);
+        s32 adjustedDiff = (SIS3153Constants::BeginEventSequenceNumberMask + diff);
 
-        qDebug() << __PRETTY_FUNCTION__ << "buffer #" << bufferNumber << ", packetNumber diff is < 0:" << diff
-            << ", lastReceivedPacketNumber =" << m_lastReceivedPacketNumber
-            << ", current packetNumber =" << packetNumber
+        qDebug() << __PRETTY_FUNCTION__ << "buffer #" << bufferNumber << ", seqNum diff is < 0:" << diff
+            << ", lastReceivedSequenceNumber =" << lastReceivedSequenceNumber
+            << ", current seqNum =" << seqNum
             << ", adjustedDiff =" << adjustedDiff;
 
         Q_ASSERT(adjustedDiff >= 0);
 
         if (adjustedDiff > 0)
         {
-            result = adjustedDiff - 1;
-            m_counters->lostPackets += result;
+            s32 lost = adjustedDiff - 1;
+            counters->lostEvents += lost;
         }
     }
-    else if (!m_leavingDAQ)
+    else if (!isLeavingDAQ())
     {
         // The difference is 0. This should never happen. Either the
         // controller sends duplicate packet numbers or we lost so many
         // that an overflow occured and we ended up at exactly the same
         // packet number as before.
-        qDebug() << __PRETTY_FUNCTION__ << "buffer #" << bufferNumber << ", packetNumber diff is 0!";
+        qDebug() << __PRETTY_FUNCTION__ << "buffer #" << bufferNumber << ", seqNum diff is 0!"
+            << " seqNum =" << seqNum
+            << ", lastReceivedSequenceNumber =" << lastReceivedSequenceNumber
+            << ", currentFlags =" << static_cast<u32>(currentFlags);
         Q_ASSERT(false);
     }
 
-    if (unlikely(m_leavingDAQ))
+    if (unlikely(isLeavingDAQ()))
     {
         // HACK: during shutdown remembers the max packet number received so
         // far. This works around the single out-of-order packet the controller
         // sends out during shutdown.
-        m_lastReceivedPacketNumber = std::max(m_lastReceivedPacketNumber, packetNumber);
-
+        lastReceivedSequenceNumber = std::max(lastReceivedSequenceNumber, seqNum);
         qDebug() << __PRETTY_FUNCTION__
-            << "stored max packet num =" << m_lastReceivedPacketNumber;
+            << "buffer #" << bufferNumber
+            << ", stored max seqNum =" << lastReceivedSequenceNumber;
     }
     else
     {
-        // record the current packet number
-        m_lastReceivedPacketNumber = packetNumber;
+        lastReceivedSequenceNumber = seqNum;
     }
 
-    return result;
-#endif
+    return Flag_None;
+}
+
+void SIS3153ReadoutWorker::EventLossCounter::beginLeavingDAQ()
+{
+    assert(!(currentFlags & Flag_LeavingDAQ));
+    currentFlags |= Flag_LeavingDAQ;
+}
+
+void SIS3153ReadoutWorker::EventLossCounter::endLeavingDAQ()
+{
+    assert((currentFlags & Flag_LeavingDAQ));
+    currentFlags &= ~Flag_LeavingDAQ;
 }
 
 //
@@ -804,7 +755,7 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
 
         if (!ctrlSettings.value("DisableBuffering").toBool())
         {
-            stackListControlValue = SIS3153Registers::StackListControlValues::ListBufferEnable;
+            stackListControlValue |= SIS3153Registers::StackListControlValues::ListBufferEnable;
         }
 
         u32 nextTimerTriggerSource = SIS3153Registers::TriggerSourceTimer1;
@@ -1151,7 +1102,7 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
         m_processingState = {};
         m_counters = {};
         m_counters.watchdogStackList = m_watchdogStackListIndex;
-        m_lossCounter = PacketLossCounter(&m_counters, &m_workerContext);
+        m_lossCounter = EventLossCounter(&m_counters, &m_workerContext);
 
         /* Save the current state of stackListControlValue for
          * leaving/re-entering DAQ mode later on. */
@@ -1305,12 +1256,21 @@ void SIS3153ReadoutWorker::readoutLoop()
         // resume
         else if (m_state == DAQState::Paused && m_desiredState == DAQState::Running)
         {
-            /* Resume uses the main socket again as that's where SIS will send
-             * its data. */
-            auto error = sis->writeRegister(SIS3153ETH_STACK_LIST_CONTROL, m_stackListControlRegisterValue);
+            VMEError error;
+
+            // (flueke): taken from sis3153/stack_list_buffer_example.cpp
+            // clear List execution counter (List-Event number)
+            // This makes the next event sequence number be '1'.
+            error = sis->writeRegister(SIS3153ETH_STACK_LIST_TRIGGER_CMD, 8);
+            if (error.isError())
+                throw QString("Error resuming SIS3153 DAQ mode: %1").arg(error.toString());
+
+            m_lossCounter.currentFlags = EventLossCounter::Flag_IsStaleData;
+
+            error = sis->writeRegister(SIS3153ETH_STACK_LIST_CONTROL, m_stackListControlRegisterValue);
 
             if (error.isError())
-                throw QString("Error entering SIS3153 DAQ mode: %1").arg(error.toString());
+                throw QString("Error resuming SIS3153 DAQ mode: %1").arg(error.toString());
 
             setState(DAQState::Running);
             sis_log(QSL("SIS3153 readout resumed"));
@@ -1374,8 +1334,7 @@ void SIS3153ReadoutWorker::leaveDAQMode()
         QSL("Error leaving SIS3153 DAQ mode: %1"));
 
     u32 leaveDAQPacketCount = 0;
-
-#if 1
+#if 0 // See the FIXME near the top for why this is disabled
     if (m_stackListControlRegisterValue & StackListControlValues::ListBufferEnable)
     {
         u32 wordsLeftInBuffer = 0;
@@ -1418,21 +1377,28 @@ void SIS3153ReadoutWorker::leaveDAQMode()
         m_lossCounter.m_leavingDAQ = false;
     }
     else
-#endif
     {
         qDebug() << ">>>> begin reading final buffers (buffering not enabled)";
         while(readAndProcessBuffer().bytesRead > 0) leaveDAQPacketCount++;
         qDebug() << "<<<< end reading final buffers (buffering not enabled)";
     }
+#else
+
+        m_lossCounter.beginLeavingDAQ();
+        qDebug() << ">>>> begin reading final buffers";
+        while(readAndProcessBuffer().bytesRead > 0) leaveDAQPacketCount++;
+        qDebug() << "<<<< end reading final buffers";
+        m_lossCounter.endLeavingDAQ();
+#endif
 
     // Turn off LED_A
     err_wrap(ctrl->udp_sis3153_register_write(
             USBControlAndStatus,
             USBControlAndStatusValues::LED_A << USBControlAndStatusValues::DisableShift));
 
-    logMessage(QString(QSL("SIS3153 readout left DAQ mode (%1 remaining packets received, last packetNumber=%2)"))
+    logMessage(QString(QSL("SIS3153 readout left DAQ mode (%1 remaining packets received, last sequenceNumber=%2)"))
                .arg(leaveDAQPacketCount)
-               .arg(m_lossCounter.m_lastReceivedPacketNumber)
+               .arg(m_lossCounter.lastReceivedSequenceNumber)
               );
 }
 
@@ -1601,6 +1567,11 @@ void SIS3153ReadoutWorker::processBuffer(
         }
         else
         {
+            /* If the isLastPacket bit is set the packet is either a single
+             * event packet or it is the end of a sequence of partial fragments.
+             * If the bit is not set the packet is a partial fragment and may
+             * either be the beginning of a new partial event or the
+             * continuation of a partial event. */
             bool isLastPacket = packetAck & SIS3153Constants::AckIsLastPacketMask;
 
             // start or continue partial event processing
@@ -1711,7 +1682,8 @@ u32 SIS3153ReadoutWorker::processMultiEventData(
                   .arg(length * sizeof(u32))
                   .arg(eventHeader, 8, 16, QLatin1Char('0')));
 
-        m_counters.embeddedEvents++;
+        int stacklist = internalAck & SIS3153Constants::AckStackListMask;
+        m_counters.embeddedEvents[stacklist]++;
 
         // Forward the embedded event to processSingleEventData
         action = processSingleEventData(internalAck, 0, internalStatus, iter.buffp, length * sizeof(u32));
@@ -1789,9 +1761,16 @@ u32 SIS3153ReadoutWorker::processSingleEventData(
 
         // The packetNumber will fit into an s32 as the top 8 bits are always
         // zero.
-        s32 packetNumber = (beginHeader & SIS3153Constants::BeginEventPacketNumberMask);
+        s32 seqNum = (beginHeader & SIS3153Constants::BeginEventSequenceNumberMask);
 
-        m_lossCounter.handlePacketNumber(packetNumber, bufferNumber);
+        if (m_lossCounter.handleEventSequenceNumber(seqNum, bufferNumber) & EventLossCounter::Flag_IsStaleData)
+        {
+            auto msg = QString(QSL("(buffer #%1) received stale data (single event). seqNum=%2. Skipping event."))
+                .arg(bufferNumber)
+                .arg(seqNum);
+            qDebug() << __PRETTY_FUNCTION__ << msg;
+            return ProcessorAction::NoneSet;
+        }
     }
 
     // Watchdog packet handling
@@ -1944,7 +1923,6 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
     int stacklist = packetAck & SIS3153Constants::AckStackListMask;
     bool isLastPacket = packetAck & SIS3153Constants::AckIsLastPacketMask;
     bool partialInProgress = m_processingState.stackList >= 0;
-    m_counters.stackListCounts[stacklist]++;
 
     Q_ASSERT(partialInProgress || !isLastPacket);
     Q_ASSERT(stacklist != m_watchdogStackListIndex);
@@ -1955,6 +1933,8 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
          * previous partial input buffers. */
         Q_ASSERT(m_outputBuffer);
     }
+
+    m_counters.partialFragments[stacklist]++;
 
     BufferIterator iter(data, size);
 
@@ -1979,11 +1959,18 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
                 return ProcessorAction::SkipInput;
             }
 
-            // The packetNumber will fit into an s32 as the top 8 bits are always
+            // The sequenceNumber will fit into an s32 as the top 8 bits are always
             // zero.
-            s32 packetNumber = (beginHeader & SIS3153Constants::BeginEventPacketNumberMask);
+            s32 seqNum = (beginHeader & SIS3153Constants::BeginEventSequenceNumberMask);
 
-            m_lossCounter.handlePacketNumber(packetNumber, bufferNumber);
+            if (m_lossCounter.handleEventSequenceNumber(seqNum, bufferNumber) & EventLossCounter::Flag_IsStaleData)
+            {
+                auto msg = QString(QSL("(buffer #%1) received stale data (partialEvent). seqNum=%2. Skipping buffer."))
+                    .arg(bufferNumber)
+                    .arg(seqNum);
+                qDebug() << __PRETTY_FUNCTION__ << msg;
+                return ProcessorAction::SkipInput;
+            }
         }
 
         // initial value is 0x00 or 0x80. the low nibble will then be
@@ -2008,18 +1995,6 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
 
         m_processingState.stackList = stacklist;
         m_processingState.streamWriter.openEventSection(eventIndex);
-
-        sis_trace(QString("setting mvmeEventHeader@0x%1 to 0x%2"
-                          ", buffer@0x%3, buffer->used=%4 (%5 words)"
-                          ", eventHeaderOffset=%6")
-                  .arg((uintptr_t)mvmeEventHeader, 8, 16, QLatin1Char('0'))
-                  .arg(*mvmeEventHeader, 8, 16, QLatin1Char('0'))
-                  .arg((uintptr_t) outputBuffer->data, 8, 16, QLatin1Char('0'))
-                  .arg(outputBuffer->used)
-                  .arg(outputBuffer->used / sizeof(u32))
-                  .arg(m_processingState.streamWriter.eventHeaderOffset())
-                  );
-
         m_processingState.moduleIndex = 0;
     }
 
@@ -2179,30 +2154,10 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
         // Close the event section. This should not throw.
         m_processingState.streamWriter.closeEventSection();
 
-        if (writerFlags & MVMEStreamWriterHelper::EventSizeExceeded)
-        {
-            auto msg = (QString(QSL("SIS3153 Warning: (buffer #%1) maximum event section size exceeded. "
-                                    "Data will be truncated! (eventIndex=%2)"))
-                        .arg(bufferNumber)
-                        .arg(eventIndex));
-            logMessage(msg);
-            qDebug() << __PRETTY_FUNCTION__ << msg;
-        }
+        m_counters.reassembledPartials[stacklist]++;
+        m_counters.stackListCounts[stacklist]++;
 
-        sis_trace(QString("sis3153 buffer #%1, flushing mvme output buffer:"
-                          " mvmeEventHeader@0x%2, mvmeEventHeader=0x%3, mvmeEventSize=%4"
-                          ", buffer@0x%5, buffer->used=%6 (%7 words)"
-                          ", eventHeaderOffset=%8, endHeader=0x%9")
-                  .arg(bufferNumber)
-                  .arg((uintptr_t) mvmeEventHeader, 8, 16, QLatin1Char('0'))
-                  .arg(*mvmeEventHeader, 8, 16, QLatin1Char('0'))
-                  .arg(m_processingState.eventSize)
-                  .arg((uintptr_t)outputBuffer->data, 8, 16, QLatin1Char('0'))
-                  .arg(outputBuffer->used)
-                  .arg(outputBuffer->used / sizeof(u32))
-                  .arg(m_processingState.eventHeaderOffset)
-                  .arg(endHeader, 8, 16, QLatin1Char('0'))
-                  );
+        warnIfStreamWriterError(bufferNumber, writerFlags, eventIndex);
 
         return ProcessorAction::FlushBuffer;
     }

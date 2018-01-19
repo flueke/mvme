@@ -35,9 +35,39 @@ static const QVector<const char *> RdoCounterLabels =
     "stackListCounts",
     "BERR Counters",
     "multiEventPackets",
-    "embeddedEventCount",
+    "embeddedEvents",
     "lostEvents",
+    "partialFragments",
+    "reassembledPartials",
 };
+
+namespace
+{
+    QString format_stacklist_counts(const SIS3153ReadoutWorker::StackListCountsArray &counts, s32 watchdogStackListIndex)
+    {
+        QString result;
+
+        for (s32 si = 0; si < SIS3153Constants::NumberOfStackLists; si++)
+        {
+            if (auto count = counts[si])
+            {
+                if (!result.isEmpty())
+                {
+                    result += QSL("\n");
+                }
+
+                result += QString(QSL("stackList=%1: count=%2")).arg(si).arg(count);
+
+                if (si == watchdogStackListIndex)
+                {
+                    result += QSL(" (watchdog)");
+                }
+            }
+        }
+
+        return result;
+    }
+} // end anon namespace
 
 SIS3153DebugWidget::SIS3153DebugWidget(MVMEContext *context, QWidget *parent)
     : QWidget(parent)
@@ -187,19 +217,7 @@ void SIS3153DebugWidget::refresh()
 
         const auto counters = rdoWorker->getCounters();
 
-        QString pcText; // packet count text
-
-        for (s32 si = 0; si < SIS3153Constants::NumberOfStackLists; si++)
-        {
-            auto count = counters.stackListCounts[si];
-            if (count)
-            {
-                if (!pcText.isEmpty()) pcText += QSL("\n");
-                pcText += QString(QSL("stackList=%1, count=%2")).arg(si).arg(count);
-                if (si == counters.watchdogStackList)
-                    pcText += QSL(" (watchdog)");
-            }
-        }
+        QString packetCountText = format_stacklist_counts(counters.stackListCounts, counters.watchdogStackList);
 
         QString berrText;
 
@@ -213,7 +231,7 @@ void SIS3153DebugWidget::refresh()
             {
                 if (!berrText.isEmpty()) berrText += QSL("\n");
 
-                berrText += (QString(QSL("stackList=%1, blt=%2, read=%3, write=%4"))
+                berrText += (QString(QSL("stackList=%1: blt=%2, read=%3, write=%4"))
                              .arg(si).arg(berrBlock).arg(berrRead).arg(berrWrite));
 
                 if (si == counters.watchdogStackList)
@@ -221,12 +239,19 @@ void SIS3153DebugWidget::refresh()
             }
         }
 
+        QString embeddedEventsText = format_stacklist_counts(counters.embeddedEvents, counters.watchdogStackList);;
+        QString partialFragmentsText = format_stacklist_counts(counters.partialFragments, counters.watchdogStackList);
+        QString reassembledPartialsText = format_stacklist_counts(counters.reassembledPartials, counters.watchdogStackList);
+
+
         s32 i = 0;
-        m_rdoCounterLabels[i++]->setText(pcText);
+        m_rdoCounterLabels[i++]->setText(packetCountText);
         m_rdoCounterLabels[i++]->setText(berrText);
         m_rdoCounterLabels[i++]->setText(QString::number(counters.multiEventPackets));
-        m_rdoCounterLabels[i++]->setText(QString::number(counters.embeddedEvents));
-        m_rdoCounterLabels[i++]->setText(QString::number(counters.lostPackets));
+        m_rdoCounterLabels[i++]->setText(embeddedEventsText);
+        m_rdoCounterLabels[i++]->setText(QString::number(counters.lostEvents));
+        m_rdoCounterLabels[i++]->setText(partialFragmentsText);
+        m_rdoCounterLabels[i++]->setText(reassembledPartialsText);
     }
 }
 
@@ -273,7 +298,7 @@ void format_sis3153_single_event(
     {
         BufferIterator iter(data, size);
         u32 beginHeader = iter.extractU32();
-        s32 packetNumber = (beginHeader & SIS3153Constants::BeginEventPacketNumberMask);
+        s32 packetNumber = (beginHeader & SIS3153Constants::BeginEventSequenceNumberMask);
 
         out << (QString("beginHeader=0x%1, packetNumber=%2 (0x%3)")
                 .arg(beginHeader, 8, 16, QLatin1Char('0'))
@@ -374,7 +399,7 @@ void format_sis3153_buffer(DataBuffer *buffer, QTextStream &out, u64 bufferNumbe
             bool isLastPacket = (packetAck & SIS3153Constants::AckIsLastPacketMask);
             if (!isLastPacket)
             {
-                out << "buffer #" << bufferNumber << ": middle part of a partial event" << endl;
+                out << "buffer #" << bufferNumber << ": beginning or middle part of a partial event" << endl;
             }
             else
             {

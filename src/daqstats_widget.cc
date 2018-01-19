@@ -19,6 +19,8 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "daqstats_widget.h"
+
+#include <cmath>
 #include <QLabel>
 #include <QFormLayout>
 #include <QTimer>
@@ -27,8 +29,6 @@
 #include "qt_util.h"
 #include "sis3153_readout_worker.h"
 #include "util/counters.h"
-
-#define DETAILED_BUFFER_ERRORS 0
 
 static const int UpdateInterval_ms = 1000;
 
@@ -45,9 +45,10 @@ struct DAQStatsWidgetPrivate
            *label_bufferRates,
            *label_readSize,
            *label_bytesRead,
-           //*label_listFileSize,
            *label_netBytesRead,
-           *label_netRate;
+           *label_netRate,
+           *label_sisEventLoss
+               ;
 };
 
 DAQStatsWidget::DAQStatsWidget(MVMEContext *context, QWidget *parent)
@@ -64,8 +65,6 @@ DAQStatsWidget::DAQStatsWidget(MVMEContext *context, QWidget *parent)
     m_d->label_bufferRates = new QLabel;
     m_d->label_readSize = new QLabel;
     m_d->label_bytesRead = new QLabel;
-    //m_d->label_listFileSize = new QLabel;
-    //
     m_d->label_netBytesRead = new QLabel;
     m_d->label_netBytesRead->setToolTip(
         QSL("The number of bytes read excluding protocol overhead.\n"
@@ -73,6 +72,7 @@ DAQStatsWidget::DAQStatsWidget(MVMEContext *context, QWidget *parent)
     m_d->label_netBytesRead->setStatusTip(m_d->label_netBytesRead->toolTip());
 
     m_d->label_netRate = new QLabel;
+    m_d->label_sisEventLoss = new QLabel;
 
     QList<QWidget *> labels = {
         m_d->label_daqDuration,
@@ -81,9 +81,9 @@ DAQStatsWidget::DAQStatsWidget(MVMEContext *context, QWidget *parent)
         m_d->label_bufferRates,
         m_d->label_readSize,
         m_d->label_bytesRead,
-        //m_d->label_listFileSize,
         m_d->label_netBytesRead,
         m_d->label_netRate,
+        m_d->label_sisEventLoss,
     };
 
     for (auto label: labels)
@@ -96,20 +96,13 @@ DAQStatsWidget::DAQStatsWidget(MVMEContext *context, QWidget *parent)
 
     formLayout->addRow("Running time:", m_d->label_daqDuration);
     formLayout->addRow("Buffers read:", m_d->label_buffersRead);
-#if DETAILED_BUFFER_ERRORS
-    m_d->label_bufferErrors->setFont(make_monospace_font());
-    set_widget_font_pointsize(m_d->label_bufferErrors, 8);
-    formLayout->addRow(m_d->label_bufferErrors);
-#else
     formLayout->addRow("Buffer Errors:", m_d->label_bufferErrors);
-#endif
-
     formLayout->addRow("Data rates:", m_d->label_bufferRates);
     formLayout->addRow("Avg. read size:", m_d->label_readSize);
     formLayout->addRow("Bytes read:", m_d->label_bytesRead);
     formLayout->addRow("Net Bytes read:", m_d->label_netBytesRead);
     formLayout->addRow("Net rate:", m_d->label_netRate);
-    //formLayout->addRow("ListFile size:", m_d->label_listFileSize);
+    formLayout->addRow("Event Loss:", m_d->label_sisEventLoss);
 
     //formLayout->setFieldGrowthPolicy(QFormLayout::FieldsStayAtSizeHint);
     //formLayout->setSizeConstraint(QLayout::SetFixedSize);
@@ -171,66 +164,19 @@ void DAQStatsWidget::updateWidget()
     double netBytesPerSecond = deltaNetBytesRead / dt;
     double netMbPerSecond   = netBytesPerSecond / Megabytes(1);
 
-    // SIS3153 specific packet loss count and rate
-    SIS3153ReadoutWorker::Counters sisCounters;
-    if (auto rdoWorker = qobject_cast<SIS3153ReadoutWorker *>(m_d->context->getReadoutWorker()))
-    {
-        sisCounters = rdoWorker->getCounters();
-    }
+    u64 bufferProcessingErrors = daqStats.buffersWithErrors;
 
-    u64 deltaPacketsLost  = calc_delta0(sisCounters.lostPackets, m_d->prevSISCounters.lostPackets);
-    u64 deltaBufferErrors = calc_delta0(daqStats.buffersWithErrors, m_d->prevStats.buffersWithErrors);
-    u64 deltaTotalErrors  = deltaPacketsLost + deltaBufferErrors;
-
-    double packetLossRate  = deltaPacketsLost / dt;
-    double bufferErrorRate = deltaBufferErrors / dt;
-    double totalErrorRate  = deltaTotalErrors / dt;
-
-    double totalGoodBuffers = daqStats.totalBuffersRead - daqStats.buffersWithErrors;
-    double totalBadBuffers  = sisCounters.lostPackets + daqStats.buffersWithErrors;
-    double lossRatio        = sisCounters.lostPackets / totalGoodBuffers;
-    double errorRatio       = daqStats.buffersWithErrors / totalGoodBuffers;
-    double combinedErrorRatio = (sisCounters.lostPackets + daqStats.buffersWithErrors) / totalGoodBuffers;
-
-    u64 bufferParseErrors = daqStats.buffersWithErrors;
-    u64 lostBuffers = 0;
-
-    if (auto rdoWorker = qobject_cast<SIS3153ReadoutWorker *>(m_d->context->getReadoutWorker()))
-    {
-        lostBuffers = rdoWorker->getCounters().lostPackets;
-    }
-
-    double totalBufferErrors = bufferParseErrors + lostBuffers;
+    // Set NaNs to 0 before displaying them.
+    if (std::isnan(buffersPerSecond)) buffersPerSecond = 0.0;
+    if (std::isnan(mbPerSecond)) mbPerSecond = 0.0;
+    if (std::isnan(netMbPerSecond)) netMbPerSecond = 0.0;
+    if (std::isnan(avgReadSize)) avgReadSize = 0.0;
 
     m_d->label_daqDuration->setText(totalDurationString);
-
     m_d->label_buffersRead->setText(QString::number(daqStats.totalBuffersRead));
-
-#if DETAILED_BUFFER_ERRORS
-    // errors and packet loss
-    {
-        auto buf = (QString(QSL("Buffer errors and packet loss:\n"
-                                "lossTotal=%2,     parseErrorTotal=%3,    errorTotal=%1\n"
-                                "lossRatio=%4,     parseErrorRatio=%5,    errorRatio=%6\n"
-                                "lossRate =%7 1/s, parseErrorRate=%8 1/s, errorRate=%9 1/s\n"
-                               ))
-                    .arg(totalBadBuffers).arg(sisCounters.lostPackets).arg(daqStats.buffersWithErrors)
-                    .arg(lossRatio).arg(errorRatio).arg(combinedErrorRatio)
-                    .arg(packetLossRate).arg(bufferErrorRate).arg(totalErrorRate)
-                   );
-
-        m_d->label_bufferErrors->setText(buf);
-    }
-
-#else
-    m_d->label_bufferErrors->setText(QString::number(totalBufferErrors));
-    m_d->label_bufferErrors->setToolTip(QString("parseErrors: %1, lost: %2")
-                                          .arg(bufferParseErrors)
-                                          .arg(lostBuffers));
-    m_d->label_bufferErrors->setStatusTip(m_d->label_bufferErrors->toolTip());
-#endif
-
+    m_d->label_bufferErrors->setText(QString::number(bufferProcessingErrors));
     m_d->label_readSize->setText(QString::number(avgReadSize));
+
     m_d->label_bufferRates->setText(QString("%1 buffers/s, %2 MB/s")
                                     .arg(buffersPerSecond, 6, 'f', 2)
                                     .arg(mbPerSecond, 6, 'f', 2)
@@ -238,6 +184,7 @@ void DAQStatsWidget::updateWidget()
 
     m_d->label_netBytesRead->setText(QString("%1 MB").arg(
             ((double)daqStats.totalNetBytesRead) / Megabytes(1), 6, 'f', 2));
+
     m_d->label_netRate->setText(QString("%1 MB/s").arg(
             netMbPerSecond, 6, 'f', 2));
 
@@ -246,26 +193,38 @@ void DAQStatsWidget::updateWidget()
             .arg((double)daqStats.totalBytesRead / (1024.0*1024.0), 6, 'f', 2)
             );
 
-#if 0
-    switch (m_d->context->getMode())
-    {
-        case GlobalMode::DAQ:
-            {
-                m_d->label_listFileSize->setText(
-                        QString("%1 MB")
-                        .arg((double)daqStats.listFileBytesWritten / (1024.0*1024.0), 6, 'f', 2)
-                        );
-            } break;
-        case GlobalMode::ListFile:
-            {
-                m_d->label_listFileSize->setText(
-                        QString("%1 MB")
-                        .arg((double)daqStats.listFileTotalBytes / (1024.0*1024.0), 6, 'f', 2)
-                        );
-            } break;
-    }
-#endif
+    // SIS3153 specific packet loss count and rate
+    SIS3153ReadoutWorker::Counters sisCounters;
 
+    if (auto rdoWorker = qobject_cast<SIS3153ReadoutWorker *>(m_d->context->getReadoutWorker()))
+    {
+        sisCounters = rdoWorker->getCounters();
+
+        double totalLostEvents = sisCounters.lostEvents;
+        double totalGoodEvents = std::accumulate(std::begin(sisCounters.stackListCounts), std::end(sisCounters.stackListCounts), 0.0);
+        double eventLossRatio = totalLostEvents / totalGoodEvents;
+
+        u64 deltaLostEvents   = calc_delta0(sisCounters.lostEvents, m_d->prevSISCounters.lostEvents);
+        double eventLossRate  = deltaLostEvents / dt;
+
+        QString lossText = (QString("lost=%1, rcvd=%2\n"
+                                    "lossRatio=%3, lossRate=%4 events/s"
+                                    )
+                            .arg(totalLostEvents)
+                            .arg(totalGoodEvents)
+                            .arg(eventLossRatio, 0, 'f', 3)
+                            .arg(eventLossRate)
+                           );
+
+        m_d->label_sisEventLoss->show();
+        m_d->label_sisEventLoss->setText(lossText);
+    }
+    else
+    {
+        m_d->label_sisEventLoss->hide();
+    }
+
+    // Store current counts
     m_d->prevStats = daqStats;
     m_d->prevSISCounters = sisCounters;
     m_d->lastUpdateTime = QDateTime::currentDateTime();

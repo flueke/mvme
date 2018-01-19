@@ -173,7 +173,7 @@ namespace SIS3153Constants
     static const u32 BeginEventResult = 0xbb000000;
     static const u32 EndEventMask     = 0xff000000;
     static const u32 EndEventResult   = 0xee000000;
-    static const u32 BeginEventPacketNumberMask = 0x00ffffff;
+    static const u32 BeginEventSequenceNumberMask = 0x00ffffff;
 
     static const u32 EndEventBerrBlockMask = 0x00ff0000;
     static const u32 EndEventBerrReadMask  = 0x0000ff00;
