@@ -2177,7 +2177,7 @@ void EventWidgetPrivate::periodicUpdateExtractorCounters(double dt_s)
 
                     if (std::isnan(rate)) rate = 0.0;
 
-                    auto rateString = format_number(hitCountRates[addr], QSL("cps"), UnitScaling::Decimal,
+                    auto rateString = format_number(rate, QSL("cps"), UnitScaling::Decimal,
                                                     0, 'g', 3);
 
                     childNode->setText(0, QString("%1 (hits=%2, rate=%3, dt=%4 s)")
@@ -2272,7 +2272,10 @@ void EventWidgetPrivate::periodicUpdateHistoCounters(double dt_s)
                     }
                     else
                     {
-                        auto rateString = format_number(entryCountRates[addr], QSL("cps"), UnitScaling::Decimal,
+                        double rate = entryCountRates[addr];
+                        if (std::isnan(rate)) rate = 0.0;
+
+                        auto rateString = format_number(rate, QSL("cps"), UnitScaling::Decimal,
                                                         0, 'g', 3);
 
                         childNode->setText(0, QString("%1 (entries=%2, rate=%3, dt=%4 s)")
@@ -2321,6 +2324,8 @@ void EventWidgetPrivate::periodicUpdateHistoCounters(double dt_s)
                     }
                     else
                     {
+                        if (std::isnan(countRate)) countRate = 0.0;
+
                         auto rateString = format_number(countRate, QSL("cps"), UnitScaling::Decimal,
                                                         0, 'g', 3);
 
@@ -2355,6 +2360,7 @@ void EventWidgetPrivate::periodicUpdateEventRate(double dt_s)
 
     double eventCount = counters.moduleCounters[m_eventIndex][0];
     double eventRate = deltaEvents / dt_s;
+    if (std::isnan(eventRate)) eventRate = 0.0;
 
     auto labelText = (QString("count=%1\nrate=%2")
                       .arg(format_number(eventCount, QSL(""), UnitScaling::Decimal))
