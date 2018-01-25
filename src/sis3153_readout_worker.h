@@ -177,6 +177,7 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
         void flushCurrentOutputBuffer();
         void maybePutBackBuffer();
         void warnIfStreamWriterError(u64 bufferNumber, int writerFlags, u16 eventIndex);
+        void setupForwarding();
 
         std::atomic<DAQState> m_state;
         std::atomic<DAQState> m_desiredState;
@@ -195,9 +196,15 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
         EventLossCounter m_lossCounter;
         QFile m_rawBufferOut;
         bool m_logBuffers = false;
-        std::unique_ptr<QUdpSocket> m_forwardSocket;
-        QHostAddress m_forwardHost;
-        u16 m_forwardPort = 0;
+
+        struct ForwardData
+        {
+            std::unique_ptr<QUdpSocket> socket;
+            QHostAddress host;
+            u16 port = 0;
+        };
+
+        ForwardData m_forward;
 };
 
 #endif /* __SIS3153_READOUT_WORKER_H__ */

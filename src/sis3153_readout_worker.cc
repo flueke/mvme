@@ -22,6 +22,7 @@
 #include "sis3153_readout_worker.h"
 
 #include <QCoreApplication>
+#include <QHostInfo>
 #include <QThread>
 #include <QUdpSocket>
 
@@ -1055,17 +1056,7 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
             sis_log(QString("SIS3153 watchdog disabled by user setting."));
         }
 
-        if (controllerSettings.value("UDP_Forwarding_Enable").toBool())
-        {
-            // TODO: support DNS lookups via QHostInfo here or move the lookup elsewhere?
-            m_forwardHost = QHostAddress(controllerSettings.value("UDP_Forwarding_Address").toString());
-            m_forwardPort = controllerSettings.value("UDP_Forwarding_Port").toUInt();
-            m_forwardSocket = std::make_unique<QUdpSocket>();
-        }
-        else
-        {
-            m_forwardSocket.reset();
-        }
+        setupForwarding();
 
         // All event stacks have been uploaded. stackListControlValue has been computed.
 
@@ -1489,6 +1480,28 @@ SIS3153ReadoutWorker::ReadBufferResult SIS3153ReadoutWorker::readAndProcessBuffe
 
     m_workerContext.daqStats->totalBytesRead += result.bytesRead;
     m_workerContext.daqStats->totalBuffersRead++;
+
+
+    // UDP Datagram Forwarding
+    if (m_forward.socket)
+    {
+        auto sendResult = m_forward.socket->writeDatagram(
+            reinterpret_cast<const char *>(m_readBuffer.data + 1),
+            result.bytesRead,
+            m_forward.host,
+            m_forward.port);
+
+        if (sendResult != result.bytesRead)
+        {
+            auto msg = QString((QSL("SIS3153 Warning: forwarding packet failed: %1 (returnCode=%2)")
+                                .arg(m_forward.socket->errorString())
+                                .arg(m_forward.socket->error())
+                                ));
+            logMessage(msg);
+            qDebug() << __PRETTY_FUNCTION__ << msg;
+        }
+    }
+
 
     if (result.bytesRead < 3)
     {
@@ -2338,5 +2351,52 @@ void SIS3153ReadoutWorker::warnIfStreamWriterError(u64 bufferNumber, int writerF
                     .arg(eventIndex));
         logMessage(msg);
         qDebug() << __PRETTY_FUNCTION__ << msg;
+    }
+}
+
+void SIS3153ReadoutWorker::setupForwarding()
+{
+    QVariantMap controllerSettings = m_workerContext.vmeConfig->getControllerSettings();
+
+    if (controllerSettings.value("UDP_Forwarding_Enable").toBool())
+    {
+        QString address = controllerSettings.value("UDP_Forwarding_Address").toString();
+        u16 port = controllerSettings.value("UDP_Forwarding_Port").toUInt();
+
+        sis_log(QString("Setting up forwarding of raw readout data to %1:%2")
+                .arg(address)
+                .arg(port));
+
+        if (!m_forward.host.setAddress(address))
+        {
+            auto hostInfo = QHostInfo::fromName(address);
+
+            if (hostInfo.error() != QHostInfo::NoError)
+            {
+                sis_log(QSL("Error resolving forward host %1: %2. Disabling forwarding.")
+                        .arg(address)
+                        .arg(hostInfo.errorString()));
+                return;
+            }
+
+            if (hostInfo.addresses().isEmpty())
+            {
+                sis_log(QSL("Could not resolve any host addresses for forward host %1. Disabling forwarding.")
+                        .arg(address));
+                return;
+            }
+
+            m_forward.host = hostInfo.addresses().value(0);
+
+            sis_log(QString("Resolved forwarding address to %1")
+                    .arg(m_forward.host.toString()));
+        }
+
+        m_forward.socket = std::make_unique<QUdpSocket>();
+        m_forward.port = port;
+    }
+    else
+    {
+        m_forward.socket.reset();
     }
 }

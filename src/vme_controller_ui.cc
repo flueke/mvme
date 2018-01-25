@@ -65,6 +65,9 @@ SIS3153EthSettingsWidget::SIS3153EthSettingsWidget(QWidget *parent)
     , m_cb_debugRawBuffers(new QCheckBox)
     , m_cb_disableBuffering(new QCheckBox)
     , m_cb_disableWatchdog(new QCheckBox)
+    , m_gb_enableForwarding(new QGroupBox)
+    , m_le_forwardingAddress(new QLineEdit)
+    , m_spin_forwardingPort(new QSpinBox)
 {
     auto l = new QFormLayout(this);
     l->addRow(QSL("Hostname / IP Address"), m_le_sisAddress);
@@ -72,6 +75,17 @@ SIS3153EthSettingsWidget::SIS3153EthSettingsWidget(QWidget *parent)
     l->addRow(QSL("Debug: Write raw buffer file"), m_cb_debugRawBuffers);
     l->addRow(QSL("Debug: Disable Buffering"), m_cb_disableBuffering);
     l->addRow(QSL("Debug: Disable Watchdog"), m_cb_disableWatchdog);
+
+    m_gb_enableForwarding->setTitle("Enable UDP Forwarding");
+    m_gb_enableForwarding->setCheckable(true);
+    m_spin_forwardingPort->setMinimum(0);
+    m_spin_forwardingPort->setMaximum(std::numeric_limits<u16>::max());
+
+    auto forwardLayout = new QFormLayout(m_gb_enableForwarding);
+    forwardLayout->addRow(QSL("Hostname / IP Address"), m_le_forwardingAddress);
+    forwardLayout->addRow(QSL("UDP Port"), m_spin_forwardingPort);
+
+    l->addRow(m_gb_enableForwarding);
 }
 
 void SIS3153EthSettingsWidget::validate()
@@ -84,27 +98,37 @@ void SIS3153EthSettingsWidget::validate()
     }
 }
 
+static const QString DefaultHostname("sis3153-0040");
+static const u16 DefaultForwardingPort = 42101;
+
 void SIS3153EthSettingsWidget::loadSettings(const QVariantMap &settings)
 {
     m_cb_jumboFrames->setChecked(settings["JumboFrames"].toBool());
     m_cb_debugRawBuffers->setChecked(settings.value("DebugRawBuffers").toBool());
     m_cb_disableBuffering->setChecked(settings.value("DisableBuffering").toBool());
     m_cb_disableWatchdog->setChecked(settings.value("DisableWatchdog").toBool());
+    m_gb_enableForwarding->setChecked(settings.value("UDP_Forwarding_Enable").toBool());
 
+    // Use the hostname from the setting first.
     auto hostname = settings["hostname"].toString();
 
     if (hostname.isEmpty())
     {
+        // Next check the application wide settings for a previously connected address.
         QSettings appSettings;
         hostname = appSettings.value("VME/LastConnectedSIS3153").toString();
     }
 
     if (hostname.isEmpty())
     {
-        hostname = QSL("sis3153-0040");
+        // Still no hostname. Use the default name.
+        hostname = DefaultHostname;
     }
 
     m_le_sisAddress->setText(hostname);
+
+    m_le_forwardingAddress->setText(settings.value("UDP_Forwarding_Address").toString());
+    m_spin_forwardingPort->setValue(settings.value("UDP_Forwarding_Port", DefaultForwardingPort).toUInt());
 }
 
 QVariantMap SIS3153EthSettingsWidget::getSettings()
@@ -115,6 +139,9 @@ QVariantMap SIS3153EthSettingsWidget::getSettings()
     result["DebugRawBuffers"] = m_cb_debugRawBuffers->isChecked();
     result["DisableBuffering"] = m_cb_disableBuffering->isChecked();
     result["DisableWatchdog"] = m_cb_disableWatchdog->isChecked();
+    result["UDP_Forwarding_Enable"] = m_gb_enableForwarding->isChecked();
+    result["UDP_Forwarding_Address"] = m_le_forwardingAddress->text();
+    result["UDP_Forwarding_Port"] = static_cast<u16>(m_spin_forwardingPort->value());
     return result;
 }
 
