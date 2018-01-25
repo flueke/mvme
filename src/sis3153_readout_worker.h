@@ -27,6 +27,10 @@
 #include "vme_readout_worker.h"
 #include "vme_script.h"
 
+#include <QHostAddress>
+
+class QUdpSocket;
+
 class SIS3153ReadoutWorker: public VMEReadoutWorker
 {
     Q_OBJECT
@@ -191,6 +195,9 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
         EventLossCounter m_lossCounter;
         QFile m_rawBufferOut;
         bool m_logBuffers = false;
+        std::unique_ptr<QUdpSocket> m_forwardSocket;
+        QHostAddress m_forwardHost;
+        u16 m_forwardPort = 0;
 };
 
 #endif /* __SIS3153_READOUT_WORKER_H__ */

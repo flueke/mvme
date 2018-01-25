@@ -23,6 +23,7 @@
 
 #include <QCoreApplication>
 #include <QThread>
+#include <QUdpSocket>
 
 #include "mvme_listfile.h"
 #include "sis3153/sis3153eth.h"
@@ -1054,7 +1055,19 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
             sis_log(QString("SIS3153 watchdog disabled by user setting."));
         }
 
-        // All event stacks have been uploaded. stackListControlValue has been set.
+        if (controllerSettings.value("UDP_Forwarding_Enable").toBool())
+        {
+            // TODO: support DNS lookups via QHostInfo here or move the lookup elsewhere?
+            m_forwardHost = QHostAddress(controllerSettings.value("UDP_Forwarding_Address").toString());
+            m_forwardPort = controllerSettings.value("UDP_Forwarding_Port").toUInt();
+            m_forwardSocket = std::make_unique<QUdpSocket>();
+        }
+        else
+        {
+            m_forwardSocket.reset();
+        }
+
+        // All event stacks have been uploaded. stackListControlValue has been computed.
 
         //
         // DAQ Init
