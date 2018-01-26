@@ -177,7 +177,7 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
         void flushCurrentOutputBuffer();
         void maybePutBackBuffer();
         void warnIfStreamWriterError(u64 bufferNumber, int writerFlags, u16 eventIndex);
-        void setupForwarding();
+        void setupUDPForwarding();
 
         std::atomic<DAQState> m_state;
         std::atomic<DAQState> m_desiredState;

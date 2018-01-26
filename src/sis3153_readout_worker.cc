@@ -1056,8 +1056,6 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
             sis_log(QString("SIS3153 watchdog disabled by user setting."));
         }
 
-        setupForwarding();
-
         // All event stacks have been uploaded. stackListControlValue has been computed.
 
         //
@@ -1096,6 +1094,8 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
                 qDebug() << __PRETTY_FUNCTION__ << msg;
             }
         }
+
+        setupUDPForwarding();
 
         // Light up LED_A right before entering DAQ mode
         error = sis->writeRegister(
@@ -2354,49 +2354,55 @@ void SIS3153ReadoutWorker::warnIfStreamWriterError(u64 bufferNumber, int writerF
     }
 }
 
-void SIS3153ReadoutWorker::setupForwarding()
+void SIS3153ReadoutWorker::setupUDPForwarding()
 {
+    m_forward.socket.reset();
+
     QVariantMap controllerSettings = m_workerContext.vmeConfig->getControllerSettings();
 
-    if (controllerSettings.value("UDP_Forwarding_Enable").toBool())
+    if (!controllerSettings.value("UDP_Forwarding_Enable").toBool())
+        return;
+
+    QString address = controllerSettings.value("UDP_Forwarding_Address").toString();
+    u16 port = controllerSettings.value("UDP_Forwarding_Port").toUInt();
+
+    if (address.isEmpty())
     {
-        QString address = controllerSettings.value("UDP_Forwarding_Address").toString();
-        u16 port = controllerSettings.value("UDP_Forwarding_Port").toUInt();
+        sis_log(QSL("Empty forwarding hostname given. Disabling UDP forwarding."));
+        return;
+    }
 
-        sis_log(QString("Setting up forwarding of raw readout data to %1:%2")
-                .arg(address)
-                .arg(port));
+    sis_log(QString("Setting up forwarding of raw readout data to %1:%2")
+            .arg(address)
+            .arg(port));
 
-        if (!m_forward.host.setAddress(address))
+    if (!m_forward.host.setAddress(address))
+    {
+        // A string that could not be parsed as an IP address was given. Use
+        // DNS to try to resolve an address.
+        auto hostInfo = QHostInfo::fromName(address);
+
+        if (hostInfo.error() != QHostInfo::NoError)
         {
-            auto hostInfo = QHostInfo::fromName(address);
-
-            if (hostInfo.error() != QHostInfo::NoError)
-            {
-                sis_log(QSL("Error resolving forward host %1: %2. Disabling forwarding.")
-                        .arg(address)
-                        .arg(hostInfo.errorString()));
-                return;
-            }
-
-            if (hostInfo.addresses().isEmpty())
-            {
-                sis_log(QSL("Could not resolve any host addresses for forward host %1. Disabling forwarding.")
-                        .arg(address));
-                return;
-            }
-
-            m_forward.host = hostInfo.addresses().value(0);
-
-            sis_log(QString("Resolved forwarding address to %1")
-                    .arg(m_forward.host.toString()));
+            sis_log(QSL("Error resolving forward host %1: %2. Disabling UDP forwarding.")
+                    .arg(address)
+                    .arg(hostInfo.errorString()));
+            return;
         }
 
-        m_forward.socket = std::make_unique<QUdpSocket>();
-        m_forward.port = port;
+        if (hostInfo.addresses().isEmpty())
+        {
+            sis_log(QSL("Could not resolve any host addresses for forward host %1. Disabling UDP forwarding.")
+                    .arg(address));
+            return;
+        }
+
+        m_forward.host = hostInfo.addresses().value(0);
+
+        sis_log(QString("Resolved UDP forwarding address to %1")
+                .arg(m_forward.host.toString()));
     }
-    else
-    {
-        m_forward.socket.reset();
-    }
+
+    m_forward.socket = std::make_unique<QUdpSocket>();
+    m_forward.port = port;
 }
