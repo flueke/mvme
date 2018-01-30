@@ -70,6 +70,10 @@ static const QString DefaultAnalysisConfigFileName  = QSL("analysis.analysis");
  * giving up. */
 static const int VMECtrlConnectMaxRetryCount = 3;
 
+/* Maximum number of entries to keep in the logbuffer. Once this is exceeded
+ * the oldest entries will be removed. */
+static const s64 LogBufferMaxEntries = 100 * 1000;
+
 struct MVMEContextPrivate
 {
     MVMEContext *m_q;
@@ -1224,6 +1228,10 @@ void MVMEContext::addWidget(QWidget *widget, const QString &stateKey)
 void MVMEContext::logMessageRaw(const QString &msg)
 {
     QMutexLocker lock(&m_d->m_logBufferMutex);
+
+    if (m_d->m_logBuffer.size() >= LogBufferMaxEntries)
+        m_d->m_logBuffer.pop_front();
+
     m_d->m_logBuffer.append(msg);
     emit sigLogMessage(msg);
 }

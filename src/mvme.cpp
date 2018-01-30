@@ -66,6 +66,7 @@
 #include <quazipfile.h>
 #include <QVBoxLayout>
 #include <qwt_plot_curve.h>
+#include <QFormLayout>
 
 using namespace vats;
 
@@ -316,6 +317,45 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
         // Focus the main window
         this->raise();
     });
+
+#if 0 // logview and logbuffer size limiting  test code
+    {
+        auto testlogWidget = new QWidget;
+        auto layout = new QFormLayout(testlogWidget);
+
+        auto label_bufferSize = new QLabel;
+        auto label_logviewBlockCount = new QLabel;
+        auto spin_appendCount = new QSpinBox;
+        spin_appendCount->setMaximum(5000);
+        auto pb_refresh = new QPushButton(QSL("Refresh"));
+        auto pb_append = new QPushButton(QSL("Append"));
+        auto append_layout = new QHBoxLayout;
+        append_layout->addWidget(spin_appendCount);
+        append_layout->addWidget(pb_append);
+        append_layout->addWidget(pb_refresh);
+
+        layout->addRow(QSL("logbuffer size:"), label_bufferSize);
+        layout->addRow(QSL("logview block count:"), label_logviewBlockCount);
+        layout->addRow(append_layout);
+
+        connect(pb_refresh, &QPushButton::clicked, this, [=]() {
+            label_bufferSize->setText(QString::number(m_d->m_context->getLogBuffer().size()));
+            label_logviewBlockCount->setText(QString::number(m_d->m_logView->document()->blockCount()));
+        });
+
+        connect(pb_append, &QPushButton::clicked, this, [=] {
+            s32 toAppend = spin_appendCount->value();
+            for (s32 i = 0; i < toAppend; ++i)
+            {
+                m_d->m_context->logMessage(
+                    QString("This is a test message from heaven! %1").arg(i));
+                pb_refresh->click();
+            }
+        });
+
+        testlogWidget->show();
+    }
+#endif
 }
 
 MVMEMainWindow::~MVMEMainWindow()
@@ -967,7 +1007,7 @@ void MVMEMainWindow::onActionVME_Debug_triggered()
     show_and_activate(m_d->m_vmeDebugWidget);
 }
 
-static const size_t LogViewMaximumBlockCount = Megabytes(1);
+static const size_t LogViewMaximumBlockCount = 10 * 1000u;
 
 void MVMEMainWindow::onActionLog_Window_triggered()
 {
