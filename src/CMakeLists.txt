@@ -95,6 +95,7 @@ set(LIBMVME_SOURCES
     mvme.cpp
     mvme_listfile.cc
     mvme_startup.cc
+    mvme_stream_iter.cc
     mvme_stream_processor.cc
     mvme_stream_worker.cc
     qt_util.cc
