@@ -23,7 +23,6 @@
 
 #include "analysis/a2_adapter.h"
 #include "analysis/analysis.h"
-#include "analysis/analysis_impl_switch.h"
 #include "histo1d_widget.h"
 #include "mvme_context.h"
 #include "scrollzoomer.h"

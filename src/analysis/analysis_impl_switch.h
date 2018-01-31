@@ -1,6 +1,0 @@
-#ifndef __ANALYSIS_IMPL_SWITCH_H__
-#define __ANALYSIS_IMPL_SWITCH_H__
-
-#define ANALYSIS_USE_A2 1
-
-#endif /* __ANALYSIS_IMPL_SWITCH_H__ */

@@ -874,7 +874,7 @@ auto a2_adapter_filter_operators(QVector<Analysis::OperatorEntry> operators)
 
 A2AdapterState a2_adapter_build(
     memory::Arena *arena,
-    memory::Arena *tempArena,
+    memory::Arena *workArena,
     const QVector<Analysis::SourceEntry> &sourceEntries,
     const QVector<Analysis::OperatorEntry> &allOperatorEntries,
     const vme_analysis_common::VMEIdToIndex &vmeMap)
@@ -911,19 +911,19 @@ A2AdapterState a2_adapter_build(
      * The a2::OperatorType resulting from converting an analysis operator is
      * not known without actually doing the conversion.
      *
-     * Step 1: Use the tempArena to fill the A2 structure.
+     * Step 1: Use the workArena to fill the A2 structure.
      * Step 2: Sort the operators by a2::OperatorType, preserving rank order.
      * Step 3: Clear the operator part of A2.
-     * Step 4: Build again using the sorted operators information and the non-temp arena.
+     * Step 4: Build again using the sorted operators information and the destination arena.
      */
 
     OperatorsByEventIndex operators = group_operators_by_event(
         operatorEntries,
         vmeMap);
 
-    /* Build in temp arena. Fills out result and operators. */
+    /* Build in work arena. Fills out result and operators. */
     a2_adapter_build_operators(
-        tempArena,
+        workArena,
         &result,
         operators);
 
@@ -966,7 +966,7 @@ A2AdapterState a2_adapter_build(
     result.a2->operatorRanks.fill(nullptr);
     result.operatorMap.clear();
 
-    /* Second build using the non-temp arena. */
+    /* Second build using the destination arena. */
     a2_adapter_build_operators(
         arena,
         &result,

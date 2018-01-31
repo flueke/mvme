@@ -87,6 +87,8 @@ set(LIBMVME_SOURCES
     histo2d_widget_p.cc
     histo_util.cc
     listfile_browser.cc
+    listfile_constants.cc
+    listfile_constants_impl.cc
     mesytec_diagnostics.cc
     mvme_context.cc
     mvme_context_lib.cc
@@ -245,6 +247,7 @@ add_mvme_executable(dev_udp_sender "dev_udp_sender.cc")
 add_mvme_executable(dev_udp_receiver "dev_udp_receiver.cc")
 add_mvme_executable(dev_listfile_tcp_sender "dev_listfile_tcp_sender.cc")
 add_mvme_executable(dev_listfile_tcp_receiver "dev_listfile_tcp_receiver.cc")
+add_mvme_executable(dev_listfile_dumper "dev_listfile_dumper.cc")
 install(TARGETS dev_listfile_tcp_sender dev_listfile_tcp_receiver DESTINATION .)
 
 if (HDF5_FOUND)
@@ -273,5 +276,16 @@ if (ENABLE_ROOT AND ROOT_FOUND)
     add_dependencies(mvme-root-writer libmvme mvme_root)
     target_link_libraries(mvme-root-writer libmvme mvme_root)
 endif(ENABLE_ROOT AND ROOT_FOUND)
+
+# Boost
+#set(Boost_USE_MULTITHREADED ON)
+#set(Boost_USE_STATIC_LIBS   ON)
+#
+#if (WIN32)
+#    add_definitions(-D_WIN32_WINNT=0x0501)
+#endif(WIN32)
+#
+#find_package(Boost REQUIRED COMPONENTS coroutine)
+#include_directories(${Boost_INCLUDE_DIRS})
 
 # vim:tw=0

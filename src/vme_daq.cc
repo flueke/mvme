@@ -228,7 +228,7 @@ namespace
  * Also note that the file handling code does not in any way guard against race
  * conditions when someone else is also creating files.
  *
- * Note: Increments the runNumer of outInfo if UseRunNumber is set in the
+ * Note: Increments the runNumber of outInfo if UseRunNumber is set in the
  * output flags.
  */
 QString make_new_listfile_name(ListFileOutputInfo *outInfo)

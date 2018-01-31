@@ -358,6 +358,9 @@ QPair<double, QString> byte_unit(size_t inBytes)
     return qMakePair(bytes, units[power]);
 }
 
+/* Formats the buffer writing 8 32-bit values in hex per row. Once a row has
+ * been formatted it is passed to loggerFun for consumption.
+ */
 void logBuffer(BufferIterator iter, std::function<void (const QString &)> loggerFun)
 {
     static const u32 wordsPerRow = 8;

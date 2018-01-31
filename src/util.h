@@ -69,6 +69,9 @@ struct BufferIterator
 {
     enum Alignment { Align16, Align32 };
 
+    BufferIterator()
+    {}
+
     BufferIterator(u8 *data, size_t size, Alignment alignment = Align32)
         : data(data)
         , buffp(data)
@@ -77,11 +80,11 @@ struct BufferIterator
         , alignment(alignment)
     {}
 
-    u8 *data;
-    u8 *buffp;
-    u8 *endp;
-    size_t size;
-    Alignment alignment;
+    u8 *data = nullptr;
+    u8 *buffp = nullptr;
+    u8 *endp = nullptr;
+    size_t size = 0;
+    Alignment alignment = Align32;
 
     inline bool align32() const { return alignment == Align32; }
 
@@ -197,6 +200,13 @@ struct BufferIterator
     inline bool atEnd() const { return buffp == endp; }
 
     inline void rewind() { buffp = data; }
+    inline bool isEmpty() const { return size == 0; }
+    inline bool isNull() const { return !data; }
+
+    inline ptrdiff_t current32BitOffset() const
+    {
+        return reinterpret_cast<u32 *>(buffp) - reinterpret_cast<u32 *>(data);
+    }
 };
 
 QString readStringFile(const QString &filename);

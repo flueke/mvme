@@ -24,7 +24,6 @@
 
 #include <random>
 
-#include "analysis_impl_switch.h"
 #include "a2_adapter.h"
 #include "../vme_config.h"
 
@@ -45,6 +44,54 @@ const QMap<analysis::Analysis::ReadResultCodes, const char *> analysis::Analysis
     { analysis::Analysis::NoError, "No Error" },
     { analysis::Analysis::VersionTooNew, "Version too new" },
 };
+
+namespace
+{
+using ArenaPtr = std::unique_ptr<memory::Arena>;
+
+using analysis::A2AdapterState;
+using analysis::Analysis;
+
+/* Performs a2_adapter_build(), growing the arenas until the build succeeds. */
+A2AdapterState a2_adapter_build_memory_wrapper(
+    ArenaPtr &arena,
+    ArenaPtr &workArena,
+    const QVector<Analysis::SourceEntry> &sources,
+    const QVector<Analysis::OperatorEntry> &operators,
+    const vme_analysis_common::VMEIdToIndex &vmeMap)
+{
+    A2AdapterState result;
+
+    while (true)
+    {
+        try
+        {
+            result = a2_adapter_build(
+                arena.get(),
+                workArena.get(),
+                sources,
+                operators,
+                vmeMap);
+
+            break;
+        }
+        catch (const memory::out_of_memory &)
+        {
+            /* Double the size and try again. std::bad_alloc() will be thrown
+             * if we run OOM. This will be handled further up. */
+            auto newSize = 2 * arena->size;
+            arena = std::make_unique<memory::Arena>(newSize);
+            workArena = std::make_unique<memory::Arena>(newSize);
+        }
+    }
+
+    qDebug("%s a2: mem=%u sz=%u, start@%p",
+           __FUNCTION__, (u32)arena->used(), (u32)arena->size, arena->mem);
+
+    return result;
+}
+
+} // end anon namespace
 
 namespace analysis
 {
@@ -2874,9 +2921,12 @@ size_t Histo2DSink::getStorageSize() const
     return m_histo ? m_histo->getStorageSize() : 0u;
 }
 
+static const size_t A2InitialArenaSize = Kilobytes(256);
+
 //
 // Analysis
 //
+
 Analysis::Analysis(QObject *parent)
     : QObject(parent)
     , m_modified(false)
@@ -2904,22 +2954,33 @@ Analysis::Analysis(QObject *parent)
     qDebug() << "Registered Sources:   " << m_registry.getSourceNames();
     qDebug() << "Registered Operators: " << m_registry.getOperatorNames();
     qDebug() << "Registered Sinks:     " << m_registry.getSinkNames();
+
+    // create a2 arenas
+    for (size_t i = 0; i < m_a2Arenas.size(); i++)
+    {
+        m_a2Arenas[i] = std::make_unique<memory::Arena>(A2InitialArenaSize);
+    }
+    m_a2WorkArena = std::make_unique<memory::Arena>(A2InitialArenaSize);
 }
 
 Analysis::~Analysis()
 {
 }
 
-/* This overload updates operator ranks and sorts operators by rank,
- * then calls beginRun() on sources and operators. */
-void Analysis::beginRun_internal_only(const RunInfo &runInfo)
+void Analysis::beginRun(
+    const RunInfo &runInfo,
+    const vme_analysis_common::VMEIdToIndex &vmeMap)
 {
     m_runInfo = runInfo;
+    m_vmeMap = vmeMap;
 
     if (!runInfo.keepAnalysisState)
     {
         m_timetickCount = 0.0;
     }
+
+    // Update operator ranks and then sort. This needs to be done before the a2
+    // system can be built.
 
     updateRanks();
 
@@ -2939,6 +3000,9 @@ void Analysis::beginRun_internal_only(const RunInfo &runInfo)
     }
     qDebug() << __PRETTY_FUNCTION__ << ">>>>> operators sorted by maximum input rank";
 #endif
+    qDebug() << __PRETTY_FUNCTION__ << "analysis::Analysis:"
+        << m_sources.size() << " sources,"
+        << m_operators.size() << " operators";
 
     for (auto &sourceEntry: m_sources)
     {
@@ -2950,76 +3014,23 @@ void Analysis::beginRun_internal_only(const RunInfo &runInfo)
         operatorEntry.op->beginRun(runInfo);
     }
 
-    qDebug() << __PRETTY_FUNCTION__ << "analysis::Analysis:"
-        << m_sources.size() << " sources,"
-        << m_operators.size() << " operators";
-}
+    // Build the a2 system
 
-static const size_t A2ArenaSize = Kilobytes(256);
+    // a2 arena swap
+    m_a2ArenaIndex = (m_a2ArenaIndex + 1) % m_a2Arenas.size();
+    m_a2Arenas[m_a2ArenaIndex]->reset();
+    m_a2WorkArena->reset();
 
-/* Calls beginRun_internal_only() to prepare the analysis::* stuff, then uses
- * a2_adapter_build() to build the a2 system. */
-void Analysis::beginRun(
-    const RunInfo &runInfo,
-    const vme_analysis_common::VMEIdToIndex &vmeMap)
-{
-    m_vmeMap = vmeMap;
-
-    beginRun_internal_only(runInfo);
-
-    if (!m_a2Arenas[0])
-    {
-        for (size_t i = 0; i < m_a2Arenas.size(); i++)
-        {
-            m_a2Arenas[i] = std::make_unique<memory::Arena>(A2ArenaSize);
-        }
-        m_a2TempArena = std::make_unique<memory::Arena>(A2ArenaSize);
-        m_a2ArenaIndex = 0;
-    }
-    else
-    {
-        m_a2ArenaIndex = (m_a2ArenaIndex + 1) % m_a2Arenas.size();
-        m_a2Arenas[m_a2ArenaIndex]->reset();
-        m_a2TempArena->reset();
-    }
-
-#if ANALYSIS_USE_A2
     qDebug() << __PRETTY_FUNCTION__ << "########## a2 active ##########";
     qDebug() << __PRETTY_FUNCTION__ << "a2: using a2 arena" << (u32)m_a2ArenaIndex;
 
-    A2AdapterState a2State;
-    memory::Arena *arena = nullptr;
-
-    while (true)
-    {
-        try
-        {
-            arena = m_a2Arenas[m_a2ArenaIndex].get();
-
-            a2State = a2_adapter_build(
-                arena,
-                m_a2TempArena.get(),
-                m_sources,
-                m_operators,
-                m_vmeMap);
-
-            break;
-        }
-        catch (const memory::out_of_memory &)
-        {
-            /* Double the size and try again. std::bad_alloc() will be thrown
-             * if we run OOM. This will be handled further up. */
-            auto newSize = 2 * m_a2Arenas[m_a2ArenaIndex]->size;
-            m_a2TempArena = std::make_unique<memory::Arena>(newSize);
-            m_a2Arenas[m_a2ArenaIndex] = std::make_unique<memory::Arena>(newSize);
-        }
-    }
-
-    m_a2State = std::make_unique<A2AdapterState>(a2State);
-
-    qDebug("%s a2: mem=%u sz=%u, start@%p",
-           __PRETTY_FUNCTION__, (u32)arena->used(), (u32)arena->size, arena->mem);
-#endif
+    m_a2State = std::make_unique<A2AdapterState>(
+        a2_adapter_build_memory_wrapper(
+            m_a2Arenas[m_a2ArenaIndex],
+            m_a2WorkArena,
+            m_sources,
+            m_operators,
+            m_vmeMap));
 }
 
 void Analysis::beginRun()
@@ -3027,130 +3038,20 @@ void Analysis::beginRun()
     beginRun(m_runInfo, m_vmeMap);
 }
 
-void Analysis::beginEvent(int eventIndex, const QUuid &eventId)
+void Analysis::beginEvent(int eventIndex)
 {
-#if not ANALYSIS_USE_A2
-    for (auto &sourceEntry: m_sources)
-    {
-        if (sourceEntry.eventId == eventId)
-        {
-            sourceEntry.sourceRaw->beginEvent();
-        }
-    }
-#else
     a2_begin_event(m_a2State->a2, eventIndex);
-#endif
 }
 
-void Analysis::processModuleData(int eventIndex, int moduleIndex,
-                                 const QUuid &eventId, const QUuid &moduleId, u32 *data, u32 size)
+void Analysis::processModuleData(int eventIndex, int moduleIndex, u32 *data, u32 size)
 {
-#if not ANALYSIS_USE_A2
-    for (auto &sourceEntry: m_sources)
-    {
-        if (sourceEntry.eventId == eventId && sourceEntry.moduleId == moduleId)
-        {
-            Q_ASSERT(sourceEntry.sourceRaw);
-            Q_ASSERT(sourceEntry.sourceRaw == sourceEntry.source.get());
-
-            sourceEntry.sourceRaw->processModuleData(data, size);
-        }
-    }
-
-#else
     a2_process_module_data(m_a2State->a2, eventIndex, moduleIndex, data, size);
-#endif
 }
 
-#if ANALYSIS_USE_A2
-void Analysis::endEvent(int eventIndex, const QUuid &eventId)
+void Analysis::endEvent(int eventIndex)
 {
     a2_end_event(m_a2State->a2, eventIndex);
 }
-#else // ANALYSIS_USE_A2
-void Analysis::endEvent(int eventIndex, const QUuid &eventId)
-{
-    //TimedBlock tb(__PRETTY_FUNCTION__);
-    /* In beginRun() operators are sorted by rank. This way step()'ing
-     * operators can be done by just traversing the array. */
-
-#if ENABLE_ANALYSIS_DEBUG
-    qDebug() << "begin endEvent()" << eventId;
-#endif
-
-    for (auto &opEntry: m_operators)
-    {
-        if (opEntry.eventId == eventId)
-        {
-            Q_ASSERT(opEntry.opRaw);
-            Q_ASSERT(opEntry.opRaw == opEntry.op.get());
-
-            OperatorInterface *op = opEntry.opRaw;
-
-#if ENABLE_ANALYSIS_DEBUG
-            qDebug() << "  stepping operator" << op
-                << ", input rank =" << op->getMaximumInputRank()
-                << ", output rank =" << op->getMaximumOutputRank()
-                ;
-#endif
-            op->step();
-        }
-    }
-
-#if ENABLE_ANALYSIS_DEBUG
-    qDebug() << "  >>> Sources <<<";
-    for (auto &entry: m_sources)
-    {
-        auto source = entry.source;
-        qDebug() << "    Source: e =" << entry.eventId << ", m =" << entry.moduleId << ", src =" << source.get();
-
-        for (s32 outputIndex = 0; outputIndex < source->getNumberOfOutputs(); ++outputIndex)
-        {
-            auto pipe = source->getOutput(outputIndex);
-            const auto &params = pipe->getParameters();
-            qDebug() << "      Output#" << outputIndex << ", name =" << params.name << ", unit =" << params.unit << ", size =" << params.size();
-            for (s32 ip=0; ip<params.size(); ++ip)
-            {
-                auto &param(params[ip]);
-                if (param.valid)
-                    qDebug() << "        " << ip << "=" << to_string(param);
-                else
-                    qDebug() << "        " << ip << "=" << "<not valid>";
-            }
-        }
-    }
-    qDebug() << "  <<< End Sources >>>";
-
-    qDebug() << "  >>> Operators <<<";
-    for (auto &entry: m_operators)
-    {
-        auto op = entry.op;
-
-        if (op->getNumberOfOutputs() == 0)
-            continue;
-
-        qDebug() << "    Op: e =" << entry.eventId << ", op =" << op.get();
-
-        for (s32 outputIndex = 0; outputIndex < op->getNumberOfOutputs(); ++outputIndex)
-        {
-            auto pipe = op->getOutput(outputIndex);
-            const auto &params = pipe->getParameters();
-            qDebug() << "      Output#" << outputIndex << ", name =" << params.name << ", unit =" << params.unit;
-            for (s32 ip=0; ip<params.size(); ++ip)
-            {
-                auto &param(params[ip]);
-                if (param.valid)
-                    qDebug() << "        " << ip << "=" << to_string(param);
-                else
-                    qDebug() << "        " << ip << "=" << "<not valid>";
-            }
-        }
-    }
-    qDebug() << " <<< End Operators >>>";
-    qDebug() << "end endEvent()" << eventId;
-#endif
-}
-#endif // ANALYSIS_USE_A2
 
 void Analysis::processTimetick()
 {

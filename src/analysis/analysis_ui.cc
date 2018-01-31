@@ -24,7 +24,6 @@
 #include "data_extraction_widget.h"
 #include "analysis_info_widget.h"
 #include "a2_adapter.h"
-#include "analysis_impl_switch.h"
 #ifdef MVME_ENABLE_HDF5
 #include "analysis_session.h"
 #endif
@@ -2111,10 +2110,8 @@ void EventWidgetPrivate::doPeriodicUpdate()
 
 void EventWidgetPrivate::periodicUpdateExtractorCounters(double dt_s)
 {
-#if ANALYSIS_USE_A2
     auto analysis = m_context->getAnalysis();
     auto a2State = analysis->getA2AdapterState();
-#endif
 
     //
     // level 0: operator tree (Extractor hitcounts)
@@ -2134,7 +2131,6 @@ void EventWidgetPrivate::periodicUpdateExtractorCounters(double dt_s)
             if (extractor->getOutput(0)->getSize() != node->childCount())
                 continue;
 
-#if ANALYSIS_USE_A2
             if (!a2State)
                 continue;
 
@@ -2144,9 +2140,6 @@ void EventWidgetPrivate::periodicUpdateExtractorCounters(double dt_s)
                 continue;
 
             auto hitCounts = to_qvector(ex_a2->hitCounts);
-#else
-            auto hitCounts = extractor->getHitCounts();
-#endif
 
             auto &prevHitCounts = m_extractorCounters[extractor].hitCounts;
 
@@ -2196,10 +2189,8 @@ void EventWidgetPrivate::periodicUpdateExtractorCounters(double dt_s)
 
 void EventWidgetPrivate::periodicUpdateHistoCounters(double dt_s)
 {
-#if ANALYSIS_USE_A2
     auto analysis = m_context->getAnalysis();
     auto a2State = analysis->getA2AdapterState();
-#endif
 
     //
     // level > 0: display trees (histo counts)
@@ -2223,7 +2214,6 @@ void EventWidgetPrivate::periodicUpdateHistoCounters(double dt_s)
 
                 QVector<double> entryCounts;
 
-#if ANALYSIS_USE_A2
                 if (a2State)
                 {
                     if (auto a2_sink = a2State->operatorMap.value(histoSink, nullptr))
@@ -2238,14 +2228,6 @@ void EventWidgetPrivate::periodicUpdateHistoCounters(double dt_s)
                         }
                     }
                 }
-#else
-                entryCounts.reserve(histoSink->m_histos.size());
-
-                for (const auto &histo: histoSink->m_histos)
-                {
-                    entryCounts.push_back(histo->getEntryCount());
-                }
-#endif
 
                 auto &prevEntryCounts = m_histo1DSinkCounters[histoSink].hitCounts;
 
@@ -2297,16 +2279,13 @@ void EventWidgetPrivate::periodicUpdateHistoCounters(double dt_s)
                 if (histo)
                 {
                     double entryCount = 0.0;
-#if ANALYSIS_USE_A2
+
                     if (auto a2_sink = a2State->operatorMap.value(sink, nullptr))
                     {
                         auto sinkData = reinterpret_cast<a2::H2DSinkData *>(a2_sink->d);
 
                         entryCount = sinkData->histo.entryCount;
                     }
-#else
-                    entryCount = histo->getEntryCount();
-#endif
                     auto &prevEntryCounts = m_histo2DSinkCounters[sink].hitCounts;
                     prevEntryCounts.resize(1);
 
@@ -3034,7 +3013,7 @@ struct AnalysisWidgetPrivate
     void actionSaveSession();
     void actionLoadSession();
 #endif
-    void actionPause();
+    void actionPause(bool isChecked);
     void actionStepNextEvent();
 
     void updateWindowTitle();
@@ -3619,7 +3598,8 @@ void AnalysisWidgetPrivate::updateActions()
         case MVMEStreamWorkerState::Idle:
             m_actionPause->setIcon(QIcon(":/control_pause.png"));
             m_actionPause->setText(QSL("Pause"));
-            m_actionPause->setEnabled(false);
+            m_actionPause->setEnabled(true);
+            m_actionPause->setChecked(streamWorker->getStartPaused());
             m_actionStepNextEvent->setEnabled(false);
             break;
 
@@ -3627,6 +3607,7 @@ void AnalysisWidgetPrivate::updateActions()
             m_actionPause->setIcon(QIcon(":/control_pause.png"));
             m_actionPause->setText(QSL("Pause"));
             m_actionPause->setEnabled(true);
+            m_actionPause->setChecked(false);
             m_actionStepNextEvent->setEnabled(false);
             break;
 
@@ -3634,6 +3615,7 @@ void AnalysisWidgetPrivate::updateActions()
             m_actionPause->setIcon(QIcon(":/control_play.png"));
             m_actionPause->setText(QSL("Resume"));
             m_actionPause->setEnabled(true);
+            m_actionPause->setChecked(true);
             m_actionStepNextEvent->setEnabled(true);
             break;
 
@@ -3644,7 +3626,7 @@ void AnalysisWidgetPrivate::updateActions()
     }
 }
 
-void AnalysisWidgetPrivate::actionPause()
+void AnalysisWidgetPrivate::actionPause(bool actionIsChecked)
 {
     auto streamWorker = m_context->getMVMEStreamWorker();
     auto workerState = streamWorker->getState();
@@ -3652,8 +3634,7 @@ void AnalysisWidgetPrivate::actionPause()
     switch (workerState)
     {
         case MVMEStreamWorkerState::Idle:
-        case MVMEStreamWorkerState::SingleStepping:
-            InvalidCodePath;
+            streamWorker->setStartPaused(actionIsChecked);
             break;
 
         case MVMEStreamWorkerState::Running:
@@ -3663,12 +3644,17 @@ void AnalysisWidgetPrivate::actionPause()
         case MVMEStreamWorkerState::Paused:
             streamWorker->resume();
             break;
+
+        case MVMEStreamWorkerState::SingleStepping:
+            // cannot pause/resume during the time a singlestepping is active
+            InvalidCodePath;
+            break;
     }
 }
 
 void AnalysisWidgetPrivate::actionStepNextEvent()
 {
-    m_context->logMessage(QSL("Single stepping not yet implement! :("));
+    //m_context->logMessage(QSL("Single stepping not yet implement! :("));
 
     auto streamWorker = m_context->getMVMEStreamWorker();
     auto workerState = streamWorker->getState();
@@ -3843,7 +3829,8 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
 
         m_d->m_toolbar->addSeparator();
         m_d->m_actionPause = m_d->m_toolbar->addAction(
-            QIcon(":/control_pause.png"), QSL("Pause"), this, [this] { m_d->actionPause(); });
+            QIcon(":/control_pause.png"), QSL("Pause"), this, [this](bool checked) { m_d->actionPause(checked); });
+        m_d->m_actionPause->setCheckable(true);
 
         m_d->m_actionStepNextEvent = m_d->m_toolbar->addAction(
             QIcon(":/control_play_stop.png"), QSL("Next Event"), this, [this] { m_d->actionStepNextEvent(); });
@@ -3931,9 +3918,7 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     m_d->m_statusLabelA2 = new QLabel;
     m_d->m_statusBar->addPermanentWidget(m_d->m_statusLabelA2);
 
-#if ANALYSIS_USE_A2
     m_d->m_statusLabelA2->setText(QSL("a2::"));
-#endif
 
     // main layout
     auto layout = new QGridLayout(this);

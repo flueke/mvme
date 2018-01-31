@@ -27,11 +27,11 @@
 
 struct DataBuffer
 {
-    DataBuffer(size_t size, int type=0)
+    DataBuffer(size_t size, u64 id = 0u)
         : data(nullptr)
         , size(size)
         , used(0)
-        , type(type)
+        , id(id)
     {
         if (size > 0)
         {
@@ -57,7 +57,7 @@ struct DataBuffer
         size_t sizeu32 = newSize/sizeof(u32) + 1;
 
         u8 *newData = reinterpret_cast<u8 *>(new u32[sizeu32]);
-        memcpy(newData, data, used);
+        std::memcpy(newData, data, used);
         delete[] data;
         data = newData;
         size = sizeu32 * sizeof(u32);
@@ -70,6 +70,13 @@ struct DataBuffer
     u32 *asU32() { return reinterpret_cast<u32 *>(data + used); }
 
     u32 *asU32(size_t offset) { return reinterpret_cast<u32 *>(data + offset); }
+    u32 *asU32ByIndex(size_t u32Index)
+    {
+        if (u32Index * sizeof(u32) >= used)
+            throw end_of_buffer();
+
+        return reinterpret_cast<u32 *>(data) + u32Index;
+    }
 
     void ensureCapacity(size_t freeSize)
     {
@@ -80,10 +87,33 @@ struct DataBuffer
         }
     }
 
+    enum DeepcopyOptions
+    {
+        Deepcopy_AllocateFullSize,
+        Deepcopy_AllocateUsedSize
+    };
+
+    DataBuffer *deepcopy(DeepcopyOptions opt = Deepcopy_AllocateFullSize)
+    {
+        auto result = new DataBuffer(opt == Deepcopy_AllocateFullSize ? size : used, id);
+
+        if (used)
+        {
+            std::memcpy(result->data, data, used);
+            result->used = used;
+        }
+
+        return result;
+    }
+
     u8 *data;
-    size_t size;
-    size_t used;
-    int type = 0;
+    size_t size; // size in bytes
+    size_t used; // bytes used
+    u64 id = 0u; // id value for external use
+
+    private:
+        DataBuffer(const DataBuffer &);
+        DataBuffer &operator=(const DataBuffer &);
 };
 
 typedef QQueue<DataBuffer *> DataBufferQueue;

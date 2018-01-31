@@ -63,7 +63,7 @@ struct A2AdapterState
  */
 A2AdapterState a2_adapter_build(
     memory::Arena *arena,
-    memory::Arena *tempArena,
+    memory::Arena *workArena,
     const QVector<Analysis::SourceEntry> &sources,
     const QVector<Analysis::OperatorEntry> &operators,
     const vme_analysis_common::VMEIdToIndex &vmeMap);

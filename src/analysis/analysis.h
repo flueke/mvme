@@ -1286,9 +1286,9 @@ class LIBMVME_EXPORT Analysis: public QObject
          */
         void beginRun(const RunInfo &runInfo, const vme_analysis_common::VMEIdToIndex &vmeMap);
         void beginRun();
-        void beginEvent(int eventIndex, const QUuid &eventId);
-        void processModuleData(int eventIndex, int moduleIndex, const QUuid &eventId, const QUuid &moduleId, u32 *data, u32 size);
-        void endEvent(int eventIndex, const QUuid &eventId);
+        void beginEvent(int eventIndex);
+        void processModuleData(int eventIndex, int moduleIndex, u32 *data, u32 size);
+        void endEvent(int eventIndex);
         // Called once for every SectionType_Timetick section
         void processTimetick();
 
@@ -1407,7 +1407,6 @@ class LIBMVME_EXPORT Analysis: public QObject
         RunInfo getRunInfo() const { return m_runInfo; }
 
     private:
-        void beginRun_internal_only(const RunInfo &runInfo);
         void updateRank(OperatorInterface *op, QSet<OperatorInterface *> &updated);
 
         QVector<SourceEntry> m_sources;
@@ -1422,7 +1421,7 @@ class LIBMVME_EXPORT Analysis: public QObject
         vme_analysis_common::VMEIdToIndex m_vmeMap;
         std::array<std::unique_ptr<memory::Arena>, 2> m_a2Arenas;
         u8 m_a2ArenaIndex;
-        std::unique_ptr<memory::Arena> m_a2TempArena;
+        std::unique_ptr<memory::Arena> m_a2WorkArena;
         std::unique_ptr<A2AdapterState> m_a2State;
 };
 
