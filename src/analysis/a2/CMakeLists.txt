@@ -41,6 +41,7 @@ include_directories(pcg-cpp-0.98/include/)
 
 set(liba2_SOURCES
     a2.cc
+    combining_datafilter.cc
     data_filter.cc)
 
 add_library(liba2_shared SHARED ${liba2_SOURCES})
@@ -84,6 +85,7 @@ if(BUILD_TESTS)
     add_a2_bench(test_operators test_operators.cc)
     add_a2_bench(test_a2 test_a2.cc)
     add_a2_bench(test_a2_param test_a2_param.cc)
+    add_a2_bench(test_combining_filter test_combining_filter.cc)
 
 endif(BUILD_TESTS)
 

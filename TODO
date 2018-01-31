@@ -40,9 +40,10 @@ Single Stepping and Stream Processing
     The user passes in a structure containing callbacks for each section type
     and for module data. Not all callbacks have to be implented as they can be
     set to null.
-
-
 --------------------------------------------------
+
+* Implement a2::data_filters for 64 bit values. This will be useful for the
+  upcoming CombiningFilter implementation.
 
 
 * analysis session: errors out when saving and empty analysis session
