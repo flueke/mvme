@@ -4,6 +4,7 @@
 #include "analysis/a2/data_filter.h"
 #include "databuffer.h"
 #include "globals.h"
+#include "libmvme_export.h"
 
 #include <bitset>
 
@@ -13,7 +14,7 @@ namespace mvme_stream
 using a2::data_filter::DataFilter;
 using a2::data_filter::CacheEntry;
 
-struct StreamInfo
+struct LIBMVME_EXPORT StreamInfo
 {
     /* Required for multievent splitting only:
      * Filter to match a module data header and a corresponding cache entry to
@@ -41,7 +42,7 @@ struct StreamInfo
     std::array<ModuleHeaderFilters, MaxVMEEvents> moduleHeaderFilters;
 };
 
-class StreamIterator
+class LIBMVME_EXPORT StreamIterator
 {
     public:
         /* Offsets in units of 32-bit words into a stream buffer. */
