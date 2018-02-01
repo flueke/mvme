@@ -6,18 +6,28 @@
  * -----------------------------
  *
  * Input:
- * - number of words to combine
+ * - Number of words to combine
  * - 16 or 32 bit word length
- * - word combining: from first word or from last word (natural order or reverse),
+ * - Word combining: from first word or from last word (natural order or reverse),
  *   destination word is always filled from low bits to high bits
- * - after combining step use a data filter to optionally match certain bits and
- *   for address and value extraction
- *   address bits are not required. the filter will then always yield a single
- *   output value
+ * - After combining step use a data filter to optionally match certain bits and
+ *   for address and value extraction.
+ *
+ *   Note: as for DataFilter and MultiWordFilter address bits are not required.
+ *   the filter will then always yield a single output value with address=0.
+ *
  *   Also: address extraction would only really make sense if the filter is
- *   repeated N times. Each repetition would start where the previous filter left
- *   off
- * - last step: convert extracted value to double
+ *   repeated N times. Each repetition would start where the previous filter
+ *   left off.
+ *
+ *   Repeated application of the filter should be handled on the outside. The
+ *   number of data words consumed by the filter is known (wordCount) so the
+ *   analysis implementation can apply the filter again using the wordCount as
+ *   an offset.
+ *
+ * - Last step: convert extracted value to double. Should a random value be
+ *   added? Yes, as it only affects the part after the decimal period which is
+ *   not transmitted with the original data.
  *
  * Limits:
  * - input words are 32-bit
@@ -43,7 +53,7 @@ namespace data_filter
 
 struct CombiningFilter
 {
-    using Flag = u16;
+    using Flag = u8;
 
     static const Flag NoFlag            = 0u;
 
@@ -59,30 +69,34 @@ struct CombiningFilter
 
     /* The filter used for final data extraction. A multiword filter is used as
      * it allows to pass two 32 bit values and returns a 64 bit value. */
-    MultiWordFilter extractionFilter;
+    MultiWordFilter extractionFilter; // TODO: replace this by a single 64 bit DataFilter once those are implemented
 
     Flag flags;
 
     /* The number of input words to combine. Max 2 if WordSize32 is set,
      * otherwise 4. */
-    u16 wordCount;
+    u8 wordCount;
 };
 
 CombiningFilter make_combining_filter(CombiningFilter::Flag flags,
-                                      u16 wordCount,
+                                      u8 wordCount,
                                       const std::vector<std::string> &filterStrings = {});
 
 bool validate(CombiningFilter *cf);
 
 u64 combine(CombiningFilter *cf, const u32 *data, u32 count);
-u64 combine_and_extract(CombiningFilter *cf, const u32 *data, u32 count, MultiWordFilter::CacheType cacheType);
 
-inline u64 combine_and_extract_value(CombiningFilter *cf, const u32 *data, u32 count)
+using CombiningFilterResult = std::pair<u64, bool>;
+
+CombiningFilterResult combine_and_extract(CombiningFilter *cf, const u32 *data, u32 count,
+                                          MultiWordFilter::CacheType cacheType);
+
+inline CombiningFilterResult combine_and_extract_value(CombiningFilter *cf, const u32 *data, u32 count)
 {
     return combine_and_extract(cf, data, count, MultiWordFilter::CacheD);
 }
 
-inline u64 combine_and_extract_address(CombiningFilter *cf, const u32 *data, u32 count)
+inline CombiningFilterResult combine_and_extract_address(CombiningFilter *cf, const u32 *data, u32 count)
 {
     return combine_and_extract(cf, data, count, MultiWordFilter::CacheA);
 }

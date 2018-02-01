@@ -131,7 +131,7 @@ void push_output_vectors(
 }
 
 /* ===============================================
- * Operators
+ * Extractors
  * =============================================== */
 Extractor make_extractor(
     Arena *arena,
@@ -207,6 +207,52 @@ void extractor_process_module_data(Extractor *ex, const u32 *data, u32 size)
     }
 }
 
+size_t get_address_count(CombiningExtractor *ex)
+{
+    size_t addressBits = get_extract_bits(&ex->combiningFilter.extractionFilter,
+                                          MultiWordFilter::CacheA);
+
+    addressBits += ex->repCountCacheA.extractBits;
+
+    return 1u << addressBits;
+}
+
+CombiningExtractor make_combining_extractor(
+    memory::Arena *arena,
+    data_filter::CombiningFilter combiningFilter,
+    data_filter::DataFilter repCountFilter,
+    u8 repetitions,
+    u64 rngSeed,
+    u8 moduleIndex)
+{
+    CombiningExtractor result = {};
+
+    result.combiningFilter = combiningFilter;
+    result.repCountFilter = repCountFilter;
+    result.repCountCacheA = make_cache_entry(repCountFilter, 'A');
+    result.rng.seed(rngSeed);
+    result.repetitions = repetitions;
+    result.moduleIndex = moduleIndex;
+
+    size_t addressCount = get_address_count(&result);
+
+    auto databits = get_extract_bits(&combiningFilter.extractionFilter,
+                                     MultiWordFilter::CacheD);
+
+    double upperLimit = std::pow(2.0, databits);
+
+    result.output.data = push_param_vector(arena, addressCount, invalid_param());
+    result.output.lowerLimits = push_param_vector(arena, addressCount, 0.0);
+    result.output.upperLimits = push_param_vector(arena, addressCount, upperLimit);
+
+    result.hitCounts = push_param_vector(arena, addressCount, 0.0);
+
+    return result;
+}
+
+/* ===============================================
+ * Operators
+ * =============================================== */
 Operator make_operator(Arena *arena, u8 type, u8 inputCount, u8 outputCount)
 {
     Operator result = {};
@@ -2034,12 +2080,9 @@ void a2_begin_event(A2 *a2, int eventIndex)
     }
 }
 
-// hand module data to all sources for eventIndex and moduleIndex
-void a2_process_module_data(A2 *a2, int eventIndex, int moduleIndex, const u32 *data, u32 dataSize)
+inline static
+void a2_process_extractors(A2 *a2, int eventIndex, int moduleIndex, const u32 *data, u32 dataSize)
 {
-    assert(eventIndex < MaxVMEEvents);
-    assert(moduleIndex < MaxVMEModules);
-
     int exCount = a2->extractorCounts[eventIndex];
 #ifndef NDEBUG
     int nprocessed = 0;
@@ -2064,6 +2107,74 @@ void a2_process_module_data(A2 *a2, int eventIndex, int moduleIndex, const u32 *
 #ifndef NDEBUG
     a2_trace("ei=%d, mi=%d, processed %d extractors\n", eventIndex, moduleIndex, nprocessed);
 #endif
+}
+
+void combining_extractor_begin_event(CombiningExtractor *ex)
+{
+    invalidate_all(ex->output.data);
+}
+
+inline static void
+combining_extractor_process_module_data(CombiningExtractor *ex, const u32 *data, u32 dataSize)
+{
+    assert(memory::is_aligned(data, ModuleDataAlignment));
+
+    u32 consumed = 0;
+    const u32 *curPtr = data;
+    u32 curSize = dataSize;
+
+    for (u32 rep = 0; rep < ex->repetitions; rep++)
+    {
+
+        // XXX: leftoff
+        curPtr += ex->combiningFilter.wordCount;
+        curSize -= ex->combiningFilter.wordCount;
+
+        if (curPtr >= data + dataSize)
+            break;
+    }
+
+
+    return consumed;
+}
+
+inline static void
+a2_process_combining_extractors(A2 *a2, int eventIndex, int moduleIndex, const u32 *data, u32 dataSize)
+{
+    const u32 *curPtr = data;
+    u32 curSize = dataSize;
+
+    int exCount = a2->combiningExtractorCounts[eventIndex];
+
+    for (int exIdx = 0; exIdx < exCount; exIdx++)
+    {
+        CombiningExtractor *ex = a2->combiningExtractors[eventIndex] + exIdx;
+
+        if (ex->moduleIndex != moduleIndex)
+            continue;
+
+        combining_extractor_process_module_data(ex, curPtr, curSize);
+
+        u32 consumed = ex->repetitions * ex->combiningFilter.wordCount;
+        curPtr += consumed;
+        curSize -= consumed;
+
+        if (curPtr >= data + dataSize) // are we out of data?
+            break;
+    }
+
+    //u32 notConsumed = dataSize - curSize; // could warn about this
+}
+
+// hand module data to all sources for eventIndex and moduleIndex
+void a2_process_module_data(A2 *a2, int eventIndex, int moduleIndex, const u32 *data, u32 dataSize)
+{
+    assert(eventIndex < MaxVMEEvents);
+    assert(moduleIndex < MaxVMEModules);
+
+    a2_process_extractors(a2, eventIndex, moduleIndex, data, dataSize);
+
+    a2_process_combining_extractors(a2, eventIndex, moduleIndex, data, dataSize);
 }
 
 inline u32 step_operator_range(Operator *first, Operator *last)

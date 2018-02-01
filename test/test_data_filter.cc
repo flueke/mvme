@@ -216,15 +216,15 @@ void TestDataFilter::test_data_filter_c_style_match_mask_and_value()
         QCOMPARE(filter.matchMask, 0xccu);    // 1100 1100
         QCOMPARE(filter.matchValue, 0x48u);   // 0100 1000
 
-        QVERIFY(matches(filter, 0x48));
-        QVERIFY(matches(filter, 0x78));
+        QVERIFY(matches(filter, 0x48u));
+        QVERIFY(matches(filter, 0x78u));
 
-        QVERIFY(matches(filter, 0x4a));
-        QVERIFY(matches(filter, 0x7a));
+        QVERIFY(matches(filter, 0x4au));
+        QVERIFY(matches(filter, 0x7au));
 
-        QVERIFY(!matches(filter, 0x0f));
-        QVERIFY(!matches(filter, 0xf0));
-        QVERIFY(!matches(filter, 0xff));
+        QVERIFY(!matches(filter, 0x0fu));
+        QVERIFY(!matches(filter, 0xf0u));
+        QVERIFY(!matches(filter, 0xffu));
     }
 
     {
@@ -233,9 +233,9 @@ void TestDataFilter::test_data_filter_c_style_match_mask_and_value()
         QCOMPARE(filter.matchMask, 0xf0f0u);
         QCOMPARE(filter.matchValue, 0xf000u);
 
-        QVERIFY(matches(filter, 0xff00));
-        QVERIFY(matches(filter, 0xff0f));
-        QVERIFY(matches(filter, 0xf00f));
+        QVERIFY(matches(filter, 0xff00u));
+        QVERIFY(matches(filter, 0xff0fu));
+        QVERIFY(matches(filter, 0xf00fu));
     }
 }
 
@@ -252,9 +252,9 @@ void TestDataFilter::test_data_filter_c_style_extract_data_()
         QCOMPARE(cacheD.extractShift, static_cast<u8>(2u));
 #endif
         QCOMPARE(cacheD.extractBits, static_cast<u8>(4u));
-        QCOMPARE(extract(cacheD, 0xff), 0xfu);
-        QCOMPARE(extract(cacheD, 0xf0), 0xcu);
-        QCOMPARE(extract(cacheD, 0x0f), 0x3u);
+        QCOMPARE(extract(cacheD, 0xffu), 0xfu);
+        QCOMPARE(extract(cacheD, 0xf0u), 0xcu);
+        QCOMPARE(extract(cacheD, 0x0fu), 0x3u);
     }
 
     {
@@ -266,9 +266,9 @@ void TestDataFilter::test_data_filter_c_style_extract_data_()
         QCOMPARE(cacheD.extractShift, static_cast<u8>(0u));
 #endif
         QCOMPARE(cacheD.extractBits, static_cast<u8>(4u));
-        QCOMPARE(extract(cacheD, 0xff), 0xfu);
-        QCOMPARE(extract(cacheD, 0xf0), 0x0u);
-        QCOMPARE(extract(cacheD, 0x0f), 0xfu);
+        QCOMPARE(extract(cacheD, 0xffu), 0xfu);
+        QCOMPARE(extract(cacheD, 0xf0u), 0x0u);
+        QCOMPARE(extract(cacheD, 0x0fu), 0xfu);
     }
 
     {
@@ -280,8 +280,8 @@ void TestDataFilter::test_data_filter_c_style_extract_data_()
         QCOMPARE(cacheD.extractShift, static_cast<u8>(12u));
 #endif
         QCOMPARE(cacheD.extractBits, static_cast<u8>(4u));
-        QCOMPARE(extract(cacheD, 0x7abc), 0x7u);
-        QCOMPARE(extract(cacheD, 0x0abc), 0x0u);
+        QCOMPARE(extract(cacheD, 0x7abcu), 0x7u);
+        QCOMPARE(extract(cacheD, 0x0abcu), 0x0u);
     }
 
     {
@@ -293,9 +293,9 @@ void TestDataFilter::test_data_filter_c_style_extract_data_()
         QCOMPARE(cacheD.extractShift, static_cast<u8>(31u));
 #endif
         QCOMPARE(cacheD.extractBits, static_cast<u8>(1u));
-        QCOMPARE(extract(cacheD, 0x0), 0x0u);
-        QCOMPARE(extract(cacheD, 0xf0123456), 0x1u);
-        QCOMPARE(extract(cacheD, 0x70123456), 0x0u);
+        QCOMPARE(extract(cacheD, 0x0u), 0x0u);
+        QCOMPARE(extract(cacheD, 0xf0123456u), 0x1u);
+        QCOMPARE(extract(cacheD, 0x70123456u), 0x0u);
     }
 
     {
@@ -307,8 +307,8 @@ void TestDataFilter::test_data_filter_c_style_extract_data_()
         QCOMPARE(cacheD.extractShift, static_cast<u8>(0u));
 #endif
         QCOMPARE(cacheD.extractBits, static_cast<u8>(1u));
-        QCOMPARE(extract(cacheD, 0x0), 0x0u);
-        QCOMPARE(extract(cacheD, 0xf012345f), 0x1u);
+        QCOMPARE(extract(cacheD, 0x0u), 0x0u);
+        QCOMPARE(extract(cacheD, 0xf012345fu), 0x1u);
     }
 
     // should be case insensitive
@@ -321,9 +321,9 @@ void TestDataFilter::test_data_filter_c_style_extract_data_()
         QCOMPARE(cacheD.extractShift, static_cast<u8>(0u));
 #endif
         QCOMPARE(cacheD.extractBits, static_cast<u8>(4u));
-        QCOMPARE(extract(cacheD, 0xff), 0xfu);
-        QCOMPARE(extract(cacheD, 0xf0), 0x0u);
-        QCOMPARE(extract(cacheD, 0x0f), 0xfu);
+        QCOMPARE(extract(cacheD, 0xffu), 0xfu);
+        QCOMPARE(extract(cacheD, 0xf0u), 0x0u);
+        QCOMPARE(extract(cacheD, 0x0fu), 0xfu);
     }
 
     //

@@ -4,6 +4,7 @@
 #ifdef liba2_shared_EXPORTS
 #include "a2_export.h"
 #endif
+#include "combining_datafilter.h"
 #include "memory.h"
 #include "multiword_datafilter.h"
 #include "util/nan.h"
@@ -133,6 +134,9 @@ struct PipeVectors
     ParamVec upperLimits;
 };
 
+/* ===============================================
+ * Extractors
+ * =============================================== */
 struct Extractor
 {
     data_filter::MultiWordFilter filter;
@@ -151,6 +155,31 @@ Extractor make_extractor(
     u64 rngSeed,
     int moduleIndex);
 
+struct CombiningExtractor
+{
+    data_filter::CombiningFilter combiningFilter;
+    data_filter::DataFilter repCountFilter;
+    data_filter::CacheEntry repCountCacheA;
+    pcg32_fast rng;
+    PipeVectors output;
+    ParamVec hitCounts;
+    u8 repetitions;
+    u8 moduleIndex;
+};
+
+CombiningExtractor make_combining_extractor(
+    memory::Arena *arena,
+    data_filter::CombiningFilter combiningFilter,
+    data_filter::DataFilter repCountFilter,
+    u8 repetitions,
+    u64 rngSeed,
+    u8 moduleIndex);
+
+size_t get_address_count(const CombiningExtractor *ex);
+
+/* ===============================================
+ * Operators
+ * =============================================== */
 struct Operator
 {
     using count_type = u8;
@@ -408,6 +437,9 @@ struct A2
 {
     std::array<u8, MaxVMEEvents> extractorCounts;
     std::array<Extractor *, MaxVMEEvents> extractors;
+
+    std::array<u8, MaxVMEEvents> combiningExtractorCounts;
+    std::array<CombiningExtractor *, MaxVMEEvents> combiningExtractors;
 
     std::array<u8, MaxVMEEvents> operatorCounts;
     std::array<Operator *, MaxVMEEvents> operators;

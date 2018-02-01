@@ -37,17 +37,16 @@ u64 combine(CombiningFilter *cf, const u32 *data, u32 count)
     return result;
 }
 
-u64 combine_and_extract(CombiningFilter *cf, const u32 *data, u32 count, MultiWordFilter::CacheType cacheType)
+CombiningFilterResult combine_and_extract(CombiningFilter *cf, const u32 *data, u32 count, MultiWordFilter::CacheType cacheType)
 {
     assert(!is_complete(&cf->extractionFilter));
     u64 combined = combine(cf, data, count);
-    // FIXME: why is the order "wrong" or at least unexpected? endianess?
     process_data(&cf->extractionFilter, static_cast<u32>(combined));
     process_data(&cf->extractionFilter, static_cast<u32>(combined >> 32));
-    assert(is_complete(&cf->extractionFilter));
-    u64 result = extract(&cf->extractionFilter, cacheType);
+    bool matched = is_complete(&cf->extractionFilter);
+    u64 result = matched ? extract(&cf->extractionFilter, cacheType) : 0;
     clear_completion(&cf->extractionFilter);
-    return result;
+    return std::make_pair(result, matched);
 }
 
 bool validate(CombiningFilter *cf)
