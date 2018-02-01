@@ -437,6 +437,11 @@ struct KeepPreviousData
     u8 keepValid;
 };
 
+struct KeepPreviousData_idx: public KeepPreviousData
+{
+    s32 inputIndex;
+};
+
 void keep_previous_step(Operator *op)
 {
     assert(op->inputCount == 1);
@@ -464,6 +469,25 @@ void keep_previous_step(Operator *op)
     }
 }
 
+void keep_previous_step_idx(Operator *op)
+{
+    assert(op->inputCount == 1);
+    assert(op->outputCount == 1);
+    assert(op->outputs[0].size == 1);
+    assert(op->type == Operator_KeepPrevious_idx);
+
+    auto d = reinterpret_cast<KeepPreviousData_idx *>(op->d);
+
+    op->outputs[0][0] = d->previousInput[0];
+
+    double in = op->inputs[0][d->inputIndex];
+
+    if (!d->keepValid || is_param_valid(in))
+    {
+        d->previousInput[0] = in;
+    }
+}
+
 Operator make_keep_previous(
     Arena *arena, PipeVectors inPipe, bool keepValid)
 {
@@ -476,6 +500,24 @@ Operator make_keep_previous(
 
     assign_input(&result, inPipe, 0);
     push_output_vectors(arena, &result, 0, inPipe.data.size);
+
+    return result;
+}
+
+Operator make_keep_previous_idx(
+    memory::Arena *arena, PipeVectors inPipe,
+    s32 inputIndex, bool keepValid)
+{
+    auto result = make_operator(arena, Operator_KeepPrevious_idx, 1, 1);
+
+    auto d = arena->pushStruct<KeepPreviousData_idx>();
+    d->previousInput = push_param_vector(arena, 1, invalid_param());
+    d->keepValid = keepValid;
+    d->inputIndex = inputIndex;
+    result.d = d;
+
+    assign_input(&result, inPipe, 0);
+    push_output_vectors(arena, &result, 0, 1);
 
     return result;
 }
@@ -1911,6 +1953,7 @@ static const OperatorFunctions OperatorTable[OperatorTypeCount] =
     [Operator_Calibration] = { calibration_step },
     [Operator_Calibration_sse] = { calibration_sse_step },
     [Operator_KeepPrevious] = { keep_previous_step },
+    [Operator_KeepPrevious_idx] = { keep_previous_step_idx },
     [Operator_Difference] = { difference_step },
     [Operator_Difference_idx] = { difference_step_idx },
     [Operator_ArrayMap] = { array_map_step },

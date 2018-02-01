@@ -11,6 +11,7 @@ enum OperatorType
     Operator_Calibration,
     Operator_Calibration_sse,
     Operator_KeepPrevious,
+    Operator_KeepPrevious_idx,
     Operator_Difference,
     Operator_Difference_idx,
     Operator_ArrayMap,

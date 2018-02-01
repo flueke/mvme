@@ -187,7 +187,13 @@ Operator make_calibration(
 
 Operator make_keep_previous(
     memory::Arena *arena,
-    PipeVectors inPipe,
+    PipeVectors input,
+    bool keepValid);
+
+Operator make_keep_previous_idx(
+    memory::Arena *arena,
+    PipeVectors input,
+    s32 inputIndex,
     bool keepValid);
 
 Operator make_difference(

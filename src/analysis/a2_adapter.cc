@@ -146,7 +146,6 @@ DEF_OP_MAGIC(difference_magic)
     assert(inputSlots.size() == 2);
     assert_slot(inputSlots[0]);
     assert_slot(inputSlots[1]);
-    //assert(inputSlots[0]->acceptedInputTypes == analysis::InputType::Array);
 
     auto diff = qobject_cast<analysis::Difference *>(op.get());
 
@@ -359,7 +358,6 @@ DEF_OP_MAGIC(keep_previous_magic)
     LOG("");
     assert(inputSlots.size() == 1);
     assert_slot(inputSlots[0]);
-    assert(inputSlots[0]->paramIndex == analysis::Slot::NoParamIndex);
 
     auto prevValue = qobject_cast<analysis::PreviousValue *>(op.get());
 
@@ -367,10 +365,23 @@ DEF_OP_MAGIC(keep_previous_magic)
 
     auto a2_input = find_output_pipe(adapterState, inputSlots[0]);
 
-    auto result = a2::make_keep_previous(
-        arena,
-        a2_input,
-        prevValue->m_keepValid);
+    a2::Operator result = {};
+
+    if (inputSlots[0]->paramIndex == analysis::Slot::NoParamIndex)
+    {
+        result = a2::make_keep_previous(
+            arena,
+            a2_input,
+            prevValue->m_keepValid);
+    }
+    else
+    {
+        result = a2::make_keep_previous_idx(
+            arena,
+            a2_input,
+            inputSlots[0]->paramIndex,
+            prevValue->m_keepValid);
+    }
 
     return result;
 }
