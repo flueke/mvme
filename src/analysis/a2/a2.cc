@@ -224,10 +224,9 @@ CombiningExtractor make_combining_extractor(
     result.repetitions = repetitions;
     result.moduleIndex = moduleIndex;
 
-    size_t addressBits = get_extract_bits(&result.combiningFilter, MultiWordFilter::CacheA);
-    addressBits += result.repetitionAddressCache.extractBits;
-
-    size_t addressCount = 1u << addressBits;
+    // This call works as combiningFilter and repetitionAddressCache have been
+    // initialzed at this point.
+    size_t addressCount = get_address_count(&result);
 
     auto databits = get_extract_bits(&combiningFilter.extractionFilter,
                                      MultiWordFilter::CacheD);
@@ -241,6 +240,15 @@ CombiningExtractor make_combining_extractor(
     result.hitCounts = push_param_vector(arena, addressCount, 0.0);
 
     return result;
+}
+
+size_t get_address_count(CombiningExtractor *ex)
+{
+    u16 baseAddressBits = get_extract_bits(&ex->combiningFilter, MultiWordFilter::CacheA);
+    u16 repAddressBits  = ex->repetitionAddressCache.extractBits;
+    u16 totalAddressBits = baseAddressBits + repAddressBits;
+
+    return 1u << totalAddressBits;
 }
 
 void combining_extractor_begin_event(CombiningExtractor *ex)

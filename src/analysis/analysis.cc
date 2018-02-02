@@ -25,6 +25,7 @@
 #include <random>
 
 #include "a2_adapter.h"
+#include "a2/multiword_datafilter.h"
 #include "../vme_config.h"
 
 #define ENABLE_ANALYSIS_DEBUG 0
@@ -365,68 +366,6 @@ void Extractor::beginEvent()
     m_output.getParameters().invalidateAll();
 }
 
-void Extractor::processModuleData(u32 *data, u32 size)
-{
-    for (u32 wordIndex = 0;
-         wordIndex < size;
-         ++wordIndex)
-    {
-        u32 dataWord = *(data + wordIndex);
-        process_data(&m_fastFilter, dataWord, wordIndex);
-
-#if ENABLE_ANALYSIS_DEBUG
-        qDebug("************************************************");
-        qDebug("%s: %s, dataWord=0x%08x, wordIndex=%u, complete=%d",
-               __PRETTY_FUNCTION__, this->objectName().toLocal8Bit().constData(),
-               dataWord, wordIndex, is_complete(&m_fastFilter));
-#endif
-
-        if (is_complete(&m_fastFilter))
-        {
-            ++m_currentCompletionCount;
-
-            if (m_requiredCompletionCount == m_currentCompletionCount)
-            {
-                m_currentCompletionCount = 0;
-
-                u64 address = extract(&m_fastFilter, a2::data_filter::MultiWordFilter::CacheA);
-                u64 value   = extract(&m_fastFilter, a2::data_filter::MultiWordFilter::CacheD);
-
-#if ENABLE_ANALYSIS_DEBUG
-                qDebug() << this
-                    << "extracted address =" << address
-                    << ", extracted value =" << value
-                    << ", dataWord =" << QString("0x%1").arg(dataWord, 8, 16, QLatin1Char('0'));
-#endif
-
-                Q_ASSERT(address < static_cast<u64>(m_output.getSize()));
-                Q_ASSERT(address < static_cast<u64>(m_hitCounts.size()));
-
-                auto &param = m_output.getParameters()[address];
-                // Only fill if not valid yet to keep the first value in case of
-                // multiple hits in this event.
-                if (!param.valid)
-                {
-                    double dValue = value + RealDist01(m_rng);
-
-                    param.valid = true;
-                    param.value = dValue;
-
-
-#if ENABLE_ANALYSIS_DEBUG
-                    qDebug() << this << "setting param valid, addr =" << address << ", value =" << param.value
-                        << ", dataWord =" << QString("0x%1").arg(dataWord, 8, 16, QLatin1Char('0'));
-#endif
-                    QMutexLocker lock(&m_hitCountsMutex); // FIXME: get rid of this lock
-                    m_hitCounts[address] += 1.0;
-                }
-            }
-
-            clear_completion(&m_fastFilter);
-        }
-    }
-}
-
 s32 Extractor::getNumberOfOutputs() const
 {
     return 1;
@@ -506,6 +445,75 @@ QVector<double> Extractor::getHitCounts() const
 {
     QMutexLocker lock(&m_hitCountsMutex);
     return m_hitCounts;
+}
+
+//
+// CombiningExtractor
+//
+CombiningExtractor::CombiningExtractor(QObject *parent)
+    : SourceInterface(parent)
+{
+    m_output.setSource(this);
+    m_extractor = {};
+    std::random_device rd;
+    std::uniform_int_distribution<u64> dist;
+    m_rngSeed = dist(rd);
+}
+
+void CombiningExtractor::beginRun(const RunInfo &runInfo)
+{
+    u32 addressCount = get_address_count(&m_extractor);
+    u32 dataBits = get_extract_bits(&m_extractor.combiningFilter, a2::data_filter::MultiWordFilter::CacheD);
+    double upperLimit = std::pow(2.0, dataBits);
+
+    auto &params(m_output.getParameters());
+    params.resize(addressCount);
+
+    for (s32 i=0; i<params.size(); ++i)
+    {
+        auto &param(params[i]);
+        param.lowerLimit = 0.0;
+        param.upperLimit = upperLimit;
+    }
+
+    params.name = this->objectName();
+}
+
+void CombiningExtractor::beginEvent()
+{
+    m_output.getParameters().invalidateAll();
+}
+
+void CombiningExtractor::read(const QJsonObject &json)
+{
+}
+
+void CombiningExtractor::write(QJsonObject &json) const
+{
+    json["rngSeed"] = QString::number(m_rngSeed, 16);
+    json["repetitions"] = static_cast<qint64>(m_extractor.repetitions);
+
+    // combiningFilter
+    // Note: wordIndex of the subfilters does not need to be stored as it's not
+    // used in CombiningFilter
+    // TODO: abstract out the serialization of MultiWordFilter to make this code easier to understand
+    QJsonArray filterArray;
+    for (s32 idx = 0; idx < m_extractor.combiningFilter.extractionFilter.filterCount; idx++)
+    {
+        auto str = QString::fromStdString(
+            to_string(m_extractor.combiningFilter.extractionFilter.filters[idx]));
+        filterArray.append(str);
+    }
+    json["filters"] = filterArray;
+
+    json["wordCount"] = static_cast<qint64>(m_extractor.combiningFilter.wordCount);
+    json["flags"] = static_cast<qint64>(m_extractor.combiningFilter.flags);
+
+    // repetitionAddressFilter
+    json["repetitionAddressFilter"] = QString::fromStdString(to_string(m_extractor.repetitionAddressFilter));
+
+    // repetitions
+    json["repetitionCount"] = static_cast<qint64>(m_extractor.repetitions);
 }
 
 //

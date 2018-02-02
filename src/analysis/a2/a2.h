@@ -175,7 +175,7 @@ CombiningExtractor make_combining_extractor(
     u64 rngSeed,
     u8 moduleIndex);
 
-size_t get_address_count(const CombiningExtractor *ex);
+size_t get_address_count(CombiningExtractor *ex);
 
 /* ===============================================
  * Operators

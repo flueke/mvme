@@ -78,6 +78,10 @@ void a2_process_module_data(A2 *a2, int eventIndex, int moduleIndex, const u32 *
 }
 
 * repCountFilter may not contribute any data bits, only address bits
+class LIBMVME_EXPORT CombiningExtractor: public SourceInterface
+{
+};
+
 
 
 --------------------------------------------------

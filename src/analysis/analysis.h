@@ -23,6 +23,7 @@
 
 #include "a2/memory.h"
 #include "a2/multiword_datafilter.h"
+#include "a2/a2.h"
 #include "data_filter.h"
 #include "../globals.h"
 #include "histo1d.h"
@@ -318,9 +319,6 @@ class LIBMVME_EXPORT SourceInterface: public PipeSourceInterface
         /* Use beginEvent() to invalidate output parameters if needed. */
         virtual void beginEvent() {}
 
-        /* Used to feed a full block of module event data to the source. */
-        virtual void processModuleData(u32 *firstWord, u32 size) = 0;
-
         virtual void read(const QJsonObject &json) = 0;
         virtual void write(QJsonObject &json) const = 0;
 
@@ -429,7 +427,6 @@ class LIBMVME_EXPORT Extractor: public SourceInterface
 
         virtual void beginRun(const RunInfo &runInfo) override;
         virtual void beginEvent() override;
-        virtual void processModuleData(u32 *firstWord, u32 size) override;
 
         virtual s32 getNumberOfOutputs() const override;
         virtual QString getOutputName(s32 outputIndex) const override;
@@ -458,6 +455,38 @@ class LIBMVME_EXPORT Extractor: public SourceInterface
 
         pcg32_fast m_rng;
         Pipe m_output;
+};
+
+class LIBMVME_EXPORT CombiningExtractor: public SourceInterface
+{
+    Q_OBJECT
+    Q_INTERFACES(analysis::SourceInterface)
+
+    public:
+        CombiningExtractor(QObject *parent = nullptr);
+
+        virtual void beginRun(const RunInfo &runInfo) override;
+        virtual void beginEvent() override;
+
+        virtual s32 getNumberOfOutputs() const override { return 1; }
+        virtual QString getOutputName(s32 outputIndex) const override { return QSL("Combined and extracted data array"); }
+        virtual Pipe *getOutput(s32 index) override { return index == 0 ? &m_output : nullptr; }
+
+        virtual void read(const QJsonObject &json) override;
+        virtual void write(QJsonObject &json) const override;
+
+        virtual QString getDisplayName() const override { return QSL("Combining Extractor"); }
+        virtual QString getShortName() const override { return QSL("CExt"); }
+
+        a2::CombiningExtractor getExtractor() const { return m_extractor; }
+        void setExtractor(const a2::CombiningExtractor &ex) { m_extractor = ex; }
+        u64 getRngSeed() const { return m_rngSeed; }
+        void setRngSeed(u64 seed) { m_rngSeed = seed; }
+
+    private:
+        Pipe m_output;
+        a2::CombiningExtractor m_extractor;
+        u64 m_rngSeed;
 };
 
 //
