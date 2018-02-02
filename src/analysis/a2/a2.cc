@@ -133,6 +133,8 @@ void push_output_vectors(
 /* ===============================================
  * Extractors
  * =============================================== */
+static std::uniform_real_distribution<double> RealDist01(0.0, 1.0);
+
 Extractor make_extractor(
     Arena *arena,
     MultiWordFilter filter,
@@ -171,9 +173,7 @@ void extractor_begin_event(Extractor *ex)
     invalidate_all(ex->output.data);
 }
 
-static std::uniform_real_distribution<double> RealDist01(0.0, 1.0);
-
-void extractor_process_module_data(Extractor *ex, const u32 *data, u32 size)
+void extractor_process_module_data(Extractor *ex, u32 *data, u32 size)
 {
     assert(memory::is_aligned(data, ModuleDataAlignment));
 
@@ -207,20 +207,10 @@ void extractor_process_module_data(Extractor *ex, const u32 *data, u32 size)
     }
 }
 
-size_t get_address_count(CombiningExtractor *ex)
-{
-    size_t addressBits = get_extract_bits(&ex->combiningFilter.extractionFilter,
-                                          MultiWordFilter::CacheA);
-
-    addressBits += ex->repCountCacheA.extractBits;
-
-    return 1u << addressBits;
-}
-
 CombiningExtractor make_combining_extractor(
     memory::Arena *arena,
     data_filter::CombiningFilter combiningFilter,
-    data_filter::DataFilter repCountFilter,
+    data_filter::DataFilter repetitionAddressFilter,
     u8 repetitions,
     u64 rngSeed,
     u8 moduleIndex)
@@ -228,13 +218,16 @@ CombiningExtractor make_combining_extractor(
     CombiningExtractor result = {};
 
     result.combiningFilter = combiningFilter;
-    result.repCountFilter = repCountFilter;
-    result.repCountCacheA = make_cache_entry(repCountFilter, 'A');
+    result.repetitionAddressFilter = repetitionAddressFilter;
+    result.repetitionAddressCache = make_cache_entry(repetitionAddressFilter, 'A');
     result.rng.seed(rngSeed);
     result.repetitions = repetitions;
     result.moduleIndex = moduleIndex;
 
-    size_t addressCount = get_address_count(&result);
+    size_t addressBits = get_extract_bits(&result.combiningFilter, MultiWordFilter::CacheA);
+    addressBits += result.repetitionAddressCache.extractBits;
+
+    size_t addressCount = 1u << addressBits;
 
     auto databits = get_extract_bits(&combiningFilter.extractionFilter,
                                      MultiWordFilter::CacheD);
@@ -249,6 +242,63 @@ CombiningExtractor make_combining_extractor(
 
     return result;
 }
+
+void combining_extractor_begin_event(CombiningExtractor *ex)
+{
+    invalidate_all(ex->output.data);
+}
+
+u32 *combining_extractor_process_module_data(CombiningExtractor *ex, u32 *data, u32 dataSize)
+{
+    u32 *curPtr = data;
+    u32 curSize = dataSize;
+
+    for (u32 rep = 0; rep < ex->repetitions; rep++)
+    {
+        // Combine input data words and extract address and data values.
+        u64 combined = combine(&ex->combiningFilter, curPtr, curSize);
+        curPtr += ex->combiningFilter.wordCount;
+        curSize -= ex->combiningFilter.wordCount;
+
+        // FIXME (maybe): runs the multiwordfilter twice which is not really
+        // needed. also if addressResult.second is false dataResult.second will
+        // also be false.
+        auto addressResult = extract_from_combined(&ex->combiningFilter, combined, MultiWordFilter::CacheA);
+        auto dataResult    = extract_from_combined(&ex->combiningFilter, combined, MultiWordFilter::CacheD);
+
+        if (!addressResult.second || !dataResult.second)
+            continue;
+
+        // Check the repetition filter for a match for the current repetition
+        // and extract its address value.
+        u32 repCountAddress = (matches(ex->repetitionAddressFilter, rep)
+                               ? extract(ex->repetitionAddressCache, rep)
+                               : 0u);
+
+        // Number of bits from the MultiWordFilter alone, without the bits that
+        // will be contributed by the repetitionAddressFilter.
+        u16 baseAddressBits = get_extract_bits(&ex->combiningFilter, MultiWordFilter::CacheA);
+
+        // Make the address bits from the repetition count contribute to the
+        // high bits of the resulting address.
+        u64 address = addressResult.first | (repCountAddress << baseAddressBits);
+        u64 value   = dataResult.first;
+
+        assert(address < static_cast<u64>(ex->output.data.size));
+
+        if (!is_param_valid(ex->output.data[address]))
+        {
+            ex->output.data[address] = value + RealDist01(ex->rng);
+            ex->hitCounts[address]++;
+        }
+
+        if (curPtr >= data + dataSize)
+            break;
+    }
+
+    return curPtr;
+}
+
 
 /* ===============================================
  * Operators
@@ -2078,10 +2128,20 @@ void a2_begin_event(A2 *a2, int eventIndex)
         Extractor *ex = a2->extractors[eventIndex] + exIdx;
         extractor_begin_event(ex);
     }
+
+    exCount = a2->combiningExtractorCounts[eventIndex];
+
+    a2_trace("ei=%d, combiningExtractors=%d\n", eventIndex, exCount);
+
+    for (int exIdx = 0; exIdx < exCount; exIdx++)
+    {
+        CombiningExtractor *ex = a2->combiningExtractors[eventIndex] + exIdx;
+        combining_extractor_begin_event(ex);
+    }
 }
 
 inline static
-void a2_process_extractors(A2 *a2, int eventIndex, int moduleIndex, const u32 *data, u32 dataSize)
+void a2_process_extractors(A2 *a2, int eventIndex, int moduleIndex, u32 *data, u32 dataSize)
 {
     int exCount = a2->extractorCounts[eventIndex];
 #ifndef NDEBUG
@@ -2109,40 +2169,14 @@ void a2_process_extractors(A2 *a2, int eventIndex, int moduleIndex, const u32 *d
 #endif
 }
 
-void combining_extractor_begin_event(CombiningExtractor *ex)
-{
-    invalidate_all(ex->output.data);
-}
 
 inline static void
-combining_extractor_process_module_data(CombiningExtractor *ex, const u32 *data, u32 dataSize)
+a2_process_combining_extractors(A2 *a2, int eventIndex, int moduleIndex, u32 *data, u32 dataSize)
 {
     assert(memory::is_aligned(data, ModuleDataAlignment));
 
-    u32 consumed = 0;
-    const u32 *curPtr = data;
-    u32 curSize = dataSize;
-
-    for (u32 rep = 0; rep < ex->repetitions; rep++)
-    {
-
-        // XXX: leftoff
-        curPtr += ex->combiningFilter.wordCount;
-        curSize -= ex->combiningFilter.wordCount;
-
-        if (curPtr >= data + dataSize)
-            break;
-    }
-
-
-    return consumed;
-}
-
-inline static void
-a2_process_combining_extractors(A2 *a2, int eventIndex, int moduleIndex, const u32 *data, u32 dataSize)
-{
-    const u32 *curPtr = data;
-    u32 curSize = dataSize;
+    u32 *curPtr = data;
+    const u32 *endPtr = data + dataSize;
 
     int exCount = a2->combiningExtractorCounts[eventIndex];
 
@@ -2153,27 +2187,20 @@ a2_process_combining_extractors(A2 *a2, int eventIndex, int moduleIndex, const u
         if (ex->moduleIndex != moduleIndex)
             continue;
 
-        combining_extractor_process_module_data(ex, curPtr, curSize);
-
-        u32 consumed = ex->repetitions * ex->combiningFilter.wordCount;
-        curPtr += consumed;
-        curSize -= consumed;
+        curPtr = combining_extractor_process_module_data(ex, curPtr, endPtr - curPtr);
 
         if (curPtr >= data + dataSize) // are we out of data?
             break;
     }
-
-    //u32 notConsumed = dataSize - curSize; // could warn about this
 }
 
 // hand module data to all sources for eventIndex and moduleIndex
-void a2_process_module_data(A2 *a2, int eventIndex, int moduleIndex, const u32 *data, u32 dataSize)
+void a2_process_module_data(A2 *a2, int eventIndex, int moduleIndex, u32 *data, u32 dataSize)
 {
     assert(eventIndex < MaxVMEEvents);
     assert(moduleIndex < MaxVMEModules);
 
     a2_process_extractors(a2, eventIndex, moduleIndex, data, dataSize);
-
     a2_process_combining_extractors(a2, eventIndex, moduleIndex, data, dataSize);
 }
 

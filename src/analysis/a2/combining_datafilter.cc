@@ -37,16 +37,22 @@ u64 combine(CombiningFilter *cf, const u32 *data, u32 count)
     return result;
 }
 
-CombiningFilterResult combine_and_extract(CombiningFilter *cf, const u32 *data, u32 count, MultiWordFilter::CacheType cacheType)
+CombiningFilterResult extract_from_combined(CombiningFilter *cf, const u64 combined, MultiWordFilter::CacheType cacheType)
 {
     assert(!is_complete(&cf->extractionFilter));
-    u64 combined = combine(cf, data, count);
     process_data(&cf->extractionFilter, static_cast<u32>(combined));
     process_data(&cf->extractionFilter, static_cast<u32>(combined >> 32));
     bool matched = is_complete(&cf->extractionFilter);
     u64 result = matched ? extract(&cf->extractionFilter, cacheType) : 0;
     clear_completion(&cf->extractionFilter);
     return std::make_pair(result, matched);
+}
+
+CombiningFilterResult combine_and_extract(CombiningFilter *cf, const u32 *data, u32 count, MultiWordFilter::CacheType cacheType)
+{
+    assert(!is_complete(&cf->extractionFilter));
+    u64 combined = combine(cf, data, count);
+    return extract_from_combined(cf, combined, cacheType);
 }
 
 bool validate(CombiningFilter *cf)

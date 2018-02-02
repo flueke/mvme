@@ -158,8 +158,8 @@ Extractor make_extractor(
 struct CombiningExtractor
 {
     data_filter::CombiningFilter combiningFilter;
-    data_filter::DataFilter repCountFilter;
-    data_filter::CacheEntry repCountCacheA;
+    data_filter::DataFilter repetitionAddressFilter;
+    data_filter::CacheEntry repetitionAddressCache;
     pcg32_fast rng;
     PipeVectors output;
     ParamVec hitCounts;
@@ -170,7 +170,7 @@ struct CombiningExtractor
 CombiningExtractor make_combining_extractor(
     memory::Arena *arena,
     data_filter::CombiningFilter combiningFilter,
-    data_filter::DataFilter repCountFilter,
+    data_filter::DataFilter repetitionAddressFilter,
     u8 repetitions,
     u64 rngSeed,
     u8 moduleIndex);
@@ -201,7 +201,9 @@ struct Operator
 
 void assign_input(Operator *op, PipeVectors input, s32 inputIndex);
 void extractor_begin_event(Extractor *ex);
-void extractor_process_module_data(Extractor *ex, const u32 *data, u32 size);
+void extractor_process_module_data(Extractor *ex, u32 *data, u32 size);
+void combining_extractor_begin_event(CombiningExtractor *ex);
+u32 *combining_extractor_process_module_data(CombiningExtractor *ex, u32 *data, u32 dataSize);
 
 Operator make_calibration(
     memory::Arena *arena,
@@ -448,7 +450,7 @@ struct A2
 
 void a2_begin_run(A2 *a2);
 void a2_begin_event(A2 *a2, int eventIndex);
-void a2_process_module_data(A2 *a2, int eventIndex, int moduleIndex, const u32 *data, u32 dataSize);
+void a2_process_module_data(A2 *a2, int eventIndex, int moduleIndex, u32 *data, u32 dataSize);
 void a2_end_event(A2 *a2, int eventIndex);
 void a2_end_run(A2 *a2);
 
