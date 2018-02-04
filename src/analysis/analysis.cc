@@ -92,6 +92,84 @@ A2AdapterState a2_adapter_build_memory_wrapper(
     return result;
 }
 
+QJsonObject to_json(const a2::data_filter::DataFilter &filter)
+{
+    QJsonObject result;
+
+    result["filterString"] = QString::fromStdString(to_string(filter));
+    result["wordIndex"] = filter.matchWordIndex;
+
+    return result;
+}
+
+a2::data_filter::DataFilter a2_dataFilter_from_json(const QJsonObject &json)
+{
+    return a2::data_filter::make_filter(
+        json["filterString"].toString().toStdString(),
+        json["wordIndex"].toInt());
+}
+
+QJsonObject to_json(const a2::data_filter::MultiWordFilter &filter)
+{
+    QJsonObject result;
+
+    QJsonArray subFilterArray;
+
+    for (s32 i = 0; i < filter.filterCount; i++)
+    {
+        const auto &subfilter = filter.filters[i];
+        QJsonObject filterJson;
+        filterJson["filterString"] = QString::fromStdString(to_string(subfilter));
+        filterJson["wordIndex"] = subfilter.matchWordIndex;
+        subFilterArray.append(filterJson);
+    }
+
+    result["subFilters"] = subFilterArray;
+
+
+    return result;
+}
+
+a2::data_filter::MultiWordFilter a2_multiWordFilter_from_json(const QJsonObject &json)
+{
+    a2::data_filter::MultiWordFilter result = {};
+
+    auto subFilterArray = json["subFilters"].toArray();
+
+    for (auto it = subFilterArray.begin();
+         it != subFilterArray.end();
+         it++)
+    {
+        add_subfilter(&result, a2_dataFilter_from_json(it->toObject()));
+    }
+
+    return result;
+}
+
+QJsonObject to_json(const a2::data_filter::CombiningFilter &filter)
+{
+    QJsonObject result;
+
+    result["extractionFilter"] = to_json(filter.extractionFilter);
+    result["flags"] = static_cast<qint64>(filter.flags);
+    result["wordCount"] = static_cast<qint64>(filter.wordCount);
+
+    return result;
+}
+
+a2::data_filter::CombiningFilter a2_combiningFilter_from_json(const QJsonObject &json)
+{
+    using a2::data_filter::CombiningFilter;
+
+    CombiningFilter result = {};
+
+    result.extractionFilter = a2_multiWordFilter_from_json(json["extractionFilter"].toObject());
+    result.flags = static_cast<CombiningFilter::Flag>(json["flags"].toInt());
+    result.wordCount = static_cast<u8>(json["wordCount"].toInt());
+
+    return result;
+}
+
 } // end anon namespace
 
 namespace analysis
@@ -454,7 +532,7 @@ CombiningExtractor::CombiningExtractor(QObject *parent)
     : SourceInterface(parent)
 {
     m_output.setSource(this);
-    m_extractor = {};
+    m_a2Extractor = {};
     std::random_device rd;
     std::uniform_int_distribution<u64> dist;
     m_rngSeed = dist(rd);
@@ -462,8 +540,8 @@ CombiningExtractor::CombiningExtractor(QObject *parent)
 
 void CombiningExtractor::beginRun(const RunInfo &runInfo)
 {
-    u32 addressCount = get_address_count(&m_extractor);
-    u32 dataBits = get_extract_bits(&m_extractor.combiningFilter, a2::data_filter::MultiWordFilter::CacheD);
+    u32 addressCount = get_address_count(&m_a2Extractor);
+    u32 dataBits = get_extract_bits(&m_a2Extractor.combiningFilter, a2::data_filter::MultiWordFilter::CacheD);
     double upperLimit = std::pow(2.0, dataBits);
 
     auto &params(m_output.getParameters());
@@ -484,36 +562,22 @@ void CombiningExtractor::beginEvent()
     m_output.getParameters().invalidateAll();
 }
 
-void CombiningExtractor::read(const QJsonObject &json)
-{
-}
-
 void CombiningExtractor::write(QJsonObject &json) const
 {
+    json["combiningFilter"] = to_json(m_a2Extractor.combiningFilter);
+    json["repetitionAddressFilter"] = to_json(m_a2Extractor.repetitionAddressFilter);
+    json["repetitions"] = static_cast<qint64>(m_a2Extractor.repetitions);
     json["rngSeed"] = QString::number(m_rngSeed, 16);
-    json["repetitions"] = static_cast<qint64>(m_extractor.repetitions);
+}
 
-    // combiningFilter
-    // Note: wordIndex of the subfilters does not need to be stored as it's not
-    // used in CombiningFilter
-    // TODO: abstract out the serialization of MultiWordFilter to make this code easier to understand
-    QJsonArray filterArray;
-    for (s32 idx = 0; idx < m_extractor.combiningFilter.extractionFilter.filterCount; idx++)
-    {
-        auto str = QString::fromStdString(
-            to_string(m_extractor.combiningFilter.extractionFilter.filters[idx]));
-        filterArray.append(str);
-    }
-    json["filters"] = filterArray;
-
-    json["wordCount"] = static_cast<qint64>(m_extractor.combiningFilter.wordCount);
-    json["flags"] = static_cast<qint64>(m_extractor.combiningFilter.flags);
-
-    // repetitionAddressFilter
-    json["repetitionAddressFilter"] = QString::fromStdString(to_string(m_extractor.repetitionAddressFilter));
-
-    // repetitions
-    json["repetitionCount"] = static_cast<qint64>(m_extractor.repetitions);
+void CombiningExtractor::read(const QJsonObject &json)
+{
+    m_a2Extractor = {};
+    m_a2Extractor.combiningFilter = a2_combiningFilter_from_json(json["combiningFilter"].toObject());
+    m_a2Extractor.repetitionAddressFilter = a2_dataFilter_from_json(json["repetitionAddressFilter"].toObject());
+    m_a2Extractor.repetitions = static_cast<u8>(json["repetitions"].toInt());
+    QString sSeed = json["rngSeed"].toString();
+    m_rngSeed = sSeed.toULongLong(nullptr, 16);
 }
 
 //

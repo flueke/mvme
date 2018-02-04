@@ -70,7 +70,7 @@ bool validate(CombiningFilter *cf)
 }
 
 CombiningFilter make_combining_filter(CombiningFilter::Flag flags,
-                                      u16 wordCount,
+                                      u8 wordCount,
                                       const std::vector<std::string> &filterStrings)
 {
     CombiningFilter result = {};

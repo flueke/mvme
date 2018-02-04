@@ -478,14 +478,18 @@ class LIBMVME_EXPORT CombiningExtractor: public SourceInterface
         virtual QString getDisplayName() const override { return QSL("Combining Extractor"); }
         virtual QString getShortName() const override { return QSL("CExt"); }
 
-        a2::CombiningExtractor getExtractor() const { return m_extractor; }
-        void setExtractor(const a2::CombiningExtractor &ex) { m_extractor = ex; }
+        a2::CombiningExtractor getExtractor() const { return m_a2Extractor; }
+        void setExtractor(const a2::CombiningExtractor &ex) { m_a2Extractor = ex; }
         u64 getRngSeed() const { return m_rngSeed; }
         void setRngSeed(u64 seed) { m_rngSeed = seed; }
 
     private:
         Pipe m_output;
-        a2::CombiningExtractor m_extractor;
+        /* This only serves to hold data. It's not passed into the a2 system.
+         * The members .rng and .moduleIndex are not set up as that information
+         * is not available and not required when serializing this
+         * CombiningExtractor. */
+        a2::CombiningExtractor m_a2Extractor;
         u64 m_rngSeed;
 };
 

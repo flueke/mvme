@@ -6,7 +6,7 @@
 #include <string>
 #include <array>
 
-// Huge speedup if bmi2 is enabled. Huge penalty otherwise.
+// Speedup if bmi2 is enabled, penalty otherwise.
 #ifdef __BMI2__
 #define A2_DATA_FILTER_ALWAYS_GATHER
 #endif

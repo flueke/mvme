@@ -45,50 +45,10 @@ Single Stepping and Stream Processing
 --------------------------------------------------
 CombiningFilter and CombiningExtractor
 --------------------------------------------------
-void a2_process_module_data(A2 *a2, int eventIndex, int moduleIndex, const u32 *data, u32 dataSize)
-{
-    ....
-
-    const u32 *curPtr = data
-    const u32 curSize = dataSize;
-
-    for (auto combiner: a2->combiningExtractors[eventIndex])
-    {
-        if (combiner->moduleIndex != moduleIndex)
-            continue;
-
-        u32 consumed = combiner_process_module_data(combiner, curPtr, curSize);
-        assert(consumed <= curSize);
-        curPtr += consumed;
-        curSize -= consumed;
-
-        if (curPtr >= data + dataSize)
-        {
-            // early termination due to running out of data
-            // could warn about this
-            break;
-        }
-    }
-
-    u32 notConsumed = dataSize - curSize; // could warn about this
-
-
-
-....
-}
-
-* repCountFilter may not contribute any data bits, only address bits
-class LIBMVME_EXPORT CombiningExtractor: public SourceInterface
-{
-};
-
-
+* 64 bit DataFilter
+* phase out data_filter.h
 
 --------------------------------------------------
-
-* Implement a2::data_filters for 64 bit values. This will be useful for the
-  upcoming CombiningFilter implementation.
-
 
 * analysis session: errors out when saving and empty analysis session
   - enable the save action only if the analysis is non-empty
