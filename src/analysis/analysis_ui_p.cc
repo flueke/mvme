@@ -27,6 +27,7 @@
 #include "../vme_config.h"
 #include "../mvme_context.h"
 #include "../qt_util.h"
+#include "../data_filter.h"
 
 #include <limits>
 #include <QButtonGroup>
@@ -245,21 +246,216 @@ void AddEditExtractorWidget::reject()
 // CombiningExtractorDialog
 //
 
-CombiningExtractorDialog::CombiningExtractorDialog(SourcePtr srcPtr, ModuleConfig *mod, QWidget *parent)
+/* Parts
+ * Left:
+ *   Modulename label
+ *   Filter list or table
+ *   Input words used label
+ *   Filter operations: buttons or tableview interaction
+ *   clone (copy) operation
+ *
+ *  Right:
+ *    ListFilter name label
+ *    Repetitions
+ *    Combine options:
+ *      word size
+ *      word count
+ *      swap word order
+ *
+ *    Filter fields:
+ *     repetition index
+ *     two 32 bit filter inputs
+ *
+ *
+ * Right side embedded into a QStackedWidget.
+ *
+ */
+
+struct ListFilterEditor
+{
+    QWidget *widget;
+
+    QLabel *label_addressBits,
+           *label_dataBits,
+           *label_outputSize;
+
+    QSpinBox *spin_repetitions,
+             *spin_wordCount;
+
+    QLineEdit *le_name,
+              *filter_lowWord,
+              *filter_highWord,
+              *filter_repIndex;
+
+    QComboBox *combo_wordSize;
+
+    QCheckBox *cb_swapWords;
+};
+
+ListFilterEditor make_listfilter_editor(QWidget *parent = nullptr)
+{
+    using a2::data_filter::CombiningFilter;
+
+    ListFilterEditor e = {};
+
+    e.widget = new QWidget(parent);
+    e.le_name = new QLineEdit;
+    e.label_addressBits = new QLabel;
+    e.label_dataBits = new QLabel;
+    e.label_outputSize = new QLabel;
+    e.spin_repetitions = new QSpinBox;
+    e.spin_wordCount = new QSpinBox;
+    e.filter_lowWord = makeFilterEdit();
+    e.filter_highWord = makeFilterEdit();
+    e.filter_repIndex = makeFilterEdit();
+    e.combo_wordSize = new QComboBox;
+    e.cb_swapWords = new QCheckBox;
+
+    e.spin_repetitions->setMinimum(1);
+    e.spin_repetitions->setMaximum(std::numeric_limits<u8>::max());
+
+    e.combo_wordSize->addItem("16 bit", CombiningFilter::NoFlag);
+    e.combo_wordSize->addItem("32 bit", CombiningFilter::WordSize32);
+
+    // word size handling
+    auto on_wordSize_selected = [e] (int index)
+    {
+        switch (static_cast<CombiningFilter::Flag>(e.combo_wordSize->itemData(index).toInt()))
+        {
+            case CombiningFilter::NoFlag:
+                e.spin_wordCount->setMaximum(4);
+                break;
+
+            case CombiningFilter::WordSize32:
+                e.spin_wordCount->setMaximum(2);
+                break;
+        }
+    };
+
+    QObject::connect(e.combo_wordSize, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
+                     e.widget, on_wordSize_selected);
+
+    on_wordSize_selected(0);
+
+    // layout
+    auto widgetLayout = new QVBoxLayout(e.widget);
+
+    {
+        auto layout = new QFormLayout();
+        layout->addRow("Name", e.le_name);
+        layout->addRow("Repetitions", e.spin_repetitions);
+        layout->addRow("Word size", e.combo_wordSize);
+        layout->addRow("Word count", e.spin_wordCount);
+        layout->addRow("Swap words", e.cb_swapWords);
+        layout->addRow("Low word", e.filter_lowWord);
+        layout->addRow("High word", e.filter_highWord);
+        layout->addRow("Repetition index", e.filter_repIndex);
+
+        widgetLayout->addLayout(layout);
+    }
+
+    return e;
+}
+
+static void listfilter_editor_load_from_extractor(ListFilterEditor e, const CombiningExtractor *ex)
+{
+    using a2::data_filter::CombiningFilter;
+
+    e.le_name->setText(ex->objectName());
+
+    auto ex_a2 = ex->getExtractor();
+    auto listfilter = ex_a2.combiningFilter;
+
+    e.spin_repetitions->setValue(ex_a2.repetitions);
+    e.combo_wordSize->setCurrentIndex(listfilter.flags & CombiningFilter::WordSize32);
+    e.spin_wordCount->setValue(listfilter.wordCount);
+    e.cb_swapWords->setChecked(listfilter.flags & CombiningFilter::ReverseCombine);
+
+    e.filter_lowWord->setText(QString::fromStdString(
+        to_string(listfilter.extractionFilter.filters[0])));
+
+    e.filter_highWord->setText(QString::fromStdString(
+        to_string(listfilter.extractionFilter.filters[1])));
+
+    e.filter_repIndex->setText(QString::fromStdString(
+        to_string(ex_a2.repetitionAddressFilter)));
+}
+
+static void listfilter_editor_save_to_extractor(ListFilterEditor e, CombiningExtractor *ex)
+{
+    using namespace a2::data_filter;
+
+    a2::CombiningExtractor ex_a2 = {};
+
+    std::vector<std::string> filters =
+    {
+        e.filter_lowWord->text().toStdString(),
+        e.filter_highWord->text().toStdString(),
+    };
+
+    CombiningFilter::Flag flags = e.combo_wordSize->currentData().toUInt();
+
+    if (e.cb_swapWords->isChecked())
+    {
+        flags |= CombiningFilter::ReverseCombine;
+    }
+
+    ex_a2.combiningFilter = make_combining_filter(flags,
+                                                  e.spin_wordCount->value(),
+                                                  filters);
+
+    ex_a2.repetitionAddressFilter = make_filter(e.filter_repIndex->text().toStdString());
+    ex_a2.repetitions = e.spin_repetitions->value();
+
+    ex->setObjectName(e.le_name->text());
+    ex->setExtractor(ex_a2);
+}
+
+CombiningExtractorDialog::CombiningExtractorDialog(SourcePtr srcPtr, ModuleConfig *mod,
+                                                   analysis::Analysis *analysis, QWidget *parent)
     : QDialog(parent)
     , m_srcPtr(srcPtr)
     , m_module(mod)
 {
+    auto widgetLayout = new QVBoxLayout(this);
+
+    auto buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Apply | QDialogButtonBox::Cancel);
+    buttonBox->button(QDialogButtonBox::Ok)->setDefault(true);
+    connect(buttonBox, &QDialogButtonBox::accepted, this, &CombiningExtractorDialog::accept);
+    connect(buttonBox, &QDialogButtonBox::rejected, this, &CombiningExtractorDialog::reject);
+    connect(buttonBox, &QDialogButtonBox::clicked, this, [this, buttonBox](QAbstractButton *button) {
+        if (buttonBox->buttonRole(button) == QDialogButtonBox::ApplyRole)
+        {
+            apply();
+        }
+    });
+
+    auto contentsLayout = new QHBoxLayout;
+    contentsLayout->addWidget(new QLabel("Hello, World!"));
+    contentsLayout->addWidget(make_listfilter_editor().widget);
+
+    widgetLayout->addLayout(contentsLayout);
+    widgetLayout->setStretch(0, 1);
+    widgetLayout->addWidget(buttonBox);
 }
 
 void CombiningExtractorDialog::accept()
 {
+    apply();
     QDialog::accept();
 }
 
 void CombiningExtractorDialog::reject()
 {
     QDialog::reject();
+}
+
+void CombiningExtractorDialog::apply()
+{
+}
+
+void CombiningExtractorDialog::repopulate()
+{
 }
 
 //
@@ -701,7 +897,7 @@ static bool is_set_to_min(QDoubleSpinBox *spin)
     return (spin->value() == spin->minimum());
 }
 
-void repopulate_arrayMap_tables(ArrayMap *arrayMap, const ArrayMappings &mappings, QTableWidget *tw_input, QTableWidget *tw_output)
+static void repopulate_arrayMap_tables(ArrayMap *arrayMap, const ArrayMappings &mappings, QTableWidget *tw_input, QTableWidget *tw_output)
 {
     Q_ASSERT(arrayMap && tw_input && tw_output);
 
@@ -1250,50 +1446,6 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
         formLayout->addRow(new QLabel(QSL("Leave output unit blank to copy from input.")));
     }
 }
-
-#if 0
-// FIXME: right now this is not actually called by AddEditOperatorWidget...
-bool OperatorConfigurationWidget::validateInputs()
-{
-    qDebug() << __PRETTY_FUNCTION__;
-    OperatorInterface *op = m_op;
-
-    if (le_name->text().isEmpty())
-        return false;
-
-    if (auto histoSink = qobject_cast<Histo1DSink *>(op))
-    {
-        return true;
-    }
-    else if (auto histoSink = qobject_cast<Histo2DSink *>(op))
-    {
-        bool result = true;
-        if (limits_x.rb_limited->isChecked())
-        {
-            result = result && (limits_x.spin_min->value() != limits_x.spin_max->value());
-        }
-
-        if (limits_y.rb_limited->isChecked())
-        {
-            result = result && (limits_y.spin_min->value() != limits_y.spin_max->value());
-        }
-
-        return result;
-    }
-    else if (auto calibration = qobject_cast<CalibrationMinMax *>(op))
-    {
-        double unitMin = spin_unitMin->value();
-        double unitMax = spin_unitMax->value();
-        return (unitMin != unitMax);
-    }
-    else if (auto selector = qobject_cast<IndexSelector *>(op))
-    {
-        return true;
-    }
-
-    return false;
-}
-#endif
 
 // NOTE: This will be called after construction for each slot by AddEditOperatorWidget::repopulateSlotGrid()!
 void OperatorConfigurationWidget::inputSelected(s32 slotIndex)

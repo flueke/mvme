@@ -44,6 +44,9 @@
 #include <QToolBar>
 #include <QWidget>
 
+#include <QStackedWidget>
+#include <QListView>
+
 class MVMEContext;
 class ModuleConfig;
 
@@ -94,10 +97,11 @@ class EventWidget: public QWidget
         friend class AnalysisWidget;
         friend class AnalysisWidgetPrivate;
 
+    public slots:
+        void combiningExtractorDialogAccepted();
+        void combiningExtractorDialogRejected();
+
     private:
-        // Note: the EventWidgetPrivate part is not neccessary anymore as this
-        // now already is inside a private header. I started EventWidget as the
-        // main AnalysisUI class...
         EventWidgetPrivate *m_d;
 };
 
@@ -136,13 +140,23 @@ class CombiningExtractorDialog: public QDialog
 {
     Q_OBJECT
     public:
-        CombiningExtractorDialog(SourcePtr srcPtr, ModuleConfig *mod, QWidget *parent = nullptr);
+        CombiningExtractorDialog(SourcePtr srcPtr, ModuleConfig *mod,
+                                 analysis::Analysis *analysis, QWidget *parent = nullptr);
 
+    public slots:
         virtual void accept() override;
         virtual void reject() override;
+        void apply();
+
+    private:
+        void repopulate();
 
         SourcePtr m_srcPtr;
         ModuleConfig *m_module;
+        analysis::Analysis *m_analysis;
+
+        QStackedWidget *m_editorStack;
+        QListView *m_filterList;
 
         QLineEdit *le_name;
         QDialogButtonBox *m_buttonBox;

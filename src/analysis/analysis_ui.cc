@@ -1015,7 +1015,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
             {
                 auto moduleConfig = getPointer<ModuleConfig>(node);
 
-                // new sources
+                // new data sources / filters
                 auto add_action = [this, &menu, menuNew, moduleConfig](const QString &title, auto srcPtr)
                 {
                     menuNew->addAction(title, &menu, [this, moduleConfig, srcPtr]() {
@@ -1027,10 +1027,9 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                         }
                         else if (dynamic_cast<CombiningExtractor *>(srcPtr.get()))
                         {
-                            dialog = new CombiningExtractorDialog(srcPtr, moduleConfig, m_q);
-                            QObject::connect(dialog, &QDialog::accepted, m_q, [=]() {
-                                // TODO: add the combiningextractor and tell the eventwidget about it
-                            });
+                            dialog = new CombiningExtractorDialog(srcPtr, moduleConfig, m_context->getAnalysis(), m_q);
+                            QObject::connect(dialog, &QDialog::accepted, m_q, &EventWidget::combiningExtractorDialogAccepted);
+                            QObject::connect(dialog, &QDialog::rejected, m_q, &EventWidget::combiningExtractorDialogRejected);
                         }
                         else
                         {
@@ -1137,7 +1136,7 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                             else if (dynamic_cast<CombiningExtractor *>(sourceInterface))
                             {
                                 auto srcPtr = std::dynamic_pointer_cast<SourceInterface>(sourceInterface->shared_from_this());
-                                dialog = new CombiningExtractorDialog(srcPtr, moduleConfig, m_q);
+                                dialog = new CombiningExtractorDialog(srcPtr, moduleConfig, m_context->getAnalysis(), m_q);
 
                                 QObject::connect(dialog, &QDialog::accepted, m_q, [=]() {
                                 });
@@ -1271,6 +1270,18 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
     {
         menu.exec(tree->mapToGlobal(pos));
     }
+}
+
+void EventWidget::combiningExtractorDialogAccepted()
+{
+    qDebug() << __PRETTY_FUNCTION__;
+    uniqueWidgetCloses();
+}
+
+void EventWidget::combiningExtractorDialogRejected()
+{
+    qDebug() << __PRETTY_FUNCTION__;
+    uniqueWidgetCloses();
 }
 
 void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel)
