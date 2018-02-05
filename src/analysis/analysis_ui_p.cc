@@ -44,13 +44,13 @@
 namespace analysis
 {
 //
-// AddEditSourceWidget
+// AddEditExtractorWidget
 //
 
 /** IMPORTANT: This constructor makes the Widget go into "add" mode. When
  * accepting the widget inputs it will call eventWidget->addSource(). */
-AddEditSourceWidget::AddEditSourceWidget(SourcePtr srcPtr, ModuleConfig *mod, EventWidget *eventWidget)
-    : AddEditSourceWidget(srcPtr.get(), mod, eventWidget)
+AddEditExtractorWidget::AddEditExtractorWidget(SourcePtr srcPtr, ModuleConfig *mod, EventWidget *eventWidget)
+    : AddEditExtractorWidget(srcPtr.get(), mod, eventWidget)
 {
     m_srcPtr = srcPtr;
     setWindowTitle(QString("New  %1").arg(srcPtr->getDisplayName()));
@@ -95,7 +95,7 @@ AddEditSourceWidget::AddEditSourceWidget(SourcePtr srcPtr, ModuleConfig *mod, Ev
 
 /** IMPORTANT: This constructor makes the Widget go into "edit" mode. When
  * accepting the widget inputs it will call eventWidget->sourceEdited(). */
-AddEditSourceWidget::AddEditSourceWidget(SourceInterface *src, ModuleConfig *module, EventWidget *eventWidget)
+AddEditExtractorWidget::AddEditExtractorWidget(SourceInterface *src, ModuleConfig *module, EventWidget *eventWidget)
     : QDialog(eventWidget)
     , m_src(src)
     , m_module(module)
@@ -113,7 +113,7 @@ AddEditSourceWidget::AddEditSourceWidget(SourceInterface *src, ModuleConfig *mod
     loadTemplateLayout->addWidget(loadTemplateButton);
     loadTemplateLayout->addStretch();
 
-    connect(loadTemplateButton, &QPushButton::clicked, this, &AddEditSourceWidget::runLoadTemplateDialog);
+    connect(loadTemplateButton, &QPushButton::clicked, this, &AddEditExtractorWidget::runLoadTemplateDialog);
 
     auto extractor = qobject_cast<Extractor *>(src);
     Q_ASSERT(extractor);
@@ -146,8 +146,8 @@ AddEditSourceWidget::AddEditSourceWidget(SourceInterface *src, ModuleConfig *mod
 
     m_buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
     m_buttonBox->button(QDialogButtonBox::Ok)->setDefault(true);
-    connect(m_buttonBox, &QDialogButtonBox::accepted, this, &AddEditSourceWidget::accept);
-    connect(m_buttonBox, &QDialogButtonBox::rejected, this, &AddEditSourceWidget::reject);
+    connect(m_buttonBox, &QDialogButtonBox::accepted, this, &AddEditExtractorWidget::accept);
+    connect(m_buttonBox, &QDialogButtonBox::rejected, this, &AddEditExtractorWidget::reject);
     auto buttonBoxLayout = new QVBoxLayout;
     buttonBoxLayout->addStretch();
     buttonBoxLayout->addWidget(m_buttonBox);
@@ -161,7 +161,7 @@ AddEditSourceWidget::AddEditSourceWidget(SourceInterface *src, ModuleConfig *mod
     layout->setStretch(0, 1);
 }
 
-void AddEditSourceWidget::runLoadTemplateDialog()
+void AddEditExtractorWidget::runLoadTemplateDialog()
 {
     auto templateList = new QListWidget;
 
@@ -195,7 +195,7 @@ void AddEditSourceWidget::runLoadTemplateDialog()
  * The index is an index into a vector of Extractor instances obtained from
  * get_default_data_extractors() cached in m_defaultExtractors.
  */
-void AddEditSourceWidget::applyTemplate(int index)
+void AddEditExtractorWidget::applyTemplate(int index)
 {
     if (0 <= index && index < m_defaultExtractors.size())
     {
@@ -207,7 +207,7 @@ void AddEditSourceWidget::applyTemplate(int index)
     }
 }
 
-void AddEditSourceWidget::accept()
+void AddEditExtractorWidget::accept()
 {
     qDebug() << __PRETTY_FUNCTION__;
 
@@ -234,10 +234,31 @@ void AddEditSourceWidget::accept()
     QDialog::accept();
 }
 
-void AddEditSourceWidget::reject()
+void AddEditExtractorWidget::reject()
 {
     qDebug() << __PRETTY_FUNCTION__;
     m_eventWidget->uniqueWidgetCloses();
+    QDialog::reject();
+}
+
+//
+// CombiningExtractorDialog
+//
+
+CombiningExtractorDialog::CombiningExtractorDialog(SourcePtr srcPtr, ModuleConfig *mod, QWidget *parent)
+    : QDialog(parent)
+    , m_srcPtr(srcPtr)
+    , m_module(mod)
+{
+}
+
+void CombiningExtractorDialog::accept()
+{
+    QDialog::accept();
+}
+
+void CombiningExtractorDialog::reject()
+{
     QDialog::reject();
 }
 

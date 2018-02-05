@@ -391,6 +391,11 @@ void ModuleConfig::write_impl(QJsonObject &json) const
         json["properties"] = props;
 }
 
+EventConfig *ModuleConfig::getEventConfig() const
+{
+    return qobject_cast<EventConfig *>(parent());
+}
+
 //
 // EventConfig
 //

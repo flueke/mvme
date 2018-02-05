@@ -135,39 +135,25 @@ struct PipeVectors
 };
 
 /* ===============================================
- * Extractors
+ * Data Sources
  * =============================================== */
-struct Extractor
+struct DataSource
 {
-    data_filter::MultiWordFilter filter;
-    pcg32_fast rng;
     PipeVectors output;
     ParamVec hitCounts;
-    u32 requiredCompletions;
-    u32 currentCompletions;
+    void *d;
     u8 moduleIndex;
+    u8 type;
 };
 
-Extractor make_extractor(
+DataSource make_extractor(
     memory::Arena *arena,
     data_filter::MultiWordFilter filter,
     u32 requiredCompletions,
     u64 rngSeed,
     int moduleIndex);
 
-struct CombiningExtractor
-{
-    data_filter::CombiningFilter combiningFilter;
-    data_filter::DataFilter repetitionAddressFilter;
-    data_filter::CacheEntry repetitionAddressCache;
-    pcg32_fast rng;
-    PipeVectors output;
-    ParamVec hitCounts;
-    u8 repetitions;
-    u8 moduleIndex;
-};
-
-CombiningExtractor make_combining_extractor(
+DataSource make_combining_extractor(
     memory::Arena *arena,
     data_filter::CombiningFilter combiningFilter,
     data_filter::DataFilter repetitionAddressFilter,
@@ -175,7 +161,13 @@ CombiningExtractor make_combining_extractor(
     u64 rngSeed,
     u8 moduleIndex);
 
-size_t get_address_count(CombiningExtractor *ex);
+size_t get_address_count(DataSource *ds);
+
+void extractor_begin_event(DataSource *ex);
+void extractor_process_module_data(DataSource *ex, u32 *data, u32 size);
+void combining_extractor_begin_event(DataSource *ex);
+u32 *combining_extractor_process_module_data(DataSource *ex, u32 *data, u32 dataSize);
+
 
 /* ===============================================
  * Operators
@@ -200,11 +192,6 @@ struct Operator
 };
 
 void assign_input(Operator *op, PipeVectors input, s32 inputIndex);
-void extractor_begin_event(Extractor *ex);
-void extractor_process_module_data(Extractor *ex, u32 *data, u32 size);
-void combining_extractor_begin_event(CombiningExtractor *ex);
-u32 *combining_extractor_process_module_data(CombiningExtractor *ex, u32 *data, u32 dataSize);
-
 Operator make_calibration(
     memory::Arena *arena,
     PipeVectors input,
@@ -437,11 +424,8 @@ static const int MaxVMEModules = 20;
 
 struct A2
 {
-    std::array<u8, MaxVMEEvents> extractorCounts;
-    std::array<Extractor *, MaxVMEEvents> extractors;
-
-    std::array<u8, MaxVMEEvents> combiningExtractorCounts;
-    std::array<CombiningExtractor *, MaxVMEEvents> combiningExtractors;
+    std::array<u8, MaxVMEEvents> dataSourceCounts;
+    std::array<DataSource *, MaxVMEEvents> dataSources;
 
     std::array<u8, MaxVMEEvents> operatorCounts;
     std::array<Operator *, MaxVMEEvents> operators;

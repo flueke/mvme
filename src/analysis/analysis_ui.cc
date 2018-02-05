@@ -1019,12 +1019,29 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                 auto add_action = [this, &menu, menuNew, moduleConfig](const QString &title, auto srcPtr)
                 {
                     menuNew->addAction(title, &menu, [this, moduleConfig, srcPtr]() {
-                        auto widget = new AddEditSourceWidget(srcPtr, moduleConfig, m_q);
-                        widget->move(QCursor::pos());
-                        widget->setAttribute(Qt::WA_DeleteOnClose);
-                        widget->show();
+                        QDialog *dialog = nullptr;
+
+                        if (dynamic_cast<Extractor *>(srcPtr.get()))
+                        {
+                            dialog = new AddEditExtractorWidget(srcPtr, moduleConfig, m_q);
+                        }
+                        else if (dynamic_cast<CombiningExtractor *>(srcPtr.get()))
+                        {
+                            dialog = new CombiningExtractorDialog(srcPtr, moduleConfig, m_q);
+                            QObject::connect(dialog, &QDialog::accepted, m_q, [=]() {
+                                // TODO: add the combiningextractor and tell the eventwidget about it
+                            });
+                        }
+                        else
+                        {
+                            InvalidCodePath;
+                        }
+
+                        dialog->move(QCursor::pos());
+                        dialog->setAttribute(Qt::WA_DeleteOnClose);
+                        dialog->show();
                         m_uniqueWidgetActive = true;
-                        m_uniqueWidget = widget;
+                        m_uniqueWidget = dialog;
                         clearAllTreeSelections();
                         clearAllToDefaultNodeHighlights();
                     });
@@ -1111,12 +1128,30 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                     if (moduleConfig)
                     {
                         menu.addAction(QSL("Edit"), [this, sourceInterface, moduleConfig]() {
-                            auto widget = new AddEditSourceWidget(sourceInterface, moduleConfig, m_q);
-                            widget->move(QCursor::pos());
-                            widget->setAttribute(Qt::WA_DeleteOnClose);
-                            widget->show();
+                            QDialog *dialog = nullptr;
+
+                            if (dynamic_cast<Extractor *>(sourceInterface))
+                            {
+                                dialog = new AddEditExtractorWidget(sourceInterface, moduleConfig, m_q);
+                            }
+                            else if (dynamic_cast<CombiningExtractor *>(sourceInterface))
+                            {
+                                auto srcPtr = std::dynamic_pointer_cast<SourceInterface>(sourceInterface->shared_from_this());
+                                dialog = new CombiningExtractorDialog(srcPtr, moduleConfig, m_q);
+
+                                QObject::connect(dialog, &QDialog::accepted, m_q, [=]() {
+                                });
+                            }
+                            else
+                            {
+                                InvalidCodePath;
+                            }
+
+                            dialog->move(QCursor::pos());
+                            dialog->setAttribute(Qt::WA_DeleteOnClose);
+                            dialog->show();
                             m_uniqueWidgetActive = true;
-                            m_uniqueWidget = widget;
+                            m_uniqueWidget = dialog;
                             clearAllTreeSelections();
                             clearAllToDefaultNodeHighlights();
                         });
@@ -2134,12 +2169,12 @@ void EventWidgetPrivate::periodicUpdateExtractorCounters(double dt_s)
             if (!a2State)
                 continue;
 
-            auto ex_a2 = a2State->sourceMap.value(extractor, nullptr);
+            auto ds_a2 = a2State->sourceMap.value(extractor, nullptr);
 
-            if (!ex_a2)
+            if (!ds_a2)
                 continue;
 
-            auto hitCounts = to_qvector(ex_a2->hitCounts);
+            auto hitCounts = to_qvector(ds_a2->hitCounts);
 
             auto &prevHitCounts = m_extractorCounters[extractor].hitCounts;
 

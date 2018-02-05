@@ -135,27 +135,65 @@ void push_output_vectors(
  * =============================================== */
 static std::uniform_real_distribution<double> RealDist01(0.0, 1.0);
 
-Extractor make_extractor(
+size_t get_address_count(DataSource *ds)
+{
+    switch (static_cast<DataSourceType>(ds->type))
+    {
+        case DataSource_Extractor:
+            {
+                auto ex = reinterpret_cast<Extractor *>(ds->d);
+                return get_address_count(ex);
+            } break;
+
+        case DataSource_CombiningExtractor:
+            {
+                auto ex = reinterpret_cast<CombiningExtractor *>(ds->d);
+                return get_address_count(ex);
+            } break;
+    }
+
+    return 0u;
+}
+
+size_t get_address_count(Extractor *ex)
+{
+    u16 bits = get_extract_bits(&ex->filter, MultiWordFilter::CacheA);
+    return 1u << bits;
+}
+
+size_t get_address_count(CombiningExtractor *ex)
+{
+    u16 baseAddressBits = get_extract_bits(&ex->combiningFilter, MultiWordFilter::CacheA);
+    u16 repAddressBits  = ex->repetitionAddressCache.extractBits;
+    u16 bits = baseAddressBits + repAddressBits;
+    return 1u << bits;
+}
+
+// Extractor
+DataSource make_extractor(
     Arena *arena,
     MultiWordFilter filter,
     u32 requiredCompletions,
     u64 rngSeed,
     int moduleIndex)
 {
-    Extractor result = {};
+    DataSource result = {};
 
-    result.filter = filter;
-    result.requiredCompletions = requiredCompletions;
-    result.currentCompletions = 0;
-    result.rng.seed(rngSeed);
+    auto ex = arena->pushStruct<Extractor>();
+    result.d = ex;
+
+    ex->filter = filter;
+    ex->requiredCompletions = requiredCompletions;
+    ex->currentCompletions = 0;
+    ex->rng.seed(rngSeed);
     result.moduleIndex = moduleIndex;
 
-    size_t addrCount = 1u << get_extract_bits(&result.filter, MultiWordFilter::CacheA);
+    size_t addrCount = get_address_count(&result);
 
     // The highest value the filter will yield is ((2^bits) - 1) but we're
     // adding a random in [0.0, 1.0) so the actual exclusive upper limit is
     // (2^bits).
-    double upperLimit = std::pow(2.0, get_extract_bits(&result.filter, MultiWordFilter::CacheD));
+    double upperLimit = std::pow(2.0, get_extract_bits(&ex->filter, MultiWordFilter::CacheD));
 
     result.output.data = push_param_vector(arena, addrCount, invalid_param());
     result.output.lowerLimits = push_param_vector(arena, addrCount, 0.0);
@@ -166,16 +204,21 @@ Extractor make_extractor(
     return  result;
 }
 
-void extractor_begin_event(Extractor *ex)
+void extractor_begin_event(DataSource *ds)
 {
+    assert(ds->type == DataSource_Extractor);
+    auto ex = reinterpret_cast<Extractor *>(ds->d);
     clear_completion(&ex->filter);
     ex->currentCompletions = 0;
-    invalidate_all(ex->output.data);
+    invalidate_all(ds->output.data);
 }
 
-void extractor_process_module_data(Extractor *ex, u32 *data, u32 size)
+void extractor_process_module_data(DataSource *ds, u32 *data, u32 size)
 {
     assert(memory::is_aligned(data, ModuleDataAlignment));
+    assert(ds->type == DataSource_Extractor);
+
+    auto ex = reinterpret_cast<Extractor *>(ds->d);
 
     for (u32 wordIndex = 0;
          wordIndex < size;
@@ -193,12 +236,12 @@ void extractor_process_module_data(Extractor *ex, u32 *data, u32 size)
                 u64 address = extract(&ex->filter, MultiWordFilter::CacheA);
                 u64 value   = extract(&ex->filter, MultiWordFilter::CacheD);
 
-                assert(address < static_cast<u64>(ex->output.data.size));
+                assert(address < static_cast<u64>(ds->output.data.size));
 
-                if (!is_param_valid(ex->output.data[address]))
+                if (!is_param_valid(ds->output.data[address]))
                 {
-                    ex->output.data[address] = value + RealDist01(ex->rng);
-                    ex->hitCounts[address]++;
+                    ds->output.data[address] = value + RealDist01(ex->rng);
+                    ds->hitCounts[address]++;
                 }
             }
 
@@ -207,7 +250,8 @@ void extractor_process_module_data(Extractor *ex, u32 *data, u32 size)
     }
 }
 
-CombiningExtractor make_combining_extractor(
+// CombiningExtractor
+DataSource make_combining_extractor(
     memory::Arena *arena,
     data_filter::CombiningFilter combiningFilter,
     data_filter::DataFilter repetitionAddressFilter,
@@ -215,13 +259,16 @@ CombiningExtractor make_combining_extractor(
     u64 rngSeed,
     u8 moduleIndex)
 {
-    CombiningExtractor result = {};
+    DataSource result = {};
 
-    result.combiningFilter = combiningFilter;
-    result.repetitionAddressFilter = repetitionAddressFilter;
-    result.repetitionAddressCache = make_cache_entry(repetitionAddressFilter, 'A');
-    result.rng.seed(rngSeed);
-    result.repetitions = repetitions;
+    auto d = arena->pushStruct<CombiningExtractor>();
+    result.d = d;
+
+    d->combiningFilter = combiningFilter;
+    d->repetitionAddressFilter = repetitionAddressFilter;
+    d->repetitionAddressCache = make_cache_entry(repetitionAddressFilter, 'A');
+    d->rng.seed(rngSeed);
+    d->repetitions = repetitions;
     result.moduleIndex = moduleIndex;
 
     // This call works as combiningFilter and repetitionAddressCache have been
@@ -242,24 +289,21 @@ CombiningExtractor make_combining_extractor(
     return result;
 }
 
-size_t get_address_count(CombiningExtractor *ex)
+void combining_extractor_begin_event(DataSource *ds)
 {
-    u16 baseAddressBits = get_extract_bits(&ex->combiningFilter, MultiWordFilter::CacheA);
-    u16 repAddressBits  = ex->repetitionAddressCache.extractBits;
-    u16 totalAddressBits = baseAddressBits + repAddressBits;
-
-    return 1u << totalAddressBits;
+    assert(ds->type == DataSource_CombiningExtractor);
+    auto ex = reinterpret_cast<Extractor *>(ds->d);
+    invalidate_all(ds->output.data);
 }
 
-void combining_extractor_begin_event(CombiningExtractor *ex)
+u32 *combining_extractor_process_module_data(DataSource *ds, u32 *data, u32 dataSize)
 {
-    invalidate_all(ex->output.data);
-}
+    assert(ds->type == DataSource_CombiningExtractor);
 
-u32 *combining_extractor_process_module_data(CombiningExtractor *ex, u32 *data, u32 dataSize)
-{
     u32 *curPtr = data;
     u32 curSize = dataSize;
+
+    auto ex = reinterpret_cast<CombiningExtractor *>(ds->d);
 
     for (u32 rep = 0; rep < ex->repetitions; rep++)
     {
@@ -292,12 +336,12 @@ u32 *combining_extractor_process_module_data(CombiningExtractor *ex, u32 *data, 
         u64 address = addressResult.first | (repCountAddress << baseAddressBits);
         u64 value   = dataResult.first;
 
-        assert(address < static_cast<u64>(ex->output.data.size));
+        assert(address < static_cast<u64>(ds->output.data.size));
 
-        if (!is_param_valid(ex->output.data[address]))
+        if (!is_param_valid(ds->output.data[address]))
         {
-            ex->output.data[address] = value + RealDist01(ex->rng);
-            ex->hitCounts[address]++;
+            ds->output.data[address] = value + RealDist01(ex->rng);
+            ds->hitCounts[address]++;
         }
 
         if (curPtr >= data + dataSize)
@@ -2091,26 +2135,26 @@ inline void step_operator(Operator *op)
 
 A2 make_a2(
     Arena *arena,
-    std::initializer_list<u8> extractorCounts,
+    std::initializer_list<u8> dataSourceCounts,
     std::initializer_list<u8> operatorCounts)
 {
-    assert(extractorCounts.size() < MaxVMEEvents);
+    assert(dataSourceCounts.size() < MaxVMEEvents);
     assert(operatorCounts.size() < MaxVMEEvents);
 
     A2 result = {};
 
-    result.extractorCounts.fill(0);
-    result.extractors.fill(nullptr);
+    result.dataSourceCounts.fill(0);
+    result.dataSources.fill(nullptr);
     result.operatorCounts.fill(0);
     result.operators.fill(nullptr);
     result.operatorRanks.fill(0);
 
-    const u8 *ec = extractorCounts.begin();
+    const u8 *ec = dataSourceCounts.begin();
 
-    for (size_t ei = 0; ei < extractorCounts.size(); ++ei, ++ec)
+    for (size_t ei = 0; ei < dataSourceCounts.size(); ++ei, ++ec)
     {
         //printf("%s: %lu -> %u\n", __PRETTY_FUNCTION__, ei, (u32)*ec);
-        result.extractors[ei] = arena->pushArray<Extractor>(*ec);
+        result.dataSources[ei] = arena->pushArray<DataSource>(*ec);
     }
 
     for (size_t ei = 0; ei < operatorCounts.size(); ++ei)
@@ -2127,78 +2171,24 @@ void a2_begin_event(A2 *a2, int eventIndex)
 {
     assert(eventIndex < MaxVMEEvents);
 
-    int exCount = a2->extractorCounts[eventIndex];
+    int srcCount = a2->dataSourceCounts[eventIndex];
 
-    a2_trace("ei=%d, extractors=%d\n", eventIndex, exCount);
+    a2_trace("ei=%d, dataSources=%d\n", eventIndex, srcCount);
 
-    for (int exIdx = 0; exIdx < exCount; exIdx++)
+    for (int srcIdx = 0; srcIdx < srcCount; srcIdx++)
     {
-        Extractor *ex = a2->extractors[eventIndex] + exIdx;
-        extractor_begin_event(ex);
-    }
+        DataSource *ds = a2->dataSources[eventIndex] + srcIdx;
 
-    exCount = a2->combiningExtractorCounts[eventIndex];
-
-    a2_trace("ei=%d, combiningExtractors=%d\n", eventIndex, exCount);
-
-    for (int exIdx = 0; exIdx < exCount; exIdx++)
-    {
-        CombiningExtractor *ex = a2->combiningExtractors[eventIndex] + exIdx;
-        combining_extractor_begin_event(ex);
-    }
-}
-
-inline static
-void a2_process_extractors(A2 *a2, int eventIndex, int moduleIndex, u32 *data, u32 dataSize)
-{
-    int exCount = a2->extractorCounts[eventIndex];
-#ifndef NDEBUG
-    int nprocessed = 0;
-#endif
-
-    for (int exIdx = 0; exIdx < exCount; exIdx++)
-    {
-        Extractor *ex = a2->extractors[eventIndex] + exIdx;
-        if (ex->moduleIndex == moduleIndex)
+        switch (static_cast<DataSourceType>(ds->type))
         {
-            extractor_process_module_data(ex, data, dataSize);
-#ifndef NDEBUG
-            nprocessed++;
-#endif
+            case DataSource_Extractor:
+                extractor_begin_event(ds);
+                break;
+
+            case DataSource_CombiningExtractor:
+                combining_extractor_begin_event(ds);
+                break;
         }
-        else if (ex->moduleIndex > moduleIndex)
-        {
-            break;
-        }
-    }
-
-#ifndef NDEBUG
-    a2_trace("ei=%d, mi=%d, processed %d extractors\n", eventIndex, moduleIndex, nprocessed);
-#endif
-}
-
-
-inline static void
-a2_process_combining_extractors(A2 *a2, int eventIndex, int moduleIndex, u32 *data, u32 dataSize)
-{
-    assert(memory::is_aligned(data, ModuleDataAlignment));
-
-    u32 *curPtr = data;
-    const u32 *endPtr = data + dataSize;
-
-    int exCount = a2->combiningExtractorCounts[eventIndex];
-
-    for (int exIdx = 0; exIdx < exCount; exIdx++)
-    {
-        CombiningExtractor *ex = a2->combiningExtractors[eventIndex] + exIdx;
-
-        if (ex->moduleIndex != moduleIndex)
-            continue;
-
-        curPtr = combining_extractor_process_module_data(ex, curPtr, endPtr - curPtr);
-
-        if (curPtr >= data + dataSize) // are we out of data?
-            break;
     }
 }
 
@@ -2208,8 +2198,45 @@ void a2_process_module_data(A2 *a2, int eventIndex, int moduleIndex, u32 *data, 
     assert(eventIndex < MaxVMEEvents);
     assert(moduleIndex < MaxVMEModules);
 
-    a2_process_extractors(a2, eventIndex, moduleIndex, data, dataSize);
-    a2_process_combining_extractors(a2, eventIndex, moduleIndex, data, dataSize);
+#ifndef NDEBUG
+    int nprocessed = 0;
+#endif
+
+    const int srcCount = a2->dataSourceCounts[eventIndex];
+
+    // State for the data consuming CombiningExtractors
+    u32 *curPtr = data;
+    const u32 *endPtr = data + dataSize;
+
+    for (int srcIdx = 0; srcIdx < srcCount; srcIdx++)
+    {
+        DataSource *ds = a2->dataSources[eventIndex] + srcIdx;
+
+        if (ds->moduleIndex != moduleIndex)
+            continue;
+
+        switch (static_cast<DataSourceType>(ds->type))
+        {
+            case DataSource_Extractor:
+                {
+                    extractor_process_module_data(ds, data, dataSize);
+                } break;
+            case DataSource_CombiningExtractor:
+                {
+                    if (curPtr < endPtr)
+                    {
+                        curPtr = combining_extractor_process_module_data(ds, curPtr, endPtr - curPtr);
+                    }
+                } break;
+        }
+#ifndef NDEBUG
+        nprocessed++;
+#endif
+    }
+
+#ifndef NDEBUG
+    a2_trace("ei=%d, mi=%d, processed %d dataSources\n", eventIndex, moduleIndex, nprocessed);
+#endif
 }
 
 inline u32 step_operator_range(Operator *first, Operator *last)

@@ -1,6 +1,7 @@
 #include "a2_adapter.h"
 #include "a2/a2_impl.h"
 #include "analysis.h"
+#include <algorithm>
 #include <cstdio>
 #include <QMetaObject>
 #include <QMetaClassInfo>
@@ -53,13 +54,12 @@ inline a2::PipeVectors find_output_pipe(
 
     a2::PipeVectors result = {};
 
-    if (a2::Extractor *ex_a2 = state->sourceMap.value(
+    if (a2::DataSource *ds_a2 = state->sourceMap.value(
             qobject_cast<analysis::SourceInterface *>(pipeSource),
             nullptr))
     {
         assert(outputIndex == 0);
-
-        result = ex_a2->output;
+        result = ds_a2->output;
     }
     else if (a2::Operator *op_a2 = state->operatorMap.value(
             qobject_cast<analysis::OperatorInterface *>(pipeSource),
@@ -669,7 +669,7 @@ a2::Operator a2_adapter_magic(memory::Arena *arena, A2AdapterState *state, analy
     return result;
 }
 
-}
+} // end anon namespace
 
 namespace analysis
 {
@@ -697,7 +697,7 @@ void a2_adapter_build_extractors(
         int moduleIndex;
     };
 
-    std::array<QVector<SourceInfo>, a2::MaxVMEEvents> sources;
+    std::array<QVector<SourceInfo>, a2::MaxVMEEvents> sourceInfos;
 
     for (auto se: sourceEntries)
     {
@@ -706,53 +706,74 @@ void a2_adapter_build_extractors(
         Q_ASSERT(index.eventIndex < a2::MaxVMEEvents);
         Q_ASSERT(index.moduleIndex < a2::MaxVMEModules);
 
-        sources[index.eventIndex].push_back({ se.source, index.moduleIndex });
-        qSort(sources[index.eventIndex].begin(), sources[index.eventIndex].end(), [](auto a, auto b) {
+        SourceInfo sourceInfo = { se.source, index.moduleIndex };
+
+        sourceInfos[index.eventIndex].push_back(sourceInfo);
+    }
+
+    // Sort the source vector by moduleIndex
+    for (s32 ei = 0; ei < a2::MaxVMEEvents; ei++)
+    {
+        std::stable_sort(sourceInfos[ei].begin(), sourceInfos[ei].end(), [](auto a, auto b) {
             return a.moduleIndex < b.moduleIndex;
         });
     }
 
+    // Adapt the Extractors
     for (s32 ei = 0; ei < a2::MaxVMEEvents; ei++)
     {
-        for (auto src: sources[ei])
+        for (auto src: sourceInfos[ei])
         {
             qDebug()
-                << "eventIndex =" << ei
+                << "SourceInfo: eventIndex =" << ei
                 << ", moduleIndex =" << src.moduleIndex
                 << ", source =" << src.source.get();
         }
 
-        Q_ASSERT(sources[ei].size() <= std::numeric_limits<u8>::max());
+        Q_ASSERT(sourceInfos[ei].size() <= std::numeric_limits<u8>::max());
 
-        // space for the extractor pointers
-        state->a2->extractors[ei] = arena->pushArray<a2::Extractor>(sources[ei].size());
+        // space for the DataSource pointers
+        state->a2->dataSources[ei] = arena->pushArray<a2::DataSource>(sourceInfos[ei].size());
 
-        for (auto src: sources[ei])
+        // analysis::Extractor
+        for (auto src: sourceInfos[ei])
         {
-            auto ex = qobject_cast<analysis::Extractor *>(src.source.get());
-            Q_ASSERT(ex);
+            a2::DataSource ds = {};
 
-            a2::data_filter::MultiWordFilter filter = {};
-            for (auto slowFilter: ex->getFilter().getSubFilters())
+            if (auto ex = qobject_cast<analysis::Extractor *>(src.source.get()))
             {
-                a2::data_filter::add_subfilter(
-                    &filter,
-                    a2::data_filter::make_filter(
-                        slowFilter.getFilter().toStdString(),
-                        slowFilter.getWordIndex()));
+                a2::data_filter::MultiWordFilter filter = {};
+                for (auto slowFilter: ex->getFilter().getSubFilters())
+                {
+                    a2::data_filter::add_subfilter(
+                        &filter,
+                        a2::data_filter::make_filter(
+                            slowFilter.getFilter().toStdString(),
+                            slowFilter.getWordIndex()));
+                }
+
+                ds = a2::make_extractor(
+                    arena,
+                    filter,
+                    ex->m_requiredCompletionCount,
+                    ex->m_rngSeed,
+                    src.moduleIndex);
+            }
+            else if (auto ex = qobject_cast<analysis::CombiningExtractor *>(src.source.get()))
+            {
+                ds = a2::make_combining_extractor(
+                    arena,
+                    ex->getExtractor().combiningFilter,
+                    ex->getExtractor().repetitionAddressFilter,
+                    ex->getExtractor().repetitions,
+                    ex->getRngSeed(),
+                    src.moduleIndex);
             }
 
-            auto ex_a2 = a2::make_extractor(
-                arena,
-                filter,
-                ex->m_requiredCompletionCount,
-                ex->m_rngSeed,
-                src.moduleIndex);
-
-            u8 &ex_cnt = state->a2->extractorCounts[ei];
-            state->a2->extractors[ei][ex_cnt] = ex_a2;
-            state->sourceMap.insert(src.source.get(), state->a2->extractors[ei] + ex_cnt);
-            ex_cnt++;
+            u8 &ds_cnt = state->a2->dataSourceCounts[ei];
+            state->a2->dataSources[ei][ds_cnt] = ds;
+            state->sourceMap.insert(src.source.get(), state->a2->dataSources[ei] + ds_cnt);
+            ds_cnt++;
         }
     }
 }
@@ -893,9 +914,9 @@ A2AdapterState a2_adapter_build(
     A2AdapterState result = {};
     result.a2 = arena->push<a2::A2>({});
 
-    for (u32 i = 0; i < result.a2->extractorCounts.size(); i++)
+    for (u32 i = 0; i < result.a2->dataSourceCounts.size(); i++)
     {
-        assert(result.a2->extractorCounts[i] == 0);
+        assert(result.a2->dataSourceCounts[i] == 0);
         assert(result.a2->operatorCounts[i] == 0);
     }
 
@@ -909,12 +930,18 @@ A2AdapterState a2_adapter_build(
         sourceEntries,
         vmeMap);
 
+    LOG("data sources:");
+
+    for (s32 ei = 0; ei < a2::MaxVMEEvents; ei++)
+    {
+        if (!result.a2->dataSourceCounts[ei])
+            continue;
+        LOG("  ei=%d, #ds=%d", ei, (u32)result.a2->dataSourceCounts[ei]);
+    }
+
     // -------------------------------------------
     // Operator -> Operator
     // -------------------------------------------
-
-    /* Filter out operators that are not fully connected. */
-    auto operatorEntries = a2_adapter_filter_operators(allOperatorEntries);
 
     /* The problem: I want the operators for each event be sorted by rank _and_
      * by a2::OperatorType.
@@ -928,6 +955,9 @@ A2AdapterState a2_adapter_build(
      * Step 4: Build again using the sorted operators information and the destination arena.
      */
 
+    /* Filter out operators that are not fully connected. */
+    auto operatorEntries = a2_adapter_filter_operators(allOperatorEntries);
+
     OperatorsByEventIndex operators = group_operators_by_event(
         operatorEntries,
         vmeMap);
@@ -937,15 +967,6 @@ A2AdapterState a2_adapter_build(
         workArena,
         &result,
         operators);
-
-    LOG("extractors:");
-
-    for (s32 ei = 0; ei < a2::MaxVMEEvents; ei++)
-    {
-        if (!result.a2->extractorCounts[ei])
-            continue;
-        LOG("  ei=%d, #ex=%d", ei, (u32)result.a2->extractorCounts[ei]);
-    }
 
     LOG("operators before type sort:");
 
@@ -1000,28 +1021,28 @@ A2AdapterState a2_adapter_build(
 
     LOG(">>>>>>>> result <<<<<<<<");
 
-    LOG("extractors:");
+    LOG("data sources:");
 
     for (s32 ei = 0; ei < a2::MaxVMEEvents; ei++)
     {
-        auto exCount = result.a2->extractorCounts[ei];
+        auto srcCount = result.a2->dataSourceCounts[ei];
 
-        if (exCount)
+        if (srcCount)
         {
             LOG("  ei=%d", ei);
 
-            auto extractors = result.a2->extractors[ei];
+            auto dataSources = result.a2->dataSources[ei];
 
-            for (auto ex = extractors; ex < extractors + exCount; ex++)
+            for (a2::DataSource *ds = dataSources; ds < dataSources + srcCount; ds++)
             {
-                analysis::SourceInterface *a1_ex = result.sourceMap.value(ex, nullptr);
+                analysis::SourceInterface *a1_src = result.sourceMap.value(ds, nullptr);
 
-                LOG("    [%u] extractor@%p, moduleIndex=%d, a1_type=%s, a1_name=%s",
-                    (u32)(ex - extractors),
-                    ex,
-                    (s32)ex->moduleIndex,
-                    a1_ex ? a1_ex->metaObject()->className() : "nullptr",
-                    a1_ex ? qcstr(a1_ex->objectName()) : "nullptr");
+                LOG("    [%u] data source@%p, moduleIndex=%d, a1_type=%s, a1_name=%s",
+                    (u32)(ds - dataSources),
+                    ds,
+                    (s32)ds->moduleIndex,
+                    a1_src ? a1_src->metaObject()->className() : "nullptr",
+                    a1_src ? qcstr(a1_ex->objectName()) : "nullptr");
             }
         }
     }

@@ -101,12 +101,12 @@ class EventWidget: public QWidget
         EventWidgetPrivate *m_d;
 };
 
-class AddEditSourceWidget: public QDialog
+class AddEditExtractorWidget: public QDialog
 {
     Q_OBJECT
     public:
-        AddEditSourceWidget(SourcePtr srcPtr, ModuleConfig *mod, EventWidget *eventWidget);
-        AddEditSourceWidget(SourceInterface *src, ModuleConfig *mod, EventWidget *eventWidget);
+        AddEditExtractorWidget(SourcePtr srcPtr, ModuleConfig *mod, EventWidget *eventWidget);
+        AddEditExtractorWidget(SourceInterface *src, ModuleConfig *mod, EventWidget *eventWidget);
 
         virtual void accept() override;
         virtual void reject() override;
@@ -131,6 +131,24 @@ class AddEditSourceWidget: public QDialog
         void runLoadTemplateDialog();
         void applyTemplate(int index);
 };
+
+class CombiningExtractorDialog: public QDialog
+{
+    Q_OBJECT
+    public:
+        CombiningExtractorDialog(SourcePtr srcPtr, ModuleConfig *mod, QWidget *parent = nullptr);
+
+        virtual void accept() override;
+        virtual void reject() override;
+
+        SourcePtr m_srcPtr;
+        ModuleConfig *m_module;
+
+        QLineEdit *le_name;
+        QDialogButtonBox *m_buttonBox;
+};
+
+QWidget *data_source_widget_factory(SourceInterface *ds);
 
 class AddEditOperatorWidget: public QDialog
 {

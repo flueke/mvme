@@ -24,6 +24,7 @@
 #include "a2/memory.h"
 #include "a2/multiword_datafilter.h"
 #include "a2/a2.h"
+#include "a2/a2_impl.h"
 #include "data_filter.h"
 #include "../globals.h"
 #include "histo1d.h"
@@ -436,7 +437,7 @@ class LIBMVME_EXPORT Extractor: public SourceInterface
         virtual void write(QJsonObject &json) const override;
 
         virtual QString getDisplayName() const override { return QSL("Filter Extractor"); }
-        virtual QString getShortName() const override { return QSL("Ext"); }
+        virtual QString getShortName() const override { return QSL("FExt"); }
 
         QVector<double> getHitCounts() const;
 
@@ -475,8 +476,8 @@ class LIBMVME_EXPORT CombiningExtractor: public SourceInterface
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
 
-        virtual QString getDisplayName() const override { return QSL("Combining Extractor"); }
-        virtual QString getShortName() const override { return QSL("CExt"); }
+        virtual QString getDisplayName() const override { return QSL("Register Extractor"); }
+        virtual QString getShortName() const override { return QSL("RExt"); }
 
         a2::CombiningExtractor getExtractor() const { return m_a2Extractor; }
         void setExtractor(const a2::CombiningExtractor &ex) { m_a2Extractor = ex; }

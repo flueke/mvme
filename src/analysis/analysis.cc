@@ -3005,6 +3005,7 @@ Analysis::Analysis(QObject *parent)
     , m_timetickCount(0.0)
     , m_a2ArenaIndex(0)
 {
+    m_registry.registerSource<CombiningExtractor>();
     m_registry.registerSource<Extractor>();
 
     m_registry.registerOperator<CalibrationMinMax>();

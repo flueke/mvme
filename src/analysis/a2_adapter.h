@@ -45,10 +45,10 @@ struct A2AdapterState
 {
     a2::A2 *a2;
 
-    using SourceHash = BiHash<SourceInterface *, a2::Extractor *>;
+    using SourceHash   = BiHash<SourceInterface *, a2::DataSource *>;
     using OperatorHash = BiHash<OperatorInterface *, a2::Operator *>;
 
-    SourceHash sourceMap;
+    SourceHash   sourceMap;
     OperatorHash operatorMap;
 };
 
