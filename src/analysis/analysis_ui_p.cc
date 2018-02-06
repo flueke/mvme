@@ -42,6 +42,9 @@
 #include <QRadioButton>
 #include <QTextBrowser>
 
+#include <QStackedWidget>
+#include <QListWidget>
+
 namespace analysis
 {
 //
@@ -243,7 +246,7 @@ void AddEditExtractorWidget::reject()
 }
 
 //
-// CombiningExtractorDialog
+// ListFilterExtractorDialog
 //
 
 /* Parts
@@ -269,8 +272,41 @@ void AddEditExtractorWidget::reject()
  *
  * Right side embedded into a QStackedWidget.
  *
+ * Have to keep listview and stackedwidget contents in sync.
+ *
+ * Edit case:
+ * - Edit an existing filter.
+ * - Add a new filter. The module may already contain listfilters or this may
+ *   be the very first listfilter added to the module.
+ *
+ * -> If there are no filters to display always create a new unnamed default
+ *  filter.  On hitting apply add that filter to the analysis and repopulate
+ *  the widget -> now the filter contenst will be reloaded from the analysis
+ *  and everythin is in sync again.
+ *  When deleting the last filter either close the dialog or go back to
+ *  creating an unnamed default filter.
+ *
+ * Maybe it's better to not populate from the analysis at all but instead get a
+ * list of filters from the analysis and set it on the dialog. Later on set
+ * that list on the analysis.
+ *
+ * What are we editing? The whole list of ListFilterExtractor for a certain
+ * module as they all interact.
+ *
+ * If there are no filters we start out with a default filter for the module.
+ *
+ * TODO: Get the list of filters for the module from the
+ *   Walk SourceEntry vector and filter by moduleId and SourcePtr type (must be ListFilterExtractor).
+ *   => vector of shared ptr to ListFilterExtractor
+ *
+ *   Existing ones are directly edited as setExtractor() is used to update the a2::ListFilterExtractor.
+ *   New ones have to be added to the analysis in the correct order.
+ *   Moving operators changes the order so the SourceEntry vector of the
+ *   analysis has to be updated. How to do this?
+ *
  */
 
+/* Inputs and logic for for editing one ListFilter. */
 struct ListFilterEditor
 {
     QWidget *widget;
@@ -292,9 +328,9 @@ struct ListFilterEditor
     QCheckBox *cb_swapWords;
 };
 
-ListFilterEditor make_listfilter_editor(QWidget *parent = nullptr)
+static ListFilterEditor make_listfilter_editor(QWidget *parent = nullptr)
 {
-    using a2::data_filter::CombiningFilter;
+    using a2::data_filter::ListFilter;
 
     ListFilterEditor e = {};
 
@@ -314,19 +350,19 @@ ListFilterEditor make_listfilter_editor(QWidget *parent = nullptr)
     e.spin_repetitions->setMinimum(1);
     e.spin_repetitions->setMaximum(std::numeric_limits<u8>::max());
 
-    e.combo_wordSize->addItem("16 bit", CombiningFilter::NoFlag);
-    e.combo_wordSize->addItem("32 bit", CombiningFilter::WordSize32);
+    e.combo_wordSize->addItem("16 bit", ListFilter::NoFlag);
+    e.combo_wordSize->addItem("32 bit", ListFilter::WordSize32);
 
     // word size handling
     auto on_wordSize_selected = [e] (int index)
     {
-        switch (static_cast<CombiningFilter::Flag>(e.combo_wordSize->itemData(index).toInt()))
+        switch (static_cast<ListFilter::Flag>(e.combo_wordSize->itemData(index).toInt()))
         {
-            case CombiningFilter::NoFlag:
+            case ListFilter::NoFlag:
                 e.spin_wordCount->setMaximum(4);
                 break;
 
-            case CombiningFilter::WordSize32:
+            case ListFilter::WordSize32:
                 e.spin_wordCount->setMaximum(2);
                 break;
         }
@@ -336,6 +372,14 @@ ListFilterEditor make_listfilter_editor(QWidget *parent = nullptr)
                      e.widget, on_wordSize_selected);
 
     on_wordSize_selected(0);
+
+    // filter edits
+    {
+        e.filter_lowWord->setText(generate_pretty_filter_string(32, 'X'));
+        e.filter_highWord->setText(generate_pretty_filter_string(32, 'X'));
+        e.filter_repIndex->setInputMask("                              NNNN NNNN");
+        e.filter_repIndex->setText(     "                              XXXX XXXX");
+    }
 
     // layout
     auto widgetLayout = new QVBoxLayout(e.widget);
@@ -357,19 +401,19 @@ ListFilterEditor make_listfilter_editor(QWidget *parent = nullptr)
     return e;
 }
 
-static void listfilter_editor_load_from_extractor(ListFilterEditor e, const CombiningExtractor *ex)
+static void listfilter_editor_load_from_extractor(ListFilterEditor e, const ListFilterExtractor *ex)
 {
-    using a2::data_filter::CombiningFilter;
+    using a2::data_filter::ListFilter;
 
     e.le_name->setText(ex->objectName());
 
     auto ex_a2 = ex->getExtractor();
-    auto listfilter = ex_a2.combiningFilter;
+    auto listfilter = ex_a2.listFilter;
 
     e.spin_repetitions->setValue(ex_a2.repetitions);
-    e.combo_wordSize->setCurrentIndex(listfilter.flags & CombiningFilter::WordSize32);
+    e.combo_wordSize->setCurrentIndex(listfilter.flags & ListFilter::WordSize32);
     e.spin_wordCount->setValue(listfilter.wordCount);
-    e.cb_swapWords->setChecked(listfilter.flags & CombiningFilter::ReverseCombine);
+    e.cb_swapWords->setChecked(listfilter.flags & ListFilter::ReverseCombine);
 
     e.filter_lowWord->setText(QString::fromStdString(
         to_string(listfilter.extractionFilter.filters[0])));
@@ -381,11 +425,11 @@ static void listfilter_editor_load_from_extractor(ListFilterEditor e, const Comb
         to_string(ex_a2.repetitionAddressFilter)));
 }
 
-static void listfilter_editor_save_to_extractor(ListFilterEditor e, CombiningExtractor *ex)
+static void listfilter_editor_save_to_extractor(ListFilterEditor e, ListFilterExtractor *ex)
 {
     using namespace a2::data_filter;
 
-    a2::CombiningExtractor ex_a2 = {};
+    a2::ListFilterExtractor ex_a2 = {};
 
     std::vector<std::string> filters =
     {
@@ -393,16 +437,16 @@ static void listfilter_editor_save_to_extractor(ListFilterEditor e, CombiningExt
         e.filter_highWord->text().toStdString(),
     };
 
-    CombiningFilter::Flag flags = e.combo_wordSize->currentData().toUInt();
+    ListFilter::Flag flags = e.combo_wordSize->currentData().toUInt();
 
     if (e.cb_swapWords->isChecked())
     {
-        flags |= CombiningFilter::ReverseCombine;
+        flags |= ListFilter::ReverseCombine;
     }
 
-    ex_a2.combiningFilter = make_combining_filter(flags,
-                                                  e.spin_wordCount->value(),
-                                                  filters);
+    ex_a2.listFilter = make_listfilter(flags,
+                                       e.spin_wordCount->value(),
+                                       filters);
 
     ex_a2.repetitionAddressFilter = make_filter(e.filter_repIndex->text().toStdString());
     ex_a2.repetitions = e.spin_repetitions->value();
@@ -411,51 +455,138 @@ static void listfilter_editor_save_to_extractor(ListFilterEditor e, CombiningExt
     ex->setExtractor(ex_a2);
 }
 
-CombiningExtractorDialog::CombiningExtractorDialog(SourcePtr srcPtr, ModuleConfig *mod,
-                                                   analysis::Analysis *analysis, QWidget *parent)
-    : QDialog(parent)
-    , m_srcPtr(srcPtr)
-    , m_module(mod)
+static QVector<ListFilterExtractorPtr>
+get_listfilter_extractors_for_module(ModuleConfig *module, Analysis *analysis)
 {
-    auto widgetLayout = new QVBoxLayout(this);
+    QVector<ListFilterExtractorPtr> result;
 
+    if (!module->getEventConfig())
+        return result;
+
+    for (const auto &se: analysis->getSources(module->getEventConfig()->getId(), module->getId()))
+    {
+        if (auto lfe = std::dynamic_pointer_cast<ListFilterExtractor>(se.source))
+        {
+            result.push_back(lfe);
+        }
+    }
+
+    return result;
+}
+
+struct ListFilterExtractorDialog::ListFilterExtractorDialogPrivate
+{
+    ModuleConfig *m_module;
+    analysis::Analysis *m_analysis;
+    QVector<ListFilterExtractorPtr> m_extractors;
+
+    QListWidget *m_filterList;
+    QStackedWidget *m_editorStack;
+    QVector<ListFilterEditor> m_filterEditors;
+};
+
+ListFilterExtractorDialog::ListFilterExtractorDialog(ModuleConfig *mod, analysis::Analysis *analysis, QWidget *parent)
+    : QDialog(parent)
+    , m_d(std::make_unique<ListFilterExtractorDialogPrivate>())
+{
+    m_d->m_module = mod;
+    m_d->m_analysis = analysis;
+    m_d->m_filterList = new QListWidget;
+    m_d->m_editorStack = new QStackedWidget;
+
+    // left filter list layout
+    auto filterListLayout = new QVBoxLayout;
+    filterListLayout->addWidget(m_d->m_filterList);
+
+    // contents layout: filter list on the left, stack of filter editors to the right
+    auto contentsLayout = new QHBoxLayout;
+    contentsLayout->addLayout(filterListLayout);
+    contentsLayout->addWidget(m_d->m_editorStack);
+    contentsLayout->setStretch(1, 1);
+
+    // buttonbox
     auto buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Apply | QDialogButtonBox::Cancel);
     buttonBox->button(QDialogButtonBox::Ok)->setDefault(true);
-    connect(buttonBox, &QDialogButtonBox::accepted, this, &CombiningExtractorDialog::accept);
-    connect(buttonBox, &QDialogButtonBox::rejected, this, &CombiningExtractorDialog::reject);
+    connect(buttonBox, &QDialogButtonBox::accepted, this, &ListFilterExtractorDialog::accept);
+    connect(buttonBox, &QDialogButtonBox::rejected, this, &ListFilterExtractorDialog::reject);
     connect(buttonBox, &QDialogButtonBox::clicked, this, [this, buttonBox](QAbstractButton *button) {
-        if (buttonBox->buttonRole(button) == QDialogButtonBox::ApplyRole)
-        {
-            apply();
-        }
+        if (buttonBox->buttonRole(button) == QDialogButtonBox::ApplyRole) { apply(); }
     });
 
-    auto contentsLayout = new QHBoxLayout;
-    contentsLayout->addWidget(new QLabel("Hello, World!"));
-    contentsLayout->addWidget(make_listfilter_editor().widget);
-
+    // outer widget layout: list and edit widgets top, buttonbox bottom
+    auto widgetLayout = new QVBoxLayout(this);
     widgetLayout->addLayout(contentsLayout);
     widgetLayout->setStretch(0, 1);
     widgetLayout->addWidget(buttonBox);
+
+    m_d->m_extractors = get_listfilter_extractors_for_module(m_d->m_module, m_d->m_analysis);
+
+    if (m_d->m_extractors.isEmpty())
+        newFilter();
+
+    repopulate();
 }
 
-void CombiningExtractorDialog::accept()
+ListFilterExtractorDialog::~ListFilterExtractorDialog()
 {
+}
+
+void ListFilterExtractorDialog::accept()
+{
+    qDebug() << __PRETTY_FUNCTION__;
     apply();
     QDialog::accept();
 }
 
-void CombiningExtractorDialog::reject()
+void ListFilterExtractorDialog::reject()
 {
+    qDebug() << __PRETTY_FUNCTION__;
     QDialog::reject();
 }
 
-void CombiningExtractorDialog::apply()
+void ListFilterExtractorDialog::apply()
 {
+    qDebug() << __PRETTY_FUNCTION__;
 }
 
-void CombiningExtractorDialog::repopulate()
+void ListFilterExtractorDialog::repopulate()
 {
+    // clear widget
+    while (m_d->m_editorStack->count())
+    {
+        auto w = m_d->m_editorStack->widget(0);
+        m_d->m_editorStack->removeWidget(w);
+        w->deleteLater();
+    }
+
+    while (auto lw = m_d->m_filterList->takeItem(0))
+    {
+        delete lw;
+    }
+
+    m_d->m_filterEditors.clear();
+
+    // populate
+    for (auto ex: m_d->m_extractors)
+    {
+        auto editor = make_listfilter_editor();
+        listfilter_editor_load_from_extractor(editor, ex.get());
+        m_d->m_filterEditors.push_back(editor);
+        m_d->m_editorStack->addWidget(editor.widget);
+        m_d->m_filterList->addItem(ex->objectName());
+    }
+}
+
+void ListFilterExtractorDialog::editSource(const SourcePtr &src)
+{
+    qDebug() << __PRETTY_FUNCTION__ << src.get();
+}
+
+void ListFilterExtractorDialog::newFilter()
+{
+    auto ex = std::make_shared<ListFilterExtractor>();
+    m_d->m_extractors.push_back(ex);
+    repopulate();
 }
 
 //

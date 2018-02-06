@@ -44,9 +44,6 @@
 #include <QToolBar>
 #include <QWidget>
 
-#include <QStackedWidget>
-#include <QListView>
-
 class MVMEContext;
 class ModuleConfig;
 
@@ -98,8 +95,8 @@ class EventWidget: public QWidget
         friend class AnalysisWidgetPrivate;
 
     public slots:
-        void combiningExtractorDialogAccepted();
-        void combiningExtractorDialogRejected();
+        void listFilterExtractorDialogAccepted();
+        void listFilterExtractorDialogRejected();
 
     private:
         EventWidgetPrivate *m_d;
@@ -136,30 +133,30 @@ class AddEditExtractorWidget: public QDialog
         void applyTemplate(int index);
 };
 
-class CombiningExtractorDialog: public QDialog
+using ListFilterExtractorPtr = std::shared_ptr<ListFilterExtractor>;
+
+class ListFilterExtractorDialog: public QDialog
 {
     Q_OBJECT
     public:
-        CombiningExtractorDialog(SourcePtr srcPtr, ModuleConfig *mod,
-                                 analysis::Analysis *analysis, QWidget *parent = nullptr);
+        ListFilterExtractorDialog(ModuleConfig *mod, analysis::Analysis *analysis, QWidget *parent = nullptr);
+        virtual ~ListFilterExtractorDialog();
+
+        void editSource(const SourcePtr &src);
 
     public slots:
         virtual void accept() override;
         virtual void reject() override;
         void apply();
 
+        void newFilter();
+
     private:
         void repopulate();
 
-        SourcePtr m_srcPtr;
-        ModuleConfig *m_module;
-        analysis::Analysis *m_analysis;
+        struct ListFilterExtractorDialogPrivate;
 
-        QStackedWidget *m_editorStack;
-        QListView *m_filterList;
-
-        QLineEdit *le_name;
-        QDialogButtonBox *m_buttonBox;
+        std::unique_ptr<ListFilterExtractorDialogPrivate> m_d;
 };
 
 QWidget *data_source_widget_factory(SourceInterface *ds);

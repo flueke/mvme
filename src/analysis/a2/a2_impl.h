@@ -7,36 +7,6 @@ namespace a2
 {
 
 /* ===============================================
- * Data Sources
- * =============================================== */
-
-enum DataSourceType
-{
-    DataSource_Extractor,
-    DataSource_CombiningExtractor,
-};
-
-struct Extractor
-{
-    data_filter::MultiWordFilter filter;
-    pcg32_fast rng;
-    u32 requiredCompletions;
-    u32 currentCompletions;
-};
-
-struct CombiningExtractor
-{
-    data_filter::CombiningFilter combiningFilter;
-    data_filter::DataFilter repetitionAddressFilter;
-    data_filter::CacheEntry repetitionAddressCache;
-    pcg32_fast rng;
-    u8 repetitions;
-};
-
-size_t get_address_count(Extractor *ex);
-size_t get_address_count(CombiningExtractor *ex);
-
-/* ===============================================
  * Operators
  * =============================================== */
 

@@ -4,7 +4,7 @@
 #ifdef liba2_shared_EXPORTS
 #include "a2_export.h"
 #endif
-#include "combining_datafilter.h"
+#include "listfilter.h"
 #include "memory.h"
 #include "multiword_datafilter.h"
 #include "util/nan.h"
@@ -146,6 +146,32 @@ struct DataSource
     u8 type;
 };
 
+enum DataSourceType
+{
+    DataSource_Extractor,
+    DataSource_ListFilterExtractor,
+};
+
+struct Extractor
+{
+    data_filter::MultiWordFilter filter;
+    pcg32_fast rng;
+    u32 requiredCompletions;
+    u32 currentCompletions;
+};
+
+struct ListFilterExtractor
+{
+    data_filter::ListFilter listFilter;
+    data_filter::DataFilter repetitionAddressFilter;
+    data_filter::CacheEntry repetitionAddressCache;
+    pcg32_fast rng;
+    u8 repetitions;
+};
+
+size_t get_address_count(Extractor *ex);
+size_t get_address_count(ListFilterExtractor *ex);
+
 DataSource make_extractor(
     memory::Arena *arena,
     data_filter::MultiWordFilter filter,
@@ -153,9 +179,9 @@ DataSource make_extractor(
     u64 rngSeed,
     int moduleIndex);
 
-DataSource make_combining_extractor(
+DataSource make_listfilter_extractor(
     memory::Arena *arena,
-    data_filter::CombiningFilter combiningFilter,
+    data_filter::ListFilter listfilter,
     data_filter::DataFilter repetitionAddressFilter,
     u8 repetitions,
     u64 rngSeed,
@@ -165,8 +191,8 @@ size_t get_address_count(DataSource *ds);
 
 void extractor_begin_event(DataSource *ex);
 void extractor_process_module_data(DataSource *ex, u32 *data, u32 size);
-void combining_extractor_begin_event(DataSource *ex);
-u32 *combining_extractor_process_module_data(DataSource *ex, u32 *data, u32 dataSize);
+void listfilter_extractor_begin_event(DataSource *ex);
+u32 *listfilter_extractor_process_module_data(DataSource *ex, u32 *data, u32 dataSize);
 
 
 /* ===============================================

@@ -1,4 +1,4 @@
-#include "combining_datafilter.h"
+#include "listfilter.h"
 #include <benchmark/benchmark.h>
 
 #define ArrayCount(x) (sizeof(x) / sizeof(*x))
@@ -17,7 +17,7 @@ static void TEST_combine(benchmark::State &state)
             0x4040u,
         };
 
-        auto cf = make_combining_filter(CombiningFilter::NoFlag, 4, {});
+        auto cf = make_listfilter(ListFilter::NoFlag, 4, {});
 
         u64 result = combine(&cf, data, ArrayCount(data));
 
@@ -34,7 +34,7 @@ static void TEST_combine(benchmark::State &state)
             0x4040u,
         };
 
-        auto cf = make_combining_filter(CombiningFilter::ReverseCombine, 4, {});
+        auto cf = make_listfilter(ListFilter::ReverseCombine, 4, {});
 
         u64 result = combine(&cf, data, ArrayCount(data));
 
@@ -49,7 +49,7 @@ static void TEST_combine(benchmark::State &state)
             0x03034040u,
         };
 
-        auto cf = make_combining_filter(CombiningFilter::WordSize32, 2, {});
+        auto cf = make_listfilter(ListFilter::WordSize32, 2, {});
 
         u64 result = combine(&cf, data, ArrayCount(data));
 
@@ -64,7 +64,7 @@ static void TEST_combine(benchmark::State &state)
             0x03034040u,
         };
 
-        auto cf = make_combining_filter(CombiningFilter::ReverseCombine | CombiningFilter::WordSize32, 2, {});
+        auto cf = make_listfilter(ListFilter::ReverseCombine | ListFilter::WordSize32, 2, {});
 
         u64 result = combine(&cf, data, ArrayCount(data));
 
@@ -85,7 +85,7 @@ static void BM_combine(benchmark::State &state)
             0x4040u,
         };
 
-        auto cf = make_combining_filter(CombiningFilter::ReverseCombine, 4, {});
+        auto cf = make_listfilter(ListFilter::ReverseCombine, 4, {});
 
         while (state.KeepRunning())
         {
@@ -115,7 +115,7 @@ static void TEST_combine_and_extract_max_words(benchmark::State &state)
             "AAAA AAAA AAAA AAAA AAAA AAAA", // 24 bits of the high word of the combined result
         };
 
-        auto cf = make_combining_filter(CombiningFilter::NoFlag, 4, filters);
+        auto cf = make_listfilter(ListFilter::NoFlag, 4, filters);
 
         u64 combined = combine(&cf, data, ArrayCount(data));
 
@@ -146,7 +146,7 @@ static void TEST_combine_and_extract_max_words(benchmark::State &state)
             "AAAA AAAA AAAA AAAA AAAA AAAA", // 24 bits of the high word of the combined result
         };
 
-        auto cf = make_combining_filter(CombiningFilter::ReverseCombine, 4, filters);
+        auto cf = make_listfilter(ListFilter::ReverseCombine, 4, filters);
 
         u64 combined = combine(&cf, data, ArrayCount(data));
         assert(combined == 0x0101202003034040u);
@@ -174,7 +174,7 @@ static void TEST_combine_and_extract_max_words(benchmark::State &state)
             "AAAA AAAA AAAA AAAA AAAA AAAA", // 24 bits of the high word of the combined result
         };
 
-        auto cf = make_combining_filter(CombiningFilter::WordSize32, 2, filters);
+        auto cf = make_listfilter(ListFilter::WordSize32, 2, filters);
 
         u64 combined = combine(&cf, data, ArrayCount(data));
 
@@ -203,7 +203,7 @@ static void TEST_combine_and_extract_max_words(benchmark::State &state)
             "AAAA AAAA AAAA AAAA AAAA AAAA", // 24 bits of the high word of the combined result
         };
 
-        auto cf = make_combining_filter(CombiningFilter::WordSize32 | CombiningFilter::ReverseCombine, 2, filters);
+        auto cf = make_listfilter(ListFilter::WordSize32 | ListFilter::ReverseCombine, 2, filters);
 
         u64 combined = combine(&cf, data, ArrayCount(data));
 
@@ -238,7 +238,7 @@ static void TEST_combine_and_extract_non_max_words(benchmark::State &state)
             "AAAA AAAA AAAA AAAA AAAA AAAA", // 24 bits of the high word of the combined result
         };
 
-        auto cf = make_combining_filter(CombiningFilter::NoFlag, 3, filters);
+        auto cf = make_listfilter(ListFilter::NoFlag, 3, filters);
 
         u64 combined = combine(&cf, data, ArrayCount(data));
 
@@ -269,7 +269,7 @@ static void TEST_combine_and_extract_non_max_words(benchmark::State &state)
             "AAAA AAAA AAAA AAAA AAAA AAAA",
         };
 
-        auto cf = make_combining_filter(CombiningFilter::ReverseCombine, 3, filters);
+        auto cf = make_listfilter(ListFilter::ReverseCombine, 3, filters);
 
         u64 combined = combine(&cf, data, ArrayCount(data));
         assert(combined == 0x010120200303u);
@@ -297,7 +297,7 @@ static void TEST_combine_and_extract_non_max_words(benchmark::State &state)
             "AAAA AAAA AAAA AAAA AAAA AAAA", // 24 bits of the high word of the combined result
         };
 
-        auto cf = make_combining_filter(CombiningFilter::WordSize32, 1, filters);
+        auto cf = make_listfilter(ListFilter::WordSize32, 1, filters);
 
         u64 combined = combine(&cf, data, ArrayCount(data));
 
@@ -326,7 +326,7 @@ static void TEST_combine_and_extract_non_max_words(benchmark::State &state)
             "AAAA AAAA AAAA AAAA AAAA AAAA", // 24 bits of the high word of the combined result
         };
 
-        auto cf = make_combining_filter(CombiningFilter::WordSize32 | CombiningFilter::ReverseCombine, 1, filters);
+        auto cf = make_listfilter(ListFilter::WordSize32 | ListFilter::ReverseCombine, 1, filters);
 
         u64 combined = combine(&cf, data, ArrayCount(data));
 
@@ -361,7 +361,7 @@ static void BM_combine_and_extract(benchmark::State &state)
             "AAAA AAAA AAAA AAAA AAAA AAAA", // 24 bits of the high word of the combined result
         };
 
-        auto cf = make_combining_filter(CombiningFilter::ReverseCombine, 4, filters);
+        auto cf = make_listfilter(ListFilter::ReverseCombine, 4, filters);
 
         u64 combined = combine(&cf, data, ArrayCount(data));
         assert(combined == 0x0101202003034040u);

@@ -1,6 +1,5 @@
-#ifndef __A2_COMBINING_DATAFILTER_H__
-#define __A2_COMBINING_DATAFILTER_H__
-
+#ifndef __A2_LISTFILTER_H__
+#define __A2_LISTFILTER_H__
 /*
  * Combining filters (draft name)
  * -----------------------------
@@ -51,7 +50,7 @@ namespace a2
 namespace data_filter
 {
 
-struct CombiningFilter
+struct ListFilter
 {
     using Flag = u8;
 
@@ -78,49 +77,48 @@ struct CombiningFilter
     u8 wordCount;
 };
 
-CombiningFilter make_combining_filter(CombiningFilter::Flag flags,
-                                      u8 wordCount,
-                                      const std::vector<std::string> &filterStrings = {});
+ListFilter make_listfilter(ListFilter::Flag flags,
+                           u8 wordCount,
+                           const std::vector<std::string> &filterStrings = {});
 
-bool validate(CombiningFilter *cf);
+bool validate(ListFilter *cf);
 
-/* Result of a combining filter operation. The first item is the extracted
- * value, the second item is true if the MultiWordFilter completed, false
- * otherwise. */
-using CombiningFilterResult = std::pair<u64, bool>;
+/* Result of the listfilter combine operation. The first item is the extracted
+ * value, the second item is true if the internal MultiWordFilter matched
+ * successfully, false otherwise. */
+using ListFilterResult = std::pair<u64, bool>;
 
 /* Combines input data words according to the filter specification and returns
  * the combined result. */
-u64 combine(CombiningFilter *cf, const u32 *data, u32 count);
+u64 combine(ListFilter *cf, const u32 *data, u32 count);
 
 /* Takes a combined data word and extracts the data specified by the given
  * CacheType. Pass MultiWordFilter:CacheA for the address value,
  * MultiWordFilter::CacheD for the data value. */
-CombiningFilterResult extract_from_combined(CombiningFilter *cf, const u64 combinedData,
+ListFilterResult extract_from_combined(ListFilter *cf, const u64 combinedData,
                                             MultiWordFilter::CacheType cacheType);
 
 /* Performs both the combine and extraction steps. */
-CombiningFilterResult combine_and_extract(CombiningFilter *cf, const u32 *data, u32 count,
+ListFilterResult combine_and_extract(ListFilter *cf, const u32 *data, u32 count,
                                           MultiWordFilter::CacheType cacheType);
 
 /* Shortcut to combine and extract the data value. */
-inline CombiningFilterResult combine_and_extract_value(CombiningFilter *cf, const u32 *data, u32 count)
+inline ListFilterResult combine_and_extract_value(ListFilter *cf, const u32 *data, u32 count)
 {
     return combine_and_extract(cf, data, count, MultiWordFilter::CacheD);
 }
 
 /* Shortcut to combine and extract the address value. */
-inline CombiningFilterResult combine_and_extract_address(CombiningFilter *cf, const u32 *data, u32 count)
+inline ListFilterResult combine_and_extract_address(ListFilter *cf, const u32 *data, u32 count)
 {
     return combine_and_extract(cf, data, count, MultiWordFilter::CacheA);
 }
 
-inline size_t get_extract_bits(CombiningFilter *cf, MultiWordFilter::CacheType cacheType)
+inline size_t get_extract_bits(ListFilter *cf, MultiWordFilter::CacheType cacheType)
 {
     return get_extract_bits(&cf->extractionFilter, cacheType);
 }
 
 } // namespace data_filter
 } // namespace a2
-
-#endif /* __A2_COMBINING_DATAFILTER_H__ */
+#endif /* __A2_LISTFILTER_H__ */

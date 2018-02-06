@@ -111,7 +111,7 @@ static void BM_extractor_process_module_data(benchmark::State &state)
 }
 BENCHMARK(BM_extractor_process_module_data);
 
-static void TEST_combining_extractor(benchmark::State &state)
+static void TEST_listfilter_extractor(benchmark::State &state)
 {
     // single extractor, 16 bit, not reversed, wordcount=2, repetitions=4
     {
@@ -140,22 +140,22 @@ static void TEST_combining_extractor(benchmark::State &state)
 
         static const u32 inputSize = ArrayCount(inputData);
 
-        CombiningFilter cf = make_combining_filter(
-            CombiningFilter::NoFlag,
+        ListFilter cf = make_listfilter(
+            ListFilter::NoFlag,
             wordCount,
             { "DDDD DDDD DDDD DDDD XXXX XXXX AAAA AAAA" });
 
         DataFilter rf = {};
 
-        auto ce = make_combining_extractor(&arena, cf, rf,
+        auto ce = make_listfilter_extractor(&arena, cf, rf,
                                            repetitions, rngSeed,
                                            moduleIndex);
 
         assert(ce.output.data.size == (1u << 8));
 
-        combining_extractor_begin_event(&ce);
+        listfilter_extractor_begin_event(&ce);
 
-        u32 *dataPtr = combining_extractor_process_module_data(&ce, inputData, inputSize);
+        u32 *dataPtr = listfilter_extractor_process_module_data(&ce, inputData, inputSize);
 
         assert(dataPtr == inputData + inputSize); // all data should have been consumed
         assert(!is_param_valid(ce.output.data[0]));
@@ -193,22 +193,22 @@ static void TEST_combining_extractor(benchmark::State &state)
 
         static const u32 inputSize = ArrayCount(inputData);
 
-        CombiningFilter cf = make_combining_filter(
-            CombiningFilter::NoFlag,
+        ListFilter cf = make_listfilter(
+            ListFilter::NoFlag,
             wordCount,
             { "DDDD DDDD DDDD DDDD XXXX XXXX XXXX AAAA" });
 
         DataFilter rf = make_filter("AAAA");
 
-        auto ce = make_combining_extractor(&arena, cf, rf,
+        auto ce = make_listfilter_extractor(&arena, cf, rf,
                                            repetitions, rngSeed,
                                            moduleIndex);
 
         assert(ce.output.data.size == (1u << 8));
 
-        combining_extractor_begin_event(&ce);
+        listfilter_extractor_begin_event(&ce);
 
-        u32 *dataPtr = combining_extractor_process_module_data(&ce, inputData, inputSize);
+        u32 *dataPtr = listfilter_extractor_process_module_data(&ce, inputData, inputSize);
 
         assert(dataPtr == inputData + inputSize);
         assert(!is_param_valid(ce.output.data[0x00]));
@@ -220,9 +220,9 @@ static void TEST_combining_extractor(benchmark::State &state)
         assert(dcmp(ce.output.data[0x38], 0x8888));
     }
 }
-BENCHMARK(TEST_combining_extractor);
+BENCHMARK(TEST_listfilter_extractor);
 
-static void BM_combining_extractor(benchmark::State &state)
+static void BM_listfilter_extractor(benchmark::State &state)
 {
     // single extractor, 16 bit, not reversed, wordcount=2, repetitions=4, using repetitionAddressFilter
     const u16 wordCount = 2;
@@ -250,27 +250,27 @@ static void BM_combining_extractor(benchmark::State &state)
 
     static const u32 inputSize = ArrayCount(inputData);
 
-    CombiningFilter cf = make_combining_filter(
-        CombiningFilter::NoFlag,
+    ListFilter cf = make_listfilter(
+        ListFilter::NoFlag,
         wordCount,
         { "DDDD DDDD DDDD DDDD XXXX XXXX XXXX AAAA" });
 
     DataFilter rf = make_filter("AAAA");
 
-    auto ce = make_combining_extractor(&arena, cf, rf,
+    auto ce = make_listfilter_extractor(&arena, cf, rf,
                                        repetitions, rngSeed,
                                        moduleIndex);
 
     assert(ce.output.data.size == (1u << 8));
 
-    combining_extractor_begin_event(&ce);
+    listfilter_extractor_begin_event(&ce);
 
     double bytesProcessed = 0;
     double moduleCounter = 0;
 
     while (state.KeepRunning())
     {
-        u32 *dataPtr = combining_extractor_process_module_data(&ce, inputData, inputSize);
+        u32 *dataPtr = listfilter_extractor_process_module_data(&ce, inputData, inputSize);
         bytesProcessed += sizeof(inputData);
         moduleCounter++;
 
@@ -288,7 +288,7 @@ static void BM_combining_extractor(benchmark::State &state)
     state.counters["bR"] = Counter(bytesProcessed, Counter::kIsRate);
     state.counters["mR"] = Counter(moduleCounter, Counter::kIsRate);
 }
-BENCHMARK(BM_combining_extractor);
+BENCHMARK(BM_listfilter_extractor);
 
 
 static void BM_calibration_step(benchmark::State &state)

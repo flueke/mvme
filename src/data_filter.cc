@@ -208,7 +208,29 @@ DataFilter makeFilterFromBytes(const QByteArray &filterDataRaw, s32 wordIndex)
     return DataFilter(filterData, wordIndex);
 }
 
-QLineEdit *makeFilterEdit()
+QString generate_pretty_filter_string(u8 bits, char c)
+{
+    QString buffer;
+    buffer.resize(bits + (bits / 4 - 1), ' ');
+
+    int outidx = buffer.size() - 1;
+    u8 bits_written = 0;
+
+    while (bits_written < bits && outidx >= 0)
+    {
+        if (bits_written && bits_written % 4 == 0)
+        {
+            buffer[outidx--] = ' ';
+        }
+
+        buffer[outidx--] = c;
+        bits_written++;
+    }
+
+    return buffer;
+}
+
+QLineEdit *makeFilterEdit(u8 bits)
 {
     QFont font;
     font.setFamily(QSL("Monospace"));
@@ -217,7 +239,7 @@ QLineEdit *makeFilterEdit()
 
     QLineEdit *result = new QLineEdit;
     result->setFont(font);
-    result->setInputMask("NNNN NNNN NNNN NNNN NNNN NNNN NNNN NNNN");
+    result->setInputMask(generate_pretty_filter_string(bits, 'N'));
 
     QFontMetrics fm(font);
     s32 padding = 6;

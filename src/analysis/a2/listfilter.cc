@@ -1,4 +1,4 @@
-#include "combining_datafilter.h"
+#include "listfilter.h"
 
 #include <limits>
 
@@ -7,7 +7,7 @@ namespace a2
 namespace data_filter
 {
 
-u64 combine(CombiningFilter *cf, const u32 *data, u32 count)
+u64 combine(ListFilter *cf, const u32 *data, u32 count)
 {
     if (!validate(cf))
         return 0u;
@@ -15,7 +15,7 @@ u64 combine(CombiningFilter *cf, const u32 *data, u32 count)
     if (count < cf->wordCount)
         return 0u;
 
-    const u32 mask = ((cf->flags & CombiningFilter::WordSize32)
+    const u32 mask = ((cf->flags & ListFilter::WordSize32)
                       ? std::numeric_limits<u32>::max()     // 0xffffffffu
                       : std::numeric_limits<u16>::max());   // 0xffffu
 
@@ -24,20 +24,20 @@ u64 combine(CombiningFilter *cf, const u32 *data, u32 count)
 
     for (u16 wordNumber = 0; wordNumber < cf->wordCount; wordNumber++)
     {
-        u16 wordIndex = ((cf->flags & CombiningFilter::ReverseCombine)
+        u16 wordIndex = ((cf->flags & ListFilter::ReverseCombine)
                          ? cf->wordCount - wordNumber - 1
                          : wordNumber);
 
         u32 dataWord  = data[wordIndex];
 
         result |= static_cast<u64>(dataWord & mask) << shift;
-        shift += ((cf->flags & CombiningFilter::WordSize32) ? 32 : 16);
+        shift += ((cf->flags & ListFilter::WordSize32) ? 32 : 16);
     }
 
     return result;
 }
 
-CombiningFilterResult extract_from_combined(CombiningFilter *cf, const u64 combined, MultiWordFilter::CacheType cacheType)
+ListFilterResult extract_from_combined(ListFilter *cf, const u64 combined, MultiWordFilter::CacheType cacheType)
 {
     assert(!is_complete(&cf->extractionFilter));
     process_data(&cf->extractionFilter, static_cast<u32>(combined));
@@ -48,32 +48,32 @@ CombiningFilterResult extract_from_combined(CombiningFilter *cf, const u64 combi
     return std::make_pair(result, matched);
 }
 
-CombiningFilterResult combine_and_extract(CombiningFilter *cf, const u32 *data, u32 count, MultiWordFilter::CacheType cacheType)
+ListFilterResult combine_and_extract(ListFilter *cf, const u32 *data, u32 count, MultiWordFilter::CacheType cacheType)
 {
     assert(!is_complete(&cf->extractionFilter));
     u64 combined = combine(cf, data, count);
     return extract_from_combined(cf, combined, cacheType);
 }
 
-bool validate(CombiningFilter *cf)
+bool validate(ListFilter *cf)
 {
     if (cf->wordCount == 0)
         return false;
 
-    if ((cf->flags & CombiningFilter::WordSize32) && cf->wordCount > 2)
+    if ((cf->flags & ListFilter::WordSize32) && cf->wordCount > 2)
         return false;
 
-    if (!(cf->flags & CombiningFilter::WordSize32) && cf->wordCount > 4)
+    if (!(cf->flags & ListFilter::WordSize32) && cf->wordCount > 4)
         return false;
 
     return true;
 }
 
-CombiningFilter make_combining_filter(CombiningFilter::Flag flags,
-                                      u8 wordCount,
-                                      const std::vector<std::string> &filterStrings)
+ListFilter make_listfilter(ListFilter::Flag flags,
+                           u8 wordCount,
+                           const std::vector<std::string> &filterStrings)
 {
-    CombiningFilter result = {};
+    ListFilter result = {};
     result.flags = flags;
     result.wordCount = wordCount;
 

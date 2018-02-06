@@ -759,11 +759,11 @@ void a2_adapter_build_extractors(
                     ex->m_rngSeed,
                     src.moduleIndex);
             }
-            else if (auto ex = qobject_cast<analysis::CombiningExtractor *>(src.source.get()))
+            else if (auto ex = qobject_cast<analysis::ListFilterExtractor *>(src.source.get()))
             {
-                ds = a2::make_combining_extractor(
+                ds = a2::make_listfilter_extractor(
                     arena,
-                    ex->getExtractor().combiningFilter,
+                    ex->getExtractor().listFilter,
                     ex->getExtractor().repetitionAddressFilter,
                     ex->getExtractor().repetitions,
                     ex->getRngSeed(),

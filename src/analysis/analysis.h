@@ -24,7 +24,6 @@
 #include "a2/memory.h"
 #include "a2/multiword_datafilter.h"
 #include "a2/a2.h"
-#include "a2/a2_impl.h"
 #include "data_filter.h"
 #include "../globals.h"
 #include "histo1d.h"
@@ -458,13 +457,13 @@ class LIBMVME_EXPORT Extractor: public SourceInterface
         Pipe m_output;
 };
 
-class LIBMVME_EXPORT CombiningExtractor: public SourceInterface
+class LIBMVME_EXPORT ListFilterExtractor: public SourceInterface
 {
     Q_OBJECT
     Q_INTERFACES(analysis::SourceInterface)
 
     public:
-        CombiningExtractor(QObject *parent = nullptr);
+        ListFilterExtractor(QObject *parent = nullptr);
 
         virtual void beginRun(const RunInfo &runInfo) override;
         virtual void beginEvent() override;
@@ -479,8 +478,8 @@ class LIBMVME_EXPORT CombiningExtractor: public SourceInterface
         virtual QString getDisplayName() const override { return QSL("Register Extractor"); }
         virtual QString getShortName() const override { return QSL("RExt"); }
 
-        a2::CombiningExtractor getExtractor() const { return m_a2Extractor; }
-        void setExtractor(const a2::CombiningExtractor &ex) { m_a2Extractor = ex; }
+        a2::ListFilterExtractor getExtractor() const { return m_a2Extractor; }
+        void setExtractor(const a2::ListFilterExtractor &ex) { m_a2Extractor = ex; }
         u64 getRngSeed() const { return m_rngSeed; }
         void setRngSeed(u64 seed) { m_rngSeed = seed; }
 
@@ -489,8 +488,8 @@ class LIBMVME_EXPORT CombiningExtractor: public SourceInterface
         /* This only serves to hold data. It's not passed into the a2 system.
          * The members .rng and .moduleIndex are not set up as that information
          * is not available and not required when serializing this
-         * CombiningExtractor. */
-        a2::CombiningExtractor m_a2Extractor;
+         * ListFilterExtractor. */
+        a2::ListFilterExtractor m_a2Extractor;
         u64 m_rngSeed;
 };
 

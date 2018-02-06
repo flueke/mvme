@@ -145,9 +145,9 @@ size_t get_address_count(DataSource *ds)
                 return get_address_count(ex);
             } break;
 
-        case DataSource_CombiningExtractor:
+        case DataSource_ListFilterExtractor:
             {
-                auto ex = reinterpret_cast<CombiningExtractor *>(ds->d);
+                auto ex = reinterpret_cast<ListFilterExtractor *>(ds->d);
                 return get_address_count(ex);
             } break;
     }
@@ -161,9 +161,9 @@ size_t get_address_count(Extractor *ex)
     return 1u << bits;
 }
 
-size_t get_address_count(CombiningExtractor *ex)
+size_t get_address_count(ListFilterExtractor *ex)
 {
-    u16 baseAddressBits = get_extract_bits(&ex->combiningFilter, MultiWordFilter::CacheA);
+    u16 baseAddressBits = get_extract_bits(&ex->listFilter, MultiWordFilter::CacheA);
     u16 repAddressBits  = ex->repetitionAddressCache.extractBits;
     u16 bits = baseAddressBits + repAddressBits;
     return 1u << bits;
@@ -250,10 +250,10 @@ void extractor_process_module_data(DataSource *ds, u32 *data, u32 size)
     }
 }
 
-// CombiningExtractor
-DataSource make_combining_extractor(
+// ListFilterExtractor
+DataSource make_listfilter_extractor(
     memory::Arena *arena,
-    data_filter::CombiningFilter combiningFilter,
+    data_filter::ListFilter listFilter,
     data_filter::DataFilter repetitionAddressFilter,
     u8 repetitions,
     u64 rngSeed,
@@ -261,21 +261,21 @@ DataSource make_combining_extractor(
 {
     DataSource result = {};
 
-    auto d = arena->pushStruct<CombiningExtractor>();
+    auto d = arena->pushStruct<ListFilterExtractor>();
     result.d = d;
 
-    d->combiningFilter = combiningFilter;
+    d->listFilter = listFilter;
     d->repetitionAddressFilter = repetitionAddressFilter;
     d->repetitionAddressCache = make_cache_entry(repetitionAddressFilter, 'A');
     d->rng.seed(rngSeed);
     d->repetitions = repetitions;
     result.moduleIndex = moduleIndex;
 
-    // This call works as combiningFilter and repetitionAddressCache have been
+    // This call works as listFilter and repetitionAddressCache have been
     // initialzed at this point.
     size_t addressCount = get_address_count(&result);
 
-    auto databits = get_extract_bits(&combiningFilter.extractionFilter,
+    auto databits = get_extract_bits(&listFilter.extractionFilter,
                                      MultiWordFilter::CacheD);
 
     double upperLimit = std::pow(2.0, databits);
@@ -289,34 +289,34 @@ DataSource make_combining_extractor(
     return result;
 }
 
-void combining_extractor_begin_event(DataSource *ds)
+void listfilter_extractor_begin_event(DataSource *ds)
 {
-    assert(ds->type == DataSource_CombiningExtractor);
+    assert(ds->type == DataSource_ListFilterExtractor);
     auto ex = reinterpret_cast<Extractor *>(ds->d);
     invalidate_all(ds->output.data);
 }
 
-u32 *combining_extractor_process_module_data(DataSource *ds, u32 *data, u32 dataSize)
+u32 *listfilter_extractor_process_module_data(DataSource *ds, u32 *data, u32 dataSize)
 {
-    assert(ds->type == DataSource_CombiningExtractor);
+    assert(ds->type == DataSource_ListFilterExtractor);
 
     u32 *curPtr = data;
     u32 curSize = dataSize;
 
-    auto ex = reinterpret_cast<CombiningExtractor *>(ds->d);
+    auto ex = reinterpret_cast<ListFilterExtractor *>(ds->d);
 
     for (u32 rep = 0; rep < ex->repetitions; rep++)
     {
         // Combine input data words and extract address and data values.
-        u64 combined = combine(&ex->combiningFilter, curPtr, curSize);
-        curPtr += ex->combiningFilter.wordCount;
-        curSize -= ex->combiningFilter.wordCount;
+        u64 combined = combine(&ex->listFilter, curPtr, curSize);
+        curPtr += ex->listFilter.wordCount;
+        curSize -= ex->listFilter.wordCount;
 
         // FIXME (maybe): runs the multiwordfilter twice which is not really
         // needed. also if addressResult.second is false dataResult.second will
         // also be false.
-        auto addressResult = extract_from_combined(&ex->combiningFilter, combined, MultiWordFilter::CacheA);
-        auto dataResult    = extract_from_combined(&ex->combiningFilter, combined, MultiWordFilter::CacheD);
+        auto addressResult = extract_from_combined(&ex->listFilter, combined, MultiWordFilter::CacheA);
+        auto dataResult    = extract_from_combined(&ex->listFilter, combined, MultiWordFilter::CacheD);
 
         if (!addressResult.second || !dataResult.second)
             continue;
@@ -329,7 +329,7 @@ u32 *combining_extractor_process_module_data(DataSource *ds, u32 *data, u32 data
 
         // Number of bits from the MultiWordFilter alone, without the bits that
         // will be contributed by the repetitionAddressFilter.
-        u16 baseAddressBits = get_extract_bits(&ex->combiningFilter, MultiWordFilter::CacheA);
+        u16 baseAddressBits = get_extract_bits(&ex->listFilter, MultiWordFilter::CacheA);
 
         // Make the address bits from the repetition count contribute to the
         // high bits of the resulting address.
@@ -2185,8 +2185,8 @@ void a2_begin_event(A2 *a2, int eventIndex)
                 extractor_begin_event(ds);
                 break;
 
-            case DataSource_CombiningExtractor:
-                combining_extractor_begin_event(ds);
+            case DataSource_ListFilterExtractor:
+                listfilter_extractor_begin_event(ds);
                 break;
         }
     }
@@ -2204,7 +2204,7 @@ void a2_process_module_data(A2 *a2, int eventIndex, int moduleIndex, u32 *data, 
 
     const int srcCount = a2->dataSourceCounts[eventIndex];
 
-    // State for the data consuming CombiningExtractors
+    // State for the data consuming ListFilterExtractors
     u32 *curPtr = data;
     const u32 *endPtr = data + dataSize;
 
@@ -2221,11 +2221,11 @@ void a2_process_module_data(A2 *a2, int eventIndex, int moduleIndex, u32 *data, 
                 {
                     extractor_process_module_data(ds, data, dataSize);
                 } break;
-            case DataSource_CombiningExtractor:
+            case DataSource_ListFilterExtractor:
                 {
                     if (curPtr < endPtr)
                     {
-                        curPtr = combining_extractor_process_module_data(ds, curPtr, endPtr - curPtr);
+                        curPtr = listfilter_extractor_process_module_data(ds, curPtr, endPtr - curPtr);
                     }
                 } break;
         }
