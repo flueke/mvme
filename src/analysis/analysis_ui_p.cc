@@ -353,6 +353,8 @@ static ListFilterEditor make_listfilter_editor(QWidget *parent = nullptr)
     e.combo_wordSize->addItem("16 bit", ListFilter::NoFlag);
     e.combo_wordSize->addItem("32 bit", ListFilter::WordSize32);
 
+    e.spin_wordCount->setMinimum(1);
+
     // word size handling
     auto on_wordSize_selected = [e] (int index)
     {
@@ -415,14 +417,19 @@ static void listfilter_editor_load_from_extractor(ListFilterEditor e, const List
     e.spin_wordCount->setValue(listfilter.wordCount);
     e.cb_swapWords->setChecked(listfilter.flags & ListFilter::ReverseCombine);
 
-    e.filter_lowWord->setText(QString::fromStdString(
-        to_string(listfilter.extractionFilter.filters[0])));
+    auto lo  = QString::fromStdString(to_string(listfilter.extractionFilter.filters[0]));
+    auto hi  = QString::fromStdString(to_string(listfilter.extractionFilter.filters[1]));
+    auto rep = QString::fromStdString(to_string(ex_a2.repetitionAddressFilter));
 
-    e.filter_highWord->setText(QString::fromStdString(
-        to_string(listfilter.extractionFilter.filters[1])));
+#if 0
+    qDebug() << "lo =" << lo
+        << "\nhi =" << hi
+        << "\nrep =" << rep;
+#endif
 
-    e.filter_repIndex->setText(QString::fromStdString(
-        to_string(ex_a2.repetitionAddressFilter)));
+    e.filter_lowWord->setText(lo);
+    e.filter_highWord->setText(hi);
+    e.filter_repIndex->setText(rep);
 }
 
 static void listfilter_editor_save_to_extractor(ListFilterEditor e, ListFilterExtractor *ex)
@@ -474,15 +481,62 @@ get_listfilter_extractors_for_module(ModuleConfig *module, Analysis *analysis)
     return result;
 }
 
+struct ListFilterListUi
+{
+    QWidget *widget;
+
+    QListWidget *listWidget;
+
+    QPushButton *pb_addFilter,
+                *pb_removeFilter,
+                *pb_cloneFilter;
+
+    QLabel *label_moduleName,
+           *label_totalWordsUsed;
+};
+
+static ListFilterListUi make_listfilter_list_ui(QWidget *parent = nullptr)
+{
+    ListFilterListUi ui = {};
+
+    ui.widget = new QWidget(parent);
+    ui.listWidget = new QListWidget;
+    ui.pb_addFilter = new QPushButton("Add Filter");
+    ui.pb_removeFilter = new QPushButton("Remove Filter");
+    ui.pb_cloneFilter = new QPushButton("Clone Filter");
+    ui.label_moduleName = new QLabel;
+    ui.label_totalWordsUsed = new QLabel;
+
+    // layout
+    auto widgetLayout = new QFormLayout(ui.widget);
+
+    widgetLayout->addRow("Module name", ui.label_moduleName);
+    widgetLayout->addRow("Total words used", ui.label_totalWordsUsed);
+    widgetLayout->addRow(ui.listWidget);
+    {
+        auto l = new QHBoxLayout;
+        l->addWidget(ui.pb_addFilter);
+        l->addWidget(ui.pb_removeFilter);
+        l->addWidget(ui.pb_cloneFilter);
+
+        widgetLayout->addRow(l);
+    }
+
+    ui.pb_removeFilter->setEnabled(false);
+    ui.pb_cloneFilter->setEnabled(false);
+
+    return ui;
+}
+
 struct ListFilterExtractorDialog::ListFilterExtractorDialogPrivate
 {
     ModuleConfig *m_module;
     analysis::Analysis *m_analysis;
     QVector<ListFilterExtractorPtr> m_extractors;
-
-    QListWidget *m_filterList;
-    QStackedWidget *m_editorStack;
     QVector<ListFilterEditor> m_filterEditors;
+
+    ListFilterListUi listUi;
+    QStackedWidget *m_editorStack;
 };
 
 ListFilterExtractorDialog::ListFilterExtractorDialog(ModuleConfig *mod, analysis::Analysis *analysis, QWidget *parent)
@@ -491,12 +545,12 @@ ListFilterExtractorDialog::ListFilterExtractorDialog(ModuleConfig *mod, analysis
 {
     m_d->m_module = mod;
     m_d->m_analysis = analysis;
-    m_d->m_filterList = new QListWidget;
+    m_d->listUi = make_listfilter_list_ui();
     m_d->m_editorStack = new QStackedWidget;
 
     // left filter list layout
     auto filterListLayout = new QVBoxLayout;
-    filterListLayout->addWidget(m_d->m_filterList);
+    filterListLayout->addWidget(m_d->listUi.widget);
 
     // contents layout: filter list on the left, stack of filter editors to the right
     auto contentsLayout = new QHBoxLayout;
@@ -518,6 +572,28 @@ ListFilterExtractorDialog::ListFilterExtractorDialog(ModuleConfig *mod, analysis
     widgetLayout->addLayout(contentsLayout);
     widgetLayout->setStretch(0, 1);
     widgetLayout->addWidget(buttonBox);
+
+
+    // gui state changes and interactions
+    auto on_listUi_currentRowChanged = [this](int index)
+    {
+        m_d->listUi.pb_removeFilter->setEnabled(index >= 0 && m_d->m_extractors.size() > 1);
+        m_d->listUi.pb_cloneFilter->setEnabled(index >= 0 && m_d->m_extractors.size() > 0);
+        m_d->m_editorStack->setCurrentIndex(index);
+    };
+
+    connect(m_d->listUi.listWidget, &QListWidget::currentRowChanged,
+            this, on_listUi_currentRowChanged);
+
+    connect(m_d->listUi.pb_addFilter, &QPushButton::clicked,
+            this, &ListFilterExtractorDialog::newFilter);
+
+    connect(m_d->listUi.pb_removeFilter, &QPushButton::clicked,
+            this, &ListFilterExtractorDialog::removeFilter);
+
+    connect(m_d->listUi.pb_cloneFilter, &QPushButton::clicked,
+            this, &ListFilterExtractorDialog::cloneFilter);
+
 
     m_d->m_extractors = get_listfilter_extractors_for_module(m_d->m_module, m_d->m_analysis);
 
@@ -549,8 +625,58 @@ void ListFilterExtractorDialog::apply()
     qDebug() << __PRETTY_FUNCTION__;
 }
 
+void ListFilterExtractorDialog::newFilter()
+{
+    auto ex = std::make_shared<ListFilterExtractor>();
+    ex->setObjectName(QSL("new filter"));
+
+    a2::ListFilterExtractor ex_a2 = {};
+
+    ex_a2.listFilter = a2::data_filter::make_listfilter(
+        a2::data_filter::ListFilter::NoFlag, 1,
+        { "XXXX XXXX XXXX XXXX XXXX XXXX AAAA AAAA",
+          "XXXX XXXX XXXX XXXX DDDD DDDD DDDD DDDD" });
+
+    ex_a2.repetitionAddressFilter = a2::data_filter::make_filter("XXXX XXXX");
+    ex_a2.repetitions = 1u;
+
+    ex->setExtractor(ex_a2);
+
+    m_d->m_extractors.push_back(ex);
+    int idx = addFilterToUi(ex);
+    m_d->listUi.listWidget->setCurrentRow(idx);
+}
+
+void ListFilterExtractorDialog::removeFilter()
+{
+    int index = m_d->listUi.listWidget->currentRow();
+    Q_ASSERT(0 <= index && index < m_d->m_extractors.size());
+
+    m_d->m_extractors.removeAt(index);
+    delete m_d->listUi.listWidget->takeItem(index);
+    auto widget = m_d->m_editorStack->widget(index);
+    m_d->m_editorStack->removeWidget(widget);
+    widget->deleteLater();
+    m_d->m_filterEditors.removeAt(index);
+}
+
+void ListFilterExtractorDialog::cloneFilter()
+{
+    int index = m_d->listUi.listWidget->currentRow();
+    Q_ASSERT(0 <= index && index < m_d->m_extractors.size());
+
+    auto clone = std::make_shared<ListFilterExtractor>();
+    listfilter_editor_save_to_extractor(m_d->m_filterEditors[index], clone.get());
+    clone->setObjectName(clone->objectName() + " copy");
+    m_d->m_extractors.push_back(clone);
+    int idx = addFilterToUi(clone);
+    m_d->listUi.listWidget->setCurrentRow(idx);
+}
+
 void ListFilterExtractorDialog::repopulate()
 {
+    int oldRow = m_d->listUi.listWidget->currentRow();
+
     // clear widget
     while (m_d->m_editorStack->count())
     {
@@ -559,7 +685,7 @@ void ListFilterExtractorDialog::repopulate()
         w->deleteLater();
     }
 
-    while (auto lw = m_d->m_filterList->takeItem(0))
+    while (auto lw = m_d->listUi.listWidget->takeItem(0))
     {
         delete lw;
     }
@@ -569,24 +695,36 @@ void ListFilterExtractorDialog::repopulate()
     // populate
     for (auto ex: m_d->m_extractors)
     {
-        auto editor = make_listfilter_editor();
-        listfilter_editor_load_from_extractor(editor, ex.get());
-        m_d->m_filterEditors.push_back(editor);
-        m_d->m_editorStack->addWidget(editor.widget);
-        m_d->m_filterList->addItem(ex->objectName());
+        addFilterToUi(ex);
     }
+
+    // restore selection if possible
+    if (0 <= oldRow && oldRow < m_d->m_extractors.size())
+    {
+        m_d->listUi.listWidget->setCurrentRow(oldRow);
+    }
+    else
+    {
+        m_d->listUi.listWidget->setCurrentRow(0);
+    }
+
+    m_d->listUi.label_moduleName->setText(m_d->m_module->objectName());
+}
+
+int ListFilterExtractorDialog::addFilterToUi(const ListFilterExtractorPtr &ex)
+{
+    auto editor = make_listfilter_editor();
+    listfilter_editor_load_from_extractor(editor, ex.get());
+    m_d->m_filterEditors.push_back(editor);
+    m_d->m_editorStack->addWidget(editor.widget);
+    m_d->listUi.listWidget->addItem(ex->objectName());
+
+    return m_d->listUi.listWidget->count() - 1;
 }
 
 void ListFilterExtractorDialog::editSource(const SourcePtr &src)
 {
     qDebug() << __PRETTY_FUNCTION__ << src.get();
-}
-
-void ListFilterExtractorDialog::newFilter()
-{
-    auto ex = std::make_shared<ListFilterExtractor>();
-    m_d->m_extractors.push_back(ex);
-    repopulate();
 }
 
 //

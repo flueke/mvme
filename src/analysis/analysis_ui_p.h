@@ -148,11 +148,13 @@ class ListFilterExtractorDialog: public QDialog
         virtual void accept() override;
         virtual void reject() override;
         void apply();
-
         void newFilter();
+        void removeFilter();
+        void cloneFilter();
 
     private:
         void repopulate();
+        int addFilterToUi(const ListFilterExtractorPtr &ex);
 
         struct ListFilterExtractorDialogPrivate;
 

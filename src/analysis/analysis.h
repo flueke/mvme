@@ -475,7 +475,7 @@ class LIBMVME_EXPORT ListFilterExtractor: public SourceInterface
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
 
-        virtual QString getDisplayName() const override { return QSL("Register Extractor"); }
+        virtual QString getDisplayName() const override { return QSL("ListFilter Extractor"); }
         virtual QString getShortName() const override { return QSL("RExt"); }
 
         a2::ListFilterExtractor getExtractor() const { return m_a2Extractor; }
