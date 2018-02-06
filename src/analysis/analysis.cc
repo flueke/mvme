@@ -3133,14 +3133,14 @@ void Analysis::processTimetick()
 
 void Analysis::addSource(const QUuid &eventId, const QUuid &moduleId, const SourcePtr &source)
 {
-    m_sources.push_back({eventId, moduleId, source, source.get()});
+    m_sources.push_back({eventId, moduleId, source});
     beginRun(m_runInfo, m_vmeMap);
     setModified();
 }
 
 void Analysis::addOperator(const QUuid &eventId, const OperatorPtr &op, s32 userLevel)
 {
-    m_operators.push_back({eventId, op, op.get(), userLevel});
+    m_operators.push_back({eventId, op, userLevel});
     beginRun(m_runInfo, m_vmeMap);
     setModified();
 }
@@ -3299,6 +3299,57 @@ void Analysis::removeSource(SourceInterface *source)
     }
 }
 
+QVector<ListFilterExtractorPtr>
+Analysis::getListFilterExtractors(ModuleConfig *module) const
+{
+    QVector<ListFilterExtractorPtr> result;
+
+    Q_ASSERT(module->getEventConfig());
+
+    if (!module->getEventConfig())
+        return result;
+
+    for (const auto &se: getSources(module->getEventConfig()->getId(), module->getId()))
+    {
+        if (auto lfe = std::dynamic_pointer_cast<ListFilterExtractor>(se.source))
+        {
+            result.push_back(lfe);
+        }
+    }
+
+    return result;
+}
+
+void
+Analysis::setListFilterExtractors(ModuleConfig *module, const QVector<ListFilterExtractorPtr> &extractors)
+{
+    Q_ASSERT(module->getEventConfig());
+
+    if (!module->getEventConfig())
+        return;
+
+    // First remove all source entries that contain one of the ListFilterExtractors given in the extractors vector.
+    auto it = std::remove_if(m_sources.begin(), m_sources.end(), [&extractors](const SourceEntry &se) {
+        if (auto lfe = std::dynamic_pointer_cast<ListFilterExtractor>(se.source))
+        {
+            return extractors.contains(lfe);
+        }
+        return false;
+    });
+
+    m_sources.erase(it, m_sources.end());
+
+    // Now build new SourceEntries for the given extractors and append them to m_sources
+    for (const auto &ex: extractors)
+    {
+        m_sources.push_back({module->getEventConfig()->getId(), module->getId(), ex});
+    }
+
+    // Rebuild and notify about modification state
+    beginRun(m_runInfo, m_vmeMap);
+    setModified();
+}
+
 void Analysis::removeOperator(const OperatorPtr &op)
 {
     removeOperator(op.get());
@@ -3448,7 +3499,7 @@ Analysis::ReadResult Analysis::read(const QJsonObject &inputJson, VMEConfig *vme
                 auto eventId  = QUuid(objectJson["eventId"].toString());
                 auto moduleId = QUuid(objectJson["moduleId"].toString());
 
-                m_sources.push_back({eventId, moduleId, source, source.get()});
+                m_sources.push_back({eventId, moduleId, source});
 
                 objectsById.insert(source->getId(), source);
             }
@@ -3481,7 +3532,7 @@ Analysis::ReadResult Analysis::read(const QJsonObject &inputJson, VMEConfig *vme
                 auto eventId = QUuid(objectJson["eventId"].toString());
                 auto userLevel = objectJson["userLevel"].toInt();
 
-                m_operators.push_back({eventId, op, op.get(), userLevel});
+                m_operators.push_back({eventId, op, userLevel});
 
                 objectsById.insert(op->getId(), op);
             }

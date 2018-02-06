@@ -493,6 +493,8 @@ class LIBMVME_EXPORT ListFilterExtractor: public SourceInterface
         u64 m_rngSeed;
 };
 
+using ListFilterExtractorPtr = std::shared_ptr<ListFilterExtractor>;
+
 //
 // Operators
 //
@@ -1298,14 +1300,12 @@ class LIBMVME_EXPORT Analysis: public QObject
             QUuid eventId;
             QUuid moduleId;
             SourcePtr source;
-            SourceInterface *sourceRaw;
         };
 
         struct OperatorEntry
         {
             QUuid eventId;
             OperatorPtr op;
-            OperatorInterface *opRaw;
 
             // A user defined level used for UI display structuring.
             s32 userLevel;
@@ -1346,6 +1346,9 @@ class LIBMVME_EXPORT Analysis: public QObject
         void addSource(const QUuid &eventId, const QUuid &moduleId, const SourcePtr &source);
         void removeSource(const SourcePtr &source);
         void removeSource(SourceInterface *source);
+
+        QVector<ListFilterExtractorPtr> getListFilterExtractors(ModuleConfig *module) const;
+        void setListFilterExtractors(ModuleConfig *module, const QVector<ListFilterExtractorPtr> &extractors);
 
         const QVector<OperatorEntry> &getOperators() const { return m_operators; }
         QVector<OperatorEntry> &getOperators() { return m_operators; }

@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.0.0)
 project(mvme)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 set(WARNING_FLAGS "-Wall -Wno-unused-variable -Wno-unused-function")
 #set(WARNING_FLAGS "${WARNING_FLAGS} -Wno-mismatched-tags")
 

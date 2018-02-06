@@ -133,8 +133,6 @@ class AddEditExtractorWidget: public QDialog
         void applyTemplate(int index);
 };
 
-using ListFilterExtractorPtr = std::shared_ptr<ListFilterExtractor>;
-
 class ListFilterExtractorDialog: public QDialog
 {
     Q_OBJECT
@@ -147,6 +145,8 @@ class ListFilterExtractorDialog: public QDialog
     public slots:
         virtual void accept() override;
         virtual void reject() override;
+
+    private slots:
         void apply();
         void newFilter();
         void removeFilter();

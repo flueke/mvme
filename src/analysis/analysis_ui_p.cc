@@ -462,25 +462,6 @@ static void listfilter_editor_save_to_extractor(ListFilterEditor e, ListFilterEx
     ex->setExtractor(ex_a2);
 }
 
-static QVector<ListFilterExtractorPtr>
-get_listfilter_extractors_for_module(ModuleConfig *module, Analysis *analysis)
-{
-    QVector<ListFilterExtractorPtr> result;
-
-    if (!module->getEventConfig())
-        return result;
-
-    for (const auto &se: analysis->getSources(module->getEventConfig()->getId(), module->getId()))
-    {
-        if (auto lfe = std::dynamic_pointer_cast<ListFilterExtractor>(se.source))
-        {
-            result.push_back(lfe);
-        }
-    }
-
-    return result;
-}
-
 struct ListFilterListUi
 {
     QWidget *widget;
@@ -595,7 +576,7 @@ ListFilterExtractorDialog::ListFilterExtractorDialog(ModuleConfig *mod, analysis
             this, &ListFilterExtractorDialog::cloneFilter);
 
 
-    m_d->m_extractors = get_listfilter_extractors_for_module(m_d->m_module, m_d->m_analysis);
+    m_d->m_extractors = m_d->m_analysis->getListFilterExtractors(m_d->m_module);
 
     if (m_d->m_extractors.isEmpty())
         newFilter();
