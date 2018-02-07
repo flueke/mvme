@@ -96,6 +96,7 @@ class EventWidget: public QWidget
 
     public slots:
         void listFilterExtractorDialogAccepted();
+        void listFilterExtractorDialogApplied();
         void listFilterExtractorDialogRejected();
 
     private:
@@ -136,11 +137,17 @@ class AddEditExtractorWidget: public QDialog
 class ListFilterExtractorDialog: public QDialog
 {
     Q_OBJECT
+    signals:
+        void applied();
+
     public:
-        ListFilterExtractorDialog(ModuleConfig *mod, analysis::Analysis *analysis, QWidget *parent = nullptr);
+        ListFilterExtractorDialog(ModuleConfig *mod, analysis::Analysis *analysis,
+                                  MVMEContext *context, QWidget *parent = nullptr);
         virtual ~ListFilterExtractorDialog();
 
         void editSource(const SourcePtr &src);
+
+        QVector<ListFilterExtractorPtr> getExtractors() const;
 
     public slots:
         virtual void accept() override;
@@ -151,6 +158,7 @@ class ListFilterExtractorDialog: public QDialog
         void newFilter();
         void removeFilter();
         void cloneFilter();
+        void updateWordCount();
 
     private:
         void repopulate();

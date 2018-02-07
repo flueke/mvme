@@ -169,19 +169,31 @@ struct ListFilterExtractor
     u8 repetitions;
 };
 
+size_t get_address_bits(ListFilterExtractor *ex);
 size_t get_address_count(Extractor *ex);
 size_t get_address_count(ListFilterExtractor *ex);
 
-DataSource make_extractor(
+Extractor make_extractor(
+    data_filter::MultiWordFilter filter,
+    u32 requiredCompletions,
+    u64 rngSeed);
+
+DataSource make_datasource_extractor(
     memory::Arena *arena,
     data_filter::MultiWordFilter filter,
     u32 requiredCompletions,
     u64 rngSeed,
     int moduleIndex);
 
-DataSource make_listfilter_extractor(
+ListFilterExtractor make_listfilter_extractor(
+    data_filter::ListFilter listFilter,
+    data_filter::DataFilter repetitionAddressFilter,
+    u8 repetitions,
+    u64 rngSeed);
+
+DataSource make_datasource_listfilter_extractor(
     memory::Arena *arena,
-    data_filter::ListFilter listfilter,
+    data_filter::ListFilter listFilter,
     data_filter::DataFilter repetitionAddressFilter,
     u8 repetitions,
     u64 rngSeed,

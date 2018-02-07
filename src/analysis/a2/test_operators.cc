@@ -37,7 +37,7 @@ static void BM_extractor_begin_event(benchmark::State &state)
 
     add_subfilter(&filter, make_filter("xxxx aaaa xxxx dddd"));
 
-    auto ex = arena.push(make_extractor(&arena, filter, 1, 1234, 0));
+    auto ex = arena.push(make_datasource_extractor(&arena, filter, 1, 1234, 0));
 
     assert(ex->output.data.size == (1u << 4));
 
@@ -76,7 +76,7 @@ static void BM_extractor_process_module_data(benchmark::State &state)
 
     add_subfilter(&filter, make_filter("xxxx aaaa xxxx dddd"));
 
-    auto ex = arena.push(make_extractor(&arena, filter, 1, 1234, 0));
+    auto ex = arena.push(make_datasource_extractor(&arena, filter, 1, 1234, 0));
 
     assert(ex->output.data.size == (1u << 4));
 
@@ -147,7 +147,7 @@ static void TEST_listfilter_extractor(benchmark::State &state)
 
         DataFilter rf = {};
 
-        auto ce = make_listfilter_extractor(&arena, cf, rf,
+        auto ce = make_datasource_listfilter_extractor(&arena, cf, rf,
                                            repetitions, rngSeed,
                                            moduleIndex);
 
@@ -200,9 +200,9 @@ static void TEST_listfilter_extractor(benchmark::State &state)
 
         DataFilter rf = make_filter("AAAA");
 
-        auto ce = make_listfilter_extractor(&arena, cf, rf,
-                                           repetitions, rngSeed,
-                                           moduleIndex);
+        auto ce = make_datasource_listfilter_extractor(&arena, cf, rf,
+                                                       repetitions, rngSeed,
+                                                       moduleIndex);
 
         assert(ce.output.data.size == (1u << 8));
 
@@ -257,7 +257,7 @@ static void BM_listfilter_extractor(benchmark::State &state)
 
     DataFilter rf = make_filter("AAAA");
 
-    auto ce = make_listfilter_extractor(&arena, cf, rf,
+    auto ce = make_datasource_listfilter_extractor(&arena, cf, rf,
                                        repetitions, rngSeed,
                                        moduleIndex);
 

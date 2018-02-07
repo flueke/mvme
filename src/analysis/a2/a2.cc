@@ -161,16 +161,37 @@ size_t get_address_count(Extractor *ex)
     return 1u << bits;
 }
 
+size_t get_address_bits(ListFilterExtractor *ex)
+{
+    size_t baseAddressBits = get_extract_bits(&ex->listFilter, MultiWordFilter::CacheA);
+    size_t repAddressBits  = ex->repetitionAddressCache.extractBits;
+    size_t bits = baseAddressBits + repAddressBits;
+    return bits;
+}
+
 size_t get_address_count(ListFilterExtractor *ex)
 {
-    u16 baseAddressBits = get_extract_bits(&ex->listFilter, MultiWordFilter::CacheA);
-    u16 repAddressBits  = ex->repetitionAddressCache.extractBits;
-    u16 bits = baseAddressBits + repAddressBits;
-    return 1u << bits;
+    return 1u << get_address_bits(ex);;
 }
 
 // Extractor
-DataSource make_extractor(
+
+Extractor make_extractor(
+    data_filter::MultiWordFilter filter,
+    u32 requiredCompletions,
+    u64 rngSeed)
+{
+    Extractor ex = {};
+
+    ex.filter = filter;
+    ex.requiredCompletions = requiredCompletions;
+    ex.currentCompletions = 0;
+    ex.rng.seed(rngSeed);
+
+    return ex;
+}
+
+DataSource make_datasource_extractor(
     Arena *arena,
     MultiWordFilter filter,
     u32 requiredCompletions,
@@ -178,14 +199,12 @@ DataSource make_extractor(
     int moduleIndex)
 {
     DataSource result = {};
+    result.type = DataSource_Extractor;
 
     auto ex = arena->pushStruct<Extractor>();
+    *ex = make_extractor(filter, requiredCompletions, rngSeed);
     result.d = ex;
 
-    ex->filter = filter;
-    ex->requiredCompletions = requiredCompletions;
-    ex->currentCompletions = 0;
-    ex->rng.seed(rngSeed);
     result.moduleIndex = moduleIndex;
 
     size_t addrCount = get_address_count(&result);
@@ -251,7 +270,24 @@ void extractor_process_module_data(DataSource *ds, u32 *data, u32 size)
 }
 
 // ListFilterExtractor
-DataSource make_listfilter_extractor(
+ListFilterExtractor make_listfilter_extractor(
+    data_filter::ListFilter listFilter,
+    data_filter::DataFilter repetitionAddressFilter,
+    u8 repetitions,
+    u64 rngSeed)
+{
+    ListFilterExtractor ex = {};
+
+    ex.listFilter = listFilter;
+    ex.repetitionAddressFilter = repetitionAddressFilter;
+    ex.repetitionAddressCache = make_cache_entry(repetitionAddressFilter, 'A');
+    ex.rng.seed(rngSeed);
+    ex.repetitions = repetitions;
+
+    return ex;
+}
+
+DataSource make_datasource_listfilter_extractor(
     memory::Arena *arena,
     data_filter::ListFilter listFilter,
     data_filter::DataFilter repetitionAddressFilter,
@@ -260,15 +296,12 @@ DataSource make_listfilter_extractor(
     u8 moduleIndex)
 {
     DataSource result = {};
+    result.type = DataSource_ListFilterExtractor;
 
-    auto d = arena->pushStruct<ListFilterExtractor>();
-    result.d = d;
+    auto ex = arena->pushStruct<ListFilterExtractor>();
+    *ex = make_listfilter_extractor(listFilter, repetitionAddressFilter, repetitions, rngSeed); 
+    result.d = ex;
 
-    d->listFilter = listFilter;
-    d->repetitionAddressFilter = repetitionAddressFilter;
-    d->repetitionAddressCache = make_cache_entry(repetitionAddressFilter, 'A');
-    d->rng.seed(rngSeed);
-    d->repetitions = repetitions;
     result.moduleIndex = moduleIndex;
 
     // This call works as listFilter and repetitionAddressCache have been

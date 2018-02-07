@@ -752,7 +752,7 @@ void a2_adapter_build_extractors(
                             slowFilter.getWordIndex()));
                 }
 
-                ds = a2::make_extractor(
+                ds = a2::make_datasource_extractor(
                     arena,
                     filter,
                     ex->m_requiredCompletionCount,
@@ -761,7 +761,7 @@ void a2_adapter_build_extractors(
             }
             else if (auto ex = qobject_cast<analysis::ListFilterExtractor *>(src.source.get()))
             {
-                ds = a2::make_listfilter_extractor(
+                ds = a2::make_datasource_listfilter_extractor(
                     arena,
                     ex->getExtractor().listFilter,
                     ex->getExtractor().repetitionAddressFilter,

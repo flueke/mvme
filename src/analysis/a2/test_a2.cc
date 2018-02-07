@@ -54,7 +54,7 @@ static void BM_a2(benchmark::State &state)
     MultiWordFilter filter = { make_filter("xxxx aaaa xxxx dddd") };
     u32 requiredCompletions = 0;
     u64 rngSeed = 1234;
-    auto ex = make_extractor(&arena, filter, requiredCompletions, rngSeed, moduleIndex);
+    auto ex = make_datasource_extractor(&arena, filter, requiredCompletions, rngSeed, moduleIndex);
 
     a2->dataSources[eventIndex][a2->dataSourceCounts[eventIndex]] = ex;
     a2->dataSourceCounts[eventIndex]++;

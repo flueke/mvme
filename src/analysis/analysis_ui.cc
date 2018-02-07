@@ -1027,11 +1027,15 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                         }
                         else if (dynamic_cast<ListFilterExtractor *>(srcPtr.get()))
                         {
-                            dialog = new ListFilterExtractorDialog(moduleConfig, m_context->getAnalysis(), m_q);
-                            QObject::connect(dialog, &QDialog::accepted, m_q,
+                            auto lfe_dialog = new ListFilterExtractorDialog(moduleConfig, m_context->getAnalysis(), m_context, m_q);
+
+                            QObject::connect(lfe_dialog, &QDialog::accepted, m_q,
                                              &EventWidget::listFilterExtractorDialogAccepted);
-                            QObject::connect(dialog, &QDialog::rejected, m_q,
+                            QObject::connect(lfe_dialog, &ListFilterExtractorDialog::applied, m_q,
+                                             &EventWidget::listFilterExtractorDialogApplied);
+                            QObject::connect(lfe_dialog, &QDialog::rejected, m_q,
                                              &EventWidget::listFilterExtractorDialogRejected);
+                            dialog = lfe_dialog;
                         }
                         else
                         {
@@ -1138,14 +1142,17 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                             else if (dynamic_cast<ListFilterExtractor *>(sourceInterface))
                             {
                                 auto srcPtr = std::dynamic_pointer_cast<SourceInterface>(sourceInterface->shared_from_this());
-                                auto dia = new ListFilterExtractorDialog(moduleConfig, m_context->getAnalysis(), m_q);
-                                dia->editSource(srcPtr);
-                                dialog = dia;
+                                auto lfe_dialog = new ListFilterExtractorDialog(moduleConfig, m_context->getAnalysis(), m_context, m_q);
+                                lfe_dialog->editSource(srcPtr);
 
-                                QObject::connect(dialog, &QDialog::accepted,
-                                                 m_q, &EventWidget::listFilterExtractorDialogAccepted);
-                                QObject::connect(dialog, &QDialog::rejected,
-                                                 m_q, &EventWidget::listFilterExtractorDialogRejected);
+                                QObject::connect(lfe_dialog, &QDialog::accepted, m_q,
+                                                 &EventWidget::listFilterExtractorDialogAccepted);
+                                QObject::connect(lfe_dialog, &ListFilterExtractorDialog::applied, m_q,
+                                                 &EventWidget::listFilterExtractorDialogApplied);
+                                QObject::connect(lfe_dialog, &QDialog::rejected, m_q,
+                                                 &EventWidget::listFilterExtractorDialogRejected);
+
+                                dialog = lfe_dialog;
                             }
                             else
                             {
@@ -1281,7 +1288,14 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
 void EventWidget::listFilterExtractorDialogAccepted()
 {
     qDebug() << __PRETTY_FUNCTION__;
+    m_d->repopulate();
     uniqueWidgetCloses();
+}
+
+void EventWidget::listFilterExtractorDialogApplied()
+{
+    qDebug() << __PRETTY_FUNCTION__;
+    m_d->repopulate();
 }
 
 void EventWidget::listFilterExtractorDialogRejected()

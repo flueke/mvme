@@ -575,6 +575,7 @@ void ListFilterExtractor::read(const QJsonObject &json)
     m_a2Extractor = {};
     m_a2Extractor.listFilter = a2_listfilter_from_json(json["listFilter"].toObject());
     m_a2Extractor.repetitionAddressFilter = a2_dataFilter_from_json(json["repetitionAddressFilter"].toObject());
+    m_a2Extractor.repetitionAddressCache = make_cache_entry(m_a2Extractor.repetitionAddressFilter, 'A');
     m_a2Extractor.repetitions = static_cast<u8>(json["repetitions"].toInt());
     QString sSeed = json["rngSeed"].toString();
     m_rngSeed = sSeed.toULongLong(nullptr, 16);
@@ -3320,6 +3321,7 @@ Analysis::getListFilterExtractors(ModuleConfig *module) const
     return result;
 }
 
+/** Replaces the ListFilterExtractors for module with the given extractors. */
 void
 Analysis::setListFilterExtractors(ModuleConfig *module, const QVector<ListFilterExtractorPtr> &extractors)
 {
@@ -3328,13 +3330,9 @@ Analysis::setListFilterExtractors(ModuleConfig *module, const QVector<ListFilter
     if (!module->getEventConfig())
         return;
 
-    // First remove all source entries that contain one of the ListFilterExtractors given in the extractors vector.
-    auto it = std::remove_if(m_sources.begin(), m_sources.end(), [&extractors](const SourceEntry &se) {
-        if (auto lfe = std::dynamic_pointer_cast<ListFilterExtractor>(se.source))
-        {
-            return extractors.contains(lfe);
-        }
-        return false;
+    // Remove all source entries containing a ListFilterExtractor for the module.
+    auto it = std::remove_if(m_sources.begin(), m_sources.end(), [module](const SourceEntry &se) {
+        return (qobject_cast<ListFilterExtractor *>(se.source.get()) && se.moduleId == module->getId());
     });
 
     m_sources.erase(it, m_sources.end());
