@@ -3345,6 +3345,8 @@ Analysis::setListFilterExtractors(ModuleConfig *module, const QVector<ListFilter
         m_sources.push_back({module->getEventConfig()->getId(), module->getId(), ex});
     }
 
+    qDebug() << __PRETTY_FUNCTION__ << "added" << extractors.size() << "listfilter extractors";
+
     // Rebuild and notify about modification state
     beginRun(m_runInfo, m_vmeMap);
     setModified();
