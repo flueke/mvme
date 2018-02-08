@@ -71,7 +71,7 @@ A2AdapterState a2_adapter_build(
 a2::PipeVectors find_output_pipe(const A2AdapterState *state, analysis::Pipe *pipe);
 
 template<typename T, typename SizeType>
-QVector<T> to_qvector(a2::TypedBlock<T, SizeType> block)
+QVector<T> to_qvector(TypedBlock<T, SizeType> block)
 {
     QVector<T> result;
 

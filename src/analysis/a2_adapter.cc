@@ -185,7 +185,7 @@ DEF_OP_MAGIC(difference_magic)
 template<typename T, typename SizeType = size_t>
 struct QVectorBlock
 {
-    a2::TypedBlock<T, SizeType> block;
+    TypedBlock<T, SizeType> block;
     QVector<T> store;
 };
 

@@ -16,6 +16,10 @@ Rate displays and Rate monitoring
     calibrate,
     calc difference between cur and prev
     make rate output available
+  How to build these things easily?
+  a2 level: combine existing operators
+  a1 level: input/output logic
+            create a2 instance and query for output sizes
 
 * Make mvme internal "system" rates available to the analysis.
   Might split this into VME and Analysis rates. Think about how to feed those
@@ -31,9 +35,6 @@ Rate displays and Rate monitoring
   scales so is not a good idea.
 
   See next item.
-
-* Rate generation, time bases and how the core works:
-  XXX: write me
 
 --------------------------------------------------
 
