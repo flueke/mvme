@@ -3,6 +3,41 @@ TODO list somewhat sorted by priority
 ==================================================
 
 --------------------------------------------------
+Rate displays and Rate monitoring
+--------------------------------------------------
+* CircularBuffer
+
+* Qwt Base Widget using a circular buffer as the data source
+  Should have lin/log stuff, legends, etc. Could be able to support multiple
+  plots. Could be the generic base for all things displaying QwtPlots.
+  For now a thinned out clone of Histo1DWidget, Histo2DWidget
+
+* analaysis combined rate calculation thingy:
+    calibrate,
+    calc difference between cur and prev
+    make rate output available
+
+* Make mvme internal "system" rates available to the analysis.
+  Might split this into VME and Analysis rates. Think about how to feed those
+  to the analysis system.
+  Make this efficient and easily integrated.
+
+* A summary screen similar to what wanpengs screenshot shows:
+  I'd like a catalog of all available rates in the system.
+  The user should be able to easily add/remove rates to monitor in a sort of table view.
+  Certain rates should also be plotted in combined rate display.
+
+  How to handle different time bases then? This would mean differing X-axis
+  scales so is not a good idea.
+
+  See next item.
+
+* Rate generation, time bases and how the core works:
+  XXX: write me
+
+--------------------------------------------------
+
+--------------------------------------------------
 Single Stepping and Stream Processing
 --------------------------------------------------
 * Show if multievent processing is active for an event
