@@ -153,9 +153,10 @@ class ListFilterExtractorDialog: public QDialog
         virtual void accept() override;
         virtual void reject() override;
 
+        void newFilter();
+
     private slots:
         void apply();
-        void newFilter();
         void removeFilter();
         void cloneFilter();
         void updateWordCount();

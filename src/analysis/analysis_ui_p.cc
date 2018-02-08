@@ -45,6 +45,7 @@
 #include <QStackedWidget>
 #include <QListWidget>
 #include <QSignalMapper>
+#include <QAbstractItemModel>
 
 namespace analysis
 {
@@ -542,12 +543,17 @@ static ListFilterListWidgetUi make_listfilter_list_ui(QWidget *parent = nullptr)
     QSizePolicy pol(QSizePolicy::Preferred, QSizePolicy::Preferred);
     pol.setVerticalStretch(1);
     ui.listWidget->setSizePolicy(pol);
+    ui.listWidget->setSelectionMode(QAbstractItemView::SingleSelection);
+    ui.listWidget->setDragEnabled(true);
+    ui.listWidget->viewport()->setAcceptDrops(true);
+    ui.listWidget->setDropIndicatorShown(true);
+    ui.listWidget->setDragDropMode(QAbstractItemView::InternalMove);
 
     auto widgetLayout = new QFormLayout(ui.widget);
 
     widgetLayout->addRow("Module name", ui.label_moduleName);
-    widgetLayout->addRow("Total words used", ui.label_totalWordsUsed);
     widgetLayout->addRow(ui.listWidget);
+    widgetLayout->addRow("Total words used", ui.label_totalWordsUsed);
     {
         auto l = new QHBoxLayout;
         l->addWidget(ui.pb_addFilter);
@@ -571,8 +577,8 @@ struct ListFilterExtractorDialog::ListFilterExtractorDialogPrivate
     QVector<ListFilterExtractorPtr> m_extractors;
     QVector<ListFilterEditor> m_filterEditors;
 
-    ListFilterListWidgetUi listWidgetUi;
     QStackedWidget *m_editorStack;
+    ListFilterListWidgetUi listWidgetUi;
 
     QSignalMapper m_nameChangedMapper;
 };
@@ -641,12 +647,62 @@ ListFilterExtractorDialog::ListFilterExtractorDialog(ModuleConfig *mod, analysis
     connect(m_d->listWidgetUi.pb_cloneFilter, &QPushButton::clicked,
             this, &ListFilterExtractorDialog::cloneFilter);
 
+    connect(m_d->listWidgetUi.listWidget->model(), &QAbstractItemModel::rowsMoved,
+            this, [this](const QModelIndex &parent, int srcIdx, int endIdx,
+                         const QModelIndex &dest, int dstIdx) {
+
+                qDebug() << "orig: srcIdx =" << srcIdx << ", dstIdx =" << dstIdx;
+
+                Q_ASSERT(endIdx - srcIdx == 0);
+                Q_ASSERT(srcIdx != dstIdx);
+
+                auto ex = m_d->m_extractors[srcIdx];
+                auto fe = m_d->m_filterEditors[srcIdx];
+
+                m_d->m_extractors.remove(srcIdx);
+                m_d->m_filterEditors.remove(srcIdx);
+
+                if (dstIdx > srcIdx)
+                    dstIdx -= 1;
+
+                if (dstIdx > m_d->m_extractors.size())
+                    dstIdx = m_d->m_extractors.size();
+
+                m_d->m_extractors.insert(dstIdx, ex);
+                m_d->m_filterEditors.insert(dstIdx, fe);
+
+                // Instead of fiddling with the editorStack, trying to figure
+                // out which widget has to move where this code just empties
+                // the stack and repopulates it using the existing ListFilterEditors.
+
+                while (m_d->m_editorStack->count())
+                {
+                    auto w = m_d->m_editorStack->widget(0);
+                    m_d->m_editorStack->removeWidget(w);
+                }
+
+                for (const auto &editor: m_d->m_filterEditors)
+                {
+                    m_d->m_editorStack->addWidget(editor.widget);
+                }
+
+                auto w = m_d->m_editorStack->widget(dstIdx);
+                m_d->m_editorStack->setCurrentWidget(w);
+
+                Q_ASSERT(m_d->m_editorStack->count() == m_d->m_extractors.size());
+                Q_ASSERT(m_d->m_editorStack->count() == m_d->m_filterEditors.size());
+     });
+
+
     auto on_nameChanged = [this](int index)
     {
         qDebug() << __PRETTY_FUNCTION__ << index;
         auto item = m_d->listWidgetUi.listWidget->item(index);
-        auto editor = m_d->m_filterEditors.at(index);
-        item->setText(editor.le_name->text());
+        if (item && 0 <= index && index < m_d->m_filterEditors.size())
+        {
+            auto editor = m_d->m_filterEditors.at(index);
+            item->setText(editor.le_name->text());
+        }
     };
 
     connect(&m_d->m_nameChangedMapper, static_cast<void (QSignalMapper::*) (int index)>(&QSignalMapper::mapped),
@@ -711,7 +767,7 @@ int ListFilterExtractorDialog::addFilterToUi(const ListFilterExtractorPtr &ex)
     m_d->m_editorStack->addWidget(editor.widget);
     m_d->listWidgetUi.listWidget->addItem(ex->objectName());
 
-    connect(editor.le_name, &QLineEdit::editingFinished,
+    connect(editor.le_name, &QLineEdit::textChanged,
             &m_d->m_nameChangedMapper, static_cast<void (QSignalMapper::*) ()>(&QSignalMapper::map));
 
     m_d->m_nameChangedMapper.setMapping(editor.le_name, m_d->m_filterEditors.size() - 1);
@@ -831,6 +887,14 @@ void ListFilterExtractorDialog::cloneFilter()
 void ListFilterExtractorDialog::editSource(const SourcePtr &src)
 {
     qDebug() << __PRETTY_FUNCTION__ << src.get();
+    if (auto lfe = std::dynamic_pointer_cast<ListFilterExtractor>(src))
+    {
+        int idx = m_d->m_extractors.indexOf(lfe);
+        if (0 <= idx && idx < m_d->m_extractors.size())
+        {
+            m_d->listWidgetUi.listWidget->setCurrentRow(idx);
+        }
+    }
 }
 
 QVector<ListFilterExtractorPtr> ListFilterExtractorDialog::getExtractors() const
