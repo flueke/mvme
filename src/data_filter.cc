@@ -240,6 +240,7 @@ QLineEdit *makeFilterEdit(u8 bits)
     QLineEdit *result = new QLineEdit;
     result->setFont(font);
     result->setInputMask(generate_pretty_filter_string(bits, 'N'));
+    result->setAlignment(Qt::AlignRight);
 
     QFontMetrics fm(font);
     s32 padding = 6;

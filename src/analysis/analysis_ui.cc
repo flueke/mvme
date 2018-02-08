@@ -150,9 +150,17 @@ inline TreeNode *makeOperatorTreeSourceNode(SourceInterface *source)
 {
     auto sourceNode = makeNode(source, NodeType_Source);
     sourceNode->setText(0, source->objectName());
-    sourceNode->setIcon(0, QIcon(":/data_filter.png"));
 
-    Q_ASSERT(source->getNumberOfOutputs() == 1); // TODO: implement the case for multiple outputs
+    auto icon = QIcon(":/data_filter.png");
+
+    if (qobject_cast<ListFilterExtractor *>(source))
+    {
+        icon = QIcon(":/listfilter.png");
+    }
+
+    sourceNode->setIcon(0, icon);
+
+    Q_ASSERT(source->getNumberOfOutputs() == 1); // TODO: implement the case for multiple outputs if we ever use them
 
     if (source->getNumberOfOutputs() == 1)
     {
@@ -526,7 +534,7 @@ struct EventWidgetPrivate
         QVector<double> hitCounts;
     };
 
-    QHash<Extractor *, ObjectCounters> m_extractorCounters;
+    QHash<SourceInterface *, ObjectCounters> m_extractorCounters;
     QHash<Histo1DSink *, ObjectCounters> m_histo1DSinkCounters;
     QHash<Histo2DSink *, ObjectCounters> m_histo2DSinkCounters;
     MVMEStreamProcessorCounters m_prevStreamProcessorCounters;
@@ -641,13 +649,23 @@ DisplayLevelTrees EventWidgetPrivate::createSourceTrees(const QUuid &eventId)
         result.operatorTree->addTopLevelItem(moduleNode);
         moduleNode->setExpanded(true);
 
-        for (auto sourceEntry: analysis->getSources(eventId, mod->getId()))
+        auto sourceEntries = analysis->getSources(eventId, mod->getId());
+
+#ifndef QT_NO_DEBUG
+        qDebug() << __PRETTY_FUNCTION__ << ">>>>> sources in order:";
+        for (auto se: sourceEntries)
+        {
+            qDebug() << se.source.get();
+        }
+        qDebug() << __PRETTY_FUNCTION__ << " <<<< end sources";
+#endif
+
+        for (auto sourceEntry: sourceEntries)
         {
             auto sourceNode = makeOperatorTreeSourceNode(sourceEntry.source.get());
             moduleNode->addChild(sourceNode);
         }
     }
-    result.operatorTree->sortItems(0, Qt::AscendingOrder);
 
     // Populate the DisplayTree
     // Create module nodes and nodes for the raw histograms for each data source for the module.
@@ -886,13 +904,15 @@ static void expandObjectNodes(const QVector<DisplayLevelTrees> &treeVector, cons
 
 void EventWidgetPrivate::repopulate()
 {
+    qDebug() << __PRETTY_FUNCTION__ << m_q;
+
     auto splitterSizes = m_operatorFrameSplitter->sizes();
     // clear
 #if 0
     for (auto trees: m_levelTrees)
     {
         // FIXME: this is done because setParent(nullptr) below will cause a
-        // focus in event on one of the other trees and that will call
+        // focus-in event on one of the other trees and that will call
         // EventWidget::eventFilter() which will call setCurrentItem() on
         // whatever tree gained focus which will emit currentItemChanged()
         // which will invoke a lambda which will call onNodeClicked() which
@@ -2190,25 +2210,19 @@ void EventWidgetPrivate::periodicUpdateExtractorCounters(double dt_s)
 
         if (node->type() == NodeType_Source)
         {
-            auto extractor = qobject_cast<Extractor *>(getPointer<PipeSourceInterface>(node));
+            auto source = qobject_cast<SourceInterface *>(getPointer<PipeSourceInterface>(node));
 
-            if (!extractor)
+            if (!source)
                 continue;
 
-            if (extractor->getOutput(0)->getSize() != node->childCount())
-                continue;
-
-            if (!a2State)
-                continue;
-
-            auto ds_a2 = a2State->sourceMap.value(extractor, nullptr);
+            auto ds_a2 = a2State->sourceMap.value(source, nullptr);
 
             if (!ds_a2)
                 continue;
 
             auto hitCounts = to_qvector(ds_a2->hitCounts);
 
-            auto &prevHitCounts = m_extractorCounters[extractor].hitCounts;
+            auto &prevHitCounts = m_extractorCounters[source].hitCounts;
 
             prevHitCounts.resize(hitCounts.size());
 
@@ -2747,6 +2761,10 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, int eventIndex,
         tb->addAction(m_d->m_actionSelectVisibleLevels);
         tb->addSeparator();
         tb->addWidget(m_d->m_eventRateLabel);
+#ifndef QT_NO_DEBUG
+        tb->addSeparator();
+        tb->addAction(QSL("Repopluate"), this, [this]() { m_d->repopulate(); });
+#endif
     }
 
     m_d->repopulate();

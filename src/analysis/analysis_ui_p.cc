@@ -315,7 +315,8 @@ struct ListFilterEditor
 
     QLabel *label_addressBits,
            *label_dataBits,
-           *label_outputSize;
+           *label_outputSize,
+           *label_combinedBits;
 
     QSpinBox *spin_repetitions,
              *spin_wordCount;
@@ -373,10 +374,12 @@ static void listfilter_editor_update(ListFilterEditor e)
     auto addressBits = get_address_bits(&ex);
     auto addressCount = get_address_count(&ex);
     auto dataBits = get_extract_bits(&ex.listFilter, a2::data_filter::MultiWordFilter::CacheD);
+    size_t combinedBits = ((ex.listFilter.flags & a2::data_filter::ListFilter::WordSize32) ? 32 : 16) * ex.listFilter.wordCount;
 
     e.label_addressBits->setText(QString::number(addressBits));
     e.label_outputSize->setText(QString::number(addressCount));
     e.label_dataBits->setText(QString::number(dataBits));
+    e.label_combinedBits->setText(QString::number(combinedBits));
 }
 
 static ListFilterEditor make_listfilter_editor(QWidget *parent = nullptr)
@@ -390,6 +393,7 @@ static ListFilterEditor make_listfilter_editor(QWidget *parent = nullptr)
     e.label_addressBits = new QLabel;
     e.label_dataBits = new QLabel;
     e.label_outputSize = new QLabel;
+    e.label_combinedBits = new QLabel;
     e.spin_repetitions = new QSpinBox;
     e.spin_wordCount = new QSpinBox;
     e.filter_lowWord = makeFilterEdit();
@@ -448,24 +452,43 @@ static ListFilterEditor make_listfilter_editor(QWidget *parent = nullptr)
     QObject::connect(e.filter_repIndex, &QLineEdit::textChanged, e.widget, update_editor);
 
     // layout
-    auto widgetLayout = new QVBoxLayout(e.widget);
+    auto layout = new QFormLayout(e.widget);
+
+    layout->addRow("Name", e.le_name);
+    layout->addRow("Repetitions", e.spin_repetitions);
 
     {
-        auto layout = new QFormLayout();
-        layout->addRow("Name", e.le_name);
-        layout->addRow("Repetitions", e.spin_repetitions);
-        layout->addRow("Word size", e.combo_wordSize);
-        layout->addRow("Word count", e.spin_wordCount);
-        layout->addRow("Swap words", e.cb_swapWords);
-        layout->addRow("Repetition", e.filter_repIndex);
-        layout->addRow("High word", e.filter_highWord);
-        layout->addRow("Low word", e.filter_lowWord);
+        auto gb_input = new QGroupBox("Input");
+        auto layout_input = new QFormLayout(gb_input);
 
-        layout->addRow("data bits", e.label_dataBits);
-        layout->addRow("address bits", e.label_addressBits);
-        layout->addRow("output size", e.label_outputSize);
+        layout_input->addRow("Word size", e.combo_wordSize);
+        layout_input->addRow("Words to combine", e.spin_wordCount);
+        layout_input->addRow("Reverse combine", e.cb_swapWords);
 
-        widgetLayout->addLayout(layout);
+        layout->addRow(gb_input);
+    }
+
+    {
+        auto gb_extraction = new QGroupBox("Data Extraction");
+        auto layout_extraction = new QFormLayout(gb_extraction);
+
+        layout_extraction->addRow("Repetition", e.filter_repIndex);
+        layout_extraction->addRow("High word", e.filter_highWord);
+        layout_extraction->addRow("Low word", e.filter_lowWord);
+
+        layout->addRow(gb_extraction);
+    }
+
+    {
+        auto gb_info = new QGroupBox("Info");
+        auto layout_info = new QFormLayout(gb_info);
+
+        layout_info->addRow("Bits from combine step:", e.label_combinedBits);
+        layout_info->addRow("Extracted data bits:", e.label_dataBits);
+        layout_info->addRow("Extracted address bits:", e.label_addressBits);
+        layout_info->addRow("Output vector size:", e.label_outputSize);
+
+        layout->addRow(gb_info);
     }
 
     return e;
@@ -553,7 +576,7 @@ static ListFilterListWidgetUi make_listfilter_list_ui(QWidget *parent = nullptr)
 
     widgetLayout->addRow("Module name", ui.label_moduleName);
     widgetLayout->addRow(ui.listWidget);
-    widgetLayout->addRow("Total words used", ui.label_totalWordsUsed);
+    widgetLayout->addRow("Total input words used", ui.label_totalWordsUsed);
     {
         auto l = new QHBoxLayout;
         l->addWidget(ui.pb_addFilter);
@@ -622,6 +645,9 @@ ListFilterExtractorDialog::ListFilterExtractorDialog(ModuleConfig *mod, analysis
     //
     // gui state changes and interactions
     //
+
+
+    setWindowTitle(QSL("ListFilter Editor"));
 
     connect(buttonBox, &QDialogButtonBox::accepted, this, &ListFilterExtractorDialog::accept);
     connect(buttonBox, &QDialogButtonBox::rejected, this, &ListFilterExtractorDialog::reject);
