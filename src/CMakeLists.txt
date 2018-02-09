@@ -99,6 +99,7 @@ set(LIBMVME_SOURCES
     mvme_stream_processor.cc
     mvme_stream_worker.cc
     qt_util.cc
+    rate_monitoring.cc
     realtimedata.cpp
     scrollbar.cpp
     scrollzoomer.cpp
@@ -287,7 +288,7 @@ endif(ENABLE_ROOT AND ROOT_FOUND)
 #    add_definitions(-D_WIN32_WINNT=0x0501)
 #endif(WIN32)
 #
-#find_package(Boost REQUIRED COMPONENTS coroutine)
-#include_directories(${Boost_INCLUDE_DIRS})
+find_package(Boost REQUIRED)
+include_directories(${Boost_INCLUDE_DIRS})
 
 # vim:tw=0

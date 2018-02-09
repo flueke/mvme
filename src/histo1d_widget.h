@@ -40,7 +40,7 @@ namespace analysis
     class Histo1DSink;
 }
 
-class Histo1DWidgetPrivate;
+struct Histo1DWidgetPrivate;
 
 class Histo1DWidget: public QWidget
 {
@@ -91,7 +91,7 @@ class Histo1DWidget: public QWidget
         void calibResetToFilter();
 
         Histo1DWidgetPrivate *m_d;
-        friend class Histo1DWidgetPrivate;
+        friend struct Histo1DWidgetPrivate;
 
         Histo1D *m_histo;
         Histo1DPtr m_histoPtr;

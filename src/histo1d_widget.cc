@@ -64,7 +64,8 @@ class Histo1DPointData: public QwtSeriesData<QPointF>
 {
     public:
         Histo1DPointData(Histo1D *histo)
-            : m_histo(histo)
+            : QwtSeriesData<QPointF>()
+            , m_histo(histo)
         {}
 
         virtual size_t size() const override
@@ -428,7 +429,6 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
 
     TRY_ASSERT(connect(m_zoomer, SIGNAL(zoomed(const QRectF &)),
                        this, SLOT(zoomerZoomed(const QRectF &))));
-
     TRY_ASSERT(connect(m_zoomer, &ScrollZoomer::mouseCursorMovedTo,
                        this, &Histo1DWidget::mouseCursorMovedToPlotCoord));
     TRY_ASSERT(connect(m_zoomer, &ScrollZoomer::mouseCursorLeftPlot,
@@ -684,7 +684,6 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     mainLayout->setStretch(1, 1);
 
     setHistogram(histo);
-
 }
 
 Histo1DWidget::~Histo1DWidget()

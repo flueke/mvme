@@ -15,11 +15,13 @@ struct TypedBlock
 
     inline T operator[](size_type index) const
     {
+        assert(index < size);
         return data[index];
     }
 
     inline T &operator[](size_type index)
     {
+        assert(index < size);
         return data[index];
     }
 
