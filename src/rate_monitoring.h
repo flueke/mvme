@@ -12,7 +12,22 @@ struct RateMonitorPlotWidgetPrivate;
 using RateHistoryBuffer = boost::circular_buffer<double>;
 using RateHistoryBufferPtr = std::shared_ptr<RateHistoryBuffer>;
 
-enum class AxisScaling
+inline double get_max_value(const RateHistoryBuffer &rh)
+{
+    auto max_it = std::max_element(rh.begin(), rh.end());
+    double max_value = (max_it == rh.end()) ? 0.0 : *max_it;
+    return max_value;
+}
+
+inline QRectF get_bounding_rect(const RateHistoryBuffer &rh)
+{
+
+    double max_value = get_max_value(rh);
+    auto result = QRectF(0.0, 0.0, rh.capacity(), max_value);
+    return result;
+}
+
+enum class AxisScale
 {
     Linear,
     Logarithmic
@@ -29,12 +44,13 @@ class RateMonitorPlotWidget: public QWidget
         void setRateHistoryBuffer(const RateHistoryBufferPtr &buffer);
         RateHistoryBufferPtr getRateHistoryBuffer() const;
 
-        // internal stuff
+        // internal qwt objects
         QwtPlot *getPlot();
         QwtPlotCurve *getPlotCurve();
 
     public slots:
-        void setXScaling(AxisScaling scaling);
+        void setYAxisScale(AxisScale scaling);
+        AxisScale getYAxisScale() const;
 
         void replot();
 
