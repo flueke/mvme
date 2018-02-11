@@ -11,7 +11,7 @@
 #include <random>
 #include <thread>
 #include "util/perf.h"
-#include "benaphore.h" // cpp11-on-multicore
+#include "cpp11-on-multicore/common/benaphore.h" // cpp11-on-multicore
 
 #define ArrayCount(x) (sizeof(x) / sizeof(*x))
 

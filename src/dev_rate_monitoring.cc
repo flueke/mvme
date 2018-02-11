@@ -16,17 +16,12 @@ int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
 
-    const size_t BufferCapacity = 100;
-    const s32 ReplotPeriod_ms = 500;
+    const size_t BufferCapacity = 1000;
+    const s32 ReplotPeriod_ms = 1000;
     const s32 NewDataPeriod_ms = 250;
+    const s32 NewDataCount = 10;
 
     auto rateHistory = std::make_shared<RateHistoryBuffer>(BufferCapacity);
-
-    rateHistory->push_back(1);
-    rateHistory->push_back(2);
-    rateHistory->push_back(3);
-    rateHistory->push_back(4);
-    rateHistory->push_back(5);
 
     // Plot and external legend
     auto plotWidget = new RateMonitorPlotWidget;
@@ -92,17 +87,20 @@ int main(int argc, char *argv[])
     std::mt19937 gen(rd());
     std::uniform_real_distribution<double> dist(0.0, 15.0);
 
-    static const double SinOffset = 2.0;
-    static const double SinScale = 15.0;
-    static const double SinInc = 0.25;
+    static const double SinOffset = 1.0;
+    static const double SinScale = 1.0;
+    static const double SinInc = 0.10;
     double x = 0.0;
 
     QTimer fillTimer;
     QObject::connect(&fillTimer, &QTimer::timeout, plotWidget, [&] () {
-        //double value = dist(gen);
-        double value = (std::sin(x) + SinOffset) * SinScale;
-        x += SinInc;
-        rateHistory->push_back(value);
+        for (s32 i = 0; i < NewDataCount; i++)
+        {
+            //double value = dist(gen);
+            double value = (std::sin(x * 0.25) + SinOffset) * SinScale;
+            x += SinInc;
+            rateHistory->push_back(value);
+        }
     });
 
     fillTimer.setInterval(NewDataPeriod_ms);

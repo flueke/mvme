@@ -4,6 +4,7 @@
 #include <boost/circular_buffer.hpp>
 #include <memory>
 #include <QWidget>
+#include <cpp11-on-multicore/common/rwlock.h>
 
 class QwtPlot;
 class QwtPlotCurve;
@@ -11,6 +12,12 @@ struct RateMonitorPlotWidgetPrivate;
 
 using RateHistoryBuffer = boost::circular_buffer<double>;
 using RateHistoryBufferPtr = std::shared_ptr<RateHistoryBuffer>;
+
+struct RateHistory
+{
+    RateHistoryBuffer buffer;
+    NonRecursiveRWLock lock;
+};
 
 inline double get_max_value(const RateHistoryBuffer &rh)
 {
