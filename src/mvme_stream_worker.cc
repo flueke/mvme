@@ -377,8 +377,9 @@ void single_step_one_event(ProcessingState &procState, MVMEStreamProcessor &stre
 
 } // end anon namespace
 
-/* Used at the start of a run after beginRun() has been called. Does
- * a2_begin_run() and a2_end_run() (threading stuff if enabled). */
+/* The main worker loop. Call beginRun() before invoking start().
+ * Currently also does a2_begin_run()/a2_end_run() to handle a2 threads is
+ * enabled. */
 void MVMEStreamWorker::start()
 {
     qDebug() << __PRETTY_FUNCTION__ << "begin";
@@ -398,7 +399,9 @@ void MVMEStreamWorker::start()
 
     if (auto a2State = m_d->context->getAnalysis()->getA2AdapterState())
     {
-        // Move this into Analysis::beginRun()?
+        // Do not move this into Analysis::beginRun() as most of the time calls
+        // to it are not directly followed by starting the StreamWorker,
+        // meaning the threading setup is unnecessary.
         a2::a2_begin_run(a2State->a2);
     }
 
