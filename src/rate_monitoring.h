@@ -4,7 +4,6 @@
 #include <boost/circular_buffer.hpp>
 #include <memory>
 #include <QWidget>
-#include <cpp11-on-multicore/common/rwlock.h>
 
 class QwtPlot;
 class QwtPlotCurve;
@@ -12,12 +11,6 @@ struct RateMonitorPlotWidgetPrivate;
 
 using RateHistoryBuffer = boost::circular_buffer<double>;
 using RateHistoryBufferPtr = std::shared_ptr<RateHistoryBuffer>;
-
-struct RateHistory
-{
-    RateHistoryBuffer buffer;
-    NonRecursiveRWLock lock;
-};
 
 inline double get_max_value(const RateHistoryBuffer &rh)
 {
@@ -48,8 +41,10 @@ class RateMonitorPlotWidget: public QWidget
         RateMonitorPlotWidget(QWidget *parent = nullptr);
         ~RateMonitorPlotWidget();
 
-        void setRateHistoryBuffer(const RateHistoryBufferPtr &buffer);
-        RateHistoryBufferPtr getRateHistoryBuffer() const;
+        void addRate(const RateHistoryBufferPtr &rateHistory, const QString &title = QString(),
+                     const QColor &color = Qt::black);
+        void removeRate(const RateHistoryBufferPtr &rateHistory);
+        QVector<RateHistoryBufferPtr> getRates() const;
 
         /* Log or lin scaling for the Y-Axis. */
         AxisScale getYAxisScale() const;
@@ -62,7 +57,10 @@ class RateMonitorPlotWidget: public QWidget
 
         // internal qwt objects
         QwtPlot *getPlot();
-        QwtPlotCurve *getPlotCurve();
+
+        QwtPlotCurve *getPlotCurve(const RateHistoryBufferPtr &rate);
+        QwtPlotCurve *getPlotCurve(int index);
+        QVector<QwtPlotCurve *> getPlotCurves();
 
     public slots:
 

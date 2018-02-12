@@ -21,11 +21,13 @@ int main(int argc, char *argv[])
     QApplication app(argc, argv);
 
     const size_t BufferCapacity = 1000;
+    const size_t BufferCapacity2 = 750;
     const s32 ReplotPeriod_ms = 1000;
     const s32 NewDataPeriod_ms = 250;
     const s32 NewDataCount = 10;
 
     auto rateHistory = std::make_shared<RateHistoryBuffer>(BufferCapacity);
+    auto rateHistory2 = std::make_shared<RateHistoryBuffer>(BufferCapacity2);
 
     // Plot and external legend
     auto plotWidget = new RateMonitorPlotWidget;
@@ -38,7 +40,8 @@ int main(int argc, char *argv[])
 
 
     // set plot data and show widgets
-    plotWidget->setRateHistoryBuffer(rateHistory);
+    plotWidget->addRate(rateHistory, "My Rate 1");
+    plotWidget->addRate(rateHistory2, "My Rate 2", Qt::red);
 
     auto leftWidget = new QWidget;
     auto leftLayout = new QVBoxLayout(leftWidget);
@@ -93,19 +96,24 @@ int main(int argc, char *argv[])
         });
 
         QObject::connect(cb_antiAlias, &QCheckBox::toggled, plotWidget, [=](bool checked) {
-            plotWidget->getPlotCurve()->setRenderHint(QwtPlotItem::RenderAntialiased, checked);
+            for (auto curve: plotWidget->getPlotCurves())
+                curve->setRenderHint(QwtPlotItem::RenderAntialiased, checked);
         });
 
         QObject::connect(combo_curveStyle, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
                          plotWidget, [=](int index) {
-            plotWidget->getPlotCurve()->setStyle(static_cast<QwtPlotCurve::CurveStyle>(combo_curveStyle->currentData().toInt()));
+            for (auto curve: plotWidget->getPlotCurves())
+                curve->setStyle(static_cast<QwtPlotCurve::CurveStyle>(combo_curveStyle->currentData().toInt()));
         });
 
         QObject::connect(spin_penWidth, static_cast<void (QSpinBox::*) (int)>(&QSpinBox::valueChanged),
                          plotWidget, [=](int width) {
-            auto pen = plotWidget->getPlotCurve()->pen();
-            pen.setWidth(width);
-            plotWidget->getPlotCurve()->setPen(pen);
+            for (auto curve: plotWidget->getPlotCurves())
+            {
+                auto pen = curve->pen();
+                pen.setWidth(width);
+                curve->setPen(pen);
+            }
          });
 
         QObject::connect(combo_legendPosition, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
@@ -163,16 +171,28 @@ int main(int argc, char *argv[])
     static const double SinOffset = 1.0;
     static const double SinScale = 1.0;
     static const double SinInc = 0.10;
-    double x = 0.0;
+    double x1 = 0.0;
+    double x2 = 0.0;
 
     QTimer fillTimer;
+    // Fill rateHistory1
     QObject::connect(&fillTimer, &QTimer::timeout, plotWidget, [&] () {
         for (s32 i = 0; i < NewDataCount; i++)
         {
             //double value = dist(gen);
-            double value = (std::sin(x * 0.25) + SinOffset) * SinScale;
-            x += SinInc;
+            double value = (std::sin(x1 * 0.25) + SinOffset) * SinScale;
+            x1 += SinInc;
             rateHistory->push_back(value);
+        }
+    });
+
+    // Fill rateHistory2
+    QObject::connect(&fillTimer, &QTimer::timeout, plotWidget, [&] () {
+        for (s32 i = 0; i < NewDataCount; i++)
+        {
+            double value = (std::cos(x2 * 0.25) + SinOffset) * SinScale;
+            x2 += SinInc;
+            rateHistory2->push_back(value);
         }
     });
 
