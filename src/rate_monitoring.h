@@ -51,13 +51,20 @@ class RateMonitorPlotWidget: public QWidget
         void setRateHistoryBuffer(const RateHistoryBufferPtr &buffer);
         RateHistoryBufferPtr getRateHistoryBuffer() const;
 
+        /* Log or lin scaling for the Y-Axis. */
+        AxisScale getYAxisScale() const;
+        void setYAxisScale(AxisScale scaling);
+
+        /* If true the x-axis runs from [-bufferCapacity, 0).
+         * If false the x-axis runs from [0, bufferCapacity). */
+        bool isXAxisReversed() const;
+        void setXAxisReversed(bool b);
+
         // internal qwt objects
         QwtPlot *getPlot();
         QwtPlotCurve *getPlotCurve();
 
     public slots:
-        void setYAxisScale(AxisScale scaling);
-        AxisScale getYAxisScale() const;
 
         void replot();
 

@@ -1,5 +1,6 @@
 #include "rate_monitoring.h"
 
+#include <qwt_plot_curve.h>
 #include <QApplication>
 #include <QDebug>
 #include <QTimer>
@@ -7,6 +8,9 @@
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QRadioButton>
+#include <QCheckBox>
+#include <QComboBox>
+#include <QSpinBox>
 #include <random>
 #include "util/typedefs.h"
 #include <qwt_legend.h>
@@ -39,6 +43,7 @@ int main(int argc, char *argv[])
     auto leftWidget = new QWidget;
     auto leftLayout = new QVBoxLayout(leftWidget);
 
+    // y scale
     auto gb_scale = new QGroupBox("Y Scale");
     {
         auto rb_scaleLin = new QRadioButton;
@@ -60,7 +65,75 @@ int main(int argc, char *argv[])
 
         leftLayout->addWidget(gb_scale);
     }
-    
+
+    // misc options
+    {
+        auto cb_xAxisReversed = new QCheckBox;
+        auto cb_antiAlias = new QCheckBox;
+        auto combo_curveStyle = new QComboBox;
+
+        combo_curveStyle->addItem("Lines", QwtPlotCurve::Lines);
+        combo_curveStyle->addItem("Sticks", QwtPlotCurve::Sticks);
+        combo_curveStyle->addItem("Steps", QwtPlotCurve::Steps);
+        combo_curveStyle->addItem("Dots", QwtPlotCurve::Dots);
+
+        auto spin_penWidth = new QSpinBox;
+        spin_penWidth->setMinimum(1);
+        spin_penWidth->setMaximum(10);
+
+        auto combo_legendPosition = new QComboBox;
+        combo_legendPosition->addItem("None", -1);
+        combo_legendPosition->addItem("Left", QwtPlot::LeftLegend);
+        combo_legendPosition->addItem("Right", QwtPlot::RightLegend);
+        combo_legendPosition->addItem("Bottom", QwtPlot::BottomLegend);
+        combo_legendPosition->addItem("Top", QwtPlot::TopLegend);
+
+        QObject::connect(cb_xAxisReversed, &QCheckBox::toggled, plotWidget, [=](bool checked) {
+            plotWidget->setXAxisReversed(checked);
+        });
+
+        QObject::connect(cb_antiAlias, &QCheckBox::toggled, plotWidget, [=](bool checked) {
+            plotWidget->getPlotCurve()->setRenderHint(QwtPlotItem::RenderAntialiased, checked);
+        });
+
+        QObject::connect(combo_curveStyle, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
+                         plotWidget, [=](int index) {
+            plotWidget->getPlotCurve()->setStyle(static_cast<QwtPlotCurve::CurveStyle>(combo_curveStyle->currentData().toInt()));
+        });
+
+        QObject::connect(spin_penWidth, static_cast<void (QSpinBox::*) (int)>(&QSpinBox::valueChanged),
+                         plotWidget, [=](int width) {
+            auto pen = plotWidget->getPlotCurve()->pen();
+            pen.setWidth(width);
+            plotWidget->getPlotCurve()->setPen(pen);
+         });
+
+        QObject::connect(combo_legendPosition, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
+                         plotWidget, [=](int index) {
+            int data = combo_legendPosition->currentData().toInt();
+            if (data < 0)
+            {
+                plotWidget->getPlot()->insertLegend(nullptr);
+            }
+            else
+            {
+                plotWidget->getPlot()->insertLegend(
+                    new QwtLegend,
+                    static_cast<QwtPlot::LegendPosition>(data));
+            }
+        });
+
+        auto l = new QFormLayout;
+        l->addRow("Reverse X", cb_xAxisReversed);
+        l->addRow("Antialiasing", cb_antiAlias);
+        l->addRow("Curve Style", combo_curveStyle);
+        l->addRow("Line Width", spin_penWidth);
+        l->addRow("External Legend Position", combo_legendPosition);
+
+        leftLayout->addLayout(l);
+    }
+
+    leftLayout->addStretch(1);
 
     QWidget mainWidget;
     auto mainLayout = new QHBoxLayout(&mainWidget);
