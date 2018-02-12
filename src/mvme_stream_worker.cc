@@ -378,7 +378,7 @@ void single_step_one_event(ProcessingState &procState, MVMEStreamProcessor &stre
 } // end anon namespace
 
 /* The main worker loop. Call beginRun() before invoking start().
- * Currently also does a2_begin_run()/a2_end_run() to handle a2 threads is
+ * Currently also does a2_begin_run()/a2_end_run() to handle a2 threads if
  * enabled. */
 void MVMEStreamWorker::start()
 {
