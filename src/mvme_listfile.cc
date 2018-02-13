@@ -1014,3 +1014,11 @@ OpenListfileResult open_listfile(const QString &filename)
 
     return result;
 }
+
+std::unique_ptr<VMEConfig> read_config_from_listfile(ListFile *listfile)
+{
+    auto configJson = listfile->getDAQConfig();
+    auto result = std::make_unique<VMEConfig>();
+    result->read(configJson);
+    return result;
+}

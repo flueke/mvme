@@ -106,7 +106,7 @@ class TimetickGenerator
             return result;
         }
 
-        double getTimeToNextTick() const
+        double getTimeToNextTick_ms() const
         {
             return 1000.0 - remainder_ms;
         }

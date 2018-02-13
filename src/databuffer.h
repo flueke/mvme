@@ -70,12 +70,13 @@ struct DataBuffer
     u32 *asU32() { return reinterpret_cast<u32 *>(data + used); }
 
     u32 *asU32(size_t offset) { return reinterpret_cast<u32 *>(data + offset); }
-    u32 *asU32ByIndex(size_t u32Index)
+
+    u32 *indexU32(size_t index)
     {
-        if (u32Index * sizeof(u32) >= used)
+        if (index * sizeof(u32) >= used)
             throw end_of_buffer();
 
-        return reinterpret_cast<u32 *>(data) + u32Index;
+        return reinterpret_cast<u32 *>(data) + index;
     }
 
     void ensureCapacity(size_t freeSize)

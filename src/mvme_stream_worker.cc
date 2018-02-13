@@ -209,7 +209,7 @@ void debug_dump(const ProcessingState &procState)
            procState.buffer->used / sizeof(u32)
           );
 
-    u32 lastSectionHeader = *procState.buffer->asU32ByIndex(procState.lastSectionHeaderOffset);
+    u32 lastSectionHeader = *procState.buffer->indexU32(procState.lastSectionHeaderOffset);
 
     qDebug("  lastSectionHeader=0x%08x, lastSectionHeaderOffset=%d",
            lastSectionHeader, procState.lastSectionHeaderOffset);
@@ -263,7 +263,7 @@ log_processing_step(QTextStream &out, const ProcessingState &procState, const va
         if (procState.stepResult == ProcessingState::StepResult_EventHasMore
             || procState.stepResult == ProcessingState::StepResult_EventComplete)
         {
-            u32 eventSectionHeader = *procState.buffer->asU32ByIndex(procState.lastSectionHeaderOffset);
+            u32 eventSectionHeader = *procState.buffer->indexU32(procState.lastSectionHeaderOffset);
             u32 eventIndex         = (eventSectionHeader & LF::EventTypeMask) >> LF::EventTypeShift;
             u32 eventSectionSize   = (eventSectionHeader & LF::SectionSizeMask) >> LF::SectionSizeShift;
 
@@ -286,13 +286,13 @@ log_processing_step(QTextStream &out, const ProcessingState &procState, const va
                     && procState.lastModuleDataBeginOffsets[moduleIndex] >= 0
                     && procState.lastModuleDataEndOffsets[moduleIndex] >= 0)
                 {
-                    u32 moduleSectionHeader = *procState.buffer->asU32ByIndex(
+                    u32 moduleSectionHeader = *procState.buffer->indexU32(
                         procState.lastModuleDataSectionHeaderOffsets[moduleIndex]);
 
-                    u32 *moduleDataPtr = procState.buffer->asU32ByIndex(
+                    u32 *moduleDataPtr = procState.buffer->indexU32(
                         procState.lastModuleDataBeginOffsets[moduleIndex]);
 
-                    const u32 *moduleDataEndPtr = procState.buffer->asU32ByIndex(
+                    const u32 *moduleDataEndPtr = procState.buffer->indexU32(
                         procState.lastModuleDataEndOffsets[moduleIndex]);
 
 
@@ -366,7 +366,7 @@ void single_step_one_event(ProcessingState &procState, MVMEStreamProcessor &stre
         }
     }
 
-#if 1
+#ifndef NDEBUG
     if (procState.stepResult == ProcessingState::StepResult_EventHasMore
         || procState.stepResult == ProcessingState::StepResult_EventComplete)
     {
@@ -457,7 +457,7 @@ void MVMEStreamWorker::start()
             {
                 case Pause:
                     // stay paused
-                    QThread::msleep(std::min(PauseMaxSleep_ms, timetickGen.getTimeToNextTick()));
+                    QThread::msleep(std::min(PauseMaxSleep_ms, timetickGen.getTimeToNextTick_ms()));
                     break;
 
                 case SingleStep:

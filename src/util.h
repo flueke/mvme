@@ -185,6 +185,14 @@ struct BufferIterator
     inline u16 *asU16() { return reinterpret_cast<u16 *>(buffp); }
     inline u32 *asU32() { return reinterpret_cast<u32 *>(buffp); }
 
+    inline u32 *indexU32(size_t index)
+    {
+        if (data + index * sizeof(u32) > endp)
+            throw end_of_buffer();
+
+        return reinterpret_cast<u32 *>(buffp) + index;
+    }
+
     inline void skip(size_t bytes)
     {
         buffp += bytes;

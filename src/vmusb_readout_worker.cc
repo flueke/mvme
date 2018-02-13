@@ -699,7 +699,7 @@ void VMUSBReadoutWorker::readoutLoop()
         }
         else if (m_state == DAQState::Paused)
         {
-            QThread::msleep(std::min(PauseMaxSleep_ms, timetickGen.getTimeToNextTick()));
+            QThread::msleep(std::min(PauseMaxSleep_ms, timetickGen.getTimeToNextTick_ms()));
         }
         else
         {
