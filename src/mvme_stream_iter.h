@@ -5,14 +5,12 @@
 #include "databuffer.h"
 #include "globals.h"
 #include "libmvme_export.h"
+#include "listfile_constants.h"
 
 #include <bitset>
 
 namespace mvme_stream
 {
-
-using a2::data_filter::DataFilter;
-using a2::data_filter::CacheEntry;
 
 struct LIBMVME_EXPORT StreamInfo
 {
@@ -22,8 +20,8 @@ struct LIBMVME_EXPORT StreamInfo
      * header. */
     struct FilterWithCache
     {
-        DataFilter filter;
-        CacheEntry cache;
+        a2::data_filter::DataFilter filter;
+        a2::data_filter::CacheEntry cache;
     };
 
     using ModuleHeaderFilters = std::array<FilterWithCache, MaxVMEModules>;
@@ -48,8 +46,11 @@ class LIBMVME_EXPORT StreamIterator
         /* Offsets in units of 32-bit words into a stream buffer. */
         struct ModuleDataOffsets
         {
+            // points to the listfile module header preceding the module data
             s32 sectionHeader = -1;
+            // first word offset of the module event data
             s32 dataBegin = -1;
+            // last word offset of the module event data
             s32 dataEnd = -1;
         };
 
@@ -57,31 +58,47 @@ class LIBMVME_EXPORT StreamIterator
         {
             using ResultFlag = u8;
 
-            static const ResultFlag NonEventSection = 0u;
+            static const ResultFlag NotSet          = 0u;
             static const ResultFlag MultiEvent      = 1u << 0;
             static const ResultFlag EventComplete   = 1u << 1;
             static const ResultFlag EndOfInput      = 1u << 2;
             static const ResultFlag Error           = 1u << 3;
 
-            s32 sectionOffset = -1;
             std::array<ModuleDataOffsets, MaxVMEModules> moduleDataOffsets;
             DataBuffer *buffer = nullptr;
-            ResultFlag flags;
+            s32 sectionOffset = -1;
+            ResultFlag flags = 0;
+
+            Result(DataBuffer *streamBuffer = nullptr)
+                : buffer(streamBuffer)
+            {
+                resetModuleDataOffsets();
+            }
+
+            bool atEnd() const { return (flags & (Result::EndOfInput | Result::Error)); }
+            void resetModuleDataOffsets() { moduleDataOffsets.fill({}); }
         };
 
-        StreamIterator(const StreamInfo &streamInfo, DataBuffer *streamBuffer);
+        StreamIterator(const StreamInfo &streamInfo);
 
-        Result next();
+        void setStreamBuffer(DataBuffer *streamBuffer);
+        const Result &next();
+        const Result &lastResult() const;
 
-        DataBuffer *buffer() const { return m_buffer; }
-        BufferIterator bufferIterator() const { return m_bufferIter; }
-        BufferIterator eventIterator() const { return m_eventIter; }
+        DataBuffer *streamBuffer() const { return m_result.buffer; }
+        const BufferIterator &bufferIterator() const { return m_bufferIter; }
+        const BufferIterator &eventIterator() const { return m_eventIter; }
+        bool atEnd() const { return m_result.atEnd(); }
 
     private:
+        Result &nextEvent();
+        Result &startEventSectionIteration(u32 sectionHeader, u32 *data, u32 size);
+
         StreamInfo m_streamInfo;
-        DataBuffer *m_buffer;
+        ListfileConstants m_lfc;
         BufferIterator m_bufferIter;
         BufferIterator m_eventIter;
+        Result m_result;
 };
 
 } // ns mvme_stream

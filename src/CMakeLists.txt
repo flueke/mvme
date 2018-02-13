@@ -97,6 +97,7 @@ set(LIBMVME_SOURCES
     mvme_startup.cc
     mvme_stream_iter.cc
     mvme_stream_processor.cc
+    mvme_stream_util.cc
     mvme_stream_worker.cc
     qt_util.cc
     rate_monitoring.cc

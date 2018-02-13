@@ -6,7 +6,10 @@
 
 #include "databuffer.h"
 #include "mvme_listfile.h"
+#include "mvme_stream_iter.h"
 
+/* Utility class to be used by readout workers to ease and unify listfile
+ * generation. */
 class MVMEStreamWriterHelper
 {
     public:
@@ -162,5 +165,7 @@ class MVMEStreamWriterHelper
         s32 m_moduleHeaderOffset;
 };
 
+mvme_stream::StreamInfo streaminfo_from_vmeconfig(VMEConfig *vmeConfig, u32 listfileVersion = CurrentListfileVersion);
+mvme_stream::StreamInfo streaminfo_from_listfile(ListFile *listfile);
 
 #endif /* __MVME_STREAM_UTIL_H__ */
