@@ -7,13 +7,14 @@ namespace mvme_stream
 
 StreamIterator::StreamIterator(const StreamInfo &streamInfo)
     : m_streamInfo(streamInfo)
-    , m_lfc(listfile_constants(streamInfo.version))
 {
 }
 
 void StreamIterator::setStreamBuffer(DataBuffer *buffer)
 {
     m_result = Result(buffer);
+    m_result.lfc = listfile_constants(m_streamInfo.version);
+
     m_bufferIter = BufferIterator(streamBuffer()->data, streamBuffer()->used, BufferIterator::Align32);
     m_eventIter = {};
 }
@@ -35,15 +36,15 @@ const StreamIterator::Result &StreamIterator::next()
         }
 
         auto &iter(m_bufferIter);
-        auto &lf(m_lfc);
+        auto &lfc(m_result.lfc);
 
         m_result.flags = Result::NotSet;
 
         if (iter.longwordsLeft())
         {
             u32 sectionHeader = iter.extractU32();
-            u32 sectionType = lf.section_type(sectionHeader);
-            u32 sectionSize = lf.section_size(sectionHeader);
+            u32 sectionType = lfc.section_type(sectionHeader);
+            u32 sectionSize = lfc.section_size(sectionHeader);
 
             m_result.sectionOffset = iter.current32BitOffset() - 1;
 
@@ -107,9 +108,9 @@ StreamIterator::Result &StreamIterator::startEventSectionIteration(u32 sectionHe
     //
     // Step1: collect all module section header offsets
     //
-    auto &lf(m_lfc);
+    auto &lfc(m_result.lfc);
 
-    const u32 eventIndex = lf.event_index(sectionHeader);
+    const u32 eventIndex = lfc.event_index(sectionHeader);
     BufferIterator localEventIter(reinterpret_cast<u8 *>(data), size * sizeof(u32));
     m_result.resetModuleDataOffsets();
 
@@ -126,7 +127,7 @@ StreamIterator::Result &StreamIterator::startEventSectionIteration(u32 sectionHe
 
         // skip to the next subevent
         u32 moduleSectionHeader = localEventIter.extractU32();
-        u32 moduleSectionSize   = lf.module_data_size(moduleSectionHeader);
+        u32 moduleSectionSize   = lfc.module_data_size(moduleSectionHeader);
         localEventIter.skip(sizeof(u32), moduleSectionSize);
     }
 
@@ -144,11 +145,11 @@ StreamIterator::Result &StreamIterator::nextEvent()
     //FIXME: Q_ASSERT(0 <= procState.lastSectionHeaderOffset);
     //FIXME: Q_ASSERT(procState.lastSectionHeaderOffset < static_cast<s64>(procState.buffer->size / sizeof(u32)));
 
-    auto &lf(m_lfc);
+    auto &lfc(m_result.lfc);
 
     const u32 sectionHeader = *m_result.buffer->indexU32(m_result.sectionOffset);
-    const u32 sectionType = lf.section_type(sectionHeader);
-    const u32 eventIndex  = lf.event_index(sectionHeader);
+    const u32 sectionType = lfc.section_type(sectionHeader);
+    const u32 eventIndex  = lfc.event_index(sectionHeader);
 
     const u32 *ptrToLastWord = reinterpret_cast<const u32 *>(m_eventIter.data + m_eventIter.size);
 
@@ -181,7 +182,7 @@ StreamIterator::Result &StreamIterator::nextEvent()
         // Single event processing as multievent is not enabled
         if (!m_streamInfo.multiEventEnabled.test(eventIndex))
         {
-            u32 moduleDataSize = lf.module_data_size(
+            u32 moduleDataSize = lfc.module_data_size(
                 *m_result.buffer->indexU32(offsets.sectionHeader));
 
             offsets.dataEnd = offsets.dataBegin + moduleDataSize;

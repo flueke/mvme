@@ -65,6 +65,7 @@ class LIBMVME_EXPORT StreamIterator
             static const ResultFlag Error           = 1u << 3;
 
             std::array<ModuleDataOffsets, MaxVMEModules> moduleDataOffsets;
+            ListfileConstants lfc;
             DataBuffer *buffer = nullptr;
             s32 sectionOffset = -1;
             ResultFlag flags = 0;
@@ -75,8 +76,32 @@ class LIBMVME_EXPORT StreamIterator
                 resetModuleDataOffsets();
             }
 
-            bool atEnd() const { return (flags & (Result::EndOfInput | Result::Error)); }
-            void resetModuleDataOffsets() { moduleDataOffsets.fill({}); }
+            void resetModuleDataOffsets()
+            {
+                moduleDataOffsets.fill({});
+            }
+
+            bool atEnd() const
+            {
+                return (flags & (Result::EndOfInput | Result::Error));
+            }
+
+            u32 lastSectionHeader() const
+            {
+                assert(sectionOffset >= 0);
+                assert(buffer);
+                return *buffer->indexU32(sectionOffset);
+            }
+
+            u32 lastSectionType() const
+            {
+                return lfc.section_type(lastSectionHeader());
+            }
+
+            u32 lastSectionSize() const
+            {
+                return lfc.section_size(lastSectionHeader());
+            }
         };
 
         StreamIterator(const StreamInfo &streamInfo);
@@ -95,7 +120,6 @@ class LIBMVME_EXPORT StreamIterator
         Result &startEventSectionIteration(u32 sectionHeader, u32 *data, u32 size);
 
         StreamInfo m_streamInfo;
-        ListfileConstants m_lfc;
         BufferIterator m_bufferIter;
         BufferIterator m_eventIter;
         Result m_result;
