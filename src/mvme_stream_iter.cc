@@ -2,6 +2,26 @@
 #include "util/perf.h"
 #include "mvme_listfile.h"
 
+#define MVME_STREAM_ITER_DEBUG 1
+
+namespace
+{
+    QDebug operator<<(QDebug out, const mvme_stream::StreamIterator::ModuleDataOffsets &offsets)
+    {
+        QDebugStateSaver qdss(out);
+
+        out.nospace().noquote();
+
+        out << (QString("(header=%1, begin=%2, end=%3)")
+                .arg(offsets.sectionHeader)
+                .arg(offsets.dataBegin)
+                .arg(offsets.dataEnd)
+               );
+        return out;
+    }
+
+} // end anon namespace
+
 namespace mvme_stream
 {
 
@@ -12,6 +32,8 @@ StreamIterator::StreamIterator(const StreamInfo &streamInfo)
 
 void StreamIterator::setStreamBuffer(DataBuffer *buffer)
 {
+    qDebug() << __PRETTY_FUNCTION__ << "buffer id =" << buffer->id;
+
     m_result = Result(buffer);
     m_result.lfc = listfile_constants(m_streamInfo.version);
 
@@ -19,7 +41,7 @@ void StreamIterator::setStreamBuffer(DataBuffer *buffer)
     m_eventIter = {};
 }
 
-const StreamIterator::Result &StreamIterator::lastResult() const
+const StreamIterator::Result &StreamIterator::result() const
 {
     return m_result;
 }
@@ -27,6 +49,8 @@ const StreamIterator::Result &StreamIterator::lastResult() const
 const StreamIterator::Result &StreamIterator::next()
 {
     assert(streamBuffer());
+
+    const u64 bufferNumber = streamBuffer()->id;
 
     try
     {
@@ -48,9 +72,22 @@ const StreamIterator::Result &StreamIterator::next()
 
             m_result.sectionOffset = iter.current32BitOffset() - 1;
 
+            s32 eventIndex = (sectionType == ListfileSections::SectionType_Event)
+                ? lfc.event_index(sectionHeader)
+                : -1;
+
+            qDebug() << (QString("%6: got sectionHeader=0x%1, type=%2, size=%3, eventIndex=%4, sectionOffset=%5")
+                         .arg(sectionHeader, 8, 16, QLatin1Char('0'))
+                         .arg(sectionType)
+                         .arg(sectionSize)
+                         .arg(eventIndex)
+                         .arg(m_result.sectionOffset)
+                         .arg(__PRETTY_FUNCTION__)
+                        );
+
             if (unlikely(sectionSize > iter.longwordsLeft()))
             {
-#ifdef MVME_STREAM_PROCESSOR_DEBUG
+#if MVME_STREAM_ITER_DEBUG
                 QString msg = (QString("Error (mvme stream, buffer#%1): extracted section size exceeds buffer size!"
                                        " sectionHeader=0x%2, sectionSize=%3, wordsLeftInBuffer=%4")
                                .arg(bufferNumber)
@@ -58,42 +95,48 @@ const StreamIterator::Result &StreamIterator::next()
                                .arg(sectionSize)
                                .arg(iter.longwordsLeft()));
                 qDebug() << msg;
-                m_d->logMessage(msg);
 #endif
                 throw end_of_buffer();
             }
 
             // Handle the start of a new event section.
             // If multievent processing is enabled for the event multiple calls
-            // to step() may be required to completely process the event
+            // to next() may be required to completely process the event
             // section.
             if (likely(sectionType == ListfileSections::SectionType_Event))
             {
-                // initialize event iteration state
-                if (startEventSectionIteration(sectionHeader, iter.asU32(), sectionSize).flags == Result::Error)
-                    return m_result;
+                // init event iteration
+                startEventSectionIteration(sectionHeader, iter.asU32(), sectionSize);
 
-                // perform the first step. Updates procState
+                // perform the first iteration step
                 nextEvent();
 
                 // Test if the event was already completely processed. This
                 // happens in the non-multievent case.
-                if (m_result.flags == Result::EventComplete)
+                if (m_result.flags & Result::EventComplete)
                 {
+                    qDebug() << __PRETTY_FUNCTION__ << "nextEvent() returned EventComplete, resetting eventIter";
                     iter.skip(sectionSize * sizeof(u32));
                     m_eventIter = {};
-                    // FIXME: m_d->counters.bytesProcessed += sectionSize * sizeof(u32) + sizeof(u32);
                 }
             }
+            else
+            {
+                qDebug() << __PRETTY_FUNCTION__ << "skipping bufferIter over non-event section";
+                iter.skip(sectionSize * sizeof(u32));
+            }
         }
-        else
+
+        if (iter.longwordsLeft() == 0)
         {
-            m_result.flags = Result::EndOfInput;
+            qDebug() << "buffer iterator at end, setting EndOfInput flag";
+            m_result.flags |= Result::EndOfInput;
             m_eventIter = {};
         }
     }
     catch (const end_of_buffer &)
     {
+        qDebug() << "buffer iterator overflow";
         m_result.flags = Result::Error;
         m_eventIter = {};
     }
@@ -103,6 +146,8 @@ const StreamIterator::Result &StreamIterator::next()
 
 StreamIterator::Result &StreamIterator::startEventSectionIteration(u32 sectionHeader, u32 *data, u32 size)
 {
+    qDebug() << __PRETTY_FUNCTION__;
+
     assert(!m_eventIter.data);
 
     //
@@ -123,12 +168,24 @@ StreamIterator::Result &StreamIterator::startEventSectionIteration(u32 sectionHe
             break;
 
         auto &offsets(m_result.moduleDataOffsets[moduleIndex]);
-        offsets.sectionHeader = localEventIter.current32BitOffset();
+        offsets.sectionHeader = localEventIter.asU32() - streamBuffer()->asU32(0);
+        offsets.dataBegin     = offsets.sectionHeader + 1;
 
         // skip to the next subevent
         u32 moduleSectionHeader = localEventIter.extractU32();
         u32 moduleSectionSize   = lfc.module_data_size(moduleSectionHeader);
+        u32 moduleType          = lfc.module_type(moduleSectionHeader);
         localEventIter.skip(sizeof(u32), moduleSectionSize);
+
+        qDebug() << (QString("%1: moduleIndex=%2, offsets.sectionHeader=%3, moduleSectionHeader=0x%4"
+                             ", moduleSectionSize=%5, moduleType=%6")
+                     .arg(__PRETTY_FUNCTION__)
+                     .arg(moduleIndex)
+                     .arg(offsets.sectionHeader)
+                     .arg(moduleSectionHeader, 8, 16, QLatin1Char('0'))
+                     .arg(moduleSectionSize)
+                     .arg(moduleType)
+                    );
     }
 
     m_eventIter = BufferIterator(reinterpret_cast<u8 *>(data), size * sizeof(u32));
@@ -139,6 +196,119 @@ StreamIterator::Result &StreamIterator::startEventSectionIteration(u32 sectionHe
 
 StreamIterator::Result &StreamIterator::nextEvent()
 {
+    qDebug() << __PRETTY_FUNCTION__;
+
+    auto &lfc(m_result.lfc);
+    const u32 sectionHeader = *streamBuffer()->indexU32(m_result.sectionOffset);
+    const u32 sectionType   = lfc.section_type(sectionHeader);
+    const u32 eventIndex    = lfc.event_index(sectionHeader);
+    const u32 *ptrToLastWord = reinterpret_cast<const u32 *>(m_eventIter.data + m_eventIter.size);
+
+    assert(sectionType == ListfileSections::SectionType_Event);
+
+    // single event case
+    if (!m_streamInfo.multiEventEnabled.test(eventIndex))
+    {
+        for (u32 moduleIndex = 0;
+             getOffsets(moduleIndex).sectionHeader >= 0;
+             moduleIndex++)
+        {
+            auto &offsets(getOffsets(moduleIndex));
+            assert(offsets.dataEnd < 0);
+
+            u32 moduleSectionHeader = *streamBuffer()->indexU32(offsets.sectionHeader);
+            u32 moduleDataSize      = lfc.module_data_size(moduleSectionHeader);
+
+            // includes adjustment for EndMarker
+            offsets.dataEnd = offsets.dataBegin + moduleDataSize - 2;
+        }
+
+        m_result.flags = Result::EventComplete;
+    }
+    // multi event processing
+    // TODO: add a check if the possible next module header still matches (and
+    // is inside the module section). If it does not match anymore set the
+    // EventComplete flag. This way the caller would get EventComplete |
+    // MultiEvent and would not have to call next() and additional time
+    else
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "multi event processing for event" << eventIndex;
+
+        for (u32 moduleIndex = 0;
+             getOffsets(moduleIndex).sectionHeader >= 0;
+             moduleIndex++)
+        {
+            auto &offsets(getOffsets(moduleIndex));
+
+            // Test to see if we already yielded some of the events for this
+            // module (startEventSectionIteration() initially sets dataEnd to
+            // -1).
+            if (offsets.dataEnd >= 0)
+            {
+                offsets.dataBegin = offsets.dataEnd + 1; // next module data word comes right after the last dataEnd
+                offsets.dataEnd = -1; // to be updated using the module header filter
+
+                qDebug() << __PRETTY_FUNCTION__ << "moduleIndex =" << moduleIndex << ", new dataBegin =" << offsets.dataBegin;
+            }
+
+            auto &filterAndCache = m_streamInfo.moduleHeaderFilters[eventIndex][moduleIndex];
+            u32 *moduleHeader = streamBuffer()->indexU32(offsets.dataBegin); // throws if out of range
+
+            // match filter, extract size, adjust dataEnd, yield after all modules done
+            if (a2::data_filter::matches(filterAndCache.filter, *moduleHeader))
+            {
+                // The filter matched, extract data size and adjust dataEnd offset
+
+                u32 moduleEventSize = a2::data_filter::extract(filterAndCache.cache, *moduleHeader);
+
+                qDebug() << __PRETTY_FUNCTION__ << "moduleIndex =" << moduleIndex
+                    << ", filter did match, extracted moduleEventSize =" << moduleEventSize;
+
+                if (unlikely(moduleHeader + moduleEventSize + 1 > ptrToLastWord))
+                {
+                    QString msg = (QString("Error (mvme stream, buffer#%1): extracted module event size (%2) exceeds buffer size!"
+                                           " eventIndex=%3, moduleIndex=%4, moduleHeader=0x%5, skipping event")
+                                   .arg(streamBuffer()->id)
+                                   .arg(moduleEventSize)
+                                   .arg(eventIndex)
+                                   .arg(moduleIndex)
+                                   .arg(*moduleHeader, 8, 16, QLatin1Char('0'))
+                                  );
+                    qDebug() << msg;
+                    m_result.flags |= Result::Error;
+                    return m_result;
+                }
+
+                offsets.dataEnd = offsets.dataBegin + moduleEventSize;
+                m_result.flags |= Result::MultiEvent;
+            }
+            else
+            {
+                qDebug() << __PRETTY_FUNCTION__ << "moduleIndex =" << moduleIndex
+                    << ", filter did not match anymore -> EventComplete";
+
+                // The module header filter did not match -> we're done
+                // If this cases occurs the caller will get EventComplete but
+                // the module data offsets are invalid so there's no actual
+                // data to process.
+                m_result.flags |= Result::EventComplete;
+                break;
+            }
+        }
+
+        // Check if the first module would yield another event if nextEvent()
+        // was to be called again. If it's not the case add the EventComplete
+        // flag to the result flags. -> The caller should get result.flags =
+        // (MultiEvent | EventComplete) as it was intended.
+        {
+            u32 nextBeginOffset = getOffsets(0).dataEnd + 1; // FIXME: leftoff
+        }
+    }
+
+    return m_result;
+
+#if 0
+
     assert(m_eventIter.data);
 
     //FIXME: Q_ASSERT(procState.buffer);
@@ -154,8 +324,10 @@ StreamIterator::Result &StreamIterator::nextEvent()
     const u32 *ptrToLastWord = reinterpret_cast<const u32 *>(m_eventIter.data + m_eventIter.size);
 
     if (m_result.moduleDataOffsets[0].sectionHeader < 0)
-        return m_result;;
-
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "no section header for first module. returning";
+        return m_result;
+    }
 
     /* Early test to see if the first module still has a matching header. This
      * is done to avoid looping one additional time and calling
@@ -166,55 +338,58 @@ StreamIterator::Result &StreamIterator::nextEvent()
             m_streamInfo.moduleHeaderFilters[eventIndex][0].filter,
             *m_result.buffer->indexU32(m_result.moduleDataOffsets[0].dataBegin)))
     {
+        qDebug() << __PRETTY_FUNCTION__ << "multi event enabled for" << eventIndex << " but header filter did not match"
+            ", offsets.dataBegin =" << m_result.moduleDataOffsets[0].dataBegin;
         m_result.flags = Result::EventComplete;
         return m_result;
     }
-
-    //FIXME: this->analysis->beginEvent(eventIndex);
 
     for (u32 moduleIndex = 0;
          m_result.moduleDataOffsets[moduleIndex].sectionHeader >= 0;
          moduleIndex++)
     {
         auto &filters(m_streamInfo.moduleHeaderFilters[eventIndex][moduleIndex]);
-        auto &offsets(m_result.moduleDataOffsets[moduleIndex]);
+        auto &offsets(getOffsets(moduleIndex));
+
+        qDebug() << "yield module data loop, moduleIndex =" << moduleIndex << ", offsets=" << offsets;
+
+        // advance offsets
+        if (offsets.dataEnd >= 0)
+        {
+            offsets.dataBegin = offsets.dataEnd + 1;
+            offsets.dataEnd   = -1;
+        }
 
         // Single event processing as multievent is not enabled
         if (!m_streamInfo.multiEventEnabled.test(eventIndex))
         {
             u32 moduleDataSize = lfc.module_data_size(
-                *m_result.buffer->indexU32(offsets.sectionHeader));
+                *streamBuffer()->indexU32(offsets.sectionHeader));
 
             offsets.dataEnd = offsets.dataBegin + moduleDataSize;
 
-            // FIXME:
-            //      this->analysis->processModuleData(
-            //          eventIndex,
-            //          moduleIndex,
-            //          mi.moduleHeader,
-            //          moduleDataSize);
+            qDebug() << "multievent not enabled => offsets =" << offsets;
         }
         // Multievent splitting is enabled. Check for a header match and extract the data size.
-        else if (a2::data_filter::matches(filters.filter, *m_result.buffer->indexU32(offsets.dataBegin)))
+        else if (a2::data_filter::matches(filters.filter, *streamBuffer()->indexU32(offsets.dataBegin)))
         {
-            u32 *moduleHeader = m_result.buffer->indexU32(offsets.dataBegin);
+            qDebug() << "multievent enabled and filter match";
+
+            u32 *moduleHeader = streamBuffer()->indexU32(offsets.dataBegin);
             u32 moduleEventSize = a2::data_filter::extract(filters.cache, *moduleHeader);
 
             if (unlikely(moduleHeader + moduleEventSize + 1 > ptrToLastWord))
             {
-#if 0 // FIXME
-                this->counters.buffersWithErrors++;
-
+#if MVME_STREAM_ITER_DEBUG
                 QString msg = (QString("Error (mvme stream, buffer#%1): extracted module event size (%2) exceeds buffer size!"
                                        " eventIndex=%3, moduleIndex=%4, moduleHeader=0x%5, skipping event")
-                               .arg(bufferNumber)
+                               .arg(streamBuffer()->id)
                                .arg(moduleEventSize)
                                .arg(eventIndex)
                                .arg(moduleIndex)
-                               .arg(*mi.moduleHeader, 8, 16, QLatin1Char('0'))
+                               .arg(*moduleHeader, 8, 16, QLatin1Char('0'))
                               );
                 qDebug() << msg;
-                logMessage(msg);
 #endif
 
                 m_result.flags = Result::Error;
@@ -222,14 +397,6 @@ StreamIterator::Result &StreamIterator::nextEvent()
             }
 
             offsets.dataEnd = offsets.dataBegin + moduleEventSize + 1;
-
-#if 0 //FIXME
-                        this->analysis->processModuleData(
-                            eventIndex,
-                            moduleIndex,
-                            mi.moduleHeader,
-                            moduleEventSize + 1);
-#endif
         }
         else
         {
@@ -240,6 +407,7 @@ StreamIterator::Result &StreamIterator::nextEvent()
     //FIXME: this->analysis->endEvent(eventIndex);
 
     return m_result;
+#endif
 }
 
 } // ns mvme_stream

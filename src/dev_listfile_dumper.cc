@@ -10,10 +10,12 @@
 #include "mvme_stream_iter.h"
 #include "mvme_stream_util.h"
 #include "vme_config.h"
+#include "util.h"
 
 #include <QCoreApplication>
 #include <iostream>
 #include <getopt.h>
+#include <QDebug>
 
 using std::cout;
 using std::cerr;
@@ -24,32 +26,34 @@ static void dump_listfile(ListFile *listfile, VMEConfig *vmeConfig)
     using namespace mvme_stream;
     using Result = StreamIterator::Result;
 
-    DataBuffer streamBuffer(Megabytes(1));
+    DataBuffer streamBuffer(Kilobytes(100));
     StreamInfo streamInfo = streaminfo_from_vmeconfig(vmeConfig, listfile->getFileVersion());
     StreamIterator streamIter(streamInfo);
     const auto &lfc = listfile_constants(streamInfo.version);
+    u64 bufferNumber = 0;
 
-    while (true)
+    while (listfile->readSectionsIntoBuffer(&streamBuffer) > 0)
     {
-        streamBuffer.used = 0;
-
-        if (listfile->readSectionsIntoBuffer(&streamBuffer) <= 0)
-            break;
-
+        streamBuffer.id = bufferNumber++;
         streamIter.setStreamBuffer(&streamBuffer);
+
+        qDebug() << __PRETTY_FUNCTION__ << "read buffer #" << streamBuffer.id << ", used =" << streamBuffer.used;
 
         while (true)
         {
-             auto &result = streamIter.next();
+             auto &result(streamIter.next());
 
-             if (result.flags & (Result::EndOfInput | Result::Error))
+             if (result.flags & Result::Error)
+             {
+                 qDebug() << __PRETTY_FUNCTION__ << "break out of read loop because of Error";
                  break;
+             }
 
              u32 sectionHeader = *streamBuffer.indexU32(result.sectionOffset);
              u32 sectionType   = lfc.section_type(sectionHeader);
              u32 sectionSize   = lfc.section_size(sectionHeader);
 
-             if (result.flags & Result::EventComplete)
+             if (result.flags & (Result::EventComplete | Result::MultiEvent))
              {
                  assert(sectionType == ListfileSections::SectionType_Event);
 
@@ -60,32 +64,53 @@ static void dump_listfile(ListFile *listfile, VMEConfig *vmeConfig)
                  {
                      const auto &offsets(result.moduleDataOffsets[mi]);
 
-                     if (offsets.sectionHeader < 0)
+                     qDebug() << __PRETTY_FUNCTION__
+                         << "ei =" << eventIndex
+                         << ", mi =" << mi
+                         << ", offsets.sectionHeader" << offsets.sectionHeader
+                         << ", offsets.dataBegin" << offsets.dataBegin
+                         << ", offsets.dataEnd" << offsets.dataEnd
+                         ;
+
+                     if (!offsets.isValid())
                          break;
 
                      u32 moduleSectionHeader = *streamBuffer.indexU32(offsets.sectionHeader);
                      u32 *dataBegin = streamBuffer.indexU32(offsets.dataBegin);
-                     u32 *dataEnd   = streamBuffer.indexU32(offsets.dataEnd) + 1; // one past last word
-                     u32 dataSize   = dataEnd - dataBegin;
+                     u32 *dataEnd   = streamBuffer.indexU32(offsets.dataEnd);
+                     u32 dataSize   = dataEnd - dataBegin + 1;
                      u32 moduleType = lfc.module_type(moduleSectionHeader);
 
-                     QString str = (QString("ei=%1, mi=%2, type=%3, sectionOffset=%4, moduleOffset=%5, dataOffset=%6, dataSize=%7")
+                     QString str = (QString("ei=%1, mi=%2, type=%3, sectionOffset=%4, moduleOffset=%5, dataBegin=%6, dataEnd=%7, dataSize=%8")
                                     .arg(eventIndex)
                                     .arg(mi)
                                     .arg(moduleType)
+                                    .arg(result.sectionOffset)
                                     .arg(offsets.sectionHeader)
                                     .arg(offsets.dataBegin)
+                                    .arg(offsets.dataEnd)
                                     .arg(dataSize)
                                    );
 
                      cout << str.toStdString() << endl;
+
+                     debugOutputBuffer(reinterpret_cast<u8 *>(dataBegin), dataSize * sizeof(u32));
                  }
              }
              else if (result.flags & Result::NotSet)
              {
-                 // some other section type
+                 qDebug() << "result other than EventComplete";
+             }
+
+             // check if we need a new input buffer
+             if (result.flags & Result::EndOfInput)
+             {
+                 qDebug() << __PRETTY_FUNCTION__ << "break out of read loop because of EndOfInput";
+                 break;
              }
         }
+
+        streamBuffer.used = 0;
     }
 }
 

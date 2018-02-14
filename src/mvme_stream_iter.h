@@ -52,6 +52,16 @@ class LIBMVME_EXPORT StreamIterator
             s32 dataBegin = -1;
             // last word offset of the module event data
             s32 dataEnd = -1;
+
+            bool isValid() const
+            {
+                return (sectionHeader >= 0 && dataBegin >= 0 && dataEnd >= 0);
+            }
+
+            u32 dataSize() const
+            {
+                return dataEnd - dataBegin;
+            }
         };
 
         struct Result
@@ -78,7 +88,7 @@ class LIBMVME_EXPORT StreamIterator
 
             void resetModuleDataOffsets()
             {
-                moduleDataOffsets.fill({});
+                moduleDataOffsets.fill(ModuleDataOffsets());
             }
 
             bool atEnd() const
@@ -108,7 +118,7 @@ class LIBMVME_EXPORT StreamIterator
 
         void setStreamBuffer(DataBuffer *streamBuffer);
         const Result &next();
-        const Result &lastResult() const;
+        const Result &result() const;
 
         DataBuffer *streamBuffer() const { return m_result.buffer; }
         const BufferIterator &bufferIterator() const { return m_bufferIter; }
@@ -118,6 +128,12 @@ class LIBMVME_EXPORT StreamIterator
     private:
         Result &nextEvent();
         Result &startEventSectionIteration(u32 sectionHeader, u32 *data, u32 size);
+
+        ModuleDataOffsets &getOffsets(u32 moduleIndex)
+        {
+            assert(moduleIndex < MaxVMEModules);
+            return m_result.moduleDataOffsets[moduleIndex];
+        }
 
         StreamInfo m_streamInfo;
         BufferIterator m_bufferIter;
