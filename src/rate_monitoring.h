@@ -4,6 +4,9 @@
 #include <boost/circular_buffer.hpp>
 #include <memory>
 #include <QWidget>
+#include "typedefs.h"
+#include "globals.h"
+
 
 class QwtPlot;
 class QwtPlotCurve;
@@ -44,7 +47,10 @@ class RateMonitorPlotWidget: public QWidget
         void addRate(const RateHistoryBufferPtr &rateHistory, const QString &title = QString(),
                      const QColor &color = Qt::black);
         void removeRate(const RateHistoryBufferPtr &rateHistory);
+        void removeRate(int index);
+        int rateCount() const;
         QVector<RateHistoryBufferPtr> getRates() const;
+        RateHistoryBufferPtr getRate(int index) const;
 
         /* Log or lin scaling for the Y-Axis. */
         AxisScale getYAxisScale() const;
@@ -74,5 +80,82 @@ class RateMonitorPlotWidget: public QWidget
     private:
         std::unique_ptr<RateMonitorPlotWidgetPrivate> m_d;
 };
+
+struct RateMonitorInfo
+{
+};
+
+class RateMonitorRegistry
+{
+    public:
+        using Handle = s32;
+        static const Handle InvalidHandle = -1;
+
+        Handle addRate(const QString &path, const RateMonitorInfo &rateInfo);
+        Handle getHandle(const QString &path);
+
+        struct Entry
+        {
+            enum class Type
+            {
+                Invalid,
+                Rate,
+                Directory,
+                Array,
+            };
+
+            Type type;
+
+            RateMonitorInfo info;
+            RateHistoryBufferPtr history;
+            double lastValue;
+
+            QVector<Entry> children;
+
+            operator bool() const { return type != Type::Invalid; }
+        };
+
+        Entry getEntry(Handle handle) const;
+        Entry &getEntry(Handle handle);
+        Entry getEntry(const QString &path) const;
+        Entry getParent(const QString &path) const;
+        Entry getParent(const Entry &entry) const;
+        QString getPath(const Entry &entry) const;
+        QString getName(const Entry &entry) const;
+};
+
+struct StreamProcRateMonitorHandles
+{
+    using Handle = RateMonitorRegistry::Handle;
+
+    Handle bytesProcessed;
+    Handle buffersProcessed;
+    Handle buffersWithErrors;
+    Handle eventSections;
+    Handle invalidEventIndices;
+
+    using ModuleHandles = std::array<Handle, MaxVMEModules>;
+    std::array<ModuleHandles, MaxVMEEvents> moduleHandles;
+    std::array<Handle, MaxVMEEvents> eventHandles;
+};
+
+struct RateMonitorWidgetPrivate;
+
+class RateMonitorWidget: public QWidget
+{
+    Q_OBJECT
+    public:
+        RateMonitorWidget(RateMonitorRegistry *reg, QWidget *parent = nullptr);
+        ~RateMonitorWidget();
+
+    private:
+        std::unique_ptr<RateMonitorWidgetPrivate> m_d;
+};
+
+// ModuleHandles path:
+// - Directory streamproc
+// - Array     moduleHandles[MaxVMEEvents]
+// Each modulesHandles entry has a child of the following form:
+// - Array     Rate[MaxVMEModules]
 
 #endif /* __RATE_MONITORING_H__ */

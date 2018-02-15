@@ -2,6 +2,8 @@
 
 #include <QBoxLayout>
 #include <QDebug>
+#include <QTableWidget>
+
 #include <qwt_plot_curve.h>
 #include <qwt_plot.h>
 #include <qwt_plot_legenditem.h>
@@ -12,13 +14,9 @@
 #include "scrollzoomer.h"
 #include "util/assert.h"
 
-// Write a Plot Widget and a qwt raster data implementation using the circular buffer
-// Make the plot fill from first to last but "right aligned"
-// -> The plot widget should always display the last N entries for a buffer of capacity N.
-// If the buffer has not reached full capacity yet the "missing" entries should
-// be set to zero (use NaN?) and not counted at all.
-// TODO: Make a base widget that allows adding multiple history buffers
-
+//
+// RateMonitorPlotWidget
+//
 
 struct RateMonitorPlotData: public QwtSeriesData<QPointF>
 {
@@ -140,8 +138,11 @@ void RateMonitorPlotWidget::addRate(const RateHistoryBufferPtr &rateHistory,
 
 void RateMonitorPlotWidget::removeRate(const RateHistoryBufferPtr &rateHistory)
 {
-    int index = m_d->m_rates.indexOf(rateHistory);
+    removeRate(m_d->m_rates.indexOf(rateHistory));
+}
 
+void RateMonitorPlotWidget::removeRate(int index)
+{
     if (0 < index && index < m_d->m_rates.size())
     {
         assert(index < m_d->m_curves.size());
@@ -154,9 +155,20 @@ void RateMonitorPlotWidget::removeRate(const RateHistoryBufferPtr &rateHistory)
     }
 }
 
+int RateMonitorPlotWidget::rateCount() const
+{
+    assert(m_d->m_rates.size() == m_d->m_curves.size());
+    return m_d->m_rates.size();
+}
+
 QVector<RateHistoryBufferPtr> RateMonitorPlotWidget::getRates() const
 {
     return m_d->m_rates;
+}
+
+RateHistoryBufferPtr RateMonitorPlotWidget::getRate(int index) const
+{
+    return m_d->m_rates.value(index);
 }
 
 bool RateMonitorPlotWidget::isXAxisReversed() const
@@ -305,4 +317,46 @@ QwtPlotCurve *RateMonitorPlotWidget::getPlotCurve(int index)
 QVector<QwtPlotCurve *> RateMonitorPlotWidget::getPlotCurves()
 {
     return m_d->m_curves;
+}
+
+//
+// RateMonitorWidget
+//
+
+struct RateMonitorWidgetPrivate
+{
+    QTableWidget *m_rateDirectoryTable;
+    RateMonitorPlotWidget *m_plotWidget;
+    RateMonitorRegistry *m_registry;
+
+
+    void dev_addRatesToRegistry();
+};
+
+void RateMonitorWidgetPrivate::dev_addRatesToRegistry()
+{
+}
+
+RateMonitorWidget::RateMonitorWidget(RateMonitorRegistry *reg, QWidget *parent)
+    : QWidget(parent)
+    , m_d(std::make_unique<RateMonitorWidgetPrivate>())
+{
+    m_d->m_rateDirectoryTable = new QTableWidget;
+    m_d->m_plotWidget = new RateMonitorPlotWidget;
+    m_d->m_registry = reg;
+
+    setWindowTitle(QSL("Rate Monitor"));
+
+    auto widgetLayout = new QHBoxLayout(this);
+    widgetLayout->addWidget(m_d->m_rateDirectoryTable);
+    widgetLayout->addWidget(m_d->m_plotWidget);
+    widgetLayout->setStretch(1, 1);
+
+
+
+    m_d->dev_addRatesToRegistry();
+}
+
+RateMonitorWidget::~RateMonitorWidget()
+{
 }

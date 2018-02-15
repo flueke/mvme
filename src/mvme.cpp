@@ -84,6 +84,7 @@ struct MVMEWindowPrivate
     WidgetGeometrySaver *m_geometrySaver;
     QNetworkAccessManager *m_networkAccessManager = nullptr;
     ListfileBrowser *m_listfileBrowser = nullptr;
+    RateMonitorWidget *m_rateMonitorWidget = nullptr;
 
     QStatusBar *statusBar;
     QMenuBar *menuBar;
@@ -92,7 +93,10 @@ struct MVMEWindowPrivate
             *actionNewVMEConfig, *actionOpenVMEConfig, *actionSaveVMEConfig, *actionSaveVMEConfigAs,
             *actionOpenListfile, *actionCloseListfile,
             *actionQuit,
-            *actionShowMainWindow, *actionShowAnalysis, *actionShowLog, *actionShowListfileBrowser,
+            // important main windows
+            *actionShowMainWindow, *actionShowAnalysis,
+            *actionShowLog, *actionShowListfileBrowser,
+            *actionShowRateMonitor,
 
             *actionToolVMEDebug, *actionToolImportHisto1D, *actionToolVMUSBFirmwareUpdate,
             *actionToolTemplateInfo, *actionToolSIS3153Debug,
@@ -175,6 +179,10 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     m_d->actionShowListfileBrowser->setShortcut(QSL("Ctrl+4"));
     m_d->actionShowListfileBrowser->setShortcutContext(Qt::ApplicationShortcut);
 
+    m_d->actionShowRateMonitor = new QAction(QSL("Rate Monitor"), this);
+    m_d->actionShowRateMonitor->setShortcut(QSL("Ctrl+5"));
+    m_d->actionShowRateMonitor->setShortcutContext(Qt::ApplicationShortcut);
+
     m_d->actionToolVMEDebug             = new QAction(QSL("VME Debug"), this);
     m_d->actionToolImportHisto1D        = new QAction(QSL("Import Histo1D"), this);
     m_d->actionToolVMUSBFirmwareUpdate  = new QAction(QSL("VM-USB Firmware Update"), this);
@@ -207,6 +215,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     connect(m_d->actionShowAnalysis,            &QAction::triggered, this, &MVMEMainWindow::onActionAnalysis_UI_triggered);
     connect(m_d->actionShowLog,                 &QAction::triggered, this, &MVMEMainWindow::onActionLog_Window_triggered);
     connect(m_d->actionShowListfileBrowser,     &QAction::triggered, this, &MVMEMainWindow::onActionListfileBrowser_triggered);
+    connect(m_d->actionShowRateMonitor,         &QAction::triggered, this, &MVMEMainWindow::onActionShowRateMonitor_triggered);
 
     connect(m_d->actionToolVMEDebug,            &QAction::triggered, this, &MVMEMainWindow::onActionVME_Debug_triggered);
     connect(m_d->actionToolImportHisto1D,       &QAction::triggered, this, &MVMEMainWindow::onActionImport_Histo1D_triggered);
@@ -252,6 +261,7 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     m_d->menuWindow->addAction(m_d->actionShowAnalysis);
     m_d->menuWindow->addAction(m_d->actionShowLog);
     m_d->menuWindow->addAction(m_d->actionShowListfileBrowser);
+    m_d->menuWindow->addAction(m_d->actionShowRateMonitor);
 
     m_d->menuTools->addAction(m_d->actionToolVMEDebug);
     m_d->menuTools->addAction(m_d->actionToolImportHisto1D);
@@ -1020,6 +1030,24 @@ void MVMEMainWindow::onActionListfileBrowser_triggered()
     }
 
     show_and_activate(m_d->m_listfileBrowser);
+}
+
+void MVMEMainWindow::onActionShowRateMonitor_triggered()
+{
+    if (!m_d->m_rateMonitorWidget)
+    {
+        auto widget = new RateMonitorWidget(m_d->m_context->getRateMonitorRegistry());
+        widget->setAttribute(Qt::WA_DeleteOnClose);
+        add_widget_close_action(widget);
+
+        connect(widget, &QObject::destroyed, this, [this] (QObject *) {
+            this->m_d->m_rateMonitorWidget = nullptr;
+        });
+
+        m_d->m_rateMonitorWidget = widget;
+        m_d->m_geometrySaver->addAndRestore(m_d->m_rateMonitorWidget, QSL("WindowGeometries/RateMonitor"));
+    }
+    show_and_activate(m_d->m_rateMonitorWidget);
 }
 
 void MVMEMainWindow::onActionVMUSB_Firmware_Update_triggered()

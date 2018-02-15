@@ -25,6 +25,7 @@
 #include "databuffer.h"
 #include "libmvme_export.h"
 #include "mvme_stream_worker.h"
+#include "rate_monitoring.h"
 #include "vme_config.h"
 #include "vme_controller.h"
 #include "vme_readout_worker.h"
@@ -291,6 +292,8 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void addWidget(QWidget *widget, const QString &stateKey);
 
         RunInfo getRunInfo() const;
+
+        RateMonitorRegistry *getRateMonitorRegistry() const;
 
     public slots:
         void startDAQReadout(u32 nCycles = 0, bool keepHistoContents = false);

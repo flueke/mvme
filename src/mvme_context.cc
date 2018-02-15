@@ -88,6 +88,8 @@ struct MVMEContextPrivate
     std::unique_ptr<mvme_root::RootDataWriter> m_rootWriter;
 #endif
 
+    RateMonitorRegistry m_rateMonitorRegistry;
+
     void stopDAQ();
     void pauseDAQ();
     void resumeDAQ(u32 nEvents);
@@ -1799,6 +1801,11 @@ void MVMEContext::analysisOperatorEdited(const std::shared_ptr<analysis::Operato
 RunInfo MVMEContext::getRunInfo() const
 {
     return m_d->m_runInfo;
+}
+
+RateMonitorRegistry *MVMEContext::getRateMonitorRegistry() const
+{
+    return &m_d->m_rateMonitorRegistry;
 }
 
 //

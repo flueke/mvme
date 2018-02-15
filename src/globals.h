@@ -39,8 +39,6 @@ enum class TriggerCondition
     Input1FallingEdge,  // SIS3153
     Input2RisingEdge,   // SIS3153
     Input2FallingEdge   // SIS3153
-        // TODO: SIS3153 has Timer1 and Timer2
-        // But Timer2 might have to be used as a watchdog...
 };
 
 enum class DAQState
@@ -82,8 +80,8 @@ static const QMap<DAQState, QString> DAQStateStrings =
     { DAQState::Paused,     QSL("Paused") },
 };
 
-static const u32 EndMarker = 0x87654321;
-static const u32 BerrMarker = 0xffffffff;
+static const u32 EndMarker     = 0x87654321u;
+static const u32 BerrMarker    = 0xffffffffu;
 static const int MaxVMEEvents  = 12;
 static const int MaxVMEModules = 20;
 
@@ -116,10 +114,6 @@ struct DAQStats
     u64 listFileBytesWritten = 0;
     u64 listFileTotalBytes = 0; // For replay mode: the size of the replay file
     QString listfileFilename; // For replay mode: the current replay filename
-
-    using ModuleCounters = std::array<u32, MaxVMEModules>;
-    std::array<ModuleCounters, MaxVMEEvents> moduleCounters;
-    std::array<u32, MaxVMEEvents> eventCounters;
 };
 
 /* Information about the current DAQ run or the run that's being replayed from

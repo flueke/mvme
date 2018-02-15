@@ -109,6 +109,7 @@ private slots:
     void onActionAnalysis_UI_triggered();
     void onActionLog_Window_triggered();
     void onActionListfileBrowser_triggered();
+    void onActionShowRateMonitor_triggered();
 
     void onActionVME_Debug_triggered();
     void onActionVMUSB_Firmware_Update_triggered();
