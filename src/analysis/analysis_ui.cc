@@ -857,7 +857,6 @@ void EventWidgetPrivate::appendTreesToView(DisplayLevelTrees trees)
         QObject::connect(tree, &QTreeWidget::itemExpanded, m_q, [this, treeType] (QTreeWidgetItem *node) {
             if (void *voidObj = getPointer<void>(node))
             {
-                qDebug() << voidObj << "was expanded";
                 m_expandedObjects[treeType].insert(voidObj);
             }
         });
@@ -865,7 +864,6 @@ void EventWidgetPrivate::appendTreesToView(DisplayLevelTrees trees)
         QObject::connect(tree, &QTreeWidget::itemCollapsed, m_q, [this, treeType] (QTreeWidgetItem *node) {
             if (void *voidObj = getPointer<void>(node))
             {
-                qDebug() << voidObj << "was collapsed";
                 m_expandedObjects[treeType].remove(voidObj);
             }
         });

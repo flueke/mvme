@@ -108,11 +108,14 @@ that up.
 Totals are also interesting and should be displayed alongside rates.
 
 System design:
-List / Tree of available counters. Must be able to deal with arrays of known size, like ModuleCounters[E][M].
+List / Tree of available counters. Must be able to deal with arrays of known
+size, like ModuleCounters[E][M]. On the other hand at runtime it is known how
+many events and modules there are so only parts of the arrays have to be
+exposed.
+
 Hierarchy is good. Names are good. Serialization of the information to restore
 a counter display and the required history buffers is needed.
-
-Then be able to find a RateHistoryBuffer via a "hierarchy path"
+Then be able to find a RateHistoryBuffer via a "hierarchy path".
 
 
 readout.bytes

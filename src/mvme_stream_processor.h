@@ -31,8 +31,8 @@ struct LIBMVME_EXPORT MVMEStreamProcessorCounters
 
     using ModuleCounters = std::array<u32, MaxVMEModules>;
 
-    std::array<ModuleCounters, MaxVMEEvents> moduleCounters;
     std::array<u32, MaxVMEEvents> eventCounters;
+    std::array<ModuleCounters, MaxVMEEvents> moduleCounters;
 };
 
 class LIBMVME_EXPORT IMVMEStreamModuleConsumer

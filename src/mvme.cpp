@@ -93,11 +93,13 @@ struct MVMEWindowPrivate
             *actionNewVMEConfig, *actionOpenVMEConfig, *actionSaveVMEConfig, *actionSaveVMEConfigAs,
             *actionOpenListfile, *actionCloseListfile,
             *actionQuit,
-            // important main windows
+
+            // important main window actions
             *actionShowMainWindow, *actionShowAnalysis,
             *actionShowLog, *actionShowListfileBrowser,
             *actionShowRateMonitor,
 
+            // utility/tool windows
             *actionToolVMEDebug, *actionToolImportHisto1D, *actionToolVMUSBFirmwareUpdate,
             *actionToolTemplateInfo, *actionToolSIS3153Debug,
 
@@ -320,10 +322,13 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     QTimer::singleShot(0, [this] () {
         updateActions();
 
+        // TODO: add pref to remember if rate monitor was open. restore that state here
+
         // Create and open log and analysis windows.
         onActionLog_Window_triggered();
         onActionAnalysis_UI_triggered();
         //onActionListfileBrowser_triggered();
+        onActionShowRateMonitor_triggered();
         // Focus the main window
         this->raise();
     });
@@ -1036,7 +1041,7 @@ void MVMEMainWindow::onActionShowRateMonitor_triggered()
 {
     if (!m_d->m_rateMonitorWidget)
     {
-        auto widget = new RateMonitorWidget(m_d->m_context->getRateMonitorRegistry());
+        auto widget = new RateMonitorWidget(m_d->m_context->getRateMonitorRegistry(), m_d->m_context);
         widget->setAttribute(Qt::WA_DeleteOnClose);
         add_widget_close_action(widget);
 

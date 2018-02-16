@@ -6,6 +6,7 @@
 #include <QWidget>
 #include "typedefs.h"
 #include "globals.h"
+#include "mvme_context.h"
 
 
 class QwtPlot;
@@ -145,8 +146,11 @@ class RateMonitorWidget: public QWidget
 {
     Q_OBJECT
     public:
-        RateMonitorWidget(RateMonitorRegistry *reg, QWidget *parent = nullptr);
+        RateMonitorWidget(RateMonitorRegistry *reg, MVMEContext *context, QWidget *parent = nullptr);
         ~RateMonitorWidget();
+
+    private slots:
+        void sample();
 
     private:
         std::unique_ptr<RateMonitorWidgetPrivate> m_d;

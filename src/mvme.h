@@ -55,7 +55,7 @@ class QTimer;
 class QwtPlotCurve;
 class QNetworkAccessManager;
 
-class MVMEWindowPrivate;
+struct MVMEWindowPrivate;
 
 class LIBMVME_EXPORT MVMEMainWindow : public QMainWindow
 {
@@ -66,7 +66,7 @@ public:
     explicit MVMEMainWindow(QWidget *parent = 0);
     ~MVMEMainWindow();
 
-    virtual void closeEvent(QCloseEvent *event);
+    virtual void closeEvent(QCloseEvent *event) override;
     void restoreSettings();
 
     MVMEContext *getContext();

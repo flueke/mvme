@@ -43,6 +43,7 @@ class MVMEMainWindow;
 class ListFile;
 class ListFileReader;
 class QJsonObject;
+class RateMonitorRegistry;
 
 class QTimer;
 class QThread;
