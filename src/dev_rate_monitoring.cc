@@ -15,6 +15,32 @@
 #include "util/typedefs.h"
 #include <qwt_legend.h>
 #include <qwt_plot.h>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/json_parser.hpp>
+
+#include <iostream>
+
+namespace pt = boost::property_tree;
+using std::cout;
+using std::endl;
+
+static void dump_tree(const pt::ptree &tree, int indent = 0)
+{
+    for (auto it = tree.ordered_begin(); it != tree.not_found(); it++)
+    {
+        for (s32 i = 0; i < indent; i++) cout << "  ";
+
+        if (it->second.empty())
+        {
+            cout << it->first << " -> " << it->second.get_value<bool>(false) << endl;
+        }
+        else
+        {
+            cout << it->first << " ->" << endl;
+            dump_tree(it->second, indent + 1);
+        }
+    }
+};
 
 int main(int argc, char *argv[])
 {
@@ -199,5 +225,47 @@ int main(int argc, char *argv[])
     fillTimer.setInterval(NewDataPeriod_ms);
     fillTimer.start();
 
-    return app.exec();
+
+
+    // ====================================================
+    // property tree test
+    // ====================================================
+
+    pt::ptree tree;
+
+    tree.put("readout.bytes", true);
+    tree.put("readout.buffers", true);
+
+    tree.put("streamProc.bytes", false);
+    tree.put("streamProc.events.0", true);
+    tree.put("streamProc.events.1", false);
+
+    tree.put("streamProc.modules.0.0", true);
+    tree.put("streamProc.modules.0.1", false);
+
+#if 1
+    for (auto it = tree.begin(); it != tree.end(); it++)
+    {
+        cout << it->first << " -> " << it->second.get_value<bool>(false) << endl;
+    }
+
+    cout << endl << endl;
+#endif
+
+    dump_tree(tree);
+
+    pt::write_json(cout, tree);
+
+    cout << endl << endl;
+    {
+        auto child = tree.get_child("streamProc.modules.0.0", {});
+
+        cout << "spoiled child: " << child.get_value<bool>() << endl;
+    }
+
+    //cout << tree.find("streamProc.modules.0.0")->second.get_value<bool>(false) << endl;
+    //cout << tree.find("streamProc.modules.0.1")->second.get_value<bool>(false) << endl;
+
+    //return app.exec();
+    return 0;
 }
