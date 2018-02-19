@@ -74,7 +74,7 @@ struct RateMonitorPlotData: public QwtSeriesData<QPointF>
 
     virtual QRectF boundingRect() const override
     {
-        return get_bounding_rect(*rateHistory);
+        return get_qwt_bounding_rect(*rateHistory);
     }
 
     RateHistoryBufferPtr rateHistory;
@@ -339,7 +339,7 @@ QVector<QwtPlotCurve *> RateMonitorPlotWidget::getPlotCurves()
 //
 // RateMonitorWidget
 //
-struct RateMonitorEntry
+struct RateSampler
 {
     // state and data
     RateHistoryBufferPtr rateHistory;
@@ -362,9 +362,9 @@ struct RateMonitorEntry
     }
 };
 
-struct StreamProcRateMonitorSampler
+struct StreamProcessorSampler
 {
-    using Entry = RateMonitorEntry;
+    using Entry = RateSampler;
 
     Entry bytesProcessed;
     Entry buffersProcessed;
@@ -396,9 +396,9 @@ struct StreamProcRateMonitorSampler
     }
 };
 
-struct DAQStatsRateMonitorSampler
+struct DAQStatsSampler
 {
-    using Entry = RateMonitorEntry;
+    using Entry = RateSampler;
 
     Entry totalBytesRead;
     Entry totalBuffersRead;
@@ -418,9 +418,9 @@ struct DAQStatsRateMonitorSampler
     }
 };
 
-struct SIS3153RateMonitorSampler
+struct SIS3153Sampler
 {
-    using Entry = RateMonitorEntry;
+    using Entry = RateSampler;
     using StackListCountEntries = std::array<Entry, SIS3153Constants::NumberOfStackLists>;
 
     StackListCountEntries stackListCounts;
@@ -451,33 +451,6 @@ struct SIS3153RateMonitorSampler
     }
 };
 
-struct RateMonitorWidgetPrivate
-{
-    QTreeWidget *m_rateTree;
-    QGroupBox *m_propertyBox;
-
-    QTableWidget *m_rateTable;
-    RateMonitorPlotWidget *m_plotWidget;
-
-
-    RateMonitorRegistry *m_registry;
-    MVMEContext *m_context;
-
-    QVector<RateMonitorEntry> m_entries;
-
-    DAQStatsRateMonitorSampler m_daqStatsSampler;
-    StreamProcRateMonitorSampler m_streamProcSampler;
-    SIS3153RateMonitorSampler m_sisReadoutSampler;
-
-    // rate table stuff. TODO: move this to a RateTable abstraction
-    void addRateEntryToTable(RateMonitorEntry *entry, const QString &name);
-    void removeRateEntryFromTable(RateMonitorEntry *entry);
-    void updateRateTable();
-    BiHash<RateMonitorEntry *, QTableWidgetItem *> m_rateTableHash; // FIXME: one item for each cell, not one item for a row!
-
-    void dev_test_setup_thingy();
-};
-
 void RateMonitorWidgetPrivate::dev_test_setup_thingy()
 {
     static const size_t RateHistorySampleCapacity = 60 * 5;
@@ -490,21 +463,21 @@ void RateMonitorWidgetPrivate::dev_test_setup_thingy()
     m_plotWidget->addRate(m_streamProcSampler.buffersProcessed.rateHistory, "streamProc.buffers", Qt::red);
 }
 
-void RateMonitorWidgetPrivate::addRateEntryToTable(RateMonitorEntry *entry, const QString &name)
+void RateMonitorWidgetPrivate::addRateEntryToTable(RateSampler *entry, const QString &name)
 {
     assert(!m_rateTableHash.map.contains(entry));
 
     auto item = new QTableWidgetItem(name);
 }
 
-void RateMonitorWidgetPrivate::removeRateEntryFromTable(RateMonitorEntry *entry)
+void RateMonitorWidgetPrivate::removeRateEntryFromTable(RateSampler *entry)
 {
     assert(!"not implemented");
 }
 
 void RateMonitorWidgetPrivate::updateRateTable()
 {
-    assert(!"not implemented");
+    //assert(!"not implemented");
 }
 
 RateMonitorWidget::RateMonitorWidget(RateMonitorRegistry *reg, MVMEContext *context, QWidget *parent)

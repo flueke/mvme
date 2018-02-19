@@ -24,12 +24,14 @@
                     GNU LESSER GENERAL PUBLIC LICENSE
                        Version 3, 29 June 2007
 
+
 =============================================================================
     QT: Collapsible Section
     https://github.com/Elypson/qt-collapsible-section
 
                    GNU LESSER GENERAL PUBLIC LICENSE
                        Version 3, 29 June 2007
+
 
 =============================================================================
     The following files are from NSCLDAQ
@@ -51,9 +53,8 @@
          Michigan State University
          East Lansing, MI 48824-1321
 
-=============================================================================
-    Qwt Library
 
+=============================================================================
                                  Qwt License
                            Version 1.0, January 1, 2003
 

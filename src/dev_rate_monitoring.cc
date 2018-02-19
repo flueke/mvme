@@ -228,7 +228,7 @@ int main(int argc, char *argv[])
 
 
     // ====================================================
-    // property tree test
+    // boost property tree test
     // ====================================================
 
     pt::ptree tree;
@@ -260,12 +260,11 @@ int main(int argc, char *argv[])
     {
         auto child = tree.get_child("streamProc.modules.0.0", {});
 
-        cout << "spoiled child: " << child.get_value<bool>() << endl;
+        cout << "a child: " << child.get_value<bool>() << endl;
     }
 
     //cout << tree.find("streamProc.modules.0.0")->second.get_value<bool>(false) << endl;
     //cout << tree.find("streamProc.modules.0.1")->second.get_value<bool>(false) << endl;
 
-    //return app.exec();
-    return 0;
+    return app.exec();
 }
