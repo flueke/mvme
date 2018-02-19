@@ -4,16 +4,10 @@
 #include <QWidget>
 
 #include "rate_monitor_base.h"
+#include "util/plot.h"
 
 class QwtPlot;
 class QwtPlotCurve;
-
-// TODO: move to plot_base.h
-enum class AxisScale
-{
-    Linear,
-    Logarithmic
-};
 
 struct RateMonitorPlotWidgetPrivate;
 

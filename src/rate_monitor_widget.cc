@@ -1,6 +1,11 @@
 #include "rate_monitor_widget.h"
+#include "util/tree.h"
 
-using RateMonitorNode = util::tree::Node<std::shared_ptr<RateMonitorNodeData>>;
+#include <QTreeWidget>
+#include <QGroupBox>
+#include <QVector>
+
+using RateMonitorNode = util::tree::Node<std::shared_ptr<RateMonitorEntry>>;
 
 struct RateMonitorWidgetPrivate
 {

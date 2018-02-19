@@ -13,11 +13,12 @@ template<typename T>
 class Node
 {
     public:
-        using data_type = T;
-        using node_type = Node<T>;
-        using child_map = QMap<QString, node_type>;
-        using iterator  = typename child_map::iterator;
-        using const_iterator = typename child_map::const_iterator;
+        using data_type      = T;
+        using node_type      = Node<T>;
+        using child_map_type = QMap<QString, node_type>;
+
+        using iterator       = typename child_map_type::iterator;
+        using const_iterator = typename child_map_type::const_iterator;
 
         explicit Node(const T &data = {}, const node_type *parent = nullptr)
             : m_parent(parent)
@@ -31,7 +32,7 @@ class Node
     private:
         data_type m_data;
         node_type *m_parent = nullptr;
-        child_map m_children;
+        child_map_type m_children;
 };
 
 } // ns tree

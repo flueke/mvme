@@ -339,41 +339,17 @@ QVector<QwtPlotCurve *> RateMonitorPlotWidget::getPlotCurves()
 //
 // RateMonitorWidget
 //
-struct RateSampler
-{
-    // state and data
-    RateHistoryBufferPtr rateHistory;
-    double lastValue = 0.0;
-
-    // setup
-    double scaleFactor = 1.0;
-
-    void sample(double value, double dt_s = 1.0)
-    {
-        double delta = calc_delta0(value, lastValue);
-        lastValue = value;
-
-        if (rateHistory)
-        {
-            double rate = (delta * scaleFactor) / dt_s;
-            qDebug() << rateHistory.get() << rate;
-            rateHistory->push_back(rate);
-        }
-    }
-};
 
 struct StreamProcessorSampler
 {
-    using Entry = RateSampler;
+    RateSampler bytesProcessed;
+    RateSampler buffersProcessed;
+    RateSampler buffersWithErrors;
+    RateSampler eventSections;
+    RateSampler invalidEventIndices;
 
-    Entry bytesProcessed;
-    Entry buffersProcessed;
-    Entry buffersWithErrors;
-    Entry eventSections;
-    Entry invalidEventIndices;
-
-    using ModuleEntries = std::array<Entry, MaxVMEModules>;
-    std::array<Entry, MaxVMEEvents> eventEntries;
+    using ModuleEntries = std::array<RateSampler, MaxVMEModules>;
+    std::array<RateSampler, MaxVMEEvents> eventEntries;
     std::array<ModuleEntries, MaxVMEEvents> moduleEntries;
 
     void sample(const MVMEStreamProcessorCounters &counters)
@@ -398,14 +374,12 @@ struct StreamProcessorSampler
 
 struct DAQStatsSampler
 {
-    using Entry = RateSampler;
-
-    Entry totalBytesRead;
-    Entry totalBuffersRead;
-    Entry buffersWithErrors;
-    Entry droppedBuffers;
-    Entry totalNetBytesRead;
-    Entry listFileBytesWritten;
+    RateSampler totalBytesRead;
+    RateSampler totalBuffersRead;
+    RateSampler buffersWithErrors;
+    RateSampler droppedBuffers;
+    RateSampler totalNetBytesRead;
+    RateSampler listFileBytesWritten;
 
     void sample(const DAQStats &counters)
     {
@@ -420,15 +394,14 @@ struct DAQStatsSampler
 
 struct SIS3153Sampler
 {
-    using Entry = RateSampler;
-    using StackListCountEntries = std::array<Entry, SIS3153Constants::NumberOfStackLists>;
+    using StackListCountEntries = std::array<RateSampler, SIS3153Constants::NumberOfStackLists>;
 
     StackListCountEntries stackListCounts;
     StackListCountEntries stackListBerrCounts_Block;
     StackListCountEntries stackListBerrCounts_Read;
     StackListCountEntries stackListBerrCounts_Write;
-    Entry lostEvents;
-    Entry multiEventPackets;
+    RateSampler lostEvents;
+    RateSampler multiEventPackets;
     StackListCountEntries embeddedEvents;
     StackListCountEntries partialFragments;
     StackListCountEntries reassembledPartials;
