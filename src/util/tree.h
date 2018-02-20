@@ -70,10 +70,35 @@ class Node
         const child_map_type &children() const { return m_children; }
         child_map_type &children() { return m_children; }
 
+        const node_type &getDirectChild(const QString &key) const
+        {
+            auto it = m_children.find(key);
+
+            if (it != m_children.end())
+                return it.value();
+
+            throw ChildNotFound();
+        }
+
+        node_type &getDirectChild(const QString &key)
+        {
+            auto it = m_children.find(key);
+
+            if (it != m_children.end())
+                return *it;
+
+            throw ChildNotFound();
+        }
+
+        bool hasDirectChild(const QString &key)
+        {
+            return m_children.find(key) != m_children.end();
+        }
+
         /** Add or replace the child node identified by the given \c path using
          * the supplied \c data.
          * Returns a reference to the newly created node. */
-        node_type &setChildData(const QString &key, const data_type &data)
+        node_type &setDirectChildData(const QString &key, const data_type &data)
         {
             auto it = m_children.insert(key, node_type(data));
             it.value().m_parent = this;
@@ -83,12 +108,28 @@ class Node
         /** Add a direct child using the given \c path and \c data.
          * Throws ChildExists if a child node is present for \c path.
          * Returns a reference to the newly created node. */
-        node_type &addChild(const QString &key, const data_type &data = {})
+        node_type &addDirectChild(const QString &key, const data_type &data = {})
         {
-            if (hasChild(key))
+            if (hasDirectChild(key))
                 throw ChildExists();
 
-            return setChildData(key, data);
+            return setDirectChildData(key, data);
+        }
+
+        size_type childCount() const
+        {
+            return m_children.size();
+        }
+
+        // node classification
+        bool isRoot() const { return !m_parent; }
+        bool isLeaf() const { return isEmpty(); }
+        bool isEmpty() const { return m_children.isEmpty(); }
+
+        // tree and branches
+        node_type &createBranch(const QString &path, const data_type &data = {})
+        {
+            return createBranch(path.split('.'), data);
         }
 
         const node_type &getChild(const QString &key) const
@@ -116,22 +157,6 @@ class Node
             return m_children.find(key) != m_children.end();
         }
 
-        size_type childCount() const
-        {
-            return m_children.size();
-        }
-
-        // node classification
-        bool isRoot() const { return !m_parent; }
-        bool isLeaf() const { return isEmpty(); }
-        bool isEmpty() const { return m_children.isEmpty(); }
-
-        // tree and branches
-        node_type &createBranch(const QString &path, const data_type &data = {})
-        {
-            return createBranch(path.split('.'), data);
-        }
-
     private:
         node_type &createBranch(const QStringList &pathParts, const data_type &data = {})
         {
@@ -139,13 +164,33 @@ class Node
 
             for (const auto &part: pathParts)
             {
-                node = node->hasChild(part) ? &node->getChild(part) : &node->addChild(part);
+                node = node->hasDirectChild(part) ? &node->getDirectChild(part) : &node->addDirectChild(part);
                 assert(node);
             }
 
             node->setData(data);
 
             return *node;
+        }
+
+        node_type *traverse(const QString &path)
+        {
+            return traverse(path.split('.'));
+        }
+
+        node_type *traverse(const QStringList &pathParts)
+        {
+            node_type *node = this;
+
+            for (const auto &part: pathParts)
+            {
+                if (!node->hasChild(part))
+                    return nullptr;
+
+                node = &node->getChild(part);
+            }
+
+            return node;
         }
 
         data_type m_data;

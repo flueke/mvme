@@ -47,7 +47,7 @@ static void TEST_tree_basic(benchmark::State &state)
 
         assert(!root.hasChild("keyA"));
 
-        root.addChild("keyA", { "valueA", nodeCount++ });
+        root.addDirectChild("keyA", { "valueA", nodeCount++ });
 
         assert(root.isRoot());
         assert(!root.isLeaf());
@@ -67,14 +67,14 @@ static void TEST_tree_basic(benchmark::State &state)
 
         assert(!root.hasChild("keyA"));
 
-        auto &nodeA = root.addChild("keyA", { "valueA", nodeCount++ });
-        auto &nodeB = root.addChild("keyB", { "valueB", nodeCount++ });
-        auto &nodeC = root.addChild("keyC", { "valueC", nodeCount++ });
+        auto &nodeA = root.addDirectChild("keyA", { "valueA", nodeCount++ });
+        auto &nodeB = root.addDirectChild("keyB", { "valueB", nodeCount++ });
+        auto &nodeC = root.addDirectChild("keyC", { "valueC", nodeCount++ });
 
-        nodeA.addChild("keyAA", { "valueAA", nodeCount++ });
-        nodeA.addChild("keyAB", { "valueAB", nodeCount++ });
-        nodeB.addChild("keyBA", { "valueBA", nodeCount++ });
-        nodeC.addChild("keyCA", { "valueCA", nodeCount++ });
+        nodeA.addDirectChild("keyAA", { "valueAA", nodeCount++ });
+        nodeA.addDirectChild("keyAB", { "valueAB", nodeCount++ });
+        nodeB.addDirectChild("keyBA", { "valueBA", nodeCount++ });
+        nodeC.addDirectChild("keyCA", { "valueCA", nodeCount++ });
 
         out << endl << ">>>>> Tree:" << endl;
         dump_tree(out, root);
