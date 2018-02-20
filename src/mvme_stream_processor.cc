@@ -448,7 +448,7 @@ void MVMEStreamProcessorPrivate::processEventSection(u32 sectionHeader, u32 *dat
             auto &mi(moduleInfos[moduleIndex]);
             Q_ASSERT(mi.moduleHeader);
 
-            MesytecDiagnostics *diag = nullptr;
+            MesytecDiagnostics *diag = this->diag.get();
 
             // FIXME: why is this in here instead of one level up?
             if (this->diag)

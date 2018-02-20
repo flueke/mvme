@@ -100,7 +100,8 @@ set(LIBMVME_SOURCES
     mvme_stream_util.cc
     mvme_stream_worker.cc
     qt_util.cc
-    rate_monitoring.cc
+    rate_monitor_plot_widget.cc
+    rate_monitor_widget.cc
     realtimedata.cpp
     scrollbar.cpp
     scrollzoomer.cpp

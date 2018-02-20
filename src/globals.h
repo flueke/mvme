@@ -27,6 +27,8 @@
 #include <QString>
 #include <QDateTime>
 
+#include "vme_config_limits.h"
+
 /* IMPORTANT: The numeric values of this enum where stored in the VME config
  * files prior to version 3. To make conversion from older config versions
  * possible do not change the order of the enum! */
@@ -82,8 +84,6 @@ static const QMap<DAQState, QString> DAQStateStrings =
 
 static const u32 EndMarker     = 0x87654321u;
 static const u32 BerrMarker    = 0xffffffffu;
-static const int MaxVMEEvents  = 12;
-static const int MaxVMEModules = 20;
 
 struct DAQStats
 {

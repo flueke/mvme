@@ -32,9 +32,14 @@ inline QRectF get_qwt_bounding_rect(const RateHistoryBuffer &rh)
  */
 struct RateSampler
 {
+#if 0
     RateSampler(const RateSampler &) = delete;
-    void operator=(const RateSampler &) = delete;
+    RateSampler &operator=(const RateSampler &) = delete;
 
+    RateSampler(RateSampler &&) = default;
+    RateSampler &operator=(RateSampler &&) = default;
+
+#endif
 
     // setup
     double scale  = 1.0;

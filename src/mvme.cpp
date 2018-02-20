@@ -1041,7 +1041,7 @@ void MVMEMainWindow::onActionShowRateMonitor_triggered()
 {
     if (!m_d->m_rateMonitorWidget)
     {
-        auto widget = new RateMonitorWidget(m_d->m_context->getRateMonitorRegistry(), m_d->m_context);
+        auto widget = new RateMonitorWidget(m_d->m_context);
         widget->setAttribute(Qt::WA_DeleteOnClose);
         add_widget_close_action(widget);
 

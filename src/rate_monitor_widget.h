@@ -14,7 +14,7 @@ class RateMonitorWidget: public QWidget
         ~RateMonitorWidget();
 
     public slots:
-        void replot();
+        void update();
 
     private slots:
         void sample();
@@ -22,6 +22,4 @@ class RateMonitorWidget: public QWidget
     private:
         std::unique_ptr<RateMonitorWidgetPrivate> m_d;
 };
-
-
 #endif /* __RATE_MONITOR_WIDGET_H__ */

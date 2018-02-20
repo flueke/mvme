@@ -43,7 +43,6 @@ class MVMEMainWindow;
 class ListFile;
 class ListFileReader;
 class QJsonObject;
-class RateMonitorRegistry;
 
 class QTimer;
 class QThread;
@@ -293,8 +292,6 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         void addWidget(QWidget *widget, const QString &stateKey);
 
         RunInfo getRunInfo() const;
-
-        RateMonitorRegistry *getRateMonitorRegistry() const;
 
     public slots:
         void startDAQReadout(u32 nCycles = 0, bool keepHistoContents = false);
