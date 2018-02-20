@@ -295,7 +295,12 @@ void MesytecDiagnostics::handleDataWord(quint32 currentWord)
 void MesytecDiagnostics::processModuleData(int eventIndex, int moduleIndex, u32 *data, u32 size)
 {
     if (!(eventIndex == m_eventIndex && moduleIndex == m_moduleIndex))
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "return cause of non match event / module index";
         return;
+    }
+
+    qDebug() << __PRETTY_FUNCTION__ << "handling" << size << "data words";
 
     for (u32 i = 0; i < size; ++i)
     {

@@ -2,6 +2,8 @@
 TODO list somewhat sorted by priority
 ==================================================
 
+* Fix mesytec diagnostics not working properly with sis3153. Is that even a controller problem?
+
 * add sis3153 firmware update utility to 'extras' directory. Also package and install sis library code (maybe).
 
 --------------------------------------------------

@@ -12,10 +12,10 @@
 using RateHistoryBuffer = boost::circular_buffer<double>;
 using RateHistoryBufferPtr = std::shared_ptr<RateHistoryBuffer>;
 
-inline double get_max_value(const RateHistoryBuffer &rh)
+inline double get_max_value(const RateHistoryBuffer &rh, double defaultValue = 0.0)
 {
     auto max_it = std::max_element(rh.begin(), rh.end());
-    double max_value = (max_it == rh.end()) ? 0.0 : *max_it;
+    double max_value = (max_it == rh.end()) ? defaultValue : *max_it;
     return max_value;
 }
 
@@ -47,17 +47,15 @@ struct RateSampler
 
     void sample(double value)
     {
-        double delta = calc_delta0(value, lastValue);
-
         if (rateHistory)
         {
-            rateHistory->push_back(getRate(value));
+            rateHistory->push_back(calcRate(value));
         }
 
         lastValue = value;
     }
 
-    double getRate(double value) const
+    double calcRate(double value) const
     {
         double delta = calc_delta0(value, lastValue);
         double rate  = (delta + offset) * scale;
@@ -77,14 +75,17 @@ struct RateMonitorEntry
     Type type;
     QString description;
     QString unitLabel;
-    UnitScaling unitScaling; // for numeric formatting
+
+    // for numeric formatting
+    UnitScaling unitScaling;
+
+    // if non-null sampling is enabled for this counter
+    std::shared_ptr<RateSampler> rateSampler;
+
     double scaleFactor;
     double scaleOffset;
     double samplingPeriod_s;
     bool available;
-
-    // if non-null sampling is enabled for this counter
-    std::shared_ptr<RateSampler> rateSampler;
 };
 
 #endif /* __RATE_MONITOR_BASE_H__ */
