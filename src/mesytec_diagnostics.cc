@@ -45,6 +45,8 @@
 #define ODDFILT 46
 #define EVENFILT 47
 
+#define MESYTEC_DIAGNOSTICS_DEBUG 0
+
 static const int histoCount = 34;
 static const int histoBits = 13;
 static const int histoBins = 1 << histoBits;
@@ -72,6 +74,10 @@ MesytecDiagnostics::MesytecDiagnostics(QObject *parent)
 
 void MesytecDiagnostics::beginRun()
 {
+#if MESYTEC_DIAGNOSTICS_DEBUG
+    qDebug() << __PRETTY_FUNCTION__;;
+#endif
+
     clearChannelStats();
     m_nHeaders = 0;
     m_nEOEs = 0;
@@ -95,7 +101,9 @@ void MesytecDiagnostics::beginRun()
 
 void MesytecDiagnostics::setEventAndModuleIndices(const QPair<int, int> &indices)
 {
+#if MESYTEC_DIAGNOSTICS_DEBUG
     qDebug() << __PRETTY_FUNCTION__ << indices;
+#endif
     m_eventIndex = indices.first;
     m_moduleIndex = indices.second;
 }
@@ -103,7 +111,16 @@ void MesytecDiagnostics::setEventAndModuleIndices(const QPair<int, int> &indices
 void MesytecDiagnostics::beginEvent(int eventIndex)
 {
     if (m_eventIndex != eventIndex)
+    {
+#if MESYTEC_DIAGNOSTICS_DEBUG
+        qDebug() << __PRETTY_FUNCTION__ << "return cause eventindex not matching" << m_eventIndex << eventIndex;
+#endif
         return;
+    }
+
+#if MESYTEC_DIAGNOSTICS_DEBUG
+    qDebug() << __PRETTY_FUNCTION__ << "doing beginEvent for eventIndex" << eventIndex;
+#endif
 
     ++m_nEvents;
     m_nHeadersInEvent = 0;
@@ -112,8 +129,17 @@ void MesytecDiagnostics::beginEvent(int eventIndex)
 
 void MesytecDiagnostics::endEvent(int eventIndex)
 {
-    if (eventIndex != m_eventIndex)
+    if (m_eventIndex != eventIndex)
+    {
+#if MESYTEC_DIAGNOSTICS_DEBUG
+        qDebug() << __PRETTY_FUNCTION__ << "return cause eventindex not matching" << m_eventIndex << eventIndex;
+#endif
         return;
+    }
+
+#if MESYTEC_DIAGNOSTICS_DEBUG
+    qDebug() << __PRETTY_FUNCTION__ << "doing endEvent for eventIndex" << eventIndex;
+#endif
 
     bool doLog = false;
     QVector<QString> messages;
@@ -295,7 +321,18 @@ void MesytecDiagnostics::handleDataWord(quint32 currentWord)
 void MesytecDiagnostics::processModuleData(int eventIndex, int moduleIndex, u32 *data, u32 size)
 {
     if (!(eventIndex == m_eventIndex && moduleIndex == m_moduleIndex))
+    {
+#if MESYTEC_DIAGNOSTICS_DEBUG
+        qDebug() << __PRETTY_FUNCTION__ << "indices do not match. returning."
+            << "m_eventIndex =" << m_eventIndex << ", eventIndex =" << eventIndex
+            << ", m_moduleIndex =" << m_moduleIndex << ", moduleIndex =" << moduleIndex;
+#endif
         return;
+    }
+
+#if MESYTEC_DIAGNOSTICS_DEBUG
+    qDebug() << __PRETTY_FUNCTION__ << "matching indices, handling" << size << " data words";
+#endif
 
     for (u32 i = 0; i < size; ++i)
     {
