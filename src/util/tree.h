@@ -132,22 +132,18 @@ class Node
             return createBranch(path.split('.'), data);
         }
 
-        const node_type &getChild(const QString &key) const
+        const node_type &getChild(const QString &path) const
         {
-            auto it = m_children.find(key);
-
-            if (it != m_children.end())
-                return it.value();
+            if (auto node = traverse(path))
+                return *node;
 
             throw ChildNotFound();
         }
 
-        node_type &getChild(const QString &key)
+        node_type &getChild(const QString &path)
         {
-            auto it = m_children.find(key);
-
-            if (it != m_children.end())
-                return *it;
+            if (auto node = traverse(path))
+                return *node;
 
             throw ChildNotFound();
         }
@@ -173,21 +169,28 @@ class Node
             return *node;
         }
 
+        const node_type *traverse(const QString &path) const
+        {
+            return reinterpret_cast<node_type *>(this)->traverse(path.split('.'));
+        }
+
         node_type *traverse(const QString &path)
         {
             return traverse(path.split('.'));
         }
 
+        // NOTE: is slow because it creates a temporary QStringList
+        // TODO: directly run through the path stopping at dots and try to use QStringRefs if possible
         node_type *traverse(const QStringList &pathParts)
         {
             node_type *node = this;
 
             for (const auto &part: pathParts)
             {
-                if (!node->hasChild(part))
+                if (!node || !node->hasChild(part))
                     return nullptr;
 
-                node = &node->getChild(part);
+                node = &node->getDirectChild(part);
             }
 
             return node;

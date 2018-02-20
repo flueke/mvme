@@ -90,12 +90,15 @@ static void TEST_tree_branches(benchmark::State &state)
         Node root;
 
         root.createBranch("a.b.c.d");
-        root.createBranch("e.f.g");
+        const auto &gNode = root.createBranch("e.f.g");
+        const auto &fNode = root.getChild("e.f");
+        assert(&fNode.getDirectChild("g") == &gNode);
+        assert(gNode.parent() == &fNode);
         root.createBranch("h.i.j.k.l");
 
-        out << endl << ">>>>> Tree:" << endl;
+        out << endl << ">>>>> Tree >>>>>" << endl;
         dump_tree(out, root);
-        out << endl << "<<<<< End Tree" << endl;
+        out << endl << "<<<<< End Tree <<<<<" << endl;
     }
 }
 BENCHMARK(TEST_tree_branches);
