@@ -145,7 +145,7 @@ class Node
         // tree and branches
         node_type *createBranch(const QString &path, const data_type &data = {})
         {
-            //return createBranch(path.split('.'), data); // FIXME: split()
+#if 1
             PathIterator iter(path);
             node_type *node = this;
 
@@ -157,6 +157,27 @@ class Node
             }
 
             node->setData(data);
+
+            return node;
+#else
+            return createBranch(path, node_type(data));
+#endif
+        }
+
+        // TODO: have to update parent pointers when adding whole branches
+        node_type *createBranch(const QString &path, const node_type &leaf)
+        {
+            PathIterator iter(path);
+            node_type *node = this;
+
+            for (auto partRef = iter.next(); !partRef.isEmpty(); partRef = iter.next())
+            {
+                auto part = partRef.toString();
+                node = node->hasDirectChild(part) ? node->getDirectChild(part) : node->addDirectChild(part);
+                assert(node);
+            }
+
+            node->setData(leaf.data());
 
             return node;
         }

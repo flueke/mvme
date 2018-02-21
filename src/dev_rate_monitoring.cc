@@ -272,6 +272,7 @@ int main(int argc, char *argv[])
 
     StreamProcessorSampler streamProcSampler;
     rmRoot.addDirectChild("streamProc", streamProcSampler.createTree());
+    //rmRoot.createBranch("streamProc", streamProcSampler.createTree());
 
     QTextStream qout(stdout);
     dump_tree(qout, rmRoot);
