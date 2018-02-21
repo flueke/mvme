@@ -25,7 +25,6 @@
 #include "databuffer.h"
 #include "libmvme_export.h"
 #include "mvme_stream_worker.h"
-#include "rate_monitoring.h"
 #include "vme_config.h"
 #include "vme_controller.h"
 #include "vme_readout_worker.h"

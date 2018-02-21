@@ -9,10 +9,9 @@
 #include <QTreeWidget>
 #include <QVector>
 
+#include "rate_monitoring.h"
 #include "util/tree.h"
 #include "util/bihash.h"
-
-using RateMonitorNode = util::tree::Node<std::shared_ptr<RateMonitorEntry>>;
 
 struct RateMonitorWidgetPrivate
 {
@@ -129,7 +128,7 @@ RateMonitorWidget::~RateMonitorWidget()
 
 void RateMonitorWidget::sample()
 {
-    qDebug() << __PRETTY_FUNCTION__ << "sample";
+    //qDebug() << __PRETTY_FUNCTION__ << "sample";
 
     m_d->m_daqStatsSampler.sample(m_d->m_context->getDAQStats());
     m_d->m_streamProcSampler.sample(m_d->m_context->getMVMEStreamWorker()->getStreamProcessor()->getCounters());

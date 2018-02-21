@@ -227,6 +227,7 @@ int main(int argc, char *argv[])
 
 
 
+#if 0
     // ====================================================
     // boost property tree test
     // ====================================================
@@ -265,6 +266,15 @@ int main(int argc, char *argv[])
 
     //cout << tree.find("streamProc.modules.0.0")->second.get_value<bool>(false) << endl;
     //cout << tree.find("streamProc.modules.0.1")->second.get_value<bool>(false) << endl;
+#endif
+
+    RateMonitorNode rmRoot;
+
+    StreamProcessorSampler streamProcSampler;
+    rmRoot.addDirectChild("streamProc", streamProcSampler.createTree());
+
+    QTextStream qout(stdout);
+    dump_tree(qout, rmRoot);
 
     return app.exec();
 }

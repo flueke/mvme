@@ -5,7 +5,29 @@
 #include "mvme_stream_processor.h"
 #include "sis3153_readout_worker.h"
 
-struct StreamProcessorSampler
+struct SamplerCollection
+{
+    virtual RateMonitorNode createTree() = 0;
+    virtual ~SamplerCollection() {}
+};
+
+inline RateMonitorNode *add_group(RateMonitorNode *root, const QString &key, const QString &description)
+{
+    RateMonitorEntry rme;
+    rme.type = RateMonitorEntry::Type::Group;
+    rme.description = description;
+    return root->createBranch(key, rme);
+}
+
+inline RateMonitorNode *add_system_rate(RateMonitorNode *root, const QString &key, RateSampler *sampler)
+{
+    RateMonitorEntry rme;
+    rme.type = RateMonitorEntry::Type::SystemRate;
+    rme.sampler = sampler;
+    return root->createBranch(key, rme);
+}
+
+struct StreamProcessorSampler: public SamplerCollection
 {
     RateSampler bytesProcessed;
     RateSampler buffersProcessed;
@@ -34,6 +56,40 @@ struct StreamProcessorSampler
                 moduleEntries[ei][mi].sample(counters.moduleCounters[ei][mi]);
             }
         }
+    }
+
+    RateMonitorNode createTree() override
+    {
+        using NodeType = RateMonitorEntry::Type;
+
+        RateMonitorNode root;
+        {
+            auto &rme(root.data());
+            rme.type = NodeType::Group;
+            rme.description = QSL("Internal system rates generated while processing the mvme data stream on the analysis side.");
+        }
+
+        add_system_rate(&root, QSL("bytesProcessed"), &bytesProcessed);
+        add_system_rate(&root, QSL("buffersProcessed"), &buffersProcessed);
+        add_system_rate(&root, QSL("buffersWithErrors"), &buffersWithErrors);
+        add_system_rate(&root, QSL("eventSections"), &eventSections);
+        add_system_rate(&root, QSL("invalidEventIndices"), &invalidEventIndices);
+
+        auto eventRoot = add_group(&root, QSL("events"), QSL("Event Trigger Rates"));
+        auto moduleRoot = add_group(&root, QSL("modules"), QSL("Module Readout Rates"));
+
+        for (size_t ei = 0; ei < MaxVMEEvents; ei++)
+        {
+            add_system_rate(eventRoot, QString::number(ei), &eventEntries[ei]);
+            auto modEventRoot = add_group(moduleRoot, QString::number(ei), QString());
+
+            for (size_t mi = 0; mi < MaxVMEModules; mi++)
+            {
+                add_system_rate(modEventRoot, QString::number(mi), &moduleEntries[ei][mi]);
+            }
+        }
+
+        return root;
     }
 };
 

@@ -5,8 +5,10 @@
 #include <memory>
 #include <QRectF>
 #include <QString>
+#include "typedefs.h"
 #include "util/counters.h"
 #include "util/strings.h"
+#include "util/tree.h"
 
 /* RateHistory - circular buffer for rate values */
 using RateHistoryBuffer = boost::circular_buffer<double>;
@@ -74,23 +76,22 @@ struct RateMonitorEntry
     {
         Group,
         SystemRate,
-        // TODO: add AnalysisRate
     };
 
-    Type type;
+    using Flag = u8;
+
+    Type type = Type::Group;
     QString description;
     QString unitLabel;
 
-    // for numeric formatting
-    UnitScaling unitScaling;
+    // for number formatting of rate values
+    UnitScaling unitScaling = UnitScaling::Decimal;
 
     // if non-null sampling is enabled for this counter
-    std::shared_ptr<RateSampler> rateSampler;
-
-    double scaleFactor;
-    double scaleOffset;
-    double samplingPeriod_s;
-    bool available;
+    RateSampler *sampler = nullptr;
+    Flag flags = 0u;
 };
+
+using RateMonitorNode = util::tree::Node<RateMonitorEntry>;
 
 #endif /* __RATE_MONITOR_BASE_H__ */
