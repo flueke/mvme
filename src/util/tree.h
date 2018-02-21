@@ -2,7 +2,7 @@
 #define __TYPED_TREE_H__
 
 #include <cassert>
-#include <exception>
+#include <functional>
 #include <QMap>
 #include <QString>
 #include <QTextStream>
@@ -11,6 +11,37 @@ namespace util
 {
 namespace tree
 {
+
+class PathIterator
+{
+    public:
+        PathIterator(const QString &path)
+            : path(path)
+            , eos(path.size())
+        {}
+
+        QStringRef next()
+        {
+            if (partEnd >= eos)
+                return {};
+
+            partEnd = path.indexOf('.', partBegin);
+
+            if (partEnd < 0)
+                partEnd = eos;
+
+            int partLen = partEnd - partBegin;
+            auto result = path.midRef(partBegin, partLen);
+            partBegin   = partEnd + 1;
+            return result;
+        }
+
+    private:
+        const QString &path;
+        const int eos;
+        int partBegin = 0;
+        int partEnd   = 0;
+};
 
 template<typename T>
 class Node
@@ -23,21 +54,6 @@ class Node
 
         using iterator       = typename child_map_type::iterator;
         using const_iterator = typename child_map_type::const_iterator;
-
-        struct Exception: public std::runtime_error
-        {
-            Exception(const char *what): std::runtime_error(what) {}
-        };
-
-        struct ChildNotFound: public Exception
-        {
-            ChildNotFound(): Exception("child not found") {}
-        };
-
-        struct ChildExists: public Exception
-        {
-            ChildExists(): Exception("child exists") {}
-        };
 
         // node construction
         explicit Node(const T &data = {}, node_type *parent = nullptr)
@@ -70,24 +86,16 @@ class Node
         const child_map_type &children() const { return m_children; }
         child_map_type &children() { return m_children; }
 
-        const node_type &getDirectChild(const QString &key) const
+        const node_type *getDirectChild(const QString &key) const
         {
             auto it = m_children.find(key);
-
-            if (it != m_children.end())
-                return it.value();
-
-            throw ChildNotFound();
+            return it == m_children.end() ? nullptr : &it.value();
         }
 
-        node_type &getDirectChild(const QString &key)
+        node_type *getDirectChild(const QString &key)
         {
             auto it = m_children.find(key);
-
-            if (it != m_children.end())
-                return *it;
-
-            throw ChildNotFound();
+            return it == m_children.end() ? nullptr : &it.value();
         }
 
         bool hasDirectChild(const QString &key)
@@ -97,21 +105,21 @@ class Node
 
         /** Add or replace the child node identified by the given \c path using
          * the supplied \c data.
-         * Returns a reference to the newly created node. */
-        node_type &setDirectChildData(const QString &key, const data_type &data)
+         * Returns a pointer to the newly created node. */
+        node_type *setDirectChildData(const QString &key, const data_type &data)
         {
             auto it = m_children.insert(key, node_type(data));
             it.value().m_parent = this;
-            return it.value();
+            return &it.value();
         }
 
         /** Add a direct child using the given \c path and \c data.
-         * Throws ChildExists if a child node is present for \c path.
-         * Returns a reference to the newly created node. */
-        node_type &addDirectChild(const QString &key, const data_type &data = {})
+         * Returns a pointer to the newly created node or nullptr if a child
+         * for \c path exists. */
+        node_type *addDirectChild(const QString &key, const data_type &data = {})
         {
             if (hasDirectChild(key))
-                throw ChildExists();
+                return nullptr;
 
             return setDirectChildData(key, data);
         }
@@ -121,76 +129,72 @@ class Node
             return m_children.size();
         }
 
+        node_type *addDirectChild(const QString &key, const node_type &node)
+        {
+            if (hasDirectChild(key))
+                return nullptr;
+
+            return &m_children.insert(key, node).value();
+        }
+
         // node classification
         bool isRoot() const { return !m_parent; }
         bool isLeaf() const { return isEmpty(); }
         bool isEmpty() const { return m_children.isEmpty(); }
 
         // tree and branches
-        node_type &createBranch(const QString &path, const data_type &data = {})
+        node_type *createBranch(const QString &path, const data_type &data = {})
         {
-            return createBranch(path.split('.'), data);
-        }
-
-        const node_type &getChild(const QString &path) const
-        {
-            if (auto node = traverse(path))
-                return *node;
-
-            throw ChildNotFound();
-        }
-
-        node_type &getChild(const QString &path)
-        {
-            if (auto node = traverse(path))
-                return *node;
-
-            throw ChildNotFound();
-        }
-
-        bool hasChild(const QString &key)
-        {
-            return m_children.find(key) != m_children.end();
-        }
-
-    private:
-        node_type &createBranch(const QStringList &pathParts, const data_type &data = {})
-        {
+            //return createBranch(path.split('.'), data); // FIXME: split()
+            PathIterator iter(path);
             node_type *node = this;
 
-            for (const auto &part: pathParts)
+            for (auto partRef = iter.next(); !partRef.isEmpty(); partRef = iter.next())
             {
-                node = node->hasDirectChild(part) ? &node->getDirectChild(part) : &node->addDirectChild(part);
+                auto part = partRef.toString();
+                node = node->hasDirectChild(part) ? node->getDirectChild(part) : node->addDirectChild(part);
                 assert(node);
             }
 
             node->setData(data);
 
-            return *node;
+            return node;
         }
 
+        const node_type *getChild(const QString &path) const
+        {
+            return traverse(path);
+        }
+
+        node_type *getChild(const QString &path)
+        {
+            return traverse(path);
+        }
+
+        bool hasChild(const QString &path) const
+        {
+            return traverse(path) != nullptr;
+        }
+
+    private:
         const node_type *traverse(const QString &path) const
         {
-            return reinterpret_cast<node_type *>(this)->traverse(path.split('.'));
+            return const_cast<node_type *>(this)->traverse(path);
         }
 
         node_type *traverse(const QString &path)
         {
-            return traverse(path.split('.'));
-        }
-
-        // NOTE: is slow because it creates a temporary QStringList
-        // TODO: directly run through the path stopping at dots and try to use QStringRefs if possible
-        node_type *traverse(const QStringList &pathParts)
-        {
+            PathIterator iter(path);
             node_type *node = this;
 
-            for (const auto &part: pathParts)
+            for (auto partRef = iter.next(); !partRef.isEmpty(); partRef = iter.next())
             {
-                if (!node || !node->hasChild(part))
+                auto part = partRef.toString();
+
+                if (!node || !node->hasDirectChild(part))
                     return nullptr;
 
-                node = &node->getDirectChild(part);
+                node = node->getDirectChild(part);
             }
 
             return node;
@@ -202,7 +206,7 @@ class Node
 };
 
 template<typename T>
-QTextStream &dump_tree(QTextStream &out, const Node<T> &node, size_t indent = 0)
+QTextStream &dump_tree(QTextStream &out, const Node<T> &node, size_t indent)
 {
     auto do_indent = [&]() -> QTextStream &
     {
@@ -220,6 +224,12 @@ QTextStream &dump_tree(QTextStream &out, const Node<T> &node, size_t indent = 0)
     }
 
     return out;
+}
+
+template<typename T>
+QTextStream &dump_tree(QTextStream &out, const Node<T> &node)
+{
+    return dump_tree(out, node, 0);
 }
 
 } // ns tree

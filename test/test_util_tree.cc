@@ -1,6 +1,7 @@
 #include "util/tree.h"
 #include <benchmark/benchmark.h>
 #include <QTextStream>
+#include <QDebug>
 
 struct TreeData
 {
@@ -55,8 +56,8 @@ static void TEST_tree_basic(benchmark::State &state)
         assert(root.childCount() == 1);
         assert(root.hasChild("keyA"));
 
-        auto &childNode = root.getChild("keyA");
-        assert(childNode.data().str == "valueA");
+        auto childNode = root.getChild("keyA");
+        assert(childNode->data().str == "valueA");
 
         dump_tree(out, root);
     }
@@ -67,14 +68,14 @@ static void TEST_tree_basic(benchmark::State &state)
 
         assert(!root.hasChild("keyA"));
 
-        auto &nodeA = root.addDirectChild("keyA", { "valueA", nodeCount++ });
-        auto &nodeB = root.addDirectChild("keyB", { "valueB", nodeCount++ });
-        auto &nodeC = root.addDirectChild("keyC", { "valueC", nodeCount++ });
+        auto nodeA = root.addDirectChild("keyA", { "valueA", nodeCount++ });
+        auto nodeB = root.addDirectChild("keyB", { "valueB", nodeCount++ });
+        auto nodeC = root.addDirectChild("keyC", { "valueC", nodeCount++ });
 
-        nodeA.addDirectChild("keyAA", { "valueAA", nodeCount++ });
-        nodeA.addDirectChild("keyAB", { "valueAB", nodeCount++ });
-        nodeB.addDirectChild("keyBA", { "valueBA", nodeCount++ });
-        nodeC.addDirectChild("keyCA", { "valueCA", nodeCount++ });
+        nodeA->addDirectChild("keyAA", { "valueAA", nodeCount++ });
+        nodeA->addDirectChild("keyAB", { "valueAB", nodeCount++ });
+        nodeB->addDirectChild("keyBA", { "valueBA", nodeCount++ });
+        nodeC->addDirectChild("keyCA", { "valueCA", nodeCount++ });
 
         out << endl << ">>>>> Tree:" << endl;
         dump_tree(out, root);
@@ -90,10 +91,10 @@ static void TEST_tree_branches(benchmark::State &state)
         Node root;
 
         root.createBranch("a.b.c.d");
-        const auto &gNode = root.createBranch("e.f.g");
-        const auto &fNode = root.getChild("e.f");
-        assert(&fNode.getDirectChild("g") == &gNode);
-        assert(gNode.parent() == &fNode);
+        const auto gNode = root.createBranch("e.f.g");
+        const auto fNode = root.getChild("e.f");
+        assert(fNode->getDirectChild("g") == gNode);
+        assert(gNode->parent() == fNode);
         root.createBranch("h.i.j.k.l");
 
         out << endl << ">>>>> Tree >>>>>" << endl;
@@ -102,5 +103,59 @@ static void TEST_tree_branches(benchmark::State &state)
     }
 }
 BENCHMARK(TEST_tree_branches);
+
+static void TEST_path_iterator(benchmark::State &state)
+{
+    struct PathAndResult
+    {
+        const QString path;
+        const QStringList result;
+    };
+
+    const QVector<PathAndResult> tests =
+    {
+        {
+            "alpha.beta.gamma.delta", { "alpha", "beta", "gamma", "delta" }
+        },
+        {
+            "1.2.3", { "1", "2", "3" }
+        },
+        {
+            "1", { "1" }
+        },
+        {
+            "1.2.", { "1", "2" }
+        },
+        {
+            ".", {}
+        },
+        {
+            ".1", {}
+        },
+        {
+            ".1.", {}
+        },
+    };
+
+    for (const auto &test: tests)
+    {
+        //qDebug() << "=============================================";
+        //qDebug() << "<<<<< path =" << test.path;
+
+        util::tree::PathIterator iter(test.path);
+
+        for (const auto &expected: test.result)
+        {
+            auto part = iter.next();
+            //qDebug() << part;
+            assert(part == expected);
+        }
+
+        assert(iter.next().isEmpty());
+
+        //qDebug() << ">>>>>";
+    }
+}
+BENCHMARK(TEST_path_iterator);
 
 BENCHMARK_MAIN();
