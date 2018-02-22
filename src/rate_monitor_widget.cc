@@ -115,20 +115,20 @@ static void populate(QTreeWidgetItem *widgetRoot, RateMonitorNode &rateRoot)
         auto key = it.key();
         auto &rateNode = it.value();
 
-        auto item = new RateTreeWidgetNode(static_cast<int>(rateNode.data().type));
+        auto item = new RateTreeWidgetNode(static_cast<int>(rateNode.data()->type));
         item->setText(0, key);
-        item->setText(1, rateNode.data().description);
+        item->setText(1, rateNode.data()->description);
         // Store a pointer to the RateMonitorNode in the tree item
         item->setData(0, Qt::UserRole, QVariant::fromValue(static_cast<void *>(&rateNode)));
 
-        switch (rateNode.data().type)
+        switch (rateNode.data()->type)
         {
             case RateMonitorEntry::Type::Group:
                 break;
 
             case RateMonitorEntry::Type::SystemRate:
                 item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
-                item->setCheckState(0, rateNode.data().sampler->rateHistory ? Qt::Checked : Qt::Unchecked);
+                item->setCheckState(0, rateNode.data()->sampler->rateHistory ? Qt::Checked : Qt::Unchecked);
                 break;
         }
 
@@ -169,16 +169,16 @@ void RateMonitorWidgetPrivate::onTreeWidgetItemChanged(QTreeWidgetItem *item, in
             auto node = getPointer<RateMonitorNode>(item);
             assert(node);
 
-            auto &rme = node->data();
-            if (rme.sampler)
+            auto rme(node->data());
+            if (rme->sampler)
             {
                 if (item->checkState(0) == Qt::Checked)
                 {
-                    if (!rme.sampler->rateHistory)
+                    if (!rme->sampler->rateHistory)
                     {
                         qDebug() << "creating new history buffer for" << node->path();
-                        rme.sampler->rateHistory = std::make_shared<RateHistoryBuffer>(3600);
-                        m_plotWidget->addRate(rme.sampler->rateHistory, node->path());
+                        rme->sampler->rateHistory = std::make_shared<RateHistoryBuffer>(3600);
+                        m_plotWidget->addRate(rme->sampler->rateHistory, node->path());
                     }
                 }
             }

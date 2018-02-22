@@ -62,9 +62,9 @@ struct StreamProcessorSampler: public SamplerCollection
     {
         RateMonitorNode root;
         {
-            auto &rme(root.data());
-            rme.type = RateMonitorEntry::Type::Group;
-            rme.description = QSL("Internal system rates generated while processing the mvme data stream on the analysis side.");
+            auto rme(root.data());
+            rme->type = RateMonitorEntry::Type::Group;
+            rme->description = QSL("Internal system rates generated while processing the mvme data stream on the analysis side.");
         }
 
         add_system_rate(&root, QSL("bytesProcessed"), &bytesProcessed);
@@ -115,9 +115,9 @@ struct DAQStatsSampler: public SamplerCollection
     {
         RateMonitorNode root;
         {
-            auto &rme(root.data());
-            rme.type = RateMonitorEntry::Type::Group;
-            rme.description = QSL("VME readout rates");
+            auto rme(root.data());
+            rme->type = RateMonitorEntry::Type::Group;
+            rme->description = QSL("VME readout rates");
         }
 
         add_system_rate(&root, QSL("totalBytesRead"), &totalBytesRead);
@@ -166,9 +166,9 @@ struct SIS3153Sampler: public SamplerCollection
     {
         RateMonitorNode root;
         {
-            auto &rme(root.data());
-            rme.type = RateMonitorEntry::Type::Group;
-            rme.description = QSL("SIS3153 specific counters");
+            auto rme(root.data());
+            rme->type = RateMonitorEntry::Type::Group;
+            rme->description = QSL("SIS3153 specific counters");
         }
 
         add_system_rate(&root, QSL("lostEvents"), &lostEvents);

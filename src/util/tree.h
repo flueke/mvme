@@ -63,6 +63,7 @@ class Node
         }
 
         // copy
+#if 1
         Node(const node_type &other)
             : m_data(other.m_data)
             , m_children(other.m_children)
@@ -83,6 +84,7 @@ class Node
             fixParent(m_parent);
             return *this;
         }
+#endif
 
         // move
         Node(node_type &&other)
@@ -106,14 +108,14 @@ class Node
         }
 
         // data
-        const data_type &data() const
+        const data_type *data() const
         {
-            return m_data;
+            return &m_data;
         }
 
-        data_type &data()
+        data_type *data()
         {
-            return m_data;
+            return &m_data;
         }
 
         void setData(const data_type &data)
