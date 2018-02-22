@@ -67,7 +67,7 @@ class Node
             : m_data(other.m_data)
             , m_children(other.m_children)
         {
-            qDebug() << __PRETTY_FUNCTION__ << this << &other;
+            //qDebug() << __PRETTY_FUNCTION__ << this << &other;
 
             // use the same parent as the source node
             fixParent(other.m_parent);
@@ -75,7 +75,7 @@ class Node
 
         Node &operator=(const node_type &other)
         {
-            qDebug() << __PRETTY_FUNCTION__ << this << &other;
+            //qDebug() << __PRETTY_FUNCTION__ << this << &other;
 
             // copy data but keep the current parent
             m_data = other.m_data;
@@ -162,6 +162,16 @@ class Node
             return traverse(path) != nullptr;
         }
 
+        bool operator==(const node_type &other) const
+        {
+            if (this == &other)
+                return true;
+
+            return (m_data == other.m_data
+                    && m_parent == other.m_parent
+                    && m_children == other.m_children);
+        }
+
         QString path() const
         {
             QString result;
@@ -171,7 +181,7 @@ class Node
                 auto pp = m_parent->path();
                 if (!pp.isEmpty())
                     result += pp + ".";
-                result += m_parent->m_children.key(*this); // FIXME
+                result += m_parent->m_children.key(*this);
             }
             return result;
         }

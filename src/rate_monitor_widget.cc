@@ -167,7 +167,9 @@ void RateMonitorWidgetPrivate::onTreeWidgetItemChanged(QTreeWidgetItem *item, in
 
         case RateMonitorEntry::Type::SystemRate:
             auto node = getPointer<RateMonitorNode>(item);
-            auto rme  = node->data();
+            assert(node);
+
+            auto &rme = node->data();
             if (rme.sampler)
             {
                 if (item->checkState(0) == Qt::Checked)
@@ -176,7 +178,7 @@ void RateMonitorWidgetPrivate::onTreeWidgetItemChanged(QTreeWidgetItem *item, in
                     {
                         qDebug() << "creating new history buffer for" << node->path();
                         rme.sampler->rateHistory = std::make_shared<RateHistoryBuffer>(3600);
-                        m_plotWidget->addRate(rme.sampler->rateHistory);
+                        m_plotWidget->addRate(rme.sampler->rateHistory, node->path());
                     }
                 }
             }

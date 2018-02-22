@@ -90,6 +90,18 @@ struct RateMonitorEntry
 
     RateSampler *sampler = nullptr;
     Flag flags = 0u;
+
+    bool operator==(const RateMonitorEntry &other) const
+    {
+        if (this == &other)
+            return true;
+
+        return description == other.description
+            && unitLabel == other.unitLabel
+            && unitScaling == other.unitScaling
+            && sampler == other.sampler
+            && flags == other.flags;
+    }
 };
 
 using RateMonitorNode = util::tree::Node<RateMonitorEntry>;

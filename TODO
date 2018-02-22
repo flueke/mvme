@@ -3,9 +3,9 @@ TODO list somewhat sorted by priority
 ==================================================
 
 * Fix paused replay and "StopIfQueueEmpty" interaction
-* Fix mesytec diagnostics not working properly with sis3153. Is that even a controller problem?
 
-* add sis3153 firmware update utility to 'extras' directory. Also package and install sis library code (maybe).
+* add sis3153 firmware update utility to 'extras' directory. Also package and
+  install sis library code (maybe). Ask struck if this is allowed.
 
 --------------------------------------------------
 Rate displays and Rate monitoring
