@@ -62,6 +62,49 @@ class Node
         {
         }
 
+        // copy
+        Node(const node_type &other)
+            : m_data(other.m_data)
+            , m_children(other.m_children)
+        {
+            qDebug() << __PRETTY_FUNCTION__ << this << &other;
+
+            // use the same parent as the source node
+            fixParent(other.m_parent);
+        }
+
+        Node &operator=(const node_type &other)
+        {
+            qDebug() << __PRETTY_FUNCTION__ << this << &other;
+
+            // copy data but keep the current parent
+            m_data = other.m_data;
+            m_children = other.m_children;
+            fixParent(m_parent);
+            return *this;
+        }
+
+        // move
+        Node(node_type &&other)
+            : m_data(std::move(other.m_data))
+            , m_children(std::move(other.m_children))
+        {
+            qDebug() << __PRETTY_FUNCTION__ << this << &other;
+
+            fixParent(nullptr); // XXX
+        }
+
+        Node &operator=(node_type &&other)
+        {
+            qDebug() << __PRETTY_FUNCTION__ << this << &other;
+
+            // move data but keep the current parent
+            m_data = std::move(other.m_data);
+            m_children = std::move(other.m_children);
+            fixParent(m_parent);
+            return *this;
+        }
+
         // data
         const data_type &data() const
         {
@@ -86,6 +129,86 @@ class Node
         const child_map_type &children() const { return m_children; }
         child_map_type &children() { return m_children; }
 
+        size_type childCount() const
+        {
+            return m_children.size();
+        }
+
+        // node classification
+        bool isRoot() const { return !m_parent; }
+        bool isLeaf() const { return isEmpty(); }
+        bool isEmpty() const { return m_children.isEmpty(); }
+
+        // tree and branches
+        node_type *putBranch(const QString &path, const data_type &leafData = {})
+        {
+            auto result = traverseCreate(path);
+            result->setData(leafData);
+            return result;
+        }
+
+        const node_type *child(const QString &path) const
+        {
+            return traverse(path);
+        }
+
+        node_type *child(const QString &path)
+        {
+            return traverse(path);
+        }
+
+        bool contains(const QString &path) const
+        {
+            return traverse(path) != nullptr;
+        }
+
+        QString path() const
+        {
+            QString result;
+
+            if (m_parent)
+            {
+                auto pp = m_parent->path();
+                if (!pp.isEmpty())
+                    result += pp + ".";
+                result += m_parent->m_children.key(*this); // FIXME
+            }
+            return result;
+        }
+
+        void assertParentChildIntegrity() const
+        {
+#ifndef NDEBUG
+            if (parent())
+            {
+                bool selfFound = false;
+
+                for (const auto &parentChild: parent()->m_children)
+                {
+                    if (&parentChild == this)
+                    {
+                        selfFound = true;
+                        break;
+                    }
+                }
+
+                assert(selfFound);
+            }
+
+            for (const auto &child: m_children)
+            {
+                assert(child.parent() == this);
+                child.assertParentChildIntegrity();
+            }
+#endif
+        }
+
+        iterator begin() { return m_children.begin(); }
+        iterator end() { return m_children.end(); }
+        const_iterator begin() const { return m_children.begin(); }
+        const_iterator end() const { return m_children.end(); }
+
+    private:
         const node_type *getDirectChild(const QString &key) const
         {
             auto it = m_children.find(key);
@@ -124,80 +247,6 @@ class Node
             return setDirectChildData(key, data);
         }
 
-        size_type childCount() const
-        {
-            return m_children.size();
-        }
-
-        node_type *addDirectChild(const QString &key, const node_type &node)
-        {
-            if (hasDirectChild(key))
-                return nullptr;
-
-            return &m_children.insert(key, node).value();
-        }
-
-        // node classification
-        bool isRoot() const { return !m_parent; }
-        bool isLeaf() const { return isEmpty(); }
-        bool isEmpty() const { return m_children.isEmpty(); }
-
-        // tree and branches
-        node_type *createBranch(const QString &path, const data_type &data = {})
-        {
-#if 1
-            PathIterator iter(path);
-            node_type *node = this;
-
-            for (auto partRef = iter.next(); !partRef.isEmpty(); partRef = iter.next())
-            {
-                auto part = partRef.toString();
-                node = node->hasDirectChild(part) ? node->getDirectChild(part) : node->addDirectChild(part);
-                assert(node);
-            }
-
-            node->setData(data);
-
-            return node;
-#else
-            return createBranch(path, node_type(data));
-#endif
-        }
-
-        // TODO: have to update parent pointers when adding whole branches
-        node_type *createBranch(const QString &path, const node_type &leaf)
-        {
-            PathIterator iter(path);
-            node_type *node = this;
-
-            for (auto partRef = iter.next(); !partRef.isEmpty(); partRef = iter.next())
-            {
-                auto part = partRef.toString();
-                node = node->hasDirectChild(part) ? node->getDirectChild(part) : node->addDirectChild(part);
-                assert(node);
-            }
-
-            node->setData(leaf.data());
-
-            return node;
-        }
-
-        const node_type *getChild(const QString &path) const
-        {
-            return traverse(path);
-        }
-
-        node_type *getChild(const QString &path)
-        {
-            return traverse(path);
-        }
-
-        bool hasChild(const QString &path) const
-        {
-            return traverse(path) != nullptr;
-        }
-
-    private:
         const node_type *traverse(const QString &path) const
         {
             return const_cast<node_type *>(this)->traverse(path);
@@ -219,6 +268,31 @@ class Node
             }
 
             return node;
+        }
+
+        node_type *traverseCreate(const QString &path)
+        {
+            PathIterator iter(path);
+            node_type *node = this;
+
+            for (auto partRef = iter.next(); !partRef.isEmpty(); partRef = iter.next())
+            {
+                auto part = partRef.toString();
+                node = node->hasDirectChild(part) ? node->getDirectChild(part) : node->addDirectChild(part);
+                assert(node);
+            }
+
+            return node;
+        }
+
+        void fixParent(node_type *parent)
+        {
+            m_parent = parent;
+
+            for (auto &child: m_children)
+            {
+                child.fixParent(this);
+            }
         }
 
         data_type m_data;

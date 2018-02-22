@@ -3,6 +3,7 @@
 
 #include <boost/circular_buffer.hpp>
 #include <memory>
+#include <QDebug>
 #include <QRectF>
 #include <QString>
 #include "typedefs.h"
@@ -87,7 +88,6 @@ struct RateMonitorEntry
     // for number formatting of rate values
     UnitScaling unitScaling = UnitScaling::Decimal;
 
-    // if non-null sampling is enabled for this counter
     RateSampler *sampler = nullptr;
     Flag flags = 0u;
 };

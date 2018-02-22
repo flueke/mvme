@@ -216,8 +216,8 @@ int main(int argc, char *argv[])
     QObject::connect(&fillTimer, &QTimer::timeout, plotWidget, [&] () {
         for (s32 i = 0; i < NewDataCount; i++)
         {
-            double value = (std::cos(x2 * 0.25) + SinOffset) * SinScale;
-            x2 += SinInc;
+            double value = (std::cos(x2 * 0.25) + SinOffset + 0.5) * SinScale;
+            x2 += SinInc + 0.125;
             rateHistory2->push_back(value);
         }
     });
@@ -225,54 +225,17 @@ int main(int argc, char *argv[])
     fillTimer.setInterval(NewDataPeriod_ms);
     fillTimer.start();
 
-
-
-#if 0
-    // ====================================================
-    // boost property tree test
-    // ====================================================
-
-    pt::ptree tree;
-
-    tree.put("readout.bytes", true);
-    tree.put("readout.buffers", true);
-
-    tree.put("streamProc.bytes", false);
-    tree.put("streamProc.events.0", true);
-    tree.put("streamProc.events.1", false);
-
-    tree.put("streamProc.modules.0.0", true);
-    tree.put("streamProc.modules.0.1", false);
-
-#if 1
-    for (auto it = tree.begin(); it != tree.end(); it++)
-    {
-        cout << it->first << " -> " << it->second.get_value<bool>(false) << endl;
-    }
-
-    cout << endl << endl;
-#endif
-
-    dump_tree(tree);
-
-    pt::write_json(cout, tree);
-
-    cout << endl << endl;
-    {
-        auto child = tree.get_child("streamProc.modules.0.0", {});
-
-        cout << "a child: " << child.get_value<bool>() << endl;
-    }
-
-    //cout << tree.find("streamProc.modules.0.0")->second.get_value<bool>(false) << endl;
-    //cout << tree.find("streamProc.modules.0.1")->second.get_value<bool>(false) << endl;
-#endif
-
     RateMonitorNode rmRoot;
 
     StreamProcessorSampler streamProcSampler;
-    rmRoot.addDirectChild("streamProc", streamProcSampler.createTree());
-    //rmRoot.createBranch("streamProc", streamProcSampler.createTree());
+    DAQStatsSampler daqStatsSampler;
+    SIS3153Sampler sisSampler;
+
+    *rmRoot.putBranch("streamProc") = streamProcSampler.createTree();
+    *rmRoot.putBranch("readout") = daqStatsSampler.createTree();
+    *rmRoot.putBranch("readout.sis3153") = sisSampler.createTree();
+
+    rmRoot.assertParentChildIntegrity();
 
     QTextStream qout(stdout);
     dump_tree(qout, rmRoot);

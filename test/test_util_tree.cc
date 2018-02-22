@@ -46,17 +46,17 @@ static void TEST_tree_basic(benchmark::State &state)
         double nodeCount = 0.0;
         Node root;
 
-        assert(!root.hasChild("keyA"));
+        assert(!root.contains("keyA"));
 
-        root.addDirectChild("keyA", { "valueA", nodeCount++ });
+        root.putBranch("keyA", { "valueA", nodeCount++ });
 
         assert(root.isRoot());
         assert(!root.isLeaf());
         assert(root.parent() == nullptr);
         assert(root.childCount() == 1);
-        assert(root.hasChild("keyA"));
+        assert(root.contains("keyA"));
 
-        auto childNode = root.getChild("keyA");
+        auto childNode = root.child("keyA");
         assert(childNode->data().str == "valueA");
 
         dump_tree(out, root);
@@ -66,16 +66,16 @@ static void TEST_tree_basic(benchmark::State &state)
         double nodeCount = 0.0;
         Node root;
 
-        assert(!root.hasChild("keyA"));
+        assert(!root.contains("keyA"));
 
-        auto nodeA = root.addDirectChild("keyA", { "valueA", nodeCount++ });
-        auto nodeB = root.addDirectChild("keyB", { "valueB", nodeCount++ });
-        auto nodeC = root.addDirectChild("keyC", { "valueC", nodeCount++ });
+        auto nodeA = root.putBranch("keyA", { "valueA", nodeCount++ });
+        auto nodeB = root.putBranch("keyB", { "valueB", nodeCount++ });
+        auto nodeC = root.putBranch("keyC", { "valueC", nodeCount++ });
 
-        nodeA->addDirectChild("keyAA", { "valueAA", nodeCount++ });
-        nodeA->addDirectChild("keyAB", { "valueAB", nodeCount++ });
-        nodeB->addDirectChild("keyBA", { "valueBA", nodeCount++ });
-        nodeC->addDirectChild("keyCA", { "valueCA", nodeCount++ });
+        nodeA->putBranch("keyAA", { "valueAA", nodeCount++ });
+        nodeA->putBranch("keyAB", { "valueAB", nodeCount++ });
+        nodeB->putBranch("keyBA", { "valueBA", nodeCount++ });
+        nodeC->putBranch("keyCA", { "valueCA", nodeCount++ });
 
         out << endl << ">>>>> Tree:" << endl;
         dump_tree(out, root);
@@ -90,12 +90,12 @@ static void TEST_tree_branches(benchmark::State &state)
         double nodeCount = 0.0;
         Node root;
 
-        root.createBranch("a.b.c.d");
-        const auto gNode = root.createBranch("e.f.g");
-        const auto fNode = root.getChild("e.f");
-        assert(fNode->getDirectChild("g") == gNode);
+        root.putBranch("a.b.c.d");
+        const auto gNode = root.putBranch("e.f.g");
+        const auto fNode = root.child("e.f");
+        assert(fNode->child("g") == gNode);
         assert(gNode->parent() == fNode);
-        root.createBranch("h.i.j.k.l");
+        root.putBranch("h.i.j.k.l");
 
         out << endl << ">>>>> Tree >>>>>" << endl;
         dump_tree(out, root);
@@ -157,5 +157,48 @@ static void TEST_path_iterator(benchmark::State &state)
     }
 }
 BENCHMARK(TEST_path_iterator);
+
+static void TEST_copy_parent_relationship(benchmark::State &state)
+{
+    // copy
+    {
+        Node branch;
+        branch.putBranch("branch1.a.b");
+        branch.assertParentChildIntegrity();
+
+        Node branchCopy(branch);
+        branchCopy.assertParentChildIntegrity();
+        branch.assertParentChildIntegrity();
+    }
+
+    // add branch to tree
+    {
+        Node destRoot;
+        destRoot.putBranch("dest.a.b");
+        destRoot.putBranch("dest.a.c");
+        destRoot.putBranch("dest.zzz.420");
+        destRoot.assertParentChildIntegrity();
+
+        Node sourceNode;
+        sourceNode.putBranch("source.x.y.z");
+        sourceNode.putBranch("source.x.1.2");
+        sourceNode.assertParentChildIntegrity();
+
+        out << endl << ">>>>> Source Tree >>>>>" << endl;
+        dump_tree(out, sourceNode);
+        out << endl << "<<<<< End Tree <<<<<" << endl;
+
+        Node *destNode = destRoot.child("dest.a");
+        *destNode = sourceNode; // copy here. everything below a will be replaced with the children of the source
+        sourceNode.assertParentChildIntegrity();
+        destNode->assertParentChildIntegrity();
+        destRoot.assertParentChildIntegrity();
+
+        out << endl << ">>>>> Final Dest Tree >>>>>" << endl;
+        dump_tree(out, destRoot);
+        out << endl << "<<<<< End Tree <<<<<" << endl;
+    }
+}
+BENCHMARK(TEST_copy_parent_relationship);
 
 BENCHMARK_MAIN();

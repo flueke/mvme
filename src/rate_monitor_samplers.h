@@ -5,18 +5,12 @@
 #include "mvme_stream_processor.h"
 #include "sis3153_readout_worker.h"
 
-struct SamplerCollection
-{
-    virtual RateMonitorNode createTree() = 0;
-    virtual ~SamplerCollection() {}
-};
-
 inline RateMonitorNode *add_group(RateMonitorNode *root, const QString &key, const QString &description)
 {
     RateMonitorEntry rme;
     rme.type = RateMonitorEntry::Type::Group;
     rme.description = description;
-    return root->createBranch(key, rme);
+    return root->putBranch(key, rme);
 }
 
 inline RateMonitorNode *add_system_rate(RateMonitorNode *root, const QString &key, RateSampler *sampler)
@@ -24,8 +18,14 @@ inline RateMonitorNode *add_system_rate(RateMonitorNode *root, const QString &ke
     RateMonitorEntry rme;
     rme.type = RateMonitorEntry::Type::SystemRate;
     rme.sampler = sampler;
-    return root->createBranch(key, rme);
+    return root->putBranch(key, rme);
 }
+
+struct SamplerCollection
+{
+    virtual RateMonitorNode createTree() = 0;
+    virtual ~SamplerCollection() {}
+};
 
 struct StreamProcessorSampler: public SamplerCollection
 {
@@ -60,12 +60,10 @@ struct StreamProcessorSampler: public SamplerCollection
 
     RateMonitorNode createTree() override
     {
-        using NodeType = RateMonitorEntry::Type;
-
         RateMonitorNode root;
         {
             auto &rme(root.data());
-            rme.type = NodeType::Group;
+            rme.type = RateMonitorEntry::Type::Group;
             rme.description = QSL("Internal system rates generated while processing the mvme data stream on the analysis side.");
         }
 
@@ -81,6 +79,7 @@ struct StreamProcessorSampler: public SamplerCollection
         for (size_t ei = 0; ei < MaxVMEEvents; ei++)
         {
             add_system_rate(eventRoot, QString::number(ei), &eventEntries[ei]);
+
             auto modEventRoot = add_group(moduleRoot, QString::number(ei), QString());
 
             for (size_t mi = 0; mi < MaxVMEModules; mi++)
@@ -93,7 +92,7 @@ struct StreamProcessorSampler: public SamplerCollection
     }
 };
 
-struct DAQStatsSampler
+struct DAQStatsSampler: public SamplerCollection
 {
     RateSampler totalBytesRead;
     RateSampler totalBuffersRead;
@@ -111,9 +110,28 @@ struct DAQStatsSampler
         totalNetBytesRead.sample(counters.totalNetBytesRead);
         listFileBytesWritten.sample(counters.listFileBytesWritten);
     }
+
+    RateMonitorNode createTree() override
+    {
+        RateMonitorNode root;
+        {
+            auto &rme(root.data());
+            rme.type = RateMonitorEntry::Type::Group;
+            rme.description = QSL("VME readout rates");
+        }
+
+        add_system_rate(&root, QSL("totalBytesRead"), &totalBytesRead);
+        add_system_rate(&root, QSL("totalBuffersRead"), &totalBuffersRead);
+        add_system_rate(&root, QSL("buffersWithErrors"), &buffersWithErrors);
+        add_system_rate(&root, QSL("droppedBuffers"), &droppedBuffers);
+        add_system_rate(&root, QSL("totalNetBytesRead"), &totalNetBytesRead);
+        add_system_rate(&root, QSL("listFileBytesWritten"), &listFileBytesWritten);
+
+        return root;
+    }
 };
 
-struct SIS3153Sampler
+struct SIS3153Sampler: public SamplerCollection
 {
     using StackListCountEntries = std::array<RateSampler, SIS3153Constants::NumberOfStackLists>;
 
@@ -142,6 +160,36 @@ struct SIS3153Sampler
             partialFragments[i].sample(counters.partialFragments[i]);
             reassembledPartials[i].sample(counters.reassembledPartials[i]);
         }
+    }
+
+    RateMonitorNode createTree() override
+    {
+        RateMonitorNode root;
+        {
+            auto &rme(root.data());
+            rme.type = RateMonitorEntry::Type::Group;
+            rme.description = QSL("SIS3153 specific counters");
+        }
+
+        add_system_rate(&root, QSL("lostEvents"), &lostEvents);
+        add_system_rate(&root, QSL("multiEventPackets"), &multiEventPackets);
+
+        auto stackListRoot = add_group(&root, QSL("stacklists"), QSL("stacklist specific counters"));
+
+        for (size_t si = 0; si < SIS3153Constants::NumberOfStackLists; si++)
+        {
+            auto groupRoot = add_group(stackListRoot, QString::number(si), QString("stacklist %1").arg(si));
+
+            add_system_rate(groupRoot, QSL("hits"), &stackListCounts[si]);
+            add_system_rate(groupRoot, QSL("berr_block"), &stackListBerrCounts_Block[si]);
+            add_system_rate(groupRoot, QSL("berr_read"), &stackListBerrCounts_Read[si]);
+            add_system_rate(groupRoot, QSL("berr_write"), &stackListBerrCounts_Write[si]);
+            add_system_rate(groupRoot, QSL("embeddedEvents"), &embeddedEvents[si]);
+            add_system_rate(groupRoot, QSL("partialFragments"), &partialFragments[si]);
+            add_system_rate(groupRoot, QSL("reassembledPartials"), &reassembledPartials[si]);
+        }
+
+        return root;
     }
 };
 

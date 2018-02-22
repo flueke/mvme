@@ -14,6 +14,7 @@ class RateMonitorWidget: public QWidget
         ~RateMonitorWidget();
 
     public slots:
+        /** Replots and updates the rate table. */
         void update();
 
     private slots:
