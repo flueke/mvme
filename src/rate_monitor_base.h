@@ -35,15 +35,6 @@ inline QRectF get_qwt_bounding_rect(const RateHistoryBuffer &rh)
  */
 struct RateSampler
 {
-#if 0
-    RateSampler(const RateSampler &) = delete;
-    RateSampler &operator=(const RateSampler &) = delete;
-
-    RateSampler(RateSampler &&) = default;
-    RateSampler &operator=(RateSampler &&) = default;
-
-#endif
-
     // setup
     double scale  = 1.0;
     double offset = 0.0;
@@ -51,13 +42,16 @@ struct RateSampler
     // state and data
     RateHistoryBufferPtr rateHistory;
     double lastValue = 0.0;
+    double lastRate  = 0.0;
 
 
     void sample(double value)
     {
+        lastRate = calcRate(value);
+
         if (rateHistory)
         {
-            rateHistory->push_back(calcRate(value));
+            rateHistory->push_back(lastRate);
         }
 
         lastValue = value;
@@ -88,7 +82,11 @@ struct RateMonitorEntry
     // for number formatting of rate values
     UnitScaling unitScaling = UnitScaling::Decimal;
 
+    /* A pointer to the rate sampler for this entry. The RateSampler is owned
+     * by the SamplerCollection that created it in
+     * SamplerCollection::createTree(). */
     RateSampler *sampler = nullptr;
+
     Flag flags = 0u;
 
     bool operator==(const RateMonitorEntry &other) const
