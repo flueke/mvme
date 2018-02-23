@@ -35,7 +35,7 @@
 #include "mvme_listfile.h"
 #include "mvme_stream_worker.h"
 #include "qt_util.h"
-#include "rate_monitor_widget.h"
+#include "rate_monitor_gui.h"
 #include "sis3153_util.h"
 #include "util_zip.h"
 #include "vme_config_tree.h"
@@ -85,7 +85,7 @@ struct MVMEWindowPrivate
     WidgetGeometrySaver *m_geometrySaver;
     QNetworkAccessManager *m_networkAccessManager = nullptr;
     ListfileBrowser *m_listfileBrowser = nullptr;
-    RateMonitorWidget *m_rateMonitorWidget = nullptr;
+    RateMonitorGui *m_rateMonitorGui = nullptr;
 
     QStatusBar *statusBar;
     QMenuBar *menuBar;
@@ -1040,20 +1040,20 @@ void MVMEMainWindow::onActionListfileBrowser_triggered()
 
 void MVMEMainWindow::onActionShowRateMonitor_triggered()
 {
-    if (!m_d->m_rateMonitorWidget)
+    if (!m_d->m_rateMonitorGui)
     {
-        auto widget = new RateMonitorWidget(m_d->m_context);
+        auto widget = new RateMonitorGui(m_d->m_context);
         widget->setAttribute(Qt::WA_DeleteOnClose);
         add_widget_close_action(widget);
 
         connect(widget, &QObject::destroyed, this, [this] (QObject *) {
-            this->m_d->m_rateMonitorWidget = nullptr;
+            this->m_d->m_rateMonitorGui = nullptr;
         });
 
-        m_d->m_rateMonitorWidget = widget;
-        m_d->m_geometrySaver->addAndRestore(m_d->m_rateMonitorWidget, QSL("WindowGeometries/RateMonitor"));
+        m_d->m_rateMonitorGui = widget;
+        m_d->m_geometrySaver->addAndRestore(m_d->m_rateMonitorGui, QSL("WindowGeometries/RateMonitor"));
     }
-    show_and_activate(m_d->m_rateMonitorWidget);
+    show_and_activate(m_d->m_rateMonitorGui);
 }
 
 void MVMEMainWindow::onActionVMUSB_Firmware_Update_triggered()

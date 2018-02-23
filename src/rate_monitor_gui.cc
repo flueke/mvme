@@ -1,4 +1,4 @@
-#include "rate_monitor_widget.h"
+#include "rate_monitor_gui.h"
 
 #include <QBoxLayout>
 #include <QCollator>
@@ -10,7 +10,8 @@
 #include <QTreeWidget>
 #include <QVector>
 
-#include "rate_monitoring.h"
+#include "rate_monitor_plot_widget.h"
+#include "rate_monitor_samplers.h"
 #include "util/tree.h"
 #include "util/bihash.h"
 
@@ -52,7 +53,7 @@ T *getPointer(QTreeWidgetItem *node, s32 dataRole = Qt::UserRole)
     return node ? reinterpret_cast<T *>(node->data(0, dataRole).value<void *>()) : nullptr;
 }
 
-struct RateMonitorWidgetPrivate
+struct RateMonitorGuiPrivate
 {
     QTreeWidget *m_rateTreeWidget;
     QGroupBox *m_propertyBox;
@@ -89,7 +90,7 @@ struct RateMonitorWidgetPrivate
 
 };
 
-void RateMonitorWidgetPrivate::createRateMonitorTree(RateMonitorNode &root)
+void RateMonitorGuiPrivate::createRateMonitorTree(RateMonitorNode &root)
 {
     *root.putBranch("streamProc")         = m_streamProcSampler.createTree();
     *root.putBranch("readout")            = m_daqStatsSampler.createTree();
@@ -97,7 +98,7 @@ void RateMonitorWidgetPrivate::createRateMonitorTree(RateMonitorNode &root)
     root.assertParentChildIntegrity();
 }
 
-void RateMonitorWidgetPrivate::doInternalSampling()
+void RateMonitorGuiPrivate::doInternalSampling()
 {
     m_daqStatsSampler.sample(m_context->getDAQStats());
     m_streamProcSampler.sample(m_context->getMVMEStreamWorker()->getStreamProcessor()->getCounters());
@@ -137,7 +138,7 @@ static void populate(QTreeWidgetItem *widgetRoot, RateMonitorNode &rateRoot)
     }
 }
 
-void RateMonitorWidgetPrivate::repopulateTreeWidget()
+void RateMonitorGuiPrivate::repopulateTreeWidget()
 {
     auto treeWidget = m_rateTreeWidget;
 
@@ -148,14 +149,14 @@ void RateMonitorWidgetPrivate::repopulateTreeWidget()
     treeWidget->sortItems(0, Qt::AscendingOrder);
 }
 
-void RateMonitorWidgetPrivate::onTreeWidgetCurrentItemChanged(QTreeWidgetItem *cur,
+void RateMonitorGuiPrivate::onTreeWidgetCurrentItemChanged(QTreeWidgetItem *cur,
                                                               QTreeWidgetItem *prev)
 {
     qDebug() << __PRETTY_FUNCTION__ << "cur =" << cur
         << ", prev =" << prev;
 }
 
-void RateMonitorWidgetPrivate::onTreeWidgetItemChanged(QTreeWidgetItem *item, int column)
+void RateMonitorGuiPrivate::onTreeWidgetItemChanged(QTreeWidgetItem *item, int column)
 {
     qDebug() << __PRETTY_FUNCTION__ << "item =" << item << ", column =" << column;
 
@@ -186,7 +187,7 @@ void RateMonitorWidgetPrivate::onTreeWidgetItemChanged(QTreeWidgetItem *item, in
     }
 }
 
-void RateMonitorWidgetPrivate::dev_test_setup_thingy() // XXX
+void RateMonitorGuiPrivate::dev_test_setup_thingy() // XXX
 {
 #if 0
     static const size_t RateHistorySampleCapacity = 60 * 60;
@@ -200,26 +201,26 @@ void RateMonitorWidgetPrivate::dev_test_setup_thingy() // XXX
 #endif
 }
 
-void RateMonitorWidgetPrivate::addRateEntryToTable(RateSampler *entry, const QString &name)
+void RateMonitorGuiPrivate::addRateEntryToTable(RateSampler *entry, const QString &name)
 {
     //assert(!m_rateTableHash.map.contains(entry));
 
     //auto item = new QTableWidgetItem(name);
 }
 
-void RateMonitorWidgetPrivate::removeRateEntryFromTable(RateSampler *entry)
+void RateMonitorGuiPrivate::removeRateEntryFromTable(RateSampler *entry)
 {
     assert(!"not implemented");
 }
 
-void RateMonitorWidgetPrivate::updateRateTable()
+void RateMonitorGuiPrivate::updateRateTable()
 {
     //assert(!"not implemented");
 }
 
-RateMonitorWidget::RateMonitorWidget(MVMEContext *context, QWidget *parent)
+RateMonitorGui::RateMonitorGui(MVMEContext *context, QWidget *parent)
     : QWidget(parent)
-    , m_d(std::make_unique<RateMonitorWidgetPrivate>())
+    , m_d(std::make_unique<RateMonitorGuiPrivate>())
 {
     setWindowTitle(QSL("Rate Monitor"));
 
@@ -292,16 +293,16 @@ RateMonitorWidget::RateMonitorWidget(MVMEContext *context, QWidget *parent)
     m_d->repopulateTreeWidget();
 }
 
-RateMonitorWidget::~RateMonitorWidget()
+RateMonitorGui::~RateMonitorGui()
 {
 }
 
-void RateMonitorWidget::sample()
+void RateMonitorGui::sample()
 {
     m_d->doInternalSampling();
 }
 
-void RateMonitorWidget::update()
+void RateMonitorGui::update()
 {
     m_d->m_plotWidget->replot();
 }

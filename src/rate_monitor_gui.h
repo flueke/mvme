@@ -4,14 +4,14 @@
 #include <QWidget>
 #include "mvme_context.h"
 
-struct RateMonitorWidgetPrivate;
+struct RateMonitorGuiPrivate;
 
-class RateMonitorWidget: public QWidget
+class RateMonitorGui: public QWidget
 {
     Q_OBJECT
     public:
-        RateMonitorWidget(MVMEContext *context, QWidget *parent = nullptr);
-        ~RateMonitorWidget();
+        RateMonitorGui(MVMEContext *context, QWidget *parent = nullptr);
+        ~RateMonitorGui();
 
     public slots:
         /** Replots and updates the rate table. */
@@ -21,6 +21,6 @@ class RateMonitorWidget: public QWidget
         void sample();
 
     private:
-        std::unique_ptr<RateMonitorWidgetPrivate> m_d;
+        std::unique_ptr<RateMonitorGuiPrivate> m_d;
 };
 #endif /* __RATE_MONITOR_WIDGET_H__ */

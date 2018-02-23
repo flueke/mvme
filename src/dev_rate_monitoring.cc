@@ -1,4 +1,5 @@
-#include "rate_monitoring.h"
+#include "rate_monitor_plot_widget.h"
+#include "rate_monitor_samplers.h"
 
 #include <qwt_plot_curve.h>
 #include <QApplication>
