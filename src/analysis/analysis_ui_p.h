@@ -52,7 +52,7 @@ namespace analysis
 
 class AnalysisWidget;
 class DataExtractionEditor;
-class EventWidgetPrivate;
+struct EventWidgetPrivate;
 class OperatorConfigurationWidget;
 
 class EventWidget: public QWidget

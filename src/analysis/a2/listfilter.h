@@ -1,8 +1,8 @@
 #ifndef __A2_LISTFILTER_H__
 #define __A2_LISTFILTER_H__
 /*
- * Combining filters (draft name)
- * -----------------------------
+ * Combining filters (draft name) -> Now called ListFilter
+ * -------------------------------------------------------
  *
  * Input:
  * - Number of words to combine
@@ -67,7 +67,7 @@ struct ListFilter
     static const Flag ReverseCombine    = 1u << 1;
 
     /* The filter used for final data extraction. A multiword filter is used as
-     * it allows to pass two 32 bit values and returns a 64 bit value. */
+     * it allows to pass in two 32 bit values and return a 64 bit value. */
     MultiWordFilter extractionFilter; // TODO: replace this by a single 64 bit DataFilter once those are implemented
 
     Flag flags;
