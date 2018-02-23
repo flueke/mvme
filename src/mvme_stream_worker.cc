@@ -416,6 +416,17 @@ void MVMEStreamWorker::start()
 
     TimetickGenerator timetickGen;
 
+    /* FIXME: I think there's a race condition here that leads to being stuck
+     * in the loop below. If the replay is very short and the listfile reader
+     * is finished before we reach this line here then stop(IfQueueEmpty) may
+     * already have been called. Thus internalState will be StopIfQueueEmpty
+     * and we will overwrite it below with either Pause or KeepRunning.
+     * As the listfile reader already sent it's finished signal which makes the
+     * context call our stop() method we won't get any more calls to stop().
+     * A way to fix this would be to wait for the stream processor to enter
+     * it's loop and only then start the listfile reader.
+     */
+
     // Start out in running state unless pause mode was requested.
     m_d->internalState = m_d->m_startPaused ? Pause : KeepRunning;
     InternalState internalState = m_d->internalState;
