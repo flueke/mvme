@@ -22,8 +22,8 @@ static void TEST_create_node(benchmark::State &state)
         assert(root.parent() == nullptr);
         assert(root.childCount() == 0);
 
-        assert(root.data().str.isEmpty());
-        assert(root.data().d == 0.0);
+        assert(root.data()->str.isEmpty());
+        assert(root.data()->d == 0.0);
     }
 
     {
@@ -34,8 +34,8 @@ static void TEST_create_node(benchmark::State &state)
         assert(root.parent() == nullptr);
         assert(root.childCount() == 0);
 
-        assert(root.data().str == "Hello, world!");
-        assert(root.data().d == 42.0);
+        assert(root.data()->str == "Hello, world!");
+        assert(root.data()->d == 42.0);
     }
 }
 BENCHMARK(TEST_create_node);
@@ -57,7 +57,7 @@ static void TEST_tree_basic(benchmark::State &state)
         assert(root.contains("keyA"));
 
         auto childNode = root.child("keyA");
-        assert(childNode->data().str == "valueA");
+        assert(childNode->data()->str == "valueA");
 
         dump_tree(out, root);
     }
@@ -176,11 +176,12 @@ static void TEST_copy_parent_relationship(benchmark::State &state)
         Node destRoot;
         destRoot.putBranch("dest.a.b");
         destRoot.putBranch("dest.a.c");
-        destRoot.putBranch("dest.zzz.420");
+        auto fourTwenty = destRoot.putBranch("dest.zzz.420");
+        assert(destRoot.child("dest.zzz.420") == fourTwenty);
         destRoot.assertParentChildIntegrity();
 
         Node sourceNode;
-        sourceNode.putBranch("source.x.y.z");
+        auto sourceZ = sourceNode.putBranch("source.x.y.z");
         sourceNode.putBranch("source.x.1.2");
         sourceNode.assertParentChildIntegrity();
 
