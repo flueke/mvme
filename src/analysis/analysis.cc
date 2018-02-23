@@ -2994,11 +2994,80 @@ size_t Histo2DSink::getStorageSize() const
     return m_histo ? m_histo->getStorageSize() : 0u;
 }
 
-static const size_t A2InitialArenaSize = Kilobytes(256);
+//
+// RateMonitorSink
+//
+
+RateMonitorSink::RateMonitorSink(QObject *parent)
+    : BasicSink(parent)
+{
+}
+
+void RateMonitorSink::beginRun(const RunInfo &runInfo)
+{
+    if (!m_inputSlot.isParamIndexInRange())
+    {
+        m_rates.resize(0);
+        return;
+    }
+
+    if (m_inputSlot.paramIndex != Slot::NoParamIndex)
+    {
+        m_rates.resize(1);
+    }
+    else
+    {
+        m_rates.resize(m_inputSlot.inputPipe->parameters.size());
+    }
+
+    for (auto &ptr: m_rates)
+    {
+        if (!ptr)
+        {
+            ptr = std::make_shared<RateHistoryBuffer>(m_rateHistoryCapacity, 0.0);
+        }
+        else if (ptr->capacity() != m_rateHistoryCapacity)
+        {
+            // removes the oldest values, keeps the youngest ones
+            ptr->rset_capacity(m_rateHistoryCapacity);
+
+            if (!runInfo.keepAnalysisState)
+            {
+                ptr->resize(0);
+            }
+        }
+    }
+}
+
+void RateMonitorSink::step()
+{
+    assert(!"not implemented. a2 should be used!");
+}
+
+void RateMonitorSink::write(QJsonObject &json) const
+{
+    json["capacity"] = static_cast<qint64>(m_rateHistoryCapacity);
+}
+
+void RateMonitorSink::read(const QJsonObject &json)
+{
+    m_rateHistoryCapacity = json["capacity"].toInt();
+}
+
+size_t RateMonitorSink::getStorageSize() const
+{
+    return std::accumulate(m_rates.begin(), m_rates.end(),
+                           static_cast<size_t>(0u),
+                           [](size_t accu, const RateHistoryBufferPtr &rateBuffer) {
+        return accu + rateBuffer->capacity() * sizeof(double);
+   });
+}
 
 //
 // Analysis
 //
+
+static const size_t A2InitialArenaSize = Kilobytes(256);
 
 Analysis::Analysis(QObject *parent)
     : QObject(parent)
@@ -3024,6 +3093,7 @@ Analysis::Analysis(QObject *parent)
 
     m_registry.registerSink<Histo1DSink>();
     m_registry.registerSink<Histo2DSink>();
+    m_registry.registerSink<RateMonitorSink>();
 
     qDebug() << "Registered Sources:   " << m_registry.getSourceNames();
     qDebug() << "Registered Operators: " << m_registry.getOperatorNames();

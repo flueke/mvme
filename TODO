@@ -173,6 +173,56 @@ void handle_replay_timetick() // somewhere in the MVMEStreamProcessor
         rate_monitor_sample(
 }
 
+Rate Monitoring in the analysis
+-------------------------------
+Experiment time rates are what's interesting, not the rates achieved during a
+replay! This means sampling should happen based on replay timeticks or for periodic events
+every time the event is triggered.
+
+
+* Data sources and types
+  - Values from periodically reading out the counter value of a scaler module.  Rate
+    calculation and then sampling has to be done using two successive scaler values. The
+    result can then be recorded in a RateHistoryBuffer.
+
+    -> Right now something roughly similar can be achieved using Calib, KeepPrevious and
+       A-B to calculate a rate.
+
+    -> This functionality could be combined in a RateCalculation operator which could then
+       be used as the input for a RateHistorySink.
+       This approach would also allow to use the calculated and calibrated rate as the
+       input for further operators.
+
+    * How this case plays out:
+      VME readout is triggered, data is read and transfered to the analysis.  The
+      corresponding analysis event is stepped. DataSources consume the readout data and
+      yield output values (processModuleData). Operators are stepped in the EndEvent step,
+      where they can consume the data source output values.
+
+      Storing the calculated rate could happen every time the event is trigged. This would
+      mean it's synchronous to the analysis stepping process. Also the rate recording
+      interval would be the same as the interval at which the event is triggered.
+      -> Doing synchronous sampling of the readout values only really makes sense for
+      periodic events as otherwise the recording interval could differ immensely.
+
+  - Readout of a module that yields a precalculated rate. No calculation is required, only
+    recording of the rate values.
+    Calibration might still be desired.
+
+    -> Calibration plus RateSink would meet the requirements. Additionally the remarks for
+    the first case above apply: recording can be done synchronously to processing the
+    event in the analysis.
+
+  - Extraction filter rates
+    This type of rate does not use data values from the readout itself but is sort of a
+    meta rate. Calculation can be done using the HitCounts array that's currently part of
+    every data source in the analysis.
+
+    -> The calculated rates can serve as input for a RateSink.
+    To get a consistent timebase sampling and recording should be based on analysis
+    timeticks. I think this means that a better resolution than the timetick one can not
+    really be achieved.
+
 
 --------------------------------------------------
 

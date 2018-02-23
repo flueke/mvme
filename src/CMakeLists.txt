@@ -102,6 +102,7 @@ set(LIBMVME_SOURCES
     qt_util.cc
     rate_monitor_gui.cc
     rate_monitor_plot_widget.cc
+    rate_monitor_widget.cc
     realtimedata.cpp
     scrollbar.cpp
     scrollzoomer.cpp

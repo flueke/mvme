@@ -2761,7 +2761,7 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, int eventIndex,
         tb->addWidget(m_d->m_eventRateLabel);
 #ifndef QT_NO_DEBUG
         tb->addSeparator();
-        tb->addAction(QSL("Repopluate"), this, [this]() { m_d->repopulate(); });
+        tb->addAction(QSL("Repopulate (dev)"), this, [this]() { m_d->repopulate(); });
 #endif
     }
 

@@ -1,5 +1,5 @@
-#ifndef __RATE_MONITOR_WIDGET_H__
-#define __RATE_MONITOR_WIDGET_H__
+#ifndef __RATE_MONITOR_GUI_H__
+#define __RATE_MONITOR_GUI_H__
 
 #include <QWidget>
 #include "mvme_context.h"
@@ -23,4 +23,5 @@ class RateMonitorGui: public QWidget
     private:
         std::unique_ptr<RateMonitorGuiPrivate> m_d;
 };
-#endif /* __RATE_MONITOR_WIDGET_H__ */
+
+#endif /* __RATE_MONITOR_GUI_H__ */

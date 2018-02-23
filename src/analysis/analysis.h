@@ -21,15 +21,16 @@
 #ifndef __ANALYSIS_H__
 #define __ANALYSIS_H__
 
+#include "a2/a2.h"
 #include "a2/memory.h"
 #include "a2/multiword_datafilter.h"
-#include "a2/a2.h"
 #include "data_filter.h"
-#include "../globals.h"
 #include "histo1d.h"
 #include "histo2d.h"
 #include "libmvme_export.h"
 #include "typedefs.h"
+#include "../globals.h"
+#include "../rate_monitor_base.h"
 #include "../vme_analysis_common.h"
 
 #include <memory>
@@ -389,6 +390,8 @@ class LIBMVME_EXPORT SinkInterface: public OperatorInterface
         s32 getNumberOfOutputs() const override { return 0; }
         QString getOutputName(s32 outputIndex) const override { return QString(); }
         Pipe *getOutput(s32 index) override { return nullptr; }
+
+        virtual size_t getStorageSize() const = 0;
 };
 
 typedef std::shared_ptr<SinkInterface> SinkPtr;
@@ -1051,7 +1054,7 @@ class LIBMVME_EXPORT Histo1DSink: public BasicSink
         virtual QString getDisplayName() const override { return QSL("1D Histogram"); }
         virtual QString getShortName() const override { return QSL("H1D"); }
 
-        size_t getStorageSize() const;
+        virtual size_t getStorageSize() const override;
 
         std::shared_ptr<Histo1D> getHisto(s32 index) const
         {
@@ -1098,7 +1101,7 @@ class LIBMVME_EXPORT Histo2DSink: public SinkInterface
         virtual QString getDisplayName() const override { return QSL("2D Histogram"); }
         virtual QString getShortName() const override { return QSL("H2D"); }
 
-        size_t getStorageSize() const;
+        virtual size_t getStorageSize() const override;
 
         Slot m_inputX;
         Slot m_inputY;
@@ -1126,6 +1129,46 @@ class LIBMVME_EXPORT Histo2DSink: public SinkInterface
 
         QString m_xAxisTitle;
         QString m_yAxisTitle;
+};
+
+class LIBMVME_EXPORT RateMonitorSink: public BasicSink
+{
+    /* NOTE: Not sure about what to keep in here. As a starting point I'm just
+     * keeping RateHistoryBufferPtrs in here. This means the additional information
+     * kept in a RateSampler struct is not available here!
+     * Also keeping RateSamplers in here is not what should be done as the input
+     * for this sink is expected to be a rate already. Still some information about
+     * the sampling period, unit scaling etc. could be useful.
+     */
+    Q_OBJECT
+    public:
+        RateMonitorSink(QObject *parent = nullptr);
+
+        virtual void beginRun(const RunInfo &runInfo) override;
+        virtual void step() override;
+
+        virtual void read(const QJsonObject &json) override;
+        virtual void write(QJsonObject &json) const override;
+
+        virtual QString getDisplayName() const override { return QSL("Rate History"); }
+        virtual QString getShortName() const override { return QSL("Rate"); }
+
+        virtual size_t getStorageSize() const override;
+
+        s32 rateBufferCount() const { return m_rates.size(); }
+        QVector<RateHistoryBufferPtr> getRateBuffers() const { return m_rates; }
+
+        RateHistoryBufferPtr getRateBuffer(s32 index) const
+        {
+            return m_rates.value(index, {});
+        }
+
+    private:
+        /* The desired size of rate history buffers. Analogous to the number of
+         * bins for histograms. */
+        size_t m_rateHistoryCapacity = 0;
+
+        QVector<RateHistoryBufferPtr> m_rates;
 };
 
 /* Note: The qobject_cast()s in the createXXX() functions are there to ensure
