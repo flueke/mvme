@@ -130,6 +130,7 @@ void RateMonitorPlotWidget::addRate(const RateHistoryBufferPtr &rateHistory,
                                     const QString &title,
                                     const QColor &color)
 {
+    assert(rateHistory);
     assert(m_d->m_rates.size() == m_d->m_curves.size());
 
     auto curve = std::make_unique<QwtPlotCurve>(title);
@@ -139,6 +140,10 @@ void RateMonitorPlotWidget::addRate(const RateHistoryBufferPtr &rateHistory,
 
     m_d->m_curves.push_back(curve.release());
     m_d->m_rates.push_back(rateHistory);
+
+    qDebug() << "added rate. title =" << title << ", color =" << color
+        << ", capacity =" << rateHistory->capacity()
+        << ", new plot count =" << m_d->m_curves.size();
 
     assert(m_d->m_rates.size() == m_d->m_curves.size());
 }
@@ -152,10 +157,11 @@ void RateMonitorPlotWidget::removeRate(int index)
 {
     assert(m_d->m_rates.size() == m_d->m_curves.size());
 
-    if (0 < index && index < m_d->m_rates.size())
+    if (0 <= index && index < m_d->m_rates.size())
     {
         assert(index < m_d->m_curves.size());
 
+        qDebug() << __PRETTY_FUNCTION__ << "removing plot with index" << index;
         auto curve = std::unique_ptr<QwtPlotCurve>(m_d->m_curves.at(index));
         curve->detach();
         m_d->m_curves.remove(index);
@@ -264,7 +270,7 @@ void RateMonitorPlotWidget::setYAxisScale(AxisScale scaling)
 
         case AxisScale::Logarithmic:
             auto scaleEngine = new QwtLogScaleEngine;
-            //scaleEngine->setTransformation(new MinBoundLogTransform);
+            //scaleEngine->setTransformation(new MinBoundLogTransform); // TODO enable
             m_d->m_plot->setAxisScaleEngine(QwtPlot::yLeft, scaleEngine);
             break;
     }
