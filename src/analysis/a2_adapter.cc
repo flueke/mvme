@@ -614,6 +614,35 @@ DEF_OP_MAGIC(histo2d_sink_magic)
     return result;
 }
 
+DEF_OP_MAGIC(rate_monitor_sink_magic)
+{
+    LOG("");
+    assert(inputSlots.size() == 1);
+    assert_slot(inputSlots[0]);
+    assert(inputSlots[0]->paramIndex == analysis::Slot::NoParamIndex);
+
+    auto rms = qobject_cast<analysis::RateMonitorSink *>(op.get());
+
+    assert(rms);
+
+    auto a2_input = find_output_pipe(adapterState, inputSlots[0]);
+
+    auto shared_samplers = rms->getRateSamplers();
+    QVector<RateSampler *> samplers;
+    samplers.reserve(shared_samplers.size());
+    std::transform(shared_samplers.begin(), shared_samplers.end(),
+                   std::back_inserter(samplers), [](auto &shared_sampler) { return shared_sampler.get(); });
+
+    a2::Operator result = a2::make_rate_monitor(
+        arena,
+        a2_input,
+        { samplers.data(), samplers.size() },
+        rms->getType()
+        );
+
+    return result;
+}
+
 static const QHash<const QMetaObject *, OperatorMagic *> OperatorMagicTable =
 {
     { &analysis::CalibrationMinMax::staticMetaObject, calibration_magic },
@@ -629,6 +658,8 @@ static const QHash<const QMetaObject *, OperatorMagic *> OperatorMagicTable =
 
     { &analysis::Histo1DSink::staticMetaObject, histo1d_sink_magic },
     { &analysis::Histo2DSink::staticMetaObject, histo2d_sink_magic },
+
+    { &analysis::RateMonitorSink::staticMetaObject, rate_monitor_sink_magic },
 };
 
 a2::Operator a2_adapter_magic(memory::Arena *arena, A2AdapterState *state, analysis::OperatorPtr op)
@@ -1042,7 +1073,7 @@ A2AdapterState a2_adapter_build(
                     ds,
                     (s32)ds->moduleIndex,
                     a1_src ? a1_src->metaObject()->className() : "nullptr",
-                    a1_src ? qcstr(a1_ex->objectName()) : "nullptr");
+                    a1_src ? qcstr(a1_src->objectName()) : "nullptr");
             }
         }
     }
