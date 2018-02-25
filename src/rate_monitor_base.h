@@ -1,19 +1,18 @@
 #ifndef __RATE_MONITOR_BASE_H__
 #define __RATE_MONITOR_BASE_H__
 
-#include <boost/circular_buffer.hpp>
-#include <memory>
 #include <QDebug>
 #include <QRectF>
 #include <QString>
+#include "analysis/a2/rate_sampler.h"
 #include "typedefs.h"
 #include "util/counters.h"
 #include "util/strings.h"
 #include "util/tree.h"
 
-/* RateHistory - circular buffer for rate values */
-using RateHistoryBuffer = boost::circular_buffer<double>;
-using RateHistoryBufferPtr = std::shared_ptr<RateHistoryBuffer>;
+using a2::RateHistoryBuffer;
+using a2::RateHistoryBufferPtr;
+using a2::RateSampler;
 
 inline double get_max_value(const RateHistoryBuffer &rh, double defaultValue = 0.0)
 {
@@ -29,41 +28,6 @@ inline QRectF get_qwt_bounding_rect(const RateHistoryBuffer &rh)
     auto result = QRectF(0.0, 0.0, rh.capacity(), max_value);
     return result;
 }
-
-/* RateSampler
- * Setup, storage and sampling logic for rate monitoring.
- */
-struct RateSampler
-{
-    // setup
-    double scale  = 1.0;
-    double offset = 0.0;
-
-    // state and data
-    RateHistoryBufferPtr rateHistory;
-    double lastValue = 0.0;
-    double lastRate  = 0.0;
-
-
-    void sample(double value)
-    {
-        lastRate = calcRate(value);
-
-        if (rateHistory)
-        {
-            rateHistory->push_back(lastRate);
-        }
-
-        lastValue = value;
-    }
-
-    double calcRate(double value) const
-    {
-        double delta = calc_delta0(value, lastValue);
-        double rate  = (delta + offset) * scale;
-        return rate;
-    }
-};
 
 struct RateMonitorEntry
 {

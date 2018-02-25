@@ -33,9 +33,10 @@
 #include "../histo2d_widget.h"
 #include "../mvme_context.h"
 #include "../mvme_stream_worker.h"
+#include "../rate_monitor_widget.h"
 #include "../treewidget_utils.h"
-#include "util/counters.h"
-#include "util/strings.h"
+#include "../util/counters.h"
+#include "../util/strings.h"
 #include "../vme_analysis_common.h"
 
 #include <QApplication>
@@ -1542,8 +1543,14 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
         {
             if (userLevel == 0)
             {
-                auto sink = std::make_shared<Histo1DSink>();
-                add_action(sink->getDisplayName(), sink);
+                {
+                    auto sink = std::make_shared<Histo1DSink>();
+                    add_action(sink->getDisplayName(), sink);
+                }
+                {
+                    auto sink = std::make_shared<RateMonitorSink>();
+                    add_action(sink->getDisplayName(), sink);
+                }
             }
             else
             {
@@ -2098,6 +2105,21 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                         m_context->activateObjectWidget(sinkPtr.get());
                     }
                 } break;
+
+            case NodeType_Sink:
+                if (auto rms = std::dynamic_pointer_cast<RateMonitorSink>(getPointer<RateMonitorSink>(node)->getSharedPointer()))
+                {
+                    if (!m_context->hasObjectWidget(rms.get()) || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
+                    {
+                        auto widget = new RateMonitorWidget(rms->getRateSamplers());
+                        m_context->addObjectWidget(widget, rms.get(), rms->getId().toString());
+                    }
+                    else
+                    {
+                        m_context->activateObjectWidget(rms.get());
+                    }
+                }
+                break;
         }
     }
 }

@@ -108,4 +108,6 @@ inline QLabel *make_aligned_label(const QString &text, Qt::Alignment alignment =
     return label;
 }
 
+QWidget *make_vbox_container(const QString &labelText, QWidget *widget);
+
 #endif /* __QT_UTIL_H__ */

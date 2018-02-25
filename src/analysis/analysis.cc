@@ -3001,39 +3001,56 @@ size_t Histo2DSink::getStorageSize() const
 RateMonitorSink::RateMonitorSink(QObject *parent)
     : BasicSink(parent)
 {
+    m_inputSlot.acceptedInputTypes = InputType::Array;
 }
 
 void RateMonitorSink::beginRun(const RunInfo &runInfo)
 {
+    assert(m_inputSlot.paramIndex == Slot::NoParamIndex);
+
+#if 0
     if (!m_inputSlot.isParamIndexInRange())
     {
-        m_rates.resize(0);
+        m_samplers.resize(0);
         return;
     }
 
     if (m_inputSlot.paramIndex != Slot::NoParamIndex)
     {
-        m_rates.resize(1);
+        m_samplers.resize(1);
     }
     else
+#endif
     {
-        m_rates.resize(m_inputSlot.inputPipe->parameters.size());
+        m_samplers.resize(m_inputSlot.inputPipe->parameters.size());
     }
 
-    for (auto &ptr: m_rates)
+    for (auto &sampler: m_samplers)
     {
-        if (!ptr)
+        if (!sampler)
         {
-            ptr = std::make_shared<RateHistoryBuffer>(m_rateHistoryCapacity, 0.0);
+            sampler = std::make_shared<a2::RateSampler>();
+            sampler->rateHistory = std::make_shared<RateHistoryBuffer>(m_rateHistoryCapacity, 0.0);
         }
-        else if (ptr->capacity() != m_rateHistoryCapacity)
+        else
         {
-            // removes the oldest values, keeps the youngest ones
-            ptr->rset_capacity(m_rateHistoryCapacity);
+            sampler->lastValue = 0.0;
+            sampler->lastRate  = 0.0;
+            sampler->lastDelta = 0.0;
+
+            /* If the new capacity is >= the old capacity then the rateHistory
+             * contents are kept, otherwise the oldest values are discarded. */
+            if (sampler->rateHistory->capacity() != m_rateHistoryCapacity)
+            {
+                // Change capacity. Can lower the current size.
+                // rset_capacity() removes the oldest values, keeps the youngest ones
+                sampler->rateHistory->rset_capacity(m_rateHistoryCapacity);
+            }
 
             if (!runInfo.keepAnalysisState)
             {
-                ptr->resize(0);
+                // truncates the history size (not the capacity) to zero
+                sampler->rateHistory->resize(0);
             }
         }
     }
@@ -3056,10 +3073,10 @@ void RateMonitorSink::read(const QJsonObject &json)
 
 size_t RateMonitorSink::getStorageSize() const
 {
-    return std::accumulate(m_rates.begin(), m_rates.end(),
+    return std::accumulate(m_samplers.begin(), m_samplers.end(),
                            static_cast<size_t>(0u),
-                           [](size_t accu, const RateHistoryBufferPtr &rateBuffer) {
-        return accu + rateBuffer->capacity() * sizeof(double);
+                           [](size_t accu, const a2::RateSamplerPtr &sampler) {
+        return accu + sampler->rateHistory->capacity() * sizeof(double);
    });
 }
 
@@ -3200,6 +3217,7 @@ void Analysis::endEvent(int eventIndex)
 void Analysis::processTimetick()
 {
     m_timetickCount += 1.0;
+    a2_timetick(m_a2State->a2);
 }
 
 void Analysis::addSource(const QUuid &eventId, const QUuid &moduleId, const SourcePtr &source)

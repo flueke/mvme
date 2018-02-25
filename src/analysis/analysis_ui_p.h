@@ -172,6 +172,8 @@ class ListFilterExtractorDialog: public QDialog
 
 QWidget *data_source_widget_factory(SourceInterface *ds);
 
+class AbstractOpConfigWidget;
+
 class AddEditOperatorWidget: public QDialog
 {
     Q_OBJECT
@@ -194,7 +196,7 @@ class AddEditOperatorWidget: public QDialog
         QVector<QPushButton *> m_selectButtons;
         QDialogButtonBox *m_buttonBox = nullptr;
         bool m_inputSelectActive = false;
-        OperatorConfigurationWidget *m_opConfigWidget = nullptr;
+        AbstractOpConfigWidget *m_opConfigWidget = nullptr;
         QGridLayout *m_slotGrid = nullptr;
         QPushButton *m_addSlotButton = nullptr;
         QPushButton *m_removeSlotButton = nullptr;
@@ -213,21 +215,39 @@ class AddEditOperatorWidget: public QDialog
         static const s32 WidgetMinHeight = 175;
 };
 
-class OperatorConfigurationWidget: public QWidget
+class AbstractOpConfigWidget: public QWidget
 {
     Q_OBJECT
     public:
-        OperatorConfigurationWidget(OperatorInterface *op, s32 userLevel, AddEditOperatorWidget *parent);
-        //bool validateInputs();
-        void configureOperator();
-        void inputSelected(s32 slotIndex);
+        AbstractOpConfigWidget(OperatorInterface *op, s32 userLevel, QWidget *parent = nullptr);
 
-        AddEditOperatorWidget *m_parent;
+        void setNameEdited(bool b) { m_wasNameEdited = b; }
+        bool wasNameEdited() const { return m_wasNameEdited; }
+
+        virtual void configureOperator() = 0;
+        virtual void inputSelected(s32 slotIndex) = 0;
+
+    protected:
         OperatorInterface *m_op;
         s32 m_userLevel;
+        bool m_wasNameEdited;
 
         QLineEdit *le_name = nullptr;
-        bool wasNameEdited = false;
+};
+
+/* One widget to rule them all.
+ * This handles all of the older analysis operators. New operators should get
+ * their own config widget derived from AbstractOpConfigWidget unless it's
+ * simple stuff they need. */
+class OperatorConfigurationWidget: public AbstractOpConfigWidget
+{
+    Q_OBJECT
+    public:
+        OperatorConfigurationWidget(OperatorInterface *op, s32 userLevel, QWidget *parent = nullptr);
+        //bool validateInputs();
+        void configureOperator() override;
+        void inputSelected(s32 slotIndex) override;
+
 
         // Histo1DSink and Histo2DSink
         QComboBox *combo_xBins = nullptr;
@@ -290,6 +310,21 @@ class OperatorConfigurationWidget: public QWidget
 
         QDoubleSpinBox *spin_minThreshold,
                        *spin_maxThreshold;
+};
+
+class RateMonitorConfigWidget: public AbstractOpConfigWidget
+{
+    Q_OBJECT
+    public:
+        RateMonitorConfigWidget(RateMonitorSink *op, s32 userLevel, QWidget *parent = nullptr);
+
+        void configureOperator() override;
+        void inputSelected(s32 slotIndex) override;
+
+    private:
+        RateMonitorSink *m_rms;
+
+        QComboBox *combo_type;
 };
 
 class PipeDisplay: public QWidget

@@ -228,21 +228,6 @@ static QWidget *make_spacer_widget()
     return result;
 }
 
-static QWidget *make_vbox_container(const QString &labelText, QWidget *widget)
-{
-    auto label = new QLabel(labelText);
-    label->setAlignment(Qt::AlignCenter);
-
-    auto container = new QWidget;
-    auto layout = new QVBoxLayout(container);
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(0);
-    layout->addWidget(label);
-    layout->addWidget(widget);
-
-    return container;
-}
-
 Histo2DWidget::Histo2DWidget(const Histo2DPtr histoPtr, QWidget *parent)
     : Histo2DWidget(histoPtr.get(), parent)
 {

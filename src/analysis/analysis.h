@@ -1133,15 +1133,10 @@ class LIBMVME_EXPORT Histo2DSink: public SinkInterface
 
 class LIBMVME_EXPORT RateMonitorSink: public BasicSink
 {
-    /* NOTE: Not sure about what to keep in here. As a starting point I'm just
-     * keeping RateHistoryBufferPtrs in here. This means the additional information
-     * kept in a RateSampler struct is not available here!
-     * Also keeping RateSamplers in here is not what should be done as the input
-     * for this sink is expected to be a rate already. Still some information about
-     * the sampling period, unit scaling etc. could be useful.
-     */
     Q_OBJECT
     public:
+        using Type = a2::RateMonitorType;
+
         RateMonitorSink(QObject *parent = nullptr);
 
         virtual void beginRun(const RunInfo &runInfo) override;
@@ -1150,25 +1145,38 @@ class LIBMVME_EXPORT RateMonitorSink: public BasicSink
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
 
-        virtual QString getDisplayName() const override { return QSL("Rate History"); }
-        virtual QString getShortName() const override { return QSL("Rate"); }
+        virtual QString getDisplayName() const override { return QSL("Rate Monitor"); }
+
+        virtual QString getShortName() const override
+        {
+            if (getType() == Type::FlowRate)
+                return QSL("FlowRate");
+            return QSL("Rate");
+        }
 
         virtual size_t getStorageSize() const override;
 
-        s32 rateBufferCount() const { return m_rates.size(); }
-        QVector<RateHistoryBufferPtr> getRateBuffers() const { return m_rates; }
+        s32 rateSamplerCount() const { return m_samplers.size(); }
+        QVector<a2::RateSamplerPtr> getRateSamplers() const { return m_samplers; }
 
-        RateHistoryBufferPtr getRateBuffer(s32 index) const
+        a2::RateSamplerPtr getRateSampler(s32 index) const
         {
-            return m_rates.value(index, {});
+            return m_samplers.value(index, {});
         }
 
-    private:
-        /* The desired size of rate history buffers. Analogous to the number of
-         * bins for histograms. */
-        size_t m_rateHistoryCapacity = 0;
+        Type getType() const { return m_type; }
+        void setType(Type type) { m_type = type; }
 
-        QVector<RateHistoryBufferPtr> m_rates;
+    private:
+        QVector<a2::RateSamplerPtr> m_samplers;
+
+        /* The desired size of rate history buffers. Analogous to the number of
+         * bins for histograms.
+         * Default is one day, meaning 86400 bins, which equals a hist
+         * resolution of ~16.4 bits. */
+        size_t m_rateHistoryCapacity = 3600 * 24;
+
+        Type m_type = Type::CounterDifference;
 };
 
 /* Note: The qobject_cast()s in the createXXX() functions are there to ensure

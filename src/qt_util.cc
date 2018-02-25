@@ -26,6 +26,7 @@
 #include <QDebug>
 #include <QPainter>
 #include <QSettings>
+#include <QVBoxLayout>
 #include <QWidget>
 
 WidgetGeometrySaver::WidgetGeometrySaver(QObject *parent)
@@ -223,4 +224,19 @@ void processQtEvents(QEventLoop::ProcessEventsFlags flags)
 void processQtEvents(int maxtime_ms, QEventLoop::ProcessEventsFlags flags)
 {
     QCoreApplication::processEvents(flags, maxtime_ms);
+}
+
+QWidget *make_vbox_container(const QString &labelText, QWidget *widget)
+{
+    auto label = new QLabel(labelText);
+    label->setAlignment(Qt::AlignCenter);
+
+    auto container = new QWidget;
+    auto layout = new QVBoxLayout(container);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(0);
+    layout->addWidget(label);
+    layout->addWidget(widget);
+
+    return container;
 }

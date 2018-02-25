@@ -940,9 +940,9 @@ AddEditOperatorWidget::AddEditOperatorWidget(OperatorPtr opPtr, s32 userLevel, E
     m_opPtr = opPtr;
     setWindowTitle(QString("New  %1").arg(opPtr->getDisplayName()));
 
-    // Creating a new operator. Override the setting of wasNameEdited by the
+    // Creating a new operator. Override the setting of setNameEdited by the
     // constructor below.
-    m_opConfigWidget->wasNameEdited = false;
+    m_opConfigWidget->setNameEdited(false);
 }
 
 /** IMPORTANT: This constructor makes the Widget go into "edit" mode. When
@@ -952,13 +952,24 @@ AddEditOperatorWidget::AddEditOperatorWidget(OperatorInterface *op, s32 userLeve
     , m_op(op)
     , m_userLevel(userLevel)
     , m_eventWidget(eventWidget)
-    , m_opConfigWidget(new OperatorConfigurationWidget(op, userLevel, this))
+    , m_opConfigWidget(nullptr)
 {
+    // Note: refactor this into some factory or table lookup based on
+    // qmetaobject if there are more operator specific widgets to handle
+    if (auto rms = qobject_cast<RateMonitorSink *>(op))
+    {
+        m_opConfigWidget = new RateMonitorConfigWidget(rms, userLevel, this);
+    }
+    else
+    {
+        m_opConfigWidget = new OperatorConfigurationWidget(op, userLevel, this);
+    }
+
     setWindowTitle(QString("Edit %1").arg(m_op->getDisplayName()));
     add_widget_close_action(this);
 
     // We're editing an operator so we assume the name has been specified by the user.
-    m_opConfigWidget->wasNameEdited = true;
+    m_opConfigWidget->setNameEdited(true);
 
     const s32 slotCount = m_op->getNumberOfSlots();
 
@@ -1442,11 +1453,16 @@ static void repopulate_arrayMap_tables(ArrayMap *arrayMap, const ArrayMappings &
     tw_output->resizeRowsToContents();
 }
 
-OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, s32 userLevel, AddEditOperatorWidget *parent)
+AbstractOpConfigWidget::AbstractOpConfigWidget(OperatorInterface *op, s32 userLevel, QWidget *parent)
     : QWidget(parent)
-    , m_parent(parent)
     , m_op(op)
     , m_userLevel(userLevel)
+    , m_wasNameEdited(false)
+{
+}
+
+OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, s32 userLevel, QWidget *parent)
+    : AbstractOpConfigWidget(op, userLevel, parent)
 {
     auto widgetLayout = new QVBoxLayout(this);
     widgetLayout->setContentsMargins(0, 0, 0, 0);
@@ -1458,8 +1474,8 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
 
     le_name = new QLineEdit;
     connect(le_name, &QLineEdit::textEdited, this, [this](const QString &newText) {
-        // If the user clears the textedit reset wasNameEdited to false.
-        this->wasNameEdited = !newText.isEmpty();
+        // If the user clears the textedit reset NameEdited to false.
+        this->setNameEdited(!newText.isEmpty());
     });
     formLayout->addRow(QSL("Name"), le_name);
 
@@ -1922,16 +1938,16 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
 {
     OperatorInterface *op = m_op;
 
-    if (no_input_connected(op) && !wasNameEdited)
+    if (no_input_connected(op) && !wasNameEdited())
     {
         le_name->clear();
-        wasNameEdited = false;
+        setNameEdited(false);
     }
 
     //
     // Operator name
     //
-    if (!wasNameEdited)
+    if (!wasNameEdited())
     {
         // The name field is empty or was never modified by the user. Update its
         // contents to reflect the newly selected input(s).
@@ -1982,7 +1998,7 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
         le_name->setText(op->objectName());
     }
 
-    if (!le_name->text().isEmpty() && op->getNumberOfOutputs() > 0 && all_inputs_connected(op) && !wasNameEdited)
+    if (!le_name->text().isEmpty() && op->getNumberOfOutputs() > 0 && all_inputs_connected(op) && !wasNameEdited())
     {
         // XXX: leftoff here TODO: use the currently selected operations name
         // as the suffix (currently it always says 'sum')
@@ -2441,6 +2457,85 @@ void OperatorConfigurationWidget::updateOutputLimits(BinarySumDiff *op)
 
     spin_outputLowerLimit->setValue(llO);
     spin_outputUpperLimit->setValue(ulO);
+}
+
+//
+// RateMonitorConfigWidget
+//
+RateMonitorConfigWidget::RateMonitorConfigWidget(RateMonitorSink *rms, s32 userLevel, QWidget *parent)
+    : AbstractOpConfigWidget(rms, userLevel, parent)
+    , m_rms(rms)
+{
+    auto widgetLayout = new QVBoxLayout(this);
+    widgetLayout->setContentsMargins(0, 0, 0, 0);
+
+    auto *formLayout = new QFormLayout;
+    formLayout->setContentsMargins(2, 2, 2, 2);
+
+    widgetLayout->addLayout(formLayout);
+
+    le_name = new QLineEdit;
+    connect(le_name, &QLineEdit::textEdited, this, [this](const QString &newText) {
+        // If the user clears the textedit reset NameEdited to false.
+        this->setNameEdited(!newText.isEmpty());
+    });
+    formLayout->addRow(QSL("Name"), le_name);
+
+    le_name->setText(rms->objectName());
+
+
+    combo_type = new QComboBox;
+    combo_type->addItem(QSL("Counter Difference"), static_cast<s32>(a2::RateMonitorType::CounterDifference));
+    combo_type->addItem(QSL("Precalculated Rate"), static_cast<s32>(a2::RateMonitorType::PrecalculatedRate));
+    combo_type->addItem(QSL("Flow Rate"),          static_cast<s32>(a2::RateMonitorType::FlowRate));
+
+    combo_type->setCurrentIndex(combo_type->findData(static_cast<s32>(m_rms->getType())));
+
+    formLayout->addRow(QSL("Type"), combo_type);
+}
+
+void RateMonitorConfigWidget::configureOperator()
+{
+    OperatorInterface *op = m_op;
+
+    for (s32 slotIndex = 0; slotIndex < m_op->getNumberOfSlots(); ++slotIndex)
+    {
+        Q_ASSERT(op->getSlot(slotIndex)->isConnected());
+    }
+
+    op->setObjectName(le_name->text());
+
+    m_rms->setType(static_cast<RateMonitorSink::Type>(combo_type->currentData().toInt()));
+}
+
+void RateMonitorConfigWidget::inputSelected(s32 slotIndex)
+{
+    OperatorInterface *op = m_op;
+
+    if (no_input_connected(op) && !wasNameEdited())
+    {
+        le_name->clear();
+        setNameEdited(false);
+    }
+
+    if (!wasNameEdited())
+    {
+        auto name = makeSlotSourceString(m_rms->getSlot(0));
+
+        switch (static_cast<RateMonitorSink::Type>(combo_type->currentData().toInt()))
+        {
+            case RateMonitorSink::Type::CounterDifference:
+            case RateMonitorSink::Type::PrecalculatedRate:
+                name += QSL(".rate");
+                break;
+
+            case RateMonitorSink::Type::FlowRate:
+                name += QSL(".flowRate");
+                break;
+        }
+
+        le_name->setText(name);
+    }
 }
 
 //
