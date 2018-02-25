@@ -223,6 +223,19 @@ every time the event is triggered.
     timeticks. I think this means that a better resolution than the timetick one can not
     really be achieved.
 
+FIXME: The case where the fraction of two rates should be monitored as in
+Wanpengs tool has not been taken care of.
+
+Input could be a pair of rate samplers. The fraction of the two samplers would
+then be treated as a rate itself and accumulated in the history buffer in the
+same way as a normal rate.
+Be careful with the different rate types as they are updated at different times:
+- System rates are currently updated in the gui
+- Analysis rate values (Precalculated and CounterDifference) are updated each
+  time the event is triggered.
+- FlowRates are updated on each timetick which can be wallclock time for DAQ or
+  experiment time for a replay.
+
 
 --------------------------------------------------
 

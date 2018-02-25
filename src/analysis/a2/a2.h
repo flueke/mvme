@@ -7,6 +7,7 @@
 #include "listfilter.h"
 #include "memory.h"
 #include "multiword_datafilter.h"
+#include "rate_sampler.h"
 #include "util/nan.h"
 #include "util/typed_block.h"
 
@@ -402,6 +403,55 @@ Operator make_h2d_sink(
     s32 yIndex,
     H2D histo);
 
+Operator make_h1d_sink(
+    memory::Arena *arena,
+    PipeVectors inPipe,
+    TypedBlock<H1D, s32> histos);
+
+//
+// RateMonitor
+//
+
+enum class RateMonitorType
+{
+    /* Input values are rates and simply need to be accumulated. */
+    PrecalculatedRate,
+
+    /* Input values are counter values. The rate has be calculated from
+     * the current and the previous value. */
+    CounterDifference,
+
+    /* The rate of hits for an analysis pipe. Basically the rate of a
+     * source or the flow through an operator.
+     *
+     * The event and pipe to be monitored are required. At the end of
+     * an event, after operators have been processed, a hitcount value
+     * has to be incremented for each input value if the value is
+     * valid.
+     *
+     * Event: the event this sink is in.
+     * Pipe:  this operators input pipe.
+     * Two step processing: in a2_end_event() increment the count values based on the input.
+     * In a new a2_timetick() function run through all RateMonitorSinks
+     * and sample from the hitcounts data.
+     *
+     * Sampling and recording of the resulting rate happens
+     * "asynchronously" based on analysis timeticks (system generated
+     * during DAQ / from the listfile during replay).
+     */
+    FlowRate,
+};
+
+Operator make_rate_monitor(
+    memory::Arena *arena,
+    PipeVectors inPipe,
+    TypedBlock<RateSampler *, s32> samplers,
+    RateMonitorType type);
+
+//
+// A2 structure and entry points
+//
+
 static const int MaxVMEEvents  = 12;
 static const int MaxVMEModules = 20;
 
@@ -419,6 +469,7 @@ void a2_begin_run(A2 *a2);
 void a2_begin_event(A2 *a2, int eventIndex);
 void a2_process_module_data(A2 *a2, int eventIndex, int moduleIndex, u32 *data, u32 dataSize);
 void a2_end_event(A2 *a2, int eventIndex);
+void a2_timetick(A2 *a2);
 void a2_end_run(A2 *a2);
 
 //

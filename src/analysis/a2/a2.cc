@@ -1,5 +1,6 @@
 #include "mpmc_queue.cc"
 #include "a2_impl.h"
+#include "util/assert.h"
 
 #include <algorithm>
 #include <atomic>
@@ -11,7 +12,7 @@
 #include <random>
 #include <thread>
 #include "util/perf.h"
-#include "cpp11-on-multicore/common/benaphore.h" // cpp11-on-multicore
+#include "cpp11-on-multicore/common/benaphore.h"
 
 #define ArrayCount(x) (sizeof(x) / sizeof(*x))
 
@@ -2125,6 +2126,131 @@ void h2d_sink_step(Operator *op)
         op->inputs[1][d->yIndex]);
 }
 
+//
+// RateMonitor
+//
+
+static OperatorType operator_type(RateMonitorType rateMonitorType)
+{
+    switch (rateMonitorType)
+    {
+        case RateMonitorType::CounterDifference:
+            return Operator_RateMonitor_CounterDifference;
+
+        case RateMonitorType::PrecalculatedRate:
+            return Operator_RateMonitor_PrecalculatedRate;
+
+        case RateMonitorType::FlowRate:
+            return Operator_RateMonitor_FlowRate;
+
+        InvalidDefaultCase;
+    };
+
+    return OperatorTypeCount;
+}
+
+struct RateMonitorData
+{
+    TypedBlock<RateSampler *, s32> samplers;
+};
+
+struct RateMonitorData_FlowRate: public RateMonitorData
+{
+    ParamVec hitCounts;
+};
+
+Operator make_rate_monitor(
+    memory::Arena *arena,
+    PipeVectors inPipe,
+    TypedBlock<RateSampler *, s32> samplers,
+    RateMonitorType type)
+{
+    assert(inPipe.data.size == samplers.size);
+
+    auto result = make_operator(arena, operator_type(type), 1, 0);
+    assign_input(&result, inPipe, 0);
+
+    switch (type)
+    {
+        case RateMonitorType::CounterDifference:
+        case RateMonitorType::PrecalculatedRate:
+            {
+                auto d = arena->pushStruct<RateMonitorData>();
+                result.d = d;
+                d->samplers = push_copy_typed_block(arena, samplers);
+            } break;
+
+        case RateMonitorType::FlowRate:
+            {
+                auto d = arena->pushStruct<RateMonitorData_FlowRate>();
+                result.d = d;
+                d->samplers = push_copy_typed_block(arena, samplers);
+                d->hitCounts = push_param_vector(arena, samplers.size, 0.0);
+            } break;
+    }
+
+    return result;
+}
+
+void rate_monitor_step(Operator *op)
+{
+    a2_trace("\n");
+
+    s32 maxIdx = op->inputs[0].size;
+
+    switch (op->type)
+    {
+        case Operator_RateMonitor_PrecalculatedRate:
+            {
+                auto d = reinterpret_cast<RateMonitorData *>(op->d);
+
+                for (s32 idx = 0; idx < maxIdx; idx++)
+                {
+                    d->samplers[idx]->record_rate(op->inputs[0][idx]);
+                }
+            } break;
+
+        case Operator_RateMonitor_CounterDifference:
+            {
+                auto d = reinterpret_cast<RateMonitorData *>(op->d);
+
+                for (s32 idx = 0; idx < maxIdx; idx++)
+                {
+                    d->samplers[idx]->sample(op->inputs[0][idx]);
+                }
+            } break;
+
+        case Operator_RateMonitor_FlowRate:
+            {
+                auto d = reinterpret_cast<RateMonitorData_FlowRate *>(op->d);
+
+                for (s32 idx = 0; idx < maxIdx; idx++)
+                {
+                    if (is_param_valid(op->inputs[0][idx]))
+                    {
+                        d->hitCounts[idx]++;
+                    }
+                }
+            } break;
+
+        InvalidDefaultCase;
+    };
+}
+
+void rate_monitor_sample_flow(Operator *op)
+{
+    assert(op->type == Operator_RateMonitor_FlowRate);
+
+    auto d = reinterpret_cast<RateMonitorData_FlowRate *>(op->d);
+
+    assert(d->hitCounts.size == d->samplers.size);
+
+    for (s32 idx = 0; idx < d->hitCounts.size; idx++)
+    {
+        d->samplers[idx]->sample(d->hitCounts[idx]);
+    }
+}
+
 /* ===============================================
  * A2 implementation
  * =============================================== */
@@ -2142,6 +2268,9 @@ static const OperatorFunctions OperatorTable[OperatorTypeCount] =
     [Operator_H1DSink] = { h1d_sink_step },
     [Operator_H1DSink_idx] = { h1d_sink_step_idx },
     [Operator_H2DSink] = { h2d_sink_step },
+    [Operator_RateMonitor_PrecalculatedRate] = { rate_monitor_step },
+    [Operator_RateMonitor_CounterDifference] = { rate_monitor_step },
+    [Operator_RateMonitor_FlowRate] = { rate_monitor_step },
     [Operator_RangeFilter] = { range_filter_step },
     [Operator_RangeFilter_idx] = { range_filter_step_idx },
     [Operator_RectFilter] = { rect_filter_step },
@@ -2665,6 +2794,29 @@ void a2_end_event(A2 *a2, int eventIndex)
     assert(opSteppedCount == opCount);
 
     a2_trace("ei=%d, %d operators stepped\n", eventIndex, opSteppedCount);
+}
+
+void a2_timetick(A2 *a2)
+{
+    a2_trace("\n");
+
+    for (int ei = 0; ei < MaxVMEEvents; ei++)
+    {
+        const int opCount = a2->operatorCounts[ei];
+
+        for (int opIdx = 0; opIdx < opCount; opIdx++)
+        {
+            Operator *op = a2->operators[ei] + opIdx;
+
+            assert(op);
+            assert(op->type < ArrayCount(OperatorTable));
+
+            if (op->type == Operator_RateMonitor_FlowRate)
+            {
+                rate_monitor_sample_flow(op);
+            }
+        }
+    }
 }
 
 /* Threaded histosink implementation.
