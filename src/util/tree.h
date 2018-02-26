@@ -6,6 +6,7 @@
 #include <QMap>
 #include <QString>
 #include <QTextStream>
+#include <QDebug>
 
 namespace util
 {
