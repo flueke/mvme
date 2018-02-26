@@ -39,6 +39,10 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 include_directories(pcg-cpp-0.98/include/)
 
+find_package(Boost REQUIRED)
+include_directories(${Boost_INCLUDE_DIRS})
+message("-- Found boost for liba2 in ${Boost_INCLUDE_DIRS}")
+
 set(liba2_SOURCES
     a2.cc
     data_filter.cc

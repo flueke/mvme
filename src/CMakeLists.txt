@@ -293,5 +293,6 @@ endif(ENABLE_ROOT AND ROOT_FOUND)
 #
 find_package(Boost REQUIRED)
 include_directories(${Boost_INCLUDE_DIRS})
+message("-- Found boost for mvme in ${Boost_INCLUDE_DIRS}")
 
 # vim:tw=0
