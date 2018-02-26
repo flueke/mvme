@@ -2159,6 +2159,24 @@ struct RateMonitorData_FlowRate: public RateMonitorData
     ParamVec hitCounts;
 };
 
+static void debug_samplers(const TypedBlock<RateSampler *, s32> &samplers, const char *prefix)
+{
+    for (s32 i = 0; i < samplers.size; i++)
+    {
+        RateSampler *sampler = samplers[i];
+
+        fprintf(stderr, "a2::%s() %s: sampler[%d]@%p, rateHistory@%p, capacity=%lu, size=%lu\n",
+                __FUNCTION__,
+                prefix,
+                i,
+                sampler,
+                sampler->rateHistory.get(),
+                sampler->rateHistory->capacity(),
+                sampler->rateHistory->size()
+               );
+    }
+}
+
 Operator make_rate_monitor(
     memory::Arena *arena,
     PipeVectors inPipe,
@@ -2167,8 +2185,18 @@ Operator make_rate_monitor(
 {
     assert(inPipe.data.size == samplers.size);
 
+    debug_samplers(samplers, "input");
+
     auto result = make_operator(arena, operator_type(type), 1, 0);
     assign_input(&result, inPipe, 0);
+
+    auto debug_in_out_samplers = [](const auto &inSamplers, const auto &outSamplers)
+    {
+        assert(inSamplers.size == outSamplers.size);
+
+        debug_samplers(inSamplers,  "input");
+        debug_samplers(outSamplers, "output");
+    };
 
     switch (type)
     {
@@ -2178,14 +2206,24 @@ Operator make_rate_monitor(
                 auto d = arena->pushStruct<RateMonitorData>();
                 result.d = d;
                 d->samplers = push_copy_typed_block(arena, samplers);
+
+                debug_in_out_samplers(samplers, d->samplers);
+
             } break;
 
         case RateMonitorType::FlowRate:
             {
                 auto d = arena->pushStruct<RateMonitorData_FlowRate>();
                 result.d = d;
-                d->samplers = push_copy_typed_block(arena, samplers);
+                //d->samplers = push_copy_typed_block(arena, samplers);
+                d->samplers = push_typed_block<RateSampler *, s32>(arena, samplers.size);
+                for (s32 i = 0; i < samplers.size; i++)
+                {
+                    d->samplers[i] = samplers[i];
+                }
                 d->hitCounts = push_param_vector(arena, samplers.size, 0.0);
+
+                debug_in_out_samplers(samplers, d->samplers);
             } break;
     }
 
@@ -2204,6 +2242,9 @@ void rate_monitor_step(Operator *op)
             {
                 auto d = reinterpret_cast<RateMonitorData *>(op->d);
 
+                //fprintf(stderr, "a2::%s() recording %d precalculated rates\n",
+                //        __FUNCTION__, maxIdx);
+
                 for (s32 idx = 0; idx < maxIdx; idx++)
                 {
                     d->samplers[idx]->record_rate(op->inputs[0][idx]);
@@ -2214,6 +2255,9 @@ void rate_monitor_step(Operator *op)
             {
                 auto d = reinterpret_cast<RateMonitorData *>(op->d);
 
+                //fprintf(stderr, "a2::%s() recording %d counter differences\n",
+                //        __FUNCTION__, maxIdx);
+
                 for (s32 idx = 0; idx < maxIdx; idx++)
                 {
                     d->samplers[idx]->sample(op->inputs[0][idx]);
@@ -2223,6 +2267,9 @@ void rate_monitor_step(Operator *op)
         case Operator_RateMonitor_FlowRate:
             {
                 auto d = reinterpret_cast<RateMonitorData_FlowRate *>(op->d);
+
+                //fprintf(stderr, "a2::%s() incrementing %d hitCounts\n",
+                //        __FUNCTION__, maxIdx);
 
                 for (s32 idx = 0; idx < maxIdx; idx++)
                 {
@@ -2245,9 +2292,21 @@ void rate_monitor_sample_flow(Operator *op)
 
     assert(d->hitCounts.size == d->samplers.size);
 
+    fprintf(stderr, "a2::%s() recording %d flow rates\n",
+            __FUNCTION__, d->hitCounts.size);
+
     for (s32 idx = 0; idx < d->hitCounts.size; idx++)
     {
-        d->samplers[idx]->sample(d->hitCounts[idx]);
+        auto sampler = d->samplers[idx];
+        auto count   = d->hitCounts[idx];
+
+        sampler->sample(count);
+
+        fprintf(stderr, "  [%d] lastRate=%lf, history size =%lf, history capacity=%lf\n",
+                idx, sampler->lastRate,
+                static_cast<double>(sampler->rateHistory ? sampler->rateHistory->size() : 0u),
+                static_cast<double>(sampler->rateHistory ? sampler->rateHistory->capacity() : 0u)
+                );
     }
 }
 

@@ -8,7 +8,14 @@
 /* Similar design to Histo1DWidget:
  * Must be able to display a plain RateHistoryBuffer, a RateSampler and a list
  * of RateSamplers. The list part could be moved into an extra
- * RateMonitorListWidget. */
+ * RateMonitorListWidget.
+ *
+ * Note: limited to displaying a list of RateSamplerPtr, a single
+ * RateSamplerPtr or a single raw RateSampler *. The reason is that RateSampler
+ * should carry all required information for the widget (except an
+ * objectName()).
+ *
+ * */
 
 struct RateMonitorWidgetPrivate;
 

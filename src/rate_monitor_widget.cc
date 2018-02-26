@@ -17,6 +17,8 @@ struct RateMonitorWidgetPrivate
     QVector<a2::RateSamplerPtr> m_samplers;
     a2::RateSampler *m_sampler;
     s32 m_currentIndex = 0;
+    RateMonitorWidget::SinkPtr m_sink;
+    RateMonitorWidget::SinkModifiedCallback m_sinkModifiedCallback;
 
     RateMonitorPlotWidget *m_plotWidget;
     QTimer *m_replotTimer;
@@ -46,9 +48,14 @@ void RateMonitorWidgetPrivate::selectPlot(int index)
 
     if (sampler)
     {
+        QString rateTitle = m_sink ? m_sink->objectName() + "." : QSL("");
+        rateTitle += QString::number(index);
+
         m_plotWidget->removeRate(0);
-        m_plotWidget->addRate(sampler->rateHistory);
+        m_plotWidget->addRate(sampler->rateHistory, rateTitle);
         assert(m_plotWidget->rateCount() == 1);
+
+        qDebug() << __PRETTY_FUNCTION__ << "added rateHistory =" << sampler->rateHistory.get() << ", title =" << rateTitle;
     }
 
     m_currentIndex = index;
@@ -154,6 +161,14 @@ RateMonitorWidget::RateMonitorWidget(const QVector<a2::RateSamplerPtr> &samplers
 
 RateMonitorWidget::~RateMonitorWidget()
 {
+}
+
+void RateMonitorWidget::setSink(const SinkPtr &sink, SinkModifiedCallback sinkModifiedCallback)
+{
+    m_d->m_sink = sink;
+    m_d->m_sinkModifiedCallback = sinkModifiedCallback;
+    // Select the current plot again to update the plot title
+    m_d->selectPlot(m_d->m_currentIndex);
 }
 
 void RateMonitorWidget::replot()

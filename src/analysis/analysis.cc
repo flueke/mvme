@@ -3008,7 +3008,8 @@ void RateMonitorSink::beginRun(const RunInfo &runInfo)
 {
     assert(m_inputSlot.paramIndex == Slot::NoParamIndex);
 
-#if 0
+#if 0 /* NOTE: This code is needed if this operator wants to support being connected to
+       * single parameters aswell. */
     if (!m_inputSlot.isParamIndexInRange())
     {
         m_samplers.resize(0);
@@ -3030,7 +3031,7 @@ void RateMonitorSink::beginRun(const RunInfo &runInfo)
         if (!sampler)
         {
             sampler = std::make_shared<a2::RateSampler>();
-            sampler->rateHistory = std::make_shared<RateHistoryBuffer>(m_rateHistoryCapacity, 0.0);
+            sampler->rateHistory = std::make_shared<RateHistoryBuffer>(m_rateHistoryCapacity);
         }
         else
         {
@@ -3053,6 +3054,10 @@ void RateMonitorSink::beginRun(const RunInfo &runInfo)
                 sampler->rateHistory->resize(0);
             }
         }
+
+        assert(sampler->rateHistory);
+        assert(sampler->rateHistory->capacity() == m_rateHistoryCapacity);
+        assert(runInfo.keepAnalysisState || sampler->rateHistory->size() == 0);
     }
 }
 
@@ -3061,14 +3066,54 @@ void RateMonitorSink::step()
     assert(!"not implemented. a2 should be used!");
 }
 
+static QString to_string(RateMonitorSink::Type type)
+{
+    QString result;
+
+    switch (type)
+    {
+        case RateMonitorSink::Type::PrecalculatedRate:
+            result = QSL("PrecalculatedRate");
+            break;
+        case RateMonitorSink::Type::CounterDifference:
+            result = QSL("CounterDifference");
+            break;
+        case RateMonitorSink::Type::FlowRate:
+            result = QSL("FlowRate");
+            break;
+    }
+
+    return result;
+}
+
+static RateMonitorSink::Type rate_monitor_sink_type_from_string(const QString &str)
+{
+    RateMonitorSink::Type result = RateMonitorSink::Type::CounterDifference;
+
+    if (str.compare(QSL("PrecalculatedRate"), Qt::CaseInsensitive) == 0)
+        result = RateMonitorSink::Type::PrecalculatedRate;
+
+    if (str.compare(QSL("CounterDifference"), Qt::CaseInsensitive) == 0)
+        result = RateMonitorSink::Type::CounterDifference;
+
+    if (str.compare(QSL("FlowRate"), Qt::CaseInsensitive) == 0)
+        result = RateMonitorSink::Type::FlowRate;
+
+    return result;
+}
+
 void RateMonitorSink::write(QJsonObject &json) const
 {
+    json["type"] = to_string(getType());
+    qDebug() << __PRETTY_FUNCTION__ << "capa" << m_rateHistoryCapacity;
     json["capacity"] = static_cast<qint64>(m_rateHistoryCapacity);
 }
 
 void RateMonitorSink::read(const QJsonObject &json)
 {
+    m_type = rate_monitor_sink_type_from_string(json["type"].toString());
     m_rateHistoryCapacity = json["capacity"].toInt();
+    qDebug() << __PRETTY_FUNCTION__ << "capa" << m_rateHistoryCapacity;
 }
 
 size_t RateMonitorSink::getStorageSize() const
@@ -3518,10 +3563,10 @@ size_t Analysis::getTotalSinkStorageSize() const
     return std::accumulate(m_operators.begin(), m_operators.end(),
                            static_cast<size_t>(0),
                            [](size_t v, const OperatorEntry &e) {
-        if (auto sink = qobject_cast<Histo1DSink *>(e.op.get()))
-            return v + sink->getStorageSize();
-        else if (auto sink = qobject_cast<Histo2DSink *>(e.op.get()))
-            return v + sink->getStorageSize();
+
+        if (auto sink = qobject_cast<SinkInterface *>(e.op.get()))
+            v += sink->getStorageSize();
+
         return v;
     });
 }

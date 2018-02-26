@@ -7,7 +7,7 @@
 #include <QMetaClassInfo>
 
 //#ifndef NDEBUG
-#if 0
+#if 1
 #define LOG(fmt, ...)\
 do\
 {\
@@ -633,6 +633,8 @@ DEF_OP_MAGIC(rate_monitor_sink_magic)
     std::transform(shared_samplers.begin(), shared_samplers.end(),
                    std::back_inserter(samplers), [](auto &shared_sampler) { return shared_sampler.get(); });
 
+    assert(samplers.size() == shared_samplers.size());
+
     a2::Operator result = a2::make_rate_monitor(
         arena,
         a2_input,
@@ -994,6 +996,7 @@ A2AdapterState a2_adapter_build(
         vmeMap);
 
     /* Build in work arena. Fills out result and operators. */
+    LOG("a2 adapter build first pass");
     a2_adapter_build_operators(
         workArena,
         &result,
@@ -1030,6 +1033,7 @@ A2AdapterState a2_adapter_build(
     result.operatorMap.clear();
 
     /* Second build using the destination arena. */
+    LOG("a2 adapter build second pass");
     a2_adapter_build_operators(
         arena,
         &result,

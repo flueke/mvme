@@ -3,6 +3,7 @@
 
 #include <limits>
 #include "../memory.h"
+#include <cstdio>
 
 template<typename T, typename SizeType = size_t>
 struct TypedBlock
@@ -15,13 +16,13 @@ struct TypedBlock
 
     inline T operator[](size_type index) const
     {
-        assert(index < size);
+        assert(0 <= index && index < size);
         return data[index];
     }
 
     inline T &operator[](size_type index)
     {
-        assert(index < size);
+        assert(0 <= index && index < size);
         return data[index];
     }
 
@@ -34,6 +35,35 @@ struct TypedBlock
     {
         return data + size;
     }
+
+#if 0
+    TypedBlock<T, SizeType>()
+        : data(nullptr)
+        , size(0)
+    {
+    }
+
+    TypedBlock<T, SizeType>(T *data, SizeType size)
+        : data(data)
+        , size(size)
+    {
+    }
+
+    TypedBlock<T, SizeType>(const TypedBlock<T, SizeType> &other)
+        : data(other.data)
+        , size(other.size)
+    {
+        fprintf(stderr, "%s\n",  __PRETTY_FUNCTION__);
+    }
+
+    TypedBlock<T, SizeType> &operator=(const TypedBlock<T, SizeType> &other)
+    {
+        fprintf(stderr, "%s\n",  __PRETTY_FUNCTION__);
+        data = other.data;
+        size = other.size;
+        return *this;
+    }
+#endif
 };
 
 template<typename T, typename SizeType = size_t>

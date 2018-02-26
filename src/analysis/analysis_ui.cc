@@ -2111,7 +2111,13 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                 {
                     if (!m_context->hasObjectWidget(rms.get()) || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
                     {
+                        auto context = m_context;
                         auto widget = new RateMonitorWidget(rms->getRateSamplers());
+
+                        widget->setSink(rms, [context](const std::shared_ptr<RateMonitorSink> &sink) {
+                            context->analysisOperatorEdited(sink);
+                        });
+
                         m_context->addObjectWidget(widget, rms.get(), rms->getId().toString());
                     }
                     else

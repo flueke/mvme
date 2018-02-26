@@ -27,7 +27,6 @@ struct RateSampler
     double lastRate  = 0.0;
     double lastDelta = 0.0;
 
-
     void sample(double value)
     {
         std::tie(lastRate, lastDelta) = calcRateAndDelta(value);

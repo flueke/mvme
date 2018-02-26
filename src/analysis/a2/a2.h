@@ -403,11 +403,6 @@ Operator make_h2d_sink(
     s32 yIndex,
     H2D histo);
 
-Operator make_h1d_sink(
-    memory::Arena *arena,
-    PipeVectors inPipe,
-    TypedBlock<H1D, s32> histos);
-
 //
 // RateMonitor
 //
