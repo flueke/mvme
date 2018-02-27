@@ -1050,7 +1050,11 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                         else if (dynamic_cast<ListFilterExtractor *>(srcPtr.get()))
                         {
                             auto lfe_dialog = new ListFilterExtractorDialog(moduleConfig, m_context->getAnalysis(), m_context, m_q);
-                            lfe_dialog->newFilter();
+
+                            if (!m_context->getAnalysis()->getListFilterExtractors(moduleConfig).isEmpty())
+                            {
+                                lfe_dialog->newFilter();
+                            }
 
                             QObject::connect(lfe_dialog, &QDialog::accepted, m_q,
                                              &EventWidget::listFilterExtractorDialogAccepted);

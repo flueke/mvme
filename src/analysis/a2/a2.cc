@@ -362,6 +362,8 @@ u32 *listfilter_extractor_process_module_data(DataSource *ds, u32 *data, u32 dat
         auto addressResult = extract_from_combined(&ex->listFilter, combined, MultiWordFilter::CacheA);
         auto dataResult    = extract_from_combined(&ex->listFilter, combined, MultiWordFilter::CacheD);
 
+        //printf("combined=%lx, addr=%lx, data=%lx\n", combined, addressResult.first, dataResult.first);
+
         if (!addressResult.second || !dataResult.second)
             continue;
 
