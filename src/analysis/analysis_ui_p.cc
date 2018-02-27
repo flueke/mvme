@@ -29,7 +29,9 @@
 #include "../qt_util.h"
 #include "../data_filter.h"
 
+#include <array>
 #include <limits>
+#include <QAbstractItemModel>
 #include <QButtonGroup>
 #include <QDir>
 #include <QFormLayout>
@@ -38,14 +40,29 @@
 #include <QHeaderView>
 #include <QLabel>
 #include <QListWidget>
+#include <QListWidget>
 #include <QMessageBox>
 #include <QRadioButton>
+#include <QSignalMapper>
+#include <QStackedWidget>
 #include <QTextBrowser>
 
-#include <QStackedWidget>
-#include <QListWidget>
-#include <QSignalMapper>
-#include <QAbstractItemModel>
+namespace
+{
+    QDoubleSpinBox *make_calibration_spinbox(const QString &specialValueText = QSL("not set"),
+                                             QWidget *parent = nullptr)
+    {
+        auto result = new QDoubleSpinBox(parent);
+
+        result->setDecimals(8);
+        result->setMinimum(-1e20);
+        result->setMaximum(+1e20);
+        result->setValue(result->minimum());
+        result->setSpecialValueText(specialValueText);
+
+        return result;
+    }
+}
 
 namespace analysis
 {
@@ -1535,19 +1552,8 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
         le_unit = new QLineEdit;
         le_unit->setText(calibration->getUnitLabel());
 
-        spin_unitMin = new QDoubleSpinBox;
-        spin_unitMin->setDecimals(8);
-        spin_unitMin->setMinimum(-1e20);
-        spin_unitMin->setMaximum(+1e20);
-        spin_unitMin->setValue(spin_unitMin->minimum());
-        spin_unitMin->setSpecialValueText(QSL("not set"));
-
-        spin_unitMax = new QDoubleSpinBox;
-        spin_unitMax->setDecimals(8);
-        spin_unitMax->setMinimum(-1e20);
-        spin_unitMax->setMaximum(+1e20);
-        spin_unitMax->setValue(spin_unitMax->minimum());
-        spin_unitMax->setSpecialValueText(QSL("not set"));
+        spin_unitMin = make_calibration_spinbox();
+        spin_unitMax = make_calibration_spinbox();
 
         formLayout->addRow(QSL("Unit Label"), le_unit);
         formLayout->addRow(QSL("Unit Min"), spin_unitMin);
@@ -2459,6 +2465,37 @@ void OperatorConfigurationWidget::updateOutputLimits(BinarySumDiff *op)
     spin_outputUpperLimit->setValue(ulO);
 }
 
+struct RateTypeInfo
+{
+    RateMonitorSink::Type type;
+    QString name;
+    QString description;
+};
+
+static const std::array<RateTypeInfo, 3> RateTypeInfos =
+{
+    {
+        {
+            RateMonitorSink::Type::CounterDifference,
+            QSL("Counter Difference"),
+            QSL("Input values are interpreted as increasing counter values.\n"
+                "The resulting rate is calculated from the difference of successive input values.")
+        },
+
+        {
+            RateMonitorSink::Type::PrecalculatedRate,
+            QSL("Precalculated Rate"),
+            QSL("Input values are interpreted as rate values and are directly recorded.")
+        },
+
+        {
+            RateMonitorSink::Type::FlowRate,
+            QSL("Flow Rate"),
+            QSL("The rate of flow through the input array is calculated and recorded.")
+        },
+    }
+};
+
 //
 // RateMonitorConfigWidget
 //
@@ -2479,33 +2516,63 @@ RateMonitorConfigWidget::RateMonitorConfigWidget(RateMonitorSink *rms, s32 userL
         // If the user clears the textedit reset NameEdited to false.
         this->setNameEdited(!newText.isEmpty());
     });
-    formLayout->addRow(QSL("Name"), le_name);
 
     le_name->setText(rms->objectName());
 
-
+    // rate type selection and explanation of what each type does
     combo_type = new QComboBox;
-    combo_type->addItem(QSL("Counter Difference"), static_cast<s32>(a2::RateMonitorType::CounterDifference));
-    combo_type->addItem(QSL("Precalculated Rate"), static_cast<s32>(a2::RateMonitorType::PrecalculatedRate));
-    combo_type->addItem(QSL("Flow Rate"),          static_cast<s32>(a2::RateMonitorType::FlowRate));
+    auto stack_descriptions = new QStackedWidget;
+
+    for (const auto &info: RateTypeInfos)
+    {
+        combo_type->addItem(info.name, static_cast<s32>(info.type));
+
+        auto label_description = new QLabel(info.description);
+        label_description->setWordWrap(true);
+        label_description->setAlignment(Qt::AlignLeft | Qt::AlignTop);
+
+        stack_descriptions->addWidget(label_description);
+    }
+
+    connect(combo_type, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
+            stack_descriptions, &QStackedWidget::setCurrentIndex);
 
     combo_type->setCurrentIndex(combo_type->findData(static_cast<s32>(m_rms->getType())));
 
+    // rate history capacity
+    spin_capacity = new QSpinBox;
+    spin_capacity->setMinimum(1);
+    spin_capacity->setMaximum(1u << 20);
+    spin_capacity->setValue(m_rms->getRateHistoryCapacity());
+
+    // unit label and calibration
+    le_unit = new QLineEdit;
+    le_unit->setText(m_rms->getUnitLabel());
+    spin_factor = make_calibration_spinbox(QString());
+    spin_factor->setValue(m_rms->getCalibrationFactor());
+    spin_offset = make_calibration_spinbox(QString());
+    spin_offset->setValue(m_rms->getCalibrationOffset());
+
+    // populate the layout
+    formLayout->addRow(QSL("Name"), le_name);
     formLayout->addRow(QSL("Type"), combo_type);
+    formLayout->addRow(QSL("Description"), stack_descriptions);
+    formLayout->addRow(QSL("Max samples"), spin_capacity);
+    formLayout->addRow(QSL("Unit Label"), le_unit);
+    formLayout->addRow(QSL("Calibration Factor"), spin_factor);
+    formLayout->addRow(QSL("Calibration Offset"), spin_offset);
 }
 
 void RateMonitorConfigWidget::configureOperator()
 {
-    OperatorInterface *op = m_op;
+    assert(all_inputs_connected(m_op));
 
-    for (s32 slotIndex = 0; slotIndex < m_op->getNumberOfSlots(); ++slotIndex)
-    {
-        Q_ASSERT(op->getSlot(slotIndex)->isConnected());
-    }
-
-    op->setObjectName(le_name->text());
-
+    m_rms->setObjectName(le_name->text());
     m_rms->setType(static_cast<RateMonitorSink::Type>(combo_type->currentData().toInt()));
+    m_rms->setRateHistoryCapacity(spin_capacity->value());
+    m_rms->setUnitLabel(le_unit->text());
+    m_rms->setCalibrationFactor(spin_factor->value());
+    m_rms->setCalibrationOffset(spin_offset->value());
 }
 
 void RateMonitorConfigWidget::inputSelected(s32 slotIndex)
@@ -2535,6 +2602,12 @@ void RateMonitorConfigWidget::inputSelected(s32 slotIndex)
         }
 
         le_name->setText(name);
+    }
+
+    if (all_inputs_connected(op))
+    {
+        // Use the inputs unit label
+        le_unit->setText(op->getSlot(0)->inputPipe->parameters.unit);
     }
 }
 

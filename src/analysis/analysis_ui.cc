@@ -197,8 +197,8 @@ static QIcon makeIconFor(OperatorInterface *op)
     if (qobject_cast<Histo2DSink *>(op))
         return QIcon(":/hist2d.png");
 
-    if (qobject_cast<SinkInterface *>(op))
-        return QIcon(":/sink.png");
+    if (qobject_cast<RateMonitorSink *>(op))
+        return QIcon(":/rate_monitor_sink.png");
 
     if (qobject_cast<CalibrationMinMax *>(op))
         return QIcon(":/operator_calibration.png");
@@ -211,6 +211,9 @@ static QIcon makeIconFor(OperatorInterface *op)
 
     if (qobject_cast<Sum *>(op))
         return QIcon(":/operator_sum.png");
+
+    if (qobject_cast<SinkInterface *>(op))
+        return QIcon(":/sink.png");
 
     return QIcon(":/operator_generic.png");
 }

@@ -1,8 +1,9 @@
 #ifndef __RATE_MONITOR_WIDGET_H__
 #define __RATE_MONITOR_WIDGET_H__
 
-#include <QWidget>
 #include <memory>
+#include <QDir>
+#include <QWidget>
 #include "analysis/analysis.h"
 
 /* Similar design to Histo1DWidget:
@@ -32,6 +33,7 @@ class RateMonitorWidget: public QWidget
         virtual ~RateMonitorWidget();
 
         void setSink(const SinkPtr &sink, SinkModifiedCallback sinkModifiedCallback);
+        void setPlotExportDirectory(const QDir &dir);
 
         /* Returns the shared rate samplers set on this widget. In case the
          * constructor taking a raw RateSampler * was used and empty vector is
@@ -50,6 +52,7 @@ class RateMonitorWidget: public QWidget
     private:
         RateMonitorWidget(QWidget *parent = nullptr);
 
+        friend struct RateMonitorWidgetPrivate;
         std::unique_ptr<RateMonitorWidgetPrivate> m_d;
 };
 

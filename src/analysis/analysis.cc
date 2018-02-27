@@ -3055,9 +3055,14 @@ void RateMonitorSink::beginRun(const RunInfo &runInfo)
             }
         }
 
+        sampler->scale = getCalibrationFactor();
+        sampler->offset = getCalibrationOffset();
+
         assert(sampler->rateHistory);
         assert(sampler->rateHistory->capacity() == m_rateHistoryCapacity);
         assert(runInfo.keepAnalysisState || sampler->rateHistory->size() == 0);
+        assert(sampler->scale == getCalibrationFactor());
+        assert(sampler->offset == getCalibrationOffset());
     }
 }
 
@@ -3105,15 +3110,19 @@ static RateMonitorSink::Type rate_monitor_sink_type_from_string(const QString &s
 void RateMonitorSink::write(QJsonObject &json) const
 {
     json["type"] = to_string(getType());
-    qDebug() << __PRETTY_FUNCTION__ << "capa" << m_rateHistoryCapacity;
     json["capacity"] = static_cast<qint64>(m_rateHistoryCapacity);
+    json["unitLabel"] = getUnitLabel();
+    json["calibrationFactor"] = getCalibrationFactor();
+    json["calibrationOffset"] = getCalibrationOffset();
 }
 
 void RateMonitorSink::read(const QJsonObject &json)
 {
     m_type = rate_monitor_sink_type_from_string(json["type"].toString());
     m_rateHistoryCapacity = json["capacity"].toInt();
-    qDebug() << __PRETTY_FUNCTION__ << "capa" << m_rateHistoryCapacity;
+    m_unitLabel = json["unitLabel"].toString();
+    m_calibrationFactor = json["calibrationFactor"].toDouble(1.0);
+    m_calibrationOffset = json["m_calibrationOffset"].toDouble(0.0);
 }
 
 size_t RateMonitorSink::getStorageSize() const

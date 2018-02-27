@@ -38,6 +38,7 @@
 #include <QPushButton>
 #include <QRadioButton>
 #include <QSpinBox>
+#include <QStackedWidget>
 #include <QStyledItemDelegate>
 #include <QTreeWidget>
 #include <QTableWidget>
@@ -325,6 +326,16 @@ class RateMonitorConfigWidget: public AbstractOpConfigWidget
         RateMonitorSink *m_rms;
 
         QComboBox *combo_type;
+        QSpinBox *spin_capacity;
+        QLineEdit *le_unit;
+        QDoubleSpinBox *spin_factor;
+        QDoubleSpinBox *spin_offset;
+
+        // TODO: implement the min/max way of calibrating the input values
+        //QDoubleSpinBox *spin_unitMin;
+        //QDoubleSpinBox *spin_unitMax;
+        //QStackedWidget *stack_calibration;
+        //QComboBox *combo_calibrationType;
 };
 
 class PipeDisplay: public QWidget

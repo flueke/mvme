@@ -288,13 +288,6 @@ enum class AxisScaleType
     Logarithmic
 };
 
-static QWidget *make_spacer_widget()
-{
-    auto result = new QWidget;
-    result->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-    return result;
-}
-
 Histo1DWidget::Histo1DWidget(const Histo1DPtr &histoPtr, QWidget *parent)
     : Histo1DWidget(histoPtr.get(), parent)
 {

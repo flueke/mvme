@@ -240,3 +240,10 @@ QWidget *make_vbox_container(const QString &labelText, QWidget *widget)
 
     return container;
 }
+
+QWidget *make_spacer_widget(QWidget *parent)
+{
+    auto result = new QWidget(parent);
+    result->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    return result;
+}

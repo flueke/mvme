@@ -18,13 +18,23 @@
 
 //#ifndef NDEBUG
 #if 0
+
+// printf style trace macro
 #define a2_trace(fmt, ...)\
 do\
 {\
     fprintf(stderr, "a2::%s() " fmt, __FUNCTION__, ##__VA_ARGS__);\
 } while (0);
+
+// "NoPrefix" verison of the trace macro
+#define a2_trace_np(fmt, ...)\
+do\
+{\
+    fprintf(stderr, fmt, ##__VA_ARGS__);\
+} while (0);
 #else
 #define a2_trace(...)
+#define a2_trace_np(...)
 #endif
 
 #include <iostream>
@@ -300,7 +310,7 @@ DataSource make_datasource_listfilter_extractor(
     result.type = DataSource_ListFilterExtractor;
 
     auto ex = arena->pushStruct<ListFilterExtractor>();
-    *ex = make_listfilter_extractor(listFilter, repetitionAddressFilter, repetitions, rngSeed); 
+    *ex = make_listfilter_extractor(listFilter, repetitionAddressFilter, repetitions, rngSeed);
     result.d = ex;
 
     result.moduleIndex = moduleIndex;
@@ -2165,8 +2175,7 @@ static void debug_samplers(const TypedBlock<RateSampler *, s32> &samplers, const
     {
         RateSampler *sampler = samplers[i];
 
-        fprintf(stderr, "a2::%s() %s: sampler[%d]@%p, rateHistory@%p, capacity=%lu, size=%lu\n",
-                __FUNCTION__,
+        a2_trace("%s: sampler[%d]@%p, rateHistory@%p, capacity=%lu, size=%lu\n",
                 prefix,
                 i,
                 sampler,
@@ -2185,7 +2194,7 @@ Operator make_rate_monitor(
 {
     assert(inPipe.data.size == samplers.size);
 
-    debug_samplers(samplers, "input");
+    //debug_samplers(samplers, "input");
 
     auto result = make_operator(arena, operator_type(type), 1, 0);
     assign_input(&result, inPipe, 0);
@@ -2194,8 +2203,8 @@ Operator make_rate_monitor(
     {
         assert(inSamplers.size == outSamplers.size);
 
-        debug_samplers(inSamplers,  "input");
-        debug_samplers(outSamplers, "output");
+        //debug_samplers(inSamplers,  "input");
+        //debug_samplers(outSamplers, "output");
     };
 
     switch (type)
@@ -2242,12 +2251,15 @@ void rate_monitor_step(Operator *op)
             {
                 auto d = reinterpret_cast<RateMonitorData *>(op->d);
 
-                //fprintf(stderr, "a2::%s() recording %d precalculated rates\n",
-                //        __FUNCTION__, maxIdx);
+                a2_trace("recording %d precalculated rates\n", maxIdx);
 
                 for (s32 idx = 0; idx < maxIdx; idx++)
                 {
-                    d->samplers[idx]->record_rate(op->inputs[0][idx]);
+                    double value = op->inputs[0][idx];
+
+                    a2_trace_np("  [%d] recording value %lf\n", idx, value);
+
+                    d->samplers[idx]->record_rate(value);
                 }
             } break;
 
@@ -2255,11 +2267,16 @@ void rate_monitor_step(Operator *op)
             {
                 auto d = reinterpret_cast<RateMonitorData *>(op->d);
 
-                //fprintf(stderr, "a2::%s() recording %d counter differences\n",
-                //        __FUNCTION__, maxIdx);
+                a2_trace("recording %d counter differences\n", maxIdx);
 
                 for (s32 idx = 0; idx < maxIdx; idx++)
                 {
+                    a2_trace_np("  [%d] sampling value %lf, lastValue=%lf, delta=%lf\n",
+                                idx, op->inputs[0][idx],
+                                d->samplers[idx]->lastValue,
+                                op->inputs[0][idx] - d->samplers[idx]->lastValue
+                               );
+
                     d->samplers[idx]->sample(op->inputs[0][idx]);
                 }
             } break;
@@ -2268,8 +2285,7 @@ void rate_monitor_step(Operator *op)
             {
                 auto d = reinterpret_cast<RateMonitorData_FlowRate *>(op->d);
 
-                //fprintf(stderr, "a2::%s() incrementing %d hitCounts\n",
-                //        __FUNCTION__, maxIdx);
+                a2_trace("incrementing %d hitCounts\n", maxIdx);
 
                 for (s32 idx = 0; idx < maxIdx; idx++)
                 {
@@ -2292,8 +2308,7 @@ void rate_monitor_sample_flow(Operator *op)
 
     assert(d->hitCounts.size == d->samplers.size);
 
-    fprintf(stderr, "a2::%s() recording %d flow rates\n",
-            __FUNCTION__, d->hitCounts.size);
+    a2_trace("recording %d flow rates\n", d->hitCounts.size);
 
     for (s32 idx = 0; idx < d->hitCounts.size; idx++)
     {
@@ -2302,11 +2317,11 @@ void rate_monitor_sample_flow(Operator *op)
 
         sampler->sample(count);
 
-        fprintf(stderr, "  [%d] lastRate=%lf, history size =%lf, history capacity=%lf\n",
-                idx, sampler->lastRate,
-                static_cast<double>(sampler->rateHistory ? sampler->rateHistory->size() : 0u),
-                static_cast<double>(sampler->rateHistory ? sampler->rateHistory->capacity() : 0u)
-                );
+        a2_trace_np("  [%d] lastRate=%lf, history size =%lf, history capacity=%lf\n",
+                    idx, sampler->lastRate,
+                    static_cast<double>(sampler->rateHistory ? sampler->rateHistory->size() : 0u),
+                    static_cast<double>(sampler->rateHistory ? sampler->rateHistory->capacity() : 0u)
+                   );
     }
 }
 

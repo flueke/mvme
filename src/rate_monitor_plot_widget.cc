@@ -7,6 +7,7 @@
 #include <qwt_plot.h>
 #include <qwt_plot_legenditem.h>
 #include <qwt_scale_engine.h>
+#include <qwt_scale_widget.h>
 
 #include "analysis/a2/util/nan.h"
 #include "histo_util.h"
@@ -57,11 +58,10 @@ struct RateMonitorPlotData: public QwtSeriesData<QPointF>
             << "sample =" << i
             << ", offset =" << offset
             << ", bufferIndex =" << bufferIndex
-            << ", buffer->size =" << buffer->size()
-            << ", buffer->cap =" << buffer->capacity()
+            << ", buffer->size =" << rateHistory->size()
+            << ", buffer->cap =" << rateHistory->capacity()
             << ", result =" << result;
 #endif
-
 
         return result;
     }
@@ -74,11 +74,6 @@ struct RateMonitorPlotData: public QwtSeriesData<QPointF>
     RateHistoryBufferPtr rateHistory;
     RateMonitorPlotWidget *plotWidget;
 };
-
-RateMonitorPlotData *as_RateMonitorPlotData(QwtSeriesData<QPointF> *data)
-{
-    return reinterpret_cast<RateMonitorPlotData *>(data);
-}
 
 struct RateMonitorPlotWidgetPrivate
 {
@@ -98,6 +93,7 @@ RateMonitorPlotWidget::RateMonitorPlotWidget(QWidget *parent)
     // plot and curve
     m_d->m_plot = new QwtPlot(this);
     m_d->m_plot->canvas()->setMouseTracking(true);
+    m_d->m_plot->axisWidget(QwtPlot::yLeft)->setTitle("Rate");
     m_d->m_plotLegendItem.attach(m_d->m_plot);
 
     // zoomer
@@ -124,6 +120,7 @@ RateMonitorPlotWidget::RateMonitorPlotWidget(QWidget *parent)
 
 RateMonitorPlotWidget::~RateMonitorPlotWidget()
 {
+    qDeleteAll(m_d->m_curves);
 }
 
 void RateMonitorPlotWidget::addRate(const RateHistoryBufferPtr &rateHistory,

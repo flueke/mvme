@@ -3,6 +3,7 @@
 
 #include <boost/circular_buffer.hpp>
 #include <memory>
+#include <cmath>
 #include "util/counters.h"
 
 namespace a2
@@ -33,7 +34,7 @@ struct RateSampler
 
         if (rateHistory)
         {
-            rateHistory->push_back(lastRate);
+            rateHistory->push_back(std::isnan(lastRate) ? 0.0 : lastRate);
         }
 
         lastValue = value;
@@ -41,18 +42,18 @@ struct RateSampler
 
     void record_rate(double rate)
     {
-        lastRate = (rate + offset) * scale;
+        lastRate = rate * scale + offset;
 
         if (rateHistory)
         {
-            rateHistory->push_back(lastRate);
+            rateHistory->push_back(std::isnan(lastRate) ? 0.0 : lastRate);
         }
     }
 
     std::pair<double, double> calcRateAndDelta(double value) const
     {
         double delta = calc_delta0(value, lastValue);
-        double rate  = (delta + offset) * scale;
+        double rate  = delta * scale + offset;
         return std::make_pair(rate, delta);
     }
 

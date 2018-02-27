@@ -109,5 +109,6 @@ inline QLabel *make_aligned_label(const QString &text, Qt::Alignment alignment =
 }
 
 QWidget *make_vbox_container(const QString &labelText, QWidget *widget);
+QWidget *make_spacer_widget(QWidget *parent = nullptr);
 
 #endif /* __QT_UTIL_H__ */
