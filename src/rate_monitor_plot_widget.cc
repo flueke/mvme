@@ -197,6 +197,19 @@ void RateMonitorPlotWidget::setXAxisReversed(bool b)
     replot();
 }
 
+bool RateMonitorPlotWidget::isInternalLegendVisible() const
+{
+    return m_d->m_plotLegendItem.plot();
+}
+
+void RateMonitorPlotWidget::setInternalLegendVisible(bool visible)
+{
+    if (visible && !m_d->m_plotLegendItem.plot())
+        m_d->m_plotLegendItem.attach(m_d->m_plot);
+    else if (!visible && m_d->m_plotLegendItem.plot())
+        m_d->m_plotLegendItem.detach();
+}
+
 void RateMonitorPlotWidget::replot()
 {
     // updateAxisScales

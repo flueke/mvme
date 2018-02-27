@@ -36,6 +36,9 @@ class RateMonitorPlotWidget: public QWidget
         bool isXAxisReversed() const;
         void setXAxisReversed(bool b);
 
+        bool isInternalLegendVisible() const;
+        void setInternalLegendVisible(bool b);
+
         // internal qwt objects
         QwtPlot *getPlot();
 

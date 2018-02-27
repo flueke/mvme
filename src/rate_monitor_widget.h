@@ -16,6 +16,9 @@
  * should carry all required information for the widget (except an
  * objectName()).
  *
+ * Note: most functionality is only available if in addition to the rates a
+ * sink has also been set using setSink(). Not the best design right now but
+ * I'm still figuring out what is needed and what isn't.
  * */
 
 struct RateMonitorWidgetPrivate;

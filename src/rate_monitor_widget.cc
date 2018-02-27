@@ -8,6 +8,7 @@
 #include <qwt_plot.h>
 #include <qwt_plot_renderer.h>
 #include <qwt_plot_textlabel.h>
+#include <qwt_scale_widget.h>
 
 #include "git_sha1.h"
 #include "qt_util.h"
@@ -67,6 +68,7 @@ void RateMonitorWidgetPrivate::selectPlot(int index)
 
         m_plotWidget->removeRate(0);
         m_plotWidget->addRate(sampler->rateHistory, rateTitle);
+        m_plotWidget->getPlot()->axisWidget(QwtPlot::xBottom)->setTitle(rateTitle);
         assert(m_plotWidget->rateCount() == 1);
 
         qDebug() << __PRETTY_FUNCTION__ << "added rateHistory =" << sampler->rateHistory.get() << ", title =" << rateTitle;
@@ -84,6 +86,8 @@ RateMonitorWidget::RateMonitorWidget(QWidget *parent)
 
     m_d->m_q = this;
     m_d->m_plotWidget = new RateMonitorPlotWidget;
+    m_d->m_plotWidget->setInternalLegendVisible(false);
+
     m_d->m_replotTimer = new QTimer(this);
 
     // Toolbar and actions
