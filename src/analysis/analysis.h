@@ -1170,14 +1170,17 @@ class LIBMVME_EXPORT RateMonitorSink: public BasicSink
         size_t getRateHistoryCapacity() const { return m_rateHistoryCapacity; }
         void setRateHistoryCapacity(size_t capacity) { m_rateHistoryCapacity = capacity; }
 
+        QString getUnitLabel() const { return m_unitLabel; }
+        void setUnitLabel(const QString &label) { m_unitLabel = label; }
+
         double getCalibrationFactor() const { return m_calibrationFactor; }
         void setCalibrationFactor(double d) { m_calibrationFactor = d; }
 
         double getCalibrationOffset() const { return m_calibrationOffset; }
         void setCalibrationOffset(double d) { m_calibrationOffset = d; }
 
-        QString getUnitLabel() const { return m_unitLabel; }
-        void setUnitLabel(const QString &label) { m_unitLabel = label; }
+        double getSamplingInterval() const { return m_samplingInterval; }
+        void setSamplingInterval(double d) { m_samplingInterval = d; }
 
     private:
         QVector<a2::RateSamplerPtr> m_samplers;
@@ -1192,6 +1195,7 @@ class LIBMVME_EXPORT RateMonitorSink: public BasicSink
         QString m_unitLabel;
         double m_calibrationFactor = 1.0;
         double m_calibrationOffset = 0.0;
+        double m_samplingInterval  = 1.0;
 };
 
 /* Note: The qobject_cast()s in the createXXX() functions are there to ensure

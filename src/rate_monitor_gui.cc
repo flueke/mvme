@@ -129,7 +129,7 @@ static void populate(QTreeWidgetItem *widgetRoot, RateMonitorNode &rateRoot)
 
             case RateMonitorEntry::Type::SystemRate:
                 item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
-                item->setCheckState(0, rateNode.data()->sampler->rateHistory ? Qt::Checked : Qt::Unchecked);
+                item->setCheckState(0, rateNode.data()->sampler->rateHistory.capacity() ? Qt::Checked : Qt::Unchecked);
                 break;
         }
 
@@ -175,12 +175,17 @@ void RateMonitorGuiPrivate::onTreeWidgetItemChanged(QTreeWidgetItem *item, int c
             {
                 if (item->checkState(0) == Qt::Checked)
                 {
-                    if (!rme->sampler->rateHistory)
+                    if (!rme->sampler->rateHistory.capacity())
                     {
                         qDebug() << "creating new history buffer for" << node->path();
-                        rme->sampler->rateHistory = std::make_shared<RateHistoryBuffer>(3600);
-                        m_plotWidget->addRate(rme->sampler->rateHistory, node->path());
+                        rme->sampler->rateHistory = RateHistoryBuffer(3600);
                     }
+
+                    m_plotWidget->addRateSampler(rme->sampler, node->path());
+                }
+                else if (item->checkState(0) == Qt::Unchecked)
+                {
+                    m_plotWidget->removeRateSampler(rme->sampler);
                 }
             }
             break;
@@ -227,7 +232,6 @@ RateMonitorGui::RateMonitorGui(MVMEContext *context, QWidget *parent)
     m_d->m_rateTreeWidget = new QTreeWidget;
     m_d->m_rateTable = new QTableWidget;
     m_d->m_plotWidget = new RateMonitorPlotWidget;
-    m_d->m_plotWidget->setXAxisReversed(true);
     m_d->m_propertyBox = new QGroupBox("Properties");
     m_d->m_context = context;
 

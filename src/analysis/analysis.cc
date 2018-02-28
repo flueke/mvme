@@ -2998,79 +2998,6 @@ size_t Histo2DSink::getStorageSize() const
 // RateMonitorSink
 //
 
-RateMonitorSink::RateMonitorSink(QObject *parent)
-    : BasicSink(parent)
-{
-    m_inputSlot.acceptedInputTypes = InputType::Array;
-}
-
-void RateMonitorSink::beginRun(const RunInfo &runInfo)
-{
-    assert(m_inputSlot.paramIndex == Slot::NoParamIndex);
-
-#if 0 /* NOTE: This code is needed if this operator wants to support being connected to
-       * single parameters aswell. */
-    if (!m_inputSlot.isParamIndexInRange())
-    {
-        m_samplers.resize(0);
-        return;
-    }
-
-    if (m_inputSlot.paramIndex != Slot::NoParamIndex)
-    {
-        m_samplers.resize(1);
-    }
-    else
-#endif
-    {
-        m_samplers.resize(m_inputSlot.inputPipe->parameters.size());
-    }
-
-    for (auto &sampler: m_samplers)
-    {
-        if (!sampler)
-        {
-            sampler = std::make_shared<a2::RateSampler>();
-            sampler->rateHistory = std::make_shared<RateHistoryBuffer>(m_rateHistoryCapacity);
-        }
-        else
-        {
-            sampler->lastValue = 0.0;
-            sampler->lastRate  = 0.0;
-            sampler->lastDelta = 0.0;
-
-            /* If the new capacity is >= the old capacity then the rateHistory
-             * contents are kept, otherwise the oldest values are discarded. */
-            if (sampler->rateHistory->capacity() != m_rateHistoryCapacity)
-            {
-                // Change capacity. Can lower the current size.
-                // rset_capacity() removes the oldest values, keeps the youngest ones
-                sampler->rateHistory->rset_capacity(m_rateHistoryCapacity);
-            }
-
-            if (!runInfo.keepAnalysisState)
-            {
-                // truncates the history size (not the capacity) to zero
-                sampler->rateHistory->resize(0);
-            }
-        }
-
-        sampler->scale = getCalibrationFactor();
-        sampler->offset = getCalibrationOffset();
-
-        assert(sampler->rateHistory);
-        assert(sampler->rateHistory->capacity() == m_rateHistoryCapacity);
-        assert(runInfo.keepAnalysisState || sampler->rateHistory->size() == 0);
-        assert(sampler->scale == getCalibrationFactor());
-        assert(sampler->offset == getCalibrationOffset());
-    }
-}
-
-void RateMonitorSink::step()
-{
-    assert(!"not implemented. a2 should be used!");
-}
-
 static QString to_string(RateMonitorSink::Type type)
 {
     QString result;
@@ -3107,6 +3034,67 @@ static RateMonitorSink::Type rate_monitor_sink_type_from_string(const QString &s
     return result;
 }
 
+
+RateMonitorSink::RateMonitorSink(QObject *parent)
+    : BasicSink(parent)
+{
+    m_inputSlot.acceptedInputTypes = InputType::Array;
+}
+
+void RateMonitorSink::beginRun(const RunInfo &runInfo)
+{
+    // Currently only supports connecting to arrays, not single parameters.
+    assert(m_inputSlot.paramIndex == Slot::NoParamIndex);
+
+    m_samplers.resize(m_inputSlot.inputPipe->parameters.size());
+
+    for (auto &sampler: m_samplers)
+    {
+        if (!sampler)
+        {
+            sampler = std::make_shared<a2::RateSampler>();
+            sampler->rateHistory = RateHistoryBuffer(m_rateHistoryCapacity);
+        }
+        else
+        {
+            sampler->lastValue = 0.0;
+            sampler->lastRate  = 0.0;
+            sampler->lastDelta = 0.0;
+
+            /* If the new capacity is >= the old capacity then the rateHistory
+             * contents are kept, otherwise the oldest values are discarded. */
+            if (sampler->rateHistory.capacity() != m_rateHistoryCapacity)
+            {
+                sampler->rateHistory.set_capacity(m_rateHistoryCapacity);
+                sampler->rateHistory.resize(0);
+                sampler->totalSamples = 0.0;
+            }
+
+            if (!runInfo.keepAnalysisState)
+            {
+                // truncates the history size (not the capacity) to zero
+                sampler->rateHistory.resize(0);
+                sampler->totalSamples = 0.0;
+            }
+        }
+
+        sampler->scale = getCalibrationFactor();
+        sampler->offset = getCalibrationOffset();
+        sampler->interval = getSamplingInterval();
+
+        assert(sampler->rateHistory.capacity() == m_rateHistoryCapacity);
+        assert(runInfo.keepAnalysisState || sampler->rateHistory.size() == 0);
+        assert(sampler->scale == getCalibrationFactor());
+        assert(sampler->offset == getCalibrationOffset());
+        assert(sampler->interval == getSamplingInterval());
+    }
+}
+
+void RateMonitorSink::step()
+{
+    assert(!"not implemented. a2 should be used!");
+}
+
 void RateMonitorSink::write(QJsonObject &json) const
 {
     json["type"] = to_string(getType());
@@ -3114,6 +3102,7 @@ void RateMonitorSink::write(QJsonObject &json) const
     json["unitLabel"] = getUnitLabel();
     json["calibrationFactor"] = getCalibrationFactor();
     json["calibrationOffset"] = getCalibrationOffset();
+    json["samplingInterval"]  = getSamplingInterval();
 }
 
 void RateMonitorSink::read(const QJsonObject &json)
@@ -3123,6 +3112,7 @@ void RateMonitorSink::read(const QJsonObject &json)
     m_unitLabel = json["unitLabel"].toString();
     m_calibrationFactor = json["calibrationFactor"].toDouble(1.0);
     m_calibrationOffset = json["m_calibrationOffset"].toDouble(0.0);
+    m_samplingInterval  = json["samplingInterval"].toDouble(1.0);
 }
 
 size_t RateMonitorSink::getStorageSize() const
@@ -3130,7 +3120,7 @@ size_t RateMonitorSink::getStorageSize() const
     return std::accumulate(m_samplers.begin(), m_samplers.end(),
                            static_cast<size_t>(0u),
                            [](size_t accu, const a2::RateSamplerPtr &sampler) {
-        return accu + sampler->rateHistory->capacity() * sizeof(double);
+        return accu + sampler->rateHistory.capacity() * sizeof(double);
    });
 }
 

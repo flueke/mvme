@@ -1,25 +1,26 @@
 #include "rate_monitor_plot_widget.h"
 #include "rate_monitor_samplers.h"
+#include "util/typedefs.h"
 
-#include <qwt_plot_curve.h>
+#include <boost/property_tree/json_parser.hpp>
+#include <boost/property_tree/ptree.hpp>
+#include <iostream>
 #include <QApplication>
-#include <QDebug>
-#include <QTimer>
 #include <QBoxLayout>
-#include <QFormLayout>
-#include <QGroupBox>
-#include <QRadioButton>
 #include <QCheckBox>
 #include <QComboBox>
+#include <QDebug>
+#include <QFormLayout>
+#include <QGroupBox>
+#include <QPushButton>
+#include <QRadioButton>
 #include <QSpinBox>
-#include <random>
-#include "util/typedefs.h"
+#include <QTimer>
 #include <qwt_legend.h>
+#include <qwt_curve_fitter.h>
+#include <qwt_plot_curve.h>
 #include <qwt_plot.h>
-#include <boost/property_tree/ptree.hpp>
-#include <boost/property_tree/json_parser.hpp>
-
-#include <iostream>
+#include <random>
 
 namespace pt = boost::property_tree;
 using std::cout;
@@ -47,14 +48,19 @@ int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
 
-    const size_t BufferCapacity = 1000;
+    const size_t BufferCapacity1 = 3600;
     const size_t BufferCapacity2 = 750;
     const s32 ReplotPeriod_ms = 1000;
     const s32 NewDataPeriod_ms = 250;
-    const s32 NewDataCount = 10;
+    const s32 NewDataCount = 50;
 
-    auto rateHistory = std::make_shared<RateHistoryBuffer>(BufferCapacity);
-    auto rateHistory2 = std::make_shared<RateHistoryBuffer>(BufferCapacity2);
+    // plot data
+    auto sampler1 = std::make_shared<RateSampler>();
+    sampler1->rateHistory = RateHistoryBuffer(BufferCapacity1);
+
+    auto sampler2 = std::make_shared<RateSampler>();
+    sampler2->rateHistory = RateHistoryBuffer(BufferCapacity2);
+
 
     // Plot and external legend
     auto plotWidget = new RateMonitorPlotWidget;
@@ -64,11 +70,6 @@ int main(int argc, char *argv[])
                      &legend, &QwtLegend::updateLegend);
 
     legend.setDefaultItemMode(QwtLegendData::Checkable);
-
-
-    // set plot data and show widgets
-    plotWidget->addRate(rateHistory, "My Rate 1");
-    plotWidget->addRate(rateHistory2, "My Rate 2", Qt::red);
 
     auto leftWidget = new QWidget;
     auto leftLayout = new QVBoxLayout(leftWidget);
@@ -98,7 +99,6 @@ int main(int argc, char *argv[])
 
     // misc options
     {
-        auto cb_xAxisReversed = new QCheckBox;
         auto cb_antiAlias = new QCheckBox;
         auto combo_curveStyle = new QComboBox;
 
@@ -118,10 +118,6 @@ int main(int argc, char *argv[])
         combo_legendPosition->addItem("Bottom", QwtPlot::BottomLegend);
         combo_legendPosition->addItem("Top", QwtPlot::TopLegend);
 
-        QObject::connect(cb_xAxisReversed, &QCheckBox::toggled, plotWidget, [=](bool checked) {
-            plotWidget->setXAxisReversed(checked);
-        });
-
         QObject::connect(cb_antiAlias, &QCheckBox::toggled, plotWidget, [=](bool checked) {
             for (auto curve: plotWidget->getPlotCurves())
                 curve->setRenderHint(QwtPlotItem::RenderAntialiased, checked);
@@ -130,7 +126,14 @@ int main(int argc, char *argv[])
         QObject::connect(combo_curveStyle, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
                          plotWidget, [=](int index) {
             for (auto curve: plotWidget->getPlotCurves())
-                curve->setStyle(static_cast<QwtPlotCurve::CurveStyle>(combo_curveStyle->currentData().toInt()));
+            {
+                auto style = static_cast<QwtPlotCurve::CurveStyle>(combo_curveStyle->currentData().toInt());
+                curve->setStyle(style);
+                if (style == QwtPlotCurve::Lines)
+                {
+                    curve->setCurveFitter(new QwtSplineCurveFitter);
+                }
+            }
         });
 
         QObject::connect(spin_penWidth, static_cast<void (QSpinBox::*) (int)>(&QSpinBox::valueChanged),
@@ -158,12 +161,23 @@ int main(int argc, char *argv[])
             }
         });
 
+        auto pb_clearSampler1 = new QPushButton("clear");
+        QObject::connect(pb_clearSampler1, &QPushButton::clicked, plotWidget, [=]() {
+            sampler1->clearHistory();
+        });
+
+        auto pb_clearSampler2 = new QPushButton("clear");
+        QObject::connect(pb_clearSampler2, &QPushButton::clicked, plotWidget, [=]() {
+            sampler2->clearHistory();
+        });
+
         auto l = new QFormLayout;
-        l->addRow("Reverse X", cb_xAxisReversed);
         l->addRow("Antialiasing", cb_antiAlias);
         l->addRow("Curve Style", combo_curveStyle);
         l->addRow("Line Width", spin_penWidth);
         l->addRow("External Legend Position", combo_legendPosition);
+        l->addRow("Clear sampler1", pb_clearSampler1);
+        l->addRow("Clear sampler2", pb_clearSampler2);
 
         leftLayout->addLayout(l);
     }
@@ -175,6 +189,7 @@ int main(int argc, char *argv[])
     mainLayout->addWidget(leftWidget);
     mainLayout->addWidget(plotWidget);
 
+    mainWidget.resize(800, 600);
     mainWidget.show();
 
     //
@@ -183,10 +198,18 @@ int main(int argc, char *argv[])
     QTimer replotTimer;
     QObject::connect(&replotTimer, &QTimer::timeout, plotWidget, [&] () {
         plotWidget->replot();
+
+        qDebug("sampler1: lastValue=%lf, lastRate=%lf, lastDelta=%lf, totalSamples=%lf, maxValue=%lf",
+               sampler1->lastValue, sampler1->lastRate, sampler1->lastDelta, sampler1->totalSamples, get_max_value(sampler1->rateHistory));
     });
 
     replotTimer.setInterval(ReplotPeriod_ms);
     replotTimer.start();
+
+    plotWidget->addRateSampler(sampler1, "My Rate 1");
+#if 1
+    //plotWidget->addRateSampler(sampler2, "My Rate 2", Qt::red);
+#endif
 
     //
     // Fill timer
@@ -209,19 +232,21 @@ int main(int argc, char *argv[])
             //double value = dist(gen);
             double value = (std::sin(x1 * 0.25) + SinOffset) * SinScale;
             x1 += SinInc;
-            rateHistory->push_back(value);
+            sampler1->record_rate(value);
         }
     });
 
+#if 1
     // Fill rateHistory2
     QObject::connect(&fillTimer, &QTimer::timeout, plotWidget, [&] () {
         for (s32 i = 0; i < NewDataCount; i++)
         {
             double value = (std::cos(x2 * 0.25) + SinOffset + 0.5) * SinScale;
             x2 += SinInc + 0.125;
-            rateHistory2->push_back(value);
+            sampler2->record_rate(value);
         }
     });
+#endif
 
     fillTimer.setInterval(NewDataPeriod_ms);
     fillTimer.start();

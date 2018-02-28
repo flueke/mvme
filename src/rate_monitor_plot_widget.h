@@ -19,22 +19,17 @@ class RateMonitorPlotWidget: public QWidget
         RateMonitorPlotWidget(QWidget *parent = nullptr);
         ~RateMonitorPlotWidget();
 
-        void addRate(const RateHistoryBufferPtr &rateHistory, const QString &title = QString(),
-                     const QColor &color = Qt::black);
-        void removeRate(const RateHistoryBufferPtr &rateHistory);
-        void removeRate(int index);
+        void addRateSampler(const RateSamplerPtr &sampler, const QString &title = QString(),
+                            const QColor &color = Qt::black);
+        void removeRateSampler(const RateSamplerPtr &sampler);
+        void removeRateSampler(int index);
         int rateCount() const;
-        QVector<RateHistoryBufferPtr> getRates() const;
-        RateHistoryBufferPtr getRate(int index) const;
+        QVector<RateSamplerPtr> getRateSamplers() const;
+        RateSamplerPtr getRateSampler(int index) const;
 
         /* Log or lin scaling for the Y-Axis. */
         AxisScale getYAxisScale() const;
         void setYAxisScale(AxisScale scaling);
-
-        /* If true the x-axis runs from [-bufferCapacity, 0).
-         * If false the x-axis runs from [0, bufferCapacity). */
-        bool isXAxisReversed() const;
-        void setXAxisReversed(bool b);
 
         bool isInternalLegendVisible() const;
         void setInternalLegendVisible(bool b);
@@ -42,7 +37,7 @@ class RateMonitorPlotWidget: public QWidget
         // internal qwt objects
         QwtPlot *getPlot();
 
-        QwtPlotCurve *getPlotCurve(const RateHistoryBufferPtr &rate);
+        QwtPlotCurve *getPlotCurve(const RateSamplerPtr &rate);
         QwtPlotCurve *getPlotCurve(int index);
         QVector<QwtPlotCurve *> getPlotCurves();
 
@@ -59,5 +54,24 @@ class RateMonitorPlotWidget: public QWidget
         std::unique_ptr<RateMonitorPlotWidgetPrivate> m_d;
 };
 
+/* Returns a bounding rect for the use with qwt components.
+ * This version uses the capacity of the buffer for the x-axis max value. */
+inline QRectF get_qwt_bounding_rect_capacity(const RateHistoryBuffer &rh)
+{
+
+    double max_value = get_max_value(rh);
+    auto result = QRectF(0.0, 0.0, rh.capacity() * 1000.0, max_value);
+    return result;
+}
+
+/* Returns a bounding rect for the use with qwt components.
+ * This version uses the current size of buffer for the x-axis max value. */
+inline QRectF get_qwt_bounding_rect_size(const RateHistoryBuffer &rh)
+{
+
+    double max_value = get_max_value(rh);
+    auto result = QRectF(0.0, 0.0, rh.size() * 1000.0, max_value);
+    return result;
+}
 
 #endif /* __RATE_MONITOR_PLOT_WIDGET_H__ */

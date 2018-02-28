@@ -11,22 +11,14 @@
 #include "util/tree.h"
 
 using a2::RateHistoryBuffer;
-using a2::RateHistoryBufferPtr;
 using a2::RateSampler;
+using a2::RateSamplerPtr;
 
 inline double get_max_value(const RateHistoryBuffer &rh, double defaultValue = 0.0)
 {
     auto max_it = std::max_element(rh.begin(), rh.end());
     double max_value = (max_it == rh.end()) ? defaultValue : *max_it;
     return max_value;
-}
-
-inline QRectF get_qwt_bounding_rect(const RateHistoryBuffer &rh)
-{
-
-    double max_value = get_max_value(rh);
-    auto result = QRectF(0.0, 0.0, rh.capacity(), max_value);
-    return result;
 }
 
 struct RateMonitorEntry
@@ -46,10 +38,7 @@ struct RateMonitorEntry
     // for number formatting of rate values
     UnitScaling unitScaling = UnitScaling::Decimal;
 
-    /* A pointer to the rate sampler for this entry. The RateSampler is owned
-     * by the SamplerCollection that created it in
-     * SamplerCollection::createTree(). */
-    RateSampler *sampler = nullptr;
+    RateSamplerPtr sampler;
 
     Flag flags = 0u;
 

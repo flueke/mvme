@@ -13,7 +13,7 @@ inline RateMonitorNode *add_group(RateMonitorNode *root, const QString &key, con
     return root->putBranch(key, rme);
 }
 
-inline RateMonitorNode *add_system_rate(RateMonitorNode *root, const QString &key, RateSampler *sampler)
+inline RateMonitorNode *add_system_rate(RateMonitorNode *root, const QString &key, RateSamplerPtr sampler)
 {
     RateMonitorEntry rme;
     rme.type = RateMonitorEntry::Type::SystemRate;
@@ -29,31 +29,44 @@ struct SamplerCollection
 
 struct StreamProcessorSampler: public SamplerCollection
 {
-    RateSampler bytesProcessed;
-    RateSampler buffersProcessed;
-    RateSampler buffersWithErrors;
-    RateSampler eventSections;
-    RateSampler invalidEventIndices;
+    RateSamplerPtr bytesProcessed       = std::make_shared<RateSampler>();
+    RateSamplerPtr buffersProcessed     = std::make_shared<RateSampler>();
+    RateSamplerPtr buffersWithErrors    = std::make_shared<RateSampler>();
+    RateSamplerPtr eventSections        = std::make_shared<RateSampler>();
+    RateSamplerPtr invalidEventIndices  = std::make_shared<RateSampler>();
 
-    using ModuleEntries = std::array<RateSampler, MaxVMEModules>;
-    std::array<RateSampler, MaxVMEEvents> eventEntries;
+    using ModuleEntries = std::array<RateSamplerPtr, MaxVMEModules>;
+    std::array<RateSamplerPtr, MaxVMEEvents> eventEntries;
     std::array<ModuleEntries, MaxVMEEvents> moduleEntries;
 
-    void sample(const MVMEStreamProcessorCounters &counters)
+    StreamProcessorSampler()
     {
-        bytesProcessed.sample(counters.bytesProcessed);
-        buffersProcessed.sample(counters.buffersProcessed);
-        buffersWithErrors.sample(counters.buffersWithErrors);
-        eventSections.sample(counters.eventSections);
-        invalidEventIndices.sample(counters.invalidEventIndices);
-
         for (size_t ei = 0; ei < MaxVMEEvents; ei++)
         {
-            eventEntries[ei].sample(counters.eventCounters[ei]);
+            eventEntries[ei] = std::make_shared<RateSampler>();
 
             for (size_t mi = 0; mi < MaxVMEModules; mi++)
             {
-                moduleEntries[ei][mi].sample(counters.moduleCounters[ei][mi]);
+                moduleEntries[ei][mi] = std::make_shared<RateSampler>();
+            }
+        }
+    };
+
+    void sample(const MVMEStreamProcessorCounters &counters)
+    {
+        bytesProcessed->sample(counters.bytesProcessed);
+        buffersProcessed->sample(counters.buffersProcessed);
+        buffersWithErrors->sample(counters.buffersWithErrors);
+        eventSections->sample(counters.eventSections);
+        invalidEventIndices->sample(counters.invalidEventIndices);
+
+        for (size_t ei = 0; ei < MaxVMEEvents; ei++)
+        {
+            eventEntries[ei]->sample(counters.eventCounters[ei]);
+
+            for (size_t mi = 0; mi < MaxVMEModules; mi++)
+            {
+                moduleEntries[ei][mi]->sample(counters.moduleCounters[ei][mi]);
             }
         }
     }
@@ -67,24 +80,24 @@ struct StreamProcessorSampler: public SamplerCollection
             rme->description = QSL("Internal system rates generated while processing the mvme data stream on the analysis side.");
         }
 
-        add_system_rate(&root, QSL("bytesProcessed"), &bytesProcessed);
-        add_system_rate(&root, QSL("buffersProcessed"), &buffersProcessed);
-        add_system_rate(&root, QSL("buffersWithErrors"), &buffersWithErrors);
-        add_system_rate(&root, QSL("eventSections"), &eventSections);
-        add_system_rate(&root, QSL("invalidEventIndices"), &invalidEventIndices);
+        add_system_rate(&root, QSL("bytesProcessed"),        bytesProcessed);
+        add_system_rate(&root, QSL("buffersProcessed"),      buffersProcessed);
+        add_system_rate(&root, QSL("buffersWithErrors"),     buffersWithErrors);
+        add_system_rate(&root, QSL("eventSections"),         eventSections);
+        add_system_rate(&root, QSL("invalidEventIndices"),   invalidEventIndices);
 
-        auto eventRoot = add_group(&root, QSL("events"), QSL("Event Trigger Rates"));
+        auto eventRoot  = add_group(&root, QSL("events"), QSL("Event Trigger Rates"));
         auto moduleRoot = add_group(&root, QSL("modules"), QSL("Module Readout Rates"));
 
         for (size_t ei = 0; ei < MaxVMEEvents; ei++)
         {
-            add_system_rate(eventRoot, QString::number(ei), &eventEntries[ei]);
+            add_system_rate(eventRoot, QString::number(ei), eventEntries[ei]);
 
             auto modEventRoot = add_group(moduleRoot, QString::number(ei), QString());
 
             for (size_t mi = 0; mi < MaxVMEModules; mi++)
             {
-                add_system_rate(modEventRoot, QString::number(mi), &moduleEntries[ei][mi]);
+                add_system_rate(modEventRoot, QString::number(mi), moduleEntries[ei][mi]);
             }
         }
 
@@ -94,21 +107,21 @@ struct StreamProcessorSampler: public SamplerCollection
 
 struct DAQStatsSampler: public SamplerCollection
 {
-    RateSampler totalBytesRead;
-    RateSampler totalBuffersRead;
-    RateSampler buffersWithErrors;
-    RateSampler droppedBuffers;
-    RateSampler totalNetBytesRead;
-    RateSampler listFileBytesWritten;
+    RateSamplerPtr totalBytesRead           = std::make_shared<RateSampler>();
+    RateSamplerPtr totalBuffersRead         = std::make_shared<RateSampler>();
+    RateSamplerPtr buffersWithErrors        = std::make_shared<RateSampler>();
+    RateSamplerPtr droppedBuffers           = std::make_shared<RateSampler>();
+    RateSamplerPtr totalNetBytesRead        = std::make_shared<RateSampler>();
+    RateSamplerPtr listFileBytesWritten     = std::make_shared<RateSampler>();
 
     void sample(const DAQStats &counters)
     {
-        totalBytesRead.sample(counters.totalBytesRead);
-        totalBuffersRead.sample(counters.totalBuffersRead);
-        buffersWithErrors.sample(counters.buffersWithErrors);
-        droppedBuffers.sample(counters.droppedBuffers);
-        totalNetBytesRead.sample(counters.totalNetBytesRead);
-        listFileBytesWritten.sample(counters.listFileBytesWritten);
+        totalBytesRead->sample(counters.totalBytesRead);
+        totalBuffersRead->sample(counters.totalBuffersRead);
+        buffersWithErrors->sample(counters.buffersWithErrors);
+        droppedBuffers->sample(counters.droppedBuffers);
+        totalNetBytesRead->sample(counters.totalNetBytesRead);
+        listFileBytesWritten->sample(counters.listFileBytesWritten);
     }
 
     RateMonitorNode createTree() override
@@ -120,12 +133,12 @@ struct DAQStatsSampler: public SamplerCollection
             rme->description = QSL("VME readout rates");
         }
 
-        add_system_rate(&root, QSL("totalBytesRead"), &totalBytesRead);
-        add_system_rate(&root, QSL("totalBuffersRead"), &totalBuffersRead);
-        add_system_rate(&root, QSL("buffersWithErrors"), &buffersWithErrors);
-        add_system_rate(&root, QSL("droppedBuffers"), &droppedBuffers);
-        add_system_rate(&root, QSL("totalNetBytesRead"), &totalNetBytesRead);
-        add_system_rate(&root, QSL("listFileBytesWritten"), &listFileBytesWritten);
+        add_system_rate(&root, QSL("totalBytesRead"),       totalBytesRead);
+        add_system_rate(&root, QSL("totalBuffersRead"),     totalBuffersRead);
+        add_system_rate(&root, QSL("buffersWithErrors"),    buffersWithErrors);
+        add_system_rate(&root, QSL("droppedBuffers"),       droppedBuffers);
+        add_system_rate(&root, QSL("totalNetBytesRead"),    totalNetBytesRead);
+        add_system_rate(&root, QSL("listFileBytesWritten"), listFileBytesWritten);
 
         return root;
     }
@@ -133,32 +146,49 @@ struct DAQStatsSampler: public SamplerCollection
 
 struct SIS3153Sampler: public SamplerCollection
 {
-    using StackListCountEntries = std::array<RateSampler, SIS3153Constants::NumberOfStackLists>;
+    using StackListCountEntries = std::array<RateSamplerPtr, SIS3153Constants::NumberOfStackLists>;
 
+    RateSamplerPtr lostEvents;
+    RateSamplerPtr multiEventPackets;
     StackListCountEntries stackListCounts;
     StackListCountEntries stackListBerrCounts_Block;
     StackListCountEntries stackListBerrCounts_Read;
     StackListCountEntries stackListBerrCounts_Write;
-    RateSampler lostEvents;
-    RateSampler multiEventPackets;
     StackListCountEntries embeddedEvents;
     StackListCountEntries partialFragments;
     StackListCountEntries reassembledPartials;
 
-    void sample(const SIS3153ReadoutWorker::Counters &counters)
+    SIS3153Sampler()
     {
-        lostEvents.sample(counters.lostEvents);
-        multiEventPackets.sample(counters.multiEventPackets);
+        lostEvents = std::make_shared<RateSampler>();
+        multiEventPackets = std::make_shared<RateSampler>();
 
         for (size_t i = 0; i < std::tuple_size<StackListCountEntries>::value; i++)
         {
-            stackListCounts[i].sample(counters.stackListCounts[i]);
-            stackListBerrCounts_Block[i].sample(counters.stackListBerrCounts_Block[i]);
-            stackListBerrCounts_Read[i].sample(counters.stackListBerrCounts_Read[i]);
-            stackListBerrCounts_Write[i].sample(counters.stackListBerrCounts_Write[i]);
-            embeddedEvents[i].sample(counters.embeddedEvents[i]);
-            partialFragments[i].sample(counters.partialFragments[i]);
-            reassembledPartials[i].sample(counters.reassembledPartials[i]);
+            stackListCounts[i]              = std::make_shared<RateSampler>();
+            stackListBerrCounts_Block[i]    = std::make_shared<RateSampler>();
+            stackListBerrCounts_Read[i]     = std::make_shared<RateSampler>();
+            stackListBerrCounts_Write[i]    = std::make_shared<RateSampler>();
+            embeddedEvents[i]               = std::make_shared<RateSampler>();
+            partialFragments[i]             = std::make_shared<RateSampler>();
+            reassembledPartials[i]          = std::make_shared<RateSampler>();
+        }
+    }
+
+    void sample(const SIS3153ReadoutWorker::Counters &counters)
+    {
+        lostEvents->sample(counters.lostEvents);
+        multiEventPackets->sample(counters.multiEventPackets);
+
+        for (size_t i = 0; i < std::tuple_size<StackListCountEntries>::value; i++)
+        {
+            stackListCounts[i]->sample(counters.stackListCounts[i]);
+            stackListBerrCounts_Block[i]->sample(counters.stackListBerrCounts_Block[i]);
+            stackListBerrCounts_Read[i]->sample(counters.stackListBerrCounts_Read[i]);
+            stackListBerrCounts_Write[i]->sample(counters.stackListBerrCounts_Write[i]);
+            embeddedEvents[i]->sample(counters.embeddedEvents[i]);
+            partialFragments[i]->sample(counters.partialFragments[i]);
+            reassembledPartials[i]->sample(counters.reassembledPartials[i]);
         }
     }
 
@@ -171,8 +201,8 @@ struct SIS3153Sampler: public SamplerCollection
             rme->description = QSL("SIS3153 specific counters");
         }
 
-        add_system_rate(&root, QSL("lostEvents"), &lostEvents);
-        add_system_rate(&root, QSL("multiEventPackets"), &multiEventPackets);
+        add_system_rate(&root, QSL("lostEvents"), lostEvents);
+        add_system_rate(&root, QSL("multiEventPackets"), multiEventPackets);
 
         auto stackListRoot = add_group(&root, QSL("stacklists"), QSL("stacklist specific counters"));
 
@@ -180,13 +210,13 @@ struct SIS3153Sampler: public SamplerCollection
         {
             auto groupRoot = add_group(stackListRoot, QString::number(si), QString("stacklist %1").arg(si));
 
-            add_system_rate(groupRoot, QSL("hits"), &stackListCounts[si]);
-            add_system_rate(groupRoot, QSL("berr_block"), &stackListBerrCounts_Block[si]);
-            add_system_rate(groupRoot, QSL("berr_read"), &stackListBerrCounts_Read[si]);
-            add_system_rate(groupRoot, QSL("berr_write"), &stackListBerrCounts_Write[si]);
-            add_system_rate(groupRoot, QSL("embeddedEvents"), &embeddedEvents[si]);
-            add_system_rate(groupRoot, QSL("partialFragments"), &partialFragments[si]);
-            add_system_rate(groupRoot, QSL("reassembledPartials"), &reassembledPartials[si]);
+            add_system_rate(groupRoot, QSL("hits"), stackListCounts[si]);
+            add_system_rate(groupRoot, QSL("berr_block"), stackListBerrCounts_Block[si]);
+            add_system_rate(groupRoot, QSL("berr_read"), stackListBerrCounts_Read[si]);
+            add_system_rate(groupRoot, QSL("berr_write"), stackListBerrCounts_Write[si]);
+            add_system_rate(groupRoot, QSL("embeddedEvents"), embeddedEvents[si]);
+            add_system_rate(groupRoot, QSL("partialFragments"), partialFragments[si]);
+            add_system_rate(groupRoot, QSL("reassembledPartials"), reassembledPartials[si]);
         }
 
         return root;

@@ -14,13 +14,14 @@
 #include "qt_util.h"
 #include "rate_monitor_plot_widget.h"
 
+using a2::RateSamplerPtr;
+
 static const s32 ReplotPeriod_ms = 1000;
 
 struct RateMonitorWidgetPrivate
 {
     RateMonitorWidget *m_q;
-    QVector<a2::RateSamplerPtr> m_samplers;
-    a2::RateSampler *m_sampler;
+    QVector<RateSamplerPtr> m_samplers;
     s32 m_currentIndex = 0;
     RateMonitorWidget::SinkPtr m_sink;
     RateMonitorWidget::SinkModifiedCallback m_sinkModifiedCallback;
@@ -58,20 +59,19 @@ void RateMonitorWidgetPrivate::selectPlot(int index)
 {
     assert(index < m_samplers.size());
 
-    auto samplerPtr = m_samplers.value(index);
-    RateSampler *sampler = samplerPtr ? samplerPtr.get() : m_sampler;
+    auto sampler = m_samplers.value(index);
 
     if (sampler)
     {
         QString rateTitle = m_sink ? m_sink->objectName() + "." : QSL("");
         rateTitle += QString::number(index);
 
-        m_plotWidget->removeRate(0);
-        m_plotWidget->addRate(sampler->rateHistory, rateTitle);
+        m_plotWidget->removeRateSampler(0);
+        m_plotWidget->addRateSampler(sampler, rateTitle);
         m_plotWidget->getPlot()->axisWidget(QwtPlot::xBottom)->setTitle(rateTitle);
         assert(m_plotWidget->rateCount() == 1);
 
-        qDebug() << __PRETTY_FUNCTION__ << "added rateHistory =" << sampler->rateHistory.get() << ", title =" << rateTitle;
+        qDebug() << __PRETTY_FUNCTION__ << "added rateSampler =" << sampler.get() << ", title =" << rateTitle;
     }
 
     m_currentIndex = index;
@@ -208,16 +208,6 @@ RateMonitorWidget::RateMonitorWidget(const a2::RateSamplerPtr &sampler, QWidget 
 {
     assert(sampler);
     m_d->m_samplers.push_back(sampler);
-    m_d->m_sampler = sampler.get();
-
-    m_d->postConstruct();
-}
-
-RateMonitorWidget::RateMonitorWidget(a2::RateSampler *sampler, QWidget *parent)
-    : RateMonitorWidget(parent)
-{
-    assert(sampler);
-    m_d->m_sampler = sampler;
 
     m_d->postConstruct();
 }
@@ -227,7 +217,6 @@ RateMonitorWidget::RateMonitorWidget(const QVector<a2::RateSamplerPtr> &samplers
 {
     assert(samplers.size());
     m_d->m_samplers = samplers;
-    m_d->m_sampler = samplers[0].get();
 
     m_d->postConstruct();
 }

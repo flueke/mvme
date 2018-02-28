@@ -8,6 +8,8 @@
 #include <qwt_plot_legenditem.h>
 #include <qwt_scale_engine.h>
 #include <qwt_scale_widget.h>
+#include <qwt_date_scale_draw.h>
+#include <qwt_date_scale_engine.h>
 
 #include "analysis/a2/util/nan.h"
 #include "histo_util.h"
@@ -22,37 +24,45 @@
 // RateMonitorPlotWidget
 //
 
+// FIXME: use sampler->interval in here to get this correct for samplers that use a different interval than 1.0s
+static inline QRectF make_bounding_rect(const RateSampler *sampler)
+{
+    double xMin = 0.0;
+    double xMax = sampler->rateHistory.size();
+
+    if (sampler->totalSamples > sampler->rateHistory.capacity())
+    {
+        xMin = sampler->totalSamples - sampler->rateHistory.capacity();
+        xMax = xMin + sampler->rateHistory.size();
+    }
+
+    QRectF result(xMin * 1000.0, 0.0,
+                  xMax * 1000.0, get_max_value(sampler->rateHistory));
+
+    return result;
+}
+
 struct RateMonitorPlotData: public QwtSeriesData<QPointF>
 {
-    RateMonitorPlotData(const RateHistoryBufferPtr &rateHistory, RateMonitorPlotWidget *plotWidget)
+    RateMonitorPlotData(const RateSamplerPtr &sampler, RateMonitorPlotWidget *plotWidget)
         : QwtSeriesData<QPointF>()
-        , rateHistory(rateHistory)
+        , sampler(sampler)
         , plotWidget(plotWidget)
     { }
 
     size_t size() const override
     {
-        return rateHistory->capacity();
+        return sampler->rateHistory.size();
     }
 
     virtual QPointF sample(size_t i) const override
     {
-        size_t offset = rateHistory->capacity() - rateHistory->size();
-        ssize_t bufferIndex = i - offset;
+        auto rateHistory = &sampler->rateHistory;
 
-        double x = 0.0;
-        double y = 0.0;
-
-        if (plotWidget->isXAxisReversed())
-            x = -(static_cast<double>(rateHistory->capacity()) - i);
-        else
-            x = i;
-
-        if (0 <= bufferIndex && bufferIndex < static_cast<ssize_t>(rateHistory->size()))
-            y = (*rateHistory)[bufferIndex];
+        double x = (sampler->totalSamples - rateHistory->size() + i) * 1000.0;
+        double y = rateHistory->at(i);
 
         QPointF result(x, y);
-
 #if 0
         qDebug() << __PRETTY_FUNCTION__
             << "sample =" << i
@@ -62,23 +72,24 @@ struct RateMonitorPlotData: public QwtSeriesData<QPointF>
             << ", buffer->cap =" << rateHistory->capacity()
             << ", result =" << result;
 #endif
-
         return result;
     }
 
     virtual QRectF boundingRect() const override
     {
-        return get_qwt_bounding_rect(*rateHistory);
+        //return get_qwt_bounding_rect_size(sampler->rateHistory);
+        auto result = make_bounding_rect(sampler.get());
+        qDebug() << __PRETTY_FUNCTION__ << result;
+        return result;
     }
 
-    RateHistoryBufferPtr rateHistory;
+    RateSamplerPtr sampler;
     RateMonitorPlotWidget *plotWidget;
 };
 
 struct RateMonitorPlotWidgetPrivate
 {
-    QVector<RateHistoryBufferPtr> m_rates;
-    bool m_xAxisReversed = false;
+    QVector<RateSamplerPtr> m_samplers;
 
     QwtPlot *m_plot;
     ScrollZoomer *m_zoomer;
@@ -94,6 +105,22 @@ RateMonitorPlotWidget::RateMonitorPlotWidget(QWidget *parent)
     m_d->m_plot = new QwtPlot(this);
     m_d->m_plot->canvas()->setMouseTracking(true);
     m_d->m_plot->axisWidget(QwtPlot::yLeft)->setTitle("Rate");
+
+    // XXX: playing with QwtDateScaleEngine and QwtDateScaleDraw
+    {
+        auto engine = new QwtDateScaleEngine(Qt::UTC);
+        m_d->m_plot->setAxisScaleEngine(QwtPlot::xBottom, engine);
+
+        auto draw = new QwtDateScaleDraw(Qt::UTC);
+        draw->setDateFormat(QwtDate::Millisecond,   QSL("H'h' m'm' s's' zzz'ms'"));
+        draw->setDateFormat(QwtDate::Second,        QSL("H'h' m'm' s's'"));
+        draw->setDateFormat(QwtDate::Minute,        QSL("H'h' m'm'"));
+        draw->setDateFormat(QwtDate::Hour,          QSL("H'h' m'm'"));
+        draw->setDateFormat(QwtDate::Day,           QSL("d 'd'"));
+
+        m_d->m_plot->setAxisScaleDraw(QwtPlot::xBottom, draw);
+    }
+
     m_d->m_plotLegendItem.attach(m_d->m_plot);
 
     // zoomer
@@ -102,6 +129,8 @@ RateMonitorPlotWidget::RateMonitorPlotWidget(QWidget *parent)
 
     qDebug() << __PRETTY_FUNCTION__ << "zoomRectIndex =" << m_d->m_zoomer->zoomRectIndex();
 
+    /* NOTE: using connect with the c++ pointer to member syntax with these qwt signals does
+     * not work for some reason. */
     TRY_ASSERT(connect(m_d->m_zoomer, SIGNAL(zoomed(const QRectF &)),
                        this, SLOT(zoomerZoomed(const QRectF &))));
     TRY_ASSERT(connect(m_d->m_zoomer, &ScrollZoomer::mouseCursorMovedTo,
@@ -123,38 +152,39 @@ RateMonitorPlotWidget::~RateMonitorPlotWidget()
     qDeleteAll(m_d->m_curves);
 }
 
-void RateMonitorPlotWidget::addRate(const RateHistoryBufferPtr &rateHistory,
-                                    const QString &title,
-                                    const QColor &color)
+void RateMonitorPlotWidget::addRateSampler(const RateSamplerPtr &sampler,
+                                           const QString &title,
+                                           const QColor &color)
 {
-    assert(rateHistory);
-    assert(m_d->m_rates.size() == m_d->m_curves.size());
+    assert(sampler);
+    assert(m_d->m_samplers.size() == m_d->m_curves.size());
 
     auto curve = std::make_unique<QwtPlotCurve>(title);
-    curve->setData(new RateMonitorPlotData(rateHistory, this));
+    curve->setData(new RateMonitorPlotData(sampler, this));
     curve->setPen(color);
+    //curve->setStyle(QwtPlotCurve::Lines);
     curve->attach(m_d->m_plot);
 
     m_d->m_curves.push_back(curve.release());
-    m_d->m_rates.push_back(rateHistory);
+    m_d->m_samplers.push_back(sampler);
 
     qDebug() << "added rate. title =" << title << ", color =" << color
-        << ", capacity =" << rateHistory->capacity()
+        << ", capacity =" << sampler->rateHistory.capacity()
         << ", new plot count =" << m_d->m_curves.size();
 
-    assert(m_d->m_rates.size() == m_d->m_curves.size());
+    assert(m_d->m_samplers.size() == m_d->m_curves.size());
 }
 
-void RateMonitorPlotWidget::removeRate(const RateHistoryBufferPtr &rateHistory)
+void RateMonitorPlotWidget::removeRateSampler(const RateSamplerPtr &sampler)
 {
-    removeRate(m_d->m_rates.indexOf(rateHistory));
+    removeRateSampler(m_d->m_samplers.indexOf(sampler));
 }
 
-void RateMonitorPlotWidget::removeRate(int index)
+void RateMonitorPlotWidget::removeRateSampler(int index)
 {
-    assert(m_d->m_rates.size() == m_d->m_curves.size());
+    assert(m_d->m_samplers.size() == m_d->m_curves.size());
 
-    if (0 <= index && index < m_d->m_rates.size())
+    if (0 <= index && index < m_d->m_samplers.size())
     {
         assert(index < m_d->m_curves.size());
 
@@ -162,39 +192,27 @@ void RateMonitorPlotWidget::removeRate(int index)
         auto curve = std::unique_ptr<QwtPlotCurve>(m_d->m_curves.at(index));
         curve->detach();
         m_d->m_curves.remove(index);
-        m_d->m_rates.remove(index);
+        m_d->m_samplers.remove(index);
     }
 
-    assert(m_d->m_rates.size() == m_d->m_curves.size());
+    assert(m_d->m_samplers.size() == m_d->m_curves.size());
 }
 
 int RateMonitorPlotWidget::rateCount() const
 {
-    assert(m_d->m_rates.size() == m_d->m_curves.size());
-    return m_d->m_rates.size();
+    assert(m_d->m_samplers.size() == m_d->m_curves.size());
+    return m_d->m_samplers.size();
 }
 
-QVector<RateHistoryBufferPtr> RateMonitorPlotWidget::getRates() const
+QVector<RateSamplerPtr> RateMonitorPlotWidget::getRateSamplers() const
 {
-    assert(m_d->m_rates.size() == m_d->m_curves.size());
-    return m_d->m_rates;
+    assert(m_d->m_samplers.size() == m_d->m_curves.size());
+    return m_d->m_samplers;
 }
 
-RateHistoryBufferPtr RateMonitorPlotWidget::getRate(int index) const
+RateSamplerPtr RateMonitorPlotWidget::getRateSampler(int index) const
 {
-    return m_d->m_rates.value(index);
-}
-
-bool RateMonitorPlotWidget::isXAxisReversed() const
-{
-    return m_d->m_xAxisReversed;
-}
-
-void RateMonitorPlotWidget::setXAxisReversed(bool b)
-{
-    m_d->m_xAxisReversed = b;
-    m_d->m_zoomer->setZoomBase(false);
-    replot();
+    return m_d->m_samplers.value(index);
 }
 
 bool RateMonitorPlotWidget::isInternalLegendVisible() const
@@ -215,43 +233,45 @@ void RateMonitorPlotWidget::replot()
     // updateAxisScales
     static const double ScaleFactor = 1.05;
 
+    // FIXME: use sampler->interval in here to get this correct for samplers that use a different interval than 1.0s
+    double xMin = 0.0;
     double xMax = 0.0;
+    double yMin = 0.0;
     double yMax = 0.0;
 
-    for (auto &rate: m_d->m_rates)
+    for (auto &sampler: m_d->m_samplers)
     {
-        xMax = std::max(xMax, static_cast<double>(rate->capacity()));
-        yMax = std::max(yMax, get_max_value(*rate));
+        xMin = std::max(xMin, (sampler->totalSamples - sampler->rateHistory.size()));
+        xMax = std::max(xMax, xMin + static_cast<double>(sampler->rateHistory.size()));
+        yMax = std::max(yMax, get_max_value(sampler->rateHistory));
     }
 
-    double base = 0.0;
+    // scale x-value to milliseconds
+    xMin *= 1000.0;
+    xMax *= 1000.0;
 
     switch (getYAxisScale())
     {
         case AxisScale::Linear:
-            base = 0.0;
+            yMin = 0.0;
             yMax *= ScaleFactor;
             break;
 
         case AxisScale::Logarithmic:
-            base = 0.1;
+            yMin = 0.001;
             yMax = std::pow(yMax, ScaleFactor);
             break;
     }
 
     // This sets a fixed y axis scale effectively overriding any changes made
     // by the scrollzoomer.
-    m_d->m_plot->setAxisScale(QwtPlot::yLeft, base, yMax);
+    m_d->m_plot->setAxisScale(QwtPlot::yLeft, yMin, yMax);
 
 
     // If fully zoomed out set the x-axis to full resolution
     if (m_d->m_zoomer->zoomRectIndex() == 0)
     {
-        if (isXAxisReversed())
-            m_d->m_plot->setAxisScale(QwtPlot::xBottom, -xMax, 0.0);
-        else
-            m_d->m_plot->setAxisScale(QwtPlot::xBottom, 0.0, xMax);
-
+        m_d->m_plot->setAxisScale(QwtPlot::xBottom, xMin, xMax);
         m_d->m_zoomer->setZoomBase();
     }
 
@@ -280,7 +300,7 @@ void RateMonitorPlotWidget::setYAxisScale(AxisScale scaling)
 
         case AxisScale::Logarithmic:
             auto scaleEngine = new QwtLogScaleEngine;
-            //scaleEngine->setTransformation(new MinBoundLogTransform); // TODO enable
+            //scaleEngine->setTransformation(new MinBoundLogTransform);
             m_d->m_plot->setAxisScaleEngine(QwtPlot::yLeft, scaleEngine);
             break;
     }
@@ -317,11 +337,11 @@ QwtPlot *RateMonitorPlotWidget::getPlot()
     return m_d->m_plot;
 }
 
-QwtPlotCurve *RateMonitorPlotWidget::getPlotCurve(const RateHistoryBufferPtr &rate)
+QwtPlotCurve *RateMonitorPlotWidget::getPlotCurve(const RateSamplerPtr &sampler)
 {
-    int index = m_d->m_rates.indexOf(rate);
+    int index = m_d->m_samplers.indexOf(sampler);
 
-    if (0 < index && index < m_d->m_rates.size())
+    if (0 < index && index < m_d->m_samplers.size())
     {
         assert(index < m_d->m_curves.size());
         return m_d->m_curves.at(index);
@@ -332,7 +352,7 @@ QwtPlotCurve *RateMonitorPlotWidget::getPlotCurve(const RateHistoryBufferPtr &ra
 
 QwtPlotCurve *RateMonitorPlotWidget::getPlotCurve(int index)
 {
-    if (0 < index && index < m_d->m_rates.size())
+    if (0 < index && index < m_d->m_samplers.size())
     {
         assert(index < m_d->m_curves.size());
         return m_d->m_curves.at(index);

@@ -18,23 +18,48 @@ using RateHistoryBufferPtr = std::shared_ptr<RateHistoryBuffer>;
  */
 struct RateSampler
 {
+    //
     // setup
+    //
+
+    /* Scale factor to multiply recorded samples/rates by. */
     double scale  = 1.0;
+
+    /* Offset for recorded samples/rates. */
     double offset = 0.0;
 
+    /* Sampling interval in seconds. Not used for calculations but for x-axis scaling. */
+    double interval = 1.0;
+
+    //
     // state and data
-    RateHistoryBufferPtr rateHistory;
-    double lastValue = 0.0;
-    double lastRate  = 0.0;
-    double lastDelta = 0.0;
+    //
+
+    /* Pointer to sample storage. */
+    RateHistoryBuffer rateHistory;
+
+    /* The last value that was sampled if sample() is used. */
+    double lastValue    = 0.0;
+
+    /* The last rate that was calculated/sampled. */
+    double lastRate     = 0.0;
+
+    /* The last delta value that was calculated if sample() is used. */
+    double lastDelta    = 0.0;
+
+    /* The total number of samples added to the rateHistory so far. Used for
+     * x-axis scaling once the circular history buffer is full. */
+    double totalSamples = 0.0;
 
     void sample(double value)
     {
         std::tie(lastRate, lastDelta) = calcRateAndDelta(value);
+        lastRate = std::isnan(lastRate) ? 0.0 : lastRate;
 
-        if (rateHistory)
+        if (rateHistory.capacity())
         {
-            rateHistory->push_back(std::isnan(lastRate) ? 0.0 : lastRate);
+            rateHistory.push_back(lastRate);
+            totalSamples++;
         }
 
         lastValue = value;
@@ -43,10 +68,12 @@ struct RateSampler
     void record_rate(double rate)
     {
         lastRate = rate * scale + offset;
+        lastRate = std::isnan(lastRate) ? 0.0 : lastRate;
 
-        if (rateHistory)
+        if (rateHistory.capacity())
         {
-            rateHistory->push_back(std::isnan(lastRate) ? 0.0 : lastRate);
+            rateHistory.push_back(lastRate);
+            totalSamples++;
         }
     }
 
@@ -60,6 +87,12 @@ struct RateSampler
     double calcRate(double value) const
     {
         return calcRateAndDelta(value).first;
+    }
+
+    void clearHistory()
+    {
+        rateHistory.clear();
+        totalSamples = 0.0;
     }
 };
 

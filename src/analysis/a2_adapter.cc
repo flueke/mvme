@@ -616,6 +616,8 @@ DEF_OP_MAGIC(histo2d_sink_magic)
 
 DEF_OP_MAGIC(rate_monitor_sink_magic)
 {
+    using a2::RateSampler;
+
     LOG("");
     assert(inputSlots.size() == 1);
     assert_slot(inputSlots[0]);
