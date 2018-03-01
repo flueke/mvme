@@ -490,8 +490,8 @@ namespace
  * in-flight. This means parts of a buffer (<= 1500 bytes) can still be queued
  * up inside the controller. This stale data will be the first data to be sent
  * out when starting the daq again. That's the reason why the 0xbb-header
- * sequence numbers often start at a high number instead of at 1 and then later
- * on drops to 1.
+ * sequence numbers often start at a number value > 1 instead of at 1 and then
+ * later on drop to 1.
  * Until I find a clean and reliable way to flush the SIS buffer I'm just
  * going to implemented a workaround: throw away all data packets at the start of
  * a run until the packet number 1 appears.
@@ -754,6 +754,8 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
         s32 stackListIndex = 0;
         u32 stackLoadAddress = SIS3153ETH_STACK_RAM_START_ADDR;
         u32 stackListControlValue = 0;
+
+        stackListControlValue |= SIS3153Registers::StackListControlValues::DisableBerrStatus;
 
         if (!ctrlSettings.value("DisableBuffering").toBool())
         {
