@@ -44,8 +44,8 @@ Q_DECLARE_SMART_POINTER_METATYPE(std::shared_ptr);
 
 class QTextStream;
 
-void debugOutputBuffer(u8 *dataBuffer, size_t bufferSize);
-QTextStream &debugOutputBuffer(QTextStream &out, u8 *dataBuffer, size_t bufferSize);
+LIBMVME_EXPORT void debugOutputBuffer(u8 *dataBuffer, size_t bufferSize);
+LIBMVME_EXPORT QTextStream &debugOutputBuffer(QTextStream &out, u8 *dataBuffer, size_t bufferSize);
 
 QVector<u32> parseStackFile(QTextStream &input);
 QVector<u32> parseStackFile(const QString &input);

@@ -3,6 +3,7 @@
 
 #include <QWidget>
 
+#include "libmvme_export.h"
 #include "rate_monitor_base.h"
 #include "util/plot.h"
 
@@ -11,7 +12,7 @@ class QwtPlotCurve;
 
 struct RateMonitorPlotWidgetPrivate;
 
-class RateMonitorPlotWidget: public QWidget
+class LIBMVME_EXPORT RateMonitorPlotWidget: public QWidget
 {
     Q_OBJECT
 
