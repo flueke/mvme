@@ -69,6 +69,7 @@ class Histo1DWidget: public QWidget
     private slots:
         void replot();
         void exportPlot();
+        void exportPlotToClipboard();
         void saveHistogram();
         void zoomerZoomed(const QRectF &);
         void mouseCursorMovedToPlotCoord(QPointF);

@@ -247,3 +247,28 @@ QWidget *make_spacer_widget(QWidget *parent)
     result->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     return result;
 }
+
+QToolButton *make_toolbutton(const QString &icon, const QString &text)
+{
+    auto result = new QToolButton;
+    result->setIcon(QIcon(icon));
+    result->setText(text);
+    result->setStatusTip(text);
+    result->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+    auto font = result->font();
+    font.setPointSize(7);
+    result->setFont(font);
+    return result;
+}
+
+QToolButton *make_action_toolbutton(QAction *action)
+{
+    Q_ASSERT(action);
+    auto result = new QToolButton;
+    result->setDefaultAction(action);
+    result->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+    auto font = result->font();
+    font.setPointSize(7);
+    result->setFont(font);
+    return result;
+}

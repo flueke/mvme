@@ -37,6 +37,8 @@
 #include <qwt_scale_widget.h>
 #include <qwt_text.h>
 
+#include <QApplication>
+#include <QClipboard>
 #include <QComboBox>
 #include <QFileInfo>
 #include <QFile>
@@ -45,6 +47,7 @@
 #include <QGroupBox>
 #include <QLabel>
 #include <QMessageBox>
+#include <QMenu>
 #include <QPushButton>
 #include <QSettings>
 #include <QSpinBox>
@@ -344,8 +347,19 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
         replot();
     });
 
-    action = tb->addAction(QIcon(":/document-pdf.png"), QSL("Export"), this, &Histo1DWidget::exportPlot);
-    action->setStatusTip(QSL("Export plot to a PDF or image file"));
+    // export plot to file / clipboard
+    {
+        auto menu = new QMenu(this);
+        menu->addAction(QSL("to file"), this, &Histo1DWidget::exportPlot);
+        menu->addAction(QSL("to clipboard"), this, &Histo1DWidget::exportPlotToClipboard);
+
+        auto button = make_toolbutton(QSL(":/document-pdf.png"), QSL("Export"));
+        button->setStatusTip(QSL("Export plot to a PDF or image file"));
+        button->setMenu(menu);
+        button->setPopupMode(QToolButton::InstantPopup);
+
+        tb->addWidget(button);
+    }
 
     action = tb->addAction(QIcon(":/document-save.png"), QSL("Save"), this, &Histo1DWidget::saveHistogram);
     action->setStatusTip(QSL("Save the histogram to a text file"));
@@ -1011,6 +1025,32 @@ void Histo1DWidget::exportPlot()
     m_d->m_plot->setTitle(QString());
     m_d->m_plot->setFooter(QString());
     m_d->m_waterMarkLabel->hide();
+}
+
+void Histo1DWidget::exportPlotToClipboard()
+{
+    m_d->m_plot->setTitle(m_histo->getTitle());
+
+    QString footerString = m_histo->getFooter();
+    QwtText footerText(footerString);
+    footerText.setRenderFlags(Qt::AlignLeft);
+    m_d->m_plot->setFooter(footerText);
+    m_d->m_waterMarkLabel->show();
+
+    QSize size(1024, 768);
+    QImage image(size, QImage::Format_ARGB32_Premultiplied);
+    image.fill(0);
+
+    QwtPlotRenderer renderer;
+    renderer.setDiscardFlags(QwtPlotRenderer::DiscardBackground | QwtPlotRenderer::DiscardCanvasBackground);
+    renderer.setLayoutFlag(QwtPlotRenderer::FrameWithScales);
+    renderer.renderTo(m_d->m_plot, image);
+
+    m_d->m_plot->setTitle(QString());
+    m_d->m_plot->setFooter(QString());
+    m_d->m_waterMarkLabel->hide();
+
+    QApplication::clipboard()->setImage(image);
 }
 
 void Histo1DWidget::saveHistogram()
