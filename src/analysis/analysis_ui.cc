@@ -2125,6 +2125,8 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                             context->analysisOperatorEdited(sink);
                         });
 
+                        widget->setPlotExportDirectory(m_context->getWorkspacePath(QSL("PlotsDirectory")));
+
                         m_context->addObjectWidget(widget, rms.get(), rms->getId().toString());
                     }
                     else

@@ -13,31 +13,28 @@
 
 #include "analysis/a2/util/nan.h"
 #include "histo_util.h"
+#include "qt_util.h"
 #include "scrollzoomer.h"
 #include "util/assert.h"
-#include "mvme_stream_processor.h"
 #include "util/counters.h"
-#include "sis3153_readout_worker.h"
-#include "util/bihash.h"
 
 //
 // RateMonitorPlotWidget
 //
 
-// FIXME: use sampler->interval in here to get this correct for samplers that use a different interval than 1.0s
 static inline QRectF make_bounding_rect(const RateSampler *sampler)
 {
-    double xMin = 0.0;
-    double xMax = sampler->rateHistory.size();
+    QRectF result;
 
-    if (sampler->totalSamples > sampler->rateHistory.capacity())
+    if (!sampler->rateHistory.empty())
     {
-        xMin = sampler->totalSamples - sampler->rateHistory.capacity();
-        xMax = xMin + sampler->rateHistory.size();
-    }
+        double xMin = sampler->getFirstSampleTime();
+        double xMax = sampler->getLastSampleTime();
+        double yMax = get_max_value(sampler->rateHistory);
 
-    QRectF result(xMin * 1000.0, 0.0,
-                  xMax * 1000.0, get_max_value(sampler->rateHistory));
+        result = QRectF(xMin * 1000.0, 0.0,
+                        xMax * 1000.0, yMax);
+    }
 
     return result;
 }
@@ -52,18 +49,18 @@ struct RateMonitorPlotData: public QwtSeriesData<QPointF>
 
     size_t size() const override
     {
-        return sampler->rateHistory.size();
+        return sampler->historySize();
     }
 
     virtual QPointF sample(size_t i) const override
     {
-        auto rateHistory = &sampler->rateHistory;
-
-        double x = (sampler->totalSamples - rateHistory->size() + i) * 1000.0;
-        double y = rateHistory->at(i);
+        double x = sampler->getSampleTime(i) * 1000.0;
+        double y = sampler->getSample(i);
 
         QPointF result(x, y);
 #if 0
+        auto rateHistory = &sampler->rateHistory;
+
         qDebug() << __PRETTY_FUNCTION__
             << "sample =" << i
             << ", offset =" << offset
@@ -77,7 +74,6 @@ struct RateMonitorPlotData: public QwtSeriesData<QPointF>
 
     virtual QRectF boundingRect() const override
     {
-        //return get_qwt_bounding_rect_size(sampler->rateHistory);
         auto result = make_bounding_rect(sampler.get());
         qDebug() << __PRETTY_FUNCTION__ << result;
         return result;
@@ -106,7 +102,6 @@ RateMonitorPlotWidget::RateMonitorPlotWidget(QWidget *parent)
     m_d->m_plot->canvas()->setMouseTracking(true);
     m_d->m_plot->axisWidget(QwtPlot::yLeft)->setTitle("Rate");
 
-    // XXX: playing with QwtDateScaleEngine and QwtDateScaleDraw
     {
         auto engine = new QwtDateScaleEngine(Qt::UTC);
         m_d->m_plot->setAxisScaleEngine(QwtPlot::xBottom, engine);
@@ -129,7 +124,7 @@ RateMonitorPlotWidget::RateMonitorPlotWidget(QWidget *parent)
 
     qDebug() << __PRETTY_FUNCTION__ << "zoomRectIndex =" << m_d->m_zoomer->zoomRectIndex();
 
-    /* NOTE: using connect with the c++ pointer to member syntax with these qwt signals does
+    /* NOTE: using connect with the c++ pointer-to-member syntax with these qwt signals does
      * not work for some reason. */
     TRY_ASSERT(connect(m_d->m_zoomer, SIGNAL(zoomed(const QRectF &)),
                        this, SLOT(zoomerZoomed(const QRectF &))));
@@ -169,7 +164,7 @@ void RateMonitorPlotWidget::addRateSampler(const RateSamplerPtr &sampler,
     m_d->m_samplers.push_back(sampler);
 
     qDebug() << "added rate. title =" << title << ", color =" << color
-        << ", capacity =" << sampler->rateHistory.capacity()
+        << ", capacity =" << sampler->historyCapacity()
         << ", new plot count =" << m_d->m_curves.size();
 
     assert(m_d->m_samplers.size() == m_d->m_curves.size());
@@ -233,20 +228,27 @@ void RateMonitorPlotWidget::replot()
     // updateAxisScales
     static const double ScaleFactor = 1.05;
 
-    // FIXME: use sampler->interval in here to get this correct for samplers that use a different interval than 1.0s
-    double xMin = 0.0;
+    double xMin = std::numeric_limits<double>::max();
     double xMax = 0.0;
     double yMin = 0.0;
     double yMax = 0.0;
 
+    bool haveSamples = false;
+
     for (auto &sampler: m_d->m_samplers)
     {
-        xMin = std::max(xMin, (sampler->totalSamples - sampler->rateHistory.size()));
-        xMax = std::max(xMax, xMin + static_cast<double>(sampler->rateHistory.size()));
-        yMax = std::max(yMax, get_max_value(sampler->rateHistory));
+        if (!sampler->rateHistory.empty())
+        {
+            xMin = std::min(xMin, sampler->getFirstSampleTime());
+            xMax = std::max(xMax, sampler->getLastSampleTime());
+            yMax = std::max(yMax, get_max_value(sampler->rateHistory));
+            haveSamples = true;
+        }
     }
 
-    // scale x-value to milliseconds
+    if (!haveSamples) return;
+
+    // scale x-values to milliseconds
     xMin *= 1000.0;
     xMax *= 1000.0;
 
@@ -258,7 +260,7 @@ void RateMonitorPlotWidget::replot()
             break;
 
         case AxisScale::Logarithmic:
-            yMin = 0.001;
+            yMin = 0.1;
             yMax = std::pow(yMax, ScaleFactor);
             break;
     }

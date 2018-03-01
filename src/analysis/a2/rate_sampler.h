@@ -1,9 +1,16 @@
 #ifndef __A2_RATE_SAMPLER_H__
 #define __A2_RATE_SAMPLER_H__
 
+/* Disable circular buffer debugging support. I'm trying to see if concurrent
+ * read access from the GUI thread is ok or if the buffer has to be guarded by
+ * an RW lock. If buffer debugging is enabled assertions will fire under high
+ * load as the analysis thread is pushing values onto the buffer while the GUI
+ * plots the buffer contents. */
+#define BOOST_CB_DISABLE_DEBUG
 #include <boost/circular_buffer.hpp>
-#include <memory>
+
 #include <cmath>
+#include <memory>
 #include "util/counters.h"
 
 namespace a2
@@ -28,7 +35,7 @@ struct RateSampler
     /* Offset for recorded samples/rates. */
     double offset = 0.0;
 
-    /* Sampling interval in seconds. Not used for calculations but for x-axis scaling. */
+    /* Sampling interval in seconds. Not used for sampling but for x-axis scaling. */
     double interval = 1.0;
 
     //
@@ -89,11 +96,31 @@ struct RateSampler
         return calcRateAndDelta(value).first;
     }
 
+    size_t historySize() const { return rateHistory.size(); }
+    size_t historyCapacity() const { return rateHistory.capacity(); }
+
     void clearHistory()
     {
         rateHistory.clear();
         totalSamples = 0.0;
     }
+
+    double getSample(size_t sampleIndex) const
+    {
+        assert(sampleIndex < rateHistory.size());
+        return rateHistory.at(sampleIndex);
+    }
+
+    double getSampleTime(size_t sampleIndex) const
+    {
+        assert(sampleIndex < rateHistory.size());
+
+        double result = (totalSamples - rateHistory.size() + sampleIndex) * interval;
+        return result;
+    }
+
+    double getFirstSampleTime() const { return getSampleTime(0); }
+    double getLastSampleTime() const { return getSampleTime(rateHistory.size() - 1); }
 };
 
 using RateSamplerPtr = std::shared_ptr<RateSampler>;

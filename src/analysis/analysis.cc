@@ -3043,6 +3043,12 @@ RateMonitorSink::RateMonitorSink(QObject *parent)
 
 void RateMonitorSink::beginRun(const RunInfo &runInfo)
 {
+    if (!m_inputSlot.isConnected())
+    {
+        m_samplers.resize(0);
+        return;
+    }
+
     // Currently only supports connecting to arrays, not single parameters.
     assert(m_inputSlot.paramIndex == Slot::NoParamIndex);
 
