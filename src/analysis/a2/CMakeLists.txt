@@ -45,6 +45,7 @@ message("-- Found boost for liba2 in ${Boost_INCLUDE_DIRS}")
 
 set(liba2_SOURCES
     a2.cc
+    a2_exprtk.cc
     data_filter.cc
     listfilter.cc)
 

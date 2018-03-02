@@ -60,8 +60,28 @@ struct Arena
     }
 
     template<typename T>
+    T *pushObject(size_t align = alignof(T))
+    {
+        T *result = nullptr;
+        size_t space = free();
+        if (std::align(align, sizeof(T), cur, space))
+        {
+            result = new (cur) T;
+            cur = reinterpret_cast<u8 *>(cur) + sizeof(T);
+            assert(is_aligned(result, align));
+        }
+        else
+        {
+            throw out_of_memory();
+        }
+        return result;
+    }
+
+    /** Use for POD types only! It doesn't do any construction. */
+    template<typename T>
     T *pushStruct(size_t align = alignof(T))
     {
+#if 0
         T *result = nullptr;
         size_t space = free();
         if (std::align(align, sizeof(T), cur, space))
@@ -75,6 +95,9 @@ struct Arena
             throw out_of_memory();
         }
         return result;
+#else
+        return pushObject<T>(align);
+#endif
     }
 
     template<typename T>

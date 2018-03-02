@@ -2,6 +2,31 @@
 TODO list somewhat sorted by priority
 ==================================================
 
+--------------------------------------------------
+expression operator design plan
+--------------------------------------------------
+* use expr_tk to evaluate expressions
+* single input, single output
+
+* one script to init the output limits
+  executed during beginRun()
+  variables:
+    out: lower_limits, upper_limits, unit
+    in:  input_lower_limits, input_upper_limits, input_unit
+
+* one script to fill the output
+  executed repeatedly by a2_end_event() when it's stepping the operators
+  variables:
+    out: output
+    in: input
+
+* add a user defined functions
+  is_valid(), is_invalid() for testing parameter validity (has to check for nan and the specific bit being set)
+
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+* maybe add symbol table dump functionality somewhere if that is possible
+
 * Fix paused replay and "StopIfQueueEmpty" interaction
   Identify and fix issues with single stepping and pause/resume interaction.
   Somethings wrong with these things.
@@ -249,7 +274,7 @@ Be careful with the different rate types as they are updated at different times:
   experiment time for a replay.
 
 
---------------------------------------------------
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
 --------------------------------------------------
 Single Stepping and Stream Processing

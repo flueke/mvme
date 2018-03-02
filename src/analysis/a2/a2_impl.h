@@ -48,6 +48,8 @@ enum OperatorType
     Operator_Aggregate_MeanX,
     Operator_Aggregate_SigmaX,
 
+    Operator_Expression,
+
     OperatorTypeCount
 };
 
@@ -60,6 +62,7 @@ void binary_equation_step(Operator *op);
 void aggregate_sum_step(Operator *op);
 void aggregate_multiplicity_step(Operator *op);
 void aggregate_max_step(Operator *op);
+void expression_operator_step(Operator *op);
 
 void h1d_sink_step(Operator *op);
 void h1d_sink_step_idx(Operator *op);

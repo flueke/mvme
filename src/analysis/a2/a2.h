@@ -330,6 +330,15 @@ Operator make_aggregate_sigmax(
     Thresholds thresholds);
 
 /* ===============================================
+ * Expression Operator
+ * =============================================== */
+Operator make_expression_operator(
+    memory::Arena *arena,
+    PipeVectors inPipe,
+    const std::string &begin_expr,
+    const std::string &step_expr);
+
+/* ===============================================
  * Histograms
  * =============================================== */
 struct Binning

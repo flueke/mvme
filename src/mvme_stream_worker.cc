@@ -402,6 +402,7 @@ void MVMEStreamWorker::start()
         // Do not move this into Analysis::beginRun() as most of the time calls
         // to it are not directly followed by starting the StreamWorker,
         // meaning the threading setup is unnecessary.
+        // TODO: Move it into the stream processor instead.
         a2::a2_begin_run(a2State->a2);
     }
 
