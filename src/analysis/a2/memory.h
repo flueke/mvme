@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <exception>
 #include <memory>
+#include <vector>
 
 #include "util/typedefs.h"
 
@@ -19,30 +20,30 @@ inline bool is_aligned(const T *ptr, size_t alignment = alignof(T))
     return (((uintptr_t)ptr) % alignment) == 0;
 }
 
-struct Arena
+struct ArenaBase
 {
     u8 *mem;
     void *cur;
     size_t size;
 
-    explicit Arena(size_t size)
+    explicit ArenaBase(size_t size)
         : mem(new u8[size])
         , cur(mem)
         , size(size)
     { }
 
-    ~Arena()
+    ~ArenaBase()
     {
         delete[] mem;
     }
 
     // can't copy
-    Arena(Arena &other) = delete;
-    Arena &operator=(Arena &other) = delete;
+    ArenaBase(ArenaBase &other) = delete;
+    ArenaBase &operator=(ArenaBase &other) = delete;
 
     // can move
-    Arena(Arena &&other) = default;
-    Arena &operator=(Arena &&other) = default;
+    ArenaBase(ArenaBase &&other) = default;
+    ArenaBase &operator=(ArenaBase &&other) = default;
 
     inline size_t free() const
     {
@@ -59,29 +60,10 @@ struct Arena
         cur = mem;
     }
 
-    template<typename T>
-    T *pushObject(size_t align = alignof(T))
-    {
-        T *result = nullptr;
-        size_t space = free();
-        if (std::align(align, sizeof(T), cur, space))
-        {
-            result = new (cur) T;
-            cur = reinterpret_cast<u8 *>(cur) + sizeof(T);
-            assert(is_aligned(result, align));
-        }
-        else
-        {
-            throw out_of_memory();
-        }
-        return result;
-    }
-
     /** Use for POD types only! It doesn't do any construction. */
     template<typename T>
     T *pushStruct(size_t align = alignof(T))
     {
-#if 0
         T *result = nullptr;
         size_t space = free();
         if (std::align(align, sizeof(T), cur, space))
@@ -95,9 +77,6 @@ struct Arena
             throw out_of_memory();
         }
         return result;
-#else
-        return pushObject<T>(align);
-#endif
     }
 
     template<typename T>
@@ -135,6 +114,86 @@ struct Arena
     }
 };
 
+struct Arena: public ArenaBase
+{
+    using ArenaBase::ArenaBase;
+
+    // can't copy
+    Arena(Arena &other) = delete;
+    Arena &operator=(Arena &other) = delete;
+
+    // can move
+    Arena(Arena &&other) = default;
+    Arena &operator=(Arena &&other) = default;
+};
+
+namespace detail
+{
+
+template<typename T>
+struct destroy_only_deleter
+{
+    void operator()(T *ptr)
+    {
+        ptr->~T();
+    }
+};
+
+} // namespace detail
+
+struct ObjectArena: public ArenaBase
+{
+    explicit ObjectArena(size_t size)
+        : ArenaBase(size)
+    { }
+
+    ~ObjectArena()
+    {
+        for (auto it = deleters.rbegin();
+             it != deleters.rend();
+             it++)
+        {
+            (*it)();
+        }
+    }
+
+    template<typename T>
+    T *pushObject(size_t align = alignof(T))
+    {
+        T *result = nullptr;
+        size_t space = free();
+        if (std::align(align, sizeof(T), cur, space))
+        {
+            result = new (cur) T;
+            // push a lambda here.
+            // construction and the push must be atomic in regards to
+            // exceptions: the object must be destroyed even if the push fails
+
+            std::unique_ptr<T, detail::destroy_only_deleter<T>> guard_ptr(result);
+
+            deleters.emplace_back([result] () { result->~T(); });
+
+            guard_ptr.release();
+
+            cur = reinterpret_cast<u8 *>(cur) + sizeof(T);
+            assert(is_aligned(result, align));
+        }
+        else
+        {
+            throw out_of_memory();
+        }
+        return result;
+    }
+
+    private:
+    using Deleter = std::function<void ()>;
+    std::vector<Deleter> deleters;
+};
+
+/*
+ * "std::allocator Is to Allocation what std::vector Is to Vexation", CppCon 2015: Andrei Alexandrescu
+ */
+#if 0
 struct Blk
 {
     void *ptr;
@@ -196,7 +255,7 @@ struct Mallocator
 
 struct ArenaAllocator
 {
-    Arena arena;
+    ArenaBase arena;
 
     Blk allocate(size_t size, size_t align)
     {
@@ -225,6 +284,7 @@ struct ArenaAllocator
         return arena.mem <= block.ptr && block.ptr < arena.cur;
     }
 };
+#endif
 
 } // namespace memory
 

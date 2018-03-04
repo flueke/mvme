@@ -87,10 +87,11 @@ if(BUILD_TESTS)
         add_test(NAME ${exe_name} COMMAND $<TARGET_FILE:${exe_name}>)
     endfunction(add_a2_bench)
 
-    add_a2_bench(test_operators test_operators.cc)
+    add_a2_bench(test_a2_operators test_operators.cc)
     add_a2_bench(test_a2 test_a2.cc)
     add_a2_bench(test_a2_param test_a2_param.cc)
-    add_a2_bench(test_listfilter test_listfilter.cc)
+    add_a2_bench(test_a2_listfilter test_listfilter.cc)
+    add_a2_bench(test_a2_arena test_arena.cc)
 
 endif(BUILD_TESTS)
 
