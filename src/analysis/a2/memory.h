@@ -135,6 +135,7 @@ struct destroy_only_deleter
 {
     void operator()(T *ptr)
     {
+        //fprintf(stderr, "%s %p\n", __PRETTY_FUNCTION__, ptr);
         ptr->~T();
     }
 };
@@ -149,12 +150,19 @@ struct ObjectArena: public ArenaBase
 
     ~ObjectArena()
     {
+        reset();
+    }
+
+    inline void reset()
+    {
         for (auto it = deleters.rbegin();
              it != deleters.rend();
              it++)
         {
             (*it)();
         }
+
+        cur = mem;
     }
 
     template<typename T>
@@ -164,19 +172,33 @@ struct ObjectArena: public ArenaBase
         size_t space = free();
         if (std::align(align, sizeof(T), cur, space))
         {
+            // Construct the object inside the arena.
             result = new (cur) T;
-            // push a lambda here.
-            // construction and the push must be atomic in regards to
-            // exceptions: the object must be destroyed even if the push fails
+            assert(is_aligned(result, align));
+
+            // Now push a lambda calling the object destructor onto the
+            // deleters vector. Object construction and vector modification
+            // must be atomic in regards to exceptions: the object must be
+            // destroyed even if the push fails.
+            // To achieve exception safety a unique_ptr with a custom deleter
+            // that only runs the detructor is used to temporarily hold the
+            // object pointer. If the vector push throws the unique_ptr will
+            // properly destroy the object. Otherwise the deleter lambda has
+            // been stored and thus the pointer can be release() from the
+            // unique_ptr.
 
             std::unique_ptr<T, detail::destroy_only_deleter<T>> guard_ptr(result);
 
-            deleters.emplace_back([result] () { result->~T(); });
+            // This next call can throw (for example bad_alloc if running OOM).
+            deleters.emplace_back([result] () {
+                //fprintf(stderr, "%s %p\n", __PRETTY_FUNCTION__, result);
+                result->~T();
+            });
 
+            // emplace_back() did not throw. It's safe to release the guard now.
             guard_ptr.release();
 
             cur = reinterpret_cast<u8 *>(cur) + sizeof(T);
-            assert(is_aligned(result, align));
         }
         else
         {
