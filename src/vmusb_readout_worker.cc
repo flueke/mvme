@@ -495,9 +495,9 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         logError(e.what());
         errorThrown = true;
     }
-    catch (const vme_script::ParseError &)
+    catch (const vme_script::ParseError &e)
     {
-        logError(QSL("VME Script parse error"));
+        logError(QSL("VME Script parse error: ") + e.what());
         errorThrown = true;
     }
 
