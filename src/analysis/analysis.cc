@@ -3912,12 +3912,12 @@ void add_raw_data_display(Analysis *analysis, const QUuid &eventId, const QUuid 
     analysis->addOperator(eventId, display.calibratedHistoSink, 1);
 }
 
-void do_beginRun_forward(PipeSourceInterface *pipeSource)
+void do_beginRun_forward(PipeSourceInterface *pipeSource, const RunInfo &runInfo)
 {
     Q_ASSERT(pipeSource);
 
     qDebug() << __PRETTY_FUNCTION__ << "calling beginRun() on" << pipeSource;
-    pipeSource->beginRun({});
+    pipeSource->beginRun(runInfo);
 
     const s32 outputCount = pipeSource->getNumberOfOutputs();
 

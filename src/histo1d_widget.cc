@@ -1198,8 +1198,12 @@ void Histo1DWidget::calibApply()
     m_d->m_calibUi.actual2->setValue(m_d->m_calibUi.target2->value());
 
     AnalysisPauser pauser(m_context);
+
     m_calib->setCalibration(address, targetMin, targetMax);
-    analysis::do_beginRun_forward(m_calib.get());
+
+    RunInfo runInfo = {};
+    runInfo.keepAnalysisState = true;
+    analysis::do_beginRun_forward(m_calib.get(), runInfo);
 
     on_tb_rate_toggled(m_d->m_rateEstimationData.visible);
 }

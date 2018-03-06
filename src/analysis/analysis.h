@@ -1547,7 +1547,7 @@ RawDataDisplay LIBMVME_EXPORT make_raw_data_display(const MultiWordDataFilter &e
 
 void LIBMVME_EXPORT add_raw_data_display(Analysis *analysis, const QUuid &eventId, const QUuid &moduleId, const RawDataDisplay &display);
 
-void LIBMVME_EXPORT do_beginRun_forward(PipeSourceInterface *pipeSource);
+void LIBMVME_EXPORT do_beginRun_forward(PipeSourceInterface *pipeSource, const RunInfo &runInfo = {});
 
 QString LIBMVME_EXPORT make_unique_operator_name(Analysis *analysis, const QString &prefix);
 

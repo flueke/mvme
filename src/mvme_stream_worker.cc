@@ -22,6 +22,7 @@
 
 #include "analysis/a2_adapter.h"
 #include "analysis/analysis.h"
+#include "analysis/analysis_session.h"
 #include "histo1d.h"
 #include "mesytec_diagnostics.h"
 #include "mvme_context.h"
@@ -561,6 +562,21 @@ void MVMEStreamWorker::start()
     }
 
     m_d->streamProcessor.endRun();
+
+    // analysis session auto save
+    // NOTE: load is done in mvme.cpp
+    auto sessionPath = m_d->context->getWorkspacePath(QSL("SessionDirectory"));
+    if (!sessionPath.isEmpty())
+    {
+        auto filename = sessionPath + "/last_session.hdf5";
+        auto result   = save_analysis_session(filename, m_d->context->getAnalysis());
+
+        if (result.first)
+        {
+            logMessage(QString("Auto saved analysis session to %1").arg(filename));
+        }
+        // silent in the error case
+    }
 
     setState(MVMEStreamWorkerState::Idle);
 

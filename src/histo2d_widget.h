@@ -39,7 +39,7 @@ namespace analysis
     class Histo2DSink;
 };
 
-class Histo2DWidgetPrivate;
+struct Histo2DWidgetPrivate;
 
 class Histo2DWidget: public QWidget
 {

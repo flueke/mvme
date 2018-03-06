@@ -330,6 +330,8 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
         onActionAnalysis_UI_triggered();
         //onActionListfileBrowser_triggered();
         //onActionShowRateMonitor_triggered();
+
+
         // Focus the main window
         this->raise();
     });

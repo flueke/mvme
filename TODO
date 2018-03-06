@@ -1,6 +1,34 @@
 ==================================================
 TODO list somewhat sorted by priority
 ==================================================
+* Projection of combined H2D does not update axis scales after the source H1D
+  has been recalibrated.
+* Changing H1D calibration via its widget clears all histograms. This is not
+  needed as only the interpretation of the data in the histo changes. Improve
+  this case so that it keeps existing histo data.
+  -> Difficult: do_beginRun_forward() is used when applying the calibration
+  change. I tried passing keepAnalysisState = true but the histo still got
+  cleared.
+
+* Fix paused replay and "StopIfQueueEmpty" interaction
+  Identify and fix issues with single stepping and pause/resume interaction.
+  Somethings wrong with these things.
+
+* add sis3153 firmware update utility to 'extras' directory. Also package and
+  install sis library code (maybe). Ask struck if this is allowed.
+
+* Add element wise array multiplication operator and/or a calibration operator
+  using slope and offset values.
+
+* Add an exprtk operator! That would be freakin awesome.
+
+* Implement "copy plot to clipboard" feature
+
+* add 64 bit DataFilter
+* phase out data_filter.h (DataFilter and MultiWordDataFilter). stick to the a2 stuff
+* Redo the way EventWidget and AddEditExtractorWidget work together right now.
+  Move the add/edit code from EventWidget::addSource()/sourceEdited() into the
+  dialog. Let the dialog notify the EventWidget about changes via a signal.
 
 --------------------------------------------------
 expression operator design plan
@@ -312,27 +340,9 @@ Single Stepping and Stream Processing
     The user passes in a structure containing callbacks for each section type
     and for module data. Not all callbacks have to be implented as they can be
     set to null.
---------------------------------------------------
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
 --------------------------------------------------
-CombiningFilter and CombiningExtractor
---------------------------------------------------
-* 64 bit DataFilter
-* phase out data_filter.h (DataFilter and MultiWordDataFilter)
-
-* Ordering of CombiningExtractors:
-  A list of CombiningExtractor is attached to a module. The order of those
-  extractors is important and must be kept the same when transforming to a2 and
-  when loading from config as these extractors must be executed in order.
-
-* Redo the way EventWidget and AddEditExtractorWidget work together right now.
-  Move the add/edit code from EventWidget::addSource()/sourceEdited() into the
-  dialog. Let the dialog notify the EventWidget about changes via a signal.
-
-
---------------------------------------------------
-* Auto save and restore analysis session
-
 * Remove now unused run-time code from the Analysis classes. Make it clear that
   they're for serialization, internal connectiviy and a2 generation only.
 * analysis session: errors out when saving and empty analysis session
@@ -371,16 +381,6 @@ CombiningFilter and CombiningExtractor
   * Think about the sis3153 counted block read commands. Maybe add a "dialect" to
     vmescript so that the fact that sis3153 does not have a mask operation is
     clear.
-  * Fix sis lost packet count. On robert's windows machine it's still bugged and
-    jumps to 1.6e7 or so instantly!
-
-virtual void SIS3153ReadoutWorker::start(quint32) StackListControl: StackListControl: 0x8005 -> (Buffering | Timer2 | StackListEnable)
-void SIS3153ReadoutWorker::setState(DAQState) "Starting" -> "Running"
-u32 SIS3153ReadoutWorker::PacketLossCounter::handlePacketNumber(s32, u64) first ignored packetNumber: 3428387
-u32 SIS3153ReadoutWorker::PacketLossCounter::handlePacketNumber(s32, u64) first actual packetNumber: 3428388
-u32 SIS3153ReadoutWorker::PacketLossCounter::handlePacketNumber(s32, u64) buffer # 1 , packetNumber diff is < 0: -3428407 , lastReceivedPacketNumber = 3428408 , current packetNumber = 1 , adjustedDiff = 13348808
-virtual void SIS3153ReadoutWorker::stop()
-
   * Fix socket error messages under windows. Use and test the WSA stuff.
 
 
@@ -404,8 +404,6 @@ virtual void SIS3153ReadoutWorker::stop()
   operator" context menu instead of "sum". Where else is getDisplayName() used?
   -> The above works. What I need now is to change the suggested operator name
   of selecting a different aggregate op. Right now it always appends ".sum".
-
-* Add a scaler display somewhere. What does this show? Hz?
 
 * Resolution change for 2D combined histograms?
   -> Would have to implement this in a different way: Instead of just looking
