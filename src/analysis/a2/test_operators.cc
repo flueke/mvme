@@ -219,6 +219,50 @@ static void TEST_listfilter_extractor(benchmark::State &state)
         assert(dcmp(ce.output.data[0x23], 0x3333));
         assert(dcmp(ce.output.data[0x38], 0x8888));
     }
+
+    // 16 bit high word bug testing
+    // This is the case used with mesytec modules: two 16 bit reads of the ctrA
+    // registers, yielding two 32 bit words in the data stream. The first word
+    // read contains the 16 low bits, the second word the 16 high bits.
+    // Extract the low 16 bits of each of the words and combine them to a 32
+    // bit counter value.
+    {
+        const u16 wordCount = 2;
+        const u16 repetitions = 1;
+        const u64 rngSeed = 1234;
+        const u8  moduleIndex = 0;
+
+        Arena arena(Kilobytes(256));
+
+        static u32 inputData[] =
+        {
+            0x4321affe,
+            0x87651001,
+        };
+
+        static const u32 inputSize = ArrayCount(inputData);
+
+        ListFilter cf = make_listfilter(
+            ListFilter::NoFlag,
+            wordCount,
+            { "DDDD DDDD DDDD DDDD DDDD DDDD DDDD DDDD" });
+
+        DataFilter rf = {}; // repetition filter is not used
+
+        auto ce = make_datasource_listfilter_extractor(&arena, cf, rf,
+                                                       repetitions, rngSeed,
+                                                       moduleIndex);
+
+        assert(ce.output.data.size == (1u << 0));
+
+        listfilter_extractor_begin_event(&ce);
+
+        u32 *dataPtr = listfilter_extractor_process_module_data(&ce, inputData, inputSize);
+
+        assert(dataPtr == inputData + inputSize);
+        assert(is_param_valid(ce.output.data[0]));
+        assert(dcmp(ce.output.data[0], 0x1001affe));
+    }
 }
 BENCHMARK(TEST_listfilter_extractor);
 

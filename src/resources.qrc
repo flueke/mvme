@@ -52,6 +52,7 @@
     <file alias="operator_generic.png">resources/code-class.png</file>
     <file alias="operator_previous.png">resources/arrow-circle-225-left.png</file>
     <file alias="operator_sum.png">resources/sum.png</file>
+    <file alias="rate_monitor_sink.png">resources/application-monitor.png</file>
 
     <file alias="gpl-notice.txt">resources/gpl-notice.txt</file>
     <file alias="mesytec-logo.png">resources/mesytec-logo.png</file>

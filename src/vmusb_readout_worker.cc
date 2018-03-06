@@ -495,9 +495,9 @@ void VMUSBReadoutWorker::start(quint32 cycles)
         logError(e.what());
         errorThrown = true;
     }
-    catch (const vme_script::ParseError &)
+    catch (const vme_script::ParseError &e)
     {
-        logError(QSL("VME Script parse error"));
+        logError(QSL("VME Script parse error: ") + e.what());
         errorThrown = true;
     }
 
@@ -699,7 +699,7 @@ void VMUSBReadoutWorker::readoutLoop()
         }
         else if (m_state == DAQState::Paused)
         {
-            QThread::msleep(std::min(PauseMaxSleep_ms, timetickGen.getTimeToNextTick()));
+            QThread::msleep(std::min(PauseMaxSleep_ms, timetickGen.getTimeToNextTick_ms()));
         }
         else
         {

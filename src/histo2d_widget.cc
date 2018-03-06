@@ -54,46 +54,54 @@
 
 static const s32 ReplotPeriod_ms = 1000;
 
-class Histo2DRasterData: public QwtRasterData
+using Intervals = Histo2DStatistics::Intervals;
+
+class RasterDataBase: public QwtRasterData
 {
 public:
-
-    Histo2DRasterData(Histo2D *histo)
-        : m_histo(histo)
+    void setIntervals(const Intervals &intervals)
     {
-        updateIntervals();
-    }
-
-    virtual double value(double x, double y) const
-    {
-        double v = m_histo->getValue(x, y);
-        return (v > 0.0 ? v : make_quiet_nan());
-    }
-
-    void updateIntervals()
-    {
-        for (int axis=0; axis<3; ++axis)
+        for (size_t axis = 0; axis < intervals.size(); axis++)
         {
-            AxisInterval interval = m_histo->getInterval(static_cast<Qt::Axis>(axis));
-            setInterval(static_cast<Qt::Axis>(axis), QwtInterval(interval.minValue, interval.maxValue));
+            setInterval(static_cast<Qt::Axis>(axis),
+                        { intervals[axis].minValue, intervals[axis].maxValue });
+
+            qDebug() << __PRETTY_FUNCTION__ << "axis =" << axis
+                << ", min =" << intervals[axis].minValue
+                << ", max =" << intervals[axis].maxValue;
         }
     }
+};
 
-private:
+struct Histo2DRasterData: public RasterDataBase
+{
+    Histo2DRasterData(Histo2D *histo)
+        : RasterDataBase()
+        , m_histo(histo)
+    {
+    }
+
+    virtual double value(double x, double y) const override
+    {
+        double v = m_histo->getValue(x, y);
+        double r = (v > 0.0 ? v : make_quiet_nan());
+        return r;
+    }
+
     Histo2D *m_histo;
 };
 
 using HistoList = QVector<std::shared_ptr<Histo1D>>;
 
-struct Histo1DListRasterData: public QwtRasterData
+struct Histo1DListRasterData: public RasterDataBase
 {
     Histo1DListRasterData(const HistoList &histos)
-        : m_histos(histos)
+        : RasterDataBase()
+        , m_histos(histos)
     {
-        updateIntervals();
     }
 
-    virtual double value(double x, double y) const
+    virtual double value(double x, double y) const override
     {
         int histoIndex = x;
 
@@ -101,31 +109,63 @@ struct Histo1DListRasterData: public QwtRasterData
             return make_quiet_nan();
 
         double v = m_histos[histoIndex]->getValue(y);
-        return (v > 0.0 ? v : make_quiet_nan());
-    }
-
-    void updateIntervals()
-    {
-        Q_ASSERT(m_histos.size() > 0);
-
-        double yMin = m_histos[0]->getXMin();
-        double yMax = m_histos[0]->getXMax();
-        double zMax = m_histos[0]->getMaxValue();
-
-        for (int i=1; i<m_histos.size(); ++i)
-        {
-            yMin = std::min(yMin, m_histos[i]->getXMin());
-            yMax = std::max(yMax, m_histos[i]->getXMax());
-            zMax = std::max(zMax, m_histos[i]->getMaxValue());
-        }
-
-        setInterval(Qt::XAxis, QwtInterval(0, m_histos.size()));
-        setInterval(Qt::YAxis, QwtInterval(yMin, yMax));
-        setInterval(Qt::ZAxis, QwtInterval(0.0, zMax));
+        double r = (v > 0.0 ? v : make_quiet_nan());
+        return r;
     }
 
     HistoList m_histos;
 };
+
+using Histo1DSinkPtr = Histo2DWidget::Histo1DSinkPtr;
+
+static Histo2DStatistics calc_Histo1DSink_combined_stats(const Histo1DSinkPtr &sink,
+                                                         AxisInterval xInterval,
+                                                         AxisInterval yInterval,
+                                                         analysis::A2AdapterState *a2State)
+{
+    assert(sink);
+    assert(a2State);
+    Histo2DStatistics result;
+
+    /* Counts: sum of all histo counts
+     * Max Z: absolute max value of the histos
+     * Coordinates: x = histo#, y = x coordinate of the max value in the histo
+     *
+     * Note: this solution is not perfect. The zoom level is not taken into
+     * account. Also histo counts remain after the histos have been cleared
+     * via "Clear Histograms". Upon starting a new run the counts are ok
+     * again.
+     */
+
+    s32 firstHistoIndex = std::max(xInterval.minValue, 0.0);
+    s32 lastHistoIndex  = std::min(xInterval.maxValue, static_cast<double>(sink->m_histos.size() - 1));
+
+    for (s32 hi = firstHistoIndex; hi < lastHistoIndex; hi++)
+    {
+        auto histo  = sink->m_histos.at(hi);
+        auto stats = histo->calcStatistics(yInterval.minValue, yInterval.maxValue);
+
+        result.entryCount += stats.entryCount;
+
+        if (stats.maxValue > result.maxZ)
+        {
+            result.maxBinX = hi;
+            result.maxBinY = stats.maxBin;
+            result.maxX = hi;
+            result.maxY = histo->getBinLowEdge(stats.maxBin);
+            result.maxZ = stats.maxValue;
+        }
+    }
+
+    auto firstHisto   = sink->m_histos.at(firstHistoIndex);
+    auto firstBinning = firstHisto->getAxisBinning(Qt::XAxis);
+
+    result.intervals[Qt::XAxis] = { static_cast<double>(firstHistoIndex), static_cast<double>(lastHistoIndex) };
+    result.intervals[Qt::YAxis] = { firstBinning.getMin(), firstBinning.getMax() };
+    result.intervals[Qt::ZAxis] = { 0.0, result.maxZ };
+
+    return result;
+}
 
 // from http://stackoverflow.com/a/9021841
 class LogarithmicColorMap : public QwtLinearColorMap
@@ -226,21 +266,6 @@ static QWidget *make_spacer_widget()
     auto result = new QWidget;
     result->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     return result;
-}
-
-static QWidget *make_vbox_container(const QString &labelText, QWidget *widget)
-{
-    auto label = new QLabel(labelText);
-    label->setAlignment(Qt::AlignCenter);
-
-    auto container = new QWidget;
-    auto layout = new QVBoxLayout(container);
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(0);
-    layout->addWidget(label);
-    layout->addWidget(widget);
-
-    return container;
 }
 
 Histo2DWidget::Histo2DWidget(const Histo2DPtr histoPtr, QWidget *parent)
@@ -463,68 +488,96 @@ Histo2DWidget::~Histo2DWidget()
 
 void Histo2DWidget::replot()
 {
-    updateCursorInfoLabel();
+    /* Things that have to happen:
+     * - calculate stats for the visible area. use this to scale z
+     * - update info display
+     * - update cursor info
+     * - update axis titles
+     * - update window title
+     * - update projections
+     */
 
-    QwtRasterData *rasterData = nullptr;
-    if (m_histo)
-    {
-        auto histData = reinterpret_cast<Histo2DRasterData *>(m_plotItem->data());
-        histData->updateIntervals();
-        rasterData = histData;
-    }
-    else if (m_histo1DSink)
-    {
-        auto histData = reinterpret_cast<Histo1DListRasterData *>(m_plotItem->data());
-        histData->updateIntervals();
-        rasterData = histData;
-    }
-    else
-    {
-        InvalidCodePath;
-    }
+    QwtInterval visibleXInterval = m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).interval();
+    QwtInterval visibleYInterval = m_d->m_plot->axisScaleDiv(QwtPlot::yLeft).interval();
 
+    // If fully zoomed out set axis scales to full size and use that as the zoomer base.
     if (m_zoomer->zoomRectIndex() == 0)
     {
-        // Fully zoomed out => set axis scales to full size and use that as the zoomer base.
+        if (m_histo)
+        {
+            visibleXInterval =
+            {
+                m_histo->getAxisBinning(Qt::XAxis).getMin(),
+                m_histo->getAxisBinning(Qt::XAxis).getMax()
+            };
 
-        auto xInterval = rasterData->interval(Qt::XAxis);
-        m_d->m_plot->setAxisScale(QwtPlot::xBottom, xInterval.minValue(), xInterval.maxValue());
+            visibleYInterval =
+            {
+                m_histo->getAxisBinning(Qt::YAxis).getMin(),
+                m_histo->getAxisBinning(Qt::YAxis).getMax()
+            };
+        }
+        else if (m_histo1DSink)
+        {
+            auto firstHisto   = m_histo1DSink->m_histos.at(0);
+            auto firstBinning = firstHisto->getAxisBinning(Qt::XAxis);
 
-        auto yInterval = rasterData->interval(Qt::YAxis);
-        m_d->m_plot->setAxisScale(QwtPlot::yLeft, yInterval.minValue(), yInterval.maxValue());
+            visibleXInterval =
+            {
+                0.0,
+                static_cast<double>(m_histo1DSink->m_histos.size() - 1)
+            };
 
+            visibleYInterval =
+            {
+                firstBinning.getMin(),
+                firstBinning.getMax(),
+            };
+        }
+
+        m_d->m_plot->setAxisScale(QwtPlot::xBottom, visibleXInterval.minValue(), visibleXInterval.maxValue());
+        m_d->m_plot->setAxisScale(QwtPlot::yLeft,   visibleYInterval.minValue(), visibleYInterval.maxValue());
         m_zoomer->setZoomBase();
     }
 
-    // z axis interval
-    auto interval = rasterData->interval(Qt::ZAxis);
-    double base = zAxisIsLog() ? 1.0 : 0.0;
-    interval = interval.limited(base, interval.maxValue());
+    Histo2DStatistics stats;
 
-    m_d->m_plot->setAxisScale(QwtPlot::yRight, interval.minValue(), interval.maxValue());
+    if (m_histo)
+    {
+        stats = m_histo->calcStatistics(
+            { visibleXInterval.minValue(), visibleXInterval.maxValue() },
+            { visibleYInterval.minValue(), visibleYInterval.maxValue() });
+    }
+    else if (m_histo1DSink)
+    {
+        stats = calc_Histo1DSink_combined_stats(
+            m_histo1DSink,
+            { visibleXInterval.minValue(), visibleXInterval.maxValue() },
+            { visibleYInterval.minValue(), visibleYInterval.maxValue() },
+            m_context->getAnalysis()->getA2AdapterState());
+    }
+
+    auto rasterData = reinterpret_cast<RasterDataBase *>(m_plotItem->data());
+    rasterData->setIntervals(stats.intervals);
+
+    auto zInterval = rasterData->interval(Qt::ZAxis);
+    double zBase = zAxisIsLog() ? 1.0 : 0.0;
+    zInterval = zInterval.limited(zBase, zInterval.maxValue());
+
+    m_d->m_plot->setAxisScale(QwtPlot::yRight, zInterval.minValue(), zInterval.maxValue());
+
     auto axis = m_d->m_plot->axisWidget(QwtPlot::yRight);
-    axis->setColorMap(interval, getColorMap());
+    axis->setColorMap(zInterval, getColorMap());
+
+    // cursor info
+    updateCursorInfoLabel();
 
     // window and axis titles
     QString windowTitle;
     if (m_histo)
     {
         windowTitle = QString("Histogram %1").arg(m_histo->objectName());
-    }
-    else if (m_histo1DSink)
-    {
-        windowTitle = QString("%1 2D combined").arg(m_histo1DSink->objectName());
-    }
-    else
-    {
-        InvalidCodePath;
-    }
 
-    setWindowTitle(windowTitle);
-
-    // axis titles
-    if (m_histo)
-    {
         auto axisInfo = m_histo->getAxisInfo(Qt::XAxis);
         m_d->m_plot->axisWidget(QwtPlot::xBottom)->setTitle(make_title_string(axisInfo));
 
@@ -533,6 +586,8 @@ void Histo2DWidget::replot()
     }
     else if (m_histo1DSink)
     {
+        windowTitle = QString("%1 2D combined").arg(m_histo1DSink->objectName());
+
         m_d->m_plot->axisWidget(QwtPlot::xBottom)->setTitle(QSL("Histogram #"));
 
         // Use the first histograms x axis as the title for the combined y axis
@@ -542,101 +597,29 @@ void Histo2DWidget::replot()
             m_d->m_plot->axisWidget(QwtPlot::yLeft)->setTitle(make_title_string(axisInfo));
         }
     }
+    else
+    {
+        InvalidCodePath;
+    }
+
+    setWindowTitle(windowTitle);
 
     // stats display
-    QwtInterval xInterval = m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).interval();
-    QwtInterval yInterval = m_d->m_plot->axisScaleDiv(QwtPlot::yLeft).interval();
-
-    QString infoText;
-
-    if (m_histo)
-    {
-        auto stats = m_histo->calcStatistics(
-            {xInterval.minValue(), xInterval.maxValue()},
-            {yInterval.minValue(), yInterval.maxValue()});
-
-        double maxX = stats.maxX;
-        double maxY = stats.maxY;
-
-        infoText = QString("Counts: %1\n"
-                           "Max Z:  %2 @ (%3, %4)\n"
-                          )
-            .arg(stats.entryCount)
-            .arg(stats.maxValue)
-            .arg(maxX, 0, 'g', 6)
-            .arg(maxY, 0, 'g', 6)
-            ;
-    }
-    else if (m_histo1DSink && m_histo1DSink->getNumberOfHistos() > 0)
-    {
-        /* Counts: sum of all histo counts
-         * Max Z: absolute max value of the histos
-         * Coordinates: x = histo#, y = x coordinate of the max value in the histo
-         *
-         * Note: this solution is not perfect. The zoom level is not taken into
-         * account. Also histo counts remain after the histos have been cleared
-         * via "Clear Histograms". Upon starting a new run the counts are ok
-         * again.
-         */
-
-        double entryCountSum = 0.0;
-        Histo1D::ValueAndBin maxValueAndBin = {};
-        u32 maxHistoIndex = 0;
-
-        const s32 histoCount = m_histo1DSink->getNumberOfHistos();
-
-#if ANALYSIS_USE_A2
-        Q_ASSERT(m_context);
-        Q_ASSERT(m_context->getAnalysis());
-
-        if (auto a2State = m_context->getAnalysis()->getA2AdapterState())
-        {
-            if (auto a2_sink = a2State->operatorMap.value(m_histo1DSink.get(), nullptr))
-            {
-                for (s32 histoIndex = 0; histoIndex < histoCount; histoIndex++)
-                {
-                    entryCountSum += reinterpret_cast<a2::H1DSinkData *>(a2_sink->d)->histos[histoIndex].entryCount;
-
-                    const auto &histo(m_histo1DSink->m_histos.at(histoIndex));
-                    auto histoMax = histo->getMaxValueAndBin();
-                    if (histoMax.value > maxValueAndBin.value)
-                    {
-                        maxValueAndBin = histoMax;
-                        maxHistoIndex = histoIndex;
-                    }
-                }
-            }
-        }
-#else
-        for (s32 histoIndex = 0; histoIndex < histoCount; histoIndex++)
-        {
-            const auto &histo(m_histo1DSink->m_histos.at(histoIndex));
-            entryCountSum += histo->getEntryCount();
-            auto histoMax = histo->getMaxValueAndBin();
-            if (histoMax.value > maxValueAndBin.value)
-            {
-                maxValueAndBin = histoMax;
-                maxHistoIndex = histoIndex;
-            }
-        }
-#endif
-
-        auto firstHisto = m_histo1DSink->getHisto(0);
-
-        infoText = QString("Counts: %1\n"
-                           "Max Z:  %2 @ (%3, %4)\n"
-                          )
-            .arg(entryCountSum)
-            .arg(maxValueAndBin.value)
-            .arg(static_cast<double>(maxHistoIndex), 0, 'g', 6)
-            .arg(firstHisto->getBinCenter(maxValueAndBin.bin), 0, 'g', 6)
-            ;
-    }
+    auto infoText = (QString(
+            "Counts: %1\n"
+            "Max Z:  %2 @ (%3, %4)\n")
+        .arg(stats.entryCount)
+        .arg(stats.maxZ)
+        .arg(stats.maxX, 0, 'g', 6)
+        .arg(stats.maxY, 0, 'g', 6)
+        );
 
     m_d->m_labelHistoInfo->setText(infoText);
 
+    // tell qwt to replot
     m_d->m_plot->replot();
 
+    // projections
     if (m_xProjWidget)
     {
         doXProjection();
@@ -801,16 +784,7 @@ void Histo2DWidget::zoomerZoomed(const QRectF &zoomRect)
     m_d->m_plot->setAxisScaleDiv(QwtPlot::yLeft, scaleDiv);
     replot();
 #endif
-
-    if (m_xProjWidget)
-    {
-        doXProjection();
-    }
-
-    if (m_yProjWidget)
-    {
-        doYProjection();
-    }
+    replot();
 }
 
 void Histo2DWidget::updateCursorInfoLabel()

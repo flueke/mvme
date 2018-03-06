@@ -83,25 +83,8 @@ void Histo2D::fill(double x, double y, double weight)
     else
     {
         u32 linearBin = yBin * m_axisBinnings[Qt::XAxis].getBins() + xBin;
-        /* If clear to nan
-        if (std::isnan(m_data[linearBin]))
-        {
-            m_data[linearBin] = 0.0;
-        }
-        */
 
         m_data[linearBin] += weight;
-        double newValue = m_data[linearBin];
-
-        if (newValue > m_stats.maxValue)
-        {
-            m_stats.maxValue = newValue;
-            m_stats.maxBinX  = xBin;
-            m_stats.maxBinY  = yBin;
-            m_stats.maxX = m_axisBinnings[Qt::XAxis].getBinLowEdge(xBin);
-            m_stats.maxY = m_axisBinnings[Qt::YAxis].getBinLowEdge(yBin);
-        }
-        m_stats.entryCount += weight;
     }
 }
 
@@ -134,12 +117,10 @@ double Histo2D::getBinContent(u32 xBin, u32 yBin) const
 void Histo2D::clear()
 {
     size_t binCount = m_axisBinnings[Qt::XAxis].getBins() * m_axisBinnings[Qt::YAxis].getBins();
-    //std::fill(m_data, m_data + binCount, make_quiet_nan());
     std::fill(m_data, m_data + binCount, 0.0);
 
     m_underflow = 0.0;
     m_overflow = 0.0;
-    m_stats = {};
 }
 
 void Histo2D::debugDump() const
@@ -150,22 +131,12 @@ void Histo2D::debugDump() const
         << ", min =" << xAxis.getMin()
         << ", max =" << xAxis.getMax();
     qDebug() << "  underflow =" << m_underflow << ", overflow =" << m_overflow;
-
-#if 0
-    for (s32 y = 0;
-         y < m_yAxis.getBins();
-         ++y)
-    {
-        for (s32 x = 0;
-             x < m_xAxis.getBins();
-             ++x)
-    }
-#endif
 }
 
 AxisInterval Histo2D::getInterval(Qt::Axis axis) const
 {
     AxisInterval result = {};
+
     if (axis == Qt::XAxis)
     {
         result.minValue = m_axisBinnings[Qt::XAxis].getMin();
@@ -178,31 +149,22 @@ AxisInterval Histo2D::getInterval(Qt::Axis axis) const
     }
     else if (axis == Qt::ZAxis)
     {
-        result.minValue = 0.0;
-        // FIXME: hack for a2
-        //result.maxValue = m_stats.maxValue;
-        result.maxValue = m_lastCalculatedMaxValue;
+        InvalidCodePath;
     }
 
     return result;
 }
 
-Histo2DStatistics Histo2D::getGlobalStatistics() const
+Histo2DStatistics Histo2D::calcGlobalStatistics() const
 {
     return calcStatistics(getInterval(Qt::XAxis), getInterval(Qt::YAxis));
 }
 
 Histo2DStatistics Histo2D::calcStatistics(AxisInterval xInterval, AxisInterval yInterval) const
 {
-    // always calculate due to a2 filling the histogram without updating the local stats here
-#if 0
-    if (xInterval == getInterval(Qt::XAxis)
-        && yInterval == getInterval(Qt::YAxis))
-    {
-        // global range for both intervals, return global stats
-        return m_stats;
-    }
-#endif
+    qDebug() << __PRETTY_FUNCTION__
+        << "xInterval =" << xInterval.minValue << xInterval.maxValue
+        << "yInterval =" << yInterval.minValue << yInterval.maxValue;
 
     Histo2DStatistics result;
 
@@ -239,9 +201,9 @@ Histo2DStatistics Histo2D::calcStatistics(AxisInterval xInterval, AxisInterval y
 
             if (!std::isnan(v))
             {
-                if (v > result.maxValue)
+                if (v > result.maxZ)
                 {
-                    result.maxValue = v;
+                    result.maxZ = v;
                     result.maxBinX  = xBin;
                     result.maxBinY  = yBin;
                 }
@@ -253,8 +215,9 @@ Histo2DStatistics Histo2D::calcStatistics(AxisInterval xInterval, AxisInterval y
     result.maxX = m_axisBinnings[Qt::XAxis].getBinLowEdge(result.maxBinX);
     result.maxY = m_axisBinnings[Qt::YAxis].getBinLowEdge(result.maxBinY);
 
-    // FIXME: hack for a2
-    m_lastCalculatedMaxValue = result.maxValue;
+    result.intervals[Qt::XAxis] = xInterval;
+    result.intervals[Qt::YAxis] = yInterval;
+    result.intervals[Qt::ZAxis] = { 0.0, result.maxZ };
 
     return result;
 }

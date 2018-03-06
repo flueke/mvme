@@ -1,9 +1,10 @@
 #ifndef __LISTFILE_CONSTANTS_H__
 #define __LISTFILE_CONSTANTS_H__
 
+#include "libmvme_export.h"
 #include "listfile_version.h"
 
-struct ListfileConstants
+struct LIBMVME_EXPORT ListfileConstants
 {
     u32 Version;
     char FourCC[4];
@@ -37,6 +38,6 @@ struct ListfileConstants
     u32 module_type(u32 moduleDataHeader) const;
 };
 
-const ListfileConstants &listfile_constants(u32 version = CurrentListfileVersion);
+LIBMVME_EXPORT const ListfileConstants &listfile_constants(u32 version = CurrentListfileVersion);
 
 #endif /* __LISTFILE_CONSTANTS_H__ */

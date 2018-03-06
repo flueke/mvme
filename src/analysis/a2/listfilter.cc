@@ -40,6 +40,7 @@ u64 combine(ListFilter *cf, const u32 *data, u32 count)
 ListFilterResult extract_from_combined(ListFilter *cf, const u64 combined, MultiWordFilter::CacheType cacheType)
 {
     assert(!is_complete(&cf->extractionFilter));
+    //printf("d0=%lx, d1=%lx\n", combined, combined >> 32);
     process_data(&cf->extractionFilter, static_cast<u32>(combined));
     process_data(&cf->extractionFilter, static_cast<u32>(combined >> 32));
     bool matched = is_complete(&cf->extractionFilter);

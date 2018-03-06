@@ -110,8 +110,8 @@ void save_Histo1DSink(H5File &outfile, Histo1DSink *histoSink)
     DataSpace memspace(2, dimensions, nullptr);
 
     Slab<2> memSlab;
-    memSlab.start   = { 0, 0 };
-    memSlab.count   = { 1, (hsize_t)histoSink->m_bins };
+    memSlab.start   = {{ 0, 0 }};
+    memSlab.count   = {{ 1, (hsize_t)histoSink->m_bins }};
 
     memspace.selectHyperslab(
         H5S_SELECT_SET,
@@ -143,8 +143,8 @@ void save_Histo1DSink(H5File &outfile, Histo1DSink *histoSink)
         const auto histo = histoSink->m_histos[histoIndex];
 
         Slab<2> fileSlab;
-        fileSlab.start  = { (hsize_t)histoIndex, 0 };
-        fileSlab.count  = { 1, (hsize_t)histoSink->m_bins };
+        fileSlab.start  = { { (hsize_t)histoIndex, 0 } };
+        fileSlab.count  = { { 1, (hsize_t)histoSink->m_bins } };
 
         filespace.selectHyperslab(
             H5S_SELECT_SET,
@@ -201,6 +201,83 @@ void save_Histo2DSink(H5File &outfile, Histo2DSink *histoSink)
         dataspace);
 }
 
+void save_RateMonitorSink(H5File &outfile, RateMonitorSink *rms)
+{
+    auto name = make_operator_name(rms);
+    const auto samplerCount = rms->rateSamplerCount();
+    const auto capacity     = rms->getRateHistoryCapacity();
+
+    qDebug() << __PRETTY_FUNCTION__ << "count =" << samplerCount << ", capacity =" << capacity;
+
+    const hsize_t dimensions[] =
+    {
+        (hsize_t)samplerCount,
+        (hsize_t)capacity + 1 // HACK: store RateSampler::totalSamples as the first element of the dataset
+    };
+
+    DataSpace memspace(2, dimensions, nullptr);
+
+    Slab<2> memSlab;
+    memSlab.start   = {{ 0, 0 }};
+    memSlab.count   = {{ 1, (hsize_t)capacity + 1 }};
+
+    memspace.selectHyperslab(
+        H5S_SELECT_SET,
+        memSlab.count.data(),
+        memSlab.start.data());
+
+    DataSpace filespace(2, dimensions, NULL);
+
+    DSetCreatPropList dataset_creation_plist;
+
+    // one sampler
+    const hsize_t chunk_dimensions[] = { 1, (hsize_t)capacity + 1 };
+
+    dataset_creation_plist.setChunk(2, chunk_dimensions);
+    dataset_creation_plist.setDeflate(compressionLevel);
+
+    DataSet dataset = outfile.createDataSet(
+        name.toLocal8Bit().constData(),
+        make_datatype_native_double(),
+        filespace,
+        dataset_creation_plist
+        );
+
+    add_string_attribute(dataset, QString("className"), QString(rms->metaObject()->className()));
+    add_string_attribute(dataset, "id", rms->getId().toString());
+
+    std::vector<double> buffer;
+    buffer.resize(capacity + 1, 0.0);
+
+    for (s32 si = 0; si < samplerCount; si++)
+    {
+        auto sampler = rms->getRateSampler(si);
+
+        std::fill(buffer.begin(), buffer.end(), make_quiet_nan());
+
+        buffer[0] = sampler->totalSamples; // HACK: store RateSampler::totalSamples as the first element of the dataset
+
+        for (size_t historyIndex = 0; historyIndex < sampler->rateHistory.size(); historyIndex++)
+        {
+            buffer[historyIndex + 1] = sampler->rateHistory[historyIndex];
+        }
+
+        Slab<2> fileSlab;
+        fileSlab.start  = { { (hsize_t)si, 0 } };
+        fileSlab.count  = { { 1, (hsize_t)capacity + 1 } };
+
+        filespace.selectHyperslab(
+            H5S_SELECT_SET,
+            fileSlab.count.data(),
+            fileSlab.start.data());
+
+        dataset.write(buffer.data(),
+                      make_datatype_native_double(),
+                      memspace,
+                      filespace);
+    }
+}
+
 QJsonObject analysis_to_json(analysis::Analysis *analysis)
 {
     QJsonObject result;
@@ -227,6 +304,10 @@ void save_analysis_session_(const QString &filename, analysis::Analysis *analysi
             {
                 save_Histo2DSink(outfile, histoSink);
             }
+        }
+        else if (auto rms = qobject_cast<RateMonitorSink *>(oe.op.get()))
+        {
+            save_RateMonitorSink(outfile, rms);
         }
     }
 
@@ -340,6 +421,72 @@ void load_Histo2DSink(DataSet &dataset, Histo2DSink *histoSink)
         make_datatype_native_double());
 }
 
+void load_RateMonitorSink(DataSet &dataset, RateMonitorSink *rms)
+{
+    const auto samplerCount = rms->rateSamplerCount();
+    const auto capacity     = rms->getRateHistoryCapacity();
+
+    auto dataspace = dataset.getSpace();
+
+    if (!(dataspace.isSimple() && dataspace.getSimpleExtentNdims() == 2))
+        return;
+
+    hsize_t dimensions[2];
+
+    dataspace.getSimpleExtentDims(dimensions);
+
+    if (dimensions[0] != (hsize_t)rms->rateSamplerCount())
+        return;
+
+    DataSpace memspace(2, dimensions, nullptr);
+
+    Slab<2> memSlab;
+    memSlab.start   = { { 0, 0 } };
+    memSlab.count   = { { 1, dimensions[1] } };
+
+    memspace.selectHyperslab(
+        H5S_SELECT_SET,
+        memSlab.count.data(),
+        memSlab.start.data());
+
+    std::vector<double> buffer;
+    buffer.resize(capacity + 1, 0.0);
+
+    for (s32 si = 0; si < samplerCount; si++)
+    {
+        auto sampler = rms->getRateSampler(si);
+
+        if (dimensions[1] != sampler->rateHistory.capacity() + 1)
+            continue;
+
+        Slab<2> fileSlab;
+        fileSlab.start  = { { (hsize_t)si, 0 } };
+        fileSlab.count  = { { 1, dimensions[1] } };
+
+        dataspace.selectHyperslab(
+            H5S_SELECT_SET,
+            fileSlab.count.data(),
+            fileSlab.start.data());
+
+        std::fill(buffer.begin(), buffer.end(), 0.0);
+
+        dataset.read(
+            buffer.data(),
+            make_datatype_native_double(),
+            memspace,
+            dataspace);
+
+        sampler->totalSamples = buffer[0];
+        sampler->rateHistory.clear();
+
+        for (size_t historyIndex = 1; historyIndex < buffer.size(); historyIndex++)
+        {
+            if (!std::isnan(buffer[historyIndex]))
+                sampler->rateHistory.push_back(buffer[historyIndex]);
+        }
+    }
+}
+
 void load_analysis_session_(const QString &filename, analysis::Analysis *analysis)
 {
     H5File infile(filename.toStdString(), H5F_ACC_RDONLY);
@@ -372,6 +519,10 @@ void load_analysis_session_(const QString &filename, analysis::Analysis *analysi
                     {
                         load_Histo2DSink(dataset, histoSink);
                     }
+                }
+                else if (auto rms = qobject_cast<RateMonitorSink *>(analysis->getOperator(id).get()))
+                {
+                    load_RateMonitorSink(dataset, rms);
                 }
             }
         }

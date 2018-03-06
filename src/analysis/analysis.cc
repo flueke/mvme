@@ -2994,11 +2994,147 @@ size_t Histo2DSink::getStorageSize() const
     return m_histo ? m_histo->getStorageSize() : 0u;
 }
 
-static const size_t A2InitialArenaSize = Kilobytes(256);
+//
+// RateMonitorSink
+//
+
+static QString to_string(RateMonitorSink::Type type)
+{
+    QString result;
+
+    switch (type)
+    {
+        case RateMonitorSink::Type::PrecalculatedRate:
+            result = QSL("PrecalculatedRate");
+            break;
+        case RateMonitorSink::Type::CounterDifference:
+            result = QSL("CounterDifference");
+            break;
+        case RateMonitorSink::Type::FlowRate:
+            result = QSL("FlowRate");
+            break;
+    }
+
+    return result;
+}
+
+static RateMonitorSink::Type rate_monitor_sink_type_from_string(const QString &str)
+{
+    RateMonitorSink::Type result = RateMonitorSink::Type::CounterDifference;
+
+    if (str.compare(QSL("PrecalculatedRate"), Qt::CaseInsensitive) == 0)
+        result = RateMonitorSink::Type::PrecalculatedRate;
+
+    if (str.compare(QSL("CounterDifference"), Qt::CaseInsensitive) == 0)
+        result = RateMonitorSink::Type::CounterDifference;
+
+    if (str.compare(QSL("FlowRate"), Qt::CaseInsensitive) == 0)
+        result = RateMonitorSink::Type::FlowRate;
+
+    return result;
+}
+
+
+RateMonitorSink::RateMonitorSink(QObject *parent)
+    : BasicSink(parent)
+{
+    m_inputSlot.acceptedInputTypes = InputType::Array;
+}
+
+void RateMonitorSink::beginRun(const RunInfo &runInfo)
+{
+    if (!m_inputSlot.isConnected())
+    {
+        m_samplers.resize(0);
+        return;
+    }
+
+    // Currently only supports connecting to arrays, not single parameters.
+    assert(m_inputSlot.paramIndex == Slot::NoParamIndex);
+
+    m_samplers.resize(m_inputSlot.inputPipe->parameters.size());
+
+    for (auto &sampler: m_samplers)
+    {
+        if (!sampler)
+        {
+            sampler = std::make_shared<a2::RateSampler>();
+            sampler->rateHistory = RateHistoryBuffer(m_rateHistoryCapacity);
+        }
+        else
+        {
+            sampler->lastValue = 0.0;
+            sampler->lastRate  = 0.0;
+            sampler->lastDelta = 0.0;
+
+            /* If the new capacity is >= the old capacity then the rateHistory
+             * contents are kept, otherwise the oldest values are discarded. */
+            if (sampler->rateHistory.capacity() != m_rateHistoryCapacity)
+            {
+                sampler->rateHistory.set_capacity(m_rateHistoryCapacity);
+                sampler->rateHistory.resize(0);
+                sampler->totalSamples = 0.0;
+            }
+
+            if (!runInfo.keepAnalysisState)
+            {
+                // truncates the history size (not the capacity) to zero
+                sampler->rateHistory.resize(0);
+                sampler->totalSamples = 0.0;
+            }
+        }
+
+        sampler->scale = getCalibrationFactor();
+        sampler->offset = getCalibrationOffset();
+        sampler->interval = getSamplingInterval();
+
+        assert(sampler->rateHistory.capacity() == m_rateHistoryCapacity);
+        assert(runInfo.keepAnalysisState || sampler->rateHistory.size() == 0);
+        assert(sampler->scale == getCalibrationFactor());
+        assert(sampler->offset == getCalibrationOffset());
+        assert(sampler->interval == getSamplingInterval());
+    }
+}
+
+void RateMonitorSink::step()
+{
+    assert(!"not implemented. a2 should be used!");
+}
+
+void RateMonitorSink::write(QJsonObject &json) const
+{
+    json["type"] = to_string(getType());
+    json["capacity"] = static_cast<qint64>(m_rateHistoryCapacity);
+    json["unitLabel"] = getUnitLabel();
+    json["calibrationFactor"] = getCalibrationFactor();
+    json["calibrationOffset"] = getCalibrationOffset();
+    json["samplingInterval"]  = getSamplingInterval();
+}
+
+void RateMonitorSink::read(const QJsonObject &json)
+{
+    m_type = rate_monitor_sink_type_from_string(json["type"].toString());
+    m_rateHistoryCapacity = json["capacity"].toInt();
+    m_unitLabel = json["unitLabel"].toString();
+    m_calibrationFactor = json["calibrationFactor"].toDouble(1.0);
+    m_calibrationOffset = json["m_calibrationOffset"].toDouble(0.0);
+    m_samplingInterval  = json["samplingInterval"].toDouble(1.0);
+}
+
+size_t RateMonitorSink::getStorageSize() const
+{
+    return std::accumulate(m_samplers.begin(), m_samplers.end(),
+                           static_cast<size_t>(0u),
+                           [](size_t accu, const a2::RateSamplerPtr &sampler) {
+        return accu + sampler->rateHistory.capacity() * sizeof(double);
+   });
+}
 
 //
 // Analysis
 //
+
+static const size_t A2InitialArenaSize = Kilobytes(256);
 
 Analysis::Analysis(QObject *parent)
     : QObject(parent)
@@ -3024,6 +3160,7 @@ Analysis::Analysis(QObject *parent)
 
     m_registry.registerSink<Histo1DSink>();
     m_registry.registerSink<Histo2DSink>();
+    m_registry.registerSink<RateMonitorSink>();
 
     qDebug() << "Registered Sources:   " << m_registry.getSourceNames();
     qDebug() << "Registered Operators: " << m_registry.getOperatorNames();
@@ -3130,6 +3267,7 @@ void Analysis::endEvent(int eventIndex)
 void Analysis::processTimetick()
 {
     m_timetickCount += 1.0;
+    a2_timetick(m_a2State->a2);
 }
 
 void Analysis::addSource(const QUuid &eventId, const QUuid &moduleId, const SourcePtr &source)
@@ -3430,10 +3568,10 @@ size_t Analysis::getTotalSinkStorageSize() const
     return std::accumulate(m_operators.begin(), m_operators.end(),
                            static_cast<size_t>(0),
                            [](size_t v, const OperatorEntry &e) {
-        if (auto sink = qobject_cast<Histo1DSink *>(e.op.get()))
-            return v + sink->getStorageSize();
-        else if (auto sink = qobject_cast<Histo2DSink *>(e.op.get()))
-            return v + sink->getStorageSize();
+
+        if (auto sink = qobject_cast<SinkInterface *>(e.op.get()))
+            v += sink->getStorageSize();
+
         return v;
     });
 }
@@ -3774,12 +3912,12 @@ void add_raw_data_display(Analysis *analysis, const QUuid &eventId, const QUuid 
     analysis->addOperator(eventId, display.calibratedHistoSink, 1);
 }
 
-void do_beginRun_forward(PipeSourceInterface *pipeSource)
+void do_beginRun_forward(PipeSourceInterface *pipeSource, const RunInfo &runInfo)
 {
     Q_ASSERT(pipeSource);
 
     qDebug() << __PRETTY_FUNCTION__ << "calling beginRun() on" << pipeSource;
-    pipeSource->beginRun({});
+    pipeSource->beginRun(runInfo);
 
     const s32 outputCount = pipeSource->getNumberOfOutputs();
 

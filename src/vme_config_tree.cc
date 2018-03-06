@@ -201,37 +201,12 @@ VMEConfigTreeWidget::VMEConfigTreeWidget(MVMEContext *context, QWidget *parent)
     m_tree->resizeColumnToContents(0);
 
     // Toolbar buttons
-    auto makeToolButton = [](const QString &icon, const QString &text)
-    {
-        auto result = new QToolButton;
-        result->setIcon(QIcon(icon));
-        result->setText(text);
-        result->setStatusTip(text);
-        result->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
-        auto font = result->font();
-        font.setPointSize(7);
-        result->setFont(font);
-        return result;
-    };
-
-    auto makeActionToolButton = [](QAction *action)
-    {
-        Q_ASSERT(action);
-        auto result = new QToolButton;
-        result->setDefaultAction(action);
-        result->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
-        auto font = result->font();
-        font.setPointSize(7);
-        result->setFont(font);
-        return result;
-    };
-
     auto mainwin = m_context->getMainWindow();
-    pb_new    = makeActionToolButton(mainwin->findChild<QAction *>("actionNewVMEConfig"));
-    pb_load   = makeActionToolButton(mainwin->findChild<QAction *>("actionOpenVMEConfig"));
-    pb_save   = makeActionToolButton(mainwin->findChild<QAction *>("actionSaveVMEConfig"));
-    pb_saveAs = makeActionToolButton(mainwin->findChild<QAction *>("actionSaveVMEConfigAs"));
-    //pb_notes  = makeToolButton(QSL(":/text-document.png"), QSL("Notes"));
+    pb_new    = make_action_toolbutton(mainwin->findChild<QAction *>("actionNewVMEConfig"));
+    pb_load   = make_action_toolbutton(mainwin->findChild<QAction *>("actionOpenVMEConfig"));
+    pb_save   = make_action_toolbutton(mainwin->findChild<QAction *>("actionSaveVMEConfig"));
+    pb_saveAs = make_action_toolbutton(mainwin->findChild<QAction *>("actionSaveVMEConfigAs"));
+    //pb_notes  = make_toolbutton(QSL(":/text-document.png"), QSL("Notes"));
     //connect(pb_notes, &QPushButton::clicked, this, &VMEConfigTreeWidget::showEditNotes);
 
     QToolButton *pb_treeSettings = nullptr;
@@ -248,7 +223,7 @@ VMEConfigTreeWidget::VMEConfigTreeWidget(MVMEContext *context, QWidget *parent)
         auto action_exploreWorkspace = menu->addAction(QIcon(":/folder_orange.png"), QSL("Explore Workspace"));
         connect(action_exploreWorkspace, &QAction::triggered, this, &VMEConfigTreeWidget::exploreWorkspace);
 
-        pb_treeSettings = makeToolButton(QSL(":/tree-settings.png"), QSL("More"));
+        pb_treeSettings = make_toolbutton(QSL(":/tree-settings.png"), QSL("More"));
         pb_treeSettings->setMenu(menu);
         pb_treeSettings->setPopupMode(QToolButton::InstantPopup);
 

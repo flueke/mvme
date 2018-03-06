@@ -21,15 +21,16 @@
 #ifndef __ANALYSIS_H__
 #define __ANALYSIS_H__
 
+#include "a2/a2.h"
 #include "a2/memory.h"
 #include "a2/multiword_datafilter.h"
-#include "a2/a2.h"
 #include "data_filter.h"
-#include "../globals.h"
 #include "histo1d.h"
 #include "histo2d.h"
 #include "libmvme_export.h"
 #include "typedefs.h"
+#include "../globals.h"
+#include "../rate_monitor_base.h"
 #include "../vme_analysis_common.h"
 
 #include <memory>
@@ -389,6 +390,8 @@ class LIBMVME_EXPORT SinkInterface: public OperatorInterface
         s32 getNumberOfOutputs() const override { return 0; }
         QString getOutputName(s32 outputIndex) const override { return QString(); }
         Pipe *getOutput(s32 index) override { return nullptr; }
+
+        virtual size_t getStorageSize() const = 0;
 };
 
 typedef std::shared_ptr<SinkInterface> SinkPtr;
@@ -1051,7 +1054,7 @@ class LIBMVME_EXPORT Histo1DSink: public BasicSink
         virtual QString getDisplayName() const override { return QSL("1D Histogram"); }
         virtual QString getShortName() const override { return QSL("H1D"); }
 
-        size_t getStorageSize() const;
+        virtual size_t getStorageSize() const override;
 
         std::shared_ptr<Histo1D> getHisto(s32 index) const
         {
@@ -1098,7 +1101,7 @@ class LIBMVME_EXPORT Histo2DSink: public SinkInterface
         virtual QString getDisplayName() const override { return QSL("2D Histogram"); }
         virtual QString getShortName() const override { return QSL("H2D"); }
 
-        size_t getStorageSize() const;
+        virtual size_t getStorageSize() const override;
 
         Slot m_inputX;
         Slot m_inputY;
@@ -1126,6 +1129,73 @@ class LIBMVME_EXPORT Histo2DSink: public SinkInterface
 
         QString m_xAxisTitle;
         QString m_yAxisTitle;
+};
+
+class LIBMVME_EXPORT RateMonitorSink: public BasicSink
+{
+    Q_OBJECT
+    public:
+        using Type = a2::RateMonitorType;
+
+        RateMonitorSink(QObject *parent = nullptr);
+
+        virtual void beginRun(const RunInfo &runInfo) override;
+        virtual void step() override;
+
+        virtual void read(const QJsonObject &json) override;
+        virtual void write(QJsonObject &json) const override;
+
+        virtual QString getDisplayName() const override { return QSL("Rate Monitor"); }
+
+        virtual QString getShortName() const override
+        {
+            if (getType() == Type::FlowRate)
+                return QSL("FlowRate");
+            return QSL("Rate");
+        }
+
+        virtual size_t getStorageSize() const override;
+
+        s32 rateSamplerCount() const { return m_samplers.size(); }
+        QVector<a2::RateSamplerPtr> getRateSamplers() const { return m_samplers; }
+
+        a2::RateSamplerPtr getRateSampler(s32 index) const
+        {
+            return m_samplers.value(index, {});
+        }
+
+        Type getType() const { return m_type; }
+        void setType(Type type) { m_type = type; }
+
+        size_t getRateHistoryCapacity() const { return m_rateHistoryCapacity; }
+        void setRateHistoryCapacity(size_t capacity) { m_rateHistoryCapacity = capacity; }
+
+        QString getUnitLabel() const { return m_unitLabel; }
+        void setUnitLabel(const QString &label) { m_unitLabel = label; }
+
+        double getCalibrationFactor() const { return m_calibrationFactor; }
+        void setCalibrationFactor(double d) { m_calibrationFactor = d; }
+
+        double getCalibrationOffset() const { return m_calibrationOffset; }
+        void setCalibrationOffset(double d) { m_calibrationOffset = d; }
+
+        double getSamplingInterval() const { return m_samplingInterval; }
+        void setSamplingInterval(double d) { m_samplingInterval = d; }
+
+    private:
+        QVector<a2::RateSamplerPtr> m_samplers;
+
+        /* The desired size of rate history buffers. Analogous to the number of
+         * bins for histograms.
+         * Default is one day, meaning 86400 bins, which equals a hist
+         * resolution of ~16.4 bits. */
+        size_t m_rateHistoryCapacity = 3600 * 24;
+
+        Type m_type = Type::CounterDifference;
+        QString m_unitLabel;
+        double m_calibrationFactor = 1.0;
+        double m_calibrationOffset = 0.0;
+        double m_samplingInterval  = 1.0;
 };
 
 /* Note: The qobject_cast()s in the createXXX() functions are there to ensure
@@ -1477,7 +1547,7 @@ RawDataDisplay LIBMVME_EXPORT make_raw_data_display(const MultiWordDataFilter &e
 
 void LIBMVME_EXPORT add_raw_data_display(Analysis *analysis, const QUuid &eventId, const QUuid &moduleId, const RawDataDisplay &display);
 
-void LIBMVME_EXPORT do_beginRun_forward(PipeSourceInterface *pipeSource);
+void LIBMVME_EXPORT do_beginRun_forward(PipeSourceInterface *pipeSource, const RunInfo &runInfo = {});
 
 QString LIBMVME_EXPORT make_unique_operator_name(Analysis *analysis, const QString &prefix);
 

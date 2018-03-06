@@ -33,9 +33,10 @@
 #include "../histo2d_widget.h"
 #include "../mvme_context.h"
 #include "../mvme_stream_worker.h"
+#include "../rate_monitor_widget.h"
 #include "../treewidget_utils.h"
-#include "util/counters.h"
-#include "util/strings.h"
+#include "../util/counters.h"
+#include "../util/strings.h"
 #include "../vme_analysis_common.h"
 
 #include <QApplication>
@@ -196,8 +197,8 @@ static QIcon makeIconFor(OperatorInterface *op)
     if (qobject_cast<Histo2DSink *>(op))
         return QIcon(":/hist2d.png");
 
-    if (qobject_cast<SinkInterface *>(op))
-        return QIcon(":/sink.png");
+    if (qobject_cast<RateMonitorSink *>(op))
+        return QIcon(":/rate_monitor_sink.png");
 
     if (qobject_cast<CalibrationMinMax *>(op))
         return QIcon(":/operator_calibration.png");
@@ -210,6 +211,9 @@ static QIcon makeIconFor(OperatorInterface *op)
 
     if (qobject_cast<Sum *>(op))
         return QIcon(":/operator_sum.png");
+
+    if (qobject_cast<SinkInterface *>(op))
+        return QIcon(":/sink.png");
 
     return QIcon(":/operator_generic.png");
 }
@@ -857,7 +861,6 @@ void EventWidgetPrivate::appendTreesToView(DisplayLevelTrees trees)
         QObject::connect(tree, &QTreeWidget::itemExpanded, m_q, [this, treeType] (QTreeWidgetItem *node) {
             if (void *voidObj = getPointer<void>(node))
             {
-                qDebug() << voidObj << "was expanded";
                 m_expandedObjects[treeType].insert(voidObj);
             }
         });
@@ -865,7 +868,6 @@ void EventWidgetPrivate::appendTreesToView(DisplayLevelTrees trees)
         QObject::connect(tree, &QTreeWidget::itemCollapsed, m_q, [this, treeType] (QTreeWidgetItem *node) {
             if (void *voidObj = getPointer<void>(node))
             {
-                qDebug() << voidObj << "was collapsed";
                 m_expandedObjects[treeType].remove(voidObj);
             }
         });
@@ -1048,7 +1050,11 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                         else if (dynamic_cast<ListFilterExtractor *>(srcPtr.get()))
                         {
                             auto lfe_dialog = new ListFilterExtractorDialog(moduleConfig, m_context->getAnalysis(), m_context, m_q);
-                            lfe_dialog->newFilter();
+
+                            if (!m_context->getAnalysis()->getListFilterExtractors(moduleConfig).isEmpty())
+                            {
+                                lfe_dialog->newFilter();
+                            }
 
                             QObject::connect(lfe_dialog, &QDialog::accepted, m_q,
                                              &EventWidget::listFilterExtractorDialogAccepted);
@@ -1544,8 +1550,14 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
         {
             if (userLevel == 0)
             {
-                auto sink = std::make_shared<Histo1DSink>();
-                add_action(sink->getDisplayName(), sink);
+                {
+                    auto sink = std::make_shared<Histo1DSink>();
+                    add_action(sink->getDisplayName(), sink);
+                }
+                {
+                    auto sink = std::make_shared<RateMonitorSink>();
+                    add_action(sink->getDisplayName(), sink);
+                }
             }
             else
             {
@@ -2100,6 +2112,29 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                         m_context->activateObjectWidget(sinkPtr.get());
                     }
                 } break;
+
+            case NodeType_Sink:
+                if (auto rms = std::dynamic_pointer_cast<RateMonitorSink>(getPointer<RateMonitorSink>(node)->getSharedPointer()))
+                {
+                    if (!m_context->hasObjectWidget(rms.get()) || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
+                    {
+                        auto context = m_context;
+                        auto widget = new RateMonitorWidget(rms->getRateSamplers());
+
+                        widget->setSink(rms, [context](const std::shared_ptr<RateMonitorSink> &sink) {
+                            context->analysisOperatorEdited(sink);
+                        });
+
+                        widget->setPlotExportDirectory(m_context->getWorkspacePath(QSL("PlotsDirectory")));
+
+                        m_context->addObjectWidget(widget, rms.get(), rms->getId().toString());
+                    }
+                    else
+                    {
+                        m_context->activateObjectWidget(rms.get());
+                    }
+                }
+                break;
         }
     }
 }
@@ -2763,7 +2798,7 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, int eventIndex,
         tb->addWidget(m_d->m_eventRateLabel);
 #ifndef QT_NO_DEBUG
         tb->addSeparator();
-        tb->addAction(QSL("Repopluate"), this, [this]() { m_d->repopulate(); });
+        tb->addAction(QSL("Repopulate (dev)"), this, [this]() { m_d->repopulate(); });
 #endif
     }
 

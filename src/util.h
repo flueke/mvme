@@ -24,6 +24,7 @@
 #include "libmvme_export.h"
 #include "typedefs.h"
 #include "qt_util.h"
+#include "util/assert.h"
 
 #include <QMetaType>
 #include <QPair>
@@ -43,8 +44,8 @@ Q_DECLARE_SMART_POINTER_METATYPE(std::shared_ptr);
 
 class QTextStream;
 
-void debugOutputBuffer(u8 *dataBuffer, size_t bufferSize);
-QTextStream &debugOutputBuffer(QTextStream &out, u8 *dataBuffer, size_t bufferSize);
+LIBMVME_EXPORT void debugOutputBuffer(u8 *dataBuffer, size_t bufferSize);
+LIBMVME_EXPORT QTextStream &debugOutputBuffer(QTextStream &out, u8 *dataBuffer, size_t bufferSize);
 
 QVector<u32> parseStackFile(QTextStream &input);
 QVector<u32> parseStackFile(const QString &input);
@@ -185,6 +186,14 @@ struct BufferIterator
     inline u16 *asU16() { return reinterpret_cast<u16 *>(buffp); }
     inline u32 *asU32() { return reinterpret_cast<u32 *>(buffp); }
 
+    inline u32 *indexU32(size_t index)
+    {
+        if (data + index * sizeof(u32) > endp)
+            throw end_of_buffer();
+
+        return reinterpret_cast<u32 *>(buffp) + index;
+    }
+
     inline void skip(size_t bytes)
     {
         buffp += bytes;
@@ -280,12 +289,6 @@ inline constexpr size_t Gigabytes(size_t x) { return Megabytes(x) * 1024; }
 
 #define InvalidCodePath Q_ASSERT(!"invalid code path")
 #define InvalidDefaultCase default: { Q_ASSERT(!"invalid default case"); }
-
-#ifdef QT_NO_DEBUG
-    #define TRY_ASSERT(x) (x)
-#else
-    #define TRY_ASSERT(x) Q_ASSERT(x)
-#endif
 
 template<typename Code>
 struct LIBMVME_EXPORT ReadResultBase

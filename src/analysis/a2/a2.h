@@ -7,7 +7,9 @@
 #include "listfilter.h"
 #include "memory.h"
 #include "multiword_datafilter.h"
+#include "rate_sampler.h"
 #include "util/nan.h"
+#include "util/typed_block.h"
 
 #include <cassert>
 #include <pcg_random.hpp>
@@ -32,62 +34,6 @@ inline bool is_param_valid(double param)
 inline double invalid_param()
 {
     static const double result = make_nan(ParamInvalidBit);
-    return result;
-}
-
-template<typename T, typename SizeType = size_t>
-struct TypedBlock
-{
-    typedef SizeType size_type;
-    static constexpr auto size_max = std::numeric_limits<SizeType>::max();
-
-    T *data;
-    size_type size;
-
-    inline T operator[](size_type index) const
-    {
-        return data[index];
-    }
-
-    inline T &operator[](size_type index)
-    {
-        return data[index];
-    }
-
-    inline T *begin()
-    {
-        return data;
-    }
-
-    inline T *end()
-    {
-        return data + size;
-    }
-};
-
-template<typename T, typename SizeType = size_t>
-TypedBlock<T, SizeType> push_typed_block(
-    memory::Arena *arena,
-    SizeType size,
-    size_t align = alignof(T))
-{
-    TypedBlock<T, SizeType> result;
-
-    result.data = arena->pushArray<T>(size, align);
-    result.size = result.data ? size : 0;
-    assert(memory::is_aligned(result.data, align));
-
-    return result;
-};
-
-template<typename T, typename SizeType = size_t>
-TypedBlock<T, SizeType> make_typed_block(
-    T *data,
-    SizeType size)
-{
-    TypedBlock<T, SizeType> result;
-    result.data = data;
-    result.size = size;
     return result;
 }
 
@@ -457,6 +403,50 @@ Operator make_h2d_sink(
     s32 yIndex,
     H2D histo);
 
+//
+// RateMonitor
+//
+
+enum class RateMonitorType
+{
+    /* Input values are rates and simply need to be accumulated. */
+    PrecalculatedRate,
+
+    /* Input values are counter values. The rate has be calculated from
+     * the current and the previous value. */
+    CounterDifference,
+
+    /* The rate of hits for an analysis pipe. Basically the rate of a
+     * source or the flow through an operator.
+     *
+     * The event and pipe to be monitored are required. At the end of
+     * an event, after operators have been processed, a hitcount value
+     * has to be incremented for each input value if the value is
+     * valid.
+     *
+     * Event: the event this sink is in.
+     * Pipe:  this operators input pipe.
+     * Two step processing: in a2_end_event() increment the count values based on the input.
+     * In a new a2_timetick() function run through all RateMonitorSinks
+     * and sample from the hitcounts data.
+     *
+     * Sampling and recording of the resulting rate happens
+     * "asynchronously" based on analysis timeticks (system generated
+     * during DAQ / from the listfile during replay).
+     */
+    FlowRate,
+};
+
+Operator make_rate_monitor(
+    memory::Arena *arena,
+    PipeVectors inPipe,
+    TypedBlock<RateSampler *, s32> samplers,
+    RateMonitorType type);
+
+//
+// A2 structure and entry points
+//
+
 static const int MaxVMEEvents  = 12;
 static const int MaxVMEModules = 20;
 
@@ -474,6 +464,7 @@ void a2_begin_run(A2 *a2);
 void a2_begin_event(A2 *a2, int eventIndex);
 void a2_process_module_data(A2 *a2, int eventIndex, int moduleIndex, u32 *data, u32 dataSize);
 void a2_end_event(A2 *a2, int eventIndex);
+void a2_timetick(A2 *a2);
 void a2_end_run(A2 *a2);
 
 //

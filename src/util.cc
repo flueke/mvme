@@ -36,17 +36,17 @@ void debugOutputBuffer(u8 *dataBuffer, size_t bufferSize)
 
     while (iter.longwordsLeft())
     {
-        qDebug("%3u: %08x", wordIndex++, iter.extractU32());
+        qDebug("%3u: 0x%08x", wordIndex++, iter.extractU32());
     }
 
     while (iter.shortwordsLeft())
     {
-        qDebug("%3u: %04x", wordIndex++, iter.extractU16());
+        qDebug("%3u: 0x%04x", wordIndex++, iter.extractU16());
     }
 
     while (iter.bytesLeft())
     {
-        qDebug("%3u: %02x", wordIndex++, iter.extractU8());
+        qDebug("%3u: 0x%02x", wordIndex++, iter.extractU8());
     }
 }
 

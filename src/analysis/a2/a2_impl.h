@@ -20,9 +20,15 @@ enum OperatorType
     Operator_Difference_idx,
     Operator_ArrayMap,
     Operator_BinaryEquation,
+
     Operator_H1DSink,
     Operator_H1DSink_idx,
     Operator_H2DSink,
+
+    Operator_RateMonitor_PrecalculatedRate,
+    Operator_RateMonitor_CounterDifference,
+    Operator_RateMonitor_FlowRate,
+
     Operator_RangeFilter,
     Operator_RangeFilter_idx,
     Operator_RectFilter,
@@ -58,6 +64,8 @@ void aggregate_max_step(Operator *op);
 void h1d_sink_step(Operator *op);
 void h1d_sink_step_idx(Operator *op);
 void h2d_sink_step(Operator *op);
+void rate_monitor_step(Operator *op);
+void rate_monitor_sample_flow(Operator *op);
 
 } // namespace a2
 

@@ -34,7 +34,7 @@
 class MesytecDiagnostics;
 class MVMEContext;
 class VMEConfig;
-class MVMEStreamWorkerPrivate;
+struct MVMEStreamWorkerPrivate;
 
 enum class MVMEStreamWorkerState
 {

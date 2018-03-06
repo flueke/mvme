@@ -97,8 +97,12 @@ set(LIBMVME_SOURCES
     mvme_startup.cc
     mvme_stream_iter.cc
     mvme_stream_processor.cc
+    mvme_stream_util.cc
     mvme_stream_worker.cc
     qt_util.cc
+    rate_monitor_gui.cc
+    rate_monitor_plot_widget.cc
+    rate_monitor_widget.cc
     realtimedata.cpp
     scrollbar.cpp
     scrollzoomer.cpp
@@ -110,8 +114,8 @@ set(LIBMVME_SOURCES
     timed_block.cc
     treewidget_utils.cc
     util.cc
-    util_zip.cc
     util/strings.cc
+    util_zip.cc
     vme_analysis_common.cc
     vme_config.cc
     vme_config_tree.cc
@@ -248,8 +252,9 @@ add_mvme_executable(dev_udp_sender "dev_udp_sender.cc")
 add_mvme_executable(dev_udp_receiver "dev_udp_receiver.cc")
 add_mvme_executable(dev_listfile_tcp_sender "dev_listfile_tcp_sender.cc")
 add_mvme_executable(dev_listfile_tcp_receiver "dev_listfile_tcp_receiver.cc")
-add_mvme_executable(dev_listfile_dumper "dev_listfile_dumper.cc")
 install(TARGETS dev_listfile_tcp_sender dev_listfile_tcp_receiver DESTINATION .)
+add_mvme_executable(dev_listfile_dumper "dev_listfile_dumper.cc")
+add_mvme_executable(dev_rate_monitoring "dev_rate_monitoring.cc")
 
 if (HDF5_FOUND)
 add_mvme_executable(dev_mvme_event_processing "dev_mvme_event_processing.cc")
@@ -286,7 +291,8 @@ endif(ENABLE_ROOT AND ROOT_FOUND)
 #    add_definitions(-D_WIN32_WINNT=0x0501)
 #endif(WIN32)
 #
-#find_package(Boost REQUIRED COMPONENTS coroutine)
-#include_directories(${Boost_INCLUDE_DIRS})
+find_package(Boost REQUIRED)
+include_directories(${Boost_INCLUDE_DIRS})
+message("-- Found boost for mvme in ${Boost_INCLUDE_DIRS}")
 
 # vim:tw=0

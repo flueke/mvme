@@ -1169,6 +1169,10 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
     {
         logError(e);
     }
+    catch (const vme_script::ParseError &e)
+    {
+        logError(QSL("VME Script parse error: ") + e.what());
+    }
 
     setState(DAQState::Idle);
 }
@@ -1290,7 +1294,7 @@ void SIS3153ReadoutWorker::readoutLoop()
         // paused
         else if (m_state == DAQState::Paused)
         {
-            QThread::msleep(std::min(PauseMaxSleep_ms, timetickGen.getTimeToNextTick()));
+            QThread::msleep(std::min(PauseMaxSleep_ms, timetickGen.getTimeToNextTick_ms()));
         }
         else
         {
@@ -1875,6 +1879,7 @@ u32 SIS3153ReadoutWorker::processSingleEventData(
 #if SIS_READOUT_DEBUG
         qDebug() << __PRETTY_FUNCTION__ << "moduleIndex =" << moduleIndex << ", moduleCount =" << moduleCount;
 #endif
+        // TODO: store module metas for each (event, module) index to avoid having to deref the module pointer here
         auto moduleConfig = moduleConfigs.at(moduleIndex);
         writerFlags |= streamWriter.openModuleSection((u32)moduleConfig->getModuleMeta().typeId);
 
@@ -1882,6 +1887,8 @@ u32 SIS3153ReadoutWorker::processSingleEventData(
         while (true)
         {
             u32 data = iter.extractU32();
+
+            // NOTE: could handle the 0x02110211 status word here just like the EndMarker below
 
             if (streamWriter.hasOpenModuleSection())
             {

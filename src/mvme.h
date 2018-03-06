@@ -55,7 +55,7 @@ class QTimer;
 class QwtPlotCurve;
 class QNetworkAccessManager;
 
-class MVMEWindowPrivate;
+struct MVMEWindowPrivate;
 
 class LIBMVME_EXPORT MVMEMainWindow : public QMainWindow
 {
@@ -66,7 +66,7 @@ public:
     explicit MVMEMainWindow(QWidget *parent = 0);
     ~MVMEMainWindow();
 
-    virtual void closeEvent(QCloseEvent *event);
+    virtual void closeEvent(QCloseEvent *event) override;
     void restoreSettings();
 
     MVMEContext *getContext();
@@ -109,6 +109,7 @@ private slots:
     void onActionAnalysis_UI_triggered();
     void onActionLog_Window_triggered();
     void onActionListfileBrowser_triggered();
+    void onActionShowRateMonitor_triggered();
 
     void onActionVME_Debug_triggered();
     void onActionVMUSB_Firmware_Update_triggered();

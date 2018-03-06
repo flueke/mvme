@@ -22,6 +22,7 @@
 
 #include "analysis/a2_adapter.h"
 #include "analysis/analysis.h"
+#include "analysis/analysis_session.h"
 #include "histo1d.h"
 #include "mesytec_diagnostics.h"
 #include "mvme_context.h"
@@ -209,7 +210,7 @@ void debug_dump(const ProcessingState &procState)
            procState.buffer->used / sizeof(u32)
           );
 
-    u32 lastSectionHeader = *procState.buffer->asU32ByIndex(procState.lastSectionHeaderOffset);
+    u32 lastSectionHeader = *procState.buffer->indexU32(procState.lastSectionHeaderOffset);
 
     qDebug("  lastSectionHeader=0x%08x, lastSectionHeaderOffset=%d",
            lastSectionHeader, procState.lastSectionHeaderOffset);
@@ -263,7 +264,7 @@ log_processing_step(QTextStream &out, const ProcessingState &procState, const va
         if (procState.stepResult == ProcessingState::StepResult_EventHasMore
             || procState.stepResult == ProcessingState::StepResult_EventComplete)
         {
-            u32 eventSectionHeader = *procState.buffer->asU32ByIndex(procState.lastSectionHeaderOffset);
+            u32 eventSectionHeader = *procState.buffer->indexU32(procState.lastSectionHeaderOffset);
             u32 eventIndex         = (eventSectionHeader & LF::EventTypeMask) >> LF::EventTypeShift;
             u32 eventSectionSize   = (eventSectionHeader & LF::SectionSizeMask) >> LF::SectionSizeShift;
 
@@ -286,13 +287,13 @@ log_processing_step(QTextStream &out, const ProcessingState &procState, const va
                     && procState.lastModuleDataBeginOffsets[moduleIndex] >= 0
                     && procState.lastModuleDataEndOffsets[moduleIndex] >= 0)
                 {
-                    u32 moduleSectionHeader = *procState.buffer->asU32ByIndex(
+                    u32 moduleSectionHeader = *procState.buffer->indexU32(
                         procState.lastModuleDataSectionHeaderOffsets[moduleIndex]);
 
-                    u32 *moduleDataPtr = procState.buffer->asU32ByIndex(
+                    u32 *moduleDataPtr = procState.buffer->indexU32(
                         procState.lastModuleDataBeginOffsets[moduleIndex]);
 
-                    const u32 *moduleDataEndPtr = procState.buffer->asU32ByIndex(
+                    const u32 *moduleDataEndPtr = procState.buffer->indexU32(
                         procState.lastModuleDataEndOffsets[moduleIndex]);
 
 
@@ -366,7 +367,7 @@ void single_step_one_event(ProcessingState &procState, MVMEStreamProcessor &stre
         }
     }
 
-#if 1
+#ifndef NDEBUG
     if (procState.stepResult == ProcessingState::StepResult_EventHasMore
         || procState.stepResult == ProcessingState::StepResult_EventComplete)
     {
@@ -377,8 +378,9 @@ void single_step_one_event(ProcessingState &procState, MVMEStreamProcessor &stre
 
 } // end anon namespace
 
-/* Used at the start of a run after beginRun() has been called. Does
- * a2_begin_run() and a2_end_run() (threading stuff if enabled). */
+/* The main worker loop. Call beginRun() before invoking start().
+ * Currently also does a2_begin_run()/a2_end_run() to handle a2 threads if
+ * enabled. */
 void MVMEStreamWorker::start()
 {
     qDebug() << __PRETTY_FUNCTION__ << "begin";
@@ -398,7 +400,9 @@ void MVMEStreamWorker::start()
 
     if (auto a2State = m_d->context->getAnalysis()->getA2AdapterState())
     {
-        // Move this into Analysis::beginRun()?
+        // Do not move this into Analysis::beginRun() as most of the time calls
+        // to it are not directly followed by starting the StreamWorker,
+        // meaning the threading setup is unnecessary.
         a2::a2_begin_run(a2State->a2);
     }
 
@@ -412,6 +416,17 @@ void MVMEStreamWorker::start()
     counters.stopTime  = QDateTime();
 
     TimetickGenerator timetickGen;
+
+    /* FIXME: I think there's a race condition here that leads to being stuck
+     * in the loop below. If the replay is very short and the listfile reader
+     * is finished before we reach this line here then stop(IfQueueEmpty) may
+     * already have been called. Thus internalState will be StopIfQueueEmpty
+     * and we will overwrite it below with either Pause or KeepRunning.
+     * As the listfile reader already sent it's finished signal which makes the
+     * context call our stop() method we won't get any more calls to stop().
+     * A way to fix this would be to wait for the stream processor to enter
+     * it's loop and only then start the listfile reader.
+     */
 
     // Start out in running state unless pause mode was requested.
     m_d->internalState = m_d->m_startPaused ? Pause : KeepRunning;
@@ -454,7 +469,7 @@ void MVMEStreamWorker::start()
             {
                 case Pause:
                     // stay paused
-                    QThread::msleep(std::min(PauseMaxSleep_ms, timetickGen.getTimeToNextTick()));
+                    QThread::msleep(std::min(PauseMaxSleep_ms, timetickGen.getTimeToNextTick_ms()));
                     break;
 
                 case SingleStep:
@@ -546,6 +561,21 @@ void MVMEStreamWorker::start()
     }
 
     m_d->streamProcessor.endRun();
+
+    // analysis session auto save
+    // NOTE: load is done in mvme.cpp
+    auto sessionPath = m_d->context->getWorkspacePath(QSL("SessionDirectory"));
+    if (!sessionPath.isEmpty())
+    {
+        auto filename = sessionPath + "/last_session.hdf5";
+        auto result   = save_analysis_session(filename, m_d->context->getAnalysis());
+
+        if (result.first)
+        {
+            logMessage(QString("Auto saved analysis session to %1").arg(filename));
+        }
+        // silent in the error case
+    }
 
     setState(MVMEStreamWorkerState::Idle);
 

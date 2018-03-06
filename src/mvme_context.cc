@@ -27,6 +27,7 @@
 #include "mvme_stream_worker.h"
 #include "mvme_listfile.h"
 #include "analysis/analysis.h"
+#include "analysis/analysis_session.h"
 #include "analysis/analysis_ui.h"
 #include "analysis/a2/memory.h"
 #include "config_ui.h"
@@ -1515,6 +1516,26 @@ void MVMEContext::openWorkspace(const QString &dirName)
         // No exceptions thrown -> store workspace directory in global settings
         QSettings settings;
         settings.setValue(QSL("LastWorkspaceDirectory"), getWorkspaceDirectory());
+
+        //
+        // Load analysis session auto save
+        //
+
+        /* Try to load an analysis session auto save. Only loads analysis data,
+         * not the analysis itself from the file.
+         * Does not have an effect if there's a mismatch between the current
+         * analysis and the one stored in the session as operator ids will be
+         * different so no data will be loaded.
+         * NOTE: the auto save is done at the end of MVMEStreamWorker::start().
+         */
+        auto sessionPath = getWorkspacePath(QSL("SessionDirectory"));
+        QFileInfo fi(sessionPath + "/last_session.hdf5");
+
+        if (fi.exists())
+        {
+            logMessage(QString("Loading analysis session auto save %1").arg(fi.filePath()));
+            load_analysis_session(fi.filePath(), getAnalysis());
+        }
     }
     catch (const QString &)
     {

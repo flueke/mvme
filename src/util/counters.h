@@ -1,6 +1,8 @@
 #ifndef __MVME_UTIL_COUNTERS_H__
 #define __MVME_UTIL_COUNTERS_H__
 
+#include <algorithm>
+
 template<typename T>
 T calc_delta0(T cur, T prev)
 {

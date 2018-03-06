@@ -31,8 +31,8 @@ struct LIBMVME_EXPORT MVMEStreamProcessorCounters
 
     using ModuleCounters = std::array<u32, MaxVMEModules>;
 
-    std::array<ModuleCounters, MaxVMEEvents> moduleCounters;
     std::array<u32, MaxVMEEvents> eventCounters;
+    std::array<ModuleCounters, MaxVMEEvents> moduleCounters;
 };
 
 class LIBMVME_EXPORT IMVMEStreamModuleConsumer
@@ -128,7 +128,7 @@ class LIBMVME_EXPORT MVMEStreamProcessor
             /* Word offset of the last section header in the buffer. */
             s32 lastSectionHeaderOffset = -1;
 
-            // points to the listfile "subevent" header preceding the module data
+            // points to the listfile subevent/module header preceding the module data
             std::array<s32, MaxVMEModules> lastModuleDataSectionHeaderOffsets;
             // first word offset of the module event data
             std::array<s32, MaxVMEModules> lastModuleDataBeginOffsets;
