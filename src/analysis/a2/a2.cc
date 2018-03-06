@@ -129,19 +129,6 @@ void assign_input(Operator *op, PipeVectors input, s32 inputIndex)
     op->inputUpperLimits[inputIndex] = input.upperLimits;
 }
 
-void push_output_vectors(
-    Arena *arena,
-    Operator *op,
-    s32 outputIndex,
-    s32 size,
-    double lowerLimit = 0.0,
-    double upperLimit = 0.0)
-{
-    op->outputs[outputIndex] = push_param_vector(arena, size, invalid_param());
-    op->outputLowerLimits[outputIndex] = push_param_vector(arena, size, lowerLimit);
-    op->outputUpperLimits[outputIndex] = push_param_vector(arena, size, upperLimit);
-}
-
 /* ===============================================
  * Extractors
  * =============================================== */
@@ -1867,11 +1854,9 @@ Operator make_expression_operator(
     const std::string &step_expr)
 {
     auto result = make_operator(arena, Operator_Expression, 1, 1);
+    assign_input(&result, inPipe, 0);
 
-    auto d = expr_create(arena, inPipe, begin_expr, step_expr);
-    result.d = d;
-
-    expr_eval_begin(d);
+    expr_create(arena, &result, begin_expr, step_expr);
 
     return result;
 }
@@ -1883,15 +1868,6 @@ void expression_operator_step(Operator *op)
     auto d = reinterpret_cast<ExpressionData *>(op->d);
 
     expr_eval_step(d);
-}
-
-void expression_operator_end_run(Operator *op)
-{
-    assert(op->type == Operator_Expression);
-
-    auto d = reinterpret_cast<ExpressionData *>(op->d);
-
-    expr_destroy(d);
 }
 
 /* ===============================================
@@ -2406,7 +2382,7 @@ static const OperatorFunctions OperatorTable[OperatorTypeCount] =
     [Operator_Aggregate_MeanX] = { aggregate_meanx_step },
     [Operator_Aggregate_SigmaX] = { aggregate_sigmax_step },
 
-    [Operator_Expression] = { expression_operator_step, expression_operator_end_run },
+    [Operator_Expression] = { expression_operator_step},
 };
 
 inline void step_operator(Operator *op)
@@ -2832,6 +2808,7 @@ void a2_end_run(A2 *a2)
 
     a2_trace("done joining threads\n");
 
+    // call end_run functions stored in the OperatorTable
     for (s32 ei = 0; ei < MaxVMEEvents; ei++)
     {
         const int opCount = a2->operatorCounts[ei];

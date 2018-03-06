@@ -34,14 +34,14 @@ int Foo::instance = 0;
 
 static void TEST_ObjectArena(benchmark::State &state)
 {
-    using memory::ObjectArena;
+    using memory::Arena;
 
     //while (state.KeepRunning())
     {
         Foo *rawFoo = nullptr;
 
         {
-            ObjectArena arena(1024);
+            Arena arena(1024);
 
             for (int i =0; i < 10; i++)
                 rawFoo = arena.pushObject<Foo>();

@@ -39,14 +39,14 @@ expression operator design plan
 * one script to init the output limits
   executed during beginRun()
   variables:
+    in : input_lower_limits, input_upper_limits, input_unit
     out: lower_limits, upper_limits, unit
-    in:  input_lower_limits, input_upper_limits, input_unit
 
 * one script to fill the output
   executed repeatedly by a2_end_event() when it's stepping the operators
   variables:
+    in : input
     out: output
-    in: input
 
 * add a user defined functions
   is_valid(), is_invalid() for testing parameter validity (has to check for nan and the specific bit being set)

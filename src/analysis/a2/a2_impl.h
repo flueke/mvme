@@ -2,9 +2,24 @@
 #define __MVME_A2__IMPL_H__
 
 #include "a2.h"
+#include "memory.h"
 
 namespace a2
 {
+
+void push_output_vectors(
+    memory::Arena *arena,
+    Operator *op,
+    s32 outputIndex,
+    s32 size,
+    double lowerLimit = 0.0,
+    double upperLimit = 0.0)
+{
+    op->outputs[outputIndex] = push_param_vector(arena, size, invalid_param());
+    op->outputLowerLimits[outputIndex] = push_param_vector(arena, size, lowerLimit);
+    op->outputUpperLimits[outputIndex] = push_param_vector(arena, size, upperLimit);
+}
+
 
 /* ===============================================
  * Operators

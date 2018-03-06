@@ -114,19 +114,6 @@ struct ArenaBase
     }
 };
 
-struct Arena: public ArenaBase
-{
-    using ArenaBase::ArenaBase;
-
-    // can't copy
-    Arena(Arena &other) = delete;
-    Arena &operator=(Arena &other) = delete;
-
-    // can move
-    Arena(Arena &&other) = default;
-    Arena &operator=(Arena &&other) = default;
-};
-
 namespace detail
 {
 
@@ -142,19 +129,28 @@ struct destroy_only_deleter
 
 } // namespace detail
 
-struct ObjectArena: public ArenaBase
+struct Arena: public ArenaBase
 {
-    explicit ObjectArena(size_t size)
+    explicit Arena(size_t size)
         : ArenaBase(size)
     { }
 
-    ~ObjectArena()
+    ~Arena()
     {
         reset();
     }
 
+    // can't copy
+    Arena(Arena &other) = delete;
+    Arena &operator=(Arena &other) = delete;
+
+    // can move
+    Arena(Arena &&other) = default;
+    Arena &operator=(Arena &&other) = default;
+
     inline void reset()
     {
+        // Destroy objects in reverse construction order
         for (auto it = deleters.rbegin();
              it != deleters.rend();
              it++)
@@ -162,6 +158,7 @@ struct ObjectArena: public ArenaBase
             (*it)();
         }
 
+        deleters.clear();
         cur = mem;
     }
 
@@ -181,11 +178,11 @@ struct ObjectArena: public ArenaBase
             // must be atomic in regards to exceptions: the object must be
             // destroyed even if the push fails.
             // To achieve exception safety a unique_ptr with a custom deleter
-            // that only runs the detructor is used to temporarily hold the
+            // that only runs the destructor is used to temporarily hold the
             // object pointer. If the vector push throws the unique_ptr will
             // properly destroy the object. Otherwise the deleter lambda has
-            // been stored and thus the pointer can be release() from the
-            // unique_ptr.
+            // been stored and thus the unique pointer may release() its
+            // pointee.
 
             std::unique_ptr<T, detail::destroy_only_deleter<T>> guard_ptr(result);
 
@@ -208,8 +205,8 @@ struct ObjectArena: public ArenaBase
     }
 
     private:
-    using Deleter = std::function<void ()>;
-    std::vector<Deleter> deleters;
+        using Deleter = std::function<void ()>;
+        std::vector<Deleter> deleters;
 };
 
 /*
