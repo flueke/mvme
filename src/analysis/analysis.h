@@ -1036,6 +1036,32 @@ class LIBMVME_EXPORT BinarySumDiff: public OperatorInterface
         double m_outputUpperLimit;
 };
 
+class LIBMVME_EXPORT ExpressionOperator: public BasicOperator
+{
+    Q_OBJECT
+    public:
+        ExpressionOperator(QObject *parent = 0);
+
+        virtual void beginRun(const RunInfo &runInfo) override;
+        virtual void step() override;
+
+        virtual void read(const QJsonObject &json) override;
+        virtual void write(QJsonObject &json) const override;
+
+        virtual QString getDisplayName() const override { return QSL("Expression"); }
+        virtual QString getShortName() const override { return QSL("Expr"); }
+
+        void setBeginExpression(const QString &str) { m_exprBegin = str; }
+        QString getBeginExpression() const { return m_exprBegin; }
+
+        void setStepExpression(const QString &str) { m_exprStep = str; }
+        QString getStepExpression() const { return m_exprStep; }
+
+    private:
+        QString m_exprBegin;
+        QString m_exprStep;
+};
+
 //
 // Sinks
 //

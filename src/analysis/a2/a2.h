@@ -176,6 +176,7 @@ struct Operator
 };
 
 void assign_input(Operator *op, PipeVectors input, s32 inputIndex);
+
 Operator make_calibration(
     memory::Arena *arena,
     PipeVectors input,

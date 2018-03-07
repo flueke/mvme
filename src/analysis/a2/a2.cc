@@ -1922,6 +1922,9 @@ void expression_operator_step(Operator *op)
 
     auto d = reinterpret_cast<ExpressionData *>(op->d);
 
+    /* References to the input and output have been bound in
+     * make_expression_operator(). No need to pass anything here, just evaluate
+     * the step expression. */
     expr_eval_step(d);
 }
 

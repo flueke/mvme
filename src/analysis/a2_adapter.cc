@@ -88,12 +88,12 @@ inline a2::PipeVectors find_output_pipe(const A2AdapterState *state, analysis::S
         slot->inputPipe->sourceOutputIndex);
 }
 
-#define assert_slot(slot)\
-do\
-{\
-    assert(slot->inputPipe);\
-    assert(slot->inputPipe->source);\
-    assert(slot->inputPipe->source->getSharedPointer());\
+#define assert_slot(slot)                                   \
+do                                                          \
+{                                                           \
+    assert(slot->inputPipe);                                \
+    assert(slot->inputPipe->source);                        \
+    assert(slot->inputPipe->source->getSharedPointer());    \
 } while (0)
 
 using InputSlots = QVector<analysis::Slot *>;
@@ -516,6 +516,31 @@ DEF_OP_MAGIC(condition_filter_magic)
     return result;
 }
 
+DEF_OP_MAGIC(expression_operator_magic)
+{
+    LOG("");
+    assert(inputSlots.size() == 1);
+    assert_slot(inputSlots[0]);
+
+    auto a1_op = qobject_cast<analysis::ExpressionOperator *>(op.get());
+
+    assert(a1_op);
+
+    auto a2_input = find_output_pipe(adapterState, inputSlots[0]);
+
+    a2::Operator result = make_expression_operator(
+        arena,
+        a2_input,
+        a1_op->getBeginExpression().toStdString(),
+        a1_op->getStepExpression().toStdString());
+
+    return result;
+}
+
+//
+// Sinks
+//
+
 DEF_OP_MAGIC(histo1d_sink_magic)
 {
     LOG("");
@@ -666,21 +691,21 @@ DEF_OP_MAGIC(rate_monitor_sink_magic)
 
 static const QHash<const QMetaObject *, OperatorMagic *> OperatorMagicTable =
 {
-    { &analysis::CalibrationMinMax::staticMetaObject, calibration_magic },
-    { &analysis::Difference::staticMetaObject, difference_magic },
-    { &analysis::ArrayMap::staticMetaObject, array_map_magic },
-    { &analysis::AggregateOps::staticMetaObject, aggregate_ops_magic },
-    { &analysis::BinarySumDiff::staticMetaObject, binary_equation_magic },
-    { &analysis::PreviousValue::staticMetaObject, keep_previous_magic },
-    { &analysis::RangeFilter1D::staticMetaObject, range_filter_magic },
-    { &analysis::RectFilter2D::staticMetaObject, rect_filter_magic },
-    { &analysis::ConditionFilter::staticMetaObject, condition_filter_magic },
-    { &analysis::Sum::staticMetaObject, sum_magic },
+    { &analysis::CalibrationMinMax::staticMetaObject,       calibration_magic },
+    { &analysis::Difference::staticMetaObject,              difference_magic },
+    { &analysis::ArrayMap::staticMetaObject,                array_map_magic },
+    { &analysis::AggregateOps::staticMetaObject,            aggregate_ops_magic },
+    { &analysis::BinarySumDiff::staticMetaObject,           binary_equation_magic },
+    { &analysis::PreviousValue::staticMetaObject,           keep_previous_magic },
+    { &analysis::RangeFilter1D::staticMetaObject,           range_filter_magic },
+    { &analysis::RectFilter2D::staticMetaObject,            rect_filter_magic },
+    { &analysis::ConditionFilter::staticMetaObject,         condition_filter_magic },
+    { &analysis::Sum::staticMetaObject,                     sum_magic },
+    { &analysis::ExpressionOperator::staticMetaObject,      expression_operator_magic },
 
-    { &analysis::Histo1DSink::staticMetaObject, histo1d_sink_magic },
-    { &analysis::Histo2DSink::staticMetaObject, histo2d_sink_magic },
-
-    { &analysis::RateMonitorSink::staticMetaObject, rate_monitor_sink_magic },
+    { &analysis::Histo1DSink::staticMetaObject,             histo1d_sink_magic },
+    { &analysis::Histo2DSink::staticMetaObject,             histo2d_sink_magic },
+    { &analysis::RateMonitorSink::staticMetaObject,         rate_monitor_sink_magic },
 };
 
 a2::Operator a2_adapter_magic(memory::Arena *arena, A2AdapterState *state, analysis::OperatorPtr op)

@@ -1033,4 +1033,123 @@ BENCHMARK(BM_binary_equation_step);
 
 //#warning "missing test for binary_equation_step"
 
+
+static void TEST_expression_operator_create(benchmark::State &state)
+{
+    Arena arena(Kilobytes(256));
+
+    static double inputData[] =
+    {
+        0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0,
+        8.0, 9.0, 10.0, 11.0, 12.0, invalid_param() /* @[13] */, 14.0, 15.0,
+    };
+
+    static const s32 inputSize = ArrayCount(inputData);
+    static const s32 invalidIndex = 13;
+    double bytesProcessed = 0;
+    double moduleCounter = 0;
+
+    std::string begin_expr =
+        "var lower_limits[input_lower_limits[]] := input_lower_limits + 1;"
+        "var upper_limits[input_upper_limits[]] := input_upper_limits * 2;"
+        "return [lower_limits, upper_limits];"
+        ;
+
+    std::string step_expr =
+        "output := input * 2;"
+        ;
+
+    auto expr_op = make_expression_operator(
+        &arena,
+        {
+            ParamVec{inputData, inputSize},
+            push_param_vector(&arena, inputSize, 0.0),  // lower limits
+            push_param_vector(&arena, inputSize, 20.0), // upper limits
+        },
+        begin_expr,
+        step_expr);
+
+    assert(expr_op.outputCount == 1);
+    assert(expr_op.outputs[0].size == inputSize);
+
+    for (s32 i = 0; i < inputSize; i++)
+    {
+        assert(expr_op.outputLowerLimits[0][i] == 1.0);
+        assert(expr_op.outputUpperLimits[0][i] == 40.0);
+    }
+}
+BENCHMARK(TEST_expression_operator_create);
+
+static void TEST_expression_operator_step(benchmark::State &state)
+{
+    Arena arena(Kilobytes(256));
+
+    static double inputData[] =
+    {
+        0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0,
+        8.0, 9.0, 10.0, 11.0, 12.0, invalid_param() /* @[13] */, 14.0, 15.0,
+    };
+
+    static const s32 inputSize = ArrayCount(inputData);
+    static const s32 invalidIndex = 13;
+    double bytesProcessed = 0;
+    double moduleCounter = 0;
+
+    std::string begin_expr =
+        "var lower_limits[input_lower_limits[]] := input_lower_limits + 1;"
+        "var upper_limits[input_upper_limits[]] := input_upper_limits * 2;"
+        "return [lower_limits, upper_limits];"
+        ;
+
+    std::string step_expr =
+#if 0 // operation on the whole vector
+        "output := input * 2;"
+#else // manual loop through the vectors
+        "for (var i := 0; i < input[]; i += 1)"
+        "{"
+        "   output[i] := input[i] * 2;"
+        "}"
+#endif
+        ;
+
+    auto expr_op = make_expression_operator(
+        &arena,
+        {
+            ParamVec{inputData, inputSize},
+            push_param_vector(&arena, inputSize, 0.0),  // lower limits
+            push_param_vector(&arena, inputSize, 20.0), // upper limits
+        },
+        begin_expr,
+        step_expr);
+
+    while (state.KeepRunning())
+    {
+        expression_operator_step(&expr_op);
+
+        bytesProcessed += sizeof(inputData);
+        moduleCounter++;
+
+        for (s32 i = 0; i < expr_op.outputs[0].size; i++)
+        {
+            //fprintf(stderr, "outputs[0][%d] = %lf\n",
+            //        i, expr_op.outputs[0][i]);
+
+            if (i != 13)
+            {
+                assert(expr_op.outputs[0][i] == inputData[i] * 2);
+            }
+            else
+            {
+                assert(std::isnan(expr_op.outputs[0][i]));
+            }
+        }
+    }
+
+    state.counters["mem"] = Counter(arena.used());
+    state.counters["bR"] = Counter(bytesProcessed, Counter::kIsRate);
+    state.counters["mR"] = Counter(moduleCounter, Counter::kIsRate);
+}
+BENCHMARK(TEST_expression_operator_step);
+
+
 BENCHMARK_MAIN();
