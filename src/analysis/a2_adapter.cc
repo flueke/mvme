@@ -131,11 +131,28 @@ DEF_OP_MAGIC(calibration_magic)
         calibMaximums[i] = calibs[i].unitMax;
     }
 
-    a2::Operator result = a2::make_calibration(
-        arena,
-        a2_input,
-        { calibMinimums.data(), calibMinimums.size() },
-        { calibMaximums.data(), calibMaximums.size() });
+    a2::Operator result = {};
+
+    if (inputSlots[0]->paramIndex == analysis::Slot::NoParamIndex)
+    {
+        result = a2::make_calibration(
+            arena,
+            a2_input,
+            { calibMinimums.data(), calibMinimums.size() },
+            { calibMaximums.data(), calibMaximums.size() });
+    }
+    else
+    {
+        assert(calibMinimums.size() > 0);
+        assert(calibMaximums.size() > 0);
+
+        result = a2::make_calibration_idx(
+            arena,
+            a2_input,
+            inputSlots[0]->paramIndex,
+            calibMinimums[0],
+            calibMaximums[0]);
+    }
 
     return result;
 };

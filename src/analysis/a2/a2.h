@@ -187,6 +187,12 @@ Operator make_calibration(
     ParamVec calibMinimums,
     ParamVec calibMaximums);
 
+Operator make_calibration_idx(
+    memory::Arena *arena,
+    PipeVectors input,
+    s32 inputInfo,
+    double unitMin, double unitMax);
+
 Operator make_keep_previous(
     memory::Arena *arena,
     PipeVectors input,

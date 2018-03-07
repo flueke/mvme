@@ -1160,8 +1160,29 @@ void MVMEContext::startDAQReplay(quint32 nEvents, bool keepHistoContents)
     m_listFileWorker->setEventsToRead(nEvents);
     m_streamWorker->setListFileVersion(m_listFile->getFileVersion());
 
+
+    /* Start both the listfile reader and the stream processor.
+     * There is a race condition here between the listfile reader emitting
+     * replayStopped() and the stream worker starting up: in case the listfile
+     * is very short the reader will have emitted the signal before the stream
+     * processor was fully started. This results in the stream proc remaining
+     * in "running" state forever.
+     * Solution: start the streamworker and react to its started() signal.
+     * Once that arrives start the listfile reader. */
+
+    QEventLoop localLoop;
+
+    qDebug() << __PRETTY_FUNCTION__ << "starting stream processor";
+    {
+        auto con = QObject::connect(m_streamWorker.get(), &MVMEStreamWorker::started, &localLoop, &QEventLoop::quit);
+        QMetaObject::invokeMethod(m_streamWorker.get(), "start", Qt::QueuedConnection);
+        localLoop.exec();
+        QObject::disconnect(con);
+    }
+
+    qDebug() << __PRETTY_FUNCTION__ << "stream processor running. starting listfile reader";
+
     QMetaObject::invokeMethod(m_listFileWorker, "start", Qt::QueuedConnection);
-    QMetaObject::invokeMethod(m_streamWorker.get(), "start", Qt::QueuedConnection);
 
     m_replayTime.restart();
 }

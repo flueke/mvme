@@ -606,6 +606,61 @@ Operator make_calibration(
     return result;
 }
 
+struct CalibrationData_idx
+{
+    s32 inputIndex;
+    double calibFactor;
+};
+
+Operator make_calibration_idx(
+    Arena *arena,
+    PipeVectors input,
+    s32 inputIndex,
+    double unitMin,
+    double unitMax)
+{
+    assert(inputIndex < input.data.size);
+
+    auto result = make_operator(arena, Operator_Calibration_idx, 1, 1);
+
+    assign_input(&result, input, 0);
+
+    push_output_vectors(arena, &result, 0, 1, unitMin, unitMax);
+
+    auto d = arena->pushStruct<CalibrationData_idx>();
+    result.d = d;
+
+    double calibRange = unitMax - unitMin;
+    double paramRange = input.upperLimits[inputIndex] - input.lowerLimits[inputIndex];
+
+    d->inputIndex = inputIndex;
+    d->calibFactor = calibRange / paramRange;
+
+    return result;
+}
+
+void calibration_step_idx(Operator *op)
+{
+    a2_trace("\n");
+    assert(op->inputCount == 1);
+    assert(op->outputCount == 1);
+    assert(op->outputs[0].size == 1);
+    assert(op->type == Operator_Calibration_idx);
+
+    auto d = reinterpret_cast<CalibrationData_idx *>(op->d);
+
+    assert(d->inputIndex < op->inputs[0].size);
+
+    op->outputs[0][0] = calibrate(
+        op->inputs[0][d->inputIndex], op->inputLowerLimits[0][d->inputIndex],
+        op->outputLowerLimits[0][0], d->calibFactor);
+
+    if (!is_param_valid(op->inputs[0][d->inputIndex]))
+    {
+        assert(!is_param_valid(op->outputs[0][0]));
+    }
+}
+
 struct KeepPreviousData
 {
     ParamVec previousInput;
@@ -2352,6 +2407,7 @@ static const OperatorFunctions OperatorTable[OperatorTypeCount] =
 {
     [Operator_Calibration] = { calibration_step },
     [Operator_Calibration_sse] = { calibration_sse_step },
+    [Operator_Calibration_idx] = { calibration_step_idx },
     [Operator_KeepPrevious] = { keep_previous_step },
     [Operator_KeepPrevious_idx] = { keep_previous_step_idx },
     [Operator_Difference] = { difference_step },
