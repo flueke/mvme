@@ -7,7 +7,7 @@
 namespace a2
 {
 
-void push_output_vectors(
+inline void push_output_vectors(
     memory::Arena *arena,
     Operator *op,
     s32 outputIndex,
