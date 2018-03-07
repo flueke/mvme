@@ -14,6 +14,7 @@ enum OperatorType
 {
     Operator_Calibration,
     Operator_Calibration_sse,
+    Operator_Calibration_idx,
     Operator_KeepPrevious,
     Operator_KeepPrevious_idx,
     Operator_Difference,
@@ -53,6 +54,7 @@ enum OperatorType
 
 void calibration_step(Operator *op);
 void calibration_sse_step(Operator *op);
+void calibration_step_idx(Operator *op);
 void keep_previous_step(Operator *op);
 void difference_step(Operator *op);
 void array_map_step(Operator *op);
