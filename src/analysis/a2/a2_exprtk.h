@@ -7,8 +7,17 @@
 namespace a2
 {
 
-struct ExpressionData;
+struct ExpressionOperatorData;
 
+struct ExpressionParserError
+{
+    std::string mode;
+    std::string diagnostic;
+    size_t line = 0, column = 0;
+};
+
+// TODO Split this into multiple steps:
+// [creation], compile begin, compile step
 /* Assuming the operators inputs have been assigned before it is passed to expr_create().
  * Evaluates the begin_expr script to determine output size and limits.
  * Pushes the operators output pipe onto the arena.
@@ -20,11 +29,11 @@ void expr_create(
     const std::string &begin_expr,
     const std::string &step_expr);
 
-void expr_destroy(ExpressionData *d);
+void expr_destroy(ExpressionOperatorData *d);
 
-void expr_eval_begin(ExpressionData *d);
+void expr_eval_begin(ExpressionOperatorData *d);
 
-void expr_eval_step(ExpressionData *d);
+void expr_eval_step(ExpressionOperatorData *d);
 
 }; // namespace a2
 

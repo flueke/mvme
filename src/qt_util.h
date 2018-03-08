@@ -109,7 +109,7 @@ inline QLabel *make_aligned_label(const QString &text, Qt::Alignment alignment =
     return label;
 }
 
-QWidget *make_vbox_container(const QString &labelText, QWidget *widget);
+QWidget *make_vbox_container(const QString &labelText, QWidget *widget, int spacing = 2);
 QWidget *make_spacer_widget(QWidget *parent = nullptr);
 QToolButton *make_toolbutton(const QString &icon, const QString &text);
 QToolButton *make_action_toolbutton(QAction *action);

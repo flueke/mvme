@@ -213,6 +213,7 @@ QFont make_monospace_font(QFont baseFont)
 {
     baseFont.setFamily(QSL("Monospace"));
     baseFont.setStyleHint(QFont::Monospace);
+    baseFont.setFixedPitch(true);
     return baseFont;
 }
 
@@ -226,7 +227,7 @@ void processQtEvents(int maxtime_ms, QEventLoop::ProcessEventsFlags flags)
     QCoreApplication::processEvents(flags, maxtime_ms);
 }
 
-QWidget *make_vbox_container(const QString &labelText, QWidget *widget)
+QWidget *make_vbox_container(const QString &labelText, QWidget *widget, int spacing)
 {
     auto label = new QLabel(labelText);
     label->setAlignment(Qt::AlignCenter);
@@ -234,7 +235,7 @@ QWidget *make_vbox_container(const QString &labelText, QWidget *widget)
     auto container = new QWidget;
     auto layout = new QVBoxLayout(container);
     layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(0);
+    layout->setSpacing(spacing);
     layout->addWidget(label);
     layout->addWidget(widget);
 

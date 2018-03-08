@@ -1920,7 +1920,7 @@ void expression_operator_step(Operator *op)
 {
     assert(op->type == Operator_Expression);
 
-    auto d = reinterpret_cast<ExpressionData *>(op->d);
+    auto d = reinterpret_cast<ExpressionOperatorData *>(op->d);
 
     /* References to the input and output have been bound in
      * make_expression_operator(). No need to pass anything here, just evaluate

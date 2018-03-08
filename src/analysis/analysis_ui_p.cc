@@ -44,6 +44,7 @@
 #include <QMessageBox>
 #include <QRadioButton>
 #include <QSignalMapper>
+#include <QSplitter>
 #include <QStackedWidget>
 #include <QTextBrowser>
 
@@ -976,6 +977,10 @@ AddEditOperatorWidget::AddEditOperatorWidget(OperatorInterface *op, s32 userLeve
     if (auto rms = qobject_cast<RateMonitorSink *>(op))
     {
         m_opConfigWidget = new RateMonitorConfigWidget(rms, userLevel, this);
+    }
+    else if (auto op_ = qobject_cast<ExpressionOperator *>(op))
+    {
+        m_opConfigWidget = new ExpressionOperatorConfigurationWidget(op_, userLevel, this);
     }
     else
     {
@@ -2609,6 +2614,274 @@ void RateMonitorConfigWidget::inputSelected(s32 slotIndex)
         // Use the inputs unit label
         le_unit->setText(op->getSlot(0)->inputPipe->parameters.unit);
     }
+}
+
+//
+// ExpressionEditor
+//
+
+static const int TabStop = 4;
+
+ExpressionEditor::ExpressionEditor(QWidget *parent)
+    : QWidget(parent)
+{
+    m_textEdit = new QPlainTextEdit;
+    m_errorTable = new QTableWidget;
+    pb_compile = new QPushButton("Compile");
+    pb_run     = new QPushButton("Run");
+
+
+    auto buttonsLayout = new QHBoxLayout;
+    buttonsLayout->addWidget(pb_compile);
+    buttonsLayout->addWidget(pb_run);
+
+    auto widgetLayout = new QVBoxLayout(this);
+    widgetLayout->setContentsMargins(0, 0, 0, 0);
+    widgetLayout->addWidget(m_textEdit);
+    widgetLayout->addWidget(m_errorTable);
+    widgetLayout->addLayout(buttonsLayout);
+    widgetLayout->setStretch(0, 4);
+    widgetLayout->setStretch(1, 1);
+    widgetLayout->setStretch(2, 0);
+
+    // Smaller monospace font for editor and table widget
+    auto font = make_monospace_font();
+    font.setPointSize(8);
+    m_textEdit->setFont(make_monospace_font());
+
+    {
+        // Tab width calculation
+        QString spaces;
+        for (int i = 0; i < TabStop; ++i)
+            spaces += " ";
+        QFontMetrics metrics(font);
+        m_textEdit->setTabStopWidth(metrics.width(spaces));
+    }
+
+    m_errorTable->setFont(font);
+}
+
+void ExpressionEditor::setExpressionString(const QString &exprString)
+{
+    m_textEdit->setPlainText(exprString);
+}
+
+QString ExpressionEditor::getExpressionString() const
+{
+    return m_textEdit->toPlainText();
+}
+
+//
+// ExpressionOperatorConfigurationWidget
+//
+
+/* Two scripts to edit: begin and step
+ *
+ * "compile" button.
+ *
+ * Error display. Clickable so that the editor can jump to the error location and highlight the line.
+ *
+ * Input arrays with limits and generated example values.
+ * Output arrays containing the results of evaluating the operator using the example input data.
+ *
+ * Later:
+ * Auto compile option becoming active if the user stopped typing for a while.
+ * Library of predefined and user defined scripts.
+ * Debugging tools: symbol table dump.
+ *
+ */
+static a2::PipeVectors make_a2_pipe_from_a1_pipe(memory::Arena *arena, analysis::Pipe *a1_inPipe)
+{
+    a2::PipeVectors result = {};
+
+    const auto size = a1_inPipe->getSize();
+
+    result.data        = a2::push_param_vector(arena, size, make_quiet_nan());
+    result.lowerLimits = a2::push_param_vector(arena, size);
+    result.upperLimits = a2::push_param_vector(arena, size);
+
+    for (s32 i = 0; i < size; i++)
+    {
+        const auto &a1_param(a1_inPipe->getParameter(i));
+        result.data[i]        = a1_param->value;
+        result.lowerLimits[i] = a1_param->lowerLimit;
+        result.upperLimits[i] = a1_param->upperLimit;
+    }
+
+    return result;
+}
+
+static void populate_pipe_table(a2::PipeVectors pipe, QTableWidget *table)
+{
+    assert(table);
+
+    table->setRowCount(pipe.data.size);
+
+    for (s32 pi = 0; pi < pipe.data.size; pi++)
+    {
+        double param      = pipe.data[pi];
+        double lowerLimit = pipe.lowerLimits[pi];
+        double upperLimit = pipe.upperLimits[pi];
+
+        QStringList columns =
+        {
+            a2::is_param_valid(param) ? QSL("Y") : QSL("N"),
+            a2::is_param_valid(param) ? QString::number(param) : QSL(""),
+            QString::number(lowerLimit),
+            QString::number(upperLimit),
+        };
+
+        for (s32 ci = 0; ci < columns.size(); ci++)
+        {
+            auto item = table->item(pi, ci);
+            if (!item)
+            {
+                item = new QTableWidgetItem;
+                table->setItem(pi, ci, item);
+            }
+
+            item->setText(columns[ci]);
+            item->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
+        }
+
+        if (!table->verticalHeaderItem(pi))
+        {
+            table->setVerticalHeaderItem(pi, new QTableWidgetItem);
+        }
+
+        table->verticalHeaderItem(pi)->setText(QString::number(pi));
+    }
+
+    table->resizeColumnsToContents();
+    table->resizeRowsToContents();
+}
+
+
+ExpressionOperatorConfigurationWidget::ExpressionOperatorConfigurationWidget(ExpressionOperator *op,
+                                                                             s32 userLevel,
+                                                                             QWidget *parent)
+    : AbstractOpConfigWidget(op, userLevel, parent)
+    , m_op(op)
+    , m_arena(ArenaSize)
+    , m_exprBeginEditor(new ExpressionEditor)
+    , m_exprStepEditor(new ExpressionEditor)
+    , m_tw_input(new QTableWidget)
+    , m_tw_output(new QTableWidget)
+{
+    le_name = new QLineEdit;
+
+    connect(le_name, &QLineEdit::textEdited, this, [this](const QString &newText) {
+        // If the user clears the textedit reset NameEdited to false.
+        this->setNameEdited(!newText.isEmpty());
+    });
+
+    le_name->setText(op->objectName());
+
+    for (auto tw: { m_tw_input, m_tw_output })
+    {
+        tw->setColumnCount(4);
+        tw->setHorizontalHeaderLabels({"Valid", "Value", "Lower Limit", "Upper Limit"});
+        auto font = make_monospace_font();
+        font.setPointSize(8);
+        tw->setFont(font);
+    }
+
+    auto pb_rebuild = new QPushButton("rebuild");
+    connect(pb_rebuild, &QPushButton::clicked, this, [this]() { this->rebuild(); });
+
+    auto otherStuffLayout = new QHBoxLayout;
+    otherStuffLayout->addWidget(pb_rebuild);
+    otherStuffLayout->addSpacing(1);
+
+    //
+    // populate the widget
+    //
+
+    auto *propertiesLayout = new QFormLayout;
+    propertiesLayout->setContentsMargins(2, 2, 2, 2);
+    propertiesLayout->addRow(QSL("Name"), le_name);
+
+    auto mainSplitter = new QSplitter(Qt::Horizontal);
+
+    mainSplitter->addWidget(make_vbox_container("Begin", m_exprBeginEditor));
+    mainSplitter->addWidget(make_vbox_container("Step", m_exprStepEditor));
+    mainSplitter->addWidget(make_vbox_container("Input", m_tw_input));
+    mainSplitter->addWidget(make_vbox_container("Output", m_tw_output));
+
+    auto mainLayout = new QVBoxLayout;
+    mainLayout->setContentsMargins(0, 0, 0, 0);
+    mainLayout->addWidget(mainSplitter);
+    mainLayout->addLayout(otherStuffLayout);
+
+    auto widgetLayout = new QVBoxLayout(this);
+    widgetLayout->setContentsMargins(0, 0, 0, 0);
+
+    widgetLayout->addLayout(propertiesLayout);
+    widgetLayout->addLayout(mainLayout);
+    widgetLayout->setStretch(0, 0);
+    widgetLayout->setStretch(1, 1);
+
+    //
+    // load from operator into gui
+    //
+
+    reloadFromOperator();
+}
+
+void ExpressionOperatorConfigurationWidget::configureOperator()
+{
+    assert(all_inputs_connected(m_op));
+
+    m_op->setObjectName(le_name->text());
+}
+
+void ExpressionOperatorConfigurationWidget::inputSelected(s32 slotIndex)
+{
+    if (no_input_connected(m_op) && !wasNameEdited())
+    {
+        le_name->clear();
+        setNameEdited(false);
+    }
+
+    if (!wasNameEdited())
+    {
+        auto name = makeSlotSourceString(m_op->getSlot(0));
+
+        le_name->setText(name);
+    }
+
+    rebuild();
+
+}
+
+void ExpressionOperatorConfigurationWidget::rebuild()
+{
+    m_a2_inPipe = {};
+    m_a2_op = {};
+    m_arena.reset();
+
+    if (all_inputs_connected(m_op))
+    {
+        auto a1_inPipe = m_op->getSlot(0)->inputPipe;
+
+        m_a2_inPipe = make_a2_pipe_from_a1_pipe(&m_arena, a1_inPipe);
+
+        m_a2_op = a2::make_expression_operator(
+            &m_arena,
+            m_a2_inPipe,
+            m_exprBeginEditor->getExpressionString().toStdString(),
+            m_exprStepEditor->getExpressionString().toStdString()
+            );
+
+        populate_pipe_table(m_a2_inPipe, m_tw_input);
+    }
+}
+
+void ExpressionOperatorConfigurationWidget::reloadFromOperator()
+{
+    m_exprBeginEditor->setExpressionString(m_op->getBeginExpression());
+    m_exprStepEditor->setExpressionString(m_op->getStepExpression());
+    rebuild();
 }
 
 //
