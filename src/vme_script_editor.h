@@ -27,7 +27,7 @@ class QCloseEvent;
 
 class MVMEContext;
 class VMEScriptConfig;
-class VMEScriptEditorPrivate;
+struct VMEScriptEditorPrivate;
 
 class VMEScriptEditor: public MVMEWidget
 {
@@ -58,9 +58,9 @@ class VMEScriptEditor: public MVMEWidget
         void findNext(bool hasWrapped = false);
         void findPrev();
 
-        virtual void closeEvent(QCloseEvent *event);
+        virtual void closeEvent(QCloseEvent *event) override;
 
-        friend class VMEScriptEditorPrivate;
+        friend struct VMEScriptEditorPrivate;
         VMEScriptEditorPrivate *m_d;
 };
 

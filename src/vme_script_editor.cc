@@ -38,7 +38,7 @@
 #include <QToolButton>
 #include <QVBoxLayout>
 
-static const int tabStop = 4;
+static const int TabStop = 4;
 
 struct VMEScriptEditorPrivate
 {
@@ -132,7 +132,7 @@ VMEScriptEditor::VMEScriptEditor(MVMEContext *context, VMEScriptConfig *script, 
     {
         // Tab width calculation
         QString spaces;
-        for (int i = 0; i < tabStop; ++i)
+        for (int i = 0; i < TabStop; ++i)
             spaces += " ";
         QFontMetrics metrics(font);
         m_d->m_editor->setTabStopWidth(metrics.width(spaces));
