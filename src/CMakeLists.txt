@@ -100,6 +100,7 @@ set(LIBMVME_SOURCES
     mvme_stream_util.cc
     mvme_stream_worker.cc
     qt_util.cc
+    rate_monitor_base.cc
     rate_monitor_gui.cc
     rate_monitor_plot_widget.cc
     rate_monitor_widget.cc

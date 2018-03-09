@@ -121,6 +121,12 @@ struct RateSampler
 
     double getFirstSampleTime() const { return getSampleTime(0); }
     double getLastSampleTime() const { return getSampleTime(rateHistory.size() - 1); }
+
+    ssize_t getSampleIndex(double sampleTime) const
+    {
+        ssize_t result = std::floor(sampleTime / interval - totalSamples + rateHistory.size());
+        return result;
+    }
 };
 
 using RateSamplerPtr = std::shared_ptr<RateSampler>;
