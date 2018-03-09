@@ -9,6 +9,7 @@
 #define BOOST_CB_DISABLE_DEBUG
 #include <boost/circular_buffer.hpp>
 
+#include <cpp11-on-multicore/common/rwlock.h>
 #include <cmath>
 #include <memory>
 #include "util/counters.h"
@@ -58,8 +59,16 @@ struct RateSampler
      * x-axis scaling once the circular history buffer is full. */
     double totalSamples = 0.0;
 
+    /* Lock and guard to deal with concurrent write accesses. Reads are left
+     * unguarded for performance reasons. */
+    NonRecursiveRWLock rwLock;
+
+    using WriteGuard = WriteLockGuard<NonRecursiveRWLock>;
+
     void sample(double value)
     {
+        WriteGuard guard(rwLock);
+
         std::tie(lastRate, lastDelta) = calcRateAndDelta(value);
         lastRate = std::isnan(lastRate) ? 0.0 : lastRate;
 
@@ -74,6 +83,8 @@ struct RateSampler
 
     void record_rate(double rate)
     {
+        WriteGuard guard(rwLock);
+
         lastRate = rate * scale + offset;
         lastRate = std::isnan(lastRate) ? 0.0 : lastRate;
 
@@ -99,10 +110,18 @@ struct RateSampler
     size_t historySize() const { return rateHistory.size(); }
     size_t historyCapacity() const { return rateHistory.capacity(); }
 
-    void clearHistory()
+    void clearHistory(bool keepSampleCount = false)
     {
+        fprintf(stderr, "Hello, WriteGuard!\n");
+        WriteGuard guard(rwLock);
+
         rateHistory.clear();
-        totalSamples = 0.0;
+        assert(rateHistory.empty());
+
+        if (!keepSampleCount)
+            totalSamples = 0.0;
+
+        fprintf(stderr, "Goodbye, WriteGuard!\n");
     }
 
     double getSample(size_t sampleIndex) const
