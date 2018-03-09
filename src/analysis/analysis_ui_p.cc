@@ -2476,6 +2476,12 @@ static const std::array<RateTypeInfo, 3> RateTypeInfos =
 {
     {
         {
+            RateMonitorSink::Type::FlowRate,
+            QSL("Flow Rate"),
+            QSL("The rate of flow through the input array is calculated and recorded.")
+        },
+
+        {
             RateMonitorSink::Type::CounterDifference,
             QSL("Counter Difference"),
             QSL("Input values are interpreted as increasing counter values.\n"
@@ -2486,12 +2492,6 @@ static const std::array<RateTypeInfo, 3> RateTypeInfos =
             RateMonitorSink::Type::PrecalculatedRate,
             QSL("Precalculated Rate"),
             QSL("Input values are interpreted as rate values and are directly recorded.")
-        },
-
-        {
-            RateMonitorSink::Type::FlowRate,
-            QSL("Flow Rate"),
-            QSL("The rate of flow through the input array is calculated and recorded.")
         },
     }
 };

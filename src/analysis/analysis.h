@@ -1191,7 +1191,7 @@ class LIBMVME_EXPORT RateMonitorSink: public BasicSink
          * resolution of ~16.4 bits. */
         size_t m_rateHistoryCapacity = 3600 * 24;
 
-        Type m_type = Type::CounterDifference;
+        Type m_type = Type::FlowRate;
         QString m_unitLabel;
         double m_calibrationFactor = 1.0;
         double m_calibrationOffset = 0.0;
