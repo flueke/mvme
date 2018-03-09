@@ -1,6 +1,25 @@
 ==================================================
 TODO list somewhat sorted by priority
 ==================================================
+
+* implement some kind of offline functionality:
+  If a replay  is loaded go into offline  mode and stay that way  until the user
+  explicitly wants to connect to the controller again.
+  The reason  for this is  that right now any  mvme instance takes  control over
+  that sis it was last connected to. This  leads to the case where a running DAQ
+  is interrupted  by someone else starting  mvme in the same  network and having
+  the same hostname/ip addres in the setup.
+
+  Additionally before  starting a DAQ (or  even before writing to  the sis
+  reset register) and if the sis is in DAQ mode explicitly ask for permission
+  to reset the sis.
+
+* add build date to info window thingy
+* Andi has a setup where the "compression" combo box has an empty value. no/fast compression can still be selected but the initial value is empty.
+* ListFilterEditor: hide the bits that are not available in the combined words.
+* filters: add option to disable adding the random value
+
+
 * Projection of combined H2D does not update axis scales after the source H1D
   has been recalibrated.
 * Changing H1D calibration via its widget clears all histograms. This is not
