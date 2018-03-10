@@ -51,7 +51,7 @@ expression operator design plan
 * add a user defined functions
   is_valid(), is_invalid() for testing parameter validity (has to check for nan and the specific bit being set)
 
-<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 * maybe add symbol table dump functionality somewhere if that is possible
 
