@@ -98,12 +98,20 @@ enum DataSourceType
     DataSource_ListFilterExtractor,
 };
 
+struct DataSourceOptions
+{
+    using opt_t = u8;
+    static const opt_t NoOption      = 0u;
+    static const opt_t NoAddedRandom = 1u;
+};
+
 struct Extractor
 {
     data_filter::MultiWordFilter filter;
     pcg32_fast rng;
     u32 requiredCompletions;
     u32 currentCompletions;
+    DataSourceOptions::opt_t options;
 };
 
 struct ListFilterExtractor
@@ -113,6 +121,7 @@ struct ListFilterExtractor
     data_filter::CacheEntry repetitionAddressCache;
     pcg32_fast rng;
     u8 repetitions;
+    DataSourceOptions::opt_t options;
 };
 
 size_t get_address_bits(ListFilterExtractor *ex);
@@ -122,20 +131,23 @@ size_t get_address_count(ListFilterExtractor *ex);
 Extractor make_extractor(
     data_filter::MultiWordFilter filter,
     u32 requiredCompletions,
-    u64 rngSeed);
+    u64 rngSeed,
+    DataSourceOptions::opt_t options = 0);
 
 DataSource make_datasource_extractor(
     memory::Arena *arena,
     data_filter::MultiWordFilter filter,
     u32 requiredCompletions,
     u64 rngSeed,
-    int moduleIndex);
+    int moduleIndex,
+    DataSourceOptions::opt_t options = 0);
 
 ListFilterExtractor make_listfilter_extractor(
     data_filter::ListFilter listFilter,
     data_filter::DataFilter repetitionAddressFilter,
     u8 repetitions,
-    u64 rngSeed);
+    u64 rngSeed,
+    DataSourceOptions::opt_t options = 0);
 
 DataSource make_datasource_listfilter_extractor(
     memory::Arena *arena,
@@ -143,7 +155,8 @@ DataSource make_datasource_listfilter_extractor(
     data_filter::DataFilter repetitionAddressFilter,
     u8 repetitions,
     u64 rngSeed,
-    u8 moduleIndex);
+    u8 moduleIndex,
+    DataSourceOptions::opt_t options = 0);
 
 size_t get_address_count(DataSource *ds);
 

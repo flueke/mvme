@@ -345,7 +345,8 @@ struct ListFilterEditor
 
     QComboBox *combo_wordSize;
 
-    QCheckBox *cb_swapWords;
+    QCheckBox *cb_swapWords,
+              *cb_addRandom;
 };
 
 static a2::data_filter::ListFilter listfilter_editor_make_a2_listfilter(ListFilterEditor e)
@@ -376,11 +377,17 @@ static a2::ListFilterExtractor listfilter_editor_make_a2_extractor(ListFilterEdi
 
     auto repFilter = make_filter(e.filter_repIndex->text().toStdString());
 
+    a2::DataSourceOptions::opt_t options = 0;
+
+    if (!e.cb_addRandom->isChecked())
+        options |= a2::DataSourceOptions::NoAddedRandom;
+
     a2::ListFilterExtractor ex_a2 = a2::make_listfilter_extractor(
         listFilter,
         repFilter,
         e.spin_repetitions->value(),
-        0);
+        0,
+        options);
 
     return ex_a2;
 }
@@ -419,6 +426,7 @@ static ListFilterEditor make_listfilter_editor(QWidget *parent = nullptr)
     e.filter_repIndex = makeFilterEdit();
     e.combo_wordSize = new QComboBox;
     e.cb_swapWords = new QCheckBox;
+    e.cb_addRandom = new QCheckBox;
 
     e.spin_repetitions->setMinimum(1);
     e.spin_repetitions->setMaximum(std::numeric_limits<u8>::max());
@@ -533,6 +541,7 @@ static ListFilterEditor make_listfilter_editor(QWidget *parent = nullptr)
         layout_extraction->addRow("Repetition", e.filter_repIndex);
         layout_extraction->addRow("High word", e.filter_highWord);
         layout_extraction->addRow("Low word", e.filter_lowWord);
+        layout_extraction->addRow("Add Random in [0, 1)", e.cb_addRandom);
 
         layout->addRow(gb_extraction);
     }
@@ -565,6 +574,7 @@ static void listfilter_editor_load_from_extractor(ListFilterEditor e, const List
     e.combo_wordSize->setCurrentIndex(listfilter.flags & ListFilter::WordSize32);
     e.spin_wordCount->setValue(listfilter.wordCount);
     e.cb_swapWords->setChecked(listfilter.flags & ListFilter::ReverseCombine);
+    e.cb_addRandom->setChecked(!(ex_a2.options & a2::DataSourceOptions::NoAddedRandom));
 
     auto lo  = QString::fromStdString(to_string(listfilter.extractionFilter.filters[0]));
     auto hi  = QString::fromStdString(to_string(listfilter.extractionFilter.filters[1]));
@@ -934,6 +944,7 @@ void ListFilterExtractorDialog::newFilter()
     auto repFilter = a2::data_filter::make_filter("XXXX XXXX");
 
     auto ex_a2 = a2::make_listfilter_extractor(listFilter, repFilter, 1, 0);
+    ex_a2.options = a2::DataSourceOptions::NoAddedRandom;
 
     ex->setExtractor(ex_a2);
 

@@ -10,6 +10,8 @@ find_package(Qt5Gui REQUIRED)
 find_package(Qt5Network REQUIRED)
 find_package(Qt5Widgets REQUIRED)
 
+find_package(Threads)
+
 # quazip
 find_path(QUAZIP_INCLUDE_DIR
     NAMES quazip.h
@@ -180,6 +182,7 @@ target_link_libraries(libmvme
     ${LIBUSB_LIBRARY}
     ${LIBMVME_ADDITIONAL_LIBS}
     liba2_static
+    Threads::Threads
     )
 
 install(TARGETS libmvme DESTINATION .)

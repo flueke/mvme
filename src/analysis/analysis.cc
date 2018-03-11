@@ -374,6 +374,7 @@ static std::uniform_real_distribution<double> RealDist01(0.0, 1.0);
 
 Extractor::Extractor(QObject *parent)
     : SourceInterface(parent)
+    , m_options(Options::NoOption)
 {
     m_output.setSource(this);
 
@@ -499,6 +500,7 @@ void Extractor::read(const QJsonObject &json)
     }
 
     setRequiredCompletionCount(static_cast<u32>(json["requiredCompletionCount"].toInt()));
+    m_options = static_cast<Options::opt_t>(json["options"].toInt());
 }
 
 void Extractor::write(QJsonObject &json) const
@@ -517,6 +519,7 @@ void Extractor::write(QJsonObject &json) const
 
     json["subFilters"] = filterArray;
     json["requiredCompletionCount"] = static_cast<qint64>(m_requiredCompletionCount);
+    json["options"] = static_cast<s32>(m_options);
 }
 
 QVector<double> Extractor::getHitCounts() const
@@ -533,6 +536,7 @@ ListFilterExtractor::ListFilterExtractor(QObject *parent)
 {
     m_output.setSource(this);
     m_a2Extractor = {};
+    m_a2Extractor.options = a2::DataSourceOptions::NoAddedRandom;
     std::random_device rd;
     std::uniform_int_distribution<u64> dist;
     m_rngSeed = dist(rd);
@@ -568,6 +572,7 @@ void ListFilterExtractor::write(QJsonObject &json) const
     json["repetitionAddressFilter"] = to_json(m_a2Extractor.repetitionAddressFilter);
     json["repetitions"] = static_cast<qint64>(m_a2Extractor.repetitions);
     json["rngSeed"] = QString::number(m_rngSeed, 16);
+    json["options"] = static_cast<s32>(m_a2Extractor.options);
 }
 
 void ListFilterExtractor::read(const QJsonObject &json)
@@ -579,6 +584,7 @@ void ListFilterExtractor::read(const QJsonObject &json)
     m_a2Extractor.repetitions = static_cast<u8>(json["repetitions"].toInt());
     QString sSeed = json["rngSeed"].toString();
     m_rngSeed = sSeed.toULongLong(nullptr, 16);
+    m_a2Extractor.options = static_cast<Options::opt_t>(json["options"].toInt());
 }
 
 //
