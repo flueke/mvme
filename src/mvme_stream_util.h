@@ -4,10 +4,14 @@
 #include <cassert>
 #include <stdexcept>
 
+#include "libmvme_export.h"
 #include "databuffer.h"
 #include "mvme_listfile.h"
+#include "mvme_stream_iter.h"
 
-class MVMEStreamWriterHelper
+/* Utility class to be used by readout workers to ease and unify listfile
+ * generation. */
+class LIBMVME_EXPORT MVMEStreamWriterHelper
 {
     public:
         using LF = listfile_v1;
@@ -162,5 +166,7 @@ class MVMEStreamWriterHelper
         s32 m_moduleHeaderOffset;
 };
 
+LIBMVME_EXPORT mvme_stream::StreamInfo streaminfo_from_vmeconfig(VMEConfig *vmeConfig, u32 listfileVersion = CurrentListfileVersion);
+LIBMVME_EXPORT mvme_stream::StreamInfo streaminfo_from_listfile(ListFile *listfile);
 
 #endif /* __MVME_STREAM_UTIL_H__ */

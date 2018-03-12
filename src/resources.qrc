@@ -16,6 +16,7 @@
     <file alias="script-run.png">resources/media-playback-start.png</file>
     <file alias="tree-settings.png">resources/view-list-tree.png</file>
     <file alias="data_filter.png">resources/view-filter.png</file>
+    <file alias="listfilter.png">resources/document-list.png</file>
     <file alias="hist1d.png">resources/office-chart-bar.png</file>
     <file alias="hist2d.png">resources/hist2d.png</file>
     <file alias="info.png">resources/dialog-information.png</file>
@@ -51,6 +52,7 @@
     <file alias="operator_generic.png">resources/code-class.png</file>
     <file alias="operator_previous.png">resources/arrow-circle-225-left.png</file>
     <file alias="operator_sum.png">resources/sum.png</file>
+    <file alias="rate_monitor_sink.png">resources/application-monitor.png</file>
 
     <file alias="gpl-notice.txt">resources/gpl-notice.txt</file>
     <file alias="mesytec-logo.png">resources/mesytec-logo.png</file>

@@ -70,6 +70,9 @@ QString VMEError::toString() const
     QString result(errorName());
     if (!m_message.isEmpty())
         result += QSL(": ") + m_message;
+    if (m_errorCode != 0)
+        result += QString("(code=%1)").arg(m_errorCode);
+
     return result;
 }
 

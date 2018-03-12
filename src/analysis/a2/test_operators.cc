@@ -20,6 +20,15 @@ using benchmark::Counter;
 
 #define ArrayCount(x) (sizeof(x) / sizeof(*x))
 
+#ifndef NDEBUG
+// Comparator taking into account that extractors add a random in [0.0, 1.0).
+inline bool dcmp(double d, double expected)
+{
+    return expected <= d && d <= expected + 1.0;
+};
+#endif
+
+
 static void BM_extractor_begin_event(benchmark::State &state)
 {
     Arena arena(Kilobytes(256));
@@ -28,7 +37,7 @@ static void BM_extractor_begin_event(benchmark::State &state)
 
     add_subfilter(&filter, make_filter("xxxx aaaa xxxx dddd"));
 
-    auto ex = arena.push(make_extractor(&arena, filter, 1, 1234, 0));
+    auto ex = arena.push(make_datasource_extractor(&arena, filter, 1, 1234, 0));
 
     assert(ex->output.data.size == (1u << 4));
 
@@ -67,7 +76,7 @@ static void BM_extractor_process_module_data(benchmark::State &state)
 
     add_subfilter(&filter, make_filter("xxxx aaaa xxxx dddd"));
 
-    auto ex = arena.push(make_extractor(&arena, filter, 1, 1234, 0));
+    auto ex = arena.push(make_datasource_extractor(&arena, filter, 1, 1234, 0));
 
     assert(ex->output.data.size == (1u << 4));
 
@@ -101,6 +110,229 @@ static void BM_extractor_process_module_data(benchmark::State &state)
     //print_param_vector(ex->output);
 }
 BENCHMARK(BM_extractor_process_module_data);
+
+static void TEST_listfilter_extractor(benchmark::State &state)
+{
+    // single extractor, 16 bit, not reversed, wordcount=2, repetitions=4
+    {
+        const u16 wordCount = 2;
+        const u16 repetitions = 4;
+        const u64 rngSeed = 1234;
+        const u8  moduleIndex = 0;
+
+        Arena arena(Kilobytes(256));
+
+        static u32 inputData[] =
+        {
+            // [1] = 0x1111
+            0x0001,
+            0x1111,
+            // [2] = 0x2222
+            0x0002,
+            0x2222,
+            // [3] = 0x3333
+            0x0003,
+            0x3333,
+            // [8] = 0x8888
+            0x0008,
+            0x8888,
+        };
+
+        static const u32 inputSize = ArrayCount(inputData);
+
+        ListFilter cf = make_listfilter(
+            ListFilter::NoFlag,
+            wordCount,
+            { "DDDD DDDD DDDD DDDD XXXX XXXX AAAA AAAA" });
+
+        DataFilter rf = {};
+
+        auto ce = make_datasource_listfilter_extractor(&arena, cf, rf,
+                                           repetitions, rngSeed,
+                                           moduleIndex);
+
+        assert(ce.output.data.size == (1u << 8));
+
+        listfilter_extractor_begin_event(&ce);
+
+        u32 *dataPtr = listfilter_extractor_process_module_data(&ce, inputData, inputSize);
+
+        assert(dataPtr == inputData + inputSize); // all data should have been consumed
+        assert(!is_param_valid(ce.output.data[0]));
+        assert(!is_param_valid(ce.output.data[4]));
+        assert(dcmp(ce.output.data[1], 0x1111));
+        assert(dcmp(ce.output.data[2], 0x2222));
+        assert(dcmp(ce.output.data[3], 0x3333));
+        assert(dcmp(ce.output.data[8], 0x8888));
+    }
+
+    // single extractor, 16 bit, not reversed, wordcount=2, repetitions=4, using repetitionAddressFilter
+    {
+        const u16 wordCount = 2;
+        const u16 repetitions = 4;
+        const u64 rngSeed = 1234;
+        const u8  moduleIndex = 0;
+
+        Arena arena(Kilobytes(256));
+
+        static u32 inputData[] =
+        {
+            // [1] = 0x1111, rep=0
+            0x0001,
+            0x1111,
+            // [2] = 0x2222, rep=1
+            0x0002,
+            0x2222,
+            // [3] = 0x3333, rep=2
+            0x0003,
+            0x3333,
+            // [8] = 0x8888, rep=3
+            0x0008,
+            0x8888,
+        };
+
+        static const u32 inputSize = ArrayCount(inputData);
+
+        ListFilter cf = make_listfilter(
+            ListFilter::NoFlag,
+            wordCount,
+            { "DDDD DDDD DDDD DDDD XXXX XXXX XXXX AAAA" });
+
+        DataFilter rf = make_filter("AAAA");
+
+        auto ce = make_datasource_listfilter_extractor(&arena, cf, rf,
+                                                       repetitions, rngSeed,
+                                                       moduleIndex);
+
+        assert(ce.output.data.size == (1u << 8));
+
+        listfilter_extractor_begin_event(&ce);
+
+        u32 *dataPtr = listfilter_extractor_process_module_data(&ce, inputData, inputSize);
+
+        assert(dataPtr == inputData + inputSize);
+        assert(!is_param_valid(ce.output.data[0x00]));
+        assert(!is_param_valid(ce.output.data[0x11]));
+        assert(!is_param_valid(ce.output.data[0x22]));
+        assert(dcmp(ce.output.data[0x01], 0x1111));
+        assert(dcmp(ce.output.data[0x12], 0x2222));
+        assert(dcmp(ce.output.data[0x23], 0x3333));
+        assert(dcmp(ce.output.data[0x38], 0x8888));
+    }
+
+    // 16 bit high word bug testing
+    // This is the case used with mesytec modules: two 16 bit reads of the ctrA
+    // registers, yielding two 32 bit words in the data stream. The first word
+    // read contains the 16 low bits, the second word the 16 high bits.
+    // Extract the low 16 bits of each of the words and combine them to a 32
+    // bit counter value.
+    {
+        const u16 wordCount = 2;
+        const u16 repetitions = 1;
+        const u64 rngSeed = 1234;
+        const u8  moduleIndex = 0;
+
+        Arena arena(Kilobytes(256));
+
+        static u32 inputData[] =
+        {
+            0x4321affe,
+            0x87651001,
+        };
+
+        static const u32 inputSize = ArrayCount(inputData);
+
+        ListFilter cf = make_listfilter(
+            ListFilter::NoFlag,
+            wordCount,
+            { "DDDD DDDD DDDD DDDD DDDD DDDD DDDD DDDD" });
+
+        DataFilter rf = {}; // repetition filter is not used
+
+        auto ce = make_datasource_listfilter_extractor(&arena, cf, rf,
+                                                       repetitions, rngSeed,
+                                                       moduleIndex);
+
+        assert(ce.output.data.size == (1u << 0));
+
+        listfilter_extractor_begin_event(&ce);
+
+        u32 *dataPtr = listfilter_extractor_process_module_data(&ce, inputData, inputSize);
+
+        assert(dataPtr == inputData + inputSize);
+        assert(is_param_valid(ce.output.data[0]));
+        assert(dcmp(ce.output.data[0], 0x1001affe));
+    }
+}
+BENCHMARK(TEST_listfilter_extractor);
+
+static void BM_listfilter_extractor(benchmark::State &state)
+{
+    // single extractor, 16 bit, not reversed, wordcount=2, repetitions=4, using repetitionAddressFilter
+    const u16 wordCount = 2;
+    const u16 repetitions = 4;
+    const u64 rngSeed = 1234;
+    const u8  moduleIndex = 0;
+
+    Arena arena(Kilobytes(256));
+
+    static u32 inputData[] =
+    {
+        // [1] = 0x1111, rep=0
+        0x0001,
+        0x1111,
+        // [2] = 0x2222, rep=1
+        0x0002,
+        0x2222,
+        // [3] = 0x3333, rep=2
+        0x0003,
+        0x3333,
+        // [8] = 0x8888, rep=3
+        0x0008,
+        0x8888,
+    };
+
+    static const u32 inputSize = ArrayCount(inputData);
+
+    ListFilter cf = make_listfilter(
+        ListFilter::NoFlag,
+        wordCount,
+        { "DDDD DDDD DDDD DDDD XXXX XXXX XXXX AAAA" });
+
+    DataFilter rf = make_filter("AAAA");
+
+    auto ce = make_datasource_listfilter_extractor(&arena, cf, rf,
+                                       repetitions, rngSeed,
+                                       moduleIndex);
+
+    assert(ce.output.data.size == (1u << 8));
+
+    listfilter_extractor_begin_event(&ce);
+
+    double bytesProcessed = 0;
+    double moduleCounter = 0;
+
+    while (state.KeepRunning())
+    {
+        u32 *dataPtr = listfilter_extractor_process_module_data(&ce, inputData, inputSize);
+        bytesProcessed += sizeof(inputData);
+        moduleCounter++;
+
+        assert(dataPtr == inputData + inputSize);
+        assert(!is_param_valid(ce.output.data[0x00]));
+        assert(!is_param_valid(ce.output.data[0x11]));
+        assert(!is_param_valid(ce.output.data[0x22]));
+        assert(dcmp(ce.output.data[0x01], 0x1111));
+        assert(dcmp(ce.output.data[0x12], 0x2222));
+        assert(dcmp(ce.output.data[0x23], 0x3333));
+        assert(dcmp(ce.output.data[0x38], 0x8888));
+    }
+
+    state.counters["mem"] = Counter(arena.used());
+    state.counters["bR"] = Counter(bytesProcessed, Counter::kIsRate);
+    state.counters["mR"] = Counter(moduleCounter, Counter::kIsRate);
+}
+BENCHMARK(BM_listfilter_extractor);
 
 
 static void BM_calibration_step(benchmark::State &state)

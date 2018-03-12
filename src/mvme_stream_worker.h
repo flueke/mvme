@@ -34,7 +34,7 @@
 class MesytecDiagnostics;
 class MVMEContext;
 class VMEConfig;
-class MVMEStreamWorkerPrivate;
+struct MVMEStreamWorkerPrivate;
 
 enum class MVMEStreamWorkerState
 {
@@ -72,6 +72,9 @@ class LIBMVME_EXPORT MVMEStreamWorker: public QObject
         const MVMEStreamProcessorCounters &getCounters() const;
 
         void setListFileVersion(u32 version);
+
+        void setStartPaused(bool startPaused);
+        bool getStartPaused() const;
 
         void beginRun();
 

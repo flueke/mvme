@@ -208,7 +208,61 @@ DataFilter makeFilterFromBytes(const QByteArray &filterDataRaw, s32 wordIndex)
     return DataFilter(filterData, wordIndex);
 }
 
-QLineEdit *makeFilterEdit()
+QString generate_pretty_filter_string(u8 bits, char c)
+{
+    QString buffer;
+    buffer.resize(bits + (bits / 4 - 1), ' ');
+
+    int outidx = buffer.size() - 1;
+    u8 bits_written = 0;
+
+    while (bits_written < bits && outidx >= 0)
+    {
+        if (bits_written && bits_written % 4 == 0)
+        {
+            buffer[outidx--] = ' ';
+        }
+
+        buffer[outidx--] = c;
+        bits_written++;
+    }
+
+    return buffer;
+}
+
+QString generate_pretty_filter_string(u8 dataBits, u8 totalBits, char c)
+{
+    u8 bits = std::max(dataBits, totalBits);
+
+    QString buffer;
+    buffer.resize(bits + (bits / 4 - 1), ' ');
+
+    int outidx = buffer.size() - 1;
+    u8 bits_written = 0;
+
+    while (bits_written < bits && outidx >= 0)
+    {
+        if (bits_written && bits_written % 4 == 0)
+        {
+            buffer[outidx--] = ' ';
+        }
+
+        if (bits_written < dataBits)
+        {
+            buffer[outidx--] = c;
+        }
+        else
+        {
+            buffer[outidx--] = ' ';
+        }
+
+        bits_written++;
+    }
+
+    return buffer;
+}
+
+QLineEdit *makeFilterEdit(u8 bits)
 {
     QFont font;
     font.setFamily(QSL("Monospace"));
@@ -217,7 +271,8 @@ QLineEdit *makeFilterEdit()
 
     QLineEdit *result = new QLineEdit;
     result->setFont(font);
-    result->setInputMask("NNNN NNNN NNNN NNNN NNNN NNNN NNNN NNNN");
+    result->setInputMask(generate_pretty_filter_string(bits, 'N'));
+    result->setAlignment(Qt::AlignRight);
 
     QFontMetrics fm(font);
     s32 padding = 6;

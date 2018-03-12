@@ -144,6 +144,8 @@ class LIBMVME_EXPORT VMEScriptConfig: public ConfigObject
         QString m_script;
 };
 
+class EventConfig;
+
 class LIBMVME_EXPORT ModuleConfig: public ConfigObject
 {
     Q_OBJECT
@@ -167,6 +169,8 @@ class LIBMVME_EXPORT ModuleConfig: public ConfigObject
 
         void setEventHeaderFilter(const QByteArray &filter);
         QByteArray getEventHeaderFilter() const { return m_eventHeaderFilter; }
+
+        EventConfig *getEventConfig() const;
 
     protected:
         virtual void read_impl(const QJsonObject &json) override;

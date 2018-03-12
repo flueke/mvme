@@ -329,30 +329,15 @@ int sis3153eth::set_UdpSocketSIS3153_IpAddress( char* sis3153_ip_addr_string){
     strcpy(temp_ip_addr_string,"255.255.255.255") ; //
 #endif
 
-    if(strlen(sis3153_ip_addr_string) != 0) {
+    hp = gethostbyname(sis3153_ip_addr_string);
 
-/* sis3153_ip_addr_string beginn with "SIS3153" or "sis3153" and contains 12 characters: eg. "SIS3153-0123" [0123: Device-SN 123] */
-        if(     (   (strncmp(sis3153_ip_addr_string, DHCP_DEVICE_NAME_LARGE_CASE, strlen(DHCP_DEVICE_NAME_LARGE_CASE)) == 0)
-                 || (strncmp(sis3153_ip_addr_string, DHCP_DEVICE_NAME_LOWER_CASE, strlen(DHCP_DEVICE_NAME_LOWER_CASE)) == 0))
-             && (strlen(sis3153_ip_addr_string) == 12) ){
-
-            hp = gethostbyname(sis3153_ip_addr_string);
-            if(hp){
-                memcpy((void *)&this->sis3153_sock_addr_in.sin_addr, hp->h_addr_list[0], hp->h_length);
-            }
-            else{
-                this->sis3153_sock_addr_in.sin_addr.s_addr = inet_addr(temp_ip_addr_string); // invalid IP string will set the IP to 255.255.255.255
-                return_code=-2;
-                return return_code;
-            }
-        }
-        else{
-            this->sis3153_sock_addr_in.sin_addr.s_addr = inet_addr(sis3153_ip_addr_string); // IP string will set the IP to sis3153_ip_addr_string
-        }
+    if(hp){
+        memcpy((void *)&this->sis3153_sock_addr_in.sin_addr, hp->h_addr_list[0], hp->h_length);
     }
-    else {
+    else{
         this->sis3153_sock_addr_in.sin_addr.s_addr = inet_addr(temp_ip_addr_string); // invalid IP string will set the IP to 255.255.255.255
-        return_code = -1;
+        return_code=-2;
+        return return_code;
     }
 
     if(this->sis3153_sock_addr_in.sin_addr.s_addr == 0xffffffff ) { // broadcast address

@@ -27,6 +27,7 @@
 #include "mvme_stream_worker.h"
 #include "mvme_listfile.h"
 #include "analysis/analysis.h"
+#include "analysis/analysis_session.h"
 #include "analysis/analysis_ui.h"
 #include "analysis/a2/memory.h"
 #include "config_ui.h"
@@ -69,6 +70,10 @@ static const QString DefaultAnalysisConfigFileName  = QSL("analysis.analysis");
 /* Maximum number of connection attempts to the current VMEController before
  * giving up. */
 static const int VMECtrlConnectMaxRetryCount = 3;
+
+/* Maximum number of entries to keep in the logbuffer. Once this is exceeded
+ * the oldest entries will be removed. */
+static const s64 LogBufferMaxEntries = 100 * 1000;
 
 struct MVMEContextPrivate
 {
@@ -1155,8 +1160,29 @@ void MVMEContext::startDAQReplay(quint32 nEvents, bool keepHistoContents)
     m_listFileWorker->setEventsToRead(nEvents);
     m_streamWorker->setListFileVersion(m_listFile->getFileVersion());
 
+
+    /* Start both the listfile reader and the stream processor.
+     * There is a race condition here between the listfile reader emitting
+     * replayStopped() and the stream worker starting up: in case the listfile
+     * is very short the reader will have emitted the signal before the stream
+     * processor was fully started. This results in the stream proc remaining
+     * in "running" state forever.
+     * Solution: start the streamworker and react to its started() signal.
+     * Once that arrives start the listfile reader. */
+
+    QEventLoop localLoop;
+
+    qDebug() << __PRETTY_FUNCTION__ << "starting stream processor";
+    {
+        auto con = QObject::connect(m_streamWorker.get(), &MVMEStreamWorker::started, &localLoop, &QEventLoop::quit);
+        QMetaObject::invokeMethod(m_streamWorker.get(), "start", Qt::QueuedConnection);
+        localLoop.exec();
+        QObject::disconnect(con);
+    }
+
+    qDebug() << __PRETTY_FUNCTION__ << "stream processor running. starting listfile reader";
+
     QMetaObject::invokeMethod(m_listFileWorker, "start", Qt::QueuedConnection);
-    QMetaObject::invokeMethod(m_streamWorker.get(), "start", Qt::QueuedConnection);
 
     m_replayTime.restart();
 }
@@ -1224,6 +1250,10 @@ void MVMEContext::addWidget(QWidget *widget, const QString &stateKey)
 void MVMEContext::logMessageRaw(const QString &msg)
 {
     QMutexLocker lock(&m_d->m_logBufferMutex);
+
+    if (m_d->m_logBuffer.size() >= LogBufferMaxEntries)
+        m_d->m_logBuffer.pop_front();
+
     m_d->m_logBuffer.append(msg);
     emit sigLogMessage(msg);
 }
@@ -1507,6 +1537,26 @@ void MVMEContext::openWorkspace(const QString &dirName)
         // No exceptions thrown -> store workspace directory in global settings
         QSettings settings;
         settings.setValue(QSL("LastWorkspaceDirectory"), getWorkspaceDirectory());
+
+        //
+        // Load analysis session auto save
+        //
+
+        /* Try to load an analysis session auto save. Only loads analysis data,
+         * not the analysis itself from the file.
+         * Does not have an effect if there's a mismatch between the current
+         * analysis and the one stored in the session as operator ids will be
+         * different so no data will be loaded.
+         * NOTE: the auto save is done at the end of MVMEStreamWorker::start().
+         */
+        auto sessionPath = getWorkspacePath(QSL("SessionDirectory"));
+        QFileInfo fi(sessionPath + "/last_session.hdf5");
+
+        if (fi.exists())
+        {
+            logMessage(QString("Loading analysis session auto save %1").arg(fi.filePath()));
+            load_analysis_session(fi.filePath(), getAnalysis());
+        }
     }
     catch (const QString &)
     {

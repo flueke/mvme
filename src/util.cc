@@ -36,17 +36,17 @@ void debugOutputBuffer(u8 *dataBuffer, size_t bufferSize)
 
     while (iter.longwordsLeft())
     {
-        qDebug("%3u: %08x", wordIndex++, iter.extractU32());
+        qDebug("%3u: 0x%08x", wordIndex++, iter.extractU32());
     }
 
     while (iter.shortwordsLeft())
     {
-        qDebug("%3u: %04x", wordIndex++, iter.extractU16());
+        qDebug("%3u: 0x%04x", wordIndex++, iter.extractU16());
     }
 
     while (iter.bytesLeft())
     {
-        qDebug("%3u: %02x", wordIndex++, iter.extractU8());
+        qDebug("%3u: 0x%02x", wordIndex++, iter.extractU8());
     }
 }
 
@@ -358,6 +358,9 @@ QPair<double, QString> byte_unit(size_t inBytes)
     return qMakePair(bytes, units[power]);
 }
 
+/* Formats the buffer writing 8 32-bit values in hex per row. Once a row has
+ * been formatted it is passed to loggerFun for consumption.
+ */
 void logBuffer(BufferIterator iter, std::function<void (const QString &)> loggerFun)
 {
     static const u32 wordsPerRow = 8;

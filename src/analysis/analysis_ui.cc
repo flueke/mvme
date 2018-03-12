@@ -24,7 +24,6 @@
 #include "data_extraction_widget.h"
 #include "analysis_info_widget.h"
 #include "a2_adapter.h"
-#include "analysis_impl_switch.h"
 #ifdef MVME_ENABLE_HDF5
 #include "analysis_session.h"
 #endif
@@ -34,9 +33,10 @@
 #include "../histo2d_widget.h"
 #include "../mvme_context.h"
 #include "../mvme_stream_worker.h"
+#include "../rate_monitor_widget.h"
 #include "../treewidget_utils.h"
-#include "util/counters.h"
-#include "util/strings.h"
+#include "../util/counters.h"
+#include "../util/strings.h"
 #include "../vme_analysis_common.h"
 
 #include <QApplication>
@@ -151,9 +151,17 @@ inline TreeNode *makeOperatorTreeSourceNode(SourceInterface *source)
 {
     auto sourceNode = makeNode(source, NodeType_Source);
     sourceNode->setText(0, source->objectName());
-    sourceNode->setIcon(0, QIcon(":/data_filter.png"));
 
-    Q_ASSERT(source->getNumberOfOutputs() == 1); // TODO: implement the case for multiple outputs
+    auto icon = QIcon(":/data_filter.png");
+
+    if (qobject_cast<ListFilterExtractor *>(source))
+    {
+        icon = QIcon(":/listfilter.png");
+    }
+
+    sourceNode->setIcon(0, icon);
+
+    Q_ASSERT(source->getNumberOfOutputs() == 1); // TODO: implement the case for multiple outputs if we ever use them
 
     if (source->getNumberOfOutputs() == 1)
     {
@@ -189,8 +197,8 @@ static QIcon makeIconFor(OperatorInterface *op)
     if (qobject_cast<Histo2DSink *>(op))
         return QIcon(":/hist2d.png");
 
-    if (qobject_cast<SinkInterface *>(op))
-        return QIcon(":/sink.png");
+    if (qobject_cast<RateMonitorSink *>(op))
+        return QIcon(":/rate_monitor_sink.png");
 
     if (qobject_cast<CalibrationMinMax *>(op))
         return QIcon(":/operator_calibration.png");
@@ -203,6 +211,9 @@ static QIcon makeIconFor(OperatorInterface *op)
 
     if (qobject_cast<Sum *>(op))
         return QIcon(":/operator_sum.png");
+
+    if (qobject_cast<SinkInterface *>(op))
+        return QIcon(":/sink.png");
 
     return QIcon(":/operator_generic.png");
 }
@@ -527,7 +538,7 @@ struct EventWidgetPrivate
         QVector<double> hitCounts;
     };
 
-    QHash<Extractor *, ObjectCounters> m_extractorCounters;
+    QHash<SourceInterface *, ObjectCounters> m_extractorCounters;
     QHash<Histo1DSink *, ObjectCounters> m_histo1DSinkCounters;
     QHash<Histo2DSink *, ObjectCounters> m_histo2DSinkCounters;
     MVMEStreamProcessorCounters m_prevStreamProcessorCounters;
@@ -642,13 +653,23 @@ DisplayLevelTrees EventWidgetPrivate::createSourceTrees(const QUuid &eventId)
         result.operatorTree->addTopLevelItem(moduleNode);
         moduleNode->setExpanded(true);
 
-        for (auto sourceEntry: analysis->getSources(eventId, mod->getId()))
+        auto sourceEntries = analysis->getSources(eventId, mod->getId());
+
+#ifndef QT_NO_DEBUG
+        qDebug() << __PRETTY_FUNCTION__ << ">>>>> sources in order:";
+        for (auto se: sourceEntries)
+        {
+            qDebug() << se.source.get();
+        }
+        qDebug() << __PRETTY_FUNCTION__ << " <<<< end sources";
+#endif
+
+        for (auto sourceEntry: sourceEntries)
         {
             auto sourceNode = makeOperatorTreeSourceNode(sourceEntry.source.get());
             moduleNode->addChild(sourceNode);
         }
     }
-    result.operatorTree->sortItems(0, Qt::AscendingOrder);
 
     // Populate the DisplayTree
     // Create module nodes and nodes for the raw histograms for each data source for the module.
@@ -840,7 +861,6 @@ void EventWidgetPrivate::appendTreesToView(DisplayLevelTrees trees)
         QObject::connect(tree, &QTreeWidget::itemExpanded, m_q, [this, treeType] (QTreeWidgetItem *node) {
             if (void *voidObj = getPointer<void>(node))
             {
-                qDebug() << voidObj << "was expanded";
                 m_expandedObjects[treeType].insert(voidObj);
             }
         });
@@ -848,7 +868,6 @@ void EventWidgetPrivate::appendTreesToView(DisplayLevelTrees trees)
         QObject::connect(tree, &QTreeWidget::itemCollapsed, m_q, [this, treeType] (QTreeWidgetItem *node) {
             if (void *voidObj = getPointer<void>(node))
             {
-                qDebug() << voidObj << "was collapsed";
                 m_expandedObjects[treeType].remove(voidObj);
             }
         });
@@ -887,13 +906,15 @@ static void expandObjectNodes(const QVector<DisplayLevelTrees> &treeVector, cons
 
 void EventWidgetPrivate::repopulate()
 {
+    qDebug() << __PRETTY_FUNCTION__ << m_q;
+
     auto splitterSizes = m_operatorFrameSplitter->sizes();
     // clear
 #if 0
     for (auto trees: m_levelTrees)
     {
         // FIXME: this is done because setParent(nullptr) below will cause a
-        // focus in event on one of the other trees and that will call
+        // focus-in event on one of the other trees and that will call
         // EventWidget::eventFilter() which will call setCurrentItem() on
         // whatever tree gained focus which will emit currentItemChanged()
         // which will invoke a lambda which will call onNodeClicked() which
@@ -1016,16 +1037,43 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
             {
                 auto moduleConfig = getPointer<ModuleConfig>(node);
 
-                // new sources
+                // new data sources / filters
                 auto add_action = [this, &menu, menuNew, moduleConfig](const QString &title, auto srcPtr)
                 {
                     menuNew->addAction(title, &menu, [this, moduleConfig, srcPtr]() {
-                        auto widget = new AddEditSourceWidget(srcPtr, moduleConfig, m_q);
-                        widget->move(QCursor::pos());
-                        widget->setAttribute(Qt::WA_DeleteOnClose);
-                        widget->show();
+                        QDialog *dialog = nullptr;
+
+                        if (dynamic_cast<Extractor *>(srcPtr.get()))
+                        {
+                            dialog = new AddEditExtractorWidget(srcPtr, moduleConfig, m_q);
+                        }
+                        else if (dynamic_cast<ListFilterExtractor *>(srcPtr.get()))
+                        {
+                            auto lfe_dialog = new ListFilterExtractorDialog(moduleConfig, m_context->getAnalysis(), m_context, m_q);
+
+                            if (!m_context->getAnalysis()->getListFilterExtractors(moduleConfig).isEmpty())
+                            {
+                                lfe_dialog->newFilter();
+                            }
+
+                            QObject::connect(lfe_dialog, &QDialog::accepted, m_q,
+                                             &EventWidget::listFilterExtractorDialogAccepted);
+                            QObject::connect(lfe_dialog, &ListFilterExtractorDialog::applied, m_q,
+                                             &EventWidget::listFilterExtractorDialogApplied);
+                            QObject::connect(lfe_dialog, &QDialog::rejected, m_q,
+                                             &EventWidget::listFilterExtractorDialogRejected);
+                            dialog = lfe_dialog;
+                        }
+                        else
+                        {
+                            InvalidCodePath;
+                        }
+
+                        dialog->move(QCursor::pos());
+                        dialog->setAttribute(Qt::WA_DeleteOnClose);
+                        dialog->show();
                         m_uniqueWidgetActive = true;
-                        m_uniqueWidget = widget;
+                        m_uniqueWidget = dialog;
                         clearAllTreeSelections();
                         clearAllToDefaultNodeHighlights();
                     });
@@ -1112,12 +1160,37 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                     if (moduleConfig)
                     {
                         menu.addAction(QSL("Edit"), [this, sourceInterface, moduleConfig]() {
-                            auto widget = new AddEditSourceWidget(sourceInterface, moduleConfig, m_q);
-                            widget->move(QCursor::pos());
-                            widget->setAttribute(Qt::WA_DeleteOnClose);
-                            widget->show();
+                            QDialog *dialog = nullptr;
+
+                            if (dynamic_cast<Extractor *>(sourceInterface))
+                            {
+                                dialog = new AddEditExtractorWidget(sourceInterface, moduleConfig, m_q);
+                            }
+                            else if (dynamic_cast<ListFilterExtractor *>(sourceInterface))
+                            {
+                                auto srcPtr = std::dynamic_pointer_cast<SourceInterface>(sourceInterface->shared_from_this());
+                                auto lfe_dialog = new ListFilterExtractorDialog(moduleConfig, m_context->getAnalysis(), m_context, m_q);
+                                lfe_dialog->editSource(srcPtr);
+
+                                QObject::connect(lfe_dialog, &QDialog::accepted, m_q,
+                                                 &EventWidget::listFilterExtractorDialogAccepted);
+                                QObject::connect(lfe_dialog, &ListFilterExtractorDialog::applied, m_q,
+                                                 &EventWidget::listFilterExtractorDialogApplied);
+                                QObject::connect(lfe_dialog, &QDialog::rejected, m_q,
+                                                 &EventWidget::listFilterExtractorDialogRejected);
+
+                                dialog = lfe_dialog;
+                            }
+                            else
+                            {
+                                InvalidCodePath;
+                            }
+
+                            dialog->move(QCursor::pos());
+                            dialog->setAttribute(Qt::WA_DeleteOnClose);
+                            dialog->show();
                             m_uniqueWidgetActive = true;
-                            m_uniqueWidget = widget;
+                            m_uniqueWidget = dialog;
                             clearAllTreeSelections();
                             clearAllToDefaultNodeHighlights();
                         });
@@ -1237,6 +1310,25 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
     {
         menu.exec(tree->mapToGlobal(pos));
     }
+}
+
+void EventWidget::listFilterExtractorDialogAccepted()
+{
+    qDebug() << __PRETTY_FUNCTION__;
+    m_d->repopulate();
+    uniqueWidgetCloses();
+}
+
+void EventWidget::listFilterExtractorDialogApplied()
+{
+    qDebug() << __PRETTY_FUNCTION__;
+    m_d->repopulate();
+}
+
+void EventWidget::listFilterExtractorDialogRejected()
+{
+    qDebug() << __PRETTY_FUNCTION__;
+    uniqueWidgetCloses();
 }
 
 void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos, s32 userLevel)
@@ -1458,8 +1550,14 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
         {
             if (userLevel == 0)
             {
-                auto sink = std::make_shared<Histo1DSink>();
-                add_action(sink->getDisplayName(), sink);
+                {
+                    auto sink = std::make_shared<Histo1DSink>();
+                    add_action(sink->getDisplayName(), sink);
+                }
+                {
+                    auto sink = std::make_shared<RateMonitorSink>();
+                    add_action(sink->getDisplayName(), sink);
+                }
             }
             else
             {
@@ -2014,6 +2112,29 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                         m_context->activateObjectWidget(sinkPtr.get());
                     }
                 } break;
+
+            case NodeType_Sink:
+                if (auto rms = std::dynamic_pointer_cast<RateMonitorSink>(getPointer<RateMonitorSink>(node)->getSharedPointer()))
+                {
+                    if (!m_context->hasObjectWidget(rms.get()) || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
+                    {
+                        auto context = m_context;
+                        auto widget = new RateMonitorWidget(rms->getRateSamplers());
+
+                        widget->setSink(rms, [context](const std::shared_ptr<RateMonitorSink> &sink) {
+                            context->analysisOperatorEdited(sink);
+                        });
+
+                        widget->setPlotExportDirectory(m_context->getWorkspacePath(QSL("PlotsDirectory")));
+
+                        m_context->addObjectWidget(widget, rms.get(), rms->getId().toString());
+                    }
+                    else
+                    {
+                        m_context->activateObjectWidget(rms.get());
+                    }
+                }
+                break;
         }
     }
 }
@@ -2111,10 +2232,8 @@ void EventWidgetPrivate::doPeriodicUpdate()
 
 void EventWidgetPrivate::periodicUpdateExtractorCounters(double dt_s)
 {
-#if ANALYSIS_USE_A2
     auto analysis = m_context->getAnalysis();
     auto a2State = analysis->getA2AdapterState();
-#endif
 
     //
     // level 0: operator tree (Extractor hitcounts)
@@ -2126,29 +2245,19 @@ void EventWidgetPrivate::periodicUpdateExtractorCounters(double dt_s)
 
         if (node->type() == NodeType_Source)
         {
-            auto extractor = qobject_cast<Extractor *>(getPointer<PipeSourceInterface>(node));
+            auto source = qobject_cast<SourceInterface *>(getPointer<PipeSourceInterface>(node));
 
-            if (!extractor)
+            if (!source)
                 continue;
 
-            if (extractor->getOutput(0)->getSize() != node->childCount())
+            auto ds_a2 = a2State->sourceMap.value(source, nullptr);
+
+            if (!ds_a2)
                 continue;
 
-#if ANALYSIS_USE_A2
-            if (!a2State)
-                continue;
+            auto hitCounts = to_qvector(ds_a2->hitCounts);
 
-            auto ex_a2 = a2State->sourceMap.value(extractor, nullptr);
-
-            if (!ex_a2)
-                continue;
-
-            auto hitCounts = to_qvector(ex_a2->hitCounts);
-#else
-            auto hitCounts = extractor->getHitCounts();
-#endif
-
-            auto &prevHitCounts = m_extractorCounters[extractor].hitCounts;
+            auto &prevHitCounts = m_extractorCounters[source].hitCounts;
 
             prevHitCounts.resize(hitCounts.size());
 
@@ -2173,7 +2282,11 @@ void EventWidgetPrivate::periodicUpdateExtractorCounters(double dt_s)
                 }
                 else
                 {
-                    auto rateString = format_number(hitCountRates[addr], QSL("cps"), UnitScaling::Decimal,
+                    double rate = hitCountRates[addr];
+
+                    if (std::isnan(rate)) rate = 0.0;
+
+                    auto rateString = format_number(rate, QSL("cps"), UnitScaling::Decimal,
                                                     0, 'g', 3);
 
                     childNode->setText(0, QString("%1 (hits=%2, rate=%3, dt=%4 s)")
@@ -2192,10 +2305,8 @@ void EventWidgetPrivate::periodicUpdateExtractorCounters(double dt_s)
 
 void EventWidgetPrivate::periodicUpdateHistoCounters(double dt_s)
 {
-#if ANALYSIS_USE_A2
     auto analysis = m_context->getAnalysis();
     auto a2State = analysis->getA2AdapterState();
-#endif
 
     //
     // level > 0: display trees (histo counts)
@@ -2219,7 +2330,6 @@ void EventWidgetPrivate::periodicUpdateHistoCounters(double dt_s)
 
                 QVector<double> entryCounts;
 
-#if ANALYSIS_USE_A2
                 if (a2State)
                 {
                     if (auto a2_sink = a2State->operatorMap.value(histoSink, nullptr))
@@ -2234,14 +2344,6 @@ void EventWidgetPrivate::periodicUpdateHistoCounters(double dt_s)
                         }
                     }
                 }
-#else
-                entryCounts.reserve(histoSink->m_histos.size());
-
-                for (const auto &histo: histoSink->m_histos)
-                {
-                    entryCounts.push_back(histo->getEntryCount());
-                }
-#endif
 
                 auto &prevEntryCounts = m_histo1DSinkCounters[histoSink].hitCounts;
 
@@ -2268,7 +2370,10 @@ void EventWidgetPrivate::periodicUpdateHistoCounters(double dt_s)
                     }
                     else
                     {
-                        auto rateString = format_number(entryCountRates[addr], QSL("cps"), UnitScaling::Decimal,
+                        double rate = entryCountRates[addr];
+                        if (std::isnan(rate)) rate = 0.0;
+
+                        auto rateString = format_number(rate, QSL("cps"), UnitScaling::Decimal,
                                                         0, 'g', 3);
 
                         childNode->setText(0, QString("%1 (entries=%2, rate=%3, dt=%4 s)")
@@ -2290,16 +2395,13 @@ void EventWidgetPrivate::periodicUpdateHistoCounters(double dt_s)
                 if (histo)
                 {
                     double entryCount = 0.0;
-#if ANALYSIS_USE_A2
+
                     if (auto a2_sink = a2State->operatorMap.value(sink, nullptr))
                     {
                         auto sinkData = reinterpret_cast<a2::H2DSinkData *>(a2_sink->d);
 
                         entryCount = sinkData->histo.entryCount;
                     }
-#else
-                    entryCount = histo->getEntryCount();
-#endif
                     auto &prevEntryCounts = m_histo2DSinkCounters[sink].hitCounts;
                     prevEntryCounts.resize(1);
 
@@ -2317,6 +2419,8 @@ void EventWidgetPrivate::periodicUpdateHistoCounters(double dt_s)
                     }
                     else
                     {
+                        if (std::isnan(countRate)) countRate = 0.0;
+
                         auto rateString = format_number(countRate, QSL("cps"), UnitScaling::Decimal,
                                                         0, 'g', 3);
 
@@ -2351,6 +2455,7 @@ void EventWidgetPrivate::periodicUpdateEventRate(double dt_s)
 
     double eventCount = counters.moduleCounters[m_eventIndex][0];
     double eventRate = deltaEvents / dt_s;
+    if (std::isnan(eventRate)) eventRate = 0.0;
 
     auto labelText = (QString("count=%1\nrate=%2")
                       .arg(format_number(eventCount, QSL(""), UnitScaling::Decimal))
@@ -2691,6 +2796,10 @@ EventWidget::EventWidget(MVMEContext *ctx, const QUuid &eventId, int eventIndex,
         tb->addAction(m_d->m_actionSelectVisibleLevels);
         tb->addSeparator();
         tb->addWidget(m_d->m_eventRateLabel);
+#ifndef QT_NO_DEBUG
+        tb->addSeparator();
+        tb->addAction(QSL("Repopulate (dev)"), this, [this]() { m_d->repopulate(); });
+#endif
     }
 
     m_d->repopulate();
@@ -3024,7 +3133,7 @@ struct AnalysisWidgetPrivate
     void actionSaveSession();
     void actionLoadSession();
 #endif
-    void actionPause();
+    void actionPause(bool isChecked);
     void actionStepNextEvent();
 
     void updateWindowTitle();
@@ -3609,7 +3718,8 @@ void AnalysisWidgetPrivate::updateActions()
         case MVMEStreamWorkerState::Idle:
             m_actionPause->setIcon(QIcon(":/control_pause.png"));
             m_actionPause->setText(QSL("Pause"));
-            m_actionPause->setEnabled(false);
+            m_actionPause->setEnabled(true);
+            m_actionPause->setChecked(streamWorker->getStartPaused());
             m_actionStepNextEvent->setEnabled(false);
             break;
 
@@ -3617,6 +3727,7 @@ void AnalysisWidgetPrivate::updateActions()
             m_actionPause->setIcon(QIcon(":/control_pause.png"));
             m_actionPause->setText(QSL("Pause"));
             m_actionPause->setEnabled(true);
+            m_actionPause->setChecked(false);
             m_actionStepNextEvent->setEnabled(false);
             break;
 
@@ -3624,6 +3735,7 @@ void AnalysisWidgetPrivate::updateActions()
             m_actionPause->setIcon(QIcon(":/control_play.png"));
             m_actionPause->setText(QSL("Resume"));
             m_actionPause->setEnabled(true);
+            m_actionPause->setChecked(true);
             m_actionStepNextEvent->setEnabled(true);
             break;
 
@@ -3634,7 +3746,7 @@ void AnalysisWidgetPrivate::updateActions()
     }
 }
 
-void AnalysisWidgetPrivate::actionPause()
+void AnalysisWidgetPrivate::actionPause(bool actionIsChecked)
 {
     auto streamWorker = m_context->getMVMEStreamWorker();
     auto workerState = streamWorker->getState();
@@ -3642,8 +3754,7 @@ void AnalysisWidgetPrivate::actionPause()
     switch (workerState)
     {
         case MVMEStreamWorkerState::Idle:
-        case MVMEStreamWorkerState::SingleStepping:
-            InvalidCodePath;
+            streamWorker->setStartPaused(actionIsChecked);
             break;
 
         case MVMEStreamWorkerState::Running:
@@ -3653,12 +3764,17 @@ void AnalysisWidgetPrivate::actionPause()
         case MVMEStreamWorkerState::Paused:
             streamWorker->resume();
             break;
+
+        case MVMEStreamWorkerState::SingleStepping:
+            // cannot pause/resume during the time a singlestepping is active
+            InvalidCodePath;
+            break;
     }
 }
 
 void AnalysisWidgetPrivate::actionStepNextEvent()
 {
-    m_context->logMessage(QSL("Single stepping not yet implement! :("));
+    //m_context->logMessage(QSL("Single stepping not yet implement! :("));
 
     auto streamWorker = m_context->getMVMEStreamWorker();
     auto workerState = streamWorker->getState();
@@ -3833,7 +3949,8 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
 
         m_d->m_toolbar->addSeparator();
         m_d->m_actionPause = m_d->m_toolbar->addAction(
-            QIcon(":/control_pause.png"), QSL("Pause"), this, [this] { m_d->actionPause(); });
+            QIcon(":/control_pause.png"), QSL("Pause"), this, [this](bool checked) { m_d->actionPause(checked); });
+        m_d->m_actionPause->setCheckable(true);
 
         m_d->m_actionStepNextEvent = m_d->m_toolbar->addAction(
             QIcon(":/control_play_stop.png"), QSL("Next Event"), this, [this] { m_d->actionStepNextEvent(); });
@@ -3921,9 +4038,7 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
     m_d->m_statusLabelA2 = new QLabel;
     m_d->m_statusBar->addPermanentWidget(m_d->m_statusLabelA2);
 
-#if ANALYSIS_USE_A2
     m_d->m_statusLabelA2->setText(QSL("a2::"));
-#endif
 
     // main layout
     auto layout = new QGridLayout(this);
@@ -4008,7 +4123,7 @@ AnalysisWidget::AnalysisWidget(MVMEContext *ctx, QWidget *parent)
         }
         else
         {
-            m_d->m_labelEfficiency->setText(QSL("Replay"));
+            m_d->m_labelEfficiency->setText(QSL("Replay  |"));
             m_d->m_labelEfficiency->setToolTip(QSL(""));
         }
     });

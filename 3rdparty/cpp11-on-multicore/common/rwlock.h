@@ -31,7 +31,7 @@ private:
 
 public:
     NonRecursiveRWLock() : m_status(0) {}
-    
+
     void lockReader()
     {
         Status oldStatus = m_status.load(std::memory_order_relaxed);

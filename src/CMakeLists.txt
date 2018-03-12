@@ -10,6 +10,8 @@ find_package(Qt5Gui REQUIRED)
 find_package(Qt5Network REQUIRED)
 find_package(Qt5Widgets REQUIRED)
 
+find_package(Threads)
+
 # quazip
 find_path(QUAZIP_INCLUDE_DIR
     NAMES quazip.h
@@ -87,15 +89,23 @@ set(LIBMVME_SOURCES
     histo2d_widget_p.cc
     histo_util.cc
     listfile_browser.cc
+    listfile_constants.cc
+    listfile_constants_impl.cc
     mesytec_diagnostics.cc
     mvme_context.cc
     mvme_context_lib.cc
     mvme.cpp
     mvme_listfile.cc
     mvme_startup.cc
+    mvme_stream_iter.cc
     mvme_stream_processor.cc
+    mvme_stream_util.cc
     mvme_stream_worker.cc
     qt_util.cc
+    rate_monitor_base.cc
+    rate_monitor_gui.cc
+    rate_monitor_plot_widget.cc
+    rate_monitor_widget.cc
     realtimedata.cpp
     scrollbar.cpp
     scrollzoomer.cpp
@@ -107,8 +117,8 @@ set(LIBMVME_SOURCES
     timed_block.cc
     treewidget_utils.cc
     util.cc
-    util_zip.cc
     util/strings.cc
+    util_zip.cc
     vme_analysis_common.cc
     vme_config.cc
     vme_config_tree.cc
@@ -136,10 +146,10 @@ qt5_wrap_ui(LIBMVME_UIC_OUT
 
 qt5_add_resources(LIBMVME_RC_OUT resources.qrc)
 
-if (ENABLE_HDF5)
+if (HDF5_FOUND)
     list(APPEND LIBMVME_ADDITIONAL_LIBS ${HDF5_CXX_LIBRARIES})
     list(APPEND LIBMVME_SOURCES analysis/analysis_session.cc)
-endif()
+endif(HDF5_FOUND)
 
 if (ENABLE_ROOT AND ROOT_FOUND)
     # The code that's starting and managing the mvme-root-writer. Does not
@@ -172,6 +182,7 @@ target_link_libraries(libmvme
     ${LIBUSB_LIBRARY}
     ${LIBMVME_ADDITIONAL_LIBS}
     liba2_static
+    Threads::Threads
     )
 
 install(TARGETS libmvme DESTINATION .)
@@ -246,10 +257,12 @@ add_mvme_executable(dev_udp_receiver "dev_udp_receiver.cc")
 add_mvme_executable(dev_listfile_tcp_sender "dev_listfile_tcp_sender.cc")
 add_mvme_executable(dev_listfile_tcp_receiver "dev_listfile_tcp_receiver.cc")
 install(TARGETS dev_listfile_tcp_sender dev_listfile_tcp_receiver DESTINATION .)
+add_mvme_executable(dev_listfile_dumper "dev_listfile_dumper.cc")
+add_mvme_executable(dev_rate_monitoring "dev_rate_monitoring.cc")
 
-if (ENABLE_HDF5)
+if (HDF5_FOUND)
 add_mvme_executable(dev_mvme_event_processing "dev_mvme_event_processing.cc")
-endif(ENABLE_HDF5)
+endif(HDF5_FOUND)
 
 if (ENABLE_ROOT AND ROOT_FOUND)
     set(mvme_root_LIBS
@@ -273,5 +286,17 @@ if (ENABLE_ROOT AND ROOT_FOUND)
     add_dependencies(mvme-root-writer libmvme mvme_root)
     target_link_libraries(mvme-root-writer libmvme mvme_root)
 endif(ENABLE_ROOT AND ROOT_FOUND)
+
+# Boost
+#set(Boost_USE_MULTITHREADED ON)
+#set(Boost_USE_STATIC_LIBS   ON)
+#
+#if (WIN32)
+#    add_definitions(-D_WIN32_WINNT=0x0501)
+#endif(WIN32)
+#
+find_package(Boost REQUIRED)
+include_directories(${Boost_INCLUDE_DIRS})
+message("-- Found boost for mvme in ${Boost_INCLUDE_DIRS}")
 
 # vim:tw=0

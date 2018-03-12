@@ -1,12 +1,13 @@
 #include "a2_adapter.h"
 #include "a2/a2_impl.h"
 #include "analysis.h"
+#include <algorithm>
 #include <cstdio>
 #include <QMetaObject>
 #include <QMetaClassInfo>
 
 //#ifndef NDEBUG
-#if 0
+#if 1
 #define LOG(fmt, ...)\
 do\
 {\
@@ -53,13 +54,12 @@ inline a2::PipeVectors find_output_pipe(
 
     a2::PipeVectors result = {};
 
-    if (a2::Extractor *ex_a2 = state->sourceMap.value(
+    if (a2::DataSource *ds_a2 = state->sourceMap.value(
             qobject_cast<analysis::SourceInterface *>(pipeSource),
             nullptr))
     {
         assert(outputIndex == 0);
-
-        result = ex_a2->output;
+        result = ds_a2->output;
     }
     else if (a2::Operator *op_a2 = state->operatorMap.value(
             qobject_cast<analysis::OperatorInterface *>(pipeSource),
@@ -131,11 +131,28 @@ DEF_OP_MAGIC(calibration_magic)
         calibMaximums[i] = calibs[i].unitMax;
     }
 
-    a2::Operator result = a2::make_calibration(
-        arena,
-        a2_input,
-        { calibMinimums.data(), calibMinimums.size() },
-        { calibMaximums.data(), calibMaximums.size() });
+    a2::Operator result = {};
+
+    if (inputSlots[0]->paramIndex == analysis::Slot::NoParamIndex)
+    {
+        result = a2::make_calibration(
+            arena,
+            a2_input,
+            { calibMinimums.data(), calibMinimums.size() },
+            { calibMaximums.data(), calibMaximums.size() });
+    }
+    else
+    {
+        assert(calibMinimums.size() > 0);
+        assert(calibMaximums.size() > 0);
+
+        result = a2::make_calibration_idx(
+            arena,
+            a2_input,
+            inputSlots[0]->paramIndex,
+            calibMinimums[0],
+            calibMaximums[0]);
+    }
 
     return result;
 };
@@ -146,7 +163,6 @@ DEF_OP_MAGIC(difference_magic)
     assert(inputSlots.size() == 2);
     assert_slot(inputSlots[0]);
     assert_slot(inputSlots[1]);
-    //assert(inputSlots[0]->acceptedInputTypes == analysis::InputType::Array);
 
     auto diff = qobject_cast<analysis::Difference *>(op.get());
 
@@ -186,7 +202,7 @@ DEF_OP_MAGIC(difference_magic)
 template<typename T, typename SizeType = size_t>
 struct QVectorBlock
 {
-    a2::TypedBlock<T, SizeType> block;
+    TypedBlock<T, SizeType> block;
     QVector<T> store;
 };
 
@@ -359,7 +375,6 @@ DEF_OP_MAGIC(keep_previous_magic)
     LOG("");
     assert(inputSlots.size() == 1);
     assert_slot(inputSlots[0]);
-    assert(inputSlots[0]->paramIndex == analysis::Slot::NoParamIndex);
 
     auto prevValue = qobject_cast<analysis::PreviousValue *>(op.get());
 
@@ -367,10 +382,23 @@ DEF_OP_MAGIC(keep_previous_magic)
 
     auto a2_input = find_output_pipe(adapterState, inputSlots[0]);
 
-    auto result = a2::make_keep_previous(
-        arena,
-        a2_input,
-        prevValue->m_keepValid);
+    a2::Operator result = {};
+
+    if (inputSlots[0]->paramIndex == analysis::Slot::NoParamIndex)
+    {
+        result = a2::make_keep_previous(
+            arena,
+            a2_input,
+            prevValue->m_keepValid);
+    }
+    else
+    {
+        result = a2::make_keep_previous_idx(
+            arena,
+            a2_input,
+            inputSlots[0]->paramIndex,
+            prevValue->m_keepValid);
+    }
 
     return result;
 }
@@ -603,6 +631,39 @@ DEF_OP_MAGIC(histo2d_sink_magic)
     return result;
 }
 
+DEF_OP_MAGIC(rate_monitor_sink_magic)
+{
+    using a2::RateSampler;
+
+    LOG("");
+    assert(inputSlots.size() == 1);
+    assert_slot(inputSlots[0]);
+    assert(inputSlots[0]->paramIndex == analysis::Slot::NoParamIndex);
+
+    auto rms = qobject_cast<analysis::RateMonitorSink *>(op.get());
+
+    assert(rms);
+
+    auto a2_input = find_output_pipe(adapterState, inputSlots[0]);
+
+    auto shared_samplers = rms->getRateSamplers();
+    QVector<RateSampler *> samplers;
+    samplers.reserve(shared_samplers.size());
+    std::transform(shared_samplers.begin(), shared_samplers.end(),
+                   std::back_inserter(samplers), [](auto &shared_sampler) { return shared_sampler.get(); });
+
+    assert(samplers.size() == shared_samplers.size());
+
+    a2::Operator result = a2::make_rate_monitor(
+        arena,
+        a2_input,
+        { samplers.data(), samplers.size() },
+        rms->getType()
+        );
+
+    return result;
+}
+
 static const QHash<const QMetaObject *, OperatorMagic *> OperatorMagicTable =
 {
     { &analysis::CalibrationMinMax::staticMetaObject, calibration_magic },
@@ -618,6 +679,8 @@ static const QHash<const QMetaObject *, OperatorMagic *> OperatorMagicTable =
 
     { &analysis::Histo1DSink::staticMetaObject, histo1d_sink_magic },
     { &analysis::Histo2DSink::staticMetaObject, histo2d_sink_magic },
+
+    { &analysis::RateMonitorSink::staticMetaObject, rate_monitor_sink_magic },
 };
 
 a2::Operator a2_adapter_magic(memory::Arena *arena, A2AdapterState *state, analysis::OperatorPtr op)
@@ -658,7 +721,7 @@ a2::Operator a2_adapter_magic(memory::Arena *arena, A2AdapterState *state, analy
     return result;
 }
 
-}
+} // end anon namespace
 
 namespace analysis
 {
@@ -686,7 +749,7 @@ void a2_adapter_build_extractors(
         int moduleIndex;
     };
 
-    std::array<QVector<SourceInfo>, a2::MaxVMEEvents> sources;
+    std::array<QVector<SourceInfo>, a2::MaxVMEEvents> sourceInfos;
 
     for (auto se: sourceEntries)
     {
@@ -695,53 +758,74 @@ void a2_adapter_build_extractors(
         Q_ASSERT(index.eventIndex < a2::MaxVMEEvents);
         Q_ASSERT(index.moduleIndex < a2::MaxVMEModules);
 
-        sources[index.eventIndex].push_back({ se.source, index.moduleIndex });
-        qSort(sources[index.eventIndex].begin(), sources[index.eventIndex].end(), [](auto a, auto b) {
+        SourceInfo sourceInfo = { se.source, index.moduleIndex };
+
+        sourceInfos[index.eventIndex].push_back(sourceInfo);
+    }
+
+    // Sort the source vector by moduleIndex
+    for (s32 ei = 0; ei < a2::MaxVMEEvents; ei++)
+    {
+        std::stable_sort(sourceInfos[ei].begin(), sourceInfos[ei].end(), [](auto a, auto b) {
             return a.moduleIndex < b.moduleIndex;
         });
     }
 
+    // Adapt the Extractors
     for (s32 ei = 0; ei < a2::MaxVMEEvents; ei++)
     {
-        for (auto src: sources[ei])
+        for (auto src: sourceInfos[ei])
         {
             qDebug()
-                << "eventIndex =" << ei
+                << "SourceInfo: eventIndex =" << ei
                 << ", moduleIndex =" << src.moduleIndex
                 << ", source =" << src.source.get();
         }
 
-        Q_ASSERT(sources[ei].size() <= std::numeric_limits<u8>::max());
+        Q_ASSERT(sourceInfos[ei].size() <= std::numeric_limits<u8>::max());
 
-        // space for the extractor pointers
-        state->a2->extractors[ei] = arena->pushArray<a2::Extractor>(sources[ei].size());
+        // space for the DataSource pointers
+        state->a2->dataSources[ei] = arena->pushArray<a2::DataSource>(sourceInfos[ei].size());
 
-        for (auto src: sources[ei])
+        // analysis::Extractor
+        for (auto src: sourceInfos[ei])
         {
-            auto ex = qobject_cast<analysis::Extractor *>(src.source.get());
-            Q_ASSERT(ex);
+            a2::DataSource ds = {};
 
-            a2::data_filter::MultiWordFilter filter = {};
-            for (auto slowFilter: ex->getFilter().getSubFilters())
+            if (auto ex = qobject_cast<analysis::Extractor *>(src.source.get()))
             {
-                a2::data_filter::add_subfilter(
-                    &filter,
-                    a2::data_filter::make_filter(
-                        slowFilter.getFilter().toStdString(),
-                        slowFilter.getWordIndex()));
+                a2::data_filter::MultiWordFilter filter = {};
+                for (auto slowFilter: ex->getFilter().getSubFilters())
+                {
+                    a2::data_filter::add_subfilter(
+                        &filter,
+                        a2::data_filter::make_filter(
+                            slowFilter.getFilter().toStdString(),
+                            slowFilter.getWordIndex()));
+                }
+
+                ds = a2::make_datasource_extractor(
+                    arena,
+                    filter,
+                    ex->m_requiredCompletionCount,
+                    ex->m_rngSeed,
+                    src.moduleIndex);
+            }
+            else if (auto ex = qobject_cast<analysis::ListFilterExtractor *>(src.source.get()))
+            {
+                ds = a2::make_datasource_listfilter_extractor(
+                    arena,
+                    ex->getExtractor().listFilter,
+                    ex->getExtractor().repetitionAddressFilter,
+                    ex->getExtractor().repetitions,
+                    ex->getRngSeed(),
+                    src.moduleIndex);
             }
 
-            auto ex_a2 = a2::make_extractor(
-                arena,
-                filter,
-                ex->m_requiredCompletionCount,
-                ex->m_rngSeed,
-                src.moduleIndex);
-
-            u8 &ex_cnt = state->a2->extractorCounts[ei];
-            state->a2->extractors[ei][ex_cnt] = ex_a2;
-            state->sourceMap.insert(src.source.get(), state->a2->extractors[ei] + ex_cnt);
-            ex_cnt++;
+            u8 &ds_cnt = state->a2->dataSourceCounts[ei];
+            state->a2->dataSources[ei][ds_cnt] = ds;
+            state->sourceMap.insert(src.source.get(), state->a2->dataSources[ei] + ds_cnt);
+            ds_cnt++;
         }
     }
 }
@@ -874,7 +958,7 @@ auto a2_adapter_filter_operators(QVector<Analysis::OperatorEntry> operators)
 
 A2AdapterState a2_adapter_build(
     memory::Arena *arena,
-    memory::Arena *tempArena,
+    memory::Arena *workArena,
     const QVector<Analysis::SourceEntry> &sourceEntries,
     const QVector<Analysis::OperatorEntry> &allOperatorEntries,
     const vme_analysis_common::VMEIdToIndex &vmeMap)
@@ -882,9 +966,9 @@ A2AdapterState a2_adapter_build(
     A2AdapterState result = {};
     result.a2 = arena->push<a2::A2>({});
 
-    for (u32 i = 0; i < result.a2->extractorCounts.size(); i++)
+    for (u32 i = 0; i < result.a2->dataSourceCounts.size(); i++)
     {
-        assert(result.a2->extractorCounts[i] == 0);
+        assert(result.a2->dataSourceCounts[i] == 0);
         assert(result.a2->operatorCounts[i] == 0);
     }
 
@@ -898,12 +982,18 @@ A2AdapterState a2_adapter_build(
         sourceEntries,
         vmeMap);
 
+    LOG("data sources:");
+
+    for (s32 ei = 0; ei < a2::MaxVMEEvents; ei++)
+    {
+        if (!result.a2->dataSourceCounts[ei])
+            continue;
+        LOG("  ei=%d, #ds=%d", ei, (u32)result.a2->dataSourceCounts[ei]);
+    }
+
     // -------------------------------------------
     // Operator -> Operator
     // -------------------------------------------
-
-    /* Filter out operators that are not fully connected. */
-    auto operatorEntries = a2_adapter_filter_operators(allOperatorEntries);
 
     /* The problem: I want the operators for each event be sorted by rank _and_
      * by a2::OperatorType.
@@ -911,30 +1001,25 @@ A2AdapterState a2_adapter_build(
      * The a2::OperatorType resulting from converting an analysis operator is
      * not known without actually doing the conversion.
      *
-     * Step 1: Use the tempArena to fill the A2 structure.
+     * Step 1: Use the workArena to fill the A2 structure.
      * Step 2: Sort the operators by a2::OperatorType, preserving rank order.
      * Step 3: Clear the operator part of A2.
-     * Step 4: Build again using the sorted operators information and the non-temp arena.
+     * Step 4: Build again using the sorted operators information and the destination arena.
      */
+
+    /* Filter out operators that are not fully connected. */
+    auto operatorEntries = a2_adapter_filter_operators(allOperatorEntries);
 
     OperatorsByEventIndex operators = group_operators_by_event(
         operatorEntries,
         vmeMap);
 
-    /* Build in temp arena. Fills out result and operators. */
+    /* Build in work arena. Fills out result and operators. */
+    LOG("a2 adapter build first pass");
     a2_adapter_build_operators(
-        tempArena,
+        workArena,
         &result,
         operators);
-
-    LOG("extractors:");
-
-    for (s32 ei = 0; ei < a2::MaxVMEEvents; ei++)
-    {
-        if (!result.a2->extractorCounts[ei])
-            continue;
-        LOG("  ei=%d, #ex=%d", ei, (u32)result.a2->extractorCounts[ei]);
-    }
 
     LOG("operators before type sort:");
 
@@ -966,7 +1051,8 @@ A2AdapterState a2_adapter_build(
     result.a2->operatorRanks.fill(nullptr);
     result.operatorMap.clear();
 
-    /* Second build using the non-temp arena. */
+    /* Second build using the destination arena. */
+    LOG("a2 adapter build second pass");
     a2_adapter_build_operators(
         arena,
         &result,
@@ -989,28 +1075,28 @@ A2AdapterState a2_adapter_build(
 
     LOG(">>>>>>>> result <<<<<<<<");
 
-    LOG("extractors:");
+    LOG("data sources:");
 
     for (s32 ei = 0; ei < a2::MaxVMEEvents; ei++)
     {
-        auto exCount = result.a2->extractorCounts[ei];
+        auto srcCount = result.a2->dataSourceCounts[ei];
 
-        if (exCount)
+        if (srcCount)
         {
             LOG("  ei=%d", ei);
 
-            auto extractors = result.a2->extractors[ei];
+            auto dataSources = result.a2->dataSources[ei];
 
-            for (auto ex = extractors; ex < extractors + exCount; ex++)
+            for (a2::DataSource *ds = dataSources; ds < dataSources + srcCount; ds++)
             {
-                analysis::SourceInterface *a1_ex = result.sourceMap.value(ex, nullptr);
+                analysis::SourceInterface *a1_src = result.sourceMap.value(ds, nullptr);
 
-                LOG("    [%u] extractor@%p, moduleIndex=%d, a1_type=%s, a1_name=%s",
-                    (u32)(ex - extractors),
-                    ex,
-                    (s32)ex->moduleIndex,
-                    a1_ex ? a1_ex->metaObject()->className() : "nullptr",
-                    a1_ex ? qcstr(a1_ex->objectName()) : "nullptr");
+                LOG("    [%u] data source@%p, moduleIndex=%d, a1_type=%s, a1_name=%s",
+                    (u32)(ds - dataSources),
+                    ds,
+                    (s32)ds->moduleIndex,
+                    a1_src ? a1_src->metaObject()->className() : "nullptr",
+                    a1_src ? qcstr(a1_src->objectName()) : "nullptr");
             }
         }
     }

@@ -24,8 +24,8 @@
 
 #include <random>
 
-#include "analysis_impl_switch.h"
 #include "a2_adapter.h"
+#include "a2/multiword_datafilter.h"
 #include "../vme_config.h"
 
 #define ENABLE_ANALYSIS_DEBUG 0
@@ -45,6 +45,132 @@ const QMap<analysis::Analysis::ReadResultCodes, const char *> analysis::Analysis
     { analysis::Analysis::NoError, "No Error" },
     { analysis::Analysis::VersionTooNew, "Version too new" },
 };
+
+namespace
+{
+using ArenaPtr = std::unique_ptr<memory::Arena>;
+
+using analysis::A2AdapterState;
+using analysis::Analysis;
+
+/* Performs a2_adapter_build(), growing the arenas until the build succeeds. */
+A2AdapterState a2_adapter_build_memory_wrapper(
+    ArenaPtr &arena,
+    ArenaPtr &workArena,
+    const QVector<Analysis::SourceEntry> &sources,
+    const QVector<Analysis::OperatorEntry> &operators,
+    const vme_analysis_common::VMEIdToIndex &vmeMap)
+{
+    A2AdapterState result;
+
+    while (true)
+    {
+        try
+        {
+            result = a2_adapter_build(
+                arena.get(),
+                workArena.get(),
+                sources,
+                operators,
+                vmeMap);
+
+            break;
+        }
+        catch (const memory::out_of_memory &)
+        {
+            /* Double the size and try again. std::bad_alloc() will be thrown
+             * if we run OOM. This will be handled further up. */
+            auto newSize = 2 * arena->size;
+            arena = std::make_unique<memory::Arena>(newSize);
+            workArena = std::make_unique<memory::Arena>(newSize);
+        }
+    }
+
+    qDebug("%s a2: mem=%u sz=%u, start@%p",
+           __FUNCTION__, (u32)arena->used(), (u32)arena->size, arena->mem);
+
+    return result;
+}
+
+QJsonObject to_json(const a2::data_filter::DataFilter &filter)
+{
+    QJsonObject result;
+
+    result["filterString"] = QString::fromStdString(to_string(filter));
+    result["wordIndex"] = filter.matchWordIndex;
+
+    return result;
+}
+
+a2::data_filter::DataFilter a2_dataFilter_from_json(const QJsonObject &json)
+{
+    return a2::data_filter::make_filter(
+        json["filterString"].toString().toStdString(),
+        json["wordIndex"].toInt());
+}
+
+QJsonObject to_json(const a2::data_filter::MultiWordFilter &filter)
+{
+    QJsonObject result;
+
+    QJsonArray subFilterArray;
+
+    for (s32 i = 0; i < filter.filterCount; i++)
+    {
+        const auto &subfilter = filter.filters[i];
+        QJsonObject filterJson;
+        filterJson["filterString"] = QString::fromStdString(to_string(subfilter));
+        filterJson["wordIndex"] = subfilter.matchWordIndex;
+        subFilterArray.append(filterJson);
+    }
+
+    result["subFilters"] = subFilterArray;
+
+
+    return result;
+}
+
+a2::data_filter::MultiWordFilter a2_multiWordFilter_from_json(const QJsonObject &json)
+{
+    a2::data_filter::MultiWordFilter result = {};
+
+    auto subFilterArray = json["subFilters"].toArray();
+
+    for (auto it = subFilterArray.begin();
+         it != subFilterArray.end();
+         it++)
+    {
+        add_subfilter(&result, a2_dataFilter_from_json(it->toObject()));
+    }
+
+    return result;
+}
+
+QJsonObject to_json(const a2::data_filter::ListFilter &filter)
+{
+    QJsonObject result;
+
+    result["extractionFilter"] = to_json(filter.extractionFilter);
+    result["flags"] = static_cast<qint64>(filter.flags);
+    result["wordCount"] = static_cast<qint64>(filter.wordCount);
+
+    return result;
+}
+
+a2::data_filter::ListFilter a2_listfilter_from_json(const QJsonObject &json)
+{
+    using a2::data_filter::ListFilter;
+
+    ListFilter result = {};
+
+    result.extractionFilter = a2_multiWordFilter_from_json(json["extractionFilter"].toObject());
+    result.flags = static_cast<ListFilter::Flag>(json["flags"].toInt());
+    result.wordCount = static_cast<u8>(json["wordCount"].toInt());
+
+    return result;
+}
+
+} // end anon namespace
 
 namespace analysis
 {
@@ -248,6 +374,7 @@ static std::uniform_real_distribution<double> RealDist01(0.0, 1.0);
 
 Extractor::Extractor(QObject *parent)
     : SourceInterface(parent)
+    , m_options(Options::NoOption)
 {
     m_output.setSource(this);
 
@@ -318,68 +445,6 @@ void Extractor::beginEvent()
     m_output.getParameters().invalidateAll();
 }
 
-void Extractor::processModuleData(u32 *data, u32 size)
-{
-    for (u32 wordIndex = 0;
-         wordIndex < size;
-         ++wordIndex)
-    {
-        u32 dataWord = *(data + wordIndex);
-        process_data(&m_fastFilter, dataWord, wordIndex);
-
-#if ENABLE_ANALYSIS_DEBUG
-        qDebug("************************************************");
-        qDebug("%s: %s, dataWord=0x%08x, wordIndex=%u, complete=%d",
-               __PRETTY_FUNCTION__, this->objectName().toLocal8Bit().constData(),
-               dataWord, wordIndex, is_complete(&m_fastFilter));
-#endif
-
-        if (is_complete(&m_fastFilter))
-        {
-            ++m_currentCompletionCount;
-
-            if (m_requiredCompletionCount == m_currentCompletionCount)
-            {
-                m_currentCompletionCount = 0;
-
-                u64 address = extract(&m_fastFilter, a2::data_filter::MultiWordFilter::CacheA);
-                u64 value   = extract(&m_fastFilter, a2::data_filter::MultiWordFilter::CacheD);
-
-#if ENABLE_ANALYSIS_DEBUG
-                qDebug() << this
-                    << "extracted address =" << address
-                    << ", extracted value =" << value
-                    << ", dataWord =" << QString("0x%1").arg(dataWord, 8, 16, QLatin1Char('0'));
-#endif
-
-                Q_ASSERT(address < static_cast<u64>(m_output.getSize()));
-                Q_ASSERT(address < static_cast<u64>(m_hitCounts.size()));
-
-                auto &param = m_output.getParameters()[address];
-                // Only fill if not valid yet to keep the first value in case of
-                // multiple hits in this event.
-                if (!param.valid)
-                {
-                    double dValue = value + RealDist01(m_rng);
-
-                    param.valid = true;
-                    param.value = dValue;
-
-
-#if ENABLE_ANALYSIS_DEBUG
-                    qDebug() << this << "setting param valid, addr =" << address << ", value =" << param.value
-                        << ", dataWord =" << QString("0x%1").arg(dataWord, 8, 16, QLatin1Char('0'));
-#endif
-                    QMutexLocker lock(&m_hitCountsMutex); // FIXME: get rid of this lock
-                    m_hitCounts[address] += 1.0;
-                }
-            }
-
-            clear_completion(&m_fastFilter);
-        }
-    }
-}
-
 s32 Extractor::getNumberOfOutputs() const
 {
     return 1;
@@ -435,6 +500,7 @@ void Extractor::read(const QJsonObject &json)
     }
 
     setRequiredCompletionCount(static_cast<u32>(json["requiredCompletionCount"].toInt()));
+    m_options = static_cast<Options::opt_t>(json["options"].toInt());
 }
 
 void Extractor::write(QJsonObject &json) const
@@ -453,12 +519,72 @@ void Extractor::write(QJsonObject &json) const
 
     json["subFilters"] = filterArray;
     json["requiredCompletionCount"] = static_cast<qint64>(m_requiredCompletionCount);
+    json["options"] = static_cast<s32>(m_options);
 }
 
 QVector<double> Extractor::getHitCounts() const
 {
     QMutexLocker lock(&m_hitCountsMutex);
     return m_hitCounts;
+}
+
+//
+// ListFilterExtractor
+//
+ListFilterExtractor::ListFilterExtractor(QObject *parent)
+    : SourceInterface(parent)
+{
+    m_output.setSource(this);
+    m_a2Extractor = {};
+    m_a2Extractor.options = a2::DataSourceOptions::NoAddedRandom;
+    std::random_device rd;
+    std::uniform_int_distribution<u64> dist;
+    m_rngSeed = dist(rd);
+}
+
+void ListFilterExtractor::beginRun(const RunInfo &runInfo)
+{
+    u32 addressCount = get_address_count(&m_a2Extractor);
+    u32 dataBits = get_extract_bits(&m_a2Extractor.listFilter, a2::data_filter::MultiWordFilter::CacheD);
+    double upperLimit = std::pow(2.0, dataBits);
+
+    auto &params(m_output.getParameters());
+    params.resize(addressCount);
+
+    for (s32 i=0; i<params.size(); ++i)
+    {
+        auto &param(params[i]);
+        param.lowerLimit = 0.0;
+        param.upperLimit = upperLimit;
+    }
+
+    params.name = this->objectName();
+}
+
+void ListFilterExtractor::beginEvent()
+{
+    m_output.getParameters().invalidateAll();
+}
+
+void ListFilterExtractor::write(QJsonObject &json) const
+{
+    json["listFilter"] = to_json(m_a2Extractor.listFilter);
+    json["repetitionAddressFilter"] = to_json(m_a2Extractor.repetitionAddressFilter);
+    json["repetitions"] = static_cast<qint64>(m_a2Extractor.repetitions);
+    json["rngSeed"] = QString::number(m_rngSeed, 16);
+    json["options"] = static_cast<s32>(m_a2Extractor.options);
+}
+
+void ListFilterExtractor::read(const QJsonObject &json)
+{
+    m_a2Extractor = {};
+    m_a2Extractor.listFilter = a2_listfilter_from_json(json["listFilter"].toObject());
+    m_a2Extractor.repetitionAddressFilter = a2_dataFilter_from_json(json["repetitionAddressFilter"].toObject());
+    m_a2Extractor.repetitionAddressCache = make_cache_entry(m_a2Extractor.repetitionAddressFilter, 'A');
+    m_a2Extractor.repetitions = static_cast<u8>(json["repetitions"].toInt());
+    QString sSeed = json["rngSeed"].toString();
+    m_rngSeed = sSeed.toULongLong(nullptr, 16);
+    m_a2Extractor.options = static_cast<Options::opt_t>(json["options"].toInt());
 }
 
 //
@@ -2875,14 +3001,154 @@ size_t Histo2DSink::getStorageSize() const
 }
 
 //
+// RateMonitorSink
+//
+
+static QString to_string(RateMonitorSink::Type type)
+{
+    QString result;
+
+    switch (type)
+    {
+        case RateMonitorSink::Type::PrecalculatedRate:
+            result = QSL("PrecalculatedRate");
+            break;
+        case RateMonitorSink::Type::CounterDifference:
+            result = QSL("CounterDifference");
+            break;
+        case RateMonitorSink::Type::FlowRate:
+            result = QSL("FlowRate");
+            break;
+    }
+
+    return result;
+}
+
+static RateMonitorSink::Type rate_monitor_sink_type_from_string(const QString &str)
+{
+    RateMonitorSink::Type result = RateMonitorSink::Type::CounterDifference;
+
+    if (str.compare(QSL("PrecalculatedRate"), Qt::CaseInsensitive) == 0)
+        result = RateMonitorSink::Type::PrecalculatedRate;
+
+    if (str.compare(QSL("CounterDifference"), Qt::CaseInsensitive) == 0)
+        result = RateMonitorSink::Type::CounterDifference;
+
+    if (str.compare(QSL("FlowRate"), Qt::CaseInsensitive) == 0)
+        result = RateMonitorSink::Type::FlowRate;
+
+    return result;
+}
+
+
+RateMonitorSink::RateMonitorSink(QObject *parent)
+    : BasicSink(parent)
+{
+    m_inputSlot.acceptedInputTypes = InputType::Array;
+}
+
+void RateMonitorSink::beginRun(const RunInfo &runInfo)
+{
+    if (!m_inputSlot.isConnected())
+    {
+        m_samplers.resize(0);
+        return;
+    }
+
+    // Currently only supports connecting to arrays, not single parameters.
+    assert(m_inputSlot.paramIndex == Slot::NoParamIndex);
+
+    m_samplers.resize(m_inputSlot.inputPipe->parameters.size());
+
+    for (auto &sampler: m_samplers)
+    {
+        if (!sampler)
+        {
+            sampler = std::make_shared<a2::RateSampler>();
+            sampler->rateHistory = RateHistoryBuffer(m_rateHistoryCapacity);
+        }
+        else
+        {
+            sampler->lastValue = 0.0;
+            sampler->lastRate  = 0.0;
+            sampler->lastDelta = 0.0;
+
+            /* If the new capacity is >= the old capacity then the rateHistory
+             * contents are kept, otherwise the oldest values are discarded. */
+            if (sampler->rateHistory.capacity() != m_rateHistoryCapacity)
+            {
+                sampler->rateHistory.set_capacity(m_rateHistoryCapacity);
+                sampler->rateHistory.resize(0);
+                sampler->totalSamples = 0.0;
+            }
+
+            if (!runInfo.keepAnalysisState)
+            {
+                // truncates the history size (not the capacity) to zero
+                sampler->rateHistory.resize(0);
+                sampler->totalSamples = 0.0;
+            }
+        }
+
+        sampler->scale = getCalibrationFactor();
+        sampler->offset = getCalibrationOffset();
+        sampler->interval = getSamplingInterval();
+
+        assert(sampler->rateHistory.capacity() == m_rateHistoryCapacity);
+        assert(runInfo.keepAnalysisState || sampler->rateHistory.size() == 0);
+        assert(sampler->scale == getCalibrationFactor());
+        assert(sampler->offset == getCalibrationOffset());
+        assert(sampler->interval == getSamplingInterval());
+    }
+}
+
+void RateMonitorSink::step()
+{
+    assert(!"not implemented. a2 should be used!");
+}
+
+void RateMonitorSink::write(QJsonObject &json) const
+{
+    json["type"] = to_string(getType());
+    json["capacity"] = static_cast<qint64>(m_rateHistoryCapacity);
+    json["unitLabel"] = getUnitLabel();
+    json["calibrationFactor"] = getCalibrationFactor();
+    json["calibrationOffset"] = getCalibrationOffset();
+    json["samplingInterval"]  = getSamplingInterval();
+}
+
+void RateMonitorSink::read(const QJsonObject &json)
+{
+    m_type = rate_monitor_sink_type_from_string(json["type"].toString());
+    m_rateHistoryCapacity = json["capacity"].toInt();
+    m_unitLabel = json["unitLabel"].toString();
+    m_calibrationFactor = json["calibrationFactor"].toDouble(1.0);
+    m_calibrationOffset = json["m_calibrationOffset"].toDouble(0.0);
+    m_samplingInterval  = json["samplingInterval"].toDouble(1.0);
+}
+
+size_t RateMonitorSink::getStorageSize() const
+{
+    return std::accumulate(m_samplers.begin(), m_samplers.end(),
+                           static_cast<size_t>(0u),
+                           [](size_t accu, const a2::RateSamplerPtr &sampler) {
+        return accu + sampler->rateHistory.capacity() * sizeof(double);
+   });
+}
+
+//
 // Analysis
 //
+
+static const size_t A2InitialArenaSize = Kilobytes(256);
+
 Analysis::Analysis(QObject *parent)
     : QObject(parent)
     , m_modified(false)
     , m_timetickCount(0.0)
     , m_a2ArenaIndex(0)
 {
+    m_registry.registerSource<ListFilterExtractor>();
     m_registry.registerSource<Extractor>();
 
     m_registry.registerOperator<CalibrationMinMax>();
@@ -2900,26 +3166,38 @@ Analysis::Analysis(QObject *parent)
 
     m_registry.registerSink<Histo1DSink>();
     m_registry.registerSink<Histo2DSink>();
+    m_registry.registerSink<RateMonitorSink>();
 
     qDebug() << "Registered Sources:   " << m_registry.getSourceNames();
     qDebug() << "Registered Operators: " << m_registry.getOperatorNames();
     qDebug() << "Registered Sinks:     " << m_registry.getSinkNames();
+
+    // create a2 arenas
+    for (size_t i = 0; i < m_a2Arenas.size(); i++)
+    {
+        m_a2Arenas[i] = std::make_unique<memory::Arena>(A2InitialArenaSize);
+    }
+    m_a2WorkArena = std::make_unique<memory::Arena>(A2InitialArenaSize);
 }
 
 Analysis::~Analysis()
 {
 }
 
-/* This overload updates operator ranks and sorts operators by rank,
- * then calls beginRun() on sources and operators. */
-void Analysis::beginRun_internal_only(const RunInfo &runInfo)
+void Analysis::beginRun(
+    const RunInfo &runInfo,
+    const vme_analysis_common::VMEIdToIndex &vmeMap)
 {
     m_runInfo = runInfo;
+    m_vmeMap = vmeMap;
 
     if (!runInfo.keepAnalysisState)
     {
         m_timetickCount = 0.0;
     }
+
+    // Update operator ranks and then sort. This needs to be done before the a2
+    // system can be built.
 
     updateRanks();
 
@@ -2939,6 +3217,9 @@ void Analysis::beginRun_internal_only(const RunInfo &runInfo)
     }
     qDebug() << __PRETTY_FUNCTION__ << ">>>>> operators sorted by maximum input rank";
 #endif
+    qDebug() << __PRETTY_FUNCTION__ << "analysis::Analysis:"
+        << m_sources.size() << " sources,"
+        << m_operators.size() << " operators";
 
     for (auto &sourceEntry: m_sources)
     {
@@ -2950,76 +3231,23 @@ void Analysis::beginRun_internal_only(const RunInfo &runInfo)
         operatorEntry.op->beginRun(runInfo);
     }
 
-    qDebug() << __PRETTY_FUNCTION__ << "analysis::Analysis:"
-        << m_sources.size() << " sources,"
-        << m_operators.size() << " operators";
-}
+    // Build the a2 system
 
-static const size_t A2ArenaSize = Kilobytes(256);
+    // a2 arena swap
+    m_a2ArenaIndex = (m_a2ArenaIndex + 1) % m_a2Arenas.size();
+    m_a2Arenas[m_a2ArenaIndex]->reset();
+    m_a2WorkArena->reset();
 
-/* Calls beginRun_internal_only() to prepare the analysis::* stuff, then uses
- * a2_adapter_build() to build the a2 system. */
-void Analysis::beginRun(
-    const RunInfo &runInfo,
-    const vme_analysis_common::VMEIdToIndex &vmeMap)
-{
-    m_vmeMap = vmeMap;
-
-    beginRun_internal_only(runInfo);
-
-    if (!m_a2Arenas[0])
-    {
-        for (size_t i = 0; i < m_a2Arenas.size(); i++)
-        {
-            m_a2Arenas[i] = std::make_unique<memory::Arena>(A2ArenaSize);
-        }
-        m_a2TempArena = std::make_unique<memory::Arena>(A2ArenaSize);
-        m_a2ArenaIndex = 0;
-    }
-    else
-    {
-        m_a2ArenaIndex = (m_a2ArenaIndex + 1) % m_a2Arenas.size();
-        m_a2Arenas[m_a2ArenaIndex]->reset();
-        m_a2TempArena->reset();
-    }
-
-#if ANALYSIS_USE_A2
     qDebug() << __PRETTY_FUNCTION__ << "########## a2 active ##########";
     qDebug() << __PRETTY_FUNCTION__ << "a2: using a2 arena" << (u32)m_a2ArenaIndex;
 
-    A2AdapterState a2State;
-    memory::Arena *arena = nullptr;
-
-    while (true)
-    {
-        try
-        {
-            arena = m_a2Arenas[m_a2ArenaIndex].get();
-
-            a2State = a2_adapter_build(
-                arena,
-                m_a2TempArena.get(),
-                m_sources,
-                m_operators,
-                m_vmeMap);
-
-            break;
-        }
-        catch (const memory::out_of_memory &)
-        {
-            /* Double the size and try again. std::bad_alloc() will be thrown
-             * if we run OOM. This will be handled further up. */
-            auto newSize = 2 * m_a2Arenas[m_a2ArenaIndex]->size;
-            m_a2TempArena = std::make_unique<memory::Arena>(newSize);
-            m_a2Arenas[m_a2ArenaIndex] = std::make_unique<memory::Arena>(newSize);
-        }
-    }
-
-    m_a2State = std::make_unique<A2AdapterState>(a2State);
-
-    qDebug("%s a2: mem=%u sz=%u, start@%p",
-           __PRETTY_FUNCTION__, (u32)arena->used(), (u32)arena->size, arena->mem);
-#endif
+    m_a2State = std::make_unique<A2AdapterState>(
+        a2_adapter_build_memory_wrapper(
+            m_a2Arenas[m_a2ArenaIndex],
+            m_a2WorkArena,
+            m_sources,
+            m_operators,
+            m_vmeMap));
 }
 
 void Analysis::beginRun()
@@ -3027,146 +3255,37 @@ void Analysis::beginRun()
     beginRun(m_runInfo, m_vmeMap);
 }
 
-void Analysis::beginEvent(int eventIndex, const QUuid &eventId)
+void Analysis::beginEvent(int eventIndex)
 {
-#if not ANALYSIS_USE_A2
-    for (auto &sourceEntry: m_sources)
-    {
-        if (sourceEntry.eventId == eventId)
-        {
-            sourceEntry.sourceRaw->beginEvent();
-        }
-    }
-#else
     a2_begin_event(m_a2State->a2, eventIndex);
-#endif
 }
 
-void Analysis::processModuleData(int eventIndex, int moduleIndex,
-                                 const QUuid &eventId, const QUuid &moduleId, u32 *data, u32 size)
+void Analysis::processModuleData(int eventIndex, int moduleIndex, u32 *data, u32 size)
 {
-#if not ANALYSIS_USE_A2
-    for (auto &sourceEntry: m_sources)
-    {
-        if (sourceEntry.eventId == eventId && sourceEntry.moduleId == moduleId)
-        {
-            Q_ASSERT(sourceEntry.sourceRaw);
-            Q_ASSERT(sourceEntry.sourceRaw == sourceEntry.source.get());
-
-            sourceEntry.sourceRaw->processModuleData(data, size);
-        }
-    }
-
-#else
     a2_process_module_data(m_a2State->a2, eventIndex, moduleIndex, data, size);
-#endif
 }
 
-#if ANALYSIS_USE_A2
-void Analysis::endEvent(int eventIndex, const QUuid &eventId)
+void Analysis::endEvent(int eventIndex)
 {
     a2_end_event(m_a2State->a2, eventIndex);
 }
-#else // ANALYSIS_USE_A2
-void Analysis::endEvent(int eventIndex, const QUuid &eventId)
-{
-    //TimedBlock tb(__PRETTY_FUNCTION__);
-    /* In beginRun() operators are sorted by rank. This way step()'ing
-     * operators can be done by just traversing the array. */
-
-#if ENABLE_ANALYSIS_DEBUG
-    qDebug() << "begin endEvent()" << eventId;
-#endif
-
-    for (auto &opEntry: m_operators)
-    {
-        if (opEntry.eventId == eventId)
-        {
-            Q_ASSERT(opEntry.opRaw);
-            Q_ASSERT(opEntry.opRaw == opEntry.op.get());
-
-            OperatorInterface *op = opEntry.opRaw;
-
-#if ENABLE_ANALYSIS_DEBUG
-            qDebug() << "  stepping operator" << op
-                << ", input rank =" << op->getMaximumInputRank()
-                << ", output rank =" << op->getMaximumOutputRank()
-                ;
-#endif
-            op->step();
-        }
-    }
-
-#if ENABLE_ANALYSIS_DEBUG
-    qDebug() << "  >>> Sources <<<";
-    for (auto &entry: m_sources)
-    {
-        auto source = entry.source;
-        qDebug() << "    Source: e =" << entry.eventId << ", m =" << entry.moduleId << ", src =" << source.get();
-
-        for (s32 outputIndex = 0; outputIndex < source->getNumberOfOutputs(); ++outputIndex)
-        {
-            auto pipe = source->getOutput(outputIndex);
-            const auto &params = pipe->getParameters();
-            qDebug() << "      Output#" << outputIndex << ", name =" << params.name << ", unit =" << params.unit << ", size =" << params.size();
-            for (s32 ip=0; ip<params.size(); ++ip)
-            {
-                auto &param(params[ip]);
-                if (param.valid)
-                    qDebug() << "        " << ip << "=" << to_string(param);
-                else
-                    qDebug() << "        " << ip << "=" << "<not valid>";
-            }
-        }
-    }
-    qDebug() << "  <<< End Sources >>>";
-
-    qDebug() << "  >>> Operators <<<";
-    for (auto &entry: m_operators)
-    {
-        auto op = entry.op;
-
-        if (op->getNumberOfOutputs() == 0)
-            continue;
-
-        qDebug() << "    Op: e =" << entry.eventId << ", op =" << op.get();
-
-        for (s32 outputIndex = 0; outputIndex < op->getNumberOfOutputs(); ++outputIndex)
-        {
-            auto pipe = op->getOutput(outputIndex);
-            const auto &params = pipe->getParameters();
-            qDebug() << "      Output#" << outputIndex << ", name =" << params.name << ", unit =" << params.unit;
-            for (s32 ip=0; ip<params.size(); ++ip)
-            {
-                auto &param(params[ip]);
-                if (param.valid)
-                    qDebug() << "        " << ip << "=" << to_string(param);
-                else
-                    qDebug() << "        " << ip << "=" << "<not valid>";
-            }
-        }
-    }
-    qDebug() << " <<< End Operators >>>";
-    qDebug() << "end endEvent()" << eventId;
-#endif
-}
-#endif // ANALYSIS_USE_A2
 
 void Analysis::processTimetick()
 {
     m_timetickCount += 1.0;
+    a2_timetick(m_a2State->a2);
 }
 
 void Analysis::addSource(const QUuid &eventId, const QUuid &moduleId, const SourcePtr &source)
 {
-    m_sources.push_back({eventId, moduleId, source, source.get()});
+    m_sources.push_back({eventId, moduleId, source});
     beginRun(m_runInfo, m_vmeMap);
     setModified();
 }
 
 void Analysis::addOperator(const QUuid &eventId, const OperatorPtr &op, s32 userLevel)
 {
-    m_operators.push_back({eventId, op, op.get(), userLevel});
+    m_operators.push_back({eventId, op, userLevel});
     beginRun(m_runInfo, m_vmeMap);
     setModified();
 }
@@ -3325,6 +3444,56 @@ void Analysis::removeSource(SourceInterface *source)
     }
 }
 
+QVector<ListFilterExtractorPtr>
+Analysis::getListFilterExtractors(ModuleConfig *module) const
+{
+    QVector<ListFilterExtractorPtr> result;
+
+    Q_ASSERT(module->getEventConfig());
+
+    if (!module->getEventConfig())
+        return result;
+
+    for (const auto &se: getSources(module->getEventConfig()->getId(), module->getId()))
+    {
+        if (auto lfe = std::dynamic_pointer_cast<ListFilterExtractor>(se.source))
+        {
+            result.push_back(lfe);
+        }
+    }
+
+    return result;
+}
+
+/** Replaces the ListFilterExtractors for module with the given extractors. */
+void
+Analysis::setListFilterExtractors(ModuleConfig *module, const QVector<ListFilterExtractorPtr> &extractors)
+{
+    Q_ASSERT(module->getEventConfig());
+
+    if (!module->getEventConfig())
+        return;
+
+    // Remove all source entries containing a ListFilterExtractor for the module.
+    auto it = std::remove_if(m_sources.begin(), m_sources.end(), [module](const SourceEntry &se) {
+        return (qobject_cast<ListFilterExtractor *>(se.source.get()) && se.moduleId == module->getId());
+    });
+
+    m_sources.erase(it, m_sources.end());
+
+    // Now build new SourceEntries for the given extractors and append them to m_sources
+    for (const auto &ex: extractors)
+    {
+        m_sources.push_back({module->getEventConfig()->getId(), module->getId(), ex});
+    }
+
+    qDebug() << __PRETTY_FUNCTION__ << "added" << extractors.size() << "listfilter extractors";
+
+    // Rebuild and notify about modification state
+    beginRun(m_runInfo, m_vmeMap);
+    setModified();
+}
+
 void Analysis::removeOperator(const OperatorPtr &op)
 {
     removeOperator(op.get());
@@ -3405,10 +3574,10 @@ size_t Analysis::getTotalSinkStorageSize() const
     return std::accumulate(m_operators.begin(), m_operators.end(),
                            static_cast<size_t>(0),
                            [](size_t v, const OperatorEntry &e) {
-        if (auto sink = qobject_cast<Histo1DSink *>(e.op.get()))
-            return v + sink->getStorageSize();
-        else if (auto sink = qobject_cast<Histo2DSink *>(e.op.get()))
-            return v + sink->getStorageSize();
+
+        if (auto sink = qobject_cast<SinkInterface *>(e.op.get()))
+            v += sink->getStorageSize();
+
         return v;
     });
 }
@@ -3474,7 +3643,7 @@ Analysis::ReadResult Analysis::read(const QJsonObject &inputJson, VMEConfig *vme
                 auto eventId  = QUuid(objectJson["eventId"].toString());
                 auto moduleId = QUuid(objectJson["moduleId"].toString());
 
-                m_sources.push_back({eventId, moduleId, source, source.get()});
+                m_sources.push_back({eventId, moduleId, source});
 
                 objectsById.insert(source->getId(), source);
             }
@@ -3507,7 +3676,7 @@ Analysis::ReadResult Analysis::read(const QJsonObject &inputJson, VMEConfig *vme
                 auto eventId = QUuid(objectJson["eventId"].toString());
                 auto userLevel = objectJson["userLevel"].toInt();
 
-                m_operators.push_back({eventId, op, op.get(), userLevel});
+                m_operators.push_back({eventId, op, userLevel});
 
                 objectsById.insert(op->getId(), op);
             }
@@ -3749,12 +3918,12 @@ void add_raw_data_display(Analysis *analysis, const QUuid &eventId, const QUuid 
     analysis->addOperator(eventId, display.calibratedHistoSink, 1);
 }
 
-void do_beginRun_forward(PipeSourceInterface *pipeSource)
+void do_beginRun_forward(PipeSourceInterface *pipeSource, const RunInfo &runInfo)
 {
     Q_ASSERT(pipeSource);
 
     qDebug() << __PRETTY_FUNCTION__ << "calling beginRun() on" << pipeSource;
-    pipeSource->beginRun({});
+    pipeSource->beginRun(runInfo);
 
     const s32 outputCount = pipeSource->getNumberOfOutputs();
 

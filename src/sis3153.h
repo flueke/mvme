@@ -136,6 +136,12 @@ namespace SIS3153Registers
         static const u32 StackListEnable    = 1 << 0;
         static const u32 Timer1Enable       = 1 << 1;
         static const u32 Timer2Enable       = 1 << 2;
+
+        static const u32 DisableBerrStatus  = 1 << 11; // If set the controller will not output a status
+                                                       // word (0x02110211) into the data stream in case
+                                                       // a read operation results in an immediate BERR without
+                                                       // any data. Since firmware 16.A6.
+
         static const u32 FlushBufferEnable  = 1 << 12; // "Force to send rest of buffer enable" in the manual
         static const u32 ListBufferEnable   = 1 << 15; // "List Multi Event Buffering Enable" in the manual
 
@@ -173,7 +179,7 @@ namespace SIS3153Constants
     static const u32 BeginEventResult = 0xbb000000;
     static const u32 EndEventMask     = 0xff000000;
     static const u32 EndEventResult   = 0xee000000;
-    static const u32 BeginEventPacketNumberMask = 0x00ffffff;
+    static const u32 BeginEventSequenceNumberMask = 0x00ffffff;
 
     static const u32 EndEventBerrBlockMask = 0x00ff0000;
     static const u32 EndEventBerrReadMask  = 0x0000ff00;

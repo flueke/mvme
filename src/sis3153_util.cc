@@ -1,6 +1,9 @@
 #include "sis3153_util.h"
 
+#include <QBoxLayout>
+#include <QComboBox>
 #include <QFormLayout>
+#include <QGroupBox>
 #include <QLineEdit>
 #include <QPushButton>
 #include <QTabWidget>
@@ -35,8 +38,39 @@ static const QVector<const char *> RdoCounterLabels =
     "stackListCounts",
     "BERR Counters",
     "multiEventPackets",
-    "lostPackets",
+    "embeddedEvents",
+    "lostEvents",
+    "partialFragments",
+    "reassembledPartials",
 };
+
+namespace
+{
+    QString format_stacklist_counts(const SIS3153ReadoutWorker::StackListCountsArray &counts, s32 watchdogStackListIndex)
+    {
+        QString result;
+
+        for (s32 si = 0; si < SIS3153Constants::NumberOfStackLists; si++)
+        {
+            if (auto count = counts[si])
+            {
+                if (!result.isEmpty())
+                {
+                    result += QSL("\n");
+                }
+
+                result += QString(QSL("stackList=%1: count=%2")).arg(si).arg(count);
+
+                if (si == watchdogStackListIndex)
+                {
+                    result += QSL(" (watchdog)");
+                }
+            }
+        }
+
+        return result;
+    }
+} // end anon namespace
 
 SIS3153DebugWidget::SIS3153DebugWidget(MVMEContext *context, QWidget *parent)
     : QWidget(parent)
@@ -53,7 +87,7 @@ SIS3153DebugWidget::SIS3153DebugWidget(MVMEContext *context, QWidget *parent)
 
     auto readoutCountersWidget = new QWidget;
     auto libCountersWidget = new QWidget;
-    auto toolsWidget  = new QWidget;
+    auto toolsWidget  = new SIS3153DebugToolsWidget(context, this);
 
     tabWidget->addTab(readoutCountersWidget, QSL("&Readout Counters"));
     tabWidget->addTab(libCountersWidget, QSL("&Lib Counters"));
@@ -96,47 +130,6 @@ SIS3153DebugWidget::SIS3153DebugWidget(MVMEContext *context, QWidget *parent)
     connect(refreshTimer, &QTimer::timeout, this, &SIS3153DebugWidget::refresh);
     refreshTimer->setInterval(1000);
     refreshTimer->start();
-
-
-    //
-    // tools
-    //
-    auto toolsLayout = new QGridLayout(toolsWidget);
-
-    auto le_regAddress = new QLineEdit;
-    le_regAddress->setText(QSL("0x01000017"));
-    auto le_regResult  = new QLineEdit;
-    auto pb_readRegister = new QPushButton(QSL("Read"));
-
-    connect(pb_readRegister, &QPushButton::clicked, this, [=]() {
-
-        if (auto sis = qobject_cast<SIS3153 *>(m_context->getVMEController()))
-        {
-            u32 addr  = le_regAddress->text().toUInt(nullptr, 0);
-            u32 value = 0;
-
-            auto err = sis->readRegister(addr, &value);
-
-            if (err.isError())
-            {
-                le_regResult->setText(err.toString());
-            }
-            else
-            {
-                le_regResult->setText(QString("0x%1 / %2")
-                                      .arg(value, 8, 16, QLatin1Char('0'))
-                                      .arg(value)
-                                     );
-            }
-
-        }
-    });
-
-    s32 row = 0;
-    toolsLayout->addWidget(le_regAddress, row, 0);
-    toolsLayout->addWidget(le_regResult, row, 1);
-    toolsLayout->addWidget(pb_readRegister, row, 2);
-    row++;
 
     refresh();
 }
@@ -186,19 +179,7 @@ void SIS3153DebugWidget::refresh()
 
         const auto counters = rdoWorker->getCounters();
 
-        QString pcText; // packet count text
-
-        for (s32 si = 0; si < SIS3153Constants::NumberOfStackLists; si++)
-        {
-            auto count = counters.stackListCounts[si];
-            if (count)
-            {
-                if (!pcText.isEmpty()) pcText += QSL("\n");
-                pcText += QString(QSL("stackList=%1, count=%2")).arg(si).arg(count);
-                if (si == counters.watchdogStackList)
-                    pcText += QSL(" (watchdog)");
-            }
-        }
+        QString packetCountText = format_stacklist_counts(counters.stackListCounts, counters.watchdogStackList);
 
         QString berrText;
 
@@ -212,7 +193,7 @@ void SIS3153DebugWidget::refresh()
             {
                 if (!berrText.isEmpty()) berrText += QSL("\n");
 
-                berrText += (QString(QSL("stackList=%1, blt=%2, read=%3, write=%4"))
+                berrText += (QString(QSL("stackList=%1: blt=%2, read=%3, write=%4"))
                              .arg(si).arg(berrBlock).arg(berrRead).arg(berrWrite));
 
                 if (si == counters.watchdogStackList)
@@ -220,11 +201,19 @@ void SIS3153DebugWidget::refresh()
             }
         }
 
+        QString embeddedEventsText = format_stacklist_counts(counters.embeddedEvents, counters.watchdogStackList);;
+        QString partialFragmentsText = format_stacklist_counts(counters.partialFragments, counters.watchdogStackList);
+        QString reassembledPartialsText = format_stacklist_counts(counters.reassembledPartials, counters.watchdogStackList);
+
+
         s32 i = 0;
-        m_rdoCounterLabels[i++]->setText(pcText);
+        m_rdoCounterLabels[i++]->setText(packetCountText);
         m_rdoCounterLabels[i++]->setText(berrText);
         m_rdoCounterLabels[i++]->setText(QString::number(counters.multiEventPackets));
-        m_rdoCounterLabels[i++]->setText(QString::number(counters.lostPackets));
+        m_rdoCounterLabels[i++]->setText(embeddedEventsText);
+        m_rdoCounterLabels[i++]->setText(QString::number(counters.lostEvents));
+        m_rdoCounterLabels[i++]->setText(partialFragmentsText);
+        m_rdoCounterLabels[i++]->setText(reassembledPartialsText);
     }
 }
 
@@ -259,6 +248,136 @@ void SIS3153DebugWidget::resetCounters()
     refresh();
 }
 
+namespace
+{
+    static const QStringList UDPGapTimeValues =
+    {
+        "256 ns",
+        "512 ns",
+        "1 us",
+        "2 us",
+        "4 us",
+        "8 us",
+        "10 us",
+        "12 us",
+        "14 us",
+        "16 us",
+        "20 us",
+        "28 us",
+        "32 us",
+        "41 us",
+        "50 us",
+        "57 us",
+    };
+}
+
+//
+// SIS3153DebugToolsWidget
+//
+SIS3153DebugToolsWidget::SIS3153DebugToolsWidget(MVMEContext *context, QWidget *parent)
+    : QWidget(parent)
+    , m_context(context)
+{
+    auto outerLayout = new QVBoxLayout(this);
+
+    // read register
+    {
+        auto gb = new QGroupBox("Registers");
+        auto l  = new QHBoxLayout(gb);
+
+        auto le_regAddress = new QLineEdit;
+        le_regAddress->setText(QSL("0x00000001"));
+        auto le_regResult  = new QLineEdit;
+        auto pb_readRegister = new QPushButton(QSL("Read"));
+
+        l->addWidget(le_regAddress);
+        l->addWidget(le_regResult);
+        l->addWidget(pb_readRegister);
+
+        outerLayout->addWidget(gb);
+
+        connect(pb_readRegister, &QPushButton::clicked, this, [=]() {
+            auto sis = qobject_cast<SIS3153 *>(m_context->getVMEController());
+            if (!sis) return;
+
+            u32 addr  = le_regAddress->text().toUInt(nullptr, 0);
+            u32 value = 0;
+
+            DAQPauser pauser(context);
+
+            auto err = sis->readRegister(addr, &value);
+
+            if (err.isError())
+            {
+                le_regResult->setText(err.toString());
+            }
+            else
+            {
+                le_regResult->setText(QString("0x%1 / %2")
+                                      .arg(value, 8, 16, QLatin1Char('0'))
+                                      .arg(value)
+                                     );
+            }
+        });
+    }
+
+    // set udp packet gap value
+    {
+        auto gb = new QGroupBox("UDP Packet Gap Time");
+        auto l  = new QHBoxLayout(gb);
+
+        auto combo_gap = new QComboBox;
+        auto pb_set    = new QPushButton("Set");
+        auto label_err = new QLabel;
+
+        for (s32 gapValue = 0; gapValue < UDPGapTimeValues.size(); gapValue++)
+        {
+            combo_gap->addItem(UDPGapTimeValues[gapValue], static_cast<u32>(gapValue));
+        }
+
+        l->addWidget(combo_gap);
+        l->addWidget(pb_set);
+        l->addWidget(label_err);
+
+        outerLayout->addWidget(gb);
+
+        connect(pb_set, &QPushButton::clicked, this, [=]() {
+            auto sis = qobject_cast<SIS3153 *>(m_context->getVMEController());
+            if (!sis) return;
+
+            label_err->setText(QString());
+
+            DAQPauser pauser(context);
+
+            u32 udpConfValue = 0;
+
+            auto err = sis->readRegister(SIS3153Registers::UDPConfiguration, &udpConfValue);
+
+            if (err.isError())
+            {
+                label_err->setText("Read register failed: " + err.toString());
+                return;
+            }
+
+            u32 selectedGapValue = combo_gap->currentData().toUInt();
+            // Manual section 4.2.1
+            udpConfValue &= ~0xfu; // clear 4 low bits
+            udpConfValue |= (selectedGapValue & 0xf);
+
+            err = sis->writeRegister(SIS3153Registers::UDPConfiguration, udpConfValue);
+
+            if (err.isError())
+            {
+                label_err->setText("Write register failed: " + err.toString());
+                return;
+            }
+        });
+    }
+
+    outerLayout->addStretch();
+}
+
+
 void format_sis3153_single_event(
     QTextStream &out,
     u64 bufferNumber,
@@ -271,7 +390,7 @@ void format_sis3153_single_event(
     {
         BufferIterator iter(data, size);
         u32 beginHeader = iter.extractU32();
-        s32 packetNumber = (beginHeader & SIS3153Constants::BeginEventPacketNumberMask);
+        s32 packetNumber = (beginHeader & SIS3153Constants::BeginEventSequenceNumberMask);
 
         out << (QString("beginHeader=0x%1, packetNumber=%2 (0x%3)")
                 .arg(beginHeader, 8, 16, QLatin1Char('0'))
@@ -372,7 +491,7 @@ void format_sis3153_buffer(DataBuffer *buffer, QTextStream &out, u64 bufferNumbe
             bool isLastPacket = (packetAck & SIS3153Constants::AckIsLastPacketMask);
             if (!isLastPacket)
             {
-                out << "buffer #" << bufferNumber << ": middle part of a partial event" << endl;
+                out << "buffer #" << bufferNumber << ": beginning or middle part of a partial event" << endl;
             }
             else
             {

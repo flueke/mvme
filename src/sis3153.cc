@@ -247,7 +247,7 @@ VMEError SIS3153::open()
     int resultCode = m_d->sis->set_UdpSocketSIS3153_IpAddress(const_cast<char *>(addressData.constData()));
 
 #ifdef SIS3153_DEBUG
-    qDebug() << __PRETTY_FUNCTION__ << "result from set_UdpSocketSIS3153_IpAddress" << resultCode;
+    qDebug() << __PRETTY_FUNCTION__ << "result from set_UdpSocketSIS3153_IpAddress (main socket)" << resultCode;
 #endif
 
     result = sis_setAddress_result_to_error(resultCode);
@@ -289,6 +289,12 @@ VMEError SIS3153::open()
 #ifdef SIS3153_DEBUG
                 qDebug() << "sis connect timed out. sending udp_reset_cmd and delaying for" << PostResetDelay_ms << "ms";
 #endif
+                // FIXME: don't just issue the reset command here but instead
+                // read the stacklist control register and check if the sis is
+                // in autonomous mod. If it is log a message and consider the
+                // connection attempt to have failed.
+                // Add a option to the sis settings that allows sending the
+                // reset regardless of the sis state.
                 m_d->sis->udp_reset_cmd();
                 QThread::msleep(PostResetDelay_ms);
             }

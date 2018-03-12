@@ -344,4 +344,14 @@ VMEModuleMeta get_module_meta_by_typename(const MVMETemplates &templates, const 
     return {};
 }
 
+VMEModuleMeta get_module_meta_by_typeId(const MVMETemplates &templates, u8 typeId)
+{
+    for (auto mm: templates.moduleMetas)
+    {
+        if (mm.typeId == typeId)
+            return mm;
+    }
+    return {};
+}
+
 } // namespace vats

@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.0.0)
 project(mvme)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 set(WARNING_FLAGS "-Wall -Wno-unused-variable -Wno-unused-function")
 #set(WARNING_FLAGS "${WARNING_FLAGS} -Wno-mismatched-tags")
 
@@ -76,20 +78,19 @@ message("-- GIT_BRANCH=${GIT_BRANCH}")
 # 3rdparty
 include_directories("${CMAKE_SOURCE_DIR}/3rdparty")
 include_directories("${CMAKE_SOURCE_DIR}/3rdparty/pcg-cpp-0.98/include/")
-include_directories("${CMAKE_SOURCE_DIR}/3rdparty/cpp11-on-multicore/common/")
 
 # HDF5
-option(ENABLE_HDF5 "Enable HDF5 support" ON)
 set(HDF5_USE_STATIC_LIBRARIES Off)
 
-if (ENABLE_HDF5)
-    find_package(HDF5 COMPONENTS CXX)
-    if (HDF5_FOUND)
-        include_directories(${HDF5_INCLUDE_DIRS})
-        #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${HDF5_DEFINITIONS}")
-        add_definitions(-DMVME_ENABLE_HDF5)
-    endif(HDF5_FOUND)
-endif(ENABLE_HDF5)
+find_package(HDF5 COMPONENTS CXX)
+if (HDF5_FOUND)
+    message("-- Found HDF5 - Enabling analysis session save/load support.")
+    include_directories(${HDF5_INCLUDE_DIRS})
+    #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${HDF5_DEFINITIONS}")
+    add_definitions(-DMVME_ENABLE_HDF5)
+else(HDF5_FOUND)
+    message("-- HDF5 not found - Disabling analysis session save/load support.")
+endif(HDF5_FOUND)
 
 # qwt
 find_path(QWT_INCLUDE_DIR
@@ -106,6 +107,8 @@ message("-- Using QWT_LIBRARY=${QWT_LIBRARY}")
 
 # ROOT
 # https://root.cern.ch/how/integrate-root-my-project-cmake
+
+# FIXME: This interferes with our own CFLAGS and does not use CMAKE_BUILD_TYPE!
 option(ENABLE_ROOT "Enable ROOT support" OFF)
 
 if (ENABLE_ROOT)
@@ -132,7 +135,7 @@ add_subdirectory(extras)
 
 # To get a 'make test' target. If this is not in the top level CMakeLists.txt
 # no test target is generated :(
-option(BUILD_TESTS "Build test binaries" ON)
+option(BUILD_TESTS "Build test binaries" OFF)
 
 if (BUILD_TESTS)
     message("-- Building test binaries")

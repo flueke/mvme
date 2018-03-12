@@ -31,8 +31,11 @@ struct Histo2DStatistics
     u32 maxBinY = 0;        // y bin of max value
     double maxX = 0.0;      // low edge of maxBinX
     double maxY = 0.0;      // low edge of maxBinY
-    double maxValue = 0.0;
+    double maxZ = 0.0;
     double entryCount = 0;
+
+    using Intervals = std::array<AxisInterval, 3>;
+    Intervals intervals;
 };
 
 class Histo2D: public QObject
@@ -107,9 +110,7 @@ class Histo2D: public QObject
         AxisInterval getInterval(Qt::Axis axis) const;
 
         Histo2DStatistics calcStatistics(AxisInterval xInterval, AxisInterval yInterval) const;
-        //inline Histo2DStatistics getGlobalStatistics() const { return m_stats; }
-        inline Histo2DStatistics getGlobalStatistics() const;
-        inline double getEntryCount() const { return m_stats.entryCount; }
+        Histo2DStatistics calcGlobalStatistics() const;
 
         double getUnderflow() const { return m_underflow; }
         void setUnderflow(double value) { m_underflow = value; }
@@ -151,10 +152,6 @@ class Histo2D: public QObject
 
         double m_underflow = 0.0;
         double m_overflow = 0.0;
-
-        Histo2DStatistics m_stats;
-        // FIXME: hack for a2
-        mutable double m_lastCalculatedMaxValue = 0.0;
 
         QString m_title;
         QString m_footer;

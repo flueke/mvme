@@ -23,6 +23,8 @@
 
 #include "vme_controller_ui.h"
 #include <QCheckBox>
+#include <QGroupBox>
+#include <QSpinBox>
 
 class VMUSBSettingsWidget: public VMEControllerSettingsWidget
 {
@@ -52,5 +54,8 @@ class SIS3153EthSettingsWidget: public VMEControllerSettingsWidget
         QCheckBox *m_cb_debugRawBuffers;
         QCheckBox *m_cb_disableBuffering;
         QCheckBox *m_cb_disableWatchdog;
+        QGroupBox *m_gb_enableForwarding;
+        QLineEdit *m_le_forwardingAddress;
+        QSpinBox *m_spin_forwardingPort;
 };
 #endif /* __VME_CONTROLLER_UI_P_H__ */

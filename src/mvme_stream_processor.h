@@ -31,8 +31,8 @@ struct LIBMVME_EXPORT MVMEStreamProcessorCounters
 
     using ModuleCounters = std::array<u32, MaxVMEModules>;
 
-    std::array<ModuleCounters, MaxVMEEvents> moduleCounters;
     std::array<u32, MaxVMEEvents> eventCounters;
+    std::array<ModuleCounters, MaxVMEEvents> moduleCounters;
 };
 
 class LIBMVME_EXPORT IMVMEStreamModuleConsumer
@@ -75,17 +75,80 @@ class LIBMVME_EXPORT MVMEStreamProcessor
         MVMEStreamProcessor();
         ~MVMEStreamProcessor();
 
+        //
+        // Statistics
+        //
+        const MVMEStreamProcessorCounters &getCounters() const;
+        MVMEStreamProcessorCounters &getCounters();
+
+
+        //
+        // Processing
+        //
         void beginRun(const RunInfo &runInfo, analysis::Analysis *analysis,
                       VMEConfig *vmeConfig, u32 listfileVersion, Logger logger);
         void startConsumers();
         void endRun();
         void processDataBuffer(DataBuffer *buffer);
-        /* Used in DAQ Readout mode to generate timeticks for the analysis
-         * independent of the readout data rate or analysis efficiency. */
+
+        // Used in DAQ Readout mode to generate timeticks for the analysis
+        // independent of the readout data rate or analysis efficiency.
         void processExternalTimetick();
 
-        const MVMEStreamProcessorCounters &getCounters() const;
-        MVMEStreamProcessorCounters &getCounters();
+
+        //
+        // Single Step Processing
+        //
+
+        /* Contains information about what was processed in the last call to
+         * singleStepNextStep(). */
+        struct ProcessingState
+        {
+            ProcessingState(DataBuffer *buffer = nullptr)
+                : buffer(buffer)
+            {
+                resetModuleDataOffsets();
+            }
+
+            void resetModuleDataOffsets()
+            {
+                lastModuleDataSectionHeaderOffsets.fill(-1);
+                lastModuleDataBeginOffsets.fill(-1);
+                lastModuleDataEndOffsets.fill(-1);
+            }
+
+            /* Note: all offsets are counted in 32-bit words and are relative
+             * to the beginning of the current buffer. Offsets are set to -1 if
+             * the corresponding data is not present/invalid. */
+
+            /* The buffer pointer that was passed to singleStepInitState().
+             * Will not be cleared on error or end of buffer. */
+            DataBuffer *buffer = nullptr;
+
+            /* Word offset of the last section header in the buffer. */
+            s32 lastSectionHeaderOffset = -1;
+
+            // points to the listfile subevent/module header preceding the module data
+            std::array<s32, MaxVMEModules> lastModuleDataSectionHeaderOffsets;
+            // first word offset of the module event data
+            std::array<s32, MaxVMEModules> lastModuleDataBeginOffsets;
+            // last word offset of the module event data
+            std::array<s32, MaxVMEModules> lastModuleDataEndOffsets;
+
+            enum StepResult: u8
+            {
+                StepResult_Unset,           // a non-event section was processed
+                StepResult_EventHasMore,    // event section was processed but there's more subevents left
+                StepResult_EventComplete,   // event section was processed and completed
+                StepResult_AtEnd,           // the last input buffer was fully processed. Further calls to singleStepNextStep() are not allowed.
+                StepResult_Error,           // an error occured during processing. Further calls to singleStepNextStep() are not allowed.
+            };
+
+            StepResult stepResult = StepResult_Unset;
+        };
+
+        ProcessingState singleStepInitState(DataBuffer *buffer);
+        ProcessingState &singleStepNextStep(ProcessingState &procState);
 
         //
         // Additional data consumers
@@ -102,9 +165,6 @@ class LIBMVME_EXPORT MVMEStreamProcessor
         void removeModuleConsumer(IMVMEStreamModuleConsumer *consumer);
 
     private:
-        void processEventSection(u32 sectionHeader, u32 *data, u32 size);
-        void logMessage(const QString &msg);
-
         std::unique_ptr<MVMEStreamProcessorPrivate> m_d;
 };
 

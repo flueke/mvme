@@ -6,18 +6,30 @@
 namespace a2
 {
 
+/* ===============================================
+ * Operators
+ * =============================================== */
+
 enum OperatorType
 {
     Operator_Calibration,
     Operator_Calibration_sse,
+    Operator_Calibration_idx,
     Operator_KeepPrevious,
+    Operator_KeepPrevious_idx,
     Operator_Difference,
     Operator_Difference_idx,
     Operator_ArrayMap,
     Operator_BinaryEquation,
+
     Operator_H1DSink,
     Operator_H1DSink_idx,
     Operator_H2DSink,
+
+    Operator_RateMonitor_PrecalculatedRate,
+    Operator_RateMonitor_CounterDifference,
+    Operator_RateMonitor_FlowRate,
+
     Operator_RangeFilter,
     Operator_RangeFilter_idx,
     Operator_RectFilter,
@@ -42,6 +54,7 @@ enum OperatorType
 
 void calibration_step(Operator *op);
 void calibration_sse_step(Operator *op);
+void calibration_step_idx(Operator *op);
 void keep_previous_step(Operator *op);
 void difference_step(Operator *op);
 void array_map_step(Operator *op);
@@ -53,6 +66,8 @@ void aggregate_max_step(Operator *op);
 void h1d_sink_step(Operator *op);
 void h1d_sink_step_idx(Operator *op);
 void h2d_sink_step(Operator *op);
+void rate_monitor_step(Operator *op);
+void rate_monitor_sample_flow(Operator *op);
 
 } // namespace a2
 

@@ -48,16 +48,16 @@ static void BM_a2(benchmark::State &state)
 
     auto a2 = arena.pushStruct<A2>();
     *a2 = make_a2(&arena, { 1 }, { 2 });
-    assert(a2->extractors[eventIndex]);
+    assert(a2->dataSources[eventIndex]);
     assert(a2->operators[eventIndex]);
 
     MultiWordFilter filter = { make_filter("xxxx aaaa xxxx dddd") };
     u32 requiredCompletions = 0;
     u64 rngSeed = 1234;
-    auto ex = make_extractor(&arena, filter, requiredCompletions, rngSeed, moduleIndex);
+    auto ex = make_datasource_extractor(&arena, filter, requiredCompletions, rngSeed, moduleIndex);
 
-    a2->extractors[eventIndex][a2->extractorCounts[eventIndex]] = ex;
-    a2->extractorCounts[eventIndex]++;
+    a2->dataSources[eventIndex][a2->dataSourceCounts[eventIndex]] = ex;
+    a2->dataSourceCounts[eventIndex]++;
 
     auto calib = make_calibration(
         &arena,

@@ -21,14 +21,16 @@
 #ifndef __ANALYSIS_H__
 #define __ANALYSIS_H__
 
+#include "a2/a2.h"
 #include "a2/memory.h"
 #include "a2/multiword_datafilter.h"
 #include "data_filter.h"
-#include "../globals.h"
 #include "histo1d.h"
 #include "histo2d.h"
 #include "libmvme_export.h"
 #include "typedefs.h"
+#include "../globals.h"
+#include "../rate_monitor_base.h"
 #include "../vme_analysis_common.h"
 
 #include <memory>
@@ -318,9 +320,6 @@ class LIBMVME_EXPORT SourceInterface: public PipeSourceInterface
         /* Use beginEvent() to invalidate output parameters if needed. */
         virtual void beginEvent() {}
 
-        /* Used to feed a full block of module event data to the source. */
-        virtual void processModuleData(u32 *firstWord, u32 size) = 0;
-
         virtual void read(const QJsonObject &json) = 0;
         virtual void write(QJsonObject &json) const = 0;
 
@@ -391,6 +390,8 @@ class LIBMVME_EXPORT SinkInterface: public OperatorInterface
         s32 getNumberOfOutputs() const override { return 0; }
         QString getOutputName(s32 outputIndex) const override { return QString(); }
         Pipe *getOutput(s32 index) override { return nullptr; }
+
+        virtual size_t getStorageSize() const = 0;
 };
 
 typedef std::shared_ptr<SinkInterface> SinkPtr;
@@ -429,7 +430,6 @@ class LIBMVME_EXPORT Extractor: public SourceInterface
 
         virtual void beginRun(const RunInfo &runInfo) override;
         virtual void beginEvent() override;
-        virtual void processModuleData(u32 *firstWord, u32 size) override;
 
         virtual s32 getNumberOfOutputs() const override;
         virtual QString getOutputName(s32 outputIndex) const override;
@@ -439,9 +439,13 @@ class LIBMVME_EXPORT Extractor: public SourceInterface
         virtual void write(QJsonObject &json) const override;
 
         virtual QString getDisplayName() const override { return QSL("Filter Extractor"); }
-        virtual QString getShortName() const override { return QSL("Ext"); }
+        virtual QString getShortName() const override { return QSL("FExt"); }
 
         QVector<double> getHitCounts() const;
+
+        using Options = a2::DataSourceOptions;
+        Options::opt_t getOptions() const { return m_options; }
+        void setOptions(Options::opt_t options) { m_options = options; }
 
         // configuration
         MultiWordDataFilter m_filter;
@@ -458,7 +462,50 @@ class LIBMVME_EXPORT Extractor: public SourceInterface
 
         pcg32_fast m_rng;
         Pipe m_output;
+        Options::opt_t m_options;
 };
+
+class LIBMVME_EXPORT ListFilterExtractor: public SourceInterface
+{
+    Q_OBJECT
+    Q_INTERFACES(analysis::SourceInterface)
+
+    public:
+        ListFilterExtractor(QObject *parent = nullptr);
+
+        virtual void beginRun(const RunInfo &runInfo) override;
+        virtual void beginEvent() override;
+
+        virtual s32 getNumberOfOutputs() const override { return 1; }
+        virtual QString getOutputName(s32 outputIndex) const override { return QSL("Combined and extracted data array"); }
+        virtual Pipe *getOutput(s32 index) override { return index == 0 ? &m_output : nullptr; }
+
+        virtual void read(const QJsonObject &json) override;
+        virtual void write(QJsonObject &json) const override;
+
+        virtual QString getDisplayName() const override { return QSL("ListFilter Extractor"); }
+        virtual QString getShortName() const override { return QSL("RExt"); }
+
+        a2::ListFilterExtractor getExtractor() const { return m_a2Extractor; }
+        void setExtractor(const a2::ListFilterExtractor &ex) { m_a2Extractor = ex; }
+        u64 getRngSeed() const { return m_rngSeed; }
+        void setRngSeed(u64 seed) { m_rngSeed = seed; }
+
+        using Options = a2::DataSourceOptions;
+        Options::opt_t getOptions() const { return m_a2Extractor.options; }
+        void setOptions(Options::opt_t options) { m_a2Extractor.options = options; }
+
+    private:
+        Pipe m_output;
+        /* This only serves to hold data. It's not passed into the a2 system.
+         * The members .rng and .moduleIndex are not set up as that information
+         * is not available and not required when serializing this
+         * ListFilterExtractor. */
+        a2::ListFilterExtractor m_a2Extractor;
+        u64 m_rngSeed;
+};
+
+using ListFilterExtractorPtr = std::shared_ptr<ListFilterExtractor>;
 
 //
 // Operators
@@ -1016,7 +1063,7 @@ class LIBMVME_EXPORT Histo1DSink: public BasicSink
         virtual QString getDisplayName() const override { return QSL("1D Histogram"); }
         virtual QString getShortName() const override { return QSL("H1D"); }
 
-        size_t getStorageSize() const;
+        virtual size_t getStorageSize() const override;
 
         std::shared_ptr<Histo1D> getHisto(s32 index) const
         {
@@ -1063,7 +1110,7 @@ class LIBMVME_EXPORT Histo2DSink: public SinkInterface
         virtual QString getDisplayName() const override { return QSL("2D Histogram"); }
         virtual QString getShortName() const override { return QSL("H2D"); }
 
-        size_t getStorageSize() const;
+        virtual size_t getStorageSize() const override;
 
         Slot m_inputX;
         Slot m_inputY;
@@ -1091,6 +1138,73 @@ class LIBMVME_EXPORT Histo2DSink: public SinkInterface
 
         QString m_xAxisTitle;
         QString m_yAxisTitle;
+};
+
+class LIBMVME_EXPORT RateMonitorSink: public BasicSink
+{
+    Q_OBJECT
+    public:
+        using Type = a2::RateMonitorType;
+
+        RateMonitorSink(QObject *parent = nullptr);
+
+        virtual void beginRun(const RunInfo &runInfo) override;
+        virtual void step() override;
+
+        virtual void read(const QJsonObject &json) override;
+        virtual void write(QJsonObject &json) const override;
+
+        virtual QString getDisplayName() const override { return QSL("Rate Monitor"); }
+
+        virtual QString getShortName() const override
+        {
+            if (getType() == Type::FlowRate)
+                return QSL("FlowRate");
+            return QSL("Rate");
+        }
+
+        virtual size_t getStorageSize() const override;
+
+        s32 rateSamplerCount() const { return m_samplers.size(); }
+        QVector<a2::RateSamplerPtr> getRateSamplers() const { return m_samplers; }
+
+        a2::RateSamplerPtr getRateSampler(s32 index) const
+        {
+            return m_samplers.value(index, {});
+        }
+
+        Type getType() const { return m_type; }
+        void setType(Type type) { m_type = type; }
+
+        size_t getRateHistoryCapacity() const { return m_rateHistoryCapacity; }
+        void setRateHistoryCapacity(size_t capacity) { m_rateHistoryCapacity = capacity; }
+
+        QString getUnitLabel() const { return m_unitLabel; }
+        void setUnitLabel(const QString &label) { m_unitLabel = label; }
+
+        double getCalibrationFactor() const { return m_calibrationFactor; }
+        void setCalibrationFactor(double d) { m_calibrationFactor = d; }
+
+        double getCalibrationOffset() const { return m_calibrationOffset; }
+        void setCalibrationOffset(double d) { m_calibrationOffset = d; }
+
+        double getSamplingInterval() const { return m_samplingInterval; }
+        void setSamplingInterval(double d) { m_samplingInterval = d; }
+
+    private:
+        QVector<a2::RateSamplerPtr> m_samplers;
+
+        /* The desired size of rate history buffers. Analogous to the number of
+         * bins for histograms.
+         * Default is one day, meaning 86400 bins, which equals a hist
+         * resolution of ~16.4 bits. */
+        size_t m_rateHistoryCapacity = 3600 * 24;
+
+        Type m_type = Type::FlowRate;
+        QString m_unitLabel;
+        double m_calibrationFactor = 1.0;
+        double m_calibrationOffset = 0.0;
+        double m_samplingInterval  = 1.0;
 };
 
 /* Note: The qobject_cast()s in the createXXX() functions are there to ensure
@@ -1265,14 +1379,12 @@ class LIBMVME_EXPORT Analysis: public QObject
             QUuid eventId;
             QUuid moduleId;
             SourcePtr source;
-            SourceInterface *sourceRaw;
         };
 
         struct OperatorEntry
         {
             QUuid eventId;
             OperatorPtr op;
-            OperatorInterface *opRaw;
 
             // A user defined level used for UI display structuring.
             s32 userLevel;
@@ -1286,9 +1398,9 @@ class LIBMVME_EXPORT Analysis: public QObject
          */
         void beginRun(const RunInfo &runInfo, const vme_analysis_common::VMEIdToIndex &vmeMap);
         void beginRun();
-        void beginEvent(int eventIndex, const QUuid &eventId);
-        void processModuleData(int eventIndex, int moduleIndex, const QUuid &eventId, const QUuid &moduleId, u32 *data, u32 size);
-        void endEvent(int eventIndex, const QUuid &eventId);
+        void beginEvent(int eventIndex);
+        void processModuleData(int eventIndex, int moduleIndex, u32 *data, u32 size);
+        void endEvent(int eventIndex);
         // Called once for every SectionType_Timetick section
         void processTimetick();
 
@@ -1313,6 +1425,9 @@ class LIBMVME_EXPORT Analysis: public QObject
         void addSource(const QUuid &eventId, const QUuid &moduleId, const SourcePtr &source);
         void removeSource(const SourcePtr &source);
         void removeSource(SourceInterface *source);
+
+        QVector<ListFilterExtractorPtr> getListFilterExtractors(ModuleConfig *module) const;
+        void setListFilterExtractors(ModuleConfig *module, const QVector<ListFilterExtractorPtr> &extractors);
 
         const QVector<OperatorEntry> &getOperators() const { return m_operators; }
         QVector<OperatorEntry> &getOperators() { return m_operators; }
@@ -1407,7 +1522,6 @@ class LIBMVME_EXPORT Analysis: public QObject
         RunInfo getRunInfo() const { return m_runInfo; }
 
     private:
-        void beginRun_internal_only(const RunInfo &runInfo);
         void updateRank(OperatorInterface *op, QSet<OperatorInterface *> &updated);
 
         QVector<SourceEntry> m_sources;
@@ -1422,7 +1536,7 @@ class LIBMVME_EXPORT Analysis: public QObject
         vme_analysis_common::VMEIdToIndex m_vmeMap;
         std::array<std::unique_ptr<memory::Arena>, 2> m_a2Arenas;
         u8 m_a2ArenaIndex;
-        std::unique_ptr<memory::Arena> m_a2TempArena;
+        std::unique_ptr<memory::Arena> m_a2WorkArena;
         std::unique_ptr<A2AdapterState> m_a2State;
 };
 
@@ -1442,7 +1556,7 @@ RawDataDisplay LIBMVME_EXPORT make_raw_data_display(const MultiWordDataFilter &e
 
 void LIBMVME_EXPORT add_raw_data_display(Analysis *analysis, const QUuid &eventId, const QUuid &moduleId, const RawDataDisplay &display);
 
-void LIBMVME_EXPORT do_beginRun_forward(PipeSourceInterface *pipeSource);
+void LIBMVME_EXPORT do_beginRun_forward(PipeSourceInterface *pipeSource, const RunInfo &runInfo = {});
 
 QString LIBMVME_EXPORT make_unique_operator_name(Analysis *analysis, const QString &prefix);
 

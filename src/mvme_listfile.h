@@ -329,4 +329,6 @@ struct LIBMVME_EXPORT OpenListfileResult
 
 OpenListfileResult LIBMVME_EXPORT open_listfile(const QString &filename);
 
+std::unique_ptr<VMEConfig> LIBMVME_EXPORT read_config_from_listfile(ListFile *listfile);
+
 #endif

@@ -4,9 +4,12 @@
 #ifdef liba2_shared_EXPORTS
 #include "a2_export.h"
 #endif
+#include "listfilter.h"
 #include "memory.h"
 #include "multiword_datafilter.h"
+#include "rate_sampler.h"
 #include "util/nan.h"
+#include "util/typed_block.h"
 
 #include <cassert>
 #include <pcg_random.hpp>
@@ -31,62 +34,6 @@ inline bool is_param_valid(double param)
 inline double invalid_param()
 {
     static const double result = make_nan(ParamInvalidBit);
-    return result;
-}
-
-template<typename T, typename SizeType = size_t>
-struct TypedBlock
-{
-    typedef SizeType size_type;
-    static constexpr auto size_max = std::numeric_limits<SizeType>::max();
-
-    T *data;
-    size_type size;
-
-    inline T operator[](size_type index) const
-    {
-        return data[index];
-    }
-
-    inline T &operator[](size_type index)
-    {
-        return data[index];
-    }
-
-    inline T *begin()
-    {
-        return data;
-    }
-
-    inline T *end()
-    {
-        return data + size;
-    }
-};
-
-template<typename T, typename SizeType = size_t>
-TypedBlock<T, SizeType> push_typed_block(
-    memory::Arena *arena,
-    SizeType size,
-    size_t align = alignof(T))
-{
-    TypedBlock<T, SizeType> result;
-
-    result.data = arena->pushArray<T>(size, align);
-    result.size = result.data ? size : 0;
-    assert(memory::is_aligned(result.data, align));
-
-    return result;
-};
-
-template<typename T, typename SizeType = size_t>
-TypedBlock<T, SizeType> make_typed_block(
-    T *data,
-    SizeType size)
-{
-    TypedBlock<T, SizeType> result;
-    result.data = data;
-    result.size = size;
     return result;
 }
 
@@ -133,24 +80,95 @@ struct PipeVectors
     ParamVec upperLimits;
 };
 
+/* ===============================================
+ * Data Sources
+ * =============================================== */
+struct DataSource
+{
+    PipeVectors output;
+    ParamVec hitCounts;
+    void *d;
+    u8 moduleIndex;
+    u8 type;
+};
+
+enum DataSourceType
+{
+    DataSource_Extractor,
+    DataSource_ListFilterExtractor,
+};
+
+struct DataSourceOptions
+{
+    using opt_t = u8;
+    static const opt_t NoOption      = 0u;
+    static const opt_t NoAddedRandom = 1u;
+};
+
 struct Extractor
 {
     data_filter::MultiWordFilter filter;
     pcg32_fast rng;
-    PipeVectors output;
-    ParamVec hitCounts;
     u32 requiredCompletions;
     u32 currentCompletions;
-    u8 moduleIndex;
+    DataSourceOptions::opt_t options;
 };
 
+struct ListFilterExtractor
+{
+    data_filter::ListFilter listFilter;
+    data_filter::DataFilter repetitionAddressFilter;
+    data_filter::CacheEntry repetitionAddressCache;
+    pcg32_fast rng;
+    u8 repetitions;
+    DataSourceOptions::opt_t options;
+};
+
+size_t get_address_bits(ListFilterExtractor *ex);
+size_t get_address_count(Extractor *ex);
+size_t get_address_count(ListFilterExtractor *ex);
+
 Extractor make_extractor(
+    data_filter::MultiWordFilter filter,
+    u32 requiredCompletions,
+    u64 rngSeed,
+    DataSourceOptions::opt_t options = 0);
+
+DataSource make_datasource_extractor(
     memory::Arena *arena,
     data_filter::MultiWordFilter filter,
     u32 requiredCompletions,
     u64 rngSeed,
-    int moduleIndex);
+    int moduleIndex,
+    DataSourceOptions::opt_t options = 0);
 
+ListFilterExtractor make_listfilter_extractor(
+    data_filter::ListFilter listFilter,
+    data_filter::DataFilter repetitionAddressFilter,
+    u8 repetitions,
+    u64 rngSeed,
+    DataSourceOptions::opt_t options = 0);
+
+DataSource make_datasource_listfilter_extractor(
+    memory::Arena *arena,
+    data_filter::ListFilter listFilter,
+    data_filter::DataFilter repetitionAddressFilter,
+    u8 repetitions,
+    u64 rngSeed,
+    u8 moduleIndex,
+    DataSourceOptions::opt_t options = 0);
+
+size_t get_address_count(DataSource *ds);
+
+void extractor_begin_event(DataSource *ex);
+void extractor_process_module_data(DataSource *ex, u32 *data, u32 size);
+void listfilter_extractor_begin_event(DataSource *ex);
+u32 *listfilter_extractor_process_module_data(DataSource *ex, u32 *data, u32 dataSize);
+
+
+/* ===============================================
+ * Operators
+ * =============================================== */
 struct Operator
 {
     using count_type = u8;
@@ -171,9 +189,6 @@ struct Operator
 };
 
 void assign_input(Operator *op, PipeVectors input, s32 inputIndex);
-void extractor_begin_event(Extractor *ex);
-void extractor_process_module_data(Extractor *ex, const u32 *data, u32 size);
-
 Operator make_calibration(
     memory::Arena *arena,
     PipeVectors input,
@@ -185,9 +200,21 @@ Operator make_calibration(
     ParamVec calibMinimums,
     ParamVec calibMaximums);
 
+Operator make_calibration_idx(
+    memory::Arena *arena,
+    PipeVectors input,
+    s32 inputInfo,
+    double unitMin, double unitMax);
+
 Operator make_keep_previous(
     memory::Arena *arena,
-    PipeVectors inPipe,
+    PipeVectors input,
+    bool keepValid);
+
+Operator make_keep_previous_idx(
+    memory::Arena *arena,
+    PipeVectors input,
+    s32 inputIndex,
     bool keepValid);
 
 Operator make_difference(
@@ -395,13 +422,57 @@ Operator make_h2d_sink(
     s32 yIndex,
     H2D histo);
 
+//
+// RateMonitor
+//
+
+enum class RateMonitorType
+{
+    /* Input values are rates and simply need to be accumulated. */
+    PrecalculatedRate,
+
+    /* Input values are counter values. The rate has be calculated from
+     * the current and the previous value. */
+    CounterDifference,
+
+    /* The rate of hits for an analysis pipe. Basically the rate of a
+     * source or the flow through an operator.
+     *
+     * The event and pipe to be monitored are required. At the end of
+     * an event, after operators have been processed, a hitcount value
+     * has to be incremented for each input value if the value is
+     * valid.
+     *
+     * Event: the event this sink is in.
+     * Pipe:  this operators input pipe.
+     * Two step processing: in a2_end_event() increment the count values based on the input.
+     * In a new a2_timetick() function run through all RateMonitorSinks
+     * and sample from the hitcounts data.
+     *
+     * Sampling and recording of the resulting rate happens
+     * "asynchronously" based on analysis timeticks (system generated
+     * during DAQ / from the listfile during replay).
+     */
+    FlowRate,
+};
+
+Operator make_rate_monitor(
+    memory::Arena *arena,
+    PipeVectors inPipe,
+    TypedBlock<RateSampler *, s32> samplers,
+    RateMonitorType type);
+
+//
+// A2 structure and entry points
+//
+
 static const int MaxVMEEvents  = 12;
 static const int MaxVMEModules = 20;
 
 struct A2
 {
-    std::array<u8, MaxVMEEvents> extractorCounts;
-    std::array<Extractor *, MaxVMEEvents> extractors;
+    std::array<u8, MaxVMEEvents> dataSourceCounts;
+    std::array<DataSource *, MaxVMEEvents> dataSources;
 
     std::array<u8, MaxVMEEvents> operatorCounts;
     std::array<Operator *, MaxVMEEvents> operators;
@@ -410,8 +481,9 @@ struct A2
 
 void a2_begin_run(A2 *a2);
 void a2_begin_event(A2 *a2, int eventIndex);
-void a2_process_module_data(A2 *a2, int eventIndex, int moduleIndex, const u32 *data, u32 dataSize);
+void a2_process_module_data(A2 *a2, int eventIndex, int moduleIndex, u32 *data, u32 dataSize);
 void a2_end_event(A2 *a2, int eventIndex);
+void a2_timetick(A2 *a2);
 void a2_end_run(A2 *a2);
 
 //

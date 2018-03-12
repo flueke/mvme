@@ -18,7 +18,7 @@
 import os
 import sys
 print sys.argv
-sys.path.insert(0, os.path.abspath('../ext'))
+sys.path.insert(0, os.path.abspath('../../ext'))
 
 
 # -- General configuration ------------------------------------------------

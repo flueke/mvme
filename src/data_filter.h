@@ -256,6 +256,12 @@ LIBMVME_EXPORT DataFilter makeFilterFromString(const QString &str, s32 wordIndex
 LIBMVME_EXPORT DataFilter makeFilterFromBytes(const QByteArray &bytes, s32 wordIndex = -1);
 
 // Create a QLineEdit setup for convenient filter editing and display.
-LIBMVME_EXPORT QLineEdit *makeFilterEdit();
+LIBMVME_EXPORT QLineEdit *makeFilterEdit(u8 bits = 32);
+
+// Groups of 4 chars separated by a space, no padding on the left.
+LIBMVME_EXPORT QString generate_pretty_filter_string(u8 bits = 32, char c = 'N');
+
+// Groups of 4 chars separated by a space, padded on the left with spaces if dataBits < totalBits.
+LIBMVME_EXPORT QString generate_pretty_filter_string(u8 dataBits, u8 totalBits, char c = 'N');
 
 #endif /* __DATA_FILTER_H__ */

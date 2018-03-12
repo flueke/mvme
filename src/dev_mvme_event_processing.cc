@@ -46,14 +46,6 @@ u32 read_listfile_version(std::ifstream &infile)
 
 }
 
-VMEConfig *read_config_from_listfile(ListFile *listfile)
-{
-    auto configJson = listfile->getDAQConfig();
-    auto result = new VMEConfig;
-    result->read(configJson);
-    return result;
-}
-
 //
 // process_listfile
 //
@@ -139,7 +131,9 @@ void load_analysis_config(const QString &filename, Analysis *analysis, VMEConfig
 
 int main(int argc, char *argv[])
 {
+#ifndef Q_OS_WIN
     signal(SIGPIPE, SIG_IGN);
+#endif
 
 
     QCoreApplication app(argc, argv);

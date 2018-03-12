@@ -1,5 +1,6 @@
 #include "mpmc_queue.cc"
 #include "a2_impl.h"
+#include "util/assert.h"
 
 #include <algorithm>
 #include <atomic>
@@ -11,19 +12,29 @@
 #include <random>
 #include <thread>
 #include "util/perf.h"
-#include "benaphore.h" // cpp11-on-multicore
+#include "cpp11-on-multicore/common/benaphore.h"
 
 #define ArrayCount(x) (sizeof(x) / sizeof(*x))
 
 //#ifndef NDEBUG
 #if 0
+
+// printf style trace macro
 #define a2_trace(fmt, ...)\
 do\
 {\
     fprintf(stderr, "a2::%s() " fmt, __FUNCTION__, ##__VA_ARGS__);\
 } while (0);
+
+// "NoPrefix" verison of the trace macro
+#define a2_trace_np(fmt, ...)\
+do\
+{\
+    fprintf(stderr, fmt, ##__VA_ARGS__);\
+} while (0);
 #else
 #define a2_trace(...)
+#define a2_trace_np(...)
 #endif
 
 #include <iostream>
@@ -131,29 +142,91 @@ void push_output_vectors(
 }
 
 /* ===============================================
- * Operators
+ * Extractors
  * =============================================== */
+static std::uniform_real_distribution<double> RealDist01(0.0, 1.0);
+
+size_t get_address_count(DataSource *ds)
+{
+    switch (static_cast<DataSourceType>(ds->type))
+    {
+        case DataSource_Extractor:
+            {
+                auto ex = reinterpret_cast<Extractor *>(ds->d);
+                return get_address_count(ex);
+            } break;
+
+        case DataSource_ListFilterExtractor:
+            {
+                auto ex = reinterpret_cast<ListFilterExtractor *>(ds->d);
+                return get_address_count(ex);
+            } break;
+    }
+
+    return 0u;
+}
+
+size_t get_address_count(Extractor *ex)
+{
+    u16 bits = get_extract_bits(&ex->filter, MultiWordFilter::CacheA);
+    return 1u << bits;
+}
+
+size_t get_address_bits(ListFilterExtractor *ex)
+{
+    size_t baseAddressBits = get_extract_bits(&ex->listFilter, MultiWordFilter::CacheA);
+    size_t repAddressBits  = ex->repetitionAddressCache.extractBits;
+    size_t bits = baseAddressBits + repAddressBits;
+    return bits;
+}
+
+size_t get_address_count(ListFilterExtractor *ex)
+{
+    return 1u << get_address_bits(ex);;
+}
+
+// Extractor
+
 Extractor make_extractor(
+    data_filter::MultiWordFilter filter,
+    u32 requiredCompletions,
+    u64 rngSeed,
+    DataSourceOptions::opt_t options)
+{
+    Extractor ex = {};
+
+    ex.filter = filter;
+    ex.requiredCompletions = requiredCompletions;
+    ex.currentCompletions = 0;
+    ex.rng.seed(rngSeed);
+    ex.options = options;
+
+    return ex;
+}
+
+DataSource make_datasource_extractor(
     Arena *arena,
     MultiWordFilter filter,
     u32 requiredCompletions,
     u64 rngSeed,
-    int moduleIndex)
+    int moduleIndex,
+    DataSourceOptions::opt_t options)
 {
-    Extractor result = {};
+    DataSource result = {};
+    result.type = DataSource_Extractor;
 
-    result.filter = filter;
-    result.requiredCompletions = requiredCompletions;
-    result.currentCompletions = 0;
-    result.rng.seed(rngSeed);
+    auto ex = arena->pushStruct<Extractor>();
+    *ex = make_extractor(filter, requiredCompletions, rngSeed, options);
+    result.d = ex;
+
     result.moduleIndex = moduleIndex;
 
-    size_t addrCount = 1u << get_extract_bits(&result.filter, MultiWordFilter::CacheA);
+    size_t addrCount = get_address_count(&result);
 
     // The highest value the filter will yield is ((2^bits) - 1) but we're
     // adding a random in [0.0, 1.0) so the actual exclusive upper limit is
     // (2^bits).
-    double upperLimit = std::pow(2.0, get_extract_bits(&result.filter, MultiWordFilter::CacheD));
+    double upperLimit = std::pow(2.0, get_extract_bits(&ex->filter, MultiWordFilter::CacheD));
 
     result.output.data = push_param_vector(arena, addrCount, invalid_param());
     result.output.lowerLimits = push_param_vector(arena, addrCount, 0.0);
@@ -164,18 +237,21 @@ Extractor make_extractor(
     return  result;
 }
 
-void extractor_begin_event(Extractor *ex)
+void extractor_begin_event(DataSource *ds)
 {
+    assert(ds->type == DataSource_Extractor);
+    auto ex = reinterpret_cast<Extractor *>(ds->d);
     clear_completion(&ex->filter);
     ex->currentCompletions = 0;
-    invalidate_all(ex->output.data);
+    invalidate_all(ds->output.data);
 }
 
-static std::uniform_real_distribution<double> RealDist01(0.0, 1.0);
-
-void extractor_process_module_data(Extractor *ex, const u32 *data, u32 size)
+void extractor_process_module_data(DataSource *ds, u32 *data, u32 size)
 {
     assert(memory::is_aligned(data, ModuleDataAlignment));
+    assert(ds->type == DataSource_Extractor);
+
+    auto ex = reinterpret_cast<Extractor *>(ds->d);
 
     for (u32 wordIndex = 0;
          wordIndex < size;
@@ -193,12 +269,15 @@ void extractor_process_module_data(Extractor *ex, const u32 *data, u32 size)
                 u64 address = extract(&ex->filter, MultiWordFilter::CacheA);
                 u64 value   = extract(&ex->filter, MultiWordFilter::CacheD);
 
-                assert(address < static_cast<u64>(ex->output.data.size));
+                assert(address < static_cast<u64>(ds->output.data.size));
 
-                if (!is_param_valid(ex->output.data[address]))
+                if (!is_param_valid(ds->output.data[address]))
                 {
-                    ex->output.data[address] = value + RealDist01(ex->rng);
-                    ex->hitCounts[address]++;
+                    if (!(ex->options & DataSourceOptions::NoAddedRandom))
+                        value += RealDist01(ex->rng);
+
+                    ds->output.data[address] = value;
+                    ds->hitCounts[address]++;
                 }
             }
 
@@ -207,6 +286,133 @@ void extractor_process_module_data(Extractor *ex, const u32 *data, u32 size)
     }
 }
 
+// ListFilterExtractor
+ListFilterExtractor make_listfilter_extractor(
+    data_filter::ListFilter listFilter,
+    data_filter::DataFilter repetitionAddressFilter,
+    u8 repetitions,
+    u64 rngSeed,
+    DataSourceOptions::opt_t options)
+{
+    ListFilterExtractor ex = {};
+
+    ex.listFilter = listFilter;
+    ex.repetitionAddressFilter = repetitionAddressFilter;
+    ex.repetitionAddressCache = make_cache_entry(repetitionAddressFilter, 'A');
+    ex.rng.seed(rngSeed);
+    ex.repetitions = repetitions;
+    ex.options = options;
+
+    return ex;
+}
+
+DataSource make_datasource_listfilter_extractor(
+    memory::Arena *arena,
+    data_filter::ListFilter listFilter,
+    data_filter::DataFilter repetitionAddressFilter,
+    u8 repetitions,
+    u64 rngSeed,
+    u8 moduleIndex,
+    DataSourceOptions::opt_t options)
+{
+    DataSource result = {};
+    result.type = DataSource_ListFilterExtractor;
+
+    auto ex = arena->pushStruct<ListFilterExtractor>();
+    *ex = make_listfilter_extractor(listFilter, repetitionAddressFilter, repetitions, rngSeed, options);
+    result.d = ex;
+
+    result.moduleIndex = moduleIndex;
+
+    // This call works as listFilter and repetitionAddressCache have been
+    // initialzed at this point.
+    size_t addressCount = get_address_count(&result);
+
+    auto databits = get_extract_bits(&listFilter.extractionFilter,
+                                     MultiWordFilter::CacheD);
+
+    double upperLimit = std::pow(2.0, databits);
+
+    result.output.data = push_param_vector(arena, addressCount, invalid_param());
+    result.output.lowerLimits = push_param_vector(arena, addressCount, 0.0);
+    result.output.upperLimits = push_param_vector(arena, addressCount, upperLimit);
+
+    result.hitCounts = push_param_vector(arena, addressCount, 0.0);
+
+    return result;
+}
+
+void listfilter_extractor_begin_event(DataSource *ds)
+{
+    assert(ds->type == DataSource_ListFilterExtractor);
+    auto ex = reinterpret_cast<Extractor *>(ds->d);
+    invalidate_all(ds->output.data);
+}
+
+u32 *listfilter_extractor_process_module_data(DataSource *ds, u32 *data, u32 dataSize)
+{
+    assert(ds->type == DataSource_ListFilterExtractor);
+
+    u32 *curPtr = data;
+    u32 curSize = dataSize;
+
+    auto ex = reinterpret_cast<ListFilterExtractor *>(ds->d);
+
+    for (u32 rep = 0; rep < ex->repetitions; rep++)
+    {
+        // Combine input data words and extract address and data values.
+        u64 combined = combine(&ex->listFilter, curPtr, curSize);
+        curPtr += ex->listFilter.wordCount;
+        curSize -= ex->listFilter.wordCount;
+
+        // FIXME (maybe): runs the multiwordfilter twice which is not really
+        // needed. also if addressResult.second is false dataResult.second will
+        // also be false.
+        auto addressResult = extract_from_combined(&ex->listFilter, combined, MultiWordFilter::CacheA);
+        auto dataResult    = extract_from_combined(&ex->listFilter, combined, MultiWordFilter::CacheD);
+
+        //printf("combined=%lx, addr=%lx, data=%lx\n", combined, addressResult.first, dataResult.first);
+
+        if (!addressResult.second || !dataResult.second)
+            continue;
+
+        // Check the repetition filter for a match for the current repetition
+        // and extract its address value.
+        u32 repCountAddress = (matches(ex->repetitionAddressFilter, rep)
+                               ? extract(ex->repetitionAddressCache, rep)
+                               : 0u);
+
+        // Number of bits from the MultiWordFilter alone, without the bits that
+        // will be contributed by the repetitionAddressFilter.
+        u16 baseAddressBits = get_extract_bits(&ex->listFilter, MultiWordFilter::CacheA);
+
+        // Make the address bits from the repetition count contribute to the
+        // high bits of the resulting address.
+        u64 address = addressResult.first | (repCountAddress << baseAddressBits);
+        u64 value   = dataResult.first;
+
+        assert(address < static_cast<u64>(ds->output.data.size));
+
+        if (!is_param_valid(ds->output.data[address]))
+        {
+            if (!(ex->options & DataSourceOptions::NoAddedRandom))
+                value += RealDist01(ex->rng);
+
+            ds->output.data[address] = value;
+            ds->hitCounts[address]++;
+        }
+
+        if (curPtr >= data + dataSize)
+            break;
+    }
+
+    return curPtr;
+}
+
+
+/* ===============================================
+ * Operators
+ * =============================================== */
 Operator make_operator(Arena *arena, u8 type, u8 inputCount, u8 outputCount)
 {
     Operator result = {};
@@ -431,10 +637,70 @@ Operator make_calibration(
     return result;
 }
 
+struct CalibrationData_idx
+{
+    s32 inputIndex;
+    double calibFactor;
+};
+
+Operator make_calibration_idx(
+    Arena *arena,
+    PipeVectors input,
+    s32 inputIndex,
+    double unitMin,
+    double unitMax)
+{
+    assert(inputIndex < input.data.size);
+
+    auto result = make_operator(arena, Operator_Calibration_idx, 1, 1);
+
+    assign_input(&result, input, 0);
+
+    push_output_vectors(arena, &result, 0, 1, unitMin, unitMax);
+
+    auto d = arena->pushStruct<CalibrationData_idx>();
+    result.d = d;
+
+    double calibRange = unitMax - unitMin;
+    double paramRange = input.upperLimits[inputIndex] - input.lowerLimits[inputIndex];
+
+    d->inputIndex = inputIndex;
+    d->calibFactor = calibRange / paramRange;
+
+    return result;
+}
+
+void calibration_step_idx(Operator *op)
+{
+    a2_trace("\n");
+    assert(op->inputCount == 1);
+    assert(op->outputCount == 1);
+    assert(op->outputs[0].size == 1);
+    assert(op->type == Operator_Calibration_idx);
+
+    auto d = reinterpret_cast<CalibrationData_idx *>(op->d);
+
+    assert(d->inputIndex < op->inputs[0].size);
+
+    op->outputs[0][0] = calibrate(
+        op->inputs[0][d->inputIndex], op->inputLowerLimits[0][d->inputIndex],
+        op->outputLowerLimits[0][0], d->calibFactor);
+
+    if (!is_param_valid(op->inputs[0][d->inputIndex]))
+    {
+        assert(!is_param_valid(op->outputs[0][0]));
+    }
+}
+
 struct KeepPreviousData
 {
     ParamVec previousInput;
     u8 keepValid;
+};
+
+struct KeepPreviousData_idx: public KeepPreviousData
+{
+    s32 inputIndex;
 };
 
 void keep_previous_step(Operator *op)
@@ -464,6 +730,25 @@ void keep_previous_step(Operator *op)
     }
 }
 
+void keep_previous_step_idx(Operator *op)
+{
+    assert(op->inputCount == 1);
+    assert(op->outputCount == 1);
+    assert(op->outputs[0].size == 1);
+    assert(op->type == Operator_KeepPrevious_idx);
+
+    auto d = reinterpret_cast<KeepPreviousData_idx *>(op->d);
+
+    op->outputs[0][0] = d->previousInput[0];
+
+    double in = op->inputs[0][d->inputIndex];
+
+    if (!d->keepValid || is_param_valid(in))
+    {
+        d->previousInput[0] = in;
+    }
+}
+
 Operator make_keep_previous(
     Arena *arena, PipeVectors inPipe, bool keepValid)
 {
@@ -476,6 +761,24 @@ Operator make_keep_previous(
 
     assign_input(&result, inPipe, 0);
     push_output_vectors(arena, &result, 0, inPipe.data.size);
+
+    return result;
+}
+
+Operator make_keep_previous_idx(
+    memory::Arena *arena, PipeVectors inPipe,
+    s32 inputIndex, bool keepValid)
+{
+    auto result = make_operator(arena, Operator_KeepPrevious_idx, 1, 1);
+
+    auto d = arena->pushStruct<KeepPreviousData_idx>();
+    d->previousInput = push_param_vector(arena, 1, invalid_param());
+    d->keepValid = keepValid;
+    d->inputIndex = inputIndex;
+    result.d = d;
+
+    assign_input(&result, inPipe, 0);
+    push_output_vectors(arena, &result, 0, 1);
 
     return result;
 }
@@ -1902,6 +2205,195 @@ void h2d_sink_step(Operator *op)
         op->inputs[1][d->yIndex]);
 }
 
+//
+// RateMonitor
+//
+
+static OperatorType operator_type(RateMonitorType rateMonitorType)
+{
+    switch (rateMonitorType)
+    {
+        case RateMonitorType::CounterDifference:
+            return Operator_RateMonitor_CounterDifference;
+
+        case RateMonitorType::PrecalculatedRate:
+            return Operator_RateMonitor_PrecalculatedRate;
+
+        case RateMonitorType::FlowRate:
+            return Operator_RateMonitor_FlowRate;
+
+        InvalidDefaultCase;
+    };
+
+    return OperatorTypeCount;
+}
+
+struct RateMonitorData
+{
+    TypedBlock<RateSampler *, s32> samplers;
+};
+
+struct RateMonitorData_FlowRate: public RateMonitorData
+{
+    ParamVec hitCounts;
+};
+
+static void debug_samplers(const TypedBlock<RateSampler *, s32> &samplers, const char *prefix)
+{
+    for (s32 i = 0; i < samplers.size; i++)
+    {
+        RateSampler *sampler = samplers[i];
+
+        a2_trace("%s: sampler[%d]@%p, rateHistory@%p, capacity=%lu, size=%lu\n",
+                prefix,
+                i,
+                sampler,
+                sampler->rateHistory.get(),
+                sampler->rateHistory->capacity(),
+                sampler->rateHistory->size()
+               );
+    }
+}
+
+Operator make_rate_monitor(
+    memory::Arena *arena,
+    PipeVectors inPipe,
+    TypedBlock<RateSampler *, s32> samplers,
+    RateMonitorType type)
+{
+    assert(inPipe.data.size == samplers.size);
+
+    //debug_samplers(samplers, "input");
+
+    auto result = make_operator(arena, operator_type(type), 1, 0);
+    assign_input(&result, inPipe, 0);
+
+    auto debug_in_out_samplers = [](const auto &inSamplers, const auto &outSamplers)
+    {
+        assert(inSamplers.size == outSamplers.size);
+
+        //debug_samplers(inSamplers,  "input");
+        //debug_samplers(outSamplers, "output");
+    };
+
+    switch (type)
+    {
+        case RateMonitorType::CounterDifference:
+        case RateMonitorType::PrecalculatedRate:
+            {
+                auto d = arena->pushStruct<RateMonitorData>();
+                result.d = d;
+                d->samplers = push_copy_typed_block(arena, samplers);
+
+                debug_in_out_samplers(samplers, d->samplers);
+
+            } break;
+
+        case RateMonitorType::FlowRate:
+            {
+                auto d = arena->pushStruct<RateMonitorData_FlowRate>();
+                result.d = d;
+                //d->samplers = push_copy_typed_block(arena, samplers);
+                d->samplers = push_typed_block<RateSampler *, s32>(arena, samplers.size);
+                for (s32 i = 0; i < samplers.size; i++)
+                {
+                    d->samplers[i] = samplers[i];
+                }
+                d->hitCounts = push_param_vector(arena, samplers.size, 0.0);
+
+                debug_in_out_samplers(samplers, d->samplers);
+            } break;
+    }
+
+    return result;
+}
+
+void rate_monitor_step(Operator *op)
+{
+    a2_trace("\n");
+
+    s32 maxIdx = op->inputs[0].size;
+
+    switch (op->type)
+    {
+        case Operator_RateMonitor_PrecalculatedRate:
+            {
+                auto d = reinterpret_cast<RateMonitorData *>(op->d);
+
+                a2_trace("recording %d precalculated rates\n", maxIdx);
+
+                for (s32 idx = 0; idx < maxIdx; idx++)
+                {
+                    double value = op->inputs[0][idx];
+
+                    a2_trace_np("  [%d] recording value %lf\n", idx, value);
+
+                    d->samplers[idx]->record_rate(value);
+                }
+            } break;
+
+        case Operator_RateMonitor_CounterDifference:
+            {
+                auto d = reinterpret_cast<RateMonitorData *>(op->d);
+
+                a2_trace("recording %d counter differences\n", maxIdx);
+
+                for (s32 idx = 0; idx < maxIdx; idx++)
+                {
+                    a2_trace_np("  [%d] sampling value %lf, lastValue=%lf, delta=%lf\n",
+                                idx, op->inputs[0][idx],
+                                d->samplers[idx]->lastValue,
+                                op->inputs[0][idx] - d->samplers[idx]->lastValue
+                               );
+
+                    d->samplers[idx]->sample(op->inputs[0][idx]);
+                }
+            } break;
+
+        case Operator_RateMonitor_FlowRate:
+            {
+                auto d = reinterpret_cast<RateMonitorData_FlowRate *>(op->d);
+
+                a2_trace("incrementing %d hitCounts\n", maxIdx);
+
+                for (s32 idx = 0; idx < maxIdx; idx++)
+                {
+                    if (is_param_valid(op->inputs[0][idx]))
+                    {
+                        d->hitCounts[idx]++;
+                    }
+                }
+            } break;
+
+        InvalidDefaultCase;
+    };
+}
+
+void rate_monitor_sample_flow(Operator *op)
+{
+    assert(op->type == Operator_RateMonitor_FlowRate);
+
+    auto d = reinterpret_cast<RateMonitorData_FlowRate *>(op->d);
+
+    assert(d->hitCounts.size == d->samplers.size);
+
+    a2_trace("recording %d flow rates\n", d->hitCounts.size);
+
+    for (s32 idx = 0; idx < d->hitCounts.size; idx++)
+    {
+        auto sampler = d->samplers[idx];
+        auto count   = d->hitCounts[idx];
+
+        sampler->sample(count);
+
+        a2_trace_np("  [%d] lastRate=%lf, history size =%lf, history capacity=%lf\n",
+                    idx, sampler->lastRate,
+                    static_cast<double>(sampler->rateHistory ? sampler->rateHistory->size() : 0u),
+                    static_cast<double>(sampler->rateHistory ? sampler->rateHistory->capacity() : 0u)
+                   );
+    }
+}
+
 /* ===============================================
  * A2 implementation
  * =============================================== */
@@ -1910,7 +2402,9 @@ static const OperatorFunctions OperatorTable[OperatorTypeCount] =
 {
     [Operator_Calibration] = { calibration_step },
     [Operator_Calibration_sse] = { calibration_sse_step },
+    [Operator_Calibration_idx] = { calibration_step_idx },
     [Operator_KeepPrevious] = { keep_previous_step },
+    [Operator_KeepPrevious_idx] = { keep_previous_step_idx },
     [Operator_Difference] = { difference_step },
     [Operator_Difference_idx] = { difference_step_idx },
     [Operator_ArrayMap] = { array_map_step },
@@ -1918,6 +2412,9 @@ static const OperatorFunctions OperatorTable[OperatorTypeCount] =
     [Operator_H1DSink] = { h1d_sink_step },
     [Operator_H1DSink_idx] = { h1d_sink_step_idx },
     [Operator_H2DSink] = { h2d_sink_step },
+    [Operator_RateMonitor_PrecalculatedRate] = { rate_monitor_step },
+    [Operator_RateMonitor_CounterDifference] = { rate_monitor_step },
+    [Operator_RateMonitor_FlowRate] = { rate_monitor_step },
     [Operator_RangeFilter] = { range_filter_step },
     [Operator_RangeFilter_idx] = { range_filter_step_idx },
     [Operator_RectFilter] = { rect_filter_step },
@@ -1944,26 +2441,26 @@ inline void step_operator(Operator *op)
 
 A2 make_a2(
     Arena *arena,
-    std::initializer_list<u8> extractorCounts,
+    std::initializer_list<u8> dataSourceCounts,
     std::initializer_list<u8> operatorCounts)
 {
-    assert(extractorCounts.size() < MaxVMEEvents);
+    assert(dataSourceCounts.size() < MaxVMEEvents);
     assert(operatorCounts.size() < MaxVMEEvents);
 
     A2 result = {};
 
-    result.extractorCounts.fill(0);
-    result.extractors.fill(nullptr);
+    result.dataSourceCounts.fill(0);
+    result.dataSources.fill(nullptr);
     result.operatorCounts.fill(0);
     result.operators.fill(nullptr);
     result.operatorRanks.fill(0);
 
-    const u8 *ec = extractorCounts.begin();
+    const u8 *ec = dataSourceCounts.begin();
 
-    for (size_t ei = 0; ei < extractorCounts.size(); ++ei, ++ec)
+    for (size_t ei = 0; ei < dataSourceCounts.size(); ++ei, ++ec)
     {
         //printf("%s: %lu -> %u\n", __PRETTY_FUNCTION__, ei, (u32)*ec);
-        result.extractors[ei] = arena->pushArray<Extractor>(*ec);
+        result.dataSources[ei] = arena->pushArray<DataSource>(*ec);
     }
 
     for (size_t ei = 0; ei < operatorCounts.size(); ++ei)
@@ -1980,46 +2477,71 @@ void a2_begin_event(A2 *a2, int eventIndex)
 {
     assert(eventIndex < MaxVMEEvents);
 
-    int exCount = a2->extractorCounts[eventIndex];
+    int srcCount = a2->dataSourceCounts[eventIndex];
 
-    a2_trace("ei=%d, extractors=%d\n", eventIndex, exCount);
+    a2_trace("ei=%d, dataSources=%d\n", eventIndex, srcCount);
 
-    for (int exIdx = 0; exIdx < exCount; exIdx++)
+    for (int srcIdx = 0; srcIdx < srcCount; srcIdx++)
     {
-        Extractor *ex = a2->extractors[eventIndex] + exIdx;
-        extractor_begin_event(ex);
+        DataSource *ds = a2->dataSources[eventIndex] + srcIdx;
+
+        switch (static_cast<DataSourceType>(ds->type))
+        {
+            case DataSource_Extractor:
+                extractor_begin_event(ds);
+                break;
+
+            case DataSource_ListFilterExtractor:
+                listfilter_extractor_begin_event(ds);
+                break;
+        }
     }
 }
 
 // hand module data to all sources for eventIndex and moduleIndex
-void a2_process_module_data(A2 *a2, int eventIndex, int moduleIndex, const u32 *data, u32 dataSize)
+void a2_process_module_data(A2 *a2, int eventIndex, int moduleIndex, u32 *data, u32 dataSize)
 {
     assert(eventIndex < MaxVMEEvents);
     assert(moduleIndex < MaxVMEModules);
 
-    int exCount = a2->extractorCounts[eventIndex];
 #ifndef NDEBUG
     int nprocessed = 0;
 #endif
 
-    for (int exIdx = 0; exIdx < exCount; exIdx++)
+    const int srcCount = a2->dataSourceCounts[eventIndex];
+
+    // State for the data consuming ListFilterExtractors
+    u32 *curPtr = data;
+    const u32 *endPtr = data + dataSize;
+
+    for (int srcIdx = 0; srcIdx < srcCount; srcIdx++)
     {
-        Extractor *ex = a2->extractors[eventIndex] + exIdx;
-        if (ex->moduleIndex == moduleIndex)
+        DataSource *ds = a2->dataSources[eventIndex] + srcIdx;
+
+        if (ds->moduleIndex != moduleIndex)
+            continue;
+
+        switch (static_cast<DataSourceType>(ds->type))
         {
-            extractor_process_module_data(ex, data, dataSize);
+            case DataSource_Extractor:
+                {
+                    extractor_process_module_data(ds, data, dataSize);
+                } break;
+            case DataSource_ListFilterExtractor:
+                {
+                    if (curPtr < endPtr)
+                    {
+                        curPtr = listfilter_extractor_process_module_data(ds, curPtr, endPtr - curPtr);
+                    }
+                } break;
+        }
 #ifndef NDEBUG
-            nprocessed++;
+        nprocessed++;
 #endif
-        }
-        else if (ex->moduleIndex > moduleIndex)
-        {
-            break;
-        }
     }
 
 #ifndef NDEBUG
-    a2_trace("ei=%d, mi=%d, processed %d extractors\n", eventIndex, moduleIndex, nprocessed);
+    a2_trace("ei=%d, mi=%d, processed %d dataSources\n", eventIndex, moduleIndex, nprocessed);
 #endif
 }
 
@@ -2416,6 +2938,29 @@ void a2_end_event(A2 *a2, int eventIndex)
     assert(opSteppedCount == opCount);
 
     a2_trace("ei=%d, %d operators stepped\n", eventIndex, opSteppedCount);
+}
+
+void a2_timetick(A2 *a2)
+{
+    a2_trace("\n");
+
+    for (int ei = 0; ei < MaxVMEEvents; ei++)
+    {
+        const int opCount = a2->operatorCounts[ei];
+
+        for (int opIdx = 0; opIdx < opCount; opIdx++)
+        {
+            Operator *op = a2->operators[ei] + opIdx;
+
+            assert(op);
+            assert(op->type < ArrayCount(OperatorTable));
+
+            if (op->type == Operator_RateMonitor_FlowRate)
+            {
+                rate_monitor_sample_flow(op);
+            }
+        }
+    }
 }
 
 /* Threaded histosink implementation.

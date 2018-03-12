@@ -99,9 +99,9 @@ inline u64 extract(MultiWordFilter *filter, MultiWordFilter::CacheType cacheType
     return result;
 }
 
-inline u8 get_extract_bits(MultiWordFilter *filter, MultiWordFilter::CacheType cacheType)
+inline u16 get_extract_bits(MultiWordFilter *filter, MultiWordFilter::CacheType cacheType)
 {
-    u8 result = 0;
+    u16 result = 0;
 
     for (int i = 0; i < filter->filterCount; i++)
     {

@@ -27,6 +27,10 @@
 #include "vme_readout_worker.h"
 #include "vme_script.h"
 
+#include <QHostAddress>
+
+class QUdpSocket;
+
 class SIS3153ReadoutWorker: public VMEReadoutWorker
 {
     Q_OBJECT
@@ -41,16 +45,43 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
         virtual bool isRunning() const override;
         virtual DAQState getState() const override { return m_state; }
 
+        using StackListCountsArray = std::array<u64, SIS3153Constants::NumberOfStackLists>;
+
         struct Counters
         {
-            std::array<u64, SIS3153Constants::NumberOfStackLists> stackListCounts;
-            std::array<u64, SIS3153Constants::NumberOfStackLists> stackListBerrCounts_Block;
-            std::array<u64, SIS3153Constants::NumberOfStackLists> stackListBerrCounts_Read;
-            std::array<u64, SIS3153Constants::NumberOfStackLists> stackListBerrCounts_Write;
+            /* The number of complete events by stacklist. Extracted from the
+             * "packetAck" byte.
+             * Partial fragments are not counted by fully reassembled partial
+             * events are.
+             */
+            StackListCountsArray stackListCounts;
 
-            u64 lostPackets = 0;
+            /* Error counters for VME BLT, read and write operations. Extracted
+             * from the endHeader succeeding all events. */
+            StackListCountsArray stackListBerrCounts_Block;
+            StackListCountsArray stackListBerrCounts_Read;
+            StackListCountsArray stackListBerrCounts_Write;
+
+            /* The number of lost events. Counted using the beginHeader (0xbb..)
+             * preceding all events. */
+            u64 lostEvents = 0;
+
+            /* The number of multievent packets received. */
             u64 multiEventPackets = 0;
-            int watchdogStackList = -1;
+
+            /* The number of embedded events extracted from multievent packets. */
+            StackListCountsArray embeddedEvents;
+
+            /* The number of partial packets received. */
+            StackListCountsArray partialFragments;
+
+            /* The number of events that have been reassembled out of partial
+             * fragments. */
+            StackListCountsArray reassembledPartials;
+
+            /* The number of the stacklist that's used for the watchdog. -1 if
+             * no watchdog stacklist has been setup. */
+            s32 watchdogStackList = -1;
 
             Counters()
             {
@@ -58,6 +89,9 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
                 stackListBerrCounts_Block.fill(0);
                 stackListBerrCounts_Read.fill(0);
                 stackListBerrCounts_Write.fill(0);
+                embeddedEvents.fill(0);
+                partialFragments.fill(0);
+                reassembledPartials.fill(0);
             }
         };
 
@@ -120,21 +154,30 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
             u8 expectedPacketStatus = 0u;
         };
 
-        struct PacketLossCounter
+        struct EventLossCounter
         {
-            PacketLossCounter(Counters *counters, VMEReadoutWorkerContext *rdoContext);
+            using Flags = u8;
+            static const Flags Flag_None        = 0u;
+            static const Flags Flag_IsStaleData = 1u << 0;
+            static const Flags Flag_LeavingDAQ  = 1u << 1;
 
-            inline u32 handlePacketNumber(s32 packetNumber, u64 bufferNumber);
+            EventLossCounter(Counters *counters, VMEReadoutWorkerContext *rdoContext);
 
-            s32 m_lastReceivedPacketNumber;
-            Counters *m_counters;
-            VMEReadoutWorkerContext *m_rdoContext;
-            bool m_leavingDAQ;
+            inline Flags handleEventSequenceNumber(s32 seqNum, u64 bufferNumber);
+            void beginLeavingDAQ();
+            void endLeavingDAQ();
+            bool isLeavingDAQ() { return currentFlags & Flag_LeavingDAQ; }
+
+            Counters *counters;
+            VMEReadoutWorkerContext *rdoContext;
+            s32 lastReceivedSequenceNumber;
+            Flags currentFlags;
         };
 
         void flushCurrentOutputBuffer();
         void maybePutBackBuffer();
         void warnIfStreamWriterError(u64 bufferNumber, int writerFlags, u16 eventIndex);
+        void setupUDPForwarding();
 
         std::atomic<DAQState> m_state;
         std::atomic<DAQState> m_desiredState;
@@ -150,9 +193,18 @@ class SIS3153ReadoutWorker: public VMEReadoutWorker
         std::unique_ptr<DAQReadoutListfileHelper> m_listfileHelper;
         DataBuffer *m_outputBuffer = nullptr;
         ProcessingState m_processingState;
-        PacketLossCounter m_lossCounter;
+        EventLossCounter m_lossCounter;
         QFile m_rawBufferOut;
         bool m_logBuffers = false;
+
+        struct ForwardData
+        {
+            std::unique_ptr<QUdpSocket> socket;
+            QHostAddress host;
+            u16 port = 0;
+        };
+
+        ForwardData m_forward;
 };
 
 #endif /* __SIS3153_READOUT_WORKER_H__ */

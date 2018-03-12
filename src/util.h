@@ -24,6 +24,7 @@
 #include "libmvme_export.h"
 #include "typedefs.h"
 #include "qt_util.h"
+#include "util/assert.h"
 
 #include <QMetaType>
 #include <QPair>
@@ -43,8 +44,8 @@ Q_DECLARE_SMART_POINTER_METATYPE(std::shared_ptr);
 
 class QTextStream;
 
-void debugOutputBuffer(u8 *dataBuffer, size_t bufferSize);
-QTextStream &debugOutputBuffer(QTextStream &out, u8 *dataBuffer, size_t bufferSize);
+LIBMVME_EXPORT void debugOutputBuffer(u8 *dataBuffer, size_t bufferSize);
+LIBMVME_EXPORT QTextStream &debugOutputBuffer(QTextStream &out, u8 *dataBuffer, size_t bufferSize);
 
 QVector<u32> parseStackFile(QTextStream &input);
 QVector<u32> parseStackFile(const QString &input);
@@ -69,6 +70,9 @@ struct BufferIterator
 {
     enum Alignment { Align16, Align32 };
 
+    BufferIterator()
+    {}
+
     BufferIterator(u8 *data, size_t size, Alignment alignment = Align32)
         : data(data)
         , buffp(data)
@@ -77,11 +81,11 @@ struct BufferIterator
         , alignment(alignment)
     {}
 
-    u8 *data;
-    u8 *buffp;
-    u8 *endp;
-    size_t size;
-    Alignment alignment;
+    u8 *data = nullptr;
+    u8 *buffp = nullptr;
+    u8 *endp = nullptr;
+    size_t size = 0;
+    Alignment alignment = Align32;
 
     inline bool align32() const { return alignment == Align32; }
 
@@ -182,6 +186,14 @@ struct BufferIterator
     inline u16 *asU16() { return reinterpret_cast<u16 *>(buffp); }
     inline u32 *asU32() { return reinterpret_cast<u32 *>(buffp); }
 
+    inline u32 *indexU32(size_t index)
+    {
+        if (data + index * sizeof(u32) > endp)
+            throw end_of_buffer();
+
+        return reinterpret_cast<u32 *>(buffp) + index;
+    }
+
     inline void skip(size_t bytes)
     {
         buffp += bytes;
@@ -197,6 +209,13 @@ struct BufferIterator
     inline bool atEnd() const { return buffp == endp; }
 
     inline void rewind() { buffp = data; }
+    inline bool isEmpty() const { return size == 0; }
+    inline bool isNull() const { return !data; }
+
+    inline ptrdiff_t current32BitOffset() const
+    {
+        return reinterpret_cast<u32 *>(buffp) - reinterpret_cast<u32 *>(data);
+    }
 };
 
 QString readStringFile(const QString &filename);
@@ -270,12 +289,6 @@ inline constexpr size_t Gigabytes(size_t x) { return Megabytes(x) * 1024; }
 
 #define InvalidCodePath Q_ASSERT(!"invalid code path")
 #define InvalidDefaultCase default: { Q_ASSERT(!"invalid default case"); }
-
-#ifdef QT_NO_DEBUG
-    #define TRY_ASSERT(x) (x)
-#else
-    #define TRY_ASSERT(x) Q_ASSERT(x)
-#endif
 
 template<typename Code>
 struct LIBMVME_EXPORT ReadResultBase

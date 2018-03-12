@@ -37,6 +37,8 @@
 #include <qwt_scale_widget.h>
 #include <qwt_text.h>
 
+#include <QApplication>
+#include <QClipboard>
 #include <QComboBox>
 #include <QFileInfo>
 #include <QFile>
@@ -45,6 +47,7 @@
 #include <QGroupBox>
 #include <QLabel>
 #include <QMessageBox>
+#include <QMenu>
 #include <QPushButton>
 #include <QSettings>
 #include <QSpinBox>
@@ -64,7 +67,8 @@ class Histo1DPointData: public QwtSeriesData<QPointF>
 {
     public:
         Histo1DPointData(Histo1D *histo)
-            : m_histo(histo)
+            : QwtSeriesData<QPointF>()
+            , m_histo(histo)
         {}
 
         virtual size_t size() const override
@@ -287,28 +291,6 @@ enum class AxisScaleType
     Logarithmic
 };
 
-static QWidget *make_spacer_widget()
-{
-    auto result = new QWidget;
-    result->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-    return result;
-}
-
-static QWidget *make_vbox_container(const QString &labelText, QWidget *widget)
-{
-    auto label = new QLabel(labelText);
-    label->setAlignment(Qt::AlignCenter);
-
-    auto container = new QWidget;
-    auto layout = new QVBoxLayout(container);
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(0);
-    layout->addWidget(label);
-    layout->addWidget(widget);
-
-    return container;
-}
-
 Histo1DWidget::Histo1DWidget(const Histo1DPtr &histoPtr, QWidget *parent)
     : Histo1DWidget(histoPtr.get(), parent)
 {
@@ -365,8 +347,19 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
         replot();
     });
 
-    action = tb->addAction(QIcon(":/document-pdf.png"), QSL("Export"), this, &Histo1DWidget::exportPlot);
-    action->setStatusTip(QSL("Export plot to a PDF or image file"));
+    // export plot to file / clipboard
+    {
+        auto menu = new QMenu(this);
+        menu->addAction(QSL("to file"), this, &Histo1DWidget::exportPlot);
+        menu->addAction(QSL("to clipboard"), this, &Histo1DWidget::exportPlotToClipboard);
+
+        auto button = make_toolbutton(QSL(":/document-pdf.png"), QSL("Export"));
+        button->setStatusTip(QSL("Export plot to a PDF or image file"));
+        button->setMenu(menu);
+        button->setPopupMode(QToolButton::InstantPopup);
+
+        tb->addWidget(button);
+    }
 
     action = tb->addAction(QIcon(":/document-save.png"), QSL("Save"), this, &Histo1DWidget::saveHistogram);
     action->setStatusTip(QSL("Save the histogram to a text file"));
@@ -428,7 +421,6 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
 
     TRY_ASSERT(connect(m_zoomer, SIGNAL(zoomed(const QRectF &)),
                        this, SLOT(zoomerZoomed(const QRectF &))));
-
     TRY_ASSERT(connect(m_zoomer, &ScrollZoomer::mouseCursorMovedTo,
                        this, &Histo1DWidget::mouseCursorMovedToPlotCoord));
     TRY_ASSERT(connect(m_zoomer, &ScrollZoomer::mouseCursorLeftPlot,
@@ -684,7 +676,6 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     mainLayout->setStretch(1, 1);
 
     setHistogram(histo);
-
 }
 
 Histo1DWidget::~Histo1DWidget()
@@ -957,8 +948,8 @@ void Histo1DWidget::mouseCursorLeftPlot()
 
 void Histo1DWidget::updateStatistics()
 {
-    double lowerBound = std::floor(m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).lowerBound());
-    double upperBound = std::ceil(m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).upperBound());
+    double lowerBound = m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).lowerBound();
+    double upperBound = m_d->m_plot->axisScaleDiv(QwtPlot::xBottom).upperBound();
 
     m_stats = m_histo->calcStatistics(lowerBound, upperBound);
 
@@ -970,12 +961,12 @@ void Histo1DWidget::updateStatistics()
         "<tr><td align=\"left\">Max    </td><td>%L4</td></tr>"
         "<tr><td align=\"left\">Max Y  </td><td>%L5</td></tr>"
         "<tr><td align=\"left\">Counts </td><td>%L6</td></tr>"
+        //"<tr><td align=\"left\">Stats LB </td><td>%L7</td></tr>"
+        //"<tr><td align=\"left\">Stats UB </td><td>%L8</td></tr>"
         "</table>"
         );
 
     double maxBinCenter = (m_stats.entryCount > 0) ? m_histo->getBinCenter(m_stats.maxBin) : 0.0;
-    //double maxBinLo     = (m_stats.entryCount > 0) ? m_histo->getBinLowEdge(m_stats.maxBin) : 0.0;
-    //double maxBinHi     = (m_stats.entryCount > 0) ? maxBinLo + m_histo->getBinWidth() : 0.0;
 
     static const int fieldWidth = 0;
     QString buffer = textTemplate
@@ -985,8 +976,8 @@ void Histo1DWidget::updateStatistics()
         .arg(maxBinCenter, fieldWidth)
         .arg(m_stats.maxValue, fieldWidth)
         .arg(m_stats.entryCount, fieldWidth)
-        //.arg(maxBinLo, fieldWidth)
-        //.arg(maxBinHi, fieldWidth)
+        //.arg(lowerBound, fieldWidth)
+        //.arg(upperBound, fieldWidth)
         ;
 
     m_statsText->setText(buffer, QwtText::RichText);
@@ -1034,6 +1025,32 @@ void Histo1DWidget::exportPlot()
     m_d->m_plot->setTitle(QString());
     m_d->m_plot->setFooter(QString());
     m_d->m_waterMarkLabel->hide();
+}
+
+void Histo1DWidget::exportPlotToClipboard()
+{
+    m_d->m_plot->setTitle(m_histo->getTitle());
+
+    QString footerString = m_histo->getFooter();
+    QwtText footerText(footerString);
+    footerText.setRenderFlags(Qt::AlignLeft);
+    m_d->m_plot->setFooter(footerText);
+    m_d->m_waterMarkLabel->show();
+
+    QSize size(1024, 768);
+    QImage image(size, QImage::Format_ARGB32_Premultiplied);
+    image.fill(0);
+
+    QwtPlotRenderer renderer;
+    renderer.setDiscardFlags(QwtPlotRenderer::DiscardBackground | QwtPlotRenderer::DiscardCanvasBackground);
+    renderer.setLayoutFlag(QwtPlotRenderer::FrameWithScales);
+    renderer.renderTo(m_d->m_plot, image);
+
+    m_d->m_plot->setTitle(QString());
+    m_d->m_plot->setFooter(QString());
+    m_d->m_waterMarkLabel->hide();
+
+    QApplication::clipboard()->setImage(image);
 }
 
 void Histo1DWidget::saveHistogram()
@@ -1181,8 +1198,12 @@ void Histo1DWidget::calibApply()
     m_d->m_calibUi.actual2->setValue(m_d->m_calibUi.target2->value());
 
     AnalysisPauser pauser(m_context);
+
     m_calib->setCalibration(address, targetMin, targetMax);
-    analysis::do_beginRun_forward(m_calib.get());
+
+    RunInfo runInfo = {};
+    runInfo.keepAnalysisState = true;
+    analysis::do_beginRun_forward(m_calib.get(), runInfo);
 
     on_tb_rate_toggled(m_d->m_rateEstimationData.visible);
 }

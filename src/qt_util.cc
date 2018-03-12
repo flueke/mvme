@@ -26,6 +26,7 @@
 #include <QDebug>
 #include <QPainter>
 #include <QSettings>
+#include <QVBoxLayout>
 #include <QWidget>
 
 WidgetGeometrySaver::WidgetGeometrySaver(QObject *parent)
@@ -223,4 +224,51 @@ void processQtEvents(QEventLoop::ProcessEventsFlags flags)
 void processQtEvents(int maxtime_ms, QEventLoop::ProcessEventsFlags flags)
 {
     QCoreApplication::processEvents(flags, maxtime_ms);
+}
+
+QWidget *make_vbox_container(const QString &labelText, QWidget *widget)
+{
+    auto label = new QLabel(labelText);
+    label->setAlignment(Qt::AlignCenter);
+
+    auto container = new QWidget;
+    auto layout = new QVBoxLayout(container);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(0);
+    layout->addWidget(label);
+    layout->addWidget(widget);
+
+    return container;
+}
+
+QWidget *make_spacer_widget(QWidget *parent)
+{
+    auto result = new QWidget(parent);
+    result->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    return result;
+}
+
+QToolButton *make_toolbutton(const QString &icon, const QString &text)
+{
+    auto result = new QToolButton;
+    result->setIcon(QIcon(icon));
+    result->setText(text);
+    result->setStatusTip(text);
+    result->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+    auto font = result->font();
+    font.setPointSize(7);
+    result->setFont(font);
+    return result;
+}
+
+QToolButton *make_action_toolbutton(QAction *action)
+{
+    Q_ASSERT(action);
+    auto result = new QToolButton;
+    result->setDefaultAction(action);
+    result->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+    auto font = result->font();
+    font.setPointSize(7);
+    result->setFont(font);
+    return result;
 }

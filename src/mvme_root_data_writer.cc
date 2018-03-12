@@ -102,7 +102,7 @@ void RootDataWriter::endEvent(s32 eventIndex)
     if (m_writerProcess->bytesToWrite() >= FlushOutputThreshold_bytes)
     {
         // Should succeed or timeout eventually.
-        !m_writerProcess->waitForBytesWritten();
+        m_writerProcess->waitForBytesWritten();
     }
 }
 
