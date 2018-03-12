@@ -11,22 +11,28 @@ System Requirements
   Both 64- and 32-bit systems are supported but the 64-bit version is
   recommended due to the larger address space.
 
-* `WIENER`_ VM-USB VME Controller with a recent firmware
+* If using the `WIENER`_ VM-USB VME Controller:
 
-  The VM-USB firmware can be updated from within mvme. See
-  :ref:`howto-vmusb-firmware-update` for a guide.
+  * `WIENER`_ VM-USB VME Controller with a recent firmware
 
-* Latest USB chipset driver for your system.
+    The VM-USB firmware can be updated from within mvme. See
+    :ref:`howto-vmusb-firmware-update` for a guide.
 
-  Updating the driver is especially important for Windows versions prior to
-  Windows 10 in combination with a NEC/Renesas chipset (frequently found in
-  laptops). The driver shipped by Microsoft has a bug that prevents libusb from
-  properly accessing devices. See the `libusb wiki`_ for more information.
+  * Latest USB chipset driver for your system.
 
-* USB Driver: libusb-0.1 (Linux) / libusb-win32 (Windows)
+    Updating the driver is especially important for Windows versions prior to
+    Windows 10 in combination with a NEC/Renesas chipset (frequently found in
+    laptops). The driver shipped by Microsoft has a bug that prevents libusb from
+    properly accessing devices. See the `libusb wiki`_ for more information.
 
-  The windows installer can optionally run `Zadig`_ to handle the driver
-  installation.
+  * USB Driver: libusb-0.1 (Linux) / libusb-win32 (Windows)
+
+    The windows installer can optionally run `Zadig`_ to handle the driver
+    installation.
+
+* No additional drivers are required when using the `Struck`_ SIS3153
+  Controller. Just make sure you're using a GBit/s ethernet when connecting to
+  the controller.
 
 * At least 4 GB RAM is recommended.
 
@@ -35,6 +41,7 @@ System Requirements
   separate threads.
 
 .. _WIENER: http://www.wiener-d.com/
+.. _Struck: http://www.struck.de/
 
 .. _libusb wiki: https://github.com/libusb/libusb/wiki/Windows
 
@@ -50,7 +57,7 @@ Installation is simple: unpack the supplied archive and execute the *mvme*
 binary::
 
     $ tar xf mvme-x64-1.0.tar.bz2
-    $ ./mvme-x64-1.0/mvme
+    $ ./mvme-x64-1.0/mvme.sh
 
 VM-USB Device Permissions
 --------------------------------------------------
@@ -126,5 +133,50 @@ here: `libusb-win32`_.
 .. _Zadig: http://zadig.akeo.ie/
 
 .. _libusb-win32: https://sourceforge.net/projects/libusb-win32/files/libusb-win32-releases/1.2.6.0/
+
+
+==================================================
+SIS3153 Hostname/IP-Address configuration
+==================================================
+
+Using DHCP
+--------------------------------------------------
+On powerup the SIS3153 tries to get an IP address and a hostname via DHCP. The
+requested hostname is of the form ``sis3153-0DDD`` where ``DDD`` is the decimal
+serial number as printed on the board. For example my controller with S/N 042
+will ask for the hostname ``sis3153-0042``. During this phase the L-LED will
+flash quickly and turn off once the DHCP assignment succeeded.
+
+Using a static ARP entry
+--------------------------------------------------
+In case DHCP with hostname assignment should not or cannot be used an
+alternative approach is to manually associate the MAC-address of the controller
+with an IP-address.
+
+The MAC-address of the SIS3153 is ``00:00:56:15:3x:xx`` where ``x:xx`` is the
+serial number in hexadecimal. So for my development controller with S/N 42 the
+serial becomes ``0x2a`` and the resulting MAC-address is ``00:00:56:15:30:2a``.
+
+* Creating the ARP entry under linux:
+
+  With root permissions an ARP entry can be addded this way:
+    ``# arp -s  192.168.100.42 00:00:56:15:30:2a``
+
+  To make the entry permanent (at least on debian and ubuntu systems) the file
+  /etc/ethers can be used. Add a line like this to the file:
+    ``00:00:56:15:30:2a 192.168.100.42``
+
+  This will take effect on the next reboot (or when restarting the networking
+  services I think).
+
+* Creating the ARP entry under windows:
+
+  Open a ``cmd.exe`` prompt with administrator permissions and use the following
+  command to create the ARP entry:
+    ``arp -s  192.168.100.42 00-00-56-15-30-2a``
+
+
+To verify that the connection is working you can ping the controller. It will
+send out ICMP replies and for each received packet the L-LED will flash briefly.
 
 .. vim:ft=rst
