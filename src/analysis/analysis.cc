@@ -3321,7 +3321,7 @@ Analysis::Analysis(QObject *parent)
     m_registry.registerOperator<RectFilter2D>();
     m_registry.registerOperator<BinarySumDiff>();
     m_registry.registerOperator<AggregateOps>();
-    m_registry.registerOperator<ExpressionOperator>();
+    //m_registry.registerOperator<ExpressionOperator>();
 
     m_registry.registerSink<Histo1DSink>();
     m_registry.registerSink<Histo2DSink>();
