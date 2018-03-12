@@ -156,8 +156,8 @@ void RateMonitorPlotWidget::addRateSampler(const RateSamplerPtr &sampler,
     curve->setData(new RateMonitorPlotData(sampler));
     curve->setPen(color);
     curve->setStyle(QwtPlotCurve::Lines);
-    curve->setCurveAttribute(QwtPlotCurve::Fitted);
-    curve->setCurveFitter(new QwtSplineCurveFitter);
+    //curve->setCurveAttribute(QwtPlotCurve::Fitted);
+    //curve->setCurveFitter(new QwtSplineCurveFitter);
     curve->setRenderHint(QwtPlotItem::RenderAntialiased);
     curve->attach(m_d->m_plot);
 
