@@ -2573,6 +2573,84 @@ void BinarySumDiff::write(QJsonObject &json) const
 }
 
 //
+// ExpressionOperator
+//
+ExpressionOperator::ExpressionOperator(QObject *parent)
+    : BasicOperator(parent)
+{
+    m_inputSlot.acceptedInputTypes = InputType::Array;
+
+    m_exprBegin = QSL
+        (
+        "var lower_limits[input_lower_limits[]] := input_lower_limits;\n"
+        "var upper_limits[input_upper_limits[]] := input_upper_limits;\n"
+        "return [lower_limits, upper_limits];\n"
+        );
+
+    m_exprStep = QSL
+        (
+        "for (var i := 0; i < input[]; i += 1)\n"
+        "{\n"
+        "   output[i] := input[i];\n"
+        "}\n"
+        );
+}
+
+void ExpressionOperator::beginRun(const RunInfo &runInfo)
+{
+    if (!m_inputSlot.inputPipe) return;
+
+    memory::Arena arena(Kilobytes(256));
+
+    auto a1_inPipe = m_inputSlot.inputPipe;
+
+    a2::PipeVectors a2_inPipe = {};
+    a2_inPipe.data = a2::push_param_vector(&arena, a1_inPipe->getSize(), make_quiet_nan());
+    a2_inPipe.lowerLimits = a2::push_param_vector(&arena, a1_inPipe->getSize());
+    a2_inPipe.upperLimits = a2::push_param_vector(&arena, a1_inPipe->getSize());
+
+    for (s32 i = 0; i < a1_inPipe->getSize(); i++)
+    {
+        a2_inPipe.lowerLimits[i] = a1_inPipe->getParameter(i)->lowerLimit;
+        a2_inPipe.upperLimits[i] = a1_inPipe->getParameter(i)->upperLimit;
+    }
+
+    auto a2_op = a2::make_expression_operator(
+        &arena,
+        a2_inPipe,
+        getBeginExpression().toStdString(),
+        getStepExpression().toStdString());
+
+    auto &params(m_output.getParameters());
+    params.resize(a2_op.outputLowerLimits[0].size);
+
+    for (s32 i = 0; i < params.size(); i++)
+    {
+        params[i].lowerLimit = a2_op.outputLowerLimits[0][i];
+        params[i].upperLimit = a2_op.outputUpperLimits[0][i];
+    }
+
+    params.invalidateAll();
+}
+
+void ExpressionOperator::step()
+{
+    assert(!"not implemented. a2 should be used!");
+}
+
+void ExpressionOperator::write(QJsonObject &json) const
+{
+    json["exprBegin"] = m_exprBegin;
+    json["exprStep"] = m_exprStep;
+}
+
+void ExpressionOperator::read(const QJsonObject &json)
+{
+    m_exprBegin = json["exprBegin"].toString();
+    m_exprStep = json["exprStep"].toString();
+}
+
+//
 // Histo1DSink
 //
 
@@ -3243,6 +3321,7 @@ Analysis::Analysis(QObject *parent)
     m_registry.registerOperator<RectFilter2D>();
     m_registry.registerOperator<BinarySumDiff>();
     m_registry.registerOperator<AggregateOps>();
+    m_registry.registerOperator<ExpressionOperator>();
 
     m_registry.registerSink<Histo1DSink>();
     m_registry.registerSink<Histo2DSink>();
@@ -4187,4 +4266,3 @@ void adjust_userlevel_forward(QVector<Analysis::OperatorEntry> &opEntries, Opera
 }
 
 }
-

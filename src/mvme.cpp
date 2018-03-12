@@ -323,6 +323,8 @@ MVMEMainWindow::MVMEMainWindow(QWidget *parent)
     QTimer::singleShot(0, [this] () {
         updateActions();
 
+        // TODO: add pref to remember if rate monitor was open. restore that state here
+
         // Create and open log and analysis windows.
         onActionLog_Window_triggered();
         onActionAnalysis_UI_triggered();

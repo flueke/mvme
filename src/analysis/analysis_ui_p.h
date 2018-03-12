@@ -35,14 +35,15 @@
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QLineEdit>
+#include <QPlainTextEdit>
 #include <QPushButton>
 #include <QRadioButton>
 #include <QSpinBox>
 #include <QStackedWidget>
 #include <QStyledItemDelegate>
-#include <QTreeWidget>
 #include <QTableWidget>
 #include <QToolBar>
+#include <QTreeWidget>
 #include <QWidget>
 
 class MVMEContext;
@@ -336,6 +337,54 @@ class RateMonitorConfigWidget: public AbstractOpConfigWidget
         //QDoubleSpinBox *spin_unitMax;
         //QStackedWidget *stack_calibration;
         //QComboBox *combo_calibrationType;
+};
+
+class ExpressionEditor: public QWidget
+{
+    Q_OBJECT
+    public:
+        ExpressionEditor(QWidget *parent = nullptr);
+
+        void setExpressionString(const QString &exprString);
+        QString getExpressionString() const;
+
+    private:
+        QPlainTextEdit *m_textEdit;
+        QTableWidget *m_errorTable;
+        QPushButton *pb_compile,
+                    *pb_run;
+};
+
+class ExpressionOperatorConfigurationWidget: public AbstractOpConfigWidget
+{
+    Q_OBJECT
+    public:
+        ExpressionOperatorConfigurationWidget(ExpressionOperator *op,
+                                              s32 userLevel,
+                                              QWidget *parent = nullptr);
+
+        void configureOperator() override;
+        void inputSelected(s32 slotIndex) override;
+
+    private:
+        static const size_t ArenaSize = Kilobytes(256);
+
+        void populateEditors();
+        void populateInputTable();
+        void populateOutputTable();
+        void rebuild();
+        void reloadFromOperator();
+
+        ExpressionOperator *m_op;
+        memory::Arena m_arena;
+        a2::PipeVectors m_a2_inPipe;
+        a2::Operator m_a2_op;
+
+        ExpressionEditor *m_exprBeginEditor,
+                         *m_exprStepEditor;
+
+        QTableWidget *m_tw_input,
+                     *m_tw_output;
 };
 
 class PipeDisplay: public QWidget

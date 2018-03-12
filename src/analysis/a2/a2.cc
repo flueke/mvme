@@ -1,4 +1,5 @@
 #include "mpmc_queue.cc"
+#include "a2_exprtk.h"
 #include "a2_impl.h"
 #include "util/assert.h"
 
@@ -126,19 +127,6 @@ void assign_input(Operator *op, PipeVectors input, s32 inputIndex)
     op->inputs[inputIndex] = input.data;
     op->inputLowerLimits[inputIndex] = input.lowerLimits;
     op->inputUpperLimits[inputIndex] = input.upperLimits;
-}
-
-void push_output_vectors(
-    Arena *arena,
-    Operator *op,
-    s32 outputIndex,
-    s32 size,
-    double lowerLimit = 0.0,
-    double upperLimit = 0.0)
-{
-    op->outputs[outputIndex] = push_param_vector(arena, size, invalid_param());
-    op->outputLowerLimits[outputIndex] = push_param_vector(arena, size, lowerLimit);
-    op->outputUpperLimits[outputIndex] = push_param_vector(arena, size, upperLimit);
 }
 
 /* ===============================================
@@ -432,13 +420,6 @@ Operator make_operator(Arena *arena, u8 type, u8 inputCount, u8 outputCount)
 
     return  result;
 }
-
-struct OperatorFunctions
-{
-    using StepFunction = void (*)(Operator *op);
-
-    StepFunction step;
-};
 
 /* Calibration equation:
  * paramRange  = paramMax - paramMin    (the input range)
@@ -1930,6 +1911,36 @@ void condition_filter_step(Operator *op)
 }
 
 /* ===============================================
+ * Expression Operator
+ * =============================================== */
+
+Operator make_expression_operator(
+    memory::Arena *arena,
+    PipeVectors inPipe,
+    const std::string &begin_expr,
+    const std::string &step_expr)
+{
+    auto result = make_operator(arena, Operator_Expression, 1, 1);
+    assign_input(&result, inPipe, 0);
+
+    expr_create(arena, &result, begin_expr, step_expr);
+
+    return result;
+}
+
+void expression_operator_step(Operator *op)
+{
+    assert(op->type == Operator_Expression);
+
+    auto d = reinterpret_cast<ExpressionOperatorData *>(op->d);
+
+    /* References to the input and output have been bound in
+     * make_expression_operator(). No need to pass anything here, just evaluate
+     * the step expression. */
+    expr_eval_step(d);
+}
+
+/* ===============================================
  * Histograms
  * =============================================== */
 
@@ -2398,6 +2409,15 @@ void rate_monitor_sample_flow(Operator *op)
  * A2 implementation
  * =============================================== */
 
+struct OperatorFunctions
+{
+    using StepFunction = void (*)(Operator *op);
+    using EndRunFunction = void (*)(Operator *op);
+
+    StepFunction step;
+    EndRunFunction end_run = nullptr;
+};
+
 static const OperatorFunctions OperatorTable[OperatorTypeCount] =
 {
     [Operator_Calibration] = { calibration_step },
@@ -2432,6 +2452,8 @@ static const OperatorFunctions OperatorTable[OperatorTypeCount] =
     [Operator_Aggregate_MaxX] = { aggregate_maxx_step },
     [Operator_Aggregate_MeanX] = { aggregate_meanx_step },
     [Operator_Aggregate_SigmaX] = { aggregate_sigmax_step },
+
+    [Operator_Expression] = { expression_operator_step},
 };
 
 inline void step_operator(Operator *op)
@@ -2855,7 +2877,29 @@ void a2_end_run(A2 *a2)
         }
     }
 
-    a2_trace("done\n");
+    a2_trace("done joining threads\n");
+
+    // call end_run functions stored in the OperatorTable
+    for (s32 ei = 0; ei < MaxVMEEvents; ei++)
+    {
+        const int opCount = a2->operatorCounts[ei];
+
+        for (int opIdx = 0; opIdx < opCount; opIdx++)
+        {
+            Operator *op = a2->operators[ei] + opIdx;
+
+            assert(op);
+            assert(op->type < ArrayCount(OperatorTable));
+
+            if (OperatorTable[op->type].end_run)
+            {
+                OperatorTable[op->type].end_run(op);
+            }
+        }
+    }
+
+    a2_trace("done");
+    fprintf(stderr, "a2::%s() done\n", __FUNCTION__);
 }
 
 // step operators for the eventIndex

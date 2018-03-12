@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <exception>
 #include <memory>
+#include <vector>
 
 #include "util/typedefs.h"
 
@@ -19,30 +20,30 @@ inline bool is_aligned(const T *ptr, size_t alignment = alignof(T))
     return (((uintptr_t)ptr) % alignment) == 0;
 }
 
-struct Arena
+struct ArenaBase
 {
     u8 *mem;
     void *cur;
     size_t size;
 
-    explicit Arena(size_t size)
+    explicit ArenaBase(size_t size)
         : mem(new u8[size])
         , cur(mem)
         , size(size)
     { }
 
-    ~Arena()
+    ~ArenaBase()
     {
         delete[] mem;
     }
 
     // can't copy
-    Arena(Arena &other) = delete;
-    Arena &operator=(Arena &other) = delete;
+    ArenaBase(ArenaBase &other) = delete;
+    ArenaBase &operator=(ArenaBase &other) = delete;
 
     // can move
-    Arena(Arena &&other) = default;
-    Arena &operator=(Arena &&other) = default;
+    ArenaBase(ArenaBase &&other) = default;
+    ArenaBase &operator=(ArenaBase &&other) = default;
 
     inline size_t free() const
     {
@@ -59,6 +60,7 @@ struct Arena
         cur = mem;
     }
 
+    /** Use for POD types only! It doesn't do any construction. */
     template<typename T>
     T *pushStruct(size_t align = alignof(T))
     {
@@ -112,6 +114,105 @@ struct Arena
     }
 };
 
+namespace detail
+{
+
+template<typename T>
+struct destroy_only_deleter
+{
+    void operator()(T *ptr)
+    {
+        //fprintf(stderr, "%s %p\n", __PRETTY_FUNCTION__, ptr);
+        ptr->~T();
+    }
+};
+
+} // namespace detail
+
+struct Arena: public ArenaBase
+{
+    explicit Arena(size_t size)
+        : ArenaBase(size)
+    { }
+
+    ~Arena()
+    {
+        reset();
+    }
+
+    // can't copy
+    Arena(Arena &other) = delete;
+    Arena &operator=(Arena &other) = delete;
+
+    // can move
+    Arena(Arena &&other) = default;
+    Arena &operator=(Arena &&other) = default;
+
+    inline void reset()
+    {
+        // Destroy objects in reverse construction order
+        for (auto it = deleters.rbegin();
+             it != deleters.rend();
+             it++)
+        {
+            (*it)();
+        }
+
+        deleters.clear();
+        cur = mem;
+    }
+
+    template<typename T>
+    T *pushObject(size_t align = alignof(T))
+    {
+        T *result = nullptr;
+        size_t space = free();
+        if (std::align(align, sizeof(T), cur, space))
+        {
+            // Construct the object inside the arena.
+            result = new (cur) T;
+            assert(is_aligned(result, align));
+
+            // Now push a lambda calling the object destructor onto the
+            // deleters vector. Object construction and vector modification
+            // must be atomic in regards to exceptions: the object must be
+            // destroyed even if the push fails.
+            // To achieve exception safety a unique_ptr with a custom deleter
+            // that only runs the destructor is used to temporarily hold the
+            // object pointer. If the vector push throws the unique_ptr will
+            // properly destroy the object. Otherwise the deleter lambda has
+            // been stored and thus the unique pointer may release() its
+            // pointee.
+
+            std::unique_ptr<T, detail::destroy_only_deleter<T>> guard_ptr(result);
+
+            // This next call can throw (for example bad_alloc if running OOM).
+            deleters.emplace_back([result] () {
+                //fprintf(stderr, "%s %p\n", __PRETTY_FUNCTION__, result);
+                result->~T();
+            });
+
+            // emplace_back() did not throw. It's safe to release the guard now.
+            guard_ptr.release();
+
+            cur = reinterpret_cast<u8 *>(cur) + sizeof(T);
+        }
+        else
+        {
+            throw out_of_memory();
+        }
+        return result;
+    }
+
+    private:
+        using Deleter = std::function<void ()>;
+        std::vector<Deleter> deleters;
+};
+
+/*
+ * "std::allocator Is to Allocation what std::vector Is to Vexation", CppCon 2015: Andrei Alexandrescu
+ */
+#if 0
 struct Blk
 {
     void *ptr;
@@ -173,7 +274,7 @@ struct Mallocator
 
 struct ArenaAllocator
 {
-    Arena arena;
+    ArenaBase arena;
 
     Blk allocate(size_t size, size_t align)
     {
@@ -202,6 +303,7 @@ struct ArenaAllocator
         return arena.mem <= block.ptr && block.ptr < arena.cur;
     }
 };
+#endif
 
 } // namespace memory
 

@@ -189,6 +189,7 @@ struct Operator
 };
 
 void assign_input(Operator *op, PipeVectors input, s32 inputIndex);
+
 Operator make_calibration(
     memory::Arena *arena,
     PipeVectors input,
@@ -347,6 +348,15 @@ Operator make_aggregate_sigmax(
     memory::Arena *arena,
     PipeVectors input,
     Thresholds thresholds);
+
+/* ===============================================
+ * Expression Operator
+ * =============================================== */
+Operator make_expression_operator(
+    memory::Arena *arena,
+    PipeVectors inPipe,
+    const std::string &begin_expr,
+    const std::string &step_expr);
 
 /* ===============================================
  * Histograms
