@@ -3137,6 +3137,86 @@ size_t RateMonitorSink::getStorageSize() const
 }
 
 //
+// ExportSink
+//
+ExportSink::ExportSink(QObject *parent)
+    : SinkInterface(parent)
+{
+    addSlot();
+}
+
+bool ExportSink::addSlot()
+{
+    auto inputType = InputType::Array;
+
+    auto slot = std::make_shared<Slot>(
+        this, getNumberOfSlots(),
+        QSL("Input#") + QString::number(getNumberOfSlots()), inputType);
+
+    m_inputs.push_back(slot);
+
+    return true;
+}
+
+bool ExportSink::removeLastSlot()
+{
+    if (getNumberOfSlots() > 1)
+    {
+        m_inputs.back()->disconnectPipe();
+        m_inputs.pop_back();
+
+        return true;
+    }
+
+    return false;
+}
+
+Slot *ExportSink::getSlot(s32 slotIndex)
+{
+    Slot *result = nullptr;
+
+    if (slotIndex < getNumberOfSlots())
+    {
+        result = m_inputs[slotIndex].get();
+    }
+
+    return result;
+}
+
+s32 ExportSink::getNumberOfSlots() const
+{
+    return m_inputs.size();
+}
+
+void ExportSink::beginRun(const RunInfo &)
+{
+}
+
+void ExportSink::step()
+{
+    assert(!"not implemented. a2 must be used!");
+}
+
+void ExportSink::write(QJsonObject &json) const
+{
+    json["numberOfInputs"] = getNumberOfSlots();
+}
+
+void ExportSink::read(const QJsonObject &json)
+{
+    m_inputs.clear();
+
+    s32 inputCount = json["numberOfInputs"].toInt();
+
+    for (s32 inputIndex = 0;
+         inputIndex < inputCount;
+         ++inputIndex)
+    {
+        addSlot();
+    }
+}
+
+//
 // Analysis
 //
 
@@ -3167,6 +3247,7 @@ Analysis::Analysis(QObject *parent)
     m_registry.registerSink<Histo1DSink>();
     m_registry.registerSink<Histo2DSink>();
     m_registry.registerSink<RateMonitorSink>();
+    m_registry.registerSink<ExportSink>();
 
     qDebug() << "Registered Sources:   " << m_registry.getSourceNames();
     qDebug() << "Registered Operators: " << m_registry.getOperatorNames();

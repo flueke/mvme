@@ -463,6 +463,13 @@ Operator make_rate_monitor(
     RateMonitorType type);
 
 //
+// ExportSink
+//
+Operator make_export_sink(
+    memory::Arena *arena,
+    TypedBlock<PipeVectors, s32> inputs);
+
+//
 // A2 structure and entry points
 //
 

@@ -9,15 +9,29 @@ Data Export Implementation
 * User selects analysis sources/operators to be exported.
   This is a set of PipeSoureInterface for the a1 side.
 
+!!! Don't do this as it's intransparent. Instead add an ExportSink that takes a
+variable number of inputs. This way the user can choose the order of inputs and
+additional options can be implemented like changing the name of the array in
+the generated struct, handling of invalids and nans, etc.
+Later on an indexed format for arrays could also be implemented.
+
 * For each event a different file will need to be created
   or
   event data will have to be prefixed with the current event index
 
+!!! The filename is part of the export operator. Add a consistency check to
+make sure there are no duplicate filenames in the analysis.
+
 * The user might want the data from different sources in different files
   aswell.
 
+!!! Easy with the ExportSink implementation: add another sink and select a
+different filename.
+
 * To be able to synchronize the data from multiple files each event could carry
   the current timetick.
+
+!!! Yes, keeping the timetick value is ok.
 
 * Assuming one file per event:
 e0                              implicit event index
@@ -41,6 +55,7 @@ Each operator in the event can be selected for export. Use the order of the
 operators in the a2 system. This is a stable order and makes it easy to write
 the data out at the end of each event step (a2_end_event()).
 
+!!! Not needed. Just use the order of the inputs of the ExportSink operator.
 
   /* Make it packed, no padding wanted. */
   struct Event

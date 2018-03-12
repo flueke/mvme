@@ -1207,6 +1207,41 @@ class LIBMVME_EXPORT RateMonitorSink: public BasicSink
         double m_samplingInterval  = 1.0;
 };
 
+class LIBMVME_EXPORT ExportSink: public SinkInterface
+{
+    Q_OBJECT
+    Q_INTERFACES(analysis::SinkInterface)
+
+    public:
+        ExportSink(QObject *parent = nullptr);
+
+        virtual bool hasVariableNumberOfSlots() const override { return true; }
+        virtual bool addSlot() override;
+        virtual bool removeLastSlot() override;
+
+        virtual void beginRun(const RunInfo &runInfo) override;
+        virtual void step() override;
+
+        // Inputs
+        virtual s32 getNumberOfSlots() const override;
+        virtual Slot *getSlot(s32 slotIndex) override;
+
+        // Serialization
+        virtual void read(const QJsonObject &json) override;
+        virtual void write(QJsonObject &json) const override;
+
+        // Info
+        virtual QString getDisplayName() const override { return QSL("File Export"); }
+        virtual QString getShortName() const override { return QSL("Export"); }
+
+        virtual size_t getStorageSize() const override { return 0u; }
+
+    private:
+        // Using pointer to Slot here to avoid having to deal with changing
+        // Slot addresses on resizing the inputs vector.
+        QVector<std::shared_ptr<Slot>> m_inputs;
+};
+
 /* Note: The qobject_cast()s in the createXXX() functions are there to ensure
  * that the types properly implement the declared interface. They need to have
  * the Q_INTERFACES() macro either directly in their declaration or inherit it
