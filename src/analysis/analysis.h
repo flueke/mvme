@@ -443,6 +443,10 @@ class LIBMVME_EXPORT Extractor: public SourceInterface
 
         QVector<double> getHitCounts() const;
 
+        using Options = a2::DataSourceOptions;
+        Options::opt_t getOptions() const { return m_options; }
+        void setOptions(Options::opt_t options) { m_options = options; }
+
         // configuration
         MultiWordDataFilter m_filter;
         a2::data_filter::MultiWordFilter m_fastFilter;
@@ -458,6 +462,7 @@ class LIBMVME_EXPORT Extractor: public SourceInterface
 
         pcg32_fast m_rng;
         Pipe m_output;
+        Options::opt_t m_options;
 };
 
 class LIBMVME_EXPORT ListFilterExtractor: public SourceInterface
@@ -485,6 +490,10 @@ class LIBMVME_EXPORT ListFilterExtractor: public SourceInterface
         void setExtractor(const a2::ListFilterExtractor &ex) { m_a2Extractor = ex; }
         u64 getRngSeed() const { return m_rngSeed; }
         void setRngSeed(u64 seed) { m_rngSeed = seed; }
+
+        using Options = a2::DataSourceOptions;
+        Options::opt_t getOptions() const { return m_a2Extractor.options; }
+        void setOptions(Options::opt_t options) { m_a2Extractor.options = options; }
 
     private:
         Pipe m_output;
@@ -1217,7 +1226,7 @@ class LIBMVME_EXPORT RateMonitorSink: public BasicSink
          * resolution of ~16.4 bits. */
         size_t m_rateHistoryCapacity = 3600 * 24;
 
-        Type m_type = Type::CounterDifference;
+        Type m_type = Type::FlowRate;
         QString m_unitLabel;
         double m_calibrationFactor = 1.0;
         double m_calibrationOffset = 0.0;

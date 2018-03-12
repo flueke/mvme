@@ -3,13 +3,14 @@
 #include <QBoxLayout>
 #include <QDebug>
 
+#include <qwt_curve_fitter.h>
+#include <qwt_date_scale_draw.h>
+#include <qwt_date_scale_engine.h>
 #include <qwt_plot_curve.h>
 #include <qwt_plot.h>
 #include <qwt_plot_legenditem.h>
 #include <qwt_scale_engine.h>
 #include <qwt_scale_widget.h>
-#include <qwt_date_scale_draw.h>
-#include <qwt_date_scale_engine.h>
 
 #include "analysis/a2/util/nan.h"
 #include "histo_util.h"
@@ -41,10 +42,9 @@ static inline QRectF make_bounding_rect(const RateSampler *sampler)
 
 struct RateMonitorPlotData: public QwtSeriesData<QPointF>
 {
-    RateMonitorPlotData(const RateSamplerPtr &sampler, RateMonitorPlotWidget *plotWidget)
+    RateMonitorPlotData(const RateSamplerPtr &sampler)
         : QwtSeriesData<QPointF>()
         , sampler(sampler)
-        , plotWidget(plotWidget)
     { }
 
     size_t size() const override
@@ -80,7 +80,6 @@ struct RateMonitorPlotData: public QwtSeriesData<QPointF>
     }
 
     RateSamplerPtr sampler;
-    RateMonitorPlotWidget *plotWidget;
 };
 
 struct RateMonitorPlotWidgetPrivate
@@ -120,7 +119,6 @@ RateMonitorPlotWidget::RateMonitorPlotWidget(QWidget *parent)
 
     // zoomer
     m_d->m_zoomer = new ScrollZoomer(m_d->m_plot->canvas());
-    m_d->m_zoomer->setVScrollBarMode(Qt::ScrollBarAlwaysOff);
 
     qDebug() << __PRETTY_FUNCTION__ << "zoomRectIndex =" << m_d->m_zoomer->zoomRectIndex();
 
@@ -155,9 +153,12 @@ void RateMonitorPlotWidget::addRateSampler(const RateSamplerPtr &sampler,
     assert(m_d->m_samplers.size() == m_d->m_curves.size());
 
     auto curve = std::make_unique<QwtPlotCurve>(title);
-    curve->setData(new RateMonitorPlotData(sampler, this));
+    curve->setData(new RateMonitorPlotData(sampler));
     curve->setPen(color);
-    //curve->setStyle(QwtPlotCurve::Lines);
+    curve->setStyle(QwtPlotCurve::Lines);
+    //curve->setCurveAttribute(QwtPlotCurve::Fitted);
+    //curve->setCurveFitter(new QwtSplineCurveFitter);
+    curve->setRenderHint(QwtPlotItem::RenderAntialiased);
     curve->attach(m_d->m_plot);
 
     m_d->m_curves.push_back(curve.release());
@@ -225,56 +226,102 @@ void RateMonitorPlotWidget::setInternalLegendVisible(bool visible)
 
 void RateMonitorPlotWidget::replot()
 {
+    /* Things that have to happen:
+     * - calculate stats for the visible area. use this to scale y if y auto scaling is desired
+     * - update info display
+     * - update cursor info
+     * - update axis titles
+     * - update window title
+     * - update projections
+     */
+
+
     // updateAxisScales
     static const double ScaleFactor = 1.05;
 
     double xMin = std::numeric_limits<double>::max();
-    double xMax = 0.0;
-    double yMin = 0.0;
-    double yMax = 0.0;
-
+    double xMax = std::numeric_limits<double>::lowest();
     bool haveSamples = false;
 
     for (auto &sampler: m_d->m_samplers)
     {
         if (!sampler->rateHistory.empty())
         {
+            haveSamples = true;
+
             xMin = std::min(xMin, sampler->getFirstSampleTime());
             xMax = std::max(xMax, sampler->getLastSampleTime());
-            yMax = std::max(yMax, get_max_value(sampler->rateHistory));
-            haveSamples = true;
+#if 0
+            //yMax = std::max(yMax, get_max_value(sampler->rateHistory));
+
+            auto stats = calc_rate_sampler_stats(*sampler, visibleXInterval_s);
+
+            auto yInterval = stats.intervals[Qt::YAxis];
+
+            if (!std::isnan(yInterval.minValue) && !std::isnan(yInterval.maxValue))
+            {
+                yMin = std::min(yMin, yInterval.minValue);
+                yMax = std::max(yMax, yInterval.maxValue);
+                haveYMinMax = true;
+            }
+#endif
         }
     }
 
-    if (!haveSamples) return;
-
-    // scale x-values to milliseconds
-    xMin *= 1000.0;
-    xMax *= 1000.0;
-
-    switch (getYAxisScale())
+    if (haveSamples)
     {
-        case AxisScale::Linear:
-            yMin = 0.0;
-            yMax *= ScaleFactor;
-            break;
+        // scale x-values to milliseconds
+        double xMin_ms = xMin * 1000.0;
+        double xMax_ms = xMax * 1000.0;
 
-        case AxisScale::Logarithmic:
-            yMin = 0.1;
-            yMax = std::pow(yMax, ScaleFactor);
-            break;
-    }
+        double yMin = std::numeric_limits<double>::max();
+        double yMax = std::numeric_limits<double>::lowest();
 
-    // This sets a fixed y axis scale effectively overriding any changes made
-    // by the scrollzoomer.
-    m_d->m_plot->setAxisScale(QwtPlot::yLeft, yMin, yMax);
+        // If fully zoomed out set the x-axis to full resolution and the y-axis to
+        // the min/max values in the visible area.
+        if (m_d->m_zoomer->zoomRectIndex() == 0)
+        {
+            qDebug() << __PRETTY_FUNCTION__ << "fully zoomed out -> setting x scale to:" << xMin << xMax;
+            m_d->m_plot->setAxisScale(QwtPlot::xBottom, xMin_ms, xMax_ms);
+            AxisInterval visibleXInterval_s = { xMin, xMax };
 
+            bool haveYMinMax = false;
 
-    // If fully zoomed out set the x-axis to full resolution
-    if (m_d->m_zoomer->zoomRectIndex() == 0)
-    {
-        m_d->m_plot->setAxisScale(QwtPlot::xBottom, xMin, xMax);
-        m_d->m_zoomer->setZoomBase();
+            for (auto &sampler: m_d->m_samplers)
+            {
+                if (!sampler->rateHistory.empty())
+                {
+                    auto stats = calc_rate_sampler_stats(*sampler, visibleXInterval_s);
+                    auto yInterval = stats.intervals[Qt::YAxis];
+
+                    if (!std::isnan(yInterval.minValue) && !std::isnan(yInterval.maxValue))
+                    {
+                        yMin = std::min(yMin, yInterval.minValue);
+                        yMax = std::max(yMax, yInterval.maxValue);
+                        haveYMinMax = true;
+                    }
+                }
+            }
+
+            if (haveYMinMax)
+            {
+                qDebug() << __PRETTY_FUNCTION__
+                    << "found y minmax for visible x range. auto scaling y and setting zoomBase";
+                switch (getYAxisScale())
+                {
+                    case AxisScale::Linear:
+                        yMax *= ScaleFactor;
+                        break;
+
+                    case AxisScale::Logarithmic:
+                        yMax = std::pow(yMax, ScaleFactor);
+                        break;
+                }
+
+                m_d->m_plot->setAxisScale(QwtPlot::yLeft,   yMin, yMax);
+                m_d->m_zoomer->setZoomBase();
+            }
+        }
     }
 
     m_d->m_plot->updateAxes();
@@ -301,9 +348,11 @@ void RateMonitorPlotWidget::setYAxisScale(AxisScale scaling)
             break;
 
         case AxisScale::Logarithmic:
+            static const double LogScaleMinBound = 0.1;
             auto scaleEngine = new QwtLogScaleEngine;
-            //scaleEngine->setTransformation(new MinBoundLogTransform);
+            scaleEngine->setTransformation(new MinBoundLogTransform(LogScaleMinBound));
             m_d->m_plot->setAxisScaleEngine(QwtPlot::yLeft, scaleEngine);
+            m_d->m_plot->setAxisAutoScale(QwtPlot::yLeft, true);
             break;
     }
 

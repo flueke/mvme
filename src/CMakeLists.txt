@@ -10,6 +10,8 @@ find_package(Qt5Gui REQUIRED)
 find_package(Qt5Network REQUIRED)
 find_package(Qt5Widgets REQUIRED)
 
+find_package(Threads)
+
 # quazip
 find_path(QUAZIP_INCLUDE_DIR
     NAMES quazip.h
@@ -100,6 +102,7 @@ set(LIBMVME_SOURCES
     mvme_stream_util.cc
     mvme_stream_worker.cc
     qt_util.cc
+    rate_monitor_base.cc
     rate_monitor_gui.cc
     rate_monitor_plot_widget.cc
     rate_monitor_widget.cc
@@ -179,6 +182,7 @@ target_link_libraries(libmvme
     ${LIBUSB_LIBRARY}
     ${LIBMVME_ADDITIONAL_LIBS}
     liba2_static
+    Threads::Threads
     )
 
 install(TARGETS libmvme DESTINATION .)

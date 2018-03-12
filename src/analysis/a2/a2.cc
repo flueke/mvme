@@ -178,7 +178,8 @@ size_t get_address_count(ListFilterExtractor *ex)
 Extractor make_extractor(
     data_filter::MultiWordFilter filter,
     u32 requiredCompletions,
-    u64 rngSeed)
+    u64 rngSeed,
+    DataSourceOptions::opt_t options)
 {
     Extractor ex = {};
 
@@ -186,6 +187,7 @@ Extractor make_extractor(
     ex.requiredCompletions = requiredCompletions;
     ex.currentCompletions = 0;
     ex.rng.seed(rngSeed);
+    ex.options = options;
 
     return ex;
 }
@@ -195,13 +197,14 @@ DataSource make_datasource_extractor(
     MultiWordFilter filter,
     u32 requiredCompletions,
     u64 rngSeed,
-    int moduleIndex)
+    int moduleIndex,
+    DataSourceOptions::opt_t options)
 {
     DataSource result = {};
     result.type = DataSource_Extractor;
 
     auto ex = arena->pushStruct<Extractor>();
-    *ex = make_extractor(filter, requiredCompletions, rngSeed);
+    *ex = make_extractor(filter, requiredCompletions, rngSeed, options);
     result.d = ex;
 
     result.moduleIndex = moduleIndex;
@@ -258,7 +261,10 @@ void extractor_process_module_data(DataSource *ds, u32 *data, u32 size)
 
                 if (!is_param_valid(ds->output.data[address]))
                 {
-                    ds->output.data[address] = value + RealDist01(ex->rng);
+                    if (!(ex->options & DataSourceOptions::NoAddedRandom))
+                        value += RealDist01(ex->rng);
+
+                    ds->output.data[address] = value;
                     ds->hitCounts[address]++;
                 }
             }
@@ -273,7 +279,8 @@ ListFilterExtractor make_listfilter_extractor(
     data_filter::ListFilter listFilter,
     data_filter::DataFilter repetitionAddressFilter,
     u8 repetitions,
-    u64 rngSeed)
+    u64 rngSeed,
+    DataSourceOptions::opt_t options)
 {
     ListFilterExtractor ex = {};
 
@@ -282,6 +289,7 @@ ListFilterExtractor make_listfilter_extractor(
     ex.repetitionAddressCache = make_cache_entry(repetitionAddressFilter, 'A');
     ex.rng.seed(rngSeed);
     ex.repetitions = repetitions;
+    ex.options = options;
 
     return ex;
 }
@@ -292,13 +300,14 @@ DataSource make_datasource_listfilter_extractor(
     data_filter::DataFilter repetitionAddressFilter,
     u8 repetitions,
     u64 rngSeed,
-    u8 moduleIndex)
+    u8 moduleIndex,
+    DataSourceOptions::opt_t options)
 {
     DataSource result = {};
     result.type = DataSource_ListFilterExtractor;
 
     auto ex = arena->pushStruct<ListFilterExtractor>();
-    *ex = make_listfilter_extractor(listFilter, repetitionAddressFilter, repetitions, rngSeed);
+    *ex = make_listfilter_extractor(listFilter, repetitionAddressFilter, repetitions, rngSeed, options);
     result.d = ex;
 
     result.moduleIndex = moduleIndex;
@@ -374,7 +383,10 @@ u32 *listfilter_extractor_process_module_data(DataSource *ds, u32 *data, u32 dat
 
         if (!is_param_valid(ds->output.data[address]))
         {
-            ds->output.data[address] = value + RealDist01(ex->rng);
+            if (!(ex->options & DataSourceOptions::NoAddedRandom))
+                value += RealDist01(ex->rng);
+
+            ds->output.data[address] = value;
             ds->hitCounts[address]++;
         }
 

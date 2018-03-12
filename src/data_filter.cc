@@ -230,6 +230,38 @@ QString generate_pretty_filter_string(u8 bits, char c)
     return buffer;
 }
 
+QString generate_pretty_filter_string(u8 dataBits, u8 totalBits, char c)
+{
+    u8 bits = std::max(dataBits, totalBits);
+
+    QString buffer;
+    buffer.resize(bits + (bits / 4 - 1), ' ');
+
+    int outidx = buffer.size() - 1;
+    u8 bits_written = 0;
+
+    while (bits_written < bits && outidx >= 0)
+    {
+        if (bits_written && bits_written % 4 == 0)
+        {
+            buffer[outidx--] = ' ';
+        }
+
+        if (bits_written < dataBits)
+        {
+            buffer[outidx--] = c;
+        }
+        else
+        {
+            buffer[outidx--] = ' ';
+        }
+
+        bits_written++;
+    }
+
+    return buffer;
+}
+
 QLineEdit *makeFilterEdit(u8 bits)
 {
     QFont font;

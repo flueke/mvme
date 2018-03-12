@@ -117,6 +117,14 @@ RateMonitorWidget::RateMonitorWidget(QWidget *parent)
         tb->addWidget(make_vbox_container(QSL("Y-Scale"), yScaleCombo));
     }
 
+    tb->addAction(QIcon(":/clear_histos.png"), QSL("Clear"), this, [this]() {
+        if (auto sampler = m_d->m_samplers.value(m_d->m_currentIndex))
+        {
+            sampler->clearHistory(true);
+            replot();
+        }
+    });
+
     // export
     QAction *action = nullptr;
     action = tb->addAction(QIcon(":/document-pdf.png"), QSL("Export"), this, &RateMonitorWidget::exportPlot);

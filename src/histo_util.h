@@ -118,9 +118,14 @@ class UnitConversionLinearScaleEngine: public QwtLinearScaleEngine
 class MinBoundLogTransform: public QwtLogTransform
 {
     public:
+        MinBoundLogTransform(double minBound = 0.1)
+            : m_minBound(minBound)
+        {
+        }
+
         virtual double bounded(double value) const
         {
-            double result = qBound(0.1, value, QwtLogTransform::LogMax);
+            double result = qBound(m_minBound, value, QwtLogTransform::LogMax);
             return result;
         }
 
@@ -138,8 +143,11 @@ class MinBoundLogTransform: public QwtLogTransform
 
         virtual QwtTransform *copy() const
         {
-            return new MinBoundLogTransform;
+            return new MinBoundLogTransform(m_minBound);
         }
+
+    private:
+        double m_minBound;
 };
 
 QString makeAxisTitle(const QString &title, const QString &unit);

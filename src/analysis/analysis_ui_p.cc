@@ -346,7 +346,8 @@ struct ListFilterEditor
 
     QComboBox *combo_wordSize;
 
-    QCheckBox *cb_swapWords;
+    QCheckBox *cb_swapWords,
+              *cb_addRandom;
 };
 
 static a2::data_filter::ListFilter listfilter_editor_make_a2_listfilter(ListFilterEditor e)
@@ -377,11 +378,17 @@ static a2::ListFilterExtractor listfilter_editor_make_a2_extractor(ListFilterEdi
 
     auto repFilter = make_filter(e.filter_repIndex->text().toStdString());
 
+    a2::DataSourceOptions::opt_t options = 0;
+
+    if (!e.cb_addRandom->isChecked())
+        options |= a2::DataSourceOptions::NoAddedRandom;
+
     a2::ListFilterExtractor ex_a2 = a2::make_listfilter_extractor(
         listFilter,
         repFilter,
         e.spin_repetitions->value(),
-        0);
+        0,
+        options);
 
     return ex_a2;
 }
@@ -393,6 +400,7 @@ static void listfilter_editor_update(ListFilterEditor e)
     auto addressCount = get_address_count(&ex);
     auto dataBits = get_extract_bits(&ex.listFilter, a2::data_filter::MultiWordFilter::CacheD);
     size_t combinedBits = ((ex.listFilter.flags & a2::data_filter::ListFilter::WordSize32) ? 32 : 16) * ex.listFilter.wordCount;
+    assert(combinedBits <= 64);
 
     e.label_addressBits->setText(QString::number(addressBits));
     e.label_outputSize->setText(QString::number(addressCount));
@@ -419,6 +427,7 @@ static ListFilterEditor make_listfilter_editor(QWidget *parent = nullptr)
     e.filter_repIndex = makeFilterEdit();
     e.combo_wordSize = new QComboBox;
     e.cb_swapWords = new QCheckBox;
+    e.cb_addRandom = new QCheckBox;
 
     e.spin_repetitions->setMinimum(1);
     e.spin_repetitions->setMaximum(std::numeric_limits<u8>::max());
@@ -447,6 +456,46 @@ static ListFilterEditor make_listfilter_editor(QWidget *parent = nullptr)
                      e.widget, on_wordSize_selected);
 
     on_wordSize_selected(0);
+
+    auto on_number_of_bits_changed = [e]()
+    {
+#if 0 // FIXME: leftoff here
+        auto flags          = static_cast<ListFilter::Flag>(e.combo_wordSize->currentData().toInt());
+        auto wordCount      = e.spin_wordCount->value();
+        size_t combinedBits = ((flags & a2::data_filter::ListFilter::WordSize32) ? 32 : 16) * wordCount;
+
+        assert(combinedBits <= 64);
+
+        ssize_t loBits = std::min(32lu, combinedBits);
+        ssize_t hiBits = std::max(0l, static_cast<ssize_t>(combinedBits) - 32l);
+
+        auto loMask = generate_pretty_filter_string(loBits, 32, 'N');
+        auto hiMask = generate_pretty_filter_string(hiBits, 32, 'N');
+
+        qDebug() << __PRETTY_FUNCTION__ << "loBits" << loBits << "loMask =" << loMask;
+        qDebug() << __PRETTY_FUNCTION__ << "hiBits" << hiBits << "hiMask =" << hiMask;
+
+        //auto loText = e.filter_lowWord->text();
+        //auto hiText = e.filter_highWord->text();
+
+        e.filter_lowWord->setInputMask(loMask);
+        e.filter_highWord->setInputMask(hiMask);
+
+        //e.filter_lowWord->setText(loText);
+        //e.filter_highWord->setText(hiText);
+
+        //e.filter_lowWord->setText(generate_pretty_filter_string(loBits, 32, 'X'));
+        //e.filter_highWord->setText(generate_pretty_filter_string(hiBits, 32, 'X'));
+#endif
+    };
+
+    QObject::connect(e.combo_wordSize, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
+                     e.widget, on_number_of_bits_changed);
+
+    QObject::connect(e.spin_wordCount, static_cast<void (QSpinBox::*) (int)>(&QSpinBox::valueChanged),
+                     e.widget, on_number_of_bits_changed);
+
+    on_number_of_bits_changed();
 
     // filter edits
     e.filter_lowWord->setText(generate_pretty_filter_string(32, 'X'));
@@ -493,6 +542,7 @@ static ListFilterEditor make_listfilter_editor(QWidget *parent = nullptr)
         layout_extraction->addRow("Repetition", e.filter_repIndex);
         layout_extraction->addRow("High word", e.filter_highWord);
         layout_extraction->addRow("Low word", e.filter_lowWord);
+        layout_extraction->addRow("Add Random in [0, 1)", e.cb_addRandom);
 
         layout->addRow(gb_extraction);
     }
@@ -525,6 +575,7 @@ static void listfilter_editor_load_from_extractor(ListFilterEditor e, const List
     e.combo_wordSize->setCurrentIndex(listfilter.flags & ListFilter::WordSize32);
     e.spin_wordCount->setValue(listfilter.wordCount);
     e.cb_swapWords->setChecked(listfilter.flags & ListFilter::ReverseCombine);
+    e.cb_addRandom->setChecked(!(ex_a2.options & a2::DataSourceOptions::NoAddedRandom));
 
     auto lo  = QString::fromStdString(to_string(listfilter.extractionFilter.filters[0]));
     auto hi  = QString::fromStdString(to_string(listfilter.extractionFilter.filters[1]));
@@ -894,6 +945,7 @@ void ListFilterExtractorDialog::newFilter()
     auto repFilter = a2::data_filter::make_filter("XXXX XXXX");
 
     auto ex_a2 = a2::make_listfilter_extractor(listFilter, repFilter, 1, 0);
+    ex_a2.options = a2::DataSourceOptions::NoAddedRandom;
 
     ex->setExtractor(ex_a2);
 
@@ -2481,6 +2533,12 @@ static const std::array<RateTypeInfo, 3> RateTypeInfos =
 {
     {
         {
+            RateMonitorSink::Type::FlowRate,
+            QSL("Flow Rate"),
+            QSL("The rate of flow through the input array is calculated and recorded.")
+        },
+
+        {
             RateMonitorSink::Type::CounterDifference,
             QSL("Counter Difference"),
             QSL("Input values are interpreted as increasing counter values.\n"
@@ -2491,12 +2549,6 @@ static const std::array<RateTypeInfo, 3> RateTypeInfos =
             RateMonitorSink::Type::PrecalculatedRate,
             QSL("Precalculated Rate"),
             QSL("Input values are interpreted as rate values and are directly recorded.")
-        },
-
-        {
-            RateMonitorSink::Type::FlowRate,
-            QSL("Flow Rate"),
-            QSL("The rate of flow through the input array is calculated and recorded.")
         },
     }
 };

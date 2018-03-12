@@ -1,6 +1,136 @@
 ==================================================
 TODO list somewhat sorted by priority
 ==================================================
+
+--------------------------------------------------------------------------------
+Data Export Implementation
+--------------------------------------------------------------------------------
+=== What to export / System design ===
+* User selects analysis sources/operators to be exported.
+  This is a set of PipeSoureInterface for the a1 side.
+
+* For each event a different file will need to be created
+  or
+  event data will have to be prefixed with the current event index
+
+* The user might want the data from different sources in different files
+  aswell.
+
+* To be able to synchronize the data from multiple files each event could carry
+  the current timetick.
+
+* Assuming one file per event:
+e0                              implicit event index
+  m0                            module index. not written out
+    ds00                        data source. can be selected for export
+    ds01
+  m1
+    ds10
+    ds11
+
+Further analysis operators in this event
+op0
+  op0.0
+  op0.1
+    op0.1.0
+
+op1
+  op1.0
+
+Each operator in the event can be selected for export. Use the order of the
+operators in the a2 system. This is a stable order and makes it easy to write
+the data out at the end of each event step (a2_end_event()).
+
+
+  /* Make it packed, no padding wanted. */
+  struct Event
+  {
+      u32 timetick;
+
+      double ds00[ds00.size];
+      double ds01[ds01.size];
+      double ds10[ds10.size];
+      double ds11[ds11.size];
+
+      double op0[op0.size];
+      double op1[];
+      double op00[];
+      double op01[];
+      double op10[];
+      double op010[];
+
+      /* Static const data. Will only have to pay once for this. But linkage
+       * might be an issue I think. Do I need an implementation file for this
+       * to work? Any other way to place the data in the header and have the
+       * compiler figure out the linkage stuff?
+       * Or just generate the implementation file aswell and be done with it.
+       * NOTE: This data could just as well also live in the exported data file.
+       * Could also use the trick where the header is included twice, the
+       * second time around preceeded by a #define IMPL.
+       */
+      static const u32 number_of_data_arrays;
+      static const u32 array_offsets[number_of_data_arrays];
+      static const u32 array_sizes[number_of_data_arrays];
+
+      /* Fixed length, null terminated strings containing unmodified names of
+       * the arrays. */
+      static const char array_names[128][number_of_data_arrays];
+
+      /* Or an array of all the null terminated strings and an array of start
+       * offsets into the string data array. */
+       static const char array_names[total_number_of_characters_for_all_names];
+       static const char array_name_offsets[number_of_data_arrays];
+  };
+
+The above needs a robust name generation scheme. Metadata could also be stored
+inside the export data file or added to the export header.
+- No duplicate names
+- Valid c++ identifiers
+- Separate Events via distinct names and/or namespaces and maybe more?
+
+
+* binary format with generated c header file
+* text format with structure description in a header section
+  - printf format string for doubles: use something that does not lose precision when read back in
+* compression for both formats
+* if the above works ROOT export should also be doable
+* export to hdf5 could also be nice
+* multiple output files, selectable per data source?
+* invalid parameters would be printed as "nan". keep the distinction between
+  plain nan and invalid?
+* byte order marking
+* file magic number
+* version number
+* export to an auto created subdirectory named after the run. This keeps
+  exported files togther.
+  Can also generated a source file with basic readout code.
+  User will want to edit that file but on the next export it will be
+  overwritten. How can this use case be made more convenient?
+  -> Not an issue: they copy paste the readout code and only have to get the
+  #include <path/to/generated_header> right.
+* The user might also have to build an implementation file to be able to get
+  all the static data.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* implement some kind of offline functionality:
+  If a replay  is loaded go into offline  mode and stay that way  until the user
+  explicitly wants to connect to the controller again.
+  The reason  for this is  that right now any  mvme instance takes  control over
+  that sis it was last connected to. This  leads to the case where a running DAQ
+  is interrupted  by someone else starting  mvme in the same  network and having
+  the same hostname/ip addres in the setup.
+
+  Additionally before  starting a DAQ (or  even before writing to  the sis
+  reset register) and if the sis is in DAQ mode explicitly ask for permission
+  to reset the sis.
+
+* add build date to info window thingy
+* Andi has a setup where the "compression" combo box has an empty value. no/fast compression can still be selected but the initial value is empty.
+* ListFilterEditor: hide the bits that are not available in the combined words.
+* filters: add option to disable adding the random value
+
+
 * Projection of combined H2D does not update axis scales after the source H1D
   has been recalibrated.
 * Changing H1D calibration via its widget clears all histograms. This is not
@@ -340,7 +470,7 @@ Single Stepping and Stream Processing
     The user passes in a structure containing callbacks for each section type
     and for module data. Not all callbacks have to be implented as they can be
     set to null.
-<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 --------------------------------------------------
 * Remove now unused run-time code from the Analysis classes. Make it clear that
