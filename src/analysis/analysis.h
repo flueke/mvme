@@ -38,6 +38,7 @@
 #include <QMutex>
 #include <QUuid>
 #include <qwt_interval.h>
+#include <fstream>
 
 class QJsonObject;
 class VMEConfig;
@@ -1260,12 +1261,37 @@ class LIBMVME_EXPORT ExportSink: public SinkInterface
         virtual QString getDisplayName() const override { return QSL("File Export"); }
         virtual QString getShortName() const override { return QSL("Export"); }
 
+        // SinkInterface specific. This operator doesn't use storage like
+        // histograms do, so it always returns 0 here.
         virtual size_t getStorageSize() const override { return 0u; }
+
+        void setOutputFilename(const QString &filename) { m_outputFilename = filename; }
+        QString getOutputFilename() const { return m_outputFilename; }
+
+        void setCompressionLevel(int level) { m_compressionLevel = level; }
+        int getCompressionLevel() const { return m_compressionLevel; }
+
+        using Format = a2::ExportSinkFormat;
+
+        void setFormat(Format fmt) { m_format = fmt; }
+        Format getFormat() const { return m_format; }
 
     private:
         // Using pointer to Slot here to avoid having to deal with changing
         // Slot addresses on resizing the inputs vector.
         QVector<std::shared_ptr<Slot>> m_inputs;
+
+        // Output filename. May include a path. Is relative to the application
+        // working directory which is the workspace directory.
+        QString m_outputFilename;
+
+        //  0:  turn of compression; makes this operator write directly to the output file
+        // -1:  Z_DEFAULT_COMPRESSION
+        //  1:  Z_BEST_SPEED
+        //  9:  Z_BEST_COMPRESSION
+        int m_compressionLevel = 0;
+
+        Format m_format = Format::Indexed;
 };
 
 /* Note: The qobject_cast()s in the createXXX() functions are there to ensure

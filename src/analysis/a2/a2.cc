@@ -2,18 +2,20 @@
 #include "a2_exprtk.h"
 #include "a2_impl.h"
 #include "util/assert.h"
+#include "util/perf.h"
+#include "cpp11-on-multicore/common/benaphore.h"
 
 #include <algorithm>
 #include <atomic>
 #include <condition_variable>
 #include <cstdio>
 #include <cstdlib>
+#include <fstream>
 #include <mutex>
 #include <queue>
 #include <random>
 #include <thread>
-#include "util/perf.h"
-#include "cpp11-on-multicore/common/benaphore.h"
+#include <zstr/src/zstr.hpp>
 
 #define ArrayCount(x) (sizeof(x) / sizeof(*x))
 
@@ -2405,16 +2407,241 @@ void rate_monitor_sample_flow(Operator *op)
     }
 }
 
+//
+// ExportSink
+//
+
+struct ExportSinkData
+{
+    // Output filename. May include a path. Is relative to the application
+    // working directory which is the workspace directory.
+    std::string filename;
+
+    //  0:  turn of compression; makes this operator write directly to the output file
+    // -1:  Z_DEFAULT_COMPRESSION
+    //  1:  Z_BEST_SPEED
+    //  9:  Z_BEST_COMPRESSION
+    int compressionLevel;
+
+    // The lowest level output stream. Right now always a std::ofstream
+    // working on this operators output filename.
+    std::unique_ptr<std::ostream> ostream;
+
+    // stream buffer used for compression.
+    std::unique_ptr<std::streambuf> z_streambuf;
+
+    // ostream used when compression is enabled.
+    std::unique_ptr<std::ostream> z_ostream;
+
+    // The current timetick. Updated in a2_timetick()
+    u32 timetick = 0;
+};
+
+Operator make_export_sink(
+    memory::Arena *arena,
+    TypedBlock<PipeVectors, s32> inputs,
+    const std::string &output_filename,
+    int compressionLevel,
+    ExportSinkFormat format)
+{
+    Operator result = {};
+
+    switch (format)
+    {
+        case ExportSinkFormat::Plain:
+            result = make_operator(arena, Operator_ExportSinkPlain, inputs.size, 0);
+            break;
+        case ExportSinkFormat::Indexed:
+            result = make_operator(arena, Operator_ExportSinkIndexed, inputs.size, 0);
+            break;
+    }
+
+    for (s32 ii = 0; ii < inputs.size; ii++)
+    {
+        assign_input(&result, inputs[ii], ii);
+    }
+
+    auto d = arena->pushObject<ExportSinkData>();
+    result.d = d;
+
+    d->filename = output_filename;
+    d->compressionLevel = compressionLevel;
+
+    return result;
+}
+
+static const size_t CompressionBufferSize = 1u << 20;
+
+// TODO: make sure zlib error handling and reporting works. exceptions need to be caught (and maybe wrapped)!
+
+/* NOTE: Error handling in the ExportSink
+ * - std::ofstream by default has exceptions disabled. The method rdstate() can
+ *   be used to query the status of the error bits after each operation.
+ *
+ * - The zstr implementation enables exceptions by default and from looking at
+ *   the code the implementation assumes that exceptions stay enabled.
+ *
+ * > The export sink code enables exceptions both for the low level ofstream
+ *   and for the zstr ostream.
+ *
+ *   All I/O operations must be wrapped in a try/catch block. Upon catching an
+ *   exception the stream objects error bits are queried via rdstate() and
+ *   copied to ExportSinkData.
+ */
+
+void export_sink_begin_run(Operator *op)
+{
+    a2_trace("\n");
+    assert(op->type == Operator_ExportSinkPlain
+           || op->type == Operator_ExportSinkIndexed);
+
+    auto d = reinterpret_cast<ExportSinkData *>(op->d);
+
+    d->ostream.reset(new std::ofstream(d->filename, std::ios::binary | std::ios::trunc));
+
+    // enable ios exceptions
+    d->ostream->exceptions(std::ios::failbit | std::ios::badbit);
+    //d->ostream->exceptions(std::ios::goodbit);
+
+    if (d->compressionLevel != 0)
+    {
+        d->z_streambuf.reset(new zstr::ostreambuf(
+                d->ostream->rdbuf(), CompressionBufferSize, d->compressionLevel));
+
+        d->z_ostream.reset(new zstr::ostream(d->z_streambuf.get()));
+
+        // zstr has exceptions enabled by default
+        d->z_ostream->exceptions(std::ios::failbit | std::ios::badbit);
+        //d->z_ostream->exceptions(std::ios::goodbit);
+    }
+}
+
+void export_sink_plain_step(Operator *op)
+{
+    a2_trace("\n");
+    assert(op->type == Operator_ExportSinkPlain);
+
+    auto d = reinterpret_cast<ExportSinkData *>(op->d);
+
+    if (d->compressionLevel != 0)
+    {
+        assert(d->z_streambuf);
+        assert(d->z_ostream);
+    }
+    else
+    {
+        assert(d->ostream);
+    }
+
+    std::ostream *outp = (d->compressionLevel != 0
+                          ? d->z_ostream.get()
+                          : d->ostream.get());
+
+    assert(outp);
+
+    if (outp->good())
+    {
+        outp->write(reinterpret_cast<char *>(&d->timetick), sizeof(u32));
+
+        for (s32 inputIndex = 0;
+             inputIndex < op->inputCount && outp->good();
+             inputIndex++)
+        {
+            auto input = op->inputs[inputIndex];
+            outp->write(reinterpret_cast<char *>(input.data), input.size * sizeof(double));
+        }
+    }
+}
+
+static void write_indexed_vector(std::ostream &out, const ParamVec &vec)
+{
+    assert(vec.size >= 0);
+    assert(vec.size <= std::numeric_limits<u16>::max());
+
+    u16 validCount = 0;
+
+    for (s32 i = 0; i < vec.size; i++)
+    {
+        if (is_param_valid(vec[i]))
+            validCount++;
+    }
+
+    // Write the number of (index, value) pairs as a 16-bit unsigned value.
+    out.write(reinterpret_cast<char *>(&validCount), sizeof(validCount));
+
+    for (u16 i = 0; i < static_cast<u16>(vec.size); i++)
+    {
+        if (is_param_valid(vec[i]))
+        {
+            // 16-bit index, 64-bit value
+            out.write(reinterpret_cast<char *>(&i), sizeof(i));
+            out.write(reinterpret_cast<char *>(vec.data + i), sizeof(double));
+        }
+    }
+}
+
+void export_sink_indexed_step(Operator *op)
+{
+    a2_trace("\n");
+    assert(op->type == Operator_ExportSinkIndexed);
+
+    auto d = reinterpret_cast<ExportSinkData *>(op->d);
+
+    if (d->compressionLevel != 0)
+    {
+        assert(d->z_streambuf);
+        assert(d->z_ostream);
+    }
+    else
+    {
+        assert(d->ostream);
+    }
+
+    std::ostream *outp = (d->compressionLevel != 0
+                          ? d->z_ostream.get()
+                          : d->ostream.get());
+
+    assert(outp);
+
+    if (outp->good())
+    {
+        outp->write(reinterpret_cast<char *>(&d->timetick), sizeof(u32));
+
+        for (s32 inputIndex = 0;
+             inputIndex < op->inputCount && outp->good();
+             inputIndex++)
+        {
+            auto input = op->inputs[inputIndex];
+            write_indexed_vector(*outp, input);
+        }
+    }
+}
+
+void export_sink_end_run(Operator *op)
+{
+    a2_trace("\n");
+    assert(op->type == Operator_ExportSinkPlain
+           || op->type == Operator_ExportSinkIndexed);
+
+    auto d = reinterpret_cast<ExportSinkData *>(op->d);
+
+    d->z_ostream = {};
+    d->z_streambuf = {};
+    d->ostream = {};
+}
+
 /* ===============================================
  * A2 implementation
  * =============================================== */
 
 struct OperatorFunctions
 {
-    using StepFunction = void (*)(Operator *op);
-    using EndRunFunction = void (*)(Operator *op);
+    using StepFunction      = void (*)(Operator *op);
+    using BeginRunFunction  = void (*)(Operator *op);
+    using EndRunFunction    = void (*)(Operator *op);
 
     StepFunction step;
+    BeginRunFunction begin_run = nullptr;
     EndRunFunction end_run = nullptr;
 };
 
@@ -2429,12 +2656,18 @@ static const OperatorFunctions OperatorTable[OperatorTypeCount] =
     [Operator_Difference_idx] = { difference_step_idx },
     [Operator_ArrayMap] = { array_map_step },
     [Operator_BinaryEquation] = { binary_equation_step },
+
     [Operator_H1DSink] = { h1d_sink_step },
     [Operator_H1DSink_idx] = { h1d_sink_step_idx },
     [Operator_H2DSink] = { h2d_sink_step },
+
     [Operator_RateMonitor_PrecalculatedRate] = { rate_monitor_step },
     [Operator_RateMonitor_CounterDifference] = { rate_monitor_step },
     [Operator_RateMonitor_FlowRate] = { rate_monitor_step },
+
+    [Operator_ExportSinkPlain]   = { export_sink_plain_step, export_sink_begin_run, export_sink_end_run },
+    [Operator_ExportSinkIndexed] = { export_sink_indexed_step, export_sink_begin_run, export_sink_end_run },
+
     [Operator_RangeFilter] = { range_filter_step },
     [Operator_RangeFilter_idx] = { range_filter_step_idx },
     [Operator_RectFilter] = { rect_filter_step },
@@ -2824,6 +3057,25 @@ void a2_begin_run(A2 *a2)
             A2Threads.emplace_back(a2_worker_loop, &A2WorkQueue, ThreadInfo{ threadId });
         }
     }
+
+    // call begin_run functions stored in the OperatorTable
+    for (s32 ei = 0; ei < MaxVMEEvents; ei++)
+    {
+        const int opCount = a2->operatorCounts[ei];
+
+        for (int opIdx = 0; opIdx < opCount; opIdx++)
+        {
+            Operator *op = a2->operators[ei] + opIdx;
+
+            assert(op);
+            assert(op->type < ArrayCount(OperatorTable));
+
+            if (OperatorTable[op->type].begin_run)
+            {
+                OperatorTable[op->type].begin_run(op);
+            }
+        }
+    }
 }
 
 void a2_end_run(A2 *a2)
@@ -3002,6 +3254,12 @@ void a2_timetick(A2 *a2)
             if (op->type == Operator_RateMonitor_FlowRate)
             {
                 rate_monitor_sample_flow(op);
+            }
+            else if (op->type == Operator_ExportSinkPlain
+                     || op->type == Operator_ExportSinkIndexed)
+            {
+                auto d = reinterpret_cast<ExportSinkData *>(op->d);
+                d->timetick++;
             }
         }
     }

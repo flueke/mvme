@@ -475,9 +475,19 @@ Operator make_rate_monitor(
 //
 // ExportSink
 //
+
+enum class ExportSinkFormat
+{
+    Plain,
+    Indexed,
+};
+
 Operator make_export_sink(
     memory::Arena *arena,
-    TypedBlock<PipeVectors, s32> inputs);
+    TypedBlock<PipeVectors, s32> inputs,
+    const std::string &output_filename,
+    int compressionLevel,
+    ExportSinkFormat format);
 
 //
 // A2 structure and entry points

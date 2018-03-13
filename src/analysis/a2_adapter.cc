@@ -689,6 +689,30 @@ DEF_OP_MAGIC(rate_monitor_sink_magic)
     return result;
 }
 
+DEF_OP_MAGIC(export_sink_magic)
+{
+    LOG("");
+
+    auto sink = qobject_cast<analysis::ExportSink *>(op.get());
+    assert(sink);
+
+    QVector<a2::PipeVectors> a2_inputs(inputSlots.size());
+
+    for (s32 si = 0; si < inputSlots.size(); si++)
+    {
+        a2_inputs[si] = find_output_pipe(adapterState, inputSlots[si]);
+    }
+
+    a2::Operator result = a2::make_export_sink(
+        arena,
+        { a2_inputs.data(), a2_inputs.size() },
+        sink->getOutputFilename().toStdString(),
+        sink->getCompressionLevel(),
+        sink->getFormat());
+
+    return result;
+}
+
 static const QHash<const QMetaObject *, OperatorMagic *> OperatorMagicTable =
 {
     { &analysis::CalibrationMinMax::staticMetaObject,       calibration_magic },
@@ -706,6 +730,7 @@ static const QHash<const QMetaObject *, OperatorMagic *> OperatorMagicTable =
     { &analysis::Histo1DSink::staticMetaObject,             histo1d_sink_magic },
     { &analysis::Histo2DSink::staticMetaObject,             histo2d_sink_magic },
     { &analysis::RateMonitorSink::staticMetaObject,         rate_monitor_sink_magic },
+    { &analysis::ExportSink::staticMetaObject,              export_sink_magic },
 };
 
 a2::Operator a2_adapter_magic(memory::Arena *arena, A2AdapterState *state, analysis::OperatorPtr op)

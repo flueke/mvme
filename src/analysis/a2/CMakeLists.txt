@@ -43,6 +43,10 @@ find_package(Boost REQUIRED)
 include_directories(${Boost_INCLUDE_DIRS})
 message("-- Found boost for liba2 in ${Boost_INCLUDE_DIRS}")
 
+find_package(ZLIB REQUIRED)
+include_directories(${ZLIB_INCLUDE_DIRS})
+message("-- Found zlib for liba2 in ${ZLIB_INCLUDE_DIRS}")
+
 set(liba2_SOURCES
     a2.cc
     a2_exprtk.cc
@@ -50,6 +54,7 @@ set(liba2_SOURCES
     listfilter.cc)
 
 add_library(liba2_shared SHARED ${liba2_SOURCES})
+target_link_libraries(liba2_shared ${ZLIB_LIBRARIES})
 set_target_properties(liba2_shared PROPERTIES OUTPUT_NAME a2)
 target_include_directories(liba2_shared PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
 include(GenerateExportHeader)
@@ -58,6 +63,7 @@ generate_export_header(liba2_shared
     EXPORT_FILE_NAME "a2_export.h")
 
 add_library(liba2_static STATIC ${liba2_SOURCES})
+target_link_libraries(liba2_static ${ZLIB_LIBRARIES})
 set_target_properties(liba2_static PROPERTIES
     OUTPUT_NAME a2
     POSITION_INDEPENDENT_CODE ON)

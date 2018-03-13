@@ -23,6 +23,7 @@
 #include <QJsonObject>
 
 #include <random>
+#include <zstr/src/zstr.hpp>
 
 #include "a2_adapter.h"
 #include "a2/multiword_datafilter.h"
@@ -2598,6 +2599,10 @@ ExpressionOperator::ExpressionOperator(QObject *parent)
 
 void ExpressionOperator::beginRun(const RunInfo &runInfo)
 {
+    /* Create the a2 operator which runs the begin script to figure out the
+     * output size and limits. Then copy the limits to this operators output
+     * pipe. */
+
     if (!m_inputSlot.inputPipe) return;
 
     memory::Arena arena(Kilobytes(256));
@@ -2620,6 +2625,8 @@ void ExpressionOperator::beginRun(const RunInfo &runInfo)
         a2_inPipe,
         getBeginExpression().toStdString(),
         getStepExpression().toStdString());
+
+    assert(a2_op.outputLowerLimits[0].size == a2_op.outputUpperLimits[0].size);
 
     auto &params(m_output.getParameters());
     params.resize(a2_op.outputLowerLimits[0].size);
@@ -3221,6 +3228,7 @@ ExportSink::ExportSink(QObject *parent)
     : SinkInterface(parent)
 {
     addSlot();
+    setOutputFilename("export_test.bin");
 }
 
 bool ExportSink::addSlot()
@@ -3268,6 +3276,8 @@ s32 ExportSink::getNumberOfSlots() const
 
 void ExportSink::beginRun(const RunInfo &)
 {
+    // TODO: create any missing output directories
+    // TODO: write c++ header and impl file template stuff
 }
 
 void ExportSink::step()
@@ -3278,6 +3288,9 @@ void ExportSink::step()
 void ExportSink::write(QJsonObject &json) const
 {
     json["numberOfInputs"] = getNumberOfSlots();
+    json["outputFilename"] = getOutputFilename();
+    json["compressionLevel"] = getCompressionLevel();
+    json["format"] = static_cast<s32>(getFormat());
 }
 
 void ExportSink::read(const QJsonObject &json)
@@ -3292,6 +3305,10 @@ void ExportSink::read(const QJsonObject &json)
     {
         addSlot();
     }
+
+    setOutputFilename(json["outputFilename"].toString());
+    setCompressionLevel(json["compressionLevel"].toInt());
+    setFormat(static_cast<Format>(json["format"].toInt(static_cast<s32>(Format::Indexed))));
 }
 
 //
