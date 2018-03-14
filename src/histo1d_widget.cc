@@ -306,6 +306,7 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
     , m_cursorPosition(make_quiet_nan(), make_quiet_nan())
     , m_context(nullptr)
 {
+    resize(600, 400);
     m_d->m_q = this;
 
     // Toolbar and actions
@@ -1361,6 +1362,7 @@ Histo1DListWidget::Histo1DListWidget(const HistoList &histos, QWidget *parent)
     , m_histos(histos)
     , m_currentIndex(0)
 {
+    resize(600, 400);
     Q_ASSERT(histos.size());
 
     auto histo = histos[0].get();

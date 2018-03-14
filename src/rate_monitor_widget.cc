@@ -82,6 +82,7 @@ RateMonitorWidget::RateMonitorWidget(QWidget *parent)
     : QWidget(parent)
     , m_d(std::make_unique<RateMonitorWidgetPrivate>())
 {
+    resize(600, 400);
     setWindowTitle(QSL("Rate Monitor"));
 
     m_d->m_q = this;
