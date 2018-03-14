@@ -35,13 +35,16 @@ struct RateSampler
     // setup
     //
 
-    /* Scale factor to multiply recorded samples/rates by. */
+    /* Scale factor to multiply recorded samples/rates by. This scales the rate
+     * values, not the time axis. */
     double scale  = 1.0;
 
-    /* Offset for recorded samples/rates. */
+    /* Offset for recorded samples/rates. Scales the rate values, not the time
+     * axis. */
     double offset = 0.0;
 
-    /* Sampling interval in seconds. Not used for sampling but for x-axis scaling. */
+    /* Sampling interval in seconds. Not used for sampling but for x-axis
+     * scaling. Used in getSampleTime() and getSampleIndex(). */
     double interval = 1.0;
 
     //
@@ -75,7 +78,6 @@ struct RateSampler
         WriteGuard guard(rwLock);
 
         std::tie(lastRate, lastDelta) = calcRateAndDelta(value);
-        lastRate = std::isnan(lastRate) ? 0.0 : lastRate;
 
         if (rateHistory.capacity())
         {
@@ -91,7 +93,6 @@ struct RateSampler
         WriteGuard guard(rwLock);
 
         lastRate = rate * scale + offset;
-        lastRate = std::isnan(lastRate) ? 0.0 : lastRate;
 
         if (rateHistory.capacity())
         {

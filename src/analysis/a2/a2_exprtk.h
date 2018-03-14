@@ -1,12 +1,12 @@
 #ifndef __A2_EXPRTK_H__
 #define __A2_EXPRTK_H__
 
-#include "a2.h"
 #include "memory.h"
 
 namespace a2
 {
 
+struct Operator;
 struct ExpressionOperatorData;
 
 struct ExpressionParserError
