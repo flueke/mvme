@@ -331,8 +331,9 @@ class RateMonitorConfigWidget: public AbstractOpConfigWidget
         QLineEdit *le_unit;
         QDoubleSpinBox *spin_factor;
         QDoubleSpinBox *spin_offset;
+        QDoubleSpinBox *spin_interval;
 
-        // TODO: implement the min/max way of calibrating the input values
+        // TODO (maybe): implement the min/max way of calibrating the input values
         //QDoubleSpinBox *spin_unitMin;
         //QDoubleSpinBox *spin_unitMax;
         //QStackedWidget *stack_calibration;

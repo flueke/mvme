@@ -2535,20 +2535,27 @@ static const std::array<RateTypeInfo, 3> RateTypeInfos =
         {
             RateMonitorSink::Type::FlowRate,
             QSL("Flow Rate"),
-            QSL("The rate of flow through the input array is calculated and recorded.")
+            QSL("The rate of flow through the input array is calculated and recorded.\n"
+                "The sampling period is based on analysis timeticks so that the"
+                " time axis represents experiment time."
+                )
         },
 
         {
             RateMonitorSink::Type::CounterDifference,
             QSL("Counter Difference"),
             QSL("Input values are interpreted as increasing counter values.\n"
-                "The resulting rate is calculated from the difference of successive input values.")
+                "The resulting rate is calculated from the difference of successive input values.\n"
+                "The sampling rate is tied to the event rate."
+                )
         },
 
         {
             RateMonitorSink::Type::PrecalculatedRate,
             QSL("Precalculated Rate"),
-            QSL("Input values are interpreted as rate values and are directly recorded.")
+            QSL("Input values are interpreted as rate values and are directly recorded.\n"
+                "The sampling rate is tied to the event rate."
+                )
         },
     }
 };
@@ -2560,14 +2567,6 @@ RateMonitorConfigWidget::RateMonitorConfigWidget(RateMonitorSink *rms, s32 userL
     : AbstractOpConfigWidget(rms, userLevel, parent)
     , m_rms(rms)
 {
-    auto widgetLayout = new QVBoxLayout(this);
-    widgetLayout->setContentsMargins(0, 0, 0, 0);
-
-    auto *formLayout = new QFormLayout;
-    formLayout->setContentsMargins(2, 2, 2, 2);
-
-    widgetLayout->addLayout(formLayout);
-
     le_name = new QLineEdit;
     connect(le_name, &QLineEdit::textEdited, this, [this](const QString &newText) {
         // If the user clears the textedit reset NameEdited to false.
@@ -2605,19 +2604,64 @@ RateMonitorConfigWidget::RateMonitorConfigWidget(RateMonitorSink *rms, s32 userL
     // unit label and calibration
     le_unit = new QLineEdit;
     le_unit->setText(m_rms->getUnitLabel());
+
     spin_factor = make_calibration_spinbox(QString());
     spin_factor->setValue(m_rms->getCalibrationFactor());
     spin_offset = make_calibration_spinbox(QString());
     spin_offset->setValue(m_rms->getCalibrationOffset());
 
-    // populate the layout
+    spin_interval = new QDoubleSpinBox;
+    spin_interval->setDecimals(4);
+    spin_interval->setMinimum(1e-20);
+    spin_interval->setMaximum(1e+20);
+    spin_interval->setSuffix(QSL(" s"));
+    spin_interval->setValue(m_rms->getSamplingInterval());
+
+    auto gb_calibration = new QGroupBox(QSL("Rate Value Scaling (y-axis)"));
+    {
+        auto l = new QFormLayout(gb_calibration);
+        l->setContentsMargins(2, 2, 2, 2);
+        l->addRow(QSL("Calibration Factor"), spin_factor);
+        l->addRow(QSL("Calibration Offset"), spin_offset);
+
+        auto label = new QLabel(QSL("resulting_rate = input_rate * factor + offset"));
+        label->setFont(make_monospace_font());
+        l->addRow(label);
+    }
+
+    auto gb_samplingInterval = new QGroupBox(QSL("Sampling Interval (x-axis scaling)"));
+    {
+        auto l = new QFormLayout(gb_samplingInterval);
+        l->setContentsMargins(2, 2, 2, 2);
+        l->addRow(QSL("Interval"), spin_interval);
+        auto label = new QLabel(QSL(
+                "Note: Does not affect the systems sampling frequency, only"
+                " the x-axis time scale.\n"
+                "For CounterDifference and PrecalculatedRate type samplers"
+                " the sampling frequency is determined by the trigger rate"
+                " of the corresponding VME event.\n"
+                "FlowRate sampling is based on (replay) timeticks."
+                ));
+        label->setWordWrap(true);
+        l->addRow(label);
+    }
+
+    // populate the layouts
+
+    auto *formLayout = new QFormLayout;
+    formLayout->setContentsMargins(2, 2, 2, 2);
     formLayout->addRow(QSL("Name"), le_name);
     formLayout->addRow(QSL("Type"), combo_type);
     formLayout->addRow(QSL("Description"), stack_descriptions);
     formLayout->addRow(QSL("Max samples"), spin_capacity);
     formLayout->addRow(QSL("Unit Label"), le_unit);
-    formLayout->addRow(QSL("Calibration Factor"), spin_factor);
-    formLayout->addRow(QSL("Calibration Offset"), spin_offset);
+    formLayout->addRow(gb_calibration);
+    formLayout->addRow(gb_samplingInterval);
+
+    auto widgetLayout = new QVBoxLayout(this);
+    widgetLayout->setContentsMargins(0, 0, 0, 0);
+
+    widgetLayout->addLayout(formLayout);
 }
 
 void RateMonitorConfigWidget::configureOperator()
@@ -2630,6 +2674,7 @@ void RateMonitorConfigWidget::configureOperator()
     m_rms->setUnitLabel(le_unit->text());
     m_rms->setCalibrationFactor(spin_factor->value());
     m_rms->setCalibrationOffset(spin_offset->value());
+    m_rms->setSamplingInterval(spin_interval->value());
 }
 
 void RateMonitorConfigWidget::inputSelected(s32 slotIndex)
@@ -2658,6 +2703,7 @@ void RateMonitorConfigWidget::inputSelected(s32 slotIndex)
                 break;
         }
 
+        QSignalBlocker sb(le_name);
         le_name->setText(name);
     }
 
