@@ -1,9 +1,0 @@
-[submodule "3rdparty/exprtk"]
-	path = 3rdparty/exprtk
-	url = https://github.com/ArashPartow/exprtk
-[submodule "3rdparty/zstr"]
-	path = 3rdparty/zstr
-	url = https://github.com/mateidavid/zstr
-[submodule "3rdparty/mustache"]
-	path = 3rdparty/mustache
-	url = https://github.com/kainjow/Mustache
