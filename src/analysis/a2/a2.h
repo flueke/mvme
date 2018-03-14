@@ -478,8 +478,43 @@ Operator make_rate_monitor(
 
 enum class ExportSinkFormat
 {
-    Plain,
+    /* Writes whole arrays with a size prefix. Use if all channels respond for
+     * every event. In this case the output data will be smaller than the
+     * indexed format. */
+    Full,
+
+    /* Writes a size prefix and two arrays, the first containing the parameter
+     * indices, the second the coressponding values. Only valid values are
+     * written out.
+     * Use this if only a couple of channels respond per event. In this case it
+     * will produce much smaller data than the Plain format. */
     Indexed,
+};
+
+struct ExportSinkData
+{
+    // Output filename. May include a path. Is relative to the application
+    // working directory which is the workspace directory.
+    std::string filename;
+
+    //  0:  turn of compression; makes this operator write directly to the output file
+    // -1:  Z_DEFAULT_COMPRESSION
+    //  1:  Z_BEST_SPEED
+    //  9:  Z_BEST_COMPRESSION
+    int compressionLevel;
+
+    // The lowest level output stream. Right now always a std::ofstream
+    // working on this operators output filename.
+    std::unique_ptr<std::ostream> ostream;
+
+    // stream buffer used for compression.
+    std::unique_ptr<std::streambuf> z_streambuf;
+
+    // ostream used when compression is enabled.
+    std::unique_ptr<std::ostream> z_ostream;
+
+    // The current timetick. Updated in a2_timetick()
+    u32 timetick = 0;
 };
 
 Operator make_export_sink(

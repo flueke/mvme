@@ -2261,9 +2261,9 @@ static void debug_samplers(const TypedBlock<RateSampler *, s32> &samplers, const
                 prefix,
                 i,
                 sampler,
-                sampler->rateHistory.get(),
-                sampler->rateHistory->capacity(),
-                sampler->rateHistory->size()
+                &sampler->rateHistory,
+                sampler->rateHistory.capacity(),
+                sampler->rateHistory.size()
                );
     }
 }
@@ -2401,8 +2401,8 @@ void rate_monitor_sample_flow(Operator *op)
 
         a2_trace_np("  [%d] lastRate=%lf, history size =%lf, history capacity=%lf\n",
                     idx, sampler->lastRate,
-                    static_cast<double>(sampler->rateHistory ? sampler->rateHistory->size() : 0u),
-                    static_cast<double>(sampler->rateHistory ? sampler->rateHistory->capacity() : 0u)
+                    static_cast<double>(sampler->rateHistory.size()),
+                    static_cast<double>(sampler->rateHistory.capacity())
                    );
     }
 }
@@ -2410,32 +2410,6 @@ void rate_monitor_sample_flow(Operator *op)
 //
 // ExportSink
 //
-
-struct ExportSinkData
-{
-    // Output filename. May include a path. Is relative to the application
-    // working directory which is the workspace directory.
-    std::string filename;
-
-    //  0:  turn of compression; makes this operator write directly to the output file
-    // -1:  Z_DEFAULT_COMPRESSION
-    //  1:  Z_BEST_SPEED
-    //  9:  Z_BEST_COMPRESSION
-    int compressionLevel;
-
-    // The lowest level output stream. Right now always a std::ofstream
-    // working on this operators output filename.
-    std::unique_ptr<std::ostream> ostream;
-
-    // stream buffer used for compression.
-    std::unique_ptr<std::streambuf> z_streambuf;
-
-    // ostream used when compression is enabled.
-    std::unique_ptr<std::ostream> z_ostream;
-
-    // The current timetick. Updated in a2_timetick()
-    u32 timetick = 0;
-};
 
 Operator make_export_sink(
     memory::Arena *arena,
@@ -2448,8 +2422,8 @@ Operator make_export_sink(
 
     switch (format)
     {
-        case ExportSinkFormat::Plain:
-            result = make_operator(arena, Operator_ExportSinkPlain, inputs.size, 0);
+        case ExportSinkFormat::Full:
+            result = make_operator(arena, Operator_ExportSinkFull, inputs.size, 0);
             break;
         case ExportSinkFormat::Indexed:
             result = make_operator(arena, Operator_ExportSinkIndexed, inputs.size, 0);
@@ -2474,7 +2448,7 @@ static const size_t CompressionBufferSize = 1u << 20;
 
 // TODO: make sure zlib error handling and reporting works. exceptions need to be caught (and maybe wrapped)!
 
-/* NOTE: Error handling in the ExportSink
+/* NOTE: About error handling in the ExportSink:
  * - std::ofstream by default has exceptions disabled. The method rdstate() can
  *   be used to query the status of the error bits after each operation.
  *
@@ -2484,42 +2458,47 @@ static const size_t CompressionBufferSize = 1u << 20;
  * > The export sink code enables exceptions both for the low level ofstream
  *   and for the zstr ostream.
  *
- *   All I/O operations must be wrapped in a try/catch block. Upon catching an
- *   exception the stream objects error bits are queried via rdstate() and
- *   copied to ExportSinkData.
+ *   All I/O operations must be wrapped in a try/catch block. Additionally any
+ *   further I/O operations are only performed if the good() method of the
+ *   stream returns true. This means after the first I/O exception is caught no
+ *   further attempts at writing to the file are performed.
  */
 
 void export_sink_begin_run(Operator *op)
 {
     a2_trace("\n");
-    assert(op->type == Operator_ExportSinkPlain
+    assert(op->type == Operator_ExportSinkFull
            || op->type == Operator_ExportSinkIndexed);
 
     auto d = reinterpret_cast<ExportSinkData *>(op->d);
 
     d->ostream.reset(new std::ofstream(d->filename, std::ios::binary | std::ios::trunc));
 
-    // enable ios exceptions
-    d->ostream->exceptions(std::ios::failbit | std::ios::badbit);
-    //d->ostream->exceptions(std::ios::goodbit);
-
-    if (d->compressionLevel != 0)
+    // Enable ios exceptions for the lowest level output stream. This operation can throw.
+    try
     {
-        d->z_streambuf.reset(new zstr::ostreambuf(
-                d->ostream->rdbuf(), CompressionBufferSize, d->compressionLevel));
+        d->ostream->exceptions(std::ios::failbit | std::ios::badbit);
 
-        d->z_ostream.reset(new zstr::ostream(d->z_streambuf.get()));
+        if (d->compressionLevel != 0)
+        {
+            d->z_streambuf.reset(new zstr::ostreambuf(
+                    d->ostream->rdbuf(), CompressionBufferSize, d->compressionLevel));
 
-        // zstr has exceptions enabled by default
-        d->z_ostream->exceptions(std::ios::failbit | std::ios::badbit);
-        //d->z_ostream->exceptions(std::ios::goodbit);
+            d->z_ostream.reset(new zstr::ostream(d->z_streambuf.get()));
+
+            // NOTE: zstr::ostream has exceptions enabled by default
+        }
+    }
+    catch (const std::exception &e)
+    {
+        cerr << __PRETTY_FUNCTION__ << ": exception caught: " << e.what() << endl; // FIXME: error reporting
     }
 }
 
-void export_sink_plain_step(Operator *op)
+void export_sink_full_step(Operator *op)
 {
     a2_trace("\n");
-    assert(op->type == Operator_ExportSinkPlain);
+    assert(op->type == Operator_ExportSinkFull);
 
     auto d = reinterpret_cast<ExportSinkData *>(op->d);
 
@@ -2539,21 +2518,37 @@ void export_sink_plain_step(Operator *op)
 
     assert(outp);
 
-    if (outp->good())
+    try
     {
-        outp->write(reinterpret_cast<char *>(&d->timetick), sizeof(u32));
-
-        for (s32 inputIndex = 0;
-             inputIndex < op->inputCount && outp->good();
-             inputIndex++)
+        if (outp->good())
         {
-            auto input = op->inputs[inputIndex];
-            outp->write(reinterpret_cast<char *>(input.data), input.size * sizeof(double));
+            outp->write(reinterpret_cast<char *>(&d->timetick), sizeof(u32));
+
+            for (s32 inputIndex = 0;
+                 inputIndex < op->inputCount && outp->good();
+                 inputIndex++)
+            {
+                auto input = op->inputs[inputIndex];
+                assert(input.size <= std::numeric_limits<u16>::max());
+
+                // u16 size prefix, followed by input.size double values
+                u16 sizePrefix = static_cast<u16>(input.size);
+                outp->write(reinterpret_cast<char *>(&sizePrefix), sizeof(sizePrefix));
+                outp->write(reinterpret_cast<char *>(input.data), input.size * sizeof(double));
+            }
         }
+        else
+        {
+            cerr << __PRETTY_FUNCTION__ << ": did not write data as !outp->good()" << endl;
+        }
+    }
+    catch (const std::exception &e)
+    {
+        cerr << __PRETTY_FUNCTION__ << ": exception caught: " << e.what() << endl; // FIXME: error reporting
     }
 }
 
-static void write_indexed_vector(std::ostream &out, const ParamVec &vec)
+static void write_indexed_parameter_vector(std::ostream &out, const ParamVec &vec)
 {
     assert(vec.size >= 0);
     assert(vec.size <= std::numeric_limits<u16>::max());
@@ -2566,9 +2561,35 @@ static void write_indexed_vector(std::ostream &out, const ParamVec &vec)
             validCount++;
     }
 
-    // Write the number of (index, value) pairs as a 16-bit unsigned value.
+#if 1
+    // Write a size prefix and two arrays with length 'validCount', one
+    // containing 16-bit index values, the other containing the corresponding
+    // parameter values.
     out.write(reinterpret_cast<char *>(&validCount), sizeof(validCount));
 
+    for (u16 i = 0; i < static_cast<u16>(vec.size); i++)
+    {
+        if (is_param_valid(vec[i]))
+        {
+            // 16-bit index value
+            out.write(reinterpret_cast<char *>(&i), sizeof(i));
+        }
+    }
+
+    for (u16 i = 0; i < static_cast<u16>(vec.size); i++)
+    {
+        if (is_param_valid(vec[i]))
+        {
+            // 64-bit double value
+            out.write(reinterpret_cast<char *>(vec.data + i), sizeof(double));
+        }
+    }
+#else
+    // Write a size prefix specifying the number of (index, value) pairs as a
+    // 16-bit unsigned value.
+    out.write(reinterpret_cast<char *>(&validCount), sizeof(validCount));
+
+    // Write the (index, value) pairs.
     for (u16 i = 0; i < static_cast<u16>(vec.size); i++)
     {
         if (is_param_valid(vec[i]))
@@ -2578,6 +2599,7 @@ static void write_indexed_vector(std::ostream &out, const ParamVec &vec)
             out.write(reinterpret_cast<char *>(vec.data + i), sizeof(double));
         }
     }
+#endif
 }
 
 void export_sink_indexed_step(Operator *op)
@@ -2603,28 +2625,41 @@ void export_sink_indexed_step(Operator *op)
 
     assert(outp);
 
-    if (outp->good())
+    try
     {
-        outp->write(reinterpret_cast<char *>(&d->timetick), sizeof(u32));
-
-        for (s32 inputIndex = 0;
-             inputIndex < op->inputCount && outp->good();
-             inputIndex++)
+        if (outp->good())
         {
-            auto input = op->inputs[inputIndex];
-            write_indexed_vector(*outp, input);
+            outp->write(reinterpret_cast<char *>(&d->timetick), sizeof(u32));
+
+            for (s32 inputIndex = 0;
+                 inputIndex < op->inputCount && outp->good();
+                 inputIndex++)
+            {
+                auto input = op->inputs[inputIndex];
+                write_indexed_parameter_vector(*outp, input);
+            }
         }
+        else
+        {
+            cerr << __PRETTY_FUNCTION__ << ": did not write data as !outp->good()" << endl;
+        }
+    }
+    catch (const std::exception &e)
+    {
+        cerr << __PRETTY_FUNCTION__ << ": exception caught: " << e.what() << endl; // FIXME: error reporting
     }
 }
 
 void export_sink_end_run(Operator *op)
 {
     a2_trace("\n");
-    assert(op->type == Operator_ExportSinkPlain
+    assert(op->type == Operator_ExportSinkFull
            || op->type == Operator_ExportSinkIndexed);
 
     auto d = reinterpret_cast<ExportSinkData *>(op->d);
 
+    // The destructors being called due to clearing the unique_ptrs should not
+    // be allowed to throw.
     d->z_ostream = {};
     d->z_streambuf = {};
     d->ostream = {};
@@ -2665,7 +2700,7 @@ static const OperatorFunctions OperatorTable[OperatorTypeCount] =
     [Operator_RateMonitor_CounterDifference] = { rate_monitor_step },
     [Operator_RateMonitor_FlowRate] = { rate_monitor_step },
 
-    [Operator_ExportSinkPlain]   = { export_sink_plain_step, export_sink_begin_run, export_sink_end_run },
+    [Operator_ExportSinkFull]   = { export_sink_full_step, export_sink_begin_run, export_sink_end_run },
     [Operator_ExportSinkIndexed] = { export_sink_indexed_step, export_sink_begin_run, export_sink_end_run },
 
     [Operator_RangeFilter] = { range_filter_step },
@@ -3255,7 +3290,7 @@ void a2_timetick(A2 *a2)
             {
                 rate_monitor_sample_flow(op);
             }
-            else if (op->type == Operator_ExportSinkPlain
+            else if (op->type == Operator_ExportSinkFull
                      || op->type == Operator_ExportSinkIndexed)
             {
                 auto d = reinterpret_cast<ExportSinkData *>(op->d);

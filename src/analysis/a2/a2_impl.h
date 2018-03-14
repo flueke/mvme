@@ -45,7 +45,7 @@ enum OperatorType
     Operator_RateMonitor_CounterDifference,
     Operator_RateMonitor_FlowRate,
 
-    Operator_ExportSinkPlain,
+    Operator_ExportSinkFull,
     Operator_ExportSinkIndexed,
 
     Operator_RangeFilter,
