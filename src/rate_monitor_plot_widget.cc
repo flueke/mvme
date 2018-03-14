@@ -63,8 +63,6 @@ struct RateMonitorPlotData: public QwtSeriesData<QPointF>
 
         qDebug() << __PRETTY_FUNCTION__
             << "sample =" << i
-            << ", offset =" << offset
-            << ", bufferIndex =" << bufferIndex
             << ", buffer->size =" << rateHistory->size()
             << ", buffer->cap =" << rateHistory->capacity()
             << ", result =" << result;
@@ -80,6 +78,21 @@ struct RateMonitorPlotData: public QwtSeriesData<QPointF>
     }
 
     RateSamplerPtr sampler;
+};
+
+class RateMonitorPlotCurve: public QwtPlotCurve
+{
+    public:
+        using QwtPlotCurve::QwtPlotCurve;
+
+    protected:
+        void drawLines(QPainter *painter,
+                       const QwtScaleMap &xMap, const QwtScaleMap &yMap,
+                       const QRectF &canvasRect, int from, int to ) const
+        {
+            qDebug() << __PRETTY_FUNCTION__;
+            QwtPlotCurve::drawLines(painter, xMap, yMap, canvasRect, from, to);
+        }
 };
 
 struct RateMonitorPlotWidgetPrivate
@@ -152,7 +165,7 @@ void RateMonitorPlotWidget::addRateSampler(const RateSamplerPtr &sampler,
     assert(sampler);
     assert(m_d->m_samplers.size() == m_d->m_curves.size());
 
-    auto curve = std::make_unique<QwtPlotCurve>(title);
+    auto curve = std::make_unique<RateMonitorPlotCurve>(title);
     curve->setData(new RateMonitorPlotData(sampler));
     curve->setPen(color);
     curve->setStyle(QwtPlotCurve::Lines);
@@ -388,7 +401,7 @@ QwtPlot *RateMonitorPlotWidget::getPlot()
     return m_d->m_plot;
 }
 
-QwtPlotCurve *RateMonitorPlotWidget::getPlotCurve(const RateSamplerPtr &sampler)
+QwtPlotCurve *RateMonitorPlotWidget::getPlotCurve(const RateSamplerPtr &sampler) const
 {
     int index = m_d->m_samplers.indexOf(sampler);
 
@@ -401,7 +414,7 @@ QwtPlotCurve *RateMonitorPlotWidget::getPlotCurve(const RateSamplerPtr &sampler)
     return nullptr;
 }
 
-QwtPlotCurve *RateMonitorPlotWidget::getPlotCurve(int index)
+QwtPlotCurve *RateMonitorPlotWidget::getPlotCurve(int index) const
 {
     if (0 < index && index < m_d->m_samplers.size())
     {
@@ -412,7 +425,12 @@ QwtPlotCurve *RateMonitorPlotWidget::getPlotCurve(int index)
     return nullptr;
 }
 
-QVector<QwtPlotCurve *> RateMonitorPlotWidget::getPlotCurves()
+QVector<QwtPlotCurve *> RateMonitorPlotWidget::getPlotCurves() const
 {
     return m_d->m_curves;
+}
+
+ScrollZoomer *RateMonitorPlotWidget::getZoomer() const
+{
+    return m_d->m_zoomer;
 }

@@ -2,6 +2,11 @@
 TODO list somewhat sorted by priority
 ==================================================
 
+* Implement QwtPlotCurve subclass that handles NaN-values before passing the
+  data (in the form of a QPolygonF) to QPainter.
+  The standard solution used in other plotting libraries is to plot the
+  function segment wise, plotting nothing where NaN values are involved.
+
 --------------------------------------------------------------------------------
 Data Export Implementation
 --------------------------------------------------------------------------------

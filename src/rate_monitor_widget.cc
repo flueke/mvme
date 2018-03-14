@@ -13,6 +13,8 @@
 #include "git_sha1.h"
 #include "qt_util.h"
 #include "rate_monitor_plot_widget.h"
+#include "scrollzoomer.h"
+#include "util/assert.h"
 
 using a2::RateSamplerPtr;
 
@@ -189,6 +191,17 @@ RateMonitorWidget::RateMonitorWidget(QWidget *parent)
         m_d->m_waterMarkLabel->hide();
     }
 
+    // Reacting to zoomer changes
+    // NOTE: Using the c++11 pointer-to-member syntax for the connections does
+    // not work with qwt signals for some reason.
+    auto zoomer = m_d->m_plotWidget->getZoomer();
+    TRY_ASSERT(connect(zoomer, SIGNAL(zoomed(const QRectF &)),
+                       this, SLOT(zoomerZoomed(const QRectF &))));
+    TRY_ASSERT(connect(zoomer, &ScrollZoomer::mouseCursorMovedTo,
+                       this, &RateMonitorWidget::mouseCursorMovedToPlotCoord));
+    TRY_ASSERT(connect(zoomer, &ScrollZoomer::mouseCursorLeftPlot,
+                       this, &RateMonitorWidget::mouseCursorLeftPlot));
+
     // Main Widget Layout
     auto toolBarFrame = new QFrame;
     toolBarFrame->setFrameStyle(QFrame::StyledPanel);
@@ -296,6 +309,7 @@ void RateMonitorWidget::exportPlot()
     m_d->m_waterMarkLabel->hide();
 }
 
+// XXX: leftoff here
 void RateMonitorWidget::zoomerZoomed(const QRectF &)
 {
 }
