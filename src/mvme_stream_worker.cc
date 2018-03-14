@@ -568,7 +568,7 @@ void MVMEStreamWorker::start()
     m_d->streamProcessor.endRun();
 
     // analysis session auto save
-    // NOTE: load is done in mvme.cpp
+    // NOTE: load is currently done in MVMEContext::openWorkspace()
     auto sessionPath = m_d->context->getWorkspacePath(QSL("SessionDirectory"));
     if (!sessionPath.isEmpty())
     {
