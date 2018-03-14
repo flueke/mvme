@@ -81,15 +81,13 @@ include_directories("${CMAKE_SOURCE_DIR}/3rdparty/pcg-cpp-0.98/include/")
 
 # HDF5
 set(HDF5_USE_STATIC_LIBRARIES Off)
+find_package(HDF5 COMPONENTS CXX REQUIRED)
 
-find_package(HDF5 COMPONENTS CXX)
 if (HDF5_FOUND)
     message("-- Found HDF5 - Enabling analysis session save/load support.")
     include_directories(${HDF5_INCLUDE_DIRS})
     #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${HDF5_DEFINITIONS}")
     add_definitions(-DMVME_ENABLE_HDF5)
-else(HDF5_FOUND)
-    message("-- HDF5 not found - Disabling analysis session save/load support.")
 endif(HDF5_FOUND)
 
 # qwt

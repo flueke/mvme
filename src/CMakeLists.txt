@@ -260,9 +260,7 @@ install(TARGETS dev_listfile_tcp_sender dev_listfile_tcp_receiver DESTINATION .)
 add_mvme_executable(dev_listfile_dumper "dev_listfile_dumper.cc")
 add_mvme_executable(dev_rate_monitoring "dev_rate_monitoring.cc")
 
-if (HDF5_FOUND)
 add_mvme_executable(dev_mvme_event_processing "dev_mvme_event_processing.cc")
-endif(HDF5_FOUND)
 
 if (ENABLE_ROOT AND ROOT_FOUND)
     set(mvme_root_LIBS
