@@ -41,7 +41,6 @@ class RateMonitorWidget: public QWidget
 
     private slots:
         void replot();
-        void exportPlot();
         void zoomerZoomed(const QRectF &);
         void mouseCursorMovedToPlotCoord(QPointF);
         void mouseCursorLeftPlot();

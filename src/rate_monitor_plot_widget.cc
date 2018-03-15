@@ -18,6 +18,7 @@
 #include "scrollzoomer.h"
 #include "util/assert.h"
 #include "util/counters.h"
+#include "util.h"
 
 //
 // RateMonitorPlotWidget
@@ -105,6 +106,32 @@ struct RateMonitorPlotWidgetPrivate
     QwtPlotLegendItem m_plotLegendItem;
 };
 
+struct DateScaleFormat
+{
+    QwtDate::IntervalType interval;
+    QString format;
+};
+
+#if 0
+static const DateScaleFormat DateScaleFormatTable[] =
+{
+    { QwtDate::Millisecond,     QSL("s's' zzz'ms'") },
+    { QwtDate::Second,          QSL("m'm' s's'") },
+    { QwtDate::Minute,          QSL("H'h' m'm'") },
+    { QwtDate::Hour,            QSL("H'h' m'm'") },
+    { QwtDate::Day,             QSL("d 'd'") },
+};
+#else
+static const DateScaleFormat DateScaleFormatTable[] =
+{
+    { QwtDate::Millisecond,     QSL("H'h' m'm' s's' zzz'ms'") },
+    { QwtDate::Second,          QSL("H'h' m'm' s's'") },
+    { QwtDate::Minute,          QSL("H'h' m'm'") },
+    { QwtDate::Hour,            QSL("H'h' m'm'") },
+    { QwtDate::Day,             QSL("d 'd'") },
+};
+#endif
+
 RateMonitorPlotWidget::RateMonitorPlotWidget(QWidget *parent)
     : QWidget(parent)
     , m_d(std::make_unique<RateMonitorPlotWidgetPrivate>())
@@ -119,11 +146,13 @@ RateMonitorPlotWidget::RateMonitorPlotWidget(QWidget *parent)
         m_d->m_plot->setAxisScaleEngine(QwtPlot::xBottom, engine);
 
         auto draw = new QwtDateScaleDraw(Qt::UTC);
-        draw->setDateFormat(QwtDate::Millisecond,   QSL("H'h' m'm' s's' zzz'ms'"));
-        draw->setDateFormat(QwtDate::Second,        QSL("H'h' m'm' s's'"));
-        draw->setDateFormat(QwtDate::Minute,        QSL("H'h' m'm'"));
-        draw->setDateFormat(QwtDate::Hour,          QSL("H'h' m'm'"));
-        draw->setDateFormat(QwtDate::Day,           QSL("d 'd'"));
+
+        for (size_t i = 0; i < ArrayCount(DateScaleFormatTable); i++)
+        {
+            draw->setDateFormat(
+                DateScaleFormatTable[i].interval,
+                DateScaleFormatTable[i].format);
+        }
 
         m_d->m_plot->setAxisScaleDraw(QwtPlot::xBottom, draw);
     }
@@ -318,6 +347,7 @@ void RateMonitorPlotWidget::replot()
 
             if (haveYMinMax)
             {
+#if 0
                 qDebug() << __PRETTY_FUNCTION__
                     << "found y minmax for visible x range. auto scaling y and setting zoomBase";
                 switch (getYAxisScale())
@@ -330,6 +360,7 @@ void RateMonitorPlotWidget::replot()
                         yMax = std::pow(yMax, ScaleFactor);
                         break;
                 }
+#endif
 
                 m_d->m_plot->setAxisScale(QwtPlot::yLeft,   yMin, yMax);
                 m_d->m_zoomer->setZoomBase();
@@ -361,9 +392,9 @@ void RateMonitorPlotWidget::setYAxisScale(AxisScale scaling)
             break;
 
         case AxisScale::Logarithmic:
-            static const double LogScaleMinBound = 0.1;
+            static const double LogScaleMinBound = 1.0;
             auto scaleEngine = new QwtLogScaleEngine;
-            scaleEngine->setTransformation(new MinBoundLogTransform(LogScaleMinBound));
+            //scaleEngine->setTransformation(new MinBoundLogTransform(LogScaleMinBound));
             m_d->m_plot->setAxisScaleEngine(QwtPlot::yLeft, scaleEngine);
             m_d->m_plot->setAxisAutoScale(QwtPlot::yLeft, true);
             break;

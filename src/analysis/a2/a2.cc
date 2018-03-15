@@ -399,7 +399,6 @@ u32 *listfilter_extractor_process_module_data(DataSource *ds, u32 *data, u32 dat
     return curPtr;
 }
 
-
 /* ===============================================
  * Operators
  * =============================================== */

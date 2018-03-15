@@ -3,28 +3,41 @@
 #include "util/typedefs.h"
 
 #include <QApplication>
+#include <QPushButton>
 #include <QTimer>
 
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
 
-    const size_t BufferCapacity1 = 3600;
-    const size_t BufferCapacity2 = 750;
-    const s32 ReplotPeriod_ms = 1000;
-    const s32 NewDataPeriod_ms = 250;
-    const s32 NewDataCount = 50;
+    const size_t BufferCapacity1 = 600;
+    const size_t BufferCapacity2 = 600;
+    const size_t BufferCapacity3 = 600;
+    const size_t BufferCapacity4 = 600;
+    const s32 NewDataPeriod_ms = 100;
+    const s32 NewDataCount = 1;
 
     QVector<RateSamplerPtr> samplers;
 
-    // plot data
     auto sampler1 = std::make_shared<RateSampler>();
     sampler1->rateHistory = RateHistoryBuffer(BufferCapacity1);
+    sampler1->interval = 1.0;
     samplers.push_back(sampler1);
 
     auto sampler2 = std::make_shared<RateSampler>();
     sampler2->rateHistory = RateHistoryBuffer(BufferCapacity2);
+    sampler2->interval = 0.5;
     samplers.push_back(sampler2);
+
+    auto sampler3 = std::make_shared<RateSampler>();
+    sampler3->rateHistory = RateHistoryBuffer(BufferCapacity3);
+    sampler3->interval = 2.0;
+    samplers.push_back(sampler3);
+
+    auto sampler4 = std::make_shared<RateSampler>();
+    sampler4->rateHistory = RateHistoryBuffer(BufferCapacity4);
+    sampler4->interval = 10.0;
+    samplers.push_back(sampler4);
 
     RateMonitorWidget rmw(samplers);
 
@@ -44,7 +57,7 @@ int main(int argc, char *argv[])
     double x2 = 0.0;
 
     QTimer fillTimer;
-    // Fill rateHistory1
+
     QObject::connect(&fillTimer, &QTimer::timeout, &rmw, [&] () {
         for (s32 i = 0; i < NewDataCount; i++)
         {
@@ -55,8 +68,6 @@ int main(int argc, char *argv[])
         }
     });
 
-#if 1
-    // Fill rateHistory2
     QObject::connect(&fillTimer, &QTimer::timeout, &rmw, [&] () {
         for (s32 i = 0; i < NewDataCount; i++)
         {
@@ -65,10 +76,39 @@ int main(int argc, char *argv[])
             sampler2->record_rate(value);
         }
     });
-#endif
+
+    QObject::connect(&fillTimer, &QTimer::timeout, &rmw, [&] () {
+        for (s32 i = 0; i < NewDataCount; i++)
+        {
+            double value = (std::tan(x2 * 0.25) + SinOffset + 0.5) * SinScale;
+            x2 += SinInc + 0.125;
+            sampler3->record_rate(value);
+        }
+    });
+
+    QObject::connect(&fillTimer, &QTimer::timeout, &rmw, [&] () {
+        for (s32 i = 0; i < NewDataCount; i++)
+        {
+            double value = (std::atan(x2 * 0.25) + SinOffset + 0.5) * SinScale;
+            x2 += SinInc + 0.125;
+            sampler4->record_rate(value);
+        }
+    });
+
 
     fillTimer.setInterval(NewDataPeriod_ms);
     fillTimer.start();
+
+    QPushButton pb_pause("Pause fill timer");
+    pb_pause.setCheckable(true);
+    pb_pause.show();
+
+    QObject::connect(&pb_pause, &QPushButton::clicked, &rmw, [&] () {
+        if (pb_pause.isChecked())
+            fillTimer.stop();
+        else
+            fillTimer.start(NewDataPeriod_ms);
+    });
 
     return app.exec();
 }

@@ -7,6 +7,37 @@ TODO list somewhat sorted by priority
   The standard solution used in other plotting libraries is to plot the
   function segment wise, plotting nothing where NaN values are involved.
 
+* Rate Monitor Widget:
+  - Use unit label in y axis scale and mouse info label
+  - make sure rate values are scaled to the "middle" of the y axis
+  - improve time labels: don't show hours and minutes if time scale is less than a minute
+
+* ListFilter
+  - change wording: first word, second word instead of high and low
+  - remove repetition filter: instead always use the repetition index to
+    augment the address value. reason: the information right now is somewhat
+    redundant and the user has to enter the address bits into the repetition
+    filter
+
+* All filters: make sure address bits are <= 16. This is a reasonable limit and
+  avoids crashes due to wrong inputs into the filter fields.
+
+* SIS
+  - implement the "poll status before connect" feature. also add a button to
+    force connecting.
+
+  - check if windows tuning can be done similar to the linux sysctl stuff
+  - suppress log spam
+  - fix "no error" errors under windows. use the wsa stuff
+
+* General: suppress log spam at the source
+
+* VME config: cannot change module type sometimes. going from mqdc to mdi
+  doesn't work. Other things do work. Somethings broken there.
+
+* VME Script "Run" button: this still blocks the GUI.
+* Really do fix the analysis pause/resume interaction with the daq.
+
 --------------------------------------------------------------------------------
 Data Export Implementation
 --------------------------------------------------------------------------------

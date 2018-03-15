@@ -1,10 +1,14 @@
 #include "rate_monitor_widget.h"
 
+#include <QApplication>
 #include <QBoxLayout>
+#include <QClipboard>
 #include <QComboBox>
+#include <QMenu>
 #include <QToolBar>
 #include <QSpinBox>
 #include <QTimer>
+#include <qwt_date.h>
 #include <qwt_plot.h>
 #include <qwt_plot_renderer.h>
 #include <qwt_plot_textlabel.h>
@@ -39,14 +43,22 @@ struct RateMonitorWidgetPrivate
     QStatusBar *m_statusBar;
     QWidget *m_infoContainer;
     QLabel *m_labelCursorInfo;
-    QLabel *m_labelRateMonitorInfo;
+    QLabel *m_labelPlotInfo;
     QPointF m_cursorPosition;
+    s32 m_labelCursorInfoMaxWidth  = 0;
+    s32 m_labelCursorInfoMaxHeight = 0;
 
     QwtText m_waterMarkText;
     QwtPlotTextLabel *m_waterMarkLabel;
 
     void postConstruct();
     void selectPlot(int index);
+    void updateCursorInfoLabel();
+    void updatePlotInfoLabel();
+    void exportPlot();
+    void exportPlotToClipboard();
+
+    RateSamplerPtr currentSampler() const { return m_samplers.value(m_currentIndex); }
 };
 
 void RateMonitorWidgetPrivate::postConstruct()
@@ -60,24 +72,181 @@ void RateMonitorWidgetPrivate::postConstruct()
 void RateMonitorWidgetPrivate::selectPlot(int index)
 {
     assert(index < m_samplers.size());
-
     auto sampler = m_samplers.value(index);
 
     if (sampler)
     {
-        QString rateTitle = m_sink ? m_sink->objectName() + "." : QSL("");
-        rateTitle += QString::number(index);
+        QString xTitle = m_sink ? m_sink->objectName() + "." : QSL("");
+        xTitle += QString::number(index);
 
         m_plotWidget->removeRateSampler(0);
-        m_plotWidget->addRateSampler(sampler, rateTitle);
-        m_plotWidget->getPlot()->axisWidget(QwtPlot::xBottom)->setTitle(rateTitle);
-        assert(m_plotWidget->rateCount() == 1);
+        m_plotWidget->addRateSampler(sampler, xTitle);
+        m_plotWidget->getPlot()->axisWidget(QwtPlot::xBottom)->setTitle(xTitle);
 
-        qDebug() << __PRETTY_FUNCTION__ << "added rateSampler =" << sampler.get() << ", title =" << rateTitle;
+        QString yTitle = QSL("Rate");
+        if (m_sink && !m_sink->getUnitLabel().isEmpty())
+        {
+            yTitle = m_sink->getUnitLabel();
+        }
+        m_plotWidget->getPlot()->axisWidget(QwtPlot::yLeft)->setTitle(yTitle);
+
+        qDebug() << __PRETTY_FUNCTION__ << "added rateSampler =" << sampler.get() << ", xTitle =" << xTitle;
     }
 
     m_currentIndex = index;
     m_q->replot();
+}
+
+void RateMonitorWidgetPrivate::updateCursorInfoLabel()
+{
+    double plotX = m_cursorPosition.x();
+    double plotY = m_cursorPosition.y();
+
+    QString text;
+
+    if (!std::isnan(plotX) && !std::isnan(plotY))
+    {
+        const auto &sampler = currentSampler();
+
+        ssize_t iy = sampler->getSampleIndex(plotX / 1000.0);
+        double y   = make_quiet_nan();
+
+        if (0 <= iy && iy < static_cast<ssize_t>(sampler->historySize()))
+        {
+            y = sampler->getSample(iy);
+        }
+
+        /* To format the x-axis time value the plots axis scale draw is used.
+         * This ensure the same formatting on the axis scale and the info
+         * label. */
+        auto scaleDraw  = m_plotWidget->getPlot()->axisScaleDraw(QwtPlot::xBottom);
+        QString xString = scaleDraw->label(plotX).text();
+        QString yUnit   = m_sink ? m_sink->getUnitLabel() : QSL("");
+
+        text = (QString("x=%1\n"
+                        "y=%2 %3\n"
+                        "sampleIndex=%4"
+                       )
+                .arg(xString)
+                .arg(y)
+                .arg(yUnit)
+                .arg(iy)
+               );
+    }
+
+    // update the label which will calculate a new width
+    m_labelCursorInfo->setText(text);
+
+    // use the largest width and height the label ever had to stop the label from constantly changing its width
+    if (m_labelCursorInfo->isVisible())
+    {
+        m_labelCursorInfoMaxWidth = std::max(m_labelCursorInfoMaxWidth, m_labelCursorInfo->width());
+        m_labelCursorInfo->setMinimumWidth(m_labelCursorInfoMaxWidth);
+
+        m_labelCursorInfo->setMinimumHeight(m_labelCursorInfoMaxHeight);
+        m_labelCursorInfoMaxHeight = std::max(m_labelCursorInfoMaxHeight, m_labelCursorInfo->height());
+    }
+}
+
+void RateMonitorWidgetPrivate::updatePlotInfoLabel()
+{
+    const auto &sampler = currentSampler();
+
+    auto infoText = (QString(
+            "Capacity:  %1\n"
+            "Size:      %2\n"
+            "# Samples: %3\n"
+            "Interval:  %4"
+            )
+        .arg(sampler->historyCapacity())
+        .arg(sampler->historySize())
+        .arg(sampler->totalSamples)
+        .arg(sampler->interval)
+        );
+
+    m_labelPlotInfo->setText(infoText);
+}
+
+void RateMonitorWidgetPrivate::exportPlot()
+{
+    auto &sink(m_sink);
+
+    if (!sink) return;
+
+    QString fileName = sink->objectName();
+    fileName.replace("/", "_");
+    fileName.replace("\\", "_");
+    fileName += QSL(".pdf");
+
+    fileName = m_exportDirectory.filePath(fileName);
+
+    QwtPlot *plot = m_plotWidget->getPlot();
+
+    // temporarily show title, footer and watermark on the plot
+    plot->setTitle(sink->objectName());
+
+#if 0
+    // TODO: figure out what this contains for histograms and clone that functionality here
+    QString footerString = m_histo->getFooter();
+    QwtText footerText(footerString);
+    footerText.setRenderFlags(Qt::AlignLeft);
+    m_d->m_plot->setFooter(footerText);
+#endif
+    m_waterMarkLabel->show();
+
+    // do the export
+    QwtPlotRenderer renderer;
+    renderer.setDiscardFlags(QwtPlotRenderer::DiscardBackground | QwtPlotRenderer::DiscardCanvasBackground);
+    renderer.setLayoutFlag(QwtPlotRenderer::FrameWithScales);
+    renderer.exportTo(plot, fileName);
+
+    // clear title and footer, hide watermark
+    plot->setTitle(QString());
+    plot->setFooter(QString());
+    m_waterMarkLabel->hide();
+}
+
+void RateMonitorWidgetPrivate::exportPlotToClipboard()
+{
+    auto &sink(m_sink);
+
+    if (!sink) return;
+
+    QString fileName = sink->objectName();
+    fileName.replace("/", "_");
+    fileName.replace("\\", "_");
+    fileName += QSL(".pdf");
+
+    fileName = m_exportDirectory.filePath(fileName);
+
+    QwtPlot *plot = m_plotWidget->getPlot();
+
+    // temporarily show title, footer and watermark on the plot
+    plot->setTitle(sink->objectName());
+
+#if 0
+    // TODO: figure out what this contains for histograms and clone that functionality here
+    QString footerString = m_histo->getFooter();
+    QwtText footerText(footerString);
+    footerText.setRenderFlags(Qt::AlignLeft);
+    m_d->m_plot->setFooter(footerText);
+#endif
+    m_waterMarkLabel->show();
+
+    QSize size(1024, 768);
+    QImage image(size, QImage::Format_ARGB32_Premultiplied);
+    image.fill(0);
+
+    QwtPlotRenderer renderer;
+    renderer.setDiscardFlags(QwtPlotRenderer::DiscardBackground | QwtPlotRenderer::DiscardCanvasBackground);
+    renderer.setLayoutFlag(QwtPlotRenderer::FrameWithScales);
+    renderer.renderTo(plot, image);
+
+    plot->setTitle(QString());
+    plot->setFooter(QString());
+    m_waterMarkLabel->hide();
+
+    QApplication::clipboard()->setImage(image);
 }
 
 RateMonitorWidget::RateMonitorWidget(QWidget *parent)
@@ -128,12 +297,42 @@ RateMonitorWidget::RateMonitorWidget(QWidget *parent)
         }
     });
 
-    // export
     QAction *action = nullptr;
-    action = tb->addAction(QIcon(":/document-pdf.png"), QSL("Export"), this, &RateMonitorWidget::exportPlot);
-    action->setStatusTip(QSL("Export plot to a PDF or image file"));
 
-    // Spinbox for cycling through samplers. Added to the toolbar.
+    // export
+    {
+        auto menu = new QMenu(this);
+        menu->addAction(QSL("to file"), this, [this] { m_d->exportPlot(); });
+        menu->addAction(QSL("to clipboard"), this, [this] { m_d->exportPlotToClipboard(); });
+
+        auto button = make_toolbutton(QSL(":/document-pdf.png"), QSL("Export"));
+        button->setStatusTip(QSL("Export plot to a PDF or image file"));
+        button->setMenu(menu);
+        button->setPopupMode(QToolButton::InstantPopup);
+
+        tb->addWidget(button);
+    }
+
+    // Info button
+    action = tb->addAction(QIcon(":/info.png"), QSL("Info"));
+    action->setCheckable(true);
+
+    connect(action, &QAction::toggled, this, [this](bool b) {
+        /* I did not manage to get the statusbar to resize to the smallest
+         * possible size after hiding m_infoContainer. I tried
+         * - setSizeConstraint(QLayout::SetFixedSize) on the container layout and on the statusbar layout
+         * - calling adjustSize() on container and statusbar
+         * but neither did resize the statusbar once the container was hidden.
+         *
+         * The quick fix is to hide/show the containers children explicitly.
+         */
+        for (auto childWidget: m_d->m_infoContainer->findChildren<QWidget *>())
+        {
+            childWidget->setVisible(b);
+        }
+    });
+
+    // Plot selection spinbox
     {
         auto spin_plotIndex = new QSpinBox;
         m_d->m_spin_plotIndex = spin_plotIndex;
@@ -148,9 +347,9 @@ RateMonitorWidget::RateMonitorWidget(QWidget *parent)
     // Statusbar and info widgets
     m_d->m_statusBar = make_statusbar();
     m_d->m_labelCursorInfo = new QLabel;
-    m_d->m_labelRateMonitorInfo = new QLabel;
+    m_d->m_labelPlotInfo = new QLabel;
 
-    for (auto label: { m_d->m_labelCursorInfo, m_d->m_labelRateMonitorInfo})
+    for (auto label: { m_d->m_labelCursorInfo, m_d->m_labelPlotInfo})
     {
         label->setAlignment(Qt::AlignLeft | Qt::AlignTop);
         set_widget_font_pointsize(label, 7);
@@ -163,7 +362,7 @@ RateMonitorWidget::RateMonitorWidget(QWidget *parent)
         layout->setContentsMargins(0, 0, 0, 0);
         layout->setSpacing(1);
         layout->addWidget(m_d->m_labelCursorInfo);
-        layout->addWidget(m_d->m_labelRateMonitorInfo);
+        layout->addWidget(m_d->m_labelPlotInfo);
 
         for (auto childWidget: m_d->m_infoContainer->findChildren<QWidget *>())
         {
@@ -268,58 +467,24 @@ void RateMonitorWidget::replot()
     }
 
     m_d->m_plotWidget->replot();
+    m_d->updatePlotInfoLabel();
 }
 
-void RateMonitorWidget::exportPlot()
-{
-    assert(m_d->m_sink);
-
-    auto &sink(m_d->m_sink);
-
-    QString fileName = sink->objectName();
-    fileName.replace("/", "_");
-    fileName.replace("\\", "_");
-    fileName += QSL(".pdf");
-
-    fileName = m_d->m_exportDirectory.filePath(fileName);
-
-    QwtPlot *plot = m_d->m_plotWidget->getPlot();
-
-    // temporarily show title, footer and watermark on the plot
-    plot->setTitle(sink->objectName());
-
-#if 0
-    // TODO: figure out what this contains for histograms and clone that functionality here
-    QString footerString = m_histo->getFooter();
-    QwtText footerText(footerString);
-    footerText.setRenderFlags(Qt::AlignLeft);
-    m_d->m_plot->setFooter(footerText);
-#endif
-    m_d->m_waterMarkLabel->show();
-
-    // do the export
-    QwtPlotRenderer renderer;
-    renderer.setDiscardFlags(QwtPlotRenderer::DiscardBackground | QwtPlotRenderer::DiscardCanvasBackground);
-    renderer.setLayoutFlag(QwtPlotRenderer::FrameWithScales);
-    renderer.exportTo(plot, fileName);
-
-    // clear title and footer, hide watermark
-    plot->setTitle(QString());
-    plot->setFooter(QString());
-    m_d->m_waterMarkLabel->hide();
-}
-
-// XXX: leftoff here
 void RateMonitorWidget::zoomerZoomed(const QRectF &)
 {
+    replot();
 }
 
-void RateMonitorWidget::mouseCursorMovedToPlotCoord(QPointF)
+void RateMonitorWidget::mouseCursorMovedToPlotCoord(QPointF pos)
 {
+    m_d->m_cursorPosition = pos;
+    m_d->updateCursorInfoLabel();
 }
 
 void RateMonitorWidget::mouseCursorLeftPlot()
 {
+    m_d->m_cursorPosition = QPointF(make_quiet_nan(), make_quiet_nan());
+    m_d->updateCursorInfoLabel();
 }
 
 void RateMonitorWidget::updateStatistics()

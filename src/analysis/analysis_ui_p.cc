@@ -2654,7 +2654,7 @@ RateMonitorConfigWidget::RateMonitorConfigWidget(RateMonitorSink *rms, s32 userL
     formLayout->addRow(QSL("Type"), combo_type);
     formLayout->addRow(QSL("Description"), stack_descriptions);
     formLayout->addRow(QSL("Max samples"), spin_capacity);
-    formLayout->addRow(QSL("Unit Label"), le_unit);
+    formLayout->addRow(QSL("Y-Axis Label"), le_unit);
     formLayout->addRow(gb_calibration);
     formLayout->addRow(gb_samplingInterval);
 
