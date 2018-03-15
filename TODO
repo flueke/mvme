@@ -8,16 +8,19 @@ TODO list somewhat sorted by priority
   function segment wise, plotting nothing where NaN values are involved.
 
 * Rate Monitor Widget:
-  - Use unit label in y axis scale and mouse info label
   - make sure rate values are scaled to the "middle" of the y axis
   - improve time labels: don't show hours and minutes if time scale is less than a minute
+  -> This has the problem that if you look at a window of the last 60
+  seconds, in a run that's over an hour long you won't see the hour number. You
+  lose the information that you're in hour 1 plus x in the run.
+    I could check if the scale is past a threshold and then switch the formatting.
 
-* ListFilter
-  - change wording: first word, second word instead of high and low
-  - remove repetition filter: instead always use the repetition index to
-    augment the address value. reason: the information right now is somewhat
-    redundant and the user has to enter the address bits into the repetition
-    filter
+    if (elapsed_time > 1 hour)
+        set scale for intervals below the hour threshold to show hours
+    else
+        use a scale that hides the hours
+
+    Does the same problem happen for other intervals?
 
 * All filters: make sure address bits are <= 16. This is a reasonable limit and
   avoids crashes due to wrong inputs into the filter fields.
@@ -33,7 +36,7 @@ TODO list somewhat sorted by priority
 * General: suppress log spam at the source
 
 * VME config: cannot change module type sometimes. going from mqdc to mdi
-  doesn't work. Other things do work. Somethings broken there.
+  doesn't work. Other things do work. Something is broken there.
 
 * VME Script "Run" button: this still blocks the GUI.
 * Really do fix the analysis pause/resume interaction with the daq.
@@ -61,13 +64,11 @@ make sure there are no duplicate filenames in the analysis.
 * The user might want the data from different sources in different files
   aswell.
 
-!!! Easy with the ExportSink implementation: add another sink and select a
-different filename.
+  Easy with the ExportSink implementation: add another sink and select a
+  different filename.
 
 * To be able to synchronize the data from multiple files each event could carry
   the current timetick.
-
-!!! Yes, keeping the timetick value is ok.
 
 * Assuming one file per event:
 e0                              implicit event index
@@ -86,12 +87,6 @@ op0
 
 op1
   op1.0
-
-Each operator in the event can be selected for export. Use the order of the
-operators in the a2 system. This is a stable order and makes it easy to write
-the data out at the end of each event step (a2_end_event()).
-
-!!! Not needed. Just use the order of the inputs of the ExportSink operator.
 
   /* Make it packed, no padding wanted. */
   struct Event
@@ -141,6 +136,7 @@ inside the export data file or added to the export header.
 
 
 * binary format with generated c header file
+* python layer
 * text format with structure description in a header section
   - printf format string for doubles: use something that does not lose precision when read back in
 * compression for both formats

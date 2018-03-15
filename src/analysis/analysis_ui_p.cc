@@ -452,6 +452,7 @@ static ListFilterEditor make_listfilter_editor(QWidget *parent = nullptr)
 
     on_wordSize_selected(0);
 
+    // React to changes to the number of input data words consumed.
     auto on_number_of_bits_changed = [e]()
     {
 #if 1
