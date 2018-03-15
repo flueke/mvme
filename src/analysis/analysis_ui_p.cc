@@ -341,8 +341,7 @@ struct ListFilterEditor
 
     QLineEdit *le_name,
               *filter_lowWord,
-              *filter_highWord,
-              *filter_repIndex;
+              *filter_highWord;
 
     QComboBox *combo_wordSize;
 
@@ -376,8 +375,6 @@ static a2::ListFilterExtractor listfilter_editor_make_a2_extractor(ListFilterEdi
 
     auto listFilter = listfilter_editor_make_a2_listfilter(e);
 
-    auto repFilter = make_filter(e.filter_repIndex->text().toStdString());
-
     a2::DataSourceOptions::opt_t options = 0;
 
     if (!e.cb_addRandom->isChecked())
@@ -385,7 +382,6 @@ static a2::ListFilterExtractor listfilter_editor_make_a2_extractor(ListFilterEdi
 
     a2::ListFilterExtractor ex_a2 = a2::make_listfilter_extractor(
         listFilter,
-        repFilter,
         e.spin_repetitions->value(),
         0,
         options);
@@ -424,7 +420,6 @@ static ListFilterEditor make_listfilter_editor(QWidget *parent = nullptr)
     e.spin_wordCount = new QSpinBox;
     e.filter_lowWord = makeFilterEdit();
     e.filter_highWord = makeFilterEdit();
-    e.filter_repIndex = makeFilterEdit();
     e.combo_wordSize = new QComboBox;
     e.cb_swapWords = new QCheckBox;
     e.cb_addRandom = new QCheckBox;
@@ -459,7 +454,7 @@ static ListFilterEditor make_listfilter_editor(QWidget *parent = nullptr)
 
     auto on_number_of_bits_changed = [e]()
     {
-#if 0 // FIXME: leftoff here
+#if 1
         auto flags          = static_cast<ListFilter::Flag>(e.combo_wordSize->currentData().toInt());
         auto wordCount      = e.spin_wordCount->value();
         size_t combinedBits = ((flags & a2::data_filter::ListFilter::WordSize32) ? 32 : 16) * wordCount;
@@ -475,17 +470,11 @@ static ListFilterEditor make_listfilter_editor(QWidget *parent = nullptr)
         qDebug() << __PRETTY_FUNCTION__ << "loBits" << loBits << "loMask =" << loMask;
         qDebug() << __PRETTY_FUNCTION__ << "hiBits" << hiBits << "hiMask =" << hiMask;
 
-        //auto loText = e.filter_lowWord->text();
-        //auto hiText = e.filter_highWord->text();
-
         e.filter_lowWord->setInputMask(loMask);
         e.filter_highWord->setInputMask(hiMask);
 
-        //e.filter_lowWord->setText(loText);
-        //e.filter_highWord->setText(hiText);
-
-        //e.filter_lowWord->setText(generate_pretty_filter_string(loBits, 32, 'X'));
-        //e.filter_highWord->setText(generate_pretty_filter_string(hiBits, 32, 'X'));
+        e.filter_lowWord->setText(generate_pretty_filter_string(loBits, 32, 'X'));
+        e.filter_highWord->setText(generate_pretty_filter_string(hiBits, 32, 'X'));
 #endif
     };
 
@@ -500,8 +489,6 @@ static ListFilterEditor make_listfilter_editor(QWidget *parent = nullptr)
     // filter edits
     e.filter_lowWord->setText(generate_pretty_filter_string(32, 'X'));
     e.filter_highWord->setText(generate_pretty_filter_string(32, 'X'));
-    e.filter_repIndex->setInputMask("                              NNNN NNNN");
-    e.filter_repIndex->setText(     "                              XXXX XXXX");
 
     auto update_editor = [e]() { listfilter_editor_update(e); };
 
@@ -516,7 +503,6 @@ static ListFilterEditor make_listfilter_editor(QWidget *parent = nullptr)
 
     QObject::connect(e.filter_lowWord, &QLineEdit::textChanged, e.widget, update_editor);
     QObject::connect(e.filter_highWord, &QLineEdit::textChanged, e.widget, update_editor);
-    QObject::connect(e.filter_repIndex, &QLineEdit::textChanged, e.widget, update_editor);
 
     // layout
     auto layout = new QFormLayout(e.widget);
@@ -539,9 +525,8 @@ static ListFilterEditor make_listfilter_editor(QWidget *parent = nullptr)
         auto gb_extraction = new QGroupBox("Data Extraction");
         auto layout_extraction = new QFormLayout(gb_extraction);
 
-        layout_extraction->addRow("Repetition", e.filter_repIndex);
-        layout_extraction->addRow("High word", e.filter_highWord);
-        layout_extraction->addRow("Low word", e.filter_lowWord);
+        layout_extraction->addRow("Second word", e.filter_highWord);
+        layout_extraction->addRow("First word", e.filter_lowWord);
         layout_extraction->addRow("Add Random in [0, 1)", e.cb_addRandom);
 
         layout->addRow(gb_extraction);
@@ -579,17 +564,14 @@ static void listfilter_editor_load_from_extractor(ListFilterEditor e, const List
 
     auto lo  = QString::fromStdString(to_string(listfilter.extractionFilter.filters[0]));
     auto hi  = QString::fromStdString(to_string(listfilter.extractionFilter.filters[1]));
-    auto rep = QString::fromStdString(to_string(ex_a2.repetitionAddressFilter)).right(8);
 
 #if 1
     qDebug() << "lo =" << lo
-        << "\nhi =" << hi
-        << "\nrep =" << rep;
+        << "\nhi =" << hi;
 #endif
 
     e.filter_lowWord->setText(lo);
     e.filter_highWord->setText(hi);
-    e.filter_repIndex->setText(rep);
 
     listfilter_editor_update(e);
 }
@@ -942,9 +924,7 @@ void ListFilterExtractorDialog::newFilter()
             "XXXX XXXX XXXX XXXX XXXX XXXX AAAA AAAA",
             "XXXX XXXX XXXX XXXX DDDD DDDD DDDD DDDD" });
 
-    auto repFilter = a2::data_filter::make_filter("XXXX XXXX");
-
-    auto ex_a2 = a2::make_listfilter_extractor(listFilter, repFilter, 1, 0);
+    auto ex_a2 = a2::make_listfilter_extractor(listFilter, 1, 0);
     ex_a2.options = a2::DataSourceOptions::NoAddedRandom;
 
     ex->setExtractor(ex_a2);

@@ -866,7 +866,6 @@ void a2_adapter_build_extractors(
                 ds = a2::make_datasource_listfilter_extractor(
                     arena,
                     ex->getExtractor().listFilter,
-                    ex->getExtractor().repetitionAddressFilter,
                     ex->getExtractor().repetitions,
                     ex->getRngSeed(),
                     src.moduleIndex);

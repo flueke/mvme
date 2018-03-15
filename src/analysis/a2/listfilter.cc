@@ -37,7 +37,7 @@ u64 combine(ListFilter *cf, const u32 *data, u32 count)
     return result;
 }
 
-ListFilterResult extract_from_combined(ListFilter *cf, const u64 combined, MultiWordFilter::CacheType cacheType)
+ListFilterSingleResult extract_from_combined(ListFilter *cf, const u64 combined, MultiWordFilter::CacheType cacheType)
 {
     assert(!is_complete(&cf->extractionFilter));
     //printf("d0=%lx, d1=%lx\n", combined, combined >> 32);
@@ -49,7 +49,7 @@ ListFilterResult extract_from_combined(ListFilter *cf, const u64 combined, Multi
     return std::make_pair(result, matched);
 }
 
-ListFilterResult combine_and_extract(ListFilter *cf, const u32 *data, u32 count, MultiWordFilter::CacheType cacheType)
+ListFilterSingleResult combine_and_extract(ListFilter *cf, const u32 *data, u32 count, MultiWordFilter::CacheType cacheType)
 {
     assert(!is_complete(&cf->extractionFilter));
     u64 combined = combine(cf, data, count);
@@ -82,6 +82,25 @@ ListFilter make_listfilter(ListFilter::Flag flags,
     {
         add_subfilter(&result.extractionFilter, make_filter(filterStrings[i]));
     }
+
+    return result;
+}
+
+ListFilterResult extract_address_and_value_from_combined(ListFilter *cf,
+                                                         const u64 combined)
+{
+    assert(!is_complete(&cf->extractionFilter));
+
+    ListFilterResult result;
+
+    process_data(&cf->extractionFilter, static_cast<u32>(combined));
+    process_data(&cf->extractionFilter, static_cast<u32>(combined >> 32));
+
+    result.matched = is_complete(&cf->extractionFilter);
+    result.address = result.matched ? extract(&cf->extractionFilter, MultiWordFilter::CacheA) : 0;
+    result.value   = result.matched ? extract(&cf->extractionFilter, MultiWordFilter::CacheD) : 0;
+
+    clear_completion(&cf->extractionFilter);
 
     return result;
 }

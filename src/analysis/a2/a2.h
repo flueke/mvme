@@ -114,18 +114,19 @@ struct Extractor
     DataSourceOptions::opt_t options;
 };
 
+size_t get_address_count(Extractor *ex);
+
 struct ListFilterExtractor
 {
     data_filter::ListFilter listFilter;
-    data_filter::DataFilter repetitionAddressFilter;
-    data_filter::CacheEntry repetitionAddressCache;
     pcg32_fast rng;
     u8 repetitions;
     DataSourceOptions::opt_t options;
 };
 
+size_t get_base_address_bits(ListFilterExtractor *ex);
+size_t get_repetition_address_bits(ListFilterExtractor *ex);
 size_t get_address_bits(ListFilterExtractor *ex);
-size_t get_address_count(Extractor *ex);
 size_t get_address_count(ListFilterExtractor *ex);
 
 Extractor make_extractor(
@@ -144,7 +145,6 @@ DataSource make_datasource_extractor(
 
 ListFilterExtractor make_listfilter_extractor(
     data_filter::ListFilter listFilter,
-    data_filter::DataFilter repetitionAddressFilter,
     u8 repetitions,
     u64 rngSeed,
     DataSourceOptions::opt_t options = 0);
@@ -152,7 +152,6 @@ ListFilterExtractor make_listfilter_extractor(
 DataSource make_datasource_listfilter_extractor(
     memory::Arena *arena,
     data_filter::ListFilter listFilter,
-    data_filter::DataFilter repetitionAddressFilter,
     u8 repetitions,
     u64 rngSeed,
     u8 moduleIndex,

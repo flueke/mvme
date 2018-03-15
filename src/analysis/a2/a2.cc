@@ -162,10 +162,22 @@ size_t get_address_count(Extractor *ex)
     return 1u << bits;
 }
 
-size_t get_address_bits(ListFilterExtractor *ex)
+size_t get_base_address_bits(ListFilterExtractor *ex)
 {
     size_t baseAddressBits = get_extract_bits(&ex->listFilter, MultiWordFilter::CacheA);
-    size_t repAddressBits  = ex->repetitionAddressCache.extractBits;
+    return baseAddressBits;
+}
+
+size_t get_repetition_address_bits(ListFilterExtractor *ex)
+{
+    size_t result = static_cast<size_t>(std::ceil(std::log2(ex->repetitions)));
+    return result;
+}
+
+size_t get_address_bits(ListFilterExtractor *ex)
+{
+    size_t baseAddressBits = get_base_address_bits(ex);
+    size_t repAddressBits  = get_repetition_address_bits(ex);
     size_t bits = baseAddressBits + repAddressBits;
     return bits;
 }
@@ -279,7 +291,6 @@ void extractor_process_module_data(DataSource *ds, u32 *data, u32 size)
 // ListFilterExtractor
 ListFilterExtractor make_listfilter_extractor(
     data_filter::ListFilter listFilter,
-    data_filter::DataFilter repetitionAddressFilter,
     u8 repetitions,
     u64 rngSeed,
     DataSourceOptions::opt_t options)
@@ -287,8 +298,6 @@ ListFilterExtractor make_listfilter_extractor(
     ListFilterExtractor ex = {};
 
     ex.listFilter = listFilter;
-    ex.repetitionAddressFilter = repetitionAddressFilter;
-    ex.repetitionAddressCache = make_cache_entry(repetitionAddressFilter, 'A');
     ex.rng.seed(rngSeed);
     ex.repetitions = repetitions;
     ex.options = options;
@@ -299,7 +308,6 @@ ListFilterExtractor make_listfilter_extractor(
 DataSource make_datasource_listfilter_extractor(
     memory::Arena *arena,
     data_filter::ListFilter listFilter,
-    data_filter::DataFilter repetitionAddressFilter,
     u8 repetitions,
     u64 rngSeed,
     u8 moduleIndex,
@@ -309,7 +317,7 @@ DataSource make_datasource_listfilter_extractor(
     result.type = DataSource_ListFilterExtractor;
 
     auto ex = arena->pushStruct<ListFilterExtractor>();
-    *ex = make_listfilter_extractor(listFilter, repetitionAddressFilter, repetitions, rngSeed, options);
+    *ex = make_listfilter_extractor(listFilter, repetitions, rngSeed, options);
     result.d = ex;
 
     result.moduleIndex = moduleIndex;
@@ -348,6 +356,8 @@ u32 *listfilter_extractor_process_module_data(DataSource *ds, u32 *data, u32 dat
 
     auto ex = reinterpret_cast<ListFilterExtractor *>(ds->d);
 
+    const u16 baseAddressBits = get_base_address_bits(ex);
+
     for (u32 rep = 0; rep < ex->repetitions; rep++)
     {
         // Combine input data words and extract address and data values.
@@ -355,31 +365,17 @@ u32 *listfilter_extractor_process_module_data(DataSource *ds, u32 *data, u32 dat
         curPtr += ex->listFilter.wordCount;
         curSize -= ex->listFilter.wordCount;
 
-        // FIXME (maybe): runs the multiwordfilter twice which is not really
-        // needed. also if addressResult.second is false dataResult.second will
-        // also be false.
-        auto addressResult = extract_from_combined(&ex->listFilter, combined, MultiWordFilter::CacheA);
-        auto dataResult    = extract_from_combined(&ex->listFilter, combined, MultiWordFilter::CacheD);
+        auto result = extract_address_and_value_from_combined(&ex->listFilter, combined);
 
-        //printf("combined=%lx, addr=%lx, data=%lx\n", combined, addressResult.first, dataResult.first);
+        //printf("combined=%lx, addr=%lx, data=%lx\n", combined, result.address, result.value);
 
-        if (!addressResult.second || !dataResult.second)
+        if (!result.matched)
             continue;
-
-        // Check the repetition filter for a match for the current repetition
-        // and extract its address value.
-        u32 repCountAddress = (matches(ex->repetitionAddressFilter, rep)
-                               ? extract(ex->repetitionAddressCache, rep)
-                               : 0u);
-
-        // Number of bits from the MultiWordFilter alone, without the bits that
-        // will be contributed by the repetitionAddressFilter.
-        u16 baseAddressBits = get_extract_bits(&ex->listFilter, MultiWordFilter::CacheA);
 
         // Make the address bits from the repetition count contribute to the
         // high bits of the resulting address.
-        u64 address = addressResult.first | (repCountAddress << baseAddressBits);
-        u64 value   = dataResult.first;
+        u64 address = result.address | (rep << baseAddressBits);
+        u64 value   = result.value;
 
         assert(address < static_cast<u64>(ds->output.data.size));
 

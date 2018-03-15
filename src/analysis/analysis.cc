@@ -570,7 +570,6 @@ void ListFilterExtractor::beginEvent()
 void ListFilterExtractor::write(QJsonObject &json) const
 {
     json["listFilter"] = to_json(m_a2Extractor.listFilter);
-    json["repetitionAddressFilter"] = to_json(m_a2Extractor.repetitionAddressFilter);
     json["repetitions"] = static_cast<qint64>(m_a2Extractor.repetitions);
     json["rngSeed"] = QString::number(m_rngSeed, 16);
     json["options"] = static_cast<s32>(m_a2Extractor.options);
@@ -580,8 +579,6 @@ void ListFilterExtractor::read(const QJsonObject &json)
 {
     m_a2Extractor = {};
     m_a2Extractor.listFilter = a2_listfilter_from_json(json["listFilter"].toObject());
-    m_a2Extractor.repetitionAddressFilter = a2_dataFilter_from_json(json["repetitionAddressFilter"].toObject());
-    m_a2Extractor.repetitionAddressCache = make_cache_entry(m_a2Extractor.repetitionAddressFilter, 'A');
     m_a2Extractor.repetitions = static_cast<u8>(json["repetitions"].toInt());
     QString sSeed = json["rngSeed"].toString();
     m_rngSeed = sSeed.toULongLong(nullptr, 16);

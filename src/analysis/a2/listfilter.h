@@ -86,7 +86,7 @@ bool validate(ListFilter *cf);
 /* Result of the listfilter combine operation. The first item is the extracted
  * value, the second item is true if the internal MultiWordFilter matched
  * successfully, false otherwise. */
-using ListFilterResult = std::pair<u64, bool>;
+using ListFilterSingleResult = std::pair<u64, bool>;
 
 /* Combines input data words according to the filter specification and returns
  * the combined result. */
@@ -95,24 +95,36 @@ u64 combine(ListFilter *cf, const u32 *data, u32 count);
 /* Takes a combined data word and extracts the data specified by the given
  * CacheType. Pass MultiWordFilter:CacheA for the address value,
  * MultiWordFilter::CacheD for the data value. */
-ListFilterResult extract_from_combined(ListFilter *cf, const u64 combinedData,
+ListFilterSingleResult extract_from_combined(ListFilter *cf, const u64 combinedData,
                                             MultiWordFilter::CacheType cacheType);
 
 /* Performs both the combine and extraction steps. */
-ListFilterResult combine_and_extract(ListFilter *cf, const u32 *data, u32 count,
+ListFilterSingleResult combine_and_extract(ListFilter *cf, const u32 *data, u32 count,
                                           MultiWordFilter::CacheType cacheType);
 
 /* Shortcut to combine and extract the data value. */
-inline ListFilterResult combine_and_extract_value(ListFilter *cf, const u32 *data, u32 count)
+inline ListFilterSingleResult combine_and_extract_value(ListFilter *cf, const u32 *data, u32 count)
 {
     return combine_and_extract(cf, data, count, MultiWordFilter::CacheD);
 }
 
 /* Shortcut to combine and extract the address value. */
-inline ListFilterResult combine_and_extract_address(ListFilter *cf, const u32 *data, u32 count)
+inline ListFilterSingleResult combine_and_extract_address(ListFilter *cf, const u32 *data, u32 count)
 {
     return combine_and_extract(cf, data, count, MultiWordFilter::CacheA);
 }
+
+struct ListFilterResult
+{
+    u64 address;
+    u64 value;
+    bool matched;
+};
+
+/* Like extract_from_combined() but extracts both address and data in one step.
+ * This is more efficient than calling extract_from_combined() twice. */
+ListFilterResult extract_address_and_value_from_combined(ListFilter *cf,
+                                                         const u64 combinedData);
 
 inline size_t get_extract_bits(ListFilter *cf, MultiWordFilter::CacheType cacheType)
 {
@@ -121,4 +133,5 @@ inline size_t get_extract_bits(ListFilter *cf, MultiWordFilter::CacheType cacheT
 
 } // namespace data_filter
 } // namespace a2
+
 #endif /* __A2_LISTFILTER_H__ */
