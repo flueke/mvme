@@ -131,6 +131,11 @@ inline size_t get_extract_bits(ListFilter *cf, MultiWordFilter::CacheType cacheT
     return get_extract_bits(&cf->extractionFilter, cacheType);
 }
 
+inline size_t get_listfilter_combined_bit_count(ListFilter *lf)
+{
+    return lf->wordCount * ((lf->flags & ListFilter::WordSize32) ? 32u : 16u);
+}
+
 } // namespace data_filter
 } // namespace a2
 

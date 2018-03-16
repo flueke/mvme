@@ -357,6 +357,9 @@ u32 *listfilter_extractor_process_module_data(DataSource *ds, u32 *data, u32 dat
     auto ex = reinterpret_cast<ListFilterExtractor *>(ds->d);
 
     const u16 baseAddressBits = get_base_address_bits(ex);
+    const u16 repetitionBits  = get_repetition_address_bits(ex);
+
+    assert(ex->repetitions <= (1u << repetitionBits));
 
     for (u32 rep = 0; rep < ex->repetitions; rep++)
     {
@@ -372,10 +375,19 @@ u32 *listfilter_extractor_process_module_data(DataSource *ds, u32 *data, u32 dat
         if (!result.matched)
             continue;
 
-        // Make the address bits from the repetition count contribute to the
-        // high bits of the resulting address.
-        u64 address = result.address | (rep << baseAddressBits);
+        u64 address = result.address;
         u64 value   = result.value;
+
+        // Make the address bits from the repetition number contribute to the
+        // final address value.
+        if (ex->options & DataSourceOptions::RepetitionContributesLowAddressBits)
+        {
+            address = (address << repetitionBits) | rep;
+        }
+        else
+        {
+            address |= (rep << baseAddressBits);
+        }
 
         assert(address < static_cast<u64>(ds->output.data.size));
 
