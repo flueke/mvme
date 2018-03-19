@@ -23,7 +23,7 @@
 
 struct RateMonitorWidgetPrivate;
 
-class RateMonitorWidget: public QWidget
+class LIBMVME_EXPORT RateMonitorWidget: public QWidget
 {
     Q_OBJECT
     public:
