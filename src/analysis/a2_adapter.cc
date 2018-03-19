@@ -759,7 +759,7 @@ a2::Operator a2_adapter_magic(memory::Arena *arena, A2AdapterState *state, analy
 
     if (operator_magic)
     {
-        LOG("found magic for %s", op->metaObject()->className());
+        LOG("found magic for %s (objectName=%s)", op->metaObject()->className(), op->objectName().toLocal8Bit().constData());
         QLOG(op.get() << op->getId());
         result = operator_magic(arena, state, op, inputSlots, outputPipes);
     }

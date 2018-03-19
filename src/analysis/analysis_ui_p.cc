@@ -346,9 +346,6 @@ struct ListFilterEditor
                    *filter_highWord;
 
     QComboBox *combo_wordSize;
-#if 0 // repetitionBitsPosition
-    QCheckBox *combo_repetitionBitsPosition;
-#endif
 
     QCheckBox *cb_swapWords,
               *cb_addRandom;
@@ -384,10 +381,6 @@ static a2::ListFilterExtractor listfilter_editor_make_a2_extractor(ListFilterEdi
 
     if (!e.cb_addRandom->isChecked())
         options |= a2::DataSourceOptions::NoAddedRandom;
-
-#if 0 // repetitionBitsPosition
-    options |= e.combo_repetitionBitsPosition->currentData().toUInt();
-#endif
 
     a2::ListFilterExtractor ex_a2 = a2::make_listfilter_extractor(
         listFilter,
@@ -440,9 +433,6 @@ static ListFilterEditor make_listfilter_editor(QWidget *parent = nullptr)
     e.combo_wordSize = new QComboBox;
     e.cb_swapWords = new QCheckBox;
     e.cb_addRandom = new QCheckBox;
-#if 0 // repetitionBitsPosition
-    e.combo_repetitionBitsPosition = new QComboBox;
-#endif
 
     e.spin_repetitions->setMinimum(1);
     e.spin_repetitions->setMaximum(std::numeric_limits<u8>::max());
@@ -451,14 +441,6 @@ static ListFilterEditor make_listfilter_editor(QWidget *parent = nullptr)
     e.combo_wordSize->addItem("32 bit", ListFilter::WordSize32);
 
     e.spin_wordCount->setMinimum(1);
-
-#if 0 // repetitionBitsPosition
-    e.combo_repetitionBitsPosition->addItem("High Address Bits",
-                                            a2::DataSourceOptions::NoOption);
-
-    e.combo_repetitionBitsPosition->addItem("Low Address Bits",
-                                            a2::DataSourceOptions::RepetitionContributesLowAddressBits);
-#endif
 
     // word size handling
     auto on_wordSize_selected = [e] (int index)
@@ -484,7 +466,6 @@ static ListFilterEditor make_listfilter_editor(QWidget *parent = nullptr)
     // dictate how many bits are available after the combine step.
     auto on_nof_input_bits_changed = [e]()
     {
-#if 1
         auto flags          = static_cast<ListFilter::Flag>(e.combo_wordSize->currentData().toInt());
         auto wordCount      = e.spin_wordCount->value();
         size_t combinedBits = ((flags & a2::data_filter::ListFilter::WordSize32) ? 32 : 16) * wordCount;
@@ -496,66 +477,6 @@ static ListFilterEditor make_listfilter_editor(QWidget *parent = nullptr)
 
         e.filter_lowWord->setBitCount(loBits);
         e.filter_highWord->setBitCount(hiBits);
-
-#if 0
-        auto loMask = generate_pretty_filter_string(loBits, 32, 'N');
-        auto hiMask = generate_pretty_filter_string(hiBits, 32, 'N');
-
-        qDebug() << __PRETTY_FUNCTION__ << "loBits" << loBits << "loMask =" << loMask;
-        qDebug() << __PRETTY_FUNCTION__ << "hiBits" << hiBits << "hiMask =" << hiMask;
-
-        auto prevLoText = e.filter_lowWord->text().replace(" ", "");
-        auto prevHiText = e.filter_highWord->text().replace(" ", "");
-
-        qDebug() << __PRETTY_FUNCTION__ << "prevLoText =" << prevLoText;
-        qDebug() << __PRETTY_FUNCTION__ << "prevHiText =" << prevHiText;
-
-        e.filter_lowWord->setInputMask(loMask);
-        e.filter_highWord->setInputMask(hiMask);
-
-        auto lo = prevLoText.right(loBits);
-        auto hi = prevHiText.right(hiBits);
-
-        lo = QString(32 - lo.size(), ' ') + lo;
-        hi = QString(32 - hi.size(), ' ') + hi;
-
-        qDebug() << __PRETTY_FUNCTION__ << "newLoText =" << lo;
-        qDebug() << __PRETTY_FUNCTION__ << "newHiText =" << hi;
-
-        e.filter_lowWord->setText(lo);
-        e.filter_highWord->setText(hi);
-
-        e.filter_lowWord->setText("\\ \\ \\ 123456789abcdefg");
-#endif
-
-#if 0
-        // Generate the pretty strings containing 32 'X' characters
-        auto newLoText = generate_pretty_filter_string(loBits, 32, 'X');
-        auto newHiText = generate_pretty_filter_string(hiBits, 32, 'X');
-
-        // Overwrite using the previous text.
-        for (s32 idx_new = newLoText.size() - prevLoText.size(), idx_old = 0;
-             idx_new < newLoText.size() && idx_old < prevLoText.size();
-             idx_new++, idx_old++)
-        {
-            newLoText[idx_new] = prevLoText[idx_old];
-        }
-
-        for (s32 idx_new = newHiText.size() - prevHiText.size(), idx_old = 0;
-             idx_new < newHiText.size() && idx_old < prevHiText.size();
-             idx_new++, idx_old++)
-        {
-            newHiText[idx_new] = prevHiText[idx_old];
-        }
-
-        qDebug() << __PRETTY_FUNCTION__ << "newLoText =" << newLoText;
-        qDebug() << __PRETTY_FUNCTION__ << "newHiText =" << newHiText;
-
-        e.filter_lowWord->setText(newLoText);
-        e.filter_highWord->setText(newHiText);
-#endif
-
-#endif
     };
 
     QObject::connect(e.combo_wordSize, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
@@ -565,12 +486,6 @@ static ListFilterEditor make_listfilter_editor(QWidget *parent = nullptr)
                      e.widget, on_nof_input_bits_changed);
 
     on_nof_input_bits_changed();
-
-    // filter edits
-#if 0
-    e.filter_lowWord->setText(generate_pretty_filter_string(32, 'X'));
-    e.filter_highWord->setText(generate_pretty_filter_string(32, 'X'));
-#endif
 
     auto update_editor = [e]() { listfilter_editor_update_info_labels(e); };
 
@@ -610,9 +525,6 @@ static ListFilterEditor make_listfilter_editor(QWidget *parent = nullptr)
         layout_extraction->addRow("Second word", e.filter_highWord);
         layout_extraction->addRow("First word", e.filter_lowWord);
         layout_extraction->addRow("Add Random in [0, 1)", e.cb_addRandom);
-#if 0 // repetitionBitsPosition
-        layout_extraction->addRow("Repetition Address Position", e.combo_repetitionBitsPosition);
-#endif
 
         layout->addRow(gb_extraction);
     }
@@ -632,20 +544,6 @@ static ListFilterEditor make_listfilter_editor(QWidget *parent = nullptr)
     return e;
 }
 
-static QString nibblify_filter_string(const QString &str)
-{
-    QString result;
-
-    for (s32 i = 0; i < str.size(); i++)
-    {
-        if (i > 1 && i % 4 == 0)
-            result.push_back(' ');
-        result.push_back(str[i]);
-    }
-
-    return result;
-}
-
 static void listfilter_editor_load_from_extractor(ListFilterEditor e, const ListFilterExtractor *ex)
 {
     using a2::data_filter::ListFilter;
@@ -661,17 +559,9 @@ static void listfilter_editor_load_from_extractor(ListFilterEditor e, const List
     e.cb_swapWords->setChecked(listfilter.flags & ListFilter::ReverseCombine);
     e.cb_addRandom->setChecked(!(ex_a2.options & a2::DataSourceOptions::NoAddedRandom));
 
-#if 0 // repetitionBitsPosition
-    if (ex_a2.options & a2::DataSourceOptions::RepetitionContributesLowAddressBits)
-        e.combo_repetitionBitsPosition->setCurrentIndex(1);
-    else
-        e.combo_repetitionBitsPosition->setCurrentIndex(0);
-#endif
-
     auto lo = QString::fromStdString(to_string(listfilter.extractionFilter.filters[0]));
     auto hi = QString::fromStdString(to_string(listfilter.extractionFilter.filters[1]));
 
-#if 1
     qDebug() << __PRETTY_FUNCTION__ << "loFilterText before beautifying =" << lo;
     qDebug() << __PRETTY_FUNCTION__ << "hiFilterText before beautifying =" << hi;
 
@@ -682,13 +572,8 @@ static void listfilter_editor_load_from_extractor(ListFilterEditor e, const List
     lo = lo.right(loBits);
     hi = hi.right(hiBits);
 
-    //lo = nibblify_filter_string(lo);
-    //hi = nibblify_filter_string(hi);
-
-
     qDebug() << __PRETTY_FUNCTION__ << "loFilterText after beautifying =" << lo;
     qDebug() << __PRETTY_FUNCTION__ << "hiFilterText after beautifying =" << hi;
-#endif
 
     e.filter_lowWord->setText(lo);
     e.filter_highWord->setText(hi);
