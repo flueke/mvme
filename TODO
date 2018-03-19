@@ -1,6 +1,49 @@
 ==================================================
 TODO list somewhat sorted by priority
 ==================================================
+* Tell Tino about SIS packet loss detection not being accurately possible
+  because of the sequence numbers only appearing before events, which has the
+  effect that with partial and/or multievent packets, the number of packets and
+  the sequence number do not match 1:1 anymore.
+
+  In the original SIS3153 format this wasn't an issue as there was no buffering
+  or partials.
+
+  A real packet number prefix would be ideal.
+
+* SIS3153 network tuning under windows. Is it accessible and doable?
+
+* Integrate the listfile recovery hack thingy into mvme. Build it and distrubte the binary with releases.
+
+* Fix some windows issues:
+  - SIS "no error" errors (use WSA stuff)
+  - vme script editor focus issues
+  - "explore workspace" doesn't work? does it?
+
+* Maybe add a session file browser/explorer thingy. Could even allow multiple
+  open sessions at once. Make sure histos and other objects clearly show which
+  session they belong to.
+
+* Change analysis input selection handling to not modify the involved operators
+  directly. Instead create fake input pipes and connect the target operator to
+  those. Event better would be to create a clone of the original operator to be
+  edited and work on that with fake inputs.
+  This way no pausing and/or clearing would have to be done if the user opens
+  the editor, clicks around and then cancels.
+  Also if only the name or unit info is edited nothing actually would need to
+  be rebuild (NOTE: some operators might pull copies of their input unit labels
+  or prepare some calculation depending on the limits so be careful with
+  this!).
+
+
+* Fix assertion when building a2 (might lead to corruption or crashes in a
+  release build!) in the following scenario:
+  - H1DSink is connected to a DataFilter by a direct index connection.
+  - The address bit of the filter are edited by the user. The new number of
+    address bits is less than the old number.
+  - The H1DSink is now connected to an index that doesn't exist anymore.
+  - The a2 adapter will assert because no histo is found for the index.
+  This also affects other operators. Fix this!
 
 * Implement QwtPlotCurve subclass that handles NaN-values before passing the
   data (in the form of a QPolygonF) to QPainter.
