@@ -53,6 +53,14 @@ set(liba2_SOURCES
     data_filter.cc
     listfilter.cc)
 
+# Pass -mbig-obj to mingw gas on Win64. This works around the "too many
+# sections" error when linking code with lots of templates.
+if (WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
+    set_source_files_properties(${liba2_SOURCES} PROPERTIES
+        COMPILE_FLAGS "-Wa,-mbig-obj"
+    )
+endif()
+
 add_library(liba2_shared SHARED ${liba2_SOURCES})
 target_link_libraries(liba2_shared ${ZLIB_LIBRARIES})
 set_target_properties(liba2_shared PROPERTIES OUTPUT_NAME a2)
