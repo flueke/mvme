@@ -28,6 +28,7 @@
 #include "../mvme_context.h"
 #include "../qt_util.h"
 #include "../data_filter.h"
+#include "../data_filter_edit.h"
 
 #include <array>
 #include <limits>
@@ -339,9 +340,10 @@ struct ListFilterEditor
     QSpinBox *spin_repetitions,
              *spin_wordCount;
 
-    QLineEdit *le_name,
-              *filter_lowWord,
-              *filter_highWord;
+    QLineEdit *le_name;
+
+    DataFilterEdit *filter_lowWord,
+                   *filter_highWord;
 
     QComboBox *combo_wordSize;
 #if 0 // repetitionBitsPosition
@@ -480,7 +482,7 @@ static ListFilterEditor make_listfilter_editor(QWidget *parent = nullptr)
 
     // React to changes to the number of input data words consumed which
     // dictate how many bits are available after the combine step.
-    auto on_number_of_bits_changed = [e]()
+    auto on_nof_input_bits_changed = [e]()
     {
 #if 1
         auto flags          = static_cast<ListFilter::Flag>(e.combo_wordSize->currentData().toInt());
@@ -492,6 +494,10 @@ static ListFilterEditor make_listfilter_editor(QWidget *parent = nullptr)
         ssize_t loBits = std::min(32lu, combinedBits);
         ssize_t hiBits = std::max(0l, static_cast<ssize_t>(combinedBits) - 32l);
 
+        e.filter_lowWord->setBitCount(loBits);
+        e.filter_highWord->setBitCount(hiBits);
+
+#if 0
         auto loMask = generate_pretty_filter_string(loBits, 32, 'N');
         auto hiMask = generate_pretty_filter_string(hiBits, 32, 'N');
 
@@ -520,6 +526,7 @@ static ListFilterEditor make_listfilter_editor(QWidget *parent = nullptr)
         e.filter_highWord->setText(hi);
 
         e.filter_lowWord->setText("\\ \\ \\ 123456789abcdefg");
+#endif
 
 #if 0
         // Generate the pretty strings containing 32 'X' characters
@@ -552,16 +559,18 @@ static ListFilterEditor make_listfilter_editor(QWidget *parent = nullptr)
     };
 
     QObject::connect(e.combo_wordSize, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
-                     e.widget, on_number_of_bits_changed);
+                     e.widget, on_nof_input_bits_changed);
 
     QObject::connect(e.spin_wordCount, static_cast<void (QSpinBox::*) (int)>(&QSpinBox::valueChanged),
-                     e.widget, on_number_of_bits_changed);
+                     e.widget, on_nof_input_bits_changed);
 
-    on_number_of_bits_changed();
+    on_nof_input_bits_changed();
 
     // filter edits
+#if 0
     e.filter_lowWord->setText(generate_pretty_filter_string(32, 'X'));
     e.filter_highWord->setText(generate_pretty_filter_string(32, 'X'));
+#endif
 
     auto update_editor = [e]() { listfilter_editor_update_info_labels(e); };
 

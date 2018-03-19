@@ -22,6 +22,7 @@
 #define __DATA_EXTRACTION_WIDGET_H__
 
 #include "../data_filter.h"
+#include "../data_filter_edit.h"
 
 #include <QDialogButtonBox>
 #include <QGridLayout>
@@ -48,7 +49,7 @@ class DataExtractionEditor: public QWidget
 
         struct FilterEditElements
         {
-            QLineEdit *le_filter;
+            DataFilterEdit *le_filter;
             QSpinBox *spin_index;
         };
 

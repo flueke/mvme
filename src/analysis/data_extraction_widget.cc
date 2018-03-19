@@ -19,13 +19,15 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "data_extraction_widget.h"
-#include "../qt_util.h"
 
 #include <QLabel>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QToolButton>
 #include <QVBoxLayout>
+
+#include "data_filter_edit.h"
+#include "../qt_util.h"
 
 namespace analysis
 {
@@ -124,7 +126,7 @@ void DataExtractionEditor::updateDisplay()
         auto filterLabel = new QLabel(QString("Filter %1").arg(filterIndex));
 
         auto filterEdit = makeFilterEdit();
-        filterEdit->setText(filter.getFilter());
+        filterEdit->setFilter(filter);
 
         auto indexSpin = makeWordIndexSpin();
         indexSpin->setValue(filter.getWordIndex());
@@ -173,7 +175,7 @@ void DataExtractionEditor::apply()
 
     for (s32 i = 0; i < maxCount; ++i)
     {
-        m_subFilters[i] = makeFilterFromString(m_filterEdits[i].le_filter->text(),
+        m_subFilters[i] = makeFilterFromString(m_filterEdits[i].le_filter->getFilterString(),
                                                m_filterEdits[i].spin_index->value());
     }
 }

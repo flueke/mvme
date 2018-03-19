@@ -24,6 +24,7 @@
 #include "vme_script.h"
 #include "analysis/analysis.h"
 #include "qt-collapsible-section/Section.h"
+#include "data_filter_edit.h"
 
 #include <cmath>
 
