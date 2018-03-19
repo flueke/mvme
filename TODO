@@ -1,6 +1,8 @@
 ==================================================
 TODO list somewhat sorted by priority
 ==================================================
+* analysis session auto save: get rid of the errors when auto saving an empty analysis
+
 * Tell Tino about SIS packet loss detection not being accurately possible
   because of the sequence numbers only appearing before events, which has the
   effect that with partial and/or multievent packets, the number of packets and

@@ -1058,6 +1058,41 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
             sis_log(QString("SIS3153 watchdog disabled by user setting."));
         }
 
+        // UDP configuration register (manual section 4.2.1)
+        {
+            u32 packetGapValue = controllerSettings.value(QSL("UDP_PacketGap"), 0u).toUInt();
+            u32 udpConfValue   = 0;
+
+            assert(packetGapValue < SIS3153Registers::UDPConfigurationValues::GapTimeValueCount);
+
+            logMessage(QString(QSL("Setting UDP packet gap time to %1."))
+                       .arg(SIS3153Registers::UDPConfigurationValues::GapTimeValues[packetGapValue])
+                      );
+
+            error = sis->readRegister(SIS3153Registers::UDPConfiguration, &udpConfValue);
+
+            if (error.isError())
+            {
+                throw QString("Error reading UDPConfiguration register (%1): %2")
+                    .arg(SIS3153Registers::UDPConfiguration)
+                    .arg(error.toString());
+            }
+
+            // Clear old gap value and set the new one, keeping other bits intact.
+            udpConfValue &= ~SIS3153Registers::UDPConfigurationValues::GapTimeMask;
+            udpConfValue |= packetGapValue & SIS3153Registers::UDPConfigurationValues::GapTimeMask;
+
+            error = sis->writeRegister(SIS3153Registers::UDPConfiguration, udpConfValue);
+
+            if (error.isError())
+            {
+                throw QString("Error writing UDPConfiguration register (%1): %2")
+                    .arg(SIS3153Registers::UDPConfiguration)
+                    .arg(error.toString());
+            }
+
+        }
+
         // All event stacks have been uploaded. stackListControlValue has been computed.
 
         //

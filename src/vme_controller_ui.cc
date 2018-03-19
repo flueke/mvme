@@ -29,6 +29,7 @@
 
 #include "qt_util.h"
 #include "mvme_context.h"
+#include "sis3153.h"
 #include "vme_controller_factory.h"
 #include "vme_controller_ui_p.h"
 
@@ -68,10 +69,21 @@ SIS3153EthSettingsWidget::SIS3153EthSettingsWidget(QWidget *parent)
     , m_gb_enableForwarding(new QGroupBox)
     , m_le_forwardingAddress(new QLineEdit)
     , m_spin_forwardingPort(new QSpinBox)
+    , m_combo_packetGap(new QComboBox)
 {
+    {
+        using namespace SIS3153Registers::UDPConfigurationValues;
+
+        for (u32 gapValue = 0; gapValue < GapTimeValueCount; gapValue++)
+        {
+            m_combo_packetGap->addItem(GapTimeValues[gapValue], static_cast<u32>(gapValue));
+        }
+    }
+
     auto l = new QFormLayout(this);
     l->addRow(QSL("Hostname / IP Address"), m_le_sisAddress);
     l->addRow(QSL("Enable UDP Jumbo Frames"), m_cb_jumboFrames);
+    l->addRow(QSL("UDP Packet Gap"), m_combo_packetGap);
     l->addRow(QSL("Debug: Write raw buffer file"), m_cb_debugRawBuffers);
     l->addRow(QSL("Debug: Disable Buffering"), m_cb_disableBuffering);
     l->addRow(QSL("Debug: Disable Watchdog"), m_cb_disableWatchdog);
@@ -129,11 +141,13 @@ void SIS3153EthSettingsWidget::loadSettings(const QVariantMap &settings)
 
     m_le_forwardingAddress->setText(settings.value("UDP_Forwarding_Address").toString());
     m_spin_forwardingPort->setValue(settings.value("UDP_Forwarding_Port", DefaultForwardingPort).toUInt());
+    m_combo_packetGap->setCurrentIndex(settings.value("UDP_PacketGap", 0u).toUInt());
 }
 
 QVariantMap SIS3153EthSettingsWidget::getSettings()
 {
     QVariantMap result;
+
     result["hostname"] = m_le_sisAddress->text();
     result["JumboFrames"] = m_cb_jumboFrames->isChecked();
     result["DebugRawBuffers"] = m_cb_debugRawBuffers->isChecked();
@@ -142,6 +156,8 @@ QVariantMap SIS3153EthSettingsWidget::getSettings()
     result["UDP_Forwarding_Enable"] = m_gb_enableForwarding->isChecked();
     result["UDP_Forwarding_Address"] = m_le_forwardingAddress->text();
     result["UDP_Forwarding_Port"] = static_cast<u16>(m_spin_forwardingPort->value());
+    result["UDP_PacketGap"] = static_cast<u32>(m_combo_packetGap->currentIndex());
+
     return result;
 }
 
