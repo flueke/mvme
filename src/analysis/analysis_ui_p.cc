@@ -472,8 +472,8 @@ static ListFilterEditor make_listfilter_editor(QWidget *parent = nullptr)
 
         assert(combinedBits <= 64);
 
-        ssize_t loBits = std::min(32lu, combinedBits);
-        ssize_t hiBits = std::max(0l, static_cast<ssize_t>(combinedBits) - 32l);
+        ssize_t loBits = std::min(static_cast<ssize_t>(32), static_cast<ssize_t>(combinedBits));
+        ssize_t hiBits = std::max(static_cast<ssize_t>(0),  static_cast<ssize_t>(combinedBits) - 32);
 
         e.filter_lowWord->setBitCount(loBits);
         e.filter_highWord->setBitCount(hiBits);
@@ -566,8 +566,8 @@ static void listfilter_editor_load_from_extractor(ListFilterEditor e, const List
     qDebug() << __PRETTY_FUNCTION__ << "hiFilterText before beautifying =" << hi;
 
     size_t combinedBits = get_listfilter_combined_bit_count(&ex_a2.listFilter);
-    ssize_t loBits = std::min(32lu, combinedBits);
-    ssize_t hiBits = std::max(0l, static_cast<ssize_t>(combinedBits) - 32l);
+    ssize_t loBits = std::min(static_cast<ssize_t>(32), static_cast<ssize_t>(combinedBits));
+    ssize_t hiBits = std::max(static_cast<ssize_t>(0), static_cast<ssize_t>(combinedBits) - 32l);
 
     lo = lo.right(loBits);
     hi = hi.right(hiBits);
