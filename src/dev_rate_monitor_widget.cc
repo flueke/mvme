@@ -14,6 +14,8 @@ int main(int argc, char *argv[])
     const size_t BufferCapacity2 = 600;
     const size_t BufferCapacity3 = 600;
     const size_t BufferCapacity4 = 600;
+    const size_t BufferCapacity5 = 600;
+
     const s32 NewDataPeriod_ms = 100;
     const s32 NewDataCount = 1;
 
@@ -38,6 +40,11 @@ int main(int argc, char *argv[])
     sampler4->rateHistory = RateHistoryBuffer(BufferCapacity4);
     sampler4->interval = 10.0;
     samplers.push_back(sampler4);
+
+    auto sampler5 = std::make_shared<RateSampler>();
+    sampler5->rateHistory = RateHistoryBuffer(BufferCapacity5);
+    sampler5->interval = 1.0;
+    samplers.push_back(sampler5);
 
     RateMonitorWidget rmw(samplers);
 
@@ -95,6 +102,13 @@ int main(int argc, char *argv[])
         }
     });
 
+    QObject::connect(&fillTimer, &QTimer::timeout, &rmw, [&] () {
+        for (s32 i = 0; i < NewDataCount; i++)
+        {
+            double value = 3.14;
+            sampler5->record_rate(value);
+        }
+    });
 
     fillTimer.setInterval(NewDataPeriod_ms);
     fillTimer.start();

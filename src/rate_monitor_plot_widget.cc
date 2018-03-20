@@ -347,9 +347,16 @@ void RateMonitorPlotWidget::replot()
 
             if (haveYMinMax)
             {
-#if 0
+                if (std::abs(yMax - yMin) == 0.0)
+                {
+                    yMin -= 1.0;
+                    yMax += 1.0;
+                }
+
+#if 1
                 qDebug() << __PRETTY_FUNCTION__
                     << "found y minmax for visible x range. auto scaling y and setting zoomBase";
+
                 switch (getYAxisScale())
                 {
                     case AxisScale::Linear:
@@ -362,7 +369,7 @@ void RateMonitorPlotWidget::replot()
                 }
 #endif
 
-                m_d->m_plot->setAxisScale(QwtPlot::yLeft,   yMin, yMax);
+                m_d->m_plot->setAxisScale(QwtPlot::yLeft, yMin, yMax);
                 m_d->m_zoomer->setZoomBase();
             }
         }
