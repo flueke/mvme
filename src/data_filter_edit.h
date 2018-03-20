@@ -4,7 +4,7 @@
 #include <QLineEdit>
 #include "data_filter.h"
 
-class DataFilterEdit: public QLineEdit
+class LIBMVME_EXPORT DataFilterEdit: public QLineEdit
 {
         // set/query number of bits. setting the bits will change the input
         // mask and truncate the current text on the left if needed.
