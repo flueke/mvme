@@ -1983,6 +1983,13 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
         formLayout->addRow(QSL("Output Unit"), le_unit);
         formLayout->addRow(new QLabel(QSL("Leave output unit blank to copy from input.")));
     }
+    else if (auto cf = qobject_cast<ConditionFilter *>(op))
+    {
+        cb_invertCondition = new QCheckBox;
+        cb_invertCondition->setChecked(cf->m_invertedCondition);
+
+        formLayout->addRow(QSL("Invert Condition"), cb_invertCondition);
+    }
 }
 
 // NOTE: This will be called after construction for each slot by AddEditOperatorWidget::repopulateSlotGrid()!
@@ -2414,6 +2421,10 @@ void OperatorConfigurationWidget::configureOperator()
         aggOp->setMaxThreshold(cb_useMaxThreshold->isChecked() ? maxT : make_quiet_nan());
 
         aggOp->setOutputUnitLabel(le_unit->text());
+    }
+    else if (auto cf = qobject_cast<ConditionFilter *>(op))
+    {
+        cf->m_invertedCondition = cb_invertCondition->isChecked();
     }
 }
 

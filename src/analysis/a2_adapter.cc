@@ -510,6 +510,7 @@ DEF_OP_MAGIC(condition_filter_magic)
         arena,
         a2_dataInput,
         a2_condInput,
+        condFilter->m_invertedCondition,
         dataIndex,
         condIndex);
 

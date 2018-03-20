@@ -2101,6 +2101,7 @@ ConditionFilter::ConditionFilter(QObject *parent)
     : OperatorInterface(parent)
     , m_dataInput(this, 0, QSL("Data"))
     , m_conditionInput(this, 1, QSL("Condition"))
+    , m_invertedCondition(false)
 {
     m_output.setSource(this);
     m_dataInput.acceptedInputTypes = InputType::Both;
@@ -2157,6 +2158,9 @@ void ConditionFilter::beginRun(const RunInfo &)
 
 void ConditionFilter::step()
 {
+#if 1
+    assert(!"not implemented. a2 should be used!");
+#else
     if (m_dataInput.isParamIndexInRange() && m_conditionInput.isParamIndexInRange())
     {
         auto &out(m_output.getParameters());
@@ -2197,6 +2201,7 @@ void ConditionFilter::step()
             }
         }
     }
+#endif
 }
 
 // Inputs
@@ -2234,12 +2239,14 @@ Pipe *ConditionFilter::getOutput(s32 index)
     return &m_output;
 }
 
-void ConditionFilter::read(const QJsonObject &json)
-{
-}
-
 void ConditionFilter::write(QJsonObject &json) const
 {
+    json["inverted"] = m_invertedCondition;
+}
+
+void ConditionFilter::read(const QJsonObject &json)
+{
+    m_invertedCondition = json["inverted"].toBool();
 }
 
 //

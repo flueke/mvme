@@ -294,6 +294,7 @@ Operator make_condition_filter(
     memory::Arena *arena,
     PipeVectors dataInput,
     PipeVectors condInput,
+    bool inverted,
     s32 dataIndex = -1,
     s32 condIndex = -1);
 

@@ -1164,5 +1164,11 @@ static void TEST_expression_operator_step(benchmark::State &state)
 }
 BENCHMARK(TEST_expression_operator_step);
 
+static void TEST_condition_filter_step(benchmark::State &state)
+{
+    assert(!"implement me!");
+}
+BENCHMARK(TEST_condition_filter_step);
+
 
 BENCHMARK_MAIN();

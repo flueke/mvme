@@ -930,6 +930,7 @@ class LIBMVME_EXPORT ConditionFilter: public OperatorInterface
         Slot m_dataInput;
         Slot m_conditionInput;
         Pipe m_output;
+        bool m_invertedCondition;
 };
 
 class LIBMVME_EXPORT RectFilter2D: public OperatorInterface

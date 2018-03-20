@@ -312,6 +312,9 @@ class OperatorConfigurationWidget: public AbstractOpConfigWidget
 
         QDoubleSpinBox *spin_minThreshold,
                        *spin_maxThreshold;
+
+        // ConditionFilter
+        QCheckBox *cb_invertCondition;
 };
 
 class RateMonitorConfigWidget: public AbstractOpConfigWidget

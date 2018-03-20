@@ -1812,12 +1812,14 @@ struct ConditionFilterData
 {
     s32 dataIndex;
     s32 condIndex;
+    bool inverted;
 };
 
 Operator make_condition_filter(
     memory::Arena *arena,
     PipeVectors dataInput,
     PipeVectors condInput,
+    bool inverted,
     s32 dataIndex,
     s32 condIndex)
 {
@@ -1839,7 +1841,7 @@ Operator make_condition_filter(
 
     auto result = make_operator(arena, Operator_ConditionFilter, 2, 1);
 
-    auto d = arena->push<ConditionFilterData>({ dataIndex, condIndex, });
+    auto d = arena->push<ConditionFilterData>({ dataIndex, condIndex, inverted });
     result.d = d;
 
     assign_input(&result, dataInput, 0);
@@ -1901,7 +1903,20 @@ void condition_filter_step(Operator *op)
                 condParam = condInput[d->condIndex];
             }
 
-            output[pi] = (is_param_valid(condParam) ? dataInput[pi] : invalid_param());
+            bool condValid = is_param_valid(condParam);
+
+            if (condValid && !d->inverted)
+            {
+                output[pi] = dataInput[pi];
+            }
+            else if (!condValid && d->inverted)
+            {
+                output[pi] = dataInput[pi];
+            }
+            else
+            {
+                output[pi] = invalid_param();
+            }
         }
     }
     else
@@ -1914,8 +1929,20 @@ void condition_filter_step(Operator *op)
         assert(output.size == 1);
 
         double condParam = condInput[d->condIndex];
+        bool condValid   = is_param_valid(condParam);
 
-        output[0] = (is_param_valid(condParam) ? dataInput[d->dataIndex] : invalid_param());
+        if (condValid && !d->inverted)
+        {
+            output[0] = dataInput[d->dataIndex];
+        }
+        else if (!condValid && d->inverted)
+        {
+            output[0] = dataInput[d->dataIndex];
+        }
+        else
+        {
+            output[0] = invalid_param();
+        }
     }
 }
 
