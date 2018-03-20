@@ -31,7 +31,7 @@
 #include "util/strings.h"
 #include "vme_controller_ui.h"
 
-static const int updateInterval = 500;
+static const int WidgetUpdateInterval_ms = 1000;
 
 // zlib supports [0,9] with 6 being the default.
 //
@@ -328,7 +328,7 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
     // widget update timer setup
     //
     auto timer = new QTimer(this);
-    timer->setInterval(updateInterval);
+    timer->setInterval(WidgetUpdateInterval_ms);
     timer->start();
 
     connect(timer, &QTimer::timeout, this, &DAQControlWidget::updateWidget);
@@ -528,28 +528,27 @@ void DAQControlWidget::updateWidget()
         le_listfileFilename->setText(filename);
 
 
-    double mb = 0.0;
-
     auto sizeLabel = qobject_cast<QLabel *>(gb_listfileLayout->labelForField(label_listfileSize));
 
     switch (globalMode)
     {
         case GlobalMode::DAQ:
-            // FIXME: use the actual size of the file on disk as compression is a thing...
-            mb = static_cast<double>(stats.listFileBytesWritten) / (1024.0*1024.0);
-            sizeLabel->setText(QSL("Current Size:"));
-            break;
+            {
+                sizeLabel->setText(QSL("Current Size:"));
+                QFile fi(stats.listfileFilename);
+                auto str = format_number(fi.size(), QSL("B"), UnitScaling::Binary);
+                label_listfileSize->setText(str);
+            } break;
 
         case GlobalMode::ListFile:
-            mb = static_cast<double>(stats.listFileTotalBytes) / (1024.0*1024.0);
-            sizeLabel->setText(QSL("Replay Size:"));
-            break;
+            {
+                sizeLabel->setText(QSL("Replay Size:"));
+                QFile fi(stats.listfileFilename);
+                auto str = format_number(fi.size(), QSL("B"), UnitScaling::Binary);
+                label_listfileSize->setText(str);
+            } break;
     }
 
-    {
-        auto sizeString = QString("%1 MB").arg(mb, 6, 'f', 2);
-        label_listfileSize->setText(sizeString);
-    }
     {
         QStorageInfo si(m_context->getWorkspaceDirectory());
         auto freeBytes = si.bytesFree();
