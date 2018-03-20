@@ -3129,7 +3129,6 @@ static RateMonitorSink::Type rate_monitor_sink_type_from_string(const QString &s
     return result;
 }
 
-
 RateMonitorSink::RateMonitorSink(QObject *parent)
     : BasicSink(parent)
 {

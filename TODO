@@ -2,14 +2,13 @@
 TODO list somewhat sorted by priority
 ==================================================
 
+* check sis3153 daq state right before starting the daq. Set disconnected state
+  if that happens.
+
 * zachary use case: splitting data by time: 1st, 2nd and 3rd hour. good system
   to solve these kinds of problems.
 
 * add example of how to extract an extended timestamp (48 bits) from our modules to the documentation
-
-* show free storage of wokrspace path near the daq controls. Mkae the label
-  color red if less than a threshold is available (space or recording time left
-  at current data rate).
 
 * analysis session auto save: get rid of the errors when auto saving an empty analysis
 
@@ -81,10 +80,8 @@ TODO list somewhat sorted by priority
   avoids crashes due to wrong inputs into the filter fields.
 
 * SIS
-  - implement the "poll status before connect" feature. also add a button to
-    force connecting.
-
   - check if windows tuning can be done similar to the linux sysctl stuff
+    -> setsockopt(BUFSIZE_something) can be done
   - suppress log spam
   - fix "no error" errors under windows. use the wsa stuff
 
@@ -100,27 +97,17 @@ TODO list somewhat sorted by priority
 Data Export Implementation - ExportSink
 --------------------------------------------------------------------------------
 === What to export / System design ===
-* User selects analysis sources/operators to be exported.
-  This is a set of PipeSoureInterface for the a1 side.
+* ExportSink operator
+  - with variable number of data inputs (arrays only atm)
+  - enable/disable flag
+  - a special condition input (single value only). if valid an ouput event is
+    generated, otherwise no output is written.
+  - selectable handling of invalids and nans for the indexed format.
+    nan/invalid could be skipped entirely if desired.
 
-!!! Don't do this as it's intransparent. Instead add an ExportSink that takes a
-variable number of inputs. This way the user can choose the order of inputs and
-additional options can be implemented like changing the name of the array in
-the generated struct, handling of invalids and nans, etc.
-Later on an indexed format for arrays could also be implemented.
-
-* For each event a different file will need to be created
-  or
-  event data will have to be prefixed with the current event index
-
-!!! The filename is part of the export operator. Add a consistency check to
-make sure there are no duplicate filenames in the analysis.
-
-* The user might want the data from different sources in different files
-  aswell.
-
-  Easy with the ExportSink implementation: add another sink and select a
-  different filename.
+* For each ExportSink a different filename must be used.
+  Plan right now: <workspace>/export/<run_id>/<export_op_1>.mvmexport
+  Enforce the unique filename condition before writing anything.
 
 * To be able to synchronize the data from multiple files each event could carry
   the current timetick.
@@ -191,13 +178,12 @@ inside the export data file or added to the export header.
 
 
 * binary format with generated c header file
-* python layer
-* text format with structure description in a header section
-  - printf format string for doubles: use something that does not lose precision when read back in
+* python layer. numpy, pyroot examples
+(* text format with structure description in a header section
+  - printf format string for doubles: use something that does not lose precision when read back in)
 * compression for both formats
 * if the above works ROOT export should also be doable
 * export to hdf5 could also be nice
-* multiple output files, selectable per data source?
 * invalid parameters would be printed as "nan". keep the distinction between
   plain nan and invalid?
 * byte order marking
@@ -214,18 +200,6 @@ inside the export data file or added to the export header.
   all the static data.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-* implement some kind of offline functionality:
-  If a replay  is loaded go into offline  mode and stay that way  until the user
-  explicitly wants to connect to the controller again.
-  The reason  for this is  that right now any  mvme instance takes  control over
-  that sis it was last connected to. This  leads to the case where a running DAQ
-  is interrupted  by someone else starting  mvme in the same  network and having
-  the same hostname/ip addres in the setup.
-
-  Additionally before  starting a DAQ (or  even before writing to  the sis
-  reset register) and if the sis is in DAQ mode explicitly ask for permission
-  to reset the sis.
 
 * add build date to info window thingy
 * Andi has a setup where the "compression" combo box has an empty value. no/fast compression can still be selected but the initial value is empty.
@@ -283,9 +257,9 @@ expression operator design plan
 * add a user defined functions
   is_valid(), is_invalid() for testing parameter validity (has to check for nan and the specific bit being set)
 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
 * maybe add symbol table dump functionality somewhere if that is possible
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 * Fix paused replay and "StopIfQueueEmpty" interaction
   Identify and fix issues with single stepping and pause/resume interaction.
@@ -592,10 +566,6 @@ Single Stepping and Stream Processing
   more. Do this for both controllers and document and/or log what's being setup.
 
 * Crash in a2_adapter when BinSumDiff inputs don't have the same length
-
-* Display actual size of the listfile on the disk. Avoids having to pull
-  information from the quazip/zlib libs. Display the size after the listfile
-  has been loaded, not after the replay has started
 
 * sis3153 implementation
   * On connect read the stacklist control register to figure out if the sis is
