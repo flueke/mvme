@@ -57,7 +57,8 @@ class DAQControlWidget: public QWidget
                     *pb_oneCycle,
                     *pb_reconnect,
                     *pb_controllerSettings,
-                    *pb_runSettings;
+                    *pb_runSettings,
+                    *pb_forceReset;
 
         QLabel *label_controllerState,
                *label_daqState,

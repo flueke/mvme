@@ -25,6 +25,7 @@
 #include <QTimer>
 
 #include "mvme_context.h"
+#include "sis3153.h"
 #include "util.h"
 #include "vme_controller_ui.h"
 
@@ -68,6 +69,7 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
     , pb_reconnect(new QPushButton)
     , pb_controllerSettings(new QPushButton)
     , pb_runSettings(new QPushButton)
+    , pb_forceReset(new QPushButton)
     , label_controllerState(new QLabel)
     , label_daqState(new QLabel)
     , label_analysisState(new QLabel)
@@ -170,6 +172,13 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
 
     });
 
+    connect(pb_forceReset, &QPushButton::clicked, this, [this] {
+        auto sis = qobject_cast<SIS3153 *>(m_context->getVMEController());
+        assert(sis);
+        sis->setResetOnConnect(true);
+        m_context->reconnectVMEController();
+    });
+
     connect(pb_controllerSettings, &QPushButton::clicked, this, [this] {
         VMEControllerSettingsDialog dialog(m_context);
         dialog.setWindowModality(Qt::ApplicationModal);
@@ -205,6 +214,7 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
     connect(m_context, &MVMEContext::modeChanged, this, &DAQControlWidget::updateWidget);
     connect(m_context, &MVMEContext::controllerStateChanged, this, &DAQControlWidget::updateWidget);
     connect(m_context, &MVMEContext::daqConfigChanged, this, &DAQControlWidget::updateWidget);
+    connect(m_context, &MVMEContext::vmeControllerSet, this, &DAQControlWidget::updateWidget);
 
 
     //
@@ -215,6 +225,7 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
     pb_stop->setText(QSL("Stop"));
     pb_oneCycle->setText(QSL("1 Cycle"));
     pb_reconnect->setText(QSL("Reconnect"));
+    pb_forceReset->setText(QSL("Force Reset"));
     pb_controllerSettings->setText(QSL("Settings"));
     pb_runSettings->setText(QSL("Run Settings"));
 
@@ -252,12 +263,14 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
 
     // vme controller
     {
-        auto ctrlLayout = new QHBoxLayout;
+        auto ctrlLayout = new QGridLayout;
         ctrlLayout->setContentsMargins(0, 0, 0, 0);
         ctrlLayout->setSpacing(2);
-        ctrlLayout->addWidget(label_controllerState);
-        ctrlLayout->addWidget(pb_reconnect);
-        ctrlLayout->addWidget(pb_controllerSettings);
+        ctrlLayout->addWidget(label_controllerState, 0, 0);
+        ctrlLayout->addWidget(pb_controllerSettings, 0, 1);
+        ctrlLayout->addWidget(pb_reconnect, 1, 0);
+        ctrlLayout->addWidget(pb_forceReset, 1, 1);
+
         stateFrameLayout->addRow(QSL("VME Controller:"), ctrlLayout);
     }
 
@@ -466,6 +479,16 @@ void DAQControlWidget::updateWidget()
 
     pb_reconnect->setEnabled(globalMode == GlobalMode::DAQ && daqState == DAQState::Idle);
     pb_controllerSettings->setEnabled(globalMode == GlobalMode::DAQ && daqState == DAQState::Idle);
+
+    if (auto sis = qobject_cast<SIS3153 *>(m_context->getVMEController()))
+    {
+        pb_forceReset->setVisible(true);
+        pb_forceReset->setEnabled(controllerState == ControllerState::Disconnected);
+    }
+    else
+    {
+        pb_forceReset->setVisible(false);
+    }
 
     //
     // listfile options

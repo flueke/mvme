@@ -114,6 +114,7 @@ class LIBMVME_EXPORT VMEError
 
         // Returns an implementation defined error message. Defaults to an empty string.
         inline QString message() const { return m_message; }
+        void setMessage(const QString &message) { m_message = message; }
 
         // Returns an implementation defined error code. Defaults to 0.
         inline s32 errorCode() const { return m_errorCode; }

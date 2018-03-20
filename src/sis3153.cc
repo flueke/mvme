@@ -130,6 +130,8 @@ struct SIS3153Private
     u32 moduleIdAndFirmware;
     u32 serialNumber;
 
+    bool m_resetOnConnect = false;
+
     /*
     u32 lemoIOControl;
     u32 udpConfig;
@@ -280,21 +282,18 @@ VMEError SIS3153::open()
         int retryCount = 0;
         do
         {
+            /* This loop tries to get the sis into a good state by sending the
+             * udp_reset_cmd if m_resetOnConnect is set. */
+
             char msgBuf[1024];
             u32 numDevices = 0;
             result = make_sis_error(m_d->sis->get_vmeopen_messages(msgBuf, sizeof(msgBuf), &numDevices));
 
-            if (result.isTimeout())
+            if (result.isTimeout() && m_d->m_resetOnConnect)
             {
 #ifdef SIS3153_DEBUG
                 qDebug() << "sis connect timed out. sending udp_reset_cmd and delaying for" << PostResetDelay_ms << "ms";
 #endif
-                // FIXME: don't just issue the reset command here but instead
-                // read the stacklist control register and check if the sis is
-                // in autonomous mod. If it is log a message and consider the
-                // connection attempt to have failed.
-                // Add a option to the sis settings that allows sending the
-                // reset regardless of the sis state.
                 m_d->sis->udp_reset_cmd();
                 QThread::msleep(PostResetDelay_ms);
             }
@@ -306,8 +305,62 @@ VMEError SIS3153::open()
             qDebug() << __PRETTY_FUNCTION__ << "get_vmeopen_messages:" << result.toString();
 #endif
             m_d->ctrlState = ControllerState::Disconnected;
+            m_d->m_resetOnConnect = false; // reset the resetOnConnect flag as we tried connecting but failed
             emit controllerStateChanged(m_d->ctrlState);
             return result;
+        }
+
+        u32 controlReg = 0;
+        resultCode     = m_d->sis->udp_sis3153_register_read(SIS3153Registers::StackListControl, &controlReg);
+        result         = make_sis_error(resultCode);
+
+        if (result.isError())
+        {
+            m_d->ctrlState = ControllerState::Disconnected;
+            m_d->m_resetOnConnect = false; // reset the resetOnConnect flag as we tried connecting but failed
+            emit controllerStateChanged(m_d->ctrlState);
+            return result;
+        }
+
+        if (controlReg & SIS3153Registers::StackListControlValues::StackListEnable)
+        {
+            if (m_d->m_resetOnConnect)
+            {
+                m_d->m_resetOnConnect = false;
+                m_d->sis->udp_reset_cmd();
+                QThread::msleep(PostResetDelay_ms);
+
+                controlReg     = 0;
+                resultCode     = m_d->sis->udp_sis3153_register_read(SIS3153Registers::StackListControl, &controlReg);
+                result         = make_sis_error(resultCode);
+
+                if (result.isError())
+                {
+                    result.setMessage(QSL("Error re-reading StackListControl register after controller reset."));
+                    m_d->ctrlState = ControllerState::Disconnected;
+                    emit controllerStateChanged(m_d->ctrlState);
+                    return result;
+                }
+
+                if (controlReg & SIS3153Registers::StackListControlValues::StackListEnable)
+                {
+                    result = VMEError(VMEError::DeviceIsOpen,
+                                      QSL("SIS3153 remains in autonomous DAQ mode after controller reset."
+                                          "A manual reset/powercycle is needed."));
+                    m_d->ctrlState = ControllerState::Disconnected;
+                    emit controllerStateChanged(m_d->ctrlState);
+                    return result;
+                }
+            }
+            else
+            {
+                result = VMEError(VMEError::DeviceIsOpen,
+                                  QSL("SIS3153 is in autonomous DAQ mode (another instance of mvme might be controlling it)."
+                                      " Use \"force reset\" to attempt resetting the controller."));
+                m_d->ctrlState = ControllerState::Disconnected;
+                emit controllerStateChanged(m_d->ctrlState);
+                return result;
+            }
         }
     }
 
@@ -529,6 +582,16 @@ VMEError SIS3153::writeRegister(u32 address, u32 value)
 {
     QMutexLocker locker(&m_d->lock);
     return m_d->writeRegisterImpl(address, value);
+}
+
+void SIS3153::setResetOnConnect(bool sendReset)
+{
+    m_d->m_resetOnConnect = sendReset;
+}
+
+bool SIS3153::doesResetOnConnect() const
+{
+    return m_d->m_resetOnConnect;
 }
 
 void dump_registers(SIS3153 *sis, std::function<void (const QString &)> dumper)

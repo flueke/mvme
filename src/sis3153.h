@@ -70,6 +70,9 @@ class LIBMVME_EXPORT SIS3153: public VMEController
         VMEError readRegister(u32 address, u32 *outValue);
         VMEError writeRegister(u32 address, u32 value);
 
+        void setResetOnConnect(bool sendReset);
+        bool doesResetOnConnect() const;
+
     private:
         SIS3153Private *m_d;
 };
