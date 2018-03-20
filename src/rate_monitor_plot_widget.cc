@@ -353,6 +353,9 @@ void RateMonitorPlotWidget::replot()
                     yMax += 1.0;
                 }
 
+                double delta  = std::abs(yMax - yMin);
+                double offset = delta * 0.05;
+
 #if 1
                 qDebug() << __PRETTY_FUNCTION__
                     << "found y minmax for visible x range. auto scaling y and setting zoomBase";
@@ -360,7 +363,8 @@ void RateMonitorPlotWidget::replot()
                 switch (getYAxisScale())
                 {
                     case AxisScale::Linear:
-                        yMax *= ScaleFactor;
+                        yMin -= offset;
+                        yMax += offset;
                         break;
 
                     case AxisScale::Logarithmic:
