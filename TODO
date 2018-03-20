@@ -97,7 +97,7 @@ TODO list somewhat sorted by priority
 * Really do fix the analysis pause/resume interaction with the daq.
 
 --------------------------------------------------------------------------------
-Data Export Implementation
+Data Export Implementation - ExportSink
 --------------------------------------------------------------------------------
 === What to export / System design ===
 * User selects analysis sources/operators to be exported.

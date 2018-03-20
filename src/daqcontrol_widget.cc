@@ -22,11 +22,13 @@
 
 #include <QHBoxLayout>
 #include <QFormLayout>
+#include <QStorageInfo>
 #include <QTimer>
 
 #include "mvme_context.h"
 #include "sis3153.h"
 #include "util.h"
+#include "util/strings.h"
 #include "vme_controller_ui.h"
 
 static const int updateInterval = 500;
@@ -74,6 +76,7 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
     , label_daqState(new QLabel)
     , label_analysisState(new QLabel)
     , label_listfileSize(new QLabel)
+    , label_freeStorageSpace(new QLabel)
     , cb_writeListfile(new QCheckBox)
     , combo_compression(new QComboBox)
     , le_listfileFilename(new QLineEdit)
@@ -310,6 +313,7 @@ DAQControlWidget::DAQControlWidget(MVMEContext *context, QWidget *parent)
 
         gbLayout->addRow(QSL("Current Filename:"), le_listfileFilename);
         gbLayout->addRow(QSL("Current Size:"), label_listfileSize);
+        gbLayout->addRow(QSL("Free Space:"), label_freeStorageSpace);
     }
 
     // widget layout
@@ -542,9 +546,16 @@ void DAQControlWidget::updateWidget()
             break;
     }
 
-    auto sizeString = QString("%1 MB").arg(mb, 6, 'f', 2);
-
-    label_listfileSize->setText(sizeString);
+    {
+        auto sizeString = QString("%1 MB").arg(mb, 6, 'f', 2);
+        label_listfileSize->setText(sizeString);
+    }
+    {
+        QStorageInfo si(m_context->getWorkspaceDirectory());
+        auto freeBytes = si.bytesFree();
+        auto str = format_number(freeBytes, QSL("B"), UnitScaling::Binary);
+        label_freeStorageSpace->setText(str);
+    }
 
     cb_writeListfile->setEnabled(isDAQIdle && !isReplay);
     combo_compression->setEnabled(isDAQIdle && !isReplay);

@@ -63,7 +63,8 @@ class DAQControlWidget: public QWidget
         QLabel *label_controllerState,
                *label_daqState,
                *label_analysisState,
-               *label_listfileSize;
+               *label_listfileSize,
+               *label_freeStorageSpace;
 
         QCheckBox *cb_writeListfile;
 
