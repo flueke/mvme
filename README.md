@@ -7,10 +7,10 @@
 * qwt
 * quazip
 * libusb-0.1
-* Optional: a recent version of libhdf5 to enable analysis session save/load
+* HDF5
+* boost (header only at the moment)
 * Optional: sphinx and latex for the documentation
 * Optional: NSIS for the windows installer
-* Optional: ROOT (root export is work in progress)
 
 ### Linux
 `cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local ../mvme`

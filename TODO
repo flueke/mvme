@@ -1,6 +1,16 @@
 ==================================================
 TODO list somewhat sorted by priority
 ==================================================
+
+* zachary use case: splitting data by time: 1st, 2nd and 3rd hour. good system
+  to solve these kinds of problems.
+
+* add example of how to extract an extended timestamp (48 bits) from our modules to the documentation
+
+* show free storage of wokrspace path near the daq controls. Mkae the label
+  color red if less than a threshold is available (space or recording time left
+  at current data rate).
+
 * analysis session auto save: get rid of the errors when auto saving an empty analysis
 
 * Tell Tino about SIS packet loss detection not being accurately possible
