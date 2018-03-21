@@ -2954,6 +2954,7 @@ void ExpressionOperatorConfigurationWidget::inputSelected(s32 slotIndex)
 
 void ExpressionOperatorConfigurationWidget::rebuild()
 {
+#if 0
     m_a2_inPipe = {};
     m_a2_op = {};
     m_arena.reset();
@@ -2973,6 +2974,9 @@ void ExpressionOperatorConfigurationWidget::rebuild()
 
         populate_pipe_table(m_a2_inPipe, m_tw_input);
     }
+#else
+    assert(!"disabled for now to speed up building");
+#endif
 }
 
 void ExpressionOperatorConfigurationWidget::reloadFromOperator()

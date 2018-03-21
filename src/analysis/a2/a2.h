@@ -359,11 +359,13 @@ Operator make_aggregate_sigmax(
 /* ===============================================
  * Expression Operator
  * =============================================== */
+#if 0
 Operator make_expression_operator(
     memory::Arena *arena,
     PipeVectors inPipe,
     const std::string &begin_expr,
     const std::string &step_expr);
+#endif
 
 /* ===============================================
  * Histograms

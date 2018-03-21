@@ -1,5 +1,7 @@
 #include "mpmc_queue.cc"
+#if 0
 #include "a2_exprtk.h"
+#endif
 #include "a2_impl.h"
 #include "util/assert.h"
 #include "util/perf.h"
@@ -1950,6 +1952,7 @@ void condition_filter_step(Operator *op)
  * Expression Operator
  * =============================================== */
 
+#if 0
 Operator make_expression_operator(
     memory::Arena *arena,
     PipeVectors inPipe,
@@ -1975,6 +1978,7 @@ void expression_operator_step(Operator *op)
      * the step expression. */
     expr_eval_step(d);
 }
+#endif
 
 /* ===============================================
  * Histograms
@@ -2755,7 +2759,11 @@ static const OperatorFunctions OperatorTable[OperatorTypeCount] =
     [Operator_Aggregate_MeanX] = { aggregate_meanx_step },
     [Operator_Aggregate_SigmaX] = { aggregate_sigmax_step },
 
-    [Operator_Expression] = { expression_operator_step},
+#if 0
+    [Operator_Expression] = { expression_operator_step },
+#else
+    [Operator_Expression] = { nullptr },
+#endif
 };
 
 inline void step_operator(Operator *op)

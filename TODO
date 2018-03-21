@@ -90,6 +90,15 @@ TODO list somewhat sorted by priority
     -> setsockopt(BUFSIZE_something) can be done
   - suppress log spam
   - fix "no error" errors under windows. use the wsa stuff
+  - log spam suppression could use a sort of tag system and "histogramming" of
+    the generated messages. output would then be generated at a fixed clock
+    rate.  Each message has an assoicated tag. If a message is to be logged the
+    central msg buffer is checked to see if it already contains that tag. If
+    true the count for that tag is incremented and no further processing is
+    done. Otherwise the data associated with the message (just a string right
+    now) is stored in the buffer and the count is set to 1.
+    On every clock tick all the messages present in the buffer are printed and
+    augmented with the number of instances of that message type.
 
 * General: suppress log spam at the source
 

@@ -1047,6 +1047,7 @@ BENCHMARK(BM_binary_equation_step);
 //#warning "missing test for binary_equation_step"
 
 
+#if 0
 static void TEST_expression_operator_create(benchmark::State &state)
 {
     Arena arena(Kilobytes(256));
@@ -1163,12 +1164,15 @@ static void TEST_expression_operator_step(benchmark::State &state)
     state.counters["mR"] = Counter(moduleCounter, Counter::kIsRate);
 }
 BENCHMARK(TEST_expression_operator_step);
+#endif
 
+#if 0
 static void TEST_condition_filter_step(benchmark::State &state)
 {
     assert(!"implement me!");
 }
 BENCHMARK(TEST_condition_filter_step);
+#endif
 
 
 BENCHMARK_MAIN();
