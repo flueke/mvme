@@ -165,4 +165,6 @@ class LIBMVME_EXPORT VMEController: public QObject
 QString LIBMVME_EXPORT to_string(VMEControllerType type);
 VMEControllerType LIBMVME_EXPORT from_string(const QString &str);
 
+QString LIBMVME_EXPORT to_string(ControllerState state);
+
 #endif // VMECONTROLLER_H

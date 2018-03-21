@@ -84,6 +84,7 @@ struct MVMEContextPrivate
     RunInfo m_runInfo;
     MVMEContext::ReplayFileAnalysisInfo m_replayFileAnalysisInfo;
     u32 m_ctrlOpenRetryCount = 0;
+    bool m_isFirstConnectionAttempt = true;
 //#ifdef MVME_ENABLE_ROOT // FIXME: fix SIGPIPE on child process exit
 #if 0
     std::unique_ptr<mvme_root::RootDataWriter> m_rootWriter;
@@ -436,10 +437,15 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent)
 
             if (m_d->m_ctrlOpenRetryCount >= VMECtrlConnectMaxRetryCount)
             {
-                logMessage(QString("Could not open VME controller %1: %2")
-                           .arg(m_controller->getIdentifyingString())
-                           .arg(result.toString())
-                          );
+
+                if (!m_d->m_isFirstConnectionAttempt)
+                {
+                    logMessage(QString("Could not open VME controller %1: %2")
+                               .arg(m_controller->getIdentifyingString())
+                               .arg(result.toString())
+                              );
+                }
+                m_d->m_isFirstConnectionAttempt = false;
             }
         }
     });
@@ -588,6 +594,7 @@ void MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
     if (getDAQState() != DAQState::Idle
         || getMVMEStreamWorkerState() != MVMEStreamWorkerState::Idle)
     {
+        delete controller;
         return;
     }
 
@@ -676,7 +683,8 @@ ControllerState MVMEContext::getControllerState() const
 
 void MVMEContext::onControllerStateChanged(ControllerState state)
 {
-    qDebug() << __PRETTY_FUNCTION__ << (u32) state;
+    qDebug() << __PRETTY_FUNCTION__ << to_string(state) << (u32) state;
+
     if (state == ControllerState::Connected)
     {
         m_d->m_ctrlOpenRetryCount = 0;
@@ -905,6 +913,7 @@ bool MVMEContext::setReplayFile(ListFile *listFile)
         return false;
     }
 
+    m_d->m_isFirstConnectionAttempt = true;
     setVMEConfig(daqConfig);
 
     delete m_listFile;
@@ -925,6 +934,7 @@ void MVMEContext::closeReplayFile()
         delete m_listFile;
         m_listFile = nullptr;
         m_listFileWorker->setListFile(nullptr);
+        m_d->m_isFirstConnectionAttempt = true;
 
         /* Open the last used VME config in the workspace. Create a new VME config
          * if no previous exists. */
