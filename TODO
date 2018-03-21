@@ -2,6 +2,12 @@
 TODO list somewhat sorted by priority
 ==================================================
 
+* Transport more state of the DAQ to the analysis side. Right now the stream
+  processor always creates a session auto-save even if the DAQ did not start up
+  successfully (e.g. because the controller already was in DAQ mode).  Need to
+  set some flags in the stream worker so that it can decide on which actions to
+  perform and which to skip.
+
 * check sis3153 daq state right before starting the daq. Set disconnected state
   if that happens.
 

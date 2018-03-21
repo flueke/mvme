@@ -84,6 +84,8 @@ static const QMap<u32, const char *> RegisterNames =
     { SIS3153Registers::StackListDynSizedBlockRead, "StackListDynSizedBlockRead" }
 };
 
+static const int SocketReceiveBufferSize = Megabytes(64);
+
 VMEError make_sis_error(int sisCode)
 {
     switch (sisCode)
@@ -202,12 +204,13 @@ VMEError SIS3153::open()
     m_d->sis.reset(new sis3153eth);
     m_d->sis_ctrl.reset(new sis3153eth);
 
-    // set custom timeout
+    // set custom timeout and custom receive buffer size
     for (auto sis: { m_d->sis.get(), m_d->sis_ctrl.get()})
     {
         sis->recv_timeout_sec = 0;
         sis->recv_timeout_usec = ReceiveTimeout_ms * 1000;
         sis->set_UdpSocketOptionTimeout();
+        sis->set_UdpSocketOptionBufSize(SocketReceiveBufferSize);
     }
 
     // set ip address / hostname
