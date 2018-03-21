@@ -94,8 +94,8 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         MVMEContext(MVMEMainWindow *mainwin, QObject *parent = 0);
         ~MVMEContext();
 
-        void setVMEController(VMEController *controller, const QVariantMap &settings = QVariantMap());
-        void setVMEController(VMEControllerType type, const QVariantMap &settings = QVariantMap());
+        bool setVMEController(VMEController *controller, const QVariantMap &settings = QVariantMap());
+        bool setVMEController(VMEControllerType type, const QVariantMap &settings = QVariantMap());
         VMEController *getVMEController() const { return m_controller; }
         void reconnectVMEController();
 

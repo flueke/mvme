@@ -585,7 +585,7 @@ void MVMEContext::setVMEConfig(VMEConfig *config)
     emit daqConfigChanged(config);
 }
 
-void MVMEContext::setVMEController(VMEController *controller, const QVariantMap &settings)
+bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap &settings)
 {
     qDebug() << __PRETTY_FUNCTION__;
     Q_ASSERT(getDAQState() == DAQState::Idle);
@@ -594,8 +594,7 @@ void MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
     if (getDAQState() != DAQState::Idle
         || getMVMEStreamWorkerState() != MVMEStreamWorkerState::Idle)
     {
-        delete controller;
-        return;
+        return false;
     }
 
     qDebug() << __PRETTY_FUNCTION__
@@ -627,6 +626,7 @@ void MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
     delete m_controller;
 
     m_controller = controller;
+
     if (m_vmeConfig->getControllerType() != controller->getType()
         || m_vmeConfig->getControllerSettings() != settings)
     {
@@ -663,14 +663,22 @@ void MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
             this, &MVMEContext::onControllerStateChanged);
 
     emit vmeControllerSet(controller);
+    return true;
 }
 
-void MVMEContext::setVMEController(VMEControllerType type, const QVariantMap &settings)
+bool MVMEContext::setVMEController(VMEControllerType type, const QVariantMap &settings)
 {
     VMEControllerFactory factory(type);
-    auto controller = factory.makeController(settings);
 
-    setVMEController(controller, settings);
+    auto controller = std::unique_ptr<VMEController>(factory.makeController(settings));
+
+    if (setVMEController(controller.get(), settings))
+    {
+        controller.release();
+        return true;
+    }
+
+    return false;
 }
 
 ControllerState MVMEContext::getControllerState() const
