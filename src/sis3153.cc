@@ -84,7 +84,7 @@ static const QMap<u32, const char *> RegisterNames =
     { SIS3153Registers::StackListDynSizedBlockRead, "StackListDynSizedBlockRead" }
 };
 
-static const int SocketReceiveBufferSize = Megabytes(64);
+static const int SocketReceiveBufferSize = Megabytes(4);
 
 VMEError make_sis_error(int sisCode)
 {
