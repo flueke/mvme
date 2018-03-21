@@ -138,6 +138,7 @@ class LIBMVME_EXPORT PipeSourceInterface: public QObject, public std::enable_sha
          * This will also be called by Analysis UI to be able to get array
          * sizes from operator output pipes! */
         virtual void beginRun(const RunInfo &runInfo) = 0;
+        virtual void endRun() {};
 
         std::shared_ptr<PipeSourceInterface> getSharedPointer() { return shared_from_this(); }
 
@@ -1288,8 +1289,7 @@ class LIBMVME_EXPORT ExportSink: public SinkInterface
         // event will produce exported data.
         Slot m_conditionInput;
 
-        // Using pointers to Slot here to avoid having to deal with changing
-        // Slot addresses on resizing the inputs vector.
+        // Data inputs to be exported
         QVector<std::shared_ptr<Slot>> m_dataInputs;
 
         // Output filename. May include a path. Is relative to the application
@@ -1496,12 +1496,12 @@ class LIBMVME_EXPORT Analysis: public QObject
          * the a2 system!
          */
         void beginRun(const RunInfo &runInfo, const vme_analysis_common::VMEIdToIndex &vmeMap);
-        void beginRun();
         void beginEvent(int eventIndex);
         void processModuleData(int eventIndex, int moduleIndex, u32 *data, u32 size);
         void endEvent(int eventIndex);
         // Called once for every SectionType_Timetick section
         void processTimetick();
+        void endRun();
 
         const QVector<SourceEntry> &getSources() const { return m_sources; }
         QVector<SourceEntry> &getSources() { return m_sources; }

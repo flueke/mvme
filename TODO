@@ -121,6 +121,13 @@ Data Export Implementation - ExportSink
     nan/invalid could be skipped entirely if desired.
   - defined byte order (little endian)
 
+* Need to decide when to write output files. In the beginRun() callchain? Add
+  additional data to RunInfo?
+  This should work in stand-alone applications aswell. Would be good to put it
+  into the analysis system, not have it external like a2_begin_run()
+
+  Distinction between (re)building the analysis structure and actually starting a run.
+
 * For each ExportSink a different filename must be used.
   Plan right now: <workspace>/export/<run_id>/<export_op_1>.mvmexport
   Enforce the unique filename condition before writing anything.

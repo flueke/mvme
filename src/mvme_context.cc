@@ -1856,9 +1856,14 @@ void MVMEContext::addAnalysisOperator(QUuid eventId, const std::shared_ptr<analy
 
 void MVMEContext::analysisOperatorEdited(const std::shared_ptr<analysis::OperatorInterface> &op)
 {
+    // TODO: breakpoint2
     AnalysisPauser pauser(this);
     m_analysis_ng->setModified();
-    m_analysis_ng->beginRun();
+
+    auto runInfo = getRunInfo();
+    auto vmeMap  = vme_analysis_common::build_id_to_index_mapping(getVMEConfig());
+
+    getAnalysis()->beginRun(runInfo, vmeMap);
 
     if (m_analysisUi)
     {

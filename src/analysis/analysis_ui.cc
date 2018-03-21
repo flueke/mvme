@@ -2927,13 +2927,17 @@ void EventWidget::addOperator(OperatorPtr op, s32 userLevel)
 
 void EventWidget::operatorEdited(OperatorInterface *op)
 {
-    // Updates the edited OperatorInterface and recursively all the operators
-    // depending on it.
+    // TODO: breakpoint1
+    // Rebuild the analysis system after an edit.
+
     AnalysisPauser pauser(m_d->m_context);
 
     try
     {
-        m_d->m_context->getAnalysis()->beginRun();
+        auto runInfo = m_d->m_context->getRunInfo();
+        auto vmeMap  = vme_analysis_common::build_id_to_index_mapping(m_d->m_context->getVMEConfig());
+
+        m_d->m_context->getAnalysis()->beginRun(runInfo, vmeMap);
     }
     catch (const std::bad_alloc &)
     {
@@ -2993,7 +2997,10 @@ void EventWidget::sourceEdited(SourceInterface *src)
 
     try
     {
-        m_d->m_context->getAnalysis()->beginRun();
+        auto runInfo = m_d->m_context->getRunInfo();
+        auto vmeMap  = vme_analysis_common::build_id_to_index_mapping(m_d->m_context->getVMEConfig());
+
+        m_d->m_context->getAnalysis()->beginRun(runInfo, vmeMap);
     }
     catch (const std::bad_alloc &)
     {

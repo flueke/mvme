@@ -128,8 +128,8 @@ struct RunInfo
      * contents only works if the number of bins and the binning do not change
      * between runs. If set to false all histograms will be cleared before the
      * replay starts. */
+    // TODO: replace with flags
     bool keepAnalysisState = false;
-
     bool isReplay = false;
 };
 

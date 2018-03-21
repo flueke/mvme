@@ -3290,6 +3290,16 @@ void ExportSink::beginRun(const RunInfo &)
 {
     // TODO: create any missing output directories
     // TODO: write c++ header and impl file template stuff
+
+    for (auto slot: m_dataInputs)
+    {
+        assert(slot->isConnected());
+
+        /* The input pipe defines the shape and metadata of an array in the export struct.
+         */
+        auto pipe = slot->inputPipe;
+
+    }
 }
 
 void ExportSink::step()
@@ -3406,6 +3416,7 @@ void Analysis::beginRun(
     }
     qDebug() << __PRETTY_FUNCTION__ << ">>>>> operators sorted by maximum input rank";
 #endif
+
     qDebug() << __PRETTY_FUNCTION__ << "analysis::Analysis:"
         << m_sources.size() << " sources,"
         << m_operators.size() << " operators";
@@ -3439,9 +3450,8 @@ void Analysis::beginRun(
             m_vmeMap));
 }
 
-void Analysis::beginRun()
+void Analysis::endRun()
 {
-    beginRun(m_runInfo, m_vmeMap);
 }
 
 void Analysis::beginEvent(int eventIndex)

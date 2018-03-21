@@ -180,6 +180,8 @@ void MVMEStreamProcessor::endRun()
         c->endRun();
     }
 
+    m_d->analysis->endRun();
+
     qDebug() << __PRETTY_FUNCTION__ << "end";
 }
 

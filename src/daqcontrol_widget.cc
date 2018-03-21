@@ -31,7 +31,7 @@
 #include "util/strings.h"
 #include "vme_controller_ui.h"
 
-static const int WidgetUpdateInterval_ms = 1000;
+static const int WidgetUpdateInterval_ms = 500;
 
 // zlib supports [0,9] with 6 being the default.
 //
