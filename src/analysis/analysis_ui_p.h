@@ -315,6 +315,12 @@ class OperatorConfigurationWidget: public AbstractOpConfigWidget
 
         // ConditionFilter
         QCheckBox *cb_invertCondition;
+
+        // ExportSink
+        QLineEdit *le_exportBasename;
+        QPushButton *pb_selectExportBasename;
+        QComboBox *combo_exportFormat;
+        QComboBox *combo_exportCompression;
 };
 
 class RateMonitorConfigWidget: public AbstractOpConfigWidget

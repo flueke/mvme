@@ -302,6 +302,11 @@ struct LIBMVME_EXPORT Slot
     s32 parentSlotIndex = -1;
     /* The name if this Slot in the parentOperator. Set by the parentOperator. */
     QString name;
+
+    /* Set to true if it's ok for the slot to be unconnected and still consider
+     * the parent operator to be in a valid state. By default all slots of an
+     * operator need to be connected. */
+    bool isOptional = false;
 };
 
 /* Data source interface. The analysis feeds complete module event data into
@@ -1278,12 +1283,18 @@ class LIBMVME_EXPORT ExportSink: public SinkInterface
         Format getFormat() const { return m_format; }
 
     private:
-        // Using pointer to Slot here to avoid having to deal with changing
+        // Optional single value condition input. If invalid no data will be
+        // exported in that event cycle. If unconnected all occurrences of the
+        // event will produce exported data.
+        Slot m_conditionInput;
+
+        // Using pointers to Slot here to avoid having to deal with changing
         // Slot addresses on resizing the inputs vector.
-        QVector<std::shared_ptr<Slot>> m_inputs;
+        QVector<std::shared_ptr<Slot>> m_dataInputs;
 
         // Output filename. May include a path. Is relative to the application
-        // working directory which is the workspace directory.
+        // working directory which is the workspace directory. This should be a
+        // basename. File extensions are appended.
         QString m_outputFilename;
 
         //  0:  turn of compression; makes this operator write directly to the output file
@@ -1648,7 +1659,7 @@ void LIBMVME_EXPORT do_beginRun_forward(PipeSourceInterface *pipeSource, const R
 
 QString LIBMVME_EXPORT make_unique_operator_name(Analysis *analysis, const QString &prefix);
 
-bool LIBMVME_EXPORT all_inputs_connected(OperatorInterface *op);
+bool LIBMVME_EXPORT required_inputs_connected_and_valid(OperatorInterface *op);
 bool LIBMVME_EXPORT no_input_connected(OperatorInterface *op);
 
 /** Generate new unique IDs for all sources and operators.

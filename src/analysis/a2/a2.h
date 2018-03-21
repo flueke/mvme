@@ -492,11 +492,12 @@ enum class ExportSinkFormat
      * indexed format. */
     Full,
 
-    /* Writes a size prefix and two arrays, the first containing the parameter
+    /* Indexed/Sparse format:
+     * Writes a size prefix and two arrays, the first containing the parameter
      * indices, the second the coressponding values. Only valid values are
      * written out.
      * Use this if only a couple of channels respond per event. In this case it
-     * will produce much smaller data than the Plain format. */
+     * will produce much smaller data than the Full format. */
     Indexed,
 };
 
@@ -522,16 +523,29 @@ struct ExportSinkData
     // ostream used when compression is enabled.
     std::unique_ptr<std::ostream> z_ostream;
 
-    // The current timetick. Updated in a2_timetick()
-    u32 timetick = 0;
+    // Condition input index. If negative the condition input will be unused.
+    s32 condIndex = -1;
 };
 
+// No condition input. All data will be written to the output file.
 Operator make_export_sink(
     memory::Arena *arena,
-    TypedBlock<PipeVectors, s32> inputs,
     const std::string &output_filename,
     int compressionLevel,
-    ExportSinkFormat format);
+    ExportSinkFormat format,
+    TypedBlock<PipeVectors, s32> dataInputs
+    );
+
+// With condition input. This can dramatically reduce the output data size.
+Operator make_export_sink(
+    memory::Arena *arena,
+    const std::string &output_filename,
+    int compressionLevel,
+    ExportSinkFormat format,
+    TypedBlock<PipeVectors, s32> dataInputs,
+    PipeVectors condInput,
+    s32 condIndex
+    );
 
 //
 // A2 structure and entry points

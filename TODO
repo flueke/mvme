@@ -114,11 +114,12 @@ Data Export Implementation - ExportSink
 === What to export / System design ===
 * ExportSink operator
   - with variable number of data inputs (arrays only atm)
-  - enable/disable flag
+  - enable/disable flag (implement this in the a1 layer. if the op is disabled do not build the a2 implementation)
   - a special condition input (single value only). if valid an ouput event is
     generated, otherwise no output is written.
   - selectable handling of invalids and nans for the indexed format.
     nan/invalid could be skipped entirely if desired.
+  - defined byte order (little endian)
 
 * For each ExportSink a different filename must be used.
   Plan right now: <workspace>/export/<run_id>/<export_op_1>.mvmexport

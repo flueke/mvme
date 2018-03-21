@@ -3233,7 +3233,9 @@ size_t RateMonitorSink::getStorageSize() const
 //
 ExportSink::ExportSink(QObject *parent)
     : SinkInterface(parent)
+    , m_conditionInput(this, 0, "Condition Input", InputType::Value)
 {
+    m_conditionInput.isOptional = true;
     addSlot();
     setOutputFilename("export_test.bin");
 }
@@ -3244,20 +3246,19 @@ bool ExportSink::addSlot()
 
     auto slot = std::make_shared<Slot>(
         this, getNumberOfSlots(),
-        QSL("Input#") + QString::number(getNumberOfSlots()), inputType);
+        QSL("Data Input #") + QString::number(getNumberOfSlots()), inputType);
 
-    m_inputs.push_back(slot);
+    m_dataInputs.push_back(slot);
 
     return true;
 }
 
 bool ExportSink::removeLastSlot()
 {
-    if (getNumberOfSlots() > 1)
+    if (m_dataInputs.size() > 1)
     {
-        m_inputs.back()->disconnectPipe();
-        m_inputs.pop_back();
-
+        m_dataInputs.back()->disconnectPipe();
+        m_dataInputs.pop_back();
         return true;
     }
 
@@ -3268,9 +3269,13 @@ Slot *ExportSink::getSlot(s32 slotIndex)
 {
     Slot *result = nullptr;
 
-    if (slotIndex < getNumberOfSlots())
+    if (slotIndex == 0)
     {
-        result = m_inputs[slotIndex].get();
+        result = &m_conditionInput;
+    }
+    else if (slotIndex - 1 < m_dataInputs.size())
+    {
+        result = m_dataInputs.at(slotIndex - 1).get();
     }
 
     return result;
@@ -3278,7 +3283,7 @@ Slot *ExportSink::getSlot(s32 slotIndex)
 
 s32 ExportSink::getNumberOfSlots() const
 {
-    return m_inputs.size();
+    return 1 + m_dataInputs.size();
 }
 
 void ExportSink::beginRun(const RunInfo &)
@@ -3294,7 +3299,7 @@ void ExportSink::step()
 
 void ExportSink::write(QJsonObject &json) const
 {
-    json["numberOfInputs"] = getNumberOfSlots();
+    json["dataInputCount"] = m_dataInputs.size();
     json["outputFilename"] = getOutputFilename();
     json["compressionLevel"] = getCompressionLevel();
     json["format"] = static_cast<s32>(getFormat());
@@ -3302,9 +3307,9 @@ void ExportSink::write(QJsonObject &json) const
 
 void ExportSink::read(const QJsonObject &json)
 {
-    m_inputs.clear();
+    m_dataInputs.clear();
 
-    s32 inputCount = json["numberOfInputs"].toInt();
+    s32 inputCount = json["dataInputCount"].toInt();
 
     for (s32 inputIndex = 0;
          inputIndex < inputCount;
@@ -4199,7 +4204,7 @@ QString make_unique_operator_name(Analysis *analysis, const QString &prefix)
     return prefix + QSL(".") + QString::number(suffixNumber);
 }
 
-bool all_inputs_connected(OperatorInterface *op)
+bool required_inputs_connected_and_valid(OperatorInterface *op)
 {
     bool result = true;
 
@@ -4207,7 +4212,20 @@ bool all_inputs_connected(OperatorInterface *op)
          slotIndex < op->getNumberOfSlots();
          ++slotIndex)
     {
-        result = result && op->getSlot(slotIndex)->isConnected();
+        auto slot = op->getSlot(slotIndex);
+
+        if (slot->isParamIndexInRange())
+        {
+            result = result && true;
+        }
+        else if (slot->isOptional && !slot->isConnected())
+        {
+            result = result && true;
+        }
+        else
+        {
+            result = false;
+        }
     }
 
     return result;

@@ -2451,33 +2451,68 @@ void rate_monitor_sample_flow(Operator *op)
 
 Operator make_export_sink(
     memory::Arena *arena,
-    TypedBlock<PipeVectors, s32> inputs,
     const std::string &output_filename,
     int compressionLevel,
-    ExportSinkFormat format)
+    ExportSinkFormat format,
+    TypedBlock<PipeVectors, s32> dataInputs
+    )
+{
+    return make_export_sink(
+        arena,
+        output_filename,
+        compressionLevel,
+        format,
+        dataInputs,
+        PipeVectors(),
+        -1);
+}
+
+Operator make_export_sink(
+    memory::Arena *arena,
+    const std::string &output_filename,
+    int compressionLevel,
+    ExportSinkFormat format,
+    TypedBlock<PipeVectors, s32> dataInputs,
+    PipeVectors condInput,
+    s32 condIndex
+    )
 {
     Operator result = {};
+
+    s32 inputCount = dataInputs.size;
+
+    if (condIndex >= 0)
+        inputCount++;
 
     switch (format)
     {
         case ExportSinkFormat::Full:
-            result = make_operator(arena, Operator_ExportSinkFull, inputs.size, 0);
+            result = make_operator(arena, Operator_ExportSinkFull, inputCount, 0);
             break;
         case ExportSinkFormat::Indexed:
-            result = make_operator(arena, Operator_ExportSinkIndexed, inputs.size, 0);
+            result = make_operator(arena, Operator_ExportSinkIndexed, inputCount, 0);
             break;
-    }
-
-    for (s32 ii = 0; ii < inputs.size; ii++)
-    {
-        assign_input(&result, inputs[ii], ii);
     }
 
     auto d = arena->pushObject<ExportSinkData>();
     result.d = d;
 
-    d->filename = output_filename;
+    d->filename         = output_filename;
     d->compressionLevel = compressionLevel;
+    d->condIndex        = condIndex;
+
+    // Assign data inputs.
+    for (s32 ii = 0; ii < dataInputs.size; ii++)
+    {
+        assign_input(&result, dataInputs[ii], ii);
+    }
+
+    // The optional condition input is the last input. It's only used if
+    // condIndex is valid.
+    if (condIndex >= 0)
+    {
+        assign_input(&result, condInput, inputCount - 1);
+    }
 
     return result;
 }
@@ -2524,7 +2559,7 @@ void export_sink_begin_run(Operator *op)
 
             d->z_ostream.reset(new zstr::ostream(d->z_streambuf.get()));
 
-            // NOTE: zstr::ostream has exceptions enabled by default
+            // NOTE: zstr::ostream has exceptions enabled by default and must stay enabled
         }
     }
     catch (const std::exception &e)
@@ -2556,14 +2591,25 @@ void export_sink_full_step(Operator *op)
 
     assert(outp);
 
+    s32 dataInputCount = op->inputCount;
+
+    // Test the condition input if it's used
+    if (d->condIndex >= 0)
+    {
+        assert(d->condIndex < op->inputs[op->inputCount - 1].size);
+
+        if (!is_param_valid(op->inputs[op->inputCount - 1][d->condIndex]))
+            return;
+
+        dataInputCount = op->inputCount - 1;
+    }
+
     try
     {
         if (outp->good())
         {
-            outp->write(reinterpret_cast<char *>(&d->timetick), sizeof(u32));
-
             for (s32 inputIndex = 0;
-                 inputIndex < op->inputCount && outp->good();
+                 inputIndex < dataInputCount && outp->good();
                  inputIndex++)
             {
                 auto input = op->inputs[inputIndex];
@@ -2663,17 +2709,29 @@ void export_sink_indexed_step(Operator *op)
 
     assert(outp);
 
+    s32 dataInputCount = op->inputCount;
+
+    // Test the condition input if it's used
+    if (d->condIndex >= 0)
+    {
+        assert(d->condIndex < op->inputs[op->inputCount - 1].size);
+
+        if (!is_param_valid(op->inputs[op->inputCount - 1][d->condIndex]))
+            return;
+
+        dataInputCount = op->inputCount - 1;
+    }
+
     try
     {
         if (outp->good())
         {
-            outp->write(reinterpret_cast<char *>(&d->timetick), sizeof(u32));
-
             for (s32 inputIndex = 0;
-                 inputIndex < op->inputCount && outp->good();
+                 inputIndex < dataInputCount && outp->good();
                  inputIndex++)
             {
                 auto input = op->inputs[inputIndex];
+                assert(input.size <= std::numeric_limits<u16>::max());
                 write_indexed_parameter_vector(*outp, input);
             }
         }
@@ -3331,12 +3389,6 @@ void a2_timetick(A2 *a2)
             if (op->type == Operator_RateMonitor_FlowRate)
             {
                 rate_monitor_sample_flow(op);
-            }
-            else if (op->type == Operator_ExportSinkFull
-                     || op->type == Operator_ExportSinkIndexed)
-            {
-                auto d = reinterpret_cast<ExportSinkData *>(op->d);
-                d->timetick++;
             }
         }
     }

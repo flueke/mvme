@@ -692,26 +692,47 @@ DEF_OP_MAGIC(rate_monitor_sink_magic)
     return result;
 }
 
+#define DEF_OP_MAGIC(name) a2::Operator name(\
+    memory::Arena *arena,\
+    A2AdapterState *adapterState,\
+    analysis::OperatorPtr op,\
+    InputSlots inputSlots,\
+    OutputPipes outputPipes)
+
 DEF_OP_MAGIC(export_sink_magic)
 {
     LOG("");
 
     auto sink = qobject_cast<analysis::ExportSink *>(op.get());
     assert(sink);
+    assert(inputSlots.size() > 1);
 
-    QVector<a2::PipeVectors> a2_inputs(inputSlots.size());
+    a2::PipeVectors a2_condInput;
+    s32 condIndex = -1;
+    auto *condSlot = inputSlots.at(0);
 
-    for (s32 si = 0; si < inputSlots.size(); si++)
+    if (condSlot->isParamIndexInRange())
     {
-        a2_inputs[si] = find_output_pipe(adapterState, inputSlots[si]);
+        a2_condInput = find_output_pipe(adapterState, condSlot);
+        condIndex    = condSlot->paramIndex;
+    }
+
+    QVector<a2::PipeVectors> a2_dataInputs(inputSlots.size() - 1);
+
+    for (s32 si = 0; si < inputSlots.size() - 1; si++)
+    {
+        a2_dataInputs[si] = find_output_pipe(adapterState, inputSlots[si + 1]);
     }
 
     a2::Operator result = a2::make_export_sink(
         arena,
-        { a2_inputs.data(), a2_inputs.size() },
         sink->getOutputFilename().toStdString(),
         sink->getCompressionLevel(),
-        sink->getFormat());
+        sink->getFormat(),
+        { a2_dataInputs.data(), a2_dataInputs.size() },
+        a2_condInput,
+        condIndex
+        );
 
     return result;
 }
@@ -986,7 +1007,7 @@ auto a2_adapter_filter_operators(QVector<Analysis::OperatorEntry> operators)
     {
         auto &entry = operators[opIndex];
 
-        if (entry.op && !all_inputs_connected(entry.op.get()))
+        if (entry.op && !required_inputs_connected_and_valid(entry.op.get()))
         {
             QLOG("filtering out" << entry.op.get() << "and children");
             set_null_if_input_is(operators, entry.op.get(), opIndex + 1);

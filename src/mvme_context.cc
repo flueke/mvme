@@ -1454,6 +1454,16 @@ void MVMEContext::openWorkspace(const QString &dirName)
             }
         }
 
+        // exports subdir
+        {
+            QDir dir(getWorkspacePath(QSL("ExportsDirectory"), QSL("exports")));
+
+            if (!QDir::root().mkpath(dir.absolutePath()))
+            {
+                throw QString(QSL("Error creating exports directory %1.")).arg(dir.path());
+            }
+        }
+
         {
             ListFileOutputInfo info = readFromSettings(*workspaceSettings);
 

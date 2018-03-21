@@ -1207,7 +1207,8 @@ void AddEditOperatorWidget::repopulateSlotGrid()
             // Update the current select button to reflect the change
             m_selectButtons[slotIndex]->setText(QSL("<select>"));
             // Disable ok button as there's now at least one unset input
-            m_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(false);
+            bool enable_ok = required_inputs_connected_and_valid(m_op);
+            m_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(enable_ok);
             m_opConfigWidget->inputSelected(slotIndex);
         });
 
@@ -1261,6 +1262,7 @@ void AddEditOperatorWidget::inputSelected(s32 slotIndex)
 
     m_opConfigWidget->inputSelected(slotIndex);
 
+#if 0
     bool enableOkButton = true;
 
     for (s32 slotIndex = 0; slotIndex < m_op->getNumberOfSlots(); ++slotIndex)
@@ -1271,6 +1273,8 @@ void AddEditOperatorWidget::inputSelected(s32 slotIndex)
             break;
         }
     }
+#endif
+    bool enableOkButton = required_inputs_connected_and_valid(m_op);
 
     m_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(enableOkButton);
     m_buttonBox->button(QDialogButtonBox::Ok)->setFocus();
@@ -1990,6 +1994,31 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
 
         formLayout->addRow(QSL("Invert Condition"), cb_invertCondition);
     }
+    else if (auto ex = qobject_cast<ExportSink *>(op))
+    {
+        le_exportBasename = new QLineEdit;
+        pb_selectExportBasename = new QPushButton("Select");
+        {
+            auto l = new QHBoxLayout;
+            l->addWidget(le_exportBasename);
+            l->addWidget(pb_selectExportBasename);
+            l->setStretch(0, 1);
+            formLayout->addRow("Output File", l);
+        }
+
+        combo_exportFormat = new QComboBox;
+        combo_exportFormat->addItem("Plain/Full", static_cast<int>(ExportSink::Format::Full));
+        combo_exportFormat->addItem("Indexed/Sparse", static_cast<int>(ExportSink::Format::Indexed));
+
+        formLayout->addRow("Format", combo_exportFormat);
+
+        combo_exportCompression = new QComboBox;
+        combo_exportCompression->addItem("Don't compress", 0);
+        combo_exportCompression->addItem("zlib fast", 1);
+        //combo_exportCompression->addItem("zlib default", -1);
+        //combo_exportCompression->addItem("zlib best", 9);
+        formLayout->addRow("Compression", combo_exportCompression);
+    }
 }
 
 // NOTE: This will be called after construction for each slot by AddEditOperatorWidget::repopulateSlotGrid()!
@@ -2057,7 +2086,10 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
         le_name->setText(op->objectName());
     }
 
-    if (!le_name->text().isEmpty() && op->getNumberOfOutputs() > 0 && all_inputs_connected(op) && !wasNameEdited())
+    if (!le_name->text().isEmpty()
+        && op->getNumberOfOutputs() > 0
+        && required_inputs_connected_and_valid(op)
+        && !wasNameEdited())
     {
         // XXX: leftoff here TODO: use the currently selected operations name
         // as the suffix (currently it always says 'sum')
@@ -2248,10 +2280,7 @@ void OperatorConfigurationWidget::configureOperator()
 {
     OperatorInterface *op = m_op;
 
-    for (s32 slotIndex = 0; slotIndex < m_op->getNumberOfSlots(); ++slotIndex)
-    {
-        Q_ASSERT(op->getSlot(slotIndex)->isConnected());
-    }
+    assert(required_inputs_connected_and_valid(op));
 
     op->setObjectName(le_name->text());
 
@@ -2426,6 +2455,12 @@ void OperatorConfigurationWidget::configureOperator()
     {
         cf->m_invertedCondition = cb_invertCondition->isChecked();
     }
+    else if (auto ex = qobject_cast<ExportSink *>(op))
+    {
+        ex->setCompressionLevel(combo_exportCompression->currentData().toInt());
+        ex->setFormat(static_cast<ExportSink::Format>(combo_exportFormat->currentData().toInt()));
+        ex->setOutputFilename(le_exportBasename->text());
+    }
 }
 
 void OperatorConfigurationWidget::fillCalibrationTable(CalibrationMinMax *calib, double proposedMin, double proposedMax)
@@ -2466,7 +2501,7 @@ void OperatorConfigurationWidget::fillCalibrationTable(CalibrationMinMax *calib,
 
 void OperatorConfigurationWidget::updateOutputLimits(BinarySumDiff *op)
 {
-    if (!all_inputs_connected(op))
+    if (!required_inputs_connected_and_valid(op))
         return;
 
     int equationIndex = combo_equation->currentData().toInt();
@@ -2666,7 +2701,7 @@ RateMonitorConfigWidget::RateMonitorConfigWidget(RateMonitorSink *rms, s32 userL
 
 void RateMonitorConfigWidget::configureOperator()
 {
-    assert(all_inputs_connected(m_op));
+    assert(required_inputs_connected_and_valid(m_op));
 
     m_rms->setObjectName(le_name->text());
     m_rms->setType(static_cast<RateMonitorSink::Type>(combo_type->currentData().toInt()));
@@ -2707,7 +2742,7 @@ void RateMonitorConfigWidget::inputSelected(s32 slotIndex)
         le_name->setText(name);
     }
 
-    if (all_inputs_connected(op))
+    if (required_inputs_connected_and_valid(op))
     {
         // Use the inputs unit label
         le_unit->setText(op->getSlot(0)->inputPipe->parameters.unit);
@@ -2928,7 +2963,7 @@ ExpressionOperatorConfigurationWidget::ExpressionOperatorConfigurationWidget(Exp
 
 void ExpressionOperatorConfigurationWidget::configureOperator()
 {
-    assert(all_inputs_connected(m_op));
+    assert(required_inputs_connected_and_valid(m_op));
 
     m_op->setObjectName(le_name->text());
 }
@@ -2959,7 +2994,7 @@ void ExpressionOperatorConfigurationWidget::rebuild()
     m_a2_op = {};
     m_arena.reset();
 
-    if (all_inputs_connected(m_op))
+    if (required_inputs_connected_and_valid(m_op))
     {
         auto a1_inPipe = m_op->getSlot(0)->inputPipe;
 
