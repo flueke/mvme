@@ -643,6 +643,27 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
 
     try
     {
+        //
+        // Make sure the controller is not in DAQ mode already so that we do
+        // not abort someone elses DAQ run.
+        //
+        u32 controlReg = 0;
+        error = sis->readRegister(SIS3153Registers::StackListControl, &controlReg);
+
+        if (error.isError())
+        {
+            throw QString("Error reading StackListControl register: %1").arg(error.toString());
+        }
+
+        if (controlReg & SIS3153Registers::StackListControlValues::StackListEnable)
+        {
+            sis->close();
+
+            throw QString("Error starting DAQ: SIS3153 already is in autonomous DAQ mode."
+                          " Use \"force reset\" to attempt resetting the controller.");
+        }
+
+
         logMessage(QString(QSL("SIS3153 readout starting on %1"))
                    .arg(QDateTime::currentDateTime().toString())
                    );
