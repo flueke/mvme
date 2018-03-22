@@ -441,7 +441,7 @@ public:
     virtual void pop() override {
         items_.erase(items_.begin());
     }
-    
+
     virtual const basic_data<string_type>* get(const string_type& name) const override {
         // process {{.}} name
         if (name.size() == 1 && name.at(0) == '.') {
@@ -506,7 +506,7 @@ public:
     bool is_valid() const {
         return errorMessage_.empty();
     }
-    
+
     const string_type& error_message() const {
         return errorMessage_;
     }
@@ -523,7 +523,7 @@ public:
         });
         return stream;
     }
-    
+
     string_type render(const basic_data<string_type>& data) {
         std::basic_ostringstream<typename string_type::value_type> ss;
         return render(data, ss).str();
@@ -550,7 +550,7 @@ public:
 
 private:
     using StringSizeType = typename string_type::size_type;
-    
+
     class Tag {
     public:
         enum class Type {
@@ -575,7 +575,7 @@ private:
             return type == Type::SectionEnd;
         }
     };
-    
+
     class component {
     public:
         string_type text;
@@ -618,7 +618,7 @@ private:
         : escape_(html_escape<string_type>)
     {
     }
-    
+
     basic_mustache(const string_type& input, context_internal& ctx)
         : basic_mustache() {
         parse(input, ctx);
@@ -626,18 +626,18 @@ private:
 
     void parse(const string_type& input, context_internal& ctx) {
         using streamstring = std::basic_ostringstream<typename string_type::value_type>;
-        
+
         const string_type braceDelimiterEndUnescaped(3, '}');
         const StringSizeType inputSize{input.size()};
-        
+
         bool currentDelimiterIsBrace{ctx.delimiterSet.is_default()};
-        
+
         std::vector<component*> sections{&rootComponent_};
         std::vector<StringSizeType> sectionStarts;
-        
+
         StringSizeType inputPosition{0};
         while (inputPosition != inputSize) {
-            
+
             // Find the next tag start delimiter
             const StringSizeType tagLocationStart{input.find(ctx.delimiterSet.begin, inputPosition)};
             if (tagLocationStart == string_type::npos) {
@@ -650,7 +650,7 @@ private:
                 const component comp{{input, inputPosition, tagLocationStart - inputPosition}, inputPosition};
                 sections.back()->children.push_back(comp);
             }
-            
+
             // Find the next tag end delimiter
             StringSizeType tagContentsLocation{tagLocationStart + ctx.delimiterSet.begin.size()};
             const bool tagIsUnescapedVar{currentDelimiterIsBrace && tagLocationStart != (inputSize - 2) && input.at(tagContentsLocation) == ctx.delimiterSet.begin.at(0)};
@@ -666,7 +666,7 @@ private:
                 errorMessage_.assign(ss.str());
                 return;
             }
-            
+
             // Parse tag
             const string_type tagContents{trim(string_type{input, tagContentsLocation, tagLocationEnd - tagContentsLocation})};
             component comp;
@@ -686,7 +686,7 @@ private:
             }
             comp.position = tagLocationStart;
             sections.back()->children.push_back(comp);
-            
+
             // Start next search after this tag
             inputPosition = tagLocationEnd + currentTagDelimiterEndSize;
 
@@ -706,7 +706,7 @@ private:
                 sectionStarts.pop_back();
             }
         }
-        
+
         // Check for sections without an ending tag
         walk([this](component& comp) -> WalkControl {
             if (!comp.tag.isSectionBegin()) {
@@ -725,14 +725,14 @@ private:
             return;
         }
     }
-    
+
     enum class WalkControl {
         Continue,
         Stop,
         Skip,
     };
     using WalkCallback = std::function<WalkControl(component&)>;
-    
+
     void walk(const WalkCallback& callback) {
         walkChildren(callback, rootComponent_);
     }
@@ -744,7 +744,7 @@ private:
             }
         }
     }
-    
+
     WalkControl walkComponent(const WalkCallback& callback, component& comp) {
         WalkControl control{callback(comp)};
         if (control == WalkControl::Stop) {
@@ -758,7 +758,7 @@ private:
         }
         return control;
     }
-    
+
     bool is_set_delimiter_valid(const string_type& delimiter) const {
         // "Custom delimiters may not contain whitespace or the equals sign."
         for (const auto ch : delimiter) {
@@ -768,7 +768,7 @@ private:
         }
         return true;
     }
-    
+
     bool parseSetDelimiterTag(const string_type& contents, delimiter_set<string_type>& delimiterSet) {
         // Smallest legal tag is "=X X="
         if (contents.size() < 5) {
@@ -793,7 +793,7 @@ private:
         delimiterSet.end = end;
         return true;
     }
-    
+
     void parseTagContents(bool isUnescapedVar, const string_type& contents, Tag& tag) {
         if (isUnescapedVar) {
             tag.type = Tag::Type::UnescapedVariable;
@@ -854,7 +854,7 @@ private:
             handler(comp.text);
             return WalkControl::Continue;
         }
-        
+
         const Tag& tag{comp.tag};
         const basic_data<string_type>* var = nullptr;
         switch (tag.type) {
@@ -906,7 +906,7 @@ private:
             default:
                 break;
         }
-        
+
         return WalkControl::Continue;
     }
 
@@ -915,7 +915,7 @@ private:
         Unescape,
         Optional,
     };
-    
+
     bool renderLambda(const RenderHandler& handler, const basic_data<string_type>* var, context_internal& ctx, RenderLambdaEscape escape, const string_type& text, bool parseWithSameContext) {
         const typename basic_renderer<string_type>::type2 render2 = [this, &handler, var, &ctx, parseWithSameContext, escape](const string_type& text, bool escaped) {
             const auto processTemplate = [this, &handler, var, &ctx, escape, escaped](basic_mustache& tmpl) -> string_type {
@@ -962,7 +962,7 @@ private:
         }
         return errorMessage_.empty();
     }
-    
+
     bool renderVariable(const RenderHandler& handler, const basic_data<string_type>* var, context_internal& ctx, bool escaped) {
         if (var->is_string()) {
             const auto varstr = var->string_value();

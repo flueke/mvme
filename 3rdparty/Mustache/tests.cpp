@@ -102,7 +102,7 @@ TEST_CASE("variables") {
         data.set("name", "\"S\"<br>te&v\'e");
         CHECK(tmpl.render(data) == "Hello &quot;S&quot;&lt;br&gt;te&amp;v&apos;e");
     }
-    
+
     SECTION("unescaped1") {
         mustache tmpl("Hello {{{name}}}");
         data data;
@@ -141,7 +141,7 @@ TEST_CASE("variables") {
 }
 
 TEST_CASE("comments") {
-    
+
     SECTION("simple") {
         mustache tmpl("<h1>Today{{! ignore me }}.</h1>");
         data data;
@@ -171,7 +171,7 @@ TEST_CASE("set_delimiter") {
         data.set("n", "s");
         CHECK(tmpl.render(data) == "sss");
     }
-    
+
     SECTION("noreset") {
         mustache tmpl("{{=[ ]=}}[name] [x] + [y] = [sum]");
         data data;
@@ -181,7 +181,7 @@ TEST_CASE("set_delimiter") {
         data.set("sum", "3");
         CHECK(tmpl.render(data) == "Steve 1 + 2 = 3");
     }
-    
+
     SECTION("whitespace") {
         mustache tmpl("|{{= @   @ =}}|");
         data data;
@@ -192,7 +192,7 @@ TEST_CASE("set_delimiter") {
 }
 
 TEST_CASE("sections") {
-    
+
     SECTION("nonexistant") {
         mustache tmpl("{{#var}}not shown{{/var}}");
         data data;
@@ -212,7 +212,7 @@ TEST_CASE("sections") {
         dat.set("var", data(data::type::list));
         CHECK(tmpl.render(dat) == "");
     }
-    
+
     SECTION("nested") {
         mustache tmpl("{{#var1}}hello{{#var2}}world{{/var2}}{{/var1}}");
         data data;
@@ -224,28 +224,28 @@ TEST_CASE("sections") {
 }
 
 TEST_CASE("sections_inverted") {
-    
+
     SECTION("nonexistant") {
         mustache tmpl("{{^var}}shown{{/var}}");
         CHECK(tmpl.render(data()) == "shown");
     }
-    
+
     SECTION("false") {
         mustache tmpl("{{^var}}shown{{/var}}");
         data dat("var", data(data::type::bool_false));
         CHECK(tmpl.render(dat) == "shown");
     }
-    
+
     SECTION("emptylist") {
         mustache tmpl("{{^var}}shown{{/var}}");
         data dat("var", data(data::type::list));
         CHECK(tmpl.render(dat) == "shown");
     }
-    
+
 }
 
 TEST_CASE("section_lists") {
-    
+
     SECTION("list") {
         mustache tmpl("{{#people}}Hello {{name}}, {{/people}}");
         data people = data::type::list;
@@ -255,7 +255,7 @@ TEST_CASE("section_lists") {
         data data("people", people);
         CHECK(tmpl.render(data) == "Hello Steve, Hello Bill, Hello Tim, ");
     }
-    
+
     SECTION("nested") {
         mustache tmpl("{{#families}}surname={{surname}}, members={{#members}}{{given}},{{/members}}|{{/families}}");
         data families = data::type::list;
@@ -277,7 +277,7 @@ TEST_CASE("section_lists") {
         data.set("families", families);
         CHECK(tmpl.render(data) == "surname=Smith, members=Steve,Joe,|surname=Lee, members=Bill,Peter,|");
     }
-    
+
     SECTION("dot") {
         mustache tmpl("{{#names}}Hello {{.}}, {{/names}}");
         data names = data::type::list;
@@ -303,7 +303,7 @@ TEST_CASE("section_lists") {
 }
 
 TEST_CASE("section_object") {
-    
+
     SECTION("basic") {
         mustache tmpl("{{#employee}}name={{name}}, age={{age}}{{/employee}}");
         data person;
@@ -329,7 +329,7 @@ TEST_CASE("section_object") {
 }
 
 TEST_CASE("examples") {
-    
+
     SECTION("one") {
         mustache tmpl{"Hello {{what}}!"};
         std::cout << tmpl.render({"what", "World"}) << std::endl;
@@ -439,7 +439,7 @@ TEST_CASE("data") {
         CHECK(l1.is_lambda2());
         CHECK(l2.is_lambda2());
     }
-    
+
     SECTION("data_set") {
         data data;
         data.set("var", data::type::bool_true);
@@ -459,7 +459,7 @@ TEST_CASE("errors") {
         CHECK_FALSE(tmpl.is_valid());
         CHECK(tmpl.error_message() == "Unclosed section \"employees\" at 5");
     }
-    
+
     SECTION("unclosed_section_nested") {
         mustache tmpl("{{#var1}}hello{{#var2}}world");
         data data;
@@ -485,13 +485,13 @@ TEST_CASE("errors") {
         CHECK_FALSE(tmpl.is_valid());
         CHECK(tmpl.error_message() == "Unclosed tag at 5");
     }
-    
+
     SECTION("unopened_section") {
         mustache tmpl("test {{/employees}}");
         CHECK_FALSE(tmpl.is_valid());
         CHECK(tmpl.error_message() == "Unopened section \"employees\" at 5");
     }
-    
+
     SECTION("invalid_set_delimiter") {
         std::vector<std::string> invalids;
         invalids.push_back("test {{=< =}}");  // not 5 characters
@@ -511,7 +511,7 @@ TEST_CASE("errors") {
         CHECK(total == invalids.size());
         CHECK(total == 7);
     }
-    
+
     SECTION("lambda") {
         mustache tmpl{"Hello {{lambda}}!"};
         data dat("lambda", data{lambda{[](const std::string&){
@@ -565,7 +565,7 @@ TEST_CASE("errors") {
         CHECK(tmpl.is_valid() == false);
         CHECK(tmpl.error_message() == "Unclosed section \"blah\" at 0");
     }
-    
+
     SECTION("section_lambda") {
         mustache tmpl{"{{#what}}asdf{{/what}}"};
         data data("what", lambda{[](const std::string&){
@@ -606,7 +606,7 @@ TEST_CASE("partials") {
         dat["name"] = "Steve";
         CHECK(tmpl.render(dat) == "Hello Steve");
     }
-    
+
     SECTION("nested") {
         mustache tmpl{"{{>header}}"};
         partial header{[]() {
@@ -636,7 +636,7 @@ TEST_CASE("partials") {
 }
 
 TEST_CASE("lambdas") {
-    
+
     SECTION("basic") {
         mustache tmpl{"{{lambda}}"};
         data dat("lambda", data{lambda{[](const std::string&){
@@ -685,7 +685,7 @@ TEST_CASE("lambdas") {
         }}});
         CHECK(tmpl.render(dat) == "<&gt;>");
     }
-    
+
     SECTION("section") {
         mustache tmpl{"<{{#lambda}}{{x}}{{/lambda}}>"};
         data dat("lambda", data{lambda{[](const std::string& text){
@@ -732,7 +732,7 @@ TEST_CASE("lambdas") {
 }
 
 TEST_CASE("dotted_names") {
-    
+
     SECTION("basic") {
         mustache tmpl{"\"{{person.name}}\" == \"{{#person}}{{name}}{{/person}}\""};
         data person{"name", "Joe"};
