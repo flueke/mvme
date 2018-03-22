@@ -1272,8 +1272,8 @@ class LIBMVME_EXPORT ExportSink: public SinkInterface
         // histograms do, so it always returns 0 here.
         virtual size_t getStorageSize() const override { return 0u; }
 
-        void setOutputFilename(const QString &filename) { m_outputFilename = filename; }
-        QString getOutputFilename() const { return m_outputFilename; }
+        void setOutputBasePath(const QString &basePath) { m_outputBasePath = basePath; }
+        QString getOutputBasePath() const { return m_outputBasePath; }
 
         void setCompressionLevel(int level) { m_compressionLevel = level; }
         int getCompressionLevel() const { return m_compressionLevel; }
@@ -1282,6 +1282,8 @@ class LIBMVME_EXPORT ExportSink: public SinkInterface
 
         void setFormat(Format fmt) { m_format = fmt; }
         Format getFormat() const { return m_format; }
+
+        QVector<std::shared_ptr<Slot>> getDataInputs() const { return m_dataInputs; }
 
     private:
         // Optional single value condition input. If invalid no data will be
@@ -1294,8 +1296,8 @@ class LIBMVME_EXPORT ExportSink: public SinkInterface
 
         // Output filename. May include a path. Is relative to the application
         // working directory which is the workspace directory. This should be a
-        // basename. File extensions are appended.
-        QString m_outputFilename;
+        // basename path. File extensions are appended.
+        QString m_outputBasePath;
 
         //  0:  turn of compression; makes this operator write directly to the output file
         // -1:  Z_DEFAULT_COMPRESSION
@@ -1303,7 +1305,7 @@ class LIBMVME_EXPORT ExportSink: public SinkInterface
         //  9:  Z_BEST_COMPRESSION
         int m_compressionLevel = 0;
 
-        Format m_format = Format::Indexed;
+        Format m_format = Format::Sparse;
 };
 
 /* Note: The qobject_cast()s in the createXXX() functions are there to ensure

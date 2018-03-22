@@ -2001,14 +2001,16 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
         {
             auto l = new QHBoxLayout;
             l->addWidget(le_exportBasename);
+            // TODO: connect this to a QFileDialog. Define what this should
+            // contain and how the output files will be called.
             l->addWidget(pb_selectExportBasename);
             l->setStretch(0, 1);
             formLayout->addRow("Output File", l);
         }
 
         combo_exportFormat = new QComboBox;
-        combo_exportFormat->addItem("Plain/Full", static_cast<int>(ExportSink::Format::Full));
-        combo_exportFormat->addItem("Indexed/Sparse", static_cast<int>(ExportSink::Format::Indexed));
+        combo_exportFormat->addItem("Plain / Full", static_cast<int>(ExportSink::Format::Full));
+        combo_exportFormat->addItem("Indexed / Sparse", static_cast<int>(ExportSink::Format::Sparse));
 
         formLayout->addRow("Format", combo_exportFormat);
 
@@ -2018,6 +2020,14 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
         //combo_exportCompression->addItem("zlib default", -1);
         //combo_exportCompression->addItem("zlib best", 9);
         formLayout->addRow("Compression", combo_exportCompression);
+
+        le_exportBasename->setText(ex->getOutputBasePath());
+
+        combo_exportFormat->setCurrentIndex(
+            combo_exportFormat->findData(static_cast<int>(ex->getFormat())));
+
+        combo_exportCompression->setCurrentIndex(
+            combo_exportCompression->findData(ex->getCompressionLevel()));
     }
 }
 
@@ -2459,7 +2469,7 @@ void OperatorConfigurationWidget::configureOperator()
     {
         ex->setCompressionLevel(combo_exportCompression->currentData().toInt());
         ex->setFormat(static_cast<ExportSink::Format>(combo_exportFormat->currentData().toInt()));
-        ex->setOutputFilename(le_exportBasename->text());
+        ex->setOutputBasePath(le_exportBasename->text());
     }
 }
 

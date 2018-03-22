@@ -1,0 +1,25 @@
+#ifndef __MVME_EXPORT_{{header_guard}}__
+#define __MVME_EXPORT_{{header_guard}}__
+
+struct {{struct_name}}
+{
+{{#array_members}}
+    double {{array_name}}[{{array_size}}];
+{{/array_members}}
+
+    static const size_t ArrayCount = {{array_count}};
+
+    struct Limits
+    {
+{{#array_limits}}
+        /* Lower and upper limits for each array index. */
+        static const double {{array_name}}[{{array_size}}][2];
+{{/array_limits}}
+    };
+
+    /* The unit label for each array. */
+    static const std::string UnitLabels[ArrayCount];
+
+} __attribute__((packed));
+
+#endif /* __MVME_EXPORT_{{header_guard}}__ */

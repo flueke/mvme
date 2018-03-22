@@ -2489,8 +2489,8 @@ Operator make_export_sink(
         case ExportSinkFormat::Full:
             result = make_operator(arena, Operator_ExportSinkFull, inputCount, 0);
             break;
-        case ExportSinkFormat::Indexed:
-            result = make_operator(arena, Operator_ExportSinkIndexed, inputCount, 0);
+        case ExportSinkFormat::Sparse:
+            result = make_operator(arena, Operator_ExportSinkSparse, inputCount, 0);
             break;
     }
 
@@ -2541,7 +2541,7 @@ void export_sink_begin_run(Operator *op)
 {
     a2_trace("\n");
     assert(op->type == Operator_ExportSinkFull
-           || op->type == Operator_ExportSinkIndexed);
+           || op->type == Operator_ExportSinkSparse);
 
     auto d = reinterpret_cast<ExportSinkData *>(op->d);
 
@@ -2615,9 +2615,6 @@ void export_sink_full_step(Operator *op)
                 auto input = op->inputs[inputIndex];
                 assert(input.size <= std::numeric_limits<u16>::max());
 
-                // u16 size prefix, followed by input.size double values
-                u16 sizePrefix = static_cast<u16>(input.size);
-                outp->write(reinterpret_cast<char *>(&sizePrefix), sizeof(sizePrefix));
                 outp->write(reinterpret_cast<char *>(input.data), input.size * sizeof(double));
             }
         }
@@ -2689,7 +2686,7 @@ static void write_indexed_parameter_vector(std::ostream &out, const ParamVec &ve
 void export_sink_indexed_step(Operator *op)
 {
     a2_trace("\n");
-    assert(op->type == Operator_ExportSinkIndexed);
+    assert(op->type == Operator_ExportSinkSparse);
 
     auto d = reinterpret_cast<ExportSinkData *>(op->d);
 
@@ -2750,7 +2747,7 @@ void export_sink_end_run(Operator *op)
 {
     a2_trace("\n");
     assert(op->type == Operator_ExportSinkFull
-           || op->type == Operator_ExportSinkIndexed);
+           || op->type == Operator_ExportSinkSparse);
 
     auto d = reinterpret_cast<ExportSinkData *>(op->d);
 
@@ -2797,7 +2794,7 @@ static const OperatorFunctions OperatorTable[OperatorTypeCount] =
     [Operator_RateMonitor_FlowRate] = { rate_monitor_step },
 
     [Operator_ExportSinkFull]   = { export_sink_full_step, export_sink_begin_run, export_sink_end_run },
-    [Operator_ExportSinkIndexed] = { export_sink_indexed_step, export_sink_begin_run, export_sink_end_run },
+    [Operator_ExportSinkSparse] = { export_sink_indexed_step, export_sink_begin_run, export_sink_end_run },
 
     [Operator_RangeFilter] = { range_filter_step },
     [Operator_RangeFilter_idx] = { range_filter_step_idx },

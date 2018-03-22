@@ -498,7 +498,7 @@ enum class ExportSinkFormat
      * written out.
      * Use this if only a couple of channels respond per event. In this case it
      * will produce much smaller data than the Full format. */
-    Indexed,
+    Sparse,
 };
 
 struct ExportSinkData

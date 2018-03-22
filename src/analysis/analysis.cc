@@ -19,14 +19,15 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "analysis.h"
+
 #include <QJsonArray>
 #include <QJsonObject>
-
 #include <random>
 #include <zstr/src/zstr.hpp>
 
 #include "a2_adapter.h"
 #include "a2/multiword_datafilter.h"
+#include "exportsink_codegen.h"
 #include "../vme_config.h"
 
 #define ENABLE_ANALYSIS_DEBUG 0
@@ -3239,7 +3240,6 @@ ExportSink::ExportSink(QObject *parent)
 {
     m_conditionInput.isOptional = true;
     addSlot();
-    setOutputFilename("export_test.bin");
 }
 
 bool ExportSink::addSlot()
@@ -3288,20 +3288,41 @@ s32 ExportSink::getNumberOfSlots() const
     return 1 + m_dataInputs.size();
 }
 
-void ExportSink::beginRun(const RunInfo &)
+void ExportSink::beginRun(const RunInfo &runInfo)
 {
-    // TODO: create any missing output directories
-    // TODO: write c++ header and impl file template stuff
+    if (!runInfo.generateExportFiles)
+        return;
 
-    for (auto slot: m_dataInputs)
+    // TODO: collect all the data required to fill out source code template files
+    // load template files for c++, python, instantiate them and write the output to disk
+    // if no "main" code files have been generated yet do also generate and write those
+    // maybe: copy additional lib files required to compile/run any generated sourccode
+    // also create a makefile to build the c++ binary
+
+    ExportSinkCodeGenerator codeGen(this);
+    codeGen.generate();
+
+#if 0
+    for (s32 inputIndex = 0;
+         inputIndex < m_dataInputs.size();
+         inputIndex++)
     {
+        auto slot = m_dataInputs.at(inputIndex);
         assert(slot->isConnected());
 
         /* The input pipe defines the shape and metadata of an array in the export struct.
          */
         auto pipe = slot->inputPipe;
-
+        auto firstParam = pipe->getParameter(0);
+        double ll = firstParam ? firstParam->lowerLimit : make_quiet_nan();
+        double ul = firstParam ? firstParam->upperLimit : make_quiet_nan();
+        qDebug() << __PRETTY_FUNCTION__ << "dataInput #" << inputIndex
+            << "\n  pipe parameter name:" << pipe->getParameterName()
+            << "\n  pipe source object name:" << pipe->getSource()->objectName()
+            << "\n  params:" << pipe->getParameters().size()
+            << "\n  first param limits:" << ll << ul;
     }
+#endif
 }
 
 void ExportSink::step()
@@ -3312,7 +3333,7 @@ void ExportSink::step()
 void ExportSink::write(QJsonObject &json) const
 {
     json["dataInputCount"] = m_dataInputs.size();
-    json["outputFilename"] = getOutputFilename();
+    json["outputBasePath"] = getOutputBasePath();
     json["compressionLevel"] = getCompressionLevel();
     json["format"] = static_cast<s32>(getFormat());
 }
@@ -3330,9 +3351,9 @@ void ExportSink::read(const QJsonObject &json)
         addSlot();
     }
 
-    setOutputFilename(json["outputFilename"].toString());
+    setOutputBasePath(json["outputBasePath"].toString());
     setCompressionLevel(json["compressionLevel"].toInt());
-    setFormat(static_cast<Format>(json["format"].toInt(static_cast<s32>(Format::Indexed))));
+    setFormat(static_cast<Format>(json["format"].toInt(static_cast<s32>(Format::Sparse))));
 }
 
 //

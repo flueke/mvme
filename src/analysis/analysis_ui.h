@@ -47,7 +47,7 @@ class AnalysisWidget: public QWidget
         virtual bool event(QEvent *event) override;
 
     private:
-        friend class AnalysisWidgetPrivate;
+        friend struct AnalysisWidgetPrivate;
         AnalysisWidgetPrivate *m_d;
 
         void eventConfigModified();

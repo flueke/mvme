@@ -46,7 +46,7 @@ enum OperatorType
     Operator_RateMonitor_FlowRate,
 
     Operator_ExportSinkFull,
-    Operator_ExportSinkIndexed,
+    Operator_ExportSinkSparse,
 
     Operator_RangeFilter,
     Operator_RangeFilter_idx,

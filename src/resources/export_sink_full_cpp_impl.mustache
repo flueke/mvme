@@ -1,0 +1,17 @@
+#include "{{header_file}}"
+
+{{#array_limits}}
+const double {{struct_name}}::Limits::{{array_name}}[{{array_size}}][2] =
+{
+{{#limits}}
+    { {{lower_limit}}, {{upper_limit}} },
+{{/limits}}
+};
+{{/array_limits}}
+
+const std::string {{struct_name}}::UnitLabels[] =
+{
+{{#unit_labels}}
+    { "{{unit_label}}" },
+{{/unit_labels}}
+};

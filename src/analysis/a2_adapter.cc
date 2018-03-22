@@ -724,9 +724,16 @@ DEF_OP_MAGIC(export_sink_magic)
         a2_dataInputs[si] = find_output_pipe(adapterState, inputSlots[si + 1]);
     }
 
+    QString outputFilename = sink->getOutputBasePath() + QSL(".bin");
+
+    if (sink->getCompressionLevel() != 0)
+    {
+        outputFilename += QSL(".gz");
+    }
+
     a2::Operator result = a2::make_export_sink(
         arena,
-        sink->getOutputFilename().toStdString(),
+        outputFilename.toStdString(),
         sink->getCompressionLevel(),
         sink->getFormat(),
         { a2_dataInputs.data(), a2_dataInputs.size() },
