@@ -177,20 +177,6 @@ void MVMEStreamWorker::logMessage(const QString &msg)
     m_d->context->logMessage(msg);
 }
 
-void MVMEStreamWorker::beginRun()
-{
-    m_d->runInfo = m_d->context->getRunInfo();
-
-    m_d->streamProcessor.beginRun(
-        m_d->runInfo,
-        m_d->context->getAnalysis(),
-        m_d->context->getVMEConfig(),
-        m_d->m_listFileVersion,
-        [this](const QString &msg) { m_d->context->logMessage(msg); });
-
-    m_d->nextBufferNumber = 0;
-}
-
 namespace
 {
 
@@ -378,37 +364,33 @@ void single_step_one_event(ProcessingState &procState, MVMEStreamProcessor &stre
 
 } // end anon namespace
 
-/* The main worker loop. Call beginRun() before invoking start().
- * Currently also does a2_begin_run()/a2_end_run() to handle a2 threads if
- * enabled. */
+/* The main worker loop. */
 void MVMEStreamWorker::start()
 {
     qDebug() << __PRETTY_FUNCTION__ << "begin";
+
     Q_ASSERT(m_d->freeBuffers);
     Q_ASSERT(m_d->fullBuffers);
     Q_ASSERT(m_d->state == MVMEStreamWorkerState::Idle);
     Q_ASSERT(m_d->context->getAnalysis());
+
+    m_d->runInfo = m_d->context->getRunInfo();
+    m_d->runInfo.generateExportFiles = true;
+
+    m_d->streamProcessor.beginRun(
+        m_d->runInfo,
+        m_d->context->getAnalysis(),
+        m_d->context->getVMEConfig(),
+        m_d->m_listFileVersion,
+        [this](const QString &msg) { m_d->context->logMessage(msg); });
+
+    m_d->nextBufferNumber = 0;
 
     using ProcessingState = MVMEStreamProcessor::ProcessingState;
 
     // Single stepping support (the templates are used for logging output)
     MVMEStreamProcessor::ProcessingState singleStepProcState;
     auto vatsTemplates = vats::read_templates();
-
-
-    if (auto a2State = m_d->context->getAnalysis()->getA2AdapterState())
-    {
-        // Do not move this into Analysis::beginRun() as most of the time calls
-        // to it are not directly followed by starting the StreamWorker,
-        // meaning the threading setup is unnecessary.
-        // TODO: Move it into the stream processor instead.
-        // This now also opens output file handles for ExportSink operators.
-        a2::a2_begin_run(a2State->a2);
-    }
-
-    // Start stream consumers from within this thread
-    m_d->streamProcessor.startConsumers();
-
 
     // Timers and timeticks
     auto &counters = m_d->streamProcessor.getCounters();
@@ -560,16 +542,11 @@ void MVMEStreamWorker::start()
 
     counters.stopTime = QDateTime::currentDateTime();
 
-    if (auto a2State = m_d->context->getAnalysis()->getA2AdapterState())
-    {
-        a2::a2_end_run(a2State->a2);
-    }
-
     m_d->streamProcessor.endRun();
 
     // analysis session auto save
-    // NOTE: load is currently done in MVMEContext::openWorkspace()
     auto sessionPath = m_d->context->getWorkspacePath(QSL("SessionDirectory"));
+
     if (!sessionPath.isEmpty())
     {
         auto filename = sessionPath + "/last_session.hdf5";

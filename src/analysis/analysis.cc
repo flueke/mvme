@@ -60,7 +60,8 @@ A2AdapterState a2_adapter_build_memory_wrapper(
     ArenaPtr &workArena,
     const QVector<Analysis::SourceEntry> &sources,
     const QVector<Analysis::OperatorEntry> &operators,
-    const vme_analysis_common::VMEIdToIndex &vmeMap)
+    const vme_analysis_common::VMEIdToIndex &vmeMap,
+    const RunInfo &runInfo)
 {
     A2AdapterState result;
 
@@ -73,7 +74,8 @@ A2AdapterState a2_adapter_build_memory_wrapper(
                 workArena.get(),
                 sources,
                 operators,
-                vmeMap);
+                vmeMap,
+                runInfo);
 
             break;
         }
@@ -3447,11 +3449,21 @@ void Analysis::beginRun(
             m_a2WorkArena,
             m_sources,
             m_operators,
-            m_vmeMap));
+            m_vmeMap,
+            runInfo));
 }
 
 void Analysis::endRun()
 {
+    for (auto &sourceEntry: m_sources)
+    {
+        sourceEntry.source->endRun();
+    }
+
+    for (auto &operatorEntry: m_operators)
+    {
+        operatorEntry.op->endRun();
+    }
 }
 
 void Analysis::beginEvent(int eventIndex)

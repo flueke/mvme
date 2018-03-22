@@ -76,8 +76,6 @@ class LIBMVME_EXPORT MVMEStreamWorker: public QObject
         void setStartPaused(bool startPaused);
         bool getStartPaused() const;
 
-        void beginRun();
-
         void stop(bool whenQueueEmpty = true);
         void pause();
         void resume();
@@ -91,6 +89,7 @@ class LIBMVME_EXPORT MVMEStreamWorker: public QObject
         void removeDiagnostics();
 
     private:
+        void beginRun();
         void setState(MVMEStreamWorkerState newState);
         void logMessage(const QString &msg);
 

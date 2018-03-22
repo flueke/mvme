@@ -29,7 +29,7 @@ class MVMEContext;
 namespace analysis
 {
 
-class AnalysisWidgetPrivate;
+struct AnalysisWidgetPrivate;
 class OperatorInterface;
 
 class AnalysisWidget: public QWidget

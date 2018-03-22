@@ -265,7 +265,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
 
         bool isWorkspaceModified() const;
 
-        analysis::Analysis *getAnalysis() const { return m_analysis_ng; }
+        analysis::Analysis *getAnalysis() const { return m_analysis; }
 
         bool isAnalysisRunning();
         void stopAnalysis();
@@ -362,7 +362,7 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         ListFileReader *m_listFileWorker;
         QTime m_replayTime;
 
-        analysis::Analysis *m_analysis_ng;
+        analysis::Analysis *m_analysis;
 
         ThreadSafeDataBufferQueue m_freeBuffers;
         ThreadSafeDataBufferQueue m_fullBuffers;

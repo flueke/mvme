@@ -96,7 +96,10 @@ void MVMEStreamProcessor::MVMEStreamProcessor::beginRun(
     m_d->eventConfigs.fill(nullptr);
     m_d->doMultiEventProcessing.fill(false);
 
+    //
     // build info for multievent processing
+    //
+
     auto eventConfigs = vmeConfig->getEventConfigs();
 
     for (s32 eventIndex = 0;
@@ -142,27 +145,18 @@ void MVMEStreamProcessor::MVMEStreamProcessor::beginRun(
         m_d->eventConfigs[eventIndex] = eventConfig;
     }
 
-    const auto vmeMap = vme_analysis_common::build_id_to_index_mapping(vmeConfig);
-    m_d->analysis->beginRun(runInfo, vmeMap);
+    //
+    // build and prepare the analysis system
+    //
+
+    m_d->analysis->beginRun(runInfo, vme_analysis_common::build_id_to_index_mapping(vmeConfig));
+    a2::a2_begin_run(m_d->analysis->getA2AdapterState()->a2);
+
+    startConsumers();
 
     if (m_d->diag)
     {
         m_d->diag->beginRun();
-    }
-}
-
-void MVMEStreamProcessor::startConsumers()
-{
-    qDebug() << __PRETTY_FUNCTION__ << "starting stream consumers";
-
-    for (auto c: m_d->bufferConsumers)
-    {
-        c->beginRun(m_d->runInfo, m_d->vmeConfig, m_d->analysis, m_d->logger);
-    }
-
-    for (auto c: m_d->moduleConsumers)
-    {
-        c->beginRun(m_d->runInfo, m_d->vmeConfig, m_d->analysis, m_d->logger);
     }
 }
 
@@ -180,9 +174,25 @@ void MVMEStreamProcessor::endRun()
         c->endRun();
     }
 
+    a2::a2_end_run(m_d->analysis->getA2AdapterState()->a2);
     m_d->analysis->endRun();
 
     qDebug() << __PRETTY_FUNCTION__ << "end";
+}
+
+void MVMEStreamProcessor::startConsumers()
+{
+    qDebug() << __PRETTY_FUNCTION__ << "starting stream consumers";
+
+    for (auto c: m_d->bufferConsumers)
+    {
+        c->beginRun(m_d->runInfo, m_d->vmeConfig, m_d->analysis, m_d->logger);
+    }
+
+    for (auto c: m_d->moduleConsumers)
+    {
+        c->beginRun(m_d->runInfo, m_d->vmeConfig, m_d->analysis, m_d->logger);
+    }
 }
 
 void MVMEStreamProcessor::processDataBuffer(DataBuffer *buffer)

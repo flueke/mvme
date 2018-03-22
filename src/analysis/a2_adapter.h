@@ -35,7 +35,8 @@ A2AdapterState a2_adapter_build(
     memory::Arena *workArena,
     const QVector<Analysis::SourceEntry> &sources,
     const QVector<Analysis::OperatorEntry> &operators,
-    const vme_analysis_common::VMEIdToIndex &vmeMap);
+    const vme_analysis_common::VMEIdToIndex &vmeMap,
+    const RunInfo &runInfo);
 
 a2::PipeVectors find_output_pipe(const A2AdapterState *state, analysis::Pipe *pipe);
 

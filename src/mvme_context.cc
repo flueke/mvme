@@ -348,7 +348,7 @@ MVMEContext::MVMEContext(MVMEMainWindow *mainwin, QObject *parent)
     , m_mode(GlobalMode::DAQ)
     , m_daqState(DAQState::Idle)
     , m_listFileWorker(new ListFileReader(m_daqStats))
-    , m_analysis_ng(new analysis::Analysis)
+    , m_analysis(new analysis::Analysis)
 {
     m_d->m_q = this;
 
@@ -531,7 +531,7 @@ MVMEContext::~MVMEContext()
     disconnect(m_streamWorker.get(), &MVMEStreamWorker::stateChanged, this, &MVMEContext::onMVMEStreamWorkerStateChanged);
 
     delete m_controller;
-    delete m_analysis_ng;
+    delete m_analysis;
     delete m_readoutWorker;
     delete m_listFileWorker;
     delete m_listFile;
@@ -1079,8 +1079,6 @@ void MVMEContext::prepareStart()
     m_streamWorker->getStreamProcessor()->attachModuleConsumer(m_d->m_rootWriter.get());
 #endif
 
-    m_streamWorker->beginRun();
-
 //#ifdef MVME_ENABLE_ROOT // FIXME: fix SIGPIPE on child process exit
 #if 0
     m_d->m_rootWriter->moveToThread(m_eventThread);
@@ -1130,10 +1128,21 @@ void MVMEContext::startDAQReadout(quint32 nCycles, bool keepHistoContents)
                .arg(QSysInfo::prettyProductName())
                .arg(QSysInfo::currentCpuArchitecture()));
 
+
+    {
+        qDebug() << __PRETTY_FUNCTION__ << "starting mvme stream worker";
+
+        QEventLoop localLoop;
+        auto con = QObject::connect(m_streamWorker.get(), &MVMEStreamWorker::started, &localLoop, &QEventLoop::quit);
+        QMetaObject::invokeMethod(m_streamWorker.get(), "start", Qt::QueuedConnection);
+        localLoop.exec();
+        QObject::disconnect(con);
+    }
+
+    qDebug() << __PRETTY_FUNCTION__ << "stream processor running. starting readout worker";
+
     QMetaObject::invokeMethod(m_readoutWorker, "start",
                               Qt::QueuedConnection, Q_ARG(quint32, nCycles));
-    QMetaObject::invokeMethod(m_streamWorker.get(), "start",
-                              Qt::QueuedConnection);
 }
 
 void MVMEContext::stopDAQ()
@@ -1188,10 +1197,10 @@ void MVMEContext::startDAQReplay(quint32 nEvents, bool keepHistoContents)
      * Solution: start the streamworker and react to its started() signal.
      * Once that arrives start the listfile reader. */
 
-    QEventLoop localLoop;
-
-    qDebug() << __PRETTY_FUNCTION__ << "starting stream processor";
     {
+        qDebug() << __PRETTY_FUNCTION__ << "starting mvme stream worker";
+
+        QEventLoop localLoop;
         auto con = QObject::connect(m_streamWorker.get(), &MVMEStreamWorker::started, &localLoop, &QEventLoop::quit);
         QMetaObject::invokeMethod(m_streamWorker.get(), "start", Qt::QueuedConnection);
         localLoop.exec();
@@ -1741,17 +1750,14 @@ bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc, const QString &in
             stopAnalysis();
         }
 
-        delete m_analysis_ng;
-        m_analysis_ng = analysis_ng.release();
-
-        // Prepares operators, allocates histograms, etc..
-        // This should in reality be the only place to throw a bad_alloc
-        m_streamWorker->beginRun();
+        delete m_analysis;
+        m_analysis = analysis_ng.release();
+        m_analysis->beginRun(getRunInfo(), vme_analysis_common::build_id_to_index_mapping(getVMEConfig()));
 
         emit analysisChanged();
 
         logMessage(QString("Loaded %1 from %2")
-                   .arg(info_string(m_analysis_ng))
+                   .arg(info_string(m_analysis))
                    .arg(inputInfo)
                    );
 
@@ -1762,7 +1768,7 @@ bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc, const QString &in
     }
     catch (const std::bad_alloc &e)
     {
-        m_analysis_ng->clear();
+        m_analysis->clear();
         setAnalysisConfigFileName(QString());
         QMessageBox::critical(m_mainwin, QSL("Error"), QString("Out of memory when creating analysis objects."));
         emit analysisChanged();
@@ -1771,7 +1777,7 @@ bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc, const QString &in
     }
     catch (const memory::out_of_memory &e)
     {
-        m_analysis_ng->clear();
+        m_analysis->clear();
         setAnalysisConfigFileName(QString());
         QMessageBox::critical(m_mainwin, QSL("Error"), QString("Out of memory when creating analysis a2 objects."));
         emit analysisChanged();
@@ -1811,7 +1817,7 @@ QString MVMEContext::getListFileOutputDirectoryFullPath(const QString &directory
 bool MVMEContext::isWorkspaceModified() const
 {
     return ((m_vmeConfig && m_vmeConfig->isModified())
-            || (m_analysis_ng && m_analysis_ng->isModified())
+            || (m_analysis && m_analysis->isModified())
            );
 }
 
@@ -1856,9 +1862,8 @@ void MVMEContext::addAnalysisOperator(QUuid eventId, const std::shared_ptr<analy
 
 void MVMEContext::analysisOperatorEdited(const std::shared_ptr<analysis::OperatorInterface> &op)
 {
-    // TODO: breakpoint2
     AnalysisPauser pauser(this);
-    m_analysis_ng->setModified();
+    m_analysis->setModified();
 
     auto runInfo = getRunInfo();
     auto vmeMap  = vme_analysis_common::build_id_to_index_mapping(getVMEConfig());

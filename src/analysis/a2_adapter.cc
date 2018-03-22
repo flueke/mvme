@@ -1036,7 +1036,8 @@ A2AdapterState a2_adapter_build(
     memory::Arena *workArena,
     const QVector<Analysis::SourceEntry> &sourceEntries,
     const QVector<Analysis::OperatorEntry> &allOperatorEntries,
-    const vme_analysis_common::VMEIdToIndex &vmeMap)
+    const vme_analysis_common::VMEIdToIndex &vmeMap,
+    const RunInfo &runInfo)
 {
     A2AdapterState result = {};
     result.a2 = arena->push<a2::A2>({});

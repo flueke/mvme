@@ -2927,7 +2927,6 @@ void EventWidget::addOperator(OperatorPtr op, s32 userLevel)
 
 void EventWidget::operatorEdited(OperatorInterface *op)
 {
-    // TODO: breakpoint1
     // Rebuild the analysis system after an edit.
 
     AnalysisPauser pauser(m_d->m_context);
