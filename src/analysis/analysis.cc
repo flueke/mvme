@@ -20,6 +20,7 @@
  */
 #include "analysis.h"
 
+#include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonObject>
 #include <random>
@@ -3354,6 +3355,28 @@ void ExportSink::read(const QJsonObject &json)
     setOutputBasePath(json["outputBasePath"].toString());
     setCompressionLevel(json["compressionLevel"].toInt());
     setFormat(static_cast<Format>(json["format"].toInt(static_cast<s32>(Format::Sparse))));
+}
+
+QString ExportSink::getDataFilePath() const
+{
+    QString result = getOutputBasePath() + ".bin";
+
+    if (m_compressionLevel != 0)
+    {
+        result += ".gz";
+    }
+
+    return result;
+}
+
+QString ExportSink::getDataFileBasename() const
+{
+    return QFileInfo(getDataFilePath()).fileName();
+}
+
+QDir ExportSink::getExportDirectory() const
+{
+    return QFileInfo(getOutputBasePath()).dir();
 }
 
 //

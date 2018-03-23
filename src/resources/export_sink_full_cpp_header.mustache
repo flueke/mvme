@@ -14,16 +14,16 @@
 struct {{struct_name}}
 {
     /* Exported data arrays. */
-{{#array_members}}
-    double {{array_name}}[{{array_size}}];
-{{/array_members}}
+{{#array_info}}
+    double {{variable_name}}[{{size}}];
+{{/array_info}}
 
     /* Lower and upper limits for each parameter of each array. */
     struct Limits
     {
-{{#array_limits}}
-        static const double {{array_name}}[{{array_size}}][2];
-{{/array_limits}}
+{{#array_info}}
+        static const double {{variable_name}}[{{size}}][2];
+{{/array_info}}
     };
 
     /* The number of data arrays. */
@@ -64,3 +64,6 @@ struct {{struct_name}}
 } __attribute__((packed)); /* No padding wanted. */
 
 #endif /* __MVME_EXPORT_GUARD_{{header_guard}}__ */
+{{!
+vim:ft=cpp
+ }}

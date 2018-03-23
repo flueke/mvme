@@ -1,4 +1,4 @@
-#include "{{header_file}}"
+#include "{{export_header_file}}"
 #include <cmath>
 #include <fstream>
 #include <iostream>
@@ -12,7 +12,7 @@ int main(int argc, char *argv[])
 
     if (argc < 2)
     {
-        inputFilename = "{{export_file}}";
+        inputFilename = "{{export_data_basename}}";
         cout << "Using default input file " << inputFilename << endl;
     }
     else

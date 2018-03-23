@@ -536,7 +536,9 @@ void DAQControlWidget::updateWidget()
             {
                 sizeLabel->setText(QSL("Current Size:"));
                 QFile fi(stats.listfileFilename);
-                auto str = format_number(fi.size(), QSL("B"), UnitScaling::Binary);
+                auto str = format_number(fi.size(), QSL("B"), UnitScaling::Binary,
+                                         // fieldWidth, format, precision
+                                         0, 'g', 2);
                 label_listfileSize->setText(str);
             } break;
 
@@ -544,7 +546,9 @@ void DAQControlWidget::updateWidget()
             {
                 sizeLabel->setText(QSL("Replay Size:"));
                 QFile fi(stats.listfileFilename);
-                auto str = format_number(fi.size(), QSL("B"), UnitScaling::Binary);
+                auto str = format_number(fi.size(), QSL("B"), UnitScaling::Binary,
+                                         // fieldWidth, format, precision
+                                         0, 'g', 2);
                 label_listfileSize->setText(str);
             } break;
     }
@@ -552,7 +556,10 @@ void DAQControlWidget::updateWidget()
     {
         QStorageInfo si(m_context->getWorkspaceDirectory());
         auto freeBytes = si.bytesFree();
-        auto str = format_number(freeBytes, QSL("B"), UnitScaling::Binary);
+        auto str = format_number(freeBytes, QSL("B"), UnitScaling::Binary,
+                                 // fieldWidth, format, precision
+                                 0, 'g', 2);
+
         label_freeStorageSpace->setText(str);
     }
 

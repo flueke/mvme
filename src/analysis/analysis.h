@@ -33,12 +33,13 @@
 #include "../rate_monitor_base.h"
 #include "../vme_analysis_common.h"
 
+#include <fstream>
 #include <memory>
 #include <pcg_random.hpp>
+#include <QDir>
 #include <QMutex>
 #include <QUuid>
 #include <qwt_interval.h>
-#include <fstream>
 
 class QJsonObject;
 class VMEConfig;
@@ -1282,6 +1283,10 @@ class LIBMVME_EXPORT ExportSink: public SinkInterface
 
         void setFormat(Format fmt) { m_format = fmt; }
         Format getFormat() const { return m_format; }
+
+        QString getDataFilePath() const;
+        QString getDataFileBasename() const;
+        QDir getExportDirectory() const;
 
         QVector<std::shared_ptr<Slot>> getDataInputs() const { return m_dataInputs; }
 

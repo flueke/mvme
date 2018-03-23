@@ -67,6 +67,7 @@
 
     <file>resources/export_sink_sparse_cpp_header.mustache</file>
     <file>resources/export_sink_sparse_cpp_impl.mustache</file>
+    <file>resources/export_sink_CMakeLists.txt.mustache</file>
 </qresource>
 </RCC>
 <!-- vim:ft=xml
