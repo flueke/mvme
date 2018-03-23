@@ -1,0 +1,70 @@
+#include "{{header_file}}"
+#include <cmath>
+#include <fstream>
+#include <iostream>
+
+using std::cout;
+using std::endl;
+
+int main(int argc, char *argv[])
+{
+    std::string inputFilename;
+
+    if (argc < 2)
+    {
+        inputFilename = "{{export_file}}";
+        cout << "Using default input file " << inputFilename << endl;
+    }
+    else
+    {
+        cout << "Using supplied input file " << argv[1] << endl;
+        inputFilename = argv[1];
+    }
+
+    size_t eventsRead = 0;
+
+    std::ifstream input;
+    input.open(inputFilename, std::ios::in | std::ios::binary);
+
+    {{struct_name}} event;
+
+    while (input.good())
+    {
+        input.read(reinterpret_cast<char *>(&event), sizeof(event));
+
+        if (!input.good())
+            break;
+
+        size_t eventNumber = eventsRead++;
+
+        cout << "Event #" << eventNumber << endl;
+
+        for (size_t arrayIndex = 0;
+             arrayIndex < event.getArrayCount();
+             arrayIndex++)
+        {
+            std::string arrayName   = event.getArrayName(arrayIndex);
+            const double *arrayData = event.getArray(arrayIndex);
+            size_t arraySize        = event.getArraySize(arrayIndex);
+
+            cout << "  Array #" << arrayIndex << ": ";
+
+            for (size_t paramIndex = 0;
+                 paramIndex < arraySize;
+                 paramIndex++)
+            {
+                if (!std::isnan(arrayData[paramIndex]))
+                {
+                    cout << "[" << paramIndex << "] = " << arrayData[paramIndex] << ", ";
+                }
+            }
+
+            cout << endl;
+        }
+        cout << endl;
+    }
+
+    cout << endl
+        << "Read " << eventsRead << " events from "
+        << inputFilename << "." << endl;
+}

@@ -111,6 +111,11 @@ TODO list somewhat sorted by priority
 --------------------------------------------------------------------------------
 Data Export Implementation - ExportSink
 --------------------------------------------------------------------------------
+* Test legality of generated variable names.
+* Make generated var names unique.
+
+
+
 === What to export / System design ===
 * ExportSink operator
   - with variable number of data inputs (arrays only atm)
@@ -119,7 +124,7 @@ Data Export Implementation - ExportSink
     generated, otherwise no output is written.
   - selectable handling of invalids and nans for the indexed format.
     nan/invalid could be skipped entirely if desired.
-  - defined byte order (little endian)
+  - defined byte order (little endian) -> NO, use native byte order and let the consumer worry about this
 
 * Need to decide when to write output files. In the beginRun() callchain? Add
   additional data to RunInfo?

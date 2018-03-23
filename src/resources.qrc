@@ -61,6 +61,10 @@
 
     <file>resources/export_sink_full_cpp_header.mustache</file>
     <file>resources/export_sink_full_cpp_impl.mustache</file>
+    <file>resources/export_sink_full_cpp_Makefile.mustache</file>
+    <file>resources/export_sink_full_cpp_export_dump.cpp.mustache</file>
+    <file>resources/export_sink_full_cpp_export_info.cpp.mustache</file>
+
     <file>resources/export_sink_sparse_cpp_header.mustache</file>
     <file>resources/export_sink_sparse_cpp_impl.mustache</file>
 </qresource>

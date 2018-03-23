@@ -1,6 +1,8 @@
 #include "exportsink_codegen.h"
 
 #include <Mustache/mustache.hpp>
+#include <QFileInfo>
+#include <QDir>
 #include "analysis.h"
 
 namespace mu = kainjow::mustache;
@@ -51,7 +53,7 @@ void ExportSinkCodeGenerator::Private::generateFull()
     const QString headerFilename = sink->getOutputBasePath() + ".h";
     const QString implFilename   = sink->getOutputBasePath() + ".cpp";
 
-    // write the c++ header
+    // write the c++ header file
     {
         mu::data data = mu::data::type::object;
 
@@ -85,14 +87,17 @@ void ExportSinkCodeGenerator::Private::generateFull()
         render_to_file(":/resources/export_sink_full_cpp_header.mustache", data, headerFilename);
     }
 
-    // write the c++ implementation
+    // write the c++ implementation file
     {
         mu::data data = mu::data::type::object;
-        data.set("header_file", headerFilename.toStdString());
+        data.set("header_file", QFileInfo(headerFilename).fileName().toStdString());
         data.set("struct_name", variablify(sink->objectName()).toStdString());
 
         mu::data arrayLimits     = mu::data::type::list;
         mu::data arrayUnitLabels = mu::data::type::list;
+        mu::data arrayInfo       = mu::data::type::list;
+
+        size_t arrayIndex = 0;
 
         for (auto slot: dataInputs)
         {
@@ -103,6 +108,12 @@ void ExportSinkCodeGenerator::Private::generateFull()
             mu::data arrayLimitsData = mu::data::type::object;
             arrayLimitsData.set("array_name", variablify(pipe->getSource()->objectName()).toStdString());
             arrayLimitsData.set("array_size", QString::number(pipe->getSize()).toStdString());
+
+            mu::data arrayInfoData = mu::data::type::object;
+            arrayInfoData.set("index",      QString::number(arrayIndex).toStdString());
+            arrayInfoData.set("size",       QString::number(pipe->getSize()).toStdString());
+            arrayInfoData.set("var_name",   variablify(pipe->getSource()->objectName()).toStdString());
+            arrayInfoData.set("name",       pipe->getSource()->objectName().toStdString());
 
             mu::data limitsList = mu::data::type::list;
 
@@ -118,15 +129,36 @@ void ExportSinkCodeGenerator::Private::generateFull()
             arrayLimitsData.set("limits", limitsList);
             arrayLimits.push_back(arrayLimitsData);
 
+            arrayInfo.push_back(arrayInfoData);
+
             mu::data labelData = mu::data::type::object;
             labelData.set("unit_label", pipe->getParameters().unit.toStdString());
             arrayUnitLabels.push_back(labelData);
+
+            arrayIndex++;
         }
 
         data.set("array_limits", arrayLimits);
         data.set("unit_labels",  arrayUnitLabels);
+        data.set("array_info",   arrayInfo);
 
         render_to_file(":/resources/export_sink_full_cpp_impl.mustache", data, implFilename);
+    }
+
+    // write the c++ programs and a Makefile
+    {
+        mu::data data = mu::data::type::object;
+        data.set("header_file", QFileInfo(headerFilename).fileName().toStdString());
+        data.set("impl_file",   QFileInfo(implFilename).fileName().toStdString());
+        data.set("struct_name", variablify(sink->objectName()).toStdString());
+        // FIXME: add getter for this info to the sink (.gz is not handled here!)
+        data.set("export_file", QFileInfo(sink->getOutputBasePath() + ".bin").fileName().toStdString());
+        // FIXME: allow getting the directory of where the export files go from the sink instead of fiddling with the basepath here!
+        QDir exportDir = QFileInfo(sink->getOutputBasePath()).dir();
+
+        render_to_file(":/resources/export_sink_full_cpp_export_info.cpp.mustache", data, exportDir.filePath("export_info.cpp"));
+        render_to_file(":/resources/export_sink_full_cpp_export_dump.cpp.mustache", data, exportDir.filePath("export_dump.cpp"));
+        render_to_file(":/resources/export_sink_full_cpp_Makefile.mustache",        data, exportDir.filePath("Makefile"));
     }
 }
 
