@@ -154,7 +154,7 @@ class VMUSB: public VMEController
         // VMEController interface
         //
 
-        virtual VMEControllerType getType() const { return VMEControllerType::VMUSB; }
+        virtual VMEControllerType getType() const override { return VMEControllerType::VMUSB; }
 
         virtual VMEError write32(u32 address, u32 value, u8 amod) override;
         virtual VMEError write16(u32 address, u16 value, u8 amod) override;
@@ -166,7 +166,7 @@ class VMUSB: public VMEController
 
         virtual VMEError open() override;
         virtual VMEError close() override;
-        virtual ControllerState getState() const { return m_state; }
+        virtual ControllerState getState() const override { return m_state; }
 
     private:
         /* Executes the given stack (in the form of a readout list) and reads the

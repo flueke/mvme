@@ -68,7 +68,8 @@ class LIBMVME_EXPORT VMEError
             DeviceIsOpen,   // Tried to open an already opened device
             Timeout,
             HostNotFound,
-            InvalidIPAddress
+            InvalidIPAddress,
+            UnexpectedAddressMode,
         };
 
         VMEError()

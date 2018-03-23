@@ -48,18 +48,19 @@ VMEControllerType from_string(const QString &str)
 
 static const QMap<VMEError::ErrorType, QString> errorNames =
 {
-    { VMEError::NoError,            QSL("No error") },
-    { VMEError::UnknownError,       QSL("Unknown error") },
-    { VMEError::NotOpen,            QSL("Controller not open") },
-    { VMEError::WriteError,         QSL("Write error") },
-    { VMEError::ReadError,          QSL("Read error") },
-    { VMEError::CommError,          QSL("Communication error") },
-    { VMEError::BusError,           QSL("VME Bus Error") },
-    { VMEError::NoDevice,           QSL("No device found") },
-    { VMEError::DeviceIsOpen,       QSL("Device is open") },
-    { VMEError::Timeout,            QSL("Timeout") },
-    { VMEError::HostNotFound,       QSL("Host not found") },
-    { VMEError::InvalidIPAddress,   QSL("Invalid IP address") },
+    { VMEError::NoError,                QSL("No error") },
+    { VMEError::UnknownError,           QSL("Unknown error") },
+    { VMEError::NotOpen,                QSL("Controller not open") },
+    { VMEError::WriteError,             QSL("Write error") },
+    { VMEError::ReadError,              QSL("Read error") },
+    { VMEError::CommError,              QSL("Communication error") },
+    { VMEError::BusError,               QSL("VME Bus Error") },
+    { VMEError::NoDevice,               QSL("No device found") },
+    { VMEError::DeviceIsOpen,           QSL("Device is open") },
+    { VMEError::Timeout,                QSL("Timeout") },
+    { VMEError::HostNotFound,           QSL("Host not found") },
+    { VMEError::InvalidIPAddress,       QSL("Invalid IP address") },
+    { VMEError::UnexpectedAddressMode,  QSL("Unexpected address mode") },
 };
 
 QString VMEError::toString() const

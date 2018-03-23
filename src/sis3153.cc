@@ -401,37 +401,121 @@ QString SIS3153::getIdentifyingString() const
 VMEError SIS3153::write32(u32 address, u32 value, u8 amod)
 {
     QMutexLocker locker(&m_d->lock);
+    VMEError result;
 
-    int resultCode = m_d->sis->vme_A32D32_write(address, value);
+    switch (amod)
+    {
+        case vme_address_modes::a32UserData:
+        case vme_address_modes::a32PrivData:
+            result = make_sis_error(m_d->sis->vme_A32D32_write(address, value));
+            break;
 
-    return make_sis_error(resultCode);
+        case vme_address_modes::a24UserData:
+        case vme_address_modes::a24PrivData:
+            result = make_sis_error(m_d->sis->vme_A24D32_write(address, value));
+            break;
+
+        case vme_address_modes::a16User:
+        case vme_address_modes::a16Priv:
+            result = make_sis_error(m_d->sis->vme_A16D32_write(address, value));
+            break;
+
+        default:
+            result = VMEError(VMEError::UnexpectedAddressMode);
+            break;
+    }
+
+    return result;
 }
 
 VMEError SIS3153::write16(u32 address, u16 value, u8 amod)
 {
     QMutexLocker locker(&m_d->lock);
+    VMEError result;
 
-    int resultCode = m_d->sis->vme_A32D16_write(address, value);
+    switch (amod)
+    {
+        case vme_address_modes::a32UserData:
+        case vme_address_modes::a32PrivData:
+            result = make_sis_error(m_d->sis->vme_A32D16_write(address, value));
+            break;
 
-    return make_sis_error(resultCode);
+        case vme_address_modes::a24UserData:
+        case vme_address_modes::a24PrivData:
+            result = make_sis_error(m_d->sis->vme_A24D16_write(address, value));
+            break;
+
+        case vme_address_modes::a16User:
+        case vme_address_modes::a16Priv:
+            result = make_sis_error(m_d->sis->vme_A16D16_write(address, value));
+            break;
+
+        default:
+            result = VMEError(VMEError::UnexpectedAddressMode);
+            break;
+    }
+
+    return result;
 }
 
 VMEError SIS3153::read32(u32 address, u32 *value, u8 amod)
 {
     QMutexLocker locker(&m_d->lock);
+    VMEError result;
 
-    int resultCode = m_d->sis->vme_A32D32_read(address, value);
+    switch (amod)
+    {
+        case vme_address_modes::a32UserData:
+        case vme_address_modes::a32PrivData:
+            result = make_sis_error(m_d->sis->vme_A32D32_read(address, value));
+            break;
 
-    return make_sis_error(resultCode);
+        case vme_address_modes::a24UserData:
+        case vme_address_modes::a24PrivData:
+            result = make_sis_error(m_d->sis->vme_A24D32_read(address, value));
+            break;
+
+        case vme_address_modes::a16User:
+        case vme_address_modes::a16Priv:
+            result = make_sis_error(m_d->sis->vme_A16D32_read(address, value));
+            break;
+
+        default:
+            result = VMEError(VMEError::UnexpectedAddressMode);
+            break;
+    }
+
+    return result;
 }
 
 VMEError SIS3153::read16(u32 address, u16 *value, u8 amod)
 {
     QMutexLocker locker(&m_d->lock);
+    VMEError result;
 
-    int resultCode = m_d->sis->vme_A32D16_read(address, value);
+    switch (amod)
+    {
+        case vme_address_modes::a32UserData:
+        case vme_address_modes::a32PrivData:
+            result = make_sis_error(m_d->sis->vme_A32D16_read(address, value));
+            break;
 
-    return make_sis_error(resultCode);
+        case vme_address_modes::a24UserData:
+        case vme_address_modes::a24PrivData:
+            result = make_sis_error(m_d->sis->vme_A24D16_read(address, value));
+            break;
+
+        case vme_address_modes::a16User:
+        case vme_address_modes::a16Priv:
+            result = make_sis_error(m_d->sis->vme_A16D16_read(address, value));
+            break;
+
+        default:
+            result = VMEError(VMEError::UnexpectedAddressMode);
+            break;
+    }
+
+    return result;
 }
 
 static inline void fix_word_order(QVector<u32> &vec)
