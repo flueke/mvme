@@ -1,8 +1,0 @@
-all: export_info export_dump
-
-export_info: export_info.cpp {{header_file}} {{impl_file}}
-	$(CXX) -Wall -o export_info export_info.cpp {{impl_file}}
-
-export_dump: export_dump.cpp {{header_file}} {{impl_file}}
-	$(CXX) -Wall -o export_dump export_dump.cpp {{impl_file}}
-
