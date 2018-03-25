@@ -34,7 +34,11 @@ static void render_to_file(
         QFile templateFile(templateFilename);
 
         if (!templateFile.open(QIODevice::ReadOnly))
-            throw std::runtime_error("Could not open input template file.");
+        {
+            auto msg = QSL("Could not open input template file %1: %2")
+                .arg(templateFilename).arg(templateFile.errorString());
+            throw std::runtime_error(msg.toStdString());
+        }
 
         mu::mustache tmpl(templateFile.readAll().toStdString());
 

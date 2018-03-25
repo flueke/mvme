@@ -1,0 +1,35 @@
+#include "{{export_header_file}}"
+#include <iostream>
+
+using std::cout;
+using std::endl;
+
+int main(int argc, char *argv[])
+{
+    {{struct_name}} exportData;
+
+    cout << exportData.getArrayCount() << " arrays in export data" << endl;
+
+    for (size_t arrayIndex = 0;
+         arrayIndex < exportData.getArrayCount();
+         arrayIndex++)
+    {
+        cout << "  Array #" << arrayIndex
+            << ": size=" << exportData.getArraySize(arrayIndex)
+            << ", name=" << exportData.getArrayName(arrayIndex)
+            << ", unit=" << exportData.getUnitLabel(arrayIndex)
+            << ", first param limits: ("
+            << exportData.getLimits(arrayIndex, 0).first
+            << ", "
+            << exportData.getLimits(arrayIndex, 0).second
+            << ")"
+            << endl;
+    }
+
+    cout << "Size of one event: " << sizeof({{struct_name}}) << " bytes" << endl;
+
+    return 0;
+}
+{{!
+vim:ft=cpp
+ }}
