@@ -29,6 +29,9 @@ struct {{struct_name}}
     /* The number of data arrays. */
     static const size_t ArrayCount = {{array_count}};
 
+    /* The dimension of each exported array. */
+    static const u16 ArrayDimensions[ArrayCount];
+
     /* The name of each exported array. */
     static const std::string ArrayNames[ArrayCount];
 
@@ -66,4 +69,4 @@ struct {{struct_name}}
 #endif /* __MVME_EXPORT_GUARD_{{header_guard}}__ */
 {{!
 vim:ft=cpp
- }}
+}}

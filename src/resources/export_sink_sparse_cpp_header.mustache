@@ -1,10 +1,120 @@
 #ifndef __MVME_EXPORT_{{header_guard}}__
 #define __MVME_EXPORT_{{header_guard}}__
 
-struct {{struct_name}}
+struct SparseArray
 {
-    {{#data_members}}
-    {{/data_members}}
+    std::vector<u16> indexes;
+    std::vector<double> values;
+
+    size_t size() const
+    {
+        assert(values.size() == indexes.size());
+        return values.size();
+    }
 };
 
+struct SumsAndCoordsSparse
+{
+    /* Exported data arrays. */
+
+    SparseArray PMT_X_sums;
+    SparseArray PMT_Y_sums;
+    SparseArray PMT_X_coord;
+    SparseArray PMT_Y_coord;
+
+
+    /* Lower and upper limits for each parameter of each array. */
+    struct Limits
+    {
+
+        static const double PMT_X_sums[8][2];
+
+        static const double PMT_Y_sums[8][2];
+
+        static const double PMT_X_coord[1][2];
+
+        static const double PMT_Y_coord[1][2];
+
+    };
+
+    /* The number of data arrays. */
+    static const size_t ArrayCount = 4;
+
+    /* The dimension of each exported array. */
+    static const u16 ArrayDimensions[ArrayCount];
+
+    /* The name of each exported array. */
+    static const std::string ArrayNames[ArrayCount];
+
+    /* The unit label for each array. */
+    static const std::string UnitLabels[ArrayCount];
+
+    /* Accessors using array and param indices. These allow non-static access
+       to static data. */
+
+    /* Same as the static ArrayCount member. */
+    size_t getArrayCount() const;
+
+    /* Returns a pointer to the exported array with the given index.
+       Returns nullptr if the index is out of range. */
+    const SparseArray *getArray(size_t index) const;
+    SparseArray *getArray(size_t index);
+
+    /* Returns the size of the exported array with the given index.
+       Returns 0 if the index is out of range. */
+    size_t getArrayDimension(size_t index) const;
+
+    /* Returns the name of the input array as defined in the analysis. */
+    std::string getArrayName(size_t index) const;
+
+    /* Returns the unit label of the array with the given index.
+       Returns an empty string if the index is out of range. */
+    std::string getUnitLabel(size_t index) const;
+
+    /* Returns the limits for the given array and parameter indices.
+       A std::pair of NaN values is returned if either the array index or the
+       parameter index are out of range. */
+    std::pair<double, double> getLimits(size_t arrayIndex, size_t paramIndex) const;
+
+};
+
+static std::istream &read(std::istream &in, SparseArray &dest)
+{
+    uint16_t size = 0;
+
+    in.read(reinterpret_cast<char *>(&size), sizeof(size));
+
+    if (!in.good())
+        size = 0;
+
+    dest.indexes.resize(size);
+    dest.values.resize(size);
+
+    if (size > 0)
+    {
+        in.read(reinterpret_cast<char *>(dest.indexes.data()), size * sizeof(u16));
+        in.read(reinterpret_cast<char *>(dest.values.data()),  size * sizeof(double));
+    }
+
+    return in;
+}
+
+std::istream &read(std::istream &in, SumsAndCoordsSparse &event)
+{
+    for (size_t arrayIndex = 0;
+         arrayIndex < event.getArrayCount();
+         arrayIndex++)
+    {
+        SparseArray *destArray = event.getArray(arrayIndex);
+        read(in, *destArray);
+    }
+
+    return in;
+}
+
+
+
 #endif /* __MVME_EXPORT_{{header_guard}}__ */
+{{!
+vim:ft=cpp
+}}
