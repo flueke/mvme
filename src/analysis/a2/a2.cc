@@ -2554,12 +2554,7 @@ void export_sink_begin_run(Operator *op)
 
         if (d->compressionLevel != 0)
         {
-            d->z_streambuf.reset(new zstr::ostreambuf(
-                    d->ostream->rdbuf(), CompressionBufferSize, d->compressionLevel));
-
-            d->z_ostream.reset(new zstr::ostream(d->z_streambuf.get()));
-
-            // NOTE: zstr::ostream has exceptions enabled by default and must stay enabled
+            d->z_ostream.reset(new zstr::ostream(*d->ostream));
         }
     }
     catch (const std::exception &e)
@@ -2577,7 +2572,6 @@ void export_sink_full_step(Operator *op)
 
     if (d->compressionLevel != 0)
     {
-        assert(d->z_streambuf);
         assert(d->z_ostream);
     }
     else
@@ -2692,7 +2686,6 @@ void export_sink_indexed_step(Operator *op)
 
     if (d->compressionLevel != 0)
     {
-        assert(d->z_streambuf);
         assert(d->z_ostream);
     }
     else
@@ -2754,7 +2747,6 @@ void export_sink_end_run(Operator *op)
     // The destructors being called due to clearing the unique_ptrs should not
     // be allowed to throw.
     d->z_ostream = {};
-    d->z_streambuf = {};
     d->ostream = {};
 }
 

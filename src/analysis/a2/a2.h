@@ -518,7 +518,7 @@ struct ExportSinkData
     std::unique_ptr<std::ostream> ostream;
 
     // stream buffer used for compression.
-    std::unique_ptr<std::streambuf> z_streambuf;
+    //std::unique_ptr<std::streambuf> z_streambuf;
 
     // ostream used when compression is enabled.
     std::unique_ptr<std::ostream> z_ostream;
