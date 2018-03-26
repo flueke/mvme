@@ -59,6 +59,16 @@ const double *{{struct_name}}::getArray(size_t index) const
     return const_cast<{{struct_name}} *>(this)->getArray(index);
 }
 
+double {{struct_name}}::getValue(size_t arrayIndex, size_t paramIndex)
+{
+    if (arrayIndex < getArrayCount() && paramIndex < getArrayDimension(arrayIndex))
+    {
+        return getArray(arrayIndex)[paramIndex];
+    }
+
+    return std::numeric_limits<double>::quiet_NaN();
+}
+
 size_t {{struct_name}}::getArrayDimension(size_t index) const
 {
     if (index < {{struct_name}}::ArrayCount)

@@ -70,6 +70,11 @@
     <file>resources/export_sink_sparse_cpp_export_info.cpp.mustache</file>
     <file>resources/export_sink_sparse_cpp_header.mustache</file>
     <file>resources/export_sink_sparse_cpp_impl.mustache</file>
+
+    <file>resources/export_sink_cpp_generate_root_histos.cpp.mustache</file>
+
+    <file>../3rdparty/zstr/src/zstr.hpp</file>
+    <file>../3rdparty/zstr/src/strict_fstream.hpp</file>
 </qresource>
 </RCC>
 <!-- vim:ft=xml

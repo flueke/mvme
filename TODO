@@ -2,6 +2,10 @@
 TODO list somewhat sorted by priority
 ==================================================
 
+* SIS: NIM and timer stack execution frequency goes down with rising IRQ load.
+  Figure out if there's documentation on the priority of the stack lists. Think
+  about what we want and expect ("what's good enough").
+
 * Transport more state of the DAQ to the analysis side. Right now the stream
   processor always creates a session auto-save even if the DAQ did not start up
   successfully (e.g. because the controller already was in DAQ mode).  Need to

@@ -34,13 +34,7 @@ int main(int argc, char *argv[])
     size_t eventsRead = 0;
     {{struct_name}} event;
 
-    while (input.good())
-    {
-        read(input, event);
-
-        if (!input.good())
-            break;
-
+#if 0
         size_t eventNumber = eventsRead++;
 
         cout << "Event #" << eventNumber << endl;
@@ -50,25 +44,36 @@ int main(int argc, char *argv[])
              arrayIndex++)
         {
             std::string arrayName   = event.getArrayName(arrayIndex);
-            const double *arrayData = event.getArray(arrayIndex);
-            size_t arrayDim         = event.getArrayDimension(arrayIndex);
+            const auto sparseArray  = event.getArray(arrayIndex);
+
+            assert(sparseArray);
 
             cout << "  Array #" << arrayIndex << ": ";
 
-            for (size_t paramIndex = 0;
-                 paramIndex < arrayDim;
-                 paramIndex++)
+            for (size_t ii = 0; ii < sparseArray->size(); ii++)
             {
-                if (!std::isnan(arrayData[paramIndex]))
-                {
-                    cout << "[" << paramIndex << "] = " << arrayData[paramIndex] << ", ";
-                }
+                uint16_t index = sparseArray->indexes[ii];
+                double   value = sparseArray->values[ii];
+                cout << "[" << index << "] = " << value << ", ";
             }
 
             cout << endl;
         }
         cout << endl;
-    }
+#else
+        for (size_t arrayIndex = 0;
+             arrayIndex < event.getArrayCount();
+             arrayIndex++)
+        {
+            size_t dim = event.getArrayDimension(arrayIndex);
+
+            for (size_t paramIndex = 0; paramIndex < dim; paramIndex++)
+            {
+
+            }
+
+        }
+#endif
 
     cout << endl
         << "Read " << eventsRead << " events from "
@@ -77,3 +82,4 @@ int main(int argc, char *argv[])
 {{!
 vim:ft=cpp
 }}
+

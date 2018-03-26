@@ -1,7 +1,10 @@
-#include "{{export_header_file}}"
 #include <cmath>
 #include <fstream>
 #include <iostream>
+#include "{{export_header_file}}"
+#ifdef MVME_EXPORT_USE_ZSTR
+#include "zstr.hpp"
+#endif
 
 using std::cout;
 using std::endl;
@@ -21,11 +24,14 @@ int main(int argc, char *argv[])
         cout << "Using filename from command line: " << inputFilename << endl;
     }
 
-    size_t eventsRead = 0;
-
+#ifdef MVME_EXPORT_USE_ZSTR
+    zstr::ifstream input(inputFilename);
+#else
     std::ifstream input;
     input.open(inputFilename, std::ios::in | std::ios::binary);
+#endif
 
+    size_t eventsRead = 0;
     {{struct_name}} event;
 
     while (input.good())
@@ -45,7 +51,6 @@ int main(int argc, char *argv[])
         {
             std::string arrayName   = event.getArrayName(arrayIndex);
             const auto sparseArray  = event.getArray(arrayIndex);
-            size_t arrayDim         = event.getArrayDimension(arrayIndex);
 
             assert(sparseArray);
 
@@ -54,7 +59,7 @@ int main(int argc, char *argv[])
             for (size_t ii = 0; ii < sparseArray->size(); ii++)
             {
                 uint16_t index = sparseArray->indexes[ii];
-                double value   = sparseArray->values[ii];
+                double   value = sparseArray->values[ii];
                 cout << "[" << index << "] = " << value << ", ";
             }
 

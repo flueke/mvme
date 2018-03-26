@@ -6,9 +6,11 @@
 #ifndef __MVME_EXPORT_GUARD_{{header_guard}}__
 #define __MVME_EXPORT_GUARD_{{header_guard}}__
 
+#include <algorithm>
 #include <cassert>
 #include <cstddef>
 #include <istream>
+#include <limits>
 #include <string>
 #include <utility>
 #include <vector>
@@ -24,6 +26,20 @@ struct {{struct_name}}
         {
             assert(values.size() == indexes.size());
             return values.size();
+        }
+
+        double operator[](uint16_t paramIndex) const
+        {
+            auto it = std::find(indexes.begin(), indexes.end(), paramIndex);
+
+            if (it != indexes.end())
+            {
+                size_t ii = it - indexes.begin();
+                assert(ii < value.size());
+                return values.at(ii);
+            }
+
+            return std::numeric_limits<double>::quiet_NaN();
         }
     };
 
@@ -62,6 +78,11 @@ struct {{struct_name}}
        Returns nullptr if the index is out of range. */
     const SparseArray *getArray(size_t index) const;
     SparseArray *getArray(size_t index);
+
+    /* Equivalent to getArray(arrayIndex)[paramIndex]. Returns a quiet NaN if
+     * any of the indexes is out of range or the specified value is not present
+     * in the data. */
+    double getValue(size_t arrayIndex, size_t paramIndex);
 
     /* Returns the size of the exported array with the given index.
        Returns 0 if the index is out of range. */

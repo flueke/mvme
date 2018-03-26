@@ -186,6 +186,18 @@ void ExportSinkCodeGenerator::Private::generate()
 
         render_to_file(":/resources/export_sink_CMakeLists.txt.mustache",
                        data, exportDir.filePath("CMakeLists.txt"));
+
+        if (sink->getCompressionLevel() != 0)
+        {
+            render_to_file(QSL(":/3rdparty/zstr/src/zstr.hpp"),
+                           data, exportDir.filePath("zstr.hpp"));
+
+            render_to_file(QSL(":/3rdparty/zstr/src/strict_fstream.hpp"),
+                           data, exportDir.filePath("strict_fstream.hpp"));
+        }
+
+        render_to_file(QSL(":/resources/export_sink_cpp_generate_root_histos.cpp.mustache"),
+                       data, exportDir.filePath("export_generate_root_histos.cpp"));
     }
 }
 
