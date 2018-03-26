@@ -2003,14 +2003,15 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
             l->addWidget(le_exportBasename);
             // TODO: connect this to a QFileDialog. Define what this should
             // contain and how the output files will be called.
+            pb_selectExportBasename->setEnabled(false);
             l->addWidget(pb_selectExportBasename);
             l->setStretch(0, 1);
             formLayout->addRow("Output File", l);
         }
 
         combo_exportFormat = new QComboBox;
-        combo_exportFormat->addItem("Plain / Full", static_cast<int>(ExportSink::Format::Full));
         combo_exportFormat->addItem("Indexed / Sparse", static_cast<int>(ExportSink::Format::Sparse));
+        combo_exportFormat->addItem("Plain / Full", static_cast<int>(ExportSink::Format::Full));
 
         formLayout->addRow("Format", combo_exportFormat);
 

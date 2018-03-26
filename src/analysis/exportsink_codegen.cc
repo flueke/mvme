@@ -11,7 +11,9 @@
 #include <Mustache/mustache.hpp>
 #include <QFileInfo>
 #include <QDir>
+
 #include "analysis.h"
+#include "git_sha1.h"
 
 namespace mu = kainjow::mustache;
 
@@ -55,6 +57,7 @@ static void render_to_file(
 struct ExportSinkCodeGenerator::Private
 {
     ExportSink *sink;
+    RunInfo runInfo;
 
     mu::data makeGlobalTemplateData();
     void generate();
@@ -62,15 +65,16 @@ struct ExportSinkCodeGenerator::Private
 
 mu::data ExportSinkCodeGenerator::Private::makeGlobalTemplateData()
 {
-    /*
-    array_info_list =
-    [
-        {
-         size, index, variable_name, analysis_name, unit,
-          limits = [ { lower_limit, upper_limit } ],
-        },
-    ]
-    */
+    /* Build a mustache data structure looking like this:
+     * array_info_list =
+     * [
+     *     // One entry for each exported array
+     *     {
+     *       dimension, index, variable_name, analysis_name, unit,
+     *       limits = [ { lower_limit, upper_limit } ],
+     *     },
+     * ]
+     */
 
     const auto dataInputs = sink->getDataInputs();
 
@@ -99,7 +103,7 @@ mu::data ExportSinkCodeGenerator::Private::makeGlobalTemplateData()
         mu::data array_info = mu::data::type::object;
 
         array_info["index"]         = QString::number(arrayIndex).toStdString();
-        array_info["size"]          = QString::number(pipe->getSize()).toStdString();
+        array_info["dimension"]     = QString::number(pipe->getSize()).toStdString();
         array_info["variable_name"] = variable_name;
         array_info["analysis_name"] = pipe->getSource()->objectName().toStdString();
         array_info["unit"]          = pipe->getParameters().unit.toStdString();
@@ -114,9 +118,12 @@ mu::data ExportSinkCodeGenerator::Private::makeGlobalTemplateData()
 
     mu::data result = mu::data::type::object;
 
-    result["struct_name"] = struct_name;
-    result["array_count"] = QString::number(dataInputs.size()).toStdString();
-    result["array_info"]  = mu::data{array_info_list};
+    result["struct_name"]  = struct_name;
+    result["array_count"]  = QString::number(dataInputs.size()).toStdString();
+    result["array_info"]   = mu::data{array_info_list};
+    result["mvme_version"] = GIT_VERSION;
+    result["export_date"]  = QDateTime::currentDateTime().toString().toStdString();
+    result["run_id"]       = runInfo.runId.toStdString();
 
     return result;
 }
@@ -182,10 +189,11 @@ void ExportSinkCodeGenerator::Private::generate()
     }
 }
 
-ExportSinkCodeGenerator::ExportSinkCodeGenerator(ExportSink *sink)
+ExportSinkCodeGenerator::ExportSinkCodeGenerator(ExportSink *sink, const RunInfo &runInfo)
     : m_d(std::make_unique<ExportSinkCodeGenerator::Private>())
 {
-    m_d->sink = sink;
+    m_d->sink    = sink;
+    m_d->runInfo = runInfo;
 }
 
 ExportSinkCodeGenerator::~ExportSinkCodeGenerator()

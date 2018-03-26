@@ -8,13 +8,20 @@
 #include <limits>
 
 {{#array_info}}
-const double {{struct_name}}::Limits::{{variable_name}}[{{size}}][2] =
+const double {{struct_name}}::Limits::{{variable_name}}[{{dimension}}][2] =
 {
 {{#limits}}
     { {{lower_limit}}, {{upper_limit}} },
 {{/limits}}
 };
 {{/array_info}}
+
+const uint16_t {{struct_name}}::ArrayDimensions[] =
+{
+{{#array_info}}
+    {{dimension}},
+{{/array_info}}
+};
 
 const std::string {{struct_name}}::ArrayNames[] =
 {
@@ -35,7 +42,7 @@ size_t {{struct_name}}::getArrayCount() const
     return {{struct_name}}::ArrayCount;
 }
 
-const double *{{struct_name}}::getArray(size_t index) const
+double *{{struct_name}}::getArray(size_t index)
 {
     switch (index)
     {
@@ -47,14 +54,17 @@ const double *{{struct_name}}::getArray(size_t index) const
     return nullptr;
 }
 
-size_t {{struct_name}}::getArraySize(size_t index) const
+const double *{{struct_name}}::getArray(size_t index) const
 {
-    switch (index)
+    return const_cast<{{struct_name}} *>(this)->getArray(index);
+}
+
+size_t {{struct_name}}::getArrayDimension(size_t index) const
+{
+    if (index < {{struct_name}}::ArrayCount)
     {
-{{#array_info}}
-        case {{index}}: return {{size}};
-{{/array_info}}
-    };
+        return {{struct_name}}::ArrayDimensions[index];
+    }
 
     return 0;
 }
@@ -80,7 +90,7 @@ std::string {{struct_name}}::getUnitLabel(size_t index) const
 
 std::pair<double, double> {{struct_name}}::getLimits(size_t arrayIndex, size_t paramIndex) const
 {
-    if (paramIndex < getArraySize(arrayIndex))
+    if (paramIndex < getArrayDimension(arrayIndex))
     {
         switch (arrayIndex)
         {
@@ -97,6 +107,13 @@ std::pair<double, double> {{struct_name}}::getLimits(size_t arrayIndex, size_t p
         std::numeric_limits<double>::quiet_NaN(),
         std::numeric_limits<double>::quiet_NaN());
 }
+
+std::istream &read(std::istream &in, {{struct_name}} &event)
+{
+    in.read(reinterpret_cast<char *>(&event), sizeof(event));
+    return in;
+}
+
 {{!
 vim:ft=cpp
- }}
+}}

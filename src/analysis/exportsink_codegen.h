@@ -3,6 +3,8 @@
 
 #include <memory>
 
+struct RunInfo;
+
 namespace analysis
 {
 
@@ -11,7 +13,7 @@ class ExportSink;
 class ExportSinkCodeGenerator
 {
     public:
-        ExportSinkCodeGenerator(ExportSink *sink);
+        ExportSinkCodeGenerator(ExportSink *sink, const RunInfo &runInfo);
         ~ExportSinkCodeGenerator();
 
         void generate();

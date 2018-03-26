@@ -3300,7 +3300,7 @@ void ExportSink::beginRun(const RunInfo &runInfo)
     // maybe: copy additional lib files required to compile/run any generated sourccode
     // also create a makefile to build the c++ binary
 
-    ExportSinkCodeGenerator codeGen(this);
+    ExportSinkCodeGenerator codeGen(this, runInfo);
     codeGen.generate();
 
 #if 0

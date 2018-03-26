@@ -13,12 +13,12 @@ int main(int argc, char *argv[])
     if (argc < 2)
     {
         inputFilename = "{{export_data_basename}}";
-        cout << "Using default input file " << inputFilename << endl;
+        cout << "Using generated input filename " << inputFilename << endl;
     }
     else
     {
-        cout << "Using supplied input file " << argv[1] << endl;
         inputFilename = argv[1];
+        cout << "Using filename from command line: " << inputFilename << endl;
     }
 
     size_t eventsRead = 0;
@@ -30,7 +30,7 @@ int main(int argc, char *argv[])
 
     while (input.good())
     {
-        input.read(reinterpret_cast<char *>(&event), sizeof(event));
+        read(input, event);
 
         if (!input.good())
             break;
@@ -44,19 +44,18 @@ int main(int argc, char *argv[])
              arrayIndex++)
         {
             std::string arrayName   = event.getArrayName(arrayIndex);
-            const double *arrayData = event.getArray(arrayIndex);
-            size_t arraySize        = event.getArraySize(arrayIndex);
+            const auto sparseArray  = event.getArray(arrayIndex);
+            size_t arrayDim         = event.getArrayDimension(arrayIndex);
+
+            assert(sparseArray);
 
             cout << "  Array #" << arrayIndex << ": ";
 
-            for (size_t paramIndex = 0;
-                 paramIndex < arraySize;
-                 paramIndex++)
+            for (size_t ii = 0; ii < sparseArray->size(); ii++)
             {
-                if (!std::isnan(arrayData[paramIndex]))
-                {
-                    cout << "[" << paramIndex << "] = " << arrayData[paramIndex] << ", ";
-                }
+                uint16_t index = sparseArray->indexes[ii];
+                double value   = sparseArray->values[ii];
+                cout << "[" << index << "] = " << value << ", ";
             }
 
             cout << endl;
@@ -68,3 +67,6 @@ int main(int argc, char *argv[])
         << "Read " << eventsRead << " events from "
         << inputFilename << "." << endl;
 }
+{{!
+vim:ft=cpp
+}}

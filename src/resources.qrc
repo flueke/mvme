@@ -59,17 +59,17 @@
     <file alias="splash-screen.png">resources/Splash_Screen.png</file>
     <file alias="vme-script-help.html">resources/vme-script-help.html</file>
 
-    <file>resources/export_sink_full_cpp_header.mustache</file>
-    <file>resources/export_sink_full_cpp_impl.mustache</file>
+    <file>resources/export_sink_CMakeLists.txt.mustache</file>
+
     <file>resources/export_sink_full_cpp_export_dump.cpp.mustache</file>
     <file>resources/export_sink_full_cpp_export_info.cpp.mustache</file>
+    <file>resources/export_sink_full_cpp_header.mustache</file>
+    <file>resources/export_sink_full_cpp_impl.mustache</file>
 
-    <file>resources/export_sink_sparse_cpp_header.mustache</file>
-    <file>resources/export_sink_sparse_cpp_impl.mustache</file>
     <file>resources/export_sink_sparse_cpp_export_dump.cpp.mustache</file>
     <file>resources/export_sink_sparse_cpp_export_info.cpp.mustache</file>
-
-    <file>resources/export_sink_CMakeLists.txt.mustache</file>
+    <file>resources/export_sink_sparse_cpp_header.mustache</file>
+    <file>resources/export_sink_sparse_cpp_impl.mustache</file>
 </qresource>
 </RCC>
 <!-- vim:ft=xml
