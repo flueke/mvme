@@ -1,13 +1,20 @@
 #include <cmath>
 #include <fstream>
 #include <iostream>
+
+#include <TFile.h>
+#include <TH1.h>
+
 #include "{{export_header_file}}"
+
 #ifdef MVME_EXPORT_USE_ZSTR
 #include "zstr.hpp"
 #endif
 
 using std::cout;
 using std::endl;
+
+using SparseArray = {{struct_name}}::SparseArray;
 
 int main(int argc, char *argv[])
 {
@@ -31,10 +38,43 @@ int main(int argc, char *argv[])
     input.open(inputFilename, std::ios::in | std::ios::binary);
 #endif
 
+    // FIXME: remove extension from basename and add _histos.root
+    TFile f("{{export_data_basename}}.root", "recreate");
+
     size_t eventsRead = 0;
     {{struct_name}} event;
 
-#if 0
+    std::vector<std::vector<TH1D *>> histo_lists;
+
+    for (size_t arrayIndex = 0;
+         arrayIndex < event.getArrayCount();
+         arrayIndex++)
+    {
+        size_t dim = event.getArrayDimension(arrayIndex);
+
+        std::vector<TH1D *> histos(dim);
+
+        for (size_t paramIndex = 0; paramIndex < dim; paramIndex++)
+        {
+            auto limits       = event.getLimits(arrayIndex, paramIndex);
+            std::string name  = event.getArrayName(arrayIndex) + "[" + std::to_string(paramIndex) + "]";
+            std::string title = name;
+
+            auto histo = new TH1D(name.c_str(), title.c_str(), 1u << 12, limits.first, limits.second);
+
+            histos[paramIndex] = histo;
+        }
+
+        histo_lists.emplace_back(histos);
+    }
+
+    while (input.good())
+    {
+        read(input, event);
+
+        if (!input.good())
+            break;
+
         size_t eventNumber = eventsRead++;
 
         cout << "Event #" << eventNumber << endl;
@@ -43,37 +83,34 @@ int main(int argc, char *argv[])
              arrayIndex < event.getArrayCount();
              arrayIndex++)
         {
-            std::string arrayName   = event.getArrayName(arrayIndex);
-            const auto sparseArray  = event.getArray(arrayIndex);
+            size_t dim = event.getArrayDimension(arrayIndex);
 
-            assert(sparseArray);
+            for (size_t paramIndex = 0; paramIndex < dim; paramIndex++)
+            {
+                double value = event.getValue(arrayIndex, paramIndex);
 
-            cout << "  Array #" << arrayIndex << ": ";
-
+                if (!std::isnan(value))
+                {
+                    TH1D *histo = histo_lists[arrayIndex][paramIndex];
+                    histo->Fill(value);
+                }
+            }
+#if 0
+            auto sparseArray = event.getArray(arrayIndex);
+            // TODO: implement the efficient way for SparseArray
             for (size_t ii = 0; ii < sparseArray->size(); ii++)
             {
                 uint16_t index = sparseArray->indexes[ii];
                 double   value = sparseArray->values[ii];
                 cout << "[" << index << "] = " << value << ", ";
             }
-
-            cout << endl;
-        }
-        cout << endl;
-#else
-        for (size_t arrayIndex = 0;
-             arrayIndex < event.getArrayCount();
-             arrayIndex++)
-        {
-            size_t dim = event.getArrayDimension(arrayIndex);
-
-            for (size_t paramIndex = 0; paramIndex < dim; paramIndex++)
-            {
-
-            }
-
-        }
 #endif
+        }
+    }
+
+    f.Write();
+
+    // FIXME: leaking histograms?
 
     cout << endl
         << "Read " << eventsRead << " events from "
@@ -82,4 +119,3 @@ int main(int argc, char *argv[])
 {{!
 vim:ft=cpp
 }}
-

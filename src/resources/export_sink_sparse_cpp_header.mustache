@@ -28,6 +28,7 @@ struct {{struct_name}}
             return values.size();
         }
 
+        // TODO: this is very slow. maybe just remove it and implement specific templates
         double operator[](uint16_t paramIndex) const
         {
             auto it = std::find(indexes.begin(), indexes.end(), paramIndex);
