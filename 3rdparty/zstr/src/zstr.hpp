@@ -167,7 +167,7 @@ public:
                 }
                 if (is_text)
                 {
-                    fprintf(stderr, "zstr: is_text\n");
+                    //fprintf(stderr, "zstr: is_text\n");
                     // simply swap in_buff and out_buff, and adjust pointers
                     assert(in_buff_start == in_buff);
                     std::swap(in_buff, out_buff);
@@ -177,7 +177,7 @@ public:
                 }
                 else
                 {
-                    fprintf(stderr, "zstr: is_compressed\n");
+                    //fprintf(stderr, "zstr: is_compressed\n");
                     // run inflate() on input
                     if (! zstrm_p) zstrm_p = new detail::z_stream_wrapper(true);
                     zstrm_p->next_in = reinterpret_cast< decltype(zstrm_p->next_in) >(in_buff_start);

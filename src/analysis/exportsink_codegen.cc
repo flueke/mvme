@@ -118,28 +118,31 @@ mu::data ExportSinkCodeGenerator::Private::makeGlobalTemplateData()
 
     mu::data result = mu::data::type::object;
 
-    result["struct_name"]  = struct_name;
-    result["array_count"]  = QString::number(dataInputs.size()).toStdString();
-    result["array_info"]   = mu::data{array_info_list};
-    result["mvme_version"] = GIT_VERSION;
-    result["export_date"]  = QDateTime::currentDateTime().toString().toStdString();
-    result["run_id"]       = runInfo.runId.toStdString();
+    result["struct_name"]           = struct_name;
+    result["array_count"]           = QString::number(dataInputs.size()).toStdString();
+    result["array_info"]            = mu::data{array_info_list};
+    result["mvme_version"]          = GIT_VERSION;
+    result["export_date"]           = QDateTime::currentDateTime().toString().toStdString();
+    result["run_id"]                = runInfo.runId.toStdString();
+    result["export_data_filepath"]  = sink->getDataFilePath().toStdString();
+    result["export_data_filename"]  = sink->getDataFileName().toStdString();
+    result["export_data_basename"]  = sink->getExportFileBasename().toStdString();
 
     return result;
 }
 
 void ExportSinkCodeGenerator::Private::generate()
 {
-    QString templateFormat;
+    QString fmtString;
 
     switch (sink->getFormat())
     {
         case ExportSink::Format::Full:
-            templateFormat = QSL("full");
+            fmtString = QSL("full");
             break;
 
         case ExportSink::Format::Sparse:
-            templateFormat = QSL("sparse");
+            fmtString = QSL("sparse");
             break;
     }
 
@@ -153,7 +156,7 @@ void ExportSinkCodeGenerator::Private::generate()
 
         data["header_guard"] = variablify(sink->objectName().toUpper()).toStdString();
 
-        render_to_file(QSL(":/resources/export_sink_%1_cpp_header.mustache").arg(templateFormat),
+        render_to_file(QSL(":/analysis/export_templates/%1_header.h.mustache").arg(fmtString),
                        data, headerFilePath);
     }
 
@@ -163,7 +166,7 @@ void ExportSinkCodeGenerator::Private::generate()
 
         data["export_header_file"] = QFileInfo(headerFilePath).fileName().toStdString();
 
-        render_to_file(QSL(":/resources/export_sink_%1_cpp_impl.mustache").arg(templateFormat),
+        render_to_file(QSL(":/analysis/export_templates/%1_impl.cpp.mustache").arg(fmtString),
                        data, implFilePath);
     }
 
@@ -173,20 +176,22 @@ void ExportSinkCodeGenerator::Private::generate()
 
         data["export_header_file"]   = QFileInfo(headerFilePath).fileName().toStdString();
         data["export_impl_file"]     = QFileInfo(implFilePath).fileName().toStdString();
-        data["export_data_filepath"] = sink->getDataFilePath().toStdString();
-        data["export_data_basename"] = sink->getDataFileBasename().toStdString();
 
         QDir exportDir = sink->getExportDirectory();
 
-        render_to_file(QSL(":/resources/export_sink_%1_cpp_export_info.cpp.mustache").arg(templateFormat),
+        render_to_file(QSL(":/analysis/export_templates/%1_export_info.cpp.mustache").arg(fmtString),
                        data, exportDir.filePath("export_info.cpp"));
 
-        render_to_file(QSL(":/resources/export_sink_%1_cpp_export_dump.cpp.mustache").arg(templateFormat),
+        render_to_file(QSL(":/analysis/export_templates/%1_export_dump.cpp.mustache").arg(fmtString),
                        data, exportDir.filePath("export_dump.cpp"));
 
-        render_to_file(":/resources/export_sink_CMakeLists.txt.mustache",
+        render_to_file(":/analysis/export_templates/CMakeLists.txt.mustache",
                        data, exportDir.filePath("CMakeLists.txt"));
 
+        render_to_file(QSL(":/analysis/export_templates/generate_root_histos.cpp.mustache"),
+                       data, exportDir.filePath("export_generate_root_histos.cpp"));
+
+        /* Copy libs. */
         if (sink->getCompressionLevel() != 0)
         {
             render_to_file(QSL(":/3rdparty/zstr/src/zstr.hpp"),
@@ -195,9 +200,6 @@ void ExportSinkCodeGenerator::Private::generate()
             render_to_file(QSL(":/3rdparty/zstr/src/strict_fstream.hpp"),
                            data, exportDir.filePath("strict_fstream.hpp"));
         }
-
-        render_to_file(QSL(":/resources/export_sink_cpp_generate_root_histos.cpp.mustache"),
-                       data, exportDir.filePath("export_generate_root_histos.cpp"));
     }
 }
 

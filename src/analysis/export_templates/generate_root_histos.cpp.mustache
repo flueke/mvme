@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
 
     if (argc < 2)
     {
-        inputFilename = "{{export_data_basename}}";
+        inputFilename = "{{export_data_filename}}";
         cout << "Using generated input filename " << inputFilename << endl;
     }
     else
@@ -39,9 +39,9 @@ int main(int argc, char *argv[])
 #endif
 
     // FIXME: remove extension from basename and add _histos.root
-    TFile f("{{export_data_basename}}.root", "recreate");
+    TFile f("{{export_data_basename}}_histos.root", "recreate");
 
-    size_t eventsRead = 0;
+    size_t histoCount = 0;
     {{struct_name}} event;
 
     std::vector<std::vector<TH1D *>> histo_lists;
@@ -63,10 +63,16 @@ int main(int argc, char *argv[])
             auto histo = new TH1D(name.c_str(), title.c_str(), 1u << 12, limits.first, limits.second);
 
             histos[paramIndex] = histo;
+            histoCount++;
         }
 
         histo_lists.emplace_back(histos);
     }
+
+    cout << "Created " << histoCount << " TH1D instances." << endl;
+    cout << "Filling histograms..." << endl;
+
+    size_t eventsRead = 0;
 
     while (input.good())
     {
@@ -75,9 +81,7 @@ int main(int argc, char *argv[])
         if (!input.good())
             break;
 
-        size_t eventNumber = eventsRead++;
-
-        cout << "Event #" << eventNumber << endl;
+        eventsRead++;
 
         for (size_t arrayIndex = 0;
              arrayIndex < event.getArrayCount();

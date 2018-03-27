@@ -15,7 +15,7 @@ int main(int argc, char *argv[])
 
     if (argc < 2)
     {
-        inputFilename = "{{export_data_basename}}";
+        inputFilename = "{{export_data_filename}}";
         cout << "Using generated input filename " << inputFilename << endl;
     }
     else
@@ -50,19 +50,17 @@ int main(int argc, char *argv[])
              arrayIndex++)
         {
             std::string arrayName   = event.getArrayName(arrayIndex);
-            const double *arrayData = event.getArray(arrayIndex);
-            size_t arrayDim         = event.getArrayDimension(arrayIndex);
+            const auto sparseArray  = event.getArray(arrayIndex);
+
+            assert(sparseArray);
 
             cout << "  Array #" << arrayIndex << ": ";
 
-            for (size_t paramIndex = 0;
-                 paramIndex < arrayDim;
-                 paramIndex++)
+            for (size_t ii = 0; ii < sparseArray->size(); ii++)
             {
-                if (!std::isnan(arrayData[paramIndex]))
-                {
-                    cout << "[" << paramIndex << "] = " << arrayData[paramIndex] << ", ";
-                }
+                uint16_t index = sparseArray->indexes[ii];
+                double   value = sparseArray->values[ii];
+                cout << "[" << index << "] = " << value << ", ";
             }
 
             cout << endl;

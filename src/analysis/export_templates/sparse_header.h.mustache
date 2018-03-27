@@ -28,7 +28,10 @@ struct {{struct_name}}
             return values.size();
         }
 
-        // TODO: this is very slow. maybe just remove it and implement specific templates
+        /* Note: This way of accessing parameter values is not fast. It's more
+         * efficient to iterate through the indexes and values and use the data
+         * directly or to transform the sparse structure into the full form
+         * when reading from file into memory. */
         double operator[](uint16_t paramIndex) const
         {
             auto it = std::find(indexes.begin(), indexes.end(), paramIndex);

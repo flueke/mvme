@@ -3294,36 +3294,8 @@ void ExportSink::beginRun(const RunInfo &runInfo)
     if (!runInfo.generateExportFiles)
         return;
 
-    // TODO: collect all the data required to fill out source code template files
-    // load template files for c++, python, instantiate them and write the output to disk
-    // if no "main" code files have been generated yet do also generate and write those
-    // maybe: copy additional lib files required to compile/run any generated sourccode
-    // also create a makefile to build the c++ binary
-
     ExportSinkCodeGenerator codeGen(this, runInfo);
     codeGen.generate();
-
-#if 0
-    for (s32 inputIndex = 0;
-         inputIndex < m_dataInputs.size();
-         inputIndex++)
-    {
-        auto slot = m_dataInputs.at(inputIndex);
-        assert(slot->isConnected());
-
-        /* The input pipe defines the shape and metadata of an array in the export struct.
-         */
-        auto pipe = slot->inputPipe;
-        auto firstParam = pipe->getParameter(0);
-        double ll = firstParam ? firstParam->lowerLimit : make_quiet_nan();
-        double ul = firstParam ? firstParam->upperLimit : make_quiet_nan();
-        qDebug() << __PRETTY_FUNCTION__ << "dataInput #" << inputIndex
-            << "\n  pipe parameter name:" << pipe->getParameterName()
-            << "\n  pipe source object name:" << pipe->getSource()->objectName()
-            << "\n  params:" << pipe->getParameters().size()
-            << "\n  first param limits:" << ll << ul;
-    }
-#endif
 }
 
 void ExportSink::step()
@@ -3369,7 +3341,7 @@ QString ExportSink::getDataFilePath() const
     return result;
 }
 
-QString ExportSink::getDataFileBasename() const
+QString ExportSink::getDataFileName() const
 {
     return QFileInfo(getDataFilePath()).fileName();
 }
@@ -3377,6 +3349,11 @@ QString ExportSink::getDataFileBasename() const
 QDir ExportSink::getExportDirectory() const
 {
     return QFileInfo(getOutputBasePath()).dir();
+}
+
+QString ExportSink::getExportFileBasename() const
+{
+    return QFileInfo(getOutputBasePath()).baseName();
 }
 
 //

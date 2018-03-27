@@ -1273,9 +1273,6 @@ class LIBMVME_EXPORT ExportSink: public SinkInterface
         // histograms do, so it always returns 0 here.
         virtual size_t getStorageSize() const override { return 0u; }
 
-        void setOutputBasePath(const QString &basePath) { m_outputBasePath = basePath; }
-        QString getOutputBasePath() const { return m_outputBasePath; }
-
         void setCompressionLevel(int level) { m_compressionLevel = level; }
         int getCompressionLevel() const { return m_compressionLevel; }
 
@@ -1284,9 +1281,13 @@ class LIBMVME_EXPORT ExportSink: public SinkInterface
         void setFormat(Format fmt) { m_format = fmt; }
         Format getFormat() const { return m_format; }
 
-        QString getDataFilePath() const;
-        QString getDataFileBasename() const;
-        QDir getExportDirectory() const;
+        void setOutputBasePath(const QString &basePath) { m_outputBasePath = basePath; }
+        QString getOutputBasePath() const { return m_outputBasePath; }
+
+        QString getDataFilePath() const;        // exports/sums_and_coords.bin.gz
+        QString getDataFileName() const;        // sums_and_coords.bin.gz
+        QDir getExportDirectory() const;        // exports
+        QString getExportFileBasename() const;  // sums_and_coords
 
         QVector<std::shared_ptr<Slot>> getDataInputs() const { return m_dataInputs; }
 
