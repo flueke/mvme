@@ -5,7 +5,44 @@
 # This file will be overwritten on the next export.
 
 class {{struct_name}}:
-    pass
+    def __init__(self):
+{{#array_info}}
+        self.{{variable_name}} = []
+{{/array_info}}
+
+    ArrayCount = {{array_count}}
+
+    class Limits:
+{{#array_info}}
+        {{variable_name}} =
+        [
+        {{#limits}}
+            ( {{lower_limit}}, {{upper_limit}} ),
+        {{/limits}}
+        ]
+{{/array_info}}
+
+    ArrayDimensions =
+    [
+{{#array_info}}
+    {{dimension}},
+{{/array_info}}
+    ]
+
+    ArrayNames =
+    [
+{{#array_info}}
+    "{{analysis_name}}",
+{{/array_info}}
+    ]
+
+    UnitLabels =
+    [
+{{#array_info}}
+        "{{unit}}",
+{{/array_info}}
+    ]
+
 
 {{!
 vim:ft=python

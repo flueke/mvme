@@ -75,6 +75,9 @@
 
     <file>../3rdparty/zstr/src/zstr.hpp</file>
     <file>../3rdparty/zstr/src/strict_fstream.hpp</file>
+
+    <file>analysis/export_templates/full_event.py.mustache</file>
+    <file>analysis/export_templates/sparse_event.py.mustache</file>
 </qresource>
 </RCC>
 <!-- vim:ft=xml

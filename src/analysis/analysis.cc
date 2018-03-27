@@ -3331,7 +3331,14 @@ void ExportSink::read(const QJsonObject &json)
 
 QString ExportSink::getDataFilePath() const
 {
-    QString result = getOutputBasePath() + ".bin";
+    QString result = getOutputBasePath() + getDataFileExtension();
+
+    return result;
+}
+
+QString ExportSink::getDataFileExtension() const
+{
+    QString result = ".bin";
 
     if (m_compressionLevel != 0)
     {

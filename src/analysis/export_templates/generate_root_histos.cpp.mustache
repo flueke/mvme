@@ -5,16 +5,14 @@
 #include <TFile.h>
 #include <TH1.h>
 
-#include "{{export_header_file}}"
-
 #ifdef MVME_EXPORT_USE_ZSTR
 #include "zstr.hpp"
 #endif
 
+#include "{{export_header_file}}"
+
 using std::cout;
 using std::endl;
-
-using SparseArray = {{struct_name}}::SparseArray;
 
 int main(int argc, char *argv[])
 {
@@ -23,12 +21,12 @@ int main(int argc, char *argv[])
     if (argc < 2)
     {
         inputFilename = "{{export_data_filename}}";
-        cout << "Using generated input filename " << inputFilename << endl;
+        cout << "Reading events from default file " << inputFilename << endl;
     }
     else
     {
         inputFilename = argv[1];
-        cout << "Using filename from command line: " << inputFilename << endl;
+        cout << "Reading events from " << inputFilename << endl;
     }
 
 #ifdef MVME_EXPORT_USE_ZSTR
@@ -38,8 +36,13 @@ int main(int argc, char *argv[])
     input.open(inputFilename, std::ios::in | std::ios::binary);
 #endif
 
-    // FIXME: remove extension from basename and add _histos.root
-    TFile f("{{export_data_basename}}_histos.root", "recreate");
+    const char *outputFilename = "{{export_data_basename}}_histos.root";
+
+    cout << "Writing histograms to " << outputFilename << endl;
+
+    TFile f(outputFilename, "recreate");
+
+    if (!f.IsOpen()) return 1;
 
     size_t histoCount = 0;
     {{struct_name}} event;
@@ -99,22 +102,16 @@ int main(int argc, char *argv[])
                     histo->Fill(value);
                 }
             }
-#if 0
-            auto sparseArray = event.getArray(arrayIndex);
-            // TODO: implement the efficient way for SparseArray
-            for (size_t ii = 0; ii < sparseArray->size(); ii++)
-            {
-                uint16_t index = sparseArray->indexes[ii];
-                double   value = sparseArray->values[ii];
-                cout << "[" << index << "] = " << value << ", ";
-            }
-#endif
         }
     }
 
     f.Write();
 
-    // FIXME: leaking histograms?
+    for (auto &histos: histo_lists)
+    {
+        for (TH1D *histo: histos)
+            delete histo;
+    }
 
     cout << endl
         << "Read " << eventsRead << " events from "

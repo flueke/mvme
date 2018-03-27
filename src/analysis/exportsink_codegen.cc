@@ -127,6 +127,7 @@ mu::data ExportSinkCodeGenerator::Private::makeGlobalTemplateData()
     result["export_data_filepath"]  = sink->getDataFilePath().toStdString();
     result["export_data_filename"]  = sink->getDataFileName().toStdString();
     result["export_data_basename"]  = sink->getExportFileBasename().toStdString();
+    result["export_data_extension"] = sink->getDataFileExtension().toStdString();
 
     return result;
 }
@@ -149,6 +150,7 @@ void ExportSinkCodeGenerator::Private::generate()
     const auto dataInputs        = sink->getDataInputs();
     const QString headerFilePath = sink->getOutputBasePath() + ".h";
     const QString implFilePath   = sink->getOutputBasePath() + ".cpp";
+    const QString pyFilePath     = sink->getOutputBasePath() + ".py";
 
     // write the c++ export header file
     {
@@ -170,7 +172,7 @@ void ExportSinkCodeGenerator::Private::generate()
                        data, implFilePath);
     }
 
-    // write the c++ programs and a CMakeLists.txt
+    // write utility/demo programs and a CMakeLists.txt
     {
         mu::data data = makeGlobalTemplateData();
 
@@ -191,7 +193,7 @@ void ExportSinkCodeGenerator::Private::generate()
         render_to_file(QSL(":/analysis/export_templates/generate_root_histos.cpp.mustache"),
                        data, exportDir.filePath("export_generate_root_histos.cpp"));
 
-        /* Copy libs. */
+        /* Copy c++ libs. */
         if (sink->getCompressionLevel() != 0)
         {
             render_to_file(QSL(":/3rdparty/zstr/src/zstr.hpp"),
@@ -200,6 +202,9 @@ void ExportSinkCodeGenerator::Private::generate()
             render_to_file(QSL(":/3rdparty/zstr/src/strict_fstream.hpp"),
                            data, exportDir.filePath("strict_fstream.hpp"));
         }
+
+        render_to_file(QSL(":/analysis/export_templates/%1_event.py.mustache").arg(fmtString),
+                       data, pyFilePath);
     }
 }
 

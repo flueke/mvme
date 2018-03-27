@@ -1282,12 +1282,13 @@ class LIBMVME_EXPORT ExportSink: public SinkInterface
         Format getFormat() const { return m_format; }
 
         void setOutputBasePath(const QString &basePath) { m_outputBasePath = basePath; }
-        QString getOutputBasePath() const { return m_outputBasePath; }
+        QString getOutputBasePath() const { return m_outputBasePath; } // exports/sums_and_coords
 
         QString getDataFilePath() const;        // exports/sums_and_coords.bin.gz
         QString getDataFileName() const;        // sums_and_coords.bin.gz
         QDir getExportDirectory() const;        // exports
         QString getExportFileBasename() const;  // sums_and_coords
+        QString getDataFileExtension() const;   // .bin.gz / .bin
 
         QVector<std::shared_ptr<Slot>> getDataInputs() const { return m_dataInputs; }
 
