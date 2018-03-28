@@ -4,6 +4,8 @@
 # DO NOT MODFIY!
 # This file will be overwritten on the next export.
 
+import struct
+
 class {{struct_name}}:
     def __init__(self):
 {{#array_info}}
@@ -14,35 +16,51 @@ class {{struct_name}}:
 
     class Limits:
 {{#array_info}}
-        {{variable_name}} =
-        [
-        {{#limits}}
+        {{variable_name}} = [
+{{#limits}}
             ( {{lower_limit}}, {{upper_limit}} ),
-        {{/limits}}
+{{/limits}}
         ]
 {{/array_info}}
 
-    ArrayDimensions =
-    [
+    ArrayDimensions = [
 {{#array_info}}
-    {{dimension}},
+        {{dimension}},
 {{/array_info}}
     ]
 
-    ArrayNames =
-    [
+    ArrayNames = [
 {{#array_info}}
-    "{{analysis_name}}",
+        "{{analysis_name}}",
 {{/array_info}}
     ]
 
-    UnitLabels =
-    [
+    UnitLabels = [
 {{#array_info}}
         "{{unit}}",
 {{/array_info}}
     ]
 
+    def getArray(self, arrayIndex):
+{{#array_info}}
+        if arrayIndex == {{index}}:
+            return self.{{variable_name}}
+{{/array_info}}
+        return None
+
+    @staticmethod
+    def read(inputObject):
+        try:
+            result = {{struct_name}}()
+{{#array_info}}
+            fmt   = "=%ud" % (result.ArrayDimensions[{{index}}])
+            size  = struct.calcsize(fmt)
+            result.{{variable_name}} = struct.unpack(fmt, inputObject.read(size))
+{{/array_info}}
+            return result
+
+        except struct.error:
+            return None
 
 {{!
 vim:ft=python
