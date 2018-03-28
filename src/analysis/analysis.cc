@@ -3237,7 +3237,7 @@ size_t RateMonitorSink::getStorageSize() const
 //
 ExportSink::ExportSink(QObject *parent)
     : SinkInterface(parent)
-    , m_conditionInput(this, 0, "Condition Input", InputType::Value)
+    , m_conditionInput(this, 0, "Condition Input (optional)", InputType::Value)
 {
     m_conditionInput.isOptional = true;
     addSlot();
@@ -3294,8 +3294,21 @@ void ExportSink::beginRun(const RunInfo &runInfo)
     if (!runInfo.generateExportFiles)
         return;
 
-    ExportSinkCodeGenerator codeGen(this, runInfo);
-    codeGen.generate();
+    if (!QDir(getOutputPrefixPath()).exists())
+    {
+        QDir().mkpath(getOutputPrefixPath()); // TODO: error reporting in the gui
+    }
+
+    try
+    {
+        ExportSinkCodeGenerator codeGen(this, runInfo);
+        codeGen.generate();
+    }
+    catch (const std::exception &e)
+    {
+        // TODO: error reporting in the gui
+        qDebug() << __PRETTY_FUNCTION__ << this << "Error:" << e.what();
+    }
 }
 
 void ExportSink::step()
@@ -3305,10 +3318,10 @@ void ExportSink::step()
 
 void ExportSink::write(QJsonObject &json) const
 {
-    json["dataInputCount"] = m_dataInputs.size();
-    json["outputBasePath"] = getOutputBasePath();
+    json["dataInputCount"]   = m_dataInputs.size();
+    json["outputPrefixPath"] = getOutputPrefixPath();
     json["compressionLevel"] = getCompressionLevel();
-    json["format"] = static_cast<s32>(getFormat());
+    json["format"]           = static_cast<s32>(getFormat());
 }
 
 void ExportSink::read(const QJsonObject &json)
@@ -3324,14 +3337,14 @@ void ExportSink::read(const QJsonObject &json)
         addSlot();
     }
 
-    setOutputBasePath(json["outputBasePath"].toString());
+    setOutputPrefixPath(json["outputPrefixPath"].toString());
     setCompressionLevel(json["compressionLevel"].toInt());
     setFormat(static_cast<Format>(json["format"].toInt(static_cast<s32>(Format::Sparse))));
 }
 
-QString ExportSink::getDataFilePath() const
+QString ExportSink::getDataFilePath(const RunInfo &runInfo) const
 {
-    QString result = getOutputBasePath() + getDataFileExtension();
+    QString result = getOutputPrefixPath() + "/" + getDataFileName(runInfo);
 
     return result;
 }
@@ -3348,19 +3361,16 @@ QString ExportSink::getDataFileExtension() const
     return result;
 }
 
-QString ExportSink::getDataFileName() const
+QString ExportSink::getDataFileName(const RunInfo &runInfo) const
 {
-    return QFileInfo(getDataFilePath()).fileName();
-}
-
-QDir ExportSink::getExportDirectory() const
-{
-    return QFileInfo(getOutputBasePath()).dir();
+    return (QString("data_%1%2")
+            .arg(runInfo.runId)
+            .arg(getDataFileExtension()));
 }
 
 QString ExportSink::getExportFileBasename() const
 {
-    return QFileInfo(getOutputBasePath()).baseName();
+    return QFileInfo(getOutputPrefixPath()).baseName();
 }
 
 //

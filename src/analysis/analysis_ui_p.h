@@ -221,7 +221,7 @@ class AbstractOpConfigWidget: public QWidget
 {
     Q_OBJECT
     public:
-        AbstractOpConfigWidget(OperatorInterface *op, s32 userLevel, QWidget *parent = nullptr);
+        AbstractOpConfigWidget(OperatorInterface *op, s32 userLevel, MVMEContext *context, QWidget *parent = nullptr);
 
         void setNameEdited(bool b) { m_wasNameEdited = b; }
         bool wasNameEdited() const { return m_wasNameEdited; }
@@ -233,6 +233,7 @@ class AbstractOpConfigWidget: public QWidget
         OperatorInterface *m_op;
         s32 m_userLevel;
         bool m_wasNameEdited;
+        MVMEContext *m_context;
 
         QLineEdit *le_name = nullptr;
 };
@@ -245,7 +246,11 @@ class OperatorConfigurationWidget: public AbstractOpConfigWidget
 {
     Q_OBJECT
     public:
-        OperatorConfigurationWidget(OperatorInterface *op, s32 userLevel, QWidget *parent = nullptr);
+        OperatorConfigurationWidget(OperatorInterface *op,
+                                    s32 userLevel,
+                                    MVMEContext *context,
+                                    QWidget *parent = nullptr);
+
         //bool validateInputs();
         void configureOperator() override;
         void inputSelected(s32 slotIndex) override;
@@ -317,8 +322,8 @@ class OperatorConfigurationWidget: public AbstractOpConfigWidget
         QCheckBox *cb_invertCondition;
 
         // ExportSink
-        QLineEdit *le_exportBasename;
-        QPushButton *pb_selectExportBasename;
+        QLineEdit *le_exportPrefixPath;
+        QPushButton *pb_selectOutputDirectory;
         QComboBox *combo_exportFormat;
         QComboBox *combo_exportCompression;
 };
@@ -327,7 +332,10 @@ class RateMonitorConfigWidget: public AbstractOpConfigWidget
 {
     Q_OBJECT
     public:
-        RateMonitorConfigWidget(RateMonitorSink *op, s32 userLevel, QWidget *parent = nullptr);
+        RateMonitorConfigWidget(RateMonitorSink *op,
+                                s32 userLevel,
+                                MVMEContext *context,
+                                QWidget *parent = nullptr);
 
         void configureOperator() override;
         void inputSelected(s32 slotIndex) override;
@@ -371,6 +379,7 @@ class ExpressionOperatorConfigurationWidget: public AbstractOpConfigWidget
     public:
         ExpressionOperatorConfigurationWidget(ExpressionOperator *op,
                                               s32 userLevel,
+                                              MVMEContext *context,
                                               QWidget *parent = nullptr);
 
         void configureOperator() override;

@@ -11,6 +11,7 @@
 #include <Mustache/mustache.hpp>
 #include <QFileInfo>
 #include <QDir>
+#include <QRegularExpression>
 
 #include "analysis.h"
 #include "git_sha1.h"
@@ -20,48 +21,141 @@ namespace mu = kainjow::mustache;
 namespace analysis
 {
 
-// Highly sophisticated variable name generation ;-)
-QString variablify(QString str)
+namespace TemplateRenderFlags
 {
-    str.replace(".", "_");
-    str.replace("/", "_");
-    return str;
+    using Flag = u8;
+    static const Flag IfNotExists = 1u << 0;
 }
 
 static void render_to_file(
     const QString &templateFilename,
     mu::data &templateData,
-    const QString &outputFilename)
+    const QString &outputFilename,
+    TemplateRenderFlags::Flag flags = 0)
 {
-        QFile templateFile(templateFilename);
+    if ((flags & TemplateRenderFlags::IfNotExists)
+        && QFileInfo(outputFilename).exists())
+    {
+        return;
+    }
 
-        if (!templateFile.open(QIODevice::ReadOnly))
-        {
-            auto msg = QSL("Could not open input template file %1: %2")
-                .arg(templateFilename).arg(templateFile.errorString());
-            throw std::runtime_error(msg.toStdString());
-        }
+    QFile templateFile(templateFilename);
 
-        mu::mustache tmpl(templateFile.readAll().toStdString());
+    if (!templateFile.open(QIODevice::ReadOnly))
+    {
+        auto msg = QSL("Could not open input template file %1: %2")
+            .arg(templateFilename).arg(templateFile.errorString());
 
-        auto rendered = QString::fromStdString(tmpl.render(templateData));
+        throw std::runtime_error(msg.toStdString());
+    }
 
-        QFile outFile(outputFilename);
+    mu::mustache tmpl(templateFile.readAll().toStdString());
 
-        if (!outFile.open(QIODevice::WriteOnly))
-            throw std::runtime_error("Could not open output file.");
+    auto rendered = QString::fromStdString(tmpl.render(templateData));
 
-        outFile.write(rendered.toLocal8Bit());
+    QFile outFile(outputFilename);
+
+    if (!outFile.open(QIODevice::WriteOnly))
+    {
+        auto msg = QSL("Could not open output file %1: %2")
+            .arg(outputFilename).arg(outFile.errorString());
+
+        throw std::runtime_error(msg.toStdString());
+    }
+
+    outFile.write(rendered.toLocal8Bit());
 }
+
+struct VariableNames
+{
+    QString structName;
+    QVector<QString> arrayNames;
+};
 
 struct ExportSinkCodeGenerator::Private
 {
     ExportSink *sink;
     RunInfo runInfo;
 
+    VariableNames generateVariableNames();
     mu::data makeGlobalTemplateData();
     void generate();
 };
+
+// Highly sophisticated variable name generation ;-)
+static QString variablify(QString str)
+{
+    QRegularExpression ReIsValidFirstChar("[a-zA-Z_]");
+    QRegularExpression ReIsValidChar("[a-zA-Z0-9_]");
+
+    for (int i = 0; i < str.size(); i++)
+    {
+        QRegularExpressionMatch match;
+
+        if (i == 0)
+        {
+            match = ReIsValidFirstChar.match(str, i, QRegularExpression::NormalMatch, QRegularExpression::AnchoredMatchOption);
+        }
+        else
+        {
+            match = ReIsValidChar.match(str, i, QRegularExpression::NormalMatch, QRegularExpression::AnchoredMatchOption);
+        }
+
+        if (!match.hasMatch())
+        {
+            //qDebug() << "re did not match on" << str.mid(i);
+            //qDebug() << "replacing " << str[i] << " with _ in " << str;
+            str[i] = '_';
+        }
+        else
+        {
+            //qDebug() << "re matched: " << match.captured(0);
+        }
+    }
+
+    return str;
+}
+
+static bool is_valid_identifier(const QString &str)
+{
+    QRegularExpression re("^[a-zA-Z_][a-zA-Z0-9_]*$");
+
+    return re.match(str).hasMatch();
+}
+
+VariableNames ExportSinkCodeGenerator::Private::generateVariableNames()
+{
+    VariableNames result;
+    QSet<QString> setOfNames;
+
+    result.structName = variablify(sink->objectName());
+    assert(is_valid_identifier(result.structName));
+
+    for (auto slot: sink->getDataInputs())
+    {
+        auto arrayNameBase = variablify(slot->inputPipe->getSource()->objectName());
+        auto arrayName     = arrayNameBase;
+        int suffix         = 1;
+
+        while (setOfNames.contains(arrayName) || arrayName == result.structName)
+        {
+            arrayName = arrayNameBase + "_" + QString::number(suffix++);
+        }
+
+        assert(is_valid_identifier(arrayName));
+        setOfNames.insert(arrayName);
+        result.arrayNames.push_back(arrayName);
+    }
+
+    qDebug() << "structName =" << result.structName;
+
+    for (auto arrayName: result.arrayNames)
+    {
+        qDebug() << "  arrayName =" << arrayName;
+    }
+
+    return result;
+}
 
 mu::data ExportSinkCodeGenerator::Private::makeGlobalTemplateData()
 {
@@ -76,7 +170,10 @@ mu::data ExportSinkCodeGenerator::Private::makeGlobalTemplateData()
      * ]
      */
 
+    auto varNames         = generateVariableNames();
     const auto dataInputs = sink->getDataInputs();
+
+    assert(varNames.arrayNames.size() == dataInputs.size());
 
     mu::data array_info_list = mu::data::type::list;
 
@@ -98,13 +195,13 @@ mu::data ExportSinkCodeGenerator::Private::makeGlobalTemplateData()
         }
 
         auto pipe           = slot->inputPipe;
-        auto variable_name  = variablify(pipe->getSource()->objectName()).toStdString();
+        auto variable_name  = varNames.arrayNames[arrayIndex];
 
         mu::data array_info = mu::data::type::object;
 
         array_info["index"]         = QString::number(arrayIndex).toStdString();
         array_info["dimension"]     = QString::number(pipe->getSize()).toStdString();
-        array_info["variable_name"] = variable_name;
+        array_info["variable_name"] = variable_name.toStdString();
         array_info["analysis_name"] = pipe->getSource()->objectName().toStdString();
         array_info["unit"]          = pipe->getParameters().unit.toStdString();
         array_info["limits"]        = mu::data{limits_list};
@@ -114,20 +211,22 @@ mu::data ExportSinkCodeGenerator::Private::makeGlobalTemplateData()
         arrayIndex++;
     }
 
-    auto struct_name = variablify(sink->objectName()).toStdString();
+    auto struct_name = varNames.structName;
 
     mu::data result = mu::data::type::object;
 
-    result["struct_name"]           = struct_name;
+    result["struct_name"]           = struct_name.toStdString();
     result["array_count"]           = QString::number(dataInputs.size()).toStdString();
     result["array_info"]            = mu::data{array_info_list};
     result["mvme_version"]          = GIT_VERSION;
     result["export_date"]           = QDateTime::currentDateTime().toString().toStdString();
     result["run_id"]                = runInfo.runId.toStdString();
-    result["export_data_filepath"]  = sink->getDataFilePath().toStdString();
-    result["export_data_filename"]  = sink->getDataFileName().toStdString();
+    result["export_data_filepath"]  = sink->getDataFilePath(runInfo).toStdString();
+    result["export_data_filename"]  = sink->getDataFileName(runInfo).toStdString();
     result["export_data_basename"]  = sink->getExportFileBasename().toStdString();
     result["export_data_extension"] = sink->getDataFileExtension().toStdString();
+    result["sparse?"]               = sink->getFormat() == ExportSink::Format::Sparse;
+    result["full?"]                 = sink->getFormat() == ExportSink::Format::Full;
 
     return result;
 }
@@ -148,9 +247,9 @@ void ExportSinkCodeGenerator::Private::generate()
     }
 
     const auto dataInputs        = sink->getDataInputs();
-    const QString headerFilePath = sink->getOutputBasePath() + ".h";
-    const QString implFilePath   = sink->getOutputBasePath() + ".cpp";
-    const QString pyFilePath     = sink->getOutputBasePath() + ".py";
+    const QString headerFilePath = sink->getOutputPrefixPath() + "/" + sink->getExportFileBasename() + ".h";
+    const QString implFilePath   = sink->getOutputPrefixPath() + "/" + sink->getExportFileBasename() + ".cpp";
+    const QString pyFilePath     = sink->getOutputPrefixPath() + "/" + sink->getExportFileBasename() + ".py";
 
     // write the c++ export header file
     {
@@ -176,22 +275,22 @@ void ExportSinkCodeGenerator::Private::generate()
     {
         mu::data data = makeGlobalTemplateData();
 
-        data["export_header_file"]   = QFileInfo(headerFilePath).fileName().toStdString();
-        data["export_impl_file"]     = QFileInfo(implFilePath).fileName().toStdString();
+        data["export_header_file"] = QFileInfo(headerFilePath).fileName().toStdString();
+        data["export_impl_file"]   = QFileInfo(implFilePath).fileName().toStdString();
 
-        QDir exportDir = sink->getExportDirectory();
+        QDir exportDir = sink->getOutputPrefixPath();
 
         render_to_file(QSL(":/analysis/export_templates/%1_export_info.cpp.mustache").arg(fmtString),
-                       data, exportDir.filePath("export_info.cpp"));
+                       data, exportDir.filePath("export_info.cpp"), TemplateRenderFlags::IfNotExists);
 
         render_to_file(QSL(":/analysis/export_templates/%1_export_dump.cpp.mustache").arg(fmtString),
-                       data, exportDir.filePath("export_dump.cpp"));
+                       data, exportDir.filePath("export_dump.cpp"), TemplateRenderFlags::IfNotExists);
 
         render_to_file(":/analysis/export_templates/CMakeLists.txt.mustache",
-                       data, exportDir.filePath("CMakeLists.txt"));
+                       data, exportDir.filePath("CMakeLists.txt"), TemplateRenderFlags::IfNotExists);
 
         render_to_file(QSL(":/analysis/export_templates/generate_root_histos.cpp.mustache"),
-                       data, exportDir.filePath("export_generate_root_histos.cpp"));
+                       data, exportDir.filePath("export_generate_root_histos.cpp"), TemplateRenderFlags::IfNotExists);
 
         /* Copy c++ libs. */
         if (sink->getCompressionLevel() != 0)

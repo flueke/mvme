@@ -14,6 +14,9 @@
 using std::cout;
 using std::endl;
 
+/* Number of bins of the ROOT histograms. */
+static const size_t HistoBins = 1u << 12;
+
 int main(int argc, char *argv[])
 {
     std::string inputFilename;
@@ -33,20 +36,28 @@ int main(int argc, char *argv[])
     zstr::ifstream input(inputFilename);
 #else
     std::ifstream input;
+    input.exceptions(std::ios::failbit | std::ios::badbit);
     input.open(inputFilename, std::ios::in | std::ios::binary);
 #endif
 
-    const char *outputFilename = "{{export_data_basename}}_histos.root";
+    /* Replace the extension of the input filename with "_histos.root" and use
+     * the result as the output filename. */
+
+    std::string outputFilename = inputFilename;
+    outputFilename.erase(std::find(outputFilename.begin(), outputFilename.end(), '.'),
+                         outputFilename.end());
+    outputFilename += "_histos.root";
 
     cout << "Writing histograms to " << outputFilename << endl;
 
-    TFile f(outputFilename, "recreate");
+    TFile f(outputFilename.c_str(), "recreate");
 
     if (!f.IsOpen()) return 1;
 
     size_t histoCount = 0;
     {{struct_name}} event;
 
+    /* Create a histogram for each parameter of each array. */
     std::vector<std::vector<TH1D *>> histo_lists;
 
     for (size_t arrayIndex = 0;
@@ -63,7 +74,7 @@ int main(int argc, char *argv[])
             std::string name  = event.getArrayName(arrayIndex) + "[" + std::to_string(paramIndex) + "]";
             std::string title = name;
 
-            auto histo = new TH1D(name.c_str(), title.c_str(), 1u << 12, limits.first, limits.second);
+            auto histo = new TH1D(name.c_str(), title.c_str(), HistoBins, limits.first, limits.second);
 
             histos[paramIndex] = histo;
             histoCount++;
@@ -79,6 +90,7 @@ int main(int argc, char *argv[])
 
     while (input.good())
     {
+        /* Fill the event structure with data from the input file. */
         read(input, event);
 
         if (!input.good())
@@ -86,15 +98,20 @@ int main(int argc, char *argv[])
 
         eventsRead++;
 
+        /* Loop over all exported arrays. */
         for (size_t arrayIndex = 0;
              arrayIndex < event.getArrayCount();
              arrayIndex++)
         {
-            size_t dim = event.getArrayDimension(arrayIndex);
+{{#full?}}
+            const size_t dim    = event.getArrayDimension(arrayIndex);
+            const double *array = event.getArray(arrayIndex);
 
+            /* Loop over array elements, filling the histogram for the current
+             * array and parameter. */
             for (size_t paramIndex = 0; paramIndex < dim; paramIndex++)
             {
-                double value = event.getValue(arrayIndex, paramIndex);
+                double value = array[paramIndex];
 
                 if (!std::isnan(value))
                 {
@@ -102,6 +119,21 @@ int main(int argc, char *argv[])
                     histo->Fill(value);
                 }
             }
+{{/full?}}
+{{#sparse?}}
+            const {{struct_name}}::SparseArray *array = event.getArray(arrayIndex);
+
+            /* Loop over the lists of indexes and values, filling the
+             * corresponding histogram. */
+            for (size_t ii = 0; ii < array->size(); ii++)
+            {
+                uint16_t paramIndex = array->indexes[ii];
+                double   value      = array->values[ii];
+
+                TH1D *histo = histo_lists[arrayIndex][paramIndex];
+                histo->Fill(value);
+            }
+{{/sparse?}}
         }
     }
 
@@ -113,9 +145,7 @@ int main(int argc, char *argv[])
             delete histo;
     }
 
-    cout << endl
-        << "Read " << eventsRead << " events from "
-        << inputFilename << "." << endl;
+    cout << "Read " << eventsRead << " events from " << inputFilename << endl;
 }
 {{!
 vim:ft=cpp

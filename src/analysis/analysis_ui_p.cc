@@ -35,6 +35,7 @@
 #include <QAbstractItemModel>
 #include <QButtonGroup>
 #include <QDir>
+#include <QFileDialog>
 #include <QFormLayout>
 #include <QGridLayout>
 #include <QGroupBox>
@@ -1017,15 +1018,19 @@ AddEditOperatorWidget::AddEditOperatorWidget(OperatorInterface *op, s32 userLeve
     // qmetaobject if there are more operator specific widgets to handle
     if (auto rms = qobject_cast<RateMonitorSink *>(op))
     {
-        m_opConfigWidget = new RateMonitorConfigWidget(rms, userLevel, this);
+        m_opConfigWidget = new RateMonitorConfigWidget(rms, userLevel,
+                                                       eventWidget->getContext(), this);
     }
     else if (auto op_ = qobject_cast<ExpressionOperator *>(op))
     {
-        m_opConfigWidget = new ExpressionOperatorConfigurationWidget(op_, userLevel, this);
+        m_opConfigWidget = new ExpressionOperatorConfigurationWidget(
+            op_, userLevel,
+            eventWidget->getContext(), this);
     }
     else
     {
-        m_opConfigWidget = new OperatorConfigurationWidget(op, userLevel, this);
+        m_opConfigWidget = new OperatorConfigurationWidget(op, userLevel,
+                                                           eventWidget->getContext(), this);
     }
 
     setWindowTitle(QString("Edit %1").arg(m_op->getDisplayName()));
@@ -1520,16 +1525,23 @@ static void repopulate_arrayMap_tables(ArrayMap *arrayMap, const ArrayMappings &
     tw_output->resizeRowsToContents();
 }
 
-AbstractOpConfigWidget::AbstractOpConfigWidget(OperatorInterface *op, s32 userLevel, QWidget *parent)
+AbstractOpConfigWidget::AbstractOpConfigWidget(OperatorInterface *op,
+                                               s32 userLevel,
+                                               MVMEContext *context,
+                                               QWidget *parent)
     : QWidget(parent)
     , m_op(op)
     , m_userLevel(userLevel)
     , m_wasNameEdited(false)
+    , m_context(context)
 {
 }
 
-OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, s32 userLevel, QWidget *parent)
-    : AbstractOpConfigWidget(op, userLevel, parent)
+OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
+                                                         s32 userLevel,
+                                                         MVMEContext *context,
+                                                         QWidget *parent)
+    : AbstractOpConfigWidget(op, userLevel, context, parent)
 {
     auto widgetLayout = new QVBoxLayout(this);
     widgetLayout->setContentsMargins(0, 0, 0, 0);
@@ -1996,17 +2008,37 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
     }
     else if (auto ex = qobject_cast<ExportSink *>(op))
     {
-        le_exportBasename = new QLineEdit;
-        pb_selectExportBasename = new QPushButton("Select");
+        le_exportPrefixPath = new QLineEdit;
+        pb_selectOutputDirectory = new QPushButton("Select");
         {
             auto l = new QHBoxLayout;
-            l->addWidget(le_exportBasename);
-            // TODO: connect this to a QFileDialog. Define what this should
-            // contain and how the output files will be called.
-            pb_selectExportBasename->setEnabled(false);
-            l->addWidget(pb_selectExportBasename);
+            l->addWidget(le_exportPrefixPath);
+            l->addWidget(pb_selectOutputDirectory);
             l->setStretch(0, 1);
-            formLayout->addRow("Output File", l);
+            formLayout->addRow("Output Directory", l);
+
+            connect(pb_selectOutputDirectory, &QPushButton::clicked, this, [=]() {
+
+                QString startDir = le_exportPrefixPath->text();
+
+                if (startDir.isEmpty())
+                    startDir = QSL("exports");
+
+                auto dirName  = QFileDialog::getExistingDirectory(
+                    this, QSL("Create or select an export output directory"),
+                    startDir);
+
+                if (!dirName.isEmpty())
+                {
+                    auto wsDir = m_context->getWorkspaceDirectory();
+                    if (!wsDir.endsWith("/")) wsDir += "/";
+
+                    if (dirName.startsWith(wsDir))
+                        dirName = dirName.mid(wsDir.size());
+
+                    le_exportPrefixPath->setText(dirName);
+                }
+            });
         }
 
         combo_exportFormat = new QComboBox;
@@ -2022,7 +2054,16 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op, 
         //combo_exportCompression->addItem("zlib best", 9);
         formLayout->addRow("Compression", combo_exportCompression);
 
-        le_exportBasename->setText(ex->getOutputBasePath());
+        //
+        // populate
+        //
+
+        auto prefixPath = ex->getOutputPrefixPath();
+
+        if (prefixPath.isEmpty())
+            prefixPath = "exports/";
+
+        le_exportPrefixPath->setText(prefixPath);
 
         combo_exportFormat->setCurrentIndex(
             combo_exportFormat->findData(static_cast<int>(ex->getFormat())));
@@ -2470,7 +2511,7 @@ void OperatorConfigurationWidget::configureOperator()
     {
         ex->setCompressionLevel(combo_exportCompression->currentData().toInt());
         ex->setFormat(static_cast<ExportSink::Format>(combo_exportFormat->currentData().toInt()));
-        ex->setOutputBasePath(le_exportBasename->text());
+        ex->setOutputPrefixPath(le_exportPrefixPath->text());
     }
 }
 
@@ -2609,8 +2650,11 @@ static const std::array<RateTypeInfo, 3> RateTypeInfos =
 //
 // RateMonitorConfigWidget
 //
-RateMonitorConfigWidget::RateMonitorConfigWidget(RateMonitorSink *rms, s32 userLevel, QWidget *parent)
-    : AbstractOpConfigWidget(rms, userLevel, parent)
+RateMonitorConfigWidget::RateMonitorConfigWidget(RateMonitorSink *rms,
+                                                 s32 userLevel,
+                                                 MVMEContext *context,
+                                                 QWidget *parent)
+    : AbstractOpConfigWidget(rms, userLevel, context, parent)
     , m_rms(rms)
 {
     le_name = new QLineEdit;
@@ -2903,8 +2947,9 @@ static void populate_pipe_table(a2::PipeVectors pipe, QTableWidget *table)
 
 ExpressionOperatorConfigurationWidget::ExpressionOperatorConfigurationWidget(ExpressionOperator *op,
                                                                              s32 userLevel,
+                                                                             MVMEContext *context,
                                                                              QWidget *parent)
-    : AbstractOpConfigWidget(op, userLevel, parent)
+    : AbstractOpConfigWidget(op, userLevel, context, parent)
     , m_op(op)
     , m_arena(ArenaSize)
     , m_exprBeginEditor(new ExpressionEditor)

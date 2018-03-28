@@ -1281,12 +1281,11 @@ class LIBMVME_EXPORT ExportSink: public SinkInterface
         void setFormat(Format fmt) { m_format = fmt; }
         Format getFormat() const { return m_format; }
 
-        void setOutputBasePath(const QString &basePath) { m_outputBasePath = basePath; }
-        QString getOutputBasePath() const { return m_outputBasePath; } // exports/sums_and_coords
+        void setOutputPrefixPath(const QString &prefixPath) { m_outputPrefixPath = prefixPath; }
+        QString getOutputPrefixPath() const { return m_outputPrefixPath; } // exports/sums_and_coords
 
-        QString getDataFilePath() const;        // exports/sums_and_coords.bin.gz
-        QString getDataFileName() const;        // sums_and_coords.bin.gz
-        QDir getExportDirectory() const;        // exports
+        QString getDataFilePath(const RunInfo &runInfo) const; // exports/sums_and_coords/data_<runInfo.runid>.bin.gz
+        QString getDataFileName(const RunInfo &runInfo) const; // data_<runInfo.runId>.bin.gz
         QString getExportFileBasename() const;  // sums_and_coords
         QString getDataFileExtension() const;   // .bin.gz / .bin
 
@@ -1301,16 +1300,18 @@ class LIBMVME_EXPORT ExportSink: public SinkInterface
         // Data inputs to be exported
         QVector<std::shared_ptr<Slot>> m_dataInputs;
 
-        // Output filename. May include a path. Is relative to the application
-        // working directory which is the workspace directory. This should be a
-        // basename path. File extensions are appended.
-        QString m_outputBasePath;
+        // Output prefix path.
+        // Is relative to the application working directory which usually is
+        // the current workspace directory.
+        // Subdirectories will be created as needed to generate the output
+        // files inside the prefix path.
+        QString m_outputPrefixPath;
 
         //  0:  turn of compression; makes this operator write directly to the output file
         // -1:  Z_DEFAULT_COMPRESSION
         //  1:  Z_BEST_SPEED
         //  9:  Z_BEST_COMPRESSION
-        int m_compressionLevel = 0;
+        int m_compressionLevel = 1;
 
         Format m_format = Format::Sparse;
 };

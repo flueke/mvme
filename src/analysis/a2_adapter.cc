@@ -104,7 +104,8 @@ using OutputPipes = QVector<analysis::Pipe *>;
     A2AdapterState *adapterState,\
     analysis::OperatorPtr op,\
     InputSlots inputSlots,\
-    OutputPipes outputPipes)
+    OutputPipes outputPipes,\
+    const RunInfo &runInfo)
 
 typedef DEF_OP_MAGIC(OperatorMagic);
 
@@ -692,13 +693,6 @@ DEF_OP_MAGIC(rate_monitor_sink_magic)
     return result;
 }
 
-#define DEF_OP_MAGIC(name) a2::Operator name(\
-    memory::Arena *arena,\
-    A2AdapterState *adapterState,\
-    analysis::OperatorPtr op,\
-    InputSlots inputSlots,\
-    OutputPipes outputPipes)
-
 DEF_OP_MAGIC(export_sink_magic)
 {
     LOG("");
@@ -724,12 +718,7 @@ DEF_OP_MAGIC(export_sink_magic)
         a2_dataInputs[si] = find_output_pipe(adapterState, inputSlots[si + 1]);
     }
 
-    QString outputFilename = sink->getOutputBasePath() + QSL(".bin");
-
-    if (sink->getCompressionLevel() != 0)
-    {
-        outputFilename += QSL(".gz");
-    }
+    QString outputFilename = sink->getDataFilePath(runInfo);
 
     a2::Operator result = a2::make_export_sink(
         arena,
@@ -766,7 +755,11 @@ static const QHash<const QMetaObject *, OperatorMagic *> OperatorMagicTable =
     { &analysis::ExportSink::staticMetaObject,              export_sink_magic },
 };
 
-a2::Operator a2_adapter_magic(memory::Arena *arena, A2AdapterState *state, analysis::OperatorPtr op)
+a2::Operator a2_adapter_magic(
+    memory::Arena *arena,
+    A2AdapterState *state,
+    analysis::OperatorPtr op,
+    const RunInfo &runInfo)
 {
     a2::Operator result = {};
     result.type = a2::OperatorTypeCount;
@@ -794,7 +787,7 @@ a2::Operator a2_adapter_magic(memory::Arena *arena, A2AdapterState *state, analy
     {
         LOG("found magic for %s (objectName=%s)", op->metaObject()->className(), op->objectName().toLocal8Bit().constData());
         QLOG(op.get() << op->getId());
-        result = operator_magic(arena, state, op, inputSlots, outputPipes);
+        result = operator_magic(arena, state, op, inputSlots, outputPipes, runInfo);
     }
     else
     {
@@ -943,7 +936,8 @@ OperatorsByEventIndex group_operators_by_event(
 void a2_adapter_build_operators(
     memory::Arena *arena,
     A2AdapterState *state,
-    OperatorsByEventIndex &operators)
+    OperatorsByEventIndex &operators,
+    const RunInfo &runInfo)
 {
     for (s32 ei = 0; ei < a2::MaxVMEEvents; ei++)
     {
@@ -954,7 +948,7 @@ void a2_adapter_build_operators(
 
         for (auto &opInfo: operators[ei])
         {
-            auto a2_op = a2_adapter_magic(arena, state, opInfo.op);
+            auto a2_op = a2_adapter_magic(arena, state, opInfo.op, runInfo);
 
             if (a2_op.type < a2::OperatorTypeCount)
             {
@@ -1102,7 +1096,8 @@ A2AdapterState a2_adapter_build(
     a2_adapter_build_operators(
         workArena,
         &result,
-        operators);
+        operators,
+        runInfo);
 
     LOG("operators before type sort:");
 
@@ -1139,7 +1134,9 @@ A2AdapterState a2_adapter_build(
     a2_adapter_build_operators(
         arena,
         &result,
-        operators);
+        operators,
+        runInfo
+        );
 
     LOG("operators after type sort:");
 
