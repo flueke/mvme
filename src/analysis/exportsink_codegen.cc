@@ -46,6 +46,9 @@ static void render_to_file(
         auto msg = QSL("Could not open input template file %1: %2")
             .arg(templateFilename).arg(templateFile.errorString());
 
+        qDebug() << msg;
+        assert(false);
+
         throw std::runtime_error(msg.toStdString());
     }
 
@@ -250,60 +253,58 @@ void ExportSinkCodeGenerator::Private::generate()
     const QString headerFilePath = sink->getOutputPrefixPath() + "/" + sink->getExportFileBasename() + ".h";
     const QString implFilePath   = sink->getOutputPrefixPath() + "/" + sink->getExportFileBasename() + ".cpp";
     const QString pyFilePath     = sink->getOutputPrefixPath() + "/" + sink->getExportFileBasename() + ".py";
+    const QDir exportDir         = sink->getOutputPrefixPath();
 
-    // write the c++ export header file
+    // generate c++ struct, utility programs and a CMakeLists.txt
     {
         mu::data data = makeGlobalTemplateData();
 
-        data["header_guard"] = variablify(sink->objectName().toUpper()).toStdString();
-
-        render_to_file(QSL(":/analysis/export_templates/%1_header.h.mustache").arg(fmtString),
-                       data, headerFilePath);
-    }
-
-    // write the c++ export implementation file
-    {
-        mu::data data = makeGlobalTemplateData();
-
-        data["export_header_file"] = QFileInfo(headerFilePath).fileName().toStdString();
-
-        render_to_file(QSL(":/analysis/export_templates/%1_impl.cpp.mustache").arg(fmtString),
-                       data, implFilePath);
-    }
-
-    // write utility/demo programs and a CMakeLists.txt
-    {
-        mu::data data = makeGlobalTemplateData();
-
+        data["header_guard"]       = variablify(sink->objectName().toUpper()).toStdString();
         data["export_header_file"] = QFileInfo(headerFilePath).fileName().toStdString();
         data["export_impl_file"]   = QFileInfo(implFilePath).fileName().toStdString();
 
-        QDir exportDir = sink->getOutputPrefixPath();
+        render_to_file(QSL(":/analysis/export_templates/cpp_%1_header.h.mustache").arg(fmtString),
+                       data, headerFilePath);
 
-        render_to_file(QSL(":/analysis/export_templates/%1_export_info.cpp.mustache").arg(fmtString),
+        render_to_file(QSL(":/analysis/export_templates/cpp_%1_impl.cpp.mustache").arg(fmtString),
+                       data, implFilePath);
+
+        render_to_file(QSL(":/analysis/export_templates/cpp_%1_export_info.cpp.mustache").arg(fmtString),
                        data, exportDir.filePath("export_info.cpp"), TemplateRenderFlags::IfNotExists);
 
-        render_to_file(QSL(":/analysis/export_templates/%1_export_dump.cpp.mustache").arg(fmtString),
+        render_to_file(QSL(":/analysis/export_templates/cpp_%1_export_dump.cpp.mustache").arg(fmtString),
                        data, exportDir.filePath("export_dump.cpp"), TemplateRenderFlags::IfNotExists);
 
         render_to_file(":/analysis/export_templates/CMakeLists.txt.mustache",
                        data, exportDir.filePath("CMakeLists.txt"), TemplateRenderFlags::IfNotExists);
 
-        render_to_file(QSL(":/analysis/export_templates/generate_root_histos.cpp.mustache"),
+        render_to_file(QSL(":/analysis/export_templates/cpp_generate_root_histos.cpp.mustache"),
                        data, exportDir.filePath("export_generate_root_histos.cpp"), TemplateRenderFlags::IfNotExists);
 
-        /* Copy c++ libs. */
+        // copy c++ libs
         if (sink->getCompressionLevel() != 0)
         {
+            mu::data data = mu::data::type::object;
+
             render_to_file(QSL(":/3rdparty/zstr/src/zstr.hpp"),
                            data, exportDir.filePath("zstr.hpp"));
 
             render_to_file(QSL(":/3rdparty/zstr/src/strict_fstream.hpp"),
                            data, exportDir.filePath("strict_fstream.hpp"));
         }
+    }
 
-        render_to_file(QSL(":/analysis/export_templates/%1_event.py.mustache").arg(fmtString),
+    // python
+    {
+        mu::data data = makeGlobalTemplateData();
+
+        data["event_import"] = QFileInfo(pyFilePath).baseName().toStdString();
+
+        render_to_file(QSL(":/analysis/export_templates/python_%1_event.py.mustache").arg(fmtString),
                        data, pyFilePath);
+
+        render_to_file(QSL(":/analysis/export_templates/python_%1_export_dump.py.mustache").arg(fmtString),
+                       data, exportDir.filePath("export_dump.py"), TemplateRenderFlags::IfNotExists);
     }
 }
 
