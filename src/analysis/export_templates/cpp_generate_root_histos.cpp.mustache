@@ -19,18 +19,14 @@ static const size_t HistoBins = 1u << 12;
 
 int main(int argc, char *argv[])
 {
-    std::string inputFilename;
-
     if (argc < 2)
     {
-        inputFilename = "{{export_data_filename}}";
-        cout << "Reading events from default file " << inputFilename << endl;
+        cout << "Usage: " << argv[0] << " <input_file>" << endl;
+        return 1;
     }
-    else
-    {
-        inputFilename = argv[1];
-        cout << "Reading events from " << inputFilename << endl;
-    }
+
+    std::string inputFilename = argv[1];
+    cout << "Reading input from: " << inputFilename << endl;
 
 #ifdef MVME_EXPORT_USE_ZSTR
     zstr::ifstream input(inputFilename);

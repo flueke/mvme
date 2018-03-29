@@ -375,7 +375,7 @@ void MVMEStreamWorker::start()
     Q_ASSERT(m_d->context->getAnalysis());
 
     m_d->runInfo = m_d->context->getRunInfo();
-    m_d->runInfo.generateExportFiles = true;
+    //m_d->runInfo.generateExportFiles = true;
 
     m_d->streamProcessor.beginRun(
         m_d->runInfo,

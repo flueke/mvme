@@ -3291,23 +3291,25 @@ s32 ExportSink::getNumberOfSlots() const
 
 void ExportSink::beginRun(const RunInfo &runInfo)
 {
-    if (!runInfo.generateExportFiles)
-        return;
-
     if (!QDir(getOutputPrefixPath()).exists())
     {
         QDir().mkpath(getOutputPrefixPath()); // TODO: error reporting in the gui
     }
+}
 
+void ExportSink::generateCode(Logger logger)
+{
     try
     {
-        ExportSinkCodeGenerator codeGen(this, runInfo);
+        ExportSinkCodeGenerator codeGen(this);
         codeGen.generate();
     }
     catch (const std::exception &e)
     {
-        // TODO: error reporting in the gui
-        qDebug() << __PRETTY_FUNCTION__ << this << "Error:" << e.what();
+        auto msg = QSL("Error during code generation for ExportSink %1: %2")
+            .arg(this->objectName())
+            .arg(e.what());
+        logger(msg);
     }
 }
 

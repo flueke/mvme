@@ -131,7 +131,7 @@ struct RunInfo
     // TODO: replace with flags
     bool keepAnalysisState = false;
     bool isReplay = false;
-    bool generateExportFiles = false;
+    //bool generateExportFiles = false;
 };
 
 enum class ListFileFormat

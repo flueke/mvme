@@ -323,7 +323,10 @@ class OperatorConfigurationWidget: public AbstractOpConfigWidget
 
         // ExportSink
         QLineEdit *le_exportPrefixPath;
-        QPushButton *pb_selectOutputDirectory;
+
+        QPushButton *pb_selectOutputDirectory,
+                    *pb_generateCode;
+
         QComboBox *combo_exportFormat;
         QComboBox *combo_exportCompression;
 };

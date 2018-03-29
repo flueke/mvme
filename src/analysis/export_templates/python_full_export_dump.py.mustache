@@ -6,11 +6,11 @@ from {{event_import}} import {{struct_name}}
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        inputFilename = "{{export_data_filename}}"
-        print("Using generated input filename " + inputFilename)
-    else:
-        inputFilename = sys.argv[1]
-        print("Using filename from command line: " + inputFilename)
+        print("Usage: " + sys.argv[0] + " <input_file>");
+        sys.exit(1);
+
+    inputFilename = sys.argv[1]
+    print("Reading input from: " + inputFilename)
 
     inFile = None
 

@@ -1291,6 +1291,10 @@ class LIBMVME_EXPORT ExportSink: public SinkInterface
 
         QVector<std::shared_ptr<Slot>> getDataInputs() const { return m_dataInputs; }
 
+        using Logger = std::function<void (const QString &)>;
+
+        void generateCode(Logger logger);
+
     private:
         // Optional single value condition input. If invalid no data will be
         // exported in that event cycle. If unconnected all occurrences of the

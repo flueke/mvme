@@ -78,7 +78,6 @@ struct VariableNames
 struct ExportSinkCodeGenerator::Private
 {
     ExportSink *sink;
-    RunInfo runInfo;
 
     VariableNames generateVariableNames();
     mu::data makeGlobalTemplateData();
@@ -223,11 +222,6 @@ mu::data ExportSinkCodeGenerator::Private::makeGlobalTemplateData()
     result["array_info"]            = mu::data{array_info_list};
     result["mvme_version"]          = GIT_VERSION;
     result["export_date"]           = QDateTime::currentDateTime().toString().toStdString();
-    result["run_id"]                = runInfo.runId.toStdString();
-    result["export_data_filepath"]  = sink->getDataFilePath(runInfo).toStdString();
-    result["export_data_filename"]  = sink->getDataFileName(runInfo).toStdString();
-    result["export_data_basename"]  = sink->getExportFileBasename().toStdString();
-    result["export_data_extension"] = sink->getDataFileExtension().toStdString();
     result["sparse?"]               = sink->getFormat() == ExportSink::Format::Sparse;
     result["full?"]                 = sink->getFormat() == ExportSink::Format::Full;
 
@@ -270,16 +264,16 @@ void ExportSinkCodeGenerator::Private::generate()
                        data, implFilePath);
 
         render_to_file(QSL(":/analysis/export_templates/cpp_%1_export_info.cpp.mustache").arg(fmtString),
-                       data, exportDir.filePath("export_info.cpp"), TemplateRenderFlags::IfNotExists);
+                       data, exportDir.filePath("export_info.cpp"));
 
         render_to_file(QSL(":/analysis/export_templates/cpp_%1_export_dump.cpp.mustache").arg(fmtString),
-                       data, exportDir.filePath("export_dump.cpp"), TemplateRenderFlags::IfNotExists);
+                       data, exportDir.filePath("export_dump.cpp"));
 
         render_to_file(":/analysis/export_templates/CMakeLists.txt.mustache",
-                       data, exportDir.filePath("CMakeLists.txt"), TemplateRenderFlags::IfNotExists);
+                       data, exportDir.filePath("CMakeLists.txt"));
 
         render_to_file(QSL(":/analysis/export_templates/cpp_generate_root_histos.cpp.mustache"),
-                       data, exportDir.filePath("export_generate_root_histos.cpp"), TemplateRenderFlags::IfNotExists);
+                       data, exportDir.filePath("export_generate_root_histos.cpp"));
 
         // copy c++ libs
         if (sink->getCompressionLevel() != 0)
@@ -304,15 +298,14 @@ void ExportSinkCodeGenerator::Private::generate()
                        data, pyFilePath);
 
         render_to_file(QSL(":/analysis/export_templates/python_%1_export_dump.py.mustache").arg(fmtString),
-                       data, exportDir.filePath("export_dump.py"), TemplateRenderFlags::IfNotExists);
+                       data, exportDir.filePath("export_dump.py"));
     }
 }
 
-ExportSinkCodeGenerator::ExportSinkCodeGenerator(ExportSink *sink, const RunInfo &runInfo)
+ExportSinkCodeGenerator::ExportSinkCodeGenerator(ExportSink *sink)
     : m_d(std::make_unique<ExportSinkCodeGenerator::Private>())
 {
-    m_d->sink    = sink;
-    m_d->runInfo = runInfo;
+    m_d->sink = sink;
 }
 
 ExportSinkCodeGenerator::~ExportSinkCodeGenerator()

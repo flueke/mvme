@@ -2054,6 +2054,33 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
         //combo_exportCompression->addItem("zlib best", 9);
         formLayout->addRow("Compression", combo_exportCompression);
 
+        {
+            pb_generateCode    = new QPushButton("C++ && Python code");
+            //pb_generatePython = new QPushButton("Python");
+
+            auto gb    = new QGroupBox("Code generation");
+            auto l     = new QGridLayout(gb);
+            auto label = new QLabel(
+                QSL("Important: Code generation will overwrite existing files!\n"
+                    "Set the output path and export options above, then use the\n"
+                    "buttons below to generate the code files.\n"
+                    "Errors during code generation will be shown in the Log Window."
+                   ));
+
+            l->addWidget(label,                0, 0, 1, 2);
+            l->addWidget(pb_generateCode,      1, 0);
+            l->addWidget(make_spacer_widget(), 1, 1);
+
+            formLayout->addRow(gb);
+
+            auto logger = [context] (const QString &msg) { context->logMessage(msg); };
+
+            connect(pb_generateCode, &QPushButton::clicked, this, [this, ex, logger] () {
+                this->configureOperator();
+                ex->generateCode(logger);
+            });
+        }
+
         //
         // populate
         //
