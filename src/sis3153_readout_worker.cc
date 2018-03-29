@@ -61,10 +61,6 @@ using namespace vme_script;
 
 namespace
 {
-    void validate_vme_config(VMEConfig *vmeConfig)
-    {
-    }
-
     static void validate_event_readout_script(const VMEScript &script)
     {
         for (auto cmd: script)
@@ -181,6 +177,7 @@ namespace
 
     // These functions are modeled after sis3153eth::list_generate_add_vmeA32D32_read/write.
     // accessSize arg: (0: 1-byte; 1: 2-byte; 2: 4-byte; 3: 8-byte)
+
     void stackList_add_single_read(u32 *list_ptr, u32 *list_buffer, u32 vme_addr, u32 vme_access_size, u32 vme_am_mode)
     {
         unsigned int vme_write_flag = 0;
@@ -603,6 +600,50 @@ void SIS3153ReadoutWorker::EventLossCounter::endLeavingDAQ()
     currentFlags &= ~Flag_LeavingDAQ;
 }
 
+static const QVector<TriggerCondition> TriggerPriorityList =
+{
+    TriggerCondition::Periodic,
+    TriggerCondition::Input1RisingEdge,
+    TriggerCondition::Input1FallingEdge,
+    TriggerCondition::Input2RisingEdge,
+    TriggerCondition::Input2FallingEdge,
+    TriggerCondition::Interrupt,
+};
+
+struct EventConfigAndIndex
+{
+    EventConfig *config;
+    int index;
+};
+
+using EventAndIndexList = QVector<EventConfigAndIndex>;
+
+EventAndIndexList stacklist_trigger_prio_sort(QList<EventConfig *> eventConfigs)
+{
+    EventAndIndexList result;
+
+    for (int ei = 0; ei < eventConfigs.size(); ei++)
+    {
+        result.push_back({ eventConfigs[ei], ei });
+    }
+
+    // return true if e1 < e2, false otherwise
+    auto prio_cmp = [] (const EventConfigAndIndex &e1, const EventConfigAndIndex &e2) -> bool
+    {
+        int prio1 = TriggerPriorityList.indexOf(e1.config->triggerCondition);
+        int prio2 = TriggerPriorityList.indexOf(e2.config->triggerCondition);
+
+        if (prio1 == prio2)
+            return e1.index < e2.index;
+
+        return prio1 < prio2;
+    };
+
+    std::stable_sort(result.begin(), result.end(), prio_cmp);
+
+    return result;
+}
+
 //
 // SIS3153ReadoutWorker
 //
@@ -667,8 +708,6 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
         logMessage(QString(QSL("SIS3153 readout starting on %1"))
                    .arg(QDateTime::currentDateTime().toString())
                    );
-
-        //validate_vme_config(m_workerContext.vmeConfig); // throws on error
 
         //
         // Reset controller state by writing KeyResetAll register
@@ -765,9 +804,6 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
         //
         // Build IRQ Readout Scripts
         //
-
-        auto ctrlSettings = m_workerContext.vmeConfig->getControllerSettings();;
-
         m_eventConfigsByStackList.fill(nullptr);
         m_eventIndexByStackList.fill(-1);
         m_watchdogStackListIndex = -1;
@@ -778,20 +814,19 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
 
         stackListControlValue |= SIS3153Registers::StackListControlValues::DisableBerrStatus;
 
-        if (!ctrlSettings.value("DisableBuffering").toBool())
+        if (!controllerSettings.value("DisableBuffering").toBool())
         {
             stackListControlValue |= SIS3153Registers::StackListControlValues::ListBufferEnable;
         }
 
         u32 nextTimerTriggerSource = SIS3153Registers::TriggerSourceTimer1;
 
-        auto eventConfigs = m_workerContext.vmeConfig->getEventConfigs();
+        auto sortedEvents = stacklist_trigger_prio_sort(m_workerContext.vmeConfig->getEventConfigs());
 
-        for (s32 eventIndex = 0;
-             eventIndex < eventConfigs.size();
-             ++eventIndex)
+        for (auto eventAndIndex: sortedEvents)
         {
-            auto event = eventConfigs[eventIndex];
+            EventConfig *event = eventAndIndex.config;
+            int eventIndex     = eventAndIndex.index;
 
             // build the command stack list
             auto readoutCommands = build_event_readout_script(event);
@@ -812,7 +847,6 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
             }
             else if (event->triggerCondition == TriggerCondition::Periodic)
             {
-                // TODO: move this check into validate_vme_config()
                 if (nextTimerTriggerSource > SIS3153Registers::TriggerSourceTimer2)
                     throw QString("SIS3153 readout supports no more than 2 periodic events!");
 
@@ -830,14 +864,14 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
                     throw QString("Maximum timer period exceeded for event %1").arg(event->objectName());
                 }
 
-                u32 timerConfigRegister = SIS3153Registers::StackListTimer1Config;
-
                 logMessage(QString(QSL("Setting up timer for event \"%1\": period=%2 s, timerValue=%3"))
                            .arg(event->objectName())
                            .arg(period_secs)
                            .arg(timerValue)
                            );
                 logMessage("");
+
+                u32 timerConfigRegister = SIS3153Registers::StackListTimer1Config;
 
                 if (nextTimerTriggerSource == SIS3153Registers::TriggerSourceTimer2)
                     timerConfigRegister = SIS3153Registers::StackListTimer2Config;
@@ -1134,7 +1168,7 @@ void SIS3153ReadoutWorker::start(quint32 cycles)
         //
         // Debug: record raw buffers to file
         //
-        if (ctrlSettings.value("DebugRawBuffers").toBool())
+        if (controllerSettings.value("DebugRawBuffers").toBool())
         {
             m_rawBufferOut.setFileName("sis3153_raw_buffers.bin");
             if (!m_rawBufferOut.open(QIODevice::WriteOnly))
