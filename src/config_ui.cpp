@@ -166,10 +166,10 @@ EventConfigDialog::EventConfigDialog(MVMEContext *context, VMEController *contro
                 m_d->spin_sis3153TimerPeriod = new QDoubleSpinBox;
                 m_d->spin_sis3153TimerPeriod->setPrefix(QSL("Every "));
                 m_d->spin_sis3153TimerPeriod->setSuffix(QSL(" seconds"));
-                m_d->spin_sis3153TimerPeriod->setMinimum(0.0);
+                m_d->spin_sis3153TimerPeriod->setMinimum(0.1);
                 m_d->spin_sis3153TimerPeriod->setMaximum(6.5);
                 m_d->spin_sis3153TimerPeriod->setDecimals(1);
-                m_d->spin_sis3153TimerPeriod->setSingleStep(0.5);
+                m_d->spin_sis3153TimerPeriod->setSingleStep(0.1);
                 m_d->spin_sis3153TimerPeriod->setValue(1.0);
 
                 auto timerWidget = new QWidget;
