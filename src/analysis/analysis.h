@@ -1291,6 +1291,8 @@ class LIBMVME_EXPORT ExportSink: public SinkInterface
 
         QVector<std::shared_ptr<Slot>> getDataInputs() const { return m_dataInputs; }
 
+        QStringList getOutputFilenames();
+
         using Logger = std::function<void (const QString &)>;
 
         void generateCode(Logger logger);

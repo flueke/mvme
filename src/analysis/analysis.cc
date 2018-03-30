@@ -3289,11 +3289,13 @@ s32 ExportSink::getNumberOfSlots() const
     return 1 + m_dataInputs.size();
 }
 
-void ExportSink::beginRun(const RunInfo &runInfo)
+void ExportSink::beginRun(const RunInfo &)
 {
-    if (!QDir(getOutputPrefixPath()).exists())
+    if (!QDir().mkpath(getOutputPrefixPath()))
     {
-        QDir().mkpath(getOutputPrefixPath()); // TODO: error reporting in the gui
+        throw QString("ExportSink %1: Error creating export directory %2")
+            .arg(this->objectName())
+            .arg(getOutputPrefixPath());
     }
 }
 
@@ -3301,8 +3303,18 @@ void ExportSink::generateCode(Logger logger)
 {
     try
     {
+        if (!QDir().mkpath(getOutputPrefixPath()))
+        {
+            auto msg = QSL("Could not create export directory %1")
+                .arg(getOutputPrefixPath());
+
+            throw std::runtime_error(msg.toStdString());
+        }
+
         ExportSinkCodeGenerator codeGen(this);
-        codeGen.generate();
+        codeGen.generateFiles();
+
+        qDebug() << __PRETTY_FUNCTION__ << codeGen.getOutputFilenames();
     }
     catch (const std::exception &e)
     {
@@ -3311,6 +3323,11 @@ void ExportSink::generateCode(Logger logger)
             .arg(e.what());
         logger(msg);
     }
+}
+
+QStringList ExportSink::getOutputFilenames()
+{
+    return ExportSinkCodeGenerator(this).getOutputFilenames();
 }
 
 void ExportSink::step()

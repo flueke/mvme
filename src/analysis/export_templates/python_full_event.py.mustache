@@ -51,7 +51,7 @@ class {{struct_name}}:
 {{#array_info}}
             fmt   = "=%ud" % (result.ArrayDimensions[{{index}}])
             size  = struct.calcsize(fmt)
-            result.{{variable_name}} = struct.unpack(fmt, inputObject.read(size))
+            result.{{variable_name}} = list(struct.unpack(fmt, inputObject.read(size)))
 {{/array_info}}
             return result
 

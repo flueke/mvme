@@ -12,6 +12,7 @@
 #include <QFileInfo>
 #include <QDir>
 #include <QRegularExpression>
+#include <functional>
 
 #include "analysis.h"
 #include "git_sha1.h"
@@ -27,18 +28,11 @@ namespace TemplateRenderFlags
     static const Flag IfNotExists = 1u << 0;
 }
 
-static void render_to_file(
+static QString render_to_string(
     const QString &templateFilename,
     mu::data &templateData,
-    const QString &outputFilename,
     TemplateRenderFlags::Flag flags = 0)
 {
-    if ((flags & TemplateRenderFlags::IfNotExists)
-        && QFileInfo(outputFilename).exists())
-    {
-        return;
-    }
-
     QFile templateFile(templateFilename);
 
     if (!templateFile.open(QIODevice::ReadOnly))
@@ -54,7 +48,22 @@ static void render_to_file(
 
     mu::mustache tmpl(templateFile.readAll().toStdString());
 
-    auto rendered = QString::fromStdString(tmpl.render(templateData));
+    return QString::fromStdString(tmpl.render(templateData));
+}
+
+static void render_to_file(
+    const QString &templateFilename,
+    mu::data &templateData,
+    const QString &outputFilename,
+    TemplateRenderFlags::Flag flags = 0)
+{
+    if ((flags & TemplateRenderFlags::IfNotExists)
+        && QFileInfo(outputFilename).exists())
+    {
+        return;
+    }
+
+    auto rendered = render_to_string(templateFilename, templateData, flags);
 
     QFile outFile(outputFilename);
 
@@ -75,13 +84,18 @@ struct VariableNames
     QVector<QString> arrayNames;
 };
 
+using RenderFunction = std::function<void (const QString &templateFilename,
+                                           mu::data &templateData,
+                                           const QString &outputFilename,
+                                           TemplateRenderFlags::Flag flags)>;
+
 struct ExportSinkCodeGenerator::Private
 {
     ExportSink *sink;
 
     VariableNames generateVariableNames();
     mu::data makeGlobalTemplateData();
-    void generate();
+    void generate(RenderFunction render);
 };
 
 // Highly sophisticated variable name generation ;-)
@@ -228,7 +242,7 @@ mu::data ExportSinkCodeGenerator::Private::makeGlobalTemplateData()
     return result;
 }
 
-void ExportSinkCodeGenerator::Private::generate()
+void ExportSinkCodeGenerator::Private::generate(RenderFunction render)
 {
     QString fmtString;
 
@@ -243,7 +257,6 @@ void ExportSinkCodeGenerator::Private::generate()
             break;
     }
 
-    const auto dataInputs        = sink->getDataInputs();
     const QString headerFilePath = sink->getOutputPrefixPath() + "/" + sink->getExportFileBasename() + ".h";
     const QString implFilePath   = sink->getOutputPrefixPath() + "/" + sink->getExportFileBasename() + ".cpp";
     const QString pyFilePath     = sink->getOutputPrefixPath() + "/" + sink->getExportFileBasename() + ".py";
@@ -257,34 +270,34 @@ void ExportSinkCodeGenerator::Private::generate()
         data["export_header_file"] = QFileInfo(headerFilePath).fileName().toStdString();
         data["export_impl_file"]   = QFileInfo(implFilePath).fileName().toStdString();
 
-        render_to_file(QSL(":/analysis/export_templates/cpp_%1_header.h.mustache").arg(fmtString),
-                       data, headerFilePath);
+        render(QSL(":/analysis/export_templates/cpp_%1_header.h.mustache").arg(fmtString),
+                       data, headerFilePath, 0);
 
-        render_to_file(QSL(":/analysis/export_templates/cpp_%1_impl.cpp.mustache").arg(fmtString),
-                       data, implFilePath);
+        render(QSL(":/analysis/export_templates/cpp_%1_impl.cpp.mustache").arg(fmtString),
+                       data, implFilePath, 0);
 
-        render_to_file(QSL(":/analysis/export_templates/cpp_%1_export_info.cpp.mustache").arg(fmtString),
-                       data, exportDir.filePath("export_info.cpp"));
+        render(QSL(":/analysis/export_templates/cpp_%1_export_info.cpp.mustache").arg(fmtString),
+                       data, exportDir.filePath("export_info.cpp"), 0);
 
-        render_to_file(QSL(":/analysis/export_templates/cpp_%1_export_dump.cpp.mustache").arg(fmtString),
-                       data, exportDir.filePath("export_dump.cpp"));
+        render(QSL(":/analysis/export_templates/cpp_%1_export_dump.cpp.mustache").arg(fmtString),
+                       data, exportDir.filePath("export_dump.cpp"), 0);
 
-        render_to_file(":/analysis/export_templates/CMakeLists.txt.mustache",
-                       data, exportDir.filePath("CMakeLists.txt"));
+        render(":/analysis/export_templates/CMakeLists.txt.mustache",
+                       data, exportDir.filePath("CMakeLists.txt"), 0);
 
-        render_to_file(QSL(":/analysis/export_templates/cpp_generate_root_histos.cpp.mustache"),
-                       data, exportDir.filePath("export_generate_root_histos.cpp"));
+        render(QSL(":/analysis/export_templates/cpp_generate_root_histos.cpp.mustache"),
+                       data, exportDir.filePath("export_generate_root_histos.cpp"), 0);
 
         // copy c++ libs
         if (sink->getCompressionLevel() != 0)
         {
             mu::data data = mu::data::type::object;
 
-            render_to_file(QSL(":/3rdparty/zstr/src/zstr.hpp"),
-                           data, exportDir.filePath("zstr.hpp"));
+            render(QSL(":/3rdparty/zstr/src/zstr.hpp"),
+                           data, exportDir.filePath("zstr.hpp"), 0);
 
-            render_to_file(QSL(":/3rdparty/zstr/src/strict_fstream.hpp"),
-                           data, exportDir.filePath("strict_fstream.hpp"));
+            render(QSL(":/3rdparty/zstr/src/strict_fstream.hpp"),
+                           data, exportDir.filePath("strict_fstream.hpp"), 0);
         }
     }
 
@@ -294,11 +307,11 @@ void ExportSinkCodeGenerator::Private::generate()
 
         data["event_import"] = QFileInfo(pyFilePath).baseName().toStdString();
 
-        render_to_file(QSL(":/analysis/export_templates/python_%1_event.py.mustache").arg(fmtString),
-                       data, pyFilePath);
+        render(QSL(":/analysis/export_templates/python_%1_event.py.mustache").arg(fmtString),
+                       data, pyFilePath, 0);
 
-        render_to_file(QSL(":/analysis/export_templates/python_%1_export_dump.py.mustache").arg(fmtString),
-                       data, exportDir.filePath("export_dump.py"));
+        render(QSL(":/analysis/export_templates/python_%1_export_dump.py.mustache").arg(fmtString),
+                       data, exportDir.filePath("export_dump.py"), 0);
     }
 }
 
@@ -312,9 +325,33 @@ ExportSinkCodeGenerator::~ExportSinkCodeGenerator()
 {
 }
 
-void ExportSinkCodeGenerator::generate()
+void ExportSinkCodeGenerator::generateFiles()
 {
-    m_d->generate();
+    m_d->generate(render_to_file);
+}
+
+QMap<QString, QString> ExportSinkCodeGenerator::generateMap() const
+{
+    QMap<QString, QString> result;
+
+    auto renderer = [&result] (const QString &templateFilename,
+                               mu::data &templateData,
+                               const QString &outputFilename,
+                               TemplateRenderFlags::Flag flags)
+    {
+        result[outputFilename] = render_to_string(templateFilename,
+                                                  templateData,
+                                                  flags);
+    };
+
+    m_d->generate(renderer);
+
+    return result;
+}
+
+QStringList ExportSinkCodeGenerator::getOutputFilenames() const
+{
+    return generateMap().keys();
 }
 
 }

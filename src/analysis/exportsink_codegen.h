@@ -2,6 +2,8 @@
 #define __EXPORTSINK_CODEGEN_H__
 
 #include <memory>
+#include <QMap>
+#include <QString>
 
 namespace analysis
 {
@@ -14,7 +16,9 @@ class ExportSinkCodeGenerator
         ExportSinkCodeGenerator(ExportSink *sink);
         ~ExportSinkCodeGenerator();
 
-        void generate();
+        void generateFiles();
+        QMap<QString, QString> generateMap() const;
+        QStringList getOutputFilenames() const;
 
     private:
         struct Private;

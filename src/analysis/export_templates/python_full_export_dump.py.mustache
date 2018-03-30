@@ -20,13 +20,19 @@ if __name__ == "__main__":
     else:
         inFile = open(inputFilename, 'rb')
 
+    eventCount = 0
+
     while True:
         event = {{struct_name}}.read(inFile)
         if not event: break
 
+        eventCount += 1
+
         for ai in range(event.ArrayCount):
             print "Array #%u: " % ai, ": ", event.getArray(ai)
         print
+
+    print("Read %u events from %s" % (eventCount, inputFilename))
 
 {{!
 vim:ft=python
