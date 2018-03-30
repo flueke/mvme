@@ -312,6 +312,9 @@ void ExportSinkCodeGenerator::Private::generate(RenderFunction render)
 
         render(QSL(":/analysis/export_templates/python_%1_export_dump.py.mustache").arg(fmtString),
                        data, exportDir.filePath("export_dump.py"), 0);
+
+        render(QSL(":/analysis/export_templates/pyroot_generate_histos.py.mustache"),
+                       data, exportDir.filePath("pyroot_generate_histos.py"), 0);
     }
 }
 

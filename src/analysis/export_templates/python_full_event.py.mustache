@@ -10,14 +10,16 @@ class {{struct_name}}:
 
     ArrayCount = {{array_count}}
 
-    class Limits:
+    Limits = [
 {{#array_info}}
-        {{variable_name}} = [
+        [
 {{#limits}}
             ( {{lower_limit}}, {{upper_limit}} ),
 {{/limits}}
-        ]
+        ],
 {{/array_info}}
+    ]
+
 
     ArrayDimensions = [
 {{#array_info}}

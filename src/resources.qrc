@@ -84,6 +84,8 @@
 
     <file>analysis/export_templates/python_sparse_event.py.mustache</file>
     <file>analysis/export_templates/python_sparse_export_dump.py.mustache</file>
+
+    <file>analysis/export_templates/pyroot_generate_histos.py.mustache</file>
 </qresource>
 </RCC>
 <!-- vim:ft=xml
