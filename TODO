@@ -16,9 +16,6 @@ TODO list somewhat sorted by priority
   set some flags in the stream worker so that it can decide on which actions to
   perform and which to skip.
 
-* check sis3153 daq state right before starting the daq. Set disconnected state
-  if that happens.
-
 * zachary use case: splitting data by time: 1st, 2nd and 3rd hour. good system
   to solve these kinds of problems.
 

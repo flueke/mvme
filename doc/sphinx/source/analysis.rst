@@ -306,7 +306,7 @@ make these values available to subsequent operators and sinks.
 
 .. FIXME: What is the correct order?
 
-After all sources have processed the module event data the dependent operators
+After all sources have processed the module event data, the dependent operators
 and sinks are stepped in the correct order. Each object consumes its input and
 generates new output or in the case of sinks accumulates incoming data into a
 histogram.
@@ -702,7 +702,7 @@ is valid.
 
 .. _analysis-sinks:
 
-Histograms (Sinks)
+Data Sinks (Histograms / Data Export)
 ----------------------------------------
 
 mvme currently implements the following data sinks:
@@ -723,10 +723,24 @@ See :ref:`Working with 1D histograms <analysis-working-with-1d-histos>` for usag
 2D Histogram
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Accumulates two incoming parameters into a 2D histogram. On each step of the
-operator data will only be accumulated if both the X- and Y inputs are *valid*.
+Accumulates two incoming parameters into a 2D histogram. On each event input
+data will only be accumulated if both the X- and Y inputs are *valid*.
 
 See :ref:`Working with 2D histograms <analysis-working-with-2d-histos>` for details.
+
+.. _analysis-exportsink:
+
+Export Sink
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autofigure:: images/analysis_export_sink_ui.png
+    :scale-latex: 80%
+
+Implements data export to binary files and C++/Python example code generation.
+
+The Export Sink has a variable number of data input arrays that will be written
+to disk. Additionally a single value condition input can be used to pre-filter
+data: output data will only be generated if the condition input is *valid*.
 
 
 Loading an Analysis / Importing Objects
