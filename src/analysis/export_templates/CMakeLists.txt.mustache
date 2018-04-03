@@ -30,10 +30,10 @@ else()
     message("-- Using ROOT installation from ${ROOT_USE_FILE}")
     include(${ROOT_USE_FILE})
 
-    add_executable(export_generate_root_histos {{export_impl_file}} export_generate_root_histos.cpp)
+    add_executable(root_generate_histos {{export_impl_file}} root_generate_histos.cpp)
 
     target_link_libraries(
-        export_generate_root_histos
+        root_generate_histos
         ${ROOT_LIBRARIES}
         ${ROOT_Core_LIBRARY}
         ${ROOT_RIO_LIBRARY}

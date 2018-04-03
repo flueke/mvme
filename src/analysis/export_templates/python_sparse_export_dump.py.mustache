@@ -29,7 +29,11 @@ if __name__ == "__main__":
         eventCount += 1
 
         for ai in range(event.ArrayCount):
-            print "Array #%u: " % ai, ": ", event.getArray(ai)
+            print "Array #%u: " % ai, ": ",
+            sparseArray = event.getArray(ai)
+            for paramIndex, value in sparseArray:
+                print "[%u] = %lf, " % (paramIndex, value),
+            print
         print
 
     print("Read %u events from %s" % (eventCount, inputFilename))

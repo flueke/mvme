@@ -73,7 +73,7 @@
     <file>analysis/export_templates/cpp_sparse_header.h.mustache</file>
     <file>analysis/export_templates/cpp_sparse_impl.cpp.mustache</file>
 
-    <file>analysis/export_templates/cpp_generate_root_histos.cpp.mustache</file>
+    <file>analysis/export_templates/cpp_root_generate_histos.cpp.mustache</file>
 
     <file>../3rdparty/zstr/src/zstr.hpp</file>
     <file>../3rdparty/zstr/src/strict_fstream.hpp</file>

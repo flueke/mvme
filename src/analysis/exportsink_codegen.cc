@@ -25,7 +25,8 @@ namespace analysis
 namespace TemplateRenderFlags
 {
     using Flag = u8;
-    static const Flag IfNotExists = 1u << 0;
+    static const Flag IfNotExists   = 1u << 0;
+    static const Flag SetExecutable = 1u << 1;
 }
 
 static QString render_to_string(
@@ -76,6 +77,20 @@ static void render_to_file(
     }
 
     outFile.write(rendered.toLocal8Bit());
+
+    if (flags & TemplateRenderFlags::SetExecutable)
+    {
+        auto perms = outFile.permissions();
+        perms |= (QFileDevice::ExeOwner | QFileDevice::ExeUser | QFileDevice::ExeOther);
+
+        if (!outFile.setPermissions(perms))
+        {
+            auto msg = QSL("Could not set execute permissions of output file %1: %2")
+                .arg(outputFilename).arg(outFile.errorString());
+
+            throw std::runtime_error(msg.toStdString());
+        }
+    }
 }
 
 struct VariableNames
@@ -285,8 +300,8 @@ void ExportSinkCodeGenerator::Private::generate(RenderFunction render)
         render(":/analysis/export_templates/CMakeLists.txt.mustache",
                        data, exportDir.filePath("CMakeLists.txt"), 0);
 
-        render(QSL(":/analysis/export_templates/cpp_generate_root_histos.cpp.mustache"),
-                       data, exportDir.filePath("export_generate_root_histos.cpp"), 0);
+        render(QSL(":/analysis/export_templates/cpp_root_generate_histos.cpp.mustache"),
+                       data, exportDir.filePath("root_generate_histos.cpp"), 0);
 
         // copy c++ libs
         if (sink->getCompressionLevel() != 0)
@@ -311,10 +326,10 @@ void ExportSinkCodeGenerator::Private::generate(RenderFunction render)
                        data, pyFilePath, 0);
 
         render(QSL(":/analysis/export_templates/python_%1_export_dump.py.mustache").arg(fmtString),
-                       data, exportDir.filePath("export_dump.py"), 0);
+                       data, exportDir.filePath("export_dump.py"), TemplateRenderFlags::SetExecutable);
 
         render(QSL(":/analysis/export_templates/pyroot_generate_histos.py.mustache"),
-                       data, exportDir.filePath("pyroot_generate_histos.py"), 0);
+                       data, exportDir.filePath("pyroot_generate_histos.py"), TemplateRenderFlags::SetExecutable);
     }
 }
 

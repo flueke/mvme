@@ -65,13 +65,25 @@ if __name__ == "__main__":
 
         eventCount += 1
 
+        # Loop over all exported arrays.
         for arrayIndex in range(event.ArrayCount):
+{{#full?}}
             array = event.getArray(arrayIndex)
-
+            # Loop over array elements, filling the histogram for the current
+            # array and parameter.
             for paramIndex, value in enumerate(array):
                 if not math.isnan(value):
                     histo = histo_lists[arrayIndex][paramIndex]
                     histo.Fill(value)
+{{/full?}}
+{{#sparse?}}
+            sparseArray = event.getArray(arrayIndex)
+            # Loop over the lists of indexes and values, filling the
+            # corresponding histogram.
+            for paramIndex, value in sparseArray:
+                histo = histo_lists[arrayIndex][paramIndex]
+                histo.Fill(value)
+{{/sparse?}}
 
     f.Write()
 
