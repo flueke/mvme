@@ -2,13 +2,14 @@
 #define __MVME_EXPRTK_H__
 
 #include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
 namespace mvme_exprtk
 {
 
-struct ExpressionError
+struct ParseError
 {
     std::string mode;
     std::string diagnostic;
@@ -29,9 +30,17 @@ struct SymbolTable
         };
 
         Type type;
-        double *scalar;
-        std::string *string;
-        std::vector<double> *vector;
+        union
+        {
+            double *scalar;
+            std::string *string;
+            std::vector<double> *vector;
+            struct
+            {
+                double *array;
+                size_t size;
+            } array;
+        };
     };
 
     std::map<std::string, Entry> entries;
@@ -39,6 +48,22 @@ struct SymbolTable
     bool add_scalar(const std::string &name, double &value);
     bool add_string(const std::string &name, std::string &str);
     bool add_vector(const std::string &name, std::vector<double> &vec);
+};
+
+class Expression
+{
+    public:
+        Expression();
+        virtual ~Expression();
+
+        void setScript(const QString &str);
+        QString getScript() const;
+
+        void compile();
+
+    private:
+        struct Private;
+        std::unique_ptr<Private> m_d;
 };
 
 } // namespace mvme_exprtk
