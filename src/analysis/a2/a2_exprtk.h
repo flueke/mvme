@@ -13,6 +13,8 @@ struct ExpressionParserError
 {
     std::string mode;
     std::string diagnostic;
+    std::string src_location;
+    std::string error_line;
     size_t line = 0, column = 0;
 };
 

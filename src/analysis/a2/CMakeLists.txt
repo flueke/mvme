@@ -49,7 +49,7 @@ message("-- Found zlib for liba2 in ${ZLIB_INCLUDE_DIRS}")
 
 set(liba2_SOURCES
     a2.cc
-    #a2_exprtk.cc
+    a2_exprtk.cc
     data_filter.cc
     listfilter.cc)
 

@@ -19,6 +19,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "a2_adapter.h"
+#include "a2/a2_exprtk.h"
 #include "analysis_ui_p.h"
 #include "analysis_util.h"
 #include "data_extraction_widget.h"
@@ -3072,25 +3073,45 @@ void ExpressionOperatorConfigurationWidget::inputSelected(s32 slotIndex)
 
 void ExpressionOperatorConfigurationWidget::rebuild()
 {
-#if 0
+#if 1
     m_a2_inPipe = {};
     m_a2_op = {};
     m_arena.reset();
 
     if (required_inputs_connected_and_valid(m_op))
     {
-        auto a1_inPipe = m_op->getSlot(0)->inputPipe;
+        try
+        {
+            auto a1_inPipe = m_op->getSlot(0)->inputPipe;
 
-        m_a2_inPipe = make_a2_pipe_from_a1_pipe(&m_arena, a1_inPipe);
+            m_a2_inPipe = make_a2_pipe_from_a1_pipe(&m_arena, a1_inPipe);
 
-        m_a2_op = a2::make_expression_operator(
-            &m_arena,
-            m_a2_inPipe,
-            m_exprBeginEditor->getExpressionString().toStdString(),
-            m_exprStepEditor->getExpressionString().toStdString()
-            );
+            m_a2_op = a2::make_expression_operator(
+                &m_arena,
+                m_a2_inPipe,
+                m_exprBeginEditor->getExpressionString().toStdString(),
+                m_exprStepEditor->getExpressionString().toStdString()
+                );
 
-        populate_pipe_table(m_a2_inPipe, m_tw_input);
+            populate_pipe_table(m_a2_inPipe, m_tw_input);
+        }
+        catch (const a2::ExpressionParserError &e)
+        {
+            qDebug() << __PRETTY_FUNCTION__
+                << QString::fromStdString(e.mode)
+                << QString::fromStdString(e.diagnostic)
+                << e.line << e.column;
+
+            qDebug("%s: mode=%s, diagnostic=%s, src_location=%s, error_line=%s, line=%lu, col=%lu\n",
+                   __PRETTY_FUNCTION__,
+                   e.mode.c_str(),
+                   e.diagnostic.c_str(),
+                   e.src_location.c_str(),
+                   e.error_line.c_str(),
+                   e.line,
+                   e.column
+                  );
+        }
     }
 #else
     assert(!"disabled for now to speed up building");

@@ -50,10 +50,12 @@ ExpressionParserError make_error(const exprtk::parser_error::type &error)
 {
     ExpressionParserError result = {};
 
-    result.mode       = exprtk::parser_error::to_str(error.mode);
-    result.diagnostic = error.diagnostic;
-    result.line       = error.line_no;
-    result.column     = error.column_no;
+    result.mode         = exprtk::parser_error::to_str(error.mode);
+    result.diagnostic   = error.diagnostic;
+    result.src_location = error.src_location;
+    result.error_line   = error.error_line;
+    result.line         = error.line_no;
+    result.column       = error.column_no;
 
     return result;
 }
@@ -93,7 +95,12 @@ void expr_create(
     if (!d->parser.compile(begin_expr_str, d->expr_begin))
     {
         auto err = d->parser.get_error(0);
-        fprintf(stderr, "%s: begin_expr: %s\n", __PRETTY_FUNCTION__, d->parser.error().c_str());
+
+        exprtk::parser_error::update_error(err, begin_expr_str);
+
+        fprintf(stderr, "%s: begin_expr: #%lu errors: %s\n", __PRETTY_FUNCTION__,
+                d->parser.error_count(),
+                d->parser.error().c_str());
         throw make_error(err);
     }
 
@@ -105,7 +112,7 @@ void expr_create(
     typedef typename results_context_t::type_store_t type_t;
     typedef typename type_t::vector_view vector_t;
 
-    assert(d->expr_begin.results().count() == 2);
+    //assert(d->expr_begin.results().count() == 2);
     const auto &results = d->expr_begin.results();
     assert(results[0].type == type_t::e_vector);
     assert(results[1].type == type_t::e_vector);
@@ -169,7 +176,9 @@ void expr_create(
     if (!d->parser.compile(step_expr_str, d->expr_step))
     {
         auto err = d->parser.get_error(0);
-        fprintf(stderr, "%s: step_expr: %s\n", __PRETTY_FUNCTION__, d->parser.error().c_str());
+        fprintf(stderr, "%s: step_expr: #%u errors: %s\n", __PRETTY_FUNCTION__,
+                d->parser.error_count(),
+                d->parser.error().c_str());
         throw make_error(err);
     }
 }

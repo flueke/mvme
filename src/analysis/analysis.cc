@@ -2607,7 +2607,7 @@ ExpressionOperator::ExpressionOperator(QObject *parent)
 
 void ExpressionOperator::beginRun(const RunInfo &runInfo)
 {
-#if 0
+#if 1
     /* Create the a2 operator which runs the begin script to figure out the
      * output size and limits. Then copy the limits to this operators output
      * pipe. */
@@ -3419,7 +3419,7 @@ Analysis::Analysis(QObject *parent)
     m_registry.registerOperator<RectFilter2D>();
     m_registry.registerOperator<BinarySumDiff>();
     m_registry.registerOperator<AggregateOps>();
-    //m_registry.registerOperator<ExpressionOperator>();
+    m_registry.registerOperator<ExpressionOperator>();
 
     m_registry.registerSink<Histo1DSink>();
     m_registry.registerSink<Histo2DSink>();

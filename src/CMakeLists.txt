@@ -59,6 +59,10 @@ add_subdirectory(analysis/a2)
 include_directories(analysis/a2)
 
 #
+# mvme_exprtk
+#
+
+#
 # libmvme
 #
 add_definitions(-DVME_CONTROLLER_WIENER -DWIENER_USE_LIBUSB0)

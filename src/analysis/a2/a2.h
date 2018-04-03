@@ -359,7 +359,7 @@ Operator make_aggregate_sigmax(
 /* ===============================================
  * Expression Operator
  * =============================================== */
-#if 0
+#if 1
 Operator make_expression_operator(
     memory::Arena *arena,
     PipeVectors inPipe,
