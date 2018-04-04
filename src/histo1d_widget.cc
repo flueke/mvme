@@ -781,13 +781,30 @@ void Histo1DWidget::replot()
         double y1 = m_histo->getValue(x1);
         double y2 = m_histo->getValue(x2);
 
-        double tau = (x2 - x1) / log(y1 / y2);
-        double c = pow(E1, x1 / tau) * y1;
-        double c_norm = c / m_histo->getBinWidth(); // norm to x-axis scale
+        double tau      = (x2 - x1) / log(y1 / y2);
         double freeRate = 1.0 / tau; // 1/x-axis unit
-        double freeCounts = c_norm * tau * (1 - pow(E1, -(x2 / tau))); // for interval 0..x2
-        double histoCounts = m_histo->calcStatistics(0.0, x2).entryCount;
-        double efficiency  = histoCounts / freeCounts;
+
+        double nom      = m_histo->calcStatistics(x1, x2).entryCount;
+        double denom    = ( (pow(E1, -x1/tau) - pow(E1, -x2/tau)));
+        double factor   = (1.0 - pow(E1, -x2/tau));
+
+        double freeCounts0_x2 = nom / denom * factor;
+        double histoCounts    = m_histo->calcStatistics(0.0, x2).entryCount;
+        double efficiency     = histoCounts / freeCounts0_x2;
+
+#if 0
+        qDebug() << __PRETTY_FUNCTION__
+            << " tau =" << tau
+            //<< ", c =" << c
+            //<< ", c_norm =" << c_norm
+            << "nom = " << nom
+            << "denom = " << denom
+            << "factor =" << factor
+            << "freeRate=" << freeRate
+            << ", freeCounts=" << freeCounts0_x2
+            << ", histoCounts =" << histoCounts
+            ;
+#endif
 
 #if 0
         infoText += QString("\n"
@@ -812,7 +829,7 @@ void Histo1DWidget::replot()
 
         QString markerText;
 
-        if (!std::isnan(c) && !std::isnan(tau) && !std::isnan(efficiency))
+        if (!std::isnan(tau) && !std::isnan(efficiency))
         {
             auto unitX = m_histo->getAxisInfo(Qt::XAxis).unit;
             if (unitX.isEmpty())
