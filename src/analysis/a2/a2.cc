@@ -270,8 +270,8 @@ void extractor_process_module_data(DataSource *ds, u32 *data, u32 size)
             if (ex->currentCompletions >= ex->requiredCompletions)
             {
                 ex->currentCompletions = 0;
-                u64 address = extract(&ex->filter, MultiWordFilter::CacheA);
-                u64 value   = extract(&ex->filter, MultiWordFilter::CacheD);
+                u64  address = extract(&ex->filter, MultiWordFilter::CacheA);
+                double value = static_cast<double>(extract(&ex->filter, MultiWordFilter::CacheD));
 
                 assert(address < static_cast<u64>(ds->output.data.size));
 
@@ -377,8 +377,8 @@ u32 *listfilter_extractor_process_module_data(DataSource *ds, u32 *data, u32 dat
         if (!result.matched)
             continue;
 
-        u64 address = result.address;
-        u64 value   = result.value;
+        u64  address = result.address;
+        double value = result.value;
 
         // Make the address bits from the repetition number contribute to the
         // final address value.
