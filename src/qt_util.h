@@ -24,6 +24,7 @@
 #include "typedefs.h"
 
 #include <QEventLoop>
+#include <QFormLayout>
 #include <QFrame>
 #include <QHash>
 #include <QJsonObject>
@@ -113,5 +114,7 @@ QWidget *make_vbox_container(const QString &labelText, QWidget *widget, int spac
 QWidget *make_spacer_widget(QWidget *parent = nullptr);
 QToolButton *make_toolbutton(const QString &icon, const QString &text);
 QToolButton *make_action_toolbutton(QAction *action);
+
+int get_widget_row(QFormLayout *layout, QWidget *widget);
 
 #endif /* __QT_UTIL_H__ */

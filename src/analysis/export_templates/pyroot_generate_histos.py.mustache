@@ -28,6 +28,8 @@ if __name__ == "__main__":
 
     outputFilename = "pyroot_" + inputFilename[:inputFilename.index('.')] + "_histos.root"
 
+    print("Writing histograms to " + outputFilename)
+
     f = TFile(outputFilename, "recreate")
 
     if not f.IsOpen():
@@ -60,7 +62,7 @@ if __name__ == "__main__":
     eventCount = 0
 
     while True:
-        event = SumsAndCoords.read(inFile)
+        event = {{struct_name}}.read(inFile)
         if not event: break
 
         eventCount += 1

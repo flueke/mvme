@@ -1,6 +1,16 @@
 ==================================================
 TODO list somewhat sorted by priority
 ==================================================
+* New Export/ListfileFilter Idea: use an operator to decide whether a full VME
+  data event should be copied to an output listfile or be suppressed.
+  This is basically a copy and filter operation for listfile with the decision
+  being made at an arbitrary point in the analysis for the specific event.
+  This needs access to the raw input data.
+
+* Rate Estimation is wrong for high rates (~factor 3 for roberts test data from
+  ESS). At lower rates the value seems ok. Might be a miscaluclation of the
+  area below the fitted exp function.
+
 * Add ability to disable ExportSink and other operators.
 * Add grouping of operators. Allow disabling of groups.
 

@@ -20,6 +20,7 @@
  */
 #include "qt_util.h"
 
+#include <cassert>
 #include <QAction>
 #include <QCloseEvent>
 #include <QCoreApplication>
@@ -272,4 +273,17 @@ QToolButton *make_action_toolbutton(QAction *action)
     font.setPointSize(7);
     result->setFont(font);
     return result;
+}
+
+int get_widget_row(QFormLayout *layout, QWidget *widget)
+{
+    assert(layout);
+    assert(widget);
+
+    int row;
+    QFormLayout::ItemRole role;
+
+    layout->getWidgetPosition(widget, &row, &role);
+
+    return row;
 }

@@ -42,7 +42,7 @@ int main(int argc, char *argv[])
     std::string outputFilename = inputFilename;
     outputFilename.erase(std::find(outputFilename.begin(), outputFilename.end(), '.'),
                          outputFilename.end());
-    outputFilename += "_histos.root";
+    outputFilename = "root_" + outputFilename + "_histos.root";
 
     cout << "Writing histograms to " << outputFilename << endl;
 
