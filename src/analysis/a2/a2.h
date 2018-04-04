@@ -101,15 +101,15 @@ enum DataSourceType
 struct DataSourceOptions
 {
     using opt_t = u8;
-    static const opt_t NoOption                             = 0u << 0;
+    static const opt_t NoOption                             = 0u;
 
     /* Do not add a random value in [0.0, 1.0) to the extracted data value. */
-    static const opt_t NoAddedRandom                        = 1u << 1;
+    static const opt_t NoAddedRandom                        = 1u << 0;
 
     /* Make the repetition value of ListFilters contribute to the low bits of
      * the final address value. By default the repetition number contributes to
      * the high address bits. */
-    static const opt_t RepetitionContributesLowAddressBits  = 1u << 2;
+    static const opt_t RepetitionContributesLowAddressBits  = 1u << 1;
 };
 
 struct Extractor
