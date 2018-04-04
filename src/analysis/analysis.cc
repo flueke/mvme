@@ -3291,6 +3291,9 @@ s32 ExportSink::getNumberOfSlots() const
 
 void ExportSink::beginRun(const RunInfo &)
 {
+    if (getOutputPrefixPath().isEmpty())
+        return;
+
     if (!QDir().mkpath(getOutputPrefixPath()))
     {
         throw QString("ExportSink %1: Error creating export directory %2")
@@ -3312,7 +3315,7 @@ void ExportSink::generateCode(Logger logger)
         }
 
         ExportSinkCodeGenerator codeGen(this);
-        codeGen.generateFiles();
+        codeGen.generateFiles(logger);
 
         qDebug() << __PRETTY_FUNCTION__ << codeGen.getOutputFilenames();
     }
@@ -4286,6 +4289,7 @@ QString make_unique_operator_name(Analysis *analysis, const QString &prefix)
 bool required_inputs_connected_and_valid(OperatorInterface *op)
 {
     bool result = true;
+    bool oneNonOptionalSlotConnected = false;
 
     for (s32 slotIndex = 0;
          slotIndex < op->getNumberOfSlots();
@@ -4296,6 +4300,9 @@ bool required_inputs_connected_and_valid(OperatorInterface *op)
         if (slot->isParamIndexInRange())
         {
             result = result && true;
+
+            if (!slot->isOptional)
+                oneNonOptionalSlotConnected = true;
         }
         else if (slot->isOptional && !slot->isConnected())
         {
@@ -4306,6 +4313,8 @@ bool required_inputs_connected_and_valid(OperatorInterface *op)
             result = false;
         }
     }
+
+    result = result && oneNonOptionalSlotConnected;
 
     return result;
 }

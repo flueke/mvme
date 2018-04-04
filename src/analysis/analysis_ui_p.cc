@@ -22,6 +22,7 @@
 #include "analysis_ui_p.h"
 #include "analysis_util.h"
 #include "data_extraction_widget.h"
+#include "exportsink_codegen.h"
 #include "../globals.h"
 #include "../histo_util.h"
 #include "../vme_config.h"
@@ -45,6 +46,7 @@
 #include <QListWidget>
 #include <QMessageBox>
 #include <QRadioButton>
+#include <QRegularExpressionValidator>
 #include <QSignalMapper>
 #include <QSplitter>
 #include <QStackedWidget>
@@ -1039,6 +1041,9 @@ AddEditOperatorWidget::AddEditOperatorWidget(OperatorInterface *op, s32 userLeve
     // We're editing an operator so we assume the name has been specified by the user.
     m_opConfigWidget->setNameEdited(true);
 
+    connect(m_opConfigWidget, &AbstractOpConfigWidget::validityMayHaveChanged,
+            this, &AddEditOperatorWidget::onOperatorValidityChanged);
+
     const s32 slotCount = m_op->getNumberOfSlots();
 
     for (s32 slotIndex = 0; slotIndex < slotCount; ++slotIndex)
@@ -1266,24 +1271,14 @@ void AddEditOperatorWidget::inputSelected(s32 slotIndex)
     }
 
     m_opConfigWidget->inputSelected(slotIndex);
-
-#if 0
-    bool enableOkButton = true;
-
-    for (s32 slotIndex = 0; slotIndex < m_op->getNumberOfSlots(); ++slotIndex)
-    {
-        if (!m_op->getSlot(slotIndex)->inputPipe)
-        {
-            enableOkButton = false;
-            break;
-        }
-    }
-#endif
-    bool enableOkButton = required_inputs_connected_and_valid(m_op);
-
-    m_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(enableOkButton);
-    m_buttonBox->button(QDialogButtonBox::Ok)->setFocus();
     m_inputSelectActive = false;
+    onOperatorValidityChanged();
+}
+
+void AddEditOperatorWidget::onOperatorValidityChanged()
+{
+    bool isValid = m_opConfigWidget->isValid();
+    m_buttonBox->button(QDialogButtonBox::Ok)->setEnabled(isValid);
 }
 
 void AddEditOperatorWidget::accept()
@@ -1552,7 +1547,7 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
     widgetLayout->addLayout(formLayout);
 
     le_name = new QLineEdit;
-    connect(le_name, &QLineEdit::textEdited, this, [this](const QString &newText) {
+    connect(le_name, &QLineEdit::textChanged, this, [this](const QString &newText) {
         // If the user clears the textedit reset NameEdited to false.
         this->setNameEdited(!newText.isEmpty());
     });
@@ -2008,7 +2003,49 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
     }
     else if (auto ex = qobject_cast<ExportSink *>(op))
     {
+        // operator and struct/class name
+        {
+            auto label = new QLabel(QSL(
+                    "<i>Name</i> must be a valid C++/Python identifier as it is used for generated struct and class names."));
+            label->setWordWrap(true);
+            label->setAlignment(Qt::AlignLeft | Qt::AlignTop);
+            label->setFrameShape(QFrame::StyledPanel);
+
+            int nameRow = get_widget_row(formLayout, le_name);
+            formLayout->insertRow(nameRow + 1, label);
+        }
+
+        QRegularExpression re("^[a-zA-Z_][a-zA-Z0-9_]*$");
+        auto nameValidator = new QRegularExpressionValidator(re, le_name);
+        le_name->setValidator(nameValidator);
+
+        // export prefix path
         le_exportPrefixPath = new QLineEdit;
+        m_prefixPathWasManuallyEdited = false;
+
+        connect(le_name, &QLineEdit::textChanged, this, [this] (const QString &) {
+            if (!m_prefixPathWasManuallyEdited && le_name->hasAcceptableInput())
+            {
+                QString newPrefix = QDir("exports/").filePath(le_name->text());
+                le_exportPrefixPath->setText(newPrefix);
+            }
+            else if (!m_prefixPathWasManuallyEdited && le_name->text().isEmpty())
+            {
+                le_exportPrefixPath->setText(QSL("exports/"));
+            }
+
+            emit validityMayHaveChanged();
+        });
+
+        connect(le_exportPrefixPath, &QLineEdit::textEdited, this, [this] (const QString &) {
+            m_prefixPathWasManuallyEdited = true;
+            emit validityMayHaveChanged();
+        });
+
+        connect(le_exportPrefixPath, &QLineEdit::textChanged, this, [this] (const QString &) {
+            emit validityMayHaveChanged();
+        });
+
         pb_selectOutputDirectory = new QPushButton("Select");
         {
             auto l = new QHBoxLayout;
@@ -2041,31 +2078,78 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
             });
         }
 
-        combo_exportFormat = new QComboBox;
-        combo_exportFormat->addItem("Indexed / Sparse", static_cast<int>(ExportSink::Format::Sparse));
-        combo_exportFormat->addItem("Plain / Full", static_cast<int>(ExportSink::Format::Full));
-
-        formLayout->addRow("Format", combo_exportFormat);
-
-        combo_exportCompression = new QComboBox;
-        combo_exportCompression->addItem("Don't compress", 0);
-        combo_exportCompression->addItem("zlib fast", 1);
-        //combo_exportCompression->addItem("zlib default", -1);
-        //combo_exportCompression->addItem("zlib best", 9);
-        formLayout->addRow("Compression", combo_exportCompression);
-
+        // format (sparse, dense)
         {
-            pb_generateCode    = new QPushButton("C++ && Python code");
-            //pb_generatePython = new QPushButton("Python");
+            combo_exportFormat = new QComboBox;
+            combo_exportFormat->addItem("Indexed / Sparse", static_cast<int>(ExportSink::Format::Sparse));
+            combo_exportFormat->addItem("Plain / Full",     static_cast<int>(ExportSink::Format::Full));
+
+            formLayout->addRow("Format", combo_exportFormat);
+
+            auto stack = new QStackedWidget;
+
+            auto label = new QLabel(QSL(
+                        "Sparse format writes out indexes and values, omitting invalid parameters and NaNs.\n"
+                        "For input arrays where for most events only a few parameters are valid, this format"
+                        " produces much smaller output files than the Full format."
+                        ));
+            label->setWordWrap(true);
+            label->setAlignment(Qt::AlignLeft | Qt::AlignTop);
+            label->setFrameShape(QFrame::StyledPanel);
+            stack->addWidget(label);
+
+            label = new QLabel(QSL(
+                        "Full format writes out each input array as-is, including invalid parameters"
+                        " (special NaN values).\n"
+                        "Use this format if for most events all of the array parameters are valid or read"
+                        " performance of the exported data file is critical.\n"
+                        "Warning: this format can produce large files quickly!"
+                        ));
+            label->setWordWrap(true);
+            label->setAlignment(Qt::AlignLeft | Qt::AlignTop);
+            label->setFrameShape(QFrame::StyledPanel);
+            stack->addWidget(label);
+
+            connect(combo_exportFormat, static_cast<void (QComboBox::*) (int)>(&QComboBox::currentIndexChanged),
+                    stack, &QStackedWidget::setCurrentIndex);
+
+            formLayout->addRow(stack);
+        }
+
+        // compression
+        {
+            combo_exportCompression = new QComboBox;
+            combo_exportCompression->addItem("Don't compress", 0);
+            combo_exportCompression->addItem("zlib fast", 1);
+            formLayout->addRow("Compression", combo_exportCompression);
+
+            auto label = new QLabel(QSL(
+                    "zlib compression will produce a gzip compatible compressed file.\n"
+                    "Generated C++ code will require the zlib development files to be installed on the system.\n"
+                    "Generated Python code will use the gzip module included with Python."
+                    ));
+            label->setWordWrap(true);
+            label->setAlignment(Qt::AlignLeft | Qt::AlignTop);
+            label->setFrameShape(QFrame::StyledPanel);
+
+            formLayout->addRow(label);
+        }
+
+        // codegen
+        {
+            pb_generateCode = new QPushButton("C++ && Python code");
 
             auto gb    = new QGroupBox("Code generation");
             auto l     = new QGridLayout(gb);
-            auto label = new QLabel(
-                QSL("Important: Code generation will overwrite existing files!\n"
-                    "Set the output path and export options above, then use the\n"
-                    "buttons below to generate the code files.\n"
+            l->setContentsMargins(2, 2, 2, 2);
+            auto label = new QLabel(QSL(
+                    "Important: Code generation will overwrite existing files!\n"
+                    "Set the output path and export options above, then use the"
+                    " buttons below to generate the code files.\n"
                     "Errors during code generation will be shown in the Log Window."
                    ));
+            label->setWordWrap(true);
+            label->setAlignment(Qt::AlignLeft | Qt::AlignTop);
 
             l->addWidget(label,                0, 0, 1, 2);
             l->addWidget(pb_generateCode,      1, 0);
@@ -2076,8 +2160,23 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
             auto logger = [context] (const QString &msg) { context->logMessage(msg); };
 
             connect(pb_generateCode, &QPushButton::clicked, this, [this, ex, logger] () {
-                this->configureOperator();
-                ex->generateCode(logger);
+                try
+                {
+                    this->configureOperator();
+                    ex->generateCode(logger);
+                }
+                catch (const QString &e)
+                {
+                    logger(e);
+                }
+                catch (const std::exception &e)
+                {
+                    logger(QString::fromStdString(e.what()));
+                }
+            });
+
+            connect(this, &AbstractOpConfigWidget::validityMayHaveChanged, this, [this]() {
+                pb_generateCode->setEnabled(isValid());
             });
         }
 
@@ -2105,8 +2204,16 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
 {
     OperatorInterface *op = m_op;
 
+    qDebug() << __PRETTY_FUNCTION__ << op
+        << ": wasNamedEdited =" << wasNameEdited()
+        << ", no_input_connected =" << no_input_connected(op)
+        << ", isValid =" << this->isValid();
+
+    emit validityMayHaveChanged();
+
     if (no_input_connected(op) && !wasNameEdited())
     {
+        qDebug() << __PRETTY_FUNCTION__ << op << ": clearing name";
         le_name->clear();
         setNameEdited(false);
     }
@@ -2156,21 +2263,26 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
             {
                 QString nameX = makeSlotSourceString(filter->getSlot(0));
                 QString nameY = makeSlotSourceString(filter->getSlot(1));
-                le_name->setText(QString("%1_%2").arg(nameX).arg(nameY)); // FIXME: better name here
+                le_name->setText(QString("%1_%2").arg(nameX).arg(nameY));
+            }
+        }
+        else if (auto ex = qobject_cast<ExportSink *>(op))
+        {
+            // Slot 1 is the first data input.
+            if (ex->getSlot(1)->isConnected())
+            {
+                QString name = variablify(makeSlotSourceString(op->getSlot(1)));
+                le_name->setText(name);
             }
         }
     }
-    else
-    {
-        le_name->setText(op->objectName());
-    }
 
     if (!le_name->text().isEmpty()
-        && op->getNumberOfOutputs() > 0
+        && op->getNumberOfOutputs() > 0                 // non-sinks only
         && required_inputs_connected_and_valid(op)
         && !wasNameEdited())
     {
-        // XXX: leftoff here TODO: use the currently selected operations name
+        // TODO: use the currently selected operations name
         // as the suffix (currently it always says 'sum')
 #if 0
         if (auto aggOp = qobject_cast<AggregateOps *>(op))
@@ -2326,33 +2438,52 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
 
         if (slot == op->getSlot(0)) // x
         {
-            Q_ASSERT(slot->isParamIndexInRange());
-
-            if (spin_xMin->value() == spin_xMin->minimum())
+            if (slot->isConnected())
             {
-                spin_xMin->setValue(slot->inputPipe->getParameter(slot->paramIndex)->lowerLimit);
-            }
+                Q_ASSERT(slot->isParamIndexInRange());
 
-            if (spin_xMax->value() == spin_xMax->minimum())
-            {
-                spin_xMax->setValue(slot->inputPipe->getParameter(slot->paramIndex)->upperLimit);
+                if (spin_xMin->value() == spin_xMin->minimum())
+                {
+                    spin_xMin->setValue(slot->inputPipe->getParameter(slot->paramIndex)->lowerLimit);
+                }
+
+                if (spin_xMax->value() == spin_xMax->minimum())
+                {
+                    spin_xMax->setValue(slot->inputPipe->getParameter(slot->paramIndex)->upperLimit);
+                }
             }
         }
         else if (slot == op->getSlot(1)) // y
         {
-            Q_ASSERT(slot->isParamIndexInRange());
-
-            if (spin_yMin->value() == spin_yMin->minimum())
+            if (slot->isConnected())
             {
-                spin_yMin->setValue(slot->inputPipe->getParameter(slot->paramIndex)->lowerLimit);
-            }
+                Q_ASSERT(slot->isParamIndexInRange());
 
-            if (spin_yMax->value() == spin_yMax->minimum())
-            {
-                spin_yMax->setValue(slot->inputPipe->getParameter(slot->paramIndex)->upperLimit);
+                if (spin_yMin->value() == spin_yMin->minimum())
+                {
+                    spin_yMin->setValue(slot->inputPipe->getParameter(slot->paramIndex)->lowerLimit);
+                }
+
+                if (spin_yMax->value() == spin_yMax->minimum())
+                {
+                    spin_yMax->setValue(slot->inputPipe->getParameter(slot->paramIndex)->upperLimit);
+                }
             }
         }
     }
+}
+
+bool OperatorConfigurationWidget::isValid() const
+{
+    if (auto ex = qobject_cast<ExportSink *>(m_op))
+    {
+        qDebug() << __PRETTY_FUNCTION__;
+        return le_name->hasAcceptableInput()
+            && !le_exportPrefixPath->text().isEmpty()
+            && required_inputs_connected_and_valid(ex);
+    }
+
+    return true;
 }
 
 void OperatorConfigurationWidget::configureOperator()
@@ -2831,6 +2962,11 @@ void RateMonitorConfigWidget::inputSelected(s32 slotIndex)
     }
 }
 
+bool RateMonitorConfigWidget::isValid() const
+{
+    return true;
+}
+
 //
 // ExpressionEditor
 //
@@ -3067,7 +3203,11 @@ void ExpressionOperatorConfigurationWidget::inputSelected(s32 slotIndex)
     }
 
     rebuild();
+}
 
+bool ExpressionOperatorConfigurationWidget::isValid() const
+{
+    return true;
 }
 
 void ExpressionOperatorConfigurationWidget::rebuild()

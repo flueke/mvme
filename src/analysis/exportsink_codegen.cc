@@ -56,7 +56,8 @@ static void render_to_file(
     const QString &templateFilename,
     mu::data &templateData,
     const QString &outputFilename,
-    TemplateRenderFlags::Flag flags = 0)
+    TemplateRenderFlags::Flag flags,
+    ExportSinkCodeGenerator::Logger logger)
 {
     if ((flags & TemplateRenderFlags::IfNotExists)
         && QFileInfo(outputFilename).exists())
@@ -91,6 +92,11 @@ static void render_to_file(
             throw std::runtime_error(msg.toStdString());
         }
     }
+
+    if (logger)
+    {
+        logger(QSL("Wrote output file %1").arg(outputFilename));
+    }
 }
 
 struct VariableNames
@@ -102,7 +108,9 @@ struct VariableNames
 using RenderFunction = std::function<void (const QString &templateFilename,
                                            mu::data &templateData,
                                            const QString &outputFilename,
-                                           TemplateRenderFlags::Flag flags)>;
+                                           TemplateRenderFlags::Flag flags,
+                                           ExportSinkCodeGenerator::Logger
+                                           )>;
 
 struct ExportSinkCodeGenerator::Private
 {
@@ -110,11 +118,10 @@ struct ExportSinkCodeGenerator::Private
 
     VariableNames generateVariableNames();
     mu::data makeGlobalTemplateData();
-    void generate(RenderFunction render);
+    void generate(RenderFunction render, Logger logger);
 };
 
-// Highly sophisticated variable name generation ;-)
-static QString variablify(QString str)
+QString variablify(QString str)
 {
     QRegularExpression ReIsValidFirstChar("[a-zA-Z_]");
     QRegularExpression ReIsValidChar("[a-zA-Z0-9_]");
@@ -147,7 +154,7 @@ static QString variablify(QString str)
     return str;
 }
 
-static bool is_valid_identifier(const QString &str)
+bool is_valid_identifier(const QString &str)
 {
     QRegularExpression re("^[a-zA-Z_][a-zA-Z0-9_]*$");
 
@@ -257,7 +264,7 @@ mu::data ExportSinkCodeGenerator::Private::makeGlobalTemplateData()
     return result;
 }
 
-void ExportSinkCodeGenerator::Private::generate(RenderFunction render)
+void ExportSinkCodeGenerator::Private::generate(RenderFunction render, ExportSinkCodeGenerator::Logger logger)
 {
     QString fmtString;
 
@@ -286,22 +293,22 @@ void ExportSinkCodeGenerator::Private::generate(RenderFunction render)
         data["export_impl_file"]   = QFileInfo(implFilePath).fileName().toStdString();
 
         render(QSL(":/analysis/export_templates/cpp_%1_header.h.mustache").arg(fmtString),
-                       data, headerFilePath, 0);
+                       data, headerFilePath, 0, logger);
 
         render(QSL(":/analysis/export_templates/cpp_%1_impl.cpp.mustache").arg(fmtString),
-                       data, implFilePath, 0);
+                       data, implFilePath, 0, logger);
 
         render(QSL(":/analysis/export_templates/cpp_%1_export_info.cpp.mustache").arg(fmtString),
-                       data, exportDir.filePath("export_info.cpp"), 0);
+                       data, exportDir.filePath("export_info.cpp"), 0, logger);
 
         render(QSL(":/analysis/export_templates/cpp_%1_export_dump.cpp.mustache").arg(fmtString),
-                       data, exportDir.filePath("export_dump.cpp"), 0);
+                       data, exportDir.filePath("export_dump.cpp"), 0, logger);
 
-        render(":/analysis/export_templates/CMakeLists.txt.mustache",
-                       data, exportDir.filePath("CMakeLists.txt"), 0);
+        render(QSL(":/analysis/export_templates/CMakeLists.txt.mustache"),
+                       data, exportDir.filePath("CMakeLists.txt"), 0, logger);
 
         render(QSL(":/analysis/export_templates/cpp_root_generate_histos.cpp.mustache"),
-                       data, exportDir.filePath("root_generate_histos.cpp"), 0);
+                       data, exportDir.filePath("root_generate_histos.cpp"), 0, logger);
 
         // copy c++ libs
         if (sink->getCompressionLevel() != 0)
@@ -309,10 +316,10 @@ void ExportSinkCodeGenerator::Private::generate(RenderFunction render)
             mu::data data = mu::data::type::object;
 
             render(QSL(":/3rdparty/zstr/src/zstr.hpp"),
-                           data, exportDir.filePath("zstr.hpp"), 0);
+                           data, exportDir.filePath("zstr.hpp"), 0, logger);
 
             render(QSL(":/3rdparty/zstr/src/strict_fstream.hpp"),
-                           data, exportDir.filePath("strict_fstream.hpp"), 0);
+                           data, exportDir.filePath("strict_fstream.hpp"), 0, logger);
         }
     }
 
@@ -323,13 +330,13 @@ void ExportSinkCodeGenerator::Private::generate(RenderFunction render)
         data["event_import"] = QFileInfo(pyFilePath).baseName().toStdString();
 
         render(QSL(":/analysis/export_templates/python_%1_event.py.mustache").arg(fmtString),
-                       data, pyFilePath, 0);
+                       data, pyFilePath, 0, logger);
 
         render(QSL(":/analysis/export_templates/python_%1_export_dump.py.mustache").arg(fmtString),
-                       data, exportDir.filePath("export_dump.py"), TemplateRenderFlags::SetExecutable);
+                       data, exportDir.filePath("export_dump.py"), TemplateRenderFlags::SetExecutable, logger);
 
         render(QSL(":/analysis/export_templates/pyroot_generate_histos.py.mustache"),
-                       data, exportDir.filePath("pyroot_generate_histos.py"), TemplateRenderFlags::SetExecutable);
+                       data, exportDir.filePath("pyroot_generate_histos.py"), TemplateRenderFlags::SetExecutable, logger);
     }
 }
 
@@ -343,9 +350,9 @@ ExportSinkCodeGenerator::~ExportSinkCodeGenerator()
 {
 }
 
-void ExportSinkCodeGenerator::generateFiles()
+void ExportSinkCodeGenerator::generateFiles(Logger logger)
 {
-    m_d->generate(render_to_file);
+    m_d->generate(render_to_file, logger);
 }
 
 QMap<QString, QString> ExportSinkCodeGenerator::generateMap() const
@@ -355,14 +362,15 @@ QMap<QString, QString> ExportSinkCodeGenerator::generateMap() const
     auto renderer = [&result] (const QString &templateFilename,
                                mu::data &templateData,
                                const QString &outputFilename,
-                               TemplateRenderFlags::Flag flags)
+                               TemplateRenderFlags::Flag flags,
+                               Logger logger)
     {
         result[outputFilename] = render_to_string(templateFilename,
                                                   templateData,
                                                   flags);
     };
 
-    m_d->generate(renderer);
+    m_d->generate(renderer, Logger());
 
     return result;
 }

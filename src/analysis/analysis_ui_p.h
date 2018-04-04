@@ -215,19 +215,26 @@ class AddEditOperatorWidget: public QDialog
 
         static const s32 WidgetMinWidth  = 325;
         static const s32 WidgetMinHeight = 175;
+
+    private:
+        void onOperatorValidityChanged();
 };
 
 class AbstractOpConfigWidget: public QWidget
 {
     Q_OBJECT
+    signals:
+        void validityMayHaveChanged();
+
     public:
         AbstractOpConfigWidget(OperatorInterface *op, s32 userLevel, MVMEContext *context, QWidget *parent = nullptr);
 
-        void setNameEdited(bool b) { m_wasNameEdited = b; }
+        void setNameEdited(bool b) { qDebug() << __PRETTY_FUNCTION__ << b; m_wasNameEdited = b; }
         bool wasNameEdited() const { return m_wasNameEdited; }
 
         virtual void configureOperator() = 0;
         virtual void inputSelected(s32 slotIndex) = 0;
+        virtual bool isValid() const = 0;
 
     protected:
         OperatorInterface *m_op;
@@ -254,6 +261,7 @@ class OperatorConfigurationWidget: public AbstractOpConfigWidget
         //bool validateInputs();
         void configureOperator() override;
         void inputSelected(s32 slotIndex) override;
+        bool isValid() const override;
 
 
         // Histo1DSink and Histo2DSink
@@ -324,6 +332,8 @@ class OperatorConfigurationWidget: public AbstractOpConfigWidget
         // ExportSink
         QLineEdit *le_exportPrefixPath;
 
+        bool m_prefixPathWasManuallyEdited = false;
+
         QPushButton *pb_selectOutputDirectory,
                     *pb_generateCode;
 
@@ -342,6 +352,7 @@ class RateMonitorConfigWidget: public AbstractOpConfigWidget
 
         void configureOperator() override;
         void inputSelected(s32 slotIndex) override;
+        bool isValid() const override;
 
     private:
         RateMonitorSink *m_rms;
@@ -387,6 +398,7 @@ class ExpressionOperatorConfigurationWidget: public AbstractOpConfigWidget
 
         void configureOperator() override;
         void inputSelected(s32 slotIndex) override;
+        bool isValid() const override;
 
     private:
         static const size_t ArenaSize = Kilobytes(256);
