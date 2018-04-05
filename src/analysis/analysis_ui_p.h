@@ -476,6 +476,8 @@ class DisplayTree: public EventWidgetTree
 
         QTreeWidgetItem *histo1DRoot = nullptr;
         QTreeWidgetItem *histo2DRoot = nullptr;
+        QTreeWidgetItem *rateRoot    = nullptr;
+        QTreeWidgetItem *exportRoot  = nullptr;
 };
 
 class SessionErrorDialog: public QDialog

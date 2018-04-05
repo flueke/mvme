@@ -686,12 +686,26 @@ DisplayLevelTrees EventWidgetPrivate::createSourceTrees(const QUuid &eventId)
         {
             for (const auto &entry: opEntries)
             {
-                auto histoSink = qobject_cast<Histo1DSink *>(entry.op.get());
-                if (histoSink && (histoSink->getSlot(0)->inputPipe == sourceEntry.source->getOutput(0)))
+                auto sink = qobject_cast<SinkInterface *>(entry.op.get());
+
+                if (sink && (sink->getSlot(0)->inputPipe == sourceEntry.source->getOutput(0)))
                 {
-                    auto histoNode = makeHisto1DNode(histoSink);
-                    moduleNode->addChild(histoNode);
-                    sinksAddedBelowModules.insert(histoSink);
+                    TreeNode *node = nullptr;
+
+                    if (auto histoSink = qobject_cast<Histo1DSink *>(entry.op.get()))
+                    {
+                        node = makeHisto1DNode(histoSink);
+                    }
+                    else
+                    {
+                        node = makeSinkNode(sink);
+                    }
+
+                    if (node)
+                    {
+                        moduleNode->addChild(node);
+                        sinksAddedBelowModules.insert(sink);
+                    }
                 }
             }
         }
@@ -762,16 +776,24 @@ DisplayLevelTrees EventWidgetPrivate::createTrees(const QUuid &eventId, s32 leve
     {
         auto histo1DRoot = new TreeNode({QSL("1D")});
         auto histo2DRoot = new TreeNode({QSL("2D")});
-        result.displayTree->addTopLevelItem(histo1DRoot);
-        result.displayTree->addTopLevelItem(histo2DRoot);
-        histo1DRoot->setExpanded(true);
-        histo2DRoot->setExpanded(true);
+        auto rateRoot    = new TreeNode({QSL("Rates")});
+        auto exportRoot  = new TreeNode({QSL("Exports")});
+
+        for (auto node: { histo1DRoot, histo2DRoot, rateRoot, exportRoot })
+        {
+            result.displayTree->addTopLevelItem(node);
+            node->setExpanded(true);
+        }
+
         result.displayTree->histo1DRoot = histo1DRoot;
         result.displayTree->histo2DRoot = histo2DRoot;
+        result.displayTree->rateRoot    = rateRoot;
+        result.displayTree->exportRoot  = exportRoot;
 
         for (const auto &entry: operators)
         {
             TreeNode *theNode = nullptr;
+
             if (auto histoSink = qobject_cast<Histo1DSink *>(entry.op.get()))
             {
                 auto histoNode = makeHisto1DNode(histoSink);
@@ -783,6 +805,16 @@ DisplayLevelTrees EventWidgetPrivate::createTrees(const QUuid &eventId, s32 leve
                 auto histoNode = makeHisto2DNode(histoSink);
                 histo2DRoot->addChild(histoNode);
                 theNode = histoNode;
+            }
+            else if (auto rms = qobject_cast<RateMonitorSink *>(entry.op.get()))
+            {
+                theNode = makeSinkNode(rms);
+                rateRoot->addChild(theNode);
+            }
+            else if (auto ex = qobject_cast<ExportSink *>(entry.op.get()))
+            {
+                theNode = makeSinkNode(ex);
+                exportRoot->addChild(theNode);
             }
             else if (auto sink = qobject_cast<SinkInterface *>(entry.op.get()))
             {
