@@ -84,6 +84,7 @@ class EventWidget: public QWidget
         void uniqueWidgetCloses();
         void addUserLevel();
         void removeUserLevel();
+        void toggleSinkEnabled(SinkInterface *sink);
         void repopulate();
         QToolBar *getToolBar();
         QToolBar *getEventSelectAreaToolBar();

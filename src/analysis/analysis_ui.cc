@@ -239,6 +239,7 @@ inline TreeNode *makeHisto1DNode(Histo1DSink *sink)
             node->addChild(histoNode);
         }
     }
+
     return node;
 };
 
@@ -368,38 +369,36 @@ bool EventWidgetTree::dropMimeData(QTreeWidgetItem *parentItem, int parentIndex,
     QVector<QByteArray> encodedIds;
     stream >> encodedIds;
 
-    Q_ASSERT(encodedIds.size() == 1);
-
-    if (encodedIds.size() != 1)
-        return false;
-
-    QUuid id(encodedIds.at(0));
-
+    AnalysisPauser pauser(m_eventWidget->getContext());
     auto analysis = m_eventWidget->getContext()->getAnalysis();
+    bool didMove  = false;
 
-    if (auto opEntry = analysis->getOperatorEntry(id))
+    for (int i = 0; i < encodedIds.size(); i++)
     {
-        bool isSink = (qobject_cast<SinkInterface *>(opEntry->op.get()) != nullptr);
+        QUuid id(encodedIds.at(i));
 
-        if ((isSink && !isDisplayTree)
-            || (!isSink && isDisplayTree))
+        if (auto opEntry = analysis->getOperatorEntry(id))
         {
-            return false;
+            bool isSink = (qobject_cast<SinkInterface *>(opEntry->op.get()) != nullptr);
+
+            if ((isSink && isDisplayTree)
+                || (!isSink && !isDisplayTree))
+            {
+                s32 levelDelta = m_userLevel - opEntry->userLevel;
+                adjust_userlevel_forward(analysis->getOperators(), opEntry->op.get(), levelDelta);
+                didMove = true;
+            }
         }
+    }
 
-        s32 levelDelta = m_userLevel - opEntry->userLevel;
-
-        AnalysisPauser pauser(m_eventWidget->getContext());
-
-        adjust_userlevel_forward(analysis->getOperators(), opEntry->op.get(), levelDelta);
+    if (didMove)
+    {
         analysis->setModified(true);
         m_eventWidget->repopulate();
         m_eventWidget->getAnalysisWidget()->updateAddRemoveUserLevelButtons();
-
-        return true;
     }
 
-    return false;
+    return didMove;
 }
 
 QMimeData *EventWidgetTree::mimeData(const QList<QTreeWidgetItem *> items) const
@@ -582,6 +581,9 @@ struct EventWidgetPrivate
     void importForModuleFromTemplate();
     void importForModuleFromFile();
     void importForModule(ModuleConfig *module, const QString &startPath);
+
+    void setSinksEnabled(const QVector<SinkInterface *> sinks, bool enabled);
+    void removeSinks(const QVector<SinkInterface *> sinks);
 };
 
 void EventWidgetPrivate::createView(const QUuid &eventId)
@@ -610,15 +612,17 @@ DisplayLevelTrees make_displaylevel_trees(const QString &opTitle, const QString 
 
     result.operatorTree->setObjectName(opTitle);
     result.operatorTree->headerItem()->setText(0, opTitle);
+    result.operatorTree->setSelectionMode(QAbstractItemView::SingleSelection);
 
     result.displayTree->setObjectName(dispTitle);
     result.displayTree->headerItem()->setText(0, dispTitle);
+    result.displayTree->setSelectionMode(QAbstractItemView::ExtendedSelection);
 
     for (auto tree: {result.operatorTree, reinterpret_cast<EventWidgetTree *>(result.displayTree)})
     {
         tree->setExpandsOnDoubleClick(false);
         tree->setItemDelegate(new HtmlDelegate(tree));
-        tree->setSelectionMode(QAbstractItemView::SingleSelection);
+
         if (level > 0)
         {
             tree->setDragEnabled(true);
@@ -1367,8 +1371,9 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
 {
     Q_ASSERT(userLevel >= 0 && userLevel < m_levelTrees.size());
 
-    auto node = tree->itemAt(pos);
-    auto obj  = getQObject(node);
+    auto selectedNodes = tree->selectedItems();
+    auto node          = tree->itemAt(pos);
+    auto obj           = getQObject(node);
 
     QMenu menu;
     auto menuNew = new QMenu;
@@ -1387,7 +1392,40 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
         });
     };
 
-    if (node)
+    if (selectedNodes.size() > 1)
+    {
+        QVector<SinkInterface *> selectedSinks;
+        selectedSinks.reserve(selectedNodes.size());
+
+        for (auto node: selectedNodes)
+        {
+            switch (node->type())
+            {
+                case NodeType_Histo1DSink:
+                case NodeType_Histo2DSink:
+                case NodeType_Sink:
+                    selectedSinks.push_back(getPointer<SinkInterface>(node));
+                    break;
+            }
+        }
+
+        if (selectedSinks.size())
+        {
+            menu.addAction("E&nable selected", [this, selectedSinks] {
+                setSinksEnabled(selectedSinks, true);
+            });
+
+            menu.addAction("&Disable selected", [this, selectedSinks] {
+                setSinksEnabled(selectedSinks, false);
+            });
+
+            menu.addSeparator();
+            menu.addAction("Remove selected", [this, selectedSinks] {
+                removeSinks(selectedSinks);
+            });
+        }
+    }
+    else if (node)
     {
         switch (node->type())
         {
@@ -1535,7 +1573,7 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
         {
             if (!m_uniqueWidgetActive)
             {
-                menu.addAction(QSL("Edit"), [this, userLevel, op]() {
+                menu.addAction(QSL("&Edit"), [this, userLevel, op]() {
                     auto widget = new AddEditOperatorWidget(op, userLevel, m_q);
                     widget->move(QCursor::pos());
                     widget->setAttribute(Qt::WA_DeleteOnClose);
@@ -1546,6 +1584,16 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
                     clearAllToDefaultNodeHighlights();
                 });
 
+                if (auto sink = qobject_cast<SinkInterface *>(op))
+                {
+                    menu.addSeparator();
+                    menu.addAction(sink->isEnabled() ? QSL("&Disable") : QSL("E&nable"),
+                                   [this, sink]() {
+                        m_q->toggleSinkEnabled(sink);
+                    });
+                }
+
+                menu.addSeparator();
                 menu.addAction(QSL("Remove"), [this, op]() {
                     // TODO: QMessageBox::question or similar as there's no way to undo the action
                     m_q->removeOperator(op);
@@ -1559,19 +1607,30 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
             Q_ASSERT(displayTree->topLevelItemCount() >= 2);
             Q_ASSERT(displayTree->histo1DRoot);
             Q_ASSERT(displayTree->histo2DRoot);
+            Q_ASSERT(displayTree->rateRoot);
+            Q_ASSERT(displayTree->exportRoot);
 
-            auto histo1DRoot = displayTree->histo1DRoot;
-            auto histo2DRoot = displayTree->histo2DRoot;
+            std::shared_ptr<SinkInterface> sink;
 
-            if (node == histo1DRoot)
+            if (node == displayTree->histo1DRoot)
             {
-                auto sink = std::make_shared<Histo1DSink>();
-                add_action(sink->getDisplayName(), sink);
+                sink = std::make_shared<Histo1DSink>();
+            }
+            else if (node == displayTree->histo2DRoot)
+            {
+                sink = std::make_shared<Histo2DSink>();
+            }
+            else if (node == displayTree->rateRoot)
+            {
+                sink = std::make_shared<RateMonitorSink>();
+            }
+            else if (node == displayTree->exportRoot)
+            {
+                sink = std::make_shared<ExportSink>();
             }
 
-            if (node == histo2DRoot)
+            if (sink)
             {
-                auto sink = std::make_shared<Histo2DSink>();
                 add_action(sink->getDisplayName(), sink);
             }
         }
@@ -1922,6 +1981,23 @@ void EventWidgetPrivate::clearToDefaultNodeHighlights(QTreeWidgetItem *node)
                         node->setBackground(0, MissingInputColor);
                         break;
                     }
+                }
+            } break;
+    }
+
+    switch (node->type())
+    {
+        case NodeType_Histo1DSink:
+        case NodeType_Histo2DSink:
+        case NodeType_Sink:
+            {
+                auto sink = getPointer<SinkInterface>(node);
+
+                if (!sink->isEnabled())
+                {
+                    auto font = node->font(0);
+                    font.setStrikeOut(true);
+                    node->setFont(0, font);
                 }
             } break;
     }
@@ -2659,6 +2735,38 @@ void EventWidgetPrivate::importForModule(ModuleConfig *module, const QString &st
     repopulate();
 }
 
+void EventWidgetPrivate::setSinksEnabled(const QVector<SinkInterface *> sinks, bool enabled)
+{
+    if (sinks.isEmpty())
+        return;
+
+    AnalysisPauser pauser(m_context);
+
+    for (auto sink: sinks)
+    {
+        sink->setEnabled(enabled);
+    }
+
+    m_context->getAnalysis()->setModified(true);
+    repopulate();
+}
+
+void EventWidgetPrivate::removeSinks(const QVector<SinkInterface *> sinks)
+{
+    if (sinks.isEmpty())
+        return;
+
+    AnalysisPauser pauser(m_context);
+
+    for (auto sink: sinks)
+    {
+        m_context->getAnalysis()->removeOperator(sink);
+    }
+
+    repopulate();
+    m_analysisWidget->updateAddRemoveUserLevelButtons();
+}
+
 static const u32 EventWidgetPeriodicRefreshInterval_ms = 1000;
 
 void run_userlevel_visibility_dialog(QVector<bool> &hiddenLevels, QWidget *parent = 0)
@@ -2987,6 +3095,14 @@ void EventWidget::removeOperator(OperatorInterface *op)
     m_d->m_context->getAnalysis()->removeOperator(op);
     m_d->repopulate();
     m_d->m_analysisWidget->updateAddRemoveUserLevelButtons();
+}
+
+void EventWidget::toggleSinkEnabled(SinkInterface *sink)
+{
+    AnalysisPauser pauser(m_d->m_context);
+    sink->setEnabled(!sink->isEnabled());
+    m_d->m_context->getAnalysis()->setModified(true);
+    m_d->repopulate();
 }
 
 void EventWidget::addSource(SourcePtr src, ModuleConfig *module, bool addHistogramsAndCalibration,
