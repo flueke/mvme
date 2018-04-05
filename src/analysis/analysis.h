@@ -400,6 +400,16 @@ class LIBMVME_EXPORT SinkInterface: public OperatorInterface
         Pipe *getOutput(s32 index) override { return nullptr; }
 
         virtual size_t getStorageSize() const = 0;
+
+        /* Enable/disable functionality for Sinks only. In the future this can
+         * be moved into PipeSourceInterface so that it's available for
+         * Operators aswell as Sinks but disabling operators needs additional
+         * work as dependencies have to be managed. */
+        void setEnabled(bool b) { m_enabled = b; }
+        bool isEnabled() const  { return m_enabled; }
+
+    private:
+        bool m_enabled = true;
 };
 
 typedef std::shared_ptr<SinkInterface> SinkPtr;

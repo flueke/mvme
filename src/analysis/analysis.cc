@@ -3490,6 +3490,14 @@ void Analysis::beginRun(
 
     for (auto &operatorEntry: m_operators)
     {
+        if (auto sink = qobject_cast<SinkInterface *>(operatorEntry.op.get()))
+        {
+            if (!sink->isEnabled())
+            {
+                continue;
+            }
+        }
+
         operatorEntry.op->beginRun(runInfo);
     }
 
@@ -3944,6 +3952,11 @@ Analysis::ReadResult Analysis::read(const QJsonObject &inputJson, VMEConfig *vme
                 op->setObjectName(objectJson["name"].toString());
                 op->read(objectJson["data"].toObject());
 
+                if (auto sink = qobject_cast<SinkInterface *>(op.get()))
+                {
+                    sink->setEnabled(objectJson["enabled"].toBool(true));
+                }
+
                 auto eventId = QUuid(objectJson["eventId"].toString());
                 auto userLevel = objectJson["userLevel"].toInt();
 
@@ -4047,19 +4060,29 @@ void Analysis::write(QJsonObject &json) const
     // Operators
     {
         QJsonArray destArray;
+
         for (auto &opEntry: m_operators)
         {
             OperatorInterface *op = opEntry.op.get();
+
             QJsonObject destObject;
-            destObject["id"] = op->getId().toString();
-            destObject["name"] = op->objectName();
-            destObject["eventId"]  = opEntry.eventId.toString();
-            destObject["class"] = getClassName(op);
+            destObject["id"]        = op->getId().toString();
+            destObject["name"]      = op->objectName();
+            destObject["eventId"]   = opEntry.eventId.toString();
+            destObject["class"]     = getClassName(op);
             destObject["userLevel"] = opEntry.userLevel;
+
             QJsonObject dataJson;
             op->write(dataJson);
             destObject["data"] = dataJson;
+
+            if (auto sink = qobject_cast<SinkInterface *>(op))
+            {
+                destObject["enabled"] = sink->isEnabled();
+            }
+
             destArray.append(destObject);
+
         }
         json["operators"] = destArray;
     }
