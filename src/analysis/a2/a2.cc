@@ -1122,20 +1122,14 @@ void aggregate_multiplicity_step(Operator *op)
     auto output = op->outputs[0];
     auto thresholds = *reinterpret_cast<Thresholds *>(op->d);
 
-    output[0] = invalid_param();
-    s32 result = -1;
+    output[0] = 0.0;
 
     for (s32 i = 0; i < input.size; i++)
     {
         if (is_valid_and_inside(input[i], thresholds))
         {
-            result++;
+            output[0]++;
         }
-    }
-
-    if (result >= 0) // got at least one valid
-    {
-        output[0] = result + 1; // adjust for the initial -1
     }
 }
 
