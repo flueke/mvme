@@ -1562,6 +1562,24 @@ void EventWidgetPrivate::doDisplayTreeContextMenu(QTreeWidget *tree, QPoint pos,
                     }
                 } break;
 
+            case NodeType_Sink:
+                if (auto ex = qobject_cast<ExportSink *>(obj))
+                {
+                    auto sinkPtr = std::dynamic_pointer_cast<ExportSink>(ex->getSharedPointer());
+                    menu.addAction("Open Status Monitor", m_q, [this, sinkPtr]() {
+                        if (!m_context->hasObjectWidget(sinkPtr.get()) || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
+                        {
+                            auto widget = new ExportSinkStatusMonitor(sinkPtr, m_context);
+                            m_context->addObjectWidget(widget, sinkPtr.get(), sinkPtr->getId().toString());
+                        }
+                        else
+                        {
+                            m_context->activateObjectWidget(sinkPtr.get());
+                        }
+                    });
+                }
+                break;
+
             case NodeType_Module:
                 {
                     auto sink = std::make_shared<Histo1DSink>();
@@ -2240,6 +2258,18 @@ void EventWidgetPrivate::onNodeDoubleClicked(TreeNode *node, int column, s32 use
                     else
                     {
                         m_context->activateObjectWidget(rms.get());
+                    }
+                }
+                else if (auto ex = std::dynamic_pointer_cast<ExportSink>(getPointer<ExportSink>(node)->getSharedPointer()))
+                {
+                    if (!m_context->hasObjectWidget(ex.get()) || QGuiApplication::keyboardModifiers() & Qt::ControlModifier)
+                    {
+                        auto widget = new ExportSinkStatusMonitor(ex, m_context);
+                        m_context->addObjectWidget(widget, ex.get(), ex->getId().toString());
+                    }
+                    else
+                    {
+                        m_context->activateObjectWidget(ex.get());
                     }
                 }
                 break;

@@ -488,6 +488,31 @@ class SessionErrorDialog: public QDialog
         SessionErrorDialog(const QString &message, const QString &title = QString(), QWidget *parent = nullptr);
 };
 
+class ExportSinkStatusMonitor: public QWidget
+{
+    Q_OBJECT
+    public:
+        ExportSinkStatusMonitor(const std::shared_ptr<ExportSink> &sink,
+                                MVMEContext *context,
+                                QWidget *parent = nullptr);
+
+    private slots:
+        void update();
+
+    private:
+        std::shared_ptr<ExportSink> m_sink;
+        MVMEContext *m_context;
+
+        QLabel *label_outputDirectory,
+               *label_fileName,
+               *label_fileSize,
+               *label_eventsWritten,
+               *label_bytesWritten,
+               *label_status;
+
+        QPushButton *pb_openDirectory;
+};
+
 }
 
 #endif /* __ANALYSIS_UI_P_H__ */

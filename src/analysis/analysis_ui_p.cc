@@ -35,6 +35,7 @@
 #include <limits>
 #include <QAbstractItemModel>
 #include <QButtonGroup>
+#include <QDesktopServices>
 #include <QDir>
 #include <QFileDialog>
 #include <QFormLayout>
@@ -51,6 +52,7 @@
 #include <QSplitter>
 #include <QStackedWidget>
 #include <QTextBrowser>
+#include <QTimer>
 
 namespace
 {
@@ -2157,7 +2159,13 @@ OperatorConfigurationWidget::OperatorConfigurationWidget(OperatorInterface *op,
 
             formLayout->addRow(gb);
 
-            auto logger = [context] (const QString &msg) { context->logMessage(msg); };
+            auto logger = [context, ex] (const QString &msg)
+            {
+                auto s = QSL("File Export %1: %2")
+                    .arg(ex->objectName())
+                    .arg(msg);
+                context->logMessage(s);
+            };
 
             connect(pb_generateCode, &QPushButton::clicked, this, [this, ex, logger] () {
                 try
@@ -3411,6 +3419,86 @@ SessionErrorDialog::SessionErrorDialog(const QString &message, const QString &ti
 
     resize(600, 300);
     bb->button(QDialogButtonBox::Close)->setFocus();
+}
+
+ExportSinkStatusMonitor::ExportSinkStatusMonitor(const std::shared_ptr<ExportSink> &sink,
+                                                 MVMEContext *context,
+                                                 QWidget *parent)
+    : QWidget(parent)
+    , m_sink(sink)
+    , m_context(context)
+    , label_outputDirectory(new QLabel)
+    , label_fileName(new QLabel)
+    , label_fileSize(new QLabel)
+    , label_eventsWritten(new QLabel)
+    , label_bytesWritten(new QLabel)
+    , label_status(new QLabel)
+    , pb_openDirectory(new QPushButton(QSL("Open")))
+{
+    label_status->setWordWrap(true);
+
+    auto widgetLayout = new QFormLayout(this);
+
+    {
+        auto &l = widgetLayout;
+
+        auto dirLayout = new QHBoxLayout;
+        dirLayout->setContentsMargins(0, 0, 0, 0);
+        dirLayout->setSpacing(2);
+        dirLayout->addWidget(label_outputDirectory);
+        dirLayout->addWidget(pb_openDirectory);
+
+        l->addRow(QSL("Output Directory"),  dirLayout);
+        l->addRow(QSL("Output File"),       label_fileName);
+        l->addRow(QSL("Output File Size"),  label_fileSize);
+        l->addRow(QSL("Bytes Written"),     label_bytesWritten);
+        l->addRow(QSL("Events Written"),    label_eventsWritten);
+        l->addRow(QSL("Status"),            label_status);
+    }
+
+    connect(pb_openDirectory, &QPushButton::clicked, this, [this]() {
+        QDesktopServices::openUrl(m_sink->getOutputPrefixPath());
+    });
+
+    static const int UpdateInterval_ms = 1000;
+    auto updateTimer = new QTimer(this);
+    updateTimer->setInterval(UpdateInterval_ms);
+    connect(updateTimer, &QTimer::timeout, this, &ExportSinkStatusMonitor::update);
+    updateTimer->start();
+    update();
+}
+
+void ExportSinkStatusMonitor::update()
+{
+    setWindowTitle(QSL("File Export %1").arg(m_sink->objectName()));
+
+    auto a2_state = m_context->getAnalysis()->getA2AdapterState();
+
+    if (auto a2_sink = a2_state->operatorMap.value(m_sink.get(), nullptr))
+    {
+        auto d = reinterpret_cast<a2::ExportSinkData *>(a2_sink->d);
+        auto runInfo = m_context->getAnalysis()->getRunInfo();
+
+        auto fileName = !runInfo.runId.isEmpty() ? QString::fromStdString(d->filename) : QSL("-");
+        auto fileSize = QFileInfo(fileName).size();
+
+        label_outputDirectory->setText(m_sink->getOutputPrefixPath());
+        label_fileName->setText(fileName);
+        label_fileSize->setText(format_number(fileSize, QSL("B"), UnitScaling::Binary));
+        label_eventsWritten->setText(QString::number(d->eventsWritten));
+        label_bytesWritten->setText(format_number(d->bytesWritten, QSL("B"), UnitScaling::Binary));
+
+        auto lastError = QString::fromStdString(d->getLastError());
+
+        if (!lastError.isEmpty())
+        {
+            label_status->setText(QSL("Error: ") + lastError);
+        }
+        else
+        {
+            label_status->setText(!runInfo.runId.isEmpty() ? QSL("Ok") : QSL("-"));
+        }
+    }
 }
 
 }
