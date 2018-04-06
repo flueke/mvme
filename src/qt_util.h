@@ -117,4 +117,38 @@ QToolButton *make_action_toolbutton(QAction *action);
 
 int get_widget_row(QFormLayout *layout, QWidget *widget);
 
+/* Helper class for QLabel which makes the label only grow but never shrink
+ * when a new text is set. */
+class NonShrinkingLabelHelper
+{
+    public:
+        NonShrinkingLabelHelper(QLabel *label = nullptr)
+            : m_label(label)
+        { }
+
+        QLabel *getLabel() const { return m_label; }
+
+        void setText(const QString &text)
+        {
+            if (m_label)
+            {
+                m_label->setText(text);
+
+                if (m_label->isVisible())
+                {
+                    m_maxWidth  = std::max(m_maxWidth, m_label->width());
+                    m_maxHeight = std::max(m_maxHeight, m_label->height());
+
+                    m_label->setMinimumWidth(m_maxWidth);
+                    m_label->setMinimumHeight(m_maxHeight);
+                }
+            }
+        }
+
+    private:
+        QLabel *m_label = nullptr;
+        s32 m_maxWidth  = 0;
+        s32 m_maxHeight = 0;
+};
+
 #endif /* __QT_UTIL_H__ */

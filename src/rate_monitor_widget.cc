@@ -42,17 +42,21 @@ struct RateMonitorWidgetPrivate
 
     QStatusBar *m_statusBar;
     QWidget *m_infoContainer;
-    QLabel *m_labelCursorInfo;
-    QLabel *m_labelPlotInfo;
+    QLabel *m_labelCursorInfo,
+           *m_labelPlotInfo,
+           *m_labelVisibleRangeInfo;
+
+    NonShrinkingLabelHelper m_labelCursorInfoHelper,
+                            m_labelVisibleRangeInfoHelper;
+
     QPointF m_cursorPosition;
-    s32 m_labelCursorInfoMaxWidth  = 0;
-    s32 m_labelCursorInfoMaxHeight = 0;
 
     QwtText m_waterMarkText;
     QwtPlotTextLabel *m_waterMarkLabel;
 
     void postConstruct();
     void selectPlot(int index);
+    void updateVisibleRangeInfoLabel();
     void updateCursorInfoLabel();
     void updatePlotInfoLabel();
     void exportPlot();
@@ -97,6 +101,45 @@ void RateMonitorWidgetPrivate::selectPlot(int index)
     m_q->replot();
 }
 
+void RateMonitorWidgetPrivate::updateVisibleRangeInfoLabel()
+{
+    auto plot = m_plotWidget->getPlot();
+    double visibleMinX = plot->axisScaleDiv(QwtPlot::xBottom).lowerBound();
+    double visibleMaxX = plot->axisScaleDiv(QwtPlot::xBottom).upperBound();
+    auto scaleDraw     = plot->axisScaleDraw(QwtPlot::xBottom);
+    QString minStr     = scaleDraw->label(visibleMinX).text();
+    QString maxStr     = scaleDraw->label(visibleMaxX).text();
+
+    const auto &sampler = currentSampler();
+    ssize_t minIdx      = sampler->getSampleIndex(visibleMinX / 1000.0);
+    ssize_t maxIdx      = sampler->getSampleIndex(visibleMaxX / 1000.0);
+
+    double  avg  = 0.0;
+    ssize_t size = sampler->rateHistory.size();
+
+    if (0 <= minIdx && minIdx < size
+        && 0 <= maxIdx && maxIdx < size)
+    {
+        double sum   = std::accumulate(sampler->rateHistory.begin() + minIdx,
+                                       sampler->rateHistory.begin() + maxIdx + 1,
+                                       0.0);
+        double count = maxIdx - minIdx + 1;
+        avg = sum / count;
+    }
+
+    auto text = (QSL("Visible Interval:\n"
+                     "xMin = %1\n"
+                     "xMax = %2\n"
+                     "avg. Rate = %3"
+                     )
+                 .arg(minStr)
+                 .arg(maxStr)
+                 .arg(avg)
+                 );
+
+    m_labelVisibleRangeInfoHelper.setText(text);
+}
+
 void RateMonitorWidgetPrivate::updateCursorInfoLabel()
 {
     double plotX = m_cursorPosition.x();
@@ -134,18 +177,7 @@ void RateMonitorWidgetPrivate::updateCursorInfoLabel()
                );
     }
 
-    // update the label which will calculate a new width
-    m_labelCursorInfo->setText(text);
-
-    // use the largest width and height the label ever had to stop the label from constantly changing its width
-    if (m_labelCursorInfo->isVisible())
-    {
-        m_labelCursorInfoMaxWidth = std::max(m_labelCursorInfoMaxWidth, m_labelCursorInfo->width());
-        m_labelCursorInfo->setMinimumWidth(m_labelCursorInfoMaxWidth);
-
-        m_labelCursorInfo->setMinimumHeight(m_labelCursorInfoMaxHeight);
-        m_labelCursorInfoMaxHeight = std::max(m_labelCursorInfoMaxHeight, m_labelCursorInfo->height());
-    }
+    m_labelCursorInfoHelper.setText(text);
 }
 
 void RateMonitorWidgetPrivate::updatePlotInfoLabel()
@@ -347,9 +379,14 @@ RateMonitorWidget::RateMonitorWidget(QWidget *parent)
     // Statusbar and info widgets
     m_d->m_statusBar = make_statusbar();
     m_d->m_labelCursorInfo = new QLabel;
+    m_d->m_labelCursorInfoHelper = NonShrinkingLabelHelper(m_d->m_labelCursorInfo);
+
+    m_d->m_labelVisibleRangeInfo = new QLabel;
+    m_d->m_labelVisibleRangeInfoHelper = NonShrinkingLabelHelper(m_d->m_labelVisibleRangeInfo);
+
     m_d->m_labelPlotInfo = new QLabel;
 
-    for (auto label: { m_d->m_labelCursorInfo, m_d->m_labelPlotInfo})
+    for (auto label: { m_d->m_labelCursorInfo, m_d->m_labelPlotInfo, m_d->m_labelVisibleRangeInfo})
     {
         label->setAlignment(Qt::AlignLeft | Qt::AlignTop);
         set_widget_font_pointsize(label, 7);
@@ -360,8 +397,11 @@ RateMonitorWidget::RateMonitorWidget(QWidget *parent)
 
         auto layout = new QHBoxLayout(m_d->m_infoContainer);
         layout->setContentsMargins(0, 0, 0, 0);
-        layout->setSpacing(1);
+        layout->setSpacing(2);
         layout->addWidget(m_d->m_labelCursorInfo);
+        layout->addWidget(make_separator_frame(Qt::Vertical));
+        layout->addWidget(m_d->m_labelVisibleRangeInfo);
+        layout->addWidget(make_separator_frame(Qt::Vertical));
         layout->addWidget(m_d->m_labelPlotInfo);
 
         for (auto childWidget: m_d->m_infoContainer->findChildren<QWidget *>())
@@ -467,6 +507,7 @@ void RateMonitorWidget::replot()
     }
 
     m_d->m_plotWidget->replot();
+    m_d->updateVisibleRangeInfoLabel();
     m_d->updatePlotInfoLabel();
 }
 

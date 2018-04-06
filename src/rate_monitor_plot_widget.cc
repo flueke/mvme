@@ -112,16 +112,6 @@ struct DateScaleFormat
     QString format;
 };
 
-#if 0
-static const DateScaleFormat DateScaleFormatTable[] =
-{
-    { QwtDate::Millisecond,     QSL("s's' zzz'ms'") },
-    { QwtDate::Second,          QSL("m'm' s's'") },
-    { QwtDate::Minute,          QSL("H'h' m'm'") },
-    { QwtDate::Hour,            QSL("H'h' m'm'") },
-    { QwtDate::Day,             QSL("d 'd'") },
-};
-#else
 static const DateScaleFormat DateScaleFormatTable[] =
 {
     { QwtDate::Millisecond,     QSL("H'h' m'm' s's' zzz'ms'") },
@@ -130,7 +120,6 @@ static const DateScaleFormat DateScaleFormatTable[] =
     { QwtDate::Hour,            QSL("H'h' m'm'") },
     { QwtDate::Day,             QSL("d 'd'") },
 };
-#endif
 
 RateMonitorPlotWidget::RateMonitorPlotWidget(QWidget *parent)
     : QWidget(parent)
