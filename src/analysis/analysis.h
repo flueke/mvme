@@ -102,6 +102,8 @@ struct LIBMVME_EXPORT ParameterVector: public QVector<Parameter>
     QString unit;
 };
 
+using Logger = std::function<void (const QString &)>;
+
 class OperatorInterface;
 class Pipe;
 
@@ -138,7 +140,7 @@ class LIBMVME_EXPORT PipeSourceInterface: public QObject, public std::enable_sha
         /* Use beginRun() to preallocate the outputs and setup internal state.
          * This will also be called by Analysis UI to be able to get array
          * sizes from operator output pipes! */
-        virtual void beginRun(const RunInfo &runInfo) = 0;
+        virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) = 0;
         virtual void endRun() {};
 
         std::shared_ptr<PipeSourceInterface> getSharedPointer() { return shared_from_this(); }
@@ -323,7 +325,7 @@ class LIBMVME_EXPORT SourceInterface: public PipeSourceInterface
         /* Use beginRun() to preallocate the outputs and setup internal state.
          * This will also be called by Analysis UI to be able to get array
          * sizes from operator output pipes! */
-        virtual void beginRun(const RunInfo &runInfo) override {}
+        virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override {}
 
         /* Use beginEvent() to invalidate output parameters if needed. */
         virtual void beginEvent() {}
@@ -344,7 +346,7 @@ class LIBMVME_EXPORT OperatorInterface: public PipeSourceInterface
         using PipeSourceInterface::PipeSourceInterface;
 
         /* Use beginRun() to preallocate the outputs and setup internal state. */
-        virtual void beginRun(const RunInfo &runInfo) override {}
+        virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override {}
 
         virtual void step() = 0;
 
@@ -446,7 +448,7 @@ class LIBMVME_EXPORT Extractor: public SourceInterface
         u32 getRequiredCompletionCount() const { return m_requiredCompletionCount; }
         void setRequiredCompletionCount(u32 count) { m_requiredCompletionCount = count; }
 
-        virtual void beginRun(const RunInfo &runInfo) override;
+        virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
         virtual void beginEvent() override;
 
         virtual s32 getNumberOfOutputs() const override;
@@ -491,7 +493,7 @@ class LIBMVME_EXPORT ListFilterExtractor: public SourceInterface
     public:
         ListFilterExtractor(QObject *parent = nullptr);
 
-        virtual void beginRun(const RunInfo &runInfo) override;
+        virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
         virtual void beginEvent() override;
 
         virtual s32 getNumberOfOutputs() const override { return 1; }
@@ -597,7 +599,7 @@ class LIBMVME_EXPORT CalibrationMinMax: public BasicOperator
     public:
         CalibrationMinMax(QObject *parent = 0);
 
-        virtual void beginRun(const RunInfo &runInfo) override;
+        virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
         virtual void step() override;
 
         void setCalibration(s32 address, const CalibrationMinMaxParameters &params);
@@ -645,7 +647,7 @@ class LIBMVME_EXPORT IndexSelector: public BasicOperator
         void setIndex(s32 index) { m_index = index; }
         s32 getIndex() const { return m_index; }
 
-        virtual void beginRun(const RunInfo &runInfo) override;
+        virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
         virtual void step() override;
 
         virtual void read(const QJsonObject &json) override;
@@ -667,7 +669,7 @@ class LIBMVME_EXPORT PreviousValue: public BasicOperator
     public:
         PreviousValue(QObject *parent = 0);
 
-        virtual void beginRun(const RunInfo &runInfo) override;
+        virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
         virtual void step() override;
 
         virtual void read(const QJsonObject &json) override;
@@ -688,7 +690,7 @@ class LIBMVME_EXPORT RetainValid: public BasicOperator
     public:
         RetainValid(QObject *parent = 0);
 
-        virtual void beginRun(const RunInfo &runInfo) override;
+        virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
         virtual void step() override;
 
         virtual void read(const QJsonObject &json) override;
@@ -708,7 +710,7 @@ class LIBMVME_EXPORT Difference: public OperatorInterface
     public:
         Difference(QObject *parent = 0);
 
-        virtual void beginRun(const RunInfo &runInfo) override;
+        virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
         virtual void step() override;
 
         // PipeSourceInterface
@@ -745,7 +747,7 @@ class LIBMVME_EXPORT Sum: public BasicOperator
     public:
         Sum(QObject *parent = 0);
 
-        virtual void beginRun(const RunInfo &runInfo) override;
+        virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
         virtual void step() override;
 
         virtual void read(const QJsonObject &json) override;
@@ -792,7 +794,7 @@ class LIBMVME_EXPORT AggregateOps: public BasicOperator
 
         AggregateOps(QObject *parent = 0);
 
-        virtual void beginRun(const RunInfo &runInfo) override;
+        virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
         virtual void step() override;
 
         virtual void read(const QJsonObject &json) override;
@@ -851,7 +853,7 @@ class LIBMVME_EXPORT ArrayMap: public OperatorInterface
         virtual bool addSlot() override;
         virtual bool removeLastSlot() override;
 
-        virtual void beginRun(const RunInfo &runInfo) override;
+        virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
         virtual void step() override;
 
         // Inputs
@@ -899,7 +901,7 @@ class LIBMVME_EXPORT RangeFilter1D: public BasicOperator
         double m_maxValue = make_quiet_nan(); // exclusive
         bool m_keepOutside = false;
 
-        virtual void beginRun(const RunInfo &runInfo) override;
+        virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
         virtual void step() override;
 
         virtual void read(const QJsonObject &json) override;
@@ -924,7 +926,7 @@ class LIBMVME_EXPORT ConditionFilter: public OperatorInterface
     public:
         ConditionFilter(QObject *parent = 0);
 
-        virtual void beginRun(const RunInfo &runInfo) override;
+        virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
         virtual void step() override;
 
         // Inputs
@@ -957,7 +959,7 @@ class LIBMVME_EXPORT RectFilter2D: public OperatorInterface
     public:
         RectFilter2D(QObject *parent = 0);
 
-        virtual void beginRun(const RunInfo &runInfo) override;
+        virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
         virtual void step() override;
 
         // Inputs
@@ -1020,7 +1022,7 @@ class LIBMVME_EXPORT BinarySumDiff: public OperatorInterface
     public:
         BinarySumDiff(QObject *parent = 0);
 
-        virtual void beginRun(const RunInfo &runInfo) override;
+        virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
         virtual void step() override;
 
         // Inputs
@@ -1070,7 +1072,7 @@ class LIBMVME_EXPORT ExpressionOperator: public BasicOperator
     public:
         ExpressionOperator(QObject *parent = 0);
 
-        virtual void beginRun(const RunInfo &runInfo) override;
+        virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
         virtual void step() override;
 
         virtual void read(const QJsonObject &json) override;
@@ -1099,7 +1101,7 @@ class LIBMVME_EXPORT Histo1DSink: public BasicSink
     public:
         Histo1DSink(QObject *parent = 0);
 
-        virtual void beginRun(const RunInfo &runInfo) override;
+        virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
         virtual void step() override;
 
         virtual void read(const QJsonObject &json) override;
@@ -1146,7 +1148,7 @@ class LIBMVME_EXPORT Histo2DSink: public SinkInterface
         virtual s32 getNumberOfSlots() const override;
         virtual Slot *getSlot(s32 slotIndex) override;
 
-        virtual void beginRun(const RunInfo &runInfo) override;
+        virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
         virtual void step() override;
 
         virtual void read(const QJsonObject &json) override;
@@ -1193,7 +1195,7 @@ class LIBMVME_EXPORT RateMonitorSink: public BasicSink
 
         RateMonitorSink(QObject *parent = nullptr);
 
-        virtual void beginRun(const RunInfo &runInfo) override;
+        virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
         virtual void step() override;
 
         virtual void read(const QJsonObject &json) override;
@@ -1264,7 +1266,7 @@ class LIBMVME_EXPORT ExportSink: public SinkInterface
         virtual bool addSlot() override;
         virtual bool removeLastSlot() override;
 
-        virtual void beginRun(const RunInfo &runInfo) override;
+        virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
         virtual void step() override;
 
         // Inputs
@@ -1302,8 +1304,6 @@ class LIBMVME_EXPORT ExportSink: public SinkInterface
         QVector<std::shared_ptr<Slot>> getDataInputs() const { return m_dataInputs; }
 
         QStringList getOutputFilenames();
-
-        using Logger = std::function<void (const QString &)>;
 
         void generateCode(Logger logger);
 
@@ -1521,7 +1521,7 @@ class LIBMVME_EXPORT Analysis: public QObject
         /* Important: only the overload taking the hash of index pairs prepares
          * the a2 system!
          */
-        void beginRun(const RunInfo &runInfo, const vme_analysis_common::VMEIdToIndex &vmeMap);
+        void beginRun(const RunInfo &runInfo, const vme_analysis_common::VMEIdToIndex &vmeMap, Logger logger = {});
         void beginEvent(int eventIndex);
         void processModuleData(int eventIndex, int moduleIndex, u32 *data, u32 size);
         void endEvent(int eventIndex);

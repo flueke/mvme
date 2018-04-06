@@ -63,7 +63,8 @@ A2AdapterState a2_adapter_build_memory_wrapper(
     const QVector<Analysis::SourceEntry> &sources,
     const QVector<Analysis::OperatorEntry> &operators,
     const vme_analysis_common::VMEIdToIndex &vmeMap,
-    const RunInfo &runInfo)
+    const RunInfo &runInfo,
+    analysis::Logger logger = {})
 {
     A2AdapterState result;
 
@@ -390,7 +391,7 @@ Extractor::Extractor(QObject *parent)
     m_rngSeed = dist(rd);
 }
 
-void Extractor::beginRun(const RunInfo &runInfo)
+void Extractor::beginRun(const RunInfo &runInfo, Logger logger)
 {
     m_currentCompletionCount = 0;
 
@@ -547,7 +548,7 @@ ListFilterExtractor::ListFilterExtractor(QObject *parent)
     m_rngSeed = dist(rd);
 }
 
-void ListFilterExtractor::beginRun(const RunInfo &runInfo)
+void ListFilterExtractor::beginRun(const RunInfo &runInfo, Logger logger)
 {
     u32 addressCount = get_address_count(&m_a2Extractor);
     u32 dataBits = get_extract_bits(&m_a2Extractor.listFilter, a2::data_filter::MultiWordFilter::CacheD);
@@ -680,7 +681,7 @@ CalibrationMinMax::CalibrationMinMax(QObject *parent)
 {
 }
 
-void CalibrationMinMax::beginRun(const RunInfo &)
+void CalibrationMinMax::beginRun(const RunInfo &, Logger logger)
 {
     auto &out(m_output.getParameters());
 
@@ -887,7 +888,7 @@ IndexSelector::IndexSelector(QObject *parent)
     m_inputSlot.acceptedInputTypes = InputType::Array;
 }
 
-void IndexSelector::beginRun(const RunInfo &)
+void IndexSelector::beginRun(const RunInfo &, Logger logger)
 {
     auto &out(m_output.getParameters());
 
@@ -943,7 +944,7 @@ PreviousValue::PreviousValue(QObject *parent)
     m_inputSlot.acceptedInputTypes = InputType::Both;
 }
 
-void PreviousValue::beginRun(const RunInfo &)
+void PreviousValue::beginRun(const RunInfo &, Logger logger)
 {
     auto &out(m_output.getParameters());
 
@@ -1044,7 +1045,7 @@ RetainValid::RetainValid(QObject *parent)
     m_inputSlot.acceptedInputTypes = InputType::Both;
 }
 
-void RetainValid::beginRun(const RunInfo &)
+void RetainValid::beginRun(const RunInfo &, Logger logger)
 {
     auto &out(m_output.getParameters());
 
@@ -1171,7 +1172,7 @@ void Difference::slotDisconnected(Slot *slot)
     }
 }
 
-void Difference::beginRun(const RunInfo &)
+void Difference::beginRun(const RunInfo &, Logger logger)
 {
     m_output.parameters.name = objectName(); // QSL("A-B");
     m_output.parameters.unit = QString();
@@ -1278,7 +1279,7 @@ Sum::Sum(QObject *parent)
     m_inputSlot.acceptedInputTypes = InputType::Array;
 }
 
-void Sum::beginRun(const RunInfo &)
+void Sum::beginRun(const RunInfo &, Logger logger)
 {
     auto &out(m_output.getParameters());
 
@@ -1445,7 +1446,7 @@ AggregateOps::AggregateOps(QObject *parent)
 
 // FIXME: min and max thresholds are not taken into account when calculating
 // the output lower and upper limits!
-void AggregateOps::beginRun(const RunInfo &runInfo)
+void AggregateOps::beginRun(const RunInfo &runInfo, Logger logger)
 {
     auto &out(m_output.getParameters());
 
@@ -1822,7 +1823,7 @@ bool ArrayMap::removeLastSlot()
     return false;
 }
 
-void ArrayMap::beginRun(const RunInfo &)
+void ArrayMap::beginRun(const RunInfo &, Logger logger)
 {
     s32 mappingCount = m_mappings.size();
     m_output.parameters.name = objectName();
@@ -1987,7 +1988,7 @@ RangeFilter1D::RangeFilter1D(QObject *parent)
     m_inputSlot.acceptedInputTypes = InputType::Both;
 }
 
-void RangeFilter1D::beginRun(const RunInfo &)
+void RangeFilter1D::beginRun(const RunInfo &, Logger logger)
 {
     auto &out(m_output.getParameters());
     out.resize(0);
@@ -2112,7 +2113,7 @@ ConditionFilter::ConditionFilter(QObject *parent)
     m_conditionInput.acceptedInputTypes = InputType::Both;
 }
 
-void ConditionFilter::beginRun(const RunInfo &)
+void ConditionFilter::beginRun(const RunInfo &, Logger logger)
 {
     auto &out(m_output.getParameters());
 
@@ -2266,7 +2267,7 @@ RectFilter2D::RectFilter2D(QObject *parent)
     m_yInput.acceptedInputTypes = InputType::Value;
 }
 
-void RectFilter2D::beginRun(const RunInfo &)
+void RectFilter2D::beginRun(const RunInfo &, Logger logger)
 {
     auto &out(m_output.getParameters());
     out.resize(0);
@@ -2487,7 +2488,7 @@ QString BinarySumDiff::getEquationDisplayString(s32 index) const
 // crash!
 // Implement it so that the smalles input size is used for calculations and the
 // other output values are filled with invalids.
-void BinarySumDiff::beginRun(const RunInfo &)
+void BinarySumDiff::beginRun(const RunInfo &, Logger logger)
 {
     auto &out(m_output.getParameters());
 
@@ -2605,7 +2606,7 @@ ExpressionOperator::ExpressionOperator(QObject *parent)
         );
 }
 
-void ExpressionOperator::beginRun(const RunInfo &runInfo)
+void ExpressionOperator::beginRun(const RunInfo &runInfo, Logger logger)
 {
 #if 0
     /* Create the a2 operator which runs the begin script to figure out the
@@ -2680,7 +2681,7 @@ Histo1DSink::Histo1DSink(QObject *parent)
 {
 }
 
-void Histo1DSink::beginRun(const RunInfo &runInfo)
+void Histo1DSink::beginRun(const RunInfo &runInfo, Logger logger)
 {
 #if ANALYSIS_USE_SHARED_HISTO1D_MEM
     /* Single memory block allocation strategy:
@@ -2948,7 +2949,7 @@ Histo2DSink::Histo2DSink(QObject *parent)
 
 // Creates or resizes the histogram. Updates the axis limits to match
 // the input parameters limits. Clears the histogram.
-void Histo2DSink::beginRun(const RunInfo &runInfo)
+void Histo2DSink::beginRun(const RunInfo &runInfo, Logger logger)
 {
     if (m_inputX.inputPipe && m_inputY.inputPipe
         && m_inputX.paramIndex < m_inputX.inputPipe->parameters.size()
@@ -3143,7 +3144,7 @@ RateMonitorSink::RateMonitorSink(QObject *parent)
     m_inputSlot.acceptedInputTypes = InputType::Array;
 }
 
-void RateMonitorSink::beginRun(const RunInfo &runInfo)
+void RateMonitorSink::beginRun(const RunInfo &runInfo, Logger logger)
 {
     if (!m_inputSlot.isConnected())
     {
@@ -3289,16 +3290,19 @@ s32 ExportSink::getNumberOfSlots() const
     return 1 + m_dataInputs.size();
 }
 
-void ExportSink::beginRun(const RunInfo &)
+void ExportSink::beginRun(const RunInfo &, Logger logger)
 {
     if (getOutputPrefixPath().isEmpty())
         return;
 
     if (!QDir().mkpath(getOutputPrefixPath()))
     {
-        throw QString("ExportSink %1: Error creating export directory %2")
-            .arg(this->objectName())
-            .arg(getOutputPrefixPath());
+        if (logger)
+        {
+            logger(QString("ExportSink %1: Error creating export directory %2")
+                   .arg(this->objectName())
+                   .arg(getOutputPrefixPath()));
+        }
     }
 }
 
@@ -3321,10 +3325,12 @@ void ExportSink::generateCode(Logger logger)
     }
     catch (const std::exception &e)
     {
-        auto msg = QSL("Error during code generation for ExportSink %1: %2")
-            .arg(this->objectName())
-            .arg(e.what());
-        logger(msg);
+        if (logger)
+        {
+            auto msg = QSL("Error during code generation: %1")
+                .arg(e.what());
+            logger(msg);
+        }
     }
 }
 
@@ -3447,7 +3453,8 @@ Analysis::~Analysis()
 
 void Analysis::beginRun(
     const RunInfo &runInfo,
-    const vme_analysis_common::VMEIdToIndex &vmeMap)
+    const vme_analysis_common::VMEIdToIndex &vmeMap,
+    Logger logger)
 {
     m_runInfo = runInfo;
     m_vmeMap = vmeMap;
@@ -3485,7 +3492,7 @@ void Analysis::beginRun(
 
     for (auto &sourceEntry: m_sources)
     {
-        sourceEntry.source->beginRun(runInfo);
+        sourceEntry.source->beginRun(runInfo, logger);
     }
 
     for (auto &operatorEntry: m_operators)
@@ -3498,7 +3505,7 @@ void Analysis::beginRun(
             }
         }
 
-        operatorEntry.op->beginRun(runInfo);
+        operatorEntry.op->beginRun(runInfo, logger);
     }
 
     // Build the a2 system
@@ -3518,7 +3525,8 @@ void Analysis::beginRun(
             m_sources,
             m_operators,
             m_vmeMap,
-            runInfo));
+            runInfo,
+            logger));
 }
 
 void Analysis::endRun()

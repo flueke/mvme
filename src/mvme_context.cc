@@ -1752,7 +1752,9 @@ bool MVMEContext::loadAnalysisConfig(const QJsonDocument &doc, const QString &in
 
         delete m_analysis;
         m_analysis = analysis_ng.release();
-        m_analysis->beginRun(getRunInfo(), vme_analysis_common::build_id_to_index_mapping(getVMEConfig()));
+        m_analysis->beginRun(getRunInfo(),
+                             vme_analysis_common::build_id_to_index_mapping(getVMEConfig()),
+                             [this](const QString &msg) { this->logMessage(msg); });
 
         emit analysisChanged();
 
@@ -1868,7 +1870,8 @@ void MVMEContext::analysisOperatorEdited(const std::shared_ptr<analysis::Operato
     auto runInfo = getRunInfo();
     auto vmeMap  = vme_analysis_common::build_id_to_index_mapping(getVMEConfig());
 
-    getAnalysis()->beginRun(runInfo, vmeMap);
+    getAnalysis()->beginRun(runInfo, vmeMap,
+                            [this](const QString &msg) { this->logMessage(msg); });
 
     if (m_analysisUi)
     {
