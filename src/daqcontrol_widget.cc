@@ -22,6 +22,7 @@
 
 #include <QHBoxLayout>
 #include <QFormLayout>
+#include <QRegularExpressionValidator>
 #include <QStorageInfo>
 #include <QTimer>
 
@@ -583,6 +584,9 @@ DAQRunSettingsDialog::DAQRunSettingsDialog(const ListFileOutputInfo &settings, Q
 
     le_exampleName->setReadOnly(true);
     spin_runNumber->setMinimum(1);
+
+    auto re_prefix = QRegularExpression(QSL("^[^\\\\/]+$"));
+    le_prefix->setValidator(new QRegularExpressionValidator(re_prefix, le_prefix));
 
     // populate
     le_prefix->setText(settings.prefix);
