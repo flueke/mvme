@@ -1558,11 +1558,37 @@ SIS3153ReadoutWorker::ReadBufferResult SIS3153ReadoutWorker::readAndProcessBuffe
 
     if (result.bytesRead < 0)
     {
+#ifdef Q_OS_WIN
+        /*
+        DWORD WINAPI FormatMessage(
+            _In_     DWORD   dwFlags,
+            _In_opt_ LPCVOID lpSource,
+            _In_     DWORD   dwMessageId,
+            _In_     DWORD   dwLanguageId,
+            _Out_    LPTSTR  lpBuffer,
+            _In_     DWORD   nSize,
+            _In_opt_ va_list *Arguments
+            );
+        */
+        char strBuffer[1024];
+        strBuffer[0] = '\0';
+
+        FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                      NULL,
+                      wsaError,
+                      0,
+                      strBuffer,
+                      sizeof(strBuffer),
+                      NULL);
+
+        result.error = VMEError(VMEError::ReadError, wsaError, strBuffer);
+#else
         result.error = VMEError(VMEError::ReadError, errno, std::strerror(errno));
+#endif
         // EAGAIN is not an error as it's used for the timeout case
         if (errno != EAGAIN)
         {
-            auto msg = QString(QSL("SIS3153 Warning: read packet failed: %1").arg(result.error.toString()));
+            auto msg = QString(QSL("SIS3153 Warning: data packet read failed: %1").arg(result.error.toString()));
             sis_log(msg);
 #if SIS_READOUT_DEBUG
             qDebug() << __PRETTY_FUNCTION__ << "error from recvfrom(): " << result.error.toString();
