@@ -199,7 +199,12 @@ class RateEstimationCurveData: public QwtSyntheticPointData
             double y2 = m_histo->getValue(x2);
             double tau = (x2 - x1) / log(y1 / y2);
 
-            return y1 * (pow(E1, -x/tau) / pow(E1, -x1/tau));
+            //double norm = y1 / (( 1.0 / tau) * pow(E1, -x1 / tau));
+            //qDebug() << __PRETTY_FUNCTION__ << "graphical norm =" << norm;
+
+            double result = y1 * (pow(E1, -x/tau) / pow(E1, -x1/tau));
+
+            return result;
         }
 
     private:
@@ -788,21 +793,27 @@ void Histo1DWidget::replot()
         double denom    = ( (pow(E1, -x1/tau) - pow(E1, -x2/tau)));
         double factor   = (1.0 - pow(E1, -x2/tau));
 
-        double freeCounts0_x2 = nom / denom * factor;
-        double histoCounts    = m_histo->calcStatistics(0.0, x2).entryCount;
-        double efficiency     = histoCounts / freeCounts0_x2;
+        double norm             = nom / denom;
+        double freeCounts_0_x2   = norm * factor;
+        double histoCounts_0_x2 = m_histo->calcStatistics(0.0, x2).entryCount;
+        double efficiency       = histoCounts_0_x2 / freeCounts_0_x2;
+        //double efficiency     = freeCounts0_x2 / histoCounts;
 
-#if 0
+#if 1
         qDebug() << __PRETTY_FUNCTION__
-            << " tau =" << tau
-            //<< ", c =" << c
-            //<< ", c_norm =" << c_norm
-            << "nom = " << nom
-            << "denom = " << denom
-            << "factor =" << factor
-            << "freeRate=" << freeRate
-            << ", freeCounts=" << freeCounts0_x2
-            << ", histoCounts =" << histoCounts
+            << "run =" << m_context->getRunInfo().runId << endl
+            << "x1,y1 =" << x1 << y1 << endl
+            << "x2,y2 =" << x2 << y2 << endl
+            << "tau =" << tau
+            << "freeRate (1/tau) =" << freeRate << endl
+            << "nom (counts x1_x2) =" << nom << endl
+            << "denom =" << denom << endl
+            << "factor =" << factor << endl
+            << "norm =" << norm << endl
+            << "freeCounts_0_x2 =" << freeCounts_0_x2 << endl
+            << "histoCounts_0_x2 =" << histoCounts_0_x2 << endl
+            << "histoCounts_total =" << m_histo->calcStatistics(m_histo->getXMin(), m_histo->getXMax()).entryCount << endl
+            << "efficiency =" << efficiency
             ;
 #endif
 
