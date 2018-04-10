@@ -1946,7 +1946,7 @@ void condition_filter_step(Operator *op)
  * Expression Operator
  * =============================================== */
 
-#if 1
+#if 0
 Operator make_expression_operator(
     memory::Arena *arena,
     PipeVectors inPipe,
@@ -2784,7 +2784,7 @@ static const OperatorFunctions OperatorTable[OperatorTypeCount] =
     [Operator_Aggregate_MeanX] = { aggregate_meanx_step },
     [Operator_Aggregate_SigmaX] = { aggregate_sigmax_step },
 
-#if 1
+#if 0
     [Operator_Expression] = { expression_operator_step },
 #else
     [Operator_Expression] = { nullptr },

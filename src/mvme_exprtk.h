@@ -3,51 +3,22 @@
 
 #include <map>
 #include <memory>
+#include <QString>
 #include <string>
 #include <vector>
+
+#include "analysis/a2/a2_exprtk.h"
 
 namespace mvme_exprtk
 {
 
-struct ParseError
+using ParserError = a2::a2_exprtk::ParserError;
+
+class SymbolTable: public a2::a2_exprtk::SymbolTable
 {
-    std::string mode;
-    std::string diagnostic;
-    std::string src_location;
-    std::string error_line;
-    size_t line = 0, column = 0;
-};
-
-struct SymbolTable
-{
-    struct Entry
-    {
-        enum Type
-        {
-            Scalar,
-            String,
-            Vector
-        };
-
-        Type type;
-        union
-        {
-            double *scalar;
-            std::string *string;
-            std::vector<double> *vector;
-            struct
-            {
-                double *array;
-                size_t size;
-            } array;
-        };
-    };
-
-    std::map<std::string, Entry> entries;
-
-    bool add_scalar(const std::string &name, double &value);
-    bool add_string(const std::string &name, std::string &str);
-    bool add_vector(const std::string &name, std::vector<double> &vec);
+    bool add_scalar(const QString &name, double &value);
+    bool add_string(const QString &name, std::string &str);
+    bool add_vector(const QString &name, std::vector<double> &vec);
 };
 
 class Expression
@@ -56,10 +27,13 @@ class Expression
         Expression();
         virtual ~Expression();
 
-        void setScript(const QString &str);
-        QString getScript() const;
+        void setExpressionString(const QString &str);
+        QString getExpressionString() const;
+
+        void registerSymbolTable(const SymbolTable &symtab);
 
         void compile();
+        double eval();
 
     private:
         struct Private;

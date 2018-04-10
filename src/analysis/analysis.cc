@@ -2608,7 +2608,7 @@ ExpressionOperator::ExpressionOperator(QObject *parent)
 
 void ExpressionOperator::beginRun(const RunInfo &runInfo, Logger logger)
 {
-#if 1
+#if 0
     /* Create the a2 operator which runs the begin script to figure out the
      * output size and limits. Then copy the limits to this operators output
      * pipe. */

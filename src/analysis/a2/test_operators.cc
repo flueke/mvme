@@ -1049,7 +1049,7 @@ BENCHMARK(BM_binary_equation_step);
 //#warning "missing test for binary_equation_step"
 
 
-#if 1
+#if 0
 static void TEST_expression_operator_create(benchmark::State &state)
 {
     Arena arena(Kilobytes(256));

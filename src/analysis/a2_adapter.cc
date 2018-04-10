@@ -518,7 +518,7 @@ DEF_OP_MAGIC(condition_filter_magic)
     return result;
 }
 
-#if 1
+#if 0
 DEF_OP_MAGIC(expression_operator_magic)
 {
     LOG("");
@@ -745,7 +745,7 @@ static const QHash<const QMetaObject *, OperatorMagic *> OperatorMagicTable =
     { &analysis::RectFilter2D::staticMetaObject,            rect_filter_magic },
     { &analysis::ConditionFilter::staticMetaObject,         condition_filter_magic },
     { &analysis::Sum::staticMetaObject,                     sum_magic },
-#if 1
+#if 0
     { &analysis::ExpressionOperator::staticMetaObject,      expression_operator_magic },
 #endif
 
