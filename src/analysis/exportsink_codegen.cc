@@ -67,6 +67,11 @@ static void render_to_file(
 
     auto rendered = render_to_string(templateFilename, templateData, flags);
 
+    if (logger)
+    {
+        logger(QSL("Generating file %1").arg(outputFilename));
+    }
+
     QFile outFile(outputFilename);
 
     if (!outFile.open(QIODevice::WriteOnly))
@@ -91,11 +96,6 @@ static void render_to_file(
 
             throw std::runtime_error(msg.toStdString());
         }
-    }
-
-    if (logger)
-    {
-        logger(QSL("Wrote output file %1").arg(outputFilename));
     }
 }
 

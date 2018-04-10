@@ -12,6 +12,7 @@
 #include "util/typed_block.h"
 
 #include <cassert>
+#include <cpp11-on-multicore/common/rwlock.h>
 #include <pcg_random.hpp>
 
 namespace a2
@@ -525,6 +526,27 @@ struct ExportSinkData
 
     // Condition input index. If negative the condition input will be unused.
     s32 condIndex = -1;
+
+    // runtime state
+    u64 eventsWritten = 0;
+    u64 bytesWritten  = 0;
+    std::string lastError;
+
+    mutable NonRecursiveRWLock lastErrorLock;
+    using WriteGuard = WriteLockGuard<NonRecursiveRWLock>;
+    using ReadGuard  = ReadLockGuard<NonRecursiveRWLock>;
+
+    std::string getLastError() const
+    {
+        ReadGuard guard(lastErrorLock);
+        return lastError;
+    }
+
+    void setLastError(const std::string &msg)
+    {
+        WriteGuard guard(lastErrorLock);
+        lastError = msg;
+    }
 };
 
 // No condition input. All data will be written to the output file.
@@ -564,7 +586,9 @@ struct A2
     std::array<u8 *, MaxVMEEvents> operatorRanks;
 };
 
-void a2_begin_run(A2 *a2);
+using Logger = std::function<void (const std::string &msg)>;
+
+void a2_begin_run(A2 *a2, Logger logger);
 void a2_begin_event(A2 *a2, int eventIndex);
 void a2_process_module_data(A2 *a2, int eventIndex, int moduleIndex, u32 *data, u32 dataSize);
 void a2_end_event(A2 *a2, int eventIndex);

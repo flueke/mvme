@@ -150,7 +150,14 @@ void MVMEStreamProcessor::MVMEStreamProcessor::beginRun(
     //
 
     m_d->analysis->beginRun(runInfo, vme_analysis_common::build_id_to_index_mapping(vmeConfig));
-    a2::a2_begin_run(m_d->analysis->getA2AdapterState()->a2);
+
+    auto logger_adapter = [logger](const std::string &std_str)
+    {
+        if (logger)
+            logger(QString::fromStdString(std_str));
+    };
+
+    a2::a2_begin_run(m_d->analysis->getA2AdapterState()->a2, logger_adapter);
 
     startConsumers();
 

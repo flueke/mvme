@@ -22,9 +22,11 @@ using benchmark::Counter;
 
 #ifndef NDEBUG
 // Comparator taking into account that extractors add a random in [0.0, 1.0).
+// To catch a bug where the random value is lost we assume that the random is
+// in (0.0, 1.0) and compare accordingly.
 inline bool dcmp(double d, double expected)
 {
-    return expected <= d && d <= expected + 1.0;
+    return expected < d && d <= expected + 1.0;
 };
 #endif
 

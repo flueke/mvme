@@ -1122,20 +1122,14 @@ void aggregate_multiplicity_step(Operator *op)
     auto output = op->outputs[0];
     auto thresholds = *reinterpret_cast<Thresholds *>(op->d);
 
-    output[0] = invalid_param();
-    s32 result = -1;
+    output[0] = 0.0;
 
     for (s32 i = 0; i < input.size; i++)
     {
         if (is_valid_and_inside(input[i], thresholds))
         {
-            result++;
+            output[0]++;
         }
-    }
-
-    if (result >= 0) // got at least one valid
-    {
-        output[0] = result + 1; // adjust for the initial -1
     }
 }
 
@@ -2537,7 +2531,7 @@ static const size_t CompressionBufferSize = 1u << 20;
  *   further attempts at writing to the file are performed.
  */
 
-void export_sink_begin_run(Operator *op)
+void export_sink_begin_run(Operator *op, Logger logger)
 {
     a2_trace("\n");
     assert(op->type == Operator_ExportSinkFull
@@ -2556,10 +2550,17 @@ void export_sink_begin_run(Operator *op)
         {
             d->z_ostream.reset(new zstr::ostream(*d->ostream));
         }
+
+        std::ostringstream ss;
+        ss << "File Export: Opened output file " << d->filename;
+        logger(ss.str());
     }
     catch (const std::exception &e)
     {
-        cerr << __PRETTY_FUNCTION__ << ": exception caught: " << e.what() << endl; // FIXME: error reporting
+        std::ostringstream ss;
+        ss << "File Export: Error opening output file " << d->filename << ": " << e.what();
+        logger(ss.str());
+        d->setLastError(ss.str());
     }
 }
 
@@ -2570,20 +2571,11 @@ void export_sink_full_step(Operator *op)
 
     auto d = reinterpret_cast<ExportSinkData *>(op->d);
 
-    if (d->compressionLevel != 0)
-    {
-        assert(d->z_ostream);
-    }
-    else
-    {
-        assert(d->ostream);
-    }
-
     std::ostream *outp = (d->compressionLevel != 0
                           ? d->z_ostream.get()
                           : d->ostream.get());
 
-    assert(outp);
+    if (!outp) return;
 
     s32 dataInputCount = op->inputCount;
 
@@ -2609,25 +2601,30 @@ void export_sink_full_step(Operator *op)
                 auto input = op->inputs[inputIndex];
                 assert(input.size <= std::numeric_limits<u16>::max());
 
-                outp->write(reinterpret_cast<char *>(input.data), input.size * sizeof(double));
+                size_t bytes = input.size * sizeof(double);
+
+                outp->write(reinterpret_cast<char *>(input.data), bytes);
+
+                d->bytesWritten += bytes;
             }
-        }
-        else
-        {
-            cerr << __PRETTY_FUNCTION__ << ": did not write data as !outp->good()" << endl;
+
+            d->eventsWritten++;
         }
     }
     catch (const std::exception &e)
     {
-        cerr << __PRETTY_FUNCTION__ << ": exception caught: " << e.what() << endl; // FIXME: error reporting
+        std::ostringstream ss;
+        ss << "Error writing to output file " << d->filename << ": " << e.what();
+        d->setLastError(ss.str());
     }
 }
 
-static void write_indexed_parameter_vector(std::ostream &out, const ParamVec &vec)
+static size_t write_indexed_parameter_vector(std::ostream &out, const ParamVec &vec)
 {
     assert(vec.size >= 0);
     assert(vec.size <= std::numeric_limits<u16>::max());
 
+    size_t bytesWritten = 0;
     u16 validCount = 0;
 
     for (s32 i = 0; i < vec.size; i++)
@@ -2636,11 +2633,11 @@ static void write_indexed_parameter_vector(std::ostream &out, const ParamVec &ve
             validCount++;
     }
 
-#if 1
     // Write a size prefix and two arrays with length 'validCount', one
     // containing 16-bit index values, the other containing the corresponding
     // parameter values.
     out.write(reinterpret_cast<char *>(&validCount), sizeof(validCount));
+    bytesWritten += sizeof(validCount);
 
     for (u16 i = 0; i < static_cast<u16>(vec.size); i++)
     {
@@ -2648,6 +2645,7 @@ static void write_indexed_parameter_vector(std::ostream &out, const ParamVec &ve
         {
             // 16-bit index value
             out.write(reinterpret_cast<char *>(&i), sizeof(i));
+            bytesWritten += sizeof(i);
         }
     }
 
@@ -2657,47 +2655,25 @@ static void write_indexed_parameter_vector(std::ostream &out, const ParamVec &ve
         {
             // 64-bit double value
             out.write(reinterpret_cast<char *>(vec.data + i), sizeof(double));
+            bytesWritten += sizeof(double);
         }
     }
-#else
-    // Write a size prefix specifying the number of (index, value) pairs as a
-    // 16-bit unsigned value.
-    out.write(reinterpret_cast<char *>(&validCount), sizeof(validCount));
 
-    // Write the (index, value) pairs.
-    for (u16 i = 0; i < static_cast<u16>(vec.size); i++)
-    {
-        if (is_param_valid(vec[i]))
-        {
-            // 16-bit index, 64-bit value
-            out.write(reinterpret_cast<char *>(&i), sizeof(i));
-            out.write(reinterpret_cast<char *>(vec.data + i), sizeof(double));
-        }
-    }
-#endif
+    return bytesWritten;
 }
 
-void export_sink_indexed_step(Operator *op)
+void export_sink_sparse_step(Operator *op)
 {
     a2_trace("\n");
     assert(op->type == Operator_ExportSinkSparse);
 
     auto d = reinterpret_cast<ExportSinkData *>(op->d);
 
-    if (d->compressionLevel != 0)
-    {
-        assert(d->z_ostream);
-    }
-    else
-    {
-        assert(d->ostream);
-    }
-
     std::ostream *outp = (d->compressionLevel != 0
                           ? d->z_ostream.get()
                           : d->ostream.get());
 
-    assert(outp);
+    if (!outp) return;
 
     s32 dataInputCount = op->inputCount;
 
@@ -2722,17 +2698,19 @@ void export_sink_indexed_step(Operator *op)
             {
                 auto input = op->inputs[inputIndex];
                 assert(input.size <= std::numeric_limits<u16>::max());
-                write_indexed_parameter_vector(*outp, input);
+
+                size_t bytes = write_indexed_parameter_vector(*outp, input);
+                d->bytesWritten += bytes;
             }
-        }
-        else
-        {
-            cerr << __PRETTY_FUNCTION__ << ": did not write data as !outp->good()" << endl;
+
+            d->eventsWritten++;
         }
     }
     catch (const std::exception &e)
     {
-        cerr << __PRETTY_FUNCTION__ << ": exception caught: " << e.what() << endl; // FIXME: error reporting
+        std::ostringstream ss;
+        ss << "Error writing to output file " << d->filename << ": " << e.what();
+        d->setLastError(ss.str());
     }
 }
 
@@ -2744,10 +2722,10 @@ void export_sink_end_run(Operator *op)
 
     auto d = reinterpret_cast<ExportSinkData *>(op->d);
 
-    // The destructors being called due to clearing the unique_ptrs should not
-    // be allowed to throw.
+    // The destructors being called as a result of clearing the unique_ptrs
+    // should not throw.
     d->z_ostream = {};
-    d->ostream = {};
+    d->ostream   = {};
 }
 
 /* ===============================================
@@ -2757,7 +2735,7 @@ void export_sink_end_run(Operator *op)
 struct OperatorFunctions
 {
     using StepFunction      = void (*)(Operator *op);
-    using BeginRunFunction  = void (*)(Operator *op);
+    using BeginRunFunction  = void (*)(Operator *op, Logger logger);
     using EndRunFunction    = void (*)(Operator *op);
 
     StepFunction step;
@@ -2785,8 +2763,8 @@ static const OperatorFunctions OperatorTable[OperatorTypeCount] =
     [Operator_RateMonitor_CounterDifference] = { rate_monitor_step },
     [Operator_RateMonitor_FlowRate] = { rate_monitor_step },
 
-    [Operator_ExportSinkFull]   = { export_sink_full_step, export_sink_begin_run, export_sink_end_run },
-    [Operator_ExportSinkSparse] = { export_sink_indexed_step, export_sink_begin_run, export_sink_end_run },
+    [Operator_ExportSinkFull]   = { export_sink_full_step,   export_sink_begin_run, export_sink_end_run },
+    [Operator_ExportSinkSparse] = { export_sink_sparse_step, export_sink_begin_run, export_sink_end_run },
 
     [Operator_RangeFilter] = { range_filter_step },
     [Operator_RangeFilter_idx] = { range_filter_step_idx },
@@ -3168,7 +3146,7 @@ static OperatorRangeWorkQueue A2WorkQueue(WorkQueueSize);
 
 static std::vector<std::thread> A2Threads = {};
 
-void a2_begin_run(A2 *a2)
+void a2_begin_run(A2 *a2, Logger logger)
 {
     if (A2AdditionalThreads > 0)
     {
@@ -3196,7 +3174,7 @@ void a2_begin_run(A2 *a2)
 
             if (OperatorTable[op->type].begin_run)
             {
-                OperatorTable[op->type].begin_run(op);
+                OperatorTable[op->type].begin_run(op, logger);
             }
         }
     }

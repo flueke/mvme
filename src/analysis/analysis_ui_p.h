@@ -84,6 +84,7 @@ class EventWidget: public QWidget
         void uniqueWidgetCloses();
         void addUserLevel();
         void removeUserLevel();
+        void toggleSinkEnabled(SinkInterface *sink);
         void repopulate();
         QToolBar *getToolBar();
         QToolBar *getEventSelectAreaToolBar();
@@ -476,6 +477,8 @@ class DisplayTree: public EventWidgetTree
 
         QTreeWidgetItem *histo1DRoot = nullptr;
         QTreeWidgetItem *histo2DRoot = nullptr;
+        QTreeWidgetItem *rateRoot    = nullptr;
+        QTreeWidgetItem *exportRoot  = nullptr;
 };
 
 class SessionErrorDialog: public QDialog
@@ -483,6 +486,31 @@ class SessionErrorDialog: public QDialog
     Q_OBJECT
     public:
         SessionErrorDialog(const QString &message, const QString &title = QString(), QWidget *parent = nullptr);
+};
+
+class ExportSinkStatusMonitor: public QWidget
+{
+    Q_OBJECT
+    public:
+        ExportSinkStatusMonitor(const std::shared_ptr<ExportSink> &sink,
+                                MVMEContext *context,
+                                QWidget *parent = nullptr);
+
+    private slots:
+        void update();
+
+    private:
+        std::shared_ptr<ExportSink> m_sink;
+        MVMEContext *m_context;
+
+        QLabel *label_outputDirectory,
+               *label_fileName,
+               *label_fileSize,
+               *label_eventsWritten,
+               *label_bytesWritten,
+               *label_status;
+
+        QPushButton *pb_openDirectory;
 };
 
 }

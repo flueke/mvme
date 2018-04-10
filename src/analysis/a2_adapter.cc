@@ -1008,11 +1008,21 @@ auto a2_adapter_filter_operators(QVector<Analysis::OperatorEntry> operators)
     {
         auto &entry = operators[opIndex];
 
-        if (entry.op && !required_inputs_connected_and_valid(entry.op.get()))
+        if (entry.op)
         {
-            QLOG("filtering out" << entry.op.get() << "and children");
-            set_null_if_input_is(operators, entry.op.get(), opIndex + 1);
-            entry.op.reset();
+            bool filter_out = !required_inputs_connected_and_valid(entry.op.get());
+
+            if (auto sink = qobject_cast<SinkInterface *>(entry.op.get()))
+            {
+                filter_out = filter_out || !sink->isEnabled();
+            }
+
+            if (filter_out)
+            {
+                QLOG("filtering out" << entry.op.get() << "and children");
+                set_null_if_input_is(operators, entry.op.get(), opIndex + 1);
+                entry.op.reset();
+            }
         }
     }
 
