@@ -820,7 +820,7 @@ void Histo1DWidget::replot()
         double norm_fitCurve          = y1 / (( 1.0 / tau) * pow(E1, -x1 / tau));
         double norm_fitCurve_adjusted = norm_fitCurve * m_histo->getAxisBinning(Qt::XAxis).getBinsToUnitsRatio();
 
-#if 1
+#if 0
         qDebug() << __PRETTY_FUNCTION__ << endl
             << "run =" << m_context->getRunInfo().runId << endl
             << "  x1,y1 =" << x1 << y1 << endl
