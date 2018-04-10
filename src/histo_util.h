@@ -183,6 +183,7 @@ class AxisBinning
         inline double getBinWidth() const { return getWidth() / getBins(); }
         inline double getBinLowEdge(u32 bin) const { return getMin() + bin * getBinWidth(); }
         inline double getBinCenter(u32 bin) const { return getBinLowEdge(bin) + getBinWidth() * 0.5; }
+        inline double getBinsToUnitsRatio() const { return getBins() / getWidth(); }
 
         // Allows passing a fractional bin number
         inline double getBinLowEdgeFractional(double binFraction) const { return getMin() + binFraction * getBinWidth(); }

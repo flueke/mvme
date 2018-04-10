@@ -193,14 +193,24 @@ class RateEstimationCurveData: public QwtSyntheticPointData
 
         virtual double y(double x) const override
         {
-            double x1 = m_data->x1;
-            double x2 = m_data->x2;
-            double y1 = m_histo->getValue(x1);
-            double y2 = m_histo->getValue(x2);
+            auto xy1 = m_histo->getValueAndBinLowEdge(m_data->x1);
+            auto xy2 = m_histo->getValueAndBinLowEdge(m_data->x2);
+
+            double x1 = xy1.first;
+            double y1 = xy1.second;
+            double x2 = xy2.first;
+            double y2 = xy2.second;
+
             double tau = (x2 - x1) / log(y1 / y2);
 
-            //double norm = y1 / (( 1.0 / tau) * pow(E1, -x1 / tau));
-            //qDebug() << __PRETTY_FUNCTION__ << "graphical norm =" << norm;
+#if 0
+            double norm = y1 / (( 1.0 / tau) * pow(E1, -x1 / tau));
+
+            qDebug() << __PRETTY_FUNCTION__
+                << "graphical norm =" << norm
+                << "bin / units adjusted norm" << norm * m_histo->getAxisBinning(Qt::XAxis).getBinsToUnitsRatio()
+                ;
+#endif
 
             double result = y1 * (pow(E1, -x/tau) / pow(E1, -x1/tau));
 
@@ -238,10 +248,10 @@ struct Histo1DWidgetPrivate
             *m_actionInfo;
 
     RateEstimationData m_rateEstimationData;
-    QwtPlotPicker *m_ratePointPicker;
-    QwtPlotMarker *m_rateX1Marker;
-    QwtPlotMarker *m_rateX2Marker;
-    QwtPlotMarker *m_rateFormulaMarker;
+    QwtPlotPicker *m_rateEstimationPointPicker;
+    QwtPlotMarker *m_rateEstimationX1Marker;
+    QwtPlotMarker *m_rateEstimationX2Marker;
+    QwtPlotMarker *m_rateEstimationFormulaMarker;
 
     QwtPlotCurve *m_gaussCurve = nullptr;
     QwtPlotCurve *m_rateEstimationCurve = nullptr;
@@ -561,25 +571,25 @@ Histo1DWidget::Histo1DWidget(Histo1D *histo, QWidget *parent)
         return marker;
     };
 
-    m_d->m_rateX1Marker = make_position_marker(m_d->m_plot);
-    m_d->m_rateX2Marker = make_position_marker(m_d->m_plot);
+    m_d->m_rateEstimationX1Marker = make_position_marker(m_d->m_plot);
+    m_d->m_rateEstimationX2Marker = make_position_marker(m_d->m_plot);
 
-    m_d->m_rateFormulaMarker = new QwtPlotMarker;
-    m_d->m_rateFormulaMarker->setLabelAlignment(Qt::AlignRight | Qt::AlignTop);
-    m_d->m_rateFormulaMarker->setZ(PlotTextLayerZ);
-    m_d->m_rateFormulaMarker->attach(m_d->m_plot);
-    m_d->m_rateFormulaMarker->hide();
+    m_d->m_rateEstimationFormulaMarker = new QwtPlotMarker;
+    m_d->m_rateEstimationFormulaMarker->setLabelAlignment(Qt::AlignRight | Qt::AlignTop);
+    m_d->m_rateEstimationFormulaMarker->setZ(PlotTextLayerZ);
+    m_d->m_rateEstimationFormulaMarker->attach(m_d->m_plot);
+    m_d->m_rateEstimationFormulaMarker->hide();
 
-    m_d->m_ratePointPicker = new QwtPlotPicker(QwtPlot::xBottom, QwtPlot::yLeft,
+    m_d->m_rateEstimationPointPicker = new QwtPlotPicker(QwtPlot::xBottom, QwtPlot::yLeft,
                                                QwtPicker::VLineRubberBand, QwtPicker::ActiveOnly,
                                                m_d->m_plot->canvas());
     QPen pickerPen(Qt::red);
-    m_d->m_ratePointPicker->setTrackerPen(pickerPen);
-    m_d->m_ratePointPicker->setRubberBandPen(pickerPen);
-    m_d->m_ratePointPicker->setStateMachine(new AutoBeginClickPointMachine);
-    m_d->m_ratePointPicker->setEnabled(false);
+    m_d->m_rateEstimationPointPicker->setTrackerPen(pickerPen);
+    m_d->m_rateEstimationPointPicker->setRubberBandPen(pickerPen);
+    m_d->m_rateEstimationPointPicker->setStateMachine(new AutoBeginClickPointMachine);
+    m_d->m_rateEstimationPointPicker->setEnabled(false);
 
-    TRY_ASSERT(connect(m_d->m_ratePointPicker, SIGNAL(selected(const QPointF &)),
+    TRY_ASSERT(connect(m_d->m_rateEstimationPointPicker, SIGNAL(selected(const QPointF &)),
                        this, SLOT(on_ratePointerPicker_selected(const QPointF &))));
 
     auto make_plot_curve = [](QColor penColor, double penWidth, double zLayer, QwtPlot *plot = nullptr, bool hide = true)
@@ -762,15 +772,17 @@ void Histo1DWidget::replot()
     updateCursorInfoLabel();
 
     // update histo info label
-    auto infoText = QString("Underflow: %1\n"
-                            "Overflow:  %2\n"
-                            "NumBins:   %3\n"
-                            "BinWidth:  %4"
+    auto infoText = QString("Underflow:  %1\n"
+                            "Overflow:   %2\n"
+                            "NumBins:    %3\n"
+                            "BinWidth:   %4\n"
+                            "Bins/Units: %5"
                             )
         .arg(m_histo->getUnderflow())
         .arg(m_histo->getOverflow())
         .arg(m_histo->getAxisBinning(Qt::XAxis).getBins())
         .arg(m_histo->getAxisBinning(Qt::XAxis).getBinWidth())
+        .arg(m_histo->getAxisBinning(Qt::XAxis).getBinsToUnitsRatio())
         ;
 
 
@@ -781,39 +793,51 @@ void Histo1DWidget::replot()
     {
         /* This code tries to interpolate the exponential function formed by
          * the two selected data points. */
-        double x1 = m_d->m_rateEstimationData.x1;
-        double x2 = m_d->m_rateEstimationData.x2;
-        double y1 = m_histo->getValue(x1);
-        double y2 = m_histo->getValue(x2);
+
+        auto xy1  = m_histo->getValueAndBinLowEdge(m_d->m_rateEstimationData.x1);
+        auto xy2  = m_histo->getValueAndBinLowEdge(m_d->m_rateEstimationData.x2);
+
+        double x1 = xy1.first;
+        double y1 = xy1.second;
+        double x2 = xy2.first;
+        double y2 = xy2.second;
 
         double tau      = (x2 - x1) / log(y1 / y2);
         double freeRate = 1.0 / tau; // 1/x-axis unit
 
         double nom      = m_histo->calcStatistics(x1, x2).entryCount;
         double denom    = ( (pow(E1, -x1/tau) - pow(E1, -x2/tau)));
-        double factor   = (1.0 - pow(E1, -x2/tau));
+        double factor   = (1.0 - pow(E1, -x1/tau));
 
-        double norm             = nom / denom;
-        double freeCounts_0_x2   = norm * factor;
-        double histoCounts_0_x2 = m_histo->calcStatistics(0.0, x2).entryCount;
-        double efficiency       = histoCounts_0_x2 / freeCounts_0_x2;
-        //double efficiency     = freeCounts0_x2 / histoCounts;
+        double norm                 = nom / denom;
+        double freeCounts_0_x1      = norm * factor;
+        double histoCounts_0_x1     = m_histo->calcStatistics(0.0, x1).entryCount;
+        double freeCounts_x1_inf    = norm * pow(E1, -x1 / tau);
+        double freeCounts_0_inf     = norm;
+        double efficiency           = (histoCounts_0_x1 + freeCounts_x1_inf) / freeCounts_0_inf;
+
+        // Same values as used in RateEstimationCurveData but printed here to avoid spamming
+        double norm_fitCurve          = y1 / (( 1.0 / tau) * pow(E1, -x1 / tau));
+        double norm_fitCurve_adjusted = norm_fitCurve * m_histo->getAxisBinning(Qt::XAxis).getBinsToUnitsRatio();
 
 #if 1
-        qDebug() << __PRETTY_FUNCTION__
+        qDebug() << __PRETTY_FUNCTION__ << endl
             << "run =" << m_context->getRunInfo().runId << endl
-            << "x1,y1 =" << x1 << y1 << endl
-            << "x2,y2 =" << x2 << y2 << endl
-            << "tau =" << tau
-            << "freeRate (1/tau) =" << freeRate << endl
-            << "nom (counts x1_x2) =" << nom << endl
-            << "denom =" << denom << endl
-            << "factor =" << factor << endl
-            << "norm =" << norm << endl
-            << "freeCounts_0_x2 =" << freeCounts_0_x2 << endl
-            << "histoCounts_0_x2 =" << histoCounts_0_x2 << endl
-            << "histoCounts_total =" << m_histo->calcStatistics(m_histo->getXMin(), m_histo->getXMax()).entryCount << endl
-            << "efficiency =" << efficiency
+            << "  x1,y1 =" << x1 << y1 << endl
+            << "  x2,y2 =" << x2 << y2 << endl
+            << "  tau   =" << tau << endl
+            << "  freeRate (1/tau)   =" << freeRate << endl
+            << "  nom (counts x1_x2) =" << nom << endl
+            << "  denom  =" << denom << endl
+            << "  factor =" << factor << endl
+            << "  norm = freeCounts_0_inf =" << norm << endl
+            << "  freeCounts_0_x1   =" << freeCounts_0_x1 << endl
+            << "  histoCounts_0_x1  =" << histoCounts_0_x1 << endl
+            << "  histoCounts_total =" << m_histo->calcStatistics(m_histo->getXMin(), m_histo->getXMax()).entryCount << endl
+            << "  efficiency        =" << efficiency << endl
+            << endl
+            << "  norm_fitCurve          =" << norm_fitCurve << endl
+            << "  norm_fitCurve_adjusted =" << norm_fitCurve_adjusted
             ;
 #endif
 
@@ -861,7 +885,7 @@ void Histo1DWidget::replot()
         auto font = rateFormulaText.font();
         font.setPointSize(font.pointSize() + 1);
         rateFormulaText.setFont(font);
-        m_d->m_rateFormulaMarker->setXValue(x1);
+        m_d->m_rateEstimationFormulaMarker->setXValue(x1);
 
         /* The goal is to draw the marker at 0.9 of the plot height. Doing this
          * in plot coordinates does work for a linear y-axis scale but
@@ -876,9 +900,9 @@ void Histo1DWidget::replot()
             pixelY = minPixelY;
         double plotY = m_d->m_plot->canvasMap(QwtPlot::yLeft).invTransform(pixelY);
 
-        m_d->m_rateFormulaMarker->setYValue(plotY);
-        m_d->m_rateFormulaMarker->setLabel(rateFormulaText);
-        m_d->m_rateFormulaMarker->show();
+        m_d->m_rateEstimationFormulaMarker->setYValue(plotY);
+        m_d->m_rateEstimationFormulaMarker->setLabel(rateFormulaText);
+        m_d->m_rateEstimationFormulaMarker->show();
     }
 
     // window and axis titles
@@ -1309,17 +1333,17 @@ void Histo1DWidget::on_tb_rate_toggled(bool checked)
     if (checked)
     {
         m_d->m_rateEstimationData = RateEstimationData();
-        m_d->m_ratePointPicker->setEnabled(true);
+        m_d->m_rateEstimationPointPicker->setEnabled(true);
         m_zoomer->setEnabled(false);
     }
     else
     {
         m_d->m_rateEstimationData.visible = false;
-        m_d->m_ratePointPicker->setEnabled(false);
+        m_d->m_rateEstimationPointPicker->setEnabled(false);
         m_zoomer->setEnabled(true);
-        m_d->m_rateX1Marker->hide();
-        m_d->m_rateX2Marker->hide();
-        m_d->m_rateFormulaMarker->hide();
+        m_d->m_rateEstimationX1Marker->hide();
+        m_d->m_rateEstimationX2Marker->hide();
+        m_d->m_rateEstimationFormulaMarker->hide();
         m_d->m_rateEstimationCurve->hide();
         replot();
     }
@@ -1349,9 +1373,11 @@ void Histo1DWidget::on_ratePointerPicker_selected(const QPointF &pos)
     {
         m_d->m_rateEstimationData.x1 = pos.x();
 
-        m_d->m_rateX1Marker->setXValue(m_d->m_rateEstimationData.x1);
-        m_d->m_rateX1Marker->setLabel(QString("    x1=%1").arg(m_d->m_rateEstimationData.x1));
-        m_d->m_rateX1Marker->show();
+        double x1 = m_histo->getValueAndBinLowEdge(m_d->m_rateEstimationData.x1).first;
+
+        m_d->m_rateEstimationX1Marker->setXValue(m_d->m_rateEstimationData.x1);
+        m_d->m_rateEstimationX1Marker->setLabel(QString("    x1=%1").arg(x1));
+        m_d->m_rateEstimationX1Marker->show();
     }
     else if (std::isnan(m_d->m_rateEstimationData.x2))
     {
@@ -1363,15 +1389,18 @@ void Histo1DWidget::on_ratePointerPicker_selected(const QPointF &pos)
         }
 
         m_d->m_rateEstimationData.visible = true;
-        m_d->m_ratePointPicker->setEnabled(false);
+        m_d->m_rateEstimationPointPicker->setEnabled(false);
         m_zoomer->setEnabled(true);
 
+        double x1 = m_histo->getValueAndBinLowEdge(m_d->m_rateEstimationData.x1).first;
+        double x2 = m_histo->getValueAndBinLowEdge(m_d->m_rateEstimationData.x2).first;
+
         // set both x1 and x2 as they might have been swapped above
-        m_d->m_rateX1Marker->setXValue(m_d->m_rateEstimationData.x1);
-        m_d->m_rateX1Marker->setLabel(QString("    x1=%1").arg(m_d->m_rateEstimationData.x1));
-        m_d->m_rateX2Marker->setXValue(m_d->m_rateEstimationData.x2);
-        m_d->m_rateX2Marker->setLabel(QString("    x2=%1").arg(m_d->m_rateEstimationData.x2));
-        m_d->m_rateX2Marker->show();
+        m_d->m_rateEstimationX1Marker->setXValue(m_d->m_rateEstimationData.x1);
+        m_d->m_rateEstimationX1Marker->setLabel(QString("    x1=%1").arg(x1));
+        m_d->m_rateEstimationX2Marker->setXValue(m_d->m_rateEstimationData.x2);
+        m_d->m_rateEstimationX2Marker->setLabel(QString("    x2=%1").arg(x2));
+        m_d->m_rateEstimationX2Marker->show();
         m_d->m_rateEstimationCurve->show();
     }
     else
