@@ -7,18 +7,10 @@ TODO list somewhat sorted by priority
   being made at an arbitrary point in the analysis for the specific event.
   This needs access to the raw input data.
 
-* Rate Estimation is wrong for high rates (~factor 3 for roberts test data from
-  ESS). At lower rates the value seems ok. Might be a miscaluclation of the
-  area below the fitted exp function.
-
-* Add ability to disable ExportSink and other operators.
 * Add grouping of operators. Allow disabling of groups.
-
-* SIS: NIM and timer stack execution frequency goes down with rising IRQ load.
-  Figure out if there's documentation on the priority of the stack lists. Think
-  about what we want and expect ("what's good enough").
-  Try changing the order of the stacklists: make the timers the first lists,
-  nim second, irqs last.
+  These would be like directories in the filesystem. Also for histograms a
+  widget with free placement of histograms could be added. This stuff would be
+  stored in the analysis.
 
 * Transport more state of the DAQ to the analysis side. Right now the stream
   processor always creates a session auto-save even if the DAQ did not start up
@@ -44,11 +36,6 @@ TODO list somewhat sorted by priority
   A real packet number prefix would be ideal.
 
 * Integrate the listfile recovery hack thingy into mvme. Build it and distrubte the binary with releases.
-
-* Fix some windows issues:
-  - SIS "no error" errors (use WSA stuff)
-  - vme script editor focus issues
-  - "explore workspace" doesn't work? does it?
 
 * Maybe add a session file browser/explorer thingy. Could even allow multiple
   open sessions at once. Make sure histos and other objects clearly show which
