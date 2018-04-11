@@ -138,6 +138,8 @@ option(BUILD_TESTS "Build test binaries" OFF)
 if (BUILD_TESTS)
     message("-- Building test binaries")
     enable_testing()
+    add_subdirectory(3rdparty/googletest)
+    include_directories(${gtest_SOURCE_DIR}/include)
     add_subdirectory(test)
 endif()
 
