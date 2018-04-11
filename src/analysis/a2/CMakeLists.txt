@@ -107,6 +107,11 @@ if(BUILD_TESTS)
     add_a2_bench(test_a2_listfilter test_listfilter.cc)
     add_a2_bench(test_a2_arena test_arena.cc)
 
+    add_executable(test_a2_exprtk test_a2_exprtk.cc)
+    add_dependencies(test_a2_exprtk liba2_shared)
+    target_link_libraries(test_a2_exprtk liba2_shared gtest gtest_main)
+    add_test(NAME test_a2_exprtk COMMAND $<TARGET_FILE:test_a2_exprtk>)
+
 endif(BUILD_TESTS)
 
 file(COPY env DESTINATION ${CMAKE_BINARY_DIR})

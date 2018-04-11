@@ -11,18 +11,21 @@ namespace a2
 namespace a2_exprtk
 {
 
-struct ParserError
+struct ParserError: std::runtime_error
 {
     std::string mode;
     std::string diagnostic;
     std::string src_location;
     std::string error_line;
     size_t line = 0, column = 0;
+
+    ParserError(): std::runtime_error("ParserError") {}
 };
 
 class SymbolTable
 {
     public:
+#if 0
         struct Entry
         {
             enum Type
@@ -51,18 +54,34 @@ class SymbolTable
                 double constant;
             };
         };
+#endif
 
-    bool add_scalar(const std::string &name, double &value);
-    bool add_string(const std::string &name, std::string &str);
-    bool add_vector(const std::string &name, std::vector<double> &vec);
-    bool add_array(const std::string &name, double *array, size_t size);
-    bool add_constant(const std::string &name, double value);
-    // TODO: add_function();
-    // search for ff00_functor in exprtk.hpp and copy/pasta that code
+    SymbolTable();
+    ~SymbolTable();
+
+    SymbolTable(const SymbolTable &other);
+    SymbolTable &operator=(const SymbolTable &other);
+
+    std::vector<std::string> getSymbolNames() const;
+
+    bool addScalar(const std::string &name, double &value);
+    bool addString(const std::string &name, std::string &str);
+    bool addVector(const std::string &name, std::vector<double> &vec);
+    bool addVector(const std::string &name, double *array, size_t size);
+    bool addConstant(const std::string &name, double value); // TO
+
+    // NOTE: There's currently no way to get back to the original std::vector
+    // registered via addVector().
+
+    double *getScalar(const std::string &name);
+    std::string *getString(const std::string &name);
+    std::pair<double *, size_t> getVector(const std::string &name);
+    //double getConstant(const std::string &name) const;
 
     private:
         friend class Expression;
-        std::map<std::string, Entry> entries;
+        struct Private;
+        std::unique_ptr<Private> m_d;
 };
 
 class Expression
@@ -94,7 +113,7 @@ class Expression
         void registerSymbolTable(const SymbolTable &symtab);
 
         void compile();
-        double eval();
+        double value();
         std::vector<Result> results();
 
     private:

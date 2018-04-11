@@ -1,6 +1,10 @@
 #include "a2_exprtk.h"
 
 #ifndef NDEBUG
+#define DO_DEBUG_PRINTS
+#endif
+
+#ifndef NDEBUG
 #define exprtk_disable_enhanced_features    // reduces compilation time at cost of runtime performance
 #endif
 #define exprtk_disable_rtl_io_file          // we do not ever want to use the fileio package
@@ -8,86 +12,24 @@
 
 #include <iostream>
 #include "util/assert.h"
+#include "util/nan.h"
+
+/* TODO list for a2_exprtk:
+ * figure out if add_function() is needed, if so add an implementation to
+   SymbolTable
+
+ * understand why e_commutative_check behaves the way it does. see the note
+   below CompileOptions for an explanation
+
+ * implement double getConstant(const std::string &name) const; if needed and
+   possible
+
+ */
 
 namespace a2
 {
 namespace a2_exprtk
 {
-
-/* TODO: make use of the lists of keywords and standard function in the
- * exprtk::detail namespace to check for name validity.  Or implement the
- * symbol table using a hidden private exprtk symbol_table instance instead of
- * the std::map. */
-bool SymbolTable::add_scalar(const std::string &name, double &value)
-{
-    if (entries.find(name) != entries.end())
-        return false;
-
-    Entry entry  = {};
-    entry.type   = Entry::Scalar;
-    entry.scalar = &value;
-
-    entries[name] = entry;
-
-    return true;
-}
-
-bool SymbolTable::add_string(const std::string &name, std::string &str)
-{
-    if (entries.find(name) != entries.end())
-        return false;
-
-    Entry entry  = {};
-    entry.type   = Entry::String;
-    entry.string = &str;
-
-    entries[name] = entry;
-
-    return true;
-}
-
-bool SymbolTable::add_vector(const std::string &name, std::vector<double> &vec)
-{
-    if (entries.find(name) != entries.end())
-        return false;
-
-    Entry entry  = {};
-    entry.type   = Entry::Vector;
-    entry.vector = &vec;
-
-    entries[name] = entry;
-
-    return true;
-}
-
-bool SymbolTable::add_array(const std::string &name, double *array, size_t size)
-{
-    if (entries.find(name) != entries.end())
-        return false;
-
-    Entry entry  = {};
-    entry.type   = Entry::Array;
-    entry.array  = array;
-    entry.size   = size;
-
-    entries[name] = entry;
-
-    return true;
-}
-
-bool SymbolTable::add_constant(const std::string &name, double value)
-{
-    if (entries.find(name) != entries.end())
-        return false;
-
-    Entry entry    = {};
-    entry.type     = Entry::Constant;
-    entry.constant = value;
-
-    entries[name] = entry;
-
-    return true;
-}
 
 namespace detail
 {
@@ -99,14 +41,116 @@ typedef Parser::settings_t              ParserSettings;
 typedef exprtk::results_context<double> ResultsContext;
 
 static const size_t CompileOptions = ParserSettings::e_replacer          +
-                                   //ParserSettings::e_joiner            +
+                                   //ParserSettings::e_joiner            + // Joins things like "< =" to become "<="
                                      ParserSettings::e_numeric_check     +
                                      ParserSettings::e_bracket_check     +
                                      ParserSettings::e_sequence_check    +
-                                   //ParserSettings::e_commutative_check +
+                                     ParserSettings::e_commutative_check + // "3x" -> "3*x"
                                      ParserSettings::e_strength_reduction;
 
+/* NOTE: I wanted to disable e_commutative_check but when doing so the
+ * expression "3x+42" does not result in a parser error but instead behaves
+ * like "x+42". I haven't tested the behaviour extensively yet as what I really
+ * want is a parser error to be thrown. */
+
 } // namespace detail
+
+struct SymbolTable::Private
+{
+    detail::SymbolTable symtab_impl;
+};
+
+SymbolTable::SymbolTable()
+    : m_d(std::make_unique<Private>())
+{}
+
+SymbolTable::~SymbolTable()
+{}
+
+SymbolTable::SymbolTable(const SymbolTable &other)
+    : m_d(std::make_unique<Private>())
+{
+    // Reference counted shallow copy implementation
+    m_d->symtab_impl = other.m_d->symtab_impl;
+}
+
+SymbolTable &SymbolTable::operator=(const SymbolTable &other)
+{
+    m_d->symtab_impl = other.m_d->symtab_impl;
+    return *this;
+}
+
+bool SymbolTable::addScalar(const std::string &name, double &value)
+{
+    return m_d->symtab_impl.add_variable(name, value);
+}
+
+bool SymbolTable::addString(const std::string &name, std::string &str)
+{
+    return m_d->symtab_impl.add_stringvar(name, str);
+}
+
+bool SymbolTable::addVector(const std::string &name, std::vector<double> &vec)
+{
+    return m_d->symtab_impl.add_vector(name, vec);
+}
+
+bool SymbolTable::addVector(const std::string &name, double *array, size_t size)
+{
+    return m_d->symtab_impl.add_vector(name, array, size);
+}
+
+bool SymbolTable::addConstant(const std::string &name, double value)
+{
+    return m_d->symtab_impl.add_constant(name, value);
+}
+
+std::vector<std::string> SymbolTable::getSymbolNames() const
+{
+    std::vector<std::string> result;
+    m_d->symtab_impl.get_variable_list(result);
+    m_d->symtab_impl.get_stringvar_list(result);
+    m_d->symtab_impl.get_vector_list(result);
+    return result;
+}
+
+double *SymbolTable::getScalar(const std::string &name)
+{
+    if (auto var_ptr = m_d->symtab_impl.get_variable(name))
+    {
+        return &var_ptr->ref();
+    }
+
+    return nullptr;
+}
+
+std::string *SymbolTable::getString(const std::string &name)
+{
+    if (auto var_ptr = m_d->symtab_impl.get_stringvar(name))
+    {
+        return &var_ptr->ref();
+    }
+
+    return nullptr;
+}
+
+std::pair<double *, size_t> SymbolTable::getVector(const std::string &name)
+{
+    if (auto var_ptr = m_d->symtab_impl.get_vector(name))
+    {
+        return std::make_pair(var_ptr->data(), var_ptr->size());
+    }
+
+    return std::pair<double *, size_t>(nullptr, 0);
+}
+
+#if 0
+double SymbolTable::getConstant(const std::string &name) const
+{
+    assert(false);
+    return make_quiet_nan();
+}
+#endif
 
 namespace
 {
@@ -160,39 +204,7 @@ std::string Expression::getExpressionString() const
  * in SymbolTable::add_xyz! */
 void Expression::registerSymbolTable(const SymbolTable &symtab)
 {
-    detail::SymbolTable tk_symtab;
-
-    for (auto kv: symtab.entries)
-    {
-        auto &name  = kv.first;
-        auto &entry = kv.second;
-
-        using Entry = SymbolTable::Entry;
-
-        switch (entry.type)
-        {
-            case Entry::Scalar:
-                tk_symtab.add_variable(name, *entry.scalar);
-                break;
-
-            case Entry::String:
-                tk_symtab.add_stringvar(name, *entry.string);
-                break;
-
-            case Entry::Vector:
-                tk_symtab.add_vector(name, *entry.vector);
-                break;
-            case Entry::Array:
-                tk_symtab.add_vector(name, entry.array, entry.size);
-                break;
-
-            case Entry::Constant:
-                tk_symtab.add_constant(name, entry.constant);
-                break;
-        }
-    }
-
-    m_d->expression.register_symbol_table(tk_symtab);
+    m_d->expression.register_symbol_table(symtab.m_d->symtab_impl);
 }
 
 
@@ -205,7 +217,7 @@ void Expression::registerSymbolTable(const SymbolTable &symtab)
 void Expression::compile()
 {
     detail::SymbolTable symtab_globalConstants;
-    symtab_globalConstants.add_constants();
+    symtab_globalConstants.add_constants(); // pi, epsilon, inf
     m_d->expression.register_symbol_table(symtab_globalConstants);
 
     detail::Parser parser(detail::CompileOptions);
@@ -215,14 +227,23 @@ void Expression::compile()
         auto err = parser.get_error(0);
         exprtk::parser_error::update_error(err, m_d->expr_str);
 
-        fprintf(stderr, "%s: begin_expr: #%lu errors: %s\n", __PRETTY_FUNCTION__,
+#ifdef DO_DEBUG_PRINTS
+        fprintf(stderr,
+                "%s: begin_expr: #%lu errors, first error:\n"
+                "  %s, line_num=%lu, col_num=%lu, line=%s\n",
+                __PRETTY_FUNCTION__,
                 parser.error_count(),
-                parser.error().c_str());
+                parser.error().c_str(),
+                err.line_no,
+                err.column_no,
+                err.error_line.c_str()
+                );
+#endif
         throw make_error(err);
     }
 }
 
-double Expression::eval()
+double Expression::value()
 {
     return m_d->expression.value();
 }
@@ -247,7 +268,6 @@ std::vector<Expression::Result> Expression::results()
 
             case detail::ResultsContext::type_store_t::e_string:
                 {
-                    Result result;
                     result.type   = Result::String;
                     result.string = to_str(detail::ResultsContext::type_store_t::string_view(results[i]));
                 } break;
@@ -255,7 +275,6 @@ std::vector<Expression::Result> Expression::results()
             case detail::ResultsContext::type_store_t::e_vector:
                 {
                     auto vv = detail::ResultsContext::type_store_t::vector_view(results[i]);
-                    Result result;
                     result.type   = Result::Vector;
                     result.vector = std::vector<double>(vv.begin(), vv.end());
                 } break;
