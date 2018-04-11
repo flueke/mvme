@@ -2513,8 +2513,6 @@ Operator make_export_sink(
 
 static const size_t CompressionBufferSize = 1u << 20;
 
-// TODO: make sure zlib error handling and reporting works. exceptions need to be caught (and maybe wrapped)!
-
 /* NOTE: About error handling in the ExportSink:
  * - std::ofstream by default has exceptions disabled. The method rdstate() can
  *   be used to query the status of the error bits after each operation.
