@@ -108,6 +108,25 @@ TEST(a2Exprtk, SymbolTableCopyAndAssignAndGet)
         ASSERT_NE(src_symtab.getVector("vec").first, nullptr);
         ASSERT_EQ(src_symtab.getVector("vec").first, dst_symtab.getVector("vec").first);
     }
+
+    // shallow copy test: modifications after copy construction will affect
+    // both source and destination
+    {
+        SymbolTable src_symtab;
+
+        src_symtab.addScalar("x",   x);
+
+        SymbolTable dst_symtab(src_symtab);
+
+        // Modify src_symtab after the copy
+        src_symtab.addString("str", string1);
+
+        ASSERT_NE(src_symtab.getScalar("x"), nullptr);
+        ASSERT_EQ(src_symtab.getScalar("x"), dst_symtab.getScalar("x"));
+
+        ASSERT_NE(src_symtab.getString("str"), nullptr);
+        ASSERT_EQ(src_symtab.getString("str"), dst_symtab.getString("str"));
+    }
 }
 
 TEST(a2Exprtk, ExpressionBasicEval)
