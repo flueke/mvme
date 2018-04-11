@@ -105,6 +105,7 @@ class Expression
 
         Expression();
         explicit Expression(const std::string &expr_str);
+
         virtual ~Expression();
 
         void setExpressionString(const std::string &expr_str);

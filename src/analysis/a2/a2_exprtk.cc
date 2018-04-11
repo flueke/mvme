@@ -192,7 +192,7 @@ Expression::~Expression()
 
 void Expression::setExpressionString(const std::string &expr_str)
 {
-    m_d->expr_str= expr_str;
+    m_d->expr_str = expr_str;
 }
 
 std::string Expression::getExpressionString() const
@@ -200,15 +200,14 @@ std::string Expression::getExpressionString() const
     return m_d->expr_str;
 }
 
-/* No error checking is done in here. Assumes all checks have been made
- * in SymbolTable::add_xyz! */
 void Expression::registerSymbolTable(const SymbolTable &symtab)
 {
     m_d->expression.register_symbol_table(symtab.m_d->symtab_impl);
 }
 
+/*  Symbol table hierarchies: register the expression local symbol table first,
+ *  the constants and global tables after that:
 
-/*  Register the expression local symbol table first, the constants and global tables after that:
     d->expr_begin.register_symbol_table(d->symtab_begin);
     d->expr_begin.register_symbol_table(d->symtab_globalConstants);
     d->expr_begin.register_symbol_table(d->symtab_globalFunctions);
