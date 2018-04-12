@@ -1,6 +1,8 @@
 ==================================================
-TODO list somewhat sorted by priority
+TODO list not at all sorted by priority
 ==================================================
+* Move analysis efficiency display to the top Event toolbar
+
 * New Export/ListfileFilter Idea: use an operator to decide whether a full VME
   data event should be copied to an output listfile or be suppressed.
   This is basically a copy and filter operation for listfile with the decision
@@ -265,16 +267,24 @@ inside the export data file or added to the export header.
   dialog. Let the dialog notify the EventWidget about changes via a signal.
 
 --------------------------------------------------
-expression operator design plan
+ExpressionOperator design plan
 --------------------------------------------------
 * use expr_tk to evaluate expressions
-* single input, single output
+* beginScript: one script to get information about the output structure from the operator
+* multi input and multi output!
+  but in the first step the gui only needs to support the single output case
 
-* one script to init the output limits
-  executed during beginRun()
-  variables:
-    in : input_lower_limits, input_upper_limits, input_unit
-    out: lower_limits, upper_limits, unit
+* user defined input variable names. by default auto generated names will be used:
+  input0 input1
+
+The beginscript then has the following set in the symboltable:
+  input0.lower_limits input0.upper_limits input0.unit
+  input1.lower_limits input1.upper_limits input1.unit
+
+The beginscript has to return 4 values for each output array the operator should have:
+  name, unit, lower_limits, upper_limits
+
+So the size of the return value list must be divisible by 4.
 
 * one script to fill the output
   executed repeatedly by a2_end_event() when it's stepping the operators
@@ -296,15 +306,8 @@ expression operator design plan
 * add sis3153 firmware update utility to 'extras' directory. Also package and
   install sis library code (maybe). Ask struck if this is allowed.
 
-* 2D combined histo shows proper colors in the plot when using Log view, shows
-  only 0 (blue) when using Lin scaling.
-
 * Add element wise array multiplication operator and/or a calibration operator
   using slope and offset values.
-
-* Add an exprtk operator! That would be freakin awesome.
-
-* Implement "copy plot to clipboard" feature
 
 --------------------------------------------------
 Rate displays and Rate monitoring
