@@ -4,6 +4,8 @@
 #ifdef liba2_shared_EXPORTS
 #include "a2_export.h"
 #endif
+
+#include "a2_exprtk.h"
 #include "listfilter.h"
 #include "memory.h"
 #include "multiword_datafilter.h"
@@ -360,13 +362,24 @@ Operator make_aggregate_sigmax(
 /* ===============================================
  * Expression Operator
  * =============================================== */
-#if 1
+struct ExpressionOperatorData
+{
+    a2_exprtk::SymbolTable symtab_begin;
+    a2_exprtk::SymbolTable symtab_step;
+    a2_exprtk::Expression expr_begin;
+    a2_exprtk::Expression expr_step;
+
+    std::vector<std::string> output_names;
+    std::vector<std::string> output_units;
+};
+
 Operator make_expression_operator(
     memory::Arena *arena,
-    PipeVectors inPipe,
-    const std::string &begin_expr,
-    const std::string &step_expr);
-#endif
+    const std::vector<PipeVectors> &inputs,
+    const std::vector<std::string> &input_prefixes,
+    const std::vector<std::string> &input_units,
+    const std::string &expr_begin_str,
+    const std::string &expr_step_str);
 
 /* ===============================================
  * Histograms

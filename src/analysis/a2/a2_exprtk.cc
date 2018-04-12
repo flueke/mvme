@@ -105,6 +105,16 @@ bool SymbolTable::addConstant(const std::string &name, double value)
     return m_d->symtab_impl.add_constant(name, value);
 }
 
+bool SymbolTable::createString(const std::string &name, const std::string &str)
+{
+    return m_d->symtab_impl.create_stringvar(name, str);
+}
+
+bool SymbolTable::addConstants()
+{
+    return m_d->symtab_impl.add_constants();
+}
+
 std::vector<std::string> SymbolTable::getSymbolNames() const
 {
     std::vector<std::string> result;

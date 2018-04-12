@@ -70,8 +70,12 @@ class SymbolTable
     bool addVector(const std::string &name, double *array, size_t size);
     bool addConstant(const std::string &name, double value); // TO
 
+    bool createString(const std::string &name, const std::string &str);
+
+    bool addConstants(); // pi, epsilon, inf
+
     // NOTE: There's currently no way to get back to the original std::vector
-    // registered via addVector().
+    // registered via addVector(), only the pointer and size can be queried.
 
     double *getScalar(const std::string &name);
     std::string *getString(const std::string &name);
@@ -115,6 +119,8 @@ class Expression
 
         void compile();
         double value();
+        double eval() { return value(); }
+
         std::vector<Result> results();
 
     private:

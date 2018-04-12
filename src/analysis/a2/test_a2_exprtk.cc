@@ -1,7 +1,8 @@
-#include <cmath>
-#include <iostream>
 #include "gtest/gtest.h"
 #include "a2_exprtk.h"
+
+#include <cmath>
+#include <iostream>
 
 using std::cout;
 using std::endl;
@@ -197,4 +198,37 @@ TEST(a2Exprtk, ExpressionReturnResult)
     ASSERT_EQ(results[0].type, Expression::Result::Scalar);
     ASSERT_EQ(results[1].type, Expression::Result::Vector);
     ASSERT_EQ(results[2].type, Expression::Result::String);
+}
+
+TEST(a2Exprtk, VariableNames)
+{
+    using namespace a2::a2_exprtk;
+
+    SymbolTable symtab;
+
+    double x = 42;
+
+    ASSERT_TRUE(symtab.addScalar("foo.bar", x));
+    ASSERT_EQ(symtab.getScalar("foo.bar"), &x);
+
+    ASSERT_FALSE(symtab.addScalar("break", x));
+    ASSERT_FALSE(symtab.addScalar("endsWithDot.", x));
+    ASSERT_FALSE(symtab.addScalar(".startWithDot", x));
+
+    Expression expr("foo.bar * 2");
+    expr.registerSymbolTable(symtab);
+    expr.compile();
+
+    ASSERT_EQ(expr.value(), x * 2.0);
+}
+
+TEST(a2Exprtk, CreateStringVar)
+{
+    using namespace a2::a2_exprtk;
+
+    SymbolTable symtab;
+
+    ASSERT_TRUE(symtab.createString("str", "foobar"));
+    ASSERT_NE(symtab.getString("str"), nullptr);
+    ASSERT_EQ(*symtab.getString("str"), "foobar");
 }

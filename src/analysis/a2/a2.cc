@@ -1,7 +1,4 @@
 #include "mpmc_queue.cc"
-#if 1
-#include "a2_exprtk.h"
-#endif
 #include "a2_impl.h"
 #include "util/assert.h"
 #include "util/perf.h"
@@ -1946,17 +1943,117 @@ void condition_filter_step(Operator *op)
  * Expression Operator
  * =============================================== */
 
-#if 0
 Operator make_expression_operator(
     memory::Arena *arena,
-    PipeVectors inPipe,
-    const std::string &begin_expr,
-    const std::string &step_expr)
+    const std::vector<PipeVectors> &inputs,
+    const std::vector<std::string> &input_prefixes,
+    const std::vector<std::string> &input_units,
+    const std::string &expr_begin_str,
+    const std::string &expr_step_str)
 {
-    auto result = make_operator(arena, Operator_Expression, 1, 1);
-    assign_input(&result, inPipe, 0);
+    assert(inputs.size() > 0);
+    assert(inputs.size() < std::numeric_limits<s32>::max());
+    assert(inputs.size() == input_prefixes.size());
+    assert(inputs.size() == input_units.size());
 
-    expr_create(arena, &result, begin_expr, step_expr);
+    auto d = arena->pushObject<ExpressionOperatorData>();
+
+    /* Fill the begin expression symbol table with unit and limit information. */
+    for (size_t i = 0; i < inputs.size(); i++)
+    {
+        const auto &input  = inputs[i];
+        const auto &prefix = input_prefixes[i];
+        const auto &unit   = input_units[i];
+
+        // TODO: check return status and then throw or log or move the wole
+        // thing into some other "prepare" function and pass a fully setup
+        // ExpressionOperatorData struct into make_expression_operator
+        d->symtab_begin.createString(prefix + ".unit",         unit);
+        d->symtab_begin.addVector(   prefix + ".lower_limits", input.lowerLimits.data, input.lowerLimits.size);
+        d->symtab_begin.addVector(   prefix + ".upper_limits", input.upperLimits.data, input.upperLimits.size);
+    }
+
+    /* Setup and evaluate the begin expression. */
+    d->expr_begin.registerSymbolTable(d->symtab_begin);
+    d->expr_begin.setExpressionString(expr_begin_str);
+    d->expr_begin.compile(); // FIXME: throws!
+    d->expr_begin.eval();
+
+
+    /* Build outputs from the information returned from the begin expression.
+     * The result format is
+     * [ (output_name, output_unit, lower_limits[], upper_limits[]), ... ]
+     */
+    auto results = d->expr_begin.results();
+
+    static const size_t ElementsPerOutput = 4;
+
+    // FIXME: runtime errors that need to be reported
+    assert(results.size() > 0);
+    assert(results.size() % ElementsPerOutput == 0);
+
+    const size_t outputCount = results.size() / ElementsPerOutput;
+
+    assert(outputCount > 0);
+    assert(outputCount < std::numeric_limits<s32>::max());
+
+    auto result = make_operator(arena, Operator_Expression, inputs.size(), outputCount);
+    result.d = d;
+
+    for (size_t in_idx = 0; in_idx < inputs.size(); in_idx++)
+    {
+        assign_input(&result, inputs[in_idx], in_idx);
+
+        const auto &input  = inputs[in_idx];
+        const auto &prefix = input_prefixes[in_idx];
+        const auto &unit   = input_units[in_idx];
+
+        // FIXME: these may fail
+        d->symtab_step.createString(prefix + ".unit",         unit);
+        d->symtab_step.addVector(   prefix,                   input.data.data, input.data.size); // FIXME: should this be with ".data"?
+        d->symtab_step.addVector(   prefix + ".lower_limits", input.lowerLimits.data, input.lowerLimits.size);
+        d->symtab_step.addVector(   prefix + ".upper_limits", input.upperLimits.data, input.upperLimits.size);
+    }
+
+    for (size_t out_idx = 0, result_idx = 0;
+         out_idx < outputCount;
+         out_idx++, result_idx += ElementsPerOutput)
+    {
+        auto &res_name = results[result_idx + 0];
+        auto &res_unit = results[result_idx + 1];
+        auto &res_ll   = results[result_idx + 2];
+        auto &res_ul   = results[result_idx + 3];
+
+        using Result = a2_exprtk::Expression::Result;
+        assert(res_name.type == Result::String);
+        assert(res_unit.type == Result::String);
+        assert(res_ll.type   == Result::Vector);
+        assert(res_ul.type   == Result::Vector);
+        assert(res_ll.vector.size() > 0);
+        assert(res_ll.vector.size() < std::numeric_limits<s32>::max());
+        assert(res_ll.vector.size() == res_ul.vector.size());
+
+        push_output_vectors(arena, &result, out_idx, res_ll.vector.size());
+
+        for (size_t paramIndex = 0; paramIndex < res_ll.vector.size(); paramIndex++)
+        {
+            result.outputLowerLimits[out_idx][paramIndex] = res_ll.vector[paramIndex];
+            result.outputUpperLimits[out_idx][paramIndex] = res_ul.vector[paramIndex];
+        }
+
+        d->output_names.push_back(res_name.string);
+        d->output_units.push_back(res_unit.string);
+
+        //fprintf(stderr, "output[%lu] variable name = %s\n", out_idx, res_name.string.c_str());
+
+        d->symtab_step.addVector(res_name.string,                   result.outputs[out_idx].data, result.outputs[out_idx].size);
+        d->symtab_step.addVector(res_name.string + ".lower_limits", result.outputLowerLimits[out_idx].data, result.outputLowerLimits[out_idx].size);
+        d->symtab_step.addVector(res_name.string + ".upper_limits", result.outputUpperLimits[out_idx].data, result.outputUpperLimits[out_idx].size);
+    }
+
+    d->expr_step.registerSymbolTable(d->symtab_step);
+    d->expr_step.setExpressionString(expr_step_str);
+    d->expr_step.compile(); // FIXME: throws!
 
     return result;
 }
@@ -1970,9 +2067,8 @@ void expression_operator_step(Operator *op)
     /* References to the input and output have been bound in
      * make_expression_operator(). No need to pass anything here, just evaluate
      * the step expression. */
-    expr_eval_step(d);
+    d->expr_step.eval();
 }
-#endif
 
 /* ===============================================
  * Histograms
