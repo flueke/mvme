@@ -1943,14 +1943,29 @@ void condition_filter_step(Operator *op)
  * Expression Operator
  * =============================================== */
 
+#define register_symbol_checked(table, meth, sym, ...)\
+do\
+{\
+    if (!(table.meth(sym, ##__VA_ARGS__)))\
+    {\
+        ExpressionOperatorSymbolError error;\
+        error.symbol_name  = sym;\
+        error.is_duplicate = table.symbolExists(sym);\
+        throw error;\
+    }\
+} while (0);
+
 Operator make_expression_operator(
     memory::Arena *arena,
     const std::vector<PipeVectors> &inputs,
     const std::vector<std::string> &input_prefixes,
     const std::vector<std::string> &input_units,
     const std::string &expr_begin_str,
-    const std::string &expr_step_str)
+    const std::string &expr_step_str,
+    ExpressionOperatorBuildOptions options)
 {
+    using SemanticError = ExpressionOperatorSemanticError;
+
     assert(inputs.size() > 0);
     assert(inputs.size() < std::numeric_limits<s32>::max());
     assert(inputs.size() == input_prefixes.size());
@@ -1965,41 +1980,51 @@ Operator make_expression_operator(
         const auto &prefix = input_prefixes[i];
         const auto &unit   = input_units[i];
 
-        // TODO: check return status and then throw or log or move the wole
-        // thing into some other "prepare" function and pass a fully setup
-        // ExpressionOperatorData struct into make_expression_operator
-        d->symtab_begin.createString(prefix + ".unit",         unit);
-        d->symtab_begin.addVector(   prefix + ".lower_limits", input.lowerLimits.data, input.lowerLimits.size);
-        d->symtab_begin.addVector(   prefix + ".upper_limits", input.upperLimits.data, input.upperLimits.size);
+        register_symbol_checked(d->symtab_begin, createString, prefix + ".unit",
+                                unit);
+
+        register_symbol_checked(d->symtab_begin, addVector,    prefix + ".lower_limits",
+                                input.lowerLimits.data, input.lowerLimits.size);
+
+        register_symbol_checked(d->symtab_begin, addVector,    prefix + ".upper_limits",
+                                input.upperLimits.data, input.upperLimits.size);
     }
 
     /* Setup and evaluate the begin expression. */
     d->expr_begin.registerSymbolTable(d->symtab_begin);
+    d->expr_begin.registerSymbolTable(a2_exprtk::SymbolTable::makeA2RuntimeLibrary());
     d->expr_begin.setExpressionString(expr_begin_str);
-    d->expr_begin.compile(); // FIXME: throws!
+    d->expr_begin.compile();
     d->expr_begin.eval();
-
 
     /* Build outputs from the information returned from the begin expression.
      * The result format is
      * [ (output_name, output_unit, lower_limits[], upper_limits[]), ... ]
      */
-    auto results = d->expr_begin.results();
-
     static const size_t ElementsPerOutput = 4;
 
-    // FIXME: runtime errors that need to be reported
-    assert(results.size() > 0);
-    assert(results.size() % ElementsPerOutput == 0);
+    auto results = d->expr_begin.results();
+
+    if (results.size() == 0)
+    {
+        throw SemanticError("Empty result list from BeginExpression");
+    }
+
+    if (results.size() % ElementsPerOutput != 0)
+    {
+        std::ostringstream ss;
+        ss << "BeginExpression returned an invalid number of results (" << results.size() << ")";
+        throw SemanticError(ss.str());
+    }
 
     const size_t outputCount = results.size() / ElementsPerOutput;
 
-    assert(outputCount > 0);
     assert(outputCount < std::numeric_limits<s32>::max());
 
     auto result = make_operator(arena, Operator_Expression, inputs.size(), outputCount);
     result.d = d;
 
+    /* Assign operator inputs and create input symbol in the step symbol table. */
     for (size_t in_idx = 0; in_idx < inputs.size(); in_idx++)
     {
         assign_input(&result, inputs[in_idx], in_idx);
@@ -2008,13 +2033,21 @@ Operator make_expression_operator(
         const auto &prefix = input_prefixes[in_idx];
         const auto &unit   = input_units[in_idx];
 
-        // FIXME: these may fail
-        d->symtab_step.createString(prefix + ".unit",         unit);
-        d->symtab_step.addVector(   prefix,                   input.data.data, input.data.size); // FIXME: should this be with ".data"?
-        d->symtab_step.addVector(   prefix + ".lower_limits", input.lowerLimits.data, input.lowerLimits.size);
-        d->symtab_step.addVector(   prefix + ".upper_limits", input.upperLimits.data, input.upperLimits.size);
+        register_symbol_checked(d->symtab_step, addVector,    prefix,
+                                input.data.data, input.data.size);
+
+        register_symbol_checked(d->symtab_step, createString, prefix + ".unit",
+                                unit);
+
+        register_symbol_checked(d->symtab_step, addVector,    prefix + ".lower_limits",
+                                input.lowerLimits.data, input.lowerLimits.size);
+
+        register_symbol_checked(d->symtab_step, addVector,    prefix + ".upper_limits",
+                                input.upperLimits.data, input.upperLimits.size);
     }
 
+    /* Interpret the results returned from the begin expression and build the
+     * output vectors accordingly. */
     for (size_t out_idx = 0, result_idx = 0;
          out_idx < outputCount;
          out_idx++, result_idx += ElementsPerOutput)
@@ -2025,13 +2058,34 @@ Operator make_expression_operator(
         auto &res_ul   = results[result_idx + 3];
 
         using Result = a2_exprtk::Expression::Result;
-        assert(res_name.type == Result::String);
-        assert(res_unit.type == Result::String);
-        assert(res_ll.type   == Result::Vector);
-        assert(res_ul.type   == Result::Vector);
+
+#define expect_result_type(res, expected_type)\
+do\
+    if (res.type != expected_type)\
+    {\
+        std::ostringstream ss;\
+        ss << "Unexpected result type: result #" << result_idx << ", output #" << out_idx <<  ": expected type is " << #expected_type;\
+        throw SemanticError(ss.str());\
+    }\
+while(0);
+
+        expect_result_type(res_name, Result::String);
+        expect_result_type(res_unit, Result::String);
+        expect_result_type(res_ll,   Result::Vector);
+        expect_result_type(res_ul,   Result::Vector);
+
+#undef expect_result_type
+
         assert(res_ll.vector.size() > 0);
         assert(res_ll.vector.size() < std::numeric_limits<s32>::max());
-        assert(res_ll.vector.size() == res_ul.vector.size());
+
+        if(res_ll.vector.size() != res_ul.vector.size())
+        {
+            std::ostringstream ss;
+            ss << "Different sizes of limit specifications for output #" << out_idx
+                << ": lower_limits: " << res_ll.vector.size() << ", upper_limits: " << res_ul.vector.size();
+            throw SemanticError(ss.str());
+        }
 
         push_output_vectors(arena, &result, out_idx, res_ll.vector.size());
 
@@ -2046,16 +2100,37 @@ Operator make_expression_operator(
 
         //fprintf(stderr, "output[%lu] variable name = %s\n", out_idx, res_name.string.c_str());
 
-        d->symtab_step.addVector(res_name.string,                   result.outputs[out_idx].data, result.outputs[out_idx].size);
-        d->symtab_step.addVector(res_name.string + ".lower_limits", result.outputLowerLimits[out_idx].data, result.outputLowerLimits[out_idx].size);
-        d->symtab_step.addVector(res_name.string + ".upper_limits", result.outputUpperLimits[out_idx].data, result.outputUpperLimits[out_idx].size);
+        register_symbol_checked(d->symtab_step, addVector, res_name.string,
+                                result.outputs[out_idx].data, result.outputs[out_idx].size);
+
+        register_symbol_checked(d->symtab_step, addVector, res_name.string + ".lower_limits",
+                                result.outputLowerLimits[out_idx].data, result.outputLowerLimits[out_idx].size);
+
+        register_symbol_checked(d->symtab_step, addVector, res_name.string + ".upper_limits",
+                                result.outputUpperLimits[out_idx].data, result.outputUpperLimits[out_idx].size);
     }
 
     d->expr_step.registerSymbolTable(d->symtab_step);
+    d->expr_step.registerSymbolTable(a2_exprtk::SymbolTable::makeA2RuntimeLibrary());
     d->expr_step.setExpressionString(expr_step_str);
-    d->expr_step.compile(); // FIXME: throws!
+
+    if (options == ExpressionOperatorBuildOptions::FullBuild)
+    {
+        expression_operator_compile_step_expression(&result);
+    }
 
     return result;
+}
+
+#undef register_symbol_checked
+
+void expression_operator_compile_step_expression(Operator *op)
+{
+    assert(op->type == Operator_Expression);
+
+    auto d = reinterpret_cast<ExpressionOperatorData *>(op->d);
+
+    d->expr_step.compile();
 }
 
 void expression_operator_step(Operator *op)

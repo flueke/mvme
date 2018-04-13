@@ -6,11 +6,11 @@
 #endif
 
 #include "a2_exprtk.h"
+#include "a2_param.h"
 #include "listfilter.h"
 #include "memory.h"
 #include "multiword_datafilter.h"
 #include "rate_sampler.h"
-#include "util/nan.h"
 #include "util/typed_block.h"
 
 #include <cassert>
@@ -21,24 +21,6 @@ namespace a2
 {
 /* Note: a2 passes out_of_memory() from memory::Arena through. Use an external
  * mechanism to catch this, increase the memory size and try again. */
-
-
-/* Bit used as payload of NaN values to identify an invalid parameter.
- * If the bit is not set the NaN was generated as the result of a calculation
- * and the parameter is considered valid.
- */
-static const int ParamInvalidBit = 1u << 0;
-
-inline bool is_param_valid(double param)
-{
-    return !(std::isnan(param) && (get_payload(param) & ParamInvalidBit));
-}
-
-inline double invalid_param()
-{
-    static const double result = make_nan(ParamInvalidBit);
-    return result;
-}
 
 using ParamVec = TypedBlock<double, s32>;
 
@@ -362,6 +344,34 @@ Operator make_aggregate_sigmax(
 /* ===============================================
  * Expression Operator
  * =============================================== */
+struct ExpressionOperatorError: public std::runtime_error
+{
+    using std::runtime_error::runtime_error;
+};
+
+/* Thrown if a symbol can not be registered with a symbol table. */
+struct ExpressionOperatorSymbolError: public ExpressionOperatorError
+{
+    std::string symbol_name;
+    bool is_duplicate;
+
+    ExpressionOperatorSymbolError()
+        : ExpressionOperatorError("SymbolError")
+    {}
+};
+
+/* Thrown if the return value of the begin expression is malformed or contains
+ * unexpected data types. */
+struct ExpressionOperatorSemanticError: public ExpressionOperatorError
+{
+    std::string message;
+
+    ExpressionOperatorSemanticError(const std::string &msg)
+        : ExpressionOperatorError("SemanticError")
+        , message(msg)
+    {}
+};
+
 struct ExpressionOperatorData
 {
     a2_exprtk::SymbolTable symtab_begin;
@@ -373,13 +383,29 @@ struct ExpressionOperatorData
     std::vector<std::string> output_units;
 };
 
+enum class ExpressionOperatorBuildOptions: u8
+{
+    /* Compiles and evaluates the begin expression and uses the result to build
+     * the operator outputs, populate the symbol table for the step expression
+     * and the ExpressionOperatorData output_names and output_units. */
+    InitOnly,
+
+    /* Performs the InitOnly steps and then compiles the step expression. */
+    FullBuild,
+};
+
 Operator make_expression_operator(
     memory::Arena *arena,
     const std::vector<PipeVectors> &inputs,
     const std::vector<std::string> &input_prefixes,
     const std::vector<std::string> &input_units,
     const std::string &expr_begin_str,
-    const std::string &expr_step_str);
+    const std::string &expr_step_str,
+    ExpressionOperatorBuildOptions options = ExpressionOperatorBuildOptions::FullBuild);
+
+/* Can be used after calling make_expression_operator() with the InitOnly
+ * option to fully build the operator. */
+void expression_operator_compile_step_expression(Operator *op);
 
 /* ===============================================
  * Histograms
