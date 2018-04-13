@@ -22,6 +22,13 @@ struct ParserError: std::runtime_error
     ParserError(): std::runtime_error("ParserError") {}
 };
 
+struct ParserErrorList: std::runtime_error
+{
+    std::vector<ParserError> errors;
+
+    ParserErrorList(): std::runtime_error("ParserErrorList") {}
+};
+
 class SymbolTable
 {
     public:
@@ -62,8 +69,6 @@ class SymbolTable
     SymbolTable(const SymbolTable &other);
     SymbolTable &operator=(const SymbolTable &other);
 
-    std::vector<std::string> getSymbolNames() const;
-
     bool addScalar(const std::string &name, double &value);
     bool addString(const std::string &name, std::string &str);
     bool addVector(const std::string &name, std::vector<double> &vec);
@@ -77,13 +82,25 @@ class SymbolTable
     // NOTE: There's currently no way to get back to the original std::vector
     // registered via addVector(), only the pointer and size can be queried.
 
+    std::vector<std::string> getSymbolNames() const;
+    bool symbolExists(const std::string &name) const;
+
     double *getScalar(const std::string &name);
     std::string *getString(const std::string &name);
     std::pair<double *, size_t> getVector(const std::string &name);
     //double getConstant(const std::string &name) const;
 
+    /* Runtime library containing frequently used functions for use in expressions.
+     * An instance of this will automatically be registered for expressions in
+     * make_expression_operator().
+     * Contains the following functions:
+     * is_valid(p), is_invalid(p), make_invalid(), is_nan(d)
+     */
+    static SymbolTable makeA2RuntimeLibrary();
+
     private:
         friend class Expression;
+        friend struct SymbolTableHelper;
         struct Private;
         std::unique_ptr<Private> m_d;
 };
@@ -127,25 +144,6 @@ class Expression
         struct Private;
         std::unique_ptr<Private> m_d;
 };
-
-#if 0
-// TODO Split this into multiple steps:
-// [creation], compile begin, compile step
-/* Assuming the operators inputs have been assigned before it is passed to expr_create().
- * Evaluates the begin_expr script to determine output size and limits.
- * Pushes the operators output pipe onto the arena.
- * Then creates an ExpressionData instance and assigns it to op->d.
- */
-void expr_create(
-    memory::Arena *arena,
-    Operator *op,
-    const std::string &begin_expr,
-    const std::string &step_expr);
-
-void expr_eval_begin(ExpressionOperatorData *d);
-
-void expr_eval_step(ExpressionOperatorData *d);
-#endif
 
 } // namespace a2_exprtk
 } // namespace a2

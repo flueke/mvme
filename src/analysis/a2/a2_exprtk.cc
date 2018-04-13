@@ -1,27 +1,43 @@
 #include "a2_exprtk.h"
 
 #ifndef NDEBUG
-#define DO_DEBUG_PRINTS
-#endif
-
-#ifndef NDEBUG
 #define exprtk_disable_enhanced_features    // reduces compilation time at cost of runtime performance
 #endif
 #define exprtk_disable_rtl_io_file          // we do not ever want to use the fileio package
 #include <exprtk/exprtk.hpp>
 
 #include <iostream>
+
+#include "a2_param.h"
 #include "util/assert.h"
 #include "util/nan.h"
+
+#ifndef NDEBUG
+
+#define a2_expr_debug(fmt, ...)\
+do\
+{\
+    fprintf(stderr, fmt, ##__VA_ARGS__);\
+} while (0);
+
+#endif // NDEBUG
+
 
 /* TODO list for a2_exprtk:
  * figure out if add_function() is needed, if so add an implementation to
    SymbolTable
+   add_functions() is not easy to hide if it's at all possible:
+   registering classes derived from exprtk::ifunction<T> requires an instance
+   and that instance needs to stay around. Also acces to exprtk internals is
+   needed.
+   Lambdas can not be registed without implementation access either as that
+   requires the register functions to be a template and the implementation to
+   be visible.
 
  * understand why e_commutative_check behaves the way it does. see the note
    below CompileOptions for an explanation
 
- * implement double getConstant(const std::string &name) const; if needed and
+ * implement "double getConstant(const std::string &name) const" if needed and
    possible
 
  */
@@ -65,7 +81,9 @@ SymbolTable::SymbolTable()
 {}
 
 SymbolTable::~SymbolTable()
-{}
+{
+    //std::cout << __PRETTY_FUNCTION__ << std::endl;
+}
 
 SymbolTable::SymbolTable(const SymbolTable &other)
     : m_d(std::make_unique<Private>())
@@ -124,6 +142,11 @@ std::vector<std::string> SymbolTable::getSymbolNames() const
     return result;
 }
 
+bool SymbolTable::symbolExists(const std::string &name) const
+{
+    return m_d->symtab_impl.symbol_exists(name);
+}
+
 double *SymbolTable::getScalar(const std::string &name)
 {
     if (auto var_ptr = m_d->symtab_impl.get_variable(name))
@@ -152,6 +175,24 @@ std::pair<double *, size_t> SymbolTable::getVector(const std::string &name)
     }
 
     return std::pair<double *, size_t>(nullptr, 0);
+}
+
+SymbolTable SymbolTable::makeA2RuntimeLibrary()
+{
+    SymbolTable result;
+
+    result.m_d->symtab_impl.add_function("is_valid",
+                                         [](double p) { return static_cast<double>(is_param_valid(p)); });
+
+    result.m_d->symtab_impl.add_function("is_invalid",
+                                         [](double p) { return static_cast<double>(!is_param_valid(p)); });
+
+    result.m_d->symtab_impl.add_function("make_invalid", invalid_param);
+
+    result.m_d->symtab_impl.add_function("is_nan",
+                                         [](double d) { return static_cast<double>(std::isnan(d)); });
+
+    return result;
 }
 
 #if 0
@@ -198,6 +239,7 @@ Expression::Expression(const std::string &expr_str)
 
 Expression::~Expression()
 {
+    //std::cout << __PRETTY_FUNCTION__ << std::endl;
 }
 
 void Expression::setExpressionString(const std::string &expr_str)
@@ -233,22 +275,25 @@ void Expression::compile()
 
     if (!parser.compile(m_d->expr_str, m_d->expression))
     {
-        auto err = parser.get_error(0);
-        exprtk::parser_error::update_error(err, m_d->expr_str);
+        ParserErrorList errorList;
 
-#ifdef DO_DEBUG_PRINTS
-        fprintf(stderr,
-                "%s: begin_expr: #%lu errors, first error:\n"
-                "  %s, line_num=%lu, col_num=%lu, line=%s\n",
-                __PRETTY_FUNCTION__,
-                parser.error_count(),
-                parser.error().c_str(),
-                err.line_no,
-                err.column_no,
-                err.error_line.c_str()
-                );
-#endif
-        throw make_error(err);
+        a2_expr_debug("Expression::compile(): #%lu errors:\n", parser.error_count());
+
+        for (size_t err_idx = 0; err_idx < parser.error_count(); err_idx++)
+        {
+            auto err = parser.get_error(err_idx);
+            exprtk::parser_error::update_error(err, m_d->expr_str);
+            errorList.errors.emplace_back(make_error(err));
+
+            a2_expr_debug("  msg=%s, line_num=%lu, col_num=%lu, line=%s\n",
+                          parser.error().c_str(),
+                          err.line_no,
+                          err.column_no,
+                          err.error_line.c_str()
+                         );
+        }
+
+        throw errorList;
     }
 }
 
@@ -297,6 +342,8 @@ std::vector<Expression::Result> Expression::results()
 
     return ret;
 }
+
+
 
 #if 0
 struct ExpressionOperatorData

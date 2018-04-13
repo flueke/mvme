@@ -162,7 +162,7 @@ TEST(a2ExpressionOperator, PassThroughTwoInputs)
     ASSERT_EQ(op.outputLowerLimits[0][0], 0.0);
     ASSERT_EQ(op.outputUpperLimits[0][0], 20.0);
 
-    // outputs[0]
+    // outputs[1]
     ASSERT_EQ(op.outputLowerLimits[1].size, inputSize1);
     ASSERT_EQ(op.outputUpperLimits[1].size, inputSize1);
 
@@ -193,4 +193,48 @@ TEST(a2ExpressionOperator, PassThroughTwoInputs)
         cout << "  " << symbol << endl;
     }
 #endif
+}
+
+TEST(a2ExpressionOperator, OutputSpecifications)
+{
+    Arena arena(Kilobytes(256));
+
+    static double inputData[] =
+    {
+        0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0,
+        8.0, 9.0, 10.0, 11.0, 12.0, invalid_param() /* @[13] */, 14.0, 15.0,
+    };
+
+    static const s32 inputSize = ArrayCount(inputData);
+
+    std::vector<PipeVectors> inputs = {
+        {
+            ParamVec{inputData, inputSize},
+            push_param_vector(&arena, inputSize, 0.0),
+            push_param_vector(&arena, inputSize, 20.0),
+        },
+    };
+
+    std::vector<std::string> input_prefixes = { "input0" };
+    std::vector<std::string> input_units    = { "apples" };
+
+    std::string expr_step = "output0 := input0;";
+
+    {
+        // output limit sizes are different
+
+        std::string expr_begin =
+            "var output0.lower_limits[3];"
+            "var output0.upper_limits[4];"
+            "return [ 'output0', input0.unit, output0.lower_limits, output0.upper_limits ];";
+
+        ASSERT_THROW(auto op = make_expression_operator(
+                &arena,
+                inputs,
+                input_prefixes,
+                input_units,
+                expr_begin,
+                expr_step),
+            ExpressionOperatorSemanticError);
+    }
 }
