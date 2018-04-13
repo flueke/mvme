@@ -3050,6 +3050,7 @@ QString ExpressionEditor::getExpressionString() const
  * Debugging tools: symbol table dump.
  *
  */
+
 static a2::PipeVectors make_a2_pipe_from_a1_pipe(memory::Arena *arena, analysis::Pipe *a1_inPipe)
 {
     a2::PipeVectors result = {};
@@ -3115,7 +3116,6 @@ static void populate_pipe_table(a2::PipeVectors pipe, QTableWidget *table)
     table->resizeColumnsToContents();
     table->resizeRowsToContents();
 }
-
 
 ExpressionOperatorConfigurationWidget::ExpressionOperatorConfigurationWidget(ExpressionOperator *op,
                                                                              s32 userLevel,

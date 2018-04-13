@@ -1066,30 +1066,55 @@ class LIBMVME_EXPORT BinarySumDiff: public OperatorInterface
         double m_outputUpperLimit;
 };
 
-class LIBMVME_EXPORT ExpressionOperator: public BasicOperator
+class LIBMVME_EXPORT ExpressionOperator: public OperatorInterface
 {
     Q_OBJECT
     public:
         ExpressionOperator(QObject *parent = 0);
 
+        // Init and execute
         virtual void beginRun(const RunInfo &runInfo, Logger logger = {}) override;
         virtual void step() override;
 
+        // Inputs
+        virtual bool hasVariableNumberOfSlots() const override { return true; }
+        virtual bool addSlot() override;
+        virtual bool removeLastSlot() override;
+
+        virtual s32 getNumberOfSlots() const override;
+        virtual Slot *getSlot(s32 slotIndex) override;
+
+        // Outputs
+        virtual s32 getNumberOfOutputs() const override;
+        virtual QString getOutputName(s32 outputIndex) const override;
+        virtual Pipe *getOutput(s32 index) override;
+
+        // Serialization
         virtual void read(const QJsonObject &json) override;
         virtual void write(QJsonObject &json) const override;
 
+        // Info
         virtual QString getDisplayName() const override { return QSL("Expression"); }
         virtual QString getShortName() const override { return QSL("Expr"); }
 
+        // ExpressionOperator specific
         void setBeginExpression(const QString &str) { m_exprBegin = str; }
         QString getBeginExpression() const { return m_exprBegin; }
 
         void setStepExpression(const QString &str) { m_exprStep = str; }
         QString getStepExpression() const { return m_exprStep; }
 
+
+
     private:
+        void addOutput(QString name);
+
         QString m_exprBegin;
         QString m_exprStep;
+        QStringList m_inputNames;
+
+        QVector<std::shared_ptr<Slot>> m_inputs;
+        QVector<std::shared_ptr<Pipe>> m_outputs;
 };
 
 //

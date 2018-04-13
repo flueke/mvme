@@ -2586,10 +2586,8 @@ void BinarySumDiff::write(QJsonObject &json) const
 // ExpressionOperator
 //
 ExpressionOperator::ExpressionOperator(QObject *parent)
-    : BasicOperator(parent)
+    : OperatorInterface(parent)
 {
-    m_inputSlot.acceptedInputTypes = InputType::Array;
-
     m_exprBegin = QSL
         (
         "var lower_limits[input_lower_limits[]] := input_lower_limits;\n"
@@ -2604,6 +2602,80 @@ ExpressionOperator::ExpressionOperator(QObject *parent)
         "   output[i] := input[i];\n"
         "}\n"
         );
+
+    addSlot();
+    addOutput("output0");
+}
+
+bool ExpressionOperator::addSlot()
+{
+    s32 slotCount  = getNumberOfSlots();
+    auto inputType = InputType::Array;
+    QString inputName;
+
+    if (m_inputNames.size() > slotCount + 1)
+    {
+        inputName = m_inputNames[slotCount + 1];
+    }
+    else
+    {
+        inputName = QSL("input#") + QString::number(slotCount);
+    }
+
+    auto slot = std::make_shared<Slot>(this, slotCount, inputName, inputType);
+
+    m_inputs.push_back(slot);
+
+    return true;
+}
+
+bool ExpressionOperator::removeLastSlot()
+{
+    if (getNumberOfSlots() > 1)
+    {
+        m_inputs.back()->disconnectPipe();
+        m_inputs.pop_back();
+        return true;
+    }
+    return false;
+}
+
+s32 ExpressionOperator::getNumberOfSlots() const
+{
+    return m_inputs.size();
+}
+
+Slot *ExpressionOperator::getSlot(s32 slotIndex)
+{
+    return (slotIndex < getNumberOfSlots()
+            ? m_inputs.at(slotIndex).get()
+            : nullptr);
+}
+
+void ExpressionOperator::addOutput(QString outputName)
+{
+    s32 outputCount = getNumberOfOutputs();
+
+    if (outputName.isEmpty())
+    {
+        outputName = QSL("output#") + QString::number(outputCount);
+    }
+
+    auto outPipe = std::make_shared<Pipe>();
+    outPipe->setSource(this);
+    outPipe->setParameterName(outputName);
+}
+
+s32 ExpressionOperator::getNumberOfOutputs() const
+{
+}
+
+QString ExpressionOperator::getOutputName(s32 outputIndex) const
+{
+}
+
+Pipe *ExpressionOperator::getOutput(s32 index)
+{
 }
 
 void ExpressionOperator::beginRun(const RunInfo &runInfo, Logger logger)
@@ -2616,6 +2688,8 @@ void ExpressionOperator::beginRun(const RunInfo &runInfo, Logger logger)
     if (!m_inputSlot.inputPipe) return;
 
     memory::Arena arena(Kilobytes(256));
+
+    std::vector<a2::PipeVectors> a2_inputs;
 
     auto a1_inPipe = m_inputSlot.inputPipe;
 
@@ -2661,13 +2735,32 @@ void ExpressionOperator::step()
 void ExpressionOperator::write(QJsonObject &json) const
 {
     json["exprBegin"] = m_exprBegin;
-    json["exprStep"] = m_exprStep;
+    json["exprStep"]  = m_exprStep;
+
+    QJsonArray inputNamesArray;
+
+    for (const auto &inputName: m_inputNames)
+    {
+        inputNamesArray.append(inputName);
+    }
+
+    json["inputNames"] = inputNamesArray;
 }
 
 void ExpressionOperator::read(const QJsonObject &json)
 {
     m_exprBegin = json["exprBegin"].toString();
-    m_exprStep = json["exprStep"].toString();
+    m_exprStep  = json["exprStep"].toString();
+    m_inputNames.clear();
+
+    auto inputNamesArray = json["inputNames"].toArray();
+
+    for (auto it = inputNamesArray.begin();
+         it != inputNamesArray.end();
+         it++)
+    {
+        m_inputNames.push_back(it->toString());
+    }
 }
 
 //
