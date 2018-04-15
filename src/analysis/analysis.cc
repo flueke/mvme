@@ -2668,14 +2668,26 @@ void ExpressionOperator::addOutput(QString outputName)
 
 s32 ExpressionOperator::getNumberOfOutputs() const
 {
+    return m_outputs.size();
 }
 
 QString ExpressionOperator::getOutputName(s32 outputIndex) const
 {
+    if (auto pp = m_outputs.value(outputIndex))
+    {
+        return pp->getParameterName();
+    }
+
+    return {};
 }
 
 Pipe *ExpressionOperator::getOutput(s32 index)
 {
+    if (auto pp = m_outputs.value(index))
+    {
+        return pp.get();
+    }
+    return nullptr;
 }
 
 void ExpressionOperator::beginRun(const RunInfo &runInfo, Logger logger)

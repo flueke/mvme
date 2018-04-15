@@ -97,7 +97,8 @@ struct LIBMVME_EXPORT ParameterVector: public QVector<Parameter>
         }
     }
 
-    // Note: name is currently not used anywhere in the gui
+    // Note: name was not used at all but the introduction of the
+    // ExpressionOperator changes that!
     QString name;
     QString unit;
 };
@@ -126,6 +127,8 @@ class LIBMVME_EXPORT PipeSourceInterface: public QObject, public std::enable_sha
 
         virtual s32 getNumberOfOutputs() const = 0;
         virtual QString getOutputName(s32 outputIndex) const = 0;
+        // FIXME (14.4.18): why did I not make this const? cause of the pipe
+        // being modified sort of also modifying the state of this object?
         virtual Pipe *getOutput(s32 index) = 0;
 
         virtual QString getDisplayName() const = 0;
@@ -1069,6 +1072,7 @@ class LIBMVME_EXPORT BinarySumDiff: public OperatorInterface
 class LIBMVME_EXPORT ExpressionOperator: public OperatorInterface
 {
     Q_OBJECT
+    Q_INTERFACES(analysis::OperatorInterface)
     public:
         ExpressionOperator(QObject *parent = 0);
 

@@ -3221,7 +3221,7 @@ bool ExpressionOperatorConfigurationWidget::isValid() const
 
 void ExpressionOperatorConfigurationWidget::rebuild()
 {
-#if 0
+#if 1
     m_a2_inPipe = {};
     m_a2_op = {};
     m_arena.reset();
