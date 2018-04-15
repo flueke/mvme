@@ -3122,7 +3122,7 @@ ExpressionOperatorConfigurationWidget::ExpressionOperatorConfigurationWidget(Exp
                                                                              MVMEContext *context,
                                                                              QWidget *parent)
     : AbstractOpConfigWidget(op, userLevel, context, parent)
-    , m_op(op)
+    , m_a1_op(op)
     , m_arena(ArenaSize)
     , m_exprBeginEditor(new ExpressionEditor)
     , m_exprStepEditor(new ExpressionEditor)
@@ -3191,14 +3191,14 @@ ExpressionOperatorConfigurationWidget::ExpressionOperatorConfigurationWidget(Exp
 
 void ExpressionOperatorConfigurationWidget::configureOperator()
 {
-    assert(required_inputs_connected_and_valid(m_op));
+    assert(required_inputs_connected_and_valid(m_a1_op));
 
-    m_op->setObjectName(le_name->text());
+    m_a1_op->setObjectName(le_name->text());
 }
 
 void ExpressionOperatorConfigurationWidget::inputSelected(s32 slotIndex)
 {
-    if (no_input_connected(m_op) && !wasNameEdited())
+    if (no_input_connected(m_a1_op) && !wasNameEdited())
     {
         le_name->clear();
         setNameEdited(false);
@@ -3206,7 +3206,7 @@ void ExpressionOperatorConfigurationWidget::inputSelected(s32 slotIndex)
 
     if (!wasNameEdited())
     {
-        auto name = makeSlotSourceString(m_op->getSlot(0));
+        auto name = makeSlotSourceString(m_a1_op->getSlot(0));
 
         le_name->setText(name);
     }
@@ -3221,10 +3221,27 @@ bool ExpressionOperatorConfigurationWidget::isValid() const
 
 void ExpressionOperatorConfigurationWidget::rebuild()
 {
-#if 1
-    m_a2_inPipe = {};
-    m_a2_op = {};
-    m_arena.reset();
+    try
+    {
+        m_arena.reset();
+        m_a2_op = m_a1_op->buildA2Operator(&m_arena);
+    }
+    catch (const a2::ExpressionOperatorSymbolError &e)
+    {
+    }
+    catch (const a2::ExpressionOperatorSemanticError &e)
+    {
+    }
+    catch (const a2::a2_exprtk::ParserErrorList &e)
+    {
+    }
+    catch (const a2::a2_exprtk::ParserError &e)
+    {
+        InvalidCodePath;
+    }
+    catch (const std::runtime_error &e)
+    {
+    }
 
     if (required_inputs_connected_and_valid(m_op))
     {
@@ -3261,15 +3278,12 @@ void ExpressionOperatorConfigurationWidget::rebuild()
                   );
         }
     }
-#else
-    assert(!"disabled for now to speed up building");
-#endif
 }
 
 void ExpressionOperatorConfigurationWidget::reloadFromOperator()
 {
-    m_exprBeginEditor->setExpressionString(m_op->getBeginExpression());
-    m_exprStepEditor->setExpressionString(m_op->getStepExpression());
+    m_exprBeginEditor->setExpressionString(m_a1_op->getBeginExpression());
+    m_exprStepEditor->setExpressionString(m_a1_op->getStepExpression());
     rebuild();
 }
 

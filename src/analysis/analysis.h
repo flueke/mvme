@@ -1108,6 +1108,7 @@ class LIBMVME_EXPORT ExpressionOperator: public OperatorInterface
         void setStepExpression(const QString &str) { m_exprStep = str; }
         QString getStepExpression() const { return m_exprStep; }
 
+        a2::Operator buildA2Operator(memory::Arena *arena);
 
 
     private:

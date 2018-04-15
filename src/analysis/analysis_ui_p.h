@@ -410,9 +410,8 @@ class ExpressionOperatorConfigurationWidget: public AbstractOpConfigWidget
         void rebuild();
         void reloadFromOperator();
 
-        ExpressionOperator *m_op;
+        ExpressionOperator *m_a1_op;
         memory::Arena m_arena;
-        a2::PipeVectors m_a2_inPipe;
         a2::Operator m_a2_op;
 
         ExpressionEditor *m_exprBeginEditor,

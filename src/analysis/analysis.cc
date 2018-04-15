@@ -2690,53 +2690,96 @@ Pipe *ExpressionOperator::getOutput(s32 index)
     return nullptr;
 }
 
-void ExpressionOperator::beginRun(const RunInfo &runInfo, Logger logger)
+a2::Operator ExpressionOperator::buildA2Operator(memory::Arena *arena)
 {
-#if 0
     /* Create the a2 operator which runs the begin script to figure out the
      * output size and limits. Then copy the limits to this operators output
      * pipe. */
 
-    if (!m_inputSlot.inputPipe) return;
-
-    memory::Arena arena(Kilobytes(256));
+    if (!required_inputs_connected_and_valid(this))
+        throw std::runtime_error("Not all required inputs are connected.");
 
     std::vector<a2::PipeVectors> a2_inputs;
+    std::vector<std::string> inputUnits;
 
-    auto a1_inPipe = m_inputSlot.inputPipe;
-
-    a2::PipeVectors a2_inPipe = {};
-    a2_inPipe.data = a2::push_param_vector(&arena, a1_inPipe->getSize(), make_quiet_nan());
-    a2_inPipe.lowerLimits = a2::push_param_vector(&arena, a1_inPipe->getSize());
-    a2_inPipe.upperLimits = a2::push_param_vector(&arena, a1_inPipe->getSize());
-
-    for (s32 i = 0; i < a1_inPipe->getSize(); i++)
+    for (auto slot: m_inputs)
     {
-        a2_inPipe.lowerLimits[i] = a1_inPipe->getParameter(i)->lowerLimit;
-        a2_inPipe.upperLimits[i] = a1_inPipe->getParameter(i)->upperLimit;
+        auto a1_pipe = slot->inputPipe;
+
+        a2::PipeVectors a2_pipe = {};
+        a2_pipe.data        = a2::push_param_vector(arena, a1_pipe->getSize(), make_quiet_nan());
+        a2_pipe.lowerLimits = a2::push_param_vector(arena, a1_pipe->getSize());
+        a2_pipe.upperLimits = a2::push_param_vector(arena, a1_pipe->getSize());
+
+        for (s32 i = 0; i < a1_pipe->getSize(); i++)
+        {
+            a2_pipe.lowerLimits[i] = a1_pipe->getParameter(i)->lowerLimit;
+            a2_pipe.upperLimits[i] = a1_pipe->getParameter(i)->upperLimit;
+        }
+
+        a2_inputs.push_back(a2_pipe);
+
+        inputUnits.push_back(a1_pipe->parameters.unit.toStdString());
+    }
+
+    std::vector<std::string> inputPrefixes;
+
+    for (const auto &inputName: m_inputNames)
+    {
+        inputPrefixes.push_back(inputName.toStdString());
     }
 
     auto a2_op = a2::make_expression_operator(
-        &arena,
-        a2_inPipe,
-        getBeginExpression().toStdString(),
-        getStepExpression().toStdString());
+        arena,
+        a2_inputs,
+        inputPrefixes,
+        inputUnits,
+        m_exprBegin.toStdString(),
+        m_exprStep.toStdString());
 
-    assert(a2_op.outputLowerLimits[0].size == a2_op.outputUpperLimits[0].size);
+    return a2_op;
+}
 
-    auto &params(m_output.getParameters());
-    params.resize(a2_op.outputLowerLimits[0].size);
 
-    for (s32 i = 0; i < params.size(); i++)
+void ExpressionOperator::beginRun(const RunInfo &runInfo, Logger logger)
+{
+    try
     {
-        params[i].lowerLimit = a2_op.outputLowerLimits[0][i];
-        params[i].upperLimit = a2_op.outputUpperLimits[0][i];
-    }
+        memory::Arena arena(Kilobytes(256));
 
-    params.invalidateAll();
-#else
-    assert(!"disabled for now to speed up building");
-#endif
+        auto a2_op = buildA2Operator(&arena);
+        auto d     = reinterpret_cast<a2::ExpressionOperatorData *>(a2_op.d);
+
+        assert(d->output_units.size() == d->output_names.size());
+        assert(a2_op.outputCount == d->output_units.size());
+
+        m_outputs.clear();
+
+        for (size_t outIdx = 0; outIdx < d->output_units.size(); outIdx++)
+        {
+            auto outPipe = std::make_shared<Pipe>();
+            outPipe->source = this;
+            outPipe->sourceOutputIndex = outIdx;
+
+            assert(a2_op.outputs[outIdx].size == a2_op.outputLowerLimits[outIdx].size);
+            assert(a2_op.outputs[outIdx].size == a2_op.outputUpperLimits[outIdx].size);
+
+            outPipe->parameters.resize(a2_op.outputs[outIdx].size);
+            outPipe->parameters.invalidateAll();
+
+            for (s32 paramIndex = 0; paramIndex < outPipe->parameters.size(); paramIndex++)
+            {
+                outPipe->parameters[paramIndex].lowerLimit = a2_op.outputLowerLimits[outIdx][paramIndex];
+                outPipe->parameters[paramIndex].upperLimit = a2_op.outputUpperLimits[outIdx][paramIndex];
+            }
+
+            m_outputs.push_back(outPipe);
+        }
+    }
+    catch (const std::runtime_error &e)
+    {
+        logger(QString::fromStdString(e.what()));
+    }
 }
 
 void ExpressionOperator::step()
