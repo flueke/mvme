@@ -1,6 +1,13 @@
 ==================================================
-TODO list somewhat sorted by priority
+TODO list, not at all sorted by priority
 ==================================================
+* Fix no-auto generated name for BinarySumDiff
+* Do not leave limits at 0.0, use auto limits if user leaves at 0.0
+* Multievent with disabled module: always yields an error. use the info that
+  the module is not available
+* logspam
+* Move analysis efficiency display to the top Event toolbar
+
 * New Export/ListfileFilter Idea: use an operator to decide whether a full VME
   data event should be copied to an output listfile or be suppressed.
   This is basically a copy and filter operation for listfile with the decision
