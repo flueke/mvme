@@ -6,6 +6,7 @@
 #include "listfile_constants.h"
 #include "mesytec_diagnostics.h"
 #include "mvme_listfile.h"
+#include "util/leaky_bucket.h"
 #include "util/perf.h"
 
 //#define MVME_STREAM_PROCESSOR_DEBUG
@@ -41,6 +42,7 @@ struct MVMEStreamProcessorPrivate
     VMEConfig *vmeConfig = nullptr;
     std::shared_ptr<MesytecDiagnostics> diag;
     MVMEStreamProcessor::Logger logger = nullptr;
+    LeakyBucketMeter m_logBucket;
 
     ListfileConstants listfileConstants;
 
@@ -50,6 +52,8 @@ struct MVMEStreamProcessorPrivate
 
     QVector<IMVMEStreamBufferConsumer *> bufferConsumers;
     QVector<IMVMEStreamModuleConsumer *> moduleConsumers;
+
+    MVMEStreamProcessorPrivate();
 
     void processEventSection(u32 sectionHeader, u32 *data, u32 size, u64 bufferNumber);
     void logMessage(const QString &msg);
@@ -67,6 +71,13 @@ struct MVMEStreamProcessorPrivate
                                    u32 sectionHeader, u32 *data, u32 size);
     void stepNextEvent(ProcessingState &procState);
 };
+
+static const size_t MaxLogMessagesPerSecond = 5;
+
+MVMEStreamProcessorPrivate::MVMEStreamProcessorPrivate()
+    : m_logBucket(MaxLogMessagesPerSecond, std::chrono::seconds(1))
+{
+}
 
 MVMEStreamProcessor::MVMEStreamProcessor()
     : m_d(std::make_unique<MVMEStreamProcessorPrivate>())
@@ -243,7 +254,6 @@ void MVMEStreamProcessor::processDataBuffer(DataBuffer *buffer)
                                .arg(sectionHeader, 8, 16, QLatin1Char('0'))
                                .arg(sectionSize)
                                .arg(iter.longwordsLeft()));
-                qDebug() << msg;
                 m_d->logMessage(msg);
 #endif
                 throw end_of_buffer();
@@ -296,7 +306,6 @@ void MVMEStreamProcessor::processDataBuffer(DataBuffer *buffer)
     {
         QString msg = QSL("Error (mvme stream, buffer#%1, full processing): "
                           "unexpectedly reached end of buffer").arg(bufferNumber);
-        qDebug() << msg;
         m_d->logMessage(msg);
         m_d->counters.buffersWithErrors++;
 
@@ -527,7 +536,6 @@ void MVMEStreamProcessorPrivate::processEventSection(u32 sectionHeader, u32 *dat
                                    .arg(moduleIndex)
                                    .arg(*mi.moduleHeader, 8, 16, QLatin1Char('0'))
                                   );
-                    qDebug() << msg;
                     logMessage(msg);
 
                     done = true;
@@ -645,7 +653,6 @@ void MVMEStreamProcessorPrivate::processEventSection(u32 sectionHeader, u32 *dat
                     .arg(eventIndex)
                     .arg(moduleIndex)
                     );
-                qDebug() << msg;
                 logMessage(msg);
                 err = true;
                 break; // reporting one error is enough
@@ -668,7 +675,6 @@ void MVMEStreamProcessorPrivate::processEventSection(u32 sectionHeader, u32 *dat
                                    .arg(firstModuleCount)
                                    .arg(eventCountsByModule[moduleIndex])
                                   );
-                    qDebug() << msg;
                     logMessage(msg);
                     err = true;
                     break; // reporting one error is enough
@@ -744,7 +750,6 @@ MVMEStreamProcessor::singleStepNextStep(ProcessingState &procState)
                                .arg(sectionHeader, 8, 16, QLatin1Char('0'))
                                .arg(sectionSize)
                                .arg(iter.longwordsLeft()));
-                qDebug() << msg;
                 m_d->logMessage(msg);
 #endif
                 throw end_of_buffer();
@@ -806,7 +811,6 @@ MVMEStreamProcessor::singleStepNextStep(ProcessingState &procState)
     {
         QString msg = QSL("Error (mvme stream, buffer#%1, stepping): "
                           "unexpectedly reached end of buffer").arg(bufferNumber);
-        qDebug() << msg;
         m_d->logMessage(msg);
         m_d->counters.buffersWithErrors++;
 
@@ -1070,7 +1074,6 @@ void MVMEStreamProcessorPrivate::stepNextEvent(ProcessingState &procState)
                                    .arg(moduleIndex)
                                    .arg(*mi.moduleHeader, 8, 16, QLatin1Char('0'))
                                   );
-                    qDebug() << msg;
                     logMessage(msg);
 
                     procState.stepResult = ProcessingState::StepResult_Error;
@@ -1181,9 +1184,24 @@ void MVMEStreamProcessorPrivate::stepNextEvent(ProcessingState &procState)
 
 void MVMEStreamProcessorPrivate::logMessage(const QString &msg)
 {
-    if (this->logger)
+    size_t suppressedMessages = m_logBucket.overflow();
+
+    if (this->logger && !m_logBucket.eventOverflows())
     {
-        this->logger(msg);
+        if (suppressedMessages)
+        {
+            auto finalMsg(QString("%1 (suppressed %2 earlier messages)")
+                          .arg(msg)
+                          .arg(suppressedMessages)
+                         );
+            qDebug() << finalMsg;
+            this->logger(finalMsg);
+        }
+        else
+        {
+            qDebug() << msg;
+            this->logger(msg);
+        }
     }
 }
 

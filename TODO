@@ -1,11 +1,8 @@
 ==================================================
 TODO list, not at all sorted by priority
 ==================================================
-* Fix no-auto generated name for BinarySumDiff
-* Do not leave limits at 0.0, use auto limits if user leaves at 0.0
-* Multievent with disabled module: always yields an error. use the info that
-  the module is not available
-* logspam
+* logspam: readout workers still need the throttle. could also install an
+  additional central throttle in MVMEContext.
 * Move analysis efficiency display to the top Event toolbar
 
 * New Export/ListfileFilter Idea: use an operator to decide whether a full VME
