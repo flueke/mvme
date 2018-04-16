@@ -2283,6 +2283,15 @@ void OperatorConfigurationWidget::inputSelected(s32 slotIndex)
                 le_name->setText(name);
             }
         }
+        else if (auto binOp = qobject_cast<BinarySumDiff *>(op))
+        {
+            if (binOp->getSlot(0)->isConnected() && binOp->getSlot(1)->isConnected())
+            {
+                QString nameA = makeSlotSourceString(binOp->getSlot(0));
+                QString nameB = makeSlotSourceString(binOp->getSlot(1));
+                le_name->setText(QString("%1_%2").arg(nameA).arg(nameB));
+            }
+        }
     }
 
     if (!le_name->text().isEmpty()
@@ -2652,10 +2661,20 @@ void OperatorConfigurationWidget::configureOperator()
     }
     else if (auto binOp = qobject_cast<BinarySumDiff *>(op))
     {
+        double ll = spin_outputLowerLimit->value();
+        double ul = spin_outputUpperLimit->value();
+
+        if (ul - ll == 0.0)
+        {
+            updateOutputLimits(binOp);
+            ll = spin_outputLowerLimit->value();
+            ul = spin_outputUpperLimit->value();
+        }
+
         binOp->setEquation(combo_equation->currentData().toInt());
         binOp->setOutputUnitLabel(le_unit->text());
-        binOp->setOutputLowerLimit(spin_outputLowerLimit->value());
-        binOp->setOutputUpperLimit(spin_outputUpperLimit->value());
+        binOp->setOutputLowerLimit(ll);
+        binOp->setOutputUpperLimit(ul);
     }
     else if (auto aggOp = qobject_cast<AggregateOps *>(op))
     {
