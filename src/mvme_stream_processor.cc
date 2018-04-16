@@ -121,7 +121,7 @@ void MVMEStreamProcessor::MVMEStreamProcessor::beginRun(
 
             auto moduleEventHeaderFilter = moduleConfig->getEventHeaderFilter();
 
-            if (moduleEventHeaderFilter.isEmpty())
+            if (moduleEventHeaderFilter.isEmpty() || !moduleConfig->isEnabled())
             {
                 // multievent enable: override the event setting as we don't
                 // have a filter for splitting the event data
