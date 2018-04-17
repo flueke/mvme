@@ -2464,8 +2464,8 @@ BinarySumDiff::BinarySumDiff(QObject *parent)
     , m_outputUpperLimit(0.0)
 {
     m_output.setSource(this);
-    m_inputA.acceptedInputTypes = InputType::Array;
-    m_inputB.acceptedInputTypes = InputType::Array;
+    m_inputA.acceptedInputTypes = InputType::Both;
+    m_inputB.acceptedInputTypes = InputType::Both;
 }
 
 s32 BinarySumDiff::getNumberOfEquations() const
@@ -2483,41 +2483,61 @@ QString BinarySumDiff::getEquationDisplayString(s32 index) const
     return QString();
 }
 
-// FIXME: basic implementation bailing out if input sizes are not equal. Check
-// what a2 does and maybe not fix it but document the behaviour and do not
-// crash!
-// Implement it so that the smalles input size is used for calculations and the
-// other output values are filled with invalids.
 void BinarySumDiff::beginRun(const RunInfo &, Logger logger)
 {
+    if (!(0 <= m_equationIndex && m_equationIndex < EquationImpls.size()))
+    {
+        return;
+    }
+
     auto &out(m_output.getParameters());
 
-    if (m_inputA.isConnected()
-        && m_inputB.isConnected()
-        && m_inputA.inputPipe->getSize() == m_inputB.inputPipe->getSize()
-        && 0 <= m_equationIndex && m_equationIndex < EquationImpls.size())
-    {
-        out.resize(m_inputA.inputPipe->getSize());
-        out.name = objectName();
-        out.unit = m_outputUnitLabel;
-
-        for (auto &param: out)
-        {
-            param.valid = false;
-            param.lowerLimit = m_outputLowerLimit;
-            param.upperLimit = m_outputUpperLimit;
-        }
-    }
-    else
+    if (!m_inputA.isParamIndexInRange() || !m_inputB.isParamIndexInRange())
     {
         out.resize(0);
         out.name = QString();
         out.unit = QString();
+        return;
+    }
+
+    // Either both inputs are arrays or both are single values
+    Q_ASSERT((m_inputA.paramIndex == Slot::NoParamIndex && m_inputB.paramIndex == Slot::NoParamIndex)
+             || (m_inputA.paramIndex != Slot::NoParamIndex && m_inputB.paramIndex != Slot::NoParamIndex));
+
+
+    if (m_inputA.paramIndex != Slot::NoParamIndex && m_inputB.paramIndex != Slot::NoParamIndex)
+    {
+        // Both inputs are single values
+        out.resize(1);
+    }
+    else if (m_inputA.paramIndex == Slot::NoParamIndex && m_inputB.paramIndex == Slot::NoParamIndex)
+    {
+        // Both inputs are arrays
+        s32 minSize = std::min(m_inputA.inputPipe->parameters.size(),
+                               m_inputB.inputPipe->parameters.size());
+
+        out.resize(minSize);
+        out.name = objectName();
+        out.unit = m_outputUnitLabel;
+    }
+    else
+    {
+        out.resize(0);
+    }
+
+    out.invalidateAll();
+
+    for (auto &param: out)
+    {
+        param.lowerLimit = m_outputLowerLimit;
+        param.upperLimit = m_outputUpperLimit;
     }
 }
 
 void BinarySumDiff::step()
 {
+    assert(!"not implemented. a2 should be used!");
+#if 0
     auto &o(m_output.getParameters());
 
     if (!o.isEmpty())
@@ -2532,6 +2552,7 @@ void BinarySumDiff::step()
     {
         o.invalidateAll();
     }
+#endif
 }
 
 s32 BinarySumDiff::getNumberOfSlots() const
@@ -2551,6 +2572,33 @@ Slot *BinarySumDiff::getSlot(s32 slotIndex)
     return nullptr;
 }
 
+void BinarySumDiff::slotConnected(Slot *slot)
+{
+    Q_ASSERT(slot == &m_inputA || slot == &m_inputB);
+
+    if (slot->paramIndex != Slot::NoParamIndex)
+    {
+        m_inputA.acceptedInputTypes = InputType::Value;
+        m_inputB.acceptedInputTypes = InputType::Value;
+    }
+    else
+    {
+        m_inputA.acceptedInputTypes = InputType::Array;
+        m_inputB.acceptedInputTypes = InputType::Array;
+    }
+}
+
+void BinarySumDiff::slotDisconnected(Slot *slot)
+{
+    Q_ASSERT(slot == &m_inputA || slot == &m_inputB);
+
+    if (!m_inputA.isConnected() && !m_inputB.isConnected())
+    {
+        m_inputA.acceptedInputTypes = InputType::Both;
+        m_inputB.acceptedInputTypes = InputType::Both;
+    }
+}
+
 s32 BinarySumDiff::getNumberOfOutputs() const
 {
     return 1;
@@ -2568,16 +2616,16 @@ Pipe *BinarySumDiff::getOutput(s32 index)
 
 void BinarySumDiff::read(const QJsonObject &json)
 {
-    m_equationIndex = json["equationIndex"].toInt();
-    m_outputUnitLabel = json["outputUnitLabel"].toString();
+    m_equationIndex    = json["equationIndex"].toInt();
+    m_outputUnitLabel  = json["outputUnitLabel"].toString();
     m_outputLowerLimit = json["outputLowerLimit"].toDouble();
     m_outputUpperLimit = json["outputUpperLimit"].toDouble();
 }
 
 void BinarySumDiff::write(QJsonObject &json) const
 {
-    json["equationIndex"] = m_equationIndex;
-    json["outputUnitLabel"] = m_outputUnitLabel;
+    json["equationIndex"]    = m_equationIndex;
+    json["outputUnitLabel"]  = m_outputUnitLabel;
     json["outputLowerLimit"] = m_outputLowerLimit;
     json["outputUpperLimit"] = m_outputUpperLimit;
 }

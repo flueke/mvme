@@ -261,6 +261,16 @@ Operator make_binary_equation(
     double outputLowerLimit,
     double outputUpperLimit);
 
+Operator make_binary_equation_idx(
+    memory::Arena *arena,
+    PipeVectors inputA,
+    PipeVectors inputB,
+    s32 inputIndexA,
+    s32 inputIndexB,
+    u32 equationIndex,
+    double outputLowerLimit,
+    double outputUpperLimit);
+
 Operator make_range_filter(
     memory::Arena *arena,
     PipeVectors input,

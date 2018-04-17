@@ -931,7 +931,7 @@ using BinaryEquationFunction = void (*)(ParamVec a, ParamVec b, ParamVec out);
 #define add_binary_equation(x) \
 [](ParamVec a, ParamVec b, ParamVec o)\
 {\
-    for (s32 i = 0; i < a.size; ++i)\
+    for (s32 i = 0; i < a.size && i < b.size; ++i)\
     {\
         if (is_param_valid(a[i]) && is_param_valid(b[i])) \
         {\
@@ -962,6 +962,41 @@ static BinaryEquationFunction BinaryEquationTable[] =
 
 static const size_t BinaryEquationCount = ArrayCount(BinaryEquationTable);
 
+using BinaryEquationFunction_idx = void (*)(ParamVec a, s32 ai, ParamVec b, s32 bi, ParamVec out);
+
+#define add_binary_equation_idx(x) \
+[](ParamVec a, s32 ai, ParamVec b, s32 bi, ParamVec o)\
+{\
+    if (is_param_valid(a[ai]) && is_param_valid(b[bi])) \
+    {\
+        x;\
+    }\
+    else\
+    {\
+        o[0] = invalid_param();\
+    }\
+}
+
+static BinaryEquationFunction_idx BinaryEquationTable_idx[] =
+{
+    add_binary_equation_idx(o[0] = a[ai] + b[bi]),
+
+    add_binary_equation_idx(o[0] = a[ai] - b[bi]),
+
+    add_binary_equation_idx(o[0] = (a[ai] + b[bi]) / (a[ai] - b[bi])),
+
+    add_binary_equation_idx(o[0] = (a[ai] - b[bi]) / (a[ai] + b[bi])),
+
+    add_binary_equation_idx(o[0] = a[ai] / (a[ai] - b[bi])),
+
+    add_binary_equation_idx(o[0] = (a[ai] - b[bi]) / a[ai]),
+};
+#undef add_binary_equation_idx
+
+static const size_t BinaryEquationCount_idx = ArrayCount(BinaryEquationTable_idx);
+
+static_assert(BinaryEquationCount == BinaryEquationCount_idx, "Expected same number of equations for non-index and index cases.");
+
 void binary_equation_step(Operator *op)
 {
     // The equationIndex is stored directly in the d pointer.
@@ -986,12 +1021,58 @@ Operator make_binary_equation(
     assign_input(&result, inputA, 0);
     assign_input(&result, inputB, 1);
 
-    push_output_vectors(arena, &result, 0, inputA.data.size,
+    push_output_vectors(arena, &result, 0, std::min(inputA.data.size, inputB.data.size),
                         outputLowerLimit, outputUpperLimit);
 
     result.d = (void *)(uintptr_t)equationIndex;
 
     return result;
+}
+
+struct BinaryEquationIdxData
+{
+    u32 equationIndex;
+    s32 inputIndexA;
+    s32 inputIndexB;
+};
+
+Operator make_binary_equation_idx(
+    memory::Arena *arena,
+    PipeVectors inputA,
+    PipeVectors inputB,
+    s32 inputIndexA,
+    s32 inputIndexB,
+    u32 equationIndex,
+    double outputLowerLimit,
+    double outputUpperLimit)
+{
+    assert(equationIndex < ArrayCount(BinaryEquationTable));
+
+    auto result = make_operator(arena, Operator_BinaryEquation_idx, 2, 1);
+    assign_input(&result, inputA, 0);
+    assign_input(&result, inputB, 1);
+
+    auto d = arena->pushStruct<BinaryEquationIdxData>();
+    result.d = d;
+
+    d->equationIndex = equationIndex;
+    d->inputIndexA   = inputIndexA;
+    d->inputIndexB   = inputIndexB;
+
+    push_output_vectors(arena, &result, 0, 1,
+                        outputLowerLimit, outputUpperLimit);
+
+    return result;
+}
+
+void binary_equation_step_idx(Operator *op)
+{
+    auto d = reinterpret_cast<BinaryEquationIdxData *>(op->d);
+
+    BinaryEquationTable_idx[d->equationIndex](
+        op->inputs[0], d->inputIndexA,
+        op->inputs[1], d->inputIndexB,
+        op->outputs[0]);
 }
 
 /* ===============================================
@@ -2754,6 +2835,7 @@ static const OperatorFunctions OperatorTable[OperatorTypeCount] =
     [Operator_Difference_idx] = { difference_step_idx },
     [Operator_ArrayMap] = { array_map_step },
     [Operator_BinaryEquation] = { binary_equation_step },
+    [Operator_BinaryEquation_idx] = { binary_equation_step_idx },
 
     [Operator_H1DSink] = { h1d_sink_step },
     [Operator_H1DSink_idx] = { h1d_sink_step_idx },
