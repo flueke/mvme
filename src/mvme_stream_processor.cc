@@ -42,7 +42,7 @@ struct MVMEStreamProcessorPrivate
     VMEConfig *vmeConfig = nullptr;
     std::shared_ptr<MesytecDiagnostics> diag;
     MVMEStreamProcessor::Logger logger = nullptr;
-    LeakyBucketMeter m_logBucket;
+    LeakyBucketMeter m_logThrottle;
 
     ListfileConstants listfileConstants;
 
@@ -56,7 +56,7 @@ struct MVMEStreamProcessorPrivate
     MVMEStreamProcessorPrivate();
 
     void processEventSection(u32 sectionHeader, u32 *data, u32 size, u64 bufferNumber);
-    void logMessage(const QString &msg);
+    void logMessage(const QString &msg, bool useThrottle = true);
 
     // Single Stepping
     struct SingleStepState
@@ -75,7 +75,7 @@ struct MVMEStreamProcessorPrivate
 static const size_t MaxLogMessagesPerSecond = 5;
 
 MVMEStreamProcessorPrivate::MVMEStreamProcessorPrivate()
-    : m_logBucket(MaxLogMessagesPerSecond, std::chrono::seconds(1))
+    : m_logThrottle(MaxLogMessagesPerSecond, std::chrono::seconds(1))
 {
 }
 
@@ -230,11 +230,11 @@ void MVMEStreamProcessor::processDataBuffer(DataBuffer *buffer)
         BufferIterator iter(buffer->data, buffer->used, BufferIterator::Align32);
 
 #ifdef MVME_STREAM_PROCESSOR_DEBUG_BUFFERS
-        m_d->logMessage(QString(">>> Begin mvme buffer #%1").arg(bufferNumber));
+        m_d->logMessage(QString(">>> Begin mvme buffer #%1").arg(bufferNumber), false);
 
-        logBuffer(iter, [this](const QString &str) { m_d->logMessage(str); });
+        logBuffer(iter, [this](const QString &str) { m_d->logMessage(str, false); });
 
-        m_d->logMessage(QString("<<< End mvme buffer #%1") .arg(bufferNumber));
+        m_d->logMessage(QString("<<< End mvme buffer #%1") .arg(bufferNumber), false);
 #endif
 
         const auto &lf(m_d->listfileConstants);
@@ -247,7 +247,7 @@ void MVMEStreamProcessor::processDataBuffer(DataBuffer *buffer)
 
             if (unlikely(sectionSize > iter.longwordsLeft()))
             {
-#ifdef MVME_STREAM_PROCESSOR_DEBUG
+//#ifdef MVME_STREAM_PROCESSOR_DEBUG
                 QString msg = (QString("Error (mvme stream, buffer#%1): extracted section size exceeds buffer size!"
                                        " sectionHeader=0x%2, sectionSize=%3, wordsLeftInBuffer=%4")
                                .arg(bufferNumber)
@@ -255,7 +255,7 @@ void MVMEStreamProcessor::processDataBuffer(DataBuffer *buffer)
                                .arg(sectionSize)
                                .arg(iter.longwordsLeft()));
                 m_d->logMessage(msg);
-#endif
+//#endif
                 throw end_of_buffer();
             }
 
@@ -1182,25 +1182,37 @@ void MVMEStreamProcessorPrivate::stepNextEvent(ProcessingState &procState)
     } // end of outer while (!done) loop
 }
 
-void MVMEStreamProcessorPrivate::logMessage(const QString &msg)
+void MVMEStreamProcessorPrivate::logMessage(const QString &msg, bool useThrottle)
 {
-    size_t suppressedMessages = m_logBucket.overflow();
+    if (!this->logger)
+        return;
 
-    if (this->logger && !m_logBucket.eventOverflows())
+    if (!useThrottle)
     {
-        if (suppressedMessages)
+        qDebug() << msg;
+        this->logger(msg);
+    }
+    else
+    {
+        // have to store this before the call to eventOverflows()
+        size_t suppressedMessages = m_logThrottle.overflow();
+
+        if (!m_logThrottle.eventOverflows())
         {
-            auto finalMsg(QString("%1 (suppressed %2 earlier messages)")
-                          .arg(msg)
-                          .arg(suppressedMessages)
-                         );
-            qDebug() << finalMsg;
-            this->logger(finalMsg);
-        }
-        else
-        {
-            qDebug() << msg;
-            this->logger(msg);
+            if (unlikely(suppressedMessages))
+            {
+                auto finalMsg(QString("%1 (suppressed %2 earlier messages)")
+                              .arg(msg)
+                              .arg(suppressedMessages)
+                             );
+                qDebug() << finalMsg;
+                this->logger(finalMsg);
+            }
+            else
+            {
+                qDebug() << msg;
+                this->logger(msg);
+            }
         }
     }
 }

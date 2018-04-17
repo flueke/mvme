@@ -24,7 +24,25 @@ class LeakyBucketMeter
             , m_count(0)
             , m_overflow(0)
             , m_lastTime(ClockType::now())
+        {}
+
+        LeakyBucketMeter(const LeakyBucketMeter &other)
+            : m_capacity(other.m_capacity)
+            , m_interval(other.m_interval)
+            , m_count(other.m_count)
+            , m_overflow(other.m_overflow)
+            , m_lastTime(other.m_lastTime)
+        {}
+
+        LeakyBucketMeter &operator=(const LeakyBucketMeter &other)
         {
+            m_capacity = other.m_capacity;
+            m_interval = other.m_interval;
+            m_count    = other.m_count;
+            m_overflow = other.m_overflow;
+            m_lastTime = other.m_lastTime;
+
+            return *this;
         }
 
         /* Returns true if the bucket has overflowed, false otherwise. */
@@ -52,9 +70,16 @@ class LeakyBucketMeter
             return m_overflow;
         }
 
+        void reset()
+        {
+            m_count    = 0;
+            m_overflow = 0;
+            m_lastTime = ClockType::now();
+        }
+
     private:
-        const size_t m_capacity;
-        const Duration m_interval;
+        size_t m_capacity;
+        Duration m_interval;
 
         size_t m_count;
         size_t m_overflow;
@@ -78,7 +103,7 @@ class LeakyBucketMeter
                 else
                     m_count -= to_remove;
 
-                qDebug() << __PRETTY_FUNCTION__ << "to_remove =" << to_remove << ", m_count after remove =" << m_count;
+                //qDebug() << __PRETTY_FUNCTION__ << "to_remove =" << to_remove << ", m_count after remove =" << m_count;
 
                 m_lastTime = now;
             }

@@ -639,20 +639,19 @@ bool MVMEContext::setVMEController(VMEController *controller, const QVariantMap 
     connect(m_readoutWorker, &VMEReadoutWorker::stateChanged, this, &MVMEContext::onDAQStateChanged);
     connect(m_readoutWorker, &VMEReadoutWorker::daqStopped, this, &MVMEContext::onDAQDone);
 
-    VMEReadoutWorkerContext readoutWorkerContext =
-    {
-        controller,
-        &m_daqStats,
-        m_vmeConfig,
-        &m_freeBuffers,
-        &m_fullBuffers,
-        &m_d->m_listfileOutputInfo,
-        &m_d->m_runInfo,
+    VMEReadoutWorkerContext readoutWorkerContext;
 
-        [this](const QString &msg) { logMessage(msg); },
-        [this]() { return getLogBuffer(); },
-        [this]() { return getAnalysisJsonDocument(); }
-    };
+    readoutWorkerContext.controller         = controller;
+    readoutWorkerContext.daqStats           = &m_daqStats;
+    readoutWorkerContext.vmeConfig          = m_vmeConfig;
+    readoutWorkerContext.freeBuffers        = &m_freeBuffers;
+    readoutWorkerContext.fullBuffers        = &m_fullBuffers;
+    readoutWorkerContext.listfileOutputInfo = &m_d->m_listfileOutputInfo;
+    readoutWorkerContext.runInfo            = &m_d->m_runInfo;
+
+    readoutWorkerContext.logger             = [this](const QString &msg) { logMessage(msg); };
+    readoutWorkerContext.getLogBuffer       = [this]() { return getLogBuffer(); };
+    readoutWorkerContext.getAnalysisJson    = [this]() { return getAnalysisJsonDocument(); };
 
     m_readoutWorker->setContext(readoutWorkerContext);
     m_d->m_ctrlOpenRetryCount = 0;

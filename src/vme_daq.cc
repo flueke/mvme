@@ -283,7 +283,7 @@ void DAQReadoutListfileHelper::beginRun()
                 m_d->listfileOut = std::make_unique<QFile>(outFilename);
                 auto outFile = reinterpret_cast<QFile *>(m_d->listfileOut.get());
 
-                m_readoutContext.logMessage(QString("Writing to listfile %1").arg(outFilename));
+                m_readoutContext.logMessage(QString("Writing to listfile %1").arg(outFilename), false);
 
                 if (!outFile->open(QIODevice::WriteOnly))
                 {
@@ -309,7 +309,7 @@ void DAQReadoutListfileHelper::beginRun()
                 m_d->listfileArchive.setZipName(outFilename);
                 m_d->listfileArchive.setZip64Enabled(true);
 
-                m_readoutContext.logMessage(QString("Writing listfile into %1").arg(outFilename));
+                m_readoutContext.logMessage(QString("Writing listfile into %1").arg(outFilename), false);
 
                 if (!m_d->listfileArchive.open(QuaZip::mdCreate))
                 {
