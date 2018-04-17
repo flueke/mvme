@@ -514,8 +514,10 @@ SIS3153ReadoutWorker::EventLossCounter::handleEventSequenceNumber(s32 seqNum, u6
     {
         if (seqNum == 1)
         {
+#if SIS_READOUT_DEBUG
             qDebug() << __PRETTY_FUNCTION__ << "buffer #" << bufferNumber
                 << ", first non-stale seqNum =" << seqNum;
+#endif
             currentFlags &= ~Flag_IsStaleData;
         }
         lastReceivedSequenceNumber = seqNum;
@@ -532,7 +534,9 @@ SIS3153ReadoutWorker::EventLossCounter::handleEventSequenceNumber(s32 seqNum, u6
     {
         // increment lost count
         s32 lost = diff - 1;
+#if SIS_READOUT_DEBUG
         qDebug() << __PRETTY_FUNCTION__ << "buffer #" << bufferNumber << ", lost" << lost << "events";
+#endif
         counters->lostEvents += lost;
     }
     else if (diff < 0 && !isLeavingDAQ())
@@ -544,10 +548,12 @@ SIS3153ReadoutWorker::EventLossCounter::handleEventSequenceNumber(s32 seqNum, u6
 
         s32 adjustedDiff = (SIS3153Constants::BeginEventSequenceNumberMask + diff);
 
+#if SIS_READOUT_DEBUG
         qDebug() << __PRETTY_FUNCTION__ << "buffer #" << bufferNumber << ", seqNum diff is < 0:" << diff
             << ", lastReceivedSequenceNumber =" << lastReceivedSequenceNumber
             << ", current seqNum =" << seqNum
             << ", adjustedDiff =" << adjustedDiff;
+#endif
 
         Q_ASSERT(adjustedDiff >= 0);
 
@@ -563,10 +569,12 @@ SIS3153ReadoutWorker::EventLossCounter::handleEventSequenceNumber(s32 seqNum, u6
         // controller sends duplicate packet numbers or we lost so many
         // that an overflow occured and we ended up at exactly the same
         // packet number as before.
+#if SIS_READOUT_DEBUG
         qDebug() << __PRETTY_FUNCTION__ << "buffer #" << bufferNumber << ", seqNum diff is 0!"
             << " seqNum =" << seqNum
             << ", lastReceivedSequenceNumber =" << lastReceivedSequenceNumber
             << ", currentFlags =" << static_cast<u32>(currentFlags);
+#endif
         Q_ASSERT(false);
     }
 
@@ -576,9 +584,11 @@ SIS3153ReadoutWorker::EventLossCounter::handleEventSequenceNumber(s32 seqNum, u6
         // far. This works around the single out-of-order packet the controller
         // sends out during shutdown.
         lastReceivedSequenceNumber = std::max(lastReceivedSequenceNumber, seqNum);
+#if SIS_READOUT_DEBUG
         qDebug() << __PRETTY_FUNCTION__
             << "buffer #" << bufferNumber
             << ", stored max seqNum =" << lastReceivedSequenceNumber;
+#endif
     }
     else
     {
@@ -1617,7 +1627,6 @@ SIS3153ReadoutWorker::ReadBufferResult SIS3153ReadoutWorker::readAndProcessBuffe
                                 .arg(m_forward.socket->error())
                                 ));
             logMessage(msg, true);
-            qDebug() << __PRETTY_FUNCTION__ << msg;
         }
     }
 
@@ -1628,7 +1637,6 @@ SIS3153ReadoutWorker::ReadBufferResult SIS3153ReadoutWorker::readAndProcessBuffe
                                 QSL("sis3153 read < packetHeaderSize (3 bytes)!"));
         auto msg = QString(QSL("SIS3153 Warning: %1").arg(result.error.toString()));
         logMessage(msg, true);
-        qDebug() << __PRETTY_FUNCTION__ << msg;
 
 #if 0
         qDebug() << __PRETTY_FUNCTION__ << "got < 3 bytes; returning " << result.error.toString()
@@ -1769,7 +1777,6 @@ void SIS3153ReadoutWorker::processBuffer(
         auto msg = QString(QSL("SIS3153 Warning: (buffer #%1) end of input reached unexpectedly! Skipping buffer."))
             .arg(m_workerContext.daqStats->totalBuffersRead);
         logMessage(msg, true);
-        qDebug() << __PRETTY_FUNCTION__ << msg;
 
         maybePutBackBuffer();
     }
@@ -1794,7 +1801,6 @@ u32 SIS3153ReadoutWorker::processMultiEventData(
                                 " Skipping buffer."))
                     .arg(bufferNumber));
         logMessage(msg, true);
-        qDebug() << __PRETTY_FUNCTION__ << msg;
         return ProcessorAction::SkipInput;
     }
 
@@ -1858,7 +1864,6 @@ u32 SIS3153ReadoutWorker::processMultiEventData(
             .arg(bufferNumber)
             .arg(iter.bytesLeft());
         logMessage(msg, true);
-        qDebug() << __PRETTY_FUNCTION__ << msg;
     }
 
 #if SIS_READOUT_DEBUG
@@ -1899,7 +1904,6 @@ u32 SIS3153ReadoutWorker::processSingleEventData(
                 .arg(bufferNumber)
                 .arg(beginHeader, 8, 16, QLatin1Char('0'));
             logMessage(msg, true);
-            qDebug() << __PRETTY_FUNCTION__ << msg;
 
             return ProcessorAction::SkipInput;
         }
@@ -1932,7 +1936,6 @@ u32 SIS3153ReadoutWorker::processSingleEventData(
                         .arg(bufferNumber)
                         .arg(endHeader, 8, 16, QLatin1Char('0')));
             logMessage(msg, true);
-            qDebug() << __PRETTY_FUNCTION__ << msg;
             return ProcessorAction::SkipInput;
         }
 
@@ -1944,7 +1947,6 @@ u32 SIS3153ReadoutWorker::processSingleEventData(
                         .arg(bufferNumber)
                         .arg(iter.bytesLeft()));
             logMessage(msg, true);
-            qDebug() << __PRETTY_FUNCTION__ << msg;
             return ProcessorAction::SkipInput;
         }
 
@@ -1972,8 +1974,6 @@ u32 SIS3153ReadoutWorker::processSingleEventData(
                     .arg(stacklist)
                     .arg(eventIndex));
         logMessage(msg, true);
-        qDebug() << __PRETTY_FUNCTION__ << msg;
-
         return ProcessorAction::SkipInput;
     }
 
@@ -2035,10 +2035,7 @@ u32 SIS3153ReadoutWorker::processSingleEventData(
                     .arg(bufferNumber)
                     .arg(endHeader, 8, 16, QLatin1Char('0')));
         logMessage(msg, true);
-        qDebug() << __PRETTY_FUNCTION__ << msg;
-
         maybePutBackBuffer();
-
         return ProcessorAction::SkipInput;
     }
 
@@ -2102,7 +2099,6 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
                             .arg(bufferNumber)
                             .arg(beginHeader, 8, 16, QLatin1Char('0')));
                 logMessage(msg, true);
-                qDebug() << __PRETTY_FUNCTION__ << msg;
                 maybePutBackBuffer();
                 return ProcessorAction::SkipInput;
             }
@@ -2136,7 +2132,6 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
                         .arg(stacklist)
                         .arg(eventIndex));
             logMessage(msg, true);
-            qDebug() << __PRETTY_FUNCTION__ << msg;
             maybePutBackBuffer();
             return ProcessorAction::SkipInput;
         }
@@ -2157,7 +2152,6 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
                        .arg(stacklist)
                        .arg(m_processingState.stackList));
         logMessage(msg, true);
-        qDebug() << __PRETTY_FUNCTION__ << msg;
         maybePutBackBuffer();
         return ProcessorAction::SkipInput;
     }
@@ -2171,7 +2165,6 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
                     .arg((u32)m_processingState.expectedPacketStatus)
                    );
         logMessage(msg, true);
-        qDebug() << __PRETTY_FUNCTION__ << msg;
         maybePutBackBuffer();
         return ProcessorAction::SkipInput;
     }
@@ -2202,7 +2195,6 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
                     .arg(stacklist)
                     .arg(eventIndex));
         logMessage(msg, true);
-        qDebug() << __PRETTY_FUNCTION__ << msg;
 
         maybePutBackBuffer();
         return ProcessorAction::SkipInput;
@@ -2228,7 +2220,6 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
                         .arg(m_processingState.moduleIndex)
                         .arg(moduleCount));
             logMessage(msg, true);
-            qDebug() << __PRETTY_FUNCTION__ << msg;
 
             maybePutBackBuffer();
             return ProcessorAction::SkipInput;
@@ -2246,7 +2237,6 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
                             .arg(eventIndex)
                             .arg(m_processingState.moduleIndex));
                 logMessage(msg, true);
-                qDebug() << __PRETTY_FUNCTION__ << msg;
 
                 maybePutBackBuffer();
                 return ProcessorAction::SkipInput;
@@ -2289,7 +2279,6 @@ u32 SIS3153ReadoutWorker::processPartialEventData(
                         .arg(bufferNumber)
                         .arg(endHeader, 8, 16, QLatin1Char('0')));
             logMessage(msg, true);
-            qDebug() << __PRETTY_FUNCTION__ << msg;
             maybePutBackBuffer();
             return ProcessorAction::SkipInput;
         }
@@ -2467,7 +2456,6 @@ void SIS3153ReadoutWorker::warnIfStreamWriterError(u64 bufferNumber, int writerF
                     .arg(bufferNumber)
                     .arg(eventIndex));
         logMessage(msg, true);
-        qDebug() << __PRETTY_FUNCTION__ << msg;
     }
 
     if (writerFlags & MVMEStreamWriterHelper::EventSizeExceeded)
@@ -2477,7 +2465,6 @@ void SIS3153ReadoutWorker::warnIfStreamWriterError(u64 bufferNumber, int writerF
                     .arg(bufferNumber)
                     .arg(eventIndex));
         logMessage(msg, true);
-        qDebug() << __PRETTY_FUNCTION__ << msg;
     }
 }
 
