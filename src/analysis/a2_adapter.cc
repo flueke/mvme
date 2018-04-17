@@ -898,7 +898,8 @@ void a2_adapter_build_extractors(
                     filter,
                     ex->m_requiredCompletionCount,
                     ex->m_rngSeed,
-                    src.moduleIndex);
+                    src.moduleIndex,
+                    ex->getOptions());
             }
             else if (auto ex = qobject_cast<analysis::ListFilterExtractor *>(src.source.get()))
             {
@@ -907,7 +908,8 @@ void a2_adapter_build_extractors(
                     ex->getExtractor().listFilter,
                     ex->getExtractor().repetitions,
                     ex->getRngSeed(),
-                    src.moduleIndex);
+                    src.moduleIndex,
+                    ex->getOptions());
             }
 
             u8 &ds_cnt = state->a2->dataSourceCounts[ei];

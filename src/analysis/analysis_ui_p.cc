@@ -931,15 +931,17 @@ void ListFilterExtractorDialog::newFilter()
 #if 1
     auto listFilter = a2::data_filter::make_listfilter(
         a2::data_filter::ListFilter::NoFlag, 1, {
-            "1XXX XXXX XXXX XXXX 2XXX XXXX XXXX XXXX",
-            "3XXX XXXX XXXX XXXX 4XXX XXXX XXXX XXXX" });
+            "XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX",
+            "XXXX XXXX XXXX XXXX XXXX XXXX XXXX XXXX" });
+
+            //"1XXX XXXX XXXX XXXX 2XXX XXXX XXXX XXXX",
+            //"3XXX XXXX XXXX XXXX 4XXX XXXX XXXX XXXX" });
 #else
     auto listFilter = a2::data_filter::make_listfilter(
         a2::data_filter::ListFilter::NoFlag, 1);
 #endif
 
-    auto ex_a2 = a2::make_listfilter_extractor(listFilter, 1, 0);
-    ex_a2.options = a2::DataSourceOptions::NoAddedRandom;
+    auto ex_a2 = a2::make_listfilter_extractor(listFilter, 1, 0, a2::DataSourceOptions::NoAddedRandom);
 
     ex->setExtractor(ex_a2);
 
