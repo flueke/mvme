@@ -2777,10 +2777,25 @@ a2::Operator ExpressionOperator::buildA2Operator(memory::Arena *arena)
 
     std::vector<std::string> inputPrefixes;
 
-    for (const auto &inputName: m_inputNames)
+    for (s32 i = 0; i < m_inputs.size(); i++)
     {
-        inputPrefixes.push_back(inputName.toStdString());
+        std::string inputPrefix;
+
+        if (i < m_inputNames.size())
+        {
+            inputPrefix = m_inputNames[i].toStdString();
+        }
+        else
+        {
+            std::stringstream ss;
+            ss << "input" << i;
+            inputPrefix = ss.str();
+        }
+
+        inputPrefixes.push_back(inputPrefix);
     }
+
+    assert(m_inputs.size() == static_cast<s32>(inputPrefixes.size()));
 
     auto a2_op = a2::make_expression_operator(
         arena,
@@ -2831,7 +2846,11 @@ void ExpressionOperator::beginRun(const RunInfo &runInfo, Logger logger)
     }
     catch (const std::runtime_error &e)
     {
-        logger(QString::fromStdString(e.what()));
+        if (logger)
+        {
+            logger(QString::fromStdString(e.what()));
+        }
+        qDebug() << __PRETTY_FUNCTION__ << e.what();
     }
 }
 
