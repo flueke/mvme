@@ -326,7 +326,6 @@ void Slot::disconnectPipe()
 // OperatorInterface
 //
 // FIXME: does not perform acceptedInputTypes validity test atm!
-// FIXME: does not return a value atm!
 void OperatorInterface::connectInputSlot(s32 slotIndex, Pipe *inputPipe, s32 paramIndex)
 {
     Slot *slot = getSlot(slotIndex);
@@ -378,6 +377,11 @@ s32 OperatorInterface::getMaximumOutputRank()
 
 static std::uniform_real_distribution<double> RealDist01(0.0, 1.0);
 
+/* This random device is used to generate the initial seeds for data extractors
+ * (Extractor, ListFilterExtractor). It is _not_ used for random number
+ * generation during analysis runtime, pcg32_fast is used for that. */
+static std::random_device StaticRandomDevice;
+
 Extractor::Extractor(QObject *parent)
     : SourceInterface(parent)
     , m_options(Options::NoOption)
@@ -386,9 +390,8 @@ Extractor::Extractor(QObject *parent)
 
     // Generate a random seed for the rng. This seed will be written out in
     // write() and restored in read().
-    std::random_device rd;
     std::uniform_int_distribution<u64> dist;
-    m_rngSeed = dist(rd);
+    m_rngSeed = dist(StaticRandomDevice);
 }
 
 void Extractor::beginRun(const RunInfo &runInfo, Logger logger)
@@ -543,9 +546,11 @@ ListFilterExtractor::ListFilterExtractor(QObject *parent)
     m_output.setSource(this);
     m_a2Extractor = {};
     m_a2Extractor.options = a2::DataSourceOptions::NoAddedRandom;
-    std::random_device rd;
+
+    // Generate a random seed for the rng. This seed will be written out in
+    // write() and restored in read().
     std::uniform_int_distribution<u64> dist;
-    m_rngSeed = dist(rd);
+    m_rngSeed = dist(StaticRandomDevice);
 }
 
 void ListFilterExtractor::beginRun(const RunInfo &runInfo, Logger logger)
