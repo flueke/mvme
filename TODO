@@ -697,8 +697,6 @@ Single Stepping and Stream Processing
 - Fix diagnosis window hanging and eating system memory when EOE check is
   active and a lot of errors are occuring
 
-* Log throttling!!!!
-
 * Check for off-by-one errors in the 2D projection code
 
 * lastlog.log:
@@ -757,26 +755,16 @@ Single Stepping and Stream Processing
 
 * add ability to add notes to VME/analysis config (maybe other objects too)
 * VMEScript: add print command
-* Limit the number of messages/s appended to the logview. With multithreading:
-  do messages fill up one of the threads event queues? Can this be limited
-  somehow? Better to directly limit the generation of these messages?
 
 * Histos:
   * add histogram cuts
   * add histogram fitting
 
 * Mesytec Werbung ^^ Hintergrundbilder, Wasserzeichen, etc. (CSS Theme?)
-* Hist2d: look for standard color scales as used in publications, ROOT, etc.
-  https://root.cern.ch/doc/master/TColor_8cxx_source.html#l02400
-* How to handle filters without matching module? Right now they're not
-  displayed until a module with the corresponding (eventIndex,moduleIndex) is
-  created.
-  Related: Remove Hist2d on filter removal?
-  => would all be fixed when moving from (eventIndex, moduleIndex) to using object ids.
-
 * threading and vme commands
   * run vme scripts in a separate thread when invoked from the gui
 
 * save and restore the zoom and pan of histograms
 * save and restore open histograms
 * Fix diagnostics window blocking when there are a lot of error messages being generated.
+  -> use the leaky bucket throttle for this

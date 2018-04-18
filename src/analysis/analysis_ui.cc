@@ -27,11 +27,13 @@
 #ifdef MVME_ENABLE_HDF5
 #include "analysis_session.h"
 #endif
+#include "listfilter_extractor_dialog.h"
 
 #include "../config_ui.h"
 #include "../histo1d_widget.h"
 #include "../histo2d_widget.h"
 #include "../mvme_context.h"
+#include "../mvme_context_lib.h"
 #include "../mvme_stream_worker.h"
 #include "../rate_monitor_widget.h"
 #include "../treewidget_utils.h"

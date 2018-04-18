@@ -370,15 +370,6 @@ class LIBMVME_EXPORT MVMEContext: public QObject
         analysis::AnalysisWidget *m_analysisUi = nullptr;
 };
 
-struct AnalysisPauser
-{
-    AnalysisPauser(MVMEContext *context);
-    ~AnalysisPauser();
-
-    MVMEContext *context;
-    bool was_running;
-};
-
 struct DAQPauser
 {
     DAQPauser(MVMEContext *context);

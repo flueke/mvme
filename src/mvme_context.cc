@@ -19,6 +19,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "mvme_context.h"
+#include "mvme_context_lib.h"
 #include "mvme.h"
 #include "sis3153.h"
 #include "vmusb.h"
@@ -1881,31 +1882,6 @@ void MVMEContext::analysisOperatorEdited(const std::shared_ptr<analysis::Operato
 RunInfo MVMEContext::getRunInfo() const
 {
     return m_d->m_runInfo;
-}
-
-//
-// AnalysisPauser
-//
-AnalysisPauser::AnalysisPauser(MVMEContext *context)
-    : context(context)
-{
-    was_running = context->isAnalysisRunning();
-
-    qDebug() << __PRETTY_FUNCTION__ << "was_running =" << was_running;
-
-    if (was_running)
-    {
-        context->stopAnalysis();
-    }
-}
-
-AnalysisPauser::~AnalysisPauser()
-{
-    qDebug() << __PRETTY_FUNCTION__ << "was_running =" << was_running;
-    if (was_running)
-    {
-        context->resumeAnalysis();
-    }
 }
 
 // DAQPauser

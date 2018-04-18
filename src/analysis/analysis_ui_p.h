@@ -137,41 +137,6 @@ class AddEditExtractorWidget: public QDialog
         void applyTemplate(int index);
 };
 
-class ListFilterExtractorDialog: public QDialog
-{
-    Q_OBJECT
-    signals:
-        void applied();
-
-    public:
-        ListFilterExtractorDialog(ModuleConfig *mod, analysis::Analysis *analysis,
-                                  MVMEContext *context, QWidget *parent = nullptr);
-        virtual ~ListFilterExtractorDialog();
-
-        void editListFilterExtractor(const std::shared_ptr<ListFilterExtractor> &lfe);
-
-        QVector<ListFilterExtractorPtr> getExtractors() const;
-
-    public slots:
-        virtual void accept() override;
-        virtual void reject() override;
-
-        void newFilter();
-
-    private slots:
-        void apply();
-        void removeFilter();
-        void cloneFilter();
-        void updateWordCount();
-
-    private:
-        void repopulate();
-        int addFilterToUi(const ListFilterExtractorPtr &ex);
-
-        struct ListFilterExtractorDialogPrivate;
-
-        std::unique_ptr<ListFilterExtractorDialogPrivate> m_d;
-};
 
 QWidget *data_source_widget_factory(SourceInterface *ds);
 

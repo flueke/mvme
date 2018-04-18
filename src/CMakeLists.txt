@@ -79,6 +79,7 @@ set(LIBMVME_SOURCES
     analysis/data_extraction_widget.cc
     analysis/analysis_info_widget.cc
     analysis/exportsink_codegen.cc
+    analysis/listfilter_extractor_dialog.cc
     config_ui.cpp
     CVMUSBReadoutList.cpp
     daqcontrol_widget.cc

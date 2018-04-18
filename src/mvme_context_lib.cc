@@ -54,3 +54,28 @@ ContextOpenListfileResult context_open_listfile(MVMEContext *context, const QStr
 
     return result;
 }
+
+//
+// AnalysisPauser
+//
+AnalysisPauser::AnalysisPauser(MVMEContext *context)
+    : context(context)
+{
+    was_running = context->isAnalysisRunning();
+
+    qDebug() << __PRETTY_FUNCTION__ << "was_running =" << was_running;
+
+    if (was_running)
+    {
+        context->stopAnalysis();
+    }
+}
+
+AnalysisPauser::~AnalysisPauser()
+{
+    qDebug() << __PRETTY_FUNCTION__ << "was_running =" << was_running;
+    if (was_running)
+    {
+        context->resumeAnalysis();
+    }
+}

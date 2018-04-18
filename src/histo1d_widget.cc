@@ -24,6 +24,7 @@
 #include "util.h"
 #include "analysis/analysis.h"
 #include "mvme_context.h"
+#include "mvme_context_lib.h"
 
 #include <qwt_plot_curve.h>
 #include <qwt_plot_histogram.h>
