@@ -25,6 +25,8 @@
 #include "globals.h"
 #include "vme_config.h"
 #include "vme_controller.h"
+#include "util/leaky_bucket.h"
+#include "util/perf.h"
 
 struct VMEReadoutWorkerContext
 {
@@ -36,9 +38,51 @@ struct VMEReadoutWorkerContext
     ListFileOutputInfo *listfileOutputInfo;
     RunInfo *runInfo;
 
-    std::function<void (const QString &)> logMessage;
+    std::function<void (const QString &)> logger;
     std::function<QStringList ()> getLogBuffer;
     std::function<QJsonDocument ()> getAnalysisJson;
+    LeakyBucketMeter m_logThrottle;
+
+    static const size_t MaxLogMessagesPerSecond = 5;
+
+    VMEReadoutWorkerContext()
+        : m_logThrottle(MaxLogMessagesPerSecond, std::chrono::seconds(1))
+    {}
+
+    void logMessage(const QString &msg, bool useThrottle = false)
+    {
+        if (!this->logger)
+            return;
+
+        if (!useThrottle)
+        {
+            qDebug() << msg;
+            this->logger(msg);
+        }
+        else
+        {
+            // have to store this before the call to eventOverflows()
+            size_t suppressedMessages = m_logThrottle.overflow();
+
+            if (!m_logThrottle.eventOverflows())
+            {
+                if (unlikely(suppressedMessages))
+                {
+                    auto finalMsg(QString("%1 (suppressed %2 earlier messages)")
+                                  .arg(msg)
+                                  .arg(suppressedMessages)
+                                 );
+                    qDebug() << finalMsg;
+                    this->logger(finalMsg);
+                }
+                else
+                {
+                    qDebug() << msg;
+                    this->logger(msg);
+                }
+            }
+        }
+    }
 };
 
 class VMEReadoutWorker: public QObject

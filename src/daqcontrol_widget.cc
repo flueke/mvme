@@ -539,7 +539,7 @@ void DAQControlWidget::updateWidget()
                 QFile fi(stats.listfileFilename);
                 auto str = format_number(fi.size(), QSL("B"), UnitScaling::Binary,
                                          // fieldWidth, format, precision
-                                         0, 'g', 2);
+                                         0, 'f', 2);
                 label_listfileSize->setText(str);
             } break;
 
@@ -549,7 +549,7 @@ void DAQControlWidget::updateWidget()
                 QFile fi(stats.listfileFilename);
                 auto str = format_number(fi.size(), QSL("B"), UnitScaling::Binary,
                                          // fieldWidth, format, precision
-                                         0, 'g', 2);
+                                         0, 'f', 2);
                 label_listfileSize->setText(str);
             } break;
     }
@@ -559,7 +559,7 @@ void DAQControlWidget::updateWidget()
         auto freeBytes = si.bytesFree();
         auto str = format_number(freeBytes, QSL("B"), UnitScaling::Binary,
                                  // fieldWidth, format, precision
-                                 0, 'g', 2);
+                                 0, 'f', 2);
 
         label_freeStorageSpace->setText(str);
     }

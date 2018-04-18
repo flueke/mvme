@@ -356,17 +356,30 @@ DEF_OP_MAGIC(binary_equation_magic)
     auto a2_inputA = find_output_pipe(adapterState, inputSlots[0]);
     auto a2_inputB = find_output_pipe(adapterState, inputSlots[1]);
 
-    /* Copy user set output limits from the analysis::BinarySumDiff output. */
-    double outputLowerLimit = outputPipes[0]->parameters[0].lowerLimit;
-    double outputUpperLimit = outputPipes[0]->parameters[0].upperLimit;
+    a2::Operator result = {};
 
-    a2::Operator result = make_binary_equation(
-        arena,
-        a2_inputA,
-        a2_inputB,
-        binSumDiff->getEquation(),
-        outputLowerLimit,
-        outputUpperLimit);
+    if (inputSlots[0]->isParameterConnection())
+    {
+        result = make_binary_equation_idx(
+            arena,
+            a2_inputA,
+            a2_inputB,
+            inputSlots[0]->paramIndex,
+            inputSlots[1]->paramIndex,
+            binSumDiff->getEquation(),
+            binSumDiff->getOutputLowerLimit(),
+            binSumDiff->getOutputUpperLimit());
+    }
+    else
+    {
+        result = make_binary_equation(
+            arena,
+            a2_inputA,
+            a2_inputB,
+            binSumDiff->getEquation(),
+            binSumDiff->getOutputLowerLimit(),
+            binSumDiff->getOutputUpperLimit());
+    }
 
     return result;
 }
@@ -885,7 +898,8 @@ void a2_adapter_build_extractors(
                     filter,
                     ex->m_requiredCompletionCount,
                     ex->m_rngSeed,
-                    src.moduleIndex);
+                    src.moduleIndex,
+                    ex->getOptions());
             }
             else if (auto ex = qobject_cast<analysis::ListFilterExtractor *>(src.source.get()))
             {
@@ -894,7 +908,8 @@ void a2_adapter_build_extractors(
                     ex->getExtractor().listFilter,
                     ex->getExtractor().repetitions,
                     ex->getRngSeed(),
-                    src.moduleIndex);
+                    src.moduleIndex,
+                    ex->getOptions());
             }
 
             u8 &ds_cnt = state->a2->dataSourceCounts[ei];

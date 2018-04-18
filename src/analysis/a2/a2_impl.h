@@ -36,6 +36,7 @@ enum OperatorType
     Operator_Difference_idx,
     Operator_ArrayMap,
     Operator_BinaryEquation,
+    Operator_BinaryEquation_idx,
 
     Operator_H1DSink,
     Operator_H1DSink_idx,

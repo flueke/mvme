@@ -1031,6 +1031,8 @@ class LIBMVME_EXPORT BinarySumDiff: public OperatorInterface
         // Inputs
         virtual s32 getNumberOfSlots() const override;
         virtual Slot *getSlot(s32 slotIndex) override;
+        virtual void slotConnected(Slot *slot) override;
+        virtual void slotDisconnected(Slot *slot) override;
 
         // Outputs
         virtual s32 getNumberOfOutputs() const override;

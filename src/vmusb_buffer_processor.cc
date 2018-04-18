@@ -503,7 +503,7 @@ u32 VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputB
     {
         auto msg = QString(QSL("VMUSB Error: (buffer #%1) processEvent(): end of buffer when extracting event header"))
             .arg(bufferNumber);
-        logMessage(msg);
+        logMessage(msg, true);
         qDebug() << __PRETTY_FUNCTION__ << msg;
         return ProcessorAction::SkipInput;
     }
@@ -536,7 +536,7 @@ u32 VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputB
             .arg(iter.shortwordsLeft())
             .arg(iter.bytesLeft())
             ;
-        logMessage(msg);
+        logMessage(msg, true);
         qDebug() << __PRETTY_FUNCTION__ << msg;
         return ProcessorAction::SkipInput;
     }
@@ -546,7 +546,7 @@ u32 VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputB
         auto msg = QString(QSL("VMUSB: (buffer #%2) Parsed stackID=%1 is out of range, skipping buffer"))
             .arg(stackID)
             .arg(bufferNumber);
-        logMessage(msg);
+        logMessage(msg, true);
         qDebug() << __PRETTY_FUNCTION__ << msg;
         return ProcessorAction::SkipInput;
     }
@@ -557,7 +557,7 @@ u32 VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputB
             .arg(stackID)
             .arg(eventLength)
             .arg(bufferNumber);
-        logMessage(msg);
+        logMessage(msg, true);
         qDebug() << __PRETTY_FUNCTION__ << msg;
         iter.skip(sizeof(u16), eventLength);
         return ProcessorAction::KeepState;
@@ -595,7 +595,7 @@ u32 VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputB
             .arg(bufferNumber)
             .arg(stackID);
 
-        logMessage(msg);
+        logMessage(msg, true);
         qDebug() << __PRETTY_FUNCTION__ << msg << "-> skipping event and returning NoneSet";
 
         iter.skip(sizeof(u16), eventLength);
@@ -619,7 +619,7 @@ u32 VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputB
             Q_ASSERT(state->wasPartial);
             auto msg = QString(QSL("VMUSB: (buffer #%1) Got differing stackIDs during partial event processing"))
                        .arg(bufferNumber);
-            logMessage(msg);
+            logMessage(msg, true);
             qDebug() << __PRETTY_FUNCTION__ << msg << "returning SkipInput";
             return ProcessorAction::SkipInput;
         }
@@ -644,8 +644,8 @@ u32 VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputB
             {
                 logMessage(QString(QSL("VMUSB: (buffer #%1) Module index %2 is out of range while parsing input. Skipping buffer"))
                     .arg(bufferNumber)
-                    .arg(state->moduleIndex)
-                    );
+                    .arg(state->moduleIndex),
+                    true);
 
                 qDebug() << __PRETTY_FUNCTION__
                     << "buffer #" << bufferNumber
@@ -771,7 +771,7 @@ u32 VMUSBBufferProcessor::processEvent(BufferIterator &iter, DataBuffer *outputB
                 .arg(bufferTerminator, 4, 16, QLatin1Char('0'))
                 .arg(bufferNumber)
                 ;
-            logMessage(msg);
+            logMessage(msg, true);
 #ifdef BPDEBUG
             qDebug() << __PRETTY_FUNCTION__
                 << "buffer #" << bufferNumber
@@ -859,6 +859,11 @@ DataBuffer* VMUSBBufferProcessor::getFreeBuffer()
 DAQStats *VMUSBBufferProcessor::getStats()
 {
     return m_d->m_readoutWorker->getContext().daqStats;
+}
+
+void VMUSBBufferProcessor::logMessage(const QString &message, bool useThrottle)
+{
+    m_d->m_readoutWorker->getContext().logMessage(message, useThrottle);
 }
 
 void VMUSBBufferProcessor::logMessage(const QString &message)
