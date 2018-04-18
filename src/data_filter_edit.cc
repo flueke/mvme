@@ -59,11 +59,11 @@ DataFilter DataFilterEdit::getFilter() const
 
 void DataFilterEdit::setFilter(const DataFilter &filter)
 {
-    qDebug() << __PRETTY_FUNCTION__;
+    //qDebug() << __PRETTY_FUNCTION__;
     auto tmpText = filter.getFilter();
 
-    qDebug() << "  umodified filter text: " << tmpText;
-    qDebug() << "  this bitCount: " << getBitCount();
+    //qDebug() << "  umodified filter text: " << tmpText;
+    //qDebug() << "  this bitCount: " << getBitCount();
 
     tmpText.replace(" ", "");
 
@@ -74,7 +74,7 @@ void DataFilterEdit::setFilter(const DataFilter &filter)
         tmpText.prepend('X');
     }
 
-    qDebug() << "  adjusted filter text: " << tmpText;
+    //qDebug() << "  adjusted filter text: " << tmpText;
 
     setText(tmpText);
 }
@@ -91,17 +91,17 @@ QString DataFilterEdit::getFilterString() const
 
 void DataFilterEdit::updateMaskAndWidth()
 {
-    qDebug() << __PRETTY_FUNCTION__;
+    //qDebug() << __PRETTY_FUNCTION__;
 
     auto tmpText = text();
     auto mask = generate_pretty_filter_string(getBitCount(), 'N');
 
-    qDebug() << "  text before mask change: " << tmpText;
-    qDebug() << "  input mask string: " << mask;
+    //qDebug() << "  text before mask change: " << tmpText;
+    //qDebug() << "  input mask string: " << mask;
 
     setInputMask(mask);
 
-    qDebug() << "  text after mask change: " << text();
+    //qDebug() << "  text after mask change: " << text();
 
     tmpText.replace(" ", "");
     tmpText = tmpText.right(getBitCount());
@@ -111,7 +111,7 @@ void DataFilterEdit::updateMaskAndWidth()
         tmpText.prepend('X');
     }
 
-    qDebug() << "  new, adjusted text: " << tmpText;
+    //qDebug() << "  new, adjusted text: " << tmpText;
 
     setText(tmpText);
 
