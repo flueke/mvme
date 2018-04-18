@@ -148,7 +148,7 @@ class ListFilterExtractorDialog: public QDialog
                                   MVMEContext *context, QWidget *parent = nullptr);
         virtual ~ListFilterExtractorDialog();
 
-        void editSource(const SourcePtr &src);
+        void editListFilterExtractor(const std::shared_ptr<ListFilterExtractor> &lfe);
 
         QVector<ListFilterExtractorPtr> getExtractors() const;
 

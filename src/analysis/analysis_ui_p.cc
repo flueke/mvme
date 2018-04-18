@@ -977,16 +977,13 @@ void ListFilterExtractorDialog::cloneFilter()
     m_d->listWidgetUi.listWidget->setCurrentRow(idx);
 }
 
-void ListFilterExtractorDialog::editSource(const SourcePtr &src)
+void ListFilterExtractorDialog::editListFilterExtractor(const std::shared_ptr<ListFilterExtractor> &lfe)
 {
-    qDebug() << __PRETTY_FUNCTION__ << src.get();
-    if (auto lfe = std::dynamic_pointer_cast<ListFilterExtractor>(src))
+    int idx = m_d->m_extractors.indexOf(lfe);
+
+    if (0 <= idx && idx < m_d->m_extractors.size())
     {
-        int idx = m_d->m_extractors.indexOf(lfe);
-        if (0 <= idx && idx < m_d->m_extractors.size())
-        {
-            m_d->listWidgetUi.listWidget->setCurrentRow(idx);
-        }
+        m_d->listWidgetUi.listWidget->setCurrentRow(idx);
     }
 }
 

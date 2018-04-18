@@ -1202,11 +1202,10 @@ void EventWidgetPrivate::doOperatorTreeContextMenu(QTreeWidget *tree, QPoint pos
                             {
                                 dialog = new AddEditExtractorWidget(sourceInterface, moduleConfig, m_q);
                             }
-                            else if (dynamic_cast<ListFilterExtractor *>(sourceInterface))
+                            else if (auto lfe = std::dynamic_pointer_cast<ListFilterExtractor>(sourceInterface->shared_from_this()))
                             {
-                                auto srcPtr = std::dynamic_pointer_cast<SourceInterface>(sourceInterface->shared_from_this());
                                 auto lfe_dialog = new ListFilterExtractorDialog(moduleConfig, m_context->getAnalysis(), m_context, m_q);
-                                lfe_dialog->editSource(srcPtr);
+                                lfe_dialog->editListFilterExtractor(lfe);
 
                                 QObject::connect(lfe_dialog, &QDialog::accepted, m_q,
                                                  &EventWidget::listFilterExtractorDialogAccepted);
