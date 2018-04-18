@@ -24,9 +24,14 @@ struct ParserError: std::runtime_error
 
 struct ParserErrorList: std::runtime_error
 {
-    std::vector<ParserError> errors;
+    using Container = std::vector<ParserError>;
+
+    Container errors;
 
     ParserErrorList(): std::runtime_error("ParserErrorList") {}
+
+    Container::const_iterator begin() const { return errors.begin(); }
+    Container::const_iterator end() const   { return errors.end(); }
 };
 
 class SymbolTable

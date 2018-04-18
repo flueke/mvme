@@ -228,7 +228,7 @@ TEST(a2ExpressionOperator, OutputSpecifications)
             "var output0.upper_limits[4];"
             "return [ 'output0', input0.unit, output0.lower_limits, output0.upper_limits ];";
 
-        ASSERT_THROW(auto op = make_expression_operator(
+        ASSERT_THROW(make_expression_operator(
                 &arena,
                 inputs,
                 input_prefixes,
