@@ -6,8 +6,9 @@
 #include <QMetaObject>
 #include <QMetaClassInfo>
 
-//#ifndef NDEBUG
-#if 1
+#ifndef NDEBUG
+//#if 1
+
 #define LOG(fmt, ...)\
 do\
 {\
@@ -15,6 +16,7 @@ do\
     fprintf(stderr, "\n");\
 } while (0)
 
+// NoNewline version
 #define LOGNN(fmt, ...)\
 do\
 {\

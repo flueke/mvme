@@ -2,6 +2,7 @@
 
 include(GenerateExportHeader)
 
+# Qt5
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
@@ -9,6 +10,11 @@ find_package(Qt5Concurrent REQUIRED)
 find_package(Qt5Gui REQUIRED)
 find_package(Qt5Network REQUIRED)
 find_package(Qt5Widgets REQUIRED)
+
+if ("${CMAKE_BUILD_TYPE}" STREQUAL "Release")
+    #add_definitions(-DQT_NO_DEBUG)
+    add_definitions(-DQT_NO_DEBUG_OUTPUT)
+endif()
 
 find_package(Threads)
 

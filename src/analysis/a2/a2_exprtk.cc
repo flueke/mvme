@@ -18,7 +18,10 @@
 do\
 {\
     fprintf(stderr, fmt, ##__VA_ARGS__);\
-} while (0);
+} while (0)
+#else  // NDEBUG
+
+#define a2_expr_debug(fmt, ...)
 
 #endif // NDEBUG
 
