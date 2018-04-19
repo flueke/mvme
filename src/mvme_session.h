@@ -18,13 +18,14 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
-#ifndef __MVME_STARTUP_H__
-#define __MVME_STARTUP_H__
+#ifndef __MVME_SESSION_H__
+#define __MVME_SESSION_H__
 
 #include "libmvme_export.h"
 #include "qt_util.h"
 
-void LIBMVME_EXPORT mvme_basic_init(const QString &appName = QSL("mvme"));
+void LIBMVME_EXPORT mvme_init(const QString &appName = QSL("mvme"));
+void LIBMVME_EXPORT mvme_shutdown();
 
 
-#endif /* __MVME_STARTUP_H__ */
+#endif /* __MVME_SESSION_H__ */

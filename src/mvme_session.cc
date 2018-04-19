@@ -1,4 +1,4 @@
-#include "mvme_startup.h"
+#include "mvme_session.h"
 
 #include <QCoreApplication>
 #include <QDebug>
@@ -12,8 +12,11 @@
 #include "git_sha1.h"
 #endif
 #include "build_info.h"
+#ifdef MVME_ENABLE_HDF5
+#include "analysis/analysis_session.h"
+#endif
 
-void mvme_basic_init(const QString &appName)
+void mvme_init(const QString &appName)
 {
     qRegisterMetaType<DAQState>("DAQState");
     qRegisterMetaType<GlobalMode>("GlobalMode");
@@ -33,4 +36,15 @@ void mvme_basic_init(const QString &appName)
     qDebug() << "GIT_VERSION =" << GIT_VERSION;
     qDebug() << "BUILD_TYPE =" << BUILD_TYPE;
     qDebug() << "BUILD_CXX_FLAGS =" << BUILD_CXX_FLAGS;
+
+#ifdef MVME_ENABLE_HDF5
+    analysis::analysis_session_system_init();
+#endif
+}
+
+void mvme_shutdown()
+{
+#ifdef MVME_ENABLE_HDF5
+    analysis::analysis_session_system_destroy();
+#endif
 }

@@ -103,7 +103,7 @@ set(LIBMVME_SOURCES
     mvme_context_lib.cc
     mvme.cpp
     mvme_listfile.cc
-    mvme_startup.cc
+    mvme_session.cc
     mvme_stream_iter.cc
     mvme_stream_processor.cc
     mvme_stream_util.cc

@@ -19,7 +19,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 #include "mvme.h"
-#include "mvme_startup.h"
+#include "mvme_session.h"
 
 #include <QApplication>
 #include <QMessageBox>
@@ -31,7 +31,7 @@ int main(int argc, char *argv[])
     QApplication app(argc, argv);
     app.setWindowIcon(QIcon(":/window_icon.png"));
 
-    mvme_basic_init();
+    mvme_init();
 
 #ifdef QT_NO_DEBUG
     QSplashScreen splash(QPixmap(":/splash-screen.png"), Qt::CustomizeWindowHint | Qt::Window | Qt::WindowStaysOnTopHint);
@@ -94,6 +94,8 @@ int main(int argc, char *argv[])
     });
 
     int ret = app.exec();
+
+    mvme_shutdown();
 
     return ret;
 }

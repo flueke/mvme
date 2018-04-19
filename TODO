@@ -26,6 +26,7 @@ TODO list, not at all sorted by priority
 * add example of how to extract an extended timestamp (48 bits) from our modules to the documentation
 
 * analysis session auto save: get rid of the errors when auto saving an empty analysis
+  HDF5: find a way to make the error reporting work. Currently there's nice console output but nothing else.
 
 * Tell Tino about SIS packet loss detection not being accurately possible
   because of the sequence numbers only appearing before events, which has the
