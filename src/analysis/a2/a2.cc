@@ -3335,7 +3335,7 @@ void a2_end_run(A2 *a2)
     }
 
     a2_trace("done");
-    fprintf(stderr, "a2::%s() done\n", __FUNCTION__);
+    //fprintf(stderr, "a2::%s() done\n", __FUNCTION__);
 }
 
 // step operators for the eventIndex

@@ -49,6 +49,7 @@ do\
 #define sis_trace(msg)
 #endif
 
+#ifndef QT_NO_DEBUG_OUTPUT
 #define sis_log(msg)\
 do\
 {\
@@ -56,6 +57,9 @@ do\
     auto dbg(qDebug());\
     dbg.nospace().noquote() << __PRETTY_FUNCTION__ << " " << msg;\
 } while (0)
+#else
+#define sis_log(msg)
+#endif
 
 using namespace vme_script;
 
