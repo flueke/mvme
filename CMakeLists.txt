@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.0.0)
 project(mvme)
 
+# AUTOMOC related: https://cmake.org/cmake/help/v3.10/policy/CMP0071.html
+cmake_policy(SET CMP0071 NEW)
+
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(WARNING_FLAGS "-Wall -Wno-unused-variable -Wno-unused-function")
