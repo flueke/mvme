@@ -162,9 +162,9 @@ Histo2DStatistics Histo2D::calcGlobalStatistics() const
 
 Histo2DStatistics Histo2D::calcStatistics(AxisInterval xInterval, AxisInterval yInterval) const
 {
-    qDebug() << __PRETTY_FUNCTION__
-        << "xInterval =" << xInterval.minValue << xInterval.maxValue
-        << "yInterval =" << yInterval.minValue << yInterval.maxValue;
+    //qDebug() << __PRETTY_FUNCTION__
+    //    << "xInterval =" << xInterval.minValue << xInterval.maxValue
+    //    << "yInterval =" << yInterval.minValue << yInterval.maxValue;
 
     Histo2DStatistics result;
 

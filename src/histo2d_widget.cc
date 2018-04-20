@@ -66,9 +66,9 @@ public:
             setInterval(static_cast<Qt::Axis>(axis),
                         { intervals[axis].minValue, intervals[axis].maxValue });
 
-            qDebug() << __PRETTY_FUNCTION__ << "axis =" << axis
-                << ", min =" << intervals[axis].minValue
-                << ", max =" << intervals[axis].maxValue;
+            //qDebug() << __PRETTY_FUNCTION__ << "axis =" << axis
+            //    << ", min =" << intervals[axis].minValue
+            //    << ", max =" << intervals[axis].maxValue;
         }
     }
 };
