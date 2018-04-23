@@ -718,6 +718,10 @@ QPair<QJsonDocument, QString> load_analysis_config_from_session_file(const QStri
  *
  * Next try: use static libs. These need to be compiled with fPIC though, which
  * does not seem to be the case for the standard debian package.
+ *
+ * Update 23.4.18: static libs didn't change anything. I still don't know what
+ * I'm doing wrong. I should build and play around with the example code that
+ * comes with hdf5.
  */
 
 QPair<bool, QString> analysis_session_system_init()
