@@ -712,7 +712,7 @@ QPair<QJsonDocument, QString> load_analysis_config_from_session_file(const QStri
  * Also enabling the destroy code crashes the application at exit.
  *
  * The crash happens in run_exit_handlers(). The stack may be corrupted at this
- * point.  I tried linking the hdf5 libs directly to the mvme binary but that
+ * point. I tried linking the hdf5 libs directly to the mvme binary but that
  * didn't change anything (the idea was that maybe the lib is unloaded before
  * run_exit_handlers() is invoked).
  *
