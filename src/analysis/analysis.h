@@ -1550,9 +1550,6 @@ class LIBMVME_EXPORT Analysis: public QObject
         Analysis(QObject *parent = nullptr);
         virtual ~Analysis();
 
-        /* Important: only the overload taking the hash of index pairs prepares
-         * the a2 system!
-         */
         void beginRun(const RunInfo &runInfo, const vme_analysis_common::VMEIdToIndex &vmeMap, Logger logger = {});
         void beginEvent(int eventIndex);
         void processModuleData(int eventIndex, int moduleIndex, u32 *data, u32 size);

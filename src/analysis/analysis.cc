@@ -2758,17 +2758,7 @@ a2::Operator ExpressionOperator::buildA2Operator(memory::Arena *arena)
     for (auto slot: m_inputs)
     {
         auto a1_pipe = slot->inputPipe;
-
-        a2::PipeVectors a2_pipe = {};
-        a2_pipe.data        = a2::push_param_vector(arena, a1_pipe->getSize(), make_quiet_nan());
-        a2_pipe.lowerLimits = a2::push_param_vector(arena, a1_pipe->getSize());
-        a2_pipe.upperLimits = a2::push_param_vector(arena, a1_pipe->getSize());
-
-        for (s32 i = 0; i < a1_pipe->getSize(); i++)
-        {
-            a2_pipe.lowerLimits[i] = a1_pipe->getParameter(i)->lowerLimit;
-            a2_pipe.upperLimits[i] = a1_pipe->getParameter(i)->upperLimit;
-        }
+        a2::PipeVectors a2_pipe = make_a2_pipe_from_a1_pipe(arena, a1_pipe);
 
         a2_inputs.push_back(a2_pipe);
 
@@ -2813,6 +2803,7 @@ void ExpressionOperator::beginRun(const RunInfo &runInfo, Logger logger)
 {
     try
     {
+        // FIXME: loop till not running OOM while building
         memory::Arena arena(Kilobytes(256));
 
         auto a2_op = buildA2Operator(&arena);
@@ -2856,7 +2847,7 @@ void ExpressionOperator::beginRun(const RunInfo &runInfo, Logger logger)
 
 void ExpressionOperator::step()
 {
-    assert(!"not implemented. a2 should be used!");
+    assert(!"not implemented. a2 must be used!");
 }
 
 void ExpressionOperator::write(QJsonObject &json) const
@@ -2887,6 +2878,7 @@ void ExpressionOperator::read(const QJsonObject &json)
          it++)
     {
         m_inputNames.push_back(it->toString());
+        addSlot();
     }
 }
 
@@ -4233,6 +4225,9 @@ Analysis::ReadResult Analysis::read(const QJsonObject &inputJson, VMEConfig *vme
                 auto srcRawPtr = srcObject.get();
                 auto dstRawPtr = dstObject.get();
                 Slot *dstSlot = dstObject->getSlot(dstIndex);
+
+                qDebug() << __PRETTY_FUNCTION__ << "src =" << srcObject << ", dst =" << dstObject;
+
                 Q_ASSERT(dstSlot);
 
                 if (dstSlot)

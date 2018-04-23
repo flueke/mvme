@@ -52,6 +52,8 @@ QVector<T> to_qvector(TypedBlock<T, SizeType> block)
     return result;
 }
 
+a2::PipeVectors make_a2_pipe_from_a1_pipe(memory::Arena *arena, analysis::Pipe *a1_inPipe);
+
 } // namespace analysis
 
 #endif /* __A2_ADAPTER_H__ */

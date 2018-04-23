@@ -817,6 +817,27 @@ a2::Operator a2_adapter_magic(
 namespace analysis
 {
 
+a2::PipeVectors make_a2_pipe_from_a1_pipe(memory::Arena *arena, analysis::Pipe *a1_inPipe)
+{
+    a2::PipeVectors result = {};
+
+    const s32 size = a1_inPipe->getSize();
+
+    result.data        = a2::push_param_vector(arena, size, make_quiet_nan());
+    result.lowerLimits = a2::push_param_vector(arena, size);
+    result.upperLimits = a2::push_param_vector(arena, size);
+
+    for (s32 i = 0; i < size; i++)
+    {
+        const auto &a1_param(a1_inPipe->getParameter(i));
+        result.data[i]        = a1_param->value;
+        result.lowerLimits[i] = a1_param->lowerLimit;
+        result.upperLimits[i] = a1_param->upperLimit;
+    }
+
+    return result;
+}
+
 a2::PipeVectors find_output_pipe(const A2AdapterState *state, analysis::Pipe *pipe)
 {
     assert(pipe);
